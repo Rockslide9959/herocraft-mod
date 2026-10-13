@@ -2,7 +2,7 @@
 	"format_version": "1.8.0",
 	"animations": {
 		"animation.worldship.idle": {
-			"animation_length": 10,
+			"animation_length": 20,
 			"bones": {
 				"ring": {
 					"rotation": {
@@ -11,19 +11,81 @@
 							0,
 							0
 						],
-						"10.0000": [
-							0,
-							90,
-							0
-						]
+						"5.0000": {
+							"vector": [
+								0,
+								90,
+								0
+							],
+							"easing": "linear"
+						},
+						"10.0000": {
+							"vector": [
+								0,
+								180,
+								0
+							],
+							"easing": "linear"
+						},
+						"15.0000": {
+							"vector": [
+								0,
+								270,
+								0
+							],
+							"easing": "linear"
+						},
+						"20.0000": {
+							"vector": [
+								0,
+								360,
+								0
+							],
+							"easing": "linear"
+						}
 					}
-				}
-			},
-			"loop": true
-		},
-		"animation.worldship.leave": {
-			"animation_length": 4.8,
-			"bones": {
+				},
+				"crown": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"5.0000": {
+							"vector": [
+								0,
+								-30,
+								0
+							],
+							"easing": "linear"
+						},
+						"10.0000": {
+							"vector": [
+								0,
+								-60,
+								0
+							],
+							"easing": "linear"
+						},
+						"15.0000": {
+							"vector": [
+								0,
+								-90,
+								0
+							],
+							"easing": "linear"
+						},
+						"20.0000": {
+							"vector": [
+								0,
+								-120,
+								0
+							],
+							"easing": "linear"
+						}
+					}
+				},
 				"root": {
 					"position": {
 						"0.0000": [
@@ -31,16 +93,117 @@
 							0,
 							0
 						],
-						"1.4400": [
+						"5.0000": {
+							"vector": [
+								0,
+								2,
+								0
+							],
+							"easing": "linear"
+						},
+						"10.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "linear"
+						},
+						"15.0000": {
+							"vector": [
+								0,
+								-2,
+								0
+							],
+							"easing": "linear"
+						},
+						"20.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "linear"
+						}
+					}
+				}
+			},
+			"loop": true
+		},
+		"animation.worldship.leave": {
+			"animation_length": 6.8,
+			"bones": {
+				"ring": {
+					"rotation": {
+						"0.0000": [
 							0,
-							10,
+							0,
 							0
 						],
-						"4.8000": [
+						"2.0500": {
+							"vector": [
+								0,
+								160,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"6.8000": {
+							"vector": [
+								0,
+								900,
+								0
+							],
+							"easing": "easeinquad"
+						}
+					}
+				},
+				"root": {
+					"rotation": {
+						"0.0000": [
 							0,
-							900,
+							0,
 							0
-						]
+						],
+						"2.0500": {
+							"vector": [
+								-4,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"6.8000": {
+							"vector": [
+								-10,
+								0,
+								4
+							],
+							"easing": "easeinquad"
+						}
+					},
+					"position": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"2.0500": {
+							"vector": [
+								0,
+								-6,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"6.8000": {
+							"vector": [
+								0,
+								220,
+								0
+							],
+							"easing": "easeinquad"
+						}
 					}
 				}
 			},

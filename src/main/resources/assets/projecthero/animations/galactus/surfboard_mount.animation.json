@@ -5,22 +5,85 @@
 			"animation_length": 2,
 			"bones": {
 				"board": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"0.5000": {
+							"vector": [
+								1.5,
+								0,
+								2
+							],
+							"easing": "easeinoutsine"
+						},
+						"1.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"1.5000": {
+							"vector": [
+								-1.5,
+								0,
+								-2
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
+					}
+				},
+				"root": {
 					"position": {
 						"0.0000": [
 							0,
 							0,
 							0
 						],
-						"1.0000": [
-							0,
-							0.6,
-							0
-						],
-						"2.0000": [
-							0,
-							0,
-							0
-						]
+						"0.5000": {
+							"vector": [
+								0,
+								0.6,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"1.0000": {
+							"vector": [
+								0,
+								1,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"1.5000": {
+							"vector": [
+								0,
+								0.6,
+								0
+							],
+							"easing": "easeinoutsine"
+						},
+						"2.0000": {
+							"vector": [
+								0,
+								0,
+								0
+							],
+							"easing": "easeinoutsine"
+						}
 					}
 				}
 			},

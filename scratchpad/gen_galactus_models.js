@@ -5,6 +5,7 @@
 //
 // Usage (from the repo root):
 //   node scratchpad/gen_galactus_models.js [--concept <outDir>] [--only galactus,surfer,punisher,converter,worldship,nullifier,board,lineup] [--no-assets]
+//   node scratchpad/gen_galactus_models.js --game [--no-previews]   (GAME EXPORT into src/main/resources, see the section below)
 // Default outDir is <main checkout>/scratchpad/concepts_galactus. Writes one concept sheet per subject (>= 1800 px wide)
 // plus a lineup at true scale; also writes each model's geo / texture / glowmask / poses into <outDir>/assets
 // (never into src/), so the same rigs can be exported to the game later.
@@ -26,9 +27,31 @@ const MAIN = /[\\/]\.claude[\\/]worktrees[\\/]/.test(REPO) ? path.join(REPO, '..
 const OUT = ci >= 0 ? args[ci + 1] : path.join(MAIN, 'scratchpad', 'concepts_galactus');
 const oi = args.indexOf('--only');
 const ONLY = oi >= 0 ? args[oi + 1].split(',') : null;
-const WANT = n => !ONLY || ONLY.includes(n);
+const GAME = args.includes('--game');
+const WANT = n => !GAME && (!ONLY || ONLY.includes(n));
 const ASSETS = !args.includes('--no-assets');
 const DEGR = Math.PI / 180;
+
+// ================================================================ ANIMATION TIMING TABLE (game export, --game)
+// Server ticks, mirrored by com.projecthero.mod.galactus.GalactusAnims (4-tick TRANSITION convention: the controller
+// blends into a clip for TRANSITION ticks before the clip's own clock starts). So a play-once / held clip's
+// animation_length is (length - 4) ticks and its strike keyframe sits on clip tick (hit - 4); loops are `length` ticks.
+// --game authors every clip to this table and FAILS if a strike keyframe is off its tick; it also writes
+// scratchpad/galactus_anim_timing.json for the reconcile. [kind, length, hit] -- hit -1 / omitted = no strike.
+const GAL_TRANSITION = 4;
+const GAL_TIMING = {
+	galactus: {
+		idle: ['loop', 120], eye_beam: ['once', 70, 26], reach: ['once', 56, 36], grab_lift: ['hold', 40], fling: ['once', 34, 14],
+		transmute: ['once', 64, 34], disintegrate: ['once', 50, 26], summon: ['once', 64, 38], weakpoint_hurt: ['once', 26], retreat: ['hold', 90],
+	},
+	galactus_hand: { idle: ['loop', 60], grab: ['hold', 16, 10], release: ['once', 16] },
+	punisher: { idle: ['loop', 60], walk: ['loop', 36], blast: ['once', 44, 20], slam: ['once', 40, 22], death: ['hold', 54] },
+	element_converter: { idle: ['loop', 60], consume: ['loop', 40], shielded: ['loop', 40], destroyed: ['hold', 70] },
+	worldship: { idle: ['loop', 400], leave: ['hold', 140] },
+	surfboard_mount: { idle: ['loop', 40] },
+	nullifier: { idle: ['loop', 40], armed: ['loop', 20] },
+};
+const PUNISHER_WALK_SPEED = 0.13; // blocks/tick the walk stride is matched to
 
 // ================================================================ palettes
 const PC_WHITE = [236, 246, 255];          // Power Cosmic core
@@ -179,11 +202,15 @@ function humanoid(M, P) {
 	}
 	const waist = M.bone('waist', 'hips', [0, pelvisTop, 0]);
 	M.box(waist, -P.waistW / 2, pelvisTop - 0.6, -P.waistD / 2, P.waistW / 2, chestBot + 0.6, P.waistD / 2, m('waist'), { paint: 'waist' });
-	const chest = M.bone('chest', 'waist', [0, chestBot, 0]);
+	// game rig: `flinch` (code-driven hit flinch) sits between the waist and the chest; `neck` and `head` are the code-driven
+	// look, so the clips nod the head through the keyable `nod` bone between them
+	M.bone('flinch', 'waist', [0, chestBot, 0]);
+	const chest = M.bone('chest', 'flinch', [0, chestBot, 0]);
 	M.box(chest, -P.chestW / 2, chestBot, -P.chestD / 2, P.chestW / 2, chestTop, P.chestD / 2, m('chest'), { paint: 'chest' });
 	const neck = M.bone('neck', 'chest', [0, chestTop, 0]);
 	M.box(neck, -P.neckW / 2, chestTop - 1, -P.neckW / 2, P.neckW / 2, neckTop + 0.5, P.neckW / 2, m('neck'), { paint: 'neck' });
-	const head = M.bone('head', 'neck', [0, neckTop, 0]);
+	M.bone('nod', 'neck', [0, neckTop, 0]);
+	const head = M.bone('head', 'nod', [0, neckTop, 0]);
 	M.box(head, -P.headW / 2, headBot, -P.headD / 2, P.headW / 2, headTop, P.headD / 2, m('head'), { paint: 'face' });
 	for (const [s, n] of SIDES) {
 		const sx = s * shX;
@@ -518,6 +545,16 @@ function buildGalactus() {
 		M.box(`foot_${n}`, lx - 7.3, 0, -15.2, lx + 7.3, 1.3, 8.0, 'g_sole', { tag: 'sole', seed: 65 });
 		M.box(`foot_${n}`, lx - 5.0, 2.0, -15.4, lx + 5.0, A.ankleY + 1.0, -13.6, 'g_purple', { seed: 66 });   // toe cap
 	}
+	// empty locator bones for the gameplay code (beam origins, weak-point hit boxes, the grab socket)
+	M.bone('eye_r', 'head', [-A.eyeX, A.eyeY, A.faceZ - 0.5]);
+	M.bone('eye_l', 'head', [A.eyeX, A.eyeY, A.faceZ - 0.5]);
+	M.bone('weak_crest', 'helmet', [0, A.headBot + (A.eyeYu + 7) * A.hs, -8.5 * A.hs]);
+	M.bone('weak_emblem', 'chest', [0, (A.chestBot + 7 + A.chestTop - 4) / 2, -13.2]);
+	for (const [s, n] of SIDES) {
+		M.bone(`weak_gauntlet_${n}`, `forearm_${n}`, [s * A.shX, A.wristY + 2.1, 0]);
+		M.bone(`palm_${n}`, `hand_${n}`, [s * A.shX - s * 3.6, A.knuckY + 4, 0]);
+	}
+	M.bone('grab_socket', 'hand_r', [-A.shX + 2, A.knuckY - 2, 0]);
 	return M;
 }
 
@@ -963,6 +1000,8 @@ function buildPunisher() {
 		cham(M, `foot_${n}`, lx - 6.4, 0, -11.8, lx + 6.4, A.ankleY + 1.5, 6.4, 2.2, 'p_greyD', { tag: 'sole panel', seed: 45 });
 		for (const x of [-3.6, 0, 3.6]) M.box(`foot_${n}`, lx + x - 1.5, 0, -14.4, lx + x + 1.5, 3.0, -11, 'p_grey', { tag: 'sole', seed: 46 });
 	}
+	// muzzle locators (between each gauntlet's twin barrels) for the blast origin
+	for (const [s, n] of SIDES) M.bone(`muzzle_${n}`, `forearm_${n}`, [s * A.shX + s * 8.8, A.wristY - 7.6, 0]);
 	return M;
 }
 function punisherShade(M, c, f, s, t, p, info) {
@@ -1037,6 +1076,7 @@ function renderPunisher(M) {
 // A 25-block alien tower Galactus plants to drain a world: angular violet-steel Kirby tech, four buttress legs, glowing
 // energy conduits up every face, a pulsing Power Cosmic core in an open cage with a tilted orbit ring, and a crown of
 // four prongs (the tuning-fork motif from Galactus's helmet) around an emitter orb. 4 model px per block.
+const CONVERTER_PRONGS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 const EC = { hull: [74, 66, 104], hullD: [46, 40, 70], trim: [124, 70, 176], blue: [52, 82, 164], glow: [176, 130, 255], core: [236, 226, 255] };
 function buildConverter() {
 	const M = new Model('element_converter', { TW: 1024, D: 3 });
@@ -1060,9 +1100,6 @@ function buildConverter() {
 			: M.box(root, o - 0.8, y0, az > 0 ? 11 : -11 - out, o + 0.8, y1, az > 0 ? 11 + out : -11, 'ec_trim', { tag: 'panel', seed: 32 });
 		fin(5.5, 8, 18); fin(3.8, 18, 25); fin(2.0, 25, 30);
 	}
-	// a hovering halo disc under the crown
-	cham(M, root, -15, 76.5, -15, 15, 78, 15, 5, 'ec_trim', { tag: 'dots', seed: 33 });
-	cham(M, root, -15.4, 76.2, -15.4, 15.4, 76.6, 15.4, 5.1, 'ec_conduit', { seed: 34 });
 	// core cage: corner pillars, the core itself and a tilted orbit ring
 	for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
 		M.box(root, sx * 9 - 2, 35, sz * 9 - 2, sx * 9 + 2, 56, sz * 9 + 2, 'ec_hull', { tag: 'vrib', seed: 9 });
@@ -1072,25 +1109,35 @@ function buildConverter() {
 	[[36, 38, 7], [38, 40, 11], [40, 43, 14], [43, 47, 15.4], [47, 50, 14], [50, 52, 11], [52, 54, 7]].forEach(([y0, y1, w], i) => cham(M, core, -w / 2, y0, -w / 2, w / 2, y1, w / 2, w * 0.28, 'ec_core', { seed: 11 + i }));
 	const ring = M.bone('core_ring', 'core', [0, 45, 0], [22, 0, 14]);
 	for (const s of [-1, 1]) { M.box(ring, -12.5, 44.4, s * 11.5 - 0.7, 12.5, 45.6, s * 11.5 + 0.7, 'ec_trim', { seed: 20 }); M.box(ring, s * 11.5 - 0.7, 44.4, -12.5, s * 11.5 + 0.7, 45.6, 12.5, 'ec_trim', { seed: 21 }); }
-	// upper column, narrowing
-	cham(M, root, -13, 55, -13, 13, 59, 13, 4, 'ec_trim', { tag: 'ribs', ribPer: 1.6, seed: 22 });
-	cham(M, root, -8.5, 59, -8.5, 8.5, 72, 8.5, 2.6, 'ec_hull', { tag: 'panel', seed: 23 });
-	cham(M, root, -6.5, 72, -6.5, 6.5, 82, 6.5, 2.0, 'ec_blue', { tag: 'panel ribs', ribPer: 2.2, seed: 24 });
+	// upper column (the `spire` bone, so it can crack and topple), narrowing, with the hovering halo disc
+	const spire = M.bone('spire', 'root', [0, 55, 0]);
+	cham(M, spire, -13, 55, -13, 13, 59, 13, 4, 'ec_trim', { tag: 'ribs', ribPer: 1.6, seed: 22 });
+	cham(M, spire, -8.5, 59, -8.5, 8.5, 72, 8.5, 2.6, 'ec_hull', { tag: 'panel', seed: 23 });
+	cham(M, spire, -6.5, 72, -6.5, 6.5, 82, 6.5, 2.0, 'ec_blue', { tag: 'panel ribs', ribPer: 2.2, seed: 24 });
+	cham(M, spire, -15, 76.5, -15, 15, 78, 15, 5, 'ec_trim', { tag: 'dots', seed: 33 });
+	cham(M, spire, -15.4, 76.2, -15.4, 15.4, 76.6, 15.4, 5.1, 'ec_conduit', { seed: 34 });
 	for (const [sx, sz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) { // conduits up each face
 		const x = sx * 11.2, z = sz * 11.2;
 		M.box(root, sx ? x - 0.5 : -0.8, 8.5, sz ? z - 0.5 : -0.8, sx ? x + 0.5 : 0.8, 31, sz ? z + 0.5 : 0.8, 'ec_conduit', { seed: 25 });
 		const x2 = sx * 8.7, z2 = sz * 8.7;
-		M.box(root, sx ? x2 - 0.5 : -0.7, 59.5, sz ? z2 - 0.5 : -0.7, sx ? x2 + 0.5 : 0.7, 71.5, sz ? z2 + 0.5 : 0.7, 'ec_conduit', { seed: 26 });
+		M.box(spire, sx ? x2 - 0.5 : -0.7, 59.5, sz ? z2 - 0.5 : -0.7, sx ? x2 + 0.5 : 0.7, 71.5, sz ? z2 + 0.5 : 0.7, 'ec_conduit', { seed: 26 });
 	}
-	// the crown: four prongs leaning out around the emitter orb
-	const crown = M.bone('crown', 'root', [0, 82, 0]);
+	// the crown: four prongs (one bone each, so they can flex open while consuming) around the emitter orb
+	const crown = M.bone('crown', 'spire', [0, 82, 0]);
 	cham(M, crown, -9, 81, -9, 9, 84, 9, 3, 'ec_trim', { tag: 'dots', seed: 27 });
-	for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-		const st = M.stick(crown, [sx * 6, 83, sz * 6], [sx * 0.28, 1, sz * 0.28], 16, [2.8, 2.8], 'ec_trim', { tag: 'panel', seed: 28 });
-		M.stick(crown, [sx * (6 + 0.28 * 15), 98, sz * (6 + 0.28 * 15)], [sx * 0.28, 1, sz * 0.28], 3, [1.6, 1.6], 'ec_core', { seed: 29 });
-	}
+	CONVERTER_PRONGS.forEach(([sx, sz], i) => {
+		const pb = M.bone(`prong_${i}`, 'crown', [sx * 6, 83, sz * 6]);
+		M.stick(pb, [sx * 6, 83, sz * 6], [sx * 0.28, 1, sz * 0.28], 16, [2.8, 2.8], 'ec_trim', { tag: 'panel', seed: 28 });
+		M.stick(pb, [sx * (6 + 0.28 * 15), 98, sz * (6 + 0.28 * 15)], [sx * 0.28, 1, sz * 0.28], 3, [1.6, 1.6], 'ec_core', { seed: 29 });
+	});
 	cham(M, crown, -3, 84, -3, 3, 90, 3, 1.2, 'ec_blue', { seed: 30 });
 	cham(M, crown, -3.6, 90, -3.6, 3.6, 96, 3.6, 1.4, 'ec_core', { seed: 31 });
+	M.bone('beam_origin', 'crown', [0, 96, 0]);
+	// the shield: a faceted Power Cosmic shell around the whole tower, hidden unless the `shielded` clip shows it
+	const shield = M.bone('shield', 'root', [0, 50, 0]);
+	cham(M, shield, -31, -1, -31, 31, 84, 31, 11, 'ec_shield', { seed: 40 });
+	cham(M, shield, -25, 84, -25, 25, 95, 25, 9, 'ec_shield', { seed: 41 });
+	cham(M, shield, -16, 95, -16, 16, 103, 16, 6, 'ec_shield', { seed: 42 });
 	return M;
 }
 
@@ -1131,6 +1178,7 @@ function converterShade(M, c, f, s, t, p, info) {
 		col = mul(col, 0.92 + 0.16 * fbm(p[0] * 0.15, p[1] * 0.15, p[2] * 0.15 + 3, 3));
 		return [col, 255, g];
 	}
+	if (c.mat === 'ec_shield') return [[200, 170, 255], 0, null]; // invisible in the concept renders; the game look makes it a glow shell
 	if (c.mat === 'ec_conduit') { const k = 0.5 + 0.5 * Math.sin(p[1] * 0.9); return [mix(EC.glow, EC.core, 0.2 + 0.5 * k), 255, mul(mix(EC.glow, EC.core, 0.1 + 0.3 * k), 0.62)]; }
 	if (c.mat === 'ec_core') { // swirling Power Cosmic: violet bands with white-hot streaks and Kirby dots
 		const sw = fbm(p[0] * 0.18 + 4, p[1] * 0.3, p[2] * 0.18, 3);
@@ -1171,7 +1219,7 @@ function converterShade(M, c, f, s, t, p, info) {
 function renderConverter(M, G) {
 	const bg = { top: [86, 80, 112], bottom: [52, 50, 66] };
 	const pre = ctx => { nebula(ctx, [[80, 60, 140], [60, 80, 150]], 0.18, 9); stars(ctx, 200, 41, 0.6); };
-	const it = (extra = {}) => Object.assign({ model: M, pose: {}, root: [0, 0, 0], floorR: 9 }, extra);
+	const it = (extra = {}) => Object.assign({ model: M, pose: {}, root: [0, 0, 0], floorR: 9, hide: c => c.bone === 'shield' }, extra);
 	const gi = { model: G, pose: {}, root: [0, 0, 0], noFloor: true };
 	const k = M.k;
 	const top = [0, 93 * k, 0], coreC = [0, 45 * k, 0];
@@ -1194,7 +1242,7 @@ function renderConverter(M, G) {
 	const row2 = sheet(null, '', '', [
 		{ label: 'CONSUMED GROUND - FROM ABOVE', items: [gi, it({ noFloor: true })], cam: { yaw: 20, pitch: 58 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['ASH-GREY, CRACKED, GLOWING DRAIN FISSURES, GRASS AT THE RIM'], fitW: 1300 },
 		{ label: 'CORE CAGE', items: [it({ noFloor: true, hide: c => !(c.from[1] > 29 && c.to[1] < 60) || c.bone === 'crown' })], cam: { yaw: 28, pitch: 10 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['PULSING POWER COSMIC CORE, TILTED ORBIT RING'] },
-		{ label: 'CROWN EMITTER', items: [it({ noFloor: true, hide: c => c.bone !== 'crown' })], cam: { yaw: 30, pitch: 18 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['THE TUNING-FORK MOTIF'] },
+		{ label: 'CROWN EMITTER', items: [it({ noFloor: true, hide: c => !/^(crown|prong)/.test(c.bone) })], cam: { yaw: 30, pitch: 18 }, ownScale: true, ownScaleMax: 20, noOrigin: true, pre, note: ['THE TUNING-FORK MOTIF'] },
 	], { returnCanvas: true, titleH: 0, panelH: 760, minW: row1.w, maxW: row1.w, bg, shadow: false, aoR: 0.2, edgeThr: 0.1 });
 	stackRows(path.join(OUT, '04_element_converter.png'), [row1, row2]);
 }
@@ -1242,6 +1290,7 @@ function buildWorldship() {
 	const cone = M.bone('cone', 'root', [0, -R, 0]);
 	[[-R - 4, -R + 2, 30], [-R - 10, -R - 4, 22], [-R - 16, -R - 10, 15], [-R - 21, -R - 16, 9]].forEach(([y0, y1, w], i) => cham(M, cone, -w / 2, y0, -w / 2, w / 2, y1, w / 2, w * 0.29, i % 2 ? 'ws_trim' : 'ws_hull', { tag: 'ribs', ribPer: 1.8, seed: 330 + i }));
 	cham(M, cone, -5, -R - 22.5, -5, 5, -R - 21, 5, 1.5, 'ws_aperture', { seed: 340 });
+	M.bone('aperture', 'cone', [0, -R - 23, 0]); // locator: the intake beam origin
 	return M;
 }
 function worldshipShade(M, c, f, s, t, p, info) {
@@ -1332,7 +1381,9 @@ function buildNullifier() {
 	ring(-1, 1.6, 7.4, 'nf_gold', 'ribs');
 	ring(1.6, 4.8, 6.2, 'nf_metal', 'panel');
 	ring(4.8, 5.8, 7.0, 'nf_gold');
-	ring(5.6, 12.4, 4.4, 'nf_core');                                          // the core, seen between the cage bars
+	const coreB = M.bone('core', 'barrel', [0, 9, 0]);                         // the core, seen between the cage bars (pulses)
+	cham(M, coreB, -2.2, 5.6, -2.2, 2.2, 12.4, 2.2, 1.32, 'nf_core', { seed: 56 });
+	M.bone('muzzle', 'barrel', [0, 22.8, 0]);
 	for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) M.box(bar, sx * 2.6 - 0.75, 5.6, sz * 2.6 - 0.75, sx * 2.6 + 0.75, 12.4, sz * 2.6 + 0.75, 'nf_metal', { seed: 3 });
 	for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) M.box(bar, ax ? ax * 2.9 - 0.3 : -0.35, 6.2, az ? az * 2.9 - 0.3 : -0.35, ax ? ax * 2.9 + 0.3 : 0.35, 11.8, az ? az * 2.9 + 0.3 : 0.35, 'nf_metalD', { seed: 4 });
 	ring(12.2, 13.2, 7.0, 'nf_gold');
@@ -1429,16 +1480,24 @@ function renderBoard(B, S) {
 function lineup() {
 	const G = built.galactus, S = built.surfer, B = built.board, PN = built.punisher, C = built.converter;
 	const PL = buildPlayer(); PL.layout(); PL.paint(shadeFor(PL));
+	// the Surfer is a regular player model with a user-chosen skin; a plain chrome player stands in for him here
+	const CP = buildPlayer();
+	CP.extraMat = (c, f, s, t, p, info) => {
+		let col = chrome(c, f, s, t, p, info);
+		if (f === 'north' && p[1] > 27 && p[1] < 28 && Math.abs(Math.abs(p[0]) - 2) < 1) return [[255, 255, 255], 255, [236, 246, 255]];
+		return [col, 255, null];
+	};
+	CP.layout(); CP.paint(shadeFor(CP));
 	const hover = 0.6;
 	const row = [
 		{ name: 'PLAYER', h: '2 BLOCKS', x: 1.2, items: x => [{ model: PL, pose: {}, root: [0, 0, 0], pos: [x, 0, 0], silhouette: [46, 50, 64] }] },
-		{ name: 'SILVER SURFER', h: '2.1 + BOARD', x: 4.4, items: x => [{ model: B, pose: {}, root: [0, 0, 0], pos: [x, hover, 0], yaw: -70 }, { model: S, pose: S.poses.ally, root: S.poses.ally.$root, pos: [x, hover, 0], yaw: -70 }] },
+		{ name: 'SURFER (STAND-IN)', h: '2 + BOARD', x: 4.4, items: x => [{ model: B, pose: {}, root: [0, 0, 0], pos: [x, hover, 0], yaw: -70 }, { model: CP, pose: {}, root: [0, 0, 0], pos: [x, hover, 0], yaw: -70 }] },
 		{ name: 'PUNISHER', h: '9 BLOCKS', x: 13, items: x => [{ model: PN, pose: PN.poses.stand, root: planted(PN, PN.poses.stand), pos: [x, 0, 0], yaw: -15 }] },
-		{ name: 'ELEMENT CONVERTER', h: '25 BLOCKS', x: 34, items: x => [{ model: C, pose: {}, root: [0, 0, 0], pos: [x, 0, 0], yaw: 20 }] },
-		{ name: 'GALACTUS', h: '60 BLOCKS', x: 66, items: x => [{ model: G, pose: G.poses.stand, root: planted(G, G.poses.stand), pos: [x, 0, 0], yaw: -18 }] },
+		{ name: 'ELEMENT CONVERTER', h: '25 BLOCKS', x: 34, items: x => [{ model: C, pose: {}, root: [0, 0, 0], pos: [x, 0, 0], yaw: 20, hide: c => c.bone === 'shield' }] },
+		{ name: 'GALACTUS', h: '60 TO THE HEAD', x: 66, items: x => [{ model: G, pose: G.poses.stand, root: planted(G, G.poses.stand), pos: [x, 0, 0], yaw: -18 }] },
 	];
 	const items = row.flatMap(r => r.items(r.x));
-	const H = 1250, top = 90, ppu = 16.5;
+	const H = 1440, top = 90, ppu = 16.5;
 	const cam = { yaw: 0, pitch: 5 };
 	const total = 88;
 	const Wmain = Math.round(total * ppu + 140);
@@ -1459,7 +1518,7 @@ function lineup() {
 	cv.blit(inset, iW, iH, Wmain + 6, top);
 	cv.text('LINEUP AT TRUE SCALE', 28, 22, 5, [240, 244, 250]);
 	cv.text('GALACTUS: THE DEVOURER - HEIGHTS IN BLOCKS, RULER IN BLOCKS', 28 + 21 * 30 + 24, 34, 3, [160, 190, 220]);
-	for (let b = 0; b <= 60; b += 1) { const yy = top + origin[1] - Math.round(b * ppu * Math.cos(cam.pitch * DEGR)); if (b % 5 === 0) { cv.rect(0, yy, b % 10 === 0 ? 26 : 16, 2, [230, 236, 244]); if (b % 10 === 0 && b) cv.text(String(b), 30, yy - 8, 2, [230, 236, 244]); } }
+	for (let b = 0; b <= 70; b += 1) { const yy = top + origin[1] - Math.round(b * ppu * Math.cos(cam.pitch * DEGR)); if (b % 5 === 0) { cv.rect(0, yy, b % 10 === 0 ? 26 : 16, 2, [230, 236, 244]); if (b % 10 === 0 && b) cv.text(String(b), 30, yy - 8, 2, [230, 236, 244]); } }
 	for (const r of row) {
 		const sx = origin[0] + r.x * ppu;
 		const two = r.x < 10;
@@ -1467,7 +1526,7 @@ function lineup() {
 		cv.text(r.name, sx, top + H - 84, 2, [240, 244, 250], { align: 'center' });
 		cv.text(r.h, sx, top + H - 58, 2, [160, 196, 236], { align: 'center' });
 	}
-	cv.text('PLAYER + SURFER: SEE INSET', origin[0] + 2 * ppu, top + H - 114, 2, [200, 214, 236], { align: 'center' });
+	cv.text('PLAYER + SURFER: SEE INSET', 14, top + H - 114, 2, [200, 214, 236]);
 	cv.rect(Wmain + 6, top, iW, 54, [26, 28, 34], 0.6);
 	cv.text('INSET X5: THE SMALL ONES', Wmain + 6 + iW / 2, top + 18, 3, [236, 240, 246], { align: 'center' });
 	for (const r of insetRow) {
@@ -1483,12 +1542,273 @@ function boardGlowLite(ctx, item) {
 	for (let z = -26; z <= 26; z += 4) flare(ctx, wpt(item, 'board', [0, -2.4, z]), 0.2, [220, 236, 255], [90, 140, 255], 0.3, true);
 }
 
+// ================================================================ GAME EXPORT (--game)
+// Writes the approved concept models AS the game assets + every animation clip into
+// src/main/resources/assets/projecthero/{geo,textures/entity,animations}/galactus/<name>.* (plus the Nullifier's item
+// display model), and scratchpad/galactus_anim_timing.json; then renders preview sheets FROM those written files into
+// <concept dir>/anim/. The Silver Surfer is NOT exported (he is a regular player model with a user-chosen skin).
+//
+// The in-game look (lessons from the Frost Giant export):
+//   - GeckoLib's AutoGlowingTexture uses the glowmask only as a MASK: every non-zero glowmask texel takes the BASE
+//     texture's colour into the emissive texture (at the glowmask's alpha) and is cleared from the base. So glowing
+//     texels are painted bright in the BASE texture; the glowmask is white, alpha = how opaque the glow is.
+//   - HALO shells: inflated copies of the weak points / glowing parts (+ flat plates over Galactus's eyes and palms).
+//     Their base texel carries a soft radial colour, their glowmask alpha is tiny: GeckoLib's own glow pass shows a
+//     faint haze, and a FrostHaloLayer-style additive pass (RenderType.eyes on the generated _glowmask texture) turns
+//     them into bloom.
+//   - cube counts stay modest: Galactus is one entity; Punishers come in groups.
+const GLOW_HALO = {
+	galactus: { mats: { g_core: PC_GLOW, g_crest: PC_GLOW, g_G: PC_GLOW }, k: 0.9 },
+	galactus_hand: { mats: { g_core: PC_GLOW }, k: 0.9 },
+	punisher: { mats: { p_glow: ORANGE_GLOW }, k: 0.9 },
+	element_converter: { mats: { ec_core: EC.glow }, k: 1.0 },
+	worldship: { mats: { ws_glow: PC_GLOW, ws_aperture: PC_VIOLET }, k: 1.0 },
+	surfboard_mount: { mats: { board_glow: [90, 150, 255] }, k: 0.55 },
+	nullifier: { mats: { nf_core: PC_VIOLET }, k: 0.9 },
+};
+const satC = (c, k) => { const l = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]; return c.map(v => clamp(l + (v - l) * k)); };
+const contrastC = (c, k, mid = 118) => c.map(v => clamp(mid + (v - mid) * k));
+function addHalos(M, spec, plates = []) {
+	for (const c of M.cubes().slice()) {
+		const col = spec.mats[c.mat];
+		if (!col) continue;
+		const sz = [0, 1, 2].map(i => c.to[i] - c.from[i]);
+		const h = Math.max(0.5, Math.min(2.2, Math.min(...sz) * 0.7 + 0.3));
+		const hc = M.box(M.B[c.bone], c.from[0] - h, c.from[1] - h, c.from[2] - h, c.to[0] + h, c.to[1] + h, c.to[2] + h, 'halo', { rot: c.rot, pivot: c.pivot });
+		hc.haloCol = col; hc.haloK = spec.k;
+	}
+	for (const e of plates) {
+		const hc = M.box(e.bone, e.c[0] - e.s[0] / 2, e.c[1] - e.s[1] / 2, e.c[2] - e.s[2] / 2, e.c[0] + e.s[0] / 2, e.c[1] + e.s[1] / 2, e.c[2] + e.s[2] / 2, 'halo');
+		hc.haloCol = e.col; hc.haloK = e.k || 1;
+	}
+}
+function gameShade(M) {
+	const base = shadeFor(M);
+	const W = [255, 255, 255];
+	return (c, f, s, t, p, info) => {
+		if (c.mat === 'halo') {
+			const r = Math.max(Math.abs(s - 0.5), Math.abs(t - 0.5)) * 2;
+			const fall = Math.pow(Math.max(0, 1 - r), 1.3);
+			return [c.haloCol.map(v => v * fall * c.haloK), 255, W, Math.max(1, Math.round(70 * fall * c.haloK))];
+		}
+		if (c.mat === 'ec_shield') { // the converter's shield: a faint violet shell with brighter hex seams (emissive only)
+			const [u, v] = UV(s, t, info);
+			const hex = Math.min(Math.abs(((u / 6 + (Math.floor(v / 5) % 2) * 0.5) % 1) - 0.5), Math.abs(((v / 5) % 1) - 0.5));
+			const seam = hex < 0.06 ? 1 : 0;
+			const edge = info.ePx < 1.2 ? 1 : 0;
+			// interior: a dim violet haze (alpha 30); the hex seams and rims carry the light (alpha 140)
+			const k = Math.max(seam, edge * 0.8);
+			return [mix([46, 28, 96], [180, 160, 245], k), 255, W, k > 0 ? 140 : 30];
+		}
+		let [col, a, g] = base(c, f, s, t, p, info);
+		if (g && a > 0) {
+			col = mix(col, g, 0.3).map(v => clamp(v * 1.08));
+			return [col, a, W, 255];
+		}
+		return [contrastC(satC(col, 1.12), 1.05), a, null];
+	};
+}
+function gameLook(M, id, plates) {
+	addHalos(M, GLOW_HALO[id], plates);
+	M.layout();
+	M.paint(gameShade(M));
+	return M;
+}
+// move / scale every coordinate of a model (before layout): q -> (q - origin) * f
+function transformModel(M, origin, f) {
+	const T = q => [(q[0] - origin[0]) * f, (q[1] - origin[1]) * f, (q[2] - origin[2]) * f];
+	for (const b of M.bones) b.pivot = T(b.pivot);
+	for (const c of M.cubes()) { c.from = T(c.from); c.to = T(c.to); if (c.pivot) c.pivot = T(c.pivot); }
+}
+// Galactus's right gauntlet + hand as its own render-only model, rooted at the palm (root > forearm_r > hand_r > ...),
+// sharing Galactus's painted texture. Drawn at Galactus's model scale.
+function handFromGalactus(G) {
+	const keep = ['forearm_r', 'hand_r', 'fingers_r', 'fingertips_r', 'thumb_r', 'palm_r', 'grab_socket', 'weak_gauntlet_r'];
+	const palm = [-G.A.shX, G.A.knuckY + 4, 0];
+	const H = new Model('galactus_hand', { TW: G.TW, D: G.D });
+	H.bone('root', null, [0, 0, 0]);
+	for (const n of keep) {
+		const b = G.B[n];
+		const nb = H.bone(n, n === 'forearm_r' ? 'root' : b.parent, b.pivot.map((v, i) => v - palm[i]), b.rot);
+		for (const c of b.cubes) {
+			const cc = H.box(nb, c.from[0] - palm[0], c.from[1] - palm[1], c.from[2] - palm[2], c.to[0] - palm[0], c.to[1] - palm[1], c.to[2] - palm[2], c.mat, { rot: c.rot, pivot: c.pivot ? c.pivot.map((v, i) => v - palm[i]) : null, paint: c.paint, tag: c.tag });
+			cc.uv = c.uv;
+		}
+	}
+	H.TH = G.TH; H.tex = G.tex; H.glow = G.glow; H.rects = G.rects;
+	H.k = G.k; H.MODEL_SCALE = G.MODEL_SCALE; H.heightBlocks = 26; H.A = G.A;
+	return H;
+}
+function galTiming() {
+	const out = {};
+	for (const [m, clips] of Object.entries(GAL_TIMING)) {
+		out[m] = {};
+		for (const [n, [kind, length, hit]] of Object.entries(clips)) {
+			if (hit != null && hit >= 0 && hit < GAL_TRANSITION) throw new Error(`${m}.${n}: hit ${hit} is inside the ${GAL_TRANSITION}-tick transition`);
+			if (hit != null && hit >= length) throw new Error(`${m}.${n}: hit ${hit} is past the clip length ${length}`);
+			out[m][n] = { kind, length, hit: hit == null ? -1 : hit };
+		}
+	}
+	return out;
+}
+function writeGame(M, id, an) {
+	const RES = path.join(REPO, 'src/main/resources/assets/projecthero');
+	const geoDir = path.join(RES, 'geo/galactus'), texDir = path.join(RES, 'textures/entity/galactus'), animDir = path.join(RES, 'animations/galactus');
+	for (const d of [geoDir, texDir, animDir]) fs.mkdirSync(d, { recursive: true });
+	const files = { geo: path.join(geoDir, `${id}.geo.json`), tex: path.join(texDir, `${id}.png`), glow: path.join(texDir, `${id}_glowmask.png`), anim: path.join(animDir, `${id}.animation.json`) };
+	fs.writeFileSync(files.geo, JSON.stringify(M.geoJson(`geometry.${id}`), null, '\t') + '\n');
+	fs.writeFileSync(files.tex, L.encodePng(M.TW, M.TH, M.tex));
+	fs.writeFileSync(files.glow, L.encodePng(M.TW, M.TH, M.glow));
+	fs.writeFileSync(files.anim, JSON.stringify(an.build(), null, '\t') + '\n');
+	return files;
+}
+function nullifierItemModel() {
+	const d = (rotation, translation, scale) => ({ rotation, translation, scale: [scale, scale, scale] });
+	return {
+		parent: 'builtin/entity', gui_light: 'front', textures: { particle: 'projecthero:entity/galactus/nullifier' },
+		display: {
+			gui: d([20, -135, 0], [0, 0, 0], 0.62), ground: d([0, 0, 0], [0, 2, 0], 0.4), fixed: d([0, 90, 0], [0, 0, 0], 0.8), head: d([0, 180, 0], [0, 10, 0], 0.7),
+			thirdperson_righthand: d([0, 0, 0], [0, 1.5, -1], 0.62), thirdperson_lefthand: d([0, 0, 0], [0, 1.5, -1], 0.62),
+			firstperson_righthand: d([0, -6, 0], [1.5, 1.5, -1], 0.55), firstperson_lefthand: d([0, 6, 0], [1.5, 1.5, -1], 0.55),
+		},
+	};
+}
+function gameExport() {
+	const A = require('./lib_geckogen_anim.js');
+	const CL = require('./galactus_clips.js');
+	if (CL.T !== GAL_TRANSITION) throw new Error('galactus_clips.js TRANSITION differs from GAL_TRANSITION');
+	const timing = galTiming();
+	const out = {
+		transition: GAL_TRANSITION, source: 'scratchpad/gen_galactus_models.js GAL_TIMING (mirror it in com.projecthero.mod.galactus.GalactusAnims)',
+		note: 'length/hit = server ticks; a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks. Never-keyed bones: neck, head (code look; clips nod through `nod`), flinch (code flinch).',
+		never_keyed: ['neck', 'head', 'flinch'], models: {},
+	};
+	const previews = [];
+	const unit = (id, M, clipsFn, extra = {}) => {
+		const an = new A.AnimSet(M, id, { neverKey: ['neck', 'head', 'flinch'], hidden: extra.hidden || [] });
+		clipsFn(an, timing[id]);
+		const files = writeGame(M, id, an);
+		const locators = M.bones.filter(b => !b.cubes.length && b.name !== 'root' && !['flinch', 'nod'].includes(b.name) && !M.bones.some(o => o.parent === b.name)).map(b => b.name);
+		out.models[id] = {
+			files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, path.relative(REPO, v).replace(/\\/g, '/')])),
+			model_scale: +M.MODEL_SCALE.toFixed(4), height_blocks: M.heightBlocks, texture: [M.TW, M.TH], bones: M.bones.length, cubes: M.cubes().length,
+			locator_bones: locators, hidden_by_default: extra.hidden || [], clips: {},
+		};
+		if (extra.note) out.models[id].note = extra.note;
+		for (const [n, t] of Object.entries(timing[id])) {
+			if (!an.timing[n]) throw new Error(`${id}: clip ${n} from the timing table was not authored`);
+			out.models[id].clips[n] = Object.assign({ server_length: t.length, hit: t.hit, kind: t.kind, clip_ticks: an.clips[n].len, strike_clip_tick: t.hit >= GAL_TRANSITION ? t.hit - GAL_TRANSITION : null },
+				an.timing[n].stride_blocks ? { stride_blocks: an.timing[n].stride_blocks, move_speed: an.clips[n].speed } : {});
+		}
+		for (const n of Object.keys(an.clips)) if (!timing[id][n]) throw new Error(`${id}: authored clip ${n} is not in the timing table`);
+		previews.push({ id, files, k: M.MODEL_SCALE / 16, height: M.heightBlocks, clips: an.clips, timing: timing[id], cam: extra.cam, hidden: extra.hidden || [], bg: extra.bg });
+		console.log(`${id}: ${M.bones.length} bones, ${M.cubes().length} cubes, tex ${M.TW}x${M.TH}, ${Object.keys(an.clips).length} clips -> ${path.relative(REPO, files.geo)}`);
+	};
+	// ---- Galactus (60 blocks toes to head; the prongs rise above) + his render-only grab hand
+	let G;
+	{
+		G = buildGalactus();
+		G.setHeight(60, c => !/^prong/.test(c.bone));
+		const poses = galactusPoses(G);
+		const A0 = G.A, hs = A0.hs;
+		const eyes = [-1, 1].map(s => ({ bone: 'head', c: [s * A0.eyeX, A0.eyeY, A0.faceZ - 0.35], s: [3.3 * 2 * hs * 0.5 + 1.6, 0.62 * 2 * hs + 1.3, 0.2], col: [200, 230, 255], k: 1 }));
+		const palms = SIDES.map(([s, n]) => ({ bone: `hand_${n}`, c: [s * A0.shX - s * 3.75, A0.knuckY + 5, 0], s: [0.2, 6, 6], col: PC_GLOW, k: 0.9 }));
+		gameLook(G, 'galactus', eyes.concat(palms));
+		unit('galactus', G, (an, t) => CL.galactusClips(an, t, poses), { cam: { yaw: 30, pitch: 6 }, note: 'height_blocks = toes to the top of the head; the helmet prongs rise above. Locators: eye_l/eye_r (beam origins), weak_crest, weak_emblem, weak_gauntlet_l/r (weak points), palm_l/r, grab_socket (where a grabbed player sits).' });
+	}
+	{
+		const H = handFromGalactus(G);
+		unit('galactus_hand', H, CL.handClips, { cam: { yaw: 50, pitch: 10 }, note: 'Render-only: Galactus\'s right gauntlet + hand at Galactus\'s scale, the root at the palm centre (rotate the root to aim it); grab_socket = where the grabbed player sits; same texture as galactus.png (own copy).' });
+	}
+	// ---- Punisher
+	{
+		const M = buildPunisher();
+		M.setHeight(9);
+		const poses = punisherPoses(M);
+		gameLook(M, 'punisher');
+		unit('punisher', M, (an, t) => CL.punisherClips(an, t, poses, PUNISHER_WALK_SPEED), { cam: { yaw: 30, pitch: 8 }, note: 'Locators: muzzle_l/muzzle_r (blast origins).' });
+	}
+	// ---- Element Converter (the consumed ground is real blocks, not part of the model)
+	{
+		const M = buildConverter();
+		M.setHeight(25, c => c.bone !== 'shield');
+		gameLook(M, 'element_converter');
+		unit('element_converter', M, CL.converterClips, { hidden: ['shield'], cam: { yaw: 30, pitch: 8 }, note: 'shield is scaled to 0 except in `shielded`. Locators: beam_origin (crown top). The core bone pulses (scale) and spins.' });
+	}
+	// ---- Worldship (sky prop, 2 blocks per model px)
+	{
+		const M = buildWorldship();
+		M.k = 2; M.MODEL_SCALE = 32; M.heightBlocks = 240;
+		gameLook(M, 'worldship');
+		unit('worldship', M, CL.worldshipClips, { cam: { yaw: 25, pitch: 14 }, bg: { top: [16, 14, 34], bottom: [40, 32, 70] }, note: 'Model px are 2 blocks (model_scale 32): about 240 blocks across. Locator: aperture (the intake beam origin).' });
+	}
+	// ---- the Surfer's board as a mount (plain 1/16 pixels, about 2 blocks long)
+	{
+		const B = buildBoard();
+		const W = B.bones[0];
+		W.name = 'board'; delete B.B.board; // re-root: root > board
+		const root = { name: 'root', parent: null, pivot: [0, 0, 0], rot: [0, 0, 0], cubes: [] };
+		W.parent = 'root'; B.bones.unshift(root); B.B.root = root; B.B.board = W;
+		transformModel(B, [0, 0, 0], 32 / 58);
+		B.k = 1 / 16; B.MODEL_SCALE = 1; B.heightBlocks = 0.2;
+		gameLook(B, 'surfboard_mount');
+		unit('surfboard_mount', B, CL.boardClips, { cam: { yaw: 40, pitch: 24 }, note: 'Top surface at y = 0 (the rider stands on the root); about 2 blocks long, nose toward -Z.' });
+	}
+	// ---- the Ultimate Nullifier (item; centred on the origin for GeckoLib's item renderer)
+	{
+		const M = buildNullifier();
+		transformModel(M, [0, -4, -10.8], 1);
+		M.k = 1 / 16; M.MODEL_SCALE = 1; M.heightBlocks = 1;
+		gameLook(M, 'nullifier');
+		unit('nullifier', M, CL.nullifierClips, { cam: { yaw: 110, pitch: 14 }, note: 'Item model (GeckoLib GeoItem): models/item/nullifier.json carries the GUI / hand / ground display transforms. Locator: muzzle.' });
+		const itemDir = path.join(REPO, 'src/main/resources/assets/projecthero/models/item');
+		fs.mkdirSync(itemDir, { recursive: true });
+		fs.writeFileSync(path.join(itemDir, 'nullifier.json'), JSON.stringify(nullifierItemModel(), null, '\t') + '\n');
+		out.models.nullifier.files.item_model = 'src/main/resources/assets/projecthero/models/item/nullifier.json';
+	}
+	fs.writeFileSync(path.join(REPO, 'scratchpad/galactus_anim_timing.json'), JSON.stringify(out, null, '\t') + '\n');
+	console.log('wrote scratchpad/galactus_anim_timing.json');
+	if (!args.includes('--no-previews')) for (const p of previews) gamePreview(p, A);
+}
+
+// Preview sheets rendered from the WRITTEN game files (geo + PNG + animation JSON), as GeckoLib would mask the glow.
+function gamePreview(p, A) {
+	const G = A.loadGameModel(p.files.geo, p.files.tex, p.files.glow, p.k * 16, true);
+	G.heightBlocks = p.height;
+	const anims = A.loadAnimations(p.files.anim);
+	const key = n => `animation.${p.id}.${n}`;
+	const frames = [];
+	const add = (label, n, t) => { const c = p.clips[n]; if (c) frames.push([label, n, Math.max(0, Math.min(c.len, Math.round(t)))]); };
+	const big = p.height > 20;
+	for (const [n, t] of Object.entries(p.timing)) {
+		const c = p.clips[n], N = n.toUpperCase().replace(/_/g, ' ');
+		if (t.kind === 'loop') { add(`${N}`, n, 0); if (c.len > 8) add(`${N} (MID)`, n, c.len * 0.5); continue; }
+		if (t.hit >= GAL_TRANSITION) { add(`${N} (WIND-UP)`, n, (t.hit - GAL_TRANSITION) * 0.6); add(`${N} AT HIT ${t.hit}`, n, t.hit - GAL_TRANSITION); }
+		else add(`${N} (MID)`, n, c.len * 0.4);
+		add(`${N} (END)`, n, c.len);
+	}
+	const dir = path.join(OUT, 'anim');
+	fs.mkdirSync(dir, { recursive: true });
+	const per = 5;
+	for (let i = 0; i * per < frames.length; i++) {
+		const chunk = frames.slice(i * per, i * per + per);
+		const panels = chunk.map(([label, n, t]) => {
+			const pose = A.poseAt(anims, key(n), t);
+			const hidden = new Set(pose.$hidden || []);
+			for (const b of G.bones) if (b.parent && hidden.has(b.parent)) hidden.add(b.name);
+			return { label, items: [{ model: G, pose, root: pose.$root, hide: c => hidden.has(c.bone), floorR: big ? p.height * 0.35 : p.height * 0.45 + 0.8, noFloor: p.id === 'worldship' }], cam: p.cam || { yaw: 28, pitch: 8 }, ownScale: p.id === 'worldship' || p.id === 'galactus', noOrigin: ['galactus_hand', 'worldship', 'nullifier', 'surfboard_mount'].includes(p.id) };
+		});
+		sheet(path.join(dir, `${p.id}_${i + 1}.png`), `${p.id.toUpperCase().replace(/_/g, ' ')} - GAME ASSETS`, `PAGE ${i + 1} - POSES READ BACK FROM THE WRITTEN GEO + ANIMATION JSON`, panels,
+			{ minW: 1800, panelH: 900, maxW: 3400, ss: 1, bg: p.bg || { top: [96, 98, 116], bottom: [58, 60, 74] }, shadow: p.id !== 'worldship', aoR: big ? 0.8 : 0.2, edgeThr: big ? 0.4 : 0.08, shadowSoft: big ? 0.8 : 0.25, contactH: big ? 3 : 0.6 });
+	}
+}
+
 // ================================================================ main
 const built = {};
 if (WANT('galactus') || WANT('lineup')) {
 	const M = buildGalactus();
 	M.ground(c => /^foot/.test(c.bone));
-	finish(M, 'galactus', 60);
+	finish(M, 'galactus', 60, c => !/^prong/.test(c.bone)); // 60 blocks from the toes to the top of the head; the prongs rise above
 	M.poses = galactusPoses(M);
 	built.galactus = M;
 	if (WANT('galactus')) renderGalactus(M);
@@ -1552,7 +1872,7 @@ function renderGalactus(M) {
 	const handPt = wpt(reachItem, 'hand_r', [-A.shX, A.knuckY, 0]);
 	const plItem = { model: PL, pose: {}, root: [0, 0, 0], pos: [handPt[0] + 1, 0, handPt[2] - 2], silhouette: [40, 42, 56], noFloor: true };
 	const ro = { panelH: 1200, minW: 2900, maxW: 3600, bg: galBg(), shadowSoft: 0.9, aoR: 1.0, edgeThr: 0.5, contactH: 3 };
-	const row1 = sheet(null, 'GALACTUS', '60 BLOCKS - KIRBY CLASSIC: TUNING-FORK HELMET, G CHEST PLATE, WEAK POINTS GLOW (EYES, CREST, G, GAUNTLETS)', [
+	const row1 = sheet(null, 'GALACTUS', '60 BLOCKS TOES TO HEAD (PRONGS RISE ABOVE) - KIRBY CLASSIC: TUNING-FORK HELMET, G CHEST PLATE, GLOWING WEAK POINTS', [
 		{ label: 'FRONT', items: [it(M.poses.stand)], cam: { yaw: 0, pitch: 6 }, pre },
 		{ label: 'THREE-QUARTER', items: [it(M.poses.stand)], cam: { yaw: 35, pitch: 6 }, pre },
 		{ label: 'SIDE', items: [it(M.poses.stand)], cam: { yaw: 90, pitch: 6 }, pre },
@@ -1593,4 +1913,5 @@ function buildPlayer() {
 	return M;
 }
 
+if (GAME) gameExport();
 module.exports = { built };

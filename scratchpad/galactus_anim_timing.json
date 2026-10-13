@@ -1,0 +1,376 @@
+{
+	"transition": 4,
+	"source": "scratchpad/gen_galactus_models.js GAL_TIMING (mirror it in com.projecthero.mod.galactus.GalactusAnims)",
+	"note": "length/hit = server ticks; a play-once/held clip is (length - 4) ticks long and keys its strike on (hit - 4); loops are length ticks. Never-keyed bones: neck, head (code look; clips nod through `nod`), flinch (code flinch).",
+	"never_keyed": [
+		"neck",
+		"head",
+		"flinch"
+	],
+	"models": {
+		"galactus": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/galactus.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/galactus.animation.json"
+			},
+			"model_scale": 7.5429,
+			"height_blocks": 60,
+			"texture": [
+				2048,
+				640
+			],
+			"bones": 40,
+			"cubes": 177,
+			"locator_bones": [
+				"eye_r",
+				"eye_l",
+				"weak_crest",
+				"weak_emblem",
+				"weak_gauntlet_r",
+				"palm_r",
+				"weak_gauntlet_l",
+				"palm_l",
+				"grab_socket"
+			],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 120,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 120,
+					"strike_clip_tick": null
+				},
+				"eye_beam": {
+					"server_length": 70,
+					"hit": 26,
+					"kind": "once",
+					"clip_ticks": 66,
+					"strike_clip_tick": 22
+				},
+				"reach": {
+					"server_length": 56,
+					"hit": 36,
+					"kind": "once",
+					"clip_ticks": 52,
+					"strike_clip_tick": 32
+				},
+				"grab_lift": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 36,
+					"strike_clip_tick": null
+				},
+				"fling": {
+					"server_length": 34,
+					"hit": 14,
+					"kind": "once",
+					"clip_ticks": 30,
+					"strike_clip_tick": 10
+				},
+				"transmute": {
+					"server_length": 64,
+					"hit": 34,
+					"kind": "once",
+					"clip_ticks": 60,
+					"strike_clip_tick": 30
+				},
+				"disintegrate": {
+					"server_length": 50,
+					"hit": 26,
+					"kind": "once",
+					"clip_ticks": 46,
+					"strike_clip_tick": 22
+				},
+				"summon": {
+					"server_length": 64,
+					"hit": 38,
+					"kind": "once",
+					"clip_ticks": 60,
+					"strike_clip_tick": 34
+				},
+				"weakpoint_hurt": {
+					"server_length": 26,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 22,
+					"strike_clip_tick": null
+				},
+				"retreat": {
+					"server_length": 90,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 86,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "height_blocks = toes to the top of the head; the helmet prongs rise above. Locators: eye_l/eye_r (beam origins), weak_crest, weak_emblem, weak_gauntlet_l/r (weak points), palm_l/r, grab_socket (where a grabbed player sits)."
+		},
+		"galactus_hand": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/galactus_hand.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus_hand.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/galactus_hand_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/galactus_hand.animation.json"
+			},
+			"model_scale": 7.5429,
+			"height_blocks": 26,
+			"texture": [
+				2048,
+				640
+			],
+			"bones": 9,
+			"cubes": 23,
+			"locator_bones": [
+				"palm_r",
+				"grab_socket",
+				"weak_gauntlet_r"
+			],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"grab": {
+					"server_length": 16,
+					"hit": 10,
+					"kind": "hold",
+					"clip_ticks": 12,
+					"strike_clip_tick": 6
+				},
+				"release": {
+					"server_length": 16,
+					"hit": -1,
+					"kind": "once",
+					"clip_ticks": 12,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "Render-only: Galactus's right gauntlet + hand at Galactus's scale, the root at the palm centre (rotate the root to aim it); grab_socket = where the grabbed player sits; same texture as galactus.png (own copy)."
+		},
+		"punisher": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/punisher.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/punisher.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/punisher_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/punisher.animation.json"
+			},
+			"model_scale": 1.9226,
+			"height_blocks": 9,
+			"texture": [
+				1024,
+				704
+			],
+			"bones": 30,
+			"cubes": 160,
+			"locator_bones": [
+				"muzzle_r",
+				"muzzle_l"
+			],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"walk": {
+					"server_length": 36,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 36,
+					"strike_clip_tick": null,
+					"stride_blocks": 4.68,
+					"move_speed": 0.13
+				},
+				"blast": {
+					"server_length": 44,
+					"hit": 20,
+					"kind": "once",
+					"clip_ticks": 40,
+					"strike_clip_tick": 16
+				},
+				"slam": {
+					"server_length": 40,
+					"hit": 22,
+					"kind": "once",
+					"clip_ticks": 36,
+					"strike_clip_tick": 18
+				},
+				"death": {
+					"server_length": 54,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 50,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "Locators: muzzle_l/muzzle_r (blast origins)."
+		},
+		"element_converter": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/element_converter.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/element_converter.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/element_converter_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/element_converter.animation.json"
+			},
+			"model_scale": 3.9524,
+			"height_blocks": 25,
+			"texture": [
+				1024,
+				1344
+			],
+			"bones": 11,
+			"cubes": 148,
+			"locator_bones": [
+				"beam_origin"
+			],
+			"hidden_by_default": [
+				"shield"
+			],
+			"clips": {
+				"idle": {
+					"server_length": 60,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 60,
+					"strike_clip_tick": null
+				},
+				"consume": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				},
+				"shielded": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				},
+				"destroyed": {
+					"server_length": 70,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 66,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "shield is scaled to 0 except in `shielded`. Locators: beam_origin (crown top). The core bone pulses (scale) and spins."
+		},
+		"worldship": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/worldship.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/worldship.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/worldship_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/worldship.animation.json"
+			},
+			"model_scale": 32,
+			"height_blocks": 240,
+			"texture": [
+				2048,
+				1024
+			],
+			"bones": 5,
+			"cubes": 154,
+			"locator_bones": [
+				"aperture"
+			],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 400,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 400,
+					"strike_clip_tick": null
+				},
+				"leave": {
+					"server_length": 140,
+					"hit": -1,
+					"kind": "hold",
+					"clip_ticks": 136,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "Model px are 2 blocks (model_scale 32): about 240 blocks across. Locator: aperture (the intake beam origin)."
+		},
+		"surfboard_mount": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/surfboard_mount.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/surfboard_mount.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/surfboard_mount_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/surfboard_mount.animation.json"
+			},
+			"model_scale": 1,
+			"height_blocks": 0.2,
+			"texture": [
+				512,
+				96
+			],
+			"bones": 2,
+			"cubes": 43,
+			"locator_bones": [],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "Top surface at y = 0 (the rider stands on the root); about 2 blocks long, nose toward -Z."
+		},
+		"nullifier": {
+			"files": {
+				"geo": "src/main/resources/assets/projecthero/geo/galactus/nullifier.geo.json",
+				"tex": "src/main/resources/assets/projecthero/textures/entity/galactus/nullifier.png",
+				"glow": "src/main/resources/assets/projecthero/textures/entity/galactus/nullifier_glowmask.png",
+				"anim": "src/main/resources/assets/projecthero/animations/galactus/nullifier.animation.json",
+				"item_model": "src/main/resources/assets/projecthero/models/item/nullifier.json"
+			},
+			"model_scale": 1,
+			"height_blocks": 1,
+			"texture": [
+				512,
+				352
+			],
+			"bones": 6,
+			"cubes": 54,
+			"locator_bones": [
+				"muzzle"
+			],
+			"hidden_by_default": [],
+			"clips": {
+				"idle": {
+					"server_length": 40,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 40,
+					"strike_clip_tick": null
+				},
+				"armed": {
+					"server_length": 20,
+					"hit": -1,
+					"kind": "loop",
+					"clip_ticks": 20,
+					"strike_clip_tick": null
+				}
+			},
+			"note": "Item model (GeckoLib GeoItem): models/item/nullifier.json carries the GUI / hand / ground display transforms. Locator: muzzle."
+		}
+	}
+}
