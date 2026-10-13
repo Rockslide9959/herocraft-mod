@@ -518,21 +518,12 @@ public class SpiderManGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everySlotIsMappedToADistinctAbility(GameTestHelper helper) {
-		String[] ids = { SpiderAbilities.WEB_SWING, SpiderAbilities.WEB_ZIP, SpiderAbilities.WEB_SHOT,
-				SpiderAbilities.WEB_YANK, SpiderAbilities.WALL_CRAWL, SpiderAbilities.WEB_NET };
-		java.util.Set<Character> keys = new java.util.HashSet<>();
-		for (String id : ids) {
-			char key = SpiderAbilities.slotKeyOf(id);
-			helper.assertTrue(key != '-', id + " must be bound to one of the six slots");
-			helper.assertTrue(keys.add(key), "two web abilities are fighting over key " + key);
-		}
-		// The exact layout the design asks for.
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SWING) == 'R', "R = Web Swing");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_ZIP) == 'G', "G = Web Zip");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SHOT) == 'Z', "Z = Web Shot");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_YANK) == 'X', "X = Web Yank");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WALL_CRAWL) == 'C', "C = Wall Crawl");
-		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_NET) == 'V', "V = Web Net");
+		// v0.16.1: swinging is right-click (no key), the C wall-crawl toggle and Web Net are gone; the 18-move layout is
+		// covered in SpiderManRevampGameTests.everyMoveHasItsOwnKeyAndCooldown
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SWING) == '-', "Web Swing is not on a key any more");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_SHOT) == 'R', "R = Web Shot");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WEB_YANK) == 'G', "Shift+G = Web Yank");
+		helper.assertTrue(SpiderAbilities.slotKeyOf(SpiderAbilities.WALL_CRAWL) == '-', "no wall-crawl toggle");
 		helper.succeed();
 	}
 

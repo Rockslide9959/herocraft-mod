@@ -47,7 +47,12 @@ public final class SpiderSwingClient {
 				player.input.up, player.input.down, player.input.left, player.input.right,
 				player.input.jumping, player.input.shiftKeyDown);
 
-		ropeLength = SpiderSwing.adjustRope(ropeLength, distance, input);
+		// v0.16.1: hanging under a tightrope keeps a short fixed line (no reel-in / pay-out)
+		if (com.projecthero.mod.spider.SpiderMoves.state(player).has(com.projecthero.mod.spider.data.SpiderMoveState.FLAG_HANGING)) {
+			ropeLength = state.ropeLength > 0.0 ? state.ropeLength : 1.7;
+		} else {
+			ropeLength = SpiderSwing.adjustRope(ropeLength, distance, input);
+		}
 		Vec3 velocity = SpiderSwing.applyRope(player, anchor, ropeLength, player.getDeltaMovement(), input,
 				state.artificialAnchor, state.airSwingBaselineY);
 		player.setDeltaMovement(velocity);

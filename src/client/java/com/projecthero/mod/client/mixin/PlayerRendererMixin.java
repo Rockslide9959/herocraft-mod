@@ -51,6 +51,19 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
 	}
 
+	/** v0.16.1: Spider-Man's flips (swing release, counter) and spins (Web Whip), the zip-kick lay-back. */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$spiderFlip(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		float[] r = com.projecthero.mod.client.spider.SpiderPose.bodyRotation(player, partialTicks);
+		if (r == null) {
+			return;
+		}
+		poseStack.translate(0.0f, r[2], 0.0f);
+		poseStack.mulPose(r[0] == 0f ? Axis.XP.rotationDegrees(r[1]) : Axis.YP.rotationDegrees(r[1]));
+		poseStack.translate(0.0f, -r[2], 0.0f);
+	}
+
 	/** Wolverine Claw Dash: pitch the whole body forward into the lunge (limbs are posed in HumanoidModelMixin). */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$clawDashLean(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

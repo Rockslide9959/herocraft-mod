@@ -378,6 +378,20 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(
 						() -> com.projecthero.mod.client.spider.SpiderStrands.accept(payload)));
 
+		// v0.16.1: the web alarm -- a stranger touched one of his webs (sound + a HUD arrow at the spot).
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SpiderWebAlarmPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.gui.SpiderHud.webAlarm(
+						new net.minecraft.world.phys.Vec3(payload.x(), payload.y(), payload.z()))));
+		// v0.16.1: a web structure is solid for its owner and his squad -- the client asks its own squad roster
+		com.projecthero.mod.spider.web.WebStructures.clientMayUse = (entity, owner) -> {
+			for (com.projecthero.mod.network.SquadInfoPayload.Member m : com.projecthero.mod.client.squad.SquadClient.get().members()) {
+				if (m.id().equals(owner)) {
+					return com.projecthero.mod.client.squad.SquadClient.get().members().stream().anyMatch(x -> x.id().equals(entity.getUUID()));
+				}
+			}
+			return false;
+		};
+
 		// v0.13.4: crackling lightning arc segments (Lightning Beam, Chain Lightning).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.ThorLightningArcPayload.TYPE,
 				(payload, context) -> context.client().execute(
@@ -420,6 +434,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.hulk.HulkClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
+		// v0.16.1: right-click swinging, Weave Mode clicks, cutting webs, tightrope balance, stuck in a stranger's web
+		ClientTickEvents.START_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::startTick);
+		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::endTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.titanshifter.TitanShakeClient.tick());
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.oathbreaker.WorldEventZoomClient.tick());
@@ -944,11 +961,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.network.TitanShiftPayload(Screen.hasShiftDown()
 					? com.projecthero.mod.network.TitanShiftPayload.Action.LET_DOWN
 					: com.projecthero.mod.network.TitanShiftPayload.Action.GRAB_BITE));
-		} else if (down && !maxSteelTransformWasDown && client.player != null
-				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player)) {
-			// v0.12.20: Spider-Man -- N swaps Traversal Mode and Combat Mode.
-			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
-					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_MODE));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.allmight.AllMight.isFullPower(client.player)) {
 			// v0.12.36: All Might -- N (Power Form) opens the costume locker.

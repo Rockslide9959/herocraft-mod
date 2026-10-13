@@ -262,9 +262,9 @@ public final class HeroPackGuide {
 	private static void symbioteBlackSuitExtras(List<Component> lines) {
 		head(lines, "projecthero.guide.symbiote.black_suit");
 		String[] extras = {"symbiote_tendril_strike", "symbiote_crush", "symbiote_slam_enhanced"};
-		String[] keyedOn = {com.projecthero.mod.spider.SpiderAbilities.WEB_YANK,
-				com.projecthero.mod.spider.SpiderAbilities.WEB_SHOT,
-				com.projecthero.mod.spider.SpiderAbilities.WALL_CRAWL};
+		String[] keyedOn = {com.projecthero.mod.spider.SpiderMoves.UPPERCUT,
+				com.projecthero.mod.spider.SpiderMoves.GRAB_HURL,
+				com.projecthero.mod.spider.SpiderMoves.WEB_WALL};
 		String[] cooldowns = {"4", "10", "10"};
 		for (int i = 0; i < extras.length; i++) {
 			symbioteRow(lines, "Sneak+" + (i == 1 ? "hold " : "") + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(keyedOn[i]),

@@ -4,33 +4,37 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.network.SpiderActionPayload;
 import com.projecthero.mod.spider.SpiderClimb;
 import com.projecthero.mod.spider.SpiderMan;
+import com.projecthero.mod.spider.SpiderMoves;
 import com.projecthero.mod.spider.SpiderSwing;
 import com.projecthero.mod.spider.data.SpiderClimbLocal;
+import com.projecthero.mod.spider.data.SpiderMoveState;
+import com.projecthero.mod.spider.web.WebStructures;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * Watches the vanilla jump and sneak keys for Spider-Man's / Spider Adhesion's movement gestures and
- * sends one edge-triggered packet when one fires. No new keybinding: every gesture is something a
- * player would try anyway, and the server re-checks all of them so these are requests, not orders.
+ * Watches the vanilla jump, sneak and sprint keys for Spider-Man's / Spider Adhesion's movement gestures and sends one
+ * edge-triggered packet when one fires. No new keybinding: every gesture is something a player would try anyway, and
+ * the server re-checks all of them so these are requests, not orders.
  *
  * <h2>The gestures</h2>
  * <ul>
- *   <li><b>Double-tap sneak while stuck</b> &rarr; let go. Reaching the ground also lets go.</li>
+ *   <li><b>Run or fly into a wall</b> (v0.16.1) -- airborne, or sprinting into it on the ground -- and Spider-Man
+ *       sticks to it: the climb engine's grab intent is armed on this client and the server. The old C toggle is
+ *       gone.</li>
+ *   <li><b>Sneak while stuck</b> &rarr; let go (v0.16.1: one press; the old double-tap still works). Reaching the
+ *       ground also lets go.</li>
  *   <li><b>Jump while stuck</b> &rarr; shove off the surface.</li>
- *   <li><b>Jump in mid-air</b> (Spider-Man only) &rarr; the second jump. It is deliberately refused
- *       when solid ground is right below or the player only just left it, so tapping jump to hop the
- *       instant you land is read as an ordinary jump rather than eaten as an accidental double jump.</li>
+ *   <li><b>Jump in mid-air</b> (Spider-Man only) &rarr; the second jump; <b>with Sprint held</b> (v0.16.1) &rarr; the
+ *       Web Zip boost instead.</li>
+ *   <li><b>Sneak on a tightrope</b> &rarr; drop under it and hang; <b>Jump</b> while hanging flips back on top,
+ *       <b>Sneak</b> lets go.</li>
  * </ul>
- *
- * <p>v0.9.3: the old <b>double-tap-jump-against-a-wall grab</b> is gone -- it collided with the
- * double jump above. Wall crawling now engages purely from a mode being on: Spider-Man's slot-6
- * wall-crawl toggle, or Spider Adhesion's Adhesion Mode / Wall Grip toggle. Surface contact in
- * mid-air with that mode on sticks automatically.
  */
 public final class SpiderInputClient {
 	/** Double-tap window for the release gesture, in client ticks (~0.35 s). */
@@ -41,12 +45,15 @@ public final class SpiderInputClient {
 	private static final double GROUND_CLEARANCE = 1.15;
 	/** Ticks the client copy of the attachment refuses to re-grab after a leap (mirrors the server). */
 	private static final int LEAP_LOCKOUT = 7;
+	/** v0.16.1: after Sneak lets go of a wall, this long before running into it grabs again. */
+	private static final int RELEASE_LOCKOUT = 12;
 
 	private static boolean jumpWasDown;
 	private static boolean sneakWasDown;
 	private static boolean leftGround;
 	private static int airTicks;
 	private static int releaseWindow;
+	private static int regrabLock;
 
 	private SpiderInputClient() {
 	}
@@ -61,6 +68,7 @@ public final class SpiderInputClient {
 			releaseWindow = 0;
 			SpiderSwingClient.reset();
 			SpiderStrands.reset();
+			SpiderTraversalClient.reset();
 			return;
 		}
 		if (client.screen != null) {
@@ -82,6 +90,10 @@ public final class SpiderInputClient {
 
 		boolean adhered = SpiderClimb.attached(player);
 		boolean swinging = SpiderSwing.isSwinging(player);
+		boolean hanging = spiderMan && SpiderMoves.state(player).has(SpiderMoveState.FLAG_HANGING);
+		if (regrabLock > 0) {
+			regrabLock--;
+		}
 
 		if (player.onGround() || adhered || swinging || player.isInWater() || player.isInLava()) {
 			airTicks = 0;
@@ -104,19 +116,37 @@ public final class SpiderInputClient {
 		boolean sneakDown = client.options.keyShift.isDown();
 		boolean sneakPressed = sneakDown && !sneakWasDown;
 		sneakWasDown = sneakDown;
+		boolean sprintHeld = client.options.keySprint.isDown() || player.isSprinting();
 
-		// ---- sneak + jump on the ground -> the 6-block super leap (v0.6.17) ----
+		// ---- hanging under a tightrope (v0.16.1): Jump climbs back on top, Sneak lets go ----
+		if (hanging) {
+			if (jumpPressed) {
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ROPE_CLIMB));
+			} else if (sneakPressed) {
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
+			}
+			return;
+		}
+
+		// ---- Sneak on one of his tightropes: drop under it and hang (v0.16.1) ----
+		if (spiderMan && sneakPressed && !adhered && !swinging && WebStructures.ropeUnderfoot(player) != null) {
+			ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ROPE_HANG));
+			return;
+		}
+
+		// ---- sneak + jump on the ground -> the super leap (v0.6.17) ----
 		if (spiderMan && jumpPressed && sneakDown && player.onGround() && !adhered && !swinging
 				&& !player.getAbilities().flying && !player.isPassenger()) {
 			ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SUPER_JUMP));
 			return;
 		}
 
-		// ---- double-tap sneak while stuck -> let go ----
+		// ---- sneak while stuck -> let go (v0.16.1: a single press; a double tap is still two presses) ----
 		if (climber && sneakPressed) {
-			if (adhered && releaseWindow > 0) {
+			if (adhered && (spiderMan || releaseWindow > 0)) {
 				releaseWindow = 0;
 				localRelease(player);
+				regrabLock = RELEASE_LOCKOUT;
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.CLIMB_RELEASE));
 			} else {
 				releaseWindow = DOUBLE_TAP_TICKS;
@@ -124,6 +154,26 @@ public final class SpiderInputClient {
 		}
 		if (releaseWindow > 0) {
 			releaseWindow--;
+		}
+
+		// ---- running / flying into a wall sticks to it (v0.16.1, replaces the C toggle) ----
+		if (spiderMan && !adhered && !sneakDown && regrabLock == 0 && player.horizontalCollision
+				&& !player.getAbilities().flying && !player.isPassenger() && !player.isInWater() && !player.isInLava()
+				&& !local(player).lockedOut()) {
+			boolean airborne = !player.onGround();
+			boolean sprintingIn = player.onGround() && sprintHeld && player.input.up;
+			if (swinging && airborne) {
+				// swung into a wall: let go of the line and take the wall
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
+				grab(player);
+			} else if (!swinging && (airborne || sprintingIn)) {
+				if (sprintingIn) {
+					// a little hop off the floor so the climb engine (which never holds a grounded player) takes over
+					Vec3 v = player.getDeltaMovement();
+					player.setDeltaMovement(v.x, Math.max(v.y, 0.32), v.z);
+				}
+				grab(player);
+			}
 		}
 
 		// ---- jump gestures ----
@@ -136,12 +186,25 @@ public final class SpiderInputClient {
 			if (swinging) {
 				return; // jump reels the line in; the swing handler reads the key itself
 			}
-			// v0.9.3: a mid-air jump near a wall is just the double jump now -- no grab gesture to
-			// disambiguate against.
+			// v0.16.1: Sprint + Jump in the air is the Web Zip boost; plain Jump the double jump
+			if (spiderMan && sprintHeld && !player.onGround() && airTicks >= 2 && !player.getAbilities().flying
+					&& !player.isPassenger() && !player.isInWater()) {
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ZIP_BOOST));
+				return;
+			}
 			if (spiderMan && doubleJumpAllowed(player)) {
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.DOUBLE_JUMP));
 			}
 		}
+	}
+
+	private static void grab(LocalPlayer player) {
+		SpiderClimbLocal l = local(player);
+		if (l.grabIntent()) {
+			return;
+		}
+		l.setGrabIntent(true);
+		ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.CLIMB_GRAB));
 	}
 
 	/** The client-visible half of the double-jump gate. The server re-checks every part of this. */

@@ -73,7 +73,9 @@ public final class SymbioteHud {
 			SymbioteBlackSuitAbilities.SLAM_ENHANCED
 	};
 	private static final String[] BLACK_SUIT_KEYED_ON = {
-			SpiderAbilities.WEB_YANK, SpiderAbilities.WEB_SHOT, SpiderAbilities.WALL_CRAWL
+			// v0.16.1: they ride on Shift+X / Shift+Z / Shift+C (shadowing Uppercut, Grab & Hurl and an airborne Web Wall)
+			com.projecthero.mod.spider.SpiderMoves.UPPERCUT, com.projecthero.mod.spider.SpiderMoves.GRAB_HURL,
+			com.projecthero.mod.spider.SpiderMoves.WEB_WALL
 	};
 	private static final int[] BLACK_SUIT_COOLDOWNS = {
 			SymbioteBlackSuitAbilities.CD_TENDRIL_STRIKE, SymbioteBlackSuitAbilities.CD_CRUSH,

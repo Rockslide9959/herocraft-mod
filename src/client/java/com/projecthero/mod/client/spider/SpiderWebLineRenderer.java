@@ -111,6 +111,35 @@ public final class SpiderWebLineRenderer {
 			}
 			drawLine(poseStack, consumers, camera, hand, SpiderStrands.endPoint(s, partial), alpha);
 		}
+
+		// v0.16.1 Web Whip: the strand whirled once round him, a ring that sweeps out with the spin and fades
+		for (Player player : client.level.players()) {
+			com.projecthero.mod.spider.data.SpiderMoveState ms = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+			if (ms == null || ms.animId != com.projecthero.mod.spider.SpiderAnim.WHIP) {
+				continue;
+			}
+			double age = now - ms.animStart;
+			if (age < 0 || age > 14) {
+				continue;
+			}
+			double sweep = Math.min(1.0, age / 9.0);
+			float a = (float) (BASE_ALPHA * (age < 9 ? 1.0 : 1.0 - (age - 9) / 5.0));
+			Vec3 c = player.getPosition(partial).add(0, 1.05, 0);
+			double r = com.projecthero.mod.spider.SpiderManConfig.moves().webWhipRadius;
+			double start = Math.toRadians(-player.getViewYRot(partial) - 90.0);
+			int n = 32;
+			Vec3 prev = null;
+			for (int i = 0; i <= (int) (n * sweep); i++) {
+				double ang = start - i / (double) n * Math.PI * 2.0;
+				Vec3 p = c.add(Math.cos(ang) * r, Math.sin(i * 0.7) * 0.15, -Math.sin(ang) * r);
+				if (prev == null) {
+					drawLine(poseStack, consumers, camera, SpiderStrands.handPosition(player, true, partial, camera), p, a);
+				} else {
+					drawLine(poseStack, consumers, camera, prev, p, a);
+				}
+				prev = p;
+			}
+		}
 	}
 
 	private static void drawLine(PoseStack poseStack, MultiBufferSource consumers, Camera camera,
