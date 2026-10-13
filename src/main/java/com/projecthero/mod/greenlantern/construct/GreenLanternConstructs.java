@@ -1076,6 +1076,7 @@ public final class GreenLanternConstructs {
 			"message.projecthero.green_lantern.tool_kit.axe",
 			"message.projecthero.green_lantern.tool_kit.shovel",
 			"message.projecthero.green_lantern.tool_kit.flint_and_steel",
+			"message.projecthero.green_lantern.tool_kit.spyglass",
 	};
 	// v0.11.7: a flint and steel added to the kit -- explicit user request.
 	private static final net.minecraft.world.item.Item[] TOOL_KIT_BASES = {
@@ -1083,6 +1084,7 @@ public final class GreenLanternConstructs {
 			net.minecraft.world.item.Items.DIAMOND_AXE,
 			net.minecraft.world.item.Items.DIAMOND_SHOVEL,
 			net.minecraft.world.item.Items.FLINT_AND_STEEL,
+			net.minecraft.world.item.Items.SPYGLASS, // v0.16.1: user request
 	};
 
 	/**

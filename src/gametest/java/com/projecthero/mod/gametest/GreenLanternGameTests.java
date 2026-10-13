@@ -707,7 +707,8 @@ public class GreenLanternGameTests implements FabricGameTest {
 		helper.assertTrue(ordinaryPickaxes == 1, "the player's own diamond pickaxe must be untouched, found " + ordinaryPickaxes);
 		long tagged = countHardLightTools(player);
 		// v0.11.7: a flint and steel joined the pickaxe/axe/shovel, so a full kit is now 4 pieces.
-		helper.assertTrue(tagged == 4, "deploying the Tool Kit should grant exactly 4 tagged tools, got " + tagged);
+		// v0.16.1: and a spyglass, so a full kit is 5 pieces
+		helper.assertTrue(tagged == 5, "deploying the Tool Kit should grant exactly 5 tagged tools, got " + tagged);
 		helper.succeed();
 	}
 
@@ -1093,7 +1094,7 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternConstructs.deploy(player, ConstructType.HARD_LIGHT_TOOLS);
 		long unbreakable = player.getInventory().items.stream().filter(GreenLanternGameTests::isHardLightTool)
 				.filter(st -> st.has(net.minecraft.core.component.DataComponents.UNBREAKABLE)).count();
-		helper.assertTrue(unbreakable == 4, "all four hard-light tools should be unbreakable, got " + unbreakable);
+		helper.assertTrue(unbreakable == 5, "all five hard-light tools should be unbreakable, got " + unbreakable);
 		helper.succeed();
 	}
 
