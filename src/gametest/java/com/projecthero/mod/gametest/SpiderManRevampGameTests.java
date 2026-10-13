@@ -308,10 +308,10 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		}
 		List<BlockState> before = snapshot(helper, lo, hi);
 		Vec3 c = helper.absoluteVec(new Vec3(4.0, 4.0, 4.0));
-		SpiderMoves.beginWeaveAt(p, c, new Vec3(0, 1, 0));
+		SpiderMoves.openWeave(p, new Vec3(0, 1, 0));
 		for (Vec3 off : new Vec3[] {new Vec3(3.5, 0, 0), new Vec3(-3.5, 0, 0.5), new Vec3(0, 0, 3.5), new Vec3(0.5, 0, -3.5),
 				new Vec3(2.5, 0, 2.5)}) {
-			helper.assertTrue(SpiderMoves.weaveStrandTo(p, c.add(off)), "a radial strand is woven");
+			helper.assertTrue(SpiderMoves.weaveAnchor(p, c.add(off)), "an anchor is placed");
 		}
 		WebStructureEntity web = SpiderMoves.finishWeave(p);
 		helper.assertTrue(web != null && web.geometry().segmentCount() > 5, "the web is finished with its spiral");
@@ -572,24 +572,58 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+
+
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void weaveCentreSitsThreeBlocksAheadOrShortOfAWall(GameTestHelper helper) {
+	public void aWovenWebIsCentredOnItsAnchorsAndFlat(GameTestHelper helper) {
 		ServerPlayer p = spider(helper);
-		Vec3 at = helper.absoluteVec(new Vec3(2.5, 1.0, 1.5));
-		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
-		p.setYRot(0.0f);
-		p.setXRot(0.0f);
-		Vec3 eye = p.getEyePosition();
-		Vec3 open = SpiderMoves.weaveCentre(p);
-		helper.assertTrue(Math.abs(open.distanceTo(eye) - SpiderManConfig.webs().weaveCenterDistance) < 0.01
-				&& open.z > eye.z, "in the open the centre is 3 blocks straight ahead, got " + open.subtract(eye));
-		// a wall 2 blocks ahead: the centre stops just short of it, in the air
-		BlockPos wall = BlockPos.containing(eye.x, eye.y, eye.z + 2.0);
-		helper.getLevel().setBlock(wall, Blocks.STONE.defaultBlockState(), 2);
-		Vec3 clipped = SpiderMoves.weaveCentre(p);
-		double d = clipped.distanceTo(eye);
-		helper.assertTrue(d < 2.0 && d >= 0.3, "before a closer wall the centre stops short of it, got " + d);
-		helper.assertTrue(helper.getLevel().getBlockState(BlockPos.containing(clipped)).isAir(), "and is in the air");
+		Vec3 c = helper.absoluteVec(new Vec3(4.0, 5.0, 4.0));
+		// clicked in a scrambled order round a flat (horizontal) gap
+		Vec3[] offs = {new Vec3(4, 0, 0.3), new Vec3(-3, 0, -3), new Vec3(0.4, 0, 4), new Vec3(-4, 0, 0.6), new Vec3(3, 0, -3.2),
+				new Vec3(-2.6, 0, 3)};
+		List<Vec3> anchors = new ArrayList<>();
+		SpiderMoves.openWeave(p, new Vec3(0, 0.3, 1));
+		for (Vec3 o : offs) {
+			anchors.add(c.add(o));
+			helper.assertTrue(SpiderMoves.weaveAnchor(p, c.add(o)), "anchor placed");
+		}
+		Vec3 centre = SpiderMoves.weaveCentroid(anchors);
+		Vec3 mean = Vec3.ZERO;
+		for (Vec3 a : anchors) {
+			mean = mean.add(a.scale(1.0 / anchors.size()));
+		}
+		helper.assertTrue(centre.distanceTo(mean) < 1.0e-6, "the centre is the average of the anchors");
+		Vec3 n = SpiderMoves.weaveNormal(anchors, new Vec3(0, 0.3, 1));
+		helper.assertTrue(Math.abs(n.y) > 0.99, "the web lies in the anchors' (flat) plane, got normal " + n);
+		List<Vec3> ordered = SpiderMoves.orderAroundCentre(anchors, centre, n);
+		double last = -Double.MAX_VALUE;
+		Vec3 u = n.cross(new Vec3(1, 0, 0)).normalize();
+		Vec3 v = n.cross(u).normalize();
+		for (Vec3 a : ordered) {
+			double ang = Math.atan2(a.subtract(centre).dot(v), a.subtract(centre).dot(u));
+			helper.assertTrue(ang >= last, "the radials run in order round the centre");
+			last = ang;
+		}
+		WebStructureEntity web = SpiderMoves.finishWeave(p);
+		helper.assertTrue(web != null && web.geometry().segmentCount() > anchors.size(), "the web is finished with its spiral");
+		helper.assertTrue(cd(p, SpiderMoves.WEAVE), "and Weave Mode cools down");
+		web.dissolve(false);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aWeaveWithFewerThanThreeAnchorsIsCancelledAndRefunded(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Vec3 c = helper.absoluteVec(new Vec3(4.0, 5.0, 4.0));
+		float before = com.projecthero.mod.spider.SpiderWebReserve.get(p);
+		SpiderMoves.openWeave(p, new Vec3(0, 1, 0));
+		helper.assertTrue(SpiderMoves.weaveAnchor(p, c.add(4, 0, 0)) && SpiderMoves.weaveAnchor(p, c.add(-4, 0, 0)), "two anchors");
+		helper.assertTrue(com.projecthero.mod.spider.SpiderWebReserve.get(p) < before, "they cost webbing");
+		helper.assertTrue(SpiderMoves.finishWeave(p) == null, "two anchors make no web");
+		helper.assertTrue(Math.abs(com.projecthero.mod.spider.SpiderWebReserve.get(p) - before) < 0.01f, "the webbing is refunded");
+		helper.assertFalse(cd(p, SpiderMoves.WEAVE), "and there is no cooldown");
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(WebStructureEntity.class, new AABB(c, c).inflate(8)).stream()
+				.noneMatch(e -> !e.isRemoved()), "the preview is taken down");
 		helper.succeed();
 	}
 

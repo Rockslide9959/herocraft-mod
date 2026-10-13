@@ -176,15 +176,16 @@ public final class SpiderMoves {
 	private record Thrown(int entityId, long start, float damage) {
 	}
 
+	/** v0.16.1: an open Weave Mode -- its anchors (no centre until it is finished: the centre is their centroid). */
 	private static final class Weave {
-		final Vec3 centre;
 		final Vec3 normal;
 		final List<Vec3> ends = new ArrayList<>();
 		final long start;
+		/** Webbing spent on anchors so far (refunded if the weave is cancelled). */
+		float spent;
 		WebStructureEntity web;
 
-		Weave(Vec3 centre, Vec3 normal, long start) {
-			this.centre = centre;
+		Weave(Vec3 normal, long start) {
 			this.normal = normal;
 			this.start = start;
 		}
@@ -241,8 +242,8 @@ public final class SpiderMoves {
 		HURLS.remove(id);
 		THROWN.remove(id);
 		Weave w = WEAVES.remove(id);
-		if (w != null && w.web != null && w.ends.size() < 2) {
-			w.web.dissolve(false);
+		if (w != null && w.web != null && !w.web.isRemoved()) {
+			w.web.dissolve(false); // an unfinished weave (only a preview) never outlives Weave Mode
 		}
 		ANCHOR_A_AT.remove(id);
 		ANCHOR_A_PARENT.remove(id);
@@ -1069,7 +1070,10 @@ public final class SpiderMoves {
 		return web;
 	}
 
-	/** Hold C: open Weave Mode. The centre sits 3 blocks in front of him ({@link #weaveCentre}); left-clicks add radial strands. */
+	/**
+	 * Hold C: open Weave Mode -- with NO centre yet. Each left-click places an anchor on the aimed surface; the web's centre
+	 * is the centroid of all the anchors, so it comes out flat and stretched evenly between them (v0.16.1, user request).
+	 */
 	private static void beginWeave(ServerPlayer player) {
 		if (WEAVES.containsKey(player.getUUID())) {
 			return;
@@ -1078,39 +1082,17 @@ public final class SpiderMoves {
 			SpiderAbilities.gate(player, WEAVE, 0.0f);
 			return;
 		}
-		beginWeaveAt(player, weaveCentre(player), player.getLookAngle());
+		openWeave(player, player.getLookAngle());
 	}
 
-	/**
-	 * v0.16.1: where Weave Mode puts the web's centre -- {@code weaveCenterDistance} (3) blocks in front of his eyes along
-	 * his look, or just short of a block if one is closer (the radial strands still go from there to the aimed surfaces).
-	 */
-	public static Vec3 weaveCentre(ServerPlayer player) {
-		double dist = Math.max(0.5, SpiderManConfig.webs().weaveCenterDistance);
-		Vec3 eye = player.getEyePosition();
-		Vec3 look = player.getLookAngle();
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, dist);
-		if (hit.getType() == HitResult.Type.BLOCK) {
-			double d = hit.getLocation().distanceTo(eye);
-			if (d < dist) {
-				return eye.add(look.scale(Math.max(0.3, d - 0.3)));
-			}
-		}
-		return eye.add(look.scale(dist));
-	}
-
-	/** Open Weave Mode with an explicit centre and plane normal (the move above and the tests). */
-	public static void beginWeaveAt(ServerPlayer player, Vec3 centre, Vec3 normal) {
-		WEAVES.put(player.getUUID(), new Weave(centre, normal, player.level().getGameTime()));
+	/** Open Weave Mode (no centre, no anchors yet); {@code normalHint} orients the web's plane until it has 3 anchors. */
+	public static void openWeave(ServerPlayer player, Vec3 normalHint) {
+		WEAVES.put(player.getUUID(), new Weave(normalHint, player.level().getGameTime()));
 		SpiderMoveState c = state(player).copy();
 		c.set(SpiderMoveState.FLAG_WEAVING, true);
-		c.cx = centre.x;
-		c.cy = centre.y;
-		c.cz = centre.z;
 		c.strands = 0;
 		c.chargeStart = player.level().getGameTime();
 		save(player, c);
-		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_WEAVE, null, centre, 600, 0);
 		play(player, SoundEvents.SPIDER_AMBIENT, 0.6f, 1.2f);
 		player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_open"), true);
 	}
@@ -1119,7 +1101,7 @@ public final class SpiderMoves {
 		return WEAVES.containsKey(player.getUUID());
 	}
 
-	/** A left-click in Weave Mode: one radial strand from the centre to the aimed surface. */
+	/** A left-click in Weave Mode: an anchor on the aimed surface (within the strand reach). */
 	public static boolean weaveStrand(ServerPlayer player) {
 		Weave w = WEAVES.get(player.getUUID());
 		if (w == null) {
@@ -1130,53 +1112,71 @@ public final class SpiderMoves {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_full"), true);
 			return false;
 		}
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, cfgW.weaveStrandLength * 2.0);
+		BlockHitResult hit = AbilityHelpers.raycastBlock(player, cfgW.weaveStrandLength);
 		if (hit.getType() != HitResult.Type.BLOCK) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_surface"), true);
 			return false;
 		}
 		Vec3 end = hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.12));
-		return weaveStrandTo(player, end);
+		return weaveAnchor(player, end);
 	}
 
-	/** Add a radial strand from the centre to {@code end} (the click above and the tests). */
-	public static boolean weaveStrandTo(ServerPlayer player, Vec3 end) {
+	/** Add an anchor at {@code end} (the click above and the tests); the preview re-centres on all the anchors. */
+	public static boolean weaveAnchor(ServerPlayer player, Vec3 end) {
 		Weave w = WEAVES.get(player.getUUID());
 		if (w == null) {
 			return false;
 		}
-		double len = end.distanceTo(w.centre);
-		if (len > SpiderManConfig.webs().weaveStrandLength) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_too_far",
-					(int) SpiderManConfig.webs().weaveStrandLength), true);
+		SpiderManConfig.Webs cfgW = SpiderManConfig.webs();
+		if (w.ends.size() >= cfgW.weaveMaxStrands) {
 			return false;
 		}
-		if (len < 1.5) {
+		if (end.distanceTo(player.getEyePosition()) > cfgW.weaveStrandLength + 1.0) {
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_too_far",
+					(int) cfgW.weaveStrandLength), true);
 			return false;
+		}
+		for (Vec3 e : w.ends) {
+			if (e.distanceToSqr(end) < 1.0) {
+				return false; // the same spot twice
+			}
 		}
 		float cost = cfg(WEAVE).cost;
 		if (!SpiderWebReserve.spend(player, cost, true)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_webbing"), true);
 			return false;
 		}
+		w.spent += cost;
 		w.ends.add(end);
-		WebGeometry g = WebGeometry.weave(w.centre, w.ends, w.normal, false, 1.0);
-		if (w.web == null || w.web.isRemoved()) {
-			w.web = WebStructures.spawn(player, g, w.centre);
-		} else {
-			w.web.setGeometry(g);
-		}
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 centre = weaveCentroid(w.ends);
+		Vec3 normal = weaveNormal(w.ends, w.normal);
+		// the live preview: the centroid marker (synced centre) and, from two anchors on, faint radials to each anchor
 		SpiderMoveState c = state(player).copy();
 		c.strands = w.ends.size();
+		c.cx = centre.x;
+		c.cy = centre.y;
+		c.cz = centre.z;
 		c.animId = SpiderAnim.WEAVE_SHOT;
-		c.animStart = player.level().getGameTime();
+		c.animStart = level.getGameTime();
 		save(player, c);
+		if (w.ends.size() >= 2) {
+			WebGeometry g = WebGeometry.weave(centre, orderAroundCentre(w.ends, centre, normal), normal, false, 1.0);
+			if (w.web == null || w.web.isRemoved()) {
+				w.web = WebStructures.spawn(player, g, centre);
+			} else {
+				w.web.setGeometry(g);
+				w.web.setPos(centre);
+			}
+		}
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_WEAVE, null, end, 6, 20);
+		level.sendParticles(ParticleTypes.ITEM_COBWEB, end.x, end.y, end.z, 10, 0.12, 0.12, 0.12, 0.0);
+		level.sendParticles(ParticleTypes.END_ROD, centre.x, centre.y, centre.z, 4, 0.05, 0.05, 0.05, 0.0);
 		thwip(player, 1.1f + w.ends.size() * 0.02f);
-		AbilityHelpers.line((ServerLevel) player.level(), w.centre, end, ParticleTypes.ITEM_COBWEB, 0.5);
 		return true;
 	}
 
-	/** C released: lay the spiral rings across the radials and finish the web. */
+	/** C released: with 3+ anchors the web is centred on their centroid, radials sorted round it, spirals laid in. */
 	public static WebStructureEntity finishWeave(ServerPlayer player) {
 		Weave w = WEAVES.remove(player.getUUID());
 		SpiderMoveState c = state(player).copy();
@@ -1184,23 +1184,100 @@ public final class SpiderMoves {
 		c.strands = 0;
 		save(player, c);
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_WEAVE, null, player.position(), 0, 0);
-		if (w == null || w.web == null || w.web.isRemoved()) {
+		if (w == null || w.ends.isEmpty()) {
 			return null; // nothing was woven: no cost, no cooldown
 		}
-		if (w.ends.size() >= 2) {
-			float finish = SpiderManConfig.moves().weaveFinishCost;
-			if (SpiderWebReserve.spend(player, finish, true)) {
-				w.web.setGeometry(WebGeometry.weave(w.centre, w.ends, w.normal, true, 1.0));
-				anim(player, SpiderAnim.WEAVE_FINISH);
-				notify(player, SpiderSounds.SPLAT, 1.0f, 0.7f);
-				((ServerLevel) player.level()).sendParticles(ParticleTypes.ITEM_COBWEB, w.centre.x, w.centre.y, w.centre.z,
-						30, 1.5, 1.5, 1.5, 0.02);
-			} else {
-				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_webbing"), true);
+		double reach = SpiderManConfig.webs().weaveStrandLength;
+		Vec3 centre = weaveCentroid(w.ends);
+		List<Vec3> kept = new ArrayList<>();
+		for (Vec3 e : w.ends) {
+			if (e.distanceTo(centre) <= reach) {
+				kept.add(e);
 			}
+		}
+		if (kept.size() < 3) {
+			// fewer than 3 anchors: no web -- take the preview down and give the webbing back
+			if (w.web != null && !w.web.isRemoved()) {
+				w.web.dissolve(false);
+			}
+			SpiderMan.setWebReserve(player, Math.min(SpiderWebReserve.maxFor(player), SpiderWebReserve.get(player) + w.spent));
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_cancelled"), true);
+			return null;
+		}
+		centre = weaveCentroid(kept);
+		Vec3 normal = weaveNormal(kept, w.normal);
+		List<Vec3> ordered = orderAroundCentre(kept, centre, normal);
+		float finish = SpiderManConfig.moves().weaveFinishCost;
+		boolean spirals = SpiderWebReserve.spend(player, finish, true);
+		if (!spirals) {
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_webbing"), true);
+		}
+		WebGeometry g = WebGeometry.weave(centre, ordered, normal, spirals, 1.0);
+		if (w.web == null || w.web.isRemoved()) {
+			w.web = WebStructures.spawn(player, g, centre);
+		} else {
+			w.web.setGeometry(g);
+			w.web.setPos(centre);
+		}
+		if (spirals) {
+			anim(player, SpiderAnim.WEAVE_FINISH);
+			notify(player, SpiderSounds.SPLAT, 1.0f, 0.7f);
+			((ServerLevel) player.level()).sendParticles(ParticleTypes.ITEM_COBWEB, centre.x, centre.y, centre.z,
+					30, 1.5, 1.5, 1.5, 0.02);
 		}
 		SpiderMan.triggerCooldown(player, WEAVE, cfg(WEAVE).cooldown);
 		return w.web;
+	}
+
+	/** v0.16.1: the web's centre -- the plain average of its anchors (it lies on their best-fit plane). */
+	public static Vec3 weaveCentroid(List<Vec3> anchors) {
+		double x = 0, y = 0, z = 0;
+		for (Vec3 a : anchors) {
+			x += a.x;
+			y += a.y;
+			z += a.z;
+		}
+		int n = Math.max(1, anchors.size());
+		return new Vec3(x / n, y / n, z / n);
+	}
+
+	/**
+	 * v0.16.1: the anchors' best-fit plane normal (Newell's method over the anchors taken in order round their centroid),
+	 * pointing the same way as {@code hint}; the hint itself with fewer than 3 anchors or a degenerate set.
+	 */
+	public static Vec3 weaveNormal(List<Vec3> anchors, Vec3 hint) {
+		Vec3 h = hint == null || hint.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : hint.normalize();
+		if (anchors.size() < 3) {
+			return h;
+		}
+		Vec3 c = weaveCentroid(anchors);
+		List<Vec3> ord = orderAroundCentre(anchors, c, h);
+		double nx = 0, ny = 0, nz = 0;
+		for (int i = 0; i < ord.size(); i++) {
+			Vec3 a = ord.get(i).subtract(c);
+			Vec3 b = ord.get((i + 1) % ord.size()).subtract(c);
+			Vec3 x = a.cross(b);
+			nx += x.x;
+			ny += x.y;
+			nz += x.z;
+		}
+		Vec3 n = new Vec3(nx, ny, nz);
+		if (n.lengthSqr() < 1.0e-6) {
+			return h;
+		}
+		n = n.normalize();
+		return n.dot(h) < 0 ? n.reverse() : n;
+	}
+
+	/** v0.16.1: the anchors sorted by angle round {@code centre} in the plane of {@code normal}, whatever the click order. */
+	public static List<Vec3> orderAroundCentre(List<Vec3> anchors, Vec3 centre, Vec3 normal) {
+		Vec3 n = normal.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : normal.normalize();
+		Vec3 u = Math.abs(n.y) < 0.95 ? n.cross(new Vec3(0, 1, 0)).normalize() : n.cross(new Vec3(1, 0, 0)).normalize();
+		Vec3 v = n.cross(u).normalize();
+		List<Vec3> out = new ArrayList<>(anchors);
+		out.sort((p, q) -> Double.compare(Math.atan2(p.subtract(centre).dot(v), p.subtract(centre).dot(u)),
+				Math.atan2(q.subtract(centre).dot(v), q.subtract(centre).dot(u))));
+		return out;
 	}
 
 	// ---------------- V ----------------

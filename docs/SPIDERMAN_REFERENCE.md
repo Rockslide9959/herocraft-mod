@@ -32,7 +32,7 @@ The six keys each hold **three moves** -- tap, Shift+key (Shift read when the ke
 | **X** melee | **Web Strike** `web_strike` -- zip in (30 b) + 3 punches 5 / 5 / 9 (finisher knockback). 8 web, 2.5 s | **Uppercut Launch** `uppercut` -- 5 b: 8 dmg, target launched (1.05 up), you leap after it; a 3 s air-combo window where your hits keep it (and you) aloft. 6 web, 6 s | **Spider-Sense Counter** `spider_counter` -- 1 s stance: the next attack (attacker or projectile) is dodged with a back-flip and countered: 12 dmg + knockback to an attacker within 10 b, projectiles reversed. 4 web, 8 s (3 s on a whiff) |
 | **Z** throws | **Web Whip** `web_whip` -- everything within 4 b: 7 dmg, knockback, stick stack; whip ring + body spin. 10 web, 4 s | **Grab & Hurl** `grab_hurl` -- aimed mob (16 b) or, with none, a loose block: hauled to the hand (9 t), thrown along the look; 10 dmg on impact (thrown blocks shatter into drops, half damage to bystanders). 10 web, 5 s | **Web Swing-Throw** `swing_throw` -- the old Web-Throw: whirl a mob (30 b) round your head while held, release hurls it; 6 dmg on impact. 10 web, 3 s |
 | **V** big moves | **Spider-Sense Pulse** `spider_pulse` -- client-only highlight of every `Enemy` within 32 b for 6 s, Speed IV 6 s, a 2 s dodge window (every hit with an attacker is negated). 10 web, 20 s | **Web Cocoon** `web_cocoon` -- an enemy (20 b) at <= 40 % health, webbed, cocooned or Slowness III+: cocooned 12 s and takes x1.6 damage from players. Not bosses. 25 web, 10 s | **Web Blossom** `web_blossom` -- charge 2 s (no Sneak needed now), 40 dmg + 20 s trap within 20 b. 75 web, 20 s |
-| **C** web building | **Tightrope** `tightrope` -- 1st press: anchor A (aimed surface); 2nd: a strand A -> B if <= 40 b apart. Aim at nothing to clear A; A is forgotten after 30 s. 10 web (at B), 10 t | **Web Wall** `web_wall` -- a 3 x 3 panel 2.5 b ahead, facing you (axis-snapped). Blocks every projectile not fired by you / your squad; traps mobs. 25 web, 10 s | **Weave Mode** `weave` -- the centre is 3 b in front of the eyes (`webs.weaveCenterDistance`; just short of a closer block); each left-click = a radial strand to the aimed surface (<= 10 strands, <= 30 b each, 8 web each); release C = spiral rings fill in (30 web). 15 s cooldown; closes itself after 30 s |
+| **C** web building | **Tightrope** `tightrope` -- 1st press: anchor A (aimed surface); 2nd: a strand A -> B if <= 40 b apart. Aim at nothing to clear A; A is forgotten after 30 s. 10 web (at B), 10 t | **Web Wall** `web_wall` -- a 3 x 3 panel 2.5 b ahead, facing you (axis-snapped). Blocks every projectile not fired by you / your squad; traps mobs. 25 web, 10 s | **Weave Mode** `weave` -- each left-click places an anchor on the aimed surface; release C = the web centred on the centroid of the anchors (3+ anchors, else cancelled and refunded); each left-click = a radial strand to the aimed surface (<= 10 strands, <= 30 b each, 8 web each); release C = spiral rings fill in (30 web). 15 s cooldown; closes itself after 30 s |
 
 Black Suit Spider-Man: Shift+X (Tendril Strike), Shift+Z (Crush, held) and airborne Shift+C (Slam) are the Symbiote's
 while the suit is on (the Agent Venom precedent) -- they shadow Uppercut, Grab & Hurl and an airborne Web Wall.
@@ -91,7 +91,7 @@ the slots.
 ### Config -- `config/projecthero_spider_man.json` (`SpiderManConfig`)
 
 `webs` (server preference): `fadeSeconds` 300, `maxStructuresPerPlayer` 12, `blockGrabbing` true, `alarmRange` 160,
-`alarmCooldownTicks` 60, `tightropeMaxLength` 40, `weaveMaxStrands` 10, `weaveStrandLength` 30, `weaveCenterDistance` 3, `strangerSlowFactor`
+`alarmCooldownTicks` 60, `tightropeMaxLength` 40, `weaveMaxStrands` 10, `weaveStrandLength` 30, `strangerSlowFactor`
 0.08, `holdTicks` 8.
 
 `moves` (balance; each `Move` is `{cooldown ticks, cost, damage}`): `webShot` 6/2/2, `webBomb` 120/15/3 (+`webBombRadius`
@@ -256,7 +256,7 @@ Every Spider-Sense sound respects the Shift+N mute.
   - **Off hand:** an off-hand strand now draws the off arm, raised toward the strand, so its line has a wrist.
   - **Fallback:** a hand not drawn for 150 ms falls back to the old estimate.
   - Sheet: `spidey_fp_web_wrist_sheet.png` (FOV 70 top row, FOV 100 bottom row: tightrope shot, Web Zip, swing frames).
-- **Weave Mode centre** (`SpiderMoves.weaveCentre`, `webs.weaveCenterDistance` 3.0). Holding C puts the web's centre 3 blocks in front of his eyes along his look, or 0.3 blocks short of a closer block. The radial strands still run from the centre to the aimed surfaces. Gametest: `weaveCentreSitsThreeBlocksAheadOrShortOfAWall`.
+- **Weave Mode centre** (superseded: see "Weave Mode: the centre is the centroid of the anchors") (`SpiderMoves.weaveCentre`, `webs.weaveCenterDistance` 3.0). Holding C puts the web's centre 3 blocks in front of his eyes along his look, or 0.3 blocks short of a closer block. The radial strands still run from the centre to the aimed surfaces. Gametest: `weaveCentreSitsThreeBlocksAheadOrShortOfAWall`.
 
 ### Perch removed, the Web Bomb glob, the Zip Boost sound
 
@@ -287,6 +287,30 @@ Gametests:
 - `aSwingFiredFromTheGroundIsHeld`
 - `aSwingFiredHighAboveAFabricatedRunIsNotCutAtOnce`
 - `aRefusedSwingShowsNoLine` (no webbing: the server refuses, nothing attaches)
+
+### Weave Mode: the centre is the centroid of the anchors
+
+The weave now comes out flat and centred instead of a tent pulled toward one point.
+
+- **Opening:** holding C opens Weave Mode with no centre (`SpiderMoves.openWeave`).
+- **Anchors:** each left-click places an anchor on the aimed surface within `weaveStrandLength` (30) blocks (`weaveAnchor`; 8 webbing each, at most `weaveMaxStrands`).
+- **Live preview:**
+  - The synced centre (`SpiderMoveState.cx/cy/cz`) is the centroid of the anchors so far, drawn as a pulsing star (`SpiderWebLineRenderer`).
+  - From 2 anchors on, preview radials run from it to each anchor.
+  - Each click flashes a short line to the new anchor.
+- **Release with 3+ anchors:**
+  - Centre = centroid (`weaveCentroid`; it lies on the anchors' best-fit plane).
+  - Plane normal from Newell's method over the anchors in order round the centroid (`weaveNormal`).
+  - Radials sorted by angle round the centre in that plane (`orderAroundCentre`), so the spirals join neighbours whatever order they were clicked in.
+  - Anchors farther than 30 from the centroid are dropped.
+  - The spirals are laid in (30 webbing), then the cooldown starts.
+- **Release with fewer than 3:** the weave is cancelled with a message, the preview is taken down, all the anchor webbing is refunded, and there is no cooldown.
+- **Unchanged:** walkability and collision for him and his squad, stuck-fast for others, limits, costs and cooldowns.
+- **Removed:** `webs.weaveCenterDistance` (an old config file's key is simply ignored).
+- **Gametests:** `aWovenWebIsCentredOnItsAnchorsAndFlat`, `aWeaveWithFewerThanThreeAnchorsIsCancelledAndRefunded`, and `wovenWebNeverChangesABlock` (updated).
+- **Sheet:** `spidey_weave_centroid_sheet.png` shows:
+  - the preview with 3, then 6, anchors;
+  - the finished web across a gap, from the front, the side and 3/4.
 
 ## v0.9.10 changes (at a glance)
 

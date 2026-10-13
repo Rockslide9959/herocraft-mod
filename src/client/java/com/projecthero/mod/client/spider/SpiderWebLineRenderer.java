@@ -112,6 +112,23 @@ public final class SpiderWebLineRenderer {
 			drawLine(poseStack, consumers, camera, hand, SpiderStrands.endPoint(s, partial), alpha);
 		}
 
+		// v0.16.1 Weave Mode: the centre marker -- the centroid of the anchors placed so far (synced), a small pulsing star
+		for (Player player : client.level.players()) {
+			com.projecthero.mod.spider.data.SpiderMoveState ws = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+			if (ws == null || !ws.has(com.projecthero.mod.spider.data.SpiderMoveState.FLAG_WEAVING) || ws.strands < 1) {
+				continue;
+			}
+			Vec3 c = new Vec3(ws.cx, ws.cy, ws.cz);
+			double r = 0.35 + 0.08 * Math.sin(now * 0.4);
+			float a = 0.85f;
+			drawLine(poseStack, consumers, camera, c.add(-r, 0, 0), c.add(r, 0, 0), a);
+			drawLine(poseStack, consumers, camera, c.add(0, -r, 0), c.add(0, r, 0), a);
+			drawLine(poseStack, consumers, camera, c.add(0, 0, -r), c.add(0, 0, r), a);
+			double d = r * 0.6;
+			drawLine(poseStack, consumers, camera, c.add(-d, -d, -d), c.add(d, d, d), a * 0.7f);
+			drawLine(poseStack, consumers, camera, c.add(-d, d, -d), c.add(d, -d, d), a * 0.7f);
+		}
+
 		// v0.16.1 Web Whip: the strand whirled once round him, a ring that sweeps out with the spin and fades
 		for (Player player : client.level.players()) {
 			com.projecthero.mod.spider.data.SpiderMoveState ms = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);

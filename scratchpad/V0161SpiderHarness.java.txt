@@ -413,7 +413,7 @@ public final class V0161SpiderHarness {
 				fill(l, bx - 8, gy - 1, -14, bx + 8, gy - 1, 14, Blocks.STONE_BRICKS.defaultBlockState());
 				reset(p, bx, -12);
 				Vec3 centre = new Vec3(bx + 0.5, gy + 8.0, 0.5);
-				SpiderMoves.beginWeaveAt(p, centre, new Vec3(0, 0, 1));
+				SpiderMoves.openWeave(p, new Vec3(0, 0, 1));
 				for (int k = 0; k < 10; k++) {
 					double ang = Math.toRadians(k * 36 + 9);
 					double dx = Math.cos(ang);
@@ -421,7 +421,7 @@ public final class V0161SpiderHarness {
 					double tx = dx == 0 ? 99 : ((dx > 0 ? 8.9 : -8.4) / dx);
 					double ty = dy == 0 ? 99 : ((dy > 0 ? 7.9 : -7.95) / dy);
 					double t = Math.min(Math.min(tx, ty), 23.0);
-					SpiderMoves.weaveStrandTo(p, centre.add(dx * t, dy * t, 0));
+					SpiderMoves.weaveAnchor(p, centre.add(dx * t, dy * t, 0));
 				}
 				SpiderMoves.finishWeave(p);
 				SpiderMan.setWebReserve(p, 400f);
@@ -429,11 +429,11 @@ public final class V0161SpiderHarness {
 				fill(l, bx - 8, gy, 40, bx - 3, gy + 9, 56, Blocks.STONE.defaultBlockState());
 				fill(l, bx + 4, gy, 40, bx + 9, gy + 9, 56, Blocks.STONE.defaultBlockState());
 				Vec3 c2 = new Vec3(bx + 0.5, gy + 10.1, 48.5);
-				SpiderMoves.beginWeaveAt(p, c2, new Vec3(0, 1, 0));
+				SpiderMoves.openWeave(p, new Vec3(0, 1, 0));
 				double[][] ends = {{-3.6, 0, 0}, {4.4, 0, 0}, {-3.6, 0, 6}, {4.4, 0, 6}, {-3.6, 0, -6}, {4.4, 0, -6},
 						{-3.6, 0, 3}, {4.4, 0, -3}, {-3.6, 0, -3}, {4.4, 0, 3}};
 				for (double[] e : ends) {
-					SpiderMoves.weaveStrandTo(p, c2.add(e[0], e[1], e[2]));
+					SpiderMoves.weaveAnchor(p, c2.add(e[0], e[1], e[2]));
 				}
 				SpiderMoves.finishWeave(p);
 				var st = SpiderMan.state(p).copy();
@@ -482,11 +482,11 @@ public final class V0161SpiderHarness {
 				});
 			});
 			at(c + 10, () -> still(mc, "hud"));
-			at(c + 12, () -> server(mc, p -> SpiderMoves.beginWeaveAt(p, p.position().add(0, 3, 6), new Vec3(0, 0, 1))));
+			at(c + 12, () -> server(mc, p -> SpiderMoves.openWeave(p, new Vec3(0, 0, 1))));
 			at(c + 14, () -> server(mc, p -> {
-				SpiderMoves.weaveStrandTo(p, p.position().add(4, 3, 6));
-				SpiderMoves.weaveStrandTo(p, p.position().add(-4, 4, 6));
-				SpiderMoves.weaveStrandTo(p, p.position().add(0, 0.1, 6));
+				SpiderMoves.weaveAnchor(p, p.position().add(4, 3, 6));
+				SpiderMoves.weaveAnchor(p, p.position().add(-4, 4, 6));
+				SpiderMoves.weaveAnchor(p, p.position().add(0, 0.1, 6));
 			}));
 			at(c + 20, () -> com.projecthero.mod.client.gui.SpiderHud.webAlarm(mc.player.position().add(14, 0, 4)));
 			at(c + 24, () -> still(mc, "hud_weave_alarm"));
