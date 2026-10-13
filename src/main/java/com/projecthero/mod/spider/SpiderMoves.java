@@ -1212,11 +1212,14 @@ public final class SpiderMoves {
 		if (!SpiderMan.abilityReady(player, ZIP_BOOST) || !SpiderWebReserve.has(player, cfg(ZIP_BOOST).cost)) {
 			return false;
 		}
-		Vec3 look = player.getLookAngle();
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, 30.0);
-		Vec3 point = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation()
-				: player.getEyePosition().add(look.scale(14.0)).add(0, 5.0, 0);
-		Vec3 dir = new Vec3(look.x, Math.max(-0.2, look.y) * 0.6 + 0.25, look.z).normalize();
+		// v0.16.1 (user request): the zip needs a real surface to web onto within zipBoostRange -- never webs onto air
+		BlockHitResult hit = AbilityHelpers.raycastBlock(player, SpiderManConfig.get().moves.zipBoostRange);
+		if (hit.getType() != HitResult.Type.BLOCK) {
+			return false;
+		}
+		Vec3 point = hit.getLocation();
+		Vec3 toward = point.subtract(player.getEyePosition()).normalize();
+		Vec3 dir = new Vec3(toward.x, Math.max(-0.2, toward.y) * 0.6 + 0.25, toward.z).normalize();
 		AbilityHelpers.launchSelf(player, dir.scale(1.6));
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, point, 3, 30);
 		thwip(player, 1.3f);

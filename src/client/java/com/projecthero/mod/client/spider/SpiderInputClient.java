@@ -188,7 +188,10 @@ public final class SpiderInputClient {
 			}
 			// v0.16.1: Sprint + Jump in the air is the Web Zip boost; plain Jump the double jump
 			if (spiderMan && sprintHeld && !player.onGround() && airTicks >= 2 && !player.getAbilities().flying
-					&& !player.isPassenger() && !player.isInWater()) {
+					&& !player.isPassenger() && !player.isInWater()
+					// v0.16.1: only with a surface to web onto in range -- otherwise this stays a plain double jump
+					&& player.pick(com.projecthero.mod.spider.SpiderManConfig.get().moves.zipBoostRange, 1.0f, false)
+							.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ZIP_BOOST));
 				return;
 			}

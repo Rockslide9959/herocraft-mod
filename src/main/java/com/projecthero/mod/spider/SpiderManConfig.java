@@ -107,6 +107,8 @@ public final class SpiderManConfig {
 		public int blossomChargeTicks = 40;
 		// passive traversal
 		public Move zipBoost = new Move(16, 3.0f, 0.0f);
+		/** v0.16.1: Zip Boost needs a block to web onto within this range (it never webs onto air). */
+		public double zipBoostRange = 50.0;
 	}
 
 	public static SpiderManConfig get() {
