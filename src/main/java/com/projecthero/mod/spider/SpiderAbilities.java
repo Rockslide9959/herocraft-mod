@@ -77,7 +77,7 @@ public final class SpiderAbilities {
 
 	/** Charge time for the given mode (the HUD passes the synced state's flag, the server the player's). */
 	public static int blossomChargeTicks(boolean combatMode) {
-		return combatMode ? BLOSSOM_CHARGE_TICKS_COMBAT : BLOSSOM_CHARGE_TICKS;
+		return SpiderManConfig.moves().blossomChargeTicks; // v0.16.1: hold V, one charge time for everyone
 	}
 	/** v0.10.11: a flat 75 webbing, no longer the entire reserve. */
 	public static final float BLOSSOM_COST = 75.0f;
@@ -170,7 +170,8 @@ public final class SpiderAbilities {
 	 * player at the end, which is what lets a zip feed straight into a wall crawl or a swing.
 	 */
 	public static void webZip(ServerPlayer player) {
-		if (!gate(player, WEB_ZIP, SpiderWebReserve.COST_WEB_ZIP)) {
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().pointZip;
+		if (!gate(player, SpiderMoves.POINT_ZIP, cfg.cost)) {
 			return;
 		}
 		BlockHitResult hit = AbilityHelpers.raycastBlock(player, ZIP_RANGE);
@@ -188,13 +189,11 @@ public final class SpiderAbilities {
 		Vec3 dir = delta.normalize();
 		// v0.6.19: a harder yank. Speed still scales with distance so a short hop is not a rocket and a
 		// long one still arrives, but the whole curve is pulled up.
-		// v0.10.2: a zip aimed well below the player is a pull to a lower ledge, not a wall pin -- treat
-		// it as an ordinary arced zip and do NOT arm adhesion, which is what used to leave the player
-		// stuck against the block they zipped down onto.
-		// v0.12.21: a sneaking zip is pulled ALL the way to the block (SpiderCombat.beginZipPull keeps hauling
-		// every tick until arrival); only a zip that is not aimed well downward also arms wall adhesion.
-		boolean sneaking = player.isShiftKeyDown();
-		boolean grab = sneaking && dir.y > -0.35;
+		// v0.16.1 Point Zip: always hauled ALL the way to the aimed block (SpiderCombat.beginZipPull keeps hauling every
+		// tick until arrival -- the old Shift+zip, now the only zip), and a wall face aimed at arms wall adhesion so he
+		// lands on it crawling. A floor / ceiling point, or one aimed well downward, just lands him there.
+		boolean sneaking = true;
+		boolean grab = hit.getDirection().getAxis().isHorizontal() && dir.y > -0.35;
 
 		if (sneaking) {
 			// v0.6.21 -- "pin me to the wall": fire straight at the exact point aimed at (dir already
@@ -230,10 +229,12 @@ public final class SpiderAbilities {
 
 		ServerLevel level = (ServerLevel) player.level();
 		// v0.12.20: the real web line, hand -> anchor, holding briefly and then phasing out over 5 s.
+		SpiderMoves.anim(player, SpiderAnim.ZIP);
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, target, 6, SpiderCombat.STRAND_FADE_TICKS);
 		AbilityHelpers.burst(level, target, ParticleTypes.ITEM_COBWEB, 6, 0.15);
+		SpiderMoves.thwip(player, 1.1f);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.7f, 1.5f);
-		fired(player, WEB_ZIP, SpiderWebReserve.COST_WEB_ZIP, CD_WEB_ZIP);
+		fired(player, SpiderMoves.POINT_ZIP, cfg.cost, cfg.cooldown);
 	}
 
 	// ---------------- Z -- Web Shot ----------------
@@ -247,15 +248,20 @@ public final class SpiderAbilities {
 	 * fight. Aiming at nothing in particular while burning douses the player.
 	 */
 	public static void webShot(ServerPlayer player) {
-		if (!gate(player, WEB_SHOT, SpiderWebReserve.COST_WEB_SHOT)) {
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().webShot;
+		if (!gate(player, WEB_SHOT, cfg.cost)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		LivingEntity target = AbilityHelpers.raycastEntity(player, SHOT_RANGE);
+		// v0.16.1: the thwip -- alternate wrists, a real strand from the hand, the synthesised thwip
+		SpiderMoves.anim(player, SpiderMoves.nextThwipHand(player) ? SpiderAnim.THWIP_RIGHT : SpiderAnim.THWIP_LEFT);
+		SpiderMoves.thwip(player, 1.2f);
+		fired(player, WEB_SHOT, cfg.cost, cfg.cooldown);
 
 		if (target != null) {
-			webLine(level, handPos(player), target.position().add(0, target.getBbHeight() * 0.5, 0));
-			AbilityHelpers.hurt(player, target, WEB_SHOT_DAMAGE);
+			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_SHOT, target, target.position().add(0, target.getBbHeight() * 0.5, 0), 2, 12);
+			AbilityHelpers.hurt(player, target, cfg.damage);
 
 			boolean boss = SpiderWebs.isBoss(target);
 			if (SpiderWebs.ignoresWebs(target)) {
@@ -296,7 +302,7 @@ public final class SpiderAbilities {
 			BlockHitResult hit = AbilityHelpers.raycastBlock(player, SHOT_RANGE);
 			Vec3 at = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation()
 					: player.getEyePosition().add(player.getLookAngle().scale(SHOT_RANGE));
-			webLine(level, handPos(player), at);
+			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_SHOT, null, at, 2, 12);
 			AbilityHelpers.burst(level, at, ParticleTypes.ITEM_COBWEB, 8, 0.2);
 			extinguishAround(player, level, at);
 		}
@@ -305,7 +311,6 @@ public final class SpiderAbilities {
 			player.clearFire();
 		}
 		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.55f, 1.9f);
-		fired(player, WEB_SHOT, SpiderWebReserve.COST_WEB_SHOT, CD_WEB_SHOT);
 	}
 
 	/** Small fires within a block or two of the impact go out. */
@@ -333,7 +338,7 @@ public final class SpiderAbilities {
 	 * whole point of having this while standing at the edge of a ravine or a lava lake.
 	 */
 	public static void webYank(ServerPlayer player) {
-		if (!gate(player, WEB_YANK, SpiderWebReserve.COST_WEB_YANK)) {
+		if (!gate(player, WEB_YANK, SpiderManConfig.moves().webYank.cost)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
@@ -358,7 +363,9 @@ public final class SpiderAbilities {
 			item.setNoPickUpDelay();
 			item.hurtMarked = true;
 			AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.6f, 1.7f);
-			fired(player, WEB_YANK, SpiderWebReserve.COST_WEB_YANK, CD_WEB_YANK);
+			SpiderMoves.anim(player, SpiderAnim.YANK);
+			SpiderMoves.thwip(player, 1.0f);
+			fired(player, WEB_YANK, SpiderManConfig.moves().webYank.cost, SpiderManConfig.moves().webYank.cooldown);
 			return;
 		}
 
@@ -413,7 +420,9 @@ public final class SpiderAbilities {
 		AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
 				ParticleTypes.ITEM_COBWEB, 10, 0.3);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.75f, 1.1f);
-		fired(player, WEB_YANK, SpiderWebReserve.COST_WEB_YANK, CD_WEB_YANK);
+		SpiderMoves.anim(player, SpiderAnim.YANK);
+			SpiderMoves.thwip(player, 1.0f);
+			fired(player, WEB_YANK, SpiderManConfig.moves().webYank.cost, SpiderManConfig.moves().webYank.cooldown);
 	}
 
 	/** True for mobs that hold themselves off the ground -- Web Yank has to fight their flight AI. */
@@ -475,23 +484,6 @@ public final class SpiderAbilities {
 			}
 		}
 		return best;
-	}
-
-	// ---------------- C -- Wall Crawl toggle ----------------
-
-	/**
-	 * Flip the automatic wall-crawl mode (v0.6.17, replacing Web Cocoon). While it is on, brushing a
-	 * climbable surface in mid-air sticks the player to it with no double-tap needed; the double-tap
-	 * gestures still work regardless. Costs no webbing -- it is a stance, not an ability.
-	 */
-	public static void toggleWallCrawl(ServerPlayer player) {
-		com.projecthero.mod.spider.data.SpiderManState c = SpiderMan.state(player).copy();
-		c.wallCrawlEnabled = !c.wallCrawlEnabled;
-		SpiderMan.save(player, c);
-		AbilityHelpers.sound(player, SoundEvents.SPIDER_STEP, 0.5f, c.wallCrawlEnabled ? 1.6f : 0.8f);
-		player.displayClientMessage(Component.translatable(c.wallCrawlEnabled
-				? "message.projecthero.spider_man.wall_crawl_on"
-				: "message.projecthero.spider_man.wall_crawl_off"), true);
 	}
 
 	// ---------------- passive: the sneak-jump super leap ----------------
@@ -571,15 +563,17 @@ public final class SpiderAbilities {
 	 * bar, it fires automatically once full, and letting go of sneak or V before then cancels it with
 	 * nothing spent.
 	 */
-	public static void beginWebBlossom(ServerPlayer player) {
+	public static boolean beginWebBlossom(ServerPlayer player) {
 		if (player.getAttachedOrElse(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0) > 0) {
-			return; // already charging
+			return false; // already charging
 		}
-		if (!gate(player, WEB_BLOSSOM, BLOSSOM_COST)) {
-			return;
+		if (!gate(player, WEB_BLOSSOM, SpiderManConfig.moves().webBlossom.cost)) {
+			return false;
 		}
 		player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 1);
+		SpiderMoves.setFlag(player, com.projecthero.mod.spider.data.SpiderMoveState.FLAG_CHARGING_BLOSSOM, true);
 		AbilityHelpers.sound(player, SoundEvents.SPIDER_AMBIENT, 0.7f, 0.6f);
+		return true;
 	}
 
 	/** V (or sneak) released: fire if fully charged, otherwise cancel harmlessly. */
@@ -589,7 +583,8 @@ public final class SpiderAbilities {
 			return;
 		}
 		player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
-		if (c >= blossomChargeTicks(SpiderMan.state(player).combatMode)) {
+		SpiderMoves.setFlag(player, com.projecthero.mod.spider.data.SpiderMoveState.FLAG_CHARGING_BLOSSOM, false);
+		if (c >= blossomChargeTicks(false)) {
 			fireWebBlossom(player);
 		} else {
 			AbilityHelpers.sound(player, SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.3f);
@@ -602,13 +597,13 @@ public final class SpiderAbilities {
 		if (c <= 0) {
 			return;
 		}
-		if (!SpiderMan.hasPower(player) || !player.isShiftKeyDown()
-				|| !SpiderWebReserve.has(player, BLOSSOM_COST)) {
+		if (!SpiderMan.hasPower(player) || !SpiderWebReserve.has(player, SpiderManConfig.moves().webBlossom.cost)) {
 			player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
+			SpiderMoves.setFlag(player, com.projecthero.mod.spider.data.SpiderMoveState.FLAG_CHARGING_BLOSSOM, false);
 			return;
 		}
 		c++;
-		int chargeTicks = blossomChargeTicks(SpiderMan.state(player).combatMode);
+		int chargeTicks = blossomChargeTicks(false);
 		if (player.level() instanceof ServerLevel level) {
 			double a = Math.min(1.0, c / (double) chargeTicks);
 			level.sendParticles(ParticleTypes.ITEM_COBWEB, player.getX(), player.getY() + 1.0, player.getZ(),
@@ -619,14 +614,15 @@ public final class SpiderAbilities {
 		}
 		if (c >= chargeTicks) {
 			player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, 0);
+			SpiderMoves.setFlag(player, com.projecthero.mod.spider.data.SpiderMoveState.FLAG_CHARGING_BLOSSOM, false);
 			fireWebBlossom(player);
 		} else {
 			player.setAttached(ModAttachments.SPIDER_BLOSSOM_CHARGE, c);
 		}
 	}
 
-	private static void fireWebBlossom(ServerPlayer player) {
-		if (!SpiderWebReserve.has(player, BLOSSOM_COST)) {
+	static void fireWebBlossom(ServerPlayer player) {
+		if (!SpiderWebReserve.has(player, SpiderManConfig.moves().webBlossom.cost)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
@@ -644,7 +640,7 @@ public final class SpiderAbilities {
 			if (e.distanceToSqr(centre) > BLOSSOM_RADIUS * BLOSSOM_RADIUS) {
 				continue;
 			}
-			AbilityHelpers.hurt(player, e, BLOSSOM_DAMAGE);
+			AbilityHelpers.hurt(player, e, SpiderManConfig.moves().webBlossom.damage);
 			// cocoonFor already applies Slowness/Weakness/Mining-fatigue and the tick loop that pins the
 			// entity in place; add a hard jump-lock so it cannot hop out.
 			SpiderWebs.cocoonFor(player, e, BLOSSOM_TRAP_TICKS);
@@ -671,8 +667,9 @@ public final class SpiderAbilities {
 		AbilityHelpers.sound(player, SoundEvents.WOOL_PLACE, 1.0f, 0.7f);
 		player.displayClientMessage(Component.translatable("message.projecthero.spider_man.web_blossom", caught), true);
 
-		SpiderWebReserve.spend(player, BLOSSOM_COST, true);
-		SpiderMan.triggerCooldown(player, WEB_BLOSSOM, CD_WEB_BLOSSOM);
+		SpiderWebReserve.spend(player, SpiderManConfig.moves().webBlossom.cost, true);
+		SpiderMan.triggerCooldown(player, WEB_BLOSSOM, SpiderManConfig.moves().webBlossom.cooldown);
+		SpiderMoves.anim(player, SpiderAnim.BLOSSOM);
 	}
 
 	// ---------------- passive: the mid-air jump ----------------
@@ -756,14 +753,8 @@ public final class SpiderAbilities {
 	 * layout documented above, so the guide and the HUD cannot drift from the router.
 	 */
 	public static char slotKeyOf(String abilityId) {
-		return switch (abilityId) {
-			case WEB_SWING -> com.projecthero.mod.hero.AbilitySlot.SLOT_1.defaultKey();
-			case WEB_ZIP -> com.projecthero.mod.hero.AbilitySlot.SLOT_2.defaultKey();
-			case WEB_YANK -> com.projecthero.mod.hero.AbilitySlot.SLOT_3.defaultKey();
-			case WEB_SHOT -> com.projecthero.mod.hero.AbilitySlot.SLOT_4.defaultKey();
-			case WEB_NET -> com.projecthero.mod.hero.AbilitySlot.SLOT_5.defaultKey();
-			case WALL_CRAWL -> com.projecthero.mod.hero.AbilitySlot.SLOT_6.defaultKey();
-			default -> '-';
-		};
+		// v0.16.1: the 18-move kit -- tap / Shift / hold on R G X Z V C ({@link SpiderMoves} is the one table)
+		com.projecthero.mod.hero.AbilitySlot slot = SpiderMoves.slotOf(abilityId);
+		return slot == null ? '-' : slot.defaultKey();
 	}
 }

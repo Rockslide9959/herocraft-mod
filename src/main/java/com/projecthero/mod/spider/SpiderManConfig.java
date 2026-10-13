@@ -1,0 +1,136 @@
+package com.projecthero.mod.spider;
+
+import com.projecthero.mod.config.VersionedConfig;
+
+/**
+ * v0.16.1: every Spider-Man tunable from the revamp, at {@code config/projecthero_spider_man.json} (loaded through the
+ * shared {@link VersionedConfig}, see {@code docs/CONFIGS.md}). Times are game ticks (20 a second); costs are Web
+ * Reserve points (200 full, 400 once bonded with a Symbiote).
+ *
+ * <p>{@link Webs} is server preference (web lifetime, the per-player cap, the block-grab switch, ...); {@link Moves}
+ * is balance owned by the mod, reset to today's numbers whenever a release changes them.
+ */
+public final class SpiderManConfig {
+	private static SpiderManConfig instance = new SpiderManConfig();
+
+	public Integer configVersion;
+
+	public Webs webs = new Webs();
+	public Moves moves = new Moves();
+
+	/** One move: its cooldown (ticks), its Web Reserve cost and (where it hits) its damage. */
+	public static final class Move {
+		public int cooldown;
+		public float cost;
+		public float damage;
+
+		public Move() {
+		}
+
+		Move(int cooldown, float cost, float damage) {
+			this.cooldown = cooldown;
+			this.cost = cost;
+			this.damage = damage;
+		}
+	}
+
+	public static final class Webs {
+		/** Woven webs, tightropes and web walls fade after this many seconds. */
+		public int fadeSeconds = 300;
+		/** At most this many web structures per Spider-Man; a new one past the cap replaces his oldest. */
+		public int maxStructuresPerPlayer = 12;
+		/** Shift+Z Grab & Hurl may rip a loose block out of the world and throw it (false: mobs only). */
+		public boolean blockGrabbing = true;
+		/** A non-ally touching one of his webs pings his Spider-Sense from up to this far away. */
+		public double alarmRange = 160.0;
+		/** Per web: at most one alarm this often. */
+		public int alarmCooldownTicks = 60;
+		/** Tightrope: the two anchors may be at most this far apart. */
+		public double tightropeMaxLength = 32.0;
+		/** Weave Mode: at most this many radial strands, each at most this long. */
+		public int weaveMaxStrands = 10;
+		public double weaveStrandLength = 24.0;
+		/** Anyone who is not Spider-Man or his squad is slowed to this fraction while touching a web (cobweb is 0.25). */
+		public double strangerSlowFactor = 0.08;
+		/** Ticks a key must be held before the hold move takes over (the tap fires on a shorter release). */
+		public int holdTicks = 8;
+	}
+
+	public static final class Moves {
+		// R -- web shooters
+		public Move webShot = new Move(6, 2.0f, 2.0f);
+		public Move webBomb = new Move(120, 15.0f, 3.0f);
+		public double webBombRadius = 4.0;
+		public int webBombRootTicks = 60;
+		public Move impactWeb = new Move(30, 12.0f, 10.0f);
+		/** A full Impact Web charge (ticks of holding past the hold threshold) adds half the damage again. */
+		public int impactChargeTicks = 20;
+		// G -- zip
+		public Move pointZip = new Move(10, 5.0f, 0.0f);
+		public Move webYank = new Move(30, 6.0f, 0.0f);
+		public Move zipKick = new Move(100, 10.0f, 14.0f);
+		public double zipKickRange = 30.0;
+		// X -- melee
+		public Move webStrike = new Move(50, 8.0f, 5.0f);
+		/** The third Web Strike punch lands this much instead. */
+		public float webStrikeFinisher = 9.0f;
+		public double webStrikeRange = 30.0;
+		public Move uppercut = new Move(120, 6.0f, 8.0f);
+		/** After an uppercut, your hits keep the enemy in the air for this long. */
+		public int airComboTicks = 60;
+		public Move spiderCounter = new Move(160, 4.0f, 12.0f);
+		/** How long the counter stance waits for a hit. */
+		public int counterStanceTicks = 20;
+		// Z -- throws
+		public Move webWhip = new Move(80, 10.0f, 7.0f);
+		public double webWhipRadius = 4.0;
+		public Move grabHurl = new Move(100, 10.0f, 10.0f);
+		public double grabRange = 16.0;
+		public Move swingThrow = new Move(60, 10.0f, 6.0f);
+		// C -- web building
+		public Move tightrope = new Move(10, 10.0f, 0.0f);
+		public Move webWall = new Move(200, 25.0f, 0.0f);
+		/** Weave Mode: every radial strand costs this; finishing the web (the spiral rings) costs weaveFinishCost. */
+		public Move weave = new Move(300, 8.0f, 0.0f);
+		public float weaveFinishCost = 30.0f;
+		// V -- big moves
+		public Move spiderPulse = new Move(400, 10.0f, 0.0f);
+		public int pulseHighlightTicks = 120;
+		public double pulseRadius = 32.0;
+		/** The pulse's dodge window: every hit with an attacker behind it is dodged for this long. */
+		public int pulseDodgeTicks = 40;
+		public Move webCocoon = new Move(200, 25.0f, 0.0f);
+		public int webCocoonTicks = 240;
+		/** Cocooned enemies take this much more damage from Spider-Man and his squad. */
+		public float cocoonDamageMultiplier = 1.6f;
+		public Move webBlossom = new Move(400, 75.0f, 40.0f);
+		public int blossomChargeTicks = 40;
+		// passive traversal
+		public Move zipBoost = new Move(16, 3.0f, 0.0f);
+	}
+
+	public static SpiderManConfig get() {
+		return instance;
+	}
+
+	public static Webs webs() {
+		return instance.webs;
+	}
+
+	public static Moves moves() {
+		return instance.moves;
+	}
+
+	public SpiderManConfig() {
+	}
+
+	public static final VersionedConfig<SpiderManConfig> SPEC = VersionedConfig
+			.builder(SpiderManConfig.class, "projecthero_spider_man.json", SpiderManConfig::new)
+			.balance("moves")
+			.introduce(1, "v0.16.1 the Spider-Man revamp")
+			.build();
+
+	public static void load() {
+		instance = SPEC.load();
+	}
+}

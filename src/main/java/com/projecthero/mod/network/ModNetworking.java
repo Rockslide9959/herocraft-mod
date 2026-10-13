@@ -66,6 +66,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(TitanRoarSensePayload.TYPE, TitanRoarSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(SpiderWebAlarmPayload.TYPE, SpiderWebAlarmPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
@@ -151,7 +152,16 @@ public final class ModNetworking {
 				case SUPER_JUMP -> com.projecthero.mod.spider.SpiderAbilities.superJump(context.player());
 				case TOGGLE_MASK -> com.projecthero.mod.spider.SpiderMask.toggle(context.player());
 				case TOGGLE_SYMBIOTE -> com.projecthero.mod.symbiote.Symbiote.toggle(context.player());
-				case TOGGLE_MODE -> com.projecthero.mod.spider.SpiderCombat.toggleMode(context.player());
+				case TOGGLE_MODE -> {
+					// v0.16.1: the Traversal / Combat toggle is gone (one 18-move kit)
+				}
+				case SWING_START -> com.projecthero.mod.spider.SpiderMoves.swingStart(context.player());
+				case SWING_STOP -> com.projecthero.mod.spider.SpiderMoves.swingStop(context.player());
+				case ZIP_BOOST -> com.projecthero.mod.spider.SpiderMoves.zipBoost(context.player());
+				case WEAVE_STRAND -> com.projecthero.mod.spider.SpiderMoves.weaveStrand(context.player());
+				case CUT_WEB -> com.projecthero.mod.spider.web.WebStructures.cut(context.player());
+				case ROPE_HANG -> com.projecthero.mod.spider.SpiderMoves.ropeHang(context.player());
+				case ROPE_CLIMB -> com.projecthero.mod.spider.SpiderMoves.ropeClimb(context.player());
 			}
 		});
 

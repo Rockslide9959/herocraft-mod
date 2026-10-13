@@ -85,6 +85,14 @@ public final class SpiderAnchorSearch {
 			}
 		}
 
+		// v0.16.1: his own (and his squad's) webs -- tightropes, woven webs, web walls -- are real anchors too
+		double[] webScore = new double[1];
+		Vec3 web = com.projecthero.mod.spider.web.WebStructures.bestSwingPoint(player, eye, p -> score(eye, aim, p), webScore);
+		if (web != null && webScore[0] > bestScore) {
+			best = web;
+			bestScore = webScore[0];
+		}
+
 		if (best != null) {
 			return new Anchor(best, false);
 		}

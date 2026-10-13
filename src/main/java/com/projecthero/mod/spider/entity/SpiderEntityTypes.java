@@ -23,6 +23,26 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.16.1: a tightrope / web wall / woven web (never saved; see the class). */
+	public static final EntityType<com.projecthero.mod.spider.web.WebStructureEntity> WEB_STRUCTURE = register("web_structure",
+			FabricEntityTypeBuilder.<com.projecthero.mod.spider.web.WebStructureEntity>create(MobCategory.MISC,
+							com.projecthero.mod.spider.web.WebStructureEntity::new)
+					.dimensions(EntityDimensions.fixed(0.5f, 0.5f))
+					.trackRangeBlocks(160)
+					.trackedUpdateRate(20)
+					.fireImmune()
+					.disableSummon()
+					.build());
+
+	/** v0.16.1: a block ripped out and thrown by Grab &amp; Hurl. */
+	public static final EntityType<ThrownBlockEntity> THROWN_BLOCK = register("thrown_block",
+			FabricEntityTypeBuilder.<ThrownBlockEntity>create(MobCategory.MISC, ThrownBlockEntity::new)
+					.dimensions(EntityDimensions.fixed(0.9f, 0.9f))
+					.trackRangeBlocks(80)
+					.trackedUpdateRate(1)
+					.fireImmune()
+					.build());
+
 	private SpiderEntityTypes() {
 	}
 

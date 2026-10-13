@@ -64,12 +64,17 @@ public final class SpiderPassives {
 		if (REENTRANT_ATTACK.get()) {
 			return true;
 		}
-		if (!(source.getEntity() instanceof ServerPlayer attacker) || attacker == victim
-				|| !SpiderMan.hasPower(attacker)) {
+		if (!(source.getEntity() instanceof ServerPlayer attacker) || attacker == victim) {
 			return true;
 		}
-		float multiplier = SpiderWebs.isWebImpaired(victim) ? 1.4f : 1.0f;
-		float addend = (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()) /* v0.14.11: with or without an item in hand */ ? 3.0f : 0.0f;
+		// v0.16.1: a Web Cocoon (Shift+V) leaves its enemy open -- extra damage from anyone (players) while wrapped
+		boolean deep = SpiderWebs.isDeepCocooned(victim);
+		boolean spider = SpiderMan.hasPower(attacker);
+		if (!spider && !deep) {
+			return true;
+		}
+		float multiplier = deep ? SpiderManConfig.moves().cocoonDamageMultiplier : SpiderWebs.isWebImpaired(victim) ? 1.4f : 1.0f;
+		float addend = spider && (source.is(DamageTypes.PLAYER_ATTACK) && attacker.isSprinting()) /* v0.14.11: with or without an item in hand */ ? 3.0f : 0.0f;
 		float boosted = amount * multiplier + addend;
 		if (boosted <= amount + 0.001f) {
 			return true;

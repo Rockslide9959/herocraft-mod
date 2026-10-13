@@ -70,7 +70,8 @@ public final class SpiderClimb {
 	/** v0.6.17: whether the player has the toggleable wall-crawl mode on (Spider-Man's slot 6). */
 	public static boolean wallCrawlEnabled(Player player) {
 		SpiderManState s = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
-		return s != null && s.hasPower && s.wallCrawlEnabled;
+		// v0.16.1: the C toggle is gone -- running or flying into a wall arms the grab by itself (SpiderTraversalClient)
+		return false;
 	}
 
 	private SpiderClimb() {
@@ -140,6 +141,18 @@ public final class SpiderClimb {
 	 *         in reach
 	 */
 	public static Direction findSurface(Player player, Profile profile, Direction preferred) {
+		CLIMBER.set(player); // v0.16.1: so the grip test can also offer the webs this player may climb
+		try {
+			return findSurfaceImpl(player, profile, preferred);
+		} finally {
+			CLIMBER.remove();
+		}
+	}
+
+	/** v0.16.1: the player whose surfaces are being probed right now (web structures are per-player solid). */
+	private static final ThreadLocal<Player> CLIMBER = new ThreadLocal<>();
+
+	private static Direction findSurfaceImpl(Player player, Profile profile, Direction preferred) {
 		Level level = player.level();
 		AABB box = player.getBoundingBox();
 
@@ -206,6 +219,10 @@ public final class SpiderClimb {
 	 * (grass, torches) has no collision shape and correctly does not hold you up.
 	 */
 	private static boolean hasGrip(Level level, AABB probe) {
+		Player climber = CLIMBER.get();
+		if (climber != null && com.projecthero.mod.spider.web.WebStructures.gripAt(climber, probe)) {
+			return true; // v0.16.1: his own (and his squad's) webs are climbable
+		}
 		int minX = (int) Math.floor(probe.minX);
 		int maxX = (int) Math.floor(probe.maxX - 1.0E-7);
 		int minY = (int) Math.floor(probe.minY);

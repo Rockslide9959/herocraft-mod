@@ -130,6 +130,7 @@ public final class SpiderMan {
 	/** Testing/admin only -- see {@link com.projecthero.mod.command.SpiderManCommand}. */
 	public static void revoke(ServerPlayer player) {
 		SpiderSwing.detach(player, false);
+		SpiderMoves.clear(player);
 		// The Symbiote cannot exist without a Spider-Man host: retract the suit and drop its buffs. The
 		// bond (hasSymbiote) is kept -- re-granting Spider-Man lets the player press H and get it back.
 		com.projecthero.mod.symbiote.Symbiote.clearTransient(player);
@@ -218,6 +219,7 @@ public final class SpiderMan {
 	public static void clearTransient(ServerPlayer player) {
 		SpiderSwing.clearFlightGrant(player);
 		SpiderCombat.clear(player);
+		SpiderMoves.clear(player); // v0.16.1: key holds, combos, stances, Weave Mode, anchor A
 		// Symbiote becomes inactive on death / logout / dimension change (the bond is kept) -- no stuck
 		// suit, no lingering armour or webbing buff on the corpse or the fresh entity.
 		com.projecthero.mod.symbiote.Symbiote.clearTransient(player);

@@ -84,6 +84,18 @@ public final class SpiderWebs {
 	/** entity id -> {current stack count, absolute game-time the stickiness window closes}. */
 	private static final Map<Integer, long[]> WEB_STICK = new ConcurrentHashMap<>();
 
+	/** v0.16.1: entity id -> game time a Web Cocoon (Shift+V) lets go; wrapped enemies take extra damage. */
+	private static final Map<Integer, Long> DEEP_COCOON = new ConcurrentHashMap<>();
+
+	public static void markDeepCocoon(LivingEntity target, int ticks) {
+		DEEP_COCOON.merge(target.getId(), target.level().getGameTime() + ticks, Math::max);
+	}
+
+	public static boolean isDeepCocooned(Entity entity) {
+		Long until = DEEP_COCOON.get(entity.getId());
+		return until != null && entity.level().getGameTime() < until;
+	}
+
 	private SpiderWebs() {
 	}
 
@@ -308,6 +320,7 @@ public final class SpiderWebs {
 		NETS.clear();
 		COCOONED.clear();
 		WEB_STICK.clear();
+		DEEP_COCOON.clear();
 	}
 
 	/** Expire cocoon / stickiness markers even when nothing else is running -- see {@code ServerStateReset}. */
@@ -317,6 +330,9 @@ public final class SpiderWebs {
 		}
 		if (!WEB_STICK.isEmpty()) {
 			WEB_STICK.values().removeIf(e -> e[1] <= now);
+		}
+		if (!DEEP_COCOON.isEmpty()) {
+			DEEP_COCOON.values().removeIf(expiry -> expiry <= now);
 		}
 	}
 

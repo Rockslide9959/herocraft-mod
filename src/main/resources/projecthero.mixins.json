@@ -13,6 +13,7 @@
 		"CraftingMenuMixin",
 		"EntityHulkRideMixin",
 		"EntityWebMixin",
+		"EntityWebCollisionMixin",
 		"ItemEntityMixin",
 		"ItemEntityPickupAccessor",
 		"IronManArmorSlotMixin",

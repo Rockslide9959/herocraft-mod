@@ -33,6 +33,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public class ImpactWebEntity extends AbstractHurtingProjectile {
 	private int life;
+	/** v0.16.1: the hit damage (a fuller Impact Web charge hits harder). */
+	public float damage = SpiderCombat.IMPACT_DAMAGE;
+	public double knockback = SpiderCombat.IMPACT_KNOCKBACK;
 
 	public ImpactWebEntity(EntityType<? extends ImpactWebEntity> type, Level level) {
 		super(type, level);
@@ -98,8 +101,8 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 			return;
 		}
 		Vec3 origin = position();
-		AbilityHelpers.hurt(shooter, target, SpiderCombat.IMPACT_DAMAGE);
-		AbilityHelpers.knockbackFrom(target, origin, SpiderCombat.IMPACT_KNOCKBACK);
+		AbilityHelpers.hurt(shooter, target, damage);
+		AbilityHelpers.knockbackFrom(target, origin, knockback);
 		// v0.12.32: the ball itself cocoons whatever it hits (12 s), wall or no wall.
 		SpiderWebs.cocoonFor(shooter, target, SpiderCombat.IMPACT_PIN_TICKS);
 		SpiderCombat.watchImpact(shooter, target, getDeltaMovement());

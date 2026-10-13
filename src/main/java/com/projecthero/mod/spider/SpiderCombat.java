@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.network.SpiderWebStrandPayload;
-import com.projecthero.mod.spider.data.SpiderManState;
+import com.projecthero.mod.spider.data.SpiderMoveState;
 import com.projecthero.mod.spider.entity.ImpactWebEntity;
 
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
@@ -29,41 +29,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Spider-Man's Combat Mode (v0.12.20). N swaps the Web Swing / Zip / Yank / Shot kit ("Traversal Mode") for:
- *
- * <pre>
- *   R  Web Strike   web a target, get hauled straight at it, hit for 15 + knockback           (3 s cooldown)
- *   G  Web Zip      as ever -- but aimed at a mob/player it rips whatever they hold out of their hands
- *   X  Web-Throw    hold: web a target and whirl it around your head; release: hurl it where you look (3 s)
- *   Z  Impact Web   one heavy web ball: 10 damage, knockback, cocoons the target for 12 s                  (1 s)
- *   V  Web Net / sneak+hold Web Blossom (2 s charge here instead of 3 s)
- *   C  Wall Crawl toggle
- * </pre>
+ * Spider-Man's web-line combat plumbing (v0.12.20; v0.16.1 the Combat Mode toggle is gone and these are moves of the
+ * one 18-move kit, see {@link SpiderMoves}): the web strands drawn from the hand, the Web Yank disarm, the Web
+ * Swing-Throw (hold Z), the Impact Web ball (hold R) with its wall pin, and the Point Zip haul.
  *
  * Everything is server-driven and re-validated; the per-owner sessions live in static maps and are dropped by
  * {@link #clearSessionState} (see {@code ServerStateReset}) and by {@link #clear} on death / relog.
  */
 public final class SpiderCombat {
-	public static final String WEB_STRIKE = "web_strike";
-	public static final String WEB_THROW = "web_throw";
 	public static final String IMPACT_WEB = "impact_web";
-
-	public static final int CD_WEB_STRIKE = 3 * 20;
-	public static final int CD_WEB_THROW = 3 * 20;
-	public static final int CD_IMPACT_WEB = 20;
-
-	public static final float COST_WEB_STRIKE = 8.0f;
-	public static final float COST_WEB_THROW = 10.0f;
-	public static final float COST_IMPACT_WEB = 12.0f;
-
-	public static final float STRIKE_DAMAGE = 15.0f;
-	public static final double STRIKE_RANGE = 40.0;
-	private static final double STRIKE_SPEED = 1.7;
-	private static final int STRIKE_MAX_TICKS = 40;
-
-	private static final double THROW_RANGE = 30.0;
-	private static final int THROW_MAX_TICKS = 5 * 20;
-	private static final double THROW_SPEED = 2.4;
 
 	public static final float IMPACT_DAMAGE = 10.0f;
 	public static final double IMPACT_KNOCKBACK = 1.6;
@@ -74,6 +48,10 @@ public final class SpiderCombat {
 	/** How long after the hit a knocked-back target is watched for a wall collision. */
 	private static final int PIN_WATCH_TICKS = 14;
 
+	private static final double THROW_RANGE = 30.0;
+	private static final int THROW_MAX_TICKS = 5 * 20;
+	private static final double THROW_SPEED = 2.4;
+
 	/** How long a strand takes to phase out once it lets go (v0.12.20: five seconds). */
 	public static final int STRAND_FADE_TICKS = 5 * 20;
 
@@ -82,9 +60,13 @@ public final class SpiderCombat {
 	public static final int SLOT_STRIKE = 2;
 	public static final int SLOT_THROW = 3;
 	public static final int SLOT_DISARM = 4;
-
-	private record Strike(int targetId, long startedAt) {
-	}
+	/** v0.16.1 */
+	public static final int SLOT_SHOT = 5;
+	public static final int SLOT_TIGHTROPE = 6;
+	public static final int SLOT_WEAVE = 7;
+	public static final int SLOT_GRAB = 8;
+	public static final int SLOT_WHIP = 9;
+	public static final int SLOT_COUNTER = 10;
 
 	private static final class Throw {
 		final int targetId;
@@ -98,7 +80,7 @@ public final class SpiderCombat {
 		}
 	}
 
-	/** A shift-zip in progress: hauled toward {@code target} every tick until it arrives (v0.12.21). */
+	/** A Point Zip in progress: hauled toward {@code target} every tick until it arrives (v0.12.21). */
 	private static final class ZipPull {
 		final Vec3 target;
 		final long startedAt;
@@ -116,7 +98,6 @@ public final class SpiderCombat {
 	private record Watch(int targetId, long until, Vec3 dir) {
 	}
 
-	private static final Map<UUID, Strike> STRIKES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Throw> THROWS = new ConcurrentHashMap<>();
 	private static final Map<UUID, List<Watch>> WATCHES = new ConcurrentHashMap<>();
 
@@ -124,128 +105,64 @@ public final class SpiderCombat {
 	}
 
 	public static void clearSessionState() {
-		STRIKES.clear();
 		THROWS.clear();
 		WATCHES.clear();
 		ZIPS.clear();
 	}
 
-	/** Death / relog / dimension change / mode switch: drop everything this player had going. */
+	/** Death / relog / dimension change: drop everything this player had going. */
 	public static void clear(ServerPlayer player) {
 		UUID id = player.getUUID();
 		if (THROWS.remove(id) != null) {
 			sendStrand(player, SLOT_THROW, null, player.position(), 0, 0);
 		}
-		if (STRIKES.remove(id) != null) {
-			sendStrand(player, SLOT_STRIKE, null, player.position(), 0, 0);
-		}
 		WATCHES.remove(id);
 		ZIPS.remove(id);
 	}
 
-	public static boolean inCombatMode(ServerPlayer player) {
-		return SpiderMan.state(player).combatMode;
-	}
-
-	// ---------------- N -- mode toggle ----------------
-
-	public static void toggleMode(ServerPlayer player) {
-		if (!SpiderMan.hasPower(player)) {
-			return;
-		}
-		clear(player);
-		SpiderSwing.detach(player, false);
-		SpiderManState c = SpiderMan.state(player).copy();
-		c.combatMode = !c.combatMode;
-		SpiderMan.save(player, c);
-		AbilityHelpers.sound(player, SoundEvents.SPIDER_AMBIENT, 0.5f, c.combatMode ? 0.7f : 1.4f);
-		player.displayClientMessage(Component.translatable(c.combatMode
-				? "message.projecthero.spider_man.mode_combat" : "message.projecthero.spider_man.mode_traversal"), true);
+	public static boolean isThrowing(ServerPlayer player) {
+		return THROWS.containsKey(player.getUUID());
 	}
 
 	// ---------------- strands ----------------
 
 	/** Draw (or replace) a web strand from {@code owner}'s hand; seen by everyone tracking them. */
 	public static void sendStrand(ServerPlayer owner, int slot, LivingEntity target, Vec3 pos, int hold, int fade) {
-		SpiderWebStrandPayload payload = new SpiderWebStrandPayload(owner.getId(), slot,
-				target == null ? -1 : target.getId(), pos.x, pos.y, pos.z, hold, fade, true);
-		ServerPlayNetworking.send(owner, payload);
+		sendStrand(owner, slot, target == null ? -1 : target.getId(), pos, hold, fade);
+	}
+
+	/** Same, with any entity (a thrown block, an item) as the far end. */
+	public static void sendStrand(ServerPlayer owner, int slot, int targetId, Vec3 pos, int hold, int fade) {
+		SpiderWebStrandPayload payload = new SpiderWebStrandPayload(owner.getId(), slot, targetId,
+				pos.x, pos.y, pos.z, hold, fade, SpiderMoves.rightHand(owner));
+		if (ServerPlayNetworking.canSend(owner, SpiderWebStrandPayload.TYPE)) {
+			ServerPlayNetworking.send(owner, payload);
+		}
 		for (ServerPlayer p : PlayerLookup.tracking(owner)) {
-			ServerPlayNetworking.send(p, payload);
+			if (ServerPlayNetworking.canSend(p, SpiderWebStrandPayload.TYPE)) {
+				ServerPlayNetworking.send(p, payload);
+			}
 		}
 	}
 
-	private static Vec3 center(LivingEntity e) {
+	static Vec3 center(LivingEntity e) {
 		return e.position().add(0, e.getBbHeight() * 0.5, 0);
 	}
 
-	private static LivingEntity pickTarget(ServerPlayer player, double range) {
+	static LivingEntity pickTarget(ServerPlayer player, double range) {
 		LivingEntity t = AbilityHelpers.raycastEntity(player, range);
 		return t != null ? t : SpiderAbilities.nearestLivingInAim(player, range);
 	}
 
-	// ---------------- R -- Web Strike ----------------
-
-	public static void webStrike(ServerPlayer player) {
-		if (STRIKES.containsKey(player.getUUID())) {
-			return;
-		}
-		if (!SpiderAbilities.gate(player, WEB_STRIKE, COST_WEB_STRIKE)) {
-			return;
-		}
-		LivingEntity target = pickTarget(player, STRIKE_RANGE);
-		if (target == null) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_target"), true);
-			return;
-		}
-		SpiderSwing.detach(player, false);
-		STRIKES.put(player.getUUID(), new Strike(target.getId(), player.level().getGameTime()));
-		sendStrand(player, SLOT_STRIKE, target, center(target), STRIKE_MAX_TICKS, 0);
-		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.8f, 1.3f);
-		SpiderAbilities.fired(player, WEB_STRIKE, COST_WEB_STRIKE, CD_WEB_STRIKE);
-	}
-
-	private static void tickStrike(ServerPlayer player, Strike strike) {
-		ServerLevel level = (ServerLevel) player.level();
-		Entity e = level.getEntity(strike.targetId());
-		if (!(e instanceof LivingEntity target) || !target.isAlive()
-				|| level.getGameTime() - strike.startedAt() > STRIKE_MAX_TICKS) {
-			endStrike(player, e instanceof LivingEntity le ? le.position() : player.position());
-			return;
-		}
-		Vec3 to = center(target);
-		Vec3 me = player.position().add(0, player.getBbHeight() * 0.5, 0);
-		Vec3 delta = to.subtract(me);
-		double dist = delta.length();
-		if (dist <= 2.6) {
-			AbilityHelpers.hurtBurst(player, target, STRIKE_DAMAGE);
-			AbilityHelpers.knockbackFrom(target, player.position(), 1.5);
-			target.setDeltaMovement(target.getDeltaMovement().add(0, 0.3, 0));
-			target.hurtMarked = true;
-			AbilityHelpers.launchSelf(player, player.getDeltaMovement().scale(0.15));
-			level.sendParticles(ParticleTypes.CRIT, to.x, to.y, to.z, 14, 0.3, 0.3, 0.3, 0.2);
-			level.sendParticles(ParticleTypes.ITEM_COBWEB, to.x, to.y, to.z, 10, 0.3, 0.3, 0.3, 0.05);
-			AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.9f);
-			endStrike(player, to);
-			return;
-		}
-		AbilityHelpers.launchSelf(player, delta.normalize().scale(STRIKE_SPEED));
-	}
-
-	private static void endStrike(ServerPlayer player, Vec3 lastPos) {
-		STRIKES.remove(player.getUUID());
-		sendStrand(player, SLOT_STRIKE, null, lastPos, 0, STRAND_FADE_TICKS);
-	}
-
-	// ---------------- G -- Web Zip: disarm ----------------
+	// ---------------- Shift+G -- Web Yank: disarm ----------------
 
 	/**
-	 * Combat-mode Web Zip aimed at a mob or player holding something: the webbing rips it out of their hands
-	 * and it flies to the caster. Returns false (nothing spent) when there is no armed target, so the caller
-	 * falls back to the ordinary zip.
+	 * Web Yank aimed at a mob or player holding something: the webbing rips it out of their hands and it flies to the
+	 * caster. Returns false (nothing spent) when there is no armed target, so the caller falls back to the ordinary
+	 * yank.
 	 */
 	public static boolean tryDisarm(ServerPlayer player) {
-		LivingEntity target = AbilityHelpers.raycastEntity(player, SpiderAbilities.ZIP_RANGE);
+		LivingEntity target = AbilityHelpers.raycastEntity(player, SpiderAbilities.YANK_RANGE);
 		if (target == null) {
 			return false;
 		}
@@ -254,7 +171,8 @@ public final class SpiderCombat {
 		if (main.isEmpty() && off.isEmpty()) {
 			return false;
 		}
-		if (!SpiderAbilities.gate(player, SpiderAbilities.WEB_ZIP, SpiderWebReserve.COST_WEB_ZIP)) {
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().webYank;
+		if (!SpiderAbilities.gate(player, SpiderMoves.WEB_YANK, cfg.cost)) {
 			return true; // handled: told the player why
 		}
 		ServerLevel level = (ServerLevel) player.level();
@@ -278,37 +196,42 @@ public final class SpiderCombat {
 		}
 		sendStrand(player, SLOT_DISARM, target, center(target), 10, STRAND_FADE_TICKS);
 		AbilityHelpers.burst(level, center(target), ParticleTypes.ITEM_COBWEB, 12, 0.3);
+		SpiderMoves.thwip(player, 1.0f);
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.8f, 1.6f);
-		SpiderAbilities.fired(player, SpiderAbilities.WEB_ZIP, SpiderWebReserve.COST_WEB_ZIP, SpiderAbilities.CD_WEB_ZIP);
+		SpiderMoves.anim(player, SpiderAnim.YANK);
+		SpiderAbilities.fired(player, SpiderMoves.WEB_YANK, cfg.cost, cfg.cooldown);
 		return true;
 	}
 
-	// ---------------- X -- Web-Throw ----------------
+	// ---------------- hold Z -- Web Swing-Throw ----------------
 
-	public static void beginThrow(ServerPlayer player) {
+	public static boolean beginThrow(ServerPlayer player) {
 		if (THROWS.containsKey(player.getUUID())) {
-			return;
+			return false;
 		}
-		if (!SpiderAbilities.gate(player, WEB_THROW, COST_WEB_THROW)) {
-			return;
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().swingThrow;
+		if (!SpiderAbilities.gate(player, SpiderMoves.SWING_THROW, cfg.cost)) {
+			return false;
 		}
 		LivingEntity target = pickTarget(player, THROW_RANGE);
 		if (target == null) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_target"), true);
-			return;
+			return false;
 		}
 		if (SpiderWebs.isBoss(target) || target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
-			return;
+			return false;
 		}
-		SpiderWebReserve.spend(player, COST_WEB_THROW, true);
+		SpiderWebReserve.spend(player, cfg.cost, true);
 		Vec3 rel = target.position().subtract(player.position());
 		THROWS.put(player.getUUID(), new Throw(target.getId(), player.level().getGameTime(), Math.atan2(rel.z, rel.x)));
 		sendStrand(player, SLOT_THROW, target, center(target), THROW_MAX_TICKS + 10, 0);
-		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.8f, 1.0f);
+		SpiderMoves.thwip(player, 0.9f);
+		SpiderMoves.setFlag(player, SpiderMoveState.FLAG_SWING_THROW, true);
+		return true;
 	}
 
-	/** X released: hurl whatever is on the end of the web along the look direction. */
+	/** Z released: hurl whatever is on the end of the web along the look direction. */
 	public static void releaseThrow(ServerPlayer player) {
 		Throw t = THROWS.get(player.getUUID());
 		if (t != null) {
@@ -318,6 +241,7 @@ public final class SpiderCombat {
 
 	private static void finishThrow(ServerPlayer player, Throw t, boolean hurl) {
 		THROWS.remove(player.getUUID());
+		SpiderMoves.setFlag(player, SpiderMoveState.FLAG_SWING_THROW, false);
 		Entity e = player.level().getEntity(t.targetId);
 		Vec3 last = player.position();
 		if (e instanceof LivingEntity target && target.isAlive()) {
@@ -328,10 +252,12 @@ public final class SpiderCombat {
 				target.hurtMarked = true;
 				target.fallDistance = 0.0f;
 				AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
+				SpiderMoves.watchThrown(player, target, SpiderManConfig.moves().swingThrow.damage);
+				SpiderMoves.anim(player, SpiderAnim.SWING_THROW_RELEASE);
 			}
 		}
 		sendStrand(player, SLOT_THROW, null, last, 0, STRAND_FADE_TICKS);
-		SpiderMan.triggerCooldown(player, WEB_THROW, CD_WEB_THROW);
+		SpiderMan.triggerCooldown(player, SpiderMoves.SWING_THROW, SpiderManConfig.moves().swingThrow.cooldown);
 	}
 
 	private static void tickThrow(ServerPlayer player, Throw t) {
@@ -360,21 +286,27 @@ public final class SpiderCombat {
 		}
 	}
 
-	// ---------------- Z -- Impact Web ----------------
+	// ---------------- hold R -- Impact Web ----------------
 
-	public static void impactWeb(ServerPlayer player) {
-		if (!SpiderAbilities.gate(player, IMPACT_WEB, COST_IMPACT_WEB)) {
+	/** Fire the heavy web ball; {@code charge} 0..1 adds up to half the damage again. */
+	public static void impactWeb(ServerPlayer player, float charge) {
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().impactWeb;
+		if (!SpiderAbilities.gate(player, IMPACT_WEB, cfg.cost)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 look = player.getLookAngle();
-		ImpactWebEntity web = new ImpactWebEntity(level, player, look.scale(IMPACT_SPEED));
+		ImpactWebEntity web = new ImpactWebEntity(level, player, look.scale(IMPACT_SPEED * (1.0 + charge * 0.3)));
+		web.damage = cfg.damage * (1.0f + 0.5f * charge);
+		web.knockback = IMPACT_KNOCKBACK * (1.0 + 0.4 * charge);
 		Vec3 start = player.getEyePosition().add(look.scale(0.9)).subtract(0, 0.15, 0);
 		web.setPos(start.x, start.y, start.z);
 		level.addFreshEntity(web);
+		SpiderMoves.thwip(player, 0.7f);
 		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.9f, 0.7f);
 		AbilityHelpers.sound(player, SoundEvents.CROSSBOW_SHOOT, 0.6f, 0.6f);
-		SpiderAbilities.fired(player, IMPACT_WEB, COST_IMPACT_WEB, CD_IMPACT_WEB);
+		SpiderMoves.anim(player, SpiderAnim.IMPACT_RELEASE);
+		SpiderAbilities.fired(player, IMPACT_WEB, cfg.cost, cfg.cooldown);
 	}
 
 	/** Called by {@link ImpactWebEntity} on an entity hit: watch the knocked-back target for a wall collision. */
@@ -410,7 +342,7 @@ public final class SpiderCombat {
 		});
 	}
 
-	// ---------------- shift + Web Zip ----------------
+	// ---------------- G -- Point Zip haul ----------------
 
 	public static void beginZipPull(ServerPlayer player, Vec3 target) {
 		ZIPS.put(player.getUUID(), new ZipPull(target, player.level().getGameTime()));
@@ -440,10 +372,6 @@ public final class SpiderCombat {
 		ZipPull zip = ZIPS.get(id);
 		if (zip != null) {
 			tickZip(player, zip);
-		}
-		Strike strike = STRIKES.get(id);
-		if (strike != null) {
-			tickStrike(player, strike);
 		}
 		Throw t = THROWS.get(id);
 		if (t != null) {

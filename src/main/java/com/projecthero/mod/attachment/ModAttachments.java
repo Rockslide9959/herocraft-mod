@@ -396,6 +396,16 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.1: Spider-Man's live move state -- the animated move, held stances, the tightrope's anchor A and the web
+	 * being woven. Not persisted (a relog starts clean); synced to every client so everyone sees the poses.
+	 */
+	public static final AttachmentType<com.projecthero.mod.spider.data.SpiderMoveState> SPIDER_MOVE_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("spider_move_state"),
+					builder -> builder.initializer(com.projecthero.mod.spider.data.SpiderMoveState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.spider.data.SpiderMoveState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * The whole Punisher Hero-Tier power for one player: the permanent power flag, the unlocked
 	 * Arsenal weapons, ability cooldowns, the Adrenaline / Suppressive Fire / Tactical Roll timers,
 	 * and Vigilante Training progress. Persistent + {@code copyOnDeath()} like the Tony Stark /

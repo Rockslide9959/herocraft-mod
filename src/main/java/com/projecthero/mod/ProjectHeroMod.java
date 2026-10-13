@@ -75,6 +75,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.ultron.contagion.ContagionConfig.load(); // v0.16.1: the Ultron Contagion (read before its entity types)
 		// v0.13.18: the Darkseid Raid (read before its entity types -- they take attributes and hit-box scale from it).
 		com.projecthero.mod.darkseid.DarkseidConfig.load();
+		com.projecthero.mod.spider.SpiderManConfig.load(); // v0.16.1: the Spider-Man revamp (web structures, the 18 moves)
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
@@ -168,6 +169,8 @@ public class ProjectHeroMod implements ModInitializer {
 		// ALLOW_DAMAGE listeners, registered exactly like Thor's and Iron Man's.
 		com.projecthero.mod.spider.SpiderSense.initialize();
 		com.projecthero.mod.spider.SpiderPassives.initialize();
+		com.projecthero.mod.spider.SpiderMoves.initialize(); // v0.16.1: counter stance, Pulse dodge, air combo
+		com.projecthero.mod.spider.SpiderSounds.initialize();
 		com.projecthero.mod.maxsteel.MaxSteelDamage.initialize();
 		com.projecthero.mod.punisher.Punisher.initialize();
 		com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.initialize(); // v0.15.18: after Punisher -- wraps its firearm hooks

@@ -95,6 +95,28 @@ public final class SpiderSwing {
 	}
 
 	/**
+	 * v0.16.1: hang from a fixed point (one of his tightropes) on a short line of {@code ropeLength}. Costs the usual
+	 * tiny swing fire; the client keeps the line at this length while {@code SpiderMoveState.FLAG_HANGING} is set.
+	 */
+	public static boolean fireAt(ServerPlayer player, Vec3 anchor, double ropeLength) {
+		SpiderManState s = SpiderMan.state(player);
+		if (s.swinging || !SpiderWebReserve.spend(player, SpiderWebReserve.COST_SWING_FIRE, false)) {
+			return false;
+		}
+		SpiderManState c = s.copy();
+		c.swinging = true;
+		c.anchorX = anchor.x;
+		c.anchorY = anchor.y;
+		c.anchorZ = anchor.z;
+		c.artificialAnchor = false;
+		c.ropeLength = ropeLength;
+		c.airSwingBaselineY = player.getY();
+		SpiderMan.save(player, c);
+		grantFloatTolerance(player, true);
+		return true;
+	}
+
+	/**
 	 * Release the line. Velocity is deliberately untouched -- the whole point of a swing is that
 	 * letting go at the right moment launches you, so a well-timed release keeps every bit of the
 	 * speed the arc built.
@@ -152,7 +174,8 @@ public final class SpiderSwing {
 			return;
 		}
 		// A real anchor whose block has been removed should not keep holding a web up.
-		if (!s.artificialAnchor && player.tickCount % 10 == 0 && !anchorStillSolid(player, anchor)) {
+		if (!s.artificialAnchor && player.tickCount % 10 == 0 && !anchorStillSolid(player, anchor)
+				&& !com.projecthero.mod.spider.web.WebStructures.onWeb(player.level(), anchor)) { // v0.16.1: or a web
 			detach(player, true);
 			return;
 		}

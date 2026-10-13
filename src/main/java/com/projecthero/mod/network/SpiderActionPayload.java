@@ -32,8 +32,22 @@ public record SpiderActionPayload(Action action) implements CustomPacketPayload 
 		TOGGLE_MASK,
 		/** H key for a Spider-Man who has bonded with the Symbiote: engage / retract the black suit (v0.9.10). */
 		TOGGLE_SYMBIOTE,
-		/** N key: switch between Traversal Mode and Combat Mode (v0.12.20). */
-		TOGGLE_MODE
+		/** N key: switch between Traversal Mode and Combat Mode (v0.12.20). v0.16.1: gone -- kept so the ordinals hold. */
+		TOGGLE_MODE,
+		/** v0.16.1: right-click held with an empty hand -- fire a swing web. */
+		SWING_START,
+		/** v0.16.1: right-click released -- let go of the swing. */
+		SWING_STOP,
+		/** v0.16.1: Sprint + Jump in the air -- the Web Zip boost. */
+		ZIP_BOOST,
+		/** v0.16.1: left-click in Weave Mode -- one radial strand. */
+		WEAVE_STRAND,
+		/** v0.16.1: left-click on one of his own webs -- cut it. */
+		CUT_WEB,
+		/** v0.16.1: Sneak while standing on his tightrope -- drop under it and hang. */
+		ROPE_HANG,
+		/** v0.16.1: Jump while hanging under a tightrope -- flip back on top. */
+		ROPE_CLIMB
 	}
 
 	public static final CustomPacketPayload.Type<SpiderActionPayload> TYPE =
