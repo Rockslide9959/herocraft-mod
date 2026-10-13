@@ -27,7 +27,7 @@ public final class StormbreakerEntityRenderer extends EntityRenderer<Stormbreake
 	/** Degrees of tumble per tick -- a little over two full turns a second. */
 	private static final float SPIN_DEGREES_PER_TICK = 40.0f;
 	/** v0.16.1: a pinned axe's centre this high above the ground (the head sunk into it), and its lean. */
-	private static final float PINNED_LIFT = 0.42f;
+	private static final float PINNED_LIFT = 0.66f;
 	private static final float PINNED_TILT = 14.0f;
 	/**
 	 * v0.15.3: lying flat, the model's thin Z extent (6.6..9.4 px, centred on 8) is what stands off the ground: lift by

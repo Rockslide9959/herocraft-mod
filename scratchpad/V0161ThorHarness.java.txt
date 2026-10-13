@@ -1,0 +1,535 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.DoubleSupplier;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.item.ModItems;
+import com.projecthero.mod.power.ThorFx;
+import com.projecthero.mod.power.WeaponCombo;
+import com.projecthero.mod.power.WeaponComboState;
+import com.projecthero.mod.worthiness.Worthiness;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.1 Thor frame strips -- the dual-wield combo, the Twin Thunder Strike, the storm
+ * look, Thunder Field. Same frame-accurate capture as the Wolverine strip harness.
+ */
+public final class V0161ThorHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 1.0, 0);
+	private static volatile long lastProgress = System.currentTimeMillis();
+	private static String only = "";
+
+	public static double frameTime;
+
+	private static String capName;
+	private static DoubleSupplier capStart;
+	private static float[] capTargets;
+	private static int capIdx;
+
+	private V0161ThorHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("v0161thor.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			only = Files.readString(flag).trim();
+		} catch (Exception ignored) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161ThorHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 180_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 180 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161-thor-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	public static boolean active() {
+		return t0 >= 0;
+	}
+
+	public static void onFrame() {
+		if (capTargets == null || capIdx >= capTargets.length) {
+			return;
+		}
+		double start = capStart.getAsDouble();
+		if (Double.isNaN(start)) {
+			return;
+		}
+		double t = frameTime - start;
+		if (t >= capTargets[capIdx]) {
+			Minecraft mc = Minecraft.getInstance();
+			String n = capName + "_" + capIdx;
+			Screenshot.grab(mc.gameDirectory, "v0161t_" + n + ".png", mc.getMainRenderTarget(), c -> {
+			});
+			System.out.println("[HARNESS] shot " + n + " t=" + String.format("%.2f", t));
+			lastProgress = System.currentTimeMillis();
+			capIdx++;
+		}
+	}
+
+	private static void capture(String name, DoubleSupplier start, float... targets) {
+		capName = name;
+		capStart = start;
+		capTargets = targets;
+		capIdx = 0;
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static float pitch;
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(V0161ThorHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 10 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (t0 >= 0) {
+			mc.player.setYRot(0f);
+			mc.player.setXRot(pitch);
+			mc.player.yHeadRot = 0f;
+			mc.player.yHeadRotO = 0f;
+			mc.player.yBodyRot = 0f;
+			mc.player.yBodyRotO = 0f;
+			mc.options.hideGui = !mc.options.getCameraType().isFirstPerson();
+			mc.gui.getChat().clearMessages(false);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.setWeatherParameters(6000, 0, false, false);
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("V0161T_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void view(Minecraft mc, String v) {
+		switch (v) {
+			case "q" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-1.9, 1.45, 2.6);
+				camLook = new Vec3(0, 1.2, 0.2);
+			}
+			case "s" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-3.4, 1.2, 0.3);
+				camLook = new Vec3(0, 1.15, 0.3);
+			}
+			case "w" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-7.0, 5.5, 8.0);
+				camLook = new Vec3(0, 0.5, 0.5);
+			}
+			case "fw" -> { // the field, from behind and above
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-4.0, 5.0, -4.5);
+				camLook = new Vec3(0, 0.3, 7.0);
+			}
+			case "cq" -> { // close on the hands, 3/4 front
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-1.1, 1.3, 1.5);
+				camLook = new Vec3(0, 0.95, 0.2);
+			}
+			case "g" -> { // the ground in front
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(0.0, 1.6, 0.4);
+				camLook = new Vec3(0, 0.1, 2.0);
+			}
+			case "ts" -> { // side on to a throw down +Z
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-3.6, 1.5, 2.6);
+				camLook = new Vec3(0, 1.4, 3.0);
+			}
+			case "pc" -> { // close on a pinned weapon
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-1.6, 1.3, 4.6);
+				camLook = new Vec3(0, 0.5, 6.5);
+			}
+			case "fc" -> { // the field, close and low beside it
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-3.2, 2.0, 3.0);
+				camLook = new Vec3(0, 0.4, 6.0);
+			}
+			default -> {
+				camOffset = null;
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+			}
+		}
+	}
+
+	private static void tickRate(Minecraft mc, float rate) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+	}
+
+	private static void husk(ServerPlayer p, double dx, double dz) {
+		var h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+		h.moveTo(p.getX() + dx, p.getY(), p.getZ() + dz, 180f, 0f);
+		h.setNoAi(true);
+		h.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(800.0);
+		h.setHealth(800f);
+		p.serverLevel().addFreshEntity(h);
+	}
+
+	private static void clearHusks(ServerPlayer p) {
+		for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Husk.class,
+				p.getBoundingBox().inflate(40))) {
+			e.discard();
+		}
+	}
+
+	private static void resetCooldowns(ServerPlayer p) {
+		p.setAttached(ModAttachments.COOLDOWNS, new com.projecthero.mod.attachment.CooldownState());
+	}
+
+	private static double comboStart(int step) {
+		WeaponComboState s = WeaponCombo.state(Minecraft.getInstance().player);
+		return s.step() == step && s.weapon() == WeaponComboState.WEAPON_DUAL ? s.start() : Double.NaN;
+	}
+
+	private static double fxAnim(int anim, double after) {
+		ThorFx fx = Minecraft.getInstance().player.getAttachedOrElse(ModAttachments.THOR_FX, null);
+		return fx == null || fx.anim() != anim || fx.animStart() < after ? Double.NaN : fx.animStart();
+	}
+
+	private static double fieldStart(double after) {
+		ThorFx fx = Minecraft.getInstance().player.getAttachedOrElse(ModAttachments.THOR_FX, null);
+		return fx == null || fx.fieldStart() < after ? Double.NaN : fx.fieldStart();
+	}
+
+	private static void script(Minecraft mc) {
+		at(5, () -> server(mc, p -> {
+			p.setGameMode(GameType.SURVIVAL);
+			Worthiness.setScore(p, Worthiness.TEST_WORTHY_SCORE);
+			p.getInventory().selected = 0;
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.MJOLNIR));
+			p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.STORMBREAKER));
+			com.projecthero.mod.power.ThorPowers.bindOnAscend(p, p.getMainHandItem());
+		}));
+		at(12, () -> server(mc, p -> {
+			if (only.contains("armour")) {
+				com.projecthero.mod.thorarmor.ThorArmor.toggle(p);
+			}
+		}));
+		int c = 70;
+		boolean all = only.isEmpty() || only.startsWith("all");
+		if (all || only.contains("dual")) {
+			at(c - 5, () -> tickRate(mc, 4f));
+			float[][] beats = { { 0.4f, 1.8f, 3.2f, 4.2f, 6.5f, 10.0f }, { 0.4f, 1.8f, 3.2f, 4.2f, 6.5f, 10.0f },
+					{ 0.4f, 1.8f, 3.2f, 4.2f, 6.5f, 10.0f }, { 0.4f, 2.5f, 5.0f, 8.2f, 9.5f, 13.0f } };
+			for (int k = 1; k <= 4; k++) {
+				for (String v : new String[] { "q", "s", "f" }) {
+					final int kk = k;
+					at(c, () -> {
+						view(mc, v);
+						server(mc, p -> {
+							clearHusks(p);
+							husk(p, 0.0, 2.8);
+						});
+					});
+					at(c + 4, () -> {
+						server(mc, p -> p.setAttached(ModAttachments.WEAPON_COMBO,
+								new WeaponComboState(kk, WeaponComboState.WEAPON_DUAL, p.level().getGameTime())));
+						capture("dual" + kk + "_" + v, () -> comboStart(kk), beats[kk - 1]);
+					});
+					c += 28;
+				}
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("twin")) {
+			at(c, () -> tickRate(mc, 4f));
+			c += 2;
+			for (String v : new String[] { "q", "w", "f" }) {
+				at(c, () -> {
+					view(mc, v);
+					server(mc, p -> {
+						clearHusks(p);
+						resetCooldowns(p);
+						p.teleportTo(p.serverLevel(), Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+						husk(p, 0.0, 3.0);
+						husk(p, 2.5, 1.5);
+						husk(p, -2.5, 1.0);
+						husk(p, 1.0, 6.8);
+						husk(p, -5.0, 4.5);
+					});
+				});
+				at(c + 3, () -> {
+					double armed = mc.level.getGameTime();
+					server(mc, com.projecthero.mod.power.ThorTwinThunder::queue);
+					capture("twin_" + v, () -> fxAnim(ThorFx.ANIM_TWIN_THUNDER, armed), 2.0f, 6.0f, 9.0f, 12.5f, 16.4f,
+							17.5f, 20.0f, 24.0f);
+				});
+				c += 3 + 12 + 34 + 6;
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("storm")) {
+			at(c, () -> {
+				view(mc, "q");
+				server(mc, p -> {
+					clearHusks(p);
+					p.serverLevel().setWeatherParameters(0, 100000, true, true);
+				});
+			});
+			c += 120;
+			for (String v : new String[] { "q", "f" }) {
+				at(c, () -> view(mc, v));
+				at(c + 3, () -> {
+					double armed = mc.level.getGameTime();
+					capture("storm_" + v, () -> armed, 1.0f, 5.0f, 9.0f, 13.0f);
+				});
+				c += 25;
+			}
+			at(c, () -> server(mc, p -> p.serverLevel().setWeatherParameters(100000, 0, false, false)));
+			c += 120;
+		}
+		if (all || only.contains("field")) {
+			at(c, () -> tickRate(mc, 8f));
+			c += 2;
+			for (String v : new String[] { "fw", "fc" }) {
+				at(c, () -> {
+					view(mc, v);
+					pitch = 14f;
+					server(mc, p -> {
+						clearHusks(p);
+						resetCooldowns(p);
+						p.teleportTo(p.serverLevel(), Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 14f);
+						husk(p, 1.5, 7.0);
+						husk(p, -1.5, 8.5);
+						husk(p, 0.5, 10.0);
+					});
+				});
+				at(c + 4, () -> {
+					double armed = mc.level.getGameTime();
+					server(mc, p -> {
+						p.setXRot(14f);
+						com.projecthero.mod.power.ThunderField.cast(p);
+					});
+					capture("field_" + v, () -> fieldStart(armed), 0.5f, 3.0f, 10.0f, 25.0f, 45.0f, 70.0f);
+				});
+				c += 4 + 110;
+				at(c - 4, () -> pitch = 0f);
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		if (all || only.contains("sb")) {
+			// Stormbreaker beside Mjolnir: held (3/4, side, first person), GUI icons, on the ground, thrown
+			for (String v : new String[] { "q", "s", "f", "cq" }) {
+				at(c, () -> {
+					view(mc, v);
+					server(mc, p -> {
+						clearHusks(p);
+						p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.MJOLNIR));
+						p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(ModItems.STORMBREAKER));
+					});
+				});
+				at(c + 6, () -> {
+					double armed = mc.level.getGameTime();
+					capture("sb_held_" + v, () -> armed, 1f);
+				});
+				c += 12;
+			}
+			at(c, () -> {
+				mc.options.guiScale().set(6);
+				mc.resizeDisplay();
+				server(mc, p -> {
+					p.getInventory().clearContent();
+					p.getInventory().setItem(9, new ItemStack(ModItems.MJOLNIR));
+					p.getInventory().setItem(10, new ItemStack(ModItems.STORMBREAKER));
+					p.getInventory().setItem(11, new ItemStack(net.minecraft.world.item.Items.DIAMOND_AXE));
+					p.getInventory().setItem(12, new ItemStack(net.minecraft.world.item.Items.MACE));
+				});
+			});
+			at(c + 4, () -> mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+			at(c + 10, () -> {
+				double armed = mc.level.getGameTime();
+				capture("sb_gui_x", () -> armed, 1f);
+			});
+			at(c + 16, () -> {
+				mc.setScreen(null);
+				mc.options.guiScale().set(0);
+				mc.resizeDisplay();
+			});
+			c += 20;
+			// on the ground
+			at(c, () -> {
+				view(mc, "g");
+				server(mc, p -> {
+					var level = p.serverLevel();
+					var a = new net.minecraft.world.entity.item.ItemEntity(level, p.getX() - 0.7, p.getY() + 0.3, p.getZ() + 2.0,
+							new ItemStack(ModItems.MJOLNIR), 0, 0, 0);
+					var b = new net.minecraft.world.entity.item.ItemEntity(level, p.getX() + 0.7, p.getY() + 0.3, p.getZ() + 2.0,
+							new ItemStack(ModItems.STORMBREAKER), 0, 0, 0);
+					a.setPickUpDelay(32767);
+					b.setPickUpDelay(32767);
+					level.addFreshEntity(a);
+					level.addFreshEntity(b);
+				});
+			});
+			at(c + 30, () -> {
+				double armed = mc.level.getGameTime();
+				capture("sb_ground_x", () -> armed, 1f);
+			});
+			c += 36;
+			// thrown, side on, each in turn
+			for (int w = 0; w < 2; w++) {
+				final int ww = w;
+				at(c, () -> {
+					view(mc, "ts");
+					tickRate(mc, 4f);
+					server(mc, p -> {
+						p.getInventory().clearContent();
+						p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ww == 0 ? ModItems.MJOLNIR : ModItems.STORMBREAKER));
+					});
+				});
+				at(c + 4, () -> {
+					double armed = mc.level.getGameTime();
+					server(mc, p -> {
+						if (ww == 0) {
+							com.projecthero.mod.power.ThorPowers.throwMjolnir(p);
+						} else {
+							com.projecthero.mod.stormbreaker.StormbreakerEntity.throwFrom(p);
+						}
+					});
+					capture("sb_thrown_" + (ww == 0 ? "m" : "s"), () -> armed, 1.0f, 1.4f, 1.8f);
+				});
+				c += 40;
+				at(c - 2, () -> tickRate(mc, 20f));
+			}
+			// pinned in a Thunder Field
+			at(c, () -> {
+				view(mc, "pc");
+				pitch = 14f;
+				server(mc, p -> {
+					resetCooldowns(p);
+					p.getInventory().clearContent();
+					p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.STORMBREAKER));
+					p.setXRot(14f);
+					com.projecthero.mod.power.ThunderField.cast(p);
+				});
+			});
+			at(c + 30, () -> {
+				double armed = mc.level.getGameTime();
+				capture("sb_pinned_x", () -> armed, 1f);
+			});
+			c += 40;
+			at(c, () -> pitch = 0f);
+		}
+		at(c, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+}

@@ -1,0 +1,19 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.V0161ThorHarness;
+
+import net.minecraft.client.Minecraft;
+
+/** TEMP-HARNESS (not shipped): grabs the previous frame at the head of the next runTick. */
+@Mixin(Minecraft.class)
+public abstract class V0161ThorHarnessFrameMixin {
+	@Inject(method = "runTick", at = @At("HEAD"))
+	private void projecthero$v0161Frame(boolean renderLevel, CallbackInfo ci) {
+		V0161ThorHarness.onFrame();
+	}
+}

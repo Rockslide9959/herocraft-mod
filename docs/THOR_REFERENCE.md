@@ -63,6 +63,15 @@ Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `
 - Look: `ThorFx.field*` (separate from the one-shot move slot) -> `ThorFxRenderer.thunderField`: glowing disc + rim,
   arcs crawling over the ground, arcs from the weapon to the rim, short bolts out of the air.
 
+### Stormbreaker model rebuild -- `scratchpad/gen_v01419_stormbreaker_assets.js` (edit the generator, not the outputs)
+- 76 boxes instead of 12: a crescent blade built row by row (half-pixel rows, each a dark Uru body + lighter ground
+  bevel + thin bright cutting edge, so the edge arcs, the horn sweeps up, the beard droops and the back curves away
+  from the haft), a rune strip on the blade and a rune band on the head, a stepped hammer poll with a polished face,
+  a wandering, knotted Groot-branch haft, alternating leather wraps, a collar and a capped pommel. Block-projected UVs
+  so grain / wraps / brushing run continuously across the stepped boxes. Textures now 32x32 (new
+  `stormbreaker_bevel`). Same bounding convention and display transforms as before; `stormbreaker_thrown.json` is the
+  same geometry unrotated. A pinned (Thunder Field) axe renders blade-first in the ground (`PINNED_LIFT` 0.66).
+
 ### HUD -- `client/gui/ThorHud.renderStatusRow`
 - Above the keys: 4 combo pips while dual wielding (gold up to the landed step; grey + seconds while Twin Thunder
   recharges) and "Storm-Charged +30%" on the right (a line higher if it would overlap the pips).

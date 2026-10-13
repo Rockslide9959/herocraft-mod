@@ -58,3 +58,9 @@ if (want('dual')) {
 if (want('twin')) sheet('thor_twin_thunder_sheet.png', ['q', 'w', 'f'].map(v => frames('twin', v, 8)));
 if (want('storm')) sheet('thor_storm_charged_sheet.png', ['q', 'f'].map(v => frames('storm', v, 4)));
 if (want('field')) sheet('thor_thunder_field_sheet.png', ['fw', 'fc'].map(v => frames('field', v, 6)));
+if (want('sb')) {
+	sheet('stormbreaker_vs_mjolnir_held.png', [['q', 's', 'cq', 'f'].map(v => `v0161t_sb_held_${v}_0.png`)]);
+	sheet('stormbreaker_vs_mjolnir_gui_ground_pinned.png',
+			[['v0161t_sb_gui_x_0.png', 'v0161t_sb_ground_x_0.png', 'v0161t_sb_pinned_x_0.png']]);
+	sheet('stormbreaker_vs_mjolnir_thrown.png', [frames('sb_thrown', 'm', 3), frames('sb_thrown', 's', 3)]);
+}
