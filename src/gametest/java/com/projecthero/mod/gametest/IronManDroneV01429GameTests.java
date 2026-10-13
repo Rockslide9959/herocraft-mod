@@ -80,11 +80,17 @@ public class IronManDroneV01429GameTests implements FabricGameTest {
 		helper.assertTrue(d != null, "a full charged suit in the pack deploys as a drone");
 		helper.assertTrue(suitPiecesInPack(p) == 0, "every piece left the pack (" + suitPiecesInPack(p) + " still there)");
 		helper.assertTrue(d.pieceCount() == 4, "the drone carries all four pieces");
-		// v0.16.1: no suit energy -- the drone carries the suit's integrity
-		helper.assertTrue(Math.abs(d.integrity() - 700f) < 0.01f, "the drone carries the suit's integrity (" + d.integrity() + ")");
+		helper.assertTrue(Math.abs(d.energy() - 500f) < 0.01f && Math.abs(d.integrity() - 700f) < 0.01f,
+				"the drone carries the suit's energy / integrity (" + d.energy() + " / " + d.integrity() + ")");
 		helper.assertTrue(IronManDrones.linkedDrone(p) == d, "the link is open");
 		helper.assertTrue(IronManDrones.deploy(p, SUIT, IronManSuitListPayload.SOURCE_INVENTORY) == null,
 				"a second deploy is refused");
+		// nothing to pilot: an empty or uncharged suit is refused and stays in the pack
+		ServerPlayer q = tony(helper, new BlockPos(5, 2, 5));
+		giveSuit(q, 0f, 700f);
+		helper.assertTrue(IronManDrones.deploy(q, SUIT, IronManSuitListPayload.SOURCE_INVENTORY) == null,
+				"a suit with no charge cannot be piloted");
+		helper.assertTrue(suitPiecesInPack(q) == 4, "a refused deploy takes nothing");
 		d.dock(p);
 		helper.succeed();
 	}
@@ -104,6 +110,8 @@ public class IronManDroneV01429GameTests implements FabricGameTest {
 			helper.assertTrue(suitPiecesInPack(p) == 4, "all four pieces are back in the pack (" + suitPiecesInPack(p) + ")");
 			for (ItemStack s : p.getInventory().items) {
 				if (s.getItem() instanceof IronManArmorItem) {
+					float e = IronManEnergy.stackEnergy(s, SUIT);
+					helper.assertTrue(e > 400f && e <= 500f, "the piece keeps its (slightly drained) charge, got " + e);
 					helper.assertTrue(IronManEnergy.stackIntegrity(s, SUIT) == 700f, "the piece keeps its integrity");
 				}
 			}
@@ -128,6 +136,7 @@ public class IronManDroneV01429GameTests implements FabricGameTest {
 		for (ItemEntity e : drops) {
 			n += e.getItem().getCount();
 			helper.assertTrue(IronManEnergy.stackIntegrity(e.getItem(), SUIT) == 0f, "dropped piece shows 0 integrity");
+			helper.assertTrue(Math.abs(IronManEnergy.stackEnergy(e.getItem(), SUIT) - 500f) < 1f, "dropped piece keeps its charge");
 		}
 		helper.assertTrue(n == 4, "all four pieces dropped (" + n + ")");
 		helper.assertTrue(suitPiecesInPack(p) == 0, "no copy appeared in the pack");
@@ -184,8 +193,8 @@ public class IronManDroneV01429GameTests implements FabricGameTest {
 		IronManDrones.onDisconnect(p);
 		helper.assertTrue(d.isRemoved(), "the drone is gone once its owner logs out");
 		helper.assertTrue(be.isFull() && SUIT.equals(be.storedSuitId()), "all four pieces are back on the platform");
-		helper.assertTrue(Math.abs(be.suitIntegrity() - 600f) < 1f,
-				"with their integrity (" + be.suitIntegrity() + ")");
+		helper.assertTrue(Math.abs(be.suitEnergy() - 400f) < 1f && Math.abs(be.suitIntegrity() - 600f) < 1f,
+				"with their state (" + be.suitEnergy() + " / " + be.suitIntegrity() + ")");
 
 		// from the pack with no platform anywhere: the pieces drop where the drone was, none lost
 		ServerPlayer q = tony(helper, new BlockPos(1, 2, 6));

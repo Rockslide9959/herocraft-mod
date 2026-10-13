@@ -186,8 +186,9 @@ public final class IronManJarvisScan {
 		lines.add(line("env", biomeName, clock, Component.translatable("message.projecthero.ironman.jarvis.weather." + weather))
 				.withStyle(ChatFormatting.GRAY));
 		String id = suit.id();
+		int energyPct = Math.round(100f * IronManEnergy.energy(player, id) / Math.max(1f, IronManEnergy.capacity(id)));
 		int integrityPct = Math.round(100f * IronManEnergy.integrity(player, id) / Math.max(1f, IronManEnergy.maxIntegrity(id)));
-		lines.add(line("suit", integrityPct + "%").withStyle(ChatFormatting.DARK_AQUA)); // v0.16.1: no suit energy
+		lines.add(line("suit", energyPct + "%", integrityPct + "%").withStyle(ChatFormatting.DARK_AQUA));
 
 		MutableComponent tag = Component.literal("[JARVIS] ").withStyle(ChatFormatting.DARK_AQUA);
 		for (Component l : lines) {

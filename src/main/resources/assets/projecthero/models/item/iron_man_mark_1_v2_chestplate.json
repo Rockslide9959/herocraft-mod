@@ -1,6 +1,0 @@
-{
-	"parent": "minecraft:item/generated",
-	"textures": {
-		"layer0": "projecthero:item/iron_man_mark_1_v2_chestplate"
-	}
-}

@@ -453,15 +453,11 @@ public class StarkFabricatorScreen extends AbstractContainerScreen<StarkFabricat
 		}
 		if (suit != null) {
 			out.add(Component.translatable("screen.projecthero.stark_fabricator.suit_stats").withStyle(ChatFormatting.GOLD));
-			// v0.16.1 comic rework: the comic stats and the tap / Shift moves (no energy any more)
-			for (com.projecthero.mod.ironman.ui.IronManComicText.Row r : com.projecthero.mod.ironman.ui.IronManComicText.stats(suit)) {
-				out.add(Component.literal(" ").append(r.label().copy().withStyle(ChatFormatting.GRAY))
-						.append(Component.literal("  " + r.value()).withStyle(ChatFormatting.WHITE)));
-			}
-			out.add(Component.translatable("screen.projecthero.ironman_comic.moves").withStyle(ChatFormatting.GOLD));
-			for (Component line : com.projecthero.mod.ironman.ui.IronManComicText.moves(suit, new String[] { "R", "G", "X", "Z", "V" })) {
-				out.add(Component.literal(" ").append(line.copy().withStyle(ChatFormatting.WHITE)));
-			}
+			out.add(statLine("armour_integrity", String.valueOf(Math.round(suit.maxIntegrity()))));
+			out.add(statLine("energy_capacity", String.valueOf(Math.round(suit.energyCapacity()))));
+			out.add(statLine("energy_regen", fmt(suit.energyRegenPerSecond())));
+			out.add(statLine("melee_bonus", "+" + (int) suit.strengthBonus()));
+			out.add(statLine("flight_drain", suit.flatFlightDrainPerSecond() > 0f ? fmt(suit.flatFlightDrainPerSecond()) + "/s" : fmt(suit.flightDrainMultiplier()))); // v0.14.30
 		}
 		return out;
 	}

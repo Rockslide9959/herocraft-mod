@@ -28,33 +28,44 @@ import net.minecraft.world.item.crafting.Ingredient;
  * Placeholder textures ship now; drop real ones in at those paths with no code change.
  */
 public final class IronManArmorMaterials {
-	// v0.16.1 comic rework (explicit user stats, helmet / chest / legs / boots, toughness): every suit at least diamond.
-	// Each piece carries 0.175 knockback resistance (70% for a full suit, v0.14.31); the Hulkbuster 0.25 (fully immune).
-	// Totals above vanilla's 30-point armour cap are simply capped by vanilla (Hulkbuster 28 + Vibranium fits).
-	public static final Holder<ArmorMaterial> MARK_1 = register("mark_1", hclb(3, 8, 6, 3),
+	// v0.14.31, explicit user request: every mark's pieces carry 0.175 knockback resistance each -- 70% with the full suit.
+	// Mark 1 ("changes 12", v0.11.12): explicit user request -- "diamond level armour", i.e. the exact
+	// same per-piece defense/toughness vanilla Diamond armor has (boots 3, leggings 6, chestplate 8,
+	// helmet 3, toughness 2.0), still repaired with iron in keeping with the primitive-prototype theme.
+	// This is the RAW ArmorMaterial mitigation only -- IronManDamage's Mark 1 branch is what actually
+	// governs how much of a hit the wearer takes while the suit is powered.
+	public static final Holder<ArmorMaterial> MARK_1 = register("mark_1",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
 			8, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
-	public static final Holder<ArmorMaterial> MARK_1_V2 = register("mark_1_v2", hclb(3, 8, 6, 3),
-			10, SoundEvents.ARMOR_EQUIP_GOLD, 2.0f, 0.175f, Items.GOLD_INGOT);
-	public static final Holder<ArmorMaterial> MARK_2 = register("mark_2", hclb(3, 8, 6, 3),
-			10, SoundEvents.ARMOR_EQUIP_IRON, 2.5f, 0.175f, Items.IRON_INGOT);
-	public static final Holder<ArmorMaterial> MARK_III = register("mark_iii", hclb(3, 8, 6, 3),
-			12, SoundEvents.ARMOR_EQUIP_IRON, 3.0f, 0.175f);
-	public static final Holder<ArmorMaterial> MARK_4 = register("mark_4", hclb(4, 9, 7, 3),
-			14, SoundEvents.ARMOR_EQUIP_IRON, 3.0f, 0.175f, Items.IRON_INGOT);
-	public static final Holder<ArmorMaterial> MARK_V = register("mark_v", hclb(3, 8, 6, 3),
-			12, SoundEvents.ARMOR_EQUIP_LEATHER, 3.0f, 0.175f); // the quiet one
-	public static final Holder<ArmorMaterial> MARK_6 = register("mark_6", hclb(4, 9, 7, 4),
-			15, SoundEvents.ARMOR_EQUIP_IRON, 3.5f, 0.175f, Items.IRON_INGOT);
-	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii", hclb(4, 9, 7, 4),
-			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 4.0f, 0.175f);
-	public static final Holder<ArmorMaterial> MARK_8 = register("mark_8", hclb(5, 10, 8, 5),
-			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 5.0f, 0.25f);
+	// Mark 2 (v0.11.13, explicit user request): also "diamond level armour" now -- same defense/toughness
+	// as Mark 1/vanilla Diamond, still repaired with iron. IronManDamage's Mark 2 branch governs the
+	// actual powered-hit split.
+	public static final Holder<ArmorMaterial> MARK_2 = register("mark_2",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			10, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
+	// Mark 4 ("changes 15"): the strongest of the craftable "movie early-marks" line -- defence on par
+	// with the Mark III, still repaired with iron like the rest of the primitive line.
+	public static final Holder<ArmorMaterial> MARK_4 = register("mark_4",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			14, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f, Items.IRON_INGOT);
+	// Mark 6 ("changes 16"): a hair tougher than the Mark 4, still iron-repaired.
+	public static final Holder<ArmorMaterial> MARK_6 = register("mark_6",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
+			15, SoundEvents.ARMOR_EQUIP_IRON, 2.5f, 0.175f, Items.IRON_INGOT);
 
-	/** v0.16.1: defence per piece in the order the user writes it -- helmet / chestplate / leggings / boots. */
-	private static Map<ArmorItem.Type, Integer> hclb(int helmet, int chest, int legs, int boots) {
-		return Map.of(ArmorItem.Type.HELMET, helmet, ArmorItem.Type.CHESTPLATE, chest, ArmorItem.Type.LEGGINGS, legs,
-				ArmorItem.Type.BOOTS, boots);
-	}
+	public static final Holder<ArmorMaterial> MARK_III = register("mark_iii",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f);
+	public static final Holder<ArmorMaterial> MARK_V = register("mark_v",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8, ArmorItem.Type.HELMET, 3),
+			12, SoundEvents.ARMOR_EQUIP_IRON, 2.0f, 0.175f); // v0.14.29: diamond level (3/6/8/3, toughness 2)
+	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
+			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.175f);
+	// v0.15.9: the Mark 8 -- the Mark 7's plates
+	public static final Holder<ArmorMaterial> MARK_8 = register("mark_8",
+			Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 9, ArmorItem.Type.HELMET, 3),
+			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 3.0f, 0.175f);
 	// "changes 17": Mark XLII / Mark L materials removed with those suits.
 
 	/**

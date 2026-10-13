@@ -313,8 +313,16 @@ public final class IronManSentryClient {
 		}
 		IronManGui.chip(g, font, x, y, w, head, s.powered() ? (s.autoDefending() ? IronManGui.ORANGE : IronManGui.CYAN) : IronManGui.RED);
 		y += 13;
-		// v0.16.1 comic rework: no suit energy -- a sentry runs for as long as it has integrity, so only that is shown
-		g.fill(x, y - 1, x + w, y + IronManUiLayout.GAUGE_ROW_H, 0x8C050B12);
+		g.fill(x, y - 1, x + w, y + 2 * IronManUiLayout.GAUGE_ROW_H, 0x8C050B12);
+		String energyText = Math.round(ef * 100f) + "%";
+		float drain = IronManSentryEntity.drainPerSecond(s.mode());
+		if (drain > 0f && s.powered()) {
+			energyText = Component.translatable("hud.projecthero.ironman.sentry_drain", energyText,
+					Math.round(drain * 100f)).getString();
+		}
+		IronManGui.gauge(g, font, x + 2, y, w - 4, Component.translatable("hud.projecthero.ironman.sentry_energy").getString(),
+				IronManGui.TEXT_DIM, energyText, IronManGui.TEXT, ef, ef > 0.2f ? IronManGui.CYAN : IronManGui.ORANGE);
+		y += IronManUiLayout.GAUGE_ROW_H;
 		IronManGui.gauge(g, font, x + 2, y, w - 4, Component.translatable("hud.projecthero.ironman.sentry_integrity").getString(),
 				IronManGui.TEXT_DIM, Math.round(inf * 100f) + "%", IronManGui.TEXT, inf, inf > 0.25f ? IronManGui.GREEN : IronManGui.RED);
 		y += IronManUiLayout.GAUGE_ROW_H + 2;

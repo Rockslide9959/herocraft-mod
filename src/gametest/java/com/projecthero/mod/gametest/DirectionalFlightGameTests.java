@@ -161,13 +161,11 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(ironMan.speed() - 0.05 / 0.09) < EPS, "a Mark 2 cruises at plain creative-flight speed");
 		Tune m7Sprint = DirectionalFlightModel.ironMan(m7.flightSpeed(), m7.flightAcceleration(), m7.maxFlightSpeedMps(), true, false);
 		Vec3 fast = Vec3.ZERO;
-		// v0.16.1: the Mark 7's 44 m/s cap sits above its plain sprint speed, so push past it to prove the ceiling holds
-		double push = Math.max(m7Sprint.speed(), m7.maxFlightSpeedMps() / 20.0 * 2.0);
-		for (int i = 0; i < 200; i++) {
-			fast = DirectionalFlightModel.step(fast, new Vec3(0, 0, push), true, m7Sprint, false);
+		for (int i = 0; i < 100; i++) {
+			fast = DirectionalFlightModel.step(fast, new Vec3(0, 0, m7Sprint.speed()), true, m7Sprint, false);
 		}
 		helper.assertTrue(Math.abs(fast.horizontalDistance() - m7.maxFlightSpeedMps() / 20.0) < EPS,
-				"a Mark 7 is held to its 44 m/s ceiling, got " + fast.horizontalDistance() * 20.0);
+				"a Mark 7 is held to its 30 m/s ceiling");
 		Tune supersonic = DirectionalFlightModel.ironMan(m7.flightSpeed(), m7.flightAcceleration(), m7.maxFlightSpeedMps(), false, true);
 		Vec3 burst = DirectionalFlightModel.wantedVelocity(look(10f, 0f), 0f, -1f, 0f, 0, supersonic);
 		helper.assertTrue(burst.dot(look(10f, 0f)) > 0.0
@@ -281,17 +279,20 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(player, "mark_6", 250f);
 		IronManFlight.setFlying(player, true);
 		helper.assertTrue(IronManFlight.isFlying(player) && player.getAbilities().flying, "flight engages");
-		player.setOnGround(false); // v0.16.1: no suit energy -- flight never drains anything
+		player.setOnGround(false); // v0.15.3: every mark (Mark 6 too) flies at a flat 3 energy/s
+		float flat = 3f / 20f;
 
+		float before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6") == com.projecthero.mod.ironman.IronManEnergy.FULL
-				&& com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_6") == 250f, "hovering costs nothing");
+		float hoverSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
+		helper.assertTrue(Math.abs(hoverSpent - flat) < 1.0e-3f, "hover drains the flat 3/s, spent " + hoverSpent);
 		helper.assertTrue(IronManFlight.isFlying(player), "still flying after a tick in the air");
 
 		player.setSprinting(true);
+		before = com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
 		IronManFlight.tick(player);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_6") == 250f, "sprint flight costs nothing either");
-		helper.assertTrue(IronManFlight.isFlying(player), "still flying while sprinting");
+		float sprintSpent = before - com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6");
+		helper.assertTrue(Math.abs(sprintSpent - flat) < 1.0e-3f, "sprint drains the same flat 3/s, spent " + sprintSpent);
 
 		player.setOnGround(true);
 		IronManFlight.tick(player);

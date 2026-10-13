@@ -80,7 +80,7 @@ public final class IronManSuitTicker {
 		IronManTargeting.tick(player, suit);
 		// v0.15.1: Mark 3+ helmets switch the mob highlight on by themselves
 		IronManAbilities.tickAutoHighlight(player, suit, suitId != null && IronManArmor.hasHelmet(player, suitId)
-				&& !IronManIntegrity.disabled(player, suitId)); // v0.16.1: no energy -- a disabled suit's optics are dark
+				&& IronManEnergy.energy(player, suitId) > 0f);
 
 		// "changes 21": the mob-highlight toggle is a helmet HUD overlay -- the instant an Iron Man
 		// helmet is no longer worn (docked into a Suit Platform, pulled off by hand, or the suit
@@ -148,17 +148,16 @@ public final class IronManSuitTicker {
 			s = TonyStark.state(player);
 		}
 		boolean overloaded = TonyStark.overloaded(player);
-		// v0.16.1: no suit energy -- the suit is offline only at 0 integrity, above its ceiling, or locked out
-		boolean depleted = integrityFailed || altitudeLocked || overloaded || ceilingFreezing;
-		IronManIntegrity.tick(player, suit); // v0.16.1: the Mark 6 / Mark 7 out-of-combat self-repair (even from 0)
+		boolean depleted = IronManEnergy.energy(player, suitId) <= 0f || integrityFailed || altitudeLocked
+				|| overloaded || ceilingFreezing;
 		if (depleted) {
 			// Suit is powered down: no active abilities run, targeting drops. Physical armour only.
 			shutDownAllSystems(player, s, suit);
+			IronManEnergy.tickRecharge(player, suit); // the Arc Reactor still trickles it back up
 			tickIntegrityFailure(player, suitId, integrityFailed);
 			return;
 		}
 		tickIntegrityFailure(player, suitId, false);
-		com.projecthero.mod.ironman.ability.IronManComicState.tick(player, suit); // v0.16.1: the comic kit's running moves
 
 		if (s.unibeamUntil != 0L) {
 			IronManAbilities.tickUnibeam(player, suit);
@@ -180,16 +179,12 @@ public final class IronManSuitTicker {
 		}
 		// v0.14.27: the Mark 1 Shift+X launch turns into the flight burst 3 s later
 		IronManAbilities.tickPendingFlightBurst(player, suit);
-		// v0.16.1 comic rework: the old Mark III / Mark 6-8 kits (IronManMark3 / IronManMark6 ticks) are no longer bound to any
-		// suit and are not ticked -- an old save's latched Mark III shield flag can never come back on. Their shutDown calls
-		// below stay, so anything left running from before the update is stopped; this clears a stale shield flag (cheap:
-		// it only writes when one is set).
-		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
-	}
-
-	/** v0.16.1: the suit's integrity just hit 0 -- everything it was running stops at once (flight included). */
-	public static void onDisabled(ServerPlayer player, IronManSuit suit) {
-		shutDownAllSystems(player, TonyStark.state(player), suit);
+		// v0.14.27 (agent D): Mark III minigun / held Unibeam / micro-missile volley / energy shield
+		com.projecthero.mod.ironman.ability.IronManMark3.tick(player, suit);
+		// v0.15.4: the Mark 6 / Mark 7 modern kit -- held beams (Unibeam, Mark 7 red laser), wheel laser, barrage, and the
+		// Regeneration-while-hurt passive
+		com.projecthero.mod.ironman.ability.IronManMark6.tick(player, suit);
+		IronManEnergy.tickRecharge(player, suit);
 	}
 
 	/**
@@ -220,8 +215,7 @@ public final class IronManSuitTicker {
 		if (!failed) {
 			return;
 		}
-		// v0.16.1: the disabled suit is dead weight -- heavy Slowness (IV), Weakness II
-		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, INTEGRITY_FAILURE_EFFECT_TICKS, 3, true, false, false));
+		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, INTEGRITY_FAILURE_EFFECT_TICKS, 1, true, false, false));
 		player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, INTEGRITY_FAILURE_EFFECT_TICKS, 1, true, false, false));
 	}
 
@@ -313,6 +307,5 @@ public final class IronManSuitTicker {
 		// v0.14.27 (agent D): Mark III held weapons + energy shield
 		com.projecthero.mod.ironman.ability.IronManMark3.shutDown(player);
 		com.projecthero.mod.ironman.ability.IronManMark6.shutDown(player); // v0.15.4: the Mark 6 / Mark 7 kit
-		com.projecthero.mod.ironman.ability.IronManComicState.shutDown(player); // v0.16.1: the comic kit
 	}
 }

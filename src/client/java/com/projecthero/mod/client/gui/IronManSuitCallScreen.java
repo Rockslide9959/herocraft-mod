@@ -377,10 +377,9 @@ public final class IronManSuitCallScreen extends Screen {
 		float cap = suit == null ? 0f : suit.energyCapacity();
 		float maxI = IronManEnergy.maxIntegrity(c.suitId);
 		int labelCol = c.available ? IronManGui.TEXT_DIM : IronManGui.TEXT_MUTED;
-		// v0.16.1 comic rework: no suit energy -- the top row is the suit's absorb share (how much of a hit it soaks)
-		float absorb = suit == null ? 0f : suit.absorbShare();
-		row(g, ix, y + 15, iw, Component.translatable("screen.projecthero.suit_call.absorb").getString(), absorb, 0f,
-				IronManGui.BLUE, labelCol, c.available);
+		row(g, ix, y + 15, iw, Component.translatable("screen.projecthero.suit_call.charge").getString(), c.energyFrac, cap,
+				c.energyFrac < 0.15f ? IronManGui.ORANGE : c.energyFrac < 0.5f ? IronManGui.GOLD : IronManGui.BLUE,
+				labelCol, c.available);
 		row(g, ix, y + 37, iw, Component.translatable("screen.projecthero.suit_call.integrity").getString(), c.integrityFrac, maxI,
 				c.integrityFrac < 0.3f ? IronManGui.RED : IronManGui.GREEN, labelCol, c.available);
 

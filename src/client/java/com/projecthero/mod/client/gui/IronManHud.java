@@ -114,13 +114,13 @@ public final class IronManHud {
 			return;
 		}
 
-		// v0.16.1 comic rework: no suit energy -- integrity is THE bar; at 0 the suit is disabled and the visor goes dark
+		float energy = state.suitEnergy.getOrDefault(suitId, 0.0f);
+		float energyFrac = suit.energyCapacity() <= 0 ? 0f : IronManUiLayout.clamp01(energy / suit.energyCapacity());
 		float maxIntegrity = IronManEnergy.maxIntegrity(suitId);
 		float integrity = state.suitIntegrity.getOrDefault(suitId, maxIntegrity);
 		float integrityFrac = IronManUiLayout.clamp01(integrity / maxIntegrity);
 		boolean overloaded = state.overloadUntil > now;
-		boolean disabled = integrity <= 0.001f;
-		boolean offline = disabled || overloaded;
+		boolean offline = energyFrac <= 0.001f || integrity <= 0.001f || overloaded;
 
 		// v0.11.12, explicit user request: Mark 1's HUD is deliberately stripped down to ENERGY, INTEGRITY, the
 		// ability list and its own mob-highlight duration -- no altitude, speed, clock, target readout or Phoenix.
@@ -129,12 +129,6 @@ public final class IronManHud {
 		int accent = minimalHud ? IronManGui.AMBER : IronManGui.CYAN;
 		int dim = minimalHud ? IronManGui.AMBER_DIM : IronManGui.TEXT_DIM;
 
-		if (visorClosed && disabled) {
-			// v0.16.1: a disabled suit -- the visor is dark, only the failure readout flickers through
-			darkVisor(g, font, now, minimalHud);
-			com.projecthero.mod.client.ironman.IronManBattleDamage.renderVisorCracks(g, 0f, minimalHud);
-			return;
-		}
 		if (visorClosed) {
 			visor(g, minimalHud, offline, now);
 			com.projecthero.mod.client.ironman.IronManBattleDamage.renderVisorCracks(g, integrityFrac, minimalHud); // v0.14.29 agent F
@@ -183,11 +177,13 @@ public final class IronManHud {
 			}
 			y += 12;
 
-			// ---- v0.16.1: INTEGRITY is the main Gauge (no energy any more); the label carries the absorb share
-			y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.integrity_abs",
-					Math.round(suit.absorbShare() * 100f)).getString(),
-					Math.round(integrity) + "/" + Math.round(maxIntegrity), // the bar shows the fraction; the label carries the absorb share
-					integrityFrac, integrityFrac < 0.3f ? IronManGui.RED : integrityFrac < 0.6f ? IronManGui.GOLD : IronManGui.GREEN);
+			// ---- ENERGY / INTEGRITY Gauges: exact values on the label line
+			y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.energy_short").getString(),
+					IronManUiLayout.pct(energyFrac) + " " + IronManUiLayout.amount(energy, suit.energyCapacity()),
+					energyFrac, energyFrac < 0.15f ? IronManGui.ORANGE : IronManGui.BLUE);
+			y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.integrity_short").getString(),
+					IronManUiLayout.pct(integrityFrac) + " " + IronManUiLayout.amount(integrity, maxIntegrity),
+					integrityFrac, integrityFrac < 0.3f ? IronManGui.RED : IronManGui.GREEN);
 
 			// ---- one dim clock + position line ("changes 18" clock); the block is widened to fit it (v0.15.20)
 			if (clockLine != null) {
@@ -250,9 +246,11 @@ public final class IronManHud {
 							IronManGui.GOLD);
 				}
 			}
-			if (!minimalHud && integrityFrac < 0.35f && !offline) {
+			if (!minimalHud && (energyFrac < 0.35f || integrityFrac < 0.35f) && !offline) {
 				if (draw && (now % 20) < 13) {
-					String crit = IronManGui.fit(font, Component.translatable("hud.projecthero.ironman.critical_short"), w - 6);
+					// only the integrity half of the warning says REPAIR; a suit that is merely low on power says RECHARGE
+					String crit = IronManGui.fit(font, Component.translatable(integrityFrac < 0.35f
+							? "hud.projecthero.ironman.critical_short" : "hud.projecthero.ironman.power_critical_short"), w - 6);
 					g.fill(x, y, x + font.width(crit) + 6, y + 11, 0xC0400808);
 					g.renderOutline(x, y, font.width(crit) + 6, 11, IronManGui.RED);
 					g.drawString(font, crit, x + 3, y + 2, 0xFFFF7070, false);
@@ -293,12 +291,12 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (false) { // v0.16.1: the old Mark 6-8 wheel is gone (the comic kit has no wheel)
+			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) { // v0.15.4: what G fires
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk6_wheel",
 						Component.translatable("hud.projecthero.ironman.ability." + com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId))).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (false) { // v0.16.1: the old Mark III shield is gone
+			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
 				chipColor.add(IronManGui.CYAN);
 			}
@@ -383,23 +381,6 @@ public final class IronManHud {
 		g.fill(x, y + h, x + w, y + h + 1, retro ? IronManGui.alpha(IronManGui.AMBER_DIM, 0.6f) : IronManGui.alpha(IronManGui.CYAN_DIM, 0.6f));
 	}
 
-	/** v0.16.1: the visor of a disabled (0 integrity) suit -- near-black, a flickering red failure readout. */
-	private static void darkVisor(GuiGraphics g, Font font, long now, boolean retro) {
-		int sw = g.guiWidth();
-		int sh = g.guiHeight();
-		g.fill(0, 0, sw, sh, 0xC8020204);
-		if ((now % 30) < 22) {
-			Component title = Component.translatable("hud.projecthero.ironman.disabled_title");
-			int tw = font.width(title);
-			g.drawString(font, title, (sw - tw) / 2, sh / 2 - 20, retro ? IronManGui.AMBER : IronManGui.RED, true);
-		}
-		int y = sh / 2 - 6;
-		for (FormattedCharSequence line : font.split(Component.translatable("hud.projecthero.ironman.disabled_hint"), Math.min(220, sw - 32))) {
-			g.drawString(font, line, (sw - font.width(line)) / 2, y, IronManGui.TEXT_DIM, true);
-			y += 10;
-		}
-	}
-
 	/** The faint visor frame while the faceplate is closed. */
 	private static void visor(GuiGraphics g, boolean retro, boolean offline, long now) {
 		int sw = g.guiWidth();
@@ -456,14 +437,6 @@ public final class IronManHud {
 			if (abilityId == null) {
 				g.fill(r.x(), r.y(), r.right(), r.bottom(), 0x60060A10);
 				g.renderOutline(r.x(), r.y(), r.w(), r.h(), 0x40303A48);
-				continue;
-			}
-			// v0.16.1: the comic kit -- the box shows the move Shift would fire while Shift is held, else the tap move
-			if (com.projecthero.mod.ironman.ability.IronManComicKit.isKitSlot(abilityId)) {
-				String n = comicBox(g, font, player, state, suitId, i, r, now, retro, offline, accent);
-				if (expanded && n != null) {
-					names.add(n);
-				}
 				continue;
 			}
 			boolean wheel = IronManAbilities.WEAPON_WHEEL_SLOT.equals(abilityId);
@@ -531,56 +504,6 @@ public final class IronManHud {
 				g.drawString(font, IronManGui.fit(font, names.get(i), sw), sx, top + i * 10, IronManGui.TEXT, false);
 			}
 		}
-	}
-
-	/** v0.16.1: one comic-kit key box. Returns the expanded-list line ("[R] Tap / Shift  cooldowns"). */
-	private static String comicBox(GuiGraphics g, Font font, Player player, TonyStarkState state, String suitId, int i, Rect r, long now,
-			boolean retro, boolean offline, int accent) {
-		var kitKey = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suitId) == null ? null
-				: com.projecthero.mod.ironman.ability.IronManComicKit.kit(suitId).key(i + 1);
-		if (kitKey == null) {
-			return null;
-		}
-		boolean shift = player.isShiftKeyDown();
-		var shown = kitKey.get(shift);
-		var other = kitKey.get(!shift);
-		String cdKey = suitId + "/" + shown.cooldownKey();
-		Long readyAt = state.abilityReadyAt.get(cdKey);
-		long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
-		Long otherAt = state.abilityReadyAt.get(suitId + "/" + other.cooldownKey());
-		long otherLeft = otherAt == null ? 0 : Math.max(0, otherAt - now);
-
-		g.fill(r.x(), r.y(), r.right(), r.bottom(), retro ? 0xC0140C04 : 0xC0081018);
-		int border = offline ? 0xFF6A2020 : shift ? IronManGui.GOLD : retro ? IronManGui.AMBER_DIM : IronManGui.PANEL_BORDER;
-		g.renderOutline(r.x(), r.y(), r.w(), r.h(), border);
-		if (!offline && left <= 0) {
-			g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
-		}
-		g.renderFakeItem(new ItemStack(shown.icon()), r.x() + (r.w() - 16) / 2, r.y() + 2);
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
-		if (left > 0) {
-			float frac = cooldownFrac(cdKey, readyAt, now);
-			int coverH = Math.round((r.h() - 2) * frac);
-			g.fill(r.x() + 1, r.bottom() - 1 - coverH, r.right() - 1, r.bottom() - 1, 0xB0000000);
-			String s = String.valueOf(IronManUiLayout.ceilSecs(left));
-			g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
-		} else if (offline) {
-			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
-		}
-		// the other variant's cooldown: a thin bar along the top edge (red while it cools down)
-		if (otherLeft > 0) {
-			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.y() + 2, 0xC0FF5050);
-		}
-		g.drawString(font, keyLabel(i), r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
-		if (shift) {
-			g.drawString(font, "⇧", r.right() - 7, r.y() + 1, IronManGui.GOLD, true);
-		}
-		g.pose().popPose();
-		String tapName = Component.translatable(kitKey.tap().nameKey()).getString();
-		String shiftName = Component.translatable(kitKey.shift().nameKey()).getString();
-		return Component.translatable("hud.projecthero.ironman.comic.pair", keyLabel(i), tapName, shiftName).getString()
-				+ (left > 0 ? "  " + IronManUiLayout.secs(left) : "");
 	}
 
 	private static boolean isActive(Player player, TonyStarkState state, String abilityId, long now) {

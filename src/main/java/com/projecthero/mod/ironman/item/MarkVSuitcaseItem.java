@@ -62,46 +62,15 @@ public class MarkVSuitcaseItem extends Item implements GeoItem {
 		// (chest-first, ~4 s); right-click while already wearing it folds it back into the case.
 		if (com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(serverPlayer)) {
 			String worn = com.projecthero.mod.ironman.IronManArmor.wornSuitId(serverPlayer);
-			if (IronManSuitUpManager.beginSuitDownToCase(serverPlayer, worn != null ? worn : IronManSuitUpManager.BRIEFCASE_SUIT)) {
+			if (IronManSuitUpManager.beginSuitDownToCase(serverPlayer, worn != null ? worn : "mark_v")) {
 				return InteractionResultHolder.success(stack);
 			}
 			return InteractionResultHolder.fail(stack);
 		}
-		// v0.16.1 delivery remap: the briefcase is the MARK 2's now. A case packed before v0.16.1 still holds Mark 5 pieces:
-		// hand them back as loose armour (the Stealth armour is worn normally now) and keep the case, empty, for the Mark 2.
-		if (unpackForeign(serverPlayer, stack)) {
-			return InteractionResultHolder.success(stack);
-		}
-		if (IronManSuitUpManager.beginSuitUpFromCase(serverPlayer, IronManSuitUpManager.BRIEFCASE_SUIT)) {
+		if (IronManSuitUpManager.beginSuitUpFromCase(serverPlayer, "mark_v")) {
 			return InteractionResultHolder.success(stack);
 		}
 		return InteractionResultHolder.fail(stack);
-	}
-
-	/** v0.16.1: move any piece that is not a Mark 2 piece out of the case into the inventory (dropping what won't fit). */
-	private static boolean unpackForeign(ServerPlayer player, ItemStack caseStack) {
-		if (SuitcaseContents.isLegacyEmpty(caseStack)) {
-			return false;
-		}
-		net.minecraft.core.NonNullList<ItemStack> slots = SuitcaseContents.read(caseStack);
-		boolean moved = false;
-		for (int i = 0; i < slots.size(); i++) {
-			ItemStack s = slots.get(i);
-			if (!s.isEmpty() && !(s.getItem() instanceof IronManArmorItem a && IronManSuitUpManager.BRIEFCASE_SUIT.equals(a.suitId()))) {
-				ItemStack out = s.copy();
-				slots.set(i, ItemStack.EMPTY);
-				if (!player.getInventory().add(out)) {
-					player.drop(out, false);
-				}
-				moved = true;
-			}
-		}
-		if (moved) {
-			SuitcaseContents.write(caseStack, slots);
-			player.displayClientMessage(Component.translatable("message.projecthero.ironman.briefcase_unpacked")
-					.withStyle(ChatFormatting.GOLD), true);
-		}
-		return moved;
 	}
 
 	@Override

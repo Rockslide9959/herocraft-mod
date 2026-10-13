@@ -160,8 +160,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 	// ------------------------------------------------------------------ drain
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void followAndDefensiveCostNothing(GameTestHelper h) {
-		// v0.16.1: no suit energy -- Follow and Defensive run for free and the sentry never powers down for power
+	public void followDrainsOnePercentAndDefensiveTwoPercentASecond(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = suitedTony(h, new BlockPos(1, 2, 1));
 		IronManSentryEntity s = deploy(h, p);
@@ -170,19 +169,33 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 			s.use(p, true);
 			s.use(p, true); // Follow
 			h.assertTrue(s.mode() == IronManSentryEntity.FOLLOW, "Follow");
+			float e0 = s.energy();
 			h.runAfterDelay(40, () -> {
-				h.assertTrue(s.energy() == cap() && s.powered(), "Follow costs nothing (" + s.energy() + ")");
+				float used = e0 - s.energy();
+				h.assertTrue(Math.abs(used - cap() * 0.02f) < cap() * 0.002f, "Follow: 1% a second (" + used + " in 2 s)");
 				s.use(p, true);
 				s.use(p, true); // Regular -> Defensive
 				h.assertTrue(s.mode() == IronManSentryEntity.DEFENSIVE, "Defensive");
+				float e1 = s.energy();
 				h.runAfterDelay(40, () -> {
-					h.assertTrue(s.energy() == cap() && s.powered(), "Defensive costs nothing (" + s.energy() + ")");
-					h.assertTrue(s.mode() == IronManSentryEntity.DEFENSIVE, "and stays Defensive");
-					s.setEnergy(cap() * 0.005f);
-					h.assertTrue(s.energy() == cap(), "the sentry can't be drained any more");
-					s.discard();
-					leave(h, p);
-					h.succeed();
+					float used2 = e1 - s.energy();
+					h.assertTrue(Math.abs(used2 - cap() * 0.04f) < cap() * 0.002f, "Defensive: 2% a second (" + used2 + " in 2 s)");
+					s.use(p, true);
+					s.use(p, true); // Defensive -> Follow -> Regular
+					float e2 = s.energy();
+					h.runAfterDelay(20, () -> {
+						h.assertTrue(s.energy() == e2, "Regular costs nothing");
+						s.setEnergy(cap() * 0.005f);
+						s.use(p, true);
+						s.use(p, true); // Follow again, almost empty
+						h.runAfterDelay(20, () -> {
+							h.assertTrue(s.energy() == 0f && !s.powered(), "drained to zero");
+							h.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "drops to Regular");
+							s.discard();
+							leave(h, p);
+							h.succeed();
+						});
+					});
 				});
 			});
 		});
@@ -228,7 +241,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 	// ------------------------------------------------------------------ calling + send-home
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
-	public void aMarkEightCallIsFreeAndLandsInFrontAsASentry(GameTestHelper h) {
+	public void aMarkEightCallCostsTenPercentAndLandsInFrontAsASentry(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = tony(h, new BlockPos(1, 2, 1));
 		IronManSuitPlatformBlockEntity be = platform(h, p, new BlockPos(6, 2, 6));
@@ -241,9 +254,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		h.assertTrue(!IronManSuitUpManager.inTransition(p) && !IronManArmor.wearingAnyIronMan(p), "no piece-by-piece suit-up");
 		IronManSentryEntity s = only(h, p);
 		h.assertTrue(s.phase() == IronManSentryEntity.PHASE_ARRIVE && s.pieceCount() == 4, "it flies in as one suit");
-		// v0.16.1: the call is free, and the Hulkbuster always drops in out of the sky (never straight off the platform)
-		h.assertTrue(s.energy() == cap() && IronManMark8Call.cost(IronManSuits.byId(SUIT)) == 0f, "the call costs nothing (" + s.energy() + ")");
-		h.assertTrue(s.getY() > p.getY() + 3.0, "it starts up in the sky (y " + s.getY() + " vs " + p.getY() + ")");
+		h.assertTrue(Math.abs(s.energy() - cap() * 0.9f) < 0.5f, "10% of its energy spent on the call (" + s.energy() + ")");
 		h.succeedWhen(() -> {
 			h.assertTrue(s.phase() == IronManSentryEntity.PHASE_IDLE, "landed");
 			h.assertTrue(s.mode() == IronManSentryEntity.REGULAR && !s.isOpen() && !s.flying(), "standing, closed, in Regular");
@@ -259,7 +270,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void aLowChargeMarkEightIsStillCalled(GameTestHelper h) {
+	public void aMarkEightUnderTenPercentCannotBeCalled(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = tony(h, new BlockPos(1, 2, 1));
 		IronManSuitPlatformBlockEntity be = platform(h, p, new BlockPos(6, 2, 6));
@@ -269,14 +280,11 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 			be.store(piece);
 		}
 		StarkGear.equip(p, new ItemStack(IronManItems.STARK_GLASSES));
-		// v0.16.1: no suit energy -- an old save's low-charge stamp no longer blocks the call
-		h.assertFalse(IronManMark8Call.refuseLowEnergy(p, IronManSuits.byId(SUIT), cap() * 0.08f), "never refused for power");
 		IronManSuitCall.execute(p, SUIT, IronManSuitListPayload.SOURCE_PLATFORM);
-		h.assertTrue(be.isEmptyPlatform(), "the suit leaves its platform");
-		List<IronManSentryEntity> inbound = h.getLevel().getEntities(IronManEntityTypes.SENTRY,
-				new AABB(p.position(), p.position()).inflate(40), s -> p.getUUID().equals(s.ownerId()));
-		h.assertTrue(inbound.size() == 1, "and flies in");
-		inbound.forEach(net.minecraft.world.entity.Entity::discard);
+		h.assertTrue(be.isFull(), "an 8% suit stays on its platform");
+		h.assertTrue(h.getLevel().getEntities(IronManEntityTypes.SENTRY, new AABB(p.position(), p.position()).inflate(40),
+				s -> p.getUUID().equals(s.ownerId())).isEmpty(), "nothing flies in");
+		h.assertTrue(IronManMark8Call.CALL_COST == 0.10f, "the cost is 10%");
 		leave(h, p);
 		h.succeed();
 	}
@@ -296,8 +304,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		h.succeedWhen(() -> {
 			h.assertTrue(s.isRemoved(), "the sentry is gone");
 			h.assertTrue(be.isFull() && SUIT.equals(be.storedSuitId()), "all four pieces are back on the platform");
-			// (the platform starts repairing it at 5/s straight away, so allow a little on top)
-			h.assertTrue(be.suitIntegrity() > 2999f && be.suitIntegrity() < 3020f, "with the suit's integrity (" + be.suitIntegrity() + ")");
+			h.assertTrue(Math.abs(be.suitEnergy() - 5000f) < 50f, "with the suit's energy");
 			leave(h, p);
 		});
 	}

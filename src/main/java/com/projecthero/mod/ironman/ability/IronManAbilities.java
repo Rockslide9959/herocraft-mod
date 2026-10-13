@@ -345,9 +345,6 @@ public final class IronManAbilities {
 					IronManMark6.trigger(player, suit, ability, pressed);
 			case IronManMark7.LASER -> IronManMark7.trigger(player, suit, ability, pressed);
 			case IronManMark8.SENTRY -> IronManMark8.trigger(player, suit, ability, pressed); // v0.15.9: Sentry Mode
-			// v0.16.1: the comic-accurate kit -- every suit's R / G / X / Z / V, tap and Shift (IronManComicKit)
-			case IronManComicKit.SLOT_R, IronManComicKit.SLOT_G, IronManComicKit.SLOT_X, IronManComicKit.SLOT_Z, IronManComicKit.SLOT_V ->
-					IronManComicRouter.trigger(player, suit, ability, pressed);
 			default -> { }
 		}
 	}
@@ -411,7 +408,7 @@ public final class IronManAbilities {
 
 	// ---------------- repulsors (slot 1: tap = blast, hold >= 2 s = charged) ----------------
 
-	static void repulsorSlot(ServerPlayer player, IronManSuit suit, boolean pressed) { // v0.16.1: the Mark 2 comic R
+	private static void repulsorSlot(ServerPlayer player, IronManSuit suit, boolean pressed) {
 		TonyStarkState s = TonyStark.state(player);
 		long now = player.level().getGameTime();
 
@@ -1302,7 +1299,7 @@ public final class IronManAbilities {
 
 	// ---------------- Mark 1 / Mark 2: mob-highlight toggle (V) ----------------
 
-	static void toggleMobHighlight(ServerPlayer player, IronManSuit suit) { // v0.16.1: package-visible for the comic kit
+	private static void toggleMobHighlight(ServerPlayer player, IronManSuit suit) {
 		if (!requireHelmet(player, suit)) {
 			return;
 		}

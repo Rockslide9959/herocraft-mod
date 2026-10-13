@@ -31,13 +31,26 @@ import net.minecraft.world.level.GameType;
  * player in this suite connected.)
  */
 public class V01422GameTests implements FabricGameTest {
-	private static final String[] MARKS = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
+	private static final String[] MARKS = { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" };
 
 	private static ServerPlayer at(GameTestHelper h, ServerPlayer p) {
 		p.setGameMode(GameType.SURVIVAL);
 		BlockPos pos = h.absolutePos(new BlockPos(1, 1, 1));
 		p.teleportTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
 		return p;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markOneRetune(GameTestHelper helper) {
+		// v0.14.27 retune: 500 energy, a 10-energy punch, a 50-energy flight burst with no per-second drain
+		helper.assertTrue(IronManSuits.MARK_1.energyCapacity() == 500f, "Mark 1 max energy is 500");
+		helper.assertTrue(IronManAbilities.PUNCH_ENERGY_COST == 10f, "Strong Punch costs 10");
+		helper.assertTrue(IronManAbilities.MARK_1_FLAMETHROWER_DAMAGE == 5f, "Mark 1 flamethrower does 5 a tick");
+		helper.assertTrue(IronManAbilities.MARK_1_ROCKET_DAMAGE == 30f, "Mark 1 rocket does 30");
+		helper.assertTrue(IronManAbilities.MARK_1_ROCKET_COOLDOWN_TICKS == 200, "Mark 1 rocket cools down in 10 s");
+		helper.assertTrue(IronManAbilities.TIMED_FLIGHT_ACTIVATION_COST == 50f
+				&& IronManAbilities.TIMED_FLIGHT_DRAIN_PER_SECOND == 3f, "Mark 1 flight burst costs 50 up front, then 3/s (v0.15.3)");
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

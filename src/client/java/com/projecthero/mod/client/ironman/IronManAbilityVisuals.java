@@ -45,18 +45,7 @@ public final class IronManAbilityVisuals {
 
 	public static void initialize() {
 		WorldRenderEvents.AFTER_ENTITIES.register(IronManAbilityVisuals::render);
-		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> {
-			BEAMS.clear();
-			com.projecthero.mod.ironman.IronManHighlight.clearClientMarks();
-		});
-		// v0.16.1 comic kit: this client's own private marks (Searchlight, Sonar, JARVIS scan, Marked Shot)
-		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
-				com.projecthero.mod.network.IronManComicMarkPayload.TYPE, (payload, context) -> context.client().execute(() -> {
-					if (context.client().level != null) {
-						com.projecthero.mod.ironman.IronManHighlight.addClientMarks(payload.entityIds(),
-								context.client().level.getGameTime() + payload.ticks());
-					}
-				}));
+		ClientPlayConnectionEvents.DISCONNECT.register((h, c) -> BEAMS.clear());
 	}
 
 	/** Called by {@code IronManBeamClient} for every beam packet. */
@@ -78,8 +67,6 @@ public final class IronManAbilityVisuals {
 			case 3 -> 2;
 			case 4 -> 3; // v0.14.27 minigun tracer
 			case 5 -> 3; // v0.15.4 Mark 7 held red laser (re-sent every 2 ticks)
-			case 8, 11 -> 3; // v0.16.1 tractor / mega-beam (re-sent while held)
-			case 6, 10 -> 5; // v0.16.1 pulse bolt / stealth shot
 			default -> 6;
 		};
 	}
@@ -172,33 +159,6 @@ public final class IronManAbilityVisuals {
 				// v0.15.4: the Mark 7's held RED LASER -- a solid, saturated red beam from the wrist
 				width = 0.2f;
 				colour = 0xFF1A1A;
-				fade = 1f;
-			}
-			// v0.16.1 comic kit beams
-			case 6 -> { // pulse bolt -- violet
-				width = 0.16f;
-				colour = 0xB46CFF;
-			}
-			case 7 -> { // lamp / headlamp / searchlight -- warm white light
-				width = 0.45f;
-				colour = 0xFFF2B0;
-			}
-			case 8 -> { // tractor beam / gravity tether -- teal
-				width = 0.22f;
-				colour = 0x4AFFD8;
-				fade = 1f;
-			}
-			case 9 -> { // solar beam -- gold-orange
-				width = 0.6f;
-				colour = 0xFFB030;
-			}
-			case 10 -> { // stealth low-glow shot -- a dim thin cyan line
-				width = 0.06f;
-				colour = 0x3A90A0;
-			}
-			case 11 -> { // Hulkbuster mega-beam / Centurion overcharge -- huge white-blue
-				width = 1.1f;
-				colour = 0xCDEBFF;
 				fade = 1f;
 			}
 			default -> {

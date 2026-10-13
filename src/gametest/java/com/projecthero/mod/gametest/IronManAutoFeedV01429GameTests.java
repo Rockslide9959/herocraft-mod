@@ -104,21 +104,21 @@ public class IronManAutoFeedV01429GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	/** v0.14.29: four loose briefcase-suit pieces pack into a suitcase on right-click. v0.16.1: the briefcase carries the Mark 2. */
+	/** v0.14.29: four loose Fabricator-made Mark 5 pieces pack into a suitcase on right-click (C never deploys the Mark 5). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void looseMarkFivePiecesPackIntoACase(GameTestHelper h) {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
 		TonyStark.grant(p);
 		p.getInventory().clearContent();
 		for (ArmorItem.Type t : new ArmorItem.Type[]{ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS}) {
-			p.getInventory().add(new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t)));
+			p.getInventory().add(new ItemStack(IronManItems.armor("mark_v", t)));
 		}
 		h.assertFalse(com.projecthero.mod.ironman.item.IronManArmorItem.packLooseMarkV(p), "three pieces must not pack");
-		p.getInventory().add(new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, ArmorItem.Type.BOOTS)));
+		p.getInventory().add(new ItemStack(IronManItems.armor("mark_v", ArmorItem.Type.BOOTS)));
 		h.assertTrue(com.projecthero.mod.ironman.item.IronManArmorItem.packLooseMarkV(p), "four pieces pack");
 		h.assertTrue(p.getInventory().countItem(IronManItems.MARK_V_SUITCASE) == 1, "one case made");
 		for (ArmorItem.Type t : ArmorItem.Type.values()) {
-			var it = IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t);
+			var it = IronManItems.armor("mark_v", t);
 			if (it != null) {
 				h.assertTrue(p.getInventory().countItem(it) == 0, "loose " + t + " moved into the case");
 			}

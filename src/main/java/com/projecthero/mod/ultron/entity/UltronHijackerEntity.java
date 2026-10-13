@@ -179,9 +179,7 @@ public class UltronHijackerEntity extends UltronRobot {
 		if (TonyStark.hasPower(player)) {
 			String suit = IronManArmor.wornSuitId(player);
 			if (suit != null) {
-				// v0.16.1: no suit energy any more -- the latch tears at the hull and locks the suit out briefly
-				IronManEnergy.damageIntegrity(player, suit, (float) (IronManEnergy.maxIntegrity(suit) * cfg.ironManIntegrityDrain));
-				com.projecthero.mod.ironman.IronManIntegrity.lockout(player, cfg.ironManLockoutTicks);
+				IronManEnergy.addEnergy(player, suit, (float) (-IronManEnergy.capacity(suit) * cfg.ironManEnergyDrain));
 			}
 		}
 		server.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CHAIN_PLACE, SoundSource.HOSTILE, 1.4f, 0.6f);

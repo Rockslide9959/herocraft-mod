@@ -39,19 +39,6 @@ public final class IronManArmor {
 			EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET
 	};
 
-	/**
-	 * v0.16.1: a Tony Stark player in the full Mark 5 STEALTH armour -- no footsteps, no swim / flight sounds, no
-	 * vibrations for sculk. Safe on both sides (reads only the worn items and the synced power flag).
-	 */
-	public static boolean stealthed(Player player) {
-		String suitId = wornSuitId(player);
-		if (suitId == null || !TonyStark.hasPower(player)) {
-			return false;
-		}
-		com.projecthero.mod.ironman.suit.IronManSuit suit = com.projecthero.mod.ironman.suit.IronManSuits.byId(suitId);
-		return suit != null && suit.stealth() && wearingFullSuit(player, suitId);
-	}
-
 	/** The single gate for every Iron Man capability. */
 	public static boolean canOperate(Player player) {
 		return TonyStark.hasPower(player);

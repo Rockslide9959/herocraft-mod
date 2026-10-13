@@ -144,10 +144,12 @@ public class IronManHighlightPrivacyGameTests implements FabricGameTest {
 			for (int i = 0; i < 6; i++) {
 				IronManSuitTicker.tick(owner);
 			}
-			// v0.16.1: X is the comic kit now -- drive the shared JARVIS scan and flare code directly
-			com.projecthero.mod.ironman.ability.IronManJarvisScan.run(owner,
-					com.projecthero.mod.ironman.suit.IronManSuits.byId(IronManMark6.SUIT_ID));
-			com.projecthero.mod.ironman.ability.IronManFlares.fire(owner, true, 200);
+			owner.setShiftKeyDown(true);
+			IronManAbilityManager.handle(owner, AbilitySlot.SLOT_3, true); // Shift+X: JARVIS scan
+			IronManAbilityManager.handle(owner, AbilitySlot.SLOT_3, false);
+			owner.setShiftKeyDown(false);
+			IronManAbilityManager.handle(owner, AbilitySlot.SLOT_3, true); // X: flares
+			IronManAbilityManager.handle(owner, AbilitySlot.SLOT_3, false);
 			IronManSuitTicker.tick(owner);
 
 			TonyStarkState st = TonyStark.state(owner);

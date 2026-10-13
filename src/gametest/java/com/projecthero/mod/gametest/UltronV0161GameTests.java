@@ -384,40 +384,4 @@ public class UltronV0161GameTests implements FabricGameTest {
 		}
 		helper.succeed();
 	}
-
-	/** v0.16.1: on a suited Tony Stark the latch tears 5% of max integrity off the hull and locks the suit out for 2 s. */
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void hijackerLatchTearsTheHullAndLocksTheSuitOut(GameTestHelper helper) {
-		ServerLevel level = helper.getLevel();
-		level.getServer().setDifficulty(Difficulty.HARD, true);
-		ServerPlayer p = survivalPlayer(helper);
-		com.projecthero.mod.ironman.TonyStark.grant(p);
-		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
-				net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE,
-				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
-			p.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t),
-					new net.minecraft.world.item.ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
-		}
-		float max = com.projecthero.mod.ironman.IronManEnergy.maxIntegrity("mark_iii");
-		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(p, "mark_iii", max);
-		UltronConfig.Hijacker cfg = UltronConfig.hijacker();
-		helper.assertTrue(cfg.ironManIntegrityDrain == 0.05 && cfg.ironManLockoutTicks == 40, "the v0.16.1 Hijacker numbers");
-		UltronHijackerEntity h = helper.spawn(UltronEntityTypes.HIJACKER, new BlockPos(3, 2, 3));
-		try {
-			helper.assertFalse(com.projecthero.mod.ironman.TonyStark.overloaded(p), "not locked out before the latch");
-			h.latch(level, p);
-			float lost = max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, "mark_iii");
-			helper.assertTrue(Math.abs(lost - (float) (max * cfg.ironManIntegrityDrain)) < 0.01f,
-					"the latch tears 5% of max integrity off the hull, lost " + lost);
-			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(p, "mark_iii") == com.projecthero.mod.ironman.IronManEnergy.FULL,
-					"no energy drain any more");
-			helper.assertTrue(com.projecthero.mod.ironman.TonyStark.overloaded(p), "the suit is locked out");
-			helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(p).overloadUntil == level.getGameTime() + cfg.ironManLockoutTicks,
-					"for the configured 40 ticks");
-		} finally {
-			UltronJam.clear(p);
-			h.discard();
-		}
-		helper.succeed();
-	}
 }

@@ -173,18 +173,6 @@ public final class FabricatorRecipes {
 		add(of("missile_module", new ItemStack(IronManItems.MISSILE_MODULE, 2), 600, 80, 0,
 				in(IronManItems.STARK_CIRCUIT, 1), in(Items.GUNPOWDER, 2), in(IronManItems.SERVO_MOTOR, 1),
 				in(IronManItems.METAL_PLATING, 2)));
-		// v0.16.1 comic rework: the new signature parts
-		add(of("gilded_plating", new ItemStack(IronManItems.GILDED_PLATING, 2), 300, 40, 0,
-				in(Items.GOLD_INGOT, 3), in(IronManItems.METAL_PLATING, 2)));
-		add(of("pressure_hull", new ItemStack(IronManItems.PRESSURE_HULL, 2), 500, 60, 0,
-				in(IronManItems.METAL_PLATING, 1), in(Items.PRISMARINE_SHARD, 4), in(Items.NAUTILUS_SHELL, 1))); // cost pass: no titanium plate
-		add(of("stealth_coating", new ItemStack(IronManItems.STEALTH_COATING, 2), 500, 60, 0,
-				in(Items.BLACK_DYE, 2), in(Items.ECHO_SHARD, 1), in(Items.PHANTOM_MEMBRANE, 1), in(IronManItems.METAL_PLATING, 2),
-				in(Items.AMETHYST_SHARD, 1))); // cost pass: the Stealth Mark 5 must out-cost the Hydro Mark 4
-		add(of("thermal_shielding", new ItemStack(IronManItems.THERMAL_SHIELDING, 2), 600, 80, 0,
-				in(IronManItems.TITANIUM_GOLD_PLATE, 1), in(Items.MAGMA_CREAM, 2), in(Items.BLUE_ICE, 1)));
-		add(of("hydraulic_frame", new ItemStack(IronManItems.HYDRAULIC_FRAME, 1), 800, 100, 0,
-				in(IronManItems.SERVO_MOTOR, 2), in(Items.PISTON, 2), in(Items.IRON_BLOCK, 1)));
 
 		// ---------------- blueprints ----------------
 		// "changes 21": blueprints are no longer fabricated. Every mark's blueprint is made only by
@@ -199,39 +187,19 @@ public final class FabricatorRecipes {
 		//
 		// v0.14.21: each mark in the build order (III -> 4 -> V -> 6 -> VII) has a cost tier and a
 		// signature component, so every suit costs a little more than the one before it.
-		mark1V2Upgrade(); // v0.16.1: the gold Mark 1 V2 -- a Mark 1 upgraded piece by piece
 		mark2ArmorSet();
 		armorSet("mark_iii", 1, 0, IronManItems.STARK_CIRCUIT);
-		armorSet("mark_4", 1, 1, IronManItems.PRESSURE_HULL); // v0.16.1: HYDRO
-		armorSet("mark_v", 2, 2, IronManItems.STEALTH_COATING); // v0.16.1: STEALTH
-		armorSet("mark_6", 2, 3, IronManItems.FLIGHT_STABILIZER); // SILVER CENTURION
-		armorSet("mark_vii", 3, 4, IronManItems.THERMAL_SHIELDING); // v0.16.1: SPACE
+		armorSet("mark_4", 1, 1, IronManItems.SERVO_MOTOR);
+		armorSet("mark_v", 2, 2, IronManItems.MICRO_THRUSTER);
+		armorSet("mark_6", 2, 3, IronManItems.FLIGHT_STABILIZER);
+		armorSet("mark_vii", 3, 4, IronManItems.MISSILE_MODULE);
 		// v0.15.9: the Mark 8 -- the top cost tier (3 more plates than the Mark 7 on the chest, +1 elsewhere) and a Suit
 		// Computer as its signature part
-		armorSet("mark_8", 3, 5, IronManItems.HYDRAULIC_FRAME); // v0.16.1: HULKBUSTER
-	}
-
-	/**
-	 * v0.16.1: the Mark 1 V2 upgrade. Each piece is the matching Mark 1 piece (consumed) + gold ingots + Gilded Plating,
-	 * with the Mark 1 V2 Blueprint in the slot (it unlocks once the whole Mark 1 is built).
-	 */
-	private static void mark1V2Upgrade() {
-		// cost pass (user): a gold re-plate of the Mark 1, so it sits between the Mark 1 and the Mark 2 -- one Gilded Plating per
-		// piece, a little gold in the chest, a micro-thruster in the boots (the V2 flies)
-		int timeTier = 0;
-		add(armor("mark_1_v2", ArmorItem.Type.HELMET, timeTier, 120,
-				in(IronManItems.armor("mark_1", ArmorItem.Type.HELMET), 1), in(IronManItems.GILDED_PLATING, 1)));
-		add(armor("mark_1_v2", ArmorItem.Type.CHESTPLATE, timeTier, 160,
-				in(IronManItems.armor("mark_1", ArmorItem.Type.CHESTPLATE), 1), in(IronManItems.GILDED_PLATING, 1), in(Items.GOLD_INGOT, 1)));
-		add(armor("mark_1_v2", ArmorItem.Type.LEGGINGS, timeTier, 140,
-				in(IronManItems.armor("mark_1", ArmorItem.Type.LEGGINGS), 1), in(IronManItems.GILDED_PLATING, 1)));
-		add(armor("mark_1_v2", ArmorItem.Type.BOOTS, timeTier, 140,
-				in(IronManItems.armor("mark_1", ArmorItem.Type.BOOTS), 1), in(IronManItems.GILDED_PLATING, 1),
-				in(IronManItems.MICRO_THRUSTER, 1)));
+		armorSet("mark_8", 3, 5, IronManItems.SUIT_COMPUTER);
 	}
 
 	/** v0.14.21: the build order of the Fabricator-built marks, cheapest first. */
-	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
+	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
 
 	/** "changes 18/19": true if this suit has Fabricator armour recipes (i.e. everything except the Mark 1). */
 	public static boolean hasArmorRecipes(String suitId) {
@@ -281,19 +249,19 @@ public final class FabricatorRecipes {
 		Item plate = IronManItems.METAL_PLATING;
 
 		add(armor("mark_2", ArmorItem.Type.HELMET, timeTier, 160,
-				in(plate, 5), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
+				in(plate, 5), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
 				in(IronManItems.STARK_CIRCUIT, 2)));
 
 		add(armor("mark_2", ArmorItem.Type.CHESTPLATE, timeTier, 240,
-				in(plate, 6), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.STARK_CIRCUIT, 2)));
 
 		add(armor("mark_2", ArmorItem.Type.LEGGINGS, timeTier, 200,
-				in(plate, 6), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
+				in(plate, 6), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1)));
 
 		add(armor("mark_2", ArmorItem.Type.BOOTS, timeTier, 200,
-				in(plate, 5), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
+				in(plate, 5), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1)));
 	}
 

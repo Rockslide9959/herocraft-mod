@@ -79,69 +79,153 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		return z;
 	}
 
+	// ---------------------------------------------------------------- stats
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markOneStats(GameTestHelper h) {
+		IronManSuit m = IronManSuits.MARK_1;
+		h.assertTrue(m.energyCapacity() == 500f, "Mark 1 energy 500");
+		h.assertTrue(m.energyRegenPerSecond() == 2f, "Mark 1 regen 2/s");
+		h.assertTrue(m.maxIntegrity() == 750f, "Mark 1 integrity 750");
+		h.assertTrue(m.arrowFireImmune(), "Mark 1 is immune to arrows and fire");
+		h.assertTrue(m.strengthBonus() == 6f, "Mark 1 melee +6");
+		h.assertFalse(m.autoFeed(), "Mark 1 doesn't auto-feed");
+		h.assertFalse(m.waterBreathing() || m.airTankSeconds() > 0, "Mark 1 can't breathe underwater");
+		h.assertTrue(IronManItems.armor("mark_1", ArmorItem.Type.CHESTPLATE).getDefense() == 8, "Mark 1 is diamond-level armour");
+		h.assertTrue(IronManAbilities.PUNCH_DAMAGE == 15f && IronManAbilities.PUNCH_ENERGY_COST == 10f
+				&& IronManAbilities.PUNCH_COOLDOWN_TICKS == 20, "Strong Punch 15 dmg / 10 energy / 1 s");
+		h.assertTrue(IronManAbilities.MARK_1_ROCKET_DAMAGE == 30f && IronManAbilities.MARK_1_ROCKET_COOLDOWN_TICKS == 200,
+				"Rocket 30 dmg / 10 s");
+		h.assertTrue(IronManAbilities.flamethrowerMaxHeat(m) == 100f && m.flamethrowerHeatPerSecond() == 5f
+				&& m.flamethrowerVentPerSecond() == 5f && m.flamethrowerVentDelayTicks() == 60
+				&& m.flamethrowerEnergyPerSecond() == 6f && m.flamethrowerDamagePerSecond() == 8f,
+				"Flamethrower: 8 dmg/s, 6 energy/s, heat +5/s to 100, seeps 5/s after 3 s");
+		h.assertTrue(IronManAbilities.TIMED_FLIGHT_TICKS == 400 && m.flightCruiseMps() == 8.0 && !m.sprintFlight()
+				&& m.hoverFloor() == 0.5, "Flight burst 20 s, 8 b/s, no sprint, 0.5 hover floor");
+		h.assertTrue(m.mobHighlightEnergy() == 10f, "V costs 10");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markTwoAndThreeStats(GameTestHelper h) {
+		IronManSuit m2 = IronManSuits.MARK_2;
+		h.assertTrue(m2.energyCapacity() == 1250f && m2.energyRegenPerSecond() == 3f && m2.maxIntegrity() == 1000f,
+				"Mark 2 1250 energy, 3/s, 1000 integrity");
+		h.assertTrue(m2.arrowFireImmune() && m2.resistanceAmplifier() == 0
+				&& m2.strengthBonus() == 6f && !m2.autoFeed() && m2.airTankSeconds() == 0 && !m2.waterBreathing(),
+				"Mark 2 split / immune / Resistance I / +6 / no feed / no air");
+		h.assertTrue(IronManTargeting.hasTargeting(m2), "Mark 2 has the targeting system");
+		h.assertTrue(m2.repulsorDamage() == 10f && m2.repulsorTapEnergy() == 10f && m2.repulsorTapCooldownTicks() == 20
+				&& m2.repulsorWindupTicks() == 20, "Mark 2 repulsor 10 dmg, 1 s windup, 1 s cd, 10 energy");
+		h.assertTrue(m2.chargedRepulsorDamage() == 18f && m2.chargedRepulsorEnergy() == 50f
+				&& m2.chargedRepulsorCooldownTicks() == 60 && m2.chargeHoldTicks() == 20, "Mark 2 charged 18 / 50 / 3 s, hold 1 s");
+		h.assertTrue(m2.dashDamage() == 15f && m2.dashEnergy() == 50f && m2.dashCooldownTicks() == 160, "Mark 2 dash 15 / 50 / 8 s");
+		h.assertTrue(m2.sonicClapDamage() == 15f && m2.sonicClapEnergy() == 50f && m2.sonicClapCooldownTicks() == 160,
+				"Mark 2 sonic clap 15 / 50 / 8 s");
+		h.assertTrue(m2.unibeamChannelTicks() == 120 && m2.unibeamDamagePerTick() == 20f && m2.unibeamTotalEnergy() == 300f
+				&& m2.unibeamCooldownTicks() == 400, "Mark 2 unibeam 6 s / 20 / 300 / 20 s");
+		h.assertTrue(IronManSuits.MARK_2.abilityInSlot(2).equals(IronManAbilities.SONIC_CLAP)
+				&& IronManSuits.MARK_2.abilityInSlot(3).equals(IronManAbilities.FLARE)
+				&& IronManSuits.MARK_2.abilityInSlot(4).equals(IronManAbilities.UNIBEAM), "Mark 2 G clap, X flares, Z unibeam");
+
+		IronManSuit m3 = IronManSuits.MARK_III;
+		h.assertTrue(m3.energyCapacity() == 2000f && m3.energyRegenPerSecond() == 5f && m3.maxIntegrity() == 1000f,
+				"Mark III 2000 energy, 5/s, 1000 integrity");
+		h.assertTrue(m3.arrowFireImmune() && m3.resistanceAmplifier() == 0
+				&& m3.strengthBonus() == 7f && m3.autoFeed() && m3.waterBreathing(), "Mark III defence / +7 / feeds / breathes");
+		h.assertTrue(m3.repulsorDamage() == 15f && m3.repulsorTapEnergy() == 10f && m3.repulsorTapCooldownTicks() == 20
+				&& m3.repulsorWindupTicks() == 0, "Mark III tap 15 / 10 / 1 s, no windup");
+		h.assertTrue(m3.chargedRepulsorDamage() == 20f && m3.chargedRepulsorEnergy() == 50f
+				&& m3.chargedRepulsorCooldownTicks() == 60 && m3.chargeHoldTicks() == 20, "Mark III charged 20 / 50 / 3 s");
+		h.assertTrue(m3.dashDamage() == 20f && m3.dashEnergy() == 50f && m3.dashCooldownTicks() == 160, "Mark III dash 20 / 50 / 8 s");
+		h.succeed();
+	}
+
 	// ---------------------------------------------------------------- damage model
 
-	/** v0.16.1: the suit's integrity absorbs its Mark's share of a hit, 1:1; the wearer takes the rest. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void integrityAbsorbsTheMarksShareOfAHit(GameTestHelper h) {
-		String[] ids = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
-		float[] shares = { 0.20f, 0.25f, 0.30f, 0.35f, 0.40f, 0.30f, 0.45f, 0.50f, 0.60f };
-		for (int i = 0; i < ids.length; i++) {
-			IronManSuit suit = IronManSuits.byId(ids[i]);
-			h.assertTrue(Math.abs(suit.absorbShare() - shares[i]) < 1e-4f, ids[i] + " absorbs " + shares[i] + ", got " + suit.absorbShare());
-			ServerPlayer p = suited(h, ids[i]);
-			float integ = IronManEnergy.integrity(p, ids[i]);
-			float landed = com.projecthero.mod.ironman.IronManDamage.absorb(p, suit, p.damageSources().magic(), 10f);
-			h.assertTrue(Math.abs(landed - 10f * (1f - shares[i])) < 0.01f, ids[i] + ": the wearer takes the rest, got " + landed);
-			h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, ids[i])) - 10f * shares[i]) < 0.01f,
-					ids[i] + ": integrity loses the absorbed share, lost " + (integ - IronManEnergy.integrity(p, ids[i])));
-		}
+	public void integrityWearsTheWholeHitAndTheHitLandsInFull(GameTestHelper h) {
+		// v0.15.3: no more 50/50 split -- the wearer takes the whole hit; v0.15.9: and the suit loses all of it as integrity
+		ServerPlayer p = suited(h, "mark_1");
+		clearSpawnInvulnerability(p);
+		float hp = p.getHealth();
+		float integ = IronManEnergy.integrity(p, "mark_1");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().magic(), 10f); // magic bypasses armour points, so the numbers are exact
+		h.assertTrue(Math.abs((hp - p.getHealth()) - 10f) < 0.01f, "the wearer takes the full 10: " + (hp - p.getHealth()));
+		h.assertTrue(Math.abs((integ - IronManEnergy.integrity(p, "mark_1")) - 10f) < 0.01f,
+				"integrity loses 10: " + (integ - IronManEnergy.integrity(p, "mark_1")));
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void absorptionIsCappedAndSkipsFallsAndDisabledSuits(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_8");
-		IronManSuit suit = IronManSuits.MARK_8;
-		// a fall is never absorbed
-		float integ = IronManEnergy.integrity(p, "mark_8");
-		h.assertTrue(com.projecthero.mod.ironman.IronManDamage.absorb(p, suit, p.damageSources().fall(), 10f) == 10f,
-				"falls are not absorbed");
-		h.assertTrue(IronManEnergy.integrity(p, "mark_8") == integ, "and cost no integrity");
-		// only what is left of the integrity is absorbed
-		IronManEnergy.setIntegrity(p, "mark_8", 2f);
-		float landed = com.projecthero.mod.ironman.IronManDamage.absorb(p, suit, p.damageSources().magic(), 10f);
-		h.assertTrue(Math.abs(landed - 8f) < 0.01f, "a hit bigger than the integrity lands the rest, got " + landed);
-		h.assertTrue(IronManEnergy.integrity(p, "mark_8") == 0f, "integrity bottoms out at 0");
-		h.assertTrue(com.projecthero.mod.ironman.IronManIntegrity.disabled(p, "mark_8"), "a 0-integrity suit is disabled");
-		// a disabled suit absorbs nothing
-		h.assertTrue(com.projecthero.mod.ironman.IronManDamage.absorb(p, suit, p.damageSources().magic(), 10f) == 10f,
-				"a disabled suit absorbs nothing");
-		h.succeed();
-	}
-
-	/** v0.16.1: no suit is arrow / fire immune any more; only the Mark 7 Space armour ignores fire, lava and freezing. */
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void onlyTheSpaceArmourIgnoresFire(GameTestHelper h) {
-		for (IronManSuit suit : IronManSuits.all()) {
-			h.assertFalse(suit.arrowFireImmune(), suit.id() + " is no longer arrow / fire immune");
-			h.assertTrue(suit.hazardImmune() == "mark_vii".equals(suit.id()), suit.id() + " hazard immunity");
+	public void arrowsAndFireDoNothing(GameTestHelper h) {
+		for (String id : new String[] { "mark_1", "mark_2", "mark_iii" }) {
+			ServerPlayer p = suited(h, id);
+			clearSpawnInvulnerability(p);
+			float hp = p.getHealth();
+			float integ = IronManEnergy.integrity(p, id);
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().inFire(), 4f);
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().lava(), 4f);
+			Arrow arrow = new Arrow(EntityType.ARROW, h.getLevel());
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().arrow(arrow, null), 6f);
+			h.assertTrue(p.getHealth() == hp, id + ": arrows / fire must not hurt the wearer");
+			h.assertTrue(IronManEnergy.integrity(p, id) == integ, id + ": arrows / fire must not drain integrity");
 		}
-		ServerPlayer p = suited(h, "mark_vii");
-		float integ = IronManEnergy.integrity(p, "mark_vii");
-		h.assertFalse(com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().lava(), 4f),
-				"lava is cancelled on the Space armour");
-		h.assertFalse(com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().inFire(), 4f),
-				"fire is cancelled on the Space armour");
-		h.assertTrue(IronManEnergy.integrity(p, "mark_vii") == integ, "and costs no integrity");
-		ServerPlayer p3 = suited(h, "mark_iii");
-		float integ3 = IronManEnergy.integrity(p3, "mark_iii");
-		float landed = com.projecthero.mod.ironman.IronManDamage.absorb(p3, IronManSuits.MARK_III, p3.damageSources().inFire(), 4f);
-		h.assertTrue(landed < 4f && IronManEnergy.integrity(p3, "mark_iii") < integ3, "fire is absorbed like any hit on a Mark III");
 		h.succeed();
 	}
 
 	// ---------------------------------------------------------------- Mark 1 kit
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void strongPunchAndRocketSpendTheirEnergy(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_1");
+		float e0 = IronManEnergy.energy(p, "mark_1");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_1") - 10f) < 0.01f, "the punch costs 10");
+		h.assertFalse(TonyStark.abilityReady(p, "mark_1", IronManAbilities.STRONG_PUNCH), "the punch is on cooldown");
+		float e1 = IronManEnergy.energy(p, "mark_1");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_4, true);
+		h.assertTrue(Math.abs(e1 - IronManEnergy.energy(p, "mark_1") - 100f) < 0.01f, "the rocket costs 100");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void flightBurstTogglesAndHalvesRegen(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_1");
+		IronManEnergy.setEnergy(p, "mark_1", 200f);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		long now = p.level().getGameTime();
+		h.assertTrue(TonyStark.state(p).timedFlightUntil == now + IronManAbilities.TIMED_FLIGHT_TICKS, "X starts a 20 s burst");
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_1") - 150f) < 0.01f, "the burst costs 50");
+		h.assertTrue(IronManEnergy.regenPerSecond(p, IronManSuits.MARK_1) == 1f, "regen is halved (2 -> 1) during the burst");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		h.assertTrue(TonyStark.state(p).timedFlightUntil == 0L, "pressing X again switches it off");
+		h.assertTrue(IronManEnergy.regenPerSecond(p, IronManSuits.MARK_1) == 2f, "regen back to 2 afterwards");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftXLaunchesThenStartsTheBurst(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_1");
+		IronManEnergy.setEnergy(p, "mark_1", 200f);
+		p.setShiftKeyDown(true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		p.setShiftKeyDown(false);
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_1") - 150f) < 0.01f, "the launch costs 50");
+		h.assertTrue(IronManAbilities.flightBurstPending(TonyStark.state(p), "mark_1"), "the burst is queued");
+		h.assertTrue(TonyStark.state(p).timedFlightUntil == 0L, "not flying-burst yet");
+		h.assertTrue(p.getDeltaMovement().length() > 2.0, "the launch throws the wearer: " + p.getDeltaMovement().length());
+		// three seconds later
+		TonyStark.state(p).abilityReadyAt.put("mark_1/flight_burst_pending_at", p.level().getGameTime());
+		IronManAbilities.tickPendingFlightBurst(p, IronManSuits.MARK_1);
+		h.assertTrue(TonyStark.state(p).timedFlightUntil > p.level().getGameTime(), "the burst switched itself on");
+		h.assertFalse(IronManAbilities.flightBurstPending(TonyStark.state(p), "mark_1"), "and is no longer pending");
+		h.succeed();
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void hoverFloorSitsHalfABlockOverTheGround(GameTestHelper h) {
@@ -166,7 +250,9 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 	public void dashHitsEachEnemyOnce(GameTestHelper h) {
 		ServerPlayer p = suited(h, "mark_2");
 		Zombie z = zombieAhead(h, p, 2.0);
-		h.assertTrue(IronManDash.start(p, 15f, 50f, 160), "the dash fires"); // v0.16.1: no energy cost any more
+		float e0 = IronManEnergy.energy(p, "mark_2");
+		h.assertTrue(IronManDash.start(p, 15f, 50f, 160), "the dash fires");
+		h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_2") - 50f) < 0.01f, "the dash costs 50");
 		h.assertFalse(IronManDash.start(p, 15f, 50f, 160), "and is on cooldown");
 		IronManDash.tick(p);
 		float after = z.getHealth();
@@ -178,12 +264,49 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftRDashesOnMarkTwo(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_2");
+		float e0 = IronManEnergy.energy(p, "mark_2");
+		p.setShiftKeyDown(true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		p.setShiftKeyDown(false);
+		h.assertTrue(IronManDash.dashing(p), "Shift+R starts the dash");
+		h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_2") - 50f) < 0.01f, "and only the dash is paid for");
+		h.assertTrue(TonyStark.state(p).repulsorWindupAt == 0L, "the release must not queue a repulsor shot");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sonicClapHitsTheCone(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_2");
+		Zombie front = zombieAhead(h, p, 6.0);
+		Zombie behind = zombieAhead(h, p, -4.0);
+		float e0 = IronManEnergy.energy(p, "mark_2");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
+		h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_2") - 50f) < 0.01f, "the clap costs 50");
+		h.assertTrue(front.getHealth() <= front.getMaxHealth() - 14f, "the zombie in front takes 15 (less its armour)");
+		h.assertTrue(front.getDeltaMovement().z > 0.1, "and is knocked away");
+		h.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is outside the cone");
+		h.assertFalse(TonyStark.abilityReady(p, "mark_2", IronManSonicClap.ABILITY_ID), "8 s cooldown");
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void flaresBlindAndSlowAndAdvancedOnesBurn(GameTestHelper h) {
-		// v0.16.1: the Mark 2's X is the comic kit now -- only the shared advanced-flare code is driven directly here
+		ServerPlayer p = suited(h, "mark_2");
+		Zombie z = zombieAhead(h, p, 5.0);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		h.assertTrue(z.hasEffect(MobEffects.BLINDNESS) && z.getEffect(MobEffects.BLINDNESS).getDuration() == 160,
+				"flares blind for 8 s");
+		h.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN)
+				&& z.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 3, "with Slowness IV");
+		h.assertTrue(IronManFlares.homingInFlight(p) == 0, "plain flares don't home");
+
 		ServerPlayer p3 = suited(h, "mark_iii");
 		Zombie z3 = zombieAhead(h, p3, 5.0);
 		h.assertTrue(IronManFlares.fire(p3, true, 200), "advanced flares fire");
-		h.assertTrue(z3.hasEffect(MobEffects.BLINDNESS), "flares blind");
+		// both zombies stand in front of this spot, so one homing flare for each
 		h.assertTrue(IronManFlares.homingInFlight(p3) == IronManFlares.targets(p3).size(), "one homing flare per target");
 		for (int i = 0; i < 10 && IronManFlares.homingInFlight(p3) > 0; i++) {
 			IronManFlares.tick(p3);
@@ -195,4 +318,17 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void markTwoShiftXBoostsWhileFlying(GameTestHelper h) {
+		ServerPlayer p = suited(h, "mark_2");
+		com.projecthero.mod.ironman.IronManFlight.setFlying(p, true);
+		float e0 = IronManEnergy.energy(p, "mark_2");
+		p.setShiftKeyDown(true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		p.setShiftKeyDown(false);
+		h.assertTrue(IronManFlares.boosting(TonyStark.state(p), "mark_2", p.level().getGameTime()), "Shift+X in the air boosts");
+		h.assertTrue(IronManFlares.boostUntil(TonyStark.state(p), "mark_2") == p.level().getGameTime() + 600, "for 30 s");
+		h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_2") - 50f) < 0.01f, "for 50 energy");
+		h.succeed();
+	}
 }

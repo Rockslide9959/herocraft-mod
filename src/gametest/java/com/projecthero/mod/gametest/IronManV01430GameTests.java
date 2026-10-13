@@ -22,6 +22,15 @@ import net.minecraft.world.level.GameType;
 public class IronManV01430GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void flatFlightDrainsMatchTheSpec(GameTestHelper h) {
+		// v0.15.3: every mark flies at a flat 3 energy/sec
+		for (String id : new String[] { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" }) {
+			h.assertTrue(IronManSuits.byId(id).flatFlightDrainPerSecond() == 3f, id + " flight 3/s");
+		}
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void markFiveSuitcaseUnfoldsOntoAPlatform(GameTestHelper h) {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
 		TonyStark.grant(p);
@@ -31,9 +40,8 @@ public class IronManV01430GameTests implements FabricGameTest {
 		ItemStack caseStack = new ItemStack(IronManItems.MARK_V_SUITCASE); // a never-used case unfolds a fresh suit
 		h.assertTrue(be.storeSuitcase(p, caseStack), "the case unfolds onto the empty platform");
 		h.assertTrue(caseStack.isEmpty(), "the case is used up");
-		// v0.16.1: the briefcase carries the Mark 2 now
 		for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
-			h.assertTrue(be.holds(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t), "platform holds the Mark 2 " + t);
+			h.assertTrue(be.holds("mark_v", t), "platform holds the Mark 5 " + t);
 		}
 		ItemStack second = new ItemStack(IronManItems.MARK_V_SUITCASE);
 		h.assertFalse(be.storeSuitcase(p, second), "a full platform refuses a second case");
@@ -95,8 +103,7 @@ public class IronManV01430GameTests implements FabricGameTest {
 			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
 				kb += ((ArmorItem) IronManItems.armor(suit.id(), t)).getMaterial().value().knockbackResistance();
 			}
-			float want = "mark_8".equals(suit.id()) ? 1.0f : 0.7f; // v0.16.1: the Hulkbuster is fully knockback immune
-			h.assertTrue(Math.abs(kb - want) < 1.0e-4f, suit.id() + " full-suit knockback resistance must be " + want + ", got " + kb);
+			h.assertTrue(Math.abs(kb - 0.7f) < 1.0e-4f, suit.id() + " full-suit knockback resistance must be 70%, got " + kb);
 		}
 		h.assertTrue(com.projecthero.mod.ironman.ability.IronManAbilities.REPULSOR_RANGE == 50.0, "repulsors reach 50 blocks");
 		h.succeed();

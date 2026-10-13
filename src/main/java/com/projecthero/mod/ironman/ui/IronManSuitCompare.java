@@ -33,12 +33,12 @@ public final class IronManSuitCompare {
 
 	/** One compared figure. Every one of them reads "higher is better". */
 	public enum Stat {
-		// v0.16.1 comic rework: no suit energy -- Energy / Charge / Regen are replaced by Absorb and Self-repair
+		ENERGY("energy"),
 		INTEGRITY("integrity"),
-		ABSORB("absorb"),
+		CHARGE("charge"),
 		CONDITION("condition"),
 		MELEE("melee"),
-		REPAIR("self_repair"),
+		REGEN("regen"),
 		FLIGHT("flight");
 
 		public final String key;
@@ -99,11 +99,12 @@ public final class IronManSuitCompare {
 	 */
 	public static float value(IronManSuit suit, Stat stat, float energyFrac, float integrityFrac) {
 		return switch (stat) {
+			case ENERGY -> suit.energyCapacity();
 			case INTEGRITY -> IronManEnergy.maxIntegrity(suit.id());
-			case ABSORB -> suit.absorbShare() * 100f;
+			case CHARGE -> energyFrac < 0 ? -1f : IronManUiLayout.clamp01(energyFrac) * 100f;
 			case CONDITION -> integrityFrac < 0 ? -1f : IronManUiLayout.clamp01(integrityFrac) * 100f;
 			case MELEE -> suit.strengthBonus();
-			case REPAIR -> suit.selfRepairPerSecond();
+			case REGEN -> suit.energyRegenPerSecond();
 			case FLIGHT -> (float) flightSpeed(suit);
 		};
 	}
@@ -113,10 +114,10 @@ public final class IronManSuitCompare {
 			return "--";
 		}
 		return switch (stat) {
-			case INTEGRITY -> String.valueOf(Math.round(v));
-			case ABSORB, CONDITION -> Math.round(v) + "%";
+			case ENERGY, INTEGRITY -> String.valueOf(Math.round(v));
+			case CHARGE, CONDITION -> Math.round(v) + "%";
 			case MELEE -> "+" + trim(v);
-			case REPAIR -> v <= 0f ? "--" : trim(v) + "/s";
+			case REGEN -> trim(v) + "/s";
 			case FLIGHT -> Math.round(v) + " b/s";
 		};
 	}
@@ -153,15 +154,6 @@ public final class IronManSuitCompare {
 		for (int slot = 1; slot <= 6; slot++) {
 			String id = suit.abilityInSlot(slot);
 			if (id == null || IronManAbilities.SUIT_TOGGLE.equals(id)) {
-				continue;
-			}
-			// v0.16.1: a comic-kit key lists its tap and Shift moves
-			if (com.projecthero.mod.ironman.ability.IronManComicKit.isKitSlot(id)) {
-				com.projecthero.mod.ironman.ability.IronManComicKit.Kit kit = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suit.id());
-				if (kit != null) {
-					out.add(kit.key(slot).tap().nameKey());
-					out.add(kit.key(slot).shift().nameKey());
-				}
 				continue;
 			}
 			// the Mark 7's wheel-bound slot has no name of its own (the HUD shows whichever weapon is picked)

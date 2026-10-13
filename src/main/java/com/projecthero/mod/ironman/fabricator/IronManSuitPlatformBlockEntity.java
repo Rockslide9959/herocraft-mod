@@ -173,18 +173,21 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 	}
 
-	/** One server tick of the platform repair (public for the gametests). v0.16.1: no suit energy -- it only repairs. */
+	/** One server tick of the platform charge + repair (public for the gametests). */
 	public void regenTick(IronManSuit suit) {
 		String suitId = storedSuitId();
 		if (suit == null || suitId == null) {
 			return;
 		}
+		float cap = suit.energyCapacity();
+		float cur = suitEnergy();
 		float integ = suitIntegrity();
 		float maxInteg = IronManEnergy.maxIntegrity(suitId);
-		if (integ >= maxInteg) {
+		if (cur >= cap && integ >= maxInteg) {
 			return;
 		}
-		stampAllPieces(IronManEnergy.FULL, Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)));
+		stampAllPieces(Math.min(cap, Math.max(cur, cur + IronManEnergy.platformEnergyPerSecond(suit) / 20f)),
+				Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)));
 	}
 
 	/** v0.15.20: is a damaged suit on the rack being welded right now? (Synced -- the client draws the arms from it.) */
@@ -338,14 +341,14 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	 */
 	public boolean storeSuitcase(Player player, ItemStack caseStack) {
 		if (!caseStack.is(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE)
-				|| !matchesStoredSuit(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT)) {
+				|| !matchesStoredSuit("mark_v")) {
 			return false;
 		}
 		java.util.List<ItemStack> contents = new java.util.ArrayList<>();
 		if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(caseStack)) {
 			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
 					ArmorItem.Type.BOOTS }) {
-				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t)));
+				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_v", t)));
 			}
 		} else {
 			contents.addAll(com.projecthero.mod.ironman.item.SuitcaseContents.nonEmpty(caseStack));
@@ -429,7 +432,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	 * here, nothing is packing yet and the player may use this platform.
 	 */
 	public boolean packSuitcase(net.minecraft.server.level.ServerPlayer player) {
-		if (!com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID()) || level == null) {
+		if (!"mark_v".equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID()) || level == null) {
 			return false;
 		}
 		packStart = Math.max(1L, level.getGameTime());

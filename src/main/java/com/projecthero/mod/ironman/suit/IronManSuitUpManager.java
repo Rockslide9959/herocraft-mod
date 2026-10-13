@@ -212,14 +212,8 @@ public final class IronManSuitUpManager {
 
 	/** The suitcase item for a suit that stows as one ({@code mark_v}), or {@code null} for any other suit. */
 	private static net.minecraft.world.item.Item suitcaseItemFor(String suitId) {
-		return BRIEFCASE_SUIT.equals(suitId) ? IronManItems.MARK_V_SUITCASE : null;
+		return "mark_v".equals(suitId) ? IronManItems.MARK_V_SUITCASE : null;
 	}
-
-	/**
-	 * v0.16.1 comic delivery remap: the suit the briefcase (the old Mark V Suitcase item, id kept for saves) carries --
-	 * the classic MARK 2. The Mark 5 Stealth armour is worn and called like any other suit now.
-	 */
-	public static final String BRIEFCASE_SUIT = "mark_2";
 
 	/**
 	 * C (or right-click the case) while wearing the Mark 5: fold the suit away into the Mark V Suitcase rather than

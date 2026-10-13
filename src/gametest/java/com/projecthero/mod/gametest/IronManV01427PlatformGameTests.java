@@ -87,10 +87,12 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 			for (int i = 0; i < 20; i++) {
 				be.regenTick(suit);
 			}
-			// v0.16.1: no suit energy -- the platform only repairs, 5 integrity/s
+			// v0.15.20: the suit's own passive energy rate + 5 integrity/s
+			float rate = suit.energyRegenPerSecond();
+			helper.assertTrue(Math.abs(be.suitEnergy() - rate) < 0.05f, suitId + ": 1 s on the rack = +" + rate + " energy, got " + be.suitEnergy());
 			helper.assertTrue(Math.abs(be.suitIntegrity() - 5f) < 0.05f, suitId + ": 1 s on the rack = +5 integrity, got " + be.suitIntegrity());
-			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == 0f && IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
-					suitId + ": the platform charges nothing and repairs 5/s");
+			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == rate && IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
+					suitId + ": per-mark platformRegen overrides no longer apply");
 		}
 		helper.assertTrue(platform(helper, new BlockPos(5, 2, 1)).data.getCount() == 3,
 				"the platform menu no longer syncs a reserve value");

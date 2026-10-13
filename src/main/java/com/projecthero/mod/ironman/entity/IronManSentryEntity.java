@@ -537,7 +537,7 @@ public class IronManSentryEntity extends Entity {
 	}
 
 	public void setEnergy(float v) {
-		energy = IronManEnergy.FULL; // v0.16.1: no suit energy -- always full (old saves' values ignored)
+		energy = Math.max(0f, Math.min(IronManEnergy.capacity(suitId()), v));
 		getEntityData().set(ENERGY, energy);
 	}
 

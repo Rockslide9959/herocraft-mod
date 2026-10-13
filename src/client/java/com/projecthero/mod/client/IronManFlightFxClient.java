@@ -133,7 +133,7 @@ public final class IronManFlightFxClient {
 			}
 			if (a.evHardLand) {
 				landingImpact(level, player);
-			} else if (a.evSoftLand && !com.projecthero.mod.ironman.IronManArmor.stealthed(player)) { // v0.16.1: Stealth is silent
+			} else if (a.evSoftLand) {
 				level.playLocalSound(player.getX(), player.getY(), player.getZ(), POWER_DOWN, SoundSource.PLAYERS,
 						0.55f, 1.0f, false);
 			}
@@ -148,8 +148,7 @@ public final class IronManFlightFxClient {
 				vapourCone(level, player, a);
 			}
 			IronManThrusterSoundInstance[] sounds = SOUNDS.get(player.getUUID());
-			// v0.16.1: the Mark 5 Stealth flies without a sound
-			if (!com.projecthero.mod.ironman.IronManArmor.stealthed(player) && (sounds == null || sounds[0].isStopped())) {
+			if (sounds == null || sounds[0].isStopped()) {
 				sounds = new IronManThrusterSoundInstance[] {
 						new IronManThrusterSoundInstance(player, IronManThrusterSoundInstance.Layer.ROAR),
 						new IronManThrusterSoundInstance(player, IronManThrusterSoundInstance.Layer.WHINE),
@@ -258,12 +257,9 @@ public final class IronManFlightFxClient {
 	private static void takeoffBurst(ClientLevel level, Player player, IronManFlightPose.Anim a) {
 		RandomSource r = level.random;
 		boolean boots = a.kind == Kind.BOOTS;
-		boolean silent = com.projecthero.mod.ironman.IronManArmor.stealthed(player); // v0.16.1: the Mark 5 Stealth
-		if (!silent) {
-			level.playLocalSound(player.getX(), player.getY(), player.getZ(), TAKEOFF, SoundSource.PLAYERS,
-					boots ? 0.6f : 0.9f, boots ? 1.25f : 1.0f, false);
-		}
-		if (!boots && !silent) {
+		level.playLocalSound(player.getX(), player.getY(), player.getZ(), TAKEOFF, SoundSource.PLAYERS,
+				boots ? 0.6f : 0.9f, boots ? 1.25f : 1.0f, false);
+		if (!boots) {
 			level.playLocalSound(player.getX(), player.getY(), player.getZ(), TAKEOFF_KICK, SoundSource.PLAYERS,
 					0.7f, a.kind == Kind.MARK_ONE ? 0.75f : 1.0f, false);
 		}

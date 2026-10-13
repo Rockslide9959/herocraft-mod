@@ -656,7 +656,7 @@ public final class IronManSuitCall {
 	 * is not a call and stays free.
 	 */
 	public static boolean callCosts(IronManSuit suit) {
-		return false; // v0.16.1: no suit energy -- no call ever costs anything
+		return suit != null && suit.markNumber() == 7;
 	}
 
 	/** v0.15.15: the energy (0..1 of capacity) a call of {@code suit} would bring in, read where it is now; 1 if unknown. */
@@ -805,7 +805,7 @@ public final class IronManSuitCall {
 		}
 		int launched = taken.size();
 		if (mk8 && launched == 4) {
-			IronManMark8Call.flyIn(player, suit, taken, null /* v0.16.1: the Hulkbuster always arrives as an orbital drop, out of the sky */, mk8Energy,
+			IronManMark8Call.flyIn(player, suit, taken, straightFromPlatform ? origin : null, mk8Energy,
 					be != null ? integrity : IronManEnergy.stackIntegrity(taken.get(0), suitId));
 			return;
 		}

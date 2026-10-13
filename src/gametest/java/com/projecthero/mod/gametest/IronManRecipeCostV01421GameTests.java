@@ -62,12 +62,8 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void componentTableRecipesMirrorTheFabricator(GameTestHelper helper) {
-		// v0.16.1: the five comic signature parts are Fabricator-only for now (no crafting-table JSON was added with them)
-		Set<String> fabricatorOnly = Set.of("gilded_plating", "pressure_hull", "stealth_coating", "thermal_shielding",
-				"hydraulic_frame");
 		for (FabricationRecipe fab : FabricatorRecipes.all()) {
-			if (fab.result().getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem
-					|| fabricatorOnly.contains(fab.id())) {
+			if (fab.result().getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
 				continue;
 			}
 			Recipe<?> table = tableRecipe(helper, fab.id());
@@ -107,11 +103,6 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 		helper.assertTrue(markOne > 24 && markOne < 40, "Mark 1 raw cost " + markOne + " (plating ~12 + 24 iron of armour)");
 		previous = markOne;
 		previousSuit = "mark_1";
-		// v0.16.1: the Mark 1 V2 is built FROM Mark 1 pieces -- count each one at its full table cost
-		for (ArmorItem.Type type : PIECES) {
-			Recipe<?> r = tableRecipe(helper, "iron_man_mark_1_" + type.getName());
-			table.put(r.getResultItem(helper.getLevel().registryAccess()).getItem(), r);
-		}
 
 		for (String suit : FabricatorRecipes.ARMOR_BUILD_ORDER) {
 			double cost = 0;
@@ -120,9 +111,7 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 					cost += weighted(helper, table, input.item(), input.count(), 0);
 				}
 			}
-			// v0.16.1 comic rework (user): strictly rising again -- Mark 1 34.7 < Mark 1 V2 52.1 < Mark 2 55.2 < Mark 3 117.1
-			// < Hydro 135.5 < Stealth 139.0 < Centurion 140.1 < Space 148.6 < Hulkbuster 163.1
-			helper.assertTrue(cost > previous, suit + " (" + cost + ") must cost more than " + previousSuit + " (" + previous + ")");
+			helper.assertTrue(cost >= previous, suit + " (" + cost + ") must not be cheaper than " + previousSuit + " (" + previous + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
 			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher
 			double cap = "mark_8".equals(suit) ? 185 : 160;

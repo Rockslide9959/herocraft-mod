@@ -33,13 +33,6 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private boolean breaksBlocks = false;
 	/** v0.14.21 round two: the entity a Homing Missiles volley locked on to (not saved -- a reload falls back to nearest-hostile homing). */
 	private int lockedTargetId = -1;
-	// v0.16.1 comic kit: the Mark 1 Cluster Rocket (splits into bomblets), the Mark 7 Vacuum Micro-missiles (pull
-	// everything near the blast in), the Hydro Torpedo (keeps its speed underwater). Not saved -- a reloaded one is a
-	// plain missile.
-	private int clusterCount;
-	private float clusterDamage;
-	private boolean vacuum;
-	private boolean torpedo;
 	/** v0.15.12: Ultron's missiles (the Heavy's barrage, the Sentry's missile rain) are drawn with a red tint and trail. */
 	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_RED = net.minecraft.network.syncher.SynchedEntityData
 			.defineId(IronManMissileEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
@@ -105,38 +98,6 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		return homing;
 	}
 
-	/** v0.16.1: on impact, throw out {@code count} bomblets of {@code damage} each (the Mark 1 Cluster Rocket). */
-	public IronManMissileEntity withCluster(int count, float damage) {
-		this.clusterCount = count;
-		this.clusterDamage = damage;
-		return this;
-	}
-
-	/** v0.16.1: the blast first sucks everything within a few blocks into it (Mark 7 Vacuum Micro-missiles). */
-	public IronManMissileEntity withVacuum() {
-		this.vacuum = true;
-		return this;
-	}
-
-	/** v0.16.1: a torpedo -- no water drag, a bubble trail (the Hydro armour). */
-	public IronManMissileEntity withTorpedo() {
-		this.torpedo = true;
-		return this;
-	}
-
-	public boolean isTorpedo() {
-		return torpedo;
-	}
-
-	public int clusterCount() {
-		return clusterCount;
-	}
-
-	@Override
-	protected float getLiquidInertia() {
-		return torpedo ? 0.99f : super.getLiquidInertia();
-	}
-
 	/** Set the blast size of the on-impact AoE explosion (default 1.4). */
 	public IronManMissileEntity withBlastRadius(float radius) {
 		this.blastRadius = radius;
@@ -195,8 +156,7 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 				setDeltaMovement(v);
 			}
 		}
-		((ServerLevel) level()).sendParticles(torpedo && isInWater() ? ParticleTypes.BUBBLE : ParticleTypes.SMOKE, getX(), getY(), getZ(), 2,
-				0.02, 0.02, 0.02, 0.0);
+		((ServerLevel) level()).sendParticles(ParticleTypes.SMOKE, getX(), getY(), getZ(), 2, 0.02, 0.02, 0.02, 0.0);
 		if (isRedTinted()) {
 			((ServerLevel) level()).sendParticles(com.projecthero.mod.ultron.UltronFx.RED, getX(), getY(), getZ(), 1, 0.03, 0.03, 0.03, 0.0);
 		}
@@ -294,27 +254,6 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			return;
 		}
 		ServerLevel level = (ServerLevel) level();
-		if (vacuum) {
-			// v0.16.1: the vacuum warhead drags everything nearby into the blast first
-			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(5.0), this::canTargetLiving)) {
-				Vec3 to = position().subtract(e.position());
-				double len = Math.max(0.5, to.length());
-				e.setDeltaMovement(to.scale(Math.min(1.2, len * 0.35) / len).add(0, 0.15, 0));
-				e.hurtMarked = true;
-			}
-			level.sendParticles(ParticleTypes.REVERSE_PORTAL, getX(), getY(), getZ(), 30, 1.5, 1.5, 1.5, 0.3);
-		}
-		if (clusterCount > 0 && getOwner() instanceof LivingEntity owner) {
-			// v0.16.1: the cluster rocket breaks into bomblets that scatter and go off where they land
-			for (int i = 0; i < clusterCount; i++) {
-				double a = Math.PI * 2 * i / clusterCount + random.nextDouble() * 0.6;
-				Vec3 dir = new Vec3(Math.cos(a) * 0.5, -0.3, Math.sin(a) * 0.5); // sprayed down and out around the impact
-				IronManMissileEntity b = new IronManMissileEntity(level, owner, dir).withDamage(clusterDamage, clusterDamage * 0.7f)
-						.withBlastRadius(1.4f);
-				b.setPos(getX(), getY() + 1.6, getZ());
-				level.addFreshEntity(b);
-			}
-		}
 		Level.ExplosionInteraction interaction = breaksBlocks && com.projecthero.mod.hero.power.AbilityHelpers.canGrief()
 				? Level.ExplosionInteraction.MOB : Level.ExplosionInteraction.NONE;
 		level.explode(this, getX(), getY(), getZ(), blastRadius, interaction);
