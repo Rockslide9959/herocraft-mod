@@ -107,6 +107,11 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 		helper.assertTrue(markOne > 24 && markOne < 40, "Mark 1 raw cost " + markOne + " (plating ~12 + 24 iron of armour)");
 		previous = markOne;
 		previousSuit = "mark_1";
+		// v0.16.1: the Mark 1 V2 is built FROM Mark 1 pieces -- count each one at its full table cost
+		for (ArmorItem.Type type : PIECES) {
+			Recipe<?> r = tableRecipe(helper, "iron_man_mark_1_" + type.getName());
+			table.put(r.getResultItem(helper.getLevel().registryAccess()).getItem(), r);
+		}
 
 		for (String suit : FabricatorRecipes.ARMOR_BUILD_ORDER) {
 			double cost = 0;
@@ -115,11 +120,9 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 					cost += weighted(helper, table, input.item(), input.count(), 0);
 				}
 			}
-			// v0.16.1 comic rework: the signature parts changed (gold-heavy Mark 1 V2 upgrade, Pressure Hull / Stealth Coating /
-			// Thermal Shielding / Hydraulic Frame), so the strict "each mark costs more than the last" order no longer holds
-			// (the V2 out-costs the Mark 2, the Stealth Mark 5 comes in under the Hydro Mark 4). What still holds: every
-			// Fabricator suit costs more than the table-built Mark 1, and none blows its cap.
-			helper.assertTrue(cost > markOne, suit + " (" + cost + ") must cost more than the Mark 1 (" + markOne + ")");
+			// v0.16.1 comic rework (user): strictly rising again -- Mark 1 34.7 < Mark 1 V2 52.1 < Mark 2 55.2 < Mark 3 117.1
+			// < Hydro 135.5 < Stealth 139.0 < Centurion 140.1 < Space 148.6 < Hulkbuster 163.1
+			helper.assertTrue(cost > previous, suit + " (" + cost + ") must cost more than " + previousSuit + " (" + previous + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
 			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher
 			double cap = "mark_8".equals(suit) ? 185 : 160;

@@ -220,11 +220,11 @@ function buildModel() {
 		mapBox(`forearm_${s}`, bx(8.6, 21.4, -6.9, 21.4, 23.4, 6.9), palRect('gold'));
 		mapBox(`forearm_${s}`, bx(12, 22.5, 6.4, 18, 26.5, 8.2), palRect('red'));
 		mapBox(`forearm_${s}`, bx(21.0, 16.5, -3.5, 22.2, 21.0, 3.5), palRect('steel'));
-		// fist (skin rows 8-12 + the arm bottom), knuckle plates, thumb, palm repulsor
+		// fist (skin rows 8-12 + the arm bottom): a clean, solid armoured gauntlet block -- user request: NO separate finger /
+		// thumb cubes ("they look creepy"). One full-width knuckle plate with a gold band across it, and the palm repulsor.
 		seg(`hand_${s}`, bx(8.6, 6.4, -7, 21.4, 15.2, 7), arm, sl, 8, 12, 0.45);
-		for (let i = 0; i < 4; i++) mapBox(`hand_${s}`, bx(9.4 + i * 3.0, 7.0, -7.9, 11.8 + i * 3.0, 12.2, -6.9), palRect('red'));
-		for (let i = 0; i < 4; i++) mapBox(`hand_${s}`, bx(9.8 + i * 3.0, 7.6, -8.3, 11.4 + i * 3.0, 9.2, -7.8), palRect('gold'));
-		mapBox(`hand_${s}`, bx(7.9, 8.6, -5.4, 8.7, 13.2, 1.0), palRect('red'));
+		mapBox(`hand_${s}`, bx(9.0, 7.0, -7.9, 21.0, 12.2, -6.9), palRect('red'));
+		mapBox(`hand_${s}`, bx(9.4, 7.6, -8.3, 20.6, 9.2, -7.8), palRect('gold'));
 		mapBox(`hand_${s}`, bx(13.6, 6.1, -1.5, 16.6, 6.45, 1.5), palRect('cyan'));
 		// thigh (skin rows 0-6), hip piston
 		seg(`thigh_${s}`, bx(0.6, 10.5, -5, 10, 20, 5), leg, pa, 0, 6, 0.5);

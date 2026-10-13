@@ -249,7 +249,7 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 				gold |= in.item() == Items.GOLD_INGOT;
 				gilded |= in.item() == IronManItems.GILDED_PLATING;
 			}
-			h.assertTrue(mk1 && gold && gilded, TYPES[i].getName() + ": Mark 1 piece + gold + Gilded Plating");
+			h.assertTrue(mk1 && gilded && (gold || i != 1), TYPES[i].getName() + ": the Mark 1 piece + Gilded Plating (+ gold in the chest)");
 		}
 		// a real tray: the Mark 1 helmet + 4 gold + 1 plating with the V2 blueprint, helmet picked
 		SimpleContainer tray = new SimpleContainer(11);
