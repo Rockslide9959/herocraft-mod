@@ -1,0 +1,385 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.galactus.Galactus;
+import com.projecthero.mod.galactus.GalactusEvent;
+import com.projecthero.mod.galactus.entity.GalactusEntity;
+import com.projecthero.mod.galactus.entity.GalactusEntityTypes;
+import com.projecthero.mod.galactus.entity.SilverSurferEntity;
+import com.projecthero.mod.galactus.entity.SurferBoardEntity;
+import com.projecthero.mod.galactus.block.GalactusBlocks;
+import com.projecthero.mod.galactus.item.GalactusItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.1 Galactus screenshots. Enabled by run/v0161gal.flag. Needs V0161GalactusCamMixin in
+ * projecthero.client.mixins.json and V0161GalactusHarness.init() in onInitializeClient. Shots go to
+ * run/screenshots/v0161gal_*.png.
+ */
+public final class V0161GalactusHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camPos;
+	public static Vec3 camAt;
+	private static BlockPos C;
+	private static GalactusEvent ev;
+	private static volatile long lastProgress = System.currentTimeMillis();
+
+	private V0161GalactusHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("v0161gal.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161GalactusHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 120_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 120 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161gal-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		lastProgress = System.currentTimeMillis();
+		Screenshot.grab(mc.gameDirectory, "v0161gal_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void cam(double x, double y, double z, double ax, double ay, double az) {
+		camPos = Vec3.atBottomCenterOf(C).add(x, y, z);
+		camAt = Vec3.atBottomCenterOf(C).add(ax, ay, az);
+	}
+
+	private static void camOn(Vec3 pos, Vec3 at) {
+		camPos = pos;
+		camAt = at;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0) {
+				lastProgress = System.currentTimeMillis();
+				if (!createdWorld && mc.getOverlay() == null && mc.screen != null && !(mc.screen instanceof TitleScreen)) {
+					mc.options.onboardAccessibility = false;
+					mc.setScreen(new TitleScreen());
+				}
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(() -> {
+					LevelSettings settings = new LevelSettings("V0161GAL_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+							Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+					mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+							reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+									.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+							mc.screen);
+				});
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 20 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.getServer().setDifficulty(Difficulty.NORMAL, true);
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				C = p.blockPosition();
+				guard(p);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				lastProgress = System.currentTimeMillis();
+				try {
+					r.run();
+				} catch (Throwable e) {
+					System.out.println("[HARNESS] error " + e);
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	private static void guard(ServerPlayer p) {
+		p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 999999, 4, false, false));
+		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 999999, 4, false, false));
+		p.addEffect(new MobEffectInstance(MobEffects.SATURATION, 999999, 0, false, false));
+		p.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 999999, 0, false, false));
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.onUpdateAbilities();
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		// ---- the arena and the sky (arrival)
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			l.setBlockAndUpdate(C, GalactusBlocks.HERALDS_BEACON.defaultBlockState());
+			ev = Galactus.start(l, C, p, Galactus.Source.COMMAND);
+			System.out.println("[HARNESS] started " + ev);
+			p.teleportTo(l, C.getX() + 0.5, C.getY() + 3, C.getZ() + 8.5, 180f, 10f);
+		}));
+		at(t + 4, () -> cam(0, 75, 105, 0, 0, -10));
+		at(t + 60, () -> shot(mc, "00_arena_sky_day"));
+		at(t + 62, () -> cam(0, 2, 16, 0, 30, -40));
+		at(t + 90, () -> shot(mc, "00b_daytime_stars"));
+		t += 100;
+		// ---- the Surfer duel
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			ev.debugAdvance(l, p); // the Herald arrives
+		}));
+		for (int i = 0; i < 4; i++) {
+			final int k = i;
+			at(t + 50 + i * 30, () -> {
+				ServerPlayer p = sp(mc);
+				SilverSurferEntity s = p == null ? null : ev.surfer(p.serverLevel());
+				if (s != null) {
+					Vec3 sp = s.position();
+					camOn(sp.add(5, 2.5, 5), sp.add(0, 1.0, 0));
+				}
+			});
+			at(t + 56 + i * 30, () -> shot(mc, "01_surfer_duel_" + k));
+		}
+		// the code-driven poses, held still in front of the camera
+		final String[] poseNames = { "blast", "shield", "lift", "dash" };
+		final com.projecthero.mod.galactus.GalactusAnims.Clip[] poseClips = { com.projecthero.mod.galactus.GalactusAnims.SURFER_BLAST,
+				com.projecthero.mod.galactus.GalactusAnims.SURFER_SHIELD, com.projecthero.mod.galactus.GalactusAnims.SURFER_LIFT,
+				com.projecthero.mod.galactus.GalactusAnims.SURFER_DASH };
+		at(t + 170, () -> server(mc, p -> {
+			SilverSurferEntity s = ev.surfer(p.serverLevel());
+			if (s != null) {
+				s.setNoAi(true);
+				s.setDeltaMovement(Vec3.ZERO);
+				s.moveTo(C.getX() + 0.5, C.getY() + 3, C.getZ() + 6.5, 0f, 0f);
+				s.setYBodyRot(0f);
+				s.setYHeadRot(0f);
+			}
+		}));
+		at(t + 172, () -> cam(2.6, 4.8, 10.6, 0, 4.2, 6.5));
+		at(t + 178, () -> shot(mc, "01_surfer_pose_idle"));
+		for (int i = 0; i < poseNames.length; i++) {
+			final int k = i;
+			at(t + 180 + i * 14, () -> server(mc, p -> {
+				SilverSurferEntity s = ev.surfer(p.serverLevel());
+				if (s != null) {
+					s.setAnim(poseClips[k]);
+				}
+			}));
+			at(t + 180 + i * 14 + 10, () -> shot(mc, "01_surfer_pose_" + poseNames[k]));
+		}
+		t += 60;
+		at(t + 180, () -> server(mc, p -> {
+			SilverSurferEntity s = ev.surfer(p.serverLevel());
+			if (s != null) {
+				s.setNoAi(false);
+				s.invulnerableTime = 0;
+				s.hurt(p.serverLevel().damageSources().playerAttack(p), 100000f);
+			}
+		}));
+		at(t + 200, () -> {
+			ServerPlayer p = sp(mc);
+			SilverSurferEntity s = p == null ? null : ev.surfer(p.serverLevel());
+			if (s != null) {
+				camOn(s.position().add(3.5, 1.5, 3.5), s.position().add(0, 1.1, 0));
+			}
+		});
+		at(t + 230, () -> shot(mc, "02_surfer_turns"));
+		t += 260;
+		// ---- the Worldship and the Element Converters
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			SilverSurferEntity s = ev.surfer(l);
+			if (s != null && !s.isAlly()) {
+				s.becomeAlly(l);
+			}
+			if (ev.phase() != GalactusEvent.Phase.WORLDSHIP) {
+				ev.startWorldship(l);
+			}
+		}));
+		at(t + 20, () -> cam(60, 40, 60, 0, 6, 0));
+		at(t + 30, () -> shot(mc, "03_converters_falling"));
+		at(t + 70, () -> shot(mc, "03_converters_landed"));
+		at(t + 500, () -> shot(mc, "03_converters_consuming"));
+		at(t + 505, () -> cam(12, 60, 12, 0, 80, 0));
+		at(t + 520, () -> shot(mc, "03_worldship_overhead"));
+		at(t + 530, () -> {
+			ServerPlayer p = sp(mc);
+			if (p != null && !ev.liveConverters(p.serverLevel()).isEmpty()) {
+				var c = ev.liveConverters(p.serverLevel()).get(0);
+				camOn(c.position().add(14, 9, 14), c.position().add(0, 2, 0));
+			}
+		});
+		at(t + 545, () -> shot(mc, "03_converter_close"));
+		t += 560;
+		// ---- Galactus
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int i = 0; i < 8 && ev.phase() == GalactusEvent.Phase.WORLDSHIP; i++) {
+				ev.debugAdvance(l, p);
+			}
+			if (ev.phase() == GalactusEvent.Phase.WORLDSHIP) {
+				ev.startGalactus(l);
+			}
+			p.teleportTo(l, C.getX() + 0.5, C.getY() + 1, C.getZ() + 0.5, 180f, 0f);
+		}));
+		at(t + 100, () -> cam(34, 22, -18, 0, 30, -70));
+		at(t + 120, () -> shot(mc, "04_galactus_idle"));
+		at(t + 122, () -> server(mc, p -> {
+			GalactusEntity g = ev.galactus(p.serverLevel());
+			if (g != null) {
+				g.noAutoMoves = true;
+				g.startMove(p.serverLevel(), GalactusEntity.Move.EYE_BEAM, p);
+			}
+		}));
+		at(t + 124, () -> cam(30, 30, 12, 0, 6, -30));
+		at(t + 122 + 30, () -> shot(mc, "04_galactus_eye_beam_telegraph"));
+		at(t + 122 + 60, () -> shot(mc, "04_galactus_eye_beam_sweep"));
+		at(t + 230, () -> server(mc, p -> {
+			GalactusEntity g = ev.galactus(p.serverLevel());
+			if (g != null) {
+				g.startMove(p.serverLevel(), GalactusEntity.Move.GRAB, p);
+			}
+		}));
+		at(t + 232, () -> cam(16, 14, 16, 0, 4, 0));
+		at(t + 230 + 20, () -> shot(mc, "04_galactus_grab_shadow"));
+		at(t + 230 + 50, () -> cam(28, 46, -26, 0, 46, -62));
+		at(t + 230 + 70, () -> shot(mc, "04_galactus_grab_lift"));
+		at(t + 380, () -> server(mc, p -> {
+			GalactusEntity g = ev.galactus(p.serverLevel());
+			if (g != null) {
+				g.startMove(p.serverLevel(), GalactusEntity.Move.WAVE, p);
+			}
+			p.teleportTo(p.serverLevel(), C.getX() + 0.5, C.getY() + 1, C.getZ() + 0.5, 180f, 0f);
+		}));
+		at(t + 382, () -> cam(30, 28, -10, 0, 0, -50));
+		at(t + 380 + 45, () -> shot(mc, "04_galactus_wave"));
+		t += 440;
+		// ---- the Nullifier moment
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int i = 0; i < 3; i++) {
+				ev.debugAdvance(l, p); // pylons, weak points, the Nullifier in hand
+			}
+			p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(GalactusItems.ULTIMATE_NULLIFIER));
+		}));
+		at(t + 10, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			ev.useNullifier(l, p);
+		}));
+		at(t + 2, () -> { mc.options.hideGui = false; mc.options.setCameraType(CameraType.FIRST_PERSON); });
+		at(t + 6, () -> shot(mc, "05_nullifier_in_hand"));
+		at(t + 8, () -> { mc.options.hideGui = true; mc.options.setCameraType(CameraType.THIRD_PERSON_BACK); });
+		at(t + 12, () -> cam(34, 26, -20, 0, 38, -70));
+		at(t + 70, () -> shot(mc, "05_nullifier_retreat_hand"));
+		at(t + 165, () -> shot(mc, "05_nullifier_burst"));
+		at(t + 260, () -> cam(8, 5, 8, 0, 1, 0));
+		at(t + 280, () -> shot(mc, "05_reward_chest"));
+		t += 300;
+		// ---- the Board
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			SurferBoardEntity b = GalactusEntityTypes.SURFER_BOARD.create(l);
+			b.moveTo(C.getX() + 0.5, C.getY() + 6, C.getZ() + 12.5, 0f, 0f);
+			b.setOwner(p.getUUID());
+			l.addFreshEntity(b);
+			p.startRiding(b);
+			p.getInventory().add(new ItemStack(GalactusItems.POWER_COSMIC));
+		}));
+		at(t + 20, () -> cam(4, 8.5, 18, 0, 6.6, 12));
+		at(t + 40, () -> shot(mc, "06_board_mount"));
+		at(t + 60, () -> {
+			System.out.println("[HARNESS] DONE");
+			mc.stop();
+		});
+	}
+}

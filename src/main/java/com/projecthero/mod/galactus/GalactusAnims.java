@@ -13,8 +13,9 @@ import java.util.List;
  *
  * <h2>Assets</h2>
  * {@code geo/galactus/<name>.geo.json}, {@code textures/entity/galactus/<name>.png} + {@code <name>_glowmask.png},
- * {@code animations/galactus/<name>.animation.json} for every name in {@link #MODELS}. The Silver Surfer carries his board
- * as a {@code board} bone. The bones {@code neck} / {@code head} (look) and {@code flinch} (hurt) are posed by code every
+ * {@code animations/galactus/<name>.animation.json} for every name in {@link #MODELS}. The Silver Surfer is a player model
+ * (code-driven poses) standing on the {@code surfboard_mount} GeckoLib board. Galactus is 60 blocks from the top of his
+ * head to his toes, prongs not counted ({@link #FIT_IGNORE_PREFIXES}). The bones {@code neck} / {@code head} (look) and {@code flinch} (hurt) are posed by code every
  * frame and must never be keyed by any clip.
  *
  * <h2>Timing convention (the Titan's / FrostGiantAnims')</h2>
@@ -47,7 +48,15 @@ public final class GalactusAnims {
 	public static final String BOARD = "surfboard_mount";
 	public static final String NULLIFIER = "nullifier";
 
-	public static final String[] MODELS = { GALACTUS, SURFER, PUNISHER, CONVERTER, WORLDSHIP, HAND, BOARD, NULLIFIER };
+	/** GeckoLib models (the Silver Surfer is a player model and is not one of them). */
+	public static final String[] MODELS = { GALACTUS, PUNISHER, CONVERTER, WORLDSHIP, HAND, BOARD, NULLIFIER };
+
+	/**
+	 * Galactus' fit rule: his model is drawn so that the TOP OF HIS HEAD to his toes is
+	 * {@code GalactusConfig.Colossus#renderHeight} (60) blocks -- the helmet's prongs / antennae are NOT counted. Bones whose
+	 * name starts with one of these (and everything under them) are left out of the measurement.
+	 */
+	public static final String[] FIT_IGNORE_PREFIXES = { "crest", "prong", "antenna", "horn" };
 
 	/**
 	 * One clip.
@@ -105,20 +114,26 @@ public final class GalactusAnims {
 	/** The Nullifier: he raises a hand on {@code hit} (and speaks), then is gone in a burst of Power Cosmic at the end. */
 	public static final Clip GALACTUS_RETREAT = hold(GALACTUS, "retreat", 160, 60);
 
-	// ---------------------------------------------------------------- the Silver Surfer (player-sized, on his board)
-	public static final Clip SURFER_IDLE = loop(SURFER, "idle", 40);
-	public static final Clip SURFER_FLY = loop(SURFER, "fly", 20);
+	// ---------------------------------------------------------------- the Silver Surfer (player model, code-driven poses)
+	// User decision (v0.16.1): the Surfer is a regular PLAYER MODEL (his skin: textures/entity/galactus/silver_surfer.png),
+	// posed by code (GalactusRenderers.SurferModel), not a GeckoLib clip -- these are his move TIMINGS only (same
+	// length / hit meaning), synced as a pose index ({@link #SURFER_POSES}), never exported as animation JSON.
+	public static final Clip SURFER_IDLE = pose(SURFER, "idle", 40, -1, 2);
+	public static final Clip SURFER_FLY = pose(SURFER, "fly", 20, -1, 2);
 	/** A bolt of Power Cosmic leaves the hand on {@code hit}. */
-	public static final Clip SURFER_BLAST = clip(SURFER, "blast", 24, 14);
+	public static final Clip SURFER_BLAST = pose(SURFER, "blast", 24, 14, 0);
 	/** 1 s telegraph (the line is drawn), the dash itself starts on {@code hit}. */
-	public static final Clip SURFER_DASH = clip(SURFER, "dash", 34, 24);
+	public static final Clip SURFER_DASH = pose(SURFER, "dash", 34, 24, 0);
 	/** The reflective shield is up from {@code hit} to the end. */
-	public static final Clip SURFER_SHIELD = clip(SURFER, "shield", 70, 8);
+	public static final Clip SURFER_SHIELD = pose(SURFER, "shield", 70, 8, 0);
 	/** The victim leaves the ground on {@code hit}. */
-	public static final Clip SURFER_LIFT = clip(SURFER, "lift", 40, 20);
+	public static final Clip SURFER_LIFT = pose(SURFER, "lift", 40, 20, 0);
 	/** 6 s: he stops, lowers the board and turns. Held. */
-	public static final Clip SURFER_TURN_ALLY = hold(SURFER, "turn_ally", 120, -1);
-	public static final Clip SURFER_ALLY_IDLE = loop(SURFER, "ally_idle", 40);
+	public static final Clip SURFER_TURN_ALLY = pose(SURFER, "turn_ally", 120, -1, 1);
+	public static final Clip SURFER_ALLY_IDLE = pose(SURFER, "ally_idle", 40, -1, 2);
+	/** The Surfer's poses in sync order (index = the synced pose id). */
+	public static final List<Clip> SURFER_POSES = List.of(SURFER_IDLE, SURFER_FLY, SURFER_BLAST, SURFER_DASH, SURFER_SHIELD, SURFER_LIFT,
+			SURFER_TURN_ALLY, SURFER_ALLY_IDLE);
 
 	// ---------------------------------------------------------------- the Punisher robots (~8 blocks)
 	public static final Clip PUNISHER_IDLE = loop(PUNISHER, "idle", 60);
@@ -146,6 +161,11 @@ public final class GalactusAnims {
 	public static final Clip NULLIFIER_IDLE = loop(NULLIFIER, "idle", 40);
 
 	private GalactusAnims() {
+	}
+
+	/** A code-driven pose's timing (not a GeckoLib clip: not in {@link #ALL}, never exported). */
+	private static Clip pose(String model, String name, int length, int hit, int kind) {
+		return new Clip(model, name, length, hit, kind);
 	}
 
 	private static Clip clip(String model, String name, int length, int hit) {

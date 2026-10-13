@@ -95,11 +95,51 @@ public class SilverSurferEntity extends GalactusMob {
 		super.defineSynchedData(builder);
 		builder.define(DATA_STATE, HOSTILE);
 		builder.define(DATA_SHIELD, false);
+		builder.define(DATA_POSE, 0xFF);
+	}
+
+	/** A player model (no GeckoLib asset): see {@code GalactusRenderers.SurferModel}. */
+	@Override
+	public String model() {
+		return null;
+	}
+
+	// ---------------------------------------------------------------- the code-driven pose (synced: index | seq << 8)
+
+	private static final EntityDataAccessor<Integer> DATA_POSE = SynchedEntityData.defineId(SilverSurferEntity.class, EntityDataSerializers.INT);
+	private int poseSeq;
+	private int clientPoseStart;
+
+	@Override
+	public void setAnim(Clip clip) {
+		poseSeq = (poseSeq + 1) & 0xFFFFFF;
+		int idx = clip == null ? -1 : GalactusAnims.SURFER_POSES.indexOf(clip); // List.of rejects indexOf(null)
+		entityData.set(DATA_POSE, (idx < 0 ? 0xFF : idx) | (poseSeq << 8));
+		animTicksLeft = clip == null || clip.loops() ? 0 : clip.length();
 	}
 
 	@Override
-	public String model() {
-		return GalactusAnims.SURFER;
+	public Clip currentClip() {
+		int idx = entityData.get(DATA_POSE) & 0xFF;
+		return idx < GalactusAnims.SURFER_POSES.size() ? GalactusAnims.SURFER_POSES.get(idx) : null;
+	}
+
+	/** The pose playing (null: idle / fly, chosen by speed), for the renderer. */
+	public Clip pose() {
+		return currentClip();
+	}
+
+	/** Ticks (client) since the current pose began. */
+	public float poseAge(float partialTick) {
+		return tickCount - clientPoseStart + partialTick;
+	}
+
+	@Override
+	public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+		super.onSyncedDataUpdated(key);
+		if (DATA_POSE.equals(key)) {
+			clientPoseStart = tickCount;
+		}
 	}
 
 	@Override

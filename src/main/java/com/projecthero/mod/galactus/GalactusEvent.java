@@ -118,6 +118,7 @@ public class GalactusEvent extends EventInstance {
 	private transient long lastSkySent = -1000;
 	private transient int lastSkyKey = -1;
 	private transient long missingSince = -1;
+	private transient final java.util.Map<UUID, Long> missingParts = new java.util.HashMap<>();
 	/** Test hooks. */
 	public transient boolean instant;
 	public transient double converterRingOverride = -1;
@@ -367,12 +368,14 @@ public class GalactusEvent extends EventInstance {
 			case TURN -> tickTurn(level, inPhase);
 			case WORLDSHIP -> {
 				keepWorldship(level);
+				pruneMissing(level, converters, true, now);
 				if (converters.isEmpty() && converterTotal > 0) {
 					startGalactus(level);
 				}
 			}
 			case GALACTUS -> {
 				keepWorldship(level);
+				pruneMissing(level, pylons, false, now);
 				if (galactus(level) == null && level.isLoaded(BlockPos.containing(galactusSite()))) {
 					if (missingSince < 0) {
 						missingSince = now;
@@ -389,6 +392,30 @@ public class GalactusEvent extends EventInstance {
 		}
 		if (!state().finished()) {
 			updateBars(level, now);
+		}
+	}
+
+	/**
+	 * A converter / pylon that has been nowhere to be found for 30 s (removed by something other than its death, which
+	 * reports itself) counts as destroyed, so the event can never stall on it. A lost converter still pays its Nullifier
+	 * part; its eaten ground comes back with everything else at the end.
+	 */
+	private void pruneMissing(ServerLevel level, List<UUID> ids, boolean converter, long now) {
+		for (Iterator<UUID> it = ids.iterator(); it.hasNext();) {
+			UUID u = it.next();
+			if (level.getEntity(u) != null) {
+				missingParts.remove(u);
+				continue;
+			}
+			long since = missingParts.computeIfAbsent(u, k -> now);
+			if (now - since > 600) {
+				it.remove();
+				missingParts.remove(u);
+				if (converter) {
+					partsEarned++;
+					dropPart(level, Vec3.atCenterOf(center()).add(0, 2, 0));
+				}
+			}
 		}
 	}
 

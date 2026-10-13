@@ -4,7 +4,9 @@
 //   animations/galactus/<name>.animation.json   for name in GalactusAnims.MODELS
 // Clip names, lengths and strike ticks are parsed from GalactusAnims.java; every clip with a hit gets a keyframe on
 // (hit - TRANSITION) / 20 s -- this script fails if one is missing. The bones neck / head / flinch are never keyed (code
-// poses them). The Silver Surfer stands on a `board` bone.
+// poses them). The Silver Surfer is NOT GeckoLib (user decision): a player model with his own skin
+// (scratchpad/gen_galactus_surfer_skin.js installs it) standing on the surfboard_mount board. Galactus is fitted 60 blocks
+// from the top of his head to his toes: bones starting crest / prong / antenna / horn are not measured.
 // Also writes the event's block / item placeholders (textures, models, blockstates), loot tables, the Herald's Beacon
 // recipe and the consumable-block tag. Idempotent.
 // Run from the repo (or worktree) root: node scratchpad/gen_galactus_placeholders.js [root]
@@ -25,7 +27,7 @@ const clips = [];
 for (const m of animsJava.matchAll(/= (clip|hold|loop)\((\w+), "(\w+)", (\d+)(?:, (-?\d+))?\);/g)) {
   clips.push({ kind: m[1], model: consts[m[2]], name: m[3], length: +m[4], hit: m[5] === undefined ? -1 : +m[5] });
 }
-if (clips.length < 33) throw new Error('parsed only ' + clips.length + ' clips from GalactusAnims.java');
+if (clips.length < 25) throw new Error('parsed only ' + clips.length + ' clips from GalactusAnims.java');
 const CODE_BONES = ['neck', 'head', 'flinch'];
 
 // ---------------------------------------------------------------- PNG
@@ -183,7 +185,6 @@ function nullifier() {
 
 const MODELS = {
   galactus: { bones: galactus(), tint: [1, 1, 1], rig: 'humanoid' },
-  silver_surfer: { bones: surfer(), tint: [1, 1, 1], rig: 'humanoid' },
   punisher: { bones: punisher(), tint: [1, 1, 1], rig: 'humanoid' },
   element_converter: { bones: converter(), tint: [1, 1, 1], rig: 'tower' },
   worldship: { bones: worldship(), tint: [1, 1, 1], rig: 'ship' },
@@ -291,7 +292,6 @@ for (const name of NAMES) {
   if (!m) throw new Error('no placeholder for ' + name);
   const names = new Set(m.bones.map(b => b.name));
   if (m.rig === 'humanoid' && !['neck', 'head', 'flinch'].every(b => names.has(b))) throw new Error(name + ' lacks neck/head/flinch');
-  if (name === 'silver_surfer' && !names.has('board')) throw new Error('the Surfer needs his board bone');
   let minY = 1e9, maxY = -1e9;
   for (const b of m.bones) for (const c of b.cubes || []) { minY = Math.min(minY, c.origin[1]); maxY = Math.max(maxY, c.origin[1] + c.size[1]); }
   const geo = { format_version: '1.12.0', 'minecraft:geometry': [{ description: { identifier: 'geometry.' + name, texture_width: 64, texture_height: 64,

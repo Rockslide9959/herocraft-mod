@@ -74,6 +74,14 @@ public class FogRendererMixin {
 			RenderSystem.setShaderFogEnd(frost);
 			return;
 		}
+		// v0.16.1: Galactus' arena keeps a far, thin haze -- a 60-block colossus 70 blocks away (and the Worldship) must
+		// stay in sight, so the raid sky's 90-block murk is not used there
+		float galactus = com.projecthero.mod.client.galactus.GalactusSkyClient.strength();
+		if (galactus > 0.0f) {
+			RenderSystem.setShaderFogStart(farPlaneDistance * Mth.lerp(galactus, 0.9f, 0.45f));
+			RenderSystem.setShaderFogEnd(farPlaneDistance);
+			return;
+		}
 		float s = RaidSkyTint.strength();
 		if (s <= 0.0f) {
 			return;

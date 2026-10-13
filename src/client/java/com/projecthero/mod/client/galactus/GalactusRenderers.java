@@ -3,7 +3,6 @@ package com.projecthero.mod.client.galactus;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.client.frostgiant.FrostModelFit;
 import com.projecthero.mod.galactus.GalactusConfig;
 import com.projecthero.mod.galactus.entity.GalactusEntity;
 import com.projecthero.mod.galactus.entity.GalactusHandEntity;
@@ -40,7 +39,7 @@ import software.bernie.geckolib.util.Color;
 
 /**
  * v0.16.1: Galactus: The Devourer on the client. Every model is a GeckoLib asset at {@code geo/galactus/<name>.geo.json}
- * (+ texture, glowmask, animations), drawn at a size measured from its rest pose ({@link FrostModelFit}: the placeholders
+ * (+ texture, glowmask, animations), drawn at a size measured from its rest pose ({@link GalactusModelFit}: the placeholders
  * today, the real models later, no code change): Galactus to {@link GalactusConfig.Colossus#renderHeight} (~60 blocks,
  * render only -- his hit-box is far smaller), the Surfer / Punishers / converters to their hit-box height, the grabbing
  * hand to 9 blocks, the Worldship to 40. Heads follow their look target through the never-keyed {@code neck} / {@code head}
@@ -155,7 +154,7 @@ public final class GalactusRenderers {
 				boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
 			super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
 			if (!isReRender) {
-				float s = FrostModelFit.fit(model, targetHeight(animatable));
+				float s = GalactusModelFit.fit(model, targetHeight(animatable));
 				poseStack.scale(s, s, s);
 			}
 		}
@@ -193,14 +192,166 @@ public final class GalactusRenderers {
 		}
 	}
 
-	public static final class Surfer extends Mob<SilverSurferEntity> {
-		public Surfer(EntityRendererProvider.Context context) {
-			super(context, 0.5f, 0f);
+	// ---------------------------------------------------------------- the Silver Surfer: a player model on his board
+
+	public static final ResourceLocation SURFER_SKIN = ProjectHeroMod.id("textures/entity/galactus/silver_surfer.png");
+	public static final ResourceLocation SURFER_GLOW = ProjectHeroMod.id("textures/entity/galactus/silver_surfer_glowmask.png");
+	/** The board's thickness (blocks): he stands this high on it. */
+	static final float BOARD_TOP = 0.25f;
+
+	/**
+	 * User decision (v0.16.1): the Herald is the standard <b>player rig</b> (wide arms -- his skin is a Steve-shape skin; head,
+	 * body, arms, legs and the hat / jacket / sleeve / pants layers) with code-driven poses instead of GeckoLib clips:
+	 * the surf stance (feet apart along the board, knees soft, arms out for balance), blast (the right arm thrown forward
+	 * at the target), dash (crouched, arms swept back), shield (both forearms crossed in front), lift (both arms raised), the
+	 * turn (head bowed, then the right hand lifted) and the ally's easy stance.
+	 */
+	public static final class SurferModel extends net.minecraft.client.model.PlayerModel<SilverSurferEntity> {
+		public SurferModel(net.minecraft.client.model.geom.ModelPart root) {
+			super(root, false);
 		}
 
 		@Override
-		public Color getRenderColor(SilverSurferEntity animatable, float partialTick, int packedLight) {
-			return animatable.shieldUp() ? Color.ofARGB(255, 210, 230, 255) : super.getRenderColor(animatable, partialTick, packedLight);
+		public void setupAnim(SilverSurferEntity s, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
+			super.setupAnim(s, 0f, 0f, ageInTicks, netHeadYaw, headPitch);
+			float pt = ageInTicks - s.tickCount;
+			var pose = s.pose();
+			float age = s.poseAge(pt);
+			float bob = Mth.sin(ageInTicks * 0.08f);
+			// the surf stance: left foot forward, right foot back, knees soft, arms out
+			this.leftLeg.xRot = -0.38f;
+			this.rightLeg.xRot = 0.32f;
+			this.leftLeg.zRot = -0.06f;
+			this.rightLeg.zRot = 0.06f;
+			this.body.xRot = 0.08f;
+			this.leftArm.xRot = -0.1f;
+			this.rightArm.xRot = -0.1f;
+			this.leftArm.zRot = -0.75f - bob * 0.06f;
+			this.rightArm.zRot = 0.75f + bob * 0.06f;
+			this.leftArm.yRot = 0f;
+			this.rightArm.yRot = 0f;
+			if (pose == null || pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_IDLE || pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_FLY) {
+				// as authored
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_ALLY_IDLE) {
+				this.rightArm.zRot = 0.35f;
+				this.rightArm.xRot = -0.5f + bob * 0.05f;
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_BLAST) {
+				float k = Mth.clamp(age / 8f, 0f, 1f);
+				this.rightArm.xRot = Mth.lerp(k, -0.1f, -Mth.HALF_PI + headPitch * Mth.DEG_TO_RAD);
+				this.rightArm.yRot = this.head.yRot;
+				this.rightArm.zRot = Mth.lerp(k, 0.75f, 0f);
+				this.leftArm.xRot = Mth.lerp(k, -0.1f, 0.5f);
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_DASH) {
+				float k = Mth.clamp(age / 10f, 0f, 1f);
+				this.body.xRot = Mth.lerp(k, 0.08f, 0.45f);
+				this.leftArm.xRot = this.rightArm.xRot = Mth.lerp(k, -0.1f, 1.1f);
+				this.leftArm.zRot = -0.25f;
+				this.rightArm.zRot = 0.25f;
+				this.leftLeg.xRot = -0.6f;
+				this.rightLeg.xRot = 0.5f;
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_SHIELD) {
+				float k = Mth.clamp(age / 6f, 0f, 1f);
+				this.leftArm.xRot = this.rightArm.xRot = Mth.lerp(k, -0.1f, -1.45f);
+				this.leftArm.yRot = Mth.lerp(k, 0f, 0.55f);
+				this.rightArm.yRot = Mth.lerp(k, 0f, -0.55f);
+				this.leftArm.zRot = Mth.lerp(k, -0.75f, 0f);
+				this.rightArm.zRot = Mth.lerp(k, 0.75f, 0f);
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_LIFT) {
+				float k = Mth.clamp(age / 16f, 0f, 1f);
+				this.leftArm.xRot = this.rightArm.xRot = Mth.lerp(k, -0.6f, -2.9f);
+				this.leftArm.zRot = -0.3f;
+				this.rightArm.zRot = 0.3f;
+			} else if (pose == com.projecthero.mod.galactus.GalactusAnims.SURFER_TURN_ALLY) {
+				// he lowers his arms and bows his head; then lifts his right hand, open, to the fighters
+				float k = Mth.clamp(age / 30f, 0f, 1f);
+				float r = Mth.clamp((age - 60f) / 30f, 0f, 1f);
+				this.leftArm.zRot = Mth.lerp(k, -0.75f, -0.08f);
+				this.rightArm.zRot = Mth.lerp(k, 0.75f, 0.08f);
+				this.head.xRot = Mth.lerp(k, this.head.xRot, 0.55f) * (1f - r) + r * 0.0f;
+				this.rightArm.xRot = Mth.lerp(r, -0.1f, -1.9f);
+				this.leftLeg.xRot = Mth.lerp(k, -0.38f, -0.12f);
+				this.rightLeg.xRot = Mth.lerp(k, 0.32f, 0.12f);
+			}
+			// the outer layers follow the posed limbs
+			this.leftSleeve.copyFrom(this.leftArm);
+			this.rightSleeve.copyFrom(this.rightArm);
+			this.leftPants.copyFrom(this.leftLeg);
+			this.rightPants.copyFrom(this.rightLeg);
+			this.jacket.copyFrom(this.body);
+			this.hat.copyFrom(this.head);
+		}
+	}
+
+	/** The board's GeckoLib animatable (one shared client-side instance: every board idles the same way). */
+	static final class BoardAnimatable implements software.bernie.geckolib.animatable.GeoAnimatable {
+		static final BoardAnimatable INSTANCE = new BoardAnimatable();
+		private final software.bernie.geckolib.animatable.instance.AnimatableInstanceCache cache = software.bernie.geckolib.util.GeckoLibUtil
+				.createInstanceCache(this);
+
+		@Override
+		public void registerControllers(software.bernie.geckolib.animation.AnimatableManager.ControllerRegistrar controllers) {
+			controllers.add(new software.bernie.geckolib.animation.AnimationController<BoardAnimatable>(this, "main", 0,
+					state -> state.setAndContinue(GalactusMob.raw(com.projecthero.mod.galactus.GalactusAnims.BOARD_IDLE))));
+		}
+
+		@Override
+		public software.bernie.geckolib.animatable.instance.AnimatableInstanceCache getAnimatableInstanceCache() {
+			return cache;
+		}
+
+		@Override
+		public double getTick(Object object) {
+			Minecraft mc = Minecraft.getInstance();
+			return mc.level == null ? 0 : mc.level.getGameTime() + mc.getTimer().getGameTimeDeltaPartialTick(true);
+		}
+	}
+
+	static final class BoardObjectRenderer extends software.bernie.geckolib.renderer.GeoObjectRenderer<BoardAnimatable> {
+		BoardObjectRenderer() {
+			super(new Fixed<>(com.projecthero.mod.galactus.GalactusAnims.BOARD));
+			addRenderLayer(new AutoGlowingGeoLayer<>(this));
+		}
+	}
+
+	public static final class Surfer extends net.minecraft.client.renderer.entity.MobRenderer<SilverSurferEntity, SurferModel> {
+		private final BoardObjectRenderer board = new BoardObjectRenderer();
+
+		public Surfer(EntityRendererProvider.Context context) {
+			super(context, new SurferModel(context.bakeLayer(net.minecraft.client.model.geom.ModelLayers.PLAYER)), 0.5f);
+			addLayer(new com.projecthero.mod.client.render.raid.RaidPlayerRenderers.GlowLayer<>(this, s -> SURFER_GLOW));
+		}
+
+		@Override
+		public ResourceLocation getTextureLocation(SilverSurferEntity s) {
+			return SURFER_SKIN;
+		}
+
+		@Override
+		public void render(SilverSurferEntity s, float yaw, float pt, PoseStack pose, MultiBufferSource buffers, int light) {
+			// the board under his feet, turned with his body
+			pose.pushPose();
+			float bodyYaw = Mth.rotLerp(pt, s.yBodyRotO, s.yBodyRot);
+			pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f - bodyYaw));
+			if (s.isTurning() || s.pose() == com.projecthero.mod.galactus.GalactusAnims.SURFER_DASH) {
+				pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(s.isTurning() ? 0f : -8f));
+			}
+			pose.translate(-0.5, -0.51, -0.5); // GeoObjectRenderer centres on a block
+			board.render(pose, BoardAnimatable.INSTANCE, buffers, null, null, Math.max(light, LightTexture.pack(10, 10)), pt);
+			pose.popPose();
+			pose.pushPose();
+			pose.translate(0, BOARD_TOP, 0);
+			super.render(s, yaw, pt, pose, buffers, light);
+			pose.popPose();
+		}
+
+		@Override
+		protected void scale(SilverSurferEntity s, PoseStack pose, float pt) {
+			pose.scale(0.9375f, 0.9375f, 0.9375f); // the player renderer's own scale
+		}
+
+		@Override
+		protected boolean isShaking(SilverSurferEntity s) {
+			return s.shieldUp() && s.tickCount % 8 < 2;
 		}
 
 		@Override
@@ -234,7 +385,7 @@ public final class GalactusRenderers {
 				VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
 			super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
 			if (!isReRender) {
-				float s = FrostModelFit.fit(model, 40f);
+				float s = GalactusModelFit.fit(model, 40f);
 				poseStack.scale(s, s, s);
 			}
 		}
