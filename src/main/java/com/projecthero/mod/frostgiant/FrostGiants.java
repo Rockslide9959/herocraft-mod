@@ -45,7 +45,6 @@ public final class FrostGiants {
 		FrostGiantItems.initialize();
 		FrostGear.initialize();
 		FrostGiantRewards.initialize();
-		FrostBestiary.initialize();
 		PayloadTypeRegistry.playS2C().register(FrostBlizzardPayload.TYPE, FrostBlizzardPayload.CODEC);
 		EventTypes.register(FrostGiantAssault.TYPE_ID, FrostGiantAssault::new);
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

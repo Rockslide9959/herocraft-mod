@@ -3,7 +3,6 @@ package com.projecthero.mod.frostgiant.entity;
 import java.util.List;
 import java.util.UUID;
 
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostFx;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
@@ -119,9 +118,6 @@ public abstract class FrostGiantEntity extends Monster implements GeoEntity {
 
 	/** Asset base name ({@link FrostGiantAnims#MODELS}). */
 	public abstract String model();
-
-	/** Which bestiary entry this unit is ({@link FrostBestiary}). */
-	public abstract int bestiaryId();
 
 	/** Raiders, Brutes and the Warlord go after the braziers; hounds, shamans and Laufey hunt the fighters. */
 	protected boolean huntsBraziers() {
@@ -636,15 +632,6 @@ public abstract class FrostGiantEntity extends Monster implements GeoEntity {
 			setAnim(deathClip());
 			deathTicks = deathClip() == null ? 20 : Math.max(20, deathClip().length());
 			FrostGiantAssault a = assault();
-			if (source.getEntity() instanceof ServerPlayer killer) {
-				// a fighter's kill teaches the whole team (their Guidebook entry unlocks)
-				FrostBestiary.unlock(killer, bestiaryId());
-				if (a != null) {
-					for (ServerPlayer p : a.fighterPlayers(server)) {
-						FrostBestiary.unlock(p, bestiaryId());
-					}
-				}
-			}
 			server.playSound(null, getX(), getY(), getZ(), SoundEvents.GLASS_BREAK, SoundSource.HOSTILE, 1.5f, 0.6f);
 		}
 	}

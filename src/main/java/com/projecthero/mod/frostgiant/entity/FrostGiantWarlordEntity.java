@@ -5,7 +5,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.projecthero.mod.event.boss.BossThreat;
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostFx;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
@@ -84,11 +83,6 @@ public class FrostGiantWarlordEntity extends FrostGiantEntity {
 	@Override
 	public String model() {
 		return FrostGiantAnims.WARLORD;
-	}
-
-	@Override
-	public int bestiaryId() {
-		return FrostBestiary.WARLORD;
 	}
 
 	@Override

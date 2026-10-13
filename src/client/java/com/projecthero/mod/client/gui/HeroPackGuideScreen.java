@@ -40,8 +40,6 @@ public final class HeroPackGuideScreen extends Screen {
 
 	public HeroPackGuideScreen() {
 		super(Component.translatable("screen.projecthero.guide"));
-		// v0.16.1: the Frost Giant bestiary entries this player has unlocked
-		HeroPackGuide.refreshFrostGiants(net.minecraft.client.Minecraft.getInstance().player);
 		this.chapter = clamp(lastChapter, 0, HeroPackGuide.chapters().size() - 1);
 		this.indexScroll = Math.max(0, lastIndexScroll);
 		this.contentScroll = Math.max(0, lastContentScroll);

@@ -1,6 +1,5 @@
 package com.projecthero.mod.frostgiant.entity;
 
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostFx;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
@@ -61,11 +60,6 @@ public class FrostShamanEntity extends FrostGiantEntity {
 	@Override
 	public String model() {
 		return FrostGiantAnims.SHAMAN;
-	}
-
-	@Override
-	public int bestiaryId() {
-		return FrostBestiary.SHAMAN;
 	}
 
 	@Override

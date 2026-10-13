@@ -219,9 +219,8 @@ The Rift Anchor becomes a chest (`FrostGiantRewards`):
 ## 7. Guidebook
 Chapter `CH_FROST_GIANTS` = 33 (`CHAPTER_POWER_BASE` = 34), linked under World Events after the Ultron Uprising. The raid
 sections (where it sits on the ladder, starting it, the arena, the cold, braziers, waves, Laufey, Ymir, breaking the
-Casket, weaknesses, rewards, gear, Thor, commands) always show; the **bestiary** entries for the six units unlock on the
-first kill of each type (`FrostBestiary`, persistent synced bitmask `frost_giant_bestiary`; any fighter's kill teaches the
-whole team; the screen rebuilds the chapter as it opens).
+Casket, weaknesses, rewards, gear, Thor, commands) and an "Enemies" section describing all six units always show. (The
+bestiary that unlocked the unit entries on first kill was removed later in v0.16.1 at the user's request.)
 
 ## 8. Engineering notes
 - Save/load (`FrostGiantAssault.saveExtra`): phase, phase start, wave, wave total, owed per kind, brazier UUIDs, boss and
@@ -238,6 +237,6 @@ whole team; the screen rebuilds the chapter as it opens).
 - Gametests (`FrostGiantGameTests`): registration + recipes, stats and sizes, damage rules, wave mix / scaling, start /
   braziers / abort, brazier warmth / out / relight, brazier targeting, temporary blocks removed on win / loss / abort (and a
   player's block never touched), the Casket needs a stagger, Laufey holds at 1 HP, first-clear Casket once, Rime forging +
-  Casket immunity, the bestiary, config migration, save round trip, every clip present with its strike on the damage tick,
+  Casket immunity, config migration, save round trip, every clip present with its strike on the damage tick,
   the contract bones present and never keyed.
 - **No Skindex skins** (user decision). The design notes' skin list was a palette reference only; none were downloaded.

@@ -1,6 +1,5 @@
 package com.projecthero.mod.frostgiant.entity;
 
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
 import com.projecthero.mod.frostgiant.FrostGiantAnims.Clip;
@@ -51,11 +50,6 @@ public class RimeHoundEntity extends FrostGiantEntity {
 	@Override
 	public String model() {
 		return FrostGiantAnims.HOUND;
-	}
-
-	@Override
-	public int bestiaryId() {
-		return FrostBestiary.HOUND;
 	}
 
 	@Override

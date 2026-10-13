@@ -15,7 +15,6 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.event.EventSavedData;
 import com.projecthero.mod.event.EventState;
 import com.projecthero.mod.event.EventTypes;
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCleanup;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
@@ -489,22 +488,6 @@ public class FrostGiantGameTests implements FabricGameTest {
 		p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(FrostGiantItems.CASKET));
 		helper.assertTrue(FrostGear.coldImmune(p) && !p.canFreeze(), "the Casket in the off hand: immune to freezing");
 		helper.assertTrue(FrostGear.walksOnPowderSnow(p), "and walks on powder snow");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void theBestiaryUnlocksEachEntryOnce(GameTestHelper helper) {
-		ServerPlayer p = survivor(helper);
-		helper.assertFalse(FrostBestiary.isUnlocked(p, FrostBestiary.SHAMAN), "locked to begin with");
-		helper.assertTrue(FrostBestiary.unlock(p, FrostBestiary.SHAMAN), "the first kill unlocks it");
-		helper.assertFalse(FrostBestiary.unlock(p, FrostBestiary.SHAMAN), "only once");
-		helper.assertTrue(FrostBestiary.isUnlocked(p, FrostBestiary.SHAMAN) && !FrostBestiary.isUnlocked(p, FrostBestiary.LAUFEY), "just that one");
-		var chapter = com.projecthero.mod.hero.guide.HeroPackGuide.frostGiantsChapter(p);
-		boolean shamanShown = chapter.lines().stream().anyMatch(c -> c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
-				&& t.getKey().equals("projecthero.guide.frost_giants.unit.frost_shaman"));
-		boolean laufeyHidden = chapter.lines().stream().noneMatch(c -> c.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
-				&& t.getKey().equals("projecthero.guide.frost_giants.unit.king_laufey"));
-		helper.assertTrue(shamanShown && laufeyHidden, "the guide shows what this player has learned and no more");
 		helper.succeed();
 	}
 

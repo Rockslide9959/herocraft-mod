@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 import com.projecthero.mod.event.boss.BossThreat;
-import com.projecthero.mod.frostgiant.FrostBestiary;
 import com.projecthero.mod.frostgiant.FrostCombat;
 import com.projecthero.mod.frostgiant.FrostFx;
 import com.projecthero.mod.frostgiant.FrostGiantAnims;
@@ -131,11 +130,6 @@ public class KingLaufeyEntity extends FrostGiantEntity {
 	@Override
 	public String model() {
 		return FrostGiantAnims.LAUFEY;
-	}
-
-	@Override
-	public int bestiaryId() {
-		return FrostBestiary.LAUFEY;
 	}
 
 	@Override
