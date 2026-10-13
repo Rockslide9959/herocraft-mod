@@ -58,6 +58,37 @@ public final class IronManAbilityFx {
 	public static final int COMIC_POUND = 90;
 	/** Arms out to the sides, chest thrust out (lamp flash, floodlight, solar flare, overload burst, sonar pulse). */
 	public static final int COMIC_FLARE = 91;
+	// v0.16.1: the Hulkbuster body's clips (client IronManHulkbusterAnimatable plays them while the full Mark 8 is worn);
+	// numbered 100+ (the body never uses the humanoid poses)
+	public static final int HB_PUNCH = 100;
+	public static final int HB_ROCKET_FIST = 101;
+	public static final int HB_PILE_DRIVER = 102;
+	public static final int HB_EARTHQUAKE = 103;
+	public static final int HB_GRAB = 104;
+	public static final int HB_GRAB_POUND = 105;
+	public static final int HB_GRAB_THROW = 106;
+	public static final int HB_CHEST_BEAM = 107;
+	public static final int HB_MISSILE_SWARM = 108;
+	public static final int HB_HYDRAULIC_BRACE = 109;
+	public static final int HB_REPLACEMENT_POD = 110;
+
+	/** v0.16.1: the Hulkbuster body clip name for a HB_* pose id, or null. */
+	public static String hulkbusterClip(int anim) {
+		return switch (anim) {
+			case HB_PUNCH -> "punch_combo";
+			case HB_ROCKET_FIST -> "rocket_fist";
+			case HB_PILE_DRIVER -> "pile_driver";
+			case HB_EARTHQUAKE -> "earthquake_stomp";
+			case HB_GRAB -> "grab";
+			case HB_GRAB_POUND -> "grab_pound";
+			case HB_GRAB_THROW -> "grab_throw";
+			case HB_CHEST_BEAM -> "chest_beam";
+			case HB_MISSILE_SWARM -> "missile_swarm";
+			case HB_HYDRAULIC_BRACE -> "hydraulic_brace";
+			case HB_REPLACEMENT_POD -> "replacement_pod";
+			default -> null;
+		};
+	}
 
 	private IronManAbilityFx() {
 	}

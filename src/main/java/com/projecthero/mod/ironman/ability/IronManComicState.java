@@ -51,6 +51,7 @@ public final class IronManComicState {
 	enum HoldKind { TRACTOR, TETHER, GRAB_POUND, GRAB_THROW, ANCHOR }
 
 	static final class Rt {
+		String lastSuit;
 		long shieldUntil;
 		float shieldFactor = 1f;
 		long braceUntil;
@@ -81,6 +82,7 @@ public final class IronManComicState {
 		float thrownDamage;
 		// a channelled beam (Hulkbuster mega-beam)
 		String channel;
+		long channelStart;
 		long channelUntil;
 	}
 
@@ -472,6 +474,13 @@ public final class IronManComicState {
 		if (r == null) {
 			return;
 		}
+		// a different suit came on without a tick in between (a swap): nothing the old one was running carries over
+		if (r.lastSuit != null && !r.lastSuit.equals(suit.id())) {
+			r.lastSuit = suit.id();
+			shutDown(p);
+			return;
+		}
+		r.lastSuit = suit.id();
 		ServerLevel level = (ServerLevel) p.level();
 		long now = level.getGameTime();
 
@@ -485,7 +494,7 @@ public final class IronManComicState {
 			IronManSounds.play(p, IronManSounds.SHIELD_DOWN, 0.7f, 1.0f);
 		}
 		if (r.braceUntil > now) {
-			IronManAbilityFx.hold(p, IronManAbilityFx.COMIC_GUARD);
+			IronManAbilityFx.hold(p, IronManAbilityFx.HB_HYDRAULIC_BRACE); // the Hulkbuster's own brace clip
 			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, 1, true, false, false));
 			if (now % 8 == 0) {
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + p.getBbHeight() * 0.5, p.getZ(), 4, 0.6, 0.8, 0.6, 0.02);

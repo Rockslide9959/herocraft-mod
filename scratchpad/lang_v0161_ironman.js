@@ -72,7 +72,7 @@ const GUIDE = {
 	mark_v: 'The STEALTH armour -- no more suitcase. 1100 integrity, absorbs 30%; 3/8/6/3, toughness 3; flies 20 (34); +7 melee; silent (no footsteps, flight or swim sounds; sculk never hears you). R Silenced Repulsor (14, double on an unaware enemy) / Shift Silent Takedown (45 on an unaware enemy within reach, 15 otherwise). G Chameleon Cloak (10 s, mobs lose you; attacking breaks it) / Shift Light-Bend Blink (an invisible 10-block teleport). X Sensor Jammer (enemies drop their target) / Shift EMP Pulse (stuns robots, turrets and Ultron units 5 s). Z Low-Glow Shot (26 sniper beam) / Shift Marked Shot (your next 3 hits on the target crit, x1.5). V Holo-Decoy (mobs chase it) / Shift Decoy Swap (swap places with it).',
 	mark_6: 'The SILVER CENTURION. 2200 integrity, absorbs 45%; 4/9/7/4, toughness 3.5; flies 22 (38); +9 melee; Resistance I; repairs 8 integrity/s after 10 s out of combat. R Repulsor (17) / Shift Dash (22). G Pulse Bolts (10) / Shift Pulse Storm (8 rapid bolts). X Ricochet Repulsor (20, bounces through 4) / Shift Chameleon Effect (6 s invisible). Z Heavy Triangular Unibeam (40) / Shift Unibeam Overcharge (charges 1.5 s, then 75). V Energy Shield (6 s, stops 80%) / Shift Overload Burst (30 all round).',
 	mark_vii: 'The SPACE armour. 2600 integrity, absorbs 50%; 4/9/7/4, toughness 4; the fastest flier, 24 (44), no altitude ceiling; immune to fire, lava and freezing; +9 melee; repairs 15/s after 10 s out of combat; still called with the Colantotte Bracelets / orbital pod. R Repulsor (20) / Shift Dash (25). G Vacuum Micro-missiles (6 x 20, each blast sucks enemies in) / Shift Orbital Strike (mark a spot: 12 missiles rain down, 18 each). X Booster Rockets (launch straight up into flight) / Shift Meteor Dive (dive down: 15 + 1.5 per block fallen, up to 80). Z Solar Beam (30, x1.5 in daylight under open sky) / Shift Solar Flare (22 + fire + blind all round). V Gravity Tether (lift and hold a target 4 s, bosses 1.5 s) / Shift Zero-G Field (6 s: enemies float helplessly).',
-	mark_8: 'The HULKBUSTER -- about 3 blocks tall. 4500 integrity, absorbs 60%; 5/10/8/5, toughness 5; a slow jet-hover at 10 b/s; +16 melee; knockback immune; x1.5 damage on bosses and the Hulk; never repairs itself except by its Replacement Pod. C Sentry Mode; called with the Stark Glasses it drops in from orbit. R Giant Punch Combo (26, 26, then a 38 finisher) / Shift Rocket Fist (45). G Pile-Driver Slam (40 around you) / Shift Earthquake Stomp (a shockwave 18 blocks ahead, 32 + launch). X Grab & Pound (3 x 20) / Shift Grab & Throw (18 + 18 on impact). Z Chest Mega-Beam (3 s, 18 every half second) / Shift Shoulder Missile Swarm (10 x 18). V Hydraulic Brace (5 s, 70% less damage) / Shift Replacement Pod (an orbital pod restores 30% integrity, 3 min cooldown; works even on a disabled suit).',
+	mark_8: 'The HULKBUSTER -- about 3 blocks tall, drawn as its own segmented body (first person: its huge forearms). 4500 integrity, absorbs 60%; 5/10/8/5, toughness 5; a slow jet-hover at 10 b/s; +16 melee; knockback immune; x1.5 damage on bosses and the Hulk; never repairs itself except by its Replacement Pod. C Sentry Mode; called with the Stark Glasses it drops in from orbit. R Giant Punch Combo (a jab, a hook and an uppercut finisher: 26, 26, 38) / Shift Rocket Fist (the right forearm flies off, hits for 45 and flies back). G Pile-Driver Slam (40 around you) / Shift Earthquake Stomp (a shockwave 18 blocks ahead, 32 + launch). X Grab & Pound (2 x 20) / Shift Grab & Throw (18 + 18 on impact). Z Chest Mega-Beam (the chest opens, then 5 pulses of 18) / Shift Shoulder Missile Swarm (10 x 18). V Hydraulic Brace (5 s, 70% less damage) / Shift Replacement Pod (an orbital pod restores 30% integrity, 3 min cooldown; works even on a disabled suit).',
 };
 
 const STEPS = {
@@ -92,7 +92,9 @@ for (const [id, name] of Object.entries(MOVES)) moveNames['hud.projecthero.ironm
 
 const suitKeys = {};
 for (const [id, [name, comic]] of Object.entries(SUITS)) {
-	suitKeys['projecthero.ironman.suit.' + id + '.name'] = name;
+	// v0.16.1: the short "Mark n" is the suit name (HUD header, call cards, blueprint track all need it short); the comic
+	// name lives in the .comic key and on the armour items
+	suitKeys['projecthero.ironman.suit.' + id + '.name'] = name.replace(/^(Mark [0-9]( V2)?).*$/, '$1');
 	suitKeys['projecthero.ironman.suit.' + id + '.comic'] = comic;
 	for (const [p, pn] of Object.entries(PIECES)) suitKeys['item.projecthero.iron_man_' + ITEM_NAME[id] + '_' + p] = name + ' ' + pn;
 	suitKeys['screen.projecthero.ironman_comic.special.' + id] = SPECIAL[id];
@@ -115,7 +117,7 @@ require('./langset.js')([
 	{ anchor: 'projecthero.ironman.suit.mark_8.name', entries: suitKeys },
 	{ anchor: 'hud.projecthero.ironman.ability.suit_toggle', entries: Object.assign({
 		'hud.projecthero.ironman.comic.pair': '[%s] %s / Shift: %s',
-		'hud.projecthero.ironman.integrity_abs': 'INTEGRITY  abs %s%%',
+		'hud.projecthero.ironman.integrity_abs': 'HULL  abs %s%%',
 		'hud.projecthero.ironman.disabled_title': 'SUIT DISABLED',
 		'hud.projecthero.ironman.disabled_hint': 'Integrity is gone: no flight, no abilities. Dock the suit on a Suit Platform or Stark Gantry to repair it.',
 		'hud.projecthero.ironman.ability.comic_r': 'R (tap / Shift)',
@@ -152,7 +154,8 @@ require('./langset.js')([
 		'screen.projecthero.ironman_comic.stats': 'Comic stats',
 		'screen.projecthero.ironman_comic.moves': 'Keys (tap / Shift)',
 		'screen.projecthero.ironman_comic.move_line': '[%s] %s / Shift: %s',
-		'screen.projecthero.ironman_comic.armour': 'Armour (H/C/L/B)',
+		'screen.projecthero.ironman_comic.name': 'Armour',
+		'screen.projecthero.ironman_comic.armour': 'Plates (H/C/L/B)',
 		'screen.projecthero.ironman_comic.integrity': 'Integrity',
 		'screen.projecthero.ironman_comic.absorb': 'Absorbs of each hit',
 		'screen.projecthero.ironman_comic.flight': 'Flight',

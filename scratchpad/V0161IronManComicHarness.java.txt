@@ -199,6 +199,21 @@ public final class V0161IronManHarness {
 				camOffset = new Vec3(-5.5 * scale, 2.0 * scale, 3.0);
 				camLook = new Vec3(0, 1.0 * scale, 4.0);
 			}
+			case "hb" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-4.2, 2.6, 5.5);
+				camLook = new Vec3(0, 1.6, 1.5);
+			}
+			case "hbback" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(3.0, 2.6, -5.0);
+				camLook = new Vec3(0, 1.6, 0);
+			}
+			case "hbside" -> {
+				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+				camOffset = new Vec3(-7.0, 2.2, 1.5);
+				camLook = new Vec3(0, 1.4, 1.5);
+			}
 			case "far" -> {
 				mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
 				camOffset = new Vec3(-9.0, 4.0, 6.0);
@@ -212,6 +227,7 @@ public final class V0161IronManHarness {
 	}
 
 	private static void wear(ServerPlayer p, String suit) {
+		p.getInventory().clearContent(); // (also the armour slots -- so first)
 		EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 		ArmorItem.Type[] types = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
 		for (int i = 0; i < 4; i++) {
@@ -219,12 +235,18 @@ public final class V0161IronManHarness {
 		}
 		TonyStark.setActiveSuit(p, suit);
 		IronManEnergy.setIntegrity(p, suit, IronManEnergy.maxIntegrity(suit));
+		// every scene starts on the ground, not flying, not cloaked
+		com.projecthero.mod.ironman.IronManFlight.setFlying(p, false);
+		p.removeEffect(MobEffects.INVISIBILITY);
+		int gy = p.serverLevel().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, p.getBlockX(), p.getBlockZ());
+		p.teleportTo(p.serverLevel(), p.getX(), gy, p.getZ(), 0f, 0f);
 		var st = TonyStark.state(p).copy();
 		st.abilityReadyAt.clear();
 		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, st);
 	}
 
 	private static void clear(ServerPlayer p) {
+		com.projecthero.mod.ironman.ability.IronManComicState.clearSessionState(); // smoke / slicks / fields from the last scene
 		ServerLevel level = p.serverLevel();
 		for (var e : level.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(40))) {
 			e.discard();
@@ -246,8 +268,61 @@ public final class V0161IronManHarness {
 		System.out.println("[HARNESS] fire " + suitId + " " + IronManComicKit.move(suitId, slot, shift).id() + " -> " + ok);
 	}
 
+	private static final String[] LINEUP = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" };
+
 	private static void script(Minecraft mc) {
 		int c = 10;
+		// ---- lineup: Mark 1 .. Mark 7 on armour stands, the player in the Mark 8 Hulkbuster at the end; front then back
+		at(c, () -> server(mc, p -> {
+			clear(p);
+			wear(p, "mark_8");
+			ServerLevel level = p.serverLevel();
+			EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
+			ArmorItem.Type[] types = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
+			for (int i = 0; i < LINEUP.length; i++) {
+				var stand = new net.minecraft.world.entity.decoration.ArmorStand(level, p.getX() - 2.0 * (LINEUP.length - i) - 0.5, p.getY(), p.getZ());
+				stand.setYRot(0f);
+				stand.yBodyRot = 0f;
+				stand.yHeadRot = 0f;
+				stand.setNoBasePlate(true);
+				stand.setShowArms(true);
+				stand.setInvisible(true);
+				stand.setNoGravity(true);
+				for (int k = 0; k < 4; k++) {
+					stand.setItemSlot(slots[k], new ItemStack(IronManItems.armor(LINEUP[i], types[k])));
+				}
+				stand.addTag("v0161im_lineup");
+				level.addFreshEntity(stand);
+			}
+		}));
+		at(c + 2, () -> {
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			camOffset = new Vec3(-8.5, 2.2, 12.5);
+			camLook = new Vec3(-8.5, 1.3, 0);
+		});
+		at(c + 30, () -> shot("lineup_front"));
+		at(c + 31, () -> {
+			camOffset = new Vec3(-8.5, 2.2, -12.5);
+			camLook = new Vec3(-8.5, 1.3, 0);
+		});
+		at(c + 36, () -> shot("lineup_back"));
+		at(c + 37, () -> {
+			camOffset = new Vec3(-12.5, 1.6, 4.5);
+			camLook = new Vec3(-12.5, 1.1, 0);
+		});
+		at(c + 42, () -> shot("lineup_close_a"));
+		at(c + 43, () -> {
+			camOffset = new Vec3(-4.5, 1.6, 4.5);
+			camLook = new Vec3(-4.5, 1.1, 0);
+		});
+		at(c + 48, () -> shot("lineup_close_b"));
+		at(c + 50, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
+					p.getBoundingBox().inflate(40), s -> s.getTags().contains("v0161im_lineup"))) {
+				e.discard();
+			}
+		}));
+		c += 55;
 		// ---- HUD (first person, Mark 6, visor closed, a bit damaged)
 		at(c, () -> {
 			view(mc, "f", 1);
@@ -264,7 +339,10 @@ public final class V0161IronManHarness {
 		at(c + 38, () -> shot("hud_shift"));
 		at(c + 40, () -> {
 			mc.options.keyShift.setDown(false);
-			server(mc, p -> IronManEnergy.setIntegrity(p, "mark_6", 0f));
+			server(mc, p -> {
+				wear(p, "mark_iii"); // the Mark 6 would self-repair out of combat straight away
+				IronManEnergy.setIntegrity(p, "mark_iii", 0f);
+			});
 		});
 		at(c + 52, () -> shot("hud_disabled"));
 		c += 60;
@@ -386,27 +464,75 @@ public final class V0161IronManHarness {
 		at(c + 36, () -> shot("mk7_meteor_dive_d"));
 		c += 60;
 
-		// ---- Mark 8 Earthquake Stomp
+		// ---- Mark 8 HULKBUSTER body: idle, walk, punch combo, rocket fist, chest beam, earthquake, first person
 		at(c, () -> {
-			view(mc, "s", 1.45);
+			view(mc, "hb", 1);
 			server(mc, p -> {
 				clear(p);
 				wear(p, "mark_8");
 				p.setXRot(0f);
-				dummy(p, 0, 0, 5);
-				dummy(p, 0.6, 0, 9);
-				dummy(p, -0.6, 0, 13);
+				dummy(p, 0, 0, 4.5);
 			});
 		});
-		at(c + 25, () -> server(mc, p -> fire(p, "mark_8", 2, true)));
-		at(c + 31, () -> shot("mk8_earthquake_a"));
-		at(c + 36, () -> shot("mk8_earthquake_b"));
-		at(c + 42, () -> shot("mk8_earthquake_c"));
+		at(c + 25, () -> shot("mk8_body_idle"));
+		at(c + 26, () -> view(mc, "hbback", 1));
+		at(c + 30, () -> shot("mk8_body_back"));
+		at(c + 31, () -> view(mc, "hb", 1));
+		c += 35;
+		at(c, () -> server(mc, p -> fire(p, "mark_8", 1, false)));
+		at(c + 10, () -> shot("mk8_punch_1"));
+		at(c + 20, () -> shot("mk8_punch_2"));
+		at(c + 30, () -> shot("mk8_punch_3"));
+		c += 50;
+		at(c, () -> server(mc, p -> {
+			clear(p);
+			dummy(p, 0, 0, 10);
+			fire(p, "mark_8", 1, true);
+		}));
+		at(c + 12, () -> shot("mk8_rocket_fist_a"));
+		at(c + 20, () -> shot("mk8_rocket_fist_b"));
+		at(c + 28, () -> shot("mk8_rocket_fist_c"));
+		at(c + 46, () -> shot("mk8_rocket_fist_d"));
+		c += 65;
+		at(c, () -> server(mc, p -> {
+			clear(p);
+			dummy(p, 0, 0, 8);
+			fire(p, "mark_8", 4, false);
+		}));
+		at(c + 10, () -> shot("mk8_chest_beam_a"));
+		at(c + 22, () -> shot("mk8_chest_beam_b"));
+		at(c + 34, () -> shot("mk8_chest_beam_c"));
 		c += 60;
-		// a plain look at the Hulkbuster's size next to a husk
-		at(c, () -> view(mc, "s", 1.45));
-		at(c + 5, () -> shot("mk8_size"));
-		c += 10;
+		at(c, () -> server(mc, p -> {
+			clear(p);
+			dummy(p, 0, 0, 5);
+			dummy(p, 0.6, 0, 9);
+			dummy(p, -0.6, 0, 13);
+			fire(p, "mark_8", 2, true);
+		}));
+		at(c + 12, () -> shot("mk8_earthquake_a"));
+		at(c + 18, () -> shot("mk8_earthquake_b"));
+		at(c + 24, () -> shot("mk8_earthquake_c"));
+		c += 45;
+		// walking (hold W)
+		at(c, () -> {
+			view(mc, "hbside", 1);
+			server(mc, p -> clear(p));
+			mc.options.keyUp.setDown(true);
+		});
+		at(c + 20, () -> shot("mk8_walk_a"));
+		at(c + 28, () -> shot("mk8_walk_b"));
+		at(c + 32, () -> mc.options.keyUp.setDown(false));
+		c += 40;
+		// first person
+		at(c, () -> {
+			view(mc, "f", 1);
+			mc.options.hideGui = false; // F1 hides the hands too
+		});
+		at(c + 10, () -> shot("mk8_first_person"));
+		at(c + 12, () -> server(mc, p -> fire(p, "mark_8", 1, false)));
+		at(c + 22, () -> shot("mk8_first_person_punch"));
+		c += 50;
 
 		at(c, () -> {
 			System.out.println("[HARNESS] done");

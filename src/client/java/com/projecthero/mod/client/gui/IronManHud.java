@@ -186,7 +186,7 @@ public final class IronManHud {
 			// ---- v0.16.1: INTEGRITY is the main Gauge (no energy any more); the label carries the absorb share
 			y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.integrity_abs",
 					Math.round(suit.absorbShare() * 100f)).getString(),
-					IronManUiLayout.pct(integrityFrac) + " " + IronManUiLayout.amount(integrity, maxIntegrity),
+					Math.round(integrity) + "/" + Math.round(maxIntegrity), // the bar shows the fraction; the label carries the absorb share
 					integrityFrac, integrityFrac < 0.3f ? IronManGui.RED : integrityFrac < 0.6f ? IronManGui.GOLD : IronManGui.GREEN);
 
 			// ---- one dim clock + position line ("changes 18" clock); the block is widened to fit it (v0.15.20)
@@ -293,12 +293,12 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId)) { // v0.15.4: what G fires
+			if (false) { // v0.16.1: the old Mark 6-8 wheel is gone (the comic kit has no wheel)
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk6_wheel",
 						Component.translatable("hud.projecthero.ironman.ability." + com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId))).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)) {
+			if (false) { // v0.16.1: the old Mark III shield is gone
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
 				chipColor.add(IronManGui.CYAN);
 			}

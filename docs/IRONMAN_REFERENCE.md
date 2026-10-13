@@ -2325,7 +2325,7 @@ Damage = what lands per hit / bolt / missile; cooldown in seconds.
 | 5 Stealth | Silenced Repulsor 14, x2 unaware (1) / Silent Takedown 45 unaware (12) | Chameleon Cloak 10 s (25) / Light-Bend Blink (6) | Sensor Jammer (14) / EMP Pulse (18) | Low-Glow Shot 26 (4) / Marked Shot (14) | Holo-Decoy (18) / Decoy Swap (10) |
 | 6 Centurion | Repulsor 17 (0.5) / Dash 22 (7) | Pulse Bolts 10 (1.2) / Pulse Storm 8x8 (12) | Ricochet 20 through 4 (6) / Chameleon Effect 6 s (20) | Heavy Tri-Unibeam 40 (12) / Overcharge 75 (25) | Energy Shield 80% 6 s (15) / Overload Burst 30 (14) |
 | 7 Space | Repulsor 20 (0.5) / Dash 25 (7) | Vacuum Micro-missiles 6x20 (10) / Orbital Strike 12x18 (22) | Booster Rockets (6) / Meteor Dive 15 + 1.5/block, max 80 (10) | Solar Beam 30, x1.5 in sun (10) / Solar Flare 22 (16) | Gravity Tether (12) / Zero-G Field (20) |
-| 8 Hulkbuster | Punch Combo 26/26/38 (0.6) / Rocket Fist 45 (8) | Pile-Driver 40 (10) / Earthquake Stomp 32 (14) | Grab & Pound 3x20 (12) / Grab & Throw 18+18 (10) | Chest Mega-Beam 18 per 0.5 s, 3 s (20) / Missile Swarm 10x18 (18) | Hydraulic Brace 70% 5 s (25) / Replacement Pod +30% (180) |
+| 8 Hulkbuster | Punch Combo 26 + 26 + 38 in one clip (2) / Rocket Fist 45 (8) | Pile-Driver 40 (10) / Earthquake Stomp 32 (14) | Grab & Pound 2x20 (12) / Grab & Throw 18+18 (10) | Chest Mega-Beam 5 x 18 (20) / Missile Swarm 10x18 (18) | Hydraulic Brace 70% 5 s (25) / Replacement Pod +30% (180) |
 
 C: build / store (Mark 2: fold into the Briefcase; Mark 8: Sentry Mode); Sneak+C picker / send home (Mark 8, as before);
 H faceplate. Code: `IronManComicKit` (data), `IronManComicRouter` (press picks tap / Shift and remembers it for the
@@ -2362,3 +2362,34 @@ replace Energy / Charge / Regen), the Suit Platform screen (repair rate, integri
 show the comic stats and moves (`ironman.ui.IronManComicText`).
 
 Tests: `IronManComicV0161GameTests`.
+
+### Models, the Hulkbuster body, costs (v0.16.1, second pass)
+
+* **Suit skins.** The user-approved 64x64 skins + glowmasks (main checkout `scratchpad/concepts_ironman/skins/`) are the
+  armour textures of the Mark 1 V2, 2, 3, Hydro, Stealth, Centurion and Space (`scratchpad/install_ironman_comic_skins.js`,
+  repeatable). Every Iron Man geo already is the skin-layout rig (`mark_vii.geo.json`: base cubes +0.25, outer layer +0.5,
+  helmet outer +0.75, `faceplate` its own bone on the helmet front, thigh + boot split), so they drop straight in; the
+  Mark 5 geo was rebuilt from that rig without the old blade bones. The Mark 1 keeps its model and texture. Suit `.name`
+  keys are the short "Mark n" (HUD header, call cards, blueprint track); the comic name is in `.comic` (spec sheet
+  "Armour" row) and on the armour items. The blueprint track node is 20 px (min spacing 32) so nine marks fit 320 px.
+* **Hulkbuster body.** While the full Mark 8 is worn the player is drawn as the segmented GeckoLib body
+  (`geo/ironman/hulkbuster_body.geo.json`, `textures/armor/hulkbuster_body.png` + glowmask,
+  `animations/ironman/hulkbuster_body.animation.json`; generator `scratchpad/gen_hulkbuster_body.js`, solid gauntlet fists
+  -- no separate finger / thumb cubes) instead of the player + armour (`PlayerRendererHulkbusterMixin`,
+  `client.ironman.IronManHulkbusterRenderer / Animatable / Model`), at model scale 1 (~2.9 blocks; GeckoLib's 1.45x scale
+  attribute is divided back out). `head` follows the look, `flinch` jolts on a hit (both never keyed). Each Mark 8 move
+  sends an `HB_*` pose (`IronManAbilityFx.HB_PUNCH` .. `HB_REPLACEMENT_POD`) that plays its clip; the damage lands on the
+  clip's strike ticks from `scratchpad/hulkbuster_anim_timing.json` (the "hit" ticks include the 4-tick transition):
+  punch combo 10 / 20 / 30, rocket fist launch 16 + return 40 (`HulkbusterFistEntity`, drawn as the body's `forearm_r` +
+  `hand_r` by `HulkbusterFistRenderer` while the clip hides the arm), pile driver 20, earthquake 16 (then the wave rolls
+  on), grab seize 10 -> pound clip at 16 (hits +14 / +24) or throw clip at 16 (release +14), chest beam pulses every 7
+  ticks from 14 to 42, missile swarm from 16 one a tick, replacement pod clamp 20, brace held. Locomotion: jet_hover in
+  flight, land after a fall, jump going up, run / walk / idle. A Mark 8 Sentry is the same body (sentry_idle open,
+  sentry_close closing; `IronManHulkbusterSentryRenderer`). First person shows the body's own huge forearms / fists
+  (`IronManHulkbusterFirstPerson`, `ItemInHandRendererHulkbusterMixin`).
+* **Costs** (raw units, `IronManRecipeCostV01421GameTests`, strictly rising again): Mark 1 34.7 < Mark 1 V2 52.1 (the Mark
+  1 pieces counted at full cost + one Gilded Plating a piece, 1 gold in the chest, a micro-thruster in the boots) < Mark 2
+  55.2 (+2 titanium-gold plates a piece) < Mark 3 117.1 < Hydro 135.5 (Pressure Hull: metal plating + 4 prismarine +
+  nautilus) < Stealth 139.0 (Stealth Coating: 2 black dye + echo shard + phantom membrane + 2 metal plating + amethyst) <
+  Centurion 140.1 < Space 148.6 < Hulkbuster 163.1. The five signature parts are Fabricator-only (no crafting-table JSON).
+* Comic statuses (shield, brace, cloak, glide, holds...) end when another suit comes on without a tick in between.

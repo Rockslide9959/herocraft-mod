@@ -271,7 +271,7 @@ public final class IronManUiLayout {
 
 	// ------------------------------------------------------------------ blank-blueprint progression track
 
-	public static final int NODE = 24;
+	public static final int NODE = 20; // v0.16.1: 20 (was 24) so the nine-Mark track fits a 320-wide screen
 
 	/**
 	 * Node rectangles for an {@code n}-mark track, centred on a single row: spacing shrinks with the screen but
@@ -297,7 +297,7 @@ public final class IronManUiLayout {
 			return 0;
 		}
 		int avail = Math.min(screenW, 420) - 2 * 18 - NODE;
-		return Math.max(NODE + 14, Math.min(64, avail / (n - 1)));
+		return Math.max(NODE + 12, Math.min(64, avail / (n - 1)));
 	}
 
 	/** Labels alternate below / above the line, so each label may use up to two node spacings. */

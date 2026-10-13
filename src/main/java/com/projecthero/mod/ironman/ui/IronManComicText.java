@@ -45,6 +45,7 @@ public final class IronManComicText {
 	/** The comic stat rows: armour, integrity, absorb, flight, melee, repair, specials. */
 	public static List<Row> stats(IronManSuit suit) {
 		List<Row> out = new ArrayList<>();
+		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.name"), Component.translatable(suit.displayKey()).getString()));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.armour"), armour(suit)));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.integrity"), fmt(suit.maxIntegrity())));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.absorb"), Math.round(suit.absorbShare() * 100f) + "%"));

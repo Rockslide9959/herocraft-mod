@@ -159,7 +159,7 @@ public final class IronManComicKit {
 
 		// MARK 8 HULKBUSTER: giant fists, slams, grabs, the chest mega-beam and the brace / replacement pod.
 		kit("mark_8",
-				key(tap("mk8_punch_combo", s(0.6), 26f, Items.IRON_BLOCK), tap("mk8_rocket_fist", s(8), 45f, Items.FIREWORK_ROCKET)),
+				key(tap("mk8_punch_combo", s(2), 26f, Items.IRON_BLOCK), tap("mk8_rocket_fist", s(8), 45f, Items.FIREWORK_ROCKET)),
 				key(tap("mk8_pile_driver", s(10), 40f, Items.ANVIL), tap("mk8_earthquake_stomp", s(14), 32f, Items.CRACKED_STONE_BRICKS)),
 				key(tap("mk8_grab_pound", s(12), 20f, Items.CHAIN), tap("mk8_grab_throw", s(10), 18f, Items.SLIME_BALL)),
 				key(tap("mk8_mega_beam", s(20), 18f, Items.BEACON), tap("mk8_missile_swarm", s(18), 18f, Items.TARGET)),

@@ -54,7 +54,7 @@ public final class IronManComicMoves {
 	public static final int GLIDE_TICKS = 10 * 20;
 	/** The Replacement Pod brings back this share of the Hulkbuster's max integrity. */
 	public static final float POD_REPAIR_FRACTION = 0.30f;
-	public static final int POD_DELAY_TICKS = 40;
+	public static final int POD_DELAY_TICKS = 20; // the Hulkbuster replacement_pod clip's clamp tick
 	/** JARVIS-scanned enemies take +25% for this long. */
 	public static final int SCAN_TICKS = 15 * 20;
 
@@ -196,7 +196,7 @@ public final class IronManComicMoves {
 			case "mk8_grab_pound" -> grab(p, HoldKind.GRAB_POUND, d);
 			case "mk8_grab_throw" -> grab(p, HoldKind.GRAB_THROW, d);
 			case "mk8_mega_beam" -> megaBeam(p);
-			case "mk8_missile_swarm" -> missileVolley(p, 10, d, 2, 56.0);
+			case "mk8_missile_swarm" -> missileVolley(p, 10, d, 1, 56.0, HB_MISSILES_FIRST, IronManAbilityFx.HB_MISSILE_SWARM, HB_MISSILES_TICKS);
 			case "mk8_hydraulic_brace" -> brace(p);
 			case "mk8_replacement_pod" -> replacementPod(p, suit);
 			default -> false;
@@ -625,12 +625,18 @@ public final class IronManComicMoves {
 
 	/** Homing missiles from alternating shoulders, spread over the front targets. */
 	private static boolean missileVolley(ServerPlayer p, int count, float damage, int gapTicks, double range) {
+		return missileVolley(p, count, damage, gapTicks, range, 1, IronManAbilityFx.MISSILES, count * gapTicks + 8);
+	}
+
+	/** v0.16.1: as above, the first missile leaving {@code firstTick} ticks after the press, playing {@code pose}. */
+	private static boolean missileVolley(ServerPlayer p, int count, float damage, int gapTicks, double range, int firstTick, int pose,
+			int poseTicks) {
 		List<LivingEntity> targets = IronManComicFx.frontTargets(p, range, Math.max(1, Math.min(count, 6)));
-		IronManComicFx.pose(p, IronManAbilityFx.MISSILES, count * gapTicks + 8);
+		IronManComicFx.pose(p, pose, poseTicks);
 		IronManComicFx.sound(p, IronManSounds.MISSILE_POD, 1.0f, 1.0f);
 		for (int i = 0; i < count; i++) {
 			final int n = i;
-			IronManComicState.later(p, 1 + i * gapTicks, w -> {
+			IronManComicState.later(p, firstTick + i * gapTicks, w -> {
 				if (!IronManComicState.suited(w)) {
 					return;
 				}
@@ -1183,7 +1189,7 @@ public final class IronManComicMoves {
 	}
 
 	private static boolean meteorDive(ServerPlayer p) {
-		Vec3 ground = IronManComicFx.groundAt(p, p.position());
+		Vec3 ground = groundFar(p, 64.0);
 		double height = p.getY() - ground.y;
 		if (p.onGround() || height < 4.0) {
 			p.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.dive_too_low"), true);
@@ -1233,6 +1239,14 @@ public final class IronManComicMoves {
 		IronManComicFx.pose(p, IronManAbilityFx.GROUND_POUND, 12);
 	}
 
+	/** The ground up to {@code reach} blocks straight below (or the position itself with none). */
+	private static Vec3 groundFar(ServerPlayer p, double reach) {
+		Vec3 from = p.position();
+		var hit = p.level().clip(new net.minecraft.world.level.ClipContext(from, from.subtract(0, reach, 0),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.ANY, p));
+		return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? from.subtract(0, reach, 0) : hit.getLocation();
+	}
+
 	/** The Meteor Dive's impact: {@code base} + 1.5 per block fallen, capped at 80. */
 	public static float meteorDamage(float base, double fallen) {
 		return (float) Math.min(80.0, base + 1.5 * fallen);
@@ -1277,16 +1291,60 @@ public final class IronManComicMoves {
 	}
 
 	// ================================================================== MARK 8 HULKBUSTER
+	// Every move plays its clip on the Hulkbuster body (IronManAbilityFx.HB_*, client IronManHulkbusterAnimatable) and lands
+	// on the clip's strike tick (scratchpad/hulkbuster_anim_timing.json: the "hit" ticks already include the 4-tick
+	// GeckoLib transition), so the blow connects exactly when the fist / foot does.
+
+	/** Hulkbuster strike ticks (server ticks after the key press), from the body's timing table. */
+	public static final int[] HB_PUNCH_HITS = { 10, 20, 30 };
+	public static final int HB_PUNCH_TICKS = 40;
+	public static final int HB_ROCKET_LAUNCH = 16;
+	public static final int HB_ROCKET_RETURN = 40;
+	public static final int HB_ROCKET_TICKS = 54;
+	public static final int HB_PILE_HIT = 20;
+	public static final int HB_PILE_TICKS = 36;
+	public static final int HB_QUAKE_HIT = 16;
+	public static final int HB_QUAKE_TICKS = 32;
+	/** Grab: the hands close on the target at 10; the pound / throw clip starts at 16. */
+	public static final int HB_GRAB_SEIZE = 10;
+	public static final int HB_GRAB_FOLLOW = 16;
+	public static final int[] HB_POUND_HITS = { 14, 24 };
+	public static final int HB_POUND_TICKS = 34;
+	public static final int HB_THROW_HIT = 14;
+	public static final int HB_THROW_TICKS = 28;
+	public static final int HB_BEAM_START = 14;
+	public static final int HB_BEAM_END = 42;
+	public static final int HB_BEAM_TICKS = 54;
+	/** The beam deals its damage every this many ticks between start and end (5 pulses). */
+	public static final int HB_BEAM_PULSE = 7;
+	public static final int HB_MISSILES_FIRST = 16;
+	public static final int HB_MISSILES_TICKS = 44;
+	public static final int HB_POD_TICKS = 44;
+
+	private static boolean hulkbusterOn(ServerPlayer w) {
+		return "mark_8".equals(IronManArmor.wornSuitId(w));
+	}
 
 	private static boolean punchCombo(ServerPlayer p, float damage) {
-		Rt r = IronManComicState.rt(p);
-		long now = p.level().getGameTime();
-		r.comboStep = r.comboStep >= 3 || now - r.comboAt > 40 ? 1 : r.comboStep + 1;
-		r.comboAt = now;
+		IronManComicFx.pose(p, IronManAbilityFx.HB_PUNCH, HB_PUNCH_TICKS);
+		IronManComicFx.sound(p, IronManSounds.SERVO, 1.0f, 0.7f);
+		for (int i = 0; i < 3; i++) {
+			final int step = i + 1;
+			IronManComicState.later(p, HB_PUNCH_HITS[i], w -> {
+				if (hulkbusterOn(w)) {
+					punchStrike(w, step, damage);
+				}
+			});
+		}
+		return true;
+	}
+
+	/** One blow of the combo: 1 right jab, 2 left hook, 3 right uppercut finisher (x1.45 and a 3-block burst). */
+	static void punchStrike(ServerPlayer p, int step, float damage) {
 		ServerLevel level = IronManComicFx.level(p);
 		Vec3 eye = p.getEyePosition();
 		Vec3 fist = eye.add(p.getLookAngle().scale(2.2 * p.getScale())).add(0, -0.5, 0);
-		boolean finisher = r.comboStep == 3;
+		boolean finisher = step == 3;
 		float dmg = finisher ? damage * 1.45f : damage;
 		List<LivingEntity> hits = IronManComicFx.cone(p, eye, p.getLookAngle(), 5.5, finisher ? 55.0 : 35.0);
 		if (finisher) {
@@ -1298,48 +1356,57 @@ public final class IronManComicMoves {
 		}
 		for (LivingEntity e : hits) {
 			IronManComicFx.hit(p, e, dmg);
-			IronManComicFx.shove(e, p.position(), finisher ? 2.2 : 1.0, finisher ? 0.5 : 0.2);
+			IronManComicFx.shove(e, p.position(), finisher ? 2.2 : 1.0, finisher ? 0.7 : 0.2);
 		}
 		level.sendParticles(finisher ? ParticleTypes.EXPLOSION : ParticleTypes.CRIT, fist.x, fist.y, fist.z, finisher ? 2 : 10, 0.3, 0.3,
 				0.3, 0.1);
-		IronManComicFx.pose(p, finisher ? IronManAbilityFx.PUNCH : IronManAbilityFx.COMIC_POUND, 10);
 		IronManComicFx.sound(p, IronManSounds.PUNCH, 1.2f, finisher ? 0.6f : 0.8f);
 		if (finisher) {
 			IronManComicFx.soundAt(level, fist, SoundEvents.ANVIL_LAND, 0.9f, 0.6f);
 		}
-		return true;
 	}
 
 	private static boolean rocketFist(ServerPlayer p, float damage) {
-		Vec3 from = IronManComicFx.palm(p);
-		Vec3 dir = IronManTargeting.aim(p, from, p.getLookAngle(), 80);
-		IronManMissileEntity m = IronManComicFx.missile(p, from.add(dir), dir, 1.6, damage, damage / 3f, 2.0f);
-		IronManComicFx.spawn(p, m);
-		IronManComicFx.pose(p, IronManAbilityFx.PUNCH, 12);
-		IronManComicFx.sound(p, IronManSounds.ROCKET_LAUNCH, 1.3f, 0.7f);
+		IronManComicFx.pose(p, IronManAbilityFx.HB_ROCKET_FIST, HB_ROCKET_TICKS);
+		IronManComicFx.sound(p, IronManSounds.REPULSOR_CHARGE, 1.0f, 0.6f);
+		IronManComicState.later(p, HB_ROCKET_LAUNCH, w -> {
+			if (!hulkbusterOn(w)) {
+				return;
+			}
+			Vec3 from = IronManComicFx.palm(w);
+			Vec3 dir = IronManTargeting.aim(w, from, w.getLookAngle(), 48);
+			com.projecthero.mod.ironman.entity.HulkbusterFistEntity.launch(w, from, dir, damage, HB_ROCKET_RETURN - HB_ROCKET_LAUNCH);
+			IronManComicFx.sound(w, IronManSounds.ROCKET_LAUNCH, 1.3f, 0.7f);
+		});
 		return true;
 	}
 
 	private static boolean pileDriver(ServerPlayer p, float damage) {
-		Vec3 c = IronManGroundPound.groundBelow(p);
-		if (c == null) {
+		if (IronManGroundPound.groundBelow(p) == null) {
 			p.displayClientMessage(Component.translatable("message.projecthero.ironman.ground_pound_no_ground"), true);
 			return false;
 		}
-		ServerLevel level = IronManComicFx.level(p);
-		for (LivingEntity e : IronManComicFx.around(p, c.add(0, 0.5, 0), 5.0)) {
-			IronManComicFx.hit(p, e, damage);
-			IronManComicFx.shove(e, c, 1.4, 0.9);
-		}
-		IronManComicFx.groundRing(level, c, 2.5, 18);
-		IronManComicFx.groundRing(level, c, 5.0, 30);
-		IronManComicFx.pose(p, IronManAbilityFx.GROUND_POUND, 14);
-		IronManComicFx.soundAt(level, c, SoundEvents.GENERIC_EXPLODE, 1.2f, 0.6f);
-		IronManComicFx.soundAt(level, c, SoundEvents.ANVIL_LAND, 1.0f, 0.4f);
+		IronManComicFx.pose(p, IronManAbilityFx.HB_PILE_DRIVER, HB_PILE_TICKS);
+		IronManComicFx.sound(p, IronManSounds.SERVO, 1.0f, 0.6f);
+		IronManComicState.later(p, HB_PILE_HIT, w -> {
+			Vec3 c = IronManGroundPound.groundBelow(w);
+			if (c == null || !hulkbusterOn(w)) {
+				return;
+			}
+			ServerLevel level = IronManComicFx.level(w);
+			for (LivingEntity e : IronManComicFx.around(w, c.add(0, 0.5, 0), 5.0)) {
+				IronManComicFx.hit(w, e, damage);
+				IronManComicFx.shove(e, c, 1.4, 0.9);
+			}
+			IronManComicFx.groundRing(level, c, 2.5, 18);
+			IronManComicFx.groundRing(level, c, 5.0, 30);
+			IronManComicFx.soundAt(level, c, SoundEvents.GENERIC_EXPLODE, 1.2f, 0.6f);
+			IronManComicFx.soundAt(level, c, SoundEvents.ANVIL_LAND, 1.0f, 0.4f);
+		});
 		return true;
 	}
 
-	/** A shockwave rolling 18 blocks straight ahead along the ground, 3 wide. */
+	/** A shockwave rolling 18 blocks straight ahead along the ground, 3 wide, from the stomp's impact tick. */
 	private static boolean earthquake(ServerPlayer p, float damage) {
 		Vec3 look = p.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);
@@ -1349,11 +1416,14 @@ public final class IronManComicMoves {
 		Vec3 dir = flat.normalize();
 		Vec3 start = p.position();
 		java.util.Set<Integer> hit = new java.util.HashSet<>();
-		IronManComicFx.pose(p, IronManAbilityFx.COMIC_STOMP, 16);
-		IronManComicFx.soundAt(IronManComicFx.level(p), start, SoundEvents.WARDEN_SONIC_BOOM, 0.6f, 0.4f);
+		IronManComicFx.pose(p, IronManAbilityFx.HB_EARTHQUAKE, HB_QUAKE_TICKS);
+		IronManComicState.later(p, HB_QUAKE_HIT, w -> {
+			IronManComicFx.soundAt(IronManComicFx.level(w), start, SoundEvents.WARDEN_SONIC_BOOM, 0.6f, 0.4f);
+			IronManComicFx.groundRing(IronManComicFx.level(w), start, 2.0, 16);
+		});
 		for (int i = 1; i <= 12; i++) {
 			final double dist = i * 1.5;
-			IronManComicState.later(p, 4 + i, w -> {
+			IronManComicState.later(p, HB_QUAKE_HIT + i, w -> {
 				ServerLevel level = IronManComicFx.level(w);
 				Vec3 at = IronManComicFx.groundAt(w, start.add(dir.scale(dist)).add(0, 1.5, 0));
 				IronManComicFx.groundRing(level, at, 1.2, 8);
@@ -1380,16 +1450,20 @@ public final class IronManComicMoves {
 			return false;
 		}
 		Rt r = IronManComicState.rt(p);
-		startHold(p, r, kind, t, kind == HoldKind.GRAB_POUND ? 32 : 12);
-		IronManComicFx.pose(p, IronManAbilityFx.COMIC_GRAB, kind == HoldKind.GRAB_POUND ? 32 : 12);
-		IronManComicFx.sound(p, IronManSounds.CLAMP, 1.2f, 0.7f);
+		int len = HB_GRAB_FOLLOW + (kind == HoldKind.GRAB_POUND ? HB_POUND_TICKS : HB_THROW_HIT);
+		startHold(p, r, kind, t, len);
+		IronManComicFx.pose(p, IronManAbilityFx.HB_GRAB, HB_GRAB_FOLLOW);
+		IronManComicFx.sound(p, IronManSounds.SERVO, 1.0f, 0.7f);
 		return true;
 	}
 
 	private static boolean megaBeam(ServerPlayer p) {
 		Rt r = IronManComicState.rt(p);
+		long now = p.level().getGameTime();
 		r.channel = "mk8_mega_beam";
-		r.channelUntil = p.level().getGameTime() + 60;
+		r.channelStart = now + HB_BEAM_START;
+		r.channelUntil = now + HB_BEAM_END + 1;
+		IronManComicFx.pose(p, IronManAbilityFx.HB_CHEST_BEAM, HB_BEAM_TICKS);
 		IronManComicFx.sound(p, IronManSounds.UNIBEAM_CHARGE, 1.4f, 0.6f);
 		return true;
 	}
@@ -1401,10 +1475,12 @@ public final class IronManComicMoves {
 			IronManSounds.play(p, IronManSounds.UNIBEAM_END, 1.0f, 0.7f);
 			return;
 		}
-		IronManAbilityFx.hold(p, IronManAbilityFx.UNIBEAM);
+		if (now < r.channelStart) {
+			return; // the chest plates are still opening (the clip's wind-up)
+		}
 		Vec3 from = IronManComicFx.chest(p);
 		Vec3 dir = IronManTargeting.aim(p, from, p.getLookAngle(), 44);
-		if ((r.channelUntil - now) % 10 == 0) {
+		if ((now - r.channelStart) % HB_BEAM_PULSE == 0) {
 			IronManComicKit.Move m = IronManComicKit.byId("mk8_mega_beam");
 			IronManComicFx.beam(p, from, dir, 44.0, 2.2, true, IronManComicFx.BEAM_MEGA, m == null ? 18f : m.damage(), 0.8);
 			IronManSounds.play(p, IronManSounds.BEAM_CRACKLE, 0.9f, 0.6f);
@@ -1429,7 +1505,7 @@ public final class IronManComicMoves {
 			p.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.pod_not_needed"), true);
 			return false;
 		}
-		IronManComicFx.pose(p, IronManAbilityFx.COMIC_SKY, 20);
+		IronManComicFx.pose(p, IronManAbilityFx.HB_REPLACEMENT_POD, HB_POD_TICKS);
 		IronManSounds.play(p, IronManSounds.TARGET_LOCK, 1.0f, 0.6f);
 		p.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.pod_inbound"), true);
 		String suitId = suit.id();
@@ -1437,7 +1513,7 @@ public final class IronManComicMoves {
 			final int n = i;
 			IronManComicState.later(p, 1 + i * 2, w -> {
 				// the pod's streak coming down out of the sky onto the suit
-				double y = w.getY() + 40.0 - n * 2.0;
+				double y = w.getY() + 2.0 * (POD_DELAY_TICKS / 2 - n) + 3.0;
 				IronManComicFx.level(w).sendParticles(ParticleTypes.FLAME, w.getX(), y, w.getZ(), 6, 0.3, 0.6, 0.3, 0.02);
 				IronManComicFx.level(w).sendParticles(ParticleTypes.LARGE_SMOKE, w.getX(), y + 1.5, w.getZ(), 3, 0.3, 0.8, 0.3, 0.02);
 			});
@@ -1530,40 +1606,51 @@ public final class IronManComicMoves {
 				}
 			}
 			case GRAB_POUND, GRAB_THROW -> {
+				boolean pound = r.hold == HoldKind.GRAB_POUND;
+				IronManComicKit.Move m = IronManComicKit.byId(pound ? "mk8_grab_pound" : "mk8_grab_throw");
+				float dmg = m == null ? 18f : m.damage();
 				Vec3 hands = p.getEyePosition().add(p.getLookAngle().scale(1.8 * p.getScale())).add(0, -0.6 * p.getScale(), 0);
+				if (age < HB_GRAB_SEIZE) {
+					// the hands are still reaching: the target only stops in its tracks
+					t.setDeltaMovement(t.getDeltaMovement().multiply(0.2, 1, 0.2));
+					t.hurtMarked = true;
+					return;
+				}
 				t.teleportTo(hands.x, hands.y - t.getBbHeight() * 0.5, hands.z);
 				t.setDeltaMovement(Vec3.ZERO);
 				t.resetFallDistance();
-				IronManComicKit.Move m = IronManComicKit.byId(r.hold == HoldKind.GRAB_POUND ? "mk8_grab_pound" : "mk8_grab_throw");
-				float dmg = m == null ? 18f : m.damage();
-				if (r.hold == HoldKind.GRAB_POUND) {
-					IronManAbilityFx.hold(p, IronManAbilityFx.COMIC_POUND);
-					if (age == 8 || age == 16 || age == 24) {
+				if (age == HB_GRAB_SEIZE) {
+					IronManComicFx.sound(p, IronManSounds.CLAMP, 1.2f, 0.7f);
+				}
+				if (age == HB_GRAB_FOLLOW) {
+					IronManComicFx.pose(p, pound ? IronManAbilityFx.HB_GRAB_POUND : IronManAbilityFx.HB_GRAB_THROW,
+							pound ? HB_POUND_TICKS : HB_THROW_TICKS);
+				}
+				if (pound) {
+					long k = age - HB_GRAB_FOLLOW;
+					if (k == HB_POUND_HITS[0] || k == HB_POUND_HITS[1]) {
 						IronManComicFx.hit(p, t, dmg);
 						level.sendParticles(ParticleTypes.CRIT, hands.x, hands.y, hands.z, 12, 0.3, 0.3, 0.3, 0.2);
-						IronManComicFx.soundAt(level, hands, SoundEvents.ANVIL_LAND, 0.6f, 0.7f + age * 0.01f);
+						IronManComicFx.soundAt(level, hands, SoundEvents.ANVIL_LAND, 0.6f, 0.7f + k * 0.01f);
 					}
 					if (over) {
 						r.hold = null;
 						r.holdTarget = -1;
 						IronManComicFx.shove(t, p.position(), 0.8, 0.2);
 					}
-				} else {
-					IronManAbilityFx.hold(p, IronManAbilityFx.COMIC_GRAB);
-					if (over) {
-						r.hold = null;
-						r.holdTarget = -1;
-						Vec3 look = p.getLookAngle();
-						t.setDeltaMovement(look.scale(2.8).add(0, 0.5, 0));
-						t.hurtMarked = true;
-						t.hasImpulse = true;
-						IronManComicFx.hit(p, t, dmg);
-						r.thrownTarget = t.getId();
-						r.thrownUntil = now + 40;
-						r.thrownDamage = dmg;
-						IronManComicFx.pose(p, IronManAbilityFx.COMIC_THROW, 10);
-						IronManComicFx.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.2f, 0.6f);
-					}
+				} else if (over) {
+					// the throw lands on the grab_throw clip's release tick
+					r.hold = null;
+					r.holdTarget = -1;
+					Vec3 look = p.getLookAngle();
+					t.setDeltaMovement(look.scale(2.8).add(0, 0.5, 0));
+					t.hurtMarked = true;
+					t.hasImpulse = true;
+					IronManComicFx.hit(p, t, dmg);
+					r.thrownTarget = t.getId();
+					r.thrownUntil = now + 40;
+					r.thrownDamage = dmg;
+					IronManComicFx.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.2f, 0.6f);
 				}
 			}
 		}

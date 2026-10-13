@@ -45,6 +45,15 @@ public final class IronManEntityTypes {
 					.updateInterval(1)
 					.build("iron_man_sentry"));
 
+	/** v0.16.1: the Hulkbuster's Rocket Fist -- its right forearm flying out and back (never saved). */
+	public static final EntityType<HulkbusterFistEntity> HULKBUSTER_FIST = register("hulkbuster_fist",
+			EntityType.Builder.<HulkbusterFistEntity>of(HulkbusterFistEntity::new, MobCategory.MISC)
+					.sized(0.9f, 0.9f)
+					.clientTrackingRange(8)
+					.updateInterval(1)
+					.noSave()
+					.build("hulkbuster_fist"));
+
 	private IronManEntityTypes() {
 	}
 

@@ -27,15 +27,23 @@ public class IronManSentryRenderer extends EntityRenderer<IronManSentryEntity> {
 	private static final ResourceLocation FALLBACK = ProjectHeroMod.id("textures/item/repulsor.png");
 	private static final Map<IronManSentryEntity, ArmorStand> STANDS = new WeakHashMap<>();
 
+	/** v0.16.1: a Mark 8 sentry is the Hulkbuster body. */
+	private final IronManHulkbusterSentryRenderer hulkbuster;
+
 	public IronManSentryRenderer(EntityRendererProvider.Context context) {
 		super(context);
 		this.shadowRadius = 0.4f;
+		this.hulkbuster = new IronManHulkbusterSentryRenderer(context);
 	}
 
 	@Override
 	public void render(IronManSentryEntity sentry, float entityYaw, float partialTick, PoseStack pose,
 			MultiBufferSource buffers, int packedLight) {
 		if (sentry.level() == null) {
+			return;
+		}
+		if ("mark_8".equals(sentry.suitId())) {
+			hulkbuster.render(sentry, entityYaw, partialTick, pose, buffers, packedLight);
 			return;
 		}
 		ArmorStand stand = STANDS.computeIfAbsent(sentry, IronManSentryRenderer::makeStand);
