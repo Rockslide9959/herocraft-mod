@@ -516,6 +516,7 @@ public final class ThorPowers {
 	public static void serverTick(ServerPlayer player) {
 		WorthinessEnforcer.serverTick(player);
 		ThorPassives.serverTick(player);
+		ThorStorm.tick(player); // v0.16.1: the thunderstorm buff's synced flag + sparks
 
 		if (isFlying(player)) {
 			if (player.getAbilities().instabuild) {

@@ -15,6 +15,8 @@ public record WeaponComboState(int step, int weapon, long start) {
 	public static final int WEAPON_NONE = 0;
 	public static final int WEAPON_MJOLNIR = 1;
 	public static final int WEAPON_STORMBREAKER = 2;
+	/** v0.16.1: Mjolnir in one hand and Stormbreaker in the other -- the 4-hit dual-wield combo (steps 1..4). */
+	public static final int WEAPON_DUAL = 3;
 
 	public static final WeaponComboState EMPTY = new WeaponComboState(0, WEAPON_NONE, 0L);
 

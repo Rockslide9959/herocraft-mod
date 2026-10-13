@@ -41,9 +41,21 @@ import net.minecraft.world.phys.Vec3;
  * count), and the step is resolved when the attack returns. Every counted step is written to the synced
  * {@link ModAttachments#WEAPON_COMBO}, which is both the combo's own state and what every viewer's swing pose
  * ({@code WeaponComboPose}) plays from. The finisher's area hit never touches the wielder, their pets or squad allies.
+ *
+ * <p><b>v0.16.1, dual wield.</b> With Mjolnir in one hand and Stormbreaker in the other (either way round) the combo
+ * is {@link WeaponComboState#WEAPON_DUAL}: four steps instead of three, each a plain hit with the main-hand weapon's
+ * own damage -- (1) Mjolnir's overhead hammer blow, (2) Stormbreaker's flat axe sweep, (3) a cross-body double swing
+ * with both, (4) a leaping double slam (a small hop, {@link ThorConfig.DualCombo#slamHop}). The window between them is
+ * the swing's recharge + {@link ThorConfig.DualCombo#windowTicks} (1 s). Landing the 4th inside the window queues the
+ * Twin Thunder Strike ({@link ThorTwinThunder}) when it is off cooldown.
  */
 public final class WeaponCombo {
 	public static final int HITS = 3;
+	/** v0.16.1: the dual-wield combo's length. */
+	public static final int DUAL_HITS = 4;
+	/** v0.16.1: the dual-wield swings' animation lengths in ticks (the client pose tables end here too). */
+	public static final int DUAL_SWING_TICKS = 13;
+	public static final int DUAL_SLAM_TICKS = 16;
 	/** 1.25 s after the swing has recharged to land the next step. */
 	public static final int COMBO_WINDOW_TICKS = 25;
 	/** Attack strength (0..1) a hit needs to count. */
@@ -88,6 +100,10 @@ public final class WeaponCombo {
 	}
 
 	public static void initialize() {
+		// v0.16.1: Thor's config and the timed moves ride on this init (keeps ProjectHeroMod untouched)
+		ThorConfig.load();
+		ThorTwinThunder.initialize();
+		ThunderField.initialize();
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
 			Ctx c = CTX.get();
 			if (c != null && entity == c.target && !blocked && base > 0.0f && source.getEntity() == c.player
@@ -109,9 +125,40 @@ public final class WeaponCombo {
 		return WeaponComboState.WEAPON_NONE;
 	}
 
-	/** Ticks after the last counted step that the next one may still land: the swing's recharge + 1.25 s. */
+	/** v0.16.1: Mjolnir in one hand and Stormbreaker in the other (either way round)? */
+	public static boolean isDualWielding(Player player) {
+		ItemStack main = player.getMainHandItem();
+		ItemStack off = player.getOffhandItem();
+		return (main.is(ModItems.MJOLNIR) && off.is(ModItems.STORMBREAKER))
+				|| (main.is(ModItems.STORMBREAKER) && off.is(ModItems.MJOLNIR));
+	}
+
+	/** v0.16.1: the combo {@code player}'s melee feeds: dual when wielding both, else the main-hand weapon's. */
+	public static int comboWeapon(Player player) {
+		int weapon = weaponOf(player.getMainHandItem());
+		return weapon != WeaponComboState.WEAPON_NONE && isDualWielding(player) ? WeaponComboState.WEAPON_DUAL : weapon;
+	}
+
+	/** v0.16.1: how many steps the combo for {@code weapon} has. */
+	public static int hits(int weapon) {
+		return weapon == WeaponComboState.WEAPON_DUAL ? DUAL_HITS : HITS;
+	}
+
+	/** v0.16.1: the swing animation length of {@code step} of the combo for {@code weapon}. */
+	public static int swingTicks(int weapon, int step) {
+		if (weapon == WeaponComboState.WEAPON_DUAL) {
+			return step >= DUAL_HITS ? DUAL_SLAM_TICKS : DUAL_SWING_TICKS;
+		}
+		return step >= HITS ? FINISHER_TICKS : SWING_TICKS;
+	}
+
+	/**
+	 * Ticks after the last counted step that the next one may still land: the swing's recharge + 1.25 s (v0.16.1: + 1 s
+	 * for the dual-wield combo).
+	 */
 	public static int windowTicks(Player player) {
-		return Mth.ceil(player.getCurrentItemAttackStrengthDelay()) + COMBO_WINDOW_TICKS;
+		int extra = isDualWielding(player) ? ThorConfig.get().dualCombo.windowTicks : COMBO_WINDOW_TICKS;
+		return Mth.ceil(player.getCurrentItemAttackStrengthDelay()) + extra;
 	}
 
 	/**
@@ -119,7 +166,7 @@ public final class WeaponCombo {
 	 * the client's swing prediction.
 	 */
 	public static int nextStep(WeaponComboState last, int weapon, long now, int window) {
-		if (last.step() <= 0 || last.step() >= HITS || last.weapon() != weapon || now - last.start() > window
+		if (last.step() <= 0 || last.step() >= hits(weapon) || last.weapon() != weapon || now - last.start() > window
 				|| now < last.start()) {
 			return 1;
 		}
@@ -141,7 +188,7 @@ public final class WeaponCombo {
 
 	/** {@code Player.attack} HEAD (server only): note the attack and its strength before vanilla resets it. */
 	public static void beforeAttack(ServerPlayer player, Entity target) {
-		int weapon = weaponOf(player.getMainHandItem());
+		int weapon = comboWeapon(player);
 		if (weapon == WeaponComboState.WEAPON_NONE || !(target instanceof LivingEntity living)) {
 			CTX.remove();
 			return;
@@ -162,6 +209,10 @@ public final class WeaponCombo {
 		long now = player.level().getGameTime();
 		int step = nextStep(state(player), c.weapon, now, windowTicks(player));
 		player.setAttached(ModAttachments.WEAPON_COMBO, new WeaponComboState(step, c.weapon, now));
+		if (c.weapon == WeaponComboState.WEAPON_DUAL) {
+			dualStep(player, c, step);
+			return;
+		}
 		if (step >= HITS) {
 			finisher(player, c);
 		} else {
@@ -187,7 +238,8 @@ public final class WeaponCombo {
 		// what a bigger hit exceeds the last one by -- exactly the bonus, and for player targets too.
 		if (target.isAlive()) {
 			DamageSource source = player.damageSources().playerAttack(player);
-			target.hurt(source, c.damage * (1.0f + FINISHER_BONUS));
+			// v0.16.1: c.damage already carries the storm buff, so the re-hurt must not add it again
+			ThorStorm.unscaled(() -> target.hurt(source, c.damage * (1.0f + FINISHER_BONUS)));
 		}
 		Vec3 at = target.position().add(0, target.getBbHeight() * 0.5, 0);
 		if (c.weapon == WeaponComboState.WEAPON_MJOLNIR) {
@@ -234,6 +286,50 @@ public final class WeaponCombo {
 			level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_AIR, SoundSource.PLAYERS, 0.9f, 0.8f);
 		}
 		knock(target, player.position(), 0.6, 0.15);
+	}
+
+	/**
+	 * v0.16.1: a counted dual-wield step -- plain hits (the base damage is untouched), each with its own sparks and
+	 * sound; the 4th is the leaping double slam, which hops him up and, inside the window, queues the Twin Thunder
+	 * Strike.
+	 */
+	private static void dualStep(ServerPlayer player, Ctx c, int step) {
+		ServerLevel level = player.serverLevel();
+		Vec3 at = c.target.position().add(0, c.target.getBbHeight() * 0.5, 0);
+		switch (step) {
+			case 1 -> { // Mjolnir's overhead blow
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y + 0.3, at.z, 10, 0.25, 0.35, 0.25, 0.12);
+				level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 6, 0.3, 0.3, 0.3, 0.2);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_AIR, SoundSource.PLAYERS, 0.7f, 1.2f);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.8f, 0.9f);
+			}
+			case 2 -> { // Stormbreaker's flat sweep
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x, at.y, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 6, 0.4, 0.15, 0.4, 0.1);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.9f, 0.85f);
+			}
+			case 3 -> { // the cross-body double swing
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x - 0.3, at.y + 0.2, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+				level.sendParticles(ParticleTypes.SWEEP_ATTACK, at.x + 0.3, at.y - 0.2, at.z, 1, 0.0, 0.0, 0.0, 0.0);
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 14, 0.35, 0.35, 0.35, 0.15);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.0f, 0.7f);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 0.8f, 0.8f);
+			}
+			default -> { // 4: the leaping double slam
+				double hop = ThorConfig.get().dualCombo.slamHop;
+				if (hop > 0.0 && player.onGround()) {
+					Vec3 fwd = player.getLookAngle().multiply(1.0, 0.0, 1.0);
+					fwd = fwd.lengthSqr() < 1.0e-6 ? Vec3.ZERO : fwd.normalize().scale(0.12);
+					player.setDeltaMovement(player.getDeltaMovement().x + fwd.x, hop, player.getDeltaMovement().z + fwd.z);
+					player.hurtMarked = true;
+				}
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 22, 0.4, 0.5, 0.4, 0.2);
+				level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 12, 0.4, 0.4, 0.4, 0.3);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_GROUND, SoundSource.PLAYERS, 0.9f, 1.0f);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.3f, 1.8f);
+				ThorTwinThunder.queue(player);
+			}
+		}
 	}
 
 	/** In front of {@code origin} within the cleave's arc (the radius is already applied). */

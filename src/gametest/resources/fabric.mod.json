@@ -43,6 +43,7 @@
       "com.projecthero.mod.gametest.ThorWeaponSelectV0153GameTests",
       "com.projecthero.mod.gametest.TargetingV01420GameTests",
       "com.projecthero.mod.gametest.WeaponComboGameTests",
+      "com.projecthero.mod.gametest.ThorV0161GameTests",
       "com.projecthero.mod.gametest.KingpinCaneV01431GameTests",
       "com.projecthero.mod.gametest.StarkFurnaceModelsV0151GameTests",
       "com.projecthero.mod.gametest.IronManRecipeCostV01421GameTests",

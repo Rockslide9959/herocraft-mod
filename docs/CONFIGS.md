@@ -68,6 +68,7 @@ values and version.
 | `projecthero_frost_giants.json` | `frostgiant/FrostGiantConfig` | 1 | 1 introduce (v0.16.1 Frost Giant Assault) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_contagion.json` | `ultron/contagion/ContagionConfig` | 1 | 1 introduce (v0.16.1 Ultron Contagion) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_spider_man.json` | `spider/SpiderManConfig` | 1 | 1 introduce (v0.16.1 Spider-Man revamp; `moves` is balance, `webs` is the server's) | No. New in v0.16.1 and versioned from the start. |
+| `projecthero_thor.json` | `power/ThorConfig` | 1 | 1 introduce (v0.16.1 storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field; every section is balance) | No. New in v0.16.1 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration
 steps. The Oathbreaker has no config file: its numbers are code constants, so they can't go stale.

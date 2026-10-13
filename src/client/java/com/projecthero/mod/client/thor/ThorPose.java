@@ -167,6 +167,9 @@ public final class ThorPose {
 				case ThorFx.ANIM_VOLLEY -> VOLLEY;
 				case ThorFx.ANIM_WRATH -> WRATH;
 				case ThorFx.ANIM_STORM -> STORM;
+				// v0.16.1: Thunder Field is a throw (aimed, so down at the ground); Twin Thunder Strike its own frames
+				case ThorFx.ANIM_FIELD_THROW -> THROW;
+				case ThorFx.ANIM_TWIN_THUNDER -> ThorTwinFrames.THIRD;
 				default -> null;
 			};
 			boolean aimed = frames == CHAIN || frames == THROW || frames == WRATH;

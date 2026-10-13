@@ -75,6 +75,7 @@ public final class ThorHud {
 		if (holdingMjolnir || bound) {
 			renderKit(graphics, client, player);
 			renderWrathCharge(graphics, client, player);
+			renderStatusRow(graphics, client, player);
 		}
 		// v0.13.4: the hammerless-flight countdown text was removed per user request -- the grace
 		// period itself (ModAttachments.HAMMERLESS_FLIGHT_TICKS) is unchanged, it just no longer has an
@@ -114,8 +115,18 @@ public final class ThorHud {
 						String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cdRemain / 20.0f)),
 						x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 			}
+			// v0.16.1: Shift+G's Thunder Field shares the G box -- its cooldown is the thin amber bar along the bottom
+			if (i == 1 && cooldowns != null) {
+				int field = cooldowns.remainingTicks(ThorAbility.THUNDER_FIELD, gameTime);
+				if (field > 0) {
+					float left = Math.min(1f, field / (float) FIELD_COOLDOWN_DISPLAY);
+					graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * left), y0 + BOX - 1, COLOR_FIELD_CD);
+				}
+			}
 			if (expanded) {
-				Component name = Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[i]);
+				// v0.16.1: G names its Shift variant too (Thunder Field shares the box)
+				Component name = Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[i]
+						+ (i == 1 ? "_with_field" : ""));
 				int tw = client.font.width(name);
 				graphics.drawString(client.font, name, x0 - 8 - tw, y0 + i * 10 - 52, COLOR_NAME);
 			}
@@ -136,6 +147,57 @@ public final class ThorHud {
 	private static void hairlineBar(GuiGraphics graphics, int x, int y, int w, float ratio, int fillColor) {
 		graphics.fill(x, y, x + w, y + HAIRLINE_HEIGHT, COLOR_HAIRLINE_BG);
 		graphics.fill(x, y, x + Math.round(w * Math.max(0.0f, Math.min(1.0f, ratio))), y + HAIRLINE_HEIGHT, fillColor);
+	}
+
+	// ---------------- v0.16.1: the status row above the keys ----------------
+
+	private static final int COLOR_FIELD_CD = 0xFFE0A030;
+	private static final int COLOR_PIP_ON = 0xFFF2C24E;
+	private static final int COLOR_PIP_OFF = 0x80304A6E;
+	private static final int COLOR_PIP_COOLDOWN = 0xFF5A6A80;
+	private static final int COLOR_STORM = 0xFF9FD8FF;
+	/** The Thunder Field cooldown bar is drawn against this (the default 15 s). */
+	private static final int FIELD_COOLDOWN_DISPLAY = 300;
+
+	/**
+	 * Just above the six keys: on the left, while Mjolnir and Stormbreaker are both in hand, the dual-wield combo's four
+	 * steps as pips (gold up to the step landed; grey with the seconds left while the Twin Thunder Strike recharges);
+	 * on the right, "Storm-Charged +30%" while it thunders where he stands.
+	 */
+	private static void renderStatusRow(GuiGraphics graphics, Minecraft client, Player player) {
+		int totalW = 6 * BOX + 5 * GAP;
+		int x0 = graphics.guiWidth() - MARGIN - totalW;
+		int y0 = graphics.guiHeight() - MARGIN - BOX - 20;
+		int rowY = y0 - 11;
+		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
+		int pipsRight = x0;
+		if (com.projecthero.mod.power.WeaponCombo.isDualWielding(player)) {
+			com.projecthero.mod.power.WeaponComboState s = com.projecthero.mod.power.WeaponCombo.state(player);
+			int step = s.weapon() == com.projecthero.mod.power.WeaponComboState.WEAPON_DUAL
+					? com.projecthero.mod.power.WeaponCombo.step(player) : 0;
+			CooldownState cds = player.getAttachedOrElse(ModAttachments.COOLDOWNS, null);
+			int twin = cds != null ? cds.remainingTicks(ThorAbility.TWIN_THUNDER, gameTime) : 0;
+			for (int i = 0; i < 4; i++) {
+				int px = x0 + i * 7;
+				int color = i < step ? COLOR_PIP_ON : twin > 0 ? COLOR_PIP_COOLDOWN : COLOR_PIP_OFF;
+				graphics.fill(px, rowY + 1, px + 5, rowY + 6, color);
+				graphics.renderOutline(px - 1, rowY, 7, 7, i < step ? COLOR_BORDER_ACTIVE : COLOR_BORDER);
+			}
+			pipsRight = x0 + 4 * 7 + 1;
+			if (twin > 0) {
+				String secs = String.format(java.util.Locale.ROOT, "%d", (int) Math.ceil(twin / 20.0f));
+				graphics.drawString(client.font, secs, pipsRight + 1, rowY, COLOR_PIP_COOLDOWN, false);
+				pipsRight += client.font.width(secs) + 2;
+			}
+		}
+		int pct = com.projecthero.mod.power.ThorVisuals.fx(player).stormPct();
+		if (pct > 0) {
+			Component storm = Component.translatable("hud.projecthero.thor.storm_charged", pct);
+			int w = client.font.width(storm);
+			int x = x0 + totalW - w;
+			int y = x < pipsRight + 4 ? rowY - 10 : rowY; // never over the pips: a line higher if it would be
+			graphics.drawString(client.font, storm, x, y, COLOR_STORM, true);
+		}
 	}
 
 	/** Ticks the player must hold Z to charge God of Thunder's Wrath (mirrors {@code ThorPowers}). */

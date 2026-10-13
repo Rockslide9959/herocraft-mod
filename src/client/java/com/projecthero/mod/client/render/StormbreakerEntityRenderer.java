@@ -26,6 +26,9 @@ import net.minecraft.world.item.ItemStack;
 public final class StormbreakerEntityRenderer extends EntityRenderer<StormbreakerEntity> {
 	/** Degrees of tumble per tick -- a little over two full turns a second. */
 	private static final float SPIN_DEGREES_PER_TICK = 40.0f;
+	/** v0.16.1: a pinned axe's centre this high above the ground (the head sunk into it), and its lean. */
+	private static final float PINNED_LIFT = 0.42f;
+	private static final float PINNED_TILT = 14.0f;
 	/**
 	 * v0.15.3: lying flat, the model's thin Z extent (6.6..9.4 px, centred on 8) is what stands off the ground: lift by
 	 * half of it at the FIXED display scale (1.15, {@code stormbreaker_thrown.json}) so it sits on the floor.
@@ -54,6 +57,18 @@ public final class StormbreakerEntityRenderer extends EntityRenderer<Stormbreake
 			poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
 			poseStack.mulPose(Axis.XP.rotationDegrees(90.0f));
 			poseStack.translate(0.0f, -FLAT_CENTRE, 0.0f);
+			itemRenderer.renderStatic(this.modelStack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
+					poseStack, buffer, entity.level(), entity.getId());
+			poseStack.popPose();
+			super.render(entity, entityYaw, partialTicks, poseStack, buffer, packedLight);
+			return;
+		}
+		if (entity.isPinned()) {
+			// v0.16.1 Thunder Field: driven blade-first into the ground, the haft standing up out of it, a little tilted
+			poseStack.translate(0.0f, PINNED_LIFT, 0.0f);
+			poseStack.mulPose(Axis.YP.rotationDegrees(-entity.getYRot()));
+			poseStack.mulPose(Axis.XP.rotationDegrees(PINNED_TILT));
+			poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
 			itemRenderer.renderStatic(this.modelStack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
 					poseStack, buffer, entity.level(), entity.getId());
 			poseStack.popPose();

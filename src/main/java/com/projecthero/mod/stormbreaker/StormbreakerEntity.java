@@ -134,6 +134,46 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		builder.define(DATA_RETURNING, false);
 		builder.define(DATA_OWNER_ID, -1);
 		builder.define(DATA_RESTING, false);
+		builder.define(DATA_PINNED, false);
+	}
+
+	// ---------------- v0.16.1: pinned in the ground (Thunder Field) ----------------
+
+	private static final EntityDataAccessor<Boolean> DATA_PINNED =
+			SynchedEntityData.defineId(StormbreakerEntity.class, EntityDataSerializers.BOOLEAN);
+	/** Server: ticks left stuck in the ground. Not saved (a reload lets it fly home). */
+	private int pinTicks;
+
+	/** v0.16.1: Thunder Field -- stand blade-down in the ground at {@code at} for {@code ticks}, then fly home. */
+	public void pinAt(Vec3 at, int ticks) {
+		if (level().isClientSide() || isResting()) {
+			return;
+		}
+		this.setPos(at.x, at.y, at.z);
+		this.setDeltaMovement(Vec3.ZERO);
+		this.pinTicks = ticks;
+		this.entityData.set(DATA_PINNED, true);
+	}
+
+	public boolean isPinned() {
+		SynchedEntityData data = this.getEntityData();
+		return data != null && data.get(DATA_PINNED);
+	}
+
+	/** @return true while pinned (the tick does nothing else). */
+	private boolean tickPinned() {
+		if (!isPinned()) {
+			return false;
+		}
+		this.setDeltaMovement(Vec3.ZERO);
+		this.xo = this.getX();
+		this.yo = this.getY();
+		this.zo = this.getZ();
+		if (!level().isClientSide() && --pinTicks <= 0) {
+			this.entityData.set(DATA_PINNED, false);
+			beginReturn();
+		}
+		return true;
 	}
 
 	@Override
@@ -246,6 +286,10 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 	public void recall(Player summoner) {
 		this.setOwner(summoner);
 		this.recalled = true;
+		if (!level().isClientSide()) { // v0.16.1: the call key pulls it out of a Thunder Field's ground at once
+			this.pinTicks = 0;
+			this.entityData.set(DATA_PINNED, false);
+		}
 		beginReturn();
 		if (level() instanceof ServerLevel serverLevel) {
 			serverLevel.playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -375,6 +419,9 @@ public class StormbreakerEntity extends ThrowableItemProjectile {
 		}
 		if (isResting()) {
 			tickResting();
+			return;
+		}
+		if (tickPinned()) { // v0.16.1: stuck in a Thunder Field's ground
 			return;
 		}
 		boolean returning = isReturning();

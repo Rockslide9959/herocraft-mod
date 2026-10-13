@@ -446,14 +446,16 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.thor.bind");
 			blank(lines);
 			head(lines, "projecthero.guide.thor.perks");
-			for (String perk : new String[]{"melee", "hearts", "speed", "damage_reduction", "regen", "hammer_damage", "hud", "squad"}) {
+			for (String perk : new String[]{"melee", "hearts", "speed", "damage_reduction", "regen", "hammer_damage", "hud", "squad",
+					"storm"}) { // v0.16.1: the thunderstorm buff
 				lines.add(Component.literal("• ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.guide.thor.perk." + perk).withStyle(ChatFormatting.GRAY)));
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.thor.controls");
 			for (String[] slot : new String[][]{
-					{"R", "call_mjolnir"}, {"G", "lightning_strike"}, {"X", "lightning_beam"},
+					{"R", "call_mjolnir"}, {"G", "lightning_strike"}, {"Shift+G", "thunder_field"}, // v0.16.1: Thunder Field
+					{"X", "lightning_beam"},
 					{"Z", "god_of_thunders_wrath"}, {"V", "hammer_volley"}, {"Shift+V", "thunderclap"},
 					{"C", "chain_lightning"}, {"N", "weapon_select"}, // v0.15.3: N = the weapon selector
 			}) {
@@ -480,6 +482,15 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.thor.combo");
 			para(lines, "projecthero.guide.thor.combo.body");
 			para(lines, "projecthero.guide.thor.combo.finisher");
+			// v0.16.1: Mjolnir + Stormbreaker together -- the 4-hit dual combo and its Twin Thunder Strike finisher
+			blank(lines);
+			head(lines, "projecthero.guide.thor.dual");
+			para(lines, "projecthero.guide.thor.dual.body");
+			para(lines, "projecthero.guide.thor.dual.twin_thunder");
+			// v0.16.1: the thunderstorm buff
+			blank(lines);
+			head(lines, "projecthero.guide.thor.storm");
+			para(lines, "projecthero.guide.thor.storm.body");
 		}));
 
 		out.add(chapter("projecthero.guide.iron_man", lines -> {

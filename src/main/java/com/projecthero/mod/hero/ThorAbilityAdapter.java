@@ -11,7 +11,8 @@ import net.minecraft.server.level.ServerPlayer;
  * right-click while holding the hammer, see {@link com.projecthero.mod.item.MjolnirItem#use}, which
  * already called {@link ThorPowers#throwMjolnir} independently of this adapter), G = Lightning Strike,
  * X = Lightning Beam, Z = God of Thunder's Wrath (ultimate), V = Hammer Volley (v0.13.4; Shift+V is
- * Thunderclap, bumped off the plain key to make room), C = Chain Lightning.
+ * Thunderclap, bumped off the plain key to make room), C = Chain Lightning. v0.16.1: Shift+G = Thunder Field
+ * ({@link com.projecthero.mod.power.ThunderField}); plain G stays Lightning Strike.
  * Storm Call was dropped from the kit. Each {@code ThorPowers} method already does its own worthiness
  * / hold / cooldown / energy validation, so this class adds none.
  *
@@ -29,9 +30,13 @@ public final class ThorAbilityAdapter {
 					ThorPowers.callHammer(player);
 				}
 			}
-			case SLOT_2 -> { // G -- Lightning Strike
+			case SLOT_2 -> { // G -- Lightning Strike, Shift+G -- Thunder Field (v0.16.1)
 				if (pressed) {
-					ThorPowers.lightningStrike(player);
+					if (player.isShiftKeyDown()) {
+						com.projecthero.mod.power.ThunderField.cast(player);
+					} else {
+						ThorPowers.lightningStrike(player);
+					}
 				}
 			}
 			case SLOT_3 -> // X -- Lightning Beam (held/continuous)

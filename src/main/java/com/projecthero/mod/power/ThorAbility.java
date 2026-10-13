@@ -18,5 +18,9 @@ public enum ThorAbility {
 	/** v0.6.22 ultimate: "God of Thunder's Wrath". */
 	GOD_OF_THUNDER,
 	/** v0.13.4: "Hammer Volley" -- V (without Shift; Shift+V is {@link #THUNDERCLAP}). */
-	HAMMER_VOLLEY
+	HAMMER_VOLLEY,
+	/** v0.16.1: "Twin Thunder Strike" -- the Mjolnir + Stormbreaker dual-wield combo's finisher. */
+	TWIN_THUNDER,
+	/** v0.16.1: "Thunder Field" -- Shift + G. */
+	THUNDER_FIELD
 }

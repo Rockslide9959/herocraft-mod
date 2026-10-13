@@ -6,10 +6,72 @@ Power logic `com.projecthero.mod.power` (`ThorPowers`, `ThorPassives`, `StormEne
 HUD `client/gui/ThorHud`. Player-facing text: the Guidebook's Thor chapter (`hero/guide/HeroPackGuide`, keys
 `projecthero.guide.thor.*`, which the power info screen shows too).
 
-Keys: R Call Mjolnir (right-click throws), G Lightning Strike, X Lightning Beam (hold), Z God of Thunder's Wrath (hold 5 s),
-V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, N weapon selector (v0.15.3), double-tap Jump
-flight.
+Keys: R Call Mjolnir (right-click throws), G Lightning Strike, Shift+G Thunder Field (v0.16.1), X Lightning Beam (hold),
+Z God of Thunder's Wrath (hold 5 s), V Hammer Volley, Shift+V Thunderclap, C Chain Lightning, H Thor's Armour, N weapon
+selector (v0.15.3), double-tap Jump flight.
 Storm Call (`ThorPowers.stormCall`) is still in the code but not on any key since v0.6.22. There is no Thor Parry.
+
+## v0.16.1: storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field
+
+Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `storm` / `dualCombo` / `twinThunder` /
+`thunderField` all balance-owned).
+
+### Storm-Charged -- `power/ThorStorm`, `mixin/LivingEntityThorStormMixin`
+- Condition: `level.isThundering()` and the biome at his feet has precipitation (rain or snow). Sky NOT required by
+  default (`storm.requireSky = false`): the god of thunder feels the storm under a roof. "Thor" = worthy + (holding
+  Mjolnir / Stormbreaker or bound) -- the same test as his ability keys.
+- Effect: +`storm.damageBonus` (0.30) on every hit whose `DamageSource.getEntity()` is that player. ONE hook: a
+  `@ModifyVariable` at `LivingEntity#hurt` HEAD (like the Punisher mark), paired with a RETURN inject. Double-count
+  guards: (1) a per-thread stack of victims being hurt by a scaled hit -- a hit re-issued from inside the same `hurt`
+  (Thor's 80% reduction, Nova, Moon Knight...) on that victim is not scaled again; (2) the single-weapon combo
+  finisher's re-hurt (whose amount comes from Fabric's `AFTER_DAMAGE` base, which already carries the bonus) runs in
+  `ThorStorm.unscaled`. The stack is cleared every player tick (nothing is inside a hurt then).
+- Tell: `ThorFx.stormPct` (synced) -- the client draws little arcs crackling over him (`ThorFxRenderer.stormCrackle`),
+  the server sends sparks, and the HUD shows "Storm-Charged +30%" above the keys.
+
+### Dual-wield combo -- `power/WeaponCombo` (`WEAPON_DUAL`), client `thor/WeaponComboPose`
+- Mjolnir in one hand and Stormbreaker in the other (either way round): `WeaponCombo.comboWeapon` = `WEAPON_DUAL`, 4
+  steps (`DUAL_HITS`). 1 Mjolnir overhead blow, 2 Stormbreaker flat sweep, 3 cross-body double swing (X), 4 leaping
+  double slam (the server hops him: `dualCombo.slamHop` 0.42, ground only). Window = swing recharge +
+  `dualCombo.windowTicks` (20 = 1 s). Damage = the vanilla hit with the main-hand weapon, untouched.
+- Poses: third-person tables `DUAL_1..4` written for Mjolnir on the right (mirrored when it is on the left), with
+  anticipation (ticks 0-2), the snap (4), follow-through (7), recovery (13 / 16); hips twist (bodyY) and HipBend.
+  First person: per-hand tables (`FP_D*`), `ItemInHandRendererComboMixin` now also calls the off hand while dual.
+- 4th hit in the window -> `ThorTwinThunder.queue`.
+
+### Twin Thunder Strike -- `power/ThorTwinThunder`, client `thor/ThorTwinFrames` + `ThorFxRenderer.twinThunder`
+- Only while dual wielding, cooldown `twinThunder.cooldownTicks` 400 (20 s, `ThorAbility.TWIN_THUNDER`, started when it
+  queues; the action bar says when it is still recharging). Starts `DELAY` 12 ticks after the 4th hit (the hop lands),
+  synced as `ThorFx.ANIM_TWIN_THUNDER`: tick 0 raise, 8 a visual bolt onto each weapon head + arcs between them, 16 the
+  slam (`twinThunder.damage` 20 within `radius` 6, knock-up 0.7 / back 0.9, bosses not moved, debris rings, screen shake
+  via `TitanShakePayload` within 24 blocks, glowing cracks + shockwave client-side), 19 a ring of `ringBolts` 8 bolts
+  at `ringRadius` 6.5, each hitting hostiles within `ringSplash` 2 for `ringDamage` 8. Never the wielder, pets, squad
+  allies or their pets (`WeaponCombo.friendly`); the storm buff applies via the hook. Static `PENDING` map, ticked on
+  END_SERVER_TICK, cleared by `ServerStateReset`.
+
+### Thunder Field (Shift+G) -- `power/ThunderField`
+- Binding: Shift+G (plain G stays Lightning Strike; the Shift variant was free). Throws the main-hand Thor weapon (else
+  the off-hand one) at the aimed ground within `thunderField.range` 24 (a block-clip along the look; a wall / ceiling hit
+  drops to the ground at its foot; nothing in range = action-bar message, no cooldown). Re-uses the real
+  `MjolnirEntity` / `StormbreakerEntity` throw, re-aimed at the spot.
+- Landing (Mjolnir leaves THROWN / Stormbreaker turns home, or 40 ticks): the weapon is pinned there for the field's
+  life (`pinAt`, a synced `DATA_PINNED` on both entities; Stormbreaker renders blade-down in the ground), a visual bolt
+  hits it, and the field forms: radius 5, 80 ticks; every 10 ticks hostiles (rule 2) within it (and within 2 blocks
+  vertically) take `pulseDamage` 4 (+ storm) and Slowness II. No fire, no block damage. Then the weapon flies home as a
+  thrown one always does; the call key pulls it out at once. Cooldown 300 (15 s, `ThorAbility.THUNDER_FIELD`), shown as
+  an amber bar along the bottom of the G box.
+- Look: `ThorFx.field*` (separate from the one-shot move slot) -> `ThorFxRenderer.thunderField`: glowing disc + rim,
+  arcs crawling over the ground, arcs from the weapon to the rim, short bolts out of the air.
+
+### HUD -- `client/gui/ThorHud.renderStatusRow`
+- Above the keys: 4 combo pips while dual wielding (gold up to the landed step; grey + seconds while Twin Thunder
+  recharges) and "Storm-Charged +30%" on the right (a line higher if it would overlap the pips).
+
+### Tests -- `ThorV0161GameTests`
+- storm buff only while thundering and only once (ability hit, melee hit, finisher ratio, non-Thor unaffected); dual
+  combo 4 steps / window / reset / back to single; Twin Thunder only on the 4th hit in the window and never with one
+  weapon; it hits an enemy for 20 but never a squad ally or pet; Thunder Field shocks + slows an enemy, not a pet or a
+  squad ally, then expires; the Shift+G throw pins Mjolnir, forms a field and comes home.
 
 ## v0.15.3: N weapon selector, Stormbreaker on the ground
 

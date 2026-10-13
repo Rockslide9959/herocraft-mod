@@ -11,9 +11,15 @@ import net.minecraft.network.codec.StreamCodec;
  * Armour suit clock (direction + start tick). Synced to everyone, never persisted: the client pose code
  * ({@code ThorPose}), the effect renderer ({@code ThorFxRenderer}) and the piece-by-piece suit reveal
  * ({@code ThorSuitReveal}) all read it. Written only through {@link ThorVisuals}.
+ *
+ * <p>v0.16.1: also the storm buff ({@link #stormPct}: the bonus in percent while storm-charged, 0 otherwise -- the HUD
+ * line and the crackle around him) and the last Thunder Field ({@link #fieldX} .. {@link #fieldRadius}: where it lies,
+ * when it formed and when it ends), kept apart from the one-shot move so another move doesn't wipe the field's
+ * effect.
  */
 public record ThorFx(int anim, long animStart, double x, double y, double z, int channels, long chargeStart,
-		int suitDir, long suitStart) {
+		int suitDir, long suitStart, int stormPct, double fieldX, double fieldY, double fieldZ, long fieldStart,
+		long fieldEnd, float fieldRadius) {
 	public static final int ANIM_NONE = 0;
 	/** Lightning Strike: Mjolnir to the sky, then brought down on the target. Point = the strike. */
 	public static final int ANIM_STRIKE = 1;
@@ -29,6 +35,13 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	public static final int ANIM_WRATH = 6;
 	/** Storm Call: the hammer raised to the sky. */
 	public static final int ANIM_STORM = 7;
+	/**
+	 * v0.16.1 Twin Thunder Strike (the dual-wield combo's finisher): both weapons raised, struck by lightning, then
+	 * slammed together into the ground. Point = the slam (his feet).
+	 */
+	public static final int ANIM_TWIN_THUNDER = 8;
+	/** v0.16.1 Thunder Field: the weapon hurled down at the aimed ground (Shift + G). Point = where it was aimed. */
+	public static final int ANIM_FIELD_THROW = 9;
 
 	/** Lightning Beam is being channelled. */
 	public static final int CH_BEAM = 1;
@@ -39,7 +52,8 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	public static final int SUIT_UP = 1;
 	public static final int SUIT_DOWN = 2;
 
-	public static final ThorFx EMPTY = new ThorFx(ANIM_NONE, 0L, 0.0, 0.0, 0.0, 0, 0L, SUIT_NONE, 0L);
+	public static final ThorFx EMPTY = new ThorFx(ANIM_NONE, 0L, 0.0, 0.0, 0.0, 0, 0L, SUIT_NONE, 0L, 0, 0.0, 0.0, 0.0,
+			0L, 0L, 0f);
 
 	public static final StreamCodec<ByteBuf, ThorFx> STREAM_CODEC = new StreamCodec<>() {
 		@Override
@@ -47,7 +61,10 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 			return new ThorFx(ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
 					ByteBufCodecs.DOUBLE.decode(buf), ByteBufCodecs.DOUBLE.decode(buf), ByteBufCodecs.DOUBLE.decode(buf),
 					ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
-					ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf));
+					ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
+					ByteBufCodecs.VAR_INT.decode(buf),
+					ByteBufCodecs.DOUBLE.decode(buf), ByteBufCodecs.DOUBLE.decode(buf), ByteBufCodecs.DOUBLE.decode(buf),
+					ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.FLOAT.decode(buf));
 		}
 
 		@Override
@@ -61,6 +78,13 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 			ByteBufCodecs.VAR_LONG.encode(buf, fx.chargeStart());
 			ByteBufCodecs.VAR_INT.encode(buf, fx.suitDir());
 			ByteBufCodecs.VAR_LONG.encode(buf, fx.suitStart());
+			ByteBufCodecs.VAR_INT.encode(buf, fx.stormPct());
+			ByteBufCodecs.DOUBLE.encode(buf, fx.fieldX());
+			ByteBufCodecs.DOUBLE.encode(buf, fx.fieldY());
+			ByteBufCodecs.DOUBLE.encode(buf, fx.fieldZ());
+			ByteBufCodecs.VAR_LONG.encode(buf, fx.fieldStart());
+			ByteBufCodecs.VAR_LONG.encode(buf, fx.fieldEnd());
+			ByteBufCodecs.FLOAT.encode(buf, fx.fieldRadius());
 		}
 	};
 
@@ -69,16 +93,31 @@ public record ThorFx(int anim, long animStart, double x, double y, double z, int
 	}
 
 	public ThorFx withAnim(int id, long start, double px, double py, double pz) {
-		return new ThorFx(id, start, px, py, pz, channels, chargeStart, suitDir, suitStart);
+		return new ThorFx(id, start, px, py, pz, channels, chargeStart, suitDir, suitStart, stormPct, fieldX, fieldY,
+				fieldZ, fieldStart, fieldEnd, fieldRadius);
 	}
 
 	public ThorFx withChannel(int channel, boolean on, long start) {
 		int ch = on ? channels | channel : channels & ~channel;
 		long charge = channel == CH_WRATH && on ? start : chargeStart;
-		return new ThorFx(anim, animStart, x, y, z, ch, charge, suitDir, suitStart);
+		return new ThorFx(anim, animStart, x, y, z, ch, charge, suitDir, suitStart, stormPct, fieldX, fieldY, fieldZ,
+				fieldStart, fieldEnd, fieldRadius);
 	}
 
 	public ThorFx withSuit(int dir, long start) {
-		return new ThorFx(anim, animStart, x, y, z, channels, chargeStart, dir, start);
+		return new ThorFx(anim, animStart, x, y, z, channels, chargeStart, dir, start, stormPct, fieldX, fieldY, fieldZ,
+				fieldStart, fieldEnd, fieldRadius);
+	}
+
+	/** v0.16.1: the storm buff in percent (0 = not storm-charged). */
+	public ThorFx withStorm(int pct) {
+		return new ThorFx(anim, animStart, x, y, z, channels, chargeStart, suitDir, suitStart, pct, fieldX, fieldY, fieldZ,
+				fieldStart, fieldEnd, fieldRadius);
+	}
+
+	/** v0.16.1: a Thunder Field lying at {@code (px, py, pz)} from {@code start} to {@code end}. */
+	public ThorFx withField(double px, double py, double pz, long start, long end, float radius) {
+		return new ThorFx(anim, animStart, x, y, z, channels, chargeStart, suitDir, suitStart, stormPct, px, py, pz, start,
+				end, radius);
 	}
 }

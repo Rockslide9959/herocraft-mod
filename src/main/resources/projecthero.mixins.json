@@ -28,6 +28,7 @@
 		"LivingEntityEffectMixin",
 		"LivingEntityFrostMixin",
 		"LivingEntityPunisherMarkMixin",
+		"LivingEntityThorStormMixin",
 		"LivingEntityUltronDamageMixin",
 		"LivingEntityRepulsorFlightMixin",
 		"LivingEntitySupermanSuitMixin",

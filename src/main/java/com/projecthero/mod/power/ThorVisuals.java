@@ -44,4 +44,18 @@ public final class ThorVisuals {
 		}
 		player.setAttached(ModAttachments.THOR_FX, fx.withSuit(dir, player.level().getGameTime()));
 	}
+
+	/** v0.16.1: the storm buff in percent (0 = off). Only writes on a change. */
+	public static void storm(ServerPlayer player, int pct) {
+		ThorFx fx = fx(player);
+		if (fx.stormPct() != pct) {
+			player.setAttached(ModAttachments.THOR_FX, fx.withStorm(pct));
+		}
+	}
+
+	/** v0.16.1: a Thunder Field formed at {@code at}, lasting {@code ticks}. */
+	public static void field(ServerPlayer player, Vec3 at, int ticks, float radius) {
+		long now = player.level().getGameTime();
+		player.setAttached(ModAttachments.THOR_FX, fx(player).withField(at.x, at.y, at.z, now, now + ticks, radius));
+	}
 }

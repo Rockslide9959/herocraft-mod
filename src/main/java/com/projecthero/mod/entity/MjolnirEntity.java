@@ -130,6 +130,38 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 * rather than closing in on it. */
 	private static final EntityDataAccessor<Boolean> DATA_VOLLEY_ORBITING =
 			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.1: stuck in a Thunder Field's ground (see {@link #pinAt}). */
+	private static final EntityDataAccessor<Boolean> DATA_PINNED =
+			SynchedEntityData.defineId(MjolnirEntity.class, EntityDataSerializers.BOOLEAN);
+	/** Server: ticks left pinned. Not saved (a reload lets it fly home). */
+	private int pinTicks;
+
+	/**
+	 * v0.16.1: Thunder Field -- stay slammed into the ground where it struck for {@code ticks}, then fly home as a
+	 * struck hammer always does. Only from a throw that has just struck (IMPACT) or is still flying.
+	 */
+	public void pinAt(Vec3 at, int ticks) {
+		if (level().isClientSide()) {
+			return;
+		}
+		State state = getState();
+		if (state != State.IMPACT && state != State.THROWN) {
+			return;
+		}
+		if (state == State.THROWN) {
+			this.impactTicks = 0;
+			setState(State.IMPACT);
+		}
+		this.setPos(at.x, at.y, at.z);
+		this.setDeltaMovement(Vec3.ZERO);
+		this.pinTicks = ticks;
+		this.entityData.set(DATA_PINNED, true);
+	}
+
+	public boolean isPinned() {
+		SynchedEntityData data = this.getEntityData();
+		return data != null && data.get(DATA_PINNED);
+	}
 
 	private static final String TAG_STATE = "ProjectHeroState";
 	private static final String TAG_TICKS_ALIVE = "ProjectHeroTicksAlive";
@@ -223,6 +255,7 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 		builder.define(DATA_OWNER_ID, -1);
 		builder.define(DATA_VOLLEY_TARGET_ID, -1);
 		builder.define(DATA_VOLLEY_ORBITING, false);
+		builder.define(DATA_PINNED, false);
 	}
 
 	/**
@@ -449,6 +482,18 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 
 		switch (state) {
 			case IMPACT -> {
+				if (isPinned()) { // v0.16.1: held in a Thunder Field's ground; the impact pause resumes after
+					this.setDeltaMovement(Vec3.ZERO);
+					this.xo = this.getX();
+					this.yo = this.getY();
+					this.zo = this.getZ();
+					this.yRotO = this.getYRot();
+					this.xRotO = this.getXRot();
+					if (!level().isClientSide() && --pinTicks <= 0) {
+						this.entityData.set(DATA_PINNED, false);
+					}
+					return;
+				}
 				tickImpact();
 				return;
 			}
@@ -791,6 +836,10 @@ public class MjolnirEntity extends ThrowableItemProjectile {
 	 * nobody to fly to.
 	 */
 	public void recall(Player summoner) {
+		if (!level().isClientSide()) { // v0.16.1: the call key pulls it out of a Thunder Field's ground at once
+			this.pinTicks = 0;
+			this.entityData.set(DATA_PINNED, false);
+		}
 		this.setOwner(summoner);
 		beginReturn();
 		this.announceArrival = true;

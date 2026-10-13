@@ -69,9 +69,15 @@ public abstract class ItemInHandRendererComboMixin {
 			com.projecthero.mod.client.syndicate.KingpinCanePose.firstPerson(player, player.getMainArm(), partialTick, pose);
 			return;
 		}
-		if (hand != InteractionHand.MAIN_HAND || WeaponCombo.weaponOf(stack) == WeaponComboState.WEAPON_NONE) {
+		if (WeaponCombo.weaponOf(stack) == WeaponComboState.WEAPON_NONE) {
 			return;
 		}
-		WeaponComboPose.firstPerson(player, player.getMainArm(), partialTick, pose);
+		// v0.16.1: the off hand too -- the dual-wield swings and the Twin Thunder Strike move both weapons
+		boolean main = hand == InteractionHand.MAIN_HAND;
+		if (!main && !WeaponCombo.isDualWielding(player)) {
+			return;
+		}
+		WeaponComboPose.firstPerson(player, main ? player.getMainArm() : player.getMainArm().getOpposite(), main,
+				partialTick, pose);
 	}
 }

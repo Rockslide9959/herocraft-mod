@@ -122,6 +122,92 @@ public final class WeaponComboPose {
 			{10, -0.25f, -0.03f, -0.22f, -70, 0, 0},
 			{FIN, 0, 0, 0, 0, 0, 0} };
 
+	// ---------------- v0.16.1: Mjolnir + Stormbreaker dual wield ----------------
+	// Third person, written for Mjolnir in the RIGHT hand and Stormbreaker in the LEFT (mirrored the other way round):
+	// {tick, mArmX, mArmY, mArmZ, sArmX, sArmY, sArmZ, hipBend, bodyY, rightLegX, leftLegX, headX, grip}. Anticipation
+	// (ticks 0-2: wound up and drawn further back), the snap (by tick 4), follow-through (to 7), then recovery. The hips
+	// twist into every blow (bodyY) and the torso bends from the hips (HipBend), the weapon leading the body.
+	private static final int DS = WeaponCombo.DUAL_SWING_TICKS;
+	private static final int DSL = WeaponCombo.DUAL_SLAM_TICKS;
+
+	/** Hit 1: Mjolnir's overhead hammer blow -- raised high behind the head, then brought straight down. */
+	private static final float[][] DUAL_1 = {
+			f(0, -2.85f, 0.15f, 0.2f, -0.8f, 0.3f, -0.1f, -0.1f, 0.3f, 0.15f, -0.1f, -0.1f, 1),
+			f(2, -3.2f, 0.1f, 0.15f, -0.85f, 0.35f, -0.12f, -0.2f, 0.4f, 0.25f, -0.15f, -0.18f, 1),
+			f(4, -0.6f, -0.1f, 0f, 0.2f, 0.1f, -0.35f, 0.38f, -0.32f, 0.35f, -0.5f, 0.22f, 1),
+			f(7, -0.4f, -0.15f, 0f, 0.25f, 0.1f, -0.35f, 0.42f, -0.38f, 0.32f, -0.45f, 0.25f, 1),
+			rest(DS) };
+	/** Hit 2: Stormbreaker's flat axe sweep -- cocked out wide on the left, then carved right across the body. */
+	private static final float[][] DUAL_2 = {
+			f(0, -0.7f, 0.35f, 0.15f, -1.45f, -1.05f, -0.25f, 0f, -0.55f, 0.1f, -0.1f, 0f, 1),
+			f(2, -0.65f, 0.4f, 0.2f, -1.55f, -1.25f, -0.3f, -0.05f, -0.7f, 0.12f, -0.12f, -0.05f, 1),
+			f(4, -0.4f, 0.25f, 0.4f, -1.5f, 0.95f, 0f, 0.12f, 0.6f, -0.4f, 0.35f, 0.05f, 1),
+			f(7, -0.35f, 0.2f, 0.4f, -1.35f, 1.15f, 0f, 0.15f, 0.72f, -0.38f, 0.32f, 0.05f, 1),
+			rest(DS) };
+	/** Hit 3: the cross-body double swing -- both weapons high and wide, then cut down across each other in an X. */
+	private static final float[][] DUAL_3 = {
+			f(0, -2.55f, 0.45f, 0.35f, -2.55f, -0.45f, -0.35f, -0.12f, 0f, 0.1f, 0.1f, -0.12f, 1),
+			f(2, -2.85f, 0.55f, 0.45f, -2.85f, -0.55f, -0.45f, -0.2f, 0f, 0.15f, 0.15f, -0.2f, 1),
+			f(4, -0.85f, -0.8f, -0.15f, -0.75f, 0.8f, 0.15f, 0.36f, 0.12f, -0.35f, 0.3f, 0.2f, 1),
+			f(7, -0.7f, -0.9f, -0.15f, -0.6f, 0.9f, 0.15f, 0.4f, 0.12f, -0.32f, 0.28f, 0.22f, 1),
+			rest(DS) };
+	/**
+	 * Hit 4: the leaping double slam -- both weapons swung low behind as he crouches, flung up overhead as he leaps
+	 * (the server hops him), then both driven down together as he lands.
+	 */
+	private static final float[][] DUAL_4 = {
+			f(0, 0.55f, 0.1f, 0.25f, 0.55f, -0.1f, -0.25f, 0.4f, 0f, -0.15f, 0.2f, 0.15f, 1),
+			f(3, -2.95f, 0.05f, 0.18f, -2.95f, -0.05f, -0.18f, -0.22f, 0f, -0.55f, -0.45f, -0.25f, 1),
+			f(6, -3.3f, 0.05f, 0.15f, -3.3f, -0.05f, -0.15f, -0.32f, 0f, -0.6f, -0.5f, -0.3f, 1),
+			f(9, -0.4f, -0.12f, 0.05f, -0.4f, 0.12f, -0.05f, 0.55f, 0f, -0.55f, 0.45f, 0.35f, 1),
+			f(12, -0.35f, -0.12f, 0.05f, -0.35f, 0.12f, -0.05f, 0.52f, 0f, -0.5f, 0.42f, 0.32f, 1),
+			rest(DSL) };
+
+	// First person, dual wield: {tick, x, y, z, xDeg, yDeg, zDeg} per hand, written as for the right hand.
+	/** Hit 1, Mjolnir's hand: up and tipped back, then slammed down and forward. */
+	private static final float[][] FP_D1_M = {
+			{0, 0, 0, 0, 0, 0, 0},
+			{2, 0.02f, 0.32f, 0.08f, 45, 0, -6},
+			{4, -0.12f, -0.16f, -0.22f, -80, 0, 6},
+			{7, -0.12f, -0.18f, -0.2f, -74, 0, 6},
+			{DS, 0, 0, 0, 0, 0, 0} };
+	/** Hit 1, Stormbreaker's hand: pulled back and down out of the way. */
+	private static final float[][] FP_D1_S = {
+			{0, 0, 0, 0, 0, 0, 0},
+			{2, 0.04f, -0.04f, 0.06f, 8, 0, 0},
+			{4, 0.08f, -0.14f, 0.12f, 18, 10, -8},
+			{7, 0.08f, -0.14f, 0.12f, 18, 10, -8},
+			{DS, 0, 0, 0, 0, 0, 0} };
+	/** Hit 2, Stormbreaker's hand: cocked out wide, then swept flat across the view. */
+	private static final float[][] FP_D2_S = {
+			{0, 0, 0, 0, 0, 0, 0},
+			{2, 0.16f, 0.06f, 0, -10, 35, -50},
+			{4, -0.5f, 0.1f, -0.12f, -20, -40, 80},
+			{7, -0.56f, 0.06f, -0.12f, -15, -45, 85},
+			{DS, 0, 0, 0, 0, 0, 0} };
+	/** Hit 2, Mjolnir's hand: drawn back as the body turns away. */
+	private static final float[][] FP_D2_M = {
+			{0, 0, 0, 0, 0, 0, 0},
+			{2, 0.05f, -0.05f, 0.05f, 6, 0, 0},
+			{4, 0.1f, -0.16f, 0.12f, 14, -12, 10},
+			{7, 0.1f, -0.16f, 0.12f, 14, -12, 10},
+			{DS, 0, 0, 0, 0, 0, 0} };
+	/** Hit 3, both hands (mirrored): up and out, then cut down and across to cross in the middle. */
+	private static final float[][] FP_D3 = {
+			{0, 0, 0, 0, 0, 0, 0},
+			{2, 0.08f, 0.3f, 0.05f, 38, 0, -22},
+			{4, -0.34f, -0.12f, -0.16f, -60, -20, 52},
+			{7, -0.36f, -0.14f, -0.16f, -58, -22, 55},
+			{DS, 0, 0, 0, 0, 0, 0} };
+	/** Hit 4, both hands: low, then flung high (the leap), then driven down together (the landing). */
+	private static final float[][] FP_D4 = {
+			{0, 0, -0.12f, 0.1f, 22, 0, 0},
+			{3, 0.02f, 0.42f, 0.05f, 62, 0, -10},
+			{6, 0.02f, 0.52f, 0.05f, 72, 0, -10},
+			{9, -0.1f, -0.22f, -0.26f, -86, 0, 6},
+			{12, -0.1f, -0.2f, -0.24f, -82, 0, 6},
+			{DSL, 0, 0, 0, 0, 0, 0} };
+
 	/** Per player (entity id): {grip, arm override weight} from the last pose, read by the held-item layer. */
 	private static final Map<Integer, float[]> GRIP = new HashMap<>();
 	/** The local player's predicted step (shown until the server's stamp of the same step arrives). */
@@ -146,7 +232,7 @@ public final class WeaponComboPose {
 		if (player != mc.player || !(target instanceof LivingEntity) || !target.isAlive() || player.isSpectator()) {
 			return;
 		}
-		int weapon = WeaponCombo.weaponOf(player.getMainHandItem());
+		int weapon = WeaponCombo.comboWeapon(player);
 		if (weapon == WeaponComboState.WEAPON_NONE || player.getAttackStrengthScale(0.5f) < WeaponCombo.MIN_STRENGTH) {
 			return;
 		}
@@ -155,8 +241,8 @@ public final class WeaponComboPose {
 		predicted = new WeaponComboState(WeaponCombo.nextStep(last, weapon, now, WeaponCombo.windowTicks(player)), weapon, now);
 	}
 
-	private static int length(int step) {
-		return step >= WeaponCombo.HITS ? FIN : SW;
+	private static int length(WeaponComboState s) {
+		return WeaponCombo.swingTicks(s.weapon(), s.step());
 	}
 
 	/** The newest of the server's state and the local prediction (for chaining the next prediction). */
@@ -170,18 +256,18 @@ public final class WeaponComboPose {
 		WeaponComboState s = WeaponCombo.state(player);
 		WeaponComboState use = s;
 		if (predicted != null && player == Minecraft.getInstance().player) {
-			if (now - predicted.start() > FIN + 2) {
+			if (now - predicted.start() > WeaponCombo.DUAL_SLAM_TICKS + 2) {
 				predicted = null;
 			} else if (s.start() < predicted.start()
 					|| (s.step() == predicted.step() && s.start() - predicted.start() <= 8)) {
 				use = predicted;
 			}
 		}
-		if (use.step() <= 0 || use.weapon() != WeaponCombo.weaponOf(player.getMainHandItem())) {
+		if (use.step() <= 0 || use.weapon() != WeaponCombo.comboWeapon(player)) {
 			return null;
 		}
 		long age = now - use.start();
-		return age < 0 || age > length(use.step()) ? null : use;
+		return age < 0 || age > length(use) ? null : use;
 	}
 
 	/** How far (0..1) the held weapon should be re-gripped along the arm for {@code player}'s current swing. */
@@ -197,12 +283,29 @@ public final class WeaponComboPose {
 	}
 
 	private static float[][] frames(WeaponComboState s) {
+		if (s.weapon() == WeaponComboState.WEAPON_DUAL) {
+			return switch (s.step()) {
+				case 1 -> DUAL_1;
+				case 2 -> DUAL_2;
+				case 3 -> DUAL_3;
+				default -> DUAL_4;
+			};
+		}
 		boolean storm = s.weapon() == WeaponComboState.WEAPON_STORMBREAKER;
 		return switch (s.step()) {
 			case 1 -> storm ? STORM_1 : MJOLNIR_1;
 			case 2 -> storm ? STORM_2 : MJOLNIR_2;
 			default -> storm ? STORM_3 : MJOLNIR_3;
 		};
+	}
+
+	/** v0.16.1: is Mjolnir on {@code player}'s left (dual wield: wherever the hammer is)? */
+	private static boolean mjolnirOnLeft(Player player) {
+		HumanoidArm arm = player.getMainArm();
+		if (!player.getMainHandItem().is(com.projecthero.mod.item.ModItems.MJOLNIR)) {
+			arm = arm.getOpposite();
+		}
+		return arm == HumanoidArm.LEFT;
 	}
 
 	/** From {@code HumanoidModelMixin}: blend the playing swing over the model (Thor's own move poses go on top). */
@@ -218,7 +321,9 @@ public final class WeaponComboPose {
 		float[] p = sample(fr, tick);
 		float end = fr[fr.length - 1][0];
 		float w = Mth.clamp(Math.min(tick / 1.0f + 0.5f, (end - tick) / 3f), 0f, 1f);
-		boolean left = player.getMainArm() == HumanoidArm.LEFT;
+		boolean dual = s.weapon() == WeaponComboState.WEAPON_DUAL;
+		// single weapon: the frames are for a main hand on the right; dual: for Mjolnir on the right, Stormbreaker left
+		boolean left = dual ? mjolnirOnLeft(player) : player.getMainArm() == HumanoidArm.LEFT;
 		float sgn = left ? -1f : 1f;
 		ModelPart wArm = left ? m.leftArm : m.rightArm;
 		ModelPart fArm = left ? m.rightArm : m.leftArm;
@@ -229,6 +334,11 @@ public final class WeaponComboPose {
 		ModelPart backLeg = left ? m.rightLeg : m.leftLeg;
 		frontLeg.xRot = Mth.lerp(w, frontLeg.xRot, frontLeg.xRot * 0.3f + p[9]);
 		backLeg.xRot = Mth.lerp(w, backLeg.xRot, backLeg.xRot * 0.3f + p[10]);
+		if (dual) {
+			// a wider, planted stance for the two-weapon swings
+			m.rightLeg.zRot = Mth.lerp(w, m.rightLeg.zRot, 0.08f);
+			m.leftLeg.zRot = Mth.lerp(w, m.leftLeg.zRot, -0.08f);
+		}
 		m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + p[11]);
 		m.hat.copyFrom(m.head);
 		// the shoulders turn with the torso (as vanilla's own attack swing does), so a twisted body keeps its arms on
@@ -245,25 +355,69 @@ public final class WeaponComboPose {
 
 	/**
 	 * How much (0..1) {@code player}'s main-hand weapon is playing a combo swing in first person: vanilla's swing and
-	 * post-hit lowering are held off by this much (1 through the swing, easing out over its last 3 ticks).
+	 * post-hit lowering are held off by this much (1 through the swing, easing out over its last 3 ticks). v0.16.1:
+	 * the Twin Thunder Strike holds them off too.
 	 */
 	public static float firstPersonWeight(Player player, float partial) {
+		float twin = twinTick(player, partial);
+		if (twin >= 0f) {
+			return Mth.clamp((ThorTwinFrames.END - twin) / 3f, 0f, 1f);
+		}
 		WeaponComboState s = playing(player, player.level().getGameTime());
 		if (s == null) {
 			return 0f;
 		}
 		float tick = player.level().getGameTime() - s.start() + partial;
-		return Mth.clamp((length(s.step()) - tick) / 3f, 0f, 1f);
+		return Mth.clamp((length(s) - tick) / 3f, 0f, 1f);
 	}
 
-	/** First person, just before the held weapon is drawn (in the hand's space): sweep / backhand / slam it. */
-	public static void firstPerson(Player player, HumanoidArm arm, float partial, PoseStack pose) {
-		WeaponComboState s = playing(player, player.level().getGameTime());
-		if (s == null) {
-			return;
+	/** v0.16.1: ticks into {@code player}'s Twin Thunder Strike, or -1 if none is playing. */
+	private static float twinTick(Player player, float partial) {
+		com.projecthero.mod.power.ThorFx fx = player.getAttachedOrElse(
+				com.projecthero.mod.attachment.ModAttachments.THOR_FX, null);
+		if (fx == null || fx.anim() != com.projecthero.mod.power.ThorFx.ANIM_TWIN_THUNDER) {
+			return -1f;
 		}
-		float[][] fr = s.step() == 1 ? FP_1 : s.step() == 2 ? FP_2 : FP_3;
-		float tick = player.level().getGameTime() - s.start() + partial;
+		float t = player.level().getGameTime() - fx.animStart() + partial;
+		return t < 0f || t > ThorTwinFrames.END ? -1f : t;
+	}
+
+	/**
+	 * First person, just before a held weapon is drawn (in the hand's space): sweep / backhand / slam it. v0.16.1:
+	 * called for both hands -- with Mjolnir and Stormbreaker in hand the dual-wield swings move each weapon (the off
+	 * hand's too), and the Twin Thunder Strike raises both and slams them down.
+	 */
+	public static void firstPerson(Player player, HumanoidArm arm, boolean mainHand, float partial, PoseStack pose) {
+		float twin = twinTick(player, partial);
+		float[][] fr;
+		float tick;
+		boolean dual = WeaponCombo.isDualWielding(player);
+		if (twin >= 0f && dual) {
+			fr = ThorTwinFrames.FP;
+			tick = twin;
+		} else {
+			WeaponComboState s = playing(player, player.level().getGameTime());
+			if (s == null) {
+				return;
+			}
+			tick = player.level().getGameTime() - s.start() + partial;
+			if (s.weapon() == WeaponComboState.WEAPON_DUAL) {
+				// which weapon is in this hand decides its part of the swing
+				boolean mjolnirHere = (mainHand ? player.getMainHandItem() : player.getOffhandItem())
+						.is(com.projecthero.mod.item.ModItems.MJOLNIR);
+				fr = switch (s.step()) {
+					case 1 -> mjolnirHere ? FP_D1_M : FP_D1_S;
+					case 2 -> mjolnirHere ? FP_D2_M : FP_D2_S;
+					case 3 -> FP_D3;
+					default -> FP_D4;
+				};
+			} else {
+				if (!mainHand) {
+					return;
+				}
+				fr = s.step() == 1 ? FP_1 : s.step() == 2 ? FP_2 : FP_3;
+			}
+		}
 		float[] v = null;
 		for (int i = 1; i < fr.length; i++) {
 			if (tick <= fr[i][0]) {
@@ -286,6 +440,11 @@ public final class WeaponComboPose {
 		pose.mulPose(Axis.YP.rotationDegrees(sg * v[5]));
 		pose.mulPose(Axis.XP.rotationDegrees(v[4]));
 		pose.mulPose(Axis.ZP.rotationDegrees(sg * v[6]));
+	}
+
+	/** Back-compat: the main hand only. */
+	public static void firstPerson(Player player, HumanoidArm arm, float partial, PoseStack pose) {
+		firstPerson(player, arm, true, partial, pose);
 	}
 
 	private static void lerp(ModelPart part, float w, float x, float y, float z) {
