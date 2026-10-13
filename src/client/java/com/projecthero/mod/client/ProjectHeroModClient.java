@@ -192,7 +192,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
 		com.projecthero.mod.client.spider.FirstPersonWebAnchor.initialize(); // v0.16.1: first-person web lines leave the drawn wrist
-		com.projecthero.mod.client.spider.PerchPoseEditorScreen.initialize(); // v0.16.1: /spiderposeeditor + the saved perch pose
+		// v0.16.1: the ledge perch (and its pose editor) was removed -- tidy away the pose files the editor wrote
+		for (String f : new String[] {"projecthero_perch_pose.json", "projecthero_perch_pose_export.txt"}) {
+			try {
+				java.nio.file.Files.deleteIfExists(net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve(f));
+			} catch (Exception ignored) {
+			}
+		}
 		com.projecthero.mod.client.spider.SpiderSenseFx.initialize(); // v0.16.1: tingle lines, projectile paths, hidden-threat shimmer
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts

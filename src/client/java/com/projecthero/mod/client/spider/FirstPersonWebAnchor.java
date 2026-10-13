@@ -22,7 +22,7 @@ import org.joml.Vector4f;
  * drawn, we push the wrist point through that model-view and the hand pass's projection to normalised screen
  * coordinates, and the world line renderer turns that screen point back into a world point a little in front of the
  * camera using the world pass's own projection and view rotation (captured at the start of the world render). The line
- * then lands on the wrist whatever the FOV, view bobbing, swing raise, perch or arm animation.
+ * then lands on the wrist whatever the FOV, view bobbing, swing raise or arm animation.
  *
  * <p>The arm pass runs after the world pass, so the screen point used is the one from the previous frame -- the hand is
  * fixed to the view, so between two frames it moves by at most a pixel or so. A side not drawn for 150 ms has no

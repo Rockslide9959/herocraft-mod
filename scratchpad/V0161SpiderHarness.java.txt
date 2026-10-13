@@ -592,44 +592,8 @@ public final class V0161SpiderHarness {
 			at(c + 80, () -> tickRate(mc, 20f));
 			c += 85;
 		}
-		// ------------------------------------------------ the ledge perch
-		if (all() || only.contains("perch")) {
-			String[] pv = {"fr", "s", "q", "f"};
-			for (String v : pv) {
-				final int pc = c;
-				at(pc, () -> {
-					sneak = false;
-					pitch = v.equals("f") ? 38f : 0f;
-					showGui = v.equals("f");
-					if (v.equals("f")) {
-						firstPerson(mc);
-					} else if (v.equals("fr")) {
-						cam(mc, new Vec3(0.0, 0.9, 3.4), new Vec3(0, 0.45, 0));
-					} else if (v.equals("s")) {
-						cam(mc, new Vec3(-3.4, 0.7, 0.6), new Vec3(0, 0.55, 0.5));
-					} else {
-						cam(mc, new Vec3(-1.8, 1.0, 2.6), new Vec3(0, 0.6, 0));
-					}
-					server(mc, p -> {
-						int gy = (int) groundY;
-						fill(p.serverLevel(), 1399, gy, -2, 1401, gy + 5, 2, Blocks.STONE_BRICKS.defaultBlockState());
-						reset(p, 1400, 0);
-						p.teleportTo(p.serverLevel(), 1400.5, gy + 6, 2.55, 0f, 0f);
-					});
-				});
-				at(pc + 12, () -> {
-					sneak = true;
-					double armed = mc.level.getGameTime();
-					capture("perch_" + v, () -> flagStart(mc, SpiderMoveState.FLAG_PERCH, armed), 0.5f, 1.5f, 3f, 6f, 14f);
-				});
-				at(pc + 40, () -> {
-					sneak = false;
-					pitch = 0f;
-					showGui = false;
-				});
-				c += 46;
-			}
-		}
+
+
 		// ------------------------------------------------ attack frame sheets (slowed to 4 tps)
 		if (all() || only.contains("moves")) {
 			at(c, () -> tickRate(mc, 4f));

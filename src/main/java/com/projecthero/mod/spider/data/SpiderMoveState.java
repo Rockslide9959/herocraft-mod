@@ -29,8 +29,6 @@ public final class SpiderMoveState {
 	public static final int FLAG_CHARGING_BLOSSOM = 1 << 6;
 	/** The uppercut's air-combo window is open. */
 	public static final int FLAG_AIR_COMBO = 1 << 7;
-	/** Ledge perch: sneaking at a drop (or on a thin post) -- the comic-book crouch. */
-	public static final int FLAG_PERCH = 1 << 8;
 
 	public int flags;
 	/** {@code SpiderAnim} id and the game time it started. */

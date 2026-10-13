@@ -19,7 +19,6 @@ Swinging and the rest of the traversal use **no ability key**:
 | **Run / fly into a wall** | Wall crawl engages by itself: airborne with `horizontalCollision`, or on the ground sprinting forward into it (a 0.32 hop hands it to the climb engine), or swinging into it (the line is dropped and the wall taken). The client arms its own `SpiderClimbLocal.grabIntent` and sends `CLIMB_GRAB`. `SpiderClimb.wallCrawlEnabled` now always returns false. |
 | **Sneak while clung** | Let go (one press now; the old double-tap is still two presses). A 12-tick lock stops the wall re-grabbing at once. |
 | **Sneak on your tightrope** | Drop under it and hang (a 1.7-block swing line, `FLAG_HANGING`, the client keeps the length fixed). Jump = flip back on top, Sneak = let go. |
-| **Sneak, still, at a drop** | **Ledge perch** (`FLAG_PERCH`, server-detected in `SpiderMoves.tickMotion` / `perchSpot`): a drop of 3+ blocks just ahead of his feet where he faces, or standing on something thin (a fence / wall / post top, collision box under 0.7 wide). The perch (v3, from the user's front-view sketch, Legends-mod style) -- the parts deliberately detach a little from their joints: the body sits low (hips 2 px above the block) and leans ~20 degrees forward from the hips with the head following; the ARMS are the inner pieces, from just below the shoulders diagonally down and inward across the lower body, hands meeting at the block 0.8 px either side of centre in front of the feet (angles solved from the shoulder position); the LEGS are the outer pieces, moved out to x +-4 beside the lower body and fanned 52 degrees outward and 20 degrees forward with the feet on the block. Every x / y / z is blended from its vanilla value (legs and arms from their fixed rest x), so nothing sticks after leaving it --eased in / out over ~5 ticks client-side (`SpiderPose.perchAmount`), synced to everyone. Sticky once settled (a small shuffle does not drop it). Vanilla sneak edge-safety is untouched. First person: the eye sinks 0.32 and tips 6 degrees down (`SpiderPerchCameraMixin`) and BOTH hands come down to meet at the bottom centre of the view (`SpiderPerchHandMixin` also draws the empty off-hand arm). Sheet: `spidey_perch_sheet_v3.png` (front, side, 3/4, first person). |
 | **Attack your own web** | Cut it (client ray test against your webs, nearer than the block you aim at; the server re-raycasts 6 blocks, owner only). |
 | Passives | Double jump, super leap (sneak + jump), Spider-Sense, no fall damage, wall leap -- unchanged. |
 
@@ -219,7 +218,7 @@ Every Spider-Sense sound respects the Shift+N mute.
   - **Blending:** everything is eased — the swing weight in (9/s) and out (4.5/s), each angle, and the aim from one anchor to the next on a chained swing. The server's release somersault (`RELEASE_FLIP`) plays on top.
   - **Torso:** bends go through `HipBend`.
   - **Hanging under a tightrope:** keeps its two-hand hang.
-- **First person** (`SpiderPerchHandMixin#swingHands`):
+- **First person** (`SpiderFirstPersonHandsMixin#swingHands`):
   - The web hand is raised toward the anchor, leaning to its side, bobbing with the arc. The web line leaves from the raised hand (`SpiderStrands.handPosition`).
   - The free hand comes into view at the screen edge on the upswing, and onto the line on a two-hand swing.
   - When the web hand is the off hand it is drawn here.
@@ -252,40 +251,42 @@ Every Spider-Sense sound respects the Shift+N mute.
 - **First-person web lines** (`client.spider.FirstPersonWebAnchor`). In first person every web line starts at the wrist of the hand drawn on screen. This covers the swing, Web Zip / Yank, tightrope shots, combat strands and the swing remnant.
   - **Capture:** `PlayerRendererHandMixin` reports each drawn first-person arm. The wrist point (arm-local y 0.62) is pushed through the hand pass's projection x model-view x pose to screen coordinates.
   - **Line end:** `SpiderStrands.handPosition` turns that screen point back into a world point 0.6 blocks in front of the camera, using the world pass's own projection and view rotation (captured at `WorldRenderEvents.START`).
-  - **Robustness:** this holds at any FOV, with or without view bobbing, and through the swing raise, the perch and any arm animation.
+  - **Robustness:** this holds at any FOV, with or without view bobbing, and through the swing raise and any arm animation.
   - **Lag:** the arm pass runs after the world pass, so the screen point is one frame old. The hand is fixed to the view, so that is about a pixel.
   - **Off hand:** an off-hand strand now draws the off arm, raised toward the strand, so its line has a wrist.
   - **Fallback:** a hand not drawn for 150 ms falls back to the old estimate.
   - Sheet: `spidey_fp_web_wrist_sheet.png` (FOV 70 top row, FOV 100 bottom row: tightrope shot, Web Zip, swing frames).
 - **Weave Mode centre** (`SpiderMoves.weaveCentre`, `webs.weaveCenterDistance` 3.0). Holding C puts the web's centre 3 blocks in front of his eyes along his look, or 0.3 blocks short of a closer block. The radial strands still run from the centre to the aimed surfaces. Gametest: `weaveCentreSitsThreeBlocksAheadOrShortOfAWall`.
 
-### Perch v4, the perch pose editor, the Web Bomb glob, the Zip Boost sound
+### Perch removed, the Web Bomb glob, the Zip Boost sound
 
-- **Perch v4** (the default, `PerchPose.defaults()`). Seen from the front it reads `/ | \`:
-  - Legs: splayed ~41 degrees out and ~14 degrees forward beside the hips, feet resting on the block's top (the 2 px sneak render offset is accounted for).
-  - Body: on top of them, leaning ~20 degrees forward.
-  - Arms: an inverted V meeting on the ledge at the bottom centre in front.
-  - Sheet: `spidey_perch_sheet_v4.png`.
-- **Perch pose editor** (`client.spider.PerchPoseEditorScreen` / `PerchPose`). Client-only: it changes how this client draws the perch. Open it with `/spiderposeeditor`.
-  - **Preview:** a live 3D preview of his own model in the perch. Drag to turn it, scroll to zoom, and use the Block toggle to show or hide the stone block.
-  - **Fields:** per part (head, body, right arm, left arm, right leg, left leg):
-    - x / y / z rot in degrees (0.5 steps);
-    - x / y / z pivot in model px (0.1 steps).
-    - Hold Shift for 10x steps, or type a value.
-  - **Whole-body page:** drop, back/forward shift, extra lean (hip-anchored), and the first-person camera drop / tilt.
-  - **Mirror:** an arm or leg edit is copied, mirrored, to the other side.
-  - **Undo / Reset:** Undo steps back through changes; Reset goes back to the built-in default.
-  - **Save:** writes `config/projecthero_perch_pose.json`, loaded at start-up; it overrides the defaults (delete the file to go back).
-  - **Export:** copies compact JSON to the clipboard and writes `config/projecthero_perch_pose_export.txt`.
-  - **Live:** every change applies to the real perch immediately (the screen does not pause the game).
-  - Positions are for a sneaking model; a standing one is shifted 2 px down.
-  - Shots: `spidey_perch_editor_arm.png`, `spidey_perch_editor_leg.png`.
+- **The ledge perch is removed** (user request). This covers the pose (perch v4), its server detection (`FLAG_PERCH`, `perchSpot`), the first-person perch camera and hands, the in-game pose editor (`/spiderposeeditor`, `PerchPose`, `PerchPoseEditorScreen`, `SpiderPerchCameraMixin`), its lang keys, its guide line and its gametest.
+  - Sneaking at a ledge is ordinary sneaking again.
+  - The first-person swing hands and off-hand strand arms moved to `SpiderFirstPersonHandsMixin`.
+  - On start-up the client deletes `config/projecthero_perch_pose.json` / `config/projecthero_perch_pose_export.txt` if the editor left them.
+
 - **Web Bomb glob** (`SpiderWebBombEntity`, `projecthero:web_bomb`, `WebBombRenderer`):
   - A fat ball of webbing (core, three crossed sheaths, loose strands) that tumbles and pulses.
   - It is lobbed in an exact arc to the aimed point (`launchVelocity`, gravity 0.05 b/t^2, ~1.5 b/t across).
   - It bursts on a body, a block or its landing point into the splash (`SpiderMoves.webBombBurst`: the root, damage, rings and real cobwebs). It no longer draws a web line.
   - Sheet: `spidey_webbomb_glob_sheet.png`. Gametest: `webBombIsALobbedGlobThatBurstsWhereItLands`.
 - **Zip Boost** now plays the swing line's sounds: the thwip at the usual pitch plus the line going out (`SpiderSwing.playAttachSound`).
+
+### Fix: "hold right-click and it shoots a web and immediately releases"
+
+The harness held right-click for 30 ticks through 14 situations, twice each, with every start, release and detach logged on both sides. Two real causes showed up:
+
+1. **The server's altitude backstop.** A fabricated (open-air) line belongs to a "sequence" whose baseline height is kept while he keeps swinging, and `serverTick` detaches a fabricated line once he is more than `AIR_SWING_CEILING` + 4 above that baseline. A line fired while he was *already* above it (he dropped in from higher up, or a fast release / chain flung him up) was therefore cut on the very next tick (logged: start t=254, detach t=255 by `serverTick`).
+   - **Fix:** `SpiderSwing.fire` re-bases the sequence so he is at the ceiling. The rope still gives no lift above it, but the line holds.
+2. **The "swung into a wall: take the wall" release.** Any horizontal collision in the air while swinging sent `SWING_STOP` the same tick, so a line fired while brushing a wall or pillar was dropped at once (logged: `client wall-grab release` one tick after the start).
+   - **Fix:** that release now needs the line to have been held 4+ ticks, and never fires for a line started against a wall until he is clear of it (`SpiderInputClient.wallAtLineStart`, `SpiderSwingClient.ticksOnLine`).
+
+Also: a line fired from the ground now hops him up into the swing (0.48 up) instead of dragging him along the ground. With both fixes, all 28 holds (and the harness's own chained swing) stayed attached until the key was let go.
+
+Gametests:
+- `aSwingFiredFromTheGroundIsHeld`
+- `aSwingFiredHighAboveAFabricatedRunIsNotCutAtOnce`
+- `aRefusedSwingShowsNoLine` (no webbing: the server refuses, nothing attaches)
 
 ## v0.9.10 changes (at a glance)
 

@@ -194,11 +194,6 @@ public final class SpiderPose {
 		if (com.projecthero.mod.client.moonknight.MoonKnightPose.firstPersonHand) {
 			return;
 		}
-		if (previewPerch) {
-			// v0.16.1: the perch pose editor's preview -- the perch alone, at full strength, for anyone
-			perch(m, 1.0f);
-			return;
-		}
 		if (!SpiderMan.hasPower(player)) {
 			return;
 		}
@@ -213,10 +208,6 @@ public final class SpiderPose {
 		}
 		if (s == null) {
 			return;
-		}
-		float perch = perchAmount(player);
-		if (perch > 0f) {
-			perch(m, perch);
 		}
 		// held stances first; a move's animation then blends over them
 		if (s.has(SpiderMoveState.FLAG_WEAVING)) {
@@ -344,76 +335,7 @@ public final class SpiderPose {
 		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -0.06f);
 	}
 
-	/** v0.16.1: set while the perch pose editor draws its preview (the perch is drawn in full, nothing else). */
-	public static boolean previewPerch;
 
-	/** Per player: the eased perch amount (0..1) and the last time it was advanced (ns). */
-	private static final java.util.Map<java.util.UUID, double[]> PERCH_EASE = new java.util.concurrent.ConcurrentHashMap<>();
-
-	/** The ledge perch, eased in / out over about five ticks (0 = standing). */
-	public static float perchAmount(Player player) {
-		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
-		boolean on = s != null && s.has(SpiderMoveState.FLAG_PERCH) && SpiderMan.hasPower(player);
-		double[] e = PERCH_EASE.get(player.getUUID());
-		if (e == null) {
-			if (!on) {
-				return 0f;
-			}
-			e = new double[] {0.0, System.nanoTime()};
-			PERCH_EASE.put(player.getUUID(), e);
-		}
-		long now = System.nanoTime();
-		double dt = Math.min(0.2, (now - e[1]) / 1.0e9);
-		e[1] = now;
-		// a quarter second (5 ticks) from one to the other
-		e[0] = Mth.clamp(e[0] + (on ? dt : -dt) * 4.0, 0.0, 1.0);
-		if (!on && e[0] <= 0.0) {
-			PERCH_EASE.remove(player.getUUID());
-			return 0f;
-		}
-		return smooth((float) e[0]);
-	}
-
-	/**
-	 * The perch (the user's sketch; perch v4 by default): every part's rotation and pivot comes from {@link PerchPose}
-	 * -- the built-in defaults, or the pose the user made in the in-game editor ({@code /spiderposeeditor}) and saved to
-	 * {@code config/projecthero_perch_pose.json}. Seen from the front it reads / | \ : legs splayed down-and-out beside
-	 * the hips with the feet on the block's top, the body low on top of them leaning ~20 degrees forward, the arms an
-	 * inverted V meeting on the ledge at the bottom centre in front. The parts are deliberately moved off their joints;
-	 * the outer skin layers and the suit copy the parts. Every value blends from vanilla's, so leaving the perch puts
-	 * everything back. Pose positions are for a sneaking player (the renderer drops a sneaking model 2 px); standing,
-	 * everything moves down those 2 px.
-	 */
-	private static void perch(HumanoidModel<?> m, float k) {
-		PerchPose p = PerchPose.current();
-		float dy = (m.crouching ? 0.0f : 2.0f) + p.drop;
-		float dz = p.shift;
-		float lookX = m.head.xRot;
-		float lookY = m.head.yRot;
-		place(m.body, p.body, k, dy, dz);
-		place(m.rightArm, p.rightArm, k, dy, dz);
-		place(m.leftArm, p.leftArm, k, dy, dz);
-		place(m.rightLeg, p.rightLeg, k, dy, dz);
-		place(m.leftLeg, p.leftLeg, k, dy, dz);
-		place(m.head, p.head, k, dy, dz);
-		// the head keeps looking where he looks (gently limited), the pose's head angles added on top
-		m.head.xRot = Mth.lerp(k, lookX, Mth.clamp(lookX, -0.1f, 0.45f) + p.head.xRot * Mth.DEG_TO_RAD);
-		m.head.yRot = Mth.lerp(k, lookY, lookY + p.head.yRot * Mth.DEG_TO_RAD);
-		m.hat.copyFrom(m.head);
-		if (p.lean != 0.0f) {
-			// extra lean about the hips -- the neck, head and shoulders follow (HipBend), nothing detaches
-			HipBend.pitch(m, k, m.body.xRot + p.lean * Mth.DEG_TO_RAD);
-		}
-	}
-
-	private static void place(net.minecraft.client.model.geom.ModelPart part, PerchPose.Part p, float k, float dy, float dz) {
-		part.xRot = Mth.lerp(k, part.xRot, p.xRot * Mth.DEG_TO_RAD);
-		part.yRot = Mth.lerp(k, part.yRot, p.yRot * Mth.DEG_TO_RAD);
-		part.zRot = Mth.lerp(k, part.zRot, p.zRot * Mth.DEG_TO_RAD);
-		part.x = Mth.lerp(k, part.x, p.x);
-		part.y = Mth.lerp(k, part.y, p.y + dy);
-		part.z = Mth.lerp(k, part.z, p.z + dz);
-	}
 
 	private static float smooth(float f) {
 		f = Mth.clamp(f, 0f, 1f);

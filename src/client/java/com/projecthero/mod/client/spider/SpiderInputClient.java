@@ -55,6 +55,11 @@ public final class SpiderInputClient {
 	private static int releaseWindow;
 	private static int regrabLock;
 
+	/** v0.16.1: a swing must have been held this many ticks before swinging into a wall lets go of it. */
+	private static final long SWING_WALL_GRACE = 4L;
+	/** v0.16.1: the current line was fired while already pressed against a wall (cleared once he is off it). */
+	private static boolean wallAtLineStart;
+
 	private SpiderInputClient() {
 	}
 
@@ -157,13 +162,27 @@ public final class SpiderInputClient {
 			releaseWindow--;
 		}
 
+		// v0.16.1 FIX: a line fired while already against a wall is not "swung into" it -- remember that until he is
+		// clear of the wall, so it can never cut the fresh line
+		if (!swinging) {
+			wallAtLineStart = false;
+		} else if (SpiderSwingClient.ticksOnLine(player) <= 1 && player.horizontalCollision) {
+			wallAtLineStart = true;
+		} else if (!player.horizontalCollision) {
+			wallAtLineStart = false;
+		}
 		// ---- running / flying into a wall sticks to it (v0.16.1, replaces the C toggle) ----
 		if (spiderMan && !SpiderClimb.crawlOff(player) && !adhered && !sneakDown && regrabLock == 0 && player.horizontalCollision
 				&& !player.getAbilities().flying && !player.isPassenger() && !player.isInWater() && !player.isInLava()
 				&& !local(player).lockedOut()) {
 			boolean airborne = !player.onGround();
 			boolean sprintingIn = player.onGround() && sprintHeld && player.input.up;
-			if (swinging && airborne) {
+			// v0.16.1 FIX: only a swing that has actually carried him into the wall lets go for it -- a line fired while
+			// already brushing a wall (jumping beside one, grazing a pillar) was cut the very next tick ("it shoots a web
+			// and immediately releases")
+			if (swinging && airborne && (wallAtLineStart || SpiderSwingClient.ticksOnLine(player) < SWING_WALL_GRACE)) {
+				// fresh line: keep it, do not take the wall
+			} else if (swinging && airborne) {
 				// swung into a wall: let go of the line and take the wall
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
 				grab(player);

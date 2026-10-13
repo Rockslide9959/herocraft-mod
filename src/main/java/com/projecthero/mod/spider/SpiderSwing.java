@@ -81,6 +81,13 @@ public final class SpiderSwing {
 		// fabricated swings.
 		if (!anchor.artificial() || !isAirSequenceRunning(player)) {
 			c.airSwingBaselineY = player.getY();
+		} else if (player.getY() - c.airSwingBaselineY > AIR_SWING_CEILING) {
+			// v0.16.1 FIX ("hold right-click: it shoots a web and immediately releases"): a fabricated line fired
+			// while he is already above the running sequence's ceiling (he dropped in from higher up, or a fast
+			// release / chain carried him there) used to be cut by serverTick's altitude backstop on the very next
+			// tick -- a web shot and instantly let go. Re-base the sequence so he is AT the ceiling: the rope still
+			// gives him no lift above it (the client's fade), but the line holds.
+			c.airSwingBaselineY = player.getY() - AIR_SWING_CEILING;
 		}
 		SpiderMan.save(player, c);
 

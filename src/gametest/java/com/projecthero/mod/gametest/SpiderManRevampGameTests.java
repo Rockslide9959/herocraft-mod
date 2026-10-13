@@ -361,28 +361,7 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------- the ledge perch ----------------
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void perchNeedsADropOrAThinPost(GameTestHelper helper) {
-		ServerPlayer p = spider(helper);
-		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(1, 4, 1)), helper.absolutePos(new BlockPos(5, 4, 3)))) {
-			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
-		}
-		Vec3 middle = helper.absoluteVec(new Vec3(3.5, 5.0, 2.0));
-		p.moveTo(middle.x, middle.y, middle.z, 0.0f, 0.0f); // facing +Z, the ledge 1.5 blocks ahead
-		helper.assertFalse(SpiderMoves.perchSpot(p), "no perch in the middle of a floor");
-		Vec3 edge = helper.absoluteVec(new Vec3(3.5, 5.0, 3.6));
-		p.moveTo(edge.x, edge.y, edge.z, 0.0f, 0.0f);
-		helper.assertTrue(SpiderMoves.perchSpot(p), "at the edge, facing a 4-block drop, he perches");
-		p.moveTo(edge.x, edge.y, edge.z, 180.0f, 0.0f);
-		helper.assertFalse(SpiderMoves.perchSpot(p), "but not facing back over the floor");
-		BlockPos post = helper.absolutePos(new BlockPos(7, 1, 6));
-		helper.getLevel().setBlock(post, Blocks.OAK_FENCE.defaultBlockState(), 2);
-		p.moveTo(post.getX() + 0.5, post.getY() + 1.5, post.getZ() + 0.5, 90.0f, 0.0f);
-		helper.assertTrue(SpiderMoves.perchSpot(p), "on top of a fence post he perches whichever way he faces");
-		helper.succeed();
-	}
 
 	// ---------------- N wall-crawl toggle, rope networks, zip-to-rope ----------------
 
@@ -512,6 +491,53 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		ServerPlayer plain = helper.makeMockServerPlayerInLevel();
 		helper.assertFalse(SpiderMoves.toggleSounds(plain), "only a Spider-Man has the switch");
 		helper.assertFalse(SpiderMoves.soundsOff(plain), "so nothing changes for anyone else");
+		helper.succeed();
+	}
+
+	/** Runs the server's per-tick swing upkeep {@code ticks} times (advancing tickCount so the periodic checks run). */
+	private static void upkeep(ServerPlayer p, int ticks) {
+		for (int i = 0; i < ticks; i++) {
+			p.tickCount++;
+			SpiderSwing.serverTick(p);
+		}
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aSwingFiredFromTheGroundIsHeld(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		arena(helper, p);
+		helper.assertTrue(SpiderSwing.fire(p), "the line goes out from the ground");
+		upkeep(p, 30);
+		helper.assertTrue(SpiderSwing.isSwinging(p), "and is still held a second and a half later (nothing on the ground lets it go)");
+		SpiderSwing.detach(p, false);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aSwingFiredHighAboveAFabricatedRunIsNotCutAtOnce(GameTestHelper helper) {
+		// the bug: a fabricated line fired while already above the running sequence's ceiling was cut by the altitude
+		// backstop on the very next tick -- "it shoots a web and immediately releases"
+		ServerPlayer p = spider(helper);
+		Vec3 at = helper.absoluteVec(new Vec3(2.5, 6.0, 2.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, -10.0f);
+		var s = SpiderMan.state(p).copy();
+		s.airSwingBaselineY = p.getY() - (SpiderSwing.AIR_SWING_CEILING + 14.0);
+		s.lastWebUseTick = helper.getLevel().getGameTime(); // a fabricated sequence is running (he just let go)
+		p.setAttached(com.projecthero.mod.attachment.ModAttachments.SPIDER_MAN_STATE, s);
+		helper.assertTrue(SpiderSwing.fire(p), "the line goes out");
+		upkeep(p, 20);
+		helper.assertTrue(SpiderSwing.isSwinging(p), "and is held, not cut on the next tick");
+		SpiderSwing.detach(p, false);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aRefusedSwingShowsNoLine(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		arena(helper, p);
+		SpiderMan.setWebReserve(p, 0.0f);
+		helper.assertFalse(SpiderSwing.fire(p), "no webbing: the server refuses the line");
+		helper.assertFalse(SpiderSwing.isSwinging(p), "and nothing is attached -- no line to show and drop");
 		helper.succeed();
 	}
 
