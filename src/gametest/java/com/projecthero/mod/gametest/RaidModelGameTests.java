@@ -94,7 +94,7 @@ public class RaidModelGameTests implements FabricGameTest {
 			}
 			if (model.equals(RaidAnims.BOSS)) {
 				for (String a : PoweredBossAnims.ACCENTS) {
-					helper.assertTrue(names.contains("acc_" + a), "the boss needs accent set acc_" + a);
+					helper.assertTrue(names.stream().anyMatch(n -> n.startsWith("acc_" + a)), "the boss needs accent set acc_" + a); // the renderer shows acc_<set>* by prefix
 				}
 			}
 			JsonObject clips = read("animations/raid/" + model + ".animation.json").getAsJsonObject("animations");

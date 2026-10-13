@@ -87,6 +87,9 @@ public class SupervillainModelGameTests implements FabricGameTest {
 			geo.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject().getAsJsonArray("bones")
 					.forEach(b -> names.add(b.getAsJsonObject().get("name").getAsString()));
 			for (String b : need) {
+				if (b.equals("hand_r") && v == SupervillainVariant.ARSENAL) {
+					continue; // the Arsenal's right forearm is a rotary gun, not a hand
+				}
 				helper.assertTrue(names.contains(b), model + ": missing bone " + b);
 			}
 			JsonObject clips = read("animations/supervillain/" + model + ".animation.json").getAsJsonObject("animations");
