@@ -67,7 +67,9 @@ public class ThorV0161GameTests implements FabricGameTest {
 	}
 
 	private static Zombie dummy(GameTestHelper helper, double x, double z) {
-		Zombie z0 = EntityType.ZOMBIE.create(helper.getLevel());
+		// a Husk (a Zombie that never burns): the test structures sit under the open daytime sky, and a burning zombie's
+		// fire damage looked like the field "still shocking" after it had expired
+		Zombie z0 = EntityType.HUSK.create(helper.getLevel());
 		Vec3 pos = at(helper, x, z);
 		z0.moveTo(pos.x, pos.y, pos.z, 180.0f, 0.0f);
 		z0.setNoAi(true);
