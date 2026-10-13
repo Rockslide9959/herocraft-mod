@@ -34,6 +34,10 @@ public final class IronManPassives {
 	private static final ResourceLocation MINE = ProjectHeroMod.id("iron_man_mining");
 	/** Mark 1's "25% bigger than the normal player model" (spec "changes 12"). */
 	private static final ResourceLocation SCALE = ProjectHeroMod.id("iron_man_suit_scale");
+	/** v0.16.1: the Mark 1's 10% slower walk. */
+	private static final ResourceLocation WALK = ProjectHeroMod.id("iron_man_walk_speed");
+	/** v0.16.1: the Hydro armour's underwater swimming. */
+	private static final ResourceLocation HYDRO_SWIM = ProjectHeroMod.id("iron_man_hydro_swim");
 	/** v0.11.13: how long a per-tick-refreshed suit Resistance effect is granted for (see below). */
 	private static final int RESISTANCE_REFRESH_TICKS = 40;
 
@@ -73,6 +77,24 @@ public final class IronManPassives {
 		double suitScale = suit == null ? 1.0 : suit.scale();
 		set(player, Attributes.SCALE, SCALE, suitScale - 1.0,
 				AttributeModifier.Operation.ADD_MULTIPLIED_BASE, frac >= 1.0 && suitScale != 1.0);
+
+		// v0.16.1 comic rework: the Mark 1 walks 10% slower; the Hydro armour swims three times as fast underwater
+		double walk = suit == null ? 0.0 : suit.walkSpeedBonus();
+		set(player, Attributes.MOVEMENT_SPEED, WALK, walk, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, frac >= 1.0 && walk != 0.0);
+		boolean hydro = powered && suit != null && suit.hydro() && frac >= 1.0;
+		set(player, Attributes.WATER_MOVEMENT_EFFICIENCY, HYDRO_SWIM, 1.0, AttributeModifier.Operation.ADD_VALUE, hydro);
+		if (hydro && player.isInWater()) {
+			// clear underwater vision (Conduit Power) + Dolphin's Grace: with the full water-movement efficiency ~3x the swim
+			player.addEffect(new MobEffectInstance(MobEffects.DOLPHINS_GRACE, RESISTANCE_REFRESH_TICKS, 0, true, false, false));
+			if (IronManArmor.hasHelmet(player, suitId)) {
+				player.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, RESISTANCE_REFRESH_TICKS, 0, true, false, false));
+			}
+		}
+		// v0.16.1: the Mark 1 is a heavy cave-built iron shell -- it sinks
+		if (powered && suit != null && "mark_1".equals(suit.id()) && frac >= 1.0 && player.isInWater() && !player.getAbilities().flying) {
+			player.setDeltaMovement(player.getDeltaMovement().add(0, -0.03, 0));
+			player.hurtMarked = true;
+		}
 
 		// v0.11.13: a full, powered suit with a resistanceAmplifier (Mark 2) grants a standing Resistance
 		// effect -- refreshed every tick like the helmet's Night Vision, so it disappears on its own the

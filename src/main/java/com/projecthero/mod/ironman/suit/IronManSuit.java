@@ -109,6 +109,15 @@ public final class IronManSuit {
 	// v0.15.4 (Mark 6 / Mark 7 rework)
 	private final float wornIntegrityRegenPerSecond; // > 0 = the worn suit repairs this much integrity a second by itself
 	private final float hurtRegenEnergyPerSecond;    // > 0 = Regeneration I while hurt (chestplate on), draining this energy/s
+	// v0.16.1 comic rework
+	private final float absorbShare;             // share of each hit the suit's integrity takes instead of the wearer
+	private final float selfRepairPerSecond;     // > 0 = repairs this much integrity a second after 10 s out of combat
+	private final double walkSpeedBonus;         // ADD_MULTIPLIED_TOTAL on MOVEMENT_SPEED while the full suit is worn (-0.1 = 10% slower)
+	private final boolean hydro;                 // Mark 4: 3x swimming, clear underwater vision, underwater-boosted kit
+	private final boolean stealth;               // Mark 5: no footsteps / flight sounds, sculk ignores the wearer
+	private final boolean hazardImmune;          // Mark 7: fire, lava contact and freezing do nothing
+	private final boolean hulkbuster;            // Mark 8: knockback immune, bonus damage vs bosses and the Hulk
+	private final String displayKey;             // v0.16.1: the comic name shown beside "Mark n" (lang key)
 
 	private final String[] abilities;        // 6, ordered slot 1..6 (ability ids from IronManAbilities)
 	private final SuitUpType suitUpType;
@@ -193,6 +202,14 @@ public final class IronManSuit {
 		this.mobHighlightDurationTicks = b.mobHighlightDurationTicks;
 		this.wornIntegrityRegenPerSecond = b.wornIntegrityRegenPerSecond;
 		this.hurtRegenEnergyPerSecond = b.hurtRegenEnergyPerSecond;
+		this.absorbShare = b.absorbShare;
+		this.selfRepairPerSecond = b.selfRepairPerSecond;
+		this.walkSpeedBonus = b.walkSpeedBonus;
+		this.hydro = b.hydro;
+		this.stealth = b.stealth;
+		this.hazardImmune = b.hazardImmune;
+		this.hulkbuster = b.hulkbuster;
+		this.displayKey = "projecthero.ironman.suit." + b.id + ".comic";
 		this.abilities = b.abilities;
 		this.suitUpType = b.suitUpType;
 		this.summonType = b.summonType;
@@ -301,6 +318,23 @@ public final class IronManSuit {
 	public boolean hurtRegeneration() { return hurtRegenEnergyPerSecond > 0f; }
 	/** v0.15.4: the energy a second that Regeneration costs while it is being applied. */
 	public float hurtRegenEnergyPerSecond() { return hurtRegenEnergyPerSecond; }
+	/** v0.16.1: the share (0..1) of every hit the suit's integrity absorbs instead of the wearer, while it has integrity. */
+	public float absorbShare() { return absorbShare; }
+	/** v0.16.1: integrity a second the worn suit repairs by itself once out of combat for 10 s (Mark 6 / Mark 7 only). */
+	public float selfRepairPerSecond() { return selfRepairPerSecond; }
+	/** v0.16.1: walking speed change while the full suit is worn (Mark 1 -0.1 = 10% slower). */
+	public double walkSpeedBonus() { return walkSpeedBonus; }
+	public boolean hydro() { return hydro; }
+	public boolean stealth() { return stealth; }
+	public boolean hazardImmune() { return hazardImmune; }
+	public boolean hulkbuster() { return hulkbuster; }
+	/** v0.16.1: the comic suit name ("Hydro Armour", "Hulkbuster", ...) lang key. */
+	public String displayKey() { return displayKey; }
+	/** v0.16.1: position in the linear progression (Mark 1 = 0, Mark 1 V2 = 1, ... Mark 8 = 8); sorts suits. */
+	public int progressionIndex() {
+		int i = IronManItems.MARK_ORDER.indexOf(id);
+		return i < 0 ? 99 : i;
+	}
 	public SuitUpType suitUpType() { return suitUpType; }
 	public SummonType summonType() { return summonType; }
 	public Item requiredBlueprint() { return requiredBlueprint; }
@@ -391,6 +425,13 @@ public final class IronManSuit {
 		private int mobHighlightDurationTicks = 0;
 		private float wornIntegrityRegenPerSecond = 0f;
 		private float hurtRegenEnergyPerSecond = 0f;
+		private float absorbShare = 0.3f;
+		private float selfRepairPerSecond = 0f;
+		private double walkSpeedBonus = 0.0;
+		private boolean hydro = false;
+		private boolean stealth = false;
+		private boolean hazardImmune = false;
+		private boolean hulkbuster = false;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
 		private SummonType summonType = SummonType.FLYING_SET;
@@ -526,6 +567,15 @@ public final class IronManSuit {
 		public Builder wornIntegrityRegen(float perSecond) { this.wornIntegrityRegenPerSecond = perSecond; return this; }
 		/** v0.15.4: Regeneration I while the wearer is below full health (chestplate on), costing {@code energyPerSecond}. */
 		public Builder hurtRegeneration(float energyPerSecond) { this.hurtRegenEnergyPerSecond = energyPerSecond; return this; }
+		/** v0.16.1: the integrity absorption share (Mark 1 0.2 ... Hulkbuster 0.6). */
+		public Builder absorb(float share) { this.absorbShare = share; return this; }
+		/** v0.16.1: out-of-combat self-repair, integrity per second (Mark 6 / Mark 7). */
+		public Builder selfRepair(float perSecond) { this.selfRepairPerSecond = perSecond; return this; }
+		public Builder walkSpeed(double bonus) { this.walkSpeedBonus = bonus; return this; }
+		public Builder hydro() { this.hydro = true; return this; }
+		public Builder stealth() { this.stealth = true; return this; }
+		public Builder hazardImmune() { this.hazardImmune = true; return this; }
+		public Builder hulkbuster() { this.hulkbuster = true; return this; }
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };
 			return this;
