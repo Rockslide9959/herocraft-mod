@@ -124,6 +124,25 @@ public final class GalactusTerrain extends SavedData {
 				|| s.is(Blocks.SUGAR_CANE) || s.is(Blocks.CACTUS);
 	}
 
+	/**
+	 * The y of the first real block at the top of column (x, z), from the {@code heightmap} top down: barriers (an invisible
+	 * admin wall or roof -- the gametest cage has one) and structure voids are looked through. Returns that block's y.
+	 */
+	public static int topBlockY(ServerLevel level, int x, int z, Heightmap.Types heightmap) {
+		int y = level.getHeight(heightmap, x, z) - 1;
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y, z);
+		int floor = Math.max(level.getMinBuildHeight(), y - 64);
+		while (y > floor) {
+			p.setY(y);
+			BlockState s = level.getBlockState(p);
+			if (!s.isAir() && !s.is(Blocks.BARRIER) && !s.is(Blocks.STRUCTURE_VOID)) {
+				break;
+			}
+			y--;
+		}
+		return y;
+	}
+
 	/** Is there a block entity within {@code r} blocks of {@code pos}? (An unloaded chunk counts as yes.) */
 	public static boolean nearBlockEntity(ServerLevel level, BlockPos pos, int r) {
 		if (r <= 0) {
@@ -196,7 +215,7 @@ public final class GalactusTerrain extends SavedData {
 	 * blocks turned into {@code into}; stops at the first block that is neither. Returns the blocks changed.
 	 */
 	public int consumeColumn(ServerLevel level, UUID event, int group, int x, int z, int depth, BlockState into, int budget) {
-		int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+		int top = topBlockY(level, x, z, Heightmap.Types.WORLD_SURFACE);
 		int ground = 0;
 		int changed = 0;
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();

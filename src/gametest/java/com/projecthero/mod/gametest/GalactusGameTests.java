@@ -159,7 +159,8 @@ public class GalactusGameTests implements FabricGameTest {
 					"a second one nearby is refused");
 			s = e.startHerald(level);
 			helper.assertTrue(s != null && e.ownsEntity(s) && e.phase() == GalactusEvent.Phase.HERALD, "the Herald descends, owned by the event");
-			helper.assertTrue(s.getMaxHealth() == (float) GalactusConfig.heraldHealthFor(1), "solo Herald health");
+			helper.assertTrue(s.getMaxHealth() == (float) GalactusConfig.heraldHealthFor(e.fighterCount()),
+					"Herald health for the fighters present (mock players from earlier batches may join the arena)");
 		} finally {
 			end(level, e);
 		}
@@ -173,31 +174,34 @@ public class GalactusGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the Herald turns
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_surfer", timeoutTicks = 100)
+	// Every test here runs in ONE tick and ends its event before returning: batches can overlap, and a Galactus still
+	// running from an earlier batch would refuse the next one (one per 256 blocks).
+	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_surfer", timeoutTicks = 40)
 	public void surferTurnsAllyAtTenPercentAndCannotBeKilledAfter(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		GalactusEvent e = startPinned(helper);
-		ServerPlayer p = survivor(helper);
-		e.addFighter(p.getUUID());
-		SilverSurferEntity s = e.startHerald(level);
-		helper.assertTrue(s != null && !s.isAlly(), "a hostile Herald");
-		s.invulnerableTime = 0;
-		s.hurt(level.damageSources().playerAttack(p), 100000f);
-		helper.assertTrue(s.isAlive(), "he can't be killed in the duel");
-		helper.assertTrue(Math.abs(s.getHealth() - s.turnHealth()) < 0.01, "he stops at 10%: " + s.getHealth() + " vs " + s.turnHealth());
-		helper.succeedWhen(() -> {
-			helper.assertTrue(s.isTurning() || s.isAlly(), "at 10% he turns on his own");
-			helper.assertTrue(e.phase() == GalactusEvent.Phase.TURN || e.phase().ordinal() >= GalactusEvent.Phase.WORLDSHIP.ordinal(),
-					"the event follows: " + e.phase());
+		try {
+			ServerPlayer p = survivor(helper);
+			e.addFighter(p.getUUID());
+			SilverSurferEntity s = e.startHerald(level);
+			helper.assertTrue(s != null && !s.isAlly(), "a hostile Herald");
+			s.invulnerableTime = 0;
+			s.hurt(level.damageSources().playerAttack(p), 100000f);
+			helper.assertTrue(s.isAlive(), "he can't be killed in the duel");
+			helper.assertTrue(Math.abs(s.getHealth() - s.turnHealth()) < 0.01, "he stops at 10%: " + s.getHealth() + " vs " + s.turnHealth());
+			helper.assertTrue(s.checkTurn(level), "at 10% his AI turns him (the first check of every hostile tick)");
+			helper.assertTrue(s.isTurning() && e.phase() == GalactusEvent.Phase.TURN, "turning, and the event follows: " + e.phase());
 			s.becomeAlly(level);
 			helper.assertTrue(s.isAlly() && e.phase() == GalactusEvent.Phase.WORLDSHIP, "an ally, and the Worldship comes");
 			s.invulnerableTime = 0;
 			helper.assertFalse(s.hurt(level.damageSources().playerAttack(p), 100000f), "protected: nothing hurts him now");
 			helper.assertTrue(s.isAlive() && s.getHealth() == s.getMaxHealth(), "full health, alive");
 			helper.assertTrue(s.isAlliedTo(p), "on the fighters' side");
+		} finally {
 			end(level, e);
-			level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		});
+		}
+		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
+		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- terrain
@@ -221,6 +225,9 @@ public class GalactusGameTests implements FabricGameTest {
 			helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST) && level.getBlockEntity(chest) != null, "the chest is untouched");
 			for (int dx = -3; dx <= 3; dx++) {
 				for (int dz = -3; dz <= 3; dz++) {
+					if (dx * dx + dz * dz > 9) {
+						continue; // the clearance is a 3-block circle round the block entity, not a square
+					}
 					for (int dy = -2; dy <= 1; dy++) {
 						helper.assertFalse(terrain.tracks(e.id(), chest.offset(dx, dy, dz)), "nothing within 3 of the chest is consumed");
 					}
@@ -250,11 +257,11 @@ public class GalactusGameTests implements FabricGameTest {
 			e.transmute(level, Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(6, 2, 6))), 1, 400);
 			e.startWorldship(level);
 			List<ElementConverterEntity> live = e.liveConverters(level);
-			helper.assertTrue(live.size() == 3 && e.phase() == GalactusEvent.Phase.WORLDSHIP, "three converters for one fighter");
+			helper.assertTrue(live.size() == GalactusConfig.converterCountFor(e.fighterCount()) && e.phase() == GalactusEvent.Phase.WORLDSHIP, "3 converters, +1 per two extra fighters, got " + live.size());
 			double rate = e.consumptionRate(level);
-			helper.assertTrue(Math.abs(rate - 3 * GalactusConfig.consumption().perConverterPerMinute / 60.0) < 1e-6, "5%/min per converter, got " + rate);
+			helper.assertTrue(Math.abs(rate - live.size() * GalactusConfig.consumption().perConverterPerMinute / 60.0) < 1e-6, "5%/min per converter, got " + rate);
 			e.addConsumption(level, rate * 60);
-			helper.assertTrue(Math.abs(e.consumption() - 15.0) < 1e-6, "the bar fills (" + e.consumption() + ")");
+			helper.assertTrue(Math.abs(e.consumption() - live.size() * 5.0) < 1e-6, "the bar fills (" + e.consumption() + ")");
 			int changed = e.debugConsume(level, live.get(0), 5, 30);
 			GalactusTerrain terrain = GalactusTerrain.get(level);
 			helper.assertTrue(changed > 0 && terrain.count(e.id(), GalactusTerrain.GROUP_HAZARD) > 0, "land eaten and a hazard patch down");
@@ -311,7 +318,7 @@ public class GalactusGameTests implements FabricGameTest {
 			e.addFighter(p.getUUID());
 			GalactusEntity g = e.startGalactus(level);
 			helper.assertTrue(g != null && e.phase() == GalactusEvent.Phase.GALACTUS, "Galactus stands");
-			helper.assertTrue(g.getMaxHealth() == (float) GalactusConfig.galactusHealthFor(1), "solo health");
+			helper.assertTrue(g.getMaxHealth() == (float) GalactusConfig.galactusHealthFor(e.fighterCount()), "health for the fighters present");
 			helper.assertTrue(e.livePylons(level).size() == 4, "four Power Pylons");
 			g.noAutoMoves = true;
 			for (int i = 0; i < 5; i++) {
@@ -330,15 +337,16 @@ public class GalactusGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_weak", timeoutTicks = 100)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_weak", timeoutTicks = 40)
 	public void weakPointsTakeFullDamageTheBodyReduced(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		GalactusEvent e = startPinned(helper);
-		ServerPlayer p = survivor(helper);
-		e.addFighter(p.getUUID());
-		GalactusEntity g = e.startGalactus(level);
-		g.noAutoMoves = true;
-		helper.succeedWhen(() -> {
+		try {
+			ServerPlayer p = survivor(helper);
+			e.addFighter(p.getUUID());
+			GalactusEntity g = e.startGalactus(level);
+			g.noAutoMoves = true;
+			g.keepWeakPoints(level); // what his every tick does
 			GalactusWeakPointEntity w = g.weakPoint(GalactusWeakPointEntity.KIND_EMBLEM);
 			helper.assertTrue(w != null, "the chest emblem is placed on him");
 			helper.assertTrue(w.sealed(), "sealed while the pylons stand");
@@ -349,7 +357,8 @@ public class GalactusGameTests implements FabricGameTest {
 				pylon.kill();
 			}
 			helper.assertTrue(e.pylonsStanding(level) == 0, "every pylon down");
-			w.setSealed(false);
+			g.keepWeakPoints(level);
+			helper.assertFalse(w.sealed(), "the weak points open with the last pylon");
 			g.setHealth(g.getMaxHealth());
 			float h0 = g.getHealth();
 			g.invulnerableTime = 0;
@@ -368,9 +377,11 @@ public class GalactusGameTests implements FabricGameTest {
 			w.hurt(level.damageSources().playerAttack(p), 1.0e6f);
 			helper.assertTrue(e.weakPointBroken(GalactusWeakPointEntity.KIND_EMBLEM), "broken");
 			helper.assertTrue(h2 - g.getHealth() > g.getMaxHealth() * GalactusConfig.weakPoints().breakDamageFraction - 1, "breaking it costs him more");
+		} finally {
 			end(level, e);
-			level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
-		});
+		}
+		level.setBlockAndUpdate(e.center(), Blocks.AIR.defaultBlockState());
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus_win", timeoutTicks = 40)
@@ -386,8 +397,7 @@ public class GalactusGameTests implements FabricGameTest {
 			g.noAutoMoves = true;
 			helper.assertTrue(e.useNullifier(level, p), "the Nullifier is used on him");
 			helper.assertTrue(e.phase() == GalactusEvent.Phase.RETREAT && g.move() == GalactusEntity.Move.RETREAT, "he retreats");
-			e.debugAdvance(level, p);
-			e.tick(level);
+			e.debugFinishRetreat(level);
 			helper.assertTrue(e.state() == EventState.COMPLETED, "a win, got " + e.state());
 			helper.assertTrue(level.getBlockState(e.center()).is(Blocks.CHEST), "the beacon becomes the reward chest");
 			helper.assertTrue(GalactusRewards.clears(p) == clears + 1, "the clear is recorded");

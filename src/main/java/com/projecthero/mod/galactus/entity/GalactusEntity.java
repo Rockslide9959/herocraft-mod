@@ -262,7 +262,8 @@ public class GalactusEntity extends GalactusMob {
 		return grabbedId != null && level.getEntity(grabbedId) instanceof LivingEntity l ? l : null;
 	}
 
-	private void keepWeakPoints(ServerLevel level) {
+	/** Creates / places the unbroken weak points (every server tick; public for the gametests). */
+	public void keepWeakPoints(ServerLevel level) {
 		GalactusEvent e = event();
 		int fighters = e != null ? e.fighterCount() : 1;
 		boolean sealed = e != null && e.pylonsStanding(level) > 0;

@@ -1153,7 +1153,7 @@ public class GalactusEvent extends EventInstance {
 				if (level.getChunkSource().getChunkNow(x >> 4, z >> 4) == null) {
 					continue;
 				}
-				int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+				int top = GalactusTerrain.topBlockY(level, x, z, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES);
 				if (Math.abs(top - c.getY()) > 4) {
 					continue;
 				}
@@ -1473,7 +1473,7 @@ public class GalactusEvent extends EventInstance {
 		if (!level.isLoaded(column)) {
 			return column;
 		}
-		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, column.getX(), column.getZ());
+		int y = GalactusTerrain.topBlockY(level, column.getX(), column.getZ(), Heightmap.Types.MOTION_BLOCKING_NO_LEAVES) + 1;
 		if (Math.abs(y - center().getY()) > 24) {
 			y = center().getY() + 1;
 		}
@@ -1669,6 +1669,14 @@ public class GalactusEvent extends EventInstance {
 		if (phase == Phase.CONSUMED) {
 			phaseStart = level.getGameTime() - 100000;
 			tickConsumed(level, 100000);
+		}
+	}
+
+	/** Test hook: the retreat cinematic skipped (the win lands now). */
+	public void debugFinishRetreat(ServerLevel level) {
+		if (phase == Phase.RETREAT) {
+			phaseStart = level.getGameTime() - 100000;
+			tickRetreat(level, 100000);
 		}
 	}
 

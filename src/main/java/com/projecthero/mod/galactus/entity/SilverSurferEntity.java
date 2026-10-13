@@ -308,9 +308,17 @@ public class SilverSurferEntity extends GalactusMob {
 		}
 	}
 
-	private void tickHostile(ServerLevel level) {
-		if (getHealth() <= turnHealth() + 0.01f) {
+	/** The first thing his hostile AI does every tick: at 10% he turns. True if he did (public for the gametests). */
+	public boolean checkTurn(ServerLevel level) {
+		if (surferState() == HOSTILE && getHealth() <= turnHealth() + 0.01f) {
 			beginTurn(level);
+			return true;
+		}
+		return false;
+	}
+
+	private void tickHostile(ServerLevel level) {
+		if (checkTurn(level)) {
 			return;
 		}
 		threat.tick();
