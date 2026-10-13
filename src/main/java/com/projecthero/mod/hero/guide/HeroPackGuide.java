@@ -166,19 +166,7 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.symbiote_spider_man.suit");
 			para(lines, "projecthero.guide.symbiote_spider_man.suit.body");
 			blank(lines);
-			head(lines, "projecthero.guide.spider_man.controls");
-			for (String ability : new String[]{
-					com.projecthero.mod.spider.SpiderAbilities.WEB_SWING,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_ZIP,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_YANK,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_SHOT,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_NET,
-					com.projecthero.mod.spider.SpiderAbilities.WALL_CRAWL }) {
-				lines.add(Component.literal(" " + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(ability) + "  ")
-						.withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.spider_man.ability." + ability).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.spider_man.ability." + ability + ".desc");
-			}
+			spiderControls(lines); // v0.16.1
 			blank(lines);
 			symbioteBlackSuitExtras(lines);
 			head(lines, "projecthero.guide.symbiote_spider_man.passives");
@@ -256,6 +244,39 @@ public final class HeroPackGuide {
 		symbioteRow(lines, "Sneak+hold Z", "onslaught", "90");
 		symbioteRow(lines, "Sneak+V", "shield", "toggle");
 		symbioteRow(lines, "Sneak+C", "tendril_grab", "5");
+		blank(lines);
+	}
+
+	/**
+	 * v0.16.1: Spider-Man's controls -- six keys, each with a tap / Shift / hold move (and what each does), then the key-free
+	 * traversal and the web structures. Shared by the Spider-Man and Black Suit Spider-Man chapters.
+	 */
+	private static void spiderControls(List<Component> lines) {
+		head(lines, "projecthero.guide.spider_man.controls");
+		para(lines, "projecthero.guide.spider_man.controls.body");
+		for (int i = 0; i < 6; i++) {
+			char key = com.projecthero.mod.hero.AbilitySlot.byNumber(i + 1).defaultKey();
+			String[] ids = {com.projecthero.mod.spider.SpiderMoves.TAP[i], com.projecthero.mod.spider.SpiderMoves.SHIFT[i],
+					com.projecthero.mod.spider.SpiderMoves.HOLD[i]};
+			String[] how = {"projecthero.guide.spider_man.how.tap", "projecthero.guide.spider_man.how.shift",
+					"projecthero.guide.spider_man.how.hold"};
+			for (int k = 0; k < 3; k++) {
+				lines.add(Component.literal(" " + key + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable(how[k]).withStyle(ChatFormatting.DARK_GRAY))
+						.append(Component.literal(" "))
+						.append(Component.translatable("projecthero.spider_man.ability." + ids[k]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.spider_man.ability." + ids[k] + ".desc");
+			}
+		}
+		blank(lines);
+		head(lines, "projecthero.guide.spider_man.traversal");
+		for (String t : new String[]{"swing", "zip_boost", "crawl", "rope", "cut"}) {
+			lines.add(Component.literal(" • ").append(
+					Component.translatable("projecthero.guide.spider_man.traversal." + t)).withStyle(ChatFormatting.GRAY));
+		}
+		blank(lines);
+		head(lines, "projecthero.guide.spider_man.webs");
+		para(lines, "projecthero.guide.spider_man.webs.body");
 		blank(lines);
 	}
 
@@ -507,30 +528,10 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.guide.spider_man.step." + step).withStyle(ChatFormatting.WHITE)));
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.spider_man.controls");
-			for (String ability : new String[]{
-					com.projecthero.mod.spider.SpiderAbilities.WEB_SWING,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_ZIP,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_YANK,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_SHOT,
-					com.projecthero.mod.spider.SpiderAbilities.WEB_NET,
-					com.projecthero.mod.spider.SpiderAbilities.WALL_CRAWL }) {
-				lines.add(Component.literal(" " + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(ability) + "  ")
-						.withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.spider_man.ability." + ability).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.spider_man.ability." + ability + ".desc");
-			}
-			blank(lines);
-			head(lines, "projecthero.guide.spider_man.combat");
-			para(lines, "projecthero.guide.spider_man.combat.body");
-			for (String c : new String[]{"r", "g", "x", "z", "v"}) {
-				lines.add(Component.literal(" • ").append(
-						Component.translatable("projecthero.guide.spider_man.combat." + c)).withStyle(ChatFormatting.GRAY));
-			}
-			blank(lines);
+			spiderControls(lines); // v0.16.1: the 18-move kit, traversal and the web structures
 			head(lines, "projecthero.guide.spider_man.passives");
 			for (String p : new String[]{"sense", "dodge", "arrows", "crawl", "ceiling", "wall_leap",
-					"double_jump", "super_jump", "web_blossom", "strength", "agility", "fall", "reserve"}) {
+					"double_jump", "super_jump", "strength", "agility", "fall", "reserve"}) {
 				lines.add(Component.literal(" • ").append(
 						Component.translatable("projecthero.guide.spider_man.passive." + p)).withStyle(ChatFormatting.GRAY));
 			}

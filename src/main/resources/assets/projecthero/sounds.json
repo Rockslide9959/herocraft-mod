@@ -2401,5 +2401,43 @@
         "name": "projecthero:wolverine/sniff3"
       }
     ]
+  },
+  "spider_thwip": {
+    "subtitle": "subtitles.projecthero.spider_thwip",
+    "sounds": [
+      {
+        "name": "projecthero:spiderman/thwip1"
+      },
+      {
+        "name": "projecthero:spiderman/thwip2"
+      },
+      {
+        "name": "projecthero:spiderman/thwip3"
+      }
+    ]
+  },
+  "spider_zip": {
+    "subtitle": "subtitles.projecthero.spider_zip",
+    "sounds": [
+      {
+        "name": "projecthero:spiderman/zip"
+      }
+    ]
+  },
+  "spider_splat": {
+    "subtitle": "subtitles.projecthero.spider_splat",
+    "sounds": [
+      {
+        "name": "projecthero:spiderman/splat"
+      }
+    ]
+  },
+  "spider_sense": {
+    "subtitle": "subtitles.projecthero.spider_sense",
+    "sounds": [
+      {
+        "name": "projecthero:spiderman/sense"
+      }
+    ]
   }
 }

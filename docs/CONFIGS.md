@@ -67,6 +67,7 @@ values and version.
 | `projecthero_ultron.json` | `ultron/UltronConfig` | 1 | 1 introduce (v0.15.12 Ultron Uprising) | No. New in v0.15.12 and versioned from the start. |
 | `projecthero_frost_giants.json` | `frostgiant/FrostGiantConfig` | 1 | 1 introduce (v0.16.1 Frost Giant Assault) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_contagion.json` | `ultron/contagion/ContagionConfig` | 1 | 1 introduce (v0.16.1 Ultron Contagion) | No. New in v0.16.1 and versioned from the start. |
+| `projecthero_spider_man.json` | `spider/SpiderManConfig` | 1 | 1 introduce (v0.16.1 Spider-Man revamp; `moves` is balance, `webs` is the server's) | No. New in v0.16.1 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration
 steps. The Oathbreaker has no config file: its numbers are code constants, so they can't go stale.

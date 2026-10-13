@@ -3,6 +3,126 @@
 Added in **v0.6.3**. Package root `com.projecthero.mod.spider`, client half in
 `com.projecthero.mod.client.spider`.
 
+## v0.16.1 -- the revamp: 18 moves, right-click swinging, webs as structures
+
+**Everything below supersedes the older control tables further down** (the R swing key, the N Traversal / Combat
+toggle, the C wall-crawl toggle and Web Net are gone).
+
+### Controls
+
+Swinging and the rest of the traversal use **no ability key**:
+
+| Input | What |
+|---|---|
+| **Hold right-click, empty main hand** | Web Swing (the existing hybrid anchoring / rope / altitude physics). Release = let go with your momentum; a fast release plays a forward somersault. Not when the crosshair is on an entity or an interactable block in reach (door, trapdoor, gate, button, lever, bed, bell, note block, repeater, comparator, daylight sensor, cake, composter, respawn anchor, anything with a menu or a block entity), so right-click still uses those. His webs (tightropes / woven webs / walls) are anchors too. |
+| **Sprint + Jump in the air** | Zip Boost: a quick web-zip forward (1.6 b/t along the look, slight lift), strand to the aimed block or a point ahead. 3 webbing, 16-tick cooldown (`zip_boost`). Plain Jump in the air = the double jump, as before. |
+| **Run / fly into a wall** | Wall crawl engages by itself: airborne with `horizontalCollision`, or on the ground sprinting forward into it (a 0.32 hop hands it to the climb engine), or swinging into it (the line is dropped and the wall taken). The client arms its own `SpiderClimbLocal.grabIntent` and sends `CLIMB_GRAB`. `SpiderClimb.wallCrawlEnabled` now always returns false. |
+| **Sneak while clung** | Let go (one press now; the old double-tap is still two presses). A 12-tick lock stops the wall re-grabbing at once. |
+| **Sneak on your tightrope** | Drop under it and hang (a 1.7-block swing line, `FLAG_HANGING`, the client keeps the length fixed). Jump = flip back on top, Sneak = let go. |
+| **Attack your own web** | Cut it (client ray test against your webs, nearer than the block you aim at; the server re-raycasts 6 blocks, owner only). |
+| Passives | Double jump, super leap (sneak + jump), Spider-Sense, no fall damage, wall leap -- unchanged. |
+
+The six keys each hold **three moves** -- tap, Shift+key (Shift read when the key goes down; fires at once), or hold
+(`webs.holdTicks`, 8 ticks; a shorter press is the tap, fired on release). Every move has its own cooldown id.
+
+| Key | Tap | Shift + key | Hold |
+|---|---|---|---|
+| **R** web shooters | **Web Shot** `web_shot` -- 2 dmg, stick stacks + Slowness (3 = 12 s cocoon). 2 web, 6 t | **Web Bomb** `web_bomb` -- burst at the aim (30 b): r 4, 3 dmg, rooted 3 s. 15 web, 6 s | **Impact Web** `impact_web` -- charge (full +20 t), release: 10 dmg (x1.5 full), knockback, 12 s cocoon, wall pin; auto-fires at 3 s. 12 web, 1.5 s |
+| **G** zip | **Point Zip** `point_zip` -- hauled to the aimed block (100 b); a wall face arms adhesion. 5 web, 10 t | **Web Yank** `web_yank` -- armed target: held items ripped to you; else the old yank (items / light / heavy). 6 web, 1.5 s | **Zip Kick** `zip_kick` -- zip at the aimed enemy (30 b), flying kick 14 dmg + big knockback, bounce off. 10 web, 5 s |
+| **X** melee | **Web Strike** `web_strike` -- zip in (30 b) + 3 punches 5 / 5 / 9 (finisher knockback). 8 web, 2.5 s | **Uppercut Launch** `uppercut` -- 5 b: 8 dmg, target launched (1.05 up), you leap after it; a 3 s air-combo window where your hits keep it (and you) aloft. 6 web, 6 s | **Spider-Sense Counter** `spider_counter` -- 1 s stance: the next attack (attacker or projectile) is dodged with a back-flip and countered: 12 dmg + knockback to an attacker within 10 b, projectiles reversed. 4 web, 8 s (3 s on a whiff) |
+| **Z** throws | **Web Whip** `web_whip` -- everything within 4 b: 7 dmg, knockback, stick stack; whip ring + body spin. 10 web, 4 s | **Grab & Hurl** `grab_hurl` -- aimed mob (16 b) or, with none, a loose block: hauled to the hand (9 t), thrown along the look; 10 dmg on impact (thrown blocks shatter into drops, half damage to bystanders). 10 web, 5 s | **Web Swing-Throw** `swing_throw` -- the old Web-Throw: whirl a mob (30 b) round your head while held, release hurls it; 6 dmg on impact. 10 web, 3 s |
+| **V** big moves | **Spider-Sense Pulse** `spider_pulse` -- client-only highlight of every `Enemy` within 32 b for 6 s, Speed IV 6 s, a 2 s dodge window (every hit with an attacker is negated). 10 web, 20 s | **Web Cocoon** `web_cocoon` -- an enemy (20 b) at <= 40 % health, webbed, cocooned or Slowness III+: cocooned 12 s and takes x1.6 damage from players. Not bosses. 25 web, 10 s | **Web Blossom** `web_blossom` -- charge 2 s (no Sneak needed now), 40 dmg + 20 s trap within 20 b. 75 web, 20 s |
+| **C** web building | **Tightrope** `tightrope` -- 1st press: anchor A (aimed surface); 2nd: a strand A -> B if <= 32 b apart. Aim at nothing to clear A; A is forgotten after 30 s. 10 web (at B), 10 t | **Web Wall** `web_wall` -- a 3 x 3 panel 2.5 b ahead, facing you (axis-snapped). Blocks every projectile not fired by you / your squad; traps mobs. 25 web, 10 s | **Weave Mode** `weave` -- the aimed point (24 b) is the centre; each left-click = a radial strand to the aimed surface (<= 10 strands, <= 24 b each, 8 web each); release C = spiral rings fill in (30 web). 15 s cooldown; closes itself after 30 s |
+
+Black Suit Spider-Man: Shift+X (Tendril Strike), Shift+Z (Crush, held) and airborne Shift+C (Slam) are the Symbiote's
+while the suit is on (the Agent Venom precedent) -- they shadow Uppercut, Grab & Hurl and an airborne Web Wall.
+
+### Web structures (`spider.web`)
+
+- `WebStructureEntity` (entity type `projecthero:web_structure`): one tightrope / web wall / woven web. Its shape is a
+  `WebGeometry` (strand segments + an optional thin wall panel) synced as a compound tag; owner UUID, birth and expiry
+  game times are synced too. **No block is ever placed or removed.**
+- **Collision**: `EntityWebCollisionMixin` adds the web's boxes to `Entity.collide`'s entity-collision list (MixinExtras
+  `@ModifyExpressionValue` on `Level.getEntityCollisions`) for players allowed to use it -- the owner and his squad
+  (`WebStructures.mayUse`: server `Squads.areAllies` / `SquadManager.sameSquad`, client the `SquadClient` roster). It runs
+  on both sides (the client simulates, the server's `handleMovePlayer` re-runs the move with the same boxes), so walking a
+  rope never rubber-bands. Strand boxes (0.44 wide, every 0.4 along the strand, top flush with it) are **one-way
+  platforms** (only when the feet are within 0.5 below the top) unless you are wall-crawling, so you can jump up through a
+  web and land on it, and climb a vertical one. The wall panel is solid. `SpiderClimb.hasGrip` also grips webs.
+- **Strangers** (anyone else, mobs included) pass into a web and are stuck fast while touching it:
+  `makeStuckInBlock(STRUCTURE_VOID, 0.08 / 0.04 / 0.08)` each tick (the server for mobs, `SpiderTraversalClient` for a
+  stranger's own client). STRUCTURE_VOID, not COBWEB, so `EntityWebMixin`'s cobweb pass for Spider-Men / the Hulk does
+  not apply. Carnage (`ignoresWebs`) is not held.
+- **Web alarm**: a stranger touching (or a projectile hitting a wall) sends `SpiderWebAlarmPayload` to the owner (same
+  level, within `alarmRange`, once per `alarmCooldownTicks` per web): the Spider-Sense tingle + a HUD arrow and distance
+  for 4 s.
+- **Life**: fade after `fadeSeconds` (300; the renderer fades the last 10 s), cut by the owner, capped at
+  `maxStructuresPerPlayer` (12; a new web dissolves the oldest). **Never saved** (`shouldBeSaved() == false`): a chunk
+  unload or restart simply drops them -- no orphans possible. Registry = two sets (server / client) in `WebStructures`,
+  pruned on query; the server set is cleared by `ServerStateReset`.
+- **Rendering**: `WebStructureRenderer` -- camera-facing silk ribbons (`textures/entity/spider_web_strand.png`) with a
+  sag on long spans, and a double-sided orb-web panel (`spider_web_wall.png`) for walls; both generated by
+  `scratchpad/gen_spiderman_web_textures.js`.
+
+### Feel
+
+- `SpiderPose` (client): keyframed animations for every move (thwip L/R/both, impact recoil, zip, yank, zip kick,
+  3-punch combo, uppercut, counter flip, whip, hurl, swing-throw release, tightrope shot, wall cast, weave shot / finish,
+  pulse, cocoon, blossom, release flip) and held stances (weaving, counter guard, impact charge, swing-throw whirl,
+  blossom crouch, hanging, the swing body: free arm out, knees tucked). The **superhero landing** plays after any drop
+  faster than 0.75 b/t (server-detected, `SpiderMoves.tickMotion`). Whole-body flips / spins are
+  `SpiderPose.bodyRotation` (via `PlayerRendererMixin`). Synced through the new non-persistent `SpiderMoveState`
+  attachment (`projecthero:spider_move_state`: anim id + start, stance flags, anchor A, weave centre / strand count,
+  pulse end).
+- Every web line is a `SpiderWebLineRenderer` strand from the tracked hand (new strand slots: shot, tightrope A
+  preview, weave centre, grab, whip, counter), plus the Web Whip ring.
+- **Sounds** (`SpiderSounds`, synthesised by `scratchpad/synth_spiderman_sounds.js`, ffmpeg -> OGG): `spider_thwip`
+  (3 takes), `spider_zip`, `spider_splat`, `spider_sense`.
+
+### HUD
+
+Six boxes R G X Z V C: the tap move's cooldown fills the box; two thin bars along the bottom are the Shift (blue) and
+hold (red) cooldowns; a key whose stance is running is outlined. Left Alt lists all 18 names (wrapped to 190 px) plus
+the traversal hint. Under the row: Spider-Man, Web %, the reserve bar, and a status line (Weave strands, anchor A,
+Impact charge, counter stance, air combo, hanging). The web-alarm arrow and the Spider-Sense markers draw whatever holds
+the slots.
+
+### Config -- `config/projecthero_spider_man.json` (`SpiderManConfig`)
+
+`webs` (server preference): `fadeSeconds` 300, `maxStructuresPerPlayer` 12, `blockGrabbing` true, `alarmRange` 160,
+`alarmCooldownTicks` 60, `tightropeMaxLength` 32, `weaveMaxStrands` 10, `weaveStrandLength` 24, `strangerSlowFactor`
+0.08, `holdTicks` 8.
+
+`moves` (balance; each `Move` is `{cooldown ticks, cost, damage}`): `webShot` 6/2/2, `webBomb` 120/15/3 (+`webBombRadius`
+4, `webBombRootTicks` 60), `impactWeb` 30/12/10 (+`impactChargeTicks` 20), `pointZip` 10/5, `webYank` 30/6, `zipKick`
+100/10/14 (+`zipKickRange` 30), `webStrike` 50/8/5 (+`webStrikeFinisher` 9, `webStrikeRange` 30), `uppercut` 120/6/8
+(+`airComboTicks` 60), `spiderCounter` 160/4/12 (+`counterStanceTicks` 20), `webWhip` 80/10/7 (+`webWhipRadius` 4),
+`grabHurl` 100/10/10 (+`grabRange` 16), `swingThrow` 60/10/6, `tightrope` 10/10, `webWall` 200/25, `weave` 300/8 per
+strand (+`weaveFinishCost` 30), `spiderPulse` 400/10 (+`pulseHighlightTicks` 120, `pulseRadius` 32, `pulseDodgeTicks`
+40), `webCocoon` 200/25 (+`webCocoonTicks` 240, `cocoonDamageMultiplier` 1.6), `webBlossom` 400/75/40
+(+`blossomChargeTicks` 40), `zipBoost` 16/3.
+
+### Decisions
+
+- **Pulse slow-motion**: the mod's Time Slow is game-wide (tick rate), not per player, so the Pulse gives Speed IV for
+  6 s plus a 2 s window in which every attack with an attacker behind it is dodged.
+- **Webs vanish on reload** rather than persist (the simplest way to guarantee no orphans).
+- **Strangers include other Spider-Men and the Hulk** (they wade through cobweb, not through his web).
+- **Grab & Hurl blocks**: no block entities, no fluids, hardness 0..25 (obsidian / bedrock excluded), and it needs
+  `blockGrabbing`, the mod's `abilityTerrainDamage`, the `mobGriefing` rule, `mayBuild` / `mayInteract`, and
+  `PlayerBlockBreakEvents.BEFORE` (claim mods) to agree. The block is removed and thrown as a `ThrownBlockEntity`
+  (`projecthero:thrown_block`) that never places a block: on impact it breaks into its normal drops.
+- Web Net (the old V tap) is retired (it placed cobweb blocks); `SpiderWebs.weaveNet` remains, unused.
+
+### Files
+
+`spider/SpiderMoves` (input resolver + every new move + sessions), `spider/SpiderAnim`, `spider/SpiderManConfig`,
+`spider/SpiderSounds`, `spider/data/SpiderMoveState`, `spider/web/{WebGeometry, WebStructureEntity, WebStructures}`,
+`spider/entity/ThrownBlockEntity`, `mixin/EntityWebCollisionMixin`, `network/SpiderWebAlarmPayload` (+ seven new
+`SpiderActionPayload` actions); client `spider/{SpiderTraversalClient, SpiderPose, WebStructureRenderer,
+ThrownBlockRenderer}`, the rewritten `gui/SpiderHud`, updated `SpiderInputClient` / `SpiderSwingClient` /
+`SpiderWebLineRenderer`. Tests: `SpiderManRevampGameTests`.
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`
