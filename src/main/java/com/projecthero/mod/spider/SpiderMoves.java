@@ -301,6 +301,30 @@ public final class SpiderMoves {
 		play(player, SpiderSounds.THWIP, 0.8f, pitch);
 	}
 
+	/** v0.16.1: Shift+N has muted his notification sounds (Spider-Sense, the web alarm, web structures). Both sides. */
+	public static boolean soundsOff(Player player) {
+		return player.getAttachedOrElse(ModAttachments.SPIDER_SOUNDS_OFF, false);
+	}
+
+	/** A notification sound (Spider-Sense, web structures): skipped while he has them muted. */
+	static void notify(ServerPlayer player, SoundEvent sound, float volume, float pitch) {
+		if (!soundsOff(player)) {
+			play(player, sound, volume, pitch);
+		}
+	}
+
+	/** Shift+N: mute / unmute his notification sounds (saved per player; default on). Returns true when they are on. */
+	public static boolean toggleSounds(ServerPlayer player) {
+		if (!SpiderMan.hasPower(player)) {
+			return false;
+		}
+		boolean off = !soundsOff(player);
+		player.setAttached(ModAttachments.SPIDER_SOUNDS_OFF, off);
+		player.displayClientMessage(Component.translatable(off
+				? "message.projecthero.spider_man.sounds_off" : "message.projecthero.spider_man.sounds_on"), true);
+		return !off;
+	}
+
 	static void play(ServerPlayer player, SoundEvent sound, float volume, float pitch) {
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, volume,
 				pitch * (0.95f + player.getRandom().nextFloat() * 0.1f));
@@ -482,6 +506,8 @@ public final class SpiderMoves {
 			}
 		}
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, at.x, at.y + 0.5, at.z, 40, 1.0, 0.6, 1.0, 0.05);
+		// v0.16.1: real (temporary) cobwebs fill the air in the splash
+		SpiderCobwebs.fillAround(player, at, m.webBombRadius * 0.75, SpiderManConfig.webs().cobwebsPerCast);
 		thwip(player, 0.8f);
 		level.playSound(null, at.x, at.y, at.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.2f, 0.8f);
 		anim(player, SpiderAnim.THWIP_BOTH);
@@ -676,7 +702,7 @@ public final class SpiderMoves {
 		SpiderWebReserve.spend(player, cfg(SPIDER_COUNTER).cost, true);
 		COUNTER_UNTIL.put(player.getUUID(), player.level().getGameTime() + SpiderManConfig.moves().counterStanceTicks);
 		setFlag(player, SpiderMoveState.FLAG_COUNTER, true);
-		play(player, SpiderSounds.SENSE, 0.7f, 1.3f);
+		notify(player, SpiderSounds.SENSE, 0.7f, 1.3f);
 	}
 
 	private static void endCounter(ServerPlayer player, boolean landed) {
@@ -703,7 +729,7 @@ public final class SpiderMoves {
 		away = away.lengthSqr() < 1.0e-4 ? player.getLookAngle().reverse() : away.normalize();
 		AbilityHelpers.launchSelf(player, away.scale(0.35).add(0, 0.6, 0));
 		anim(player, SpiderAnim.COUNTER_FLIP);
-		play(player, SpiderSounds.SENSE, 0.9f, 1.6f);
+		notify(player, SpiderSounds.SENSE, 0.9f, 1.6f);
 		level.sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.4, 0.5, 0.4, 0.2);
 		if (direct instanceof Projectile p && !(direct instanceof LivingEntity)) {
 			// sent straight back where it came from
@@ -980,7 +1006,9 @@ public final class SpiderMoves {
 		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.tightrope(a, b), a.lerp(b, 0.5));
 		ServerLevel level = (ServerLevel) player.level();
 		AbilityHelpers.line(level, a, b, ParticleTypes.ITEM_COBWEB, 1.0);
-		level.playSound(null, b.x, b.y, b.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 0.8f, 1.2f);
+		if (!soundsOff(player)) {
+			level.playSound(null, b.x, b.y, b.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 0.8f, 1.2f);
+		}
 		return web;
 	}
 
@@ -1013,7 +1041,9 @@ public final class SpiderMoves {
 		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.wall(base, axis, 1.5, 3.0), base.add(0, 1.5, 0));
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, base.x, base.y + 1.5, base.z, 40, 0.8, 0.8, 0.8, 0.02);
-		level.playSound(null, base.x, base.y, base.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.0f, 0.9f);
+		if (!soundsOff(player)) {
+			level.playSound(null, base.x, base.y, base.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.0f, 0.9f);
+		}
 		return web;
 	}
 
@@ -1127,7 +1157,7 @@ public final class SpiderMoves {
 			if (SpiderWebReserve.spend(player, finish, true)) {
 				w.web.setGeometry(WebGeometry.weave(w.centre, w.ends, w.normal, true, 1.0));
 				anim(player, SpiderAnim.WEAVE_FINISH);
-				play(player, SpiderSounds.SPLAT, 1.0f, 0.7f);
+				notify(player, SpiderSounds.SPLAT, 1.0f, 0.7f);
 				((ServerLevel) player.level()).sendParticles(ParticleTypes.ITEM_COBWEB, w.centre.x, w.centre.y, w.centre.z,
 						30, 1.5, 1.5, 1.5, 0.02);
 			} else {
@@ -1154,7 +1184,7 @@ public final class SpiderMoves {
 		save(player, c);
 		DODGE_UNTIL.put(player.getUUID(), now + m.pulseDodgeTicks);
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, m.pulseHighlightTicks, 3, false, false, true));
-		play(player, SpiderSounds.SENSE, 1.0f, 1.0f);
+		notify(player, SpiderSounds.SENSE, 1.0f, 1.0f);
 		fired(player, SPIDER_PULSE);
 	}
 

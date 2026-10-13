@@ -104,6 +104,11 @@ public final class SuperheroFirstPersonArm {
 					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 			return;
 		}
+		// v0.16.1: the Spider-Man suit is a second skin -- its sleeve is the suit model's own arm, skin-tight
+		if ("spider_man".equals(armorSetId)) {
+			com.projecthero.mod.client.spider.SpiderSuitRender.renderArm(pose, buffers, light, vanillaArm, rightSide);
+			return;
+		}
 		if (!ensureBaked()) {
 			return;
 		}

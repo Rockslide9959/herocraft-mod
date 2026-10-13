@@ -132,6 +132,35 @@ ThrownBlockRenderer}`, the rewritten `gui/SpiderHud`, updated `SpiderInputClient
 - **Point Zip onto a rope.** A G tap aimed at one of his strands (nearer than any block) zips to that point and sets him down STANDING on top of it (feet 0.03 above the strand), facing along it (the direction nearer his look): `SpiderCombat.beginZipLanding`. The landing happens on arrival, or once the haul stalls / times out with a clear line to the point (so it works zipping up from below -- strands are one-way platforms -- but never through a wall).
 - Gametests: `nToggleStopsAutoAttach`, `aTightropeCanAnchorOnAnotherRope`, `pointZipOntoARopeLandsStandingOnIt`. Sheet: `spidey_rope_network_sheet.png`.
 
+### Real cobwebs, Shift+N mute, the skin-tight suit, the web-shot glob, 18-second debuffs
+
+- **Real cobwebs** (`SpiderCobwebs`): Web Bomb fills the air round its splash (radius 3, nearest first), Impact Web puts one
+  where it pins its target (feet + head), Web Blossom leaves a ring of them (radius 4). Only AIR is filled (never a
+  player's block, a block entity or a fluid), only with `placeCobwebs`, the mod's `abilityTerrainDamage` and the
+  `mobGriefing` rule on, and `mayInteract` (spawn protection / claims). At most `cobwebsPerCast` per cast and `cobwebsMax`
+  at once (oldest first). Every cobweb is in a server-wide **SavedData ledger** (dimension, position, owner, expiry) and is
+  taken back to air after `cobwebTicks` (18 s) -- or as soon as its chunk is loaded again, so a chunk unload or a restart
+  can never orphan one. Breaking one drops nothing. Spider-Man and his squad are never slowed by his own cobwebs
+  (`WebBlockSpiderMixin` on both sides; the owner and his online squadmates get the positions via `SpiderCobwebSyncPayload`).
+  Sheet: `spidey_cobwebs_webbomb.png`.
+- **Shift+N mutes his notification sounds** (`SPIDER_SOUNDS_OFF`, persistent, default on): the Spider-Sense danger ping, the
+  Pulse, the counter tingle, the web alarm and the web-structure sounds (tightrope / wall / weave splats, cutting). HUD:
+  "Sounds: OFF" right-aligned on the name line; an action-bar message on each press. Shift+N reaches Spider-Man only after
+  a base-form Titan Shifter's Shift+N; Nova's helmet and the Stark Gear screen belong to other primary powers.
+- **Suit fit**: the Spider-Man suit is no longer the GeckoLib shell (inflate 0.30 / 0.55). Its texture is a standard skin, so
+  `client.spider.SpiderSuitLayer` / `SpiderSuitRender` draw it as a second skin on a wide player model +0.04 (outer layer
+  +0.29) -- the Nova-uniform technique -- per piece (the mask only while closed, so H still pulls it off; the suit = body and
+  arms; leggings or boots = legs). `SuperheroArmorRenderer` skips the shell for the `spider_man` set; first person draws the
+  suit sleeve (`SuperheroFirstPersonArm`). The black Symbiote suit is unchanged. Sheet: `spidey_suit_before_after.png`.
+- **Web Shot is a projectile** (`SpiderWebShotEntity`, `projecthero:web_shot`): a spinning glob of webbing (core + crossed
+  sheath) with four trailing strands (`WebShotRenderer`, `textures/entity/web_shot.png` from `gen_spiderman_web_textures.js`),
+  2.6 b/t, splatting on impact; its hit is `SpiderAbilities.webShotHit` / `webShotBlock`. Sheet: `spidey_webshot_sheet.png`.
+- **18-second web debuffs** (`moves.webDebuffTicks` 360): Web Shot slow / weakness / jump, the 3-stack cocoon, the Web Bomb
+  root (`webBombRootTicks` 360), the Impact Web pin (`impactPinTicks` 360), the Web Blossom trap (`blossomTrapTicks` 360),
+  and anyone stuck in a web wall / strand keeps Slowness III for 18 s after getting loose. Web Cocoon (Shift+V) lasts 30 s
+  (`webCocoonTicks` 600). **Bosses** get `bossWebDebuffTicks` (90 = 4.5 s) of a weaker version (Slowness I, never fully
+  pinned). The config moved to version 2 (`resetBalance`), so existing files take the new numbers.
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

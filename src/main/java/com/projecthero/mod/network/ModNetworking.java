@@ -68,6 +68,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebAlarmPayload.TYPE, SpiderWebAlarmPayload.CODEC); // v0.16.1
+		PayloadTypeRegistry.playS2C().register(SpiderCobwebSyncPayload.TYPE, SpiderCobwebSyncPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playS2C().register(FirearmShotPayload.TYPE, FirearmShotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
@@ -164,6 +165,7 @@ public final class ModNetworking {
 				case ROPE_HANG -> com.projecthero.mod.spider.SpiderMoves.ropeHang(context.player());
 				case ROPE_CLIMB -> com.projecthero.mod.spider.SpiderMoves.ropeClimb(context.player());
 				case TOGGLE_WALL_CRAWL -> com.projecthero.mod.spider.SpiderMoves.toggleWallCrawl(context.player());
+				case TOGGLE_SOUNDS -> com.projecthero.mod.spider.SpiderMoves.toggleSounds(context.player());
 			}
 		});
 

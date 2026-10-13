@@ -54,14 +54,30 @@ public final class SpiderManConfig {
 		public double strangerSlowFactor = 0.08;
 		/** Ticks a key must be held before the hold move takes over (the tap fires on a shorter release). */
 		public int holdTicks = 8;
+		/** v0.16.1: Web Bomb / Impact Web / Web Blossom also spin REAL cobweb blocks (temporary, never dropped as items). */
+		public boolean placeCobwebs = true;
+		/** How long those cobwebs last (ticks) before they are taken away again. */
+		public int cobwebTicks = 360;
+		/** At most this many cobwebs per cast, and this many of his cobwebs in the world at once (the oldest go first). */
+		public int cobwebsPerCast = 18;
+		public int cobwebsMax = 256;
 	}
 
 	public static final class Moves {
 		// R -- web shooters
+		/**
+		 * v0.16.1: how long every web debuff lasts on an ordinary enemy -- Web Shot's slow, rooted by a Web Bomb, pinned by an
+		 * Impact Web, trapped by Web Blossom, stuck in a web wall or strand: 18 s. Bosses get bossWebDebuffTicks of a
+		 * weaker version (lower Slowness, never fully pinned).
+		 */
+		public int webDebuffTicks = 360;
+		public int bossWebDebuffTicks = 90;
+		public int impactPinTicks = 360;
+		public int blossomTrapTicks = 360;
 		public Move webShot = new Move(6, 2.0f, 2.0f);
 		public Move webBomb = new Move(120, 15.0f, 3.0f);
 		public double webBombRadius = 4.0;
-		public int webBombRootTicks = 60;
+		public int webBombRootTicks = 360;
 		public Move impactWeb = new Move(30, 12.0f, 10.0f);
 		/** A full Impact Web charge (ticks of holding past the hold threshold) adds half the damage again. */
 		public int impactChargeTicks = 20;
@@ -100,7 +116,7 @@ public final class SpiderManConfig {
 		/** The pulse's dodge window: every hit with an attacker behind it is dodged for this long. */
 		public int pulseDodgeTicks = 40;
 		public Move webCocoon = new Move(200, 25.0f, 0.0f);
-		public int webCocoonTicks = 240;
+		public int webCocoonTicks = 600;
 		/** Cocooned enemies take this much more damage from Spider-Man and his squad. */
 		public float cocoonDamageMultiplier = 1.6f;
 		public Move webBlossom = new Move(400, 75.0f, 40.0f);
@@ -130,6 +146,8 @@ public final class SpiderManConfig {
 			.builder(SpiderManConfig.class, "projecthero_spider_man.json", SpiderManConfig::new)
 			.balance("moves")
 			.introduce(1, "v0.16.1 the Spider-Man revamp")
+			// v0.16.1 (later): every web debuff lasts 18 s (webDebuffTicks), Web Cocoon 30 s -- old files take the new numbers
+			.resetBalance(2, "v0.16.1 18-second web debuffs, 30-second Web Cocoon")
 			.build();
 
 	public static void load() {

@@ -330,7 +330,9 @@ public final class SpiderSense {
 		Long until = SpiderMan.state(player).abilityReadyAt.get(cueKey);
 		if (until == null || now >= until) {
 			SpiderMan.triggerCooldown(player, cueKey, 24);
-			player.playNotifySound(SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.35f, 2.0f);
+			if (!SpiderMoves.soundsOff(player)) { // v0.16.1: Shift+N mutes the danger ping
+				player.playNotifySound(SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.35f, 2.0f);
+			}
 			spawnDirectionalCue(player, threatPos);
 		}
 		ServerPlayNetworking.send(player, new SpiderSenseWarningPayload(kind, yaw, vertical));

@@ -465,6 +465,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			if (getCurrentEntity() instanceof Player player && InvisibilityLightHandlers.hideArmor(player)) {
 				return;
 			}
+			// v0.16.1: the Spider-Man suit is drawn skin-tight by SpiderSuitLayer now, not as this inflated shell
+			if (getAnimatable() != null && "spider_man".equals(getAnimatable().armorSetId())
+					&& !com.projecthero.mod.client.spider.SpiderSuitRender.legacyShell) {
+				return;
+			}
 			// Max Steel's Turbo Stealth fades the suit out entirely.
 			if (getCurrentEntity() instanceof Player p
 					&& com.projecthero.mod.client.maxsteel.MaxSteelReveal.isStealthed(p)) {

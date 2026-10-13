@@ -43,6 +43,15 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.16.1: the Web Shot (R tap) glob. */
+	public static final EntityType<SpiderWebShotEntity> WEB_SHOT = register("web_shot",
+			FabricEntityTypeBuilder.<SpiderWebShotEntity>create(MobCategory.MISC, SpiderWebShotEntity::new)
+					.dimensions(EntityDimensions.fixed(0.3f, 0.3f))
+					.trackRangeBlocks(64)
+					.trackedUpdateRate(1)
+					.fireImmune()
+					.build());
+
 	private SpiderEntityTypes() {
 	}
 

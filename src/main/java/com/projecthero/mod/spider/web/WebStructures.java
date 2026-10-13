@@ -339,8 +339,10 @@ public final class WebStructures {
 			return false;
 		}
 		best.dissolve(true);
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.SHEEP_SHEAR,
-				SoundSource.PLAYERS, 0.8f, 1.3f);
+		if (!com.projecthero.mod.spider.SpiderMoves.soundsOff(player)) {
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.SHEEP_SHEAR,
+					SoundSource.PLAYERS, 0.8f, 1.3f);
+		}
 		return true;
 	}
 
@@ -359,6 +361,11 @@ public final class WebStructures {
 			// not COBWEB: EntityWebMixin lets Spider-Men and the Hulk wade through cobweb, but his web holds everyone not allowed
 			e.makeStuckInBlock(Blocks.STRUCTURE_VOID.defaultBlockState(), new Vec3(slow, 0.04, slow));
 			e.resetFallDistance();
+			// v0.16.1: and the web debuff stays on them 18 s after they get loose (a boss: the short weak version)
+			if (level.getGameTime() % 20 == 0) {
+				com.projecthero.mod.hero.power.AbilityHelpers.applyControl(e, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
+						SpiderWebs.debuffTicks(e), SpiderWebs.isBoss(e) ? 0 : 2);
+			}
 			if (e instanceof net.minecraft.world.entity.Mob mob && level.getGameTime() % 10 == 0) {
 				mob.getNavigation().stop();
 			}

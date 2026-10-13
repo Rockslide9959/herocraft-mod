@@ -62,6 +62,7 @@ public final class SpiderTraversalClient {
 		useWasDown = false;
 		rightClickSwing = false;
 		WebStructures.clearClient();
+		SpiderCobwebsClient.clear();
 	}
 
 	/** START of the client tick: claim left-clicks for Weave Mode / cutting before vanilla's key handling sees them. */

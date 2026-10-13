@@ -170,6 +170,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.SpiderSense.initialize();
 		com.projecthero.mod.spider.SpiderPassives.initialize();
 		com.projecthero.mod.spider.SpiderMoves.initialize(); // v0.16.1: counter stance, Pulse dodge, air combo
+		com.projecthero.mod.spider.SpiderCobwebs.initialize(); // v0.16.1: his cobwebs drop nothing when broken
 		com.projecthero.mod.spider.SpiderSounds.initialize();
 		com.projecthero.mod.maxsteel.MaxSteelDamage.initialize();
 		com.projecthero.mod.punisher.Punisher.initialize();
@@ -262,6 +263,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.frostgiant.FrostGiants.serverTick(server); // v0.16.1: the cold, Ymir, the natural trigger, the orphan sweep
 			com.projecthero.mod.oathbreaker.OathbreakerSummon.tick(server);
 			com.projecthero.mod.spider.SpiderWebs.tick(server);
+			com.projecthero.mod.spider.SpiderCobwebs.tick(server); // v0.16.1: his temporary real cobwebs (orphan-safe ledger)
 			com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.tick(server);
 			// Once/sec, for every online player (not just bonded Green Lanterns) -- a traded, gifted or
 			// chest-stashed hard-light tool can end up on anyone, not only the Lantern who deployed it.

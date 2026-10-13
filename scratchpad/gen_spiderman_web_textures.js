@@ -120,4 +120,17 @@ const SILK = [236, 239, 247];
 	}
 	png.write(path.join(OUT, 'spider_web_wall.png'), img);
 }
+// ---- v0.16.1 web shot glob: 64 x 16 box-UV sheet -- core (0,0), sheath (0,6), strands (18,0); white silk with grey fibres,
+// the sheath holed like a net (cutout render: alpha 0 or 255)
+{
+	const img = canvas(64, 16);
+	for (let y = 0; y < 16; y++) for (let x = 0; x < 64; x++) {
+		const fib = 0.86 + 0.14 * Math.sin(x * 2.1 + y * 1.3) * Math.cos(x * 0.7 - y * 2.2);
+		const col = SILK.map(c => Math.min(255, Math.round(c * fib)));
+		let a = 1;
+		if (y >= 6 && y < 11 && x < 18) a = ((x + y) % 3 === 0 || (x * 7 + y * 3) % 5 === 0) ? 0 : 1;
+		plot(img, x, y, a, col);
+	}
+	png.write(path.join(OUT, 'web_shot.png'), img);
+}
 console.log('web textures written');

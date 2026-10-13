@@ -256,6 +256,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
 				com.projecthero.mod.client.spider.ImpactWebModel.LAYER,
 				com.projecthero.mod.client.spider.ImpactWebModel::createLayer);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry.registerModelLayer(
+				com.projecthero.mod.client.spider.WebShotRenderer.LAYER,
+				com.projecthero.mod.client.spider.WebShotRenderer::createLayer);
 
 		// Arc Reactor on the player's chest (Tony Stark power, no Iron Man chestplate) + Max Steel's
 		// Turbo Blast charge orb / Turbo Cannon arm cannon (v0.14.2).
@@ -272,6 +275,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineClawsLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineFleshLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.wolverine.WolverineLegFleshLayer(playerRenderer));
+						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderSuitLayer(playerRenderer)); // v0.16.1 skin-tight suit
 						registrationHelper.register(new com.projecthero.mod.client.spider.SpiderHandTrackerLayer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.symbiote.SymbioteBladeRenderer.Layer(playerRenderer));
 						registrationHelper.register(new com.projecthero.mod.client.moonknight.MoonKnightCapeLayer(playerRenderer));
@@ -378,6 +382,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(
 						() -> com.projecthero.mod.client.spider.SpiderStrands.accept(payload)));
 
+		// v0.16.1: which cobwebs are his / his squad's Spider-Man's (walk through them like the server allows)
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SpiderCobwebSyncPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.spider.SpiderCobwebsClient.accept(payload)));
+		com.projecthero.mod.spider.SpiderCobwebs.clientExempt = (entity, pos) -> entity == net.minecraft.client.Minecraft.getInstance().player
+				&& com.projecthero.mod.client.spider.SpiderCobwebsClient.contains(pos.asLong());
 		// v0.16.1: the web alarm -- a stranger touched one of his webs (sound + a HUD arrow at the spot).
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.SpiderWebAlarmPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.gui.SpiderHud.webAlarm(
@@ -967,6 +976,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// Nova's helmet / the Stark Gear screen below; a selected mutation keeps its own Utility 2)
 			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
 					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_WALL_CRAWL));
+		} else if (down && !maxSteelTransformWasDown && client.player != null && Screen.hasShiftDown()
+				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player) && !mutationSelected(client)) {
+			// v0.16.1: Spider-Man -- Shift+N mutes / unmutes his notification sounds (only ever for a Spider-Man; the Nova
+			// helmet and the Stark Gear screen below belong to other primary powers, which never share a player with him)
+			ClientPlayNetworking.send(new com.projecthero.mod.network.SpiderActionPayload(
+					com.projecthero.mod.network.SpiderActionPayload.Action.TOGGLE_SOUNDS));
 		} else if (down && !maxSteelTransformWasDown && client.player != null
 				&& com.projecthero.mod.allmight.AllMight.isFullPower(client.player)) {
 			// v0.12.36: All Might -- N (Power Form) opens the costume locker.

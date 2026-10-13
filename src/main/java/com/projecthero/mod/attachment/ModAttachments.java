@@ -408,6 +408,12 @@ public final class ModAttachments {
 			builder -> builder.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.targetOnly()));
 
+	/** v0.16.1: Spider-Man's notification sounds are muted (Shift+N). False = on, the default. Persistent; synced to the owner. */
+	public static final AttachmentType<Boolean> SPIDER_SOUNDS_OFF = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_sounds_off"),
+			builder -> builder.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.targetOnly()));
+
 	public static final AttachmentType<com.projecthero.mod.spider.data.SpiderMoveState> SPIDER_MOVE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("spider_move_state"),
 					builder -> builder.initializer(com.projecthero.mod.spider.data.SpiderMoveState::new)

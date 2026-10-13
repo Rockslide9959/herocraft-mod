@@ -44,7 +44,7 @@ public final class SpiderCombat {
 	public static final double IMPACT_SPEED = 2.2;
 	public static final int IMPACT_LIFE_TICKS = 30;
 	/** How long a target struck by an Impact Web stays cocooned (and, if it hits a wall, pinned to it): twelve seconds. */
-	public static final int IMPACT_PIN_TICKS = 12 * 20;
+	public static final int IMPACT_PIN_TICKS = 18 * 20; // v0.16.1: the default of SpiderManConfig.moves().impactPinTicks (18 s)
 	/** How long after the hit a knocked-back target is watched for a wall collision. */
 	private static final int PIN_WATCH_TICKS = 14;
 
@@ -334,7 +334,8 @@ public final class SpiderCombat {
 			if (!wall) {
 				return false;
 			}
-			SpiderWebs.cocoonFor(player, target, IMPACT_PIN_TICKS);
+			SpiderWebs.cocoonFor(player, target, SpiderManConfig.moves().impactPinTicks);
+			SpiderCobwebs.placeAt(player, java.util.List.of(target.blockPosition(), target.blockPosition().above()));
 			target.setDeltaMovement(Vec3.ZERO);
 			target.hurtMarked = true;
 			Vec3 c = center(target);

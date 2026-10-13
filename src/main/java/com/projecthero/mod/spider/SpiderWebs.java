@@ -131,6 +131,19 @@ public final class SpiderWebs {
 
 	// ---------------- cocoons ----------------
 
+	/**
+	 * v0.16.1: how long a web debuff lasts on {@code target}: {@code ordinary} (the 18 s webDebuffTicks by default) for an
+	 * ordinary enemy, the short bossWebDebuffTicks for a boss.
+	 */
+	public static int debuffTicks(LivingEntity target, int ordinary) {
+		return isBoss(target) ? Math.min(ordinary, SpiderManConfig.moves().bossWebDebuffTicks) : ordinary;
+	}
+
+	/** The shared web debuff length for {@code target} (18 s / the boss value). */
+	public static int debuffTicks(LivingEntity target) {
+		return debuffTicks(target, SpiderManConfig.moves().webDebuffTicks);
+	}
+
 	public static boolean isBoss(LivingEntity target) {
 		return target.getMaxHealth() >= BOSS_HEALTH
 				|| target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon
@@ -149,7 +162,8 @@ public final class SpiderWebs {
 			return 0;
 		}
 		boolean boss = isBoss(target);
-		int ticks = boss ? BOSS_COCOON_TICKS : ordinaryTicks;
+		// v0.16.1: a boss gets the configured short, weak version (bossWebDebuffTicks, default 4.5 s)
+		int ticks = boss ? Math.min(ordinaryTicks, SpiderManConfig.moves().bossWebDebuffTicks) : ordinaryTicks;
 		if (target instanceof Player) {
 			// PvP restraint is halved and never total, exactly as AbilityHelpers.applyControl does for
 			// every other hard crowd-control ability in the mod.

@@ -104,7 +104,9 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 		AbilityHelpers.hurt(shooter, target, damage);
 		AbilityHelpers.knockbackFrom(target, origin, knockback);
 		// v0.12.32: the ball itself cocoons whatever it hits (12 s), wall or no wall.
-		SpiderWebs.cocoonFor(shooter, target, SpiderCombat.IMPACT_PIN_TICKS);
+		SpiderWebs.cocoonFor(shooter, target, com.projecthero.mod.spider.SpiderManConfig.moves().impactPinTicks);
+		// v0.16.1: a real (temporary) cobweb where it pins the target
+		com.projecthero.mod.spider.SpiderCobwebs.placeAt(shooter, java.util.List.of(target.blockPosition(), target.blockPosition().above()));
 		SpiderCombat.watchImpact(shooter, target, getDeltaMovement());
 		splat(origin);
 	}

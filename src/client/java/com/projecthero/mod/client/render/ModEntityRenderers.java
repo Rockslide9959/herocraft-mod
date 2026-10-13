@@ -44,6 +44,8 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.spider.WebStructureRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.THROWN_BLOCK,
 				com.projecthero.mod.client.spider.ThrownBlockRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.WEB_SHOT,
+				com.projecthero.mod.client.spider.WebShotRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,
 				com.projecthero.mod.client.symbiote.SymbioteEntityRenderer::new);
 		// v0.13.19: the Symbiote Spike projectile and the living tendril

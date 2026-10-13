@@ -285,64 +285,57 @@ public final class SpiderAbilities {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		LivingEntity target = AbilityHelpers.raycastEntity(player, SHOT_RANGE);
-		// v0.16.1: the thwip -- alternate wrists, a real strand from the hand, the synthesised thwip
-		SpiderMoves.anim(player, SpiderMoves.nextThwipHand(player) ? SpiderAnim.THWIP_RIGHT : SpiderAnim.THWIP_LEFT);
+		// v0.16.1: the thwip -- alternate wrists -- and a real web-shot projectile (a spinning glob with trailing strands)
+		boolean right = SpiderMoves.nextThwipHand(player);
+		SpiderMoves.anim(player, right ? SpiderAnim.THWIP_RIGHT : SpiderAnim.THWIP_LEFT);
 		SpiderMoves.thwip(player, 1.2f);
 		fired(player, WEB_SHOT, cfg.cost, cfg.cooldown);
-
-		if (target != null) {
-			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_SHOT, target, target.position().add(0, target.getBbHeight() * 0.5, 0), 2, 12);
-			AbilityHelpers.hurt(player, target, cfg.damage);
-
-			boolean boss = SpiderWebs.isBoss(target);
-			if (SpiderWebs.ignoresWebs(target)) {
-				// v0.15.19: Carnage shrugs the webbing off -- the hit lands, no stickiness
-				AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
-						ParticleTypes.ITEM_COBWEB, 14, 0.35);
-				AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.55f, 1.9f);
-				return;
-			}
-			// v0.6.20: each hit is a stickiness stack (max 3). It slows the target and weighs its jump
-			// down, worse with every stack -- and a follow-up landed within 3s of the first hit is what
-			// pushes the count up. On the third stack an ordinary mob is wrapped in a full cocoon.
-			int stacks = SpiderWebs.addStickStack(target, level.getGameTime());
-			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN,
-					SpiderWebs.STICK_EFFECT_TICKS, boss ? 1 : Math.min(4, stacks));
-			// v0.6.22: webbed targets are also weakened.
-			AbilityHelpers.applyControl(target, MobEffects.WEAKNESS,
-					SpiderWebs.STICK_EFFECT_TICKS, boss ? 0 : 1);
-			if (!boss) {
-				// negative Jump Boost = a lower jump; -2, -3, -4 across the three stacks
-				AbilityHelpers.applyControl(target, MobEffects.JUMP,
-						SpiderWebs.STICK_EFFECT_TICKS, -(stacks + 1));
-			}
-			if (!boss && stacks >= SpiderWebs.MAX_STICK_STACKS) {
-				SpiderWebs.cocoonFor(player, target, SpiderWebs.WEB_SHOT_COCOON_TICKS);
-				SpiderWebs.clearStickStacks(target);
-				level.playSound(null, target.blockPosition(), SoundEvents.SPIDER_STEP,
-						net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 0.6f);
-				AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
-						ParticleTypes.CLOUD, 12, 0.4);
-			}
-			if (target.isOnFire()) {
-				target.clearFire();
-			}
-			AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
-					ParticleTypes.ITEM_COBWEB, 14, 0.35);
-		} else {
-			BlockHitResult hit = AbilityHelpers.raycastBlock(player, SHOT_RANGE);
-			Vec3 at = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation()
-					: player.getEyePosition().add(player.getLookAngle().scale(SHOT_RANGE));
-			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_SHOT, null, at, 2, 12);
-			AbilityHelpers.burst(level, at, ParticleTypes.ITEM_COBWEB, 8, 0.2);
-			extinguishAround(player, level, at);
-		}
-
+		Vec3 look = player.getLookAngle();
+		Vec3 side = Vec3.directionFromRotation(0.0f, player.getYRot() + (right ? 90.0f : -90.0f));
+		Vec3 start = player.getEyePosition().add(look.scale(0.6)).add(side.scale(0.3)).subtract(0, 0.25, 0);
+		com.projecthero.mod.spider.entity.SpiderWebShotEntity shot =
+				new com.projecthero.mod.spider.entity.SpiderWebShotEntity(level, player, look.scale(com.projecthero.mod.spider.entity.SpiderWebShotEntity.SPEED));
+		shot.setPos(start.x, start.y, start.z);
+		level.addFreshEntity(shot);
 		if (player.isOnFire()) {
 			player.clearFire();
 		}
-		AbilityHelpers.sound(player, SoundEvents.SLIME_SQUISH, 0.55f, 1.9f);
+	}
+
+	/** A Web Shot glob landing on a body: the sting, the stickiness stacks, the 18 s web debuffs, a cocoon on the third. */
+	public static void webShotHit(ServerPlayer player, LivingEntity target) {
+		SpiderManConfig.Move cfg = SpiderManConfig.moves().webShot;
+		ServerLevel level = (ServerLevel) player.level();
+		AbilityHelpers.hurt(player, target, cfg.damage);
+		Vec3 mid = target.position().add(0, target.getBbHeight() * 0.5, 0);
+		if (SpiderWebs.ignoresWebs(target)) {
+			// v0.15.19: Carnage shrugs the webbing off -- the hit lands, no stickiness
+			AbilityHelpers.burst(level, mid, ParticleTypes.ITEM_COBWEB, 14, 0.35);
+			return;
+		}
+		boolean boss = SpiderWebs.isBoss(target);
+		int ticks = SpiderWebs.debuffTicks(target);
+		// each hit is a stickiness stack (max 3): slower, weaker, a lower jump; three inside 3 s wrap an ordinary mob
+		int stacks = SpiderWebs.addStickStack(target, level.getGameTime());
+		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, ticks, boss ? 0 : Math.min(4, stacks));
+		AbilityHelpers.applyControl(target, MobEffects.WEAKNESS, ticks, boss ? 0 : 1);
+		if (!boss) {
+			AbilityHelpers.applyControl(target, MobEffects.JUMP, ticks, -(stacks + 1));
+		}
+		if (!boss && stacks >= SpiderWebs.MAX_STICK_STACKS) {
+			SpiderWebs.cocoonFor(player, target, SpiderManConfig.moves().webDebuffTicks);
+			SpiderWebs.clearStickStacks(target);
+			level.playSound(null, target.blockPosition(), SoundEvents.SPIDER_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 0.6f);
+			AbilityHelpers.burst(level, mid, ParticleTypes.CLOUD, 12, 0.4);
+		}
+		if (target.isOnFire()) {
+			target.clearFire();
+		}
+	}
+
+	/** A Web Shot glob splatting on a block: small fires there go out. */
+	public static void webShotBlock(ServerPlayer player, Vec3 at) {
+		extinguishAround(player, (ServerLevel) player.level(), at);
 	}
 
 	/** Small fires within a block or two of the impact go out. */
@@ -666,6 +659,13 @@ public final class SpiderAbilities {
 		Vec3 centre = player.position();
 		Vec3 hand = player.getEyePosition();
 		int caught = 0;
+		// v0.16.1: a ring of real (temporary) cobwebs round where he stood
+		java.util.List<BlockPos> cobwebRing = new java.util.ArrayList<>();
+		for (int a = 0; a < 360; a += 24) {
+			double rad = Math.toRadians(a);
+			cobwebRing.add(BlockPos.containing(centre.x + Math.cos(rad) * 4.0, centre.y + 0.5, centre.z + Math.sin(rad) * 4.0));
+		}
+		SpiderCobwebs.placeAt(player, cobwebRing);
 		AABB box = player.getBoundingBox().inflate(BLOSSOM_RADIUS);
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
 				t -> com.projecthero.mod.combat.HeroTargets.canHarm(player, t) && !(t instanceof Player))) { // v0.14.20: rule 1
@@ -675,8 +675,8 @@ public final class SpiderAbilities {
 			AbilityHelpers.hurt(player, e, SpiderManConfig.moves().webBlossom.damage);
 			// cocoonFor already applies Slowness/Weakness/Mining-fatigue and the tick loop that pins the
 			// entity in place; add a hard jump-lock so it cannot hop out.
-			SpiderWebs.cocoonFor(player, e, BLOSSOM_TRAP_TICKS);
-			AbilityHelpers.applyControl(e, MobEffects.JUMP, BLOSSOM_TRAP_TICKS, -10);
+			SpiderWebs.cocoonFor(player, e, SpiderManConfig.moves().blossomTrapTicks);
+			AbilityHelpers.applyControl(e, MobEffects.JUMP, SpiderWebs.debuffTicks(e, SpiderManConfig.moves().blossomTrapTicks), -10);
 			e.setDeltaMovement(0, Math.min(0.0, e.getDeltaMovement().y), 0);
 			e.hurtMarked = true;
 			webLine(level, hand, e.position().add(0, e.getBbHeight() * 0.5, 0));

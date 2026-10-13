@@ -83,7 +83,7 @@ public final class SpiderHud {
 		Minecraft mc = Minecraft.getInstance();
 		alarmAt = at;
 		alarmUntil = (mc.level != null ? mc.level.getGameTime() : 0L) + ALARM_TICKS;
-		if (mc.player != null) {
+		if (mc.player != null && !com.projecthero.mod.spider.SpiderMoves.soundsOff(mc.player)) {
 			mc.player.playSound(com.projecthero.mod.spider.SpiderSounds.SENSE, 0.9f, 1.4f);
 		}
 	}
@@ -234,6 +234,11 @@ public final class SpiderHud {
 		int nameY = y0 + BOX + 3;
 		graphics.drawString(client.font, Component.translatable("projecthero.spider_man.name")
 				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), x0, nameY, 0xFFFF6070);
+		// v0.16.1: Shift+N muted his notification sounds -- a small marker on the name line
+		if (com.projecthero.mod.spider.SpiderMoves.soundsOff(player)) {
+			Component muted = Component.translatable("hud.projecthero.spider_man.sounds_off");
+			graphics.drawString(client.font, muted, x0 + totalW - client.font.width(muted), nameY, 0xFFB0A0A0, false);
+		}
 		int webY = nameY + 10;
 		graphics.drawString(client.font, Component.translatable("hud.projecthero.spider_man.web_reserve",
 				(int) Math.ceil(ratio * 100.0f)), x0, webY, COLOR_WEB_TEXT, false);

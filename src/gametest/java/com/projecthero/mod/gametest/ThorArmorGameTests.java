@@ -119,13 +119,14 @@ public class ThorArmorGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void impactWebCocoonsForTwelveSeconds(GameTestHelper helper) {
-		helper.assertTrue(SpiderCombat.IMPACT_PIN_TICKS == 12 * 20, "12 seconds, got " + SpiderCombat.IMPACT_PIN_TICKS / 20);
+	public void impactWebCocoonsForEighteenSeconds(GameTestHelper helper) {
+		// v0.16.1: every web debuff lasts 18 s now (SpiderManConfig.moves().impactPinTicks / webDebuffTicks)
+		helper.assertTrue(SpiderCombat.IMPACT_PIN_TICKS == 18 * 20, "18 seconds, got " + SpiderCombat.IMPACT_PIN_TICKS / 20);
 		ServerPlayer owner = helper.makeMockServerPlayerInLevel();
 		Zombie z = EntityType.ZOMBIE.create(helper.getLevel());
 		helper.getLevel().addFreshEntity(z);
 		int ticks = SpiderWebs.cocoonFor(owner, z, SpiderCombat.IMPACT_PIN_TICKS);
-		helper.assertTrue(ticks == 240, "an ordinary mob is held for the full 240 ticks, got " + ticks);
+		helper.assertTrue(ticks == 360, "an ordinary mob is held for the full 360 ticks, got " + ticks);
 		helper.assertTrue(SpiderWebs.isCocooned(z), "and is cocooned");
 		helper.succeed();
 	}

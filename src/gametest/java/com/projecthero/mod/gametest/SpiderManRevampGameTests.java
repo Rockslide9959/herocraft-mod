@@ -464,4 +464,54 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	// ---------------- real cobwebs, Shift+N mute ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void webBombCobwebsAreTemporaryAndOnlyFillAir(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		if (!com.projecthero.mod.spider.SpiderCobwebs.allowed(helper.getLevel())
+				|| !helper.getLevel().mayInteract(p, helper.absolutePos(new BlockPos(3, 3, 3)))) {
+			helper.succeed(); // terrain damage / mobGriefing switched off on this server: nothing may be placed
+			return;
+		}
+		BlockPos stone = helper.absolutePos(new BlockPos(3, 2, 3));
+		helper.getLevel().setBlock(stone, Blocks.STONE.defaultBlockState(), 2);
+		int before = com.projecthero.mod.spider.SpiderCobwebs.trackedCount(helper.getLevel().getServer());
+		int was = SpiderManConfig.webs().cobwebTicks;
+		SpiderManConfig.webs().cobwebTicks = 20;
+		try {
+			int n = com.projecthero.mod.spider.SpiderCobwebs.fillAround(p, Vec3.atCenterOf(stone), 1.8, 10);
+			helper.assertTrue(n > 0 && n <= 10, "cobwebs spun into the air round the splash (" + n + ")");
+			helper.assertTrue(helper.getLevel().getBlockState(stone).is(Blocks.STONE), "a solid block is never replaced");
+			helper.assertTrue(com.projecthero.mod.spider.SpiderCobwebs.trackedCount(helper.getLevel().getServer()) >= before + n,
+					"every one is in the ledger");
+		} finally {
+			SpiderManConfig.webs().cobwebTicks = was;
+		}
+		helper.runAfterDelay(40, () -> {
+			int left = 0;
+			for (BlockPos pos : BlockPos.betweenClosed(stone.offset(-2, -2, -2), stone.offset(2, 2, 2))) {
+				if (helper.getLevel().getBlockState(pos).is(Blocks.COBWEB)) {
+					left++;
+				}
+			}
+			helper.assertTrue(left == 0, "every cobweb is taken away again when its time is up (" + left + " left)");
+			helper.assertTrue(helper.getLevel().getBlockState(stone).is(Blocks.STONE), "and the stone is untouched");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftNMutesHisNotificationSounds(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		helper.assertFalse(SpiderMoves.soundsOff(p), "sounds start ON");
+		helper.assertFalse(SpiderMoves.toggleSounds(p), "Shift+N mutes them");
+		helper.assertTrue(SpiderMoves.soundsOff(p), "and they stay muted");
+		helper.assertTrue(SpiderMoves.toggleSounds(p), "Shift+N again turns them back on");
+		ServerPlayer plain = helper.makeMockServerPlayerInLevel();
+		helper.assertFalse(SpiderMoves.toggleSounds(plain), "only a Spider-Man has the switch");
+		helper.assertFalse(SpiderMoves.soundsOff(plain), "so nothing changes for anyone else");
+		helper.succeed();
+	}
 }
