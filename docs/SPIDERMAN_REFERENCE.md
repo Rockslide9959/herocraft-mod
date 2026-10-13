@@ -19,6 +19,7 @@ Swinging and the rest of the traversal use **no ability key**:
 | **Run / fly into a wall** | Wall crawl engages by itself: airborne with `horizontalCollision`, or on the ground sprinting forward into it (a 0.32 hop hands it to the climb engine), or swinging into it (the line is dropped and the wall taken). The client arms its own `SpiderClimbLocal.grabIntent` and sends `CLIMB_GRAB`. `SpiderClimb.wallCrawlEnabled` now always returns false. |
 | **Sneak while clung** | Let go (one press now; the old double-tap is still two presses). A 12-tick lock stops the wall re-grabbing at once. |
 | **Sneak on your tightrope** | Drop under it and hang (a 1.7-block swing line, `FLAG_HANGING`, the client keeps the length fixed). Jump = flip back on top, Sneak = let go. |
+| **Sneak, still, at a drop** | **Ledge perch** (`FLAG_PERCH`, server-detected in `SpiderMoves.tickMotion` / `perchSpot`): a drop of 3+ blocks just ahead of his feet where he faces, or standing on something thin (a fence / wall / post top, collision box under 0.7 wide). The comic crouch -- hips sunk, knees splayed wide, the right hand planted on the ledge, the left forearm over the knee, head down at the drop, leaning out -- eased in / out over ~5 ticks client-side (`SpiderPose.perchAmount`), synced to everyone. Sticky once settled (a small shuffle does not drop it). Vanilla sneak edge-safety is untouched. First person: the eye sinks 0.32 and tips 6 degrees down (`SpiderPerchCameraMixin`) and the empty main hand comes forward and down to the ledge (`SpiderPerchHandMixin`). Sheet: `spidey_perch_sheet.png`. |
 | **Attack your own web** | Cut it (client ray test against your webs, nearer than the block you aim at; the server re-raycasts 6 blocks, owner only). |
 | Passives | Double jump, super leap (sneak + jump), Spider-Sense, no fall damage, wall leap -- unchanged. |
 
@@ -47,7 +48,8 @@ while the suit is on (the Agent Venom precedent) -- they shadow Uppercut, Grab &
   (`WebStructures.mayUse`: server `Squads.areAllies` / `SquadManager.sameSquad`, client the `SquadClient` roster). It runs
   on both sides (the client simulates, the server's `handleMovePlayer` re-runs the move with the same boxes), so walking a
   rope never rubber-bands. Strand boxes (0.44 wide, every 0.4 along the strand, top flush with it) are **one-way
-  platforms** (only when the feet are within 0.5 below the top) unless you are wall-crawling, so you can jump up through a
+  platforms** (only when the feet are within 0.5 below the top) unless you are wall-crawling (then solid from every
+  side) or on a line (swinging / hanging under a tightrope: strands never snag, only a wall panel is solid), so you can jump up through a
   web and land on it, and climb a vertical one. The wall panel is solid. `SpiderClimb.hasGrip` also grips webs.
 - **Strangers** (anyone else, mobs included) pass into a web and are stuck fast while touching it:
   `makeStuckInBlock(STRUCTURE_VOID, 0.08 / 0.04 / 0.08)` each tick (the server for mobs, `SpiderTraversalClient` for a

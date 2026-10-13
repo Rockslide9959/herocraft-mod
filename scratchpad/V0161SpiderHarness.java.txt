@@ -1,0 +1,634 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.DoubleSupplier;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.ExperimentalPowers;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.spider.SpiderAnim;
+import com.projecthero.mod.spider.SpiderMan;
+import com.projecthero.mod.spider.SpiderMoves;
+import com.projecthero.mod.spider.data.SpiderMoveState;
+import com.projecthero.mod.spider.item.SpiderItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.1 Spider-Man screenshots. Gated on run/v0161spider.flag (its text picks the
+ * scenes: swing, rope, weave, wall, hud, moves; empty = all). Frame grabs are taken at the head of the next runTick
+ * (see the frame mixin), timed against the synced move state's animation start.
+ */
+public final class V0161SpiderHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	public static Vec3 camOffset;
+	public static Vec3 camLook = new Vec3(0, 1.0, 0);
+	private static volatile long lastProgress = System.currentTimeMillis();
+	private static String only = "";
+	private static boolean forward;
+	private static boolean sneak;
+	private static float pitch;
+	private static boolean lockRot = true;
+	private static boolean showGui;
+	private static double groundY;
+
+	public static double frameTime;
+
+	private static String capName;
+	private static DoubleSupplier capStart;
+	private static float[] capTargets;
+	private static int capIdx;
+
+	private V0161SpiderHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("v0161spider.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			only = Files.readString(flag).trim();
+		} catch (Exception ignored) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(V0161SpiderHarness::tick);
+		Thread wd = new Thread(() -> {
+			while (true) {
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					return;
+				}
+				if (System.currentTimeMillis() - lastProgress > 180_000L) {
+					System.out.println("[HARNESS] WATCHDOG: no progress for 180 s");
+					Runtime.getRuntime().halt(3);
+				}
+			}
+		}, "v0161-spider-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	public static boolean active() {
+		return t0 >= 0;
+	}
+
+	public static void onFrame() {
+		if (capTargets == null || capIdx >= capTargets.length) {
+			return;
+		}
+		double start = capStart.getAsDouble();
+		if (Double.isNaN(start)) {
+			return;
+		}
+		double t = frameTime - start;
+		if (t >= capTargets[capIdx]) {
+			Minecraft mc = Minecraft.getInstance();
+			String n = capName + "_" + capIdx;
+			Screenshot.grab(mc.gameDirectory, "v0161sm_" + n + ".png", mc.getMainRenderTarget(), c -> {
+			});
+			SpiderMoveState ms = mc.player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+			System.out.println("[HARNESS] shot " + n + " t=" + String.format("%.2f", t) + " anim=" + (ms == null ? -1 : ms.animId) + " start=" + (ms == null ? 0 : ms.animStart) + " now=" + mc.level.getGameTime());
+			lastProgress = System.currentTimeMillis();
+			capIdx++;
+		}
+	}
+
+	private static void capture(String name, DoubleSupplier start, float... targets) {
+		capName = name;
+		capStart = start;
+		capTargets = targets;
+		capIdx = 0;
+	}
+
+	private static void still(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "v0161sm_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[HARNESS] still " + name);
+		lastProgress = System.currentTimeMillis();
+	}
+
+	private static ServerPlayer sp(Minecraft mc) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		return srv == null || srv.getPlayerList().getPlayers().isEmpty() ? null : srv.getPlayerList().getPlayers().get(0);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer p = sp(mc);
+				if (p != null) {
+					try {
+						fn.accept(p);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		Runnable prev = AT.get(t);
+		AT.put(t, prev == null ? r : () -> {
+			prev.run();
+			r.run();
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				lastProgress = System.currentTimeMillis();
+				mc.execute(V0161SpiderHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks % 10 == 0) {
+			lastProgress = System.currentTimeMillis();
+		}
+		if (t0 >= 0) {
+			if (lockRot) {
+				mc.player.setYRot(0f);
+				mc.player.setXRot(pitch);
+				mc.player.yHeadRot = 0f;
+				mc.player.yHeadRotO = 0f;
+				mc.player.yBodyRot = 0f;
+				mc.player.yBodyRotO = 0f;
+			}
+			mc.options.hideGui = !showGui;
+			mc.gui.getChat().clearMessages(false);
+			mc.options.keyUp.setDown(forward);
+			mc.options.keyShift.setDown(sneak);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.bobView().set(false);
+			mc.options.fovEffectScale().set(0.0);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.teleportTo(level, Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5, 0f, 0f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("V0161SM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, WorldOptions.defaultWithRandomSeed(),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void cam(Minecraft mc, Vec3 offset, Vec3 look) {
+		mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		camOffset = offset;
+		camLook = look;
+	}
+
+	private static void firstPerson(Minecraft mc) {
+		camOffset = null;
+		mc.options.setCameraType(CameraType.FIRST_PERSON);
+	}
+
+	private static void tickRate(Minecraft mc, float rate) {
+		server(mc, p -> p.server.tickRateManager().setTickRate(rate));
+	}
+
+	private static void fill(ServerLevel level, int x0, int y0, int z0, int x1, int y1, int z1, net.minecraft.world.level.block.state.BlockState s) {
+		for (BlockPos pos : BlockPos.betweenClosed(Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1),
+				Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1))) {
+			level.setBlock(pos, s, 2);
+		}
+	}
+
+	private static Husk husk(ServerPlayer p, double dx, double dz) {
+		Husk h = net.minecraft.world.entity.EntityType.HUSK.create(p.serverLevel());
+		h.moveTo(p.getX() + dx, p.getY(), p.getZ() + dz, 180f, 0f);
+		h.setNoAi(true);
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500.0);
+		h.setHealth(500f);
+		p.serverLevel().addFreshEntity(h);
+		return h;
+	}
+
+	private static void clearMobs(ServerPlayer p) {
+		for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(40))) {
+			e.discard();
+		}
+	}
+
+	private static void reset(ServerPlayer p, double x, double z) {
+		clearMobs(p);
+		SpiderMoves.clear(p);
+		var st = SpiderMan.state(p).copy();
+		st.abilityReadyAt.clear();
+		p.setAttached(ModAttachments.SPIDER_MAN_STATE, st);
+		SpiderMan.setWebReserve(p, 400f);
+		p.teleportTo(p.serverLevel(), x + 0.5, groundY, z + 0.5, 0f, 0f);
+		p.setDeltaMovement(Vec3.ZERO);
+	}
+
+	private static double animStart(Minecraft mc, int anim, double armed) {
+		SpiderMoveState s = mc.player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		return s == null || s.animId != anim || s.animStart < armed - 2 ? Double.NaN : s.animStart;
+	}
+
+	private static double flagStart(Minecraft mc, int flag, double armed) {
+		SpiderMoveState s = mc.player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		return s == null || !s.has(flag) || s.chargeStart < armed - 2 ? Double.NaN : s.chargeStart;
+	}
+
+	private static boolean all() {
+		return only.isEmpty() || only.equals("all");
+	}
+
+	private static void script(Minecraft mc) {
+		at(5, () -> server(mc, p -> {
+			groundY = p.getY();
+			ExperimentalPowers.grant(p, Powers.byKey(SpiderMan.SPIDER_ADHESION_KEY));
+			SpiderMan.evolveFromAdhesion(p);
+			if (!SpiderMan.hasPower(p)) {
+				p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(SpiderItems.ARACHNID_MUTAGEN));
+				SpiderItems.ARACHNID_MUTAGEN.use(p.level(), p, net.minecraft.world.InteractionHand.MAIN_HAND);
+			}
+			p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(SpiderItems.SUIT_HELMET));
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(SpiderItems.SUIT_CHESTPLATE));
+			p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(SpiderItems.SUIT_LEGGINGS));
+			p.setItemSlot(EquipmentSlot.FEET, new ItemStack(SpiderItems.SUIT_BOOTS));
+			p.setGameMode(GameType.SURVIVAL);
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100000, 4, false, false));
+			p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.SATURATION, 100000, 1, false, false));
+			p.removeEffect(net.minecraft.world.effect.MobEffects.GLOWING);
+			System.out.println("[HARNESS] spider-man: " + SpiderMan.hasPower(p));
+		}));
+		int c = 30;
+		// ------------------------------------------------ swinging
+		if (all() || only.contains("swing")) {
+			at(c, () -> server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				int gy = (int) groundY;
+				for (int z = 8; z <= 160; z += 11) {
+					fill(l, -14, gy, z, -12, gy + 34, z + 2, Blocks.STONE_BRICKS.defaultBlockState());
+					fill(l, 12, gy, z + 5, 14, gy + 30, z + 7, Blocks.STONE_BRICKS.defaultBlockState());
+					if ((z - 8) % 22 == 0) {
+						fill(l, -14, gy + 31, z, 14, gy + 32, z + 1, Blocks.STONE_BRICKS.defaultBlockState());
+					}
+				}
+				reset(p, 0, 0);
+				p.teleportTo(l, 0.5, groundY + 16, 0.5, 0f, 0f);
+			}));
+			at(c + 10, () -> {
+				cam(mc, new Vec3(-7, 1.0, -1.5), new Vec3(0, 0.6, 1));
+				forward = true;
+				server(mc, p -> {
+					com.projecthero.mod.hero.power.AbilityHelpers.launchSelf(p, new Vec3(0, 0.1, 0.9));
+					SpiderMoves.swingStart(p);
+				});
+			});
+			at(c + 12, () -> {
+				double armed = mc.level.getGameTime();
+				capture("swing_side", () -> armed, 3f, 8f, 13f, 18f, 23f);
+			});
+			at(c + 40, () -> server(mc, SpiderMoves::swingStop));
+			at(c + 41, () -> {
+				double armed = mc.level.getGameTime();
+				capture("release_side", () -> animStart(mc, SpiderAnim.RELEASE_FLIP, armed), 1f, 3f, 5f, 7f, 9f);
+			});
+			at(c + 60, () -> {
+				cam(mc, new Vec3(-3.5, 2.0, -5.0), new Vec3(0, 0.8, 2));
+				server(mc, SpiderMoves::swingStart);
+			});
+			at(c + 64, () -> {
+				double armed = mc.level.getGameTime();
+				capture("swing_back", () -> armed, 2f, 6f, 10f, 14f, 18f);
+			});
+			at(c + 90, () -> {
+				forward = false;
+				server(mc, SpiderMoves::swingStop);
+			});
+			c += 120;
+		}
+		// ------------------------------------------------ tightrope
+		if (all() || only.contains("rope")) {
+			final int bx = 200;
+			at(c, () -> server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				int gy = (int) groundY;
+				fill(l, bx - 1, gy, -1, bx + 1, gy + 7, 1, Blocks.STONE_BRICKS.defaultBlockState());
+				fill(l, bx - 1, gy, 19, bx + 1, gy + 7, 21, Blocks.STONE_BRICKS.defaultBlockState());
+				reset(p, bx, 8);
+				Vec3 a = new Vec3(bx + 0.5, gy + 7.6, 2.1);
+				Vec3 b = new Vec3(bx + 0.5, gy + 7.6, 18.9);
+				SpiderMoves.buildTightrope(p, a, b);
+				p.teleportTo(l, bx + 0.5, gy + 7.7, 8.5, 0f, 0f);
+			}));
+			at(c + 15, () -> cam(mc, new Vec3(-5.5, 1.2, 1.0), new Vec3(0, 0.9, 1.0)));
+			at(c + 20, () -> still(mc, "rope_side"));
+			at(c + 22, () -> cam(mc, new Vec3(-2.8, 1.6, 3.6), new Vec3(0, 0.9, 0)));
+			at(c + 26, () -> still(mc, "rope_front"));
+			at(c + 28, () -> {
+				cam(mc, new Vec3(-5.0, 2.0, -1.0), new Vec3(0, 0.8, 1.5));
+				forward = true;
+				double armed = mc.level.getGameTime();
+				capture("rope_walk", () -> armed, 3f, 7f, 11f, 15f);
+			});
+			at(c + 46, () -> forward = false);
+			at(c + 50, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), bx + 0.5, groundY + 7.7, 10.5, 0f, 0f);
+			}));
+			at(c + 56, () -> server(mc, SpiderMoves::ropeHang));
+			at(c + 57, () -> cam(mc, new Vec3(-4.5, 0.2, 1.0), new Vec3(0, 0.6, 0)));
+			at(c + 72, () -> still(mc, "rope_hang"));
+			at(c + 74, () -> server(mc, SpiderMoves::swingStop));
+			c += 90;
+		}
+		// ------------------------------------------------ woven webs
+		if (all() || only.contains("weave")) {
+			final int bx = 400;
+			at(c, () -> server(mc, p -> {
+				ServerLevel l = p.serverLevel();
+				int gy = (int) groundY;
+				// a sewer tunnel: walls x = bx +-9, a roof at +16, open at both ends
+				fill(l, bx - 10, gy, -14, bx - 9, gy + 16, 14, Blocks.MOSSY_STONE_BRICKS.defaultBlockState());
+				fill(l, bx + 9, gy, -14, bx + 10, gy + 16, 14, Blocks.MOSSY_STONE_BRICKS.defaultBlockState());
+				fill(l, bx - 10, gy + 16, -14, bx + 10, gy + 17, 14, Blocks.STONE_BRICKS.defaultBlockState());
+				fill(l, bx - 8, gy - 1, -14, bx + 8, gy - 1, 14, Blocks.STONE_BRICKS.defaultBlockState());
+				reset(p, bx, -12);
+				Vec3 centre = new Vec3(bx + 0.5, gy + 8.0, 0.5);
+				SpiderMoves.beginWeaveAt(p, centre, new Vec3(0, 0, 1));
+				for (int k = 0; k < 10; k++) {
+					double ang = Math.toRadians(k * 36 + 9);
+					double dx = Math.cos(ang);
+					double dy = Math.sin(ang);
+					double tx = dx == 0 ? 99 : ((dx > 0 ? 8.9 : -8.4) / dx);
+					double ty = dy == 0 ? 99 : ((dy > 0 ? 7.9 : -7.95) / dy);
+					double t = Math.min(Math.min(tx, ty), 23.0);
+					SpiderMoves.weaveStrandTo(p, centre.add(dx * t, dy * t, 0));
+				}
+				SpiderMoves.finishWeave(p);
+				SpiderMan.setWebReserve(p, 400f);
+				// a second web, flat across a gap between two raised plateaus, to stand on
+				fill(l, bx - 8, gy, 40, bx - 3, gy + 9, 56, Blocks.STONE.defaultBlockState());
+				fill(l, bx + 4, gy, 40, bx + 9, gy + 9, 56, Blocks.STONE.defaultBlockState());
+				Vec3 c2 = new Vec3(bx + 0.5, gy + 10.1, 48.5);
+				SpiderMoves.beginWeaveAt(p, c2, new Vec3(0, 1, 0));
+				double[][] ends = {{-3.6, 0, 0}, {4.4, 0, 0}, {-3.6, 0, 6}, {4.4, 0, 6}, {-3.6, 0, -6}, {4.4, 0, -6},
+						{-3.6, 0, 3}, {4.4, 0, -3}, {-3.6, 0, -3}, {4.4, 0, 3}};
+				for (double[] e : ends) {
+					SpiderMoves.weaveStrandTo(p, c2.add(e[0], e[1], e[2]));
+				}
+				SpiderMoves.finishWeave(p);
+				var st = SpiderMan.state(p).copy();
+				st.abilityReadyAt.clear();
+				p.setAttached(ModAttachments.SPIDER_MAN_STATE, st);
+			}));
+			at(c + 20, () -> cam(mc, new Vec3(0, 3.5, -7), new Vec3(0, 6, 12)));
+			at(c + 26, () -> still(mc, "weave_wide"));
+			at(c + 28, () -> cam(mc, new Vec3(-7, 1.0, -12), new Vec3(2, 7, 14)));
+			at(c + 32, () -> still(mc, "weave_wide2"));
+			at(c + 34, () -> server(mc, p -> p.teleportTo(p.serverLevel(), bx + 0.5, groundY + 10.2, 47.5, 0f, 0f)));
+			at(c + 42, () -> cam(mc, new Vec3(-6, 4, -5), new Vec3(0, 0, 1)));
+			at(c + 46, () -> still(mc, "weave_standing"));
+			at(c + 48, () -> cam(mc, new Vec3(-12, -6, 0), new Vec3(0, 0, 0)));
+			at(c + 52, () -> still(mc, "weave_standing_below"));
+			c += 60;
+		}
+		// ------------------------------------------------ web wall
+		if (all() || only.contains("wall")) {
+			final int bx = 600;
+			at(c, () -> server(mc, p -> {
+				reset(p, bx, 0);
+				SpiderMoves.webWall(p);
+				var z = net.minecraft.world.entity.EntityType.ZOMBIE.create(p.serverLevel());
+				z.moveTo(p.getX() + 0.6, groundY, p.getZ() + 4.2, 180f, 0f);
+				p.serverLevel().addFreshEntity(z);
+				z.setTarget(p);
+			}));
+			at(c + 30, () -> cam(mc, new Vec3(-4.5, 2.2, -2.0), new Vec3(0, 1.2, 2.5)));
+			at(c + 34, () -> still(mc, "wall"));
+			at(c + 36, () -> cam(mc, new Vec3(-3.5, 1.8, 6.5), new Vec3(0, 1.2, 2.5)));
+			at(c + 40, () -> still(mc, "wall_front"));
+			c += 45;
+		}
+		// ------------------------------------------------ HUD
+		if (all() || only.contains("hud")) {
+			at(c, () -> {
+				firstPerson(mc);
+				showGui = true;
+				server(mc, p -> {
+					reset(p, 800, 0);
+					husk(p, 0.3, 6);
+					SpiderMoves.webBomb(p);
+					com.projecthero.mod.spider.SpiderAbilities.webShot(p);
+					SpiderMoves.webWhip(p);
+				});
+			});
+			at(c + 10, () -> still(mc, "hud"));
+			at(c + 12, () -> server(mc, p -> SpiderMoves.beginWeaveAt(p, p.position().add(0, 3, 6), new Vec3(0, 0, 1))));
+			at(c + 14, () -> server(mc, p -> {
+				SpiderMoves.weaveStrandTo(p, p.position().add(4, 3, 6));
+				SpiderMoves.weaveStrandTo(p, p.position().add(-4, 4, 6));
+				SpiderMoves.weaveStrandTo(p, p.position().add(0, 0.1, 6));
+			}));
+			at(c + 20, () -> com.projecthero.mod.client.gui.SpiderHud.webAlarm(mc.player.position().add(14, 0, 4)));
+			at(c + 24, () -> still(mc, "hud_weave_alarm"));
+			at(c + 26, () -> server(mc, p -> SpiderMoves.finishWeave(p)));
+			at(c + 30, () -> showGui = false);
+			c += 35;
+		}
+		// ------------------------------------------------ the ledge perch
+		if (all() || only.contains("perch")) {
+			String[] pv = {"s", "q", "f"};
+			for (String v : pv) {
+				final int pc = c;
+				at(pc, () -> {
+					sneak = false;
+					pitch = v.equals("f") ? 38f : 0f;
+					showGui = v.equals("f");
+					if (v.equals("f")) {
+						firstPerson(mc);
+					} else if (v.equals("s")) {
+						cam(mc, new Vec3(-3.4, 0.7, 0.6), new Vec3(0, 0.55, 0.5));
+					} else {
+						cam(mc, new Vec3(-1.8, 1.0, 2.6), new Vec3(0, 0.6, 0));
+					}
+					server(mc, p -> {
+						int gy = (int) groundY;
+						fill(p.serverLevel(), 1399, gy, -2, 1401, gy + 5, 2, Blocks.STONE_BRICKS.defaultBlockState());
+						reset(p, 1400, 0);
+						p.teleportTo(p.serverLevel(), 1400.5, gy + 6, 2.55, 0f, 0f);
+					});
+				});
+				at(pc + 12, () -> {
+					sneak = true;
+					double armed = mc.level.getGameTime();
+					capture("perch_" + v, () -> flagStart(mc, SpiderMoveState.FLAG_PERCH, armed), 0.5f, 1.5f, 3f, 6f, 14f);
+				});
+				at(pc + 40, () -> {
+					sneak = false;
+					pitch = 0f;
+					showGui = false;
+				});
+				c += 46;
+			}
+		}
+		// ------------------------------------------------ attack frame sheets (slowed to 4 tps)
+		if (all() || only.contains("moves")) {
+			at(c, () -> tickRate(mc, 4f));
+			c += 3;
+			String[] views = {"q", "s"};
+			for (String v : views) {
+				// Web Strike
+				c = move(mc, c, v, "strike", p -> husk(p, 0, 7), SpiderMoves::webStrike, SpiderAnim.STRIKE_COMBO,
+						new float[] {1f, 2.5f, 5f, 9f, 12f, 16f, 19f}, 60);
+				c = move(mc, c, v, "zipkick", p -> husk(p, 0, 9), SpiderMoves::zipKick, SpiderAnim.ZIP_KICK,
+						new float[] {1f, 4f, 7f, 9.5f, 12f, 18f}, 60);
+				c = move(mc, c, v, "uppercut", p -> husk(p, 0, 2.3), SpiderMoves::uppercut, SpiderAnim.UPPERCUT,
+						new float[] {0.5f, 1.5f, 3f, 5f, 8f}, 40);
+				c = move(mc, c, v, "whip", p -> {
+					husk(p, 0, 2.6);
+					husk(p, 2.4, -0.5);
+					husk(p, -2.4, 0.3);
+				}, SpiderMoves::webWhip, SpiderAnim.WHIP, new float[] {1f, 3f, 5f, 7f, 9f, 11f}, 40);
+				c = move(mc, c, v, "hurl", p -> {
+					Husk h = husk(p, 0, 6);
+					h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(20.0);
+						h.setNoAi(false);
+					h.setHealth(20f);
+				}, SpiderMoves::grabHurl, SpiderAnim.HURL,
+						new float[] {2f, 5f, 8f, 10f, 12f, 15f}, 50);
+				c = move(mc, c, v, "thwip", p -> husk(p, 0, 6), com.projecthero.mod.spider.SpiderAbilities::webShot,
+						-1, new float[] {1f, 2f, 4f, 6f}, 30);
+				// Swing-Throw: the whirl (flag) then the release
+				final int cc = c;
+				at(cc, () -> {
+					view(mc, v);
+					server(mc, p -> {
+						reset(p, 1000, 0);
+						Husk h = husk(p, 0, 5);
+						h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(20.0);
+						h.setNoAi(false);
+						h.setHealth(20f);
+					});
+				});
+				at(cc + 4, () -> {
+					server(mc, p -> com.projecthero.mod.spider.SpiderCombat.beginThrow(p));
+					double armed = mc.level.getGameTime();
+					capture("swingthrow_" + v, () -> flagStart(mc, SpiderMoveState.FLAG_SWING_THROW, armed), 2f, 4f, 6f, 8f);
+				});
+				at(cc + 18, () -> {
+					server(mc, com.projecthero.mod.spider.SpiderCombat::releaseThrow);
+					double armed = mc.level.getGameTime();
+					capture("swingthrowrel_" + v, () -> animStart(mc, SpiderAnim.SWING_THROW_RELEASE, armed), 0.5f, 2f, 4f, 6f);
+				});
+				c += 34;
+				// the superhero landing
+				final int lc = c;
+				at(lc, () -> {
+					view(mc, v);
+					server(mc, p -> {
+						reset(p, 1200, 0);
+						p.teleportTo(p.serverLevel(), 1200.5, groundY + 14, 0.5, 0f, 0f);
+					});
+				});
+				at(lc + 2, () -> {
+					double armed = mc.level.getGameTime();
+					capture("landing_" + v, () -> animStart(mc, SpiderAnim.LANDING, armed), 1f, 3f, 6f, 10f, 14f);
+				});
+				c += 40;
+			}
+			at(c, () -> tickRate(mc, 20f));
+			c += 5;
+		}
+		at(c, () -> {
+			System.out.println("[HARNESS] done");
+			mc.stop();
+		});
+	}
+
+	private static void view(Minecraft mc, String v) {
+		if (v.equals("q")) {
+			cam(mc, new Vec3(-2.4, 1.4, 2.4), new Vec3(0, 1.0, 1.0));
+		} else {
+			cam(mc, new Vec3(-4.0, 1.1, 1.5), new Vec3(0, 1.0, 1.5));
+		}
+	}
+
+	private static int move(Minecraft mc, int c, String v, String name, java.util.function.Consumer<ServerPlayer> setup,
+			java.util.function.Consumer<ServerPlayer> fire, int anim, float[] beats, int len) {
+		at(c, () -> {
+			view(mc, v);
+			server(mc, p -> {
+				reset(p, 1000, 0);
+				setup.accept(p);
+			});
+		});
+		at(c + 4, () -> {
+			server(mc, p -> {
+				fire.accept(p);
+				System.out.println("[HARNESS] fired " + name + " anim=" + SpiderMoves.state(p).animId + " flags=" + SpiderMoves.state(p).flags);
+			});
+			double armed = mc.level.getGameTime();
+			capture(name + "_" + v, () -> anim < 0 ? armed : animStart(mc, anim, armed), beats);
+		});
+		return c + len;
+	}
+}

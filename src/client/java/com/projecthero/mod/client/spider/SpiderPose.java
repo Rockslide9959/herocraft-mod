@@ -89,8 +89,8 @@ public final class SpiderPose {
 			rest(22)}, true, true);
 	private static final Pose UPPERCUT = new Pose(new float[][] {
 			f(0, 0.35f, 0, 0.15f, -0.9f, 0.4f, 0, 0.35f, -0.3f, 0.4f, -0.6f, 0.2f),
-			f(3, -2.95f, 0, -0.1f, -0.4f, 0, -0.2f, -0.2f, 0.25f, 0.15f, -0.15f, -0.4f),
-			f(8, -2.85f, 0, -0.1f, -0.3f, 0, -0.2f, -0.15f, 0.2f, 0.1f, -0.1f, -0.35f),
+			f(3, -2.5f, 0.4f, -0.25f, 0.45f, 0, -0.3f, -0.22f, 0.35f, 0.15f, -0.15f, -0.45f),
+			f(8, -2.45f, 0.35f, -0.2f, 0.4f, 0, -0.3f, -0.15f, 0.3f, 0.1f, -0.1f, -0.4f),
 			rest(12)}, false, false);
 	private static final Pose COUNTER_FLIP = new Pose(new float[][] {
 			rest(0),
@@ -201,6 +201,10 @@ public final class SpiderPose {
 		}
 		if (s == null) {
 			return;
+		}
+		float perch = perchAmount(player);
+		if (perch > 0f) {
+			perch(m, perch);
 		}
 		// held stances first; a move's animation then blends over them
 		if (s.has(SpiderMoveState.FLAG_WEAVING)) {
@@ -326,6 +330,76 @@ public final class SpiderPose {
 		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, 1.05f);
 		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, 0.18f);
 		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -0.06f);
+	}
+
+	/** Per player: the eased perch amount (0..1) and the last time it was advanced (ns). */
+	private static final java.util.Map<java.util.UUID, double[]> PERCH_EASE = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** The ledge perch, eased in / out over about five ticks (0 = standing). */
+	public static float perchAmount(Player player) {
+		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		boolean on = s != null && s.has(SpiderMoveState.FLAG_PERCH) && SpiderMan.hasPower(player);
+		double[] e = PERCH_EASE.get(player.getUUID());
+		if (e == null) {
+			if (!on) {
+				return 0f;
+			}
+			e = new double[] {0.0, System.nanoTime()};
+			PERCH_EASE.put(player.getUUID(), e);
+		}
+		long now = System.nanoTime();
+		double dt = Math.min(0.2, (now - e[1]) / 1.0e9);
+		e[1] = now;
+		// a quarter second (5 ticks) from one to the other
+		e[0] = Mth.clamp(e[0] + (on ? dt : -dt) * 4.0, 0.0, 1.0);
+		if (!on && e[0] <= 0.0) {
+			PERCH_EASE.remove(player.getUUID());
+			return 0f;
+		}
+		return smooth((float) e[0]);
+	}
+
+	/**
+	 * The comic-book ledge perch: hips sunk low on the balls of the feet, knees splayed wide, leaning out over the drop;
+	 * the right hand planted on the ledge between the feet, the left forearm across the left knee, head down at the drop.
+	 */
+	private static void perch(HumanoidModel<?> m, float k) {
+		final float lean = 0.85f;
+		final float hipY = 16.8f;
+		float neckY = hipY - 12.0f * Mth.cos(lean);
+		float neckZ = -12.0f * Mth.sin(lean);
+		m.body.xRot = Mth.lerp(k, m.body.xRot, lean);
+		m.body.y = Mth.lerp(k, m.body.y, neckY);
+		m.body.z = Mth.lerp(k, m.body.z, neckZ);
+		m.head.y = Mth.lerp(k, m.head.y, neckY);
+		m.head.z = Mth.lerp(k, m.head.z, neckZ);
+		m.head.xRot = Mth.lerp(k, m.head.xRot, Math.max(m.head.xRot, 0.55f));
+		m.hat.copyFrom(m.head);
+		float shoulderY = neckY + 2.0f * Mth.cos(lean);
+		float shoulderZ = neckZ + 2.0f * Mth.sin(lean);
+		m.rightArm.y = Mth.lerp(k, m.rightArm.y, shoulderY);
+		m.leftArm.y = Mth.lerp(k, m.leftArm.y, shoulderY);
+		m.rightArm.z = Mth.lerp(k, m.rightArm.z, shoulderZ);
+		m.leftArm.z = Mth.lerp(k, m.leftArm.z, shoulderZ);
+		// right hand straight down onto the ledge between the feet
+		m.rightArm.xRot = Mth.lerp(k, m.rightArm.xRot, -0.08f);
+		m.rightArm.yRot = Mth.lerp(k, m.rightArm.yRot, 0.0f);
+		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, -0.12f);
+		// left forearm over the knee
+		m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -0.75f);
+		m.leftArm.yRot = Mth.lerp(k, m.leftArm.yRot, 0.15f);
+		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, -0.05f);
+		// thighs forward and splayed wide
+		m.rightLeg.y = Mth.lerp(k, m.rightLeg.y, hipY);
+		m.leftLeg.y = Mth.lerp(k, m.leftLeg.y, hipY);
+		m.rightLeg.z = Mth.lerp(k, m.rightLeg.z, 0.0f);
+		m.leftLeg.z = Mth.lerp(k, m.leftLeg.z, 0.0f);
+		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -0.85f);
+		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, -0.85f);
+		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.25f);
+		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, -0.25f);
+		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, 0.42f);
+		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -0.42f);
 	}
 
 	private static float smooth(float f) {

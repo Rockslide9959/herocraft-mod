@@ -69,7 +69,7 @@ public class WebStructureRenderer extends EntityRenderer<WebStructureEntity> {
 				Vec3 a = g.a(i);
 				Vec3 b = g.b(i);
 				boolean radial = i < radials;
-				double width = g.kind == WebGeometry.TIGHTROPE ? 0.10 : radial ? 0.085 : 0.055;
+				double width = g.kind == WebGeometry.TIGHTROPE ? 0.12 : radial ? 0.11 : 0.075;
 				// a tightrope and a radial sag a little; the spiral threads are short and taut
 				double sag = radial ? Math.min(0.35, a.distanceTo(b) * 0.012) : 0.0;
 				int segs = radial ? Math.max(2, (int) Math.min(12, a.distanceTo(b) / 1.5)) : 1;
@@ -104,7 +104,7 @@ public class WebStructureRenderer extends EntityRenderer<WebStructureEntity> {
 		BlockPos pos = BlockPos.containing(p);
 		int block = e.level().getBrightness(LightLayer.BLOCK, pos);
 		int sky = e.level().getBrightness(LightLayer.SKY, pos);
-		return LightTexture.pack(Math.max(block, 4), sky);
+		return LightTexture.pack(Math.max(block, 9), sky);
 	}
 
 	/** One camera-facing quad from {@code a} to {@code b} (entity-local), {@code width} wide. */

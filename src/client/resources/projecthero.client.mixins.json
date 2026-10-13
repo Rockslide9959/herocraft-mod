@@ -4,6 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"NovaFirstPersonParticleMixin",
+		"SpiderPerchCameraMixin",
+		"SpiderPerchHandMixin",
 		"AbstractClientPlayerHulkFovMixin",
 		"GantryFovMixin",
 		"IronManRemovalParticleMixin",

@@ -360,4 +360,27 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		}
 		helper.succeed();
 	}
+
+	// ---------------- the ledge perch ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void perchNeedsADropOrAThinPost(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(1, 4, 1)), helper.absolutePos(new BlockPos(5, 4, 3)))) {
+			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+		}
+		Vec3 middle = helper.absoluteVec(new Vec3(3.5, 5.0, 2.0));
+		p.moveTo(middle.x, middle.y, middle.z, 0.0f, 0.0f); // facing +Z, the ledge 1.5 blocks ahead
+		helper.assertFalse(SpiderMoves.perchSpot(p), "no perch in the middle of a floor");
+		Vec3 edge = helper.absoluteVec(new Vec3(3.5, 5.0, 3.6));
+		p.moveTo(edge.x, edge.y, edge.z, 0.0f, 0.0f);
+		helper.assertTrue(SpiderMoves.perchSpot(p), "at the edge, facing a 4-block drop, he perches");
+		p.moveTo(edge.x, edge.y, edge.z, 180.0f, 0.0f);
+		helper.assertFalse(SpiderMoves.perchSpot(p), "but not facing back over the floor");
+		BlockPos post = helper.absolutePos(new BlockPos(7, 1, 6));
+		helper.getLevel().setBlock(post, Blocks.OAK_FENCE.defaultBlockState(), 2);
+		p.moveTo(post.getX() + 0.5, post.getY() + 1.5, post.getZ() + 0.5, 90.0f, 0.0f);
+		helper.assertTrue(SpiderMoves.perchSpot(p), "on top of a fence post he perches whichever way he faces");
+		helper.succeed();
+	}
 }

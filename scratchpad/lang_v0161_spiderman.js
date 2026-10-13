@@ -96,6 +96,7 @@ require('./langset.js')([
 			'projecthero.guide.spider_man.traversal.crawl': 'Wall crawling engages by itself when you run or fly into a wall in the air, or sprint into one -- swinging into a wall drops the line and takes the wall. Sneak lets go.',
 			'projecthero.guide.spider_man.traversal.rope': 'On your tightrope you stay balanced; Sneak drops you under it to hang, Jump flips you back on top.',
 			'projecthero.guide.spider_man.traversal.cut': 'Attack one of your own webs to cut it down.',
+			'projecthero.guide.spider_man.traversal.perch': 'Ledge perch -- Sneak standing still at the edge of a drop (3+ blocks), or up on a fence, wall or post, and you sink into the classic crouch: knees wide on the balls of your feet, a hand planted on the ledge, leaning out over the drop. Sneak still keeps you from falling off.',
 			'projecthero.guide.spider_man.webs': 'Webs you build',
 			'projecthero.guide.spider_man.webs.body': 'Tightropes, Web Walls and woven webs are spun from silk, not blocks -- nothing in the world is placed or broken, and they fade after 5 minutes (or when their area unloads). You and your squad stand, walk, climb and swing on them; anyone else who touches one sticks fast, and your Spider-Sense pings -- a chime and an arrow on your HUD pointing at the spot, wherever you are within 160 blocks. You can have 12 at once; a new one replaces your oldest.',
 			'projecthero.guide.spider_man.passive.crawl': 'Wall and ceiling crawling -- run or fly into a wall to stick, look where you want to go and move; Sneak or reach the ground to let go.',

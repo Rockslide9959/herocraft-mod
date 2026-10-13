@@ -131,6 +131,8 @@ public final class WebStructures {
 		}
 		List<VoxelShape> out = null;
 		boolean climbing = com.projecthero.mod.spider.SpiderClimb.attached((Player) e);
+		// on a line (swinging, or hanging under a tightrope) the strands never snag him -- only a wall panel is solid
+		boolean swinging = com.projecthero.mod.spider.SpiderSwing.isSwinging((Player) e);
 		for (WebStructureEntity w : webs) {
 			if (!w.geometry().bounds.intersects(query) || !mayUse(e, w.owner())) {
 				continue;
@@ -139,7 +141,8 @@ public final class WebStructures {
 				out = new ArrayList<>();
 			}
 			// crawling on a web it is solid from every side; walking, a strand is a one-way platform
-			w.geometry().collisionBoxes(query, out, climbing ? Double.NaN : e.getBoundingBox().minY);
+			w.geometry().collisionBoxes(query, out, swinging ? Double.NEGATIVE_INFINITY
+					: climbing ? Double.NaN : e.getBoundingBox().minY);
 		}
 		return out == null ? Collections.emptyList() : out;
 	}
