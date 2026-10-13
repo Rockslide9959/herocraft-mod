@@ -21,6 +21,7 @@
 		"RenderTypeCompositeInvoker",
 		"TextureShardInvoker",
 		"ClientLevelMixin",
+		"GalactusStarsMixin",
 		"EntityGlowMixin",
 		"FirearmAttackMixin",
 		"GreenLanternSniperInputMixin",

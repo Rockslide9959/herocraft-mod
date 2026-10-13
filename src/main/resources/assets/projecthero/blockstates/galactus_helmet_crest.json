@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/galactus_helmet_crest"
+    },
+    "facing=east": {
+      "model": "projecthero:block/galactus_helmet_crest",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/galactus_helmet_crest",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/galactus_helmet_crest",
+      "y": 270
+    }
+  }
+}

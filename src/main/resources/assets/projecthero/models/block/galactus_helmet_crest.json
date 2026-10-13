@@ -1,0 +1,233 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "crest": "projecthero:block/galactus_helmet_crest",
+    "particle": "projecthero:block/galactus_helmet_crest"
+  },
+  "elements": [
+    {
+      "from": [
+        3,
+        0,
+        4
+      ],
+      "to": [
+        13,
+        3,
+        12
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        3,
+        6
+      ],
+      "to": [
+        12,
+        7,
+        10
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        2,
+        3,
+        7
+      ],
+      "to": [
+        4,
+        15,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        12,
+        3,
+        7
+      ],
+      "to": [
+        14,
+        15,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        12,
+        7
+      ],
+      "to": [
+        2,
+        16,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        14,
+        12,
+        7
+      ],
+      "to": [
+        15,
+        16,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        7,
+        7
+      ],
+      "to": [
+        9,
+        11,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#crest"
+        },
+        "south": {
+          "texture": "#crest"
+        },
+        "east": {
+          "texture": "#crest"
+        },
+        "west": {
+          "texture": "#crest"
+        },
+        "up": {
+          "texture": "#crest"
+        },
+        "down": {
+          "texture": "#crest"
+        }
+      }
+    }
+  ]
+}

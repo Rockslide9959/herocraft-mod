@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "active=false": {
+      "model": "projecthero:block/heralds_beacon"
+    },
+    "active=true": {
+      "model": "projecthero:block/heralds_beacon_active"
+    }
+  }
+}

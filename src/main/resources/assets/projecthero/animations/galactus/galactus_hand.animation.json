@@ -1,0 +1,55 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.galactus_hand.idle": {
+			"animation_length": 2,
+			"bones": {
+				"fingers": {
+					"rotation": {
+						"0.0000": [
+							8,
+							0,
+							0
+						],
+						"1.0000": [
+							14,
+							0,
+							0
+						],
+						"2.0000": [
+							8,
+							0,
+							0
+						]
+					}
+				}
+			},
+			"loop": true
+		},
+		"animation.galactus_hand.grip": {
+			"animation_length": 1,
+			"bones": {
+				"fingers": {
+					"rotation": {
+						"0.0000": [
+							70,
+							0,
+							0
+						],
+						"0.5000": [
+							76,
+							0,
+							0
+						],
+						"1.0000": [
+							70,
+							0,
+							0
+						]
+					}
+				}
+			},
+			"loop": true
+		}
+	}
+}

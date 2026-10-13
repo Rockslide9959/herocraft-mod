@@ -37,6 +37,10 @@
     "projecthero:ultron_omega_core",
     "projecthero:corrupted_circuitry",
     "projecthero:corrupted_circuitry_stone",
-    "projecthero:corrupted_circuitry_log"
+    "projecthero:corrupted_circuitry_log",
+    "projecthero:heralds_beacon",
+    "projecthero:galactus_helmet_crest",
+    "projecthero:consumed_ground",
+    "projecthero:cosmic_hazard"
   ]
 }

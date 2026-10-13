@@ -356,7 +356,8 @@ public final class HeroPackGuide {
 	private static final int CH_NOVA = 32; // v0.15.13
 	private static final int CH_FROST_GIANTS = 33; // v0.16.1
 	private static final int CH_ULTRON_CONTAGION = 34; // v0.16.1
-	private static final int CHAPTER_POWER_BASE = 35;
+	private static final int CH_GALACTUS = 35; // v0.16.1
+	private static final int CHAPTER_POWER_BASE = 36;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1138,6 +1139,16 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.ultron_contagion." + section + ".body");
 			}
 		}));
+		// v0.16.1: Galactus: The Devourer (CH_GALACTUS)
+		out.add(chapter("projecthero.guide.galactus", lines -> {
+			para(lines, "projecthero.guide.galactus.body");
+			for (String section : new String[]{"ladder", "start", "arena", "herald", "worldship", "consumption", "galactus", "moves", "punishers",
+					"nullifier", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.galactus." + section);
+				para(lines, "projecthero.guide.galactus." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1198,6 +1209,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.ultron", CH_ULTRON);
 		link(idx, "projecthero.guide.frost_giants", CH_FROST_GIANTS);
 		link(idx, "projecthero.guide.ultron_contagion", CH_ULTRON_CONTAGION); // v0.16.1
+		link(idx, "projecthero.guide.galactus", CH_GALACTUS); // v0.16.1
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

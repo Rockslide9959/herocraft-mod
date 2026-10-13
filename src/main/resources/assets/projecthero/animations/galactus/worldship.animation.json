@@ -1,0 +1,50 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.worldship.idle": {
+			"animation_length": 10,
+			"bones": {
+				"ring": {
+					"rotation": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"10.0000": [
+							0,
+							90,
+							0
+						]
+					}
+				}
+			},
+			"loop": true
+		},
+		"animation.worldship.leave": {
+			"animation_length": 4.8,
+			"bones": {
+				"root": {
+					"position": {
+						"0.0000": [
+							0,
+							0,
+							0
+						],
+						"1.4400": [
+							0,
+							10,
+							0
+						],
+						"4.8000": [
+							0,
+							900,
+							0
+						]
+					}
+				}
+			},
+			"loop": "hold_on_last_frame"
+		}
+	}
+}
