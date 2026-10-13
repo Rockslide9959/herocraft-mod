@@ -1131,11 +1131,8 @@ public final class SpiderMoves {
 		if (w.ends.size() >= cfgW.weaveMaxStrands) {
 			return false;
 		}
-		if (end.distanceTo(player.getEyePosition()) > cfgW.weaveStrandLength + 1.0) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.weave_too_far",
-					(int) cfgW.weaveStrandLength), true);
-			return false;
-		}
+		// (the reach is the click's raycast -- weaveStrand -- not a distance from wherever he stands now; an anchor too far
+		// from the finished web's centre is dropped in finishWeave)
 		for (Vec3 e : w.ends) {
 			if (e.distanceToSqr(end) < 1.0) {
 				return false; // the same spot twice

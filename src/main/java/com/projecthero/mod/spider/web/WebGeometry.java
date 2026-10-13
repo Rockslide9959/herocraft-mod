@@ -32,8 +32,11 @@ public final class WebGeometry {
 	public static final double WALL_HALF_THICK = 0.12;
 
 	public final byte kind;
-	/** 6 floats per segment: ax ay az bx by bz. */
-	public final float[] segs;
+	/**
+	 * 6 doubles per segment: ax ay az bx by bz. v0.16.1: doubles, not floats -- at world coordinates in the millions a
+	 * float is only good to a block or so, which put strands (and their footing / anchors) up to half a block off.
+	 */
+	public final double[] segs;
 	/** Web Wall only: the solid panel box and which horizontal axis it faces (0 = its normal is X, 1 = Z). */
 	public final AABB wallBox;
 	public final int wallAxis;
@@ -41,7 +44,7 @@ public final class WebGeometry {
 	public final Vec3 normal;
 	public final AABB bounds;
 
-	private WebGeometry(byte kind, float[] segs, AABB wallBox, int wallAxis, Vec3 normal) {
+	private WebGeometry(byte kind, double[] segs, AABB wallBox, int wallAxis, Vec3 normal) {
 		this.kind = kind;
 		this.segs = segs;
 		this.wallBox = wallBox;
@@ -70,7 +73,7 @@ public final class WebGeometry {
 	// ---------------- builders ----------------
 
 	public static WebGeometry tightrope(Vec3 a, Vec3 b) {
-		return new WebGeometry(TIGHTROPE, new float[] {(float) a.x, (float) a.y, (float) a.z, (float) b.x, (float) b.y, (float) b.z},
+		return new WebGeometry(TIGHTROPE, new double[] {a.x, a.y, a.z, b.x, b.y, b.z},
 				null, 0, Vec3.ZERO);
 	}
 
@@ -83,7 +86,7 @@ public final class WebGeometry {
 		AABB box = axis == 0
 				? new AABB(base.x - t, base.y, base.z - halfWidth, base.x + t, base.y + height, base.z + halfWidth)
 				: new AABB(base.x - halfWidth, base.y, base.z - t, base.x + halfWidth, base.y + height, base.z + t);
-		return new WebGeometry(WALL, new float[0], box, axis, axis == 0 ? new Vec3(1, 0, 0) : new Vec3(0, 0, 1));
+		return new WebGeometry(WALL, new double[0], box, axis, axis == 0 ? new Vec3(1, 0, 0) : new Vec3(0, 0, 1));
 	}
 
 	/**
@@ -92,7 +95,7 @@ public final class WebGeometry {
 	 * out by {@code ringSpacing} every full turn), skipping any gap wider than 150 degrees so an open side stays open.
 	 */
 	public static WebGeometry weave(Vec3 centre, List<Vec3> ends, Vec3 normal, boolean complete, double ringSpacing) {
-		List<float[]> out = new ArrayList<>();
+		List<double[]> out = new ArrayList<>();
 		for (Vec3 e : ends) {
 			out.add(seg(centre, e));
 		}
@@ -141,15 +144,15 @@ public final class WebGeometry {
 				}
 			}
 		}
-		float[] all = new float[out.size() * 6];
+		double[] all = new double[out.size() * 6];
 		for (int i = 0; i < out.size(); i++) {
 			System.arraycopy(out.get(i), 0, all, i * 6, 6);
 		}
 		return new WebGeometry(WEAVE, all, null, 0, n);
 	}
 
-	private static float[] seg(Vec3 a, Vec3 b) {
-		return new float[] {(float) a.x, (float) a.y, (float) a.z, (float) b.x, (float) b.y, (float) b.z};
+	private static double[] seg(Vec3 a, Vec3 b) {
+		return new double[] {a.x, a.y, a.z, b.x, b.y, b.z};
 	}
 
 	// ---------------- (de)serialisation ----------------
@@ -157,11 +160,11 @@ public final class WebGeometry {
 	public CompoundTag encode() {
 		CompoundTag tag = new CompoundTag();
 		tag.putByte("k", kind);
-		int[] bits = new int[segs.length];
+		long[] bits = new long[segs.length];
 		for (int i = 0; i < segs.length; i++) {
-			bits[i] = Float.floatToIntBits(segs[i]);
+			bits[i] = Double.doubleToLongBits(segs[i]);
 		}
-		tag.putIntArray("s", bits);
+		tag.putLongArray("d", bits);
 		if (wallBox != null) {
 			tag.putDouble("x0", wallBox.minX);
 			tag.putDouble("y0", wallBox.minY);
@@ -182,10 +185,20 @@ public final class WebGeometry {
 		if (tag == null || !tag.contains("k")) {
 			return null;
 		}
-		int[] bits = tag.getIntArray("s");
-		float[] segs = new float[bits.length - bits.length % 6];
-		for (int i = 0; i < segs.length; i++) {
-			segs[i] = Float.intBitsToFloat(bits[i]);
+		double[] segs;
+		if (tag.contains("d")) {
+			long[] bits = tag.getLongArray("d");
+			segs = new double[bits.length - bits.length % 6];
+			for (int i = 0; i < segs.length; i++) {
+				segs[i] = Double.longBitsToDouble(bits[i]);
+			}
+		} else {
+			// older (float) encoding
+			int[] bits = tag.getIntArray("s");
+			segs = new double[bits.length - bits.length % 6];
+			for (int i = 0; i < segs.length; i++) {
+				segs[i] = Float.intBitsToFloat(bits[i]);
+			}
 		}
 		AABB wall = tag.contains("x0") ? new AABB(tag.getDouble("x0"), tag.getDouble("y0"), tag.getDouble("z0"),
 				tag.getDouble("x1"), tag.getDouble("y1"), tag.getDouble("z1")) : null;
