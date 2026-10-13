@@ -151,6 +151,18 @@ public final class SpiderStrands {
 		return false;
 	}
 
+	/** v0.16.1: a strand of {@code playerId} still held in the given hand (not yet let go / frozen), or null. */
+	public static Strand heldStrand(int playerId, boolean rightHand, float partial) {
+		double now = now(partial);
+		for (Strand s : STRANDS) {
+			if (s.playerId == playerId && s.rightHand == rightHand && s.frozenHand == null && s.slot != SLOT_SWING_REMNANT
+					&& now - s.startTick < s.hold + 2) {
+				return s;
+			}
+		}
+		return null;
+	}
+
 	/** True while the local camera is in first person (the local player's model is not drawn then). */
 	private static boolean firstPerson(Minecraft mc) {
 		return mc.options.getCameraType().isFirstPerson();
@@ -164,6 +176,11 @@ public final class SpiderStrands {
 	public static Vec3 handPosition(Player player, boolean right, float partial, Camera cam) {
 		Minecraft mc = Minecraft.getInstance();
 		if (player == mc.player && firstPerson(mc)) {
+			// v0.16.1: the wrist of the hand actually drawn on screen (FirstPersonWebAnchor) -- exact at any FOV / bob
+			Vec3 wrist = FirstPersonWebAnchor.worldPoint(right, cam);
+			if (wrist != null) {
+				return wrist;
+			}
 			// the usual first-person hand spot: right/down/forward of the eye, in view space
 			Vector3f look = cam.getLookVector();
 			Vector3f up = cam.getUpVector();

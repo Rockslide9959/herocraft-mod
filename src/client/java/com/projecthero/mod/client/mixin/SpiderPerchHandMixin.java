@@ -111,6 +111,49 @@ public abstract class SpiderPerchHandMixin {
 		}
 	}
 
+	/**
+	 * v0.16.1: a web strand fired from the OFF hand (Web Zip, Web Yank, a combat strand, a tightrope shot ...) -- vanilla
+	 * never draws an empty off-hand arm, so draw it, raised toward the strand, so the line has a wrist to leave from.
+	 */
+	@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderPlayerArm(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IFFLnet/minecraft/world/entity/HumanoidArm;)V"))
+	private void projecthero$offHandStrand(AbstractClientPlayer player, float partialTick, float pitch, InteractionHand hand,
+			float swingProgress, ItemStack stack, float equipProgress, PoseStack pose, MultiBufferSource buffers, int light,
+			CallbackInfo ci) {
+		if (hand != InteractionHand.MAIN_HAND || !com.projecthero.mod.spider.SpiderMan.hasPower(player)) {
+			return;
+		}
+		SpiderSwingPose.Rig r = SpiderSwingPose.rig(player, partialTick);
+		if (r != null && r.w > 0.01f) {
+			return; // the swing draws its own hands
+		}
+		HumanoidArm off = player.getMainArm().getOpposite();
+		com.projecthero.mod.client.spider.SpiderStrands.Strand s = com.projecthero.mod.client.spider.SpiderStrands.heldStrand(
+				player.getId(), off == HumanoidArm.RIGHT, partialTick);
+		if (s == null) {
+			return;
+		}
+		net.minecraft.client.Camera cam = net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera();
+		net.minecraft.world.phys.Vec3 d = com.projecthero.mod.client.spider.SpiderStrands.endPoint(s, partialTick)
+				.subtract(cam.getPosition());
+		if (d.lengthSqr() < 1.0e-4) {
+			return;
+		}
+		d = d.normalize();
+		org.joml.Vector3f look = cam.getLookVector();
+		org.joml.Vector3f up = cam.getUpVector();
+		org.joml.Vector3f left = cam.getLeftVector();
+		float fwd = (float) (d.x * look.x() + d.y * look.y() + d.z * look.z());
+		float upc = (float) (d.x * up.x() + d.y * up.y() + d.z * up.z());
+		float rightc = -(float) (d.x * left.x() + d.y * left.y() + d.z * left.z());
+		float elev = Mth.clamp((float) Math.atan2(upc, Math.max(fwd, 0.05f)), -0.3f, 1.25f);
+		float yaw = Mth.clamp((float) Math.atan2(rightc, Math.max(fwd, 0.05f)), -0.8f, 0.8f);
+		pose.pushPose();
+		projecthero$reach(pose, off == HumanoidArm.RIGHT ? 1f : -1f, elev, yaw, 0f, 1f);
+		renderPlayerArm(pose, buffers, light, 0.0f, 0.0f, off);
+		pose.popPose();
+	}
+
 	/** The web hand: swung up about the shoulder toward the anchor, leaning toward its side, bobbing with the arc. */
 	private static void projecthero$reach(PoseStack pose, float s, float elev, float yaw, float bob, float k) {
 		// raised (not swung back toward the camera): lifted and pushed out along the view, then tilted up about a pivot

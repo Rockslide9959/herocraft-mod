@@ -68,6 +68,7 @@ public final class SpiderInputClient {
 			releaseWindow = 0;
 			SpiderSwingClient.reset();
 			SpiderStrands.reset();
+			FirstPersonWebAnchor.reset();
 			SpiderTraversalClient.reset();
 			return;
 		}

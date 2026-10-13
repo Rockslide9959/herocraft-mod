@@ -515,6 +515,27 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void weaveCentreSitsThreeBlocksAheadOrShortOfAWall(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Vec3 at = helper.absoluteVec(new Vec3(2.5, 1.0, 1.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		p.setYRot(0.0f);
+		p.setXRot(0.0f);
+		Vec3 eye = p.getEyePosition();
+		Vec3 open = SpiderMoves.weaveCentre(p);
+		helper.assertTrue(Math.abs(open.distanceTo(eye) - SpiderManConfig.webs().weaveCenterDistance) < 0.01
+				&& open.z > eye.z, "in the open the centre is 3 blocks straight ahead, got " + open.subtract(eye));
+		// a wall 2 blocks ahead: the centre stops just short of it, in the air
+		BlockPos wall = BlockPos.containing(eye.x, eye.y, eye.z + 2.0);
+		helper.getLevel().setBlock(wall, Blocks.STONE.defaultBlockState(), 2);
+		Vec3 clipped = SpiderMoves.weaveCentre(p);
+		double d = clipped.distanceTo(eye);
+		helper.assertTrue(d < 2.0 && d >= 0.3, "before a closer wall the centre stops short of it, got " + d);
+		helper.assertTrue(helper.getLevel().getBlockState(BlockPos.containing(clipped)).isAir(), "and is in the air");
+		helper.succeed();
+	}
+
 	/** A snowball thrown by {@code shooter}, mid-flight 2 blocks in front of {@code p} and heading at him. */
 	private static net.minecraft.world.entity.projectile.Snowball incoming(GameTestHelper helper, ServerPlayer p, Zombie shooter) {
 		net.minecraft.world.entity.projectile.Snowball ball = new net.minecraft.world.entity.projectile.Snowball(helper.getLevel(), shooter);

@@ -1058,7 +1058,7 @@ public final class SpiderMoves {
 		return web;
 	}
 
-	/** Hold C: open Weave Mode. The aimed point is the web's centre; left-clicks add radial strands. */
+	/** Hold C: open Weave Mode. The centre sits 3 blocks in front of him ({@link #weaveCentre}); left-clicks add radial strands. */
 	private static void beginWeave(ServerPlayer player) {
 		if (WEAVES.containsKey(player.getUUID())) {
 			return;
@@ -1067,12 +1067,25 @@ public final class SpiderMoves {
 			SpiderAbilities.gate(player, WEAVE, 0.0f);
 			return;
 		}
-		double reach = SpiderManConfig.webs().weaveStrandLength;
-		BlockHitResult hit = AbilityHelpers.raycastBlock(player, reach);
-		Vec3 centre = hit.getType() == HitResult.Type.BLOCK
-				? hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.15))
-				: player.getEyePosition().add(player.getLookAngle().scale(10.0));
-		beginWeaveAt(player, centre, player.getLookAngle());
+		beginWeaveAt(player, weaveCentre(player), player.getLookAngle());
+	}
+
+	/**
+	 * v0.16.1: where Weave Mode puts the web's centre -- {@code weaveCenterDistance} (3) blocks in front of his eyes along
+	 * his look, or just short of a block if one is closer (the radial strands still go from there to the aimed surfaces).
+	 */
+	public static Vec3 weaveCentre(ServerPlayer player) {
+		double dist = Math.max(0.5, SpiderManConfig.webs().weaveCenterDistance);
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		BlockHitResult hit = AbilityHelpers.raycastBlock(player, dist);
+		if (hit.getType() == HitResult.Type.BLOCK) {
+			double d = hit.getLocation().distanceTo(eye);
+			if (d < dist) {
+				return eye.add(look.scale(Math.max(0.3, d - 0.3)));
+			}
+		}
+		return eye.add(look.scale(dist));
 	}
 
 	/** Open Weave Mode with an explicit centre and plane normal (the move above and the tests). */

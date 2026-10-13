@@ -50,6 +50,8 @@ public final class SpiderManConfig {
 		/** Weave Mode: at most this many radial strands, each at most this long. */
 		public int weaveMaxStrands = 10;
 		public double weaveStrandLength = 24.0;
+		/** v0.16.1: Weave Mode's centre sits this far in front of his eyes (stopping just short of a closer block). */
+		public double weaveCenterDistance = 3.0;
 		/** Anyone who is not Spider-Man or his squad is slowed to this fraction while touching a web (cobweb is 0.25). */
 		public double strangerSlowFactor = 0.08;
 		/** Ticks a key must be held before the hold move takes over (the tap fires on a shorter release). */

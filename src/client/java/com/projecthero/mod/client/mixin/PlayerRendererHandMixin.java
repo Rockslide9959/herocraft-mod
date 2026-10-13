@@ -48,6 +48,9 @@ public abstract class PlayerRendererHandMixin {
 		if (player != Minecraft.getInstance().player) {
 			return;
 		}
+		// v0.16.1: record where this drawn first-person wrist is on screen, so web lines leave exactly from it
+		com.projecthero.mod.client.spider.FirstPersonWebAnchor.captureArm(pose, arm,
+				arm == ((PlayerRenderer) (Object) this).getModel().rightArm);
 		// v0.15.4: the Colantotte Bracelets on the bare first-person wrist (hidden under an Iron Man gauntlet)
 		com.projecthero.mod.client.ironman.ColantotteBraceletsLayer.renderFirstPerson(pose, buffers, light, player, arm,
 				arm == ((PlayerRenderer) (Object) this).getModel().rightArm);
