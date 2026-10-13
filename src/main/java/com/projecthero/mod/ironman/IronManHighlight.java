@@ -62,6 +62,10 @@ public final class IronManHighlight {
 	 * leave it to vanilla / the other powers. Only ever reads the VIEWER's own state.
 	 */
 	public static Boolean decision(Player viewer, Entity target) {
+		// v0.16.1: the comic kit's private marks (Searchlight, Sonar, JARVIS scan, Marked Shot) -- this client only
+		if (viewer != null && target != null && clientMarked(target)) {
+			return Boolean.TRUE;
+		}
 		if (viewer == null || target == viewer || !(target instanceof LivingEntity)
 				|| target instanceof net.minecraft.world.entity.decoration.ArmorStand) { // v0.15.9: never a rack's display stand
 			return null;
@@ -91,6 +95,9 @@ public final class IronManHighlight {
 
 	/** Does the viewer's OWN powered helmet outline {@code target} right now? */
 	public static boolean outlines(Player viewer, Entity target) {
+		if (viewer != null && target != viewer && clientMarked(target)) {
+			return true; // v0.16.1: a comic-kit private mark (client-side only; drawn through walls like the highlight)
+		}
 		if (viewer == null || target == viewer || !(target instanceof LivingEntity living) || !living.isAlive()
 				|| target instanceof net.minecraft.world.entity.decoration.ArmorStand) {
 			return false;
@@ -105,8 +112,8 @@ public final class IronManHighlight {
 		}
 		IronManSuit wornSuit = IronManSuits.byId(helmet.suitId());
 		TonyStarkState st = viewer.getAttachedOrElse(ModAttachments.TONY_STARK_STATE, null);
-		// "powered on": the worn suit still has some energy in the pool
-		if (st == null || !st.hasPower || st.suitEnergy.getOrDefault(helmet.suitId(), 0.0f) <= 0.0f) {
+		// "powered on": v0.16.1 -- no energy any more; a disabled suit (0 integrity) shows nothing
+		if (st == null || !st.hasPower || st.suitIntegrity.getOrDefault(helmet.suitId(), 1.0f) <= 0.0f) {
 			return false;
 		}
 		double passive = wornSuit == null ? 0.0 : wornSuit.passiveHighlightRange();
@@ -155,6 +162,38 @@ public final class IronManHighlight {
 		net.minecraft.world.phys.AABB cube = new net.minecraft.world.phys.AABB(c.x - range, c.y - range, c.z - range,
 				c.x + range, c.y + range, c.z + range);
 		return viewer.level().getEntities(viewer, cube, e -> outlines(viewer, e));
+	}
+
+	// ---------------- v0.16.1: client-side private marks ----------------
+	// Filled ONLY by the wearer's own client from IronManComicMarkPayload (sent to that player alone), and only ever read
+	// for client-side entities (decision is gated by mayDecide), so nothing about it reaches any other player.
+	private static final java.util.Map<Integer, Long> CLIENT_MARKS = new java.util.HashMap<>();
+
+	/** Client: outline these entity ids until {@code untilGameTime}. */
+	public static void addClientMarks(java.util.List<Integer> ids, long untilGameTime) {
+		for (Integer id : ids) {
+			CLIENT_MARKS.merge(id, untilGameTime, Math::max);
+		}
+	}
+
+	public static void clearClientMarks() {
+		CLIENT_MARKS.clear();
+	}
+
+	/** Client: is {@code target} privately marked for this viewer right now? */
+	public static boolean clientMarked(Entity target) {
+		if (CLIENT_MARKS.isEmpty() || !mayDecide(target) || !(target instanceof LivingEntity l) || !l.isAlive()) {
+			return false;
+		}
+		Long until = CLIENT_MARKS.get(target.getId());
+		if (until == null) {
+			return false;
+		}
+		if (until < target.level().getGameTime()) {
+			CLIENT_MARKS.remove(target.getId());
+			return false;
+		}
+		return true;
 	}
 
 	/** The coloured-glow suits' outline colour: players yellow, hostiles red, everything else blue. */

@@ -120,7 +120,10 @@ public class IronManV0153GameTests implements FabricGameTest {
 			h.assertFalse(IronManSuitUpManager.inTransition(p), "the suit-up finishes");
 			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "with the suit on");
 			h.assertFalse(IronManDamage.suitUpImmune(p), "the immunity ends with it");
-			h.assertTrue(IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f), "hits land again");
+			// v0.16.1: a worn suit absorbs its share of the hit (the rest is reissued), so "hits land again" = integrity wears
+			float before = IronManEnergy.integrity(p, "mark_iii");
+			IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f);
+			h.assertTrue(IronManEnergy.integrity(p, "mark_iii") < before, "hits reach the suit again");
 		});
 	}
 
@@ -129,8 +132,8 @@ public class IronManV0153GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wornSuitsNeverRepairThemselves(GameTestHelper h) {
 		for (String id : FLYING_MARKS) {
-			if (com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(id)) {
-				continue; // v0.15.4: the Mark 6 / Mark 7 repair 1/s while worn (IronManMk67V0154GameTests)
+			if (IronManSuits.byId(id).selfRepairPerSecond() > 0f) {
+				continue; // v0.16.1: the Mark 6 / Mark 7 self-repair out of combat (IronManIntegrity)
 			}
 			ServerPlayer p = suited(h, id);
 			IronManEnergy.setIntegrity(p, id, 100f);
@@ -174,69 +177,61 @@ public class IronManV0153GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ 4. 75% integrity wear, hits land in full
 
+	/**
+	 * v0.16.1: the suit absorbs its Mark's share of a hit from integrity (ALLOW_DAMAGE cancels the hit and reissues the
+	 * rest); AFTER_DAMAGE ({@code onDamageTaken}) no longer touches integrity.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void tenDamageCostsTenIntegrityAndLandsInFull(GameTestHelper h) {
+	public void aHitWearsTheMarksShareOfIntegrity(GameTestHelper h) {
 		for (String id : FLYING_MARKS) {
 			ServerPlayer p = suited(h, id);
 			float max = IronManEnergy.maxIntegrity(id);
-			float energy = IronManEnergy.energy(p, id);
+			float share = IronManSuits.byId(id).absorbShare();
 			DamageSource hit = p.damageSources().generic();
-			h.assertTrue(IronManDamage.onAllowDamage(p, hit, 10f),
-					id + ": the hit is not cancelled or reduced -- the player takes the full 10");
-			h.assertTrue(IronManEnergy.energy(p, id) == energy, id + ": no energy charge for the hit");
+			h.assertFalse(IronManDamage.onAllowDamage(p, hit, 10f),
+					id + ": the hit is cancelled and the unabsorbed rest reissued");
+			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 10f * share)) < 1e-3f,
+					id + ": 10 damage = " + (10f * share) + " integrity, got " + (max - IronManEnergy.integrity(p, id)));
+			float after = IronManEnergy.integrity(p, id);
 			IronManDamage.onDamageTaken(p, hit, 10f);
-			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 10f)) < 1e-3f,
-					id + ": v0.15.9: 10 damage = 10 integrity, got " + (max - IronManEnergy.integrity(p, id)));
-			IronManDamage.onDamageTaken(p, hit, 0.25f);
-			IronManDamage.onDamageTaken(p, hit, 0.25f);
-			h.assertTrue(Math.abs(IronManEnergy.integrity(p, id) - (max - 10.5f)) < 1e-3f,
-					id + ": fractions accumulate (10 + 0.25 + 0.25), got " + (max - IronManEnergy.integrity(p, id)));
+			h.assertTrue(IronManEnergy.integrity(p, id) == after, id + ": onDamageTaken no longer wears integrity");
 			leave(h, p);
 		}
-		// v0.15.9: fire wears a suit it can reach (Mark 6 / 7 aren't fire-immune) at the full 100% too
+		// with integrity gone nothing more comes off, and the hit lands in full
 		ServerPlayer p6 = suited(h, "mark_6");
-		IronManDamage.onDamageTaken(p6, p6.damageSources().inFire(), 10f);
-		h.assertTrue(Math.abs(IronManEnergy.integrity(p6, "mark_6") - (IronManEnergy.maxIntegrity("mark_6") - 10f)) < 1e-3f,
-				"fire wears the full hit too");
-		// with integrity gone nothing more comes off, and the hit still lands
 		IronManEnergy.setIntegrity(p6, "mark_6", 0f);
-		IronManDamage.onDamageTaken(p6, p6.damageSources().generic(), 10f);
+		h.assertTrue(IronManDamage.onAllowDamage(p6, p6.damageSources().generic(), 10f), "a failed suit lets hits land in full");
 		h.assertTrue(IronManEnergy.integrity(p6, "mark_6") == 0f, "integrity never goes negative");
-		h.assertTrue(IronManDamage.onAllowDamage(p6, p6.damageSources().generic(), 10f), "a failed suit still lets hits land");
 		leave(h, p6);
-		// special rules kept: arrows / fire do nothing to a powered Mark 1-5, no fall damage
+		// special rules kept: no fall damage; the Mark 7 Space armour ignores fire
 		ServerPlayer p3 = suited(h, "mark_iii");
-		h.assertFalse(IronManDamage.onAllowDamage(p3, p3.damageSources().inFire(), 10f), "Mark 3 still ignores fire");
-		h.assertFalse(IronManDamage.onAllowDamage(p3, p3.damageSources().fall(), 10f), "and falls");
+		h.assertFalse(IronManDamage.onAllowDamage(p3, p3.damageSources().fall(), 10f), "falls do nothing");
+		h.assertTrue(IronManEnergy.integrity(p3, "mark_iii") == IronManEnergy.maxIntegrity("mark_iii"), "and cost no integrity");
 		leave(h, p3);
+		ServerPlayer p7 = suited(h, "mark_vii");
+		h.assertFalse(IronManDamage.onAllowDamage(p7, p7.damageSources().inFire(), 10f), "the Space armour ignores fire");
+		h.assertTrue(IronManEnergy.integrity(p7, "mark_vii") == IronManEnergy.maxIntegrity("mark_vii"), "at no integrity cost");
+		leave(h, p7);
 		h.succeed();
 	}
 
-	// ------------------------------------------------------------------ 5. flight: 3/s drain, regen halved
+	// ------------------------------------------------------------------ 5. flight never drains (v0.16.1: no energy)
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void flightDrainsThreePerSecondAndHalvesRegen(GameTestHelper h) {
+	public void flightCostsNothing(GameTestHelper h) {
 		for (String id : FLYING_MARKS) {
 			IronManSuit suit = IronManSuits.byId(id);
-			h.assertTrue(suit.flatFlightDrainPerSecond() == 3f, id + " flies at 3 energy/s");
+			if (!suit.manualFlight()) {
+				continue; // the Mark 1 only hops and glides
+			}
 			ServerPlayer p = suited(h, id);
-			IronManEnergy.setEnergy(p, id, 100f);
-			float rest = IronManEnergy.regenPerSecond(p, suit);
-			h.assertTrue(rest == suit.energyRegenPerSecond(), id + " full regen on the ground");
 			p.setOnGround(false);
 			IronManFlight.setFlying(p, true);
-			h.assertTrue(IronManEnergy.regenPerSecond(p, suit) == rest * 0.5f, id + " regen halved while flying");
-			float e0 = IronManEnergy.energy(p, id);
 			IronManFlight.tick(p);
 			h.assertTrue(IronManFlight.isFlying(p), id + " still airborne");
-			float e1 = IronManEnergy.energy(p, id);
-			h.assertTrue(Math.abs((e0 - e1) - 3f / 20f) < 1e-4f, id + " one flight tick drains 3/20, got " + (e0 - e1));
-			IronManEnergy.tickRecharge(p, suit);
-			float e2 = IronManEnergy.energy(p, id);
-			h.assertTrue(Math.abs((e2 - e1) - rest * 0.5f / 20f) < 1e-4f, id + " one regen tick in the air is half, got " + (e2 - e1));
-			h.assertTrue(e2 < e0 || rest * 0.5f >= 3f, id + " flying costs energy net");
+			h.assertTrue(IronManEnergy.energy(p, id) == IronManEnergy.FULL, id + " the inert energy shim always reads full");
+			h.assertTrue(IronManEnergy.integrity(p, id) == IronManEnergy.maxIntegrity(id), id + " flying costs no integrity");
 			IronManFlight.setFlying(p, false);
-			h.assertTrue(IronManEnergy.regenPerSecond(p, suit) == rest, id + " regen back to full after landing");
 			leave(h, p);
 		}
 		h.succeed();
@@ -315,34 +310,4 @@ public class IronManV0153GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ weapon wheel: release V to equip
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void weaponWheelEquipsOnReleaseOnlyWhenSomethingNewIsPointedAt(GameTestHelper h) {
-		String[] mk3 = com.projecthero.mod.ironman.ability.IronManMark3.WEAPONS;
-		String glow = com.projecthero.mod.ironman.ability.IronManAbilities.ENTITY_GLOW_TOGGLE;
-		String current = mk3[0];
-		h.assertTrue(com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk3, -1, current, glow) == null,
-				"a quick tap (cursor still in the centre) keeps the current weapon");
-		h.assertTrue(com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk3, 0, current, glow) == null,
-				"letting go over the weapon already equipped changes nothing");
-		h.assertTrue(mk3[1].equals(com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk3, 1, current, glow)),
-				"letting go over another weapon equips it");
-		h.assertTrue(com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk3, mk3.length, current, glow) == null,
-				"an out-of-range hover is ignored");
-		String[] mk7 = com.projecthero.mod.ironman.ability.IronManAbilities.WEAPON_WHEEL_SECTORS;
-		int g = java.util.Arrays.asList(mk7).indexOf(glow);
-		h.assertTrue(g >= 0 && glow.equals(com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk7, g, mk7[0], glow)),
-				"the Mark 7's highlight wedge always toggles on release");
-		// the server side of a release: the chosen weapon becomes the Mark III's G weapon
-		ServerPlayer p = suited(h, "mark_iii");
-		String pick = com.projecthero.mod.ironman.ui.IronManUiLayout.wheelReleaseChoice(mk3, 2,
-				com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(TonyStark.state(p), "mark_iii"), glow);
-		if (pick != null) {
-			com.projecthero.mod.network.IronManWeaponWheelPayload.handleServer(p, pick);
-		}
-		h.assertTrue(mk3[2].equals(com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(TonyStark.state(p), "mark_iii")),
-				"the released-on weapon is equipped, got "
-						+ com.projecthero.mod.ironman.ability.IronManMark3.selectedWeapon(TonyStark.state(p), "mark_iii"));
-		leave(h, p);
-		h.succeed();
-	}
 }

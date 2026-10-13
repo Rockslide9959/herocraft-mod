@@ -66,14 +66,14 @@ public class IronManSuitInfoScreen extends Screen {
 				pieces++;
 			}
 		}
-		float energy = st == null ? 0f : st.suitEnergy.getOrDefault(suit.id(), 0f);
 		float maxInt = IronManEnergy.maxIntegrity(suit.id());
 		float integ = st == null ? maxInt : st.suitIntegrity.getOrDefault(suit.id(), maxInt);
 
+		// v0.16.1 comic rework: no suit energy -- integrity and its absorb share are the status
 		head("screen.projecthero.ironman_info.status");
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
-		row(wrap, "screen.projecthero.ironman_info.energy", fmt(energy) + " / " + fmt(suit.energyCapacity()));
-		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt));
+		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt)
+				+ (integ <= 0f ? "  " + Component.translatable("hud.projecthero.ironman.disabled_title").getString() : ""));
 		// v0.15.12: Vibranium Plating -- how many worn pieces are plated, and what it adds
 		int plated = 0;
 		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
@@ -100,89 +100,31 @@ public class IronManSuitInfoScreen extends Screen {
 		boolean protocol = p.getAttachedOrElse(com.projecthero.mod.ultron.contagion.SuitHijack.FIREWALL_PROTOCOL, false);
 		row(wrap, "screen.projecthero.ironman_info.firewall", Component.translatable(protocol ? "screen.projecthero.ironman_info.firewall_protocol"
 				: chip ? "screen.projecthero.ironman_info.firewall_chip" : "screen.projecthero.ironman_info.firewall_none").getString());
-		row(wrap, "screen.projecthero.ironman_info.energy_regen", // v0.14.27
-				String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.energyRegenPerSecond())));
-		if (suit.wornIntegrityRegenPerSecond() > 0f) { // v0.15.4: Mark 6 / Mark 7 repair themselves while worn
-			row(wrap, "screen.projecthero.ironman_info.integrity_regen",
-					String.format(java.util.Locale.ROOT, "%s / s", fmt(suit.wornIntegrityRegenPerSecond())));
-		}
-		if (suit.hurtRegeneration()) { // v0.15.4: Regeneration I while hurt, paid in energy
-			row(wrap, "screen.projecthero.ironman_info.hurt_regen", Component.translatable(
-					"screen.projecthero.ironman_info.hurt_regen_value", fmt(suit.hurtRegenEnergyPerSecond())).getString());
-		}
-		// v0.15.3: hits land in full; v0.15.9: the suit loses the whole hit as integrity
-		row(wrap, "screen.projecthero.ironman_info.integrity_wear", Component.translatable(
-				"screen.projecthero.ironman_info.integrity_wear_value",
-				Math.round(IronManEnergy.INTEGRITY_PER_DAMAGE * 100f)).getString());
-		if (suit.arrowFireImmune()) {
-			row(wrap, "screen.projecthero.ironman_info.arrow_fire", Component.translatable("screen.projecthero.ironman_info.yes").getString());
-		}
 		if (suit.resistanceAmplifier() >= 0) {
 			row(wrap, "screen.projecthero.ironman_info.resistance", String.valueOf(suit.resistanceAmplifier() + 1));
 		}
 		row(wrap, "screen.projecthero.ironman_info.platform_repair",
 				String.format(java.util.Locale.ROOT, "%.1f / s", IronManEnergy.platformIntegrityPerSecond(suit)));
 
-		head("screen.projecthero.ironman_info.flight");
-		row(wrap, "screen.projecthero.ironman_info.flight_mode", Component.translatable(suit.manualFlight()
-				? "screen.projecthero.ironman_info.flight_free" : "screen.projecthero.ironman_info.flight_timed").getString());
-		// v0.15.11: the exact per-mark speeds (Mark 2 15 / 30, Mark 3-8 18 / 35 blocks a second)
-		if (suit.flightNormalBps() > 0 && suit.flightCruiseMps() <= 0) {
-			row(wrap, "screen.projecthero.ironman_info.flight_speed", Component.translatable(
-					"screen.projecthero.ironman_info.flight_speed_value",
-					String.format(java.util.Locale.ROOT, "%.0f", suit.flightNormalBps()),
-					String.format(java.util.Locale.ROOT, "%.0f", suit.flightSprintBps())).getString());
-		} else if (suit.maxFlightSpeedMps() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.top_speed", String.format(java.util.Locale.ROOT, "%.0f m/s", suit.maxFlightSpeedMps()));
+		head("screen.projecthero.ironman_comic.stats");
+		for (com.projecthero.mod.ironman.ui.IronManComicText.Row r : com.projecthero.mod.ironman.ui.IronManComicText.stats(suit)) {
+			row(wrap, r.label(), r.value());
 		}
-		row(wrap, "screen.projecthero.ironman_info.flight_drain", suit.flatFlightDrainPerSecond() > 0f // v0.15.3: 3/s, regen halved
-				? Component.translatable("screen.projecthero.ironman_info.flight_drain_value",
-						String.format(java.util.Locale.ROOT, "%.0f", suit.flatFlightDrainPerSecond())).getString()
-				: String.format(java.util.Locale.ROOT, "x%.2f", suit.flightDrainMultiplier()));
 		if (suit.altitudeCeiling() > 0 && suit.altitudeCeiling() < 10000) {
 			row(wrap, "screen.projecthero.ironman_info.ceiling", String.format(java.util.Locale.ROOT, "%.0f", suit.altitudeCeiling()));
 		}
 
-		head("screen.projecthero.ironman_info.weapons");
-		if (suit.repulsorDamage() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.repulsor", fmt(suit.repulsorDamage()));
-			row(wrap, "screen.projecthero.ironman_info.charged_repulsor", fmt(suit.chargedRepulsorDamage())); // v0.14.27
+		// v0.16.1: the comic kit -- every key, tap / Shift, with damage and cooldown
+		head("screen.projecthero.ironman_comic.moves");
+		String[] keys = new String[5];
+		for (int i = 0; i < 5; i++) {
+			keys[i] = ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
 		}
-		if (suit.hasDash()) {
-			row(wrap, "screen.projecthero.ironman_info.dash", fmt(suit.dashDamage()));
+		for (Component line : com.projecthero.mod.ironman.ui.IronManComicText.moves(suit, keys)) {
+			lines.addAll(font.split(line.copy().withStyle(ChatFormatting.WHITE), wrap));
 		}
-		// v0.14.27: the Mark III carries its own weapon-wheel arsenal and a held Unibeam
-		// v0.14.29: the Mark 4 runs the same kit, +2 damage per hit (IronManMark3.damageFor)
-		boolean mk3 = com.projecthero.mod.ironman.ability.IronManMark3.isKitSuit(suit.id());
-		if (suit.unibeamDamage() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.unibeam", fmt(mk3 ? com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
-					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.UNIBEAM_DAMAGE) : suit.unibeamDamage()));
-		}
-		if (mk3) {
-			row(wrap, "screen.projecthero.ironman_info.mk3_rockets", fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
-					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.ROCKET_DAMAGE)));
-			row(wrap, "screen.projecthero.ironman_info.mk3_minigun", fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
-					suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.MINIGUN_DAMAGE)) + " / 0.5s");
-			row(wrap, "screen.projecthero.ironman_info.mk3_micro", com.projecthero.mod.ironman.ability.IronManMark3.MICRO_COUNT + " x "
-					+ fmt(com.projecthero.mod.ironman.ability.IronManMark3.damageFor(
-							suit.id(), com.projecthero.mod.ironman.ability.IronManMark3.MICRO_DAMAGE)));
-		}
-		if (suit.missileCount() > 0 && !mk3) {
-			row(wrap, "screen.projecthero.ironman_info.missiles", suit.missileCount() + " x " + fmt(suit.missileDamage()));
-		}
-		if (suit.strengthBonus() > 0) {
-			row(wrap, "screen.projecthero.ironman_info.strength", "+" + fmt(suit.strengthBonus()));
-		}
-
-		head("screen.projecthero.ironman_info.abilities");
-		for (int i = 0; i < 6; i++) {
-			String id = suit.abilityInSlot(i + 1);
-			if (id == null) {
-				continue;
-			}
-			String key = ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
-			row(wrap, Component.literal("[" + key + "]"), Component.translatable("hud.projecthero.ironman.ability." + id).getString());
-		}
+		String c = ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage().getString();
+		row(wrap, Component.literal("[" + c + "]"), Component.translatable("hud.projecthero.ironman.ability." + suit.abilityInSlot(6)).getString());
 
 		head("screen.projecthero.ironman_info.systems");
 		row(wrap, "screen.projecthero.ironman_info.scanner", "mark_1".equals(suit.id()) ? "-"

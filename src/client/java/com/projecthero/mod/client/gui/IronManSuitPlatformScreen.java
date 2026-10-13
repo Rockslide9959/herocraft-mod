@@ -133,18 +133,19 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		g.drawString(font, IronManGui.fit(font, Component.translatable("screen.projecthero.suit_platform.regen_short"), 30),
 				139, 31, IronManGui.TEXT_DIM, false);
 		// v0.15.20: the energy rate is the stored suit's own passive rate (a dash when empty)
-		String rv = IronManGui.fit(font, suit == null ? "-" : "+" + rate(IronManEnergy.platformEnergyPerSecond(suit)) + "/s", 30);
+		// v0.16.1: no suit energy -- the platform only repairs, so the plate shows its integrity repair rate
+		String rv = IronManGui.fit(font, suit == null ? "-" : "+" + rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND) + "/s", 30);
 		g.drawString(font, rv, 139, 41, IronManGui.CYAN, false);
 
 		if (menu.hasStoredSuit()) {
-			float cap = Math.max(1f, menu.suitCapacityExact());
-			float energy = Math.max(0f, Math.min(cap, menu.suitEnergyExact()));
+			// v0.16.1 comic rework: integrity is the only bar; the second row is the suit's absorb share
 			float integPct = Math.max(0f, Math.min(100f, menu.suitIntegrityPercentExact()));
 			float maxI = suitId == null ? IronManEnergy.MAX_INTEGRITY : IronManEnergy.maxIntegrity(suitId);
-			meter(g, 57, Component.translatable("screen.projecthero.suit_call.charge").getString(), energy / cap,
-					IronManUiLayout.exact(energy, cap), energy / cap < 0.15f ? IronManGui.ORANGE : IronManGui.BLUE);
-			meter(g, 78, Component.translatable("screen.projecthero.suit_call.integrity").getString(), integPct / 100f,
+			meter(g, 57, Component.translatable("screen.projecthero.suit_call.integrity").getString(), integPct / 100f,
 					IronManUiLayout.exact(integPct / 100f * maxI, maxI), integPct < 30f ? IronManGui.RED : IronManGui.GREEN);
+			float absorb = suit == null ? 0f : suit.absorbShare();
+			meter(g, 78, Component.translatable("screen.projecthero.suit_call.absorb").getString(), absorb,
+					Math.round(absorb * 100f) + "%", IronManGui.BLUE);
 		}
 		// v0.15.4: the Stark Gantry hint, word-wrapped into the old button strip (y 97..115)
 		int gy = 97;
@@ -206,7 +207,6 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
 			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.regen_tip",
-					platformSuit() == null ? "-" : rate(IronManEnergy.platformEnergyPerSecond(platformSuit())),
 					rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), mouseX, mouseY);
 		}
 	}

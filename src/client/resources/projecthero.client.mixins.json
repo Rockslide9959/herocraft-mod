@@ -73,6 +73,8 @@
 		"PlayerRendererFleshMixin",
 		"PlayerRendererHandMixin",
 		"PlayerRendererHulkMixin",
+		"PlayerRendererHulkbusterMixin",
+		"ItemInHandRendererHulkbusterMixin",
 		"PlayerRendererMixin",
 		"PlayerRendererManualSuitUpMixin",
 		"PlayerRendererTitanMixin",

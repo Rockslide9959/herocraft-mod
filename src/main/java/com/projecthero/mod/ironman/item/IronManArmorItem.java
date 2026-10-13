@@ -69,15 +69,15 @@ public class IronManArmorItem extends SuperheroArmorItem {
 	 */
 	@Override
 	public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level level, Player player, net.minecraft.world.InteractionHand hand) {
-		if ("mark_v".equals(suitId) && player instanceof ServerPlayer sp && packLooseMarkV(sp)) {
+		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId) && player instanceof ServerPlayer sp && packLooseMarkV(sp)) {
 			return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
 		}
-		if ("mark_v".equals(suitId) && level.isClientSide() && hasAllLooseMarkV(player)) {
+		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId) && level.isClientSide() && hasAllLooseMarkV(player)) {
 			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
 		}
 		// v0.14.30, explicit user request: no right-click equipping -- Iron Man armour goes on with C or a suit deploy
 		if (player instanceof ServerPlayer sp) {
-			sp.displayClientMessage(Component.translatable("mark_v".equals(suitId)
+			sp.displayClientMessage(Component.translatable(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId)
 					? "message.projecthero.ironman.no_manual_equip_mk5" : "message.projecthero.ironman.no_manual_equip")
 					.withStyle(ChatFormatting.GOLD), true);
 		}
@@ -87,7 +87,7 @@ public class IronManArmorItem extends SuperheroArmorItem {
 	private static boolean hasAllLooseMarkV(Player player) {
 		boolean[] have = new boolean[4];
 		for (ItemStack s : player.getInventory().items) {
-			if (s.getItem() instanceof IronManArmorItem a && "mark_v".equals(a.suitId)) {
+			if (s.getItem() instanceof IronManArmorItem a && com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(a.suitId)) {
 				have[SuitcaseContents.slotOf(a.getType())] = true;
 			}
 		}
@@ -103,7 +103,7 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		net.minecraft.core.NonNullList<ItemStack> slots = net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		for (int i = 0; i < inv.items.size(); i++) {
 			ItemStack s = inv.items.get(i);
-			if (s.getItem() instanceof IronManArmorItem a && "mark_v".equals(a.suitId)) {
+			if (s.getItem() instanceof IronManArmorItem a && com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(a.suitId)) {
 				int idx = SuitcaseContents.slotOf(a.getType());
 				if (slots.get(idx).isEmpty()) {
 					slots.set(idx, s.split(1));

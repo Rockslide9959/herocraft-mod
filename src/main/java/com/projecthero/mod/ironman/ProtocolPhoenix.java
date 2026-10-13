@@ -216,7 +216,7 @@ public final class ProtocolPhoenix {
 		player.setHealth(Math.min(REVIVE_HEALTH, player.getMaxHealth()));
 
 		// Costs are on the suit's MAX capacity, never below zero (setEnergy / setIntegrity clamp).
-		IronManEnergy.addEnergy(player, suit.id(), -suit.energyCapacity() * ENERGY_COST_FRACTION);
+		// v0.16.1: no suit energy -- Phoenix only costs integrity now
 		IronManEnergy.damageIntegrity(player, suit.id(), suit.maxIntegrity() * INTEGRITY_COST_FRACTION);
 
 		ServerLevel level = (ServerLevel) player.level();

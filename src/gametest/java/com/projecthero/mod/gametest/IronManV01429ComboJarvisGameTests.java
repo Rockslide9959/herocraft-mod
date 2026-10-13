@@ -108,48 +108,20 @@ public class IronManV01429ComboJarvisGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markOneStrongPunchStaggers(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_1");
-		Zombie z = zombieAhead(h, p, 2.0);
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		h.assertTrue(IronManCombo.isStaggered(z), "the Mark 1 Strong Punch applies the stagger (no repulsor)");
-		h.succeed();
-	}
-
 	// ---------------------------------------------------------------- JARVIS
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void jarvisEnergyLineFiresOnceAndRespectsCooldown(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_iii");
-		JarvisDialogue.clearFor(p);
-		JarvisDialogue.tick(p); // baseline: logging in suited says nothing
-		h.assertTrue(JarvisDialogue.spokenCount(p) == 0, "the first look is only a baseline");
-		IronManEnergy.setEnergy(p, "mark_iii", IronManEnergy.capacity("mark_iii") * 0.2f);
-		JarvisDialogue.tick(p);
-		h.assertTrue("energy_25".equals(JarvisDialogue.lastLine(p)), "energy under 25% -> energy_25 (got " + JarvisDialogue.lastLine(p) + ")");
-		int n = JarvisDialogue.spokenCount(p);
-		JarvisDialogue.tick(p);
-		JarvisDialogue.tick(p);
-		h.assertTrue(JarvisDialogue.spokenCount(p) == n, "it fires once, not every evaluation");
-		IronManEnergy.setEnergy(p, "mark_iii", IronManEnergy.capacity("mark_iii"));
-		JarvisDialogue.tick(p);
-		IronManEnergy.setEnergy(p, "mark_iii", IronManEnergy.capacity("mark_iii") * 0.2f);
-		JarvisDialogue.tick(p);
-		h.assertTrue(JarvisDialogue.spokenCount(p) == n, "a second crossing inside the cooldown stays quiet");
-		h.succeed();
-	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void jarvisUrgentLineCutsInOnTheGap(GameTestHelper h) {
 		ServerPlayer p = suited(h, "mark_iii");
 		JarvisDialogue.clearFor(p);
 		JarvisDialogue.tick(p);
+		// v0.16.1: no suit energy -- the energy lines can never fire; the hull line still does
 		IronManEnergy.setEnergy(p, "mark_iii", IronManEnergy.capacity("mark_iii") * 0.2f);
 		JarvisDialogue.tick(p);
+		h.assertFalse("energy_25".equals(JarvisDialogue.lastLine(p)), "no energy line any more");
 		IronManEnergy.setIntegrity(p, "mark_iii", IronManEnergy.maxIntegrity("mark_iii") * 0.3f);
 		JarvisDialogue.tick(p);
-		h.assertTrue("integrity_35".equals(JarvisDialogue.lastLine(p)), "integrity under 35% speaks even inside the gap (got "
+		h.assertTrue("integrity_35".equals(JarvisDialogue.lastLine(p)), "integrity under 35% speaks (got "
 				+ JarvisDialogue.lastLine(p) + ")");
 		h.succeed();
 	}
@@ -159,9 +131,10 @@ public class IronManV01429ComboJarvisGameTests implements FabricGameTest {
 		ServerPlayer p = suited(h, "mark_1");
 		JarvisDialogue.clearFor(p);
 		JarvisDialogue.tick(p);
-		IronManEnergy.setEnergy(p, "mark_1", IronManEnergy.capacity("mark_1") * 0.2f);
+		// v0.16.1: no suit energy -- the hull warning is the crude readout's remaining low-resource line
+		IronManEnergy.setIntegrity(p, "mark_1", IronManEnergy.maxIntegrity("mark_1") * 0.3f);
 		JarvisDialogue.tick(p);
-		h.assertTrue("system_energy_low".equals(JarvisDialogue.lastLine(p)), "Mark 1 -> crude SYSTEM line (got "
+		h.assertTrue("system_hull".equals(JarvisDialogue.lastLine(p)), "Mark 1 -> crude SYSTEM line (got "
 				+ JarvisDialogue.lastLine(p) + ")");
 		h.succeed();
 	}

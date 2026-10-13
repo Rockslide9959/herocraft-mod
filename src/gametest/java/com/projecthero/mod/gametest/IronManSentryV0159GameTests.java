@@ -101,8 +101,9 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 			helper.assertTrue(s.stack(i).getItem() instanceof IronManArmorItem a && a.suitId().equals(SUIT)
 					&& a.getType() == IronManSentryEntity.TYPES[i], "piece " + i + " is the right Mark 7 piece");
 		}
-		helper.assertTrue(Math.abs(s.energy() - 3000f) < 0.01f && Math.abs(s.integrity() - 2000f) < 0.01f,
-				"the sentry carries the suit's energy / integrity (" + s.energy() + " / " + s.integrity() + ")");
+		// v0.16.1: no suit energy -- the sentry's energy is the inert full shim; it carries the suit's integrity
+		helper.assertTrue(s.energy() == IronManEnergy.FULL && Math.abs(s.integrity() - 2000f) < 0.01f,
+				"the sentry carries the suit's integrity (" + s.energy() + " / " + s.integrity() + ")");
 		helper.assertTrue(s.isOpen() && s.phase() == IronManSentryEntity.PHASE_EJECT, "the back is open while the owner steps out");
 		helper.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "a first deploy starts in Regular mode");
 		// a second C with nothing on does nothing
@@ -166,7 +167,6 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 					helper.assertTrue(IronManArmor.wearingFullSuit(p, SUIT), "the owner is wearing the full suit again");
 					helper.assertTrue(p.position().distanceTo(s.position()) < 0.05, "standing where the suit stood");
 					helper.assertTrue(!IronManSentryEntity.steppingIn(p), "the immunity ends with the suit on");
-					helper.assertTrue(IronManEnergy.energy(p, SUIT) > 2999.5f && IronManEnergy.energy(p, SUIT) < 3100f, "with its energy, recharging as worn now (" + IronManEnergy.energy(p, SUIT) + ", sentry had " + s.energy() + ")");
 					helper.assertTrue(IronManEnergy.integrity(p, SUIT) > 1999.5f && IronManEnergy.integrity(p, SUIT) < 2010f, "and its integrity");
 				});
 			});
@@ -198,7 +198,7 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 240)
-	public void sentryShotsDrainEnergyAndStopAtZero(GameTestHelper helper) {
+	public void sentryShootsAndNeverRunsDry(GameTestHelper helper) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
 		floor(helper);
 		ServerPlayer p = suitedTony(helper, new BlockPos(1, 2, 1), 3000f, 2000f);
@@ -208,9 +208,9 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 		z.setNoAi(true);
 		z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(500.0);
 		z.setHealth(500f);
-		// v0.15.15: Defensive also drains 2% of capacity a second (100/s on the Mark 8), so give it ~3 s worth: it shoots
-		// while it lasts, then it is empty, drops to Regular and stands powered down
-		s.setEnergy(300f);
+		// v0.16.1: no suit energy -- the shots and the Defensive mode cost nothing, so the sentry never runs dry
+		s.setEnergy(300f); // ignored: the inert shim keeps it full
+		helper.assertTrue(s.energy() == IronManEnergy.FULL, "setting a sentry's energy does nothing any more");
 		s.use(p, true); // can't while stepping out
 		helper.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "busy while the owner steps out");
 		helper.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> {
@@ -218,15 +218,14 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 			helper.assertTrue(s.mode() == IronManSentryEntity.DEFENSIVE, "Defensive");
 		});
 		helper.runAfterDelay(150, () -> {
-			helper.assertTrue(s.shotsFired() >= 1, "it shot while it had energy (" + s.shotsFired() + ")");
-			helper.assertTrue(s.energy() == 0f, "shots + the Defensive drain used it all, down to zero (" + s.energy() + ")");
+			helper.assertTrue(s.shotsFired() >= 1, "it shot (" + s.shotsFired() + ")");
+			helper.assertTrue(s.energy() == IronManEnergy.FULL, "and is still full (" + s.energy() + ")");
 			helper.assertTrue(z.getHealth() < 500f, "the zombie was hit (" + z.getHealth() + ")");
-			helper.assertTrue(!s.powered(), "no energy = powered down");
-			helper.assertTrue(s.mode() == IronManSentryEntity.REGULAR, "and back in Regular");
-			helper.assertTrue(s.lightPos() == null, "and dark");
-			// at zero it still closes around its owner when asked
+			helper.assertTrue(s.powered(), "still powered");
+			helper.assertTrue(s.mode() == IronManSentryEntity.DEFENSIVE, "and still Defensive");
+			// it still opens when asked
 			s.use(p, false);
-			helper.assertTrue(s.isOpen(), "a drained suit still opens");
+			helper.assertTrue(s.isOpen(), "the suit opens");
 			s.discard();
 			z.discard();
 			helper.succeed();

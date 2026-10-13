@@ -146,22 +146,26 @@ public class RepulsorTrialV0159GameTests implements FabricGameTest {
 			String id = suit.id();
 			float max = com.projecthero.mod.ironman.IronManEnergy.maxIntegrity(id);
 			com.projecthero.mod.ironman.IronManEnergy.setIntegrity(p, id, max);
-			// 10 damage arrives; armour / Resistance trim the health loss to 4 -- the suit still loses the full 10
+			// v0.16.1: the suit absorbs its Mark's share of the hit in ALLOW_DAMAGE (cancel + reissue the rest)
+			com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().generic(), 10f);
+			float share = suit.absorbShare();
+			h.assertTrue(Math.abs(max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) - 10f * share) < 1e-3f,
+					id + ": 10 damage = " + (10f * share) + " integrity, lost " + (max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id)));
+			// AFTER_DAMAGE no longer wears integrity (blocked or not)
 			events.afterDamage(p, p.damageSources().generic(), 10f, 4f, false);
-			h.assertTrue(Math.abs(max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) - 10f) < 1e-3f,
-					id + ": 10 damage = 10 integrity, lost " + (max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id)));
-			// a shield-blocked hit is no hit
 			events.afterDamage(p, p.damageSources().generic(), 6f, 0f, true);
-			h.assertTrue(Math.abs(max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) - 10f) < 1e-3f,
-					id + ": a blocked hit costs nothing");
-			// the hit-does-nothing exemptions are kept
-			if (suit.arrowFireImmune()) {
+			h.assertTrue(Math.abs(max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) - 10f * share) < 1e-3f,
+					id + ": AFTER_DAMAGE costs nothing more");
+			// the hit-does-nothing exemption kept: the Space armour ignores fire
+			if (suit.hazardImmune()) {
+				float before = com.projecthero.mod.ironman.IronManEnergy.integrity(p, id);
 				h.assertFalse(com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().inFire(), 10f),
-						id + ": still ignores fire outright");
+						id + ": ignores fire outright");
+				h.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) == before, id + ": fire costs no integrity");
 			}
-			// at zero integrity nothing more comes off and the hit still lands
+			// a big hit takes only what is left, then the failed suit absorbs nothing and the hit lands
 			com.projecthero.mod.ironman.IronManEnergy.setIntegrity(p, id, 3f);
-			events.afterDamage(p, p.damageSources().generic(), 10f, 10f, false);
+			com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().generic(), 100f);
 			h.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(p, id) == 0f, id + ": integrity bottoms out at 0");
 			h.assertTrue(com.projecthero.mod.ironman.IronManDamage.onAllowDamage(p, p.damageSources().generic(), 10f),
 					id + ": a failed suit still lets hits land");

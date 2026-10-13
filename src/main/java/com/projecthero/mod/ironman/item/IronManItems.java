@@ -42,7 +42,7 @@ public final class IronManItems {
 	 * are craftable at a normal table the moment a player has the Tony Stark power, the same way the
 	 * Arc Reactor itself is. See {@code data/projecthero/recipe/iron_man_mark_1_*.json} / {@code mark_2_*}.
 	 */
-	public static final List<String> PRIMITIVE_SUIT_IDS = List.of("mark_1", "mark_2", "mark_4", "mark_6");
+	public static final List<String> PRIMITIVE_SUIT_IDS = List.of("mark_1", "mark_1_v2", "mark_2", "mark_4", "mark_6"); // v0.16.1: + the gold Mark 1 V2
 
 	// ---- basic components (normal crafting table) ----
 	public static final Item COPPER_WIRING = simple("copper_wiring");
@@ -70,6 +70,17 @@ public final class IronManItems {
 	public static final Item MISSILE_MODULE = simple("missile_module");
 	public static final Item MODULAR_ARMOR_CONTROLLER = simple("modular_armor_controller");
 	public static final Item NANOTECH_MATRIX = simple("nanotech_matrix");
+	// v0.16.1 comic rework: the new signature parts (Stark Fabricator components)
+	/** Mark 1 V2: the gold plating a Mark 1 is upgraded with. */
+	public static final Item GILDED_PLATING = simple("gilded_plating");
+	/** Mark 4 HYDRO: the deep-water pressure hull. */
+	public static final Item PRESSURE_HULL = simple("pressure_hull");
+	/** Mark 5 STEALTH: the radar-absorbent, sound-dampening coating. */
+	public static final Item STEALTH_COATING = simple("stealth_coating");
+	/** Mark 7 SPACE: re-entry / vacuum thermal shielding. */
+	public static final Item THERMAL_SHIELDING = simple("thermal_shielding");
+	/** Mark 8 HULKBUSTER: the load-bearing hydraulic frame. */
+	public static final Item HYDRAULIC_FRAME = simple("hydraulic_frame");
 
 	/**
 	 * Machine power core. This -- not a power-granting Arc Reactor -- is what the Stark Fabricator
@@ -95,6 +106,7 @@ public final class IronManItems {
 	// enables the Fabricator path). Primitive marks are tier 0 -- the blueprint is not a gate, the
 	// armour is still normal-table craftable the moment a player has the Tony Stark power.
 	public static final Item MARK_1_BLUEPRINT = blueprint("mark_1_blueprint", 0, "mark_1");
+	public static final Item MARK_1_V2_BLUEPRINT = blueprint("mark_1_v2_blueprint", 0, "mark_1_v2"); // v0.16.1
 	public static final Item MARK_2_BLUEPRINT = blueprint("mark_2_blueprint", 0, "mark_2");
 	public static final Item MARK_III_BLUEPRINT = blueprint("mark_iii_blueprint", 1, "mark_iii");
 	public static final Item MARK_4_BLUEPRINT = blueprint("mark_4_blueprint", 0, "mark_4");
@@ -114,12 +126,13 @@ public final class IronManItems {
 
 	/** Every mark in linear progression order (by mark number). Index 0 has no blueprint prerequisite. */
 	public static final List<String> MARK_ORDER =
-			List.of("mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
+			List.of("mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"); // v0.16.1: + Mark 1 V2
 
 	/** The blueprint item a Blank Blueprint becomes when stamped for {@code suitId}, or null. */
 	public static Item blueprintFor(String suitId) {
 		return switch (suitId) {
 			case "mark_1" -> MARK_1_BLUEPRINT;
+			case "mark_1_v2" -> MARK_1_V2_BLUEPRINT;
 			case "mark_2" -> MARK_2_BLUEPRINT;
 			case "mark_iii" -> MARK_III_BLUEPRINT;
 			case "mark_4" -> MARK_4_BLUEPRINT;
@@ -156,6 +169,7 @@ public final class IronManItems {
 		for (String suitId : PRIMITIVE_SUIT_IDS) {
 			registerSuitArmor(suitId, switch (suitId) {
 				case "mark_1" -> IronManArmorMaterials.MARK_1;
+				case "mark_1_v2" -> IronManArmorMaterials.MARK_1_V2;
 				case "mark_2" -> IronManArmorMaterials.MARK_2;
 				case "mark_6" -> IronManArmorMaterials.MARK_6;
 				default -> IronManArmorMaterials.MARK_4;
@@ -245,6 +259,7 @@ public final class IronManItems {
 
 		output.accept(BLANK_BLUEPRINT);
 		output.accept(MARK_1_BLUEPRINT);
+		output.accept(MARK_1_V2_BLUEPRINT); // v0.16.1
 		output.accept(MARK_2_BLUEPRINT);
 		output.accept(MARK_III_BLUEPRINT);
 		output.accept(MARK_4_BLUEPRINT);
@@ -255,7 +270,8 @@ public final class IronManItems {
 
 		for (Item item : List.of(COPPER_WIRING, METAL_PLATING, BASIC_CIRCUIT, MECHANICAL_PARTS,
 				TITANIUM_GOLD_ALLOY, TITANIUM_GOLD_PLATE, SERVO_MOTOR, MICRO_THRUSTER, REPULSOR, FLIGHT_STABILIZER,
-				TARGETING_MODULE, STARK_CIRCUIT, SUIT_COMPUTER, ADVANCED_ARC_REACTOR, MISSILE_MODULE)) {
+				TARGETING_MODULE, STARK_CIRCUIT, SUIT_COMPUTER, ADVANCED_ARC_REACTOR, MISSILE_MODULE,
+				GILDED_PLATING, PRESSURE_HULL, STEALTH_COATING, THERMAL_SHIELDING, HYDRAULIC_FRAME)) { // v0.16.1
 			// v0.14.21: MODULAR_ARMOR_CONTROLLER / NANOTECH_MATRIX stay registered (old worlds may hold them) but are no
 			// longer listed -- they were for the never-built Mark 42 / Mark 50 and have no use. Also tagged
 			// c:hidden_from_recipe_viewers.
@@ -276,7 +292,7 @@ public final class IronManItems {
 		java.util.List<IronManArmorItem> out = new java.util.ArrayList<>();
 		java.util.List<com.projecthero.mod.ironman.suit.IronManSuit> suits =
 				new java.util.ArrayList<>(com.projecthero.mod.ironman.suit.IronManSuits.all());
-		suits.sort(java.util.Comparator.comparingInt(com.projecthero.mod.ironman.suit.IronManSuit::markNumber));
+		suits.sort(java.util.Comparator.comparingInt(com.projecthero.mod.ironman.suit.IronManSuit::progressionIndex)); // v0.16.1
 		for (com.projecthero.mod.ironman.suit.IronManSuit suit : suits) {
 			EnumMap<ArmorItem.Type, IronManArmorItem> pieces = ARMOR.get(suit.id());
 			if (pieces == null) {

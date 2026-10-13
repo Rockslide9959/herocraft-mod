@@ -107,8 +107,9 @@ public final class ContagionConfig {
 		public int golemSlamCooldownTicks = 120;
 		public int creeperFuse = 15;
 		public double empRadius = 5.0;
-		/** Iron Man suit energy drained by a Proximity Mine's EMP (fraction of capacity). */
-		public double empEnergyDrain = 0.25;
+		/** v0.16.1 (Iron Man suit energy is gone): a Proximity Mine's EMP locks a worn suit out for this many ticks
+		 *  (no flight, no abilities). Replaces empEnergyDrain. */
+		public int empLockoutTicks = 60;
 		public int machineDroneIntervalTicks = 1200;
 		public int machineMaxDrones = 3;
 		public double scrapChance = 0.2;

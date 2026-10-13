@@ -173,8 +173,10 @@ public final class UltronConfig {
 		public int latchTicks = 80;
 		/** How long the jammed ability key stays dead (ticks). */
 		public int jamTicks = 120;
-		/** Fraction of a worn Iron Man suit's energy capacity drained on a latch. */
-		public double ironManEnergyDrain = 0.15;
+		/** v0.16.1 (Iron Man suit energy is gone): fraction of a worn suit's MAX integrity a latch tears off... */
+		public double ironManIntegrityDrain = 0.05;
+		/** ...and how long the hijacked suit is locked out (no flight, no abilities), in ticks. Replaces ironManEnergyDrain. */
+		public int ironManLockoutTicks = 40;
 		public int latchCooldownTicks = 100;
 	}
 

@@ -99,7 +99,7 @@ public class IronManV01511GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fullSuitGivesHasteByMark(GameTestHelper h) {
 		ServerPlayer p = suited(h, "mark_1", new BlockPos(1, 1, 1));
-		String[] ids = { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
+		String[] ids = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
 		for (String id : ids) {
 			wear(p, id);
 			IronManPassives.tick(p);
@@ -204,12 +204,13 @@ public class IronManV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void mobHighlightCoversAFullSphere(GameTestHelper h) {
-		ServerPlayer p = suited(h, "mark_2", new BlockPos(1, 1, 1)); // 25-block highlight
+		ServerPlayer p = suited(h, "mark_1", new BlockPos(1, 1, 1)); // 25-block highlight (v0.16.1: the Mark 2's is 40 now)
 		p.teleportTo(p.getX(), p.getY() + 30, p.getZ()); // room for mobs 24 blocks below without leaving the world
 		TonyStarkState s = TonyStark.state(p).copy();
 		s.mobHighlightOn = true;
 		p.setAttached(ModAttachments.TONY_STARK_STATE, s);
-		double range = IronManSuits.MARK_2.targetScanRange();
+		double range = IronManSuits.MARK_1.targetScanRange();
+		h.assertTrue(range == 25.0, "the Mark 1 highlight reaches 25 blocks");
 		Vec3 c = IronManHighlight.sphereCentre(p);
 		Zombie above = zombieAt(h, c.add(0, 22, 0));
 		Zombie below = zombieAt(h, c.add(0, -24, 0));
@@ -255,16 +256,17 @@ public class IronManV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void flightSpeedsAreExactBlocksPerSecond(GameTestHelper h) {
-		// v0.15.15, explicit user request: per-mark cruise / sprint speeds
-		check(h, IronManSuits.MARK_2, 15.0, 25.0);
-		check(h, IronManSuits.MARK_III, 17.0, 32.0);
-		check(h, IronManSuits.MARK_4, 17.0, 32.0);
-		check(h, IronManSuits.MARK_V, 17.0, 28.0);
-		for (IronManSuit s : new IronManSuit[] { IronManSuits.MARK_6, IronManSuits.MARK_VII, IronManSuits.MARK_8 }) {
-			check(h, s, 18.0, 36.0);
-		}
-		// the Mark 1 burst is untouched: 8 b/s, no sprint flight
-		h.assertTrue(Math.abs(measuredSpeed(IronManSuits.MARK_1, true) - 8.0) < 0.05, "Mark 1 burst still 8 b/s");
+		// v0.16.1 comic rework: per-mark cruise / sprint speeds (the Hulkbuster has no sprint flight)
+		check(h, IronManSuits.MARK_1_V2, 12.0, 18.0);
+		check(h, IronManSuits.MARK_2, 18.0, 28.0);
+		check(h, IronManSuits.MARK_III, 20.0, 32.0);
+		check(h, IronManSuits.MARK_4, 14.0, 22.0);
+		check(h, IronManSuits.MARK_V, 20.0, 34.0);
+		check(h, IronManSuits.MARK_6, 22.0, 38.0);
+		check(h, IronManSuits.MARK_VII, 24.0, 44.0);
+		check(h, IronManSuits.MARK_8, 10.0, 10.0);
+		// the Mark 1 glide: 8 b/s, no sprint flight
+		h.assertTrue(Math.abs(measuredSpeed(IronManSuits.MARK_1, true) - 8.0) < 0.05, "Mark 1 glide still 8 b/s");
 		h.succeed();
 	}
 
@@ -322,14 +324,11 @@ public class IronManV01511GameTests implements FabricGameTest {
 		Zombie out = zombieAt(h, at.add(5.6, 0, 5.6)); // ~7.9 blocks away
 		h.runAfterDelay(2, () -> {
 			float hp = near.getMaxHealth();
-			float e0 = IronManEnergy.energy(p, "mark_1");
-			p.setShiftKeyDown(true);
-			IronManAbilities.trigger(p, IronManSuits.MARK_1, 1, true); // Shift + R
-			p.setShiftKeyDown(false);
-			h.assertTrue(Math.abs(e0 - IronManEnergy.energy(p, "mark_1") - IronManGroundPound.ENERGY_COST) < 0.01f,
-					"the pound costs " + IronManGroundPound.ENERGY_COST + " (not the punch's 10)");
-			h.assertFalse(TonyStark.abilityReady(p, "mark_1", IronManGroundPound.ABILITY_ID), "the pound is on cooldown");
-			h.assertTrue(TonyStark.abilityReady(p, "mark_1", IronManAbilities.STRONG_PUNCH), "the punch is not");
+			// v0.16.1: the Mark 1's Shift+R is the comic kit's Ground Pound, which runs this shared pound (cooldowns only,
+			// no energy) -- driven directly here; the key routing is covered by IronManComicV0161GameTests
+			Vec3 centre = IronManGroundPound.groundBelow(p);
+			h.assertTrue(centre != null, "there is ground below");
+			IronManGroundPound.pound(p, centre);
 			h.assertTrue(near.getHealth() < hp - 8f, "the close zombie takes most of the 12, health " + near.getHealth());
 			h.assertTrue(edge.getHealth() < hp - 5f && edge.getHealth() > near.getHealth(),
 					"the zombie at the edge takes less, health " + edge.getHealth());
@@ -338,11 +337,6 @@ public class IronManV01511GameTests implements FabricGameTest {
 			h.assertTrue(push.x > 0.2 && push.z > 0.2, "and thrown outward, got " + push);
 			h.assertTrue(out.getHealth() == hp && out.getLastHurtByMob() != p,
 					"a zombie 8 blocks away is untouched, health " + out.getHealth() + ", fire " + out.getRemainingFireTicks());
-			float e1 = IronManEnergy.energy(p, "mark_1");
-			p.setShiftKeyDown(true);
-			IronManAbilities.trigger(p, IronManSuits.MARK_1, 1, true);
-			p.setShiftKeyDown(false);
-			h.assertTrue(IronManEnergy.energy(p, "mark_1") == e1, "a second pound on cooldown costs nothing");
 			near.discard();
 			edge.discard();
 			out.discard();

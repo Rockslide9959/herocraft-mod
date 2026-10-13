@@ -58,7 +58,9 @@ public class IronManV0156GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void repulsorCooldowns(GameTestHelper h) {
-		h.assertTrue(IronManSuits.MARK_4.repulsorTapCooldownTicks() == 20, "Mark 4 tap: 1 s, no more spam");
+		// v0.16.1 comic rework
+		h.assertTrue(IronManSuits.MARK_2.repulsorTapCooldownTicks() == 16, "Mark 2 tap: 0.8 s");
+		h.assertTrue(IronManSuits.MARK_4.repulsorTapCooldownTicks() == 10, "Mark 4 tap: 0.5 s");
 		h.assertTrue(IronManSuits.MARK_VII.repulsorTapCooldownTicks() == 10, "Mark 7 tap: 0.5 s");
 		h.succeed();
 	}
@@ -76,12 +78,12 @@ public class IronManV0156GameTests implements FabricGameTest {
 		be.bindTo(p.getUUID());
 		h.assertFalse(be.packSuitcase(p), "an empty platform has no suitcase to give");
 		for (ArmorItem.Type t : TYPES) {
-			be.store(new ItemStack(IronManItems.armor("mark_v", t)));
+			be.store(new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t)));
 		}
-		h.assertTrue(be.packSuitcase(p), "a racked Mark 5 packs into its case");
+		h.assertTrue(be.packSuitcase(p), "a racked Mark 2 packs into its case (v0.16.1: the briefcase suit)");
 		// v0.15.8: it folds itself up first -- locked meanwhile, the case handed over at the end
 		h.assertTrue(be.packing() && be.storedSuitId() == null && be.removeItem(1, 1).isEmpty()
-				&& !be.canPlaceItem(0, new ItemStack(IronManItems.armor("mark_v", ArmorItem.Type.HELMET))), "the rack is locked while it folds");
+				&& !be.canPlaceItem(0, new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, ArmorItem.Type.HELMET))), "the rack is locked while it folds");
 		h.assertFalse(be.packSuitcase(p), "and cannot be packed twice");
 		be.finishPack(h.getLevel());
 		h.assertTrue(be.isEmptyPlatform() && !be.packing(), "the rack is empty afterwards");
@@ -99,7 +101,7 @@ public class IronManV0156GameTests implements FabricGameTest {
 			be.setItem(i, ItemStack.EMPTY);
 		}
 		be.store(new ItemStack(IronManItems.armor("mark_vii", ArmorItem.Type.HELMET)));
-		h.assertFalse(be.packSuitcase(p), "only a Mark 5 packs into a suitcase");
+		h.assertFalse(be.packSuitcase(p), "only the Mark 2 packs into a suitcase");
 		h.getLevel().getServer().getPlayerList().remove(p);
 		h.succeed();
 	}
@@ -117,7 +119,7 @@ public class IronManV0156GameTests implements FabricGameTest {
 		IronManSuitPlatformBlockEntity be = (IronManSuitPlatformBlockEntity) h.getBlockEntity(pos);
 		be.bindTo(p.getUUID());
 		for (ArmorItem.Type t : TYPES) {
-			be.store(new ItemStack(IronManItems.armor("mark_v", t)));
+			be.store(new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t)));
 		}
 		h.assertTrue(be.packSuitcase(p), "the fold starts");
 		h.runAfterDelay(IronManSuitPlatformBlockEntity.PACK_TICKS / 2, () -> h.assertTrue(be.packing() && be.pieceMask() == 15,
