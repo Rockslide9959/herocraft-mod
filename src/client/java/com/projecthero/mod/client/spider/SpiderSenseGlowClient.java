@@ -39,6 +39,20 @@ public final class SpiderSenseGlowClient {
 		return ids.contains(entityId);
 	}
 
+	/**
+	 * v0.16.1 Spider-Sense Pulse (V): while the viewer's pulse runs, every hostile ({@code Enemy}) within the pulse radius
+	 * glows for him alone -- decided here, client side, never a server glowing flag.
+	 */
+	public static boolean pulseHighlights(net.minecraft.world.entity.Entity self, net.minecraft.world.entity.player.Player viewer, long nowTick) {
+		com.projecthero.mod.spider.data.SpiderMoveState m = viewer.getAttachedOrElse(
+				com.projecthero.mod.attachment.ModAttachments.SPIDER_MOVE_STATE, null);
+		if (m == null || nowTick >= m.pulseUntil || !(self instanceof net.minecraft.world.entity.monster.Enemy)) {
+			return false;
+		}
+		double r = com.projecthero.mod.spider.SpiderManConfig.moves().pulseRadius;
+		return self.distanceToSqr(viewer) <= r * r;
+	}
+
 	public static void clear() {
 		ids = new IntOpenHashSet();
 		updatedAtTick = 0L;

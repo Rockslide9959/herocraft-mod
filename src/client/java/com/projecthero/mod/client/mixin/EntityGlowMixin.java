@@ -126,7 +126,8 @@ public abstract class EntityGlowMixin {
 					viewer.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
 			if (spider != null && spider.hasPower) {
 				long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
-				if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)) {
+				if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)
+						|| com.projecthero.mod.client.spider.SpiderSenseGlowClient.pulseHighlights(self, viewer, now)) { // v0.16.1 Pulse
 					cir.setReturnValue(true);
 					return;
 				}
@@ -245,7 +246,8 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
-		if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)) {
+		if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)
+				|| com.projecthero.mod.client.spider.SpiderSenseGlowClient.pulseHighlights(self, viewer, now)) {
 			cir.setReturnValue(0xFF3355);
 		}
 	}
