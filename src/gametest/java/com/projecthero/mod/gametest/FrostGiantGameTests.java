@@ -501,7 +501,7 @@ public class FrostGiantGameTests implements FabricGameTest {
 		helper.assertTrue(old.trigger.naturalTriggerEnabled, "a server's toggle is kept");
 		helper.assertTrue(old.laufey.health == 3000.0, "a version-1 value is kept, got " + old.laufey.health);
 		helper.assertTrue(old.laufey.armor == 14.0, "a wrong-typed value gets its default, got " + old.laufey.armor);
-		helper.assertTrue(old.warlord.health == 1200.0 && old.waves.hounds.length == 5, "missing sections get defaults");
+		helper.assertTrue(old.warlord.health == 1200.0 && old.waves.hounds.length == 8, "missing sections get defaults (8 waves since config v2)");
 		helper.succeed();
 	}
 

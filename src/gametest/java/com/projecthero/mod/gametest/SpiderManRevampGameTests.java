@@ -677,8 +677,10 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 					"with the chance at 1 it always goes back");
 			ball.discard();
 			// no shooter to send it back to: still never passes through
-			var orphan = incoming(helper, p, shooter);
-			orphan.setOwner(null);
+			// built without an owner (in 1.21.1 setOwner(null) leaves the old owner in place)
+			var orphan = new net.minecraft.world.entity.projectile.Snowball(net.minecraft.world.entity.EntityType.SNOWBALL, helper.getLevel());
+			orphan.setPos(p.getX(), p.getEyeY() - 0.3, p.getZ() + 2.0);
+			orphan.setDeltaMovement(0.0, 0.0, -1.5);
 			helper.assertTrue(com.projecthero.mod.spider.SpiderSense.deflect(p, orphan, rand) == com.projecthero.mod.spider.SpiderSense.Deflect.SWATTED,
 					"an ownerless projectile is swatted aside");
 			orphan.discard();

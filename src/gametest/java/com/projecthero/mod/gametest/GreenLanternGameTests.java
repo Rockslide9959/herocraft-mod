@@ -1104,7 +1104,7 @@ public class GreenLanternGameTests implements FabricGameTest {
 
 	private static boolean isHardLightTool(ItemStack stack) {
 		return (stack.getItem() == Items.DIAMOND_PICKAXE || stack.getItem() == Items.DIAMOND_AXE
-				|| stack.getItem() == Items.DIAMOND_SHOVEL || stack.getItem() == Items.FLINT_AND_STEEL)
+				|| stack.getItem() == Items.DIAMOND_SHOVEL || stack.getItem() == Items.FLINT_AND_STEEL || stack.getItem() == Items.SPYGLASS)
 				&& stack.has(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
 	}
 
