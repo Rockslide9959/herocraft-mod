@@ -73,6 +73,26 @@ public final class SpiderManConfig {
 		public int webDebuffTicks = 360;
 		/** v0.16.1: a projectile Spider-Sense dodges is sent straight back at its shooter this often (else caught / swatted aside). */
 		public float deflectReturnChance = 0.4f;
+		// ---- v0.16.1 (later): faster web swinging (config v3). Per-tick velocities in blocks / tick. ----
+		/** Forward key push while swinging (was 0.100). */
+		public double swingForwardAccel = 0.13;
+		/** Push along the arc through its bottom, strongest with the anchor overhead (was 0.042). */
+		public double swingBottomPush = 0.068;
+		/** Extra pull down while falling on a taut line -- the gravity pump into the bottom of the arc (was 0). */
+		public double swingGravityPump = 0.03;
+		/** Nudge toward the facing direction (was 0.022). */
+		public double swingFacingAssist = 0.03;
+		/** Rope snap-back per block of overshoot -- how quickly a fresh line goes taut (was 0.14). */
+		public double swingTension = 0.2;
+		/** Terminal swing speed (was 3.2). */
+		public double swingMaxSpeed = 4.6;
+		/** Velocity multiplier on letting go in the air (was 1.0 -- untouched). */
+		public double swingReleaseBoost = 1.15;
+		/** Lift added on letting go in the air (was 0). */
+		public double swingReleaseLift = 0.12;
+		/** A new line fired within this many ticks of letting go chains: it adds swingChainBoost along the travel (was none). */
+		public int swingChainWindowTicks = 20;
+		public double swingChainBoost = 0.35;
 		public int bossWebDebuffTicks = 90;
 		public int impactPinTicks = 360;
 		public int blossomTrapTicks = 360;
@@ -150,6 +170,8 @@ public final class SpiderManConfig {
 			.introduce(1, "v0.16.1 the Spider-Man revamp")
 			// v0.16.1 (later): every web debuff lasts 18 s (webDebuffTicks), Web Cocoon 30 s -- old files take the new numbers
 			.resetBalance(2, "v0.16.1 18-second web debuffs, 30-second Web Cocoon")
+			// v0.16.1 (later): faster web swinging -- stronger pump, higher top speed, release / chain momentum
+			.resetBalance(3, "v0.16.1 faster web swinging")
 			.build();
 
 	public static void load() {

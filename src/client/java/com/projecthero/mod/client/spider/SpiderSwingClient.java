@@ -24,6 +24,8 @@ import net.minecraft.world.phys.Vec3;
 public final class SpiderSwingClient {
 	private static double ropeLength;
 	private static boolean wasSwinging;
+	/** v0.16.1: game time of the last in-air release (for chaining). */
+	private static long releasedAt = Long.MIN_VALUE;
 
 	private SpiderSwingClient() {
 	}
@@ -32,6 +34,18 @@ public final class SpiderSwingClient {
 	public static void tick(LocalPlayer player) {
 		SpiderManState state = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
 		if (state == null || !state.swinging) {
+			if (wasSwinging && state != null && !player.onGround() && !player.isInWater()
+					&& !com.projecthero.mod.spider.SpiderMoves.state(player).has(com.projecthero.mod.spider.data.SpiderMoveState.FLAG_HANGING)) {
+				// v0.16.1: let go in the air -- carry more of the arc's momentum, with a little lift
+				com.projecthero.mod.spider.SpiderManConfig.Moves cfg = com.projecthero.mod.spider.SpiderManConfig.moves();
+				Vec3 v = player.getDeltaMovement().scale(cfg.swingReleaseBoost).add(0.0, cfg.swingReleaseLift, 0.0);
+				double len = v.length();
+				if (len > cfg.swingMaxSpeed) {
+					v = v.scale(cfg.swingMaxSpeed / len);
+				}
+				player.setDeltaMovement(v);
+				releasedAt = player.level().getGameTime();
+			}
 			wasSwinging = false;
 			return;
 		}
@@ -41,6 +55,15 @@ public final class SpiderSwingClient {
 			// A fresh line starts at whatever length the server measured it at.
 			ropeLength = state.ropeLength > 0.0 ? state.ropeLength : distance;
 			wasSwinging = true;
+			// v0.16.1: a line fired soon after letting go chains -- a kick along the way he is travelling
+			com.projecthero.mod.spider.SpiderManConfig.Moves cfg = com.projecthero.mod.spider.SpiderManConfig.moves();
+			if (!player.onGround() && player.level().getGameTime() - releasedAt <= cfg.swingChainWindowTicks) {
+				Vec3 v = player.getDeltaMovement();
+				Vec3 flat = new Vec3(v.x, 0.0, v.z);
+				if (flat.lengthSqr() > 1.0E-3) {
+					player.setDeltaMovement(v.add(flat.normalize().scale(cfg.swingChainBoost)));
+				}
+			}
 		}
 
 		int input = SpiderSwingInput.pack(
@@ -63,5 +86,6 @@ public final class SpiderSwingClient {
 	public static void reset() {
 		ropeLength = 0.0;
 		wasSwinging = false;
+		releasedAt = Long.MIN_VALUE;
 	}
 }

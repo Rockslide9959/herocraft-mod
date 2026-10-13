@@ -198,6 +198,9 @@ public final class SpiderSenseFx {
 		if (client.level == null || client.player == null || client.isPaused()) {
 			return;
 		}
+		if (client.level.getGameTime() % 100L == 0L) {
+			SpiderSwingPose.prune(); // v0.16.1: drop swing rigs of players no longer drawn
+		}
 		Player me = client.player;
 		if (!isSpiderMan(me) || me.isSpectator() || (client.level.getGameTime() & 3L) != 0L) {
 			return;

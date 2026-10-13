@@ -51,6 +51,13 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
 	}
 
+	/** v0.16.1: the living web swing -- the body hangs along the rope and rolls into turns; the corkscrew release. */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$spiderSwingBody(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		com.projecthero.mod.client.spider.SpiderSwingPose.applyBodyRotation(player, poseStack, partialTicks);
+	}
+
 	/** v0.16.1: Spider-Man's flips (swing release, counter) and spins (Web Whip), the zip-kick lay-back. */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$spiderFlip(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

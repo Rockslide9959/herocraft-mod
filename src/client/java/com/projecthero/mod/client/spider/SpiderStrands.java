@@ -169,7 +169,11 @@ public final class SpiderStrands {
 			Vector3f up = cam.getUpVector();
 			Vector3f left = cam.getLeftVector();
 			double side = right ? -1.0 : 1.0; // getLeftVector points to the left of the view
-			return cam.getPosition()
+			// v0.16.1: the living swing raises the web hand toward the anchor -- the line leaves from it
+			SpiderSwingPose.Rig rig = SpiderSwingPose.rig(player, partial);
+			double lift = rig != null && player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SPIDER_MAN_STATE, null) != null
+					&& rig.rightHand() == right ? rig.fpLift : 0.0;
+			return cam.getPosition().add(up.x * lift, up.y * lift, up.z * lift)
 					.add(look.x * 0.7, look.y * 0.7, look.z * 0.7)
 					.add(left.x * 0.42 * side, left.y * 0.42 * side, left.z * 0.42 * side)
 					.add(-up.x * 0.34, -up.y * 0.34, -up.z * 0.34);

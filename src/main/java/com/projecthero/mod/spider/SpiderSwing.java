@@ -284,6 +284,7 @@ public final class SpiderSwing {
 		}
 		Vec3 up = toAnchor.scale(1.0 / dist);
 		Vec3 v = velocity;
+		SpiderManConfig.Moves cfg = SpiderManConfig.moves();
 
 		// --- rope tension ---
 		if (dist > ropeLength) {
@@ -292,7 +293,11 @@ public final class SpiderSwing {
 				v = v.subtract(up.scale(radial)); // cancel the part pulling away from the anchor
 			}
 			double overshoot = Math.min(dist - ropeLength, 6.0);
-			v = v.add(up.scale(overshoot * 0.14));
+			v = v.add(up.scale(overshoot * cfg.swingTension));
+			// v0.16.1: the gravity pump -- falling on a taut line pulls harder into the bottom of the arc
+			if (v.y < 0.0 && up.y > 0.2) {
+				v = v.add(0.0, -cfg.swingGravityPump * up.y, 0.0);
+			}
 		}
 
 		// --- rider input ---
@@ -307,7 +312,7 @@ public final class SpiderSwing {
 		Vec3 side = new Vec3(-flat.z, 0, flat.x);
 
 		if (SpiderSwingInput.forward(input)) {
-			v = v.add(flat.scale(0.100 * accel));
+			v = v.add(flat.scale(cfg.swingForwardAccel * accel));
 		}
 		if (SpiderSwingInput.back(input)) {
 			// braking, not reversal -- shed speed rather than flipping the arc inside out
@@ -330,13 +335,13 @@ public final class SpiderSwing {
 			// v0.9.13: another push through the bottom of the arc -- swinging was still reading as
 			// sluggish next to the rest of the traversal kit, so a chain of swings builds momentum
 			// noticeably faster now.
-			v = v.add(tangentDir.scale(0.042 * overhead));
+			v = v.add(tangentDir.scale(cfg.swingBottomPush * overhead));
 			// favour the facing direction slightly, so the swing goes where the player is looking
 			// instead of drifting off on whatever heading it happened to start with
 			if (flat.lengthSqr() > 0.0) {
 				double align = tangentDir.dot(flat);
 				if (align > 0.0) {
-					v = v.add(flat.scale(0.022 * align));
+					v = v.add(flat.scale(cfg.swingFacingAssist * align));
 				}
 			}
 		}
@@ -360,9 +365,11 @@ public final class SpiderSwing {
 
 		// Terminal guard: keep a swing fast but never absurd (v0.6.19: 2.4 -> 2.7; v0.9.13: 2.7 -> 3.2 to
 		// go with the stronger push above).
+		// v0.16.1 (later): 3.2 -> swingMaxSpeed (4.6)
 		double speed = v.length();
-		if (speed > 3.2) {
-			v = v.scale(3.2 / speed);
+		double max = cfg.swingMaxSpeed;
+		if (speed > max) {
+			v = v.scale(max / speed);
 		}
 		return v;
 	}

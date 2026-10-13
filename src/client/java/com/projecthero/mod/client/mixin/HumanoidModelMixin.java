@@ -126,6 +126,11 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		if (s == null) {
 			return;
 		}
+		// v0.16.1: Spider-Man's own swing is posed by SpiderSwingPose (aimed at the anchor every frame) -- this fixed arm
+		// is only the fallback for anyone else swinging (e.g. a power without the Spider-Man pose)
+		if (s.hasPower) {
+			return;
+		}
 		ModelPart arm = s.swingHandRight ? this.rightArm : this.leftArm;
 		arm.xRot = -2.65f;
 		arm.yRot = 0.0f;

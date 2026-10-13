@@ -203,6 +203,50 @@ Every Spider-Sense sound respects the Shift+N mute.
 - Shots: `spidey_sense_ring.png` / `spidey_sense_ring_zoom.png` (several threats at once), `spidey_sense_tingle_lines.png`,
   `spidey_sense_path_and_aim_outline.png` / `spidey_sense_path_2.png` (the archer outlined while drawing, the arrow's path).
 
+### The living web swing + faster swinging
+
+- **Animation** (`client.spider.SpiderSwingPose`). It is driven every frame by the swing itself, with no keyframes.
+  - **Inputs:** the synced anchor, the player's own motion (position delta) and time on the line, so every viewer sees the same swing.
+  - **Body:** hangs along the rope. A pitch / roll about the shoulders (`PlayerRendererMixin`) follows the rope angle, plus a roll into turns.
+  - **Web arm:** aimed at the anchor every frame, in the tilted body's own frame, so it stays on the line.
+  - **Phase:** stretched, with the legs trailing, through the bottom of a fast arc. Knees up and pitched back on the upswing. Tucked at the slow top.
+  - **Secondary motion:** the legs scissor with arc speed, the free arm counter-swings out to the side, and the head takes the tilt back out so it looks where he is going.
+  - **Styles per swing** (chosen from the anchor, so viewers agree):
+    - one-arm classic;
+    - two-hand grip on fast lines;
+    - cannonball tuck through the bottom of fast arcs (always when very fast);
+    - corkscrew spin with arms spread when a long, fast swing is let go.
+  - **Blending:** everything is eased — the swing weight in (9/s) and out (4.5/s), each angle, and the aim from one anchor to the next on a chained swing. The server's release somersault (`RELEASE_FLIP`) plays on top.
+  - **Torso:** bends go through `HipBend`.
+  - **Hanging under a tightrope:** keeps its two-hand hang.
+- **First person** (`SpiderPerchHandMixin#swingHands`):
+  - The web hand is raised toward the anchor, leaning to its side, bobbing with the arc. The web line leaves from the raised hand (`SpiderStrands.handPosition`).
+  - The free hand comes into view at the screen edge on the upswing, and onto the line on a two-hand swing.
+  - When the web hand is the off hand it is drawn here.
+- **Faster swinging** (config `moves`, version 3, so old files take the new numbers):
+
+  | Key | Old | New |
+  | --- | --- | --- |
+  | `swingForwardAccel` | 0.100 | 0.13 |
+  | `swingBottomPush` | 0.042 | 0.068 |
+  | `swingGravityPump` (extra pull down while falling on a taut line) | 0 | 0.03 |
+  | `swingFacingAssist` | 0.022 | 0.03 |
+  | `swingTension` (a fresh line goes taut quicker) | 0.14 | 0.20 |
+  | `swingMaxSpeed` | 3.2 | 4.6 (+44%) |
+  | `swingReleaseBoost` (velocity x on an in-air release) | 1.0 | 1.15 |
+  | `swingReleaseLift` | 0 | 0.12 |
+  | `swingChainWindowTicks` / `swingChainBoost` (a line fired within 1 s of letting go adds a kick along the travel) | none | 20 / 0.35 |
+
+  - The rope model is shared (`SpiderSwing.applyRope`) and runs on the owning client. The release / chain kicks are client-side in `SpiderSwingClient`, where the movement is owned.
+  - The server has no swing speed check beyond vanilla's moved-too-quickly limit (4.6 b/t is far inside it), so there is nothing to rubber-band.
+  - The animation's "fast" scale reaches full at about 2.8 b/t, so it keeps growing with the new speeds.
+  - Sheet: `spidey_swing_sheet_v2.png`. Rows:
+    1. side view through an arc;
+    2. 3/4 view through an arc;
+    3. the release;
+    4. a chained swing;
+    5. first person through an arc.
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

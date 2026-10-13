@@ -196,8 +196,12 @@ public final class SpiderPose {
 		}
 		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
 		float t = now(player);
-		if (SpiderSwing.isSwinging(player)) {
-			swingBody(player, m, t, s != null && s.has(SpiderMoveState.FLAG_HANGING));
+		boolean hanging = s != null && s.has(SpiderMoveState.FLAG_HANGING);
+		if (SpiderSwing.isSwinging(player) && hanging) {
+			swingBody(player, m, t, true);
+		} else {
+			// v0.16.1: the living, physics-driven swing (and its blend out after a release)
+			SpiderSwingPose.applyLimbs(player, m);
 		}
 		if (s == null) {
 			return;

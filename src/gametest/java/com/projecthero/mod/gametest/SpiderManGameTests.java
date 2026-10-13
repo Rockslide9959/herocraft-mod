@@ -369,8 +369,11 @@ public class SpiderManGameTests implements FabricGameTest {
 		Vec3 anchor = player.getEyePosition().add(0, 14, 6);
 		Vec3 absurd = new Vec3(40.0, 40.0, 40.0);
 		Vec3 out = SpiderSwing.applyRope(player, anchor, 12.0, absurd, 0, false, player.getY());
-		helper.assertTrue(out.length() <= 3.2,
+		double max = com.projecthero.mod.spider.SpiderManConfig.moves().swingMaxSpeed;
+		helper.assertTrue(out.length() <= max + 1.0e-6,
 				"the rope model must clamp swing speed, got " + out.length());
+		// v0.16.1: faster swinging -- the cap is well above the old 3.2, and the clamp lands on it
+		helper.assertTrue(max >= 4.4 && out.length() > 3.2 * 1.35, "swings now reach about +40% over the old top speed");
 		helper.succeed();
 	}
 
