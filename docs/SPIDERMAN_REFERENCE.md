@@ -161,6 +161,48 @@ ThrownBlockRenderer}`, the rewritten `gui/SpiderHud`, updated `SpiderInputClient
   (`webCocoonTicks` 600). **Bosses** get `bossWebDebuffTicks` (90 = 4.5 s) of a weaker version (Slowness I, never fully
   pinned). The config moved to version 2 (`resetBalance`), so existing files take the new numbers.
 
+### Spider-Sense rework (ring, tingle lines, smarter warnings, deflection)
+
+Unchanged on purpose: the dodge chances (50% melee / 60% ranged), no perfect-dodge mechanic, the V Pulse, no fall damage.
+Every Spider-Sense sound respects the Shift+N mute.
+
+- **Threat ring** (`SpiderHud.renderWarning`, client only): 16 arc segments round the crosshair (radius 30 px, never over
+  it). Each warning lights the arc on the side it comes from, relative to where he looks, and pulses, then fades over its
+  last half second. Several kinds show at once. The colour says how urgent it is:
+  - **red**: a melee wind-up or a projectile about to land (kinds 0 / 1);
+  - **orange**: a hostile closing in, including from behind, or a weapon aimed at him (kinds 5 / 6);
+  - **yellow**: environment and explosives.
+
+  A 7x7 kind icon (fist / arrow / blast / hazard) sits outside the arc, with an up / down chevron when the threat is above or
+  below. A 22 px edge ripple pulses on the screen side of the most urgent threat.
+- **Tingle lines** (`client.spider.SpiderSenseFx`): six jagged comic strokes fan round his head, camera-facing, flickering.
+  `SpiderMoveState.tingleUntil` is synced, so other players see them in third person; it is refreshed by `SpiderMoves.tingle`
+  only near its end, so it is not re-synced every scan. They are not drawn for the local player in first person.
+- **Smarter warnings** (`SpiderSense`, server scans, sent only to him):
+  - a player winding up a blow while facing him (squadmates excepted);
+  - a bow / crossbow / trident / gun drawn and aimed at him (`aimingAt`; mobs must target him, players must look within
+    about 14 degrees) -- a new kind, `KIND_AIMED` = 6;
+  - a hostile closing from behind before it has even targeted him;
+  - lava up to 3 blocks ahead along his movement;
+  - a pressure plate or tripwire with TNT wired within 4 blocks.
+
+  Anyone flagged is outlined for him alone, now including other players. This goes through the existing
+  `SpiderSenseGlowPayload` + `EntityGlowMixin` path, so **no server glowing tag, effect or flag is ever set**.
+- **Path lines and shimmer** (`SpiderSenseFx`, client only): a projectile not his own whose simulated flight passes within
+  2.6 blocks of him gets a faint dotted red line (arrow / throwable gravity and drag simulated). Firearms are hitscan, so
+  their cue is the aim outline plus the orange ring. Invisible hostiles within 16 blocks, and invisible players his sense
+  lists, give off a faint `WAX_OFF` glint.
+- **Deflection** (`SpiderSense.deflect`, `moves.deflectReturnChance` 0.4): a dodged projectile never passes through:
+  - with a shooter, `deflectReturnChance` of the time it is sent straight back at them, and its owner becomes him (RETURNED);
+  - otherwise an arrow is caught, as before (CAUGHT);
+  - anything else is swatted aside: turned sideways, slowed and lifted (SWATTED).
+- Gametests: `spiderSenseAlwaysDeflectsADodgedProjectile` (400 seeded deflections: never NONE, never still heading at him,
+  returned ones go back at the shooter, a ratio of about 40%, chance 0 / 1 / no owner) and `spiderSenseWarningsAreClientOnly`
+  (a wind-up is in his private threat set, but there is no glowing tag, no Glowing effect and `isCurrentlyGlowing` stays
+  false).
+- Shots: `spidey_sense_ring.png` / `spidey_sense_ring_zoom.png` (several threats at once), `spidey_sense_tingle_lines.png`,
+  `spidey_sense_path_and_aim_outline.png` / `spidey_sense_path_2.png` (the archer outlined while drawing, the arrow's path).
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

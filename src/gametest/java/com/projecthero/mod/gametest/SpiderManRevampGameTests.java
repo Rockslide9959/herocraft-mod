@@ -514,4 +514,84 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.assertFalse(SpiderMoves.soundsOff(plain), "so nothing changes for anyone else");
 		helper.succeed();
 	}
+
+	/** A snowball thrown by {@code shooter}, mid-flight 2 blocks in front of {@code p} and heading at him. */
+	private static net.minecraft.world.entity.projectile.Snowball incoming(GameTestHelper helper, ServerPlayer p, Zombie shooter) {
+		net.minecraft.world.entity.projectile.Snowball ball = new net.minecraft.world.entity.projectile.Snowball(helper.getLevel(), shooter);
+		ball.setPos(p.getX(), p.getEyeY() - 0.3, p.getZ() + 2.0);
+		ball.setDeltaMovement(0.0, 0.0, -1.5);
+		return ball;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void spiderSenseAlwaysDeflectsADodgedProjectile(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Zombie shooter = arena(helper, p);
+		SpiderManConfig.Moves cfg = SpiderManConfig.moves();
+		float saved = cfg.deflectReturnChance;
+		try {
+			net.minecraft.util.RandomSource rand = net.minecraft.util.RandomSource.create(16_1L);
+			int returned = 0;
+			int n = 400;
+			for (int i = 0; i < n; i++) {
+				var ball = incoming(helper, p, shooter);
+				Vec3 before = ball.getDeltaMovement().normalize();
+				com.projecthero.mod.spider.SpiderSense.Deflect d = com.projecthero.mod.spider.SpiderSense.deflect(p, ball, rand);
+				helper.assertTrue(d != com.projecthero.mod.spider.SpiderSense.Deflect.NONE, "a dodged projectile is always dealt with");
+				Vec3 after = ball.getDeltaMovement();
+				helper.assertTrue(after.lengthSqr() > 1.0e-4 && after.normalize().dot(before) < 0.6,
+						"and it no longer flies on at him (" + d + ")");
+				if (d == com.projecthero.mod.spider.SpiderSense.Deflect.RETURNED) {
+					returned++;
+					helper.assertTrue(ball.getOwner() == p, "a returned projectile is now his");
+					Vec3 toShooter = shooter.position().add(0, shooter.getBbHeight() * 0.5, 0).subtract(ball.position()).normalize();
+					helper.assertTrue(after.normalize().dot(toShooter) > 0.95, "and is sent straight back at the shooter");
+				}
+				ball.discard();
+			}
+			double ratio = returned / (double) n;
+			helper.assertTrue(ratio > 0.32 && ratio < 0.48, "about 40% are returned (got " + ratio + ")");
+
+			cfg.deflectReturnChance = 0.0f;
+			for (int i = 0; i < 20; i++) {
+				var ball = incoming(helper, p, shooter);
+				helper.assertTrue(com.projecthero.mod.spider.SpiderSense.deflect(p, ball, rand) == com.projecthero.mod.spider.SpiderSense.Deflect.SWATTED,
+						"with the chance at 0 a snowball is only ever swatted aside");
+				ball.discard();
+			}
+			cfg.deflectReturnChance = 1.0f;
+			var ball = incoming(helper, p, shooter);
+			helper.assertTrue(com.projecthero.mod.spider.SpiderSense.deflect(p, ball, rand) == com.projecthero.mod.spider.SpiderSense.Deflect.RETURNED,
+					"with the chance at 1 it always goes back");
+			ball.discard();
+			// no shooter to send it back to: still never passes through
+			var orphan = incoming(helper, p, shooter);
+			orphan.setOwner(null);
+			helper.assertTrue(com.projecthero.mod.spider.SpiderSense.deflect(p, orphan, rand) == com.projecthero.mod.spider.SpiderSense.Deflect.SWATTED,
+					"an ownerless projectile is swatted aside");
+			orphan.discard();
+		} finally {
+			cfg.deflectReturnChance = saved;
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void spiderSenseWarningsAreClientOnly(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Zombie zombie = arena(helper, p);
+		zombie.moveTo(p.getX(), p.getY(), p.getZ() + 1.8, 180.0f, 0.0f);
+		zombie.setTarget(p);
+		zombie.swinging = true;
+		p.tickCount = 0;
+		com.projecthero.mod.spider.SpiderSense.serverTick(p);
+		helper.assertTrue(com.projecthero.mod.spider.SpiderSense.scanFlagged(zombie), "the wind-up is sensed (his private threat set)");
+		helper.assertFalse(zombie.hasGlowingTag(), "but no glowing tag is ever set on the mob");
+		helper.assertFalse(zombie.hasEffect(net.minecraft.world.effect.MobEffects.GLOWING), "nor a Glowing effect");
+		helper.assertFalse(zombie.isCurrentlyGlowing(), "so no other player can see an outline");
+		helper.assertFalse(p.hasGlowingTag(), "and nothing is set on him either");
+		SpiderMoveState ms = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SPIDER_MOVE_STATE, null);
+		helper.assertTrue(ms != null && ms.tingleUntil > helper.getLevel().getGameTime(), "the tingle lines are on (the one synced, cosmetic part)");
+		helper.succeed();
+	}
 }

@@ -71,6 +71,8 @@ public final class SpiderManConfig {
 		 * weaker version (lower Slowness, never fully pinned).
 		 */
 		public int webDebuffTicks = 360;
+		/** v0.16.1: a projectile Spider-Sense dodges is sent straight back at its shooter this often (else caught / swatted aside). */
+		public float deflectReturnChance = 0.4f;
 		public int bossWebDebuffTicks = 90;
 		public int impactPinTicks = 360;
 		public int blossomTrapTicks = 360;

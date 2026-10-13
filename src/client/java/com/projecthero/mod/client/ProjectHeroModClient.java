@@ -191,6 +191,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.ironman.IronManBattleDamage.initialize(); // v0.14.29 agent F: suit sparks / smoke
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
+		com.projecthero.mod.client.spider.SpiderSenseFx.initialize(); // v0.16.1: tingle lines, projectile paths, hidden-threat shimmer
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts
 		com.projecthero.mod.client.thor.ThorCapeClient.initialize(); // v0.14.16: Thor's Armour's crimson cape

@@ -81,6 +81,8 @@ public final class SpiderSense {
 	// kind 3 (fall) retired in v0.6.19 -- Spider-Man takes no fall damage now, so there is nothing to warn about
 	private static final int KIND_ENVIRONMENT = 4;
 	private static final int KIND_TARGETED = 5;
+	/** v0.16.1: a bow / crossbow / gun drawn and aimed at him. */
+	private static final int KIND_AIMED = 6;
 
 	// cooldown-map keys (they ride on the player's existing spider cooldown map -- transient in spirit)
 	private static final String LAST_DODGE = "spider_sense_dodge";
@@ -96,6 +98,11 @@ public final class SpiderSense {
 	 */
 	private static final it.unimi.dsi.fastutil.ints.IntOpenHashSet SCAN_GLOW = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
 
+	/** v0.16.1 (tests): did the last scan put {@code e} in the private threat set handed to the Spider-Man's client? */
+	public static boolean scanFlagged(Entity e) {
+		return e != null && SCAN_GLOW.contains(e.getId());
+	}
+
 	private SpiderSense() {
 	}
 
@@ -105,9 +112,31 @@ public final class SpiderSense {
 
 	/** Record a threatening mob for the red danger glow -- per-viewer only, sent below in {@link #serverTick}. */
 	private static void markThreatGlow(net.minecraft.world.entity.Entity threat) {
-		if (threat instanceof net.minecraft.world.entity.LivingEntity living && !(living instanceof ServerPlayer)) {
+		if (threat instanceof net.minecraft.world.entity.LivingEntity living) {
+			// v0.16.1: a player winding up a blow or aiming at him counts too -- still only HIS client is told
 			SCAN_GLOW.add(living.getId());
 		}
+	}
+
+	/** v0.16.1: is {@code e} drawing a bow / crossbow / gun and pointing it at {@code player}? */
+	public static boolean aimingAt(LivingEntity e, ServerPlayer player) {
+		boolean drawn = (e.isUsingItem() && (e.getUseItem().getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem
+				|| e.getUseItem().getItem() instanceof net.minecraft.world.item.TridentItem))
+				|| (e.getMainHandItem().getItem() instanceof net.minecraft.world.item.CrossbowItem
+						&& net.minecraft.world.item.CrossbowItem.isCharged(e.getMainHandItem()))
+				|| (e instanceof net.minecraft.world.entity.monster.CrossbowAttackMob cm && e instanceof Mob m && m.isAggressive()
+						&& e.getMainHandItem().getItem() instanceof net.minecraft.world.item.CrossbowItem)
+				|| (e instanceof net.minecraft.world.entity.player.Player
+						&& e.getMainHandItem().getItem() instanceof com.projecthero.mod.firearm.item.FirearmItem);
+		if (!drawn || e == player) {
+			return false;
+		}
+		if (e instanceof Mob mob) {
+			return mob.getTarget() == player;
+		}
+		Vec3 to = player.getEyePosition().subtract(e.getEyePosition());
+		return to.lengthSqr() > 1.0E-4 && e.getLookAngle().dot(to.normalize()) > 0.97
+				&& !com.projecthero.mod.squad.Squads.areAllies(e, player);
 	}
 
 	// ---------------- eligibility ----------------
@@ -217,8 +246,9 @@ public final class SpiderSense {
 		// fought with web-swing and wall-crawl movement (the player got yanked off their arc). The hit
 		// is still slipped -- {@code onAllowDamage} returns false -- and a thrown projectile is still
 		// caught or deflected; the player just stays where their own momentum was taking them.
-		if (!catchProjectile(player, source)) {
-			deflectProjectile(player, source);
+		// v0.16.1: a dodged projectile never just passes through -- it is sent back, caught (an arrow) or swatted aside
+		if (source.getDirectEntity() instanceof Projectile p) {
+			deflect(player, p, player.getRandom());
 		}
 
 		ServerLevel level = (ServerLevel) player.level();
@@ -233,8 +263,8 @@ public final class SpiderSense {
 	 * A dodged arrow is plucked out of the air: the projectile is discarded and exactly one matching
 	 * item is handed over (a full inventory drops it). Returns true if a projectile was consumed.
 	 */
-	private static boolean catchProjectile(ServerPlayer player, DamageSource source) {
-		if (!(source.getDirectEntity() instanceof AbstractArrow arrow) || !arrow.isAlive()) {
+	private static boolean catchArrow(ServerPlayer player, AbstractArrow arrow) {
+		if (!arrow.isAlive()) {
 			return false;
 		}
 		ItemStack caught = arrow.getPickupItemStackOrigin().copy();
@@ -256,35 +286,49 @@ public final class SpiderSense {
 		return true;
 	}
 
+	/** What happened to a dodged projectile. */
+	public enum Deflect {
+		RETURNED, CAUGHT, SWATTED, NONE
+	}
+
 	/**
-	 * A dodged non-arrow projectile -- a trident, a fireball, a snowball -- is sometimes redirected
-	 * back the way it came instead of merely missing.
+	 * v0.16.1: a dodged projectile is ALWAYS dealt with -- never left to fly on through. With a shooter behind it, it is
+	 * sent straight back at them {@code SpiderManConfig.moves().deflectReturnChance} of the time (40%); otherwise an arrow is
+	 * plucked out of the air (exactly one item, as before) and anything else is swatted aside, sideways and slowed so it
+	 * falls away harmlessly. Explicit {@code random} so tests can seed it.
 	 */
-	private static void deflectProjectile(ServerPlayer player, DamageSource source) {
-		if (!(source.getDirectEntity() instanceof Projectile projectile) || !projectile.isAlive()) {
-			return;
+	public static Deflect deflect(ServerPlayer player, Projectile projectile, RandomSource random) {
+		if (projectile == null || !projectile.isAlive()) {
+			return Deflect.NONE;
 		}
-		if (player.getRandom().nextFloat() > 0.6f) {
-			return;
-		}
-		Vec3 back = player.getLookAngle();
 		Entity shooter = projectile.getOwner();
-		if (shooter != null) {
-			Vec3 toShooter = shooter.position().add(0, shooter.getBbHeight() * 0.5, 0)
-					.subtract(projectile.position());
-			if (toShooter.lengthSqr() > 1.0E-4) {
-				back = toShooter.normalize();
-			}
+		if (shooter != null && shooter != player && random.nextFloat() < SpiderManConfig.moves().deflectReturnChance) {
+			Vec3 toShooter = shooter.position().add(0, shooter.getBbHeight() * 0.5, 0).subtract(projectile.position());
+			Vec3 back = toShooter.lengthSqr() > 1.0E-4 ? toShooter.normalize() : player.getLookAngle();
+			double speed = Math.max(projectile instanceof ThrownTrident ? 1.6 : 0.8, projectile.getDeltaMovement().length());
+			projectile.setDeltaMovement(back.scale(speed));
+			projectile.setOwner(player);
+			projectile.hurtMarked = true;
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.7f, 1.5f);
+			return Deflect.RETURNED;
 		}
-		double speed = Math.max(0.8, projectile.getDeltaMovement().length());
-		projectile.setDeltaMovement(back.scale(speed));
-		projectile.setOwner(player);
-		if (projectile instanceof ThrownTrident) {
-			projectile.setDeltaMovement(back.scale(Math.max(1.6, speed)));
+		if (projectile instanceof AbstractArrow arrow && catchArrow(player, arrow)) {
+			return Deflect.CAUGHT;
 		}
+		// swatted aside: turned ~90 degrees to whichever side, slowed, with a little lift so it clears him
+		Vec3 v = projectile.getDeltaMovement();
+		double speed = Math.max(0.3, v.length());
+		Vec3 dir = v.lengthSqr() > 1.0E-6 ? v.normalize() : player.getLookAngle().reverse();
+		Vec3 side = dir.cross(new Vec3(0, 1, 0));
+		if (side.lengthSqr() < 1.0E-4) {
+			side = new Vec3(1, 0, 0);
+		}
+		side = side.normalize().scale(random.nextBoolean() ? 1.0 : -1.0);
+		projectile.setDeltaMovement(side.scale(speed * 0.55).add(dir.scale(speed * 0.15)).add(0, 0.12, 0));
 		projectile.hurtMarked = true;
-		((ServerLevel) player.level()).playSound(null, player.getX(), player.getY(), player.getZ(),
-				SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 0.7f, 1.5f);
+		player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_ATTACK_WEAK, SoundSource.PLAYERS, 0.6f, 1.6f);
+		return Deflect.SWATTED;
 	}
 
 	// ---------------- the warning cue ----------------
@@ -335,7 +379,11 @@ public final class SpiderSense {
 			}
 			spawnDirectionalCue(player, threatPos);
 		}
-		ServerPlayNetworking.send(player, new SpiderSenseWarningPayload(kind, yaw, vertical));
+		// v0.16.1: the comic spider-sense lines round his head, seen by everyone (synced; refreshed only near its end)
+		SpiderMoves.tingle(player, now);
+		if (ServerPlayNetworking.canSend(player, SpiderSenseWarningPayload.TYPE)) {
+			ServerPlayNetworking.send(player, new SpiderSenseWarningPayload(kind, yaw, vertical));
+		}
 	}
 
 	/**
@@ -389,7 +437,9 @@ public final class SpiderSense {
 			scanExplosions(player, level);
 			scanEnvironment(player, level);
 			// v0.9.3: hand this player (and only this player) the current red-glow threat set.
-			ServerPlayNetworking.send(player, new SpiderSenseGlowPayload(SCAN_GLOW.toIntArray()));
+			if (ServerPlayNetworking.canSend(player, SpiderSenseGlowPayload.TYPE)) {
+				ServerPlayNetworking.send(player, new SpiderSenseGlowPayload(SCAN_GLOW.toIntArray()));
+			}
 		}
 	}
 
@@ -401,6 +451,17 @@ public final class SpiderSense {
 			if (mob.swinging || mob.attackAnim > 0.0f) {
 				fireWarning(player, KIND_MELEE, mob.position().add(0, mob.getBbHeight() * 0.5, 0));
 				markThreatGlow(mob);
+				break;
+			}
+		}
+		// v0.16.1: another player winding up a blow at him, close and facing him (squadmates excepted)
+		for (ServerPlayer other : level.getEntitiesOfClass(ServerPlayer.class, melee,
+				o -> o != player && o.isAlive() && !o.isSpectator() && (o.swinging || o.attackAnim > 0.0f)
+						&& !com.projecthero.mod.squad.Squads.areAllies(o, player))) {
+			Vec3 to = player.position().subtract(other.position());
+			if (to.lengthSqr() > 1.0E-4 && other.getLookAngle().dot(to.normalize()) > 0.6) {
+				fireWarning(player, KIND_MELEE, other.position().add(0, other.getBbHeight() * 0.5, 0));
+				markThreatGlow(other);
 				break;
 			}
 		}
@@ -439,6 +500,32 @@ public final class SpiderSense {
 				warned = true;
 			}
 		}
+		// v0.16.1: a bow / crossbow / gun drawn on him -- mob or player -- gets its own warning and his private outline
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, x -> x.isAlive() && x != player)) {
+			if (aimingAt(e, player)) {
+				markThreatGlow(e);
+				fireWarning(player, KIND_AIMED, e.getEyePosition());
+				break;
+			}
+		}
+		// v0.16.1: a hostile closing in from behind / out of view, even before it has locked on
+		Vec3 look = player.getLookAngle();
+		AABB rear = player.getBoundingBox().inflate(12.0, 4.0, 12.0);
+		for (Mob mob : level.getEntitiesOfClass(Mob.class, rear,
+				m -> m.isAlive() && m instanceof net.minecraft.world.entity.monster.Enemy && m.getTarget() != player)) {
+			Vec3 to = mob.position().subtract(player.position());
+			Vec3 flatTo = new Vec3(to.x, 0, to.z);
+			Vec3 flatLook = new Vec3(look.x, 0, look.z);
+			if (flatTo.lengthSqr() < 1.0E-4 || flatLook.lengthSqr() < 1.0E-4) {
+				continue;
+			}
+			boolean behind = flatTo.normalize().dot(flatLook.normalize()) < -0.35;
+			boolean closing = mob.getDeltaMovement().dot(to.reverse().normalize()) > 0.02;
+			if (behind && closing) {
+				fireWarning(player, KIND_TARGETED, mob.position().add(0, mob.getBbHeight() * 0.5, 0));
+				break;
+			}
+		}
 	}
 
 	private static void scanExplosions(ServerPlayer player, ServerLevel level) {
@@ -461,6 +548,34 @@ public final class SpiderSense {
 		for (FallingBlockEntity fb : level.getEntitiesOfClass(FallingBlockEntity.class, above, Entity::isAlive)) {
 			fireWarning(player, KIND_ENVIRONMENT, fb.position());
 			return;
+		}
+		// v0.16.1: lava he is about to walk into -- the next couple of blocks along his movement, at foot level and one down
+		Vec3 move = new Vec3(player.getX() - player.xo, 0, player.getZ() - player.zo);
+		if (move.lengthSqr() > 1.0E-4) {
+			Vec3 dir = move.normalize();
+			for (int step = 1; step <= 3; step++) {
+				BlockPos ahead = BlockPos.containing(player.getX() + dir.x * step, player.getY(), player.getZ() + dir.z * step);
+				if (level.getFluidState(ahead).is(net.minecraft.tags.FluidTags.LAVA)
+						|| level.getFluidState(ahead.below()).is(net.minecraft.tags.FluidTags.LAVA)) {
+					fireWarning(player, KIND_ENVIRONMENT, Vec3.atCenterOf(ahead));
+					return;
+				}
+			}
+		}
+		// v0.16.1: a pressure plate / tripwire close by with TNT wired near it -- a trap
+		BlockPos feet = player.blockPosition();
+		for (BlockPos plate : BlockPos.betweenClosed(feet.offset(-2, -1, -2), feet.offset(2, 1, 2))) {
+			var st = level.getBlockState(plate);
+			if (st.getBlock() instanceof net.minecraft.world.level.block.BasePressurePlateBlock
+					|| st.getBlock() instanceof net.minecraft.world.level.block.TripWireBlock) {
+				BlockPos p0 = plate.immutable();
+				for (BlockPos t : BlockPos.betweenClosed(p0.offset(-4, -4, -4), p0.offset(4, 2, 4))) {
+					if (level.getBlockState(t).is(net.minecraft.world.level.block.Blocks.TNT)) {
+						fireWarning(player, KIND_EXPLOSION, Vec3.atCenterOf(p0));
+						return;
+					}
+				}
+			}
 		}
 		// lava within a block or two of the feet
 		BlockPos base = player.blockPosition();

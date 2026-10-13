@@ -306,6 +306,17 @@ public final class SpiderMoves {
 		return player.getAttachedOrElse(ModAttachments.SPIDER_SOUNDS_OFF, false);
 	}
 
+	/** v0.16.1: show the Spider-Sense tingle lines round his head for a moment (synced; only re-saved near the end). */
+	public static void tingle(ServerPlayer player, long now) {
+		SpiderMoveState s = state(player);
+		if (s.tingleUntil - now > 10) {
+			return;
+		}
+		SpiderMoveState c = s.copy();
+		c.tingleUntil = now + 30;
+		save(player, c);
+	}
+
 	/** A notification sound (Spider-Sense, web structures): skipped while he has them muted. */
 	static void notify(ServerPlayer player, SoundEvent sound, float volume, float pitch) {
 		if (!soundsOff(player)) {

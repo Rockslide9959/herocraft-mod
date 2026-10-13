@@ -49,12 +49,14 @@ public final class SpiderMoveState {
 	public long pulseUntil;
 	/** When the current charge (Impact Web / Web Blossom) or stance started. */
 	public long chargeStart;
+	/** v0.16.1: the Spider-Sense tingle lines show round his head (for everyone) until this game time. */
+	public long tingleUntil;
 
 	public SpiderMoveState() {
 	}
 
 	public SpiderMoveState(int flags, int animId, long animStart, double ax, double ay, double az,
-			double cx, double cy, double cz, int strands, long pulseUntil, long chargeStart) {
+			double cx, double cy, double cz, int strands, long pulseUntil, long chargeStart, long tingleUntil) {
 		this.flags = flags;
 		this.animId = animId;
 		this.animStart = animStart;
@@ -67,10 +69,11 @@ public final class SpiderMoveState {
 		this.strands = strands;
 		this.pulseUntil = pulseUntil;
 		this.chargeStart = chargeStart;
+		this.tingleUntil = tingleUntil;
 	}
 
 	public SpiderMoveState copy() {
-		return new SpiderMoveState(flags, animId, animStart, ax, ay, az, cx, cy, cz, strands, pulseUntil, chargeStart);
+		return new SpiderMoveState(flags, animId, animStart, ax, ay, az, cx, cy, cz, strands, pulseUntil, chargeStart, tingleUntil);
 	}
 
 	public boolean has(int flag) {
@@ -93,6 +96,7 @@ public final class SpiderMoveState {
 			Codec.DOUBLE.optionalFieldOf("cz", 0.0).forGetter(s -> s.cz),
 			Codec.INT.optionalFieldOf("strands", 0).forGetter(s -> s.strands),
 			Codec.LONG.optionalFieldOf("pulse_until", 0L).forGetter(s -> s.pulseUntil),
-			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart)
+			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart),
+			Codec.LONG.optionalFieldOf("tingle_until", 0L).forGetter(s -> s.tingleUntil)
 	).apply(i, SpiderMoveState::new));
 }

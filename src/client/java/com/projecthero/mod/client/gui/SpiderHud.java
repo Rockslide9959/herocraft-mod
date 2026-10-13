@@ -53,7 +53,7 @@ public final class SpiderHud {
 	private static final int NAMES_WIDTH = 190;
 
 	// ---- Spider-Sense warning (v0.6.17; v0.6.19: one marker per kind, held until the danger passes) ----
-	private static final int WARN_KINDS = 6;
+	private static final int WARN_KINDS = 7;
 	private static final int WARN_LINGER = 22;
 	private static final long[] warnUntil = new long[WARN_KINDS];
 	private static final float[] warnYaw = new float[WARN_KINDS];
@@ -88,21 +88,88 @@ public final class SpiderHud {
 		}
 	}
 
+	/** v0.16.1: red = an attack about to land, orange = a hostile closing in / a weapon aimed, yellow = a hazard. */
 	private static int warningColor(int kind) {
 		return switch (kind) {
-			case 2 -> 0xFFFF5533; // explosion
-			case 4 -> 0xFFFF8833; // environment
-			default -> 0xFFFF3355; // melee / projectile / targeted
+			case 0, 1 -> 0xFF3344; // a blow / a projectile about to land
+			case 5, 6 -> 0xFF9922; // a hostile closing in / a weapon drawn on him
+			default -> 0xFFE040; // explosion / environment
 		};
 	}
 
+	private static int priority(int kind) {
+		return switch (kind) {
+			case 0, 1 -> 3;
+			case 5, 6 -> 2;
+			default -> 1;
+		};
+	}
+
+	// 7 x 7 kind icons: fist (blows / hostiles), arrow (projectiles / aimed weapons), explosion, hazard
+	private static final String[] ICON_FIST = {".###...", "#####..", "######.", "######.", ".#####.", "..###..", "..###.."};
+	private static final String[] ICON_ARROW = {"...#...", "..###..", ".#.#.#.", "...#...", "...#...", "..#.#..", ".#...#."};
+	private static final String[] ICON_BLAST = {"#..#..#", ".#.#.#.", "..###..", "#######", "..###..", ".#.#.#.", "#..#..#"};
+	private static final String[] ICON_HAZARD = {"...#...", "..#.#..", "..#.#..", ".#.#.#.", ".#...#.", "#..#..#", "#######"};
+
+	private static String[] icon(int kind) {
+		return switch (kind) {
+			case 1, 6 -> ICON_ARROW;
+			case 2 -> ICON_BLAST;
+			case 4 -> ICON_HAZARD;
+			default -> ICON_FIST;
+		};
+	}
+
+	private static void drawIcon(GuiGraphics g, String[] rows, int x, int y, int argb) {
+		for (int r = 0; r < rows.length; r++) {
+			for (int c = 0; c < rows[r].length(); c++) {
+				if (rows[r].charAt(c) == '#') {
+					g.fill(x + c, y + r, x + c + 1, y + r + 1, argb);
+				}
+			}
+		}
+	}
+
+	private static final int SEGMENTS = 16;
+	private static final int RING_R = 30;
+
+	/**
+	 * v0.16.1 Spider-Sense ring: soft segments round the crosshair (never over it). The segment facing each sensed threat
+	 * glows its colour and pulses, fading as the threat passes; a kind icon sits just outside it, with a chevron when the
+	 * threat is above / below. Several at once share the ring without clutter (one icon per segment, the most urgent wins).
+	 * Plus a soft ripple along the screen edge on the side of the most urgent threat. All client-side, his eyes only.
+	 */
 	private static void renderWarning(GuiGraphics g, Minecraft client, Player player) {
 		long now = client.level != null ? client.level.getGameTime() : 0L;
+		float partial = client.getTimer().getGameTimeDeltaPartialTick(false);
+		float[] segGlow = new float[SEGMENTS];
+		int[] segColor = new int[SEGMENTS];
+		int[] segKind = new int[SEGMENTS];
+		int[] segPrio = new int[SEGMENTS];
+		int[] segVert = new int[SEGMENTS];
 		boolean any = false;
+		int bestKind = -1;
+		float bestRel = 0f;
+		float bestFade = 0f;
 		for (int k = 0; k < WARN_KINDS; k++) {
-			if (now < warnUntil[k]) {
-				any = true;
-				break;
+			if (now >= warnUntil[k]) {
+				continue;
+			}
+			any = true;
+			float fade = Math.min(1f, (warnUntil[k] - now - partial) / 10f);
+			float rel = Mth.wrapDegrees(warnYaw[k] - player.getViewYRot(partial));
+			int seg = Math.floorMod(Math.round(rel / (360f / SEGMENTS)), SEGMENTS);
+			if (priority(k) > segPrio[seg] || (priority(k) == segPrio[seg] && fade > segGlow[seg])) {
+				segPrio[seg] = priority(k);
+				segGlow[seg] = Math.max(segGlow[seg], fade);
+				segColor[seg] = warningColor(k);
+				segKind[seg] = k;
+				segVert[seg] = warnVertical[k];
+			}
+			if (bestKind < 0 || priority(k) > priority(bestKind)) {
+				bestKind = k;
+				bestRel = rel;
+				bestFade = fade;
 			}
 		}
 		if (!any) {
@@ -110,33 +177,75 @@ public final class SpiderHud {
 		}
 		int cx = g.guiWidth() / 2;
 		int cy = g.guiHeight() / 2;
-		boolean blink = (now % 6) < 3;
-		int pulseCol = 0xFFFF3355;
-		for (int k : new int[] {2, 4, 5, 1, 0}) {
-			if (now < warnUntil[k]) {
-				pulseCol = warningColor(k);
-				break;
+		float t = now + partial;
+		float pulse = 0.7f + 0.3f * Mth.sin(t * 0.55f);
+		for (int s = 0; s < SEGMENTS; s++) {
+			float centre = s * (360f / SEGMENTS);
+			boolean lit = segGlow[s] > 0f;
+			int rgb = lit ? segColor[s] : 0xE8E8F0;
+			float alpha = lit ? 0.85f * segGlow[s] * pulse : 0.16f;
+			if (!lit) {
+				// the idle ring: a few faint dots per segment
+				for (float d = -8.5f; d <= 8.5f; d += 1.7f) {
+					double ang = Math.toRadians(centre + d);
+					int px = cx + (int) Math.round(Math.sin(ang) * RING_R);
+					int py = cy - (int) Math.round(Math.cos(ang) * RING_R);
+					int a = (int) (255 * alpha * (1f - Math.abs(d) / 11f));
+					g.fill(px - 1, py - 1, px + 1, py + 1, (a << 24) | rgb);
+				}
+			} else {
+				// a lit arc: a solid band (bright core, softer rim and outer glow), tapering at its ends
+				for (float d = -11f; d <= 11f; d += 0.8f) {
+					double ang = Math.toRadians(centre + d);
+					float edge = 1f - (Math.abs(d) / 12f) * (Math.abs(d) / 12f);
+					double sx = Math.sin(ang);
+					double sy = Math.cos(ang);
+					for (int rr = -1; rr <= 4; rr++) {
+						float ring = rr <= 1 ? 1f : rr == 2 ? 0.55f : rr == 3 ? 0.3f : 0.15f;
+						int px = cx + (int) Math.round(sx * (RING_R + rr));
+						int py = cy - (int) Math.round(sy * (RING_R + rr));
+						int a = (int) (255 * Math.min(1f, 0.95f * segGlow[s] * pulse) * edge * ring);
+						g.fill(px, py, px + 1, py + 1, (a << 24) | rgb);
+					}
+				}
+			}
+			if (lit) {
+				double ang = Math.toRadians(centre);
+				int ix = cx + (int) Math.round(Math.sin(ang) * (RING_R + 13)) - 3;
+				int iy = cy - (int) Math.round(Math.cos(ang) * (RING_R + 13)) - 3;
+				int ia = (int) (255 * Math.min(1f, segGlow[s] * (0.75f + 0.25f * pulse)));
+				drawIcon(g, icon(segKind[s]), ix + 1, iy + 1, (ia / 2 << 24));
+				drawIcon(g, icon(segKind[s]), ix, iy, (ia << 24) | segColor[s]);
+				if (segVert[s] != 0) {
+					int chevY = segVert[s] == 1 ? iy - 5 : iy + 9;
+					for (int i = 0; i < 3; i++) {
+						int dy = segVert[s] == 1 ? i : -i;
+						g.fill(ix + 3 - i, chevY + dy, ix + 4 - i, chevY + dy + 1, (ia << 24) | segColor[s]);
+						g.fill(ix + 3 + i, chevY + dy, ix + 4 + i, chevY + dy + 1, (ia << 24) | segColor[s]);
+					}
+				}
 			}
 		}
-		if (blink) {
-			g.renderOutline(cx - 10, cy - 10, 20, 20, pulseCol);
-			g.renderOutline(cx - 14, cy - 14, 28, 28, (pulseCol & 0x00FFFFFF) | 0x66000000);
-		}
-		for (int k = 0; k < WARN_KINDS; k++) {
-			if (now >= warnUntil[k]) {
-				continue;
+		// the ripple along the screen edge on the side of the most urgent threat
+		if (bestKind >= 0) {
+			int rgb = warningColor(bestKind);
+			int w = g.guiWidth();
+			int h = g.guiHeight();
+			int band = 22;
+			for (int i = 0; i < band; i += 2) {
+				float ripple = 0.5f + 0.5f * Mth.sin(t * 0.5f - i * 0.45f);
+				int a = (int) (110 * bestFade * (1f - i / (float) band) * (0.55f + 0.45f * ripple));
+				int col = (a << 24) | rgb;
+				if (bestRel < -45f && bestRel > -135f) {
+					g.fill(i, 0, i + 2, h, col); // left
+				} else if (bestRel > 45f && bestRel < 135f) {
+					g.fill(w - i - 2, 0, w - i, h, col); // right
+				} else if (Math.abs(bestRel) <= 45f) {
+					g.fill(0, i, w, i + 2, col); // ahead: the top edge
+				} else {
+					g.fill(0, h - i - 2, w, h - i, col); // behind: the bottom edge
+				}
 			}
-			int col = warningColor(k);
-			float rel = Mth.wrapDegrees(warnYaw[k] - player.getYRot());
-			double rad = Math.toRadians(rel);
-			int mx = cx + (int) (Math.sin(rad) * 44);
-			int my = cy - (int) (Math.cos(rad) * 44);
-			if (warnVertical[k] == 1) {
-				my = cy - 46;
-			} else if (warnVertical[k] == 2) {
-				my = cy + 46;
-			}
-			g.fill(mx - 3, my - 3, mx + 3, my + 3, blink ? col : (col & 0x00FFFFFF) | 0x88000000);
 		}
 	}
 

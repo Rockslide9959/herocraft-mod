@@ -110,6 +110,14 @@ public abstract class EntityGlowMixin {
 					&& self.distanceToSqr(viewer) <= 20.0 * 20.0
 					&& com.projecthero.mod.hero.power.p26.MagneticMaterials.hasMagneticEquipment(otherPlayer)) {
 				cir.setReturnValue(true);
+				return;
+			}
+			// v0.16.1: Spider-Sense -- a player winding up a blow or aiming a weapon at a Spider-Man is outlined for him
+			// alone (the server only lists such a player in his own threat set; nothing is set on the player)
+			com.projecthero.mod.spider.data.SpiderManState sp = viewer.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
+			if (sp != null && sp.hasPower && com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(),
+					viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
+				cir.setReturnValue(true);
 			}
 			return;
 		}
