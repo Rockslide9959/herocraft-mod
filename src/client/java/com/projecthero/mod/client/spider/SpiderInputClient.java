@@ -137,11 +137,7 @@ public final class SpiderInputClient {
 			return;
 		}
 
-		// ---- Sneak on one of his tightropes: drop under it and hang (v0.16.1) ----
-		if (spiderMan && sneakPressed && !adhered && !swinging && WebStructures.ropeUnderfoot(player) != null) {
-			ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ROPE_HANG));
-			return;
-		}
+		// v0.16.2 (user): Sneak on a tightrope just crouches now -- hanging under it is Z (the upside-down hang)
 
 		// ---- sneak + jump on the ground -> the super leap (v0.6.17) ----
 		if (spiderMan && jumpPressed && sneakDown && player.onGround() && !adhered && !swinging
