@@ -5294,5 +5294,7 @@
   "projecthero.guide.symbiote.hunger.tier.bonded": "Bonded (30-80): +25% melee, +12% speed, +15% jump, a little knockback resistance, faster swinging.",
   "projecthero.guide.symbiote.hunger.tier.overdrive": "Overdrive (80+): +40% melee, +18% speed, +20% jump, a better Spider-Sense dodge -- but it eats your food, fire and sound hurt twice as much, and H will not take the suit off.",
   "projecthero.guide.symbiote.hunger.tier.takeover": "Let It Take Over (hold V at a full meter): 10 seconds of the monstrous form, then an 8-second crash.",
-  "projecthero.guide.symbiote.black_suit.intro": "With the suit on, six of Spider-Man's moves become the Symbiote's (purple-bordered in the HUD). The other twelve stay as they are."
+  "projecthero.guide.symbiote.black_suit.intro": "With the suit on, six of Spider-Man's moves become the Symbiote's (purple-bordered in the HUD). The other twelve stay as they are.",
+  "message.projecthero.spider_man.ambush": "Ambush!",
+  "projecthero.guide.spider_man.traversal.stealth": "Stealth: mobs notice you from 85% as far when walking, 60% sneaking and 40% wall-crawling, perched or hanging -- less again in the dark. Fighting, getting hit or swinging gives you away for 5 seconds. Your first hit on a mob that hasn't noticed you is an ambush: +50% damage and a 1.5-second stun (every 10 seconds). Break line of sight and stay hidden for 4 seconds and a chasing mob loses track of you. Bosses and the Warden aren't fooled. The eye left of your web boxes shows how hidden you are."
 }

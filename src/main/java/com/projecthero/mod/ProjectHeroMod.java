@@ -188,6 +188,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.greenlantern.GreenLanternTrial.initialize();
 		com.projecthero.mod.symbiote.SymbioteDamageRules.initialize();
 		com.projecthero.mod.symbiote.SymbioteHunger.initialize(); // v0.16.2: Black Suit Spider-Man's Hunger meter
+		com.projecthero.mod.spider.SpiderStealth.initialize(); // v0.16.2: Spider-Man stealth
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.initialize();
 		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.initialize();
 		// v0.14.4: Symbiote Pets (share / recall interaction, loyalty damage veto, goal re-install on load)

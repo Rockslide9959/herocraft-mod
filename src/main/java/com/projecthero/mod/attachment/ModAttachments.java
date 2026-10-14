@@ -614,6 +614,15 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.targetOnly()));
 
 	/**
+	 * v0.16.2: Spider-Man's stealth level for the HUD eye (0 exposed, 1 seen, 2 low, 3 hidden -- see
+	 * {@link com.projecthero.mod.spider.SpiderStealth}). Not persistent; synced to the owner.
+	 */
+	public static final AttachmentType<Integer> SPIDER_STEALTH = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_stealth"),
+			builder -> builder.initializer(() -> 1)
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * v0.16.2: when Black Suit Spider-Man's Let It Take Over ends (absolute game time, 0 = never used). The crash
 	 * that follows is derived from it ({@code end + CRASH_TICKS}). Synced to everyone for the form's visuals.
 	 */

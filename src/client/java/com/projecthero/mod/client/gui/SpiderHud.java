@@ -338,6 +338,7 @@ public final class SpiderHud {
 			bar(graphics, player, SpiderMoves.idFor(player, i, 1), x, y0 + BOX - 5, SHIFT_COOLING, SHIFT_READY);
 			bar(graphics, player, SpiderMoves.idFor(player, i, 2), x, y0 + BOX - 3, HOLD_COOLING, HOLD_READY);
 		}
+		stealthEye(graphics, player, x0 - 15, y0 + BOX / 2 - 3);
 		if (expanded) {
 			renderNames(graphics, client, player, x0, y0);
 		}
@@ -370,6 +371,44 @@ public final class SpiderHud {
 			for (int r = 0; r < Math.min(2, rows.size()); r++) {
 				graphics.drawString(client.font, rows.get(r), x0, barY + 6 + r * 9, 0xFFFFE0A0, false);
 			}
+		}
+	}
+
+	/**
+	 * v0.16.2: the stealth eye (11 x 7 px, left of the row) -- wide open and red when he is exposed (he just fought,
+	 * or is swinging), open when walking, half shut when sneaking, a closed line when hidden (crawling / perched /
+	 * hanging, or sneaking in the dark).
+	 */
+	private static void stealthEye(GuiGraphics g, Player player, int x, int y) {
+		int level = player.getAttachedOrElse(ModAttachments.SPIDER_STEALTH, 1);
+		int outline = switch (level) {
+			case 0 -> 0xFFFF5050;
+			case 1 -> 0xFFE8E0E0;
+			case 2 -> 0xFFB8C8D8;
+			default -> 0xFF7FA88A;
+		};
+		if (level >= 3) {
+			// closed: a lid line with lashes
+			g.fill(x + 1, y + 3, x + 10, y + 4, outline);
+			g.fill(x + 2, y + 4, x + 3, y + 6, outline);
+			g.fill(x + 5, y + 4, x + 6, y + 6, outline);
+			g.fill(x + 8, y + 4, x + 9, y + 6, outline);
+			return;
+		}
+		// the almond outline
+		g.fill(x + 3, y, x + 8, y + 1, outline);
+		g.fill(x + 1, y + 1, x + 3, y + 2, outline);
+		g.fill(x + 8, y + 1, x + 10, y + 2, outline);
+		g.fill(x, y + 2, x + 1, y + 5, outline);
+		g.fill(x + 10, y + 2, x + 11, y + 5, outline);
+		g.fill(x + 1, y + 5, x + 3, y + 6, outline);
+		g.fill(x + 8, y + 5, x + 10, y + 6, outline);
+		g.fill(x + 3, y + 6, x + 8, y + 7, outline);
+		// the iris
+		g.fill(x + 4, y + 2, x + 7, y + 5, level == 0 ? 0xFFFF5050 : 0xFF303040);
+		if (level == 2) {
+			// half shut: the upper lid drawn down over the top half
+			g.fill(x + 1, y + 1, x + 10, y + 3, 0xFF5A6070);
 		}
 	}
 
