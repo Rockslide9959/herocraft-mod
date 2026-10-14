@@ -132,5 +132,22 @@ public final class SpiderClimbLocal {
 		if (detachLock > 0) {
 			detachLock--;
 		}
+		if (intentProtect > 0) {
+			intentProtect--;
+		}
+	}
+
+	/**
+	 * v0.16.2: a grab armed by a Point Zip fired from the ground survives touching the ground for {@code ticks} -- long
+	 * enough for the zip to lift him -- instead of being cleared on the very next tick (that lost every ceiling zip).
+	 */
+	private int intentProtect;
+
+	public void protectIntent(int ticks) {
+		this.intentProtect = Math.max(intentProtect, ticks);
+	}
+
+	public boolean intentProtected() {
+		return intentProtect > 0;
 	}
 }

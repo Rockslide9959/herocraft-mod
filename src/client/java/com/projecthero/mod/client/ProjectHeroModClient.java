@@ -390,8 +390,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> {
 					net.minecraft.client.player.LocalPlayer p = context.client().player;
 					if (p != null) {
-						p.getAttachedOrCreate(com.projecthero.mod.attachment.ModAttachments.SPIDER_CLIMB_LOCAL)
-								.setGrabIntent(true);
+						var local = p.getAttachedOrCreate(com.projecthero.mod.attachment.ModAttachments.SPIDER_CLIMB_LOCAL);
+						local.setGrabIntent(true);
+						local.protectIntent(com.projecthero.mod.spider.SpiderClimb.ZIP_INTENT_GRACE); // v0.16.2: survives lift-off
 					}
 				}));
 

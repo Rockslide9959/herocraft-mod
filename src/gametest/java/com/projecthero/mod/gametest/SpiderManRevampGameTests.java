@@ -476,6 +476,28 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.2 (user): a Point Zip at a ceiling, fired from the ground, keeps its grab until it lifts him -- he sticks. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void pointZipAtACeilingArmsAGrabThatSurvivesTheGround(GameTestHelper helper) {
+		for (int x = 1; x <= 6; x++) {
+			for (int z = 1; z <= 6; z++) {
+				helper.setBlock(x, 6, z, net.minecraft.world.level.block.Blocks.STONE);
+			}
+		}
+		ServerPlayer p = spider(helper);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 1.0, 3.5));
+		p.moveTo(at.x, at.y, at.z, 0.0f, 0.0f);
+		p.setOnGround(true);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, helper.absoluteVec(new Vec3(4.0, 6.0, 4.5)));
+		com.projecthero.mod.spider.SpiderAbilities.webZip(p);
+		var local = p.getAttachedOrCreate(com.projecthero.mod.attachment.ModAttachments.SPIDER_CLIMB_LOCAL);
+		helper.assertTrue(local.grabIntent() && local.intentProtected(), "the ceiling zip armed a protected grab");
+		helper.runAfterDelay(3, () -> {
+			helper.assertTrue(local.grabIntent(), "the grab survived the ground he fired it from");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
 	public void pointZipOntoARopeLandsStandingOnIt(GameTestHelper helper) {
 		ServerPlayer p = spider(helper);

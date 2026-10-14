@@ -166,6 +166,9 @@ public final class SpiderAbilities {
 	 * collision resolves it and there is no way to end up inside geometry. Momentum is left on the
 	 * player at the end, which is what lets a zip feed straight into a wall crawl or a swing.
 	 */
+	/** v0.16.2: how far above a ceiling point a ceiling zip aims its pull, so it arrives with his head on it. */
+	private static final double CEILING_ZIP_OVERSHOOT = 1.7;
+
 	public static void webZip(ServerPlayer player) {
 		SpiderManConfig.Move cfg = SpiderManConfig.moves().pointZip;
 		if (!gate(player, SpiderMoves.POINT_ZIP, cfg.cost)) {
@@ -198,7 +201,9 @@ public final class SpiderAbilities {
 		// tick until arrival -- the old Shift+zip, now the only zip), and a wall face aimed at arms wall adhesion so he
 		// lands on it crawling. A floor / ceiling point, or one aimed well downward, just lands him there.
 		boolean sneaking = true;
-		boolean grab = hit.getDirection().getAxis().isHorizontal() && dir.y > -0.35;
+		// v0.16.2 (user): a ceiling (the underside of a block) arms the grab too -- he lands on it crawling, upside down
+		boolean ceiling = hit.getDirection() == net.minecraft.core.Direction.DOWN;
+		boolean grab = (hit.getDirection().getAxis().isHorizontal() && dir.y > -0.35) || ceiling;
 
 		if (sneaking) {
 			// v0.6.21 -- "pin me to the wall": fire straight at the exact point aimed at (dir already
@@ -209,7 +214,9 @@ public final class SpiderAbilities {
 			// climb engine sticks, no double-tap.
 			double speed = Math.min(3.0, 1.1 + dist * 0.08);
 			AbilityHelpers.launchSelf(player, dir.scale(speed));
-			SpiderCombat.beginZipPull(player, target);
+			// the pull stops ~1.9 blocks short of its point (eye distance) -- for a ceiling, aim it that far above the
+			// underside so he is hauled right up until his head meets it and the ceiling grip can take him
+			SpiderCombat.beginZipPull(player, ceiling ? target.add(0, CEILING_ZIP_OVERSHOOT, 0) : target);
 			if (grab) {
 				SpiderClimb.requestGrab(player);
 				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,

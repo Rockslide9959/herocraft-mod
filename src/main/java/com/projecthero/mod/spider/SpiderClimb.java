@@ -64,6 +64,9 @@ public final class SpiderClimb {
 		public static final Profile ADHESION = new Profile(0.145, true, 5, 0.22);
 	}
 
+	/** v0.16.2: ticks a zip-armed grab survives the ground it was fired from. */
+	public static final int ZIP_INTENT_GRACE = 10;
+
 	/** Vertical reach used when probing for a ceiling above the player's head. */
 	private static final double CEILING_PROBE = 0.30;
 
@@ -279,7 +282,7 @@ public final class SpiderClimb {
 			// re-sticking then needs a fresh double-tap-jump, which is exactly the control the player asked
 			// for. A leap's brief lock-out is the one case that keeps the intent -- SpiderClimbActions
 			// clears it there itself.
-			if (profile == null || blocked(player)) {
+			if (profile == null || (blocked(player) && !(player.onGround() && local.intentProtected()))) {
 				local.setGrabIntent(false);
 			}
 			local.reset();
@@ -389,7 +392,9 @@ public final class SpiderClimb {
 		if (profile(player) == null || (SpiderMan.hasPower(player) && crawlOff(player))) {
 			return;
 		}
-		player.getAttachedOrCreate(ModAttachments.SPIDER_CLIMB_LOCAL).setGrabIntent(true);
+		SpiderClimbLocal local = player.getAttachedOrCreate(ModAttachments.SPIDER_CLIMB_LOCAL);
+		local.setGrabIntent(true);
+		local.protectIntent(ZIP_INTENT_GRACE);
 	}
 
 	/** The player double-tapped sneak: let go, with a short lock-out so grace does not immediately re-grab. */
