@@ -935,6 +935,16 @@ public final class ModAttachments {
 					.persistent(Codec.BOOL)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.2: the player's Physics Flight attitude (Physics mode on / off, roll in degrees), reported by their own client
+	 * and shared so everyone sees the body bank and roll ({@link com.projecthero.mod.flight.FlightAttitude}). Cosmetic
+	 * only. Not persistent; synced to everyone.
+	 */
+	public static final AttachmentType<com.projecthero.mod.flight.FlightAttitude> FLIGHT_ATTITUDE = AttachmentRegistry.create(
+			ProjectHeroMod.id("flight_attitude"),
+			builder -> builder.initializer(() -> com.projecthero.mod.flight.FlightAttitude.NONE)
+					.syncWith(com.projecthero.mod.flight.FlightAttitude.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

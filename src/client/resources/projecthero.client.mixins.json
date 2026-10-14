@@ -31,6 +31,8 @@
 		"GunAdsBobMixin",
 		"GameRendererPickMixin",
 		"DirectionalFlightTravelMixin",
+		"PhysicsFlightCameraMixin",
+		"PhysicsFlightTurnMixin",
 		"DirectionalFlightMotionMixin",
 		"KryptonianXRayGlowMixin",
 		"NovaWorldmindGlowMixin",

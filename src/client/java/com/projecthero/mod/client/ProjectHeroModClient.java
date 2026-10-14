@@ -33,6 +33,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	private static boolean powerSelectWasDown = false;
 	private static boolean powerInfoWasDown = false;
 	private static boolean squadMenuWasDown = false;
+	private static boolean flightModeWasDown = false;
 
 	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
 	private static int glConstructHeldTicks = 0;
@@ -467,6 +468,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static void handleKeyBinds(Minecraft client) {
 		FlightPoseHelper.clientTick(client.level);
+		com.projecthero.mod.client.flight.PhysicsFlight.clientTick(client); // v0.16.2: share the Physics Flight roll
 
 		if (client.player == null) {
 			// Leaving a world must not leave a stale raid-sky tint on the next one.
@@ -540,6 +542,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		handlePowerSelect(client);
 		handlePowerInfo(client);
 		handleSquadMenu(client);
+		handleFlightMode(client);
 		handleMaxSteelTransform(client);
 		handleWolverineOffHand(client);
 		handleChargedPunch(client);
@@ -1092,6 +1095,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			client.setScreen(new com.projecthero.mod.client.gui.SquadScreen());
 		}
 		squadMenuWasDown = down;
+	}
+
+	/** v0.16.2: , opens the Flight Mode menu (Regular / Physics flight). Opens for everyone, flying or not. */
+	private static void handleFlightMode(Minecraft client) {
+		boolean down = ModKeyBindings.FLIGHT_MODE.isDown();
+		if (down && !flightModeWasDown && client.screen == null) {
+			client.setScreen(new com.projecthero.mod.client.gui.FlightModeScreen());
+		}
+		flightModeWasDown = down;
 	}
 
 	private static void handlePowerInfo(Minecraft client) {

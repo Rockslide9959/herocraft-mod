@@ -50,6 +50,8 @@ public final class FlightPoseHelper {
 
 	/** Fraction of the remaining distance to the target pose covered per tick (~0.5s to settle). */
 	private static final float APPROACH_PER_TICK = 0.22f;
+	/** v0.16.2 Physics Flight: the body follows the flight path's pitch a little faster than the speed tiers blend. */
+	private static final float PHYSICS_APPROACH_PER_TICK = 0.35f;
 
 	private static final Map<UUID, PoseAnim> ANIMS = new HashMap<>();
 
@@ -68,6 +70,10 @@ public final class FlightPoseHelper {
 		/** 0 = whatever vanilla's animation did with the arms, 1 = fully raised/extended. */
 		private float raise;
 		private float raisePrev;
+		/** v0.16.2 Physics Flight: the eased roll (degrees, + = right wing down), for other players. */
+		private float roll;
+		private float rollPrev;
+		private double lastY;
 	}
 
 	/** Called once per client tick (see {@code ProjectHeroModClient}) for every player in the level. */
@@ -88,6 +94,8 @@ public final class FlightPoseHelper {
 	private static void tickPlayer(Player player, PoseAnim anim) {
 		double dx = anim.hasLast ? player.getX() - anim.lastX : 0.0;
 		double dz = anim.hasLast ? player.getZ() - anim.lastZ : 0.0;
+		double dy = anim.hasLast ? player.getY() - anim.lastY : 0.0;
+		anim.lastY = player.getY();
 		double speed = Math.hypot(dx, dz);
 		// v0.14.16: the signed component of that movement along the body's facing -- negative = flying backward
 		float bodyYaw = player.yBodyRot * Mth.DEG_TO_RAD;
@@ -136,9 +144,24 @@ public final class FlightPoseHelper {
 		float targetLean = flying && !noLean ? leanDegrees(anim.tier) : 0.0f;
 		float targetRaise = flying && !anim.heroOnly && !ironManOnly && anim.tier == Tier.FAST ? 1.0f : 0.0f;
 
+		// v0.16.2 Physics Flight: the body lies along the flight path -- level flight is the flat superman pose, a dive
+		// tips it head-down, a climb stands it up -- and rolls with the flier (PlayerRendererMixin applies the roll)
+		boolean physics = flying && physicsFlier(player);
+		float leanRate = APPROACH_PER_TICK;
+		if (physics && !noLean && Math.sqrt(speed * speed + dy * dy) >= HOVER_SPEED_THRESHOLD) {
+			targetLean = Mth.clamp(90.0f + player.getXRot(), 0.0f, 180.0f);
+			leanRate = PHYSICS_APPROACH_PER_TICK;
+		}
+		anim.rollPrev = anim.roll;
+		float targetRoll = physics ? physicsRoll(player) : 0.0f;
+		anim.roll += (float) com.projecthero.mod.flight.PhysicsFlightModel.wrap(targetRoll - anim.roll) * 0.5f;
+		if (Math.abs(com.projecthero.mod.flight.PhysicsFlightModel.wrap(targetRoll - anim.roll)) < 0.05f) {
+			anim.roll = targetRoll;
+		}
+
 		anim.leanPrev = anim.lean;
 		anim.raisePrev = anim.raise;
-		anim.lean = approach(anim.lean, targetLean, 0.05f);
+		anim.lean = approach(anim.lean, targetLean, 0.05f, leanRate);
 		anim.raise = approach(anim.raise, targetRaise, 0.001f);
 		// v0.14.21: an Iron Man superhero landing snaps the body upright fast -- the kneeling pose must not be tipped over
 		// by the lean still easing out of the flight.
@@ -151,8 +174,45 @@ public final class FlightPoseHelper {
 	}
 
 	private static float approach(float current, float target, float snapEpsilon) {
-		float next = current + (target - current) * APPROACH_PER_TICK;
+		return approach(current, target, snapEpsilon, APPROACH_PER_TICK);
+	}
+
+	private static float approach(float current, float target, float snapEpsilon, float rate) {
+		float next = current + (target - current) * rate;
 		return Math.abs(target - next) < snapEpsilon ? target : next;
+	}
+
+	/** v0.16.2: does this flier fly in Physics mode? The local player's own setting, everyone else's synced attitude. */
+	private static boolean physicsFlier(Player player) {
+		if (player instanceof net.minecraft.client.player.LocalPlayer local
+				&& local == net.minecraft.client.Minecraft.getInstance().player) {
+			return com.projecthero.mod.client.flight.PhysicsFlight.active(local);
+		}
+		return player.getAttachedOrElse(ModAttachments.FLIGHT_ATTITUDE,
+				com.projecthero.mod.flight.FlightAttitude.NONE).physics();
+	}
+
+	private static float physicsRoll(Player player) {
+		if (player == net.minecraft.client.Minecraft.getInstance().player) {
+			return com.projecthero.mod.client.flight.PhysicsFlight.roll();
+		}
+		return player.getAttachedOrElse(ModAttachments.FLIGHT_ATTITUDE, com.projecthero.mod.flight.FlightAttitude.NONE).roll();
+	}
+
+	/**
+	 * v0.16.2 Physics Flight: the flier's roll for rendering, degrees (+ = right wing down); 0 for everyone else. The
+	 * local player's comes straight from the frame-rate attitude, everyone else's is the synced roll, eased and
+	 * interpolated across the partial tick.
+	 */
+	public static float roll(Player player, float partialTick) {
+		if (player == net.minecraft.client.Minecraft.getInstance().player) {
+			return com.projecthero.mod.client.flight.PhysicsFlight.roll();
+		}
+		PoseAnim anim = ANIMS.get(player.getUUID());
+		if (anim == null) {
+			return 0.0f;
+		}
+		return anim.rollPrev + (float) com.projecthero.mod.flight.PhysicsFlightModel.wrap(anim.roll - anim.rollPrev) * partialTick;
 	}
 
 	/**

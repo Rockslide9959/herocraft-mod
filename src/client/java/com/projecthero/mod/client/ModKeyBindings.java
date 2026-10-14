@@ -81,6 +81,13 @@ public final class ModKeyBindings {
 	public static final KeyMapping SQUAD_MENU = new KeyMapping(
 			"key.projecthero.squad_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY);
 
+	/**
+	 * v0.16.2: opens the Flight Mode menu -- Regular or Physics flight, and the Physics options. Default {@code ,} (comma)
+	 * -- unbound in vanilla 1.21.1 and nothing else in the mod uses it.
+	 */
+	public static final KeyMapping FLIGHT_MODE = new KeyMapping(
+			"key.projecthero.flight_mode", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_COMMA, CATEGORY);
+
 	private ModKeyBindings() {
 	}
 
@@ -92,5 +99,6 @@ public final class ModKeyBindings {
 		KeyBindingHelper.registerKeyBinding(POWER_INFO);
 		KeyBindingHelper.registerKeyBinding(MAX_STEEL_TRANSFORM);
 		KeyBindingHelper.registerKeyBinding(SQUAD_MENU);
+		KeyBindingHelper.registerKeyBinding(FLIGHT_MODE);
 	}
 }
