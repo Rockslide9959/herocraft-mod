@@ -60,12 +60,26 @@ public final class SpiderMoveState {
 	public long chargeStart;
 	/** v0.16.1: the Spider-Sense tingle lines show round his head (for everyone) until this game time. */
 	public long tingleUntil;
+	/**
+	 * v0.16.2 Web Pin (Shift+V): the entity id he has marked, valid while the game time is before {@link #pinUntil} -- the
+	 * owner's HUD shows the "aim at a surface" cue and outlines the target.
+	 */
+	public int pinTarget;
+	public long pinUntil;
 
 	public SpiderMoveState() {
 	}
 
 	public SpiderMoveState(int flags, int animId, long animStart, double ax, double ay, double az,
 			double cx, double cy, double cz, int strands, long pulseUntil, long chargeStart, long tingleUntil) {
+		this(flags, animId, animStart, ax, ay, az, cx, cy, cz, strands, pulseUntil, chargeStart, tingleUntil, 0, 0L);
+	}
+
+	public SpiderMoveState(int flags, int animId, long animStart, double ax, double ay, double az,
+			double cx, double cy, double cz, int strands, long pulseUntil, long chargeStart, long tingleUntil,
+			int pinTarget, long pinUntil) {
+		this.pinTarget = pinTarget;
+		this.pinUntil = pinUntil;
 		this.flags = flags;
 		this.animId = animId;
 		this.animStart = animStart;
@@ -82,7 +96,8 @@ public final class SpiderMoveState {
 	}
 
 	public SpiderMoveState copy() {
-		return new SpiderMoveState(flags, animId, animStart, ax, ay, az, cx, cy, cz, strands, pulseUntil, chargeStart, tingleUntil);
+		return new SpiderMoveState(flags, animId, animStart, ax, ay, az, cx, cy, cz, strands, pulseUntil, chargeStart, tingleUntil,
+				pinTarget, pinUntil);
 	}
 
 	public boolean has(int flag) {
@@ -106,6 +121,8 @@ public final class SpiderMoveState {
 			Codec.INT.optionalFieldOf("strands", 0).forGetter(s -> s.strands),
 			Codec.LONG.optionalFieldOf("pulse_until", 0L).forGetter(s -> s.pulseUntil),
 			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart),
-			Codec.LONG.optionalFieldOf("tingle_until", 0L).forGetter(s -> s.tingleUntil)
+			Codec.LONG.optionalFieldOf("tingle_until", 0L).forGetter(s -> s.tingleUntil),
+			Codec.INT.optionalFieldOf("pin_target", 0).forGetter(s -> s.pinTarget),
+			Codec.LONG.optionalFieldOf("pin_until", 0L).forGetter(s -> s.pinUntil)
 	).apply(i, SpiderMoveState::new));
 }

@@ -55,7 +55,7 @@ import net.minecraft.world.phys.Vec3;
  *   G    Point Zip            Web Yank               Zip Kick
  *   X    Web Strike           Uppercut Launch        Spider-Sense Counter
  *   Z    Web Whip             Grab &amp; Hurl           Web Swing-Throw
- *   V    Spider-Sense Pulse   Web Cocoon             Web Blossom
+ *   V    Spider-Sense Pulse   Web Pin                Web Blossom
  *   C    Tightrope            Web Wall               Weave Mode
  * </pre>
  *
@@ -86,14 +86,17 @@ public final class SpiderMoves {
 	public static final String WEB_WALL = "web_wall";
 	public static final String WEAVE = "weave";
 	public static final String SPIDER_PULSE = "spider_pulse";
+	/** The old Shift+V move: gone from the keys in v0.16.2, its config entry still prices the Web Pin. */
 	public static final String WEB_COCOON = "web_cocoon";
+	/** v0.16.2 (user): Shift+V -- mark a target, then pick a surface to pin it to ({@link SpiderWebPin}). */
+	public static final String WEB_PIN = SpiderWebPin.WEB_PIN;
 	public static final String WEB_BLOSSOM = SpiderAbilities.WEB_BLOSSOM;
 	/** Passive traversal: Sprint + Jump in the air. */
 	public static final String ZIP_BOOST = "zip_boost";
 
 	/** By slot index (R G X Z V C = AbilitySlot 1..6). */
 	public static final String[] TAP = {WEB_SHOT, POINT_ZIP, WEB_STRIKE, WEB_WHIP, SPIDER_PULSE, TIGHTROPE};
-	public static final String[] SHIFT = {WEB_BOMB, WEB_YANK, UPPERCUT, GRAB_HURL, WEB_COCOON, WEB_WALL};
+	public static final String[] SHIFT = {WEB_BOMB, WEB_YANK, UPPERCUT, GRAB_HURL, WEB_PIN, WEB_WALL};
 	public static final String[] HOLD = {IMPACT_WEB, ZIP_KICK, SPIDER_COUNTER, SWING_THROW, WEB_BLOSSOM, WEAVE};
 
 	/** Hold moves that take over once their key has been down this long; a shorter press is a tap. */
@@ -156,6 +159,7 @@ public final class SpiderMoves {
 			case WEAVE -> m.weave;
 			case SPIDER_PULSE -> m.spiderPulse;
 			case WEB_COCOON -> m.webCocoon;
+			case WEB_PIN -> new SpiderManConfig.Move(SpiderWebPin.COOLDOWN, m.webCocoon.cost, 0.0f);
 			case WEB_BLOSSOM -> m.webBlossom;
 			case ZIP_BOOST -> m.zipBoost;
 			default -> new SpiderManConfig.Move();
@@ -241,7 +245,7 @@ public final class SpiderMoves {
 	public static void clearSessionState() {
 		PRESSES.clear();
 		HAULS.clear();
-		SNAGS.clear();
+		SpiderWebPin.clearSessionState();
 		COMBOS.clear();
 		AIR_COMBO.clear();
 		COUNTER_UNTIL.clear();
@@ -261,7 +265,7 @@ public final class SpiderMoves {
 		UUID id = player.getUUID();
 		PRESSES.remove(id);
 		HAULS.remove(id);
-		SNAGS.remove(id);
+		SpiderWebPin.clear(player);
 		COMBOS.remove(id);
 		AIR_COMBO.remove(id);
 		COUNTER_UNTIL.remove(id);
@@ -486,12 +490,10 @@ public final class SpiderMoves {
 				}
 			}
 			case 4 -> {
-				if (webSnag(player)) {
-					// v0.16.2 (user): standing on his tightrope / woven web, Shift+V snags a target onto it, cocooned
-				} else if (black) {
+				if (black) {
 					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.inkShroud(player);
 				} else {
-					webCocoon(player);
+					SpiderWebPin.press(player); // v0.16.2 (user): mark a target, then pin it to a web / wall / floor / ceiling
 				}
 			}
 			case 5 -> {
@@ -644,84 +646,6 @@ public final class SpiderMoves {
 		thwip(player, kick ? 0.9f : 1.0f);
 		play(player, SpiderSounds.ZIP, 0.8f, 1.0f);
 		anim(player, kick ? SpiderAnim.ZIP_KICK : SpiderAnim.ZIP);
-	}
-
-	// ---------------- v0.16.2 Web Snag (Shift+V on his own web) ----------------
-
-	/** A target being reeled onto his web: where on the web it goes. */
-	private record Snag(int targetId, long start, Vec3 dest) {
-	}
-
-	private static final Map<UUID, Snag> SNAGS = new ConcurrentHashMap<>();
-	private static final double SNAG_RANGE = 24.0;
-	private static final double SNAG_SPEED = 1.3;
-	private static final int SNAG_MAX_TICKS = 30;
-	/** v0.16.2 (user): Web Snag has its own 3-second cooldown (Web Cocoon's webbing cost). */
-	public static final String WEB_SNAG = "web_snag";
-	public static final int SNAG_COOLDOWN = 60;
-
-	/**
-	 * Shift+V while standing on one of his tightropes / woven webs: a line to the target he is aiming at reels it
-	 * through the air onto the strand beside him, where it is cocooned ({@link SpiderWrap}, for as long as the web holds).
-	 * Returns false when he is not on a web (Shift+V does its normal move then). Web Cocoon's webbing cost, its own 3-second cooldown.
-	 */
-	public static boolean webSnag(ServerPlayer player) {
-		WebStructures.StrandHit under = WebStructures.strandAtFeet(player);
-		if (under == null || SNAGS.containsKey(player.getUUID())) {
-			return under != null;
-		}
-		LivingEntity target = SpiderCombat.pickTarget(player, SNAG_RANGE);
-		if (target == null || !harmable(player, target)) {
-			noTarget(player);
-			return true;
-		}
-		if (SpiderWebs.isBoss(target) || SpiderWebs.tooHeavyToThrow(target) || SpiderWebs.ignoresWebs(target)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
-			return true;
-		}
-		if (!SpiderAbilities.gate(player, WEB_SNAG, cfg(WEB_COCOON).cost)) {
-			return true;
-		}
-		// a spot on the web about 1.6 blocks from him, toward the target; it hangs with the strand through its chest
-		Vec3 toward = target.position().subtract(player.position());
-		Vec3 flat = new Vec3(toward.x, 0, toward.z);
-		flat = flat.lengthSqr() < 1.0e-4 ? player.getLookAngle() : flat.normalize();
-		Vec3 onWeb = WebStructures.nearestPoint(player, under.point().add(flat.scale(1.6)), 3.0);
-		if (onWeb == null) {
-			onWeb = under.point();
-		}
-		Vec3 dest = onWeb.subtract(0, target.getBbHeight() * 0.6, 0);
-		WebStructures.tearFree(target);
-		SNAGS.put(player.getUUID(), new Snag(target.getId(), player.level().getGameTime(), dest));
-		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_YANK, target, SpiderCombat.center(target), SNAG_MAX_TICKS, 8);
-		anim(player, SpiderAnim.THWIP_BOTH);
-		thwip(player, 0.9f);
-		SpiderAbilities.fired(player, WEB_SNAG, cfg(WEB_COCOON).cost, SNAG_COOLDOWN);
-		return true;
-	}
-
-	private static void tickSnag(ServerPlayer player, Snag sn) {
-		ServerLevel level = (ServerLevel) player.level();
-		Entity e = level.getEntity(sn.targetId());
-		if (!(e instanceof LivingEntity target) || !target.isAlive() || level.getGameTime() - sn.start() > SNAG_MAX_TICKS + 10) {
-			SNAGS.remove(player.getUUID());
-			return;
-		}
-		Vec3 delta = sn.dest().subtract(target.position());
-		double dist = delta.length();
-		if (dist <= SNAG_SPEED || level.getGameTime() - sn.start() >= SNAG_MAX_TICKS) {
-			target.teleportTo(sn.dest().x, sn.dest().y, sn.dest().z);
-			target.setDeltaMovement(Vec3.ZERO);
-			SpiderWrap.wrap(target);
-			SNAGS.remove(player.getUUID());
-			return;
-		}
-		// reeled straight in along the line -- no gravity fighting it
-		Vec3 step = delta.scale(SNAG_SPEED / dist);
-		target.teleportTo(target.getX() + step.x, target.getY() + step.y, target.getZ() + step.z);
-		target.setDeltaMovement(Vec3.ZERO);
-		target.resetFallDistance();
-		target.hurtMarked = true;
 	}
 
 	private static void tickHaul(ServerPlayer player, Haul h) {
@@ -1449,37 +1373,6 @@ public final class SpiderMoves {
 		return until != null && player.level().getGameTime() < until;
 	}
 
-	/** Shift+V Web Cocoon: wrap a weakened or webbed enemy completely; it takes extra damage while wrapped. */
-	public static void webCocoon(ServerPlayer player) {
-		if (!gate(player, WEB_COCOON)) {
-			return;
-		}
-		LivingEntity target = SpiderCombat.pickTarget(player, 20.0);
-		if (target == null || !harmable(player, target)) {
-			noTarget(player);
-			return;
-		}
-		if (SpiderWebs.isBoss(target) || SpiderWebs.ignoresWebs(target)) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
-			return;
-		}
-		boolean weak = target.getHealth() <= target.getMaxHealth() * 0.4f || SpiderWebs.isWebImpaired(target)
-				|| (target.getEffect(MobEffects.MOVEMENT_SLOWDOWN) != null
-						&& target.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() >= 2);
-		if (!weak) {
-			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.cocoon_needs_weak"), true);
-			return;
-		}
-		// v0.16.1: a thrown move -- a web ball homes in on the target and wraps it where it lands (cocoonLanded)
-		ServerLevel level = (ServerLevel) player.level();
-		anim(player, SpiderAnim.COCOON);
-		Vec3 look = player.getLookAngle();
-		Vec3 from = player.getEyePosition().add(look.scale(0.6)).subtract(0, 0.25, 0);
-		level.addFreshEntity(new com.projecthero.mod.spider.entity.WebCocoonBallEntity(level, player, target, from));
-		thwip(player, 0.9f);
-		fired(player, WEB_COCOON);
-	}
-
 	/** The Web Cocoon ball reaching its target: the full wrap (it takes extra damage while wrapped). */
 	public static void cocoonLanded(ServerPlayer player, LivingEntity target) {
 		if (!target.isAlive() || SpiderWebs.ignoresWebs(target)) {
@@ -1832,10 +1725,7 @@ public final class SpiderMoves {
 		if (h != null) {
 			tickHaul(player, h);
 		}
-		Snag sn = SNAGS.get(id);
-		if (sn != null) {
-			tickSnag(player, sn);
-		}
+		SpiderWebPin.tick(player);
 		Combo c = COMBOS.get(id);
 		if (c != null) {
 			tickCombo(player, c);

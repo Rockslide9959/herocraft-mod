@@ -53,6 +53,16 @@ public final class SpiderSenseGlowClient {
 		return self.distanceToSqr(viewer) <= r * r;
 	}
 
+	/** v0.16.2 Web Pin: the target the viewer has marked with Shift+V is outlined for him alone. */
+	public static boolean pinMarked(net.minecraft.world.entity.Entity self, net.minecraft.world.entity.player.Player viewer, long nowTick) {
+		com.projecthero.mod.spider.data.SpiderMoveState m = viewer.getAttachedOrElse(
+				com.projecthero.mod.attachment.ModAttachments.SPIDER_MOVE_STATE, null);
+		return m != null && nowTick < m.pinUntil && m.pinTarget == self.getId();
+	}
+
+	/** The Web Pin mark's outline colour (a pale web white). */
+	public static final int PIN_COLOR = 0xEAF2FF;
+
 	public static void clear() {
 		ids = new IntOpenHashSet();
 		updatedAtTick = 0L;

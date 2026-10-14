@@ -65,6 +65,7 @@
       "com.projecthero.mod.gametest.SpiderManGameTests",
       "com.projecthero.mod.gametest.SpiderManRevampGameTests",
       "com.projecthero.mod.gametest.SpiderWebPullGameTests",
+      "com.projecthero.mod.gametest.SpiderWebPinGameTests",
       "com.projecthero.mod.gametest.SpiderStealthGameTests",
       "com.projecthero.mod.gametest.SpiderReflexGameTests",
       "com.projecthero.mod.gametest.SpiderMaskGameTests",

@@ -93,6 +93,13 @@ public abstract class EntityGlowMixin {
 			}
 		}
 
+		// v0.16.2: Spider-Man's Web Pin mark (Shift+V) -- outlined for him alone (players too), from his synced move state.
+		if (self instanceof LivingEntity && com.projecthero.mod.client.spider.SpiderSenseGlowClient.pinMarked(self, viewer,
+				viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
+			cir.setReturnValue(true);
+			return;
+		}
+
 		// v0.12.43: Titan Roar -- everything the roar reached within 50 blocks is outlined blue for the roaring shifter alone.
 		if (self instanceof LivingEntity && com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.isMarked(self.getId(),
 				viewer.level() != null ? viewer.level().getGameTime() : 0L)) {
@@ -254,7 +261,9 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
-		if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)
+		if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.pinMarked(self, viewer, now)) {
+			cir.setReturnValue(com.projecthero.mod.client.spider.SpiderSenseGlowClient.PIN_COLOR); // v0.16.2 Web Pin mark
+		} else if (com.projecthero.mod.client.spider.SpiderSenseGlowClient.isThreat(self.getId(), now)
 				|| com.projecthero.mod.client.spider.SpiderSenseGlowClient.pulseHighlights(self, viewer, now)) {
 			cir.setReturnValue(0xFF3355);
 		}
