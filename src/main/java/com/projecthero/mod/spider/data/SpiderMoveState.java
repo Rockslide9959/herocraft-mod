@@ -35,6 +35,11 @@ public final class SpiderMoveState {
 	 * (A high bit, clear of any flags added alongside it.)
 	 */
 	public static final int FLAG_HANG_UPSIDE = 1 << 12;
+	/**
+	 * v0.16.2: ledge perch -- sneaking still at a drop (or on a thin post): the deep frog squat with jointed limbs. (Bit
+	 * 14, well clear of the other flags, so a new stance flag added elsewhere cannot collide with it.)
+	 */
+	public static final int FLAG_PERCH = 1 << 14;
 
 	public int flags;
 	/** {@code SpiderAnim} id and the game time it started. */

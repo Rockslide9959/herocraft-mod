@@ -5,6 +5,13 @@
 	"mixins": [
 		"NovaFirstPersonParticleMixin",
 		"SpiderFirstPersonHandsMixin",
+		"SpiderPerchCameraMixin",
+		"SpiderPerchHandMixin",
+		"ModelPartCubeAccessor",
+		"ModelPartJointMixin",
+		"HumanoidModelLimbRegistryMixin",
+		"PlayerModelLimbRegistryMixin",
+		"PlayerRendererJointMixin",
 		"AbstractClientPlayerHulkFovMixin",
 		"GantryFovMixin",
 		"IronManRemovalParticleMixin",

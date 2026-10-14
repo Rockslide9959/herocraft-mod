@@ -153,6 +153,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone, VertexConsumer buffer,
 			int packedLight, int packedOverlay, int colour) {
+		// v0.16.2: a limb bent at the elbow / knee (Spider-Man's perch): the arm / leg / boot bones drawn in two halves
+		if (JointedLimbs.active() && !bone.isHidden() && !bone.getCubes().isEmpty()
+				&& renderJointedBone(poseStack, bone, buffer, packedLight, packedOverlay, colour)) {
+			return;
+		}
 		if (backDoorDeg > 0.01f && !bone.isHidden() && !bone.getCubes().isEmpty()) {
 			renderBackDoors(poseStack, bone, buffer, packedLight, packedOverlay, colour, backDoorDeg);
 			return;
@@ -248,6 +253,73 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			}
 			poseStack.popPose();
 		}
+	}
+
+	/**
+	 * v0.16.2: an armour limb bone bent by {@link JointedLimbs} -- the GeckoLib counterpart of {@code ModelPartJointMixin}.
+	 * GeckoLib's armour space is the vanilla model's with x and y flipped ({@code translate(0, 1.5, 0); scale(-1, -1, 1)}),
+	 * its vertices in blocks at their rest positions: the elbow sits 4 px below the arm bone's pivot, the knee 6 px below
+	 * the leg's (boots share the leg's pivot and lie wholly below the knee), on the bone's own box centre line, and the
+	 * vanilla-frame joint rotation is mirrored through the flip ({@code (x, y, z, w) -> (-x, -y, z, w)}). Returns false
+	 * for any other bone.
+	 */
+	private boolean renderJointedBone(PoseStack poseStack, software.bernie.geckolib.cache.object.GeoBone bone,
+			VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
+		String name = bone.getName();
+		int limb;
+		float below;
+		switch (name) {
+			case "armorRightArm" -> {
+				limb = JointedLimbs.RIGHT_ARM;
+				below = 4f;
+			}
+			case "armorLeftArm" -> {
+				limb = JointedLimbs.LEFT_ARM;
+				below = 4f;
+			}
+			case "armorRightLeg", "armorRightBoot" -> {
+				limb = JointedLimbs.RIGHT_LEG;
+				below = 6f;
+			}
+			case "armorLeftLeg", "armorLeftBoot" -> {
+				limb = JointedLimbs.LEFT_LEG;
+				below = 6f;
+			}
+			default -> {
+				return false;
+			}
+		}
+		org.joml.Quaternionf q = JointedLimbs.joint(limb);
+		if (q == null) {
+			return false;
+		}
+		org.joml.Quaternionf full = new org.joml.Quaternionf(-q.x, -q.y, q.z, q.w);
+		org.joml.Quaternionf half = JointedLimbs.half(full);
+		float[] b = com.projecthero.mod.client.ironman.IronManBraceletClient.bounds(bone);
+		org.joml.Vector3f pivot = new org.joml.Vector3f((b[0] + b[1]) * 0.5f, (bone.getPivotY() - below) / 16f, (b[2] + b[3]) * 0.5f);
+		for (software.bernie.geckolib.cache.object.GeoCube cube : bone.getCubes()) {
+			poseStack.pushPose();
+			software.bernie.geckolib.util.RenderUtil.translateToPivotPoint(poseStack, cube);
+			software.bernie.geckolib.util.RenderUtil.rotateMatrixAroundCube(poseStack, cube);
+			software.bernie.geckolib.util.RenderUtil.translateAwayFromPivotPoint(poseStack, cube);
+			org.joml.Matrix3f normalMat = poseStack.last().normal();
+			org.joml.Matrix4f poseMat = new org.joml.Matrix4f(poseStack.last().pose());
+			for (software.bernie.geckolib.cache.object.GeoQuad quad : cube.quads()) {
+				if (quad == null) {
+					continue;
+				}
+				var vs = quad.vertices();
+				JointedLimbs.V[] face = new JointedLimbs.V[vs.length];
+				for (int i = 0; i < vs.length; i++) {
+					var p = vs[i].position();
+					face[i] = new JointedLimbs.V(p.x(), p.y(), p.z(), vs[i].texU(), vs[i].texV());
+				}
+				JointedLimbs.drawFace(face, new org.joml.Vector3f(quad.normal()), pivot, -1f, half, full, poseMat, normalMat, 1f,
+						buffer, colour, packedOverlay, packedLight);
+			}
+			poseStack.popPose();
+		}
+		return true;
 	}
 
 	/** v0.15.15: drawing the faceplate of an open sentry: its back (+z) faces are left out (the dark lining shows there). */

@@ -210,6 +210,8 @@ public final class SpiderPose {
 		if (s == null) {
 			return;
 		}
+		// v0.16.2: the ledge perch (jointed limbs, eased in / out) -- under everything else
+		SpiderPerch.apply(player, m);
 		// held stances first; a move's animation then blends over them
 		if (s.has(SpiderMoveState.FLAG_WEAVING)) {
 			m.rightArm.xRot = -1.57f + m.head.xRot;
