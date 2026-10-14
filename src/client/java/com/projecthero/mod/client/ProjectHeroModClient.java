@@ -461,6 +461,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		IronManFlightFxClient.init(); // v0.14.21: thruster glows / jets / shock rings
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.hulk.HulkClient::tick);
 		com.projecthero.mod.client.hulk.GammaOriginClient.init(); // v0.16.4: the Gamma origin flash, energy and mind
+		com.projecthero.mod.client.hulk.HulkMovesClient.init(); // v0.16.4: Super Leap without drag + the leap bar
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
 		com.projecthero.mod.client.spider.SpiderSuitV2Client.initialize(); // v0.16.2: Suit v2 -- Trip Mine renderer, Web Wings

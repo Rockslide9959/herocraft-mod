@@ -592,40 +592,7 @@ public class HulkGameTests implements FabricGameTest {
 	}
 
 	// ---------------------------------------------------------------- v0.13.14: the new kit and systems
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_power_punch")
-	public void powerPunchHitsInFrontOnly(GameTestHelper helper) {
-		ServerPlayer p = hulk(helper);
-		var front = zombie(helper, p.position().add(0, 0, 4));
-		var behind = zombie(helper, p.position().add(0, 0, -4));
-		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, front.getEyePosition());
-		com.projecthero.mod.hulk.HulkAbilities.powerPunch(p);
-		// the impact reads his facing 5 ticks later: hold it on the mob in front (a mock player's rotation can drift on CI)
-		helper.onEachTick(() -> {
-			p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, front.getEyePosition());
-			Hulk.tick(p);
-		});
-		helper.runAfterDelay(com.projecthero.mod.hulk.HulkAbilities.PUNCH_IMPACT_TICKS + 4, () -> {
-			helper.assertTrue(front.getHealth() < front.getMaxHealth(), "the mob in front is punched");
-			helper.assertTrue(behind.getHealth() == behind.getMaxHealth(), "the one behind is not");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_grab")
-	public void grabThenCrush(GameTestHelper helper) {
-		ServerPlayer p = hulk(helper);
-		var mob = zombie(helper, p.position().add(0, 0, 3));
-		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, mob.position().add(0, mob.getBbHeight() * 0.5, 0));
-		com.projecthero.mod.hulk.HulkGrab.press(p, false);
-		helper.assertTrue(Hulk.state(p).combat.holding, "V picks the mob up");
-		com.projecthero.mod.hulk.HulkGrab.press(p, true);
-		helper.assertFalse(Hulk.state(p).combat.holding, "Shift+V crushes it and lets go");
-		helper.assertTrue(mob.getHealth() < mob.getMaxHealth(), "the crush hurts");
-		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.GRAB) > 0,
-				"and starts the 8 s cooldown");
-		helper.succeed();
-	}
+	// (v0.16.4: the Super Punch, grab-and-throw and Loki slam tests live in HulkMovesV0164GameTests; HULK SMASH left the kit)
 
 	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_grab")
 	public void shiftVTearsUpAChunkOfEarth(GameTestHelper helper) {
@@ -640,29 +607,6 @@ public class HulkGameTests implements FabricGameTest {
 				p.getBoundingBox().inflate(6.0)).isEmpty();
 		helper.assertTrue(boulder, "a boulder entity is over his head");
 		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200, batch = "hulk_smash")
-	public void hulkSmashNeedsTheFullHoldAndHitsHard(GameTestHelper helper) {
-		ServerPlayer p = hulk(helper);
-		var mob = zombie(helper, p.position().add(0, 0, 5));
-		com.projecthero.mod.hulk.HulkAbilities.beginHulkSmash(p);
-		helper.assertTrue(Hulk.state(p).combat.smashChargeStart > 0L, "Shift+Z starts the wind-up");
-		com.projecthero.mod.hulk.HulkAbilities.releaseHulkSmash(p);
-		helper.assertTrue(Hulk.state(p).combat.smashChargeStart == 0L, "letting go early calls it off");
-		helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.HULK_SMASH) == 0,
-				"with no cooldown spent");
-		com.projecthero.mod.hulk.HulkAbilities.beginHulkSmash(p);
-		helper.onEachTick(() -> {
-			Hulk.setRage(p, 100.0f);
-			Hulk.tick(p);
-		});
-		helper.runAfterDelay(com.projecthero.mod.hulk.HulkConfig.abilities().hulkSmashChargeTicks + 20, () -> {
-			helper.assertTrue(com.projecthero.mod.hulk.HulkAbilities.cooldownRemaining(p, com.projecthero.mod.hulk.HulkAbilities.HULK_SMASH) > 0,
-					"a full hold fires it");
-			helper.assertTrue(mob.isDeadOrDying() || mob.getHealth() < mob.getMaxHealth() * 0.5f, "and it hits hard");
-			helper.succeed();
-		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

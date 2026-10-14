@@ -151,21 +151,30 @@ public final class HulkHud {
 	}
 
 	private static void renderKeys(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, long now) {
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
-		String[] names = { "power_punch", "ground_smash", "super_leap", "thunderclap", "grab", "charge" };
+		// v0.16.4 (user): the rebuilt kit -- each box shows the tap move (or, while Shift is held, the Shift move) and a strip
+		// along its bottom for the other one; Alt or Shift lists the names above the boxes. The leap bar is HulkMovesClient's.
+		long win = mc.getWindow().getWindow();
+		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean shift = player.isShiftKeyDown() || org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
+				== org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean locked = s.rampaging(now) || s.combat.calming;
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
-			String id = HulkAbilityManager.abilityIdOf(slot);
-			boolean active = (slot == AbilitySlot.SLOT_5 && s.combat.holding) || (slot == AbilitySlot.SLOT_6 && s.combat.chargeUntil > now)
-					|| (slot == AbilitySlot.SLOT_4 && s.combat.smashChargeStart > 0L);
-			g.fill(x, y0, x + BOX, y0 + BOX, 0xC0101A10);
-			g.renderOutline(x, y0, BOX, BOX, active ? 0xFF7CFF4A : 0xFF2E6A3E);
+			String tap = HulkAbilityManager.abilityIdOf(slot);
+			String alt = HulkAbilityManager.shiftIdOf(slot);
+			String main = shift ? alt : tap;
+			String other = shift ? tap : alt;
+			boolean active = (slot == AbilitySlot.SLOT_5 && s.combat.holding) || (slot == AbilitySlot.SLOT_4 && s.combat.chargeUntil > now)
+					|| (slot == AbilitySlot.SLOT_3 && (s.leapChargeStart > 0L || s.leaping));
+			g.fill(x, y0, x + BOX, y0 + BOX, shift ? 0xC0142414 : 0xC0101A10);
+			g.renderOutline(x, y0, BOX, BOX, active ? 0xFF7CFF4A : (shift ? 0xFF4F9A5E : 0xFF2E6A3E));
 			g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 2, y0 + 2, locked ? 0xFF6A7A6A : 0xFFD8F0DC, false);
-			int cd = HulkAbilities.cooldownRemaining(player, id);
-			int max = HulkAbilityManager.maxCooldown(id);
+			if (shift) {
+				g.fill(x + BOX - 5, y0 + 2, x + BOX - 2, y0 + 5, 0xFF7CFF4A); // a dot: these are the Shift moves
+			}
+			int cd = HulkAbilities.cooldownRemaining(player, main);
+			int max = HulkAbilityManager.maxCooldown(main);
 			if (locked) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x90000000);
 			} else if (cd > 0 && max > 0) {
@@ -173,23 +182,24 @@ public final class HulkHud {
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2 + 2, y0 + 10, 0xFFFFFFFF);
 			}
-			if (slot == AbilitySlot.SLOT_4) {
-				// HULK SMASH (Shift+Z) has its own long cooldown: a thin strip along the bottom of the Z box
-				int scd = HulkAbilities.cooldownRemaining(player, HulkAbilities.HULK_SMASH);
-				int smax = HulkAbilityManager.maxCooldown(HulkAbilities.HULK_SMASH);
-				float ready = smax <= 0 ? 1.0f : 1.0f - Math.min(1.0f, scd / (float) smax);
-				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, scd > 0 ? 0xFF4F7F2A : 0xFFB8FF9A);
-			}
-			if (expanded) {
-				Component name = Component.translatable("projecthero.hulk.ability." + names[i]);
-				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 52, 0xFFCFE8CF, true);
+			if (!other.equals(main)) {
+				int ocd = HulkAbilities.cooldownRemaining(player, other);
+				int omax = HulkAbilityManager.maxCooldown(other);
+				float ready = omax <= 0 ? 1.0f : 1.0f - Math.min(1.0f, ocd / (float) omax);
+				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ocd > 0 ? 0xFF4F7F2A : 0xFFB8FF9A);
 			}
 		}
-		float leap = HulkAbilities.leapCharge(player);
-		if (leap > 0.0f) {
-			int w = 6 * BOX + 5 * GAP;
-			g.fill(x0, y0 - 6, x0 + w, y0 - 6 + HAIRLINE, COLOR_BG);
-			g.fill(x0, y0 - 6, x0 + Math.round(w * leap), y0 - 6 + HAIRLINE, leap >= 1.0f ? 0xFFFFFFFF : COLOR_RAGE_READY);
+		if (shift || expanded) {
+			// one short line per key, stacked above the boxes and right-aligned with them (clear of the hotbar)
+			int right = x0 + 6 * BOX + 5 * GAP;
+			int lineY = y0 - 4 - 6 * 10;
+			for (int i = 0; i < 6; i++) {
+				AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+				String id = shift ? HulkAbilityManager.shiftIdOf(slot) : HulkAbilityManager.abilityIdOf(slot);
+				Component name = Component.literal(slot.defaultKey() + " ").withStyle(ChatFormatting.GREEN)
+						.append(Component.translatable("projecthero.hulk.ability." + id).withStyle(ChatFormatting.WHITE));
+				g.drawString(mc.font, name, right - mc.font.width(name), lineY + i * 10, 0xFFFFFFFF, true);
+			}
 		}
 	}
 
@@ -304,15 +314,6 @@ public final class HulkHud {
 			int w = 80;
 			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
 			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * left), y + 13, 0xFFFFE070);
-			y += 20;
-		}
-		float smash = HulkAbilities.hulkSmashCharge(player);
-		if (smash > 0.0f) {
-			int w = 120;
-			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.hulk_smash_charge", Math.round(smash * 100.0f))
-					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), cx, y, 0xFF7CFF4A);
-			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 14, COLOR_BG);
-			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * smash), y + 14, smash >= 1.0f ? 0xFFFFFFFF : 0xFF7CFF4A);
 			y += 20;
 		}
 		float calm = com.projecthero.mod.client.hulk.HulkClient.calmHoldProgress();

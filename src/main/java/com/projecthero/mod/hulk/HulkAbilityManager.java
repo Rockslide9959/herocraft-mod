@@ -7,16 +7,20 @@ import com.projecthero.mod.hero.data.ExperimentalState;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Bridges the six universal ability slots to the Hulk (v0.13.14 kit). {@link com.projecthero.mod.hero.AbilityRouter}
- * hands him the slots when {@link #hasContext} is true -- has the Gamma power and no mutation selected on the wheel --
- * and, while he is out, ahead of every other power.
+ * Bridges the six universal ability slots to the Hulk. {@link com.projecthero.mod.hero.AbilityRouter} hands him the
+ * slots when {@link #hasContext} is true -- has the Gamma power and no mutation selected on the wheel -- and, while he is
+ * out, ahead of every other power. v0.16.4 (user) kit (tap / Shift+key):
  *
  * <pre>
- *   R (1)  Power Punch              G (2)  Ground Smash
- *   X (3)  Super Leap (hold)        Z (4)  Thunderclap   /  Shift+Z (hold 5 s) HULK SMASH
- *   V (5)  Grab / Throw, Shift+V Crush (holding) or Earth Chunk (empty-handed)
- *   C (6)  Charge
+ *   R (1)  Super Punch          / Ground Smash
+ *   G (2)  Thunderclap          / Fault-line Stomp
+ *   X (3)  Super Leap (hold up to 0.5 s)
+ *   Z (4)  Bulldozer Charge     / Launch Uppercut
+ *   V (5)  Grab, V again throws / Debris Throw, or the Loki Slam on a target within 10 blocks
+ *   C (6)  Gamma Burst          / Earth Wall
  * </pre>
+ *
+ * The Gladiator Hulk keeps his twelve weapon moves on these keys instead ({@code GladiatorAbilities}).
  */
 public final class HulkAbilityManager {
 	private HulkAbilityManager() {
@@ -36,15 +40,24 @@ public final class HulkAbilityManager {
 			com.projecthero.mod.hulk.gladiator.GladiatorAbilities.handle(player, slot, pressed);
 			return;
 		}
+		boolean shift = player.isShiftKeyDown();
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
-					HulkAbilities.powerPunch(player);
+					if (shift) {
+						HulkAbilities.groundSmash(player);
+					} else {
+						HulkAbilities.superPunch(player);
+					}
 				}
 			}
 			case SLOT_2 -> {
 				if (pressed) {
-					HulkAbilities.groundSmash(player);
+					if (shift) {
+						HulkAbilities.faultStomp(player);
+					} else {
+						HulkAbilities.thunderclap(player);
+					}
 				}
 			}
 			case SLOT_3 -> {
@@ -56,50 +69,70 @@ public final class HulkAbilityManager {
 			}
 			case SLOT_4 -> {
 				if (pressed) {
-					if (player.isShiftKeyDown()) {
-						HulkAbilities.beginHulkSmash(player);
+					if (shift) {
+						HulkAbilities.uppercut(player);
 					} else {
-						HulkAbilities.thunderclap(player);
+						HulkAbilities.bulldoze(player);
 					}
-				} else {
-					HulkAbilities.releaseHulkSmash(player);
 				}
 			}
 			case SLOT_5 -> {
 				if (pressed) {
-					HulkGrab.press(player, player.isShiftKeyDown());
+					HulkGrab.press(player, shift);
 				}
 			}
 			case SLOT_6 -> {
 				if (pressed) {
-					HulkAbilities.charge(player);
+					if (shift) {
+						HulkAbilities.earthWall(player);
+					} else {
+						HulkAbilities.gammaBurst(player);
+					}
 				}
+			}
+			default -> {
 			}
 		}
 	}
 
-	/** The ability id shown in each HUD box. */
+	/** The tap ability id shown in each HUD box. */
 	public static String abilityIdOf(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> HulkAbilities.POWER_PUNCH;
-			case SLOT_2 -> HulkAbilities.GROUND_SMASH;
+			case SLOT_1 -> HulkAbilities.SUPER_PUNCH;
+			case SLOT_2 -> HulkAbilities.THUNDERCLAP;
 			case SLOT_3 -> HulkAbilities.SUPER_LEAP;
-			case SLOT_4 -> HulkAbilities.THUNDERCLAP;
+			case SLOT_4 -> HulkAbilities.BULLDOZE;
 			case SLOT_5 -> HulkAbilities.GRAB;
-			case SLOT_6, SLOT_7, SLOT_8 -> HulkAbilities.CHARGE; // H / N are mutation-only (v0.13.22); never routed here
+			case SLOT_6, SLOT_7, SLOT_8 -> HulkAbilities.GAMMA_BURST; // H / N are mutation-only (v0.13.22); never routed here
+		};
+	}
+
+	/** v0.16.4: the Shift+key ability id on each key (X has only the leap). */
+	public static String shiftIdOf(AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_1 -> HulkAbilities.GROUND_SMASH;
+			case SLOT_2 -> HulkAbilities.FAULT_STOMP;
+			case SLOT_3 -> HulkAbilities.SUPER_LEAP;
+			case SLOT_4 -> HulkAbilities.UPPERCUT;
+			case SLOT_5 -> HulkAbilities.LOKI_SLAM;
+			case SLOT_6, SLOT_7, SLOT_8 -> HulkAbilities.EARTH_WALL;
 		};
 	}
 
 	public static int maxCooldown(String id) {
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		return switch (id) {
-			case HulkAbilities.POWER_PUNCH -> cfg.powerPunchCooldownTicks;
+			case HulkAbilities.SUPER_PUNCH -> cfg.superPunchCooldownTicks;
 			case HulkAbilities.GROUND_SMASH -> cfg.groundSmashCooldownTicks;
+			case HulkAbilities.THUNDERCLAP -> cfg.clapCooldownTicks;
+			case HulkAbilities.FAULT_STOMP -> cfg.faultCooldownTicks;
+			case HulkAbilities.BULLDOZE -> cfg.bulldozeCooldownTicks;
+			case HulkAbilities.UPPERCUT -> cfg.uppercutCooldownTicks;
 			case HulkAbilities.SUPER_LEAP -> cfg.leapCooldownTicks;
-			case HulkAbilities.THUNDERCLAP -> cfg.thunderclapCooldownTicks;
-			case HulkAbilities.HULK_SMASH -> cfg.hulkSmashCooldownTicks;
+			case HulkAbilities.GAMMA_BURST -> cfg.gammaBurstCooldownTicks;
+			case HulkAbilities.EARTH_WALL -> cfg.earthWallCooldownTicks;
 			case HulkAbilities.GRAB -> cfg.grabCooldownTicks;
-			case HulkAbilities.CHARGE -> cfg.chargeCooldownTicks;
+			case HulkAbilities.LOKI_SLAM -> cfg.lokiCooldownTicks + HulkGrab.LOKI_TOTAL_TICKS;
 			default -> 0;
 		};
 	}
