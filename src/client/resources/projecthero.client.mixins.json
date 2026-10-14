@@ -16,6 +16,7 @@
 		"PlayerModelLimbRegistryMixin",
 		"PlayerRendererJointMixin",
 		"AbstractClientPlayerHulkFovMixin",
+		"GuiHulkRampageMixin",
 		"GantryFovMixin",
 		"IronManRemovalParticleMixin",
 		"FirstPersonBodyLevelMixin",

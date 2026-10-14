@@ -243,16 +243,22 @@ public final class ModNetworking {
 		// re-validates the power, rage and state.
 		ServerPlayNetworking.registerGlobalReceiver(HulkActionPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
+			if (payload.action() == HulkActionPayload.Action.MIND_MIRROR) {
+				// v0.16.4 (user): H in the mind room -- before the power exists (the origin grants it on the way back)
+				com.projecthero.mod.hulk.HulkMind.onMirrorUsed(p);
+				return;
+			}
 			if (!com.projecthero.mod.hulk.Hulk.hasPower(p)) {
 				return;
 			}
 			switch (payload.action()) {
 				case TRANSFORM -> com.projecthero.mod.hulk.Hulk.pressH(p);
 				case TRANSFORM_RELEASE -> com.projecthero.mod.hulk.Hulk.releaseH(p);
-				case CALM_START -> com.projecthero.mod.hulk.HulkCalm.start(p);
-				case CALM_REPORT -> com.projecthero.mod.hulk.HulkCalm.report(p, payload.a(), payload.b());
-				case CALM_STOP -> com.projecthero.mod.hulk.HulkCalm.stop(p);
 				case CONTROL -> com.projecthero.mod.hulk.HulkControl.answer(p, payload.a());
+				case ROAR -> com.projecthero.mod.hulk.HulkRoar.press(p); // v0.16.4
+				case RING -> com.projecthero.mod.hulk.HulkControl.ringResult(p, payload.a() != 0); // v0.16.4
+				default -> {
+				}
 			}
 		});
 

@@ -77,10 +77,10 @@ public class MirrorHulkEntity extends LivingEntity implements GeoEntity {
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
-		// the Hulk's size (Banner x 1.8, as the Gamma power's SCALE_BONUS makes him); GeckoLib draws at the entity's scale
+		// the Hulk's size -- v0.16.4: a calm (0 rage) Hulk, 3.5 blocks; GeckoLib draws at the entity's scale
 		return LivingEntity.createLivingAttributes()
 				.add(Attributes.MAX_HEALTH, 20.0)
-				.add(Attributes.SCALE, 1.0 + com.projecthero.mod.hulk.HulkConfig.SCALE_BONUS);
+				.add(Attributes.SCALE, com.projecthero.mod.hulk.HulkConfig.scaleForRage(0.0f));
 	}
 
 	@Override
@@ -148,12 +148,37 @@ public class MirrorHulkEntity extends LivingEntity implements GeoEntity {
 		Vec3 at = reflect(player.position(), z);
 		float yaw = reflectYaw(player.getYRot());
 		float body = reflectYaw(player.yBodyRot);
-		float head = reflectYaw(player.getYHeadRot());
 		setPos(at.x, at.y, at.z);
 		setYRot(yaw);
-		setXRot(player.getXRot());
 		this.yBodyRot = body;
-		this.yHeadRot = head;
+		float[] look = headLook(player, at, body, reflectYaw(player.getYHeadRot()), player.getXRot(), player.getEyePosition(), getEyeHeight(), z);
+		this.yHeadRot = look[0];
+		setXRot(look[1]);
+	}
+
+	/**
+	 * v0.16.4 (user): "the reflected Hulk must always look straight at the player when the player faces the mirror". While
+	 * {@code player} faces the mirror the Hulk's head turns to his eyes (yaw and pitch from the Hulk's eyes at
+	 * {@code hulkFeet + eyeHeight} to {@code playerEyes}), held within a natural turn of the body; turned away, it is the plain
+	 * reflection ({@code reflectedHead}, {@code playerPitch}). Returns {head yaw, pitch}. Used by the server every tick and by
+	 * the owner's renderer every frame.
+	 */
+	public static float[] headLook(Player player, Vec3 hulkFeet, float body, float reflectedHead, float playerPitch, Vec3 playerEyes,
+			double eyeHeight, double mirrorZ) {
+		Vec3 view = player.getViewVector(1.0f);
+		double toward = Math.signum(mirrorZ - player.getZ());
+		if (toward == 0.0 || view.z * toward < 0.1) {
+			return new float[] { reflectedHead, playerPitch };
+		}
+		Vec3 eyes = hulkFeet.add(0.0, eyeHeight, 0.0);
+		double dx = playerEyes.x - eyes.x;
+		double dy = playerEyes.y - eyes.y;
+		double dz = playerEyes.z - eyes.z;
+		double flat = Math.sqrt(dx * dx + dz * dz);
+		float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0f;
+		float pitch = (float) -(Mth.atan2(dy, Math.max(1.0e-4, flat)) * Mth.RAD_TO_DEG);
+		float turn = Mth.clamp(Mth.wrapDegrees(yaw - body), -80.0f, 80.0f);
+		return new float[] { body + turn, Mth.clamp(pitch, -80.0f, 80.0f) };
 	}
 
 	public float mirrorWalk() {
@@ -205,7 +230,7 @@ public class MirrorHulkEntity extends LivingEntity implements GeoEntity {
 
 	@Override
 	public boolean isPickable() {
-		return true; // right-clicking him through the hole works as well as the glass
+		return false; // v0.16.4: H brings him through the mirror -- nothing to click
 	}
 
 	@Override

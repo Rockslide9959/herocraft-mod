@@ -13,22 +13,23 @@ import net.minecraft.resources.ResourceLocation;
  * Gamma power, the rage and the current state every time.
  *
  * <ul>
- *   <li>{@code TRANSFORM} -- H pressed (v0.15.18: Banner at 50+ rage lets the Hulk out, below that starts straining him
- *       out; the Hulk changes back); {@code TRANSFORM_RELEASE} -- H let go (calls an unfinished strain off).</li>
- *   <li>{@code CALM_START} -- N held for 2 s; {@code CALM_REPORT (a = ticks in rhythm, b = out of rhythm)} once a
- *       second from the breathing screen; {@code CALM_STOP} -- Esc.</li>
- *   <li>{@code CONTROL (a = key 1-4)} -- the movement key pressed while a keep-control prompt was showing.</li>
+ *   <li>{@code TRANSFORM} -- H pressed (v0.16.4: Banner starts holding toward the change; the Hulk asks to change back);
+ *       {@code TRANSFORM_RELEASE} -- H let go (calls an unfinished hold off).</li>
+ *   <li>{@code CONTROL (a = arrow 1 up, 2 left, 3 down, 4 right)} -- an arrow key pressed while the rampage warning shows.</li>
+ *   <li>{@code ROAR} -- N as the Hulk (v0.16.4).</li>
+ *   <li>{@code RING (a = 1 hit, 0 miss)} -- one Space press of the rampage's regain-control ring (v0.16.4).</li>
+ *   <li>{@code MIND_MIRROR} -- H inside the Gamma origin's mind room: the Hulk comes through the mirror (v0.16.4).</li>
  * </ul>
+ * v0.16.4: the calm-down actions are gone with calming (client and server always run the same jar -- the version handshake).
  */
 public record HulkActionPayload(Action action, int a, int b) implements CustomPacketPayload {
 	public enum Action {
 		TRANSFORM,
-		CALM_START,
-		CALM_REPORT,
-		CALM_STOP,
 		CONTROL,
-		/** v0.15.18 -- appended so the earlier ordinals stay put. */
-		TRANSFORM_RELEASE
+		TRANSFORM_RELEASE,
+		ROAR,
+		RING,
+		MIND_MIRROR
 	}
 
 	public HulkActionPayload(Action action) {

@@ -955,17 +955,18 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.hulk.tier").withStyle(ChatFormatting.GREEN));
 			para(lines, "projecthero.guide.hulk.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "rage", "change", "stats", "fists", "death_save"}) {
+			// v0.16.4: the new rules (hold H / death changes, the 3-minute lock, rage -> size and damage, the Hulk's death)
+			for (String section : new String[]{"origin_v0164", "change_v0164", "rage_v0164", "stats_v0164", "fists", "death_save_v0164"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.hulk.controls");
-			for (String[] row : new String[][] { { "H", "transform" },
-					// v0.16.4 (user): the rebuilt kit
+			for (String[] row : new String[][] { { "H", "transform_v0164" },
+					// v0.16.4 (user): the rebuilt kit + the N roar (calming is gone)
 					{ "R", "super_punch" }, { "Shift+R", "ground_smash" }, { "G", "thunderclap" }, { "Shift+G", "fault_stomp" },
 					{ "Z", "bulldoze" }, { "Shift+Z", "uppercut" }, { "X", "super_leap" }, { "C", "gamma_burst" }, { "Shift+C", "earth_wall" },
-					{ "V", "grab" }, { "Shift+V", "loki_slam" }, { "Shift+V", "debris_throw" }, { "N (hold)", "calm" } }) {
+					{ "V", "grab" }, { "Shift+V", "loki_slam" }, { "Shift+V", "debris_throw" }, { "N", "roar" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.hulk.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");
@@ -973,7 +974,7 @@ public final class HeroPackGuide {
 			blank(lines);
 			// v0.15.3: the Gladiator Hulk's twelve weapon moves (full gladiator gear on)
 			head(lines, "projecthero.guide.hulk.gladiator_moves");
-			para(lines, "projecthero.guide.hulk.gladiator_moves.body");
+			para(lines, "projecthero.guide.hulk.gladiator_moves_v0164.body");
 			for (String[] row : new String[][] { { "R", "axe_cleave" }, { "Shift+R", "hammer_uppercut" }, { "G", "hammer_quake" },
 					{ "Shift+G", "earthsplitter" }, { "Z", "champions_roar" }, { "Shift+Z", "weapon_clash" }, { "X", "arena_leap" },
 					{ "Shift+X", "meteor_dive" }, { "C", "axe_throw" }, { "Shift+C", "hammer_hurl" }, { "V", "whirlwind" },
@@ -983,7 +984,7 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.hulk.gladiator.ability." + row[1] + ".desc");
 			}
 			blank(lines);
-			for (String section : new String[]{"sprint_smash", "control", "riding", "looks", "limits", "commands"}) {
+			for (String section : new String[]{"sprint_smash", "rampage_v0164", "riding", "looks_v0164", "limits_v0164", "commands"}) {
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);

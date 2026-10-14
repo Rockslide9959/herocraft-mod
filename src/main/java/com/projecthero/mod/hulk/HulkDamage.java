@@ -32,7 +32,8 @@ public final class HulkDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(HulkDamage::allowDamage);
-		// v0.13.14: the Hulk refuses to die (every 3 minutes)
+		// v0.16.4 (user): Banner's death brings the Hulk out (every time); the Hulk's death is a fall, the slow change back and
+		// then a real death (Hulk#tryDeathSave)
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) ->
 				!(entity instanceof ServerPlayer p && Hulk.tryDeathSave(p, source)));
 		// v0.13.14: a squad-mate right-clicks the Hulk to climb onto his back (one rider at a time)
@@ -57,8 +58,8 @@ public final class HulkDamage {
 		});
 
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-			if (Hulk.changing(player)) {
-				return InteractionResult.FAIL; // v0.13.15: on his knees, mid-change
+			if (Hulk.changing(player) || HulkControl.rampaging(player)) {
+				return InteractionResult.FAIL; // mid-change, dying -- or (v0.16.4) rampaging: the Hulk picks who he hits
 			}
 			if (Hulk.isHulk(player) && isForbidden(player.getMainHandItem())) {
 				refuse(player);
@@ -94,15 +95,23 @@ public final class HulkDamage {
 			mate.resetFallDistance();
 			return false;
 		}
-		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || !Hulk.isHulk(player) || amount <= 0.0f) {
+		if (REENTRANT.get() || amount <= 0.0f) {
 			return true;
+		}
+		// v0.16.4 (user): every hit the Hulk deals is worth +0% (0 rage) to +50% (100 rage) more -- punches, abilities, anything
+		// he is credited with
+		float mult = source.getEntity() instanceof ServerPlayer dealer && dealer != entity ? Hulk.damageMultiplier(dealer) : 1.0f;
+		if (!(entity instanceof ServerPlayer player) || !Hulk.hasPower(player)
+				|| (!Hulk.isHulk(player) && !Hulk.dying(player))) {
+			return mult > 1.0001f ? reapply(entity, source, amount * mult) : true;
 		}
 		if (source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
 		}
 		if (Hulk.changing(player)) {
-			return false; // v0.13.15: nothing gets through while he is changing on his knees
+			return false; // nothing gets through while he is changing (v0.16.4: or dying, flat on his back)
 		}
+		amount *= mult;
 		if (source.is(net.minecraft.tags.DamageTypeTags.IS_FALL)) {
 			player.resetFallDistance();
 			return false;
@@ -124,16 +133,21 @@ public final class HulkDamage {
 		} else if (com.projecthero.mod.hulk.gladiator.GladiatorGear.isGladiator(player)) {
 			factor = 1.0f; // v0.15.3: re-applied below with Gladiator Hulk's 10% cut
 		} else {
-			return true;
+			return mult > 1.0001f ? reapply(player, source, amount) : true;
 		}
 		// v0.15.3: Gladiator Hulk (full kit) takes 10% less on top of the Hulk's own rules
 		float reduced = com.projecthero.mod.hulk.gladiator.GladiatorGear.reduce(player, amount * factor);
 		if (reduced < 0.1f) {
 			return false;
 		}
+		return reapply(player, source, reduced);
+	}
+
+	/** Cancels the hit in hand and lands {@code amount} instead, behind the re-entrancy guard. Always false (the veto). */
+	private static boolean reapply(LivingEntity entity, net.minecraft.world.damagesource.DamageSource source, float amount) {
 		REENTRANT.set(true);
 		try {
-			player.hurt(source, reduced);
+			entity.hurt(source, amount);
 		} finally {
 			REENTRANT.set(false);
 		}

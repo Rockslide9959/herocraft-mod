@@ -110,6 +110,68 @@ public final class HulkState {
 		}));
 	}
 
+	/** v0.16.4 (Hulk revamp, RULES): the change / rampage / death rules ({@link Rules}), a nested group of its own. */
+	public Rules rules = new Rules();
+
+	/**
+	 * v0.16.4 (user, docs/HULK_V0164_REVAMP_CONTRACT.md): the new Hulk rules, synced to every client -- the minute-by-minute
+	 * rampage clock and its arrow-key warning, the regain-control ring streak, the hold-H cooldown after a willing change back
+	 * and the Hulk-form death sequence. Mutable; {@link HulkState#copy} deep-copies it.
+	 */
+	public static final class Rules {
+		/** Game time the next rampage warning appears (0 = not set; only meaningful as the Hulk). */
+		public long nextRampageAt;
+		/** The warning's arrow string, 2 bits per arrow (0 up, 1 left, 2 down, 3 right), first arrow lowest. */
+		public int warnSeq;
+		/** How many arrows the warning has (0 = no warning showing). */
+		public int warnLen;
+		/** How many of them the player has matched so far. */
+		public int warnPos;
+		/** Game time the warning runs out (then he rampages). */
+		public long warnUntil;
+		/** Space presses in a row that caught the ring on the circle (3 ends the rampage). */
+		public int ringStreak;
+		/** Game time hold-H works again after a WILLING Hulk changed back (dying still forces the change). */
+		public long holdCooldownUntil;
+		/** Game time the Hulk took his killing blow (0 = not dying): flat on his back, the slow change back, then death. */
+		public long deathFallAt;
+
+		public Rules copy() {
+			Rules r = new Rules();
+			r.nextRampageAt = nextRampageAt;
+			r.warnSeq = warnSeq;
+			r.warnLen = warnLen;
+			r.warnPos = warnPos;
+			r.warnUntil = warnUntil;
+			r.ringStreak = ringStreak;
+			r.holdCooldownUntil = holdCooldownUntil;
+			r.deathFallAt = deathFallAt;
+			return r;
+		}
+
+		public static final Codec<Rules> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.LONG.optionalFieldOf("next_rampage_at", 0L).forGetter(r -> r.nextRampageAt),
+				Codec.INT.optionalFieldOf("warn_seq", 0).forGetter(r -> r.warnSeq),
+				Codec.INT.optionalFieldOf("warn_len", 0).forGetter(r -> r.warnLen),
+				Codec.INT.optionalFieldOf("warn_pos", 0).forGetter(r -> r.warnPos),
+				Codec.LONG.optionalFieldOf("warn_until", 0L).forGetter(r -> r.warnUntil),
+				Codec.INT.optionalFieldOf("ring_streak", 0).forGetter(r -> r.ringStreak),
+				Codec.LONG.optionalFieldOf("hold_cooldown_until", 0L).forGetter(r -> r.holdCooldownUntil),
+				Codec.LONG.optionalFieldOf("death_fall_at", 0L).forGetter(r -> r.deathFallAt)
+		).apply(i, (next, seq, len, pos, until, streak, cooldown, death) -> {
+			Rules r = new Rules();
+			r.nextRampageAt = next;
+			r.warnSeq = seq;
+			r.warnLen = len;
+			r.warnPos = pos;
+			r.warnUntil = until;
+			r.ringStreak = streak;
+			r.holdCooldownUntil = cooldown;
+			r.deathFallAt = death;
+			return r;
+		}));
+	}
+
 	/**
 	 * v0.13.14: everything the new kit, the death save, the calm minigame and the control / rampage system need on
 	 * every client. Mutable; {@link HulkState#copy} deep-copies it.
@@ -131,7 +193,7 @@ public final class HulkState {
 		public int promptKey;
 		/** Game time the current prompt runs out. */
 		public long promptUntil;
-		/** In the calm-down minigame. */
+		/** In the calm-down minigame. v0.16.4: calming is gone -- kept only so old saves load (always false now). */
 		public boolean calming;
 		/** Game time the "the Hulk refuses to die" save was ready again (v0.13.17: unused -- the save has no cooldown; kept so old saves load). */
 		public long deathSaveReadyAt;
@@ -235,7 +297,13 @@ public final class HulkState {
 				leapChargeStart, leaping, sprintSmash);
 		n.combat = combat.copy();
 		n.moves = moves.copy();
+		n.rules = rules.copy();
 		return n;
+	}
+
+	/** v0.16.4: the Hulk-form death sequence is under way (client-safe). */
+	public boolean dying() {
+		return rules.deathFallAt != 0L;
 	}
 
 	/** True while the Hulk is rampaging on his own (client-safe with the synced game time). */
@@ -258,13 +326,15 @@ public final class HulkState {
 			Codec.BOOL.optionalFieldOf("leaping", false).forGetter(s -> s.leaping),
 			Codec.BOOL.optionalFieldOf("sprint_smash", true).forGetter(s -> s.sprintSmash),
 			Combat.CODEC.optionalFieldOf("combat").forGetter(s -> java.util.Optional.of(s.combat)),
-			Moves.CODEC.optionalFieldOf("moves").forGetter(s -> java.util.Optional.of(s.moves))
+			Moves.CODEC.optionalFieldOf("moves").forGetter(s -> java.util.Optional.of(s.moves)),
+			Rules.CODEC.optionalFieldOf("rules").forGetter(s -> java.util.Optional.of(s.rules))
 	).apply(i, (hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart, leapCharge, leaping,
-			sprintSmash, combat, moves) -> {
+			sprintSmash, combat, moves, rules) -> {
 		HulkState s = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart,
 				leapCharge, leaping, sprintSmash);
 		s.combat = combat.orElseGet(Combat::new);
 		s.moves = moves.orElseGet(Moves::new);
+		s.rules = rules.orElseGet(Rules::new);
 		return s;
 	}));
 }

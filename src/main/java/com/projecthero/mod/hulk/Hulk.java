@@ -1,6 +1,7 @@
 package com.projecthero.mod.hulk;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +19,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -30,25 +32,31 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * The single server-side API for the Hulk Hero-Tier power (v0.13.11 -- Phase 1: the core rage loop). Nothing
- * else pokes {@link HulkState}; every mutator re-saves through {@link ServerPlayer#setAttached}. All numbers
- * live in {@link HulkConfig}.
+ * The single server-side API for the Hulk Hero-Tier power. Nothing else pokes {@link HulkState}; every mutator re-saves
+ * through {@link ServerPlayer#setAttached}. All numbers live in {@link HulkConfig}.
  *
- * <h2>The rage loop</h2>
- * Only a player with the Gamma power ({@link HulkState#hasPower}) builds rage. v0.13.17 rules: every point of damage
- * he TAKES is 1 rage, in either form. As Banner, the damage he deals builds nothing, and 5 s after the last hit he
- * took his rage bleeds off at 2 a second. As the Hulk, every hit he lands adds 2, and only once he has been out of
- * combat for 5 s does rage burn down (0.75 a second). v0.15.18 rules: at 50 Banner can let the Hulk out with H (below
- * that, holding H with a full hunger bar strains him out anyway -- it empties the bar and he comes out on 20 HP); at 100 the Hulk comes out on his own (the unwilling
- * change). The Hulk's rage only burns down to {@link HulkConfig#HULK_RAGE_FLOOR} -- it never changes him back. Instead it
- * sets his rage tier (Calm / Angry / Enraged), which scales his damage and speed. The player taps H to change back
- * (an unwilling Hulk only once his rage is under 50); that is only exhausting (Weakness + Slowness, no rage, no change for
- * a few seconds) after 10 minutes as the Hulk or from 80+ rage.
+ * <h2>v0.16.4 rules (user, docs/HULK_V0164_REVAMP_CONTRACT.md)</h2>
+ * <ul>
+ *   <li><b>The change</b> happens two ways only: Banner dies (every time, no cooldown -- the death is cancelled and the
+ *       Hulk comes out), or the player HOLDS H for {@link HulkConfig#HOLD_TO_CHANGE_TICKS}. Nothing else -- no rage
+ *       trigger, no tap at 50. Every change picks one of the six transformation animations at random
+ *       ({@link HulkState.Combat#transformStyle}); the quick one keeps its shorter clock, the other five share the slow one.</li>
+ *   <li><b>Rage</b> exists only as the Hulk (Banner has none): +1 per point of damage taken, +{@link HulkConfig#HULK_RAGE_PER_HIT}
+ *       per hit landed, burning off slowly out of combat. 0 rage never changes him back. It sets his size (3.5 blocks at 0 to 6
+ *       at 100, through {@link Attributes#SCALE}) and his damage (+0% to +50%, {@link HulkDamage}).</li>
+ *   <li><b>Changing back</b> (tap H) is locked for {@link HulkConfig#DETRANSFORM_LOCK_TICKS} after he comes out; after a
+ *       willing (hold-H) Hulk changes back, hold H is on a {@link HulkConfig#WILLING_COOLDOWN_TICKS} cooldown -- dying still
+ *       forces the change.</li>
+ *   <li><b>Dying as the Hulk</b> is cancelled too: he falls flat on his back, slowly changes back into the regular player, and
+ *       dies {@link HulkConfig#DEATH_FINAL_DELAY_TICKS} later -- a real death, which the base-form change never catches.</li>
+ *   <li><b>The rampage</b> (every minute, any Hulk) lives in {@link HulkControl}; the N roar in {@link HulkRoar}.</li>
+ * </ul>
+ * Calming down is gone.
  *
  * <h2>The body</h2>
- * {@link #reconcile} sets every stat as a fixed-id transient attribute modifier from {@code (hasPower, hulk)}
- * -- idempotent, so it runs every second as a safety net. The size (1.8x) is eased in and out over
- * {@link HulkConfig#GROWTH_TICKS} by {@link #tickScale}, which waits if the bigger body would not fit.
+ * {@link #reconcile} sets every stat as a fixed-id transient attribute modifier from {@code (hasPower, hulk)} -- idempotent,
+ * so it runs every second as a safety net. The size is eased by {@link #tickScale}, which waits if the bigger body would not
+ * fit; reach and step height follow the size.
  */
 public final class Hulk {
 	public static final String KEY = "hulk";
@@ -64,10 +72,10 @@ public final class Hulk {
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("hulk_speed");
 	private static final ResourceLocation ATTACK_KNOCKBACK_ID = PowerToggles.id("hulk_attack_knockback");
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("hulk_armor");
-	/** v0.13.15: the unwilling change pins him to the spot (movement and jump multiplied to nothing). */
+	/** v0.13.15: the change pins him to the spot (movement and jump multiplied to nothing). v0.16.4: so does a rampage and dying. */
 	private static final ResourceLocation CHANGE_LOCK_ID = PowerToggles.id("hulk_change_lock");
 	private static final ResourceLocation CHANGE_JUMP_LOCK_ID = PowerToggles.id("hulk_change_jump_lock");
-	/** v0.15.18: the rage-tier bonuses (Angry / Enraged), on top of the Hulk's own stats. */
+	/** v0.15.18: the rage-tier bonuses. v0.16.4: only the speed one is left (damage scales with rage in HulkDamage). */
 	private static final ResourceLocation TIER_ATTACK_ID = PowerToggles.id("hulk_tier_attack");
 	private static final ResourceLocation TIER_SPEED_ID = PowerToggles.id("hulk_tier_speed");
 
@@ -76,17 +84,26 @@ public final class Hulk {
 
 	/** Per-player throttle for action-bar feedback. */
 	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
+	/** v0.16.4: the scale bonus he had when the current change back began (the shrink eases from it). */
+	private static final Map<UUID, Double> SHRINK_FROM = new ConcurrentHashMap<>();
+	/** v0.16.4: what dealt the Hulk's killing blow -- the final death is reported with it. */
+	private static final Map<UUID, DamageSource> DEATH_SOURCE = new ConcurrentHashMap<>();
+	/** v0.16.4: players whose real death is in progress (the base-form change must let it through). */
+	private static final Set<UUID> FINAL_DEATH = ConcurrentHashMap.newKeySet();
 
 	private Hulk() {
 	}
 
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
+		SHRINK_FROM.clear();
+		DEATH_SOURCE.clear();
+		FINAL_DEATH.clear();
 		HulkAbilities.clearSessionState();
 		HulkGrab.clearSessionState();
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clearSessionState(); // v0.15.3
 		HulkControl.clearSessionState();
-		HulkCalm.clearSessionState();
+		HulkRoar.clearSessionState(); // v0.16.4: the scared mobs
 		GammaOverload.clearSessionState();
 		HulkMind.clearSessionState(); // v0.16.4: live mind sessions
 	}
@@ -119,8 +136,8 @@ public final class Hulk {
 	}
 
 	/**
-	 * v0.13.15: in the middle of the unwilling change (on his knees, growing, rising) -- he cannot move, act or be hurt until
-	 * it is over. Client-safe.
+	 * Mid-change (growing into the Hulk) or in the Hulk-form death sequence -- he cannot move, act or be hurt until it is over.
+	 * Client-safe.
 	 */
 	public static boolean changing(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
@@ -128,18 +145,34 @@ public final class Hulk {
 	}
 
 	public static boolean changing(HulkState s, long now) {
-		return s.hasPower && s.hulk && s.combat.unwilling && now - s.formChangedAt < HulkConfig.FORCED_CHANGE_TICKS;
+		return s.hasPower && (s.dying() || (s.hulk && now - s.formChangedAt < changeTicks(s)));
 	}
 
-	/** Ticks the change into the Hulk takes for this state: the slow unwilling change, or the quick one H makes. */
+	/** v0.16.4: in the Hulk-form death sequence. Client-safe. */
+	public static boolean dying(Player player) {
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		return s != null && s.hasPower && s.dying();
+	}
+
+	/**
+	 * Ticks the change into the Hulk takes for this state. v0.16.4: every change is the slow one
+	 * ({@link HulkConfig#FORCED_CHANGE_TICKS}) except the quick style ({@link HulkState#TRANSFORM_QUICK}).
+	 */
 	public static int changeTicks(HulkState s) {
-		return s.combat.unwilling ? HulkConfig.FORCED_CHANGE_TICKS : HulkConfig.GROWTH_TICKS;
+		return s.combat.transformStyle == HulkState.TRANSFORM_QUICK ? HulkConfig.GROWTH_TICKS : HulkConfig.FORCED_CHANGE_TICKS;
+	}
+
+	/** v0.16.4: 0..1 of the growth part of the change (what the size and the cross-fade follow). */
+	private static float growth(HulkState s, float t) {
+		if (s.combat.transformStyle == HulkState.TRANSFORM_QUICK) {
+			return t / HulkConfig.GROWTH_TICKS;
+		}
+		return (t - HulkConfig.FORCED_KNEEL_TICKS) / HulkConfig.FORCED_GROWTH_TICKS;
 	}
 
 	/**
 	 * v0.13.15: how much of the Hulk shows, 0 (Banner) .. 1 (the Hulk), with {@code partialTick} for a smooth fade. The
-	 * renderer cross-fades the two bodies with it, so the Hulk phases onto Banner as he grows and off him as he shrinks. It
-	 * runs on the same clock as the growth in {@link #tickScale}. Client-safe.
+	 * renderer cross-fades the two bodies with it. It runs on the same clock as the growth in {@link #tickScale}. Client-safe.
 	 */
 	public static float visibility(Player player, float partialTick) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
@@ -148,10 +181,10 @@ public final class Hulk {
 		}
 		float t = (player.level().getGameTime() - s.formChangedAt) + partialTick;
 		if (s.hulk) {
-			float f = s.combat.unwilling ? (t - HulkConfig.FORCED_KNEEL_TICKS) / HulkConfig.FORCED_GROWTH_TICKS : t / HulkConfig.GROWTH_TICKS;
-			return smooth(f);
+			return s.dying() ? 1.0f : smooth(growth(s, t));
 		}
-		return 1.0f - smooth(t / HulkConfig.GROWTH_TICKS);
+		// v0.16.4: the death sequence's change back is the slow one
+		return 1.0f - smooth(t / (s.dying() ? HulkConfig.DEATH_REVERT_TICKS : HulkConfig.GROWTH_TICKS));
 	}
 
 	private static float smooth(float f) {
@@ -159,6 +192,7 @@ public final class Hulk {
 		return f * f * (3.0f - 2.0f * f);
 	}
 
+	/** v0.16.4: exhaustion is gone with the new rules -- kept for old callers (always false unless a save still has it). */
 	public static boolean exhausted(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
 		return s != null && s.exhaustedUntil > player.level().getGameTime();
@@ -170,14 +204,32 @@ public final class Hulk {
 		return s == null || !s.hasPower || !s.hulk ? HulkConfig.TIER_CALM : HulkConfig.rageTier(s.rage);
 	}
 
-	/** v0.15.18: 0..1 while Banner is holding H to strain the Hulk out below 50 rage (0 when not). Client-safe. */
-	public static float strainProgress(Player player) {
+	/** v0.16.4: 0..1 while Banner is holding H toward the change (0 when not). Client-safe. */
+	public static float holdProgress(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
 		if (s == null || !s.hasPower || s.hulk || s.combat.strainStart == 0L) {
 			return 0.0f;
 		}
 		long t = player.level().getGameTime() - s.combat.strainStart;
-		return Math.max(0.0f, Math.min(1.0f, t / (float) HulkConfig.STRAIN_HOLD_TICKS));
+		return Math.max(0.0f, Math.min(1.0f, t / (float) HulkConfig.HOLD_TO_CHANGE_TICKS));
+	}
+
+	/** v0.16.4: ticks left on the hold-H cooldown after a willing Hulk changed back (0 = ready). Client-safe. */
+	public static int holdCooldown(Player player) {
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		return s == null ? 0 : (int) Math.max(0L, s.rules.holdCooldownUntil - player.level().getGameTime());
+	}
+
+	/** v0.16.4: ticks before the Hulk may change back (the 3-minute lock; 0 = he may). Client-safe. */
+	public static int revertLock(Player player) {
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		return s == null || !s.hulk ? 0 : (int) Math.max(0L, s.formChangedAt + HulkConfig.DETRANSFORM_LOCK_TICKS - player.level().getGameTime());
+	}
+
+	/** v0.16.4: what this player's hits are multiplied by -- the Hulk's rage bonus (+0..+50%), 1 for anyone else. Client-safe. */
+	public static float damageMultiplier(Player player) {
+		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		return s == null || !s.hasPower || !s.hulk ? 1.0f : HulkConfig.damageMultiplier(s.rage);
 	}
 
 	public static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
@@ -190,9 +242,14 @@ public final class Hulk {
 		player.displayClientMessage(Component.translatable(key, args).withStyle(colour), true);
 	}
 
+	private static String clock(int ticks) {
+		int secs = (ticks + 19) / 20;
+		return secs >= 60 ? String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60) : secs + "s";
+	}
+
 	// ---------------------------------------------------------------- grant / revoke
 
-	/** Gives the Gamma power (command now; the Gamma Serum in Phase 4). False if the player already has it. */
+	/** Gives the Gamma power (command now; the Gamma origin). False if the player already has it. */
 	public static boolean grant(ServerPlayer player) {
 		if (state(player).hasPower) {
 			return false;
@@ -215,32 +272,38 @@ public final class Hulk {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.5f, 0.7f);
 		player.displayClientMessage(Component.translatable("message.projecthero.hulk.acquired")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
-		player.displayClientMessage(Component.translatable("message.projecthero.hulk.acquired_hint")
+		player.displayClientMessage(Component.translatable("message.projecthero.hulk.acquired_hint_v0164")
 				.withStyle(ChatFormatting.DARK_GREEN), false);
 		return true;
 	}
 
-	/** Takes the Gamma power away; a Hulk shrinks straight back (no exhaustion). */
+	/** Takes the Gamma power away; a Hulk shrinks straight back. */
 	public static void revoke(ServerPlayer player) {
 		HulkAbilities.clear(player.getUUID());
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3: the thrown weapons come home
 		HulkGrab.release(player);
-		HulkCalm.clear(player.getUUID());
 		HulkControl.clear(player.getUUID());
+		HulkRoar.clear(player.getUUID());
 		ejectRider(player);
 		save(player, new HulkState());
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
 		clearChangeLock(player);
-		LAST_MESSAGE.remove(player.getUUID());
+		forget(player.getUUID());
+	}
+
+	private static void forget(UUID id) {
+		LAST_MESSAGE.remove(id);
+		SHRINK_FROM.remove(id);
+		DEATH_SOURCE.remove(id);
 	}
 
 	// ---------------------------------------------------------------- rage
 
-	/** Sets rage outright (the {@code /hulk setrage} test command). 100 lets the Hulk out on the next tick. */
+	/** Sets rage outright (the {@code /hulk setrage} test command). v0.16.4: Banner has no rage -- it only sticks as the Hulk. */
 	public static void setRage(ServerPlayer player, float value) {
 		HulkState n = state(player).copy();
-		n.rage = clampRage(value);
+		n.rage = n.hulk ? clampRage(value) : 0.0f;
 		save(player, n);
 		applyRageTier(player, n); // v0.15.18: a Hulk's tier follows at once
 	}
@@ -249,20 +312,18 @@ public final class Hulk {
 		return Math.max(0.0f, Math.min(HulkConfig.RAGE_MAX, v));
 	}
 
-	/** This player with the Gamma power was just hurt for {@code amount}. */
+	/** This player with the Gamma power was just hurt for {@code amount}. v0.16.4: only the Hulk gets angry. */
 	public static void onHurt(ServerPlayer player, float amount) {
 		HulkState s = state(player);
 		if (!s.hasPower || player.isSpectator()) {
 			return;
 		}
-		float per = s.hulk ? HulkConfig.HULK_RAGE_PER_DAMAGE_TAKEN : HulkConfig.RAGE_PER_DAMAGE_TAKEN;
-		gain(player, s, amount * per, true);
-		HulkCalm.interrupt(player); // pain breaks the focus
+		gain(player, s, s.hulk ? amount * HulkConfig.HULK_RAGE_PER_DAMAGE_TAKEN : 0.0f, true);
 	}
 
 	/**
-	 * This player with the Gamma power just hit something for {@code amount}. v0.13.17: Banner gains nothing from the damage
-	 * he deals; the Hulk gains {@link HulkConfig#HULK_RAGE_PER_HIT} per hit (a punch, or each thing an ability hits).
+	 * This player with the Gamma power just hit something for {@code amount}. The Hulk gains {@link HulkConfig#HULK_RAGE_PER_HIT}
+	 * per hit (a punch, or each thing an ability hits); Banner gains nothing.
 	 */
 	public static void onDealt(ServerPlayer player, float amount) {
 		HulkState s = state(player);
@@ -270,12 +331,9 @@ public final class Hulk {
 			return;
 		}
 		gain(player, s, s.hulk ? HulkConfig.HULK_RAGE_PER_HIT : 0.0f, false);
-		if (s.hulk) {
-			HulkControl.onDealtDamage(player); // hitting things is how he stays in charge
-		}
 	}
 
-	/** {@code hurt}: he took the hit (Banner's rage only bleeds off 5 s after the last one). */
+	/** {@code hurt}: he took the hit. */
 	private static void gain(ServerPlayer player, HulkState s, float amount, boolean hurt) {
 		long now = player.level().getGameTime();
 		HulkState n = s.copy();
@@ -283,8 +341,7 @@ public final class Hulk {
 		if (hurt) {
 			n.combat.lastHurtAt = now;
 		}
-		// an exhausted Banner has nothing left to get angry with
-		if (amount > 0.0f && (s.hulk || s.exhaustedUntil <= now)) {
+		if (amount > 0.0f && s.hulk) {
 			n.rage = clampRage(s.rage + amount);
 		}
 		save(player, n);
@@ -293,27 +350,22 @@ public final class Hulk {
 	// ---------------------------------------------------------------- the change
 
 	/**
-	 * v0.15.18: H pressed (the packet). As the Hulk it changes back ({@link #tryRevert}); as Banner it lets the Hulk out at
-	 * {@link HulkConfig#MANUAL_TRANSFORM_RAGE}+ rage, and below that starts the strain -- keep holding H for
-	 * {@link HulkConfig#STRAIN_HOLD_TICKS} ({@link #releaseH} calls it off). Server-validated; safe to spam.
+	 * H went down (the packet). As the Hulk it asks to change back ({@link #tryRevert}); as Banner it starts the hold -- keep
+	 * holding H for {@link HulkConfig#HOLD_TO_CHANGE_TICKS} ({@link #releaseH} calls it off). Server-validated; safe to spam.
 	 */
 	public static void pressH(ServerPlayer player) {
 		HulkState s = state(player);
-		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+		if (!s.hasPower || !player.isAlive() || player.isSpectator() || s.dying()) {
 			return;
 		}
 		if (s.hulk) {
 			tryRevert(player);
 			return;
 		}
-		if (s.rage + 1.0e-3f >= HulkConfig.MANUAL_TRANSFORM_RAGE) {
-			tryTransform(player);
-			return;
-		}
-		startStrain(player);
+		startHold(player);
 	}
 
-	/** v0.15.18: H let go -- an unfinished strain is called off. */
+	/** H let go -- an unfinished hold is called off. */
 	public static void releaseH(ServerPlayer player) {
 		HulkState s = state(player);
 		if (s.combat.strainStart == 0L) {
@@ -323,50 +375,49 @@ public final class Hulk {
 		n.combat.strainStart = 0L;
 		save(player, n);
 		if (!s.hulk) {
-			say(player, "message.projecthero.hulk.strain_cancelled", ChatFormatting.GRAY);
+			say(player, "message.projecthero.hulk.hold_cancelled", ChatFormatting.GRAY);
 		}
 	}
 
-	/** v0.15.18: Banner below 50 rage starts straining the Hulk out (H held). */
-	private static void startStrain(ServerPlayer player) {
-		HulkState s = state(player);
-		long now = player.level().getGameTime();
-		if (s.hulk || s.combat.strainStart != 0L || s.combat.calming || now - s.formChangedAt < HulkConfig.TOGGLE_DEBOUNCE_TICKS) {
-			return;
-		}
-		if (s.exhaustedUntil > now) {
-			say(player, "message.projecthero.hulk.exhausted_wait", ChatFormatting.GRAY,
-					(int) Math.ceil((s.exhaustedUntil - now) / 20.0));
-			return;
-		}
+	/** v0.16.4: why hold-H can't start right now (a lang key), or null if it can. */
+	private static String holdRefusal(ServerPlayer player, HulkState s, long now) {
 		if (com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
 				|| com.projecthero.mod.allmight.AllMight.isFullPower(player)) {
-			say(player, "message.projecthero.hulk.cannot_now", ChatFormatting.GRAY);
+			return "message.projecthero.hulk.cannot_now";
+		}
+		if (s.rules.holdCooldownUntil > now) {
+			return "message.projecthero.hulk.hold_cooldown";
+		}
+		return null;
+	}
+
+	/** v0.16.4: Banner starts holding H toward the willing change. */
+	private static void startHold(ServerPlayer player) {
+		HulkState s = state(player);
+		long now = player.level().getGameTime();
+		if (s.hulk || s.combat.strainStart != 0L || now - s.formChangedAt < HulkConfig.TOGGLE_DEBOUNCE_TICKS) {
 			return;
 		}
-		if (player.getFoodData().needsFood()) { // v0.15.18 playtest: forcing it needs a full hunger bar
-			say(player, "message.projecthero.hulk.strain_hungry", ChatFormatting.RED);
+		String refusal = holdRefusal(player, s, now);
+		if (refusal != null) {
+			say(player, refusal, ChatFormatting.GRAY, clock((int) (s.rules.holdCooldownUntil - now)));
 			return;
 		}
 		HulkState n = s.copy();
 		n.combat.strainStart = now;
 		save(player, n);
-		say(player, "message.projecthero.hulk.strain_start", ChatFormatting.DARK_GREEN);
+		say(player, "message.projecthero.hulk.hold_start", ChatFormatting.DARK_GREEN);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.0f, 0.5f);
 	}
 
-	/** v0.15.18: every tick while Banner strains -- heartbeat and gamma, and the change once the hold is long enough. */
-	private static void tickStrain(ServerLevel level, ServerPlayer player, HulkState s, long now) {
-		if (s.exhaustedUntil > now || s.combat.calming) {
-			releaseH(player);
-			return;
-		}
+	/** v0.16.4: every tick while Banner holds H -- heartbeat and gamma, and the change once the hold is long enough. */
+	private static void tickHold(ServerLevel level, ServerPlayer player, HulkState s, long now) {
 		long t = now - s.combat.strainStart;
-		if (t < 0L || t > HulkConfig.STRAIN_HOLD_TICKS + 40L) {
+		if (t < 0L || t > HulkConfig.HOLD_TO_CHANGE_TICKS + 40L) {
 			releaseH(player); // a stale flag (another world's clock, a lost release)
 			return;
 		}
-		float f = Math.min(1.0f, t / (float) HulkConfig.STRAIN_HOLD_TICKS);
+		float f = Math.min(1.0f, t / (float) HulkConfig.HOLD_TO_CHANGE_TICKS);
 		double h = player.getBbHeight();
 		if (now % 3L == 0L) {
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + h * 0.5, player.getZ(), 1 + Math.round(f * 4.0f), 0.3, h * 0.25,
@@ -377,43 +428,22 @@ public final class Hulk {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS,
 					0.6f + f * 0.8f, 0.7f + f * 0.2f);
 		}
-		if (t >= HulkConfig.STRAIN_HOLD_TICKS) {
-			finishStrain(player);
+		if (t >= HulkConfig.HOLD_TO_CHANGE_TICKS) {
+			HulkState n = s.copy();
+			n.combat.strainStart = 0L;
+			save(player, n);
+			transform(player, false);
 		}
 	}
 
 	/**
-	 * v0.15.18: the strain worked -- the willing change, paid for with the whole hunger bar (food and saturation emptied;
-	 * it needed a full bar to start), and the Hulk comes out on only {@link HulkConfig#STRAIN_START_HEALTH}.
-	 */
-	private static void finishStrain(ServerPlayer player) {
-		HulkState n = state(player).copy();
-		n.combat.strainStart = 0L;
-		save(player, n);
-		net.minecraft.world.food.FoodData food = player.getFoodData();
-		if (food.needsFood()) {
-			say(player, "message.projecthero.hulk.strain_hungry", ChatFormatting.RED); // he got hungry mid-strain
-			return;
-		}
-		transform(player, false, false);
-		if (isHulk(player)) {
-			player.setHealth(Math.min(player.getMaxHealth(), HulkConfig.STRAIN_START_HEALTH));
-			food.setFoodLevel(0);
-			food.setSaturation(0.0f);
-			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 1.0f, 0.6f);
-			player.displayClientMessage(Component.translatable("message.projecthero.hulk.strain_done")
-					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
-		}
-	}
-
-	/**
-	 * v0.15.18: H as the Hulk -- change back whenever you like (the quick shrink). Not mid-change, not while rampaging, and an
-	 * unwilling Hulk lets go only below {@link HulkConfig#MANUAL_TRANSFORM_RAGE} rage. Exhausting only after
-	 * {@link HulkConfig#LONG_FORM_TICKS} as the Hulk or from {@link HulkConfig#EXHAUST_RAGE} rage.
+	 * H as the Hulk -- change back. Not mid-change, not while rampaging, not in the first
+	 * {@link HulkConfig#DETRANSFORM_LOCK_TICKS} (the player is told how long is left). A Hulk who came out by choice (hold H)
+	 * puts hold-H on a {@link HulkConfig#WILLING_COOLDOWN_TICKS} cooldown as he changes back.
 	 */
 	public static void tryRevert(ServerPlayer player) {
 		HulkState s = state(player);
-		if (!s.hasPower || !s.hulk || !player.isAlive() || s.combat.calming) {
+		if (!s.hasPower || !s.hulk || !player.isAlive() || s.dying()) {
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -425,61 +455,64 @@ public final class Hulk {
 			say(player, "message.projecthero.hulk.revert_rampage", ChatFormatting.RED);
 			return;
 		}
-		if (s.combat.unwilling && s.rage + 1.0e-3f >= HulkConfig.MANUAL_TRANSFORM_RAGE) {
-			say(player, "message.projecthero.hulk.revert_unwilling", ChatFormatting.RED,
-					(int) HulkConfig.MANUAL_TRANSFORM_RAGE, (int) Math.ceil(s.rage));
+		long lock = s.formChangedAt + HulkConfig.DETRANSFORM_LOCK_TICKS - now;
+		if (lock > 0L) {
+			say(player, "message.projecthero.hulk.revert_locked", ChatFormatting.RED, clock((int) lock));
 			return;
 		}
-		boolean exhaust = exhaustingRevert(s, now);
-		revert(player, exhaust);
-		if (!exhaust) {
-			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_willing")
+		boolean willing = !s.combat.unwilling;
+		revert(player, false);
+		if (willing) {
+			HulkState n = state(player).copy();
+			n.rules.holdCooldownUntil = now + HulkConfig.WILLING_COOLDOWN_TICKS;
+			save(player, n);
+			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_cooldown", clock(HulkConfig.WILLING_COOLDOWN_TICKS))
 					.withStyle(ChatFormatting.GREEN), true);
+		} else {
+			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_willing").withStyle(ChatFormatting.GREEN), true);
 		}
 	}
 
-	/** v0.15.18: would changing back now be exhausting -- 10 minutes as the Hulk in one go, or 80+ rage. */
-	public static boolean exhaustingRevert(HulkState s, long now) {
-		return now - s.formChangedAt >= HulkConfig.LONG_FORM_TICKS || s.rage + 1.0e-3f >= HulkConfig.EXHAUST_RAGE;
-	}
-
-	/** H: let the Hulk out by choice -- needs {@link HulkConfig#MANUAL_TRANSFORM_RAGE} rage. Server-validated; safe to spam. */
+	/**
+	 * The willing change with the change itself skipped -- he is the Hulk, ready to act, at once (tests and helpers; the game's
+	 * own hold-H runs the full change through {@link #transform}). Refused on the hold-H cooldown, inside a Titan or in All
+	 * Might's Power Form.
+	 */
 	public static void tryTransform(ServerPlayer player) {
 		HulkState s = state(player);
-		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+		if (!s.hasPower || !player.isAlive() || player.isSpectator() || s.dying()) {
 			return;
 		}
 		long now = player.level().getGameTime();
-		if (now - s.formChangedAt < HulkConfig.TOGGLE_DEBOUNCE_TICKS) {
-			return;
-		}
 		if (s.hulk) {
 			say(player, "message.projecthero.hulk.already", ChatFormatting.GREEN);
 			return;
 		}
-		if (s.exhaustedUntil > now) {
-			say(player, "message.projecthero.hulk.exhausted_wait", ChatFormatting.GRAY,
-					(int) Math.ceil((s.exhaustedUntil - now) / 20.0));
-			return;
-		}
-		if (s.rage + 1.0e-3f < HulkConfig.MANUAL_TRANSFORM_RAGE) {
-			say(player, "message.projecthero.hulk.not_angry", ChatFormatting.GRAY,
-					(int) Math.floor(s.rage), (int) HulkConfig.MANUAL_TRANSFORM_RAGE);
+		String refusal = holdRefusal(player, s, now);
+		if (refusal != null) {
+			say(player, refusal, ChatFormatting.GRAY, clock((int) (s.rules.holdCooldownUntil - now)));
 			return;
 		}
 		transform(player, false);
+		if (isHulk(player)) {
+			HulkState n = state(player).copy();
+			long done = changeTicks(n) + 1L;
+			n.formChangedAt = now - done;
+			n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+			save(player, n);
+			clearChangeLock(player);
+		}
 	}
 
-	/**
-	 * Banner becomes the Hulk. {@code forced}: rage hit the top on its own (or the death save). v0.13.15: that is the
-	 * unwilling change -- he drops to his knees and changes slowly, then has to fight the Hulk for control. H is the willing
-	 * one: quick, and the player stays in charge the whole time.
-	 */
+	/** Banner becomes the Hulk. {@code forced}: Banner died (the death change); otherwise the willing hold-H change. */
 	public static void transform(ServerPlayer player, boolean forced) {
 		transform(player, forced, true);
 	}
 
-	/** {@code burst}: the {@link HulkConfig#TRANSFORM_HEAL} on top (v0.15.18: the strained change gets none). */
+	/**
+	 * {@code burst}: the {@link HulkConfig#TRANSFORM_HEAL} on top. v0.16.4: every change picks one of the six transformation
+	 * animations at random; the rampage clock starts the moment he is out.
+	 */
 	public static void transform(ServerPlayer player, boolean forced, boolean burst) {
 		HulkState s = state(player);
 		if (!s.hasPower || s.hulk) {
@@ -492,25 +525,38 @@ public final class Hulk {
 			return;
 		}
 		float ratio = healthRatio(player);
+		long now = player.level().getGameTime();
 		HulkState n = s.copy();
 		n.hulk = true;
-		n.formChangedAt = player.level().getGameTime();
+		n.formChangedAt = now;
+		n.rage = forced ? HulkConfig.DEATH_CHANGE_RAGE : 0.0f;
+		n.lastCombatAt = now;
+		n.exhaustedUntil = 0L;
 		n.combat.control = 100.0f;
-		n.combat.lastDealtAt = n.formChangedAt;
+		n.combat.lastDealtAt = now;
 		n.combat.promptKey = 0;
 		n.combat.rampageUntil = 0L;
 		n.combat.unwilling = forced;
 		n.combat.strainStart = 0L;
+		n.combat.calming = false;
+		// v0.16.4 (user): "4 MORE transformation animations (6 total, random each change)"
+		n.combat.transformStyle = player.getRandom().nextInt(HulkState.TRANSFORM_STAGGER + 1);
+		n.rules.warnLen = 0;
+		n.rules.warnPos = 0;
+		n.rules.ringStreak = 0;
+		n.rules.deathFallAt = 0L;
+		n.rules.nextRampageAt = now + changeTicks(n) + HulkConfig.control().rampageEveryTicks;
 		save(player, n);
+		SHRINK_FROM.remove(player.getUUID());
 		tearOffArmour(player); // v0.13.14: he bursts out of it
 		reconcile(player);
 		player.setHealth(Math.min(player.getMaxHealth(), ratio * player.getMaxHealth() + (burst ? HulkConfig.TRANSFORM_HEAL : 0.0f)));
-		transformFx(player, forced);
+		transformFx(player, n.combat.transformStyle == HulkState.TRANSFORM_QUICK, forced);
 	}
 
 	/**
-	 * The Hulk shrinks back to Banner. {@code exhaust}: Weakness + Slowness follow (v0.15.18: {@link #tryRevert} decides --
-	 * a long stint or 80+ rage; Calm Down never exhausts).
+	 * The Hulk shrinks back to Banner. {@code exhaust}: Weakness + Slowness follow (v0.16.4: nothing in the rules asks for it
+	 * any more; kept for old callers).
 	 */
 	public static void revert(ServerPlayer player, boolean exhaust) {
 		HulkState s = state(player);
@@ -523,6 +569,7 @@ public final class Hulk {
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3
 		HulkControl.clear(player.getUUID());
 		ejectRider(player);
+		SHRINK_FROM.put(player.getUUID(), scaleBonus(player));
 		float ratio = healthRatio(player);
 		HulkState n = state(player).copy();
 		n.hulk = false;
@@ -534,6 +581,10 @@ public final class Hulk {
 		n.combat.lastHurtAt = 0L;
 		n.formChangedAt = now;
 		n.exhaustedUntil = exhaust ? now + HulkConfig.EXHAUSTED_TICKS : 0L;
+		n.rules.nextRampageAt = 0L;
+		n.rules.warnLen = 0;
+		n.rules.warnPos = 0;
+		n.rules.ringStreak = 0;
 		save(player, n);
 		reconcile(player);
 		player.setHealth(Math.max(1.0f, Math.min(player.getMaxHealth(), ratio * player.getMaxHealth())));
@@ -541,7 +592,7 @@ public final class Hulk {
 			player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, HulkConfig.EXHAUSTED_TICKS, 0, false, true, true));
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, HulkConfig.EXHAUSTED_TICKS, 0, false, true, true));
 		}
-		revertFx(player, exhaust);
+		revertFx(player);
 	}
 
 	private static float healthRatio(ServerPlayer player) {
@@ -551,8 +602,8 @@ public final class Hulk {
 	// ---------------------------------------------------------------- stats
 
 	/**
-	 * Every stat in line with {@code (hasPower, hulk)}. Idempotent (fixed ids, write only on change). The size is
-	 * not set here -- it eases in and out ({@link #tickScale}); a player without the power has it cleared outright.
+	 * Every stat in line with {@code (hasPower, hulk)}. Idempotent (fixed ids, write only on change). The size is not set
+	 * here -- it eases in and out ({@link #tickScale}); a player without the power has it cleared outright.
 	 */
 	public static void reconcile(ServerPlayer player) {
 		HulkState s = state(player);
@@ -567,7 +618,9 @@ public final class Hulk {
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_KNOCKBACK, ATTACK_KNOCKBACK_ID);
 			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
-			clearChangeLock(player);
+			if (!s.dying()) {
+				clearChangeLock(player);
+			}
 			if (!s.hasPower) {
 				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
 			}
@@ -583,33 +636,42 @@ public final class Hulk {
 				AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, HulkConfig.ARMOR_TOUGHNESS_BONUS,
 				AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, HulkConfig.STEP_HEIGHT_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID, HulkConfig.REACH_BONUS,
-				AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.BLOCK_INTERACTION_RANGE, BLOCK_REACH_ID, HulkConfig.REACH_BONUS,
-				AttributeModifier.Operation.ADD_VALUE);
 		// v0.13.14: faster, harder-hitting, and diamond-level armour of his own
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, HulkConfig.SPEED_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(player, Attributes.ATTACK_KNOCKBACK, ATTACK_KNOCKBACK_ID, HulkConfig.ATTACK_KNOCKBACK_BONUS,
 				AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, HulkConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		applySizeStats(player);
 		applyRageTier(player, s);
 	}
 
 	/**
-	 * v0.15.18: the rage-tier bonuses in line with {@code s} -- Angry / Enraged multiply his total attack damage and add to
-	 * his speed; Calm (and Banner) have none. Fixed ids, written only on change, so it is cheap to run every tick.
+	 * v0.16.4: reach and step height follow his size -- a 6-block Hulk's eyes are 5 blocks up, so a flat +1.5 reach could not
+	 * touch a pig at his feet. Fixed ids, written only on change.
+	 */
+	private static void applySizeStats(ServerPlayer player) {
+		double scale = 1.0 + scaleBonus(player);
+		double reach = HulkConfig.REACH_BONUS + 1.8 * Math.max(0.0, scale - 1.0);
+		double step = Math.max(HulkConfig.STEP_HEIGHT_BONUS, Math.min(1.4, 0.6 * (scale - 1.0)));
+		reach = Math.round(reach * 20.0) / 20.0;
+		step = Math.round(step * 20.0) / 20.0;
+		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, step, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID, reach, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.BLOCK_INTERACTION_RANGE, BLOCK_REACH_ID, reach, AttributeModifier.Operation.ADD_VALUE);
+	}
+
+	/**
+	 * v0.15.18: the rage-tier bonus in line with {@code s}. v0.16.4: only the speed part is left -- his damage scales
+	 * smoothly with rage instead ({@link HulkDamage}, +0..+50%), so the old tier damage modifier is always cleared.
 	 */
 	static void applyRageTier(ServerPlayer player, HulkState s) {
+		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, TIER_ATTACK_ID);
 		int tier = s.hasPower && s.hulk ? HulkConfig.rageTier(s.rage) : HulkConfig.TIER_CALM;
 		if (tier == HulkConfig.TIER_CALM) {
-			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, TIER_ATTACK_ID);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, TIER_SPEED_ID);
 			return;
 		}
 		boolean enraged = tier == HulkConfig.TIER_ENRAGED;
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, TIER_ATTACK_ID,
-				enraged ? HulkConfig.ENRAGED_DAMAGE_BONUS : HulkConfig.ANGRY_DAMAGE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, TIER_SPEED_ID,
 				enraged ? HulkConfig.ENRAGED_SPEED_BONUS : HulkConfig.ANGRY_SPEED_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 	}
@@ -678,37 +740,62 @@ public final class Hulk {
 		}
 	}
 
-	/** Current eased size bonus (0 = Banner size, {@link HulkConfig#SCALE_BONUS} = full Hulk). */
+	/** Current eased size bonus (0 = Banner size; the Hulk is {@code scaleForRage(rage) - 1}). */
 	public static double scaleBonus(ServerPlayer player) {
 		AttributeInstance inst = player.getAttribute(Attributes.SCALE);
 		AttributeModifier m = inst == null ? null : inst.getModifier(SCALE_ID);
 		return m == null ? 0.0 : m.amount();
 	}
 
-	/** Eases the body toward its target size over {@link HulkConfig#GROWTH_TICKS}; growth waits while there is no room. */
-	private static void tickScale(ServerPlayer player, HulkState s) {
+	/** v0.16.4: the size bonus he should have right now (before the per-tick easing and the room check). */
+	static double targetScaleBonus(ServerPlayer player, HulkState s, long now) {
+		if (s.hulk) {
+			double full = HulkConfig.scaleForRage(s.rage) - 1.0;
+			if (s.dying()) {
+				return Math.max(0.0, scaleBonus(player)); // he lies there as he fell
+			}
+			float t = now - s.formChangedAt;
+			if (t < changeTicks(s)) {
+				return full * smooth(growth(s, t)); // grown over the change itself
+			}
+			return full;
+		}
+		Double from = SHRINK_FROM.get(player.getUUID());
+		if (from == null || from <= 0.0) {
+			return 0.0;
+		}
+		int dur = s.dying() ? HulkConfig.DEATH_REVERT_TICKS : HulkConfig.GROWTH_TICKS;
+		return from * (1.0 - smooth((now - s.formChangedAt) / (float) dur));
+	}
+
+	/**
+	 * Eases the body toward its target size; growth waits while there is no room. v0.16.4: as the Hulk the target is his
+	 * rage's height (3.5 to 6 blocks), so he swells as he gets angrier and shrinks back as he cools.
+	 */
+	private static void tickScale(ServerPlayer player, HulkState s, long now) {
 		double cur = scaleBonus(player);
-		double target = s.hulk ? HulkConfig.SCALE_BONUS : 0.0;
+		double target = targetScaleBonus(player, s, now);
 		if (Math.abs(cur - target) < 1.0e-4) {
-			if (target == 0.0 && cur != 0.0) {
+			if (target <= 1.0e-4 && cur != 0.0) {
 				PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+			}
+			if (!s.hulk && target <= 1.0e-4) {
+				SHRINK_FROM.remove(player.getUUID());
 			}
 			return;
 		}
-		int growTicks = HulkConfig.GROWTH_TICKS;
-		if (s.hulk && s.combat.unwilling) {
-			// v0.13.15: the unwilling change -- nothing grows while he drops to his knees, then it comes slowly
-			if (player.level().getGameTime() - s.formChangedAt < HulkConfig.FORCED_KNEEL_TICKS) {
-				return;
-			}
-			growTicks = HulkConfig.FORCED_GROWTH_TICKS;
+		double next;
+		boolean changeClock = (s.hulk && now - s.formChangedAt < changeTicks(s)) || (!s.hulk && SHRINK_FROM.containsKey(player.getUUID()));
+		if (changeClock) {
+			next = target; // the change (either way) runs on its own clock
+		} else {
+			double step = Math.max(HulkConfig.SIZE_EASE_PER_TICK * 0.25, Math.min(HulkConfig.SIZE_EASE_PER_TICK, Math.abs(target - cur) * 0.15));
+			next = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
 		}
-		double step = HulkConfig.SCALE_BONUS / Math.max(1, growTicks);
-		double next = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
 		next = Math.round(next * 1000.0) / 1000.0;
 		if (next > cur) {
 			double w = 0.6 * (1.0 + next);
-			double h = 1.8 * (1.0 + next);
+			double h = HulkConfig.PLAYER_HEIGHT * (1.0 + next);
 			AABB box = new AABB(player.getX() - w / 2, player.getY(), player.getZ() - w / 2,
 					player.getX() + w / 2, player.getY() + h, player.getZ() + w / 2);
 			if (!player.level().noCollision(player, box)) {
@@ -720,16 +807,26 @@ public final class Hulk {
 		} else {
 			PowerToggles.modifier(player, Attributes.SCALE, SCALE_ID, next, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		}
+		if (s.hulk) {
+			applySizeStats(player);
+		}
 	}
 
-	/** v0.13.15: pinned in place for the unwilling change (the attributes sync, so the client stops moving too). */
+	/**
+	 * Pinned in place through the change, the death sequence and a rampage (the attributes sync, so the client stops moving
+	 * too; a rampage moves him by velocity from the server).
+	 */
 	private static void tickChangeLock(ServerPlayer player, HulkState s, long now) {
-		if (!changing(s, now) || !player.isAlive()) {
+		boolean rampage = s.rampaging(now);
+		if (!player.isAlive() || (!changing(s, now) && !rampage)) {
 			clearChangeLock(player);
 			return;
 		}
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, CHANGE_LOCK_ID, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, CHANGE_JUMP_LOCK_ID, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		if (rampage) {
+			return; // HulkControl drives him
+		}
 		player.setSprinting(false);
 		if (player.onGround()) {
 			Vec3 v = player.getDeltaMovement();
@@ -755,7 +852,7 @@ public final class Hulk {
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		long now = level.getGameTime();
-		tickScale(player, s);
+		tickScale(player, s, now);
 		tickChangeLock(player, s, now);
 		if (player.tickCount % 20 == 0) {
 			reconcile(player); // safety net: a respawn or another mod may have cleared a transient modifier
@@ -763,11 +860,15 @@ public final class Hulk {
 		if (!player.isAlive() || player.isSpectator()) {
 			return;
 		}
+		if (s.dying()) {
+			tickDeath(level, player, s, now);
+			return;
+		}
 		HulkAbilities.tick(player);
 		HulkGrab.tick(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tick(player); // v0.15.3: the Gladiator's running moves
 		HulkControl.tick(player);
-		HulkCalm.tick(player);
+		HulkRoar.tick(player);
 		s = state(player);
 		if (!s.hulk && !player.getPassengers().isEmpty()) {
 			ejectRider(player);
@@ -775,22 +876,14 @@ public final class Hulk {
 		HulkRiding.tick(player); // v0.15.21: riders never take fall damage
 
 		if (s.hulk) {
-			// v0.13.17: the Hulk only burns rage once he has been out of combat (no hit taken or dealt) for 5 s
+			// rage only burns off once he has been out of combat (no hit taken or dealt) for 5 s -- all the way to 0, which never
+			// changes him back (v0.16.4)
 			long quiet = now - Math.max(s.lastCombatAt, s.formChangedAt + changeTicks(s));
-			// v0.15.18: ...and only down to the floor -- running low never changes him back (H or Calm Down does)
-			if (now % 20L == 0L && quiet >= HulkConfig.HULK_OUT_OF_COMBAT_TICKS && s.rage > HulkConfig.HULK_RAGE_FLOOR) {
+			if (now % 20L == 0L && quiet >= HulkConfig.HULK_OUT_OF_COMBAT_TICKS && s.rage > 0.0f) {
 				HulkState n = s.copy();
-				n.rage = Math.max(HulkConfig.HULK_RAGE_FLOOR, clampRage(s.rage - HulkConfig.HULK_DRAIN_PER_SECOND));
+				n.rage = clampRage(s.rage - HulkConfig.HULK_DRAIN_PER_SECOND);
 				save(player, n);
 				s = n;
-			}
-			// v0.15.18: an unwilling Hulk is tamed once his rage is under 50 -- from then on he is the player's like any other
-			if (s.combat.unwilling && !changing(s, now) && !s.rampaging(now) && s.rage < HulkConfig.MANUAL_TRANSFORM_RAGE) {
-				HulkState n = s.copy();
-				n.combat.unwilling = false;
-				save(player, n);
-				s = n;
-				player.displayClientMessage(Component.translatable("message.projecthero.hulk.tamed").withStyle(ChatFormatting.GREEN), true);
 			}
 			applyRageTier(player, s);
 			if (player.tickCount % HulkConfig.REGEN_INTERVAL_TICKS == 0 && player.getHealth() < player.getMaxHealth()) {
@@ -803,64 +896,28 @@ public final class Hulk {
 				bounceArmour(player);
 			}
 			if (changing(s, now)) {
-				tickForcedChange(level, player, s, now);
+				tickChange(level, player, s, now);
 			} else {
 				tickAura(level, player, s, now);
 			}
 			return;
 		}
 
-		if (s.rage >= HulkConfig.RAGE_MAX && s.exhaustedUntil <= now) {
-			transform(player, true);
-			return;
-		}
-		// v0.15.18: holding H below 50 -- straining the Hulk out
-		if (s.combat.strainStart != 0L) {
-			tickStrain(level, player, s, now);
-			s = state(player);
-			if (s.hulk) {
-				return;
-			}
-		}
-		// v0.13.12: standing near a Gamma Reactor feeds the rage (once a second)
-		if (now % 20L == 0L && s.exhaustedUntil <= now && nearReactor(player)) {
-			gain(player, s, HulkConfig.REACTOR_RAGE_PER_SECOND, false);
-			s = state(player);
-			level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 6, 0.4, 0.6, 0.4, 0.02);
-			return;
-		}
-		// v0.13.17: Banner cools off 2 a second once he has gone 5 s without being hurt (hitting things doesn't count)
-		if (s.rage > 0.0f && now % 20L == 0L && now - s.combat.lastHurtAt >= HulkConfig.CALM_DELAY_TICKS) {
+		// v0.16.4: Banner has no rage -- a leftover from an older save is cleared
+		if (s.rage > 0.0f) {
 			HulkState n = s.copy();
-			n.rage = clampRage(s.rage - HulkConfig.CALM_DECAY_PER_SECOND);
+			n.rage = 0.0f;
 			save(player, n);
+			s = n;
 		}
-		// v0.13.15: Banner is close to losing it -- green gamma pours off him, thicker the nearer he gets to 100
-		// (v0.15.18: from its own 75 threshold -- H already works from 50)
-		if (s.rage > HulkConfig.BANNER_GLOW_RAGE && now % 3L == 0L) {
-			rageGlow(level, player, (s.rage - HulkConfig.BANNER_GLOW_RAGE) / (HulkConfig.RAGE_MAX - HulkConfig.BANNER_GLOW_RAGE), now);
+		// holding H -- the willing change
+		if (s.combat.strainStart != 0L) {
+			tickHold(level, player, s, now);
 		}
-	}
-
-	/** A Gamma Reactor within {@link HulkConfig#REACTOR_RADIUS} blocks. */
-	private static boolean nearReactor(ServerPlayer player) {
-		int r = HulkConfig.REACTOR_RADIUS;
-		net.minecraft.core.BlockPos c = player.blockPosition();
-		for (net.minecraft.core.BlockPos p : net.minecraft.core.BlockPos.betweenClosed(c.offset(-r, -r, -r), c.offset(r, r, r))) {
-			if (player.level().getBlockState(p).is(com.projecthero.mod.hulk.item.HulkItems.GAMMA_REACTOR)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private static void tickAura(ServerLevel level, ServerPlayer player, HulkState s, long now) {
 		double h = player.getBbHeight();
-		// green gamma pours off him while he grows
-		if (now - s.formChangedAt < changeTicks(s)) {
-			level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + h * 0.5, player.getZ(), 6, 0.5, h * 0.4, 0.5, 0.02);
-			return;
-		}
 		if (now % 8L == 0L) {
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + h * 0.5, player.getZ(), 1, 0.45, h * 0.35, 0.45, 0.0);
 		}
@@ -872,10 +929,7 @@ public final class Hulk {
 
 	// ---------------------------------------------------------------- effects
 
-	/**
-	 * v0.13.15: Banner past 75 rage (v0.15.18: and an Enraged Hulk) -- green dust off his body, a pulse of it with a
-	 * quickening heartbeat. {@code heat} 0..1.
-	 */
+	/** v0.15.18: an Enraged Hulk -- green dust off his body, a pulse of it with a quickening heartbeat. {@code heat} 0..1. */
 	private static void rageGlow(ServerLevel level, ServerPlayer player, float heat, long now) {
 		heat = Math.max(0.0f, Math.min(1.0f, heat));
 		double h = player.getBbHeight();
@@ -894,19 +948,19 @@ public final class Hulk {
 	}
 
 	/**
-	 * v0.13.15: the unwilling change, tick by tick -- on his knees fighting it (heartbeats, gamma leaking out), growing as the
-	 * Hulk takes over, then the roar as he stands.
+	 * The change, tick by tick. The quick style: green gamma pours off him while he grows (the roar came at the start). The
+	 * five slow styles: fighting it (heartbeats, gamma leaking out), growing as the Hulk takes over, then the roar.
 	 */
-	private static void tickForcedChange(ServerLevel level, ServerPlayer player, HulkState s, long now) {
+	private static void tickChange(ServerLevel level, ServerPlayer player, HulkState s, long now) {
 		long t = now - s.formChangedAt;
 		double h = player.getBbHeight();
+		if (s.combat.transformStyle == HulkState.TRANSFORM_QUICK) {
+			level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + h * 0.5, player.getZ(), 6, 0.5, h * 0.4, 0.5, 0.02);
+			return;
+		}
 		if (t < HulkConfig.FORCED_KNEEL_TICKS) {
 			if (t % 10L == 0L) {
 				level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.6f, 0.6f);
-			}
-			if (t == 5L) { // he hits the ground
-				level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 0.9f, 0.6f);
-				level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 10, 0.5, 0.05, 0.5, 0.02);
 			}
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + h * 0.4, player.getZ(), 2, 0.3, h * 0.2, 0.3, 0.0);
 			return;
@@ -929,14 +983,14 @@ public final class Hulk {
 			return;
 		}
 		if (t == HulkConfig.FORCED_KNEEL_TICKS + HulkConfig.FORCED_GROWTH_TICKS + 6L) {
-			roar(level, player); // he stands and lets it out
+			roar(level, player); // he stands tall and lets it out
 		}
 		if (now % 4L == 0L) {
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + h * 0.5, player.getZ(), 2, 0.5, h * 0.35, 0.5, 0.0);
 		}
 	}
 
-	/** The roar and the shock as the Hulk arrives (at once for the willing change, as he stands for the unwilling one). */
+	/** The roar and the shock as the Hulk arrives. */
 	private static void roar(ServerLevel level, ServerPlayer player) {
 		Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.6f, 0.7f);
@@ -949,49 +1003,49 @@ public final class Hulk {
 		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, c.x, c.y, c.z, 20, 0.8, 1.0, 0.8, 0.1);
 	}
 
-	private static void transformFx(ServerPlayer player, boolean forced) {
+	private static void transformFx(ServerPlayer player, boolean quick, boolean forced) {
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.5f);
-		if (forced) {
-			// v0.13.15: the unwilling change -- he drops to his knees fighting it; the roar comes when he stands (tickForcedChange)
+		if (quick) {
+			roar(level, player);
+		} else {
+			// the slow change -- the roar comes when he stands tall (tickChange)
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.2f, 0.5f);
 			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 30, 0.4, 0.7, 0.4, 0.02);
-		} else {
-			roar(level, player);
 		}
 		player.displayClientMessage(Component.translatable(forced ? "message.projecthero.hulk.transform_forced"
 				: "message.projecthero.hulk.transform").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 	}
 
-	private static void revertFx(ServerPlayer player, boolean exhaust) {
+	private static void revertFx(ServerPlayer player) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.0, 0);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.0f, 0.6f);
 		level.sendParticles(DEEP_GREEN, c.x, c.y, c.z, 30, 0.5, 0.8, 0.5, 0.02);
-		if (exhaust) {
-			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted")
-					.withStyle(ChatFormatting.GRAY), true);
-		}
 	}
 
 	// ---------------------------------------------------------------- lifecycle
 
 	/**
-	 * Join (v0.13.12, Phase 5): logging out ends the Hulk -- he comes back as Banner with his rage kept (so a player at
-	 * 50+ can press H straight away). A relog cannot restore a Hulk's health above Banner's 20 anyway: the transient
-	 * max-health bonus is gone by the time the saved health is read.
+	 * Join: logging out ends the Hulk -- he comes back as Banner. v0.16.4: a player who logged out in the middle of the Hulk
+	 * death sequence comes back for its last two seconds (and dies); the hold-H cooldown is kept (clamped, since game time is
+	 * per world).
 	 */
 	public static void onPlayerJoin(ServerPlayer player) {
 		HulkState s = state(player);
 		if (!s.hasPower) {
 			return;
 		}
+		long now = player.level().getGameTime();
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.onJoin(player); // v0.15.3: no weapon is away after a relog
 		HulkState n = s.copy();
 		n.hulk = false;
+		n.rage = 0.0f;
 		n.combat.unwilling = false;
 		n.combat.strainStart = 0L;
+		n.combat.rampageUntil = 0L;
+		n.combat.calming = false;
 		// game time is per world: nothing carried over from another world may lock the player out
 		n.exhaustedUntil = 0L;
 		n.formChangedAt = 0L;
@@ -1000,13 +1054,28 @@ public final class Hulk {
 		n.leapChargeStart = 0L;
 		n.leaping = false;
 		n.animId = HulkState.ANIM_NONE;
-		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > player.level().getGameTime() + 20L * 60L);
+		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 60L);
+		n.rules.nextRampageAt = 0L;
+		n.rules.warnLen = 0;
+		n.rules.warnPos = 0;
+		n.rules.ringStreak = 0;
+		if (n.rules.holdCooldownUntil > now + HulkConfig.WILLING_COOLDOWN_TICKS) {
+			n.rules.holdCooldownUntil = 0L;
+		}
+		if (s.dying()) {
+			// he was dying when he left: the last two seconds, then the death
+			n.rules.deathFallAt = now - HulkConfig.DEATH_LIE_TICKS - HulkConfig.DEATH_REVERT_TICKS;
+			n.formChangedAt = now - HulkConfig.DEATH_REVERT_TICKS;
+			n.animId = HulkState.ANIM_DEATH_FALL;
+			n.animStart = n.rules.deathFallAt;
+		}
 		save(player, n);
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+		SHRINK_FROM.remove(player.getUUID());
 	}
 
-	/** Respawn: a fresh, calm Banner -- no rage, no Hulk, full size back to normal at once. */
+	/** Respawn: a fresh Banner -- no rage, no Hulk, normal size at once. The hold-H cooldown carries on. */
 	public static void onPlayerRespawn(ServerPlayer player) {
 		HulkState s = state(player);
 		if (!s.hasPower) {
@@ -1016,6 +1085,7 @@ public final class Hulk {
 		n.hulk = false;
 		n.combat.unwilling = false;
 		n.combat.strainStart = 0L;
+		n.combat.rampageUntil = 0L;
 		n.rage = 0.0f;
 		n.exhaustedUntil = 0L;
 		n.formChangedAt = 0L;
@@ -1023,28 +1093,35 @@ public final class Hulk {
 		n.leaping = false;
 		n.animId = HulkState.ANIM_NONE;
 		n.abilityReadyAt.clear();
+		long cooldown = n.rules.holdCooldownUntil;
+		n.rules = new HulkState.Rules();
+		n.rules.holdCooldownUntil = cooldown;
 		save(player, n);
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
+		forget(player.getUUID());
+		clearChangeLock(player);
 	}
 
-	/** Death / logout / dimension change: nothing transient to drop beyond the message throttle. */
+	/** Death / logout / dimension change: the running moves, the rampage and the riders end. The death sequence is kept. */
 	public static void clearTransient(ServerPlayer player) {
 		LAST_MESSAGE.remove(player.getUUID());
 		HulkAbilities.clear(player.getUUID());
 		HulkGrab.release(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3
-		HulkCalm.clear(player.getUUID());
 		HulkControl.clear(player.getUUID());
+		HulkRoar.clear(player.getUUID());
 		ejectRider(player);
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-		if (s != null && (s.leapChargeStart != 0L || s.leaping || s.animId != HulkState.ANIM_NONE || s.combat.chargeUntil != 0L
+		if (s != null && (s.leapChargeStart != 0L || s.leaping || (s.animId != HulkState.ANIM_NONE && !s.dying()) || s.combat.chargeUntil != 0L
 				|| s.combat.smashChargeStart != 0L || s.combat.calming || s.combat.rampageUntil != 0L || s.combat.holding
-				|| s.combat.strainStart != 0L)) {
+				|| s.combat.strainStart != 0L || s.rules.warnLen != 0 || s.rules.ringStreak != 0)) {
 			HulkState n = s.copy();
 			n.leapChargeStart = 0L;
 			n.leaping = false;
-			n.animId = HulkState.ANIM_NONE;
+			if (!s.dying()) {
+				n.animId = HulkState.ANIM_NONE;
+			}
 			n.combat.chargeUntil = 0L;
 			n.combat.smashChargeStart = 0L;
 			n.combat.calming = false;
@@ -1053,37 +1130,58 @@ public final class Hulk {
 			n.combat.strainStart = 0L;
 			n.combat.promptKey = 0;
 			n.combat.control = 100.0f;
+			n.rules.warnLen = 0;
+			n.rules.warnPos = 0;
+			n.rules.ringStreak = 0;
+			if (n.hulk) {
+				n.rules.nextRampageAt = player.level().getGameTime() + HulkConfig.control().rampageEveryTicks;
+			}
 			save(player, n);
 		}
 	}
 
-	// ---------------------------------------------------------------- the death save
+	// ---------------------------------------------------------------- death
 
-	/** Client-safe: would "the Hulk refuses to die" save him right now? v0.13.17: always, as Banner -- never as the Hulk. */
+	/** Client-safe: would Banner's death be turned into the change right now? v0.16.4: always, as Banner. */
 	public static boolean deathSaveReady(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-		return s != null && s.hasPower && !s.hulk;
+		return s != null && s.hasPower && !s.hulk && !s.dying();
 	}
 
 	/**
-	 * v0.13.14: a Gamma player who would die is not allowed to -- the Hulk comes out at full health with a full rage bar
-	 * (the unwilling change). v0.13.17: no cooldown -- Banner can never be killed; to kill a Gamma player you have to beat
-	 * the Hulk, so a Hulk who would die dies. /kill and the void still kill, and so does anything that stops the Hulk
-	 * coming out (inside a Titan, All Might's Power Form). Returns true if the death was prevented (the caller cancels it).
+	 * v0.16.4 (user): every death of a Gamma player is turned into something else (the {@code ALLOW_DEATH} hook). Returns true
+	 * if the death was prevented (the caller cancels it).
+	 * <ul>
+	 *   <li>As Banner: the Hulk comes out -- every time, no cooldown, even on the hold-H cooldown -- at full health
+	 *       ({@link #transform} forced, a random style).</li>
+	 *   <li>As the Hulk: he does not die yet -- he falls flat on his back ({@link HulkState#ANIM_DEATH_FALL}), slowly changes
+	 *       back into the regular player and dies {@link HulkConfig#DEATH_FINAL_DELAY_TICKS} after that ({@link #tickDeath}).</li>
+	 * </ul>
+	 * /kill and the void still kill at once, and so does anything that stops the Hulk coming out (inside a Titan, All Might's
+	 * Power Form) -- and the final death of the sequence is never caught.
 	 */
-	public static boolean tryDeathSave(ServerPlayer player, net.minecraft.world.damagesource.DamageSource source) {
+	public static boolean tryDeathSave(ServerPlayer player, DamageSource source) {
 		HulkState s = state(player);
-		if (!s.hasPower || s.hulk || player.isSpectator() || player.getAbilities().invulnerable
-				|| com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
-				|| com.projecthero.mod.allmight.AllMight.isFullPower(player)
+		if (!s.hasPower || player.isSpectator() || player.getAbilities().invulnerable || FINAL_DEATH.contains(player.getUUID())
 				|| source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)
 				|| source.is(net.minecraft.world.damagesource.DamageTypes.FELL_OUT_OF_WORLD)) {
 			return false;
 		}
+		if (s.dying()) {
+			player.setHealth(1.0f);
+			return true; // already on his way out -- the sequence decides when
+		}
+		if (s.hulk) {
+			startDeathFall(player, source);
+			return true;
+		}
+		if (com.projecthero.mod.titanshifter.TitanShifter.phase(player).insideForm()
+				|| com.projecthero.mod.allmight.AllMight.isFullPower(player)) {
+			return false;
+		}
 		HulkState n = s.copy();
-		n.rage = HulkConfig.RAGE_MAX;
 		n.exhaustedUntil = 0L;
-		n.combat.calming = false;
+		n.combat.strainStart = 0L;
 		save(player, n);
 		player.setHealth(1.0f);
 		transform(player, true);
@@ -1100,5 +1198,110 @@ public final class Hulk {
 		player.displayClientMessage(Component.translatable("message.projecthero.hulk.death_save")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 		return true;
+	}
+
+	/** v0.16.4: the Hulk took his killing blow -- down he goes, flat on his back. */
+	static void startDeathFall(ServerPlayer player, DamageSource source) {
+		long now = player.level().getGameTime();
+		HulkGrab.release(player);
+		HulkAbilities.endCharge(player);
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player);
+		HulkControl.clear(player.getUUID());
+		ejectRider(player);
+		DEATH_SOURCE.put(player.getUUID(), source);
+		HulkState n = state(player).copy();
+		n.rules.deathFallAt = now;
+		n.rules.warnLen = 0;
+		n.rules.warnPos = 0;
+		n.rules.ringStreak = 0;
+		n.combat.rampageUntil = 0L;
+		n.combat.strainStart = 0L;
+		n.combat.holding = false;
+		n.combat.chargeUntil = 0L;
+		n.combat.smashChargeStart = 0L;
+		n.leapChargeStart = 0L;
+		n.animId = HulkState.ANIM_DEATH_FALL;
+		n.animStart = now;
+		save(player, n);
+		player.setHealth(1.0f);
+		player.clearFire();
+		player.removeEffect(MobEffects.WITHER);
+		player.removeEffect(MobEffects.POISON);
+		player.setSprinting(false);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_STUNNED, SoundSource.PLAYERS, 2.0f, 0.5f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_DEATH, SoundSource.PLAYERS, 1.2f, 0.6f);
+		player.displayClientMessage(Component.translatable("message.projecthero.hulk.falling").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD),
+				true);
+	}
+
+	/** v0.16.4: the death sequence, tick by tick -- the fall, the slow change back, the real death. */
+	private static void tickDeath(ServerLevel level, ServerPlayer player, HulkState s, long now) {
+		long t = now - s.rules.deathFallAt;
+		if (player.getHealth() < 1.0f) {
+			player.setHealth(1.0f);
+		}
+		if (t == 12L) { // he hits the ground
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_BIG_FALL, SoundSource.PLAYERS, 1.6f, 0.5f);
+			level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 0.1, player.getZ(), 30, player.getBbWidth(), 0.05,
+					player.getBbWidth(), 0.03);
+			HulkCombat.shake(level, player.position(), 0.5f, 12, 16.0);
+		}
+		if (s.hulk) {
+			if (t >= HulkConfig.DEATH_LIE_TICKS) {
+				// the slow change back, still on his back
+				SHRINK_FROM.put(player.getUUID(), scaleBonus(player));
+				HulkState n = s.copy();
+				n.hulk = false;
+				n.rage = 0.0f;
+				n.formChangedAt = now;
+				n.combat.unwilling = false;
+				n.rules.nextRampageAt = 0L;
+				save(player, n);
+				reconcile(player);
+				player.setHealth(1.0f);
+				level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.2f, 0.5f);
+			} else if (t % 10L == 0L) {
+				level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + 0.5, player.getZ(), 6, player.getBbWidth() * 0.6, 0.3,
+						player.getBbWidth() * 0.6, 0.0);
+			}
+			return;
+		}
+		long since = t - HulkConfig.DEATH_LIE_TICKS;
+		if (since < HulkConfig.DEATH_REVERT_TICKS && since % 6L == 0L) {
+			level.sendParticles(DEEP_GREEN, player.getX(), player.getY() + 0.4, player.getZ(), 3, 0.5, 0.2, 0.5, 0.0);
+		}
+		if (since == HulkConfig.DEATH_REVERT_TICKS) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.2f, 0.4f);
+		}
+		if (since >= HulkConfig.DEATH_REVERT_TICKS + HulkConfig.DEATH_FINAL_DELAY_TICKS) {
+			finalDeath(player);
+		}
+	}
+
+	/** v0.16.4: the real death at the end of the sequence (drops, the death screen) -- never caught by the base-form change. */
+	static void finalDeath(ServerPlayer player) {
+		DamageSource source = DEATH_SOURCE.remove(player.getUUID());
+		if (source == null) {
+			source = player.damageSources().generic();
+		}
+		HulkState n = state(player).copy();
+		n.rules.deathFallAt = 0L;
+		n.animId = HulkState.ANIM_NONE;
+		save(player, n);
+		clearChangeLock(player);
+		SHRINK_FROM.remove(player.getUUID());
+		FINAL_DEATH.add(player.getUUID());
+		try {
+			player.setHealth(0.0f);
+			player.die(source);
+		} finally {
+			FINAL_DEATH.remove(player.getUUID());
+		}
+	}
+
+	/** v0.16.4: is this player's real death going through right now? (The base-form change lets it.) */
+	public static boolean finalDeathInProgress(Player player) {
+		return FINAL_DEATH.contains(player.getUUID());
 	}
 }

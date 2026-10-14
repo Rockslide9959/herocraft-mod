@@ -462,6 +462,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.hulk.HulkClient::tick);
 		com.projecthero.mod.client.hulk.GammaOriginClient.init(); // v0.16.4: the Gamma origin flash, energy and mind
 		com.projecthero.mod.client.hulk.HulkMovesClient.init(); // v0.16.4: Super Leap without drag + the leap bar
+		com.projecthero.mod.client.hulk.HulkRampageClient.init(); // v0.16.4: the rampage view, the ring minigame, the warning
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
 		com.projecthero.mod.client.spider.SpiderSuitV2Client.initialize(); // v0.16.2: Suit v2 -- Trip Mine renderer, Web Wings
@@ -771,7 +772,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// "changes 19": H while wearing any Iron Man armour opens / closes the helmet faceplate.
 			// v0.6.16: H while transformed as Max Steel does the same for its helmet. Otherwise H opens
 			// the experimental power wheel as before.
-			if (client.player != null && !Screen.hasShiftDown()
+			if (client.player != null && client.level != null && client.level.dimension() == com.projecthero.mod.hulk.HulkMind.DIMENSION) {
+				// v0.16.4 (user): H in the Gamma origin's mind room -- the Hulk in the mirror comes through it (was a right-click)
+				ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
+						com.projecthero.mod.network.HulkActionPayload.Action.MIND_MIRROR));
+			} else if (client.player != null && !Screen.hasShiftDown()
 					&& com.projecthero.mod.client.ironman.GantryClient.wantsH(client.player)) {
 				// v0.15.4: H as Tony Stark standing on a Stark Gantry Floor -- the gantry's suit menu (or "Remove armour").
 				// Shift+H still falls through (an Iron Man wearer's faceplate toggle).
@@ -787,8 +792,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				ClientPlayNetworking.send(new com.projecthero.mod.network.AllMightActionPayload(
 						com.projecthero.mod.network.AllMightActionPayload.Action.TOGGLE_FORM));
 			} else if (client.player != null && com.projecthero.mod.hulk.Hulk.hasPower(client.player) && !Screen.hasShiftDown()) {
-				// v0.13.11: H with the Gamma power lets the Hulk out (Shift+H still opens the power wheel). v0.15.18: 50+ rage, or
-				// hold H to strain him out below that (HulkClient sends the release); H as the Hulk changes back.
+				// v0.13.11: H with the Gamma power lets the Hulk out (Shift+H still opens the power wheel). v0.16.4: HOLD H for the
+				// change (HulkClient sends the release); H as the Hulk changes back (after the 3-minute lock).
 				ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
 						com.projecthero.mod.network.HulkActionPayload.Action.TRANSFORM));
 				com.projecthero.mod.client.hulk.HulkClient.pressedH();
@@ -1039,6 +1044,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			novaHelmetRemoveHeld = true;
 			ClientPlayNetworking.send(new com.projecthero.mod.nova.network.NovaActionPayload(
 					com.projecthero.mod.nova.network.NovaActionPayload.Action.HELMET_REMOVE_START));
+		} else if (down && !maxSteelTransformWasDown && client.player != null && client.screen == null
+				&& com.projecthero.mod.hulk.Hulk.isHulk(client.player)) {
+			// v0.16.4 (user): N as the Hulk -- the roar; low-level mobs nearby flee (the server checks the cooldown)
+			ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
+					com.projecthero.mod.network.HulkActionPayload.Action.ROAR));
 		} else if (down && !maxSteelTransformWasDown && com.projecthero.mod.client.hulk.GladiatorGearClient.ownsN(client)) {
 			// v0.15.3: a TAP of N as Banner opens the Gladiator Gear screen (sent on release; a 2 s hold stays the calm-down).
 			com.projecthero.mod.client.hulk.GladiatorGearClient.pressed();

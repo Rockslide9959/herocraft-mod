@@ -15,7 +15,8 @@ import software.bernie.geckolib.util.Color;
 /**
  * v0.13.12 (Hulk Phase 3): draws the Hulk model in place of a player who is the Hulk. Called from
  * {@code PlayerRendererHulkMixin}, which cancels the vanilla player render -- so his armour, cape and held items are
- * hidden while he is out. GeckoLib applies the player's own scale attribute (1.8x) itself. Created from the
+ * hidden while he is out. GeckoLib applies the player's own scale attribute itself (v0.16.4: rage-driven, 3.5-6 blocks; see
+ * {@link #MODEL_FIT}). Created from the
  * {@code PlayerRenderer}'s context on every resource reload.
  *
  * <p>v0.13.15: {@link #renderFaded} draws him see-through while he phases onto Banner (or off him) -- the translucent
@@ -27,9 +28,17 @@ public class HulkRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer
 	/** The alpha of the draw in progress (1 = solid). Rendering is single-threaded. */
 	private float fade = 1.0f;
 
+	/**
+	 * v0.16.4 (user: the Hulk is 3.5 blocks tall at 0 rage and 6 at 100): GeckoLib already multiplies the model by the player's
+	 * SCALE attribute (height / 1.8), and hulk.geo.json stands 32 px = 2 blocks at scale 1 -- so this pre-scale makes the drawn
+	 * Hulk exactly as tall as his hitbox (2 x 0.9 = 1.8 per unit of scale) instead of 11% taller. No second size factor anywhere.
+	 */
+	public static final float MODEL_FIT = 0.9f;
+
 	public HulkRenderer(EntityRendererProvider.Context context) {
 		super(context, new HulkModel(), HulkAnimatable.INSTANCE);
 		this.shadowRadius = 0.5f;
+		withScale(MODEL_FIT);
 		addRenderLayer(new HulkGladiatorLayer(this)); // v0.15.3: Gladiator Hulk's gear (own texture, second pass)
 	}
 

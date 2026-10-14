@@ -19,7 +19,8 @@ import net.minecraft.world.entity.player.Player;
 public abstract class AbstractClientPlayerHulkFovMixin {
 	@Inject(method = "getFieldOfViewModifier", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noHulkChangeZoom(CallbackInfoReturnable<Float> cir) {
-		if (Hulk.changing((Player) (Object) this)) {
+		// v0.16.4: a rampage pins his own movement the same way (the server drives him)
+		if (Hulk.changing((Player) (Object) this) || com.projecthero.mod.hulk.HulkControl.rampaging((Player) (Object) this)) {
 			cir.setReturnValue(1.0f);
 		}
 	}
