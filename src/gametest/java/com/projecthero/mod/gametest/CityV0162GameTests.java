@@ -281,7 +281,8 @@ public class CityV0162GameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- cops
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "city_cop", timeoutTicks = 1600)
+	// its own batch: a villager from a neighbouring test in the same batch could claim this desk first (seen on a full run)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "city_cop_claim_solo", timeoutTicks = 1600)
 	public void cityCopClaimsThePrecinctDesk(GameTestHelper helper) {
 		floor(helper);
 		helper.setBlock(new BlockPos(5, 2, 5), CityBlocks.PRECINCT_DESK);
