@@ -25,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Shift + X</b> (Uppercut) -- Spike Burst: spikes erupt from the whole body, 8 damage to everything within 3.</li>
  *   <li><b>Shift + Z, held</b> (Grab &amp; Hurl) -- Consume: seize a target within 6 blocks and squeeze it for 5 damage
  *       a second for up to 2 seconds, healing for 30% of what it deals.</li>
- *   <li><b>Shift + V</b> (Web Cocoon) -- Ink Shroud: a black cloud that blinds and slows enemies within 5 blocks.</li>
+ *   <li><b>Shift + V</b> (Web Pin) -- Ink Shroud: a black cloud that blinds and slows enemies within 5 blocks.</li>
  *   <li><b>Hold V</b> (Web Blossom) -- Let It Take Over, at a full Hunger meter ({@link SymbioteHunger}).</li>
  *   <li><b>Shift + C</b> (Web Wall) -- Symbiote Slam: a dive for a 10-damage shockwave (6 from the ground).</li>
  * </ul>

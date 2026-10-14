@@ -209,11 +209,12 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 			tap(p, AbilitySlot.SLOT_5);
 			helper.assertTrue(cd(p, SpiderMoves.SPIDER_PULSE), "V tap = Spider-Sense Pulse");
 			helper.assertTrue(SpiderMoves.inDodgeWindow(p), "with its dodge window");
-			zombie.setHealth(2.0f);
 			p.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
 			shift(p, AbilitySlot.SLOT_5);
-			helper.assertTrue(cd(p, SpiderMoves.WEB_COCOON), "Shift+V = Web Cocoon on a weakened enemy");
-			// (v0.16.1: the cocoon is a thrown web ball now -- it wraps the zombie when it lands, checked below)
+			// v0.16.2: Shift+V = Web Pin -- the first press only marks (the pin itself is SpiderWebPinGameTests)
+			helper.assertTrue(com.projecthero.mod.spider.SpiderWebPin.marked(p) == zombie, "Shift+V = Web Pin marks the target");
+			helper.assertFalse(cd(p, SpiderMoves.WEB_PIN), "marking costs no cooldown");
+			com.projecthero.mod.spider.SpiderWebPin.clear(p);
 			shift(p, AbilitySlot.SLOT_6);
 			helper.assertTrue(cd(p, SpiderMoves.WEB_WALL), "Shift+C = Web Wall");
 			helper.assertFalse(cd(p, SpiderMoves.TIGHTROPE) || cd(p, SpiderMoves.WEAVE), "C's other moves stay ready");
@@ -224,7 +225,6 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		}).thenIdle(SpiderMoves.holdTicks() + 2).thenExecute(() -> {
 			SpiderMoves.tick(p);
 			helper.assertTrue(SpiderMoves.isWeaving(p), "hold C opens Weave Mode");
-			helper.assertTrue(com.projecthero.mod.spider.SpiderWebs.isDeepCocooned(zombie), "the Web Cocoon ball reached the zombie and wrapped it");
 			release(p, AbilitySlot.SLOT_6);
 			helper.assertFalse(SpiderMoves.isWeaving(p), "and the release closes it");
 		}).thenSucceed();

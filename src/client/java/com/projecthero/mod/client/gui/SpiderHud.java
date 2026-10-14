@@ -283,6 +283,27 @@ public final class SpiderHud {
 		g.drawCenteredString(mc.font, label, lx, ly, (0xFFE0E8 | alpha));
 	}
 
+	/**
+	 * v0.16.2 Web Pin: while a target is marked, a cue under the crosshair -- "Pin: aim at a surface -- Shift+V" -- with a
+	 * thin bar for the time left on the mark.
+	 */
+	private static void renderPinCue(GuiGraphics g, Minecraft mc, Player player) {
+		SpiderMoveState m = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		long now = mc.level != null ? mc.level.getGameTime() : 0L;
+		if (m == null || m.pinUntil <= now) {
+			return;
+		}
+		int cx = g.guiWidth() / 2;
+		int y = g.guiHeight() / 2 + 14;
+		Component cue = Component.translatable("hud.projecthero.spider_man.pin_cue");
+		int w = mc.font.width(cue);
+		g.fill(cx - w / 2 - 3, y - 2, cx + w / 2 + 3, y + 13, 0x88000000);
+		g.drawCenteredString(mc.font, cue, cx, y, 0xFFF4F4F4);
+		float left = Math.min(1f, (m.pinUntil - now) / (float) com.projecthero.mod.spider.SpiderWebPin.MARK_TICKS);
+		int bw = Math.round((w + 6) * left);
+		g.fill(cx - w / 2 - 3, y + 11, cx - w / 2 - 3 + bw, y + 13, 0xFFE03040);
+	}
+
 	public static void render(GuiGraphics graphics, DeltaTracker deltaTracker) {
 		Minecraft client = Minecraft.getInstance();
 		Player player = client.player;
@@ -297,6 +318,7 @@ public final class SpiderHud {
 		// The Spider-Sense warning and the web alarm show regardless of which power holds the ability slots.
 		renderWarning(graphics, client, player);
 		renderAlarm(graphics, client, player, partial);
+		renderPinCue(graphics, client, player);
 		renderBlossomCharge(graphics, client, player);
 		// Mirrors SpiderManAbilityManager.hasContext: a mutation selected in the wheel owns the slots.
 		ExperimentalState experimental = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
