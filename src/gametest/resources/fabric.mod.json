@@ -68,6 +68,7 @@
       "com.projecthero.mod.gametest.SpiderStealthGameTests",
       "com.projecthero.mod.gametest.SpiderReflexGameTests",
       "com.projecthero.mod.gametest.SpiderMaskGameTests",
+      "com.projecthero.mod.gametest.SpiderSuitV2GameTests",
       "com.projecthero.mod.gametest.SymbioteGameTests",
       "com.projecthero.mod.gametest.SymbioteV01515GameTests",
       "com.projecthero.mod.gametest.MaxSteelGameTests",

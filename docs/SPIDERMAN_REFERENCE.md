@@ -1071,3 +1071,64 @@ Adhesion it grew out of is not handed back.
 
 - Released swing webs no longer replace each other: every released web stays put until it has fully phased out (5 s).
 - HUD: the Web % text and the mode label use the web bar's grey-white.
+
+## v0.16.2 -- Suit v2 (Web Wings, Trip Mine)
+
+**The suit.** `SpiderItems.SUIT_V2_*` (`spider_man_suit_v2_{helmet,chestplate,leggings,boots}`) are
+`SpiderManV2ArmorItem`, a subclass of `SpiderManArmorItem` that keeps the `"spider_man"` armour-set id -- so every path
+the original suit takes (the skin-tight rig `SpiderSuitRender`, the mask H / `SpiderMask` / `SpiderMaskAnim`, jointed
+limbs, perch, hang, the hidden skin overlay, the first-person sleeve) covers v2 unchanged. Only the skin differs:
+`textures/armor/spider_man_v2.png` (the user's chosen 64x64 classic red/blue skin). `SpiderSuitRender.textureFor(item)`
+picks the skin per piece, so the two suits can be mixed piece by piece. EPIC, durability multiplier 28 (v1: 22).
+
+**Crafting -- you keep the old suit.** `SpiderSuitUpgradeRecipe` (`"type": "projecthero:spider_suit_upgrade"`) is a
+vanilla shaped recipe (same JSON shape, recipe-book friendly) whose `getRemainingItems` hands back the original
+(non-v2, non-Symbiote) Spider-Man piece, so it stays in the grid after the craft. Recipes in
+`data/projecthero/recipe/spider_man_suit_v2_*.json`; unlocked in the recipe book by
+`advancement/recipes/spider_man_suit_v2_*.json` when the original piece is in the inventory.
+
+| Piece | Pattern | Key |
+|---|---|---|
+| Mask | ` L ` / `RHB` / ` S ` | H = original mask |
+| Suit | `SMS` / `RHB` / `LIL` | H = original suit, M = phantom membrane (the wings), I = iron ingot |
+| Leggings | `RLB` / `LHL` / `S S` | H = original leggings |
+| Boots | `RHB` / `L L` | H = original boots |
+
+(S string, R red dye, B blue dye, L leather.)
+
+**Web Wings** (`SpiderWebWings`, client `SpiderWebWingsClient`; needs the Spider-Man power + the v2 chest piece).
+- Start: HOLD Jump while falling for `HOLD_TICKS` = 6 ticks, falling faster than `START_FALL_SPEED` = 0.25 b/t, airborne,
+  not swinging, not wall-crawling, not hanging, not flying/elytra/riding/in fluid (`canGlide` / `canStart`). A TAP of
+  Jump after a swing release stays the swing trick.
+- Flight (`step`): cruise `CRUISE` 0.8 b/t (16 b/s), sink `SINK` 0.10 b/t; heading turns toward the look yaw at most
+  `TURN_DEG` 7 deg/tick (the bank); looking down adds `DIVE_ACCEL` 0.06 b/t per tick x sin(pitch) up to `MAX_SPEED` 1.6 and
+  sinks faster; looking up bleeds `CLIMB_DRAG` 0.05 down to `MIN_SPEED` 0.5; always sinks at least `MIN_SINK` 0.05 (keeps
+  vanilla's "floating" kick check quiet). Entry speed = max(horizontal speed, 0.8 x fall speed).
+- End: Jump released, landing, a wall, a fired line (velocity kept: the swing starts from the glide's momentum).
+- Sync: client-simulated at the top of `LocalPlayer.aiStep` (`SpiderWebWingsMixin`, like the swing); edges go to the
+  server as `SpiderGlidePayload`; the server checks `canGlide`, owns `ModAttachments.SPIDER_WEB_GLIDING` (synced to all),
+  zeroes fall distance while set and clears it when the rules fail. If the server never confirms within 10 ticks the
+  client stops and waits 2 s before retrying.
+- Looks: body pitched forward ~72 deg (+30% of the look pitch) about its middle and rolled up to 35 deg into turns
+  (`SpiderWebWingsBodyMixin`); arms spread, legs together, head up (`applyPose`, from `HumanoidModelMixin`); a translucent
+  webbed membrane quad per side, armpit -> wrist -> sag -> hip (`renderMembranes`, from `SpiderSuitLayer`,
+  `textures/entity/spider_web_wing.png`). Eased in/out per player off the synced flag.
+
+**Trip Mine** (`SpiderTripMines`, entity `SpiderTripMineEntity` `projecthero:spider_trip_mine`, renderer
+`SpiderTripMineRenderer`). Shift+C routing in `SpiderMoves.shiftMove` case 5: Black Suit Slam first, then (v2 chest)
+the Trip Mine, else the Web Wall. `SpiderMoves.idFor` shows `trip_mine` on the Shift+C slot in v2; `maxCooldown` knows it.
+- Place: the block face looked at within 5 blocks, else the ground at the feet (3 blocks down), else "nothing to stick
+  to". 10 webbing, 40-tick cooldown.
+- Laser: straight out from the face, 8 blocks or the first block, re-measured every 10 ticks (synced length). The mine
+  falls off if its block goes.
+- Trigger: the nearest living thing whose box the laser crosses that `catchable` allows -- not the owner, not his squad
+  (`Squads.areAllies`), `HeroTargets.canHarm`, not a boss (`SpiderWebs.isBoss`), not already cocooned; with the owner
+  offline, players pass. It is reeled onto the mine's surface (1.4 b/t, at most 14 ticks; the line is drawn to it) and
+  cocooned there with `SpiderWrap.wrapFor(target, 500)`. The mine is spent.
+- Limits: 10 minutes (`age`, saved); sneak + right-click by the owner picks it up (webbing refunded); any hit from a
+  player or an explosion knocks it off; 6 per player (`MAX_PER_PLAYER`) -- a seventh discards the oldest. The per-player
+  list is static and cleared by `ServerStateReset`.
+- Model: octagonal gun-metal disc, red spider dome, white lens, a red light blinking once a second (twice while reeling);
+  the laser is two crossed full-bright ribbons on the web-line texture.
+
+Tests: `SpiderSuitV2GameTests`.

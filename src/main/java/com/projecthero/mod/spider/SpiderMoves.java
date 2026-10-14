@@ -111,12 +111,18 @@ public final class SpiderMoves {
 		if (swap != null) {
 			return swap;
 		}
+		if (i == 5 && kind == 1 && SpiderWebWings.wearingV2(player)) {
+			return SpiderTripMines.TRIP_MINE; // v0.16.2: the Suit v2's Shift+C
+		}
 		return kind == 0 ? TAP[i] : kind == 1 ? SHIFT[i] : HOLD[i];
 	}
 
 	/** Full cooldown (ticks) of any move id on the Spider-Man keys, the black suit's included. */
 	public static int maxCooldown(String id) {
 		int symbiote = com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.cooldownOf(id);
+		if (SpiderTripMines.TRIP_MINE.equals(id)) {
+			return SpiderTripMines.COOLDOWN;
+		}
 		return symbiote > 0 ? symbiote : cfg(id).cooldown;
 	}
 
@@ -492,6 +498,8 @@ public final class SpiderMoves {
 				// v0.16.2: the black suit's Shift+C is only ever the Slam (no Web Wall while it cools down)
 				if (black) {
 					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.slam(player);
+				} else if (SpiderWebWings.wearingV2(player)) {
+					SpiderTripMines.place(player); // v0.16.2: the Suit v2's Trip Mine replaces the Web Wall
 				} else {
 					webWall(player);
 				}

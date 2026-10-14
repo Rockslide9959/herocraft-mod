@@ -311,7 +311,8 @@ public final class SpiderMaskAnim {
 		fv0 = symbiote ? BLACK_V0 : RED_V0;
 		fu1 = symbiote ? BLACK_U1 : RED_U1;
 		fv1 = symbiote ? BLACK_V1 : RED_V1;
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(SpiderSuitRender.TEXTURE));
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(symbiote ? SpiderSuitRender.TEXTURE
+				: SpiderSuitRender.textureFor(player.getItemBySlot(EquipmentSlot.HEAD).getItem()))); // v0.16.2: the v2 mask
 		if (r.ring) {
 			pose.pushPose();
 			m.head.translateAndRotate(pose);

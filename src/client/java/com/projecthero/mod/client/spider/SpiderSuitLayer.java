@@ -20,5 +20,7 @@ public class SpiderSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		SpiderSuitRender.render(pose, buffers, light, getParentModel(), player);
 		// v0.16.2: the mask's rolled hem and the mask in hand while it comes off / goes on (red suit and Black Suit)
 		SpiderMaskAnim.renderExtras(pose, buffers, light, getParentModel(), player);
+		// v0.16.2: the Suit v2's Web Wings membranes while he glides
+		SpiderWebWingsClient.renderMembranes(pose, buffers, light, getParentModel(), player, partialTick);
 	}
 }

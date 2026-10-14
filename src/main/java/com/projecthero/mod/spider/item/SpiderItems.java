@@ -23,6 +23,16 @@ public final class SpiderItems {
 	public static SpiderManArmorItem SUIT_BOOTS;
 
 	/**
+	 * v0.16.2: the Spider-Man Suit v2 -- the classic red-and-blue upgrade, crafted from the matching original piece (which
+	 * is kept, {@link SpiderSuitUpgradeRecipe}). Same skin-tight rig, mask and poses; on the chest it adds the Web Wings
+	 * glide and swaps Shift+C for the Trip Mine.
+	 */
+	public static SpiderManV2ArmorItem SUIT_V2_HELMET;
+	public static SpiderManV2ArmorItem SUIT_V2_CHESTPLATE;
+	public static SpiderManV2ArmorItem SUIT_V2_LEGGINGS;
+	public static SpiderManV2ArmorItem SUIT_V2_BOOTS;
+
+	/**
 	 * The black Symbiote suit (v0.9.10) -- synthesised onto a bonded Spider-Man when the Symbiote is
 	 * activated ({@link com.projecthero.mod.symbiote.SymbioteSuit}). Never crafted, never in a
 	 * tab, no durability. Indexed by armour slot.
@@ -43,6 +53,12 @@ public final class SpiderItems {
 		SUIT_CHESTPLATE = registerSuit("spider_man_suit_chestplate", ArmorItem.Type.CHESTPLATE);
 		SUIT_LEGGINGS = registerSuit("spider_man_suit_leggings", ArmorItem.Type.LEGGINGS);
 		SUIT_BOOTS = registerSuit("spider_man_suit_boots", ArmorItem.Type.BOOTS);
+
+		SUIT_V2_HELMET = registerV2("spider_man_suit_v2_helmet", ArmorItem.Type.HELMET);
+		SUIT_V2_CHESTPLATE = registerV2("spider_man_suit_v2_chestplate", ArmorItem.Type.CHESTPLATE);
+		SUIT_V2_LEGGINGS = registerV2("spider_man_suit_v2_leggings", ArmorItem.Type.LEGGINGS);
+		SUIT_V2_BOOTS = registerV2("spider_man_suit_v2_boots", ArmorItem.Type.BOOTS);
+		SpiderSuitUpgradeRecipe.initialize();
 
 		SYMBIOTE_HELMET = registerSymbiote("spider_man_symbiote_helmet", ArmorItem.Type.HELMET);
 		SYMBIOTE_CHESTPLATE = registerSymbiote("spider_man_symbiote_chestplate", ArmorItem.Type.CHESTPLATE);
@@ -70,12 +86,22 @@ public final class SpiderItems {
 		output.accept(SUIT_CHESTPLATE);
 		output.accept(SUIT_LEGGINGS);
 		output.accept(SUIT_BOOTS);
+		output.accept(SUIT_V2_HELMET);
+		output.accept(SUIT_V2_CHESTPLATE);
+		output.accept(SUIT_V2_LEGGINGS);
+		output.accept(SUIT_V2_BOOTS);
 	}
 
 	private static SpiderManArmorItem registerSuit(String path, ArmorItem.Type type) {
 		SpiderManArmorItem item = new SpiderManArmorItem(ModArmorMaterials.SPIDER_MAN, type,
 				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(22)));
 		return (SpiderManArmorItem) register(path, item);
+	}
+
+	private static SpiderManV2ArmorItem registerV2(String path, ArmorItem.Type type) {
+		SpiderManV2ArmorItem item = new SpiderManV2ArmorItem(ModArmorMaterials.SPIDER_MAN, type,
+				new Item.Properties().rarity(Rarity.EPIC).durability(type.getDurability(28)));
+		return (SpiderManV2ArmorItem) register(path, item);
 	}
 
 	/** Symbiote piece: EPIC, fire-resistant, and deliberately NO {@code .durability(...)} -> unbreakable. */
