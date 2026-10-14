@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/food_bank"
+    },
+    "facing=east": {
+      "model": "projecthero:block/food_bank",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/food_bank",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/food_bank",
+      "y": 270
+    }
+  }
+}

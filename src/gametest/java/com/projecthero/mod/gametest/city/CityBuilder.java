@@ -1625,6 +1625,9 @@ public final class CityBuilder {
 			set(x, 5, bz, stair(Blocks.OXIDIZED_CUT_COPPER_STAIRS, Direction.SOUTH, false));
 		}
 		bell(bx, 3, bz);
+		// v0.16.2: the Food Bank (projecthero:food_bank) between the west stalls and the bell, a hay bale beside it
+		set(10, 0, bz, facingIf(cityBlock("food_bank"), Direction.EAST));
+		set(10, 0, bz + 1, Blocks.HAY_BLOCK);
 		planterTree(-1 + 1, D + 16, Blocks.OAK_LOG, Blocks.OAK_LEAVES);
 		planterTree(W - 2, D + 16, Blocks.OAK_LOG, Blocks.OAK_LEAVES);
 		parkLamp(7, D + 10);

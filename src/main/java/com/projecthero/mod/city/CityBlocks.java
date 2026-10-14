@@ -48,9 +48,17 @@ public final class CityBlocks {
 	public static final Block SAFE_DEPOSIT = registerBlock("safe_deposit", new SafeDepositBlock(BlockBehaviour.Properties.of()
 			.mapColor(MapColor.METAL).strength(5.0f, 1200.0f).sound(SoundType.METAL).requiresCorrectToolForDrops()));
 
+	/** v0.16.2: the Food Bank -- villagers drop spare food here, and it turns into newborn villagers (see FoodBankBlock). */
+	public static final Block FOOD_BANK = registerBlock("food_bank", new FoodBankBlock(BlockBehaviour.Properties.of()
+			.mapColor(MapColor.WOOD).strength(2.5f).sound(SoundType.WOOD).ignitedByLava()));
+	public static final net.minecraft.world.level.block.entity.BlockEntityType<FoodBankBlockEntity> FOOD_BANK_BE = Registry.register(
+			BuiltInRegistries.BLOCK_ENTITY_TYPE, ProjectHeroMod.id("food_bank"),
+			net.minecraft.world.level.block.entity.BlockEntityType.Builder.of(FoodBankBlockEntity::new, FOOD_BANK).build(null));
+
 	public static final Item PRECINCT_DESK_ITEM = registerBlockItem("precinct_desk", PRECINCT_DESK, Rarity.COMMON);
 	public static final Item REPAIR_BENCH_ITEM = registerBlockItem("repair_bench", REPAIR_BENCH, Rarity.COMMON);
 	public static final Item SAFE_DEPOSIT_ITEM = registerBlockItem("safe_deposit", SAFE_DEPOSIT, Rarity.UNCOMMON);
+	public static final Item FOOD_BANK_ITEM = registerBlockItem("food_bank", FOOD_BANK, Rarity.COMMON);
 	public static final Item DAILY_BULLETIN = Registry.register(BuiltInRegistries.ITEM,
 			ResourceKey.create(Registries.ITEM, ProjectHeroMod.id("daily_bulletin")), new DailyBulletinItem(new Item.Properties().stacksTo(16)));
 
@@ -81,6 +89,7 @@ public final class CityBlocks {
 			entries.accept(PRECINCT_DESK_ITEM);
 			entries.accept(REPAIR_BENCH_ITEM);
 			entries.accept(SAFE_DEPOSIT_ITEM);
+			entries.accept(FOOD_BANK_ITEM);
 			entries.accept(DAILY_BULLETIN);
 		});
 	}

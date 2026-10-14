@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:barrel"
+    },
+    {
+      "item": "minecraft:hay_block"
+    },
+    {
+      "item": "minecraft:bread"
+    }
+  ],
+  "result": {
+    "id": "projecthero:food_bank",
+    "count": 1
+  }
+}

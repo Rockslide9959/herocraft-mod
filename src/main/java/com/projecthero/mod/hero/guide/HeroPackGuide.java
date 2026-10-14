@@ -1201,7 +1201,7 @@ public final class HeroPackGuide {
 		// v0.16.2 City part B: the City's services (CH_CITY_SERVICES)
 		out.add(chapter("projecthero.guide.city_services", lines -> {
 			para(lines, "projecthero.guide.city_services.body");
-			for (String section : new String[]{"repair", "repair_rules", "cops", "doctor", "firefighter", "bank", "bulletin", "commands"}) {
+			for (String section : new String[]{"repair", "repair_rules", "food_bank", "cops", "doctor", "firefighter", "bank", "bulletin", "commands"}) {
 				blank(lines);
 				head(lines, "projecthero.guide.city_services." + section);
 				para(lines, "projecthero.guide.city_services." + section + ".body");

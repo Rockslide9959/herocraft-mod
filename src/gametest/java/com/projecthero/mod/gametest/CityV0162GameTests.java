@@ -311,6 +311,48 @@ public class CityV0162GameTests implements FabricGameTest {
 		});
 	}
 
+	// ---------------------------------------------------------------- food bank
+
+	private static com.projecthero.mod.city.FoodBankBlockEntity foodBank(GameTestHelper helper, BlockPos rel) {
+		helper.setBlock(rel, CityBlocks.FOOD_BANK);
+		return (com.projecthero.mod.city.FoodBankBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(rel));
+	}
+
+	/** v0.16.2 (user): food goes in -- safe food only -- and a villager with spare food hands it over. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "city_food_bank", timeoutTicks = 300)
+	public void cityFoodBankTakesFoodFromPlayersAndVillagers(GameTestHelper helper) {
+		floor(helper);
+		var bank = foodBank(helper, new BlockPos(3, 2, 3));
+		helper.assertTrue(bank.deposit(new ItemStack(net.minecraft.world.item.Items.BREAD, 2), true) == 10, "two loaves are 10 food");
+		helper.assertTrue(com.projecthero.mod.city.FoodBankBlockEntity.value(new ItemStack(net.minecraft.world.item.Items.ROTTEN_FLESH)) == 0,
+				"rotten flesh is refused");
+		bank.setFoodForTest(0);
+		Villager farmer = villager(helper, VillagerProfession.FARMER, new BlockPos(4, 2, 3), false);
+		farmer.getInventory().addItem(new ItemStack(net.minecraft.world.item.Items.BREAD, 10));
+		helper.succeedWhen(() -> {
+			helper.assertTrue(bank.food() == 35, "the farmer handed over 7 loaves (food " + bank.food() + ")");
+			helper.assertTrue(farmer.getInventory().countItem(net.minecraft.world.item.Items.BREAD) == 3, "and kept 3 for itself");
+			farmer.discard();
+		});
+	}
+
+	/** v0.16.2 (user): 60 food and a free bed become a newborn villager. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "city_food_bank_birth", timeoutTicks = 300)
+	public void cityFoodBankTurnsFoodIntoANewcomer(GameTestHelper helper) {
+		floor(helper);
+		var bank = foodBank(helper, new BlockPos(3, 2, 3));
+		helper.assertTrue(bank.roomForNewcomers(helper.getLevel()) == 0, "no bed, no newcomer");
+		helper.setBlock(new BlockPos(6, 2, 6), Blocks.RED_BED.defaultBlockState().setValue(net.minecraft.world.level.block.BedBlock.PART,
+				net.minecraft.world.level.block.state.properties.BedPart.HEAD));
+		bank.setFoodForTest(70);
+		helper.succeedWhen(() -> {
+			List<Villager> babies = helper.getLevel().getEntitiesOfClass(Villager.class, new net.minecraft.world.phys.AABB(helper.absolutePos(new BlockPos(3, 2, 3))).inflate(4), Villager::isBaby);
+			helper.assertTrue(babies.size() == 1, "a newborn villager next to the bank");
+			helper.assertTrue(bank.food() == 10, "60 food spent (" + bank.food() + " left)");
+			babies.forEach(Villager::discard);
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, batch = "city_repair")
 	public void cityDepotHiresAWorker(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
