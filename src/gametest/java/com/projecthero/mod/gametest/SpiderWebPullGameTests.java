@@ -337,4 +337,34 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	/** v0.16.2 (user): Web Bomb carpets the floor of its whole splash with cobwebs, out to the edge. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void webBombCarpetsTheWholeFloor(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 0; z <= 7; z++) {
+				helper.getLevel().setBlockAndUpdate(helper.absolutePos(new net.minecraft.core.BlockPos(x, 1, z)),
+						net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+			}
+		}
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 4.5));
+		SpiderMoves.webBombBurst(p, at);
+		int covered = 0, columns = 0;
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 0; z <= 7; z++) {
+				double dx = x - 4, dz = z - 4;
+				if (dx * dx + dz * dz > 9.0) {
+					continue; // within 3 blocks of the middle -- well inside the 6-block splash
+				}
+				columns++;
+				if (helper.getLevel().getBlockState(helper.absolutePos(new net.minecraft.core.BlockPos(x, 2, z)))
+						.is(net.minecraft.world.level.block.Blocks.COBWEB)) {
+					covered++;
+				}
+			}
+		}
+		helper.assertTrue(covered == columns, "every floor tile in the splash is webbed (" + covered + "/" + columns + ")");
+		helper.succeed();
+	}
 }

@@ -595,8 +595,8 @@ public final class SpiderMoves {
 			}
 		}
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, at.x, at.y + 0.5, at.z, 40, 1.0, 0.6, 1.0, 0.05);
-		// v0.16.1: real (temporary) cobwebs fill the air in the splash
-		SpiderCobwebs.fillAround(player, at, m.webBombRadius * 0.75, SpiderManConfig.webs().cobwebsPerCast);
+		// v0.16.2 (user): real (temporary) cobwebs carpet the floor of the WHOLE splash, not just a clump at its middle
+		SpiderCobwebs.floorCarpet(player, at, m.webBombRadius);
 		level.playSound(null, at.x, at.y, at.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.2f, 0.8f);
 		if (caught > 0) {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.web_bomb", caught), true);

@@ -124,6 +124,45 @@ public final class SpiderCobwebs extends SavedData {
 		return placed;
 	}
 
+	/**
+	 * v0.16.2 (user): a carpet of cobwebs over the FLOOR of the whole circle of {@code radius} round {@code centre} -- one
+	 * per column, on the first solid ground within a few blocks above / below the centre (so it follows steps and slopes).
+	 * Not limited by {@code cobwebsPerCast}; the global {@code cobwebsMax} still retires the oldest. Returns how many.
+	 */
+	public static int floorCarpet(ServerPlayer owner, Vec3 centre, double radius) {
+		ServerLevel level = (ServerLevel) owner.level();
+		if (!allowed(level)) {
+			return 0;
+		}
+		BlockPos c = BlockPos.containing(centre);
+		int r = (int) Math.ceil(radius);
+		List<Long> added = new ArrayList<>();
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				if (dx * dx + dz * dz > radius * radius) {
+					continue;
+				}
+				for (int dy = FLOOR_SCAN_UP; dy >= -FLOOR_SCAN_DOWN; dy--) {
+					pos.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+					BlockPos below = pos.below();
+					if (level.getBlockState(pos).isAir()
+							&& !level.getBlockState(below).getCollisionShape(level, below).isEmpty()) {
+						if (placeOne(owner, level, pos.immutable())) {
+							added.add(pos.asLong());
+						}
+						break;
+					}
+				}
+			}
+		}
+		sync(owner, level, added, true);
+		return added.size();
+	}
+
+	private static final int FLOOR_SCAN_UP = 2;
+	private static final int FLOOR_SCAN_DOWN = 5;
+
 	/** Cobwebs at exactly these positions (a ring, a pinned target). */
 	public static int placeAt(ServerPlayer owner, List<BlockPos> positions) {
 		ServerLevel level = (ServerLevel) owner.level();
