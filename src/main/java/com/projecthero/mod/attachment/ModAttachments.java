@@ -396,6 +396,15 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.2: the game tick the Spider-Man mask's last take-off / put-on animation started ({@link #SPIDER_MAN_MASK_OPEN}
+	 * says which way it goes). Synced to everyone so every viewer plays the same peel; not persisted.
+	 */
+	public static final AttachmentType<Long> SPIDER_MAN_MASK_ANIM_START = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_man_mask_anim_start"),
+			builder -> builder.initializer(() -> com.projecthero.mod.spider.SpiderMask.NO_ANIM)
+					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
+	/**
 	 * v0.16.1: Spider-Man's live move state -- the animated move, held stances, the tightrope's anchor A and the web
 	 * being woven. Not persisted (a relog starts clean); synced to every client so everyone sees the poses.
 	 */

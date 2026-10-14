@@ -1,7 +1,6 @@
 package com.projecthero.mod.client.spider;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.spider.SpiderMask;
 import com.projecthero.mod.spider.item.SpiderManArmorItem;
 import com.projecthero.mod.spider.item.SymbioteArmorItem;
 
@@ -76,7 +75,9 @@ public final class SpiderSuitRender {
 		m.leftPants.copyFrom(m.leftLeg);
 		m.rightPants.copyFrom(m.rightLeg);
 		m.hat.copyFrom(m.head);
-		boolean head = worn(player, EquipmentSlot.HEAD) && !SpiderMask.isOpen(player);
+		// v0.16.2: the mask comes off / goes on over a second (SpiderMaskAnim): part-way, only its upper part is drawn
+		float cover = worn(player, EquipmentSlot.HEAD) ? SpiderMaskAnim.coverage(player) : 0f;
+		boolean head = cover >= 0.999f;
 		boolean body = worn(player, EquipmentSlot.CHEST);
 		boolean legs = worn(player, EquipmentSlot.LEGS) || worn(player, EquipmentSlot.FEET);
 		m.head.visible = head;
@@ -91,8 +92,18 @@ public final class SpiderSuitRender {
 		m.leftLeg.visible = legs;
 		m.rightPants.visible = legs;
 		m.leftPants.visible = legs;
-		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(TEXTURE)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+		var vc = buffers.getBuffer(RenderType.entityTranslucent(TEXTURE));
+		m.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		m.setAllVisible(true);
+		if (!head && cover > 0.001f) {
+			for (int layer = 0; layer < 2; layer++) {
+				ModelPart part = SpiderMaskAnim.clippedHead(cover, layer == 1);
+				if (part != null) {
+					part.copyFrom(m.head);
+					part.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
+				}
+			}
+		}
 	}
 
 	/** First person: the suit sleeve over the arm vanilla just posed ({@code vanillaArm}). */

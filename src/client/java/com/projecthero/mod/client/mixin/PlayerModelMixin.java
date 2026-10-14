@@ -127,8 +127,9 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		}
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem()
 				instanceof com.projecthero.mod.spider.item.SpiderManArmorItem
-				&& com.projecthero.mod.spider.SpiderMask.isOpen(player)) {
-			// v0.6.20: Spider-Man costume mask pulled off -- show the wearer's hair/face overlay.
+				&& com.projecthero.mod.client.spider.SpiderMaskAnim.coverage(player) <= 0.001f) {
+			// v0.6.20: Spider-Man costume mask pulled off -- show the wearer's hair/face overlay. (v0.16.2: only once it is
+			// all the way off -- the hair would poke through the part of the mask still on the head.)
 			return true;
 		}
 		// v0.11.3: the Green Lantern suit has no helmet geometry at all (geo/green_lantern.geo.json's

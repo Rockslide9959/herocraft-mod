@@ -211,6 +211,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.greenlantern.GreenLanternPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.16.1: Wolverine claw slashes (left-click combo) and the claw-ability poses
 			com.projecthero.mod.client.wolverine.WolverineClawPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.16.2: the Spider-Man mask coming off / going on (H) -- last, it plays over whatever else he is doing
+			com.projecthero.mod.client.spider.SpiderMaskAnim.apply(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

@@ -409,7 +409,7 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				boolean spiderMask = getCurrentEntity() instanceof Player sp
 						&& sp.getItemBySlot(EquipmentSlot.HEAD).getItem()
 								instanceof com.projecthero.mod.spider.item.SpiderManArmorItem
-						&& com.projecthero.mod.spider.SpiderMask.isOpen(sp);
+						&& com.projecthero.mod.client.spider.SpiderMaskAnim.coverage(sp) < 0.5f; // v0.16.2: half way through the peel
 				setHelmetHidden(maxSteelHelmet);
 				if (maxSteelHelmet || spiderMask) {
 					// The undersuit / hood head layer covers the face too, so drop the whole head bone
