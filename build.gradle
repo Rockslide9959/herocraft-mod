@@ -198,21 +198,28 @@ tasks.register('copyToModpack') {
 		}
 		// v0.16.2: never swap the jar under a running game. Minecraft loads classes from the jar lazily, so replacing it
 		// mid-session crashes the game ("ZipFile invalid LOC header") the next time it needs a class it hasn't loaded yet.
+		// Single quotes only inside the PowerShell command: embedded double quotes get mangled on the way through Windows
+		// argument quoting, the query errors, prints nothing -- and the first version of this guard read that as "not
+		// running" and swapped the jar under a live game. Anything but a clean number now refuses (fail safe);
+		// -PforceModpackCopy overrides.
 		def instanceDir = new File(target).parentFile.absolutePath
-		try {
+		if (!project.hasProperty('forceModpackCopy')) {
+			def needle = instanceDir.toLowerCase().replace("'", "''")
 			def ps = ['powershell', '-NoProfile', '-Command',
-					"(Get-CimInstance Win32_Process -Filter \"Name='javaw.exe' OR Name='java.exe'\" | " +
-					"Where-Object { \$_.CommandLine -and \$_.CommandLine.Contains('${instanceDir.replace("'", "''")}') }).Count"].execute()
-			ps.waitFor()
-			def running = ps.text.trim()
-			if (running && running != '0') {
+					"@(Get-CimInstance Win32_Process | Where-Object { \$_.Name -like 'java*' -and \$_.CommandLine -and " +
+					"\$_.CommandLine.ToLower().Contains('${needle}') }).Count"].execute()
+			def out = new StringBuilder(), err = new StringBuilder()
+			ps.waitForProcessOutput(out, err)
+			def running = out.toString().trim()
+			if (!(running ==~ /\d+/)) {
+				throw new GradleException("[ProjectHero] Could not check whether the test modpack is running (${err.toString().trim()}) -- " +
+						"not copying. Close Minecraft and re-run with -PforceModpackCopy.")
+			}
+			if (running != '0') {
+				logger.error("[ProjectHero] The test modpack is running -- close Minecraft first. Not copying.")
 				throw new GradleException("[ProjectHero] The test modpack is running (${instanceDir}). Close Minecraft first -- " +
 						"replacing the jar under a running game crashes it.")
 			}
-		} catch (GradleException e) {
-			throw e
-		} catch (Exception e) {
-			logger.warn("[ProjectHero] Could not check whether the modpack is running (${e.message}) -- copying anyway.")
 		}
 		return true
 	}
