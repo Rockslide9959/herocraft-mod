@@ -240,11 +240,13 @@ public final class SpiderWebWingsClient {
 			boolean right = side == 0;
 			float sx = right ? -1f : 1f;
 			ModelPart arm = right ? m.rightArm : m.leftArm;
+			ModelPart leg = right ? m.rightLeg : m.leftLeg;
 			Vector3f armpit = at(pose, m.body, sx * 3.9f, 1.2f, 0f);
-			Vector3f hip = at(pose, m.body, sx * 3.9f, 11.0f, 0f);
+			// down to the outside of the thigh, a third of the way down the leg
+			Vector3f hip = at(pose, leg, sx * 1.9f, 4.0f, 0f);
 			Vector3f wrist = at(pose, arm, sx * 1.0f, 9.5f, 0f); // the middle of the arm's end (a 4-wide arm, x -3..1 / -1..3)
 			wrist = new Vector3f(armpit).lerp(wrist, a);
-			Vector3f sag = new Vector3f(wrist).lerp(hip, 0.5f).lerp(new Vector3f(armpit).lerp(hip, 0.5f), 0.22f);
+			Vector3f sag = new Vector3f(wrist).lerp(hip, 0.5f).lerp(new Vector3f(armpit).lerp(hip, 0.5f), 0.12f);
 			sag = new Vector3f(armpit).lerp(sag, a);
 			quad(vc, light, armpit, wrist, sag, hip);
 		}

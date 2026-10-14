@@ -88,7 +88,7 @@ public class SpiderTripMineRenderer extends EntityRenderer<SpiderTripMineEntity>
 		if (from.distanceToSqr(to) > 1.0e-4) {
 			float pulse = 0.75f + 0.25f * Mth.sin(age * 0.35f);
 			beam(pose, buffers.getBuffer(RenderType.entityTranslucent(LINE)), from.subtract(base), to.subtract(base),
-					reeling ? 0.03f : 0.014f, (int) (255 * (reeling ? 1f : 0.55f + 0.3f * pulse)));
+					reeling ? 0.03f : 0.018f, (int) (255 * (reeling ? 1f : 0.7f + 0.25f * pulse)));
 		}
 		super.render(mine, yaw, partial, pose, buffers, packedLight);
 	}
