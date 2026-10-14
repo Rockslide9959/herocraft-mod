@@ -348,17 +348,22 @@ public class SpiderManGameTests implements FabricGameTest {
 		Vec3 low = SpiderSwing.applyRope(player, anchor, 12.0, rising, 0, true, baseline);
 		helper.assertTrue(low.y > 0.0, "an artificial swing should still climb early in the run");
 
-		// Once the player is above the ceiling, lift stops -- but horizontal travel does not.
-		Vec3 high = SpiderSwing.applyRope(player, anchor, 12.0, rising, 0,
-				true, baseline - (SpiderSwing.AIR_SWING_CEILING + 5.0));
+		// v0.16.2: the ceiling is measured from the ground below him -- a chain that started far lower (up a
+		// mountainside) still lifts him while the ground is close
+		Vec3 mountain = SpiderSwing.applyRope(player, anchor, 12.0, rising, 0, true, baseline - 40.0);
+		helper.assertTrue(mountain.y > 0.0, "close to the ground, an air swing lifts whatever height the chain began at");
+
+		// Once he is more than the ceiling above the ground, lift stops -- but horizontal travel does not.
+		player.setPos(start.x, start.y + SpiderSwing.AIR_SWING_CEILING + 8.0, start.z);
+		Vec3 highAnchor = anchor.add(0, SpiderSwing.AIR_SWING_CEILING + 8.0, 0);
+		Vec3 high = SpiderSwing.applyRope(player, highAnchor, 12.0, rising, 0, true, player.getY() - 30.0);
 		helper.assertTrue(high.y <= 0.0001,
 				"artificial anchors must stop adding height past the ceiling, got " + high.y);
 		helper.assertTrue(Math.abs(high.x) > 0.05 || Math.abs(high.z) > 0.05,
 				"the altitude limit must never stop the player travelling horizontally");
 
 		// A real anchor is not subject to the rule at all -- that is the reward for real terrain.
-		Vec3 real = SpiderSwing.applyRope(player, anchor, 12.0, rising, 0,
-				false, baseline - (SpiderSwing.AIR_SWING_CEILING + 5.0));
+		Vec3 real = SpiderSwing.applyRope(player, highAnchor, 12.0, rising, 0, false, player.getY() - 30.0);
 		helper.assertTrue(real.y > 0.0, "a real block anchor may take the player as high as the terrain does");
 		helper.succeed();
 	}

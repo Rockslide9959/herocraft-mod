@@ -38,8 +38,14 @@ import net.minecraft.world.phys.Vec3;
  * arcs simply stop climbing.
  */
 public final class SpiderSwing {
-	/** How far a chain of fabricated anchors may raise the player above where the chain started. */
-	public static final double AIR_SWING_CEILING = 12.0;
+	/**
+	 * How high above the ground a fabricated (air) swing may lift him. v0.16.2 (user): measured from the ground
+	 * directly below him every tick -- not from where the chain started -- so swinging up a mountainside the
+	 * ceiling climbs with the slope. Was 12 above the chain's start.
+	 */
+	public static final double AIR_SWING_CEILING = 16.0;
+	/** How far down to look for ground under him before calling it "very high up". */
+	private static final int GROUND_SCAN = 64;
 	/** Lift fades out across the last few blocks rather than stopping dead. */
 	private static final double CEILING_FADE = 4.0;
 
@@ -79,8 +85,10 @@ public final class SpiderSwing {
 		// A fabricated sequence measures itself from where it began. A real anchor resets the baseline
 		// to here, which is how climbing genuine terrain legitimately raises the ceiling for later
 		// fabricated swings.
+		// v0.16.2: the baseline is now only a floor under the ceiling -- the ground below sets it every tick
+		// (ceilingBase). Fired from higher than the ground allows, it holds him level instead of cutting the line.
 		if (!anchor.artificial() || !isAirSequenceRunning(player)) {
-			c.airSwingBaselineY = player.getY();
+			c.airSwingBaselineY = Math.max(groundBelow(player), player.getY() - AIR_SWING_CEILING);
 		} else if (player.getY() - c.airSwingBaselineY > AIR_SWING_CEILING) {
 			// v0.16.1 FIX ("hold right-click: it shoots a web and immediately releases"): a fabricated line fired
 			// while he is already above the running sequence's ceiling (he dropped in from higher up, or a fast
@@ -202,7 +210,7 @@ public final class SpiderSwing {
 		// Server-side backstop for the fabricated-anchor altitude rule. The client fades its own lift
 		// out smoothly well before this, so a legitimate player never reaches it; a client that
 		// ignored that simply loses the line.
-		if (s.artificialAnchor && player.getY() - s.airSwingBaselineY > AIR_SWING_CEILING + 4.0) {
+		if (s.artificialAnchor && player.getY() - ceilingBase(player, s.airSwingBaselineY) > AIR_SWING_CEILING + 4.0) {
 			detach(player, true);
 			return;
 		}
@@ -363,7 +371,7 @@ public final class SpiderSwing {
 
 		// --- fabricated-anchor altitude rule ---
 		if (artificial && v.y > 0.0) {
-			double gained = player.getY() - baselineY;
+			double gained = player.getY() - ceilingBase(player, baselineY);
 			if (gained > AIR_SWING_CEILING) {
 				v = new Vec3(v.x, 0.0, v.z);
 			} else if (gained > AIR_SWING_CEILING - CEILING_FADE) {
@@ -381,6 +389,39 @@ public final class SpiderSwing {
 			v = v.scale(max / speed);
 		}
 		return v;
+	}
+
+	/**
+	 * v0.16.2: where the air-swing ceiling is measured from -- the ground right below him, or the sequence's
+	 * baseline if that is higher (a line fired from up high may hold its height, just never climb past it).
+	 */
+	public static double ceilingBase(Player player, double baselineY) {
+		return Math.max(groundBelow(player), baselineY);
+	}
+
+	/**
+	 * v0.16.2: the top of the ground directly below {@code player} -- the first block with collision beneath his
+	 * feet, scanning down at most {@link #GROUND_SCAN} blocks (nothing found: that far down). Leaves and trees count.
+	 */
+	public static double groundBelow(Player player) {
+		net.minecraft.world.level.Level level = player.level();
+		int x = net.minecraft.util.Mth.floor(player.getX());
+		int z = net.minecraft.util.Mth.floor(player.getZ());
+		int top = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, x, z);
+		if (top <= player.getY() + 0.01) {
+			return top; // open sky above the surface: the heightmap is the ground
+		}
+		// under an overhang / in a cave / beneath a bridge: walk down from his feet
+		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos(x,
+				net.minecraft.util.Mth.floor(player.getY() - 0.01), z);
+		int floor = Math.max(level.getMinBuildHeight(), pos.getY() - GROUND_SCAN);
+		for (; pos.getY() >= floor; pos.move(net.minecraft.core.Direction.DOWN)) {
+			var state = level.getBlockState(pos);
+			if (!state.getCollisionShape(level, pos).isEmpty()) {
+				return pos.getY() + state.getCollisionShape(level, pos).max(net.minecraft.core.Direction.Axis.Y);
+			}
+		}
+		return player.getY() - GROUND_SCAN;
 	}
 
 	/** New rope length after this tick's reel-in (jump) / pay-out (sneak). */

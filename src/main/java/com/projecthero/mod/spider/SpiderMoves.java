@@ -1093,7 +1093,11 @@ public final class SpiderMoves {
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_TIGHTROPE, null, player.position(), 0, 0);
 	}
 
-	/** Shift+C Web Wall: a sticky 3 x 3 barrier 2.5 blocks in front of you. */
+	/** v0.16.2 (user): the Web Wall is 7 x 7 (was 3 x 3). */
+	public static final double WALL_HALF_WIDTH = 3.5;
+	public static final double WALL_HEIGHT = 7.0;
+
+	/** Shift+C Web Wall: a sticky 7 x 7 barrier 2.5 blocks in front of you. */
 	public static void webWall(ServerPlayer player) {
 		if (!gate(player, WEB_WALL)) {
 			return;
@@ -1107,9 +1111,9 @@ public final class SpiderMoves {
 	}
 
 	public static WebStructureEntity buildWall(ServerPlayer player, Vec3 base, int axis) {
-		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.wall(base, axis, 1.5, 3.0), base.add(0, 1.5, 0));
+		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.wall(base, axis, WALL_HALF_WIDTH, WALL_HEIGHT), base.add(0, WALL_HEIGHT * 0.5, 0)); // v0.16.2: 7 x 7
 		ServerLevel level = (ServerLevel) player.level();
-		level.sendParticles(ParticleTypes.ITEM_COBWEB, base.x, base.y + 1.5, base.z, 40, 0.8, 0.8, 0.8, 0.02);
+		level.sendParticles(ParticleTypes.ITEM_COBWEB, base.x, base.y + WALL_HEIGHT * 0.5, base.z, 60, 2.0, 2.0, 2.0, 0.02);
 		if (!soundsOff(player)) {
 			level.playSound(null, base.x, base.y, base.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.0f, 0.9f);
 		}
