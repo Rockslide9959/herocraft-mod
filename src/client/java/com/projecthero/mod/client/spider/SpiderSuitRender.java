@@ -34,6 +34,8 @@ public final class SpiderSuitRender {
 	public static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/armor/spider_man.png");
 	/** v0.16.2: the Spider-Man Suit v2 (the user's classic red-and-blue skin), on the same rig. */
 	public static final ResourceLocation TEXTURE_V2 = ProjectHeroMod.id("textures/armor/spider_man_v2.png");
+	/** v0.16.4 (user): the Classic suit (a second original-style suit to compare). */
+	public static final ResourceLocation TEXTURE_CLASSIC = ProjectHeroMod.id("textures/armor/spider_man_classic.png");
 
 	private static PlayerModel<LivingEntity> model;
 	/** Screenshot comparisons only: draw the old inflated GeckoLib shell instead (never set in play). */
@@ -87,7 +89,7 @@ public final class SpiderSuitRender {
 		ResourceLocation bodyTex = textureFor(player.getItemBySlot(EquipmentSlot.CHEST).getItem());
 		ResourceLocation legsTex = textureFor((worn(player, EquipmentSlot.LEGS) ? player.getItemBySlot(EquipmentSlot.LEGS)
 				: player.getItemBySlot(EquipmentSlot.FEET)).getItem());
-		for (ResourceLocation tex : new ResourceLocation[] { TEXTURE, TEXTURE_V2 }) {
+		for (ResourceLocation tex : new ResourceLocation[] { TEXTURE, TEXTURE_V2, TEXTURE_CLASSIC }) {
 			boolean h = head && headTex.equals(tex);
 			boolean b = body && bodyTex.equals(tex);
 			boolean l = legs && legsTex.equals(tex);
@@ -123,7 +125,8 @@ public final class SpiderSuitRender {
 
 	/** v0.16.2: the skin a suit piece is drawn in -- the Suit v2's own, or the original's. */
 	public static ResourceLocation textureFor(Item item) {
-		return item instanceof com.projecthero.mod.spider.item.SpiderManV2ArmorItem ? TEXTURE_V2 : TEXTURE;
+		return item instanceof com.projecthero.mod.spider.item.SpiderManV2ArmorItem ? TEXTURE_V2
+				: item instanceof com.projecthero.mod.spider.item.SpiderManClassicArmorItem ? TEXTURE_CLASSIC : TEXTURE;
 	}
 
 	/** First person: the suit sleeve over the arm vanilla just posed ({@code vanillaArm}). */

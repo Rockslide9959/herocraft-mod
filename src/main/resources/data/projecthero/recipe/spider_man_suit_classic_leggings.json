@@ -1,0 +1,26 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    "RHB",
+    " S "
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_leggings"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "S": {
+      "item": "minecraft:string"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_classic_leggings",
+    "count": 1
+  }
+}

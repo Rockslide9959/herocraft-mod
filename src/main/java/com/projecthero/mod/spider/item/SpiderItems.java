@@ -31,6 +31,11 @@ public final class SpiderItems {
 	public static SpiderManV2ArmorItem SUIT_V2_CHESTPLATE;
 	public static SpiderManV2ArmorItem SUIT_V2_LEGGINGS;
 	public static SpiderManV2ArmorItem SUIT_V2_BOOTS;
+	/** v0.16.4 (user): the Classic suit, a second original-style suit to compare with the first ({@link SpiderManClassicArmorItem}). */
+	public static SpiderManClassicArmorItem SUIT_CLASSIC_HELMET;
+	public static SpiderManClassicArmorItem SUIT_CLASSIC_CHESTPLATE;
+	public static SpiderManClassicArmorItem SUIT_CLASSIC_LEGGINGS;
+	public static SpiderManClassicArmorItem SUIT_CLASSIC_BOOTS;
 
 	/**
 	 * The black Symbiote suit (v0.9.10) -- synthesised onto a bonded Spider-Man when the Symbiote is
@@ -58,6 +63,10 @@ public final class SpiderItems {
 		SUIT_V2_CHESTPLATE = registerV2("spider_man_suit_v2_chestplate", ArmorItem.Type.CHESTPLATE);
 		SUIT_V2_LEGGINGS = registerV2("spider_man_suit_v2_leggings", ArmorItem.Type.LEGGINGS);
 		SUIT_V2_BOOTS = registerV2("spider_man_suit_v2_boots", ArmorItem.Type.BOOTS);
+		SUIT_CLASSIC_HELMET = registerClassic("spider_man_suit_classic_helmet", ArmorItem.Type.HELMET);
+		SUIT_CLASSIC_CHESTPLATE = registerClassic("spider_man_suit_classic_chestplate", ArmorItem.Type.CHESTPLATE);
+		SUIT_CLASSIC_LEGGINGS = registerClassic("spider_man_suit_classic_leggings", ArmorItem.Type.LEGGINGS);
+		SUIT_CLASSIC_BOOTS = registerClassic("spider_man_suit_classic_boots", ArmorItem.Type.BOOTS);
 		SpiderSuitUpgradeRecipe.initialize();
 
 		SYMBIOTE_HELMET = registerSymbiote("spider_man_symbiote_helmet", ArmorItem.Type.HELMET);
@@ -90,6 +99,10 @@ public final class SpiderItems {
 		output.accept(SUIT_V2_CHESTPLATE);
 		output.accept(SUIT_V2_LEGGINGS);
 		output.accept(SUIT_V2_BOOTS);
+		output.accept(SUIT_CLASSIC_HELMET);
+		output.accept(SUIT_CLASSIC_CHESTPLATE);
+		output.accept(SUIT_CLASSIC_LEGGINGS);
+		output.accept(SUIT_CLASSIC_BOOTS);
 	}
 
 	private static SpiderManArmorItem registerSuit(String path, ArmorItem.Type type) {
@@ -102,6 +115,12 @@ public final class SpiderItems {
 		SpiderManV2ArmorItem item = new SpiderManV2ArmorItem(ModArmorMaterials.SPIDER_MAN, type,
 				new Item.Properties().rarity(Rarity.EPIC).durability(type.getDurability(28)));
 		return (SpiderManV2ArmorItem) register(path, item);
+	}
+
+	private static SpiderManClassicArmorItem registerClassic(String path, ArmorItem.Type type) {
+		SpiderManClassicArmorItem item = new SpiderManClassicArmorItem(ModArmorMaterials.SPIDER_MAN, type,
+				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(22)));
+		return (SpiderManClassicArmorItem) register(path, item);
 	}
 
 	/** Symbiote piece: EPIC, fire-resistant, and deliberately NO {@code .durability(...)} -> unbreakable. */
