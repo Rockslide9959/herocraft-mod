@@ -36,6 +36,8 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 	/** v0.16.1: the hit damage (a fuller Impact Web charge hits harder). */
 	public float damage = SpiderCombat.IMPACT_DAMAGE;
 	public double knockback = SpiderCombat.IMPACT_KNOCKBACK;
+	/** v0.16.2 (user): fired at full charge -- a huge shove, the full cocoon, and a permanent pin to any wall it hits. */
+	public boolean fullCharge;
 
 	public ImpactWebEntity(EntityType<? extends ImpactWebEntity> type, Level level) {
 		super(type, level);
@@ -107,11 +109,18 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 		Vec3 origin = position();
 		AbilityHelpers.hurt(shooter, target, damage);
 		AbilityHelpers.knockbackFrom(target, origin, knockback);
+		if (fullCharge && !SpiderWebs.isBoss(target)) {
+			// v0.16.2: full charge -- it flies; SpiderCombat pins it to the wall it hits (for good) or cocoons it where it
+			// lands (the 25 s full cocoon). No ordinary cocoon now: that would hold it in place and kill the knockback.
+			SpiderCombat.watchImpact(shooter, target, getDeltaMovement(), true);
+			splat(origin);
+			return;
+		}
 		// v0.12.32: the ball itself cocoons whatever it hits (12 s), wall or no wall.
 		SpiderWebs.cocoonFor(shooter, target, com.projecthero.mod.spider.SpiderManConfig.moves().impactPinTicks);
 		// v0.16.1: a real (temporary) cobweb where it pins the target
 		com.projecthero.mod.spider.SpiderCobwebs.placeAt(shooter, java.util.List.of(target.blockPosition(), target.blockPosition().above()));
-		SpiderCombat.watchImpact(shooter, target, getDeltaMovement());
+		SpiderCombat.watchImpact(shooter, target, getDeltaMovement(), false);
 		splat(origin);
 	}
 

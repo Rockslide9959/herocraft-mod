@@ -47,6 +47,15 @@ public final class SpiderCombat {
 	public static final int IMPACT_PIN_TICKS = 18 * 20; // v0.16.1: the default of SpiderManConfig.moves().impactPinTicks (18 s)
 	/** How long after the hit a knocked-back target is watched for a wall collision. */
 	private static final int PIN_WATCH_TICKS = 14;
+	/** v0.16.2: a full-charge Impact Web's knockback (x IMPACT_KNOCKBACK) and how long it may fly before a wall counts. */
+	private static final double FULL_CHARGE_KNOCKBACK = 2.6;
+	private static final int FULL_PIN_WATCH_TICKS = 24;
+	/** v0.16.2: how fast (blocks/tick) a thrown body must be moving for a wall it hits to pin it. */
+	private static final double THROW_WALL_SPEED = 0.35;
+
+	private static ServerLevel level(ServerPlayer player) {
+		return (ServerLevel) player.level();
+	}
 
 	private static final double THROW_RANGE = 30.0;
 	private static final int THROW_MAX_TICKS = 5 * 20;
@@ -126,7 +135,7 @@ public final class SpiderCombat {
 	/** Swing Throw aim assist onto a Weave web: the cone round the aim (degrees). */
 	public static final double WEAVE_ASSIST_CONE = 14.0;
 
-	private record Watch(int targetId, long until, Vec3 dir) {
+	private record Watch(int targetId, long until, Vec3 dir, boolean full) {
 	}
 
 	private static final Map<UUID, Throw> THROWS = new ConcurrentHashMap<>();
@@ -363,6 +372,17 @@ public final class SpiderCombat {
 			if (com.projecthero.mod.spider.web.WebStructures.catchOnWeave(body, f.last, ahead) != null) {
 				return true;
 			}
+			// v0.16.2 (user): thrown hard into a wall -- cocooned and stuck to it for good (as a full-charge Impact Web)
+			Vec3 flat = new Vec3(c.x - f.last.x, 0.0, c.z - f.last.z);
+			Vec3 vel = body.getDeltaMovement();
+			Vec3 dir = flat.lengthSqr() > 1.0e-4 ? flat.normalize() : new Vec3(vel.x, 0.0, vel.z).normalize();
+			if (!SpiderWebs.isBoss(body) && dir.lengthSqr() > 0.5 && (flat.length() > THROW_WALL_SPEED || vel.horizontalDistance() > THROW_WALL_SPEED)
+					&& (body.horizontalCollision || !player.level().noCollision(body, body.getBoundingBox().move(dir.scale(0.4))))) {
+				SpiderWrap.wrapOnWall(body);
+				level(player).sendParticles(ParticleTypes.ITEM_COBWEB, c.x, c.y, c.z, 30, 0.5, 0.6, 0.5, 0.05);
+				player.level().playSound(null, c.x, c.y, c.z, SoundEvents.COBWEB_PLACE, net.minecraft.sounds.SoundSource.PLAYERS, 1.2f, 0.7f);
+				return true;
+			}
 			f.last = c;
 			return body.onGround() && now > f.until - 36;
 		});
@@ -407,6 +427,10 @@ public final class SpiderCombat {
 		ImpactWebEntity web = new ImpactWebEntity(level, player, look.scale(IMPACT_SPEED * (1.0 + charge * 0.3)));
 		web.damage = cfg.damage * (1.0f + 0.5f * charge);
 		web.knockback = IMPACT_KNOCKBACK * (1.0 + 0.4 * charge);
+		if (charge >= 0.999f) {
+			web.fullCharge = true; // v0.16.2 (user): a full charge hits like a truck
+			web.knockback = IMPACT_KNOCKBACK * FULL_CHARGE_KNOCKBACK;
+		}
 		Vec3 start = player.getEyePosition().add(look.scale(0.9)).subtract(0, 0.15, 0);
 		web.setPos(start.x, start.y, start.z);
 		level.addFreshEntity(web);
@@ -418,13 +442,17 @@ public final class SpiderCombat {
 	}
 
 	/** Called by {@link ImpactWebEntity} on an entity hit: watch the knocked-back target for a wall collision. */
-	public static void watchImpact(ServerPlayer owner, LivingEntity target, Vec3 travel) {
+	public static void watchImpact(ServerPlayer owner, LivingEntity target, Vec3 travel, boolean full) {
 		Vec3 dir = new Vec3(travel.x, 0.0, travel.z);
 		if (dir.lengthSqr() < 1.0e-4) {
+			if (full) {
+				com.projecthero.mod.spider.SpiderWrap.wrapFor(target, SpiderWebs.WEB_SHOT_COCOON_TICKS);
+			}
 			return;
 		}
 		WATCHES.computeIfAbsent(owner.getUUID(), k -> new ArrayList<>())
-				.add(new Watch(target.getId(), owner.level().getGameTime() + PIN_WATCH_TICKS, dir.normalize()));
+				.add(new Watch(target.getId(), owner.level().getGameTime() + (full ? FULL_PIN_WATCH_TICKS : PIN_WATCH_TICKS),
+						dir.normalize(), full));
 	}
 
 	private static void tickWatches(ServerPlayer player, List<Watch> watches) {
@@ -432,12 +460,27 @@ public final class SpiderCombat {
 		long now = level.getGameTime();
 		watches.removeIf(w -> {
 			Entity e = level.getEntity(w.targetId());
-			if (!(e instanceof LivingEntity target) || !target.isAlive() || now > w.until()) {
+			if (!(e instanceof LivingEntity target) || !target.isAlive()) {
+				return true;
+			}
+			if (now > w.until()) {
+				if (w.full()) {
+					// v0.16.2: a full-charge hit that never met a wall -- the full cocoon where it came down
+					SpiderWrap.wrapFor(target, SpiderWebs.WEB_SHOT_COCOON_TICKS);
+				}
 				return true;
 			}
 			boolean wall = !level.noCollision(target, target.getBoundingBox().move(w.dir().scale(0.4)));
 			if (!wall) {
 				return false;
+			}
+			if (w.full()) {
+				// v0.16.2 (user): slammed into a wall at full charge -- stuck to it for good
+				SpiderWrap.wrapOnWall(target);
+				Vec3 c = center(target);
+				level.sendParticles(ParticleTypes.ITEM_COBWEB, c.x, c.y, c.z, 30, 0.5, 0.6, 0.5, 0.05);
+				level.playSound(null, c.x, c.y, c.z, SoundEvents.COBWEB_PLACE, net.minecraft.sounds.SoundSource.PLAYERS, 1.2f, 0.7f);
+				return true;
 			}
 			SpiderWebs.cocoonFor(player, target, SpiderManConfig.moves().impactPinTicks);
 			SpiderCobwebs.placeAt(player, java.util.List.of(target.blockPosition(), target.blockPosition().above()));

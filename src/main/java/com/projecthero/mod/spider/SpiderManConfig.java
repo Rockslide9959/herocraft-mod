@@ -96,13 +96,13 @@ public final class SpiderManConfig {
 		public int bossWebDebuffTicks = 90;
 		public int impactPinTicks = 360;
 		public int blossomTrapTicks = 360;
-		public Move webShot = new Move(6, 2.0f, 2.0f);
-		public Move webBomb = new Move(120, 15.0f, 3.0f);
+		public Move webShot = new Move(0, 2.0f, 2.0f); // v0.16.2 (user): no cooldown
+		public Move webBomb = new Move(0, 15.0f, 3.0f); // v0.16.2 (user): no cooldown
 		public double webBombRadius = 4.0;
 		public int webBombRootTicks = 360;
 		public Move impactWeb = new Move(30, 12.0f, 10.0f);
 		/** A full Impact Web charge (ticks of holding past the hold threshold) adds half the damage again. */
-		public int impactChargeTicks = 20;
+		public int impactChargeTicks = 10; // v0.16.2 (user): full charge in 0.5 s
 		// G -- zip
 		public Move pointZip = new Move(10, 5.0f, 0.0f);
 		public Move webYank = new Move(0, 6.0f, 0.0f); // v0.16.2 (user): no cooldown -- the Web Reserve cost paces it
@@ -176,6 +176,8 @@ public final class SpiderManConfig {
 			.reset(4, "v0.16.1 tightropes 40 blocks, weave strands 30 blocks", "webs.tightropeMaxLength", "webs.weaveStrandLength")
 			// v0.16.2 (user request): Web Yank has no cooldown
 			.reset(5, "v0.16.2 Web Yank has no cooldown", "moves.webYank")
+			// v0.16.2 (user request): Web Shot and Web Bomb have no cooldown; Impact Web charges fully in 0.5 s
+			.reset(6, "v0.16.2 no Web Shot / Web Bomb cooldown, 0.5 s Impact Web charge", "moves.webShot", "moves.webBomb", "moves.impactChargeTicks")
 			.build();
 
 	public static void load() {

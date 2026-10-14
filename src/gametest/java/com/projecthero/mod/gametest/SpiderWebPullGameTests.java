@@ -309,4 +309,51 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	/** v0.16.2 (user): a full-charge Impact Web that slams a mob into a wall pins it there for good. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fullChargeImpactWebPinsToTheWallForGood(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		for (int y = 1; y <= 3; y++) {
+			for (int z = 1; z <= 5; z++) {
+				helper.getLevel().setBlockAndUpdate(helper.absolutePos(new net.minecraft.core.BlockPos(6, y, z)),
+						net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+			}
+		}
+		net.minecraft.world.entity.animal.Pig zombie = EntityType.PIG.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(5.65, 1.0, 3.5));
+		zombie.moveTo(at.x, at.y, at.z, 0f, 0f);
+		zombie.setNoAi(true);
+		helper.getLevel().addFreshEntity(zombie);
+		com.projecthero.mod.spider.SpiderCombat.watchImpact(p, zombie, new Vec3(1, 0, 0), true);
+		com.projecthero.mod.spider.SpiderCombat.tick(p);
+		helper.assertTrue(SpiderWrap.isWrapped(zombie), "slammed into the wall: cocooned");
+		helper.assertTrue(zombie.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SPIDER_WRAP_UNTIL, 0L)
+				== SpiderWrap.WALL_PINNED, "pinned to the wall -- permanent");
+		helper.runAfterDelay(50, () -> {
+			helper.assertTrue(zombie.isAlive() && SpiderWrap.isWrapped(zombie), "and it stays stuck (no web needed to hold it)");
+			SpiderWrap.release(zombie, false);
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.2: a full-charge Impact Web with no wall behind the target still gives the 25 s full cocoon. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fullChargeImpactWebWithNoWallCocoonsWhereItLands(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		net.minecraft.world.entity.animal.Pig zombie = EntityType.PIG.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 1.0, 3.5));
+		zombie.moveTo(at.x, at.y, at.z, 0f, 0f);
+		zombie.setNoAi(true);
+		helper.getLevel().addFreshEntity(zombie);
+		com.projecthero.mod.spider.SpiderCombat.watchImpact(p, zombie, new Vec3(1, 0, 0), true);
+		helper.runAfterDelay(30, () -> {
+			com.projecthero.mod.spider.SpiderCombat.tick(p);
+			helper.assertTrue(SpiderWrap.isWrapped(zombie), "no wall: the full cocoon where it came down (alive=" + zombie.isAlive() + " removed=" + zombie.isRemoved() + " pos=" + zombie.position() + ")");
+			helper.assertTrue(zombie.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SPIDER_WRAP_UNTIL, 0L) > 0L,
+					"a timed one (25 s), not the wall pin");
+			SpiderWrap.release(zombie, false);
+			helper.succeed();
+		});
+	}
 }

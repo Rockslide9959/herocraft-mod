@@ -114,12 +114,21 @@ public final class SpiderWrap {
 	 * cocoon that is already permanent stays permanent. The deadline is saved with the entity.
 	 */
 	public static void wrapFor(LivingEntity e, int ticks) {
-		boolean permanent = isWrapped(e) && e.getAttachedOrElse(ModAttachments.SPIDER_WRAP_UNTIL, 0L) == 0L;
+		boolean permanent = isWrapped(e) && e.getAttachedOrElse(ModAttachments.SPIDER_WRAP_UNTIL, 0L) <= 0L;
 		if (permanent) {
 			return;
 		}
 		wrap(e);
 		e.setAttached(ModAttachments.SPIDER_WRAP_UNTIL, e.level().getGameTime() + ticks);
+	}
+
+	/** Marks a cocoon pinned to a wall (Impact Web at full charge): permanent, and no web needs to hold it. */
+	public static final long WALL_PINNED = -1L;
+
+	/** v0.16.2 (user): the full cocoon, stuck to the wall {@code e} was slammed into -- for good, until cut free or pulled. */
+	public static void wrapOnWall(LivingEntity e) {
+		wrap(e);
+		e.setAttached(ModAttachments.SPIDER_WRAP_UNTIL, WALL_PINNED);
 	}
 
 	/** Cut the cocoon off {@code e} (sneak + right-click, or a pull). Returns true when it was cocooned. */
