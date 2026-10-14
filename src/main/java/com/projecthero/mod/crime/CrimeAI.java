@@ -48,7 +48,9 @@ public final class CrimeAI {
 				mob.setTarget(null);
 			}
 			case GUARD -> {
-				// the gunman's own AI already targets players he can see; nothing to change
+				// his own gun AI, but players only (no picking fights with the village's iron golems)
+				remove(targets, g -> g instanceof NearestAttackableTargetGoal<?>);
+				targets.addGoal(2, new NearestAttackableTargetGoal<>(mob, Player.class, true));
 			}
 		}
 	}

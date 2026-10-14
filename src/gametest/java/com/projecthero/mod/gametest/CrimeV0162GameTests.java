@@ -160,6 +160,17 @@ public class CrimeV0162GameTests implements FabricGameTest {
 			helper.assertTrue(m.isPersistenceRequired(), "event crooks never despawn mid-crime");
 		}
 		helper.assertTrue(v.getTags().contains(CrimeAI.VICTIM_TAG), "the villager is the victim");
+		// crimes are for players: the village's iron golems can't hurt crime crooks
+		net.minecraft.world.entity.animal.IronGolem golem = EntityType.IRON_GOLEM.create(level);
+		golem.moveTo(helper.absoluteVec(new Vec3(1.5, 2, 1.5)));
+		golem.setNoAi(true);
+		level.addFreshEntity(golem);
+		Mob thug = thugs.get(0);
+		float hp = thug.getHealth();
+		thug.invulnerableTime = 0;
+		thug.hurt(level.damageSources().mobAttack(golem), 15f);
+		helper.assertTrue(thug.getHealth() == hp, "an iron golem's hit does nothing to a crime crook");
+		golem.discard();
 		end(level, crime);
 		for (Mob m : thugs) {
 			helper.assertTrue(m.isRemoved(), "the thugs are gone when the crime ends");

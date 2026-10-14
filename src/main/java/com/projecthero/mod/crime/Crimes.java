@@ -29,6 +29,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.AABB;
 
@@ -60,6 +61,15 @@ public final class Crimes {
 					&& EventManager.owning(entity) instanceof CrimeEvent crime && crime.state().active()) {
 				crime.crookDown(level, mob, source);
 			}
+		});
+		// v0.16.2: crimes are for players to stop -- the village's iron golems leave crime crooks alone (in a village
+		// with a golem it otherwise flattened every crook before anyone could get there)
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+			if (source.getEntity() instanceof IronGolem golem && entity.getTags().contains(CrimeAI.CROOK_TAG)) {
+				golem.setTarget(null);
+				return false;
+			}
+			return true;
 		});
 		// a mugging victim's beating is a hit counter, never real damage from the crooks
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
