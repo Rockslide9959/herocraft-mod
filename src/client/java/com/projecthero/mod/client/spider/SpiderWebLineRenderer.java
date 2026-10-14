@@ -47,9 +47,10 @@ public final class SpiderWebLineRenderer {
 	private static final double TEXTURE_TILE = 0.45;
 	private static final double HELIX_RADIUS = 0.024;
 	private static final double HELIX_TURNS_PER_BLOCK = 1.6;
-	/** v0.16.2: a released strand's swing -- how fast it decays (ticks) and its angular frequency (rad/tick). */
-	private static final double SWAY_DECAY = 14.0;
-	private static final double SWAY_FREQ = 0.34;
+	/** v0.16.2: a released strand's drift: how slowly it settles, and its faint sway. */
+	private static final double SWAY_DECAY = 45.0;   // ticks: about 2 s to settle most of the way
+	private static final double SWAY_FREQ = 0.07;    // rad/tick: one slow sway every ~4.5 s
+	private static final double SWAY_AMOUNT = 0.06;  // how much of the angle the sway moves
 
 	/** playerId -> anchor + hand for players seen swinging last frame, so a release can be noticed. */
 	private static final Map<Integer, SwingMemo> LAST_SWING = new HashMap<>();
@@ -196,15 +197,17 @@ public final class SpiderWebLineRenderer {
 		double sin0 = axis.length();
 		double theta0 = Math.atan2(sin0, down.dot(d0)); // angle from hanging straight down to where it was let go
 		axis = sin0 < 1.0e-4 ? new Vec3(1, 0, 0) : axis.scale(1.0 / sin0);
-		// damped swing: from theta0, through down, past it, settling (period ~18 ticks, half-life ~10 ticks)
-		double theta = theta0 * Math.exp(-t / SWAY_DECAY) * Math.cos(t * SWAY_FREQ);
+		// v0.16.2 (user: "nearly weightless"): no pendulum -- it drifts slowly down toward hanging, with only a faint,
+		// slow sway on top (a couple of percent of the angle), like silk settling
+		double settle = Math.exp(-t / SWAY_DECAY);
+		double theta = theta0 * settle * (1.0 - SWAY_AMOUNT + SWAY_AMOUNT * Math.cos(t * SWAY_FREQ));
 		Vec3 dir = rotate(down, axis, theta);
 		// the breeze: a slow side-to-side drift that builds up as it hangs
 		double phase = (seed & 0xFF) * 0.1;
-		double breeze = Math.min(1.0, t / 25.0) * len * 0.06;
-		Vec3 wind = new Vec3(Math.cos(phase), 0, Math.sin(phase)).scale(Math.sin(t * 0.11 + phase) * breeze);
+		double breeze = Math.min(1.0, t / 40.0) * len * 0.025;
+		Vec3 wind = new Vec3(Math.cos(phase), 0, Math.sin(phase)).scale(Math.sin(t * 0.035 + phase) * breeze);
 		// and it slumps a little as the tension goes out of it
-		double slump = Math.min(1.0, t / 30.0) * 0.08;
+		double slump = Math.min(1.0, t / 60.0) * 0.06;
 		return pinned.add(dir.scale(len * (1.0 - slump))).add(wind);
 	}
 
