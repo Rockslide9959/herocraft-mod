@@ -49,6 +49,12 @@ public final class SpiderAnim {
 	public static final int LANDING = 21;
 	/** Weave Mode: one radial strand shot from the hand. */
 	public static final int WEAVE_SHOT = 22;
+	/** v0.16.2 swing tricks ({@link SpiderTricks}; ids 40-44, clear of moves added below them). */
+	public static final int TRICK_FRONT_FLIP = 40;
+	public static final int TRICK_BACKFLIP = 41;
+	public static final int TRICK_CORKSCREW = 42;
+	public static final int TRICK_SPLIT = 43;
+	public static final int TRICK_TWIST = 44;
 
 	private SpiderAnim() {
 	}
@@ -75,6 +81,7 @@ public final class SpiderAnim {
 			case BLOSSOM -> 16;
 			case RELEASE_FLIP -> 12;
 			case LANDING -> 18;
+			case TRICK_FRONT_FLIP, TRICK_BACKFLIP, TRICK_CORKSCREW, TRICK_SPLIT, TRICK_TWIST -> SpiderTricks.LENGTH;
 			default -> 0;
 		};
 	}

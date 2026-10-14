@@ -80,6 +80,10 @@ public final class SpiderClimbMovement {
 			startFromGround(player, profile);
 			return false;
 		}
+		// v0.16.2: the Wall Run -- sprinting along the wall runs him across its face instead of crawling
+		if (SpiderWallRunClient.travel(player, profile, local, face)) {
+			return true;
+		}
 
 		Vec3 normal = Vec3.atLowerCornerOf(face.getOpposite().getNormal());
 		boolean sneaking = player.isShiftKeyDown();

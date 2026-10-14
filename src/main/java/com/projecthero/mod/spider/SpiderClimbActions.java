@@ -47,6 +47,10 @@ public final class SpiderClimbActions {
 			c.climbState = 0;
 			SpiderMan.save(player, c);
 		}
+		if (SpiderWallRun.running(player)) {
+			SpiderWallRun.kickOff(player, normal); // v0.16.2: Jump mid wall run -- kicked off away and up
+			return true;
+		}
 		SpiderAbilities.leapFromSurface(player, normal);
 		return true;
 	}

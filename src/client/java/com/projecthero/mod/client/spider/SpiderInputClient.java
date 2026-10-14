@@ -205,6 +205,10 @@ public final class SpiderInputClient {
 			if (swinging) {
 				return; // jump reels the line in; the swing handler reads the key itself
 			}
+			// v0.16.2: a tap just after letting go of a swing is a swing trick (not the double jump / zip boost)
+			if (spiderMan && SpiderTrickClient.claimJump(player)) {
+				return;
+			}
 			// v0.16.1: Sprint + Jump in the air is the Web Zip boost; plain Jump the double jump
 			if (spiderMan && sprintHeld && !player.onGround() && airTicks >= 2 && !player.getAbilities().flying
 					&& !player.isPassenger() && !player.isInWater()

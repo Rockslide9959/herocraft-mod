@@ -171,6 +171,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.spider.SpiderSense.initialize();
 		com.projecthero.mod.spider.SpiderPassives.initialize();
 		com.projecthero.mod.spider.SpiderMoves.initialize(); // v0.16.1: counter stance, Pulse dodge, air combo
+		com.projecthero.mod.spider.SpiderFreerun.initialize(); // v0.16.2: Wall Run + swing tricks
 		com.projecthero.mod.spider.SpiderWrap.initialize(); // v0.16.1: the Web Shot cocoon on a stuck target
 		com.projecthero.mod.spider.SpiderCobwebs.initialize(); // v0.16.1: his cobwebs drop nothing when broken
 		com.projecthero.mod.spider.SpiderSounds.initialize();
