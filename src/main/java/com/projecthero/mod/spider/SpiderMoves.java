@@ -1540,6 +1540,40 @@ public final class SpiderMoves {
 
 
 
+	/**
+	 * v0.16.2 (restored from v0.16.1): is he at a perch -- standing on something thin (a fence / wall / post top), or with a
+	 * drop of 3+ blocks just in front of his feet where he faces?
+	 */
+	public static boolean perchSpot(Player player) {
+		var level = player.level();
+		BlockPos below = BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ());
+		BlockState under = level.getBlockState(below);
+		var shape = under.getCollisionShape(level, below);
+		if (!shape.isEmpty()) {
+			AABB b = shape.bounds();
+			if (b.getXsize() < 0.7 || b.getZsize() < 0.7) {
+				return true;
+			}
+		}
+		Vec3 facing = Vec3.directionFromRotation(0.0f, player.getYRot());
+		// v0.16.2: probe 0.75 ahead (was 0.6), so standing in the middle of a 1-block pillar top counts too (the probe
+		// column, 0.24 wide, has to clear the block's edge 0.5 away)
+		Vec3 p = player.position().add(facing.scale(0.75));
+		AABB column = new AABB(p.x - 0.12, player.getY() - 3.0, p.z - 0.12, p.x + 0.12, player.getY() - 0.05, p.z + 0.12);
+		return level.noCollision(column);
+	}
+
+	/**
+	 * v0.16.2: may he perch right now -- sneaking, (almost) still, on the ground, not on a line / wall / mount / in water,
+	 * at a perch spot? Once perched ({@code already}) a small shuffle (under 0.2 blocks a tick) keeps the perch and the
+	 * spot is not re-checked.
+	 */
+	public static boolean perchAllowed(Player player, boolean already, double horizontalSpeed) {
+		return player.onGround() && player.isShiftKeyDown() && horizontalSpeed < (already ? 0.2 : 0.06)
+				&& !SpiderSwing.isSwinging(player) && !SpiderClimb.attached(player) && !player.isPassenger()
+				&& !player.isInWater() && (already || perchSpot(player));
+	}
+
 	/** Landing / release-flip bookkeeping: the superhero landing after a long drop or a swing. */
 	private static void tickMotion(ServerPlayer player, long now) {
 		double[] m = MOTION.computeIfAbsent(player.getUUID(), k -> new double[] {player.getY(), 0, 0, 1, player.getX(), player.getZ()});
@@ -1553,6 +1587,10 @@ public final class SpiderMoves {
 			}
 			play(player, SoundEvents.PLAYER_BIG_FALL, 0.5f, 1.3f);
 		}
+		// v0.16.2: the ledge perch -- sneaking, still, on the ground, at a drop (or up on a fence / wall / post); sticky
+		// once settled (a small shuffle at the edge does not drop him out of it)
+		boolean was = state(player).has(SpiderMoveState.FLAG_PERCH);
+		setFlag(player, SpiderMoveState.FLAG_PERCH, perchAllowed(player, was, hs));
 		m[0] = player.getY();
 		m[1] = vy;
 		m[2] = hs;

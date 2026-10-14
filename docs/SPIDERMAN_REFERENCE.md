@@ -312,6 +312,17 @@ The weave now comes out flat and centred instead of a tent pulled toward one poi
   - the preview with 3, then 6, anchors;
   - the finished web across a gap, from the front, the side and 3/4.
 
+### v0.16.2: the ledge perch returns, with jointed limbs
+
+- **Trigger** (as in v0.16.1): Sneak, standing still on the ground, at a drop of 3+ blocks just ahead of his feet where he faces, or on something thin (a fence / wall / post top, collision box under 0.7 wide). Server-detected in `SpiderMoves.tickMotion` (`perchSpot`, `perchAllowed`), synced as `SpiderMoveState.FLAG_PERCH` (bit 14). Sticky once settled (a shuffle under 0.2 b/t keeps it). Not while swinging, wall-crawling, riding or in water. Vanilla sneak edge-safety is untouched.
+- **The pose** (`client.spider.SpiderPerch`, called first in `SpiderPose.apply`): the Insomniac crouch on a post. A deep frog squat, hips 3 px above the perch top; feet together on the top with the toes turned ~38 degrees out; knees spread wide out at about hip height (thighs out and a little forward, shins back in to the feet, ~140 degrees of knee bend); torso leaning ~38 degrees forward with the shoulders hunched; both arms down between the knees, elbows a little bent and out, hands planted flat on the perch in front of the toes; head up, looking ahead (follows the look, limited). Each limb is solved as a two-bone chain (hip / knee / sole, shoulder / elbow / hand) in model space; a tilted sole or palm is lifted so its lowest corner sits on the surface (the 2 px sneak render offset is accounted for). Eased in / out over ~5 ticks (`SpiderPerch.amount`).
+- **Jointed limbs** (`client.render.JointedLimbs`): while a pose sets a joint (only inside that player's `PlayerRenderer.render`), every humanoid limb box drawn for him is split at the elbow (4 px below the arm pivot) / knee (6 px below the hip): upper half as posed, lower half turned by the joint rotation. Faces crossing the cut are clipped there with interpolated UVs and the cut edge is turned by HALF the rotation (a mitre), so the two halves share one continuous skin with no gap at any angle.
+  - Vanilla parts: `ModelPartJointMixin` (on `ModelPart.compile`) for parts registered by `HumanoidModelLimbRegistryMixin` / `PlayerModelLimbRegistryMixin` -- covers the skin and its sleeve / pants overlay (wide and slim), the red suit's skin rig (`SpiderSuitRender`), and vanilla armour.
+  - GeckoLib armour (the Black Suit etc.): `SuperheroArmorRenderer.renderJointedBone` splits `armorRightArm` / `armorLeftArm` / `armorRightLeg` / `armorLeftLeg` / boots the same way (rotation mirrored through GeckoLib's x/y flip).
+  - A held item follows the bent forearm (`PlayerModel.translateToHand`).
+- **First person:** the eye sinks 0.36 and tips 6 degrees down (`SpiderPerchCameraMixin`); both hands come down to the bottom of the view (`SpiderPerchHandMixin`, which also draws the empty off hand).
+- Gametests: `perchNeedsADropOrAThinPost`, `perchNeedsSneakingStillOnTheGround`. Screenshot harness: `scratchpad/V0162PerchHarness.java.txt` (+ camera mixin).
+
 ## v0.9.10 changes (at a glance)
 
 - **Super leap buffed to ~10 blocks.** `SpiderAbilities.superJump` initial rise `1.05 → 1.35`

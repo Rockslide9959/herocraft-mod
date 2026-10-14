@@ -333,6 +333,54 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		return out;
 	}
 
+	// ---------------- the ledge perch (v0.16.2: restored, jointed limbs) ----------------
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void perchNeedsADropOrAThinPost(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(1, 4, 1)), helper.absolutePos(new BlockPos(5, 4, 3)))) {
+			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+		}
+		Vec3 middle = helper.absoluteVec(new Vec3(3.5, 5.0, 2.0));
+		p.moveTo(middle.x, middle.y, middle.z, 0.0f, 0.0f); // facing +Z, the ledge 1.5 blocks ahead
+		helper.assertFalse(SpiderMoves.perchSpot(p), "no perch in the middle of a floor");
+		Vec3 edge = helper.absoluteVec(new Vec3(3.5, 5.0, 3.6));
+		p.moveTo(edge.x, edge.y, edge.z, 0.0f, 0.0f);
+		helper.assertTrue(SpiderMoves.perchSpot(p), "at the edge, facing a 4-block drop, he perches");
+		p.moveTo(edge.x, edge.y, edge.z, 180.0f, 0.0f);
+		helper.assertFalse(SpiderMoves.perchSpot(p), "but not facing back over the floor");
+		// v0.16.2: the middle of a 1-block pillar top is a perch too
+		for (int y = 1; y <= 4; y++) {
+			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(6, y, 0)), Blocks.STONE.defaultBlockState(), 2);
+		}
+		Vec3 pillar = helper.absoluteVec(new Vec3(6.5, 5.0, 0.5));
+		p.moveTo(pillar.x, pillar.y, pillar.z, 0.0f, 0.0f);
+		helper.assertTrue(SpiderMoves.perchSpot(p), "in the middle of a 1-block pillar top he perches");
+		BlockPos post = helper.absolutePos(new BlockPos(7, 1, 6));
+		helper.getLevel().setBlock(post, Blocks.OAK_FENCE.defaultBlockState(), 2);
+		p.moveTo(post.getX() + 0.5, post.getY() + 1.5, post.getZ() + 0.5, 90.0f, 0.0f);
+		helper.assertTrue(SpiderMoves.perchSpot(p), "on top of a fence post he perches whichever way he faces");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void perchNeedsSneakingStillOnTheGround(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		BlockPos post = helper.absolutePos(new BlockPos(2, 1, 2));
+		helper.getLevel().setBlock(post, Blocks.OAK_FENCE.defaultBlockState(), 2);
+		p.moveTo(post.getX() + 0.5, post.getY() + 1.5, post.getZ() + 0.5, 0.0f, 0.0f);
+		p.setOnGround(true);
+		p.setShiftKeyDown(false);
+		helper.assertFalse(SpiderMoves.perchAllowed(p, false, 0.0), "standing up on the post: no perch");
+		p.setShiftKeyDown(true);
+		helper.assertTrue(SpiderMoves.perchAllowed(p, false, 0.0), "sneaking still on the post: the perch");
+		helper.assertFalse(SpiderMoves.perchAllowed(p, false, 0.1), "sneak-walking onto it does not start one");
+		helper.assertTrue(SpiderMoves.perchAllowed(p, true, 0.1), "but a small shuffle once perched keeps it");
+		helper.assertFalse(SpiderMoves.perchAllowed(p, true, 0.3), "and walking off ends it");
+		p.setOnGround(false);
+		helper.assertFalse(SpiderMoves.perchAllowed(p, true, 0.0), "in the air: no perch");
+		helper.succeed();
+	}
+
 	// ---------------- Grab & Hurl ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)

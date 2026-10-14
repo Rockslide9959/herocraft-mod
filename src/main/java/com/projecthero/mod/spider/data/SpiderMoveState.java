@@ -29,6 +29,11 @@ public final class SpiderMoveState {
 	public static final int FLAG_CHARGING_BLOSSOM = 1 << 6;
 	/** The uppercut's air-combo window is open. */
 	public static final int FLAG_AIR_COMBO = 1 << 7;
+	/**
+	 * v0.16.2: ledge perch -- sneaking still at a drop (or on a thin post): the deep frog squat with jointed limbs. (Bit
+	 * 14, well clear of the other flags, so a new stance flag added elsewhere cannot collide with it.)
+	 */
+	public static final int FLAG_PERCH = 1 << 14;
 
 	public int flags;
 	/** {@code SpiderAnim} id and the game time it started. */
