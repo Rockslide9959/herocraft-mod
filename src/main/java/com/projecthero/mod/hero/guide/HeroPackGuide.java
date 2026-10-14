@@ -367,7 +367,8 @@ public final class HeroPackGuide {
 	private static final int CH_FROST_GIANTS = 33; // v0.16.1
 	private static final int CH_ULTRON_CONTAGION = 34; // v0.16.1
 	private static final int CH_GALACTUS = 35; // v0.16.1
-	private static final int CHAPTER_POWER_BASE = 36;
+	private static final int CH_CRIME = 36; // v0.16.2
+	private static final int CHAPTER_POWER_BASE = 37;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1162,6 +1163,15 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.galactus." + section + ".body");
 			}
 		}));
+		// v0.16.2: street crime (CH_CRIME)
+		out.add(chapter("projecthero.guide.crime", lines -> {
+			para(lines, "projecthero.guide.crime.body");
+			for (String section : new String[]{"when", "alerts", "mugging", "break_in", "getaway", "arson", "rewards", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.crime." + section);
+				para(lines, "projecthero.guide.crime." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1223,6 +1233,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.frost_giants", CH_FROST_GIANTS);
 		link(idx, "projecthero.guide.ultron_contagion", CH_ULTRON_CONTAGION); // v0.16.1
 		link(idx, "projecthero.guide.galactus", CH_GALACTUS); // v0.16.1
+		link(idx, "projecthero.guide.crime", CH_CRIME); // v0.16.2
 
 		section(idx, "projecthero.guide.section.squads", true);
 		link(idx, "projecthero.guide.squads", CH_SQUADS);

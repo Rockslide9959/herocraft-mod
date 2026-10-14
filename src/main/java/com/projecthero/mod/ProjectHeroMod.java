@@ -69,6 +69,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.behemoth.BehemothConfig.load();
 		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
 		com.projecthero.mod.carnage.CarnageConfig.load(); // v0.14.25: Carnage spawn + health
+		com.projecthero.mod.crime.CrimeConfig.load(); // v0.16.2: street crime (frequency, the four kinds, rewards)
 		com.projecthero.mod.sentinel.SentinelConfig.load(); // v0.15.1: the Sentinel Purge (read before its entity types)
 		com.projecthero.mod.ultron.UltronConfig.load(); // v0.15.12: the Ultron Uprising (read before its entity types)
 		com.projecthero.mod.frostgiant.FrostGiantConfig.load(); // v0.16.1: the Frost Giant Assault (read before its entity types)
@@ -204,6 +205,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.horde.Hordes.initialize();
 		// v0.14.25: the Syndicate Bust (Police Scanner -> warehouse hideout -> five waves -> the Kingpin)
 		com.projecthero.mod.syndicate.Syndicate.initialize();
+		// v0.16.2: street crime near villages (muggings, break-ins, getaways, arson) -- the Syndicate's crooks, for any player
+		com.projecthero.mod.crime.Crimes.initialize();
 		// v0.14.25: Carnage (crimson meteor boss, his brood, Crimson Biomass)
 		com.projecthero.mod.carnage.Carnage.initialize();
 		// v0.15.1: the Sentinel Purge (Sentinel Drones, Sentinels, Master Mold, the Trask Signal)
@@ -263,6 +266,7 @@ public class ProjectHeroMod implements ModInitializer {
 			com.projecthero.mod.titan.TitanSpawner.tick(server);
 			com.projecthero.mod.behemoth.BehemothSpawner.tick(server);
 			com.projecthero.mod.carnage.CarnageSpawner.tick(server);
+			com.projecthero.mod.crime.CrimeScheduler.tick(server); // v0.16.2: natural street crime near villages
 			com.projecthero.mod.sentinel.SentinelSpawner.tick(server); // v0.15.1
 			com.projecthero.mod.ultron.UltronSpawner.tick(server); // v0.15.12 (natural trigger, off by default)
 			com.projecthero.mod.ultron.MindStoneCharm.tick(server); // v0.15.12
