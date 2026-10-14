@@ -188,13 +188,12 @@ public final class SpiderWebs {
 	public static final double THROW_MAX_VOLUME = 6.0;
 
 	/**
-	 * v0.16.2: the one rule for what Spider-Man cannot throw (Swing Throw, Grab &amp; Hurl): bosses, iron golems, and
-	 * anything physically too heavy. Everything else goes -- knockback resistance no longer stops a throw.
+	 * v0.16.2: the one rule for what Spider-Man cannot throw (Swing Throw, Grab &amp; Hurl): bosses and anything
+	 * physically too big (an iron golem, ~5.3, is fine). Everything else goes -- knockback resistance no longer stops a throw.
 	 */
 	public static boolean tooHeavyToThrow(LivingEntity target) {
 		double w = target.getBbWidth();
-		return isBoss(target) || target instanceof net.minecraft.world.entity.animal.IronGolem
-				|| w * w * target.getBbHeight() > THROW_MAX_VOLUME;
+		return isBoss(target) || w * w * target.getBbHeight() > THROW_MAX_VOLUME; // v0.16.2 (user): iron golems can be thrown
 	}
 
 	/** Wrap a target for the default duration. Returns the number of ticks it will actually be held for. */
