@@ -45,6 +45,25 @@ public final class Crimes {
 	private Crimes() {
 	}
 
+	/** v0.16.2 City part B: told when a crime begins (its crooks have just arrived). City Cops use it to answer the call. */
+	@FunctionalInterface
+	public interface CrimeListener {
+		void onBegin(ServerLevel level, CrimeEvent crime);
+	}
+
+	private static final List<CrimeListener> LISTENERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/** Adds a {@link CrimeListener} (e.g. the City Cops). */
+	public static void addListener(CrimeListener listener) {
+		LISTENERS.add(listener);
+	}
+
+	static void fireBegin(ServerLevel level, CrimeEvent crime) {
+		for (CrimeListener l : LISTENERS) {
+			l.onBegin(level, crime);
+		}
+	}
+
 	public static void initialize() {
 		for (CrimeType type : CrimeType.values()) {
 			EventTypes.register(type.typeId(), type::create);

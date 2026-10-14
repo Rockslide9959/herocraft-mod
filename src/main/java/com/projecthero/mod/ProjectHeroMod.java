@@ -70,6 +70,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
 		com.projecthero.mod.carnage.CarnageConfig.load(); // v0.14.25: Carnage spawn + health
 		com.projecthero.mod.crime.CrimeConfig.load(); // v0.16.2: street crime (frequency, the four kinds, rewards)
+		com.projecthero.mod.city.CityConfig.load(); // v0.16.2 City part B: repair, cops, doctor, firefighter, bank, newspaper
 		com.projecthero.mod.sentinel.SentinelConfig.load(); // v0.15.1: the Sentinel Purge (read before its entity types)
 		com.projecthero.mod.ultron.UltronConfig.load(); // v0.15.12: the Ultron Uprising (read before its entity types)
 		com.projecthero.mod.frostgiant.FrostGiantConfig.load(); // v0.16.1: the Frost Giant Assault (read before its entity types)
@@ -211,6 +212,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.syndicate.Syndicate.initialize();
 		// v0.16.2: street crime near villages (muggings, break-ins, getaways, arson) -- the Syndicate's crooks, for any player
 		com.projecthero.mod.crime.Crimes.initialize();
+		// v0.16.2 City part B: the City's systems (repair, City Cops, Doctors, Firefighters, the bank, the Daily Bulletin)
+		com.projecthero.mod.city.City.initialize();
 		// v0.14.25: Carnage (crimson meteor boss, his brood, Crimson Biomass)
 		com.projecthero.mod.carnage.Carnage.initialize();
 		// v0.15.1: the Sentinel Purge (Sentinel Drones, Sentinels, Master Mold, the Trask Signal)

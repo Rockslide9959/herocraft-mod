@@ -111,7 +111,8 @@
 		"WorldEventZoomMixin",
 		"ItemInHandLayerGunMixin",
 		"ItemInHandRendererGunMixin",
-		"GuiGunCrosshairMixin"
+		"GuiGunCrosshairMixin",
+		"CityVillagerSwingMixin"
 	],
 	"client": [],
 	"server": [],

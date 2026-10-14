@@ -62,7 +62,14 @@
 		"SuperSpeedWaterSoundMixin",
 		"ZombieSpawnMixin",
 		"MobWrapMixin",
-		"CreeperWrapMixin"
+		"CreeperWrapMixin",
+		"CitySinglePoolElementAccessor",
+		"CityStructureTemplateAccessor",
+		"CityLevelChunkMixin",
+		"CityBlockDropMixin",
+		"CityBlockItemMixin",
+		"CityVillagerMixin",
+		"CityVillagerPanicMixin"
 	],
 	"client": [],
 	"server": [],

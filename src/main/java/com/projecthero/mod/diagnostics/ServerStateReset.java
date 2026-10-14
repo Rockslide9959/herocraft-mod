@@ -123,6 +123,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.behemoth.BehemothSpawner.clearSessionState();
 		com.projecthero.mod.carnage.CarnageSpawner.clearSessionState(); // v0.14.25
 		com.projecthero.mod.crime.CrimeScheduler.clearSessionState(); // v0.16.2: per-player / per-village crime cooldowns
+		com.projecthero.mod.city.City.clearSessionState(); // v0.16.2 City part B: city chunks, blueprint cache, damage queue, jobs, cops
 		com.projecthero.mod.sentinel.SentinelSpawner.clearSessionState(); // v0.15.1
 		com.projecthero.mod.sentinel.SentinelTargets.clearSessionState(); // v0.15.1
 		com.projecthero.mod.ultron.MindStoneCharm.clearSessionState(); // v0.15.12: Mind Stone charms

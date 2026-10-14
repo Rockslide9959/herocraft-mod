@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/repair_bench"
+    },
+    "facing=east": {
+      "model": "projecthero:block/repair_bench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/repair_bench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/repair_bench",
+      "y": 270
+    }
+  }
+}
