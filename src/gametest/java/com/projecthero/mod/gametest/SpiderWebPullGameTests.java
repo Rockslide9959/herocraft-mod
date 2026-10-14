@@ -281,4 +281,32 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 		arrow2.discard();
 		helper.succeed();
 	}
+
+	/** v0.16.2 (user): on his own tightrope, Shift+V reels the aimed target onto the web and cocoons it there. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void shiftVOnHisWebSnagsATargetOntoIt(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 4.0, 1.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 4.0, 1.5));
+		WebStructureEntity rope = SpiderMoves.buildTightrope(p, a, b);
+		Vec3 mid = a.lerp(b, 0.5);
+		p.teleportTo(mid.x, mid.y + 0.03, mid.z);
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		Vec3 z = helper.absoluteVec(new Vec3(4.0, 1.0, 6.5));
+		zombie.moveTo(z.x, z.y, z.z, 0f, 0f);
+		zombie.setNoAi(true);
+		helper.getLevel().addFreshEntity(zombie);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.position().add(0, 1.0, 0));
+		helper.assertTrue(SpiderMoves.webSnag(p), "on his web, Shift+V is the snag");
+		helper.runAfterDelay(35, () -> {
+			for (int i = 0; i < 35; i++) {
+				SpiderMoves.tick(p);
+			}
+			helper.assertTrue(SpiderWrap.isWrapped(zombie), "the target is cocooned");
+			helper.assertTrue(WebStructures.strandHolding(zombie) == rope, "on his tightrope");
+			helper.assertFalse(rope.isRemoved(), "and the web still stands");
+			SpiderWrap.release(zombie, false);
+			helper.succeed();
+		});
+	}
 }

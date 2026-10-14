@@ -235,6 +235,7 @@ public final class SpiderMoves {
 	public static void clearSessionState() {
 		PRESSES.clear();
 		HAULS.clear();
+		SNAGS.clear();
 		COMBOS.clear();
 		AIR_COMBO.clear();
 		COUNTER_UNTIL.clear();
@@ -254,6 +255,7 @@ public final class SpiderMoves {
 		UUID id = player.getUUID();
 		PRESSES.remove(id);
 		HAULS.remove(id);
+		SNAGS.remove(id);
 		COMBOS.remove(id);
 		AIR_COMBO.remove(id);
 		COUNTER_UNTIL.remove(id);
@@ -476,7 +478,9 @@ public final class SpiderMoves {
 				}
 			}
 			case 4 -> {
-				if (black) {
+				if (webSnag(player)) {
+					// v0.16.2 (user): standing on his tightrope / woven web, Shift+V snags a target onto it, cocooned
+				} else if (black) {
 					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.inkShroud(player);
 				} else {
 					webCocoon(player);
@@ -630,6 +634,81 @@ public final class SpiderMoves {
 		thwip(player, kick ? 0.9f : 1.0f);
 		play(player, SpiderSounds.ZIP, 0.8f, 1.0f);
 		anim(player, kick ? SpiderAnim.ZIP_KICK : SpiderAnim.ZIP);
+	}
+
+	// ---------------- v0.16.2 Web Snag (Shift+V on his own web) ----------------
+
+	/** A target being reeled onto his web: where on the web it goes. */
+	private record Snag(int targetId, long start, Vec3 dest) {
+	}
+
+	private static final Map<UUID, Snag> SNAGS = new ConcurrentHashMap<>();
+	private static final double SNAG_RANGE = 24.0;
+	private static final double SNAG_SPEED = 1.3;
+	private static final int SNAG_MAX_TICKS = 30;
+
+	/**
+	 * Shift+V while standing on one of his tightropes / woven webs: a line to the target he is aiming at reels it
+	 * through the air onto the strand beside him, where it is cocooned ({@link SpiderWrap}, for as long as the web holds).
+	 * Returns false when he is not on a web (Shift+V does its normal move then). Web Cocoon's cost and cooldown.
+	 */
+	public static boolean webSnag(ServerPlayer player) {
+		WebStructures.StrandHit under = WebStructures.strandAtFeet(player);
+		if (under == null || SNAGS.containsKey(player.getUUID())) {
+			return under != null;
+		}
+		LivingEntity target = SpiderCombat.pickTarget(player, SNAG_RANGE);
+		if (target == null || !harmable(player, target)) {
+			noTarget(player);
+			return true;
+		}
+		if (SpiderWebs.isBoss(target) || SpiderWebs.tooHeavyToThrow(target) || SpiderWebs.ignoresWebs(target)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
+			return true;
+		}
+		if (!gate(player, WEB_COCOON)) {
+			return true;
+		}
+		// a spot on the web about 1.6 blocks from him, toward the target; it hangs with the strand through its chest
+		Vec3 toward = target.position().subtract(player.position());
+		Vec3 flat = new Vec3(toward.x, 0, toward.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? player.getLookAngle() : flat.normalize();
+		Vec3 onWeb = WebStructures.nearestPoint(player, under.point().add(flat.scale(1.6)), 3.0);
+		if (onWeb == null) {
+			onWeb = under.point();
+		}
+		Vec3 dest = onWeb.subtract(0, target.getBbHeight() * 0.6, 0);
+		WebStructures.tearFree(target);
+		SNAGS.put(player.getUUID(), new Snag(target.getId(), player.level().getGameTime(), dest));
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_YANK, target, SpiderCombat.center(target), SNAG_MAX_TICKS, 8);
+		anim(player, SpiderAnim.THWIP_BOTH);
+		thwip(player, 0.9f);
+		fired(player, WEB_COCOON);
+		return true;
+	}
+
+	private static void tickSnag(ServerPlayer player, Snag sn) {
+		ServerLevel level = (ServerLevel) player.level();
+		Entity e = level.getEntity(sn.targetId());
+		if (!(e instanceof LivingEntity target) || !target.isAlive() || level.getGameTime() - sn.start() > SNAG_MAX_TICKS + 10) {
+			SNAGS.remove(player.getUUID());
+			return;
+		}
+		Vec3 delta = sn.dest().subtract(target.position());
+		double dist = delta.length();
+		if (dist <= SNAG_SPEED || level.getGameTime() - sn.start() >= SNAG_MAX_TICKS) {
+			target.teleportTo(sn.dest().x, sn.dest().y, sn.dest().z);
+			target.setDeltaMovement(Vec3.ZERO);
+			SpiderWrap.wrap(target);
+			SNAGS.remove(player.getUUID());
+			return;
+		}
+		// reeled straight in along the line -- no gravity fighting it
+		Vec3 step = delta.scale(SNAG_SPEED / dist);
+		target.teleportTo(target.getX() + step.x, target.getY() + step.y, target.getZ() + step.z);
+		target.setDeltaMovement(Vec3.ZERO);
+		target.resetFallDistance();
+		target.hurtMarked = true;
 	}
 
 	private static void tickHaul(ServerPlayer player, Haul h) {
@@ -1727,6 +1806,10 @@ public final class SpiderMoves {
 		Haul h = HAULS.get(id);
 		if (h != null) {
 			tickHaul(player, h);
+		}
+		Snag sn = SNAGS.get(id);
+		if (sn != null) {
+			tickSnag(player, sn);
 		}
 		Combo c = COMBOS.get(id);
 		if (c != null) {
