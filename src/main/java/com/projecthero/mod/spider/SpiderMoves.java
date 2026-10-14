@@ -246,6 +246,7 @@ public final class SpiderMoves {
 		ANCHOR_A_PARENT.clear();
 		THWIP_HAND.clear();
 		MOTION.clear();
+		HANGS.clear();
 	}
 
 	/** Death / relog / dimension change / power loss: drop every session and stance. */
@@ -266,6 +267,7 @@ public final class SpiderMoves {
 		ANCHOR_A_AT.remove(id);
 		ANCHOR_A_PARENT.remove(id);
 		MOTION.remove(id);
+		HANGS.remove(id);
 		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
 		if (s != null && (s.flags != 0 || s.animId != SpiderAnim.NONE)) {
 			player.setAttached(ModAttachments.SPIDER_MOVE_STATE, new SpiderMoveState());
@@ -460,6 +462,9 @@ public final class SpiderMoves {
 				}
 			}
 			case 3 -> {
+				if (endUpsideHang(player)) {
+					return; // v0.16.1: Shift+Z while hanging upside down lets go -- before Grab & Hurl / the Black Suit's move
+				}
 				if (black) {
 					p.crush = true;
 					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.beginConsume(player);
@@ -811,6 +816,10 @@ public final class SpiderMoves {
 
 	/** Z Web Whip: spin a strand round you, hitting everything within reach. */
 	public static void webWhip(ServerPlayer player) {
+		// v0.16.1: on a ceiling / woven web / tightrope, Z drops into the upside-down hang; hanging, it zips back up
+		if (hangKey(player)) {
+			return;
+		}
 		if (!gate(player, WEB_WHIP)) {
 			return;
 		}
@@ -820,15 +829,12 @@ public final class SpiderMoves {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(r, 1.5, r),
 				x -> harmable(player, x) && x.distanceToSqr(player) <= (r + 0.5) * (r + 0.5))) {
 			AbilityHelpers.hurt(player, e, cfg(WEB_WHIP).damage);
+			WebStructures.tearFree(e); // v0.16.1 the stuck-pull rule: the lash tears it off any web it was stuck on
 			AbilityHelpers.knockbackFrom(e, player.position(), 1.1);
 			SpiderWebs.addStickStack(e, level.getGameTime());
 			hit++;
 		}
-		for (int a = 0; a < 360; a += 15) {
-			double rad = Math.toRadians(a);
-			level.sendParticles(ParticleTypes.ITEM_COBWEB, player.getX() + Math.cos(rad) * r, player.getY() + 1.0,
-					player.getZ() + Math.sin(rad) * r, 1, 0.0, 0.05, 0.0, 0.0);
-		}
+		// (v0.16.1: the strand whirled round him is the real web line -- SpiderWebLineRenderer draws it from the WHIP anim)
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1.0, player.getZ(), 4, r * 0.4, 0.1, r * 0.4, 0);
 		thwip(player, 0.85f);
 		play(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.75f);
@@ -857,6 +863,7 @@ public final class SpiderMoves {
 				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
 				return;
 			}
+			WebStructures.tearFree(target); // v0.16.1 the stuck-pull rule: it comes off the web, and the web snaps
 			HURLS.put(player.getUUID(), new Hurl(target.getId(), level.getGameTime(), false));
 			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_GRAB, target, SpiderCombat.center(target), 14, 30);
 		} else {
@@ -1067,7 +1074,7 @@ public final class SpiderMoves {
 	public static WebStructureEntity buildTightrope(ServerPlayer player, Vec3 a, Vec3 b) {
 		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.tightrope(a, b), a.lerp(b, 0.5));
 		ServerLevel level = (ServerLevel) player.level();
-		AbilityHelpers.line(level, a, b, ParticleTypes.ITEM_COBWEB, 1.0);
+		// (v0.16.1: no particle line -- the rope itself is drawn the moment it exists, WebStructureRenderer)
 		if (!soundsOff(player)) {
 			level.playSound(null, b.x, b.y, b.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 0.8f, 1.2f);
 		}
@@ -1363,20 +1370,31 @@ public final class SpiderMoves {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.cocoon_needs_weak"), true);
 			return;
 		}
+		// v0.16.1: a thrown move -- a web ball homes in on the target and wraps it where it lands (cocoonLanded)
+		ServerLevel level = (ServerLevel) player.level();
+		anim(player, SpiderAnim.COCOON);
+		Vec3 look = player.getLookAngle();
+		Vec3 from = player.getEyePosition().add(look.scale(0.6)).subtract(0, 0.25, 0);
+		level.addFreshEntity(new com.projecthero.mod.spider.entity.WebCocoonBallEntity(level, player, target, from));
+		thwip(player, 0.9f);
+		fired(player, WEB_COCOON);
+	}
+
+	/** The Web Cocoon ball reaching its target: the full wrap (it takes extra damage while wrapped). */
+	public static void cocoonLanded(ServerPlayer player, LivingEntity target) {
+		if (!target.isAlive() || SpiderWebs.ignoresWebs(target)) {
+			return;
+		}
 		int ticks = SpiderManConfig.moves().webCocoonTicks;
 		SpiderWebs.cocoonFor(player, target, ticks);
 		SpiderWebs.markDeepCocoon(target, ticks);
 		target.setDeltaMovement(0, Math.min(0.0, target.getDeltaMovement().y), 0);
 		target.hurtMarked = true;
-		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_GRAB, target, SpiderCombat.center(target), 10, 30);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = SpiderCombat.center(target);
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, c.x, c.y, c.z, 40, target.getBbWidth() * 0.5, target.getBbHeight() * 0.5,
 				target.getBbWidth() * 0.5, 0.02);
-		thwip(player, 0.9f);
 		level.playSound(null, c.x, c.y, c.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.0f, 0.7f);
-		anim(player, SpiderAnim.COCOON);
-		fired(player, WEB_COCOON);
 	}
 
 	// ---------------- traversal: swinging + zip boost ----------------
@@ -1397,7 +1415,8 @@ public final class SpiderMoves {
 	public static void swingStop(ServerPlayer player) {
 		boolean was = SpiderSwing.isSwinging(player);
 		SpiderSwing.detach(player, true);
-		setFlag(player, SpiderMoveState.FLAG_HANGING, false);
+		HANGS.remove(player.getUUID());
+		clearHangFlags(player);
 		double[] m = MOTION.get(player.getUUID());
 		if (was && !player.onGround() && m != null && m[2] > 0.45) {
 			anim(player, SpiderAnim.RELEASE_FLIP);
@@ -1471,6 +1490,121 @@ public final class SpiderMoves {
 		setFlag(player, SpiderMoveState.FLAG_HANGING, false);
 		AbilityHelpers.launchSelf(player, new Vec3(0, 1.0, 0));
 		anim(player, SpiderAnim.RELEASE_FLIP);
+	}
+
+	// ---------------- v0.16.1: the upside-down hang (Z on a ceiling / woven web / tightrope) ----------------
+
+	/** Where an upside-down hang came from: a ceiling (re-crawl it) or a web strand (stand back on it), and its anchor. */
+	private record Hang(boolean ceiling, Vec3 anchor, UUID web, float yaw) {
+	}
+
+	private static final Map<UUID, Hang> HANGS = new ConcurrentHashMap<>();
+	/** The line he drops on, and its limits (Jump reels in, Sneak pays out -- on his own client, see SpiderSwingClient). */
+	public static final double HANG_START_LENGTH = 2.0;
+	public static final double HANG_MIN_LENGTH = 0.8;
+	public static final double HANG_MAX_LENGTH = 16.0;
+
+	/** True while he hangs upside down (either side: the flag is synced). */
+	public static boolean hangingUpsideDown(Player player) {
+		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		return s != null && s.has(SpiderMoveState.FLAG_HANG_UPSIDE) && s.has(SpiderMoveState.FLAG_HANGING);
+	}
+
+	/**
+	 * Z (tap): on a ceiling, a woven web or a tightrope -> drop and hang upside down from that spot on a real web line;
+	 * already hanging -> zip back up to where he came from. Returns false (Z is Web Whip as usual) when neither applies.
+	 */
+	public static boolean hangKey(ServerPlayer player) {
+		if (!SpiderMan.hasPower(player)) {
+			return false;
+		}
+		if (HANGS.containsKey(player.getUUID()) && hangingUpsideDown(player)) {
+			zipBackUp(player);
+			return true;
+		}
+		if (SpiderSwing.isSwinging(player) || player.isPassenger() || player.isInWater()) {
+			return false;
+		}
+		Hang hang = null;
+		if (SpiderClimb.onCeiling(player)) {
+			BlockHitResult up = player.level().clip(new net.minecraft.world.level.ClipContext(player.getEyePosition(),
+					player.getEyePosition().add(0, 2.0, 0), net.minecraft.world.level.ClipContext.Block.COLLIDER,
+					net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+			double y = up.getType() == HitResult.Type.BLOCK ? up.getLocation().y : player.getBoundingBox().maxY;
+			hang = new Hang(true, new Vec3(player.getX(), y, player.getZ()), null, player.getYRot());
+		} else {
+			WebStructures.StrandHit on = WebStructures.strandAtFeet(player);
+			if (on != null) {
+				hang = new Hang(false, on.point(), on.web().getUUID(), player.getYRot());
+			}
+		}
+		if (hang == null) {
+			return false;
+		}
+		if (!SpiderSwing.fireAt(player, hang.anchor(), HANG_START_LENGTH)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_webbing"), true);
+			return true; // Z was meant for the hang: no whip by accident
+		}
+		SpiderClimb.requestRelease(player);
+		HANGS.put(player.getUUID(), hang);
+		SpiderMoveState c = state(player).copy();
+		c.set(SpiderMoveState.FLAG_HANGING, true);
+		c.set(SpiderMoveState.FLAG_HANG_UPSIDE, true);
+		save(player, c);
+		AbilityHelpers.launchSelf(player, new Vec3(0, -0.2, 0));
+		thwip(player, 0.95f);
+		return true;
+	}
+
+	/** Tap Z while hanging: zipped back up -- crawling on the ceiling again, or standing on the strand again. */
+	private static void zipBackUp(ServerPlayer player) {
+		Hang h = HANGS.remove(player.getUUID());
+		clearHangFlags(player);
+		SpiderSwing.detach(player, false);
+		if (h == null) {
+			return;
+		}
+		if (h.ceiling()) {
+			Vec3 to = h.anchor().subtract(0, 0.2, 0);
+			Vec3 dir = to.subtract(player.getEyePosition());
+			AbilityHelpers.launchSelf(player, dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 1, 0) : dir.normalize().scale(1.4));
+			SpiderCombat.beginZipPull(player, to);
+			SpiderClimb.requestGrab(player);
+			net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+					new com.projecthero.mod.network.SpiderClimbGrabPayload());
+		} else {
+			Entity web = ((ServerLevel) player.level()).getEntity(h.web());
+			if (!(web instanceof WebStructureEntity w) || w.isRemoved()) {
+				return; // the web is gone: he just drops
+			}
+			Vec3 dir = h.anchor().add(0, player.getEyeHeight(), 0).subtract(player.getEyePosition());
+			AbilityHelpers.launchSelf(player, dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 1, 0) : dir.normalize().scale(1.4));
+			SpiderCombat.beginZipLanding(player, h.anchor(), h.yaw());
+		}
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, h.anchor(), 4, 20);
+		anim(player, SpiderAnim.ZIP);
+		thwip(player, 1.1f);
+		play(player, SpiderSounds.ZIP, 0.7f, 1.1f);
+	}
+
+	/** Shift+Z while hanging: let go of the line and drop. Returns false when he is not hanging upside down. */
+	public static boolean endUpsideHang(ServerPlayer player) {
+		if (HANGS.remove(player.getUUID()) == null && !hangingUpsideDown(player)) {
+			return false;
+		}
+		clearHangFlags(player);
+		SpiderSwing.detach(player, true);
+		return true;
+	}
+
+	private static void clearHangFlags(ServerPlayer player) {
+		SpiderMoveState s = state(player);
+		if (s.has(SpiderMoveState.FLAG_HANGING) || s.has(SpiderMoveState.FLAG_HANG_UPSIDE)) {
+			SpiderMoveState c = s.copy();
+			c.set(SpiderMoveState.FLAG_HANGING, false);
+			c.set(SpiderMoveState.FLAG_HANG_UPSIDE, false);
+			save(player, c);
+		}
 	}
 
 	// ---------------- damage hooks ----------------
@@ -1565,7 +1699,8 @@ public final class SpiderMoves {
 		}
 		SpiderMoveState s = state(player);
 		if (s.has(SpiderMoveState.FLAG_HANGING) && !SpiderSwing.isSwinging(player)) {
-			setFlag(player, SpiderMoveState.FLAG_HANGING, false);
+			HANGS.remove(id);
+			clearHangFlags(player); // the line went (cut, reserve, anchor gone): an upside-down hang ends with it
 		}
 		if (s.has(SpiderMoveState.FLAG_CHARGING_IMPACT) && now - s.chargeStart > 60) {
 			releaseImpact(player); // a full charge fires by itself

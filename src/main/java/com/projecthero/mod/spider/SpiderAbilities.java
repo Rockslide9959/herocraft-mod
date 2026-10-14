@@ -111,6 +111,8 @@ public final class SpiderAbilities {
 	}
 	/** v0.6.19: was 22. */
 	public static final double NET_RANGE = 35.0;
+	/** v0.16.1: the longest a Web Yank line is held (it lets go sooner once the pull is over). */
+	public static final int YANK_LINE_TICKS = 20;
 
 	private SpiderAbilities() {
 	}
@@ -135,11 +137,6 @@ public final class SpiderAbilities {
 	static void fired(ServerPlayer player, String ability, float cost, int cooldown) {
 		SpiderWebReserve.spend(player, cost, true);
 		SpiderMan.triggerCooldown(player, ability, cooldown);
-	}
-
-	/** The web leaving the hand -- one short line of particles, drawn once, never per tick. */
-	private static void webLine(ServerLevel level, Vec3 from, Vec3 to) {
-		AbilityHelpers.line(level, from, to, ParticleTypes.ITEM_COBWEB, 1.2);
 	}
 
 	/**
@@ -314,6 +311,11 @@ public final class SpiderAbilities {
 			return;
 		}
 		boolean boss = SpiderWebs.isBoss(target);
+		// v0.16.1: something stuck on one of his tightropes / woven webs is cocooned where it hangs -- for good, until a
+		// Spider-Man sneak + right-clicks it free or pulls it loose (SpiderWrap)
+		if (!boss && com.projecthero.mod.spider.web.WebStructures.strandHolding(target) != null) {
+			SpiderWrap.wrap(target);
+		}
 		int ticks = SpiderWebs.debuffTicks(target);
 		// each hit is a stickiness stack (max 3): slower, weaker, a lower jump; three inside 3 s wrap an ordinary mob
 		int stacks = SpiderWebs.addStickStack(target, level.getGameTime());
@@ -367,7 +369,6 @@ public final class SpiderAbilities {
 			return;
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 hand = handPos(player);
 
 		// v0.6.22: whatever is under the crosshair wins. A living entity in the aim line is pulled
 		// first; only if the ray hits no mob at all do we fall back to the item cone. This is the fix
@@ -375,7 +376,6 @@ public final class SpiderAbilities {
 		LivingEntity aimed = AbilityHelpers.raycastEntity(player, yankRange(player));
 		ItemEntity item = aimed == null ? nearestItemInAim(player) : null;
 		if (item != null) {
-			webLine(level, hand, item.position());
 			// v0.6.19: yanked straight at the player -- a hard pull aimed right at the chest, not skidded
 			// across the floor and not lobbed in an arc. Just enough of an upward bias to unstick it from
 			// the ground on the first tick; distance only makes the pull faster.
@@ -389,6 +389,8 @@ public final class SpiderAbilities {
 			item.hurtMarked = true;
 			AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.6f, 1.7f);
 			SpiderMoves.anim(player, SpiderAnim.YANK);
+			// v0.16.1: the real web line, hand -> item, held until it arrives
+			SpiderCombat.beginTether(player, SpiderCombat.SLOT_YANK, item, YANK_LINE_TICKS);
 			SpiderMoves.thwip(player, 1.0f);
 			fired(player, WEB_YANK, SpiderManConfig.moves().webYank.cost, SpiderManConfig.moves().webYank.cooldown);
 			return;
@@ -402,8 +404,6 @@ public final class SpiderAbilities {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_target"), true);
 			return;
 		}
-		webLine(level, hand, target.position().add(0, target.getBbHeight() * 0.5, 0));
-
 		Vec3 toPlayer = player.position().subtract(target.position());
 		double dist = Math.max(1.0, toPlayer.length());
 		boolean boss = SpiderWebs.isBoss(target);
@@ -414,7 +414,14 @@ public final class SpiderAbilities {
 		// mass scale -- the spec's "allow pulling heavier mobs".
 		double strength = yankStrengthMult(player);
 
-		if (boss || target.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE) >= 1.0) {
+		boolean immovable = boss
+				|| target.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE) >= 1.0;
+		if (!immovable) {
+			// v0.16.1 the stuck-pull rule: stuck on a tightrope / woven web / his cobwebs (or cocooned) -> it comes off and
+			// moves with the pull, and the web it was stuck on snaps
+			com.projecthero.mod.spider.web.WebStructures.tearFree(target);
+		}
+		if (immovable) {
 			// Immovable: the line pulls the spider instead. No exploiting a boss as a yo-yo.
 			Vec3 pull = toPlayer.reverse().normalize().scale(Math.min(1.5, 0.5 + dist * 0.05) * strength).add(0, 0.28, 0);
 			AbilityHelpers.launchSelf(player, pull);
@@ -443,9 +450,11 @@ public final class SpiderAbilities {
 		}
 
 		AbilityHelpers.burst(level, target.position().add(0, target.getBbHeight() * 0.5, 0),
-				ParticleTypes.ITEM_COBWEB, 10, 0.3);
+				ParticleTypes.ITEM_COBWEB, 5, 0.25); // a small puff where the line takes hold
 		AbilityHelpers.sound(player, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.75f, 1.1f);
 		SpiderMoves.anim(player, SpiderAnim.YANK);
+		// v0.16.1: the real web line, hand -> target, for as long as the pull lasts (it follows the hand and the target)
+		SpiderCombat.beginTether(player, SpiderCombat.SLOT_YANK, target, YANK_LINE_TICKS);
 			SpiderMoves.thwip(player, 1.0f);
 			fired(player, WEB_YANK, SpiderManConfig.moves().webYank.cost, SpiderManConfig.moves().webYank.cooldown);
 	}
@@ -569,7 +578,7 @@ public final class SpiderAbilities {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.net_failed"), true);
 			return;
 		}
-		webLine(level, handPos(player), centre);
+		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_ZIP, null, centre, 6, SpiderCombat.STRAND_FADE_TICKS);
 		AbilityHelpers.burst(level, centre, ParticleTypes.ITEM_COBWEB, 24, 0.8);
 		AbilityHelpers.sound(player, SoundEvents.WOOL_PLACE, 0.7f, 1.4f);
 		fired(player, WEB_NET, SpiderWebReserve.COST_WEB_NET, CD_WEB_NET);
@@ -657,7 +666,6 @@ public final class SpiderAbilities {
 		AbilityHelpers.launchSelf(player, new Vec3(dm.x * 0.4, 1.15, dm.z * 0.4));
 
 		Vec3 centre = player.position();
-		Vec3 hand = player.getEyePosition();
 		int caught = 0;
 		// v0.16.1: a ring of real (temporary) cobwebs round where he stood
 		java.util.List<BlockPos> cobwebRing = new java.util.ArrayList<>();
@@ -679,9 +687,12 @@ public final class SpiderAbilities {
 			AbilityHelpers.applyControl(e, MobEffects.JUMP, SpiderWebs.debuffTicks(e, SpiderManConfig.moves().blossomTrapTicks), -10);
 			e.setDeltaMovement(0, Math.min(0.0, e.getDeltaMovement().y), 0);
 			e.hurtMarked = true;
-			webLine(level, hand, e.position().add(0, e.getBbHeight() * 0.5, 0));
+			// v0.16.1: a real web line from his hand to each one caught (it holds a moment, then phases out)
+			if (caught < SpiderCombat.BLOSSOM_LINES) {
+				SpiderCombat.sendStrand(player, SpiderCombat.SLOT_BLOSSOM_BASE + caught, e, SpiderCombat.center(e), 8, 40);
+			}
 			AbilityHelpers.burst(level, e.position().add(0, e.getBbHeight() * 0.5, 0),
-					ParticleTypes.ITEM_COBWEB, 20, 0.4);
+					ParticleTypes.ITEM_COBWEB, 8, 0.4);
 			caught++;
 		}
 

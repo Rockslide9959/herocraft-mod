@@ -106,6 +106,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.spider.SpiderWebs.clearSessionState();
 		com.projecthero.mod.spider.SpiderCombat.clearSessionState();
 		com.projecthero.mod.spider.web.WebStructures.clearSessionState(); // v0.16.1: the web structure registry
+		com.projecthero.mod.spider.SpiderWrap.clearSessionState(); // v0.16.1: cocoon pins
 		com.projecthero.mod.spider.SpiderMoves.clearSessionState(); // v0.16.1: key holds, combos, stances, grabs
 		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.clearSessionState();
 		com.projecthero.mod.maxsteel.MaxSteelCannon.clearSessionState();

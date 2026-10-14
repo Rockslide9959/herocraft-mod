@@ -2,7 +2,6 @@ package com.projecthero.mod.spider.entity;
 
 import com.projecthero.mod.spider.SpiderMoves;
 
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -56,7 +55,7 @@ public class SpiderWebBombEntity extends AbstractHurtingProjectile {
 
 	@Override
 	protected net.minecraft.core.particles.ParticleOptions getTrailParticle() {
-		return ParticleTypes.WHITE_ASH;
+		return null; // v0.16.1: no particle trail -- the ball is its 3D model (WebBombRenderer)
 	}
 
 	@Override

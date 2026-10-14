@@ -3,6 +3,7 @@ package com.projecthero.mod.spider.web;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -282,6 +283,34 @@ public final class WebStructures {
 		return best;
 	}
 
+	/**
+	 * v0.16.1 the upside-down hang: the strand of one of his (or his squad's) tightropes / woven webs that {@code player}
+	 * is standing on or clinging to -- its nearest point within reach of his feet or middle -- or null.
+	 */
+	public static StrandHit strandAtFeet(Player player) {
+		Vec3 feet = player.position();
+		Vec3 mid = feet.add(0, player.getBbHeight() * 0.5, 0);
+		StrandHit best = null;
+		for (WebStructureEntity w : in(player.level())) {
+			if ((w.kind() != WebGeometry.TIGHTROPE && w.kind() != WebGeometry.WEAVE) || w.geometry().segmentCount() == 0
+					|| !mayUse(player, w.owner()) || !w.geometry().bounds.inflate(1.5).contains(mid)) {
+				continue;
+			}
+			for (Vec3 probe : new Vec3[] {feet, mid}) {
+				int seg = w.geometry().nearestSegment(probe);
+				if (seg < 0) {
+					continue;
+				}
+				Vec3 p = WebGeometry.closestOnSegment(w.geometry().a(seg), w.geometry().b(seg), probe);
+				double d = p.distanceTo(probe);
+				if (d <= 1.1 && (best == null || d < best.distance())) {
+					best = new StrandHit(w, p, d, seg);
+				}
+			}
+		}
+		return best;
+	}
+
 	/** Every tightrope {@code player} is standing on (at a junction there are two or more). */
 	public static List<WebStructureEntity> ropesUnderfoot(Player player) {
 		AABB feet = player.getBoundingBox();
@@ -344,6 +373,130 @@ public final class WebStructures {
 					SoundSource.PLAYERS, 0.8f, 1.3f);
 		}
 		return true;
+	}
+
+	// ---------------- v0.16.1: pulled free (the stuck-pull rule) ----------------
+
+	/**
+	 * A Spider-Man pull (Web Yank, Grab &amp; Hurl, Swing Throw, Web Whip) on {@code e}: if it is stuck on one of the web
+	 * structures (a tightrope, a woven web, a wall -- anything it is not allowed on) or in his temporary cobwebs, or wrapped
+	 * on a Weave web, it is torn loose: every web holding it snaps (dissolved, with a small tear -- a few web shreds and a
+	 * snap) and its stuck-in-web slowdown for this tick is cleared, so the pull's velocity actually moves it. Returns true
+	 * when anything was torn.
+	 */
+	public static boolean tearFree(Entity e) {
+		if (!(e.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		boolean freed = com.projecthero.mod.spider.SpiderWrap.release(e, false);
+		Vec3 centre = e.position().add(0, e.getBbHeight() * 0.5, 0);
+		AABB box = e.getBoundingBox().inflate(0.1);
+		for (WebStructureEntity w : in(level)) {
+			if (w.isRemoved() || !w.geometry().bounds.intersects(box) || mayUse(e, w.owner()) || !w.geometry().touches(box)) {
+				continue;
+			}
+			Vec3 at = w.geometry().closestPoint(centre);
+			tearEffect(level, at == null ? centre : at);
+			w.dissolve(false);
+			freed = true;
+		}
+		if (com.projecthero.mod.spider.SpiderCobwebs.tearIn(level, e.getBoundingBox()) > 0) {
+			tearEffect(level, centre);
+			freed = true;
+		}
+		if (freed) {
+			// Entity.move applies (and then clears) the stuck multiplier set by the web's tick this tick -- zero it now
+			e.makeStuckInBlock(Blocks.AIR.defaultBlockState(), Vec3.ZERO);
+		}
+		return freed;
+	}
+
+	/** The web tearing: a few shreds of web and a snap. */
+	public static void tearEffect(ServerLevel level, Vec3 at) {
+		level.sendParticles(ParticleTypes.ITEM_COBWEB, at.x, at.y, at.z, 6, 0.15, 0.15, 0.15, 0.06);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.LEASH_KNOT_BREAK, SoundSource.PLAYERS, 0.9f, 1.5f);
+	}
+
+	// ---------------- v0.16.1: what holds a body (the Web Shot cocoon) ----------------
+
+	/** The tightrope or woven web {@code e} is stuck on (touching, and not one it may use), or null. */
+	public static WebStructureEntity strandHolding(Entity e) {
+		for (WebStructureEntity w : in(e.level())) {
+			if ((w.kind() == WebGeometry.WEAVE || w.kind() == WebGeometry.TIGHTROPE) && w.geometry().touches(e.getBoundingBox())
+					&& !mayUse(e, w.owner())) {
+				return w;
+			}
+		}
+		return null;
+	}
+
+	// ---------------- v0.16.1: Swing Throw onto a Weave web ----------------
+
+	/**
+	 * Swing Throw aim assist: the point on a Weave web that {@code player} is aiming at -- straight down the aim, or the
+	 * nearest web point inside a {@code coneDeg} cone -- within {@code range}, or null.
+	 */
+	public static Vec3 weaveAimPoint(Player player, double range, double coneDeg) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 best = null;
+		double bestAngle = Math.toRadians(coneDeg);
+		for (WebStructureEntity w : in(player.level())) {
+			if (w.kind() != WebGeometry.WEAVE || w.geometry().segmentCount() == 0
+					|| w.geometry().bounds.getCenter().distanceTo(eye) > range + 8.0) {
+				continue;
+			}
+			double t = w.geometry().strandRayHit(eye, eye.add(look.scale(range)), 0.8);
+			if (t >= 0.0) {
+				Vec3 p = eye.add(look.scale(t * range));
+				Vec3 c = w.geometry().closestPoint(p);
+				return c != null ? c : p;
+			}
+			Vec3 centre = w.geometry().bounds.getCenter();
+			double along = Math.max(1.0, centre.subtract(eye).dot(look));
+			Vec3 p = w.geometry().closestPoint(eye.add(look.scale(along)));
+			if (p == null || p.distanceTo(eye) > range) {
+				continue;
+			}
+			double angle = Math.acos(Math.max(-1.0, Math.min(1.0, p.subtract(eye).normalize().dot(look))));
+			if (angle <= bestAngle) {
+				bestAngle = angle;
+				best = p;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * A thrown body moving {@code from -> to} (its centre) this tick: if that passes through a Weave web it is not allowed
+	 * on, it is caught right there -- set on the strand and stuck fast, exactly as if it had walked in. Returns the web, or
+	 * null.
+	 */
+	public static WebStructureEntity catchOnWeave(LivingEntity e, Vec3 from, Vec3 to) {
+		double radius = 0.45 + e.getBbWidth() * 0.5;
+		for (WebStructureEntity w : in(e.level())) {
+			if (w.kind() != WebGeometry.WEAVE || mayUse(e, w.owner())
+					|| !w.geometry().bounds.inflate(radius + from.distanceTo(to)).contains(from.lerp(to, 0.5))) {
+				continue;
+			}
+			double t = w.geometry().rayHit(from, to, radius);
+			if (t < 0.0) {
+				continue;
+			}
+			Vec3 at = from.lerp(to, t);
+			e.teleportTo(at.x, at.y - e.getBbHeight() * 0.5, at.z);
+			e.setDeltaMovement(Vec3.ZERO);
+			e.hurtMarked = true;
+			e.resetFallDistance();
+			e.makeStuckInBlock(Blocks.STRUCTURE_VOID.defaultBlockState(),
+					new Vec3(SpiderManConfig.webs().strangerSlowFactor, 0.04, SpiderManConfig.webs().strangerSlowFactor));
+			if (e.level() instanceof ServerLevel level) {
+				level.sendParticles(ParticleTypes.ITEM_COBWEB, at.x, at.y, at.z, 10, 0.3, 0.3, 0.3, 0.02);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.COBWEB_PLACE, SoundSource.PLAYERS, 1.0f, 0.8f);
+			}
+			return w;
+		}
+		return null;
 	}
 
 	// ---------------- per-web server tick ----------------

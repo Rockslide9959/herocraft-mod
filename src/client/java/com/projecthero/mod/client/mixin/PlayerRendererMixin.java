@@ -51,6 +51,20 @@ public abstract class PlayerRendererMixin {
 		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
 	}
 
+	/**
+	 * v0.16.1: the classic upside-down hang on a web line -- the whole body flipped head-down inside its (upright) box,
+	 * feet at the top where the line is tied on. Keyed off the synced move flag, so every viewer sees it.
+	 */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$upsideDownHang(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		if (!com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(player)) {
+			return;
+		}
+		poseStack.translate(0.0f, player.getBbHeight(), 0.0f);
+		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
+	}
+
 	/** v0.16.1: the living web swing -- the body hangs along the rope and rolls into turns; the corkscrew release. */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$spiderSwingBody(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

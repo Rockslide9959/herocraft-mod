@@ -34,15 +34,29 @@ public class SpiderWebShotEntity extends AbstractHurtingProjectile {
 	}
 
 	public SpiderWebShotEntity(Level level, LivingEntity owner, Vec3 movement) {
-		super(SpiderEntityTypes.WEB_SHOT, owner, movement, level);
+		this(SpiderEntityTypes.WEB_SHOT, level, owner, movement);
+	}
+
+	protected SpiderWebShotEntity(EntityType<? extends SpiderWebShotEntity> type, Level level, LivingEntity owner, Vec3 movement) {
+		super(type, owner, movement, level);
 		this.accelerationPower = 0.0;
 		setDeltaMovement(movement);
 	}
 
-	/** A faint trail of web fibres instead of the base class's smoke. */
+	/** v0.16.1: no particle trail at all -- the glob is its 3D model (WebShotRenderer); only the splat puffs. */
 	@Override
 	protected net.minecraft.core.particles.ParticleOptions getTrailParticle() {
-		return ParticleTypes.WHITE_ASH;
+		return null;
+	}
+
+	/** Flight speed, blocks / tick (held constant). */
+	protected double speed() {
+		return SPEED;
+	}
+
+	/** Ticks before an unspent glob simply goes. */
+	protected int maxLife() {
+		return LIFE;
 	}
 
 	@Override
@@ -66,15 +80,15 @@ public class SpiderWebShotEntity extends AbstractHurtingProjectile {
 			// keep a constant speed (accelerationPower is 0; the base class would otherwise leave it at its spawn nudge)
 			Vec3 v = getDeltaMovement();
 			double len = v.length();
-			if (len > 1.0e-4 && Math.abs(len - SPEED) > 0.02) {
-				setDeltaMovement(v.scale(SPEED / len));
+			if (len > 1.0e-4 && Math.abs(len - speed()) > 0.02) {
+				setDeltaMovement(v.scale(speed() / len));
 			}
 		}
 		super.tick();
 		if (level().isClientSide()) {
 			return;
 		}
-		if (++life > LIFE) {
+		if (++life > maxLife()) {
 			discard();
 		}
 	}
@@ -111,7 +125,7 @@ public class SpiderWebShotEntity extends AbstractHurtingProjectile {
 		}
 	}
 
-	private void splat(Vec3 at) {
+	protected void splat(Vec3 at) {
 		if (!isAlive()) {
 			return;
 		}

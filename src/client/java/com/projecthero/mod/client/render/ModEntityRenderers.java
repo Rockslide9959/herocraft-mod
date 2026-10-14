@@ -48,6 +48,9 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.spider.WebShotRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.WEB_BOMB,
 				com.projecthero.mod.client.spider.WebBombRenderer::new);
+		// v0.16.1: the Web Cocoon ball -- the Web Shot glob model
+		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.WEB_COCOON,
+				com.projecthero.mod.client.spider.WebShotRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.SYMBIOTE,
 				com.projecthero.mod.client.symbiote.SymbioteEntityRenderer::new);
 		// v0.13.19: the Symbiote Spike projectile and the living tendril

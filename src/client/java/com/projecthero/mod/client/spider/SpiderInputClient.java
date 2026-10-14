@@ -126,6 +126,9 @@ public final class SpiderInputClient {
 
 		// ---- hanging under a tightrope (v0.16.1): Jump climbs back on top, Sneak lets go ----
 		if (hanging) {
+			if (SpiderMoves.hangingUpsideDown(player)) {
+				return; // v0.16.1: upside down, held Jump / Sneak reel the line (SpiderSwingClient); Z / Shift+Z do the rest
+			}
 			if (jumpPressed) {
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ROPE_CLIMB));
 			} else if (sneakPressed) {

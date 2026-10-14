@@ -67,6 +67,11 @@ public final class SpiderCombat {
 	public static final int SLOT_GRAB = 8;
 	public static final int SLOT_WHIP = 9;
 	public static final int SLOT_COUNTER = 10;
+	/** v0.16.1: the Web Yank line (hand -> whatever is being hauled, for as long as the pull lasts). */
+	public static final int SLOT_YANK = 11;
+	/** v0.16.1: Web Blossom's lines -- one slot per caught target, from this base up. */
+	public static final int SLOT_BLOSSOM_BASE = 20;
+	public static final int BLOSSOM_LINES = 16;
 
 	private static final class Throw {
 		final int targetId;
@@ -98,6 +103,29 @@ public final class SpiderCombat {
 
 	private static final Map<UUID, ZipPull> ZIPS = new ConcurrentHashMap<>();
 
+	/** v0.16.1: a live web line held on something being pulled (Web Yank): it follows the hand and the target. */
+	private record Tether(int slot, int entityId, long start, int maxTicks) {
+	}
+
+	private static final Map<UUID, Tether> TETHERS = new ConcurrentHashMap<>();
+
+	/** v0.16.1: a Swing-Thrown body watched for flying into a Weave web (it sticks there). */
+	private static final class Flight {
+		final int entityId;
+		final long until;
+		Vec3 last;
+
+		Flight(int entityId, long until, Vec3 last) {
+			this.entityId = entityId;
+			this.until = until;
+			this.last = last;
+		}
+	}
+
+	private static final Map<UUID, List<Flight>> FLIGHTS = new ConcurrentHashMap<>();
+	/** Swing Throw aim assist onto a Weave web: the cone round the aim (degrees). */
+	public static final double WEAVE_ASSIST_CONE = 14.0;
+
 	private record Watch(int targetId, long until, Vec3 dir) {
 	}
 
@@ -111,6 +139,8 @@ public final class SpiderCombat {
 		THROWS.clear();
 		WATCHES.clear();
 		ZIPS.clear();
+		TETHERS.clear();
+		FLIGHTS.clear();
 	}
 
 	/** Death / relog / dimension change: drop everything this player had going. */
@@ -121,6 +151,11 @@ public final class SpiderCombat {
 		}
 		WATCHES.remove(id);
 		ZIPS.remove(id);
+		Tether tether = TETHERS.remove(id);
+		if (tether != null) {
+			sendStrand(player, tether.slot(), -1, player.position(), 0, 0);
+		}
+		FLIGHTS.remove(id);
 	}
 
 	public static boolean isThrowing(ServerPlayer player) {
@@ -145,6 +180,38 @@ public final class SpiderCombat {
 			if (ServerPlayNetworking.canSend(p, SpiderWebStrandPayload.TYPE)) {
 				ServerPlayNetworking.send(p, payload);
 			}
+		}
+	}
+
+	/**
+	 * v0.16.1: hold a real web line from the hand to {@code end} while it is being pulled -- it follows both ends every
+	 * frame on every client -- and let it go (a quick fade) once the pull is over: the two ends have met, the thing has
+	 * stopped, it is gone, or {@code maxTicks} have passed.
+	 */
+	public static void beginTether(ServerPlayer player, int slot, Entity end, int maxTicks) {
+		Vec3 at = end.position().add(0, end.getBbHeight() * 0.5, 0);
+		TETHERS.put(player.getUUID(), new Tether(slot, end.getId(), player.level().getGameTime(), maxTicks));
+		sendStrand(player, slot, end.getId(), at, maxTicks + 5, 0);
+	}
+
+	/** True while a pull line is held (tests). */
+	public static boolean hasTether(ServerPlayer player) {
+		return TETHERS.containsKey(player.getUUID());
+	}
+
+	private static void tickTether(ServerPlayer player, Tether t) {
+		Entity e = player.level().getEntity(t.entityId());
+		long age = player.level().getGameTime() - t.start();
+		boolean over = e == null || !e.isAlive() || age > t.maxTicks();
+		Vec3 at = e == null ? player.position() : e.position().add(0, e.getBbHeight() * 0.5, 0);
+		if (!over && age >= 2) {
+			double gap = at.distanceTo(player.position().add(0, player.getBbHeight() * 0.6, 0));
+			boolean still = e.getDeltaMovement().lengthSqr() < 0.0025 && player.getDeltaMovement().lengthSqr() < 0.0025;
+			over = gap < 1.8 || (age >= 4 && still);
+		}
+		if (over) {
+			TETHERS.remove(player.getUUID());
+			sendStrand(player, t.slot(), -1, at, 0, 4);
 		}
 	}
 
@@ -226,6 +293,7 @@ public final class SpiderCombat {
 			return false;
 		}
 		SpiderWebReserve.spend(player, cfg.cost, true);
+		com.projecthero.mod.spider.web.WebStructures.tearFree(target); // v0.16.1: stuck on a web -> it comes off, the web snaps
 		Vec3 rel = target.position().subtract(player.position());
 		THROWS.put(player.getUUID(), new Throw(target.getId(), player.level().getGameTime(), Math.atan2(rel.z, rel.x)));
 		sendStrand(player, SLOT_THROW, target, center(target), THROW_MAX_TICKS + 10, 0);
@@ -251,7 +319,11 @@ public final class SpiderCombat {
 			last = center(target);
 			if (hurl) {
 				Vec3 look = player.getLookAngle();
-				target.setDeltaMovement(look.scale(THROW_SPEED).add(0, 0.2, 0));
+				// v0.16.1: aimed at (or near) a Weave web -> thrown onto it, where it sticks (see tickFlights)
+				Vec3 onWeb = com.projecthero.mod.spider.web.WebStructures.weaveAimPoint(player, THROW_RANGE, WEAVE_ASSIST_CONE);
+				target.setDeltaMovement(onWeb != null ? throwOnto(last, onWeb) : look.scale(THROW_SPEED).add(0, 0.2, 0));
+				FLIGHTS.computeIfAbsent(player.getUUID(), k -> new ArrayList<>())
+						.add(new Flight(target.getId(), player.level().getGameTime() + 40, last));
 				target.hurtMarked = true;
 				target.fallDistance = 0.0f;
 				AbilityHelpers.sound(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
@@ -261,6 +333,39 @@ public final class SpiderCombat {
 		}
 		sendStrand(player, SLOT_THROW, null, last, 0, STRAND_FADE_TICKS);
 		SpiderMan.triggerCooldown(player, SpiderMoves.SWING_THROW, SpiderManConfig.moves().swingThrow.cooldown);
+	}
+
+	/**
+	 * The launch velocity that carries a thrown body's centre from {@code from} onto {@code to}: a mob in the air loses 9%
+	 * of its horizontal speed a tick and falls 0.08/tick^2, so both are allowed for over the flight time.
+	 */
+	public static Vec3 throwOnto(Vec3 from, Vec3 to) {
+		Vec3 d = to.subtract(from);
+		double flat = Math.sqrt(d.x * d.x + d.z * d.z);
+		int t = (int) Math.max(3, Math.ceil(flat / THROW_SPEED) + 1);
+		double h = flat < 1.0e-4 ? 0.0 : flat * 0.09 / (1.0 - Math.pow(0.91, t));
+		double vy = (d.y + 0.04 * t * (t - 1)) / t;
+		Vec3 v = flat < 1.0e-4 ? new Vec3(0, vy, 0) : new Vec3(d.x / flat * h, vy, d.z / flat * h);
+		return v.length() > 4.0 ? v.normalize().scale(4.0) : v;
+	}
+
+	/** Swing-Thrown bodies in flight: one that passes through a Weave web is caught on it (stuck, as if it walked in). */
+	private static void tickFlights(ServerPlayer player, List<Flight> flights) {
+		long now = player.level().getGameTime();
+		flights.removeIf(f -> {
+			Entity e = player.level().getEntity(f.entityId);
+			if (!(e instanceof LivingEntity body) || !body.isAlive() || now > f.until) {
+				return true;
+			}
+			Vec3 c = center(body);
+			// this tick's travel plus the next one's, so a fast body cannot skip over a strand between two ticks
+			Vec3 ahead = c.add(body.getDeltaMovement());
+			if (com.projecthero.mod.spider.web.WebStructures.catchOnWeave(body, f.last, ahead) != null) {
+				return true;
+			}
+			f.last = c;
+			return body.onGround() && now > f.until - 36;
+		});
 	}
 
 	private static void tickThrow(ServerPlayer player, Throw t) {
@@ -424,6 +529,18 @@ public final class SpiderCombat {
 		Throw t = THROWS.get(id);
 		if (t != null) {
 			tickThrow(player, t);
+		}
+		Tether tether = TETHERS.get(id);
+		if (tether != null) {
+			tickTether(player, tether);
+		}
+		List<Flight> flights = FLIGHTS.get(id);
+		if (flights != null) {
+			if (flights.isEmpty()) {
+				FLIGHTS.remove(id);
+			} else {
+				tickFlights(player, flights);
+			}
 		}
 		List<Watch> watches = WATCHES.get(id);
 		if (watches != null) {

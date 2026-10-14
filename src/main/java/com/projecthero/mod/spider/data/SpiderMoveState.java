@@ -29,6 +29,12 @@ public final class SpiderMoveState {
 	public static final int FLAG_CHARGING_BLOSSOM = 1 << 6;
 	/** The uppercut's air-combo window is open. */
 	public static final int FLAG_AIR_COMBO = 1 << 7;
+	/**
+	 * v0.16.1: the classic upside-down hang (Z on a ceiling / woven web / tightrope) -- set together with
+	 * {@link #FLAG_HANGING}; the body is drawn inverted, the line leaves his feet, Jump / Sneak reel it in / out.
+	 * (A high bit, clear of any flags added alongside it.)
+	 */
+	public static final int FLAG_HANG_UPSIDE = 1 << 12;
 
 	public int flags;
 	/** {@code SpiderAnim} id and the game time it started. */

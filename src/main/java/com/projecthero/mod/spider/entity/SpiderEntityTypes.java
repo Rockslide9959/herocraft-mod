@@ -61,6 +61,15 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.16.1: the Web Cocoon (Shift+V) ball, homing in on its target. */
+	public static final EntityType<WebCocoonBallEntity> WEB_COCOON = register("web_cocoon",
+			FabricEntityTypeBuilder.<WebCocoonBallEntity>create(MobCategory.MISC, WebCocoonBallEntity::new)
+					.dimensions(EntityDimensions.fixed(0.4f, 0.4f))
+					.trackRangeBlocks(64)
+					.trackedUpdateRate(1)
+					.fireImmune()
+					.build());
+
 	private SpiderEntityTypes() {
 	}
 

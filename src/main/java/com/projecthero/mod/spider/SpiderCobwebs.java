@@ -221,6 +221,33 @@ public final class SpiderCobwebs extends SavedData {
 		}
 	}
 
+	/**
+	 * v0.16.1 (the stuck-pull rule): tear out every one of his tracked cobwebs inside {@code box} -- something stuck in
+	 * them is being pulled loose. Returns how many went.
+	 */
+	public static int tearIn(ServerLevel level, net.minecraft.world.phys.AABB box) {
+		SpiderCobwebs data = get(level.getServer());
+		if (data.entries.isEmpty()) {
+			return 0;
+		}
+		int n = 0;
+		for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY, box.minZ),
+				BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
+			String k = key(level.dimension(), pos);
+			Entry e = data.entries.get(k);
+			if (e == null) {
+				continue;
+			}
+			BlockPos p = pos.immutable();
+			if (level.getBlockState(p).is(Blocks.COBWEB)) {
+				level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+			}
+			data.forget(level, p, e);
+			n++;
+		}
+		return n;
+	}
+
 	/** Is this one of Spider-Man's tracked cobwebs (tests, the block mixin)? */
 	public static boolean tracked(ServerLevel level, BlockPos pos) {
 		return get(level.getServer()).entries.containsKey(key(level.dimension(), pos));

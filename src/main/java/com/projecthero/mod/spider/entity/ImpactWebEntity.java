@@ -47,6 +47,12 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 		this.accelerationPower = 0.0;
 	}
 
+	/** v0.16.1: no particle trail (not even the base class's smoke) -- the ball is its 3D model (ImpactWebRenderer). */
+	@Override
+	protected net.minecraft.core.particles.ParticleOptions getTrailParticle() {
+		return null;
+	}
+
 	@Override
 	protected boolean shouldBurn() {
 		return false;
@@ -73,14 +79,12 @@ public class ImpactWebEntity extends AbstractHurtingProjectile {
 		}
 		super.tick();
 		if (level().isClientSide()) {
-			level().addParticle(ParticleTypes.ITEM_COBWEB, getX(), getY(), getZ(), 0, 0, 0);
 			return;
 		}
 		if (++life > SpiderCombat.IMPACT_LIFE_TICKS) {
 			discard();
 			return;
 		}
-		((ServerLevel) level()).sendParticles(ParticleTypes.ITEM_COBWEB, getX(), getY(), getZ(), 2, 0.12, 0.12, 0.12, 0.0);
 	}
 
 	private boolean canTargetLiving(LivingEntity e) {
