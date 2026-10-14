@@ -108,13 +108,13 @@ public class GladiatorMovesGameTests implements FabricGameTest {
 		ServerPlayer plain = hulk(helper);
 		helper.assertFalse(GladiatorAbilities.active(plain), "no gear: the bare-handed kit");
 		HulkAbilityManager.handle(plain, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(HulkAbilities.cooldownRemaining(plain, HulkAbilities.GROUND_SMASH) > 0, "G is Ground Smash without the kit");
+		helper.assertTrue(HulkAbilities.cooldownRemaining(plain, HulkAbilities.THUNDERCLAP) > 0, "G is Thunderclap without the kit");
 		helper.assertTrue(HulkAbilities.cooldownRemaining(plain, GladiatorAbilities.HAMMER_QUAKE) == 0, "and never Hammer Quake");
 
 		ServerPlayer glad = gladiator(helper);
 		HulkAbilityManager.handle(glad, AbilitySlot.SLOT_2, true);
 		helper.assertTrue(HulkAbilities.cooldownRemaining(glad, GladiatorAbilities.HAMMER_QUAKE) > 0, "with the kit G is Hammer Quake");
-		helper.assertTrue(HulkAbilities.cooldownRemaining(glad, HulkAbilities.GROUND_SMASH) == 0, "and not Ground Smash");
+		helper.assertTrue(HulkAbilities.cooldownRemaining(glad, HulkAbilities.THUNDERCLAP) == 0, "and not Thunderclap");
 		glad.setShiftKeyDown(true);
 		HulkAbilityManager.handle(glad, AbilitySlot.SLOT_1, true);
 		glad.setShiftKeyDown(false);

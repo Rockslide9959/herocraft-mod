@@ -23,25 +23,24 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
-import software.bernie.geckolib.animatable.GeoEntity;
-import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.animation.AnimatableManager;
-import software.bernie.geckolib.animation.AnimationController;
-import software.bernie.geckolib.animation.PlayState;
-import software.bernie.geckolib.animation.RawAnimation;
-import software.bernie.geckolib.util.GeckoLibUtil;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * v0.13.14: the chunk of earth the Hulk tears out of the ground (Shift+V). While held it is parked over his head by
  * {@code HulkGrab}; once thrown ({@link #launch}) it flies under gravity, tumbling, and explodes on the first thing it
  * hits -- ground, wall or mob: {@code boulderDamage} to everything within {@code boulderRadius} and a small crater.
  * Never saved (a boulder in flight at a save simply is not there after).
+ *
+ * <p>v0.16.4 (user): it is made of the ground he tore it from -- the three block states ({@link #block}: the surface, what
+ * lay under it, and deeper) are synced and the renderer builds the chunk as a jagged cluster of those real blocks; its
+ * dust and its explosion use them too.
  */
-public class HulkBoulderEntity extends Entity implements GeoEntity {
+public class HulkBoulderEntity extends Entity {
 	private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BOOLEAN);
-	private static final RawAnimation TUMBLE = RawAnimation.begin().thenLoop("animation.hulk_boulder.tumble");
+	private static final EntityDataAccessor<BlockState> TOP = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BLOCK_STATE);
+	private static final EntityDataAccessor<BlockState> MID = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BLOCK_STATE);
+	private static final EntityDataAccessor<BlockState> DEEP = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BLOCK_STATE);
 
-	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 	private UUID owner;
 	private int flightTicks;
 
@@ -52,6 +51,18 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 
 	public void setOwner(ServerPlayer player) {
 		this.owner = player.getUUID();
+	}
+
+	/** v0.16.4: the ground it is made of -- top (the surface), middle, deep. */
+	public void setBlocks(BlockState top, BlockState mid, BlockState deep) {
+		this.entityData.set(TOP, top);
+		this.entityData.set(MID, mid);
+		this.entityData.set(DEEP, deep);
+	}
+
+	/** Layer 0 = the surface block, 1 = under it, 2 = deeper. */
+	public BlockState block(int layer) {
+		return this.entityData.get(layer <= 0 ? TOP : layer == 1 ? MID : DEEP);
 	}
 
 	public boolean flying() {
@@ -69,7 +80,7 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 	/** Dropped without a throw (he changed back, died, logged out): it just falls apart. */
 	public void crumble() {
 		if (this.level() instanceof ServerLevel level) {
-			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState()), getX(), getY() + 0.6, getZ(),
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block(1)), getX(), getY() + 0.6, getZ(),
 					30, 0.5, 0.5, 0.5, 0.1);
 			level.playSound(null, getX(), getY(), getZ(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.PLAYERS, 1.0f, 0.8f);
 		}
@@ -79,6 +90,9 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(FLYING, false);
+		builder.define(TOP, Blocks.GRASS_BLOCK.defaultBlockState());
+		builder.define(MID, Blocks.DIRT.defaultBlockState());
+		builder.define(DEEP, Blocks.STONE.defaultBlockState());
 	}
 
 	@Override
@@ -103,7 +117,7 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 		this.setDeltaMovement(v);
 		this.move(MoverType.SELF, v);
 		if (flightTicks % 2 == 0) {
-			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState()), getX(), getY() + 0.5, getZ(),
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block(flightTicks % 3)), getX(), getY() + 0.5, getZ(),
 					3, 0.3, 0.3, 0.3, 0.02);
 		}
 		boolean hitMob = false;
@@ -125,11 +139,15 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 			HulkCombat.crater(thrower, at.add(0, -0.8, 0), 2.2, 30);
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState()), at.x, at.y, at.z,
+		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block(0)), at.x, at.y, at.z,
 				60, 1.2, 0.6, 1.2, 0.3);
-		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.STONE.defaultBlockState()), at.x, at.y, at.z,
+		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block(2)), at.x, at.y, at.z,
 				30, 1.0, 0.6, 1.0, 0.3);
+		level.sendParticles(new BlockParticleOption(ParticleTypes.DUST_PILLAR, block(1)), at.x, at.y - 0.4, at.z, 30, 1.2, 0.1, 1.2, 0.4);
+		com.projecthero.mod.hulk.GroundCracks.star(level, at, cfg.boulderRadius, 7, 100);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 2.0f, 0.8f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 2.0f, 0.6f);
+		level.playSound(null, at.x, at.y, at.z, block(1).getSoundType().getBreakSound(), SoundSource.PLAYERS, 2.0f, 0.6f);
 		HulkCombat.shake(level, at, 0.6f, 12, 24.0);
 		discard();
 	}
@@ -150,15 +168,5 @@ public class HulkBoulderEntity extends Entity implements GeoEntity {
 	@Override
 	public boolean isPushable() {
 		return false;
-	}
-
-	@Override
-	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-		controllers.add(new AnimationController<>(this, "tumble", 0, state -> flying() ? state.setAndContinue(TUMBLE) : PlayState.STOP));
-	}
-
-	@Override
-	public AnimatableInstanceCache getAnimatableInstanceCache() {
-		return cache;
 	}
 }

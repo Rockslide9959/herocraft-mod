@@ -961,8 +961,11 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.hulk.controls");
-			for (String[] row : new String[][] { { "H", "transform" }, { "R", "power_punch" }, { "G", "ground_smash" }, { "Z", "thunderclap" }, { "Shift+Z", "hulk_smash" },
-					{ "X", "super_leap" }, { "C", "charge" }, { "V", "grab" }, { "Shift+V", "earth_chunk" }, { "N (hold)", "calm" } }) {
+			for (String[] row : new String[][] { { "H", "transform" },
+					// v0.16.4 (user): the rebuilt kit
+					{ "R", "super_punch" }, { "Shift+R", "ground_smash" }, { "G", "thunderclap" }, { "Shift+G", "fault_stomp" },
+					{ "Z", "bulldoze" }, { "Shift+Z", "uppercut" }, { "X", "super_leap" }, { "C", "gamma_burst" }, { "Shift+C", "earth_wall" },
+					{ "V", "grab" }, { "Shift+V", "loki_slam" }, { "Shift+V", "debris_throw" }, { "N (hold)", "calm" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.hulk.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");

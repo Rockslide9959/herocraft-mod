@@ -197,6 +197,100 @@ public final class HulkConfig {
 		// ---- Sprint Smash (always on while sprinting as the Hulk; world.sprintSmashEnabled is the server switch) ----
 		/** Minimum horizontal speed (blocks / tick) before sprinting into a block breaks it. */
 		public double sprintSmashMinSpeed = 0.2;
+
+		// ================================================================ v0.16.4 (user): the rebuilt kit
+		// (the v0.13.14 numbers above that the new kit no longer reads are kept so old files still load)
+
+		// ---- R Super Punch: an 8-block cone in front, breaks blocks ----
+		public float superPunchDamage = 28.0f;
+		public double superPunchRange = 8.0;
+		/** Full width of the cone in degrees. */
+		public double superPunchConeDegrees = 70.0;
+		public double superPunchKnockback = 3.0;
+		/** Most blocks one punch smashes (nearest first). */
+		public int superPunchMaxBlocks = 90;
+		public int superPunchCooldownTicks = 120;
+
+		// ---- Shift+R Ground Smash: the groundSmash* numbers above, plus its cracks ----
+		public double groundSmashCrackRadius = 9.0;
+
+		// ---- G Thunderclap: a sonic cone ----
+		public float clapDamage = 12.0f;
+		public double clapRange = 12.0;
+		public double clapConeDegrees = 80.0;
+		public double clapKnockback = 2.8;
+		/** The stagger: Slowness IV (and no jumping to speak of) for this long. */
+		public int clapStaggerTicks = 40;
+		public int clapCooldownTicks = 160;
+
+		// ---- Shift+G Fault-line Stomp: a fissure races forward ----
+		public double faultLength = 16.0;
+		public double faultWidth = 3.0;
+		public float faultDamage = 16.0f;
+		/** Upward launch of everything standing on the fissure. */
+		public double faultLaunch = 1.4;
+		/** Ticks per block the fissure travels. */
+		public double faultTicksPerBlock = 0.5;
+		public int faultCooldownTicks = 200;
+
+		// ---- Z Bulldozer Charge ----
+		public double bulldozeBlocks = 12.0;
+		/** Blocks per tick (0.9 = 18 blocks a second). */
+		public double bulldozeSpeed = 0.9;
+		public float bulldozeDamage = 16.0f;
+		public double bulldozeHitRadius = 2.4;
+		/** He only bulldozes through blocks this soft (dirt 0.5, wood 2, stone 1.5). */
+		public float bulldozeMaxHardness = 2.0f;
+		public int bulldozeCooldownTicks = 200;
+
+		// ---- Shift+Z Launch Uppercut ----
+		public float uppercutDamage = 22.0f;
+		public double uppercutRange = 4.0;
+		/** Upward speed (blocks / tick) the target leaves with. */
+		public double uppercutLaunch = 2.4;
+		public int uppercutCooldownTicks = 140;
+
+		// ---- X Super Leap (hold up to 0.5 s) ----
+		public int superLeapChargeTicks = 10;
+		public double superLeapTapBlocks = 25.0;
+		public double superLeapHalfBlocks = 100.0;
+		public double superLeapFullBlocks = 500.0;
+		/** The launch angle follows his look, kept between these (degrees above level). */
+		public double superLeapMinAngle = 30.0;
+		public double superLeapMaxAngle = 50.0;
+		/** Top horizontal speed (blocks / tick) -- a steeper arc instead, so the chunks ahead can keep up. */
+		public double superLeapMaxSpeed = 4.0;
+		/** Top climb speed (blocks / tick): the climb must stay under 80 ticks (the server's fly check). */
+		public double superLeapMaxClimb = 5.6;
+		public float superLeapLandDamageMin = 8.0f;
+		public float superLeapLandDamageMax = 40.0f;
+		public double superLeapLandRadiusMin = 4.0;
+		public double superLeapLandRadiusMax = 12.0;
+
+		// ---- C Gamma Burst ----
+		public float gammaBurstRageCost = 25.0f;
+		public float gammaBurstDamage = 30.0f;
+		public double gammaBurstRadius = 10.0;
+		public double gammaBurstKnockback = 2.6;
+		public int gammaBurstCooldownTicks = 200;
+
+		// ---- Shift+C Earth Wall ----
+		public int earthWallWidth = 7;
+		public int earthWallHeight = 4;
+		/** Blocks in front of him the wall rises. */
+		public double earthWallDistance = 3.0;
+		/** It crumbles (and the ground is put back) after this long. */
+		public int earthWallTicks = 200;
+		public int earthWallCooldownTicks = 300;
+
+		// ---- V Grab / far throw, Shift+V Debris Throw, Shift+V Loki Slam ----
+		public double throwFarBlocks = 300.0;
+		/** Top horizontal speed of the far throw (blocks / tick). */
+		public double throwFarSpeed = 3.5;
+		public float throwFarImpactDamage = 24.0f;
+		public double lokiRange = 10.0;
+		public float lokiSlamDamage = 12.0f;
+		public int lokiCooldownTicks = 300;
 	}
 
 	/** Keeping control of the Hulk: stop dealing damage and he starts to take over. */

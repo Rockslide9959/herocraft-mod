@@ -77,6 +77,38 @@ public final class HulkState {
 	public boolean sprintSmash;
 	/** v0.13.14 (the "combat" group, one nested codec: the record codec stops at 16 fields). */
 	public Combat combat = new Combat();
+	/** v0.16.4 (user): the rebuilt kit's synced bits (the "moves" group). */
+	public Moves moves = new Moves();
+
+	/**
+	 * v0.16.4 (user): the Super Leap's launch velocity. While {@link #leaping} the owner's client holds his horizontal speed
+	 * at exactly this and takes the air drag back off the climb/fall each tick -- he keeps his speed until he lands.
+	 */
+	public static final class Moves {
+		public double leapVx;
+		public double leapVy;
+		public double leapVz;
+
+		public Moves copy() {
+			Moves m = new Moves();
+			m.leapVx = leapVx;
+			m.leapVy = leapVy;
+			m.leapVz = leapVz;
+			return m;
+		}
+
+		public static final Codec<Moves> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.DOUBLE.optionalFieldOf("leap_vx", 0.0).forGetter(m -> m.leapVx),
+				Codec.DOUBLE.optionalFieldOf("leap_vy", 0.0).forGetter(m -> m.leapVy),
+				Codec.DOUBLE.optionalFieldOf("leap_vz", 0.0).forGetter(m -> m.leapVz)
+		).apply(i, (vx, vy, vz) -> {
+			Moves m = new Moves();
+			m.leapVx = vx;
+			m.leapVy = vy;
+			m.leapVz = vz;
+			return m;
+		}));
+	}
 
 	/**
 	 * v0.13.14: everything the new kit, the death save, the calm minigame and the control / rampage system need on
@@ -202,6 +234,7 @@ public final class HulkState {
 		HulkState n = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, abilityReadyAt, animId, animStart,
 				leapChargeStart, leaping, sprintSmash);
 		n.combat = combat.copy();
+		n.moves = moves.copy();
 		return n;
 	}
 
@@ -224,12 +257,14 @@ public final class HulkState {
 			Codec.LONG.optionalFieldOf("leap_charge_start", 0L).forGetter(s -> s.leapChargeStart),
 			Codec.BOOL.optionalFieldOf("leaping", false).forGetter(s -> s.leaping),
 			Codec.BOOL.optionalFieldOf("sprint_smash", true).forGetter(s -> s.sprintSmash),
-			Combat.CODEC.optionalFieldOf("combat").forGetter(s -> java.util.Optional.of(s.combat))
+			Combat.CODEC.optionalFieldOf("combat").forGetter(s -> java.util.Optional.of(s.combat)),
+			Moves.CODEC.optionalFieldOf("moves").forGetter(s -> java.util.Optional.of(s.moves))
 	).apply(i, (hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart, leapCharge, leaping,
-			sprintSmash, combat) -> {
+			sprintSmash, combat, moves) -> {
 		HulkState s = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart,
 				leapCharge, leaping, sprintSmash);
 		s.combat = combat.orElseGet(Combat::new);
+		s.moves = moves.orElseGet(Moves::new);
 		return s;
 	}));
 }
