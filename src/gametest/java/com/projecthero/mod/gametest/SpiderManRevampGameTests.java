@@ -121,7 +121,8 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 			for (String id : new String[] {SpiderMoves.TAP[i], SpiderMoves.SHIFT[i], SpiderMoves.HOLD[i]}) {
 				helper.assertTrue(ids.add(id), "two moves share the id " + id);
 				helper.assertTrue(SpiderAbilities.slotKeyOf(id) == key, id + " should be on " + key);
-				helper.assertTrue(SpiderMoves.cfg(id).cooldown > 0, id + " needs its own cooldown");
+				// v0.16.2 (user request): Web Yank has no cooldown -- its webbing cost paces it
+				helper.assertTrue(SpiderMoves.cfg(id).cooldown > 0 || id.equals(SpiderMoves.WEB_YANK), id + " needs its own cooldown");
 			}
 		}
 		helper.assertTrue(ids.size() == 18, "18 moves, got " + ids.size());
