@@ -50,6 +50,14 @@ public class SpiderHandTrackerLayer extends RenderLayer<AbstractClientPlayer, Pl
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		Vector4f v = new Vector4f(0.0f, FIST_Y, 0.0f, 1.0f);
+		// v0.16.2: a bent elbow (JointedLimbs) -- the fist is down the forearm, turned about the elbow
+		int limb = com.projecthero.mod.client.render.JointedLimbs.limbOf(arm);
+		org.joml.Quaternionf joint = com.projecthero.mod.client.render.JointedLimbs.joint(limb);
+		if (joint != null) {
+			float elbow = com.projecthero.mod.client.render.JointedLimbs.jointY(limb) / 16.0f;
+			org.joml.Vector3f lower = joint.transform(new org.joml.Vector3f(0.0f, FIST_Y - elbow, 0.0f));
+			v.set(lower.x, lower.y + elbow, lower.z, 1.0f);
+		}
 		v.mul(pose.last().pose());
 		pose.popPose();
 		return new Vec3(cam.x + v.x, cam.y + v.y, cam.z + v.z);

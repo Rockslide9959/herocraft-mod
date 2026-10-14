@@ -464,7 +464,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.16.1: right-click swinging, Weave Mode clicks, cutting webs, tightrope balance, stuck in a stranger's web
 		ClientTickEvents.START_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::startTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::endTick);
-		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteFxClient::clientTick);
+		com.projecthero.mod.client.spider.SpiderFreerunClient.init(); // v0.16.2: Wall Run + swing tricks (+ combo HUD)		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.symbiote.SymbioteFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.titanshifter.TitanShakeClient.tick());
 		ClientTickEvents.END_CLIENT_TICK.register(client -> com.projecthero.mod.client.oathbreaker.WorldEventZoomClient.tick());
 	}

@@ -109,6 +109,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.spider.SpiderWrap.clearSessionState(); // v0.16.1: cocoon pins
 		com.projecthero.mod.spider.SpiderMoves.clearSessionState(); // v0.16.1: key holds, combos, stances, grabs
 		com.projecthero.mod.spider.SpiderTripMines.clearSessionState(); // v0.16.2: each player's Trip Mines (the 6 cap)
+		com.projecthero.mod.spider.SpiderFreerun.clearSessionState(); // v0.16.2: wall runs + trick combos
 		com.projecthero.mod.maxsteel.MaxSteelAbilityManager.clearSessionState();
 		com.projecthero.mod.maxsteel.MaxSteelCannon.clearSessionState();
 		com.projecthero.mod.maxsteel.worldgen.SteelCrashAmbience.clearSessionState();

@@ -10,6 +10,11 @@ import com.projecthero.mod.spider.SpiderSwing;
 import com.projecthero.mod.spider.data.SpiderManState;
 import com.projecthero.mod.spider.data.SpiderMoveState;
 
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import com.projecthero.mod.client.render.JointedLimbs;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
@@ -32,18 +37,24 @@ import net.minecraft.world.phys.Vec3;
  * <li>Phase: through the bottom of a fast arc he is stretched out, legs trailing; on the upswing the knees come up and
  * he pitches back; near the top (slow, rope well off vertical) he tucks. Legs scissor with the arc speed, the free arm
  * counter-swings, the head keeps looking where he is going.</li>
- * <li>Styles per swing (chosen from the anchor, so every viewer agrees): the one-arm classic, a two-hand grip on fast
- * lines, a cannonball tuck through the bottom of fast arcs, and a corkscrew spin when a long, fast swing is let go.</li>
+ * <li>Styles per swing (v0.16.2: picked at random per line by {@code SpiderSwingStyles.pick} from the synced anchor
+ * point + rope length, so every viewer agrees): the one-arm classic, a two-hand grip, a cannonball tuck through the
+ * bottom of fast arcs, a corkscrew spin when a long, fast swing is let go, and the two-hand HANG_PULL (pull-up, knees
+ * tucked on the upswing) and CLIMBER (hands stacked, leaning back, legs out front) grips, solved with jointed limbs.</li>
  * <li>Everything eases (no snapping): the swing weight in and out, every angle, and the aim from one anchor to the
  * next when swings are chained.</li>
  * </ul>
  * Torso bends go through {@link HipBend}, so the torso never leaves the legs.
  */
 public final class SpiderSwingPose {
-	private static final int CLASSIC = 0;
-	private static final int TWO_HAND = 1;
-	private static final int CANNONBALL = 2;
-	private static final int SPIN = 3;
+	private static final int CLASSIC = com.projecthero.mod.spider.SpiderSwingStyles.CLASSIC;
+	private static final int TWO_HAND = com.projecthero.mod.spider.SpiderSwingStyles.TWO_HAND;
+	private static final int CANNONBALL = com.projecthero.mod.spider.SpiderSwingStyles.CANNONBALL;
+	private static final int SPIN = com.projecthero.mod.spider.SpiderSwingStyles.SPIN;
+	/** v0.16.2: both hands high on the line, hanging straight, a pull-up with knees tucked on the upswing. */
+	private static final int HANG_PULL = com.projecthero.mod.spider.SpiderSwingStyles.HANG_PULL;
+	/** v0.16.2: hands stacked on the line, leaning back, legs out front like a rope swing. */
+	private static final int CLIMBER = com.projecthero.mod.spider.SpiderSwingStyles.CLIMBER;
 
 	/** Per player, the eased rig. Client only; stale entries are dropped. */
 	private static final Map<UUID, Rig> RIGS = new ConcurrentHashMap<>();
@@ -67,6 +78,8 @@ public final class SpiderSwingPose {
 		public float peek; // first person: how far the free hand comes into view
 		public float phase; // the arc phase (radians), for bobs / kicks
 		public float fpLift; // first person: how far the web hand is raised (view units), for the line origin
+		public float grip; // v0.16.2: 0..1 weight of the two-hand IK grip (HANG_PULL / CLIMBER)
+		public float pull; // v0.16.2: 0..1 how far the arms are pulled in / the knees tucked (HANG_PULL)
 		Vec3 aim = null; // smoothed world direction shoulder -> anchor
 		int style = CLASSIC;
 		boolean swinging;
@@ -127,11 +140,9 @@ public final class SpiderSwingPose {
 		Vec3 vel = new Vec3(player.getX() - player.xo, player.getY() - player.yo, player.getZ() - player.zo);
 		double speed = vel.length();
 		if (swinging && !r.swinging) {
-			// a new line: pick the style from the anchor so everyone agrees
-			int h = (int) (Math.floor(st.anchorX) * 73856093) ^ (int) (Math.floor(st.anchorY) * 19349663)
-					^ (int) (Math.floor(st.anchorZ) * 83492791);
-			h = (h >>> 3) & 0xFF;
-			r.style = speed > 1.3 && h % 3 == 0 ? TWO_HAND : h % 4 == 1 ? CANNONBALL : h % 4 == 3 ? SPIN : CLASSIC;
+			// a new line: v0.16.2 a random style per line, seeded from the synced anchor point + rope length so every
+			// viewer picks the same one
+			r.style = com.projecthero.mod.spider.SpiderSwingStyles.pick(st.anchorX, st.anchorY, st.anchorZ, st.ropeLength);
 			r.swingStart = gameTime;
 			r.right = st.swingHandRight;
 		}
@@ -153,7 +164,7 @@ public final class SpiderSwingPose {
 		}
 
 		float leanT = 0f, rollT = 0f, legR = 0f, legL = 0f, spread = 0f, curl = 0f, freeX = 0f, freeZ = 0f;
-		float cannonT = 0f, twoT = 0f, upT = 0f, fastT = 0f, peekT = 0f;
+		float cannonT = 0f, twoT = 0f, upT = 0f, fastT = 0f, peekT = 0f, gripT = 0f, pullT = 0f;
 		if (swinging) {
 			Vec3 anchor = new Vec3(st.anchorX, st.anchorY, st.anchorZ);
 			Vec3 shoulder = pos.add(0, 1.35, 0);
@@ -194,6 +205,21 @@ public final class SpiderSwingPose {
 			freeZ = 0.85f + 0.45f * fastT;
 			twoT = r.style == TWO_HAND ? Mth.clamp(fastT * 2f, 0.5f, 1f) : 0f;
 			peekT = Mth.clamp(rising * 1.3f, 0f, 1f) * 0.8f + twoT;
+			if (r.style == HANG_PULL) {
+				// v0.16.2: hanging straight down the line (no stretch / lay-back), pulling up and tucking on the upswing
+				leanT = (float) Mth.clamp(Math.atan2(f, u) * 0.95, -1.2, 1.2);
+				gripT = 1f;
+				pullT = Mth.clamp(rising * 1.6f + top * 0.6f, 0f, 1f);
+				cannonT = 0f;
+				peekT = 1f;
+			} else if (r.style == CLIMBER) {
+				// v0.16.2: leaning back from the line, legs out front, swinging on it like a rope swing
+				leanT = (float) Mth.clamp(Math.atan2(f, u) * 0.85, -1.15, 1.15) - 0.32f;
+				gripT = 1f;
+				pullT = Mth.clamp(rising, 0f, 1f);
+				cannonT = 0f;
+				peekT = 1f;
+			}
 		}
 		float rate = 7f;
 		r.lean = approach(r.lean, leanT, rate, dt);
@@ -206,6 +232,10 @@ public final class SpiderSwingPose {
 		r.freeZ = approach(r.freeZ, freeZ, 8f, dt);
 		r.cannon = approach(r.cannon, cannonT, 6f, dt);
 		r.twoHand = approach(r.twoHand, twoT, 6f, dt);
+		if (swinging) {
+			r.grip = approach(r.grip, gripT, 8f, dt); // (kept while blending out after a release)
+		}
+		r.pull = approach(r.pull, pullT, 6f, dt);
 		r.up = approach(r.up, upT, rate, dt);
 		r.fast = approach(r.fast, fastT, rate, dt);
 		r.peek = approach(r.peek, Math.min(1f, peekT), 5f, dt);
@@ -221,9 +251,15 @@ public final class SpiderSwingPose {
 
 	/** The whole-body tilt along the rope plus the corkscrew on a stylish release (from {@code PlayerRendererMixin}). */
 	public static void applyBodyRotation(Player player, PoseStack pose, float partial) {
+		// v0.16.2: the wall run (sideways on the wall face) and the swing tricks (flips / rolls / spins)
+		SpiderWallRunPose.applyBodyRotation(player, pose, partial);
+		boolean trick = SpiderTrickPose.applyBodyRotation(player, pose, partial);
 		Rig r = rig(player, partial);
 		if (r == null) {
 			return;
+		}
+		if (trick) {
+			r.spinStart = Float.NaN; // a trick replaces the corkscrew release
 		}
 		float lean = r.lean * r.w;
 		float roll = r.roll * r.w;
@@ -256,6 +292,13 @@ public final class SpiderSwingPose {
 	/** The limbs (from {@code SpiderPose.apply}, after vanilla). */
 	public static void applyLimbs(Player player, HumanoidModel<?> m) {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		applySwingLimbs(player, m, partial);
+		// v0.16.2: the wall run's running legs and the swing tricks blend over whatever the swing left
+		SpiderWallRunPose.applyLimbs(player, m, partial);
+		SpiderTrickPose.applyLimbs(player, m, partial);
+	}
+
+	private static void applySwingLimbs(Player player, HumanoidModel<?> m, float partial) {
 		Rig r = rig(player, partial);
 		if (r == null || r.w <= 0.001f) {
 			return;
@@ -309,6 +352,16 @@ public final class SpiderSwingPose {
 		m.head.xRot = Mth.clamp(m.head.xRot - r.lean * w * 0.75f, -1.4f, 1.2f);
 		m.head.zRot = Mth.lerp(w, m.head.zRot, r.roll * 0.5f);
 		m.hat.copyFrom(m.head);
+		// v0.16.2: the two new two-hand styles -- both hands solved onto the line (jointed elbows / knees)
+		if (r.grip > 0.01f && r.aim != null) {
+			float k = w * r.grip;
+			Vector3f d = modelDir(player, r, partial, r.aim);
+			if (r.style == CLIMBER) {
+				climberGrip(m, r, d, k);
+			} else {
+				hangPullGrip(m, r, d, k);
+			}
+		}
 		// the corkscrew release: arms spread wide
 		if (!Float.isNaN(r.spinStart)) {
 			float st = t - r.spinStart;
@@ -322,6 +375,117 @@ public final class SpiderSwingPose {
 				m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, 0.35f);
 			}
 		}
+	}
+
+	// ------------------------------------------------------------------ v0.16.2: the two-hand grips
+
+	/** Vanilla arm / leg pivots (model px). */
+	private static final float SHOULDER_Y = 2.0f;
+	private static final float HIP_X = 1.9f;
+	private static final float HIP_Y = 12.0f;
+
+	/**
+	 * HANG_PULL: both hands side by side high on the line, the body hanging straight under them. On the upswing (and over
+	 * the top) he pulls up -- the grip comes in toward his head, the elbows bend out -- and tucks the knees up.
+	 */
+	private static void hangPullGrip(HumanoidModel<?> m, Rig r, Vector3f d, float k) {
+		float pull = r.pull;
+		HipBend.pitch(m, k, 0.06f + 0.22f * pull); // first: it moves the shoulders the arms are solved from
+		// the grip point: up the line from between the shoulders; nearer his head the harder he pulls
+		float reach = 10.4f - 4.0f * pull;
+		// shoulders shrugged up 2 px at full stretch (so the straight arms reach above his head), the grip a little in front
+		float shrug = 2.0f * (1f - pull) * k;
+		Vector3f grip = new Vector3f(0f, SHOULDER_Y - shrug, -1.0f - 2.2f * pull).add(new Vector3f(d).mul(reach));
+		Vector3f lat = new Vector3f(1f, 0f, 0f).sub(new Vector3f(d).mul(d.x));
+		if (lat.lengthSquared() < 1.0e-4f) {
+			lat.set(1f, 0f, 0f);
+		}
+		lat.normalize();
+		for (int side = -1; side <= 1; side += 2) {
+			boolean rightArm = side < 0;
+			ModelPart arm = rightArm ? m.rightArm : m.leftArm;
+			Vector3f shoulder = new Vector3f(arm.x, arm.y - shrug, arm.z); // (after the hip bend moved it; shrugged)
+			// hands 2.2 px either side of the line; the pivot line 1 px inboard of the arm box's centre line
+			Vector3f hand = new Vector3f(grip).add(new Vector3f(lat).mul(side * 2.2f)).add(-side * 1.0f, 0f, 0f);
+			// elbows out to the sides and a little forward
+			Vector3f pole = new Vector3f(side * 1.0f, 0.15f, -0.45f).normalize();
+			SpiderPerch.Chain c = SpiderPerch.solve(shoulder, hand, 4f, 6f, pole, null, true);
+			placeShortest(arm, k, shoulder, c.upper());
+			JointedLimbs.setJoint(rightArm ? JointedLimbs.RIGHT_ARM : JointedLimbs.LEFT_ARM, c.joint(k));
+		}
+		// legs: hanging straight (a slight trail through a fast bottom), knees tucked up as he pulls
+		float trail = 0.18f * r.fast * (1f - pull);
+		float thigh = trail - 1.45f * pull + 0.05f * Mth.sin(r.phase);
+		float knee = 0.12f + 1.95f * pull;
+		legs(m, k, thigh, thigh - 0.12f * pull + 0.06f, knee, knee * 0.92f, 0.05f);
+	}
+
+	/**
+	 * CLIMBER: hands stacked on the line in front of his face -- the web hand on top, the other a hand's width below --
+	 * the body leaning back from the line and both legs out in front, like riding a rope swing.
+	 */
+	private static void climberGrip(HumanoidModel<?> m, Rig r, Vector3f d, float k) {
+		// the line runs down in front of his chest; the hands grip it there, one above the other
+		Vector3f onLine = new Vector3f(0f, 0.5f, -5.0f);
+		HipBend.pitch(m, k, -0.08f); // first: it moves the shoulders the arms are solved from
+		boolean webRight = r.right;
+		for (int side = -1; side <= 1; side += 2) {
+			boolean rightArm = side < 0;
+			boolean top = rightArm == webRight;
+			ModelPart arm = rightArm ? m.rightArm : m.leftArm;
+			Vector3f shoulder = new Vector3f(arm.x, arm.y, arm.z); // (after the hip bend moved it)
+			Vector3f hand = new Vector3f(onLine).add(new Vector3f(d).mul(top ? 9.4f : 4.6f)).add(-side * 1.0f, 0f, 0f);
+			// elbows out and down
+			Vector3f pole = new Vector3f(side * 1.0f, 0.55f, 0.1f).normalize();
+			SpiderPerch.Chain c = SpiderPerch.solve(shoulder, hand, 4f, 6f, pole, null, true);
+			placeShortest(arm, k, shoulder, c.upper());
+			JointedLimbs.setJoint(rightArm ? JointedLimbs.RIGHT_ARM : JointedLimbs.LEFT_ARM, c.joint(k));
+		}
+		// legs out front, together, knees a little bent -- further forward on the upswing, swinging back on the way down
+		float swing = 0.32f * r.up;
+		float thigh = -1.05f - swing + 0.06f * Mth.sin(r.phase);
+		float knee = 0.35f + 0.25f * r.pull;
+		legs(m, k, thigh, thigh + 0.05f, knee, knee, 0.03f);
+	}
+
+	/** {@link SpiderPerch#place}, but each angle blended the short way round (an arm overhead sits at the +-pi seam). */
+	private static void placeShortest(ModelPart part, float k, Vector3f pivot, org.joml.Matrix3f rot) {
+		float x0 = part.xRot, y0 = part.yRot, z0 = part.zRot, px = part.x, py = part.y, pz = part.z;
+		SpiderPerch.place(part, 1f, pivot, rot);
+		part.xRot = x0 + Mth.wrapDegrees((part.xRot - x0) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * k;
+		part.yRot = y0 + Mth.wrapDegrees((part.yRot - y0) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * k;
+		part.zRot = z0 + Mth.wrapDegrees((part.zRot - z0) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * k;
+		part.x = Mth.lerp(k, px, part.x);
+		part.y = Mth.lerp(k, py, part.y);
+		part.z = Mth.lerp(k, pz, part.z);
+	}
+
+	/** Both legs: thigh pitch, knee bend (jointed), a little splay. */
+	private static void legs(HumanoidModel<?> m, float k, float thighR, float thighL, float kneeR, float kneeL, float splay) {
+		SpiderPerch.set(m.rightLeg, k, new Vector3f(-HIP_X, HIP_Y, m.rightLeg.z), thighR, 0f, splay);
+		SpiderPerch.set(m.leftLeg, k, new Vector3f(HIP_X, HIP_Y, m.leftLeg.z), thighL, 0f, -splay);
+		JointedLimbs.setJoint(JointedLimbs.RIGHT_LEG, new Quaternionf().rotationX(kneeR * k));
+		JointedLimbs.setJoint(JointedLimbs.LEFT_LEG, new Quaternionf().rotationX(kneeL * k));
+	}
+
+	/** The world direction {@code dir} in model space (+X his left, +Y down, -Z forward) of the tilted body, unit. */
+	private static Vector3f modelDir(Player player, Rig r, float partial, Vec3 dir) {
+		float bodyYaw = Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot) * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(bodyYaw), 0, Mth.cos(bodyYaw));
+		Vec3 right = new Vec3(-Mth.cos(bodyYaw), 0, -Mth.sin(bodyYaw));
+		double x = dir.dot(right);
+		double y = dir.y;
+		double z = -dir.dot(fwd);
+		double a = -r.lean * r.w;
+		double b = -r.roll * r.w;
+		double ca = Math.cos(-a), sa = Math.sin(-a);
+		double y1 = y * ca - z * sa;
+		double z1 = y * sa + z * ca;
+		double cb = Math.cos(-b), sb = Math.sin(-b);
+		double x2 = x * cb - y1 * sb;
+		double y2 = x * sb + y1 * cb;
+		Vector3f v = new Vector3f((float) -x2, (float) -y2, (float) z1);
+		return v.lengthSquared() < 1.0e-8f ? new Vector3f(0f, -1f, 0f) : v.normalize();
 	}
 
 	/**

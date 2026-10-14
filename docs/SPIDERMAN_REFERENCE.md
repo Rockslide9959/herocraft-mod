@@ -343,6 +343,66 @@ The weave now comes out flat and centred instead of a tent pulled toward one poi
 - The automatic dodge roll (`SpiderSense.rollFor`) and the old move-during-the-warning dodge still run for every other hit.
 
 Network: `SpiderReflexPayload` (C2S: 0 takedown, 1 dodge) and `SpiderReflexFxPayload` (S2C: kind / value / yaw), registered in `SpiderTakedown.initialize`. Gametests: `SpiderReflexGameTests` (takedown timed + permanent cocoon, no expose, cooldown; window, evasion, slow radius, x2 counter, cooldown; melee + arrow prediction). Screenshot harness: `scratchpad/V0162TakedownHarness.java.txt` (+ camera mixin).
+### v0.16.2: Wall Run, swing tricks, two new two-hand swing styles
+
+All three are client-simulated like the rest of his traversal; the server authorises them and syncs what viewers draw.
+Common code: `spider.SpiderWallRun`, `spider.SpiderTricks`, `spider.SpiderSwingStyles`, wiring in `spider.SpiderFreerun`
+(its own C2S payload `network.SpiderFreerunPayload` -- `WALL_RUN_START(face)`, `WALL_RUN_STOP`, `TRICK(kind)` -- so no
+`SpiderActionPayload` ordinals were added). Client: `client.spider.SpiderWallRunClient` / `SpiderWallRunPose`,
+`SpiderTrickClient` / `SpiderTrickPose`, `SpiderFreerunClient` (tick + HUD registration).
+
+**Wall Run.**
+- Trigger: Sprint + W with a wall beside him (touching within the climb's sticky radius) and the heading (W + strafe)
+  `MIN_ANGLE` 50 to `MAX_ANGLE` 110 degrees off the wall normal (`SpiderWallRun.alongWall`, pure). Straight into a wall
+  (< 50 degrees) is still the climb / step-on. From the ground (a 0.24 hop; needs >= 0.12 b/t ground speed), in the air,
+  or converting a wall crawl. Not with N's crawl-off, swinging, hanging, flying, riding, in water, on a ceiling.
+- Movement (`SpiderWallRunClient.travel`, called from `SpiderClimbMovement.travel` once attached): target
+  `RUN_SPEED` 0.5 along the wall tangent on the side he looks + `drift(pitch)` (22-degree deadzone, max 0.16 b/t) +
+  the crawl's suction; the crawl's 0.55 response / 0.86 damping settle it at ~0.45 b/t. The grab intent is only armed
+  once he is airborne (the climb engine clears a grounded player's intent).
+- Ends: Sprint or W released, Sneak, or looking within `KEEP_ANGLE` 35 degrees of into / away from the wall -> stays on
+  the wall (the crawl takes over the same tick). Jump = the normal `SURFACE_LEAP`; `SpiderClimbActions.leap` sees the
+  flag and calls `SpiderWallRun.kickOff` (`kick`: 0.55 out + 0.45 along the look + 0.5 up). A wall ahead (inside corner)
+  ends the run into the crawl.
+- Outside corners: when the wall face runs out, if the corner block is just behind on the wall side and the way round
+  is clear he steps 0.75 round it, is pressed onto the next face (attach + transition), and the view turns 90 degrees over
+  5 ticks (the run direction is latched meanwhile).
+- Sync: `SpiderWallRun.FLAG` (`SpiderMoveState` bit 22), set by the server on a validated start, cleared by the
+  client's stop or the server tick (no power, crawl off, swinging, water, or off the wall / landed after a 10-tick
+  grace). Remote viewers take the wall from the synced climb face.
+- Pose (`SpiderWallRunPose`, from `SpiderSwingPose.applyBodyRotation` / `applyLimbs`): body yawed to the run direction,
+  rolled 68 degrees about the forward axis away from the wall, pivoted so the soles land on the wall face; long strides
+  with jointed knees, pumping arms with bent elbows, head counter-rolled to look along the run. Eased ~0.2 s in / out.
+
+**Swing tricks.**
+- Tap Jump within `WINDOW_TICKS` 20 of letting go of a swing (airborne, not gliding / hanging / on a wall); a tap is
+  released within `TAP_TICKS` 5 -- a longer hold is left alone (gliding owns a held Space). `SpiderInputClient` lets
+  `SpiderTrickClient.claimJump` take the press before the zip boost / double jump, never while a Spider-Sense warning
+  (`tingleUntil`) is up.
+- W front flip, S backflip, A corkscrew (barrel roll), D twist (pirouette), no direction = random of all five (split
+  too). Each is `LENGTH` 12 ticks (`SpiderAnim.TRICK_*` ids 40-44, synced through `SpiderMoves.anim`); the next may
+  start 2 ticks before one ends, and a trick's end reopens the 20-tick window, so a chain of 3 works off one release.
+- Reward (`SpiderTricks.reward`): horizontal speed x (1 + 0.10 / n) for the n-th trick (10 %, 5 %, 3.3 %), the whole
+  never past `swingMaxSpeed` and never slowed; `MAX_PER_AIRTIME` 3 (the count resets on landing, a wall, water or a
+  hang). A 4th tap falls through to the normal double jump. Black Suit: `SymbioteHunger.add(player, 2)` per trick.
+- The server (`SpiderTricks.tryTrick`) re-checks power / airborne / not swinging, hanging or attached, and the window
+  against its own release tracking (+8 ticks latency slack), keeps the count and plays a soft sweep.
+- HUD: the trick name under the crosshair for 1.5 s, "Name  x2" / "x3" (gold) on a combo.
+
+**Swing styles.**
+- `SpiderSwingStyles.pick(anchorX, anchorY, anchorZ, ropeLength)`: a SplitMix hash of the synced line's exact anchor
+  point and rope length, uniform over 6 styles -- CLASSIC, TWO_HAND, CANNONBALL, SPIN and the new HANG_PULL and
+  CLIMBER. Every viewer derives the same style from the same synced fields (no new sync); consecutive lines vary because
+  the aim ray never hits the same point to the bit. (The old picker floored the anchor and gated TWO_HAND on the
+  viewer-local speed.)
+- HANG_PULL: both hands side by side high on the line (two-bone IK, elbows out), body hanging straight along the rope;
+  on the upswing / over the top the grip pulls in (elbows bend) and the knees tuck up (jointed).
+- CLIMBER: hands stacked on the line in front of his face -- web hand on top, the other ~4 px lower; the body leans
+  back 0.32 rad from the rope, legs out front together with the knees a little bent, further forward on the upswing.
+- The web line leaves the web hand: `SpiderHandTrackerLayer` now follows the `JointedLimbs` elbow joint to the fist.
+- Gametests (`SpiderFreerunGameTests`): `spiderWallRunAngle`, `spiderTrickRewardCap`, `spiderTrickServerCount`,
+  `spiderSwingStylePicker` (determinism, every style 13-20 % over 12 000 lines). Harness:
+  `scratchpad/V0162MoveHarness.java.txt` (+ camera mixin), screenshots `scratchpad/move_v0162/`.
 
 ## v0.9.10 changes (at a glance)
 
