@@ -205,7 +205,7 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 			p.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
 			shift(p, AbilitySlot.SLOT_5);
 			helper.assertTrue(cd(p, SpiderMoves.WEB_COCOON), "Shift+V = Web Cocoon on a weakened enemy");
-			helper.assertTrue(com.projecthero.mod.spider.SpiderWebs.isDeepCocooned(zombie), "it is wrapped");
+			// (v0.16.1: the cocoon is a thrown web ball now -- it wraps the zombie when it lands, checked below)
 			shift(p, AbilitySlot.SLOT_6);
 			helper.assertTrue(cd(p, SpiderMoves.WEB_WALL), "Shift+C = Web Wall");
 			helper.assertFalse(cd(p, SpiderMoves.TIGHTROPE) || cd(p, SpiderMoves.WEAVE), "C's other moves stay ready");
@@ -216,6 +216,7 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		}).thenIdle(SpiderMoves.holdTicks() + 2).thenExecute(() -> {
 			SpiderMoves.tick(p);
 			helper.assertTrue(SpiderMoves.isWeaving(p), "hold C opens Weave Mode");
+			helper.assertTrue(com.projecthero.mod.spider.SpiderWebs.isDeepCocooned(zombie), "the Web Cocoon ball reached the zombie and wrapped it");
 			release(p, AbilitySlot.SLOT_6);
 			helper.assertFalse(SpiderMoves.isWeaving(p), "and the release closes it");
 		}).thenSucceed();

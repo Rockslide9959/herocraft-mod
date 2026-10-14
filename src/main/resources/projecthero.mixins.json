@@ -57,7 +57,9 @@
 		"SuperSpeedPhasePoseMixin",
 		"SuperSpeedTimeSlowMixin",
 		"SuperSpeedWaterSoundMixin",
-		"ZombieSpawnMixin"
+		"ZombieSpawnMixin",
+		"MobWrapMixin",
+		"CreeperWrapMixin"
 	],
 	"client": [],
 	"server": [],

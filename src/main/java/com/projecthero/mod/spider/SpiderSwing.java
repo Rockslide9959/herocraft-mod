@@ -206,13 +206,7 @@ public final class SpiderSwing {
 		}
 		player.resetFallDistance();
 		grantFloatTolerance(player, true);
-
-		// One web particle every few ticks along the line, so onlookers can see the web without the
-		// server drawing a hundred particles a second.
-		if (player.tickCount % 4 == 0 && player.level() instanceof ServerLevel level) {
-			Vec3 mid = player.getEyePosition().lerp(anchor, 0.5);
-			level.sendParticles(ParticleTypes.ITEM_COBWEB, mid.x, mid.y, mid.z, 1, 0.05, 0.05, 0.05, 0.0);
-		}
+		// (v0.16.1: no particles along the line -- every client draws the real web line, SpiderWebLineRenderer)
 	}
 
 	private static boolean anchorStillSolid(ServerPlayer player, Vec3 anchor) {

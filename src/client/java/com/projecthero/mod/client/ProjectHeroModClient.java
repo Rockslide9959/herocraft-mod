@@ -192,6 +192,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.ironman.IronManBattleDamage.initialize(); // v0.14.29 agent F: suit sparks / smoke
 		VersionCheckClient.initialize(); // v0.14.22: client/server Project Hero version handshake
 		com.projecthero.mod.client.spider.SpiderWebLineRenderer.initialize();
+		com.projecthero.mod.client.spider.SpiderWrapRenderer.initialize(); // v0.16.1: the Web Shot cocoon
 		com.projecthero.mod.client.spider.FirstPersonWebAnchor.initialize(); // v0.16.1: first-person web lines leave the drawn wrist
 		// v0.16.1: the ledge perch (and its pose editor) was removed -- tidy away the pose files the editor wrote
 		for (String f : new String[] {"projecthero_perch_pose.json", "projecthero_perch_pose_export.txt"}) {

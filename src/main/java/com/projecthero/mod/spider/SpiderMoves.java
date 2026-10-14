@@ -781,15 +781,12 @@ public final class SpiderMoves {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(r, 1.5, r),
 				x -> harmable(player, x) && x.distanceToSqr(player) <= (r + 0.5) * (r + 0.5))) {
 			AbilityHelpers.hurt(player, e, cfg(WEB_WHIP).damage);
+			WebStructures.tearFree(e); // v0.16.1 the stuck-pull rule: the lash tears it off any web it was stuck on
 			AbilityHelpers.knockbackFrom(e, player.position(), 1.1);
 			SpiderWebs.addStickStack(e, level.getGameTime());
 			hit++;
 		}
-		for (int a = 0; a < 360; a += 15) {
-			double rad = Math.toRadians(a);
-			level.sendParticles(ParticleTypes.ITEM_COBWEB, player.getX() + Math.cos(rad) * r, player.getY() + 1.0,
-					player.getZ() + Math.sin(rad) * r, 1, 0.0, 0.05, 0.0, 0.0);
-		}
+		// (v0.16.1: the strand whirled round him is the real web line -- SpiderWebLineRenderer draws it from the WHIP anim)
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1.0, player.getZ(), 4, r * 0.4, 0.1, r * 0.4, 0);
 		thwip(player, 0.85f);
 		play(player, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.75f);
@@ -818,6 +815,7 @@ public final class SpiderMoves {
 				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
 				return;
 			}
+			WebStructures.tearFree(target); // v0.16.1 the stuck-pull rule: it comes off the web, and the web snaps
 			HURLS.put(player.getUUID(), new Hurl(target.getId(), level.getGameTime(), false));
 			SpiderCombat.sendStrand(player, SpiderCombat.SLOT_GRAB, target, SpiderCombat.center(target), 14, 30);
 		} else {
@@ -1028,7 +1026,7 @@ public final class SpiderMoves {
 	public static WebStructureEntity buildTightrope(ServerPlayer player, Vec3 a, Vec3 b) {
 		WebStructureEntity web = WebStructures.spawn(player, WebGeometry.tightrope(a, b), a.lerp(b, 0.5));
 		ServerLevel level = (ServerLevel) player.level();
-		AbilityHelpers.line(level, a, b, ParticleTypes.ITEM_COBWEB, 1.0);
+		// (v0.16.1: no particle line -- the rope itself is drawn the moment it exists, WebStructureRenderer)
 		if (!soundsOff(player)) {
 			level.playSound(null, b.x, b.y, b.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 0.8f, 1.2f);
 		}
@@ -1324,20 +1322,31 @@ public final class SpiderMoves {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.cocoon_needs_weak"), true);
 			return;
 		}
+		// v0.16.1: a thrown move -- a web ball homes in on the target and wraps it where it lands (cocoonLanded)
+		ServerLevel level = (ServerLevel) player.level();
+		anim(player, SpiderAnim.COCOON);
+		Vec3 look = player.getLookAngle();
+		Vec3 from = player.getEyePosition().add(look.scale(0.6)).subtract(0, 0.25, 0);
+		level.addFreshEntity(new com.projecthero.mod.spider.entity.WebCocoonBallEntity(level, player, target, from));
+		thwip(player, 0.9f);
+		fired(player, WEB_COCOON);
+	}
+
+	/** The Web Cocoon ball reaching its target: the full wrap (it takes extra damage while wrapped). */
+	public static void cocoonLanded(ServerPlayer player, LivingEntity target) {
+		if (!target.isAlive() || SpiderWebs.ignoresWebs(target)) {
+			return;
+		}
 		int ticks = SpiderManConfig.moves().webCocoonTicks;
 		SpiderWebs.cocoonFor(player, target, ticks);
 		SpiderWebs.markDeepCocoon(target, ticks);
 		target.setDeltaMovement(0, Math.min(0.0, target.getDeltaMovement().y), 0);
 		target.hurtMarked = true;
-		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_GRAB, target, SpiderCombat.center(target), 10, 30);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = SpiderCombat.center(target);
 		level.sendParticles(ParticleTypes.ITEM_COBWEB, c.x, c.y, c.z, 40, target.getBbWidth() * 0.5, target.getBbHeight() * 0.5,
 				target.getBbWidth() * 0.5, 0.02);
-		thwip(player, 0.9f);
 		level.playSound(null, c.x, c.y, c.z, SpiderSounds.SPLAT, SoundSource.PLAYERS, 1.0f, 0.7f);
-		anim(player, SpiderAnim.COCOON);
-		fired(player, WEB_COCOON);
 	}
 
 	// ---------------- traversal: swinging + zip boost ----------------

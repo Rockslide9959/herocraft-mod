@@ -905,6 +905,18 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> 0)
 					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.1: an entity a Web Shot cocooned while it was stuck on a tightrope or a woven web (fully immobilised and
+	 * harmless until a Spider-Man sneak + right-clicks it free or pulls it loose -- see {@code SpiderWrap}). On ANY living
+	 * entity, not only players; persistent (it survives a chunk reload and a world save) and synced to everyone so the
+	 * client draws the cocoon round it.
+	 */
+	public static final AttachmentType<Boolean> SPIDER_WRAPPED = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_wrapped"),
+			builder -> builder.initializer(() -> false)
+					.persistent(Codec.BOOL)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 
