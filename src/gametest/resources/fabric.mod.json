@@ -7,6 +7,7 @@
   "entrypoints": {
     "fabric-gametest": [
       "com.projecthero.mod.gametest.ProjectHeroGameTests",
+      "com.projecthero.mod.gametest.RegistryIdGameTest",
       "com.projecthero.mod.gametest.V01515Gl2GameTests",
       "com.projecthero.mod.gametest.V0161PunisherGlGameTests",
       "com.projecthero.mod.gametest.CrimeV0162GameTests",

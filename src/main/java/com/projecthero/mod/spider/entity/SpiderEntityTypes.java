@@ -43,8 +43,12 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
-	/** v0.16.1: the Web Shot (R tap) glob. */
-	public static final EntityType<SpiderWebShotEntity> WEB_SHOT = register("web_shot",
+	/**
+	 * v0.16.1: the Web Shot (R tap) glob. v0.16.3 FIX: was "web_shot" -- the same id as the horde spiders' web shot
+	 * (HordeEntityTypes), so a joining player's client lost one of the two and was disconnected (then crashed in Fabric's
+	 * registry unmap) the moment one spawned near them. Every registry id must be unique (RegistryIdGameTest).
+	 */
+	public static final EntityType<SpiderWebShotEntity> WEB_SHOT = register("spider_web_shot",
 			FabricEntityTypeBuilder.<SpiderWebShotEntity>create(MobCategory.MISC, SpiderWebShotEntity::new)
 					.dimensions(EntityDimensions.fixed(0.3f, 0.3f))
 					.trackRangeBlocks(64)

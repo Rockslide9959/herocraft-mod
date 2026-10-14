@@ -54,6 +54,9 @@ import net.minecraft.world.phys.Vec3;
 public final class SpiderTraversalClient {
 	private static boolean useWasDown;
 	private static boolean rightClickSwing;
+	/** v0.16.3: ticks a swing line has been on with right-click up and no hang (see handleRightClickSwing). */
+	private static int orphanTicks;
+	private static final int ORPHAN_GRACE_TICKS = 6;
 
 	private SpiderTraversalClient() {
 	}
@@ -156,12 +159,27 @@ public final class SpiderTraversalClient {
 		if (rightClickSwing) {
 			if (!down || !emptyHand) {
 				rightClickSwing = false;
-				if (SpiderSwing.isSwinging(player)) {
-					ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
-				}
+				// v0.16.3 FIX ("stuck on a web after a lag spike / chunk load / a player joining"): always tell the
+				// server, even if the synced "swinging" has not reached us yet. A press + release inside a freeze used
+				// to skip the stop (we did not know we were swinging), the server then attached the line, and nothing
+				// would ever let go of it -- a new right-click will not fire while "swinging" either.
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
+				orphanTicks = 0;
 			}
 			return;
 		}
+		// v0.16.3: a swing line nobody is holding (right-click is up, he is not hanging from it): let go. Jump / Sneak
+		// do it at once; otherwise after a short grace, re-sent until the server's state agrees.
+		if (SpiderSwing.isSwinging(player) && !down
+				&& !SpiderMoves.state(player).has(SpiderMoveState.FLAG_HANGING)) {
+			orphanTicks++;
+			boolean cut = player.input.jumping || player.input.shiftKeyDown;
+			if (cut || orphanTicks == ORPHAN_GRACE_TICKS || orphanTicks > ORPHAN_GRACE_TICKS && orphanTicks % 20 == 0) {
+				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_STOP));
+			}
+			return;
+		}
+		orphanTicks = 0;
 		if (!pressed || !emptyHand || player.isPassenger() || player.isInWater()
 				|| SpiderSwing.isSwinging(player) || interactableInReach(client, player)) {
 			return;
