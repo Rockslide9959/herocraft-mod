@@ -49,6 +49,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(BifrostScreenPayload.TYPE, BifrostScreenPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(BifrostActionPayload.TYPE, BifrostActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ThorWeaponTogglePayload.TYPE, ThorWeaponTogglePayload.CODEC); // v0.15.3
+		PayloadTypeRegistry.playC2S().register(FlightAttitudePayload.TYPE, FlightAttitudePayload.CODEC); // v0.16.2
 		PayloadTypeRegistry.playS2C().register(IronManBeamPayload.TYPE, IronManBeamPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IronManLockPayload.TYPE, IronManLockPayload.CODEC); // v0.14.26
 		PayloadTypeRegistry.playS2C().register(IronManPosePayload.TYPE, IronManPosePayload.CODEC); // v0.14.26
@@ -341,6 +342,11 @@ public final class ModNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(ThorWeaponTogglePayload.TYPE, (payload, context) ->
 				context.server().execute(() -> com.projecthero.mod.hammer.ThorWeaponSelection.handleToggle(
 						context.player(), payload.weapon(), payload.active())));
+
+		// v0.16.2: Physics Flight attitude (mode + roll) -- cosmetic, sanitised and shared in FlightAttitude.handle.
+		ServerPlayNetworking.registerGlobalReceiver(FlightAttitudePayload.TYPE, (payload, context) ->
+				context.server().execute(() -> com.projecthero.mod.flight.FlightAttitude.handle(
+						context.player(), payload.physics(), payload.roll())));
 
 		// v0.15.4: the Stark Gantry -- H on the floor (menu request), a suit picked, or "Remove armour".
 		ServerPlayNetworking.registerGlobalReceiver(StarkGantryActionPayload.TYPE, (payload, context) ->

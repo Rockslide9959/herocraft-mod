@@ -3,6 +3,7 @@ package com.projecthero.mod.client.flight;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.flight.DirectionalFlightModel;
 import com.projecthero.mod.flight.DirectionalFlightModel.Tune;
+import com.projecthero.mod.flight.PhysicsFlightModel;
 import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.ironman.data.TonyStarkState;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
@@ -108,7 +109,12 @@ public final class DirectionalFlight {
 		if (carrying && !pushedNow) {
 			pushTicks--;
 		}
-		Vec3 next = pushedNow ? velocity : DirectionalFlightModel.step(velocity, wanted, steering, tune, carrying);
+		// v0.16.2: Physics Flight (the , menu) -- momentum, throttle, dive / climb and banked turns instead of the eased
+		// directional step; A / D belong to PhysicsFlight's yaw / roll there, so no strafe
+		Vec3 next = pushedNow ? velocity
+				: FlightSettings.physics()
+						? PhysicsFlightModel.step(velocity, player.getLookAngle(), forward, vertical, tune, carrying)
+						: DirectionalFlightModel.step(velocity, wanted, steering, tune, carrying);
 
 		player.setDeltaMovement(next);
 		player.move(MoverType.SELF, next);

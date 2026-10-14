@@ -12,6 +12,7 @@ import com.mojang.math.Axis;
 
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+import net.minecraft.util.Mth;
 
 /**
  * The body half of the flight pose (the limbs live in {@code HumanoidModelMixin}): tilts the whole
@@ -140,6 +141,20 @@ public abstract class PlayerRendererMixin {
 			poseStack.mulPose(Axis.ZP.rotationDegrees(-roll));
 		}
 		float lean = FlightPoseHelper.lean(player, partialTicks);
+		// v0.16.2 Physics Flight: roll the body about its own long axis (the flight path) through its middle -- around
+		// the forward axis while still fairly upright, along the body once laid out flat or diving. Before the lean, so
+		// it turns the already-leaned body; a positive roll drops the flier's right side (local +X).
+		float physicsRoll = FlightPoseHelper.roll(player, partialTicks);
+		if (Math.abs(physicsRoll) >= 0.05f) {
+			float l = lean * Mth.DEG_TO_RAD;
+			float axis = Math.max(lean, 90.0f) * Mth.DEG_TO_RAD;
+			float cy = 0.9f * Mth.cos(l);
+			float cz = -0.9f * Mth.sin(l);
+			poseStack.translate(0.0f, cy, cz);
+			poseStack.mulPose(new org.joml.Quaternionf().rotationAxis(physicsRoll * Mth.DEG_TO_RAD, 0.0f, Mth.cos(axis),
+					-Mth.sin(axis)));
+			poseStack.translate(0.0f, -cy, -cz);
+		}
 		if (Math.abs(lean) < 0.05f) {
 			return;
 		}

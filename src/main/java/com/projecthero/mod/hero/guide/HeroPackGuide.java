@@ -384,10 +384,13 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.controls.utility2").withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("projecthero.guide.controls.info").withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("projecthero.guide.controls.squad").withStyle(ChatFormatting.GRAY));
+			lines.add(Component.translatable("projecthero.guide.controls.flight_mode").withStyle(ChatFormatting.GRAY)); // v0.16.2
 			// v0.14.16: every flight in the mod steers the same way now
 			blank(lines);
 			head(lines, "projecthero.guide.flight");
 			para(lines, "projecthero.guide.flight.body");
+			blank(lines);
+			para(lines, "projecthero.guide.flight.physics"); // v0.16.2: the , Flight Mode menu
 		}));
 
 		out.add(chapter("projecthero.guide.mutation", lines -> {
