@@ -191,7 +191,9 @@ public final class SpiderSwing {
 			detach(player, true);
 			return;
 		}
-		if (!SpiderWebReserve.spend(player, SpiderWebReserve.DRAIN_SWING_PER_TICK, false)) {
+		// v0.16.1: hanging upside down on a line does not drain the reserve -- only swinging does
+		boolean hanging = SpiderMoves.hangingUpsideDown(player);
+		if (!hanging && !SpiderWebReserve.spend(player, SpiderWebReserve.DRAIN_SWING_PER_TICK, false)) {
 			detach(player, true);
 			player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
 					"message.projecthero.spider_man.no_webbing"), true);

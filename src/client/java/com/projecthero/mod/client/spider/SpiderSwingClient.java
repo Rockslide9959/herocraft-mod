@@ -79,6 +79,29 @@ public final class SpiderSwingClient {
 				player.input.up, player.input.down, player.input.left, player.input.right,
 				player.input.jumping, player.input.shiftKeyDown);
 
+		// v0.16.1: the upside-down hang -- Jump climbs the line (shorter), Sneak lowers him (longer); he hangs straight
+		// down from the anchor by his feet (the body is drawn inverted, so the top of his box is where his feet are)
+		if (com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(player)) {
+			if (SpiderSwingInput.jump(input)) {
+				ropeLength -= 0.15;
+			}
+			if (SpiderSwingInput.sneak(input)) {
+				ropeLength += 0.15;
+			}
+			ropeLength = Math.max(com.projecthero.mod.spider.SpiderMoves.HANG_MIN_LENGTH,
+					Math.min(com.projecthero.mod.spider.SpiderMoves.HANG_MAX_LENGTH, ropeLength));
+			Vec3 target = new Vec3(anchor.x, anchor.y - ropeLength - player.getBbHeight(), anchor.z);
+			Vec3 v = target.subtract(player.position()).scale(0.35);
+			// a slow sway, so he is plainly hanging on a line rather than standing on air
+			double sway = Math.sin(player.level().getGameTime() * 0.08) * 0.004;
+			v = v.add(sway, 0.0, -sway);
+			if (v.length() > 1.2) {
+				v = v.normalize().scale(1.2);
+			}
+			player.setDeltaMovement(v);
+			player.resetFallDistance();
+			return;
+		}
 		// v0.16.1: hanging under a tightrope keeps a short fixed line (no reel-in / pay-out)
 		if (com.projecthero.mod.spider.SpiderMoves.state(player).has(com.projecthero.mod.spider.data.SpiderMoveState.FLAG_HANGING)) {
 			ropeLength = state.ropeLength > 0.0 ? state.ropeLength : 1.7;

@@ -4,6 +4,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.HipBend;
 import com.projecthero.mod.spider.SpiderAnim;
 import com.projecthero.mod.spider.SpiderMan;
+import com.projecthero.mod.spider.SpiderMoves;
 import com.projecthero.mod.spider.SpiderSwing;
 import com.projecthero.mod.spider.data.SpiderManState;
 import com.projecthero.mod.spider.data.SpiderMoveState;
@@ -263,6 +264,20 @@ public final class SpiderPose {
 	private static void swingBody(Player player, HumanoidModel<?> m, float t, boolean hanging) {
 		SpiderManState st = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
 		if (st == null) {
+			return;
+		}
+		if (hanging && SpiderMoves.hangingUpsideDown(player)) {
+			// v0.16.1 the classic upside-down hang (the body itself is flipped in PlayerRendererMixin): legs together and
+			// straight up the line, one knee a touch bent; arms hanging loose toward the ground, swaying a little
+			m.rightLeg.xRot = 0.0f;
+			m.rightLeg.zRot = 0.03f;
+			m.leftLeg.xRot = -0.3f;
+			m.leftLeg.zRot = -0.03f;
+			float sway = Mth.sin(t * 0.12f) * 0.08f;
+			m.rightArm.xRot = -3.0f + sway;
+			m.rightArm.zRot = -0.18f;
+			m.leftArm.xRot = -3.0f - sway;
+			m.leftArm.zRot = 0.18f;
 			return;
 		}
 		if (hanging) {

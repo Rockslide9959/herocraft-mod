@@ -283,6 +283,34 @@ public final class WebStructures {
 		return best;
 	}
 
+	/**
+	 * v0.16.1 the upside-down hang: the strand of one of his (or his squad's) tightropes / woven webs that {@code player}
+	 * is standing on or clinging to -- its nearest point within reach of his feet or middle -- or null.
+	 */
+	public static StrandHit strandAtFeet(Player player) {
+		Vec3 feet = player.position();
+		Vec3 mid = feet.add(0, player.getBbHeight() * 0.5, 0);
+		StrandHit best = null;
+		for (WebStructureEntity w : in(player.level())) {
+			if ((w.kind() != WebGeometry.TIGHTROPE && w.kind() != WebGeometry.WEAVE) || w.geometry().segmentCount() == 0
+					|| !mayUse(player, w.owner()) || !w.geometry().bounds.inflate(1.5).contains(mid)) {
+				continue;
+			}
+			for (Vec3 probe : new Vec3[] {feet, mid}) {
+				int seg = w.geometry().nearestSegment(probe);
+				if (seg < 0) {
+					continue;
+				}
+				Vec3 p = WebGeometry.closestOnSegment(w.geometry().a(seg), w.geometry().b(seg), probe);
+				double d = p.distanceTo(probe);
+				if (d <= 1.1 && (best == null || d < best.distance())) {
+					best = new StrandHit(w, p, d, seg);
+				}
+			}
+		}
+		return best;
+	}
+
 	/** Every tightrope {@code player} is standing on (at a junction there are two or more). */
 	public static List<WebStructureEntity> ropesUnderfoot(Player player) {
 		AABB feet = player.getBoundingBox();
