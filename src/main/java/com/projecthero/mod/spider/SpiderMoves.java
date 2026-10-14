@@ -663,7 +663,7 @@ public final class SpiderMoves {
 		AbilityHelpers.hurtBurst(player, target, cfg(ZIP_KICK).damage);
 		Vec3 flat = new Vec3(dir.x, 0, dir.z);
 		flat = flat.lengthSqr() < 1.0e-4 ? player.getLookAngle() : flat.normalize();
-		boolean heavy = SpiderWebs.isBoss(target) || target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0;
+		boolean heavy = SpiderWebs.tooHeavyToThrow(target); // v0.16.2: the throw rule
 		if (!heavy) {
 			target.setDeltaMovement(flat.scale(2.0).add(0, 0.45, 0));
 			target.hurtMarked = true;
@@ -747,7 +747,7 @@ public final class SpiderMoves {
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		AbilityHelpers.hurtBurst(player, target, cfg(UPPERCUT).damage);
-		boolean heavy = SpiderWebs.isBoss(target) || target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0;
+		boolean heavy = SpiderWebs.tooHeavyToThrow(target); // v0.16.2: the throw rule
 		target.setDeltaMovement(target.getDeltaMovement().multiply(0.2, 0, 0.2).add(0, heavy ? 0.35 : 1.05, 0));
 		target.hurtMarked = true;
 		AbilityHelpers.launchSelf(player, new Vec3(0, 0.95, 0));
@@ -859,7 +859,7 @@ public final class SpiderMoves {
 			target = SpiderAbilities.nearestLivingInAim(player, range);
 		}
 		if (target != null && harmable(player, target)) {
-			if (SpiderWebs.isBoss(target) || target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0) {
+			if (SpiderWebs.tooHeavyToThrow(target)) { // v0.16.2: bosses, iron golems, too big
 				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
 				return;
 			}

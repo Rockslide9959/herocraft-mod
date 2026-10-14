@@ -151,6 +151,20 @@ public final class SpiderWebs {
 				|| target instanceof net.minecraft.world.entity.monster.warden.Warden;
 	}
 
+	/** Body volume (width x width x height, blocks) above which something is too big to throw -- a Ravager is ~8.4,
+	 *  an iron golem ~5.3, a horse ~3.1, a zombie ~0.7. */
+	public static final double THROW_MAX_VOLUME = 6.0;
+
+	/**
+	 * v0.16.2: the one rule for what Spider-Man cannot throw (Swing Throw, Grab &amp; Hurl): bosses, iron golems, and
+	 * anything physically too heavy. Everything else goes -- knockback resistance no longer stops a throw.
+	 */
+	public static boolean tooHeavyToThrow(LivingEntity target) {
+		double w = target.getBbWidth();
+		return isBoss(target) || target instanceof net.minecraft.world.entity.animal.IronGolem
+				|| w * w * target.getBbHeight() > THROW_MAX_VOLUME;
+	}
+
 	/** Wrap a target for the default duration. Returns the number of ticks it will actually be held for. */
 	public static int cocoon(ServerPlayer owner, LivingEntity target) {
 		return cocoonFor(owner, target, COCOON_TICKS);

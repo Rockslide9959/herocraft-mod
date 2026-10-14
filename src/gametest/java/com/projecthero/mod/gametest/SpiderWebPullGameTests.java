@@ -63,7 +63,7 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 			double before = zombie.distanceTo(p);
 			p.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.position().add(0, zombie.getBbHeight() * 0.5, 0));
 			SpiderAbilities.webYank(p);
-			helper.assertTrue(rope[0].isRemoved(), "the strand it was stuck on snapped");
+			helper.assertFalse(rope[0].isRemoved(), "v0.16.2: the strand stays up -- only the target comes off");
 			helper.assertTrue(com.projecthero.mod.spider.SpiderCombat.hasTether(p), "and the real web line holds the target");
 			helper.runAfterDelay(4, () -> {
 				helper.assertTrue(zombie.distanceTo(p) < before - 1.0,
@@ -105,7 +105,7 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 			helper.assertTrue(SpiderWrap.isWrapped(zombie), "cocooned");
 			helper.assertTrue(WebStructures.tearFree(zombie), "a deliberate pull tears it free");
 			helper.assertFalse(SpiderWrap.isWrapped(zombie), "un-cocooned");
-			helper.assertTrue(rope[0].isRemoved(), "and the strand snapped");
+			helper.assertFalse(rope[0].isRemoved(), "v0.16.2: and the strand stays up");
 			helper.succeed();
 		});
 	}

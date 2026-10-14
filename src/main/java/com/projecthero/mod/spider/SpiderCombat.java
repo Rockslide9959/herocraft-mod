@@ -288,7 +288,7 @@ public final class SpiderCombat {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.no_target"), true);
 			return false;
 		}
-		if (SpiderWebs.isBoss(target) || target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0) {
+		if (SpiderWebs.tooHeavyToThrow(target)) { // v0.16.2: bosses, iron golems, too big
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
 			return false;
 		}

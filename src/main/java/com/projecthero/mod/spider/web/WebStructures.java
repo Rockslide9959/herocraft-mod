@@ -58,6 +58,24 @@ public final class WebStructures {
 
 	public static void clearSessionState() {
 		SERVER.clear();
+		PULLED_FREE.clear();
+	}
+
+	/** v0.16.2: entity id -> game time until which webs let it slip through (just pulled off one). Server only. */
+	private static final java.util.Map<Integer, Long> PULLED_FREE = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final long PULL_GRACE_TICKS = 20L;
+
+	/** True while {@code e} was just pulled off a web and webs must not grab it again. */
+	public static boolean pulledFree(Entity e) {
+		Long until = PULLED_FREE.get(e.getId());
+		if (until == null) {
+			return false;
+		}
+		if (e.level().getGameTime() >= until) {
+			PULLED_FREE.remove(e.getId());
+			return false;
+		}
+		return true;
 	}
 
 	public static void clearClient() {
@@ -165,7 +183,7 @@ public final class WebStructures {
 	/** A web {@code e} is touching but may NOT use, or null (strangers get stuck in these). */
 	public static WebStructureEntity trappingWeb(Entity e) {
 		for (WebStructureEntity w : in(e.level())) {
-			if (w.geometry().touches(e.getBoundingBox()) && !mayUse(e, w.owner())) {
+			if (w.geometry().touches(e.getBoundingBox()) && !mayUse(e, w.owner()) && !pulledFree(e)) {
 				return w;
 			}
 		}
@@ -395,10 +413,14 @@ public final class WebStructures {
 			if (w.isRemoved() || !w.geometry().bounds.intersects(box) || mayUse(e, w.owner()) || !w.geometry().touches(box)) {
 				continue;
 			}
+			// v0.16.2 (user): the tightrope / woven web stays up -- the target is just pulled off it, and slips through
+			// the webs for a moment so they don't catch it again on the way out
 			Vec3 at = w.geometry().closestPoint(centre);
 			tearEffect(level, at == null ? centre : at);
-			w.dissolve(false);
 			freed = true;
+		}
+		if (freed) {
+			PULLED_FREE.put(e.getId(), level.getGameTime() + PULL_GRACE_TICKS);
 		}
 		if (com.projecthero.mod.spider.SpiderCobwebs.tearIn(level, e.getBoundingBox()) > 0) {
 			tearEffect(level, centre);
@@ -488,6 +510,7 @@ public final class WebStructures {
 			e.setDeltaMovement(Vec3.ZERO);
 			e.hurtMarked = true;
 			e.resetFallDistance();
+			PULLED_FREE.remove(e.getId()); // v0.16.2: thrown onto a web on purpose -- it sticks, grace or not
 			e.makeStuckInBlock(Blocks.STRUCTURE_VOID.defaultBlockState(),
 					new Vec3(SpiderManConfig.webs().strangerSlowFactor, 0.04, SpiderManConfig.webs().strangerSlowFactor));
 			if (e.level() instanceof ServerLevel level) {
@@ -507,7 +530,7 @@ public final class WebStructures {
 		double slow = SpiderManConfig.webs().strangerSlowFactor;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, g.bounds,
 				x -> x.isAlive() && !x.isSpectator())) {
-			if (mayUse(e, owner) || SpiderWebs.ignoresWebs(e) || !g.touches(e.getBoundingBox())) {
+			if (mayUse(e, owner) || SpiderWebs.ignoresWebs(e) || pulledFree(e) || !g.touches(e.getBoundingBox())) {
 				continue;
 			}
 			// stuck fast: far worse than a cobweb (players are slowed by their own client, see SpiderTraversalClient)

@@ -415,7 +415,7 @@ public final class SpiderAbilities {
 		double strength = yankStrengthMult(player);
 
 		boolean immovable = boss
-				|| target.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE) >= 1.0;
+				|| SpiderWebs.tooHeavyToThrow(target); // v0.16.2: the throw rule
 		if (!immovable) {
 			// v0.16.1 the stuck-pull rule: stuck on a tightrope / woven web / his cobwebs (or cocooned) -> it comes off and
 			// moves with the pull, and the web it was stuck on snaps
