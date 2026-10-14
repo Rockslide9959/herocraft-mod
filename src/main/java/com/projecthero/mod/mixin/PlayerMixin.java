@@ -41,6 +41,21 @@ public abstract class PlayerMixin {
 	}
 
 	/**
+	 * v0.16.2: hanging upside down on a web line, Sneak lowers him down the line -- it must not crouch him too (the box
+	 * would shrink 0.3 and the flipped body jump with it).
+	 */
+	@Inject(method = "updatePlayerPose", at = @At("HEAD"), cancellable = true)
+	private void projecthero$hangStandsStraight(CallbackInfo ci) {
+		Player self = (Player) (Object) this;
+		if (com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(self)) {
+			if (self.getPose() != Pose.STANDING) {
+				self.setPose(Pose.STANDING);
+			}
+			ci.cancel();
+		}
+	}
+
+	/**
 	 * Elasticity: squeeze through a one-block gap without needing a trapdoor to trigger the crawl.
 	 * While the elastic hero owns the power and neither the standing nor the crouching pose fits where
 	 * they are (or a low opening is directly ahead), drop straight to the swimming/crawl pose.

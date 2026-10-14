@@ -443,6 +443,9 @@ public final class SpiderHud {
 		if (m.has(SpiderMoveState.FLAG_AIR_COMBO)) {
 			return Component.translatable("hud.projecthero.spider_man.status.air_combo");
 		}
+		if (m.has(SpiderMoveState.FLAG_HANGING) && m.has(SpiderMoveState.FLAG_HANG_UPSIDE)) {
+			return Component.translatable("hud.projecthero.spider_man.status.hanging_upside"); // v0.16.2
+		}
 		if (m.has(SpiderMoveState.FLAG_HANGING)) {
 			return Component.translatable("hud.projecthero.spider_man.status.hanging");
 		}

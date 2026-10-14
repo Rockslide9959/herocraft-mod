@@ -46,6 +46,7 @@ public abstract class PlayerRendererMixin {
 		if (!com.projecthero.mod.spider.SpiderClimb.onCeiling(player)) {
 			return;
 		}
+		com.projecthero.mod.client.spider.SpiderHang.noteCeiling(player); // v0.16.2: a hang dropped from here starts flipped
 		// Flip about the model's local Z (its facing axis at this point in setupRotations) and lift it
 		// back onto the ceiling, since rotating about the feet would put the model below the surface.
 		poseStack.translate(0.0f, player.getBbHeight() - 0.1f, 0.0f);
@@ -59,11 +60,8 @@ public abstract class PlayerRendererMixin {
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$upsideDownHang(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
 			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
-		if (!com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(player)) {
-			return;
-		}
-		poseStack.translate(0.0f, player.getBbHeight(), 0.0f);
-		poseStack.mulPose(Axis.ZP.rotationDegrees(180.0f));
+		// v0.16.2: eased in / out (a cartwheel about his middle), with a little sway while he climbs / lowers
+		com.projecthero.mod.client.spider.SpiderHang.applyBodyRotation(player, poseStack, partialTicks);
 	}
 
 	/** v0.16.1: the living web swing -- the body hangs along the rope and rolls into turns; the corkscrew release. */

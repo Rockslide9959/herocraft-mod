@@ -78,7 +78,8 @@ public final class SpiderWebLineRenderer {
 			swingingNow.add(player.getId());
 			Vec3 hand = com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(player)
 					// v0.16.1 the upside-down hang: the line is tied on at his feet (the top of his box, the body being flipped)
-					? player.getPosition(partial).add(0, player.getBbHeight() - 0.05, 0)
+					// v0.16.2: down through where his feet meet to his hands' grip just below them (SpiderHang)
+					? SpiderHang.lineEnd(player, partial)
 					: SpiderStrands.handPosition(player, state.swingHandRight, partial, camera);
 			LAST_SWING.put(player.getId(), new SwingMemo(anchor, state.swingHandRight, hand));
 			drawLine(poseStack, consumers, camera, hand, anchor, BASE_ALPHA);

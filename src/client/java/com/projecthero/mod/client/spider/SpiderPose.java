@@ -212,8 +212,13 @@ public final class SpiderPose {
 		}
 		// v0.16.2: the ledge perch (jointed limbs, eased in / out) -- under everything else
 		SpiderPerch.apply(player, m);
+		// v0.16.2: the upside-down hang (jointed limbs, eased in / out; it aims Weave Mode's right arm itself)
+		SpiderHang.apply(player, m);
+		boolean upsideDown = SpiderHang.amount(player) > 0f;
 		// held stances first; a move's animation then blends over them
-		if (s.has(SpiderMoveState.FLAG_WEAVING)) {
+		if (s.has(SpiderMoveState.FLAG_WEAVING) && upsideDown) {
+			// (SpiderHang aimed the right arm; the left keeps its grip on the line)
+		} else if (s.has(SpiderMoveState.FLAG_WEAVING)) {
 			m.rightArm.xRot = -1.57f + m.head.xRot;
 			m.rightArm.yRot = m.head.yRot;
 			m.leftArm.xRot = -2.1f;
@@ -252,12 +257,13 @@ public final class SpiderPose {
 			m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -0.5f);
 			m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, 0.35f);
 		}
-		if (s.animId == SpiderAnim.LANDING) {
+		if (s.animId == SpiderAnim.LANDING && !upsideDown) {
 			landing(m, t - s.animStart);
 			return;
 		}
 		Pose p = poseFor(s.animId);
-		if (p != null) {
+		// v0.16.2: hanging upside down he keeps the hang pose (the moves' upright arm swings would bend the jointed arms)
+		if (p != null && !upsideDown) {
 			blend(m, p.frames(), t - s.animStart, p.aimRight(), p.aimLeft());
 		}
 	}
@@ -269,18 +275,7 @@ public final class SpiderPose {
 			return;
 		}
 		if (hanging && SpiderMoves.hangingUpsideDown(player)) {
-			// v0.16.1 the classic upside-down hang (the body itself is flipped in PlayerRendererMixin): legs together and
-			// straight up the line, one knee a touch bent; arms hanging loose toward the ground, swaying a little
-			m.rightLeg.xRot = 0.0f;
-			m.rightLeg.zRot = 0.03f;
-			m.leftLeg.xRot = -0.3f;
-			m.leftLeg.zRot = -0.03f;
-			float sway = Mth.sin(t * 0.12f) * 0.08f;
-			m.rightArm.xRot = -3.0f + sway;
-			m.rightArm.zRot = -0.18f;
-			m.leftArm.xRot = -3.0f - sway;
-			m.leftArm.zRot = 0.18f;
-			return;
+			return; // v0.16.2: the upside-down hang is SpiderHang's jointed pose (applied in apply)
 		}
 		if (hanging) {
 			m.rightArm.xRot = -2.95f;

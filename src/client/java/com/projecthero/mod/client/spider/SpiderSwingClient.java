@@ -28,9 +28,12 @@ public final class SpiderSwingClient {
 	private static long attachedAt;
 	/** v0.16.1: game time of the last in-air release (for chaining). */
 	private static long releasedAt = Long.MIN_VALUE;
+	/** v0.16.2: the upside-down hang's current climb (-) / lower (+) speed, eased toward the held key. */
+	private static double reelSpeed;
 
 	private SpiderSwingClient() {
 	}
+
 
 	/** Called from {@code LocalPlayerMixin} at the top of {@code aiStep}, before vanilla moves anything. */
 	public static void tick(LocalPlayer player) {
@@ -82,16 +85,25 @@ public final class SpiderSwingClient {
 		// v0.16.1: the upside-down hang -- Jump climbs the line (shorter), Sneak lowers him (longer); he hangs straight
 		// down from the anchor by his feet (the body is drawn inverted, so the top of his box is where his feet are)
 		if (com.projecthero.mod.spider.SpiderMoves.hangingUpsideDown(player)) {
-			if (SpiderSwingInput.jump(input)) {
-				ropeLength -= 0.15;
+			// v0.16.2: faster (up to HANG_REEL_SPEED a tick, eased in so it never jerks) and as far down as the ground
+			int dir = (SpiderSwingInput.sneak(input) ? 1 : 0) - (SpiderSwingInput.jump(input) ? 1 : 0);
+			double accel = com.projecthero.mod.spider.SpiderMoves.HANG_REEL_ACCEL;
+			double top = com.projecthero.mod.spider.SpiderMoves.HANG_REEL_SPEED;
+			reelSpeed = dir != 0 ? Math.max(-top, Math.min(top, reelSpeed + dir * accel))
+					: Math.abs(reelSpeed) <= accel * 2.0 ? 0.0 : reelSpeed - Math.signum(reelSpeed) * accel * 2.0;
+			double before = ropeLength;
+			double want = Math.max(com.projecthero.mod.spider.SpiderMoves.HANG_MIN_LENGTH,
+					Math.min(com.projecthero.mod.spider.SpiderMoves.HANG_MAX_LENGTH, ropeLength + reelSpeed));
+			// lowering stops with his head just above the ground / whatever is under him (never through it)
+			ropeLength = com.projecthero.mod.spider.SpiderMoves.hangLowerTo(player, anchor, ropeLength, want);
+			if (ropeLength != want || ropeLength <= com.projecthero.mod.spider.SpiderMoves.HANG_MIN_LENGTH && reelSpeed < 0.0
+					|| ropeLength >= com.projecthero.mod.spider.SpiderMoves.HANG_MAX_LENGTH && reelSpeed > 0.0) {
+				reelSpeed = 0.0;
 			}
-			if (SpiderSwingInput.sneak(input)) {
-				ropeLength += 0.15;
-			}
-			ropeLength = Math.max(com.projecthero.mod.spider.SpiderMoves.HANG_MIN_LENGTH,
-					Math.min(com.projecthero.mod.spider.SpiderMoves.HANG_MAX_LENGTH, ropeLength));
-			Vec3 target = new Vec3(anchor.x, anchor.y - ropeLength - player.getBbHeight(), anchor.z);
-			Vec3 v = target.subtract(player.position()).scale(0.35);
+			// the line ends where his feet meet (HANG_FEET_BELOW_TOP under the top of his box)
+			Vec3 target = new Vec3(anchor.x, com.projecthero.mod.spider.SpiderMoves.hangBoxBottom(anchor, ropeLength), anchor.z);
+			// feed this tick's reel straight through, then pull in whatever error is left
+			Vec3 v = target.subtract(player.position()).scale(0.35).add(0.0, -(ropeLength - before), 0.0);
 			// a slow sway, so he is plainly hanging on a line rather than standing on air
 			double sway = Math.sin(player.level().getGameTime() * 0.08) * 0.004;
 			v = v.add(sway, 0.0, -sway);

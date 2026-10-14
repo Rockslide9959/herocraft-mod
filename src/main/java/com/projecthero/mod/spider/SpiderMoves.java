@@ -398,7 +398,10 @@ public final class SpiderMoves {
 			if (presses[i] != null) {
 				return; // key repeat
 			}
-			Press p = new Press(now, player.isShiftKeyDown());
+			// v0.16.2 FIX (Weave Mode while hanging upside down): Sneak is the "lower me" key on the hang line, so it is
+			// usually held there -- it must not turn C into Shift+C (Web Wall), or holding C never opened Weave Mode
+			boolean shift = player.isShiftKeyDown() && !(i == 5 && hangingUpsideDown(player));
+			Press p = new Press(now, shift);
 			presses[i] = p;
 			if (p.shift) {
 				shiftMove(player, i, p);
@@ -1502,7 +1505,59 @@ public final class SpiderMoves {
 	/** The line he drops on, and its limits (Jump reels in, Sneak pays out -- on his own client, see SpiderSwingClient). */
 	public static final double HANG_START_LENGTH = 2.0;
 	public static final double HANG_MIN_LENGTH = 0.8;
-	public static final double HANG_MAX_LENGTH = 16.0;
+	/**
+	 * v0.16.2 (user request: "no limit"): was 16. He lowers until his head is just above the ground / the first block
+	 * below him (SpiderSwingClient clamps to that); this is only the sanity cap for a bottomless drop.
+	 */
+	public static final double HANG_MAX_LENGTH = 128.0;
+	/** v0.16.2: top climb / lower speed on the line (blocks per tick; was a flat 0.15) and how fast it builds up. */
+	public static final double HANG_REEL_SPEED = 0.4;
+	public static final double HANG_REEL_ACCEL = 0.06;
+	/** v0.16.2: the line is tied on where his feet meet, this far below the top of his (upright) box -- see SpiderHang. */
+	public static final double HANG_FEET_BELOW_TOP = 0.38;
+	/** v0.16.2: the flipped body's head pokes this far below the bottom of his box; it stops this far above the ground. */
+	private static final double HANG_HEAD_BELOW_BOX = 0.08;
+	private static final double HANG_HEAD_CLEARANCE = 0.12;
+	/** The hang keeps him standing (PlayerMixin), so his box is always the standing one. */
+	private static final double HANG_BOX_HEIGHT = 1.8;
+
+	/** v0.16.2: where the bottom of his box sits on a hang line of {@code len} from {@code anchor} (feet at its end). */
+	public static double hangBoxBottom(Vec3 anchor, double len) {
+		return anchor.y - len + HANG_FEET_BELOW_TOP - HANG_BOX_HEIGHT;
+	}
+
+	/**
+	 * v0.16.2: lowering the hang line from {@code from} to {@code to}: how far it may really go before his head would touch
+	 * whatever is below him (the ground, a ledge, a single block) -- a thin slab under his head swept straight down. There
+	 * is no other limit but {@link #HANG_MAX_LENGTH}.
+	 */
+	public static double hangLowerTo(Player player, Vec3 anchor, double from, double to) {
+		if (to <= from) {
+			return to;
+		}
+		AABB start = hangHeadSlab(player, anchor, from);
+		if (player.level().noCollision(player, hangHeadSlab(player, anchor, to).minmax(start))) {
+			return to;
+		}
+		double lo = from;
+		double hi = to;
+		for (int i = 0; i < 10; i++) {
+			double mid = (lo + hi) * 0.5;
+			if (player.level().noCollision(player, hangHeadSlab(player, anchor, mid).minmax(start))) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		return lo;
+	}
+
+	/** The slab just under his head (clearance included) on a hang line of length {@code len}. */
+	private static AABB hangHeadSlab(Player player, Vec3 anchor, double len) {
+		double y = hangBoxBottom(anchor, len) - HANG_HEAD_BELOW_BOX - HANG_HEAD_CLEARANCE;
+		double hw = player.getBbWidth() * 0.5 - 0.02;
+		return new AABB(anchor.x - hw, y, anchor.z - hw, anchor.x + hw, y + 0.05, anchor.z + hw);
+	}
 
 	/** True while he hangs upside down (either side: the flag is synced). */
 	public static boolean hangingUpsideDown(Player player) {
