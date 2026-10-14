@@ -65,7 +65,7 @@ import org.joml.Vector3f;
  * polished frame) set in its north wall, and behind the glass the same room again, reflected -- where the
  * {@link MirrorHulkEntity} stands as his reflection. Faint hidden lights keep both just visible.
  *
- * <p>Right-clicking the mirror (or the Hulk) starts the smash ({@link MirrorHulkEntity#SMASH_APPROACH_END} ...): the Hulk
+ * <p>Pressing H in the mind (v0.16.4 user change; it was a right-click on the mirror) starts the smash ({@link MirrorHulkEntity#SMASH_APPROACH_END} ...): the Hulk
  * walks up to the glass, rears back, punches through it (the glass shatters), lunges and grabs him -- his client pulls his
  * view and body into the Hulk's hands and the screen burns white-green -- and {@link MirrorHulkEntity#SMASH_RETURN_AT}
  * ticks in he is sent back to where his body knelt, given a blast shield and changes slowly into the Hulk
@@ -105,7 +105,7 @@ public final class HulkMind {
 		UUID body;
 		ResourceKey<Level> bodyDimension;
 		UUID hulk;
-		/** Game time he right-clicked the mirror; 0 until then. */
+		/** Game time he pressed H (the Hulk came for him); 0 until then. */
 		long smashAt;
 		Vec3 hulkFrom = Vec3.ZERO;
 
@@ -130,28 +130,12 @@ public final class HulkMind {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> onDisconnect(handler.getPlayer()));
 		// (no JOIN hook: Hulk.onPlayerJoin runs after it and would undo the change -- the half-second sweep in tick finds a
 		// player who logged back in mid-way instead)
-		// nothing in the mind can be built, broken or used -- except the mirror
-		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
-			if (level.dimension() != DIMENSION) {
-				return InteractionResult.PASS;
-			}
-			if (level.getBlockState(hit.getBlockPos()).is(Blocks.GRAY_STAINED_GLASS)) {
-				if (player instanceof ServerPlayer sp) {
-					onMirrorUsed(sp);
-				}
-				return InteractionResult.SUCCESS;
-			}
-			return InteractionResult.FAIL;
-		});
-		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
-			if (!(entity instanceof MirrorHulkEntity)) {
-				return InteractionResult.PASS;
-			}
-			if (player instanceof ServerPlayer sp) {
-				onMirrorUsed(sp);
-			}
-			return InteractionResult.SUCCESS;
-		});
+		// nothing in the mind can be built, broken or used. v0.16.4 (user): the mirror is not right-clicked any more -- pressing
+		// H in the mind brings the Hulk through it (HulkActionPayload MIND_MIRROR)
+		UseBlockCallback.EVENT.register((player, level, hand, hit) -> level.dimension() == DIMENSION ? InteractionResult.FAIL
+				: InteractionResult.PASS);
+		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> entity instanceof MirrorHulkEntity ? InteractionResult.FAIL
+				: InteractionResult.PASS);
 		UseItemCallback.EVENT.register((player, level, hand) -> level.dimension() == DIMENSION
 				? InteractionResultHolder.fail(player.getItemInHand(hand)) : InteractionResultHolder.pass(player.getItemInHand(hand)));
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> level.dimension() == DIMENSION
@@ -334,7 +318,7 @@ public final class HulkMind {
 
 	// ---------------------------------------------------------------- the mirror
 
-	/** He right-clicked the mirror (or the Hulk): the Hulk comes for him. */
+	/** He pressed H in his mind (v0.16.4; it was a right-click on the mirror): the Hulk comes for him. */
 	public static void onMirrorUsed(ServerPlayer player) {
 		Session s = SESSIONS.get(player.getUUID());
 		if (s == null || s.smashAt != 0L || player.level().dimension() != DIMENSION) {
@@ -436,7 +420,7 @@ public final class HulkMind {
 			mind.sendParticles(GAMMA, hulk.getX(), hulk.getY() + 1.6, hulk.getZ(), 1, 0.5, 0.9, 0.5, 0.0);
 		}
 		if (t == 60L || (t > 60L && t % 160L == 0L)) {
-			p.displayClientMessage(Component.translatable("message.projecthero.hulk_mind.hint").withStyle(ChatFormatting.GREEN), true);
+			p.displayClientMessage(Component.translatable("message.projecthero.hulk_mind.hint_h").withStyle(ChatFormatting.GREEN), true);
 		}
 	}
 

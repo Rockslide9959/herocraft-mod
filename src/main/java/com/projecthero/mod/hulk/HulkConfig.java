@@ -14,7 +14,6 @@ public final class HulkConfig {
 	public Abilities abilities = new Abilities();
 	public World world = new World();
 	public Control control = new Control();
-	public Calm calm = new Calm();
 	/** v0.15.3: the Gladiator Hulk's weapon kit (used instead of {@link #abilities} while the full gladiator gear is on). */
 	public Gladiator gladiator = new Gladiator();
 
@@ -199,31 +198,31 @@ public final class HulkConfig {
 		public double sprintSmashMinSpeed = 0.2;
 	}
 
-	/** Keeping control of the Hulk: stop dealing damage and he starts to take over. */
+	/**
+	 * v0.16.4 (user): the rampage. Every {@link #rampageEveryTicks} as the Hulk a warning appears -- a random string of
+	 * {@link #warningMinArrows}-{@link #warningMaxArrows} arrows to type with the arrow keys within {@link #warningTicks} (a wrong
+	 * arrow starts it over). Fail and he RAMPAGES until the player lands {@link #ringHitsNeeded} ring presses in a row (or
+	 * {@link #rampageMaxTicks} pass, a safety net).
+	 */
 	public static final class Control {
+		/** Server switch: false = the Hulk never rampages. */
 		public boolean enabled = true;
-		/** Ticks without dealing damage before control starts to slip. */
-		public int graceTicks = 160;
-		public float drainPerSecond = 6.0f;
-		/** While control is slipping, a key prompt appears this often... */
-		public int promptEveryTicks = 50;
-		/** ...and must be answered within this long. */
-		public int promptWindowTicks = 30;
-		public float promptRestore = 25.0f;
-		public float promptPenalty = 15.0f;
-		/** How long a rampage lasts before the player wrestles control back. */
-		public int rampageTicks = 300;
-		/** Control the player gets back when a rampage ends. */
-		public float rampageRestore = 60.0f;
-	}
-
-	/** The calm-down minigame (hold N). */
-	public static final class Calm {
-		public int holdTicks = 40;
-		/** Out of combat this long before it can start. */
-		public int outOfCombatTicks = 60;
-		public float hitDrain = 14.0f;
-		public float missRage = 4.0f;
+		public int rampageEveryTicks = 60 * 20;
+		public int warningTicks = 10 * 20;
+		public int warningMinArrows = 6;
+		public int warningMaxArrows = 8;
+		/** Space presses in a row (the ring on the circle) that end a rampage. */
+		public int ringHitsNeeded = 3;
+		/** The server ignores ring reports closer together than this (the client's ring takes over a second). */
+		public int ringMinGapTicks = 12;
+		/** A rampage nobody wrestles back still ends after this long. */
+		public int rampageMaxTicks = 2 * 60 * 20;
+		/** He stands and roars this long when a rampage starts, before the hunt. */
+		public int rampageRoarTicks = 40;
+		/** How far he hunts. */
+		public double rampageRange = 100.0;
+		/** Ticks between his rampage punches. */
+		public int rampageSwingTicks = 10;
 	}
 
 	/** What the Hulk is allowed to do to the world. */
@@ -261,10 +260,6 @@ public final class HulkConfig {
 		return instance.control;
 	}
 
-	public static Calm calm() {
-		return instance.calm;
-	}
-
 	public static Gladiator gladiator() {
 		return instance.gladiator;
 	}
@@ -275,7 +270,7 @@ public final class HulkConfig {
 	 */
 	public static final com.projecthero.mod.config.VersionedConfig<HulkConfig> SPEC = com.projecthero.mod.config.VersionedConfig
 			.builder(HulkConfig.class, "projecthero_hulk.json", HulkConfig::new)
-			.balance("abilities", "control", "calm", "gladiator")
+			.balance("abilities", "control", "gladiator")
 			.introduce(1, "v0.13.12 first file")
 			// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
 			.reset(2, "v0.13.14 Hulk kit rebuilt", "abilities")
@@ -288,6 +283,8 @@ public final class HulkConfig {
 			})
 			// v0.15.3: the new "gladiator" section is filled in from the defaults; nothing a server set is touched
 			.introduce(4, "v0.15.3 Gladiator Hulk moves section")
+			// v0.16.4: the control section is the new minute-by-minute rampage (old keep-control keys and "calm" drop out)
+			.reset(5, "v0.16.4 Hulk rules revamp: rampage warning + ring minigame", "control")
 			.build();
 
 	public static void load() {
@@ -409,4 +406,52 @@ public final class HulkConfig {
 	/** v0.13.14: lava and explosions only do this fraction of their damage to the Hulk (fire, arrows and falls: none). */
 	public static final float LAVA_FACTOR = 0.25f;
 	public static final float EXPLOSION_FACTOR = 0.5f;
+
+	// ---------------- v0.16.4 (user): the Hulk rules revamp (docs/HULK_V0164_REVAMP_CONTRACT.md) ----------------
+	/** Hold H this long as Banner and the Hulk comes out (the willing change). No rage or hunger needed. */
+	public static final int HOLD_TO_CHANGE_TICKS = 40;
+	/** The Hulk can't change back for this long after he came out (3 minutes). */
+	public static final int DETRANSFORM_LOCK_TICKS = 3 * 60 * 20;
+	/** After a WILLING Hulk changes back, hold H is locked out this long (dying as Banner still forces the change). */
+	public static final int WILLING_COOLDOWN_TICKS = 60 * 20;
+	/** Rage the Hulk comes out with when Banner dies (the willing change starts at 0). */
+	public static final float DEATH_CHANGE_RAGE = 50.0f;
+	/** The vanilla player's height: the Hulk's scale is his height over this. */
+	public static final double PLAYER_HEIGHT = 1.8;
+	/** The Hulk's height at 0 rage... */
+	public static final double MIN_HULK_HEIGHT = 3.5;
+	/** ...and at 100 rage (eased in between). */
+	public static final double MAX_HULK_HEIGHT = 6.0;
+	/** Every hit the Hulk deals is worth up to this much more at 100 rage (+50%), scaled down linearly to +0% at 0. */
+	public static final float RAGE_DAMAGE_BONUS_MAX = 0.5f;
+	/** Most the body's scale moves in a tick when rage changes (the growth through the change itself has its own clock). */
+	public static final double SIZE_EASE_PER_TICK = 0.02;
+	/** Hulk-form death: flat on his back as the Hulk this long... */
+	public static final int DEATH_LIE_TICKS = 40;
+	/** ...then the slow change back to the regular player... */
+	public static final int DEATH_REVERT_TICKS = 70;
+	/** ...and he dies this long after it is over. */
+	public static final int DEATH_FINAL_DELAY_TICKS = 40;
+	/** N as the Hulk: the roar. Low-level mobs (max health at or under {@link #ROAR_FLEE_MAX_HEALTH}) within the radius flee. */
+	public static final double ROAR_RADIUS = 20.0;
+	public static final double ROAR_FLEE_MAX_HEALTH = 40.0;
+	public static final int ROAR_FLEE_TICKS = 6 * 20;
+	public static final int ROAR_COOLDOWN_TICKS = 15 * 20;
+
+	/** v0.16.4: the Hulk's height for this much rage (3.5 blocks at 0 to 6 at 100). */
+	public static double heightForRage(float rage) {
+		double f = Math.max(0.0, Math.min(1.0, rage / RAGE_MAX));
+		return MIN_HULK_HEIGHT + (MAX_HULK_HEIGHT - MIN_HULK_HEIGHT) * f;
+	}
+
+	/** v0.16.4: the SCALE attribute value for this much rage (height / 1.8). */
+	public static double scaleForRage(float rage) {
+		return heightForRage(rage) / PLAYER_HEIGHT;
+	}
+
+	/** v0.16.4: what every hit the Hulk deals is multiplied by at this much rage (1.0 at 0 up to 1.5 at 100). */
+	public static float damageMultiplier(float rage) {
+		float f = Math.max(0.0f, Math.min(1.0f, rage / RAGE_MAX));
+		return 1.0f + RAGE_DAMAGE_BONUS_MAX * f;
+	}
 }

@@ -9,44 +9,55 @@ import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hulk.data.HulkState;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.arguments.EntityAnchorArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
-import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.13.14: keeping control of the Hulk. While he keeps dealing damage the player is fully in charge. Once he goes
- * {@code graceTicks} without landing a hit, control starts to slip ({@code drainPerSecond}) and a key prompt appears
- * every {@code promptEveryTicks}: press the shown movement key (forward / left / back / right) within the window to
- * claw control back; the wrong key, or none, loses more. At 0 the Hulk <b>rampages</b> for {@code rampageTicks}: he
- * picks the nearest living thing, turns on it, charges and pounds it, leaps about, smashes the ground and anything soft
- * in his way -- and the player's ability keys, H, the calm-down and riders are all shut out until it ends. Then the
- * player wrestles back {@code rampageRestore} control. Numbers in {@link HulkConfig#control()}.
+ * v0.16.4 (user, docs/HULK_V0164_REVAMP_CONTRACT.md): the rampage. Whichever way he became the Hulk, every
+ * {@code control.rampageEveryTicks} (a minute) from the moment he is out a WARNING appears: a random string of 6-8 arrows on
+ * screen, to be typed with the arrow keys within {@code warningTicks} (10 s). A wrong arrow starts the string over. Typed in
+ * time, there is no rampage and the next minute starts; too slow, and he RAMPAGES.
  *
- * <p>v0.13.15: only an <b>unwilling</b> Hulk ({@link HulkState.Combat#unwilling} -- rage hit 100, or the death save) fights
- * for control. A Hulk the player let out with H stays theirs for as long as he lasts. v0.15.18: an unwilling Hulk is tamed
- * (the flag clears, see {@link Hulk#tick}) once his rage falls under 50 -- until then H can't change him back either.
+ * <p>During a rampage the server drives him -- the player has no movement control (forced third person, the screen shrunk into
+ * a letterbox, see {@code HulkRampageClient}). He roars ({@link HulkState#ANIM_RAMPAGE}), then hunts EVERY living thing within
+ * {@code rampageRange} blocks -- squad-mates and other players included -- always the nearest: sprints and leaps to it and
+ * punches it, with a ground smash every third blow. He only breaks blocks when he is truly stuck. The player wins control back
+ * with the ring minigame: a circle and a ring closing on it; Space as they meet, {@code ringHitsNeeded} times in a row (a miss
+ * resets the streak). The client times the presses; the server only counts them, and never faster than {@code ringMinGapTicks}.
+ * A rampage nobody wins back still ends after {@code rampageMaxTicks}.
+ *
+ * <p>The per-player rampage bookkeeping is a static world-object cache, cleared by {@code ServerStateReset} through
+ * {@link Hulk#clearSessionState}.
  */
 public final class HulkControl {
-	public static final int KEY_FORWARD = 1;
-	public static final int KEY_LEFT = 2;
-	public static final int KEY_BACK = 3;
-	public static final int KEY_RIGHT = 4;
+	/** Arrow directions as sent by the client (and drawn by the HUD): 1 up, 2 left, 3 down, 4 right. */
+	public static final int ARROW_UP = 1;
+	public static final int ARROW_LEFT = 2;
+	public static final int ARROW_DOWN = 3;
+	public static final int ARROW_RIGHT = 4;
 
-	/** Rampage bookkeeping (server only): the current victim, next swing, next leap, wander heading. */
+	/** Rampage bookkeeping (server only): the current victim, the next blow, the next leap, the stuck check. */
 	private static final class Rampage {
+		final long startedAt;
 		int targetId = -1;
 		long nextSwing;
 		long nextLeap;
-		long nextStomp;
-		Vec3 wander = Vec3.ZERO;
-		long nextWander;
+		int blows;
+		int stuckTicks;
+		Vec3 lastPos;
+		long airborneUntil;
+		long lastRingAt = Long.MIN_VALUE / 2;
+
+		Rampage(long startedAt) {
+			this.startedAt = startedAt;
+		}
 	}
 
 	private static final Map<UUID, Rampage> RAMPAGES = new ConcurrentHashMap<>();
@@ -68,55 +79,88 @@ public final class HulkControl {
 		return s != null && s.rampaging(player.level().getGameTime());
 	}
 
-	/** The Hulk just landed a hit: full control again, prompt cleared. */
-	static void onDealtDamage(ServerPlayer player) {
-		HulkState s = Hulk.state(player);
-		if (!s.hulk) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		if (s.rampaging(now)) {
-			return; // hits during a rampage are the Hulk's, not the player's
-		}
-		HulkState n = s.copy();
-		n.combat.lastDealtAt = now;
-		n.combat.control = 100.0f;
-		n.combat.promptKey = 0;
-		n.combat.promptUntil = 0L;
-		Hulk.save(player, n);
+	/** Client-safe: is the arrow-key warning showing? */
+	public static boolean warning(HulkState s, long now) {
+		return s.hulk && s.rules.warnLen > 0 && now <= s.rules.warnUntil && !s.rampaging(now);
 	}
 
-	/** The player pressed a movement key while a prompt was showing. */
-	public static void answer(ServerPlayer player, int key) {
+	/** The {@code i}-th arrow (1 up .. 4 right) of a packed warning string. */
+	public static int arrowAt(int seq, int i) {
+		return ((seq >> (2 * i)) & 3) + 1;
+	}
+
+	// ---------------------------------------------------------------- the warning
+
+	/** The player pressed an arrow key (1 up .. 4 right) while the warning was showing. */
+	public static void answer(ServerPlayer player, int arrow) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hulk || s.combat.promptKey == 0 || now > s.combat.promptUntil || s.rampaging(now)) {
+		if (!warning(s, now) || arrow < ARROW_UP || arrow > ARROW_RIGHT) {
 			return;
 		}
-		HulkConfig.Control cfg = HulkConfig.control();
 		HulkState n = s.copy();
-		boolean right = key == s.combat.promptKey;
-		n.combat.control = Math.max(0.0f, Math.min(100.0f, s.combat.control + (right ? cfg.promptRestore : -cfg.promptPenalty)));
-		n.combat.promptKey = 0;
-		n.combat.promptUntil = now + (right ? cfg.promptEveryTicks : cfg.promptEveryTicks / 2);
+		if (arrow == arrowAt(s.rules.warnSeq, s.rules.warnPos)) {
+			n.rules.warnPos++;
+			if (n.rules.warnPos >= n.rules.warnLen) {
+				// held back -- no rampage this minute
+				n.rules.warnLen = 0;
+				n.rules.warnPos = 0;
+				n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+				Hulk.save(player, n);
+				player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6f,
+						1.4f);
+				player.displayClientMessage(Component.translatable("message.projecthero.hulk.warning_passed").withStyle(ChatFormatting.GREEN), true);
+				return;
+			}
+			Hulk.save(player, n);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS,
+					0.5f, 0.8f + 0.12f * n.rules.warnPos);
+			return;
+		}
+		// wrong: from the start again
+		n.rules.warnPos = 0;
 		Hulk.save(player, n);
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-				right ? SoundEvents.NOTE_BLOCK_CHIME.value() : SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, right ? 0.7f : 0.5f,
-				right ? 1.2f : 1.5f);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.PLAYERS, 0.8f,
+				0.5f);
 	}
+
+	static void startWarning(ServerPlayer player) {
+		HulkConfig.Control cfg = HulkConfig.control();
+		long now = player.level().getGameTime();
+		int min = Math.max(1, Math.min(15, cfg.warningMinArrows));
+		int max = Math.max(min, Math.min(15, cfg.warningMaxArrows));
+		int len = min + player.getRandom().nextInt(max - min + 1);
+		int seq = 0;
+		for (int i = 0; i < len; i++) {
+			seq |= player.getRandom().nextInt(4) << (2 * i);
+		}
+		HulkState n = Hulk.state(player).copy();
+		n.rules.warnSeq = seq;
+		n.rules.warnLen = len;
+		n.rules.warnPos = 0;
+		n.rules.warnUntil = now + Math.max(20, cfg.warningTicks);
+		Hulk.save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.5f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_AMBIENT, SoundSource.PLAYERS, 1.2f, 0.5f);
+		player.displayClientMessage(Component.translatable("message.projecthero.hulk.warning").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+				true);
+	}
+
+	// ---------------------------------------------------------------- tick
 
 	/** Every tick for a Gamma player (from {@link Hulk#tick}). */
 	static void tick(ServerPlayer player) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hulk || !HulkConfig.control().enabled || !s.combat.unwilling) {
-			if (s.combat.rampageUntil != 0L || s.combat.promptKey != 0 || s.combat.control != 100.0f) {
+		if (!s.hulk || s.dying() || !HulkConfig.control().enabled) {
+			if (s.combat.rampageUntil != 0L || s.rules.warnLen != 0 || s.rules.ringStreak != 0 || s.combat.promptKey != 0) {
 				HulkState n = s.copy();
 				n.combat.rampageUntil = 0L;
 				n.combat.promptKey = 0;
-				n.combat.promptUntil = 0L;
-				n.combat.control = 100.0f;
-				n.combat.lastDealtAt = now;
+				n.rules.warnLen = 0;
+				n.rules.warnPos = 0;
+				n.rules.ringStreak = 0;
 				Hulk.save(player, n);
 			}
 			RAMPAGES.remove(player.getUUID());
@@ -124,173 +168,255 @@ public final class HulkControl {
 		}
 		if (s.combat.rampageUntil != 0L) {
 			if (now >= s.combat.rampageUntil) {
-				endRampage(player);
+				endRampage(player, false);
 			} else {
 				tickRampage(player, now);
 			}
 			return;
 		}
-		HulkConfig.Control cfg = HulkConfig.control();
-		// a fresh Hulk (or one straight out of the change) starts in full control
-		long since = now - Math.max(s.combat.lastDealtAt, s.formChangedAt + HulkConfig.FORCED_CHANGE_TICKS);
-		if (since < cfg.graceTicks || s.combat.calming) {
+		if (Hulk.changing(s, now)) {
 			return;
 		}
-		HulkState n = s.copy();
-		boolean dirty = false;
-		if (now % 20L == 0L) {
-			n.combat.control = Math.max(0.0f, n.combat.control - cfg.drainPerSecond);
-			dirty = true;
-		}
-		// the prompt: show one, or time an unanswered one out
-		if (n.combat.promptKey != 0 && now > n.combat.promptUntil) {
-			n.combat.control = Math.max(0.0f, n.combat.control - cfg.promptPenalty);
-			n.combat.promptKey = 0;
-			n.combat.promptUntil = now + cfg.promptEveryTicks / 2;
-			dirty = true;
-			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.5f, 1.5f);
-		} else if (n.combat.promptKey == 0 && now >= n.combat.promptUntil) {
-			n.combat.promptKey = 1 + player.getRandom().nextInt(4);
-			n.combat.promptUntil = now + cfg.promptWindowTicks;
-			dirty = true;
-		}
-		if (n.combat.control <= 0.0f) {
-			Hulk.save(player, n);
-			startRampage(player);
+		if (s.rules.warnLen > 0) {
+			if (now > s.rules.warnUntil) {
+				startRampage(player); // too slow
+			}
 			return;
 		}
-		if (dirty) {
+		if (s.rules.nextRampageAt == 0L || s.rules.nextRampageAt > now + HulkConfig.control().rampageEveryTicks + HulkConfig.FORCED_CHANGE_TICKS) {
+			// not set (an older save), or from another world's clock
+			HulkState n = s.copy();
+			n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
 			Hulk.save(player, n);
+			return;
+		}
+		if (now >= s.rules.nextRampageAt) {
+			startWarning(player);
 		}
 	}
 
 	// ---------------------------------------------------------------- the rampage
 
-	static void startRampage(ServerPlayer player) {
+	public static void startRampage(ServerPlayer player) {
 		long now = player.level().getGameTime();
-		HulkState n = Hulk.state(player).copy();
-		n.combat.rampageUntil = now + HulkConfig.control().rampageTicks;
-		n.combat.promptKey = 0;
-		n.combat.promptUntil = 0L;
-		n.combat.control = 0.0f;
-		n.combat.smashChargeStart = 0L;
-		n.leapChargeStart = 0L;
-		n.combat.calming = false;
-		Hulk.save(player, n);
 		HulkAbilities.endCharge(player);
 		HulkGrab.release(player);
+		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player);
 		player.ejectPassengers();
-		RAMPAGES.put(player.getUUID(), new Rampage());
+		HulkState n = Hulk.state(player).copy();
+		n.combat.rampageUntil = now + Math.max(40, HulkConfig.control().rampageMaxTicks);
+		n.combat.promptKey = 0;
+		n.combat.control = 0.0f;
+		n.combat.smashChargeStart = 0L;
+		n.combat.strainStart = 0L;
+		n.leapChargeStart = 0L;
+		n.rules.warnLen = 0;
+		n.rules.warnPos = 0;
+		n.rules.ringStreak = 0;
+		n.animId = HulkState.ANIM_RAMPAGE;
+		n.animStart = now;
+		Hulk.save(player, n);
+		RAMPAGES.put(player.getUUID(), new Rampage(now));
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.5f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.5f, 0.8f);
+		HulkCombat.shake(level, player.position(), 0.7f, 30, 32.0);
 		player.displayClientMessage(Component.translatable("message.projecthero.hulk.rampage_start")
 				.withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD), true);
 	}
 
-	private static void endRampage(ServerPlayer player) {
+	/** {@code won}: the player won control back with the ring (otherwise the safety time ran out). */
+	static void endRampage(ServerPlayer player, boolean won) {
 		RAMPAGES.remove(player.getUUID());
 		long now = player.level().getGameTime();
 		HulkState n = Hulk.state(player).copy();
 		n.combat.rampageUntil = 0L;
-		n.combat.control = HulkConfig.control().rampageRestore;
+		n.combat.control = 100.0f;
 		n.combat.lastDealtAt = now;
-		n.combat.promptUntil = now + HulkConfig.control().promptEveryTicks;
+		n.rules.ringStreak = 0;
+		n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+		if (n.animId == HulkState.ANIM_RAMPAGE) {
+			n.animId = HulkState.ANIM_NONE;
+		}
 		Hulk.save(player, n);
-		player.displayClientMessage(Component.translatable("message.projecthero.hulk.rampage_end")
+		player.setSprinting(false);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.2f, 0.6f);
+		player.displayClientMessage(Component.translatable(won ? "message.projecthero.hulk.rampage_end" : "message.projecthero.hulk.rampage_timeout")
 				.withStyle(ChatFormatting.GREEN), true);
 	}
 
-	/** v0.13.17: how far a rampaging Hulk looks for something to smash. */
+	/**
+	 * The client's verdict on one Space press of the ring minigame ({@code hit}: the ring was on the circle). The server only
+	 * counts: a hit adds to the streak, a miss resets it, {@code ringHitsNeeded} in a row end the rampage. Reports closer
+	 * together than {@code ringMinGapTicks} are ignored.
+	 */
+	public static void ringResult(ServerPlayer player, boolean hit) {
+		HulkState s = Hulk.state(player);
+		long now = player.level().getGameTime();
+		if (!s.rampaging(now)) {
+			return;
+		}
+		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage(now));
+		if (now - r.lastRingAt < HulkConfig.control().ringMinGapTicks) {
+			return; // faster than the ring can close: not a real press
+		}
+		r.lastRingAt = now;
+		HulkState n = s.copy();
+		if (!hit) {
+			n.rules.ringStreak = 0;
+			Hulk.save(player, n);
+			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.NOTE_BLOCK_BASS.value(), SoundSource.PLAYERS,
+					0.8f, 0.5f);
+			return;
+		}
+		n.rules.ringStreak = s.rules.ringStreak + 1;
+		Hulk.save(player, n);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.8f,
+				0.9f + 0.2f * n.rules.ringStreak);
+		if (n.rules.ringStreak >= Math.max(1, HulkConfig.control().ringHitsNeeded)) {
+			endRampage(player, true);
+		}
+	}
+
+	/** v0.16.4: how far a rampaging Hulk looks for something to smash (config {@code rampageRange}, 100 by default). */
 	public static final double RAMPAGE_RANGE = 100.0;
 
+	private static double range() {
+		return Math.max(8.0, HulkConfig.control().rampageRange);
+	}
+
 	/**
-	 * v0.13.17: out in the open -- standing at (or above) the surface: no more than 2 blocks under the highest solid block
-	 * of its column (leaves don't count, so things under trees are fair game; things in caves are not).
+	 * v0.13.17: out in the open -- standing at (or above) the surface: no more than 2 blocks under the highest solid block of
+	 * its column (leaves don't count, so things under trees are fair game).
 	 */
 	public static boolean aboveGround(LivingEntity e) {
 		int surface = e.level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e.getBlockX(), e.getBlockZ());
 		return e.getY() >= surface - 2.0;
 	}
 
-	private static boolean fairGame(ServerPlayer player, LivingEntity e) {
-		if (e instanceof OwnableEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
-			return false; // never his own pets
+	/**
+	 * v0.16.4 (user): every creature is fair game -- players and squad-mates included -- except his own pets and what he can't
+	 * get at (down in a cave under him: he would only dig).
+	 */
+	static boolean fairGame(ServerPlayer player, LivingEntity e) {
+		if (e == player || !e.isAlive() || e.isSpectator() || e.distanceToSqr(player) > range() * range()) {
+			return false;
 		}
-		return !(e instanceof Villager) || player.getRandom().nextInt(3) == 0; // villagers mostly get ignored
+		if (e instanceof OwnableEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
+			return false;
+		}
+		if (e.isPassenger() && e.getVehicle() == player) {
+			return false;
+		}
+		return aboveGround(e) || Math.abs(e.getY() - player.getY()) < 6.0;
+	}
+
+	private static LivingEntity findTarget(ServerPlayer player) {
+		double r = range();
+		return HulkCombat.targets(player, player.getBoundingBox().inflate(r, 48.0, r)).stream()
+				.filter(e -> fairGame(player, e))
+				.min(Comparator.comparingDouble(e -> e.distanceToSqr(player))).orElse(null);
+	}
+
+	private static void face(ServerPlayer player, Vec3 dir) {
+		float yaw = (float) (Mth.atan2(dir.z, dir.x) * Mth.RAD_TO_DEG) - 90.0f;
+		player.setYRot(yaw);
+		player.setYHeadRot(yaw);
+		player.yBodyRot = yaw;
 	}
 
 	private static void tickRampage(ServerPlayer player, long now) {
-		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage());
+		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage(now));
 		ServerLevel level = (ServerLevel) player.level();
-		// v0.13.17: he hunts anything above ground within 100 blocks (was 20) -- nothing down in caves under him
-		LivingEntity target = r.targetId < 0 || !(level.getEntity(r.targetId) instanceof LivingEntity l) || !l.isAlive()
-				|| l.distanceToSqr(player) > (RAMPAGE_RANGE + 10.0) * (RAMPAGE_RANGE + 10.0) || !aboveGround(l) ? null : l;
-		if (target == null || now % 20L == 0L) {
-			target = HulkCombat.targets(player, player.getBoundingBox().inflate(RAMPAGE_RANGE, 64.0, RAMPAGE_RANGE)).stream()
-					.filter(e -> e.distanceToSqr(player) <= RAMPAGE_RANGE * RAMPAGE_RANGE && aboveGround(e) && fairGame(player, e))
-					.min(Comparator.comparingDouble(e -> e.distanceToSqr(player))).orElse(null);
-			r.targetId = target == null ? -1 : target.getId();
-		}
-		Vec3 dir;
-		if (target != null) {
-			Vec3 to = target.position().subtract(player.position());
-			dir = new Vec3(to.x, 0, to.z);
-			dir = dir.lengthSqr() < 1.0e-4 ? HulkAbilities.flatLook(player) : dir.normalize();
-			if (now % 4L == 0L) {
-				player.lookAt(EntityAnchorArgument.Anchor.EYES, target.getEyePosition());
-			}
-			double reach = 3.0 + player.getBbWidth();
-			double dist = Math.sqrt(to.x * to.x + to.z * to.z);
-			if (dist <= reach && now >= r.nextSwing) {
-				player.resetAttackStrengthTicker();
-				player.attack(target);
-				// v0.15.5: Gladiator Hulk alternates hammer / axe
-				player.swing(com.projecthero.mod.hulk.gladiator.GladiatorSwing.next(player, net.minecraft.world.InteractionHand.MAIN_HAND), true);
-				r.nextSwing = now + 12;
-			}
-			if (dist > 9.0 && now >= r.nextLeap && player.onGround()) {
-				HulkState n = Hulk.state(player).copy();
-				HulkAbilities.launch(player, n, Math.min(40.0, dist), to.normalize().add(0, 0.25, 0));
-				Hulk.save(player, n);
-				r.nextLeap = now + 60;
-				return;
-			}
-		} else {
-			// nothing to fight: stomp about, smashing the scenery
-			if (now >= r.nextWander || r.wander.lengthSqr() < 1.0e-4) {
-				double a = player.getRandom().nextDouble() * Math.PI * 2.0;
-				r.wander = new Vec3(Math.cos(a), 0, Math.sin(a));
-				r.nextWander = now + 40 + player.getRandom().nextInt(40);
-				player.setYRot((float) Math.toDegrees(Math.atan2(-r.wander.x, r.wander.z)));
-				player.lookAt(EntityAnchorArgument.Anchor.EYES, player.getEyePosition().add(r.wander.scale(5)));
-			}
-			dir = r.wander;
-			if (now >= r.nextLeap && player.onGround() && player.getRandom().nextInt(80) == 0) {
-				HulkState n = Hulk.state(player).copy();
-				HulkAbilities.launch(player, n, 18.0, dir.add(0, 0.4, 0));
-				Hulk.save(player, n);
-				r.nextLeap = now + 60;
-				return;
-			}
-		}
-		if (now >= r.nextStomp && player.onGround() && player.getRandom().nextInt(50) == 0) {
-			HulkAbilities.anim(player, HulkState.ANIM_SMASH);
-			HulkAbilities.schedule(player, HulkAbilities.SMASH_IMPACT_TICKS, () -> HulkAbilities.groundSmashImpact(player));
-			r.nextStomp = now + 80;
-		}
-		if (!Hulk.state(player).leaping) {
-			HulkAbilities.breakAhead(player, dir, true);
-			double vy = player.onGround() ? -0.05 : Math.max(player.getDeltaMovement().y - 0.08, -1.2);
-			AbilityHelpers.launchSelf(player, new Vec3(dir.x * 0.42, vy, dir.z * 0.42));
-			player.setSprinting(true);
+		HulkConfig.Control cfg = HulkConfig.control();
+		player.setSprinting(false); // never the Sprint Smash -- he only breaks blocks when he is stuck
+		if (now % 50L == 0L) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.5f, 0.6f);
 		}
 		if (now % 10L == 0L) {
 			level.sendParticles(HulkAbilities.GAMMA, player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(), 4, 0.5,
 					player.getBbHeight() * 0.3, 0.5, 0.02);
 		}
-		if (now % 50L == 0L) {
-			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.5f, 0.6f);
+		if (now - r.startedAt < cfg.rampageRoarTicks) {
+			return; // he stands and roars first
 		}
+		LivingEntity target = r.targetId < 0 || !(level.getEntity(r.targetId) instanceof LivingEntity l) || !fairGame(player, l) ? null : l;
+		if (target == null || now % 20L == 0L) {
+			target = findTarget(player);
+			r.targetId = target == null ? -1 : target.getId();
+		}
+		boolean airborne = !player.onGround() && now < r.airborneUntil;
+		if (target == null) {
+			// nothing alive in range: he stands and heaves, roaring now and then
+			if (player.onGround()) {
+				Vec3 v = player.getDeltaMovement();
+				AbilityHelpers.launchSelf(player, new Vec3(v.x * 0.5, Math.min(v.y, 0.0), v.z * 0.5));
+			}
+			r.stuckTicks = 0;
+			return;
+		}
+		Vec3 to = target.position().subtract(player.position());
+		Vec3 flat = new Vec3(to.x, 0, to.z);
+		double dist = flat.length();
+		Vec3 dir = dist < 1.0e-3 ? HulkAbilities.flatLook(player) : flat.scale(1.0 / dist);
+		face(player, dir);
+		double reach = 2.2 + player.getBbWidth() * 0.5 + target.getBbWidth() * 0.5;
+		boolean inReach = dist <= reach && Math.abs(to.y) <= player.getBbHeight();
+		if (inReach && now >= r.nextSwing) {
+			r.nextSwing = now + Math.max(4, cfg.rampageSwingTicks);
+			r.blows++;
+			if (r.blows % 3 == 0 && player.onGround()) {
+				// every third blow: both fists into the ground
+				HulkAbilities.anim(player, HulkState.ANIM_GROUND_SMASH);
+				Vec3 at = target.position();
+				HulkAbilities.schedule(player, 8, () -> {
+					if (rampaging(player)) {
+						HulkAbilities.shockwave(player, at, 4.5, 14.0f, 1.2, 0.6, 0.5f);
+					}
+				});
+			} else {
+				player.resetAttackStrengthTicker();
+				player.attack(target);
+				player.swing(com.projecthero.mod.hulk.gladiator.GladiatorSwing.next(player, net.minecraft.world.InteractionHand.MAIN_HAND), true);
+			}
+		}
+		if (airborne) {
+			return; // mid-leap: let the arc carry him
+		}
+		if (dist > 14.0 && player.onGround() && now >= r.nextLeap) {
+			// too far to run: leap at it
+			Vec3 aim = new Vec3(dir.x, Math.max(0.15, to.y / Math.max(1.0, dist)), dir.z);
+			AbilityHelpers.launchSelf(player, AbilityHelpers.ballisticLaunch(aim, Math.min(dist - 3.0, 40.0), true));
+			r.nextLeap = now + 50;
+			r.airborneUntil = now + 60;
+			r.stuckTicks = 0;
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_STEP, SoundSource.PLAYERS, 1.5f, 0.6f);
+			return;
+		}
+		if (inReach) {
+			Vec3 v = player.getDeltaMovement();
+			AbilityHelpers.launchSelf(player, new Vec3(v.x * 0.3, Math.min(v.y, 0.0), v.z * 0.3));
+			r.stuckTicks = 0;
+			return;
+		}
+		// run at it, faster the bigger he is
+		double speed = 0.4 + 0.06 * Math.max(0.0, Hulk.scaleBonus(player));
+		double vy = player.onGround() ? -0.05 : Math.max(player.getDeltaMovement().y - 0.08, -1.2);
+		Vec3 here = player.position();
+		if (r.lastPos != null && player.onGround()) {
+			double moved = Math.sqrt(Math.pow(here.x - r.lastPos.x, 2) + Math.pow(here.z - r.lastPos.z, 2));
+			r.stuckTicks = moved < speed * 0.25 ? r.stuckTicks + 1 : Math.max(0, r.stuckTicks - 2);
+		}
+		r.lastPos = here;
+		if (r.stuckTicks >= 12 && player.onGround()) {
+			if (r.stuckTicks < 30) {
+				vy = 0.75; // a hop over it first
+			} else {
+				// truly stuck: smash through what is in the way
+				HulkAbilities.breakAhead(player, dir, true);
+				r.stuckTicks = 12;
+			}
+		}
+		AbilityHelpers.launchSelf(player, new Vec3(dir.x * speed, vy, dir.z * speed));
 	}
 }

@@ -155,7 +155,10 @@ public class HulkMindV0164GameTests implements FabricGameTest {
 			helper.assertTrue(hulk.position().distanceTo(want) < 1.0e-3, "it stands at his reflection, got " + hulk.position() + " want " + want);
 			helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(hulk.getYRot() - MirrorHulkEntity.reflectYaw(p.getYRot()))) < 1.0e-3,
 					"it turns as his mirror image");
-			helper.assertTrue(Math.abs(hulk.getXRot() - p.getXRot()) < 1.0e-3, "and looks up / down with him");
+			// v0.16.4 (user): facing the mirror, the Hulk looks straight at his eyes (no longer copies his pitch)
+			float[] look = MirrorHulkEntity.headLook(p, hulk.position(), hulk.yBodyRot, MirrorHulkEntity.reflectYaw(p.getYHeadRot()), p.getXRot(),
+					p.getEyePosition(), hulk.getEyeHeight(), hulk.mirrorZ());
+			helper.assertTrue(Math.abs(hulk.getXRot() - look[1]) < 1.0e-3, "and looks him in the eye");
 			HulkMind.returnNow(p);
 			helper.succeed();
 		});

@@ -26,6 +26,7 @@ public class MirrorHulkRenderer extends GeoEntityRenderer<MirrorHulkEntity> {
 	public MirrorHulkRenderer(EntityRendererProvider.Context context) {
 		super(context, new MirrorHulkModel());
 		this.shadowRadius = 0.8f;
+		withScale(HulkRenderer.MODEL_FIT); // v0.16.4: drawn exactly as tall as his hitbox, like the player Hulk
 	}
 
 	@Override
@@ -49,8 +50,11 @@ public class MirrorHulkRenderer extends GeoEntityRenderer<MirrorHulkEntity> {
 		Vec3 drawn = new Vec3(Mth.lerp(partialTick, entity.xOld, entity.getX()), Mth.lerp(partialTick, entity.yOld, entity.getY()),
 				Mth.lerp(partialTick, entity.zOld, entity.getZ()));
 		float body = MirrorHulkEntity.reflectYaw(Mth.rotLerp(partialTick, owner.yBodyRotO, owner.yBodyRot));
-		float head = MirrorHulkEntity.reflectYaw(Mth.rotLerp(partialTick, owner.yHeadRotO, owner.yHeadRot));
-		float pitch = Mth.lerp(partialTick, owner.xRotO, owner.getXRot());
+		// v0.16.4 (user): while he faces the mirror the Hulk looks straight at his eyes (not his pitch mirrored)
+		float[] look = MirrorHulkEntity.headLook(owner, at, body, MirrorHulkEntity.reflectYaw(Mth.rotLerp(partialTick, owner.yHeadRotO, owner.yHeadRot)),
+				Mth.lerp(partialTick, owner.xRotO, owner.getXRot()), owner.getEyePosition(partialTick), entity.getEyeHeight(), mz);
+		float head = look[0];
+		float pitch = look[1];
 		entity.yBodyRotO = body;
 		entity.yBodyRot = body;
 		entity.yHeadRotO = head;
