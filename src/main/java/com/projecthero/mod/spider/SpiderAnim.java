@@ -49,6 +49,8 @@ public final class SpiderAnim {
 	public static final int LANDING = 21;
 	/** Weave Mode: one radial strand shot from the hand. */
 	public static final int WEAVE_SHOT = 22;
+	/** v0.16.2: the Inverted Takedown -- hanging upside down, he drops down the line, snatches, and hauls back up. */
+	public static final int TAKEDOWN = 31;
 
 	private SpiderAnim() {
 	}
@@ -75,6 +77,7 @@ public final class SpiderAnim {
 			case BLOSSOM -> 16;
 			case RELEASE_FLIP -> 12;
 			case LANDING -> 18;
+			case TAKEDOWN -> 16;
 			default -> 0;
 		};
 	}

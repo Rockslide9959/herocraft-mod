@@ -35,6 +35,7 @@
 		"LivingEntityRepulsorFlightMixin",
 		"LivingEntitySupermanSuitMixin",
 		"MobGoalsAccessor",
+		"MeleeAttackGoalAccessor",
 		"MobMindLockMixin",
 		"MoonKnightVanishTargetMixin",
 		"MoonKnightGlideEdgeMixin",

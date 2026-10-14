@@ -141,6 +141,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.symbiote.SymbioteAbilityManager.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearSessionState();
 		com.projecthero.mod.spider.SpiderStealth.clearSessionState();
+		com.projecthero.mod.spider.SpiderTakedown.clearSessionState(); // v0.16.2
+		com.projecthero.mod.spider.SpiderPerfectDodge.clearSessionState(); // v0.16.2
 		com.projecthero.mod.spider.SpiderWebs.clearGunk();
 		com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.clearSessionState();
 		com.projecthero.mod.symbiote.SymbioteVitalsManager.clearSessionState();

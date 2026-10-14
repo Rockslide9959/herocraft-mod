@@ -136,6 +136,37 @@ public final class SpiderHang {
 		return f * f * (3f - 2f * f);
 	}
 
+	/** v0.16.2 Inverted Takedown: how far the body drops down the line at the bottom of the snatch (blocks). */
+	private static final float TAKEDOWN_DROP = 1.5f;
+	/** v0.16.2 Inverted Takedown: the hands' reach past his head toward the ground (model px, before the flip). */
+	private static final float REACH_X = 2.2f;
+	private static final float REACH_Y = -6.2f;
+	private static final float REACH_Z = -3.0f;
+
+	/**
+	 * v0.16.2: the Inverted Takedown's drop-and-snatch (0..1): a fast drop down the line with both hands reaching for it
+	 * (ticks 0-4, {@code SpiderTakedown.GRAB_AT}), a beat on it, then hauled back up with it (to tick ~13).
+	 */
+	public static float takedownReach(Player player, float partial) {
+		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
+		if (s == null || s.animId != com.projecthero.mod.spider.SpiderAnim.TAKEDOWN) {
+			return 0f;
+		}
+		float age = player.level().getGameTime() - s.animStart + partial;
+		if (age < 0f || age >= 14f) {
+			return 0f;
+		}
+		if (age < 4f) {
+			float u = age / 4f;
+			return 1f - (1f - u) * (1f - u) * (1f - u); // snaps down
+		}
+		if (age < 6f) {
+			return 1f;
+		}
+		float u = (age - 6f) / 8f;
+		return 1f - u * u * (3f - 2f * u); // hauled back up
+	}
+
 	/** How fast he is going up / down the line (blocks per tick, from the last tick's move). */
 	private static double verticalSpeed(Player player) {
 		return player.getY() - player.yo;
@@ -152,6 +183,11 @@ public final class SpiderHang {
 		}
 		float h = player.getBbHeight();
 		float t = player.tickCount + partialTicks;
+		// v0.16.2 Inverted Takedown: the whole body drops down the line and comes back up
+		float drop = takedownReach(player, partialTicks) * TAKEDOWN_DROP * k;
+		if (drop > 0f) {
+			poseStack.translate(0.0f, -drop, 0.0f);
+		}
 		float moving = (float) Mth.clamp(Math.abs(verticalSpeed(player)) / 0.35, 0.0, 1.0);
 		float swayX = (Mth.sin(t * 0.09f) * 1.6f + Mth.sin(t * 0.55f) * 4.0f * moving) * k;
 		float swayZ = (Mth.cos(t * 0.07f) * 1.2f + Mth.cos(t * 0.45f) * 2.5f * moving) * k;
@@ -176,14 +212,19 @@ public final class SpiderHang {
 		boolean weaving = s != null && s.has(SpiderMoveState.FLAG_WEAVING);
 		float t = player.tickCount;
 		float moving = (float) Mth.clamp(Math.abs(verticalSpeed(player)) / 0.35, 0.0, 1.0);
-		pose(m, k, weaving, Mth.sin(t * 0.9f) * moving);
+		float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		pose(m, k, weaving, Mth.sin(t * 0.9f) * moving, takedownReach(player, partial));
+	}
+
+	public static void pose(HumanoidModel<?> m, float k, boolean weaving, float bob) {
+		pose(m, k, weaving, bob, 0f);
 	}
 
 	/**
 	 * The hang at strength {@code k}. {@code weaving}: the right arm leaves the line and aims where he looks (Weave
 	 * Mode). {@code bob} (-1..1): the knees flex a little while he climbs / lowers.
 	 */
-	public static void pose(HumanoidModel<?> m, float k, boolean weaving, float bob) {
+	public static void pose(HumanoidModel<?> m, float k, boolean weaving, float bob, float reach) {
 		// ---- the head: the body is turned over about its facing axis, which mirrors pitch and yaw -- undo that, so he
 		// looks where the player looks (down at the ground when the player looks down)
 		float headX = -Mth.clamp(m.head.xRot, -1.2f, 1.2f);
@@ -210,7 +251,7 @@ public final class SpiderHang {
 		for (int side = -1; side <= 1; side += 2) {
 			ModelPart arm = side < 0 ? m.rightArm : m.leftArm;
 			Vector3f shoulder = new Vector3f(side * SHOULDER_X, SHOULDER_Y, 0f);
-			if (weaving && side < 0) {
+			if (weaving && side < 0 && reach <= 0f) {
 				// Weave Mode: the right arm straight out along the aim (pitch / yaw mirrored back like the head's)
 				SpiderPerch.set(arm, k, shoulder, -1.5708f + headX, headY, 0f);
 				JointedLimbs.setJoint(JointedLimbs.RIGHT_ARM, null);
@@ -218,6 +259,10 @@ public final class SpiderHang {
 			}
 			// the arm box's centre line is 1 px outboard of its pivot (wide arms): aim the pivot line 1 px inboard
 			Vector3f hand = new Vector3f(side * HAND_X, HAND_Y, HAND_Z);
+			if (reach > 0f) {
+				// v0.16.2 Inverted Takedown: both hands leave the line and shoot down past his head for the snatch
+				hand.lerp(new Vector3f(side * REACH_X, REACH_Y, REACH_Z), reach);
+			}
 			Vector3f pole = new Vector3f(side * ARM_POLE_X, ARM_POLE_Y, ARM_POLE_Z).normalize();
 			SpiderPerch.Chain c = SpiderPerch.solve(shoulder, hand, 4f, 6f, pole, null, true);
 			SpiderPerch.place(arm, k, shoulder, c.upper());
@@ -246,6 +291,8 @@ public final class SpiderHang {
 		Vec3 front = Vec3.directionFromRotation(0.0f, bodyYaw);
 		double fwd = -GRIP_Z / 16.0 * MODEL_SCALE;
 		Vec3 grip = pos.add(front.x * fwd, flippedHeight(player, GRIP_Y), front.z * fwd);
-		return top.lerp(grip, k);
+		// v0.16.2 Inverted Takedown: the line pays out with the drop
+		double drop = takedownReach(player, partial) * TAKEDOWN_DROP * k;
+		return top.lerp(grip, k).subtract(0, drop, 0);
 	}
 }

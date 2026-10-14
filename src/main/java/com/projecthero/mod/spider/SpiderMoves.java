@@ -270,6 +270,8 @@ public final class SpiderMoves {
 		ANCHOR_A_PARENT.remove(id);
 		MOTION.remove(id);
 		HANGS.remove(id);
+		SpiderTakedown.clear(player); // v0.16.2
+		SpiderPerfectDodge.clear(player); // v0.16.2
 		SpiderMoveState s = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
 		if (s != null && (s.flags != 0 || s.animId != SpiderAnim.NONE)) {
 			player.setAttached(ModAttachments.SPIDER_MOVE_STATE, new SpiderMoveState());
@@ -1727,6 +1729,18 @@ public final class SpiderMoves {
 		anim(player, SpiderAnim.ZIP);
 		thwip(player, 1.1f);
 		play(player, SpiderSounds.ZIP, 0.7f, 1.1f);
+	}
+
+	/** v0.16.2 (Inverted Takedown): where his upside-down hang line is tied on, or null when he is not hanging. */
+	public static Vec3 hangAnchor(ServerPlayer player) {
+		Hang h = HANGS.get(player.getUUID());
+		return h == null ? null : h.anchor();
+	}
+
+	/** v0.16.2 (Inverted Takedown): true when his upside-down hang hangs from a web strand (not a ceiling). */
+	public static boolean hangFromWeb(ServerPlayer player) {
+		Hang h = HANGS.get(player.getUUID());
+		return h != null && !h.ceiling();
 	}
 
 	/** Shift+Z while hanging: let go of the line and drop. Returns false when he is not hanging upside down. */

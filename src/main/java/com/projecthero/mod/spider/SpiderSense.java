@@ -167,6 +167,10 @@ public final class SpiderSense {
 		if (!eligible(source)) {
 			return true;
 		}
+		// v0.16.2: a perfect dodge (Jump during the warning) beats everything below -- the hit never lands
+		if (SpiderPerfectDodge.tryPerfectDodge(player, source)) {
+			return false;
+		}
 		warnOfHit(player, source);
 
 		long now = player.level().getGameTime();

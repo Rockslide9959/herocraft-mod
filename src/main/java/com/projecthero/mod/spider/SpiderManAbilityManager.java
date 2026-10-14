@@ -56,5 +56,7 @@ public final class SpiderManAbilityManager {
 		SpiderMoves.tick(player);
 		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.serverTick(player);
 		com.projecthero.mod.spider.SpiderStealth.serverTick(player); // v0.16.2
+		SpiderTakedown.serverTick(player); // v0.16.2
+		SpiderPerfectDodge.serverTick(player); // v0.16.2
 	}
 }
