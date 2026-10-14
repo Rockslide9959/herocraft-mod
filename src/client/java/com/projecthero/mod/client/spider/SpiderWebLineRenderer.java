@@ -40,6 +40,13 @@ public final class SpiderWebLineRenderer {
 	private static final float G = 0.96f;
 	private static final float B = 1.0f;
 	private static final float BASE_ALPHA = 0.9f;
+	/** v0.16.2: the strand's look -- half its width, how long one texture repeat is, and the spiral fibre round it. */
+	private static final net.minecraft.resources.ResourceLocation LINE_TEXTURE =
+			com.projecthero.mod.ProjectHeroMod.id("textures/effect/web_line.png");
+	private static final double HALF_WIDTH = 0.028;
+	private static final double TEXTURE_TILE = 0.45;
+	private static final double HELIX_RADIUS = 0.024;
+	private static final double HELIX_TURNS_PER_BLOCK = 1.6;
 
 	/** playerId -> anchor + hand for players seen swinging last frame, so a release can be noticed. */
 	private static final Map<Integer, SwingMemo> LAST_SWING = new HashMap<>();
@@ -162,35 +169,92 @@ public final class SpiderWebLineRenderer {
 		}
 	}
 
+	/**
+	 * v0.16.2: the web is a real strand now, not a 1-pixel line -- a camera-facing ribbon wearing a braided-silk texture
+	 * (two fibres twisting round each other, soft fuzzy edges; {@code textures/effect/web_line.png}), lit by the world,
+	 * tapered where it leaves the hand, with one thin extra fibre spiralling round it so it reads as twisted, in 3D.
+	 */
 	private static void drawLine(PoseStack poseStack, MultiBufferSource consumers, Camera camera,
 			Vec3 hand, Vec3 anchor, float alpha) {
 		Vec3 cam = camera.getPosition();
+		double length = hand.distanceTo(anchor);
+		if (length < 1.0e-3) {
+			return;
+		}
+		int segments = (int) Math.max(SEGMENTS, Math.min(64, length * 3.0));
+		double slack = Math.min(0.9, length * 0.035);
+		Vec3[] pts = new Vec3[segments + 1];
+		for (int i = 0; i <= segments; i++) {
+			double t = (double) i / segments;
+			// a parabola that is zero at both ends and deepest in the middle
+			pts[i] = hand.lerp(anchor, t).subtract(0, slack * (4.0 * t * (1.0 - t)), 0);
+		}
+
 		poseStack.pushPose();
 		poseStack.translate(-cam.x, -cam.y, -cam.z);
 		var pose = poseStack.last();
-		// Segment pairs (not a line strip): several strands share one buffer and must not be joined together.
-		VertexConsumer buffer = consumers.getBuffer(RenderType.lines());
+		var level = Minecraft.getInstance().level;
 
-		double slack = Math.min(0.9, hand.distanceTo(anchor) * 0.035);
+		// the ribbon (quads, each segment its own -- several strands share one buffer)
+		VertexConsumer ribbon = consumers.getBuffer(RenderType.entityTranslucent(LINE_TEXTURE));
+		double v = 0.0;
+		Vec3[] left = new Vec3[segments + 1];
+		Vec3[] right = new Vec3[segments + 1];
+		for (int i = 0; i <= segments; i++) {
+			Vec3 tangent = pts[Math.min(segments, i + 1)].subtract(pts[Math.max(0, i - 1)]).normalize();
+			Vec3 toCam = cam.subtract(pts[i]);
+			Vec3 side = tangent.cross(toCam);
+			side = side.lengthSqr() < 1.0e-8 ? new Vec3(0, 1, 0) : side.normalize();
+			double t = (double) i / segments;
+			double width = HALF_WIDTH * (t < 0.08 ? 0.55 + 0.45 * t / 0.08 : 1.0);
+			left[i] = pts[i].add(side.scale(width));
+			right[i] = pts[i].subtract(side.scale(width));
+		}
+		for (int i = 0; i < segments; i++) {
+			double v0 = v;
+			v += pts[i].distanceTo(pts[i + 1]) / TEXTURE_TILE;
+			int light = level == null ? 0xF000F0
+					: net.minecraft.client.renderer.LevelRenderer.getLightColor(level, net.minecraft.core.BlockPos.containing(pts[i]));
+			Vec3 n = cam.subtract(pts[i]).normalize();
+			ribbonVertex(ribbon, pose, left[i], 0f, (float) v0, alpha, light, n);
+			ribbonVertex(ribbon, pose, right[i], 1f, (float) v0, alpha, light, n);
+			ribbonVertex(ribbon, pose, right[i + 1], 1f, (float) v, alpha, light, n);
+			ribbonVertex(ribbon, pose, left[i + 1], 0f, (float) v, alpha, light, n);
+		}
+
+		// the spiral fibre (segment pairs, not a strip)
+		VertexConsumer fibre = consumers.getBuffer(RenderType.lines());
 		Vec3 prev = null;
-		for (int i = 0; i <= SEGMENTS; i++) {
-			double t = (double) i / SEGMENTS;
-			Vec3 p = hand.lerp(anchor, t);
-			// a parabola that is zero at both ends and deepest in the middle
-			p = p.subtract(0, slack * (4.0 * t * (1.0 - t)), 0);
+		int fibreSteps = segments * 3;
+		for (int k = 0; k <= fibreSteps; k++) {
+			double t = (double) k / fibreSteps;
+			double f = t * segments;
+			int i = Math.min(segments - 1, (int) f);
+			Vec3 c = pts[i].lerp(pts[i + 1], f - i);
+			Vec3 tangent = pts[i + 1].subtract(pts[i]).normalize();
+			Vec3 a = tangent.cross(new Vec3(0, 1, 0));
+			a = a.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : a.normalize();
+			Vec3 b = tangent.cross(a).normalize();
+			double ang = t * length * HELIX_TURNS_PER_BLOCK * Math.PI * 2.0;
+			Vec3 p = c.add(a.scale(Math.cos(ang) * HELIX_RADIUS)).add(b.scale(Math.sin(ang) * HELIX_RADIUS));
 			if (prev != null) {
 				Vec3 d = p.subtract(prev);
 				double len = Math.max(1.0e-6, d.length());
-				float nx = (float) (d.x / len);
-				float ny = (float) (d.y / len);
-				float nz = (float) (d.z / len);
-				buffer.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
-						.setColor(R, G, B, alpha).setNormal(pose, nx, ny, nz);
-				buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
-						.setColor(R, G, B, alpha).setNormal(pose, nx, ny, nz);
+				fibre.addVertex(pose.pose(), (float) prev.x, (float) prev.y, (float) prev.z)
+						.setColor(0.86f, 0.88f, 0.92f, alpha * 0.75f).setNormal(pose, (float) (d.x / len), (float) (d.y / len), (float) (d.z / len));
+				fibre.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
+						.setColor(0.86f, 0.88f, 0.92f, alpha * 0.75f).setNormal(pose, (float) (d.x / len), (float) (d.y / len), (float) (d.z / len));
 			}
 			prev = p;
 		}
 		poseStack.popPose();
+	}
+
+	private static void ribbonVertex(VertexConsumer buffer, PoseStack.Pose pose, Vec3 p, float u, float v, float alpha,
+			int light, Vec3 n) {
+		buffer.addVertex(pose.pose(), (float) p.x, (float) p.y, (float) p.z)
+				.setColor(R, G, B, alpha).setUv(u, v)
+				.setOverlay(net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY).setLight(light)
+				.setNormal(pose, (float) n.x, (float) n.y, (float) n.z);
 	}
 }
