@@ -183,8 +183,9 @@ public final class CityRepair {
 		CitySavedData data = CitySavedData.get(level);
 		long now = level.getGameTime();
 		CityConfig.Repair cfg = CityConfig.repair();
+		boolean hireCheck = (now / 20) % 10 == 0; // the depot looks at its staff every 10 s
 		for (CitySavedData.CityRecord rec : data.allCities()) {
-			if (job(level, rec.id) != null) {
+			if (job(level, rec.id) != null || (rec.areas.isEmpty() && !hireCheck)) {
 				continue;
 			}
 			CityArea city = CityLocator.byId(level, rec.id);
@@ -192,7 +193,9 @@ public final class CityRepair {
 				continue;
 			}
 			List<Villager> workers = workers(level, city);
-			hire(level, city, rec, workers, now);
+			if (hireCheck) {
+				hire(level, city, rec, workers, now);
+			}
 			if (rec.areas.isEmpty()) {
 				continue;
 			}
@@ -367,6 +370,17 @@ public final class CityRepair {
 			return true;
 		}
 		BlockPos target = job.todo.get(job.index);
+		if ((job.phase == Phase.BUILD || v == null) && job.cooldown <= 1 && occupied(level, target)) {
+			// someone is standing in the gap: do it last (or wait for them to move)
+			if (v != null && v.getBoundingBox().intersects(new AABB(target))) {
+				stepAside(level, job, v, target);
+			}
+			if (job.index < job.todo.size() - 1) {
+				job.todo.add(job.todo.remove(job.index));
+			}
+			job.cooldown = 10;
+			return true;
+		}
 		if (v == null) {
 			if (--job.cooldown <= 0) {
 				place(level, city, data, target, next, null);
@@ -404,6 +418,26 @@ public final class CityRepair {
 			}
 		}
 		return true;
+	}
+
+	/** The worker is standing in the gap it wants to fill: it steps to the nearest free spot next to it. */
+	private static void stepAside(ServerLevel level, Job job, Villager v, BlockPos gap) {
+		for (BlockPos p : BlockPos.withinManhattan(v.blockPosition(), 2, 1, 2)) {
+			if (p.equals(gap) || job.todo.contains(p)) {
+				continue;
+			}
+			if (level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
+					&& level.getBlockState(p.below()).isFaceSturdy(level, p.below(), net.minecraft.core.Direction.UP)) {
+				job.hold = new Vec3(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+				v.teleportTo(job.hold.x, job.hold.y, job.hold.z);
+				return;
+			}
+		}
+	}
+
+	/** True if a living thing is inside the block space at {@code p} (a block is never rebuilt into someone). */
+	private static boolean occupied(ServerLevel level, BlockPos p) {
+		return !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new AABB(p), e -> e.isAlive() && !e.isSpectator()).isEmpty();
 	}
 
 	private static void setPhase(Job job, Phase phase) {

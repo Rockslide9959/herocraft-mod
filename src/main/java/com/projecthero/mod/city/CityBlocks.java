@@ -12,7 +12,6 @@ import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.world.poi.PointOfInterestHelper;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -84,10 +83,6 @@ public final class CityBlocks {
 			entries.accept(SAFE_DEPOSIT_ITEM);
 			entries.accept(DAILY_BULLETIN);
 		});
-	}
-
-	public static boolean isPoi(Holder<PoiType> holder, ResourceKey<PoiType> key) {
-		return holder.is(key);
 	}
 
 	private static Block registerBlock(String path, Block block) {
