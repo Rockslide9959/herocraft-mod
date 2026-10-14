@@ -1,0 +1,15 @@
+{
+  "structures": [
+    { "structure": "projecthero:city", "weight": 1 }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1621016024,
+    "spacing": 160,
+    "separation": 100,
+    "exclusion_zone": {
+      "other_set": "minecraft:villages",
+      "chunk_count": 10
+    }
+  }
+}

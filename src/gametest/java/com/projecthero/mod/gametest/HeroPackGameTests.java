@@ -261,7 +261,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// Titan, Squads, Wolverine, Titan Shifter, All Might, The Abyssal Behemoth, The Oathbreaker, Hulk,
 		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage, v0.15.1 Sentinel Purge, v0.15.12 Ultron Uprising, v0.15.13 Nova, v0.16.1 Frost Giants (33), the Ultron Contagion (34), Galactus (35) and v0.16.2 Street Crime (36))
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
-		helper.assertTrue(chapters.size() == 37 + Powers.enabled().size(),
+		helper.assertTrue(chapters.size() == 38 + Powers.enabled().size(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");

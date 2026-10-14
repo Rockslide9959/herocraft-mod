@@ -378,7 +378,8 @@ public final class HeroPackGuide {
 	private static final int CH_ULTRON_CONTAGION = 34; // v0.16.1
 	private static final int CH_GALACTUS = 35; // v0.16.1
 	private static final int CH_CRIME = 36; // v0.16.2
-	private static final int CHAPTER_POWER_BASE = 37;
+	private static final int CH_CITY = 37; // v0.16.2 (City part A)
+	private static final int CHAPTER_POWER_BASE = 38;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1183,6 +1184,15 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.crime." + section + ".body");
 			}
 		}));
+		// v0.16.2: Cities (CH_CITY) -- City part A: the structure, its rings and buildings, how to find one
+		out.add(chapter("projecthero.guide.city", lines -> {
+			para(lines, "projecthero.guide.city.body");
+			for (String section : new String[]{"finding", "rings", "downtown", "town", "village", "villagers"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.city." + section);
+				para(lines, "projecthero.guide.city." + section + ".body");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1205,6 +1215,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.structures", CH_STRUCTURES);
 		link(idx, "projecthero.guide.devices", CH_DEVICES);
 		link(idx, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
+		link(idx, "projecthero.guide.city", CH_CITY); // v0.16.2
 
 		section(idx, "projecthero.guide.section.heroes", true);
 		link(idx, "projecthero.guide.thor", CH_THOR);

@@ -1,0 +1,8 @@
+{
+  "fallback": "projecthero:city/lots/town_small",
+  "elements": [
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/brownstone_walkup","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/apartment_tower","processors":"minecraft:empty","projection":"rigid"},"weight":1},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/office_skyscraper","processors":"minecraft:empty","projection":"rigid"},"weight":1}
+  ]
+}
