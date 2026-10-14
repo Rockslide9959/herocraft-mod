@@ -1,0 +1,36 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    "SMS",
+    "RHB",
+    "LIL"
+  ],
+  "key": {
+    "S": {
+      "item": "minecraft:string"
+    },
+    "M": {
+      "item": "minecraft:phantom_membrane"
+    },
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_chestplate"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_v2_chestplate",
+    "count": 1
+  }
+}

@@ -459,6 +459,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.hulk.HulkClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
+		com.projecthero.mod.client.spider.SpiderSuitV2Client.initialize(); // v0.16.2: Suit v2 -- Trip Mine renderer, Web Wings
 		// v0.16.1: right-click swinging, Weave Mode clicks, cutting webs, tightrope balance, stuck in a stranger's web
 		ClientTickEvents.START_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::startTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderTraversalClient::endTick);

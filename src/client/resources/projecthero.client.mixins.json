@@ -8,6 +8,8 @@
 		"SpiderPerchCameraMixin",
 		"SpiderPerchHandMixin",
 		"SpiderMaskHandMixin",
+		"SpiderWebWingsMixin",
+		"SpiderWebWingsBodyMixin",
 		"ModelPartCubeAccessor",
 		"ModelPartJointMixin",
 		"HumanoidModelLimbRegistryMixin",

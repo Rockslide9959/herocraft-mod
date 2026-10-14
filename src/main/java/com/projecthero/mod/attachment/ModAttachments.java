@@ -405,6 +405,15 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.2: the Spider-Man Suit v2's Web Wings glide is on ({@code SpiderWebWings}). Server-owned, synced to everyone
+	 * (the wings and the gliding pose); not persisted.
+	 */
+	public static final AttachmentType<Boolean> SPIDER_WEB_GLIDING = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_web_gliding"),
+			builder -> builder.initializer(() -> false)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
+	/**
 	 * v0.16.1: Spider-Man's live move state -- the animated move, held stances, the tightrope's anchor A and the web
 	 * being woven. Not persisted (a relog starts clean); synced to every client so everyone sees the poses.
 	 */

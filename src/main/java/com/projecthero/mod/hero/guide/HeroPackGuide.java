@@ -280,6 +280,16 @@ public final class HeroPackGuide {
 		blank(lines);
 	}
 
+	/** v0.16.2: the Spider-Man Suit v2 -- what it is, the keep-your-old-suit recipe, Web Wings and the Trip Mine. */
+	private static void spiderSuitV2(List<Component> lines) {
+		head(lines, "projecthero.guide.spider_man.suit_v2");
+		para(lines, "projecthero.guide.spider_man.suit_v2.body");
+		for (String t : new String[]{"recipe", "wings", "trip_mine"}) {
+			bullet(lines, "projecthero.guide.spider_man.suit_v2." + t);
+		}
+		blank(lines);
+	}
+
 	private static void symbioteBlackSuitExtras(List<Component> lines) {
 		// v0.16.2: the Hunger meter, then the six symbiote moves that replace Spider-Man's while suited
 		head(lines, "projecthero.guide.symbiote.hunger");
@@ -554,6 +564,7 @@ public final class HeroPackGuide {
 			}
 			blank(lines);
 			spiderControls(lines); // v0.16.1: the 18-move kit, traversal and the web structures
+			spiderSuitV2(lines); // v0.16.2: the Suit v2 -- recipe, Web Wings, Trip Mine
 			head(lines, "projecthero.guide.spider_man.passives");
 			for (String p : new String[]{"sense", "dodge", "arrows", "crawl", "ceiling", "wall_leap",
 					"double_jump", "super_jump", "strength", "agility", "fall", "reserve"}) {

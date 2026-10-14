@@ -1,0 +1,30 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    " L ",
+    "RHB",
+    " S "
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "R": {
+      "item": "minecraft:red_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_helmet"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "S": {
+      "item": "minecraft:string"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_v2_helmet",
+    "count": 1
+  }
+}
