@@ -35,6 +35,34 @@ import net.minecraft.world.level.Level;
  * a grab...); each subclass defines its own values.
  */
 public abstract class SyndicateCriminal extends Monster {
+	/** v0.16.2: entity event -- he just fired (clients flash the muzzle of the gun in his hand). */
+	public static final byte EVENT_GUNSHOT = 101;
+
+	/** Client side: the tick of his last shot and how many he has fired, for the muzzle flash. */
+	private float lastShotTick = -100f;
+	private int shotsSeen;
+
+	@Override
+	public void handleEntityEvent(byte id) {
+		if (id == EVENT_GUNSHOT) {
+			lastShotTick = tickCount;
+			shotsSeen++;
+			return;
+		}
+		super.handleEntityEvent(id);
+	}
+
+	/** Client side: 1 -> 0 over the two ticks after a shot (the muzzle flash), else 0 -- as the Punisher's guns. */
+	public float muzzleFlash(float partialTick) {
+		float t = tickCount + partialTick - lastShotTick;
+		return t < 0f || t > 2f ? 0f : 1f - t / 2f;
+	}
+
+	/** A number that changes every shot, to vary each flash. */
+	public int shotSeed() {
+		return shotsSeen * 7919 + getId();
+	}
+
 	private static final EntityDataAccessor<Byte> DATA_SKIN = SynchedEntityData.defineId(SyndicateCriminal.class, EntityDataSerializers.BYTE);
 	private static final EntityDataAccessor<Byte> DATA_ACTION = SynchedEntityData.defineId(SyndicateCriminal.class, EntityDataSerializers.BYTE);
 

@@ -36,6 +36,21 @@ public abstract class ItemInHandLayerGunMixin {
 					target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"))
 	private void projecthero$gunGrip(LivingEntity entity, ItemStack stack, ItemDisplayContext ctx, HumanoidArm arm,
 			PoseStack pose, MultiBufferSource buffers, int light, CallbackInfo ci) {
+		// v0.16.2: a Syndicate gunman's Punisher gun flashes at the muzzle when he fires, like the player's
+		if (entity instanceof com.projecthero.mod.syndicate.entity.SyndicateCriminal crook && stack.getItem() instanceof FirearmItem
+				&& arm == crook.getMainArm()) {
+			float flash = crook.muzzleFlash(Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+			if (flash > 0f) {
+				var model = Minecraft.getInstance().getItemRenderer().getModel(stack, crook.level(), crook, crook.getId());
+				pose.pushPose();
+				model.getTransforms().getTransform(ctx).apply(arm == HumanoidArm.LEFT, pose);
+				pose.translate(-0.5f, -0.5f, -0.5f);
+				com.projecthero.mod.client.firearm.MuzzleFlash.draw(pose, buffers, com.projecthero.mod.client.punisher.GunAnim.kind(stack), flash,
+						crook.shotSeed());
+				pose.popPose();
+			}
+			return;
+		}
 		if (!(entity instanceof Player player) || !(stack.getItem() instanceof FirearmItem) || arm != player.getMainArm()) {
 			return;
 		}

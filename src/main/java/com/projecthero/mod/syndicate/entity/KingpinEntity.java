@@ -71,6 +71,8 @@ public class KingpinEntity extends SyndicateCriminal {
 	public static final double HEALTH_PER_FIGHTER = 200.0;
 	public static final double MAX_HEALTH = 2400.0;
 	public static final float SCALE = 1.35f;
+	/** v0.16.2: the cane-gun's bullet speed (blocks/tick), a little quicker than a gunman's pistol. */
+	public static final float CANE_BULLET_SPEED = 2.6f;
 
 	public static final byte ACTION_RUSH_WINDUP = 2;
 	public static final byte ACTION_RUSH = 3;
@@ -685,7 +687,9 @@ public class KingpinEntity extends SyndicateCriminal {
 			k.getLookControl().setLookAt(t, 60f, 60f);
 			if (timer >= 12 && (timer - 12) % 6 == 0 && shotsLeft > 0) {
 				Vec3 aim = t.position().add(0, t.getBbHeight() * 0.6, 0);
-				SyndicateGunfire.fire(level, k, aim, 32, 6.0f, 0.03, 1, SyndicateGunfire.Report.CANE);
+				// v0.16.2: a real bullet, aimed like a skeleton (a touch tighter than a gunman's pistol)
+				SyndicateGunfire.fireBullets(level, k, aim, 32, 6.0f, CANE_BULLET_SPEED,
+						SyndicateGunfire.skeletonInaccuracy(level.getDifficulty()) * 0.8f, 1, SyndicateGunfire.Report.CANE);
 				shotsLeft--;
 			}
 			if (shotsLeft <= 0 && timer >= 30) {

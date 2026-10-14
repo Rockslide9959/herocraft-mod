@@ -41,6 +41,7 @@ public class SyndicateRenderer extends HumanoidMobRenderer<SyndicateCriminal, Sy
 		EntityRendererRegistry.register(SyndicateEntityTypes.GUNMAN, SyndicateRenderer::new);
 		EntityRendererRegistry.register(SyndicateEntityTypes.ENFORCER, SyndicateRenderer::new);
 		EntityRendererRegistry.register(SyndicateEntityTypes.KINGPIN, SyndicateRenderer::new);
+		EntityRendererRegistry.register(SyndicateEntityTypes.BULLET, SyndicateBulletRenderer::new); // v0.16.2
 	}
 
 	@Override
