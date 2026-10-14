@@ -85,6 +85,11 @@ public final class SymbioteDialogue {
 			clearFor(player);
 			return;
 		}
+		if (SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN) {
+			// v0.16.4 (user): the Black Suit has its own, far quieter, Spider-Man voice
+			SymbioteBlackSuitDialogue.tick(player);
+			return;
+		}
 		if (player.tickCount % EVAL_INTERVAL != 0 || !(player.level() instanceof ServerLevel level)) {
 			return;
 		}
@@ -126,13 +131,18 @@ public final class SymbioteDialogue {
 	 * immediately talk over it.
 	 */
 	public static void say(ServerPlayer player, String id) {
+		if (SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN) {
+			// v0.16.4 (user): Black Suit Spider-Man maps these onto his own lines, and throttles all but the vital ones
+			SymbioteBlackSuitDialogue.event(player, id);
+			return;
+		}
 		speak(player, id);
 		LAST_SPOKEN.put(player.getId(), player.level().getGameTime());
 		LAST_ID.put(player.getId(), id);
 	}
 
 	/** v0.11.15: the Symbiote's voice shows above the hotbar (action bar) instead of filling the chat. */
-	private static void speak(ServerPlayer player, String id) {
+	static void speak(ServerPlayer player, String id) {
 		player.displayClientMessage(Component.literal("“")
 				.append(Component.translatable("message.projecthero.symbiote.talk." + id))
 				.append(Component.literal("”"))
@@ -152,7 +162,6 @@ public final class SymbioteDialogue {
 		boolean bigFallIncoming;
 		boolean inWater;
 		boolean drowning;
-		boolean spiderMan;
 		boolean bonding;
 		boolean sleeping;
 		boolean crouchedHidden;
@@ -207,7 +216,6 @@ public final class SymbioteDialogue {
 		s.bigFallIncoming = !player.onGround() && player.getDeltaMovement().y < -0.6 && player.fallDistance > 6.0f;
 		s.inWater = player.isInWater();
 		s.drowning = player.getAirSupply() < 60 && player.getAirSupply() < player.getMaxAirSupply();
-		s.spiderMan = SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
 		s.bonding = SymbioteVitalsManager.bonding(player);
 		s.sleeping = player.isSleeping();
 		s.crouched = player.isShiftKeyDown();
@@ -499,9 +507,6 @@ public final class SymbioteDialogue {
 		if (s.enemyCount == 1 && !s.loneUnawareEnemy && s.inCombat) {
 			return new Line("one_threat", Tier.COMBAT);
 		}
-		if (s.spiderMan && s.enemyAbove) {
-			return new Line("spiderman_web_them", Tier.COMBAT);
-		}
 
 		// ----- STATE (edge-triggered on the bars) -----
 		Line state = biomassCrossing(s);
@@ -532,9 +537,6 @@ public final class SymbioteDialogue {
 		}
 
 		// ----- AMBIENT -----
-		if (s.spiderMan && s.falling) {
-			return new Line("spiderman_swing", Tier.AMBIENT);
-		}
 		if (s.sleeping) {
 			return new Line("rest_we_watch", Tier.AMBIENT);
 		}
@@ -669,6 +671,7 @@ public final class SymbioteDialogue {
 		AMBIENT_ROTATION.remove(id);
 		BOND_ROTATION.remove(id);
 		PREV_ENEMY_COUNT.remove(id);
+		SymbioteBlackSuitDialogue.clearFor(player);
 	}
 
 	public static void clearSessionState() {
@@ -685,5 +688,6 @@ public final class SymbioteDialogue {
 		AMBIENT_ROTATION.clear();
 		BOND_ROTATION.clear();
 		PREV_ENEMY_COUNT.clear();
+		SymbioteBlackSuitDialogue.clearSessionState();
 	}
 }
