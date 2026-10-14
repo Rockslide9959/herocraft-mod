@@ -160,7 +160,7 @@ public final class SpiderPerch {
 	}
 
 	/** Blend a part to a pivot + rotation. */
-	private static void set(ModelPart part, float k, Vector3f pivot, float xRot, float yRot, float zRot) {
+	static void set(ModelPart part, float k, Vector3f pivot, float xRot, float yRot, float zRot) {
 		part.x = Mth.lerp(k, part.x, pivot.x);
 		part.y = Mth.lerp(k, part.y, pivot.y);
 		part.z = Mth.lerp(k, part.z, pivot.z);
@@ -170,7 +170,7 @@ public final class SpiderPerch {
 	}
 
 	/** Blend a part to a pivot + a rotation matrix (as the part's ZYX euler angles). */
-	private static void place(ModelPart part, float k, Vector3f pivot, Matrix3f r) {
+	static void place(ModelPart part, float k, Vector3f pivot, Matrix3f r) {
 		// ModelPart: R = Rz(zRot) * Ry(yRot) * Rx(xRot); JOML m{col}{row}
 		float yRot = (float) Math.asin(Mth.clamp(-r.m02, -1f, 1f));
 		float xRot = (float) Mth.atan2(r.m12, r.m22);
@@ -184,7 +184,7 @@ public final class SpiderPerch {
 	}
 
 	/** A solved two-bone limb: the upper and lower bones' frames (columns: local x, y = along the bone, z = back). */
-	private record Chain(Matrix3f upper, Matrix3f lower, Vector3f end, Vector3f lowerDir) {
+	record Chain(Matrix3f upper, Matrix3f lower, Vector3f end, Vector3f lowerDir) {
 		/** The lower bone's rotation relative to the upper, scaled by {@code k}. */
 		Quaternionf joint(float k) {
 			Matrix3f rel = new Matrix3f(upper).transpose().mul(lower);
@@ -205,7 +205,7 @@ public final class SpiderPerch {
 	 * shin swings to the back of the thigh), elbows fold forward. {@code endFront} (optional) is where the front of the
 	 * lower bone should face (the toes).
 	 */
-	private static Chain solve(Vector3f root, Vector3f target, float l1, float l2, Vector3f pole, Vector3f endFront,
+	static Chain solve(Vector3f root, Vector3f target, float l1, float l2, Vector3f pole, Vector3f endFront,
 			boolean elbow) {
 		Vector3f d = new Vector3f(target).sub(root);
 		float dist = Mth.clamp(d.length(), Math.abs(l1 - l2) + 0.05f, l1 + l2 - 0.02f);

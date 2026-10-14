@@ -153,4 +153,75 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 		helper.assertFalse(SpiderMoves.endUpsideHang(p), "Shift+Z does nothing special when not hanging");
 		helper.succeed();
 	}
+
+	/** v0.16.2: hold C while hanging upside down opens Weave Mode; clicks aimed at the walls place anchors; the web builds. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void weaveModeWorksWhileHangingUpsideDown(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		// a wall along the north side of the cage to weave on
+		for (net.minecraft.core.BlockPos pos : net.minecraft.core.BlockPos.betweenClosed(
+				helper.absolutePos(new net.minecraft.core.BlockPos(0, 0, 0)), helper.absolutePos(new net.minecraft.core.BlockPos(7, 6, 0)))) {
+			helper.getLevel().setBlock(pos, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 2);
+		}
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 6.0, 4.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 6.0, 4.5));
+		SpiderMoves.buildTightrope(p, a, b);
+		Vec3 mid = a.lerp(b, 0.5);
+		p.teleportTo(mid.x, mid.y + 0.03, mid.z);
+		helper.assertTrue(SpiderMoves.hangKey(p), "Z on the tightrope: hanging upside down");
+		p.teleportTo(mid.x, SpiderMoves.hangBoxBottom(mid, SpiderMoves.HANG_START_LENGTH), mid.z);
+		// the bug: he is usually holding Sneak (lowering) when he presses C -- that made it Shift+C (Web Wall), never Weave Mode
+		p.setShiftKeyDown(true);
+		SpiderMoves.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6, true);
+		helper.runAfterDelay(SpiderMoves.holdTicks() + 2, () -> {
+			SpiderMoves.tick(p);
+			helper.assertTrue(SpiderMoves.hangingUpsideDown(p), "still hanging");
+			helper.assertTrue(SpiderMoves.isWeaving(p), "hold C opens Weave Mode while hanging upside down");
+			// aim at four points on the wall round a centre in front of him (north) and click each
+			Vec3 c = helper.absoluteVec(new Vec3(4.0, 3.5, 1.0));
+			int placed = 0;
+			for (Vec3 off : new Vec3[] {new Vec3(2.5, 0, 0), new Vec3(-2.5, 0, 0), new Vec3(0, 2.0, 0), new Vec3(0, -2.0, 0)}) {
+				p.lookAt(EntityAnchorArgument.Anchor.EYES, c.add(off));
+				if (SpiderMoves.weaveStrand(p)) {
+					placed++;
+				}
+			}
+			helper.assertTrue(placed == 4, "every click aimed at the wall places an anchor (" + placed + "/4)");
+			helper.assertTrue(SpiderMoves.state(p).strands == 4, "four anchors in the preview");
+			SpiderMoves.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_6, false);
+			helper.assertFalse(SpiderMoves.isWeaving(p), "releasing C closes Weave Mode");
+			WebStructureEntity web = null;
+			for (WebStructureEntity w : WebStructures.in(helper.getLevel())) {
+				if (w.geometry().kind == com.projecthero.mod.spider.web.WebGeometry.WEAVE) {
+					web = w;
+				}
+			}
+			helper.assertTrue(web != null, "the web is woven");
+			helper.assertTrue(web.position().distanceTo(c) < 1.0, "centred where he aimed (" + web.position() + " vs " + c + ")");
+			helper.assertTrue(SpiderMoves.hangingUpsideDown(p) && SpiderSwing.isSwinging(p), "and he is still hanging on his line");
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.2: the hang line has no short limit -- he lowers until his head is just above the ground, never into it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void theHangLowersAllTheWayToTheGroundButNotIntoIt(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		helper.assertTrue(SpiderMoves.HANG_MAX_LENGTH >= 64.0, "a very long line is allowed (" + SpiderMoves.HANG_MAX_LENGTH + ")");
+		helper.setBlock(new net.minecraft.core.BlockPos(4, 0, 4), net.minecraft.world.level.block.Blocks.STONE);
+		Vec3 anchor = helper.absoluteVec(new Vec3(4.5, 7.5, 4.5)); // (inside the test cage)
+		double floor = helper.absoluteVec(new Vec3(0, 1.0, 0)).y; // the top of that stone
+		double len = SpiderMoves.hangLowerTo(p, anchor, SpiderMoves.HANG_MIN_LENGTH, SpiderMoves.HANG_MAX_LENGTH);
+		double bottom = SpiderMoves.hangBoxBottom(anchor, len);
+		helper.assertTrue(len > 4.5, "lowered all the way down (" + len + ")");
+		helper.assertTrue(bottom > floor && bottom < floor + 0.4, "his head stops just above the floor (box bottom "
+				+ bottom + ", floor " + floor + ")");
+		// a block in the way stops him above it
+		helper.setBlock(new net.minecraft.core.BlockPos(4, 2, 4), net.minecraft.world.level.block.Blocks.STONE);
+		double len2 = SpiderMoves.hangLowerTo(p, anchor, SpiderMoves.HANG_MIN_LENGTH, SpiderMoves.HANG_MAX_LENGTH);
+		double bottom2 = SpiderMoves.hangBoxBottom(anchor, len2);
+		double blockTop = helper.absoluteVec(new Vec3(0, 3.0, 0)).y;
+		helper.assertTrue(bottom2 > blockTop && bottom2 < blockTop + 0.4, "stops above a block under him (" + bottom2 + ")");
+		helper.succeed();
+	}
 }

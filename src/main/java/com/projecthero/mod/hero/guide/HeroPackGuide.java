@@ -270,7 +270,7 @@ public final class HeroPackGuide {
 		}
 		blank(lines);
 		head(lines, "projecthero.guide.spider_man.traversal");
-		for (String t : new String[]{"swing", "zip_boost", "crawl", "perch", "stealth", "rope", "sounds", "cut"}) {
+		for (String t : new String[]{"swing", "zip_boost", "crawl", "perch", "stealth", "rope", "hang", "sounds", "cut"}) {
 			lines.add(Component.literal(" • ").append(
 					Component.translatable("projecthero.guide.spider_man.traversal." + t)).withStyle(ChatFormatting.GRAY));
 		}

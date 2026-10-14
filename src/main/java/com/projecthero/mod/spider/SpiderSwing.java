@@ -189,7 +189,9 @@ public final class SpiderSwing {
 		}
 		Vec3 anchor = new Vec3(s.anchorX, s.anchorY, s.anchorZ);
 		double dist = anchor.distanceTo(player.getEyePosition());
-		if (dist > MAX_ROPE + 12.0) {
+		// v0.16.2: an upside-down hang may be lowered far further than a swing line is long (to the ground)
+		double maxDist = SpiderMoves.hangingUpsideDown(player) ? SpiderMoves.HANG_MAX_LENGTH + 8.0 : MAX_ROPE + 12.0;
+		if (dist > maxDist) {
 			detach(player, false);
 			return;
 		}
