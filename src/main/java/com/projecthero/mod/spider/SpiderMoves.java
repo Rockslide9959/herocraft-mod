@@ -1720,14 +1720,22 @@ public final class SpiderMoves {
 	 */
 	public static boolean perchSpot(Player player) {
 		var level = player.level();
-		BlockPos below = BlockPos.containing(player.getX(), player.getY() - 0.2, player.getZ());
-		BlockState under = level.getBlockState(below);
-		var shape = under.getCollisionShape(level, below);
-		if (!shape.isEmpty()) {
+		// what he stands on: the block under his feet, or -- for a fence / wall, whose collision is 1.5 tall, so he stands
+		// half a block above its block -- the one below that, when its shape actually reaches up to his feet
+		for (double drop : new double[] {0.2, 0.7}) {
+			BlockPos below = BlockPos.containing(player.getX(), player.getY() - drop, player.getZ());
+			var shape = level.getBlockState(below).getCollisionShape(level, below);
+			if (shape.isEmpty()) {
+				continue;
+			}
 			AABB b = shape.bounds();
+			if (below.getY() + b.maxY < player.getY() - 0.25) {
+				continue; // does not reach his feet
+			}
 			if (b.getXsize() < 0.7 || b.getZsize() < 0.7) {
 				return true;
 			}
+			break; // a full block under him: the ledge test below decides
 		}
 		Vec3 facing = Vec3.directionFromRotation(0.0f, player.getYRot());
 		// v0.16.2: probe 0.75 ahead (was 0.6), so standing in the middle of a 1-block pillar top counts too (the probe
