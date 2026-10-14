@@ -228,6 +228,30 @@ tasks.register('copyToModpack') {
 		def target = new File(modpackModsDir.get())
 		def src = jarFile.get().asFile
 
+		// v0.16.2: never hand the test modpack a broken jar. Overlapping Gradle runs once left a jar holding only 22 of
+		// ~110 client mixin classes, and the game crashed at launch (mixin PREPARE: a listed mixin class was missing).
+		// Check that every mixin each config lists is really in the jar before copying it.
+		new java.util.zip.ZipFile(src).withCloseable { zip ->
+			def missing = []
+			['projecthero.mixins.json', 'projecthero.client.mixins.json'].each { cfgName ->
+				def entry = zip.getEntry(cfgName)
+				if (entry == null) {
+					missing << cfgName
+					return
+				}
+				def cfg = new groovy.json.JsonSlurper().parse(zip.getInputStream(entry))
+				def pkg = cfg['package'].replace('.', '/')
+				(((cfg['mixins'] ?: []) + (cfg['client'] ?: []) + (cfg['server'] ?: [])) as List).each { name ->
+					if (zip.getEntry("${pkg}/${name.replace('.', '/')}.class") == null) {
+						missing << "${cfgName}: ${name}"
+					}
+				}
+			}
+			if (!missing.isEmpty()) {
+				throw new GradleException("[ProjectHero] The built jar is incomplete -- not copying it (run './gradlew clean remapJar'). Missing: ${missing.take(10)}")
+			}
+		}
+
 		// Clear out every other ProjectHero jar first. Without this the mods folder accumulates one
 		// jar per version, and Fabric Loader refuses to start with two copies of the same mod id --
 		// and, worse, a stray `-sources.jar` left behind from a manual copy crashes the game during
