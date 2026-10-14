@@ -105,7 +105,7 @@ public final class SpiderManConfig {
 		public int impactChargeTicks = 20;
 		// G -- zip
 		public Move pointZip = new Move(10, 5.0f, 0.0f);
-		public Move webYank = new Move(30, 6.0f, 0.0f);
+		public Move webYank = new Move(0, 6.0f, 0.0f); // v0.16.2 (user): no cooldown -- the Web Reserve cost paces it
 		public Move zipKick = new Move(100, 10.0f, 14.0f);
 		public double zipKickRange = 30.0;
 		// X -- melee
@@ -174,6 +174,8 @@ public final class SpiderManConfig {
 			.resetBalance(3, "v0.16.1 faster web swinging")
 			// v0.16.1 (later, user request): longer tightropes (32 -> 40 blocks) and weave strands (24 -> 30 blocks)
 			.reset(4, "v0.16.1 tightropes 40 blocks, weave strands 30 blocks", "webs.tightropeMaxLength", "webs.weaveStrandLength")
+			// v0.16.2 (user request): Web Yank has no cooldown
+			.reset(5, "v0.16.2 Web Yank has no cooldown", "moves.webYank")
 			.build();
 
 	public static void load() {

@@ -155,9 +155,12 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		ServerPlayer p = spider(helper);
 		Zombie zombie = arena(helper, p);
 		helper.startSequence().thenExecute(() -> {
+			float reserve = SpiderMan.state(p).webReserve;
 			shift(p, AbilitySlot.SLOT_2);
-			helper.assertTrue(cd(p, SpiderMoves.WEB_YANK), "Shift+G = Web Yank");
-			helper.assertFalse(cd(p, SpiderMoves.POINT_ZIP) || cd(p, SpiderMoves.ZIP_KICK), "Web Yank's cooldown is its own");
+			// v0.16.2: Web Yank has no cooldown -- it shows up as the webbing it spent
+			helper.assertTrue(SpiderMan.state(p).webReserve < reserve, "Shift+G = Web Yank");
+			helper.assertFalse(cd(p, SpiderMoves.WEB_YANK), "Web Yank has no cooldown");
+			helper.assertFalse(cd(p, SpiderMoves.POINT_ZIP) || cd(p, SpiderMoves.ZIP_KICK), "and puts nothing else on cooldown");
 			p.lookAt(EntityAnchorArgument.Anchor.EYES, zombie.getEyePosition());
 			press(p, AbilitySlot.SLOT_2, false);
 		}).thenIdle(SpiderMoves.holdTicks() + 2).thenExecute(() -> {
