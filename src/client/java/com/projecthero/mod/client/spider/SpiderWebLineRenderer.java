@@ -47,6 +47,9 @@ public final class SpiderWebLineRenderer {
 	private static final double TEXTURE_TILE = 0.45;
 	private static final double HELIX_RADIUS = 0.024;
 	private static final double HELIX_TURNS_PER_BLOCK = 1.6;
+	/** v0.16.2: a released strand's swing -- how fast it decays (ticks) and its angular frequency (rad/tick). */
+	private static final double SWAY_DECAY = 14.0;
+	private static final double SWAY_FREQ = 0.34;
 
 	/** playerId -> anchor + hand for players seen swinging last frame, so a release can be noticed. */
 	private static final Map<Integer, SwingMemo> LAST_SWING = new HashMap<>();
@@ -120,7 +123,13 @@ public final class SpiderWebLineRenderer {
 					s.frozenHand = hand;
 				}
 			}
-			drawLine(poseStack, consumers, camera, hand, SpiderStrands.endPoint(s, partial), alpha);
+			Vec3 end = SpiderStrands.endPoint(s, partial);
+			if (s.frozenHand != null) {
+				// v0.16.2 (user): a let-go web no longer hangs frozen in the air -- its loose end falls and swings
+				// down under the end still stuck, and sways in the breeze while it fades
+				hand = looseEnd(s.frozenHand, end, now - (s.startTick + s.hold), s.playerId * 31 + s.slot);
+			}
+			drawLine(poseStack, consumers, camera, hand, end, alpha);
 		}
 
 		// v0.16.1 Weave Mode: the centre marker -- the centroid of the anchors placed so far (synced), a small pulsing star
@@ -168,6 +177,41 @@ public final class SpiderWebLineRenderer {
 				prev = p;
 			}
 		}
+	}
+
+	/**
+	 * v0.16.2: where the loose end of a released strand is, {@code t} ticks after it was let go. A damped pendulum
+	 * about the still-stuck end: it starts where the hand let go, swings down and past straight-down a few times,
+	 * settling, and picks up a gentle sideways breeze as it fades. Pure function of time, so every frame and viewer agree.
+	 */
+	private static Vec3 looseEnd(Vec3 released, Vec3 pinned, double t, int seed) {
+		Vec3 offset = released.subtract(pinned);
+		double len = offset.length();
+		if (len < 1.0e-3 || t <= 0.0) {
+			return released;
+		}
+		Vec3 d0 = offset.scale(1.0 / len);
+		Vec3 down = new Vec3(0, -1, 0);
+		Vec3 axis = down.cross(d0);
+		double sin0 = axis.length();
+		double theta0 = Math.atan2(sin0, down.dot(d0)); // angle from hanging straight down to where it was let go
+		axis = sin0 < 1.0e-4 ? new Vec3(1, 0, 0) : axis.scale(1.0 / sin0);
+		// damped swing: from theta0, through down, past it, settling (period ~18 ticks, half-life ~10 ticks)
+		double theta = theta0 * Math.exp(-t / SWAY_DECAY) * Math.cos(t * SWAY_FREQ);
+		Vec3 dir = rotate(down, axis, theta);
+		// the breeze: a slow side-to-side drift that builds up as it hangs
+		double phase = (seed & 0xFF) * 0.1;
+		double breeze = Math.min(1.0, t / 25.0) * len * 0.06;
+		Vec3 wind = new Vec3(Math.cos(phase), 0, Math.sin(phase)).scale(Math.sin(t * 0.11 + phase) * breeze);
+		// and it slumps a little as the tension goes out of it
+		double slump = Math.min(1.0, t / 30.0) * 0.08;
+		return pinned.add(dir.scale(len * (1.0 - slump))).add(wind);
+	}
+
+	/** {@code v} rotated by {@code angle} about the unit {@code axis} (Rodrigues). */
+	private static Vec3 rotate(Vec3 v, Vec3 axis, double angle) {
+		double c = Math.cos(angle), s = Math.sin(angle);
+		return v.scale(c).add(axis.cross(v).scale(s)).add(axis.scale(axis.dot(v) * (1 - c)));
 	}
 
 	/**
