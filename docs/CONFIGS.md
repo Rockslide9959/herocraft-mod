@@ -70,6 +70,7 @@ values and version.
 | `projecthero_galactus.json` | `galactus/GalactusConfig` | 1 | 1 introduce (v0.16.1 Galactus: The Devourer; every section balance except `trigger` -- only `trigger.chancePerDay` is) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_spider_man.json` | `spider/SpiderManConfig` | 1 | 1 introduce (v0.16.1 Spider-Man revamp; `moves` is balance, `webs` is the server's) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_thor.json` | `power/ThorConfig` | 1 | 1 introduce (v0.16.1 storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field; every section is balance) | No. New in v0.16.1 and versioned from the start. |
+| `projecthero_crime.json` | `crime/CrimeConfig` | 1 | 1 introduce (v0.16.2 street crime; `trigger` is the server's, every other section is balance) | No. New in v0.16.2 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration
 steps. The Oathbreaker has no config file: its numbers are code constants, so they can't go stale.

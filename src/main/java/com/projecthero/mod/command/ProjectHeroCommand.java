@@ -53,6 +53,8 @@ public final class ProjectHeroCommand {
 		root.then(com.projecthero.mod.nova.NovaCommand.build());
 		// v0.16.1: /projecthero uniquepowers list | release <power> (the projectheroUniquePowers gamerule)
 		root.then(com.projecthero.mod.hero.UniquePowers.buildCommand());
+		// v0.16.2: /projecthero crime start <type> | end | trigger | status (street crime)
+		root.then(com.projecthero.mod.crime.Crimes.buildCommand());
 
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)

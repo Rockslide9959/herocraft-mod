@@ -132,7 +132,7 @@ public abstract class EventInstance {
 		}
 		EventConfig.Framework cfg = EventConfig.framework();
 		int interval = Math.max(1, cfg.tickIntervalTicks);
-		participants.refresh(level, center, cfg.abandonRadius, state == EventState.RUNNING);
+		participants.refresh(level, center, presenceRadius(), state == EventState.RUNNING);
 
 		long now = level.getGameTime();
 		if (participants.presentCount() > 0) {
@@ -146,11 +146,11 @@ public abstract class EventInstance {
 				emptySinceTick = now;
 			}
 			long empty = now - emptySinceTick;
-			if (empty >= cfg.failAfterEmptyTicks) {
+			if (empty >= failAfterEmptyTicks()) {
 				fail(level, Component.translatable("event.projecthero.abandoned", displayName()));
 				return false;
 			}
-			if (empty >= cfg.pauseAfterEmptyTicks && state == EventState.RUNNING) {
+			if (empty >= pauseAfterEmptyTicks() && state == EventState.RUNNING) {
 				setState(EventState.PAUSED);
 				onPaused(level);
 			}
@@ -164,6 +164,26 @@ public abstract class EventInstance {
 		warnStragglers(level, cfg);
 		onTick(level);
 		return !state.finished();
+	}
+
+	/** v0.16.2: how far a player may be from the centre and still count as present (crime events use a smaller area). */
+	protected double presenceRadius() {
+		return EventConfig.framework().abandonRadius;
+	}
+
+	/** v0.16.2: past this a present player is told they are leaving. */
+	protected double warnRadius() {
+		return EventConfig.framework().warnRadius;
+	}
+
+	/** v0.16.2: with nobody present this long the event pauses. */
+	protected int pauseAfterEmptyTicks() {
+		return EventConfig.framework().pauseAfterEmptyTicks;
+	}
+
+	/** v0.16.2: with nobody present this long the event fails and cleans itself up. */
+	protected int failAfterEmptyTicks() {
+		return EventConfig.framework().failAfterEmptyTicks;
 	}
 
 	/** Subclass content. Runs on the framework cadence, only while present players exist. */
@@ -214,7 +234,7 @@ public abstract class EventInstance {
 
 	/** Nudge anyone who has wandered past the warning radius but is still counted as present. */
 	private void warnStragglers(ServerLevel level, EventConfig.Framework cfg) {
-		double warnSq = cfg.warnRadius * cfg.warnRadius;
+		double warnSq = warnRadius() * warnRadius();
 		for (ServerPlayer player : participants.present()) {
 			double d = player.distanceToSqr(center.getX() + 0.5, player.getY(), center.getZ() + 0.5);
 			if (d > warnSq) {
