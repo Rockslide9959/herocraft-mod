@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/precinct_desk"
+    },
+    "facing=east": {
+      "model": "projecthero:block/precinct_desk",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/precinct_desk",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/precinct_desk",
+      "y": 270
+    }
+  }
+}

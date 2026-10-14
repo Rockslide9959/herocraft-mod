@@ -267,7 +267,7 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyConfigIsVersionedAndStamped(GameTestHelper helper) {
 		List<VersionedConfig<?>> all = List.of(HeroConfig.SPEC, EventConfig.SPEC, TitanConfig.SPEC, TitanShifterConfig.SPEC,
-				HulkConfig.SPEC, BehemothConfig.SPEC, HordeConfig.SPEC, DarkseidConfig.SPEC);
+				HulkConfig.SPEC, BehemothConfig.SPEC, HordeConfig.SPEC, DarkseidConfig.SPEC, com.projecthero.mod.city.CityConfig.SPEC);
 		for (VersionedConfig<?> spec : all) {
 			helper.assertTrue(spec.currentVersion() >= 1, spec.fileName() + " has a version");
 			helper.assertFalse(spec.balanceKeys().isEmpty(), spec.fileName() + " declares its balance-owned keys");

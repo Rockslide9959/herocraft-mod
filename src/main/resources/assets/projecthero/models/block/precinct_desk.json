@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/precinct_desk_front",
+    "side": "projecthero:block/precinct_desk_side",
+    "top": "projecthero:block/precinct_desk_top"
+  }
+}

@@ -172,6 +172,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.ironman.IronManDroneClient.initialize(); // v0.14.29 agent E: Remote Pilot
 		com.projecthero.mod.client.ironman.IronManSentryClient.initialize(); // v0.15.9: Sentry Mode
 		com.projecthero.mod.client.sorter.StarkSorterClient.initialize(); // v0.14.16: Sorting Station screen + Sorter Bot renderer
+		com.projecthero.mod.client.city.CityClient.initialize(); // v0.16.2 City part B: the Safe Deposit screen
 		com.projecthero.mod.client.render.RaidEntityRenderers.initialize();
 		com.projecthero.mod.client.render.TitanEntityRenderers.initialize();
 		com.projecthero.mod.client.render.PunisherEntityRenderers.initialize();

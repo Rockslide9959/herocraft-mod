@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "projecthero:block/safe_deposit"
+    },
+    "facing=east": {
+      "model": "projecthero:block/safe_deposit",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "projecthero:block/safe_deposit",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "projecthero:block/safe_deposit",
+      "y": 270
+    }
+  }
+}

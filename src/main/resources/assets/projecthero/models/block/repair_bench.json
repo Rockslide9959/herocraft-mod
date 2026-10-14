@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "projecthero:block/repair_bench_front",
+    "side": "projecthero:block/repair_bench_side",
+    "top": "projecthero:block/repair_bench_top"
+  }
+}

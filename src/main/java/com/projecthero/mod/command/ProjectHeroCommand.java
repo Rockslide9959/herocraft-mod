@@ -55,6 +55,8 @@ public final class ProjectHeroCommand {
 		root.then(com.projecthero.mod.hero.UniquePowers.buildCommand());
 		// v0.16.2: /projecthero crime start <type> | end | trigger | status (street crime)
 		root.then(com.projecthero.mod.crime.Crimes.buildCommand());
+		// v0.16.2 City part B: /projecthero city status | repair | sweep | optout <r> | reset <r>
+		root.then(com.projecthero.mod.city.CityCommands.build());
 
 		dispatcher.register(root);
 		// v0.13.11: Hulk Phase 1 test commands (op-only; removed / locked down in Phase 4)

@@ -189,6 +189,7 @@ public abstract class CrimeEvent extends EventInstance {
 				return;
 			}
 			announce(level);
+			Crimes.fireBegin(level, this); // v0.16.2 City part B: City Cops are called to the scene
 		}
 		runTicks += Math.max(1, EventConfig.framework().tickIntervalTicks);
 		tickCrime(level);
