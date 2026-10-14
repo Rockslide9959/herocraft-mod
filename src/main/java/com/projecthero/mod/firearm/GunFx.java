@@ -53,8 +53,8 @@ public final class GunFx {
 	private static final DustParticleOptions BLOOD = new DustParticleOptions(new Vector3f(0.55f, 0.02f, 0.02f), 1.1f);
 
 	/** A delayed beat after a shot: a sound (the pump / bolt) or, with {@code sound == null}, just the ejected casing. */
-	private record Pending(ServerLevel level, UUID shooter, SoundEvent sound, float volume, float pitch, long at, boolean particle,
-			boolean hull) {
+	private record Pending(ServerLevel level, UUID shooter, SoundSource source, SoundEvent sound, float volume, float pitch, long at,
+			boolean particle, boolean hull) {
 	}
 
 	private static final List<Pending> PENDING = new ArrayList<>();
@@ -79,19 +79,27 @@ public final class GunFx {
 
 	/** The shot itself: report (near + far), muzzle smoke / sparks, the ejected casing and the delayed mechanical sounds. */
 	public static void shot(ServerPlayer player, FirearmData data, Vec3 muzzle, Vec3 look) {
-		ServerLevel level = player.serverLevel();
-		int kind = kind(data);
-		float pitch = data.firePitch + (level.random.nextFloat() - 0.5f) * 0.08f;
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), data.fireSound, SoundSource.PLAYERS, data.fireVolume, pitch);
-		SoundEvent far = GunSounds.farOf(data.fireSound);
+		shot(player.serverLevel(), player, kind(data), data.fireSound, data.fireVolume, data.firePitch, muzzle, look, SoundSource.PLAYERS);
+	}
+
+	/**
+	 * v0.16.2: {@link #shot(ServerPlayer, FirearmData, Vec3, Vec3)} for any shooter (the Syndicate's gunmen fire the same
+	 * guns): {@code kind} 0 pistol / 1 rifle / 2 shotgun / 3 sniper, the gun's {@code fireSound} at {@code volume} /
+	 * {@code basePitch}, heard in {@code source}.
+	 */
+	public static void shot(ServerLevel level, LivingEntity shooter, int kind, SoundEvent fireSound, float volume, float basePitch,
+			Vec3 muzzle, Vec3 look, SoundSource source) {
+		float pitch = basePitch + (level.random.nextFloat() - 0.5f) * 0.08f;
+		level.playSound(null, shooter.getX(), shooter.getY(), shooter.getZ(), fireSound, source, volume, pitch);
+		SoundEvent far = GunSounds.farOf(fireSound);
 		if (far != null) {
 			Holder<SoundEvent> holder = BuiltInRegistries.SOUND_EVENT.wrapAsHolder(far);
 			for (ServerPlayer p : level.players()) {
-				double d = p.distanceTo(player);
+				double d = p.distanceTo(shooter);
 				if (d >= FAR_FROM && d <= FAR_TO * (kind == 3 ? 1.3 : 1.0)) {
 					// a sound reaches 16 * volume blocks; fade with distance from there
 					float vol = (float) (d / 16.0 + 1.0) * (float) Math.max(0.25, 1.0 - d / (FAR_TO * 1.4));
-					p.connection.send(new ClientboundSoundPacket(holder, SoundSource.PLAYERS, player.getX(), player.getY(), player.getZ(),
+					p.connection.send(new ClientboundSoundPacket(holder, source, shooter.getX(), shooter.getY(), shooter.getZ(),
 							vol, pitch, level.random.nextLong()));
 				}
 			}
@@ -115,8 +123,8 @@ public final class GunFx {
 		if (kind <= 1) {
 			eject(level, muzzle.subtract(look.scale(0.45)), right, false);
 		} else {
-			schedule(level, player, kind == 2 ? GunSounds.PUMP : GunSounds.BOLT, 0.7f, 1.0f, now + (kind == 2 ? 7 : 10), false, false);
-			schedule(level, player, null, 0f, 1f, now + (kind == 2 ? 17 : 22), true, kind == 2);
+			schedule(level, shooter, source, kind == 2 ? GunSounds.PUMP : GunSounds.BOLT, 0.7f, 1.0f, now + (kind == 2 ? 7 : 10), false, false);
+			schedule(level, shooter, source, null, 0f, 1f, now + (kind == 2 ? 17 : 22), true, kind == 2);
 		}
 	}
 
@@ -127,9 +135,9 @@ public final class GunFx {
 		level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, shell), at.x, at.y, at.z, 0, v.x, v.y, v.z, 1.0);
 	}
 
-	private static void schedule(ServerLevel level, ServerPlayer shooter, SoundEvent sound, float vol, float pitch, long at, boolean particle,
-			boolean hull) {
-		PENDING.add(new Pending(level, shooter.getUUID(), sound, vol, pitch, at, particle, hull));
+	private static void schedule(ServerLevel level, LivingEntity shooter, SoundSource source, SoundEvent sound, float vol, float pitch, long at,
+			boolean particle, boolean hull) {
+		PENDING.add(new Pending(level, shooter.getUUID(), source, sound, vol, pitch, at, particle, hull));
 	}
 
 	private static void tick() {
@@ -143,11 +151,12 @@ public final class GunFx {
 				continue;
 			}
 			it.remove();
-			if (!(p.level.getPlayerByUUID(p.shooter) instanceof ServerPlayer s)) {
+			// v0.16.2: any living shooter (a Syndicate gunman pumps his shotgun too)
+			if (!(p.level.getEntity(p.shooter) instanceof LivingEntity s) || !s.isAlive()) {
 				continue;
 			}
 			if (p.sound != null) {
-				p.level.playSound(null, s.getX(), s.getY(), s.getZ(), p.sound, SoundSource.PLAYERS, p.volume, p.pitch);
+				p.level.playSound(null, s.getX(), s.getY(), s.getZ(), p.sound, p.source, p.volume, p.pitch);
 			}
 			if (p.particle) {
 				Vec3 look = s.getLookAngle();
@@ -161,7 +170,12 @@ public final class GunFx {
 
 	/** One bullet's flight, for the clients' tracer + impact flash. */
 	public static void tracer(ServerLevel level, ServerPlayer shooter, FirearmData data, Vec3 from, Vec3 to, int hit) {
-		GunTracerPayload payload = new GunTracerPayload(shooter.getId(), from.x, from.y, from.z, to.x, to.y, to.z, kind(data), hit);
+		tracer(level, shooter.getId(), kind(data), from, to, hit);
+	}
+
+	/** v0.16.2: {@link #tracer(ServerLevel, ServerPlayer, FirearmData, Vec3, Vec3, int)} by shooter id and gun kind. */
+	public static void tracer(ServerLevel level, int shooterId, int kind, Vec3 from, Vec3 to, int hit) {
+		GunTracerPayload payload = new GunTracerPayload(shooterId, from.x, from.y, from.z, to.x, to.y, to.z, kind, hit);
 		for (ServerPlayer viewer : PlayerLookup.around(level, from.lerp(to, 0.5), 96.0 + from.distanceTo(to) * 0.5)) {
 			ServerPlayNetworking.send(viewer, payload);
 		}

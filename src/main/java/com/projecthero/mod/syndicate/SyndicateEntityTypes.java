@@ -2,6 +2,7 @@ package com.projecthero.mod.syndicate;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.syndicate.entity.KingpinEntity;
+import com.projecthero.mod.syndicate.entity.SyndicateBulletEntity;
 import com.projecthero.mod.syndicate.entity.SyndicateEnforcer;
 import com.projecthero.mod.syndicate.entity.SyndicateGunman;
 import com.projecthero.mod.syndicate.entity.SyndicateThug;
@@ -35,6 +36,11 @@ public final class SyndicateEntityTypes {
 	public static final EntityType<KingpinEntity> KINGPIN = register("kingpin",
 			EntityType.Builder.<KingpinEntity>of(KingpinEntity::new, MobCategory.MONSTER)
 					.sized(0.7f, 1.8f).eyeHeight(1.62f).clientTrackingRange(12).build("kingpin"));
+
+	/** v0.16.2: the crooks' bullets -- fast, visible, dodgeable (tracked like an arrow). */
+	public static final EntityType<SyndicateBulletEntity> BULLET = register("syndicate_bullet",
+			EntityType.Builder.<SyndicateBulletEntity>of(SyndicateBulletEntity::new, MobCategory.MISC)
+					.sized(0.15f, 0.15f).clientTrackingRange(4).updateInterval(20).build("syndicate_bullet"));
 
 	private SyndicateEntityTypes() {
 	}

@@ -9,6 +9,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
@@ -34,18 +35,24 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Sniper</b> -- holds his perch (the warehouse catwalk) and paints you with a red laser for 1.5 s before a
  *       heavy shot: break line of sight while the laser is on you.</li>
  * </ul>
- * Shots are hit-scan ({@link SyndicateGunfire}); a raised shield blocks them.
+ * v0.16.2: shots are real bullets ({@link SyndicateBulletEntity}) aimed the way a skeleton aims -- at where you are when
+ * he fires, no lead, scattered by the skeleton's difficulty inaccuracy (Easy 10 / Normal 6 / Hard 2) scaled per kind --
+ * and fast but visible, so you can strafe out of the way; a raised shield blocks them.
  */
 public class SyndicateGunman extends SyndicateCriminal {
 	public enum Kind {
-		PISTOL(SyndicateSkin.GUNMAN, 22.0, 4.0f, 0.035, 1, 6, 6, 18, 50, 5.0, 14.0),
-		SHOTGUN(SyndicateSkin.MASKED, 12.0, 2.5f, 0.11, 6, 10, 1, 0, 30, 0.0, 6.0),
-		SNIPER(SyndicateSkin.HOOD, 48.0, 12.0f, 0.004, 1, 30, 1, 0, 70, 0.0, 48.0);
+		// bullet speed (blocks/tick; a skeleton's arrow is 1.6) and inaccuracy = skeleton inaccuracy x scale + add:
+		// pistol ~ a skeleton, the shotgun's six pellets a wide cone, the sniper the tightest (his laser gives him away)
+		PISTOL(SyndicateSkin.GUNMAN, 22.0, 4.0f, 2.4f, 1.0f, 0.0f, 1, 6, 6, 18, 50, 5.0, 14.0),
+		SHOTGUN(SyndicateSkin.MASKED, 12.0, 2.5f, 2.0f, 1.0f, 12.0f, 6, 10, 1, 0, 30, 0.0, 6.0),
+		SNIPER(SyndicateSkin.HOOD, 48.0, 12.0f, 3.5f, 0.35f, 0.0f, 1, 30, 1, 0, 70, 0.0, 48.0);
 
 		final SyndicateSkin skin;
 		final double range;
 		final float damage;
-		final double spread;
+		final float speed;
+		final float spreadScale;
+		final float spreadAdd;
 		final int pellets;
 		final int windup;
 		final int magazine;
@@ -54,12 +61,14 @@ public class SyndicateGunman extends SyndicateCriminal {
 		final double minDist;
 		final double maxDist;
 
-		Kind(SyndicateSkin skin, double range, float damage, double spread, int pellets, int windup, int magazine, int shotGap,
+		Kind(SyndicateSkin skin, double range, float damage, float speed, float spreadScale, float spreadAdd, int pellets, int windup, int magazine, int shotGap,
 				int reload, double minDist, double maxDist) {
 			this.skin = skin;
 			this.range = range;
 			this.damage = damage;
-			this.spread = spread;
+			this.speed = speed;
+			this.spreadScale = spreadScale;
+			this.spreadAdd = spreadAdd;
 			this.pellets = pellets;
 			this.windup = windup;
 			this.magazine = magazine;
@@ -67,6 +76,28 @@ public class SyndicateGunman extends SyndicateCriminal {
 			this.reload = reload;
 			this.minDist = minDist;
 			this.maxDist = maxDist;
+		}
+
+		/** Bullet speed in blocks a tick. */
+		public float speed() {
+			return speed;
+		}
+
+		public double range() {
+			return range;
+		}
+
+		public float damage() {
+			return damage;
+		}
+
+		public int pellets() {
+			return pellets;
+		}
+
+		/** Vanilla {@code Projectile.shoot} inaccuracy at {@code difficulty}: the skeleton's, scaled for this gun. */
+		public float inaccuracy(Difficulty difficulty) {
+			return SyndicateGunfire.skeletonInaccuracy(difficulty) * spreadScale + spreadAdd;
 		}
 
 		Item gun() {
@@ -111,6 +142,16 @@ public class SyndicateGunman extends SyndicateCriminal {
 		this.kind = kind;
 		setSkin(kind.skin);
 		arm(new ItemStack(kind.gun() != null ? kind.gun() : Items.CROSSBOW));
+	}
+
+	/**
+	 * v0.16.2: one trigger pull at {@code aim} (the target's body where it stands now): this kind's bullets, speed,
+	 * damage and difficulty-scaled spread, with the muzzle flash and report. Returns the bullets fired.
+	 */
+	public int shootAt(ServerLevel level, Vec3 aim) {
+		Kind k = kind;
+		return SyndicateGunfire.fireBullets(level, this, aim, k.range + 1.0, k.damage, k.speed, k.inaccuracy(level.getDifficulty()), k.pellets,
+				k.report());
 	}
 
 	@Override
@@ -239,7 +280,7 @@ public class SyndicateGunman extends SyndicateCriminal {
 			if (aiming < k.windup) {
 				return;
 			}
-			SyndicateGunfire.fire(level, mob, aimAt, k.range, k.damage, k.spread, k.pellets, k.report());
+			mob.shootAt(level, aimAt);
 			aiming = 0;
 			rounds--;
 			if (rounds <= 0) {
