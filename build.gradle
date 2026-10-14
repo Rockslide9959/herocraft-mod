@@ -196,6 +196,24 @@ tasks.register('copyToModpack') {
 			logger.warn("[ProjectHero] modpackModsDir '${target}' does not exist -- skipping copyToModpack.")
 			return false
 		}
+		// v0.16.2: never swap the jar under a running game. Minecraft loads classes from the jar lazily, so replacing it
+		// mid-session crashes the game ("ZipFile invalid LOC header") the next time it needs a class it hasn't loaded yet.
+		def instanceDir = new File(target).parentFile.absolutePath
+		try {
+			def ps = ['powershell', '-NoProfile', '-Command',
+					"(Get-CimInstance Win32_Process -Filter \"Name='javaw.exe' OR Name='java.exe'\" | " +
+					"Where-Object { \$_.CommandLine -and \$_.CommandLine.Contains('${instanceDir.replace("'", "''")}') }).Count"].execute()
+			ps.waitFor()
+			def running = ps.text.trim()
+			if (running && running != '0') {
+				throw new GradleException("[ProjectHero] The test modpack is running (${instanceDir}). Close Minecraft first -- " +
+						"replacing the jar under a running game crashes it.")
+			}
+		} catch (GradleException e) {
+			throw e
+		} catch (Exception e) {
+			logger.warn("[ProjectHero] Could not check whether the modpack is running (${e.message}) -- copying anyway.")
+		}
 		return true
 	}
 
