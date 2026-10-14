@@ -25,6 +25,32 @@ public final class HulkState {
 	public static final int ANIM_THROW = 7;
 	public static final int ANIM_CRUSH = 8;
 	public static final int ANIM_PICKUP = 9;
+	// v0.16.4 Hulk revamp (docs/HULK_V0164_REVAMP_CONTRACT.md) -- one-shot / held move animations, 60..79 (Gladiator uses 40..53)
+	public static final int ANIM_SUPER_PUNCH = 60;
+	public static final int ANIM_GROUND_SMASH = 61;
+	public static final int ANIM_THUNDERCLAP = 62;
+	public static final int ANIM_FAULT_STOMP = 63;
+	public static final int ANIM_BULLDOZE = 64;
+	public static final int ANIM_UPPERCUT = 65;
+	public static final int ANIM_GAMMA_BURST = 66;
+	public static final int ANIM_EARTH_WALL = 67;
+	public static final int ANIM_GRAB = 68;
+	public static final int ANIM_THROW_FAR = 69;
+	public static final int ANIM_DEBRIS_RIP = 70;
+	public static final int ANIM_DEBRIS_THROW = 71;
+	public static final int ANIM_LOKI_SLAM = 72;
+	public static final int ANIM_ROAR = 73;
+	public static final int ANIM_LEAP_LAUNCH = 74;
+	public static final int ANIM_LEAP_LAND = 75;
+	public static final int ANIM_DEATH_FALL = 76;
+	public static final int ANIM_RAMPAGE = 77;
+	/** v0.16.4: Combat.transformStyle values -- which of the six changes plays (see the contract doc). */
+	public static final int TRANSFORM_QUICK = 0;
+	public static final int TRANSFORM_FORCED = 1;
+	public static final int TRANSFORM_RIP = 2;
+	public static final int TRANSFORM_POUND = 3;
+	public static final int TRANSFORM_ARCH = 4;
+	public static final int TRANSFORM_STAGGER = 5;
 
 	/** Has the Gamma power. */
 	public boolean hasPower;
@@ -90,6 +116,8 @@ public final class HulkState {
 		 * straining). The server times it; clients draw the progress from it.
 		 */
 		public long strainStart;
+		/** v0.16.4: which transformation animation the current change plays ({@code TRANSFORM_*}). */
+		public int transformStyle;
 
 		public Combat copy() {
 			Combat c = new Combat();
@@ -106,6 +134,7 @@ public final class HulkState {
 			c.unwilling = unwilling;
 			c.lastHurtAt = lastHurtAt;
 			c.strainStart = strainStart;
+			c.transformStyle = transformStyle;
 			return c;
 		}
 
@@ -122,9 +151,10 @@ public final class HulkState {
 				Codec.LONG.optionalFieldOf("death_save_ready_at", 0L).forGetter(c -> c.deathSaveReadyAt),
 				Codec.BOOL.optionalFieldOf("unwilling", false).forGetter(c -> c.unwilling),
 				Codec.LONG.optionalFieldOf("last_hurt_at", 0L).forGetter(c -> c.lastHurtAt),
-				Codec.LONG.optionalFieldOf("strain_start", 0L).forGetter(c -> c.strainStart)
+				Codec.LONG.optionalFieldOf("strain_start", 0L).forGetter(c -> c.strainStart),
+				Codec.INT.optionalFieldOf("transform_style", 0).forGetter(c -> c.transformStyle)
 		).apply(i, (chargeUntil, smashChargeStart, holding, control, lastDealtAt, rampageUntil, promptKey, promptUntil, calming,
-				deathSaveReadyAt, unwilling, lastHurtAt, strainStart) -> {
+				deathSaveReadyAt, unwilling, lastHurtAt, strainStart, transformStyle) -> {
 			Combat c = new Combat();
 			c.chargeUntil = chargeUntil;
 			c.smashChargeStart = smashChargeStart;
@@ -139,6 +169,7 @@ public final class HulkState {
 			c.unwilling = unwilling;
 			c.lastHurtAt = lastHurtAt;
 			c.strainStart = strainStart;
+			c.transformStyle = transformStyle;
 			return c;
 		}));
 	}
