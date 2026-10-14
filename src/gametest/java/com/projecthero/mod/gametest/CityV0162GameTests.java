@@ -262,6 +262,55 @@ public class CityV0162GameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.16.2 (user): a road hole is filled from its rim -- the worker never ends up in it, and a villager down there is lifted out. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "city_repair", timeoutTicks = 900)
+	public void cityRepairFillsAHoleWithoutTrappingAnyone(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		CityConfig before = CityConfig.get();
+		CityConfig.setForTest(testConfig());
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				for (int y = 1; y <= 3; y++) {
+					helper.setBlock(new BlockPos(x, y, z), y == 3 ? Blocks.GRAY_CONCRETE : Blocks.STONE);
+				}
+			}
+		}
+		CityArea city = city(helper, piece(helper, "road", new BlockPos(0, 1, 0), new Vec3i(8, 3, 8), Rotation.NONE, new BlockPos(0, 1, 0)));
+		List<BlockPos> hole = new java.util.ArrayList<>();
+		for (int x = 3; x <= 4; x++) {
+			for (int z = 3; z <= 4; z++) {
+				for (int y = 1; y <= 3; y++) {
+					BlockPos p = new BlockPos(x, y, z);
+					helper.setBlock(p, Blocks.AIR);
+					hole.add(p);
+				}
+			}
+		}
+		CityDamageTracker.flush(level);
+		Villager stuck = villager(helper, VillagerProfession.NONE, new BlockPos(3, 1, 3), false); // fell in
+		Villager worker = villager(helper, CityBlocks.REPAIR_WORKER, new BlockPos(0, 4, 0), true);
+		int surface = helper.absolutePos(new BlockPos(0, 4, 0)).getY();
+		helper.onEachTick(() -> {
+			if (CityRepair.job(level, city.id()) != null) {
+				helper.assertFalse(level.getBlockState(worker.blockPosition()).isCollisionShapeFullBlock(level, worker.blockPosition()),
+						"the worker is never built into a block");
+			}
+		});
+		helper.succeedWhen(() -> {
+			for (BlockPos p : hole) {
+				helper.assertBlockPresent(p.getY() == 3 ? Blocks.GRAY_CONCRETE : Blocks.STONE, p);
+			}
+			helper.assertTrue(CityRepair.job(level, city.id()) == null, "the trip is over");
+			for (Villager v : new Villager[]{stuck, worker}) {
+				helper.assertTrue(v.getY() >= surface - 0.01, v.getVillagerData().getProfession() + " ends up on the road, not sealed under it (y=" + v.getY() + ")");
+				helper.assertTrue(level.getBlockState(v.blockPosition()).getCollisionShape(level, v.blockPosition()).isEmpty(), "and not inside a block");
+			}
+			stuck.discard();
+			forget(helper, city);
+			CityConfig.setForTest(before);
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, batch = "city_repair")
 	public void cityDepotHiresAWorker(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();

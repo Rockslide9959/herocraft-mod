@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -52,8 +53,12 @@ import net.minecraft.world.phys.Vec3;
  * <p>Every second each City with due damage (its latest damage at least {@code repairDelayTicks} old) gets one job at
  * most: an idle Repair Worker in work hours (no raid, no monster within 16 blocks) walks out with a hammer and rebuilds
  * the queued blocks bottom-up, one every {@code ticksPerBlock}, up to {@code blocksPerTrip}. Blocks it can't reach from
- * the ground it climbs to on a temporary scaffolding column; if it can't get within reach in {@code reachTimeoutTicks} it
- * repairs from where it stands. With no Repair Worker at all, due damage fills in on its own after
+ * the ground it climbs to on a temporary scaffolding column. v0.16.2 (user: a worker fell into a road hole, sealed himself
+ * and other villagers in it, and repaired the rest from where he was stuck): it only ever works from a <em>work spot</em>
+ * -- solid ground outside the damage, never on or under a block still to be rebuilt -- walking there (or, stuck for
+ * {@code reachTimeoutTicks}, 10 s at most, clambering over) instead of to the hole itself; and before any block goes in,
+ * every villager or mob standing inside the damage it is about to close is lifted out onto safe ground (a player there
+ * just makes the worker do that block later). With no Repair Worker at all, due damage fills in on its own after
  * {@code selfRepairAfterTicks}, and the depot hires a new worker every {@code hireDelayTicks} while it has a free Repair
  * Bench.
  *
@@ -70,7 +75,13 @@ public final class CityRepair {
 			Blocks.NETHERITE_BLOCK, Blocks.LAPIS_BLOCK, Blocks.RAW_GOLD_BLOCK, Blocks.RAW_IRON_BLOCK, Blocks.COPPER_BLOCK, Blocks.RAW_COPPER_BLOCK,
 			Blocks.ANCIENT_DEBRIS, Blocks.BEACON);
 	public static final Block FILLER = Blocks.STONE_BRICKS;
-	private static final double REACH = 4.5;
+	private static final double REACH = 5.5;
+	/** v0.16.2: the deepest a worker reaches down into a crater from its rim (it never climbs in). */
+	private static final double FAR_REACH = 8.0;
+	/** How far above a spot a block still to be rebuilt makes it "inside" the damage (someone there would be roofed in). */
+	private static final int ROOF_CHECK = 8;
+	/** v0.16.2: a stuck walk to the work spot ends in a clamber this soon at most. */
+	private static final int HOP_TICKS = 200;
 	private static final int MAX_SCAFFOLD = 24;
 	private static final int TRIP_RADIUS = 48;
 
@@ -98,6 +109,11 @@ public final class CityRepair {
 		boolean remote;
 		Vec3 hold;
 		final List<BlockPos> scaffold = new ArrayList<>();
+		/** v0.16.2: the work spot it is heading for / standing on, its reach from there, and how often blocks were put off. */
+		BlockPos stand;
+		double reach = REACH;
+		boolean resume;
+		int deferrals;
 
 		Job(long cityId, UUID worker, List<BlockPos> todo) {
 			this.cityId = cityId;
@@ -348,6 +364,7 @@ public final class CityRepair {
 		job.phaseTicks++;
 		if (v != null && job.phase != Phase.DESCEND && job.phaseTicks % 20 == 0
 				&& ((cfg.workHoursOnly && !isWorkHours(level)) || danger(level, v.blockPosition()))) {
+			job.resume = false;
 			setPhase(job, Phase.DESCEND);
 		}
 		if (job.phase == Phase.DESCEND) {
@@ -366,6 +383,7 @@ public final class CityRepair {
 			if (v == null) {
 				return false;
 			}
+			job.resume = false;
 			setPhase(job, Phase.DESCEND);
 			return true;
 		}
@@ -379,6 +397,18 @@ public final class CityRepair {
 				job.todo.add(job.todo.remove(job.index));
 			}
 			job.cooldown = 10;
+			return true;
+		}
+		if ((job.phase == Phase.BUILD || v == null) && job.cooldown <= 1 && !clearHole(level, job, v, target)) {
+			defer(job); // a player is down there (or there is nowhere to lift someone to): come back to it
+			job.cooldown = 10;
+			if (giveUp(job)) {
+				if (v == null) {
+					return false;
+				}
+				job.resume = false;
+				setPhase(job, Phase.DESCEND);
+			}
 			return true;
 		}
 		if (v == null) {
@@ -396,21 +426,18 @@ public final class CityRepair {
 			case BUILD -> {
 				hold(v, job);
 				lookAt(v, target);
+				if (!job.remote && !inReach(v, target, job.reach)) {
+					toNextStretch(job, v, target); // out of reach (e.g. just lifted out of the hole): find the next work spot
+					return true;
+				}
 				if (--job.cooldown <= 0) {
 					place(level, city, data, target, next, v);
 					job.index++;
 					job.placed++;
 					job.cooldown = Math.max(1, cfg.ticksPerBlock);
 					BlockPos after = job.index < job.todo.size() ? job.todo.get(job.index) : null;
-					if (after != null && !job.remote && !inReach(v, after)) {
-						if (high(v, after)) {
-							setPhase(job, Phase.CLIMB);
-						} else if (job.scaffold.isEmpty()) {
-							unfreeze(v);
-							setPhase(job, Phase.WALK);
-						} else {
-							job.remote = true; // already up a scaffold: finish this stretch from up here
-						}
+					if (after != null && !job.remote && !inReach(v, after, job.reach)) {
+						toNextStretch(job, v, after);
 					}
 				}
 			}
@@ -418,6 +445,165 @@ public final class CityRepair {
 			}
 		}
 		return true;
+	}
+
+	/** The next block is out of reach from here: climb for it, or come down off the scaffold and walk to its work spot. */
+	private static void toNextStretch(Job job, Villager v, BlockPos next) {
+		job.stand = null;
+		job.reach = REACH;
+		if (high(v, next)) {
+			setPhase(job, Phase.CLIMB); // (a little higher up the same column if already on one)
+		} else if (job.scaffold.isEmpty()) {
+			unfreeze(v);
+			setPhase(job, Phase.WALK);
+		} else {
+			job.resume = true; // down the scaffold, then on to the next work spot
+			setPhase(job, Phase.DESCEND);
+		}
+	}
+
+	/** The rest of this trip, as a set (what a work spot must not stand on or under). */
+	private static LongOpenHashSet pending(Job job) {
+		LongOpenHashSet out = new LongOpenHashSet();
+		for (int i = job.index; i < job.todo.size(); i++) {
+			out.add(job.todo.get(i).asLong());
+		}
+		return out;
+	}
+
+	/** True if a block still to be rebuilt is at {@code p}'s feet or head, or anywhere above it in its column. */
+	private static boolean insideDamage(BlockPos p, LongOpenHashSet pending) {
+		for (int dy = 0; dy <= ROOF_CHECK; dy++) {
+			if (pending.contains(BlockPos.asLong(p.getX(), p.getY() + dy, p.getZ()))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Somewhere to stand that the repair can never close in: sturdy floor, room for a body, outside the damage. */
+	private static boolean safeSpot(ServerLevel level, BlockPos p, LongOpenHashSet pending) {
+		BlockPos below = p.below();
+		return level.getBlockState(below).isFaceSturdy(level, below, net.minecraft.core.Direction.UP)
+				&& level.getBlockState(p).getCollisionShape(level, p).isEmpty()
+				&& level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
+				&& level.getFluidState(p).isEmpty() && !insideDamage(p, pending);
+	}
+
+	/** v0.16.2: the work spot for {@code target} -- a safe spot in reach, closest to {@code from}; else the nearest the rim gets. */
+	private static BlockPos workSpot(ServerLevel level, Job job, Vec3 from, BlockPos target) {
+		LongOpenHashSet pending = pending(job);
+		Vec3 centre = Vec3.atCenterOf(target);
+		BlockPos best = null, closest = null, base = null;
+		double bestScore = Double.MAX_VALUE, closestDist = Double.MAX_VALUE, baseDist = Double.MAX_VALUE;
+		for (BlockPos p : BlockPos.betweenClosed(target.offset(-7, -12, -7), target.offset(7, 5, 7))) {
+			if (!safeSpot(level, p, pending) || occupiedByOther(level, p, job.worker)) {
+				continue;
+			}
+			double eyeY = p.getY() + 1.62;
+			double eye = new Vec3(p.getX() + 0.5, eyeY, p.getZ() + 0.5).distanceTo(centre);
+			double dx = p.getX() - target.getX(), dz = p.getZ() - target.getZ();
+			if (eye <= REACH - 0.2) {
+				double rise = p.getY() - from.y; // climbing up to a spot is the last resort
+				double score = Vec3.atBottomCenterOf(p).distanceToSqr(from) + eye * eye * 0.25 + rise * rise * 6.0;
+				if (score < bestScore) {
+					bestScore = score;
+					best = p.immutable();
+				}
+			} else if (centre.y < eyeY) {
+				if (eye < closestDist) { // below him: the bottom of a crater
+					closestDist = eye;
+					closest = p.immutable();
+				}
+			} else if (dx * dx + dz * dz <= 2.0 * 2.0 && dx * dx + dz * dz < baseDist) { // above him: the foot of a scaffold
+				baseDist = dx * dx + dz * dz;
+				base = p.immutable();
+			}
+		}
+		// a scaffold beats clambering up onto something higher (a roof, a neighbour's wall) to reach it
+		if (best != null && (base == null || best.getY() <= from.y + 2.0)) {
+			job.reach = REACH;
+			return best;
+		}
+		if (base != null) {
+			job.reach = REACH;
+			return base;
+		}
+		if (closest != null && closestDist <= FAR_REACH) {
+			job.reach = closestDist + 0.3; // the bottom of a deep crater: hammered from its rim
+			return closest;
+		}
+		return null;
+	}
+
+	private static boolean occupiedByOther(ServerLevel level, BlockPos p, UUID self) {
+		return !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new AABB(p),
+				e -> e.isAlive() && !e.isSpectator() && !e.getUUID().equals(self)).isEmpty();
+	}
+
+	/**
+	 * v0.16.2 (user): before {@code x} goes in, everyone standing inside the damage around it gets out -- villagers and
+	 * mobs (the worker too) are lifted onto the nearest safe spot; a player is never moved, so the block waits instead.
+	 * False when the block must wait.
+	 */
+	private static boolean clearHole(ServerLevel level, Job job, Villager worker, BlockPos x) {
+		LongOpenHashSet pending = pending(job);
+		AABB around = new AABB(x.getX() - 2, x.getY() - ROOF_CHECK, x.getZ() - 2, x.getX() + 3, x.getY() + 2, x.getZ() + 3);
+		for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, around,
+				e -> e.isAlive() && !e.isSpectator() && !e.isPassenger())) {
+			BlockPos feet = e.blockPosition();
+			if (!insideDamage(feet, pending)) {
+				continue;
+			}
+			if (e instanceof net.minecraft.world.entity.player.Player) {
+				return false;
+			}
+			BlockPos out = liftSpot(level, feet, pending);
+			if (out == null) {
+				return false;
+			}
+			level.sendParticles(ParticleTypes.CLOUD, e.getX(), e.getY() + 0.3, e.getZ(), 6, 0.3, 0.2, 0.3, 0.02);
+			e.teleportTo(out.getX() + 0.5, out.getY(), out.getZ() + 0.5);
+			e.setDeltaMovement(Vec3.ZERO);
+			e.fallDistance = 0f;
+			level.playSound(null, out, net.minecraft.sounds.SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.NEUTRAL, 0.6f, 1.2f);
+			if (e == worker) {
+				job.hold = worker.position();
+				job.stand = out;
+			}
+		}
+		return true;
+	}
+
+	/** The nearest safe spot to climb out to from {@code feet}. */
+	private static BlockPos liftSpot(ServerLevel level, BlockPos feet, LongOpenHashSet pending) {
+		BlockPos best = null;
+		double bestDist = Double.MAX_VALUE;
+		for (BlockPos p : BlockPos.betweenClosed(feet.offset(-8, -2, -8), feet.offset(8, ROOF_CHECK, 8))) {
+			if (!safeSpot(level, p, pending)) {
+				continue;
+			}
+			double d = p.distSqr(feet);
+			if (d < bestDist) {
+				bestDist = d;
+				best = p.immutable();
+			}
+		}
+		return best;
+	}
+
+	/** Puts the current block off until the end of the trip (the last one is left for the next trip). */
+	private static void defer(Job job) {
+		if (job.index < job.todo.size() - 1) {
+			job.todo.add(job.todo.remove(job.index));
+		} else {
+			job.index++;
+		}
+		job.deferrals++;
+	}
+
+	private static boolean giveUp(Job job) {
+		return job.deferrals > job.todo.size() * 2 + 20;
 	}
 
 	/** The worker is standing in the gap it wants to fill: it steps to the nearest free spot next to it. */
@@ -445,8 +631,8 @@ public final class CityRepair {
 		job.phaseTicks = 0;
 	}
 
-	private static boolean inReach(Villager v, BlockPos p) {
-		return v.getEyePosition().distanceTo(Vec3.atCenterOf(p)) <= REACH;
+	private static boolean inReach(Villager v, BlockPos p, double reach) {
+		return v.getEyePosition().distanceTo(Vec3.atCenterOf(p)) <= reach;
 	}
 
 	private static boolean high(Villager v, BlockPos p) {
@@ -456,25 +642,42 @@ public final class CityRepair {
 	}
 
 	private static void walk(ServerLevel level, Job job, Villager v, BlockPos target, CityConfig.Repair cfg) {
-		if (inReach(v, target)) {
+		if (job.stand == null || job.phaseTicks % 40 == 0 && !safeSpot(level, job.stand, pending(job))) {
+			job.stand = workSpot(level, job, v.position(), target);
+			if (job.stand == null) {
+				// nowhere safe to work it from (yet): later in the trip, or the next trip
+				defer(job);
+				setPhase(job, Phase.WALK);
+				if (giveUp(job)) {
+					job.resume = false;
+					setPhase(job, Phase.DESCEND);
+				}
+				return;
+			}
+		}
+		BlockPos stand = job.stand;
+		Vec3 spot = Vec3.atBottomCenterOf(stand);
+		boolean there = v.position().distanceToSqr(spot) < 0.8 * 0.8 && Math.abs(v.getY() - stand.getY()) < 0.6;
+		boolean safeHere = v.onGround() && safeSpot(level, v.blockPosition(), pending(job));
+		if (there || (safeHere && inReach(v, target, job.reach))) {
 			freeze(v, job);
 			job.cooldown = 4;
-			setPhase(job, Phase.BUILD);
+			setPhase(job, high(v, target) ? Phase.CLIMB : Phase.BUILD);
 			return;
 		}
-		if (high(v, target) && v.onGround()) {
+		if (job.phaseTicks > Math.min(cfg.reachTimeoutTicks, HOP_TICKS)) {
+			// stuck (or fallen somewhere awkward): clamber over to the work spot -- never build from afar
+			level.sendParticles(ParticleTypes.CLOUD, v.getX(), v.getY() + 0.3, v.getZ(), 6, 0.3, 0.2, 0.3, 0.02);
+			v.teleportTo(spot.x, spot.y, spot.z);
+			v.fallDistance = 0f;
 			freeze(v, job);
-			setPhase(job, Phase.CLIMB);
-			return;
-		}
-		if (job.phaseTicks > cfg.reachTimeoutTicks) {
-			job.remote = true; // can't get there: repair from here
-			freeze(v, job);
-			setPhase(job, Phase.BUILD);
+			job.hold = spot;
+			job.cooldown = 4;
+			setPhase(job, high(v, target) ? Phase.CLIMB : Phase.BUILD);
 			return;
 		}
 		if (job.phaseTicks % 10 == 1) {
-			v.getBrain().setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(target, 0.65f, 2));
+			v.getBrain().setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(stand, 0.65f, 0));
 			v.getBrain().setMemory(MemoryModuleType.LOOK_TARGET, new BlockPosTracker(target));
 		}
 	}
@@ -484,7 +687,8 @@ public final class CityRepair {
 		if (job.phaseTicks % 8 != 0) {
 			return;
 		}
-		if (inReach(v, target)) {
+		if (inReach(v, target, REACH)) {
+			job.reach = REACH;
 			job.cooldown = 2;
 			setPhase(job, Phase.BUILD);
 			return;
@@ -492,9 +696,9 @@ public final class CityRepair {
 		BlockPos feet = v.blockPosition();
 		boolean room = level.getBlockState(feet.above(2)).isAir() && CityDamageTracker.airish(level.getBlockState(feet));
 		if (target.getY() <= v.getY() + 3.0 || job.scaffold.size() >= MAX_SCAFFOLD || !room) {
-			job.remote = true;
-			job.cooldown = 2;
-			setPhase(job, Phase.BUILD);
+			defer(job); // can't climb to it from here: try it from another spot later
+			job.resume = !giveUp(job);
+			setPhase(job, Phase.DESCEND);
 			return;
 		}
 		job.hold = new Vec3(feet.getX() + 0.5, feet.getY() + 1.0, feet.getZ() + 0.5);
@@ -515,6 +719,13 @@ public final class CityRepair {
 		}
 		hold(v, job);
 		if (job.scaffold.isEmpty()) {
+			if (job.resume) {
+				job.resume = false;
+				job.stand = null;
+				unfreeze(v);
+				setPhase(job, Phase.WALK);
+				return true;
+			}
 			return finish(level, job, data, v);
 		}
 		if (job.phaseTicks % 5 != 0) {
