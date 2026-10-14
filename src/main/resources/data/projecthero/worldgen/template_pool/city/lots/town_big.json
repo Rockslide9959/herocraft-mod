@@ -1,0 +1,10 @@
+{
+  "fallback": "projecthero:city/lots/town_small",
+  "elements": [
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/construction_site","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/warehouse_docks","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/brownstone_walkup","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/townhouse_row_5","processors":"minecraft:empty","projection":"rigid"},"weight":3},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/townhouse_row_4","processors":"minecraft:empty","projection":"rigid"},"weight":2}
+  ]
+}

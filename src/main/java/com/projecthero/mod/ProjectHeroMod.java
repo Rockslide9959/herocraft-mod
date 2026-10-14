@@ -241,6 +241,8 @@ public class ProjectHeroMod implements ModInitializer {
 
 		ModStructureTypes.initialize();
 		ModStructurePieceTypes.initialize();
+		// v0.16.2 City part A: the City structure type + City Map trade (part B's CityBlocks registers the job-site blocks)
+		com.projecthero.mod.city.CityWorldgen.initialize();
 		CraterAmbience.initialize();
 		com.projecthero.mod.hammer.MjolnirSeer.initialize();
 		// v0.14.16: retires superseded (recalled) hammer copies wherever they are next observed

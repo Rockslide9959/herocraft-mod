@@ -1,0 +1,8 @@
+{
+  "fallback": "minecraft:empty",
+  "elements": [
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/pocket_park","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/garden_plot","processors":"minecraft:empty","projection":"rigid"},"weight":2},
+    {"element":{"element_type":"minecraft:single_pool_element","location":"projecthero:city/building/kiosk_plaza","processors":"minecraft:empty","projection":"rigid"},"weight":1}
+  ]
+}

@@ -11,6 +11,7 @@
       "com.projecthero.mod.gametest.V0161PunisherGlGameTests",
       "com.projecthero.mod.gametest.CrimeV0162GameTests",
       "com.projecthero.mod.gametest.CityV0162GameTests",
+      "com.projecthero.mod.gametest.CityWorldgenV0162GameTests",
       "com.projecthero.mod.gametest.RepulsorTrialV0159GameTests",
       "com.projecthero.mod.gametest.V01422GameTests",
       "com.projecthero.mod.gametest.IronManV01427Mark12GameTests",

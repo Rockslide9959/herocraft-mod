@@ -382,8 +382,9 @@ public final class HeroPackGuide {
 	private static final int CH_ULTRON_CONTAGION = 34; // v0.16.1
 	private static final int CH_GALACTUS = 35; // v0.16.1
 	private static final int CH_CRIME = 36; // v0.16.2
-	private static final int CH_CITY = 37; // v0.16.2 City part B
-	private static final int CHAPTER_POWER_BASE = 38;
+	private static final int CH_CITY = 37; // v0.16.2 City part A: Cities
+	private static final int CH_CITY_SERVICES = 38; // v0.16.2 City part B: City Services
+	private static final int CHAPTER_POWER_BASE = 39;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1188,13 +1189,22 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.crime." + section + ".body");
 			}
 		}));
-		// v0.16.2 City part B: the City's services (CH_CITY)
+		// v0.16.2: Cities (CH_CITY) -- City part A: the structure, its rings and buildings, how to find one
 		out.add(chapter("projecthero.guide.city", lines -> {
 			para(lines, "projecthero.guide.city.body");
-			for (String section : new String[]{"repair", "repair_rules", "cops", "doctor", "firefighter", "bank", "bulletin", "commands"}) {
+			for (String section : new String[]{"finding", "rings", "downtown", "town", "village", "villagers"}) {
 				blank(lines);
 				head(lines, "projecthero.guide.city." + section);
 				para(lines, "projecthero.guide.city." + section + ".body");
+			}
+		}));
+		// v0.16.2 City part B: the City's services (CH_CITY_SERVICES)
+		out.add(chapter("projecthero.guide.city_services", lines -> {
+			para(lines, "projecthero.guide.city_services.body");
+			for (String section : new String[]{"repair", "repair_rules", "cops", "doctor", "firefighter", "bank", "bulletin", "commands"}) {
+				blank(lines);
+				head(lines, "projecthero.guide.city_services." + section);
+				para(lines, "projecthero.guide.city_services." + section + ".body");
 			}
 		}));
 
@@ -1219,7 +1229,8 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.structures", CH_STRUCTURES);
 		link(idx, "projecthero.guide.devices", CH_DEVICES);
 		link(idx, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
-		link(idx, "projecthero.guide.city", CH_CITY); // v0.16.2 City part B
+		link(idx, "projecthero.guide.city", CH_CITY); // v0.16.2 City part A
+		link(idx, "projecthero.guide.city_services", CH_CITY_SERVICES); // v0.16.2 City part B
 
 		section(idx, "projecthero.guide.section.heroes", true);
 		link(idx, "projecthero.guide.thor", CH_THOR);
