@@ -66,6 +66,41 @@ public final class SpiderClimbLocal {
 		this.face = null;
 		this.grace = 0;
 		this.transitionTicks = 0;
+		this.bumpedHead = false;
+	}
+
+	/** v0.16.2: climbing, his head hit a block jutting out of the wall last tick (client movement, transient). */
+	private boolean bumpedHead;
+
+	public boolean bumpedHead() {
+		return bumpedHead;
+	}
+
+	public void setBumpedHead(boolean bumped) {
+		this.bumpedHead = bumped;
+	}
+
+	/** v0.16.2: sliding out round a block jutting from the wall -- the wall he is climbing, and ticks left. */
+	private Direction slideFace;
+	private int slideTicks;
+
+	public void startSlide(Direction wall, int ticks) {
+		this.slideFace = wall;
+		this.slideTicks = ticks;
+	}
+
+	public Direction slideFace() {
+		return slideTicks > 0 ? slideFace : null;
+	}
+
+	public void tickSlide() {
+		if (slideTicks > 0) {
+			slideTicks--;
+		}
+	}
+
+	public void endSlide() {
+		this.slideTicks = 0;
 	}
 
 	public void markTransition() {
