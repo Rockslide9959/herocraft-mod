@@ -42,7 +42,22 @@ public final class SpiderWebReserve {
 	 * back down.
 	 */
 	public static float maxFor(Player player) {
-		return com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player) ? MAX * SYMBIOTE_MULTIPLIER : MAX;
+		float max = com.projecthero.mod.symbiote.Symbiote.hasSymbiote(player) ? MAX * SYMBIOTE_MULTIPLIER : MAX;
+		return max * suitMultiplier(player);
+	}
+
+	/** v0.16.2 (user): the Spider-Man suit's web cartridges -- +50% capacity, the Suit v2's +80% (worn chest piece). */
+	public static final float SUIT_CAPACITY = 1.5f;
+	public static final float SUIT_V2_CAPACITY = 1.8f;
+
+	public static float suitMultiplier(Player player) {
+		net.minecraft.world.item.Item chest = player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem();
+		if (chest instanceof com.projecthero.mod.spider.item.SpiderManV2ArmorItem) {
+			return SUIT_V2_CAPACITY;
+		}
+		// the Black Suit is the Symbiote's, and its bond already doubles the webbing -- no suit bonus on top
+		return chest instanceof com.projecthero.mod.spider.item.SpiderManArmorItem
+				&& !(chest instanceof com.projecthero.mod.spider.item.SymbioteArmorItem) ? SUIT_CAPACITY : 1.0f;
 	}
 
 	// ---- costs (spec section 20 starting values) ----

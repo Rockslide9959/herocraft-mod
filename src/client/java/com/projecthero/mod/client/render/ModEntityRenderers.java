@@ -44,6 +44,9 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.spider.WebStructureRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.THROWN_BLOCK,
 				com.projecthero.mod.client.spider.ThrownBlockRenderer::new);
+		// v0.16.2: the Trip Mine flies as a web glob too
+		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.TRIP_MINE_SHOT, ctx ->
+				new com.projecthero.mod.client.spider.WebShotRenderer(ctx));
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.WEB_SHOT,
 				com.projecthero.mod.client.spider.WebShotRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.spider.entity.SpiderEntityTypes.WEB_BOMB,

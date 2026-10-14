@@ -102,24 +102,18 @@ public final class SpiderTripMines {
 			return null;
 		}
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 eye = player.getEyePosition();
-		BlockHitResult hit = level.clip(new ClipContext(eye, eye.add(player.getLookAngle().scale(PLACE_RANGE)),
-				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
-		if (hit.getType() != HitResult.Type.BLOCK) {
-			// nothing in reach: the ground at his feet
-			Vec3 feet = player.position().add(0, 0.1, 0);
-			hit = level.clip(new ClipContext(feet, feet.subtract(0, 3.0, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE,
-					player));
-			if (hit.getType() != HitResult.Type.BLOCK) {
-				player.displayClientMessage(Component.translatable("message.projecthero.spider_man.trip_mine.no_surface"), true);
-				return null;
-			}
-		}
-		SpiderTripMineEntity mine = placeAt(player, hit.getLocation(), hit.getDirection());
-		SpiderMoves.anim(player, SpiderAnim.WALL_CAST);
-		SpiderMoves.thwip(player, 1.2f);
+		// v0.16.2 (user): shot out like a Web Shot -- the mine sticks wherever the glob lands (TripMineShotEntity)
+		Vec3 look = player.getLookAngle();
+		Vec3 start = player.getEyePosition().add(look.scale(0.6)).subtract(0, 0.2, 0);
+		com.projecthero.mod.spider.entity.TripMineShotEntity shot = new com.projecthero.mod.spider.entity.TripMineShotEntity(level, player,
+				look.scale(com.projecthero.mod.spider.entity.TripMineShotEntity.SHOT_SPEED));
+		shot.setPos(start.x, start.y, start.z);
+		level.addFreshEntity(shot);
+		boolean right = SpiderMoves.nextThwipHand(player);
+		SpiderMoves.anim(player, right ? SpiderAnim.THWIP_RIGHT : SpiderAnim.THWIP_LEFT);
+		SpiderMoves.thwip(player, 1.0f);
 		SpiderAbilities.fired(player, TRIP_MINE, COST, COOLDOWN);
-		return mine;
+		return null; // the mine itself appears when the shot lands
 	}
 
 	/** Stick one of {@code owner}'s mines on the face point {@code at} (no cost, no cooldown -- the tests use it too). */

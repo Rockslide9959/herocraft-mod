@@ -55,7 +55,7 @@ public final class SpiderManConfig {
 		/** Ticks a key must be held before the hold move takes over (the tap fires on a shorter release). */
 		public int holdTicks = 8;
 		/** v0.16.1: Web Bomb / Impact Web / Web Blossom also spin REAL cobweb blocks (temporary, never dropped as items). */
-		public boolean placeCobwebs = true;
+		public boolean placeCobwebs = false; // v0.16.2 (user): his webs no longer leave cobweb blocks in the world
 		/** How long those cobwebs last (ticks) before they are taken away again. */
 		public int cobwebTicks = 360;
 		/** At most this many cobwebs per cast, and this many of his cobwebs in the world at once (the oldest go first). */
@@ -98,7 +98,7 @@ public final class SpiderManConfig {
 		public int blossomTrapTicks = 360;
 		public Move webShot = new Move(0, 2.0f, 2.0f); // v0.16.2 (user): no cooldown
 		public Move webBomb = new Move(0, 15.0f, 3.0f); // v0.16.2 (user): no cooldown
-		public double webBombRadius = 4.0;
+		public double webBombRadius = 6.0; // v0.16.2 (user): bigger splash (was 4)
 		public int webBombRootTicks = 360;
 		public Move impactWeb = new Move(30, 12.0f, 10.0f);
 		/** A full Impact Web charge (ticks of holding past the hold threshold) adds half the damage again. */
@@ -178,6 +178,10 @@ public final class SpiderManConfig {
 			.reset(5, "v0.16.2 Web Yank has no cooldown", "moves.webYank")
 			// v0.16.2 (user request): Web Shot and Web Bomb have no cooldown; Impact Web charges fully in 0.5 s
 			.reset(6, "v0.16.2 no Web Shot / Web Bomb cooldown, 0.5 s Impact Web charge", "moves.webShot", "moves.webBomb", "moves.impactChargeTicks")
+			// v0.16.2 (user request): no more real cobweb blocks from his webs
+			.reset(7, "v0.16.2 webs no longer place cobweb blocks", "webs.placeCobwebs")
+			// v0.16.2 (user request): a bigger Web Bomb
+			.reset(8, "v0.16.2 Web Bomb radius 6", "moves.webBombRadius")
 			.build();
 
 	public static void load() {

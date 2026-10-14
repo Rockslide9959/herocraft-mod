@@ -172,11 +172,15 @@ public class SpiderSuitV2GameTests implements FabricGameTest {
 		helper.assertTrue(SpiderMan.abilityCooldownRemaining(q, SpiderMoves.WEB_WALL) == 0, "v2: no Web Wall");
 		helper.assertTrue(SpiderMan.abilityCooldownRemaining(q, SpiderTripMines.TRIP_MINE) > 0, "v2: the Trip Mine's cooldown");
 		helper.assertTrue(Math.abs(before - SpiderWebReserve.get(q) - SpiderTripMines.COST) < 0.01f, "it costs 10 webbing");
-		helper.assertTrue(mines(helper, q).size() == 1, "v2: Shift+C placed a mine");
-		helper.assertTrue(mines(helper, q).get(0).face() == Direction.UP, "on the floor he was looking at");
-		shiftC(q);
-		helper.assertTrue(mines(helper, q).size() == 1, "the 2-second cooldown holds the next one");
-		helper.succeed();
+		helper.runAfterDelay(6, () -> {
+			helper.assertTrue(mines(helper, q).size() == 1, "v2: Shift+C placed a mine");
+			helper.assertTrue(mines(helper, q).get(0).face() == Direction.UP, "on the floor he was looking at");
+			shiftC(q);
+			helper.runAfterDelay(6, () -> {
+				helper.assertTrue(mines(helper, q).size() == 1, "the 2-second cooldown holds the next one");
+				helper.succeed();
+			});
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -211,7 +215,9 @@ public class SpiderSuitV2GameTests implements FabricGameTest {
 		ServerPlayer p = spider(helper, true);
 		Vec3 at = helper.absoluteVec(new Vec3(3.5, 1.0, 3.5));
 		p.moveTo(at.x, at.y, at.z, 0f, 0f); // facing south, the wall 2.5 blocks ahead
-		SpiderTripMineEntity mine = SpiderTripMines.place(p);
+		SpiderTripMines.place(p); // v0.16.2: shot out like a Web Shot -- it lands a few ticks later
+		helper.runAfterDelay(8, () -> {
+		SpiderTripMineEntity mine = mines(helper, p).isEmpty() ? null : mines(helper, p).get(0);
 		helper.assertTrue(mine != null, "placed");
 		helper.assertTrue(mine.face() == Direction.NORTH, "stuck on the wall's face, pointing back at him (" + mine.face() + ")");
 		Vec3 a = mine.anchor();
@@ -227,6 +233,7 @@ public class SpiderSuitV2GameTests implements FabricGameTest {
 		double expected = start.z - (Math.floor(start.z - 2.6) + 1.0);
 		helper.assertTrue(Math.abs(cut - expected) < 0.05, "a block in the way stops the laser at it (" + cut + " vs " + expected + ")");
 		helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

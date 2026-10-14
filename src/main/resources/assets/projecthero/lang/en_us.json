@@ -5392,5 +5392,19 @@
   "message.projecthero.spider_man.ambush": "Ambush!",
   "projecthero.guide.spider_man.traversal.stealth": "Stealth: mobs notice you from 85% as far when walking, 60% sneaking and 40% wall-crawling, perched or hanging -- less again in the dark. Fighting, getting hit or swinging gives you away for 5 seconds. Your first hit on a mob that hasn't noticed you is an ambush: +50% damage and a 1.5-second stun (every 10 seconds). Break line of sight and stay hidden for 4 seconds and a chasing mob loses track of you. Bosses and the Warden aren't fooled. The eye left of your web boxes shows how hidden you are.",
   "projecthero.spider_man.ability.web_snag": "Web Snag",
-  "projecthero.spider_man.ability.web_snag.desc": "Standing on your tightrope or woven web: reel the mob you aim at onto the strand beside you and cocoon it there."
+  "projecthero.spider_man.ability.web_snag.desc": "Standing on your tightrope or woven web: reel the mob you aim at onto the strand beside you and cocoon it there.",
+  "projecthero.guide.spider_man.traversal.swing.title": "Web Swinging",
+  "projecthero.guide.spider_man.traversal.tricks.title": "Swing Tricks",
+  "projecthero.guide.spider_man.traversal.zip_boost.title": "Zip Boost",
+  "projecthero.guide.spider_man.traversal.crawl.title": "Wall Crawling",
+  "projecthero.guide.spider_man.traversal.wall_run.title": "Wall Run",
+  "projecthero.guide.spider_man.traversal.perch.title": "Perch",
+  "projecthero.guide.spider_man.traversal.stealth.title": "Stealth",
+  "projecthero.guide.spider_man.traversal.rope.title": "Tightropes",
+  "projecthero.guide.spider_man.traversal.hang.title": "Upside-Down Hang",
+  "projecthero.guide.spider_man.traversal.takedown.title": "Inverted Takedown",
+  "projecthero.guide.spider_man.traversal.perfect_dodge.title": "Perfect Dodge",
+  "projecthero.guide.spider_man.traversal.sounds.title": "Sounds",
+  "projecthero.guide.spider_man.traversal.cut.title": "Cutting Webs",
+  "entity.projecthero.trip_mine_shot": "Trip Mine"
 }

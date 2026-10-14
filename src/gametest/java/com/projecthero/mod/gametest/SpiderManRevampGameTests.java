@@ -137,12 +137,15 @@ public class SpiderManRevampGameTests implements FabricGameTest {
 		ServerPlayer p = spider(helper);
 		arena(helper, p);
 		helper.startSequence().thenExecute(() -> {
+			// v0.16.2: Web Shot and Web Bomb have no cooldowns -- they show up as the webbing they spend
+			float before = SpiderMan.state(p).webReserve;
 			tap(p, AbilitySlot.SLOT_1);
-			helper.assertTrue(cd(p, SpiderMoves.WEB_SHOT), "R tap = Web Shot");
+			float afterShot = SpiderMan.state(p).webReserve;
+			helper.assertTrue(afterShot < before, "R tap = Web Shot");
 			helper.assertFalse(cd(p, SpiderMoves.WEB_BOMB) || cd(p, SpiderMoves.IMPACT_WEB), "a tap never cools the Shift / hold moves");
 			shift(p, AbilitySlot.SLOT_1);
-			helper.assertTrue(cd(p, SpiderMoves.WEB_BOMB), "Shift+R = Web Bomb");
-			helper.assertFalse(cd(p, SpiderMoves.IMPACT_WEB), "Web Bomb has its own cooldown");
+			helper.assertTrue(SpiderMan.state(p).webReserve <= afterShot - SpiderMoves.cfg(SpiderMoves.WEB_BOMB).cost + 0.01f, "Shift+R = Web Bomb");
+			helper.assertFalse(cd(p, SpiderMoves.IMPACT_WEB), "Web Bomb never cools Impact Web");
 			press(p, AbilitySlot.SLOT_1, false);
 		}).thenIdle(SpiderMoves.holdTicks() + 2).thenExecute(() -> {
 			SpiderMoves.tick(p);

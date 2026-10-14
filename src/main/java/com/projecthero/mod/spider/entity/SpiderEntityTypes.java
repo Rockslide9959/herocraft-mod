@@ -52,6 +52,15 @@ public final class SpiderEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.16.2: the Suit v2's Trip Mine, shot out like a Web Shot; it becomes a mine on the surface it hits. */
+	public static final EntityType<TripMineShotEntity> TRIP_MINE_SHOT = register("trip_mine_shot",
+			FabricEntityTypeBuilder.<TripMineShotEntity>create(MobCategory.MISC, TripMineShotEntity::new)
+					.dimensions(EntityDimensions.fixed(0.3f, 0.3f))
+					.trackRangeBlocks(64)
+					.trackedUpdateRate(1)
+					.fireImmune()
+					.build());
+
 	/** v0.16.1: the Web Bomb (Shift+R) glob, lobbed in an arc; bursts into the splash where it lands. */
 	public static final EntityType<SpiderWebBombEntity> WEB_BOMB = register("web_bomb",
 			FabricEntityTypeBuilder.<SpiderWebBombEntity>create(MobCategory.MISC, SpiderWebBombEntity::new)

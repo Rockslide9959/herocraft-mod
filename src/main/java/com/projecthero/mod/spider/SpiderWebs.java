@@ -217,6 +217,12 @@ public final class SpiderWebs {
 		long until = target.level().getGameTime() + ticks;
 		COCOONED.merge(target.getId(), until, Math::max);
 
+		if (!boss) {
+			// v0.16.2 (user): every web cocoon is the full one -- the same wrap a Web Shot spins on a mob stuck on his
+			// tightrope / woven web (fully held, cannot attack, shoot or explode), just timed
+			com.projecthero.mod.spider.SpiderWrap.wrapFor(target, ticks);
+			return ticks;
+		}
 		com.projecthero.mod.hero.power.AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN,
 				ticks, boss ? 2 : 6);
 		com.projecthero.mod.hero.power.AbilityHelpers.applyControl(target, MobEffects.WEAKNESS,

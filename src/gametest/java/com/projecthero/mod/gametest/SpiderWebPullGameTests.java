@@ -229,12 +229,20 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 	public void aWebCocoonBreaksOpenWhenItsWebIsGone(GameTestHelper helper) {
 		ServerPlayer p = spider(helper);
 		WebStructureEntity[] rope = new WebStructureEntity[1];
-		Zombie zombie = stuckZombie(helper, p, rope);
+		// a pig (peaceful test worlds remove zombies, and a removed mob still reads as cocooned)
+		Vec3 ra = helper.absoluteVec(new Vec3(0.5, 3.0, 2.5));
+		Vec3 rb = helper.absoluteVec(new Vec3(7.5, 3.0, 2.5));
+		rope[0] = SpiderMoves.buildTightrope(p, ra, rb);
+		net.minecraft.world.entity.animal.Pig zombie = EntityType.PIG.create(helper.getLevel());
+		Vec3 pm = ra.lerp(rb, 0.5);
+		zombie.moveTo(pm.x, pm.y - 0.6, pm.z, 0.0f, 0.0f);
+		helper.getLevel().addFreshEntity(zombie);
 		helper.runAfterDelay(6, () -> {
 			SpiderAbilities.webShotHit(p, zombie);
 			helper.assertTrue(SpiderWrap.isWrapped(zombie), "cocooned on the tightrope");
 			rope[0].dissolve(false);
 			helper.runAfterDelay(80, () -> {
+				helper.assertTrue(zombie.isAlive(), "precondition: still in the world");
 				helper.assertFalse(SpiderWrap.isWrapped(zombie), "its web is gone, so it is no longer left floating");
 				helper.succeed();
 			});
