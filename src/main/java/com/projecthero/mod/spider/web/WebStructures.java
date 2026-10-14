@@ -281,6 +281,11 @@ public final class WebStructures {
 
 	/** The nearest usable web strand (tightrope or woven web -- never a wall panel) on {@code player}'s aim, or null. */
 	public static StrandHit raycastStrand(Player player, double range) {
+		return raycastStrand(player, range, 0.3);
+	}
+
+	/** v0.16.2: the same, with a custom aim tolerance {@code radius} (Web Pin is generous: a strand near the aim counts). */
+	public static StrandHit raycastStrand(Player player, double range, double radius) {
 		Vec3 eye = player.getEyePosition();
 		Vec3 dir = player.getLookAngle();
 		Vec3 to = eye.add(dir.scale(range));
@@ -289,7 +294,7 @@ public final class WebStructures {
 			if (w.geometry().segmentCount() == 0 || !mayUse(player, w.owner())) {
 				continue;
 			}
-			double t = w.geometry().strandRayHit(eye, to, 0.3);
+			double t = w.geometry().strandRayHit(eye, to, radius);
 			if (t < 0.0 || (best != null && t * range >= best.distance())) {
 				continue;
 			}

@@ -2,7 +2,7 @@
   "type": "projecthero:spider_suit_upgrade",
   "category": "equipment",
   "pattern": [
-    " L ",
+    "LML",
     "RHB",
     " S "
   ],
@@ -21,6 +21,9 @@
     },
     "S": {
       "item": "minecraft:string"
+    },
+    "M": {
+      "item": "minecraft:phantom_membrane"
     }
   },
   "result": {

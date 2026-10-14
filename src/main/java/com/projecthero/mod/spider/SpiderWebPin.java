@@ -37,7 +37,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Pin.</b> Shift+V again on one of his woven webs / tightropes or on any solid block face within
  *       {@link #SURFACE_RANGE}: the target is reeled through the air (no gravity, the line from his hand) and set against
  *       it -- back to a wall, standing on a floor, hanging under a ceiling, or with the strand through its chest -- and
- *       cocooned there for {@link #WRAP_TICKS} (25 s, {@link SpiderWrap#wrapFor}). A blocked path stops it at the
+ *       cocooned there for {@link #WRAP_TICKS} (25 s, {@link SpiderWrap#wrapFor}). Blocks in the way do not stop it (v0.16.2): the line drags it through to the
  *       obstruction, cocooned. Aiming at another living thing instead re-marks that one.</li>
  * </ol>
  *
@@ -54,6 +54,8 @@ public final class SpiderWebPin {
 	public static final int WRAP_TICKS = 25 * 20;
 	public static final double REEL_SPEED = 1.35;
 	public static final int REEL_MAX_TICKS = 40;
+	/** v0.16.2: how close (blocks) to the aim a strand of his web may be for the pin to take it. */
+	public static final double WEB_AIM_RADIUS = 1.0;
 	/** The web-line slot (clear of {@link SpiderCombat}'s fixed slots and the Blossom range from 20). */
 	public static final int SLOT_PIN = 12;
 
@@ -125,6 +127,9 @@ public final class SpiderWebPin {
 		}
 		Mark mark = MARKS.get(player.getUUID());
 		LivingEntity current = mark == null ? null : marked(player);
+		if (current == null && snag(player)) {
+			return; // v0.16.2 (user): standing on his tightrope / woven web, Shift+V is still the one-press Web Snag
+		}
 		if (current == null) {
 			MARKS.remove(player.getUUID());
 			LivingEntity target = SpiderCombat.pickTarget(player, MARK_RANGE);
@@ -148,11 +153,12 @@ public final class SpiderWebPin {
 			}
 			return;
 		}
-		WebStructures.StrandHit strand = WebStructures.raycastStrand(player, SURFACE_RANGE);
+		// v0.16.2 (user): a strand near the aim counts (1 block), and wins over a block just behind it
+		WebStructures.StrandHit strand = WebStructures.raycastStrand(player, SURFACE_RANGE, WEB_AIM_RADIUS);
 		Vec3 dest;
 		Surface surface;
 		float yaw = current.getYRot();
-		if (strand != null && strand.distance() <= blockDist) {
+		if (strand != null && strand.distance() <= blockDist + WEB_AIM_RADIUS) {
 			surface = Surface.WEB;
 			dest = strand.point().subtract(0, current.getBbHeight() * 0.6, 0);
 		} else if (block.getType() != HitResult.Type.MISS) {
@@ -253,6 +259,47 @@ public final class SpiderWebPin {
 		player.setAttached(ModAttachments.SPIDER_MOVE_STATE, c);
 	}
 
+	/**
+	 * v0.16.2 (user): Web Snag is back -- standing on one of his tightropes / woven webs, Shift+V on a creature reels it
+	 * straight onto the strand beside him and cocoons it there (one press, Web Pin's cost and cooldown). False when he
+	 * is not on a web or nothing valid is aimed at (then the normal Web Pin mark runs).
+	 */
+	private static boolean snag(ServerPlayer player) {
+		WebStructures.StrandHit under = WebStructures.strandAtFeet(player);
+		if (under == null) {
+			return false;
+		}
+		LivingEntity target = SpiderCombat.pickTarget(player, MARK_RANGE);
+		if (target == null || !markable(player, target)) {
+			return false;
+		}
+		if (tooBig(target)) {
+			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
+			return true;
+		}
+		if (!SpiderAbilities.gate(player, WEB_PIN, cost())) {
+			return true;
+		}
+		Vec3 toward = target.position().subtract(player.position());
+		Vec3 flat = new Vec3(toward.x, 0, toward.z);
+		flat = flat.lengthSqr() < 1.0e-4 ? player.getLookAngle() : flat.normalize();
+		Vec3 onWeb = WebStructures.nearestPoint(player, under.point().add(flat.scale(1.6)), 3.0);
+		if (onWeb == null) {
+			onWeb = under.point();
+		}
+		Vec3 dest = onWeb.subtract(0, target.getBbHeight() * 0.6, 0);
+		SpiderWrap.release(target, false);
+		WebStructures.tearFree(target);
+		REELS.put(player.getUUID(), new Reel(target.getId(), player.level().getGameTime(), dest, Surface.WEB, target.getYRot(),
+				target.isNoGravity()));
+		target.setNoGravity(true);
+		SpiderCombat.sendStrand(player, SLOT_PIN, target, SpiderCombat.center(target), REEL_MAX_TICKS + 10, 0);
+		SpiderMoves.anim(player, SpiderAnim.THWIP_BOTH);
+		SpiderMoves.thwip(player, 0.9f);
+		SpiderAbilities.fired(player, WEB_PIN, cost(), COOLDOWN);
+		return true;
+	}
+
 	/** Nudge a wall spot up (up to two blocks) until the body fits there -- feet off the ground if needed. */
 	private static Vec3 clearOfBlocks(LivingEntity e, Vec3 dest) {
 		for (int i = 0; i <= 8; i++) {
@@ -303,9 +350,10 @@ public final class SpiderWebPin {
 			return;
 		}
 		Vec3 step = delta.scale(REEL_SPEED / dist);
-		boolean blocked = !level.noCollision(target, target.getBoundingBox().move(step));
-		if (blocked || age >= REEL_MAX_TICKS) {
-			land(player, target, r); // stopped at the obstruction: cocooned right there
+		// v0.16.2 (user): nothing in the way stops it -- the line drags it through to the surface he picked
+		if (age >= REEL_MAX_TICKS) {
+			target.teleportTo(r.dest().x, r.dest().y, r.dest().z);
+			land(player, target, r);
 			return;
 		}
 		// reeled straight in along the line -- no gravity fighting it

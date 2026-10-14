@@ -3,7 +3,7 @@
   "category": "equipment",
   "pattern": [
     "RHB",
-    "L L"
+    "LML"
   ],
   "key": {
     "R": {
@@ -17,6 +17,9 @@
     },
     "L": {
       "item": "minecraft:leather"
+    },
+    "M": {
+      "item": "minecraft:phantom_membrane"
     }
   },
   "result": {

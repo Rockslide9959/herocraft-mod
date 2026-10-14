@@ -235,4 +235,58 @@ public class SpiderWebPinGameTests implements FabricGameTest {
 		helper.assertTrue(SpiderMoves.maxCooldown(SpiderMoves.WEB_PIN) == 60, "a 3 s cooldown");
 		helper.succeed();
 	}
+
+	/** v0.16.2 (user): blocks in the way do not stop the reel -- it ends on the surface he picked, not on the obstacle. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void pinPassesObstaclesToTheChosenWall(GameTestHelper helper) {
+		floor(helper);
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(7, 1, 0)), helper.absolutePos(new BlockPos(7, 5, 7)))) {
+			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+		}
+		// a pillar right across the reel's path
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(5, 1, 3)), helper.absolutePos(new BlockPos(5, 4, 5)))) {
+			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
+		}
+		ServerPlayer p = standingAt(helper, 1.5, 1.5);
+		Zombie zombie = zombie(helper, 2.5, 5.5);
+		aim(p, zombie.position().add(0, 1.0, 0));
+		shiftV(p);
+		Vec3 wallSpot = helper.absoluteVec(new Vec3(7.0, 2.6, 1.5)); // his aim is clear; only the zombie's path crosses the pillar
+		aim(p, wallSpot);
+		shiftV(p);
+		helper.assertTrue(SpiderWebPin.reelSurface(p) == SpiderWebPin.Surface.WALL, "reeling to the wall");
+		helper.runAfterDelay(45, () -> {
+			finishReel(p);
+			helper.assertTrue(SpiderWrap.isWrapped(zombie), "cocooned");
+			double wallX = helper.absoluteVec(new Vec3(7.0, 0, 0)).x;
+			double gap = wallX - zombie.getBoundingBox().maxX;
+			helper.assertTrue(gap >= -0.01 && gap < 0.25, "on the wall he picked, not stuck on the pillar (gap " + gap + ")");
+			SpiderWrap.release(zombie, false);
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.2 (user): standing on his tightrope, Shift+V is still the one-press Web Snag onto the strand. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void snagStillWorksStandingOnHisWeb(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = standingAt(helper, 4.0, 1.5);
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 4.0, 1.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 4.0, 1.5));
+		com.projecthero.mod.spider.web.WebStructureEntity rope = SpiderMoves.buildTightrope(p, a, b);
+		Vec3 mid = a.lerp(b, 0.5);
+		p.teleportTo(mid.x, mid.y + 0.03, mid.z);
+		Zombie zombie = zombie(helper, 4.0, 6.5);
+		aim(p, zombie.position().add(0, 1.0, 0));
+		shiftV(p);
+		helper.assertTrue(SpiderWebPin.marked(p) == null, "no two-step mark on his web");
+		helper.assertTrue(SpiderWebPin.reelSurface(p) == SpiderWebPin.Surface.WEB, "one press reels it onto his web");
+		helper.runAfterDelay(30, () -> {
+			finishReel(p);
+			helper.assertTrue(SpiderWrap.isWrapped(zombie), "snagged and cocooned");
+			helper.assertTrue(com.projecthero.mod.spider.web.WebStructures.strandHolding(zombie) == rope, "on his tightrope");
+			SpiderWrap.release(zombie, false);
+			helper.succeed();
+		});
+	}
 }

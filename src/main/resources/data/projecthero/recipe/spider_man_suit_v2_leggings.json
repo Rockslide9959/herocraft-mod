@@ -4,7 +4,7 @@
   "pattern": [
     "RLB",
     "LHL",
-    "S S"
+    "SMS"
   ],
   "key": {
     "R": {
@@ -21,6 +21,9 @@
     },
     "S": {
       "item": "minecraft:string"
+    },
+    "M": {
+      "item": "minecraft:phantom_membrane"
     }
   },
   "result": {

@@ -55,7 +55,7 @@ public final class SpiderManConfig {
 		/** Ticks a key must be held before the hold move takes over (the tap fires on a shorter release). */
 		public int holdTicks = 8;
 		/** v0.16.1: Web Bomb / Impact Web / Web Blossom also spin REAL cobweb blocks (temporary, never dropped as items). */
-		public boolean placeCobwebs = false; // v0.16.2 (user): his webs no longer leave cobweb blocks in the world
+		public boolean placeCobwebs = true; // v0.16.2: back on (user) -- Web Bomb / Impact Web / Blossom leave real cobwebs again
 		/** How long those cobwebs last (ticks) before they are taken away again. */
 		public int cobwebTicks = 360;
 		/** At most this many cobwebs per cast, and this many of his cobwebs in the world at once (the oldest go first). */
@@ -182,6 +182,8 @@ public final class SpiderManConfig {
 			.reset(7, "v0.16.2 webs no longer place cobweb blocks", "webs.placeCobwebs")
 			// v0.16.2 (user request): a bigger Web Bomb
 			.reset(8, "v0.16.2 Web Bomb radius 6", "moves.webBombRadius")
+			// v0.16.2 (user): cobwebs back on -- v7 turned them off by mistake
+			.reset(9, "v0.16.2 cobwebs back on", "webs.placeCobwebs")
 			.build();
 
 	public static void load() {
