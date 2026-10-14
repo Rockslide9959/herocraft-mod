@@ -203,6 +203,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 		}
 		com.projecthero.mod.client.spider.SpiderSenseFx.initialize(); // v0.16.1: tingle lines, projectile paths, hidden-threat shimmer
+		com.projecthero.mod.client.spider.SpiderReflexClient.initialize(); // v0.16.2: Inverted Takedown + perfect dodge
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.spider.SpiderMaskAnim::hud); // v0.16.2: the mask passing over the eyes
 		com.projecthero.mod.client.thor.ThorLightningArcRenderer.initialize();
 		com.projecthero.mod.client.thor.ThorFxRenderer.initialize(); // v0.14.4: shockwave rings, the Wrath charge, suit-up bolts
