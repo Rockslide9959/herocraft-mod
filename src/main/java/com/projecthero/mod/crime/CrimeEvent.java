@@ -424,6 +424,15 @@ public abstract class CrimeEvent extends EventInstance {
 				emeralds += r.topHelperBonusEmeralds;
 			}
 			give(p, new ItemStack(Items.EMERALD, emeralds));
+			// v0.16.4 (user): iron ingots and a meal from the village as well
+			int iron = roll(level, r.ironMin, r.ironMax, share) + (isTop ? r.topHelperBonusIron : 0);
+			if (iron > 0) {
+				give(p, new ItemStack(Items.IRON_INGOT, iron));
+			}
+			int food = roll(level, r.foodMin, r.foodMax, share);
+			if (food > 0) {
+				give(p, new ItemStack(REWARD_FOOD[level.random.nextInt(REWARD_FOOD.length)], food));
+			}
 			p.giveExperiencePoints(Math.max(1, (int) Math.round(r.experience * share)));
 			int gossip = isTop ? r.gossipTopHelper : r.gossipHelpers;
 			if (gossip > 0) {
@@ -435,13 +444,27 @@ public abstract class CrimeEvent extends EventInstance {
 				p.addEffect(new MobEffectInstance(MobEffects.HERO_OF_THE_VILLAGE, r.heroOfTheVillageSeconds * 20, 0, false, true, true));
 			}
 			p.sendSystemMessage(Component.translatable(isTop ? "event.projecthero.crime.thanks_top" : "event.projecthero.crime.thanks",
-					displayName(), villageName, emeralds).withStyle(ChatFormatting.GREEN));
+					displayName(), villageName, emeralds, iron).withStyle(ChatFormatting.GREEN));
 			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
 					Component.translatable("event.projecthero.crime.stopped", displayName()).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
 		}
 		Vec3 at = scene(level);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.VILLAGER_CELEBRATE, SoundSource.NEUTRAL, 1.5f, 1.0f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.2f);
+	}
+
+	/** v0.16.4: what the village feeds its hero. */
+	private static final net.minecraft.world.item.Item[] REWARD_FOOD = {Items.BREAD, Items.BAKED_POTATO, Items.COOKED_BEEF,
+			Items.COOKED_CHICKEN, Items.COOKED_PORKCHOP, Items.COOKED_MUTTON};
+
+	/** lo..hi (either order) scaled by {@code share}; 0 when both are 0. */
+	private static int roll(ServerLevel level, int a, int b, double share) {
+		int lo = Math.max(0, Math.min(a, b));
+		int hi = Math.max(0, Math.max(a, b));
+		if (hi == 0) {
+			return 0;
+		}
+		return Math.max(1, (int) Math.round((lo + level.random.nextInt(hi - lo + 1)) * share));
 	}
 
 	private static void give(ServerPlayer p, ItemStack stack) {

@@ -70,7 +70,7 @@ values and version.
 | `projecthero_galactus.json` | `galactus/GalactusConfig` | 1 | 1 introduce (v0.16.1 Galactus: The Devourer; every section balance except `trigger` -- only `trigger.chancePerDay` is) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_spider_man.json` | `spider/SpiderManConfig` | 1 | 1 introduce (v0.16.1 Spider-Man revamp; `moves` is balance, `webs` is the server's) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_thor.json` | `power/ThorConfig` | 1 | 1 introduce (v0.16.1 storm buff, dual-wield combo, Twin Thunder Strike, Thunder Field; every section is balance) | No. New in v0.16.1 and versioned from the start. |
-| `projecthero_crime.json` | `crime/CrimeConfig` | 1 | 1 introduce (v0.16.2 street crime; `trigger` is the server's, every other section is balance) | No. New in v0.16.2 and versioned from the start. |
+| `projecthero_crime.json` | `crime/CrimeConfig` | 2 | 1 introduce (v0.16.2 street crime; `trigger` is the server's, every other section is balance), 2 introduce rewards iron/food keys (v0.16.4) | No. New keys only, defaults fill in. |
 | `projecthero_city.json` | `city/CityConfig` | 1 | 1 introduce (v0.16.2 City part B: repair, cops, doctor, firefighter, bank, Daily Bulletin; `repair` and `bank` are the server's, `cops` / `doctor` / `firefighter` / `bulletin` are balance; `repairDelayTicks` is clamped to 1200-72000 on load) | No. New in v0.16.2 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration

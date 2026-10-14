@@ -11,6 +11,7 @@ public final class CrimeConfig {
 	public static final VersionedConfig<CrimeConfig> SPEC = VersionedConfig.builder(CrimeConfig.class, "projecthero_crime.json", CrimeConfig::new)
 			.balance("mugging", "breakIn", "getaway", "arson", "rewards")
 			.introduce(1, "v0.16.2 crime events")
+			.introduce(2, "v0.16.4 rewards.ironMin/ironMax/topHelperBonusIron/foodMin/foodMax")
 			.build();
 
 	private static CrimeConfig instance = new CrimeConfig();
@@ -108,6 +109,13 @@ public final class CrimeConfig {
 		public int emeraldsMin = 3;
 		public int emeraldsMax = 6;
 		public int topHelperBonusEmeralds = 2;
+		/** v0.16.4 (user): iron ingots too, same share rule as the emeralds. */
+		public int ironMin = 2;
+		public int ironMax = 4;
+		public int topHelperBonusIron = 1;
+		/** v0.16.4 (user): and some food from the village (bread, baked potatoes, cooked meat...). */
+		public int foodMin = 3;
+		public int foodMax = 6;
 		public int experience = 20;
 		/** Hero of the Village (better trades) for the top helper. 0 turns it off. */
 		public int heroOfTheVillageSeconds = 180;

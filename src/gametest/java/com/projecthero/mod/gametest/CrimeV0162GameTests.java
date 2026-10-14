@@ -199,6 +199,9 @@ public class CrimeV0162GameTests implements FabricGameTest {
 		int emeralds = hero.getInventory().countItem(Items.EMERALD);
 		int least = Math.min(CrimeConfig.rewards().emeraldsMin, CrimeConfig.rewards().emeraldsMax) + CrimeConfig.rewards().topHelperBonusEmeralds;
 		helper.assertTrue(emeralds >= least, "the top helper gets at least " + least + " emeralds, got " + emeralds);
+		int ironLeast = Math.min(CrimeConfig.rewards().ironMin, CrimeConfig.rewards().ironMax) + CrimeConfig.rewards().topHelperBonusIron;
+		helper.assertTrue(hero.getInventory().countItem(Items.IRON_INGOT) >= ironLeast, "v0.16.4: and at least " + ironLeast + " iron ingots");
+		helper.assertTrue(hero.getInventory().items.stream().anyMatch(st -> st.has(net.minecraft.core.component.DataComponents.FOOD)), "v0.16.4: and some food");
 		helper.assertTrue(hero.hasEffect(MobEffects.HERO_OF_THE_VILLAGE), "and Hero of the Village");
 		helper.assertTrue(v.getGossips().getReputation(hero.getUUID(), t -> t == GossipType.MINOR_POSITIVE) > 0,
 				"and the villagers speak well of them");
