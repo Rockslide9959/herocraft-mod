@@ -360,7 +360,13 @@ public final class HulkRampageClient {
 		int hx = cx + Math.round(target * RING_START) + 12;
 		int col = (mc.level.getGameTime() / 6L) % 2L == 0L ? 0xFFFF5544 : 0xFF7CFF4A;
 		g.drawString(mc.font, title, hx, cy - 10, col, false);
-		g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.ring_hint"), hx, cy + 1, 0xFFC0C0C0, false);
+		// v0.16.4 (screenshot check): wrapped to the space right of the ring -- it ran off a small window
+		int room = Math.max(60, g.guiWidth() - hx - 8);
+		int ly = cy + 1;
+		for (net.minecraft.util.FormattedCharSequence line : mc.font.split(Component.translatable("hud.projecthero.hulk.ring_hint"), room)) {
+			g.drawString(mc.font, line, hx, ly, 0xFFC0C0C0, false);
+			ly += 9;
+		}
 	}
 
 	/** A circle outline of radius {@code r} (GUI pixels), {@code thick} wide. */
