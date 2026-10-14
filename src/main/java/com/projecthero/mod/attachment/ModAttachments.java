@@ -945,6 +945,14 @@ public final class ModAttachments {
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.2: when a timed cocoon ({@link #SPIDER_WRAPPED} from three quick Web Shots) breaks open, absolute game time;
+	 * absent / 0 = the permanent tightrope / weave cocoon. Persistent with the entity, not synced.
+	 */
+	public static final AttachmentType<Long> SPIDER_WRAP_UNTIL = AttachmentRegistry.create(
+			ProjectHeroMod.id("spider_wrap_until"),
+			builder -> builder.persistent(Codec.LONG));
+
+	/**
 	 * v0.16.2: the player's Physics Flight attitude (Physics mode on / off, roll in degrees), reported by their own client
 	 * and shared so everyone sees the body bank and roll ({@link com.projecthero.mod.flight.FlightAttitude}). Cosmetic
 	 * only. Not persistent; synced to everyone.

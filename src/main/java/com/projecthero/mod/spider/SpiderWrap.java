@@ -52,7 +52,10 @@ import net.minecraft.world.phys.Vec3;
  * attachment as entities load; {@link #clearSessionState} drops them with the world.
  */
 public final class SpiderWrap {
-	private record Pin(ResourceKey<Level> dim, Vec3 at) {
+	/** v0.16.2: ticks after a cocoon is pinned (or loaded) before a missing web frees it. */
+	private static final long WEB_GONE_GRACE = 40L;
+
+	private record Pin(ResourceKey<Level> dim, Vec3 at, long since) {
 	}
 
 	/** entity id -> where it hangs (server, loaded entities only). */
@@ -64,7 +67,7 @@ public final class SpiderWrap {
 	public static void initialize() {
 		ServerEntityEvents.ENTITY_LOAD.register((e, level) -> {
 			if (e instanceof LivingEntity && isWrapped(e)) {
-				PINS.put(e.getId(), new Pin(level.dimension(), e.position()));
+				PINS.put(e.getId(), new Pin(level.dimension(), e.position(), level.getGameTime()));
 			}
 		});
 		ServerEntityEvents.ENTITY_UNLOAD.register((e, level) -> PINS.remove(e.getId()));
@@ -95,7 +98,8 @@ public final class SpiderWrap {
 		}
 		boolean fresh = !isWrapped(e);
 		e.setAttached(ModAttachments.SPIDER_WRAPPED, true);
-		PINS.putIfAbsent(e.getId(), new Pin(level.dimension(), e.position()));
+		e.removeAttached(ModAttachments.SPIDER_WRAP_UNTIL); // the tightrope / weave cocoon is for good
+		PINS.putIfAbsent(e.getId(), new Pin(level.dimension(), e.position(), level.getGameTime()));
 		hold(e, PINS.get(e.getId()).at());
 		if (fresh) {
 			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
@@ -105,6 +109,19 @@ public final class SpiderWrap {
 		}
 	}
 
+	/**
+	 * v0.16.2 (user request): the same full cocoon for {@code ticks} only -- three quick Web Shots on a creature. A
+	 * cocoon that is already permanent stays permanent. The deadline is saved with the entity.
+	 */
+	public static void wrapFor(LivingEntity e, int ticks) {
+		boolean permanent = isWrapped(e) && e.getAttachedOrElse(ModAttachments.SPIDER_WRAP_UNTIL, 0L) == 0L;
+		if (permanent) {
+			return;
+		}
+		wrap(e);
+		e.setAttached(ModAttachments.SPIDER_WRAP_UNTIL, e.level().getGameTime() + ticks);
+	}
+
 	/** Cut the cocoon off {@code e} (sneak + right-click, or a pull). Returns true when it was cocooned. */
 	public static boolean release(Entity e, boolean effects) {
 		PINS.remove(e.getId());
@@ -112,6 +129,7 @@ public final class SpiderWrap {
 			return false;
 		}
 		e.removeAttached(ModAttachments.SPIDER_WRAPPED);
+		e.removeAttached(ModAttachments.SPIDER_WRAP_UNTIL);
 		if (effects && e.level() instanceof ServerLevel level) {
 			Vec3 c = e.position().add(0, e.getBbHeight() * 0.5, 0);
 			level.sendParticles(ParticleTypes.ITEM_COBWEB, c.x, c.y, c.z, 14, e.getBbWidth() * 0.4, e.getBbHeight() * 0.4,
@@ -149,6 +167,20 @@ public final class SpiderWrap {
 			ServerLevel level = server.getLevel(en.getValue().dim());
 			Entity e = level == null ? null : level.getEntity(en.getKey());
 			if (!(e instanceof LivingEntity le) || !le.isAlive() || !isWrapped(le)) {
+				return true;
+			}
+			long until = le.getAttachedOrElse(ModAttachments.SPIDER_WRAP_UNTIL, 0L);
+			if (until > 0L && level.getGameTime() >= until) {
+				release(le, true); // v0.16.2: a timed (three-Web-Shot) cocoon breaks open
+				return true;
+			}
+			// v0.16.2 (user): a web cocoon (permanent) breaks open once no web is holding it -- the web faded, or the
+			// world was left and rejoined (webs do not survive that) -- instead of leaving it floating forever. A short
+			// grace after loading lets the webs around it load first.
+			if (until == 0L && level.getGameTime() % 20 == 0
+					&& level.getGameTime() - en.getValue().since() > WEB_GONE_GRACE
+					&& com.projecthero.mod.spider.web.WebStructures.strandHolding(le) == null) {
+				release(le, true);
 				return true;
 			}
 			hold(le, en.getValue().at());

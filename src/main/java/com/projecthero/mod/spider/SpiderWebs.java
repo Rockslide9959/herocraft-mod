@@ -48,8 +48,10 @@ public final class SpiderWebs {
 	public static final int NET_LIFETIME_TICKS = 25 * 20;
 	/** Spec section 18: a cocooned ordinary mob is out of the fight for five seconds (default). */
 	public static final int COCOON_TICKS = 5 * 20;
-	/** v0.6.20: the pin that fires automatically on the third Web Shot stickiness stack -- 12 seconds. */
-	public static final int WEB_SHOT_COCOON_TICKS = 12 * 20;
+	/** v0.16.2 (user): three quick Web Shots spin the full cocoon (SpiderWrap) for 25 s (was a 12 s pin). */
+	public static final int WEB_SHOT_COCOON_TICKS = 25 * 20;
+
+
 
 	/**
 	 * v0.6.20: Web Shot stickiness. Each hit adds a stack (max {@link #MAX_STICK_STACKS}); the window is
@@ -144,6 +146,36 @@ public final class SpiderWebs {
 		return debuffTicks(target, SpiderManConfig.moves().webDebuffTicks);
 	}
 
+
+	// ---------------- v0.16.2: web-bombed shooters cannot fire ----------------
+
+	/** entity id -> game time its guns / bows / fireballs are webbed up until (Web Bomb). Server only, transient. */
+	private static final java.util.Map<Integer, Long> GUNKED = new java.util.concurrent.ConcurrentHashMap<>();
+
+
+	/** Web Bomb caught {@code e}: no projectile it fires spawns for {@code ticks} ({@code ServerLevelGunkMixin}). */
+	public static void gunk(LivingEntity e, int ticks) {
+		if (ticks > 0) {
+			GUNKED.merge(e.getId(), e.level().getGameTime() + ticks, Math::max);
+		}
+	}
+
+	/** True while {@code e} is webbed up and may not fire projectiles. */
+	public static boolean gunked(Entity e) {
+		Long until = GUNKED.get(e.getId());
+		if (until == null) {
+			return false;
+		}
+		if (!e.isAlive() || e.level().getGameTime() >= until) {
+			GUNKED.remove(e.getId());
+			return false;
+		}
+		return true;
+	}
+
+	public static void clearGunk() {
+		GUNKED.clear();
+	}
 	public static boolean isBoss(LivingEntity target) {
 		return target.getMaxHealth() >= BOSS_HEALTH
 				|| target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon

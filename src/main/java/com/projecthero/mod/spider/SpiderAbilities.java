@@ -325,7 +325,10 @@ public final class SpiderAbilities {
 			AbilityHelpers.applyControl(target, MobEffects.JUMP, ticks, -(stacks + 1));
 		}
 		if (!boss && stacks >= SpiderWebs.MAX_STICK_STACKS) {
-			SpiderWebs.cocoonFor(player, target, SpiderManConfig.moves().webDebuffTicks);
+			// v0.16.2 (user request): three quick Web Shots spin the full cocoon (as on a tightrope / woven web) for 25 s
+			// -- half that on a player
+			SpiderWrap.wrapFor(target, target instanceof net.minecraft.world.entity.player.Player
+					? SpiderWebs.WEB_SHOT_COCOON_TICKS / 2 : SpiderWebs.WEB_SHOT_COCOON_TICKS);
 			SpiderWebs.clearStickStacks(target);
 			level.playSound(null, target.blockPosition(), SoundEvents.SPIDER_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 0.6f);
 			AbilityHelpers.burst(level, mid, ParticleTypes.CLOUD, 12, 0.4);

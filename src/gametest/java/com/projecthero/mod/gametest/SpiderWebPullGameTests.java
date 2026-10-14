@@ -84,9 +84,8 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 			Vec3 at = zombie.position();
 			helper.assertFalse(p.hurt(helper.getLevel().damageSources().mobAttack(zombie), 4.0f),
 					"a cocooned mob cannot hurt anyone");
-			rope[0].dissolve(false);
-			helper.runAfterDelay(10, () -> {
-				helper.assertTrue(SpiderWrap.isWrapped(zombie), "the cocoon is permanent -- it outlives the web");
+			helper.runAfterDelay(30, () -> {
+				helper.assertTrue(SpiderWrap.isWrapped(zombie), "the cocoon holds for as long as its web does");
 				helper.assertTrue(zombie.position().distanceTo(at) < 0.3, "and it hangs exactly where it was (did not fall)");
 				helper.assertTrue(SpiderWrap.release(zombie, true), "cut free (sneak + right-click)");
 				helper.assertFalse(SpiderWrap.isWrapped(zombie), "no longer cocooned");
@@ -222,6 +221,64 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 		double bottom2 = SpiderMoves.hangBoxBottom(anchor, len2);
 		double blockTop = helper.absoluteVec(new Vec3(0, 3.0, 0)).y;
 		helper.assertTrue(bottom2 > blockTop && bottom2 < blockTop + 0.4, "stops above a block under him (" + bottom2 + ")");
+		helper.succeed();
+	}
+
+	/** v0.16.2 (user): the web a cocoon hangs on goes (faded, or the world was left) -- the cocoon breaks open too. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aWebCocoonBreaksOpenWhenItsWebIsGone(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		WebStructureEntity[] rope = new WebStructureEntity[1];
+		Zombie zombie = stuckZombie(helper, p, rope);
+		helper.runAfterDelay(6, () -> {
+			SpiderAbilities.webShotHit(p, zombie);
+			helper.assertTrue(SpiderWrap.isWrapped(zombie), "cocooned on the tightrope");
+			rope[0].dissolve(false);
+			helper.runAfterDelay(80, () -> {
+				helper.assertFalse(SpiderWrap.isWrapped(zombie), "its web is gone, so it is no longer left floating");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.16.2 (user): three quick Web Shots spin the same full cocoon -- for 25 s, then it breaks open. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void threeWebShotsCocoonForTwentyFiveSeconds(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 1.0, 4.5));
+		zombie.moveTo(at.x, at.y, at.z, 0f, 0f);
+		helper.getLevel().addFreshEntity(zombie);
+		for (int i = 0; i < 3; i++) {
+			zombie.invulnerableTime = 0;
+			SpiderAbilities.webShotHit(p, zombie);
+		}
+		helper.assertTrue(SpiderWrap.isWrapped(zombie), "three shots: the full cocoon");
+		long until = zombie.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.SPIDER_WRAP_UNTIL, 0L);
+		long left = until - helper.getLevel().getGameTime();
+		helper.assertTrue(left > 480 && left <= 500, "for 25 seconds (" + left + " ticks left)");
+		helper.assertFalse(p.hurt(helper.getLevel().damageSources().mobAttack(zombie), 4.0f), "and it cannot hurt anyone meanwhile");
+		SpiderWrap.release(zombie, false);
+		helper.succeed();
+	}
+
+	/** v0.16.2 (user): something caught by a Web Bomb cannot fire projectiles while it is webbed up. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aWebBombedShooterCannotFire(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		net.minecraft.world.entity.monster.Skeleton skel = EntityType.SKELETON.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 1.0, 4.5));
+		skel.moveTo(at.x, at.y, at.z, 0f, 0f);
+		helper.getLevel().addFreshEntity(skel);
+		com.projecthero.mod.spider.SpiderMoves.webBombBurst(p, skel.position().add(0, 1, 0));
+		net.minecraft.world.entity.projectile.Arrow arrow = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), skel,
+				new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ARROW), null);
+		helper.assertFalse(helper.getLevel().addFreshEntity(arrow), "a web-bombed skeleton's arrow never leaves the bow");
+		com.projecthero.mod.spider.SpiderWebs.clearGunk();
+		net.minecraft.world.entity.projectile.Arrow arrow2 = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), skel,
+				new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ARROW), null);
+		helper.assertTrue(helper.getLevel().addFreshEntity(arrow2), "once free of the webbing it can shoot again");
+		arrow2.discard();
 		helper.succeed();
 	}
 }

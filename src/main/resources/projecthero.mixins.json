@@ -3,6 +3,7 @@
 	"package": "com.projecthero.mod.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"ServerLevelGunkMixin",
 		"SpiderStealthVisibilityMixin",
 		"LegacyItemIdMixin",
 		"LegacyItemIdDefaultedMixin",

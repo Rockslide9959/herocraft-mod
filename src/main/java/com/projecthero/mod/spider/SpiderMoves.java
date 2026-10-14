@@ -563,7 +563,8 @@ public final class SpiderMoves {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(m.webBombRadius),
 				x -> harmable(player, x) && x.distanceToSqr(at) <= m.webBombRadius * m.webBombRadius * 1.5)) {
 			AbilityHelpers.hurt(player, e, cfg(WEB_BOMB).damage);
-			SpiderWebs.cocoonFor(player, e, m.webBombRootTicks);
+			int held = SpiderWebs.cocoonFor(player, e, m.webBombRootTicks);
+			SpiderWebs.gunk(e, held); // v0.16.2 (user): web-bombed, it cannot fire projectiles while held
 			SpiderWebs.addStickStack(e, level.getGameTime());
 			e.setDeltaMovement(0, Math.min(0.0, e.getDeltaMovement().y), 0);
 			e.hurtMarked = true;
