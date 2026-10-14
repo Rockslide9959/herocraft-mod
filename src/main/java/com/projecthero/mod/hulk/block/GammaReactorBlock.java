@@ -17,7 +17,8 @@ import org.joml.Vector3f;
  * climb ({@code Hulk#tick}); nothing else happens to anyone else. Pickaxe-mined, drops itself.
  *
  * <p>v0.13.21: right-clicking it with the Gamma Serum in your blood overloads it -- a huge explosion you survive
- * because it makes you the Hulk ({@link com.projecthero.mod.hulk.GammaOverload}).
+ * because it makes you the Hulk ({@link com.projecthero.mod.hulk.GammaOverload}). v0.16.4: first a 10-second green flash you
+ * absorb on your knees, then the blast, a trip into your own mind ({@link com.projecthero.mod.hulk.HulkMind}) and the slow change.
  */
 public class GammaReactorBlock extends Block {
 	private static final DustParticleOptions GLOW = new DustParticleOptions(new Vector3f(0.35f, 1.0f, 0.25f), 1.0f);

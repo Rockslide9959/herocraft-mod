@@ -837,9 +837,10 @@ public class HulkGameTests implements FabricGameTest {
 		com.projecthero.mod.hulk.GammaOverload.onReactorUsed(p, at);
 		boolean started = com.projecthero.mod.hulk.GammaOverload.overloading(at);
 		// never let it actually go off in the test world
-		com.projecthero.mod.hulk.GammaOverload.cancel(at);
+		com.projecthero.mod.hulk.GammaOverload.cancel(helper.getLevel(), at);
 		helper.assertTrue(started, "dosed: the reactor goes critical");
-		helper.assertFalse(com.projecthero.mod.hulk.GammaOverload.isDosed(p), "the dose is spent");
+		// v0.16.4: the dose is only spent when the reactor blows with him still absorbing its flash
+		helper.assertTrue(com.projecthero.mod.hulk.GammaOverload.isDosed(p), "the dose is kept until the blast");
 		helper.succeed();
 	}
 

@@ -31,6 +31,8 @@ public class PowerRingLayer extends RenderLayer<AbstractClientPlayer, PlayerMode
 	@Override
 	public void render(PoseStack pose, MultiBufferSource buffers, int packedLight, AbstractClientPlayer player,
 			float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+		// v0.16.4 (user): a player soaking up a Gamma Reactor's flash glows green, stronger as it builds
+		com.projecthero.mod.client.hulk.GammaOriginClient.renderGlow(pose, buffers, player, getParentModel(), ageInTicks);
 		if (!GreenLanternHandRenderer.hasAnything(player)) {
 			return;
 		}

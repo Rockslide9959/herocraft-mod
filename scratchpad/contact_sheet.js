@@ -1,22 +1,16 @@
-// node scratchpad/contact_sheet.js <outPrefix> <files...> : 3 columns x N rows of half-size thumbnails, 18 per sheet
-const png = require('./pnglib.js');
-const [, , out, ...files] = process.argv;
-const K = 2, COLS = 3, PER = 18;
-for (let s = 0; s * PER < files.length; s++) {
-	const group = files.slice(s * PER, s * PER + PER);
-	const first = png.read(group[0]);
-	const tw = Math.floor(first.w / K), th = Math.floor(first.h / K);
-	const rows = Math.ceil(group.length / COLS);
-	const W = tw * COLS, H = th * rows;
-	const data = Buffer.alloc(W * H * 4, 255);
-	group.forEach((f, i) => {
-		const img = png.read(f);
-		const ox = (i % COLS) * tw, oy = Math.floor(i / COLS) * th;
-		for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-			const si = ((y * K) * img.w + x * K) * 4, di = ((oy + y) * W + ox + x) * 4;
-			img.data.copy(data, di, si, si + 4); data[di + 3] = 255;
-		}
-	});
-	png.write(`${out}_${s + 1}.png`, { w: W, h: H, data });
-	console.log(`${out}_${s + 1}.png`, group.map(f => f.split('/').pop()).join(' | '));
-}
+// contact sheet: node contact_sheet.js out.png cols scale img1 img2 ...
+const p = require('./pnglib.js');
+const [, , out, colsS, scaleS, ...files] = process.argv;
+const cols = +colsS, sc = +scaleS;
+const imgs = files.map(f => p.read(f));
+const w = Math.round(imgs[0].W * sc), h = Math.round(imgs[0].H * sc);
+const rows = Math.ceil(imgs.length / cols), W = cols * w + (cols - 1) * 4, H = rows * h + (rows - 1) * 4;
+const o = Buffer.alloc(W * H * 4, 255);
+imgs.forEach((im, i) => {
+	const ox = (i % cols) * (w + 4), oy = Math.floor(i / cols) * (h + 4);
+	for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+		const sx = Math.min(im.W - 1, Math.floor(x / sc)), sy = Math.min(im.H - 1, Math.floor(y / sc));
+		im.px.copy(o, ((oy + y) * W + ox + x) * 4, (sy * im.W + sx) * 4, (sy * im.W + sx) * 4 + 4);
+	}
+});
+p.write(out, W, H, o);

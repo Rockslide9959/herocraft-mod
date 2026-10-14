@@ -88,6 +88,7 @@ public final class Hulk {
 		HulkControl.clearSessionState();
 		HulkCalm.clearSessionState();
 		GammaOverload.clearSessionState();
+		HulkMind.clearSessionState(); // v0.16.4: live mind sessions
 	}
 
 	// ---------------------------------------------------------------- state

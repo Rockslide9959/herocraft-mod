@@ -980,6 +980,22 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> com.projecthero.mod.flight.FlightAttitude.NONE)
 					.syncWith(com.projecthero.mod.flight.FlightAttitude.STREAM_CODEC, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.4 (user): soaking up an overloading Gamma Reactor's flash ({@code hulk.GammaOverload}) -- which reactor and when its
+	 * flash began. Not persistent; synced to everyone (they all see the flash, the energy and the kneeling pose).
+	 */
+	public static final AttachmentType<com.projecthero.mod.hulk.data.GammaAbsorb> GAMMA_ABSORB = AttachmentRegistry.create(
+			ProjectHeroMod.id("gamma_absorb"),
+			builder -> builder.syncWith(com.projecthero.mod.hulk.data.GammaAbsorb.STREAM_CODEC, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.16.4 (user): where a player pulled into his own mind by the Gamma Reactor ({@code hulk.HulkMind}) is sent back to.
+	 * Persistent (a crash or relog mid-way still brings him home); not synced, not kept through death.
+	 */
+	public static final AttachmentType<com.projecthero.mod.hulk.data.HulkMindReturn> HULK_MIND_RETURN = AttachmentRegistry.create(
+			ProjectHeroMod.id("hulk_mind_return"),
+			builder -> builder.persistent(com.projecthero.mod.hulk.data.HulkMindReturn.CODEC));
+
 	private ModAttachments() {
 	}
 
