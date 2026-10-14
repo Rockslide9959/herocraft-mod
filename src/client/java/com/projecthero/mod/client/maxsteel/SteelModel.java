@@ -7,7 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import software.bernie.geckolib.model.GeoModel;
 
-/** The GeckoLib {@link GeoModel} for the Steel Ultralink entity -- the supplied model, unmodified. */
+/** The GeckoLib {@link GeoModel} for the Steel Ultralink entity (v0.16.4: the new show-accurate model, scratchpad/steel_v0164/gen_steel.js). */
 public class SteelModel extends GeoModel<SteelEntity> {
 	private static final ResourceLocation GEO = ProjectHeroMod.id("geo/steel_entity.geo.json");
 	private static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/entity/steel.png");
