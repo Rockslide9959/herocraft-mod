@@ -5479,6 +5479,8 @@
   "projecthero.guide.spider_man.traversal.perfect_dodge.title": "Perfect Dodge",
   "projecthero.guide.spider_man.traversal.sounds.title": "Sounds",
   "projecthero.guide.spider_man.traversal.cut.title": "Cutting Webs",
+  "projecthero.guide.spider_man.traversal.dive.title": "Dive",
+  "projecthero.guide.spider_man.traversal.dive": "Fall a long way (about 8 blocks, not swinging or gliding) and you tip over into a head-first dive, arms swept back and legs together. Fire a web, open your Web Wings or land and you come straight out of it. Just a look -- your fall is unchanged.",
   "entity.projecthero.trip_mine_shot": "Trip Mine"
 
 }

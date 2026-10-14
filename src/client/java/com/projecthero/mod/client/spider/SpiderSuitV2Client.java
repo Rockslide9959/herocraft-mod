@@ -15,5 +15,6 @@ public final class SpiderSuitV2Client {
 		EntityModelLayerRegistry.registerModelLayer(SpiderTripMineRenderer.LAYER, SpiderTripMineRenderer::createLayer);
 		EntityRendererRegistry.register(SpiderTripMines.TRIP_MINE_ENTITY, SpiderTripMineRenderer::new);
 		ClientTickEvents.END_CLIENT_TICK.register(SpiderWebWingsClient::clientTick);
+		ClientTickEvents.END_CLIENT_TICK.register(SpiderDiveClient::clientTick); // v0.16.3
 	}
 }

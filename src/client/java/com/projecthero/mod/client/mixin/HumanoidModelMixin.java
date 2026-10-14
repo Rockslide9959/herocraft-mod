@@ -201,6 +201,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.spider.SpiderPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.16.2: the Suit v2's Web Wings glide (arms spread, legs together)
 			com.projecthero.mod.client.spider.SpiderWebWingsClient.applyPose(player, (HumanoidModel<?>) (Object) this);
+			// v0.16.3: the head-first dive on a long fall
+			com.projecthero.mod.client.spider.SpiderDiveClient.applyPose(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.7: the Super Speed run (Speed Mode / Overdrive) -- before the move poses, which win over it
 			com.projecthero.mod.client.mutation.v0145.SpeedRunPose.apply(player, (HumanoidModel<?>) (Object) this, limbSwing);
 			// v0.13.22: experimental mutation move animations

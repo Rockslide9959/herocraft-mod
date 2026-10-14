@@ -17,5 +17,7 @@ public abstract class SpiderWebWingsBodyMixin {
 	private void projecthero$webWingsBody(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks, float rotationYaw,
 			float partialTicks, float scale, CallbackInfo ci) {
 		com.projecthero.mod.client.spider.SpiderWebWingsClient.applyBodyRotation(player, poseStack, partialTicks);
+		// v0.16.3: the head-first dive on a long fall
+		com.projecthero.mod.client.spider.SpiderDiveClient.applyBodyRotation(player, poseStack, partialTicks);
 	}
 }

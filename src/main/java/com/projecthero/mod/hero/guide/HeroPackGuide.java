@@ -270,7 +270,7 @@ public final class HeroPackGuide {
 		}
 		blank(lines);
 		head(lines, "projecthero.guide.spider_man.traversal");
-		for (String t : new String[]{"swing", "tricks", "zip_boost", "crawl", "wall_run", "perch", "stealth", "rope", "hang", "takedown", "perfect_dodge", "sounds", "cut"}) {
+		for (String t : new String[]{"swing", "tricks", "dive", "zip_boost", "crawl", "wall_run", "perch", "stealth", "rope", "hang", "takedown", "perfect_dodge", "sounds", "cut"}) {
 			// v0.16.2 (user): it was all grey and hard to read -- a gold title per entry, white text, a gap between
 			lines.add(Component.literal("▸ ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.spider_man.traversal." + t + ".title")
