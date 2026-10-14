@@ -646,11 +646,14 @@ public final class SpiderMoves {
 	private static final double SNAG_RANGE = 24.0;
 	private static final double SNAG_SPEED = 1.3;
 	private static final int SNAG_MAX_TICKS = 30;
+	/** v0.16.2 (user): Web Snag has its own 3-second cooldown (Web Cocoon's webbing cost). */
+	public static final String WEB_SNAG = "web_snag";
+	public static final int SNAG_COOLDOWN = 60;
 
 	/**
 	 * Shift+V while standing on one of his tightropes / woven webs: a line to the target he is aiming at reels it
 	 * through the air onto the strand beside him, where it is cocooned ({@link SpiderWrap}, for as long as the web holds).
-	 * Returns false when he is not on a web (Shift+V does its normal move then). Web Cocoon's cost and cooldown.
+	 * Returns false when he is not on a web (Shift+V does its normal move then). Web Cocoon's webbing cost, its own 3-second cooldown.
 	 */
 	public static boolean webSnag(ServerPlayer player) {
 		WebStructures.StrandHit under = WebStructures.strandAtFeet(player);
@@ -666,7 +669,7 @@ public final class SpiderMoves {
 			player.displayClientMessage(Component.translatable("message.projecthero.spider_man.too_heavy"), true);
 			return true;
 		}
-		if (!gate(player, WEB_COCOON)) {
+		if (!SpiderAbilities.gate(player, WEB_SNAG, cfg(WEB_COCOON).cost)) {
 			return true;
 		}
 		// a spot on the web about 1.6 blocks from him, toward the target; it hangs with the strand through its chest
@@ -683,7 +686,7 @@ public final class SpiderMoves {
 		SpiderCombat.sendStrand(player, SpiderCombat.SLOT_YANK, target, SpiderCombat.center(target), SNAG_MAX_TICKS, 8);
 		anim(player, SpiderAnim.THWIP_BOTH);
 		thwip(player, 0.9f);
-		fired(player, WEB_COCOON);
+		SpiderAbilities.fired(player, WEB_SNAG, cfg(WEB_COCOON).cost, SNAG_COOLDOWN);
 		return true;
 	}
 
