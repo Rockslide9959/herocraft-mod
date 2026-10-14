@@ -545,7 +545,10 @@ public final class WebStructures {
 			if (e instanceof net.minecraft.world.entity.Mob mob && level.getGameTime() % 10 == 0) {
 				mob.getNavigation().stop();
 			}
-			alarm(level, web, e.position().add(0, e.getBbHeight() * 0.5, 0));
+			if (!com.projecthero.mod.spider.SpiderWrap.isWrapped(e)) {
+				// v0.16.2 (user): a mob he has already cocooned on his web is caught -- it never raises the alarm
+				alarm(level, web, e.position().add(0, e.getBbHeight() * 0.5, 0));
+			}
 		}
 		if (g.wallBox != null) {
 			blockProjectiles(level, web, g.wallBox);
