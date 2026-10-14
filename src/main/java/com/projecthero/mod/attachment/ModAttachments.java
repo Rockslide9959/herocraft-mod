@@ -605,6 +605,24 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.2: Black Suit Spider-Man's Hunger meter, 0..100 (see {@link com.projecthero.mod.symbiote.SymbioteHunger}).
+	 * Not persistent -- it is a combat meter that decays to nothing anyway; synced to the owner for the HUD.
+	 */
+	public static final AttachmentType<Float> SYMBIOTE_HUNGER = AttachmentRegistry.create(
+			ProjectHeroMod.id("symbiote_hunger"),
+			builder -> builder.initializer(() -> 0.0f)
+					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.targetOnly()));
+
+	/**
+	 * v0.16.2: when Black Suit Spider-Man's Let It Take Over ends (absolute game time, 0 = never used). The crash
+	 * that follows is derived from it ({@code end + CRASH_TICKS}). Synced to everyone for the form's visuals.
+	 */
+	public static final AttachmentType<Long> SYMBIOTE_TAKEOVER = AttachmentRegistry.create(
+			ProjectHeroMod.id("symbiote_takeover"),
+			builder -> builder.initializer(() -> 0L)
+					.syncWith(ByteBufCodecs.VAR_LONG, AttachmentSyncPredicate.all()));
+
+	/**
 	 * Marks a mob as a rare <b>Symbiote Host</b> (v0.9.10). Persistent so the buff/aura survive a chunk
 	 * reload; not synced (the aura is server-spawned particles). Set once at spawn by
 	 * {@code SymbioteHostSpawns}; read every tick by {@code SymbioteHost} off a cheap null-check.

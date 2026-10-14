@@ -280,11 +280,13 @@ public final class SpiderSwingPose {
 
 		// the web arm, aimed at the anchor in the tilted body's own frame, every frame
 		if (r.aim != null && r.swinging) {
-			float[] a = aimAngles(player, r, partial, r.aim);
+			float[] a = aimAngles(player, r, partial, r.aim, true);
 			float pull = 0.04f * Mth.sin(r.phase * 0.5f) * r.fast;
 			web.xRot = Mth.lerp(w, web.xRot, a[0] + pull);
 			web.yRot = Mth.lerp(w, web.yRot, a[1]);
-			web.zRot = Mth.lerp(w, web.zRot, 0f);
+			// v0.16.2: a slight outward splay on top of aimAngles' keep-clear-of-the-head lean (right arm outward =
+			// +zRot, left = -zRot); the hand tracker keeps the line on the hand either way
+			web.zRot = Mth.lerp(w, web.zRot, side * 0.08f);
 		}
 		// the free arm: balance out to the side, counter-swinging; two-hand grip reaches the line too; hugs the knees in a
 		// cannonball
@@ -292,7 +294,7 @@ public final class SpiderSwingPose {
 		float fy = 0f;
 		float fz = -side * r.freeZ; // the left arm (right swing) goes out with -z, the right arm with +z
 		if (r.twoHand > 0.01f && r.aim != null) {
-			float[] a = aimAngles(player, r, partial, r.aim);
+			float[] a = aimAngles(player, r, partial, r.aim, false);
 			fx = Mth.lerp(r.twoHand, fx, a[0] + 0.12f);
 			fy = Mth.lerp(r.twoHand, fy, a[1] + side * 0.22f);
 			fz = Mth.lerp(r.twoHand, fz, 0f);
@@ -326,7 +328,7 @@ public final class SpiderSwingPose {
 	 * {xRot, yRot} that point an arm (hanging along model +Y) along the world direction {@code dir}, in the body frame
 	 * left after {@link #applyBodyRotation}. Model space: +X = his left, +Y = down, -Z = forward.
 	 */
-	private static float[] aimAngles(Player player, Rig r, float partial, Vec3 dir) {
+	private static float[] aimAngles(Player player, Rig r, float partial, Vec3 dir, boolean keepClear) {
 		float bodyYaw = Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot) * Mth.DEG_TO_RAD;
 		Vec3 fwd = new Vec3(-Mth.sin(bodyYaw), 0, Mth.cos(bodyYaw));
 		Vec3 right = new Vec3(-Mth.cos(bodyYaw), 0, -Mth.sin(bodyYaw));
@@ -355,6 +357,17 @@ public final class SpiderSwingPose {
 		mx /= l;
 		my /= l;
 		mz /= l;
+		// v0.16.2: an anchor overhead (or over the far shoulder) would aim the arm straight through his head -- keep the
+		// arm leaning out to its own side by at least ~20 degrees the higher it points (model +X = his left)
+		double up = keepClear ? Mth.clamp(-my, 0.0, 1.0) : 0.0;
+		double out = r.right ? -1.0 : 1.0;
+		double minOut = 0.36 * up;
+		if (mx * out < minOut) {
+			mx = out * minOut;
+			double rest = Math.sqrt(Math.max(0.0, 1.0 - mx * mx) / Math.max(1.0e-6, my * my + mz * mz));
+			my *= rest;
+			mz *= rest;
+		}
 		float xRot = (float) -Math.acos(Mth.clamp(my, -1.0, 1.0));
 		float yRot = (float) Math.atan2(-mx, -mz);
 		return new float[] {xRot, yRot};

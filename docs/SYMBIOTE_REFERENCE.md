@@ -180,3 +180,42 @@ target stay put and don't attack; a pet with pre-rework permanent modifiers load
 - **Guide** -- the three Symbiote pages share section builders in `HeroPackGuide` (`symbioteHowToGet`, `symbioteSuit`,
   `symbioteBiomass`, `symbioteMoves`, ...), keys under `projecthero.guide.symbiote.s.*`
   (`scratchpad/lang_v01515_symbiote.js`). Agent Venom's I key now shows the Punisher page.
+
+## v0.16.2 -- Black Suit Spider-Man: the Hunger rework
+
+The black suit no longer hands out flat, always-on buffs. Its strength comes from **Hunger**
+(`SymbioteHunger`, attachments `symbiote_hunger` float 0..100 synced to the owner and `symbiote_takeover`
+long end-tick synced to all; neither persistent).
+
+- **Feeding:** +4 per landed hit (any `source.getEntity() == player`, AFTER_DAMAGE), +min(8, 1.5 x damage) per
+  hit taken. Decays 3/s after 5 s out of combat. Nothing feeds it during the form or the crash.
+- **Tiers** (`SymbioteHunger.reconcile`, reusing the old `symbiote_black_suit_*` modifier ids):
+
+| Tier | Hunger | Melee | Speed | Jump | KB res | Extra |
+|---|---|---|---|---|---|---|
+| Restrained | <30 | +10% | +5% | - | - | - |
+| Bonded | 30-80 | +25% | +12% | +15% | 0.10 | swing accel +15% |
+| Overdrive | 80+ | +40% | +18% | +20% | 0.20 | +10% Spider-Sense dodge; food drain 0.06 exhaustion/t; fire+sonic x2; H refuses to retract |
+| Take Over | hold V at 100 | +80% | +20% | +25% | 0.60 | scale +35%, damage taken x0.6, melee cleave 50% within 2.5; 10 s then 8 s crash (Weakness I + Slowness II, meter 0, no gain) |
+
+- Fire / sonic always x1.5 on the black suit (x2 in Overdrive / Take Over) -- `SymbioteHunger.onAllowDamage`.
+- **Resurrection** (`Symbiote.tryResurrect`): a Spider-Man host must be suited with >= 50 Hunger; the revive empties the meter.
+- **Nerfs:** suit armour 2/5/6/2 = 15, toughness 1.0 (`ModArmorMaterials.SYMBIOTE`); removed the black suit's extra
+  Regeneration, web-regen multiplier and +20% Web Yank range.
+
+### Kit (`SymbioteBlackSuitAbilities`, routed from `SpiderMoves` while suited)
+
+| Key | Replaces | Move | Numbers | Cooldown |
+|---|---|---|---|---|
+| X tap | Web Strike | Tendril Lash | 8 blocks, 7 dmg + short pull | 1.5 s |
+| Shift+X | Uppercut | Spike Burst | 8 dmg within 3, `SymbioteAnim.SPIKES_FLEX` | 6 s |
+| Shift+hold Z | Grab & Hurl | Consume | 6 blocks, 5 dmg/s for 2 s, heals 30% of dealt | 14 s |
+| Shift+V | Web Cocoon | Ink Shroud | Blindness + Slowness II 4 s within 5, mobs drop you as target | 12 s |
+| Hold V | Web Blossom | Let It Take Over | full meter only | - |
+| Shift+C | Web Wall | Symbiote Slam | 10 dmg dive / 6 grounded, radius 4 | 14 s |
+
+`SpiderMoves.idFor(player, slot, kind)` / `maxCooldown(id)` give the HUD and menus the move actually on a key;
+swapped boxes get a purple border. The old Black Suit 3-box panel is now the Hunger panel (tier, %, revive,
+Take Over / crash timers, Hairline bar with ticks at 30 and 80).
+
+Tests: `SymbioteGameTests.blackSuitHungerDrivesItsBonuses`, `blackSuitReviveNeedsHunger`, `blackSuitSpiderManIsTrimmed` (15 / 1.0).

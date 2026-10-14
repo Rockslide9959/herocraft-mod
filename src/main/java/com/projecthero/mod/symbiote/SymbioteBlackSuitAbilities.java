@@ -17,239 +17,297 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Black Suit Spider-Man's extra Symbiote-flavoured abilities. Per the spec's explicit "use
- * contextual abilities... rather than requiring an unreasonable number of new keybinds" instruction,
- * these do NOT get new keys -- they are sneak-modified variants of Spider-Man's existing slots,
- * dispatched from {@code SpiderManAbilityManager.handle} only while
- * {@link SymbioteHostType#SPIDER_MAN} is active:
+ * Black Suit Spider-Man's own kit. v0.16.2: with the suit on, six of Spider-Man's eighteen moves become symbiote
+ * moves (dispatched from {@code SpiderMoves} while {@link SymbioteHostType#SPIDER_MAN} is active):
  *
  * <ul>
- *   <li><b>Sneak + X (Web Yank's key)</b> -- Symbiote Tendril Strike: the same short-range tendril
- *       lash the Normal host's Tendril Strike is ({@link SymbioteAbilityManager}), a straight melee
- *       hit for real damage and a knockback -- <em>not</em> a pull.</li>
- *   <li><b>Sneak + Z (Web Shot's key), held</b> -- Symbiote Crush: lock onto whatever you are looking
- *       at within 10 blocks and hold the key to crush it in the symbiote for 8 damage a second, up to
- *       5 seconds, covering it in black symbiote particles the whole time.</li>
- *   <li><b>Sneak + C (the wall-crawl toggle's key)</b> -- Symbiote Slam: airborne, it drives you
- *       straight down into the ground for a 15-damage black-symbiote shockwave on impact; on the
- *       ground it is just an ordinary slam right where you stand.</li>
+ *   <li><b>X tap</b> (Web Strike) -- Tendril Lash: an 8-block whip, 7 damage and a short pull in.</li>
+ *   <li><b>Shift + X</b> (Uppercut) -- Spike Burst: spikes erupt from the whole body, 8 damage to everything within 3.</li>
+ *   <li><b>Shift + Z, held</b> (Grab &amp; Hurl) -- Consume: seize a target within 6 blocks and squeeze it for 5 damage
+ *       a second for up to 2 seconds, healing for 30% of what it deals.</li>
+ *   <li><b>Shift + V</b> (Web Cocoon) -- Ink Shroud: a black cloud that blinds and slows enemies within 5 blocks.</li>
+ *   <li><b>Hold V</b> (Web Blossom) -- Let It Take Over, at a full Hunger meter ({@link SymbioteHunger}).</li>
+ *   <li><b>Shift + C</b> (Web Wall) -- Symbiote Slam: a dive for a 10-damage shockwave (6 from the ground).</li>
  * </ul>
- *
- * <p>Symbiote Recovery (slightly faster regen than a Normal host, still nowhere near overpowered) is
- * a passive with no key at all -- see {@code SpiderPassives#tick}.
+ * Every hit they land feeds the Hunger meter like any other hit does ({@link SymbioteHunger}).
  */
 public final class SymbioteBlackSuitAbilities {
-	/** Keys into {@code SpiderManState.abilityReadyAt} -- synced, so {@code SymbioteHud} can show these
-	 *  cooldowns client-side exactly like every other Spider-Man ability, instead of the
-	 *  server-only-and-therefore-invisible-to-the-HUD map this used before. */
-	public static final String TENDRIL_STRIKE = "symbiote_tendril_strike";
-	public static final String CRUSH = "symbiote_crush";
-	public static final String SLAM_ENHANCED = "symbiote_slam_enhanced";
+	/** Keys into {@code SpiderManState.abilityReadyAt} -- synced, so the Spider HUD shows their cooldowns. */
+	public static final String TENDRIL_LASH = "symbiote_tendril_lash";
+	public static final String SPIKE_BURST = "symbiote_spike_burst";
+	public static final String CONSUME = "symbiote_consume";
+	public static final String INK_SHROUD = "symbiote_ink_shroud";
+	public static final String TAKE_OVER = "symbiote_take_over";
+	public static final String SLAM = "symbiote_slam_enhanced";
 
-	// public (v0.13.21) so SymbioteHud can size the draining cooldown overlay on each box
-	public static final int CD_TENDRIL_STRIKE = 80;  // 4s
-	public static final int CD_CRUSH = 200;          // 10s after the crush ends
-	public static final int CD_SLAM_ENHANCED = 200;  // 10s
+	public static final int CD_TENDRIL_LASH = 30;  // 1.5s
+	public static final int CD_SPIKE_BURST = 120;  // 6s
+	public static final int CD_CONSUME = 280;      // 14s after the squeeze ends
+	public static final int CD_INK_SHROUD = 240;   // 12s
+	public static final int CD_SLAM = 280;         // 14s
 
-	// ---- Symbiote Tendril Strike ----
-	private static final double TENDRIL_STRIKE_RANGE = 8.0;
+	/** {@code SpiderMoves} slot index -> {tap, shift, hold} replacement id (null = Spider-Man's own move stays). */
+	private static final String[][] SWAPS = {
+			{null, null, null},
+			{null, null, null},
+			{TENDRIL_LASH, SPIKE_BURST, null},
+			{null, CONSUME, null},
+			{null, INK_SHROUD, TAKE_OVER},
+			{null, SLAM, null},
+	};
 
-	// ---- Symbiote Crush (Sneak + Z, held) ----
-	private static final double CRUSH_RANGE = 10.0;
-	private static final int CRUSH_MAX_TICKS = 100;          // 5s hold cap
-	private static final int CRUSH_DAMAGE_INTERVAL = 10;     // dealt in chunks so vanilla i-frames don't eat it
-	private static final float CRUSH_DAMAGE_PER_INTERVAL = 4.0f; // 4 / 0.5s == 8 damage per second
-
-	// ---- Symbiote Slam (Sneak + C) ----
-	private static final float SLAM_DAMAGE = 15.0f;
-	private static final double SLAM_RADIUS = 5.0;
+	private static final double LASH_RANGE = 8.0;
+	private static final float LASH_DAMAGE = 7.0f;
+	private static final double SPIKE_RADIUS = 3.0;
+	private static final float SPIKE_DAMAGE = 8.0f;
+	private static final double CONSUME_RANGE = 6.0;
+	private static final int CONSUME_MAX_TICKS = 40;
+	private static final int CONSUME_INTERVAL = 10;
+	private static final float CONSUME_PER_INTERVAL = 2.5f; // 5 a second
+	private static final float CONSUME_HEAL_FRACTION = 0.3f;
+	private static final double SHROUD_RADIUS = 5.0;
+	private static final int SHROUD_TICKS = 80;
+	private static final float SLAM_DAMAGE = 10.0f;
+	private static final float SLAM_GROUND_DAMAGE = 6.0f;
+	private static final double SLAM_RADIUS = 4.0;
 	private static final double SLAM_DIVE_SPEED = 2.4;
-	private static final int SLAM_LAND_DEADLINE_TICKS = 40;  // fire the impact anyway if still falling after 2s
+	private static final int SLAM_LAND_DEADLINE_TICKS = 40;
 
-	/** Active Crush per player: {targetEntityId, startTick, lastDamageTick}. Transient -- cleared on
-	 *  server stop and on death / relog / dimension change / power loss, same discipline as every other
-	 *  static server-scratch map in the mod. */
-	private static final Map<Integer, long[]> CRUSH_ACTIVE = new ConcurrentHashMap<>();
-	/** Players in a forced Symbiote Slam dive, waiting to hit the ground: value = the fallback impact tick. */
+	/** Active Consume per player: {targetEntityId, startTick, lastDamageTick}. Transient. */
+	private static final Map<Integer, long[]> CONSUME_ACTIVE = new ConcurrentHashMap<>();
+	/** Players in a Slam dive, waiting to land: value = the fallback impact tick. */
 	private static final Map<Integer, Long> SLAM_PENDING = new ConcurrentHashMap<>();
 
 	private SymbioteBlackSuitAbilities() {
 	}
 
-	private static boolean blackSuit(ServerPlayer player) {
-		return Symbiote.isActive(player) && SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
+	public static boolean blackSuit(net.minecraft.world.entity.player.Player player) {
+		return SymbioteHunger.blackSuit(player);
 	}
 
-	/**
-	 * Symbiote Tendril Strike: a short-range tendril lash for real damage and a solid knockback --
-	 * mechanically the Normal host's Tendril Strike, so the two variants share the same feel rather
-	 * than one being a pull and one being a hit.
-	 */
-	public static void tendrilStrike(ServerPlayer player) {
-		if (!SpiderMan.abilityReady(player, TENDRIL_STRIKE)) {
+	/** The id shown / fired on slot {@code i} for kind 0 = tap, 1 = Shift, 2 = hold, or null to keep Spider-Man's. */
+	public static String swapFor(net.minecraft.world.entity.player.Player player, int i, int kind) {
+		if (i < 0 || i >= SWAPS.length || !blackSuit(player)) {
+			return null;
+		}
+		return SWAPS[i][kind];
+	}
+
+	/** Full cooldown of one of these moves (the HUD sizes its bars with it); 0 if {@code id} is not one. */
+	public static int cooldownOf(String id) {
+		return switch (id) {
+			case TENDRIL_LASH -> CD_TENDRIL_LASH;
+			case SPIKE_BURST -> CD_SPIKE_BURST;
+			case CONSUME -> CD_CONSUME;
+			case INK_SHROUD -> CD_INK_SHROUD;
+			case SLAM -> CD_SLAM;
+			default -> 0;
+		};
+	}
+
+	// ---------------- Tendril Lash (X) ----------------
+
+	public static void tendrilLash(ServerPlayer player) {
+		if (!SpiderMan.abilityReady(player, TENDRIL_LASH)) {
 			return;
 		}
-		LivingEntity target = AbilityHelpers.raycastEntity(player, TENDRIL_STRIKE_RANGE);
-		if (target == null || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
-			return; // v0.13.21: never a squadmate
-		}
-		float damage = 9.0f + player.getRandom().nextFloat() * 2.0f;
-		if (!AbilityHelpers.hurtLands(player, target, damage)) {
-			return;
-		}
-		AbilityHelpers.knockbackFrom(target, player.position(), 0.9);
+		LivingEntity target = AbilityHelpers.raycastEntity(player, LASH_RANGE);
+		SymbioteAnim.play(player, SymbioteAnim.TENDRIL_STRIKE);
+		SpiderMan.triggerCooldown(player, TENDRIL_LASH, CD_TENDRIL_LASH);
 		ServerLevel level = AbilityHelpers.level(player);
+		if (target == null || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
+			Vec3 miss = player.getEyePosition().add(player.getLookAngle().scale(LASH_RANGE));
+			com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity.fromHand(player, true, miss, null, 8, 2, 0.1f);
+			SymbioteSounds.organic(player, 0.6f, 0.8f);
+			return;
+		}
 		Vec3 hit = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		// v0.13.19: a real tendril from the hand, not a particle line from the face
 		com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity.fromHand(player, true, hit, target, 10, 3, 0.12f);
-		AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 14, 0.3);
-		AbilityHelpers.burst(level, hit, ParticleTypes.CRIT, 6, 0.3);
-		SymbioteSounds.organic(player, 0.8f, 0.5f);
-		SpiderMan.triggerCooldown(player, TENDRIL_STRIKE, CD_TENDRIL_STRIKE);
+		if (AbilityHelpers.hurtLands(player, target, LASH_DAMAGE)) {
+			Vec3 pull = player.position().subtract(target.position());
+			if (pull.lengthSqr() > 4.0) {
+				target.push(pull.normalize().x * 0.55, 0.2, pull.normalize().z * 0.55);
+				target.hurtMarked = true;
+			}
+			AbilityHelpers.burst(level, hit, ParticleTypes.SQUID_INK, 10, 0.3);
+		}
+		SymbioteSounds.organic(player, 0.8f, 0.6f);
 	}
 
-	/**
-	 * Symbiote Crush (press edge): lock onto whatever the player is aiming at within 10 blocks. The
-	 * squeeze itself, the black-particle cover and the 8-damage-a-second tick all happen in
-	 * {@link #serverTick}; {@link #releaseCrush} (key release) or the 5-second cap ends it.
-	 */
-	public static void beginCrush(ServerPlayer player) {
-		if (CRUSH_ACTIVE.containsKey(player.getId())) {
+	// ---------------- Spike Burst (Shift + X) ----------------
+
+	public static void spikeBurst(ServerPlayer player) {
+		if (!SpiderMan.abilityReady(player, SPIKE_BURST)) {
 			return;
 		}
-		if (!SpiderMan.abilityReady(player, CRUSH)) {
+		SpiderMan.triggerCooldown(player, SPIKE_BURST, CD_SPIKE_BURST);
+		SymbioteAnim.play(player, SymbioteAnim.SPIKES_FLEX);
+		Vec3 c = player.position().add(0, 1, 0);
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, c, SPIKE_RADIUS)) {
+			if (com.projecthero.mod.squad.Squads.areAllies(player, e)) {
+				continue;
+			}
+			if (AbilityHelpers.hurtLands(player, e, SPIKE_DAMAGE)) {
+				AbilityHelpers.knockbackFrom(e, player.position(), 0.7);
+			}
+		}
+		ServerLevel level = AbilityHelpers.level(player);
+		AbilityHelpers.burst(level, c, ParticleTypes.SQUID_INK, 10, 0.7);
+		AbilityHelpers.sound(player, SoundEvents.TRIDENT_HIT, 1.0f, 0.6f);
+		SymbioteSounds.organic(player, 1.0f, 0.5f);
+	}
+
+	// ---------------- Consume (Shift + Z, held) ----------------
+
+	public static void beginConsume(ServerPlayer player) {
+		if (CONSUME_ACTIVE.containsKey(player.getId()) || !SpiderMan.abilityReady(player, CONSUME)) {
 			return;
 		}
-		LivingEntity target = AbilityHelpers.raycastEntity(player, CRUSH_RANGE);
+		LivingEntity target = AbilityHelpers.raycastEntity(player, CONSUME_RANGE);
 		if (target == null || !target.isAlive() || com.projecthero.mod.squad.Squads.areAllies(player, target)) {
 			return;
 		}
 		long now = player.level().getGameTime();
-		CRUSH_ACTIVE.put(player.getId(), new long[] { target.getId(), now, now });
+		CONSUME_ACTIVE.put(player.getId(), new long[] { target.getId(), now, now });
+		SymbioteAnim.play(player, SymbioteAnim.TENDRIL_STRIKE);
 		SymbioteSounds.organic(player, 1.0f, 0.4f);
-		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.crush_seized"), true);
+		player.displayClientMessage(Component.translatable("message.projecthero.symbiote.consume_seized"), true);
 	}
 
-	/** Key release -- let the crushed target go. Safe to call unconditionally. */
-	public static void releaseCrush(ServerPlayer player) {
-		endCrush(player);
-	}
-
-	private static void endCrush(ServerPlayer player) {
-		if (CRUSH_ACTIVE.remove(player.getId()) != null) {
-			SpiderMan.triggerCooldown(player, CRUSH, CD_CRUSH);
+	/** Key release -- let go. Safe to call unconditionally. */
+	public static void releaseConsume(ServerPlayer player) {
+		if (CONSUME_ACTIVE.remove(player.getId()) != null) {
+			SpiderMan.triggerCooldown(player, CONSUME, CD_CONSUME);
 		}
 	}
 
-	/**
-	 * Symbiote Slam (Sneak + C). Airborne: drive the player straight down and mark them for a
-	 * 15-damage black-symbiote shockwave the instant they hit the ground ({@link #serverTick}).
-	 * Grounded: an ordinary slam right where they stand. Returns false (so the key falls through to the
-	 * wall-crawl toggle) only when the ability is still on cooldown.
-	 */
+	// ---------------- Ink Shroud (Shift + V) ----------------
+
+	public static void inkShroud(ServerPlayer player) {
+		if (!SpiderMan.abilityReady(player, INK_SHROUD)) {
+			return;
+		}
+		SpiderMan.triggerCooldown(player, INK_SHROUD, CD_INK_SHROUD);
+		ServerLevel level = AbilityHelpers.level(player);
+		Vec3 c = player.position().add(0, 1, 0);
+		for (LivingEntity e : AbilityHelpers.enemiesAround(player, c, SHROUD_RADIUS)) {
+			if (com.projecthero.mod.squad.Squads.areAllies(player, e)) {
+				continue;
+			}
+			AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, SHROUD_TICKS, 0);
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, SHROUD_TICKS, 1);
+			if (e instanceof net.minecraft.world.entity.Mob mob && mob.getTarget() == player) {
+				mob.setTarget(null); // it loses you in the dark
+			}
+		}
+		level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 140, SHROUD_RADIUS * 0.5, 0.9, SHROUD_RADIUS * 0.5, 0.02);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 40, SHROUD_RADIUS * 0.45, 0.7, SHROUD_RADIUS * 0.45, 0.01);
+		AbilityHelpers.sound(player, SoundEvents.SQUID_SQUIRT, 1.2f, 0.6f);
+		SymbioteSounds.organic(player, 0.8f, 0.5f);
+	}
+
+	// ---------------- Let It Take Over (hold V) ----------------
+
+	public static void takeOver(ServerPlayer player) {
+		SymbioteHunger.beginTakeover(player);
+	}
+
+	// ---------------- Symbiote Slam (Shift + C) ----------------
+
+	/** Returns false (so the key falls through to Web Wall) only while on cooldown. */
 	public static boolean slam(ServerPlayer player) {
-		if (!SpiderMan.abilityReady(player, SLAM_ENHANCED)) {
+		if (!SpiderMan.abilityReady(player, SLAM)) {
 			return false;
 		}
-		SpiderMan.triggerCooldown(player, SLAM_ENHANCED, CD_SLAM_ENHANCED);
+		SpiderMan.triggerCooldown(player, SLAM, CD_SLAM);
 		ServerLevel level = AbilityHelpers.level(player);
 		if (player.onGround()) {
-			slamImpact(player);
+			slamImpact(player, SLAM_GROUND_DAMAGE);
 			return true;
 		}
 		Vec3 v = player.getDeltaMovement();
 		AbilityHelpers.launchSelf(player, new Vec3(v.x * 0.3, -SLAM_DIVE_SPEED, v.z * 0.3));
 		SLAM_PENDING.put(player.getId(), player.level().getGameTime() + SLAM_LAND_DEADLINE_TICKS);
 		AbilityHelpers.burst(level, player.position().add(0, 1, 0), ParticleTypes.SQUID_INK, 24, 0.5);
-		AbilityHelpers.burst(level, player.position().add(0, 1, 0), ParticleTypes.LARGE_SMOKE, 8, 0.4);
 		SymbioteSounds.organic(player, 1.0f, 0.4f);
 		return true;
 	}
 
-	private static void slamImpact(ServerPlayer player) {
+	private static void slamImpact(ServerPlayer player, float damage) {
 		ServerLevel level = AbilityHelpers.level(player);
 		Vec3 center = player.position();
-		for (LivingEntity target : SymbioteAbilityManager.enemiesAround(player, center, SLAM_RADIUS)) {
-			if (AbilityHelpers.hurtLands(player, target, SLAM_DAMAGE)) {
-				AbilityHelpers.knockbackFrom(target, center, 1.3);
+		for (LivingEntity target : AbilityHelpers.enemiesAround(player, center, SLAM_RADIUS)) {
+			if (!com.projecthero.mod.squad.Squads.areAllies(player, target) && AbilityHelpers.hurtLands(player, target, damage)) {
+				AbilityHelpers.knockbackFrom(target, center, 1.1);
 			}
 		}
 		AbilityHelpers.burst(level, center, ParticleTypes.SQUID_INK, 44, 0.85);
 		AbilityHelpers.burst(level, center, ParticleTypes.LARGE_SMOKE, 16, 0.7);
-		AbilityHelpers.burst(level, center, ParticleTypes.CRIT, 16, 0.9);
 		AbilityHelpers.sound(player, SoundEvents.GENERIC_BIG_FALL, 1.0f, 0.5f);
 		player.resetFallDistance();
 	}
 
-	/** Per-player upkeep for the two hold/deferred Black Suit abilities. Called every tick a Spider-Man
-	 *  is online (self-gates on the black suit actually being on). */
+	// ---------------- upkeep ----------------
+
+	/** Called every tick a Spider-Man is online (self-gates on the black suit being on). */
 	public static void serverTick(ServerPlayer player) {
+		SymbioteHunger.tick(player);
 		long now = player.level().getGameTime();
 
 		Long slamDeadline = SLAM_PENDING.get(player.getId());
 		if (slamDeadline != null) {
 			player.resetFallDistance();
-			player.fallDistance = 0.0f;
 			if (!blackSuit(player)) {
 				SLAM_PENDING.remove(player.getId());
 			} else if (player.onGround() || now >= slamDeadline) {
 				SLAM_PENDING.remove(player.getId());
-				slamImpact(player);
+				slamImpact(player, SLAM_DAMAGE);
 			}
 		}
 
-		long[] c = CRUSH_ACTIVE.get(player.getId());
+		long[] c = CONSUME_ACTIVE.get(player.getId());
 		if (c == null) {
-			return;
-		}
-		if (!blackSuit(player)) {
-			endCrush(player);
 			return;
 		}
 		ServerLevel level = AbilityHelpers.level(player);
 		Entity e = level.getEntity((int) c[0]);
-		if (!(e instanceof LivingEntity target) || !target.isAlive()
-				|| player.distanceToSqr(target) > CRUSH_RANGE * CRUSH_RANGE * 1.6
-				|| com.projecthero.mod.squad.Squads.areAllies(player, target)) {
-			endCrush(player);
+		if (!blackSuit(player) || !(e instanceof LivingEntity target) || !target.isAlive()
+				|| player.distanceToSqr(target) > CONSUME_RANGE * CONSUME_RANGE * 1.6
+				|| now - c[1] >= CONSUME_MAX_TICKS) {
+			releaseConsume(player);
 			return;
 		}
-		if (now - c[1] >= CRUSH_MAX_TICKS) {
-			endCrush(player);
-			return;
-		}
-
-		// Pin it in place and wring it -- heavy slow + weakness while it is held.
 		target.setDeltaMovement(target.getDeltaMovement().scale(0.15));
 		target.hurtMarked = true;
-		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 20, 3);
-		AbilityHelpers.applyControl(target, MobEffects.WEAKNESS, 20, 1);
-
+		AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 20, 2);
 		Vec3 mid = target.position().add(0, target.getBbHeight() * 0.5, 0);
 		double rx = target.getBbWidth() * 0.5 + 0.15;
-		level.sendParticles(ParticleTypes.SQUID_INK, mid.x, mid.y, mid.z, 12, rx, target.getBbHeight() * 0.5, rx, 0.01);
-		if (player.tickCount % 3 == 0) {
-			level.sendParticles(ParticleTypes.SMOKE, mid.x, mid.y, mid.z, 4, rx, 0.35, rx, 0.0);
+		level.sendParticles(ParticleTypes.SQUID_INK, mid.x, mid.y, mid.z, 8, rx, target.getBbHeight() * 0.5, rx, 0.01);
+		if ((now - c[1]) % 10 == 0) {
+			com.projecthero.mod.symbiote.entity.SymbioteTendrilEntity.fromHand(player, true, mid, target, 10, 3, 0.12f);
 		}
-		AbilityHelpers.line(level, SymbioteHands.right(player), mid,
-				ParticleTypes.SQUID_INK, 2.5);
-
-		if (now - c[2] >= CRUSH_DAMAGE_INTERVAL) {
+		if (now - c[2] >= CONSUME_INTERVAL) {
 			c[2] = now;
-			AbilityHelpers.hurt(player, target, CRUSH_DAMAGE_PER_INTERVAL);
+			float before = target.getHealth();
+			AbilityHelpers.hurt(player, target, CONSUME_PER_INTERVAL);
+			float dealt = Math.max(0.0f, before - target.getHealth());
+			if (dealt > 0.0f) {
+				player.heal(dealt * CONSUME_HEAL_FRACTION);
+			}
 			SymbioteSounds.organic(player, 0.6f, 0.3f);
 		}
 	}
 
-	/** Server-stop cleanup -- same discipline as every other static session map. */
 	public static void clearSessionState() {
-		CRUSH_ACTIVE.clear();
+		CONSUME_ACTIVE.clear();
 		SLAM_PENDING.clear();
+		SymbioteHunger.clearSessionState();
 	}
 
 	/** Death / relog / dimension change / power loss: drop this player's transient Black Suit state. */
 	public static void clearFor(ServerPlayer player) {
-		CRUSH_ACTIVE.remove(player.getId());
+		CONSUME_ACTIVE.remove(player.getId());
 		SLAM_PENDING.remove(player.getId());
+		SymbioteHunger.clearFor(player);
 	}
 }

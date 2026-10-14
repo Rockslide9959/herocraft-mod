@@ -98,7 +98,7 @@ public final class SpiderAbilities {
 	 * and it can shift heavier mobs than the base +20% pull-strength alone would suggest.
 	 */
 	private static double yankRange(ServerPlayer player) {
-		return isBlackSuit(player) ? YANK_RANGE * 1.2 : YANK_RANGE;
+		return YANK_RANGE; // v0.16.2: the black suit's +20% range is gone (the stronger pull stays)
 	}
 
 	private static double yankStrengthMult(ServerPlayer player) {

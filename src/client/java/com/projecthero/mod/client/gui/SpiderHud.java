@@ -38,6 +38,8 @@ public final class SpiderHud {
 
 	private static final int COLOR_BOX_BG = 0xC0180C10;
 	private static final int COLOR_BORDER = 0xFF4A1E28;
+	/** v0.16.2: the border of a box the black suit has swapped for symbiote moves. */
+	private static final int COLOR_SYMBIOTE = 0xFF9A6CF0;
 	private static final int COLOR_ACTIVE = 0xFFFF6070;
 	private static final int COLOR_COOLDOWN = 0xB0000000;
 	private static final int COLOR_KEY = 0xFFE8B0B8;
@@ -318,11 +320,14 @@ public final class SpiderHud {
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
 			int x = x0 + i * (BOX + GAP);
-			String tap = SpiderMoves.TAP[i];
+			// v0.16.2: the black suit swaps some of these for symbiote moves -- their boxes wear a purple border
+			String tap = SpiderMoves.idFor(player, i, 0);
+			boolean swapped = !tap.equals(SpiderMoves.TAP[i]) || !SpiderMoves.idFor(player, i, 1).equals(SpiderMoves.SHIFT[i])
+					|| !SpiderMoves.idFor(player, i, 2).equals(SpiderMoves.HOLD[i]);
 			int cd = SpiderMan.abilityCooldownRemaining(player, tap);
-			int max = Math.max(1, SpiderMoves.cfg(tap).cooldown);
+			int max = Math.max(1, SpiderMoves.maxCooldown(tap));
 			graphics.fill(x, y0, x + BOX, y0 + BOX, COLOR_BOX_BG);
-			graphics.renderOutline(x, y0, BOX, BOX, active(move, i, state) ? COLOR_ACTIVE : COLOR_BORDER);
+			graphics.renderOutline(x, y0, BOX, BOX, active(move, i, state) ? COLOR_ACTIVE : swapped ? COLOR_SYMBIOTE : COLOR_BORDER);
 			if (cd > 0) {
 				int h = (int) (BOX * Math.min(1f, cd / (float) max));
 				graphics.fill(x + 1, y0 + BOX - h, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
@@ -330,11 +335,11 @@ public final class SpiderHud {
 			} else {
 				graphics.drawString(client.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 5, COLOR_KEY, true);
 			}
-			bar(graphics, player, SpiderMoves.SHIFT[i], x, y0 + BOX - 5, SHIFT_COOLING, SHIFT_READY);
-			bar(graphics, player, SpiderMoves.HOLD[i], x, y0 + BOX - 3, HOLD_COOLING, HOLD_READY);
+			bar(graphics, player, SpiderMoves.idFor(player, i, 1), x, y0 + BOX - 5, SHIFT_COOLING, SHIFT_READY);
+			bar(graphics, player, SpiderMoves.idFor(player, i, 2), x, y0 + BOX - 3, HOLD_COOLING, HOLD_READY);
 		}
 		if (expanded) {
-			renderNames(graphics, client, x0, y0);
+			renderNames(graphics, client, player, x0, y0);
 		}
 
 		// Web Reserve. The ceiling doubles once bonded with a Symbiote (v0.9.10).
@@ -383,22 +388,22 @@ public final class SpiderHud {
 	/** A Shift / hold cooldown bar along the bottom of a box: refills, bright once ready. */
 	private static void bar(GuiGraphics g, Player player, String id, int x, int y, int cooling, int ready) {
 		int cd = SpiderMan.abilityCooldownRemaining(player, id);
-		int max = Math.max(1, SpiderMoves.cfg(id).cooldown);
+		int max = Math.max(1, SpiderMoves.maxCooldown(id));
 		float f = cd <= 0 ? 1f : 1f - Math.min(1f, cd / (float) max);
 		g.fill(x + 1, y, x + BOX - 1, y + 2, BAR_TRACK);
 		g.fill(x + 1, y, x + 1 + Math.round((BOX - 2) * f), y + 2, f >= 1f ? ready : cooling);
 	}
 
 	/** Alt held: every key's tap / Shift / hold names, wrapped, stacked above-left of the row. */
-	private static void renderNames(GuiGraphics g, Minecraft mc, int x0, int y0) {
+	private static void renderNames(GuiGraphics g, Minecraft mc, Player player, int x0, int y0) {
 		java.util.List<FormattedCharSequence> lines = new java.util.ArrayList<>();
 		java.util.List<Integer> colours = new java.util.ArrayList<>();
 		for (int i = 0; i < 6; i++) {
 			Component line = Component.literal(AbilitySlot.byNumber(i + 1).defaultKey() + "  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("hud.projecthero.spider_man.move_triple",
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.TAP[i]),
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.SHIFT[i]),
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.HOLD[i]))
+							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 0)),
+							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 1)),
+							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 2)))
 							.withStyle(ChatFormatting.WHITE));
 			for (FormattedCharSequence row : mc.font.split(line, NAMES_WIDTH)) {
 				lines.add(row);

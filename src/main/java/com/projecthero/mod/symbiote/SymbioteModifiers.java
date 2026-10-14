@@ -66,14 +66,8 @@ public final class SymbioteModifiers {
 	public static void reconcileBlackSuit(ServerPlayer player) {
 		boolean blackSuit = Symbiote.isActive(player) && SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN;
 		if (blackSuit) {
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLACK_SUIT_ATTACK, 0.30,
-					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, BLACK_SUIT_SPEED, 0.15,
-					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-			PowerToggles.modifier(player, Attributes.JUMP_STRENGTH, BLACK_SUIT_JUMP, 0.20,
-					AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, BLACK_SUIT_KNOCKBACK, 0.20,
-					AttributeModifier.Operation.ADD_VALUE);
+			// v0.16.2: no flat bonuses any more -- they scale with the Hunger meter (same modifier ids)
+			SymbioteHunger.reconcile(player, SymbioteHunger.tier(player));
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, BLACK_SUIT_ATTACK);
 			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, BLACK_SUIT_SPEED);

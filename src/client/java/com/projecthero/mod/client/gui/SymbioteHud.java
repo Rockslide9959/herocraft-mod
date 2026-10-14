@@ -5,7 +5,7 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.spider.SpiderAbilities;
 import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities;
-import com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities;
+import com.projecthero.mod.symbiote.SymbioteHunger;
 import com.projecthero.mod.symbiote.SymbioteHostType;
 import com.projecthero.mod.symbiote.SymbioteState;
 import com.projecthero.mod.symbiote.SymbioteVitals;
@@ -65,21 +65,6 @@ public final class SymbioteHud {
 	/** Slot order 1..6 -> the Normal host ability id shown in that box (matches {@code AbilitySlot}). */
 	private static final String[] NORMAL_SLOT_ABILITIES = {
 			"tendril_strike", "spike_shot", "leap", "barrage", "blade", "spikes"
-	};
-
-	/** The three Black Suit bonus abilities, left to right, with the real Spider-Man key each rides on. */
-	private static final String[] BLACK_SUIT_ABILITIES = {
-			SymbioteBlackSuitAbilities.TENDRIL_STRIKE, SymbioteBlackSuitAbilities.CRUSH,
-			SymbioteBlackSuitAbilities.SLAM_ENHANCED
-	};
-	private static final String[] BLACK_SUIT_KEYED_ON = {
-			// v0.16.1: they ride on Shift+X / Shift+Z / Shift+C (shadowing Uppercut, Grab & Hurl and an airborne Web Wall)
-			com.projecthero.mod.spider.SpiderMoves.UPPERCUT, com.projecthero.mod.spider.SpiderMoves.GRAB_HURL,
-			com.projecthero.mod.spider.SpiderMoves.WEB_WALL
-	};
-	private static final int[] BLACK_SUIT_COOLDOWNS = {
-			SymbioteBlackSuitAbilities.CD_TENDRIL_STRIKE, SymbioteBlackSuitAbilities.CD_CRUSH,
-			SymbioteBlackSuitAbilities.CD_SLAM_ENHANCED
 	};
 	private static final int[] AGENT_VENOM_COOLDOWNS = {
 			SymbioteAgentVenomAbilities.CD_SWING, SymbioteAgentVenomAbilities.CD_SNATCH,
@@ -234,22 +219,81 @@ public final class SymbioteHud {
 		return drawn ? PANEL_H + PANEL_GAP : 0;
 	}
 
-	/** Black Suit Spider-Man: the panel stacks right on top of {@link SpiderHud}'s six web boxes. */
+	/**
+	 * Black Suit Spider-Man (v0.16.2): the Hunger panel, stacked right on top of {@link SpiderHud}'s six boxes (its
+	 * symbiote moves live in those boxes now, purple-bordered):
+	 * <pre>
+	 *   Black Suit                      Revive 12:34
+	 *   OVERDRIVE                       (Take Over 7s / Crash 5s / Hold V: Take Over)
+	 *   Hunger 86%
+	 *   ----------|----------------|----   Hairline Hunger bar, ticks at Bonded (30) and Overdrive (80)
+	 * </pre>
+	 */
 	private static void renderBlackSuit(GuiGraphics g, Minecraft mc, Player player, SymbioteVitals v, long now,
 			boolean expanded) {
-		int spiderBoxesY = g.guiHeight() - MARGIN - BOX - SpiderHud.BOTTOM_STACK;
-		int n = BLACK_SUIT_ABILITIES.length;
-		char[] keys = new char[n];
-		int[] cds = new int[n];
-		Component[] names = new Component[n];
-		for (int i = 0; i < n; i++) {
-			keys[i] = SpiderAbilities.slotKeyOf(BLACK_SUIT_KEYED_ON[i]);
-			cds[i] = SpiderMan.abilityCooldownRemaining(player, BLACK_SUIT_ABILITIES[i]);
-			names[i] = Component.translatable("projecthero.symbiote.ability." + BLACK_SUIT_ABILITIES[i]);
+		int bottom = g.guiHeight() - MARGIN - BOX - SpiderHud.BOTTOM_STACK - PANEL_GAP;
+		int x0 = g.guiWidth() - MARGIN - PANEL_W;
+		int barY = bottom - HAIRLINE;
+		int y0 = barY - 3 - BOX;
+		int titleY = y0 - 11;
+
+		SymbioteHunger.Tier tier = SymbioteHunger.tier(player);
+		float hunger = SymbioteHunger.get(player);
+		int colour = switch (tier) {
+			case RESTRAINED -> 0xFF8A86A0;
+			case BONDED -> ACCENT_BLACK_SUIT;
+			case OVERDRIVE -> 0xFFE04060;
+			case TAKEOVER -> (now / 4) % 2 == 0 ? 0xFFFF3050 : 0xFFB01830;
+		};
+
+		g.drawString(mc.font, Component.translatable("hud.projecthero.symbiote.black_suit").withStyle(ChatFormatting.BOLD),
+				x0, titleY, ACCENT_BLACK_SUIT, true);
+		long reviveLeft = Math.max(0L, v.resurrectReadyAt - now);
+		boolean fedEnough = hunger >= SymbioteHunger.RESURRECT_MIN || tier == SymbioteHunger.Tier.TAKEOVER;
+		Component reviveValue = reviveLeft > 0L ? Component.literal(clock(reviveLeft))
+				: Component.translatable(fedEnough ? "hud.projecthero.symbiote.revive_ready"
+						: "hud.projecthero.symbiote.black_suit.revive_hungry");
+		Component tierName = Component.translatable("hud.projecthero.symbiote.hunger.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
+				.withStyle(ChatFormatting.BOLD);
+		g.drawString(mc.font, tierName, x0, y0 + 1, colour, true);
+		// the revive sits right of the tier, on its line; it drops its "Revive" label rather than ever touching it
+		Component revive = Component.translatable("hud.projecthero.symbiote.black_suit.revive", reviveValue);
+		if (mc.font.width(tierName) + 6 + mc.font.width(revive) > PANEL_W) {
+			revive = reviveValue;
 		}
-		renderHeroHostPanel(g, mc, player, v, now, spiderBoxesY - PANEL_GAP,
-				Component.translatable("hud.projecthero.symbiote.black_suit"), ACCENT_BLACK_SUIT,
-				keys, cds, BLACK_SUIT_COOLDOWNS, new int[n], names, null, expanded);
+		g.drawString(mc.font, revive, x0 + PANEL_W - mc.font.width(revive), y0 + 1,
+				reviveLeft <= 0L && fedEnough ? ACCENT_BLACK_SUIT : COLOR_MUTED, true);
+		g.drawString(mc.font, Component.translatable("hud.projecthero.symbiote.hunger", Math.round(hunger)), x0, y0 + 11,
+				0xFFFFFFFF, true);
+
+		Component status = null;
+		int statusColour = COLOR_MUTED;
+		long end = SymbioteHunger.takeoverEnd(player);
+		if (tier == SymbioteHunger.Tier.TAKEOVER) {
+			status = Component.translatable("hud.projecthero.symbiote.hunger.takeover_left", (end - now + 19) / 20);
+			statusColour = colour;
+		} else if (SymbioteHunger.crashing(player)) {
+			status = Component.translatable("hud.projecthero.symbiote.hunger.crash_left",
+					(end + SymbioteHunger.CRASH_TICKS - now + 19) / 20);
+		} else if (hunger >= SymbioteHunger.MAX) {
+			status = Component.translatable("hud.projecthero.symbiote.hunger.takeover_ready",
+					String.valueOf(com.projecthero.mod.hero.AbilitySlot.byNumber(5).defaultKey()));
+			statusColour = (now / 6) % 2 == 0 ? 0xFFFF3050 : 0xFFFFFFFF;
+		} else if (tier == SymbioteHunger.Tier.OVERDRIVE) {
+			status = Component.translatable("hud.projecthero.symbiote.hunger.locked");
+			statusColour = 0xFFE04060;
+		}
+		if (status != null) {
+			g.drawString(mc.font, status, x0 + PANEL_W - mc.font.width(status), y0 + 11, statusColour, true);
+		}
+
+		// the Hairline Hunger bar, with the Bonded / Overdrive thresholds ticked in
+		g.fill(x0, barY, x0 + PANEL_W, barY + HAIRLINE, COLOR_BAR_BG);
+		g.fill(x0, barY, x0 + Math.round(PANEL_W * hunger / SymbioteHunger.MAX), barY + HAIRLINE, colour);
+		for (float t : new float[] {SymbioteHunger.BONDED, SymbioteHunger.OVERDRIVE}) {
+			int tx = x0 + Math.round(PANEL_W * t / SymbioteHunger.MAX);
+			g.fill(tx, barY - 1, tx + 1, barY + HAIRLINE + 1, 0xFFFFFFFF);
+		}
 	}
 
 	/**

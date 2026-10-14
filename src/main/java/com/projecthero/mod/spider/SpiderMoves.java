@@ -102,6 +102,24 @@ public final class SpiderMoves {
 	}
 
 	/** The slot a move id is bound to (tap, Shift or hold), or null. */
+	/**
+	 * v0.16.2: the move id actually on slot {@code i} for this player -- kind 0 = tap, 1 = Shift, 2 = hold. The black
+	 * suit swaps six of them for symbiote moves ({@code SymbioteBlackSuitAbilities}); the HUD and menus read this.
+	 */
+	public static String idFor(net.minecraft.world.entity.player.Player player, int i, int kind) {
+		String swap = com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.swapFor(player, i, kind);
+		if (swap != null) {
+			return swap;
+		}
+		return kind == 0 ? TAP[i] : kind == 1 ? SHIFT[i] : HOLD[i];
+	}
+
+	/** Full cooldown (ticks) of any move id on the Spider-Man keys, the black suit's included. */
+	public static int maxCooldown(String id) {
+		int symbiote = com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.cooldownOf(id);
+		return symbiote > 0 ? symbiote : cfg(id).cooldown;
+	}
+
 	public static AbilitySlot slotOf(String id) {
 		for (int i = 0; i < 6; i++) {
 			if (TAP[i].equals(id) || SHIFT[i].equals(id) || HOLD[i].equals(id)) {
@@ -391,7 +409,7 @@ public final class SpiderMoves {
 			return;
 		}
 		if (p.crush) {
-			com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.releaseCrush(player);
+			com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.releaseConsume(player);
 			return;
 		}
 		if (p.shift) {
@@ -409,6 +427,10 @@ public final class SpiderMoves {
 	}
 
 	private static void tap(ServerPlayer player, int i) {
+		if (i == 2 && blackSuit(player)) {
+			com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.tendrilLash(player); // v0.16.2: the black suit's X
+			return;
+		}
 		switch (i) {
 			case 0 -> SpiderAbilities.webShot(player);
 			case 1 -> SpiderAbilities.webZip(player);
@@ -432,7 +454,7 @@ public final class SpiderMoves {
 			}
 			case 2 -> {
 				if (black) {
-					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.tendrilStrike(player);
+					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.spikeBurst(player);
 				} else {
 					uppercut(player);
 				}
@@ -440,14 +462,23 @@ public final class SpiderMoves {
 			case 3 -> {
 				if (black) {
 					p.crush = true;
-					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.beginCrush(player);
+					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.beginConsume(player);
 				} else {
 					grabHurl(player);
 				}
 			}
-			case 4 -> webCocoon(player);
+			case 4 -> {
+				if (black) {
+					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.inkShroud(player);
+				} else {
+					webCocoon(player);
+				}
+			}
 			case 5 -> {
-				if (!(black && com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.slam(player))) {
+				// v0.16.2: the black suit's Shift+C is only ever the Slam (no Web Wall while it cools down)
+				if (black) {
+					com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.slam(player);
+				} else {
 					webWall(player);
 				}
 			}
@@ -457,6 +488,10 @@ public final class SpiderMoves {
 	}
 
 	private static void holdStart(ServerPlayer player, int i) {
+		if (i == 4 && blackSuit(player)) {
+			com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.takeOver(player); // v0.16.2: hold V
+			return;
+		}
 		switch (i) {
 			case 0 -> beginImpactCharge(player);
 			case 1 -> zipKick(player);
@@ -473,7 +508,11 @@ public final class SpiderMoves {
 		switch (i) {
 			case 0 -> releaseImpact(player);
 			case 3 -> SpiderCombat.releaseThrow(player);
-			case 4 -> SpiderAbilities.releaseWebBlossom(player);
+			case 4 -> {
+				if (!blackSuit(player)) {
+					SpiderAbilities.releaseWebBlossom(player);
+				}
+			}
 			case 5 -> finishWeave(player);
 			default -> {
 			}

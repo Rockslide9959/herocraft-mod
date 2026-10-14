@@ -170,7 +170,7 @@ public final class HeroPackGuide {
 			blank(lines);
 			symbioteBlackSuitExtras(lines);
 			head(lines, "projecthero.guide.symbiote_spider_man.passives");
-			for (String p : new String[]{"armour", "melee", "speed", "jump", "knockback", "web_capacity", "recovery"}) {
+			for (String p : new String[]{"armour", "web_capacity"}) {
 				bullet(lines, "projecthero.guide.symbiote_spider_man.passive." + p);
 			}
 			for (String p : new String[]{"protect", "resurrect", "predator", "squad", "pet", "vial"}) {
@@ -281,15 +281,25 @@ public final class HeroPackGuide {
 	}
 
 	private static void symbioteBlackSuitExtras(List<Component> lines) {
+		// v0.16.2: the Hunger meter, then the six symbiote moves that replace Spider-Man's while suited
+		head(lines, "projecthero.guide.symbiote.hunger");
+		para(lines, "projecthero.guide.symbiote.hunger.body");
+		for (String t : new String[]{"restrained", "bonded", "overdrive", "takeover"}) {
+			bullet(lines, "projecthero.guide.symbiote.hunger.tier." + t);
+		}
+		blank(lines);
 		head(lines, "projecthero.guide.symbiote.black_suit");
-		String[] extras = {"symbiote_tendril_strike", "symbiote_crush", "symbiote_slam_enhanced"};
-		String[] keyedOn = {com.projecthero.mod.spider.SpiderMoves.UPPERCUT,
-				com.projecthero.mod.spider.SpiderMoves.GRAB_HURL,
-				com.projecthero.mod.spider.SpiderMoves.WEB_WALL};
-		String[] cooldowns = {"4", "10", "10"};
-		for (int i = 0; i < extras.length; i++) {
-			symbioteRow(lines, "Sneak+" + (i == 1 ? "hold " : "") + com.projecthero.mod.spider.SpiderAbilities.slotKeyOf(keyedOn[i]),
-					extras[i], cooldowns[i]);
+		para(lines, "projecthero.guide.symbiote.black_suit.intro");
+		String[] moves = {com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.TENDRIL_LASH, com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.SPIKE_BURST, com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.CONSUME,
+				com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.INK_SHROUD, com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.TAKE_OVER, com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.SLAM};
+		char x = com.projecthero.mod.hero.AbilitySlot.byNumber(3).defaultKey();
+		char z = com.projecthero.mod.hero.AbilitySlot.byNumber(4).defaultKey();
+		char v = com.projecthero.mod.hero.AbilitySlot.byNumber(5).defaultKey();
+		char c = com.projecthero.mod.hero.AbilitySlot.byNumber(6).defaultKey();
+		String[] keys = {String.valueOf(x), "Sneak+" + x, "Sneak+hold " + z, "Sneak+" + v, "Hold " + v, "Sneak+" + c};
+		String[] cooldowns = {"1.5", "6", "14", "12", null, "14"};
+		for (int i = 0; i < moves.length; i++) {
+			symbioteRow(lines, keys[i], moves[i], cooldowns[i]);
 		}
 		blank(lines);
 	}

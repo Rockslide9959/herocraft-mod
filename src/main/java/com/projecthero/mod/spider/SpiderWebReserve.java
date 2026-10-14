@@ -114,11 +114,7 @@ public final class SpiderWebReserve {
 		if (player.level().getGameTime() - s.lastWebUseTick < REGEN_DELAY_TICKS) {
 			return;
 		}
-		float regen = REGEN_PER_TICK;
-		if (com.projecthero.mod.symbiote.Symbiote.isActive(player)
-				&& com.projecthero.mod.symbiote.SymbioteHostType.of(player) == com.projecthero.mod.symbiote.SymbioteHostType.SPIDER_MAN) {
-			regen *= SYMBIOTE_REGEN_MULTIPLIER;
-		}
+		float regen = REGEN_PER_TICK; // v0.16.2: the black suit no longer speeds this up
 		SpiderManState c = s.copy();
 		c.webReserve = Math.min(cap, c.webReserve + regen);
 		SpiderMan.saveReserve(player, c, s);

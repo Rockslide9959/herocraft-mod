@@ -315,8 +315,9 @@ public final class SpiderSwing {
 		// --- rider input ---
 		// Black Suit Spider-Man: web swing acceleration +15% (spec) -- applies to the rider's own
 		// steering input, not the passive rope physics above.
-		double accel = com.projecthero.mod.symbiote.Symbiote.isActive(player)
-				&& com.projecthero.mod.symbiote.SymbioteHostType.of(player) == com.projecthero.mod.symbiote.SymbioteHostType.SPIDER_MAN
+		// v0.16.2: from the Bonded tier of the Hunger meter up
+		double accel = com.projecthero.mod.symbiote.SymbioteHunger.blackSuit(player)
+				&& com.projecthero.mod.symbiote.SymbioteHunger.tier(player) != com.projecthero.mod.symbiote.SymbioteHunger.Tier.RESTRAINED
 				? 1.15 : 1.0;
 		Vec3 look = player.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);

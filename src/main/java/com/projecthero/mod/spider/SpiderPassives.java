@@ -155,14 +155,7 @@ public final class SpiderPassives {
 			player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 120, resistance, true, false, false));
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 0, true, false, false));
 		}
-		// Symbiote Recovery (spec): Black Suit Spider-Man refreshes the same Regeneration I a little
-		// more often than the base 40-tick cadence -- a modestly faster recovery, deliberately still
-		// capped at amplifier 0 so it never becomes the constant high-level regen the spec warns against.
-		if (player.tickCount % 30 == 0 && com.projecthero.mod.symbiote.Symbiote.isActive(player)
-				&& com.projecthero.mod.symbiote.SymbioteHostType.of(player)
-						== com.projecthero.mod.symbiote.SymbioteHostType.SPIDER_MAN) {
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 90, 0, true, false, false));
-		}
+		// v0.16.2: the black suit's faster "Symbiote Recovery" regen is gone -- Consume is how it heals now.
 	}
 
 	/**

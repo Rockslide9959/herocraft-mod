@@ -204,9 +204,11 @@ public final class SpiderSense {
 	 * a clear, bounded bump rather than compounding with the ranged rate.
 	 */
 	public static boolean rollFor(ServerPlayer player, DamageSource source) {
-		float bonus = com.projecthero.mod.symbiote.Symbiote.isActive(player)
-				&& com.projecthero.mod.symbiote.SymbioteHostType.of(player) == com.projecthero.mod.symbiote.SymbioteHostType.SPIDER_MAN
-				? 0.1f : 0.0f;
+		// v0.16.2: only in Overdrive / the Take Over form now (was any time the black suit was on)
+		com.projecthero.mod.symbiote.SymbioteHunger.Tier tier = com.projecthero.mod.symbiote.SymbioteHunger.blackSuit(player)
+				? com.projecthero.mod.symbiote.SymbioteHunger.tier(player) : null;
+		float bonus = tier == com.projecthero.mod.symbiote.SymbioteHunger.Tier.OVERDRIVE
+				|| tier == com.projecthero.mod.symbiote.SymbioteHunger.Tier.TAKEOVER ? 0.1f : 0.0f;
 		return player.getRandom().nextFloat() < (isRanged(source) ? RANGED_DODGE_CHANCE : DODGE_CHANCE) + bonus;
 	}
 

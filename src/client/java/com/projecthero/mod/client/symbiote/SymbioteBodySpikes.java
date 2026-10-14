@@ -98,7 +98,8 @@ public final class SymbioteBodySpikes {
 		if (window > 0 && since >= 0.0f && since <= window) {
 			return since;
 		}
-		return v.thornsMode ? 1000.0f : -1.0f;
+		// v0.16.2: Black Suit Spider-Man's Let It Take Over keeps them out for the whole form
+		return v.thornsMode || com.projecthero.mod.symbiote.SymbioteHunger.takingOver(player) ? 1000.0f : -1.0f;
 	}
 
 	/** Growth of the {@code i}-th spike, 0..1. */

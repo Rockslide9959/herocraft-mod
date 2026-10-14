@@ -101,16 +101,19 @@ public final class ModArmorMaterials {
 	 * <p>v0.13.21: Symbiote Spider-Man was far too tanky (this on top of Spider-Man's own Resistance II), so the
 	 * suit drops to exactly diamond -- 3 / 6 / 8 / 3 (= 20) and 2.0 toughness, down from 24 / 3.0. Agent Venom
 	 * used to share this material; he has his own ({@link #AGENT_VENOM}) now.
+	 *
+	 * <p>v0.16.2: the Hunger rework -- down again to 2 / 5 / 6 / 2 (= 15) and 1.0 toughness; the suit's strength
+	 * now comes from feeding the Hunger meter, not from sitting in it.
 	 */
 	public static final Holder<ArmorMaterial> SYMBIOTE = registerWithLayer("spider_man_symbiote", "thor",
 			Map.of(
-					ArmorItem.Type.BOOTS, 3,
-					ArmorItem.Type.LEGGINGS, 6,
-					ArmorItem.Type.CHESTPLATE, 8,
-					ArmorItem.Type.HELMET, 3),
+					ArmorItem.Type.BOOTS, 2,
+					ArmorItem.Type.LEGGINGS, 5,
+					ArmorItem.Type.CHESTPLATE, 6,
+					ArmorItem.Type.HELMET, 2),
 			15,
 			SoundEvents.ARMOR_EQUIP_NETHERITE,
-			2.0f,
+			1.0f,
 			0.0f,
 			() -> Ingredient.of(Items.STRING));
 

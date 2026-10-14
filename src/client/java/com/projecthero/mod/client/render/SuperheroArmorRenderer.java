@@ -30,6 +30,9 @@ import software.bernie.geckolib.renderer.GeoArmorRenderer;
  * {@link #applyBoneVisibilityBySlot} for the one place that stock behaviour is overridden.
  */
 public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem> {
+	/** v0.16.2: the black suit during Let It Take Over wears the monstrous host's look. */
+	private static final net.minecraft.resources.ResourceLocation TAKEOVER_TEXTURE =
+			com.projecthero.mod.ProjectHeroMod.id("textures/armor/symbiote_host.png");
 	/**
 	 * Every bone under the cubeless {@code armorHead} parent -- see {@link #setHelmetHidden}. This is
 	 * the union across all suit geometries, not the bones of any one model: {@code helmet_brow} exists
@@ -379,6 +382,11 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 			// v0.15.15: spreads out from the chest, head last (SymbioteSpread; SymbioteDissolve stays Moon Knight's)
 			texture = com.projecthero.mod.client.symbiote.SymbioteSpread.texture(texture,
 					com.projecthero.mod.client.symbiote.SymbioteReveal.progress(p, partialTick));
+		}
+		// v0.16.2: Let It Take Over -- the black suit turns into the monstrous host's (same player-skin UV layout)
+		if (getCurrentEntity() instanceof Player tp && "spider_man_symbiote".equals(animatable.armorSetId())
+				&& com.projecthero.mod.symbiote.SymbioteHunger.takingOver(tp)) {
+			texture = TAKEOVER_TEXTURE;
 		}
 		// v0.13.20: Moon Knight's suit materialises one pixel at a time too (and dissolves the same way on H)
 		if (getCurrentEntity() instanceof Player mk && animatable instanceof com.projecthero.mod.moonknight.item.MoonKnightArmorItem) {

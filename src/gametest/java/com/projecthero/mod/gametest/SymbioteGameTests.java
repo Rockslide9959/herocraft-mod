@@ -130,7 +130,7 @@ public class SymbioteGameTests implements FabricGameTest {
 				total += material.defense().getOrDefault(t, 0);
 			}
 		}
-		helper.assertTrue(total == 20 && material.toughness() == 2.0f, "diamond-grade black suit, was " + total);
+		helper.assertTrue(total == 15 && material.toughness() == 1.0f, "v0.16.2: 15 armour / 1 toughness black suit, was " + total);
 
 		// the unsuited passive's Resistance II, then suit up: it must drop to I straight away
 		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
@@ -143,6 +143,57 @@ public class SymbioteGameTests implements FabricGameTest {
 		helper.assertTrue(res != null && res.getAmplifier() == 0, "Resistance I while the black suit is on");
 		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteVitalsManager.resurrectCooldownFor(player)
 				== com.projecthero.mod.symbiote.SymbioteVitalsManager.HERO_HOST_RESURRECT_COOLDOWN_TICKS, "a 20-minute revive");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.16.2: the black suit's bonuses follow its Hunger meter -- small when starved, large in Overdrive (where H
+	 * cannot retract it), and Let It Take Over only fires at a full meter, then crashes.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void blackSuitHungerDrivesItsBonuses(GameTestHelper helper) {
+		ServerPlayer player = spiderMan(helper);
+		Symbiote.grant(player);
+		Symbiote.toggle(player);
+		forceSettle(player);
+		helper.assertTrue(Symbiote.isActive(player), "precondition: suited");
+		var attack = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+
+		com.projecthero.mod.symbiote.SymbioteHunger.set(player, 0.0f);
+		com.projecthero.mod.symbiote.SymbioteHunger.reconcile(player, com.projecthero.mod.symbiote.SymbioteHunger.tier(player));
+		double starved = attack.getValue();
+		com.projecthero.mod.symbiote.SymbioteHunger.set(player, 90.0f);
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHunger.tier(player) == com.projecthero.mod.symbiote.SymbioteHunger.Tier.OVERDRIVE,
+				"90 Hunger is Overdrive");
+		com.projecthero.mod.symbiote.SymbioteHunger.reconcile(player, com.projecthero.mod.symbiote.SymbioteHunger.tier(player));
+		helper.assertTrue(attack.getValue() > starved, "Overdrive hits harder than a starved suit (" + starved + " -> " + attack.getValue() + ")");
+
+		clearCooldown(player);
+		Symbiote.toggle(player);
+		helper.assertTrue(Symbiote.isActive(player) && Symbiote.state(player).transformDir != com.projecthero.mod.symbiote.SymbioteState.DIR_DOWN,
+				"H cannot retract the suit in Overdrive");
+
+		helper.assertFalse(com.projecthero.mod.symbiote.SymbioteHunger.beginTakeover(player), "no Take Over below a full meter");
+		com.projecthero.mod.symbiote.SymbioteHunger.set(player, 100.0f);
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHunger.beginTakeover(player), "Take Over at a full meter");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHunger.takingOver(player), "the form is running");
+		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearFor(player);
+		helper.succeed();
+	}
+
+	/** v0.16.2: Black Suit Spider-Man is only revived with at least half a Hunger meter, and the revive eats it. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void blackSuitReviveNeedsHunger(GameTestHelper helper) {
+		ServerPlayer player = spiderMan(helper);
+		Symbiote.grant(player);
+		Symbiote.toggle(player);
+		forceSettle(player);
+		com.projecthero.mod.symbiote.SymbioteHunger.set(player, 20.0f);
+		helper.assertFalse(Symbiote.tryResurrect(player), "a starved black suit lets him fall");
+		com.projecthero.mod.symbiote.SymbioteHunger.set(player, 60.0f);
+		helper.assertTrue(Symbiote.tryResurrect(player), "a fed black suit brings him back");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbioteHunger.get(player) == 0.0f, "the revive ate the meter");
+		com.projecthero.mod.symbiote.SymbioteBlackSuitAbilities.clearFor(player);
 		helper.succeed();
 	}
 

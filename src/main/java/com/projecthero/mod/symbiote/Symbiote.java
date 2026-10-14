@@ -213,7 +213,11 @@ public final class Symbiote {
 		if (now < s.toggleReadyAt || SymbioteTransform.isAnimating(s)) {
 			return;
 		}
-		if (s.active) {
+		if (s.active && SymbioteHunger.locksSuit(player)) {
+			// v0.16.2: in Overdrive / the Take Over form the black suit will not let go
+			player.displayClientMessage(Component.translatable("message.projecthero.symbiote.hunger.wont_let_go")
+					.withStyle(ChatFormatting.DARK_RED), true);
+		} else if (s.active) {
 			AUTO_EQUIP_SUPPRESS.put(player.getId(), now + 200L);
 			beginSuitDown(player);
 		} else if (SymbioteVitalsManager.suitLocked(player)) {
@@ -623,6 +627,12 @@ public final class Symbiote {
 		}
 		long now = player.level().getGameTime();
 		if (now < SymbioteVitalsManager.resurrectReadyAt(player)) {
+			return false;
+		}
+		// v0.16.2: Black Suit Spider-Man is only brought back with the suit on and at least half a Hunger meter
+		// (which the revive eats); unsuited or starved, the suit lets him fall
+		if (SymbioteHostType.of(player) == SymbioteHostType.SPIDER_MAN
+				&& (!SymbioteHunger.blackSuit(player) || !SymbioteHunger.consumeForResurrect(player))) {
 			return false;
 		}
 		SymbioteVitalsManager.markResurrected(player);
