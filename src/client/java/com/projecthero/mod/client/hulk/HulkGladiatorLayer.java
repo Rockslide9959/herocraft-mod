@@ -32,8 +32,9 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
  *       re-renders the same animated model with the gladiator texture -- just the gear. A weapon that is out of his hand
  *       ({@link GladiatorGear#weaponAway}) stays hidden.</li>
  * </ol>
- * The hand weapons are the bones {@value #HAMMER_BONE} (child of {@code right_arm}) and {@value #AXE_BONE} (child of
- * {@code left_arm}).
+ * The hand weapons are the bones {@value #HAMMER_BONE} (child of {@code right_hand}) and {@value #AXE_BONE} (child of
+ * {@code left_hand}); v0.16.4: the limbs are jointed (arm > forearm > hand), the bracers ride the forearms -- the
+ * visibility walks below recurse, so any depth works.
  */
 public class HulkGladiatorLayer extends GeoRenderLayer<HulkAnimatable> {
 	public static final String PREFIX = "gladiator";

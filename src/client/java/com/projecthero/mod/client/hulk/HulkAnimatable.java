@@ -22,6 +22,11 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * {@link HulkState}: the growth ({@code transform}), a charging / airborne Super Leap, Thunderclap ({@code clap}) and
  * Ground Smash ({@code smash}) on their impact clock, otherwise {@code run} / {@code walk} / {@code idle}; a melee
  * swing layers {@code punch} over the right arm ({@code punch_left} over the left for a left-arm swing, v0.15.5).
+ *
+ * <p>v0.16.4 (user): the rig is jointed (elbows / knees: {@code right_forearm}, {@code right_hand}, {@code right_shin},
+ * {@code right_foot} ...), six changes ({@code Combat.transformStyle} -> {@code transform}, {@code transform_forced},
+ * {@code transform_rip}, {@code transform_pound}, {@code transform_arch}, {@code transform_stagger}), the new kit's clips
+ * ({@code HulkState.ANIM_SUPER_PUNCH .. ANIM_RAMPAGE}, see {@link #oneShotTicks}) and the held {@code death_fall}.
  */
 public final class HulkAnimatable implements GeoReplacedEntity {
 	public static final HulkAnimatable INSTANCE = new HulkAnimatable();
@@ -64,9 +69,106 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation G_WHIRLWIND = RawAnimation.begin().thenLoop(P + "gladiator_whirlwind");
 	private static final RawAnimation G_GRAPPLE = RawAnimation.begin().thenLoop(P + "gladiator_grapple");
 
+	// v0.16.4 (user): the four new changes (all standing) -- see HulkPose for Banner's side of each
+	private static final RawAnimation TRANSFORM_RIP = RawAnimation.begin().thenPlay(P + "transform_rip");
+	private static final RawAnimation TRANSFORM_POUND = RawAnimation.begin().thenPlay(P + "transform_pound");
+	private static final RawAnimation TRANSFORM_ARCH = RawAnimation.begin().thenPlay(P + "transform_arch");
+	private static final RawAnimation TRANSFORM_STAGGER = RawAnimation.begin().thenPlay(P + "transform_stagger");
+	// v0.16.4 (user): the new kit (HulkState.ANIM_SUPER_PUNCH .. ANIM_RAMPAGE)
+	private static final RawAnimation SUPER_PUNCH = RawAnimation.begin().thenPlay(P + "super_punch");
+	private static final RawAnimation GROUND_SMASH = RawAnimation.begin().thenPlay(P + "ground_smash");
+	private static final RawAnimation THUNDERCLAP = RawAnimation.begin().thenPlay(P + "thunderclap");
+	private static final RawAnimation FAULT_STOMP = RawAnimation.begin().thenPlay(P + "fault_stomp");
+	private static final RawAnimation BULLDOZE = RawAnimation.begin().thenLoop(P + "bulldoze");
+	private static final RawAnimation UPPERCUT = RawAnimation.begin().thenPlay(P + "uppercut");
+	private static final RawAnimation GAMMA_BURST = RawAnimation.begin().thenPlay(P + "gamma_burst");
+	private static final RawAnimation EARTH_WALL = RawAnimation.begin().thenPlay(P + "earth_wall");
+	private static final RawAnimation GRAB = RawAnimation.begin().thenPlay(P + "grab");
+	private static final RawAnimation THROW_FAR = RawAnimation.begin().thenPlay(P + "throw_far");
+	private static final RawAnimation DEBRIS_RIP = RawAnimation.begin().thenPlay(P + "debris_rip");
+	private static final RawAnimation DEBRIS_THROW = RawAnimation.begin().thenPlay(P + "debris_throw");
+	private static final RawAnimation LOKI_SLAM = RawAnimation.begin().thenPlay(P + "loki_slam");
+	private static final RawAnimation ROAR = RawAnimation.begin().thenPlay(P + "roar");
+	private static final RawAnimation LEAP_LAUNCH = RawAnimation.begin().thenPlay(P + "leap_launch");
+	private static final RawAnimation LEAP_LAND = RawAnimation.begin().thenPlay(P + "leap_land");
+	private static final RawAnimation DEATH_FALL = RawAnimation.begin().thenPlayAndHold(P + "death_fall");
+	private static final RawAnimation RAMPAGE_ROAR = RawAnimation.begin().thenPlay(P + "rampage_roar");
+
 	/** Ticks each one-shot owns the body after it starts (a touch longer than the clip, so it finishes). */
 	private static final int CLAP_TICKS = 14;
 	private static final int SMASH_TICKS = 20;
+
+	/**
+	 * v0.16.4: Loki slam impact times (s into {@code loki_slam}): 0.75, 1.35, 1.95, 2.55 -- ticks 15, 27, 39, 51 after
+	 * {@code animStart}; left-front, right-front, left-front, right-front of him. For MOVES / the server to sync the victim.
+	 */
+	public static final int[] LOKI_SLAM_IMPACT_TICKS = { 15, 27, 39, 51 };
+
+	/**
+	 * v0.16.4: ticks each new one-shot ({@code HulkState.ANIM_*}) owns the body after it starts (clip length + 1), or 0 for
+	 * one that isn't a timed one-shot (bulldoze loops while charging, death_fall is held).
+	 */
+	public static int oneShotTicks(int animId) {
+		return switch (animId) {
+			case HulkState.ANIM_SUPER_PUNCH -> 16;
+			case HulkState.ANIM_GROUND_SMASH -> 21;
+			case HulkState.ANIM_THUNDERCLAP -> 16;
+			case HulkState.ANIM_FAULT_STOMP -> 19;
+			case HulkState.ANIM_UPPERCUT -> 17;
+			case HulkState.ANIM_GAMMA_BURST -> 21;
+			case HulkState.ANIM_EARTH_WALL -> 21;
+			case HulkState.ANIM_GRAB -> 10;
+			case HulkState.ANIM_THROW_FAR -> 13;
+			case HulkState.ANIM_DEBRIS_RIP -> 17;
+			case HulkState.ANIM_DEBRIS_THROW -> 15;
+			case HulkState.ANIM_LOKI_SLAM -> 61;
+			case HulkState.ANIM_ROAR -> 33;
+			case HulkState.ANIM_LEAP_LAUNCH -> 8;
+			case HulkState.ANIM_LEAP_LAND -> 15;
+			case HulkState.ANIM_RAMPAGE -> 29;
+			default -> 0;
+		};
+	}
+
+	private static RawAnimation oneShot(int animId) {
+		return switch (animId) {
+			case HulkState.ANIM_SUPER_PUNCH -> SUPER_PUNCH;
+			case HulkState.ANIM_GROUND_SMASH -> GROUND_SMASH;
+			case HulkState.ANIM_THUNDERCLAP -> THUNDERCLAP;
+			case HulkState.ANIM_FAULT_STOMP -> FAULT_STOMP;
+			case HulkState.ANIM_UPPERCUT -> UPPERCUT;
+			case HulkState.ANIM_GAMMA_BURST -> GAMMA_BURST;
+			case HulkState.ANIM_EARTH_WALL -> EARTH_WALL;
+			case HulkState.ANIM_GRAB -> GRAB;
+			case HulkState.ANIM_THROW_FAR -> THROW_FAR;
+			case HulkState.ANIM_DEBRIS_RIP -> DEBRIS_RIP;
+			case HulkState.ANIM_DEBRIS_THROW -> DEBRIS_THROW;
+			case HulkState.ANIM_LOKI_SLAM -> LOKI_SLAM;
+			case HulkState.ANIM_ROAR -> ROAR;
+			case HulkState.ANIM_LEAP_LAUNCH -> LEAP_LAUNCH;
+			case HulkState.ANIM_LEAP_LAND -> LEAP_LAND;
+			case HulkState.ANIM_RAMPAGE -> RAMPAGE_ROAR;
+			default -> null;
+		};
+	}
+
+	/** v0.16.4: the change clip for a style ({@code HulkState.TRANSFORM_*}). */
+	private static RawAnimation transformClip(int style) {
+		return switch (style) {
+			case HulkState.TRANSFORM_FORCED -> TRANSFORM_FORCED;
+			case HulkState.TRANSFORM_RIP -> TRANSFORM_RIP;
+			case HulkState.TRANSFORM_POUND -> TRANSFORM_POUND;
+			case HulkState.TRANSFORM_ARCH -> TRANSFORM_ARCH;
+			case HulkState.TRANSFORM_STAGGER -> TRANSFORM_STAGGER;
+			default -> TRANSFORM;
+		};
+	}
+
+	/**
+	 * v0.16.4: per player, the animStart of the one-shot last started -- the same move used twice in a row restarts its
+	 * clip instead of carrying on from the end of the first. Client render thread only.
+	 */
+	private static final java.util.Map<Player, Long> LAST_START = new java.util.WeakHashMap<>();
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -94,8 +196,13 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 			return state.setAndContinue(IDLE);
 		}
 		long now = player.level().getGameTime();
+		// v0.16.4: dying as the Hulk -- he drops onto his back and lies there (held) through the slow change back
+		if (HulkPose.deathFall(player, s)) {
+			return state.setAndContinue(DEATH_FALL);
+		}
 		if (s.hulk && now - s.formChangedAt < com.projecthero.mod.hulk.Hulk.changeTicks(s)) {
-			return state.setAndContinue(s.combat.unwilling ? TRANSFORM_FORCED : TRANSFORM);
+			// v0.16.4: one of six changes, picked by the server (Combat.transformStyle)
+			return state.setAndContinue(transformClip(HulkPose.style(s)));
 		}
 		if (s.leapChargeStart > 0L) {
 			return state.setAndContinue(LEAP_CHARGE);
@@ -109,6 +216,19 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 			if (g != null) {
 				return state.setAndContinue(g);
 			}
+		}
+		// v0.16.4: the new kit's one-shots
+		int len = oneShotTicks(s.animId);
+		if (len > 0 && since >= 0L && since < len) {
+			Long last = LAST_START.get(player);
+			if (last != null && last != s.animStart) {
+				state.getController().forceAnimationReset(); // the same move again: start its clip over
+			}
+			LAST_START.put(player, s.animStart);
+			return state.setAndContinue(oneShot(s.animId));
+		}
+		if (s.combat.chargeUntil > now && s.animId == HulkState.ANIM_BULLDOZE) {
+			return state.setAndContinue(BULLDOZE);
 		}
 		if (s.animId == HulkState.ANIM_HULK_SMASH && since < 26) {
 			return state.setAndContinue(HULK_SMASH);
@@ -182,14 +302,35 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private PlayState hold(AnimationState<HulkAnimatable> state) {
 		if (state.getData(DataTickets.ENTITY) instanceof Player player) {
 			HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-			if (s != null && s.combat.holding && !(s.animId == HulkState.ANIM_PICKUP && player.level().getGameTime() - s.animStart < 9)) {
+			if (s != null && s.combat.holding && !(s.animId == HulkState.ANIM_PICKUP && player.level().getGameTime() - s.animStart < 9)
+					&& !ownsArms(s, player.level().getGameTime() - s.animStart)) {
 				return state.setAndContinue(HOLD);
 			}
 		}
 		return PlayState.STOP;
 	}
 
+	/**
+	 * v0.16.4: a one-shot that moves both arms itself (the grab / rip lifting into the hold, the throws, the Loki slam,
+	 * the death fall) -- the arms-only {@code hold} and {@code punch} layers stay off it while it plays.
+	 */
+	private static boolean ownsArms(HulkState s, long since) {
+		return switch (s.animId) {
+			case HulkState.ANIM_GRAB, HulkState.ANIM_DEBRIS_RIP, HulkState.ANIM_THROW_FAR, HulkState.ANIM_DEBRIS_THROW,
+					HulkState.ANIM_LOKI_SLAM -> since >= 0L && since < oneShotTicks(s.animId);
+			case HulkState.ANIM_DEATH_FALL -> since >= 0L && since < HulkPose.DEATH_FALL_HOLD_TICKS;
+			default -> false;
+		};
+	}
+
 	private PlayState swing(AnimationState<HulkAnimatable> state) {
+		if (state.getData(DataTickets.ENTITY) instanceof Player owner) {
+			HulkState hs = owner.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+			if (hs != null && ownsArms(hs, owner.level().getGameTime() - hs.animStart)) {
+				state.getController().forceAnimationReset();
+				return PlayState.STOP;
+			}
+		}
 		if (state.getData(DataTickets.ENTITY) instanceof Player player && player.swinging
 				&& !player.getAttachedOrElse(ModAttachments.HULK_STATE, new HulkState()).combat.holding) {
 			boolean left = player.swingingArm != null && com.projecthero.mod.hulk.gladiator.GladiatorSwing.arm(player, player.swingingArm)
