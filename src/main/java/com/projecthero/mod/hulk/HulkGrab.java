@@ -407,13 +407,13 @@ public final class HulkGrab {
 		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, hand.x, hand.y, hand.z, 1, 0, 0, 0, 0);
 		if (held instanceof HulkBoulderEntity boulder) {
 			// v0.16.4 (user): the debris charges like a mob -- the same drag-free arc (its own gravity), as far as the charge says
-			Vec3 bv = farThrowVelocity(player.getLookAngle(), blocks, HulkBoulderEntity.GRAVITY);
+			Vec3 bv = aimedThrowVelocity(player, held, blocks, HulkBoulderEntity.GRAVITY);
 			boulder.launch(bv, blocks);
 			keepLoaded(level, boulder.position(), bv);
 			return;
 		}
 		double g = held instanceof LivingEntity l ? l.getGravity() : 0.08;
-		Vec3 v = farThrowVelocity(player.getLookAngle(), blocks, g);
+		Vec3 v = aimedThrowVelocity(player, held, blocks, g);
 		held.setDeltaMovement(v);
 		held.hurtMarked = true;
 		held.fallDistance = 0.0f;
@@ -425,6 +425,45 @@ public final class HulkGrab {
 		THROWN.computeIfAbsent(player.getUUID(), k -> new java.util.ArrayList<>())
 				.add(new Thrown(held.getId(), level.getGameTime(), hit, v, g, held.position(), blocks));
 		keepLoaded(level, held.position(), v);
+	}
+
+	/**
+	 * v0.16.4 (user: "make it throw where hes aiming"): the throw goes where he looks -- at the block, mob or ground his aim
+	 * meets within the charge's reach, or, aiming at open air, to the point that far along his exact look line (up or down).
+	 * Solved for the drag-free hold (velocity minus {@code gravity} each tick): it arrives at that point. Faster for short
+	 * throws, never above twice the far-throw speed, so it reads as a hurl rather than a lob.
+	 */
+	public static Vec3 aimedThrowVelocity(ServerPlayer player, Entity held, double blocks, double gravity) {
+		Vec3 eye = player.getEyePosition();
+		Vec3 look = player.getLookAngle();
+		Vec3 end = eye.add(look.scale(blocks));
+		Vec3 aim = end;
+		net.minecraft.world.phys.BlockHitResult block = player.level().clip(new net.minecraft.world.level.ClipContext(eye, end,
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, player));
+		if (block.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
+			aim = block.getLocation();
+		}
+		net.minecraft.world.phys.EntityHitResult mob = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(player, eye, aim,
+				new net.minecraft.world.phys.AABB(eye, aim).inflate(1.5),
+				e -> e != player && e != held && e.isPickable() && !e.isSpectator() && e.isAlive(), eye.distanceToSqr(aim));
+		if (mob != null) {
+			aim = mob.getEntity().getBoundingBox().getCenter();
+		}
+		Vec3 start = held.position().add(0, held.getBbHeight() * 0.5, 0);
+		Vec3 d = aim.subtract(start);
+		double speed = Math.max(1.0, HulkConfig.abilities().throwFarSpeed);
+		double dist = d.length();
+		int ticks = Math.max(3, (int) Math.ceil(dist / (speed * 1.6)));
+		Vec3 v = Vec3.ZERO;
+		for (int i = 0; i < 40; i++) {
+			// p(T) = start + v*T - g*T*(T+1)/2  ->  v = d/T + (0, g*(T+1)/2, 0)
+			v = d.scale(1.0 / ticks).add(0, gravity * (ticks + 1) * 0.5, 0);
+			if (v.length() <= speed * 2.0) {
+				break;
+			}
+			ticks = (int) Math.ceil(ticks * 1.15) + 1;
+		}
+		return v;
 	}
 
 	/** The V throw's launch: a drag-free arc that comes down {@code blocks} away along the look's heading. */

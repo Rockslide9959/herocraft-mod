@@ -119,8 +119,8 @@ All changes last the same server time as today's slow change (Hulk.changeTicks);
   x1.0 -> x1.667). Every move's base damage x0.75 (`HulkConfig.DAMAGE_NERF`), Gladiator moves too; HulkConfig v9 resets
   those keys. World Breaker still x2 on top.
 - **Air clap:** G off the ground (`HulkAbilities.airborne`) fires at once: `airRedirect` replaces his velocity with
-  look x `airClapPush` (1.4 b/t) via `AbilityHelpers.launchSelf` (motion packet), and zeroes the synced leap velocity
-  first so `HulkMovesClient` stops holding the leap's speed (vanilla physics from there). The leap stays open, so its
+  -look x `airClapPush` (2.2 b/t, the recoil: opposite his aim) via `AbilityHelpers.launchSelf` (motion packet); mid leap
+  the synced leap velocity becomes the recoil first, so `HulkMovesClient` holds that horizontal speed until he lands. The leap stays open, so its
   landing still lands and no fall is felt. The cone is x`airClapScale` (0.75) range and damage.
 - **Long throws:** a charged V throw (mob or debris) planned 100+ blocks calls `HulkGrab.longThrowImpact` where it lands:
   t = (planned - 100) / 100; crater radius 2.5 -> 7, cap 20 -> 120 blocks (`HulkCombat.crater`: the Hulk's block rules,

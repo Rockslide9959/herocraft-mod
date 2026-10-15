@@ -208,7 +208,7 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 			p.setAttached(com.projecthero.mod.attachment.ModAttachments.HULK_STATE, n);
 		}
 		helper.assertTrue(Math.abs(HulkGrab.throwCharge(p) - charge) < 1.0e-4f, "charge " + charge + ", got " + HulkGrab.throwCharge(p));
-		Vec3 launch = HulkGrab.farThrowVelocity(p.getLookAngle(), HulkGrab.throwBlocksFor(charge), target.getGravity());
+		Vec3 launch = HulkGrab.aimedThrowVelocity(p, target, HulkGrab.throwBlocksFor(charge), target.getGravity());
 		HulkGrab.releaseV(p);
 		helper.assertFalse(HulkGrab.chargingThrow(p), "V up ends the charge");
 		helper.assertTrue(HulkAbilities.cooldownRemaining(p, HulkAbilities.GRAB) > 0, "and throws it (cooldown starts)");
@@ -220,11 +220,15 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 			Vec3 v = target.getDeltaMovement();
 			double h = Math.sqrt(v.x * v.x + v.z * v.z);
 			double want = Math.sqrt(launch.x * launch.x + launch.z * launch.z);
-			helper.assertTrue(Math.abs(h - want) < want * 0.1 + 0.02,
-					"held at its throw speed (within one tick of vanilla air drag, which the next tick undoes): want " + want + ", got " + h);
-			double range = HulkLeap.simulateRange(launch, target.getGravity(), 2000);
-			helper.assertTrue(Math.abs(range - wantBlocks) < wantBlocks * 0.08 + 1.5,
-					"a drag-free arc that comes down ~" + wantBlocks + " blocks away, got " + range);
+			helper.assertTrue(Math.abs(h - want) < want * 0.2 + 0.02,
+					"held at its throw speed (the mob moves overhead before the release frame, so the aim re-solves from there): want " + want + ", got " + h);
+			// v0.16.4 (user): "make it throw where hes aiming" -- aiming level at open air, it is thrown straight along the
+			// look, at the point the charge's distance away on that line
+			Vec3 look = p.getLookAngle();
+			helper.assertTrue((v.x * look.x + v.z * look.z) / Math.max(1.0e-6, h) > 0.99, "along his aim, got " + v);
+			Vec3 aim = p.getEyePosition().add(look.scale(wantBlocks));
+			Vec3 start = target.position().add(0, target.getBbHeight() * 0.5, 0);
+			helper.assertTrue(Math.abs(aim.subtract(start).horizontalDistance() - wantBlocks) < 4.0, "aimed " + wantBlocks + " blocks out");
 			HulkGrab.release(p);
 			target.discard();
 			helper.succeed();
@@ -241,6 +245,33 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 	public void holdingVThrowsItTwoHundredBlocks(GameTestHelper helper) {
 		helper.assertTrue(Math.abs(HulkGrab.throwBlocksFor(1.0f) - 200.0) < 1.0e-6, "full charge is 200 blocks");
 		chargedThrow(helper, 1.0f, 200.0);
+	}
+
+	/** v0.16.4 (user): "make it throw where hes aiming" -- down at the floor goes down there, up goes up, not up and ahead. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40, batch = "hulk_v0164_throw_aim")
+	public void throwingGoesWhereHeAims(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		var target = mob(helper, p.position().add(0, 0, 3), 200.0);
+		look(p, target);
+		HulkGrab.press(p, false);
+		helper.assertTrue(Hulk.state(p).combat.holding, "V picks the mob up");
+		p.setYRot(0.0f);
+		p.setYHeadRot(0.0f);
+		p.setXRot(50.0f); // down at the floor ahead
+		Vec3 down = HulkGrab.aimedThrowVelocity(p, target, 200.0, target.getGravity());
+		helper.assertTrue(down.y < 0.0 && down.z > 0.0, "looking down: thrown down and ahead, at the floor he aims at, got " + down);
+		p.setXRot(-60.0f); // up at the sky
+		Vec3 up = HulkGrab.aimedThrowVelocity(p, target, 200.0, target.getGravity());
+		helper.assertTrue(up.y > Math.abs(up.z), "looking up: thrown steeply up, got " + up);
+		p.setXRot(0.0f);
+		p.setYRot(90.0f); // level, to the side (-X)
+		p.setYHeadRot(90.0f);
+		Vec3 side = HulkGrab.aimedThrowVelocity(p, target, 50.0, target.getGravity());
+		helper.assertTrue(side.x < 0.0 && Math.abs(side.z) < Math.abs(side.x) * 0.6, "level to the side (from where the mob is held): thrown that way, got " + side);
+		HulkGrab.release(p);
+		target.discard();
+		Hulk.revoke(p);
+		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- Shift+V Loki slam

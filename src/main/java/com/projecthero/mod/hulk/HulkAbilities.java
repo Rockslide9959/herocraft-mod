@@ -415,7 +415,8 @@ public final class HulkAbilities {
 		}
 		if (airborne(player)) {
 			// v0.16.4 (user): "make it so that the hulk can thunderclap mid-air so he can change his trajectory mid-air" -- in the
-			// air the clap goes off at once (no wind-up), stops him dead and pushes him the way he is looking
+			// air the clap goes off at once (no wind-up), stops him dead and -- v0.16.4 (user: "shoot the hulk flying in the
+			// direction opposite to where he aimed") -- the recoil hurls him the opposite way to his aim
 			airRedirect(player);
 			thunderclapImpact(player, true);
 			return;
@@ -433,27 +434,27 @@ public final class HulkAbilities {
 	}
 
 	/**
-	 * v0.16.4 (user, "stop + redirect"): the air clap kills his momentum and gives a smaller push ({@code airClapPush} blocks a
-	 * tick) along his look -- any direction, up and down too. A Super Leap in flight stops holding its speed (the synced
-	 * launch velocity is zeroed, so the client lets vanilla physics take the new push); the leap itself stays open so its
-	 * landing still counts as one and the fall is never felt. The state is saved BEFORE the motion packet goes out, so the
+	 * v0.16.4 (user, "stop + redirect"): the air clap kills his momentum and the recoil shoots him ({@code airClapPush} blocks
+	 * a tick) the OPPOSITE way to his look -- clap at the ground and he goes up, clap ahead and he flies back. Any direction.
+	 * Mid Super Leap the synced launch velocity becomes the recoil, so the client holds that horizontal speed (no air drag)
+	 * until he lands, like a leap; the leap itself stays open so its landing still counts as one and the fall is never felt. The state is saved BEFORE the motion packet goes out, so the
 	 * client never re-applies the old leap speed over the new push. Returns the push.
 	 */
 	public static Vec3 airRedirect(ServerPlayer player) {
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		HulkState s = Hulk.state(player);
+		Vec3 push = player.getLookAngle().normalize().scale(-cfg.airClapPush);
 		if (s.leaping) {
 			HulkState n = s.copy();
-			n.moves.leapVx = 0.0;
-			n.moves.leapVy = 0.0;
-			n.moves.leapVz = 0.0;
+			n.moves.leapVx = push.x;
+			n.moves.leapVy = push.y;
+			n.moves.leapVz = push.z;
 			Hulk.save(player, n);
 		}
-		Vec3 push = player.getLookAngle().normalize().scale(cfg.airClapPush);
 		AbilityHelpers.launchSelf(player, push); // replaces his velocity outright (momentum gone), hurtMarked + motion packet
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
-		// the recoil burst behind him
+		// the clap's burst on the side he aimed at (the recoil carries him away from it)
 		Vec3 back = c.subtract(push.normalize().scale(1.5));
 		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, back.x, back.y, back.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.CLOUD, back.x, back.y, back.z, 24, 0.8, 0.8, 0.8, 0.08);

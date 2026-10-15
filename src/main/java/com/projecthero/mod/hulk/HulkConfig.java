@@ -224,10 +224,10 @@ public final class HulkConfig {
 		public int clapStaggerTicks = 40;
 		public int clapCooldownTicks = 160;
 		/**
-		 * v0.16.4 (user): G in the air -- the clap stops him dead and pushes him this fast (blocks / tick) the way he is looking
-		 * (up and down too). 1.4 b/t is about 15 blocks of travel on a level push before gravity brings him down.
+		 * v0.16.4 (user): G in the air -- the clap stops him dead and the recoil shoots him this fast (blocks / tick) the
+		 * OPPOSITE way to his look (up and down too). Mid Super Leap the horizontal part is held until he lands.
 		 */
-		public double airClapPush = 1.4;
+		public double airClapPush = 2.2;
 		/** v0.16.4: the air clap's cone range and damage are scaled by this (a bit smaller than on the ground). */
 		public double airClapScale = 0.75;
 
@@ -487,6 +487,8 @@ public final class HulkConfig {
 					"gladiator.meteorDamage", "gladiator.axeThrowDamage", "gladiator.hammerHurlDamage", "gladiator.hammerRecallDamage",
 					"gladiator.whirlwindDamage", "gladiator.whirlwindSlamDamage", "gladiator.grappleBlowDamage",
 					"gladiator.grappleThrowDamage")
+			// v0.16.4 (user): the air clap's recoil shoots him the opposite way to his aim, harder (1.4 -> 2.2 b/t)
+			.reset(10, "v0.16.4 air Thunderclap recoil 1.4 -> 2.2", "abilities.airClapPush")
 			.build();
 
 	public static void load() {

@@ -147,12 +147,14 @@ public class HulkTuningV0164GameTests implements FabricGameTest {
 		p.setXRot(-30.0f);
 		helper.assertTrue(HulkAbilities.airborne(p), "precondition: in the air");
 		HulkAbilities.thunderclap(p);
-		Vec3 want = p.getLookAngle().normalize().scale(HulkConfig.abilities().airClapPush);
+		// v0.16.4 (user): the recoil shoots him the opposite way to his aim
+		Vec3 want = p.getLookAngle().normalize().scale(-HulkConfig.abilities().airClapPush);
 		Vec3 got = p.getDeltaMovement();
-		helper.assertTrue(got.distanceTo(want) < 1.0e-6, "momentum gone, pushed along the look: want " + want + ", got " + got);
-		helper.assertTrue(got.x < -0.5 && got.y > 0.3 && Math.abs(got.z) < 1.0e-6, "back the way he came and up, got " + got);
+		helper.assertTrue(got.distanceTo(want) < 1.0e-6, "momentum gone, shot opposite the look: want " + want + ", got " + got);
+		helper.assertTrue(got.x > 0.5 && got.y < -0.3 && Math.abs(got.z) < 1.0e-6, "away from his aim (+X) and down, got " + got);
 		HulkState s = Hulk.state(p);
-		helper.assertTrue(s.moves.leapVx == 0.0 && s.moves.leapVz == 0.0, "the leap stops holding its speed (the client lets go)");
+		helper.assertTrue(Math.abs(s.moves.leapVx - want.x) < 1.0e-6 && Math.abs(s.moves.leapVz - want.z) < 1.0e-6,
+				"the leap now holds the recoil's speed until he lands: " + s.moves.leapVx + ", " + s.moves.leapVz);
 		helper.assertTrue(s.leaping, "the leap stays open, so the landing still counts and no fall is felt");
 		helper.assertTrue(HulkAbilities.cooldownRemaining(p, HulkAbilities.THUNDERCLAP) > 0, "the normal cooldown starts");
 		helper.assertTrue(s.animId == HulkState.ANIM_THUNDERCLAP, "with the clap animation");
