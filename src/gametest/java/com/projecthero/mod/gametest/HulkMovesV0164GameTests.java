@@ -63,6 +63,7 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 
 	private static void look(ServerPlayer p, net.minecraft.world.entity.Entity e) {
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, e.position().add(0, e.getBbHeight() * 0.5, 0));
+		p.setYHeadRot(p.getYRot()); // a living thing aims along its HEAD yaw (getViewVector)
 	}
 
 	// ---------------------------------------------------------------- X Super Leap
@@ -198,7 +199,8 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 			helper.assertTrue(HulkGrab.inFlight(p, target), "and is flying");
 			Vec3 v = target.getDeltaMovement();
 			double h = Math.sqrt(v.x * v.x + v.z * v.z);
-			helper.assertTrue(Math.abs(h - HulkConfig.abilities().throwFarSpeed) < 0.05, "held at its throw speed, got " + h);
+			helper.assertTrue(Math.abs(h - HulkConfig.abilities().throwFarSpeed) < HulkConfig.abilities().throwFarSpeed * 0.06,
+					"held at its throw speed (within one tick of vanilla air drag, which the next tick undoes), got " + h);
 			Vec3 launch = HulkGrab.farThrowVelocity(p.getLookAngle(), HulkConfig.abilities().throwFarBlocks, target.getGravity());
 			double range = HulkLeap.simulateRange(launch, target.getGravity(), 2000);
 			helper.assertTrue(Math.abs(range - 300.0) < 25.0, "a drag-free arc that comes down ~300 blocks away, got " + range);
@@ -213,7 +215,8 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120, batch = "hulk_v0164_loki")
 	public void lokiSlamHitsTheFloorFourTimes(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
-		var victim = mob(helper, p.position().add(0, 0, 6), 1000.0);
+		// 150 health: survives four slams at full rage (12 x 4 x 1.5) -- a 1000-health mob counts as a boss and is refused
+		var victim = mob(helper, p.position().add(0, 0, 6), 150.0);
 		look(p, victim);
 		HulkGrab.press(p, true);
 		helper.assertTrue(HulkGrab.slamming(p), "Shift+V on a target within 10 blocks starts the slam");

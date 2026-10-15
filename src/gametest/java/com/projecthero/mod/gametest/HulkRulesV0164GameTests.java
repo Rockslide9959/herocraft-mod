@@ -195,6 +195,9 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 		helper.runAfterDelay(180, () -> {
 			double scale = p.getAttributeValue(Attributes.SCALE);
 			helper.assertTrue(Math.abs(scale - 6.0 / 1.8) < 0.02, "100 rage: 6 blocks tall (scale 3.33), got " + scale);
+			// a real player refreshes his size from the SCALE attribute in LivingEntity.tick (refreshDirtyAttributes); a mock player
+			// never ticks, so do what that tick does
+			p.refreshDimensions();
 			helper.assertTrue(Math.abs(p.getBbHeight() - 6.0) < 0.05, "the hitbox follows, got " + p.getBbHeight());
 			helper.succeed();
 		});
@@ -365,12 +368,14 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		double mirrorZ = p.getZ() - 6.0;
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 180.0f, -40.0f); // facing the mirror (-Z), looking up
+		p.setYHeadRot(180.0f); // a living thing looks along its HEAD yaw (getViewVector)
 		Vec3 feet = MirrorHulkEntity.reflect(p.position(), mirrorZ);
 		float body = MirrorHulkEntity.reflectYaw(180.0f);
 		float[] look = MirrorHulkEntity.headLook(p, feet, body, body, p.getXRot(), p.getEyePosition(), 3.0, mirrorZ);
 		helper.assertTrue(look[1] > 0.0f, "looking up does not make him look up: the taller Hulk looks DOWN at his eyes, got " + look[1]);
 		helper.assertTrue(Math.abs(net.minecraft.util.Mth.wrapDegrees(look[0])) < 1.0f, "straight at him, got " + look[0]);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0.0f, -40.0f); // his back to the mirror
+		p.setYHeadRot(0.0f);
 		float[] away = MirrorHulkEntity.headLook(p, feet, body, 123.0f, p.getXRot(), p.getEyePosition(), 3.0, mirrorZ);
 		helper.assertTrue(away[0] == 123.0f && away[1] == -40.0f, "turned away: just the reflection");
 		helper.succeed();
