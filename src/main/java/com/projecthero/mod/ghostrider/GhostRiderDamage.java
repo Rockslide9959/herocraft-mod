@@ -171,6 +171,15 @@ public final class GhostRiderDamage {
 	}
 
 	private static void reissue(LivingEntity entity, DamageSource source, float amount) {
+		if (entity instanceof ServerPlayer player && source.scalesWithDifficulty()) {
+			// Player#hurt scales a mob's hit by the difficulty BEFORE this veto sees it, and would scale the re-issued
+			// amount again: hand it the pre-scaling amount so it lands once
+			amount = switch (player.level().getDifficulty()) {
+				case HARD -> amount / 1.5f;
+				case EASY -> amount >= 2f ? 2f * (amount - 1f) : amount;
+				default -> amount;
+			};
+		}
 		REENTRANT.set(true);
 		try {
 			entity.hurt(source, amount);

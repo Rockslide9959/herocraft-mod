@@ -272,6 +272,7 @@ public final class GhostRiderAbilities {
 		}
 		BLASTS.put(p.getUUID(), p.level().getGameTime());
 		setFlag(p, true);
+		fireBolt(p); // the first bolt leaves the moment R goes down
 	}
 
 	public static void stopBlast(ServerPlayer p) {
@@ -296,9 +297,14 @@ public final class GhostRiderAbilities {
 			stopBlast(p);
 			return;
 		}
-		if ((now - start) % GhostRiderConfig.BLAST_INTERVAL != 0) {
+		if (now == start || (now - start) % GhostRiderConfig.BLAST_INTERVAL != 0) {
 			return;
 		}
+		fireBolt(p);
+	}
+
+	/** One hellfire bolt from the hand toward the aim point, if there is the Hellfire for it (else the blast stops). */
+	private static void fireBolt(ServerPlayer p) {
 		if (!GhostRider.spendHellfire(p, GhostRiderConfig.BLAST_COST)) {
 			GhostRider.say(p, "message.projecthero.ghost_rider.blast_empty", ChatFormatting.GOLD);
 			stopBlast(p);
@@ -699,13 +705,14 @@ public final class GhostRiderAbilities {
 		}
 		// judgement
 		float dmg = penanceDamage(p, target);
+		STARES.remove(p.getUUID());
+		GhostRiderCombat.strike(p, target, p.position(), dmg, 0.0, 0.0, 6);
+		// all the Vengeance is spent (after the hit, which would otherwise feed some straight back)
 		GhostRiderState n = GhostRider.state(p).copy();
 		n.vengeance = 0f;
 		n.stareTarget = -1;
 		GhostRider.save(p, n);
-		STARES.remove(p.getUUID());
 		cooldown(p, STARE, GhostRiderConfig.STARE_COOLDOWN);
-		GhostRiderCombat.strike(p, target, p.position(), dmg, 0.0, 0.0, 6);
 		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 50, 0.4,
 				target.getBbHeight() * 0.4, 0.4, 0.06);
 		level.sendParticles(ParticleTypes.SOUL, target.getX(), target.getEyeY(), target.getZ(), 12, 0.3, 0.3, 0.3, 0.04);
