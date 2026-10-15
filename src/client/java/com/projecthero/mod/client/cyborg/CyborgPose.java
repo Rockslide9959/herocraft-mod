@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  *   <li><b>The conversion</b>: arms flung out, head back, shuddering as the plates spread.</li>
  *   <li><b>Sonic Cannon</b>: the cannon arm held along the look while it charges, then a recoil.</li>
- *   <li><b>Hover</b>: arms a little out from the sides, legs together.</li>
+ *   <li><b>Jet Flight</b>: hands right by his sides, legs together.</li>
  *   <li><b>Defense Matrix</b>: the main palm pushed forward.</li>
  *   <li>Short keyframes for the burst, punch, grapple, dash, override, scan, Boom Tube, waypoint and repair.</li>
  * </ul>
@@ -40,8 +40,8 @@ public final class CyborgPose {
 
 		{ // always Cyborg (v0.16.5 rework)
 			if (s.hovering) {
-				pose(model.rightArm, 1f, 0.1f, 0f, 0.45f);
-				pose(model.leftArm, 1f, 0.1f, 0f, -0.45f);
+				pose(model.rightArm, 1f, 0f, 0f, 0.04f); // v0.16.5 (user): hands right by his sides in flight
+				pose(model.leftArm, 1f, 0f, 0f, -0.04f);
 				pose(model.rightLeg, 1f, 0.05f, 0f, 0.05f);
 				pose(model.leftLeg, 1f, 0.05f, 0f, -0.05f);
 			}
