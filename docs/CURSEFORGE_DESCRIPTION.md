@@ -262,8 +262,10 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 is yours, but it costs you **5 hearts** until the first time the Spirit burns through you.
 - **H** changes you: your leathers fold round you, your face slowly burns away and a **flaming skull** erupts. You
   only change back out of combat, with no monster within 20 blocks.
-- **Changed:** +11 melee, Regeneration III, immune to fire and lava, +3 hearts, no drowning, undead lose their nerve,
-  and you eat twice as fast.
+- **Changed:** +11 melee, Regeneration III, diamond-level armour built in (you can't wear any), immune to fire and
+  lava, +3 hearts, no drowning, undead lose their nerve, and you eat twice as fast.
+- **A demon walks:** golems attack you, villagers flee and won't trade, animals bolt, and stray cats and wolves keep
+  their distance (your own pets stay loyal).
 - **The Spirit won't die:** a killing blow leaves you standing (and changes you if you were human), but then the
   Spirit holds on until dawn.
 - **Hellfire** (100) fuels the kit and refills at Superman's sun rate (Regeneration III costs 2 a second).

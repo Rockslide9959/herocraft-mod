@@ -20,6 +20,14 @@ public final class GhostRiderConfig {
 	public static final float REGEN_HELLFIRE_PER_SECOND = 2f;
 	/** +11 melee damage while transformed. */
 	public static final double MELEE_BONUS = 11.0;
+	/** Transformed: a full diamond set's armour (and he can't wear any). */
+	public static final double ARMOR_BONUS = 20.0;
+	public static final double TOUGHNESS_BONUS = 8.0;
+	/** Transformed, the world fears him: a scan this often (ticks), golems / villagers / animals within these ranges. */
+	public static final int FEAR_INTERVAL = 10;
+	public static final double GOLEM_RANGE = 16.0;
+	public static final double VILLAGER_FEAR_RANGE = 12.0;
+	public static final double ANIMAL_FEAR_RANGE = 10.0;
 	/** Transformed, every rise in food exhaustion is doubled (he burns through food twice as fast). */
 	public static final float HUNGER_FACTOR = 2f;
 	public static final float VENGEANCE_MAX = 100f;

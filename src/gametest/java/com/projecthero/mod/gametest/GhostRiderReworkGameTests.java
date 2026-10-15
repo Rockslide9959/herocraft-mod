@@ -244,6 +244,75 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- armour
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void diamondArmourBuiltInButNoneWorn(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
+		GhostRider.grant(p);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_HELMET));
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ELYTRA));
+		double armour = p.getAttributeValue(Attributes.ARMOR);
+		GhostRider.transform(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty()
+				&& p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty(), "the change strips the helmet and the elytra");
+		helper.assertTrue(p.getInventory().contains(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_HELMET))
+				&& p.getInventory().contains(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ELYTRA)), "both are in his bag");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - 20.0) < 1.0e-6,
+				"a diamond set's 20 armour (the helmet's own is gone), got " + p.getAttributeValue(Attributes.ARMOR) + " (was " + armour + ")");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - 8.0) < 1.0e-6, "and 8 toughness");
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS));
+		GhostRider.tick(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).isEmpty(), "armour put on while changed comes straight off");
+		GhostRider.revert(p);
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) == 0.0 && p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) == 0.0,
+				"human: the built-in armour is gone");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- the living fear him (own batch: the scan looks 16 blocks out)
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40, batch = "ghost_rider_fear")
+	public void golemsHuntHim(GameTestHelper helper) {
+		floor(helper);
+		helper.getLevel().getServer().setDifficulty(Difficulty.HARD, true); // (on Peaceful nothing may attack a player)
+		ServerPlayer p = rider(helper, 1.5, 2.0, 1.5);
+		net.minecraft.world.entity.animal.IronGolem golem = EntityType.IRON_GOLEM.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(5.5, 2.0, 5.5));
+		golem.moveTo(at.x, at.y, at.z, 0f, 0f);
+		golem.setNoAi(true);
+		helper.getLevel().addFreshEntity(golem);
+		helper.onEachTick(() -> GhostRider.tick(p));
+		helper.runAfterDelay(GhostRiderConfig.FEAR_INTERVAL + 2, () -> {
+			helper.assertTrue(golem.getTarget() == p, "the iron golem targets the demon, target=" + golem.getTarget());
+			GhostRider.revert(p);
+			helper.assertTrue(golem.getTarget() == null, "turning back calms it");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "ghost_rider_fear")
+	public void animalsBolt(GameTestHelper helper) {
+		for (int x = -12; x <= 22; x++) {
+			for (int z = -12; z <= 22; z++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 1, z)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = rider(helper, 3.5, 2.0, 3.5);
+		net.minecraft.world.entity.animal.Cow cow = EntityType.COW.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(5.5, 2.0, 3.5));
+		cow.moveTo(at.x, at.y, at.z, 0f, 0f);
+		cow.setPersistenceRequired();
+		helper.getLevel().addFreshEntity(cow);
+		double start = cow.distanceTo(p);
+		helper.onEachTick(() -> GhostRider.tick(p));
+		helper.runAfterDelay(80, () -> {
+			double now = cow.distanceTo(p);
+			helper.assertTrue(now > start + 3.0, "the cow ran from him: " + start + " -> " + now);
+			helper.succeed();
+		});
+	}
+
 	// ---------------------------------------------------------------- the projectile and the bike
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)

@@ -57,7 +57,9 @@ import org.joml.Vector3f;
  * goes twice as fast. H only turns him back out of combat (nothing dealt or taken for
  * {@link GhostRiderConfig#OUT_OF_COMBAT_TICKS}) with no hostile monster within 20 blocks. And he can't die: a lethal hit
  * leaves him on 6 health -- forced into the Spirit if he was human -- and the Spirit then holds on until the next
- * sunrise ({@link GhostRiderState#dayLockUntil}). {@code /kill} and the void still kill.
+ * sunrise ({@link GhostRiderState#dayLockUntil}). {@code /kill} and the void still kill. Later in the batch: a diamond
+ * set's armour built in (+20 armour, +8 toughness) but no armour worn (the slots are kept empty, the elytra too), and
+ * the living fear him ({@link GhostRiderFear}).
  */
 public final class GhostRider {
 	public static final String KEY = "ghost_rider";
@@ -65,6 +67,8 @@ public final class GhostRider {
 	private static final ResourceLocation BLOOD_PRICE_ID = PowerToggles.id("ghost_rider_blood_price");
 	private static final ResourceLocation HEALTH_ID = PowerToggles.id("ghost_rider_health");
 	private static final ResourceLocation ATTACK_ID = PowerToggles.id("ghost_rider_attack");
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("ghost_rider_armor");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("ghost_rider_toughness");
 
 	/** Hellfire orange and an ember red. */
 	public static final DustParticleOptions HELLFIRE = new DustParticleOptions(new Vector3f(1.0f, 0.45f, 0.05f), 1.4f);
@@ -409,6 +413,7 @@ public final class GhostRider {
 		save(player, n);
 		reconcile(player);
 		player.clearFire();
+		stripArmour(player, false);
 		GhostRiderAbilities.beginTransformFx(player);
 	}
 
@@ -434,6 +439,7 @@ public final class GhostRider {
 		n.animStart = now;
 		save(player, n);
 		reconcile(player);
+		GhostRiderFear.calm(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.6, 0);
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 30, 0.3, 0.5, 0.3, 0.02);
@@ -455,7 +461,11 @@ public final class GhostRider {
 		if (out) {
 			PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, GhostRiderConfig.MAX_HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, GhostRiderConfig.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, GhostRiderConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, GhostRiderConfig.TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		} else {
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 			PowerToggles.clearModifier(player, Attributes.MAX_HEALTH, HEALTH_ID);
 			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID);
 			clearRegen(player);
@@ -513,6 +523,8 @@ public final class GhostRider {
 			if (now % 20 == 0) {
 				tickUndeadFear(player);
 			}
+			stripArmour(player, true);
+			GhostRiderFear.tick(player, now);
 			if (now % 4 == 0 && player.isAlive()) {
 				// embers rising off the skull for everyone else (the owner sees the client-side flames)
 				ServerLevel level = (ServerLevel) player.level();
@@ -562,6 +574,35 @@ public final class GhostRider {
 		if (cur != null && cur.getAmplifier() == GhostRiderConfig.REGEN_AMPLIFIER && !cur.isInfiniteDuration() && cur.getDuration() <= 100
 				&& cur.isAmbient()) {
 			player.removeEffect(MobEffects.REGENERATION);
+		}
+	}
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] ARMOUR_SLOTS = { net.minecraft.world.entity.EquipmentSlot.HEAD,
+			net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+			net.minecraft.world.entity.EquipmentSlot.FEET };
+
+	/**
+	 * Transformed he wears nothing (the Spirit's own hide is diamond-hard): every worn armour piece (the elytra too) goes
+	 * back into the inventory, or drops at his feet if it's full. {@code complain}: say so (armour put on mid-change).
+	 */
+	public static void stripArmour(ServerPlayer player, boolean complain) {
+		boolean moved = false;
+		for (net.minecraft.world.entity.EquipmentSlot slot : ARMOUR_SLOTS) {
+			net.minecraft.world.item.ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty()) {
+				continue;
+			}
+			player.setItemSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+			if (!player.getInventory().add(worn) && !worn.isEmpty()) {
+				player.drop(worn, false);
+			}
+			moved = true;
+		}
+		if (moved) {
+			player.inventoryMenu.broadcastChanges();
+			if (complain) {
+				say(player, "message.projecthero.ghost_rider.no_armour", ChatFormatting.GOLD);
+			}
 		}
 	}
 
