@@ -88,24 +88,48 @@ public final class HulkState {
 		public double leapVx;
 		public double leapVy;
 		public double leapVz;
+		/** v0.16.4 (user): game time V started charging a throw of what he holds (0 = not charging). */
+		public long throwChargeStart;
+		/** v0.16.4 (user): World Breaker -- game time it started (0 = never / cleaned up) and game time it ends. */
+		public long wbStartedAt;
+		public long wbUntil;
+		/** v0.16.4 (user): game time the Burnout after World Breaker ends (shrunk, debuffed, rage frozen at 0). */
+		public long wbBurnoutUntil;
+		/** v0.16.4 (user): game time World Breaker can be used again (its cooldown counts from the moment it ends). */
+		public long wbReadyAt;
 
 		public Moves copy() {
 			Moves m = new Moves();
 			m.leapVx = leapVx;
 			m.leapVy = leapVy;
 			m.leapVz = leapVz;
+			m.throwChargeStart = throwChargeStart;
+			m.wbStartedAt = wbStartedAt;
+			m.wbUntil = wbUntil;
+			m.wbBurnoutUntil = wbBurnoutUntil;
+			m.wbReadyAt = wbReadyAt;
 			return m;
 		}
 
 		public static final Codec<Moves> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.DOUBLE.optionalFieldOf("leap_vx", 0.0).forGetter(m -> m.leapVx),
 				Codec.DOUBLE.optionalFieldOf("leap_vy", 0.0).forGetter(m -> m.leapVy),
-				Codec.DOUBLE.optionalFieldOf("leap_vz", 0.0).forGetter(m -> m.leapVz)
-		).apply(i, (vx, vy, vz) -> {
+				Codec.DOUBLE.optionalFieldOf("leap_vz", 0.0).forGetter(m -> m.leapVz),
+				Codec.LONG.optionalFieldOf("throw_charge_start", 0L).forGetter(m -> m.throwChargeStart),
+				Codec.LONG.optionalFieldOf("wb_started_at", 0L).forGetter(m -> m.wbStartedAt),
+				Codec.LONG.optionalFieldOf("wb_until", 0L).forGetter(m -> m.wbUntil),
+				Codec.LONG.optionalFieldOf("wb_burnout_until", 0L).forGetter(m -> m.wbBurnoutUntil),
+				Codec.LONG.optionalFieldOf("wb_ready_at", 0L).forGetter(m -> m.wbReadyAt)
+		).apply(i, (vx, vy, vz, throwCharge, wbStarted, wbUntil, burnout, wbReady) -> {
 			Moves m = new Moves();
 			m.leapVx = vx;
 			m.leapVy = vy;
 			m.leapVz = vz;
+			m.throwChargeStart = throwCharge;
+			m.wbStartedAt = wbStarted;
+			m.wbUntil = wbUntil;
+			m.wbBurnoutUntil = burnout;
+			m.wbReadyAt = wbReady;
 			return m;
 		}));
 	}
@@ -392,6 +416,16 @@ public final class HulkState {
 	/** v0.16.4: the Hulk-form death sequence is under way (client-safe). */
 	public boolean dying() {
 		return rules.deathFallAt != 0L;
+	}
+
+	/** v0.16.4 (user): World Breaker is running (client-safe with the synced game time). */
+	public boolean worldBreaker(long now) {
+		return hulk && !dying() && moves.wbUntil > now;
+	}
+
+	/** v0.16.4 (user): in the Burnout after World Breaker (client-safe). */
+	public boolean burnout(long now) {
+		return hulk && moves.wbBurnoutUntil > now;
 	}
 
 	/** True while the Hulk is rampaging on his own (client-safe with the synced game time). */

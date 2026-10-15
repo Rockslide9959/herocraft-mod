@@ -16,7 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   G (2)  Thunderclap          / Fault-line Stomp
  *   X (3)  Super Leap (hold up to 0.5 s)
  *   Z (4)  Bulldozer Charge     / Launch Uppercut
- *   V (5)  Grab, V again throws / Debris Throw, or the Loki Slam on a target within 10 blocks
+ *   V (5)  Grab, hold V to charge the throw / Debris Throw, or the Loki Slam on a target within 10 blocks
  *   C (6)  Gamma Burst          / Earth Wall
  * </pre>
  *
@@ -79,6 +79,8 @@ public final class HulkAbilityManager {
 			case SLOT_5 -> {
 				if (pressed) {
 					HulkGrab.press(player, shift);
+				} else {
+					HulkGrab.releaseV(player); // v0.16.4 (user): letting go of V throws what he charged
 				}
 			}
 			case SLOT_6 -> {

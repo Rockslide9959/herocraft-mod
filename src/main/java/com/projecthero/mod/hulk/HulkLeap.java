@@ -281,7 +281,7 @@ public final class HulkLeap {
 		Vec3 at = player.position();
 		player.resetFallDistance();
 		HulkAbilities.shockwave(player, at, radius, damage, 1.0 + 1.2 * t, 0.45 + 0.5 * t, 0.6f + 0.7f * (float) t);
-		GroundCracks.star(level, at, radius * 1.1, 8 + (int) (6 * t), 120);
+		GroundCracks.star(level, at, radius * 1.1 * WorldBreaker.aoe(player), 8 + (int) (6 * t), 120);
 		if (t > 0.3) {
 			HulkCombat.crater(player, at.add(0, -0.5, 0), 1.5 + 2.5 * t, (int) (20 + 120 * t));
 			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);

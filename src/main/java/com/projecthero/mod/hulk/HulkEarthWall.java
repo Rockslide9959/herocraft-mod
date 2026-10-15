@@ -79,8 +79,10 @@ public final class HulkEarthWall {
 		Vec3 fwd = HulkAbilities.flatLook(player);
 		Vec3 side = new Vec3(-fwd.z, 0, fwd.x);
 		Vec3 center = player.position().add(fwd.scale(cfg.earthWallDistance + player.getBbWidth() * 0.5));
-		int half = Math.max(1, cfg.earthWallWidth) / 2;
-		int height = Math.max(1, cfg.earthWallHeight);
+		// v0.16.4 (user): World Breaker tears up a wall twice as wide and tall
+		double wb = WorldBreaker.aoe(player);
+		int half = (int) Math.round(Math.max(1, cfg.earthWallWidth) * wb) / 2;
+		int height = (int) Math.round(Math.max(1, cfg.earthWallHeight) * wb);
 		List<BlockPos> bases = new ArrayList<>();
 		List<BlockState[]> mats = new ArrayList<>();
 		java.util.Set<Long> seen = new java.util.HashSet<>();
