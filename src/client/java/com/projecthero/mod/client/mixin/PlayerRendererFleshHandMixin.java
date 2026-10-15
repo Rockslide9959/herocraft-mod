@@ -36,8 +36,16 @@ public abstract class PlayerRendererFleshHandMixin {
 	private PlayerSkin projecthero$fleshHandSkin(AbstractClientPlayer player) {
 		PlayerSkin skin = player.getSkin();
 		// v0.13.12: the Hulk's first-person arm is the Hulk skin
-		if (com.projecthero.mod.hulk.Hulk.isHulk(player)) {
-			return new PlayerSkin(HULK, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), PlayerSkin.Model.WIDE, skin.secure());
+		// v0.16.4: only once the morph has swapped to the Hulk body; before that Banner's arm shows the green spreading
+		if (com.projecthero.mod.hulk.Hulk.hasPower(player)) {
+			float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+			if (com.projecthero.mod.client.hulk.HulkMorph.hulkShown(player, partial)) {
+				return new PlayerSkin(HULK, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), PlayerSkin.Model.WIDE, skin.secure());
+			}
+			ResourceLocation morph = com.projecthero.mod.client.hulk.HulkMorphSkin.texture(player, skin.texture(), partial);
+			if (morph != skin.texture()) {
+				return new PlayerSkin(morph, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), skin.model(), skin.secure());
+			}
 		}
 		if (player == Minecraft.getInstance().player && WolverineFlesh.active(player, 1.0f)) {
 			return new PlayerSkin(FLESH, skin.textureUrl(), skin.capeTexture(), skin.elytraTexture(), skin.model(), skin.secure());

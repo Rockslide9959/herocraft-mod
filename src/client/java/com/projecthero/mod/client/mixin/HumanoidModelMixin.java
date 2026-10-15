@@ -78,6 +78,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			this.body.x = 0.0f;
 			this.head.x = 0.0f;
 			this.hat.x = 0.0f;
+			// v0.16.4: the Hulk morph swells parts through ModelPart scale -- back to 1 for every player first
+			com.projecthero.mod.client.hulk.HulkMorph.resetScale((HumanoidModel<?>) (Object) this);
 		}
 	}
 
@@ -193,6 +195,9 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.allmight.AllMightPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.15: Banner on his knees through the unwilling Hulk change
 			com.projecthero.mod.client.hulk.HulkPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.16.4: Banner swelling through the morph into the Hulk (and back)
+			com.projecthero.mod.client.hulk.HulkMorph.applyBulge(player, (HumanoidModel<?>) (Object) this,
+					com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand);
 			// v0.13.19: Symbiote move animations + suit-up pose
 			com.projecthero.mod.client.symbiote.SymbiotePose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.13.19: Moon Knight moves, glide / shroud stances

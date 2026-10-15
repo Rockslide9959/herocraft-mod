@@ -16,9 +16,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.13.15: Banner's side of the change -- the Hulk phases onto him while he goes through it (the Hulk model plays the
- * matching {@code animation.hulk.transform*} clip, so the two bodies line up through the cross-fade). Applied to the vanilla
- * humanoid model after its own animation, from {@code HumanoidModelMixin}.
+ * v0.13.15: Banner's side of the change (the Hulk model plays the matching {@code animation.hulk.transform*} clip). v0.16.4:
+ * no cross-fade any more -- Banner is drawn alone, greening and swelling, until {@link HulkMorph} swaps him for the Hulk.
+ * Applied to the vanilla humanoid model after its own animation, from {@code HumanoidModelMixin}.
  *
  * <p>The vanilla body pivots at the neck; to lean from the hips like the Hulk rig does, the neck is moved forward and
  * down around a fixed hip point, and the head and shoulders follow it. Model space: +Y is down, -Z is forward, leg X
