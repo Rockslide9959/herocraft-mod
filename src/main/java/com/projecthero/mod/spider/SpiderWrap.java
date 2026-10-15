@@ -72,6 +72,7 @@ public final class SpiderWrap {
 		});
 		ServerEntityEvents.ENTITY_UNLOAD.register((e, level) -> PINS.remove(e.getId()));
 		ServerTickEvents.END_SERVER_TICK.register(SpiderWrap::tick);
+		ServerTickEvents.END_SERVER_TICK.register(com.projecthero.mod.spider.web.WebStructures::tickStuck); // v0.16.4
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(SpiderWrap::allowDamage);
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) ->
 				isWrapped(player) ? InteractionResult.FAIL : InteractionResult.PASS);
@@ -203,16 +204,29 @@ public final class SpiderWrap {
 		return attacker == null || attacker == victim || !isWrapped(attacker);
 	}
 
-	/** Sneak + right-click a cocooned entity as Spider-Man: cut it free. */
+	/**
+	 * Sneak + right-click a cocooned entity as Spider-Man: cut it free. v0.16.4 (user): "the player can also manually free a
+	 * target by shift+right clicking them" -- the same on anything stuck on one of the webs (torn off it, slowness gone).
+	 */
 	private static InteractionResult onUseEntity(Player player, Level world, InteractionHand hand, Entity entity,
 			net.minecraft.world.phys.EntityHitResult hit) {
-		if (hand != InteractionHand.MAIN_HAND || !player.isShiftKeyDown() || !isWrapped(entity) || !SpiderMan.hasPower(player)) {
+		if (hand != InteractionHand.MAIN_HAND || !player.isShiftKeyDown() || !SpiderMan.hasPower(player)) {
+			return InteractionResult.PASS;
+		}
+		boolean onWeb = !isWrapped(entity) && entity instanceof LivingEntity
+				&& (com.projecthero.mod.spider.web.WebStructures.strandHolding(entity) != null
+						|| com.projecthero.mod.spider.web.WebStructures.trappingWeb(entity) != null);
+		if (!isWrapped(entity) && !onWeb) {
 			return InteractionResult.PASS;
 		}
 		if (world.isClientSide) {
 			return InteractionResult.SUCCESS;
 		}
-		release(entity, true);
+		if (onWeb) {
+			com.projecthero.mod.spider.web.WebStructures.tearFree(entity); // off the web, slipping through it for a moment
+		} else {
+			release(entity, true);
+		}
 		if (player instanceof ServerPlayer sp) {
 			sp.swing(hand, true);
 		}

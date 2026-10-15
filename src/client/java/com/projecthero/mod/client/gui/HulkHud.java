@@ -117,6 +117,8 @@ public final class HulkHud {
 						x0, formY, 0xFF55FF55, true);
 				renderKeys(g, mc, player, s, x0, formY - 3 - BOX, now);
 			}
+			// v0.16.4 (user): the Super Leap charge sits right above his ability boxes
+			com.projecthero.mod.client.hulk.HulkMovesClient.renderLeapBar(g, x0, formY - 3 - BOX - 3, totalW);
 			// v0.15.21: he can't see his own back -- who is riding it
 			Player rider = com.projecthero.mod.hulk.HulkRiding.rider(player);
 			if (rider != null) {

@@ -51,6 +51,56 @@ public class SpiderWebPullGameTests implements FabricGameTest {
 		return zombie;
 	}
 
+	/** v0.16.4: like {@link #stuckZombie} but a pig -- the GameTest world is Peaceful, which deletes a zombie at once. */
+	private static net.minecraft.world.entity.animal.Pig stuckPig(GameTestHelper helper, ServerPlayer p, WebStructureEntity[] ropeOut) {
+		Vec3 a = helper.absoluteVec(new Vec3(0.5, 3.0, 2.5));
+		Vec3 b = helper.absoluteVec(new Vec3(7.5, 3.0, 2.5));
+		ropeOut[0] = SpiderMoves.buildTightrope(p, a, b);
+		Vec3 mid = a.lerp(b, 0.5);
+		net.minecraft.world.entity.animal.Pig pig = EntityType.PIG.create(helper.getLevel());
+		pig.moveTo(mid.x, mid.y - 0.5, mid.z, 0.0f, 0.0f);
+		helper.getLevel().addFreshEntity(pig);
+		return pig;
+	}
+
+	/** v0.16.4 (user): off the web = free -- the web's lingering slowness comes off the moment it stops touching the strand. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aStuckTargetBreaksFreeOnceOffTheWeb(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		WebStructureEntity[] rope = new WebStructureEntity[1];
+		net.minecraft.world.entity.animal.Pig zombie = stuckPig(helper, p, rope);
+		helper.runAfterDelay(8, () -> {
+			helper.assertTrue(WebStructures.stuck(zombie), "held by the tightrope");
+			// the web's lingering slowness, as the web lays it on every second
+			com.projecthero.mod.hero.power.AbilityHelpers.applyControl(zombie, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
+					com.projecthero.mod.spider.SpiderWebs.debuffTicks(zombie), 2);
+			// knocked clear of the strand
+			zombie.teleportTo(zombie.getX(), zombie.getY() - 2.5, zombie.getZ() + 3.0);
+			helper.runAfterDelay(3, () -> {
+				helper.assertFalse(WebStructures.stuck(zombie), "no longer held once off the web");
+				helper.assertFalse(zombie.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "and the web slowness is gone");
+				helper.succeed();
+			});
+		});
+	}
+
+	/** v0.16.4 (user): Shift + right-click a target stuck on his web tears it free. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void shiftRightClickFreesAStuckTarget(GameTestHelper helper) {
+		ServerPlayer p = spider(helper);
+		WebStructureEntity[] rope = new WebStructureEntity[1];
+		net.minecraft.world.entity.animal.Pig zombie = stuckPig(helper, p, rope);
+		helper.runAfterDelay(8, () -> {
+			helper.assertTrue(WebStructures.stuck(zombie), "held by the tightrope");
+			p.setShiftKeyDown(true);
+			net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.invoker().interact(p, helper.getLevel(),
+					net.minecraft.world.InteractionHand.MAIN_HAND, zombie, null);
+			helper.assertTrue(WebStructures.pulledFree(zombie), "torn off the web (slipping through it for a moment)");
+			helper.assertFalse(zombie.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "and the web slowness is gone");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void yankingAStuckTargetTearsItOffAndSnapsTheWeb(GameTestHelper helper) {
 		ServerPlayer p = spider(helper);

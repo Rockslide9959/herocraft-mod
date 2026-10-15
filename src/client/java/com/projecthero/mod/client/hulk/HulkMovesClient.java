@@ -5,9 +5,7 @@ import com.projecthero.mod.hulk.HulkLeap;
 import com.projecthero.mod.hulk.data.HulkState;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -39,7 +37,6 @@ public final class HulkMovesClient {
 
 	public static void init() {
 		ClientTickEvents.END_CLIENT_TICK.register(HulkMovesClient::tick);
-		HudRenderCallback.EVENT.register(HulkMovesClient::renderLeapBar);
 	}
 
 	private static void tick(Minecraft mc) {
@@ -67,7 +64,11 @@ public final class HulkMovesClient {
 		player.setDeltaMovement(v);
 	}
 
-	private static void renderLeapBar(GuiGraphics g, DeltaTracker delta) {
+	/**
+	 * v0.16.4 (user): "change the hulks leap charge thing to be above his ability hud not the regular hud" -- drawn by
+	 * {@code HulkHud} right above his ability boxes, {@code w} wide from {@code x0}, its bottom at {@code bottom}.
+	 */
+	public static void renderLeapBar(GuiGraphics g, int x0, int bottom, int w) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (player == null || mc.options.hideGui) {
@@ -78,9 +79,7 @@ public final class HulkMovesClient {
 		if (s == null || !s.hulk || s.leapChargeStart <= 0L) {
 			return;
 		}
-		int w = 182;
-		int x0 = (g.guiWidth() - w) / 2;
-		int y = g.guiHeight() - 29; // over the XP bar, just above the hotbar
+		int y = bottom - 4;
 		boolean full = charge >= 1.0f;
 		g.fill(x0 - 1, y - 1, x0 + w + 1, y + 4, COLOR_BORDER);
 		g.fill(x0, y, x0 + w, y + 3, COLOR_BG);
@@ -90,6 +89,6 @@ public final class HulkMovesClient {
 		int blocks = (int) Math.round(HulkLeap.blocksFor(charge));
 		Component label = Component.translatable("hud.projecthero.hulk.leap", blocks);
 		int lw = mc.font.width(label);
-		g.drawString(mc.font, label, (g.guiWidth() - lw) / 2, y - 10, full ? COLOR_FULL : COLOR_FILL, true);
+		g.drawString(mc.font, label, x0 + (w - lw) / 2, y - 10, full ? COLOR_FULL : COLOR_FILL, true);
 	}
 }

@@ -59,6 +59,50 @@ public final class WebStructures {
 	public static void clearSessionState() {
 		SERVER.clear();
 		PULLED_FREE.clear();
+		STUCK.clear();
+	}
+
+	/**
+	 * v0.16.4 (user): "a target that is stuck on a weaved web should break free once they are no longer touching the weaved
+	 * web or tight rope" -- entity id -> the entity, for every living thing one of his webs is holding right now. Server only.
+	 */
+	private static final java.util.Map<Integer, LivingEntity> STUCK = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** True while one of his webs is holding {@code e} (server). */
+	public static boolean stuck(Entity e) {
+		return STUCK.containsKey(e.getId());
+	}
+
+	/**
+	 * v0.16.4 (user): once a held thing no longer touches any web it may not use, it is free: the web's lingering slowness
+	 * comes off with a small tear. Called every server tick.
+	 */
+	public static void tickStuck(net.minecraft.server.MinecraftServer server) {
+		if (STUCK.isEmpty()) {
+			return;
+		}
+		STUCK.entrySet().removeIf(en -> {
+			LivingEntity le = en.getValue();
+			if (le.isRemoved() || !le.isAlive() || !(le.level() instanceof ServerLevel level)) {
+				return true;
+			}
+			if (trappingWeb(le) != null || strandHolding(le) != null) {
+				return false; // still on it
+			}
+			breakFree(level, le);
+			return true;
+		});
+	}
+
+	/** v0.16.4: the web lets go of {@code e} -- its web slowness is removed and the stuck slowdown cleared. */
+	public static void breakFree(ServerLevel level, LivingEntity e) {
+		STUCK.remove(e.getId());
+		var slow = e.getEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN);
+		if (slow != null && slow.getDuration() <= SpiderWebs.debuffTicks(e) && slow.getAmplifier() <= 2) {
+			e.removeEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN);
+		}
+		e.makeStuckInBlock(Blocks.AIR.defaultBlockState(), Vec3.ZERO);
+		tearEffect(level, e.position().add(0, e.getBbHeight() * 0.5, 0));
 	}
 
 	/** v0.16.2: entity id -> game time until which webs let it slip through (just pulled off one). Server only. */
@@ -426,6 +470,9 @@ public final class WebStructures {
 		}
 		if (freed) {
 			PULLED_FREE.put(e.getId(), level.getGameTime() + PULL_GRACE_TICKS);
+			if (e instanceof LivingEntity le) {
+				breakFree(level, le); // v0.16.4: pulled off = free (no lingering web slowness)
+			}
 		}
 		if (com.projecthero.mod.spider.SpiderCobwebs.tearIn(level, e.getBoundingBox()) > 0) {
 			tearEffect(level, centre);
@@ -538,6 +585,7 @@ public final class WebStructures {
 			if (mayUse(e, owner) || SpiderWebs.ignoresWebs(e) || pulledFree(e) || !g.touches(e.getBoundingBox())) {
 				continue;
 			}
+			STUCK.put(e.getId(), e); // v0.16.4: held -- it breaks free the moment it is off the web
 			// stuck fast: far worse than a cobweb (players are slowed by their own client, see SpiderTraversalClient)
 			// not COBWEB: EntityWebMixin lets Spider-Men and the Hulk wade through cobweb, but his web holds everyone not allowed
 			e.makeStuckInBlock(Blocks.STRUCTURE_VOID.defaultBlockState(), new Vec3(slow, 0.04, slow));
