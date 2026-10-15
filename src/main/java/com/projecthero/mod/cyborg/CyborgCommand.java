@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * v0.16.5 admin / test command (op only): {@code /projecthero cyborg core <0-100>} sets your Power Core. The power itself
+ * v0.16.5 admin / test command (op only): {@code /projecthero power tune cyborg core <0-100>} sets your Power Core. The power itself
  * is granted like every other hero's: {@code /projecthero power grant <player> cyborg}.
  */
 public final class CyborgCommand {

@@ -18,7 +18,7 @@ import net.minecraft.world.phys.Vec3;
  * <ul>
  *   <li>{@code /projecthero meteor} -- a Kryptonite Meteor falls 80-200 blocks from you, exactly like the nightly event;</li>
  *   <li>{@code /projecthero meteor here} -- one falls ~15 blocks in front of you (quick testing);</li>
- *   <li>{@code /projecthero kryptonian solar <0-100>} -- sets your Solar Energy.</li>
+ *   <li>{@code /projecthero power tune kryptonian solar <0-100>} -- sets your Solar Energy.</li>
  * </ul>
  */
 public final class KryptonianCommand {

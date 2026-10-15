@@ -38,22 +38,24 @@ public final class ProjectHeroCommand {
 				.executes(ctx -> {
 					ctx.getSource().sendSuccess(() -> Component.literal("Project Hero")
 							.withStyle(ChatFormatting.LIGHT_PURPLE)
-							.append(Component.literal("  /projecthero <power|locate|raid>")
+							.append(Component.literal("  /projecthero <power|locate|raid|meteor|uniquepowers|crime|city>")
 									.withStyle(ChatFormatting.GRAY)), false);
 					return 1;
 				});
 
-		root.then(HeroCommand.buildAdmin());
+		// v0.16.5 (user: the powers should not be listed under /projecthero -- power grant gives them): each hero's own
+		// test tools (set Solar Energy, Nova Force, Hellfire, Power Core, Scarab Energy...) live under ONE entry,
+		// /projecthero power tune <hero> ...
+		root.then(HeroCommand.buildAdmin().then(Commands.literal("tune")
+				.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian())
+				.then(com.projecthero.mod.nova.NovaCommand.build())
+				.then(com.projecthero.mod.ghostrider.GhostRiderCommand.build())
+				.then(com.projecthero.mod.cyborg.CyborgCommand.build())
+				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())));
 		root.then(LocateCommand.build());
 		root.then(RaidAdminCommand.build());
-		// v0.14.8: /projecthero meteor [here] and /projecthero kryptonian solar <n> (op only)
+		// v0.14.8: /projecthero meteor [here] -- the Kryptonite Meteor world event (op only)
 		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildMeteor());
-		root.then(com.projecthero.mod.kryptonian.KryptonianCommand.buildKryptonian());
-		// v0.15.13: /projecthero nova force <n> and /projecthero nova site (op only)
-		root.then(com.projecthero.mod.nova.NovaCommand.build());
-		root.then(com.projecthero.mod.ghostrider.GhostRiderCommand.build());
-		root.then(com.projecthero.mod.cyborg.CyborgCommand.build());
-		root.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command());
 		// v0.16.1: /projecthero uniquepowers list | release <power> (the projectheroUniquePowers gamerule)
 		root.then(com.projecthero.mod.hero.UniquePowers.buildCommand());
 		// v0.16.2: /projecthero crime start <type> | end | trigger | status (street crime)

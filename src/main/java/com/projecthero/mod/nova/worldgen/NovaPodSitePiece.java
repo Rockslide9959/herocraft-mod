@@ -74,7 +74,7 @@ public class NovaPodSitePiece extends StructurePiece {
 
 	/**
 	 * Carves the bowl and builds the pod inside {@code box} (one chunk at world generation; the whole site for the
-	 * {@code /projecthero nova site} command). {@code centurion}: also place the Centurion if his spot is inside.
+	 * {@code /projecthero power tune nova site} command). {@code centurion}: also place the Centurion if his spot is inside.
 	 */
 	public void build(WorldGenLevel level, BoundingBox box, boolean centurion, Heightmap.Types surface) {
 		BlockPos c = center();

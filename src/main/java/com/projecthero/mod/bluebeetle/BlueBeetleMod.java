@@ -21,7 +21,7 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * v0.16.5: one entry point for the whole Blue Beetle power, called once from {@code ProjectHeroMod.onInitialize}: the
  * Scarab (+ its loot), the drone entity, the damage rules, the H payload and the lifecycle hooks; plus the
- * {@code /projecthero blue_beetle energy <0-100>} test command. The per-player tick runs from
+ * {@code /projecthero power tune blue_beetle energy <0-100>} test command. The per-player tick runs from
  * {@code AbilityRouter.serverTick}; static state is dropped by {@code ServerStateReset} through {@link #clearSessionState}.
  */
 public final class BlueBeetleMod {
@@ -54,7 +54,7 @@ public final class BlueBeetleMod {
 		BlueBeetle.clearSessionState();
 	}
 
-	/** {@code /projecthero blue_beetle energy <0-100>} (op only). */
+	/** {@code /projecthero power tune blue_beetle energy <0-100>} (op only). */
 	public static LiteralArgumentBuilder<CommandSourceStack> command() {
 		return Commands.literal("blue_beetle")
 				.requires(source -> source.hasPermission(2))

@@ -17,9 +17,9 @@ import net.minecraft.world.entity.LivingEntity;
 /**
  * v0.16.5 admin / test commands (op only), hung off {@code /projecthero}:
  * <ul>
- *   <li>{@code /projecthero ghost_rider hellfire <0-100>} -- sets your Hellfire;</li>
- *   <li>{@code /projecthero ghost_rider vengeance <0-100>} -- sets your Vengeance;</li>
- *   <li>{@code /projecthero ghost_rider guilt <targets> <points>} -- makes creatures guilty.</li>
+ *   <li>{@code /projecthero power tune ghost_rider hellfire <0-100>} -- sets your Hellfire;</li>
+ *   <li>{@code /projecthero power tune ghost_rider vengeance <0-100>} -- sets your Vengeance;</li>
+ *   <li>{@code /projecthero power tune ghost_rider guilt <targets> <points>} -- makes creatures guilty.</li>
  * </ul>
  * The power itself is granted like every other hero's: {@code /projecthero power grant <player> ghost_rider}.
  */

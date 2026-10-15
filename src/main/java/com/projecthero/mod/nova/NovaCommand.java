@@ -17,8 +17,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.15.13 admin / test commands (op only), hung off {@code /projecthero}:
  * <ul>
- *   <li>{@code /projecthero nova force <0-100>} -- sets your Nova Force;</li>
- *   <li>{@code /projecthero nova site} -- builds a Crashed Nova Corps Pod (with its Centurion) 14 blocks in front of you.</li>
+ *   <li>{@code /projecthero power tune nova force <0-100>} -- sets your Nova Force;</li>
+ *   <li>{@code /projecthero power tune nova site} -- builds a Crashed Nova Corps Pod (with its Centurion) 14 blocks in front of you.</li>
  * </ul>
  * The power itself is granted like every other hero's: {@code /projecthero power grant <player> nova}.
  */

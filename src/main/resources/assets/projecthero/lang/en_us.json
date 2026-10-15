@@ -4001,7 +4001,7 @@
   "projecthero.guide.kryptonian.meteor": "The Kryptonite Meteor",
   "projecthero.guide.kryptonian.meteor.body": "Meteors no longer fall out of the night sky (v0.14.13). Instead the Kryptonite Meteor is a rare crater generated with the world, about as rare as Mjolnir's crater and found in the same kinds of open land: a scorched bowl of blackstone, basalt and magma about 12 blocks across, kryptonite ore crusted round its centre (a few crystals sticking up) and one Meteor Core sunk into the middle. Explore new land to find one.",
   "projecthero.guide.kryptonian.commands": "Commands (operators)",
-  "projecthero.guide.kryptonian.commands.body": "/projecthero power grant kryptonian [player] -- give the power. /projecthero meteor -- an operator can still call a meteor down near you; /projecthero meteor here -- one lands about 15 blocks in front of you. /projecthero kryptonian solar <0-100> -- set your Solar Energy.",
+  "projecthero.guide.kryptonian.commands.body": "/projecthero power grant kryptonian [player] -- give the power. /projecthero meteor -- an operator can still call a meteor down near you; /projecthero meteor here -- one lands about 15 blocks in front of you. /projecthero power tune kryptonian solar <0-100> -- set your Solar Energy.",
   "item.projecthero.adamantium_shield": "Adamantium Shield",
   "item.projecthero.adamantium_shield.desc1": "Blocks like a shield. Never breaks.",
   "item.projecthero.adamantium_shield.desc2": "Super Soldier: C throws it.",
@@ -5247,7 +5247,7 @@
   "message.projecthero.nova.helmet_remove_cancel": "You keep the helmet on.",
   "message.projecthero.nova.helmet_removed": "You take off the Nova Corps Helmet. The Nova Force leaves you.",
   "projecthero.guide.nova.commands": "Commands",
-  "projecthero.guide.nova.commands.body": "/projecthero power grant nova [player] -- give the power. /projecthero nova force <0-100> -- set your Nova Force. /projecthero nova site -- build a crashed pod (with its Centurion) in front of you.",
+  "projecthero.guide.nova.commands.body": "/projecthero power grant nova [player] -- give the power. /projecthero power tune nova force <0-100> -- set your Nova Force. /projecthero power tune nova site -- build a crashed pod (with its Centurion) in front of you.",
   "message.projecthero.nova.shield_empty": "The Nova Force runs dry -- the Force Field fades",
   "hud.projecthero.nova.force_slow": "%s / %s  slow refill %ss",
   "hud.projecthero.wolverine.skin": "Skin %s%%",
@@ -5729,7 +5729,7 @@
   "projecthero.guide.ghost_rider.passives.body": "Changed: immune to fire and lava, +6 max health (3 hearts), no drowning, and undead lose their nerve (wither skeletons run). Human: fire still cannot hurt you.",
   "projecthero.guide.ghost_rider.controls": "Controls",
   "projecthero.guide.ghost_rider.commands": "Commands (op)",
-  "projecthero.guide.ghost_rider.commands.body": "/projecthero power grant <player> ghost_rider, /projecthero ghost_rider hellfire <0-100>, /projecthero ghost_rider vengeance <0-100>, /projecthero ghost_rider guilt <targets> <points>.",
+  "projecthero.guide.ghost_rider.commands.body": "/projecthero power grant ghost_rider [player], /projecthero power tune ghost_rider hellfire <0-100>, /projecthero power tune ghost_rider vengeance <0-100>, /projecthero power tune ghost_rider guilt <targets> <points>.",
   "projecthero.hero_tier.cyborg": "Cyborg",
   "projecthero.squad.identity.cyborg": "Cyborg",
   "message.projecthero.cyborg.title": "CYBORG",
@@ -5788,7 +5788,7 @@
   "projecthero.guide.cyborg.passives.body": "Combat form: no drowning, hunger drains at half speed, half fall damage and +4 armour. Weakness: lightning hurts double in civilian form.",
   "projecthero.guide.cyborg.controls": "Controls",
   "projecthero.guide.cyborg.commands": "Commands (op)",
-  "projecthero.guide.cyborg.commands.body": "/projecthero power grant <player> cyborg, /projecthero cyborg core <0-100>.",
+  "projecthero.guide.cyborg.commands.body": "/projecthero power grant cyborg [player], /projecthero power tune cyborg core <0-100>.",
   "projecthero.hero_tier.blue_beetle": "Blue Beetle",
   "projecthero.squad.identity.blue_beetle": "Blue Beetle",
   "item.projecthero.scarab": "The Scarab",
@@ -5879,5 +5879,5 @@
   "projecthero.guide.blue_beetle.passives.body": "Armoured: diamond-level armour, no fall damage, night vision and Adaptation.",
   "projecthero.guide.blue_beetle.controls": "Controls",
   "projecthero.guide.blue_beetle.commands": "Commands (op)",
-  "projecthero.guide.blue_beetle.commands.body": "/projecthero power grant <player> blue_beetle, /projecthero blue_beetle energy <0-100>."
+  "projecthero.guide.blue_beetle.commands.body": "/projecthero power grant blue_beetle [player], /projecthero power tune blue_beetle energy <0-100>."
 }
