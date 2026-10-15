@@ -55,6 +55,7 @@
 		"EffectDescriptionTooltipMixin",
 		"HumanoidArmorLayerMixin",
 		"HumanoidModelMixin",
+		"SpiderWalkAnimationMixin",
 		"ItemInHandLayerMixin",
 		"ItemInHandLayerCloakMixin",
 		"ItemInHandLayerSuitcaseMixin",

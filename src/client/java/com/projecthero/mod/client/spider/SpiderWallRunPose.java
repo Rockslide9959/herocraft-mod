@@ -170,6 +170,12 @@ public final class SpiderWallRunPose {
 		m.hat.copyFrom(m.head);
 	}
 
+	/** v0.16.4: how far into the wall-run pose this player is (0..1), without advancing it. */
+	public static float amount(Player player) {
+		double[] e = EASE.get(player.getUUID());
+		return e == null ? 0f : smooth(e[0]);
+	}
+
 	public static void clear() {
 		EASE.clear();
 	}
