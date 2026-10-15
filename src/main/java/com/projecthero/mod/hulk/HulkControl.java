@@ -39,8 +39,11 @@ import net.minecraft.world.phys.Vec3;
  *       fights to get out -- the same arrow warning; passed, he tries again 2 minutes later (then every 2 minutes); lost, he
  *       changes and goes on a 3-minute FORCED rampage (no ring), then the player has the Hulk back. These don't count
  *       toward the takeover.</li>
- *   <li><b>The death change</b>: Banner's death brings the Hulk out straight into a normal (ring) rampage once the change is
- *       over.</li>
+ *   <li><b>The death change</b>: Banner's death brings the Hulk out straight into a rampage once the change is over. v0.16.4
+ *       (user): a MIND rampage ({@link HulkState#RAMPAGE_MIND}, {@code control.mindScreen}) -- the same AI, but instead of the
+ *       ring the player's client shuts him inside his mind: a dark hall with a giant screen showing the Hulk 100 blocks away
+ *       ({@code HulkMindScreen}); right-clicking it ends the rampage ({@link #mindScreenReached}). A hard end of
+ *       {@code mindRampageTicks}.</li>
  * </ul>
  * Belt and braces: {@link #watchdog} force-releases anyone still locked 10 s past the end, and a relog resumes with the same
  * end time (an expired one is cleaned up on login, {@code Hulk.onPlayerJoin}).
@@ -100,6 +103,7 @@ public final class HulkControl {
 		return switch (kind) {
 			case HulkState.RAMPAGE_FORCED -> Math.max(40, cfg.forcedRampageTicks);
 			case HulkState.RAMPAGE_TAKEOVER -> Math.max(200, cfg.takeoverTicks);
+			case HulkState.RAMPAGE_MIND -> Math.max(200, cfg.mindRampageTicks);
 			default -> Math.max(40, cfg.rampageMaxTicks);
 		};
 	}
@@ -398,6 +402,7 @@ public final class HulkControl {
 		String key = switch (kind) {
 			case HulkState.RAMPAGE_TAKEOVER -> "message.projecthero.hulk.takeover_start";
 			case HulkState.RAMPAGE_FORCED -> "message.projecthero.hulk.forced_start";
+			case HulkState.RAMPAGE_MIND -> "message.projecthero.hulk.mind_start";
 			default -> "message.projecthero.hulk.rampage_start";
 		};
 		player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD), true);
@@ -418,6 +423,7 @@ public final class HulkControl {
 		long now = player.level().getGameTime();
 		HulkState s = Hulk.state(player);
 		boolean forced = s.wild.kind == HulkState.RAMPAGE_FORCED;
+		boolean mind = s.wild.kind == HulkState.RAMPAGE_MIND;
 		HulkState n = s.copy();
 		clearRampage(n);
 		n.combat.control = 100.0f;
@@ -426,9 +432,33 @@ public final class HulkControl {
 		Hulk.save(player, n);
 		player.setSprinting(false);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.2f, 0.6f);
+		if (mind && won) {
+			// v0.16.4 (user): back in the body -- he takes it with a roar
+			ServerLevel level = (ServerLevel) player.level();
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 2.5f, 0.6f);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.2f, 0.9f);
+			level.sendParticles(HulkAbilities.GAMMA, player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(), 40, 0.8,
+					player.getBbHeight() * 0.3, 0.8, 0.08);
+		}
 		String key = forced ? "message.projecthero.hulk.forced_end"
+				: mind && won ? "message.projecthero.hulk.mind_end"
 				: won ? "message.projecthero.hulk.rampage_end" : "message.projecthero.hulk.rampage_timeout";
 		player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GREEN), true);
+	}
+
+	/**
+	 * v0.16.4 (user): "they need to right click the screen to regain control of the hulk" -- the client says the player walked
+	 * the mind hall up to the screen and right-clicked it. Only counts during a mind rampage, and not before
+	 * {@code mindMinTicks} into it (the walk alone takes longer). True if it ended the rampage.
+	 */
+	public static boolean mindScreenReached(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		long now = player.level().getGameTime();
+		if (!s.inMindScreen(now) || s.dying() || now - s.wild.startedAt < Math.max(0, HulkConfig.control().mindMinTicks)) {
+			return false;
+		}
+		endRampage(player, true);
+		return true;
 	}
 
 	/**

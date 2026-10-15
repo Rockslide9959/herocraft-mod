@@ -15,39 +15,42 @@ import net.minecraft.client.gui.GuiGraphics;
  * v0.16.4 (user): "when the hulk rampages make the players screen zoom out and get smaller and have a little black box around
  * the screen and put the minigame at the bottom in the black". Before the HUD is drawn, the finished world picture is shrunk
  * into its inset ({@link HulkRampageClient#shrinkWorld}); while the inset shows, the hotbar, crosshair, experience level and
- * effect icons are left out so the black strip at the bottom is the minigame's alone.
+ * effect icons are left out so the black strip at the bottom is the minigame's alone. v0.16.4 (user): a death rampage draws the
+ * mind hall instead ({@code HulkMindScreen}), with the same HUD left out.
  */
 @Mixin(Gui.class)
 public abstract class GuiHulkRampageMixin {
 	@Inject(method = "render", at = @At("HEAD"))
 	private void projecthero$shrinkWorldForRampage(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
 		HulkRampageClient.shrinkWorld();
+		// v0.16.4 (user): a death rampage -- the frame goes onto the screen of the mind hall, drawn over everything
+		com.projecthero.mod.client.hulk.HulkMindScreen.renderScene(delta);
 	}
 
 	@Inject(method = "renderHotbarAndDecorations", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noHotbarInRampage(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
-		if (HulkRampageClient.insetShowing()) {
+		if (HulkRampageClient.viewTaken()) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noCrosshairInRampage(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
-		if (HulkRampageClient.insetShowing()) {
+		if (HulkRampageClient.viewTaken()) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderExperienceLevel", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noLevelInRampage(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
-		if (HulkRampageClient.insetShowing()) {
+		if (HulkRampageClient.viewTaken()) {
 			ci.cancel();
 		}
 	}
 
 	@Inject(method = "renderEffects", at = @At("HEAD"), cancellable = true)
 	private void projecthero$noEffectsInRampage(GuiGraphics graphics, DeltaTracker delta, CallbackInfo ci) {
-		if (HulkRampageClient.insetShowing()) {
+		if (HulkRampageClient.viewTaken()) {
 			ci.cancel();
 		}
 	}

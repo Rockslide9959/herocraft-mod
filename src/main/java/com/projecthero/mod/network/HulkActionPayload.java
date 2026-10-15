@@ -21,6 +21,8 @@ import net.minecraft.resources.ResourceLocation;
  *   <li>{@code MIND_MIRROR} -- H inside the Gamma origin's mind room: the Hulk comes through the mirror (v0.16.4).</li>
  *   <li>{@code PUSH (a = 1 on, 0 off)} -- the Hulk holds Sprint and moves forward: he ploughs through soft blocks even when
  *       one has stopped him (vanilla drops the sprint flag on a collision). Re-sent while held (v0.16.4).</li>
+ *   <li>{@code MIND_SCREEN} -- the player walked the mind hall of a death rampage up to the screen and right-clicked it
+ *       (v0.16.4; the server checks the rampage kind and the time).</li>
  * </ul>
  * v0.16.4: the calm-down actions are gone with calming (client and server always run the same jar -- the version handshake).
  */
@@ -32,7 +34,8 @@ public record HulkActionPayload(Action action, int a, int b) implements CustomPa
 		ROAR,
 		RING,
 		MIND_MIRROR,
-		PUSH
+		PUSH,
+		MIND_SCREEN
 	}
 
 	public HulkActionPayload(Action action) {

@@ -1296,7 +1296,9 @@ public final class Hulk {
 			// v0.16.4 (user): "When the player dies and the hulk takes over the hulk should immediately be in a rampage mode" --
 			// a normal (ring) rampage the moment the change is over
 			HulkState r = state(player).copy();
-			r.wild.pending = HulkState.RAMPAGE_NORMAL + 1;
+			// v0.16.4 (user): "whenever the player dies they get transported to the same place ... they need to right click the
+			// screen to regain control of the hulk ... make this happen instead of the regular rampage minigame" -- the mind rampage
+			r.wild.pending = (HulkConfig.control().mindScreen ? HulkState.RAMPAGE_MIND : HulkState.RAMPAGE_NORMAL) + 1;
 			save(player, r);
 		}
 		player.setHealth(player.getMaxHealth());

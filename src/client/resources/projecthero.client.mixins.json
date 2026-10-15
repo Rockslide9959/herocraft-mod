@@ -17,6 +17,8 @@
 		"PlayerRendererJointMixin",
 		"AbstractClientPlayerHulkFovMixin",
 		"GuiHulkRampageMixin",
+		"MouseHandlerHulkMindMixin",
+		"MinecraftHulkMindMusicMixin",
 		"GantryFovMixin",
 		"IronManRemovalParticleMixin",
 		"FirstPersonBodyLevelMixin",

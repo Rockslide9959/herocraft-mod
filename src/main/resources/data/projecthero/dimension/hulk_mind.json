@@ -3,7 +3,7 @@
   "generator": {
     "type": "minecraft:flat",
     "settings": {
-      "biome": "minecraft:the_void",
+      "biome": "projecthero:hulk_mind",
       "layers": [],
       "lakes": false,
       "features": false,

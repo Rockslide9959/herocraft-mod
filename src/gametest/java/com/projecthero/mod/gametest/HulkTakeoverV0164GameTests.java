@@ -345,14 +345,61 @@ public class HulkTakeoverV0164GameTests implements FabricGameTest {
 	public void bannersDeathChangeEndsInARampage(GameTestHelper helper) {
 		ServerPlayer p = gamma(helper);
 		helper.assertTrue(Hulk.tryDeathSave(p, p.damageSources().generic()), "the death is caught");
-		helper.assertTrue(Hulk.isHulk(p) && Hulk.state(p).wild.pending == HulkState.RAMPAGE_NORMAL + 1, "a rampage is owed");
+		// v0.16.4 (user): the death change's rampage is the mind screen, not the ring
+		helper.assertTrue(Hulk.isHulk(p) && Hulk.state(p).wild.pending == HulkState.RAMPAGE_MIND + 1, "a mind rampage is owed");
 		Hulk.tick(p);
 		helper.assertFalse(HulkControl.rampaging(p), "not mid-change");
 		edit(p, n -> n.formChangedAt = now(p) - Hulk.changeTicks(n) - 1);
 		Hulk.tick(p);
 		HulkState s = Hulk.state(p);
-		helper.assertTrue(s.rampaging(now(p)) && s.wild.kind == HulkState.RAMPAGE_NORMAL && !s.noRing(now(p)), "straight into a ring rampage");
+		helper.assertTrue(s.rampaging(now(p)) && s.wild.kind == HulkState.RAMPAGE_MIND && s.inMindScreen(now(p)), "straight into the mind rampage");
+		helper.assertTrue(s.noRing(now(p)), "no ring minigame for it");
+		helper.assertTrue(s.combat.rampageUntil - now(p) == HulkControl.durationTicks(HulkState.RAMPAGE_MIND), "with its hard end");
 		helper.assertTrue(s.wild.bannerTicks == 0, "and the change reset Banner's clock");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_mind_screen")
+	public void reachingTheMindScreenEndsOnlyAMindRampage(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		// not during a normal (ring) rampage
+		HulkControl.startRampage(p, HulkState.RAMPAGE_NORMAL);
+		edit(p, n -> n.wild.startedAt = now(p) - 10_000L);
+		helper.assertFalse(HulkControl.mindScreenReached(p), "a ring rampage ignores the screen");
+		helper.assertTrue(HulkControl.rampaging(p), "and keeps going");
+		runOut(p);
+		// a mind rampage: not straight away (the walk takes longer), then yes
+		HulkControl.startRampage(p, HulkState.RAMPAGE_MIND);
+		helper.assertTrue(Hulk.state(p).inMindScreen(now(p)), "in the mind");
+		helper.assertTrue(Hulk.state(p).combat.rampageUntil - now(p) == 4L * 60L * 20L, "4 minutes at most");
+		helper.assertFalse(HulkControl.mindScreenReached(p), "too soon to have walked 100 blocks");
+		helper.assertTrue(HulkControl.rampaging(p), "still rampaging");
+		edit(p, n -> n.wild.startedAt = now(p) - HulkConfig.control().mindMinTicks - 1L);
+		helper.assertTrue(HulkControl.mindScreenReached(p), "reaching the screen ends it");
+		HulkState s = Hulk.state(p);
+		helper.assertTrue(Hulk.isHulk(p) && !s.rampaging(now(p)) && s.combat.control >= 100.0f, "the player has the Hulk back");
+		helper.assertTrue(s.wild.kind == HulkState.RAMPAGE_NORMAL && s.combat.rampageUntil == 0L, "and the rampage is clean");
+		helper.assertTrue(s.rules.nextRampageAt > now(p), "the minute's clock starts again");
+		helper.assertFalse(HulkControl.mindScreenReached(p), "nothing to end any more");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "hulk_mind_screen_end")
+	public void theMindRampageStillHasAHardEnd(GameTestHelper helper) {
+		ServerPlayer p = hulk(helper);
+		HulkControl.startRampage(p, HulkState.RAMPAGE_MIND);
+		runOut(p);
+		helper.assertTrue(Hulk.isHulk(p) && !HulkControl.rampaging(p), "the clock lets him go");
+		HulkControl.startRampage(p, HulkState.RAMPAGE_MIND);
+		edit(p, n -> n.combat.rampageUntil = now(p) - HulkControl.WATCHDOG_SLACK_TICKS - 5L);
+		HulkControl.watchdog(p);
+		helper.assertTrue(Hulk.state(p).combat.rampageUntil == 0L && Hulk.isHulk(p), "the watchdog lets go too");
+		// a relog resumes it with the same end
+		HulkControl.startRampage(p, HulkState.RAMPAGE_MIND);
+		long end = Hulk.state(p).combat.rampageUntil;
+		Hulk.clearTransient(p);
+		Hulk.onPlayerJoin(p);
+		helper.assertTrue(Hulk.state(p).inMindScreen(now(p)) && Hulk.state(p).combat.rampageUntil == end, "resumed after a relog");
 		helper.succeed();
 	}
 

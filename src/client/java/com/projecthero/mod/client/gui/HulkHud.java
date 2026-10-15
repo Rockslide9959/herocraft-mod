@@ -58,7 +58,7 @@ public final class HulkHud {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		if (com.projecthero.mod.client.hulk.HulkRampageClient.insetShowing()) {
+		if (com.projecthero.mod.client.hulk.HulkRampageClient.viewTaken()) {
 			return; // v0.16.4: the rampage view owns the screen (its ring minigame sits in the black strip)
 		}
 		int totalW = 6 * BOX + 5 * GAP;
