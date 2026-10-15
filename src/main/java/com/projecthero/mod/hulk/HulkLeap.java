@@ -21,7 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.4 (user): X -- Super Leap. Hold X up to {@code superLeapChargeTicks} (0.5 s; the leap bar above the hotbar
+ * v0.16.4 (user): X -- Super Leap. Hold X up to {@code superLeapChargeTicks} (2 s; the leap bar above the hotbar
  * fills); a tap goes {@code superLeapTapBlocks} (25), half charge {@code superLeapHalfBlocks} (100), full
  * {@code superLeapFullBlocks} (500), along the look direction.
  *

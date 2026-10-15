@@ -249,8 +249,8 @@ public final class HulkConfig {
 		public double uppercutLaunch = 2.4;
 		public int uppercutCooldownTicks = 140;
 
-		// ---- X Super Leap (hold up to 0.5 s) ----
-		public int superLeapChargeTicks = 10;
+		// ---- X Super Leap (hold up to 2 s; v0.16.4 user: was 0.5 s -- a longer charge so the big jumps can be aimed) ----
+		public int superLeapChargeTicks = 40;
 		public double superLeapTapBlocks = 25.0;
 		public double superLeapHalfBlocks = 100.0;
 		public double superLeapFullBlocks = 500.0;
@@ -403,6 +403,8 @@ public final class HulkConfig {
 			.reset(5, "v0.16.4 Hulk rules revamp: rampage warning + ring minigame", "control")
 			// v0.16.4 (user): the ring needs 5 in a row (the new takeover / Banner-clock keys fill in from the defaults)
 			.reset(6, "v0.16.4 ring 3 -> 5 hits, takeover + Banner clock", "control.ringHitsNeeded")
+			// v0.16.4 (user): the Super Leap charges over 2 s (was 0.5 s)
+			.reset(7, "v0.16.4 Super Leap charge 0.5 s -> 2 s", "abilities.superLeapChargeTicks")
 			.build();
 
 	public static void load() {
