@@ -268,6 +268,7 @@ public final class ModNetworking {
 				case CONTROL -> com.projecthero.mod.hulk.HulkControl.answer(p, payload.a());
 				case ROAR -> com.projecthero.mod.hulk.HulkRoar.press(p); // v0.16.4
 				case RING -> com.projecthero.mod.hulk.HulkControl.ringResult(p, payload.a() != 0); // v0.16.4
+				case PUSH -> com.projecthero.mod.hulk.HulkAbilities.setPushing(p, payload.a() != 0); // v0.16.4
 				default -> {
 				}
 			}

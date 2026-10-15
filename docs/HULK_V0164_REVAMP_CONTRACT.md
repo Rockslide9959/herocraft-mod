@@ -99,7 +99,7 @@ All changes last the same server time as today's slow change (Hulk.changeTicks);
 
 - **V throw:** V picks up as before; V held with something overhead charges (`HulkState.Moves.throwChargeStart`,
   `abilities.throwChargeTicks` = 35, 1.75 s), V released throws it (`HulkGrab.releaseV`, routed from
-  `HulkAbilityManager` on the key-up): `throwTapBlocks` 20 for a tap up to `throwFarBlocks` 200 at full charge, same
+  `HulkAbilityManager` on the key-up): `throwTapBlocks` 20 for a tap up to `throwFarBlocks` 300 at full charge (200 at first; the user raised it), same
   drag-free arc + chunk tickets; the debris uses the same arc with `HulkBoulderEntity.GRAVITY`. `ANIM_THROW_FAR` /
   `ANIM_DEBRIS_THROW` play on release. The rampage AI throws at once at full charge. The charge bar is
   `HulkMovesClient.renderThrowBar` (the leap bar's slot).
@@ -123,7 +123,7 @@ All changes last the same server time as today's slow change (Hulk.changeTicks);
   the synced leap velocity becomes the recoil first, so `HulkMovesClient` holds that horizontal speed until he lands. The leap stays open, so its
   landing still lands and no fall is felt. The cone is x`airClapScale` (0.75) range and damage.
 - **Long throws:** a charged V throw (mob or debris) planned 100+ blocks calls `HulkGrab.longThrowImpact` where it lands:
-  t = (planned - 100) / 100; crater radius 2.5 -> 7, cap 20 -> 120 blocks (`HulkCombat.crater`: the Hulk's block rules,
+  t = (planned - 100) / 200 (full at the 300-block max); crater radius 2.5 -> 7, cap 20 -> 120 blocks (`HulkCombat.crater`: the Hulk's block rules,
   loaded chunks only, World Breaker x2), cracks, a shockwave ring, explosion / dust / debris, a heavy boom; impact damage
   up to +50%. Config `abilities.longThrow*`.
 - **World Breaker shout:** `WorldBreaker.shout` -- a vanilla title "HULK IS STRONGEST" / subtitle "THERE IS!!!" (lang

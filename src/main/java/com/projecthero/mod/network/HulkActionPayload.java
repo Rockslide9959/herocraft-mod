@@ -19,6 +19,8 @@ import net.minecraft.resources.ResourceLocation;
  *   <li>{@code ROAR} -- N as the Hulk (v0.16.4).</li>
  *   <li>{@code RING (a = 1 hit, 0 miss)} -- one Space press of the rampage's regain-control ring (v0.16.4).</li>
  *   <li>{@code MIND_MIRROR} -- H inside the Gamma origin's mind room: the Hulk comes through the mirror (v0.16.4).</li>
+ *   <li>{@code PUSH (a = 1 on, 0 off)} -- the Hulk holds Sprint and moves forward: he ploughs through soft blocks even when
+ *       one has stopped him (vanilla drops the sprint flag on a collision). Re-sent while held (v0.16.4).</li>
  * </ul>
  * v0.16.4: the calm-down actions are gone with calming (client and server always run the same jar -- the version handshake).
  */
@@ -29,7 +31,8 @@ public record HulkActionPayload(Action action, int a, int b) implements CustomPa
 		TRANSFORM_RELEASE,
 		ROAR,
 		RING,
-		MIND_MIRROR
+		MIND_MIRROR,
+		PUSH
 	}
 
 	public HulkActionPayload(Action action) {

@@ -36,7 +36,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>V</b> picks up the mob you are looking at ({@code grabRange}) and holds it overhead. v0.16.4 (user): "make the
  *       hulk have to charge up his throw by holding v, at max charge he throws entities 200 blocks away" -- HOLD V to charge
  *       ({@code throwChargeTicks}, 1.75 s; a bar over his ability boxes fills), let go to throw: {@code throwTapBlocks} (20)
- *       for a tap up to {@code throwFarBlocks} (200) at full charge, along your look -- a drag-free arc the server holds it on
+ *       for a tap up to {@code throwFarBlocks} (300) at full charge, along your look -- a drag-free arc the server holds it on
  *       all the way (its chunks are kept ticking ahead of it), and it smashes into whatever it hits. The ground debris
  *       charges the same way.</li>
  *   <li><b>Shift+V</b> while looking at a target within {@code lokiRange} (10): the "puny god" slam -- he grabs it and
@@ -140,7 +140,7 @@ public final class HulkGrab {
 
 	// ---------------------------------------------------------------- v0.16.4 (user): the charged throw
 
-	/** Charge 0..1 -> blocks: a tap {@code throwTapBlocks} (20) up to {@code throwFarBlocks} (200), a straight line between. */
+	/** Charge 0..1 -> blocks: a tap {@code throwTapBlocks} (20) up to {@code throwFarBlocks} (300), a straight line between. */
 	public static double throwBlocksFor(float charge) {
 		HulkConfig.Abilities c = HulkConfig.abilities();
 		double t = Math.max(0.0, Math.min(1.0, charge));
@@ -841,7 +841,7 @@ public final class HulkGrab {
 	// ---------------------------------------------------------------- v0.16.4 (user): the long throw's crater
 
 	/**
-	 * 0..1: how far past {@code longThrowMinBlocks} (100) a throw meant to go -- (planned - 100) / 100, clamped. Negative
+	 * 0..1: how far past {@code longThrowMinBlocks} (100) a throw meant to go -- (planned - 100) / 200, clamped. Negative
 	 * (-1) for a throw under 100 blocks: no destruction at all.
 	 */
 	public static double longThrowT(double blocks) {

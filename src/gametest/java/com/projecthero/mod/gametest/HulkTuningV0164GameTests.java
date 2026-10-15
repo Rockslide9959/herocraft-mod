@@ -197,11 +197,11 @@ public class HulkTuningV0164GameTests implements FabricGameTest {
 		int at120 = HulkGrab.longThrowImpact(p, at, 120.0, null);
 		helper.assertTrue(at120 > 0 && full - stone(helper) == at120, "a 120-block throw craters (" + at120 + ")");
 		slab(helper);
-		int at200 = HulkGrab.longThrowImpact(p, at, 200.0, null);
-		helper.assertTrue(at200 > at120, "a 200-block throw craters more: " + at200 + " vs " + at120);
-		helper.assertTrue(Math.abs(HulkGrab.longThrowT(200.0) - 1.0) < 1.0e-9 && Math.abs(HulkGrab.longThrowT(150.0) - 0.5) < 1.0e-9,
-				"t = (planned - 100) / 100");
-		helper.assertTrue(HulkGrab.longThrowDamageScale(200.0) > 1.4f, "and a full throw hits harder");
+		int at300 = HulkGrab.longThrowImpact(p, at, 300.0, null);
+		helper.assertTrue(at300 > at120, "a 300-block throw craters more: " + at300 + " vs " + at120);
+		helper.assertTrue(Math.abs(HulkGrab.longThrowT(300.0) - 1.0) < 1.0e-9 && Math.abs(HulkGrab.longThrowT(200.0) - 0.5) < 1.0e-9,
+				"t = (planned - 100) / 200");
+		helper.assertTrue(HulkGrab.longThrowDamageScale(300.0) > 1.4f, "and a full throw hits harder");
 		Hulk.revoke(p);
 		helper.succeed();
 	}

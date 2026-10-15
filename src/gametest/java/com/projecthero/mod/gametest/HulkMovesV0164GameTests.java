@@ -242,9 +242,9 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_v0164_throw_full")
-	public void holdingVThrowsItTwoHundredBlocks(GameTestHelper helper) {
-		helper.assertTrue(Math.abs(HulkGrab.throwBlocksFor(1.0f) - 200.0) < 1.0e-6, "full charge is 200 blocks");
-		chargedThrow(helper, 1.0f, 200.0);
+	public void holdingVThrowsItThreeHundredBlocks(GameTestHelper helper) {
+		helper.assertTrue(Math.abs(HulkGrab.throwBlocksFor(1.0f) - 300.0) < 1.0e-6, "full charge is 300 blocks");
+		chargedThrow(helper, 1.0f, 300.0);
 	}
 
 	/** v0.16.4 (user): "make it throw where hes aiming" -- down at the floor goes down there, up goes up, not up and ahead. */

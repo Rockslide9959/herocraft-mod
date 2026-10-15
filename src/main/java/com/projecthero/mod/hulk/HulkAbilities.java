@@ -119,6 +119,10 @@ public final class HulkAbilities {
 	private static final Map<UUID, List<Task>> TASKS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Dozer> DOZERS = new ConcurrentHashMap<>();
+	/** v0.16.4: game time of each Hulk's last "Sprint held + moving forward" report from his client (see {@link #setPushing}). */
+	private static final Map<UUID, Long> PUSHING = new ConcurrentHashMap<>();
+	/** A push report counts this long (the client re-sends it every 10 ticks while the key is held). */
+	private static final long PUSH_STALE_TICKS = 30L;
 
 	private HulkAbilities() {
 	}
@@ -127,6 +131,7 @@ public final class HulkAbilities {
 		TASKS.clear();
 		LAST_POS.clear();
 		DOZERS.clear();
+		PUSHING.clear();
 		HulkLeap.clearSessionState();
 		GroundCracks.clearSessionState();
 		HulkEarthWall.clearSessionState();
@@ -136,6 +141,7 @@ public final class HulkAbilities {
 		TASKS.remove(id);
 		LAST_POS.remove(id);
 		DOZERS.remove(id);
+		PUSHING.remove(id);
 		HulkLeap.clear(id);
 	}
 
@@ -759,6 +765,11 @@ public final class HulkAbilities {
 	}
 
 	static int breakAhead(ServerPlayer player, Vec3 fwd, boolean forced, float maxHardness) {
+		return breakAhead(player, fwd, forced, maxHardness, 0.0);
+	}
+
+	/** {@code extraReach}: blocks further out than the slab right in front of him (v0.16.4). */
+	static int breakAhead(ServerPlayer player, Vec3 fwd, boolean forced, float maxHardness, double extraReach) {
 		ServerLevel level = (ServerLevel) player.level();
 		HulkConfig.World w = HulkConfig.world();
 		if (!HulkCombat.canBreakBlocks(level) || (!forced && !w.sprintSmashEnabled)) {
@@ -766,7 +777,7 @@ public final class HulkAbilities {
 		}
 		Vec3 side = new Vec3(-fwd.z, 0, fwd.x);
 		double half = player.getBbWidth() * 0.5;
-		double reach = half + 0.8;
+		double reach = half + 0.8 + extraReach;
 		int height = (int) Math.ceil(player.getBbHeight());
 		int broken = 0;
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -793,19 +804,44 @@ public final class HulkAbilities {
 		return broken;
 	}
 
-	/** Sprint Smash: sprinting as the Hulk into soft blocks breaks them (config-switched). */
+	/**
+	 * v0.16.4 (user: "make him able to break soft blocks by just holding the sprint key and moving, its not supposed to be
+	 * super difficult for him"): his client reports Sprint held + moving forward. Vanilla drops the sprint flag the moment
+	 * he walks into a trunk and his speed falls to 0, which used to stop the Sprint Smash dead against a tree.
+	 */
+	public static void setPushing(ServerPlayer player, boolean on) {
+		if (on) {
+			PUSHING.put(player.getUUID(), player.level().getGameTime());
+		} else {
+			PUSHING.remove(player.getUUID());
+		}
+	}
+
+	/** v0.16.4: Sprint held + moving forward, per his client's latest report. */
+	public static boolean pushing(ServerPlayer player) {
+		Long at = PUSHING.get(player.getUUID());
+		return at != null && player.level().getGameTime() - at <= PUSH_STALE_TICKS;
+	}
+
+	/**
+	 * Sprint Smash: sprinting as the Hulk into soft blocks breaks them (config-switched). v0.16.4: holding Sprint and moving
+	 * forward is enough -- stopped against a tree or a wall he still ploughs through, and he clears a little further ahead
+	 * so he rarely has to stop at all.
+	 */
 	private static void tickSprintSmash(ServerPlayer player, HulkState s) {
-		if (!player.isSprinting() || player.isPassenger() || s.combat.chargeUntil > 0L) {
+		boolean push = pushing(player);
+		if ((!player.isSprinting() && !push) || player.isPassenger() || s.combat.chargeUntil > 0L) {
 			LAST_POS.remove(player.getUUID());
 			return;
 		}
 		// movement is client-driven: measure the speed from how far he actually moved since the last tick
 		Vec3 last = LAST_POS.put(player.getUUID(), player.position());
 		double speed = last == null ? 0.0 : Math.sqrt(Math.pow(player.getX() - last.x, 2) + Math.pow(player.getZ() - last.z, 2));
-		if (speed < HulkConfig.abilities().sprintSmashMinSpeed) {
+		if (!push && speed < HulkConfig.abilities().sprintSmashMinSpeed) {
 			return;
 		}
-		breakAhead(player, flatLook(player), false);
+		breakAhead(player, flatLook(player), false, Float.MAX_VALUE, 0.0);
+		breakAhead(player, flatLook(player), false, Float.MAX_VALUE, 0.9); // the next step too: he doesn't stop at the trunk
 	}
 
 	// ---------------------------------------------------------------- Shift+Z Launch Uppercut

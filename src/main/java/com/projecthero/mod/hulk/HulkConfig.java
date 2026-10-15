@@ -292,8 +292,9 @@ public final class HulkConfig {
 		public int earthWallCooldownTicks = 300;
 
 		// ---- V Grab / far throw, Shift+V Debris Throw, Shift+V Loki Slam ----
-		/** v0.16.4 (user): "at max charge he throws entities 200 blocks away" (was a flat 300 on the second V). */
-		public double throwFarBlocks = 200.0;
+		/** v0.16.4 (user): "at max charge he throws entities 200 blocks away" (was a flat 300 on the second V); then (user)
+		 * "increase the max throw distance ... to 300 blocks". */
+		public double throwFarBlocks = 300.0;
 		/** v0.16.4 (user): a tap of V throws what he holds this far; holding V charges up to {@link #throwFarBlocks}. */
 		public double throwTapBlocks = 20.0;
 		/** v0.16.4 (user): ticks of holding V to reach full charge (1.75 s). */
@@ -308,7 +309,7 @@ public final class HulkConfig {
 		 * 0..1, grows everything below from its Min to its Max.
 		 */
 		public double longThrowMinBlocks = 100.0;
-		public double longThrowRampBlocks = 100.0;
+		public double longThrowRampBlocks = 200.0; // v0.16.4: full destruction at the new 300-block max (was 100 -> 200)
 		public double longThrowCraterRadiusMin = 2.5;
 		public double longThrowCraterRadiusMax = 7.0;
 		public int longThrowCraterBlocksMin = 20;
@@ -489,6 +490,8 @@ public final class HulkConfig {
 					"gladiator.grappleThrowDamage")
 			// v0.16.4 (user): the air clap's recoil shoots him the opposite way to his aim, harder (1.4 -> 2.2 b/t)
 			.reset(10, "v0.16.4 air Thunderclap recoil 1.4 -> 2.2", "abilities.airClapPush")
+			// v0.16.4 (user): the full-charge throw reaches 300 blocks again; the long-throw crater ramps up to it
+			.reset(11, "v0.16.4 V throw max 200 -> 300 blocks", "abilities.throwFarBlocks", "abilities.longThrowRampBlocks")
 			.build();
 
 	public static void load() {
