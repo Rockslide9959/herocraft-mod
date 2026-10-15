@@ -124,6 +124,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_NOVA);
 	}
 
+	/** Blue Beetle (v0.16.5). */
+	public static Chapter blueBeetleChapter() {
+		return chapters().get(CH_BLUE_BEETLE);
+	}
+
 	/** Cyborg (v0.16.5). */
 	public static Chapter cyborgChapter() {
 		return chapters().get(CH_CYBORG);
@@ -397,7 +402,8 @@ public final class HeroPackGuide {
 	private static final int CH_CITY_SERVICES = 38; // v0.16.2 City part B: City Services
 	private static final int CH_GHOST_RIDER = 39; // v0.16.5
 	private static final int CH_CYBORG = 40; // v0.16.5
-	private static final int CHAPTER_POWER_BASE = 41;
+	private static final int CH_BLUE_BEETLE = 41; // v0.16.5
+	private static final int CHAPTER_POWER_BASE = 42;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1272,6 +1278,29 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.cyborg.commands");
 			para(lines, "projecthero.guide.cyborg.commands.body");
 		}));
+		// v0.16.5: Blue Beetle (CH_BLUE_BEETLE)
+		out.add(chapter("projecthero.guide.blue_beetle", lines -> {
+			lines.add(Component.translatable("projecthero.guide.blue_beetle.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.blue_beetle.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "suit", "energy", "adaptation", "khaji_da", "passives"}) {
+				head(lines, "projecthero.guide.blue_beetle." + section);
+				para(lines, "projecthero.guide.blue_beetle." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.blue_beetle.controls");
+			for (String[] row : new String[][] { { "R", "plasma_blaster" }, { "Shift+R", "mega_cannon" }, { "G", "energy_blade" },
+					{ "Shift+G", "scarab_grip" }, { "X", "wings" }, { "Shift+X", "afterburner" }, { "Z", "energy_shield" },
+					{ "Shift+Z", "shield_pulse" }, { "V", "scarab_swarm" }, { "Shift+V", "bubble_prison" }, { "C", "camouflage" },
+					{ "Shift+C", "khaji_da_unleashed" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.blue_beetle.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.blue_beetle.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.blue_beetle.commands");
+			para(lines, "projecthero.guide.blue_beetle.commands.body");
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1315,6 +1344,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.nova", CH_NOVA);
 		link(idx, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		link(idx, "projecthero.guide.cyborg", CH_CYBORG);
+		link(idx, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

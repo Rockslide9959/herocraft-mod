@@ -132,6 +132,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.ghostrider.GhostRiderClient.initialize();
 		// v0.16.5: Cyborg -- the plates layer, HUD, cannon beam / Defense Matrix, Scan outlines
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
+		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
+		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
@@ -824,6 +826,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.cyborg.CyborgClient.ownsH(client.player)) {
 				// v0.16.5: H as Cyborg -- combat / civilian form (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.cyborg.CyborgClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.bluebeetle.BlueBeetleClient.ownsH(client.player)) {
+				// v0.16.5: H as Blue Beetle -- the armour on / off (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.bluebeetle.BlueBeetleClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.flash.FlashClient.ownsH(client.player)) {
 				// v0.14.11: H as a speedster with the Flash Suit -- the suit into the ring / out of it (Shift+H still opens the wheel).
 				com.projecthero.mod.client.flash.FlashClient.pressH();
@@ -868,7 +873,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.hulk.Hulk.hasPower(client.player)
 							|| com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player)
 							|| com.projecthero.mod.ghostrider.GhostRider.hasPower(client.player)
-							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player))) {
+							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
+							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.

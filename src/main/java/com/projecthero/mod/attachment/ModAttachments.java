@@ -890,6 +890,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.cyborg.data.CyborgState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
+	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),
+					builder -> builder.persistent(com.projecthero.mod.bluebeetle.data.BlueBeetleState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.bluebeetle.data.BlueBeetleState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.bluebeetle.data.BlueBeetleState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/**
 	 * v0.14.11: the Flash Ring on a speedster's finger -- the ring as an item stack, the packed suit in its container
 	 * component; empty = none. Persistent, kept through death (a full ring drops on death without keepInventory, see

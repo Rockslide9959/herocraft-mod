@@ -38,7 +38,8 @@ public abstract class HumanoidArmorLayerMixin {
 				|| com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)
 				// v0.16.5: and Ghost Rider's
 				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)
-				|| com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player))) {
+				|| com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)
+				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player))) {
 			ci.cancel();
 		}
 	}

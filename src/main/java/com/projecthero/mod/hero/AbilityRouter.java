@@ -181,6 +181,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.nova.NovaAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.16.5: Blue Beetle, on the same terms
+		if (com.projecthero.mod.bluebeetle.BlueBeetleAbilityManager.hasContext(player)) {
+			com.projecthero.mod.bluebeetle.BlueBeetleAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.16.5: Cyborg, on the same terms
 		if (com.projecthero.mod.cyborg.CyborgAbilityManager.hasContext(player)) {
 			com.projecthero.mod.cyborg.CyborgAbilityManager.handle(player, slot, pressed);
@@ -294,6 +299,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.ghostrider.GhostRider.tick(player);
 		// v0.16.5: Cyborg -- the Power Core, passives, the running moves, hacked machines
 		com.projecthero.mod.cyborg.Cyborg.tick(player);
+		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
+		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

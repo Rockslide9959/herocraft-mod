@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian, Ghost Rider or Cyborg, bond with a living alien Symbiote, or mutate
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian, Ghost Rider, Cyborg or Blue Beetle, bond with a living alien Symbiote, or mutate
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -279,6 +279,17 @@ the plates spread over you from the chest core, and your own face shows on Victo
   **Shift+G** Grapple Claw · **X** Thruster Dash · **Shift+X** Hover · **Z** **Techno-Override** (golems and Ultron /
   Sentinel robots fight for you; doors, lamps and TNT obey) · **Shift+Z** Scan (creatures and ores through walls) ·
   **V** **Boom Tube** (takes your squad) · **Shift+V** Waypoint · **C** Defense Matrix · **Shift+C** Self-Repair (iron).
+
+### 🪲 Blue Beetle
+Brush the suspicious sand of a **desert pyramid** and you might find **the Scarab**. Use it and Khaji-Da bonds to your
+spine; the armour grows out from your back, and the scarab talks to you in chat from then on.
+- **H** puts the armour on or off: diamond-level armour, no fall damage, night vision and **Adaptation** (the same kind
+  of damage 3 times in 10 s and the armour adapts: 40% less from it for a minute).
+- **Scarab Energy** (100) refills on its own, twice as fast standing still.
+  **R** Plasma Blaster (held) · **Shift+R** **Mega Cannon** (30 through a whole line) · **G** Energy Blade (3-hit combo) ·
+  **Shift+G** Scarab Grip (lift and slam) · **X** **Wings** (true flight) · **Shift+X** Afterburner · **Z** Energy Shield
+  (held) · **Shift+Z** Shield Pulse (sends arrows back) · **V** Scarab Swarm (drones) · **Shift+V** Bubble Prison ·
+  **C** Camouflage · **Shift+C** **Khaji-Da Unleashed** (15 s of +50% damage, free moves).
 
 ---
 

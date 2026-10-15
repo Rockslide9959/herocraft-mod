@@ -69,6 +69,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
 			return "projecthero.squad.identity.cyborg";
 		}
+		if (com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)) {
+			return "projecthero.squad.identity.blue_beetle";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

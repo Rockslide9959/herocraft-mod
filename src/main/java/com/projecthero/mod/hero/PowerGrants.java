@@ -21,7 +21,7 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "symbiote");
+			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "symbiote");
 
 	/**
 	 * v0.13.19: Hero-Tier powers still being built in phases. Grantable by an operator for testing, but the random
@@ -195,6 +195,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.kryptonian.Kryptonian.grant(target);
 				return new Result(ok, Component.literal(ok ? "Made " + name + " a Kryptonian" : name + " is already a Kryptonian"));
 			}
+			case "blue_beetle" -> {
+				boolean ok = com.projecthero.mod.bluebeetle.BlueBeetle.grant(target);
+				return new Result(ok, Component.literal(ok ? "Bonded " + name + " with the Scarab (Blue Beetle)" : name + " already carries the Scarab"));
+			}
 			case "cyborg" -> {
 				boolean ok = com.projecthero.mod.cyborg.Cyborg.grant(target);
 				return new Result(ok, Component.literal(ok ? "Fused " + name + " with a Mother Box (Cyborg)" : name + " is already Cyborg"));
@@ -233,6 +237,7 @@ public final class PowerGrants {
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
+			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "symbiote" -> com.projecthero.mod.symbiote.Symbiote.remove(target);
 			default -> {
 				return false;

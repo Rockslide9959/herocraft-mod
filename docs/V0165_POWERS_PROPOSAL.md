@@ -110,6 +110,33 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 ---
 
+## 4b. Blue Beetle (Jaime Reyes): Hero-Tier
+
+**Fantasy:** a teenager bonded to an alien scarab, Khaji-Da, that builds weapons out of his armour on the fly. He's a flying all-rounder: a ranged blaster with a blade, a shield and a few tricks. Khaji-Da talks to him in short lines in chat, the same way the Symbiote does.
+
+**How you get it:** the **Scarab** turns up in **suspicious sand in desert pyramids**, found by brushing (about as rare as Mjolnir). Right-click it and it latches onto your spine. You get a 6 s bonding scene: the screen flashes blue and the armour grows out from your back.
+
+**Look:** a player model with a detailed Blue Beetle skin (you'd send the link, like the other two). **H** suits up: the armour spreads outward from the scarab on your back, and the wings fold out of the back plate when you fly.
+
+**Resource: Scarab Energy (100).** It refills 3 per second, and twice as fast while you stand still. Every move costs some of it.
+
+**Adaptation (Khaji-Da's trick):** take the same kind of damage 3 times within 10 s (fire, explosions, arrows, melee, magic...) and the armour adapts. That damage type does **40% less to you for 60 s**, and a small icon shows which type you've adapted to. One adaptation at a time.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Plasma Blaster:** hold to fire blue plasma bolts, 3 a second, 7 damage each. 4 energy per bolt | **Mega Cannon:** charge for 2 s, then a huge beam that pierces everything in a 30-block line for 30 damage (bosses capped). 50 energy, 20 s |
+| **G** | **Energy Blade:** your arm forms a blade for a 3-hit combo, 10 damage each, the last one knocks back. 10 energy | **Scarab Grip:** a giant energy hand grabs a mob 12 blocks away, lifts it and slams it down for 14 (no bosses). 25 energy, 10 s |
+| **X** | **Wings:** toggle true flight. The wings unfold and you fly where you look, with a double-tap jump to start. 2 energy per second while flying | **Afterburner:** a 15-block jet burst the way you're facing that knocks aside anything in your path for 8. 20 energy, 6 s |
+| **Z** | **Energy Shield:** hold to raise a round shield on your arm that blocks every hit and arrow from the front. 3 energy per second | **Shield Pulse:** the shield blasts out in all directions, pushing everything within 6 blocks away and reflecting arrows. 30 energy, 12 s |
+| **V** | **Scarab Swarm:** 3 small scarab drones fly out and attack your target or the nearest enemy for 10 s (3 damage per hit). 35 energy, 25 s | **Bubble Prison:** traps the mob you aim at in an energy bubble for 5 s. It can't move or attack, and nothing can hurt it while it's inside (no bosses). 30 energy, 18 s |
+| **C** | **Camouflage:** the armour bends light. You're invisible for 8 s (mobs lose track of you), and attacking ends it. 30 energy, 30 s | **Khaji-Da Unleashed:** ultimate, needs a full bar. For 15 s the scarab takes over: +50% damage, half cooldowns, free moves and a red glow. Afterwards you're drained and the bar refills at half speed for 30 s. 120 s cooldown |
+
+**Passives (suited):** diamond-level armour (20 armour, 8 toughness), no fall damage, night vision, Adaptation, and Khaji-Da's chat lines (warnings when you're low, comments on the enemies you fight). **Unsuited:** the scarab still warns you about hostile mobs within 16 blocks, with a short chat line.
+
+**New assets:** the armour skin, the Scarab item (3D on your back while unsuited), the wings, the energy blade, the shield, the bubble, the scarab drones and the Mega Cannon beam.
+
+---
+
 ## 5. Cutting test time
 
 **What I found:** CI is already about **2 minutes** per push (8 parallel slices, and only the tests for the changed area run). Almost all the waiting is **on your PC**:

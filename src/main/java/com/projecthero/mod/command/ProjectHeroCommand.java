@@ -53,6 +53,7 @@ public final class ProjectHeroCommand {
 		root.then(com.projecthero.mod.nova.NovaCommand.build());
 		root.then(com.projecthero.mod.ghostrider.GhostRiderCommand.build());
 		root.then(com.projecthero.mod.cyborg.CyborgCommand.build());
+		root.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command());
 		// v0.16.1: /projecthero uniquepowers list | release <power> (the projectheroUniquePowers gamerule)
 		root.then(com.projecthero.mod.hero.UniquePowers.buildCommand());
 		// v0.16.2: /projecthero crime start <type> | end | trigger | status (street crime)

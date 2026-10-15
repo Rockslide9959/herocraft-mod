@@ -172,6 +172,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.ghostrider.GhostRiderMod.clearSessionState();
 		// v0.16.5: Cyborg move sessions, hacked machines, hover flight grants
 		com.projecthero.mod.cyborg.CyborgMod.clearSessionState();
+		// v0.16.5: Blue Beetle move sessions, bubbles, Adaptation counts, Khaji-Da's lines, lent flight
+		com.projecthero.mod.bluebeetle.BlueBeetleMod.clearSessionState();
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();
