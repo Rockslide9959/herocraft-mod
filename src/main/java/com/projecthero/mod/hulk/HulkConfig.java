@@ -526,10 +526,10 @@ public final class HulkConfig {
 	public static final int TIER_ENRAGED = 2;
 	/** Multiplies his total attack damage (+15%). */
 	public static final double ANGRY_DAMAGE_BONUS = 0.15;
-	/** Added to the base-speed multiplier (+10%). */
-	public static final double ANGRY_SPEED_BONUS = 0.10;
+	/** Added to the base-speed multiplier (+20%; v0.16.4 was +10%). */
+	public static final double ANGRY_SPEED_BONUS = 0.20;
 	public static final double ENRAGED_DAMAGE_BONUS = 0.35;
-	public static final double ENRAGED_SPEED_BONUS = 0.20;
+	public static final double ENRAGED_SPEED_BONUS = 0.40;
 	/** v0.15.18: changing back is only exhausting after this long as the Hulk in one go... */
 	public static final int LONG_FORM_TICKS = 10 * 60 * 20;
 	/** ...or from this much rage. Otherwise (and after Calm Down) there is no exhaustion. */
@@ -591,8 +591,9 @@ public final class HulkConfig {
 	public static final double ATTACK_BONUS = 14.0;
 	/** v0.13.14: punches throw things much further. */
 	public static final double ATTACK_KNOCKBACK_BONUS = 1.5;
-	/** v0.13.14: +50% movement -- a 1.8x body at normal speed looked like it was wading. */
-	public static final double SPEED_BONUS = 0.5;
+	/** v0.13.14: +50% movement -- a 1.8x body at normal speed looked like it was wading. v0.16.4 (user: "the hulk is still
+	 * slow, make him faster"): +120%, so a 3.5-6 block body covers ground like one. */
+	public static final double SPEED_BONUS = 1.2;
 	/** v0.13.14: diamond-level protection built in (a full diamond set: 20 armour, 8 toughness). */
 	public static final double ARMOR_BONUS = 20.0;
 	/**
