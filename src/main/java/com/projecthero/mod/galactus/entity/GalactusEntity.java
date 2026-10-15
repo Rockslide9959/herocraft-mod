@@ -406,6 +406,9 @@ public class GalactusEntity extends GalactusMob {
 			return;
 		}
 		tickWalk(level, target);
+		if (walkTo != null) {
+			keepWeakPoints(level); // v0.16.4: the weak points follow this tick's step and turn, not last tick's
+		}
 		if (target != null && walkTo == null) {
 			faceTowards(target.position(), 3.0f);
 		}
@@ -428,6 +431,11 @@ public class GalactusEntity extends GalactusMob {
 	}
 
 	/** Test hook: the next walk starts now. */
+	/** Test hook: his walk state, for failure messages. */
+	public String walkDebug() {
+		return "walkTo=" + walkTo + " pause=" + walkPause + " walked=" + walkTicks + " arrive=" + arriveTicks + " move=" + move + " pos=" + position();
+	}
+
 	public void debugWalkNow() {
 		walkPause = 0;
 	}
@@ -485,13 +493,30 @@ public class GalactusEntity extends GalactusMob {
 			return;
 		}
 		float want = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0f;
-		faceTowards(walkTo, 1.5f);
-		if (Mth.degreesDifferenceAbs(getYRot(), want) > 45f) {
+		// v0.16.4: turn himself at a steady 2 degrees a tick (faceTowards could be overridden every tick and he never set off);
+		// still turning after 5 s, he walks anyway
+		float yaw = Mth.approachDegrees(getYRot(), want, 2.0f);
+		setYRot(yaw);
+		setYBodyRot(yaw);
+		setYHeadRot(yaw);
+		walkTicks++;
+		if (Mth.degreesDifferenceAbs(yaw, want) > 45f && walkTicks < 100) {
 			return; // turn on the spot first
 		}
 		double step = Math.min(cfg.walkSpeed, len);
 		double nx = getX() + dx / len * step;
 		double nz = getZ() + dz / len * step;
+		// v0.16.4: a straight leg between two points of his ring can cut inside it -- every step stays in the band
+		Vec3 c = walkCentre();
+		double[] band = walkBand();
+		double rx = nx - c.x;
+		double rz = nz - c.z;
+		double r = Math.sqrt(rx * rx + rz * rz);
+		if (r > 1.0e-3 && (r < band[0] || r > band[1])) {
+			double kept = Mth.clamp(r, band[0], band[1]);
+			nx = c.x + rx / r * kept;
+			nz = c.z + rz / r * kept;
+		}
 		if (!level.isLoaded(BlockPos.containing(nx + 6, getY(), nz + 6)) || !level.isLoaded(BlockPos.containing(nx - 6, getY(), nz - 6))) {
 			stopWalk();
 			return;
@@ -499,7 +524,6 @@ public class GalactusEntity extends GalactusMob {
 		double ground = groundY(level, nx, nz);
 		double ny = getY() + Mth.clamp(ground - getY(), -0.15, 0.15);
 		setPos(nx, ny, nz);
-		walkTicks++;
 		if (walkTicks % 40 == 4) {
 			footfall(level, (walkTicks / 40) % 2 == 0);
 		}
