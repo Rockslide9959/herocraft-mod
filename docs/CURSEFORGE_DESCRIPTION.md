@@ -260,12 +260,17 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 ### 🔥 Ghost Rider
 **Mephisto's Contract** turns up in Nether fortress and bastion chests. Sign it in blood and the Spirit of Vengeance
 is yours, but it costs you **5 hearts** until the first time the Spirit burns through you.
-- **H** changes you at any time: flames climb you from the boots up and your head burns down to a **flaming skull**.
-- **Changed:** immune to fire and lava, +3 hearts, no drowning, and undead lose their nerve.
-- **Hellfire** (100) fuels the kit and refills fastest at night and in the Nether. **Vengeance** fills when you hit
-  the guilty: monsters, and anything that hurt you, a villager or a player.
-  **R** Hellfire Blast (held, 20-damage bolts) · **Shift+R** Hellfire Wave · **G** Chain Whip (yanks) · **Shift+G**
-  Chain Spin · **X** the **Hell Cycle** (drives up walls, skims lava, a fire trail) · **Shift+X** Cycle Jump · **Z**
+- **H** changes you: your leathers fold round you, your face slowly burns away and a **flaming skull** erupts. You
+  only change back out of combat, with no monster within 20 blocks.
+- **Changed:** +11 melee, Regeneration III, immune to fire and lava, +3 hearts, no drowning, undead lose their nerve,
+  and you eat twice as fast.
+- **The Spirit won't die:** a killing blow leaves you standing (and changes you if you were human), but then the
+  Spirit holds on until dawn.
+- **Hellfire** (100) fuels the kit and refills at Superman's sun rate (Regeneration III costs 2 a second).
+  **Vengeance** fills when you hit the guilty: monsters, and anything that hurt you, a villager or a player.
+  **R** Hellfire Blast (held, balls of skull fire, 20 each) · **Shift+R** Hellfire Wave (30) · **G** Chain Whip (18,
+  yanks) · **Shift+G** Chain Spin (13 a hit) · **X** the **Hell Cycle** (15 blocks/s, 30 sprinting, 4-block steps,
+  drives up walls, skims lava, a fire trail; **X** again while riding for the Cycle Jump) · **Shift+X** sends it back · **Z**
   Judgement Mark (+25% damage on the guilty) · **Shift+Z** **Penance Stare** · **V** Hellfire Rush · **Shift+V**
   Hellfire Eruption · **C** Soul Shield · **Shift+C** Rider's Wrath (buffs your squad).
 

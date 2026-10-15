@@ -1237,14 +1237,14 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.ghost_rider.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.ghost_rider.body");
 			blank(lines);
-			for (String section : new String[]{"origin", "change", "hellfire", "vengeance", "cycle", "passives"}) {
+			for (String section : new String[]{"origin", "change", "hellfire", "vengeance", "cycle", "passives", "rules"}) {
 				head(lines, "projecthero.guide.ghost_rider." + section);
 				para(lines, "projecthero.guide.ghost_rider." + section + ".body");
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.ghost_rider.controls");
 			for (String[] row : new String[][] { { "R", "hellfire_blast" }, { "Shift+R", "hellfire_wave" }, { "G", "chain_whip" },
-					{ "Shift+G", "chain_spin" }, { "X", "hell_cycle" }, { "Shift+X", "cycle_jump" }, { "Z", "judgement_mark" },
+					{ "Shift+G", "chain_spin" }, { "X", "hell_cycle" }, { "X (riding)", "cycle_jump" }, { "Z", "judgement_mark" },
 					{ "Shift+Z", "penance_stare" }, { "V", "hellfire_rush" }, { "Shift+V", "hellfire_eruption" }, { "C", "soul_shield" },
 					{ "Shift+C", "riders_wrath" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)

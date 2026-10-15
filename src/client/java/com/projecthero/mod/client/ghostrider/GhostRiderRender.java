@@ -56,11 +56,11 @@ public final class GhostRiderRender {
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/ghost_rider/ghost_rider_glow.png");
 	/** Frames of the change. */
 	private static final int FRAMES = 48;
-	/** Where in the change each stage sits (0..1). */
-	public static final float FOLD_END = 0.55f;
-	public static final float BURN_START = 0.58f;
-	public static final float BURN_END = 0.84f;
-	public static final float ERUPT = 0.86f;
+	/** Where in the change each stage sits (0..1); shared with the server's particles (v0.16.5 rework: the face burns slower). */
+	public static final float FOLD_END = GhostRiderConfig.FOLD_END;
+	public static final float BURN_START = GhostRiderConfig.BURN_START;
+	public static final float BURN_END = GhostRiderConfig.BURN_END;
+	public static final float ERUPT = GhostRiderConfig.ERUPT;
 
 	private static PlayerModel<LivingEntity> model;
 	private static ResourceLocation[] frames;

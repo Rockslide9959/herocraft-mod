@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.ghostrider.data.GhostRiderState;
 import com.projecthero.mod.ghostrider.entity.GhostRiderEntityTypes;
 import com.projecthero.mod.ghostrider.entity.HellCycleEntity;
+import com.projecthero.mod.ghostrider.entity.HellfireBlastEntity;
 import com.projecthero.mod.ghostrider.network.GhostRiderMarkPayload;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.squad.Squads;
@@ -47,7 +48,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R (1)  Hellfire Blast (hold)   Shift+R  Hellfire Wave
  *   G (2)  Chain Whip              Shift+G  Chain Spin
- *   X (3)  Hell Cycle              Shift+X  Cycle Jump (riding)
+ *   X (3)  Hell Cycle / riding: Cycle Jump      Shift+X  send the bike back
  *   Z (4)  Judgement Mark          Shift+Z  Penance Stare
  *   V (5)  Hellfire Rush           Shift+V  Hellfire Eruption
  *   C (6)  Soul Shield             Shift+C  Rider's Wrath
@@ -66,17 +67,6 @@ public final class GhostRiderAbilities {
 	public static final String ERUPTION = "hellfire_eruption";
 	public static final String SHIELD = "soul_shield";
 	public static final String WRATH = "riders_wrath";
-
-	private static final class Bolt {
-		Vec3 pos;
-		final Vec3 vel;
-		int age;
-
-		Bolt(Vec3 pos, Vec3 vel) {
-			this.pos = pos;
-			this.vel = vel;
-		}
-	}
 
 	private static final class Wave {
 		final Vec3 origin;
@@ -127,7 +117,6 @@ public final class GhostRiderAbilities {
 
 	/** Held Hellfire Blast: when it was pressed. */
 	private static final Map<UUID, Long> BLASTS = new ConcurrentHashMap<>();
-	private static final Map<UUID, List<Bolt>> BOLTS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Wave> WAVES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Rush> RUSHES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Eruption> ERUPTIONS = new ConcurrentHashMap<>();
@@ -142,7 +131,6 @@ public final class GhostRiderAbilities {
 
 	static void clearSessionState() {
 		BLASTS.clear();
-		BOLTS.clear();
 		WAVES.clear();
 		RUSHES.clear();
 		ERUPTIONS.clear();
@@ -155,7 +143,6 @@ public final class GhostRiderAbilities {
 	public static void clear(ServerPlayer p) {
 		UUID id = p.getUUID();
 		BLASTS.remove(id);
-		BOLTS.remove(id);
 		WAVES.remove(id);
 		RUSHES.remove(id);
 		ERUPTIONS.remove(id);
@@ -245,22 +232,21 @@ public final class GhostRiderAbilities {
 		}
 		float prog = age / (float) GhostRiderConfig.TRANSFORM_TICKS;
 		Vec3 back = p.position().add(0, 1.1, 0).subtract(Vec3.directionFromRotation(0f, p.yBodyRot).scale(0.35));
-		if (prog < 0.55f && age % 3 == 0) {
+		if (prog < GhostRiderConfig.FOLD_END && age % 3 == 0) {
 			// the leather wraps round him from the back: dark smoke off the spine
 			level.sendParticles(ParticleTypes.SMOKE, back.x, back.y, back.z, 3, 0.15, 0.5, 0.15, 0.01);
-		} else if (prog >= 0.58f && prog < 0.86f && age % 2 == 0) {
-			// the face burns away: embers and ash off the head
+		} else if (prog >= GhostRiderConfig.BURN_START && prog < GhostRiderConfig.BURN_END && age % 3 == 0) {
+			// the face burns away (slowly, v0.16.5 rework): embers and ash off the head
 			level.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getEyeY(), p.getZ(), 2, 0.18, 0.15, 0.18, 0.01);
-			level.sendParticles(ParticleTypes.ASH, p.getX(), p.getEyeY(), p.getZ(), 4, 0.2, 0.2, 0.2, 0.0);
-			if (age % 8 == 0) {
+			level.sendParticles(ParticleTypes.ASH, p.getX(), p.getEyeY(), p.getZ(), 3, 0.2, 0.2, 0.2, 0.0);
+			if (age % 12 == 0) {
 				sound(p, SoundEvents.FIRE_AMBIENT, 1.2f, 0.6f);
 			}
 		}
-		if (age == Math.round(GhostRiderConfig.TRANSFORM_TICKS * 0.86f)) {
-			// the skull ignites
-			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getEyeY() + 0.3, p.getZ(), 60, 0.25, 0.4, 0.25, 0.08);
-			level.sendParticles(GhostRider.HELLFIRE_BIG, p.getX(), p.getEyeY() + 0.3, p.getZ(), 20, 0.3, 0.4, 0.3, 0.0);
-			level.sendParticles(ParticleTypes.LAVA, p.getX(), p.getEyeY(), p.getZ(), 8, 0.3, 0.3, 0.3, 0.0);
+		if (age == Math.round(GhostRiderConfig.TRANSFORM_TICKS * GhostRiderConfig.ERUPT)) {
+			// the skull ignites -- flames only (v0.16.5 rework: no orange dust, no lava pops)
+			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getEyeY() + 0.3, p.getZ(), 70, 0.25, 0.45, 0.25, 0.09);
+			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, p.getX(), p.getEyeY() + 0.3, p.getZ(), 16, 0.2, 0.35, 0.2, 0.05);
 			sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.5f);
 			sound(p, SoundEvents.GHAST_SCREAM, 0.6f, 0.5f);
 			GhostRiderCombat.shake(level, p.position(), 0.6f, 10, 12.0);
@@ -311,7 +297,10 @@ public final class GhostRiderAbilities {
 		fireBolt(p);
 	}
 
-	/** One hellfire bolt from the hand toward the aim point, if there is the Hellfire for it (else the blast stops). */
+	/**
+	 * One hellfire bolt from the hand toward the aim point, if there is the Hellfire for it (else the blast stops). v0.16.5
+	 * rework: a real projectile ({@link HellfireBlastEntity}), drawn as a ball of skull fire.
+	 */
 	private static void fireBolt(ServerPlayer p) {
 		if (!GhostRider.spendHellfire(p, GhostRiderConfig.BLAST_COST)) {
 			GhostRider.say(p, "message.projecthero.ghost_rider.blast_empty", ChatFormatting.GOLD);
@@ -322,58 +311,9 @@ public final class GhostRiderAbilities {
 		Vec3 aim = AbilityHelpers.aimPoint(p, GhostRiderConfig.BLAST_RANGE);
 		Vec3 dir = aim.subtract(from);
 		dir = dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize();
-		BOLTS.computeIfAbsent(p.getUUID(), k -> new ArrayList<>()).add(new Bolt(from, dir.scale(GhostRiderConfig.BLAST_SPEED)));
+		HellfireBlastEntity.fire(p, from, dir.scale(GhostRiderConfig.BLAST_SPEED));
 		sound(p, SoundEvents.BLAZE_SHOOT, 1.0f, 0.7f + p.getRandom().nextFloat() * 0.2f);
 		sound(p, SoundEvents.FIRECHARGE_USE, 0.6f, 1.2f);
-	}
-
-	private static void tickBolts(ServerPlayer p, List<Bolt> bolts) {
-		ServerLevel level = level(p);
-		Iterator<Bolt> it = bolts.iterator();
-		while (it.hasNext()) {
-			Bolt b = it.next();
-			b.age++;
-			Vec3 next = b.pos.add(b.vel);
-			BlockHitResult bhr = level.clip(new ClipContext(b.pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-			Vec3 end = bhr.getType() == HitResult.Type.MISS ? next : bhr.getLocation();
-			LivingEntity hit = null;
-			double best = Double.MAX_VALUE;
-			for (Entity e : level.getEntities(p, new AABB(b.pos, end).inflate(0.8),
-					e -> e instanceof LivingEntity le && GhostRiderCombat.isTarget(p, le) && e.isPickable())) {
-				AABB box = e.getBoundingBox().inflate(0.45);
-				Vec3 at = box.contains(b.pos) ? b.pos : box.clip(b.pos, end).orElse(null);
-				if (at != null && b.pos.distanceToSqr(at) < best) {
-					best = b.pos.distanceToSqr(at);
-					hit = (LivingEntity) e;
-				}
-			}
-			AbilityHelpers.line(level, b.pos, end, ParticleTypes.FLAME, 2.0);
-			// the fireball itself: a dense hot core
-			level.sendParticles(GhostRider.HELLFIRE_BIG, end.x, end.y, end.z, 4, 0.1, 0.1, 0.1, 0.0);
-			level.sendParticles(ParticleTypes.FLAME, end.x, end.y, end.z, 5, 0.12, 0.12, 0.12, 0.01);
-			if (b.age % 2 == 0) {
-				level.sendParticles(ParticleTypes.SMOKE, end.x, end.y, end.z, 1, 0.05, 0.05, 0.05, 0.0);
-			}
-			if (hit != null) {
-				GhostRiderCombat.strike(p, hit, b.pos, GhostRiderConfig.BLAST_DAMAGE, 0.5, 0.15, GhostRiderConfig.BLAST_BURN_SECONDS);
-				impact(level, hit.position().add(0, hit.getBbHeight() * 0.5, 0));
-				it.remove();
-				continue;
-			}
-			if (bhr.getType() != HitResult.Type.MISS || b.age * GhostRiderConfig.BLAST_SPEED > GhostRiderConfig.BLAST_RANGE) {
-				impact(level, end);
-				it.remove();
-				continue;
-			}
-			b.pos = end;
-		}
-	}
-
-	private static void impact(ServerLevel level, Vec3 at) {
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 14, 0.2, 0.2, 0.2, 0.08);
-		level.sendParticles(ParticleTypes.LAVA, at.x, at.y, at.z, 2, 0.1, 0.1, 0.1, 0.0);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y, at.z, 3, 0.15, 0.15, 0.15, 0.01);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 0.8f, 0.6f);
 	}
 
 	// ================================================================ Shift+R: Hellfire Wave
@@ -505,7 +445,9 @@ public final class GhostRiderAbilities {
 			level.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 3, 0.1, 0.1, 0.1, 0.01);
 		}
 		if (age % GhostRiderConfig.SPIN_HIT_INTERVAL == 0) {
-			GhostRiderCombat.radial(p, p.position().add(0, 1.0, 0), GhostRiderConfig.SPIN_RADIUS, GhostRiderConfig.SPIN_DAMAGE, 0.6, 0.1, 3, null);
+			// v0.16.5 rework: the full 13 every hit, out to the edge
+			GhostRiderCombat.radial(p, p.position().add(0, 1.0, 0), GhostRiderConfig.SPIN_RADIUS, GhostRiderConfig.SPIN_DAMAGE, 0.6, 0.1, 3, null,
+					false);
 			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.9f, 0.5f + age * 0.01f);
 			sound(p, SoundEvents.CHAIN_HIT, 0.7f, 0.8f);
 		}
@@ -526,12 +468,30 @@ public final class GhostRiderAbilities {
 		return null;
 	}
 
-	public static void cycle(ServerPlayer p) {
-		HellCycleEntity existing = cycleOf(p);
-		if (existing != null) {
-			dismissCycle(p);
+	/**
+	 * X (v0.16.5 rework): riding his bike, the Cycle Jump; otherwise a bike under him (one left standing somewhere is
+	 * called back to hell first). Shift+X is {@link #sendCycleBack}.
+	 */
+	public static void cycleKey(ServerPlayer p) {
+		HellCycleEntity bike = cycleOf(p);
+		if (bike != null && p.getVehicle() == bike) {
+			cycleJump(p);
+		} else {
+			cycle(p);
+		}
+	}
+
+	/** Shift+X: the bike goes back to hell (v0.16.5 rework). */
+	public static void sendCycleBack(ServerPlayer p) {
+		if (cycleOf(p) == null) {
+			GhostRider.say(p, "message.projecthero.ghost_rider.no_cycle", ChatFormatting.GRAY);
 			return;
 		}
+		dismissCycle(p);
+	}
+
+	/** Summons the Hell Cycle under him (replacing one left standing). */
+	public static void cycle(ServerPlayer p) {
 		if (!begin(p, CYCLE, 0f)) {
 			return;
 		}
@@ -540,6 +500,9 @@ public final class GhostRiderAbilities {
 			return;
 		}
 		cooldown(p, CYCLE, GhostRiderConfig.CYCLE_COOLDOWN);
+		if (cycleOf(p) != null) {
+			dismissCycle(p);
+		}
 		ServerLevel level = level(p);
 		HellCycleEntity bike = GhostRiderEntityTypes.HELL_CYCLE.create(level);
 		if (bike == null) {
@@ -557,7 +520,7 @@ public final class GhostRiderAbilities {
 		sound(p, SoundEvents.RAVAGER_ROAR, 0.6f, 1.6f);
 	}
 
-	/** Sends the bike back to hell (X again, revert, death, logout). */
+	/** Sends the bike back to hell (Shift+X, revert, death, logout). */
 	public static void dismissCycle(ServerPlayer p) {
 		HellCycleEntity bike = cycleOf(p);
 		CYCLES.remove(p.getUUID());
@@ -572,7 +535,7 @@ public final class GhostRiderAbilities {
 		bike.discard();
 	}
 
-	// ================================================================ Shift+X: Cycle Jump
+	// ================================================================ X while riding: Cycle Jump
 
 	public static void cycleJump(ServerPlayer p) {
 		HellCycleEntity bike = cycleOf(p);
@@ -935,13 +898,6 @@ public final class GhostRiderAbilities {
 		Long blast = BLASTS.get(u);
 		if (blast != null) {
 			tickBlast(p, blast, now);
-		}
-		List<Bolt> bolts = BOLTS.get(u);
-		if (bolts != null) {
-			tickBolts(p, bolts);
-			if (bolts.isEmpty()) {
-				BOLTS.remove(u);
-			}
 		}
 		Wave w = WAVES.get(u);
 		if (w != null) {

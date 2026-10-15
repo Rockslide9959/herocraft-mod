@@ -31,9 +31,11 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.5: <b>the Hell Cycle</b> -- Ghost Rider's flaming motorbike, summoned under him with X and sent back with X.
- * Ridden like a horse (the rider's client simulates it): fast, a 1.5-block step, it <b>drives up walls</b> (hold forward
- * against one), <b>skims over lava</b>, and leaves a <b>fire trail</b> that burns enemies standing in it. Shift+X (Shift
- * doesn't dismount it) is the Cycle Jump: a long leap that lands in a ring of fire. Never saved (it goes back to hell with
+ * Ridden like a horse (the rider's client simulates it): 15 blocks a second, 30 while the rider sprints (v0.16.5 rework),
+ * a 4-block step, it <b>slides along walls</b> it meets at an angle instead of stopping dead, <b>drives up walls</b>
+ * (hold forward against one), <b>skims over lava</b>, and leaves a <b>fire trail</b> that burns enemies standing in it.
+ * X while riding is the Cycle Jump (a long leap that lands in a ring of fire); Shift+X (Shift doesn't dismount it)
+ * sends it back. Never saved (it goes back to hell with
  * the rider), can't be hurt except by the void / {@code /kill}.
  */
 public class HellCycleEntity extends Mob {
@@ -58,7 +60,7 @@ public class HellCycleEntity extends Mob {
 		return Mob.createMobAttributes()
 				.add(Attributes.MAX_HEALTH, 100.0)
 				.add(Attributes.MOVEMENT_SPEED, GhostRiderConfig.CYCLE_SPEED)
-				.add(Attributes.STEP_HEIGHT, 1.5)
+				.add(Attributes.STEP_HEIGHT, GhostRiderConfig.CYCLE_STEP)
 				.add(Attributes.SAFE_FALL_DISTANCE, 1000.0);
 	}
 
@@ -120,7 +122,35 @@ public class HellCycleEntity extends Mob {
 
 	@Override
 	protected float getRiddenSpeed(Player player) {
-		return (float) getAttributeValue(Attributes.MOVEMENT_SPEED);
+		// the rider's sprint reaches both sides (the client simulates the bike, the server checks its moves)
+		return (float) (player.isSprinting() ? GhostRiderConfig.cycleSpeedFor(GhostRiderConfig.CYCLE_SPRINT_BPS)
+				: getAttributeValue(Attributes.MOVEMENT_SPEED));
+	}
+
+	/** The rider may sprint on it (vanilla stops a passenger sprinting unless the vehicle can). */
+	@Override
+	public boolean canSprint() {
+		return true;
+	}
+
+	/**
+	 * Slides instead of sticking: vanilla zeroes only the blocked axis of the velocity, so a bike meeting a wall at an
+	 * angle crawls along it at a fraction of its speed. While ridden, the part that still runs along the wall keeps
+	 * most of the speed the bike had (head-on, nothing runs along it, and the wall climb takes over).
+	 */
+	@Override
+	public void move(net.minecraft.world.entity.MoverType type, Vec3 delta) {
+		double before = getDeltaMovement().horizontalDistance();
+		super.move(type, delta);
+		if (type != net.minecraft.world.entity.MoverType.SELF || !horizontalCollision || getControllingPassenger() == null || before < 0.1) {
+			return;
+		}
+		Vec3 v = getDeltaMovement();
+		double along = v.horizontalDistance();
+		if (along > Math.max(0.03, before * 0.25) && along < before) {
+			double k = Math.min(before * 0.9, Math.max(along, before * 0.75)) / along;
+			setDeltaMovement(v.x * k, v.y, v.z * k);
+		}
 	}
 
 	@Override
@@ -130,8 +160,8 @@ public class HellCycleEntity extends Mob {
 		setRot(player.getYRot(), 0f);
 		yRotO = yBodyRot = yHeadRot = getYRot();
 		Vec3 v = getDeltaMovement();
-		// up walls: hold forward against one and the bike climbs it
-		if (horizontalCollision && input.z > 0.1) {
+		// up walls: hold forward against one (taller than the 4-block step) and the bike climbs it
+		if (horizontalCollision && input.z > 0.1 && v.horizontalDistance() < 0.2) { // head-on (a glancing wall is slid along)
 			setDeltaMovement(v.x, Math.max(v.y, 0.32), v.z);
 			fallDistance = 0f;
 		}
@@ -151,7 +181,7 @@ public class HellCycleEntity extends Mob {
 		return false;
 	}
 
-	/** Cycle Jump: an impulse the rider's client must hear about (it simulates the bike). */
+	/** Cycle Jump (X while riding): an impulse the rider's client must hear about (it simulates the bike). */
 	public void leap(Vec3 velocity, ServerPlayer rider) {
 		setDeltaMovement(velocity);
 		hasImpulse = true;

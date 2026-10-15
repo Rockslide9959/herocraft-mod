@@ -29,7 +29,7 @@ import org.lwjgl.glfw.GLFW;
  *                             lights up while that key's move runs (blast, spin, bike, stare, rush, shield)
  * </pre>
  * No H / N boxes: H is the change. Hold Left-Alt for the move names. Shown only while transformed (human, the bars
- * would only read "full").
+ * would only read "full"). v0.16.5 rework: after a cheated death a short red "bound till dawn" sits right of the title.
  */
 public final class GhostRiderHud {
 	private static final int BOX = 20;
@@ -88,6 +88,10 @@ public final class GhostRiderHud {
 			by -= BAR_STEP;
 		}
 		g.drawString(mc.font, Component.translatable("hud.projecthero.ghost_rider.title"), x0, by - 7, NAME, false);
+		if (s.dayLockUntil > 0L) {
+			Component bound = Component.translatable("hud.projecthero.ghost_rider.bound");
+			g.drawString(mc.font, bound, x0 + totalW - mc.font.width(bound), by - 7, VENGEANCE, false);
+		}
 
 		boolean expanded = GLFW.glfwGetKey(mc.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
 		for (int i = 0; i < SLOTS.length; i++) {
