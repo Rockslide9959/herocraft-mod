@@ -306,7 +306,7 @@ public final class HulkHud {
 	}
 
 	/**
-	 * Mid-screen: the change / the death sequence, the hold-H progress, the HULK SMASH wind-up. (v0.16.4: the rampage
+	 * Mid-screen: the death sequence and the HULK SMASH wind-up (v0.16.4: no change / hold-H bar any more). (v0.16.4: the rampage
 	 * warning and the ring minigame are {@code HulkRampageClient}'s; the keep-control prompt and the calm-down are gone.)
 	 */
 	private static void renderCentre(GuiGraphics g, Minecraft mc, Player player, HulkState s, long now) {
@@ -317,25 +317,9 @@ public final class HulkHud {
 			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.dying").withStyle(ChatFormatting.BOLD), cx, y, col);
 			return;
 		}
-		if (Hulk.changing(s, now)) {
-			// the change -- nothing to do but ride it out
-			float f = Math.min(1.0f, (now - s.formChangedAt) / (float) Hulk.changeTicks(s));
-			int w = 120;
-			int col = (now / 6L) % 2L == 0L ? 0xFF7CFF4A : 0xFF3FAF3A;
-			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.changing").withStyle(ChatFormatting.BOLD), cx, y, col);
-			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
-			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * f), y + 13, 0xFF7CFF4A);
-			return;
-		}
-		float hold = Hulk.holdProgress(player);
-		if (hold > 0.0f || (!s.hulk && s.combat.strainStart != 0L)) {
-			// v0.16.4: holding H -- the willing change
-			int w = 120;
-			int col = (now / 5L) % 2L == 0L ? 0xFF7CFF4A : 0xFFB8FF7A;
-			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.hold", Math.round(hold * 100.0f))
-					.withStyle(ChatFormatting.BOLD), cx, y, col);
-			g.fill(cx - w / 2, y + 11, cx + w / 2, y + 13, COLOR_BG);
-			g.fill(cx - w / 2, y + 11, cx - w / 2 + Math.round(w * hold), y + 13, 0xFF7CFF4A);
+		// v0.16.4 (user): "remove the bar that shows up while youre transforming ... remove the text above that bar aswell" --
+		// no "changing" / hold-H progress bar or text; the change itself (pose, morph, sound) shows it
+		if (Hulk.changing(s, now) || Hulk.holdProgress(player) > 0.0f || (!s.hulk && s.combat.strainStart != 0L)) {
 			return;
 		}
 		if (com.projecthero.mod.hulk.HulkControl.warning(s, now)) {
