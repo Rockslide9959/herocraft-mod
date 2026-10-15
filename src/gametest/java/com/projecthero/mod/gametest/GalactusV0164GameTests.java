@@ -38,6 +38,15 @@ public class GalactusV0164GameTests implements FabricGameTest {
 	private static GalactusEvent start(GameTestHelper helper, boolean guards) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.HARD, true);
 		BlockPos at = helper.absolutePos(new BlockPos(4, 2, 4));
+		// v0.16.4: a test that failed mid-way leaves its event running, and only one Galactus may run within 256 blocks --
+		// clear any leftover so one failure can't cascade into every later Galactus test ("Galactus starts")
+		for (GalactusEvent old : new java.util.ArrayList<>(GalactusEvent.all(helper.getLevel().getServer()))) {
+			if (old.state().active()) {
+				old.abort(helper.getLevel());
+			}
+			GalactusTerrain.get(helper.getLevel()).revertAllNow(helper.getLevel(), old.id());
+			EventSavedData.get(helper.getLevel()).remove(old.id());
+		}
 		GalactusEvent e = Galactus.start(helper.getLevel(), at, null, Galactus.Source.COMMAND, x -> {
 			x.instant = true;
 			x.converterRingOverride = 3.0;
