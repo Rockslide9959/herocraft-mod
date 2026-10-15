@@ -574,15 +574,21 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			// PRESS edge: consumeClick() also catches a sub-tick tap that isDown() would miss.
 			boolean pressedThisTick = false;
 			while (key.consumeClick()) {
-				ClientPlayNetworking.send(new AbilityInputPayload(slot, true));
+				// v0.16.4: a key that is already held only "clicks" again through the OS key repeat -- that is not a new press
+				// (it restarted the Punisher's 5 s Warzone call every repeat, so it never went in, and re-cooked grenades)
+				if (slotWasDown[i] || pressedThisTick) {
+					continue;
+				}
+				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown()));
 				pressedThisTick = true;
 			}
 
 			boolean down = key.isDown();
 			if (down && !slotWasDown[i] && !pressedThisTick) {
-				ClientPlayNetworking.send(new AbilityInputPayload(slot, true));
+				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown()));
 			}
-			if (!down && slotWasDown[i]) {
+			// v0.16.4: a tap that went down and up between two ticks sends its release too (it used to leave the server holding)
+			if (!down && (slotWasDown[i] || pressedThisTick)) {
 				ClientPlayNetworking.send(new AbilityInputPayload(slot, false));
 			}
 			slotWasDown[i] = down;

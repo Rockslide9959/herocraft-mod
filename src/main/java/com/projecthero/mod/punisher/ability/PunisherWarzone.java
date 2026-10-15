@@ -89,6 +89,8 @@ public final class PunisherWarzone {
 	public static void clearSessionState() {
 		CHARGING.clear();
 		STRIKES.clear();
+		detonations = 0;
+		launches = 0;
 	}
 
 	// ---------------- the call (hold Shift+Z) ----------------
@@ -97,6 +99,11 @@ public final class PunisherWarzone {
 	public static boolean beginCharge(ServerPlayer player) {
 		if (!Punisher.hasPower(player)) {
 			return false;
+		}
+		// v0.16.4 (user: "it doesnt seem to work properly"): the OS key repeat of a held Z arrives as more presses, and each
+		// one restarted the 5 s call -- it could never finish. A call already going is left alone.
+		if (CHARGING.containsKey(player.getUUID())) {
+			return true;
 		}
 		if (!Punisher.abilityReady(player, ABILITY)) {
 			int secs = (Punisher.cooldownRemaining(player, ABILITY) + 19) / 20;
@@ -164,6 +171,10 @@ public final class PunisherWarzone {
 		PunisherFeedback.message(player, "warzone_inbound");
 	}
 
+	/** Test hook: missiles that have burst / been launched since the last {@link #clearSessionState}. */
+	public static int detonations;
+	public static int launches;
+
 	public static int activeStrikes() {
 		return STRIKES.size();
 	}
@@ -217,6 +228,7 @@ public final class PunisherWarzone {
 		Vec3 from = land.add(-6.0, PunisherConfig.WARZONE_DROP_HEIGHT, -3.0);
 		Vec3 step = land.subtract(from).normalize().scale(PunisherConfig.WARZONE_FALL_SPEED);
 		s.missiles.add(new Missile(from, step));
+		launches++;
 		s.level.playSound(null, from.x, from.y - 10, from.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 3.0f, 0.6f);
 	}
 
@@ -248,6 +260,7 @@ public final class PunisherWarzone {
 	 * 5 blocks. Blocks are never touched.
 	 */
 	public static void detonate(ServerLevel level, ServerPlayer owner, Vec3 at) {
+		detonations++;
 		broadcast(level, ParticleTypes.EXPLOSION_EMITTER, at, 1, 0, 0, 0, 0);
 		broadcast(level, ParticleTypes.EXPLOSION, at.add(0, 0.5, 0), 6, 1.4, 0.8, 1.4, 0.0);
 		broadcast(level, ParticleTypes.LARGE_SMOKE, at.add(0, 0.6, 0), 24, 1.5, 0.8, 1.5, 0.04);

@@ -124,8 +124,13 @@ public final class ModNetworking {
 		});
 
 		// The six universal HeroPack ability slots.
-		ServerPlayNetworking.registerGlobalReceiver(AbilityInputPayload.TYPE, (payload, context) ->
-				AbilityRouter.handleInput(context.player(), payload.slot(), payload.pressed()));
+		ServerPlayNetworking.registerGlobalReceiver(AbilityInputPayload.TYPE, (payload, context) -> {
+			// v0.16.4: Sneak held at the press counts, even if the sneak update has not arrived yet (never un-sneaks him)
+			if (payload.pressed() && payload.shift() && !context.player().isShiftKeyDown()) {
+				context.player().setShiftKeyDown(true);
+			}
+			AbilityRouter.handleInput(context.player(), payload.slot(), payload.pressed());
+		});
 
 		// Iron Man double-tap-jump gestures: repulsor flight toggle, and suit summon.
 		ServerPlayNetworking.registerGlobalReceiver(IronManActionPayload.TYPE, (payload, context) -> {

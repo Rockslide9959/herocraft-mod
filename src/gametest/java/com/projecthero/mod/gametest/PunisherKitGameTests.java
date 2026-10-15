@@ -274,6 +274,53 @@ public class PunisherKitGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.16.4 (user: Warzone "doesnt seem to work properly"): the OS key repeat of a held Z arrives as more presses -- they
+	 * must not restart the 5 s call. Held through the repeats, the call goes in on the aimed spot and the missiles land.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "punisher_warzone_hold", timeoutTicks = 400)
+	public void warzoneHeldThroughKeyRepeatsCallsTheBarrageIn(GameTestHelper helper) {
+		PunisherWarzone.clearSessionState();
+		ServerPlayer p = punisher(helper, 2.5, 2.5);
+		java.util.List<Cow> cows = new java.util.ArrayList<>();
+		for (int i = 0; i < 4; i++) {
+			cows.add(cow(helper, 2.5 + (i % 2), 6.5 + i / 2));
+		}
+		Vec3 aim = helper.absoluteVec(new Vec3(3.0, 1.0, 7.0));
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, aim);
+		p.setYHeadRot(p.getYRot());
+		p.setShiftKeyDown(true);
+		PunisherAbilityManager.handle(p, AbilitySlot.SLOT_4, true);
+		helper.assertTrue(PunisherWarzone.charging(p), "Shift+Z starts the call");
+		int[] tick = { 0 };
+		helper.onEachTick(() -> {
+			tick[0]++;
+			if (tick[0] <= PunisherConfig.WARZONE_CHARGE_TICKS + 2) {
+				if (tick[0] % 3 == 0) {
+					PunisherAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // the OS key repeat
+				}
+				PunisherWarzone.tickCharge(p); // a mock player does not tick itself
+			}
+		});
+		helper.runAfterDelay(PunisherConfig.WARZONE_CHARGE_TICKS + 4, () -> {
+			helper.assertFalse(PunisherWarzone.charging(p), "the call finished");
+			helper.assertTrue(PunisherWarzone.activeStrikes() > 0, "and the barrage is coming in");
+			helper.assertFalse(Punisher.abilityReady(p, PunisherWarzone.ABILITY), "on cooldown once it went in");
+		});
+		helper.runAfterDelay(PunisherConfig.WARZONE_CHARGE_TICKS + 4 + PunisherConfig.WARZONE_DURATION_TICKS + 40, () -> {
+			try {
+				int expected = (int) (PunisherConfig.WARZONE_MISSILES_PER_SECOND * PunisherConfig.WARZONE_DURATION_TICKS / 20.0);
+				helper.assertTrue(PunisherWarzone.launches >= expected - 1, "the full barrage was fired: " + PunisherWarzone.launches + " of ~" + expected);
+				helper.assertTrue(PunisherWarzone.detonations == PunisherWarzone.launches, "and every missile burst on landing: "
+						+ PunisherWarzone.detonations + " of " + PunisherWarzone.launches);
+				helper.assertTrue(PunisherWarzone.activeStrikes() == 0, "the strike is over");
+			} finally {
+				PunisherWarzone.clearSessionState();
+			}
+			helper.succeed();
+		});
+	}
+
 	// ---------------- X / Shift+X ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
