@@ -126,10 +126,9 @@ public final class MoonKnightConfig {
 	// ---------------------------------------------------------------- the Cape (Phase 3; v0.13.21 off the keys: glide = jump + hold Sneak, block = hold right click)
 
 	/** Cape Glide: horizontal speed along the look (blocks/tick) and the slowest allowed fall. */
+	// v0.16.4: the glide is vanilla elytra flight now (ElytraPhysics) -- this is no longer used by it (the old fixed sink,
+	// night bonus, steer and dive constants are gone)
 	public static final double GLIDE_SPEED = 0.85; // v0.14.3: was 0.55
-	public static final double GLIDE_SINK = 0.06;
-	/** At night glides carry further: the sink rate is divided by the lunar power. */
-	public static final boolean GLIDE_BETTER_AT_NIGHT = true;
 	/** Glide starts once the player has been airborne this long with Sneak held (a jump, then Shift). */
 	public static final int GLIDE_MIN_AIR_TICKS = 3;
 	/** Gliding into a mob kicks it: damage (x lunar power), knockback, and the gap before the next kick can land. */
@@ -238,12 +237,6 @@ public final class MoonKnightConfig {
 	/** R: a dart that has been out this long without being caught simply fades. */
 	public static final int DART_MAX_LIFE_TICKS = 160;
 
-	/** Cape Glide: never sink slower than this (the server's anti-float check needs a real descent). */
-	public static final double GLIDE_MIN_SINK = 0.04;
-	/** How quickly the glide turns toward where you look (0..1 per tick). */
-	public static final double GLIDE_STEER = 0.14;
-	/** Looking down: up to this much extra speed (and a steeper dive). */
-	public static final double GLIDE_DIVE_SPEED_BONUS = 0.6;
 	/** After a glide ends (landing, tap), fall damage stays off this long. */
 	public static final int GLIDE_FALL_GRACE_TICKS = 30;
 	/** Cape Block: movement speed multiplier change while the cape is held up (-0.5 = half speed, as the old shroud). */

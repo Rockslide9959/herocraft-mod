@@ -94,6 +94,17 @@ public final class SpiderManConfig {
 		/** A new line fired within this many ticks of letting go chains: it adds swingChainBoost along the travel (was none). */
 		public int swingChainWindowTicks = 20;
 		public double swingChainBoost = 0.35;
+		// ---- v0.16.4 (user): air momentum + aerial control (config v11). See SpiderAirControl. ----
+		/** After a swing release / zip / glide he keeps his horizontal speed in the air (no air drag) until he lands. */
+		public boolean airMomentum = true;
+		/** How fast WASD / the look turn his airborne heading (degrees a tick). */
+		public double airTurnDegPerTick = 6.0;
+		/** Push along the held direction each tick (blocks / tick^2)... */
+		public double airAccel = 0.03;
+		/** ...but only up to this horizontal speed (faster than this, steering only turns him). */
+		public double airAccelCap = 1.0;
+		/** S in the air: this fraction of his horizontal speed is shed each tick. */
+		public double airBrake = 0.06;
 		public int bossWebDebuffTicks = 90;
 		public int impactPinTicks = 360;
 		public int blossomTrapTicks = 360;
@@ -209,6 +220,8 @@ public final class SpiderManConfig {
 			.reset(9, "v0.16.2 cobwebs back on", "webs.placeCobwebs")
 			// v0.16.4 (user request): the cocoon struggle minigame -- a new balance section, defaults fill in
 			.introduce(10, "v0.16.4 cocoon struggle minigame")
+			// v0.16.4 (user): no air drag after a swing + WASD aerial control (new keys only -- they take their defaults)
+			.introduce(11, "v0.16.4 air momentum and aerial control")
 			.build();
 
 	public static void load() {

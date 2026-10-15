@@ -50,6 +50,7 @@ public final class SpiderSwingClient {
 				}
 				player.setDeltaMovement(v);
 				releasedAt = player.level().getGameTime();
+				SpiderAirMomentumClient.arm(); // v0.16.4: and no air drag from here until he lands
 			}
 			wasSwinging = false;
 			return;

@@ -72,6 +72,7 @@ public final class SpiderInputClient {
 			airTicks = 0;
 			releaseWindow = 0;
 			SpiderSwingClient.reset();
+			SpiderAirMomentumClient.reset();
 			SpiderStrands.reset();
 			FirstPersonWebAnchor.reset();
 			SpiderTraversalClient.reset();
@@ -216,6 +217,7 @@ public final class SpiderInputClient {
 					&& player.pick(com.projecthero.mod.spider.SpiderManConfig.get().moves.zipBoostRange, 1.0f, false)
 							.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
 				ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.ZIP_BOOST));
+				SpiderAirMomentumClient.arm(); // v0.16.4: the zip's speed carries (no air drag) until he lands
 				return;
 			}
 			if (spiderMan && doubleJumpAllowed(player)) {

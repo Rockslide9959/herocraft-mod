@@ -105,7 +105,8 @@ public final class SuperheroFirstPersonArm {
 			return;
 		}
 		// v0.16.1: the Spider-Man suit is a second skin -- its sleeve is the suit model's own arm, skin-tight
-		if ("spider_man".equals(armorSetId)) {
+		// v0.16.4: the Black Suit too (it is skin-tight in third person now; the old thick shell sleeve doubled it)
+		if ("spider_man".equals(armorSetId) || "spider_man_symbiote".equals(armorSetId)) {
 			com.projecthero.mod.client.spider.SpiderSuitRender.renderArm(pose, buffers, light, vanillaArm, rightSide);
 			return;
 		}

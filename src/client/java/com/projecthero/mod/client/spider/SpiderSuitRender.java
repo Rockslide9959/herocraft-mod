@@ -165,6 +165,9 @@ public final class SpiderSuitRender {
 		sleeve.visible = true;
 		Player local = net.minecraft.client.Minecraft.getInstance().player;
 		ResourceLocation tex = local == null ? TEXTURE : textureFor(local.getItemBySlot(EquipmentSlot.CHEST).getItem());
+		if (local != null) {
+			tex = drawn(local, tex); // v0.16.4: the Black Suit's spread-on / Let It Take Over skins on the sleeve too
+		}
 		var vc = buffers.getBuffer(RenderType.entityTranslucent(tex));
 		arm.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 		sleeve.render(pose, vc, light, OverlayTexture.NO_OVERLAY);

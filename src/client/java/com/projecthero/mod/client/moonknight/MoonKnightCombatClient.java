@@ -1,9 +1,9 @@
 package com.projecthero.mod.client.moonknight;
 
 import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.hero.power.ElytraPhysics;
 import com.projecthero.mod.moonknight.MoonKnight;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
-import com.projecthero.mod.moonknight.MoonKnightLunar;
 import com.projecthero.mod.moonknight.ability.MoonKnightCape;
 import com.projecthero.mod.moonknight.data.MoonKnightAction;
 import com.projecthero.mod.moonknight.item.MoonKnightItems;
@@ -18,6 +18,7 @@ import net.fabricmc.fabric.api.object.builder.v1.client.model.FabricModelPredica
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.HitResult;
 
 /**
@@ -60,18 +61,37 @@ public final class MoonKnightCombatClient {
 	 */
 	private static void tickGlide(Minecraft mc) {
 		LocalPlayer p = mc.player;
-		if (p == null || mc.isPaused() || !MoonKnight.isTransformed(p)
-				|| !MoonKnightAnim.flag(p, MoonKnightAction.FLAG_GLIDING)) {
+		if (p == null || mc.isPaused()) {
 			return;
 		}
-		if (p.onGround() || p.isInWater() || p.isInLava() || p.isFallFlying() || p.getAbilities().flying
+		if (!MoonKnight.isTransformed(p) || !MoonKnightAnim.flag(p, MoonKnightAction.FLAG_GLIDING)
+				|| p.onGround() || p.isInWater() || p.isInLava() || p.isFallFlying() || p.getAbilities().flying
 				|| p.isPassenger() || p.onClimbable()) {
+			glideFloatTicks = 0;
+			glideForced = false;
 			return;
 		}
-		p.setDeltaMovement(MoonKnightCape.glideVelocity(p.getDeltaMovement(), p.getYRot(), p.getXRot(),
-				MoonKnightLunar.power(p)));
+		// v0.16.4: vanilla elytra flight (MoonKnightCape.glideVelocity -> ElytraPhysics), from the velocity he moved with
+		Vec3 moved = ElytraPhysics.undoAirStep(p.getDeltaMovement());
+		if (glideForced) {
+			moved = new Vec3(moved.x, glideTrueVy, moved.z); // last tick's anti-float dip was for that move only
+		}
+		Vec3 next = ElytraPhysics.step(moved, p.getYRot(), p.getXRot(), ElytraPhysics.gravityFor(p));
+		glideFloatTicks = ElytraPhysics.floating(next) ? glideFloatTicks + 1 : 0;
+		Vec3 out = ElytraPhysics.antiFloat(next, glideFloatTicks);
+		glideForced = out != next;
+		if (glideForced) {
+			glideTrueVy = next.y;
+			glideFloatTicks = 0;
+		}
+		p.setDeltaMovement(out);
 		p.resetFallDistance();
 	}
+
+	/** v0.16.4: the glide's floating guard (ElytraPhysics.antiFloat) -- ticks in a row not sinking, and a held climb. */
+	private static int glideFloatTicks;
+	private static boolean glideForced;
+	private static double glideTrueVy;
 
 	/**
 	 * v0.13.21: HOLD right click = Cape Block. Only with the main hand empty or holding the Truncheon, and never while

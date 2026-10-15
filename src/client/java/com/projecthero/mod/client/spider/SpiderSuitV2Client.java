@@ -16,5 +16,6 @@ public final class SpiderSuitV2Client {
 		EntityRendererRegistry.register(SpiderTripMines.TRIP_MINE_ENTITY, SpiderTripMineRenderer::new);
 		ClientTickEvents.END_CLIENT_TICK.register(SpiderWebWingsClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpiderDiveClient::clientTick); // v0.16.3
+		ClientTickEvents.END_CLIENT_TICK.register(SpiderAirMomentumClient::clientTick); // v0.16.4 air momentum
 	}
 }

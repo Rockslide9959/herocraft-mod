@@ -1,6 +1,7 @@
 package com.projecthero.mod.spider;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.power.ElytraPhysics;
 import com.projecthero.mod.spider.data.SpiderMoveState;
 import com.projecthero.mod.spider.item.SpiderManV2ArmorItem;
 
@@ -18,10 +19,12 @@ import net.minecraft.world.phys.Vec3;
  * faster than {@link #START_FALL_SPEED} b/t -- for {@link #HOLD_TICKS}+ ticks (a TAP of Jump after a swing release is a
  * swing trick, not this). Needs the Spider-Man power and the v2 suit on the chest (alone or with the full set).
  *
- * <p><b>Flight:</b> {@link #step} -- he glides the way he is looking at about {@link #CRUISE} b/t, sinking about
- * {@link #SINK} b/t; turns bank in at most {@link #TURN_DEG} degrees a tick; looking down dives and gains speed (up to
- * {@link #MAX_SPEED}); looking up bleeds it off (never below {@link #MIN_SPEED}, and he always sinks a little). Letting go
- * of Jump ends it; firing a swing from a glide keeps the momentum.
+ * <p><b>Flight (v0.16.4, user: "function more like elytra"):</b> {@link #step} is vanilla's elytra flight
+ * ({@link com.projecthero.mod.hero.power.ElytraPhysics}) -- look down to dive and gain speed, pull up to trade that speed
+ * for height (hold it too long and he stalls and drops), level off to glide a long way while slowly losing height, and
+ * turn by looking where he wants to go (the glide eases toward the look 10% a tick; the body banks into the turn).
+ * Letting go of Jump ends it with the momentum kept (the air momentum of {@code SpiderAirControl} carries it on);
+ * firing a swing from a glide keeps it too. No fall damage while gliding (and Spider-Man takes none anyway).
  *
  * <p>Like the rest of his movement it is client-simulated ({@code client.spider.SpiderWebWingsClient}) and
  * server-authorised: the client asks to start / stop ({@code SpiderGlidePayload}), the server checks {@link #canGlide},
@@ -31,14 +34,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SpiderWebWings {
 	public static final int HOLD_TICKS = 6;
 	public static final double START_FALL_SPEED = 0.25;
-	public static final double CRUISE = 0.8;
-	public static final double SINK = 0.10;
-	public static final double MIN_SPEED = 0.5;
-	public static final double MAX_SPEED = 1.6;
-	/** The least he sinks, pitched right up (keeps him honestly falling -- vanilla's "floating" check never trips). */
-	public static final double MIN_SINK = 0.05;
-	public static final double DIVE_ACCEL = 0.06;
-	public static final double CLIMB_DRAG = 0.05;
+	/** A look turn of this many degrees in a tick reads as a full bank (the visual roll only). */
 	public static final float TURN_DEG = 7.0f;
 
 	private SpiderWebWings() {
@@ -71,34 +67,17 @@ public final class SpiderWebWings {
 		return heldTicks >= HOLD_TICKS && vy < -START_FALL_SPEED && canGlide(player);
 	}
 
-	/** The speed a glide starts at, from the velocity he had when it began. */
+	/** The velocity a glide starts with: exactly what he had (an elytra opens into the fall it is in). */
 	public static Vec3 entryVelocity(Vec3 v, float yawDeg) {
-		double h = Math.sqrt(v.x * v.x + v.z * v.z);
-		Vec3 dir = h > 0.05 ? new Vec3(v.x / h, 0, v.z / h) : Vec3.directionFromRotation(0f, yawDeg);
-		// a fall turns into forward speed: what he had, or a fair share of his drop
-		double s = Mth.clamp(Math.max(h, -v.y * 0.8), MIN_SPEED, MAX_SPEED);
-		return new Vec3(dir.x * s, -SINK, dir.z * s);
+		return v;
 	}
 
 	/**
-	 * One tick of the glide: from velocity {@code v}, looking along {@code yawDeg} / {@code pitchDeg} (vanilla's: pitch
-	 * positive = looking down). Shared by the client simulation and the tests.
+	 * One tick of the glide: from the velocity he moved with last tick, looking along {@code yawDeg} / {@code pitchDeg}
+	 * (vanilla's: pitch positive = looking down) -- vanilla elytra flight. Shared by the client simulation and the tests.
 	 */
 	public static Vec3 step(Vec3 v, float yawDeg, float pitchDeg) {
-		double h = Math.sqrt(v.x * v.x + v.z * v.z);
-		float heading = h > 1.0e-3 ? (float) (Mth.atan2(-v.x, v.z) * Mth.RAD_TO_DEG) : yawDeg;
-		float turn = Mth.clamp(Mth.wrapDegrees(yawDeg - heading), -TURN_DEG, TURN_DEG);
-		heading += turn;
-		float pitch = Mth.clamp(pitchDeg, -40f, 80f);
-		double dive = Math.sin(Math.max(pitch, 0f) * Mth.DEG_TO_RAD);
-		double climb = Math.sin(Math.max(-pitch, 0f) * Mth.DEG_TO_RAD);
-		double s = Math.max(h, MIN_SPEED);
-		s += (CRUISE - s) * 0.04 * (1.0 - dive) + dive * DIVE_ACCEL - climb * CLIMB_DRAG;
-		s = Mth.clamp(s, MIN_SPEED, MAX_SPEED);
-		double vy = -(SINK + dive * s * 0.55) + climb * 0.05;
-		vy = Math.min(vy, -MIN_SINK);
-		Vec3 dir = Vec3.directionFromRotation(0f, heading);
-		return new Vec3(dir.x * s, vy, dir.z * s);
+		return ElytraPhysics.step(v, yawDeg, pitchDeg);
 	}
 
 	/** How hard he is banking for a turn of {@code turnDeg} this tick (-1..1, + = turning right). */

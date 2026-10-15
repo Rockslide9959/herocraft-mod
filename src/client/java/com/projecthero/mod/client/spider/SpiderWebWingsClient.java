@@ -50,6 +50,8 @@ public final class SpiderWebWingsClient {
 	private static boolean gliding;
 	private static int glideTicks;
 	private static Vec3 vel = Vec3.ZERO;
+	/** v0.16.4: ticks in a row the glide has not sunk (ElytraPhysics.antiFloat). */
+	private static int floatTicks;
 	/** After the server refused a glide, no retry before this player tick. */
 	private static int retryAt;
 
@@ -93,16 +95,26 @@ public final class SpiderWebWingsClient {
 			return;
 		}
 		glideTicks++;
-		vel = SpiderWebWings.step(vel, player.getYRot(), player.getXRot());
-		player.setDeltaMovement(vel);
+		// v0.16.4: vanilla elytra flight (SpiderWebWings.step -> ElytraPhysics), from the velocity he moved with last tick
+		vel = com.projecthero.mod.hero.power.ElytraPhysics.step(vel, player.getYRot(), player.getXRot(),
+				com.projecthero.mod.hero.power.ElytraPhysics.gravityFor(player));
+		floatTicks = com.projecthero.mod.hero.power.ElytraPhysics.floating(vel) ? floatTicks + 1 : 0;
+		// a long climb still dips once in a while (the server's floating check) -- this tick's move only, not the glide
+		Vec3 move = com.projecthero.mod.hero.power.ElytraPhysics.antiFloat(vel, floatTicks);
+		if (move != vel) {
+			floatTicks = 0;
+		}
+		player.setDeltaMovement(move);
 		player.resetFallDistance();
 	}
 
 	private static void end(LocalPlayer player) {
 		gliding = false;
-		// letting go (or firing a swing) keeps every bit of the glide's speed
+		floatTicks = 0;
+		// letting go (or firing a swing) keeps every bit of the glide's speed -- and the air momentum carries it on
 		if (!player.onGround()) {
 			player.setDeltaMovement(vel);
+			SpiderAirMomentumClient.arm();
 		}
 		ClientPlayNetworking.send(new SpiderGlidePayload(false));
 	}

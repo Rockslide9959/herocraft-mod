@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.hero.power.ElytraPhysics;
 import com.projecthero.mod.moonknight.MoonKnight;
 import com.projecthero.mod.moonknight.MoonKnightAnim;
 import com.projecthero.mod.moonknight.MoonKnightConfig;
@@ -34,10 +35,9 @@ import net.minecraft.world.phys.Vec3;
  * The Cape (Moon Knight Phase 3). Since v0.13.21 it is on no ability key at all:
  * <ul>
  *   <li><b>Cape Glide</b> -- jump, then hold Sneak in the air: the cape stretches into a triangle of webbing between
- *       the arms and the legs ({@code FLAG_GLIDING}), he tips forward flat and glides like a weaker elytra -- no item,
- *       no rocket boost, no fall damage -- steering where he looks; a glide sinks {@link MoonKnightConfig#GLIDE_SINK}
- *       / lunar power per tick, so it carries much further at night. Letting go of Sneak, landing, water or a ladder
- *       ends it. Gliding into a mob kicks it: {@link MoonKnightConfig#GLIDE_KICK_DAMAGE} x power and knockback.</li>
+ *       the arms and the legs ({@code FLAG_GLIDING}), he tips forward flat and flies like an elytra (v0.16.4: vanilla
+ *       elytra physics, {@link ElytraPhysics}) -- no item, no rocket boost, no fall damage -- dive for speed, pull up
+ *       for height, turn where he looks. Letting go of Sneak, landing, water or a ladder ends it. Gliding into a mob kicks it: {@link MoonKnightConfig#GLIDE_KICK_DAMAGE} x power and knockback.</li>
  *   <li><b>Cape Block</b> -- hold right click with an empty main hand (or the Truncheon): the cape wraps round him
  *       ({@code FLAG_CAPE_BLOCK}) and every hit does {@link MoonKnightConfig#CAPE_BLOCK_FACTOR} (30% less) for as
  *       long as it is held -- no time limit, no cooldown -- at half speed. The client sends the press / release
@@ -52,8 +52,8 @@ import net.minecraft.world.phys.Vec3;
  * the server only decides: it reads the synced Sneak state and sets / clears {@code FLAG_GLIDING}, keeps fall distance
  * at zero, and ends the glide on landing. The gliding player's client ({@code MoonKnightCombatClient}) reads its own
  * synced flag every tick and steers its velocity through {@link #glideVelocity}, the one pure function both sides
- * share. The sink rate never drops below {@link MoonKnightConfig#GLIDE_MIN_SINK}, so the server's "flying is not
- * enabled" check stays happy.
+ * share. A long climb still dips a little every couple of seconds ({@link ElytraPhysics#antiFloat}, on the client), so the
+ * server's "flying is not enabled" check stays happy.
  */
 public final class MoonKnightCape implements MoonKnightMove {
 	public static final MoonKnightCape INSTANCE = new MoonKnightCape();
@@ -101,53 +101,29 @@ public final class MoonKnightCape implements MoonKnightMove {
 		AbilityHelpers.sound(player, SoundEvents.PHANTOM_FLAP, 0.5f, 1.3f);
 	}
 
-	/** Vanilla's airborne step: gravity, then these drags, applied after every move. */
-	private static final double GRAVITY = 0.08;
-	private static final double DRAG_Y = 0.98;
-	private static final double DRAG_XZ = 0.91;
-
 	/**
-	 * The glide, as a pure function (shared by the client that moves the player and by the tests).
+	 * The glide, as a pure function (shared by the client that moves the player and by the tests). v0.16.4 (user: "give
+	 * this same functionality to moon knights glide" -- the Web Wings' elytra flight): vanilla elytra flight
+	 * ({@link ElytraPhysics}) -- dive to gain speed, pull up to trade it for height (and stall), level glides that slowly
+	 * lose height, turning toward where he looks.
 	 *
 	 * @param v the velocity vanilla left after its own airborne step (gravity + drag already applied); it is undone
 	 *          first, so the result is exactly the velocity of the next move
-	 * @return the velocity for the next move: horizontally steered toward where the player looks; vertically eased to
-	 *         a gentle sink (a jump still rises until gravity brings it down to the sink rate). Looking down dives
-	 *         faster and steeper; looking up bleeds speed and flattens the glide a little -- it never climbs.
 	 */
-	public static Vec3 glideVelocity(Vec3 v, float yawDeg, float pitchDeg, float power) {
-		double dive = Mth.clamp(pitchDeg / 60.0, -0.5, 1.0);
-		double down = Math.max(0.0, dive);
-		double up = Math.max(0.0, -dive);
-		double speed = MoonKnightConfig.GLIDE_SPEED * (1.0 + MoonKnightConfig.GLIDE_DIVE_SPEED_BONUS * down) * (1.0 - 0.3 * up);
-		double sink = MoonKnightConfig.GLIDE_BETTER_AT_NIGHT
-				? MoonKnightConfig.GLIDE_SINK / Math.max(0.1, power) : MoonKnightConfig.GLIDE_SINK;
-		sink = Math.max(MoonKnightConfig.GLIDE_MIN_SINK, sink * (1.0 + 2.5 * down) * (1.0 - 0.3 * up));
-		// the velocity actually moved with last tick, before vanilla's gravity / drag
-		double px = v.x / DRAG_XZ;
-		double pz = v.z / DRAG_XZ;
-		double py = v.y / DRAG_Y + GRAVITY;
-		double yaw = Math.toRadians(yawDeg);
-		double fx = -Math.sin(yaw);
-		double fz = Math.cos(yaw);
-		double k = MoonKnightConfig.GLIDE_STEER;
-		double hx = px + (fx * speed - px) * k;
-		double hz = pz + (fz * speed - pz) * k;
-		double target = -sink;
-		double vy = py > target ? Math.max(target, py - GRAVITY) : py + (target - py) * 0.35;
-		return new Vec3(hx, vy, hz);
+	public static Vec3 glideVelocity(Vec3 v, float yawDeg, float pitchDeg) {
+		return ElytraPhysics.step(ElytraPhysics.undoAirStep(v), yawDeg, pitchDeg);
 	}
 
 	/** Vanilla's airborne step after a move (what {@link #glideVelocity} undoes). */
 	public static Vec3 vanillaAirStep(Vec3 moved) {
-		return new Vec3(moved.x * DRAG_XZ, (moved.y - GRAVITY) * DRAG_Y, moved.z * DRAG_XZ);
+		return ElytraPhysics.vanillaAirStep(moved);
 	}
 
-	/** The per-tick descent a level glide settles at for this lunar power (tests). */
-	public static double settledSink(float power) {
-		Vec3 moved = new Vec3(0.0, -0.3, 0.0);
-		for (int i = 0; i < 80; i++) {
-			moved = glideVelocity(vanillaAirStep(moved), 0.0f, 0.0f, power);
+	/** The per-tick descent a level glide settles at (tests). */
+	public static double settledSink() {
+		Vec3 moved = new Vec3(0.0, -0.3, 0.6);
+		for (int i = 0; i < 200; i++) {
+			moved = glideVelocity(vanillaAirStep(moved), 0.0f, 0.0f);
 		}
 		return -moved.y;
 	}

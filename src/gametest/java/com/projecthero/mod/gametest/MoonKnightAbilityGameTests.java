@@ -217,14 +217,29 @@ public class MoonKnightAbilityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.4 (user): Moon Knight's glide flies like an elytra (the same physics as the Web Wings). */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void glideCarriesFurtherAtNight(GameTestHelper helper) {
-		double day = MoonKnightCape.settledSink(MoonKnightConfig.LUNAR_DAY);
-		double fullMoon = MoonKnightCape.settledSink(MoonKnightConfig.LUNAR_FULL_MOON);
-		helper.assertTrue(fullMoon < day, "a full-moon glide sinks slower (" + fullMoon + " vs " + day + ")");
-		helper.assertTrue(fullMoon >= MoonKnightConfig.GLIDE_MIN_SINK - 1.0e-6, "but never slower than the anti-float floor");
-		helper.assertTrue(Math.abs(day - MoonKnightConfig.GLIDE_SINK / MoonKnightConfig.LUNAR_DAY) < 0.005,
-				"a level glide settles exactly on the configured sink (" + day + ")");
+	public void glideFliesLikeAnElytra(GameTestHelper helper) {
+		double sink = MoonKnightCape.settledSink();
+		helper.assertTrue(sink > 0.1 && sink < 0.2, "a level glide slowly loses height, ~0.15 b/t (" + sink + ")");
+		// the client hook runs after vanilla's air step: undoing it gives exactly the elytra step of the move
+		Vec3 moved = new Vec3(0.3, -0.4, 1.1);
+		Vec3 viaHook = MoonKnightCape.glideVelocity(MoonKnightCape.vanillaAirStep(moved), 20f, 15f);
+		Vec3 elytra = com.projecthero.mod.hero.power.ElytraPhysics.step(moved, 20f, 15f);
+		helper.assertTrue(viaHook.distanceTo(elytra) < 1.0e-9, "vanilla's step undone exactly (" + viaHook + " vs " + elytra + ")");
+		// dive for speed, pull up for height
+		Vec3 v = new Vec3(0.0, -0.15, 1.3);
+		for (int i = 0; i < 40; i++) {
+			v = MoonKnightCape.glideVelocity(MoonKnightCape.vanillaAirStep(v), 0f, 60f);
+		}
+		double diveSpeed = Math.sqrt(v.x * v.x + v.z * v.z);
+		helper.assertTrue(diveSpeed > 1.4 && v.y < -0.8, "a dive gains speed and drops (" + v + ")");
+		double top = -9;
+		for (int i = 0; i < 20; i++) {
+			v = MoonKnightCape.glideVelocity(MoonKnightCape.vanillaAirStep(v), 0f, -30f);
+			top = Math.max(top, v.y);
+		}
+		helper.assertTrue(top > 0.3, "pulling up climbs (" + top + ")");
 		helper.succeed();
 	}
 

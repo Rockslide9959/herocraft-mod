@@ -7,8 +7,11 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.power.ElytraPhysics;
+import com.projecthero.mod.spider.SpiderAirControl;
 import com.projecthero.mod.spider.SpiderMan;
 import com.projecthero.mod.spider.SpiderMask;
+import com.projecthero.mod.spider.SpiderSwingInput;
 import com.projecthero.mod.spider.SpiderMoves;
 import com.projecthero.mod.spider.SpiderTripMines;
 import com.projecthero.mod.spider.SpiderWebReserve;
@@ -345,36 +348,101 @@ public class SpiderSuitV2GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	private static double flat(Vec3 v) {
+		return Math.sqrt(v.x * v.x + v.z * v.z);
+	}
+
+	/** v0.16.4 (user: "function more like elytra"): the Web Wings fly by vanilla's elytra physics. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void webWingsGlideForwardSinkSlowlyBankAndDive(GameTestHelper helper) {
-		// level flight settles at the cruise speed, sinking slowly
+	public void webWingsFlyLikeAnElytra(GameTestHelper helper) {
+		// opening into a straight drop: the fall turns into forward speed along the look, then a long shallow glide
 		Vec3 v = SpiderWebWings.entryVelocity(new Vec3(0, -0.6, 0), 0f);
+		helper.assertTrue(v.equals(new Vec3(0, -0.6, 0)), "an elytra opens into the fall it is in");
 		for (int i = 0; i < 200; i++) {
 			v = SpiderWebWings.step(v, 0f, 0f);
 		}
-		double h = Math.sqrt(v.x * v.x + v.z * v.z);
-		helper.assertTrue(h > 0.7 && h < 0.9, "cruise ~0.7-0.9 b/t (" + h + ")");
-		helper.assertTrue(v.y < -0.08 && v.y > -0.12, "sink ~0.08-0.12 b/t (" + v.y + ")");
-		helper.assertTrue(v.z > 0.7, "forward the way he looks (yaw 0 = south)");
-		// diving gains speed, pulling up loses it but he still sinks
+		double h = flat(v);
+		helper.assertTrue(h > 1.2 && h < 1.5, "level flight settles at vanilla's ~1.36 b/t (" + h + ")");
+		helper.assertTrue(v.y < -0.1 && v.y > -0.2, "losing height slowly, ~0.15 b/t (" + v.y + ")");
+		helper.assertTrue(v.z > 1.2, "forward the way he looks (yaw 0 = south)");
+		// diving gains speed
 		Vec3 dive = v;
-		for (int i = 0; i < 10; i++) {
-			dive = SpiderWebWings.step(dive, 0f, 50f);
-		}
-		helper.assertTrue(Math.sqrt(dive.x * dive.x + dive.z * dive.z) > h + 0.2, "looking down dives and gains speed");
-		helper.assertTrue(dive.y < v.y - 0.2, "and drops faster");
-		Vec3 up = v;
 		for (int i = 0; i < 40; i++) {
-			up = SpiderWebWings.step(up, 0f, -35f);
+			dive = SpiderWebWings.step(dive, 0f, 60f);
 		}
-		helper.assertTrue(Math.sqrt(up.x * up.x + up.z * up.z) < h, "looking up bleeds speed");
-		helper.assertTrue(up.y <= -SpiderWebWings.MIN_SINK + 1.0e-6, "but he always sinks");
-		// turns are banked in, not snapped
+		helper.assertTrue(flat(dive) > h + 0.1, "looking down gains speed (" + flat(dive) + ")");
+		helper.assertTrue(dive.y < -0.8, "and drops fast (" + dive.y + ")");
+		// pulling up trades the speed for height, then stalls
+		Vec3 up = dive;
+		double topVy = -9;
+		for (int i = 0; i < 20; i++) {
+			up = SpiderWebWings.step(up, 0f, -30f);
+			topVy = Math.max(topVy, up.y);
+		}
+		helper.assertTrue(topVy > 0.3, "pulling up out of a dive climbs (" + topVy + ")");
+		helper.assertTrue(flat(up) < flat(dive), "paying for it with speed");
+		for (int i = 0; i < 100; i++) {
+			up = SpiderWebWings.step(up, 0f, -30f);
+		}
+		helper.assertTrue(up.y < 0.0 && flat(up) < 0.5, "held too long: a stall (" + up + ")");
+		// turning: the glide eases toward the look, it does not snap
 		Vec3 turn = SpiderWebWings.step(v, 90f, 0f);
 		double heading = Math.toDegrees(Math.atan2(-turn.x, turn.z));
-		helper.assertTrue(Math.abs(heading - SpiderWebWings.TURN_DEG) < 0.5, "a hard turn banks " + SpiderWebWings.TURN_DEG
-				+ " degrees a tick (" + heading + ")");
+		helper.assertTrue(heading > 3.0 && heading < 12.0, "a hard look right turns a few degrees a tick (" + heading + ")");
 		helper.assertTrue(SpiderWebWings.bank(30f) == 1f && SpiderWebWings.bank(-3.5f) == -0.5f, "bank amount");
+		// the floating guard: a long climb dips for one tick, an ordinary glide is untouched
+		Vec3 climbing = new Vec3(0, 0.2, 1);
+		helper.assertTrue(ElytraPhysics.antiFloat(climbing, 10) == climbing, "no dip before the limit");
+		helper.assertTrue(ElytraPhysics.antiFloat(climbing, ElytraPhysics.FLOAT_LIMIT).y < -ElytraPhysics.FLOAT_EPSILON,
+				"at the limit the move sinks enough to reset the server's count");
+		helper.assertTrue(ElytraPhysics.FLOAT_LIMIT < 80, "well inside the server's 80 ticks");
+		helper.succeed();
+	}
+
+	/** v0.16.4 (user): no air drag after a swing (like the Hulk's leap) + WASD aerial control. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void airMomentumKeepsSpeedAndSteers(GameTestHelper helper) {
+		int none = 0;
+		// vanilla's air step then the drag cancel: horizontal speed is kept, gravity still pulls him down
+		Vec3 moved = new Vec3(1.5, 0.3, 0.0);
+		Vec3 plain = moved;
+		for (int i = 0; i < 40; i++) {
+			moved = SpiderAirControl.steer(SpiderAirControl.cancelDrag(ElytraPhysics.vanillaAirStep(moved)), 0f, none);
+			plain = ElytraPhysics.vanillaAirStep(plain);
+		}
+		helper.assertTrue(Math.abs(flat(moved) - 1.5) < 1.0e-9, "no air drag: still 1.5 b/t after 2 s (" + flat(moved) + ")");
+		helper.assertTrue(flat(plain) < 0.1, "vanilla would have lost nearly all of it (" + flat(plain) + ")");
+		helper.assertTrue(moved.y < -1.0, "but he still falls (" + moved.y + ")");
+		// vanilla's own air push is taken back out, so holding W can't pile speed up on top of the drag cancel
+		Vec3 push = SpiderAirControl.vanillaAirInput(0f, 0.98f, 0f, true);
+		helper.assertTrue(push.z > 0.02 && Math.abs(push.x) < 1.0e-6, "W pushes south at yaw 0 (" + push + ")");
+		Vec3 v = new Vec3(0, -0.2, 1.0);
+		Vec3 after = ElytraPhysics.vanillaAirStep(v.add(push));
+		Vec3 back = SpiderAirControl.cancelDrag(after).subtract(push.x, 0.0, push.z);
+		helper.assertTrue(Math.abs(back.x - v.x) < 1.0e-9 && Math.abs(back.z - v.z) < 1.0e-9, "the push comes back out");
+		// steering: D at yaw 0 (facing south) wants west (heading 90): turns 6 degrees a tick toward it
+		int right = SpiderSwingInput.pack(false, false, false, true, false, false);
+		Vec3 s = SpiderAirControl.steer(new Vec3(0, 0, 1.0), 0f, right, 6.0, 0.03, 1.0, 0.06, 4.6);
+		double heading = Math.toDegrees(Math.atan2(-s.x, s.z));
+		helper.assertTrue(Math.abs(heading - 6.0) < 0.01, "turns 6 degrees toward the held direction (" + heading + ")");
+		helper.assertTrue(s.x < 0.0, "to his right (west)");
+		helper.assertTrue(Math.abs(flat(s) - 1.0) < 1.0e-5, "turning keeps his speed (at the cap: no push)");
+		for (int i = 0; i < 20; i++) {
+			s = SpiderAirControl.steer(s, 0f, right, 6.0, 0.03, 1.0, 0.06, 4.6);
+		}
+		helper.assertTrue(Math.abs(Math.toDegrees(Math.atan2(-s.x, s.z)) - 90.0) < 0.01, "and settles on it");
+		// W follows the look; slow, it pushes him up to the cap
+		int fwd = SpiderSwingInput.pack(true, false, false, false, false, false);
+		Vec3 slow = SpiderAirControl.steer(new Vec3(0, 0, 0.5), 0f, fwd, 6.0, 0.03, 1.0, 0.06, 4.6);
+		helper.assertTrue(Math.abs(flat(slow) - 0.53) < 1.0e-5, "W pushes 0.03 b/t a tick while slow (" + flat(slow) + ")");
+		Vec3 fast = SpiderAirControl.steer(new Vec3(0, 0, 2.0), 0f, fwd, 6.0, 0.03, 1.0, 0.06, 4.6);
+		helper.assertTrue(Math.abs(flat(fast) - 2.0) < 1.0e-5, "above the cap W only steers");
+		// S brakes, never reverses; the top speed holds
+		int brake = SpiderSwingInput.pack(false, true, false, false, false, false);
+		Vec3 braked = SpiderAirControl.steer(new Vec3(0, 0, 2.0), 0f, brake, 6.0, 0.03, 1.0, 0.06, 4.6);
+		helper.assertTrue(Math.abs(braked.z - 1.88) < 1.0e-9 && braked.x == 0.0, "S sheds 6% (" + braked + ")");
+		Vec3 capped = SpiderAirControl.steer(new Vec3(0, 0.5, 9.0), 0f, none, 6.0, 0.03, 1.0, 0.06, 4.6);
+		helper.assertTrue(Math.abs(flat(capped) - 4.6) < 1.0e-9 && capped.y == 0.5, "never past the swing's top speed");
 		helper.succeed();
 	}
 }
