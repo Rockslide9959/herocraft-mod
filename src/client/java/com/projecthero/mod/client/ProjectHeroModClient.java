@@ -463,6 +463,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.hulk.GammaOriginClient.init(); // v0.16.4: the Gamma origin flash, energy and mind
 		com.projecthero.mod.client.hulk.HulkMovesClient.init(); // v0.16.4: Super Leap without drag + the leap bar
 		com.projecthero.mod.client.hulk.HulkRampageClient.init(); // v0.16.4: the rampage view, the ring minigame, the warning
+		com.projecthero.mod.client.hulk.HulkMorphFx.init(); // v0.16.4: the Banner -> Hulk morph's shreds, flash, glow, skins
 		ClientTickEvents.END_CLIENT_TICK.register(MaxSteelFlightFxClient::clientTick);
 		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.spider.SpiderInputClient::clientTick);
 		com.projecthero.mod.client.spider.SpiderSuitV2Client.initialize(); // v0.16.2: Suit v2 -- Trip Mine renderer, Web Wings

@@ -87,7 +87,7 @@ public class HulkGladiatorLayer extends GeoRenderLayer<HulkAnimatable> {
 	public void render(PoseStack poseStack, HulkAnimatable animatable, BakedGeoModel bakedModel, @Nullable RenderType renderType,
 			MultiBufferSource bufferSource, @Nullable VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
 		AbstractClientPlayer player = hulk.getCurrentEntity();
-		if (player == null || !GladiatorGear.isGladiator(player)) {
+		if (player == null || hulk.ghost() || !GladiatorGear.isGladiator(player)) {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
@@ -100,11 +100,10 @@ public class HulkGladiatorLayer extends GeoRenderLayer<HulkAnimatable> {
 			gearVisibility(bone, hammerAway, axeAway);
 		}
 		try {
-			float fade = hulk.fade();
-			RenderType type = fade < 0.999f ? RenderType.entityTranslucent(TEXTURE) : RenderType.entityCutoutNoCull(TEXTURE);
-			int alpha = Math.round(255 * Math.max(0.0f, Math.min(1.0f, fade)));
+			// v0.16.4: the Hulk is never see-through any more (the morph swaps bodies) -- the gear is always solid
+			RenderType type = RenderType.entityCutoutNoCull(TEXTURE);
 			getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, type, bufferSource.getBuffer(type),
-					partialTick, packedLight, packedOverlay, (alpha << 24) | 0xFFFFFF);
+					partialTick, packedLight, packedOverlay, 0xFFFFFFFF);
 		} finally {
 			baseVisibility(bakedModel);
 		}
