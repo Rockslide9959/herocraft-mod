@@ -148,9 +148,9 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.nova.Nova.isFlying(player)) {
 			return DirectionalFlightModel.nova(sprint);
 		}
-		// v0.16.5: Cyborg's Jet Flight (double-tap jump) -- the Max Steel numbers, 18 b/s, 36 sprinting
+		// v0.16.5: Cyborg's Jet Flight (double-tap jump) -- 18 b/s, 33 sprinting
 		if (com.projecthero.mod.cyborg.Cyborg.flying(player)) {
-			return DirectionalFlightModel.maxSteel(flyingSpeed, sprint);
+			return DirectionalFlightModel.cyborg(flyingSpeed, sprint);
 		}
 		// Iron Man suit flight (double-tap jump, Mark 1 timed flight, supersonic burst)
 		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)) {

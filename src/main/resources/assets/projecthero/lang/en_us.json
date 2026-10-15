@@ -5762,7 +5762,7 @@
   "projecthero.cyborg.ability.thruster_dash": "Thruster Dash",
   "projecthero.cyborg.ability.thruster_dash.desc": "A 10-block jet-boot dash the way you are moving (or looking, standing still). 4s cooldown.",
   "projecthero.cyborg.ability.hover": "Jet Flight",
-  "projecthero.cyborg.ability.hover.desc": "Builds a jetpack on your back and flies on energy jets from it and your boots (also: double-tap jump in the air). Sprint to go faster. Press again or land to stop. 4 Power Core a second.",
+  "projecthero.cyborg.ability.hover.desc": "Builds a jetpack on your back and flies on energy jets from it and your boots (also: double-tap jump in the air). 18 blocks a second, 33 sprinting. Press again or land to stop. 4 Power Core a second.",
   "projecthero.cyborg.ability.techno_override": "Techno-Override",
   "projecthero.cyborg.ability.techno_override.desc": "Hack what you aim at: golems and Ultron or Sentinel robots fight for you for 20s (no bosses); doors and trapdoors open or shut, redstone lamps switch, TNT goes off. 40 Power Core, 20s cooldown.",
   "projecthero.cyborg.ability.scan": "Scan",

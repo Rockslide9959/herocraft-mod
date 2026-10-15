@@ -58,6 +58,9 @@ public final class CyborgConfig {
 	public static final double DASH_SPEED = 1.6;
 	public static final int DASH_COOLDOWN = 80;
 	public static final float HOVER_COST_PER_SECOND = 4f;
+	/** Jet Flight speeds, blocks a second (user: cruise 18, sprint 33). */
+	public static final double FLIGHT_CRUISE_BPS = 18.0;
+	public static final double FLIGHT_SPRINT_BPS = 33.0;
 	/** The jetpack building onto his back at take-off (and folding away on landing), a voxel at a time. */
 	public static final int JETPACK_BUILD_TICKS = 16;
 

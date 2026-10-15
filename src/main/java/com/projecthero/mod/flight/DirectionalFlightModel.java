@@ -135,6 +135,12 @@ public final class DirectionalFlightModel {
 		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? MAX_STEEL_SPRINT_BPS : MAX_STEEL_CRUISE_BPS) / 20.0);
 	}
 
+	/** v0.16.5: Cyborg's Jet Flight -- 18 b/s cruising, 33 sprinting (user). */
+	public static Tune cyborg(float flyingSpeed, boolean sprint) {
+		return fixedCruise(vanilla(flyingSpeed, sprint),
+				(sprint ? com.projecthero.mod.cyborg.CyborgConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.cyborg.CyborgConfig.FLIGHT_CRUISE_BPS) / 20.0);
+	}
+
 	/** {@code tune} with its cruise speed (blocks/tick) replaced. */
 	public static Tune fixedCruise(Tune tune, double speed) {
 		return new Tune(speed, tune.verticalSpeed(), tune.strafeScale(), tune.acceleration(), tune.reverse(), tune.idle(),
