@@ -14,7 +14,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.phys.Vec3;
@@ -27,13 +26,26 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>During a rampage the server drives him -- the player has no movement control (forced third person, the screen shrunk into
  * a letterbox, see {@code HulkRampageClient}). He roars ({@link HulkState#ANIM_RAMPAGE}), then hunts EVERY living thing within
- * {@code rampageRange} blocks -- squad-mates and other players included -- always the nearest: sprints and leaps to it and
- * punches it, with a ground smash every third blow. He only breaks blocks when he is truly stuck. The player wins control back
- * with the ring minigame: a circle and a ring closing on it; Space as they meet, {@code ringHitsNeeded} times in a row (a miss
- * resets the streak). The client times the presses; the server only counts them, and never faster than {@code ringMinGapTicks}.
- * A rampage nobody wins back still ends after {@code rampageMaxTicks}.
+ * {@code rampageRange} blocks -- squad-mates and other players included -- always the nearest, with aimed punches and his kit
+ * ({@link HulkRampageAI}). He only breaks blocks when he is truly stuck. The player wins control back with the ring
+ * minigame: Space as the ring meets the circle, {@code ringHitsNeeded} times in a row (5; a miss resets the streak).
  *
- * <p>The per-player rampage bookkeeping is a static world-object cache, cleared by {@code ServerStateReset} through
+ * <p>v0.16.4 (user) -- three more ways he takes the body, each with a HARD end time set when it starts and never moved:
+ * <ul>
+ *   <li><b>Takeover</b>: the {@code takeoverAfterFails}-th (3rd) Hulk-form warning lost in a row (a passed warning resets
+ *       the count) -- 5 minutes, no ring: he smashes, finds a mountain, carves a cave, sits in it, then runs off, and the
+ *       player wakes up as Banner wherever he ended up ({@link HulkTakeover}).</li>
+ *   <li><b>Banner's fight</b>: 10 minutes as Banner (ticks lived as Banner, so it pauses while dead or offline) and the Hulk
+ *       fights to get out -- the same arrow warning; passed, he tries again 2 minutes later (then every 2 minutes); lost, he
+ *       changes and goes on a 3-minute FORCED rampage (no ring), then the player has the Hulk back. These don't count
+ *       toward the takeover.</li>
+ *   <li><b>The death change</b>: Banner's death brings the Hulk out straight into a normal (ring) rampage once the change is
+ *       over.</li>
+ * </ul>
+ * Belt and braces: {@link #watchdog} force-releases anyone still locked 10 s past the end, and a relog resumes with the same
+ * end time (an expired one is cleaned up on login, {@code Hulk.onPlayerJoin}).
+ *
+ * <p>The per-player bookkeeping is a static world-object cache, cleared by {@code ServerStateReset} through
  * {@link Hulk#clearSessionState}.
  */
 public final class HulkControl {
@@ -42,22 +54,14 @@ public final class HulkControl {
 	public static final int ARROW_LEFT = 2;
 	public static final int ARROW_DOWN = 3;
 	public static final int ARROW_RIGHT = 4;
+	/** v0.16.4 (user): the watchdog's slack past a rampage's end before it force-releases the player (10 s). */
+	public static final long WATCHDOG_SLACK_TICKS = 200L;
 
-	/** Rampage bookkeeping (server only): the current victim, the next blow, the next leap, the stuck check. */
+	/** Rampage bookkeeping (server only): the fight AI's memory, the takeover's plan, the ring's last report. */
 	private static final class Rampage {
-		final long startedAt;
-		int targetId = -1;
-		long nextSwing;
-		long nextLeap;
-		int blows;
-		int stuckTicks;
-		Vec3 lastPos;
-		long airborneUntil;
+		final HulkRampageAI.Brain brain = new HulkRampageAI.Brain();
+		final HulkTakeover.Plan plan = new HulkTakeover.Plan();
 		long lastRingAt = Long.MIN_VALUE / 2;
-
-		Rampage(long startedAt) {
-			this.startedAt = startedAt;
-		}
 	}
 
 	private static final Map<UUID, Rampage> RAMPAGES = new ConcurrentHashMap<>();
@@ -79,14 +83,30 @@ public final class HulkControl {
 		return s != null && s.rampaging(player.level().getGameTime());
 	}
 
-	/** Client-safe: is the arrow-key warning showing? */
+	/** Client-safe: is the arrow-key warning showing (the Hulk-form one as the Hulk, Banner's own as Banner)? */
 	public static boolean warning(HulkState s, long now) {
-		return s.hulk && s.rules.warnLen > 0 && now <= s.rules.warnUntil && !s.rampaging(now);
+		return s.hasPower && !s.dying() && s.rules.warnLen > 0 && now <= s.rules.warnUntil && !s.rampaging(now)
+				&& s.hulk != s.wild.warnBanner;
 	}
 
 	/** The {@code i}-th arrow (1 up .. 4 right) of a packed warning string. */
 	public static int arrowAt(int seq, int i) {
 		return ((seq >> (2 * i)) & 3) + 1;
+	}
+
+	/** v0.16.4 (user): how long a rampage of {@code kind} lasts -- its hard end. */
+	public static int durationTicks(int kind) {
+		HulkConfig.Control cfg = HulkConfig.control();
+		return switch (kind) {
+			case HulkState.RAMPAGE_FORCED -> Math.max(40, cfg.forcedRampageTicks);
+			case HulkState.RAMPAGE_TAKEOVER -> Math.max(200, cfg.takeoverTicks);
+			default -> Math.max(40, cfg.rampageMaxTicks);
+		};
+	}
+
+	/** v0.16.4: Banner's clock -- the {@code Wild.bannerTicks} at which the Hulk next fights to get out. */
+	public static int bannerThreshold(HulkState s) {
+		return s.wild.bannerNextAt > 0 ? s.wild.bannerNextAt : Math.max(20, HulkConfig.control().bannerFirstWarnTicks);
 	}
 
 	// ---------------------------------------------------------------- the warning
@@ -105,7 +125,14 @@ public final class HulkControl {
 				// held back -- no rampage this minute
 				n.rules.warnLen = 0;
 				n.rules.warnPos = 0;
-				n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+				if (s.wild.warnBanner) {
+					// v0.16.4 (user): "every 2 minutes after this the hulk keeps trying to take control"
+					n.wild.warnBanner = false;
+					n.wild.bannerNextAt = n.wild.bannerTicks + Math.max(20, HulkConfig.control().bannerRepeatWarnTicks);
+				} else {
+					n.wild.failStreak = 0; // v0.16.4 (user): a passed warning breaks the losing streak
+					n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+				}
 				Hulk.save(player, n);
 				player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6f,
 						1.4f);
@@ -125,6 +152,11 @@ public final class HulkControl {
 	}
 
 	static void startWarning(ServerPlayer player) {
+		startWarning(player, false);
+	}
+
+	/** {@code banner}: Banner's own fight (the Hulk trying to get out), not the Hulk-form minute's. */
+	static void startWarning(ServerPlayer player, boolean banner) {
 		HulkConfig.Control cfg = HulkConfig.control();
 		long now = player.level().getGameTime();
 		int min = Math.max(1, Math.min(15, cfg.warningMinArrows));
@@ -139,47 +171,108 @@ public final class HulkControl {
 		n.rules.warnLen = len;
 		n.rules.warnPos = 0;
 		n.rules.warnUntil = now + Math.max(20, cfg.warningTicks);
+		n.wild.warnBanner = banner;
 		Hulk.save(player, n);
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.5f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_AMBIENT, SoundSource.PLAYERS, 1.2f, 0.5f);
-		player.displayClientMessage(Component.translatable("message.projecthero.hulk.warning").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
-				true);
+		player.displayClientMessage(Component.translatable(banner ? "message.projecthero.hulk.warning_banner" : "message.projecthero.hulk.warning")
+				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
 	}
 
 	// ---------------------------------------------------------------- tick
+
+	/**
+	 * v0.16.4 (user): "make this work 100%" -- every Gamma player, every tick, BEFORE anything else (from {@link Hulk#tick},
+	 * even while dead or dying): anyone still locked in a rampage {@link #WATCHDOG_SLACK_TICKS} past its end, or holding one
+	 * from another world's clock, or rampaging as Banner, is released and the state cleaned (a takeover ends as Banner).
+	 */
+	public static void watchdog(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		if (s.combat.rampageUntil == 0L) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		boolean overdue = now > s.combat.rampageUntil + WATCHDOG_SLACK_TICKS;
+		boolean foreign = s.combat.rampageUntil - now > durationTicks(s.wild.kind) + 20L;
+		if (!overdue && !foreign && s.hulk) {
+			return;
+		}
+		if (s.hulk && !s.dying() && player.isAlive() && s.wild.kind == HulkState.RAMPAGE_TAKEOVER) {
+			endTakeover(player);
+			return;
+		}
+		RAMPAGES.remove(player.getUUID());
+		HulkState n = s.copy();
+		clearRampage(n);
+		n.combat.control = 100.0f;
+		if (n.hulk) {
+			n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
+		}
+		Hulk.save(player, n);
+	}
+
+	/** Clears every running-rampage field of {@code n} (not the streak or Banner's clock). */
+	static void clearRampage(HulkState n) {
+		n.combat.rampageUntil = 0L;
+		n.combat.promptKey = 0;
+		n.rules.ringStreak = 0;
+		n.wild.kind = HulkState.RAMPAGE_NORMAL;
+		n.wild.phase = 0;
+		n.wild.target = -1;
+		if (n.animId == HulkState.ANIM_RAMPAGE) {
+			n.animId = HulkState.ANIM_NONE;
+		}
+	}
 
 	/** Every tick for a Gamma player (from {@link Hulk#tick}). */
 	static void tick(ServerPlayer player) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.hulk || s.dying() || !HulkConfig.control().enabled) {
-			if (s.combat.rampageUntil != 0L || s.rules.warnLen != 0 || s.rules.ringStreak != 0 || s.combat.promptKey != 0) {
+		if (s.dying() || !HulkConfig.control().enabled) {
+			if (s.combat.rampageUntil != 0L || s.rules.warnLen != 0 || s.rules.ringStreak != 0 || s.combat.promptKey != 0 || s.wild.pending != 0) {
 				HulkState n = s.copy();
-				n.combat.rampageUntil = 0L;
-				n.combat.promptKey = 0;
+				clearRampage(n);
+				n.wild.pending = 0;
 				n.rules.warnLen = 0;
 				n.rules.warnPos = 0;
-				n.rules.ringStreak = 0;
 				Hulk.save(player, n);
 			}
 			RAMPAGES.remove(player.getUUID());
 			return;
 		}
+		if (!s.hulk) {
+			RAMPAGES.remove(player.getUUID());
+			tickBanner(player, s, now);
+			return;
+		}
 		if (s.combat.rampageUntil != 0L) {
 			if (now >= s.combat.rampageUntil) {
-				endRampage(player, false);
+				finish(player); // the hard end
 			} else {
 				tickRampage(player, now);
 			}
 			return;
 		}
+		if (s.wild.warnBanner && s.rules.warnLen > 0) {
+			HulkState n = s.copy(); // Banner's warning, left over from before the change
+			n.rules.warnLen = 0;
+			n.rules.warnPos = 0;
+			n.wild.warnBanner = false;
+			Hulk.save(player, n);
+			return;
+		}
 		if (Hulk.changing(s, now)) {
+			return;
+		}
+		if (s.wild.pending != 0) {
+			// v0.16.4 (user): the death change (and Banner's lost fight) ends straight in a rampage
+			startRampage(player, s.wild.pending - 1);
 			return;
 		}
 		if (s.rules.warnLen > 0) {
 			if (now > s.rules.warnUntil) {
-				startRampage(player); // too slow
+				lostWarning(player); // too slow
 			}
 			return;
 		}
@@ -195,16 +288,91 @@ public final class HulkControl {
 		}
 	}
 
+	/** The Hulk-form warning ran out: a rampage -- or, the {@code takeoverAfterFails}-th in a row, the takeover. */
+	private static void lostWarning(ServerPlayer player) {
+		HulkState n = Hulk.state(player).copy();
+		n.wild.failStreak++;
+		int need = Math.max(1, HulkConfig.control().takeoverAfterFails);
+		boolean takeover = n.wild.failStreak >= need;
+		Hulk.save(player, n);
+		startRampage(player, takeover ? HulkState.RAMPAGE_TAKEOVER : HulkState.RAMPAGE_NORMAL);
+		if (!takeover && n.wild.failStreak == need - 1) {
+			player.displayClientMessage(Component.translatable("message.projecthero.hulk.takeover_close")
+					.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), false);
+		}
+	}
+
+	/**
+	 * v0.16.4 (user): "if you dont transform into the hulk for 10 minutes he fights to take control" -- Banner's clock counts
+	 * ticks lived as Banner (this only runs while he is alive and online), the warning, and the change it forces when lost.
+	 */
+	private static void tickBanner(ServerPlayer player, HulkState s, long now) {
+		if (s.combat.rampageUntil != 0L || s.wild.pending != 0 || s.wild.kind != HulkState.RAMPAGE_NORMAL || s.wild.target != -1) {
+			HulkState n = s.copy(); // nothing of a rampage outlives the Hulk
+			clearRampage(n);
+			n.wild.pending = 0;
+			Hulk.save(player, n);
+			s = n;
+		}
+		if (s.rules.warnLen > 0 && !s.wild.warnBanner) {
+			HulkState n = s.copy(); // the Hulk-form warning, left over
+			n.rules.warnLen = 0;
+			n.rules.warnPos = 0;
+			Hulk.save(player, n);
+			return;
+		}
+		HulkConfig.Control cfg = HulkConfig.control();
+		if (s.rules.warnLen > 0) {
+			if (now > s.rules.warnUntil) {
+				// lost: he forces the change, then 3 minutes of forced rampage
+				HulkState n = s.copy();
+				n.rules.warnLen = 0;
+				n.rules.warnPos = 0;
+				n.wild.warnBanner = false;
+				n.wild.bannerNextAt = n.wild.bannerTicks + Math.max(20, cfg.bannerRepeatWarnTicks);
+				Hulk.save(player, n);
+				Hulk.transform(player, true);
+				if (Hulk.isHulk(player)) {
+					HulkState h = Hulk.state(player).copy();
+					h.wild.pending = HulkState.RAMPAGE_FORCED + 1;
+					Hulk.save(player, h);
+					player.displayClientMessage(Component.translatable("message.projecthero.hulk.banner_lost")
+							.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
+				}
+			}
+			return;
+		}
+		if (s.combat.strainStart != 0L || HulkMind.inSession(player) || Hulk.changing(s, now)) {
+			return; // letting him out anyway, inside his own mind, or mid-change
+		}
+		if (now % 100L == 0L) {
+			// counted (and synced) every 5 s: only while he is here and alive, so it pauses while dead or offline
+			HulkState n = s.copy();
+			n.wild.bannerTicks = (int) Math.min(Integer.MAX_VALUE - 200L, n.wild.bannerTicks + 100L);
+			Hulk.save(player, n);
+			s = n;
+		}
+		if (s.wild.bannerTicks >= bannerThreshold(s)) {
+			startWarning(player, true);
+		}
+	}
+
 	// ---------------------------------------------------------------- the rampage
 
+	/** A normal (ring) rampage. */
 	public static void startRampage(ServerPlayer player) {
+		startRampage(player, HulkState.RAMPAGE_NORMAL);
+	}
+
+	/** v0.16.4: a rampage of {@code kind} ({@code HulkState.RAMPAGE_*}); its hard end is set here and never moved. */
+	public static void startRampage(ServerPlayer player, int kind) {
 		long now = player.level().getGameTime();
 		HulkAbilities.endCharge(player);
 		HulkGrab.release(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player);
 		player.ejectPassengers();
 		HulkState n = Hulk.state(player).copy();
-		n.combat.rampageUntil = now + Math.max(40, HulkConfig.control().rampageMaxTicks);
+		n.combat.rampageUntil = now + durationTicks(kind);
 		n.combat.promptKey = 0;
 		n.combat.control = 0.0f;
 		n.combat.smashChargeStart = 0L;
@@ -213,50 +381,85 @@ public final class HulkControl {
 		n.rules.warnLen = 0;
 		n.rules.warnPos = 0;
 		n.rules.ringStreak = 0;
+		n.wild.kind = kind;
+		n.wild.phase = HulkState.TAKEOVER_SMASH;
+		n.wild.pending = 0;
+		n.wild.target = -1;
+		n.wild.startedAt = now;
+		n.wild.warnBanner = false;
 		n.animId = HulkState.ANIM_RAMPAGE;
 		n.animStart = now;
 		Hulk.save(player, n);
-		RAMPAGES.put(player.getUUID(), new Rampage(now));
+		RAMPAGES.put(player.getUUID(), new Rampage());
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.5f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 1.5f, 0.8f);
 		HulkCombat.shake(level, player.position(), 0.7f, 30, 32.0);
-		player.displayClientMessage(Component.translatable("message.projecthero.hulk.rampage_start")
-				.withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD), true);
+		String key = switch (kind) {
+			case HulkState.RAMPAGE_TAKEOVER -> "message.projecthero.hulk.takeover_start";
+			case HulkState.RAMPAGE_FORCED -> "message.projecthero.hulk.forced_start";
+			default -> "message.projecthero.hulk.rampage_start";
+		};
+		player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD), true);
 	}
 
-	/** {@code won}: the player won control back with the ring (otherwise the safety time ran out). */
+	/** The hard end came: a takeover ends as Banner, the others hand the Hulk back. */
+	static void finish(ServerPlayer player) {
+		if (Hulk.state(player).wild.kind == HulkState.RAMPAGE_TAKEOVER) {
+			endTakeover(player);
+		} else {
+			endRampage(player, false);
+		}
+	}
+
+	/** {@code won}: the player won control back with the ring (otherwise the time ran out). */
 	static void endRampage(ServerPlayer player, boolean won) {
 		RAMPAGES.remove(player.getUUID());
 		long now = player.level().getGameTime();
-		HulkState n = Hulk.state(player).copy();
-		n.combat.rampageUntil = 0L;
+		HulkState s = Hulk.state(player);
+		boolean forced = s.wild.kind == HulkState.RAMPAGE_FORCED;
+		HulkState n = s.copy();
+		clearRampage(n);
 		n.combat.control = 100.0f;
 		n.combat.lastDealtAt = now;
-		n.rules.ringStreak = 0;
 		n.rules.nextRampageAt = now + HulkConfig.control().rampageEveryTicks;
-		if (n.animId == HulkState.ANIM_RAMPAGE) {
-			n.animId = HulkState.ANIM_NONE;
-		}
 		Hulk.save(player, n);
 		player.setSprinting(false);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.2f, 0.6f);
-		player.displayClientMessage(Component.translatable(won ? "message.projecthero.hulk.rampage_end" : "message.projecthero.hulk.rampage_timeout")
-				.withStyle(ChatFormatting.GREEN), true);
+		String key = forced ? "message.projecthero.hulk.forced_end"
+				: won ? "message.projecthero.hulk.rampage_end" : "message.projecthero.hulk.rampage_timeout";
+		player.displayClientMessage(Component.translatable(key).withStyle(ChatFormatting.GREEN), true);
+	}
+
+	/**
+	 * v0.16.4 (user): "at the end he runs away and the player wakes up as Banner" -- the change back, wherever he came down.
+	 * No 3-minute lock, no 1-minute hold-H cooldown; the losing streak starts over.
+	 */
+	static void endTakeover(ServerPlayer player) {
+		RAMPAGES.remove(player.getUUID());
+		HulkState n = Hulk.state(player).copy();
+		clearRampage(n);
+		n.combat.control = 100.0f;
+		n.wild.failStreak = 0;
+		Hulk.save(player, n);
+		player.setSprinting(false);
+		Hulk.revert(player, false);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.4f, 0.5f);
+		player.displayClientMessage(Component.translatable("message.projecthero.hulk.takeover_end").withStyle(ChatFormatting.GREEN), false);
 	}
 
 	/**
 	 * The client's verdict on one Space press of the ring minigame ({@code hit}: the ring was on the circle). The server only
 	 * counts: a hit adds to the streak, a miss resets it, {@code ringHitsNeeded} in a row end the rampage. Reports closer
-	 * together than {@code ringMinGapTicks} are ignored.
+	 * together than {@code ringMinGapTicks} are ignored. Only a normal rampage has the ring.
 	 */
 	public static void ringResult(ServerPlayer player, boolean hit) {
 		HulkState s = Hulk.state(player);
 		long now = player.level().getGameTime();
-		if (!s.rampaging(now)) {
+		if (!s.rampaging(now) || s.wild.kind != HulkState.RAMPAGE_NORMAL) {
 			return;
 		}
-		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage(now));
+		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage());
 		if (now - r.lastRingAt < HulkConfig.control().ringMinGapTicks) {
 			return; // faster than the ring can close: not a real press
 		}
@@ -272,7 +475,7 @@ public final class HulkControl {
 		n.rules.ringStreak = s.rules.ringStreak + 1;
 		Hulk.save(player, n);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.8f,
-				0.9f + 0.2f * n.rules.ringStreak);
+				0.9f + 0.12f * n.rules.ringStreak);
 		if (n.rules.ringStreak >= Math.max(1, HulkConfig.control().ringHitsNeeded)) {
 			endRampage(player, true);
 		}
@@ -295,8 +498,8 @@ public final class HulkControl {
 	}
 
 	/**
-	 * v0.16.4 (user): every creature is fair game -- players and squad-mates included -- except his own pets and what he can't
-	 * get at (down in a cave under him: he would only dig).
+	 * v0.16.4 (user): every creature is fair game -- players and squad-mates included -- except his own pets, what he holds
+	 * and what he can't get at (down in a cave under him: he would only dig).
 	 */
 	static boolean fairGame(ServerPlayer player, LivingEntity e) {
 		if (e == player || !e.isAlive() || e.isSpectator() || e.distanceToSqr(player) > range() * range()) {
@@ -305,118 +508,117 @@ public final class HulkControl {
 		if (e instanceof OwnableEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
 			return false;
 		}
-		if (e.isPassenger() && e.getVehicle() == player) {
+		if ((e.isPassenger() && e.getVehicle() == player) || HulkGrab.isHeld(e)) {
 			return false;
 		}
 		return aboveGround(e) || Math.abs(e.getY() - player.getY()) < 6.0;
 	}
 
-	private static LivingEntity findTarget(ServerPlayer player) {
-		double r = range();
-		return HulkCombat.targets(player, player.getBoundingBox().inflate(r, 48.0, r)).stream()
-				.filter(e -> fairGame(player, e))
+	/** The nearest fair-game creature within {@code r}. */
+	static LivingEntity findTarget(ServerPlayer player, double r) {
+		double rr = Math.min(r, range());
+		return HulkCombat.targets(player, player.getBoundingBox().inflate(rr, 48.0, rr)).stream()
+				.filter(e -> fairGame(player, e) && e.distanceToSqr(player) <= rr * rr)
 				.min(Comparator.comparingDouble(e -> e.distanceToSqr(player))).orElse(null);
 	}
 
-	private static void face(ServerPlayer player, Vec3 dir) {
-		float yaw = (float) (Mth.atan2(dir.z, dir.x) * Mth.RAD_TO_DEG) - 90.0f;
-		player.setYRot(yaw);
-		player.setYHeadRot(yaw);
-		player.yBodyRot = yaw;
+	/** Another creature than {@code not} (where to throw what he grabbed), or null. */
+	static LivingEntity findOther(ServerPlayer player, LivingEntity not) {
+		double r = Math.min(40.0, range());
+		return HulkCombat.targets(player, player.getBoundingBox().inflate(r, 16.0, r)).stream()
+				.filter(e -> e != not && fairGame(player, e))
+				.min(Comparator.comparingDouble(e -> e.distanceToSqr(player))).orElse(null);
+	}
+
+	/** Syncs who he is after (the owner's client turns him to face it). */
+	static void syncTarget(ServerPlayer player, int id) {
+		HulkState s = Hulk.state(player);
+		if (s.wild.target != id) {
+			HulkState n = s.copy();
+			n.wild.target = id;
+			Hulk.save(player, n);
+		}
+	}
+
+	/**
+	 * v0.16.4: re-aims a rampaging Hulk at his target before the moves' scheduled impacts run this tick ({@code Hulk.tick} calls
+	 * it ahead of {@code HulkAbilities.tick}), so a punch thrown a few ticks ago still lands where the target is now.
+	 */
+	static void preTick(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		long now = player.level().getGameTime();
+		if (!s.rampaging(now)) {
+			return;
+		}
+		if (s.wild.target >= 0 && player.level().getEntity(s.wild.target) instanceof LivingEntity t && t.isAlive()) {
+			HulkRampageAI.aim(player, HulkRampageAI.aimPoint(t), false, 30.0f);
+		} else if (s.wild.kind == HulkState.RAMPAGE_TAKEOVER && s.wild.target < 0) {
+			HulkRampageAI.face(player, s.wild.faceYaw, 10.0f);
+		}
 	}
 
 	private static void tickRampage(ServerPlayer player, long now) {
-		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage(now));
+		Rampage r = RAMPAGES.computeIfAbsent(player.getUUID(), k -> new Rampage());
 		ServerLevel level = (ServerLevel) player.level();
 		HulkConfig.Control cfg = HulkConfig.control();
-		player.setSprinting(false); // never the Sprint Smash -- he only breaks blocks when he is stuck
-		if (now % 50L == 0L) {
+		HulkState s = Hulk.state(player);
+		if (!HulkAbilities.charging(player)) {
+			player.setSprinting(false); // never the Sprint Smash
+		}
+		boolean sitting = s.wild.kind == HulkState.RAMPAGE_TAKEOVER && s.wild.phase == HulkState.TAKEOVER_SIT;
+		if (now % 50L == 0L && !sitting) {
 			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.5f, 0.6f);
 		}
 		if (now % 10L == 0L) {
 			level.sendParticles(HulkAbilities.GAMMA, player.getX(), player.getY() + player.getBbHeight() * 0.6, player.getZ(), 4, 0.5,
 					player.getBbHeight() * 0.3, 0.5, 0.02);
 		}
-		if (now - r.startedAt < cfg.rampageRoarTicks) {
+		if (now - s.wild.startedAt < cfg.rampageRoarTicks && now >= s.wild.startedAt) {
 			return; // he stands and roars first
 		}
-		LivingEntity target = r.targetId < 0 || !(level.getEntity(r.targetId) instanceof LivingEntity l) || !fairGame(player, l) ? null : l;
-		if (target == null || now % 20L == 0L) {
-			target = findTarget(player);
-			r.targetId = target == null ? -1 : target.getId();
+		if (s.wild.kind == HulkState.RAMPAGE_TAKEOVER) {
+			HulkTakeover.tick(player, r.brain, r.plan, now);
+			return;
 		}
-		boolean airborne = !player.onGround() && now < r.airborneUntil;
+		LivingEntity target = s.wild.target < 0 || !(level.getEntity(s.wild.target) instanceof LivingEntity l) || !fairGame(player, l) ? null : l;
+		if (target == null || now % 20L == 0L) {
+			target = findTarget(player, range());
+		}
+		syncTarget(player, target == null ? -1 : target.getId());
 		if (target == null) {
 			// nothing alive in range: he stands and heaves, roaring now and then
-			if (player.onGround()) {
+			if (player.onGround() && !Hulk.state(player).leaping && !HulkAbilities.busy(player)) {
 				Vec3 v = player.getDeltaMovement();
 				AbilityHelpers.launchSelf(player, new Vec3(v.x * 0.5, Math.min(v.y, 0.0), v.z * 0.5));
 			}
-			r.stuckTicks = 0;
+			r.brain.stuckTicks = 0;
 			return;
 		}
-		Vec3 to = target.position().subtract(player.position());
-		Vec3 flat = new Vec3(to.x, 0, to.z);
-		double dist = flat.length();
-		Vec3 dir = dist < 1.0e-3 ? HulkAbilities.flatLook(player) : flat.scale(1.0 / dist);
-		face(player, dir);
-		double reach = 2.2 + player.getBbWidth() * 0.5 + target.getBbWidth() * 0.5;
-		boolean inReach = dist <= reach && Math.abs(to.y) <= player.getBbHeight();
-		if (inReach && now >= r.nextSwing) {
-			r.nextSwing = now + Math.max(4, cfg.rampageSwingTicks);
-			r.blows++;
-			if (r.blows % 3 == 0 && player.onGround()) {
-				// every third blow: both fists into the ground
-				HulkAbilities.anim(player, HulkState.ANIM_GROUND_SMASH);
-				Vec3 at = target.position();
-				HulkAbilities.schedule(player, 8, () -> {
-					if (rampaging(player)) {
-						HulkAbilities.shockwave(player, at, 4.5, 14.0f, 1.2, 0.6, 0.5f);
-					}
-				});
-			} else {
-				player.resetAttackStrengthTicker();
-				player.attack(target);
-				player.swing(com.projecthero.mod.hulk.gladiator.GladiatorSwing.next(player, net.minecraft.world.InteractionHand.MAIN_HAND), true);
-			}
-		}
-		if (airborne) {
-			return; // mid-leap: let the arc carry him
-		}
-		if (dist > 14.0 && player.onGround() && now >= r.nextLeap) {
-			// too far to run: leap at it
-			Vec3 aim = new Vec3(dir.x, Math.max(0.15, to.y / Math.max(1.0, dist)), dir.z);
-			AbilityHelpers.launchSelf(player, AbilityHelpers.ballisticLaunch(aim, Math.min(dist - 3.0, 40.0), true));
-			r.nextLeap = now + 50;
-			r.airborneUntil = now + 60;
-			r.stuckTicks = 0;
-			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_STEP, SoundSource.PLAYERS, 1.5f, 0.6f);
-			return;
-		}
-		if (inReach) {
-			Vec3 v = player.getDeltaMovement();
-			AbilityHelpers.launchSelf(player, new Vec3(v.x * 0.3, Math.min(v.y, 0.0), v.z * 0.3));
-			r.stuckTicks = 0;
-			return;
-		}
-		// run at it, faster the bigger he is
-		double speed = 0.4 + 0.06 * Math.max(0.0, Hulk.scaleBonus(player));
-		double vy = player.onGround() ? -0.05 : Math.max(player.getDeltaMovement().y - 0.08, -1.2);
-		Vec3 here = player.position();
-		if (r.lastPos != null && player.onGround()) {
-			double moved = Math.sqrt(Math.pow(here.x - r.lastPos.x, 2) + Math.pow(here.z - r.lastPos.z, 2));
-			r.stuckTicks = moved < speed * 0.25 ? r.stuckTicks + 1 : Math.max(0, r.stuckTicks - 2);
-		}
-		r.lastPos = here;
-		if (r.stuckTicks >= 12 && player.onGround()) {
-			if (r.stuckTicks < 30) {
-				vy = 0.75; // a hop over it first
-			} else {
-				// truly stuck: smash through what is in the way
-				HulkAbilities.breakAhead(player, dir, true);
-				r.stuckTicks = 12;
-			}
-		}
-		AbilityHelpers.launchSelf(player, new Vec3(dir.x * speed, vy, dir.z * speed));
+		LivingEntity victim = target;
+		HulkRampageAI.fight(player, r.brain, victim, now, () -> findOther(player, victim));
+	}
+
+	// ---------------------------------------------------------------- tests
+
+	/** Tests: the last move the rampage AI used for this player (null if none). */
+	public static String lastMove(ServerPlayer player) {
+		Rampage r = RAMPAGES.get(player.getUUID());
+		return r == null ? null : r.brain.lastMove;
+	}
+
+	/** Tests: punches the rampage AI has landed for this player. */
+	public static int punchesLanded(ServerPlayer player) {
+		Rampage r = RAMPAGES.get(player.getUUID());
+		return r == null ? 0 : r.brain.punchesLanded;
+	}
+
+	/** Tests: one aimed rampage punch at {@code target}; true if it hurt it. */
+	public static boolean testPunch(ServerPlayer player, LivingEntity target) {
+		return HulkRampageAI.punch(player, target);
+	}
+
+	/** Tests: why a punch would not land ("reach", "wall" or "ok"). */
+	public static String testPunchCheck(ServerPlayer player, LivingEntity target) {
+		return !HulkRampageAI.inReach(player, target) ? "reach" : !HulkRampageAI.clearPath(player, target) ? "wall" : "ok";
 	}
 }

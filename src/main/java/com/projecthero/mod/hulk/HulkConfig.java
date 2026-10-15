@@ -306,7 +306,7 @@ public final class HulkConfig {
 		public int warningMinArrows = 6;
 		public int warningMaxArrows = 8;
 		/** Space presses in a row (the ring on the circle) that end a rampage. */
-		public int ringHitsNeeded = 3;
+		public int ringHitsNeeded = 5; // v0.16.4 (user): 3 -> 5
 		/** The server ignores ring reports closer together than this (the client's ring takes over a second). */
 		public int ringMinGapTicks = 12;
 		/** A rampage nobody wrestles back still ends after this long. */
@@ -317,6 +317,28 @@ public final class HulkConfig {
 		public double rampageRange = 100.0;
 		/** Ticks between his rampage punches. */
 		public int rampageSwingTicks = 10;
+		/** v0.16.4 (user): the ticks between two of his moves in a rampage (random in [min, max]); punches fill the gaps. */
+		public int rampageMoveMinTicks = 40;
+		public int rampageMoveMaxTicks = 80;
+		/** v0.16.4 (user): Hulk-form warnings lost in a row that make the Hulk take over completely. */
+		public int takeoverAfterFails = 3;
+		/** v0.16.4 (user): how long a full takeover lasts (5 minutes) -- a hard end, never extended. */
+		public int takeoverTicks = 5 * 60 * 20;
+		/** v0.16.4: the takeover's first phase: smashing everything near (60-90 s). */
+		public int takeoverSmashTicks = 75 * 20;
+		/** v0.16.4: the longest the takeover searches for a mountain before he digs in where he is. */
+		public int takeoverSeekTicks = 60 * 20;
+		/** v0.16.4: how far he looks for a mountain (loaded chunks only). */
+		public int takeoverSearchRange = 300;
+		/** v0.16.4: the cave: blocks deep into the slope (wide and tall enough for him: at least 3 x 4). */
+		public int caveDepth = 6;
+		/** v0.16.4: the last stretch of the takeover: he runs out and away before the player wakes up. */
+		public int takeoverRunTicks = 100;
+		/** v0.16.4 (user): ticks as Banner before the Hulk first fights to get out (10 minutes), then every repeat (2 minutes). */
+		public int bannerFirstWarnTicks = 10 * 60 * 20;
+		public int bannerRepeatWarnTicks = 2 * 60 * 20;
+		/** v0.16.4 (user): the forced rampage after Banner loses that fight (3 minutes, a hard end). */
+		public int forcedRampageTicks = 3 * 60 * 20;
 	}
 
 	/** What the Hulk is allowed to do to the world. */
@@ -379,6 +401,8 @@ public final class HulkConfig {
 			.introduce(4, "v0.15.3 Gladiator Hulk moves section")
 			// v0.16.4: the control section is the new minute-by-minute rampage (old keep-control keys and "calm" drop out)
 			.reset(5, "v0.16.4 Hulk rules revamp: rampage warning + ring minigame", "control")
+			// v0.16.4 (user): the ring needs 5 in a row (the new takeover / Banner-clock keys fill in from the defaults)
+			.reset(6, "v0.16.4 ring 3 -> 5 hits, takeover + Banner clock", "control.ringHitsNeeded")
 			.build();
 
 	public static void load() {

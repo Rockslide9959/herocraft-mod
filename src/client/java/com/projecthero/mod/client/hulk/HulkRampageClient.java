@@ -40,7 +40,7 @@ import org.lwjgl.opengl.GL30;
  *       {@link #INSET_IN_MS} and back out when the rampage ends.</li>
  *   <li><b>The minigame</b> in that strip: a fixed circle and a ring closing in on it, over and over. Space as the ring meets
  *       the circle is a hit, too early / too late (or letting it pass) a miss; each verdict goes to the server
- *       ({@code RING}), which keeps the streak -- {@code ringHitsNeeded} in a row (3) win control back.</li>
+ *       ({@code RING}), which keeps the streak -- {@code ringHitsNeeded} in a row (5) win control back.</li>
  *   <li><b>No control</b> -- the movement, jump and sprint keys are let go at the start of every client tick (so Space never
  *       makes him jump; the server's jump lock backs it up), and his body turns the way the server is driving him.</li>
  *   <li><b>The warning</b> before a rampage: the arrow string, mid-screen (the arrow keys are read in {@link HulkClient}).</li>
@@ -129,9 +129,37 @@ public final class HulkRampageClient {
 		}
 	}
 
-	/** His body (and the third-person camera behind it) turns the way the server is driving him. */
+	/**
+	 * His body (and the third-person camera behind it) turns the way the server is driving him. v0.16.4 (user, "upgrade his
+	 * aiming"): at the synced target's middle (led like the server leads it), so the client never pulls his aim off it; with no
+	 * target, a takeover's facing ({@code Wild.faceYaw}), else the way he runs.
+	 */
 	private static void faceTheRun(Player player) {
+		HulkState s = state(player);
+		if (s != null && s.wild.target >= 0 && player.level().getEntity(s.wild.target) instanceof net.minecraft.world.entity.LivingEntity t
+				&& t.isAlive()) {
+			Vec3 tv = t.getDeltaMovement();
+			Vec3 at = t.position().add(tv.x * 3.0, t.getBbHeight() * 0.5, tv.z * 3.0);
+			Vec3 from = player.position().add(0, player.getBbHeight() * 0.55, 0);
+			Vec3 d = at.subtract(from);
+			double flat = Math.sqrt(d.x * d.x + d.z * d.z);
+			if (flat > 1.0e-3) {
+				float yaw = (float) (Mth.atan2(d.z, d.x) * Mth.RAD_TO_DEG) - 90.0f;
+				float pitch = Mth.clamp((float) (-Mth.atan2(d.y, flat) * Mth.RAD_TO_DEG), -80.0f, 30.0f);
+				player.setYRot(yaw);
+				player.setYHeadRot(yaw);
+				player.setXRot(pitch);
+			}
+			return;
+		}
 		Vec3 v = player.getDeltaMovement();
+		if (s != null && s.wild.kind == HulkState.RAMPAGE_TAKEOVER && v.x * v.x + v.z * v.z < 0.004) {
+			float yaw = player.getYRot() + Mth.wrapDegrees(s.wild.faceYaw - player.getYRot()) * 0.35f;
+			player.setYRot(yaw);
+			player.setYHeadRot(yaw);
+			player.setXRot(Mth.lerp(0.2f, player.getXRot(), 10.0f));
+			return;
+		}
 		if (v.x * v.x + v.z * v.z < 0.004) {
 			return;
 		}
@@ -223,7 +251,11 @@ public final class HulkRampageClient {
 		}
 		if (insetShowing()) {
 			renderFrame(g);
-			if (s.rampaging(now)) {
+			if (s.noRing(now)) {
+				// v0.16.4 (user): a takeover / forced rampage -- nothing to do but watch
+				cycleOpen = false;
+				renderTakenOver(g, mc, s, now);
+			} else if (s.rampaging(now)) {
 				tickRing(mc);
 				renderRing(g, mc, s);
 			}
@@ -251,7 +283,9 @@ public final class HulkRampageClient {
 		int cx = g.guiWidth() / 2;
 		int y = g.guiHeight() / 2 - 70;
 		int flash = (now / 4L) % 2L == 0L ? 0xFFFF5544 : 0xFFFFC040;
-		g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.hulk.warning").withStyle(ChatFormatting.BOLD), cx, y, flash);
+		// v0.16.4 (user): as Banner it is the Hulk fighting to get out
+		g.drawCenteredString(mc.font, Component.translatable(s.hulk ? "hud.projecthero.hulk.warning" : "hud.projecthero.hulk.warning_banner")
+				.withStyle(ChatFormatting.BOLD), cx, y, flash);
 		int len = s.rules.warnLen;
 		int box = 16;
 		int gap = 3;
@@ -363,8 +397,44 @@ public final class HulkRampageClient {
 		// v0.16.4 (screenshot check): wrapped to the space right of the ring -- it ran off a small window
 		int room = Math.max(60, g.guiWidth() - hx - 8);
 		int ly = cy + 1;
-		for (net.minecraft.util.FormattedCharSequence line : mc.font.split(Component.translatable("hud.projecthero.hulk.ring_hint"), room)) {
+		for (net.minecraft.util.FormattedCharSequence line : mc.font.split(Component.translatable("hud.projecthero.hulk.ring_hint_count", need), room)) {
 			g.drawString(mc.font, line, hx, ly, 0xFFC0C0C0, false);
+			ly += 9;
+		}
+	}
+
+	/**
+	 * v0.16.4 (user): the bottom strip of a takeover / forced rampage -- "THE HULK HAS TAKEN OVER", the time left as a bar and a
+	 * clock, and (a takeover) what he is doing. No ring: there is no way out but the clock.
+	 */
+	private static void renderTakenOver(GuiGraphics g, Minecraft mc, HulkState s, long now) {
+		int gw = g.guiWidth();
+		int gh = g.guiHeight();
+		float k = insetScale();
+		int strip = Math.round((gh - gh * k) * BOTTOM_SHARE);
+		if (strip < 24) {
+			return;
+		}
+		int top = gh - strip;
+		int cx = gw / 2;
+		int col = (now / 8L) % 2L == 0L ? 0xFFFF5544 : 0xFF7CFF4A;
+		Component title = Component.translatable("hud.projecthero.hulk.taken_over").withStyle(ChatFormatting.BOLD);
+		int y = top + Math.max(4, strip / 2 - 16);
+		g.drawCenteredString(mc.font, title, cx, y, col);
+		long left = Math.max(0L, s.combat.rampageUntil - now);
+		int total = com.projecthero.mod.hulk.HulkControl.durationTicks(s.wild.kind);
+		int w = Math.min(160, gw - 32);
+		int by = y + 12;
+		g.fill(cx - w / 2, by, cx + w / 2, by + 2, 0xFF303830);
+		g.fill(cx - w / 2, by, cx - w / 2 + Math.round(w * Math.min(1.0f, left / (float) Math.max(1, total))), by + 2, 0xFF7CFF4A);
+		int secs = (int) ((left + 19L) / 20L);
+		String clock = String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60);
+		Component line = s.wild.kind == HulkState.RAMPAGE_TAKEOVER
+				? Component.translatable("hud.projecthero.hulk.taken_over_phase." + Mth.clamp(s.wild.phase, 0, 4), clock)
+				: Component.translatable("hud.projecthero.hulk.taken_over_forced", clock);
+		int ly = by + 6;
+		for (net.minecraft.util.FormattedCharSequence row : mc.font.split(line, Math.max(80, gw - 32))) {
+			g.drawCenteredString(mc.font, row, cx, ly, 0xFFC0C0C0);
 			ly += 9;
 		}
 	}

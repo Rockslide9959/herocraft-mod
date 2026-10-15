@@ -172,6 +172,93 @@ public final class HulkState {
 		}));
 	}
 
+	/** v0.16.4 (user): the Hulk taking over -- see {@link Wild}. */
+	public Wild wild = new Wild();
+
+	/** v0.16.4 (user): Wild.kind -- which rampage is running. Normal: the minute's warning lost; the ring wins control back. */
+	public static final int RAMPAGE_NORMAL = 0;
+	/** The base-form fight lost: 3 minutes, no ring, then the player has the Hulk back. */
+	public static final int RAMPAGE_FORCED = 1;
+	/** Three Hulk-form warnings lost in a row: 5 minutes, no ring, then he runs off and the player wakes up as Banner. */
+	public static final int RAMPAGE_TAKEOVER = 2;
+	/** v0.16.4: Wild.phase during a takeover. */
+	public static final int TAKEOVER_SMASH = 0;
+	public static final int TAKEOVER_SEEK = 1;
+	public static final int TAKEOVER_CARVE = 2;
+	public static final int TAKEOVER_SIT = 3;
+	public static final int TAKEOVER_RUN = 4;
+
+	/**
+	 * v0.16.4 (user): "if the player loses control of the hulk 3 times in a row ... the hulk completely takes over" and "if you
+	 * dont transform into the hulk for 10 minutes he fights to take control". The running rampage's kind and phase, the
+	 * failed-warning streak, the rampage owed once a change is over, and Banner's own clock (ticks lived as Banner, so it pauses
+	 * while he is dead or offline). Synced (the owner's camera follows {@link #target} / {@link #faceYaw}, the HUD shows the
+	 * kind and phase); persisted.
+	 */
+	public static final class Wild {
+		/** Hulk-form warnings lost in a row (a passed one resets it; the third starts a takeover). */
+		public int failStreak;
+		/** The running rampage's kind ({@code RAMPAGE_*}; only meaningful while rampaging). */
+		public int kind;
+		/** A rampage owed once the change is over: 0 none, else {@code RAMPAGE_* + 1}. */
+		public int pending;
+		/** The takeover's phase ({@code TAKEOVER_*}). */
+		public int phase;
+		/** The entity a rampaging Hulk is after (-1 none): both sides turn him to face it. */
+		public int target = -1;
+		/** Which way he faces when he has no target (a takeover's cave, the run). */
+		public float faceYaw;
+		/** Game time the running rampage started (the roar, the takeover's phases count from here). */
+		public long startedAt;
+		/** Ticks lived as Banner since the last change (only counted while he is alive and online). */
+		public int bannerTicks;
+		/** {@link #bannerTicks} at which the Hulk next fights to get out (0 = the first time, 10 minutes). */
+		public int bannerNextAt;
+		/** The warning showing is Banner's (the Hulk fighting to get out), not the Hulk-form one. */
+		public boolean warnBanner;
+
+		public Wild copy() {
+			Wild w = new Wild();
+			w.failStreak = failStreak;
+			w.kind = kind;
+			w.pending = pending;
+			w.phase = phase;
+			w.target = target;
+			w.faceYaw = faceYaw;
+			w.startedAt = startedAt;
+			w.bannerTicks = bannerTicks;
+			w.bannerNextAt = bannerNextAt;
+			w.warnBanner = warnBanner;
+			return w;
+		}
+
+		public static final Codec<Wild> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.INT.optionalFieldOf("fail_streak", 0).forGetter(w -> w.failStreak),
+				Codec.INT.optionalFieldOf("kind", 0).forGetter(w -> w.kind),
+				Codec.INT.optionalFieldOf("pending", 0).forGetter(w -> w.pending),
+				Codec.INT.optionalFieldOf("phase", 0).forGetter(w -> w.phase),
+				Codec.INT.optionalFieldOf("target", -1).forGetter(w -> w.target),
+				Codec.FLOAT.optionalFieldOf("face_yaw", 0.0f).forGetter(w -> w.faceYaw),
+				Codec.LONG.optionalFieldOf("started_at", 0L).forGetter(w -> w.startedAt),
+				Codec.INT.optionalFieldOf("banner_ticks", 0).forGetter(w -> w.bannerTicks),
+				Codec.INT.optionalFieldOf("banner_next_at", 0).forGetter(w -> w.bannerNextAt),
+				Codec.BOOL.optionalFieldOf("warn_banner", false).forGetter(w -> w.warnBanner)
+		).apply(i, (streak, kind, pending, phase, target, yaw, started, ticks, next, warnBanner) -> {
+			Wild w = new Wild();
+			w.failStreak = streak;
+			w.kind = kind;
+			w.pending = pending;
+			w.phase = phase;
+			w.target = target;
+			w.faceYaw = yaw;
+			w.startedAt = started;
+			w.bannerTicks = ticks;
+			w.bannerNextAt = next;
+			w.warnBanner = warnBanner;
+			return w;
+		}));
+	}
+
 	/**
 	 * v0.13.14: everything the new kit, the death save, the calm minigame and the control / rampage system need on
 	 * every client. Mutable; {@link HulkState#copy} deep-copies it.
@@ -298,6 +385,7 @@ public final class HulkState {
 		n.combat = combat.copy();
 		n.moves = moves.copy();
 		n.rules = rules.copy();
+		n.wild = wild.copy();
 		return n;
 	}
 
@@ -309,6 +397,11 @@ public final class HulkState {
 	/** True while the Hulk is rampaging on his own (client-safe with the synced game time). */
 	public boolean rampaging(long now) {
 		return hulk && combat.rampageUntil > now;
+	}
+
+	/** v0.16.4: rampaging with no way out but the clock (a forced rampage or a takeover -- no ring). Client-safe. */
+	public boolean noRing(long now) {
+		return rampaging(now) && wild.kind != RAMPAGE_NORMAL;
 	}
 
 	public static final Codec<HulkState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -327,14 +420,16 @@ public final class HulkState {
 			Codec.BOOL.optionalFieldOf("sprint_smash", true).forGetter(s -> s.sprintSmash),
 			Combat.CODEC.optionalFieldOf("combat").forGetter(s -> java.util.Optional.of(s.combat)),
 			Moves.CODEC.optionalFieldOf("moves").forGetter(s -> java.util.Optional.of(s.moves)),
-			Rules.CODEC.optionalFieldOf("rules").forGetter(s -> java.util.Optional.of(s.rules))
+			Rules.CODEC.optionalFieldOf("rules").forGetter(s -> java.util.Optional.of(s.rules)),
+			Wild.CODEC.optionalFieldOf("wild").forGetter(s -> java.util.Optional.of(s.wild))
 	).apply(i, (hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart, leapCharge, leaping,
-			sprintSmash, combat, moves, rules) -> {
+			sprintSmash, combat, moves, rules, wild) -> {
 		HulkState s = new HulkState(hasPower, hulk, rage, lastCombatAt, exhaustedUntil, formChangedAt, ready, animId, animStart,
 				leapCharge, leaping, sprintSmash);
 		s.combat = combat.orElseGet(Combat::new);
 		s.moves = moves.orElseGet(Moves::new);
 		s.rules = rules.orElseGet(Rules::new);
+		s.wild = wild.orElseGet(Wild::new);
 		return s;
 	}));
 }

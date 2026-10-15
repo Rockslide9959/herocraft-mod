@@ -386,7 +386,7 @@ public final class Hulk {
 			return "message.projecthero.hulk.cannot_now";
 		}
 		if (s.rules.holdCooldownUntil > now) {
-			return "message.projecthero.hulk.hold_cooldown";
+			return "message.projecthero.hulk.hold_refused"; // v0.16.4 (user): "the hulk doesnt want to answer your call" -- no timer
 		}
 		return null;
 	}
@@ -457,7 +457,14 @@ public final class Hulk {
 		}
 		long lock = s.formChangedAt + HulkConfig.DETRANSFORM_LOCK_TICKS - now;
 		if (lock > 0L) {
-			say(player, "message.projecthero.hulk.revert_locked", ChatFormatting.RED, clock((int) lock));
+			// v0.16.4 (user): "it shouldnt show the timer it should just say that the hulk wont let you go yet and it should have
+			// a low growl"
+			long last = LAST_MESSAGE.getOrDefault(player.getUUID(), Long.MIN_VALUE / 2);
+			say(player, "message.projecthero.hulk.revert_held", ChatFormatting.RED);
+			if (now - last >= 10L) {
+				player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS,
+						0.45f, 0.5f);
+			}
 			return;
 		}
 		boolean willing = !s.combat.unwilling;
@@ -466,8 +473,8 @@ public final class Hulk {
 			HulkState n = state(player).copy();
 			n.rules.holdCooldownUntil = now + HulkConfig.WILLING_COOLDOWN_TICKS;
 			save(player, n);
-			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_cooldown", clock(HulkConfig.WILLING_COOLDOWN_TICKS))
-					.withStyle(ChatFormatting.GREEN), true);
+			// v0.16.4 (user): no timer for the 1-minute cooldown
+			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_willing").withStyle(ChatFormatting.GREEN), true);
 		} else {
 			player.displayClientMessage(Component.translatable("message.projecthero.hulk.reverted_willing").withStyle(ChatFormatting.GREEN), true);
 		}
@@ -546,6 +553,12 @@ public final class Hulk {
 		n.rules.ringStreak = 0;
 		n.rules.deathFallAt = 0L;
 		n.rules.nextRampageAt = now + changeTicks(n) + HulkConfig.control().rampageEveryTicks;
+		// v0.16.4 (user): changing resets Banner's 10-minute clock; nothing of an old rampage carries over
+		HulkControl.clearRampage(n);
+		n.wild.pending = 0;
+		n.wild.warnBanner = false;
+		n.wild.bannerTicks = 0;
+		n.wild.bannerNextAt = 0;
 		save(player, n);
 		SHRINK_FROM.remove(player.getUUID());
 		tearOffArmour(player); // v0.13.14: he bursts out of it
@@ -585,6 +598,12 @@ public final class Hulk {
 		n.rules.warnLen = 0;
 		n.rules.warnPos = 0;
 		n.rules.ringStreak = 0;
+		// v0.16.4 (user): Banner's clock starts again from the change back
+		HulkControl.clearRampage(n);
+		n.wild.pending = 0;
+		n.wild.warnBanner = false;
+		n.wild.bannerTicks = 0;
+		n.wild.bannerNextAt = 0;
 		save(player, n);
 		reconcile(player);
 		player.setHealth(Math.max(1.0f, Math.min(player.getMaxHealth(), ratio * player.getMaxHealth())));
@@ -852,6 +871,9 @@ public final class Hulk {
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		long now = level.getGameTime();
+		// v0.16.4 (user): "i dont want the player to be forever stuck as the hulk" -- first, whatever else happens this tick
+		HulkControl.watchdog(player);
+		s = state(player);
 		tickScale(player, s, now);
 		tickChangeLock(player, s, now);
 		if (player.tickCount % 20 == 0) {
@@ -864,6 +886,7 @@ public final class Hulk {
 			tickDeath(level, player, s, now);
 			return;
 		}
+		HulkControl.preTick(player); // v0.16.4: aimed before the moves' impacts land
 		HulkAbilities.tick(player);
 		HulkGrab.tick(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tick(player); // v0.15.3: the Gladiator's running moves
@@ -1039,7 +1062,34 @@ public final class Hulk {
 		}
 		long now = player.level().getGameTime();
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.onJoin(player); // v0.15.3: no weapon is away after a relog
+		// v0.16.4 (user): a rampage / forced rampage / takeover still running resumes with the SAME end time (he comes back as
+		// the Hulk, mid-rampage); one that ended while he was away -- or from another world's clock -- is cleaned up
+		long left = s.combat.rampageUntil - now;
+		if (s.hulk && !s.dying() && s.combat.rampageUntil != 0L && left > 0L && left <= HulkControl.durationTicks(s.wild.kind) + 20L) {
+			HulkState r = s.copy();
+			r.formChangedAt = now - changeTicks(r) - 1L; // out and ready, not mid-change
+			r.leapChargeStart = 0L;
+			r.leaping = false;
+			r.combat.strainStart = 0L;
+			r.combat.chargeUntil = 0L;
+			r.combat.holding = false;
+			r.wild.target = -1;
+			r.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 60L);
+			if (r.wild.startedAt > now) {
+				r.wild.startedAt = now - 100L;
+			}
+			save(player, r);
+			reconcile(player);
+			return;
+		}
+		boolean endedTakeover = s.hulk && !s.dying() && s.combat.rampageUntil != 0L && s.wild.kind == HulkState.RAMPAGE_TAKEOVER;
 		HulkState n = s.copy();
+		HulkControl.clearRampage(n);
+		n.wild.pending = 0;
+		n.wild.warnBanner = false;
+		if (endedTakeover) {
+			n.wild.failStreak = 0; // the takeover ran its course while he was away: he wakes as Banner
+		}
 		n.hulk = false;
 		n.rage = 0.0f;
 		n.combat.unwilling = false;
@@ -1096,6 +1146,10 @@ public final class Hulk {
 		long cooldown = n.rules.holdCooldownUntil;
 		n.rules = new HulkState.Rules();
 		n.rules.holdCooldownUntil = cooldown;
+		// v0.16.4: nothing of a rampage survives death; the losing streak and Banner's (paused) clock do
+		HulkControl.clearRampage(n);
+		n.wild.pending = 0;
+		n.wild.warnBanner = false;
 		save(player, n);
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
@@ -1114,8 +1168,11 @@ public final class Hulk {
 		ejectRider(player);
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
 		if (s != null && (s.leapChargeStart != 0L || s.leaping || (s.animId != HulkState.ANIM_NONE && !s.dying()) || s.combat.chargeUntil != 0L
-				|| s.combat.smashChargeStart != 0L || s.combat.calming || s.combat.rampageUntil != 0L || s.combat.holding
-				|| s.combat.strainStart != 0L || s.rules.warnLen != 0 || s.rules.ringStreak != 0)) {
+				|| s.combat.smashChargeStart != 0L || s.combat.calming || s.combat.holding
+				|| s.combat.strainStart != 0L || s.rules.warnLen != 0)) {
+			// v0.16.4 (user): a running rampage / takeover is KEPT (its end time and kind): a relog resumes it with the same
+			// end, and onPlayerJoin / the watchdog clean up one that has expired
+			boolean rampage = s.combat.rampageUntil != 0L && s.hulk && !s.dying();
 			HulkState n = s.copy();
 			n.leapChargeStart = 0L;
 			n.leaping = false;
@@ -1125,16 +1182,18 @@ public final class Hulk {
 			n.combat.chargeUntil = 0L;
 			n.combat.smashChargeStart = 0L;
 			n.combat.calming = false;
-			n.combat.rampageUntil = 0L;
 			n.combat.holding = false;
 			n.combat.strainStart = 0L;
 			n.combat.promptKey = 0;
-			n.combat.control = 100.0f;
 			n.rules.warnLen = 0;
 			n.rules.warnPos = 0;
-			n.rules.ringStreak = 0;
-			if (n.hulk) {
-				n.rules.nextRampageAt = player.level().getGameTime() + HulkConfig.control().rampageEveryTicks;
+			n.wild.warnBanner = false;
+			if (!rampage) {
+				HulkControl.clearRampage(n);
+				n.combat.control = 100.0f;
+				if (n.hulk) {
+					n.rules.nextRampageAt = player.level().getGameTime() + HulkConfig.control().rampageEveryTicks;
+				}
 			}
 			save(player, n);
 		}
@@ -1185,6 +1244,13 @@ public final class Hulk {
 		save(player, n);
 		player.setHealth(1.0f);
 		transform(player, true);
+		if (isHulk(player) && HulkConfig.control().enabled) {
+			// v0.16.4 (user): "When the player dies and the hulk takes over the hulk should immediately be in a rampage mode" --
+			// a normal (ring) rampage the moment the change is over
+			HulkState r = state(player).copy();
+			r.wild.pending = HulkState.RAMPAGE_NORMAL + 1;
+			save(player, r);
+		}
 		player.setHealth(player.getMaxHealth());
 		player.clearFire();
 		player.invulnerableTime = 40;
@@ -1214,7 +1280,8 @@ public final class Hulk {
 		n.rules.warnLen = 0;
 		n.rules.warnPos = 0;
 		n.rules.ringStreak = 0;
-		n.combat.rampageUntil = 0L;
+		HulkControl.clearRampage(n); // v0.16.4: a takeover / forced rampage ends with the fall too
+		n.wild.pending = 0;
 		n.combat.strainStart = 0L;
 		n.combat.holding = false;
 		n.combat.chargeUntil = 0L;
