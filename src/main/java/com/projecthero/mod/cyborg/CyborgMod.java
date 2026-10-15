@@ -28,8 +28,16 @@ public final class CyborgMod {
 		PayloadTypeRegistry.playS2C().register(CyborgScanPayload.TYPE, CyborgScanPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(CyborgActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
-			if (Cyborg.hasPower(p) && payload.action() == CyborgActionPayload.Action.TOGGLE_FORM) {
+			if (!Cyborg.hasPower(p)) {
+				return;
+			}
+			if (payload.action() == CyborgActionPayload.Action.TOGGLE_FORM) {
 				Cyborg.toggleForm(p);
+			} else if (payload.action() == CyborgActionPayload.Action.TOGGLE_FLIGHT) {
+				// v0.16.5 (user): double-tap jump in the air takes off on the jetpack / drops out of flight
+				if (Cyborg.state(p).hovering || !p.onGround()) {
+					CyborgAbilities.toggleHover(p);
+				}
 			}
 		});
 		ServerPlayerEvents.JOIN.register(Cyborg::onPlayerJoin);

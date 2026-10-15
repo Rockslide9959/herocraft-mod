@@ -54,9 +54,18 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		if (com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)
 				// v0.16.5: Ghost Rider is drawn the same way
 				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)
-				|| com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player)) {
 			model.hat.visible = false;
+			model.jacket.visible = false;
+			model.leftSleeve.visible = false;
+			model.rightSleeve.visible = false;
+			model.leftPants.visible = false;
+			model.rightPants.visible = false;
+			return;
+		}
+		// v0.16.5: Cyborg keeps the wearer's hat / hair layer (user: it should show on the human half of the head) -- the
+		// metal half is drawn on a cover just outside it (CyborgRender), so it only shows where his own face does
+		if (com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)) {
 			model.jacket.visible = false;
 			model.leftSleeve.visible = false;
 			model.rightSleeve.visible = false;

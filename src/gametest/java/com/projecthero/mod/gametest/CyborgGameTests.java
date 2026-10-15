@@ -110,44 +110,54 @@ public class CyborgGameTests implements FabricGameTest {
 		helper.assertTrue(Cyborg.hasPower(p), "on 4 hearts it fuses");
 		helper.assertTrue(!Kryptonian.hasPower(p) && HeroTiers.heroCount(p) == 1, "Cyborg replaced the Kryptonian (one Primary)");
 		helper.assertTrue(p.getMainHandItem().isEmpty(), "the Mother Box is used up");
-		helper.assertTrue(Cyborg.combat(p) && Cyborg.changing(p), "the 10 s conversion runs in combat form");
+		helper.assertTrue(Cyborg.combat(p) && Cyborg.changing(p), "the 10 s conversion runs");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void formsSwitchArmourAndKeys(GameTestHelper helper) {
+	public void hologramIsOnlyADisguise(GameTestHelper helper) {
 		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "combat form: +4 armour");
-		Cyborg.civilian(p);
-		helper.assertFalse(Cyborg.combat(p), "H: civilian");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) < 0.01, "no plating in civilian form");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "+4 armour");
+		Cyborg.hologramOn(p);
+		helper.assertTrue(Cyborg.hologram(p) && Cyborg.combat(p), "H: the hologram is up, he is still Cyborg");
+		Cyborg.reconcile(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "still +4 armour under the hologram");
 		CyborgAbilities.matrix(p);
-		helper.assertFalse(Cyborg.matrixUp(p), "no moves in civilian form");
+		helper.assertTrue(Cyborg.matrixUp(p), "a move works under the hologram");
+		helper.assertFalse(Cyborg.hologram(p), "... and drops it");
+		Cyborg.hologramOn(p);
+		Cyborg.toggleForm(p); // inside the toggle cooldown: ignored
+		Cyborg.dropHologram(p);
+		helper.assertFalse(Cyborg.hologram(p), "dropped");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void lightningFillsTheCoreInCombatAndHurtsDoubleCivilian(GameTestHelper helper) {
+	public void lightningFillsTheCoreEvenUnderTheHologram(GameTestHelper helper) {
 		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
 		Cyborg.setCore(p, 10f);
 		float hp = p.getHealth();
 		p.hurt(p.damageSources().lightningBolt(), 5f);
-		helper.assertTrue(p.getHealth() == hp && Cyborg.core(p) == CyborgConfig.CORE_MAX, "combat: absorbed, core full");
-		Cyborg.civilian(p);
+		helper.assertTrue(p.getHealth() == hp && Cyborg.core(p) == CyborgConfig.CORE_MAX, "absorbed, core full");
+		Cyborg.setCore(p, 10f);
+		Cyborg.hologramOn(p);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().lightningBolt(), 3f);
-		helper.assertTrue(Math.abs((hp - p.getHealth()) - 6f) < 0.1f, "civilian: double, took " + (hp - p.getHealth()));
+		helper.assertTrue(p.getHealth() == hp && Cyborg.core(p) == CyborgConfig.CORE_MAX, "under the hologram too");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void fallIsHalvedAndNoDrowning(GameTestHelper helper) {
+	public void noFallDamageAndNoDrowning(GameTestHelper helper) {
 		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
 		float hp = p.getHealth();
 		p.hurt(p.damageSources().drown(), 4f);
 		helper.assertTrue(p.getHealth() == hp, "no drowning");
 		p.hurt(p.damageSources().fall(), 8f);
-		helper.assertTrue(Math.abs((hp - p.getHealth()) - 4f) < 0.6f, "half fall damage, took " + (hp - p.getHealth()));
+		helper.assertTrue(p.getHealth() == hp, "no fall damage");
+		Cyborg.hologramOn(p);
+		p.hurt(p.damageSources().fall(), 8f);
+		helper.assertTrue(p.getHealth() == hp, "no fall damage under the hologram either");
 		helper.succeed();
 	}
 
@@ -163,7 +173,7 @@ public class CyborgGameTests implements FabricGameTest {
 			CyborgAbilities.fireCannon(p);
 			float taken = 100f - z.getHealth();
 			helper.assertTrue(Math.abs(taken - CyborgConfig.CANNON_MAX_DAMAGE) < EPS, "full charge: 16, took " + taken);
-			helper.assertTrue(Cyborg.state(p).beamUntil > helper.getLevel().getGameTime(), "the beam shows");
+			helper.assertTrue(Cyborg.state(p).fx.beamUntil > helper.getLevel().getGameTime(), "the beam shows");
 			helper.succeed();
 		});
 	}

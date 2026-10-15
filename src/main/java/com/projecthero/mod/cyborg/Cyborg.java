@@ -34,13 +34,12 @@ import org.joml.Vector3f;
  *
  * <h2>How it works</h2>
  * A Mother Box (the Darkseid raid's reward) used by someone on 4 hearts or less fuses with them: a 10 s conversion as
- * the plates spread over the body from the chest core. <b>H</b> switches between the <b>combat</b> form (the plates and
- * the six keys) and the <b>civilian</b> form (a hologram hides the plates; only his own face shows either way, the
- * user's skin keeps Victor Stone's human half see-through).
+ * the plates spread over the body from the chest core. He is always Cyborg (v0.16.5 rework, user): <b>H</b> projects a
+ * <b>hologram</b> of his old human skin from the light on his forehead, built over him a texel at a time -- a disguise
+ * only; any move (or H again) drops it.
  *
  * <h2>The Power Core</h2>
- * 0..100, charging 2 a second (6 next to a block of redstone, none in water). A lightning strike fills it in combat form
- * and shocks him double in civilian form.
+ * 0..100, charging 2 a second (6 next to a block of redstone, none in water). A lightning strike fills it.
  */
 public final class Cyborg {
 	public static final String KEY = "cyborg";
@@ -91,10 +90,15 @@ public final class Cyborg {
 		return s != null && s.hasPower;
 	}
 
-	/** Has the power and the plates are out (combat form). Client-safe. */
+	/** Has the power: v0.16.5 rework, he is always Cyborg (the hologram is only a disguise). Client-safe. */
 	public static boolean combat(Player player) {
+		return hasPower(player);
+	}
+
+	/** In Jet Flight (the jetpack is out). Client-safe. */
+	public static boolean flying(Player player) {
 		CyborgState s = peek(player);
-		return s != null && s.hasPower && s.combat;
+		return s != null && s.hasPower && s.hovering;
 	}
 
 	public static float core(Player player) {
@@ -104,7 +108,7 @@ public final class Cyborg {
 
 	public static boolean matrixUp(Player player) {
 		CyborgState s = peek(player);
-		return s != null && s.combat && s.shieldUntil > player.level().getGameTime() && s.shieldHp > 0f;
+		return s != null && s.hasPower && s.shieldUntil > player.level().getGameTime() && s.shieldHp > 0f;
 	}
 
 	public static int cooldownRemaining(Player player, String abilityId) {
@@ -197,19 +201,28 @@ public final class Cyborg {
 		CyborgAbilityManager.forget(id);
 	}
 
-	// ---------------------------------------------------------------- the forms (H)
+	// ---------------------------------------------------------------- the hologram (H)
 
-	/** Whether the plates are still spreading over him (the conversion or a plates-on change). */
+	/**
+	 * Whether the Mother Box is still fusing with him (the 10 s conversion) -- the only time his kit waits. v0.16.5
+	 * rework (user): he has no human form any more, he is always Cyborg.
+	 */
 	public static boolean changing(Player player) {
 		CyborgState s = peek(player);
-		if (s == null || !s.hasPower) {
+		if (s == null || !s.hasPower || s.animId != CyborgState.ANIM_CONVERT) {
 			return false;
 		}
 		long age = player.level().getGameTime() - s.formChangeAt;
-		int len = s.animId == CyborgState.ANIM_CONVERT ? CyborgConfig.CONVERT_TICKS : CyborgConfig.PLATES_ON_TICKS;
-		return s.combat && age >= 0 && age < len;
+		return age >= 0 && age < CyborgConfig.CONVERT_TICKS;
 	}
 
+	/** The holographic cover of his old human skin is up (or building). Client-safe. */
+	public static boolean hologram(Player player) {
+		CyborgState s = peek(player);
+		return s != null && s.hasPower && !s.combat;
+	}
+
+	/** H: projects the hologram, or drops it. */
 	public static void toggleForm(ServerPlayer player) {
 		CyborgState s = state(player);
 		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
@@ -225,13 +238,14 @@ public final class Cyborg {
 		}
 		LAST_TOGGLE.put(player.getUUID(), now);
 		if (s.combat) {
-			civilian(player);
+			hologramOn(player);
 		} else {
-			combatForm(player);
+			dropHologram(player);
 		}
 	}
 
-	public static void combatForm(ServerPlayer player) {
+	/** Drops the hologram (H again, or any move): it dissolves from the feet up. Nothing if it is not up. */
+	public static void dropHologram(ServerPlayer player) {
 		CyborgState s = state(player);
 		if (!s.hasPower || s.combat) {
 			return;
@@ -243,44 +257,35 @@ public final class Cyborg {
 		n.animId = CyborgState.ANIM_PLATES_ON;
 		n.animStart = now;
 		save(player, n);
-		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 1.2, 0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 30, 0.4, 0.6, 0.4, 0.1);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.7f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.7f, 1.6f);
+		Vec3 c = player.position().add(0, 1.0, 0);
+		level.sendParticles(BLUE, c.x, c.y, c.z, 24, 0.35, 0.8, 0.35, 0.0);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6f, 1.8f);
 	}
 
-	public static void civilian(ServerPlayer player) {
+	/** Projects the hologram from the light on his forehead; it builds over him top-down, a texel at a time. */
+	public static void hologramOn(ServerPlayer player) {
 		CyborgState s = state(player);
-		if (!s.combat) {
+		if (!s.hasPower || !s.combat) {
 			return;
 		}
-		CyborgAbilities.clear(player);
 		long now = player.level().getGameTime();
-		CyborgState n = state(player).copy();
+		CyborgState n = s.copy();
 		n.combat = false;
 		n.formChangeAt = now;
-		n.chargeStart = 0L;
-		n.hovering = false;
-		n.shieldUntil = 0L;
-		n.shieldHp = 0f;
-		n.beamUntil = 0L;
 		n.animId = CyborgState.ANIM_PLATES_OFF;
 		n.animStart = now;
 		save(player, n);
-		reconcile(player);
-		CyborgAbilities.stopHover(player);
 		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 1.2, 0);
-		level.sendParticles(BLUE, c.x, c.y, c.z, 30, 0.35, 0.8, 0.35, 0.0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.7f, 1.6f);
+		Vec3 c = player.getEyePosition();
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.6f, 1.9f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.8f, 1.4f);
 	}
 
 	// ---------------------------------------------------------------- stats
 
 	public static void reconcile(ServerPlayer player) {
-		if (combat(player)) {
+		if (hasPower(player)) {
 			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, CyborgConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
@@ -292,14 +297,12 @@ public final class Cyborg {
 		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
 			return false;
 		}
-		if (!s.combat) {
-			say(player, "message.projecthero.cyborg.not_combat", ChatFormatting.GRAY);
-			return false;
-		}
 		if (changing(player)) {
 			say(player, "message.projecthero.cyborg.converting", ChatFormatting.GRAY);
 			return false;
 		}
+		// any move drops the hologram
+		dropHologram(player);
 		return true;
 	}
 
@@ -322,14 +325,10 @@ public final class Cyborg {
 		if (now % 5 == 0) {
 			tickCore(player, s);
 		}
-		if (s.combat) {
-			if (player.getAirSupply() < player.getMaxAirSupply()) {
-				player.setAirSupply(player.getMaxAirSupply());
-			}
-			tickHunger(player);
-		} else {
-			LAST_EXHAUSTION.remove(player.getUUID());
+		if (player.getAirSupply() < player.getMaxAirSupply()) {
+			player.setAirSupply(player.getMaxAirSupply());
 		}
+		tickHunger(player);
 		CyborgAbilities.tick(player);
 	}
 
@@ -358,7 +357,7 @@ public final class Cyborg {
 		return false;
 	}
 
-	/** Combat form: every rise in food exhaustion is halved (his cybernetics run half his body). */
+	/** Every rise in food exhaustion is halved (his cybernetics run half his body). */
 	private static void tickHunger(ServerPlayer player) {
 		float e = player.getFoodData().getExhaustionLevel();
 		Float last = LAST_EXHAUSTION.put(player.getUUID(), e);
@@ -369,7 +368,7 @@ public final class Cyborg {
 		}
 	}
 
-	/** A lightning strike: in combat form it fills the core (and does no harm); returns whether it was absorbed. */
+	/** A lightning strike fills the core (and does no harm); returns whether it was absorbed. */
 	static boolean lightning(ServerPlayer player) {
 		if (!combat(player)) {
 			return false;
@@ -391,7 +390,7 @@ public final class Cyborg {
 		n.chargeStart = 0L;
 		n.hovering = false;
 		n.shieldUntil = 0L;
-		n.beamUntil = 0L;
+		n.fx = new CyborgState.Fx();
 		n.scanUntil = 0L;
 		n.formChangeAt = 0L;
 		n.animId = CyborgState.ANIM_NONE;
@@ -407,12 +406,12 @@ public final class Cyborg {
 			return;
 		}
 		CyborgState n = s.copy();
-		n.combat = false;
+		n.combat = true;
 		n.formChangeAt = 0L;
 		n.chargeStart = 0L;
 		n.hovering = false;
 		n.shieldUntil = 0L;
-		n.beamUntil = 0L;
+		n.fx = new CyborgState.Fx();
 		n.scanUntil = 0L;
 		n.animId = CyborgState.ANIM_NONE;
 		n.core = Math.max(n.core, CyborgConfig.CORE_MAX * 0.5f);
@@ -427,12 +426,12 @@ public final class Cyborg {
 		CyborgAbilities.stopHover(player);
 		forget(player.getUUID());
 		CyborgState s = player.getAttachedOrElse(ModAttachments.CYBORG_STATE, null);
-		if (s != null && s.hasPower && (s.chargeStart != 0L || s.hovering || s.shieldUntil != 0L || s.beamUntil != 0L)) {
+		if (s != null && s.hasPower && (s.chargeStart != 0L || s.hovering || s.shieldUntil != 0L || s.fx.beamUntil != 0L || s.fx.cableUntil != 0L)) {
 			CyborgState n = s.copy();
 			n.chargeStart = 0L;
 			n.hovering = false;
 			n.shieldUntil = 0L;
-			n.beamUntil = 0L;
+			n.fx = new CyborgState.Fx();
 			save(player, n);
 		}
 	}

@@ -43,7 +43,7 @@ public final class CyborgState {
 	public final Map<String, Long> abilityReadyAt;
 	/** The Sonic Cannon is charging since this game time (0 = not charging). */
 	public long chargeStart;
-	/** Hovering on the boot thrusters. */
+	/** Jet Flight (double-tap jump / Shift+X): flying on the boot thrusters and the jetpack. */
 	public boolean hovering;
 	/** The Defense Matrix stands until this game time. */
 	public long shieldUntil;
@@ -53,20 +53,58 @@ public final class CyborgState {
 	public List<Double> waypoint;
 	/** ... and its dimension. */
 	public String waypointDim;
-	/** The cannon beam shows until this game time. */
-	public long beamUntil;
-	/** Where the beam ended: x, y, z. */
-	public List<Double> beamEnd;
+	/** The short-lived visuals (the cannon beam, the grapple cable). */
+	public Fx fx;
 	/** The Scan's HUD readout runs until this game time. */
 	public long scanUntil;
 
+	/** v0.16.5: the short-lived, purely visual state, nested so the codec stays inside the 16-field limit. */
+	public static final class Fx {
+		/** The cannon beam shows until this game time, and where it ended (x, y, z). */
+		public long beamUntil;
+		public List<Double> beamEnd;
+		/** The Grapple Claw cable shows until this game time; its claw sits at {@link #cableEnd} or on {@link #cableTarget}. */
+		public long cableUntil;
+		public List<Double> cableEnd;
+		/** The creature the claw caught (-1 = a block). */
+		public int cableTarget;
+		/** Game time the jetpack last started building onto his back (take-off) or folding away (landing). */
+		public long jetChange;
+
+		public Fx() {
+			this(0L, List.of(), 0L, List.of(), -1, 0L);
+		}
+
+		public Fx(long beamUntil, List<Double> beamEnd, long cableUntil, List<Double> cableEnd, int cableTarget, long jetChange) {
+			this.beamUntil = beamUntil;
+			this.beamEnd = List.copyOf(beamEnd);
+			this.cableUntil = cableUntil;
+			this.cableEnd = List.copyOf(cableEnd);
+			this.cableTarget = cableTarget;
+			this.jetChange = jetChange;
+		}
+
+		public Fx copy() {
+			return new Fx(beamUntil, beamEnd, cableUntil, cableEnd, cableTarget, jetChange);
+		}
+
+		public static final Codec<Fx> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.LONG.optionalFieldOf("beam_until", 0L).forGetter(f -> f.beamUntil),
+				Codec.DOUBLE.listOf().optionalFieldOf("beam_end", List.of()).forGetter(f -> f.beamEnd),
+				Codec.LONG.optionalFieldOf("cable_until", 0L).forGetter(f -> f.cableUntil),
+				Codec.DOUBLE.listOf().optionalFieldOf("cable_end", List.of()).forGetter(f -> f.cableEnd),
+				Codec.INT.optionalFieldOf("cable_target", -1).forGetter(f -> f.cableTarget),
+				Codec.LONG.optionalFieldOf("jet_change", 0L).forGetter(f -> f.jetChange)
+		).apply(i, Fx::new));
+	}
+
 	public CyborgState() {
-		this(false, false, 0L, 0f, 0, 0L, new HashMap<>(), 0L, false, 0L, 0f, List.of(), "", 0L, List.of(), 0L);
+		this(false, false, 0L, 0f, 0, 0L, new HashMap<>(), 0L, false, 0L, 0f, List.of(), "", new Fx(), 0L);
 	}
 
 	public CyborgState(boolean hasPower, boolean combat, long formChangeAt, float core, int animId, long animStart,
 			Map<String, Long> abilityReadyAt, long chargeStart, boolean hovering, long shieldUntil, float shieldHp, List<Double> waypoint,
-			String waypointDim, long beamUntil, List<Double> beamEnd, long scanUntil) {
+			String waypointDim, Fx fx, long scanUntil) {
 		this.hasPower = hasPower;
 		this.combat = combat;
 		this.formChangeAt = formChangeAt;
@@ -80,14 +118,13 @@ public final class CyborgState {
 		this.shieldHp = shieldHp;
 		this.waypoint = List.copyOf(waypoint);
 		this.waypointDim = waypointDim;
-		this.beamUntil = beamUntil;
-		this.beamEnd = List.copyOf(beamEnd);
+		this.fx = fx.copy();
 		this.scanUntil = scanUntil;
 	}
 
 	public CyborgState copy() {
 		return new CyborgState(hasPower, combat, formChangeAt, core, animId, animStart, abilityReadyAt, chargeStart, hovering, shieldUntil,
-				shieldHp, waypoint, waypointDim, beamUntil, beamEnd, scanUntil);
+				shieldHp, waypoint, waypointDim, fx, scanUntil);
 	}
 
 	public static final Codec<CyborgState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -105,8 +142,7 @@ public final class CyborgState {
 			Codec.FLOAT.optionalFieldOf("shield_hp", 0f).forGetter(s -> s.shieldHp),
 			Codec.DOUBLE.listOf().optionalFieldOf("waypoint", List.of()).forGetter(s -> s.waypoint),
 			Codec.STRING.optionalFieldOf("waypoint_dim", "").forGetter(s -> s.waypointDim),
-			Codec.LONG.optionalFieldOf("beam_until", 0L).forGetter(s -> s.beamUntil),
-			Codec.DOUBLE.listOf().optionalFieldOf("beam_end", List.of()).forGetter(s -> s.beamEnd),
+			Fx.CODEC.optionalFieldOf("fx", new Fx()).forGetter(s -> s.fx),
 			Codec.LONG.optionalFieldOf("scan_until", 0L).forGetter(s -> s.scanUntil)
 	).apply(i, CyborgState::new));
 }

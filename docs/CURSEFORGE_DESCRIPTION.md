@@ -272,11 +272,14 @@ is yours, but it costs you **5 hearts** until the first time the Spirit burns th
 ### 🤖 Cyborg
 Use a **Mother Box** (the Apokolips Invasion's rare reward) while you're on **4 hearts or less** and it fuses with you:
 the plates spread over you from the chest core, and your own face shows on Victor Stone's human half.
-- **H** switches between **combat** form (plates, +4 armour, no drowning, half fall damage, half hunger) and
-  **civilian** form (a hologram hides them).
-- **Power Core** (100) charges over time, faster next to a block of redstone; lightning fills it in combat form.
-  **R** Sonic Cannon (hold to charge, up to 16) · **Shift+R** Sonic Burst · **G** Hydraulic Punch (breaks shields) ·
-  **Shift+G** Grapple Claw · **X** Thruster Dash · **Shift+X** Hover · **Z** **Techno-Override** (golems and Ultron /
+- You are **always Cyborg**: +4 armour, no drowning, no fall damage, half hunger.
+- **H** projects a **hologram** of your old skin from the light on your forehead. It builds over you a pixel at a time,
+  but it's only a disguise: any move drops it.
+- **Double-tap jump** in the air for **Jet Flight**: a jetpack builds itself onto your back and you fly on energy jets.
+- **Power Core** (100) charges over time, faster next to a block of redstone; lightning fills it.
+  **R** Sonic Cannon (a blaster builds round your arm; hold to charge, up to 16) · **Shift+R** Sonic Burst ·
+  **G** Hydraulic Punch (breaks shields) · **Shift+G** Grapple Claw · **X** Thruster Dash · **Shift+X** Jet Flight ·
+  **Z** **Techno-Override** (golems and Ultron /
   Sentinel robots fight for you; doors, lamps and TNT obey) · **Shift+Z** Scan (creatures and ores through walls) ·
   **V** **Boom Tube** (takes your squad) · **Shift+V** Waypoint · **C** Defense Matrix · **Shift+C** Self-Repair (iron).
 

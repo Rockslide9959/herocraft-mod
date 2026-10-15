@@ -12,6 +12,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -40,11 +41,32 @@ public final class CyborgEffectsRenderer {
 		Vec3 cam = camera.getPosition();
 		for (Player player : mc.level.players()) {
 			CyborgState s = player.getAttachedOrElse(ModAttachments.CYBORG_STATE, null);
-			if (s == null || !s.hasPower || !s.combat) {
+			if (s == null || !s.hasPower) {
 				continue;
 			}
-			boolean beam = s.beamUntil > now - 1 && s.beamEnd.size() == 3;
+			boolean beam = s.fx.beamUntil > now - 1 && s.fx.beamEnd.size() == 3;
 			boolean matrix = s.shieldUntil > now && s.shieldHp > 0f;
+			boolean cable = s.fx.cableUntil > now - 1 && s.fx.cableEnd.size() == 3;
+			if (cable) {
+				// the Grapple Claw cable: its own (lit, opaque) buffer
+				Vec3 from = hand(mc, player, partial, player == mc.player && mc.options.getCameraType().isFirstPerson(), camera);
+				Vec3 to = new Vec3(s.fx.cableEnd.get(0), s.fx.cableEnd.get(1), s.fx.cableEnd.get(2));
+				Entity caught = s.fx.cableTarget != -1 ? mc.level.getEntity(s.fx.cableTarget) : null;
+				if (caught != null) {
+					to = caught.getPosition(partial).add(0, caught.getBbHeight() * 0.55, 0);
+				}
+				pose.pushPose();
+				pose.translate(-cam.x, -cam.y, -cam.z);
+				drawCable(context.consumers().getBuffer(RenderType.debugQuads()), pose.last().pose(), cam, from, to);
+				pose.popPose();
+				if (vc == null) {
+					vc = context.consumers().getBuffer(RenderType.lightning());
+				}
+				pose.pushPose();
+				pose.translate(-cam.x, -cam.y, -cam.z);
+				claw(vc, pose.last().pose(), cam, from, to);
+				pose.popPose();
+			}
 			if (!beam && !matrix) {
 				continue;
 			}
@@ -56,9 +78,9 @@ public final class CyborgEffectsRenderer {
 			Matrix4f m = pose.last().pose();
 			boolean fp = player == mc.player && mc.options.getCameraType().isFirstPerson();
 			if (beam) {
-				float life = Mth.clamp((s.beamUntil - now - partial) / 6f, 0f, 1f);
+				float life = Mth.clamp((s.fx.beamUntil - now - partial) / 6f, 0f, 1f);
 				Vec3 from = hand(mc, player, partial, fp, camera);
-				Vec3 to = new Vec3(s.beamEnd.get(0), s.beamEnd.get(1), s.beamEnd.get(2));
+				Vec3 to = new Vec3(s.fx.beamEnd.get(0), s.fx.beamEnd.get(1), s.fx.beamEnd.get(2));
 				ribbon(vc, m, cam, from, to, 0.32f * life, 0.30f, 0.65f, 1.0f, 0.55f * life);
 				ribbon(vc, m, cam, from, to, 0.12f * life, 0.85f, 0.97f, 1.0f, 0.9f * life);
 			}
@@ -87,6 +109,55 @@ public final class CyborgEffectsRenderer {
 		Vec3 right = Vec3.directionFromRotation(0.0f, bodyYaw + 90.0f);
 		Vec3 look = Vec3.directionFromRotation(player.getViewXRot(partial), player.getViewYRot(partial));
 		return pos.add(0.0, player.getBbHeight() * 0.76, 0.0).add(right.scale(0.36)).add(look.scale(0.75));
+	}
+
+	/**
+	 * The steel cable: two crossed strips (so it has body from any side), dark steel with a lighter edge every other
+	 * segment like a braided wire, sagging a little toward its middle.
+	 */
+	private static void drawCable(VertexConsumer vc, Matrix4f m, Vec3 cam, Vec3 a, Vec3 b) {
+		Vec3 d = b.subtract(a);
+		double len = d.length();
+		if (len < 0.05) {
+			return;
+		}
+		int segs = Math.max(4, (int) (len * 4));
+		double sag = Math.min(0.6, len * 0.03);
+		Vec3 prev = a;
+		for (int i = 1; i <= segs; i++) {
+			double t = (double) i / segs;
+			Vec3 p = a.lerp(b, t).subtract(0, sag * 4 * t * (1 - t), 0);
+			float shade = (i & 1) == 0 ? 0.42f : 0.62f;
+			Vec3 dir = p.subtract(prev);
+			Vec3 mid = prev.add(p).scale(0.5);
+			Vec3 side = dir.cross(cam.subtract(mid));
+			if (side.lengthSqr() > 1.0e-8) {
+				side = side.normalize().scale(0.035);
+				Vec3 up = dir.cross(side).normalize().scale(0.035);
+				for (Vec3 w : new Vec3[] { side, up }) {
+					leash(vc, m, prev.subtract(w), shade);
+					leash(vc, m, prev.add(w), shade);
+					leash(vc, m, p.add(w), shade);
+					leash(vc, m, p.subtract(w), shade);
+				}
+			}
+			prev = p;
+		}
+	}
+
+	private static void leash(VertexConsumer vc, Matrix4f m, Vec3 p, float shade) {
+		vc.addVertex(m, (float) p.x, (float) p.y, (float) p.z).setColor(shade, shade + 0.03f, shade + 0.08f, 1.0f);
+	}
+
+	/** The claw head: a small glowing blue spark at the end of the cable. */
+	private static void claw(VertexConsumer vc, Matrix4f m, Vec3 cam, Vec3 from, Vec3 to) {
+		Vec3 dir = to.subtract(from);
+		if (dir.lengthSqr() < 1.0e-4) {
+			return;
+		}
+		Vec3 back = to.subtract(dir.normalize().scale(0.35));
+		ribbon(vc, m, cam, back, to, 0.28f, 0.35f, 0.75f, 1.0f, 0.8f);
+		ribbon(vc, m, cam, back, to, 0.12f, 0.9f, 0.97f, 1.0f, 0.9f);
 	}
 
 	/** A camera-facing strip from {@code a} to {@code b}. */

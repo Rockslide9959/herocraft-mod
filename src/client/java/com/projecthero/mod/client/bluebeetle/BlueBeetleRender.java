@@ -46,7 +46,7 @@ public final class BlueBeetleRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/blue_beetle/blue_beetle.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/blue_beetle/blue_beetle_glow.png");
 	public static final ResourceLocation WING = ProjectHeroMod.id("textures/entity/blue_beetle/blue_beetle_wing.png");
-	private static final float CORE_HEIGHT = 11f;
+	public static final float CORE_HEIGHT = 11f;
 	public static final int STEPS = 21;
 	private static final int EDGE_ARGB = 0xFF4AA8FF;
 
@@ -174,11 +174,12 @@ public final class BlueBeetleRender {
 		for (int side = -1; side <= 1; side += 2) {
 			for (int pair = 0; pair < 2; pair++) {
 				pose.pushPose();
-				// root on the back plate, between the shoulder blades
-				pose.translate(side * 0.08f, 0.18f + pair * 0.14f, 0.16f);
+				// root behind the Scarab on the back plate (clear of the body), between the shoulder blades
+				pose.translate(side * 0.08f, 0.18f + pair * 0.14f, 0.30f);
 				float spread = (pair == 0 ? 0.75f : 1.15f) + flick * (pair == 0 ? 1f : -1f);
 				pose.mulPose(com.mojang.math.Axis.ZP.rotation(side * spread));
-				pose.mulPose(com.mojang.math.Axis.XP.rotation(0.35f));
+				// tilted BACK, away from the body (a positive x turn would swing the tips forward into him), with a small back-and-forth flap
+				pose.mulPose(com.mojang.math.Axis.XP.rotation(-0.45f - 0.12f * Mth.sin(age * 2.6f + pair)));
 				float len = pair == 0 ? 1.15f : 0.85f;
 				float w = pair == 0 ? 0.28f : 0.22f;
 				Matrix4f m = pose.last().pose();

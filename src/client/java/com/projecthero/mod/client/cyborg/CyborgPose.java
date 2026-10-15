@@ -38,7 +38,7 @@ public final class CyborgPose {
 		ModelPart other = rightMain ? model.leftArm : model.rightArm;
 		float side = rightMain ? 1f : -1f;
 
-		if (s.combat) {
+		{ // always Cyborg (v0.16.5 rework)
 			if (s.hovering) {
 				pose(model.rightArm, 1f, 0.1f, 0f, 0.45f);
 				pose(model.leftArm, 1f, 0.1f, 0f, -0.45f);

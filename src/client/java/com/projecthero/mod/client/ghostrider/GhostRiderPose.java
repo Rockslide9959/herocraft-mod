@@ -88,12 +88,21 @@ public final class GhostRiderPose {
 		float w = Math.min(1f, age / 3f) * Math.min(1f, (length - age) / 4f);
 		switch (s.animId) {
 			case GhostRiderState.ANIM_TRANSFORM -> {
-				float scream = Mth.clamp((age - (GhostRiderConfig.TRANSFORM_TICKS - 14)) / 6f, 0f, 1f);
+				float p = age / GhostRiderConfig.TRANSFORM_TICKS;
+				float burn = Mth.clamp((p - GhostRiderRender.BURN_START) / 0.06f, 0f, 1f) * (1f - Mth.clamp((p - GhostRiderRender.ERUPT) / 0.04f, 0f, 1f));
+				float scream = Mth.clamp((p - GhostRiderRender.ERUPT) / 0.05f, 0f, 1f);
 				float shake = 0.06f * Mth.sin(age * 2.3f) * (1f - scream);
-				// hunched with fists out, then flung open as the skull ignites
-				pose(model.rightArm, w, Mth.lerp(scream, -0.5f, -0.3f), 0f, Mth.lerp(scream, 0.55f, 1.25f) + shake);
-				pose(model.leftArm, w, Mth.lerp(scream, -0.5f, -0.3f), 0f, -Mth.lerp(scream, 0.55f, 1.25f) - shake);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, Mth.lerp(scream, 0.45f, -0.7f));
+				// hunched, fists clenched low while the clothes wrap round him
+				float rx = -0.5f, rz = 0.55f;
+				// both hands up to the face while it burns
+				rx = Mth.lerp(burn, rx, -2.3f);
+				rz = Mth.lerp(burn, rz, -0.35f);
+				// flung wide, head thrown back, as the skull erupts
+				rx = Mth.lerp(scream, rx, -0.3f);
+				rz = Mth.lerp(scream, rz, 1.25f);
+				pose(model.rightArm, w, rx, 0f, rz + shake);
+				pose(model.leftArm, w, rx, 0f, -rz - shake);
+				model.head.xRot = Mth.lerp(w, model.head.xRot, Mth.lerp(scream, Mth.lerp(burn, 0.45f, 0.6f), -0.7f));
 				model.hat.copyFrom(model.head);
 				model.body.xRot = Mth.lerp(w, model.body.xRot, Mth.lerp(scream, 0.3f, -0.1f));
 			}

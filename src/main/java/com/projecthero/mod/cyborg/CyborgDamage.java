@@ -19,8 +19,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * What hurts Cyborg (v0.16.5).
  * <ul>
- *   <li>Lightning: in combat form it fills the Power Core and does nothing else; in civilian form it shocks him double.</li>
- *   <li>Combat form: no drowning, half fall damage.</li>
+ *   <li>Lightning fills the Power Core and does nothing else.</li>
+ *   <li>No fall damage, no drowning (he is always Cyborg; the hologram is only a disguise).</li>
  *   <li>The Defense Matrix soaks every hit (and projectile) from the front until its 30 points run out.</li>
  * </ul>
  * Fabric's {@code ALLOW_DAMAGE} is a veto, so a change cancels the hit and re-issues the new amount behind a re-entrancy
@@ -47,26 +47,16 @@ public final class CyborgDamage {
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
 		}
-		boolean combat = Cyborg.combat(player);
-		if (source.is(DamageTypeTags.IS_LIGHTNING)) {
-			if (Cyborg.lightning(player)) {
-				return false;
-			}
-			reissue(player, source, amount * CyborgConfig.CIVILIAN_SHOCK);
+		// v0.16.5 (user): Cyborg takes no fall damage at all
+		if (source.is(DamageTypeTags.IS_FALL) || source.is(DamageTypes.FLY_INTO_WALL)) {
+			player.resetFallDistance();
 			return false;
 		}
-		if (!combat) {
-			return true;
+		if (source.is(DamageTypeTags.IS_LIGHTNING)) {
+			Cyborg.lightning(player);
+			return false;
 		}
 		if (source.is(DamageTypeTags.IS_DROWNING)) {
-			return false;
-		}
-		if (source.is(DamageTypeTags.IS_FALL)) {
-			float half = amount * CyborgConfig.FALL_FACTOR;
-			if (half < 0.5f) {
-				return false;
-			}
-			reissue(player, source, half);
 			return false;
 		}
 		if (Cyborg.matrixUp(player) && fromFront(player, source)) {

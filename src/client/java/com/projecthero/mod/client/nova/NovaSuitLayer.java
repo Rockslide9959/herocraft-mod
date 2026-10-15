@@ -28,6 +28,14 @@ public class NovaSuitLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 			return;
 		}
 		NovaSuitRender.render(pose, buffers, light, getParentModel(), anim, NovaSuitRender.overloaded(player));
+		if (anim.cut() > 0f && anim.cut() < NovaSuitRender.ROWS - 0.01f) {
+			// v0.16.5: the wearer's second layer goes row by row with the uniform, not all at once
+			float cut = anim.cut();
+			com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> {
+				float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
+				return h >= 0f && h >= cut;
+			});
+		}
 		// v0.15.15 (user: "give Nova the body glow aswell similar to green lantern, make it his colours tho"): while flying,
 		// a thin skin of gold light over the suit (the uniform is always wide-armed; the shells clear its +0.54 helmet)
 		float glow = NovaEffectsRenderer.glowStrength(player, partialTick);

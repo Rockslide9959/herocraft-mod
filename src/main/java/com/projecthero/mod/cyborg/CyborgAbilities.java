@@ -57,7 +57,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R (1)  Sonic Cannon (hold to charge)   Shift+R  Sonic Burst
  *   G (2)  Hydraulic Punch                 Shift+G  Grapple Claw
- *   X (3)  Thruster Dash                   Shift+X  Hover (toggle)
+ *   X (3)  Thruster Dash                   Shift+X  Jet Flight (toggle; also double-tap jump in the air)
  *   Z (4)  Techno-Override                 Shift+Z  Scan
  *   V (5)  Boom Tube                       Shift+V  Waypoint
  *   C (6)  Defense Matrix                  Shift+C  Self-Repair
@@ -267,8 +267,8 @@ public final class CyborgAbilities {
 			CyborgCombat.strike(p, hit[0], p.position(), dmg, 0.6 + 1.4 * charge, 0.2 + 0.3 * charge);
 		}
 		CyborgState b = Cyborg.state(p).copy();
-		b.beamUntil = now + 6;
-		b.beamEnd = List.of(end.x, end.y, end.z);
+		b.fx.beamUntil = now + 6;
+		b.fx.beamEnd = List.of(end.x, end.y, end.z);
 		b.animId = CyborgState.ANIM_CANNON;
 		b.animStart = now - CyborgConfig.CANNON_CHARGE_TICKS; // straight into the recoil part of the pose
 		Cyborg.save(p, b);
@@ -365,6 +365,15 @@ public final class CyborgAbilities {
 		AbilityHelpers.line(level, from, end, ParticleTypes.ELECTRIC_SPARK, 3.0);
 		sound(p, SoundEvents.CROSSBOW_SHOOT, 1.0f, 0.6f);
 		sound(p, SoundEvents.CHAIN_PLACE, 1.0f, 1.2f);
+		// the cable: out to the claw, held while it pulls
+		long now = p.level().getGameTime();
+		Vec3 endF = end;
+		LivingEntity caught = hit[0];
+		CyborgState cs = Cyborg.state(p).copy();
+		cs.fx.cableUntil = now + (caught != null ? 10 : 32);
+		cs.fx.cableEnd = List.of(endF.x, endF.y, endF.z);
+		cs.fx.cableTarget = caught != null ? caught.getId() : -1;
+		Cyborg.save(p, cs);
 		if (hit[0] != null) {
 			LivingEntity t = hit[0];
 			if (CyborgCombat.isTarget(p, t) && !CyborgCombat.isBoss(t) && !(t instanceof Player && !com.projecthero.mod.combat.HeroTargets.pvpOn(p))) {
@@ -385,6 +394,9 @@ public final class CyborgAbilities {
 		if (now - pull.start > 30 || to.length() < 1.6 || !p.isAlive()) {
 			PULLS.remove(p.getUUID());
 			p.resetFallDistance();
+			CyborgState n = Cyborg.state(p).copy();
+			n.fx.cableUntil = now + 2; // reel in
+			Cyborg.save(p, n);
 			return;
 		}
 		AbilityHelpers.launchSelf(p, to.normalize().scale(1.4).add(0, 0.12, 0));
@@ -428,7 +440,11 @@ public final class CyborgAbilities {
 		level(p).sendParticles(Cyborg.BLUE, back.x, p.getY() + 0.2, back.z, 2, 0.1, 0.1, 0.1, 0.0);
 	}
 
-	// ================================================================ Shift+X: Hover (toggle)
+	// ================================================================ Shift+X / double-tap jump: Jet Flight (toggle)
+	//
+	// v0.16.5 (user): "able to fly by double pressing space bar, doing so he projects energy from his feet and builds a
+	// jetpack on his back". The movement is the shared directional flight (client.flight.DirectionalFlight, the Max Steel
+	// numbers); the jetpack building on and the energy jets are client-side (client.cyborg.CyborgJetpack).
 
 	public static void toggleHover(ServerPlayer p) {
 		if (Cyborg.state(p).hovering) {
@@ -446,6 +462,7 @@ public final class CyborgAbilities {
 		}
 		CyborgState n = Cyborg.state(p).copy();
 		n.hovering = true;
+		n.fx.jetChange = p.level().getGameTime();
 		Cyborg.save(p, n);
 		if (!p.getAbilities().mayfly) {
 			HOVER_GRANTED.add(p.getUUID());
@@ -463,6 +480,7 @@ public final class CyborgAbilities {
 		if (s != null && s.hovering) {
 			CyborgState n = s.copy();
 			n.hovering = false;
+			n.fx.jetChange = p.level().getGameTime();
 			Cyborg.save(p, n);
 		}
 		if (HOVER_GRANTED.remove(p.getUUID())) {
@@ -483,17 +501,23 @@ public final class CyborgAbilities {
 			stopHover(p);
 			return;
 		}
+		// the shared landing rule: touching down (past the take-off grace, not rising) folds the jetpack away
+		if (com.projecthero.mod.flight.FlightLanding.landed(p, Cyborg.state(p).fx.jetChange)) {
+			stopHover(p);
+			sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.9f);
+			return;
+		}
 		if (!p.getAbilities().flying && !p.onGround()) {
 			p.getAbilities().flying = true;
 			p.onUpdateAbilities();
 		}
 		p.resetFallDistance();
-		if (now % 2 == 0) {
-			level(p).sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() - 0.05, p.getZ(), 2, 0.12, 0.02, 0.12, 0.005);
-			level(p).sendParticles(Cyborg.BLUE, p.getX(), p.getY() - 0.1, p.getZ(), 1, 0.1, 0.02, 0.1, 0.0);
+		if (now % 3 == 0) {
+			// sparks off the energy jets (the jets themselves are drawn client-side)
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() - 0.15, p.getZ(), 1, 0.1, 0.05, 0.1, 0.01);
 		}
 		if (now % 20 == 0) {
-			sound(p, SoundEvents.FIRE_AMBIENT, 0.4f, 1.6f);
+			sound(p, SoundEvents.BEACON_AMBIENT, 0.35f, 1.8f);
 		}
 	}
 

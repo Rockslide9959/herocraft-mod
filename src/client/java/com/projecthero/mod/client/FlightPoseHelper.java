@@ -120,7 +120,9 @@ public final class FlightPoseHelper {
 		// v0.15.13: Nova too (his own arm pose is NovaPose)
 		boolean novaFlying = com.projecthero.mod.nova.Nova.isFlying(player);
 		boolean otherHeroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
-				|| maxSteelFlying || greenLanternFlying || kryptonianFlying || novaFlying;
+				|| maxSteelFlying || greenLanternFlying || kryptonianFlying || novaFlying
+				// v0.16.5: Cyborg's Jet Flight leans in too
+				|| com.projecthero.mod.cyborg.Cyborg.flying(player);
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
 		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),

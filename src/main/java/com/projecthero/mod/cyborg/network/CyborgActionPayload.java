@@ -8,10 +8,11 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-/** Client to server Cyborg requests that are not ability slots (v0.16.5): H (combat / civilian form). */
+/** Client to server Cyborg requests that are not ability slots (v0.16.5): H (the hologram), the jump double-tap (Jet Flight). */
 public record CyborgActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_FORM
+		TOGGLE_FORM,
+		TOGGLE_FLIGHT
 	}
 
 	public static final CustomPacketPayload.Type<CyborgActionPayload> TYPE =

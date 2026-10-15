@@ -41,13 +41,16 @@ import net.minecraft.world.entity.player.Player;
 public final class CyborgRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/cyborg/cyborg.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/cyborg/cyborg_glow.png");
+	/** The metal half of the head alone, drawn on {@link #cover()} just outside the wearer's own hat layer. */
+	public static final ResourceLocation HEAD_COVER = ProjectHeroMod.id("textures/entity/cyborg/cyborg_head_cover.png");
 	/** The chest core sits this many model pixels down from the top of the head. */
-	private static final float CORE_HEIGHT = 11f;
+	public static final float CORE_HEIGHT = 11f;
 	/** The farthest texel from the core (the soles). */
 	public static final int STEPS = 21;
 	private static final int EDGE_ARGB = 0xFF6AD8FF;
 
 	private static PlayerModel<LivingEntity> model;
+	private static ModelPart cover;
 	private static ResourceLocation[] frames;
 	private static ResourceLocation[] edges;
 
@@ -57,14 +60,21 @@ public final class CyborgRender {
 	/**
 	 * @param spread how far the plates reach from the core, model pixels (0 = none, {@link #STEPS} = all of him)
 	 * @param fresh  the newest texels glow (a change is running)
-	 * @param holo   0..1 the civilian hologram flicker over what is left
+	 * @param holo   how far down him the hologram reaches, 0..1 (every texel whose {@link #holoOrder} is at or below it is
+	 *               hologram); 1 = the whole hologram (he just looks like his old self: nothing of Cyborg is drawn)
+	 * @param building the hologram is building (the forehead projector is on); false while it drains away
 	 */
-	public record Anim(float spread, boolean fresh, float holo) {
-		static final Anim NONE = new Anim(0f, false, 0f);
-		static final Anim FULL = new Anim(STEPS, false, 0f);
+	public record Anim(float spread, boolean fresh, float holo, boolean building) {
+		static final Anim NONE = new Anim(0f, false, 0f, false);
+		static final Anim FULL = new Anim(STEPS, false, 0f, false);
+		static final Anim HOLOGRAM = new Anim(STEPS, false, 1f, false);
 
 		public boolean anything() {
-			return spread > 0f;
+			return spread > 0f && holo < 1f;
+		}
+
+		public boolean hologramShowing() {
+			return holo > 0f && holo < 1f;
 		}
 	}
 
@@ -76,6 +86,20 @@ public final class CyborgRender {
 		return model;
 	}
 
+	/**
+	 * A head cube a hair outside the vanilla hat layer (+0.5): with {@link #HEAD_COVER} on it, the metal half of the head
+	 * hides the wearer's hat / hair layer there, while on the human half (transparent in the cover) it shows.
+	 */
+	private static ModelPart cover() {
+		if (cover == null) {
+			MeshDefinition mesh = new MeshDefinition();
+			mesh.getRoot().addOrReplaceChild("head", net.minecraft.client.model.geom.builders.CubeListBuilder.create().texOffs(0, 0)
+					.addBox(-4f, -8f, -4f, 8f, 8f, 8f, new CubeDeformation(0.52f)), net.minecraft.client.model.geom.PartPose.ZERO);
+			cover = LayerDefinition.create(mesh, 64, 64).bakeRoot().getChild("head");
+		}
+		return cover;
+	}
+
 	public static Anim anim(Player player, float partial) {
 		CyborgState s = player.getAttachedOrElse(ModAttachments.CYBORG_STATE, null);
 		if (s == null || !s.hasPower || player.level() == null) {
@@ -85,28 +109,30 @@ public final class CyborgRender {
 		if (age < 0f && age > -40f) {
 			age = 0f;
 		}
-		if (s.combat) {
-			float total = s.animId == CyborgState.ANIM_CONVERT ? CyborgConfig.CONVERT_TICKS : CyborgConfig.PLATES_ON_TICKS;
-			if (s.formChangeAt <= 0L || age >= total || age < 0f) {
-				return Anim.FULL;
-			}
-			float t = Mth.clamp(age / total, 0f, 1f);
-			// the conversion hesitates and jerks as the box fights the body; H is one smooth sweep
-			if (s.animId == CyborgState.ANIM_CONVERT) {
-				t = t + 0.03f * Mth.sin(age * 0.9f);
-			}
-			return new Anim(STEPS * Mth.clamp(t, 0f, 1f), true, 0f);
+		boolean running = s.formChangeAt > 0L && age >= 0f;
+		if (s.combat && s.animId == CyborgState.ANIM_CONVERT && running && age < CyborgConfig.CONVERT_TICKS) {
+			// the Mother Box fusing: the plates spread from the core, hesitating and jerking as it fights the body
+			float t = Mth.clamp(age / CyborgConfig.CONVERT_TICKS, 0f, 1f) + 0.03f * Mth.sin(age * 0.9f);
+			return new Anim(STEPS * Mth.clamp(t, 0f, 1f), true, 0f, false);
 		}
-		float total = CyborgConfig.PLATES_OFF_TICKS;
-		if (s.formChangeAt <= 0L || age >= total || age < 0f) {
-			return Anim.NONE;
+		if (!s.combat) {
+			// the hologram building over him from the top of the head down
+			if (running && age < CyborgConfig.PLATES_OFF_TICKS) {
+				return new Anim(STEPS, false, Mth.clamp(age / CyborgConfig.PLATES_OFF_TICKS, 0f, 1f), true);
+			}
+			return Anim.HOLOGRAM;
 		}
-		float t = Mth.clamp(age / total, 0f, 1f);
-		return new Anim(STEPS * (1f - t), true, 1f - t);
+		if (s.animId == CyborgState.ANIM_PLATES_ON && running && age < CyborgConfig.PLATES_ON_TICKS) {
+			// the hologram dropped: it drains away from the feet up
+			return new Anim(STEPS, false, 1f - Mth.clamp(age / CyborgConfig.PLATES_ON_TICKS, 0f, 1f), false);
+		}
+		return Anim.FULL;
 	}
 
+	/** How much of him is plates, 0..1 (0 with the whole hologram up: first person then shows his old arm). */
 	public static float progress(Player player, float partial) {
-		return anim(player, partial).spread() / STEPS;
+		Anim a = anim(player, partial);
+		return a.holo() >= 1f ? 0f : a.spread() / STEPS;
 	}
 
 	public static boolean hidesSkinOverlay(Player player) {
@@ -134,13 +160,13 @@ public final class CyborgRender {
 		PlayerModel<LivingEntity> m = posed(parent);
 		boolean full = a.spread() >= STEPS - 0.01f;
 		ResourceLocation tex = full ? SKIN : frame(a.spread(), false);
-		int alpha = 255;
-		if (a.holo() > 0f) {
-			// the hologram: the folding plates flicker
-			alpha = Math.round(255 * (0.55f + 0.45f * Math.abs(Mth.sin(ageInTicks * 1.7f))));
-		}
-		int color = (alpha << 24) | 0xFFFFFF;
+		int color = 0xFFFFFFFF;
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, color);
+		if (full && a.holo() <= 0f) {
+			ModelPart c = cover();
+			c.copyFrom(parent.head);
+			c.render(pose, buffers.getBuffer(RenderType.entityTranslucent(HEAD_COVER)), light, OverlayTexture.NO_OVERLAY, color);
+		}
 		if (full) {
 			float pulse = 0.8f + 0.2f * Mth.sin(ageInTicks * 0.25f);
 			int g = Math.round(255 * pulse);
@@ -169,6 +195,120 @@ public final class CyborgRender {
 			a.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 			sleeve.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 		}
+	}
+
+	// ---------------------------------------------------------------- the hologram
+
+	/** The cyan of the projector light and of the hologram's building edge. */
+	private static final int HOLO_EDGE = 0xFF7FE6FF;
+	/** The newest texels of a building hologram are cyan for this much of the line. */
+	private static final float HOLO_RIM = 0.035f;
+	/** The blue lamp on his forehead (head-part space, model pixels), just outside the head cover. */
+	private static final float LAMP_X = 0.5f, LAMP_Y = -6.5f, LAMP_Z = -4.6f;
+
+	/**
+	 * When base texel ({@code u}, {@code v}) is reached by the hologram, 0..1: the top of the head first, row by row down to
+	 * the soles, and within a row one texel after another in a scattered order, so it visibly builds a pixel at a time.
+	 */
+	public static float holoOrder(int u, int v) {
+		float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
+		if (h < 0f) {
+			return 2f;
+		}
+		int k = u * 73856093 ^ v * 19349663;
+		k = (k ^ (k >>> 13)) * 1274126177;
+		float jitter = ((k >>> 8) & 0xFFFF) / 65536f;
+		return Mth.clamp((Math.min(h, 31.99f) + jitter * 0.98f) / 32f, 0f, 1f);
+	}
+
+	/** The hologram's tint for one texel at {@code line}: 0 = not there (yet / any more), cyan on the building edge, else white. */
+	public static int holoTint(int u, int v, float line, boolean building) {
+		float o = holoOrder(u, v);
+		if (building ? o > line : o > line + 1e-4f || line <= 0f) {
+			return 0;
+		}
+		return building && line - o < HOLO_RIM ? HOLO_EDGE : 0xFFFFFFFF;
+	}
+
+	/**
+	 * The building / draining hologram over the plates: the wearer's own skin, base and overlay, a hair outside the plates,
+	 * texel by texel; while it builds, a cone of cyan light from the lamp on his forehead to the line it is drawing.
+	 */
+	public static void renderHologram(PoseStack pose, MultiBufferSource buffers, int light, net.minecraft.client.player.AbstractClientPlayer player,
+			PlayerModel<?> parent, Anim a, float ageInTicks) {
+		float line = a.holo();
+		boolean building = a.building();
+		com.projecthero.mod.client.render.OverlayStrips.renderSkin(pose, buffers, light, player, parent,
+				(u, v) -> holoTint(u, v, line, building), true, true, 0.07f);
+		if (building) {
+			renderProjector(pose, buffers, parent, line, ageInTicks);
+		}
+	}
+
+	private static void renderProjector(PoseStack pose, MultiBufferSource buffers, HumanoidModel<?> parent, float line, float age) {
+		// the lamp, in model space
+		PoseStack lamp = new PoseStack();
+		parent.head.translateAndRotate(lamp);
+		org.joml.Vector4f p = new org.joml.Vector4f(LAMP_X / 16f, LAMP_Y / 16f, LAMP_Z / 16f, 1f);
+		lamp.last().pose().transform(p);
+		// the line it is drawing: a ring round him at that height (model y: top of the head -0.5, soles 1.5)
+		float h = line * 32f;
+		float y = (h - 8f) / 16f;
+		float hx = h < 8f ? 0.30f : 0.55f, hz = h < 8f ? 0.30f : 0.22f;
+		com.mojang.blaze3d.vertex.VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
+		org.joml.Matrix4f m = pose.last().pose();
+		float flicker = 0.75f + 0.25f * Mth.sin(age * 3.1f);
+		float[][] ring = { { -hx, -hz }, { hx, -hz }, { hx, hz }, { -hx, hz } };
+		for (int i = 0; i < 4; i++) {
+			float[] c0 = ring[i], c1 = ring[(i + 1) % 4];
+			// the cone, faint, from both sides (the lightning type is culled)
+			tri(vc, m, p.x(), p.y(), p.z(), c0[0], y, c0[1], c1[0], y, c1[1], 0.55f * flicker);
+			tri(vc, m, p.x(), p.y(), p.z(), c1[0], y, c1[1], c0[0], y, c0[1], 0.55f * flicker);
+			// a bright ray from the lamp down each edge of the cone
+			float rw = 0.012f;
+			quadGlowA(vc, m, p.x() - rw, p.y(), p.z(), p.x() + rw, p.y(), p.z(), c0[0] + rw, y, c0[1], c0[0] - rw, y, c0[1], 0.85f * flicker);
+			quadGlowA(vc, m, c0[0] - rw, y, c0[1], c0[0] + rw, y, c0[1], p.x() + rw, p.y(), p.z(), p.x() - rw, p.y(), p.z(), 0.85f * flicker);
+			// the scan line itself, a bright band
+			band(vc, m, c0[0], c0[1], c1[0], c1[1], y, 0.9f * flicker);
+		}
+		// the lamp's own glow, a little diamond facing forward
+		float r = 0.04f;
+		float z = p.z() - 0.005f;
+		quadGlow(vc, m, p.x(), p.y() - r, z, p.x() + r, p.y(), z, p.x(), p.y() + r, z, p.x() - r, p.y(), z);
+		quadGlow(vc, m, p.x() - r, p.y(), z, p.x(), p.y() + r, z, p.x() + r, p.y(), z, p.x(), p.y() - r, z);
+	}
+
+	/** One triangle on the lightning type (a quad type: the last corner repeats). Bright at the apex, fading outward. */
+	private static void tri(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x0, float y0, float z0, float x1, float y1,
+			float z1, float x2, float y2, float z2, float alpha) {
+		vc.addVertex(m, x0, y0, z0).setColor(0.55f, 0.92f, 1f, alpha);
+		vc.addVertex(m, x1, y1, z1).setColor(0.3f, 0.75f, 1f, alpha * 0.35f);
+		vc.addVertex(m, x2, y2, z2).setColor(0.3f, 0.75f, 1f, alpha * 0.35f);
+		vc.addVertex(m, x2, y2, z2).setColor(0.3f, 0.75f, 1f, alpha * 0.35f);
+	}
+
+	private static void quadGlow(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x0, float y0, float z0, float x1, float y1,
+			float z1, float x2, float y2, float z2, float x3, float y3, float z3) {
+		vc.addVertex(m, x0, y0, z0).setColor(0.8f, 0.97f, 1f, 1f);
+		vc.addVertex(m, x1, y1, z1).setColor(0.8f, 0.97f, 1f, 1f);
+		vc.addVertex(m, x2, y2, z2).setColor(0.8f, 0.97f, 1f, 1f);
+		vc.addVertex(m, x3, y3, z3).setColor(0.8f, 0.97f, 1f, 1f);
+	}
+
+	/** A thin horizontal band from (x0, z0) to (x1, z1) at height y, from both sides. */
+	private static void band(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x0, float z0, float x1, float z1, float y,
+			float alpha) {
+		float t = 0.012f;
+		quadGlowA(vc, m, x0, y - t, z0, x1, y - t, z1, x1, y + t, z1, x0, y + t, z0, alpha);
+		quadGlowA(vc, m, x0, y + t, z0, x1, y + t, z1, x1, y - t, z1, x0, y - t, z0, alpha);
+	}
+
+	private static void quadGlowA(com.mojang.blaze3d.vertex.VertexConsumer vc, org.joml.Matrix4f m, float x0, float y0, float z0, float x1, float y1,
+			float z1, float x2, float y2, float z2, float x3, float y3, float z3, float alpha) {
+		vc.addVertex(m, x0, y0, z0).setColor(0.7f, 0.95f, 1f, alpha);
+		vc.addVertex(m, x1, y1, z1).setColor(0.7f, 0.95f, 1f, alpha);
+		vc.addVertex(m, x2, y2, z2).setColor(0.7f, 0.95f, 1f, alpha);
+		vc.addVertex(m, x3, y3, z3).setColor(0.7f, 0.95f, 1f, alpha);
 	}
 
 	// ---------------------------------------------------------------- the spread frames

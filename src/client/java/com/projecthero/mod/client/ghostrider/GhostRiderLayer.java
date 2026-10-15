@@ -25,5 +25,11 @@ public class GhostRiderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 			return;
 		}
 		GhostRiderRender.render(pose, buffers, light, getParentModel(), anim, ageInTicks);
+		if (anim.cover() > 0f && anim.cover() < 0.999f) {
+			// v0.16.5: the wearer's second layer goes texel by texel with the change, not all at once
+			float cover = anim.cover();
+			com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(),
+					(u, v) -> GhostRiderRender.order(u, v) > cover);
+		}
 	}
 }

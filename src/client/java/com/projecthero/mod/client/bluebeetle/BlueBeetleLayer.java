@@ -38,6 +38,15 @@ public class BlueBeetleLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		BlueBeetleRender.Anim anim = BlueBeetleRender.anim(player, partialTick);
 		if (anim.anything()) {
 			BlueBeetleRender.render(pose, buffers, light, getParentModel(), player, anim, partialTick, ageInTicks);
+			if (anim.spread() < BlueBeetleRender.STEPS - 0.01f) {
+				// v0.16.5: the wearer's second layer goes texel row by texel row as the armour spreads, not all at once
+				float spread = anim.spread();
+				com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(),
+						(u, v) -> {
+							float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
+							return h >= 0f && Math.abs(h - BlueBeetleRender.CORE_HEIGHT) > spread;
+						});
+			}
 		}
 		renderBackScarab(pose, buffers, player, ageInTicks);
 	}

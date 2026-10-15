@@ -243,12 +243,20 @@ public final class GhostRiderAbilities {
 			TRANSFORM_FX.remove(p.getUUID());
 			return;
 		}
-		// the flames climb from the boots to the head
-		double h = p.getBbHeight() * Math.min(1.0, age / (double) (GhostRiderConfig.TRANSFORM_TICKS - 10));
-		if (age % 2 == 0) {
-			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + h, p.getZ(), 4, 0.35, 0.1, 0.35, 0.02);
+		float prog = age / (float) GhostRiderConfig.TRANSFORM_TICKS;
+		Vec3 back = p.position().add(0, 1.1, 0).subtract(Vec3.directionFromRotation(0f, p.yBodyRot).scale(0.35));
+		if (prog < 0.55f && age % 3 == 0) {
+			// the leather wraps round him from the back: dark smoke off the spine
+			level.sendParticles(ParticleTypes.SMOKE, back.x, back.y, back.z, 3, 0.15, 0.5, 0.15, 0.01);
+		} else if (prog >= 0.58f && prog < 0.86f && age % 2 == 0) {
+			// the face burns away: embers and ash off the head
+			level.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getEyeY(), p.getZ(), 2, 0.18, 0.15, 0.18, 0.01);
+			level.sendParticles(ParticleTypes.ASH, p.getX(), p.getEyeY(), p.getZ(), 4, 0.2, 0.2, 0.2, 0.0);
+			if (age % 8 == 0) {
+				sound(p, SoundEvents.FIRE_AMBIENT, 1.2f, 0.6f);
+			}
 		}
-		if (age == GhostRiderConfig.TRANSFORM_TICKS - 10) {
+		if (age == Math.round(GhostRiderConfig.TRANSFORM_TICKS * 0.86f)) {
 			// the skull ignites
 			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getEyeY() + 0.3, p.getZ(), 60, 0.25, 0.4, 0.25, 0.08);
 			level.sendParticles(GhostRider.HELLFIRE_BIG, p.getX(), p.getEyeY() + 0.3, p.getZ(), 20, 0.3, 0.4, 0.3, 0.0);

@@ -16,9 +16,10 @@ Shared rules for all four (they match the current mod):
 
 **How you get it:** the **Mother Box** already drops from the Apokolips Invasion (Darkseid raid). Right-click it while you have **4 hearts or less**. The box fuses with you and you get a 10 s per-texel conversion, the same reveal style as the Max Steel nanotech. The Mother Box is used up.
 
-**Look:** a player model with a detailed cyborg skin (chrome plates, red eye, glowing chest core). **H** switches between:
-- **Civilian:** a hologram hides the plates and your normal skin shows. Only the passives work.
-- **Combat:** the plates show and the full kit works.
+**Look:** a player model with a detailed cyborg skin (chrome plates, red eye, glowing chest core).
+- **Reworked (user):** he is **always Cyborg**; the full kit and the passives always work. **H** projects a **hologram** of your normal skin from the blue light on his forehead. It builds over the body one pixel at a time, top-down, and any move (or H again) drops it.
+- **Jet Flight (user):** double-tap jump in the air. A jetpack builds itself onto his back and he flies on energy jets from it and from his boots; landing folds it away.
+- **Arm blaster (user):** the Sonic Cannon and the Sonic Burst build a blaster round his forearm, like Max Steel's.
 
 **Resource: Power Core (100).** It regenerates 2 per second. Getting struck by lightning or standing next to a powered redstone block fills it faster.
 
@@ -26,12 +27,12 @@ Shared rules for all four (they match the current mod):
 |---|---|---|
 | **R** | **Sonic Cannon:** hold to charge (up to 1.5 s), release to fire a blue beam that deals 6-16 damage with knockback. 20 core | **Sonic Burst:** a 6-block cone blast that pushes enemies away. 25 core |
 | **G** | **Hydraulic Punch:** a heavy hit that breaks guards, 12 damage. 6 s | **Grapple Claw:** fire a cable 30 blocks. A block pulls you to it; a mob is pulled to you |
-| **X** | **Thruster Dash:** a jet-boot dash 10 blocks in the direction you are moving. 4 s | **Hover:** hold to float, draining 5 core per second |
+| **X** | **Thruster Dash:** a jet-boot dash 10 blocks in the direction you are moving. 4 s | **Jet Flight:** toggle (or double-tap jump), draining 4 core per second |
 | **Z** | **Techno-Override:** hack what you aim at. Ultron drones, Sentinels, Stark Sorter Bots and iron golems fight for you for 20 s. Doors, pistons, lamps and TNT toggle. 40 core | **Scan:** highlight mobs and ores within 32 blocks for 10 s, and show the target's HP and armour on the HUD |
 | **V** | **Boom Tube:** teleport to where you are looking (up to 64 blocks) or to your bed; your squad within 6 blocks comes too. 90 s | **Waypoint:** save the current spot as the Boom Tube's next destination (works across dimensions) |
 | **C** | **Defense Matrix:** an energy shield that blocks 30 damage in front of you, for up to 5 s | **Self-Repair:** spend 3 iron ingots to heal 8 HP over 4 s. 30 s |
 
-**Passives (combat form):** no drowning, hunger drains at half speed, 50 % less fall damage, and a +4 armour plating bonus. **Weakness:** taking lightning or electric damage in civilian form shocks you, and water stops the core from regenerating.
+**Passives (always):** no drowning, hunger drains at half speed, no fall damage, and a +4 armour plating bonus. Lightning fills the core. **Weakness:** water stops the core from regenerating.
 
 **New assets:** cyborg skin (two forms), Sonic Cannon beam visual, Boom Tube portal visual (the Darkseid Boom Tube effect can be reused), hologram shimmer.
 

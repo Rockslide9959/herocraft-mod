@@ -1203,6 +1203,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.16.5 (user): Cyborg -- double-tap jump in the air builds the jetpack and takes off / lands (server re-validates).
+		if (!player.onGround() && com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			ClientPlayNetworking.send(new com.projecthero.mod.cyborg.network.CyborgActionPayload(
+					com.projecthero.mod.cyborg.network.CyborgActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
 		// v0.15.13: Nova -- double-tap jump in the air while suited takes off / drops out of flight (server re-validates).
 		if (com.projecthero.mod.client.nova.NovaClient.wantsFlightToggle(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;

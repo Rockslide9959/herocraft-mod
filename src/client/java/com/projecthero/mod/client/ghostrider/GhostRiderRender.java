@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.client.render.OverlayStrips;
 import com.projecthero.mod.ghostrider.GhostRiderConfig;
 import com.projecthero.mod.ghostrider.data.GhostRiderState;
 
@@ -37,30 +38,32 @@ import org.joml.Matrix4f;
 
 /**
  * v0.16.5: Ghost Rider drawn over a player -- the user's NovaSkin skin (post 4891213136, 128x128 HD, wide arms) on a
- * second, wide player model a hair larger than the wearer's (the Nova uniform technique: nothing to equip or lose; the
- * wearer's own overlay layer and armour are hidden while any of it shows).
+ * second, wide player model a hair larger than the wearer's (the Nova uniform technique).
  *
- * <ul>
- *   <li><b>The change</b> ({@link #anim}): the Spirit burns in from the boots up -- texel rows revealed bottom-up with a
- *       glowing hellfire edge on the newest rows (frames pre-built once from the vanilla cube UV layout) -- and when the
- *       flames reach the head the skull ignites. Reverting runs it the other way: the skull goes out and the body burns
- *       away from the head down.</li>
- *   <li><b>The flaming skull</b> ({@link #renderSkullFire}): a crown and a ring of the vanilla animated fire sprite
- *       (fire_0 / fire_1 from the block atlas, so it flickers exactly like real fire) streaming up off the skull, each
- *       tongue swaying and pulsing on its own clock; full-bright.</li>
- *   <li>The eye sockets burn orange (an emissive pass of {@code ghost_rider_glow.png}).</li>
- * </ul>
+ * <p><b>The change</b> ({@link #anim}, reworked to the user's design): three stages over {@code TRANSFORM_TICKS}:
+ * <ol>
+ *   <li>the leather jacket, trousers and boots <b>fold round the body from the back</b> -- every texel of the body and limbs
+ *       appears in order of how far round its cube it sits from the middle of the back, a dark crease on the newest
+ *       ones (no glow);</li>
+ *   <li>the face <b>burns away</b> into the skull -- the head's texels in patches, a charred edge eating in;</li>
+ *   <li>the skull <b>erupts</b>: the flames burst up past full size and settle.</li>
+ * </ol>
+ * Reverting runs it backwards. The wearer's own second layer goes texel by texel in step ({@link OverlayStrips} with
+ * {@link #order}). The skull fire is the vanilla animated fire sprite; the eye sockets glow.
  */
 public final class GhostRiderRender {
 	public static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/ghost_rider/ghost_rider.png");
 	public static final ResourceLocation GLOW = ProjectHeroMod.id("textures/entity/ghost_rider/ghost_rider_glow.png");
-	/** Model pixels from the top of the head to the soles. */
-	public static final int ROWS = 32;
-	private static final int EDGE_ARGB = 0xFFFF8A1E;
+	/** Frames of the change. */
+	private static final int FRAMES = 48;
+	/** Where in the change each stage sits (0..1). */
+	public static final float FOLD_END = 0.55f;
+	public static final float BURN_START = 0.58f;
+	public static final float BURN_END = 0.84f;
+	public static final float ERUPT = 0.86f;
 
 	private static PlayerModel<LivingEntity> model;
 	private static ResourceLocation[] frames;
-	private static ResourceLocation[] edges;
 
 	private GhostRiderRender() {
 	}
@@ -68,13 +71,13 @@ public final class GhostRiderRender {
 	/**
 	 * Where the change is at this frame.
 	 *
-	 * @param cover how much of the body is Ghost Rider, in model pixels from the soles up (0 = none, {@link #ROWS} = all)
-	 * @param skull 0..1 how much the skull is burning
-	 * @param fresh the newest rows glow (a change is running)
+	 * @param cover how far the change has got, 0..1 (every texel with {@link #order} at or below it is Ghost Rider)
+	 * @param skull how much the skull is burning: 0..1, briefly up to 1.5 as it erupts
+	 * @param fresh a change is running (the newest texels carry the crease / char)
 	 */
 	public record Anim(float cover, float skull, boolean fresh) {
 		static final Anim NONE = new Anim(0f, 0f, false);
-		static final Anim FULL = new Anim(ROWS, 1f, false);
+		static final Anim FULL = new Anim(1f, 1f, false);
 
 		public boolean anything() {
 			return cover > 0f || skull > 0f;
@@ -93,6 +96,15 @@ public final class GhostRiderRender {
 		return player.getAttachedOrElse(ModAttachments.GHOST_RIDER_STATE, null);
 	}
 
+	/** The skull's fire for change progress {@code p}: nothing, then an eruption past full size settling back to 1. */
+	private static float skullFor(float p) {
+		if (p < ERUPT) {
+			return 0f;
+		}
+		float t = (p - ERUPT) / (1f - ERUPT);
+		return t < 0.45f ? 1.5f * (t / 0.45f) : 1.5f - 0.5f * ((t - 0.45f) / 0.55f);
+	}
+
 	public static Anim anim(Player player, float partial) {
 		GhostRiderState s = state(player);
 		if (s == null || !s.hasPower || player.level() == null) {
@@ -100,38 +112,101 @@ public final class GhostRiderRender {
 		}
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		if (age < 0f && age > -40f) {
-			age = 0f; // the client clock can trail the server's by a few ticks
+			age = 0f;
 		}
 		if (s.transformed) {
 			float total = GhostRiderConfig.TRANSFORM_TICKS;
 			if (s.formChangeAt <= 0L || age >= total || age < 0f) {
 				return Anim.FULL;
 			}
-			float body = Mth.clamp(age / (total - 10f), 0f, 1f);
-			float skull = Mth.clamp((age - (total - 12f)) / 6f, 0f, 1f);
-			return new Anim(ROWS * smooth(body), skull, true);
+			float p = Mth.clamp(age / total, 0f, 1f);
+			return new Anim(p, skullFor(p), true);
 		}
 		float total = GhostRiderConfig.REVERT_TICKS;
 		if (s.formChangeAt <= 0L || age >= total || age < 0f) {
 			return Anim.NONE;
 		}
-		float t = Mth.clamp(age / total, 0f, 1f);
-		return new Anim(ROWS * (1f - t), Math.max(0f, 1f - age / 6f), true);
+		// backwards: the fire goes out, the face comes back, the clothes unwrap toward the back
+		float p = 1f - Mth.clamp(age / total, 0f, 1f);
+		return new Anim(p, p > ERUPT ? (p - ERUPT) / (1f - ERUPT) : 0f, true);
 	}
 
-	private static float smooth(float t) {
-		t = Mth.clamp(t, 0f, 1f);
-		return t * t * (3f - 2f * t);
-	}
-
-	/** How much of the body is Ghost Rider, 0..1 (the first-person arm uses it). */
 	public static float progress(Player player, float partial) {
-		return anim(player, partial).cover() / ROWS;
+		return anim(player, partial).cover();
 	}
 
-	/** The wearer's own skin overlay and armour are hidden whenever any of Ghost Rider shows. */
 	public static boolean hidesSkinOverlay(Player player) {
 		return progress(player, 0f) > 0f;
+	}
+
+	// ---------------------------------------------------------------- the order of the change
+
+	private static float[] orders;
+
+	/**
+	 * When base-layer texel ({@code u}, {@code v}) (64x64 skin coordinates; overlay-layer texels map to the base texel
+	 * under them) turns into Ghost Rider, 0..1; 2 for unused texels.
+	 */
+	public static float order(int u, int v) {
+		if (orders == null) {
+			float[] o = new float[64 * 64];
+			for (int y = 0; y < 64; y++) {
+				for (int x = 0; x < 64; x++) {
+					o[y * 64 + x] = computeOrder(x, y);
+				}
+			}
+			orders = o;
+		}
+		return u < 0 || v < 0 || u >= 64 || v >= 64 ? 2f : orders[v * 64 + u];
+	}
+
+	/** Base cubes of the body and limbs: u, v, width, depth, height. */
+	private static final int[][] LIMBS = { { 16, 16, 8, 4, 12 }, { 40, 16, 4, 4, 12 }, { 32, 48, 4, 4, 12 }, { 0, 16, 4, 4, 12 },
+			{ 16, 48, 4, 4, 12 } };
+
+	private static float computeOrder(int u, int v) {
+		// overlay regions -> the base texel under them
+		if (v < 16 && u >= 32) {
+			u -= 32; // hat -> head
+		} else if (v >= 32 && v < 48) {
+			v -= 16; // jacket / right sleeve / right trousers -> body / right arm / right leg
+		} else if (v >= 48 && u < 16) {
+			u += 16; // left trousers -> left leg
+		} else if (v >= 48 && u >= 48) {
+			u -= 16; // left sleeve -> left arm
+		}
+		if (OverlayStrips.height(u, v) < 0f) {
+			return 2f;
+		}
+		if (v < 16) {
+			// the head: burns away in patches (a 2x2-texel value noise with a finer grain on top)
+			float n = 0.7f * hash(u / 2, v / 2) + 0.3f * hash(u, v + 97);
+			return BURN_START + (BURN_END - BURN_START) * n;
+		}
+		for (int[] c : LIMBS) {
+			int u0 = c[0], v0 = c[1], w = c[2], d = c[3], h = c[4];
+			if (u < u0 || u >= u0 + 2 * (w + d) || v < v0 || v >= v0 + d + h) {
+				continue;
+			}
+			if (v < v0 + d) {
+				return FOLD_END - 0.02f; // the top / bottom caps close last
+			}
+			// round the cube: west d, north (front) w, east d, south (back) w -- the back's middle goes first
+			float perimeter = 2f * (w + d);
+			float back = 2f * d + 1.5f * w;
+			float dist = Math.abs(u - u0 + 0.5f - back);
+			dist = Math.min(dist, perimeter - dist) / (perimeter / 2f);
+			float row = (v - v0 - d) / (float) h;
+			return 0.02f + (FOLD_END - 0.08f) * dist + 0.05f * row;
+		}
+		return FOLD_END;
+	}
+
+	private static float hash(int x, int y) {
+		int h = x * 374761393 + y * 668265263;
+		h = (h ^ (h >>> 13)) * 1274126177;
+		h ^= h >>> 16;
+		return (h & 0xFFFF) / 65535f;
 	}
 
 	// ---------------------------------------------------------------- the body
@@ -153,17 +228,14 @@ public final class GhostRiderRender {
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, Anim a, float ageInTicks) {
 		if (a.cover() > 0f) {
 			PlayerModel<LivingEntity> m = posed(parent);
-			boolean full = a.cover() >= ROWS - 0.01f;
-			ResourceLocation tex = full ? SKIN : frame(a.cover(), false);
+			boolean full = a.cover() >= 0.999f;
+			ResourceLocation tex = full ? SKIN : frame(a.cover());
 			m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 			if (a.skull() > 0f) {
 				// the burning eye sockets (the skull is whole by now)
 				int k = Math.round(255 * Mth.clamp(a.skull(), 0f, 1f));
 				m.head.render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(GLOW)), LightTexture.FULL_BRIGHT,
 						OverlayTexture.NO_OVERLAY, FastColor.ARGB32.color(k, 255, 255, 255));
-			}
-			if (!full && a.fresh()) {
-				m.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(frame(a.cover(), true))), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 			}
 		}
 		if (a.skull() > 0.01f) {
@@ -180,15 +252,10 @@ public final class GhostRiderRender {
 		sleeve.copyFrom(arm);
 		a.visible = true;
 		sleeve.visible = true;
-		float cover = progress * ROWS;
-		boolean full = cover >= ROWS - 0.01f;
-		ResourceLocation tex = full ? SKIN : frame(cover, false);
+		boolean full = progress >= 0.999f;
+		ResourceLocation tex = full ? SKIN : frame(progress);
 		a.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
 		sleeve.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
-		if (!full) {
-			a.render(pose, buffers.getBuffer(RenderType.eyes(frame(cover, true))), light, OverlayTexture.NO_OVERLAY);
-			sleeve.render(pose, buffers.getBuffer(RenderType.eyes(frame(cover, true))), light, OverlayTexture.NO_OVERLAY);
-		}
 	}
 
 	// ---------------------------------------------------------------- the flaming skull
@@ -209,7 +276,7 @@ public final class GhostRiderRender {
 		head.translateAndRotate(pose);
 		Matrix4f m = pose.last().pose();
 		PoseStack.Pose last = pose.last();
-		float s = Mth.clamp(strength, 0f, 1f);
+		float s = Mth.clamp(strength, 0f, 1.6f); // up to 1.5 while the skull erupts
 		float t = ageInTicks;
 		// head space: the head cube spans x/z -0.25..0.25 and y -0.5 (top) .. 0 (chin); -y is up
 		float r = 0.27f;
@@ -260,49 +327,23 @@ public final class GhostRiderRender {
 				.setLight(LightTexture.FULL_BRIGHT).setNormal(last, 0f, -1f, 0f);
 	}
 
-	// ---------------------------------------------------------------- the burn-in frames
+	// ---------------------------------------------------------------- the frames of the change
 
-	private static ResourceLocation frame(float cover, boolean edge) {
+	private static ResourceLocation frame(float cover) {
 		if (frames == null) {
 			build();
 		}
 		if (frames.length == 0) {
 			return SKIN;
 		}
-		int k = Math.max(0, Math.min(ROWS, Math.round(cover)));
-		return edge ? edges[k] : frames[k];
+		int k = Math.max(0, Math.min(FRAMES, Math.round(cover * FRAMES)));
+		return frames[k];
 	}
 
-	/** Every 64-grid texel's height on the body in model pixels from the top of the head (see NovaSuitRender#heights). */
-	private static float[] heights() {
-		float[] h = new float[64 * 64];
-		java.util.Arrays.fill(h, -1f);
-		int[][] cubes = {
-				{ 0, 0, 8, 8, 8, 0 }, { 32, 0, 8, 8, 8, 0 },
-				{ 16, 16, 8, 12, 4, 8 }, { 16, 32, 8, 12, 4, 8 },
-				{ 40, 16, 4, 12, 4, 8 }, { 40, 32, 4, 12, 4, 8 }, { 32, 48, 4, 12, 4, 8 }, { 48, 48, 4, 12, 4, 8 },
-				{ 0, 16, 4, 12, 4, 20 }, { 0, 32, 4, 12, 4, 20 }, { 16, 48, 4, 12, 4, 20 }, { 0, 48, 4, 12, 4, 20 } };
-		for (int[] c : cubes) {
-			int u = c[0], v = c[1], w = c[2], hh = c[3], d = c[4], top = c[5];
-			float bottom = top == 0 ? hh - 0.1f : top + hh;
-			for (int y = v; y < v + d; y++) {
-				for (int x = u + d; x < u + d + w; x++) {
-					h[y * 64 + x] = top;
-				}
-				for (int x = u + d + w; x < u + d + 2 * w; x++) {
-					h[y * 64 + x] = bottom;
-				}
-			}
-			for (int y = v + d; y < v + d + hh; y++) {
-				for (int x = u; x < u + 2 * d + 2 * w; x++) {
-					h[y * 64 + x] = top + (y - v - d) + 0.5f;
-				}
-			}
-		}
-		return h;
-	}
-
-	/** Bottom-up: frame {@code k} shows every texel within {@code k} model pixels of the soles. */
+	/**
+	 * Frame {@code k} shows every texel whose {@link #order} is at most {@code k / FRAMES}. The newest texels are drawn
+	 * darker -- a fold's crease on the clothes, a charred rim on the burning face -- never a glow.
+	 */
 	private static void build() {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> res = mc.getResourceManager().getResource(SKIN);
@@ -320,38 +361,42 @@ public final class GhostRiderRender {
 		}
 		int size = src.getWidth();
 		int scale = Math.max(1, size / 64);
-		float[] h = heights();
-		frames = new ResourceLocation[ROWS + 1];
-		edges = new ResourceLocation[ROWS + 1];
-		for (int k = 0; k <= ROWS; k++) {
+		frames = new ResourceLocation[FRAMES + 1];
+		for (int k = 0; k <= FRAMES; k++) {
+			float line = k / (float) FRAMES;
 			NativeImage img = new NativeImage(size, size, true);
-			NativeImage edge = new NativeImage(size, size, true);
-			float line = ROWS - k; // texels at or below this height (from the top) are on
 			for (int y = 0; y < size; y++) {
 				for (int x = 0; x < size; x++) {
 					int px = src.getPixelRGBA(x, y);
-					float th = h[(y / scale) * 64 + (x / scale)];
-					boolean on = th >= 0f && th >= line && k > 0;
-					boolean rim = on && k < ROWS && th < line + 2.0f;
-					int alpha = (px >>> 24) & 0xFF;
-					// the rim flickers between orange and yellow texel by texel
-					int edgeArgb = ((x * 7 + y * 13) % 3 == 0) ? 0xFFFFD040 : EDGE_ARGB;
-					int edgeAbgr = toAbgr(edgeArgb);
-					img.setPixelRGBA(x, y, on ? (rim && alpha > 0 ? edgeAbgr : px) : 0);
-					edge.setPixelRGBA(x, y, rim && alpha > 0 ? edgeAbgr : 0);
+					float o = order(x / scale, y / scale);
+					if (o > line || k == 0) {
+						img.setPixelRGBA(x, y, 0);
+						continue;
+					}
+					float age = line - o;
+					boolean head = (y / scale) < 16;
+					if (k < FRAMES && age < (head ? 0.045f : 0.06f) && ((px >>> 24) & 0xFF) > 0) {
+						img.setPixelRGBA(x, y, head ? charred(px, x, y) : crease(px));
+					} else {
+						img.setPixelRGBA(x, y, px);
+					}
 				}
 			}
-			frames[k] = mc.getTextureManager().register("projecthero_ghost_rider_burn_" + k, new DynamicTexture(img));
-			edges[k] = mc.getTextureManager().register("projecthero_ghost_rider_burn_edge_" + k, new DynamicTexture(edge));
+			frames[k] = mc.getTextureManager().register("projecthero_ghost_rider_change_" + k, new DynamicTexture(img));
 		}
 		src.close();
 	}
 
-	private static int toAbgr(int argb) {
-		int a = (argb >>> 24) & 0xFF;
-		int r = (argb >>> 16) & 0xFF;
-		int g = (argb >>> 8) & 0xFF;
-		int b = argb & 0xFF;
-		return (a << 24) | (b << 16) | (g << 8) | r;
+	/** A fold's crease: the texel at half brightness (NativeImage pixels are ABGR). */
+	private static int crease(int abgr) {
+		int a = (abgr >>> 24) & 0xFF, b = (abgr >>> 16) & 0xFF, g = (abgr >>> 8) & 0xFF, r = abgr & 0xFF;
+		return (a << 24) | ((b / 2) << 16) | ((g / 2) << 8) | (r / 2);
+	}
+
+	/** A charred rim: soot black with the odd dull ember-red texel (not emissive). */
+	private static int charred(int abgr, int x, int y) {
+		boolean ember = ((x * 7 + y * 13) % 5) == 0;
+		int r = ember ? 120 : 28, g = ember ? 22 : 18, b = ember ? 10 : 16;
+		return (0xFF << 24) | (b << 16) | (g << 8) | r;
 	}
 }

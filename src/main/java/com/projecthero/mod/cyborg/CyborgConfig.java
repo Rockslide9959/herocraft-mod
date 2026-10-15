@@ -19,16 +19,14 @@ public final class CyborgConfig {
 	/** The Mother Box fuses with a player at this much health or less (4 hearts). */
 	public static final float FUSE_HEALTH = 8f;
 	public static final int CONVERT_TICKS = 200;
-	public static final int PLATES_ON_TICKS = 24;
-	public static final int PLATES_OFF_TICKS = 20;
+	/** v0.16.5 rework: the hologram dissolving (H again / a move) and building over him (H). */
+	public static final int PLATES_ON_TICKS = 14;
+	public static final int PLATES_OFF_TICKS = 50;
 	public static final int TOGGLE_COOLDOWN = 20;
 
-	// ---------------------------------------------------------------- passives (combat form)
+	// ---------------------------------------------------------------- passives (always)
 	public static final double ARMOR_BONUS = 4.0;
-	public static final float FALL_FACTOR = 0.5f;
 	public static final float HUNGER_FACTOR = 0.5f;
-	/** In civilian form lightning shocks the exposed circuits: x2. */
-	public static final float CIVILIAN_SHOCK = 2f;
 
 	// ---------------------------------------------------------------- bosses
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
@@ -55,11 +53,13 @@ public final class CyborgConfig {
 	public static final double GRAPPLE_RANGE = 30.0;
 	public static final int GRAPPLE_COOLDOWN = 100;
 
-	// ---------------------------------------------------------------- X: Thruster Dash / Shift+X: Hover
+	// ---------------------------------------------------------------- X: Thruster Dash / Shift+X or double-tap jump: Jet Flight
 	public static final double DASH_DISTANCE = 10.0;
 	public static final double DASH_SPEED = 1.6;
 	public static final int DASH_COOLDOWN = 80;
-	public static final float HOVER_COST_PER_SECOND = 5f;
+	public static final float HOVER_COST_PER_SECOND = 4f;
+	/** The jetpack building onto his back at take-off (and folding away on landing), a voxel at a time. */
+	public static final int JETPACK_BUILD_TICKS = 16;
 
 	// ---------------------------------------------------------------- Z: Techno-Override / Shift+Z: Scan
 	public static final double OVERRIDE_RANGE = 24.0;

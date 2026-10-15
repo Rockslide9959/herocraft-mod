@@ -23,7 +23,7 @@ public final class GhostRiderConfig {
 	public static final float VENGEANCE_DECAY = 1f;
 
 	// ---------------------------------------------------------------- the change (H)
-	public static final int TRANSFORM_TICKS = 40;
+	public static final int TRANSFORM_TICKS = 56;
 	public static final int REVERT_TICKS = 24;
 	public static final int TOGGLE_COOLDOWN = 20;
 	/** The contract's blood price: max health lost until the first transformation (5 hearts). */
