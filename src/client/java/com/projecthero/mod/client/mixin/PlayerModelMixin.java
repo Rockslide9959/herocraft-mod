@@ -51,7 +51,9 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// until the reveal has settled.
 		// v0.15.13: Nova's uniform is a second skin drawn a hair over the first -- the wearer's own overlay layer (hair, hat,
 		// jacket, sleeves, trousers) would poke through it, so it is hidden whenever any of the uniform is on
-		if (com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)) {
+		if (com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)
+				// v0.16.5: Ghost Rider is drawn the same way
+				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)) {
 			model.hat.visible = false;
 			model.jacket.visible = false;
 			model.leftSleeve.visible = false;

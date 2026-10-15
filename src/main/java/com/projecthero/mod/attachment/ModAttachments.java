@@ -870,6 +870,18 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.16.5: Ghost Rider -- the power, the form, Hellfire, Vengeance, the move timers and the visible effects (chain,
+	 * shield, stare). Persistent, kept through death and synced to every client.
+	 */
+	public static final AttachmentType<com.projecthero.mod.ghostrider.data.GhostRiderState> GHOST_RIDER_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("ghost_rider_state"),
+					builder -> builder.persistent(com.projecthero.mod.ghostrider.data.GhostRiderState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.ghostrider.data.GhostRiderState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.ghostrider.data.GhostRiderState.CODEC),
+									AttachmentSyncPredicate.all()));
+
+	/**
 	 * v0.14.11: the Flash Ring on a speedster's finger -- the ring as an item stack, the packed suit in its container
 	 * component; empty = none. Persistent, kept through death (a full ring drops on death without keepInventory, see
 	 * {@code FlashRing}) and synced to everyone (they draw the ring). Always replaced, never mutated in place.

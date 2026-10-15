@@ -333,6 +333,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.16.5: Ghost Rider's poses (the change, blast, bike, spin, stare, rush and the short moves). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$ghostRiderPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.ghostrider.GhostRiderPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/**
 	 * v0.14.4: Thor's move animations (Lightning Strike, Thunderclap, Chain Lightning, the throw, Hammer Volley, the
 	 * Beam, the Wrath charge and release, the suit-up). Declared after {@link #projecthero$flightPose} so a move made

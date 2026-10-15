@@ -204,6 +204,9 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.nova.Nova.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.novaChapter();
 		}
+		if (com.projecthero.mod.ghostrider.GhostRider.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.ghostRiderChapter();
+		}
 		if (com.projecthero.mod.wolverine.Wolverine.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.wolverineChapter();
 		}

@@ -38,6 +38,10 @@ public abstract class PlayerMixin {
 		if (com.projecthero.mod.titanshifter.entity.TitanFormEntity.isOwnerRider(self)) {
 			cir.setReturnValue(false);
 		}
+		// v0.16.5: on the Hell Cycle Shift is Ghost Rider's Shift+key modifier (Shift+X = Cycle Jump) -- X sends the bike back
+		if (self.getVehicle() instanceof com.projecthero.mod.ghostrider.entity.HellCycleEntity) {
+			cir.setReturnValue(false);
+		}
 	}
 
 	/**

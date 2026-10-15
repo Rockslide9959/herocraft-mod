@@ -128,6 +128,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.kryptonian.KryptonianClient.initialize();
 		// v0.15.13: Nova -- the uniform layer, HUD, beam / shield / well, Worldmind, the Centurion
 		com.projecthero.mod.client.nova.NovaClient.initialize();
+		// v0.16.5: Ghost Rider -- the skin layer + flaming skull, HUD, chain, Judgement Mark outlines, Hell Cycle, contract screen
+		com.projecthero.mod.client.ghostrider.GhostRiderClient.initialize();
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
@@ -814,6 +816,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.nova.NovaClient.ownsH(client.player)) {
 				// v0.15.13: H as Nova -- the Nova Corps uniform on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.nova.NovaClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.ghostrider.GhostRiderClient.ownsH(client.player)) {
+				// v0.16.5: H as Ghost Rider -- the Spirit of Vengeance out / back (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.ghostrider.GhostRiderClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.flash.FlashClient.ownsH(client.player)) {
 				// v0.14.11: H as a speedster with the Flash Suit -- the suit into the ring / out of it (Shift+H still opens the wheel).
 				com.projecthero.mod.client.flash.FlashClient.pressH();
@@ -856,7 +861,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.wolverine.Wolverine.hasPower(client.player)
 							|| com.projecthero.mod.allmight.AllMight.hasPower(client.player)
 							|| com.projecthero.mod.hulk.Hulk.hasPower(client.player)
-							|| com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player))) {
+							|| com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player)
+							|| com.projecthero.mod.ghostrider.GhostRider.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again
 				// dismisses it). Shift+H still opens the power wheel, unless another power already owns plain H,
 				// in which case Shift+H is the armour.

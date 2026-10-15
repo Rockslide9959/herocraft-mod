@@ -63,6 +63,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.nova.Nova.hasPower(player)) {
 			return "projecthero.squad.identity.nova";
 		}
+		if (com.projecthero.mod.ghostrider.GhostRider.hasPower(player)) {
+			return "projecthero.squad.identity.ghost_rider";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

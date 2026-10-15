@@ -108,6 +108,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.kryptonian.item.KryptonianItems.addToCreativeTab(output);
 				// v0.15.13 Nova: the Nova Corps Helmet and the Centurion's spawn egg.
 				com.projecthero.mod.nova.item.NovaItems.addToCreativeTab(output);
+				// v0.16.5 Ghost Rider: Mephisto's Contract
+				com.projecthero.mod.ghostrider.item.GhostRiderItems.addToCreativeTab(output);
 				// v0.14.11: the Flash Suit (the ring itself only exists holding a suit)
 				com.projecthero.mod.flash.FlashSuit.addToCreativeTab(output);
 				// v0.14.12: the Horde blocks and the new mobs' spawn eggs

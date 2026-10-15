@@ -124,6 +124,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_NOVA);
 	}
 
+	/** Ghost Rider (v0.16.5). */
+	public static Chapter ghostRiderChapter() {
+		return chapters().get(CH_GHOST_RIDER);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -385,7 +390,8 @@ public final class HeroPackGuide {
 	private static final int CH_CRIME = 36; // v0.16.2
 	private static final int CH_CITY = 37; // v0.16.2 City part A: Cities
 	private static final int CH_CITY_SERVICES = 38; // v0.16.2 City part B: City Services
-	private static final int CHAPTER_POWER_BASE = 39;
+	private static final int CH_GHOST_RIDER = 39; // v0.16.5
+	private static final int CHAPTER_POWER_BASE = 40;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1214,6 +1220,29 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.city_services." + section + ".body");
 			}
 		}));
+		// v0.16.5: Ghost Rider (CH_GHOST_RIDER)
+		out.add(chapter("projecthero.guide.ghost_rider", lines -> {
+			lines.add(Component.translatable("projecthero.guide.ghost_rider.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.ghost_rider.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "change", "hellfire", "vengeance", "cycle", "passives"}) {
+				head(lines, "projecthero.guide.ghost_rider." + section);
+				para(lines, "projecthero.guide.ghost_rider." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.ghost_rider.controls");
+			for (String[] row : new String[][] { { "R", "hellfire_blast" }, { "Shift+R", "hellfire_wave" }, { "G", "chain_whip" },
+					{ "Shift+G", "chain_spin" }, { "X", "hell_cycle" }, { "Shift+X", "cycle_jump" }, { "Z", "judgement_mark" },
+					{ "Shift+Z", "penance_stare" }, { "V", "hellfire_rush" }, { "Shift+V", "hellfire_eruption" }, { "C", "soul_shield" },
+					{ "Shift+C", "riders_wrath" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.ghost_rider.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.ghost_rider.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.ghost_rider.commands");
+			para(lines, "projecthero.guide.ghost_rider.commands.body");
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1255,6 +1284,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
 		link(idx, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
 		link(idx, "projecthero.guide.nova", CH_NOVA);
+		link(idx, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

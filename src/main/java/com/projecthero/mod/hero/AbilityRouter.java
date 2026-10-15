@@ -181,6 +181,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.nova.NovaAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.16.5: Ghost Rider, on the same terms
+		if (com.projecthero.mod.ghostrider.GhostRiderAbilityManager.hasContext(player)) {
+			com.projecthero.mod.ghostrider.GhostRiderAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
@@ -280,6 +285,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.kryptonian.Kryptonian.tick(player);
 		// v0.15.13: Nova -- the Nova Force, flight, the running moves
 		com.projecthero.mod.nova.Nova.tick(player);
+		// v0.16.5: Ghost Rider -- Hellfire, Vengeance, passives, the running moves
+		com.projecthero.mod.ghostrider.GhostRider.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
 		com.projecthero.mod.moonknight.MoonKnight.tick(player);
 		com.projecthero.mod.moonknight.ability.MoonKnightAbilityManager.serverTick(player);

@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier or a Kryptonian, bond with a living alien Symbiote, or mutate
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian or Ghost Rider, bond with a living alien Symbiote, or mutate
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -256,6 +256,18 @@ one **Kryptonian Crystal** it holds, then hold it up to the **daytime sun**. The
 - **The Superman Suit:** a craftable four-piece set (blue and red wool, gold and diamonds) that **only a Kryptonian can
   wear** -- netherite-strong, fireproof, mends itself in direct sunlight, with a real red cloth **cape** (gold shield on the back) that sways as you
   walk and streams out flat behind you at super-speed.
+
+### 🔥 Ghost Rider
+**Mephisto's Contract** turns up in Nether fortress and bastion chests. Sign it in blood and the Spirit of Vengeance
+is yours, but it costs you **5 hearts** until the first time the Spirit burns through you.
+- **H** changes you at any time: flames climb you from the boots up and your head burns down to a **flaming skull**.
+- **Changed:** immune to fire and lava, +3 hearts, no drowning, and undead lose their nerve.
+- **Hellfire** (100) fuels the kit and refills fastest at night and in the Nether. **Vengeance** fills when you hit
+  the guilty: monsters, and anything that hurt you, a villager or a player.
+  **R** Hellfire Blast (held, 20-damage bolts) · **Shift+R** Hellfire Wave · **G** Chain Whip (yanks) · **Shift+G**
+  Chain Spin · **X** the **Hell Cycle** (drives up walls, skims lava, a fire trail) · **Shift+X** Cycle Jump · **Z**
+  Judgement Mark (+25% damage on the guilty) · **Shift+Z** **Penance Stare** · **V** Hellfire Rush · **Shift+V**
+  Hellfire Eruption · **C** Soul Shield · **Shift+C** Rider's Wrath (buffs your squad).
 
 ---
 
