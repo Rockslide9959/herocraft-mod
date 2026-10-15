@@ -136,6 +136,7 @@ public class GalactusWeakPointEntity extends GalactusMob {
 			}
 			return false;
 		}
+		amount *= (float) com.projecthero.mod.galactus.GalactusConfig.weakPoints().damageMultiplier; // v0.16.4: the weak spots
 		float before = getHealth();
 		invulnerableTime = 0;
 		boolean hurt = super.hurt(source, amount);

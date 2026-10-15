@@ -65,6 +65,8 @@ public class SilverSurferEntity extends GalactusMob {
 	private Vec3 dashTo = Vec3.ZERO;
 	private final java.util.Set<java.util.UUID> dashHit = new java.util.HashSet<>();
 	private int cooldown = 40;
+	/** v0.16.4: ticks left of the low, winded pause after a dash (in melee reach). */
+	private int windedTicks;
 	private int shieldTicks;
 	private int turnTicks;
 	private float orbit;
@@ -341,6 +343,20 @@ public class SilverSurferEntity extends GalactusMob {
 			tickMove(level);
 			return;
 		}
+		if (windedTicks > 0) {
+			windedTicks--;
+			double ground = GalactusCombat.groundY(level, getX(), getY(), getZ());
+			double dy = Mth.clamp(ground + 0.2 - getY(), -0.35, 0.1);
+			setDeltaMovement(0, dy, 0);
+			if (target != null) {
+				faceTowards(target.position(), 8f);
+			}
+			if (tickCount % 4 == 0) {
+				level.sendParticles(GalactusFx.SILVER, getX(), getY() + 1.2, getZ(), 4, 0.3, 0.5, 0.3, 0.0);
+				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 1.0, getZ(), 2, 0.3, 0.4, 0.3, 0.05);
+			}
+			return;
+		}
 		if (target == null) {
 			hover(e != null ? Vec3.atCenterOf(e.center()).add(0, 12, 0) : position(), 0.3);
 			return;
@@ -460,6 +476,11 @@ public class SilverSurferEntity extends GalactusMob {
 			}
 		}
 		if (moveTick >= move.length()) {
+			if (move == GalactusAnims.SURFER_DASH) {
+				// v0.16.4 (playthrough audit): he flew out of melee reach for the whole duel -- after a dash he is winded, and
+				// sinks to the ground where it ended for a few seconds: the window for swords
+				windedTicks = c.windedTicks;
+			}
 			move = null;
 			cooldown = c.moveCooldownTicks + random.nextInt(20);
 		}

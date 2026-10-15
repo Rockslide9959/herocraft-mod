@@ -698,27 +698,67 @@ public class GalactusEvent extends EventInstance {
 			if (p == null) {
 				return;
 			}
-			Vec3 near;
+			// v0.16.4 (user: "the robots spawn inside the converters and get stuck"): on open ground OUTSIDE the converter's
+			// drawn body (they used to drop 5 blocks from its middle, inside its 15-block base and shield), clear of blocks
+			Vec3 spot;
 			if (guardOf != null) {
-				double a = level.random.nextDouble() * Math.PI * 2;
-				near = guardOf.position().add(Math.cos(a) * 5, 0, Math.sin(a) * 5);
+				double min = p.converterClearance() + 1.0;
+				spot = punisherSpot(level, p, guardOf.getX(), guardOf.getZ(), min, min + 4.0);
 			} else {
-				double a = level.random.nextDouble() * Math.PI * 2;
-				double r = 10 + level.random.nextDouble() * (arena() * 0.5);
-				near = Vec3.atBottomCenterOf(center()).add(Math.cos(a) * r, 0, Math.sin(a) * r);
+				Vec3 c = Vec3.atBottomCenterOf(center());
+				spot = punisherSpot(level, p, c.x, c.z, 10.0, 10.0 + arena() * 0.5);
 			}
-			BlockPos g = groundAt(level, near.x, near.z);
-			p.moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, level.random.nextFloat() * 360f, 0f);
+			BlockPos g = BlockPos.containing(spot);
+			p.moveTo(spot.x, spot.y, spot.z, level.random.nextFloat() * 360f, 0f);
 			p.finalizeSpawn(level, level.getCurrentDifficultyAt(g), MobSpawnType.EVENT, null);
 			p.configure(GalactusConfig.punisherHealthFor(fighterCount()));
 			if (guardOf != null) {
-				p.guard(guardOf);
+				p.guard(guardOf, spot);
 			}
 			adopt(p);
 			level.addFreshEntity(p);
 			GalactusFx.forced(level, ParticleTypes.END_ROD, g.getX() + 0.5, g.getY() + 12, g.getZ() + 0.5, 30, 0.3, 12, 0.3, 0.02);
 			GalactusFx.burst(level, Vec3.atBottomCenterOf(g), 1.5);
 		}
+	}
+
+	/**
+	 * A spot for Punisher {@code p} on the ground {@code rMin}..{@code rMax} blocks from (x, z): its whole body free of
+	 * blocks and fluid, standing on something solid, outside every converter's drawn body. The best of a few tries (the
+	 * last one if none was clean). Public for the gametests.
+	 */
+	public Vec3 punisherSpot(ServerLevel level, PunisherRobotEntity p, double x, double z, double rMin, double rMax) {
+		Vec3 fallback = null;
+		double start = level.random.nextDouble() * Math.PI * 2;
+		for (int i = 0; i < 24; i++) {
+			double a = start + i * (Math.PI * 2 / 7.3);
+			double r = rMin + (rMax - rMin) * ((i * 0.37) % 1.0);
+			BlockPos g = groundAt(level, x + Math.cos(a) * r, z + Math.sin(a) * r);
+			Vec3 at = new Vec3(g.getX() + 0.5, g.getY(), g.getZ() + 0.5);
+			if (fallback == null) {
+				fallback = at;
+			}
+			if (!level.isLoaded(g)) {
+				continue;
+			}
+			net.minecraft.world.phys.AABB box = p.getType().getDimensions().makeBoundingBox(at);
+			if (!level.noCollision(p, box) || level.containsAnyLiquid(box) || level.getBlockState(g.below()).getCollisionShape(level, g.below()).isEmpty()) {
+				continue;
+			}
+			boolean clear = true;
+			for (ElementConverterEntity c : level.getEntitiesOfClass(ElementConverterEntity.class, box.inflate(16.0, 80.0, 16.0), Entity::isAlive)) {
+				double dx = at.x - c.getX();
+				double dz = at.z - c.getZ();
+				if (dx * dx + dz * dz < Math.pow(p.converterClearance() + 0.5, 2)) {
+					clear = false;
+					break;
+				}
+			}
+			if (clear) {
+				return at;
+			}
+		}
+		return fallback;
 	}
 
 	public void onConverterDestroyed(ServerLevel level, ElementConverterEntity conv) {
@@ -929,6 +969,22 @@ public class GalactusEvent extends EventInstance {
 		BlockPos c = center();
 		double d = galactusDistanceOverride >= 0 ? galactusDistanceOverride : GalactusConfig.galactus().standDistance;
 		return new Vec3(c.getX() + 0.5, c.getY(), c.getZ() + 0.5 - d);
+	}
+
+	/**
+	 * v0.16.4: the {inner, outer} distances from the centre Galactus walks between -- the band round where he arrived, clear
+	 * of the Power Pylon ring and inside the border (a pinned test arena: a few blocks round his spot).
+	 */
+	public double[] galactusWalkBand() {
+		GalactusConfig.Colossus c = GalactusConfig.galactus();
+		if (galactusDistanceOverride >= 0) {
+			return new double[] { Math.max(0.0, galactusDistanceOverride - 1.0), galactusDistanceOverride + 3.0 };
+		}
+		double stand = c.standDistance;
+		double pylonRing = pylonRingOverride >= 0 ? pylonRingOverride : GalactusConfig.pylons().ring;
+		double inner = Math.min(Math.max(c.walkInnerDistance, pylonRing + 14.0), stand);
+		double outer = Math.max(Math.min(c.walkOuterDistance, arena() - 4.0), stand);
+		return new double[] { inner, outer };
 	}
 
 	public GalactusEntity startGalactus(ServerLevel level) {
@@ -1468,7 +1524,7 @@ public class GalactusEvent extends EventInstance {
 
 	// ---------------------------------------------------------------- ground helper
 
-	private BlockPos groundAt(ServerLevel level, double x, double z) {
+	public BlockPos groundAt(ServerLevel level, double x, double z) {
 		BlockPos column = BlockPos.containing(x, center().getY(), z);
 		if (!level.isLoaded(column)) {
 			return column;

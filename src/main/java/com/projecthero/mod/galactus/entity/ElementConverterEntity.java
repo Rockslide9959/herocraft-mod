@@ -35,6 +35,13 @@ import net.minecraft.world.phys.Vec3;
  * part and the ground it ate comes back.
  */
 public class ElementConverterEntity extends GalactusMob {
+	/**
+	 * v0.16.4: the radius (blocks) of the converter as drawn -- its 25-block model's base plate is ~13 blocks across and the
+	 * shield bubble ~15 -- though its hit-box is only the 3-block core. Nothing of the event spawns inside it, and the
+	 * Punishers are kept out of it ({@link PunisherRobotEntity}).
+	 */
+	public static final double FOOTPRINT_RADIUS = 7.5;
+
 	private static final EntityDataAccessor<Boolean> DATA_SHIELDED = SynchedEntityData.defineId(ElementConverterEntity.class,
 			EntityDataSerializers.BOOLEAN);
 

@@ -163,6 +163,7 @@
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",
       "com.projecthero.mod.gametest.GalactusGameTests",
+      "com.projecthero.mod.gametest.GalactusV0164GameTests",
       "com.projecthero.mod.gametest.SupervillainModelGameTests",
       "com.projecthero.mod.gametest.RaidModelGameTests"
     ]

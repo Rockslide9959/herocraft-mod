@@ -91,10 +91,15 @@ Guards stay within 18 blocks of their converter unless a fighter is right there.
 ## 5. Act 3: Galactus
 - **60 blocks from the top of his head to his toes** (user decision -- the helmet prongs / antennae are not counted:
   bones starting `crest`, `prong`, `antenna`, `horn` are left out of the fit, `GalactusModelFit`). Render scale only: his
-  body hit-box is **10 x 40**. He stands 70 blocks north of the centre (on the arena's edge), never walks, turns to face his
-  target (`BossThreat`, range 140).
-- **He cannot be killed**: health never below 1 (`setHealth` clamp; even `/kill`). 6000 health (+1500 per extra fighter).
-  His **body** takes **20%** of any hit.
+  body hit-box is **10 x 40**. He arrives 70 blocks north of the centre (on the arena's edge) and turns to face his
+  target (`BossThreat`, range 140). **v0.16.4: he walks** -- 0.06 blocks/tick, 4-9 block legs with 4-10 s pauses, turning
+  on the spot first, always 52-74 blocks from the centre (`galactusWalkBand`, clear of the pylon ring, inside the border),
+  never into unloaded chunks; the `walk` clip (4 s loop, two heavy steps, a ground shake + footfall every 40 ticks). A move
+  stops him; his weak points ride on him.
+- **He cannot be killed**: health never below 1 (`setHealth` clamp; even `/kill`). 4000 health (+1000 per extra fighter).
+  **v0.16.4:** while any Power Pylon stands **nothing gets through** (blue sparks, a shield ring, an action-bar line naming
+  the pylons left); after that his **body takes full damage** (`bodyDamageMultiplier` 1.0) and weak points take **x2**
+  (`weakPoints.damageMultiplier`). The grabbing hand can always be hit to break a grip.
 - **Weak points** -- separate damageable part entities (`GalactusWeakPointEntity`, 4 x 4) he places on himself every tick:
   the **Chest Emblem** (y 39, 600 hp), the **Helmet Crest** (y 58, 500), the **Left / Right Gauntlets** (y 22, 450 each;
   +120 per extra fighter). Damage to them comes off Galactus in full (`passThrough` 1.0) and doubles as threat; breaking

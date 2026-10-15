@@ -321,6 +321,9 @@ public class GalactusGameTests implements FabricGameTest {
 			helper.assertTrue(g.getMaxHealth() == (float) GalactusConfig.galactusHealthFor(e.fighterCount()), "health for the fighters present");
 			helper.assertTrue(e.livePylons(level).size() == 4, "four Power Pylons");
 			g.noAutoMoves = true;
+			for (PowerPylonEntity pylon : e.livePylons(level)) {
+				pylon.kill(); // v0.16.4: while they stand he is shielded
+			}
 			for (int i = 0; i < 5; i++) {
 				g.invulnerableTime = 0;
 				g.hurt(level.damageSources().playerAttack(p), 1.0e6f);
@@ -364,13 +367,15 @@ public class GalactusGameTests implements FabricGameTest {
 			g.invulnerableTime = 0;
 			g.hurt(level.damageSources().playerAttack(p), 100f);
 			float body = h0 - g.getHealth();
-			helper.assertTrue(Math.abs(body - 100f * (float) GalactusConfig.galactus().bodyDamageMultiplier) < 0.01f, "the body takes a fifth: " + body);
+			helper.assertTrue(Math.abs(body - 100f * (float) GalactusConfig.galactus().bodyDamageMultiplier) < 0.01f, "the body takes its share: " + body);
 			float h1 = g.getHealth();
 			float wh = w.getHealth();
 			w.invulnerableTime = 0;
 			helper.assertTrue(w.hurt(level.damageSources().playerAttack(p), 100f), "an open weak point is hurt");
-			helper.assertTrue(Math.abs(wh - w.getHealth() - 100f) < 0.01f, "it takes the full hit");
-			helper.assertTrue(Math.abs(h1 - g.getHealth() - 100f) < 0.01f, "and so does he (pass-through): " + (h1 - g.getHealth()));
+			float wx = 100f * (float) GalactusConfig.weakPoints().damageMultiplier;
+			helper.assertTrue(Math.abs(wh - w.getHealth() - wx) < 0.01f, "it takes the hit, multiplied: " + (wh - w.getHealth()));
+			helper.assertTrue(Math.abs(h1 - g.getHealth() - wx * (float) GalactusConfig.weakPoints().passThrough) < 0.01f,
+					"and so does he (pass-through): " + (h1 - g.getHealth()));
 			helper.assertTrue(e.weakPointHealth(GalactusWeakPointEntity.KIND_EMBLEM) == w.getHealth(), "the event keeps its health (saved)");
 			float h2 = g.getHealth();
 			w.invulnerableTime = 0;

@@ -81,9 +81,73 @@ public class PunisherRobotEntity extends GalactusMob {
 		setHealth((float) health);
 	}
 
-	public void guard(ElementConverterEntity converter) {
+	/**
+	 * Guards {@code converter} from {@code post} -- a spot on the ground outside it (v0.16.4: the post used to be the
+	 * converter's own position, taken while it was still 70 blocks up for its fall, so guards walked into its middle and
+	 * stayed there, and never picked a target because every fighter was "out of the leash" of a point in the sky).
+	 */
+	public void guard(ElementConverterEntity converter, Vec3 post) {
 		this.guardOf = converter.getUUID();
-		this.post = converter.position();
+		this.post = post;
+	}
+
+	public Vec3 post() {
+		return post;
+	}
+
+	/** The horizontal clearance it keeps from a converter's middle (the drawn footprint plus its own half width). */
+	public double converterClearance() {
+		return ElementConverterEntity.FOOTPRINT_RADIUS + getBbWidth() * 0.5 + 0.25;
+	}
+
+	/**
+	 * v0.16.4 (user: "the robots spawn inside the converters and get stuck"): never inside a converter's drawn body -- a
+	 * robot that ends up there is put back on its edge (and its inward speed dropped), and one wedged in blocks steps up out
+	 * of them or goes back to its post. Public for the gametests.
+	 */
+	public void keepClear(ServerLevel level) {
+		if (post != null && Math.abs(post.y - getY()) > 8.0 && onGround()) {
+			post = position(); // a guard saved by an older release with its post up in the sky
+		}
+		for (ElementConverterEntity c : level.getEntitiesOfClass(ElementConverterEntity.class, getBoundingBox().inflate(12.0, 8.0, 12.0),
+				x -> x.isAlive())) {
+			double dx = getX() - c.getX();
+			double dz = getZ() - c.getZ();
+			double d = Math.sqrt(dx * dx + dz * dz);
+			double min = converterClearance();
+			if (d >= min) {
+				continue;
+			}
+			if (d < 1.0e-3) {
+				double a = random.nextDouble() * Math.PI * 2;
+				dx = Math.cos(a);
+				dz = Math.sin(a);
+				d = 1.0;
+			}
+			double nx = dx / d;
+			double nz = dz / d;
+			setPos(c.getX() + nx * min, getY(), c.getZ() + nz * min);
+			Vec3 v = getDeltaMovement();
+			double inward = v.x * nx + v.z * nz;
+			if (inward < 0) {
+				setDeltaMovement(v.x - nx * inward, v.y, v.z - nz * inward);
+			}
+		}
+		if (tickCount % 20 == 0 && !level.noCollision(this)) {
+			for (int up = 1; up <= 3; up++) {
+				if (level.noCollision(this, getBoundingBox().move(0, up, 0))) {
+					setPos(getX(), getY() + up, getZ());
+					return;
+				}
+			}
+			if (post != null) {
+				net.minecraft.world.phys.AABB at = getBoundingBox().move(post.x - getX(), post.y - getY(), post.z - getZ());
+				if (level.noCollision(this, at)) {
+					setPos(post.x, post.y, post.z);
+					getNavigation().stop();
+				}
+			}
+		}
 	}
 
 	public UUID guardOf() {
@@ -104,6 +168,7 @@ public class PunisherRobotEntity extends GalactusMob {
 		if (isDeadOrDying()) {
 			return;
 		}
+		keepClear(level);
 		if (blastCooldown > 0) {
 			blastCooldown--;
 		}

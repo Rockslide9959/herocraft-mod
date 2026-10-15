@@ -14,6 +14,7 @@ import com.projecthero.mod.galactus.GalactusConfig;
 import com.projecthero.mod.galactus.GalactusEvent;
 import com.projecthero.mod.galactus.GalactusFx;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -108,6 +109,11 @@ public class GalactusEntity extends GalactusMob {
 		return GalactusAnims.GALACTUS_IDLE;
 	}
 
+	@Override
+	protected Clip moveClip() {
+		return GalactusAnims.GALACTUS_WALK;
+	}
+
 	public void configure(double health) {
 		getAttribute(Attributes.MAX_HEALTH).setBaseValue(health);
 		super.setHealth((float) health);
@@ -157,6 +163,10 @@ public class GalactusEntity extends GalactusMob {
 			return false;
 		}
 		if (!source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			if (shielded() && level() instanceof ServerLevel server) {
+				shieldFeedback(server, source);
+				return false;
+			}
 			amount *= (float) GalactusConfig.galactus().bodyDamageMultiplier;
 		}
 		float before = getHealth();
@@ -166,6 +176,39 @@ public class GalactusEntity extends GalactusMob {
 			afterDamage();
 		}
 		return hurt;
+	}
+
+	/** v0.16.4: while any Power Pylon stands, nothing gets through to him (the grabbing hand excepted). */
+	public boolean shielded() {
+		GalactusEvent e = event();
+		return e != null && level() instanceof ServerLevel s && e.pylonsStanding(s) > 0;
+	}
+
+	private long lastShieldSound = -100;
+
+	/**
+	 * v0.16.4 (user: hits on him used to vanish without a sign): a blocked hit sparks blue where it landed, rings like a
+	 * shield (at most every 8 ticks) and tells the attacker why.
+	 */
+	public void shieldFeedback(ServerLevel level, DamageSource source) {
+		Entity direct = source.getDirectEntity() != null ? source.getDirectEntity() : source.getEntity();
+		AABB box = getBoundingBox();
+		Vec3 at = direct == null ? position().add(0, 2, 0)
+				: new Vec3(Mth.clamp(direct.getX(), box.minX, box.maxX), Mth.clamp(direct.getY() + direct.getBbHeight() * 0.5, box.minY, box.maxY),
+						Mth.clamp(direct.getZ(), box.minZ, box.maxZ));
+		GalactusFx.forced(level, GalactusFx.BLUE, at.x, at.y, at.z, 16, 0.6, 0.6, 0.6, 0.05);
+		GalactusFx.forced(level, ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 6, 0.4, 0.4, 0.4, 0.2);
+		long now = level.getGameTime();
+		if (now - lastShieldSound >= 8) {
+			lastShieldSound = now;
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.HOSTILE, 2.0f, 0.5f);
+			level.playSound(null, at.x, at.y, at.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.HOSTILE, 0.8f, 1.8f);
+		}
+		if (source.getEntity() instanceof Player p) {
+			GalactusEvent e = event();
+			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.galactus.shielded",
+					e != null ? e.pylonsStanding(level) : 0).withStyle(net.minecraft.ChatFormatting.AQUA), true);
+		}
 	}
 
 	/** A weak point took {@code dealt}: it comes off him in full (pass-through), and goes on the threat table. */
@@ -354,17 +397,177 @@ public class GalactusEntity extends GalactusMob {
 			target = p != null && (e == null || e.isFighter(p.getUUID())) ? p : null;
 			setTarget(target);
 		}
-		if (target != null) {
-			faceTowards(target.position(), move == Move.NONE ? 3.0f : 1.0f);
-		}
 		if (move != Move.NONE) {
+			walkTo = null; // he stops to attack
+			if (target != null) {
+				faceTowards(target.position(), 1.0f);
+			}
 			tickMove(level);
 			return;
+		}
+		tickWalk(level, target);
+		if (target != null && walkTo == null) {
+			faceTowards(target.position(), 3.0f);
 		}
 		if (noAutoMoves || target == null || --cooldown > 0) {
 			return;
 		}
 		chooseMove(level, target);
+	}
+
+	// ---------------------------------------------------------------- v0.16.4: the slow walk round the arena's edge
+
+	/** Where this walk ends (null: standing), ticks left of the pause before the next one, ticks walked (the footfalls). */
+	private Vec3 walkTo;
+	private int walkPause = 100;
+	private int walkTicks;
+	private Vec3 home;
+
+	public boolean walking() {
+		return walkTo != null;
+	}
+
+	/** Test hook: the next walk starts now. */
+	public void debugWalkNow() {
+		walkPause = 0;
+	}
+
+	/** Test hook: the {inner, outer} distances from the centre he keeps to (or from where he first stood, with no event). */
+	public double[] walkBand() {
+		GalactusEvent e = event();
+		if (e != null) {
+			return e.galactusWalkBand();
+		}
+		return new double[] { 0.0, 8.0 };
+	}
+
+	public Vec3 walkCentre() {
+		GalactusEvent e = event();
+		if (e != null) {
+			return Vec3.atBottomCenterOf(e.center());
+		}
+		if (home == null) {
+			home = position();
+		}
+		return home;
+	}
+
+	/**
+	 * User (v0.16.4): "make galactus walk around aswell he just stays in place, make him walk really slow tho". Between moves
+	 * he walks a few blocks at a time ({@link GalactusConfig.Colossus#walkSpeed}), turning first, along the edge of the arena
+	 * and towards the fight -- always within {@link #walkBand()} of the centre (clear of the pylons, inside the border), never
+	 * into an unloaded chunk -- with a ground shake and a heavy footfall every step. A move stops him where he is. His weak
+	 * points ride on him ({@link #keepWeakPoints}).
+	 */
+	private void tickWalk(ServerLevel level, LivingEntity target) {
+		GalactusConfig.Colossus cfg = GalactusConfig.galactus();
+		if (cfg.walkSpeed <= 0) {
+			walkTo = null;
+			return;
+		}
+		if (walkTo == null) {
+			if (walkPause > 0) {
+				walkPause--;
+				return;
+			}
+			walkTo = pickWalkTarget(level, target);
+			walkTicks = 0;
+			if (walkTo == null) {
+				walkPause = 40;
+				return;
+			}
+		}
+		double dx = walkTo.x - getX();
+		double dz = walkTo.z - getZ();
+		double len = Math.sqrt(dx * dx + dz * dz);
+		if (len < 0.2) {
+			stopWalk();
+			return;
+		}
+		float want = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0f;
+		faceTowards(walkTo, 1.5f);
+		if (Mth.degreesDifferenceAbs(getYRot(), want) > 45f) {
+			return; // turn on the spot first
+		}
+		double step = Math.min(cfg.walkSpeed, len);
+		double nx = getX() + dx / len * step;
+		double nz = getZ() + dz / len * step;
+		if (!level.isLoaded(BlockPos.containing(nx + 6, getY(), nz + 6)) || !level.isLoaded(BlockPos.containing(nx - 6, getY(), nz - 6))) {
+			stopWalk();
+			return;
+		}
+		double ground = groundY(level, nx, nz);
+		double ny = getY() + Mth.clamp(ground - getY(), -0.15, 0.15);
+		setPos(nx, ny, nz);
+		walkTicks++;
+		if (walkTicks % 40 == 4) {
+			footfall(level, (walkTicks / 40) % 2 == 0);
+		}
+	}
+
+	private void stopWalk() {
+		walkTo = null;
+		GalactusConfig.Colossus cfg = GalactusConfig.galactus();
+		walkPause = cfg.walkPauseMinTicks + random.nextInt(Math.max(1, cfg.walkPauseMaxTicks - cfg.walkPauseMinTicks + 1));
+	}
+
+	private double groundY(ServerLevel level, double x, double z) {
+		GalactusEvent e = event();
+		if (e != null) {
+			return e.groundAt(level, x, z).getY();
+		}
+		BlockPos column = BlockPos.containing(x, getY(), z);
+		if (!level.isLoaded(column)) {
+			return getY();
+		}
+		int top = com.projecthero.mod.galactus.GalactusTerrain.topBlockY(level, column.getX(), column.getZ(),
+				net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES) + 1;
+		return Math.abs(top - getY()) > 24 ? getY() : top;
+	}
+
+	private Vec3 pickWalkTarget(ServerLevel level, LivingEntity target) {
+		GalactusConfig.Colossus cfg = GalactusConfig.galactus();
+		Vec3 c = walkCentre();
+		double[] band = walkBand();
+		for (int i = 0; i < 10; i++) {
+			double leg = cfg.walkLegMin + random.nextDouble() * Math.max(0, cfg.walkLegMax - cfg.walkLegMin);
+			double a;
+			if (target != null && random.nextFloat() < 0.6f) {
+				a = Mth.atan2(target.getZ() - getZ(), target.getX() - getX()) + (random.nextDouble() - 0.5) * 2.0;
+			} else {
+				a = random.nextDouble() * Math.PI * 2;
+			}
+			double x = getX() + Math.cos(a) * leg;
+			double z = getZ() + Math.sin(a) * leg;
+			double rx = x - c.x;
+			double rz = z - c.z;
+			double r = Math.sqrt(rx * rx + rz * rz);
+			double clamped = Mth.clamp(r, band[0], band[1]);
+			if (r > 1.0e-3 && clamped != r) {
+				x = c.x + rx / r * clamped;
+				z = c.z + rz / r * clamped;
+			}
+			double moved = Math.sqrt((x - getX()) * (x - getX()) + (z - getZ()) * (z - getZ()));
+			if (moved < 2.0 || !level.isLoaded(BlockPos.containing(x, getY(), z))) {
+				continue;
+			}
+			return new Vec3(x, getY(), z);
+		}
+		return null;
+	}
+
+	/** One footfall: the ground shakes under the foot that came down, dust, and a deep, heavy step. */
+	private void footfall(ServerLevel level, boolean left) {
+		double s = s();
+		float yaw = yBodyRot * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		Vec3 side = new Vec3(Mth.cos(yaw), 0, Mth.sin(yaw));
+		Vec3 foot = position().add(side.scale((left ? 3.4 : -3.4) * s)).add(fwd.scale(1.5 * s));
+		GalactusFx.shake(level, foot, 0.45f, 12, 72);
+		GalactusFx.ring(level, ParticleTypes.CAMPFIRE_COSY_SMOKE, foot.add(0, 0.2, 0), 3.0 * s, 14);
+		GalactusFx.forced(level, ParticleTypes.POOF, foot.x, foot.y + 0.3, foot.z, 20, 2.0 * s, 0.2, 2.0 * s, 0.05);
+		level.playSound(null, foot.x, foot.y, foot.z, SoundEvents.RAVAGER_STEP, SoundSource.HOSTILE, 5.0f, 0.35f);
+		level.playSound(null, foot.x, foot.y, foot.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.6f, 0.4f);
 	}
 
 	private void chooseMove(ServerLevel level, LivingEntity target) {

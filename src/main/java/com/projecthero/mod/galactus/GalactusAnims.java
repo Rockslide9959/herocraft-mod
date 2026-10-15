@@ -113,6 +113,8 @@ public final class GalactusAnims {
 	public static final Clip GALACTUS_WEAKPOINT_HURT = clip(GALACTUS, "weakpoint_hurt", 30, -1);
 	/** The Nullifier: he raises a hand on {@code hit} (and speaks), then is gone in a burst of Power Cosmic at the end. */
 	public static final Clip GALACTUS_RETREAT = hold(GALACTUS, "retreat", 160, 60);
+	/** v0.16.4: the slow, heavy walk (two steps a cycle; the server's footfalls land every 40 ticks of walking). */
+	public static final Clip GALACTUS_WALK = loop(GALACTUS, "walk", 80);
 
 	// ---------------------------------------------------------------- the Silver Surfer (player model, code-driven poses)
 	// User decision (v0.16.1): the Surfer is a regular PLAYER MODEL (his skin: textures/entity/galactus/silver_surfer.png),

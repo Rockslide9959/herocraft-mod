@@ -320,6 +320,21 @@ public final class GalactusRenderers {
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
 			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts
 		}
+
+		/**
+		 * v0.16.4 (user: "a weird second board next to him"): GeckoLib's GeoObjectRenderer.preRender centres the model on a
+		 * block (+0.5, +0.51, +0.5) unconditionally -- and the glow / halo layers re-render through preRender on a pose stack
+		 * that already carries that offset, so the glowing copy of the board was drawn half a block up and to the side. A
+		 * re-render takes the offset back off.
+		 */
+		@Override
+		public void preRender(PoseStack poseStack, BoardAnimatable animatable, BakedGeoModel model, MultiBufferSource bufferSource,
+				VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight, int packedOverlay, int colour) {
+			super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
+			if (isReRender) {
+				poseStack.translate(-0.5f, -0.51f, -0.5f);
+			}
+		}
 	}
 
 	public static final class Surfer extends net.minecraft.client.renderer.entity.MobRenderer<SilverSurferEntity, SurferModel> {

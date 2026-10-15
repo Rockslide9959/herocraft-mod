@@ -13,6 +13,8 @@ public final class GalactusConfig {
 			.balance("arena", "herald", "ally", "converters", "punisher", "consumption", "galactus", "eyeBeam", "grab", "transmute", "wave",
 					"summons", "pylons", "weakPoints", "nullifier", "rewards", "board", "powerCosmic", "trigger.chancePerDay")
 			.introduce(1, "v0.16.1 Galactus: The Devourer")
+			.reset(2, "v0.16.4 Galactus takes full damage on his body once the pylons are down, 4000 health (+1000 a fighter)", "galactus.bodyDamageMultiplier",
+					"galactus.health", "galactus.healthPerExtraFighter")
 			.build();
 
 	private static GalactusConfig instance = new GalactusConfig();
@@ -81,6 +83,8 @@ public final class GalactusConfig {
 		public float dashDamage = 14.0f;
 		public double dashLength = 28.0;
 		public int dashTicks = 6;
+		/** v0.16.4: after a dash he sinks to the ground, winded, for this long (the melee window). */
+		public int windedTicks = 70;
 		/** Ticks the reflective shield lasts; projectile damage is returned, melee reduced. */
 		public int shieldTicks = 60;
 		public double shieldMeleeReduction = 0.7;
@@ -159,10 +163,20 @@ public final class GalactusConfig {
 	}
 
 	public static final class Colossus {
-		public double health = 6000.0;
-		public double healthPerExtraFighter = 1500.0;
-		/** Damage to his body (not a weak point) is multiplied by this. */
-		public double bodyDamageMultiplier = 0.2;
+		public double health = 4000.0;
+		public double healthPerExtraFighter = 1000.0;
+		/** Damage to his body (not a weak point) is multiplied by this once the Power Pylons are down. */
+		public double bodyDamageMultiplier = 1.0;
+		/** v0.16.4: blocks a tick he walks (he wanders slowly round the arena's edge between moves). 0 = he stands still. */
+		public double walkSpeed = 0.06;
+		/** Each walk is this many blocks, then he stops for a while. */
+		public double walkLegMin = 4.0;
+		public double walkLegMax = 9.0;
+		public int walkPauseMinTicks = 80;
+		public int walkPauseMaxTicks = 200;
+		/** He keeps between these distances from the arena's centre (clear of the Power Pylons, inside the border). */
+		public double walkInnerDistance = 52.0;
+		public double walkOuterDistance = 74.0;
 		/** The model's render height (blocks); his hit-box is smaller (render scale only). */
 		public double renderHeight = 60.0;
 		/** He stands this far from the centre, on the arena's edge. */
@@ -232,6 +246,8 @@ public final class GalactusConfig {
 		public double crestHealth = 500.0;
 		public double gauntletHealth = 450.0;
 		public double healthPerExtraFighter = 120.0;
+		/** v0.16.4: hits on a weak point are multiplied by this (they are where he is vulnerable). */
+		public double damageMultiplier = 2.0;
 		/** Damage to a weak point also comes off Galactus at this rate. */
 		public double passThrough = 1.0;
 		/** Breaking one takes this fraction of his max health. */
