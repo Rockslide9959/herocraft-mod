@@ -27,6 +27,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(IronManWeaponWheelPayload.TYPE, IronManWeaponWheelPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(IronManBlueprintChoicePayload.TYPE, IronManBlueprintChoicePayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SpiderActionPayload.TYPE, SpiderActionPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SpiderStrugglePayload.TYPE, SpiderStrugglePayload.CODEC); // v0.16.4: cocoon struggle
+		PayloadTypeRegistry.playS2C().register(SpiderStruggleSyncPayload.TYPE, SpiderStruggleSyncPayload.CODEC); // v0.16.4
 		PayloadTypeRegistry.playC2S().register(StrengthActionPayload.TYPE, StrengthActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(MaxSteelActionPayload.TYPE, MaxSteelActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(WolverineActionPayload.TYPE, WolverineActionPayload.CODEC);
@@ -168,6 +170,10 @@ public final class ModNetworking {
 				case TOGGLE_SOUNDS -> com.projecthero.mod.spider.SpiderMoves.toggleSounds(context.player());
 			}
 		});
+
+		// v0.16.4: a cocooned player struggling (alternate strafe-key presses); the server counts and rate-limits them
+		ServerPlayNetworking.registerGlobalReceiver(SpiderStrugglePayload.TYPE,
+				(payload, context) -> com.projecthero.mod.spider.SpiderStruggle.press(context.player(), payload.key()));
 
 		// Super Strength: the charged punch and Power Leap are both wound up by a key hold and thrown on
 		// release, tracked client-side. Timing comes from the client; the server owns power + cooldown.

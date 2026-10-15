@@ -17,6 +17,7 @@ public final class SpiderManConfig {
 
 	public Webs webs = new Webs();
 	public Moves moves = new Moves();
+	public Struggle struggle = new Struggle(); // v0.16.4
 
 	/** One move: its cooldown (ticks), its Web Reserve cost and (where it hits) its damage. */
 	public static final class Move {
@@ -149,6 +150,28 @@ public final class SpiderManConfig {
 		public double zipBoostRange = 50.0;
 	}
 
+	/**
+	 * v0.16.4 (user): "if players get trapped in a web cocoon give them a minigame to break out, dont make it too easy" --
+	 * a cocooned player mashes the strafe keys (A / D) ALTERNATELY to fill a struggle bar ({@code SpiderStruggle}). Progress
+	 * runs 0..1; it breaks out at 1. Per server tick it loses {@code decayPerTick + decayFractionPerTick * progress}, plus
+	 * {@code idleDecayPerTick} once no good press has come for {@code idleGraceTicks}. With these numbers a steady 8 alternate
+	 * presses a second breaks out in about 6 s, 10 a second in about 3.7 s, and 6 or fewer a second never do.
+	 */
+	public static final class Struggle {
+		/** Players can struggle out of a cocoon at all (false: only Spider-Man cuts them free, as before). */
+		public boolean enabled = true;
+		/** Progress per press of the OTHER key than last time. */
+		public float gainPerPress = 0.05f;
+		/** Progress lost when the same key is pressed twice in a row (the press does not count). */
+		public float slipPenalty = 0.03f;
+		public float decayPerTick = 0.006f;
+		public float decayFractionPerTick = 0.010f;
+		public int idleGraceTicks = 10;
+		public float idleDecayPerTick = 0.0175f;
+		/** Presses past this many in one second are ignored (anti-macro). */
+		public int maxPressesPerSecond = 20;
+	}
+
 	public static SpiderManConfig get() {
 		return instance;
 	}
@@ -166,7 +189,7 @@ public final class SpiderManConfig {
 
 	public static final VersionedConfig<SpiderManConfig> SPEC = VersionedConfig
 			.builder(SpiderManConfig.class, "projecthero_spider_man.json", SpiderManConfig::new)
-			.balance("moves")
+			.balance("moves", "struggle")
 			.introduce(1, "v0.16.1 the Spider-Man revamp")
 			// v0.16.1 (later): every web debuff lasts 18 s (webDebuffTicks), Web Cocoon 30 s -- old files take the new numbers
 			.resetBalance(2, "v0.16.1 18-second web debuffs, 30-second Web Cocoon")
@@ -184,6 +207,8 @@ public final class SpiderManConfig {
 			.reset(8, "v0.16.2 Web Bomb radius 6", "moves.webBombRadius")
 			// v0.16.2 (user): cobwebs back on -- v7 turned them off by mistake
 			.reset(9, "v0.16.2 cobwebs back on", "webs.placeCobwebs")
+			// v0.16.4 (user request): the cocoon struggle minigame -- a new balance section, defaults fill in
+			.introduce(10, "v0.16.4 cocoon struggle minigame")
 			.build();
 
 	public static void load() {

@@ -5614,5 +5614,9 @@
   "projecthero.hulk.ability.loki_slam.desc": "Shift+V while looking at a mob within 10 blocks (or while holding one): he grabs it and smashes it into the floor four times -- overhead, left, right, left, right -- 12 damage and a cracked floor every time. Bosses and anything too big are refused. 15 s cooldown.",
   "hud.projecthero.hulk.leap": "LEAP %s blocks",
   "message.projecthero.hulk.no_target": "Nothing in reach to hit.",
-  "message.projecthero.hulk.gamma_burst_rage": "Not angry enough -- Gamma Burst needs %s rage."
+  "message.projecthero.hulk.gamma_burst_rage": "Not angry enough -- Gamma Burst needs %s rage.",
+  "hud.projecthero.spider.struggle.title": "Struggle! Alternate",
+  "hud.projecthero.spider.struggle.hint": "Keys light up as you press them. Same key twice slips.",
+  "hud.projecthero.spider.struggle.free": "Broke free!",
+  "projecthero.guide.spider_man.webs.struggle": "Caught in a web cocoon yourself? Struggle free: mash your two strafe keys (A and D) one after the other, fast. Every clean alternation fills the struggle bar under your crosshair, it drains quickly if you slow down, and the same key twice slips. A Spider-Man can still cut you free with sneak + right-click."
 }

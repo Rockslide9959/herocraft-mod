@@ -281,6 +281,7 @@ public final class HeroPackGuide {
 		blank(lines);
 		head(lines, "projecthero.guide.spider_man.webs");
 		para(lines, "projecthero.guide.spider_man.webs.body");
+		para(lines, "projecthero.guide.spider_man.webs.struggle"); // v0.16.4: players struggle out of a cocoon
 		blank(lines);
 	}
 
