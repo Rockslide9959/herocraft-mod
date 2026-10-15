@@ -330,14 +330,15 @@ public class V0148MiscGameTests implements FabricGameTest {
 	// ---------------- disabled experimental powers ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void onlyTheFourRemadePowersAreEnabled(GameTestHelper helper) {
+	public void onlyTheRemadePowersAreEnabled(GameTestHelper helper) {
 		java.util.Set<String> keys = new java.util.HashSet<>();
 		for (Power p : Powers.enabled()) {
 			keys.add(p.key());
 		}
+		// v0.16.5: Teleportation is back (reworked)
 		helper.assertTrue(keys.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision", "power_04_super_speed",
-				"power_12_super_regeneration")), "enabled: " + keys);
-		helper.assertTrue(Powers.count() - Powers.enabled().size() == 22, "22 disabled, got " + (Powers.count() - keys.size()));
+				"power_11_teleportation", "power_12_super_regeneration")), "enabled: " + keys);
+		helper.assertTrue(Powers.count() - Powers.enabled().size() == 21, "21 disabled, got " + (Powers.count() - keys.size()));
 		helper.succeed();
 	}
 

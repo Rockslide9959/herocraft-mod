@@ -108,6 +108,18 @@ Shared rules for all four (they match the current mod):
 
 Passives: reduced Ender Pearl damage, and no fall damage on the first second after any jump.
 
+**Built (2026-10-15).** Where the spec above was silent, I decided the following:
+- **The jump that fills the meter still happens.** Then you overload. Nausea lasts 5 s. Strain keeps draining while you are overloaded.
+- **Sky Blink costs 15 strain**, the same as Escape Blink. It gives 6 s of Slow Falling, and under a ceiling it stops below it.
+- **Mark / Recall:** setting the mark is free and the recall costs 25 strain. The old 17 s cooldown is gone. A blocked recall loses the mark, as before.
+- **Rift:** no strain and a 60 s cooldown. Tapping **V while a pair is open closes it**, and sneak + right-clicking a gate still works too. Walking through a gate costs no strain. Old Portal and Portal Anchor markers are cleared from saves.
+- **Displace:** 30-block aim range. It never moves squadmates, bosses (the shared no-bosses rule) or anything above 200 HP.
+- **Phase Step:** it uses your horizontal facing only (no phasing through floors or ceilings). The wall must start within 1.5 blocks of you.
+- **Spatial Fold:** a projectile with no living shooter (for example from a dispenser) just vanishes. A folded projectile becomes yours, so it can't be folded back at you.
+- **Group Jump:** it stays armed for 10 s and costs no strain itself. It works with Blink or Long Blink. Squadmates keep their offset from you where that spot is safe, and otherwise land beside you.
+- **HUD:** mono keys, with an always-on violet Strain Hairline under them. The Overload, Rift charge, Spatial Fold and Group Jump bars show only while active.
+- **Unchanged:** the old "pearl resist" rule (falls under 8 damage are ignored, which covers the Ender Pearl's 5).
+
 ---
 
 ## 4b. Blue Beetle (Jaime Reyes): Hero-Tier

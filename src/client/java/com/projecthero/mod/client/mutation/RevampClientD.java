@@ -39,6 +39,8 @@ public final class RevampClientD {
 
 	/** Called once from {@code ProjectHeroModClient.onInitializeClient}, after the shared pose library. */
 	public static void init() {
+		// v0.16.5 Teleportation rework: black-and-gray keys / name; the violet Strain Hairline is a registered meter
+		com.projecthero.mod.client.gui.AbilityHudExtras.mono(com.projecthero.mod.hero.power.p11.TeleportationHandlers.KEY);
 		registerPoses();
 		registerOverlays();
 		EntityRendererRegistry.register(BatchDContent.MIRROR_IMAGE, MirrorImageRenderer::new);

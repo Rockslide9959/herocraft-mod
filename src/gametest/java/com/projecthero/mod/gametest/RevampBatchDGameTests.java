@@ -43,7 +43,7 @@ import net.minecraft.world.phys.Vec3;
 
 /** v0.13.22 mutation revamp, batch D: regression coverage for the reworked kits. */
 public class RevampBatchDGameTests implements FabricGameTest {
-	private static final String[] KEYS = { "power_10_telekinesis", "power_11_teleportation",
+	private static final String[] KEYS = { "power_10_telekinesis", // v0.16.5: Teleportation reworked to six keys (TeleportationV0165GameTests)
 			"power_15_invisibility_light_manipulation", "power_19_shadow_manipulation",
 			"power_23_gravity_manipulation", "power_26_magnetic_manipulation" };
 
@@ -169,44 +169,6 @@ public class RevampBatchDGameTests implements FabricGameTest {
 			helper.assertFalse(TelekinesisHandlers.isLocked(z), "the lock releases after 4 seconds");
 			helper.succeed();
 		});
-	}
-
-	// ================================================================ 11 Teleportation
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_d_bamf", skyAccess = true, timeoutTicks = 120)
-	public void bamfStrikeHitsAndChains(GameTestHelper helper) {
-		ServerPlayer p = player(helper, "power_11_teleportation");
-		Power tp = power("power_11_teleportation");
-		Zombie first = zombieAt(helper, p, 0, 4);
-		Zombie second = zombieAt(helper, p, 3, 4);
-		aimAt(p, first);
-		float h1 = first.getHealth();
-		float h2 = second.getHealth();
-
-		press(p, 7); // H: Bamf Strike
-
-		helper.assertTrue(first.getHealth() < h1, "Bamf Strike should hit the aimed target");
-		helper.assertTrue(p.distanceTo(first) < 3.5, "Bamf Strike lands you next to the target");
-		helper.assertFalse(ExperimentalPowers.cooldownReady(p, tp, tp.ability(AbilitySlot.SLOT_7)), "Bamf goes on cooldown");
-		helper.runAfterDelay(30, () -> {
-			helper.assertTrue(second.getHealth() < h2, "Bamf Strike should chain to the second enemy");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_d_swap", skyAccess = true)
-	public void swapTradesPlaces(GameTestHelper helper) {
-		ServerPlayer p = player(helper, "power_11_teleportation");
-		Zombie z = zombieAt(helper, p, 0, 4);
-		aimAt(p, z);
-		Vec3 mine = p.position();
-		Vec3 theirs = z.position();
-
-		press(p, 8); // N: Swap
-
-		helper.assertTrue(p.position().distanceTo(theirs) < 1.0, "Swap moves you to the target's spot");
-		helper.assertTrue(z.position().distanceTo(mine) < 1.0, "Swap moves the target to your spot");
-		helper.succeed();
 	}
 
 	// ================================================================ 15 Light

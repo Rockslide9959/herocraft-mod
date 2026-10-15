@@ -77,10 +77,10 @@ public final class RevampBatchD {
 	private static void registerFlags() {
 		// 10: purple glowing eyes while channelling / holding anything
 		MutationVisuals.registerFlag("p10.eyes", p -> owns(p, TELEKINESIS) && TelekinesisHandlers.channelling(p));
-		// 11: violet eyes while a portal charges, a blink is being aimed or a Bamf chain is running
+		// 11: violet eyes while a rift charges, a Long Blink is being aimed, a Bamf chain runs or Spatial Fold is up
 		MutationVisuals.registerFlag("p11.charge", p -> owns(p, TELEPORTATION)
-				&& (res(p, TELEPORTATION, "portal_charge_start") > 0.5f || res(p, TELEPORTATION, "aiming") > 0.5f
-						|| res(p, TELEPORTATION, "bamf_timer") > 0.5f));
+				&& (res(p, TELEPORTATION, "rift_charge_start") > 0.5f || res(p, TELEPORTATION, "aiming") > 0.5f
+						|| res(p, TELEPORTATION, "bamf_timer") > 0.5f || res(p, TELEPORTATION, "fold") > 0.5f));
 		// 15: the cloak (also hides armour + held items for everyone), the prism pane, the blade's glow
 		MutationVisuals.registerFlag("p15.cloak", p -> owns(p, LIGHT)
 				&& (InvisibilityLightHandlers.cloaked(p) || InvisibilityLightHandlers.sparkleFlying(p)));
@@ -113,9 +113,18 @@ public final class RevampBatchD {
 		MutationMeters.register(new Spec(TELEKINESIS, "crush_ticks", Kind.TIMER, Style.HAIRLINE, "Force Crush",
 				160, 0xFFC08CFF, false, false));
 
-		// 11 Teleportation
-		MutationMeters.register(new Spec(TELEPORTATION, "portal_charge", Kind.BUILD, Style.SLAB, "Portal",
-				100, 0xFFB57BFF, false, true));
+		// 11 Teleportation (v0.16.5 rework): Strain is always on screen as a violet Hairline under the keys; the
+		// overload lockout, the Rift charge and the Spatial Fold / Group Jump windows show while running
+		MutationMeters.register(new Spec(TELEPORTATION, "strain", Kind.BUILD, Style.HAIRLINE, "Strain",
+				com.projecthero.mod.hero.power.p11.TeleportationHandlers.MAX_STRAIN, 0xFFB57BFF, true, true, false, 0xFFD2A8FF));
+		MutationMeters.register(new Spec(TELEPORTATION, "overload", Kind.TIMER, Style.HAIRLINE, "OVERLOADED",
+				com.projecthero.mod.hero.power.p11.TeleportationHandlers.OVERLOAD_TICKS, 0xFF8A8A8A, false, false, false, 0xFFD2A8FF));
+		MutationMeters.register(new Spec(TELEPORTATION, "rift_charge", Kind.BUILD, Style.HAIRLINE, "Rift",
+				100, 0xFFB57BFF, false, true, true, 0xFFD2A8FF));
+		MutationMeters.register(new Spec(TELEPORTATION, "fold", Kind.TIMER, Style.HAIRLINE, "Spatial Fold",
+				com.projecthero.mod.hero.power.p11.TeleportationHandlers.FOLD_TICKS, 0xFFB57BFF, false, false, true, 0xFFD2A8FF));
+		MutationMeters.register(new Spec(TELEPORTATION, "group_jump", Kind.TIMER, Style.HAIRLINE, "Group Jump ready",
+				com.projecthero.mod.hero.power.p11.TeleportationHandlers.GROUP_JUMP_TICKS, 0xFF8E6BC2, false, false, true, 0xFFD2A8FF));
 
 		// 15 Invisibility / Light
 		MutationMeters.register(new Spec(LIGHT, "sparkle", Kind.RESERVE, Style.METER, "Sparkling Flight",

@@ -32,6 +32,7 @@ public final class Powers {
 			"power_01_super_strength",
 			"power_02_laser_vision",
 			"power_04_super_speed",
+			"power_11_teleportation", // v0.16.5: reworked (Strain meter, six keys + Shift)
 			"power_12_super_regeneration");
 
 	/**

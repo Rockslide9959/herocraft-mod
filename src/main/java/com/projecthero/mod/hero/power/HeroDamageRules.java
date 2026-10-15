@@ -186,6 +186,18 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_11_teleportation" -> {
+				// v0.16.5: Spatial Fold -- a projectile that still reaches you is sent back at its shooter instead
+				if (com.projecthero.mod.hero.power.p11.TeleportationHandlers.foldActive(player)
+						&& source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile proj
+						&& proj.getOwner() != player && player.level() instanceof net.minecraft.server.level.ServerLevel sl) {
+					com.projecthero.mod.hero.power.p11.TeleportationHandlers.foldBack(player, sl, proj);
+					return Verdict.immune();
+				}
+				// v0.16.5: no fall damage for the first second after any jump
+				if (source.is(DamageTypes.FALL) && com.projecthero.mod.hero.power.p11.TeleportationHandlers.inJumpGrace(player)) {
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
 				if (source.is(DamageTypes.FALL) && amount < 8.0f) {
 					player.resetFallDistance();
 					return Verdict.immune(); // reduced ender-pearl / short-fall damage
