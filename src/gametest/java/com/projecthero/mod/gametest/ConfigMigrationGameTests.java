@@ -138,7 +138,8 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 		Path p = write("hulk", "{\"configVersion\":1,\"abilities\":{\"groundSmashDamage\":16.0,\"leapMaxBlocks\":45.0},"
 				+ "\"world\":{\"sprintSmashEnabled\":false}}");
 		HulkConfig c = HulkConfig.SPEC.load(p);
-		helper.assertTrue(c.abilities.groundSmashDamage == 30.0f && c.abilities.leapMaxBlocks == 70.0 && c.abilities.thunderclapRange == 25.0,
+		// v0.16.4: today's default (the v9 damage nerf moved it 30 -> 22.5), the v1 reset lands on it
+		helper.assertTrue(c.abilities.groundSmashDamage == 22.5f && c.abilities.leapMaxBlocks == 70.0 && c.abilities.thunderclapRange == 25.0,
 				"v1: the v0.13.14 kit numbers");
 		helper.assertFalse(c.world.sprintSmashEnabled, "v1: the server's world switch is kept");
 
