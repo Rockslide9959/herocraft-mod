@@ -58,7 +58,10 @@ public final class HulkDamage {
 		});
 
 		AttackEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
-			if (Hulk.changing(player) || HulkControl.rampaging(player)) {
+			// v0.16.4 (user, "he struggles to hit things"): Fabric fires this from ServerPlayer.attack itself, so it used to cancel
+			// the rampage AI's own punches too -- only the player's clicks are refused now, the AI's (driven) punches land
+			boolean aiPunch = player instanceof ServerPlayer sp && HulkAbilities.drivenNow(sp);
+			if (Hulk.changing(player) || (HulkControl.rampaging(player) && !aiPunch)) {
 				return InteractionResult.FAIL; // mid-change, dying -- or (v0.16.4) rampaging: the Hulk picks who he hits
 			}
 			if (Hulk.isHulk(player) && isForbidden(player.getMainHandItem())) {

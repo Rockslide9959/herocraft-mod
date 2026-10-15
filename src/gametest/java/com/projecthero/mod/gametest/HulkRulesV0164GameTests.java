@@ -271,7 +271,7 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void aMissResetsTheRingStreakAndThreeInARowEndTheRampage(GameTestHelper helper) {
+	public void aMissResetsTheRingStreakAndFiveInARowEndTheRampage(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
 		HulkControl.startRampage(p);
 		helper.assertTrue(HulkControl.rampaging(p), "rampaging");
@@ -288,11 +288,19 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 			helper.assertTrue(Hulk.state(p).rules.ringStreak == 0, "a miss resets the streak");
 			helper.assertTrue(HulkControl.rampaging(p), "still rampaging");
 		});
-		helper.runAfterDelay(gap * 3, () -> HulkControl.ringResult(p, true));
-		helper.runAfterDelay(gap * 4, () -> HulkControl.ringResult(p, true));
-		helper.runAfterDelay(gap * 5, () -> {
+		// v0.16.4 (user): "Increase the rampage contol minigame to 5 times instead of 3 times"
+		int need = HulkConfig.control().ringHitsNeeded;
+		helper.assertTrue(need == 5, "the ring needs 5 in a row, got " + need);
+		for (int i = 1; i < need; i++) {
+			int hits = i;
+			helper.runAfterDelay(gap * (2 + i), () -> {
+				HulkControl.ringResult(p, true);
+				helper.assertTrue(HulkControl.rampaging(p), hits + " in a row is not enough");
+			});
+		}
+		helper.runAfterDelay(gap * (2 + need), () -> {
 			HulkControl.ringResult(p, true);
-			helper.assertFalse(HulkControl.rampaging(p), "three in a row: control is back");
+			helper.assertFalse(HulkControl.rampaging(p), "five in a row: control is back");
 			helper.assertTrue(Hulk.state(p).rules.nextRampageAt > now(p), "and the next minute starts");
 			helper.succeed();
 		});

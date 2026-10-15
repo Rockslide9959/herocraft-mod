@@ -129,7 +129,11 @@ public final class HulkGrab {
 		SLAMS.clear();
 		LAST_SLAM_IMPACTS.clear();
 		THROWING.clear();
+		RAMPAGE_HELD.clear();
 	}
+
+	/** v0.16.4: Hulks holding something the rampage AI grabbed (kept through the rampage, unlike a grab from before it). */
+	private static final Set<UUID> RAMPAGE_HELD = ConcurrentHashMap.newKeySet();
 
 	/** v0.13.17: was this player just carried or thrown by a squad-mate Hulk (so the landing doesn't hurt)? */
 	public static boolean safeLanding(ServerPlayer player) {
@@ -171,6 +175,7 @@ public final class HulkGrab {
 		THROWN.remove(player.getUUID());
 		Slam slam = SLAMS.remove(player.getUUID());
 		THROWING.remove(player.getUUID());
+		RAMPAGE_HELD.remove(player.getUUID());
 		ServerLevel level = (ServerLevel) player.level();
 		if (id != null) {
 			Entity e = level.getEntity(id);
@@ -224,7 +229,7 @@ public final class HulkGrab {
 		if (held != null) {
 			if (shift && isTeammate(player, held)) {
 				setDown(player, (ServerPlayer) held); // v0.13.17: a squad-mate is set down, never slammed
-			} else if (shift && held instanceof LivingEntity mob && HulkAbilities.ready(player, HulkAbilities.LOKI_SLAM)) {
+			} else if (shift && held instanceof LivingEntity mob && (HulkAbilities.drivenNow(player) || HulkAbilities.ready(player, HulkAbilities.LOKI_SLAM))) {
 				HELD.remove(player.getUUID());
 				setHolding(player, false);
 				startSlam(player, mob);
@@ -248,7 +253,7 @@ public final class HulkGrab {
 			if (HulkAbilities.ready(player, HulkAbilities.GRAB)) {
 				tearEarth(player);
 			}
-		} else if (HulkAbilities.ready(player, HulkAbilities.GRAB)) {
+		} else if (HulkAbilities.drivenNow(player) || HulkAbilities.ready(player, HulkAbilities.GRAB)) { // v0.16.4: the rampage AI keeps its own cooldowns
 			grab(player);
 		}
 	}
@@ -289,6 +294,9 @@ public final class HulkGrab {
 		target.stopRiding();
 		target.ejectPassengers();
 		HELD.put(player.getUUID(), target.getId());
+		if (HulkAbilities.drivenNow(player)) {
+			RAMPAGE_HELD.add(player.getUUID());
+		}
 		setHolding(player, true);
 		HulkAbilities.anim(player, HulkState.ANIM_GRAB);
 		ServerLevel level = (ServerLevel) player.level();
@@ -319,6 +327,7 @@ public final class HulkGrab {
 
 	private static void letGo(ServerPlayer player, Entity held) {
 		HELD.remove(player.getUUID());
+		RAMPAGE_HELD.remove(player.getUUID());
 		setHolding(player, false);
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.4f, 0.4f);
@@ -573,7 +582,8 @@ public final class HulkGrab {
 			HulkState s = Hulk.state(player);
 			Entity held = heldEntity(player);
 			long now = player.level().getGameTime();
-			if (held != null && (!s.hulk || s.rampaging(now) || !player.isAlive() || held.distanceToSqr(player) > 144.0)) {
+			if (held != null && (!s.hulk || (s.rampaging(now) && !RAMPAGE_HELD.contains(player.getUUID())) || !player.isAlive()
+					|| held.distanceToSqr(player) > 144.0)) {
 				release(player);
 			} else if (held instanceof ServerPlayer mate && mate.isShiftKeyDown() && isTeammate(player, mate)) {
 				setDown(player, mate); // v0.13.17: a carried squad-mate sneaks to get down

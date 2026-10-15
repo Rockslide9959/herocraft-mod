@@ -89,7 +89,31 @@ public final class HulkAbilities {
 	private record Task(long at, Runnable run) {
 	}
 
-	private record Dozer(Vec3 start, Vec3 dir, Set<Integer> carried, HulkCombat.Hit hit) {
+	/** {@code rampage}: the rampage AI started it (it keeps running while he rampages). */
+	private record Dozer(Vec3 start, Vec3 dir, Set<Integer> carried, HulkCombat.Hit hit, boolean rampage) {
+	}
+
+	/**
+	 * v0.16.4 (user): "make him use moves more" -- the player the rampage AI is driving a move for right now (server thread
+	 * only). {@link #canAct} lets a rampaging Hulk act while it is set, and the moves skip the player's own cooldowns (the AI
+	 * keeps its own).
+	 */
+	private static UUID driving;
+
+	/** Runs {@code move} as the rampage AI's (see {@link #driving}). */
+	static void driven(ServerPlayer player, Runnable move) {
+		UUID before = driving;
+		driving = player.getUUID();
+		try {
+			move.run();
+		} finally {
+			driving = before;
+		}
+	}
+
+	/** The rampage AI is driving this player's move right now. */
+	static boolean drivenNow(ServerPlayer player) {
+		return driving != null && driving.equals(player.getUUID());
 	}
 
 	private static final Map<UUID, List<Task>> TASKS = new ConcurrentHashMap<>();
@@ -157,7 +181,7 @@ public final class HulkAbilities {
 			return false;
 		}
 		long now = player.level().getGameTime();
-		if (s.rampaging(now) || s.combat.calming) {
+		if ((s.rampaging(now) && !drivenNow(player)) || s.combat.calming) {
 			return false;
 		}
 		if (Hulk.changing(s, now)) {
@@ -169,7 +193,7 @@ public final class HulkAbilities {
 
 	/** {@link #canAct} + off cooldown; starts the cooldown and the animation. */
 	private static boolean start(ServerPlayer player, String id, int cooldownTicks, int animId) {
-		if (!canAct(player) || !ready(player, id) || busy(player)) {
+		if (!canAct(player) || (!drivenNow(player) && !ready(player, id)) || busy(player)) {
 			return false;
 		}
 		HulkState n = Hulk.state(player).copy();
@@ -570,7 +594,7 @@ public final class HulkAbilities {
 		n.combat.chargeUntil = player.level().getGameTime() + maxTicks;
 		Hulk.save(player, n);
 		DOZERS.put(player.getUUID(), new Dozer(player.position(), flatLook(player), new java.util.HashSet<>(),
-				new HulkCombat.Hit(cfg.bulldozeDamage, 0.0, 0.0)));
+				new HulkCombat.Hit(cfg.bulldozeDamage, 0.0, 0.0), drivenNow(player)));
 		ServerLevel level = (ServerLevel) player.level();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.8f, 0.8f);
 		GroundCracks.star(level, player.position(), 2.0, 5, 60);
@@ -587,7 +611,8 @@ public final class HulkAbilities {
 			return;
 		}
 		Dozer dz = DOZERS.get(player.getUUID());
-		if (dz == null || now >= s.combat.chargeUntil || !s.hulk || s.rampaging(now) || player.isPassenger() || player.isSpectator()
+		if (dz == null || now >= s.combat.chargeUntil || !s.hulk || (s.rampaging(now) && !dz.rampage()) || player.isPassenger()
+				|| player.isSpectator()
 				|| horizontalDistance(player.position(), dz.start()) >= HulkConfig.abilities().bulldozeBlocks) {
 			endCharge(player);
 			return;
@@ -734,7 +759,7 @@ public final class HulkAbilities {
 	// ---------------------------------------------------------------- Shift+Z Launch Uppercut
 
 	public static void uppercut(ServerPlayer player) {
-		if (!canAct(player) || !ready(player, UPPERCUT) || busy(player)) {
+		if (!canAct(player) || (!drivenNow(player) && !ready(player, UPPERCUT)) || busy(player)) {
 			return;
 		}
 		LivingEntity target = uppercutTarget(player);

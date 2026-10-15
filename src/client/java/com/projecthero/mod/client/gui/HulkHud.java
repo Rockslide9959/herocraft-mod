@@ -65,17 +65,9 @@ public final class HulkHud {
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int bottom = g.guiHeight() - MARGIN;
 
-		// v0.16.4 (user): "Rage bar only in Hulk form" -- Banner has no rage, and no bar; only the hold-H cooldown if one runs
+		// v0.16.4 (user): "Rage bar only in Hulk form" -- Banner has no rage, and no bar. v0.16.4 (user): no timer for the hold-H
+		// cooldown either ("it also shouldnt show a timer for the 1 minute transformation cooldown")
 		if (!s.hulk) {
-			int cd = Hulk.holdCooldown(player);
-			if (cd > 0) {
-				int cBar = bottom - HAIRLINE;
-				g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.hold_cooldown", (cd + 19) / 20), x0, cBar - 11, COLOR_EXHAUSTED,
-						false);
-				g.fill(x0, cBar, x0 + totalW, cBar + HAIRLINE, COLOR_BG);
-				g.fill(x0, cBar, x0 + Math.round(totalW * Math.min(1.0f, cd / (float) HulkConfig.WILLING_COOLDOWN_TICKS)), cBar + HAIRLINE,
-						COLOR_EXHAUSTED);
-			}
 			renderCentre(g, mc, player, s, now);
 			return;
 		}
