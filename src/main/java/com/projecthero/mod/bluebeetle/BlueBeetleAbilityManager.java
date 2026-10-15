@@ -16,13 +16,13 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <pre>
  *   R (1)  Plasma Blaster (hold)    Shift+R  Mega Cannon
- *   G (2)  Energy Blade (combo)     Shift+G  Scarab Grip
- *   X (3)  Wings (flight toggle)    Shift+X  Afterburner
- *   Z (4)  Energy Shield (hold)     Shift+Z  Shield Pulse
- *   V (5)  Scarab Swarm             Shift+V  Bubble Prison
- *   C (6)  Camouflage               Shift+C  Khaji-Da Unleashed
+ *   G (2)  Scarab Hammer            Shift+G  Scarab Grab
+ *   X (3)  Scarab Swarm             Shift+X  Bubble Prison
+ *   Z (4)  Plasma Spikes            Shift+Z  Shield Pulse
+ *   V (5)  Energy Shield (hold)     Shift+V  Camouflage
+ *   C (6)  Energy Blade (toggle)    Shift+C  Khaji-Da Unleashed
  * </pre>
- * The Energy Blade combo takes quick repeated presses, so G is not run through the key-repeat guard.
+ * Flight is double-tap jump ({@link BlueBeetle#toggleFlight}), not a key.
  */
 public final class BlueBeetleAbilityManager {
 	static final int REPEAT_WINDOW = 25;
@@ -66,7 +66,7 @@ public final class BlueBeetleAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		if (slot != AbilitySlot.SLOT_2 && !freshPress(player, slot, pressed)) {
+		if (!freshPress(player, slot, pressed)) {
 			return;
 		}
 		boolean shift = player.isShiftKeyDown();
@@ -83,31 +83,13 @@ public final class BlueBeetleAbilityManager {
 			case SLOT_2 -> {
 				if (pressed) {
 					if (shift) {
-						BlueBeetleAbilities.grip(player);
+						BlueBeetleAbilities.grab(player);
 					} else {
-						BlueBeetleAbilities.blade(player);
+						BlueBeetleAbilities.hammer(player);
 					}
 				}
 			}
 			case SLOT_3 -> {
-				if (pressed) {
-					if (shift) {
-						BlueBeetleAbilities.afterburner(player);
-					} else {
-						BlueBeetleAbilities.toggleWings(player);
-					}
-				}
-			}
-			case SLOT_4 -> {
-				if (!pressed) {
-					BlueBeetleAbilities.lowerShield(player);
-				} else if (shift) {
-					BlueBeetleAbilities.pulse(player);
-				} else {
-					BlueBeetleAbilities.raiseShield(player);
-				}
-			}
-			case SLOT_5 -> {
 				if (pressed) {
 					if (shift) {
 						BlueBeetleAbilities.bubble(player);
@@ -116,12 +98,30 @@ public final class BlueBeetleAbilityManager {
 					}
 				}
 			}
+			case SLOT_4 -> {
+				if (pressed) {
+					if (shift) {
+						BlueBeetleAbilities.pulse(player);
+					} else {
+						BlueBeetleAbilities.spikes(player);
+					}
+				}
+			}
+			case SLOT_5 -> {
+				if (!pressed) {
+					BlueBeetleAbilities.lowerShield(player);
+				} else if (shift) {
+					BlueBeetleAbilities.camo(player);
+				} else {
+					BlueBeetleAbilities.raiseShield(player);
+				}
+			}
 			case SLOT_6 -> {
 				if (pressed) {
 					if (shift) {
 						BlueBeetleAbilities.unleash(player);
 					} else {
-						BlueBeetleAbilities.camo(player);
+						BlueBeetleAbilities.toggleBlade(player);
 					}
 				}
 			}
@@ -133,11 +133,11 @@ public final class BlueBeetleAbilityManager {
 	public static String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_1 -> new String[] { BlueBeetleAbilities.BLAST, BlueBeetleAbilities.CANNON };
-			case SLOT_2 -> new String[] { BlueBeetleAbilities.BLADE, BlueBeetleAbilities.GRIP };
-			case SLOT_3 -> new String[] { BlueBeetleAbilities.WINGS, BlueBeetleAbilities.AFTERBURNER };
-			case SLOT_4 -> new String[] { BlueBeetleAbilities.SHIELD, BlueBeetleAbilities.PULSE };
-			case SLOT_5 -> new String[] { BlueBeetleAbilities.SWARM, BlueBeetleAbilities.BUBBLE };
-			case SLOT_6 -> new String[] { BlueBeetleAbilities.CAMO, BlueBeetleAbilities.UNLEASH };
+			case SLOT_2 -> new String[] { BlueBeetleAbilities.HAMMER, BlueBeetleAbilities.GRAB };
+			case SLOT_3 -> new String[] { BlueBeetleAbilities.SWARM, BlueBeetleAbilities.BUBBLE };
+			case SLOT_4 -> new String[] { BlueBeetleAbilities.SPIKES, BlueBeetleAbilities.PULSE };
+			case SLOT_5 -> new String[] { BlueBeetleAbilities.SHIELD, BlueBeetleAbilities.CAMO };
+			case SLOT_6 -> new String[] { BlueBeetleAbilities.BLADE, BlueBeetleAbilities.UNLEASH };
 			default -> new String[0];
 		};
 	}
@@ -146,13 +146,14 @@ public final class BlueBeetleAbilityManager {
 		return switch (id) {
 			case BlueBeetleAbilities.BLAST -> BlueBeetleConfig.BLAST_COOLDOWN;
 			case BlueBeetleAbilities.CANNON -> BlueBeetleConfig.CANNON_COOLDOWN;
-			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COOLDOWN;
-			case BlueBeetleAbilities.GRIP -> BlueBeetleConfig.GRIP_COOLDOWN;
-			case BlueBeetleAbilities.AFTERBURNER -> BlueBeetleConfig.AFTERBURNER_COOLDOWN;
-			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COOLDOWN;
+			case BlueBeetleAbilities.HAMMER -> BlueBeetleConfig.HAMMER_COOLDOWN;
+			case BlueBeetleAbilities.GRAB -> BlueBeetleConfig.GRAB_COOLDOWN;
 			case BlueBeetleAbilities.SWARM -> BlueBeetleConfig.SWARM_COOLDOWN;
 			case BlueBeetleAbilities.BUBBLE -> BlueBeetleConfig.BUBBLE_COOLDOWN;
+			case BlueBeetleAbilities.SPIKES -> BlueBeetleConfig.SPIKE_COOLDOWN;
+			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COOLDOWN;
 			case BlueBeetleAbilities.CAMO -> BlueBeetleConfig.CAMO_COOLDOWN;
+			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COOLDOWN;
 			case BlueBeetleAbilities.UNLEASH -> BlueBeetleConfig.UNLEASH_COOLDOWN;
 			default -> 0;
 		};
@@ -162,15 +163,15 @@ public final class BlueBeetleAbilityManager {
 		return switch (id) {
 			case BlueBeetleAbilities.BLAST -> BlueBeetleConfig.BLAST_COST;
 			case BlueBeetleAbilities.CANNON -> BlueBeetleConfig.CANNON_COST;
-			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COST;
-			case BlueBeetleAbilities.GRIP -> BlueBeetleConfig.GRIP_COST;
-			case BlueBeetleAbilities.WINGS -> BlueBeetleConfig.FLIGHT_DRAIN;
-			case BlueBeetleAbilities.AFTERBURNER -> BlueBeetleConfig.AFTERBURNER_COST;
-			case BlueBeetleAbilities.SHIELD -> BlueBeetleConfig.SHIELD_COST_PER_SECOND;
-			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COST;
+			case BlueBeetleAbilities.HAMMER -> BlueBeetleConfig.HAMMER_COST;
+			case BlueBeetleAbilities.GRAB -> BlueBeetleConfig.GRAB_COST;
 			case BlueBeetleAbilities.SWARM -> BlueBeetleConfig.SWARM_COST;
 			case BlueBeetleAbilities.BUBBLE -> BlueBeetleConfig.BUBBLE_COST;
+			case BlueBeetleAbilities.SPIKES -> BlueBeetleConfig.SPIKE_COST;
+			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COST;
+			case BlueBeetleAbilities.SHIELD -> BlueBeetleConfig.SHIELD_COST_PER_SECOND;
 			case BlueBeetleAbilities.CAMO -> BlueBeetleConfig.CAMO_COST;
+			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COST;
 			case BlueBeetleAbilities.UNLEASH -> BlueBeetleConfig.ENERGY_MAX;
 			default -> 0f;
 		};

@@ -115,9 +115,9 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 **Fantasy:** a teenager bonded to an alien scarab, Khaji-Da, that builds weapons out of his armour on the fly. He's a flying all-rounder: a ranged blaster with a blade, a shield and a few tricks. Khaji-Da talks to him in short lines in chat, the same way the Symbiote does.
 
-**How you get it:** the **Scarab** turns up in **suspicious sand in desert pyramids**, found by brushing (about as rare as Mjolnir). Right-click it and it latches onto your spine. You get a 6 s bonding scene: the screen flashes blue and the armour grows out from your back.
+**How you get it:** the **Scarab** turns up in **suspicious sand in desert pyramids**, found by brushing (about as rare as Mjolnir). Right-click it and it latches onto your spine. You get a 5 s bonding: the armour builds itself pixel by pixel outward from the scarab on your back (no blue glow).
 
-**Look:** a player model with a detailed Blue Beetle skin (you'd send the link, like the other two). **H** suits up: the armour spreads outward from the scarab on your back, and the wings fold out of the back plate when you fly.
+**Look:** a player model with a detailed Blue Beetle skin (you'd send the link, like the other two). **H** suits up: the armour builds itself texel by texel outward from the scarab on your back (and comes apart the same way, reversed), and the wings spread from the back plate when you fly.
 
 **Resource: Scarab Energy (100).** It refills 3 per second, and twice as fast while you stand still. Every move costs some of it.
 
@@ -125,16 +125,20 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 | Key | Tap | Shift |
 |---|---|---|
-| **R** | **Plasma Blaster:** hold to fire blue plasma bolts, 3 a second, 7 damage each. 4 energy per bolt | **Mega Cannon:** charge for 2 s, then a huge beam that pierces everything in a 30-block line for 30 damage (bosses capped). 50 energy, 20 s |
-| **G** | **Energy Blade:** your arm forms a blade for a 3-hit combo, 10 damage each, the last one knocks back. 10 energy | **Scarab Grip:** a giant energy hand grabs a mob 12 blocks away, lifts it and slams it down for 14 (no bosses). 25 energy, 10 s |
-| **X** | **Wings:** toggle true flight. The wings unfold and you fly where you look, with a double-tap jump to start. 2 energy per second while flying | **Afterburner:** a 15-block jet burst the way you're facing that knocks aside anything in your path for 8. 20 energy, 6 s |
-| **Z** | **Energy Shield:** hold to raise a round shield on your arm that blocks every hit and arrow from the front. 3 energy per second | **Shield Pulse:** the shield blasts out in all directions, pushing everything within 6 blocks away and reflecting arrows. 30 energy, 12 s |
-| **V** | **Scarab Swarm:** 3 small scarab drones fly out and attack your target or the nearest enemy for 10 s (3 damage per hit). 35 energy, 25 s | **Bubble Prison:** traps the mob you aim at in an energy bubble for 5 s. It can't move or attack, and nothing can hurt it while it's inside (no bosses). 30 energy, 18 s |
-| **C** | **Camouflage:** the armour bends light. You're invisible for 8 s (mobs lose track of you), and attacking ends it. 30 energy, 30 s | **Khaji-Da Unleashed:** ultimate, needs a full bar. For 15 s the scarab takes over: +50% damage, half cooldowns, free moves and a red glow. Afterwards you're drained and the bar refills at half speed for 30 s. 120 s cooldown |
+| **R** | **Plasma Blaster:** hold: a blaster builds itself round your forearm and fires glowing plasma-orb projectiles, 3 a second, **15 damage** each. 4 energy per bolt | **Mega Cannon:** both arms out together, a big twin cannon forms over both forearms during a 2 s charge, then a huge beam pierces everything in a 30-block line for 30 damage (bosses capped). 50 energy, 20 s |
+| **G** | **Scarab Hammer:** the arm forms an energy hammer and smashes it down: 20 damage in a short arc in front, knocked into the air. 25 energy, 6 s | **Scarab Grab:** two segmented tentacles shoot out of your upper back at the mob you aim at (14 blocks), strike it once each for 10 and knock it far back. 25 energy, 10 s |
+| **X** | **Scarab Swarm:** 3 small scarab drones attack your target or the nearest enemy for 10 s (3 damage per hit). 35 energy, 25 s | **Bubble Prison:** traps the mob you aim at in an energy bubble for 5 s. It can't move or attack, and nothing can hurt it inside (no bosses). 30 energy, 18 s |
+| **Z** | **Plasma Spikes:** slam a fist down and a line of energy spikes erupts along the ground for 14 blocks, 18 damage each, launching what they hit. 30 energy, 8 s | **Shield Pulse:** the shield blasts out in all directions, pushing everything within 6 blocks away and reflecting arrows. 30 energy, 12 s |
+| **V** | **Energy Shield:** hold to raise a round shield on your arm that blocks every hit and arrow from the front. 3 energy per second | **Camouflage:** invisible with no timer; it breaks the moment you touch, hit or use anything (blocks, items, mobs), fly or use a move. 30 energy, 15 s cooldown after it breaks |
+| **C** | **Energy Blade:** toggle: the blade forms on your arm, **+7 melee** while it's out; C again folds it away. 10 energy | **Khaji-Da Unleashed:** ultimate, needs a full bar. For 15 s the scarab takes over: +50% damage, half cooldowns, free moves and a red glow. Afterwards you're drained and the bar refills at half speed for 30 s. 120 s cooldown |
 
-**Passives (suited):** diamond-level armour (20 armour, 8 toughness), no fall damage, night vision, Adaptation, and Khaji-Da's chat lines (warnings when you're low, comments on the enemies you fight). **Unsuited:** the scarab still warns you about hostile mobs within 16 blocks, with a short chat line.
+**Flight:** double-tap jump in the air while suited (like Cyborg's Jet Flight); landing or another double-tap ends it. 2 energy a second. The four wings spread out still and glow blue; no wind sounds.
 
-**New assets:** the armour skin, the Scarab item (3D on your back while unsuited), the wings, the energy blade, the shield, the bubble, the scarab drones and the Mega Cannon beam.
+**Passives (suited):** diamond-level armour (20 armour, 8 toughness), **+9 melee damage**, no fall damage, night vision, Adaptation, and Khaji-Da's chat lines (warnings when you're low, comments on the enemies you fight). **Unsuited:** the scarab still warns you about hostile mobs within 16 blocks, with a short chat line.
+
+**New assets:** the armour skin, the Scarab item and a voxel Scarab on your back (split oval carapace, gold rim, glowing core, legs gripping the back; armour on or off), the glowing wings, the arm blaster and twin cannon, the energy hammer, the tentacles, the spikes, the plasma bolt, the energy blade, the shield, the bubble, the scarab drones and the Mega Cannon beam.
+
+**v0.16.5 rework (user's list):** better Scarab model; pixel-by-pixel build from the scarab with no glow (5 s first bonding); double-tap-jump flight with still, glowing wings and no wind sound; plasma bolts are real projectiles (15 damage); voxel blaster / twin cannon build on the arms; keys re-slotted (V shield, Shift+V endless camouflage, C toggle blade +7, Shift+G tentacles); new G Scarab Hammer and Z Plasma Spikes; Swarm / Bubble Prison moved to X; Wings and Afterburner keys removed; +9 melee suited.
 
 ---
 

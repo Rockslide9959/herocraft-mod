@@ -1289,9 +1289,9 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.blue_beetle.controls");
-			for (String[] row : new String[][] { { "R", "plasma_blaster" }, { "Shift+R", "mega_cannon" }, { "G", "energy_blade" },
-					{ "Shift+G", "scarab_grip" }, { "X", "wings" }, { "Shift+X", "afterburner" }, { "Z", "energy_shield" },
-					{ "Shift+Z", "shield_pulse" }, { "V", "scarab_swarm" }, { "Shift+V", "bubble_prison" }, { "C", "camouflage" },
+			for (String[] row : new String[][] { { "R", "plasma_blaster" }, { "Shift+R", "mega_cannon" }, { "G", "scarab_hammer" },
+					{ "Shift+G", "scarab_grab" }, { "X", "scarab_swarm" }, { "Shift+X", "bubble_prison" }, { "Z", "plasma_spikes" },
+					{ "Shift+Z", "shield_pulse" }, { "V", "energy_shield" }, { "Shift+V", "camouflage" }, { "C", "energy_blade" },
 					{ "Shift+C", "khaji_da_unleashed" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.blue_beetle.ability." + row[1]).withStyle(ChatFormatting.WHITE)));

@@ -15,7 +15,7 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
-/** v0.16.5: Blue Beetle's armoured arm (and the energy blade) in first person. */
+/** v0.16.5: Blue Beetle's armoured arm (and the energy blade, the blaster, the hammer) in first person. */
 @Mixin(PlayerRenderer.class)
 public abstract class BlueBeetleFirstPersonArmMixin {
 	@Inject(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
@@ -33,6 +33,6 @@ public abstract class BlueBeetleFirstPersonArmMixin {
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
 		boolean right = arm == model.rightArm;
 		BlueBeetleRender.renderArm(pose, buffers, light, arm, right, progress);
-		BlueBeetleRender.renderArmExtras(pose, buffers, player, arm, right, player.tickCount + partial);
+		BlueBeetleRender.renderArmExtras(pose, buffers, light, player, arm, right, player.tickCount + partial);
 	}
 }

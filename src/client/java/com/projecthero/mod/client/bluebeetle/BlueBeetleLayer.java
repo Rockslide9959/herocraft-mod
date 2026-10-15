@@ -1,30 +1,21 @@
 package com.projecthero.mod.client.bluebeetle;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Axis;
 import com.projecthero.mod.bluebeetle.BlueBeetle;
-import com.projecthero.mod.bluebeetle.item.BlueBeetleItems;
+import com.projecthero.mod.client.render.OverlayStrips;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
 
 /**
- * v0.16.5: Blue Beetle's armour on every player who has it out (every viewer), see {@link BlueBeetleRender} -- and the
- * Scarab itself, a 3D scarab fixed between the shoulder blades of anyone bonded to Khaji-Da, armour on or off (the user
- * asked for it to stay on the player). Full-bright, with a slow breathing tilt.
+ * v0.16.5: Blue Beetle's armour on every player who has it out (every viewer), see {@link BlueBeetleRender}; the arm
+ * blaster, twin cannon and hammer ({@link BlueBeetleTech}); and the Scarab itself, a voxel scarab fixed between the
+ * shoulder blades of anyone bonded to Khaji-Da, armour on or off (the user asked for it to stay on the player).
  */
 public class BlueBeetleLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
-	private static ItemStack scarab;
-
 	public BlueBeetleLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
 	}
@@ -38,34 +29,15 @@ public class BlueBeetleLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 		BlueBeetleRender.Anim anim = BlueBeetleRender.anim(player, partialTick);
 		if (anim.anything()) {
 			BlueBeetleRender.render(pose, buffers, light, getParentModel(), player, anim, partialTick, ageInTicks);
-			if (anim.spread() < BlueBeetleRender.STEPS - 0.01f) {
-				// v0.16.5: the wearer's second layer goes texel row by texel row as the armour spreads, not all at once
-				float spread = anim.spread();
-				com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(),
-						(u, v) -> {
-							float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
-							return h >= 0f && Math.abs(h - BlueBeetleRender.CORE_HEIGHT) > spread;
-						});
+			if (!anim.full()) {
+				// v0.16.5: the wearer's second layer goes texel by texel in step with the armour's build
+				float cover = anim.cover();
+				OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> BlueBeetleRender.order(u, v) > cover);
+			}
+			if (anim.full()) {
+				BlueBeetleTech.renderArmTech(pose, buffers, light, player, getParentModel(), partialTick);
 			}
 		}
-		renderBackScarab(pose, buffers, player, ageInTicks);
-	}
-
-	/** The Scarab on the spine: in body space, on the back plate between the shoulder blades, facing out backwards. */
-	private void renderBackScarab(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, float age) {
-		if (scarab == null) {
-			scarab = new ItemStack(BlueBeetleItems.SCARAB);
-		}
-		pose.pushPose();
-		getParentModel().body.translateAndRotate(pose);
-		// the back of the body cube is at z = +2 px; the armour sits a hair outside it
-		pose.translate(0.0f, 0.30f, 0.17f);
-		pose.mulPose(Axis.YP.rotationDegrees(180f));
-		pose.mulPose(Axis.ZP.rotationDegrees(180f)); // model space is upside down: head of the beetle toward the neck
-		pose.mulPose(Axis.XP.rotationDegrees(2.5f * Mth.sin(age * 0.08f)));
-		pose.scale(0.42f, 0.42f, 0.6f);
-		Minecraft.getInstance().getItemRenderer().renderStatic(scarab, ItemDisplayContext.FIXED, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-				pose, buffers, player.level(), player.getId());
-		pose.popPose();
+		BlueBeetleTech.renderScarab(pose, buffers, light, getParentModel());
 	}
 }
