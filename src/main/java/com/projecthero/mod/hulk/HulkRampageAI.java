@@ -342,6 +342,11 @@ final class HulkRampageAI {
 			b.stuckTicks = moved < speed * 0.25 ? b.stuckTicks + 1 : Math.max(0, b.stuckTicks - 2);
 		}
 		b.lastPos = here;
+		// v0.16.4 (user): "I dont want him to get stuck on a tree" -- trees are nothing to the Hulk: logs, leaves and plants in
+		// his path go down as he runs into them, every tick, before he can ever be held up
+		if (clearTrees(p, dir) > 0) {
+			b.stuckTicks = 0;
+		}
 		if (b.stuckTicks >= 12 && p.onGround()) {
 			if (b.stuckTicks < 30) {
 				vy = 0.75; // a hop over it first
@@ -354,5 +359,37 @@ final class HulkRampageAI {
 			}
 		}
 		AbilityHelpers.launchSelf(p, new Vec3(dir.x * speed, vy, dir.z * speed));
+	}
+
+	/**
+	 * v0.16.4: smashes the tree parts (logs, leaves, wood, vines, saplings, mushroom blocks) in a box just ahead of him -- his
+	 * width, his height, out to 1.5 blocks in front -- so a forest never stops him. Respects the Hulk's block-breaking rules.
+	 * Returns how many blocks went.
+	 */
+	static int clearTrees(ServerPlayer p, Vec3 dir) {
+		ServerLevel level = (ServerLevel) p.level();
+		if (!HulkCombat.canBreakBlocks(level) || dir.lengthSqr() < 1.0e-4) {
+			return 0;
+		}
+		net.minecraft.world.phys.AABB box = p.getBoundingBox().move(dir.x * 1.5, 0.0, dir.z * 1.5).inflate(0.2, -0.05, 0.2)
+				.setMinY(p.getY() + 0.05);
+		int n = 0;
+		for (net.minecraft.core.BlockPos pos : net.minecraft.core.BlockPos.betweenClosed(
+				net.minecraft.util.Mth.floor(box.minX), net.minecraft.util.Mth.floor(box.minY), net.minecraft.util.Mth.floor(box.minZ),
+				net.minecraft.util.Mth.floor(box.maxX), net.minecraft.util.Mth.floor(box.maxY), net.minecraft.util.Mth.floor(box.maxZ))) {
+			var st = level.getBlockState(pos);
+			boolean tree = st.is(net.minecraft.tags.BlockTags.LOGS) || st.is(net.minecraft.tags.BlockTags.LEAVES)
+					|| st.is(net.minecraft.world.level.block.Blocks.VINE) || st.is(net.minecraft.tags.BlockTags.SAPLINGS)
+					|| st.is(net.minecraft.world.level.block.Blocks.MUSHROOM_STEM) || st.is(net.minecraft.world.level.block.Blocks.BROWN_MUSHROOM_BLOCK)
+					|| st.is(net.minecraft.world.level.block.Blocks.RED_MUSHROOM_BLOCK) || st.is(net.minecraft.world.level.block.Blocks.BAMBOO);
+			if (tree && level.isLoaded(pos) && level.mayInteract(p, pos) && HulkCombat.breakable(level, pos, st)) {
+				level.destroyBlock(pos, HulkConfig.world().dropBrokenBlocks && st.is(net.minecraft.tags.BlockTags.LOGS) && n % 2 == 0, p);
+				n++;
+			}
+		}
+		if (n > 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR, SoundSource.PLAYERS, 0.9f, 0.7f);
+		}
+		return n;
 	}
 }

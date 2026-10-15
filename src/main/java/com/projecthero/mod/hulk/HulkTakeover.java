@@ -60,6 +60,8 @@ public final class HulkTakeover {
 		/** The next slice to carve, and how many held something solid. */
 		public int slice;
 		public int solidSlices;
+		/** v0.16.4 (in-game check): how many times the mouth was moved forward to the real rock face. */
+		public int replans;
 		/** Where he sits when it is done. */
 		public Vec3 sitSpot;
 		long phaseStart;
@@ -459,7 +461,32 @@ public final class HulkTakeover {
 		if (plan.mouth == null) {
 			planHere(p, plan);
 		}
-		boolean done = plan.pit ? plan.slice >= plan.height : (plan.solidSlices >= plan.depth || plan.slice >= plan.depth + 10);
+		// v0.16.4 (in-game check): the mouth was planned at the foot of the slope (forest, open air) and every slice came up
+		// empty -- he sat down outside without a cave. Never sit without a hole: move the mouth forward to the first solid
+		// rock along the cave line (twice at most), then fall back to a pit dug straight into the ground under him.
+		if (!plan.pit && plan.slice >= plan.depth + 10 && plan.solidSlices < plan.depth) {
+			BlockPos face = plan.replans < 2 ? solidAhead(p, plan) : null;
+			plan.replans++;
+			if (face != null) {
+				int keep = plan.replans;
+				fill(p, plan, face, plan.dir, false);
+				plan.replans = keep;
+			} else {
+				fill(p, plan, p.blockPosition(), Direction.DOWN, true);
+			}
+			return;
+		}
+		boolean done = plan.pit ? plan.slice >= plan.height : plan.solidSlices >= plan.depth;
+		if (!done && now - plan.phaseStart > 40L * 20L && plan.solidSlices < 2) {
+			// out of time with no real hole yet: punch the pit out in one go so he still has his shelter
+			if (!plan.pit) {
+				fill(p, plan, p.blockPosition(), Direction.DOWN, true);
+			}
+			while (plan.slice < plan.height) {
+				carveSlice(p, plan, plan.slice++);
+			}
+			done = true;
+		}
 		if (done || now - plan.phaseStart > 40L * 20L) {
 			plan.sitSpot = sitSpot(plan);
 			setPhase(p, plan, HulkState.TAKEOVER_SIT, now);
@@ -495,6 +522,29 @@ public final class HulkTakeover {
 			}
 		}
 		plan.nextCarve = now + 8L;
+	}
+
+	/**
+	 * v0.16.4: the first column along the cave line (from the planned mouth, up to 16 blocks on) whose floor-to-head blocks are
+	 * solid rock he may carve -- the real face of the slope -- or null.
+	 */
+	private static BlockPos solidAhead(ServerPlayer p, Plan plan) {
+		ServerLevel level = (ServerLevel) p.level();
+		for (int k = 0; k <= 16; k++) {
+			BlockPos at = plan.mouth.relative(plan.dir, plan.slice + k); // on past the empty slices already tried
+			int solid = 0;
+			for (int h = 0; h < plan.height; h++) {
+				BlockPos b = at.above(h);
+				BlockState st = level.getBlockState(b);
+				if (level.isLoaded(b) && !st.isAir() && !st.is(net.minecraft.tags.BlockTags.LEAVES) && HulkCombat.breakable(level, b, st)) {
+					solid++;
+				}
+			}
+			if (solid >= plan.height - 1) {
+				return at.relative(plan.dir.getOpposite());
+			}
+		}
+		return null;
 	}
 
 	/** The middle of slice {@code k}'s floor. */
@@ -560,7 +610,8 @@ public final class HulkTakeover {
 			return 0;
 		}
 		level.destroyBlock(pos, false, p);
-		return 1;
+		// v0.16.4 (in-game check): leaves and plants are cleared but do not count -- a tunnel through a canopy is not a cave
+		return st.is(net.minecraft.tags.BlockTags.LEAVES) || st.canBeReplaced() ? 0 : 1;
 	}
 
 	/** Tests: carve the whole plan at once. Returns the blocks broken. */

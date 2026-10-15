@@ -38,8 +38,8 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation CLAP = RawAnimation.begin().thenPlay(P + "clap");
 	private static final RawAnimation SMASH = RawAnimation.begin().thenPlay(P + "smash");
 	private static final RawAnimation LEAP_CHARGE = RawAnimation.begin().thenPlayAndHold(P + "leap_charge");
-	/** v0.16.4: sitting hunched in his cave during a takeover (the held leap_charge crouch; there is no sit clip). */
-	private static final RawAnimation CAVE_SIT = RawAnimation.begin().thenPlayAndHold(P + "leap_charge");
+	/** v0.16.4 (user): sitting in his cave during a takeover -- on the ground, knees bent up, hands resting on them, breathing. */
+	private static final RawAnimation CAVE_SIT = RawAnimation.begin().thenLoop(P + "sit");
 	private static final RawAnimation LEAP = RawAnimation.begin().thenPlayAndHold(P + "leap");
 	private static final RawAnimation TRANSFORM = RawAnimation.begin().thenPlay(P + "transform");
 	/** v0.13.15: the unwilling change -- on his knees, clutching his head, then up into the roar. */
@@ -209,7 +209,7 @@ public final class HulkAnimatable implements GeoReplacedEntity {
 		if (s.leapChargeStart > 0L) {
 			return state.setAndContinue(LEAP_CHARGE);
 		}
-		// v0.16.4 (user): the takeover's rest in his cave -- no sit clip exists, so the held, hunched leap_charge crouch
+		// v0.16.4 (user): the takeover's rest in his cave -- the sit clip
 		if (s.noRing(now) && s.wild.kind == HulkState.RAMPAGE_TAKEOVER && s.wild.phase == HulkState.TAKEOVER_SIT
 				&& state.getLimbSwingAmount() < 0.1f && player.onGround()) {
 			return state.setAndContinue(CAVE_SIT);
