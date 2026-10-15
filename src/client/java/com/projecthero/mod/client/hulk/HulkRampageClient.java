@@ -282,11 +282,63 @@ public final class HulkRampageClient {
 		int ih = Math.round(gh * k);
 		int x0 = (gw - iw) / 2;
 		int y0 = Math.round((gh - ih) * (1.0f - BOTTOM_SHARE));
+		renderTv(g, x0, y0, iw, ih);
 		int col = 0xFF3A5A3A;
 		g.fill(x0 - 1, y0 - 1, x0 + iw + 1, y0, col);
 		g.fill(x0 - 1, y0 + ih, x0 + iw + 1, y0 + ih + 1, col);
 		g.fill(x0 - 1, y0, x0, y0 + ih, col);
 		g.fill(x0 + iw, y0, x0 + iw + 1, y0 + ih, col);
+	}
+
+	/**
+	 * v0.16.4 (user): "add the tv effect to the hulk rampage screen" -- the mind hall's screen look on the inset: scanlines, a
+	 * faint green cast, a bright band rolling up the picture, a soft flicker and a vignette darkening the edges. GUI fills
+	 * only (no shader); it fades in and out with the inset.
+	 */
+	private static void renderTv(GuiGraphics g, int x0, int y0, int iw, int ih) {
+		float k = eased();
+		if (k <= 0.01f || iw <= 0 || ih <= 0) {
+			return;
+		}
+		long ms = Util.getMillis();
+		float flicker = 0.92f + 0.08f * Mth.sin(ms * 0.031f) * Mth.sin(ms * 0.0071f);
+		// the green cast of an old screen
+		g.fill(x0, y0, x0 + iw, y0 + ih, argb(Math.round(18 * k * flicker), 40, 255, 90));
+		// scanlines: a dark line every third row
+		int lineA = Math.round(70 * k);
+		for (int y = y0; y < y0 + ih; y += 3) {
+			g.fill(x0, y, x0 + iw, y + 1, argb(lineA, 0, 0, 0));
+		}
+		// the rolling band, bottom to top every 3.5 s
+		int bandH = Math.max(6, ih / 9);
+		int by = y0 + ih - (int) ((ms % 3500L) / 3500.0f * (ih + bandH * 2)) + bandH;
+		int ba = Math.round(26 * k);
+		int top = Math.max(y0, by - bandH);
+		int mid = Mth.clamp(by, y0, y0 + ih);
+		int bot = Math.min(y0 + ih, by + bandH);
+		if (mid > top) {
+			g.fillGradient(x0, top, x0 + iw, mid, argb(0, 210, 255, 220), argb(ba, 210, 255, 220));
+		}
+		if (bot > mid) {
+			g.fillGradient(x0, mid, x0 + iw, bot, argb(ba, 210, 255, 220), argb(0, 210, 255, 220));
+		}
+		// the vignette: darker toward every edge
+		int edge = Math.max(8, Math.min(iw, ih) / 7);
+		int va = Math.round(120 * k);
+		g.fillGradient(x0, y0, x0 + iw, y0 + edge, argb(va, 0, 0, 0), argb(0, 0, 0, 0));
+		g.fillGradient(x0, y0 + ih - edge, x0 + iw, y0 + ih, argb(0, 0, 0, 0), argb(va, 0, 0, 0));
+		int steps = 12;
+		for (int i = 0; i < steps; i++) {
+			int a = Math.round(va * (1.0f - i / (float) steps) * (1.0f - i / (float) steps));
+			int xa = x0 + edge * i / steps;
+			int xb = x0 + edge * (i + 1) / steps;
+			g.fill(xa, y0, xb, y0 + ih, argb(a, 0, 0, 0));
+			g.fill(x0 + iw - (xb - x0), y0, x0 + iw - (xa - x0), y0 + ih, argb(a, 0, 0, 0));
+		}
+	}
+
+	private static int argb(int a, int r, int gr, int b) {
+		return (Mth.clamp(a, 0, 255) << 24) | (r << 16) | (gr << 8) | b;
 	}
 
 	/** The warning: the arrow string to type, mid-screen, with the time left. */
