@@ -45,12 +45,6 @@ import net.minecraft.world.phys.Vec3;
  * next when swings are chained.</li>
  * </ul>
  * Torso bends go through {@link HipBend}, so the torso never leaves the legs.
- *
- * <p>v0.16.4 (user: "while swinging he starts running in the air"): the legs on the line follow the arc with jointed
- * knees (trailing on the downswing, swinging forward through the bottom, knees up on the upswing, tucked over the top)
- * instead of the old fast leg scissor, and after a release / Zip Boost / fast launch he holds an airborne pose (one of
- * three variants per line, eased in over ~5 ticks, opening up for the landing) until he lands. Vanilla's walk cycle is
- * held at rest the whole time by {@code SpiderWalkAnimationMixin} ({@link #holdsWalkCycle}).
  */
 public final class SpiderSwingPose {
 	private static final int CLASSIC = com.projecthero.mod.spider.SpiderSwingStyles.CLASSIC;
@@ -86,19 +80,6 @@ public final class SpiderSwingPose {
 		public float fpLift; // first person: how far the web hand is raised (view units), for the line origin
 		public float grip; // v0.16.2: 0..1 weight of the two-hand IK grip (HANG_PULL / CLIMBER)
 		public float pull; // v0.16.2: 0..1 how far the arms are pulled in / the knees tucked (HANG_PULL)
-		public float kneeR; // v0.16.4: knee bends on the line (jointed legs), radians
-		public float kneeL;
-		public float freeElbow; // v0.16.4: the free arm's elbow bend on the line
-		public float sway; // v0.16.4: a slow pendulum phase for the dangling legs (never a running scissor)
-		/** v0.16.4: 0..1 weight of the airborne pose (after a release / Zip Boost / a fast launch, until he lands). */
-		public float air;
-		/** v0.16.4: latched while he is in the air after a swing-related launch; cleared on landing / a wall / water. */
-		boolean airborne;
-		int seed; // v0.16.4: per line (from the synced anchor), picks the leg lead on the line and the air variant
-		int airVariant;
-		/** v0.16.4: the eased airborne pose ({@link #AP_N} params, see {@link #airTargets}). */
-		final float[] ap = new float[AP_N];
-		boolean apInit;
 		Vec3 aim = null; // smoothed world direction shoulder -> anchor
 		int style = CLASSIC;
 		boolean swinging;
@@ -127,45 +108,6 @@ public final class SpiderSwingPose {
 		return cur + (target - cur) * (1f - (float) Math.exp(-rate * dt));
 	}
 
-	/**
-	 * v0.16.4: can he hold the airborne pose right now? In the air, and not on anything that has its own pose (a wall,
-	 * a ladder, water, a hang / perch line, a mount, elytra / creative flight).
-	 */
-	private static boolean airEligible(Player p, SpiderMoveState ms) {
-		return !p.onGround() && !p.isInWater() && !p.isInLava() && !p.isFallFlying() && !p.getAbilities().flying
-				&& !p.isPassenger() && !p.onClimbable() && !p.isSpectator() && !p.isSleeping()
-				&& !com.projecthero.mod.spider.SpiderClimb.attached(p)
-				&& !(ms != null && (ms.has(SpiderMoveState.FLAG_HANGING) || ms.has(SpiderMoveState.FLAG_PERCH)));
-	}
-
-	/** v0.16.4: a launch that starts the airborne pose without a swing: a Zip Boost, or simply flying along fast. */
-	private static boolean airLaunch(Player p, SpiderMoveState ms, double hSpeed) {
-		if (ms != null && ms.animId == com.projecthero.mod.spider.SpiderAnim.ZIP
-				&& p.level().getGameTime() - ms.animStart < 14) {
-			return true;
-		}
-		return hSpeed > 0.8;
-	}
-
-	/**
-	 * v0.16.4 (user: "while swinging he starts running in the air"): should vanilla's walk cycle be held off this tick?
-	 * Vanilla feeds his horizontal speed (fast on a swing -- full stride) into the limb swing even in the air, and every
-	 * pose that eases in or out over it let a full sprint cycle show through. Read every client tick by
-	 * {@code SpiderWalkAnimationMixin} for every Spider-Man in view, so remote players agree.
-	 */
-	public static boolean holdsWalkCycle(Player player) {
-		SpiderManState st = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
-		if (st == null || !st.hasPower) {
-			return false;
-		}
-		SpiderMoveState ms = player.getAttachedOrElse(ModAttachments.SPIDER_MOVE_STATE, null);
-		if (SpiderSwing.isSwinging(player) && !(ms != null && ms.has(SpiderMoveState.FLAG_HANGING))) {
-			return true;
-		}
-		Rig r = RIGS.get(player.getUUID());
-		return r != null && !player.onGround() && (r.airborne || r.w > 0.05f || r.air > 0.05f);
-	}
-
 	/** The eased rig for {@code player} this frame (updated at most once per frame), or null when idle. */
 	public static Rig rig(Player player, float partial) {
 		SpiderManState st = player.getAttachedOrElse(ModAttachments.SPIDER_MAN_STATE, null);
@@ -175,14 +117,11 @@ public final class SpiderSwingPose {
 		boolean hanging = ms != null && ms.has(SpiderMoveState.FLAG_HANGING);
 		boolean swinging = hasPower && SpiderSwing.isSwinging(player) && !hanging;
 		if (r == null) {
-			double hs = Math.sqrt(Mth.square(player.getX() - player.xo) + Mth.square(player.getZ() - player.zo));
-			boolean launch = hasPower && airEligible(player, ms) && airLaunch(player, ms, hs);
-			if (!swinging && !launch) {
+			if (!swinging) {
 				return null;
 			}
 			r = new Rig();
 			r.lastNanos = System.nanoTime();
-			r.seed = (int) (player.level().getGameTime() / 20L) * 31 + player.getId();
 			RIGS.put(player.getUUID(), r);
 		}
 		long nanos = System.nanoTime();
@@ -206,28 +145,12 @@ public final class SpiderSwingPose {
 			r.style = com.projecthero.mod.spider.SpiderSwingStyles.pick(st.anchorX, st.anchorY, st.anchorZ, st.ropeLength);
 			r.swingStart = gameTime;
 			r.right = st.swingHandRight;
-			// v0.16.4: the per-line random (leg lead on the line, the air pose after it), from synced state only
-			r.seed = (int) Math.floor(st.anchorX * 7.0) * 73856093 ^ (int) Math.floor(st.anchorY * 7.0) * 19349663
-					^ (int) Math.floor(st.anchorZ * 7.0) * 83492791 ^ (int) Math.floor(st.ropeLength * 13.0);
 		}
-		boolean eligible = hasPower && airEligible(player, ms);
-		double hSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 		if (!swinging && r.swinging && hasPower && !player.onGround()) {
 			// let go: a long, fast swing of the spin style ends in a corkscrew
 			if (r.style == SPIN && gameTime - r.swingStart > 24 && speed > 0.9) {
 				r.spinStart = t;
 			}
-			// v0.16.4: and he flies on in the airborne pose (a variant picked per line)
-			r.airborne = true;
-			r.airVariant = Math.floorMod(r.seed >> 3, 3);
-		}
-		if (swinging) {
-			r.airborne = false; // the line owns the body; letting go arms the air pose again
-		} else if (!eligible) {
-			r.airborne = false;
-		} else if (!r.airborne && airLaunch(player, ms, hSpeed)) {
-			r.airborne = true;
-			r.airVariant = Math.floorMod((int) (gameTime / 20L) * 31 + player.getId(), 3);
 		}
 		r.swinging = swinging;
 		if (st != null) {
@@ -235,27 +158,13 @@ public final class SpiderSwingPose {
 		}
 
 		r.w = approach(r.w, swinging ? 1f : 0f, swinging ? 9f : 4.5f, dt);
-		if (!swinging && r.w < 0.02f) {
-			r.fpLift = 0f;
-		}
-		// v0.16.4: the airborne pose eases in over ~5 ticks, out fast on landing (the landing pose takes over), and
-		// steps aside for the poses that own a fall (the Web Wings glide, the head-first dive, the wall run)
-		float owned = Math.max(SpiderWebWingsClient.amount(player, partial),
-				Math.max(SpiderDiveClient.amount(player, partial), SpiderWallRunPose.amount(player)));
-		float airT = r.airborne ? 1f - owned : 0f;
-		r.air = approach(r.air, airT, airT > r.air ? 9f : player.onGround() ? 16f : 7f, dt);
-		if (!swinging && r.w < 0.01f && !r.airborne && r.air < 0.01f
-				&& (Float.isNaN(r.spinStart) || t - r.spinStart > 16f)) {
+		if (!swinging && r.w < 0.01f && (Float.isNaN(r.spinStart) || t - r.spinStart > 16f)) {
 			RIGS.remove(player.getUUID());
 			return null;
 		}
 
 		float leanT = 0f, rollT = 0f, legR = 0f, legL = 0f, spread = 0f, curl = 0f, freeX = 0f, freeZ = 0f;
 		float cannonT = 0f, twoT = 0f, upT = 0f, fastT = 0f, peekT = 0f, gripT = 0f, pullT = 0f;
-		float kneeRT = 0f, kneeLT = 0f, elbowT = 0f;
-		// v0.16.4: a slow pendulum dangle (a 2-3 s period, both legs together), never the old 8-tick leg scissor that
-		// read as running
-		r.sway += (0.15f + 0.12f * r.fast) * dt * 20f * 0.7f;
 		if (swinging) {
 			Vec3 anchor = new Vec3(st.anchorX, st.anchorY, st.anchorZ);
 			Vec3 shoulder = pos.add(0, 1.35, 0);
@@ -281,32 +190,19 @@ public final class SpiderSwingPose {
 			leanT = (float) Mth.clamp(Math.atan2(f, u) * 0.85, -1.15, 1.15) + 0.18f * fastT * bottom - 0.22f * rising;
 			float turn = Mth.wrapDegrees(player.yBodyRot - player.yBodyRotO) * Mth.DEG_TO_RAD;
 			rollT = (float) Mth.clamp(Math.atan2(rr, u) * 0.7 + Mth.clamp(turn * 2.2f, -0.45f, 0.45f), -0.75, 0.75);
+			// legs: trail behind through the bottom, knees up on the upswing, tucked at the top; scissor with the arc
 			float rate = 0.32f + 0.5f * fastT;
-			r.phase += rate * dt * 20f; // (the first-person hand bob and the web arm's tug)
-			// v0.16.4 legs, driven by where he is on the arc (no running scissor): on the downswing they trail behind
-			// with the knees bent, through the bottom they swing forward ahead of him, on the upswing the knees come
-			// up and over the top he tucks. One leg leads (picked per line), and they dangle with a slow pendulum sway.
-			float base = 0.4f * falling - 0.7f * Math.max(fastT, 0.35f) * bottom - 0.95f * rising - 1.1f * top;
-			float knee = 1.05f * falling + 0.3f * bottom + 1.3f * rising + 1.75f * top;
-			int lead = Math.floorMod(r.seed, 3); // 0 = right leg leads, 1 = left, 2 = both together, tucked tighter
-			float leadThigh = lead == 2 ? -0.12f : -0.32f;
-			float leadKnee = lead == 2 ? 0.3f : 0.45f;
-			float trailThigh = lead == 2 ? -0.12f : 0.22f;
-			float trailKnee = lead == 2 ? 0.3f : -0.25f;
-			float dangle = Mth.sin(r.sway) * (0.08f + 0.05f * fastT) * (1f - top);
-			float rLead = lead == 0 || lead == 2 ? 1f : 0f;
-			legR = base + Mth.lerp(rLead, trailThigh, leadThigh) + dangle;
-			legL = base + Mth.lerp(rLead, leadThigh, trailThigh) + dangle * 0.8f;
-			kneeRT = Math.max(0.12f, knee + Mth.lerp(rLead, trailKnee, leadKnee) + 0.06f * Mth.cos(r.sway));
-			kneeLT = Math.max(0.12f, knee + Mth.lerp(rLead, leadKnee, trailKnee) + 0.06f * Mth.cos(r.sway));
+			r.phase += rate * dt * 20f;
+			float scissor = Mth.sin(r.phase) * (0.16f + 0.38f * fastT) * (1f - top);
+			float base = 0.55f * fastT * bottom - 1.0f * rising + 0.35f * falling - 1.15f * top;
 			cannonT = (r.style == CANNONBALL || fastT > 0.85f) ? bottom * Mth.clamp(fastT * 1.6f, 0f, 1f) : 0f;
+			legR = base + scissor;
+			legL = base - scissor * 0.85f + 0.12f;
 			spread = 0.06f + 0.1f * fastT;
 			curl = -0.22f * fastT * bottom + 0.32f * top + 0.15f * rising;
-			// free arm: out to the side for balance; reaching forward for the next line on the downswing, back on the
-			// upswing, the elbow soft (more bent the slower he goes)
-			freeX = -0.35f + 0.85f * rising - 0.95f * falling + 0.05f * Mth.sin(r.sway + 1.4f);
+			// free arm: out to the side for balance, counter-swinging the legs
+			freeX = -0.35f + 0.85f * rising - 0.75f * falling + 0.25f * Mth.sin(r.phase + 1.4f) * fastT;
 			freeZ = 0.85f + 0.45f * fastT;
-			elbowT = 0.55f - 0.35f * falling + 0.2f * top;
 			twoT = r.style == TWO_HAND ? Mth.clamp(fastT * 2f, 0.5f, 1f) : 0f;
 			peekT = Mth.clamp(rising * 1.3f, 0f, 1f) * 0.8f + twoT;
 			if (r.style == HANG_PULL) {
@@ -328,11 +224,8 @@ public final class SpiderSwingPose {
 		float rate = 7f;
 		r.lean = approach(r.lean, leanT, rate, dt);
 		r.roll = approach(r.roll, rollT, rate, dt);
-		r.legR = approach(r.legR, legR, 6f, dt);
-		r.legL = approach(r.legL, legL, 6f, dt);
-		r.kneeR = approach(r.kneeR, kneeRT, 6f, dt);
-		r.kneeL = approach(r.kneeL, kneeLT, 6f, dt);
-		r.freeElbow = approach(r.freeElbow, elbowT, 6f, dt);
+		r.legR = approach(r.legR, legR, 10f, dt);
+		r.legL = approach(r.legL, legL, 10f, dt);
 		r.legSpread = approach(r.legSpread, spread, rate, dt);
 		r.curl = approach(r.curl, curl, rate, dt);
 		r.freeX = approach(r.freeX, freeX, 8f, dt);
@@ -347,104 +240,7 @@ public final class SpiderSwingPose {
 		r.fast = approach(r.fast, fastT, rate, dt);
 		r.peek = approach(r.peek, Math.min(1f, peekT), 5f, dt);
 		r.headComp = r.lean;
-		// v0.16.4: the airborne pose, eased toward this frame's target (variant + how he is moving)
-		if (r.airborne || r.air > 0.001f) {
-			float[] target = airTargets(r, vel, t);
-			if (!r.apInit) {
-				System.arraycopy(target, 0, r.ap, 0, AP_N);
-				r.apInit = true;
-			} else {
-				for (int i = 0; i < AP_N; i++) {
-					r.ap[i] = approach(r.ap[i], target[i], 6f, dt);
-				}
-			}
-		}
 		return r;
-	}
-
-	// ------------------------------------------------------------------ v0.16.4: the airborne pose
-
-	/** Airborne pose params: the lead (tucked) leg, the trail leg, the web-hand arm, the free arm, torso, tilt. */
-	private static final int AP_LEAD_THIGH = 0, AP_LEAD_KNEE = 1, AP_TRAIL_THIGH = 2, AP_TRAIL_KNEE = 3, AP_WEB_X = 4,
-			AP_WEB_OUT = 5, AP_WEB_ELBOW = 6, AP_FREE_X = 7, AP_FREE_OUT = 8, AP_FREE_ELBOW = 9, AP_CURL = 10, AP_LEAN = 11,
-			AP_HEAD = 12, AP_SPLAY = 13;
-	static final int AP_N = 14;
-
-	/**
-	 * The three airborne variants (one picked per release, so it never looks canned): REACH -- the web hand stretched
-	 * up and ahead for the next line, the other arm thrown back, one knee tucked and the other leg trailing; SPREAD --
-	 * arms flung out wide, chest open, one knee up; COIL -- both knees tucked, the web hand high, the other fist
-	 * cocked at his chest, wound up for the next shot.
-	 */
-	private static final float[][] AIR_VARIANTS = {
-			// leadT leadK trailT trailK webX  webOut webEl freeX freeOut freeEl curl  lean  head  splay
-			{-1.3f, 1.95f, 0.3f, 0.35f, -2.4f, 0.45f, 0.15f, 0.55f, 0.8f, 0.5f, 0.12f, 0.3f, -0.15f, 0.08f},
-			{-1.05f, 1.6f, 0.2f, 0.55f, -0.55f, 1.3f, 0.35f, -0.4f, 1.2f, 0.4f, -0.12f, 0.4f, -0.25f, 0.12f},
-			{-1.5f, 2.1f, -1.05f, 1.75f, -2.85f, 0.4f, 0.5f, -0.55f, 0.3f, 1.55f, 0.32f, 0.12f, 0.0f, 0.1f}};
-
-	/** Coming down hard: legs reaching down for the ground, arms out for balance. */
-	private static final float[] AIR_FALL = {-0.55f, 0.9f, 0.05f, 0.35f, -0.9f, 1.0f, 0.3f, -0.7f, 1.0f, 0.3f, 0.05f,
-			0.1f, 0.1f, 0.1f};
-
-	/** This frame's target for the airborne pose. */
-	private static float[] airTargets(Rig r, Vec3 vel, float t) {
-		float[] out = AIR_VARIANTS[Mth.clamp(r.airVariant, 0, AIR_VARIANTS.length - 1)].clone();
-		float rise = (float) Mth.clamp(vel.y / 0.5, 0.0, 1.0);
-		float fall = (float) Mth.clamp((-vel.y - 0.35) / 0.9, 0.0, 1.0);
-		float flat = (float) Mth.clamp(Math.sqrt(vel.x * vel.x + vel.z * vel.z) / 1.2, 0.0, 1.0);
-		// rising: tuck a little more; coming down hard: open up for the landing
-		out[AP_LEAD_THIGH] -= 0.2f * rise;
-		out[AP_LEAD_KNEE] += 0.2f * rise;
-		out[AP_TRAIL_KNEE] += 0.25f * rise;
-		float k = 0.6f * fall;
-		for (int i = 0; i < AP_N; i++) {
-			out[i] = Mth.lerp(k, out[i], AIR_FALL[i]);
-		}
-		// the faster he flies, the more he leans into it
-		out[AP_LEAN] += 0.15f * flat;
-		// a slow drift so a long flight never freezes (wind, not strides)
-		out[AP_TRAIL_THIGH] += 0.07f * Mth.sin(t * 0.21f);
-		out[AP_LEAD_THIGH] += 0.04f * Mth.sin(t * 0.21f + 1.7f);
-		out[AP_WEB_X] += 0.05f * Mth.sin(t * 0.33f);
-		out[AP_FREE_X] += 0.06f * Mth.sin(t * 0.29f + 0.9f);
-		return out;
-	}
-
-	/** The airborne pose over whatever is there, by {@code k} (jointed knees / elbows blended from what was set). */
-	private static void applyAirLimbs(HumanoidModel<?> m, Rig r, float k) {
-		float[] p = r.ap;
-		float lean = p[AP_LEAN] * k;
-		HipBend.pitch(m, k, p[AP_CURL]);
-		boolean webRight = r.right;
-		// the lead (tucked) leg is on the free arm's side: reach with one hand, drive with the opposite knee
-		ModelPart leadLeg = webRight ? m.leftLeg : m.rightLeg;
-		ModelPart trailLeg = webRight ? m.rightLeg : m.leftLeg;
-		float leadSide = webRight ? -1f : 1f; // splay sign: the left leg splays out with -z
-		SpiderPerch.set(leadLeg, k, new Vector3f(leadLeg.x, leadLeg.y, leadLeg.z), p[AP_LEAD_THIGH], 0f,
-				leadSide * p[AP_SPLAY]);
-		SpiderPerch.set(trailLeg, k, new Vector3f(trailLeg.x, trailLeg.y, trailLeg.z), p[AP_TRAIL_THIGH], 0f,
-				-leadSide * p[AP_SPLAY] * 0.6f);
-		blendJoint(webRight ? JointedLimbs.LEFT_LEG : JointedLimbs.RIGHT_LEG, new Quaternionf().rotationX(p[AP_LEAD_KNEE]), k);
-		blendJoint(webRight ? JointedLimbs.RIGHT_LEG : JointedLimbs.LEFT_LEG, new Quaternionf().rotationX(p[AP_TRAIL_KNEE]), k);
-		// arms: right arm out = +zRot, left = -zRot
-		ModelPart web = webRight ? m.rightArm : m.leftArm;
-		ModelPart free = webRight ? m.leftArm : m.rightArm;
-		float webOut = webRight ? 1f : -1f;
-		SpiderPerch.set(web, k, new Vector3f(web.x, web.y, web.z), p[AP_WEB_X], 0f, webOut * p[AP_WEB_OUT]);
-		SpiderPerch.set(free, k, new Vector3f(free.x, free.y, free.z), p[AP_FREE_X], 0f, -webOut * p[AP_FREE_OUT]);
-		blendJoint(webRight ? JointedLimbs.RIGHT_ARM : JointedLimbs.LEFT_ARM, new Quaternionf().rotationX(-p[AP_WEB_ELBOW]), k);
-		blendJoint(webRight ? JointedLimbs.LEFT_ARM : JointedLimbs.RIGHT_ARM, new Quaternionf().rotationX(-p[AP_FREE_ELBOW]), k);
-		// the head looks where he is going: the body's lean taken back out of it
-		m.head.xRot = Mth.clamp(m.head.xRot - lean * 0.8f + p[AP_HEAD] * k, -1.4f, 1.2f);
-		m.head.zRot = Mth.lerp(k, m.head.zRot, 0f);
-		m.hat.copyFrom(m.head);
-	}
-
-	/** Blend limb {@code limb}'s joint from whatever a pose already set (straight if none) toward {@code target}. */
-	private static void blendJoint(int limb, Quaternionf target, float k) {
-		Quaternionf cur = JointedLimbs.joint(limb);
-		Quaternionf from = cur == null ? new Quaternionf() : new Quaternionf(cur);
-		JointedLimbs.setJoint(limb, from.slerp(target, k));
 	}
 
 	private static Vec3 lerpDir(Vec3 a, Vec3 b, float k) {
@@ -465,8 +261,7 @@ public final class SpiderSwingPose {
 		if (trick) {
 			r.spinStart = Float.NaN; // a trick replaces the corkscrew release
 		}
-		// v0.16.4: plus the airborne pose's lean into the flight
-		float lean = r.lean * r.w + r.ap[AP_LEAN] * smooth(r.air);
+		float lean = r.lean * r.w;
 		float roll = r.roll * r.w;
 		if (Math.abs(lean) > 1.0e-3 || Math.abs(roll) > 1.0e-3) {
 			pose.translate(0.0f, 1.35f, 0.0f);
@@ -494,11 +289,6 @@ public final class SpiderSwingPose {
 		return r != null && r.w > 0.01f;
 	}
 
-	private static float smooth(float x) {
-		x = Mth.clamp(x, 0f, 1f);
-		return x * x * (3f - 2f * x);
-	}
-
 	/** The limbs (from {@code SpiderPose.apply}, after vanilla). */
 	public static void applyLimbs(Player player, HumanoidModel<?> m) {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
@@ -510,21 +300,11 @@ public final class SpiderSwingPose {
 
 	private static void applySwingLimbs(Player player, HumanoidModel<?> m, float partial) {
 		Rig r = rig(player, partial);
-		if (r == null) {
+		if (r == null || r.w <= 0.001f) {
 			return;
 		}
-		if (r.w > 0.001f) {
-			applyLineLimbs(player, m, partial, r);
-		}
-		// v0.16.4: after a release (or a Zip Boost / fast launch) he flies on in the airborne pose until he lands
-		if (r.air > 0.001f) {
-			applyAirLimbs(m, r, smooth(r.air));
-		}
-		applySpinRelease(player, m, r, partial);
-	}
-
-	private static void applyLineLimbs(Player player, HumanoidModel<?> m, float partial, Rig r) {
 		float w = r.w;
+		float t = (float) (player.level().getGameTime() + partial);
 		ModelPart web = r.right ? m.rightArm : m.leftArm;
 		ModelPart free = r.right ? m.leftArm : m.rightArm;
 		float side = r.right ? 1f : -1f; // model x of "outward" for the web arm is -side
@@ -568,14 +348,6 @@ public final class SpiderSwingPose {
 		free.xRot = Mth.lerp(w, free.xRot, fx);
 		free.yRot = Mth.lerp(w, free.yRot, fy);
 		free.zRot = Mth.lerp(w, free.zRot, fz);
-		// v0.16.4: jointed knees (bent through the arc, folded right up in a cannonball) and a soft free elbow
-		float kneeR = Mth.lerp(r.cannon, r.kneeR, 2.1f);
-		float kneeL = Mth.lerp(r.cannon, r.kneeL, 2.0f);
-		JointedLimbs.setJoint(JointedLimbs.RIGHT_LEG, new Quaternionf().rotationX(kneeR * w));
-		JointedLimbs.setJoint(JointedLimbs.LEFT_LEG, new Quaternionf().rotationX(kneeL * w));
-		float elbow = Mth.lerp(r.cannon, r.freeElbow, 1.2f) * (1f - r.twoHand);
-		JointedLimbs.setJoint(r.right ? JointedLimbs.LEFT_ARM : JointedLimbs.RIGHT_ARM,
-				new Quaternionf().rotationX(-elbow * w));
 		// the head keeps looking where he is going: take the body tilt back out of it
 		m.head.xRot = Mth.clamp(m.head.xRot - r.lean * w * 0.75f, -1.4f, 1.2f);
 		m.head.zRot = Mth.lerp(w, m.head.zRot, r.roll * 0.5f);
@@ -590,11 +362,7 @@ public final class SpiderSwingPose {
 				hangPullGrip(m, r, d, k);
 			}
 		}
-	}
-
-	/** The corkscrew release: arms spread wide (over the airborne pose). */
-	private static void applySpinRelease(Player player, HumanoidModel<?> m, Rig r, float partial) {
-		float t = (float) (player.level().getGameTime() + partial);
+		// the corkscrew release: arms spread wide
 		if (!Float.isNaN(r.spinStart)) {
 			float st = t - r.spinStart;
 			if (st >= 0f && st < 14f) {
