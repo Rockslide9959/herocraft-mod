@@ -100,6 +100,17 @@ public final class HulkRampageClient {
 		return inset > 0.001f;
 	}
 
+	/** v0.16.4: the normal HUD is put away -- the rampage inset, or the mind hall of a death rampage ({@link HulkMindScreen}). */
+	public static boolean viewTaken() {
+		return insetShowing() || HulkMindScreen.showing();
+	}
+
+	/** v0.16.4 (user): a death rampage -- the player is in the mind hall, not watching an inset. */
+	private static boolean mindRampage(Minecraft mc) {
+		HulkState s = state(mc.player);
+		return s != null && mc.level != null && s.inMindScreen(mc.level.getGameTime());
+	}
+
 	// ---------------------------------------------------------------- tick: camera and controls
 
 	private static void startTick(Minecraft mc) {
@@ -177,7 +188,7 @@ public final class HulkRampageClient {
 		long nowMs = Util.getMillis();
 		long dt = lastFrameMs == 0L ? 0L : Math.min(100L, nowMs - lastFrameMs);
 		lastFrameMs = nowMs;
-		boolean on = rampaging(mc);
+		boolean on = rampaging(mc) && !mindRampage(mc) && !HulkMindScreen.showing();
 		if (on) {
 			inset = Math.min(1.0f, inset + dt / (float) INSET_IN_MS);
 		} else {

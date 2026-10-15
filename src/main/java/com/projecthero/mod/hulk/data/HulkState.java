@@ -205,6 +205,12 @@ public final class HulkState {
 	public static final int RAMPAGE_FORCED = 1;
 	/** Three Hulk-form warnings lost in a row: 5 minutes, no ring, then he runs off and the player wakes up as Banner. */
 	public static final int RAMPAGE_TAKEOVER = 2;
+	/**
+	 * v0.16.4 (user): Banner's death change -- the Hulk rampages as usual while the player is shut inside his own mind: a dark
+	 * hall with a giant screen showing the Hulk, 100 blocks away; walking up to it and right-clicking it takes the body back
+	 * ({@code HulkControl.mindScreenReached}). No ring. A hard end too, so nobody is ever stuck in there.
+	 */
+	public static final int RAMPAGE_MIND = 3;
 	/** v0.16.4: Wild.phase during a takeover. */
 	public static final int TAKEOVER_SMASH = 0;
 	public static final int TAKEOVER_SEEK = 1;
@@ -436,6 +442,11 @@ public final class HulkState {
 	/** v0.16.4: rampaging with no way out but the clock (a forced rampage or a takeover -- no ring). Client-safe. */
 	public boolean noRing(long now) {
 		return rampaging(now) && wild.kind != RAMPAGE_NORMAL;
+	}
+
+	/** v0.16.4 (user): rampaging after Banner's death -- the player is inside the mind, walking to the screen. Client-safe. */
+	public boolean inMindScreen(long now) {
+		return rampaging(now) && wild.kind == RAMPAGE_MIND;
 	}
 
 	public static final Codec<HulkState> CODEC = RecordCodecBuilder.create(i -> i.group(

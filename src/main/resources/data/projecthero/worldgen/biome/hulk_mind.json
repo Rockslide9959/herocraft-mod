@@ -1,0 +1,46 @@
+{
+  "carvers": {},
+  "downfall": 0.0,
+  "effects": {
+    "additions_sound": {
+      "sound": "minecraft:ambient.basalt_deltas.additions",
+      "tick_chance": 0.006
+    },
+    "fog_color": 659211,
+    "mood_sound": {
+      "block_search_extent": 8,
+      "offset": 2.0,
+      "sound": "minecraft:ambient.cave",
+      "tick_delay": 1200
+    },
+    "music": {
+      "max_delay": 1200,
+      "min_delay": 400,
+      "replace_current_music": true,
+      "sound": "minecraft:ambient.soul_sand_valley.mood"
+    },
+    "particle": {
+      "options": {
+        "type": "minecraft:white_ash"
+      },
+      "probability": 0.004
+    },
+    "sky_color": 0,
+    "water_color": 1780252,
+    "water_fog_color": 329733
+  },
+  "features": [[], [], [], [], [], [], [], [], [], [], []],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "ambient": [],
+    "axolotls": [],
+    "creature": [],
+    "misc": [],
+    "monster": [],
+    "underground_water_creature": [],
+    "water_ambient": [],
+    "water_creature": []
+  },
+  "temperature": 0.5
+}

@@ -370,6 +370,15 @@ public final class HulkConfig {
 		public int bannerRepeatWarnTicks = 2 * 60 * 20;
 		/** v0.16.4 (user): the forced rampage after Banner loses that fight (3 minutes, a hard end). */
 		public int forcedRampageTicks = 3 * 60 * 20;
+		/**
+		 * v0.16.4 (user): Banner's death change shuts the player inside his mind while the Hulk rampages -- a dark hall, a giant
+		 * screen showing the Hulk 100 blocks away; right-clicking it takes him back. False = the death change uses the ring.
+		 */
+		public boolean mindScreen = true;
+		/** The mind rampage's hard end (4 minutes) -- nobody is ever stuck in there. */
+		public int mindRampageTicks = 4 * 60 * 20;
+		/** The server refuses "I reached the screen" sooner than this after the rampage starts (the walk takes ~18 s sprinting). */
+		public int mindMinTicks = 10 * 20;
 	}
 
 	/**

@@ -133,3 +133,28 @@ All changes last the same server time as today's slow change (Hulk.changeTicks);
   nothing. To add a voice line: put `assets/projecthero/sounds/hulk/strongest.ogg` (mono, so it is positional) and add to
   sounds.json `"hulk.strongest": {"sounds": ["projecthero:hulk/strongest"], "subtitle": "subtitles.projecthero.hulk.strongest"}`
   (the subtitle lang key already exists). Don't add the entry without the file: that logs a missing-file warning every launch.
+
+## Follow-up: the death mind screen and the mind's ambience (v0.16.4, user)
+
+- **Death rampage = the mind screen** (replaces the ring for the DEATH change only; the minute-by-minute rampages keep the
+  ring): `Hulk.tryDeathSave` owes `HulkState.RAMPAGE_MIND` (3) when `control.mindScreen` (default true). Same AI as a normal
+  rampage, no ring (`noRing` is true; `HulkState.inMindScreen(now)`), hard end `control.mindRampageTicks` (4 min); the
+  watchdog and the relog resume work as for the others. C2S `HulkActionPayload.Action.MIND_SCREEN` ->
+  `HulkControl.mindScreenReached`: only during a mind rampage and not before `control.mindMinTicks` (10 s) into it; ends it
+  as won (a roar, gamma particles, `message.projecthero.hulk.mind_end`).
+- **Client** (`client/hulk/HulkMindScreen`): the player stays in the overworld as the rampaging Hulk (a client can only draw
+  its own dimension); the mind is drawn over the window. At the head of the HUD pass (`GuiHulkRampageMixin`) the finished
+  third-person world frame is blitted into a `TextureTarget` (alpha forced to 1, mipmapped), the window is cleared and a hall
+  is drawn with its own perspective camera: a 13 x 9 x 88 corridor into a 24 x 14 x 16 chamber, a screen with the window's
+  aspect (9 tall) in a deepslate bezel at the end, 100 blocks from the start; block-atlas textures, per-vertex lighting and
+  fog on the CPU, scanlines / vignette / halo / floor glow / dust. A client-only walker (mouse via
+  `MouseHandlerHulkMindMixin`, WASD + sprint read straight from the keyboard, vanilla speeds, bobbing, footsteps, wall
+  collision); every other key binding is swallowed except chat / commands / player list / screenshot / fullscreen.
+  Right-click within 5 blocks looking at the screen sends MIND_SCREEN and flies the camera into the screen (a dolly zoom)
+  until the picture fills the window exactly, so the cut back to the world is seamless under a green-white flash.
+  `HulkRampageClient` skips its inset for the mind rampage; `HulkRampageClient.viewTaken()` hides the HUD for both.
+- **Ambience** (`client/hulk/HulkMindAmbience` + `MinecraftHulkMindMusicMixin`): while in `projecthero:hulk_mind` or the mind
+  hall -- a looping low drone (the soul sand valley and basalt deltas loops pitched down, fading in / out), cave sounds every
+  3-8 s from random directions, a slow double heartbeat every 9-20 s, the music swapped for the soul sand valley mood. The
+  dimension now has its own biome `projecthero:hulk_mind` (dark fog, black sky, falling white ash, the cave mood every
+  minute, basalt rumbles).
