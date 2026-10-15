@@ -31,6 +31,10 @@ public final class CyborgClient {
 		HudRenderCallback.EVENT.register(CyborgHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(CyborgEffectsRenderer::render);
 		ClientPlayNetworking.registerGlobalReceiver(CyborgScanPayload.TYPE, (payload, context) -> CyborgScanClient.receive(payload));
+		// v0.16.5: Shift+V -- the Boom Tube menu (the Bifrost's screen in Mother Box colours)
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.cyborg.network.CyborgBoomScreenPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> com.projecthero.mod.client.gui.BifrostScreen.receiveBoomTube(payload)));
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CyborgTech.clearSessionState());
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> CyborgScanClient.reset());
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			if (client.level == null) {

@@ -29,6 +29,10 @@ public final class CyborgState {
 	public static final int ANIM_BOOM_TUBE = 11;
 	public static final int ANIM_WAYPOINT = 12;
 	public static final int ANIM_REPAIR = 13;
+	/** v0.16.5 balance pass: Shift+G Arm Saw, Z Missile Barrage, V Circuit Link. */
+	public static final int ANIM_SAW = 14;
+	public static final int ANIM_MISSILES = 15;
+	public static final int ANIM_LINK = 16;
 
 	public boolean hasPower;
 	/** Combat form: the plates show and the kit works (H). Civilian: a hologram hides them. */
@@ -70,22 +74,29 @@ public final class CyborgState {
 		public int cableTarget;
 		/** Game time the jetpack last started building onto his back (take-off) or folding away (landing). */
 		public long jetChange;
+		/** The X Jet Dash runs on the jetpack until this game time. */
+		public long jetDashUntil;
+		/** The Arm Saw is out until this game time. */
+		public long sawUntil;
 
 		public Fx() {
-			this(0L, List.of(), 0L, List.of(), -1, 0L);
+			this(0L, List.of(), 0L, List.of(), -1, 0L, 0L, 0L);
 		}
 
-		public Fx(long beamUntil, List<Double> beamEnd, long cableUntil, List<Double> cableEnd, int cableTarget, long jetChange) {
+		public Fx(long beamUntil, List<Double> beamEnd, long cableUntil, List<Double> cableEnd, int cableTarget, long jetChange, long jetDashUntil,
+				long sawUntil) {
 			this.beamUntil = beamUntil;
 			this.beamEnd = List.copyOf(beamEnd);
 			this.cableUntil = cableUntil;
 			this.cableEnd = List.copyOf(cableEnd);
 			this.cableTarget = cableTarget;
 			this.jetChange = jetChange;
+			this.jetDashUntil = jetDashUntil;
+			this.sawUntil = sawUntil;
 		}
 
 		public Fx copy() {
-			return new Fx(beamUntil, beamEnd, cableUntil, cableEnd, cableTarget, jetChange);
+			return new Fx(beamUntil, beamEnd, cableUntil, cableEnd, cableTarget, jetChange, jetDashUntil, sawUntil);
 		}
 
 		public static final Codec<Fx> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -94,7 +105,9 @@ public final class CyborgState {
 				Codec.LONG.optionalFieldOf("cable_until", 0L).forGetter(f -> f.cableUntil),
 				Codec.DOUBLE.listOf().optionalFieldOf("cable_end", List.of()).forGetter(f -> f.cableEnd),
 				Codec.INT.optionalFieldOf("cable_target", -1).forGetter(f -> f.cableTarget),
-				Codec.LONG.optionalFieldOf("jet_change", 0L).forGetter(f -> f.jetChange)
+				Codec.LONG.optionalFieldOf("jet_change", 0L).forGetter(f -> f.jetChange),
+				Codec.LONG.optionalFieldOf("jet_dash_until", 0L).forGetter(f -> f.jetDashUntil),
+				Codec.LONG.optionalFieldOf("saw_until", 0L).forGetter(f -> f.sawUntil)
 		).apply(i, Fx::new));
 	}
 

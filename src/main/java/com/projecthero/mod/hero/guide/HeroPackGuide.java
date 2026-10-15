@@ -1267,8 +1267,8 @@ public final class HeroPackGuide {
 			}
 			head(lines, "projecthero.guide.cyborg.controls");
 			for (String[] row : new String[][] { { "R", "sonic_cannon" }, { "Shift+R", "sonic_burst" }, { "G", "hydraulic_punch" },
-					{ "Shift+G", "grapple_claw" }, { "X", "thruster_dash" }, { "Shift+X", "hover" }, { "Z", "techno_override" },
-					{ "Shift+Z", "scan" }, { "V", "boom_tube" }, { "Shift+V", "waypoint" }, { "C", "defense_matrix" },
+					{ "Shift+G", "arm_saw" }, { "X", "jet_dash" }, { "Shift+X", "grapple_claw" }, { "Z", "missile_barrage" },
+					{ "Shift+Z", "scan" }, { "V", "circuit_link" }, { "Shift+V", "boom_tube" }, { "Space x2", "hover" }, { "C", "defense_matrix" },
 					{ "Shift+C", "self_repair" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.cyborg.ability." + row[1]).withStyle(ChatFormatting.WHITE)));

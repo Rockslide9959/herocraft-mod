@@ -110,9 +110,9 @@ public final class CyborgHud {
 				}
 			}
 			boolean active = (slot == AbilitySlot.SLOT_1 && s.chargeStart != 0L)
-					|| (slot == AbilitySlot.SLOT_3 && s.hovering)
+					|| (slot == AbilitySlot.SLOT_2 && s.fx.sawUntil > now)
+					|| (slot == AbilitySlot.SLOT_3 && s.fx.jetDashUntil > now)
 					|| (slot == AbilitySlot.SLOT_4 && s.scanUntil > now)
-					|| (slot == AbilitySlot.SLOT_5 && s.waypoint.size() == 3)
 					|| (slot == AbilitySlot.SLOT_6 && s.shieldUntil > now && s.shieldHp > 0f);
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);

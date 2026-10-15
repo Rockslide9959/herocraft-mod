@@ -16,13 +16,13 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <pre>
  *   R (1)  Sonic Cannon (hold, release)   Shift+R  Sonic Burst
- *   G (2)  Hydraulic Punch                Shift+G  Grapple Claw
- *   X (3)  Thruster Dash                  Shift+X  Hover (toggle)
- *   Z (4)  Techno-Override                Shift+Z  Scan
- *   V (5)  Boom Tube                      Shift+V  Waypoint
+ *   G (2)  Hydraulic Punch                Shift+G  Arm Saw
+ *   X (3)  Jet Dash                       Shift+X  Grapple Claw
+ *   Z (4)  Missile Barrage                Shift+Z  Scan
+ *   V (5)  Circuit Link (tap / hold)      Shift+V  Boom Tube menu
  *   C (6)  Defense Matrix                 Shift+C  Self-Repair
  * </pre>
- * H is the form (its own payload) and N does nothing.
+ * H is the hologram and double-tap jump is Jet Flight (their own payload); N does nothing.
  */
 public final class CyborgAbilityManager {
 	static final int REPEAT_WINDOW = 25;
@@ -83,7 +83,7 @@ public final class CyborgAbilityManager {
 			case SLOT_2 -> {
 				if (pressed) {
 					if (shift) {
-						CyborgAbilities.grapple(player);
+						CyborgAbilities.saw(player);
 					} else {
 						CyborgAbilities.punch(player);
 					}
@@ -92,7 +92,7 @@ public final class CyborgAbilityManager {
 			case SLOT_3 -> {
 				if (pressed) {
 					if (shift) {
-						CyborgAbilities.toggleHover(player);
+						CyborgAbilities.grapple(player);
 					} else {
 						CyborgAbilities.dash(player);
 					}
@@ -103,17 +103,17 @@ public final class CyborgAbilityManager {
 					if (shift) {
 						CyborgAbilities.scan(player);
 					} else {
-						CyborgAbilities.override(player);
+						CyborgAbilities.missiles(player);
 					}
 				}
 			}
 			case SLOT_5 -> {
-				if (pressed) {
-					if (shift) {
-						CyborgAbilities.setWaypoint(player);
-					} else {
-						CyborgAbilities.boomTube(player);
-					}
+				if (!pressed) {
+					CyborgCircuit.release(player);
+				} else if (shift) {
+					CyborgBoomTube.openMenu(player);
+				} else {
+					CyborgCircuit.press(player);
 				}
 			}
 			case SLOT_6 -> {
@@ -133,10 +133,10 @@ public final class CyborgAbilityManager {
 	public static String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_1 -> new String[] { CyborgAbilities.CANNON, CyborgAbilities.BURST };
-			case SLOT_2 -> new String[] { CyborgAbilities.PUNCH, CyborgAbilities.GRAPPLE };
-			case SLOT_3 -> new String[] { CyborgAbilities.DASH, CyborgAbilities.HOVER };
-			case SLOT_4 -> new String[] { CyborgAbilities.OVERRIDE, CyborgAbilities.SCAN };
-			case SLOT_5 -> new String[] { CyborgAbilities.BOOM, CyborgAbilities.WAYPOINT };
+			case SLOT_2 -> new String[] { CyborgAbilities.PUNCH, CyborgAbilities.SAW };
+			case SLOT_3 -> new String[] { CyborgAbilities.DASH, CyborgAbilities.GRAPPLE };
+			case SLOT_4 -> new String[] { CyborgAbilities.MISSILES, CyborgAbilities.SCAN };
+			case SLOT_5 -> new String[] { CyborgAbilities.LINK, CyborgAbilities.BOOM };
 			case SLOT_6 -> new String[] { CyborgAbilities.MATRIX, CyborgAbilities.REPAIR };
 			default -> new String[0];
 		};
@@ -149,7 +149,9 @@ public final class CyborgAbilityManager {
 			case CyborgAbilities.PUNCH -> CyborgConfig.PUNCH_COOLDOWN;
 			case CyborgAbilities.GRAPPLE -> CyborgConfig.GRAPPLE_COOLDOWN;
 			case CyborgAbilities.DASH -> CyborgConfig.DASH_COOLDOWN;
-			case CyborgAbilities.OVERRIDE -> CyborgConfig.OVERRIDE_COOLDOWN;
+			case CyborgAbilities.SAW -> CyborgConfig.SAW_COOLDOWN;
+			case CyborgAbilities.MISSILES -> CyborgConfig.MISSILE_COOLDOWN;
+			case CyborgAbilities.LINK -> CyborgConfig.LINK_COOLDOWN;
 			case CyborgAbilities.SCAN -> CyborgConfig.SCAN_COOLDOWN;
 			case CyborgAbilities.BOOM -> CyborgConfig.BOOM_COOLDOWN;
 			case CyborgAbilities.MATRIX -> CyborgConfig.MATRIX_COOLDOWN;
@@ -163,7 +165,12 @@ public final class CyborgAbilityManager {
 			case CyborgAbilities.CANNON -> CyborgConfig.CANNON_COST;
 			case CyborgAbilities.BURST -> CyborgConfig.BURST_COST;
 			case CyborgAbilities.HOVER -> CyborgConfig.HOVER_COST_PER_SECOND;
-			case CyborgAbilities.OVERRIDE -> CyborgConfig.OVERRIDE_COST;
+			case CyborgAbilities.PUNCH -> CyborgConfig.PUNCH_COST;
+			case CyborgAbilities.SAW -> CyborgConfig.SAW_COST;
+			case CyborgAbilities.GRAPPLE -> CyborgConfig.GRAPPLE_COST;
+			case CyborgAbilities.MISSILES -> CyborgConfig.MISSILE_COST;
+			case CyborgAbilities.LINK -> CyborgConfig.LINK_COST;
+			case CyborgAbilities.BOOM -> CyborgConfig.BOOM_COST;
 			default -> 0f;
 		};
 	}

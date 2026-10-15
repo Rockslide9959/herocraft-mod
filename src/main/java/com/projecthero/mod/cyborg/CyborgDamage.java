@@ -37,9 +37,13 @@ public final class CyborgDamage {
 	}
 
 	public static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
-		// a machine Cyborg hacked never hurts him or his squad
-		if (!REENTRANT.get() && CyborgAbilities.blocksHackedHit(entity, source.getEntity())) {
-			return false;
+		// the Arm Saw (Shift+G): a melee hit knocks a raised shield aside, then lands
+		if (!REENTRANT.get() && source.getEntity() instanceof ServerPlayer attacker && source.getDirectEntity() == attacker
+				&& entity instanceof net.minecraft.world.entity.player.Player victim && victim.isBlocking()
+				&& Cyborg.hasPower(attacker) && Cyborg.state(attacker).fx.sawUntil > attacker.level().getGameTime()) {
+			victim.getCooldowns().addCooldown(net.minecraft.world.item.Items.SHIELD, 100);
+			victim.stopUsingItem();
+			victim.level().playSound(null, victim.getX(), victim.getY(), victim.getZ(), SoundEvents.SHIELD_BREAK, SoundSource.PLAYERS, 1.0f, 0.9f);
 		}
 		if (REENTRANT.get() || amount <= 0.0f || !(entity instanceof ServerPlayer player) || !Cyborg.hasPower(player)) {
 			return true;

@@ -105,13 +105,27 @@ public final class CyborgPose {
 				pose(cannon, w, model.head.xRot - 1.5f, model.head.yRot, 0f);
 			}
 			case CyborgState.ANIM_DASH -> {
-				pose(model.rightArm, w, 0.8f, 0f, 0.2f);
-				pose(model.leftArm, w, 0.8f, 0f, -0.2f);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, 0.3f);
+				// v0.16.5 Jet Dash: arms swept back, leaning into it
+				pose(model.rightArm, w, 0.9f, 0f, 0.15f);
+				pose(model.leftArm, w, 0.9f, 0f, -0.15f);
+				model.body.xRot = Mth.lerp(w, model.body.xRot, 0.4f);
 			}
-			case CyborgState.ANIM_OVERRIDE -> {
+			case CyborgState.ANIM_LINK -> {
+				// v0.16.5 Circuit Link: the hand held out at what he is working
 				pose(cannon, w, model.head.xRot - 1.45f, model.head.yRot, 0f);
 				model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + 0.05f);
+			}
+			case CyborgState.ANIM_SAW -> {
+				// v0.16.5 Arm Saw: the saw arm swung up and across as the blade spins up
+				float t = Mth.clamp(age / 6f, 0f, 1f);
+				pose(cannon, w, Mth.lerp(t, -0.4f, -1.5f), Mth.lerp(t, 0f, 0.5f * side), 0f);
+				pose(other, w, 0.2f, 0f, 0.3f * side);
+			}
+			case CyborgState.ANIM_MISSILES -> {
+				// v0.16.5 Missile Barrage: braced, the launcher shoulder squared to the targets
+				pose(cannon, w, -0.35f, 0f, 0.35f * side);
+				pose(other, w, -0.2f, 0f, -0.25f * side);
+				model.body.yRot = Mth.lerp(w, model.body.yRot, 0.2f * side);
 			}
 			case CyborgState.ANIM_SCAN -> {
 				// two fingers to the red eye
@@ -144,8 +158,10 @@ public final class CyborgPose {
 			case CyborgState.ANIM_BURST -> 12;
 			case CyborgState.ANIM_PUNCH -> 10;
 			case CyborgState.ANIM_GRAPPLE -> 14;
-			case CyborgState.ANIM_DASH -> 12;
-			case CyborgState.ANIM_OVERRIDE -> 18;
+			case CyborgState.ANIM_DASH -> CyborgConfig.DASH_MAX_TICKS + 4;
+			case CyborgState.ANIM_LINK -> 12;
+			case CyborgState.ANIM_SAW -> 14;
+			case CyborgState.ANIM_MISSILES -> 24;
 			case CyborgState.ANIM_SCAN -> 20;
 			case CyborgState.ANIM_BOOM_TUBE -> 20;
 			case CyborgState.ANIM_WAYPOINT -> 14;

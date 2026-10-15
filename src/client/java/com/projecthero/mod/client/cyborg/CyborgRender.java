@@ -47,12 +47,10 @@ public final class CyborgRender {
 	public static final float CORE_HEIGHT = 11f;
 	/** The farthest texel from the core (the soles). */
 	public static final int STEPS = 21;
-	private static final int EDGE_ARGB = 0xFF6AD8FF;
 
 	private static PlayerModel<LivingEntity> model;
 	private static ModelPart cover;
 	private static ResourceLocation[] frames;
-	private static ResourceLocation[] edges;
 
 	private CyborgRender() {
 	}
@@ -111,9 +109,9 @@ public final class CyborgRender {
 		}
 		boolean running = s.formChangeAt > 0L && age >= 0f;
 		if (s.combat && s.animId == CyborgState.ANIM_CONVERT && running && age < CyborgConfig.CONVERT_TICKS) {
-			// the Mother Box fusing: the plates spread from the core, hesitating and jerking as it fights the body
-			float t = Mth.clamp(age / CyborgConfig.CONVERT_TICKS, 0f, 1f) + 0.03f * Mth.sin(age * 0.9f);
-			return new Anim(STEPS * Mth.clamp(t, 0f, 1f), true, 0f, false);
+			// the Mother Box fusing: the plates spread out from the chest core a pixel at a time (v0.16.5: 5 s, no glow)
+			float t = Mth.clamp(age / CyborgConfig.CONVERT_TICKS, 0f, 1f);
+			return new Anim(STEPS * t, false, 0f, false);
 		}
 		if (!s.combat) {
 			// the hologram building over him from the top of the head down
@@ -313,6 +311,9 @@ public final class CyborgRender {
 
 	// ---------------------------------------------------------------- the spread frames
 
+	/** Frames of the conversion. */
+	private static final int CONVERT_FRAMES = 60;
+
 	private static ResourceLocation frame(float spread, boolean edge) {
 		if (frames == null) {
 			build();
@@ -320,39 +321,26 @@ public final class CyborgRender {
 		if (frames.length == 0) {
 			return SKIN;
 		}
-		int k = Math.max(0, Math.min(STEPS, Math.round(spread)));
-		return edge ? edges[k] : frames[k];
+		int k = Math.max(0, Math.min(CONVERT_FRAMES, Math.round(spread / STEPS * CONVERT_FRAMES)));
+		return frames[k];
 	}
 
-	private static float[] heights() {
-		float[] h = new float[64 * 64];
-		java.util.Arrays.fill(h, -1f);
-		int[][] cubes = {
-				{ 0, 0, 8, 8, 8, 0 }, { 32, 0, 8, 8, 8, 0 },
-				{ 16, 16, 8, 12, 4, 8 }, { 16, 32, 8, 12, 4, 8 },
-				{ 40, 16, 4, 12, 4, 8 }, { 40, 32, 4, 12, 4, 8 }, { 32, 48, 4, 12, 4, 8 }, { 48, 48, 4, 12, 4, 8 },
-				{ 0, 16, 4, 12, 4, 20 }, { 0, 32, 4, 12, 4, 20 }, { 16, 48, 4, 12, 4, 20 }, { 0, 48, 4, 12, 4, 20 } };
-		for (int[] c : cubes) {
-			int u = c[0], v = c[1], w = c[2], hh = c[3], d = c[4], top = c[5];
-			float bottom = top == 0 ? hh - 0.1f : top + hh;
-			for (int y = v; y < v + d; y++) {
-				for (int x = u + d; x < u + d + w; x++) {
-					h[y * 64 + x] = top;
-				}
-				for (int x = u + d + w; x < u + d + 2 * w; x++) {
-					h[y * 64 + x] = bottom;
-				}
-			}
-			for (int y = v + d; y < v + d + hh; y++) {
-				for (int x = u; x < u + 2 * d + 2 * w; x++) {
-					h[y * 64 + x] = top + (y - v - d) + 0.5f;
-				}
-			}
+	/**
+	 * When skin texel ({@code u}, {@code v}) (64x64 coordinates) is plated in the conversion, 0..1: outward from the chest
+	 * core, row by row, and within a row one texel after another in a scattered order -- a pixel at a time.
+	 */
+	public static float convertOrder(int u, int v) {
+		float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
+		if (h < 0f) {
+			return 2f;
 		}
-		return h;
+		int k = u * 668265263 ^ v * 374761393;
+		k = (k ^ (k >>> 13)) * 1274126177;
+		float jitter = ((k >>> 8) & 0xFFFF) / 65536f;
+		return Mth.clamp((Math.abs(h - CORE_HEIGHT) + jitter * 0.98f) / (STEPS + 1f), 0f, 1f);
 	}
 
-	/** Frame {@code k} shows every texel within {@code k} model pixels (up or down) of the chest core. */
+	/** Frame {@code k} shows every texel whose {@link #convertOrder} is at most {@code k / CONVERT_FRAMES} -- no glowing edge. */
 	private static void build() {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> res = mc.getResourceManager().getResource(SKIN);
@@ -370,36 +358,18 @@ public final class CyborgRender {
 		}
 		int size = src.getWidth();
 		int scale = Math.max(1, size / 64);
-		float[] h = heights();
-		frames = new ResourceLocation[STEPS + 1];
-		edges = new ResourceLocation[STEPS + 1];
-		int edgeAbgr = toAbgr(EDGE_ARGB);
-		for (int k = 0; k <= STEPS; k++) {
+		frames = new ResourceLocation[CONVERT_FRAMES + 1];
+		for (int k = 0; k <= CONVERT_FRAMES; k++) {
+			float line = k / (float) CONVERT_FRAMES;
 			NativeImage img = new NativeImage(size, size, true);
-			NativeImage edge = new NativeImage(size, size, true);
 			for (int y = 0; y < size; y++) {
 				for (int x = 0; x < size; x++) {
-					int px = src.getPixelRGBA(x, y);
-					float th = h[(y / scale) * 64 + (x / scale)];
-					float dist = th < 0f ? 99f : Math.abs(th - CORE_HEIGHT);
-					boolean on = dist <= k && k > 0;
-					boolean rim = on && k < STEPS && dist > k - 1.6f;
-					int alpha = (px >>> 24) & 0xFF;
-					img.setPixelRGBA(x, y, on ? (rim && alpha > 0 ? edgeAbgr : px) : 0);
-					edge.setPixelRGBA(x, y, rim && alpha > 0 ? edgeAbgr : 0);
+					boolean on = k > 0 && convertOrder(x / scale, y / scale) <= line;
+					img.setPixelRGBA(x, y, on ? src.getPixelRGBA(x, y) : 0);
 				}
 			}
 			frames[k] = mc.getTextureManager().register("projecthero_cyborg_spread_" + k, new DynamicTexture(img));
-			edges[k] = mc.getTextureManager().register("projecthero_cyborg_spread_edge_" + k, new DynamicTexture(edge));
 		}
 		src.close();
-	}
-
-	private static int toAbgr(int argb) {
-		int a = (argb >>> 24) & 0xFF;
-		int r = (argb >>> 16) & 0xFF;
-		int g = (argb >>> 8) & 0xFF;
-		int b = argb & 0xFF;
-		return (a << 24) | (b << 16) | (g << 8) | r;
 	}
 }

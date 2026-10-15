@@ -272,16 +272,17 @@ is yours, but it costs you **5 hearts** until the first time the Spirit burns th
 ### 🤖 Cyborg
 Use a **Mother Box** (the Apokolips Invasion's rare reward) while you're on **4 hearts or less** and it fuses with you:
 the plates spread over you from the chest core, and your own face shows on Victor Stone's human half.
-- You are **always Cyborg**: +4 armour, no drowning, no fall damage, half hunger.
+- You are **always Cyborg**: diamond-level armour with nothing worn, +9 melee, no drowning, no fall damage, half hunger.
 - **H** projects a **hologram** of your old skin from the light on your forehead. It builds over you a pixel at a time,
   but it's only a disguise: any move drops it.
 - **Double-tap jump** in the air for **Jet Flight**: a jetpack builds itself onto your back and you fly on energy jets.
-- **Power Core** (100) charges over time, faster next to a block of redstone; lightning fills it.
-  **R** Sonic Cannon (a blaster builds round your arm; hold to charge, up to 16) · **Shift+R** Sonic Burst ·
-  **G** Hydraulic Punch (breaks shields) · **Shift+G** Grapple Claw · **X** Thruster Dash · **Shift+X** Jet Flight ·
-  **Z** **Techno-Override** (golems and Ultron /
-  Sentinel robots fight for you; doors, lamps and TNT obey) · **Shift+Z** Scan (creatures and ores through walls) ·
-  **V** **Boom Tube** (takes your squad) · **Shift+V** Waypoint · **C** Defense Matrix · **Shift+C** Self-Repair (iron).
+- **Power Core** (100) charges 4 a second, faster next to a block of redstone; lightning fills it.
+  **R** Sonic Cannon (a blaster builds round your arm; 15) · **Shift+R** Sonic Burst (24) · **G** Hydraulic Punch (24,
+  breaks shields) · **Shift+G** **Arm Saw** (+10 melee) · **X** **Jet Dash** (20 blocks) · **Shift+X** Grapple Claw
+  (50 blocks) · **Z** **Missile Barrage** (8 homing micro-missiles) · **Shift+Z** Scan (creatures and ores through
+  walls) · **V** **Circuit Link** (work or power any redstone up to 32 blocks away; hold to keep it on) · **Shift+V**
+  the **Boom Tube** menu (like the Bifrost, waypoints in any dimension, takes your squad) · **C** Defense Matrix ·
+  **Shift+C** Self-Repair (iron).
 
 ### 🪲 Blue Beetle
 Brush the suspicious sand of a **desert pyramid** and you might find **the Scarab**. Use it and Khaji-Da bonds to your

@@ -51,29 +51,32 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Cyborg's twelve moves (v0.16.5). Each is gated by {@link #begin} (combat form, off cooldown, enough Power Core), runs
- * as a small per-player session ticked from {@link #tick}, and deals damage through {@link CyborgCombat}.
+ * Cyborg's twelve moves (v0.16.5, re-slotted in the balance pass). Each is gated by {@link #begin} (off cooldown, enough
+ * Power Core; any move drops the hologram), runs as a small per-player session ticked from {@link #tick}, and deals damage
+ * through {@link CyborgCombat}.
  *
  * <pre>
  *   R (1)  Sonic Cannon (hold to charge)   Shift+R  Sonic Burst
- *   G (2)  Hydraulic Punch                 Shift+G  Grapple Claw
- *   X (3)  Thruster Dash                   Shift+X  Jet Flight (toggle; also double-tap jump in the air)
- *   Z (4)  Techno-Override                 Shift+Z  Scan
- *   V (5)  Boom Tube                       Shift+V  Waypoint
+ *   G (2)  Hydraulic Punch                 Shift+G  Arm Saw
+ *   X (3)  Jet Dash                        Shift+X  Grapple Claw
+ *   Z (4)  Missile Barrage                 Shift+Z  Scan
+ *   V (5)  Circuit Link (CyborgCircuit)    Shift+V  the Boom Tube menu (CyborgBoomTube)
  *   C (6)  Defense Matrix                  Shift+C  Self-Repair
  * </pre>
+ * Jet Flight is double-tap jump in the air (no key).
  */
 public final class CyborgAbilities {
 	public static final String CANNON = "sonic_cannon";
 	public static final String BURST = "sonic_burst";
 	public static final String PUNCH = "hydraulic_punch";
 	public static final String GRAPPLE = "grapple_claw";
-	public static final String DASH = "thruster_dash";
+	public static final String SAW = "arm_saw";
+	public static final String DASH = "jet_dash";
 	public static final String HOVER = "hover";
-	public static final String OVERRIDE = "techno_override";
+	public static final String MISSILES = "missile_barrage";
 	public static final String SCAN = "scan";
+	public static final String LINK = "circuit_link";
 	public static final String BOOM = "boom_tube";
-	public static final String WAYPOINT = "waypoint";
 	public static final String MATRIX = "defense_matrix";
 	public static final String REPAIR = "self_repair";
 
@@ -100,7 +103,32 @@ public final class CyborgAbilities {
 		}
 	}
 
-	private record Hack(UUID owner, long until) {
+	/** One micro-missile in flight. */
+	private static final class Missile {
+		Vec3 pos;
+		Vec3 vel;
+		final int target;
+		final long born;
+
+		Missile(Vec3 pos, Vec3 vel, int target, long born) {
+			this.pos = pos;
+			this.vel = vel;
+			this.target = target;
+			this.born = born;
+		}
+	}
+
+	/** A Missile Barrage: missiles still to launch, and those in the air. */
+	private static final class Barrage {
+		int left = CyborgConfig.MISSILES;
+		long next;
+		final List<Integer> targets;
+		final List<Missile> live = new ArrayList<>();
+
+		Barrage(long next, List<Integer> targets) {
+			this.next = next;
+			this.targets = targets;
+		}
 	}
 
 	private static final Map<UUID, Dash> DASHES = new ConcurrentHashMap<>();
@@ -109,8 +137,7 @@ public final class CyborgAbilities {
 	private static final Map<UUID, Long> REPAIRS = new ConcurrentHashMap<>();
 	/** Conversion effect start times. */
 	private static final Map<UUID, Long> CONVERT_FX = new ConcurrentHashMap<>();
-	/** Hacked machines: entity id -> who owns them now, and until when. */
-	private static final Map<Integer, Hack> HACKED = new ConcurrentHashMap<>();
+	private static final Map<UUID, Barrage> BARRAGES = new ConcurrentHashMap<>();
 	/** Players hovering with the boot thrusters (so their flight can be taken back). */
 	private static final Set<UUID> HOVER_GRANTED = ConcurrentHashMap.newKeySet();
 
@@ -122,8 +149,9 @@ public final class CyborgAbilities {
 		PULLS.clear();
 		REPAIRS.clear();
 		CONVERT_FX.clear();
-		HACKED.clear();
+		BARRAGES.clear();
 		HOVER_GRANTED.clear();
+		CyborgCircuit.clearSessionState();
 	}
 
 	public static void clear(ServerPlayer p) {
@@ -132,6 +160,8 @@ public final class CyborgAbilities {
 		PULLS.remove(id);
 		REPAIRS.remove(id);
 		CONVERT_FX.remove(id);
+		BARRAGES.remove(id);
+		CyborgCircuit.forget(id);
 	}
 
 	public static boolean running(ServerPlayer p, String id) {
@@ -143,20 +173,11 @@ public final class CyborgAbilities {
 			case HOVER -> Cyborg.state(p).hovering;
 			case REPAIR -> REPAIRS.containsKey(u);
 			case MATRIX -> Cyborg.matrixUp(p);
+			case SAW -> Cyborg.state(p).fx.sawUntil > p.level().getGameTime();
+			case MISSILES -> BARRAGES.containsKey(u);
+			case LINK -> CyborgCircuit.holding(p);
 			default -> false;
 		};
-	}
-
-	/** Is {@code e} a machine this player has hacked (and so on his side)? */
-	public static boolean hackedBy(Entity e, Player owner) {
-		Hack h = HACKED.get(e.getId());
-		return h != null && h.owner().equals(owner.getUUID()) && h.until() > e.level().getGameTime();
-	}
-
-	/** The player who hacked {@code e}, if it is hacked right now. */
-	public static UUID hacker(Entity e) {
-		Hack h = HACKED.get(e.getId());
-		return h != null && h.until() > e.level().getGameTime() ? h.owner() : null;
 	}
 
 	// ---------------------------------------------------------------- the gate
@@ -323,7 +344,7 @@ public final class CyborgAbilities {
 	// ================================================================ G: Hydraulic Punch
 
 	public static void punch(ServerPlayer p) {
-		if (!begin(p, PUNCH, 0f)) {
+		if (!begin(p, PUNCH, CyborgConfig.PUNCH_COST)) {
 			return;
 		}
 		cooldown(p, PUNCH, CyborgConfig.PUNCH_COOLDOWN);
@@ -346,7 +367,7 @@ public final class CyborgAbilities {
 		level.sendParticles(ParticleTypes.CLOUD, end.x, end.y, end.z, 6, 0.15, 0.15, 0.15, 0.05);
 	}
 
-	// ================================================================ Shift+G: Grapple Claw
+	// ================================================================ Shift+X: Grapple Claw
 
 	public static void grapple(ServerPlayer p) {
 		if (!begin(p, GRAPPLE, 0f)) {
@@ -359,6 +380,10 @@ public final class CyborgAbilities {
 		if (hit[0] == null && end.distanceToSqr(p.getEyePosition()) >= (CyborgConfig.GRAPPLE_RANGE - 0.5) * (CyborgConfig.GRAPPLE_RANGE - 0.5)) {
 			Cyborg.say(p, "message.projecthero.cyborg.grapple_miss", ChatFormatting.GRAY);
 			return; // nothing in reach: no cooldown
+		}
+		if (!Cyborg.spendCore(p, CyborgConfig.GRAPPLE_COST)) {
+			Cyborg.say(p, "message.projecthero.cyborg.low_core", ChatFormatting.AQUA, (int) CyborgConfig.GRAPPLE_COST, (int) Math.floor(Cyborg.core(p)));
+			return;
 		}
 		cooldown(p, GRAPPLE, CyborgConfig.GRAPPLE_COOLDOWN);
 		Cyborg.setAnim(p, CyborgState.ANIM_GRAPPLE);
@@ -391,7 +416,7 @@ public final class CyborgAbilities {
 
 	private static void tickPull(ServerPlayer p, Pull pull, long now) {
 		Vec3 to = pull.to.subtract(p.position());
-		if (now - pull.start > 30 || to.length() < 1.6 || !p.isAlive()) {
+		if (now - pull.start > 45 || to.length() < 1.6 || !p.isAlive()) {
 			PULLS.remove(p.getUUID());
 			p.resetFallDistance();
 			CyborgState n = Cyborg.state(p).copy();
@@ -405,7 +430,10 @@ public final class CyborgAbilities {
 		}
 	}
 
-	// ================================================================ X: Thruster Dash
+	// ================================================================ X: Jet Dash
+	//
+	// v0.16.5 (user): "a 20 block dash that uses the jetpack" -- the jetpack builds on, he blasts 20 blocks along his look
+	// (up and down too), and it folds away again unless he is flying.
 
 	public static void dash(ServerPlayer p) {
 		if (DASHES.containsKey(p.getUUID()) || !begin(p, DASH, 0f)) {
@@ -413,34 +441,51 @@ public final class CyborgAbilities {
 		}
 		cooldown(p, DASH, CyborgConfig.DASH_COOLDOWN);
 		Cyborg.setAnim(p, CyborgState.ANIM_DASH);
-		// the way he is moving (the look when standing still)
-		Vec3 v = p.getDeltaMovement();
-		Vec3 dir = new Vec3(v.x, 0, v.z);
-		if (dir.lengthSqr() < 0.004) {
-			Vec3 l = p.getLookAngle();
-			dir = new Vec3(l.x, 0, l.z);
+		Vec3 dir = p.getLookAngle();
+		if (p.onGround() && dir.y < 0.0) {
+			dir = new Vec3(dir.x, 0.0, dir.z); // on the ground, never into it
 		}
 		dir = dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : dir.normalize();
-		DASHES.put(p.getUUID(), new Dash(dir, p.level().getGameTime(), p.position()));
-		sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.8f);
+		long now = p.level().getGameTime();
+		CyborgState n = Cyborg.state(p).copy();
+		if (!n.hovering && n.fx.jetDashUntil <= now) {
+			n.fx.jetChange = now;
+		}
+		n.fx.jetDashUntil = now + CyborgConfig.DASH_MAX_TICKS + 2;
+		Cyborg.save(p, n);
+		DASHES.put(p.getUUID(), new Dash(dir, now, p.position()));
+		sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.2f, 0.7f);
+		sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.8f);
 	}
 
 	private static void tickDash(ServerPlayer p, Dash d, long now) {
-		d.travelled += p.position().subtract(d.last).horizontalDistance();
+		d.travelled += p.position().subtract(d.last).length();
 		d.last = p.position();
 		long age = now - d.start;
-		if (d.travelled >= CyborgConfig.DASH_DISTANCE || age > 12 || (age > 2 && p.horizontalCollision) || !p.isAlive()) {
+		if (d.travelled >= CyborgConfig.DASH_DISTANCE || age > CyborgConfig.DASH_MAX_TICKS || (age > 2 && (p.horizontalCollision
+				|| (d.dir.y < -0.3 && p.onGround()))) || !p.isAlive()) {
 			DASHES.remove(p.getUUID());
-			AbilityHelpers.launchSelf(p, p.getDeltaMovement().multiply(0.25, 1.0, 0.25));
+			AbilityHelpers.launchSelf(p, p.getDeltaMovement().scale(0.2));
+			p.resetFallDistance();
+			// the jetpack folds away (unless he is flying on it)
+			CyborgState n = Cyborg.state(p).copy();
+			n.fx.jetDashUntil = 0L;
+			if (!n.hovering) {
+				n.fx.jetChange = now;
+			}
+			Cyborg.save(p, n);
 			return;
 		}
-		AbilityHelpers.launchSelf(p, new Vec3(d.dir.x * CyborgConfig.DASH_SPEED, Math.max(0.0, p.getDeltaMovement().y), d.dir.z * CyborgConfig.DASH_SPEED));
-		Vec3 back = p.position().subtract(d.dir.scale(0.6));
-		level(p).sendParticles(ParticleTypes.FLAME, back.x, p.getY() + 0.1, back.z, 3, 0.1, 0.05, 0.1, 0.01);
-		level(p).sendParticles(Cyborg.BLUE, back.x, p.getY() + 0.2, back.z, 2, 0.1, 0.1, 0.1, 0.0);
+		AbilityHelpers.launchSelf(p, d.dir.scale(CyborgConfig.DASH_SPEED));
+		p.resetFallDistance();
+		if (age % 2 == 0) {
+			Vec3 back = p.position().subtract(d.dir.scale(0.6)).add(0, 0.9, 0);
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, back.x, back.y, back.z, 2, 0.1, 0.1, 0.1, 0.02);
+			level(p).sendParticles(Cyborg.BLUE, back.x, back.y, back.z, 2, 0.12, 0.12, 0.12, 0.0);
+		}
 	}
 
-	// ================================================================ Shift+X / double-tap jump: Jet Flight (toggle)
+	// ================================================================ double-tap jump: Jet Flight (toggle)
 	//
 	// v0.16.5 (user): "able to fly by double pressing space bar, doing so he projects energy from his feet and builds a
 	// jetpack on his back". The movement is the shared directional flight (client.flight.DirectionalFlight, the Max Steel
@@ -521,128 +566,149 @@ public final class CyborgAbilities {
 		}
 	}
 
-	// ================================================================ Z: Techno-Override
+	// ================================================================ Shift+G: Arm Saw
+	//
+	// v0.16.5 (user: "give Shift+G another move"): a buzzsaw builds on his forearm for 8 s -- +10 melee on top of his +9,
+	// and every hit with it knocks a raised shield aside (CyborgDamage). The disc is client-side (CyborgTech).
 
-	/** Machines Techno-Override can take over: golems, Ultron's and the Sentinels' robots (never a boss). */
-	public static boolean hackable(LivingEntity e) {
-		if (!(e instanceof Mob) || CyborgCombat.isBoss(e)) {
-			return false;
+	public static void saw(ServerPlayer p) {
+		if (Cyborg.state(p).fx.sawUntil > p.level().getGameTime() || !begin(p, SAW, CyborgConfig.SAW_COST)) {
+			return;
 		}
-		if (e instanceof IronGolem || e instanceof SnowGolem) {
-			return true;
-		}
-		String path = BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath();
-		return path.startsWith("ultron_") || path.startsWith("sentinel");
+		cooldown(p, SAW, CyborgConfig.SAW_COOLDOWN);
+		long now = p.level().getGameTime();
+		CyborgState n = Cyborg.state(p).copy();
+		n.fx.sawUntil = now + CyborgConfig.SAW_TICKS;
+		n.animId = CyborgState.ANIM_SAW;
+		n.animStart = now;
+		Cyborg.save(p, n);
+		Cyborg.reconcile(p);
+		sound(p, SoundEvents.GRINDSTONE_USE, 1.0f, 1.4f);
+		sound(p, SoundEvents.PISTON_EXTEND, 0.8f, 1.6f);
 	}
 
-	public static void override(ServerPlayer p) {
-		LivingEntity[] hit = new LivingEntity[1];
-		Vec3 end = CyborgCombat.ray(p, CyborgConfig.OVERRIDE_RANGE, 0.4, hit);
+	private static void tickSaw(ServerPlayer p, CyborgState s, long now) {
+		if (s.fx.sawUntil <= now) {
+			CyborgState n = s.copy();
+			n.fx.sawUntil = 0L;
+			Cyborg.save(p, n);
+			Cyborg.reconcile(p);
+			sound(p, SoundEvents.PISTON_CONTRACT, 0.6f, 1.6f);
+			return;
+		}
+		if ((now - s.animStart) % 12 == 0) {
+			sound(p, SoundEvents.GRINDSTONE_USE, 0.25f, 1.9f);
+		}
+	}
+
+	// ================================================================ Z: Missile Barrage
+	//
+	// v0.16.5 (user: "change the Z key to a move that deals damage"): a launcher pops up on his shoulder and fires eight
+	// homing micro-missiles, two ticks apart, spread across the targets in front of him (or straight ahead if there are
+	// none). Each bursts for 5 in a 2.5-block blast -- no block damage. Simulated here; the trails are particles and the
+	// launcher is client-side (CyborgTech).
+
+	public static void missiles(ServerPlayer p) {
+		if (BARRAGES.containsKey(p.getUUID()) || !begin(p, MISSILES, CyborgConfig.MISSILE_COST)) {
+			return;
+		}
+		cooldown(p, MISSILES, CyborgConfig.MISSILE_COOLDOWN);
+		Cyborg.setAnim(p, CyborgState.ANIM_MISSILES);
+		// targets in front, nearest to the crosshair first
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		List<LivingEntity> found = CyborgCombat.within(p, eye, CyborgConfig.MISSILE_RANGE, e -> CyborgCombat.isTarget(p, e) && e != p
+				&& e.isAlive() && p.hasLineOfSight(e));
+		found.removeIf(e -> e.getEyePosition().subtract(eye).normalize().dot(look) < 0.55);
+		found.sort((a, b) -> Double.compare(b.getEyePosition().subtract(eye).normalize().dot(look), a.getEyePosition().subtract(eye).normalize().dot(look)));
+		List<Integer> ids = new ArrayList<>();
+		for (int i = 0; i < Math.min(4, found.size()); i++) {
+			ids.add(found.get(i).getId());
+		}
+		BARRAGES.put(p.getUUID(), new Barrage(p.level().getGameTime() + 4, ids));
+		sound(p, SoundEvents.PISTON_EXTEND, 0.8f, 1.8f);
+		sound(p, SoundEvents.CROSSBOW_LOADING_END.value(), 1.0f, 1.4f);
+	}
+
+	/** The launcher on the shoulder opposite his cannon arm. */
+	private static Vec3 launcher(ServerPlayer p) {
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		double side = p.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT ? -1.0 : 1.0;
+		return p.position().add(0, 1.75, 0).add(right.scale(0.35 * side)).subtract(look.scale(0.1));
+	}
+
+	private static void tickBarrage(ServerPlayer p, Barrage b, long now) {
 		ServerLevel level = level(p);
-		if (hit[0] != null) {
-			if (!hackable(hit[0])) {
-				if (Cyborg.canAct(p)) {
-					Cyborg.say(p, "message.projecthero.cyborg.not_machine", ChatFormatting.GRAY);
-				}
-				return;
-			}
-			if (!begin(p, OVERRIDE, CyborgConfig.OVERRIDE_COST)) {
-				return;
-			}
-			cooldown(p, OVERRIDE, CyborgConfig.OVERRIDE_COOLDOWN);
-			Cyborg.setAnim(p, CyborgState.ANIM_OVERRIDE);
-			Mob m = (Mob) hit[0];
-			HACKED.put(m.getId(), new Hack(p.getUUID(), p.level().getGameTime() + CyborgConfig.OVERRIDE_TICKS));
-			if (m.getTarget() == p || (m.getTarget() instanceof Player tp && Squads.areAllies(p, tp))) {
-				m.setTarget(null);
-			}
-			m.addEffect(new MobEffectInstance(MobEffects.GLOWING, CyborgConfig.OVERRIDE_TICKS, 0, false, false));
-			AbilityHelpers.line(level, hand(p), m.getEyePosition(), Cyborg.BLUE, 3.0);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, m.getX(), m.getY() + m.getBbHeight() * 0.6, m.getZ(), 30, 0.4, 0.5, 0.4, 0.2);
-			level.playSound(null, m.getX(), m.getY(), m.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 2.0f);
-			Cyborg.say(p, "message.projecthero.cyborg.hacked", ChatFormatting.AQUA, m.getDisplayName());
+		if (!p.isAlive()) {
+			BARRAGES.remove(p.getUUID());
 			return;
 		}
-		// no creature: work the block under the crosshair
-		BlockHitResult bhr = p.level().clip(new ClipContext(p.getEyePosition(), p.getEyePosition().add(p.getLookAngle().scale(CyborgConfig.OVERRIDE_RANGE)),
-				ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, p));
-		if (bhr.getType() != HitResult.Type.BLOCK) {
-			return;
+		if (b.left > 0 && now >= b.next) {
+			int i = CyborgConfig.MISSILES - b.left;
+			Vec3 look = p.getLookAngle();
+			Vec3 right = look.cross(new Vec3(0, 1, 0));
+			right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+			// fanned out up and to the sides, then they curve in
+			double fan = ((i % 4) - 1.5) * 0.28;
+			Vec3 vel = look.scale(0.7).add(right.scale(fan)).add(0, 0.35 + (i % 2) * 0.12, 0);
+			int target = b.targets.isEmpty() ? -1 : b.targets.get(i % b.targets.size());
+			b.live.add(new Missile(launcher(p), vel, target, now));
+			b.left--;
+			b.next = now + CyborgConfig.MISSILE_INTERVAL;
+			Vec3 l = launcher(p);
+			level.sendParticles(ParticleTypes.SMOKE, l.x, l.y, l.z, 4, 0.05, 0.05, 0.05, 0.02);
+			level.playSound(null, l.x, l.y, l.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.6f, 1.6f + 0.05f * i);
 		}
-		BlockPos pos = bhr.getBlockPos();
-		BlockState st = level.getBlockState(pos);
-		boolean door = st.hasProperty(BlockStateProperties.OPEN);
-		boolean lamp = st.is(Blocks.REDSTONE_LAMP);
-		boolean tnt = st.is(Blocks.TNT);
-		if (!door && !lamp && !tnt) {
-			if (Cyborg.canAct(p)) {
-				Cyborg.say(p, "message.projecthero.cyborg.not_machine", ChatFormatting.GRAY);
+		java.util.Iterator<Missile> it = b.live.iterator();
+		while (it.hasNext()) {
+			Missile m = it.next();
+			Entity t = m.target >= 0 ? level.getEntity(m.target) : null;
+			long age = now - m.born;
+			double speed = Math.min(CyborgConfig.MISSILE_SPEED, 0.5 + age * 0.12);
+			if (t instanceof LivingEntity lt && lt.isAlive() && age >= 3) {
+				Vec3 want = lt.position().add(0, lt.getBbHeight() * 0.55, 0).subtract(m.pos);
+				Vec3 steer = want.lengthSqr() < 1.0e-4 ? m.vel : want.normalize();
+				m.vel = m.vel.normalize().scale(0.55).add(steer.scale(0.45)).normalize().scale(speed);
+			} else {
+				Vec3 dir = age < 3 ? m.vel : m.vel.normalize().scale(0.6).add(p.getLookAngle().scale(0.4));
+				m.vel = dir.normalize().scale(speed);
 			}
-			return;
-		}
-		if (!begin(p, OVERRIDE, CyborgConfig.OVERRIDE_COST)) {
-			return;
-		}
-		cooldown(p, OVERRIDE, CyborgConfig.OVERRIDE_COOLDOWN / 4);
-		Cyborg.setAnim(p, CyborgState.ANIM_OVERRIDE);
-		if (door) {
-			boolean open = !st.getValue(BlockStateProperties.OPEN);
-			level.setBlock(pos, st.setValue(BlockStateProperties.OPEN, open), 10);
-			// the other half of a door follows
-			if (st.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
-				BlockPos other = st.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER
-						? pos.above() : pos.below();
-				BlockState os = level.getBlockState(other);
-				if (os.hasProperty(BlockStateProperties.OPEN)) {
-					level.setBlock(other, os.setValue(BlockStateProperties.OPEN, open), 10);
+			Vec3 next = m.pos.add(m.vel);
+			net.minecraft.world.phys.BlockHitResult bhr = level.clip(new ClipContext(m.pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+			Vec3 boom = null;
+			if (bhr.getType() == HitResult.Type.BLOCK) {
+				boom = bhr.getLocation();
+			} else {
+				for (LivingEntity e : CyborgCombat.within(p, next, 1.1, e -> CyborgCombat.isTarget(p, e) && e != p && e.isAlive())) {
+					boom = next;
+					break;
 				}
 			}
-			level.playSound(null, pos, open ? SoundEvents.IRON_DOOR_OPEN : SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS, 1.0f, 1.0f);
-		} else if (lamp) {
-			level.setBlock(pos, st.setValue(BlockStateProperties.LIT, !st.getValue(BlockStateProperties.LIT)), 2);
-		} else {
-			TntBlock.explode(level, pos);
-			level.removeBlock(pos, false);
+			if (boom == null && age > CyborgConfig.MISSILE_LIFE) {
+				boom = next;
+			}
+			// the trail
+			level.sendParticles(ParticleTypes.SMOKE, m.pos.x, m.pos.y, m.pos.z, 1, 0.02, 0.02, 0.02, 0.0);
+			level.sendParticles(Cyborg.BLUE, next.x, next.y, next.z, 1, 0.0, 0.0, 0.0, 0.0);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, next.x, next.y, next.z, 1, 0.02, 0.02, 0.02, 0.01);
+			if (boom != null) {
+				final Vec3 at = boom;
+				for (LivingEntity e : CyborgCombat.within(p, at, CyborgConfig.MISSILE_BLAST, e -> CyborgCombat.isTarget(p, e) && e != p)) {
+					CyborgCombat.strike(p, e, at, CyborgConfig.MISSILE_DAMAGE, 0.4, 0.15);
+				}
+				level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+				level.sendParticles(Cyborg.BLUE_BIG, at.x, at.y, at.z, 6, 0.3, 0.3, 0.3, 0.0);
+				level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5f, 1.7f);
+				it.remove();
+			} else {
+				m.pos = next;
+			}
 		}
-		AbilityHelpers.line(level, hand(p), Vec3.atCenterOf(pos), Cyborg.BLUE, 3.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 16, 0.4, 0.4, 0.4, 0.15);
-		sound(p, SoundEvents.BEACON_POWER_SELECT, 0.8f, 2.0f);
-	}
-
-	/** Each tick: hacked machines leave their new owner's side alone and go for the nearest threat instead. */
-	private static void tickHacked(ServerLevel level) {
-		long now = level.getGameTime();
-		HACKED.entrySet().removeIf(en -> {
-			Entity e = level.getEntity(en.getKey());
-			if (e == null) {
-				return false; // another dimension, or unloaded: its own clock still runs out
-			}
-			if (!(e instanceof Mob m) || !m.isAlive() || en.getValue().until() <= now) {
-				return true;
-			}
-			Player owner = level.getPlayerByUUID(en.getValue().owner());
-			if (owner == null) {
-				return false;
-			}
-			LivingEntity t = m.getTarget();
-			boolean bad = t == owner || (t instanceof Player tp && Squads.areAllies(owner, tp)) || (t != null && hackedBy(t, owner));
-			if (bad || t == null || !t.isAlive() || (now + m.getId()) % 20 == 0) {
-				LivingEntity best = null;
-				double bd = 16 * 16;
-				for (Mob other : level.getEntitiesOfClass(Mob.class, m.getBoundingBox().inflate(16),
-						o -> o != m && o.isAlive() && o instanceof net.minecraft.world.entity.monster.Enemy && !hackedBy(o, owner))) {
-					double d = other.distanceToSqr(m);
-					if (d < bd) {
-						bd = d;
-						best = other;
-					}
-				}
-				if (bad || best != null) {
-					m.setTarget(best);
-				}
-			}
-			return false;
-		});
+		if (b.left <= 0 && b.live.isEmpty()) {
+			BARRAGES.remove(p.getUUID());
+		}
 	}
 
 	// ================================================================ Shift+Z: Scan
@@ -722,88 +788,7 @@ public final class CyborgAbilities {
 		return 0xC0C0C0;
 	}
 
-	// ================================================================ V: Boom Tube / Shift+V: Waypoint
-
-	public static void boomTube(ServerPlayer p) {
-		if (!begin(p, BOOM, 0f)) {
-			return;
-		}
-		ServerLevel from = level(p);
-		CyborgState s = Cyborg.state(p);
-		ServerLevel dest = from;
-		Vec3 to;
-		boolean usedWaypoint = false;
-		if (s.waypoint.size() == 3 && !s.waypointDim.isEmpty()) {
-			ResourceLocation dimId = ResourceLocation.tryParse(s.waypointDim);
-			ServerLevel lvl = dimId == null ? null : p.server.getLevel(ResourceKey.create(Registries.DIMENSION, dimId));
-			if (lvl == null) {
-				Cyborg.say(p, "message.projecthero.cyborg.waypoint_lost", ChatFormatting.RED);
-				return;
-			}
-			dest = lvl;
-			to = new Vec3(s.waypoint.get(0), s.waypoint.get(1), s.waypoint.get(2));
-			usedWaypoint = true;
-		} else {
-			BlockHitResult bhr = from.clip(new ClipContext(p.getEyePosition(), p.getEyePosition().add(p.getLookAngle().scale(CyborgConfig.BOOM_RANGE)),
-					ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-			if (bhr.getType() == HitResult.Type.BLOCK) {
-				BlockPos top = bhr.getBlockPos().relative(bhr.getDirection());
-				to = Vec3.atBottomCenterOf(top);
-			} else {
-				// the open sky: home (the respawn point, else the world spawn)
-				BlockPos home = p.getRespawnPosition();
-				ServerLevel homeLevel = p.server.getLevel(p.getRespawnDimension());
-				if (home == null || homeLevel == null) {
-					homeLevel = p.server.overworld();
-					home = homeLevel.getSharedSpawnPos();
-				}
-				dest = homeLevel;
-				to = Vec3.atBottomCenterOf(home).add(0, 0.6, 0);
-			}
-		}
-		cooldown(p, BOOM, CyborgConfig.BOOM_COOLDOWN);
-		Cyborg.setAnim(p, CyborgState.ANIM_BOOM_TUBE);
-		List<ServerPlayer> riders = new ArrayList<>();
-		riders.add(p);
-		for (ServerPlayer o : from.getEntitiesOfClass(ServerPlayer.class, p.getBoundingBox().inflate(CyborgConfig.BOOM_SQUAD_RADIUS),
-				o -> o != p && o.isAlive() && !o.isSpectator() && Squads.areAllies(p, o))) {
-			riders.add(o);
-		}
-		BoomTubeEntity.open(from, p.position().add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
-		BoomTubeEntity.open(dest, to.add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
-		from.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.4f, 0.6f);
-		int i = 0;
-		for (ServerPlayer r : riders) {
-			double ox = (i % 3 - 1) * 0.8;
-			double oz = (i / 3) * 0.8;
-			r.teleportTo(dest, to.x + ox, to.y, to.z + oz, r.getYRot(), r.getXRot());
-			r.resetFallDistance();
-			i++;
-		}
-		dest.playSound(null, to.x, to.y, to.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 0.6f);
-		if (usedWaypoint) {
-			CyborgState n = Cyborg.state(p).copy();
-			n.waypoint = List.of();
-			n.waypointDim = "";
-			Cyborg.save(p, n);
-		}
-	}
-
-	public static void setWaypoint(ServerPlayer p) {
-		if (!begin(p, WAYPOINT, 0f)) {
-			return;
-		}
-		CyborgState n = Cyborg.state(p).copy();
-		n.waypoint = List.of(p.getX(), p.getY(), p.getZ());
-		n.waypointDim = p.level().dimension().location().toString();
-		n.animId = CyborgState.ANIM_WAYPOINT;
-		n.animStart = p.level().getGameTime();
-		Cyborg.save(p, n);
-		level(p).sendParticles(Cyborg.BLUE_BIG, p.getX(), p.getY() + 0.2, p.getZ(), 20, 0.5, 0.05, 0.5, 0.0);
-		sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.2f, 1.4f);
-		Cyborg.say(p, "message.projecthero.cyborg.waypoint_set", ChatFormatting.AQUA, (int) Math.floor(p.getX()), (int) Math.floor(p.getY()),
-				(int) Math.floor(p.getZ()));
-	}
+	// ================================================================ V: Circuit Link -> CyborgCircuit; Shift+V: the Boom Tube menu -> CyborgBoomTube
 
 	// ================================================================ C: Defense Matrix / Shift+C: Self-Repair
 
@@ -864,15 +849,9 @@ public final class CyborgAbilities {
 
 	// ================================================================ tick
 
-	private static long lastHackTick = -1L;
-
 	static void tick(ServerPlayer p) {
 		UUID u = p.getUUID();
 		long now = p.level().getGameTime();
-		if (now != lastHackTick && !HACKED.isEmpty()) {
-			lastHackTick = now;
-			tickHacked(level(p));
-		}
 		Long fx = CONVERT_FX.get(u);
 		if (fx != null) {
 			tickConversionFx(p, fx, now);
@@ -896,25 +875,19 @@ public final class CyborgAbilities {
 		if (rep != null) {
 			tickRepair(p, rep, now);
 		}
+		if (s.fx.sawUntil != 0L) {
+			tickSaw(p, Cyborg.state(p), now);
+		}
+		Barrage b = BARRAGES.get(u);
+		if (b != null) {
+			tickBarrage(p, b, now);
+		}
+		CyborgCircuit.tick(p, now);
 		if (s.shieldUntil != 0L && s.shieldUntil <= now) {
 			CyborgState n = s.copy();
 			n.shieldUntil = 0L;
 			n.shieldHp = 0f;
 			Cyborg.save(p, n);
 		}
-	}
-
-	/** Damage veto support: a machine he hacked never hurts him or his squad. */
-	public static boolean blocksHackedHit(LivingEntity victim, Entity attacker) {
-		UUID owner = attacker == null ? null : hacker(attacker);
-		if (owner == null || !(victim instanceof Player vp)) {
-			return false;
-		}
-		Player o = victim.level().getPlayerByUUID(owner);
-		return vp.getUUID().equals(owner) || (o != null && Squads.areAllies(o, vp));
-	}
-
-	static Set<Integer> hackedIds() {
-		return new HashSet<>(HACKED.keySet());
 	}
 }

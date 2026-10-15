@@ -31,9 +31,9 @@ public abstract class CyborgFirstPersonArmMixin {
 		if (progress > 0f) {
 			CyborgRender.renderArm(pose, buffers, light, arm, arm == model.rightArm, progress);
 		}
-		// v0.16.5 (user): the blaster building round the forearm for the Sonic Cannon / Sonic Burst
+		// v0.16.5 (user): the blaster building round the forearm for the Sonic Cannon / Sonic Burst, and the Arm Saw
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
-			com.projecthero.mod.client.cyborg.CyborgTech.renderBlasterFirstPerson(pose, buffers, light, player, arm, arm == model.rightArm,
+			com.projecthero.mod.client.cyborg.CyborgTech.renderArmTechFirstPerson(pose, buffers, light, player, arm, arm == model.rightArm,
 					player.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM);
 		}
 	}

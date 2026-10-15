@@ -23,7 +23,7 @@ public class CyborgLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 		CyborgRender.Anim anim = CyborgRender.anim(player, partialTick);
 		// v0.16.5 (user): the jetpack he builds on his back for Jet Flight, and the blaster for the sonic moves
 		CyborgTech.renderJetpack(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks);
-		CyborgTech.renderBlaster(pose, buffers, light, player, getParentModel(), partialTick,
+		CyborgTech.renderArmTech(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks,
 				player.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM);
 		if (anim.anything()) {
 			CyborgRender.render(pose, buffers, light, getParentModel(), anim, ageInTicks);
@@ -34,10 +34,7 @@ public class CyborgLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 				// v0.16.5: the wearer's second layer goes texel row by texel row as the plates spread, not all at once
 				float spread = anim.spread();
 				com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(),
-						(u, v) -> {
-							float h = com.projecthero.mod.client.render.OverlayStrips.height(u, v);
-							return h >= 0f && Math.abs(h - CyborgRender.CORE_HEIGHT) > spread;
-						}, false);
+						(u, v) -> CyborgRender.convertOrder(u, v) > spread / CyborgRender.STEPS && CyborgRender.convertOrder(u, v) < 1.5f, false);
 			}
 		}
 	}

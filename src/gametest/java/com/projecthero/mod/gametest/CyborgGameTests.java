@@ -117,11 +117,11 @@ public class CyborgGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void hologramIsOnlyADisguise(GameTestHelper helper) {
 		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "+4 armour");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "diamond-level armour");
 		Cyborg.hologramOn(p);
 		helper.assertTrue(Cyborg.hologram(p) && Cyborg.combat(p), "H: the hologram is up, he is still Cyborg");
 		Cyborg.reconcile(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "still +4 armour under the hologram");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - CyborgConfig.ARMOR_BONUS) < 0.01, "still diamond-level under the hologram");
 		CyborgAbilities.matrix(p);
 		helper.assertTrue(Cyborg.matrixUp(p), "a move works under the hologram");
 		helper.assertFalse(Cyborg.hologram(p), "... and drops it");
@@ -172,7 +172,7 @@ public class CyborgGameTests implements FabricGameTest {
 		helper.runAfterDelay(CyborgConfig.CANNON_CHARGE_TICKS + 2, () -> {
 			CyborgAbilities.fireCannon(p);
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(Math.abs(taken - CyborgConfig.CANNON_MAX_DAMAGE) < EPS, "full charge: 16, took " + taken);
+			helper.assertTrue(Math.abs(taken - CyborgConfig.CANNON_MAX_DAMAGE) < EPS, "15, took " + taken);
 			helper.assertTrue(Cyborg.state(p).fx.beamUntil > helper.getLevel().getGameTime(), "the beam shows");
 			helper.succeed();
 		});
@@ -185,7 +185,7 @@ public class CyborgGameTests implements FabricGameTest {
 		Zombie front = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 4.5, 100);
 		Zombie behind = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 0.2, 100);
 		CyborgAbilities.burst(p);
-		helper.assertTrue(Math.abs((100f - front.getHealth()) - CyborgConfig.BURST_DAMAGE) < EPS, "in front: 8");
+		helper.assertTrue(Math.abs((100f - front.getHealth()) - CyborgConfig.BURST_DAMAGE) < EPS, "in front: 24");
 		helper.assertTrue(behind.getHealth() == 100f, "behind him: untouched");
 		helper.succeed();
 	}
@@ -196,7 +196,7 @@ public class CyborgGameTests implements FabricGameTest {
 		ServerPlayer p = cyborg(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
 		CyborgAbilities.punch(p);
-		helper.assertTrue(Math.abs((100f - z.getHealth()) - CyborgConfig.PUNCH_DAMAGE) < EPS, "12, took " + (100f - z.getHealth()));
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - CyborgConfig.PUNCH_DAMAGE) < EPS, "24, took " + (100f - z.getHealth()));
 		helper.succeed();
 	}
 
@@ -220,42 +220,97 @@ public class CyborgGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void technoOverrideHacksAGolemAndOpensDoors(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = cyborg(helper, 3.5, 2.0, 1.5);
-		IronGolem g = mob(helper, EntityType.IRON_GOLEM, 3.5, 2.0, 5.5, 100);
-		CyborgAbilities.override(p);
-		helper.assertTrue(CyborgAbilities.hackedBy(g, p), "the golem is his");
-		g.discard();
-		BlockPos trap = helper.absolutePos(new BlockPos(3, 3, 4));
-		helper.getLevel().setBlock(trap, Blocks.OAK_TRAPDOOR.defaultBlockState().setValue(BlockStateProperties.HALF,
-				net.minecraft.world.level.block.state.properties.Half.TOP), 3);
-		// aim at it
-		Vec3 eye = p.getEyePosition();
-		Vec3 to = Vec3.atCenterOf(trap).add(0, 0.4, 0).subtract(eye); // a top-half trapdoor is a thin slab at the top of its block
+	/** Points {@code p} at {@code target} (absolute coordinates). */
+	private static void aim(ServerPlayer p, Vec3 target) {
+		Vec3 to = target.subtract(p.getEyePosition());
+		float yaw = (float) (Math.toDegrees(Math.atan2(to.z, to.x)) - 90.0);
 		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
+		p.setYRot(yaw);
+		p.setYHeadRot(yaw);
 		p.setXRot(pitch);
+	}
+
+	private static void ready(ServerPlayer p) {
 		CyborgState n = Cyborg.state(p).copy();
 		n.abilityReadyAt.clear();
 		n.core = CyborgConfig.CORE_MAX;
 		p.setAttached(ModAttachments.CYBORG_STATE, n);
-		CyborgAbilities.override(p);
-		helper.assertTrue(helper.getLevel().getBlockState(trap).getValue(BlockStateProperties.OPEN), "the trapdoor swung open");
-		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void waypointAndBoomTube(GameTestHelper helper) {
+	public void balancePassStats(GameTestHelper helper) {
+		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - 20.0) < 0.01, "diamond-level armour: 20");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - 8.0) < 0.01, "and 8 toughness");
+		double base = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(Math.abs(base - 10.0) < 0.01, "+9 melee on the bare fist (1): 10, got " + base);
+		CyborgAbilities.saw(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 20.0) < 0.01, "the Arm Saw adds 10 more");
+		helper.assertTrue(CyborgConfig.CORE_REGEN == 4f, "4 Power Core a second");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void missileBarrageHitsWhatIsInFront(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cyborg(helper, 3.5, 2.0, 1.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
+		pump(helper, p);
+		CyborgAbilities.missiles(p);
+		helper.assertTrue(CyborgAbilities.running(p, CyborgAbilities.MISSILES), "the barrage is running");
+		helper.runAfterDelay(60, () -> {
+			float taken = 100f - z.getHealth();
+			helper.assertTrue(taken >= CyborgConfig.MISSILE_DAMAGE * 3 - EPS, "most missiles hit, took " + taken);
+			helper.assertTrue(!CyborgAbilities.running(p, CyborgAbilities.MISSILES), "and it is over");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void circuitLinkPowersALampAndFlipsALever(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cyborg(helper, 3.5, 2.0, 1.0);
+		BlockPos lamp = helper.absolutePos(new BlockPos(3, 3, 5));
+		helper.getLevel().setBlock(lamp, Blocks.REDSTONE_LAMP.defaultBlockState(), 3);
+		pump(helper, p);
+		aim(p, Vec3.atCenterOf(lamp));
+		com.projecthero.mod.cyborg.CyborgCircuit.press(p);
+		com.projecthero.mod.cyborg.CyborgCircuit.release(p);
+		helper.runAfterDelay(2, () -> {
+			helper.assertTrue(helper.getLevel().getBlockState(lamp).getValue(BlockStateProperties.LIT), "the lamp is powered");
+			helper.assertTrue(helper.getLevel().getBlockState(lamp.north()).is(com.projecthero.mod.cyborg.block.CyborgBlocks.CYBORG_SIGNAL),
+					"by a signal on the side he aimed at");
+		});
+		helper.runAfterDelay(CyborgConfig.LINK_PULSE_TICKS + 12, () -> {
+			helper.assertFalse(helper.getLevel().getBlockState(lamp.north()).is(com.projecthero.mod.cyborg.block.CyborgBlocks.CYBORG_SIGNAL),
+					"the pulse's signal is gone");
+			// a lever on the floor flips
+			BlockPos lever = helper.absolutePos(new BlockPos(3, 2, 4));
+			helper.getLevel().setBlock(lever, Blocks.LEVER.defaultBlockState().setValue(BlockStateProperties.ATTACH_FACE,
+					net.minecraft.world.level.block.state.properties.AttachFace.FLOOR), 3);
+			ready(p);
+			aim(p, Vec3.atCenterOf(lever).add(0, -0.35, 0));
+			com.projecthero.mod.cyborg.CyborgCircuit.press(p);
+			helper.assertTrue(helper.getLevel().getBlockState(lever).getValue(BlockStateProperties.POWERED), "the lever flipped");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void boomTubeMenuTravelsToAWaypoint(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cyborg(helper, 1.5, 2.0, 1.5);
-		CyborgAbilities.setWaypoint(p);
+		com.projecthero.mod.cyborg.CyborgBoomTube.saveWaypoint(p, 0, "Base");
 		Vec3 saved = p.position();
 		p.teleportTo(p.getX() + 4, p.getY(), p.getZ() + 4);
-		CyborgAbilities.boomTube(p);
+		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 0) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.OK,
+				"travelled");
 		helper.assertTrue(p.position().distanceTo(saved) < 1.5, "the Boom Tube took him to the waypoint, at " + p.position());
-		helper.assertTrue(Cyborg.state(p).waypoint.isEmpty(), "the waypoint is used up");
-		helper.assertTrue(Cyborg.cooldownRemaining(p, CyborgAbilities.BOOM) > 0, "90 s cooldown");
+		helper.assertTrue(Cyborg.cooldownRemaining(p, CyborgAbilities.BOOM) > 0, "60 s cooldown");
+		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 0) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.COOLDOWN,
+				"not again straight away");
+		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 1) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.EMPTY_WAYPOINT,
+				"an empty slot goes nowhere");
 		helper.succeed();
 	}
 

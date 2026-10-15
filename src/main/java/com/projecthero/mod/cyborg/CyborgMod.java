@@ -23,9 +23,17 @@ public final class CyborgMod {
 	}
 
 	public static void initialize() {
+		com.projecthero.mod.cyborg.block.CyborgBlocks.initialize();
 		CyborgDamage.initialize();
 		PayloadTypeRegistry.playC2S().register(CyborgActionPayload.TYPE, CyborgActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(CyborgScanPayload.TYPE, CyborgScanPayload.CODEC);
+		// v0.16.5: the Boom Tube menu (Shift+V), worked like the Bifrost's
+		PayloadTypeRegistry.playS2C().register(com.projecthero.mod.cyborg.network.CyborgBoomScreenPayload.TYPE,
+				com.projecthero.mod.cyborg.network.CyborgBoomScreenPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.TYPE,
+				com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.TYPE,
+				(payload, context) -> context.server().execute(() -> CyborgBoomTube.handleAction(context.player(), payload)));
 		ServerPlayNetworking.registerGlobalReceiver(CyborgActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
 			if (!Cyborg.hasPower(p)) {

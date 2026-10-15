@@ -45,6 +45,8 @@ public final class Cyborg {
 	public static final String KEY = "cyborg";
 
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("cyborg_plating");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("cyborg_plating_toughness");
+	private static final ResourceLocation MELEE_ID = PowerToggles.id("cyborg_strength");
 
 	public static final DustParticleOptions BLUE = new DustParticleOptions(new Vector3f(0.35f, 0.75f, 1.0f), 1.2f);
 	public static final DustParticleOptions BLUE_BIG = new DustParticleOptions(new Vector3f(0.45f, 0.85f, 1.0f), 2.2f);
@@ -284,11 +286,22 @@ public final class Cyborg {
 
 	// ---------------------------------------------------------------- stats
 
+	/**
+	 * The stat modifiers: diamond-level plating (20 armour, 8 toughness) and +9 melee always; +10 more while the Arm Saw
+	 * is out. Called every second and whenever something changes.
+	 */
 	public static void reconcile(ServerPlayer player) {
-		if (hasPower(player)) {
+		CyborgState s = peek(player);
+		if (s != null && s.hasPower) {
 			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, CyborgConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, CyborgConfig.TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE);
+			boolean saw = s.fx.sawUntil > player.level().getGameTime();
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, CyborgConfig.MELEE_BONUS + (saw ? CyborgConfig.SAW_BONUS : 0.0),
+					AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
 		}
 	}
 

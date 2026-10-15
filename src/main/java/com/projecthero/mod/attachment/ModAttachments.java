@@ -890,6 +890,16 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.cyborg.data.CyborgState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.5: Cyborg's three Boom Tube waypoints (the Shift+V menu, which works like the Bifrost's). Persistent and kept
+	 * through death; sent with {@code CyborgBoomScreenPayload} when the menu opens or changes.
+	 */
+	public static final AttachmentType<com.projecthero.mod.stormbreaker.BifrostWaypoints> CYBORG_BOOM_WAYPOINTS = AttachmentRegistry.create(
+			ProjectHeroMod.id("cyborg_boom_waypoints"),
+			builder -> builder.persistent(com.projecthero.mod.stormbreaker.BifrostWaypoints.CODEC)
+					.copyOnDeath()
+					.initializer(() -> com.projecthero.mod.stormbreaker.BifrostWaypoints.EMPTY));
+
 	/** v0.16.5: Blue Beetle (Jaime Reyes) -- the power, the armour, Scarab Energy, Adaptation, timers and visible effects. */
 	public static final AttachmentType<com.projecthero.mod.bluebeetle.data.BlueBeetleState> BLUE_BEETLE_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("blue_beetle_state"),
