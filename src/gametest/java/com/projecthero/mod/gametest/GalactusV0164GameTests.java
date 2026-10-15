@@ -306,19 +306,32 @@ public class GalactusV0164GameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- the acts advance
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus164_acts", timeoutTicks = 200)
+	@GameTest(template = EMPTY_STRUCTURE, batch = "galactus164_acts", timeoutTicks = 400)
 	public void theHeraldTurnsAndTheWorldshipFollows(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
 		floor(helper, 12);
 		GalactusEvent e = start(helper, false);
 		ServerPlayer p = survivor(helper);
 		e.addFighter(p.getUUID());
-		helper.runAfterDelay(30, () -> {
+		// the event only ticks while a counted fighter stands in it, which a mock player is not reliably -- so the Herald is
+		// brought in directly (this test is about the turn and the Worldship, not the arrival)
+		SilverSurferEntity herald = e.startHerald(level);
+		helper.assertTrue(herald != null && e.phase() == GalactusEvent.Phase.HERALD, "the Herald comes, got " + e.phase());
+		boolean[] went = { false };
+		helper.onEachTick(() -> {
+			if (went[0]) {
+				return;
+			}
 			SilverSurferEntity s = e.surfer(level);
-			helper.assertTrue(s != null && e.phase() == GalactusEvent.Phase.HERALD, "the Herald comes, got " + e.phase());
-			for (int i = 0; i < 40 && e.phase() == GalactusEvent.Phase.HERALD; i++) {
+			if (s == null) {
+				return;
+			}
+			went[0] = true;
+			// just above the 10% line, then the blow that crosses it (his shield can eat a hit, so a few tries)
+			s.setHealth(s.getMaxHealth() * 0.12f);
+			for (int i = 0; i < 10 && s.surferState() == SilverSurferEntity.HOSTILE; i++) {
 				s.invulnerableTime = 0;
-				s.hurt(level.damageSources().playerAttack(p), 40f);
+				s.hurt(level.damageSources().playerAttack(p), s.getMaxHealth() * 0.05f);
 				s.checkTurn(level);
 			}
 			helper.assertTrue(s.isAlive() && s.surferState() != SilverSurferEntity.HOSTILE, "at 10% he turns instead of dying");

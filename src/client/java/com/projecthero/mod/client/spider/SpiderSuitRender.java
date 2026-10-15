@@ -36,6 +36,10 @@ public final class SpiderSuitRender {
 	public static final ResourceLocation TEXTURE_V2 = ProjectHeroMod.id("textures/armor/spider_man_v2.png");
 	/** v0.16.4 (user): the Classic suit (a second original-style suit to compare). */
 	public static final ResourceLocation TEXTURE_CLASSIC = ProjectHeroMod.id("textures/armor/spider_man_classic.png");
+	/** v0.16.4 (user): the Black Suit is skin-tight too now (it was the old inflated shell). */
+	public static final ResourceLocation TEXTURE_SYMBIOTE = ProjectHeroMod.id("textures/armor/spider_man_symbiote.png");
+	/** Let It Take Over: the monstrous host's skin (same player-skin layout). */
+	private static final ResourceLocation TEXTURE_TAKEOVER = ProjectHeroMod.id("textures/armor/symbiote_host.png");
 
 	private static PlayerModel<LivingEntity> model;
 	/** Screenshot comparisons only: draw the old inflated GeckoLib shell instead (never set in play). */
@@ -54,7 +58,7 @@ public final class SpiderSuitRender {
 
 	/** The Spider-Man suit set (not the black Symbiote suit, which keeps its own GeckoLib model). */
 	public static boolean isSuit(Item item) {
-		return item instanceof SpiderManArmorItem && !(item instanceof SymbioteArmorItem);
+		return item instanceof SpiderManArmorItem; // v0.16.4: the Black Suit (SymbioteArmorItem) included
 	}
 
 	private static boolean worn(Player p, EquipmentSlot slot) {
@@ -89,7 +93,7 @@ public final class SpiderSuitRender {
 		ResourceLocation bodyTex = textureFor(player.getItemBySlot(EquipmentSlot.CHEST).getItem());
 		ResourceLocation legsTex = textureFor((worn(player, EquipmentSlot.LEGS) ? player.getItemBySlot(EquipmentSlot.LEGS)
 				: player.getItemBySlot(EquipmentSlot.FEET)).getItem());
-		for (ResourceLocation tex : new ResourceLocation[] { TEXTURE, TEXTURE_V2, TEXTURE_CLASSIC }) {
+		for (ResourceLocation tex : new ResourceLocation[] { TEXTURE, TEXTURE_V2, TEXTURE_CLASSIC, TEXTURE_SYMBIOTE }) {
 			boolean h = head && headTex.equals(tex);
 			boolean b = body && bodyTex.equals(tex);
 			boolean l = legs && legsTex.equals(tex);
@@ -108,7 +112,7 @@ public final class SpiderSuitRender {
 			m.leftLeg.visible = l;
 			m.rightPants.visible = l;
 			m.leftPants.visible = l;
-			m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(drawn(player, tex))), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 		}
 		m.setAllVisible(true);
 		if (!head && cover > 0.001f) {
@@ -123,8 +127,29 @@ public final class SpiderSuitRender {
 		}
 	}
 
+	/**
+	 * v0.16.4: the Black Suit keeps the effects its old shell had -- the suit spreading over him from the chest
+	 * (SymbioteSpread) and Let It Take Over's monstrous skin.
+	 */
+	private static ResourceLocation drawn(Player player, ResourceLocation tex) {
+		if (!tex.equals(TEXTURE_SYMBIOTE)) {
+			return tex;
+		}
+		if (com.projecthero.mod.symbiote.SymbioteHunger.takingOver(player)) {
+			return TEXTURE_TAKEOVER;
+		}
+		if (com.projecthero.mod.client.symbiote.SymbioteReveal.isRevealing(player)) {
+			return com.projecthero.mod.client.symbiote.SymbioteSpread.texture(tex, com.projecthero.mod.client.symbiote.SymbioteReveal.progress(
+					player, net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false)));
+		}
+		return tex;
+	}
+
 	/** v0.16.2: the skin a suit piece is drawn in -- the Suit v2's own, or the original's. */
 	public static ResourceLocation textureFor(Item item) {
+		if (item instanceof SymbioteArmorItem) {
+			return TEXTURE_SYMBIOTE;
+		}
 		return item instanceof com.projecthero.mod.spider.item.SpiderManV2ArmorItem ? TEXTURE_V2
 				: item instanceof com.projecthero.mod.spider.item.SpiderManClassicArmorItem ? TEXTURE_CLASSIC : TEXTURE;
 	}

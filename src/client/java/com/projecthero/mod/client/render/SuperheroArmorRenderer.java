@@ -546,7 +546,8 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				return;
 			}
 			// v0.16.1: the Spider-Man suit is drawn skin-tight by SpiderSuitLayer now, not as this inflated shell
-			if (getAnimatable() != null && "spider_man".equals(getAnimatable().armorSetId())
+			if (getAnimatable() != null && ("spider_man".equals(getAnimatable().armorSetId())
+					|| "spider_man_symbiote".equals(getAnimatable().armorSetId())) // v0.16.4 (user): the Black Suit too
 					&& !com.projecthero.mod.client.spider.SpiderSuitRender.legacyShell) {
 				return;
 			}
