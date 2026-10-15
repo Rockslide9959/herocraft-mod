@@ -25,24 +25,24 @@ public final class HulkConfig {
 	 */
 	public static final class Gladiator {
 		// ---- R Axe Cleave: a wide horizontal sweep in front, bleeds ----
-		public float axeCleaveDamage = 34.0f;
+		public float axeCleaveDamage = 25.5f;
 		public double axeCleaveRange = 5.5;
 		/** Full width of the arc in degrees. */
 		public double axeCleaveArcDegrees = 160.0;
 		public double axeCleaveKnockback = 2.4;
 		/** Bleed: this much every second for {@link #bleedSeconds} seconds. */
-		public float bleedDamage = 2.0f;
+		public float bleedDamage = 1.5f;
 		public int bleedSeconds = 4;
 		public int axeCleaveCooldownTicks = 100;
 
 		// ---- Shift+R Hammer Uppercut: one target launched high ----
-		public float uppercutDamage = 36.0f;
+		public float uppercutDamage = 27.0f;
 		public double uppercutRange = 5.0;
 		public double uppercutLaunch = 1.6;
 		public int uppercutCooldownTicks = 120;
 
 		// ---- G Hammer Quake: overhead slam, a forward cone fissure ----
-		public float quakeDamage = 36.0f;
+		public float quakeDamage = 27.0f;
 		public double quakeRange = 14.0;
 		public double quakeConeDegrees = 60.0;
 		public double quakeKnockback = 1.6;
@@ -52,7 +52,7 @@ public final class HulkConfig {
 		public int quakeCooldownTicks = 140;
 
 		// ---- Shift+G Earthsplitter: a line of erupting earth ----
-		public float earthsplitterDamage = 30.0f;
+		public float earthsplitterDamage = 22.5f;
 		public double earthsplitterLength = 18.0;
 		public double earthsplitterWidth = 3.0;
 		public double earthsplitterLift = 1.2;
@@ -61,7 +61,7 @@ public final class HulkConfig {
 		// ---- Z Champion's Roar: a short buff, mobs flee ----
 		public int roarBuffTicks = 160;
 		/** Extra attack damage while the roar lasts. */
-		public double roarAttackBonus = 6.0;
+		public double roarAttackBonus = 4.5;
 		/** Extra knockback resistance while the roar lasts (he already has 0.9). */
 		public double roarKnockbackResistance = 0.1;
 		public double roarRadius = 12.0;
@@ -73,14 +73,14 @@ public final class HulkConfig {
 		public int roarFleeTicks = 120;
 
 		// ---- Shift+Z Weapon Clash: a ringing shockwave that stuns ----
-		public float clashDamage = 18.0f;
+		public float clashDamage = 13.5f;
 		public double clashRadius = 7.0;
 		public int clashStunTicks = 30;
 		public int clashCooldownTicks = 240;
 
 		// ---- X Arena Leap: a big ballistic leap, weapons-first landing ----
 		public double arenaLeapBlocks = 28.0;
-		public float arenaLeapDamage = 32.0f;
+		public float arenaLeapDamage = 24.0f;
 		public double arenaLeapRadius = 6.0;
 		public double arenaLeapCraterRadius = 3.0;
 		public int arenaLeapCooldownTicks = 160;
@@ -89,23 +89,23 @@ public final class HulkConfig {
 		public double meteorRiseSpeed = 2.0;
 		public double meteorDiveSpeed = 2.8;
 		public double meteorDiveRange = 60.0;
-		public float meteorDamage = 55.0f;
+		public float meteorDamage = 41.25f;
 		public double meteorRadius = 3.5;
 		public double meteorCraterRadius = 2.5;
 		public int meteorCooldownTicks = 300;
 
 		// ---- C Axe Throw: out and back ----
-		public float axeThrowDamage = 26.0f;
+		public float axeThrowDamage = 19.5f;
 		public double axeThrowRange = 24.0;
 		public double axeThrowSpeed = 1.8;
 		public int axeThrowCooldownTicks = 100;
 
 		// ---- Shift+C Hammer Hurl: an arc, a shockwave, stuck until recalled ----
-		public float hammerHurlDamage = 30.0f;
+		public float hammerHurlDamage = 22.5f;
 		public double hammerHurlRadius = 4.5;
 		public double hammerHurlSpeed = 1.6;
 		/** Hit by the hammer flying home after C recalls it. */
-		public float hammerRecallDamage = 20.0f;
+		public float hammerRecallDamage = 15.0f;
 		/** A hammer left in the ground flies home on its own after this long. */
 		public int hammerStuckTicks = 600;
 		public int hammerHurlCooldownTicks = 160;
@@ -113,10 +113,10 @@ public final class HulkConfig {
 		// ---- V Gladiator Whirlwind: a spin with both weapons ----
 		public int whirlwindTicks = 60;
 		public int whirlwindPulseTicks = 5;
-		public float whirlwindDamage = 8.0f;
+		public float whirlwindDamage = 6.0f;
 		public double whirlwindRadius = 3.5;
 		public double whirlwindPullRadius = 7.0;
-		public float whirlwindSlamDamage = 26.0f;
+		public float whirlwindSlamDamage = 19.5f;
 		public double whirlwindSlamRadius = 5.0;
 		/** Counted from the end of the spin. */
 		public int whirlwindCooldownTicks = 240;
@@ -125,9 +125,9 @@ public final class HulkConfig {
 		public double grappleRange = 5.0;
 		public int grappleBlows = 5;
 		public int grappleBlowTicks = 10;
-		public float grappleBlowDamage = 9.0f;
+		public float grappleBlowDamage = 6.75f;
 		public double grappleThrowSpeed = 2.0;
-		public float grappleThrowDamage = 14.0f;
+		public float grappleThrowDamage = 10.5f;
 		/** Counted from the release / throw. */
 		public int grappleCooldownTicks = 200;
 	}
@@ -142,7 +142,7 @@ public final class HulkConfig {
 		public int powerPunchCooldownTicks = 100;
 
 		// ---- G Ground Smash: both fists into the ground, a ring all round him and a crater ----
-		public float groundSmashDamage = 30.0f;
+		public float groundSmashDamage = 22.5f;
 		public double groundSmashRadius = 7.0;
 		public double groundSmashKnockback = 1.5;
 		public double groundSmashLift = 0.75;
@@ -189,7 +189,7 @@ public final class HulkConfig {
 		public float crushDamage = 26.0f;
 		public double throwSpeed = 2.0;
 		public float throwImpactDamage = 16.0f;
-		public float boulderDamage = 30.0f;
+		public float boulderDamage = 22.5f;
 		public double boulderRadius = 4.0;
 		public double boulderSpeed = 1.7;
 		/** Counted from the throw / crush. */
@@ -203,7 +203,7 @@ public final class HulkConfig {
 		// (the v0.13.14 numbers above that the new kit no longer reads are kept so old files still load)
 
 		// ---- R Super Punch: an 8-block cone in front, breaks blocks ----
-		public float superPunchDamage = 28.0f;
+		public float superPunchDamage = 21.0f;
 		public double superPunchRange = 8.0;
 		/** Full width of the cone in degrees. */
 		public double superPunchConeDegrees = 70.0;
@@ -216,18 +216,25 @@ public final class HulkConfig {
 		public double groundSmashCrackRadius = 9.0;
 
 		// ---- G Thunderclap: a sonic cone ----
-		public float clapDamage = 12.0f;
+		public float clapDamage = 9.0f;
 		public double clapRange = 12.0;
 		public double clapConeDegrees = 80.0;
 		public double clapKnockback = 2.8;
 		/** The stagger: Slowness IV (and no jumping to speak of) for this long. */
 		public int clapStaggerTicks = 40;
 		public int clapCooldownTicks = 160;
+		/**
+		 * v0.16.4 (user): G in the air -- the clap stops him dead and pushes him this fast (blocks / tick) the way he is looking
+		 * (up and down too). 1.4 b/t is about 15 blocks of travel on a level push before gravity brings him down.
+		 */
+		public double airClapPush = 1.4;
+		/** v0.16.4: the air clap's cone range and damage are scaled by this (a bit smaller than on the ground). */
+		public double airClapScale = 0.75;
 
 		// ---- Shift+G Fault-line Stomp: a fissure races forward ----
 		public double faultLength = 16.0;
 		public double faultWidth = 3.0;
-		public float faultDamage = 16.0f;
+		public float faultDamage = 12.0f;
 		/** Upward launch of everything standing on the fissure. */
 		public double faultLaunch = 1.4;
 		/** Ticks per block the fissure travels. */
@@ -238,14 +245,14 @@ public final class HulkConfig {
 		public double bulldozeBlocks = 12.0;
 		/** Blocks per tick (0.9 = 18 blocks a second). */
 		public double bulldozeSpeed = 0.9;
-		public float bulldozeDamage = 16.0f;
+		public float bulldozeDamage = 12.0f;
 		public double bulldozeHitRadius = 2.4;
 		/** He only bulldozes through blocks this soft (dirt 0.5, wood 2, stone 1.5). */
 		public float bulldozeMaxHardness = 2.0f;
 		public int bulldozeCooldownTicks = 200;
 
 		// ---- Shift+Z Launch Uppercut ----
-		public float uppercutDamage = 22.0f;
+		public float uppercutDamage = 16.5f;
 		public double uppercutRange = 4.0;
 		/** Upward speed (blocks / tick) the target leaves with. */
 		public double uppercutLaunch = 2.4;
@@ -263,14 +270,14 @@ public final class HulkConfig {
 		public double superLeapMaxSpeed = 4.0;
 		/** Top climb speed (blocks / tick): the climb must stay under 80 ticks (the server's fly check). */
 		public double superLeapMaxClimb = 5.6;
-		public float superLeapLandDamageMin = 8.0f;
-		public float superLeapLandDamageMax = 40.0f;
+		public float superLeapLandDamageMin = 6.0f;
+		public float superLeapLandDamageMax = 30.0f;
 		public double superLeapLandRadiusMin = 4.0;
 		public double superLeapLandRadiusMax = 12.0;
 
 		// ---- C Gamma Burst ----
 		public float gammaBurstRageCost = 25.0f;
-		public float gammaBurstDamage = 30.0f;
+		public float gammaBurstDamage = 22.5f;
 		public double gammaBurstRadius = 10.0;
 		public double gammaBurstKnockback = 2.6;
 		public int gammaBurstCooldownTicks = 200;
@@ -293,9 +300,26 @@ public final class HulkConfig {
 		public int throwChargeTicks = 35;
 		/** Top horizontal speed of the far throw (blocks / tick). */
 		public double throwFarSpeed = 3.5;
-		public float throwFarImpactDamage = 24.0f;
+		public float throwFarImpactDamage = 18.0f;
+		/**
+		 * v0.16.4 (user): "if he throws an entity 100 blocks or more it causes destruction where the entity lands, make the
+		 * destruction more based on how far the player throws the entity past 100 blocks". A throw (mob or debris) meant to go at
+		 * least {@link #longThrowMinBlocks} craters where it comes down; t = (planned - min) / {@link #longThrowRampBlocks},
+		 * 0..1, grows everything below from its Min to its Max.
+		 */
+		public double longThrowMinBlocks = 100.0;
+		public double longThrowRampBlocks = 100.0;
+		public double longThrowCraterRadiusMin = 2.5;
+		public double longThrowCraterRadiusMax = 7.0;
+		public int longThrowCraterBlocksMin = 20;
+		public int longThrowCraterBlocksMax = 120;
+		/** The shockwave ring (knockback, falloff damage) round the landing. */
+		public double longThrowShockRadiusMin = 4.0;
+		public double longThrowShockRadiusMax = 10.0;
+		/** The impact damage grows by up to this fraction at t = 1 (+50%). */
+		public double longThrowDamageBonus = 0.5;
 		public double lokiRange = 10.0;
-		public float lokiSlamDamage = 12.0f;
+		public float lokiSlamDamage = 9.0f;
 		public int lokiCooldownTicks = 300;
 	}
 
@@ -368,7 +392,7 @@ public final class HulkConfig {
 		public double aoeMultiplier = 2.0;
 		/** The activation shockwave round him. */
 		public double activationRadius = 14.0;
-		public float activationDamage = 20.0f;
+		public float activationDamage = 15.0f;
 		/** Burnout when it ends: shrunk to 0 rage, slow, weak, rage frozen at 0, for this long (60 s). */
 		public int burnoutTicks = 60 * 20;
 		/** Effect amplifiers during Burnout (0 = level I): Slowness II, Weakness II, Mining Fatigue I. */
@@ -451,6 +475,18 @@ public final class HulkConfig {
 			.reset(7, "v0.16.4 Super Leap charge 0.5 s -> 2 s", "abilities.superLeapChargeTicks")
 			// v0.16.4 (user): hold V to charge the throw, 300 -> 200 blocks at full charge; the worldBreaker section fills in
 			.reset(8, "v0.16.4 charged V throw (max 300 -> 200 blocks) + World Breaker section", "abilities.throwFarBlocks")
+			// v0.16.4 (user nerf): punch 20 -> 15 at 0 rage (25 at 100) and every move's damage x0.75; the air clap and the
+			// long-throw crater keys fill in from the defaults
+			.reset(9, "v0.16.4 Hulk damage nerf x0.75 (punch 15 at 0 rage / 25 at 100)",
+					"abilities.superPunchDamage", "abilities.groundSmashDamage", "abilities.clapDamage", "abilities.faultDamage",
+					"abilities.bulldozeDamage", "abilities.uppercutDamage", "abilities.superLeapLandDamageMin",
+					"abilities.superLeapLandDamageMax", "abilities.gammaBurstDamage", "abilities.boulderDamage",
+					"abilities.throwFarImpactDamage", "abilities.lokiSlamDamage", "worldBreaker.activationDamage",
+					"gladiator.axeCleaveDamage", "gladiator.bleedDamage", "gladiator.uppercutDamage", "gladiator.quakeDamage",
+					"gladiator.earthsplitterDamage", "gladiator.roarAttackBonus", "gladiator.clashDamage", "gladiator.arenaLeapDamage",
+					"gladiator.meteorDamage", "gladiator.axeThrowDamage", "gladiator.hammerHurlDamage", "gladiator.hammerRecallDamage",
+					"gladiator.whirlwindDamage", "gladiator.whirlwindSlamDamage", "gladiator.grappleBlowDamage",
+					"gladiator.grappleThrowDamage")
 			.build();
 
 	public static void load() {
@@ -549,15 +585,21 @@ public final class HulkConfig {
 	// ---------------- Hulk stats (fixed-id transient attribute modifiers) ----------------
 	/** Scale bonus: 1 + 0.8 = 1.8x (a 3.24-block Hulk). */
 	public static final double SCALE_BONUS = 0.8;
-	/** v0.13.14: punches land 20 (1 base + 19). */
-	public static final double ATTACK_BONUS = 19.0;
+	/** v0.13.14: punches land 20 (1 base + 19). v0.16.4 (user nerf): 15 at 0 rage (1 base + 14), 25 at 100 rage. */
+	public static final double ATTACK_BONUS = 14.0;
 	/** v0.13.14: punches throw things much further. */
 	public static final double ATTACK_KNOCKBACK_BONUS = 1.5;
 	/** v0.13.14: +50% movement -- a 1.8x body at normal speed looked like it was wading. */
 	public static final double SPEED_BONUS = 0.5;
 	/** v0.13.14: diamond-level protection built in (a full diamond set: 20 armour, 8 toughness). */
 	public static final double ARMOR_BONUS = 20.0;
+	/**
+	 * v0.16.4 (user): "at 0% rage he has 2 bars of hp and at 100% he gets 3 bars" -- 1 bar = 10 hearts = 20 HP, so the bonus on
+	 * the 20 base runs from {@link #HEALTH_BONUS_MIN} (40 HP) at 0 rage to {@link #HEALTH_BONUS} (60 HP) at 100
+	 * ({@link #healthBonusForRage}). World Breaker (rage pinned at 100) keeps 60.
+	 */
 	public static final double HEALTH_BONUS = 40.0;
+	public static final double HEALTH_BONUS_MIN = 20.0;
 	public static final double KNOCKBACK_RESISTANCE = 0.9;
 	public static final double ARMOR_TOUGHNESS_BONUS = 8.0;
 	/** A bigger stride: steps straight up a full block. */
@@ -588,8 +630,14 @@ public final class HulkConfig {
 	public static final double MIN_HULK_HEIGHT = 3.5;
 	/** ...and at 100 rage (eased in between). */
 	public static final double MAX_HULK_HEIGHT = 6.0;
-	/** Every hit the Hulk deals is worth up to this much more at 100 rage (+50%), scaled down linearly to +0% at 0. */
-	public static final float RAGE_DAMAGE_BONUS_MAX = 0.5f;
+	/**
+	 * Every hit the Hulk deals is worth up to this much more at 100 rage, scaled down linearly to +0% at 0. v0.16.4 (user nerf:
+	 * "at 0% rage he deals 15 damage, at 100% rage he deals 25"): +50% -> +66.7% (15 x 5/3 = 25), and every move's base damage
+	 * x{@link #DAMAGE_NERF} (the old 20-damage punch is 15 now).
+	 */
+	public static final float RAGE_DAMAGE_BONUS_MAX = 2.0f / 3.0f;
+	/** v0.16.4 (user nerf): every Hulk move's base damage was multiplied by this (new 15-damage punch / old 20). */
+	public static final float DAMAGE_NERF = 0.75f;
 	/** Most the body's scale moves in a tick when rage changes (the growth through the change itself has its own clock). */
 	public static final double SIZE_EASE_PER_TICK = 0.02;
 	/** Hulk-form death: flat on his back as the Hulk this long... */
@@ -615,7 +663,16 @@ public final class HulkConfig {
 		return heightForRage(rage) / PLAYER_HEIGHT;
 	}
 
-	/** v0.16.4: what every hit the Hulk deals is multiplied by at this much rage (1.0 at 0 up to 1.5 at 100). */
+	/**
+	 * v0.16.4 (user): the max-health bonus for this much rage: 20 at 0 (40 HP) to 40 at 100 (60 HP), in whole HP so the
+	 * attribute isn't rewritten for every fraction of rage.
+	 */
+	public static double healthBonusForRage(float rage) {
+		double f = Math.max(0.0, Math.min(1.0, rage / RAGE_MAX));
+		return Math.round(HEALTH_BONUS_MIN + (HEALTH_BONUS - HEALTH_BONUS_MIN) * f);
+	}
+
+	/** v0.16.4: what every hit the Hulk deals is multiplied by at this much rage (1.0 at 0 up to 1.667 at 100). */
 	public static float damageMultiplier(float rage) {
 		float f = Math.max(0.0f, Math.min(1.0f, rage / RAGE_MAX));
 		return 1.0f + RAGE_DAMAGE_BONUS_MAX * f;

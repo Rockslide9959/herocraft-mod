@@ -109,3 +109,27 @@ All changes last the same server time as today's slow change (Hulk.changeTicks);
   Then Burnout 60 s (rage 0 and frozen, Slowness II, Weakness II, Mining Fatigue I) and a 5-minute cooldown from the
   end. State lives in `HulkState.Moves` (`wbStartedAt`, `wbUntil`, `wbBurnoutUntil`, `wbReadyAt`) -- no statics.
   Visuals: `HulkWorldBreakerLayer` (emissive veins texture `hulk_world_breaker_veins.png` + a faint green glow pass).
+
+## Follow-up: tuning pass -- health, damage, air clap, long-throw craters, the World Breaker shout (v0.16.4, user)
+
+- **Health by rage:** `Hulk.applyRageHealth` (from `reconcile`, every Hulk tick and `setRage`) sets the MAX_HEALTH bonus to
+  `HulkConfig.healthBonusForRage` -- 20 at 0 rage (40 HP, 2 bars) up to 40 at 100 (60 HP, 3 bars), in whole HP. Current
+  health keeps its share when the max moves, never below 1. World Breaker (rage pinned at 100) = 60. Banner unchanged.
+- **Damage nerf:** punch 20 -> 15 at 0 rage (`ATTACK_BONUS` 19 -> 14), 25 at 100 (`RAGE_DAMAGE_BONUS_MAX` 0.5 -> 2/3, so
+  x1.0 -> x1.667). Every move's base damage x0.75 (`HulkConfig.DAMAGE_NERF`), Gladiator moves too; HulkConfig v9 resets
+  those keys. World Breaker still x2 on top.
+- **Air clap:** G off the ground (`HulkAbilities.airborne`) fires at once: `airRedirect` replaces his velocity with
+  look x `airClapPush` (1.4 b/t) via `AbilityHelpers.launchSelf` (motion packet), and zeroes the synced leap velocity
+  first so `HulkMovesClient` stops holding the leap's speed (vanilla physics from there). The leap stays open, so its
+  landing still lands and no fall is felt. The cone is x`airClapScale` (0.75) range and damage.
+- **Long throws:** a charged V throw (mob or debris) planned 100+ blocks calls `HulkGrab.longThrowImpact` where it lands:
+  t = (planned - 100) / 100; crater radius 2.5 -> 7, cap 20 -> 120 blocks (`HulkCombat.crater`: the Hulk's block rules,
+  loaded chunks only, World Breaker x2), cracks, a shockwave ring, explosion / dust / debris, a heavy boom; impact damage
+  up to +50%. Config `abilities.longThrow*`.
+- **World Breaker shout:** `WorldBreaker.shout` -- a vanilla title "HULK IS STRONGEST" / subtitle "THERE IS!!!" (lang
+  `title.projecthero.hulk.strongest[_sub]`) for every player within 64 blocks, a layered low roar (ravager, warden, polar
+  bear, dragon), plus the sound event `projecthero:hulk.strongest` (`ProjectHeroSounds.HULK_STRONGEST`).
+  **No audio ships** (the movie line is copyrighted) and sounds.json deliberately has no entry, so the event plays
+  nothing. To add a voice line: put `assets/projecthero/sounds/hulk/strongest.ogg` (mono, so it is positional) and add to
+  sounds.json `"hulk.strongest": {"sounds": ["projecthero:hulk/strongest"], "subtitle": "subtitles.projecthero.hulk.strongest"}`
+  (the subtitle lang key already exists). Don't add the entry without the file: that logs a missing-file warning every launch.

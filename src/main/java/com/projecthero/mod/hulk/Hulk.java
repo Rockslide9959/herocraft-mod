@@ -307,6 +307,9 @@ public final class Hulk {
 		n.rage = n.hulk ? clampRage(value) : 0.0f;
 		save(player, n);
 		applyRageTier(player, n); // v0.15.18: a Hulk's tier follows at once
+		if (n.hasPower && n.hulk) {
+			applyRageHealth(player, n); // v0.16.4 (user): and his health bars
+		}
 	}
 
 	private static float clampRage(float v) {
@@ -656,7 +659,7 @@ public final class Hulk {
 			return;
 		}
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, ATTACK_ID, HulkConfig.ATTACK_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, HulkConfig.HEALTH_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		applyRageHealth(player, s);
 		PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_ID, HulkConfig.KNOCKBACK_RESISTANCE,
 				AttributeModifier.Operation.ADD_VALUE);
 		PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, HulkConfig.ARMOR_TOUGHNESS_BONUS,
@@ -668,6 +671,27 @@ public final class Hulk {
 		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, HulkConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		applySizeStats(player);
 		applyRageTier(player, s);
+	}
+
+	/**
+	 * v0.16.4 (user): "at 0% rage he has 2 bars of hp and at 100% he gets 3 bars" -- 40 HP at 0 rage up to 60 at 100, in whole
+	 * HP ({@link HulkConfig#healthBonusForRage}). When the max moves his current health keeps its share of it (never below 1,
+	 * so a falling max never kills him). Written only on change.
+	 */
+	static void applyRageHealth(ServerPlayer player, HulkState s) {
+		double bonus = HulkConfig.healthBonusForRage(s.rage);
+		AttributeInstance inst = player.getAttribute(Attributes.MAX_HEALTH);
+		AttributeModifier m = inst == null ? null : inst.getModifier(HEALTH_ID);
+		if (m != null && m.amount() == bonus) {
+			return;
+		}
+		float oldMax = player.getMaxHealth();
+		float health = player.getHealth();
+		PowerToggles.modifier(player, Attributes.MAX_HEALTH, HEALTH_ID, bonus, AttributeModifier.Operation.ADD_VALUE);
+		if (m != null && oldMax > 0.0f && player.isAlive() && health > 0.0f) {
+			float newMax = player.getMaxHealth();
+			player.setHealth(Math.max(1.0f, Math.min(newMax, health / oldMax * newMax)));
+		}
 	}
 
 	/**
@@ -924,6 +948,7 @@ public final class Hulk {
 				s = n;
 			}
 			applyRageTier(player, s);
+			applyRageHealth(player, s); // v0.16.4 (user): 2 bars of health at 0 rage, 3 at 100
 			if (player.tickCount % HulkConfig.REGEN_INTERVAL_TICKS == 0 && player.getHealth() < player.getMaxHealth()) {
 				player.heal(HulkConfig.REGEN_AMOUNT);
 			}
@@ -1283,7 +1308,7 @@ public final class Hulk {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.5f);
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.TOTEM_USE, SoundSource.PLAYERS, 0.8f, 0.7f);
 		level.sendParticles(GAMMA_GREEN, player.getX(), player.getY() + 1.0, player.getZ(), 80, 0.8, 1.2, 0.8, 0.1);
-		HulkAbilities.shockwave(player, player.position(), 5.0, 8.0f, 1.4, 0.5, 0.7f);
+		HulkAbilities.shockwave(player, player.position(), 5.0, 6.0f, 1.4, 0.5, 0.7f); // v0.16.4 (user nerf): 8 -> 6 (x0.75)
 		player.displayClientMessage(Component.translatable("message.projecthero.hulk.death_save")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
 		return true;

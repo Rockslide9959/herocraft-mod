@@ -168,6 +168,42 @@ public final class WorldBreaker {
 		HulkCombat.shake(level, at, 1.4f, 40, 64.0);
 		player.displayClientMessage(Component.translatable("message.projecthero.hulk.world_breaker")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), true);
+		shout(player);
+		Hulk.applyRageHealth(player, n); // v0.16.4 (user): rage 100 = 3 bars of health at once
+	}
+
+	/** v0.16.4 (user): how far the World Breaker shout reaches (title + roar). */
+	public static final double SHOUT_RANGE = 64.0;
+
+	/**
+	 * v0.16.4 (user): on activation the Hulk shouts "HULK IS STRONGEST THERE IS!!!" -- a huge green title (with the subtitle
+	 * line under it; the screen shake above makes it shudder) for every player within {@link #SHOUT_RANGE} blocks, a deep
+	 * layered roar from vanilla sounds, and {@code projecthero:hulk.strongest} (silent until a voice line is added to
+	 * sounds.json -- see docs/HULK_V0164_REVAMP_CONTRACT.md). Returns how many players saw the title (tests).
+	 */
+	public static int shout(ServerPlayer player) {
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 at = player.position();
+		// volume 4 = heard 64 blocks away
+		level.playSound(null, at.x, at.y, at.z, com.projecthero.mod.sound.ProjectHeroSounds.HULK_STRONGEST, SoundSource.PLAYERS, 4.0f, 1.0f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 4.0f, 0.35f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 4.0f, 0.45f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 4.0f, 0.4f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 3.0f, 0.4f);
+		Component title = Component.translatable("title.projecthero.hulk.strongest").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+		Component sub = Component.translatable("title.projecthero.hulk.strongest_sub").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD);
+		double r2 = SHOUT_RANGE * SHOUT_RANGE;
+		int n = 0;
+		for (ServerPlayer p : level.players()) {
+			if (p.distanceToSqr(at) > r2) {
+				continue;
+			}
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(4, 50, 16));
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(sub));
+			p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(title));
+			n++;
+		}
+		return n;
 	}
 
 	/**

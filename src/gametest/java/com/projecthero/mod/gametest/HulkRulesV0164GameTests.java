@@ -180,8 +180,8 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(HulkConfig.heightForRage(50.0f) - 4.75) < 1.0e-6, "in between, smoothly");
 		helper.assertTrue(Math.abs(HulkConfig.scaleForRage(0.0f) * 1.8 - 3.5) < 1.0e-6, "scale = height / 1.8");
 		helper.assertTrue(Math.abs(HulkConfig.damageMultiplier(0.0f) - 1.0f) < 1.0e-6, "0 rage: normal damage");
-		helper.assertTrue(Math.abs(HulkConfig.damageMultiplier(50.0f) - 1.25f) < 1.0e-6, "50 rage: +25%");
-		helper.assertTrue(Math.abs(HulkConfig.damageMultiplier(100.0f) - 1.5f) < 1.0e-6, "100 rage: +50%");
+		helper.assertTrue(Math.abs(HulkConfig.damageMultiplier(50.0f) - 4.0f / 3.0f) < 1.0e-5, "50 rage: +33%");
+		helper.assertTrue(Math.abs(HulkConfig.damageMultiplier(100.0f) - 5.0f / 3.0f) < 1.0e-5, "100 rage: +66.7% (15 -> 25)");
 		helper.succeed();
 	}
 
@@ -216,7 +216,7 @@ public class HulkRulesV0164GameTests implements FabricGameTest {
 		float before = husk.getHealth();
 		helper.assertFalse(HulkDamage.allowDamage(husk, p.damageSources().playerAttack(p), 10.0f), "100 rage: the hit is re-applied bigger");
 		float lost = before - husk.getHealth();
-		helper.assertTrue(lost > 14.0f && lost <= 15.01f, "10 becomes 15 (less the husk's 2 armour), got " + lost);
+		helper.assertTrue(lost > 16.0f && lost <= 16.68f, "10 becomes 16.7 (less the husk's 2 armour), got " + lost);
 		husk.discard();
 		helper.succeed();
 	}

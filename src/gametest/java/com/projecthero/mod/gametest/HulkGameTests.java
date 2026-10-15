@@ -346,7 +346,7 @@ public class HulkGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void hulkStatsV01314(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 20.0) < 0.01, "punches land 20");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 15.0) < 0.01, "punches land 15 (v0.16.4 nerf: 1 + 14)");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= 20.0 - 0.01, "diamond-level armour of his own");
 		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) >= 8.0 - 0.01, "and toughness");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.1 * 1.4, "faster");

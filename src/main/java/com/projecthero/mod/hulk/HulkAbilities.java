@@ -413,10 +413,55 @@ public final class HulkAbilities {
 		if (!start(player, THUNDERCLAP, HulkConfig.abilities().clapCooldownTicks, HulkState.ANIM_THUNDERCLAP)) {
 			return;
 		}
-		schedule(player, CLAP_IMPACT_TICKS, () -> thunderclapImpact(player));
+		if (airborne(player)) {
+			// v0.16.4 (user): "make it so that the hulk can thunderclap mid-air so he can change his trajectory mid-air" -- in the
+			// air the clap goes off at once (no wind-up), stops him dead and pushes him the way he is looking
+			airRedirect(player);
+			thunderclapImpact(player, true);
+			return;
+		}
+		schedule(player, CLAP_IMPACT_TICKS, () -> thunderclapImpact(player, false));
 	}
 
-	private static void thunderclapImpact(ServerPlayer player) {
+	/** v0.16.4: off the ground (not standing, swimming, flying or riding) -- where G becomes the air clap. */
+	public static boolean airborne(ServerPlayer player) {
+		if (player.onGround() || player.isInWater() || player.isInLava() || player.getAbilities().flying || player.isPassenger()) {
+			return false;
+		}
+		// a mock / just-moved player may not have its onGround flag yet: nothing solid right under his feet either
+		return player.level().noCollision(player, player.getBoundingBox().move(0.0, -0.3, 0.0));
+	}
+
+	/**
+	 * v0.16.4 (user, "stop + redirect"): the air clap kills his momentum and gives a smaller push ({@code airClapPush} blocks a
+	 * tick) along his look -- any direction, up and down too. A Super Leap in flight stops holding its speed (the synced
+	 * launch velocity is zeroed, so the client lets vanilla physics take the new push); the leap itself stays open so its
+	 * landing still counts as one and the fall is never felt. The state is saved BEFORE the motion packet goes out, so the
+	 * client never re-applies the old leap speed over the new push. Returns the push.
+	 */
+	public static Vec3 airRedirect(ServerPlayer player) {
+		HulkConfig.Abilities cfg = HulkConfig.abilities();
+		HulkState s = Hulk.state(player);
+		if (s.leaping) {
+			HulkState n = s.copy();
+			n.moves.leapVx = 0.0;
+			n.moves.leapVy = 0.0;
+			n.moves.leapVz = 0.0;
+			Hulk.save(player, n);
+		}
+		Vec3 push = player.getLookAngle().normalize().scale(cfg.airClapPush);
+		AbilityHelpers.launchSelf(player, push); // replaces his velocity outright (momentum gone), hurtMarked + motion packet
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 c = player.position().add(0, player.getBbHeight() * 0.5, 0);
+		// the recoil burst behind him
+		Vec3 back = c.subtract(push.normalize().scale(1.5));
+		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, back.x, back.y, back.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.CLOUD, back.x, back.y, back.z, 24, 0.8, 0.8, 0.8, 0.08);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.6f, 0.6f);
+		return push;
+	}
+
+	private static void thunderclapImpact(ServerPlayer player, boolean air) {
 		if (!Hulk.isHulk(player) || !player.isAlive()) {
 			return;
 		}
@@ -424,14 +469,17 @@ public final class HulkAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 origin = player.getEyePosition().subtract(0, player.getBbHeight() * 0.2, 0);
 		Vec3 dir = player.getLookAngle().normalize();
-		double range = cfg.clapRange * WorldBreaker.aoe(player);
+		// v0.16.4: the air clap's cone is a bit smaller (range and damage x airClapScale)
+		double airScale = air ? Math.max(0.0, cfg.airClapScale) : 1.0;
+		double range = cfg.clapRange * WorldBreaker.aoe(player) * airScale;
 		double cosHalf = Math.cos(Math.toRadians(cfg.clapConeDegrees * 0.5));
-		HulkCombat.Hit hit = new HulkCombat.Hit(cfg.clapDamage, 0.0, 0.0);
+		float clapDamage = (float) (cfg.clapDamage * airScale);
+		HulkCombat.Hit hit = new HulkCombat.Hit(clapDamage, 0.0, 0.0);
 		for (LivingEntity e : cone(player, origin, dir, range, cosHalf)) {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(origin);
 			double dist = to.length();
 			float falloff = (float) (1.0 - 0.5 * Math.min(1.0, dist / range));
-			if (hit.hit.add(e.getId()) && AbilityHelpers.hurtLands(player, e, cfg.clapDamage * falloff)) {
+			if (hit.hit.add(e.getId()) && AbilityHelpers.hurtLands(player, e, clapDamage * falloff)) {
 				if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(e)) {
 					Vec3 push = (dist < 1.0e-3 ? dir : to.normalize()).scale(cfg.clapKnockback * falloff);
 					AbilityHelpers.push(e, new Vec3(push.x, 0.35 * falloff, push.z));

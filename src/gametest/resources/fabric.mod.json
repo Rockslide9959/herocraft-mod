@@ -11,6 +11,7 @@
       "com.projecthero.mod.gametest.HulkMindV0164GameTests",
       "com.projecthero.mod.gametest.HulkMovesV0164GameTests",
       "com.projecthero.mod.gametest.HulkWorldBreakerV0164GameTests",
+      "com.projecthero.mod.gametest.HulkTuningV0164GameTests",
       "com.projecthero.mod.gametest.HulkRulesV0164GameTests",
       "com.projecthero.mod.gametest.HulkTakeoverV0164GameTests",
       "com.projecthero.mod.gametest.V01515Gl2GameTests",

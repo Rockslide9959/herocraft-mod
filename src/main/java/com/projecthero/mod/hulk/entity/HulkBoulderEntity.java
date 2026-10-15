@@ -45,6 +45,8 @@ public class HulkBoulderEntity extends Entity {
 
 	private UUID owner;
 	private int flightTicks;
+	/** v0.16.4: the charged throw's planned distance (server only; 0 = not a charged throw). */
+	private double plannedBlocks;
 
 	public HulkBoulderEntity(EntityType<? extends HulkBoulderEntity> type, Level level) {
 		super(type, level);
@@ -73,6 +75,12 @@ public class HulkBoulderEntity extends Entity {
 
 	/** Thrown: from now on it flies under gravity and explodes on impact. */
 	public void launch(Vec3 velocity) {
+		launch(velocity, 0.0);
+	}
+
+	/** v0.16.4 (user): {@code blocks} = how far the charged throw meant it to go -- 100+ craters the landing like a thrown mob. */
+	public void launch(Vec3 velocity, double blocks) {
+		this.plannedBlocks = blocks;
 		this.entityData.set(FLYING, true);
 		this.noPhysics = false;
 		this.setDeltaMovement(velocity);
@@ -140,10 +148,11 @@ public class HulkBoulderEntity extends Entity {
 		Vec3 at = position().add(0, 0.5, 0);
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		if (thrower != null) {
-			// v0.16.4 (user): World Breaker doubles the blast
-			HulkCombat.radial(thrower, at, cfg.boulderRadius * com.projecthero.mod.hulk.WorldBreaker.aoe(thrower),
-					new HulkCombat.Hit(cfg.boulderDamage, 1.8, 0.6), true);
+			// v0.16.4 (user): World Breaker doubles the blast; a throw of 100+ blocks hits harder and craters far bigger
+			HulkCombat.Hit hit = new HulkCombat.Hit(cfg.boulderDamage * com.projecthero.mod.hulk.HulkGrab.longThrowDamageScale(plannedBlocks), 1.8, 0.6);
+			HulkCombat.radial(thrower, at, cfg.boulderRadius * com.projecthero.mod.hulk.WorldBreaker.aoe(thrower), hit, true);
 			HulkCombat.crater(thrower, at.add(0, -0.8, 0), 2.2, 30);
+			com.projecthero.mod.hulk.HulkGrab.longThrowImpact(thrower, position(), plannedBlocks, hit);
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 1, 0, 0, 0, 0);
 		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block(0)), at.x, at.y, at.z,

@@ -63,9 +63,12 @@ public final class HulkGrab {
 		final double vz;
 		double vy;
 		final double gravity;
+		/** v0.16.4: how far the throw was meant to go (100+ craters the landing). */
+		final double blocks;
 		Vec3 last;
 
-		Thrown(int entityId, long since, Set<Integer> hit, Vec3 v, double gravity, Vec3 at) {
+		Thrown(int entityId, long since, Set<Integer> hit, Vec3 v, double gravity, Vec3 at, double blocks) {
+			this.blocks = blocks;
 			this.entityId = entityId;
 			this.since = since;
 			this.hit = hit;
@@ -405,7 +408,7 @@ public final class HulkGrab {
 		if (held instanceof HulkBoulderEntity boulder) {
 			// v0.16.4 (user): the debris charges like a mob -- the same drag-free arc (its own gravity), as far as the charge says
 			Vec3 bv = farThrowVelocity(player.getLookAngle(), blocks, HulkBoulderEntity.GRAVITY);
-			boulder.launch(bv);
+			boulder.launch(bv, blocks);
 			keepLoaded(level, boulder.position(), bv);
 			return;
 		}
@@ -420,7 +423,7 @@ public final class HulkGrab {
 		Set<Integer> hit = new HashSet<>();
 		hit.add(held.getId());
 		THROWN.computeIfAbsent(player.getUUID(), k -> new java.util.ArrayList<>())
-				.add(new Thrown(held.getId(), level.getGameTime(), hit, v, g, held.position()));
+				.add(new Thrown(held.getId(), level.getGameTime(), hit, v, g, held.position(), blocks));
 		keepLoaded(level, held.position(), v);
 	}
 
@@ -763,7 +766,7 @@ public final class HulkGrab {
 				continue;
 			}
 			it.remove();
-			impact(player, e);
+			impact(player, e, t.blocks);
 		}
 	}
 
@@ -774,9 +777,10 @@ public final class HulkGrab {
 	}
 
 	/** A thrown mob hits something: it and everything round the impact take the hit. */
-	private static void impact(ServerPlayer player, Entity thrown) {
+	private static void impact(ServerPlayer player, Entity thrown, double blocks) {
 		ServerLevel level = (ServerLevel) player.level();
-		float dmg = HulkConfig.abilities().throwFarImpactDamage;
+		// v0.16.4 (user): a throw of 100+ blocks hits harder (up to +50% at 200) and craters where it lands (below)
+		float dmg = HulkConfig.abilities().throwFarImpactDamage * longThrowDamageScale(blocks);
 		Vec3 at = thrown.position().add(0, thrown.getBbHeight() * 0.5, 0);
 		HulkCombat.Hit hit = new HulkCombat.Hit(dmg, 1.4, 0.35);
 		if (thrown instanceof LivingEntity l && !isTeammate(player, l)) {
@@ -792,6 +796,78 @@ public final class HulkGrab {
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_BIG_FALL, SoundSource.PLAYERS, 1.6f, 0.5f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.MACE_SMASH_GROUND, SoundSource.PLAYERS, 1.6f, 0.7f);
 		HulkCombat.shake(level, at, 0.4f, 8, 16.0);
+		longThrowImpact(player, thrown.position(), blocks, hit);
+	}
+
+	// ---------------------------------------------------------------- v0.16.4 (user): the long throw's crater
+
+	/**
+	 * 0..1: how far past {@code longThrowMinBlocks} (100) a throw meant to go -- (planned - 100) / 100, clamped. Negative
+	 * (-1) for a throw under 100 blocks: no destruction at all.
+	 */
+	public static double longThrowT(double blocks) {
+		HulkConfig.Abilities c = HulkConfig.abilities();
+		if (blocks < c.longThrowMinBlocks) {
+			return -1.0;
+		}
+		return Math.max(0.0, Math.min(1.0, (blocks - c.longThrowMinBlocks) / Math.max(1.0, c.longThrowRampBlocks)));
+	}
+
+	/** The impact damage multiplier: 1 under 100 blocks, up to 1 + {@code longThrowDamageBonus} at t = 1. */
+	public static float longThrowDamageScale(double blocks) {
+		double t = longThrowT(blocks);
+		return t < 0.0 ? 1.0f : (float) (1.0 + HulkConfig.abilities().longThrowDamageBonus * t);
+	}
+
+	/**
+	 * v0.16.4 (user): "if he throws an entity 100 blocks or more it causes destruction where the entity lands, make the
+	 * destruction more based on how far the player throws the entity past 100 blocks". At {@code feet} (where the mob or the
+	 * debris came down): a crater ({@link HulkCombat#crater} -- the Hulk's block rules, mobGriefing switch, loaded chunks only,
+	 * drops per {@code dropBrokenBlocks}, World Breaker's x2; broken by the Hulk, so it is his), ground cracks, a shockwave
+	 * ring, an explosion burst, dust and debris and a heavy boom -- radius {@code longThrowCraterRadiusMin..Max} and up to
+	 * {@code longThrowCraterBlocksMin..Max} blocks, growing with {@link #longThrowT}. Under 100 blocks: nothing. Returns the
+	 * blocks broken (0 for a short throw).
+	 */
+	public static int longThrowImpact(ServerPlayer player, Vec3 feet, double blocks, HulkCombat.Hit hit) {
+		double t = longThrowT(blocks);
+		if (t < 0.0 || player == null) {
+			return 0;
+		}
+		HulkConfig.Abilities c = HulkConfig.abilities();
+		ServerLevel level = (ServerLevel) player.level();
+		double radius = c.longThrowCraterRadiusMin + (c.longThrowCraterRadiusMax - c.longThrowCraterRadiusMin) * t;
+		int cap = (int) Math.round(c.longThrowCraterBlocksMin + (c.longThrowCraterBlocksMax - c.longThrowCraterBlocksMin) * t);
+		double shock = (c.longThrowShockRadiusMin + (c.longThrowShockRadiusMax - c.longThrowShockRadiusMin) * t) * WorldBreaker.aoe(player);
+		BlockState ground = level.getBlockState(BlockPos.containing(feet).below());
+		if (ground.isAir()) {
+			ground = Blocks.DIRT.defaultBlockState();
+		}
+		// the shockwave: everything round the landing is knocked flat (whatever the throw itself already hit is skipped)
+		if (hit != null) {
+			HulkCombat.Hit wave = new HulkCombat.Hit(hit.damage * 0.5f, 1.4 + 1.2 * t, 0.4 + 0.4 * t);
+			wave.hit.addAll(hit.hit);
+			HulkCombat.radial(player, feet.add(0, 0.5, 0), shock, wave, true);
+		}
+		int broken = HulkCombat.crater(player, feet.add(0, -0.5, 0), radius, cap);
+		GroundCracks.star(level, feet, radius * 1.4 * WorldBreaker.destruction(player), 8 + (int) (6 * t), 160);
+		BlockParticleOption dust = new BlockParticleOption(ParticleTypes.BLOCK, ground);
+		for (double r = 1.5; r <= shock; r += 1.5) {
+			HulkCombat.ring(level, dust, feet.add(0, 0.2, 0), r, (int) (r * 6));
+		}
+		level.sendParticles(t > 0.5 ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION, feet.x, feet.y + 0.5, feet.z,
+				t > 0.5 ? 1 : 4, 0.6, 0.3, 0.6, 0.0);
+		level.sendParticles(dust, feet.x, feet.y + 0.5, feet.z, 60 + (int) (80 * t), radius * 0.4, 0.8, radius * 0.4, 0.35);
+		level.sendParticles(new BlockParticleOption(ParticleTypes.DUST_PILLAR, ground), feet.x, feet.y + 0.2, feet.z,
+				30 + (int) (40 * t), radius * 0.5, 0.1, radius * 0.5, 0.4);
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, feet.x, feet.y + 0.5, feet.z, 10 + (int) (20 * t), radius * 0.4, 0.4,
+				radius * 0.4, 0.03);
+		level.sendParticles(ParticleTypes.GUST_EMITTER_LARGE, feet.x, feet.y + 0.3, feet.z, 1, 0, 0, 0, 0);
+		level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 2.0f + 2.0f * (float) t, 0.6f);
+		level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 2.5f, 0.5f);
+		level.playSound(null, feet.x, feet.y, feet.z, SoundEvents.WARDEN_ATTACK_IMPACT, SoundSource.PLAYERS, 1.8f, 0.5f);
+		level.playSound(null, feet.x, feet.y, feet.z, ground.getSoundType().getBreakSound(), SoundSource.PLAYERS, 2.0f, 0.6f);
+		HulkCombat.shake(level, feet, 0.6f + 0.6f * (float) t, 14, 32.0 + 24.0 * t);
+		return broken;
 	}
 
 	/**

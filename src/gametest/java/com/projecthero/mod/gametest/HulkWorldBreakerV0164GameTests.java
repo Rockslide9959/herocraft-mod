@@ -119,9 +119,9 @@ public class HulkWorldBreakerV0164GameTests implements FabricGameTest {
 		b.invulnerableTime = 0;
 		helper.assertFalse(HulkDamage.allowDamage(b, p.damageSources().playerAttack(p), 10.0f), "World Breaker: re-applied bigger still");
 		float wb = 200.0f - b.getHealth();
-		helper.assertTrue(Math.abs(normal - 15.0f) < 0.01f, "100 rage: 10 becomes 15, got " + normal);
-		helper.assertTrue(Math.abs(wb - 2.0f * normal) < 0.01f, "World Breaker: twice that (30), got " + wb);
-		helper.assertTrue(Math.abs(Hulk.damageMultiplier(p) - 3.0f) < 1.0e-4f, "the multiplier is 1.5 x 2, got " + Hulk.damageMultiplier(p));
+		helper.assertTrue(Math.abs(normal - 50.0f / 3.0f) < 0.01f, "100 rage: 10 becomes 16.7, got " + normal);
+		helper.assertTrue(Math.abs(wb - 2.0f * normal) < 0.01f, "World Breaker: twice that (33.3), got " + wb);
+		helper.assertTrue(Math.abs(Hulk.damageMultiplier(p) - 10.0f / 3.0f) < 1.0e-4f, "the multiplier is 1.667 x 2, got " + Hulk.damageMultiplier(p));
 		a.discard();
 		b.discard();
 		Hulk.revoke(p);

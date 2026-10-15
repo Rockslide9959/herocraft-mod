@@ -36,6 +36,13 @@ public final class ProjectHeroSounds {
 	public static final SoundEvent MJOLNIR_THROW = register("mjolnir_throw");
 	public static final SoundEvent MJOLNIR_RECALL = register("mjolnir_recall");
 	public static final SoundEvent MJOLNIR_CATCH = register("mjolnir_catch");
+	/**
+	 * v0.16.4 (user): the Hulk's World Breaker shout, "HULK IS STRONGEST THERE IS!!!". Registered but deliberately NOT in
+	 * sounds.json (no recording ships with the mod), so it plays nothing until a voice line is added -- see the follow-up
+	 * section of docs/HULK_V0164_REVAMP_CONTRACT.md: put {@code assets/projecthero/sounds/hulk/strongest.ogg} and add
+	 * {@code "hulk.strongest": {"sounds": ["projecthero:hulk/strongest"]}} to sounds.json.
+	 */
+	public static final SoundEvent HULK_STRONGEST = register("hulk.strongest");
 
 	private ProjectHeroSounds() {
 	}

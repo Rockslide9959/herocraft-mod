@@ -101,7 +101,7 @@ public final class HulkDamage {
 		if (REENTRANT.get() || amount <= 0.0f) {
 			return true;
 		}
-		// v0.16.4 (user): every hit the Hulk deals is worth +0% (0 rage) to +50% (100 rage) more -- punches, abilities, anything
+		// v0.16.4 (user): every hit the Hulk deals is worth +0% (0 rage) to +66.7% (100 rage) more (punch 15 -> 25) -- punches, abilities, anything
 		// he is credited with
 		float mult = source.getEntity() instanceof ServerPlayer dealer && dealer != entity ? Hulk.damageMultiplier(dealer) : 1.0f;
 		if (!(entity instanceof ServerPlayer player) || !Hulk.hasPower(player)

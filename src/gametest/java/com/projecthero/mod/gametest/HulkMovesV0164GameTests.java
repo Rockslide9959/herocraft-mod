@@ -248,7 +248,7 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120, batch = "hulk_v0164_loki")
 	public void lokiSlamHitsTheFloorFourTimes(GameTestHelper helper) {
 		ServerPlayer p = hulk(helper);
-		// 150 health: survives four slams at full rage (12 x 4 x 1.5) -- a 1000-health mob counts as a boss and is refused
+		// 150 health: survives four slams at full rage (9 x 4 x 1.67) -- a 1000-health mob counts as a boss and is refused
 		var victim = mob(helper, p.position().add(0, 0, 6), 150.0);
 		look(p, victim);
 		HulkGrab.press(p, true);
