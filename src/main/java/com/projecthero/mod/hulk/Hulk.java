@@ -229,7 +229,8 @@ public final class Hulk {
 	/** v0.16.4: what this player's hits are multiplied by -- the Hulk's rage bonus (+0..+50%), 1 for anyone else. Client-safe. */
 	public static float damageMultiplier(Player player) {
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
-		return s == null || !s.hasPower || !s.hulk ? 1.0f : HulkConfig.damageMultiplier(s.rage);
+		// v0.16.4 (user): World Breaker doubles it on top ("his damage and destruction and aoe should be doubled")
+		return s == null || !s.hasPower || !s.hulk ? 1.0f : HulkConfig.damageMultiplier(s.rage) * WorldBreaker.damage(player);
 	}
 
 	public static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
@@ -341,7 +342,7 @@ public final class Hulk {
 		if (hurt) {
 			n.combat.lastHurtAt = now;
 		}
-		if (amount > 0.0f && s.hulk) {
+		if (amount > 0.0f && s.hulk && !s.burnout(now)) { // v0.16.4 (user): World Breaker's Burnout freezes rage at 0
 			n.rage = clampRage(s.rage + amount);
 		}
 		save(player, n);
@@ -359,6 +360,10 @@ public final class Hulk {
 			return;
 		}
 		if (s.hulk) {
+			// v0.16.4 (user): at 100 rage H unleashes World Breaker instead (and does nothing while it runs)
+			if (WorldBreaker.pressH(player)) {
+				return;
+			}
 			tryRevert(player);
 			return;
 		}
@@ -577,6 +582,7 @@ public final class Hulk {
 			return;
 		}
 		long now = player.level().getGameTime();
+		WorldBreaker.stop(player); // v0.16.4: a change back ends World Breaker at once (Burnout + its cooldown still count)
 		HulkGrab.release(player);
 		HulkAbilities.endCharge(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player); // v0.15.3
@@ -770,6 +776,9 @@ public final class Hulk {
 	static double targetScaleBonus(ServerPlayer player, HulkState s, long now) {
 		if (s.hulk) {
 			double full = HulkConfig.scaleForRage(s.rage) - 1.0;
+			if (s.worldBreaker(now)) {
+				full = WorldBreaker.scaleBonus(); // v0.16.4 (user): "in this rage mode hulk grows to 10 blocks tall"
+			}
 			if (s.dying()) {
 				return Math.max(0.0, scaleBonus(player)); // he lies there as he fell
 			}
@@ -808,7 +817,10 @@ public final class Hulk {
 		if (changeClock) {
 			next = target; // the change (either way) runs on its own clock
 		} else {
-			double step = Math.max(HulkConfig.SIZE_EASE_PER_TICK * 0.25, Math.min(HulkConfig.SIZE_EASE_PER_TICK, Math.abs(target - cur) * 0.15));
+			// v0.16.4: World Breaker grows him (and Burnout shrinks him back) much faster than rage does
+			double ease = s.worldBreaker(now) || (s.burnout(now) && cur > target)
+					? Math.max(HulkConfig.SIZE_EASE_PER_TICK, HulkConfig.worldBreaker().sizeEasePerTick) : HulkConfig.SIZE_EASE_PER_TICK;
+			double step = Math.max(ease * 0.25, Math.min(ease, Math.abs(target - cur) * 0.15));
 			next = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
 		}
 		next = Math.round(next * 1000.0) / 1000.0;
@@ -899,10 +911,13 @@ public final class Hulk {
 		HulkRiding.tick(player); // v0.15.21: riders never take fall damage
 
 		if (s.hulk) {
+			// v0.16.4 (user): World Breaker (rage pinned at 100, timed out into Burnout) / Burnout (rage frozen at 0)
+			WorldBreaker.tick(player, now);
+			s = state(player);
 			// rage only burns off once he has been out of combat (no hit taken or dealt) for 5 s -- all the way to 0, which never
 			// changes him back (v0.16.4)
 			long quiet = now - Math.max(s.lastCombatAt, s.formChangedAt + changeTicks(s));
-			if (now % 20L == 0L && quiet >= HulkConfig.HULK_OUT_OF_COMBAT_TICKS && s.rage > 0.0f) {
+			if (now % 20L == 0L && quiet >= HulkConfig.HULK_OUT_OF_COMBAT_TICKS && s.rage > 0.0f && !s.worldBreaker(now)) {
 				HulkState n = s.copy();
 				n.rage = clampRage(s.rage - HulkConfig.HULK_DRAIN_PER_SECOND);
 				save(player, n);
@@ -1078,6 +1093,8 @@ public final class Hulk {
 			if (r.wild.startedAt > now) {
 				r.wild.startedAt = now - 100L;
 			}
+			WorldBreaker.sanitize(r, now, false); // v0.16.4: World Breaker never survives a relog
+			r.moves.throwChargeStart = 0L;
 			save(player, r);
 			reconcile(player);
 			return;
@@ -1112,6 +1129,9 @@ public final class Hulk {
 		if (n.rules.holdCooldownUntil > now + HulkConfig.WILLING_COOLDOWN_TICKS) {
 			n.rules.holdCooldownUntil = 0L;
 		}
+		// v0.16.4: he comes back as Banner -- a World Breaker from before is over (its cooldown runs), no charge left running
+		WorldBreaker.sanitize(n, now, false);
+		n.moves.throwChargeStart = 0L;
 		if (s.dying()) {
 			// he was dying when he left: the last two seconds, then the death
 			n.rules.deathFallAt = now - HulkConfig.DEATH_LIE_TICKS - HulkConfig.DEATH_REVERT_TICKS;
@@ -1150,6 +1170,9 @@ public final class Hulk {
 		HulkControl.clearRampage(n);
 		n.wild.pending = 0;
 		n.wild.warnBanner = false;
+		WorldBreaker.sanitize(n, player.level().getGameTime(), false); // v0.16.4
+		n.moves.throwChargeStart = 0L;
+		n.moves.wbBurnoutUntil = 0L;
 		save(player, n);
 		reconcile(player);
 		PowerToggles.clearModifier(player, Attributes.SCALE, SCALE_ID);
@@ -1269,6 +1292,7 @@ public final class Hulk {
 	/** v0.16.4: the Hulk took his killing blow -- down he goes, flat on his back. */
 	static void startDeathFall(ServerPlayer player, DamageSource source) {
 		long now = player.level().getGameTime();
+		WorldBreaker.stop(player); // v0.16.4: dying ends World Breaker (no 10-block body lying there for good)
 		HulkGrab.release(player);
 		HulkAbilities.endCharge(player);
 		com.projecthero.mod.hulk.gladiator.GladiatorAbilities.clear(player);

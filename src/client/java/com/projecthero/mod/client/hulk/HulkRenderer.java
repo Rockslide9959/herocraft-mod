@@ -46,6 +46,7 @@ public class HulkRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer
 		this.shadowRadius = 0.5f;
 		withScale(MODEL_FIT);
 		addRenderLayer(new HulkGladiatorLayer(this)); // v0.15.3: Gladiator Hulk's gear (own texture, second pass)
+		addRenderLayer(new HulkWorldBreakerLayer(this)); // v0.16.4 (user): World Breaker's glowing veins
 	}
 
 	/** v0.16.4: a ghost render (animation only) is in progress -- layers draw nothing either. */
@@ -77,6 +78,9 @@ public class HulkRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer
 			MultiBufferSource buffer, int packedLight) {
 		float fit = HulkMorph.hulkFit(player, partialTick);
 		float glow = HulkMorph.glow(player, partialTick);
+		if (com.projecthero.mod.hulk.WorldBreaker.active(player)) {
+			glow = Math.max(glow, 0.25f + 0.25f * HulkWorldBreakerLayer.pulse(player, partialTick)); // v0.16.4: World Breaker glows
+		}
 		int light = packedLight;
 		if (glow > 0.0f) {
 			int block = Math.max(LightTexture.block(packedLight), Math.round(15 * glow));

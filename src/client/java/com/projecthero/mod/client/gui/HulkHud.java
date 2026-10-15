@@ -78,7 +78,9 @@ public final class HulkHud {
 		int tier = HulkConfig.rageTier(s.rage);
 		Component label = Component.translatable("hud.projecthero.hulk.rage_tier", pct,
 				Component.translatable(TIER_KEYS[tier]).withStyle(TIER_STYLES[tier]));
-		g.drawString(mc.font, label, x0, rageBar - 11, COLOR_LABEL, false);
+		if (!s.worldBreaker(now)) { // v0.16.4: World Breaker writes its countdown here instead
+			g.drawString(mc.font, label, x0, rageBar - 11, COLOR_LABEL, false);
+		}
 		int bx = x0;
 		int bw = totalW;
 		int fill = tier == HulkConfig.TIER_CALM ? COLOR_RAGE : COLOR_RAGE_HULK;
@@ -88,17 +90,57 @@ public final class HulkHud {
 			float t = (now + delta.getGameTimeDeltaPartialTick(false)) * (0.25f + 0.35f * heat);
 			fill = (Math.sin(t) > 0.3) ? 0xFFB8FF7A : COLOR_RAGE_READY;
 		}
-		g.fill(bx, rageBar, bx + bw, rageBar + HAIRLINE, COLOR_BG);
-		g.fill(bx, rageBar, bx + Math.round(bw * pct / 100.0f), rageBar + HAIRLINE, fill);
-		// v0.15.18: where the Angry and Enraged tiers start
-		for (float at : new float[] { HulkConfig.RAGE_TIER_ANGRY, HulkConfig.RAGE_TIER_ENRAGED }) {
-			int mark = bx + Math.round(bw * (at / HulkConfig.RAGE_MAX));
-			g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xC0FFFFFF);
+		boolean worldBreaker = s.worldBreaker(now);
+		float pt = delta.getGameTimeDeltaPartialTick(false);
+		if (worldBreaker) {
+			// v0.16.4 (user): World Breaker -- the rage bar becomes its 30 s countdown, pulsing deep green
+			int left = com.projecthero.mod.hulk.WorldBreaker.ticksLeft(player);
+			float f = Math.max(0.0f, Math.min(1.0f, left / (float) Math.max(1, HulkConfig.worldBreaker().durationTicks)));
+			float pulse = 0.5f + 0.5f * (float) Math.sin((now + pt) * 0.4f);
+			int col = lerpColour(0xFF2FD12A, 0xFFD8FFB0, pulse);
+			g.fill(bx, rageBar - 1, bx + bw, rageBar + HAIRLINE + 1, COLOR_BG);
+			g.fill(bx, rageBar - 1, bx + Math.round(bw * f), rageBar + HAIRLINE + 1, col);
+		} else {
+			g.fill(bx, rageBar, bx + bw, rageBar + HAIRLINE, COLOR_BG);
+			g.fill(bx, rageBar, bx + Math.round(bw * pct / 100.0f), rageBar + HAIRLINE, fill);
+			// v0.15.18: where the Angry and Enraged tiers start
+			for (float at : new float[] { HulkConfig.RAGE_TIER_ANGRY, HulkConfig.RAGE_TIER_ENRAGED }) {
+				int mark = bx + Math.round(bw * (at / HulkConfig.RAGE_MAX));
+				g.fill(mark, rageBar - 1, mark + 1, rageBar + HAIRLINE + 1, 0xC0FFFFFF);
+			}
 		}
 
 		if (s.hulk) {
 			int formY = rageBar - 22;
 			boolean gladiator = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.active(player);
+			// v0.16.4 (user): World Breaker's line sits where the form name is, right-aligned with the boxes
+			Component wbLine = null;
+			int wbColour = 0;
+			if (worldBreaker) {
+				wbLine = Component.translatable("hud.projecthero.hulk.world_breaker_active").withStyle(ChatFormatting.BOLD);
+				wbColour = (now / 4L) % 2L == 0L ? 0xFF9BFF3A : 0xFFE8FFD8;
+			} else if (com.projecthero.mod.hulk.WorldBreaker.available(player)) {
+				// the prompt: H unleashes it (pulsing)
+				float pulse = 0.5f + 0.5f * (float) Math.sin((now + pt) * 0.35f);
+				wbLine = Component.translatable("hud.projecthero.hulk.world_breaker_ready").withStyle(ChatFormatting.BOLD);
+				wbColour = lerpColour(0xFF3FAF3A, 0xFFE8FFD8, pulse);
+			} else if (com.projecthero.mod.hulk.WorldBreaker.coolingDown(player)) {
+				// v0.16.4 (user dislikes timers on Hulk lockouts): just "burned out", greyed
+				wbLine = Component.translatable("hud.projecthero.hulk.world_breaker_burnout");
+				wbColour = COLOR_EXHAUSTED;
+			}
+			if (wbLine != null) {
+				int right = x0 + totalW;
+				int ww = mc.font.width(wbLine);
+				g.drawString(mc.font, wbLine, right - ww, formY, wbColour, true);
+				formY -= 10; // the form name moves up a line, over the boxes
+				if (worldBreaker) {
+					// the countdown on the rage bar's line (a running form, not a lockout)
+					int secs = (com.projecthero.mod.hulk.WorldBreaker.ticksLeft(player) + 19) / 20;
+					Component cd = Component.translatable("hud.projecthero.hulk.world_breaker_left", secs);
+					g.drawString(mc.font, cd, x0, rageBar - 11, 0xFF9BFF3A, false);
+				}
+			}
 			if (gladiator) {
 				// v0.15.3: the full gladiator gear swaps in the weapon kit
 				g.drawString(mc.font, Component.translatable("hud.projecthero.hulk.gladiator_form").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
@@ -125,6 +167,18 @@ public final class HulkHud {
 			}
 		}
 		renderCentre(g, mc, player, s, now);
+	}
+
+	/** v0.16.4: a straight blend of two ARGB colours ({@code t} 0..1). */
+	private static int lerpColour(int a, int b, float t) {
+		t = Math.max(0.0f, Math.min(1.0f, t));
+		int out = 0;
+		for (int shift = 0; shift <= 24; shift += 8) {
+			int ca = (a >>> shift) & 0xFF;
+			int cb = (b >>> shift) & 0xFF;
+			out |= (Math.round(ca + (cb - ca) * t) & 0xFF) << shift;
+		}
+		return out;
 	}
 
 	private static void renderKeys(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, long now) {

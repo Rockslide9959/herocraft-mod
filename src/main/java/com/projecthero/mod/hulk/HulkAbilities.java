@@ -272,7 +272,7 @@ public final class HulkAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 dir = player.getLookAngle().normalize();
 		Vec3 origin = chest(player);
-		double range = cfg.superPunchRange;
+		double range = cfg.superPunchRange * WorldBreaker.aoe(player); // v0.16.4 (user): World Breaker doubles every area
 		double halfRad = Math.toRadians(cfg.superPunchConeDegrees * 0.5);
 		double cosHalf = Math.cos(halfRad);
 		HulkCombat.Hit hit = new HulkCombat.Hit(cfg.superPunchDamage, cfg.superPunchKnockback, 0.4);
@@ -282,7 +282,7 @@ public final class HulkAbilities {
 			HulkCombat.strike(player, e, origin, hit, falloff);
 		}
 		if (HulkCombat.canBreakBlocks(level)) {
-			punchBlocks(player, level, origin, dir, range, cosHalf, cfg.superPunchMaxBlocks);
+			punchBlocks(player, level, origin, dir, range, cosHalf, (int) Math.round(cfg.superPunchMaxBlocks * WorldBreaker.destruction(player)));
 		}
 		// the shock it throws: rings of air widening along the cone
 		Vec3 fist = origin.add(dir.scale(1.6));
@@ -376,7 +376,7 @@ public final class HulkAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		shockwave(player, at, cfg.groundSmashRadius, cfg.groundSmashDamage, cfg.groundSmashKnockback, cfg.groundSmashLift, 1.1f);
 		HulkCombat.crater(player, at.add(flatLook(player).scale(1.5)).add(0, -0.5, 0), cfg.groundSmashCraterRadius, 80);
-		GroundCracks.star(level, at.add(flatLook(player).scale(1.5)), cfg.groundSmashCrackRadius, 10, 140);
+		GroundCracks.star(level, at.add(flatLook(player).scale(1.5)), cfg.groundSmashCrackRadius * WorldBreaker.aoe(player), 10, 140);
 		BlockState ground = groundUnder(level, at);
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.GUST_EMITTER_LARGE, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);
@@ -389,6 +389,7 @@ public final class HulkAbilities {
 	/** A ring of damage, knockback, lift and flying earth round {@code at}; also the leap landing and rampage stomps. */
 	public static void shockwave(ServerPlayer player, Vec3 at, double radius, float damage, double knockback, double lift, float shake) {
 		ServerLevel level = (ServerLevel) player.level();
+		radius *= WorldBreaker.aoe(player); // v0.16.4 (user): World Breaker doubles the ring (smash, leap landing, rampage stomp)
 		HulkCombat.radial(player, at, radius, new HulkCombat.Hit(damage, knockback, lift), true);
 		BlockState ground = level.getBlockState(BlockPos.containing(at).below());
 		if (ground.isAir()) {
@@ -423,7 +424,7 @@ public final class HulkAbilities {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 origin = player.getEyePosition().subtract(0, player.getBbHeight() * 0.2, 0);
 		Vec3 dir = player.getLookAngle().normalize();
-		double range = cfg.clapRange;
+		double range = cfg.clapRange * WorldBreaker.aoe(player);
 		double cosHalf = Math.cos(Math.toRadians(cfg.clapConeDegrees * 0.5));
 		HulkCombat.Hit hit = new HulkCombat.Hit(cfg.clapDamage, 0.0, 0.0);
 		for (LivingEntity e : cone(player, origin, dir, range, cosHalf)) {
@@ -444,7 +445,7 @@ public final class HulkAbilities {
 			}
 		}
 		if (HulkCombat.canBreakBlocks(level)) {
-			shatterFragile(level, player, origin, dir, range, cosHalf);
+			shatterFragile(level, player, origin, dir, range, cosHalf, (int) Math.round(250 * WorldBreaker.destruction(player)));
 		}
 		Vec3 hands = player.getEyePosition().add(dir.scale(1.2)).subtract(0, player.getBbHeight() * 0.25, 0);
 		level.sendParticles(ParticleTypes.EXPLOSION, hands.x, hands.y, hands.z, 2, 0.2, 0.2, 0.2, 0.0);
@@ -464,14 +465,14 @@ public final class HulkAbilities {
 	}
 
 	/** Glass, panes, ice, leaves, flowers and other soft plants inside the cone shatter. */
-	private static void shatterFragile(ServerLevel level, ServerPlayer player, Vec3 origin, Vec3 dir, double range, double cosHalf) {
+	private static void shatterFragile(ServerLevel level, ServerPlayer player, Vec3 origin, Vec3 dir, double range, double cosHalf, int cap) {
 		int broken = 0;
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		int r = (int) Math.ceil(range);
 		BlockPos o = BlockPos.containing(origin);
-		for (int dx = -r; dx <= r && broken < 250; dx++) {
-			for (int dy = -r; dy <= r && broken < 250; dy++) {
-				for (int dz = -r; dz <= r && broken < 250; dz++) {
+		for (int dx = -r; dx <= r && broken < cap; dx++) {
+			for (int dy = -r; dy <= r && broken < cap; dy++) {
+				for (int dz = -r; dz <= r && broken < cap; dz++) {
 					pos.set(o.getX() + dx, o.getY() + dy, o.getZ() + dz);
 					Vec3 to = Vec3.atCenterOf(pos).subtract(origin);
 					double dist = to.length();
@@ -527,7 +528,7 @@ public final class HulkAbilities {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 2.0f, 0.5f);
 		HulkCombat.shake(level, player.position(), 0.6f, 14, 24.0);
 		// the fissure races off along the ground: one block every faultTicksPerBlock ticks
-		int steps = (int) Math.ceil(cfg.faultLength);
+		int steps = (int) Math.ceil(cfg.faultLength * WorldBreaker.aoe(player));
 		for (int i = 0; i <= steps; i++) {
 			double d = i;
 			int delay = (int) Math.round(i * cfg.faultTicksPerBlock);
@@ -546,13 +547,14 @@ public final class HulkAbilities {
 		}
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		ServerLevel level = (ServerLevel) player.level();
+		double width = cfg.faultWidth * WorldBreaker.aoe(player);
 		Vec3 p = origin.add(dir.scale(d));
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		// a jagged crack, wide enough to see from above, wandering a little side to side
 		double wobble = Math.sin(d * 1.7) * 0.6;
 		Vec3 c = p.add(side.scale(wobble));
 		BlockPos s = null;
-		for (double w = -cfg.faultWidth * 0.5; w <= cfg.faultWidth * 0.5 + 1.0e-3; w += 0.9) {
+		for (double w = -width * 0.5; w <= width * 0.5 + 1.0e-3; w += 0.9) {
 			BlockPos at = GroundCracks.crackAt(level, c.add(side.scale(w)), Math.abs(w) < 0.6 ? 9 : 6, 140);
 			if (at != null && Math.abs(w) < 0.6) {
 				s = at;
@@ -569,7 +571,7 @@ public final class HulkAbilities {
 			level.playSound(null, burst.x, burst.y, burst.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.4f);
 		}
 		// everything standing on it is thrown up
-		double half = cfg.faultWidth * 0.5 + 0.5;
+		double half = width * 0.5 + 0.5;
 		net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(c.x - half - 1, groundY - 2.0, c.z - half - 1,
 				c.x + half + 1, groundY + 2.5, c.z + half + 1);
 		for (LivingEntity e : HulkCombat.targets(player, box)) {
@@ -628,10 +630,11 @@ public final class HulkAbilities {
 		// everything in front: hit once, then carried along on his shoulders until he stops
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		Vec3 front = player.position().add(dir.scale(player.getBbWidth() * 0.5 + 0.6)).add(0, player.getBbHeight() * 0.4, 0);
-		for (LivingEntity e : HulkCombat.targets(player, player.getBoundingBox().inflate(cfg.bulldozeHitRadius))) {
+		double hitRadius = cfg.bulldozeHitRadius * WorldBreaker.aoe(player);
+		for (LivingEntity e : HulkCombat.targets(player, player.getBoundingBox().inflate(hitRadius))) {
 			Vec3 rel = e.position().subtract(player.position());
 			double along = rel.x * dir.x + rel.z * dir.z;
-			if (along < -0.3 || along > player.getBbWidth() * 0.5 + cfg.bulldozeHitRadius) {
+			if (along < -0.3 || along > player.getBbWidth() * 0.5 + hitRadius) {
 				continue;
 			}
 			if (dz.hit().hit.add(e.getId())) {
@@ -891,13 +894,14 @@ public final class HulkAbilities {
 		Vec3 at = player.position();
 		double h = player.getBbHeight();
 		Vec3 core = at.add(0, h * 0.5, 0);
-		HulkCombat.radial(player, core, cfg.gammaBurstRadius, new HulkCombat.Hit(cfg.gammaBurstDamage, cfg.gammaBurstKnockback, 0.5), true);
+		double radius = cfg.gammaBurstRadius * WorldBreaker.aoe(player);
+		HulkCombat.radial(player, core, radius, new HulkCombat.Hit(cfg.gammaBurstDamage, cfg.gammaBurstKnockback, 0.5), true);
 		level.sendParticles(ParticleTypes.FLASH, core.x, core.y, core.z, 2, 0, 0, 0, 0);
 		level.sendParticles(GAMMA_BRIGHT, core.x, core.y, core.z, 60, 0.8, h * 0.4, 0.8, 0.3);
 		// the blast rolls out as a glowing green shell over a few ticks
 		int waves = 5;
 		for (int k = 0; k < waves; k++) {
-			double r = cfg.gammaBurstRadius * (k + 1) / waves;
+			double r = radius * (k + 1) / waves;
 			Runnable wave = () -> {
 				HulkCombat.ring(level, GAMMA, at.add(0, 0.3, 0), r, (int) (r * 7));
 				HulkCombat.ring(level, GAMMA_DEEP, at.add(0, h * 0.5, 0), r * 0.9, (int) (r * 5));
@@ -917,7 +921,7 @@ public final class HulkAbilities {
 		for (int y = 0; y < 10; y++) {
 			level.sendParticles(GAMMA, at.x, at.y + y, at.z, 4, 0.5, 0.3, 0.5, 0.02);
 		}
-		GroundCracks.star(level, at, cfg.gammaBurstRadius * 0.6, 8, 100);
+		GroundCracks.star(level, at, radius * 0.6, 8, 100);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 2.5f, 0.6f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 2.5f, 0.6f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 2.0f, 0.5f);

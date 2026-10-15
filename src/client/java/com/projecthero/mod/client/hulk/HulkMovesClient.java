@@ -74,8 +74,12 @@ public final class HulkMovesClient {
 		if (player == null || mc.options.hideGui) {
 			return;
 		}
-		float charge = HulkLeap.charge(player);
 		HulkState s = player.getAttachedOrElse(ModAttachments.HULK_STATE, null);
+		if (s != null && s.hulk && s.leapChargeStart <= 0L && com.projecthero.mod.hulk.HulkGrab.chargingThrow(player)) {
+			renderThrowBar(g, mc, player, x0, bottom, w);
+			return;
+		}
+		float charge = HulkLeap.charge(player);
 		if (s == null || !s.hulk || s.leapChargeStart <= 0L) {
 			return;
 		}
@@ -88,6 +92,23 @@ public final class HulkMovesClient {
 		g.fill(mid, y - 1, mid + 1, y + 4, 0xC0FFFFFF);
 		int blocks = (int) Math.round(HulkLeap.blocksFor(charge));
 		Component label = Component.translatable("hud.projecthero.hulk.leap", blocks);
+		int lw = mc.font.width(label);
+		g.drawString(mc.font, label, x0 + (w - lw) / 2, y - 10, full ? COLOR_FULL : COLOR_FILL, true);
+	}
+
+	/**
+	 * v0.16.4 (user): "make the hulk have to charge up his throw by holding v" -- the same Gauge bar in the same place while V
+	 * winds up a throw: how far it will go (20 up to 200 blocks).
+	 */
+	private static void renderThrowBar(GuiGraphics g, Minecraft mc, LocalPlayer player, int x0, int bottom, int w) {
+		float charge = com.projecthero.mod.hulk.HulkGrab.throwCharge(player);
+		int y = bottom - 4;
+		boolean full = charge >= 1.0f;
+		g.fill(x0 - 1, y - 1, x0 + w + 1, y + 4, COLOR_BORDER);
+		g.fill(x0, y, x0 + w, y + 3, COLOR_BG);
+		g.fill(x0, y, x0 + Math.round(w * charge), y + 3, full ? COLOR_FULL : COLOR_FILL);
+		int blocks = (int) Math.round(com.projecthero.mod.hulk.HulkGrab.throwBlocksFor(charge));
+		Component label = Component.translatable("hud.projecthero.hulk.throw", blocks);
 		int lw = mc.font.width(label);
 		g.drawString(mc.font, label, x0 + (w - lw) / 2, y - 10, full ? COLOR_FULL : COLOR_FILL, true);
 	}

@@ -151,6 +151,10 @@ public final class HulkCombat {
 		if (!canBreakBlocks(level) || radius <= 0.0) {
 			return 0;
 		}
+		// v0.16.4 (user): World Breaker -- every crater twice the size, twice the blocks
+		double wb = WorldBreaker.destruction(hulk);
+		radius *= wb;
+		max = (int) Math.round(max * wb);
 		int r = (int) Math.ceil(radius);
 		BlockPos c = BlockPos.containing(center);
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();

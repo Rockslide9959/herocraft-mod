@@ -16,6 +16,8 @@ public final class HulkConfig {
 	public Control control = new Control();
 	/** v0.15.3: the Gladiator Hulk's weapon kit (used instead of {@link #abilities} while the full gladiator gear is on). */
 	public Gladiator gladiator = new Gladiator();
+	/** v0.16.4 (user): World Breaker -- the 100%-rage form, its Burnout and cooldown. */
+	public WorldBreaker worldBreaker = new WorldBreaker();
 
 	/**
 	 * v0.15.3: damage, reach and cooldown of the twelve Gladiator Hulk moves (tap / Shift+key on R G Z X C V). A little
@@ -283,7 +285,12 @@ public final class HulkConfig {
 		public int earthWallCooldownTicks = 300;
 
 		// ---- V Grab / far throw, Shift+V Debris Throw, Shift+V Loki Slam ----
-		public double throwFarBlocks = 300.0;
+		/** v0.16.4 (user): "at max charge he throws entities 200 blocks away" (was a flat 300 on the second V). */
+		public double throwFarBlocks = 200.0;
+		/** v0.16.4 (user): a tap of V throws what he holds this far; holding V charges up to {@link #throwFarBlocks}. */
+		public double throwTapBlocks = 20.0;
+		/** v0.16.4 (user): ticks of holding V to reach full charge (1.75 s). */
+		public int throwChargeTicks = 35;
 		/** Top horizontal speed of the far throw (blocks / tick). */
 		public double throwFarSpeed = 3.5;
 		public float throwFarImpactDamage = 24.0f;
@@ -341,6 +348,39 @@ public final class HulkConfig {
 		public int forcedRampageTicks = 3 * 60 * 20;
 	}
 
+	/**
+	 * v0.16.4 (user): WORLD BREAKER -- "if hulk gets to 100% rage then he can activate that form and all his moves get even
+	 * stronger, more destructive ... grows to 10 blocks tall; his damage and destruction and aoe should be doubled; make this
+	 * mode last 30 seconds; after this mode ends give it a drawback". H at 100 rage starts it; then Burnout and a cooldown.
+	 */
+	public static final class WorldBreaker {
+		/** Server switch: false = World Breaker can't be activated. */
+		public boolean enabled = true;
+		/** How long it lasts (30 s). */
+		public int durationTicks = 30 * 20;
+		/** His height while it runs (blocks; the SCALE attribute is this over 1.8). */
+		public double heightBlocks = 10.0;
+		/** Every hit he deals is multiplied by this -- on top of the 100%-rage +50%. */
+		public float damageMultiplier = 2.0f;
+		/** Blocks broken per move, crater sizes, the Super Punch block cap, smash radii. */
+		public double destructionMultiplier = 2.0;
+		/** The area of every move: cones, rings, fissures, blasts. */
+		public double aoeMultiplier = 2.0;
+		/** The activation shockwave round him. */
+		public double activationRadius = 14.0;
+		public float activationDamage = 20.0f;
+		/** Burnout when it ends: shrunk to 0 rage, slow, weak, rage frozen at 0, for this long (60 s). */
+		public int burnoutTicks = 60 * 20;
+		/** Effect amplifiers during Burnout (0 = level I): Slowness II, Weakness II, Mining Fatigue I. */
+		public int burnoutSlownessAmplifier = 1;
+		public int burnoutWeaknessAmplifier = 1;
+		public int burnoutMiningFatigueAmplifier = 0;
+		/** World Breaker can't be used again for this long after it ends (5 minutes, Burnout included). */
+		public int cooldownTicks = 5 * 60 * 20;
+		/** Most his scale bonus moves per tick while growing into (or shrinking out of) World Breaker. */
+		public double sizeEasePerTick = 0.08;
+	}
+
 	/** What the Hulk is allowed to do to the world. */
 	public static final class World {
 		/** Master switch for every block the Hulk breaks (Thunderclap's fragile blocks, Sprint Smash). */
@@ -380,13 +420,17 @@ public final class HulkConfig {
 		return instance.gladiator;
 	}
 
+	public static WorldBreaker worldBreaker() {
+		return instance.worldBreaker;
+	}
+
 	/**
 	 * v0.14.21: loaded through the shared {@link com.projecthero.mod.config.VersionedConfig} (see {@code docs/CONFIGS.md}).
 	 * The steps are the migrations this file already had, unchanged.
 	 */
 	public static final com.projecthero.mod.config.VersionedConfig<HulkConfig> SPEC = com.projecthero.mod.config.VersionedConfig
 			.builder(HulkConfig.class, "projecthero_hulk.json", HulkConfig::new)
-			.balance("abilities", "control", "gladiator")
+			.balance("abilities", "control", "gladiator", "worldBreaker")
 			.introduce(1, "v0.13.12 first file")
 			// v0.13.14 rebuilt the kit (new keys, new damage and cooldowns): a 0.13.13 file must not keep the old numbers
 			.reset(2, "v0.13.14 Hulk kit rebuilt", "abilities")
@@ -405,6 +449,8 @@ public final class HulkConfig {
 			.reset(6, "v0.16.4 ring 3 -> 5 hits, takeover + Banner clock", "control.ringHitsNeeded")
 			// v0.16.4 (user): the Super Leap charges over 2 s (was 0.5 s)
 			.reset(7, "v0.16.4 Super Leap charge 0.5 s -> 2 s", "abilities.superLeapChargeTicks")
+			// v0.16.4 (user): hold V to charge the throw, 300 -> 200 blocks at full charge; the worldBreaker section fills in
+			.reset(8, "v0.16.4 charged V throw (max 300 -> 200 blocks) + World Breaker section", "abilities.throwFarBlocks")
 			.build();
 
 	public static void load() {

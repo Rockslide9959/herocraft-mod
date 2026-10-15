@@ -24,7 +24,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.4 (user): the Hulk's rebuilt kit -- Super Leap distances and the drag-free flight, the Super Punch's cone (and
- * the blocks it smashes), the 300-block far throw, the four-impact Loki slam, the debris made of the ground under him and
+ * the blocks it smashes), the charged V throw (20 blocks for a tap, 200 at full charge), the four-impact Loki slam, the debris made of the ground under him and
  * the Earth Wall. Mock players are not ticked by the server (and never move), so each test drives {@link Hulk#tick}
  * itself and the flights are checked against the same per-tick step the client runs.
  */
@@ -181,17 +181,37 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- V grab + far throw
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_v0164_throw")
-	public void grabThenThrowItThreeHundredBlocks(GameTestHelper helper) {
+	/**
+	 * v0.16.4 (user): "make the hulk have to charge up his throw by holding v, at max charge he throws entities 200 blocks away".
+	 * V picks it up; V down again only starts the charge; V up throws it -- {@code charge} 0 (a tap) or 1 (held the full
+	 * {@code throwChargeTicks}).
+	 */
+	private static void chargedThrow(GameTestHelper helper, float charge, double wantBlocks) {
 		ServerPlayer p = hulk(helper);
 		var target = mob(helper, p.position().add(0, 0, 3), 200.0);
 		look(p, target);
 		HulkGrab.press(p, false);
 		helper.assertTrue(Hulk.state(p).combat.holding, "V picks the mob up");
 		helper.assertTrue(Hulk.state(p).animId == HulkState.ANIM_GRAB, "with the grab animation");
+		HulkGrab.releaseV(p);
+		helper.assertTrue(Hulk.state(p).combat.holding, "letting go of the V that grabbed it throws nothing");
 		p.setXRot(0.0f);
+		p.setYHeadRot(p.getYRot());
 		HulkGrab.press(p, false);
-		helper.assertTrue(HulkAbilities.cooldownRemaining(p, HulkAbilities.GRAB) > 0, "V again throws it (cooldown starts)");
+		helper.assertTrue(HulkGrab.chargingThrow(p), "V down again winds the throw up");
+		helper.assertTrue(HulkAbilities.cooldownRemaining(p, HulkAbilities.GRAB) == 0, "nothing is thrown while V is held");
+		HulkGrab.press(p, false); // the OS key repeat of a held V: still the same charge
+		if (charge > 0.0f) {
+			// held for the whole charge
+			HulkState n = Hulk.state(p).copy();
+			n.moves.throwChargeStart = p.level().getGameTime() - Math.round(HulkConfig.abilities().throwChargeTicks * charge);
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.HULK_STATE, n);
+		}
+		helper.assertTrue(Math.abs(HulkGrab.throwCharge(p) - charge) < 1.0e-4f, "charge " + charge + ", got " + HulkGrab.throwCharge(p));
+		Vec3 launch = HulkGrab.farThrowVelocity(p.getLookAngle(), HulkGrab.throwBlocksFor(charge), target.getGravity());
+		HulkGrab.releaseV(p);
+		helper.assertFalse(HulkGrab.chargingThrow(p), "V up ends the charge");
+		helper.assertTrue(HulkAbilities.cooldownRemaining(p, HulkAbilities.GRAB) > 0, "and throws it (cooldown starts)");
 		helper.assertTrue(Hulk.state(p).animId == HulkState.ANIM_THROW_FAR, "with the throw animation");
 		helper.onEachTick(() -> Hulk.tick(p));
 		helper.runAfterDelay(HulkAbilities.THROW_FAR_RELEASE_TICKS + 2, () -> {
@@ -199,15 +219,28 @@ public class HulkMovesV0164GameTests implements FabricGameTest {
 			helper.assertTrue(HulkGrab.inFlight(p, target), "and is flying");
 			Vec3 v = target.getDeltaMovement();
 			double h = Math.sqrt(v.x * v.x + v.z * v.z);
-			helper.assertTrue(Math.abs(h - HulkConfig.abilities().throwFarSpeed) < HulkConfig.abilities().throwFarSpeed * 0.06,
-					"held at its throw speed (within one tick of vanilla air drag, which the next tick undoes), got " + h);
-			Vec3 launch = HulkGrab.farThrowVelocity(p.getLookAngle(), HulkConfig.abilities().throwFarBlocks, target.getGravity());
+			double want = Math.sqrt(launch.x * launch.x + launch.z * launch.z);
+			helper.assertTrue(Math.abs(h - want) < want * 0.1 + 0.02,
+					"held at its throw speed (within one tick of vanilla air drag, which the next tick undoes): want " + want + ", got " + h);
 			double range = HulkLeap.simulateRange(launch, target.getGravity(), 2000);
-			helper.assertTrue(Math.abs(range - 300.0) < 25.0, "a drag-free arc that comes down ~300 blocks away, got " + range);
+			helper.assertTrue(Math.abs(range - wantBlocks) < wantBlocks * 0.08 + 1.5,
+					"a drag-free arc that comes down ~" + wantBlocks + " blocks away, got " + range);
 			HulkGrab.release(p);
 			target.discard();
 			helper.succeed();
 		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_v0164_throw")
+	public void tappingVTossesItTwentyBlocks(GameTestHelper helper) {
+		helper.assertTrue(Math.abs(HulkGrab.throwBlocksFor(0.0f) - 20.0) < 1.0e-6, "a tap is 20 blocks");
+		chargedThrow(helper, 0.0f, 20.0);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60, batch = "hulk_v0164_throw_full")
+	public void holdingVThrowsItTwoHundredBlocks(GameTestHelper helper) {
+		helper.assertTrue(Math.abs(HulkGrab.throwBlocksFor(1.0f) - 200.0) < 1.0e-6, "full charge is 200 blocks");
+		chargedThrow(helper, 1.0f, 200.0);
 	}
 
 	// ---------------------------------------------------------------- Shift+V Loki slam

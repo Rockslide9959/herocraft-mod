@@ -33,9 +33,12 @@ import net.minecraft.world.phys.Vec3;
 /**
  * V -- the Hulk's hands (v0.16.4 (user) rebuilt).
  * <ul>
- *   <li><b>V</b> picks up the mob you are looking at ({@code grabRange}) and holds it overhead; <b>V</b> again throws it
- *       {@code throwFarBlocks} (300) along your look: a drag-free arc the server holds it on all the way (its chunks are
- *       kept ticking ahead of it), and it smashes into whatever it hits.</li>
+ *   <li><b>V</b> picks up the mob you are looking at ({@code grabRange}) and holds it overhead. v0.16.4 (user): "make the
+ *       hulk have to charge up his throw by holding v, at max charge he throws entities 200 blocks away" -- HOLD V to charge
+ *       ({@code throwChargeTicks}, 1.75 s; a bar over his ability boxes fills), let go to throw: {@code throwTapBlocks} (20)
+ *       for a tap up to {@code throwFarBlocks} (200) at full charge, along your look -- a drag-free arc the server holds it on
+ *       all the way (its chunks are kept ticking ahead of it), and it smashes into whatever it hits. The ground debris
+ *       charges the same way.</li>
  *   <li><b>Shift+V</b> while looking at a target within {@code lokiRange} (10): the "puny god" slam -- he grabs it and
  *       smashes it into the ground four times, overhead left-right-left-right, the server swinging it along those arcs
  *       in time with {@code ANIM_LOKI_SLAM} (impacts at {@link #slamImpactTick}). Shift+V while already holding a mob
@@ -132,6 +135,31 @@ public final class HulkGrab {
 		RAMPAGE_HELD.clear();
 	}
 
+	// ---------------------------------------------------------------- v0.16.4 (user): the charged throw
+
+	/** Charge 0..1 -> blocks: a tap {@code throwTapBlocks} (20) up to {@code throwFarBlocks} (200), a straight line between. */
+	public static double throwBlocksFor(float charge) {
+		HulkConfig.Abilities c = HulkConfig.abilities();
+		double t = Math.max(0.0, Math.min(1.0, charge));
+		return c.throwTapBlocks + (c.throwFarBlocks - c.throwTapBlocks) * t;
+	}
+
+	/** Charge 0..1 of the throw V is winding up right now (0 when not charging). Client-safe. */
+	public static float throwCharge(Player player) {
+		HulkState s = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.HULK_STATE, null);
+		if (s == null || !s.hulk || s.moves.throwChargeStart <= 0L) {
+			return 0.0f;
+		}
+		return Math.max(0.0f, Math.min(1.0f, (player.level().getGameTime() - s.moves.throwChargeStart)
+				/ (float) Math.max(1, HulkConfig.abilities().throwChargeTicks)));
+	}
+
+	/** V is held, charging a throw. Client-safe. */
+	public static boolean chargingThrow(Player player) {
+		HulkState s = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.HULK_STATE, null);
+		return s != null && s.hulk && s.combat.holding && s.moves.throwChargeStart > 0L;
+	}
+
 	/** v0.16.4: Hulks holding something the rampage AI grabbed (kept through the rampage, unlike a grab from before it). */
 	private static final Set<UUID> RAMPAGE_HELD = ConcurrentHashMap.newKeySet();
 
@@ -213,9 +241,12 @@ public final class HulkGrab {
 
 	private static void setHolding(ServerPlayer player, boolean holding) {
 		HulkState s = Hulk.state(player);
-		if (s.combat.holding != holding) {
+		if (s.combat.holding != holding || (!holding && s.moves.throwChargeStart != 0L)) {
 			HulkState n = s.copy();
 			n.combat.holding = holding;
+			if (!holding) {
+				n.moves.throwChargeStart = 0L; // nothing in his hands: no throw to charge
+			}
 			Hulk.save(player, n);
 		}
 	}
@@ -233,8 +264,10 @@ public final class HulkGrab {
 				HELD.remove(player.getUUID());
 				setHolding(player, false);
 				startSlam(player, mob);
+			} else if (HulkAbilities.drivenNow(player)) {
+				throwHeld(player, held, 1.0f); // v0.16.4: the rampage AI throws at once, full strength
 			} else {
-				throwHeld(player, held);
+				startThrowCharge(player); // v0.16.4 (user): hold V to charge, let go to throw (the debris too)
 			}
 			return;
 		}
@@ -305,11 +338,46 @@ public final class HulkGrab {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ATTACK, SoundSource.PLAYERS, 0.9f, 0.8f);
 	}
 
+	/** v0.16.4 (user): V went down with something in his hands -- the throw starts charging (a repeat while held is ignored). */
+	private static void startThrowCharge(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		if (s.moves.throwChargeStart > 0L) {
+			return;
+		}
+		HulkState n = s.copy();
+		n.moves.throwChargeStart = player.level().getGameTime();
+		Hulk.save(player, n);
+		ServerLevel level = (ServerLevel) player.level();
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_STEP, SoundSource.PLAYERS, 1.2f, 0.6f);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_BREATH, SoundSource.PLAYERS, 1.0f, 0.5f);
+	}
+
+	/** v0.16.4 (user): V let go -- a charging throw flies, as far as the charge says. */
+	public static void releaseV(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		if (s.moves.throwChargeStart <= 0L) {
+			return;
+		}
+		float charge = throwCharge(player);
+		HulkState n = s.copy();
+		n.moves.throwChargeStart = 0L;
+		Hulk.save(player, n);
+		Entity held = heldEntity(player);
+		if (held == null || !Hulk.isHulk(player) || !player.isAlive() || slamming(player) || THROWING.contains(player.getUUID())) {
+			return;
+		}
+		throwHeld(player, held, charge);
+	}
+
 	/** Hulks mid-throw (the wind-up before the release frame): V is ignored until it leaves his hands. */
 	private static final Set<UUID> THROWING = ConcurrentHashMap.newKeySet();
 
-	/** V with something overhead: the throw animation, and the release on its frame (it stays overhead until then). */
-	private static void throwHeld(ServerPlayer player, Entity held) {
+	/**
+	 * V let go with something overhead: the throw animation, and the release on its frame (it stays overhead until then).
+	 * {@code charge} 0..1 sets how far ({@link #throwBlocksFor}).
+	 */
+	private static void throwHeld(ServerPlayer player, Entity held, float charge) {
+		double blocks = throwBlocksFor(charge);
 		HulkAbilities.cooldown(player, HulkAbilities.GRAB, HulkConfig.abilities().grabCooldownTicks);
 		boolean debris = held instanceof HulkBoulderEntity;
 		HulkAbilities.anim(player, debris ? HulkState.ANIM_DEBRIS_THROW : HulkState.ANIM_THROW_FAR);
@@ -321,11 +389,11 @@ public final class HulkGrab {
 			if (id == null || id != held.getId() || held.isRemoved() || !Hulk.isHulk(player) || !player.isAlive()) {
 				return;
 			}
-			letGo(player, held);
+			letGo(player, held, blocks);
 		});
 	}
 
-	private static void letGo(ServerPlayer player, Entity held) {
+	private static void letGo(ServerPlayer player, Entity held, double blocks) {
 		HELD.remove(player.getUUID());
 		RAMPAGE_HELD.remove(player.getUUID());
 		setHolding(player, false);
@@ -335,12 +403,14 @@ public final class HulkGrab {
 		Vec3 hand = held.position().add(0, held.getBbHeight() * 0.5, 0);
 		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, hand.x, hand.y, hand.z, 1, 0, 0, 0, 0);
 		if (held instanceof HulkBoulderEntity boulder) {
-			boulder.launch(player.getLookAngle().scale(HulkConfig.abilities().boulderSpeed).add(0, 0.15, 0));
+			// v0.16.4 (user): the debris charges like a mob -- the same drag-free arc (its own gravity), as far as the charge says
+			Vec3 bv = farThrowVelocity(player.getLookAngle(), blocks, HulkBoulderEntity.GRAVITY);
+			boulder.launch(bv);
+			keepLoaded(level, boulder.position(), bv);
 			return;
 		}
-		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		double g = held instanceof LivingEntity l ? l.getGravity() : 0.08;
-		Vec3 v = farThrowVelocity(player.getLookAngle(), cfg.throwFarBlocks, g);
+		Vec3 v = farThrowVelocity(player.getLookAngle(), blocks, g);
 		held.setDeltaMovement(v);
 		held.hurtMarked = true;
 		held.fallDistance = 0.0f;
@@ -359,7 +429,7 @@ public final class HulkGrab {
 		return HulkLeap.dragFreeArc(look, blocks, gravity, 12.0, 45.0, HulkConfig.abilities().throwFarSpeed, 6.0);
 	}
 
-	private static void keepLoaded(ServerLevel level, Vec3 at, Vec3 v) {
+	public static void keepLoaded(ServerLevel level, Vec3 at, Vec3 v) {
 		// here, and where it will be in a second, so it never freezes at the edge of the loaded world
 		for (int ahead : new int[] { 0, 20 }) {
 			ChunkPos cp = new ChunkPos(BlockPos.containing(at.x + v.x * ahead, at.y, at.z + v.z * ahead));
@@ -464,7 +534,7 @@ public final class HulkGrab {
 		AbilityHelpers.hurtLands(player, victim, HulkConfig.abilities().lokiSlamDamage);
 		Vec3 at = victim.position();
 		// the floor gives under it every time
-		GroundCracks.star(level, at, 2.5 + slam.impacts * 0.5, 6, 140);
+		GroundCracks.star(level, at, (2.5 + slam.impacts * 0.5) * WorldBreaker.aoe(player), 6, 140);
 		BlockPos s = GroundCracks.surface(level, at.x, at.y, at.z);
 		BlockState ground = s == null ? Blocks.DIRT.defaultBlockState() : level.getBlockState(s);
 		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), at.x, at.y + 0.2, at.z, 40, 0.9, 0.2, 0.9, 0.3);
@@ -599,8 +669,53 @@ public final class HulkGrab {
 				held.hurtMarked = true;
 			}
 		}
+		tickThrowCharge(player);
 		tickSlam(player);
 		tickThrown(player);
+	}
+
+	/** v0.16.4 (user): the throw's wind-up -- gamma gathering in his arms, a ring at full charge; a lost release throws itself. */
+	private static void tickThrowCharge(ServerPlayer player) {
+		HulkState s = Hulk.state(player);
+		if (s.moves.throwChargeStart <= 0L) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		long t = now - s.moves.throwChargeStart;
+		int full = Math.max(1, HulkConfig.abilities().throwChargeTicks);
+		if (!s.hulk || !HELD.containsKey(player.getUUID())) {
+			HulkState n = s.copy();
+			n.moves.throwChargeStart = 0L;
+			Hulk.save(player, n);
+			return;
+		}
+		if (t < 0L || t > full + 100L) {
+			releaseV(player); // the key-up was lost: it goes at full strength
+			return;
+		}
+		Integer id = HELD.get(player.getUUID());
+		Entity held = id == null ? null : ((ServerLevel) player.level()).getEntity(id);
+		ServerLevel level = (ServerLevel) player.level();
+		float c = Math.min(1.0f, t / (float) full);
+		if (held != null && now % 2L == 0L) {
+			Vec3 at = held.position().add(0, held.getBbHeight() * 0.5, 0);
+			level.sendParticles(HulkAbilities.GAMMA, at.x, at.y, at.z, 1 + Math.round(c * 4.0f), held.getBbWidth() * 0.6, held.getBbHeight() * 0.4,
+					held.getBbWidth() * 0.6, 0.01);
+		}
+		if (t % 8L == 0L && t < full) {
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 0.7f + c * 0.6f,
+					0.7f + c * 0.4f);
+		}
+		if (t == full) {
+			// fully wound up: a flash of gamma and a grunt
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.8f, 1.4f);
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.EXPERIENCE_ORB_PICKUP, SoundSource.PLAYERS, 0.6f, 0.5f);
+			if (held != null) {
+				Vec3 at = held.position().add(0, held.getBbHeight() * 0.5, 0);
+				level.sendParticles(HulkAbilities.GAMMA_BRIGHT, at.x, at.y, at.z, 20, held.getBbWidth() * 0.7, held.getBbHeight() * 0.5,
+						held.getBbWidth() * 0.7, 0.05);
+			}
+		}
 	}
 
 	private static void tickThrown(ServerPlayer player) {
@@ -669,8 +784,9 @@ public final class HulkGrab {
 			HulkCombat.strike(player, l, at, hit, 1.0f);
 		}
 		thrown.fallDistance = 0.0f;
-		HulkCombat.radial(player, at, 3.0, hit, false);
-		GroundCracks.star(level, thrown.position(), 3.0, 6, 120);
+		double wb = WorldBreaker.aoe(player); // v0.16.4 (user): World Breaker doubles the impact
+		HulkCombat.radial(player, at, 3.0 * wb, hit, false);
+		GroundCracks.star(level, thrown.position(), 3.0 * wb, 6, 120);
 		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 2, 0.3, 0.3, 0.3, 0);
 		level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 16, 0.6, 0.3, 0.6, 0.05);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_BIG_FALL, SoundSource.PLAYERS, 1.6f, 0.5f);

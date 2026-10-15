@@ -36,6 +36,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * dust and its explosion use them too.
  */
 public class HulkBoulderEntity extends Entity {
+	/** v0.16.4: its fall per tick in flight (no drag) -- the charged V throw solves its arc with this. */
+	public static final double GRAVITY = 0.05;
 	private static final EntityDataAccessor<Boolean> FLYING = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BOOLEAN);
 	private static final EntityDataAccessor<BlockState> TOP = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BLOCK_STATE);
 	private static final EntityDataAccessor<BlockState> MID = SynchedEntityData.defineId(HulkBoulderEntity.class, EntityDataSerializers.BLOCK_STATE);
@@ -113,7 +115,10 @@ public class HulkBoulderEntity extends Entity {
 			return;
 		}
 		flightTicks++;
-		Vec3 v = this.getDeltaMovement().add(0, -0.05, 0);
+		if (flightTicks % 10 == 1) {
+			com.projecthero.mod.hulk.HulkGrab.keepLoaded(level, position(), getDeltaMovement()); // v0.16.4: a long throw keeps its chunks ticking
+		}
+		Vec3 v = this.getDeltaMovement().add(0, -GRAVITY, 0);
 		this.setDeltaMovement(v);
 		this.move(MoverType.SELF, v);
 		if (flightTicks % 2 == 0) {
@@ -135,7 +140,9 @@ public class HulkBoulderEntity extends Entity {
 		Vec3 at = position().add(0, 0.5, 0);
 		HulkConfig.Abilities cfg = HulkConfig.abilities();
 		if (thrower != null) {
-			HulkCombat.radial(thrower, at, cfg.boulderRadius, new HulkCombat.Hit(cfg.boulderDamage, 1.8, 0.6), true);
+			// v0.16.4 (user): World Breaker doubles the blast
+			HulkCombat.radial(thrower, at, cfg.boulderRadius * com.projecthero.mod.hulk.WorldBreaker.aoe(thrower),
+					new HulkCombat.Hit(cfg.boulderDamage, 1.8, 0.6), true);
 			HulkCombat.crater(thrower, at.add(0, -0.8, 0), 2.2, 30);
 		}
 		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y, at.z, 1, 0, 0, 0, 0);

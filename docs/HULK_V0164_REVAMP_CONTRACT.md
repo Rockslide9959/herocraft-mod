@@ -94,3 +94,18 @@ screams at the sky), TRANSFORM_STAGGER 5 = `transform_stagger` (stumbles forward
 RULES picks one at random for every change and sets it; ANIMS plays it and the matching Banner-side pose. User rule:
 NO pose may kneel or fold the legs back — all transformations are standing.
 All changes last the same server time as today's slow change (Hulk.changeTicks); the quick one stays shorter.
+
+## Follow-up: the charged V throw and World Breaker (v0.16.4, user)
+
+- **V throw:** V picks up as before; V held with something overhead charges (`HulkState.Moves.throwChargeStart`,
+  `abilities.throwChargeTicks` = 35, 1.75 s), V released throws it (`HulkGrab.releaseV`, routed from
+  `HulkAbilityManager` on the key-up): `throwTapBlocks` 20 for a tap up to `throwFarBlocks` 200 at full charge, same
+  drag-free arc + chunk tickets; the debris uses the same arc with `HulkBoulderEntity.GRAVITY`. `ANIM_THROW_FAR` /
+  `ANIM_DEBRIS_THROW` play on release. The rampage AI throws at once at full charge. The charge bar is
+  `HulkMovesClient.renderThrowBar` (the leap bar's slot).
+- **World Breaker** (`hulk/WorldBreaker.java`, config section `worldBreaker`): H as the Hulk at 100 rage, in control. 30 s:
+  10 blocks tall, rage pinned at 100, damage x2 on top of the rage bonus (`Hulk.damageMultiplier`), area x2
+  (`WorldBreaker.aoe`) and blocks / craters x2 (`WorldBreaker.destruction`, applied centrally in `HulkCombat.crater`).
+  Then Burnout 60 s (rage 0 and frozen, Slowness II, Weakness II, Mining Fatigue I) and a 5-minute cooldown from the
+  end. State lives in `HulkState.Moves` (`wbStartedAt`, `wbUntil`, `wbBurnoutUntil`, `wbReadyAt`) -- no statics.
+  Visuals: `HulkWorldBreakerLayer` (emissive veins texture `hulk_world_breaker_veins.png` + a faint green glow pass).

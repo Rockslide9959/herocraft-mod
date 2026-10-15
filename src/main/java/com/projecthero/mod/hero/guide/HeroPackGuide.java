@@ -957,7 +957,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.hulk.body");
 			blank(lines);
 			// v0.16.4: the new rules (hold H / death changes, the 3-minute lock, rage -> size and damage, the Hulk's death)
-			for (String section : new String[]{"origin_v0164", "change_v0164", "rage_v0164", "stats_v0164", "fists", "death_save_v0164"}) {
+			for (String section : new String[]{"origin_v0164", "change_v0164", "rage_v0164", "world_breaker_v0164", "stats_v0164", "fists",
+					"death_save_v0164"}) { // v0.16.4 (user): World Breaker
 				head(lines, "projecthero.guide.hulk." + section);
 				para(lines, "projecthero.guide.hulk." + section + ".body");
 				blank(lines);
@@ -967,7 +968,8 @@ public final class HeroPackGuide {
 					// v0.16.4 (user): the rebuilt kit + the N roar (calming is gone)
 					{ "R", "super_punch" }, { "Shift+R", "ground_smash" }, { "G", "thunderclap" }, { "Shift+G", "fault_stomp" },
 					{ "Z", "bulldoze" }, { "Shift+Z", "uppercut" }, { "X", "super_leap" }, { "C", "gamma_burst" }, { "Shift+C", "earth_wall" },
-					{ "V", "grab" }, { "Shift+V", "loki_slam" }, { "Shift+V", "debris_throw" }, { "N", "roar" } }) {
+					{ "V", "grab" }, { "Shift+V", "loki_slam" }, { "Shift+V", "debris_throw" }, { "N", "roar" },
+					{ "H (100% rage)", "world_breaker" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.hulk.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.hulk.ability." + row[1] + ".desc");
