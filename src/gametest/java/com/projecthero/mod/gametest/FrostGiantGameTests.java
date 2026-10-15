@@ -181,10 +181,9 @@ public class FrostGiantGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void waveMixMatchesTheSpecAndScalesWithFighters(GameTestHelper helper) {
-		helper.assertTrue(FrostGiantAssault.waveCount() == 8, "eight waves");
-		int[][] spec = { { 6, 0, 0, 0, 0 }, { 4, 3, 0, 0, 0 }, { 4, 3, 2, 0, 0 }, { 3, 3, 2, 1, 0 }, { 3, 2, 2, 1, 1 },
-				{ 4, 4, 2, 2, 0 }, { 3, 4, 3, 2, 0 }, { 3, 3, 3, 2, 2 } };
-		for (int n = 1; n <= 8; n++) {
+		helper.assertTrue(FrostGiantAssault.waveCount() == 5, "five waves (v0.16.4: back from eight)");
+		int[][] spec = { { 6, 0, 0, 0, 0 }, { 4, 3, 0, 0, 0 }, { 4, 3, 2, 0, 0 }, { 3, 3, 2, 1, 0 }, { 3, 2, 2, 1, 1 } };
+		for (int n = 1; n <= 5; n++) {
 			helper.assertTrue(java.util.Arrays.equals(FrostGiantAssault.composition(n), spec[n - 1]),
 					"wave " + n + " solo mix, got " + java.util.Arrays.toString(FrostGiantAssault.composition(n)));
 		}
@@ -501,7 +500,7 @@ public class FrostGiantGameTests implements FabricGameTest {
 		helper.assertTrue(old.trigger.naturalTriggerEnabled, "a server's toggle is kept");
 		helper.assertTrue(old.laufey.health == 3000.0, "a version-1 value is kept, got " + old.laufey.health);
 		helper.assertTrue(old.laufey.armor == 14.0, "a wrong-typed value gets its default, got " + old.laufey.armor);
-		helper.assertTrue(old.warlord.health == 1200.0 && old.waves.hounds.length == 8, "missing sections get defaults (8 waves since config v2)");
+		helper.assertTrue(old.warlord.health == 1200.0 && old.waves.hounds.length == 5, "missing sections get defaults (5 waves again since config v3)");
 		helper.succeed();
 	}
 

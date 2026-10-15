@@ -7,7 +7,7 @@ import com.projecthero.mod.config.VersionedConfig;
  * {@link VersionedConfig}, see {@code docs/CONFIGS.md}). Read before the entity types are registered: their default
  * attributes come from here.
  *
- * <p>Every number the raid uses lives here -- the arena, the blizzard and the cold, the Rune Braziers, the eight waves,
+ * <p>Every number the raid uses lives here -- the arena, the blizzard and the cold, the Rune Braziers, the five waves,
  * every Frost Giant's health and damage, King Laufey's three phases, Ymir, the damage rules and the rewards -- plus the
  * one server toggle: the natural trigger (Heimdall's warning), off by default.
  */
@@ -19,6 +19,8 @@ public final class FrostGiantConfig {
 			.introduce(1, "v0.16.1 Frost Giant Assault")
 			// v0.16.1 (later, user request): 8 waves instead of 5 -- three heavier waves, two Warlords in the last
 			.reset(2, "v0.16.1 eight waves", "waves.waveCount", "waves.hounds", "waves.raiders", "waves.shamans", "waves.brutes", "waves.warlords")
+			// v0.16.4 (user): back to five waves -- eight was too much
+			.reset(3, "v0.16.4 back to five waves", "waves.waveCount", "waves.hounds", "waves.raiders", "waves.shamans", "waves.brutes", "waves.warlords")
 			.build();
 
 	private static FrostGiantConfig instance = new FrostGiantConfig();
@@ -100,7 +102,7 @@ public final class FrostGiantConfig {
 	}
 
 	public static final class Waves {
-		public int waveCount = 8;
+		public int waveCount = 5;
 		/** Each extra fighter adds this fraction of every wave entry. */
 		public double perExtraFighter = 0.5;
 		/** Live giants at once (the giants are big). */
@@ -108,11 +110,12 @@ public final class FrostGiantConfig {
 		public int countdownSeconds = 10;
 		public int breatherSeconds = 10;
 		/** Solo composition per wave (index 0 = wave 1). */
-		public int[] hounds = { 6, 4, 4, 3, 3, 4, 3, 3 };
-		public int[] raiders = { 0, 3, 3, 3, 2, 4, 4, 3 };
-		public int[] shamans = { 0, 0, 2, 2, 2, 2, 3, 3 };
-		public int[] brutes = { 0, 0, 0, 1, 1, 2, 2, 2 };
-		public int[] warlords = { 0, 0, 0, 0, 1, 0, 0, 2 };
+		// v0.16.4 (user): back to the original five waves ("right now its too much") -- the Warlord leads the last
+		public int[] hounds = { 6, 4, 4, 3, 3 };
+		public int[] raiders = { 0, 3, 3, 3, 2 };
+		public int[] shamans = { 0, 0, 2, 2, 2 };
+		public int[] brutes = { 0, 0, 0, 1, 1 };
+		public int[] warlords = { 0, 0, 0, 0, 1 };
 	}
 
 	public static final class Hound {

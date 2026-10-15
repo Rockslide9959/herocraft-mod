@@ -75,6 +75,9 @@ public class SilverSurferEntity extends GalactusMob {
 	public SilverSurferEntity(EntityType<? extends SilverSurferEntity> type, Level level) {
 		super(type, level);
 		setNoGravity(true);
+		// v0.16.4 (user): "he can launch himself into the floor and then he gets stuck" -- he phases through blocks: no block
+		// collision and no suffocation (isInWall is false without physics). He flies on his own steering anyway.
+		this.noPhysics = true;
 		this.orbit = random.nextFloat() * Mth.TWO_PI;
 	}
 
@@ -288,6 +291,7 @@ public class SilverSurferEntity extends GalactusMob {
 	@Override
 	protected void customServerAiStep() {
 		super.customServerAiStep();
+		this.noPhysics = true; // v0.16.4: never stuck in terrain (kept on every tick)
 		ServerLevel level = (ServerLevel) level();
 		bolts.tick(level, this);
 		if (shieldTicks > 0 && --shieldTicks == 0) {
@@ -382,6 +386,12 @@ public class SilverSurferEntity extends GalactusMob {
 				dir = new Vec3(1, 0, 0);
 			}
 			dashTo = dashFrom.add(dir.normalize().scale(GalactusConfig.herald().dashLength));
+			// v0.16.4 (user): a dash through a target on the ground used to end underground -- finish it in the air above the terrain
+			int top = level().getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+					Mth.floor(dashTo.x), Mth.floor(dashTo.z));
+			if (dashTo.y < top + 1.5) {
+				dashTo = new Vec3(dashTo.x, top + 1.5, dashTo.z);
+			}
 			dashHit.clear();
 		}
 	}

@@ -65,7 +65,7 @@ values and version.
 | `projecthero_darkseid.json` | `darkseid/DarkseidConfig` | 4 | 1 full reset, 2 v0.13.19 balance, 3 Parademons restored, 4 introduce rewards.valuablesMultiplier | No. Already migrated. |
 | `projecthero_sentinel.json` | `sentinel/SentinelConfig` | 1 | 1 introduce (v0.15.1 Sentinel Purge) | No. New in v0.15.1 and versioned from the start. |
 | `projecthero_ultron.json` | `ultron/UltronConfig` | 1 | 1 introduce (v0.15.12 Ultron Uprising) | No. New in v0.15.12 and versioned from the start. |
-| `projecthero_frost_giants.json` | `frostgiant/FrostGiantConfig` | 1 | 1 introduce (v0.16.1 Frost Giant Assault) | No. New in v0.16.1 and versioned from the start. |
+| `projecthero_frost_giants.json` | `frostgiant/FrostGiantConfig` | 3 | 1 introduce (v0.16.1 Frost Giant Assault), 2 eight waves (v0.16.1), 3 back to five waves (v0.16.4) | No. Already migrated. |
 | `projecthero_contagion.json` | `ultron/contagion/ContagionConfig` | 1 | 1 introduce (v0.16.1 Ultron Contagion) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_galactus.json` | `galactus/GalactusConfig` | 1 | 1 introduce (v0.16.1 Galactus: The Devourer; every section balance except `trigger` -- only `trigger.chancePerDay` is) | No. New in v0.16.1 and versioned from the start. |
 | `projecthero_spider_man.json` | `spider/SpiderManConfig` | 10 | 1 introduce (v0.16.1 Spider-Man revamp; `moves` is balance, `webs` is the server's), 2-9 v0.16.1/v0.16.2 move and web resets, 10 introduce the `struggle` section (v0.16.4 cocoon struggle minigame; balance) | No. New in v0.16.1 and versioned from the start. |
