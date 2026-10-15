@@ -881,6 +881,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.ghostrider.data.GhostRiderState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.16.5: Cyborg (Victor Stone) -- the power, the form, the Power Core, the move timers and the visible effects. */
+	public static final AttachmentType<com.projecthero.mod.cyborg.data.CyborgState> CYBORG_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("cyborg_state"),
+					builder -> builder.persistent(com.projecthero.mod.cyborg.data.CyborgState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.cyborg.data.CyborgState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.cyborg.data.CyborgState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/**
 	 * v0.14.11: the Flash Ring on a speedster's finger -- the ring as an item stack, the packed suit in its container
 	 * component; empty = none. Persistent, kept through death (a full ring drops on death without keepInventory, see

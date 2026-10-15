@@ -53,7 +53,8 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// jacket, sleeves, trousers) would poke through it, so it is hidden whenever any of the uniform is on
 		if (com.projecthero.mod.client.nova.NovaSuitRender.hidesSkinOverlay(player)
 				// v0.16.5: Ghost Rider is drawn the same way
-				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)) {
+				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)
+				|| com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)) {
 			model.hat.visible = false;
 			model.jacket.visible = false;
 			model.leftSleeve.visible = false;

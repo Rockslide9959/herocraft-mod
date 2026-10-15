@@ -342,6 +342,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.16.5: Cyborg's poses (the cannon arm, burst, punch, grapple, dash, hover, override, scan, Boom Tube). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$cyborgPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.cyborg.CyborgPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/**
 	 * v0.14.4: Thor's move animations (Lightning Strike, Thunderclap, Chain Lightning, the throw, Hammer Volley, the
 	 * Beam, the Wrath charge and release, the suit-up). Declared after {@link #projecthero$flightPose} so a move made

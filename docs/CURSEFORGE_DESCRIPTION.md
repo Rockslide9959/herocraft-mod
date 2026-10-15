@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian or Ghost Rider, bond with a living alien Symbiote, or mutate
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian, Ghost Rider or Cyborg, bond with a living alien Symbiote, or mutate
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -268,6 +268,17 @@ is yours, but it costs you **5 hearts** until the first time the Spirit burns th
   Chain Spin · **X** the **Hell Cycle** (drives up walls, skims lava, a fire trail) · **Shift+X** Cycle Jump · **Z**
   Judgement Mark (+25% damage on the guilty) · **Shift+Z** **Penance Stare** · **V** Hellfire Rush · **Shift+V**
   Hellfire Eruption · **C** Soul Shield · **Shift+C** Rider's Wrath (buffs your squad).
+
+### 🤖 Cyborg
+Use a **Mother Box** (the Apokolips Invasion's rare reward) while you're on **4 hearts or less** and it fuses with you:
+the plates spread over you from the chest core, and your own face shows on Victor Stone's human half.
+- **H** switches between **combat** form (plates, +4 armour, no drowning, half fall damage, half hunger) and
+  **civilian** form (a hologram hides them).
+- **Power Core** (100) charges over time, faster next to a block of redstone; lightning fills it in combat form.
+  **R** Sonic Cannon (hold to charge, up to 16) · **Shift+R** Sonic Burst · **G** Hydraulic Punch (breaks shields) ·
+  **Shift+G** Grapple Claw · **X** Thruster Dash · **Shift+X** Hover · **Z** **Techno-Override** (golems and Ultron /
+  Sentinel robots fight for you; doors, lamps and TNT obey) · **Shift+Z** Scan (creatures and ores through walls) ·
+  **V** **Boom Tube** (takes your squad) · **Shift+V** Waypoint · **C** Defense Matrix · **Shift+C** Self-Repair (iron).
 
 ---
 

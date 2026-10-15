@@ -170,6 +170,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.nova.NovaMod.clearSessionState();
 		// v0.16.5: Ghost Rider move sessions, bolts, guilt, Judgement Marks, summoned bikes
 		com.projecthero.mod.ghostrider.GhostRiderMod.clearSessionState();
+		// v0.16.5: Cyborg move sessions, hacked machines, hover flight grants
+		com.projecthero.mod.cyborg.CyborgMod.clearSessionState();
 		com.projecthero.mod.hulk.Hulk.clearSessionState();
 		com.projecthero.mod.supersoldier.SuperSoldierAbilityManager.clearSessionState(); // v0.14.8: move timers, ultimate, marks
 		com.projecthero.mod.moonknight.temple.KhonshuRitual.clearSessionState();

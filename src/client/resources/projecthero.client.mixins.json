@@ -54,6 +54,7 @@
 		"GhostRiderFirstPersonArmMixin",
 		"GhostRiderMarkGlowMixin",
 		"GhostRiderMarkColorMixin",
+		"CyborgFirstPersonArmMixin",
 		"GreenLanternRingHandMixin",
 		"GuiTitanMountMessageMixin",
 		"GuiArmorBarMixin",

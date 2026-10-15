@@ -18,7 +18,8 @@ import net.minecraft.world.entity.Entity;
 public abstract class GhostRiderMarkGlowMixin {
 	@Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
 	private void projecthero$ghostRiderMark(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-		if (GhostRiderMarkClient.marked(entity)) {
+		// v0.16.5: and Cyborg's Scan (cyan, the scanner alone)
+		if (GhostRiderMarkClient.marked(entity) || com.projecthero.mod.client.cyborg.CyborgScanClient.scanned(entity)) {
 			cir.setReturnValue(true);
 		}
 	}

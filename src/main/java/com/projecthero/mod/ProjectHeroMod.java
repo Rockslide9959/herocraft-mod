@@ -134,6 +134,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.nova.NovaMod.initialize();
 		// v0.16.5: Ghost Rider -- Mephisto's Contract (+ loot), the Hell Cycle, damage / guilt rules, payloads, lifecycle hooks
 		com.projecthero.mod.ghostrider.GhostRiderMod.initialize();
+		// v0.16.5: Cyborg -- damage rules, payloads, lifecycle hooks (the Mother Box grants it)
+		com.projecthero.mod.cyborg.CyborgMod.initialize();
 		// v0.14.11: the Flash Suit and the Flash Ring (H packs the suit into the ring and lets it out again)
 		com.projecthero.mod.flash.FlashSuit.initialize();
 		com.projecthero.mod.thorarmor.ThorArmor.initialize();

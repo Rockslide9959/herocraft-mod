@@ -45,6 +45,15 @@ public class MotherBoxItem extends Item {
 		if (!(level instanceof ServerLevel server) || !(player instanceof ServerPlayer sp)) {
 			return InteractionResultHolder.success(held);
 		}
+		// v0.16.5: used on 4 hearts or less, the Mother Box fuses with its holder -- Cyborg (it is used up)
+		if (sp.getHealth() <= com.projecthero.mod.cyborg.CyborgConfig.FUSE_HEALTH && !com.projecthero.mod.cyborg.Cyborg.hasPower(sp)) {
+			if (com.projecthero.mod.cyborg.Cyborg.grant(sp)) {
+				if (!sp.getAbilities().instabuild) {
+					held.shrink(1);
+				}
+				return InteractionResultHolder.consume(held);
+			}
+		}
 		if (sp.isShiftKeyDown()) {
 			CompoundTag tag = new CompoundTag();
 			tag.putString("AnchorDim", server.dimension().location().toString());
