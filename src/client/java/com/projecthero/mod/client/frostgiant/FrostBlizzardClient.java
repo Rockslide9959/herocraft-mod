@@ -236,7 +236,12 @@ public final class FrostBlizzardClient {
 			line = Component.translatable("hud.projecthero.frost_giants.cold", pct);
 			color = pct >= 100 ? 0xFFB0F0FF : 0xFF8FC4EE;
 		}
-		g.drawCenteredString(mc.font, line, cx, y, color);
+		// v0.16.4 (user): warm / cold sits just above the armour bar (vanilla's own layout: it climbs with extra heart rows),
+		// not in the middle of the screen -- the relight hint and its bar stay by the crosshair
+		int hearts = net.minecraft.util.Mth.ceil((p.getMaxHealth() + p.getAbsorptionAmount()) / 2.0f / 10.0f);
+		int rowStep = Math.max(10 - (hearts - 2), 3);
+		int armourY = g.guiHeight() - 39 - (hearts - 1) * rowStep - 10;
+		g.drawString(mc.font, line, cx - 91, armourY - 10, color, true);
 		HitResult hit = mc.hitResult;
 		if (relighting == null && hit instanceof EntityHitResult eh && eh.getEntity() instanceof RuneBrazierEntity b && !b.isLit()) {
 			g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.frost_giants.relight_hint"), cx, y + 11, 0xFFD0D0D0);
