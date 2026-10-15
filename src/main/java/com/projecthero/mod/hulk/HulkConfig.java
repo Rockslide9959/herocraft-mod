@@ -334,7 +334,7 @@ public final class HulkConfig {
 		/** Server switch: false = the Hulk never rampages. */
 		public boolean enabled = true;
 		public int rampageEveryTicks = 60 * 20;
-		public int warningTicks = 10 * 20;
+		public int warningTicks = 6 * 20; // v0.16.4 (user): 10 s -> 6 s
 		public int warningMinArrows = 6;
 		public int warningMaxArrows = 8;
 		/** Space presses in a row (the ring on the circle) that end a rampage. */
@@ -501,6 +501,8 @@ public final class HulkConfig {
 			.reset(10, "v0.16.4 air Thunderclap recoil 1.4 -> 2.2", "abilities.airClapPush")
 			// v0.16.4 (user): the full-charge throw reaches 300 blocks again; the long-throw crater ramps up to it
 			.reset(11, "v0.16.4 V throw max 200 -> 300 blocks", "abilities.throwFarBlocks", "abilities.longThrowRampBlocks")
+			// v0.16.4 (user): the rampage warning gives 6 s to type the arrows (was 10)
+			.reset(12, "v0.16.4 rampage warning 10 s -> 6 s", "control.warningTicks")
 			.build();
 
 	public static void load() {
@@ -617,8 +619,9 @@ public final class HulkConfig {
 	public static final double HEALTH_BONUS_MIN = 20.0;
 	public static final double KNOCKBACK_RESISTANCE = 0.9;
 	public static final double ARMOR_TOUGHNESS_BONUS = 8.0;
-	/** A bigger stride: steps straight up a full block. */
-	public static final double STEP_HEIGHT_BONUS = 0.5;
+	/** A bigger stride: steps straight up a full block. v0.16.4 (user): "give hulk a 4 blocks step assist" -- 0.6 base + 3.4 =
+	 * he walks straight up 4 blocks, at every size. */
+	public static final double STEP_HEIGHT_BONUS = 3.4;
 	/** Longer arms for a bigger body. */
 	public static final double REACH_BONUS = 1.5;
 	/** v0.13.14: fast regeneration -- {@link #REGEN_AMOUNT} HP every {@link #REGEN_INTERVAL_TICKS} (3 HP a second). */

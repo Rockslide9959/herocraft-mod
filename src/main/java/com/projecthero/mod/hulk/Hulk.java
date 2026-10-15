@@ -701,7 +701,7 @@ public final class Hulk {
 	private static void applySizeStats(ServerPlayer player) {
 		double scale = 1.0 + scaleBonus(player);
 		double reach = HulkConfig.REACH_BONUS + 1.8 * Math.max(0.0, scale - 1.0);
-		double step = Math.max(HulkConfig.STEP_HEIGHT_BONUS, Math.min(1.4, 0.6 * (scale - 1.0)));
+		double step = HulkConfig.STEP_HEIGHT_BONUS; // v0.16.4 (user): a flat 4-block step at every size
 		reach = Math.round(reach * 20.0) / 20.0;
 		step = Math.round(step * 20.0) / 20.0;
 		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, step, AttributeModifier.Operation.ADD_VALUE);
