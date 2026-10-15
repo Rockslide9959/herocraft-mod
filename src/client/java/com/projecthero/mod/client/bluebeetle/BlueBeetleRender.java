@@ -32,7 +32,7 @@ import net.minecraft.world.entity.player.Player;
 import org.joml.Matrix4f;
 
 /**
- * v0.16.5: Blue Beetle's armour over a player -- the NovaSkin skin (post 5809773610, 128x128 HD) on a wide player model
+ * v0.16.5: Blue Beetle's armour over a player -- the user's Planet Minecraft skin ("Blue Beetle Young Justice Version", file 19182617, 64x64) on a wide player model
  * a hair larger than the wearer's (the Nova technique). It spreads out from the scarab between the shoulder blades on
  * the bonding (6 s, jerky) and on H (about a second), a blue edge on the newest texels, and folds back the same way.
  * The eyes and studs glow; Khaji-Da Unleashed washes it red. Extras drawn in the posed parts' own space:
