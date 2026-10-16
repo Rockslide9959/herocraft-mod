@@ -219,6 +219,58 @@ public class TeleportationV0165GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void blinkIntoAWallGoesThroughIt(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		BlockPos base = BlockPos.containing(p.position());
+		for (int dz = 1; dz <= 3; dz++) {
+			for (int dx = -2; dx <= 2; dx++) {
+				for (int dy = 0; dy <= 2; dy++) {
+					helper.getLevel().setBlock(base.offset(dx, dy, dz), Blocks.STONE.defaultBlockState(), 2);
+				}
+			}
+		}
+		double z0 = p.getZ();
+		press(p, 1); // R: Blink, aimed into the wall right in front
+		helper.assertTrue(p.getZ() > base.getZ() + 4, "Blink went through a 3-thick wall, z " + z0 + " -> " + p.getZ());
+		assertStrain(helper, p, TeleportationHandlers.STRAIN_BLINK, "Blink through a wall");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void firstHitAfterATeleportDoesDouble(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		Zombie z = zombie(helper, 2, 5);
+		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(100);
+		z.setHealth(100f);
+		helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+		TeleportationHandlers.addStrain(p, 1f); // a jump just happened
+		helper.assertTrue(TeleportationHandlers.ambushReady(p), "the ambush window opens");
+		z.hurt(p.damageSources().playerAttack(p), 4f);
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - 8f) < 0.6f, "the first hit does double: took " + (100f - z.getHealth()));
+		helper.assertFalse(TeleportationHandlers.ambushReady(p), "and the window closes");
+		z.invulnerableTime = 0;
+		float hp = z.getHealth();
+		z.hurt(p.damageSources().playerAttack(p), 4f);
+		helper.assertTrue(Math.abs((hp - z.getHealth()) - 4f) < 0.6f, "the second hit is normal");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aFilledVialBondsYourPet(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		net.minecraft.world.entity.animal.Wolf wolf = helper.spawn(EntityType.WOLF, new BlockPos(2, 2, 3));
+		wolf.tame(p);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+				new net.minecraft.world.item.ItemStack(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL_FILLED));
+		net.minecraft.world.InteractionResult r = net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.invoker().interact(p,
+				helper.getLevel(), net.minecraft.world.InteractionHand.MAIN_HAND, wolf, null);
+		helper.assertTrue(r.consumesAction(), "the vial is used on the pet");
+		helper.assertTrue(com.projecthero.mod.symbiote.SymbiotePet.is(wolf), "the wolf has the Symbiote now");
+		helper.assertTrue(p.getMainHandItem().is(com.projecthero.mod.symbiote.item.SymbioteHostItems.SYMBIOTE_VIAL), "the vial is empty");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
 	public void displaceThrowsTheTargetUp(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);

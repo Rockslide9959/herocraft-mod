@@ -91,6 +91,9 @@ public final class TeleportationHandlers {
 	/** Enemies who come this close are folded back out to {@link #FOLD_PUSH_TO} blocks. */
 	public static final double FOLD_KEEP_OUT = 3.0;
 	public static final double FOLD_PUSH_TO = 6.0;
+	/** v0.16.5 (user): the first hit you land within this long after any teleport does double damage. */
+	public static final int AMBUSH_TICKS = 20;
+	public static final float AMBUSH_MULTIPLIER = 2.0f;
 
 	// ---- ranges / timings ----
 	public static final double BLINK_RANGE = 25.0;
@@ -170,6 +173,7 @@ public final class TeleportationHandlers {
 	 */
 	public static void addStrain(ServerPlayer p, float amount) {
 		set(p, "jump_grace", JUMP_GRACE_TICKS);
+		set(p, "ambush", AMBUSH_TICKS); // v0.16.5: the first hit within 1 s of a teleport does double damage
 		strainOnly(p, amount);
 	}
 
@@ -243,6 +247,10 @@ public final class TeleportationHandlers {
 				if (p.isShiftKeyDown()) {
 					set(p, "aiming", 1);
 					MutationVisuals.play(p, "channel_right");
+					return;
+				}
+				// v0.16.5 (user): walked up to a wall and aiming at it -- Blink goes through it (up to 3 blocks thick)
+				if (wallInFront(p, ctx.level()) && phaseThrough(ctx, STRAIN_BLINK) == 0) {
 					return;
 				}
 				blinkTo(ctx, blinkDest(p, BLINK_RANGE), BLINK_RANGE, STRAIN_BLINK);
@@ -429,6 +437,9 @@ public final class TeleportationHandlers {
 			}
 		});
 
+		// v0.16.5: the ambush -- double damage on the first hit within 1 s of a teleport
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.register(TeleportationHandlers::ambush);
+
 		// Sneak + right-click a rift gate to close the pair.
 		UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
 			if (level.isClientSide || !(player instanceof ServerPlayer sp) || !player.isShiftKeyDown()) {
@@ -459,7 +470,7 @@ public final class TeleportationHandlers {
 		if (s > 0) {
 			set(p, "strain", Math.max(0, s - STRAIN_DRAIN_PER_TICK));
 		}
-		for (String timer : new String[] { "overload", "jump_grace", "group_jump" }) {
+		for (String timer : new String[] { "overload", "jump_grace", "group_jump", "ambush" }) {
 			float v = res(p, timer);
 			if (v > 0) {
 				set(p, timer, v - 1);
@@ -714,12 +725,22 @@ public final class TeleportationHandlers {
 	 * first clear spot behind it must be within {@link #PHASE_REACH} -- i.e. walls up to 3 blocks thick.
 	 */
 	private static void phaseStep(AbilityContext ctx) {
+		int r = phaseThrough(ctx, STRAIN_PHASE);
+		if (r != 0) {
+			ctx.actionBar(r == 2 ? "message.projecthero.teleport.no_room" : "message.projecthero.teleport.no_wall");
+		}
+	}
+
+	/**
+	 * Through the wall in front of you: 0 = went through, 1 = no wall within 1.5 blocks, 2 = a wall but no room behind it
+	 * within {@link #PHASE_REACH} (walls up to 3 blocks thick). Phase Step and a Blink aimed into a wall both use it.
+	 */
+	private static int phaseThrough(AbilityContext ctx, float strain) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
 		Vec3 dir = p.getLookAngle().multiply(1, 0, 1);
 		if (dir.lengthSqr() < 1.0e-4) {
-			ctx.actionBar("message.projecthero.teleport.no_wall");
-			return;
+			return 1;
 		}
 		dir = dir.normalize();
 		Vec3 origin = p.position();
@@ -732,14 +753,70 @@ public final class TeleportationHandlers {
 				float yaw = p.getYRot();
 				if (SafeTeleport.tryTeleport(p, c)) {
 					jumped(p, level, origin, yaw, "dash_forward", 1.4f);
-					addStrain(p, STRAIN_PHASE);
+					addStrain(p, strain);
+					return 0;
 				}
-				return;
+				return 2;
 			} else if (d > 1.5) {
 				break;
 			}
 		}
-		ctx.actionBar(inWall ? "message.projecthero.teleport.no_room" : "message.projecthero.teleport.no_wall");
+		return inWall ? 2 : 1;
+	}
+
+	/**
+	 * A wall you have walked up to (its face within about a block, roughly level look) that you are aiming at -- a wall
+	 * further off still stops a Blink short, as it always has.
+	 */
+	private static boolean wallInFront(ServerPlayer p, ServerLevel level) {
+		if (Math.abs(p.getXRot()) > 50f) {
+			return false;
+		}
+		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 2.0);
+		if (bhr == null || bhr.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK || bhr.getDirection().getAxis().isVertical()) {
+			return false;
+		}
+		Vec3 dir = p.getLookAngle().multiply(1, 0, 1);
+		if (dir.lengthSqr() < 1.0e-4) {
+			return false;
+		}
+		dir = dir.normalize();
+		return !SafeTeleport.isSafe(level, p, p.position().add(dir.scale(0.9)));
+	}
+
+	/** Gametests: whether the ambush window (double damage on the next hit) is open. */
+	public static boolean ambushReady(ServerPlayer p) {
+		return res(p, "ambush") > 0.5f;
+	}
+
+	private static final ThreadLocal<Boolean> AMBUSH_REENTRANT = ThreadLocal.withInitial(() -> false);
+
+	/**
+	 * v0.16.5 (user: "right after teleporting the first hit you deal after 1 seconds deals double damage"): within 1 s
+	 * of any teleport, the first hit a teleporter lands is re-issued at double damage (and the window closes).
+	 */
+	private static boolean ambush(LivingEntity victim, net.minecraft.world.damagesource.DamageSource source, float amount) {
+		if (AMBUSH_REENTRANT.get() || amount <= 0f || !(source.getEntity() instanceof ServerPlayer p) || victim == p) {
+			return true;
+		}
+		Power power = power();
+		if (power == null || !ExperimentalPowers.owns(p, power) || res(p, "ambush") < 0.5f) {
+			return true;
+		}
+		set(p, "ambush", 0);
+		AMBUSH_REENTRANT.set(true);
+		try {
+			victim.hurt(source, amount * AMBUSH_MULTIPLIER);
+		} finally {
+			AMBUSH_REENTRANT.set(false);
+		}
+		if (victim.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ParticleTypes.CRIT, victim.getX(), victim.getY() + victim.getBbHeight() * 0.6, victim.getZ(), 16, 0.3, 0.3, 0.3, 0.3);
+			sl.sendParticles(ParticleTypes.REVERSE_PORTAL, victim.getX(), victim.getY() + victim.getBbHeight() * 0.6, victim.getZ(), 12, 0.3, 0.3,
+					0.3, 0.1);
+		}
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+		return false;
 	}
 
 	/** Whether Displace may move {@code t}: a harmable non-ally that is not a boss. */

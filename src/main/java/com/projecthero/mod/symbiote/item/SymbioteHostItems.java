@@ -35,6 +35,7 @@ public final class SymbioteHostItems {
 	}
 
 	public static void initialize() {
+		SymbioteVialItem.registerPetBond(); // v0.16.5: a filled vial on your pet bonds it
 		HELMET = register("symbiote_host_helmet", ArmorItem.Type.HELMET);
 		CHESTPLATE = register("symbiote_host_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = register("symbiote_host_leggings", ArmorItem.Type.LEGGINGS);

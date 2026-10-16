@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -30,6 +31,8 @@ import net.minecraft.world.level.Level;
  *       ({@link #capture}).</li>
  *   <li><b>Filled vial + use</b> -- releases it into the user: the normal bond flow, then an empty
  *       vial is handed back.</li>
+ *   <li><b>Filled vial + right-click your own pet</b> (v0.16.5, user) -- the Symbiote inside bonds with the pet
+ *       ({@link #registerPetBond}); an empty vial is handed back.</li>
  * </ul>
  */
 public class SymbioteVialItem extends Item {
@@ -42,6 +45,34 @@ public class SymbioteVialItem extends Item {
 
 	public boolean isFilled() {
 		return filled;
+	}
+
+	/**
+	 * v0.16.5 (user: "right clicking your pet with a symbiote vial gives them the symbiote stored inside"). Caught before
+	 * the pet's own interaction (which would just make a wolf sit): a filled vial on your own tamed wolf or cat bonds the
+	 * Symbiote with it ({@code SymbiotePet.bond}, as a wild Symbiote -- it is the vial's own) and the vial is emptied.
+	 */
+	public static void registerPetBond() {
+		net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
+			ItemStack held = player.getItemInHand(hand);
+			if (!held.is(SymbioteHostItems.SYMBIOTE_VIAL_FILLED) || !(entity instanceof net.minecraft.world.entity.TamableAnimal pet)
+					|| !player.getUUID().equals(pet.getOwnerUUID()) || player.isSpectator()) {
+				return InteractionResult.PASS;
+			}
+			if (world.isClientSide() || !(player instanceof ServerPlayer sp)) {
+				return InteractionResult.SUCCESS;
+			}
+			if (!com.projecthero.mod.symbiote.SymbiotePet.canBond(pet)) {
+				sp.displayClientMessage(Component.translatable("message.projecthero.symbiote_vial.pet_cannot", pet.getDisplayName()), true);
+				return InteractionResult.FAIL;
+			}
+			if (com.projecthero.mod.symbiote.SymbiotePet.bond(pet, com.projecthero.mod.symbiote.SymbiotePet.WILD)) {
+				fx(sp, pet.getX(), pet.getY() + 0.5, pet.getZ());
+				swapVial(sp, hand, held, new ItemStack(SymbioteHostItems.SYMBIOTE_VIAL));
+				return InteractionResult.SUCCESS;
+			}
+			return InteractionResult.FAIL;
+		});
 	}
 
 	@Override
