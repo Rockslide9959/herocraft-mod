@@ -21,7 +21,7 @@ import net.minecraft.util.Mth;
 public final class MuzzleFlash {
 	/** Muzzle positions in each gun's item model (px). */
 	private static final float[][] MUZZLE = {
-			{ 8f, 9.9f, 3.0f },   // pistol
+			{ 8f, 8.93f, 2.9f },  // pistol (the user's mesh, barrel crown)
 			{ 8f, 8.44f, -4.2f }, // rifle (the user's mesh, muzzle brake)
 			{ 8f, 8.85f, -1.0f }, // shotgun
 			{ 8f, 7.55f, -5.7f }, // sniper

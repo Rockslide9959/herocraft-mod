@@ -54,8 +54,9 @@ public final class GunFirstPerson {
 	private static final float ARM_SCALE = 0.6f;
 	private static final float HIP_YAW = 14f;
 
-	private static final Rig PISTOL = new Rig(v(8, 5.6f, 11.6f), v(7.4f, 4.6f, 11.4f), v(8, 3.2f, 11.4f), v(8, 11.4f, 12.4f),
-			v(8, 11.4f, 4.75f), 0.62f, 0.56f);
+	// v0.16.5: the user's mesh pistol (grip / magazine base / rear + front sight from the OBJ)
+	private static final Rig PISTOL = new Rig(v(8, 5.4f, 12.1f), v(7.4f, 4.4f, 11.9f), v(8, 2.7f, 12.8f), v(8, 9.97f, 12.22f),
+			v(8, 9.97f, 4.03f), 0.62f, 0.56f);
 	// v0.15.16: the user's mesh rifle (rear sight / front sight / pistol grip / handguard / magwell from the OBJ)
 	private static final Rig RIFLE = new Rig(v(8, 5.9f, 10.3f), v(8, 7.15f, 3.2f), v(8, 6.6f, 7.65f), v(8, 9.63f, 10.48f),
 			v(8, 9.41f, -1.79f), 0.72f, 1.0f);
