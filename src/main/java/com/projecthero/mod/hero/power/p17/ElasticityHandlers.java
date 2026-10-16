@@ -1,655 +1,1254 @@
 package com.projecthero.mod.hero.power.p17;
 
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.Powers;
 import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.GrabHelper;
-import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.revamp.BatchCFx;
+import com.projecthero.mod.hero.revamp.batcha.BatchA;
 import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 17 — Elasticity.
+ * Power 17 -- Elasticity (v0.16.5 rework, docs/V0165_POWERS_PROPOSAL.md section 6): a Mr. Fantastic / Plastic Man /
+ * Luffy rubber brawler. The limbs themselves stretch (the client lengthens the arm / leg model in the player's own
+ * skin, from the synced {@code p17.*} visual values), and a <b>Stretch</b> meter replaces most cooldowns.
  *
- * <p>v0.10.13: a rubber body is now a package of always-on passives (no fall damage, a small bounce
- * on any real fall, squeeze through a one-block gap, 25% less melee damage, 50% knockback
- * resistance), the primary is a charge-up stretch punch, the secondary doubles as a ground-slam from
- * height, and Elastic Form is one of three body shapes chosen from a weapon wheel on Shift + C.
+ * <p>Stretch (0-100): every move spends some; it refills 15 a second (30 standing still) while no held move is
+ * running. Run it dry and you go <b>limp</b>: Slowness II for 2 s and no moves until it is back to 20.
  *
- * <p>v0.13.22 revamp (batch E): the arm now visibly STRETCHES to the target on every stretch / grab move
- * (a synced arm length + start tick drive {@code RevampClientE}'s stretched-arm overlay), every move has a
- * body animation, damage ~+20% / cooldowns ~-15%, and two new utility moves: H <b>Rubber Shield</b> (hold:
- * inflate into a balloon that bounces projectiles back at their shooter and flings melee attackers away)
- * and N <b>Parachute Glide</b> (flatten out into a canopy: slow fall plus a steered forward glide, 8 s max).
+ * <p>R Stretch Punch (hold to coil, up to 1.5 s) / Shift+R Gatling Barrage (held). G Elastic Grab, press again to hurl /
+ * Shift+G Wrap &amp; Squeeze. X Slingshot (hold to pull back, release) / Shift+X Rubber Ball. Z Giant Hammer Fist (hold
+ * to coil) / Shift+Z Spring Stomp. V Rubber Shield (held balloon) / Shift+V Parachute (toggle). C Long Reach (toggle) /
+ * Shift+C Shape Shift. No H / N. All six slots are HOLD, so the handlers own their tap / Shift / release logic.
  */
 public final class ElasticityHandlers {
-	private static final String KEY = "power_17_elasticity";
+	public static final String KEY = "power_17_elasticity";
 
-	private static final ResourceLocation FORM_REACH = com.projecthero.mod.ProjectHeroMod.id("elastic_form_reach");
-	private static final ResourceLocation FORM_SPEED = com.projecthero.mod.ProjectHeroMod.id("elastic_form_speed");
-	private static final ResourceLocation FORM_SCALE = com.projecthero.mod.ProjectHeroMod.id("elastic_form_scale");
-	private static final ResourceLocation FORM_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_form_kb");
-	private static final ResourceLocation FORM_MELEE = com.projecthero.mod.ProjectHeroMod.id("elastic_form_melee");
+	// ---- Stretch ----
+	public static final float MAX_STRETCH = 100.0f;
+	/** 15 a second; twice that standing still. */
+	public static final float STRETCH_REGEN_PER_TICK = 15.0f / 20.0f;
+	/** Limp until the meter is back to this. */
+	public static final float LIMP_RECOVER = 20.0f;
+	public static final int LIMP_SLOW_TICKS = 2 * 20;
+
+	public static final float COST_PUNCH = 10.0f;
+	public static final float COST_GATLING_PER_SECOND = 12.0f;
+	public static final float COST_GRAB = 15.0f;
+	public static final float COST_WRAP = 25.0f;
+	public static final float COST_SLING = 15.0f;
+	public static final float COST_BALL = 30.0f;
+	public static final float COST_HAMMER = 30.0f;
+	public static final float COST_STOMP = 25.0f;
+	public static final float COST_SHIELD_PER_SECOND = 8.0f;
+	public static final float COST_SHAPE = 20.0f;
+
+	// ---- R: Stretch Punch / Gatling Barrage ----
+	/** R and Z coil for up to 1.5 s. */
+	public static final int COIL_MAX_TICKS = 30;
+	public static final float PUNCH_DAMAGE = 12.0f;
+	public static final float PUNCH_DAMAGE_COILED = 24.0f;
+	public static final double PUNCH_RANGE = 18.0;
+	public static final double PUNCH_RANGE_COILED = 22.0;
+	public static final float GATLING_DAMAGE = 3.0f;
+	public static final float GATLING_HITS_PER_SECOND = 6.0f;
+	public static final double GATLING_RANGE = 10.0;
+	/** cos of the cone's half-angle (~40 degrees). */
+	private static final double GATLING_CONE = 0.76;
+
+	// ---- G: Elastic Grab / Wrap & Squeeze ----
+	public static final double GRAB_RANGE = 20.0;
+	public static final int GRAB_HOLD_TICKS = 6 * 20;
+	private static final double GRAB_HOLD_DISTANCE = 2.5;
+	public static final float HURL_DAMAGE = 10.0f;
+	public static final float HURL_IMPACT_BONUS = 6.0f;
+	private static final int HURL_FLIGHT_TICKS = 30;
+	public static final double WRAP_RANGE = 6.0;
+	public static final int WRAP_TICKS = 4 * 20;
+	public static final float WRAP_DAMAGE_PER_SECOND = 4.0f;
+
+	// ---- X: Slingshot / Rubber Ball ----
+	public static final double SLING_RANGE = 40.0;
+	private static final int SLING_PULL_TICKS = 30;
+	public static final int BALL_TICKS = 6 * 20;
+	public static final float BALL_HIT_DAMAGE = 6.0f;
+
+	// ---- Z: Giant Hammer Fist / Spring Stomp ----
+	public static final double HAMMER_RANGE = 12.0;
+	public static final float HAMMER_DAMAGE_MIN = 20.0f;
+	public static final float HAMMER_DAMAGE_MAX = 34.0f;
+	public static final double HAMMER_RADIUS = 4.5;
+	public static final int HAMMER_CD = 8 * 20;
+	public static final float STOMP_DAMAGE = 20.0f;
+	public static final double STOMP_RADIUS = 5.0;
+	public static final int STOMP_CD = 6 * 20;
+	/** Ticks of the stilt rise (a ~8-block launch) before the slam. */
+	private static final int STOMP_RISE_TICKS = 13;
+
+	// ---- V: Rubber Shield / Parachute ----
+	/** The balloon takes 60% less damage. */
+	public static final float SHIELD_DAMAGE_FACTOR = 0.4f;
+
+	// ---- C: Long Reach / Shape Shift ----
+	public static final double LONG_REACH = 12.0;
+	public static final int SHAPE_CD = 10 * 20;
+
+	// ---- passives ----
+	public static final float BLUNT_FACTOR = 0.75f;
+	public static final float FIRE_FACTOR = 1.25f;
+	public static final double EXTRA_MELEE_REACH = 3.0;
+
+	private static final ResourceLocation PASSIVE_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_kb");
+	private static final ResourceLocation PASSIVE_REACH = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_reach");
+	private static final ResourceLocation LONG_REACH_ENTITY = com.projecthero.mod.ProjectHeroMod.id("elastic_long_reach_entity");
+	private static final ResourceLocation LONG_REACH_BLOCK = com.projecthero.mod.ProjectHeroMod.id("elastic_long_reach_block");
 	private static final ResourceLocation SHIELD_SPEED = com.projecthero.mod.ProjectHeroMod.id("elastic_shield_speed");
 	private static final ResourceLocation SHIELD_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_shield_kb");
-	/** Elastic Form adds this much to every Elasticity ability's damage. */
-	public static final float FORM_ABILITY_BONUS = 9.5f;
-	/** Always-on passives. */
-	private static final ResourceLocation PASSIVE_MELEE = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_melee");
-	private static final ResourceLocation PASSIVE_KB = com.projecthero.mod.ProjectHeroMod.id("elastic_passive_kb");
+	private static final ResourceLocation BALL_SPEED = com.projecthero.mod.ProjectHeroMod.id("elastic_ball_speed");
+	private static final ResourceLocation BALL_SCALE = com.projecthero.mod.ProjectHeroMod.id("elastic_ball_scale");
+	/** Pre-v0.16.5 modifiers, cleared out of old saves. */
+	private static final ResourceLocation[] LEGACY = {
+			com.projecthero.mod.ProjectHeroMod.id("elastic_passive_melee"), com.projecthero.mod.ProjectHeroMod.id("elastic_form_reach"),
+			com.projecthero.mod.ProjectHeroMod.id("elastic_form_speed"), com.projecthero.mod.ProjectHeroMod.id("elastic_form_scale"),
+			com.projecthero.mod.ProjectHeroMod.id("elastic_form_kb"), com.projecthero.mod.ProjectHeroMod.id("elastic_form_melee") };
 
-	/** Slingshot: how far it looks for an anchor, and how long the anchored dash may run. */
-	private static final double SLING_RANGE = 45.0;
-	private static final float SLING_TICKS = 40.0f;
-	private static final double SLING_IMPACT_RANGE = 2.6;
-	private static final float SLING_DAMAGE = 17.0f;
-
-	/** Stretch Punch charge: +6 damage per second, up to 2 s; every extra second held is +0.85 s cooldown. */
-	private static final float STRETCH_BASE_DMG = 14.5f;
-	private static final float STRETCH_DMG_PER_SEC = 6.0f;
-	private static final int STRETCH_MAX_DMG_SECONDS = 2;
-	private static final int STRETCH_MAX_TRACK_SECONDS = 6;
-
-	/** Dive slam (double_fist_slam from height). */
-	private static final double SLAM_MIN_HEIGHT = 5.0;
-	private static final float SLAM_DAMAGE = 24.0f;
-	private static final float SLAM_ARC_DAMAGE = 20.5f;
-	private static final float HAMMER_DAMAGE = 41.0f;
-	private static final float GRAB_THROW_DAMAGE = 8.5f;
-
-	/** Rubber Shield stamina (the HUD's "Rubber" bar) -- 5 s of full inflation, refills in ~9 s. */
-	public static final float MAX_RUBBER = 115.0f;
-	private static final float RUBBER_DRAIN = MAX_RUBBER / 100.0f;
-	private static final float RUBBER_REGEN = MAX_RUBBER / 180.0f;
-	private static final float RUBBER_MIN = 20.0f;
-	/** Parachute Glide: at most 8 s aloft. */
-	public static final int GLIDE_TICKS = 160;
-
-	/** How long a stretched arm stays drawn after a strike (the client animates out and back in this window). */
-	private static final int ARM_STRIKE_TICKS = 14;
+	// ---- the stretched-limb visual ----
+	/** How long a stretched arm stays drawn after a strike (the client shoots it out and snaps it back in this window). */
+	public static final int ARM_STRIKE_TICKS = 14;
 	/** Arm draw modes (sent +1 as the {@code p17.arm_mode} visual value). */
 	public static final int ARM_RIGHT = 0;
 	public static final int ARM_BOTH = 1;
 	public static final int ARM_HAMMER = 2;
 	public static final int ARM_HOLD = 3;
-
-	/** The three body shapes chosen from the Shift + C wheel. Wire index == ordinal. */
-	public enum Form { ELASTIC, INFLATED, COMPRESSION }
+	public static final int ARM_HOLD_BOTH = 4;
+	public static final int ARM_GATLING = 5;
 
 	private ElasticityHandlers() {
 	}
 
-	// ---- ownership / form queries -------------------------------------------------------------
+	// ================================================================ shared helpers / queries
+
+	private static float res(ServerPlayer p, String name) {
+		return BatchA.res(p, KEY, name);
+	}
+
+	private static void set(ServerPlayer p, String name, float v) {
+		BatchA.set(p, KEY, name, v);
+	}
+
+	/** Reads a resource from the synced attachment (works on both sides; the client only has its own player's). */
+	private static float resAny(Player p, String name) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
+	}
 
 	public static boolean owns(Player p) {
 		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		return st != null && st.ownedPowers.contains(KEY);
 	}
 
-	private static float res(Player p, String name) {
-		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
-		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
+	public static float stretch(ServerPlayer p) {
+		seed(p);
+		return res(p, "stretch");
 	}
 
-	/** True while the Elastic Form toggle is on (any of the three shapes). Read from the synced attachment. */
-	public static boolean formActiveClient(Player p) {
-		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
-		return st != null && st.ownedPowers.contains(KEY)
-				&& st.activeToggles.contains(KEY + "/elastic_form");
+	public static boolean limp(Player p) {
+		return owns(p) && resAny(p, "limp") > 0.5f;
 	}
 
-	private static boolean formActive(Player p) {
-		return formActiveClient(p);
+	public static float coil(Player p) {
+		return owns(p) ? resAny(p, "coil") : 0.0f;
 	}
 
-	/** The currently selected body shape (only meaningful while Elastic Form is toggled on). */
-	public static Form form(Player p) {
-		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
-		if (st == null) {
-			return Form.ELASTIC;
-		}
-		int idx = Math.round(st.resources.getOrDefault(KEY + "/form", 0.0f));
-		Form[] all = Form.values();
-		return all[Math.floorMod(idx, all.length)];
-	}
-
-	/** Rubber Shield is inflated right now (synced -- the client overlay and HeroDamageRules both read it). */
+	/** Rubber Shield is inflated right now (the balloon body). */
 	public static boolean shielding(Player p) {
-		return owns(p) && res(p, "shielding") > 0.5f;
+		return owns(p) && resAny(p, "shielding") > 0.5f;
 	}
 
-	/** Parachute Glide is running (synced -- the client glide physics read it). */
+	/** The Parachute canopy is out (also read by the client's glide steering). */
 	public static boolean gliding(Player p) {
-		return owns(p) && res(p, "glide_ticks") > 0.5f;
+		return owns(p) && resAny(p, "glide") > 0.5f;
 	}
 
-	/** A stretched arm is currently drawn. */
+	public static boolean balled(Player p) {
+		return owns(p) && resAny(p, "ball") > 0.5f;
+	}
+
+	public static boolean gatling(Player p) {
+		return owns(p) && resAny(p, "gatling") > 0.5f;
+	}
+
+	public static boolean longReach(Player p) {
+		return owns(p) && resAny(p, "reach") > 0.5f;
+	}
+
+	/** On the stilts of a Spring Stomp (rising or at the top). */
+	public static boolean onStilts(Player p) {
+		return owns(p) && Math.round(resAny(p, "stomp")) == 1;
+	}
+
+	/** The Shape Shift block's state id + 1, or 0. */
+	public static float shapeValue(Player p) {
+		return owns(p) ? resAny(p, "shape") : 0.0f;
+	}
+
+	public static boolean shapeShifted(Player p) {
+		return shapeValue(p) > 0.5f;
+	}
+
+	/** The id of the creature held in Wrap &amp; Squeeze, or 0. */
+	public static float wrapId(Player p) {
+		return owns(p) && resAny(p, "wrap_ticks") > 0.5f ? resAny(p, "wrap_id") : 0.0f;
+	}
+
+	/** The creature on the end of Elastic Grab, or 0. */
+	public static float grabId(Player p) {
+		return owns(p) && resAny(p, "grab_ticks") > 0.5f ? resAny(p, "grab_id") : 0.0f;
+	}
+
 	public static boolean armStretched(Player p) {
-		return owns(p) && res(p, "arm_ticks") > 0.5f;
+		return owns(p) && resAny(p, "arm_ticks") > 0.5f;
 	}
 
 	/** Stretched-arm length in blocks (0 when none) -- the {@code p17.arm_len} visual value. */
 	public static float armLength(Player p) {
-		return armStretched(p) ? res(p, "arm_len") : 0.0f;
+		return armStretched(p) ? resAny(p, "arm_len") : 0.0f;
 	}
 
 	/** Stretch start tick (game time mod 8192, +1 so it is never 0) -- the {@code p17.arm_t} visual value. */
 	public static float armStart(Player p) {
-		return armStretched(p) ? res(p, "arm_t") : 0.0f;
+		return armStretched(p) ? resAny(p, "arm_t") : 0.0f;
 	}
 
 	/** Arm draw mode + 1 -- the {@code p17.arm_mode} visual value. */
 	public static float armMode(Player p) {
-		return armStretched(p) ? res(p, "arm_mode") + 1.0f : 0.0f;
-	}
-
-	/** Any active body shape shrugs projectiles off outright -- read by {@link com.projecthero.mod.hero.power.HeroDamageRules}. */
-	public static boolean deflectsProjectiles(ServerPlayer p) {
-		return formActive(p) || shielding(p);
-	}
-
-	/** Extra damage every Elasticity ability deals while Elastic Form (the default shape) is on. */
-	public static float formAbilityBonus(ServerPlayer p) {
-		return formActive(p) && form(p) == Form.ELASTIC ? FORM_ABILITY_BONUS : 0.0f;
-	}
-
-	/** Damage-taken multiplier from the current form (Inflated: half) and the Rubber Shield (melee: -65%). */
-	public static float damageTakenFactor(ServerPlayer p) {
-		float f = formActive(p) && form(p) == Form.INFLATED ? 0.5f : 1.0f;
-		if (shielding(p)) {
-			f *= 0.35f;
-		}
-		return f;
+		return armStretched(p) ? resAny(p, "arm_mode") + 1.0f : 0.0f;
 	}
 
 	/**
-	 * Start drawing a stretched arm: {@code blocks} long, for {@code ticks} ticks, in draw mode {@code mode}.
-	 * Re-calling with {@link #ARM_HOLD} every tick keeps a held grab's arm out.
+	 * Start drawing a stretched arm: {@code blocks} long, for {@code ticks} ticks, in draw mode {@code mode}. Re-calling
+	 * with a held mode every tick keeps the arm out.
 	 */
 	public static void stretchArm(ServerPlayer p, double blocks, int ticks, int mode) {
-		Power power = Powers.byKey(KEY);
-		boolean renewing = mode == ARM_HOLD && res(p, "arm_ticks") > 0.5f && Math.round(res(p, "arm_mode")) == ARM_HOLD;
+		boolean held = mode == ARM_HOLD || mode == ARM_HOLD_BOTH || mode == ARM_GATLING;
+		boolean renewing = held && res(p, "arm_ticks") > 0.5f && Math.round(res(p, "arm_mode")) == mode;
 		if (renewing && res(p, "arm_ticks") > 2.5f && Math.abs(res(p, "arm_len") - blocks) < 0.4) {
 			return; // a held arm that has not moved: skip the resync
 		}
 		if (!renewing) {
-			ExperimentalPowers.setResource(p, power, "arm_t", (float) (p.level().getGameTime() % 8192L) + 1.0f, 9000.0f);
+			set(p, "arm_t", (float) (p.level().getGameTime() % 8192L) + 1.0f);
 		}
-		ExperimentalPowers.setResource(p, power, "arm_len", (float) Math.max(0.5, Math.min(48.0, blocks)), 64.0f);
-		ExperimentalPowers.setResource(p, power, "arm_ticks", ticks, 200.0f);
-		ExperimentalPowers.setResource(p, power, "arm_mode", mode, 10.0f);
+		set(p, "arm_len", (float) Math.max(0.5, Math.min(48.0, blocks)));
+		set(p, "arm_ticks", ticks);
+		set(p, "arm_mode", mode);
 	}
 
-	// ---- registration ----------------------------------------------------------------------------
+	private static void seed(ServerPlayer p) {
+		if (res(p, "seeded") < 0.5f) {
+			set(p, "seeded", 1);
+			set(p, "stretch", MAX_STRETCH);
+		}
+	}
+
+	/** Refuses (with the limp message) while limp. */
+	private static boolean canAct(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		seed(p);
+		if (limp(p)) {
+			ctx.actionBar("message.projecthero.elasticity.limp");
+			return false;
+		}
+		endShape(p); // any move breaks the disguise
+		return true;
+	}
+
+	/** Spends Stretch. The move that empties the meter still happens; then you go limp. */
+	public static void spend(ServerPlayer p, float amount) {
+		seed(p);
+		float s = Math.max(0.0f, res(p, "stretch") - amount);
+		set(p, "stretch", s);
+		if (s <= 0.01f && !limp(p)) {
+			goLimp(p);
+		}
+	}
+
+	private static void goLimp(ServerPlayer p) {
+		set(p, "limp", 1);
+		endChannels(p);
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, LIMP_SLOW_TICKS, 1, false, false, true));
+		p.displayClientMessage(Component.translatable("message.projecthero.elasticity.limp"), true);
+		MutationVisuals.play(p, "p17.limp");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, 0.5f);
+	}
+
+	/** Everything held stops: coils, Gatling, the balloon, a slingshot being pulled back. */
+	private static void endChannels(ServerPlayer p) {
+		set(p, "coil", 0);
+		set(p, "coil_kind", 0);
+		set(p, "coil_start", 0);
+		if (res(p, "gatling") > 0.5f) {
+			set(p, "gatling", 0);
+			MutationVisuals.stopIf(p, "p17.gatling");
+		}
+		if (res(p, "sling") > 0.5f) {
+			set(p, "sling", 0);
+			MutationVisuals.stopIf(p, "p17.sling");
+		}
+		endShield(p);
+		MutationVisuals.stopIf(p, "p17.windup");
+	}
+
+	private static boolean channelling(ServerPlayer p) {
+		return res(p, "coil_kind") > 0.5f || res(p, "gatling") > 0.5f || res(p, "shielding") > 0.5f || res(p, "sling") > 0.5f;
+	}
+
+	private static float coilFraction(ServerPlayer p) {
+		float start = res(p, "coil_start");
+		if (start <= 0.5f) {
+			return 0.0f;
+		}
+		long held = p.level().getGameTime() - (long) start;
+		return (float) Math.min(1.0, held / (double) COIL_MAX_TICKS);
+	}
+
+	private static boolean noBoss(LivingEntity t) {
+		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
+	}
+
+	private static Vec3 mid(Entity e) {
+		return e.position().add(0, e.getBbHeight() * 0.5, 0);
+	}
+
+	private static void slime(ServerLevel level, Vec3 at, int count, double spread) {
+		level.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, count, spread, spread, spread, 0.08);
+	}
+
+	// ================================================================ registration
 
 	public static void register() {
-		// R -- Stretch Punch. Tap for the base hit; hold to charge (+6 dmg/s, capped at +12). Holding
-		// past 2 s adds nothing to the damage but each extra second adds 0.85 s of cooldown.
+		// R -- Stretch Punch (tap / hold to coil) / Gatling Barrage (Shift, held). Also runs the power-wide upkeep.
 		AbilityHandlers.register(KEY, "stretch_punch", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (!ctx.cooldownReady()) {
-					ctx.actionBar("message.projecthero.ability.on_cooldown",
-							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-							String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+				if (!canAct(ctx)) {
 					return;
 				}
-				ctx.setResource("stretch_on", 1, 1);
-				ctx.setResource("stretch_start", ctx.player().level().getGameTime(), 1.0e12f);
-				MutationVisuals.play(ctx.player(), "p17.windup");
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					set(p, "gatling", 1);
+					set(p, "gatling_acc", 0.99f);
+					MutationVisuals.play(p, "p17.gatling");
+					AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 1.4f);
+					return;
+				}
+				startCoil(p, 1);
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				armTick(ctx);
-				if (ctx.resource("stretch_on") < 0.5f) {
-					return;
-				}
-				float start = ctx.resource("stretch_start");
-				long held = ctx.player().level().getGameTime() - (long) start;
-				if (held > STRETCH_MAX_TRACK_SECONDS * 20 + 20) {
-					fireStretch(ctx); // safety: released event lost
-					return;
-				}
-				MutationVisuals.ensure(ctx.player(), "p17.windup");
-				ctx.setResource("stretch_charge",
-						(float) Math.min(100.0, held / (double) (STRETCH_MAX_DMG_SECONDS * 20) * 100.0), 100);
-				if (held % 4 == 0) {
-					ServerPlayer p = ctx.player();
-					ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(),
-							3 + (int) Math.min(12, held / 3), 0.3, 0.4, 0.3, 0.02);
-				}
+				upkeep(ctx);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				fireStretch(ctx);
+				ServerPlayer p = ctx.player();
+				if (res(p, "gatling") > 0.5f) {
+					set(p, "gatling", 0);
+					MutationVisuals.stopIf(p, "p17.gatling");
+				}
+				if (Math.round(res(p, "coil_kind")) == 1) {
+					float f = coilFraction(p);
+					clearCoil(p);
+					stretchPunch(p, f);
+				}
 			}
 		});
 
-		// G -- Double Fist Slam. On the ground both arms shoot out for a heavy forward smash; more than 5
-		// blocks up it becomes a straight-down ground pound.
-		AbilityHandlers.register(KEY, "double_fist_slam", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (heightAboveGround(p) > SLAM_MIN_HEIGHT) {
-				p.setDeltaMovement(p.getDeltaMovement().x * 0.2, -2.6, p.getDeltaMovement().z * 0.2);
-				p.hurtMarked = true;
-				p.hasImpulse = true;
-				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
-				ctx.setResource("slamming", 1, 1);
-				MutationVisuals.play(p, "slam_two_hand");
-				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.5f);
-				ctx.triggerCooldown();
-				return;
-			}
-			Vec3 front = p.getEyePosition().add(p.getLookAngle().scale(7));
-			MutationVisuals.play(p, "p17.stretch_both");
-			stretchArm(p, 6.5, ARM_STRIKE_TICKS, ARM_BOTH);
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, front, 4.0)) {
-				AbilityHelpers.hurt(p, e, SLAM_ARC_DAMAGE + formAbilityBonus(p));
-				AbilityHelpers.knockbackFrom(e, p.getEyePosition(), 2.0);
-			}
-			AbilityHelpers.burst(ctx.level(), front, ParticleTypes.ITEM_SLIME, 30, 0.6);
-			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.2f, 0.7f);
-			ctx.triggerCooldown();
-		}, ctx -> {
-			if (ctx.resource("slamming") < 0.5f) {
-				return;
-			}
-			ServerPlayer p = ctx.player();
-			if (!p.onGround() && !p.isInWater()) {
-				p.setDeltaMovement(p.getDeltaMovement().x * 0.2, Math.min(p.getDeltaMovement().y, -2.6),
-						p.getDeltaMovement().z * 0.2);
-				p.hasImpulse = true;
-				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket(p));
-				p.resetFallDistance();
-				return;
-			}
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), 5.0)) {
-				AbilityHelpers.hurt(p, e, SLAM_DAMAGE + formAbilityBonus(p));
-				AbilityHelpers.knockbackFrom(e, p.position(), 1.4);
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
-			}
-			MutationVisuals.play(p, "hero_landing");
-			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY(), p.getZ(), 60, 2.5, 0.3, 2.5, 0.15);
-			ctx.level().sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
-			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.4f, 0.4f);
-			ctx.setResource("slamming", 0, 1);
-		}));
-
-		AbilityHandlers.register(KEY, "slingshot", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			LivingEntity target = AbilityHelpers.raycastEntity(p, SLING_RANGE);
-			if (target != null) {
-				Vec3 pull = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(p.getEyePosition());
-				AbilityHelpers.launchSelf(p, pull.normalize().scale(2.6).add(0, 0.25, 0));
-				ctx.setResource("sling_id", target.getId(), 1.0e9f);
-				ctx.setResource("sling_ticks", SLING_TICKS, SLING_TICKS);
-				stretchArm(p, pull.length(), 6, ARM_HOLD);
-				MutationVisuals.play(p, "p17.sling");
-				AbilityHelpers.line(ctx.level(), p.getEyePosition(), target.position(), ParticleTypes.ITEM_SLIME, 3.0);
-				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.8f);
-				ctx.triggerCooldown();
-				return;
-			}
-			var hit = AbilityHelpers.raycastBlock(p, SLING_RANGE);
-			if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
-				return;
-			}
-			Vec3 anchor = Vec3.atCenterOf(hit.getBlockPos());
-			Vec3 pull = anchor.subtract(p.position()).normalize().scale(2.8);
-			AbilityHelpers.launchSelf(p, pull.add(0, 0.3, 0));
-			stretchArm(p, anchor.distanceTo(p.getEyePosition()), 10, ARM_RIGHT);
-			MutationVisuals.play(p, "p17.stretch_right");
-			AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 1.0f);
-			ctx.triggerCooldown();
-		}, ElasticityHandlers::slingTick));
-
-		// Z -- Giant Hammer Fist: both arms stretch out and swell into giant fists that slam the aim point.
-		AbilityHandlers.register(KEY, "giant_hammer_fist", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			Vec3 at = AbilityHelpers.aimPoint(p, 8.0);
-			MutationVisuals.play(p, "p17.hammer");
-			stretchArm(p, at.distanceTo(p.getEyePosition()) - 0.6, 18, ARM_HAMMER);
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, 4.5)) {
-				AbilityHelpers.hurt(p, e, HAMMER_DAMAGE + formAbilityBonus(p));
-				AbilityHelpers.knockbackFrom(e, at, 1.5);
-				AbilityHelpers.push(e, new Vec3(0, -0.4, 0));
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 2);
-			}
-			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, 80, 2.5, 0.5, 2.5, 0.2);
-			ctx.level().sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
-			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.4f, 0.4f);
-			ctx.triggerCooldown();
-		}));
-
-		// V -- Elastic Grab: the arm shoots out, wraps the target and reels it in; press again to hurl it.
-		AbilityHandlers.register(KEY, "elastic_grab", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (GrabHelper.isHolding(ctx)) {
-				GrabHelper.throwHeld(ctx, 2.4, GRAB_THROW_DAMAGE + formAbilityBonus(p));
-				MutationVisuals.play(p, "throw_right");
-				stretchArm(p, 3.0, 8, ARM_RIGHT);
-				ctx.triggerCooldown();
-				return;
-			}
-			LivingEntity aimed = AbilityHelpers.raycastEntity(p, 15.0);
-			if (GrabHelper.tryGrab(ctx, 15.0, 120)) {
-				if (aimed != null) {
-					stretchArm(p, aimed.distanceTo(p), 4, ARM_HOLD);
-					AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), aimed.position().add(0, aimed.getBbHeight() * 0.5, 0),
-							ParticleTypes.ITEM_SLIME, 2.0);
-				}
-				MutationVisuals.play(p, "p17.grab_hold");
-				AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.3f);
-				ctx.actionBar("message.projecthero.ability.grabbed");
-			} else {
-				MutationVisuals.play(p, "p17.stretch_right");
-				stretchArm(p, 12.0, 10, ARM_RIGHT);
-			}
-		}, ctx -> {
-			boolean was = GrabHelper.isHolding(ctx);
-			GrabHelper.tick(ctx, 2.5);
-			ServerPlayer p = ctx.player();
-			if (GrabHelper.isHolding(ctx)) {
-				LivingEntity held = GrabHelper.held(ctx);
-				if (held != null) {
-					stretchArm(p, Math.max(1.0, held.distanceTo(p) - 0.4), 6, ARM_HOLD);
-				}
-				MutationVisuals.ensure(p, "p17.grab_hold");
-			} else if (was) {
-				MutationVisuals.stopIf(p, "p17.grab_hold");
-			}
-		}));
-
-		// C -- Elastic Form. Plain C toggles Elastic (the default shape); Shift + C opens the wheel to
-		// pick Elastic / Inflated / Compression (and turns the form on if it was off).
-		AbilityHandlers.register(KEY, "elastic_form", new AbilityHandler() {
+		// G -- Elastic Grab (press again to hurl) / Wrap & Squeeze (Shift; press again to let go)
+		AbilityHandlers.register(KEY, "elastic_grab", new AbilityHandler() {
 			@Override
-			public void onToggleOn(AbilityContext ctx) {
+			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
-				if (p.isShiftKeyDown()) {
-					// keep the toggle on but let the wheel choose the shape
-					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
-							com.projecthero.mod.network.ElasticFormWheelPayload.INSTANCE);
-				} else {
-					ctx.setResource("form", Form.ELASTIC.ordinal(), 10);
-				}
-				applyForm(p, form(p));
-				MutationVisuals.play(p, "p17.form_stretch");
-				AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 0.8f, 1.4f);
-			}
-
-			@Override
-			public void onToggleOff(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				if (p.isShiftKeyDown()) {
-					// Shift + C always means "open the form wheel", never "turn the form off".
-					ctx.setToggled(true);
-					net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
-							com.projecthero.mod.network.ElasticFormWheelPayload.INSTANCE);
+				if (res(p, "wrap_ticks") > 0.5f) {
+					endWrap(p);
 					return;
 				}
-				clearForm(p);
+				if (!canAct(ctx)) {
+					return;
+				}
+				if (p.isShiftKeyDown()) {
+					wrap(ctx);
+				} else if (res(p, "grab_ticks") > 0.5f) {
+					hurl(p);
+				} else {
+					grab(ctx);
+				}
 			}
 
 			@Override
-			public void onToggleTick(AbilityContext ctx) {
-				ServerPlayer p = ctx.player();
-				applyForm(p, form(p));
-				AbilityHelpers.modeAura(p, ParticleTypes.ITEM_SLIME, 3);
+			public void onServerTick(AbilityContext ctx) {
+				grabTick(ctx.player(), ctx.level());
+				hurlTick(ctx.player(), ctx.level());
+				wrapTick(ctx.player(), ctx.level());
 			}
 		});
 
-		// H -- Rubber Shield (hold): inflate into a balloon. Projectiles bounce straight back at whoever fired
-		// them, melee attackers are flung away, melee damage is cut 65%, but you are slow and it drains Rubber.
+		// X -- Slingshot (hold to pull back, release to launch) / Rubber Ball (Shift)
+		AbilityHandlers.register(KEY, "slingshot", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown() && res(p, "ball") > 0.5f) {
+					endBall(p); // a second Shift+X rolls back out early
+					return;
+				}
+				if (!canAct(ctx)) {
+					return;
+				}
+				if (p.isShiftKeyDown()) {
+					startBall(p);
+				} else {
+					startSling(ctx);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				slingTick(ctx.player(), ctx.level());
+				ballTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				releaseSling(ctx.player(), ctx.level());
+			}
+		});
+
+		// Z -- Giant Hammer Fist (hold to coil) / Spring Stomp (Shift)
+		AbilityHandlers.register(KEY, "giant_hammer_fist", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "stomp_cd") > 0.5f) {
+						cooling(ctx, "stomp_cd");
+						return;
+					}
+					if (canAct(ctx)) {
+						startStomp(p);
+					}
+					return;
+				}
+				if (res(p, "hammer_cd") > 0.5f) {
+					cooling(ctx, "hammer_cd");
+					return;
+				}
+				if (canAct(ctx)) {
+					startCoil(p, 2);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				stompTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (Math.round(res(p, "coil_kind")) == 2) {
+					float f = coilFraction(p);
+					clearCoil(p);
+					hammer(p, f);
+				}
+			}
+		});
+
+		// V -- Rubber Shield (held balloon) / Parachute (Shift, toggle)
 		AbilityHandlers.register(KEY, "rubber_shield", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
-				if (!ctx.cooldownReady()) {
-					ctx.actionBar("message.projecthero.ability.on_cooldown",
-							net.minecraft.network.chat.Component.translatable(ctx.ability().nameKey()),
-							String.format(java.util.Locale.ROOT, "%.1f", ctx.cooldownRemaining() / 20.0f));
+				if (p.isShiftKeyDown()) {
+					if (res(p, "glide") > 0.5f) {
+						endGlide(p);
+					} else if (canAct(ctx)) {
+						startGlide(p);
+					}
 					return;
 				}
-				seedRubber(p);
-				if (ctx.resource("rubber") < RUBBER_MIN) {
-					ctx.actionBar("message.projecthero.elasticity.rubber_low");
+				if (!canAct(ctx)) {
 					return;
 				}
-				ctx.setResource("shielding", 1, 1);
-				PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SHIELD_SPEED, -0.5, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-				PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, SHIELD_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
-				MutationVisuals.play(p, "p17.inflate");
-				ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.6, 0.7, 0.6, 0.1);
-				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.2f, 0.45f);
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				endShield(ctx);
+				startShield(p);
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				shieldTick(ctx);
+				shieldTick(ctx.player());
+				glideTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				endShield(ctx.player());
 			}
 		});
 
-		// N -- Parachute Glide: flatten into a canopy -- slow fall plus a forward glide steered by where you
-		// look, up to 8 s or until you land. Press again to fold up early. No sneak variant (Sneak+N is combos).
-		AbilityHandlers.register(KEY, "parachute_glide", Handlers.instantTicking(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (ctx.resource("glide_ticks") > 0.5f) {
-				endGlide(ctx);
-				return;
+		// C -- Long Reach (toggle) / Shape Shift (Shift)
+		AbilityHandlers.register(KEY, "long_reach", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "shape") > 0.5f) {
+						endShape(p);
+						return;
+					}
+					if (res(p, "shape_cd") > 0.5f) {
+						cooling(ctx, "shape_cd");
+						return;
+					}
+					if (canAct(ctx)) {
+						shapeShift(ctx);
+					}
+					return;
+				}
+				if (res(p, "reach") > 0.5f) {
+					setReach(p, false);
+					ctx.actionBar("message.projecthero.elasticity.reach_off");
+				} else if (canAct(ctx)) {
+					setReach(p, true);
+					ctx.actionBar("message.projecthero.elasticity.reach_on");
+					MutationVisuals.play(p, "p17.stretch_both");
+					stretchArm(p, 4.0, 10, ARM_BOTH);
+					AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 0.8f, 1.5f);
+				}
 			}
-			startGlide(ctx);
-		}, ElasticityHandlers::glideTick));
 
-		// Enemies that land a melee hit on Elastic Form get bounced back -- gently in Elastic, ~10 blocks in
-		// Inflated, and hardest of all off the inflated Rubber Shield.
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				reachTick(ctx.player(), ctx.level());
+				shapeTick(ctx.player(), ctx.level());
+			}
+		});
+
+		// the balloon flings melee attackers away (also when the hit was swallowed whole)
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
-			if (!(entity instanceof ServerPlayer sp) || !(formActive(sp) || shielding(sp))) {
-				return;
-			}
-			if (!(source.getEntity() instanceof LivingEntity attacker) || source.getDirectEntity() != attacker
-					|| sp.distanceToSqr(attacker) >= 100.0) {
-				return;
-			}
-			bounceAttacker(sp, attacker);
-		});
-		// the same bounce when the whole hit was swallowed (Rubber Shield immune projectile / low damage)
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayer sp && shielding(sp) && source.getEntity() instanceof LivingEntity attacker
-					&& source.getDirectEntity() == attacker && sp.distanceToSqr(attacker) < 100.0 && amount * 0.35f < 0.5f) {
+			if (entity instanceof ServerPlayer sp && shielding(sp) && meleeAttacker(sp, source) instanceof LivingEntity attacker) {
 				bounceAttacker(sp, attacker);
 			}
-			return true;
+		});
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register(ElasticityHandlers::allowDamage);
+
+		// Long Reach: the arm visibly stretches out to whatever you hit or use beyond normal reach
+		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) -> {
+			reachVisual(player, Vec3.atCenterOf(pos));
+			return InteractionResult.PASS;
+		});
+		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			reachVisual(player, hit.getLocation());
+			return InteractionResult.PASS;
+		});
+		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (player instanceof ServerPlayer sp && owns(sp)) {
+				endShape(sp); // attacking breaks the disguise
+			}
+			reachVisual(player, mid(entity));
+			return InteractionResult.PASS;
+		});
+		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			reachVisual(player, mid(entity));
+			return InteractionResult.PASS;
 		});
 
 		registerPassives();
 	}
 
-	/** Flings a melee attacker away -- the Elastic / Inflated form bounce, or the Rubber Shield's much harder one. */
-	public static void bounceAttacker(ServerPlayer sp, LivingEntity attacker) {
-		boolean shield = shielding(sp);
-		Form f = form(sp);
-		if (!shield && f == Form.COMPRESSION) {
-			return;
-		}
-		Vec3 away = attacker.position().subtract(sp.position());
-		away = away.lengthSqr() < 1.0e-4 ? sp.getLookAngle().reverse() : away.normalize();
-		double power = shield ? 3.0 : f == Form.INFLATED ? 2.6 : 0.9;
-		attacker.setDeltaMovement(away.scale(power).add(0, shield || f == Form.INFLATED ? 0.6 : 0.35, 0));
-		attacker.hurtMarked = true;
-		attacker.hasImpulse = true;
-		if (shield || f == Form.INFLATED) {
-			AbilityHelpers.sound(sp, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
-			AbilityHelpers.level(sp).sendParticles(ParticleTypes.ITEM_SLIME, attacker.getX(), attacker.getY() + 1.0,
-					attacker.getZ(), 12, 0.3, 0.4, 0.3, 0.1);
-		}
+	private static void cooling(AbilityContext ctx, String timer) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
 	}
 
-	// ---- stretched arm upkeep --------------------------------------------------------------------
+	// ================================================================ upkeep (every tick for an owner)
 
-	private static void armTick(AbilityContext ctx) {
-		float left = ctx.resource("arm_ticks");
-		if (left > 0.5f) {
-			ctx.setResource("arm_ticks", left - 1, 200.0f);
-		}
-	}
-
-	// ---- Stretch Punch charge -------------------------------------------------------------------
-
-	private static void fireStretch(AbilityContext ctx) {
-		if (ctx.resource("stretch_on") < 0.5f) {
-			return;
-		}
-		float start = ctx.resource("stretch_start");
-		ctx.setResource("stretch_on", 0, 1);
-		ctx.setResource("stretch_start", 0, 1.0e12f);
+	private static void upkeep(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		long heldTicks = Math.max(0L, p.level().getGameTime() - (long) start);
-		int heldSeconds = (int) Math.min(STRETCH_MAX_TRACK_SECONDS, heldTicks / 20);
-		int dmgSeconds = Math.min(STRETCH_MAX_DMG_SECONDS, heldSeconds);
-		float damage = STRETCH_BASE_DMG + dmgSeconds * STRETCH_DMG_PER_SEC + formAbilityBonus(p);
-		ctx.setResource("stretch_charge", 0, 100);
+		seed(p);
+		for (String timer : new String[] { "arm_ticks", "hammer_cd", "stomp_cd", "shape_cd" }) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, v - 1);
+			}
+		}
+		// Stretch refills while nothing held is running -- twice as fast standing still
+		float s = res(p, "stretch");
+		if (s < MAX_STRETCH && !channelling(p)) {
+			Vec3 mv = p.getKnownMovement();
+			boolean still = p.onGround() && mv.x * mv.x + mv.z * mv.z < 1.0e-4;
+			s = Math.min(MAX_STRETCH, s + STRETCH_REGEN_PER_TICK * (still ? 2.0f : 1.0f));
+			set(p, "stretch", s);
+		}
+		if (limp(p)) {
+			if (s >= LIMP_RECOVER) {
+				set(p, "limp", 0);
+				MutationVisuals.stopIf(p, "p17.limp");
+				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP_SMALL, 1.0f, 1.3f);
+			} else {
+				MutationVisuals.ensure(p, "p17.limp");
+			}
+		}
+		// coils (R / Z): build the bar, twist the limb
+		float kind = res(p, "coil_kind");
+		if (kind > 0.5f) {
+			float f = coilFraction(p);
+			set(p, "coil", f * 100.0f);
+			MutationVisuals.ensure(p, "p17.windup");
+			long held = p.level().getGameTime() - (long) res(p, "coil_start");
+			if (held > 6 * 20) {
+				// safety: the release was lost
+				clearCoil(p);
+				if (Math.round(kind) == 2) {
+					hammer(p, 1.0f);
+				} else {
+					stretchPunch(p, 1.0f);
+				}
+			} else if (held % 4 == 0) {
+				ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.2, p.getZ(), 2 + (int) (f * 8),
+						0.35, 0.3, 0.35, 0.02);
+			}
+		}
+		gatlingTick(p, ctx.level());
+		if (p.tickCount % 100 == 37) {
+			dropLegacyState(p);
+		}
+	}
 
-		double range = 15.0 + dmgSeconds * 2.0;
+	/** Pre-v0.16.5 Elastic Form / shield modifiers and effects are inert now: clear them out of old saves. */
+	private static void dropLegacyState(ServerPlayer p) {
+		for (ResourceLocation id : LEGACY) {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, id);
+			PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, id);
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, id);
+			PowerToggles.clearModifier(p, Attributes.SCALE, id);
+			PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, id);
+		}
+		var jump = p.getEffect(MobEffects.JUMP);
+		if (jump != null && jump.isInfiniteDuration()) {
+			p.removeEffect(MobEffects.JUMP);
+		}
+		var slow = p.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		if (slow != null && slow.isInfiniteDuration()) {
+			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+		}
+	}
+
+	// ================================================================ R: Stretch Punch / Gatling Barrage
+
+	private static void startCoil(ServerPlayer p, int kind) {
+		set(p, "coil_kind", kind);
+		set(p, "coil_start", p.level().getGameTime());
+		set(p, "coil", 0);
+		MutationVisuals.play(p, "p17.windup");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 0.9f, 0.7f);
+	}
+
+	private static void clearCoil(ServerPlayer p) {
+		set(p, "coil_kind", 0);
+		set(p, "coil_start", 0);
+		set(p, "coil", 0);
+		MutationVisuals.stopIf(p, "p17.windup");
+	}
+
+	/** Damage of a Stretch Punch coiled for {@code coil} (0..1) of the full 1.5 s. */
+	public static float punchDamage(float coil) {
+		return PUNCH_DAMAGE + (PUNCH_DAMAGE_COILED - PUNCH_DAMAGE) * coil;
+	}
+
+	/** The arm shoots out (up to 18 blocks, 22 coiled) and snaps back. */
+	public static void stretchPunch(ServerPlayer p, float coil) {
+		ServerLevel level = AbilityHelpers.level(p);
+		double range = PUNCH_RANGE + (PUNCH_RANGE_COILED - PUNCH_RANGE) * coil;
 		LivingEntity t = AbilityHelpers.raycastEntity(p, range);
-		Vec3 end = AbilityHelpers.aimPoint(p, range);
+		Vec3 end = t != null ? mid(t) : AbilityHelpers.aimPoint(p, range);
+		spend(p, COST_PUNCH);
 		MutationVisuals.play(p, "p17.stretch_right");
-		stretchArm(p, end.distanceTo(p.getEyePosition()) - 0.5, ARM_STRIKE_TICKS, ARM_RIGHT);
-		AbilityHelpers.line(ctx.level(), AbilityHelpers.handPosition(p), end, ParticleTypes.ITEM_SLIME, 2.0);
+		stretchArm(p, end.distanceTo(p.getEyePosition()) - 0.3, ARM_STRIKE_TICKS, ARM_RIGHT);
 		if (t != null) {
-			AbilityHelpers.hurt(p, t, damage);
-			AbilityHelpers.knockbackFrom(t, p.position(), 0.9 + dmgSeconds * 0.4);
-			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(),
-					16, 0.3, 0.3, 0.3, 0.12);
+			AbilityHelpers.hurt(p, t, punchDamage(coil));
+			AbilityHelpers.knockbackFrom(t, p.position(), 0.8 + 1.8 * coil);
+			slime(level, mid(t), 14 + (int) (coil * 20), 0.3);
+		} else {
+			slime(level, end, 8, 0.2);
 		}
-		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.2f - heldSeconds * 0.15f);
-		// base 1.7 s cooldown, +0.85 s for every second the punch was held past release-immediately.
-		ctx.triggerCooldown(34 + heldSeconds * 17);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.3f - coil * 0.5f);
+		if (coil > 0.95f) {
+			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+		}
 	}
 
-	// ---- Slingshot upkeep ---------------------------------------------------------------------
+	private static void gatlingTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "gatling") < 0.5f) {
+			return;
+		}
+		if (!p.isAlive()) {
+			set(p, "gatling", 0);
+			return;
+		}
+		MutationVisuals.ensure(p, "p17.gatling");
+		stretchArm(p, 6.0 + (p.tickCount % 3), 4, ARM_GATLING);
+		float acc = res(p, "gatling_acc") + GATLING_HITS_PER_SECOND / 20.0f;
+		if (acc >= 1.0f) {
+			acc -= 1.0f;
+			gatlingVolley(p, level);
+		}
+		set(p, "gatling_acc", acc);
+		spend(p, COST_GATLING_PER_SECOND / 20.0f);
+	}
 
-	private static void slingTick(AbilityContext ctx) {
-		float left = ctx.resource("sling_ticks");
-		if (left <= 0.5f) {
-			return;
+	/** One punch of the barrage: everything hostile in the cone in front takes 3. Returns how many were hit. */
+	public static int gatlingVolley(ServerPlayer p, ServerLevel level) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		int hit = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, eye.add(look.scale(GATLING_RANGE * 0.5)), GATLING_RANGE * 0.5 + 1.5)) {
+			Vec3 to = mid(e).subtract(eye);
+			double d = to.length();
+			if (d > GATLING_RANGE + e.getBbWidth() || d < 1.0e-3 || to.scale(1.0 / d).dot(look) < GATLING_CONE) {
+				continue;
+			}
+			// the barrage keeps its own 6-a-second count, so it runs past the hit-invulnerability window
+			if (AbilityHelpers.hurtBurst(p, e, GATLING_DAMAGE)) {
+				hit++;
+				AbilityHelpers.knockbackFrom(e, p.position(), 0.12);
+				slime(level, mid(e), 4, 0.25);
+			}
 		}
+		Vec3 at = eye.add(look.scale(2.5)).add((p.getRandom().nextDouble() - 0.5) * 1.6, (p.getRandom().nextDouble() - 0.5) * 1.0,
+				(p.getRandom().nextDouble() - 0.5) * 1.6);
+		level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.01);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 0.6f, 1.3f + p.getRandom().nextFloat() * 0.4f);
+		return hit;
+	}
+
+	// ================================================================ G: Elastic Grab / Wrap & Squeeze
+
+	private static boolean grabbable(ServerPlayer p, LivingEntity t) {
+		return t != null && AbilityHelpers.isValidGrabTarget(t, p) && noBoss(t);
+	}
+
+	private static void grab(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		ctx.setResource("sling_ticks", left - 1.0f, SLING_TICKS);
-		int id = (int) ctx.resource("sling_id");
-		if (id == 0 || !(p.level().getEntity(id) instanceof LivingEntity target) || !target.isAlive()) {
-			endSling(ctx);
+		LivingEntity t = AbilityHelpers.raycastEntity(p, GRAB_RANGE);
+		if (!grabbable(p, t)) {
+			MutationVisuals.play(p, "p17.stretch_right");
+			stretchArm(p, AbilityHelpers.aimPoint(p, GRAB_RANGE).distanceTo(p.getEyePosition()), 10, ARM_RIGHT);
+			ctx.actionBar("message.projecthero.elasticity.no_target");
 			return;
 		}
-		Vec3 to = target.position().add(0, target.getBbHeight() * 0.5, 0).subtract(p.getEyePosition());
-		double dist = to.length();
-		if (dist <= SLING_IMPACT_RANGE) {
-			AbilityHelpers.hurt(p, target, SLING_DAMAGE + formAbilityBonus(p));
-			AbilityHelpers.knockbackFrom(target, p.position(), 1.2);
-			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
-			p.setDeltaMovement(p.getDeltaMovement().scale(-0.15));
-			p.hurtMarked = true;
-			MutationVisuals.play(p, "double_punch");
-			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, target.getX(), target.getY() + 1.0, target.getZ(),
-					40, 0.5, 0.5, 0.5, 0.15);
-			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.3f, 0.8f);
-			endSling(ctx);
+		spend(p, COST_GRAB);
+		set(p, "grab_id", t.getId());
+		set(p, "grab_ticks", GRAB_HOLD_TICKS);
+		stretchArm(p, t.distanceTo(p), 6, ARM_HOLD);
+		MutationVisuals.play(p, "p17.grab_hold");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 1.3f);
+		ctx.actionBar("message.projecthero.ability.grabbed");
+	}
+
+	/** The creature on the end of the grab, or null (and the grab is cleared). */
+	private static LivingEntity held(ServerPlayer p, ServerLevel level) {
+		int id = (int) res(p, "grab_id");
+		if (id != 0 && level.getEntity(id) instanceof LivingEntity le && le.isAlive() && le.distanceToSqr(p) < 30 * 30) {
+			return le;
+		}
+		return null;
+	}
+
+	private static void clearGrab(ServerPlayer p) {
+		set(p, "grab_id", 0);
+		set(p, "grab_ticks", 0);
+		MutationVisuals.stopIf(p, "p17.grab_hold");
+	}
+
+	/** Reels the held creature in to arm's length and keeps it there. */
+	private static void grabTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "grab_ticks");
+		if (left < 0.5f) {
 			return;
 		}
-		stretchArm(p, dist, 4, ARM_HOLD);
+		LivingEntity le = held(p, level);
+		if (le == null || left <= 1.0f) {
+			clearGrab(p);
+			return;
+		}
+		set(p, "grab_ticks", left - 1);
+		Vec3 hold = p.getEyePosition().add(p.getLookAngle().scale(GRAB_HOLD_DISTANCE)).subtract(0, le.getBbHeight() * 0.5, 0);
+		Vec3 now = le.position();
+		Vec3 next = now.distanceToSqr(hold) < 0.04 ? hold : now.add(hold.subtract(now).scale(0.35));
+		le.setPos(next.x, next.y, next.z);
+		le.setDeltaMovement(Vec3.ZERO);
+		le.fallDistance = 0;
+		le.hurtMarked = true;
+		stretchArm(p, Math.max(1.0, le.distanceTo(p) - 0.4), 6, ARM_HOLD);
+		MutationVisuals.ensure(p, "p17.grab_hold");
+	}
+
+	/** Hurls the held creature where you look. 10 on landing, 16 if it hits a wall or another mob. */
+	public static boolean hurl(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		LivingEntity le = held(p, level);
+		clearGrab(p);
+		if (le == null) {
+			return false;
+		}
+		le.setDeltaMovement(p.getLookAngle().scale(2.4).add(0, 0.3, 0));
+		le.hurtMarked = true;
+		le.hasImpulse = true;
+		set(p, "thrown_id", le.getId());
+		set(p, "thrown_ticks", HURL_FLIGHT_TICKS);
+		MutationVisuals.play(p, "throw_right");
+		stretchArm(p, 3.0, 8, ARM_RIGHT);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.8f);
+		return true;
+	}
+
+	private static void hurlTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "thrown_ticks");
+		if (left < 0.5f) {
+			return;
+		}
+		set(p, "thrown_ticks", left - 1);
+		int age = HURL_FLIGHT_TICKS - (int) left;
+		Entity e = level.getEntity((int) res(p, "thrown_id"));
+		if (!(e instanceof LivingEntity le) || !le.isAlive()) {
+			set(p, "thrown_ticks", 0);
+			return;
+		}
+		LivingEntity struck = null;
+		for (LivingEntity o : level.getEntitiesOfClass(LivingEntity.class, le.getBoundingBox().inflate(0.35),
+				o -> o != le && o != p && o.isAlive() && !(o instanceof net.minecraft.world.entity.decoration.ArmorStand))) {
+			struck = o;
+			break;
+		}
+		if (le.horizontalCollision || struck != null) {
+			hurlLanded(p, le, true);
+			if (struck != null) {
+				AbilityHelpers.hurtBurst(p, struck, HURL_IMPACT_BONUS);
+				AbilityHelpers.knockbackFrom(struck, le.position(), 0.8);
+			}
+		} else if ((age > 3 && le.onGround()) || left <= 1.0f) {
+			hurlLanded(p, le, false);
+		}
+	}
+
+	/** The thrown creature hit something (or the ground): the damage lands now. */
+	public static void hurlLanded(ServerPlayer p, LivingEntity le, boolean impact) {
+		set(p, "thrown_ticks", 0);
+		set(p, "thrown_id", 0);
+		AbilityHelpers.hurtBurst(p, le, HURL_DAMAGE + (impact ? HURL_IMPACT_BONUS : 0.0f));
+		ServerLevel level = AbilityHelpers.level(p);
+		slime(level, mid(le), impact ? 24 : 10, 0.4);
+		if (impact) {
+			level.playSound(null, le.getX(), le.getY(), le.getZ(), SoundEvents.SLIME_SQUISH, net.minecraft.sounds.SoundSource.PLAYERS, 1.3f, 0.6f);
+		}
+	}
+
+	private static void wrap(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		LivingEntity t = held(p, level);
+		if (t == null) {
+			t = AbilityHelpers.raycastEntity(p, WRAP_RANGE);
+		}
+		if (!grabbable(p, t) || !HeroTargets.canHarm(p, t) || Squads.areAllies(p, t)) {
+			ctx.actionBar("message.projecthero.elasticity.no_target");
+			return;
+		}
+		clearGrab(p);
+		spend(p, COST_WRAP);
+		set(p, "wrap_id", t.getId());
+		set(p, "wrap_ticks", WRAP_TICKS);
+		ExperimentalPowers.setMarker(p, Powers.byKey(KEY), "wrap_at", t.blockPosition());
+		MutationVisuals.play(p, "p17.wrap");
+		stretchArm(p, Math.max(1.0, t.distanceTo(p) - 0.3), 6, ARM_HOLD_BOTH);
+		if (t instanceof Mob m) {
+			m.setTarget(null);
+			m.getNavigation().stop();
+		}
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
+		ctx.actionBar("message.projecthero.elasticity.wrapped");
+	}
+
+	private static void wrapTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "wrap_ticks");
+		if (left < 0.5f) {
+			return;
+		}
+		Entity e = level.getEntity((int) res(p, "wrap_id"));
+		if (!(e instanceof LivingEntity t) || !t.isAlive() || left <= 1.0f || t.distanceToSqr(p) > 12 * 12 || !p.isAlive()) {
+			endWrap(p);
+			return;
+		}
+		set(p, "wrap_ticks", left - 1);
+		// held fast: no moving, no attacking (the attack half is in allowDamage)
+		BlockPos pin = ExperimentalPowers.getMarker(p, Powers.byKey(KEY), "wrap_at");
+		if (pin != null) {
+			t.setPos(pin.getX() + 0.5, Math.min(t.getY(), pin.getY() + 0.5), pin.getZ() + 0.5);
+		}
+		t.setDeltaMovement(0, Math.min(0, t.getDeltaMovement().y), 0);
+		t.hurtMarked = true;
+		if (t instanceof Mob m) {
+			m.setTarget(null);
+			m.getNavigation().stop();
+		}
+		int age = WRAP_TICKS - (int) left + 1; // ticks held, this one included
+		if (age % 20 == 0) {
+			wrapSqueeze(p, t);
+		}
+		stretchArm(p, Math.max(1.0, t.distanceTo(p) - 0.3), 6, ARM_HOLD_BOTH);
+		MutationVisuals.ensure(p, "p17.wrap");
+	}
+
+	/** One squeeze of the wrap: 4 damage (once a second). */
+	public static void wrapSqueeze(ServerPlayer p, LivingEntity t) {
+		AbilityHelpers.hurtBurst(p, t, WRAP_DAMAGE_PER_SECOND);
+		slime(AbilityHelpers.level(p), mid(t), 8, 0.3);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 1.0f, 0.8f);
+	}
+
+	public static void endWrap(ServerPlayer p) {
+		if (res(p, "wrap_ticks") < 0.5f && res(p, "wrap_id") < 0.5f) {
+			return;
+		}
+		set(p, "wrap_ticks", 0);
+		set(p, "wrap_id", 0);
+		MutationVisuals.stopIf(p, "p17.wrap");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP_SMALL, 1.0f, 1.2f);
+	}
+
+	/** True while {@code e} is wrapped up by any elastic player (it cannot attack). */
+	public static boolean isWrapped(Entity e) {
+		if (!(e.level() instanceof ServerLevel sl)) {
+			return false;
+		}
+		for (ServerPlayer p : sl.players()) {
+			if (owns(p) && res(p, "wrap_ticks") > 0.5f && (int) res(p, "wrap_id") == e.getId()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ================================================================ X: Slingshot / Rubber Ball
+
+	private static void startSling(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		BlockHitResult hit = AbilityHelpers.raycastBlock(p, SLING_RANGE);
+		if (hit.getType() != HitResult.Type.BLOCK) {
+			ctx.actionBar("message.projecthero.elasticity.no_anchor");
+			return;
+		}
+		Vec3 a = Vec3.atCenterOf(hit.getBlockPos());
+		set(p, "sling", 1);
+		set(p, "sling_start", p.level().getGameTime());
+		ExperimentalPowers.setMarker(p, Powers.byKey(KEY), "sling_at", hit.getBlockPos());
+		MutationVisuals.play(p, "p17.sling");
+		stretchArm(p, a.distanceTo(p.getEyePosition()) - 0.6, 6, ARM_HOLD_BOTH);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_ATTACK, 1.0f, 0.9f);
+	}
+
+	private static Vec3 slingAnchor(ServerPlayer p) {
+		BlockPos b = ExperimentalPowers.getMarker(p, Powers.byKey(KEY), "sling_at");
+		return b == null ? p.getEyePosition().add(p.getLookAngle().scale(10)) : Vec3.atCenterOf(b);
+	}
+
+	private static void slingTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "sling") < 0.5f) {
+			return;
+		}
+		Vec3 a = slingAnchor(p);
+		long held = p.level().getGameTime() - (long) res(p, "sling_start");
+		float pull = (float) Math.min(1.0, held / (double) SLING_PULL_TICKS);
+		set(p, "coil", pull * 100.0f); // the pull-back shows on the coil bar
 		MutationVisuals.ensure(p, "p17.sling");
-		AbilityHelpers.launchSelf(p, to.normalize().scale(Math.min(2.6, 0.9 + dist * 0.12)).add(0, 0.08, 0));
-		p.resetFallDistance();
-		AbilityHelpers.line(ctx.level(), p.getEyePosition(), target.position(), ParticleTypes.ITEM_SLIME, 2.0);
-	}
-
-	private static void endSling(AbilityContext ctx) {
-		ctx.setResource("sling_ticks", 0, SLING_TICKS);
-		ctx.setResource("sling_id", 0, 1.0e9f);
-		MutationVisuals.stopIf(ctx.player(), "p17.sling");
-	}
-
-	// ---- H: Rubber Shield -----------------------------------------------------------------------
-
-	private static void seedRubber(ServerPlayer p) {
-		if (!ExperimentalPowers.state(p).resources.containsKey(KEY + "/rubber")) {
-			ExperimentalPowers.setResource(p, Powers.byKey(KEY), "rubber", MAX_RUBBER, MAX_RUBBER);
+		stretchArm(p, a.distanceTo(p.getEyePosition()) - 0.6, 6, ARM_HOLD_BOTH);
+		if (held > 8 * 20) {
+			releaseSling(p, level); // safety: the release was lost
+		} else if (held % 3 == 0) {
+			level.sendParticles(ParticleTypes.ITEM_SLIME, a.x, a.y, a.z, 2, 0.15, 0.15, 0.15, 0.02);
 		}
 	}
 
-	private static void shieldTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (ctx.resource("shielding") < 0.5f) {
+	/** Launch speed of a slingshot pulled back for {@code pull} (0..1). */
+	public static double slingSpeed(float pull) {
+		return 1.8 + 1.4 * pull;
+	}
+
+	private static void releaseSling(ServerPlayer p, ServerLevel level) {
+		if (res(p, "sling") < 0.5f) {
 			return;
 		}
-		ctx.addResource("rubber", -RUBBER_DRAIN, MAX_RUBBER);
-		if (ctx.resource("rubber") <= 0.0f || !p.isAlive()) {
-			endShield(ctx);
+		long held = p.level().getGameTime() - (long) res(p, "sling_start");
+		float pull = (float) Math.min(1.0, held / (double) SLING_PULL_TICKS);
+		set(p, "sling", 0);
+		set(p, "coil", 0);
+		MutationVisuals.stopIf(p, "p17.sling");
+		Vec3 dir = slingAnchor(p).subtract(p.position().add(0, 0.9, 0));
+		if (dir.lengthSqr() < 1.0e-3) {
+			return;
+		}
+		spend(p, COST_SLING);
+		AbilityHelpers.launchSelf(p, dir.normalize().scale(slingSpeed(pull)).add(0, 0.25, 0));
+		p.resetFallDistance();
+		MutationVisuals.play(p, "dash_forward");
+		stretchArm(p, 1.5, 8, ARM_BOTH);
+		slime(level, p.position().add(0, 1, 0), 16, 0.4);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.2f, 0.6f + pull * 0.4f);
+	}
+
+	private static void startBall(ServerPlayer p) {
+		spend(p, COST_BALL);
+		set(p, "ball", BALL_TICKS);
+		endGlide(p);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, BALL_SPEED, 0.9, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		PowerToggles.modifier(p, Attributes.SCALE, BALL_SCALE, -0.4, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		MutationVisuals.stop(p);
+		slime(AbilityHelpers.level(p), p.position().add(0, 0.6, 0), 30, 0.5);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.2f, 0.5f);
+	}
+
+	private static void ballTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "ball");
+		if (left < 0.5f) {
+			return;
+		}
+		if (left <= 1.0f || !p.isAlive()) {
+			endBall(p);
+			return;
+		}
+		set(p, "ball", left - 1);
+		p.resetFallDistance();
+		reflectProjectiles(p, 1.8);
+		ballBowl(p, level);
+	}
+
+	/** Bowls through whatever the ball rolls into: 6 each (the hit-invulnerability window keeps it to one per pass). */
+	public static int ballBowl(ServerPlayer p, ServerLevel level) {
+		Vec3 mv = p.getKnownMovement();
+		Vec3 dir = new Vec3(mv.x, 0, mv.z);
+		dir = dir.lengthSqr() < 1.0e-4 ? p.getLookAngle().multiply(1, 0, 1) : dir;
+		dir = dir.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : dir.normalize();
+		int hit = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(0.6),
+				e -> e != p && e.isAlive() && HeroTargets.canHarm(p, e) && !Squads.areAllies(p, e))) {
+			if (AbilityHelpers.hurt(p, e, BALL_HIT_DAMAGE)) {
+				hit++;
+				e.setDeltaMovement(e.getDeltaMovement().add(dir.scale(1.1)).add(0, 0.45, 0));
+				e.hurtMarked = true;
+				slime(level, mid(e), 10, 0.3);
+				AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, 1.2f);
+			}
+		}
+		return hit;
+	}
+
+	public static void endBall(ServerPlayer p) {
+		boolean was = res(p, "ball") > 0.5f;
+		set(p, "ball", 0);
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, BALL_SPEED);
+		PowerToggles.clearModifier(p, Attributes.SCALE, BALL_SCALE);
+		if (was) {
+			slime(AbilityHelpers.level(p), p.position().add(0, 0.6, 0), 20, 0.4);
+			AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, 1.4f);
+		}
+	}
+
+	// ================================================================ Z: Giant Hammer Fist / Spring Stomp
+
+	/** Damage of a Hammer Fist coiled for {@code coil} (0..1). */
+	public static float hammerDamage(float coil) {
+		return HAMMER_DAMAGE_MIN + (HAMMER_DAMAGE_MAX - HAMMER_DAMAGE_MIN) * coil;
+	}
+
+	/** The fist swells to a boulder and slams the aim point (12 blocks): 20-34 in a 4.5-block area, plus Slowness. */
+	public static int hammer(ServerPlayer p, float coil) {
+		ServerLevel level = AbilityHelpers.level(p);
+		Vec3 at = AbilityHelpers.aimPoint(p, HAMMER_RANGE);
+		spend(p, COST_HAMMER);
+		set(p, "hammer_cd", HAMMER_CD);
+		set(p, "hammer_size", 1.0f + coil); // the client swells the fist bigger the longer the coil
+		MutationVisuals.play(p, "p17.hammer");
+		stretchArm(p, at.distanceTo(p.getEyePosition()) - 0.6, 18, ARM_HAMMER);
+		int hit = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, HAMMER_RADIUS)) {
+			if (AbilityHelpers.hurt(p, e, hammerDamage(coil))) {
+				hit++;
+			}
+			AbilityHelpers.knockbackFrom(e, at, 1.2 + coil);
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 50, 2);
+		}
+		level.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, 70, 2.2, 0.4, 2.2, 0.2);
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+		BlockState under = level.getBlockState(BlockPos.containing(at).below());
+		if (!under.isAir()) {
+			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, under), at.x, at.y + 0.1, at.z, 40, 1.8, 0.1, 1.8, 0.15);
+		}
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.4f, 0.4f);
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.6f, 1.4f);
+		return hit;
+	}
+
+	private static void startStomp(ServerPlayer p) {
+		spend(p, COST_STOMP);
+		set(p, "stomp_cd", STOMP_CD);
+		set(p, "stomp", 1);
+		set(p, "stomp_t", 0);
+		endGlide(p);
+		AbilityHelpers.launchSelf(p, new Vec3(0, 1.25, 0));
+		MutationVisuals.play(p, "p17.stilts");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.3f, 0.5f);
+	}
+
+	private static void stompTick(ServerPlayer p, ServerLevel level) {
+		int phase = Math.round(res(p, "stomp"));
+		if (phase == 0) {
+			return;
+		}
+		float t = res(p, "stomp_t") + 1;
+		set(p, "stomp_t", t);
+		p.resetFallDistance();
+		if (!p.isAlive() || t > 80) {
+			set(p, "stomp", 0);
+			return;
+		}
+		if (phase == 1) {
+			MutationVisuals.ensure(p, "p17.stilts");
+			if (t >= STOMP_RISE_TICKS) {
+				set(p, "stomp", 2);
+				AbilityHelpers.launchSelf(p, new Vec3(0, -2.8, 0));
+				MutationVisuals.play(p, "slam_two_hand");
+			}
+		} else if (p.onGround() && t > STOMP_RISE_TICKS + 1) {
+			stompImpact(p);
+		}
+	}
+
+	/** The landing: 20 in a 5-block ring, launching mobs. Returns how many were hit. */
+	public static int stompImpact(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		set(p, "stomp", 0);
+		int hit = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), STOMP_RADIUS)) {
+			if (AbilityHelpers.hurt(p, e, STOMP_DAMAGE)) {
+				hit++;
+			}
+			Vec3 away = e.position().subtract(p.position()).multiply(1, 0, 1);
+			away = away.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 0) : away.normalize().scale(0.7);
+			e.setDeltaMovement(away.x, 1.0, away.z);
+			e.hurtMarked = true;
+			e.hasImpulse = true;
+		}
+		MutationVisuals.play(p, "hero_landing");
+		BatchCFx.flatRing(level, p.position().add(0, 0.2, 0), STOMP_RADIUS, 40, ParticleTypes.ITEM_SLIME, 0.15);
+		level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0, 0, 0, 0);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.5f, 0.4f);
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.5f, 1.5f);
+		return hit;
+	}
+
+	// ================================================================ V: Rubber Shield / Parachute
+
+	private static void startShield(ServerPlayer p) {
+		set(p, "shielding", 1);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SHIELD_SPEED, -0.5, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, SHIELD_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
+		MutationVisuals.play(p, "p17.inflate");
+		slime(AbilityHelpers.level(p), p.position().add(0, 1, 0), 30, 0.6);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.2f, 0.45f);
+	}
+
+	private static void shieldTick(ServerPlayer p) {
+		if (res(p, "shielding") < 0.5f) {
+			return;
+		}
+		if (!p.isAlive()) {
+			endShield(p);
 			return;
 		}
 		MutationVisuals.ensure(p, "p17.inflate");
 		p.resetFallDistance();
-		reflectProjectiles(p);
-		if (p.tickCount % 5 == 0) {
-			ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(), 4, 0.7, 0.8, 0.7, 0.02);
-		}
+		reflectProjectiles(p, 3.5);
+		spend(p, COST_SHIELD_PER_SECOND / 20.0f);
 	}
 
-	/** Every enemy projectile heading into the balloon bounces back -- at its shooter when there is one. */
-	public static int reflectProjectiles(ServerPlayer p) {
+	public static void endShield(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SHIELD_SPEED);
+		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, SHIELD_KB);
+		if (res(p, "shielding") < 0.5f) {
+			return;
+		}
+		set(p, "shielding", 0);
+		MutationVisuals.stopIf(p, "p17.inflate");
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 1.0f, 1.3f);
+	}
+
+	/** Every enemy projectile heading into you within {@code radius} bounces back -- at its shooter when there is one. */
+	public static int reflectProjectiles(ServerPlayer p, double radius) {
 		int bounced = 0;
 		Vec3 centre = p.position().add(0, p.getBbHeight() * 0.5, 0);
-		for (Projectile pr : p.level().getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(3.5),
+		for (Projectile pr : p.level().getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(radius),
 				pr -> pr.isAlive() && pr.getOwner() != p)) {
 			Vec3 v = pr.getDeltaMovement();
 			Vec3 to = centre.subtract(pr.position());
 			if (v.lengthSqr() < 1.0e-3 || v.dot(to) <= 0.0) {
 				continue;
 			}
-			Entity owner = pr.getOwner();
-			double speed = Math.max(0.9, v.length() * 1.15);
-			Vec3 out;
-			if (owner instanceof LivingEntity le && le.isAlive() && le.distanceToSqr(p) < 48.0 * 48.0) {
-				out = le.getEyePosition().subtract(pr.position()).normalize().scale(speed);
-			} else {
-				out = v.normalize().reverse().scale(speed);
-			}
-			pr.setDeltaMovement(out);
-			pr.setOwner(p);
-			pr.hasImpulse = true;
-			pr.hurtMarked = true;
+			bounceBack(p, pr);
 			bounced++;
-			AbilityHelpers.level(p).sendParticles(ParticleTypes.ITEM_SLIME, pr.getX(), pr.getY(), pr.getZ(), 8, 0.15, 0.15, 0.15, 0.1);
 		}
 		if (bounced > 0) {
 			AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP_SMALL, 1.2f, 1.6f);
@@ -657,198 +1256,364 @@ public final class ElasticityHandlers {
 		return bounced;
 	}
 
-	private static void endShield(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (ctx.resource("shielding") < 0.5f) {
-			return;
+	private static void bounceBack(ServerPlayer p, Projectile pr) {
+		Vec3 v = pr.getDeltaMovement();
+		Entity owner = pr.getOwner();
+		double speed = Math.max(0.9, v.length() * 1.15);
+		Vec3 out;
+		if (owner instanceof LivingEntity le && le.isAlive() && le.distanceToSqr(p) < 48.0 * 48.0) {
+			out = le.getEyePosition().subtract(pr.position()).normalize().scale(speed);
+		} else {
+			out = v.lengthSqr() < 1.0e-4 ? p.getLookAngle().scale(speed) : v.normalize().reverse().scale(speed);
 		}
-		ctx.setResource("shielding", 0, 1);
-		clearShieldModifiers(p);
-		MutationVisuals.stopIf(p, "p17.inflate");
-		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 1.0f, 1.3f);
-		ctx.triggerCooldown();
+		pr.setDeltaMovement(out);
+		pr.setOwner(p);
+		pr.hasImpulse = true;
+		pr.hurtMarked = true;
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.ITEM_SLIME, pr.getX(), pr.getY(), pr.getZ(), 8, 0.15, 0.15, 0.15, 0.1);
 	}
 
-	private static void clearShieldModifiers(ServerPlayer p) {
-		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SHIELD_SPEED);
-		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, SHIELD_KB);
+	/** Flings a melee attacker away off the balloon. */
+	public static void bounceAttacker(ServerPlayer sp, LivingEntity attacker) {
+		Vec3 away = attacker.position().subtract(sp.position());
+		away = away.lengthSqr() < 1.0e-4 ? sp.getLookAngle().reverse() : away.normalize();
+		attacker.setDeltaMovement(away.scale(3.0).add(0, 0.6, 0));
+		attacker.hurtMarked = true;
+		attacker.hasImpulse = true;
+		AbilityHelpers.sound(sp, SoundEvents.SLIME_SQUISH, 1.2f, 0.6f);
+		AbilityHelpers.level(sp).sendParticles(ParticleTypes.ITEM_SLIME, attacker.getX(), attacker.getY() + 1.0, attacker.getZ(),
+				12, 0.3, 0.4, 0.3, 0.1);
 	}
 
-	// ---- N: Parachute Glide ---------------------------------------------------------------------
-
-	private static void startGlide(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
+	private static void startGlide(ServerPlayer p) {
 		if (p.onGround()) {
 			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, 0.85, p.getDeltaMovement().z));
 		}
-		ctx.setResource("glide_ticks", GLIDE_TICKS, GLIDE_TICKS);
+		set(p, "glide", 1);
+		set(p, "glide_t", 0);
 		MutationVisuals.play(p, "p17.glide");
-		ctx.level().sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.8, 0.3, 0.8, 0.05);
+		slime(AbilityHelpers.level(p), p.position().add(0, 1, 0), 20, 0.6);
 		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.7f);
 	}
 
-	private static void glideTick(AbilityContext ctx) {
-		float left = ctx.resource("glide_ticks");
-		if (left <= 0.5f) {
+	private static void glideTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "glide") < 0.5f) {
 			return;
 		}
-		ServerPlayer p = ctx.player();
-		ctx.setResource("glide_ticks", left - 1, GLIDE_TICKS);
-		boolean landed = (p.onGround() || p.isInWater()) && left < GLIDE_TICKS - 8;
-		if (left - 1 <= 0.5f || landed || !p.isAlive() || p.getAbilities().flying) {
-			endGlide(ctx);
+		float t = res(p, "glide_t") + 1;
+		set(p, "glide_t", Math.min(t, 1000));
+		if (((p.onGround() || p.isInWater()) && t > 8) || !p.isAlive() || p.getAbilities().flying) {
+			endGlide(p);
 			return;
 		}
 		p.resetFallDistance();
-		// the server-side half: a hidden Slow Falling so the canopy holds even before the client's glide
-		// steering (RevampClientE) kicks in
-		if (!p.hasEffect(MobEffects.SLOW_FALLING) || p.getEffect(MobEffects.SLOW_FALLING).getDuration() < 3) {
+		// the server-side half: a hidden Slow Falling, so the canopy holds even before the client's steering kicks in
+		var sf = p.getEffect(MobEffects.SLOW_FALLING);
+		if (sf == null || sf.getDuration() < 3) {
 			p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 8, 0, false, false, false));
 		}
 		MutationVisuals.ensure(p, "p17.glide");
 		if (p.tickCount % 3 == 0) {
-			ctx.level().sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 1.2, p.getZ(), 1, 0.6, 0.05, 0.6, 0.0);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 1.2, p.getZ(), 1, 0.6, 0.05, 0.6, 0.0);
 		}
 	}
 
-	private static void endGlide(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ctx.setResource("glide_ticks", 0, GLIDE_TICKS);
-		MutationVisuals.stopIf(p, "p17.glide");
-		p.resetFallDistance();
-		ctx.triggerCooldown();
-	}
-
-	// ---- forms --------------------------------------------------------------------------------
-
-	/** Choose a form from the weapon wheel (C2S). Ensures Elastic Form is on and applies the shape. */
-	public static void chooseForm(ServerPlayer p, int index) {
-		Power power = Powers.byKey(KEY);
-		if (power == null || !ExperimentalPowers.owns(p, power)) {
+	public static void endGlide(ServerPlayer p) {
+		if (res(p, "glide") < 0.5f) {
 			return;
 		}
-		Form[] all = Form.values();
-		Form f = all[Math.floorMod(index, all.length)];
-		var ability = power.ability(AbilitySlot.SLOT_6);
-		if (!ExperimentalPowers.isToggled(p, power, ability)) {
-			ExperimentalPowers.setToggled(p, power, ability, true);
-		}
-		ExperimentalPowers.setResource(p, power, "form", f.ordinal(), 10);
-		applyForm(p, f);
-		MutationVisuals.play(p, f == Form.INFLATED ? "flex" : f == Form.COMPRESSION ? "p17.compress" : "p17.form_stretch");
-		p.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-				"message.projecthero.elasticity.form_" + f.name().toLowerCase(java.util.Locale.ROOT)), true);
-		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, f == Form.COMPRESSION ? 1.6f : (f == Form.INFLATED ? 0.5f : 1.1f));
+		set(p, "glide", 0);
+		MutationVisuals.stopIf(p, "p17.glide");
+		p.resetFallDistance();
 	}
 
-	private static void applyForm(ServerPlayer p, Form f) {
-		// reach: Elastic stretches; Inflated is average; Compression is short-armed
-		double reach = switch (f) {
-			case ELASTIC -> 5.0;
-			case INFLATED -> 0.0;
-			case COMPRESSION -> -1.0;
-		};
-		double speed = switch (f) {
-			case ELASTIC -> 0.3;
-			case INFLATED -> -0.3; // a big beach ball is slow
-			case COMPRESSION -> 0.25;
-		};
-		double melee = f == Form.ELASTIC ? 5.0 : 0.0; // +5 melee in the default stretchy shape
-		double scale = switch (f) {
-			case ELASTIC -> 0.0;
-			case INFLATED -> 0.25;   // rounder / bigger (kept modest so it does not clip low ceilings)
-			case COMPRESSION -> -0.45; // ~1 block tall
-		};
-		double kb = f == Form.INFLATED ? 1.0 : 0.0; // 100% knockback resistance (on top of the 50% passive)
-		PowerToggles.modifier(p, Attributes.ENTITY_INTERACTION_RANGE, FORM_REACH, reach, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED, speed, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		PowerToggles.modifier(p, Attributes.SCALE, FORM_SCALE, scale, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB, kb, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, FORM_MELEE, melee, AttributeModifier.Operation.ADD_VALUE);
+	// ================================================================ C: Long Reach / Shape Shift
 
-		if (f == Form.ELASTIC) {
-			ensureInfiniteEffect(p, MobEffects.JUMP, 3);
-			p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
+	public static void setReach(ServerPlayer p, boolean on) {
+		set(p, "reach", on ? 1 : 0);
+		if (on) {
+			// the passive already adds +3 to the 3-block melee reach: +6 more makes 12; blocks go 4.5 -> 12
+			PowerToggles.modifier(p, Attributes.ENTITY_INTERACTION_RANGE, LONG_REACH_ENTITY, LONG_REACH - 3.0 - EXTRA_MELEE_REACH,
+					AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(p, Attributes.BLOCK_INTERACTION_RANGE, LONG_REACH_BLOCK, LONG_REACH - 4.5,
+					AttributeModifier.Operation.ADD_VALUE);
 		} else {
-			p.removeEffect(MobEffects.JUMP);
-		}
-		if (f == Form.INFLATED) {
-			ensureInfiniteEffect(p, MobEffects.MOVEMENT_SLOWDOWN, 1); // Slowness II
+			PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, LONG_REACH_ENTITY);
+			PowerToggles.clearModifier(p, Attributes.BLOCK_INTERACTION_RANGE, LONG_REACH_BLOCK);
 		}
 	}
 
-	private static void clearForm(ServerPlayer p) {
-		PowerToggles.clearModifier(p, Attributes.ENTITY_INTERACTION_RANGE, FORM_REACH);
-		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, FORM_SPEED);
-		PowerToggles.clearModifier(p, Attributes.SCALE, FORM_SCALE);
-		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, FORM_KB);
-		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, FORM_MELEE);
-		p.removeEffect(MobEffects.JUMP);
-		p.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-		p.removeEffect(MobEffects.SLOW_FALLING);
-	}
-
-	private static void ensureInfiniteEffect(ServerPlayer p, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect, int amp) {
-		var cur = p.getEffect(effect);
-		if (cur == null || !cur.isInfiniteDuration() || cur.getAmplifier() != amp) {
-			p.addEffect(new MobEffectInstance(effect, MobEffectInstance.INFINITE_DURATION, amp, false, false, false));
+	private static void reachTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "reach") < 0.5f || p.tickCount % 2 != 0 || p.isSpectator()) {
+			return;
+		}
+		// pick up items from 12 blocks away: the hand reaches out and drags them in
+		ItemEntity farthest = null;
+		double far = 0;
+		for (ItemEntity it : level.getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(LONG_REACH),
+				it -> it.isAlive() && !it.hasPickUpDelay())) {
+			double d = it.distanceTo(p);
+			if (d < 1.2 || d > LONG_REACH) {
+				continue;
+			}
+			Vec3 pull = p.position().add(0, 0.6, 0).subtract(it.position()).normalize().scale(Math.min(0.9, 0.25 + d * 0.06));
+			it.setDeltaMovement(pull);
+			it.hasImpulse = true;
+			if (d > far) {
+				far = d;
+				farthest = it;
+			}
+		}
+		if (farthest != null && p.tickCount % 10 == 0 && res(p, "arm_ticks") < 0.5f) {
+			stretchArm(p, far, ARM_STRIKE_TICKS, ARM_RIGHT);
 		}
 	}
 
-	// ---- passives ---------------------------------------------------------------------------------
+	/** Long Reach: whatever you hit or use past normal reach, the arm visibly stretches out to it. */
+	private static void reachVisual(Player player, Vec3 at) {
+		if (!(player instanceof ServerPlayer sp) || !owns(sp) || res(sp, "reach") < 0.5f) {
+			return;
+		}
+		double d = at.distanceTo(sp.getEyePosition());
+		if (d > 4.0 && res(sp, "arm_ticks") < 4.5f) {
+			stretchArm(sp, d - 0.4, 10, ARM_RIGHT);
+		}
+	}
+
+	/** The block a Shape Shift turns into: the one you are looking at, else a barrel. */
+	private static BlockState shapeFor(ServerPlayer p) {
+		BlockHitResult hit = AbilityHelpers.raycastBlock(p, LONG_REACH);
+		if (hit.getType() == HitResult.Type.BLOCK) {
+			BlockState s = p.level().getBlockState(hit.getBlockPos());
+			if (!s.isAir() && s.getRenderShape() != RenderShape.INVISIBLE && s.getFluidState().isEmpty()) {
+				return s;
+			}
+		}
+		return Blocks.BARREL.defaultBlockState();
+	}
+
+	private static void shapeShift(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!p.onGround()) {
+			ctx.actionBar("message.projecthero.elasticity.shape_ground");
+			return;
+		}
+		BlockState s = shapeFor(p);
+		spend(p, COST_SHAPE);
+		set(p, "shape_cd", SHAPE_CD);
+		endGlide(p);
+		endBall(p);
+		// squash down onto the middle of the block you stand on
+		BlockPos at = p.blockPosition();
+		double x = at.getX() + 0.5;
+		double z = at.getZ() + 0.5;
+		p.connection.teleport(x, p.getY(), z, p.getYRot(), p.getXRot());
+		set(p, "shape", Block.getId(s) + 1);
+		ExperimentalPowers.setMarker(p, Powers.byKey(KEY), "shape_at", at);
+		MutationVisuals.stop(p);
+		dropAggro(p, (ServerLevel) p.level());
+		slime(ctx.level(), p.position().add(0, 0.6, 0), 24, 0.4);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, 1.6f);
+		ctx.actionBar("message.projecthero.elasticity.shape_on");
+	}
+
+	private static void shapeTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "shape") < 0.5f) {
+			return;
+		}
+		BlockPos at = ExperimentalPowers.getMarker(p, Powers.byKey(KEY), "shape_at");
+		if (at == null) {
+			endShape(p);
+			return;
+		}
+		double dx = p.getX() - (at.getX() + 0.5);
+		double dz = p.getZ() - (at.getZ() + 0.5);
+		double dy = Math.abs(p.getY() - at.getY()) > 1.0 ? 1.0 : 0.0;
+		if (dx * dx + dz * dz > 0.35 * 0.35 || dy > 0.6 || !p.isAlive()) {
+			endShape(p);
+			return;
+		}
+		if (p.tickCount % 5 == 0) {
+			dropAggro(p, level);
+		}
+	}
+
+	/** Every mob after you loses you. */
+	private static void dropAggro(ServerPlayer p, ServerLevel level) {
+		for (Mob m : level.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(48.0), m -> m.getTarget() == p)) {
+			m.setTarget(null);
+			m.getNavigation().stop();
+		}
+	}
+
+	public static void endShape(ServerPlayer p) {
+		if (res(p, "shape") < 0.5f) {
+			return;
+		}
+		set(p, "shape", 0);
+		slime(AbilityHelpers.level(p), p.position().add(0, 0.6, 0), 16, 0.4);
+		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH_SMALL, 1.0f, 1.4f);
+	}
+
+	/** Whether a mob may target {@code target}: never a Shape-Shifted elastic hero. */
+	public static boolean hiddenFromMobs(Entity target) {
+		return target instanceof Player pl && !pl.level().isClientSide() && shapeShifted(pl);
+	}
+
+	// ================================================================ damage
+
+	/** The attacker of a melee hit (a mob or player striking in person), else null. */
+	private static Entity meleeAttacker(ServerPlayer p, DamageSource source) {
+		Entity atk = source.getEntity();
+		if (atk instanceof LivingEntity && source.getDirectEntity() == atk && !source.is(DamageTypeTags.IS_PROJECTILE)
+				&& atk.distanceToSqr(p) < 100.0) {
+			return atk;
+		}
+		return null;
+	}
+
+	/** Wrapped creatures cannot attack; the balloon swallows a hit whole and still flings the attacker. */
+	private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		Entity atk = source.getEntity();
+		if (atk != null && source.getDirectEntity() == atk && isWrapped(atk)) {
+			return false;
+		}
+		if (entity instanceof ServerPlayer sp && shielding(sp) && meleeAttacker(sp, source) instanceof LivingEntity attacker
+				&& amount * SHIELD_DAMAGE_FACTOR * BLUNT_FACTOR < 0.5f) {
+			bounceAttacker(sp, attacker);
+		}
+		return true;
+	}
+
+	/**
+	 * The rubber body's damage rule, read by {@link com.projecthero.mod.hero.power.HeroDamageRules}: a negative result
+	 * means "immune" (falls; projectiles off the balloon or the ball), otherwise a multiplier -- 0.75 for blunt hits
+	 * (melee, explosions), 1.25 for fire and lava, and the balloon's 0.4 on top.
+	 */
+	public static float damageFactor(ServerPlayer p, DamageSource source) {
+		if (source.is(DamageTypeTags.IS_FALL)) {
+			p.resetFallDistance();
+			return -1.0f;
+		}
+		boolean shield = shielding(p);
+		if (source.is(DamageTypeTags.IS_PROJECTILE) && (shield || balled(p))) {
+			if (source.getDirectEntity() instanceof Projectile pr && pr.getOwner() != p) {
+				bounceBack(p, pr);
+			}
+			return -1.0f;
+		}
+		float f = 1.0f;
+		if (source.is(DamageTypeTags.IS_FIRE)) {
+			f *= FIRE_FACTOR;
+		} else if (source.is(DamageTypeTags.IS_EXPLOSION) || source.is(DamageTypes.MOB_ATTACK)
+				|| source.is(DamageTypes.MOB_ATTACK_NO_AGGRO) || source.is(DamageTypes.PLAYER_ATTACK)) {
+			f *= BLUNT_FACTOR;
+		}
+		if (shield) {
+			f *= SHIELD_DAMAGE_FACTOR;
+		}
+		return f;
+	}
+
+	// ================================================================ passives
 
 	private static void registerPassives() {
 		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, owned) -> {
 			if (!owned) {
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_MELEE);
 				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB);
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, FORM_MELEE);
-				clearShieldModifiers(player);
-				clearForm(player);
+				PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, PASSIVE_REACH);
 				Power power = Powers.byKey(KEY);
 				if (power != null && ExperimentalPowers.owns(player, power)) {
 					// still owned while forget() runs its teardown: drop the transient states too
-					ExperimentalPowers.setResource(player, power, "shielding", 0, 1);
-					ExperimentalPowers.setResource(player, power, "glide_ticks", 0, GLIDE_TICKS);
-					ExperimentalPowers.setResource(player, power, "arm_ticks", 0, 200.0f);
+					endChannels(player);
+					endBall(player);
+					endGlide(player);
+					endShape(player);
+					endWrap(player);
+					clearGrab(player);
+					setReach(player, false);
+					set(player, "stomp", 0);
+					set(player, "arm_ticks", 0);
+				} else {
+					PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, BALL_SPEED);
+					PowerToggles.clearModifier(player, Attributes.SCALE, BALL_SCALE);
+					PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SHIELD_SPEED);
+					PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, SHIELD_KB);
+					PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, LONG_REACH_ENTITY);
+					PowerToggles.clearModifier(player, Attributes.BLOCK_INTERACTION_RANGE, LONG_REACH_BLOCK);
 				}
-				MutationVisuals.stopIf(player, "p17.inflate");
-				MutationVisuals.stopIf(player, "p17.glide");
+				MutationVisuals.stop(player);
 			}
 		});
 		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
-			// 25% less melee damage, 50% knockback resistance -- always on for the rubber body.
-			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, PASSIVE_MELEE, -0.25,
-					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB, 0.5,
+			// 50% knockback resistance and +3 melee reach, always on for the rubber body
+			PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, PASSIVE_KB, 0.5, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ENTITY_INTERACTION_RANGE, PASSIVE_REACH, EXTRA_MELEE_REACH,
 					AttributeModifier.Operation.ADD_VALUE);
-			// respawn-safe re-apply of the active shape
-			if (formActive(player)) {
-				applyForm(player, form(player));
+			// respawn-safe re-apply of the toggles
+			if (res(player, "reach") > 0.5f) {
+				setReach(player, true);
 			}
-			// the Rubber reserve refills while the shield is down
-			seedRubber(player);
-			Power power = Powers.byKey(KEY);
-			if (!shielding(player)) {
-				clearShieldModifiers(player);
-				if (ExperimentalPowers.getResource(player, power, "rubber") < MAX_RUBBER) {
-					ExperimentalPowers.addResource(player, power, "rubber", RUBBER_REGEN, MAX_RUBBER);
-				}
+			if (res(player, "ball") < 0.5f) {
+				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, BALL_SPEED);
+				PowerToggles.clearModifier(player, Attributes.SCALE, BALL_SCALE);
 			}
 		});
 	}
 
-	private static double heightAboveGround(ServerPlayer p) {
-		net.minecraft.core.BlockPos.MutableBlockPos c = p.blockPosition().mutable();
-		for (int i = 0; i <= 24; i++) {
-			if (!p.level().getBlockState(c).getCollisionShape(p.level(), c).isEmpty()) {
-				return p.getY() - (c.getY() + 1.0);
-			}
-			c.move(0, -1, 0);
-			if (c.getY() < p.level().getMinBuildHeight()) {
-				break;
-			}
-		}
-		return 64.0;
+	// ================================================================ synced visuals + HUD (called from RevampBatchE)
+
+	public static void registerVisuals() {
+		MutationVisuals.registerFlag("p17.arm", ElasticityHandlers::armStretched);
+		MutationVisuals.registerValue("p17.arm_len", ElasticityHandlers::armLength);
+		MutationVisuals.registerValue("p17.arm_t", ElasticityHandlers::armStart);
+		MutationVisuals.registerValue("p17.arm_mode", ElasticityHandlers::armMode);
+		MutationVisuals.registerValue("p17.hammer_size", p -> armStretched(p) ? resAny(p, "hammer_size") : 0.0);
+		MutationVisuals.registerValue("p17.coil", p -> coil(p) / 100.0);
+		MutationVisuals.registerValue("p17.coil_kind", p -> owns(p) ? resAny(p, "coil_kind") : 0.0);
+		MutationVisuals.registerFlag("p17.coiling", p -> owns(p) && resAny(p, "coil_kind") > 0.5f);
+		MutationVisuals.registerFlag("p17.balloon", ElasticityHandlers::shielding);
+		MutationVisuals.registerFlag("p17.canopy", ElasticityHandlers::gliding);
+		MutationVisuals.registerFlag("p17.ball", ElasticityHandlers::balled);
+		MutationVisuals.registerFlag("p17.gatling", ElasticityHandlers::gatling);
+		MutationVisuals.registerFlag("p17.stilts", ElasticityHandlers::onStilts);
+		MutationVisuals.registerFlag("p17.limp", ElasticityHandlers::limp);
+		MutationVisuals.registerValue("p17.shape", ElasticityHandlers::shapeValue);
+		MutationVisuals.registerValue("p17.wrap", ElasticityHandlers::wrapId);
+	}
+
+	public static void registerMeters() {
+		String k = KEY;
+		int text = 0xFFFFD2A8;
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "stretch",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.RESERVE, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Stretch", MAX_STRETCH, 0xFFFF9A3C, true, true, false, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "limp",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"LIMP", 1, 0xFF8A8A8A, false, false, false, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "coil",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.BUILD, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Coil", 100, 0xFFFFC27A, false, true, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "hammer_cd",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Hammer Fist", HAMMER_CD, 0xFF9A7A5A, false, false, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "stomp_cd",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Spring Stomp", STOMP_CD, 0xFF9A7A5A, false, false, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "shape_cd",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Shape Shift", SHAPE_CD, 0xFF9A7A5A, false, false, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "ball",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Rubber Ball", BALL_TICKS, 0xFFFF9A3C, false, false, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "wrap_ticks",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Wrap & Squeeze", WRAP_TICKS, 0xFFFF9A3C, false, false, true, text));
+	}
+
+	/** For the gametests: the Stretch meter set directly. */
+	public static void setStretch(ServerPlayer p, float value) {
+		seed(p);
+		set(p, "stretch", Math.max(0, Math.min(MAX_STRETCH, value)));
 	}
 }

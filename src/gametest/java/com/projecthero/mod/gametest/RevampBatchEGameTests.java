@@ -41,7 +41,8 @@ import net.minecraft.world.phys.Vec3;
 
 /** v0.13.22 mutation revamp, batch E: regression coverage for the reworked kits (16, 17, 18, 22, 27). */
 public class RevampBatchEGameTests implements FabricGameTest {
-	private static final String[] KEYS = { RevampBatchE.P16, RevampBatchE.P17, RevampBatchE.P18, RevampBatchE.P22, RevampBatchE.P27 };
+	// v0.16.5: Elasticity was reworked to six keys (ElasticityV0165GameTests)
+	private static final String[] KEYS = { RevampBatchE.P16, RevampBatchE.P18, RevampBatchE.P22, RevampBatchE.P27 };
 
 	private static ServerPlayer player(GameTestHelper helper) {
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
@@ -95,11 +96,11 @@ public class RevampBatchEGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchEVisualsAndMetersRegistered(GameTestHelper helper) {
-		for (String flag : new String[] { "p16.grip", "p16.rush", "p16.sense", "p17.arm", "p17.shield", "p17.glide", "p17.form",
+		for (String flag : new String[] { "p16.grip", "p16.rush", "p16.sense", "p17.arm", "p17.balloon", "p17.canopy",
 				"p18.shell", "p18.intangible", "p18.crush", "p22.blessing", "p22.overgrowth" }) {
 			helper.assertTrue(MutationVisuals.registeredFlags().contains(flag), "visual flag " + flag + " not registered");
 		}
-		helper.assertTrue(MutationMeters.get(RevampBatchE.P17, "rubber") != null, "Rubber meter");
+		helper.assertTrue(MutationMeters.get(RevampBatchE.P17, "stretch").always(), "Stretch is the always-on meter");
 		helper.assertTrue(MutationMeters.get(RevampBatchE.P18, "phase").max() > 100.0f, "Phase reserve is +15%");
 		helper.assertTrue(MutationMeters.get(RevampBatchE.P27, "giant_form").always(), "Size Strain is the always-on fuel gauge");
 		helper.assertTrue(MutationMeters.get(RevampBatchE.P22, "sentry_ticks") != null, "Thorn Sentry timer");
@@ -193,52 +194,6 @@ public class RevampBatchEGameTests implements FabricGameTest {
 		helper.assertTrue(ElasticityHandlers.armStretched(player), "the arm should be drawn stretched");
 		helper.assertTrue(ElasticityHandlers.armLength(player) > 3.0f, "stretched toward the target, got " + ElasticityHandlers.armLength(player));
 		helper.assertTrue(ElasticityHandlers.armStart(player) >= 1.0f, "the stretch start tick is synced for the client animation");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void rubberShieldBouncesProjectilesAndCleansUp(GameTestHelper helper) {
-		ServerPlayer player = player(helper);
-		Power elastic = grantActive(player, RevampBatchE.P17);
-		Zombie shooter = mobInFront(helper, player, EntityType.ZOMBIE, 8);
-		double speedBefore = player.getAttributeValue(Attributes.MOVEMENT_SPEED);
-
-		AbilityRouter.handleInput(player, 7, true); // H down = inflate
-		helper.assertTrue(ElasticityHandlers.shielding(player), "holding H inflates the Rubber Shield");
-		helper.assertTrue(player.getAttributeValue(Attributes.MOVEMENT_SPEED) < speedBefore, "the balloon is slow");
-
-		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
-		Vec3 at = player.position().add(0, 1.0, 2.0);
-		arrow.setPos(at.x, at.y, at.z);
-		arrow.setOwner(shooter);
-		arrow.setDeltaMovement(0, 0, -1.5); // straight at the player
-		helper.getLevel().addFreshEntity(arrow);
-		int bounced = ElasticityHandlers.reflectProjectiles(player);
-		helper.assertTrue(bounced >= 1, "the incoming arrow should bounce");
-		helper.assertTrue(arrow.getOwner() == player, "a bounced projectile belongs to the elastic hero now");
-		helper.assertTrue(arrow.getDeltaMovement().z > 0, "and flies back the way it came");
-
-		AbilityRouter.handleInput(player, 7, false); // H up = deflate
-		helper.assertFalse(ElasticityHandlers.shielding(player), "releasing H deflates");
-		helper.assertTrue(Math.abs(player.getAttributeValue(Attributes.MOVEMENT_SPEED) - speedBefore) < 1.0e-6,
-				"the shield's slow is removed on release");
-		helper.assertTrue(onCooldown(player, elastic, AbilitySlot.SLOT_7), "the shield cools down after use");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void parachuteGlideRunsAndFoldsUp(GameTestHelper helper) {
-		ServerPlayer player = player(helper);
-		Power elastic = grantActive(player, RevampBatchE.P17);
-		AbilityRouter.handleInput(player, 8, true); // N = glide
-		helper.assertTrue(ElasticityHandlers.gliding(player), "Parachute Glide should start");
-		ExperimentalPowers.serverTick(player);
-		helper.assertTrue(player.hasEffect(MobEffects.SLOW_FALLING), "the canopy holds you up (server-side Slow Falling)");
-		helper.assertTrue(ExperimentalPowers.getResource(player, elastic, "glide_ticks") <= ElasticityHandlers.GLIDE_TICKS,
-				"the glide is bounded");
-		AbilityRouter.handleInput(player, 8, true); // N again = fold up
-		helper.assertFalse(ElasticityHandlers.gliding(player), "pressing N again ends the glide");
-		helper.assertTrue(onCooldown(player, elastic, AbilitySlot.SLOT_8), "ending the glide starts its cooldown");
 		helper.succeed();
 	}
 

@@ -264,7 +264,7 @@ public class GraveboundBossPowerGameTests implements FabricGameTest {
 		BlockPos at = arena(helper, 0);
 		inArena(helper, at, 4, () -> {
 			floor(level, at, 3);
-			String key = "power_17_elasticity"; // a mutation players cannot currently obtain
+			String key = "power_17_elasticity";
 			EmpoweredZombie boss = boss(level, at, key);
 			String nameKey = Powers.byKey(key).nameKey();
 			Component name = boss.getCustomName();

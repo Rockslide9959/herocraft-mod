@@ -18,20 +18,20 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Elasticity (v0.14.1 kit): Stretch Punch (a telegraphed long-reach punch), Double Fist Slam, Slingshot (it flings
- * itself at a far target), Giant Hammer Fist (a marked slam) and Rubber Shield once hurt (melee bounces off, projectiles
- * bounce off). The player's stretched arm is a client overlay keyed to a player, so the boss's reach is drawn as a
- * slime line.
+ * Elasticity (v0.16.5 rework kit): Stretch Punch (a telegraphed long-reach punch), Elastic Grab (it reels a close
+ * target in and hurls it), Slingshot (it flings itself at a far target), Giant Hammer Fist (a marked slam) and Rubber
+ * Shield once hurt (melee bounces off, projectiles bounce off). The player's stretched limbs are drawn on the player
+ * model, so the boss's reach is drawn as a slime line.
  */
 public class ElasticityBoss extends BossPowerController {
 	public static final String POWER_KEY = "power_17_elasticity";
 
 	private static final int PUNCH = 0;
-	private static final int SLAM = 1;
+	private static final int GRAB = 1;
 	private static final int SLINGSHOT = 2;
 	private static final int HAMMER = 3;
 	private static final int SHIELD = 4;
-	private static final List<String> IDS = List.of("stretch_punch", "double_fist_slam", "slingshot", "giant_hammer_fist", "rubber_shield");
+	private static final List<String> IDS = List.of("stretch_punch", "elastic_grab", "slingshot", "giant_hammer_fist", "rubber_shield");
 
 	private int slingTicks;
 	private LivingEntity slingTarget;
@@ -86,13 +86,16 @@ public class ElasticityBoss extends BossPowerController {
 			});
 			return;
 		}
-		if (d < 8.0 && ready(SLAM) && freshChoice(SLAM)) {
+		if (d < 10.0 && sees(target) && ready(GRAB) && freshChoice(GRAB)) {
+			// Elastic Grab: the arm wraps the target, reels it in and hurls it away
 			face(target);
-			Vec3 at = boss.getEyePosition().add(flatDirTo(target.position()).scale(Math.min(7.0, d)));
-			strikeArea(level, at, 4.0, bossDamage(20.5f), false, 2.0, 0.3);
-			particles(level, ParticleTypes.ITEM_SLIME, at, 30, 1.0);
-			sound(level, SoundEvents.SLIME_SQUISH, 1.2f, 0.7f);
-			startCooldown(SLAM, 119);
+			particleLine(level, ParticleTypes.ITEM_SLIME, boss.getEyePosition(), mid(target), 2.0);
+			Vec3 away = flatDirTo(target.position());
+			hurt(target, bossDamage(10.0f));
+			fling(target, away.scale(1.6).add(0, 0.6, 0));
+			particles(level, ParticleTypes.ITEM_SLIME, mid(target), 20, 0.5);
+			sound(level, SoundEvents.SLIME_JUMP, 1.2f, 0.7f);
+			startCooldown(GRAB, 140);
 			return;
 		}
 		if (d > 12.0 && d < 45.0 && sees(target) && ready(SLINGSHOT)) {

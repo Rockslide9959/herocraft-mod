@@ -44,8 +44,6 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(PunisherActionPayload.TYPE, PunisherActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(CryoWeaponPayload.TYPE, CryoWeaponPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(CryoWheelOpenPayload.TYPE, CryoWheelOpenPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(ElasticFormPayload.TYPE, ElasticFormPayload.CODEC);
-		PayloadTypeRegistry.playS2C().register(ElasticFormWheelPayload.TYPE, ElasticFormWheelPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PortalCreatePayload.TYPE, PortalCreatePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PortalPickerPayload.TYPE, PortalPickerPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BifrostScreenPayload.TYPE, BifrostScreenPayload.CODEC);
@@ -321,10 +319,6 @@ public final class ModNetworking {
 		// Cryokinesis ice-weapon wheel: the player picked which ice tool to shape.
 		ServerPlayNetworking.registerGlobalReceiver(CryoWeaponPayload.TYPE, (payload, context) ->
 				com.projecthero.mod.hero.power.p09.CryokinesisHandlers.giveIceToolChoice(context.player(), payload.weapon()));
-
-		// Elasticity body-shape wheel: the player picked Elastic / Inflated / Compression.
-		ServerPlayNetworking.registerGlobalReceiver(ElasticFormPayload.TYPE, (payload, context) ->
-				com.projecthero.mod.hero.power.p17.ElasticityHandlers.chooseForm(context.player(), payload.form()));
 
 		// Green Lantern construct wheel: the player picked a construct type (hold C).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternConstructSelectPayload.TYPE, (payload, context) ->

@@ -42,12 +42,8 @@ public abstract class LocalPlayerMixin {
 	private boolean projecthero$wallRunning;
 
 	/**
-	 * Elasticity bounce, local player only (v0.10.13):
-	 * <ul>
-	 *   <li>a real fall (~5 blocks or more) always gives a small hop on landing; and</li>
-	 *   <li>while Elastic Form is on <em>and</em> the jump key is held, the landing rebounds like a
-	 *       slime block, scaled to the fall -- and only then, so it never bounces for ever.</li>
-	 * </ul>
+	 * Elasticity bounce, local player only (v0.10.13; v0.16.5 rework): a real fall springs back up, scaled to the fall,
+	 * so the bounces die away on their own; holding Shift lands dead ({@code ElasticityClient.landingBounce}).
 	 */
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$elasticBounce(CallbackInfo ci) {
@@ -67,16 +63,8 @@ public abstract class LocalPlayerMixin {
 			return;
 		}
 		if (!projecthero$wasOnGround && projecthero$elasticFall > 0.55) {
-			boolean elasticForm = com.projecthero.mod.hero.power.p17.ElasticityHandlers.formActiveClient(self);
-			boolean holdingJump = net.minecraft.client.Minecraft.getInstance().options.keyJump.isDown();
-			double bounce;
-			if (elasticForm && holdingJump) {
-				bounce = Math.min(1.35, projecthero$elasticFall * 0.55);
-			} else if (projecthero$elasticFall > 0.9) {
-				bounce = 0.42; // the always-on small hop on a proper fall
-			} else {
-				bounce = 0.0;
-			}
+			// v0.16.5: a springy bounce scaled to the fall (higher as the Rubber Ball); hold Shift to land dead
+			double bounce = com.projecthero.mod.client.mutation.ElasticityClient.landingBounce(self, projecthero$elasticFall);
 			if (bounce > 0.0) {
 				self.setDeltaMovement(v.x * 1.02, bounce, v.z * 1.02);
 				self.resetFallDistance();

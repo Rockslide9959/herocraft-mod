@@ -407,17 +407,17 @@ final class PowerCatalog {
 	private static Power elasticity() {
 		String k = "power_17_elasticity";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOLECULAR)
-				// v0.13.22 revamp (batch E): -15% cooldowns, + H Rubber Shield / N Parachute Glide
-				.ability(ab(k, "stretch_punch", SLOT_1, CHARGE, 34))
-				.ability(ab(k, "double_fist_slam", SLOT_2, INSTANT, 119))
-				.ability(ab(k, "slingshot", SLOT_3, INSTANT, 51))
-				.ability(ab(k, "giant_hammer_fist", SLOT_4, INSTANT, 30 * S))
-				.ability(ab(k, "elastic_grab", SLOT_5, INSTANT, 102))
-				.ability(ab(k, "elastic_form", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "rubber_shield", AbilitySlot.SLOT_7, HOLD, 8 * S))
-				.ability(ab(k, "parachute_glide", AbilitySlot.SLOT_8, INSTANT, 5 * S))
-				.passives(pk(k, "passive.fall"), pk(k, "passive.bounce"), pk(k, "passive.squeeze"),
-						pk(k, "passive.melee"), pk(k, "passive.knockback"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Stretch meter instead of
+				// cooldowns. All HOLD so the handlers own tap / hold / Shift / release; the few real cooldowns (Hammer
+				// Fist 8 s, Spring Stomp 6 s, Shape Shift 10 s) are the handlers' own timers.
+				.ability(ab(k, "stretch_punch", SLOT_1, HOLD, 0))
+				.ability(ab(k, "elastic_grab", SLOT_2, HOLD, 0))
+				.ability(ab(k, "slingshot", SLOT_3, HOLD, 0))
+				.ability(ab(k, "giant_hammer_fist", SLOT_4, HOLD, 0))
+				.ability(ab(k, "rubber_shield", SLOT_5, HOLD, 0))
+				.ability(ab(k, "long_reach", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.stretch"), pk(k, "passive.fall"), pk(k, "passive.knockback"),
+						pk(k, "passive.rubber"), pk(k, "passive.squeeze"), pk(k, "passive.reach"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:string", "minecraft:rabbit_hide"))
 				.trigger(MutationTrigger.of(Kind.SLIME_IMPACT, pk(k, "trigger"), "projecthero.device.gravity_distortion_rig"))

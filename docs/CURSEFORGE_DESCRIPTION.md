@@ -314,7 +314,7 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **four are available right now** (plus Super Speed, above), the rest
+experimental powers are being remade one by one; **five are available right now** (plus Super Speed, above), the rest
 return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
@@ -325,6 +325,11 @@ return as they're rebuilt:
   strain and you overload.
 - **Super Regeneration** -- no keys at all: heals 2 HP every tick, burns off harmful effects in 2 seconds and holds
   **three revive charges**.
+- **Elasticity** (reworked in 0.16.5) -- a rubber brawler on a **Stretch** meter: your arms and legs **really stretch**,
+  in your own skin. Coil-and-snap Stretch Punches, a Gatling Barrage, Elastic Grab and hurl, Wrap & Squeeze, a
+  Slingshot, a bouncing **Rubber Ball**, a boulder-sized Hammer Fist, a Spring Stomp on stilts, a balloon that bounces
+  arrows back, a parachute, 12-block Long Reach and a **Shape Shift** into a barrel or a chest. Run the meter dry and
+  you go limp.
 
 ---
 

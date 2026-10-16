@@ -240,11 +240,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.CryoWeaponWheelScreen())));
 
-		// Elasticity body-shape wheel (v0.10.13): Shift + C.
-		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.ElasticFormWheelPayload.TYPE,
-				(payload, context) -> context.client().execute(() -> context.client().setScreen(
-						new com.projecthero.mod.client.gui.ElasticFormWheelScreen())));
-
 		// Teleportation Portal picker (v0.10.13): the 5-second Z charge finished.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.PortalPickerPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(

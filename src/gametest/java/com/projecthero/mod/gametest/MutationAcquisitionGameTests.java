@@ -173,9 +173,8 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		drink(p, elastic);
 		p.fallDistance = 12.0f;
 		MutationManager.serverTick(p);
-		// v0.14.8: Elasticity is disabled (Powers.ENABLED) -- its serum takes no hold and the slime impact grants nothing
-		helper.assertFalse(ExperimentalPowers.owns(p, elastic), "a disabled power must not be granted by its detector");
-		helper.assertTrue(ExperimentalPowers.state(p).pendingMutationPower.isEmpty(), "a disabled serum takes no hold");
+		// v0.16.5: Elasticity is enabled again (reworked) -- the serum + a 10-block fall onto a Slime Block grants it
+		helper.assertTrue(ExperimentalPowers.owns(p, elastic), "the slime impact grants Elasticity");
 		helper.succeed();
 	}
 

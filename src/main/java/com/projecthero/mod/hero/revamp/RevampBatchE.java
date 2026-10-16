@@ -64,16 +64,8 @@ public final class RevampBatchE {
 		MutationVisuals.registerFlag("p16.rush", SpiderClimbingHandlers::rushing);
 		MutationVisuals.registerFlag("p16.sense", SpiderClimbingHandlers::senseActive);
 
-		// 17 -- the stretched arm (length, start tick, draw mode), the Rubber Shield balloon, the glide canopy,
-		// a rubbery sheen while Elastic Form is on
-		MutationVisuals.registerFlag("p17.arm", ElasticityHandlers::armStretched);
-		MutationVisuals.registerValue("p17.arm_len", ElasticityHandlers::armLength);
-		MutationVisuals.registerValue("p17.arm_t", ElasticityHandlers::armStart);
-		MutationVisuals.registerValue("p17.arm_mode", ElasticityHandlers::armMode);
-		MutationVisuals.registerFlag("p17.shield", ElasticityHandlers::shielding);
-		MutationVisuals.registerFlag("p17.glide", ElasticityHandlers::gliding);
-		MutationVisuals.registerFlag("p17.form", p -> ElasticityHandlers.formActiveClient(p)
-				&& ElasticityHandlers.form(p) != ElasticityHandlers.Form.COMPRESSION);
+		// 17 (v0.16.5 rework) -- the stretched limbs, the coil, the balloon / canopy / ball / Shape Shift bodies, the wrap
+		ElasticityHandlers.registerVisuals();
 
 		// 18 -- the density shell (blue light / orange heavy), the dodge shimmer, the armed Crushing Touch fist
 		MutationVisuals.registerFlag("p18.shell", DensityManipulationHandlers::shellVisible);
@@ -98,10 +90,8 @@ public final class RevampBatchE {
 		MutationMeters.register(new Spec(P16, "sense_ticks", Kind.TIMER, Style.HAIRLINE, "Spider-Sense", SpiderClimbingHandlers.SENSE_TICKS,
 				0xFFFF6A6A, false, false));
 		// 17
-		MutationMeters.register(new Spec(P17, "stretch_charge", Kind.BUILD, Style.METER, "Stretch Charge", 100, 0xFFE8A06A, false, true));
-		MutationMeters.register(new Spec(P17, "rubber", Kind.RESERVE, Style.METER, "Rubber", ElasticityHandlers.MAX_RUBBER, 0xFFF08CB4, false, false));
-		MutationMeters.register(new Spec(P17, "glide_ticks", Kind.TIMER, Style.HAIRLINE, "Parachute Glide", ElasticityHandlers.GLIDE_TICKS,
-				0xFFB8E0FF, false, false));
+		// (v0.16.5 rework: an always-on orange Stretch Hairline, the coil bar while R / Z is held, the move timers)
+		ElasticityHandlers.registerMeters();
 		// 18
 		MutationMeters.register(new Spec(P18, "density", Kind.RESERVE, Style.GAUGE, "Density", 300, 0xFFFFB24A, true, false));
 		MutationMeters.register(new Spec(P18, "phase", Kind.RESERVE, Style.METER, "Phase", DensityManipulationHandlers.MAX_PHASE, 0xFF7FD0FF,

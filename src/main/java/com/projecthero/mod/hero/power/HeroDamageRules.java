@@ -64,7 +64,7 @@ public final class HeroDamageRules {
 		if (cancel) {
 			return false;
 		}
-		if (factor < 0.999f) {
+		if (Math.abs(factor - 1.0f) > 0.001f) { // v0.16.5: also > 1 (Elasticity's fire weakness)
 			return reduce(player, source, amount, factor);
 		}
 		return true;
@@ -110,21 +110,13 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_17_elasticity" -> {
-				if (fall) {
-					player.resetFallDistance();
+				// v0.16.5 rework: no fall damage; the balloon / ball bounce projectiles off; blunt hits (melee,
+				// explosions) -25%, fire and lava +25% (the one rule here that RAISES damage), the balloon -60%
+				float elasticFactor = com.projecthero.mod.hero.power.p17.ElasticityHandlers.damageFactor(player, source);
+				if (elasticFactor < 0.0f) {
 					return Verdict.immune();
 				}
-				// v0.10.10: a rubber body simply does not take an arrow. Elastic Form only ever bounced
-				// melee attackers away, which left the form useless against exactly the ranged enemies it
-				// most obviously should shrug off.
-				if (source.is(DamageTypeTags.IS_PROJECTILE)
-						&& com.projecthero.mod.hero.power.p17.ElasticityHandlers.deflectsProjectiles(player)) {
-					return Verdict.immune();
-				}
-				// v0.10.13: Inflated Form soaks half of every hit; v0.13.22: the held Rubber Shield (H) soaks 65%
-				// (and, via deflectsProjectiles above, bounces every projectile).
-				float elasticFactor = com.projecthero.mod.hero.power.p17.ElasticityHandlers.damageTakenFactor(player);
-				if (elasticFactor < 0.999f) {
+				if (Math.abs(elasticFactor - 1.0f) > 0.001f) {
 					return Verdict.mult(elasticFactor);
 				}
 			}

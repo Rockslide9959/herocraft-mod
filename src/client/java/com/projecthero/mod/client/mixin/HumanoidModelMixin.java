@@ -212,6 +212,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.mutation.v0145.SpeedRunPose.apply(player, (HumanoidModel<?>) (Object) this, limbSwing);
 			// v0.13.22: experimental mutation move animations
 			com.projecthero.mod.client.mutation.MutationPose.apply(player, (HumanoidModel<?>) (Object) this);
+			// v0.16.5: Elasticity -- the limbs really stretch, the balloon / canopy bodies, the coil
+			com.projecthero.mod.client.mutation.ElasticityClient.applyLimbs(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.5: Super Strength's superhero landing (moves bones, not just rotates them)
 			com.projecthero.mod.client.mutation.v0145.StrengthLandingPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.2: Max Steel armour up / power down / mode swap / Turbo Blast / Turbo Cannon
