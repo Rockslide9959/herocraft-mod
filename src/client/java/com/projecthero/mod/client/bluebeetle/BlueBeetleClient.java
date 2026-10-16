@@ -29,6 +29,7 @@ public final class BlueBeetleClient {
 			}
 		});
 		HudRenderCallback.EVENT.register(BlueBeetleHud::render);
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(BlueBeetleTakeoverClient::startTick);
 		WorldRenderEvents.AFTER_ENTITIES.register(BlueBeetleEffectsRenderer::render);
 		EntityRendererRegistry.register(BlueBeetleEntityTypes.SCARAB_DRONE, ScarabDroneRenderer::new);
 		EntityRendererRegistry.register(BlueBeetleEntityTypes.PLASMA_BOLT, PlasmaBoltRenderer::new);

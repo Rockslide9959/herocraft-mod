@@ -58,7 +58,7 @@ import net.minecraft.world.phys.Vec3;
  *   X (3)  Scarab Swarm             Shift+X  Bubble Prison
  *   Z (4)  Plasma Spikes            Shift+Z  Shield Pulse
  *   V (5)  Energy Shield (hold)     Shift+V  Camouflage
- *   C (6)  Energy Blade (toggle)    Shift+C  Khaji-Da Unleashed
+ *   C (6)  Energy Blade (toggle)    Shift+C  Khaji-Da Unleashed (the takeover, {@link KhajiDaTakeover})
  * </pre>
  */
 public final class BlueBeetleAbilities {
@@ -665,6 +665,7 @@ public final class BlueBeetleAbilities {
 	public static void lowerShield(ServerPlayer p) {
 		if (SHIELDS.remove(p.getUUID()) != null || BlueBeetle.state(p).fx.shield) {
 			fx(p, n -> n.fx.shield = false);
+			cooldown(p, SHIELD, BlueBeetleConfig.SHIELD_COOLDOWN); // v0.16.5 (user): 8 s before it goes up again
 			sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.8f);
 		}
 	}
@@ -730,27 +731,31 @@ public final class BlueBeetleAbilities {
 		sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 0.6f, 0.8f);
 	}
 
-	/** Touching anything -- using or hitting a block, an item or an entity -- shows a camouflaged Blue Beetle. */
+	/**
+	 * Touching anything -- using or hitting a block, an item or an entity -- shows a camouflaged Blue Beetle. And while
+	 * Khaji-Da has the body (the takeover) the player's own clicks do nothing at all.
+	 */
 	static void registerCamoBreakers() {
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
 			touched(player);
-			return InteractionResult.PASS;
+			return KhajiDaTakeover.active(player) ? InteractionResult.FAIL : InteractionResult.PASS;
 		});
 		UseItemCallback.EVENT.register((player, level, hand) -> {
 			touched(player);
-			return InteractionResultHolder.pass(player.getItemInHand(hand));
+			return KhajiDaTakeover.active(player) ? InteractionResultHolder.fail(player.getItemInHand(hand))
+					: InteractionResultHolder.pass(player.getItemInHand(hand));
 		});
 		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			touched(player);
-			return InteractionResult.PASS;
+			return KhajiDaTakeover.active(player) ? InteractionResult.FAIL : InteractionResult.PASS;
 		});
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, direction) -> {
 			touched(player);
-			return InteractionResult.PASS;
+			return KhajiDaTakeover.active(player) ? InteractionResult.FAIL : InteractionResult.PASS;
 		});
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			touched(player);
-			return InteractionResult.PASS;
+			return KhajiDaTakeover.active(player) ? InteractionResult.FAIL : InteractionResult.PASS;
 		});
 	}
 
@@ -813,6 +818,7 @@ public final class BlueBeetleAbilities {
 		n.animId = BlueBeetleState.ANIM_UNLEASH;
 		n.animStart = now;
 		BlueBeetle.save(p, n);
+		KhajiDaTakeover.start(p); // v0.16.5 (user): Khaji-Da takes the body for the 15 s
 		ServerLevel level = level(p);
 		level.sendParticles(BlueBeetle.RED, p.getX(), p.getY() + 1.0, p.getZ(), 60, 0.5, 1.0, 0.5, 0.0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.5, 1.0, 0.5, 0.3);
@@ -821,7 +827,9 @@ public final class BlueBeetleAbilities {
 		KhajiDa.speak(p, KhajiDa.Topic.UNLEASHED);
 	}
 
-	static void endUnleashed(ServerPlayer p) {
+	/** The takeover is over (time up, or nothing left to fight); {@code speak}: Khaji-Da's usual parting line. */
+	static void endUnleashed(ServerPlayer p, boolean speak) {
+		KhajiDaTakeover.stop(p);
 		long now = p.level().getGameTime();
 		fx(p, n -> {
 			n.unleashedUntil = 0L;
@@ -829,7 +837,9 @@ public final class BlueBeetleAbilities {
 			n.slowRegenUntil = now + BlueBeetleConfig.UNLEASH_AFTER_TICKS;
 		});
 		sound(p, SoundEvents.BEACON_DEACTIVATE, 1.0f, 0.6f);
-		KhajiDa.speak(p, KhajiDa.Topic.UNLEASH_END);
+		if (speak) {
+			KhajiDa.speak(p, KhajiDa.Topic.UNLEASH_END);
+		}
 	}
 
 	// ================================================================ tick

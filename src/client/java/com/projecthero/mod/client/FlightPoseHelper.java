@@ -122,7 +122,9 @@ public final class FlightPoseHelper {
 		boolean otherHeroFlying = player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)
 				|| maxSteelFlying || greenLanternFlying || kryptonianFlying || novaFlying
 				// v0.16.5: Cyborg's Jet Flight leans in too
-				|| com.projecthero.mod.cyborg.Cyborg.flying(player);
+				|| com.projecthero.mod.cyborg.Cyborg.flying(player)
+				// v0.16.5 (user): Blue Beetle leans forward flying, lies flat sprint-flying, arms and legs down
+				|| com.projecthero.mod.bluebeetle.BlueBeetle.flying(player);
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
 		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),

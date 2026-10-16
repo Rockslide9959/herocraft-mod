@@ -36,11 +36,12 @@ public final class BlueBeetlePose {
 
 		if (s.suited) {
 			if (s.flying && !player.onGround()) {
-				// arms by his sides, legs trailing (the wings do the flying)
-				pose(model.rightArm, 1f, 0.35f, 0f, 0.25f);
-				pose(model.leftArm, 1f, 0.35f, 0f, -0.25f);
-				pose(model.rightLeg, 1f, 0.2f, 0f, 0.05f);
-				pose(model.leftLeg, 1f, 0.25f, 0f, -0.05f);
+				// v0.16.5 (user): "keep his arms and legs down like normal and not out a bit" -- straight down at his sides,
+				// no walking swing; the body's lean (forward flying, flat sprint-flying) is FlightPoseHelper's
+				pose(model.rightArm, 1f, 0f, 0f, 0.04f);
+				pose(model.leftArm, 1f, 0f, 0f, -0.04f);
+				pose(model.rightLeg, 1f, 0f, 0f, 0f);
+				pose(model.leftLeg, 1f, 0f, 0f, 0f);
 			}
 			if (s.fx.shield) {
 				off.xRot = model.head.xRot - (float) Math.PI / 2f + 0.15f;

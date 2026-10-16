@@ -101,6 +101,8 @@ public final class BlueBeetleConfig {
 
 	// ---------------------------------------------------------------- V: Energy Shield / Shift+V: Camouflage
 	public static final float SHIELD_COST_PER_SECOND = 3f;
+	/** v0.16.5 (user): 8 s after the shield drops before it can go up again. */
+	public static final int SHIELD_COOLDOWN = 160;
 	/** cos of the half-angle the shield covers in front of him (about 70 degrees). */
 	public static final double SHIELD_ARC = 0.34;
 	public static final float CAMO_COST = 30f;
@@ -117,4 +119,17 @@ public final class BlueBeetleConfig {
 	public static final float UNLEASH_COOLDOWN_FACTOR = 0.5f;
 	public static final int UNLEASH_AFTER_TICKS = 600;
 	public static final int UNLEASH_COOLDOWN = 2400;
+
+	// ---------------------------------------------------------------- Khaji-Da's takeover (Shift+C)
+	/** Hostiles further than this are ignored; with none left inside it the takeover ends early. */
+	public static final double TAKEOVER_RANGE = 32.0;
+	/** How long with no hostile in range before Khaji-Da hands the body back. */
+	public static final int TAKEOVER_CLEAR_TICKS = 30;
+	/** Running speed (blocks a tick) and flying speed while Khaji-Da drives. */
+	public static final double TAKEOVER_RUN_SPEED = 0.32;
+	public static final double TAKEOVER_FLY_SPEED = 0.6;
+	/** Blade swings in melee (ticks apart). */
+	public static final int TAKEOVER_SWING_TICKS = 10;
+	/** A* search budget (nodes) for one ground path. */
+	public static final int TAKEOVER_PATH_NODES = 2000;
 }

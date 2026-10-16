@@ -74,6 +74,7 @@ public final class BlueBeetle {
 		FLIGHT_GRANTED.clear();
 		BlueBeetleAbilities.clearSessionState();
 		BlueBeetleAbilityManager.clearSessionState();
+		KhajiDaTakeover.clearSessionState();
 		BlueBeetleDamage.clearSessionState();
 		KhajiDa.clearSessionState();
 	}
@@ -110,6 +111,12 @@ public final class BlueBeetle {
 	public static boolean unleashed(Player player) {
 		BlueBeetleState s = peek(player);
 		return s != null && s.suited && s.unleashedUntil > player.level().getGameTime();
+	}
+
+	/** Suited and flying (the flight pose, every client). */
+	public static boolean flying(Player player) {
+		BlueBeetleState s = peek(player);
+		return s != null && s.hasPower && s.suited && s.flying;
 	}
 
 	public static boolean shieldUp(Player player) {
@@ -215,6 +222,7 @@ public final class BlueBeetle {
 		LAST_TOGGLE.remove(id);
 		LAST_POS.remove(id);
 		BlueBeetleAbilityManager.forget(id);
+		KhajiDaTakeover.forget(id);
 		KhajiDa.forget(id);
 	}
 
@@ -233,7 +241,7 @@ public final class BlueBeetle {
 
 	public static void toggleSuit(ServerPlayer player) {
 		BlueBeetleState s = state(player);
-		if (!s.hasPower || !player.isAlive() || player.isSpectator() || changing(player)) {
+		if (!s.hasPower || !player.isAlive() || player.isSpectator() || changing(player) || KhajiDaTakeover.active(player)) {
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -301,6 +309,9 @@ public final class BlueBeetle {
 	 */
 	public static void toggleFlight(ServerPlayer player) {
 		BlueBeetleState s = state(player);
+		if (KhajiDaTakeover.active(player)) {
+			return; // Khaji-Da flies the body himself
+		}
 		if (s.flying) {
 			landWings(player);
 			return;
@@ -420,7 +431,9 @@ public final class BlueBeetle {
 				BlueBeetleAbilities.breakCamo(player); // flying (or milk) shows him
 			}
 			if (s.unleashedUntil != 0L && s.unleashedUntil <= now) {
-				BlueBeetleAbilities.endUnleashed(player);
+				BlueBeetleAbilities.endUnleashed(player, true);
+			} else if (s.unleashedUntil > now) {
+				KhajiDaTakeover.tick(player); // v0.16.5 (user): Khaji-Da drives the body
 			}
 			if (now % 200 == 0 && player.getHealth() < player.getMaxHealth() * 0.3f) {
 				KhajiDa.speak(player, KhajiDa.Topic.LOW_HEALTH);
