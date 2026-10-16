@@ -53,6 +53,8 @@ public class HellCycleEntity extends Mob {
 	private final Deque<TrailPoint> trail = new ArrayDeque<>();
 	/** v0.16.5: the real fire it has left behind, and when each patch goes out. */
 	private final Deque<TrailPoint> fires = new ArrayDeque<>();
+	/** Where the bike stood last server tick (its real speed while a client steers it). */
+	private Vec3 lastServerPos;
 	/** Client: wheel spin angle (radians), advanced by the renderer from the ground speed. */
 	public float wheelSpin;
 	public float wheelSpinO;
@@ -247,7 +249,17 @@ public class HellCycleEntity extends Mob {
 			return;
 		}
 		long now = server.getGameTime();
+		// v0.16.5 fix: a ridden bike is steered by the rider's client, so its server-side velocity sits near 0 -- the speed
+		// (and the fire trail behind it) comes from how far it really moved since last tick
 		Vec3 v = getDeltaMovement();
+		Vec3 here = position();
+		if (lastServerPos != null && ridden) {
+			Vec3 moved = here.subtract(lastServerPos);
+			if (moved.horizontalDistance() > v.horizontalDistance() && moved.horizontalDistance() < 4.0) {
+				v = moved;
+			}
+		}
+		lastServerPos = here;
 		double speed = v.horizontalDistance();
 		if (leaping) {
 			leapAge++;
