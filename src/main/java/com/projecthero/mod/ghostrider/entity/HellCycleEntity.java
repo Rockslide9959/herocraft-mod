@@ -42,6 +42,10 @@ public class HellCycleEntity extends Mob {
 	private record TrailPoint(Vec3 pos, long at) {
 	}
 
+	/** v0.16.5: on fire only under the Spirit -- a human rider's bike is a plain (if hellish) motorbike. Synced. */
+	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> BURNING = net.minecraft.network.syncher.SynchedEntityData
+			.defineId(HellCycleEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
+
 	private UUID owner;
 	private int idle;
 	private boolean leaping;
@@ -64,6 +68,17 @@ public class HellCycleEntity extends Mob {
 				.add(Attributes.MOVEMENT_SPEED, GhostRiderConfig.CYCLE_SPEED)
 				.add(Attributes.STEP_HEIGHT, GhostRiderConfig.CYCLE_STEP)
 				.add(Attributes.SAFE_FALL_DISTANCE, 1000.0);
+	}
+
+	@Override
+	protected void defineSynchedData(net.minecraft.network.syncher.SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(BURNING, true);
+	}
+
+	/** Whether the bike is ablaze (its rider -- or, unridden, its owner -- is the Ghost Rider). */
+	public boolean burning() {
+		return entityData.get(BURNING);
 	}
 
 	public void setOwner(UUID owner) {
@@ -221,6 +236,12 @@ public class HellCycleEntity extends Mob {
 		}
 		boolean ridden = getFirstPassenger() != null;
 		idle = ridden ? 0 : idle + 1;
+		// v0.16.5: ablaze only while the Ghost Rider rides it (or, standing, while its owner is him)
+		ServerPlayer who = getFirstPassenger() instanceof ServerPlayer rp ? rp : owner == null ? null : server.getServer().getPlayerList().getPlayer(owner);
+		boolean fire = who != null && GhostRider.transformed(who);
+		if (fire != burning()) {
+			entityData.set(BURNING, fire);
+		}
 		if (!ridden && idle > 400) {
 			discard(); // nobody came back for it
 			return;
@@ -230,7 +251,7 @@ public class HellCycleEntity extends Mob {
 		double speed = v.horizontalDistance();
 		if (leaping) {
 			leapAge++;
-			if (leapAge % 2 == 0) {
+			if (leapAge % 2 == 0 && fire) {
 				server.sendParticles(ParticleTypes.FLAME, getX(), getY() + 0.4, getZ(), 6, 0.3, 0.2, 0.3, 0.02);
 			}
 			if (leapAge > 4 && onGround()) {
@@ -242,8 +263,8 @@ public class HellCycleEntity extends Mob {
 				leaping = false;
 			}
 		}
-		// the burning tyre tracks
-		if (ridden && speed > 0.08 && tickCount % 2 == 0) {
+		// the burning tyre tracks (only while it burns)
+		if (fire && ridden && speed > 0.08 && tickCount % 2 == 0) {
 			trail.addLast(new TrailPoint(position(), now));
 			// v0.16.5 (user): "leave a trail of fire wherever it rides" -- real fire just behind the back wheel
 			if (getFirstPassenger() instanceof ServerPlayer rider) {
@@ -259,6 +280,9 @@ public class HellCycleEntity extends Mob {
 		while (!trail.isEmpty() && now - trail.peekFirst().at() > GhostRiderConfig.TRAIL_LIFE) {
 			trail.pollFirst();
 		}
+		if (!fire) {
+			trail.clear();
+		}
 		if (tickCount % 3 == 0) {
 			for (TrailPoint t : trail) {
 				server.sendParticles(ParticleTypes.FLAME, t.pos().x, t.pos().y + 0.1, t.pos().z, 1, 0.15, 0.02, 0.15, 0.005);
@@ -266,7 +290,9 @@ public class HellCycleEntity extends Mob {
 		}
 		if (ridden && speed > 0.15) {
 			Vec3 back = position().subtract(v.normalize().scale(0.9));
-			server.sendParticles(ParticleTypes.FLAME, back.x, getY() + 0.35, back.z, 3, 0.1, 0.1, 0.1, 0.01);
+			if (fire) {
+				server.sendParticles(ParticleTypes.FLAME, back.x, getY() + 0.35, back.z, 3, 0.1, 0.1, 0.1, 0.01);
+			}
 			server.sendParticles(ParticleTypes.SMOKE, back.x, getY() + 0.5, back.z, 1, 0.05, 0.05, 0.05, 0.01);
 		}
 		if (tickCount % 20 == 0 && !trail.isEmpty() && getFirstPassenger() instanceof ServerPlayer rider) {

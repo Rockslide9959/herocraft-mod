@@ -159,6 +159,46 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 ---
 
+## 6. Elasticity Rework: Experimental (mutation)
+
+**What's wrong now:** it is switched off (`Powers.ENABLED`). It uses H (Rubber Shield) and N (Parachute Glide). C is a three-way form wheel (Elastic / Inflated / Compression) that is hard to read. The "25% less melee damage" passive makes a rubber brawler feel weak, and the arms only *look* stretched through particles.
+
+**New design:** a Mr. Fantastic / Plastic Man / Luffy rubber brawler. Your **real arms and legs stretch**: the limb model itself lengthens out to the target in your own skin, then snaps back. A **Stretch** meter replaces most cooldowns, so you can chain moves. It has six keys, each with a Shift version, and no H or N.
+
+- **Stretch (0-100):** each move spends some and it refills 15 per second (twice as fast standing still). Run it dry and you **go limp**: Slowness II for 2 s and no moves until it is back to 20.
+- **Wind-up:** R and Z can be **held to coil** the limb. It visibly twists for up to 1.5 s, for more damage, reach and knockback. Release to snap.
+- **Getting it:** unchanged. The Elastic Polymer Serum plus a 10-block fall onto a Slime Block, or the Gravity Distortion Rig. It returns to the power wheel and random serums.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Stretch Punch:** the arm shoots out up to 18 blocks for 12. Hold to coil up to 1.5 s, for up to 24 damage, 22 blocks and a big knockback. 10 Stretch | **Gatling Barrage:** hold to flurry stretched punches into the cone in front, 6 hits a second at 3 each, many blurred arms. 12 Stretch a second |
+| **G** | **Elastic Grab:** the arm wraps a mob or player up to 20 blocks away and reels it in. Press again to hurl it where you look: 10 damage, plus 6 if it hits a wall or another mob. 15 Stretch (no bosses) | **Wrap & Squeeze:** your body coils round the grabbed or aimed target (6 blocks). It can't attack or move for 4 s and takes 4 a second. Press again to let go. 25 Stretch |
+| **X** | **Slingshot:** both arms anchor to the block you aim at (40 blocks). Hold to pull back further, release to launch yourself at it. 15 Stretch | **Rubber Ball:** roll up into a bouncing ball for 6 s. It's fast, bounces off walls, and bowls through mobs for 6 each. Projectiles bounce off. 30 Stretch |
+| **Z** | **Giant Hammer Fist:** the fist swells to a boulder and slams the aim point (12 blocks). Hold to coil for a bigger fist: 20-34 damage in a 4.5-block area, plus Slowness. 30 Stretch, 8 s cooldown | **Spring Stomp:** your legs stretch you 8 blocks up on stilts, then you slam down: 20 damage in a 5-block ring, launching mobs. 25 Stretch, 6 s cooldown |
+| **V** | **Rubber Shield** (hold, moved from H): inflate into a balloon. Projectiles bounce back at their shooter, melee attackers are flung away, and you take 60% less damage, but you move slowly. 8 Stretch a second | **Parachute** (toggle, moved from N): flatten into a canopy and glide where you look, falling slowly. Look down to dive. Free |
+| **C** | **Long Reach** (toggle): your arms reach 12 blocks for everything. Break and place blocks, open doors and chests, and pick up items from 12 blocks away. Free | **Shape Shift:** squash into a harmless-looking shape (a barrel, a chest or a block of your choice). Mobs lose you, and moving or attacking ends it. 20 Stretch, 10 s cooldown |
+
+**Passives:**
+- No fall damage, plus a springy bounce from a real fall. Hold Shift to land dead.
+- 50% knockback resistance.
+- Rubber body: 25% less from blunt hits (melee and explosions), but **+25% from fire and lava** (weakness).
+- Squeeze through 1-block gaps.
+- +3 melee reach.
+- The old **"25% less melee damage" passive is removed.**
+
+**HUD:** mono keys, with an always-on **orange Stretch Hairline** under them (like Teleport's Strain). A coil bar shows while you hold R or Z.
+
+**Visuals:**
+- Real stretching limbs: the arm or leg model is lengthened along itself to the target, with a slight wobble on the way back.
+- The coil twist while charging.
+- The balloon and the canopy as body shapes.
+- The ball as a rubber sphere in your skin's main colour.
+- Shape Shift as the chosen block, wobbling slightly when you move the camera.
+
+**Boss:** the Gravebound Elasticity boss controller is updated to the new move ids.
+
+---
+
 ## 5. Cutting test time
 
 **What I found:** CI is already about **2 minutes** per push (8 parallel slices, and only the tests for the changed area run). Almost all the waiting is **on your PC**:

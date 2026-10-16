@@ -86,7 +86,8 @@ public final class GhostRiderCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
-		float dmg = damage;
+		// v0.16.5 (user): as a human (by day) his moves hit at 60%
+		float dmg = damage * (GhostRider.transformed(owner) ? 1f : GhostRiderConfig.HUMAN_POWER);
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * GhostRiderConfig.BOSS_MAX_FRACTION_PER_HIT);
 		}
