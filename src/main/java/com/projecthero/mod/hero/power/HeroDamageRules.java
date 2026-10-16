@@ -168,8 +168,14 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_08_pyrokinesis" -> {
-				if (source.is(DamageTypeTags.IS_FIRE)) {
+				// v0.16.5 rework: fire and lava immune; no fall damage straight after a Flame Dash or the jets; Flame Body
+				// takes 30% less from melee
+				float pyroFactor = com.projecthero.mod.hero.power.p08.PyrokinesisHandlers.damageFactor(player, source);
+				if (pyroFactor < 0.0f) {
 					return Verdict.immune();
+				}
+				if (Math.abs(pyroFactor - 1.0f) > 0.001f) {
+					return Verdict.mult(pyroFactor);
 				}
 			}
 			case "power_09_cryokinesis" -> {

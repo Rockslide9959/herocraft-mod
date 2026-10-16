@@ -84,11 +84,7 @@ public final class RevampBatchB {
 		MutationVisuals.registerFlag("p06.crystal_armor", CrystalkinesisHandlers::armorActive);
 		MutationVisuals.registerFlag("p06.crystal_path", CrystalkinesisHandlers::onPath);
 		// 08 Pyrokinesis
-		MutationVisuals.registerFlag("p08.flame_body", PyrokinesisHandlers::flameBodyActive);
-		MutationVisuals.registerFlag("p08.jet", PyrokinesisHandlers::jetting);
-		MutationVisuals.registerFlag("p08.blue", PyrokinesisHandlers::blue);
-		MutationVisuals.registerValue("p08.heat", p -> ExperimentalPowers.owns(p, PYRO)
-				? PyrokinesisHandlers.heat(p) / PyrokinesisHandlers.MAX_HEAT : 0);
+		PyrokinesisHandlers.registerVisuals(); // v0.16.5 rework
 		// 09 Cryokinesis
 		MutationVisuals.registerFlag("p09.frozen_armor", CryokinesisHandlers::frozenArmorActive);
 		MutationVisuals.registerFlag("p09.frozen_solid", FrostStacks::frozen);
@@ -119,15 +115,8 @@ public final class RevampBatchB {
 				CrystalNodeEntity.MAX_NODES, 0xFFD2A8FF, false, false));
 		BatchBUtil.ultMeter(CRYSTAL);
 
-		// 08 Pyrokinesis: the one Heat bar (always on), and the overheat warning
-		MutationMeters.register(new Spec(PYRO, "heat", Kind.BUILD, Style.GAUGE, "Heat",
-				PyrokinesisHandlers.MAX_HEAT, 0xFFFF8A2A, true, true));
-		MutationMeters.register(new Spec(PYRO, "overheated", Kind.BUILD, Style.HAIRLINE,
-				"OVERHEATED — vent with Heat Wave or cool below 60%", 1.0f, 0xFFE03A2A, false, false));
-		BatchBUtil.ultMeter(PYRO);
-		BatchBUtil.hideMeter(PYRO, "flamethrower");
-		BatchBUtil.hideMeter(PYRO, "flame_body");
-		BatchBUtil.hideMeter(PYRO, "flameflight");
+		// 08 Pyrokinesis: since the v0.16.5 rework all in PyrokinesisHandlers (the always-on Heat Hairline + timers)
+		PyrokinesisHandlers.registerMeters();
 
 		// 09 Cryokinesis
 		MutationMeters.register(new Spec(CRYO, "frozen_armor", Kind.RESERVE, Style.METER, "Frozen Armor",

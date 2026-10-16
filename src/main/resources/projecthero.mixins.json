@@ -23,6 +23,7 @@
 		"IronManArmorSlotMixin",
 		"ItemStackMixin",
 		"LargeFireballMixin",
+		"PyroLavaMixin",
 		"LivingEntityAccessor",
 		"PlayerAttackComboMixin",
 		"LootTableDisabledPowerMixin",

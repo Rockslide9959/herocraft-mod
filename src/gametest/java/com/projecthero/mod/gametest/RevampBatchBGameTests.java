@@ -11,7 +11,6 @@ import com.projecthero.mod.hero.power.p05.GeoRockEntity;
 import com.projecthero.mod.hero.power.p05.GeokinesisHandlers;
 import com.projecthero.mod.hero.power.p05.GroundType;
 import com.projecthero.mod.hero.power.p06.CrystalNodeEntity;
-import com.projecthero.mod.hero.power.p08.PyrokinesisHandlers;
 import com.projecthero.mod.hero.power.p09.FrostStacks;
 import com.projecthero.mod.hero.power.p09.IceBladeItem;
 import com.projecthero.mod.hero.power.p25.WaterHandlers;
@@ -50,7 +49,6 @@ import net.minecraft.world.phys.Vec3;
 public class RevampBatchBGameTests implements FabricGameTest {
 	private static final String GEO = "power_05_geokinesis";
 	private static final String CRYSTAL = "power_06_crystalkinesis";
-	private static final String PYRO = "power_08_pyrokinesis";
 	private static final String CRYO = "power_09_cryokinesis";
 	private static final String WATER = "power_25_water_manipulation";
 
@@ -95,7 +93,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchPowersRegistered(GameTestHelper helper) {
 		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
-		for (String key : new String[] { GEO, CRYSTAL, PYRO, CRYO, WATER }) {
+		for (String key : new String[] { GEO, CRYSTAL, CRYO, WATER } /* 08 Pyrokinesis: reworked in v0.16.5 (six keys) */) {
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {
@@ -245,74 +243,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------- 08 Pyrokinesis ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pyroHeatBuildsAndOverheatLocksOut(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, PYRO);
-		Power pyro = Powers.byKey(PYRO);
-		AbilityRouter.handleInput(p, 1, true);
-		helper.assertTrue(PyrokinesisHandlers.heat(p) > 5.0f, "a fireball stokes the Heat bar, got " + PyrokinesisHandlers.heat(p));
-		ExperimentalPowers.setResource(p, pyro, "heat", 99.0f, PyrokinesisHandlers.MAX_HEAT);
-		AbilityRouter.handleInput(p, 8, true); // Fire Whip: +7 heat -> 100
-		helper.assertTrue(PyrokinesisHandlers.overheated(p), "hitting 100% overheats");
-		AbilityRouter.handleInput(p, 2, true); // Flamethrower
-		helper.assertTrue(res(p, PYRO, "flaming") < 0.5f, "no heat-building move while overheated");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pyroHeatWaveVentsEverythingAndHits(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, PYRO);
-		Power pyro = Powers.byKey(PYRO);
-		Zombie z = zombieAhead(helper, p, 3);
-		ExperimentalPowers.setResource(p, pyro, "heat", 100.0f, PyrokinesisHandlers.MAX_HEAT);
-		ExperimentalPowers.setResource(p, pyro, "overheated", 1.0f, 1.0f);
-		float before = z.getHealth();
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(PyrokinesisHandlers.heat(p) < 0.01f, "Heat Wave vents all heat");
-		helper.assertFalse(PyrokinesisHandlers.overheated(p), "and ends the overheat");
-		helper.assertTrue(z.getHealth() < before, "the ring burns what is close");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pyroBurnsBlueAboveThreeQuarters(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, PYRO);
-		Power pyro = Powers.byKey(PYRO);
-		ExperimentalPowers.setResource(p, pyro, "heat", 40.0f, PyrokinesisHandlers.MAX_HEAT);
-		helper.assertFalse(PyrokinesisHandlers.blue(p), "40% is not blue");
-		float warm = PyrokinesisHandlers.heatMult(p);
-		ExperimentalPowers.setResource(p, pyro, "heat", 80.0f, PyrokinesisHandlers.MAX_HEAT);
-		helper.assertTrue(PyrokinesisHandlers.blue(p), "80% burns blue");
-		helper.assertTrue(PyrokinesisHandlers.heatMult(p) > warm, "hotter hits harder");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pyroNeverSetsItsUserAlight(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, PYRO);
-		p.setRemainingFireTicks(200);
-		ExperimentalPowers.serverTick(p);
-		helper.assertTrue(p.getRemainingFireTicks() <= 0, "a pyrokinetic's fire is snuffed at once");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void pyroJetFlightThrustsAlongTheAim(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, PYRO);
-		p.setXRot(0.0f);
-		p.setYRot(0.0f);
-		AbilityRouter.handleInput(p, 3, true);
-		helper.assertTrue(PyrokinesisHandlers.jetting(p), "holding X lights the jets");
-		ExperimentalPowers.serverTick(p);
-		helper.assertTrue(p.getDeltaMovement().z > 0.3, "the jets drive you along your aim, v=" + p.getDeltaMovement());
-		helper.assertTrue(PyrokinesisHandlers.heat(p) > 0.0f, "flying builds heat");
-		AbilityRouter.handleInput(p, 3, false);
-		helper.assertFalse(PyrokinesisHandlers.jetting(p), "letting go cuts the jets");
-		helper.assertTrue(res(p, PYRO, "no_fall_until") > helper.getLevel().getGameTime(), "a coast with no fall damage");
-		helper.succeed();
-	}
+	// 08 Pyrokinesis: since the v0.16.5 rework in PyrokinesisV0165GameTests
 
 	// ---------------- 09 Cryokinesis ----------------
 

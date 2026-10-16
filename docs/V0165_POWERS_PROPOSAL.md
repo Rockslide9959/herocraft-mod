@@ -241,3 +241,46 @@ Answered 2026-10-15:
 - **Test speed:** no preference picked. Section 5 lists the options.
 
 Still waiting on: your go-ahead (or changes) for each power, the three skin links, and which test-speed fixes to apply.
+
+---
+
+## 7. Pyrokinesis Rework: Experimental (mutation)
+
+**What was wrong:** it was switched off (`Powers.ENABLED`). It used H (Heat Wave) and N (Fire Whip), the fireball was a vanilla ghast fireball, and most moves were particles only.
+
+**New design (user-approved):** one **Heat** meter (0-100) that every move **raises**. Hotter = stronger fire, up to +40% at 80+ Heat. At 100 you **overheat**: a forced fire nova around you (12), then no moves for 5 s. Heat cools 10 a second, faster in water or rain. Six keys, each with a Shift version, and no H or N.
+
+- **Passives:** immune to fire and lava, punches set things alight, lava doesn't slow you.
+- **Getting it:** unchanged (the Thermal Mutation Serum + standing in fire, or the Blast Chamber). It returns to the power wheel and random serums.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Fireball:** 14 + burning. +8 Heat | **Flamethrower** (hold): 8-block cone, 4 per burst + burning. +10 Heat a second |
+| **G** | **Fire Whip:** 12-block lash, 12, pulls the target in. +10 Heat | **Fire Lasso:** a burning ring binds the target 3 s (it can't move, 3 a second). +20 Heat |
+| **X** | **Flame Dash:** a 10-block burst leaving a fire trail. +10 Heat | **Jet Flight** (toggle): fly on fire jets. +5 Heat a second |
+| **Z** | **Meteor** (hold to charge): a huge fireball, 16-30 in a 5-block blast, sets fires. +25 Heat | **Inferno:** dump your Heat in a nova, up to 30 (at full Heat) in 8 blocks. Heat to 0 |
+| **V** | **Flame Wall:** an 8-wide wall of fire, burns whatever crosses, burns up arrows. +15 Heat | **Flame Body** (toggle): living fire. Melee attackers burn, -30% melee damage, walk on lava. +4 Heat a second |
+| **C** | **Heat Wave:** cone knockback, melts snow and ice, smelts dropped items. +10 Heat | **Cauterize:** burn 40 Heat to heal 8 hearts. 20 s cooldown |
+
+**Models and animations:** the Fireball and Meteor are real projectile entities drawn as layered glowing balls (a solid molten core, two churning additive shells, a soft glow and flame tongues streaming back, with a fading trail). The whip is a tapering ribbon of fire along an S-curve that cracks and recoils, the lasso two spinning rings of fire round the target with a burning rope back to your hands, the Flame Wall two staggered rows of vanilla's animated fire over a glowing ember bed. Jet flames come out of both palms and both soles, Flame Body is a burning figure: you are drawn in the user's NameMC flame skin (5e7bb58498e66c55, user 2026-10-16) with a live fire layer climbing over the whole skin (a 64x64 texture regenerated every tick, full-bright), in third person and on the first-person arm, plus real fire licking up off the limbs, the Meteor swells over your head while you charge it, and the player glows hotter as Heat climbs. Every move has a cast pose. Particles are accents only.
+
+**HUD:** mono keys, an always-on orange **Heat Hairline**, an OVERHEATED timer, the Meteor charge bar, the Lasso timer and the Meteor / Flame Wall / Lasso / Cauterize cooldowns.
+
+**Boss:** the Gravebound Pyrokinesis boss controller uses the new move ids (its Flamethrower is Shift+R now, and its Inferno counts as the Meteor).
+
+**Built (2026-10-16).** Where the spec above was silent, I decided the following:
+- **Heat cools only while nothing hot runs.** The Flamethrower, the Jet Flight, Flame Body and a Meteor being charged hold it up; otherwise the held / toggled moves' Heat a second would be cancelled out by the cooling. "Faster in water or rain" is three times as fast (30 a second).
+- **The Heat bonus** grows evenly from x1.0 at 0 Heat to x1.4 at 80 and stays there. It uses the Heat you had when you cast (a Fireball's damage is fixed when it is thrown). It applies to every fire hit except Inferno (which has its own Heat scaling) and the overheat nova (a flat 12).
+- **Overheat:** the move that reaches 100 still happens. The nova hits everything within 5 blocks for 12 and sets it burning, Heat goes to 0, every held / toggled move stops (Jet Flight lands you with no fall damage) and nothing works for a flat 5 s.
+- **Small cooldowns** so a key can't be spammed every tick: Fireball 0.4 s, Whip 1 s, Flame Dash 1.5 s, Heat Wave 1.5 s, Meteor 3 s, Flame Wall 3 s, Lasso 6 s (plus Cauterize's 20 s from the spec). Only the longer ones show on the HUD.
+- **Flamethrower:** a burst every 5 ticks (4 a second) at 4 each, ~35 degree cone, burning; it lights the block it hits. It won't light underwater.
+- **Fire Whip:** hits the first creature on your aim within 12 blocks and throws it toward you (bosses and anything over 200 HP take the damage but aren't pulled). **Fire Lasso:** same aim and range, no bosses, players only where hard crowd control on players is allowed (the existing grab rule). The burn is 3 (+Heat) once a second; Shift+G again lets go early.
+- **Flame Dash:** 2 blocks a tick for 5 ticks along your aim (the climb / dive is limited so you don't rocket into the sky), fire on the ground behind you, everything you pass catches fire, no fall damage for 2 s after. **Jet Flight** is the mod's shared directional flight at the hero-flight speed; it ends when you land, go underwater or press Shift+X again.
+- **Meteor:** a full charge is 2 s; damage scales evenly 16-30 with the charge (then the Heat bonus). It flies straight, a bit slower than the Fireball, and the 5-block blast throws, burns and leaves fires. It breaks no blocks.
+- **Inferno:** damage = 30 x Heat / 100 to everything within 8 blocks; it needs 10 Heat.
+- **Flame Wall:** 3 blocks ahead on the ground, across your aim, 8 s; 3 (+Heat) every half second and burning to whatever stands in it; projectiles that aren't yours burn up in it.
+- **Flame Body:** the -30% is for melee (a creature or player hitting you in person). Lava walking is the strider rule; hold Shift to sink in.
+- **Heat Wave:** an 8-block, ~60 degree cone; no damage. Snow / snow blocks / powder snow melt away, ice melts to water (vanishes in the Nether), packed ice softens to ice. Dropped items in the cone smelt, the whole stack at once.
+- **Fire is placed only where you may build** (and only with the server's terrain-damage switch on); all of it is temporary and goes out on its own.
+- **Removed:** the blue-flame tier (Flame Laser, blue Inferno, blue Flame Body), the old overheat (1 damage a second until 60%), Flame Spark (light / absorb / cook held items), the old Heat Wave vent on H and the Fire Whip on N.
+- **Not verified:** real multiplayer play, and lava walking (client movement) only in the screenshot harness.
