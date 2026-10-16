@@ -572,4 +572,22 @@ public class BlueBeetleGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theArmourFeedsYouFromYourInventory(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
+		p.getFoodData().setFoodLevel(10);
+		p.getInventory().add(new ItemStack(net.minecraft.world.item.Items.COOKED_BEEF, 2));
+		p.tickCount = 400;
+		BlueBeetle.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 18, "v0.16.5: the armour fed you a steak");
+		BlueBeetle.suitDown(p);
+		p.getFoodData().setFoodLevel(10);
+		p.tickCount = 440;
+		helper.runAfterDelay(1, () -> {
+			BlueBeetle.tick(p);
+			helper.assertTrue(p.getFoodData().getFoodLevel() == 10, "armour off: no feeding");
+			helper.succeed();
+		});
+	}
 }

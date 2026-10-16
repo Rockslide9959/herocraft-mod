@@ -342,6 +342,8 @@ public final class Cyborg {
 			player.setAirSupply(player.getMaxAirSupply());
 		}
 		tickHunger(player);
+		// v0.16.5 (user): his systems feed him from his inventory, like an Iron Man suit
+		com.projecthero.mod.ironman.IronManAutoFeed.tick(player, "message.projecthero.cyborg.auto_feed");
 		CyborgAbilities.tick(player);
 	}
 

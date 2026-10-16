@@ -4446,6 +4446,8 @@
   "container.projecthero.stark_smelter": "Stark Smelter",
   "container.projecthero.stark_smoker": "Stark Smoker",
   "message.projecthero.ironman.auto_feed": "Suit nutrient feed: %s",
+  "message.projecthero.blue_beetle.auto_feed": "Khaji-Da feeds you: %s",
+  "message.projecthero.cyborg.auto_feed": "Nutrient systems: %s",
   "hud.projecthero.ironman.hud_off_visor": "HUD offline - visor up",
   "hud.projecthero.ironman.scan.locked": "LOCKED",
   "hud.projecthero.ironman.scan.hp": "HEALTH",

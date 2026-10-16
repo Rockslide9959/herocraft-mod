@@ -45,14 +45,23 @@ public final class IronManAutoFeed {
 
 	/** Called every tick for an Iron Man wearer (any piece). */
 	public static void tick(ServerPlayer player) {
+		tick(player, "message.projecthero.ironman.auto_feed");
+	}
+
+	/** v0.16.5: the same feeding for another suit (Blue Beetle, Cyborg), with its own action-bar line. */
+	public static void tick(ServerPlayer player, String messageKey) {
 		if (player.tickCount % INTERVAL != 0) {
 			return;
 		}
-		feedNow(player);
+		feedNow(player, messageKey);
 	}
 
 	/** One feeding check, ignoring the two-second cadence. Returns true if something was eaten. */
 	public static boolean feedNow(ServerPlayer player) {
+		return feedNow(player, "message.projecthero.ironman.auto_feed");
+	}
+
+	public static boolean feedNow(ServerPlayer player, String messageKey) {
 		if (player.getAbilities().invulnerable || player.isSpectator() || !player.isAlive()) { // creative (mock test players report isCreative() even in survival)
 			return false;
 		}
@@ -93,7 +102,7 @@ public final class IronManAutoFeed {
 			player.drop(leftover, false);
 		}
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EAT, SoundSource.PLAYERS, 0.5f, 1.2f);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.auto_feed", name).withStyle(ChatFormatting.AQUA), true);
+		player.displayClientMessage(Component.translatable(messageKey, name).withStyle(ChatFormatting.AQUA), true);
 		return true;
 	}
 }

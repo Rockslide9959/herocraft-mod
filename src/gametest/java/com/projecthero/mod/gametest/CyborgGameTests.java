@@ -351,4 +351,16 @@ public class CyborgGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void systemsFeedHimFromHisInventory(GameTestHelper helper) {
+		ServerPlayer p = cyborg(helper, 2.5, 2.0, 2.5);
+		p.getFoodData().setFoodLevel(10);
+		p.getInventory().add(new ItemStack(net.minecraft.world.item.Items.COOKED_BEEF, 2));
+		p.tickCount = 400;
+		Cyborg.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 18, "v0.16.5: his systems fed him a steak");
+		helper.assertTrue(p.getInventory().countItem(net.minecraft.world.item.Items.COOKED_BEEF) == 1, "one steak used");
+		helper.succeed();
+	}
 }

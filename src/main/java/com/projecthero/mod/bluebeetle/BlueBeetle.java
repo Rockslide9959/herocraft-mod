@@ -417,6 +417,8 @@ public final class BlueBeetle {
 			tickEnergy(player, s, now);
 		}
 		if (s.suited) {
+			// v0.16.5 (user): the Scarab's armour feeds you from your inventory, like an Iron Man suit
+			com.projecthero.mod.ironman.IronManAutoFeed.tick(player, "message.projecthero.blue_beetle.auto_feed");
 			if (player.tickCount % 40 == 0) {
 				player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 300, 0, true, false, false));
 			}
