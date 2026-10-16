@@ -14,11 +14,11 @@ const DATA = 'src/main/resources/data/projecthero';
 // skin -> source file, emblem pass (null = untouched), icon design, recipe dyes and the extra ingredient
 const SUITS = {
 	comic: { src: 'classic', emblem: null, design: 'v2', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:paper' },
-	bnd: { src: 'bnd', emblem: ['redback', 29, 29], design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:sunflower' },
-	tasm: { src: 'tasm', emblem: ['redback', 31, 29], design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:gold_nugget' },
-	tasm2: { src: 'tasm2', emblem: ['redback', 31, 29], design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:white_dye' },
-	raimi: { src: 'raimi', emblem: ['redback', 30, 29, 22], design: 'v2', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:cobweb' },
-	future_foundation: { src: 'future_foundation', emblem: ['dark'], design: 'v2', a: 'minecraft:white_dye', b: 'minecraft:black_dye', c: 'minecraft:string' },
+	bnd: { src: 'bnd', emblem: null, design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:sunflower' },
+	tasm: { src: 'tasm', emblem: null, design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:gold_nugget' },
+	tasm2: { src: 'tasm2', emblem: null, design: 'orig', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:white_dye' },
+	raimi: { src: 'raimi', emblem: null, design: 'v2', a: 'minecraft:red_dye', b: 'minecraft:blue_dye', c: 'minecraft:cobweb' },
+	future_foundation: { src: 'future_foundation', emblem: null, design: 'v2', a: 'minecraft:white_dye', b: 'minecraft:black_dye', c: 'minecraft:string' },
 };
 const PIECES = ['helmet', 'chestplate', 'leggings', 'boots'];
 

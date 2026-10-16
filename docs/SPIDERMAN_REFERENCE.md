@@ -1200,8 +1200,8 @@ Tests: `SpiderSuitV2GameTests`.
 carries its own skin, `textures/armor/spider_man_<skin>.png`, so the mask, rig and poses all just work. The skins are
 minecraftskins.com skins (24313766 Classic -> id `comic`, because `spider_man_suit_classic_*` is the v0.16.4 Classic;
 24269310 BND, 24280721 TASM, 24280726 TASM 2, 24285458 2002, 23402302 Future Foundation), kept under
-`scratchpad/v0165_suits/skins/`. Every one but the Comic Classic has its chest and back spider darkened toward black by
-`scratchpad/v0165_suits/emblem.js` (per-skin row ranges in `gen.js`, which also draws the icons and writes the recipes).
+`scratchpad/v0165_suits/skins/`, and used as they are (v0.16.5, user: the darkened spider emblems were put back as the skins drew them;
+`scratchpad/v0165_suits/emblem.js` is kept, switched off in `gen.js`, which also draws the icons and writes the recipes).
 Recipes: `projecthero:spider_suit_upgrade`, `AHB` over ` C ` with H the original piece (kept): red + blue dye and paper
 (Comic), a sunflower (BND), a gold nugget (TASM), white dye (TASM 2), a cobweb (2002); white + black dye and string (FF).
 
