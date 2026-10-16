@@ -52,6 +52,18 @@ public final class GhostRiderDamage {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(GhostRiderDamage::allowDamage);
 		// v0.16.5 rework: he can't die (see GhostRider#cheatDeath)
 		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !(entity instanceof ServerPlayer p) || !GhostRider.cheatDeath(p, source));
+		// v0.16.5 (user): "make ghost riders punches set enemies on fire" -- any hand-to-hand hit while he is transformed
+		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			if (blocked || taken <= 0f || !(source.getEntity() instanceof ServerPlayer gr) || source.getDirectEntity() != gr || gr == entity
+					|| !source.is(DamageTypes.PLAYER_ATTACK) || !GhostRider.transformed(gr) || entity.fireImmune()) {
+				return;
+			}
+			entity.igniteForSeconds(GhostRiderConfig.PUNCH_BURN_SECONDS);
+			if (entity.level() instanceof net.minecraft.server.level.ServerLevel level) {
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, entity.getX(), entity.getY() + entity.getBbHeight() * 0.6,
+						entity.getZ(), 8, entity.getBbWidth() * 0.3, entity.getBbHeight() * 0.25, entity.getBbWidth() * 0.3, 0.03);
+			}
+		});
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof AbstractVillager || entity instanceof Player) {
 				sin(source.getEntity(), entity, GhostRiderConfig.GUILT_KILL);

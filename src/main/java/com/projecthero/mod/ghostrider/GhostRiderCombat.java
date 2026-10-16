@@ -57,6 +57,29 @@ public final class GhostRiderCombat {
 	 * One hit: damage (boss-capped), knockback away from {@code origin}, {@code lift}, and {@code burnSeconds} of fire.
 	 * Lands through a recent hit's invulnerability window. True if it landed.
 	 */
+	/**
+	 * v0.16.5: is {@code e} a symbiote? A player with the Symbiote out, a symbiote-bonded pet in its combat form, a mob
+	 * host, or Carnage.
+	 */
+	public static boolean isSymbiote(LivingEntity e) {
+		if (e instanceof net.minecraft.world.entity.player.Player p) {
+			return com.projecthero.mod.symbiote.Symbiote.isActive(p);
+		}
+		return com.projecthero.mod.symbiote.SymbiotePet.isTransformed(e)
+				|| (e instanceof net.minecraft.world.entity.Mob m && com.projecthero.mod.symbiote.SymbioteHost.is(m))
+				|| e instanceof com.projecthero.mod.carnage.entity.CarnageEntity;
+	}
+
+	/** The symbiote recoils from the hellfire: black ooze boils off it and it shrieks. */
+	public static void symbioteRecoil(net.minecraft.server.level.ServerLevel level, LivingEntity e) {
+		Vec3 c = e.position().add(0, e.getBbHeight() * 0.6, 0);
+		level.sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.05f, 0.05f, 0.06f), 1.6f), c.x, c.y, c.z, 24,
+				e.getBbWidth() * 0.5, e.getBbHeight() * 0.4, e.getBbWidth() * 0.5, 0.0);
+		level.sendParticles(net.minecraft.core.particles.ParticleTypes.FLAME, c.x, c.y, c.z, 14, e.getBbWidth() * 0.4, e.getBbHeight() * 0.4,
+				e.getBbWidth() * 0.4, 0.02);
+		level.playSound(null, c.x, c.y, c.z, net.minecraft.sounds.SoundEvents.PHANTOM_HURT, net.minecraft.sounds.SoundSource.HOSTILE, 1.0f, 0.6f);
+	}
+
 	public static boolean strike(ServerPlayer owner, LivingEntity target, Vec3 origin, float damage, double knockback, double lift,
 			int burnSeconds) {
 		if (!isTarget(owner, target)) {

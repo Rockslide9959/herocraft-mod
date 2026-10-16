@@ -47,6 +47,8 @@ public class HellCycleEntity extends Mob {
 	private boolean leaping;
 	private int leapAge;
 	private final Deque<TrailPoint> trail = new ArrayDeque<>();
+	/** v0.16.5: the real fire it has left behind, and when each patch goes out. */
+	private final Deque<TrailPoint> fires = new ArrayDeque<>();
 	/** Client: wheel spin angle (radians), advanced by the renderer from the ground speed. */
 	public float wheelSpin;
 	public float wheelSpinO;
@@ -181,14 +183,23 @@ public class HellCycleEntity extends Mob {
 		return false;
 	}
 
-	/** Cycle Jump (X while riding): an impulse the rider's client must hear about (it simulates the bike). */
+	/**
+	 * Cycle Jump (X while riding): the rider's client simulates the bike, so the leap is sent to it alone. v0.16.5 fix
+	 * (user: "it just looks like the player gets stuck on the floor"): it used to be set on the server bike too, with
+	 * hurtMarked -- but the server zeroes a player-ridden vehicle's velocity every tick, and the entity tracker then sent
+	 * that zero straight back to the rider, cancelling the jump a tick after it began. The server bike's velocity is
+	 * never touched now, so the tracker has nothing to send.
+	 */
 	public void leap(Vec3 velocity, ServerPlayer rider) {
-		setDeltaMovement(velocity);
-		hasImpulse = true;
-		hurtMarked = true;
 		leaping = true;
 		leapAge = 0;
-		rider.connection.send(new ClientboundSetEntityMotionPacket(this));
+		fallDistance = 0f;
+		rider.connection.send(new ClientboundSetEntityMotionPacket(getId(), velocity));
+	}
+
+	/** In a Cycle Jump (gametests: the leap itself only ever reaches the rider's client). */
+	public boolean leaping() {
+		return leaping;
 	}
 
 	@Override
@@ -234,6 +245,16 @@ public class HellCycleEntity extends Mob {
 		// the burning tyre tracks
 		if (ridden && speed > 0.08 && tickCount % 2 == 0) {
 			trail.addLast(new TrailPoint(position(), now));
+			// v0.16.5 (user): "leave a trail of fire wherever it rides" -- real fire just behind the back wheel
+			if (getFirstPassenger() instanceof ServerPlayer rider) {
+				lightTrail(server, rider, position().subtract(v.normalize().scale(1.1)), now);
+			}
+		}
+		while (!fires.isEmpty() && now >= fires.peekFirst().at()) {
+			net.minecraft.core.BlockPos p = net.minecraft.core.BlockPos.containing(fires.pollFirst().pos());
+			if (server.getBlockState(p).is(net.minecraft.world.level.block.Blocks.FIRE)) {
+				server.removeBlock(p, false);
+			}
 		}
 		while (!trail.isEmpty() && now - trail.peekFirst().at() > GhostRiderConfig.TRAIL_LIFE) {
 			trail.pollFirst();
@@ -251,6 +272,33 @@ public class HellCycleEntity extends Mob {
 		if (tickCount % 20 == 0 && !trail.isEmpty() && getFirstPassenger() instanceof ServerPlayer rider) {
 			burnTrail(server, rider);
 		}
+	}
+
+	/** A patch of fire at {@code at} if it can burn there (air over a solid floor, not in water), going out after a while. */
+	private void lightTrail(ServerLevel server, ServerPlayer rider, Vec3 at, long now) {
+		net.minecraft.core.BlockPos p = net.minecraft.core.BlockPos.containing(at.x, getY() + 0.2, at.z);
+		if (!rider.mayBuild() || !server.mayInteract(rider, p) || !server.getBlockState(p).isAir() || isInWater()) {
+			return;
+		}
+		if (net.minecraft.world.level.block.BaseFireBlock.canBePlacedAt(server, p, net.minecraft.core.Direction.UP)) {
+			server.setBlock(p, net.minecraft.world.level.block.BaseFireBlock.getState(server, p), 11);
+			fires.addLast(new TrailPoint(Vec3.atCenterOf(p), now + GhostRiderConfig.TRAIL_FIRE_TICKS));
+		}
+	}
+
+	@Override
+	public void remove(RemovalReason reason) {
+		// the bike leaves: its last patches go out with it
+		if (level() instanceof ServerLevel server) {
+			for (TrailPoint t : fires) {
+				net.minecraft.core.BlockPos p = net.minecraft.core.BlockPos.containing(t.pos());
+				if (server.getBlockState(p).is(net.minecraft.world.level.block.Blocks.FIRE)) {
+					server.removeBlock(p, false);
+				}
+			}
+			fires.clear();
+		}
+		super.remove(reason);
 	}
 
 	private void burnTrail(ServerLevel server, ServerPlayer rider) {

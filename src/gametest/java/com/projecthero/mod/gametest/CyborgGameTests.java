@@ -246,7 +246,7 @@ public class CyborgGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(base - 10.0) < 0.01, "+9 melee on the bare fist (1): 10, got " + base);
 		CyborgAbilities.saw(p);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 20.0) < 0.01, "the Arm Saw adds 10 more");
-		helper.assertTrue(CyborgConfig.CORE_REGEN == 4f, "4 Power Core a second");
+		helper.assertTrue(CyborgConfig.CORE_REGEN == 2f, "2 Power Core a second");
 		helper.succeed();
 	}
 
@@ -324,6 +324,17 @@ public class CyborgGameTests implements FabricGameTest {
 		p.hurt(p.damageSources().mobAttack(front), 6f);
 		helper.assertTrue(p.getHealth() == hp, "a hit from the front is soaked");
 		helper.assertTrue(Cyborg.state(p).shieldHp < CyborgConfig.MATRIX_HP, "the Matrix lost points");
+		CyborgAbilities.lowerMatrix(p);
+		helper.assertFalse(Cyborg.matrixUp(p), "letting go of C drops it");
+		// held again, a big enough beating breaks it
+		CyborgState n = Cyborg.state(p).copy();
+		n.abilityReadyAt.clear();
+		p.setAttached(ModAttachments.CYBORG_STATE, n);
+		CyborgAbilities.matrix(p);
+		helper.assertTrue(Math.abs(Cyborg.state(p).shieldHp - 100f) < 0.01f, "100 points");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().mobAttack(front), 120f);
+		helper.assertFalse(Cyborg.matrixUp(p), "100 points soaked: it broke");
 		helper.succeed();
 	}
 

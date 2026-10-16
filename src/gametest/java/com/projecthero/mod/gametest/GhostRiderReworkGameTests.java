@@ -343,7 +343,9 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 		helper.assertTrue(bike.getAttributeValue(Attributes.STEP_HEIGHT) == GhostRiderConfig.CYCLE_STEP, "a 4-block step");
 		GhostRiderAbilities.cycleKey(p);
 		helper.assertTrue(GhostRider.cooldownRemaining(p, GhostRiderAbilities.CYCLE_JUMP) > 0, "X while riding: the Cycle Jump");
-		helper.assertTrue(bike.getDeltaMovement().y > 0.1, "the bike leaps, v=" + bike.getDeltaMovement());
+		// v0.16.5 fix: the leap goes to the rider's client alone (the server bike's velocity is never touched, or the
+		// tracker would send its zero straight back and cancel the jump)
+		helper.assertTrue(bike.leaping() && bike.getDeltaMovement().lengthSqr() < 1.0e-6, "the bike leaps (client-side)");
 		helper.assertTrue(!bike.isRemoved() && p.getVehicle() == bike, "and he stays on it");
 		GhostRiderAbilities.sendCycleBack(p);
 		helper.assertTrue(bike.isRemoved() && !p.isPassenger(), "Shift+X sends it back");

@@ -123,18 +123,36 @@ public class HellfireBlastEntity extends Entity {
 			}
 		}
 		if (hit != null) {
-			GhostRiderCombat.strike(owner, hit, from, GhostRiderConfig.BLAST_DAMAGE, 0.5, 0.15, GhostRiderConfig.BLAST_BURN_SECONDS);
+			// v0.16.5 (user): hellfire burns a symbiote -- its fire weakness, and it burns longer
+			boolean symbiote = GhostRiderCombat.isSymbiote(hit);
+			GhostRiderCombat.strike(owner, hit, from, GhostRiderConfig.BLAST_DAMAGE * (symbiote ? GhostRiderConfig.BLAST_SYMBIOTE_FACTOR : 1f),
+					0.5, 0.15, symbiote ? GhostRiderConfig.BLAST_SYMBIOTE_BURN_SECONDS : GhostRiderConfig.BLAST_BURN_SECONDS);
+			if (symbiote) {
+				GhostRiderCombat.symbioteRecoil(server, hit);
+			}
 			burst(server, hit.position().add(0, hit.getBbHeight() * 0.5, 0));
 			discard();
 			return;
 		}
 		if (bhr.getType() != HitResult.Type.MISS) {
 			burst(server, end);
+			ignite(server, owner, bhr);
 			discard();
 			return;
 		}
 		setPos(end.x, end.y, end.z);
 		faceAlong(v);
+	}
+
+	/** v0.16.5 (user): a blast that hits a block sets fire where it landed (as a fire charge would). */
+	private static void ignite(ServerLevel level, ServerPlayer owner, BlockHitResult bhr) {
+		net.minecraft.core.BlockPos pos = bhr.getBlockPos().relative(bhr.getDirection());
+		if (!owner.mayBuild() || !level.mayInteract(owner, pos) || !level.getBlockState(pos).isAir()) {
+			return;
+		}
+		if (net.minecraft.world.level.block.BaseFireBlock.canBePlacedAt(level, pos, bhr.getDirection())) {
+			level.setBlock(pos, net.minecraft.world.level.block.BaseFireBlock.getState(level, pos), 11);
+		}
 	}
 
 	private static void burst(ServerLevel level, Vec3 at) {

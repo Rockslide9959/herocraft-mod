@@ -66,7 +66,9 @@ public final class BlueBeetleAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		if (!freshPress(player, slot, pressed)) {
+		// v0.16.5 (user): the blaster (R) refires as fast as its 0.5 s cooldown allows -- it skips the 25-tick repeat guard
+		// (holding it can't double-fire: a running charge / blast ignores another press)
+		if (slot != AbilitySlot.SLOT_1 && !freshPress(player, slot, pressed)) {
 			return;
 		}
 		boolean shift = player.isShiftKeyDown();

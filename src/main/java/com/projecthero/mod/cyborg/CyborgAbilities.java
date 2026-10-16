@@ -792,16 +792,29 @@ public final class CyborgAbilities {
 
 	// ================================================================ C: Defense Matrix / Shift+C: Self-Repair
 
+	/** C pressed: the Defense Matrix goes up and stays while C is held (v0.16.5: a hold move, 100 points). */
 	public static void matrix(ServerPlayer p) {
 		if (Cyborg.matrixUp(p) || !begin(p, MATRIX, 0f)) {
 			return;
 		}
-		cooldown(p, MATRIX, CyborgConfig.MATRIX_COOLDOWN);
 		CyborgState n = Cyborg.state(p).copy();
 		n.shieldUntil = p.level().getGameTime() + CyborgConfig.MATRIX_TICKS;
 		n.shieldHp = CyborgConfig.MATRIX_HP;
 		Cyborg.save(p, n);
 		sound(p, SoundEvents.BEACON_ACTIVATE, 1.0f, 1.8f);
+	}
+
+	/** C released: the Defense Matrix drops (a short cooldown; a broken one has the long one already). */
+	public static void lowerMatrix(ServerPlayer p) {
+		if (!Cyborg.matrixUp(p)) {
+			return;
+		}
+		CyborgState n = Cyborg.state(p).copy();
+		n.shieldUntil = 0L;
+		n.shieldHp = 0f;
+		n.abilityReadyAt.put(MATRIX, p.level().getGameTime() + CyborgConfig.MATRIX_COOLDOWN);
+		Cyborg.save(p, n);
+		sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 1.8f);
 	}
 
 	public static void repair(ServerPlayer p) {

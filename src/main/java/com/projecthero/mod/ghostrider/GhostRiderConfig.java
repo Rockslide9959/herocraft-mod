@@ -72,6 +72,9 @@ public final class GhostRiderConfig {
 	public static final double BLAST_SPEED = 1.8;
 	public static final double BLAST_RANGE = 48.0;
 	public static final int BLAST_BURN_SECONDS = 5;
+	/** v0.16.5 (user: "hellfire blast also burns symbiotes"): their fire weakness -- x1.5 damage, and twice the burn. */
+	public static final float BLAST_SYMBIOTE_FACTOR = 1.5f;
+	public static final int BLAST_SYMBIOTE_BURN_SECONDS = 10;
 	public static final int BLAST_COOLDOWN = 10;
 
 	// ---------------------------------------------------------------- Shift+R: Hellfire Wave
@@ -121,6 +124,10 @@ public final class GhostRiderConfig {
 	/** Damage a second to creatures standing in the bike's fire trail. */
 	public static final float TRAIL_DAMAGE = 3f;
 	public static final int TRAIL_LIFE = 60;
+	/** v0.16.5 (user): the bike leaves real fire behind it; each patch goes out after this long (it can still spread). */
+	public static final int TRAIL_FIRE_TICKS = 60;
+	/** v0.16.5 (user): his punches set what they hit on fire, for this long. */
+	public static final int PUNCH_BURN_SECONDS = 5;
 
 	// ---------------------------------------------------------------- Z: Judgement Mark
 	public static final double MARK_RANGE = 30.0;

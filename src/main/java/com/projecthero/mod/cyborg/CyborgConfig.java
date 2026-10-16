@@ -10,10 +10,10 @@ public final class CyborgConfig {
 
 	// ---------------------------------------------------------------- the Power Core
 	public static final float CORE_MAX = 100f;
-	/** v0.16.5 balance pass (user): 4 a second. */
-	public static final float CORE_REGEN = 4f;
+	/** v0.16.5 balance pass (user): 2 a second. */
+	public static final float CORE_REGEN = 2f;
 	/** Next to a block of redstone (within 3 blocks) the core charges at this rate instead. */
-	public static final float CORE_REGEN_REDSTONE = 8f;
+	public static final float CORE_REGEN_REDSTONE = 6f;
 	public static final int REDSTONE_RANGE = 3;
 
 	// ---------------------------------------------------------------- getting it / the forms
@@ -45,7 +45,7 @@ public final class CyborgConfig {
 	public static final float CANNON_MAX_DAMAGE = 15f;
 	public static final double CANNON_RANGE = 40.0;
 	public static final float CANNON_COST = 5f;
-	public static final int CANNON_COOLDOWN = 20;
+	public static final int CANNON_COOLDOWN = 10;
 	/** v0.16.5 balance pass (user): 24 damage, 10 Power Core. */
 	public static final float BURST_DAMAGE = 24f;
 	public static final double BURST_RANGE = 6.0;
@@ -115,9 +115,13 @@ public final class CyborgConfig {
 	public static final int BOOM_COOLDOWN = 1200;
 
 	// ---------------------------------------------------------------- C: Defense Matrix / Shift+C: Self-Repair
-	public static final float MATRIX_HP = 30f;
-	public static final int MATRIX_TICKS = 100;
-	public static final int MATRIX_COOLDOWN = 300;
+	/** v0.16.5 (user): held on C, it soaks 100 damage from the front; let go and it drops, run it dry and it breaks. */
+	public static final float MATRIX_HP = 100f;
+	/** The longest it can be held (a safety net; letting go is the normal end). */
+	public static final int MATRIX_TICKS = 20 * 60 * 10;
+	/** The cooldown after letting go, and after it breaks. */
+	public static final int MATRIX_COOLDOWN = 60;
+	public static final int MATRIX_BREAK_COOLDOWN = 300;
 	/** cos of the half-angle the Matrix covers in front of him (about 70 degrees). */
 	public static final double MATRIX_ARC = 0.34;
 	public static final int REPAIR_IRON = 3;

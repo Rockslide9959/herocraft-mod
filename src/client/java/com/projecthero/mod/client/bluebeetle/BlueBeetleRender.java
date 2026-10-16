@@ -343,8 +343,10 @@ public final class BlueBeetleRender {
 
 	/**
 	 * When base-layer texel ({@code u}, {@code v}) (64x64; overlay texels map to the base texel under them) turns into
-	 * armour, 0..1: its distance on the standing body from the Scarab, the front costing a little extra so the armour
-	 * wraps round rather than cutting through; 2 for unused texels.
+	 * armour, 0..1: how far it is from the Scarab <b>across the skin</b> -- v0.16.5 fix (user: "it needs to spawn from
+	 * the scarab ... dont make it spawn from the front ... it builds from the back and wraps around the player"): the
+	 * old straight-line distance cut through the body, so the chest (4 px from the back that way) filled in almost at
+	 * once. Now the armour can only travel texel to texel over the surface, round the sides; 2 for unused texels.
 	 */
 	public static float order(int u, int v) {
 		if (orders == null) {
@@ -380,12 +382,93 @@ public final class BlueBeetleRender {
 		} else if (v >= 48 && u >= 48) {
 			u -= 16; // left sleeve -> left arm
 		}
-		float[] p = position(u, v);
-		if (p == null) {
+		if (u < 0 || v < 0 || u >= 64 || v >= 64) {
 			return -1f;
 		}
-		float dx = p[0] - SX, dy = p[1] - SY, dz = p[2] - SZ;
-		return (float) Math.sqrt(dx * dx + dy * dy + dz * dz) + 0.7f * Math.max(0f, SZ - p[2]);
+		return geodesic()[v * 64 + u];
+	}
+
+	private static float[] geodesic;
+
+	/**
+	 * Every base texel's distance from the Scarab over the body's surface (model pixels; -1 = unused): Dijkstra over the
+	 * texels, each linked only to the texels within 1.6 px of it -- neighbours on a face, round a cube's edge, and across
+	 * the joins where the head, arms and legs meet the body -- never through a cube's inside.
+	 */
+	private static float[] geodesic() {
+		if (geodesic != null) {
+			return geodesic;
+		}
+		java.util.List<Integer> ids = new java.util.ArrayList<>();
+		java.util.List<float[]> pos = new java.util.ArrayList<>();
+		for (int v = 0; v < 64; v++) {
+			for (int u = 0; u < 64; u++) {
+				float[] p = position(u, v);
+				if (p != null) {
+					ids.add(v * 64 + u);
+					pos.add(p);
+				}
+			}
+		}
+		int n = pos.size();
+		float[] dist = new float[n];
+		java.util.Arrays.fill(dist, Float.MAX_VALUE);
+		java.util.PriorityQueue<float[]> queue = new java.util.PriorityQueue<>((a, b) -> Float.compare(a[0], b[0]));
+		// seeded on the back, round the Scarab
+		int nearest = 0;
+		float nearestD = Float.MAX_VALUE;
+		for (int i = 0; i < n; i++) {
+			float[] p = pos.get(i);
+			float dx = p[0] - SX, dy = p[1] - SY, dz = p[2] - SZ;
+			float d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+			if (d < nearestD) {
+				nearestD = d;
+				nearest = i;
+			}
+			if (d <= 2.0f && p[2] >= SZ - 0.01f) {
+				dist[i] = d;
+				queue.add(new float[] { d, i });
+			}
+		}
+		if (queue.isEmpty()) {
+			dist[nearest] = 0f;
+			queue.add(new float[] { 0f, nearest });
+		}
+		float link = 1.6f;
+		while (!queue.isEmpty()) {
+			float[] top = queue.poll();
+			int i = (int) top[1];
+			if (top[0] > dist[i]) {
+				continue;
+			}
+			float[] p = pos.get(i);
+			for (int j = 0; j < n; j++) {
+				if (j == i) {
+					continue;
+				}
+				float[] q = pos.get(j);
+				float dx = q[0] - p[0], dy = q[1] - p[1], dz = q[2] - p[2];
+				if (Math.abs(dx) > link || Math.abs(dy) > link || Math.abs(dz) > link) {
+					continue;
+				}
+				float step = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+				if (step > link) {
+					continue;
+				}
+				float nd = dist[i] + step;
+				if (nd < dist[j]) {
+					dist[j] = nd;
+					queue.add(new float[] { nd, j });
+				}
+			}
+		}
+		float[] out = new float[64 * 64];
+		java.util.Arrays.fill(out, -1f);
+		for (int i = 0; i < n; i++) {
+			out[ids.get(i)] = dist[i] == Float.MAX_VALUE ? -1f : dist[i];
+		}
+		geodesic = out;
+		return out;
 	}
 
 	/** Where base texel ({@code u}, {@code v}) sits on the standing body (model pixels), or null for an unused texel. */

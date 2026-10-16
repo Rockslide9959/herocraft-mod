@@ -69,8 +69,10 @@ public final class CyborgDamage {
 			CyborgState n = s.copy();
 			n.shieldHp = s.shieldHp - soak;
 			if (n.shieldHp <= 0.01f) {
+				// run dry: it breaks, and takes longer to come back than letting go
 				n.shieldUntil = 0L;
 				n.shieldHp = 0f;
+				n.abilityReadyAt.put(CyborgAbilities.MATRIX, player.level().getGameTime() + CyborgConfig.MATRIX_BREAK_COOLDOWN);
 			}
 			Cyborg.save(player, n);
 			ServerLevel level = (ServerLevel) player.level();

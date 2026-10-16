@@ -283,7 +283,7 @@ the plates spread over you from the chest core, and your own face shows on Victo
 - **H** projects a **hologram** of your old skin from the light on your forehead. It builds over you a pixel at a time,
   but it's only a disguise: any move drops it.
 - **Double-tap jump** in the air for **Jet Flight**: a jetpack builds itself onto your back and you fly on energy jets.
-- **Power Core** (100) charges 4 a second, faster next to a block of redstone; lightning fills it.
+- **Power Core** (100) charges 2 a second, faster next to a block of redstone; lightning fills it.
   **R** Sonic Cannon (a blaster builds round your arm; 15) · **Shift+R** Sonic Burst (24) · **G** Hydraulic Punch (24,
   breaks shields) · **Shift+G** **Arm Saw** (+10 melee) · **X** **Jet Dash** (20 blocks) · **Shift+X** Grapple Claw
   (50 blocks) · **Z** **Missile Barrage** (8 homing micro-missiles) · **Shift+Z** Scan (creatures and ores through
