@@ -93,10 +93,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchPowersRegistered(GameTestHelper helper) {
 		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
-		for (String key : new String[] { GEO, CRYSTAL, CRYO, WATER } /* 08 Pyrokinesis: reworked in v0.16.5 (six keys) */) {
-		for (String key : new String[] { GEO, CRYSTAL, PYRO, WATER }) { // v0.16.5: Cryokinesis reworked (six keys)
-		for (String key : new String[] { CRYSTAL, PYRO, CRYO, WATER }) { // v0.16.5: Geokinesis has six keys now
-		for (String key : new String[] { GEO, CRYSTAL, PYRO, CRYO }) { // v0.16.5: Water reworked (WaterV0165GameTests)
+		for (String key : new String[] { CRYSTAL }) { // v0.16.5: Geo, Pyro, Cryo and Water are reworked (six keys, their own tests)
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {

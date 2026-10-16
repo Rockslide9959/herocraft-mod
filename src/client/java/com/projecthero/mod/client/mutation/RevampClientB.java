@@ -27,13 +27,11 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * v0.13.22 mutation revamp, batch B -- client-side registration (poses, overlays, entity renderers) for:
  * <ul>
- * <li>05 Geokinesis -- stone-skin THICK shell tinted by the ground you draw on; the Rock Surf slab under your feet</li>
+ * <li>05 Geokinesis -- see {@code GeokinesisClient} (v0.16.5 rework)</li>
  * <li>06 Crystalkinesis -- amethyst THICK shell with crystal spikes; the glide disc; node / shard renderers</li>
  * <li>08 Pyrokinesis -- since the v0.16.5 rework all in {@link PyrokinesisClient}</li>
- * <li>09 Cryokinesis -- frost THICK shell with icicles; an ice-block shell on a player frozen solid</li>
- * <li>08 Pyrokinesis -- emissive flame shell that turns blue with heat; jet flames at the feet; blue eyes when hot</li>
  * <li>09 Cryokinesis -- see {@link CryokinesisClient} (v0.16.5 rework)</li>
- * <li>25 Water Manipulation -- a shimmering THIN water film</li>
+ * <li>25 Water Manipulation -- see {@link WaterClient} (v0.16.5 rework)</li>
  * </ul>
  */
 public final class RevampClientB {
