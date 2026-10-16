@@ -28,6 +28,9 @@ public abstract class CyborgFirstPersonArmMixin {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float progress = CyborgRender.progress(player, partial);
 		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
+		if (com.projecthero.mod.cyborg.Cyborg.fleshShows(player)) {
+			CyborgRender.renderFleshArm(pose, buffers, light, arm, arm == model.rightArm); // v0.16.5: raw flesh first
+		}
 		if (progress > 0f) {
 			CyborgRender.renderArm(pose, buffers, light, arm, arm == model.rightArm, progress);
 		}

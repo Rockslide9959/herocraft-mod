@@ -21,6 +21,11 @@ public class CyborgLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 			return;
 		}
 		CyborgRender.Anim anim = CyborgRender.anim(player, partialTick);
+		// v0.16.5 (user): raw flesh after the Mother Box blast, and under the plates while they build
+		boolean flesh = com.projecthero.mod.cyborg.Cyborg.fleshShows(player);
+		if (flesh) {
+			CyborgRender.renderFlesh(pose, buffers, light, getParentModel());
+		}
 		// v0.16.5 (user): the jetpack he builds on his back for Jet Flight, and the blaster for the sonic moves
 		CyborgTech.renderJetpack(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks);
 		CyborgTech.renderArmTech(pose, buffers, light, player, getParentModel(), partialTick, ageInTicks,
@@ -30,7 +35,7 @@ public class CyborgLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 			if (anim.hologramShowing()) {
 				// v0.16.5 rework: the hologram of his old skin building / draining over the plates
 				CyborgRender.renderHologram(pose, buffers, light, player, getParentModel(), anim, ageInTicks);
-			} else if (anim.spread() < CyborgRender.STEPS - 0.01f) {
+			} else if (!flesh && anim.spread() < CyborgRender.STEPS - 0.01f) {
 				// v0.16.5: the wearer's second layer goes texel row by texel row as the plates spread, not all at once
 				float spread = anim.spread();
 				com.projecthero.mod.client.render.OverlayStrips.render(pose, buffers, light, player, getParentModel(),

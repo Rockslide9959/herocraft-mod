@@ -170,11 +170,13 @@ public final class Cyborg {
 		s.hasPower = true;
 		s.core = CyborgConfig.CORE_MAX;
 		s.combat = true;
-		s.formChangeAt = now;
+		// v0.16.5 (user): the blast, then 20 s of raw flesh, then the plates -- the armour build starts FLESH_TICKS from now
+		s.formChangeAt = now + CyborgConfig.FLESH_TICKS;
 		s.animId = CyborgState.ANIM_CONVERT;
-		s.animStart = now;
+		s.animStart = now + CyborgConfig.FLESH_TICKS;
 		save(player, s);
 		reconcile(player);
+		CyborgAbilities.motherBoxBlast(player);
 		CyborgAbilities.beginConversionFx(player);
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
 				Component.translatable("message.projecthero.cyborg.title").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)));
@@ -215,7 +217,21 @@ public final class Cyborg {
 			return false;
 		}
 		long age = player.level().getGameTime() - s.formChangeAt;
-		return age >= 0 && age < CyborgConfig.CONVERT_TICKS;
+		return age >= -CyborgConfig.FLESH_TICKS && age < CyborgConfig.CONVERT_TICKS; // v0.16.5: the flesh phase too
+	}
+
+	/**
+	 * v0.16.5 (user): raw flesh shows -- the 20 s after the Mother Box blast, and under the plates while they build over him.
+	 * Client-safe.
+	 */
+	public static boolean fleshShows(Player player) {
+		return changing(player);
+	}
+
+	/** v0.16.5: the 20 s of raw flesh before the plates start (client-safe). */
+	public static boolean fleshPhase(Player player) {
+		CyborgState s = peek(player);
+		return changing(player) && s != null && player.level().getGameTime() < s.formChangeAt;
 	}
 
 	/** The holographic cover of his old human skin is up (or building). Client-safe. */

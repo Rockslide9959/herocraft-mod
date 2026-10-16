@@ -61,6 +61,7 @@ public class CyborgGameTests implements FabricGameTest {
 		n.formChangeAt = helper.getLevel().getGameTime() - 400L;
 		n.animId = CyborgState.ANIM_NONE;
 		p.setAttached(ModAttachments.CYBORG_STATE, n);
+		p.removeAllEffects(); // past the v0.16.5 fusion (its 20 s of Slowness / Weakness)
 		return p;
 	}
 
@@ -361,6 +362,31 @@ public class CyborgGameTests implements FabricGameTest {
 		Cyborg.tick(p);
 		helper.assertTrue(p.getFoodData().getFoodLevel() == 18, "v0.16.5: his systems fed him a steak");
 		helper.assertTrue(p.getInventory().countItem(net.minecraft.world.item.Items.COOKED_BEEF) == 1, "one steak used");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void motherBoxBlastsThenFleshThenPlates(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
+		Zombie z = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, new BlockPos(5, 2, 2));
+		float zhp = z.getHealth();
+		p.setHealth(6f);
+		long now = helper.getLevel().getGameTime();
+		Cyborg.grant(p);
+		helper.assertTrue(z.getHealth() < zhp, "v0.16.5: the Mother Box blast hurts the mobs round him");
+		helper.assertTrue(p.getHealth() >= 6f - 0.01f, "... never him");
+		helper.assertTrue(Cyborg.fleshPhase(p) && Cyborg.changing(p), "then 20 s of raw flesh");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN)
+				&& p.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS), "slow and weak while it lasts");
+		helper.assertTrue(Cyborg.state(p).formChangeAt == now + CyborgConfig.FLESH_TICKS, "the plates start after 20 s");
+		CyborgState n = Cyborg.state(p).copy();
+		n.formChangeAt = helper.getLevel().getGameTime() - 10L; // jump into the plate build
+		p.setAttached(ModAttachments.CYBORG_STATE, n);
+		helper.assertTrue(!Cyborg.fleshPhase(p) && Cyborg.changing(p) && Cyborg.fleshShows(p), "the plates build over the flesh");
+		n = Cyborg.state(p).copy();
+		n.formChangeAt = helper.getLevel().getGameTime() - CyborgConfig.CONVERT_TICKS - 1L;
+		p.setAttached(ModAttachments.CYBORG_STATE, n);
+		helper.assertFalse(Cyborg.changing(p) || Cyborg.fleshShows(p), "and he is Cyborg");
 		helper.succeed();
 	}
 }

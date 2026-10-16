@@ -21,6 +21,14 @@ public final class CyborgConfig {
 	public static final float FUSE_HEALTH = 8f;
 	/** v0.16.5 (user): the first transformation takes 5 s, a pixel at a time, no glow. */
 	public static final int CONVERT_TICKS = 100;
+	/**
+	 * v0.16.5 (user): before the plates, the Mother Box goes off in a blast and leaves him raw flesh (all but part of his
+	 * face) for 20 s; then it builds the armour round him ({@link #CONVERT_TICKS}).
+	 */
+	public static final int FLESH_TICKS = 20 * 20;
+	/** The blast: mobs this close take up to this much and are thrown. */
+	public static final double BLAST_RADIUS = 6.0;
+	public static final float BLAST_DAMAGE = 8f;
 	/** v0.16.5 rework: the hologram dissolving (H again / a move) and building over him (H). */
 	public static final int PLATES_ON_TICKS = 14;
 	public static final int PLATES_OFF_TICKS = 50;

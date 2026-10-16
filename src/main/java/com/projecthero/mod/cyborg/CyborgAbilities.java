@@ -223,14 +223,64 @@ public final class CyborgAbilities {
 
 	// ================================================================ the conversion
 
+	/** Remembers when the plates start (the state's formChangeAt -- after the 20 s of flesh). */
 	static void beginConversionFx(ServerPlayer p) {
-		CONVERT_FX.put(p.getUUID(), p.level().getGameTime());
-		sound(p, SoundEvents.BEACON_ACTIVATE, 1.2f, 0.7f);
-		sound(p, SoundEvents.ANVIL_USE, 0.6f, 0.6f);
+		CONVERT_FX.put(p.getUUID(), Cyborg.state(p).formChangeAt);
+	}
+
+	/**
+	 * v0.16.5 (user): "obtaining the power first cause an explosion" -- the Mother Box goes off in his hands: a blast that
+	 * throws and hurts the mobs round him (never him, never a block), then 20 s of raw flesh, weak and slow.
+	 */
+	static void motherBoxBlast(ServerPlayer p) {
+		ServerLevel level = level(p);
+		net.minecraft.world.phys.Vec3 c = p.position().add(0, 1.0, 0);
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 12, 1.6, 0.8, 1.6, 0.1);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 60, 1.2, 1.0, 1.2, 0.6);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 30, 1.4, 0.8, 1.4, 0.05);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.PLAYERS, 3.0f, 0.75f);
+		sound(p, SoundEvents.BEACON_DEACTIVATE, 1.4f, 0.5f);
+		for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class,
+				p.getBoundingBox().inflate(CyborgConfig.BLAST_RADIUS), e -> e != p && e.isAlive())) {
+			net.minecraft.world.phys.Vec3 away = e.position().subtract(p.position());
+			double d = away.length();
+			if (d > CyborgConfig.BLAST_RADIUS) {
+				continue;
+			}
+			float scale = (float) (1.0 - d / (CyborgConfig.BLAST_RADIUS + 1.0));
+			e.hurt(level.damageSources().explosion(p, p), CyborgConfig.BLAST_DAMAGE * scale);
+			net.minecraft.world.phys.Vec3 push = (d < 1.0e-3 ? new net.minecraft.world.phys.Vec3(0, 0, 1) : away.normalize())
+					.scale(1.6 * scale).add(0, 0.5 * scale, 0);
+			e.push(push.x, push.y, push.z);
+			e.hurtMarked = true;
+		}
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN,
+				CyborgConfig.FLESH_TICKS, 1, false, false, true));
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.WEAKNESS,
+				CyborgConfig.FLESH_TICKS, 0, false, false, true));
 	}
 
 	private static void tickConversionFx(ServerPlayer p, long start, long now) {
 		long age = now - start;
+		if (age < 0) {
+			// the flesh phase: a slow heartbeat, a drip of blood, the seconds counting down
+			if (-age % 20 == 0) {
+				sound(p, SoundEvents.WARDEN_HEARTBEAT, 0.9f, 1.1f);
+				p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.cyborg.fusing", (int) (-age / 20))
+						.withStyle(ChatFormatting.DARK_RED), true);
+			}
+			if (age % 6 == 0) {
+				level(p).sendParticles(new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.45f, 0.02f, 0.04f), 1.0f),
+						p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.25, 0.5, 0.25, 0.0);
+			}
+			return;
+		}
+		if (age == 0) {
+			// the Mother Box starts building the plates
+			sound(p, SoundEvents.BEACON_ACTIVATE, 1.2f, 0.7f);
+			sound(p, SoundEvents.ANVIL_USE, 0.6f, 0.6f);
+		}
 		if (age > CyborgConfig.CONVERT_TICKS) {
 			CONVERT_FX.remove(p.getUUID());
 			sound(p, SoundEvents.BEACON_POWER_SELECT, 1.2f, 1.2f);
@@ -866,6 +916,10 @@ public final class CyborgAbilities {
 		UUID u = p.getUUID();
 		long now = p.level().getGameTime();
 		Long fx = CONVERT_FX.get(u);
+		if (fx == null && Cyborg.changing(p)) {
+			fx = Cyborg.state(p).formChangeAt; // after a relog / restart: the fusion carries on where it was
+			CONVERT_FX.put(u, fx);
+		}
 		if (fx != null) {
 			tickConversionFx(p, fx, now);
 		}

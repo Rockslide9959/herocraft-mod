@@ -104,6 +104,9 @@ public final class CyborgRender {
 			return Anim.NONE;
 		}
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
+		if (s.animId == CyborgState.ANIM_CONVERT && age < 0f) {
+			return Anim.NONE; // v0.16.5: the 20 s of raw flesh before the plates (renderFlesh)
+		}
 		if (age < 0f && age > -40f) {
 			age = 0f;
 		}
@@ -134,7 +137,45 @@ public final class CyborgRender {
 	}
 
 	public static boolean hidesSkinOverlay(Player player) {
-		return progress(player, 0f) > 0f;
+		return progress(player, 0f) > 0f || com.projecthero.mod.cyborg.Cyborg.fleshShows(player);
+	}
+
+	// ---------------------------------------------------------------- v0.16.5: the raw flesh (user)
+
+	/** All but part of his face: raw muscle, between the Mother Box blast and the plates (and under them as they build). */
+	public static final ResourceLocation FLESH = ProjectHeroMod.id("textures/entity/cyborg/cyborg_flesh.png");
+	private static PlayerModel<LivingEntity> fleshModel;
+
+	private static PlayerModel<LivingEntity> fleshModel() {
+		if (fleshModel == null) {
+			// a hair inside the plates (0.04) so they draw over it as they spread, a hair outside the skin
+			MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(0.02f), false);
+			fleshModel = new PlayerModel<>(LayerDefinition.create(mesh, 64, 64).bakeRoot(), false);
+		}
+		return fleshModel;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static void renderFlesh(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent) {
+		PlayerModel<LivingEntity> m = fleshModel();
+		((HumanoidModel) parent).copyPropertiesTo(m);
+		m.setAllVisible(true);
+		m.hat.visible = false;
+		m.jacket.visible = false;
+		m.leftSleeve.visible = false;
+		m.rightSleeve.visible = false;
+		m.leftPants.visible = false;
+		m.rightPants.visible = false;
+		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(FLESH)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+	}
+
+	/** First person: the raw-flesh arm. */
+	public static void renderFleshArm(PoseStack pose, MultiBufferSource buffers, int light, ModelPart arm, boolean right) {
+		PlayerModel<LivingEntity> m = fleshModel();
+		ModelPart a = right ? m.rightArm : m.leftArm;
+		a.copyFrom(arm);
+		a.visible = true;
+		a.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(FLESH)), light, OverlayTexture.NO_OVERLAY);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })

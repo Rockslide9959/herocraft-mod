@@ -66,6 +66,9 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// v0.16.5: Cyborg keeps the wearer's hat / hair layer (user: it should show on the human half of the head) -- the
 		// metal half is drawn on a cover just outside it (CyborgRender), so it only shows where his own face does
 		if (com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)) {
+			if (com.projecthero.mod.cyborg.Cyborg.fleshShows(player)) {
+				model.hat.visible = false; // v0.16.5: the flesh head (his own face shows through its gap)
+			}
 			model.jacket.visible = false;
 			model.leftSleeve.visible = false;
 			model.rightSleeve.visible = false;
