@@ -1,6 +1,15 @@
 package com.projecthero.mod.wardrobe;
 
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.ItemStack;
@@ -23,6 +32,44 @@ public class MannequinEntity extends ArmorStand {
 	public void readAdditionalSaveData(CompoundTag tag) {
 		super.readAdditionalSaveData(tag);
 		setShowArms(true); // a mannequin always has arms, whatever the tag says
+	}
+
+	/**
+	 * v0.16.5 (user): Shift+right-click puts the whole suit you wear on the Mannequin -- yours and its four armour pieces
+	 * change places (wear nothing and you take its suit). A cursed piece of Binding stays on you outside creative.
+	 */
+	@Override
+	public InteractionResult interactAt(Player player, Vec3 at, InteractionHand hand) {
+		if (!player.isSecondaryUseActive() || hand != InteractionHand.MAIN_HAND || player.isSpectator() || isMarker()) {
+			return super.interactAt(player, at, hand);
+		}
+		if (level().isClientSide()) {
+			return InteractionResult.SUCCESS;
+		}
+		return swapSuit(player) > 0 ? InteractionResult.SUCCESS : InteractionResult.PASS;
+	}
+
+	/** The worn suit and the Mannequin's change places, piece by piece. Returns how many slots changed. */
+	public int swapSuit(Player player) {
+		int moved = 0;
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			ItemStack worn = player.getItemBySlot(slot);
+			ItemStack on = getItemBySlot(slot);
+			if (worn.isEmpty() && on.isEmpty()) {
+				continue;
+			}
+			if (!worn.isEmpty() && !player.getAbilities().instabuild
+					&& EnchantmentHelper.has(worn, EnchantmentEffectComponents.PREVENT_ARMOR_CHANGE)) {
+				continue;
+			}
+			setItemSlot(slot, worn);
+			player.setItemSlot(slot, on);
+			moved++;
+		}
+		if (moved > 0) {
+			level().playSound(null, getX(), getY(), getZ(), SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.NEUTRAL, 1.0f, 0.9f);
+		}
+		return moved;
 	}
 
 	@Override

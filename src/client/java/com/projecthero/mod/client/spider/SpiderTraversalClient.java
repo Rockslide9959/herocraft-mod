@@ -44,7 +44,8 @@ import net.minecraft.world.phys.Vec3;
  *
  * <ul>
  *   <li><b>Hold right-click with an empty main hand</b> = Web Swing (release lets go). Not when the crosshair is on an
- *       entity or an interactable block in reach -- doors, chests, buttons and villagers still work.</li>
+ *       entity or any block in reach (v0.16.5, user: no swing while interacting with or placing a block) -- doors,
+ *       chests, buttons, villagers and an off-hand block all work as normal.</li>
  *   <li><b>Left-click in Weave Mode</b> = one radial strand (the click never reaches vanilla).</li>
  *   <li><b>Left-click one of his own webs</b> (nearer than any block he aims at) = cut it.</li>
  *   <li>Standing on one of his tightropes he is <b>balanced</b>: drifting off the line is gently corrected.</li>
@@ -188,24 +189,14 @@ public final class SpiderTraversalClient {
 		ClientPlayNetworking.send(new SpiderActionPayload(SpiderActionPayload.Action.SWING_START));
 	}
 
-	/** The crosshair is on an entity, or on a block a right-click would use (door, chest, button, bed, ...). */
+	/**
+	 * The crosshair is on an entity or a block in reach -- a right-click there interacts with it or places a block (the
+	 * off-hand one), so it is not a swing. v0.16.5 (user): "he cant swing if hes interacting with a block or placing a
+	 * block" -- before, only blocks a right-click would use (door, chest, button, bed, ...) held the swing back.
+	 */
 	private static boolean interactableInReach(Minecraft client, LocalPlayer player) {
 		HitResult hit = client.hitResult;
-		if (hit == null || hit.getType() == HitResult.Type.MISS) {
-			return false;
-		}
-		if (hit.getType() == HitResult.Type.ENTITY) {
-			return true;
-		}
-		BlockPos pos = ((BlockHitResult) hit).getBlockPos();
-		BlockState state = player.level().getBlockState(pos);
-		Block b = state.getBlock();
-		return state.hasBlockEntity() || state.getMenuProvider(player.level(), pos) != null
-				|| b instanceof DoorBlock || b instanceof TrapDoorBlock || b instanceof FenceGateBlock
-				|| b instanceof ButtonBlock || b instanceof LeverBlock || b instanceof BedBlock || b instanceof BellBlock
-				|| b instanceof NoteBlock || b instanceof RepeaterBlock || b instanceof ComparatorBlock
-				|| b instanceof DaylightDetectorBlock || b instanceof CakeBlock || b instanceof ComposterBlock
-				|| b instanceof RespawnAnchorBlock;
+		return hit != null && (hit.getType() == HitResult.Type.ENTITY || hit.getType() == HitResult.Type.BLOCK);
 	}
 
 	/** On his tightrope the line keeps him centred: sideways drift is damped and pulled back over the rope. */

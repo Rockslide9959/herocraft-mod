@@ -304,7 +304,49 @@ public class WardrobeV0165GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftClickSwapsEvenHoldingSomething(GameTestHelper helper) {
+		ServerPlayer p = player(helper);
+		BlockPos origin = place(helper, p);
+		WardrobeBlockEntity w = wardrobe(helper, origin);
+		wear(p, Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STONE, 5));
+		p.setShiftKeyDown(true);
+		BlockPos pos = part(origin, WardrobePart.CENTER, DoubleBlockHalf.UPPER);
+		BlockHitResult hit = new BlockHitResult(new Vec3(pos.getX() + 0.5, origin.getY() + 1.0, pos.getZ() + 1.0), Direction.SOUTH, pos, false);
+		// v0.16.5: vanilla skips a block's use while sneaking with an item -- the UseBlockCallback does the swap
+		InteractionResult r = net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, hit);
+		helper.assertTrue(r.consumesAction(), "the sneak-click is taken");
+		helper.assertTrue(w.piece(0, EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE) && p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(),
+				"holding stone, the whole suit still goes in");
+		helper.assertTrue(p.getMainHandItem().getCount() == 5, "the held stone is untouched");
+		helper.succeed();
+	}
+
 	// ---------------- the Mannequin ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftClickPutsYourSuitOnTheMannequin(GameTestHelper helper) {
+		ServerPlayer p = player(helper);
+		BlockPos at = helper.absolutePos(ORIGIN);
+		MannequinEntity m = WardrobeMod.MANNEQUIN.create(helper.getLevel());
+		m.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5, 0f, 0f);
+		helper.getLevel().addFreshEntity(m);
+		p.moveTo(at.getX() + 0.5, at.getY(), at.getZ() + 2.5, 180.0f, 0.0f);
+		wear(p, Items.IRON_HELMET, Items.IRON_CHESTPLATE, Items.IRON_LEGGINGS, Items.IRON_BOOTS);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STONE));
+		p.setShiftKeyDown(true);
+		helper.assertTrue(m.interactAt(p, new Vec3(0, 1.0, 0), InteractionHand.MAIN_HAND).consumesAction(), "the sneak-click is taken");
+		for (EquipmentSlot slot : WardrobeBlockEntity.SLOTS) {
+			helper.assertTrue(p.getItemBySlot(slot).isEmpty() && !m.getItemBySlot(slot).isEmpty(), slot + " moved onto the Mannequin");
+		}
+		// again with gold on: the two suits change places
+		wear(p, Items.GOLDEN_HELMET, Items.GOLDEN_CHESTPLATE, Items.GOLDEN_LEGGINGS, Items.GOLDEN_BOOTS);
+		m.interactAt(p, new Vec3(0, 1.0, 0), InteractionHand.MAIN_HAND);
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).is(Items.IRON_CHESTPLATE) && m.getItemBySlot(EquipmentSlot.CHEST).is(Items.GOLDEN_CHESTPLATE),
+				"a full swap");
+		helper.succeed();
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void mannequinPlacesAndBreaksIntoAMannequin(GameTestHelper helper) {

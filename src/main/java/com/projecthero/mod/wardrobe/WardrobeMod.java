@@ -49,6 +49,7 @@ public final class WardrobeMod {
 
 	public static void initialize() {
 		FabricDefaultAttributeRegistry.register(MANNEQUIN, ArmorStand.createAttributes());
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register(WardrobeBlock::sneakUse);
 		ItemGroupEvents.modifyEntriesEvent(ModCreativeTab.SUPERHEROES_KEY).register(entries -> {
 			entries.accept(MANNEQUIN_ITEM);
 			entries.accept(WARDROBE_ITEM);

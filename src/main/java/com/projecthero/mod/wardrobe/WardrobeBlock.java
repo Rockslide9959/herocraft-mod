@@ -41,7 +41,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * waterfall rails in the left and right columns ({@code WardrobeRenderer}).
  * <ul>
  * <li>Right-click the left / right column: the selection moves one suit that way (wrapping round).</li>
- * <li>Shift+right-click the middle (empty hands): your suit and the selected one change places -- a full swap.</li>
+ * <li>Shift+right-click the middle (v0.16.5: whatever you hold): your suit and the selected one change places -- a full swap.</li>
  * <li>Right-click the middle: like an armour stand for the selected suit -- put a piece on, or take the one you click.</li>
  * </ul>
  * Six blocks, placed facing you, broken as one (break any of them); the stored suits and the Wardrobe drop. Only the
@@ -186,6 +186,35 @@ public class WardrobeBlock extends HorizontalDirectionalBlock implements EntityB
 
 	// ---------------- using it ----------------
 
+	/** The full-suit swap with the selected slot, with its sound and action-bar line (server side). */
+	static void swap(Level level, BlockPos pos, Player player, WardrobeBlockEntity wardrobe) {
+		if (wardrobe.swapSuit(player) > 0) {
+			level.playSound(null, pos, SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.BLOCKS, 1.0f, 0.9f);
+			player.displayClientMessage(wardrobe.describeSelected(), true);
+		} else {
+			player.displayClientMessage(net.minecraft.network.chat.Component.translatable("block.projecthero.wardrobe.nothing"), true);
+		}
+	}
+
+	/**
+	 * v0.16.5 (user): Shift+right-click the middle swaps your whole suit whatever you are holding. Vanilla never calls a
+	 * block's use while you sneak with something in hand, so this runs from a {@code UseBlockCallback} (WardrobeMod).
+	 */
+	static net.minecraft.world.InteractionResult sneakUse(Player player, Level level, InteractionHand hand, BlockHitResult hit) {
+		BlockState state = level.getBlockState(hit.getBlockPos());
+		if (!player.isSecondaryUseActive() || player.isSpectator() || !(state.getBlock() instanceof WardrobeBlock)
+				|| state.getValue(PART) != WardrobePart.CENTER || hand != InteractionHand.MAIN_HAND) {
+			return InteractionResult.PASS;
+		}
+		if (!(level.getBlockEntity(origin(state, hit.getBlockPos())) instanceof WardrobeBlockEntity wardrobe)) {
+			return InteractionResult.PASS;
+		}
+		if (!level.isClientSide()) {
+			swap(level, hit.getBlockPos(), player, wardrobe);
+		}
+		return InteractionResult.sidedSuccess(level.isClientSide());
+	}
+
 	@Override
 	protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
 			InteractionHand hand, BlockHitResult hit) {
@@ -221,12 +250,7 @@ public class WardrobeBlock extends HorizontalDirectionalBlock implements EntityB
 			return InteractionResult.SUCCESS;
 		}
 		if (player.isSecondaryUseActive()) {
-			if (wardrobe.swapSuit(player) > 0) {
-				level.playSound(null, pos, SoundEvents.ARMOR_EQUIP_LEATHER.value(), SoundSource.BLOCKS, 1.0f, 0.9f);
-				player.displayClientMessage(wardrobe.describeSelected(), true);
-			} else {
-				player.displayClientMessage(net.minecraft.network.chat.Component.translatable("block.projecthero.wardrobe.nothing"), true);
-			}
+			swap(level, pos, player, wardrobe);
 		} else if (wardrobe.putOrTake(player, InteractionHand.MAIN_HAND,
 				WardrobeBlockEntity.slotAtHeight(hit.getLocation().y() - wardrobe.getBlockPos().getY()))) {
 			level.playSound(null, pos, SoundEvents.ARMOR_EQUIP_GENERIC.value(), SoundSource.BLOCKS, 0.8f, 1.0f);
