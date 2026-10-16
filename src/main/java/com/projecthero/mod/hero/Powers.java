@@ -34,7 +34,8 @@ public final class Powers {
 			"power_04_super_speed",
 			"power_11_teleportation", // v0.16.5: reworked (Strain meter, six keys + Shift)
 			"power_12_super_regeneration",
-			"power_17_elasticity"); // v0.16.5: reworked (Stretch meter, six keys + Shift)
+			"power_17_elasticity", // v0.16.5: reworked (Stretch meter, six keys + Shift)
+			"power_25_water_manipulation"); // v0.16.5: reworked (Water meter, six keys + Shift)
 
 	/**
 	 * v0.14.13: enabled powers that are HERO-TIER, not mutations. Super Speed still runs on the mutation engine (its keys,

@@ -335,10 +335,11 @@ public class V0148MiscGameTests implements FabricGameTest {
 		for (Power p : Powers.enabled()) {
 			keys.add(p.key());
 		}
-		// v0.16.5: Teleportation and Elasticity are back (reworked)
+		// v0.16.5: Teleportation, Elasticity and Water Manipulation are back (reworked)
 		helper.assertTrue(keys.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision", "power_04_super_speed",
-				"power_11_teleportation", "power_12_super_regeneration", "power_17_elasticity")), "enabled: " + keys);
-		helper.assertTrue(Powers.count() - Powers.enabled().size() == 20, "20 disabled, got " + (Powers.count() - keys.size()));
+				"power_11_teleportation", "power_12_super_regeneration", "power_17_elasticity", "power_25_water_manipulation")),
+				"enabled: " + keys);
+		helper.assertTrue(Powers.count() - Powers.enabled().size() == 19, "19 disabled, got " + (Powers.count() - keys.size()));
 		helper.succeed();
 	}
 

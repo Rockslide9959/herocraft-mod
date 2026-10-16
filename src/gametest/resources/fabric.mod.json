@@ -132,6 +132,7 @@
       "com.projecthero.mod.gametest.ElasticityV0165GameTests",
       "com.projecthero.mod.gametest.LaserBeamVisibilityGameTests",
       "com.projecthero.mod.gametest.SuperStrengthV0145GameTests",
+      "com.projecthero.mod.gametest.WaterV0165GameTests",
       "com.projecthero.mod.gametest.SuperRegenerationV0145GameTests",
       "com.projecthero.mod.gametest.SuperSpeedV0145GameTests",
       "com.projecthero.mod.gametest.SuperSpeedV0147GameTests",

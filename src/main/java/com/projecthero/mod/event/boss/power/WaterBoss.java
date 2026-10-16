@@ -20,7 +20,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Water Manipulation (v0.14.1 kit): Water Shot, Water Whip (a 12-block tendril that drags victims in), Geyser (erupts
+ * Water Manipulation (v0.14.1 kit, v0.16.5 ids): Water Shot, Water Whip (a 12-block tendril that drags victims in), Geyser (erupts
  * under the target), Water Prison (holds the target in a bubble) and -- once hurt -- Healing Water. Victims are left
  * "wet" (Slowness I), as the player's.
  */
@@ -32,7 +32,8 @@ public class WaterBoss extends BossPowerController {
 	private static final int GEYSER = 2;
 	private static final int PRISON = 3;
 	private static final int HEAL = 4;
-	private static final List<String> IDS = List.of("water_shot", "water_whip", "geyser", "water_prison", "healing_water");
+	// v0.16.5 rework ids: Geyser is Shift+Z (tidal_wave), Water Prison Shift+G (water_whip), Healing Water Shift+V (water_shield)
+	private static final List<String> IDS = List.of("water_shot", "water_whip", "tidal_wave", "water_whip", "water_shield");
 
 	private static final ParticleOptions WATER = BatchCFx.dust(0x3880FF, 1.3f);
 	private static final ParticleOptions FOAM = BatchCFx.dust(0xD9F2FF, 1.0f);

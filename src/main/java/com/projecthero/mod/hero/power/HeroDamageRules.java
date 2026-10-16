@@ -150,6 +150,17 @@ public final class HeroDamageRules {
 					return Verdict.mult(0.35f); // every form takes reduced fall damage
 				}
 			}
+			case "power_25_water_manipulation" -> {
+				// v0.16.5 rework: fire and lava -30%; no fall damage just after a Riptide / during a Wave Ride; the
+				// shield swallows projectiles
+				float waterFactor = com.projecthero.mod.hero.power.p25.WaterHandlers.damageFactor(player, source);
+				if (waterFactor < 0.0f) {
+					return Verdict.immune();
+				}
+				if (Math.abs(waterFactor - 1.0f) > 0.001f) {
+					return Verdict.mult(waterFactor);
+				}
+			}
 			case "power_22_plant_manipulation_chlorokinesis" -> {
 				if (fall && player.level() instanceof net.minecraft.server.level.ServerLevel sl
 						&& com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.onNatureGround(sl, player.blockPosition())) {

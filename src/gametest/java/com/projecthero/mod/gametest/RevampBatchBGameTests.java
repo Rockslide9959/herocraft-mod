@@ -95,7 +95,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchPowersRegistered(GameTestHelper helper) {
 		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
-		for (String key : new String[] { GEO, CRYSTAL, PYRO, CRYO, WATER }) {
+		for (String key : new String[] { GEO, CRYSTAL, PYRO, CRYO }) { // v0.16.5: Water reworked (WaterV0165GameTests)
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {
@@ -361,33 +361,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------- 25 Water Manipulation ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void waterSupplyStartsFullAndMovesSpendIt(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, WATER);
-		ExperimentalPowers.serverTick(p);
-		helper.assertTrue(WaterHandlers.supply(p) >= WaterHandlers.MAX_WATER - 0.5f, "a new owner starts with a full supply");
-		AbilityRouter.handleInput(p, 1, true); // Water Shot
-		float after = WaterHandlers.supply(p);
-		helper.assertTrue(Math.abs(after - (WaterHandlers.MAX_WATER - WaterHandlers.COST_SHOT)) < 1.0f,
-				"Water Shot spends its cost, got " + after);
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void waterBottleRefillsTheSupply(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, WATER);
-		ExperimentalPowers.setResource(p, Powers.byKey(WATER), WaterHandlers.SUPPLY, 100.0f, WaterHandlers.MAX_WATER);
-		ItemStack bottle = new ItemStack(Items.POTION);
-		bottle.set(DataComponents.POTION_CONTENTS, new PotionContents(Potions.WATER));
-		p.setItemInHand(InteractionHand.MAIN_HAND, bottle);
-		p.gameMode.useItem(p, helper.getLevel(), bottle, InteractionHand.MAIN_HAND);
-		helper.assertTrue(Math.abs(WaterHandlers.supply(p) - (100.0f + WaterHandlers.BOTTLE_REFILL)) < 1.0f,
-				"a water bottle pours into the supply, got " + WaterHandlers.supply(p));
-		helper.assertTrue(p.getMainHandItem().is(Items.GLASS_BOTTLE), "leaving an empty bottle");
-		helper.succeed();
-	}
+	// ---------------- 25 Water Manipulation (v0.16.5: reworked -- WaterV0165GameTests; the shared scheduler stays here) ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void temporaryWaterDrainsOnItsOwnClock(GameTestHelper helper) {
@@ -400,27 +374,5 @@ public class RevampBatchBGameTests implements FabricGameTest {
 			helper.assertTrue(helper.getLevel().getBlockState(cell).isAir(), "and drains when its time is up");
 			helper.succeed();
 		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void waterHealingWaterHeals(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, WATER);
-		ExperimentalPowers.serverTick(p);
-		p.setHealth(8.0f);
-		float supply = WaterHandlers.supply(p);
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(p.getHealth() >= 8.0f + WaterHandlers.HEAL_AMOUNT - 0.01f, "Healing Water heals, got " + p.getHealth());
-		helper.assertTrue(WaterHandlers.supply(p) < supply, "and costs water");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void waterGeyserLaunchesTheTarget(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, WATER);
-		ExperimentalPowers.serverTick(p);
-		Zombie z = zombieAhead(helper, p, 4);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertTrue(z.getDeltaMovement().y > 1.0, "the geyser throws the target up, dy=" + z.getDeltaMovement().y);
-		helper.succeed();
 	}
 }

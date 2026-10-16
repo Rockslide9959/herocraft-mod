@@ -586,16 +586,16 @@ final class PowerCatalog {
 	private static Power waterManipulation() {
 		String k = "power_25_water_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				// v0.13.22 revamp (batch B): a carried water supply
-				.ability(ab(k, "water_shot", SLOT_1, HOLD, 34))
-				.ability(ab(k, "water_whip", SLOT_2, INSTANT, 102))
-				.ability(ab(k, "riptide", SLOT_3, INSTANT, 102))
-				.ability(ab(k, "tidal_wave", SLOT_4, HOLD, 38 * S))
-				.ability(ab(k, "water_prison", SLOT_5, HOLD, 204))
-				.ability(ab(k, "aquatic_form", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "healing_water", AbilitySlot.SLOT_7, INSTANT, 12 * S))
-				.ability(ab(k, "geyser", AbilitySlot.SLOT_8, INSTANT, 150))
-				.passives(pk(k, "passive.swimming"), pk(k, "passive.no_drown"), pk(k, "passive.supply"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Water meter instead of
+				// cooldowns. All HOLD so the handlers own tap / hold / Shift / release; the two real cooldowns (Water
+				// Prison 12 s, Healing Water 20 s) are the handlers' own timers.
+				.ability(ab(k, "water_shot", SLOT_1, HOLD, 0))
+				.ability(ab(k, "water_whip", SLOT_2, HOLD, 0))
+				.ability(ab(k, "riptide", SLOT_3, HOLD, 0))
+				.ability(ab(k, "tidal_wave", SLOT_4, HOLD, 0))
+				.ability(ab(k, "water_shield", SLOT_5, HOLD, 0))
+				.ability(ab(k, "aquatic_form", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.supply"), pk(k, "passive.no_drown"), pk(k, "passive.swimming"), pk(k, "passive.fire"))
 				.serum(SerumRecipe.of("minecraft:water_breathing", pk(k, "serum"),
 						"minecraft:kelp", "minecraft:clay_ball", "minecraft:lapis_lazuli"))
 				.trigger(MutationTrigger.of(Kind.SUBMERSION, pk(k, "trigger"), "projecthero.device.hydrostatic_tank"))
