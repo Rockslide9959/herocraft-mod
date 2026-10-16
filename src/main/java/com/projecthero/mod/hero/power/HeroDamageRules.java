@@ -176,6 +176,11 @@ public final class HeroDamageRules {
 				if (source.is(DamageTypes.FREEZE)) {
 					return Verdict.immune();
 				}
+				// v0.16.5: no fall damage on the Ice Slide or for 3 s after it / an Ice Pillar launch
+				if (source.is(DamageTypes.FALL) && com.projecthero.mod.hero.power.p09.CryokinesisHandlers.fallSafe(player)) {
+					player.resetFallDistance();
+					return Verdict.immune();
+				}
 			}
 			case "power_11_teleportation" -> {
 				// v0.16.5: Spatial Fold -- a projectile that still reaches you is sent back at its shooter instead

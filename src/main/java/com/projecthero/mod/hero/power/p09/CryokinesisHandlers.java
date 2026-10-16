@@ -1,50 +1,52 @@
 package com.projecthero.mod.hero.power.p09;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
+import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.Handlers;
-import com.projecthero.mod.hero.power.ModeMeter;
 import com.projecthero.mod.hero.power.PowerToggles;
-import com.projecthero.mod.hero.power.StanceMode;
-import com.projecthero.mod.hero.power.TempBlocks;
-import com.projecthero.mod.hero.revamp.BatchBItems;
+import com.projecthero.mod.hero.revamp.BatchBScheduler;
 import com.projecthero.mod.hero.revamp.BatchBUtil;
+import com.projecthero.mod.hero.revamp.batcha.BatchA;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.hero.visual.MutationVisuals;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.BlockParticleOption;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
@@ -52,773 +54,1018 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 09 -- Cryokinesis (v0.13.22 revamp). Signature: <b>frost stacks, then frozen solid</b> -- see
- * {@link FrostStacks}.
+ * Power 09 -- Cryokinesis (v0.16.5 rework, docs/V0165_POWERS_PROPOSAL.md section 9): an Iceman / Frozone ice caster on a
+ * <b>Cold</b> meter, built around {@link FrostStacks}: ice hits add Frost, five Frost freezes a creature solid for 2.5 s,
+ * and Shatter cashes the ice in.
  *
- * <h2>Keys</h2>
- * R Ice Bolt (Sneak: the ice-tool wheel), G Freeze Beam (hold), X Ice Ramp (the Iceman slide -- look up to build a
- * rising ramp), Z Absolute Zero (hold to charge; freezes everything solid), V Glacier Wall (a curved, crested ice wall;
- * Sneak: an ice-spike field), C Frozen Armor (frost shell, frost aura), H Flash Freeze (freeze water and lava around
- * you, douse fire, frost every creature near), N Ice Blade (a 30 s sword of ice that can't be kept).
+ * <p>Cold (0-100): moves spend it; it refills 15 a second (25 in a snowy biome or standing on snow / ice) while neither
+ * the Freeze Beam nor Frozen Armor is draining it. A move you cannot afford is refused.
+ *
+ * <p>R Ice Bolt / Shift+R Ice Shards. G Freeze Beam (held) / Shift+G Ice Prison. X Ice Slide / Shift+X Ice Pillar.
+ * Z Glacier Spikes / Shift+Z Absolute Zero. V Glacier Wall / Shift+V Frozen Armor (toggle). C Ice Blade (toggle) /
+ * Shift+C Shatter. No H / N. All six slots are HOLD, so the handlers own their Shift / release logic and the few real
+ * cooldowns (Ice Prison 12 s, Absolute Zero 20 s) are their own timers.
+ *
+ * <p>Passives: water freezes under your feet, immune to freezing and powder snow, no slipping on ice.
  */
 public final class CryokinesisHandlers {
 	public static final String KEY = "power_09_cryokinesis";
-	/** Frostbite gauge (the beam chills its user) and the Frozen Armor reserve: +15% over v0.12's 500. */
-	public static final float MAX_COLD = 575.0f;
-	private static final float COLD_PER_BEAM_TICK = 6.0f;
-	private static final float COLD_PER_ARMOR_TICK = MAX_COLD / (35 * 20);
-	private static final float COLD_REGEN = MAX_COLD / (25 * 20);
-	private static final float COLD_MIN = 20.0f;
-	private static final BlockState SLIDE_ICE = Blocks.PACKED_ICE.defaultBlockState();
-	private static final BlockParticleOption ICE_DUST = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.ICE.defaultBlockState());
-	private static final DustParticleOptions FROST_BEAM = new DustParticleOptions(new org.joml.Vector3f(0.62f, 0.9f, 1.0f), 1.0f);
 
-	public static final float ICE_BOLT_DAMAGE = 8.5f;
-	public static final float BEAM_DAMAGE = 6.0f;
-	public static final int AZ_CHARGE = 85;
-	private static final int AZ_CD = 38 * 20;
-	private static final double AZ_RANGE = 20.0;
-	public static final float AZ_DAMAGE = 42.0f;
-	private static final int WALL_TTL = 15 * 20;
-	private static final float SPIKES_DAMAGE = 10.0f;
-	private static final double FLASH_RANGE = 8.0;
-	public static final float FLASH_DAMAGE = 5.0f;
-	private static final int FLASH_ICE_TTL = 20 * 20;
-	private static final int BLADE_CD = 32 * 20;
+	// ---- Cold ----
+	public static final float MAX_COLD = 100.0f;
+	public static final float COLD_REGEN_PER_TICK = 15.0f / 20.0f;
+	public static final float COLD_REGEN_SNOW_PER_TICK = 25.0f / 20.0f;
 
-	private static final net.minecraft.resources.ResourceLocation ARMOR_KB = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_kb");
-	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_atk");
-	private static final net.minecraft.resources.ResourceLocation SLIDE_SPD = com.projecthero.mod.ProjectHeroMod.id("ice_slide_speed");
+	public static final float COST_BOLT = 8.0f;
+	public static final float COST_SHARDS = 15.0f;
+	public static final float COST_BEAM_PER_SECOND = 10.0f;
+	public static final float COST_PRISON = 30.0f;
+	public static final float COST_SLIDE = 20.0f;
+	public static final float COST_PILLAR = 15.0f;
+	public static final float COST_SPIKES = 25.0f;
+	public static final float COST_ZERO = 50.0f;
+	public static final float COST_WALL = 15.0f;
+	public static final float COST_ARMOR_PER_SECOND = 3.0f;
+	public static final float COST_SHATTER = 20.0f;
+
+	// ---- R: Ice Bolt / Ice Shards ----
+	public static final float BOLT_DAMAGE = 10.0f;
+	public static final int BOLT_FROST = 1;
+	private static final float BOLT_SPEED = 1.6f;
+	public static final int SHARD_COUNT = 7;
+	public static final float SHARD_DAMAGE = 4.0f;
+	public static final int SHARD_FROST = 1;
+	private static final float SHARD_SPEED = 1.7f;
+
+	// ---- G: Freeze Beam / Ice Prison ----
+	public static final double BEAM_RANGE = 20.0;
+	/** One Frost every half second on the beam's target. */
+	public static final int BEAM_FROST_TICKS = 10;
+	public static final double PRISON_RANGE = 16.0;
+	public static final int PRISON_TICKS = 4 * 20;
+	public static final int PRISON_CD = 12 * 20;
+
+	// ---- X: Ice Slide / Ice Pillar ----
+	public static final int SLIDE_TICKS = 5 * 20;
+	/** The slide's speed in blocks a tick (the client drives it). */
+	public static final double SLIDE_SPEED = 0.72;
+	private static final int SLIDE_ICE_TTL = 40;
+	public static final double PILLAR_HEIGHT = 10.0;
+	private static final int PILLAR_TTL = 8 * 20;
+	private static final int FALL_GRACE_TICKS = 3 * 20;
+
+	// ---- Z: Glacier Spikes / Absolute Zero ----
+	public static final float SPIKES_DAMAGE = 16.0f;
+	public static final int SPIKES_FROST = 2;
+	public static final int SPIKES_LENGTH = 12;
+	public static final double ZERO_RADIUS = 8.0;
+	public static final int ZERO_CD = 20 * 20;
+
+	// ---- V: Glacier Wall / Frozen Armor ----
+	public static final int WALL_WIDTH = 5;
+	public static final int WALL_HEIGHT = 4;
+	public static final int WALL_TTL = 15 * 20;
+	/** 8 hearts of ice. */
+	public static final float ARMOR_ABSORPTION = 16.0f;
+
+	// ---- C: Ice Blade / Shatter ----
+	public static final float BLADE_DAMAGE = 8.0f;
+	public static final double SHATTER_RADIUS = 10.0;
+	public static final float SHATTER_DAMAGE = 20.0f;
+
+	private static final ResourceLocation BLADE_ATK = com.projecthero.mod.ProjectHeroMod.id("cryo_ice_blade");
+	private static final ResourceLocation ARMOR_ABS = com.projecthero.mod.ProjectHeroMod.id("cryo_frozen_armor");
+	/** Pre-v0.16.5 modifiers, cleared out of old saves. */
+	private static final ResourceLocation LEGACY_KB = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_kb");
+	private static final ResourceLocation LEGACY_ATK = com.projecthero.mod.ProjectHeroMod.id("frozen_armor_atk");
+	private static final ResourceLocation LEGACY_SLIDE = com.projecthero.mod.ProjectHeroMod.id("ice_slide_speed");
+
+	static final BlockParticleOption ICE_DUST = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.ICE.defaultBlockState());
+	private static final BlockState PACKED = Blocks.PACKED_ICE.defaultBlockState();
+	private static final BlockState BLUE = Blocks.BLUE_ICE.defaultBlockState();
 
 	private CryokinesisHandlers() {
 	}
 
-	private static Power power() {
-		return Powers.byKey(KEY);
+	// ================================================================ shared helpers / queries
+
+	private static float res(ServerPlayer p, String name) {
+		return BatchA.res(p, KEY, name);
 	}
 
-	/** Frozen Armor adds a flat bonus to every Cryokinesis attack (see {@link StanceMode}). */
-	private static float armorBonus(ServerPlayer p) {
-		return frozenArmorActive(p) ? StanceMode.ABILITY_BONUS : 0.0f;
+	private static void set(ServerPlayer p, String name, float v) {
+		BatchA.set(p, KEY, name, v);
 	}
 
-	/** Client-safe: is Cryokinesis this player's active power (used by the powder-snow-walking mixin). */
+	/** Reads a resource from the synced attachment (works on both sides; the client only has its own player's). */
+	private static float resAny(Player p, String name) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
+	}
+
+	public static boolean owns(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY);
+	}
+
+	/** Client-safe: is Cryokinesis this player's active power (the powder-snow mixins). */
 	public static boolean active(Player p) {
-		var st = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		return st != null && KEY.equals(st.activePower) && st.ownedPowers.contains(KEY);
 	}
 
-	/** +10 to every Cryokinesis ability's damage while in a cold biome or standing in snow. */
-	private static float coldBonus(ServerPlayer p) {
+	/** Client-safe: no slipping on ice for any owner (the friction mixin). */
+	public static boolean surefooted(Entity e) {
+		return e instanceof Player p && owns(p);
+	}
+
+	public static float cold(ServerPlayer p) {
+		seed(p);
+		return res(p, "cold");
+	}
+
+	/** For the gametests: the Cold meter set directly. */
+	public static void setCold(ServerPlayer p, float value) {
+		seed(p);
+		set(p, "cold", Mth.clamp(value, 0.0f, MAX_COLD));
+	}
+
+	public static boolean beaming(Player p) {
+		return owns(p) && resAny(p, "beaming") > 0.5f;
+	}
+
+	public static boolean sliding(Player p) {
+		return owns(p) && resAny(p, "slide") > 0.5f;
+	}
+
+	public static boolean armored(Player p) {
+		return owns(p) && resAny(p, "armor") > 0.5f;
+	}
+
+	public static boolean bladed(Player p) {
+		return owns(p) && resAny(p, "blade") > 0.5f;
+	}
+
+	public static boolean rising(Player p) {
+		return owns(p) && resAny(p, "pillar") > 0.5f;
+	}
+
+	/** No fall damage while sliding and for 3 s after a slide or a pillar launch. */
+	public static boolean fallSafe(Player p) {
+		return owns(p) && (resAny(p, "slide") > 0.5f || resAny(p, "fall_grace") > 0.5f);
+	}
+
+	private static void seed(ServerPlayer p) {
+		if (res(p, "seeded") < 0.5f) {
+			set(p, "seeded", 1);
+			set(p, "cold", MAX_COLD);
+		}
+	}
+
+	/** Spends {@code cost} Cold, or refuses with a message (nothing spent). */
+	private static boolean pay(AbilityContext ctx, float cost) {
+		ServerPlayer p = ctx.player();
+		seed(p);
+		float c = res(p, "cold");
+		if (c + 1.0e-3f < cost) {
+			ctx.actionBar("message.projecthero.cryo.no_cold", String.format(java.util.Locale.ROOT, "%.0f", cost));
+			AbilityHelpers.sound(p, SoundEvents.GLASS_HIT, 0.5f, 0.6f);
+			return false;
+		}
+		set(p, "cold", c - cost);
+		return true;
+	}
+
+	private static void drain(ServerPlayer p, float amount) {
+		set(p, "cold", Math.max(0.0f, res(p, "cold") - amount));
+	}
+
+	private static boolean noBoss(LivingEntity t) {
+		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
+	}
+
+	private static Vec3 mid(Entity e) {
+		return e.position().add(0, e.getBbHeight() * 0.5, 0);
+	}
+
+	private static void cooling(AbilityContext ctx, String timer, String nameKey) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(nameKey),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
+	}
+
+	private static String ab(String id) {
+		return "projecthero.power." + KEY + ".ability." + id;
+	}
+
+	/** A snowy biome, or standing in / on snow, powder snow or ice. */
+	public static boolean inTheCold(ServerPlayer p) {
 		if (!(p.level() instanceof ServerLevel sl)) {
-			return 0.0f;
+			return false;
 		}
 		BlockPos pos = p.blockPosition();
-		boolean coldBiome = sl.getBiome(pos).value().coldEnoughToSnow(pos);
-		boolean inSnow = p.isInPowderSnow
-				|| sl.getBlockState(pos).is(Blocks.SNOW) || sl.getBlockState(pos).is(Blocks.POWDER_SNOW)
-				|| sl.getBlockState(pos.below()).is(Blocks.SNOW_BLOCK) || sl.getBlockState(pos.below()).is(Blocks.SNOW)
-				|| sl.getBlockState(pos.below()).is(Blocks.POWDER_SNOW);
-		return (coldBiome || inSnow) ? 10.0f : 0.0f;
+		if (sl.getBiome(pos).value().coldEnoughToSnow(pos) || p.isInPowderSnow) {
+			return true;
+		}
+		BlockState at = sl.getBlockState(pos);
+		BlockState below = sl.getBlockState(pos.below());
+		return at.is(Blocks.SNOW) || at.is(Blocks.POWDER_SNOW) || below.is(Blocks.SNOW_BLOCK) || below.is(Blocks.SNOW)
+				|| below.is(Blocks.POWDER_SNOW) || below.is(BlockTags.ICE);
 	}
 
-	private static float bonus(ServerPlayer p) {
-		return coldBonus(p) + armorBonus(p);
-	}
-
-	public static boolean frozenArmorActive(ServerPlayer p) {
-		Power power = power();
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
-	}
-
-	public static boolean sliding(ServerPlayer p) {
-		Power power = power();
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_3));
-	}
+	// ================================================================ registration
 
 	public static void register() {
-		AbilityHandlers.register(KEY, "ice_bolt", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			if (!ctx.cooldownReady()) {
-				return;
-			}
-			if (p.isShiftKeyDown()) {
-				// Sneak + R opens the ice-weapon wheel (CryoWheelOpenPayload -> CryoWeaponPayload -> giveIceToolChoice)
-				net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
-						com.projecthero.mod.network.CryoWheelOpenPayload.INSTANCE);
-				AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 1.5f);
-				ctx.level().sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.4, 0.4, 0.4, 0.04);
-				return;
-			}
-			iceBolt(ctx);
-		}));
+		CryoEntities.initialize();
+		FrostStacks.register();
+		ServerTickEvents.END_SERVER_TICK.register(CryoIce::tick);
+		// conjured ice never outlives the session: melted back while the levels are still loaded
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> CryoIce.meltAll());
 
+		// R -- Ice Bolt / Ice Shards (Shift). Also runs the power-wide upkeep.
+		AbilityHandlers.register(KEY, "ice_bolt", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				if (ctx.player().isShiftKeyDown()) {
+					iceShards(ctx);
+				} else {
+					iceBolt(ctx);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				upkeep(ctx.player(), ctx.level());
+			}
+		});
+
+		// G -- Freeze Beam (held) / Ice Prison (Shift)
 		AbilityHandlers.register(KEY, "freeze_beam", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (ctx.resource("freeze_beam") >= MAX_COLD - COLD_MIN) {
-					ctx.actionBar("message.projecthero.cryo.exhausted");
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					icePrison(ctx);
 					return;
 				}
-				ctx.setResource("beaming", 1, 1);
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				if (ctx.resource("beaming") > 0.5f) {
-					ctx.setResource("beaming", 0, 1);
+				seed(p);
+				if (res(p, "cold") < 1.0f) {
+					ctx.actionBar("message.projecthero.cryo.no_cold", "10/s");
+					return;
 				}
-				MutationVisuals.stopIf(ctx.player(), "channel_right");
+				set(p, "beaming", 1);
+				set(p, "beam_t", 0);
+				MutationVisuals.play(p, "p09.beam");
+				AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_PLACE, 1.0f, 1.6f);
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				if (ctx.resource("beaming") >= 0.5f) {
-					beamTick(ctx);
-				}
+				beamTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				endBeam(ctx.player());
 			}
 		});
 
-		AbilityHandlers.register(KEY, "ice_slide", Handlers.toggle(ctx -> {
-			MutationVisuals.play(ctx.player(), "p09.slide");
-			AbilityHelpers.sound(ctx.player(), SoundEvents.GLASS_PLACE, 1.0f, 0.8f);
-		}, CryokinesisHandlers::slideOff, CryokinesisHandlers::slideTick));
-
-		AbilityHandlers.register(KEY, "absolute_zero", new AbilityHandler() {
+		// X -- Ice Slide / Ice Pillar (Shift)
+		AbilityHandlers.register(KEY, "ice_slide", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
-				if (BatchBUtil.chargeStart(ctx, "az_start")) {
-					AbilityHelpers.sound(ctx.player(), SoundEvents.GLASS_PLACE, 0.8f, 0.4f);
-				}
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				long held = BatchBUtil.chargeHeld(ctx, "az_start");
-				if (held < 0) {
-					return;
-				}
-				if (held >= AZ_CHARGE) {
-					azFire(ctx);
-				} else {
-					azCancel(ctx);
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					icePillar(ctx);
+				} else if (res(p, "slide") > 0.5f) {
+					endSlide(p); // X again steps off early
+				} else if (pay(ctx, COST_SLIDE)) {
+					startSlide(p);
 				}
 			}
 
 			@Override
 			public void onServerTick(AbilityContext ctx) {
-				azTick(ctx);
+				slideTick(ctx.player(), ctx.level());
+				pillarTick(ctx.player(), ctx.level());
 			}
 		});
 
-		AbilityHandlers.register(KEY, "ice_wall", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			ServerLevel level = ctx.level();
-			boolean placed;
-			if (p.isShiftKeyDown()) {
-				placed = iceSpikes(p, level);
-				level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 50, 3, 1, 3, 0.06);
-				AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.2f, 0.7f);
-				MutationVisuals.play(p, "ground_pound");
-			} else {
-				placed = glacierWall(p, level);
-				AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.2f, 0.5f);
-				AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_PLACE, 1.0f, 0.6f);
-				MutationVisuals.play(p, "summon_ground");
+		// Z -- Glacier Spikes / Absolute Zero (Shift)
+		AbilityHandlers.register(KEY, "glacier_spikes", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "zero_cd") > 0.5f) {
+						cooling(ctx, "zero_cd", ab("glacier_spikes.zero"));
+						return;
+					}
+					if (pay(ctx, COST_ZERO)) {
+						absoluteZero(p, ctx.level());
+					}
+					return;
+				}
+				if (pay(ctx, COST_SPIKES)) {
+					glacierSpikes(p, ctx.level());
+				}
 			}
-			if (placed || !AbilityHelpers.canGrief()) {
-				ctx.triggerCooldown();
-			}
-		}));
+		});
 
-		AbilityHandlers.register(KEY, "frozen_armor", Handlers.toggle(
-				ctx -> {
-					if (StanceMode.blockedByCooldown(ctx)) {
-						return;
-					}
-					ModeMeter.ensureSeeded(ctx, "frozen_armor", MAX_COLD);
-					if (ctx.resource("frozen_armor") <= COLD_MIN) {
-						ctx.setToggled(false);
-						ctx.actionBar("message.projecthero.cryo.exhausted");
-						return;
-					}
-					armorOn(ctx);
-					MutationVisuals.play(ctx.player(), "flex");
-					AbilityHelpers.sound(ctx.player(), SoundEvents.GLASS_PLACE, 1.2f, 0.5f);
-					ctx.level().sendParticles(ICE_DUST, ctx.player().getX(), ctx.player().getY() + 1.0,
-							ctx.player().getZ(), 40, 0.4, 0.9, 0.4, 0.08);
-				},
-				ctx -> {
-					armorOff(ctx);
-					StanceMode.startDeactivateCooldown(ctx);
-				},
-				ctx -> {
-					ServerPlayer p = ctx.player();
-					armorOn(ctx);
-					AbilityHelpers.modeAura(p, ParticleTypes.SNOWFLAKE, 3);
-					frostWalk(p);
-					// the frost aura: a stack on everything within 4 blocks every 2 s
-					if (p.tickCount % 40 == 0) {
-						for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), 4.0)) {
-							FrostStacks.add(p, e, 1);
-							AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
+		// V -- Glacier Wall / Frozen Armor (Shift, toggle)
+		AbilityHandlers.register(KEY, "glacier_wall", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "armor") > 0.5f) {
+						armorOff(p, false);
+					} else {
+						seed(p);
+						if (res(p, "cold") < 1.0f) {
+							ctx.actionBar("message.projecthero.cryo.no_cold", "3/s");
+							return;
 						}
+						armorOn(p);
 					}
-					snowWalk(p);
-					ctx.addResource("frozen_armor", -COLD_PER_ARMOR_TICK, MAX_COLD);
-					if (ctx.resource("frozen_armor") <= 0.0f) {
-						ctx.setToggled(false);
-						armorOff(ctx);
-						StanceMode.startDeactivateCooldown(ctx);
-						ctx.actionBar("message.projecthero.cryo.exhausted");
-					}
-				}));
+					return;
+				}
+				if (pay(ctx, COST_WALL)) {
+					glacierWall(p, ctx.level());
+				}
+			}
 
-		AbilityHandlers.register(KEY, "flash_freeze", Handlers.instant(CryokinesisHandlers::flashFreeze));
-		AbilityHandlers.register(KEY, "ice_blade", Handlers.instant(CryokinesisHandlers::iceBlade));
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				armorTick(ctx.player(), ctx.level());
+			}
+		});
 
-		// Frozen Armor: whatever strikes you in melee range takes a frost stack.
+		// C -- Ice Blade (toggle) / Shatter (Shift)
+		AbilityHandlers.register(KEY, "ice_blade", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					shatter(ctx);
+					return;
+				}
+				setBlade(p, res(p, "blade") < 0.5f);
+			}
+		});
+
+		// Frozen Armor: whatever strikes you in melee takes a Frost
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
-			if (entity instanceof ServerPlayer sp && frozenArmorActive(sp)
-					&& source.getEntity() instanceof LivingEntity attacker && sp.distanceToSqr(attacker) < 9.0) {
+			if (entity instanceof ServerPlayer sp && armored(sp) && source.getEntity() instanceof LivingEntity attacker
+					&& source.getDirectEntity() == attacker && attacker != sp && sp.distanceToSqr(attacker) < 25.0) {
 				FrostStacks.add(sp, attacker, 1);
+				if (sp.level() instanceof ServerLevel sl) {
+					sl.sendParticles(ICE_DUST, attacker.getX(), attacker.getY() + attacker.getBbHeight() * 0.6, attacker.getZ(),
+							8, 0.3, 0.3, 0.3, 0.05);
+				}
 			}
+		});
+		// Ice Blade: a Frost on every melee hit
+		AttackEntityCallback.EVENT.register((player, level, hand, target, hit) -> {
+			if (player instanceof ServerPlayer sp && bladed(sp) && target instanceof LivingEntity le && !sp.isSpectator()
+					&& com.projecthero.mod.combat.HeroTargets.canHarm(sp, le)) {
+				FrostStacks.add(sp, le, 1);
+				AbilityHelpers.sound(sp, SoundEvents.GLASS_HIT, 0.8f, 1.5f);
+			}
+			return InteractionResult.PASS;
 		});
 
-		PowerPassives.registerTick(KEY, CryokinesisHandlers::passiveTick);
-		PowerPassives.register(KEY, (player, active) -> {
-			if (!active) {
-				// only this power's own modifiers: the shared Resistance effect is cleared by the toggle's own off
-				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB);
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ARMOR_ATK);
-				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SLIDE_SPD);
-				IceBladeItem.removeAll(player);
-			}
-		});
+		registerPassives();
 	}
 
-	private static void passiveTick(ServerPlayer player) {
-		Power power = power();
-		if (power == null) {
-			return;
-		}
-		// a cryokinetic shrugs off their own cold
-		if (player.getTicksFrozen() > 0 && !FrostStacks.frozen(player)) {
-			player.setTicksFrozen(Math.max(0, player.getTicksFrozen() - 3));
-		}
-		boolean beaming = BatchBUtil.get(player, power, "beaming") > 0.5f;
-		ModeMeter.cool(player, power, "freeze_beam", MAX_COLD, COLD_REGEN, beaming);
-		ModeMeter.regen(player, power, "frozen_armor", MAX_COLD, COLD_REGEN, frozenArmorActive(player));
-		// Ice Blade upkeep: the HUD countdown, and the blade can never be stashed anywhere
-		float bladeLeft = BatchBUtil.get(player, power, "ice_blade");
-		if (bladeLeft > 0.5f) {
-			ItemStack hand = player.getMainHandItem();
-			if (!IceBladeItem.isBlade(hand)) {
-				IceBladeItem.removeAll(player);
-				ExperimentalPowers.setResource(player, power, "ice_blade", 0, IceBladeItem.LIFE_TICKS);
-			} else if (player.tickCount % 10 == 0) {
-				long left = IceBladeItem.meltAt(hand) - player.level().getGameTime();
-				ExperimentalPowers.setResource(player, power, "ice_blade", Math.max(0, left), IceBladeItem.LIFE_TICKS);
+	// ================================================================ upkeep (every tick for an owner)
+
+	private static void upkeep(ServerPlayer p, ServerLevel level) {
+		seed(p);
+		for (String timer : new String[] { "prison_cd", "zero_cd", "fall_grace" }) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, v - 1);
 			}
-			IceBladeItem.sweepMenu(player);
-			if (player.tickCount % 3 == 0 && player.level() instanceof ServerLevel sl) {
-				Vec3 h = AbilityHelpers.handPosition(player);
-				sl.sendParticles(ParticleTypes.SNOWFLAKE, h.x, h.y, h.z, 1, 0.1, 0.2, 0.1, 0.0);
-			}
+		}
+		// Cold refills while neither drain is running
+		float c = res(p, "cold");
+		if (c < MAX_COLD && res(p, "beaming") < 0.5f && res(p, "armor") < 0.5f) {
+			set(p, "cold", Math.min(MAX_COLD, c + (inTheCold(p) ? COLD_REGEN_SNOW_PER_TICK : COLD_REGEN_PER_TICK)));
+		}
+		if (p.tickCount % 100 == 41) {
+			dropLegacyState(p);
 		}
 	}
 
-	// ---------------- R: Ice Bolt ----------------
+	/** Pre-v0.16.5 Cryokinesis state is inert now: clear it out of old saves. */
+	private static void dropLegacyState(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, LEGACY_KB);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, LEGACY_ATK);
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, LEGACY_SLIDE);
+		IceBladeItem.removeAll(p);
+	}
+
+	// ================================================================ R: Ice Bolt / Ice Shards
+
+	private static Vec3 castPoint(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
+		return eye.add(look.scale(0.6)).add(right.scale(0.28)).add(0, -0.2, 0);
+	}
 
 	private static void iceBolt(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
-		Vec3 end = AbilityHelpers.aimPoint(p, 24.0);
-		Vec3 hand = AbilityHelpers.handPosition(p);
-		AbilityHelpers.line(level, hand, end, FROST_BEAM, 3.0);
-		AbilityHelpers.line(level, hand, end, ParticleTypes.SNOWFLAKE, 1.5);
-		if (t != null) {
-			AbilityHelpers.hurtLands(p, t, ICE_BOLT_DAMAGE + bonus(p));
-			FrostStacks.add(p, t, 1);
-			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 60, 0);
-			level.sendParticles(ICE_DUST, end.x, end.y, end.z, 12, 0.2, 0.2, 0.2, 0.08);
+		if (!pay(ctx, COST_BOLT)) {
+			return;
 		}
-		MutationVisuals.play(p, "cast_right");
-		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.8f, 1.6f);
-		ctx.triggerCooldown();
+		ServerLevel level = ctx.level();
+		IceBoltEntity bolt = new IceBoltEntity(level, p, IceBoltEntity.BOLT, BOLT_DAMAGE, BOLT_FROST, 40);
+		Vec3 at = castPoint(p);
+		bolt.setPos(at.x, at.y, at.z);
+		bolt.shootFromRotation(p, p.getXRot(), p.getYRot(), 0.0f, BOLT_SPEED, 0.0f);
+		level.addFreshEntity(bolt);
+		level.sendParticles(ParticleTypes.SNOWFLAKE, at.x, at.y, at.z, 4, 0.08, 0.08, 0.08, 0.03);
+		MutationVisuals.play(p, "p09.cast");
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 1.7f);
+		AbilityHelpers.sound(p, SoundEvents.SNOW_GOLEM_SHOOT, 0.9f, 0.9f);
 	}
 
-	// ---------------- G: Freeze Beam ----------------
-
-	private static void beamTick(AbilityContext ctx) {
+	/** Seven shards in a fan (the outer ones a little up / down). Each lands its own hit and Frost. */
+	private static void iceShards(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
+		if (!pay(ctx, COST_SHARDS)) {
+			return;
+		}
 		ServerLevel level = ctx.level();
-		MutationVisuals.ensure(p, "channel_right");
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 16.0);
-		Vec3 hand = AbilityHelpers.handPosition(p);
-		Vec3 end = AbilityHelpers.aimPoint(p, 16.0);
-		AbilityHelpers.line(level, hand, end, FROST_BEAM, 3.0);
-		if (p.tickCount % 2 == 0) {
-			AbilityHelpers.line(level, hand, end, ParticleTypes.SNOWFLAKE, 1.0);
+		Vec3 at = castPoint(p);
+		for (int i = 0; i < SHARD_COUNT; i++) {
+			float yawOff = (i - (SHARD_COUNT - 1) / 2.0f) * 4.5f;
+			float pitchOff = (i % 2 == 0 ? -1.5f : 1.5f) + (level.random.nextFloat() - 0.5f) * 2.0f;
+			IceBoltEntity shard = new IceBoltEntity(level, p, IceBoltEntity.SHARD, SHARD_DAMAGE, SHARD_FROST, 11);
+			shard.setPos(at.x, at.y, at.z);
+			shard.shootFromRotation(p, p.getXRot() + pitchOff, p.getYRot() + yawOff, 0.0f, SHARD_SPEED, 0.0f);
+			level.addFreshEntity(shard);
 		}
-		// the beam smothers fire, turns lava to stone and lays powder snow where it lands
-		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 16.0);
-		if (bhr.getType() == HitResult.Type.BLOCK) {
-			BlockPos hitPos = bhr.getBlockPos();
-			for (BlockPos bp : BlockPos.betweenClosed(hitPos.offset(-1, -1, -1), hitPos.offset(1, 1, 1))) {
-				BlockState st = level.getBlockState(bp);
-				if (st.is(BlockTags.FIRE)) {
-					level.removeBlock(bp, false);
-					level.sendParticles(ParticleTypes.SMOKE, bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5, 4, 0.2, 0.2, 0.2, 0.01);
-				} else if (AbilityHelpers.canGrief() && st.getFluidState().is(Fluids.LAVA)) {
-					level.setBlockAndUpdate(bp, st.getFluidState().isSource()
-							? Blocks.OBSIDIAN.defaultBlockState() : Blocks.COBBLESTONE.defaultBlockState());
-					level.sendParticles(ParticleTypes.LARGE_SMOKE, bp.getX() + 0.5, bp.getY() + 0.9, bp.getZ() + 0.5, 6, 0.3, 0.2, 0.3, 0.01);
-				}
-			}
-			BlockPos face = hitPos.relative(bhr.getDirection());
-			if (AbilityHelpers.canGrief() && bhr.getDirection() == Direction.UP
-					&& level.getBlockState(face).isAir() && p.tickCount % 4 == 0) {
-				TempBlocks.place(level, face, Blocks.POWDER_SNOW.defaultBlockState(), 300);
-			}
+		level.sendParticles(ICE_DUST, at.x, at.y, at.z, 10, 0.15, 0.15, 0.15, 0.1);
+		MutationVisuals.play(p, "p09.shards");
+		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.9f, 1.4f);
+		AbilityHelpers.sound(p, SoundEvents.SNOW_GOLEM_SHOOT, 1.0f, 0.7f);
+	}
+
+	// ================================================================ G: Freeze Beam / Ice Prison
+
+	/** Where the beam stops: the first creature, solid block or water surface within 20 blocks. */
+	public static Vec3 beamEnd(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(p.getLookAngle().scale(BEAM_RANGE));
+		BlockHitResult bhr = p.level().clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.SOURCE_ONLY, p));
+		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, eye.distanceTo(end));
+		return t != null ? mid(t) : end;
+	}
+
+	private static void beamTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "beaming") < 0.5f) {
+			return;
 		}
-		if (t != null) {
-			t.clearFire();
-			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 40, 3);
-			if (p.tickCount % 10 == 0) {
-				AbilityHelpers.hurt(p, t, AbilityHelpers.freeze(p), BEAM_DAMAGE + bonus(p));
-				FrostStacks.add(p, t, 1);
+		if (!p.isAlive() || res(p, "cold") <= 0.01f) {
+			endBeam(p);
+			if (p.isAlive()) {
+				p.displayClientMessage(Component.translatable("message.projecthero.cryo.out_of_cold"), true);
 			}
+			return;
+		}
+		MutationVisuals.ensure(p, "p09.beam");
+		drain(p, COST_BEAM_PER_SECOND / 20.0f);
+		float t = res(p, "beam_t") + 1;
+		set(p, "beam_t", t);
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(p.getLookAngle().scale(BEAM_RANGE));
+		BlockHitResult bhr = level.clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.SOURCE_ONLY, p));
+		Vec3 end = bhr.getType() == HitResult.Type.MISS ? far : bhr.getLocation();
+		LivingEntity target = AbilityHelpers.raycastEntity(p, eye.distanceTo(end));
+		if (target != null) {
+			end = mid(target);
+			target.clearFire();
+			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 30, 2);
+			if (Math.round(t) % BEAM_FROST_TICKS == 0) {
+				FrostStacks.add(p, target, 1);
+				level.sendParticles(ICE_DUST, end.x, end.y, end.z, 6, 0.2, 0.2, 0.2, 0.05);
+			}
+		} else if (bhr.getType() == HitResult.Type.BLOCK) {
+			freezeAt(level, bhr.getBlockPos(), bhr.getDirection());
+		}
+		set(p, "beam_len", (float) end.distanceTo(eye));
+		if (p.tickCount % 3 == 0) {
+			level.sendParticles(ParticleTypes.SNOWFLAKE, end.x, end.y, end.z, 3, 0.2, 0.2, 0.2, 0.02);
 		}
 		if (p.tickCount % 8 == 0) {
-			level.playSound(null, p.blockPosition(), SoundEvents.POWDER_SNOW_STEP, SoundSource.PLAYERS, 0.8f, 1.6f);
-		}
-		ctx.addResource("freeze_beam", COLD_PER_BEAM_TICK, MAX_COLD);
-		if (ctx.resource("freeze_beam") >= MAX_COLD) {
-			ctx.setResource("beaming", 0, 1);
-			MutationVisuals.stopIf(p, "channel_right");
-			ctx.actionBar("message.projecthero.cryo.exhausted");
+			level.playSound(null, p.blockPosition(), SoundEvents.POWDER_SNOW_STEP, SoundSource.PLAYERS, 0.8f, 1.7f);
 		}
 	}
 
-	// ---------------- X: Ice Ramp ----------------
-
-	/**
-	 * X: the Iceman slide. A 3x3 skating platform of packed ice forms under you wherever you go (even over air and
-	 * water) and you skate 150% faster. Look up (above 20 degrees) while moving and the ice builds into a rising
-	 * ramp; tap Sneak to drop one level. No fall damage while sliding.
-	 */
-	private static void slideTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		if (p.getAbilities().flying || p.isInWater()) {
-			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPD);
-			return;
-		}
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPD, 1.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		MutationVisuals.ensure(p, "p09.slide");
-
-		boolean sneak = p.isShiftKeyDown();
-		boolean sneakPrev = ctx.resource("slide_sneak_prev") > 0.5f;
-		boolean descendNow = sneak && !sneakPrev;
-		if (sneak != sneakPrev) {
-			ctx.setResource("slide_sneak_prev", sneak ? 1 : 0, 1);
-		}
-		Vec3 v = p.getDeltaMovement();
-		boolean moving = v.horizontalDistanceSqr() > 0.004;
-		boolean ramp = !sneak && moving && p.getXRot() < -20.0f;
-		if (descendNow && v.y > -0.45) {
-			p.setDeltaMovement(v.x, -0.45, v.z);
-			p.hurtMarked = true;
-		} else if (ramp) {
-			// climb: a steady lift, with the platform laid under the rising feet each tick
-			AbilityHelpers.launchSelf(p, new Vec3(v.x, Math.max(v.y, 0.28), v.z));
-		}
-		int dy = sneak ? -2 : -1;
-		BlockPos base = ramp ? BlockPos.containing(p.getX(), p.getY() - 1.0, p.getZ()) : p.blockPosition().offset(0, dy, 0);
-		if (AbilityHelpers.canGrief()) {
-			for (int x = -1; x <= 1; x++) {
-				for (int z = -1; z <= 1; z++) {
-					BlockPos bp = base.offset(x, 0, z);
-					BlockState cur = level.getBlockState(bp);
-					if (cur.isAir() || cur.canBeReplaced() || cur.getFluidState().is(Fluids.WATER)) {
-						TempBlocks.place(level, bp, SLIDE_ICE, ramp ? 80 : 30);
-					}
-				}
-			}
-		}
-		p.resetFallDistance();
-		if (p.tickCount % 2 == 0) {
-			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 0.1, p.getZ(), 4, 0.25, 0.05, 0.25, 0.0);
-			if (moving) {
-				level.sendParticles(ICE_DUST, p.getX(), p.getY() + 0.05, p.getZ(), 2, 0.2, 0.02, 0.2, 0.02);
-			}
-		}
-	}
-
-	private static void slideOff(AbilityContext ctx) {
-		PowerToggles.clearModifier(ctx.player(), Attributes.MOVEMENT_SPEED, SLIDE_SPD);
-		ctx.setResource("slide_sneak_prev", 0, 1);
-		MutationVisuals.stopIf(ctx.player(), "p09.slide");
-	}
-
-	// ---------------- Z: Absolute Zero ----------------
-
-	private static void azTick(AbilityContext ctx) {
-		long held = BatchBUtil.chargeHeld(ctx, "az_start");
-		if (held < 0) {
-			return;
-		}
-		ServerPlayer p = ctx.player();
-		if (held > AZ_CHARGE + 100) {
-			azCancel(ctx);
-			return;
-		}
-		BatchBUtil.chargeMeter(ctx, held, AZ_CHARGE);
-		MutationVisuals.ensure(p, "float_arms");
-		ServerLevel level = ctx.level();
-		p.setDeltaMovement(p.getDeltaMovement().multiply(0.3, 1.0, 0.3));
-		p.hurtMarked = true;
-		double frac = Math.min(1.0, held / (double) AZ_CHARGE);
-		int n = 4 + (int) (frac * 16);
-		for (int i = 0; i < n; i++) {
-			double a = level.random.nextDouble() * Math.PI * 2;
-			double rad = 0.6 + level.random.nextDouble() * (1.0 + frac * 3.0);
-			double hy = level.random.nextDouble() * (p.getBbHeight() + 1.0);
-			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX() + Math.cos(a) * rad, p.getY() + hy,
-					p.getZ() + Math.sin(a) * rad, 1, 0, 0, 0, 0);
-		}
-		if (held % 15 == 0) {
-			AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.7f, 0.4f + (float) frac * 0.8f);
-		}
-		if (held >= AZ_CHARGE) {
-			azFire(ctx);
-		}
-	}
-
-	private static void azCancel(AbilityContext ctx) {
-		BatchBUtil.chargeClear(ctx, "az_start");
-		MutationVisuals.stopIf(ctx.player(), "float_arms");
-		AbilityHelpers.sound(ctx.player(), SoundEvents.FIRE_EXTINGUISH, 0.4f, 1.4f);
-	}
-
-	/** Z: 42 damage across 20 blocks and every target frozen solid; a snow blanket and ice sheets on water. */
-	private static void azFire(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		BatchBUtil.chargeClear(ctx, "az_start");
-		MutationVisuals.play(p, "cast_raise_both");
-		float dmg = AZ_DAMAGE + bonus(p);
-		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), AZ_RANGE)) {
-			AbilityHelpers.hurtBurst(p, e, AbilityHelpers.freeze(p), dmg);
-			e.clearFire();
-			FrostStacks.freezeNow(p, e);
-			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 10 * 20, 2);
-		}
-		if (AbilityHelpers.canGrief()) {
-			int r = (int) AZ_RANGE;
-			for (BlockPos bp : BlockPos.betweenClosed(p.blockPosition().offset(-r, -1, -r), p.blockPosition().offset(r, 0, r))) {
-				if (bp.distToCenterSqr(p.getX(), p.getY(), p.getZ()) <= AZ_RANGE * AZ_RANGE
-						&& level.getBlockState(bp).getFluidState().is(Fluids.WATER)) {
-					TempBlocks.place(level, bp.immutable(), Blocks.ICE.defaultBlockState(), 300);
-				}
-			}
-			layerSnow(p, level, r);
-		}
-		level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 240, AZ_RANGE / 2, 1.0, AZ_RANGE / 2, 0.06);
-		level.sendParticles(ICE_DUST, p.getX(), p.getY() + 1, p.getZ(), 80, AZ_RANGE / 3, 1.0, AZ_RANGE / 3, 0.1);
-		level.playSound(null, p.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
-		level.playSound(null, p.blockPosition(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.4f, 0.5f);
-		ctx.triggerCooldown(AZ_CD);
-	}
-
-	private static void layerSnow(ServerPlayer p, ServerLevel level, int r) {
-		BlockPos origin = p.blockPosition();
-		for (int dx = -r; dx <= r; dx++) {
-			for (int dz = -r; dz <= r; dz++) {
-				double dist = Math.sqrt(dx * dx + dz * dz);
-				if (dist > r) {
-					continue;
-				}
-				for (int dy = 3; dy >= -3; dy--) {
-					BlockPos bp = origin.offset(dx, dy, dz);
-					if (!level.getBlockState(bp).isAir()) {
-						continue;
-					}
-					BlockState below = level.getBlockState(bp.below());
-					if (!below.isFaceSturdy(level, bp.below(), Direction.UP) || below.is(Blocks.SNOW)) {
-						continue;
-					}
-					int layers = (int) Math.round(8 * (1.0 - dist / (r + 1.0)));
-					layers = Mth.clamp(layers + level.random.nextInt(3) - 1, 1, 8);
-					TempBlocks.place(level, bp, Blocks.SNOW.defaultBlockState().setValue(SnowLayerBlock.LAYERS, layers), 600);
-					break;
-				}
-			}
-		}
-	}
-
-	// ---------------- V: Glacier Wall / Ice Spikes ----------------
-
-	/**
-	 * V: a curved glacier wall -- a 7-wide arc of packed ice three high, crested with blue ice, 3.5 blocks out and
-	 * bowed around you, for 15 s. Anything standing where it rises is shoved out and takes a frost stack.
-	 * (Geokinesis builds flat walls, domes and bridges of stone; this is a shield, not a building tool.)
-	 */
-	private static boolean glacierWall(ServerPlayer p, ServerLevel level) {
-		Vec3 fwd = BatchBUtil.flatLook(p);
-		Vec3 side = new Vec3(-fwd.z, 0, fwd.x);
-		boolean placed = false;
-		java.util.Set<Long> cells = new java.util.HashSet<>();
-		for (int i = -3; i <= 3; i++) {
-			double bow = 3.5 - (i * i) * 0.12; // the ends curl back toward you
-			Vec3 at = p.position().add(fwd.scale(bow)).add(side.scale(i));
-			BlockPos col = BlockPos.containing(at.x, p.getY(), at.z);
-			if (!cells.add(col.asLong())) {
-				continue;
-			}
-			// settle onto the ground (up to 2 down / 1 up)
-			for (int k = 0; k < 2 && level.getBlockState(col.below()).isAir(); k++) {
-				col = col.below();
-			}
-			if (!level.getBlockState(col).isAir() && level.getBlockState(col.above()).isAir()) {
-				col = col.above();
-			}
-			for (int h = 0; h < 3; h++) {
-				BlockState st = (h == 2 ? Blocks.BLUE_ICE : Blocks.PACKED_ICE).defaultBlockState();
-				if (TempBlocks.place(level, col.above(h), st, WALL_TTL)) {
-					placed = true;
-				}
-			}
-			level.sendParticles(ICE_DUST, col.getX() + 0.5, col.getY() + 1.5, col.getZ() + 0.5, 6, 0.3, 0.8, 0.3, 0.05);
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, Vec3.atBottomCenterOf(col).add(0, 1, 0), 1.3)) {
-				FrostStacks.add(p, e, 1);
-				AbilityHelpers.push(e, fwd.scale(0.9).add(0, 0.35, 0));
-			}
-		}
-		level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX() + fwd.x * 3.5, p.getY() + 1.5, p.getZ() + fwd.z * 3.5,
-				40, 2.5, 1.0, 2.5, 0.04);
-		return placed;
-	}
-
-	/** Sneak + V: a burst of jagged ice spikes ahead -- 10 damage, +2 frost stacks, a toss into the air. */
-	private static boolean iceSpikes(ServerPlayer p, ServerLevel level) {
-		Vec3 fwd = BatchBUtil.flatLook(p);
-		Vec3 center = p.position().add(fwd.scale(3.0));
-		boolean placed = false;
-		if (AbilityHelpers.canGrief()) {
-			for (int i = 0; i < 7; i++) {
-				double ang = level.random.nextDouble() * Math.PI * 2;
-				double dist = level.random.nextDouble() * 4.0;
-				int bx = Mth.floor(center.x + Math.cos(ang) * dist);
-				int bz = Mth.floor(center.z + Math.sin(ang) * dist);
-				int gy = p.blockPosition().getY();
-				while (gy > level.getMinBuildHeight() + 1 && level.getBlockState(new BlockPos(bx, gy - 1, bz)).isAir()) {
-					gy--;
-				}
-				int h = 2 + level.random.nextInt(4);
-				for (int y = 0; y < h; y++) {
-					BlockPos bp = new BlockPos(bx, gy + y, bz);
-					BlockState cur = level.getBlockState(bp);
-					if (cur.isAir() || cur.canBeReplaced()) {
-						TempBlocks.place(level, bp, (y == h - 1 ? Blocks.BLUE_ICE : Blocks.PACKED_ICE).defaultBlockState(), 200);
-						placed = true;
-					}
-				}
-			}
-		}
-		float dmg = SPIKES_DAMAGE + bonus(p);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, center, 5.0)) {
-			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), dmg);
-			FrostStacks.add(p, e, 2);
-			AbilityHelpers.push(e, new Vec3(0, 0.85, 0));
-		}
-		return placed;
-	}
-
-	// ---------------- H: Flash Freeze ----------------
-
-	/**
-	 * H: an instant cold snap 8 blocks round -- water surfaces freeze to ice and lava to obsidian (both for 20 s),
-	 * every fire goes out (yours and your allies' burning too), and every creature caught takes 5 and two frost stacks.
-	 */
-	private static void flashFreeze(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		BlockPos c = p.blockPosition();
-		int r = (int) FLASH_RANGE;
-		int frozen = 0;
-		for (BlockPos bp : BlockPos.betweenClosed(c.offset(-r, -3, -r), c.offset(r, 2, r))) {
-			if (bp.distToCenterSqr(p.getX(), p.getY(), p.getZ()) > FLASH_RANGE * FLASH_RANGE) {
-				continue;
-			}
+	/** The beam's splash: water around the spot freezes over, fire goes out. */
+	private static void freezeAt(ServerLevel level, BlockPos hit, Direction face) {
+		for (BlockPos bp : BlockPos.betweenClosed(hit.offset(-1, -1, -1), hit.offset(1, 1, 1))) {
 			BlockState st = level.getBlockState(bp);
 			if (st.is(BlockTags.FIRE)) {
 				level.removeBlock(bp, false);
-				level.sendParticles(ParticleTypes.SMOKE, bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5, 3, 0.2, 0.2, 0.2, 0.01);
-				continue;
-			}
-			if (!AbilityHelpers.canGrief() || !level.getBlockState(bp.above()).isAir()) {
-				continue; // only exposed surfaces
-			}
-			if (st.getFluidState().is(Fluids.WATER) && st.getFluidState().isSource() && st.is(Blocks.WATER)) {
-				if (TempBlocks.place(level, bp.immutable(), Blocks.ICE.defaultBlockState(), FLASH_ICE_TTL)) {
-					frozen++;
-				}
-			} else if (st.getFluidState().is(Fluids.LAVA) && st.is(Blocks.LAVA)) {
-				if (TempBlocks.place(level, bp.immutable(), (st.getFluidState().isSource() ? Blocks.OBSIDIAN
-						: Blocks.COBBLESTONE).defaultBlockState(), FLASH_ICE_TTL)) {
-					frozen++;
-				}
+			} else if (st.is(Blocks.WATER) && st.getFluidState().isSource() && !level.getBlockState(bp.above()).getFluidState().is(Fluids.WATER)) {
+				CryoIce.place(level, bp, Blocks.ICE.defaultBlockState(), 20 * 20);
 			}
 		}
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(FLASH_RANGE))) {
-			if (e.getRemainingFireTicks() > 0 && (e == p || e instanceof Player)) {
-				e.clearFire(); // douses you and anyone standing with you
-			}
-		}
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), FLASH_RANGE)) {
-			e.clearFire();
-			AbilityHelpers.hurt(p, e, AbilityHelpers.freeze(p), FLASH_DAMAGE + bonus(p));
-			FrostStacks.add(p, e, 2);
-		}
-		for (int i = 0; i < 48; i++) {
-			double a = i / 48.0 * Math.PI * 2;
-			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX() + Math.cos(a) * FLASH_RANGE * 0.8, p.getY() + 0.3,
-					p.getZ() + Math.sin(a) * FLASH_RANGE * 0.8, 2, 0.3, 0.1, 0.3, 0.02);
-		}
-		level.sendParticles(ICE_DUST, p.getX(), p.getY() + 0.5, p.getZ(), 60, 3.0, 0.3, 3.0, 0.1);
-		level.playSound(null, c, SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.3f, 0.5f);
-		level.playSound(null, c, SoundEvents.POWDER_SNOW_BREAK, SoundSource.PLAYERS, 1.4f, 0.6f);
-		ctx.setResource("flash_frozen", frozen, 100000);
-		MutationVisuals.play(p, "slam_two_hand");
-		ctx.triggerCooldown();
 	}
 
-	// ---------------- N: Ice Blade ----------------
+	public static void endBeam(ServerPlayer p) {
+		if (res(p, "beaming") > 0.5f) {
+			set(p, "beaming", 0);
+			set(p, "beam_len", 0);
+			MutationVisuals.stopIf(p, "p09.beam");
+		}
+	}
+
+	private static void icePrison(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (res(p, "prison_cd") > 0.5f) {
+			cooling(ctx, "prison_cd", ab("freeze_beam.prison"));
+			return;
+		}
+		LivingEntity t = AbilityHelpers.raycastEntity(p, PRISON_RANGE);
+		if (t == null || !com.projecthero.mod.combat.HeroTargets.canHarm(p, t)) {
+			ctx.actionBar("message.projecthero.cryo.no_target");
+			return;
+		}
+		if (!noBoss(t)) {
+			ctx.actionBar("message.projecthero.cryo.too_big");
+			return;
+		}
+		if (!pay(ctx, COST_PRISON)) {
+			return;
+		}
+		if (!FrostStacks.imprison(t, PRISON_TICKS)) {
+			ctx.actionBar("message.projecthero.cryo.no_target");
+			set(p, "cold", res(p, "cold") + COST_PRISON); // refund: the target could not be frozen
+			return;
+		}
+		set(p, "prison_cd", PRISON_CD);
+		MutationVisuals.play(p, "p09.prison");
+		AbilityHelpers.line(ctx.level(), castPoint(p), mid(t), ParticleTypes.SNOWFLAKE, 2.0);
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.2f, 0.5f);
+	}
+
+	// ================================================================ X: Ice Slide / Ice Pillar
+
+	private static void startSlide(ServerPlayer p) {
+		set(p, "slide", SLIDE_TICKS);
+		MutationVisuals.play(p, "p09.slide");
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.0f, 0.8f);
+		if (p.onGround()) {
+			// a little hop so the first ice goes in under you
+			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, 0.25, p.getDeltaMovement().z));
+		}
+	}
+
+	public static void endSlide(ServerPlayer p) {
+		if (res(p, "slide") > 0.5f) {
+			set(p, "slide", 0);
+			set(p, "fall_grace", FALL_GRACE_TICKS);
+			MutationVisuals.stopIf(p, "p09.slide");
+		}
+	}
 
 	/**
-	 * N: conjure the Ice Blade into your main hand (whatever was there moves to a free slot; with no free slot it
-	 * refuses). 10 attack damage, a frost stack per hit, melts after 30 s -- or the moment it leaves your hand. Press
-	 * N again to shatter it early.
+	 * The ice ramp: every tick a 3-wide strip of packed ice under you and back along the way you came (the client drives
+	 * the ride itself -- forward along your look, climbing when you look up), melting 2 s behind you.
 	 */
-	private static void iceBlade(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		if (IceBladeItem.isBlade(p.getMainHandItem()) || ctx.resource("ice_blade") > 0.5f) {
-			IceBladeItem.removeAll(p);
-			ctx.setResource("ice_blade", 0, IceBladeItem.LIFE_TICKS);
-			IceBladeItem.melt(level, p);
-			MutationVisuals.play(p, "slash_right");
+	private static void slideTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "slide");
+		if (left < 0.5f) {
 			return;
 		}
-		if (!ctx.cooldownReady()) {
-			BatchBUtil.onCooldown(ctx);
+		if (!p.isAlive() || p.getAbilities().flying || p.isPassenger()) {
+			endSlide(p);
 			return;
 		}
-		Inventory inv = p.getInventory();
-		ItemStack held = inv.getSelected();
-		if (!held.isEmpty()) {
-			int free = inv.getFreeSlot();
-			if (free < 0) {
-				ctx.actionBar("message.projecthero.cryo.hands_full");
-				return;
+		if (left - 1 < 0.5f) {
+			endSlide(p); // sets the landing grace (it only acts while the slide is still on)
+			return;
+		}
+		set(p, "slide", left - 1);
+		MutationVisuals.ensure(p, "p09.slide");
+		p.resetFallDistance();
+		Vec3 mv = p.getKnownMovement();
+		Vec3 flat = new Vec3(mv.x, 0, mv.z);
+		Vec3 dir = flat.lengthSqr() > 1.0e-4 ? flat.normalize() : BatchBUtil.flatLook(p);
+		layRamp(level, p.position(), dir, mv.length());
+		if (p.tickCount % 2 == 0) {
+			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 0.1, p.getZ(), 3, 0.3, 0.05, 0.3, 0.0);
+			level.sendParticles(ICE_DUST, p.getX(), p.getY() + 0.05, p.getZ(), 2, 0.25, 0.02, 0.25, 0.04);
+		}
+		if (p.tickCount % 6 == 0) {
+			level.playSound(null, p.blockPosition(), SoundEvents.GLASS_STEP, SoundSource.PLAYERS, 0.6f, 1.4f);
+		}
+	}
+
+	/** Packed ice under {@code feet}, 3 wide across {@code dir}, and back along the last {@code travelled} blocks. */
+	static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled) {
+		Vec3 side = new Vec3(-dir.z, 0, dir.x);
+		int placed = 0;
+		double back = Math.min(2.0, travelled);
+		for (double b = 0; b <= back + 1.0e-3; b += 0.5) {
+			Vec3 at = feet.subtract(dir.scale(b));
+			BlockPos under = BlockPos.containing(at.x, at.y - 0.6, at.z);
+			for (int s = -1; s <= 1; s++) {
+				BlockPos cell = BlockPos.containing(at.x + side.x * s, under.getY(), at.z + side.z * s);
+				if (CryoIce.place(level, cell, PACKED, SLIDE_ICE_TTL)) {
+					placed++;
+				}
 			}
-			inv.setItem(free, held);
 		}
-		IceBladeItem.removeAll(p);
-		long meltAt = level.getGameTime() + IceBladeItem.LIFE_TICKS;
-		inv.setItem(inv.selected, IceBladeItem.create(BatchBItems.ICE_BLADE, p, meltAt));
-		inv.setChanged();
-		ctx.setResource("ice_blade", IceBladeItem.LIFE_TICKS, IceBladeItem.LIFE_TICKS);
-		Vec3 h = AbilityHelpers.handPosition(p);
-		level.sendParticles(ICE_DUST, h.x, h.y, h.z, 20, 0.15, 0.3, 0.15, 0.05);
-		level.sendParticles(ParticleTypes.SNOWFLAKE, h.x, h.y, h.z, 16, 0.2, 0.4, 0.2, 0.03);
-		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.0f, 1.3f);
-		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 1.8f);
-		MutationVisuals.play(p, "p09.blade_draw");
-		ctx.triggerCooldown(BLADE_CD);
+		return placed;
 	}
 
-	// ---------------- ice tools (Sneak + R wheel) ----------------
-
-	/** The choices on the ice-weapon wheel. Order is the wire index in {@code CryoWeaponPayload}. */
-	public enum IceWeapon {
-		PICKAXE(Items.IRON_PICKAXE, "Pickaxe"),
-		SWORD(Items.IRON_SWORD, "Sword"),
-		AXE(Items.IRON_AXE, "Axe"),
-		SHOVEL(Items.IRON_SHOVEL, "Shovel"),
-		HOE(Items.IRON_HOE, "Hoe");
-
-		public final Item base;
-		public final String label;
-
-		IceWeapon(Item base, String label) {
-			this.base = base;
-			this.label = label;
-		}
-	}
-
-	/** Shape the chosen ice tool: iron mining level, only 32 uses. Re-validated here (owns Cryokinesis). */
-	public static void giveIceToolChoice(ServerPlayer p, int weaponIndex) {
-		if (!ExperimentalPowers.owns(p, KEY)) {
+	/** Ice Pillar: a column of ice bursts up under you and throws you 10 blocks into the air. */
+	private static void icePillar(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!pay(ctx, COST_PILLAR)) {
 			return;
 		}
-		IceWeapon[] all = IceWeapon.values();
-		IceWeapon w = all[Math.floorMod(weaponIndex, all.length)];
-		ItemStack tool = new ItemStack(w.base);
-		tool.set(DataComponents.MAX_DAMAGE, 32);
-		tool.set(DataComponents.DAMAGE, 0);
-		tool.set(DataComponents.CUSTOM_NAME, Component.literal("Ice " + w.label)
-				.withStyle(s -> s.withColor(ChatFormatting.AQUA).withItalic(false)));
-		if (!p.getInventory().add(tool)) {
-			p.drop(tool, false);
+		ServerLevel level = ctx.level();
+		endSlide(p);
+		set(p, "pillar", 14);
+		set(p, "fall_grace", FALL_GRACE_TICKS + 40);
+		Vec3 v = p.getDeltaMovement();
+		AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.3, pillarLaunchSpeed(), v.z * 0.3));
+		MutationVisuals.play(p, "p09.pillar");
+		level.sendParticles(ICE_DUST, p.getX(), p.getY() + 0.2, p.getZ(), 30, 0.5, 0.1, 0.5, 0.15);
+		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.2f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_PLACE, 1.0f, 0.5f);
+		pillarColumn(p, level);
+	}
+
+	/** The column grows under the rising player: ice from the ground up to just below the feet, a blue-ice cap. */
+	private static void pillarTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "pillar");
+		if (left < 0.5f) {
+			return;
 		}
-		p.displayClientMessage(Component.translatable("message.projecthero.cryo.ice_tool"), true);
-		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 0.8f, 1.4f);
-		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.7f, 1.7f);
-		if (p.level() instanceof ServerLevel sl) {
-			sl.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.4, 0.4, 0.03);
-		}
-		Power power = power();
-		if (power != null) {
-			ExperimentalPowers.triggerCooldown(p, power, power.ability(AbilitySlot.SLOT_1),
-					com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(40));
+		set(p, "pillar", left - 1);
+		p.resetFallDistance();
+		pillarColumn(p, level);
+		if (left - 1 < 0.5f) {
+			MutationVisuals.stopIf(p, "p09.pillar");
 		}
 	}
 
-	// ---------------- frozen armor ----------------
-
-	/** Frozen Armor: lay a single snow layer on solid ground the player walks across. */
-	private static void snowWalk(ServerPlayer p) {
-		if (!(p.level() instanceof ServerLevel level) || !p.onGround() || !AbilityHelpers.canGrief() || p.tickCount % 4 != 0) {
-			return;
-		}
-		int r = 2;
-		BlockPos feet = p.blockPosition();
-		for (BlockPos bp : BlockPos.betweenClosed(feet.offset(-r, 0, -r), feet.offset(r, 0, r))) {
-			if (bp.distToCenterSqr(p.getX(), feet.getY(), p.getZ()) > (r + 0.5) * (r + 0.5)) {
+	private static void pillarColumn(ServerPlayer p, ServerLevel level) {
+		BlockPos top = BlockPos.containing(p.getX(), p.getY() - 1.0, p.getZ());
+		int built = 0;
+		for (int dy = 0; dy < (int) PILLAR_HEIGHT + 2; dy++) {
+			BlockPos cell = top.below(dy);
+			BlockState st = level.getBlockState(cell);
+			if (CryoIce.isConjured(level, cell)) {
 				continue;
 			}
-			BlockPos imm = bp.immutable();
-			BlockState below = level.getBlockState(imm.below());
-			// never dust snow onto ice the cryokinetic conjured (it flickered against the slide's own TTL)
-			if (level.getBlockState(imm).isAir() && !below.is(BlockTags.ICE)
-					&& below.isFaceSturdy(level, imm.below(), Direction.UP)) {
-				TempBlocks.place(level, imm, Blocks.SNOW.defaultBlockState(), 400);
+			if (!CryoIce.replaceable(st)) {
+				break; // reached the ground
+			}
+			CryoIce.place(level, cell, dy == 0 ? BLUE : PACKED, PILLAR_TTL);
+			built++;
+		}
+		if (built > 0) {
+			level.sendParticles(ICE_DUST, p.getX(), p.getY() - 0.5, p.getZ(), 6, 0.3, 0.3, 0.3, 0.06);
+		}
+	}
+
+	private static double pillarSpeed = -1;
+
+	/** The take-off speed that peaks {@value #PILLAR_HEIGHT} blocks up (vanilla gravity 0.08, drag 0.98). */
+	public static double pillarLaunchSpeed() {
+		if (pillarSpeed < 0) {
+			double lo = 0.3;
+			double hi = 3.0;
+			for (int i = 0; i < 30; i++) {
+				double mid = (lo + hi) / 2;
+				if (apex(mid) < PILLAR_HEIGHT) {
+					lo = mid;
+				} else {
+					hi = mid;
+				}
+			}
+			pillarSpeed = (lo + hi) / 2;
+		}
+		return pillarSpeed;
+	}
+
+	/** Height reached by a jump of initial vertical speed {@code v}. */
+	public static double apex(double v) {
+		double y = 0;
+		for (int t = 0; t < 200 && v > 0; t++) {
+			y += v;
+			v = (v - 0.08) * 0.98;
+		}
+		return y;
+	}
+
+	// ================================================================ Z: Glacier Spikes / Absolute Zero
+
+	/** The ground top under {@code at} (searching 3 up and 5 down), or NaN over a drop. */
+	private static double groundAt(ServerLevel level, Vec3 at) {
+		BlockPos start = BlockPos.containing(at.x, at.y + 3, at.z);
+		for (int dy = 0; dy <= 8; dy++) {
+			BlockPos cell = start.below(dy);
+			BlockState st = level.getBlockState(cell);
+			if (!st.getCollisionShape(level, cell).isEmpty() || st.getFluidState().is(Fluids.WATER)) {
+				if (level.getBlockState(cell.above()).getCollisionShape(level, cell.above()).isEmpty()) {
+					return cell.getY() + Math.max(0.0, st.getCollisionShape(level, cell).isEmpty() ? 0.9 : st.getCollisionShape(level, cell).max(Direction.Axis.Y));
+				}
+			}
+		}
+		return Double.NaN;
+	}
+
+	/** A 12-block line of spikes racing out from your feet: 16 + 2 Frost to everything over them. Returns spikes made. */
+	public static int glacierSpikes(ServerPlayer p, ServerLevel level) {
+		Vec3 dir = BatchBUtil.flatLook(p);
+		Vec3 side = new Vec3(-dir.z, 0, dir.x);
+		Set<LivingEntity> hit = Collections.newSetFromMap(new IdentityHashMap<>());
+		int made = 0;
+		Vec3 origin = p.position();
+		for (int i = 0; i < SPIKES_LENGTH; i++) {
+			double along = 1.5 + i;
+			double wiggle = (i % 2 == 0 ? 0.35 : -0.35) + (level.random.nextDouble() - 0.5) * 0.2;
+			Vec3 at = origin.add(dir.scale(along)).add(side.scale(wiggle));
+			double gy = groundAt(level, at);
+			if (Double.isNaN(gy)) {
+				continue;
+			}
+			float h = 1.7f + i * 0.06f + level.random.nextFloat() * 0.6f;
+			IceSpikeEntity.spawn(level, p, new Vec3(at.x, gy, at.z), origin, i, i + 40, h, SPIKES_DAMAGE, SPIKES_FROST, hit);
+			made++;
+		}
+		MutationVisuals.play(p, "p09.spikes");
+		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 1.2f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_BREAK, 1.0f, 0.6f);
+		return made;
+	}
+
+	/** Everything within 8 takes all five Frost (frozen solid) inside a crown of spikes; water around you freezes. */
+	public static int absoluteZero(ServerPlayer p, ServerLevel level) {
+		set(p, "zero_cd", ZERO_CD);
+		int frozen = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), ZERO_RADIUS)) {
+			e.clearFire();
+			FrostStacks.freezeNow(p, e);
+			if (FrostStacks.frozen(e)) {
+				frozen++;
+			}
+		}
+		// the crown: three rings of harmless spikes bursting outward
+		double[] radii = { 2.5, 5.0, 7.5 };
+		int[] counts = { 8, 14, 20 };
+		Vec3 c = p.position();
+		for (int r = 0; r < radii.length; r++) {
+			for (int i = 0; i < counts[r]; i++) {
+				double a = (i + (r % 2) * 0.5) / counts[r] * Math.PI * 2;
+				Vec3 at = c.add(Math.cos(a) * radii[r], 0, Math.sin(a) * radii[r]);
+				double gy = groundAt(level, at);
+				if (!Double.isNaN(gy)) {
+					IceSpikeEntity.spawn(level, p, new Vec3(at.x, gy, at.z), c, 3 + r * 3 + level.random.nextInt(2), 50 + r * 3,
+							2.4f - r * 0.5f + level.random.nextFloat() * 0.4f, 0.0f, 0, null);
+				}
+			}
+		}
+		if (AbilityHelpers.canGrief()) {
+			int rr = (int) ZERO_RADIUS;
+			for (BlockPos bp : BlockPos.betweenClosed(p.blockPosition().offset(-rr, -2, -rr), p.blockPosition().offset(rr, 1, rr))) {
+				if (bp.distToCenterSqr(p.getX(), p.getY(), p.getZ()) <= ZERO_RADIUS * ZERO_RADIUS) {
+					BlockState st = level.getBlockState(bp);
+					if (st.is(Blocks.WATER) && st.getFluidState().isSource() && level.getBlockState(bp.above()).isAir()) {
+						CryoIce.place(level, bp, Blocks.ICE.defaultBlockState(), 20 * 20);
+					} else if (st.is(BlockTags.FIRE)) {
+						level.removeBlock(bp, false);
+					}
+				}
+			}
+		}
+		level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1, p.getZ(), 120, ZERO_RADIUS / 2, 1.0, ZERO_RADIUS / 2, 0.05);
+		BatchA.ring(level, p.position().add(0, 0.2, 0), ZERO_RADIUS, ICE_DUST, 48, 0.05);
+		level.playSound(null, p.blockPosition(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
+		level.playSound(null, p.blockPosition(), SoundEvents.PLAYER_HURT_FREEZE, SoundSource.PLAYERS, 1.4f, 0.5f);
+		MutationVisuals.play(p, "p09.zero");
+		return frozen;
+	}
+
+	// ================================================================ V: Glacier Wall / Frozen Armor
+
+	/**
+	 * A 5-wide, 4-tall wall of packed ice (blue-ice crest) 3 blocks ahead, across your look, rising a row every 2 ticks;
+	 * melts after 15 s. Anything standing where it rises is shoved out. Returns the cells claimed for the wall.
+	 */
+	public static int glacierWall(ServerPlayer p, ServerLevel level) {
+		Vec3 dir = BatchBUtil.flatLook(p);
+		Vec3 side = new Vec3(-dir.z, 0, dir.x);
+		Vec3 centre = p.position().add(dir.scale(3.0));
+		java.util.List<BlockPos> bases = new java.util.ArrayList<>();
+		for (int i = -(WALL_WIDTH / 2); i <= WALL_WIDTH / 2; i++) {
+			Vec3 at = centre.add(side.scale(i));
+			double gy = groundAt(level, at);
+			int y = Double.isNaN(gy) ? Mth.floor(p.getY()) : Mth.ceil(gy - 0.01);
+			BlockPos base = BlockPos.containing(at.x, y, at.z);
+			if (!bases.contains(base)) {
+				bases.add(base);
+			}
+		}
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, centre.add(0, 1, 0), 2.6)) {
+			AbilityHelpers.push(e, dir.scale(0.9).add(0, 0.35, 0));
+		}
+		BatchBScheduler.schedule(level, age -> {
+			if (age % 2 != 0) {
+				return age < WALL_HEIGHT * 2;
+			}
+			int row = age / 2;
+			for (BlockPos base : bases) {
+				BlockPos cell = base.above(row);
+				CryoIce.place(level, cell, row == WALL_HEIGHT - 1 ? BLUE : PACKED, WALL_TTL - age);
+				level.sendParticles(ICE_DUST, cell.getX() + 0.5, cell.getY() + 0.5, cell.getZ() + 0.5, 3, 0.3, 0.3, 0.3, 0.05);
+			}
+			level.playSound(null, bases.get(bases.size() / 2).above(row), SoundEvents.GLASS_PLACE, SoundSource.PLAYERS, 0.9f,
+					0.5f + row * 0.15f);
+			return row < WALL_HEIGHT - 1;
+		});
+		MutationVisuals.play(p, "p09.wall");
+		AbilityHelpers.sound(p, SoundEvents.POWDER_SNOW_PLACE, 1.0f, 0.6f);
+		return bases.size() * WALL_HEIGHT;
+	}
+
+	private static void armorOn(ServerPlayer p) {
+		set(p, "armor", 1);
+		PowerToggles.modifier(p, Attributes.MAX_ABSORPTION, ARMOR_ABS, ARMOR_ABSORPTION, AttributeModifier.Operation.ADD_VALUE);
+		p.setAbsorptionAmount(Math.max(p.getAbsorptionAmount(), ARMOR_ABSORPTION));
+		MutationVisuals.play(p, "p09.armor");
+		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.2f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.ARMOR_EQUIP_IRON.value(), 1.0f, 1.4f);
+		if (p.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ICE_DUST, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.8, 0.4, 0.08);
+		}
+	}
+
+	/** Drops the armour; {@code broken} when the ice was smashed or the Cold ran out. */
+	public static void armorOff(ServerPlayer p, boolean broken) {
+		if (res(p, "armor") < 0.5f) {
+			return;
+		}
+		set(p, "armor", 0);
+		PowerToggles.clearModifier(p, Attributes.MAX_ABSORPTION, ARMOR_ABS);
+		p.setAbsorptionAmount(Math.min(p.getAbsorptionAmount(), (float) p.getAttributeValue(Attributes.MAX_ABSORPTION)));
+		AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, broken ? 1.2f : 0.7f, broken ? 0.7f : 1.3f);
+		if (p.level() instanceof ServerLevel sl) {
+			sl.sendParticles(ICE_DUST, p.getX(), p.getY() + 1.0, p.getZ(), broken ? 40 : 16, 0.4, 0.8, 0.4, 0.12);
+		}
+	}
+
+	private static void armorTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "armor") < 0.5f) {
+			return;
+		}
+		drain(p, COST_ARMOR_PER_SECOND / 20.0f);
+		if (res(p, "cold") <= 0.01f) {
+			armorOff(p, true);
+			p.displayClientMessage(Component.translatable("message.projecthero.cryo.out_of_cold"), true);
+			return;
+		}
+		if (p.getAbsorptionAmount() <= 0.01f && p.tickCount % 2 == 0) {
+			armorOff(p, true);
+			p.displayClientMessage(Component.translatable("message.projecthero.cryo.armor_broken"), true);
+			return;
+		}
+		// respawn-safe re-apply
+		PowerToggles.modifier(p, Attributes.MAX_ABSORPTION, ARMOR_ABS, ARMOR_ABSORPTION, AttributeModifier.Operation.ADD_VALUE);
+		if (p.tickCount % 10 == 0) {
+			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 1.0, p.getZ(), 2, 0.35, 0.6, 0.35, 0.0);
+		}
+	}
+
+	// ================================================================ C: Ice Blade / Shatter
+
+	public static void setBlade(ServerPlayer p, boolean on) {
+		boolean was = res(p, "blade") > 0.5f;
+		set(p, "blade", on ? 1 : 0);
+		if (on) {
+			PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, BLADE_ATK, BLADE_DAMAGE, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, BLADE_ATK);
+		}
+		if (on && !was) {
+			MutationVisuals.play(p, "p09.blade_draw");
+			AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.0f, 1.3f);
+			AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 1.8f);
+			if (p.level() instanceof ServerLevel sl) {
+				Vec3 h = AbilityHelpers.handPosition(p);
+				sl.sendParticles(ICE_DUST, h.x, h.y, h.z, 14, 0.15, 0.3, 0.15, 0.05);
+			}
+		} else if (!on && was) {
+			AbilityHelpers.sound(p, SoundEvents.GLASS_BREAK, 0.7f, 1.5f);
+			if (p.level() instanceof ServerLevel sl) {
+				Vec3 h = AbilityHelpers.handPosition(p);
+				sl.sendParticles(ICE_DUST, h.x, h.y, h.z, 12, 0.15, 0.3, 0.15, 0.08);
 			}
 		}
 	}
 
-	/** Frost Walker III: freeze the water the player walks over into (melting) frosted ice. */
-	private static void frostWalk(ServerPlayer p) {
-		if (!(p.level() instanceof ServerLevel level) || !p.onGround()) {
+	/**
+	 * Shatter: every frosted or frozen enemy within 10 -- frozen ones take 40 (double) and burst out of their ice in a
+	 * spray of shards, frosted ones take 20. Refused (nothing spent) when nothing nearby carries any ice.
+	 */
+	private static void shatter(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		java.util.List<LivingEntity> targets = new java.util.ArrayList<>();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position(), SHATTER_RADIUS)) {
+			if (FrostStacks.frozen(e) || FrostStacks.stacks(e) > 0) {
+				targets.add(e);
+			}
+		}
+		if (targets.isEmpty()) {
+			ctx.actionBar("message.projecthero.cryo.nothing_frozen");
 			return;
 		}
-		int r = 3;
+		if (!pay(ctx, COST_SHATTER)) {
+			return;
+		}
+		shatterAll(p, level, targets);
+	}
+
+	/** The damage half of Shatter (also used by the gametests). Returns how many were frozen. */
+	public static int shatterAll(ServerPlayer p, ServerLevel level, java.util.List<LivingEntity> targets) {
+		int frozen = 0;
+		for (LivingEntity e : targets) {
+			boolean wasFrozen = FrostStacks.shatter(e);
+			if (wasFrozen) {
+				frozen++;
+			}
+			AbilityHelpers.hurtBurst(p, e, wasFrozen ? SHATTER_DAMAGE * 2 : SHATTER_DAMAGE);
+			Vec3 c = mid(e);
+			int n = wasFrozen ? 9 : 4;
+			for (int i = 0; i < n; i++) {
+				double a = level.random.nextDouble() * Math.PI * 2;
+				Vec3 v = new Vec3(Math.cos(a) * 0.35, 0.25 + level.random.nextDouble() * 0.35, Math.sin(a) * 0.35);
+				level.addFreshEntity(IceBoltEntity.debris(level, c.add(v.scale(0.8)), v));
+			}
+			level.sendParticles(ICE_DUST, c.x, c.y, c.z, wasFrozen ? 30 : 12, e.getBbWidth() * 0.5, e.getBbHeight() * 0.4,
+					e.getBbWidth() * 0.5, 0.15);
+			level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GLASS_BREAK, SoundSource.PLAYERS, 1.2f,
+					wasFrozen ? 0.6f : 1.1f);
+		}
+		MutationVisuals.play(p, "p09.shatter");
+		AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_BREAK, 1.0f, 0.8f);
+		return frozen;
+	}
+
+	// ================================================================ passives
+
+	private static void registerPassives() {
+		PowerPassives.register(KEY, (player, owned) -> {
+			if (!owned) {
+				Power power = Powers.byKey(KEY);
+				if (power != null && ExperimentalPowers.owns(player, power)) {
+					// still owned while forget() runs its teardown: drop the transient states too
+					endBeam(player);
+					endSlide(player);
+					armorOff(player, false);
+					setBlade(player, false);
+					set(player, "pillar", 0);
+				} else {
+					PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATK);
+					PowerToggles.clearModifier(player, Attributes.MAX_ABSORPTION, ARMOR_ABS);
+				}
+				MutationVisuals.stop(player);
+				dropLegacyState(player);
+			}
+		});
+		PowerPassives.registerTick(KEY, player -> {
+			// immune to their own cold (and any freezing, unless frozen solid by an enemy cryokinetic)
+			if (player.getTicksFrozen() > 0 && !FrostStacks.frozen(player)) {
+				player.setTicksFrozen(0);
+			}
+			frostWalk(player);
+			// respawn-safe re-apply of the blade
+			if (res(player, "blade") > 0.5f) {
+				PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATK, BLADE_DAMAGE, AttributeModifier.Operation.ADD_VALUE);
+			}
+		});
+	}
+
+	/** Frost Walker: water you walk over freezes into (self-melting) frosted ice. */
+	private static void frostWalk(ServerPlayer p) {
+		if (!(p.level() instanceof ServerLevel level) || !p.onGround() && !p.isInWater() && res(p, "slide") < 0.5f) {
+			return;
+		}
+		if (p.isInWater() && p.getDeltaMovement().y > 0.05) {
+			return; // swimming up: leave the surface open
+		}
+		int r = 2;
 		BlockPos feet = p.blockPosition();
 		for (BlockPos bp : BlockPos.betweenClosed(feet.offset(-r, -1, -r), feet.offset(r, -1, r))) {
 			if (bp.distToCenterSqr(p.getX(), feet.getY(), p.getZ()) > (r + 0.5) * (r + 0.5)) {
@@ -832,17 +1079,31 @@ public final class CryokinesisHandlers {
 		}
 	}
 
-	private static void armorOn(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 0, true);
-		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.5, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, StanceMode.MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE);
+	// ================================================================ synced visuals + HUD (called from RevampBatchB)
+
+	public static void registerVisuals() {
+		MutationVisuals.registerFlag("p09.beam", CryokinesisHandlers::beaming);
+		MutationVisuals.registerValue("p09.beam_len", p -> beaming(p) ? resAny(p, "beam_len") : 0.0);
+		MutationVisuals.registerFlag("p09.slide", CryokinesisHandlers::sliding);
+		MutationVisuals.registerFlag("p09.armor", CryokinesisHandlers::armored);
+		MutationVisuals.registerFlag("p09.blade", CryokinesisHandlers::bladed);
+		MutationVisuals.registerFlag("p09.pillar", CryokinesisHandlers::rising);
 	}
 
-	private static void armorOff(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		PowerToggles.clearEffect(p, MobEffects.DAMAGE_RESISTANCE);
-		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB);
-		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK);
+	public static void registerMeters() {
+		int text = 0xFFCFEFFF;
+		MutationMeters.register(new MutationMeters.Spec(KEY, "cold", MutationMeters.Kind.RESERVE, MutationMeters.Style.HAIRLINE,
+				"Cold", MAX_COLD, 0xFF8FDCFF, true, true, false, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "slide", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Ice Slide", SLIDE_TICKS, 0xFFBFEAFF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "prison_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Ice Prison", PRISON_CD, 0xFF6F95AE, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "zero_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Absolute Zero", ZERO_CD, 0xFF6F95AE, false, false, true, text));
+	}
+
+	/** For the gametests: a slide's ramp laid at an explicit spot. */
+	public static int layRampForTest(ServerLevel level, Vec3 feet, Vec3 dir) {
+		return layRamp(level, feet, dir, 1.0);
 	}
 }

@@ -30,7 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * <li>05 Geokinesis -- stone-skin THICK shell tinted by the ground you draw on; the Rock Surf slab under your feet</li>
  * <li>06 Crystalkinesis -- amethyst THICK shell with crystal spikes; the glide disc; node / shard renderers</li>
  * <li>08 Pyrokinesis -- emissive flame shell that turns blue with heat; jet flames at the feet; blue eyes when hot</li>
- * <li>09 Cryokinesis -- frost THICK shell with icicles; an ice-block shell on a player frozen solid</li>
+ * <li>09 Cryokinesis -- see {@link CryokinesisClient} (v0.16.5 rework)</li>
  * <li>25 Water Manipulation -- a shimmering THIN water film</li>
  * </ul>
  */
@@ -68,6 +68,7 @@ public final class RevampClientB {
 		EntityRendererRegistry.register(BatchBEntities.GEO_ROCK, ctx -> new ThrownItemRenderer<>(ctx, 1.6f, false));
 		EntityRendererRegistry.register(BatchBEntities.CRYSTAL_SHARD, CrystalShardRenderer::new);
 		EntityRendererRegistry.register(BatchBEntities.CRYSTAL_NODE, CrystalNodeRenderer::new);
+		CryokinesisClient.init(); // v0.16.5 Cryokinesis rework: its own renderers, poses and overlays
 	}
 
 	// ---------------- poses ----------------
@@ -118,16 +119,6 @@ public final class RevampClientB {
 				f(5, -0.7f, -0.6f, 0.1f, -0.7f, 0.6f, -0.1f, 0.4f, 0, 0.3f, 0.2f, 0.35f),
 				f(8, -0.4f, 0, 1.6f, -0.4f, 0, -1.6f, -0.25f, 0, -0.2f, 0.2f, -0.45f),
 				f(15, -0.4f, 0, 1.5f, -0.4f, 0, -1.5f, -0.2f, 0, -0.2f, 0.2f, -0.4f), z(21) });
-		// 09: the Iceman slide -- one arm forward, one back, crouched and leaning
-		MutationPose.registerLoop("p09.slide", 4, new float[][] { z(0),
-				f(4, 0.7f, 0, 0.2f, -1.1f, 0.2f, -0.1f, 0.3f, 0.2f, -0.35f, 0.45f, -0.1f),
-				f(14, 0.75f, 0, 0.25f, -1.2f, 0.25f, -0.1f, 0.32f, 0.22f, -0.4f, 0.5f, -0.1f),
-				f(24, 0.7f, 0, 0.2f, -1.1f, 0.2f, -0.1f, 0.3f, 0.2f, -0.35f, 0.45f, -0.1f) });
-		// 09: draw the Ice Blade -- a rising cross-body sweep
-		MutationPose.register("p09.blade_draw", new float[][] { z(0),
-				f(4, 0.4f, -0.9f, 0.2f, 0.1f, 0, -0.1f, 0.1f, -0.4f, 0, 0, 0),
-				f(8, -2.4f, 0.4f, 0.3f, 0.1f, 0, -0.2f, -0.1f, 0.3f, 0, 0, -0.1f),
-				f(13, -2.3f, 0.4f, 0.3f, 0.1f, 0, -0.2f, -0.1f, 0.3f, 0, 0, -0.1f), z(18) });
 		// 25: shove the tidal wave out with both palms
 		MutationPose.register("p25.wave_push", new float[][] { z(0),
 				f(4, -0.9f, 0.3f, 0.2f, -0.9f, -0.3f, -0.2f, -0.1f, 0, 0.2f, -0.2f, 0),
@@ -178,14 +169,6 @@ public final class RevampClientB {
 			float heat = Mth.clamp(ctx.state().value("p08.heat", 0f), 0f, 1f);
 			jets(ctx, flameTint(heat));
 		});
-
-		// 09 Cryokinesis: frost plating with icicles; a full ice shell when frozen solid
-		MutationOverlays.register("p09.frozen_armor", ctx -> {
-			MutationRender.shell(ctx, FROST, MutationRender.Shell.THICK, 0xE6FFFFFF, false);
-			spikes(ctx, FROST, 0xFFE8F8FF, false);
-		});
-		MutationOverlays.register("p09.frozen_solid", ctx ->
-				MutationRender.shell(ctx, ICE, MutationRender.Shell.THICK, 0xD0FFFFFF, false));
 
 		// 25 Water Manipulation: a thin, breathing film of water
 		MutationOverlays.register("p25.aquatic", ctx -> {

@@ -333,6 +333,10 @@ return as they're rebuilt:
   Slingshot, a bouncing **Rubber Ball**, a boulder-sized Hammer Fist, a Spring Stomp on stilts, a balloon that bounces
   arrows back, a parachute, 12-block Long Reach and a **Shape Shift** into a barrel or a chest. Run the meter dry and
   you go limp.
+- **Cryokinesis** (reworked in 0.16.5) -- an Iceman ice caster on a **Cold** meter: ice hits add **Frost**, and five
+  Frost freeze a creature solid in a block of ice. Ice Bolts and Ice Shards, a held Freeze Beam, an Ice Prison, an
+  **Ice Slide** ramp you ride into the sky, an Ice Pillar launch, a racing line of Glacier Spikes, **Absolute Zero**, a
+  Glacier Wall, Frozen Armor plates, an Ice Blade on your arm and a **Shatter** that cashes in everything you froze.
 
 ---
 

@@ -130,6 +130,7 @@
       "com.projecthero.mod.gametest.LaserVisionV0145GameTests",
       "com.projecthero.mod.gametest.TeleportationV0165GameTests",
       "com.projecthero.mod.gametest.ElasticityV0165GameTests",
+      "com.projecthero.mod.gametest.CryokinesisV0165GameTests",
       "com.projecthero.mod.gametest.LaserBeamVisibilityGameTests",
       "com.projecthero.mod.gametest.SuperStrengthV0145GameTests",
       "com.projecthero.mod.gametest.SuperRegenerationV0145GameTests",

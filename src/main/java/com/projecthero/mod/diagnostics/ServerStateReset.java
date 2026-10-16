@@ -83,6 +83,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.IronManLandingSlam.clearSessionState();
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
+		com.projecthero.mod.hero.power.p09.CryoIce.clearSessionState(); // v0.16.5: Cryokinesis ice (melted on SERVER_STOPPING)
 		ConjuredStructures.clearSessionState();
 		com.projecthero.mod.hero.power.ComboMoves.reset();
 		MagneticHandlers.clearSessionState();

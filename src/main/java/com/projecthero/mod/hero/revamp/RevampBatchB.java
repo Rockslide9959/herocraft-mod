@@ -90,9 +90,7 @@ public final class RevampBatchB {
 		MutationVisuals.registerValue("p08.heat", p -> ExperimentalPowers.owns(p, PYRO)
 				? PyrokinesisHandlers.heat(p) / PyrokinesisHandlers.MAX_HEAT : 0);
 		// 09 Cryokinesis
-		MutationVisuals.registerFlag("p09.frozen_armor", CryokinesisHandlers::frozenArmorActive);
-		MutationVisuals.registerFlag("p09.frozen_solid", FrostStacks::frozen);
-		MutationVisuals.registerFlag("p09.slide", CryokinesisHandlers::sliding);
+		CryokinesisHandlers.registerVisuals(); // v0.16.5 rework
 		// 25 Water Manipulation
 		MutationVisuals.registerFlag("p25.aquatic", WaterHandlers::aquaticActive);
 	}
@@ -130,13 +128,7 @@ public final class RevampBatchB {
 		BatchBUtil.hideMeter(PYRO, "flameflight");
 
 		// 09 Cryokinesis
-		MutationMeters.register(new Spec(CRYO, "frozen_armor", Kind.RESERVE, Style.METER, "Frozen Armor",
-				CryokinesisHandlers.MAX_COLD, 0xFF9FE0FF, false, false));
-		MutationMeters.register(new Spec(CRYO, "freeze_beam", Kind.BUILD, Style.METER, "Frostbite",
-				CryokinesisHandlers.MAX_COLD, 0xFF7EC8FF, false, false));
-		MutationMeters.register(new Spec(CRYO, "ice_blade", Kind.TIMER, Style.HAIRLINE, "Ice Blade",
-				IceBladeItem.LIFE_TICKS, 0xFFCFF4FF, false, false));
-		BatchBUtil.ultMeter(CRYO);
+		CryokinesisHandlers.registerMeters(); // v0.16.5 rework: the Cold Hairline + timers
 
 		// 25 Water Manipulation: the carried supply is the whole power's fuel -- a SLAB, always shown
 		MutationMeters.register(new Spec(WATER, WaterHandlers.SUPPLY, Kind.RESERVE, Style.SLAB, "Water",
