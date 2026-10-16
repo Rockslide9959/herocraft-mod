@@ -304,10 +304,15 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **three are available right now**, the rest return as they're rebuilt:
+experimental powers are being remade one by one; **four are available right now** (plus Super Speed, above), the rest
+return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
 - **Laser Vision** -- beams straight from your eyes, driven by a 0-100 heat gauge that cools once you stop firing.
+- **Teleportation** (reworked in 0.16.5) -- Nightcrawler-style combat teleporting on a **Strain** meter instead of
+  cooldowns: Blink, Bamf Strike, Swap, Escape and Sky Blink, Phase Step, Displace, a cross-dimension **Rift**, Mark /
+  Recall, a **Spatial Fold** that sends arrows back at their shooter, and a Group Jump for your squad. Push it to 100
+  strain and you overload.
 - **Super Regeneration** -- no keys at all: heals 2 HP every tick, burns off harmful effects in 2 seconds and holds
   **three revive charges**.
 

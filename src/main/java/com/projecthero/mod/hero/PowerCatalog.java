@@ -301,16 +301,15 @@ final class PowerCatalog {
 	private static Power teleportation() {
 		String k = "power_11_teleportation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				// v0.13.22 revamp (batch D): light pass -- 15% shorter cooldowns, plus H Bamf Strike and N Swap.
-				.ability(ab(k, "blink", SLOT_1, HOLD, 51))
-				.ability(ab(k, "target_teleport", SLOT_2, INSTANT, 6 * S))
-				.ability(ab(k, "escape_blink", SLOT_3, INSTANT, 68))
-				.ability(ab(k, "portal", SLOT_4, CHARGE, 51 * S))
-				.ability(ab(k, "teleport_mark", SLOT_5, INSTANT, 17 * S))
-				.ability(ab(k, "portal_anchor", SLOT_6, INSTANT, 51))
-				.ability(ab(k, "bamf_strike", AbilitySlot.SLOT_7, INSTANT, 12 * S))
-				.ability(ab(k, "swap", AbilitySlot.SLOT_8, INSTANT, 6 * S))
-				.passives(pk(k, "passive.pearl_resist"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Strain meter instead of
+				// cooldowns. All HOLD so the handlers own tap / Shift / release; only V Rift has a cooldown (60 s).
+				.ability(ab(k, "blink", SLOT_1, HOLD, 0))
+				.ability(ab(k, "bamf_strike", SLOT_2, HOLD, 0))
+				.ability(ab(k, "escape_blink", SLOT_3, HOLD, 0))
+				.ability(ab(k, "phase_step", SLOT_4, HOLD, 0))
+				.ability(ab(k, "rift", SLOT_5, HOLD, 60 * S))
+				.ability(ab(k, "spatial_fold", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.strain"), pk(k, "passive.pearl_resist"), pk(k, "passive.landing"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:ender_pearl", "minecraft:amethyst_shard", "minecraft:chorus_fruit"))
 				.trigger(MutationTrigger.of(Kind.ENDER_PEARL, pk(k, "trigger"), "projecthero.device.enchanting_resonance"))
