@@ -127,14 +127,10 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_24_wind_manipulation" -> {
-				if (fall) {
-					// v0.13.22: landing out of a glide or off a tornado is free; otherwise 80% less fall damage
-					if (com.projecthero.mod.hero.power.p24.WindHandlers.isGliding(player)
-							|| com.projecthero.mod.hero.power.p24.WindHandlers.ridingTornado(player)) {
-						player.resetFallDistance();
-						return Verdict.immune();
-					}
-					return Verdict.mult(0.2f); // v0.10.9: 80% less fall damage (was full immunity)
+				// v0.16.5 rework: no fall damage at all
+				if (fall && com.projecthero.mod.hero.power.p24.WindHandlers.fallImmune(player)) {
+					player.resetFallDistance();
+					return Verdict.immune();
 				}
 			}
 			case "power_18_density_manipulation" -> {

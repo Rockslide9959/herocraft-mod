@@ -350,6 +350,11 @@ return as they're rebuilt:
   that grab legs, a **Sinkhole** that swallows a foe, Rock Surf on a slab of stone, Tectonic Pillars, an Earthquake
   ripple, lines of Earth Spikes, Stone Walls, a skin of **rock armour**, a 3x3 Tunnel bore and a Seismic Sense that
   shows every creature through the walls. Every rock and pillar is made of the ground it came from.
+- **Wind Manipulation** (reworked in 0.16.5) -- an air-bender on a **Gust** meter: crescent Wind Blades that cut
+  through whole crowds (or a held Blade Flurry), a Vacuum that drags enemies into one spot, a Wind Push that slams them
+  into walls, a Tailwind dash, an Updraft into an elytra-style **Glide**, a travelling **Tornado** that whirls mobs up and
+  flings them, a Hurricane wall, a Wind Barrier that blows arrows back, a **tornado you can ride** and an Air Bubble.
+  No fall damage, and arrows aimed at you often veer off.
 
 ---
 

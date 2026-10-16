@@ -564,15 +564,15 @@ final class PowerCatalog {
 	private static Power windManipulation() {
 		String k = "power_24_wind_manipulation";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				.ability(ab(k, "wind_blade", SLOT_1, HOLD, 34))
-				.ability(ab(k, "tornado", SLOT_2, INSTANT, 170))
-				.ability(ab(k, "glide", SLOT_3, HOLD, 5 * S))
-				.ability(ab(k, "hurricane", SLOT_4, HOLD, 51 * S))
-				.ability(ab(k, "wind_push", SLOT_5, INSTANT, 68))
-				.ability(ab(k, "tailwind", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "rideable_tornado", AbilitySlot.SLOT_7, HOLD, 30 * S))
-				.ability(ab(k, "vacuum", AbilitySlot.SLOT_8, HOLD, 12 * S))
-				.passives(pk(k, "passive.glide"), pk(k, "passive.fall"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Gust meter instead of
+				// cooldowns. All HOLD so the handlers own tap / hold / Shift / release.
+				.ability(ab(k, "wind_blade", SLOT_1, HOLD, 0))
+				.ability(ab(k, "vacuum", SLOT_2, HOLD, 0))
+				.ability(ab(k, "tailwind", SLOT_3, HOLD, 0))
+				.ability(ab(k, "tornado", SLOT_4, HOLD, 0))
+				.ability(ab(k, "wind_barrier", SLOT_5, HOLD, 0))
+				.ability(ab(k, "rideable_tornado", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.gust"), pk(k, "passive.fall"), pk(k, "passive.veer"), pk(k, "passive.webs"))
 				.serum(SerumRecipe.of("minecraft:swiftness", pk(k, "serum"),
 						"minecraft:feather", "minecraft:paper", "minecraft:string", "minecraft:sugar"))
 				.trigger(MutationTrigger.of(Kind.PRESSURE_CHAMBER, pk(k, "trigger"), "projecthero.device.pressure_chamber"))

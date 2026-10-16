@@ -17,9 +17,10 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Wind Manipulation (v0.14.1 kit): Wind Blade, Wind Burst (the {@code tornado} key: a cone blast that also turns
- * projectiles away), Wind Push (a pure shove), Vacuum (drags victims in and steals their air) and Hurricane (a storm
- * around the boss that spins everyone and reverses arrows -- used against ranged attackers or once badly hurt).
+ * Wind Manipulation (v0.16.5 rework kit): Wind Blade, Wind Barrier (a cone blast that also turns projectiles away),
+ * Tailwind (a gust-dash into a close target that shoves it off), Vacuum (drags victims in and steals their air) and
+ * Tornado (a storm round the boss that spins everyone and reverses arrows -- used against ranged attackers or once badly
+ * hurt). The player's tornado / blade entities are built on a player owner, so the boss draws its moves in particles.
  */
 public class WindBoss extends BossPowerController {
 	public static final String POWER_KEY = "power_24_wind_manipulation";
@@ -29,7 +30,7 @@ public class WindBoss extends BossPowerController {
 	private static final int PUSH = 2;
 	private static final int VACUUM = 3;
 	private static final int HURRICANE = 4;
-	private static final List<String> IDS = List.of("wind_blade", "tornado", "wind_push", "vacuum", "hurricane");
+	private static final List<String> IDS = List.of("wind_blade", "wind_barrier", "tailwind", "vacuum", "tornado");
 
 	private static final ParticleOptions AIR = BatchCFx.dust(0xE6F4FF, 1.2f);
 
@@ -84,6 +85,9 @@ public class WindBoss extends BossPowerController {
 		if (d < 4.5 && ready(PUSH) && freshChoice(PUSH)) {
 			face(target);
 			Vec3 dir = flatDirTo(target.position());
+			// Tailwind: a short gust-dash in, then the shove
+			boss.setDeltaMovement(dir.scale(1.1).add(0, 0.15, 0));
+			boss.hurtMarked = true;
 			for (LivingEntity e : victimsAround(level, boss.position().add(dir.scale(2.5)).add(0, 1, 0), 4.5)) {
 				knockAway(e, boss.position(), 2.6, 0.3);
 			}

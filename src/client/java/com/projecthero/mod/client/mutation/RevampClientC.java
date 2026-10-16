@@ -4,15 +4,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
-import com.projecthero.mod.client.mutation.batchc.WindTornadoRenderer;
 import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers;
-import com.projecthero.mod.hero.power.p24.WindEntities;
 import com.projecthero.mod.hero.revamp.RevampBatchC;
 import com.projecthero.mod.hero.visual.MutationMeters;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -30,7 +27,7 @@ import net.minecraft.resources.ResourceLocation;
  * <li>20 Energy Absorption -- an element-tinted glowing lattice shell (Absorption Mode) and glowing fists once the
  *     meter holds a real charge; the HUD Energy bar recolours with the stored element</li>
  * <li>21 Shockwave Manipulation -- a rippling distortion shell that thickens with stored kinetic energy</li>
- * <li>24 Wind Manipulation -- a thin pale air shell while gliding / Tailwind / riding, and the tornado renderer</li>
+ * <li>24 Wind Manipulation -- v0.16.5 rework: everything is in {@code wind.WindClient}</li>
  * </ul>
  */
 public final class RevampClientC {
@@ -38,7 +35,6 @@ public final class RevampClientC {
 	private static final ResourceLocation CHARGED_B = ProjectHeroMod.id("textures/entity/mutation/p07_charged_b.png");
 	private static final ResourceLocation ENERGY_SHELL = ProjectHeroMod.id("textures/entity/mutation/p20_shell.png");
 	private static final ResourceLocation RIPPLE = ProjectHeroMod.id("textures/entity/mutation/p21_ripple.png");
-	private static final ResourceLocation AIR = ProjectHeroMod.id("textures/entity/mutation/p24_air.png");
 
 	private static ModelPart soundRing;
 	private static ModelPart fist;
@@ -51,7 +47,8 @@ public final class RevampClientC {
 	public static void init() {
 		registerPoses();
 		registerOverlays();
-		EntityRendererRegistry.register(WindEntities.TORNADO, WindTornadoRenderer::new);
+		// 24 (v0.16.5 rework): poses, the blade / tornado / effect renderers and the models on the hero
+		com.projecthero.mod.client.mutation.wind.WindClient.init();
 		ClientTickEvents.END_CLIENT_TICK.register(RevampClientC::clientTick);
 	}
 
@@ -95,15 +92,7 @@ public final class RevampClientC {
 				f(2, -1.6f, -0.9f, 0, -1.6f, 0.9f, 0, 0.1f, 0, -0.2f, 0.2f, 0.1f),
 				f(7, -1.6f, -0.9f, 0, -1.6f, 0.9f, 0, 0.12f, 0, -0.2f, 0.2f, 0.1f),
 				f(10, -1.6f, -0.1f, 0, -1.6f, 0.1f, 0, 0.2f, 0, -0.35f, 0.35f, 0), z(14) });
-		// 24: arms spread and leaning into the glide; a surfer's stance on the tornado
-		MutationPose.registerLoop("p24.glide", 4, new float[][] { z(0),
-				f(4, -0.2f, 0, 1.45f, -0.2f, 0, -1.45f, 0.35f, 0, 0.35f, 0.25f, -0.35f),
-				f(10, -0.1f, 0, 1.35f, -0.3f, 0, -1.55f, 0.38f, 0, 0.3f, 0.3f, -0.35f),
-				f(16, -0.2f, 0, 1.45f, -0.2f, 0, -1.45f, 0.35f, 0, 0.35f, 0.25f, -0.35f) });
-		MutationPose.registerLoop("p24.ride", 4, new float[][] { z(0),
-				f(4, -0.3f, 0, 1.0f, -0.3f, 0, -1.0f, 0.1f, 0.45f, -0.35f, 0.35f, 0),
-				f(14, -0.4f, 0, 1.1f, -0.2f, 0, -0.9f, 0.12f, 0.5f, -0.4f, 0.4f, 0),
-				f(24, -0.3f, 0, 1.0f, -0.3f, 0, -1.0f, 0.1f, 0.45f, -0.35f, 0.35f, 0) });
+		// 24: v0.16.5 rework -- the Wind poses are registered by wind.WindClient
 	}
 
 	// ---------------- overlays ----------------
@@ -179,12 +168,6 @@ public final class RevampClientC {
 			float wobble = 0.85f + 0.15f * MutationRender.pulse(ctx, 10f);
 			int a = (int) (Math.min(1f, 0.25f + charge * 0.6f) * 255 * wobble);
 			MutationRender.shell(ctx, RIPPLE, MutationRender.Shell.THIN, MutationRender.argb(a, 255, 225, 180), false);
-		});
-
-		// 24: a thin, pale, translucent skin of moving air
-		MutationOverlays.register(RevampBatchC.FLAG_AIR, ctx -> {
-			int a = (int) (110 + 60 * MutationRender.pulse(ctx, 18f));
-			MutationRender.shell(ctx, AIR, MutationRender.Shell.THIN, MutationRender.argb(a, 240, 248, 255), false);
 		});
 	}
 

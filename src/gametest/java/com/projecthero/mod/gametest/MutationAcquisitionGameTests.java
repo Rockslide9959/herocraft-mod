@@ -243,7 +243,7 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		Power speed = Powers.byKey("power_01_super_strength"); // v0.14.13: Super Speed is Hero-Tier, not a serum mutation
 		helper.assertTrue(PowerGrants.grantExperimental(p, speed), "grant should succeed");
 		helper.assertFalse(PowerGrants.grantExperimental(helper.makeMockServerPlayerInLevel(),
-				Powers.byKey("power_24_wind_manipulation")), "v0.14.8: a disabled power is never handed out");
+				Powers.byKey("power_14_sonic_scream")), "v0.14.8: a disabled power is never handed out"); // v0.16.5: Wind is enabled again
 		helper.assertTrue(ExperimentalPowers.researchStage(p, speed)
 				== com.projecthero.mod.hero.data.ResearchStage.MUTATION_CONFIRMED, "research should be recorded");
 		helper.succeed();
