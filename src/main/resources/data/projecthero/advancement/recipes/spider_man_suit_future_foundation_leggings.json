@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_old_piece": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "projecthero:spider_man_suit_leggings"
+          }
+        ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "projecthero:spider_man_suit_future_foundation_leggings"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_old_piece",
+      "has_the_recipe"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "projecthero:spider_man_suit_future_foundation_leggings"
+    ]
+  }
+}

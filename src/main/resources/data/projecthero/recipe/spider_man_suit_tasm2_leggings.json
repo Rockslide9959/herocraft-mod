@@ -1,0 +1,26 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    "AHB",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:red_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_leggings"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "C": {
+      "item": "minecraft:white_dye"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_tasm2_leggings",
+    "count": 1
+  }
+}

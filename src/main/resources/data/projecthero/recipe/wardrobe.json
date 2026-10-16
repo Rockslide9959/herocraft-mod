@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PGP",
+    "PMP",
+    "PCP"
+  ],
+  "key": {
+    "P": {
+      "tag": "minecraft:planks"
+    },
+    "G": {
+      "item": "minecraft:gold_ingot"
+    },
+    "M": {
+      "item": "projecthero:mannequin"
+    },
+    "C": {
+      "item": "minecraft:chest"
+    }
+  },
+  "result": {
+    "id": "projecthero:wardrobe",
+    "count": 1
+  }
+}

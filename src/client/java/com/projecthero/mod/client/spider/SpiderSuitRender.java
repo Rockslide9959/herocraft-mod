@@ -61,18 +61,19 @@ public final class SpiderSuitRender {
 		return item instanceof SpiderManArmorItem; // v0.16.4: the Black Suit (SymbioteArmorItem) included
 	}
 
-	private static boolean worn(Player p, EquipmentSlot slot) {
+	private static boolean worn(LivingEntity p, EquipmentSlot slot) {
 		return isSuit(p.getItemBySlot(slot).getItem());
 	}
 
-	/** Is any piece of the suit drawn on this player? */
-	public static boolean anyWorn(Player p) {
+	/** Is any piece of the suit drawn on this player (v0.16.5: or mannequin / armour stand)? */
+	public static boolean anyWorn(LivingEntity p) {
 		return worn(p, EquipmentSlot.HEAD) || worn(p, EquipmentSlot.CHEST) || worn(p, EquipmentSlot.LEGS) || worn(p, EquipmentSlot.FEET);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	public static void render(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, Player player) {
-		if (legacyShell || player.isInvisible() || !anyWorn(player)) {
+	public static void render(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, LivingEntity player) {
+		// v0.16.5: an invisible armour stand / wardrobe hanger still shows its suit, like vanilla armour
+		if (legacyShell || (player instanceof Player && player.isInvisible()) || !anyWorn(player)) {
 			return;
 		}
 		PlayerModel<LivingEntity> m = model();
@@ -84,7 +85,8 @@ public final class SpiderSuitRender {
 		m.rightPants.copyFrom(m.rightLeg);
 		m.hat.copyFrom(m.head);
 		// v0.16.2: the mask comes off / goes on over a second (SpiderMaskAnim): part-way, only its upper part is drawn
-		float cover = worn(player, EquipmentSlot.HEAD) ? SpiderMaskAnim.coverage(player) : 0f;
+		// v0.16.5: a mannequin / armour stand always wears its mask down
+		float cover = !worn(player, EquipmentSlot.HEAD) ? 0f : player instanceof Player p ? SpiderMaskAnim.coverage(p) : 1f;
 		boolean head = cover >= 0.999f;
 		boolean body = worn(player, EquipmentSlot.CHEST);
 		boolean legs = worn(player, EquipmentSlot.LEGS) || worn(player, EquipmentSlot.FEET);
@@ -93,7 +95,8 @@ public final class SpiderSuitRender {
 		ResourceLocation bodyTex = textureFor(player.getItemBySlot(EquipmentSlot.CHEST).getItem());
 		ResourceLocation legsTex = textureFor((worn(player, EquipmentSlot.LEGS) ? player.getItemBySlot(EquipmentSlot.LEGS)
 				: player.getItemBySlot(EquipmentSlot.FEET)).getItem());
-		for (ResourceLocation tex : new ResourceLocation[] { TEXTURE, TEXTURE_V2, TEXTURE_CLASSIC, TEXTURE_SYMBIOTE }) {
+		// v0.16.5: every distinct skin worn, once each (there are more suits than the four this used to list)
+		for (ResourceLocation tex : new java.util.LinkedHashSet<>(java.util.List.of(headTex, bodyTex, legsTex))) {
 			boolean h = head && headTex.equals(tex);
 			boolean b = body && bodyTex.equals(tex);
 			boolean l = legs && legsTex.equals(tex);
@@ -131,8 +134,8 @@ public final class SpiderSuitRender {
 	 * v0.16.4: the Black Suit keeps the effects its old shell had -- the suit spreading over him from the chest
 	 * (SymbioteSpread) and Let It Take Over's monstrous skin.
 	 */
-	private static ResourceLocation drawn(Player player, ResourceLocation tex) {
-		if (!tex.equals(TEXTURE_SYMBIOTE)) {
+	private static ResourceLocation drawn(LivingEntity entity, ResourceLocation tex) {
+		if (!tex.equals(TEXTURE_SYMBIOTE) || !(entity instanceof Player player)) {
 			return tex;
 		}
 		if (com.projecthero.mod.symbiote.SymbioteHunger.takingOver(player)) {
@@ -149,6 +152,9 @@ public final class SpiderSuitRender {
 	public static ResourceLocation textureFor(Item item) {
 		if (item instanceof SymbioteArmorItem) {
 			return TEXTURE_SYMBIOTE;
+		}
+		if (item instanceof com.projecthero.mod.spider.item.SpiderManSkinSuitArmorItem skin) {
+			return skin.texture(); // v0.16.5: the film / comic suits
 		}
 		return item instanceof com.projecthero.mod.spider.item.SpiderManV2ArmorItem ? TEXTURE_V2
 				: item instanceof com.projecthero.mod.spider.item.SpiderManClassicArmorItem ? TEXTURE_CLASSIC : TEXTURE;

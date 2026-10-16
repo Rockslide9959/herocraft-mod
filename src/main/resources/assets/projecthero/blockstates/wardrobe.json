@@ -1,0 +1,94 @@
+{
+  "variants": {
+    "facing=north,half=lower,part=left": {
+      "model": "projecthero:block/wardrobe_left_lower"
+    },
+    "facing=north,half=upper,part=left": {
+      "model": "projecthero:block/wardrobe_left_upper"
+    },
+    "facing=north,half=lower,part=center": {
+      "model": "projecthero:block/wardrobe_center_lower"
+    },
+    "facing=north,half=upper,part=center": {
+      "model": "projecthero:block/wardrobe_center_upper"
+    },
+    "facing=north,half=lower,part=right": {
+      "model": "projecthero:block/wardrobe_right_lower"
+    },
+    "facing=north,half=upper,part=right": {
+      "model": "projecthero:block/wardrobe_right_upper"
+    },
+    "facing=east,half=lower,part=left": {
+      "model": "projecthero:block/wardrobe_left_lower",
+      "y": 90
+    },
+    "facing=east,half=upper,part=left": {
+      "model": "projecthero:block/wardrobe_left_upper",
+      "y": 90
+    },
+    "facing=east,half=lower,part=center": {
+      "model": "projecthero:block/wardrobe_center_lower",
+      "y": 90
+    },
+    "facing=east,half=upper,part=center": {
+      "model": "projecthero:block/wardrobe_center_upper",
+      "y": 90
+    },
+    "facing=east,half=lower,part=right": {
+      "model": "projecthero:block/wardrobe_right_lower",
+      "y": 90
+    },
+    "facing=east,half=upper,part=right": {
+      "model": "projecthero:block/wardrobe_right_upper",
+      "y": 90
+    },
+    "facing=south,half=lower,part=left": {
+      "model": "projecthero:block/wardrobe_left_lower",
+      "y": 180
+    },
+    "facing=south,half=upper,part=left": {
+      "model": "projecthero:block/wardrobe_left_upper",
+      "y": 180
+    },
+    "facing=south,half=lower,part=center": {
+      "model": "projecthero:block/wardrobe_center_lower",
+      "y": 180
+    },
+    "facing=south,half=upper,part=center": {
+      "model": "projecthero:block/wardrobe_center_upper",
+      "y": 180
+    },
+    "facing=south,half=lower,part=right": {
+      "model": "projecthero:block/wardrobe_right_lower",
+      "y": 180
+    },
+    "facing=south,half=upper,part=right": {
+      "model": "projecthero:block/wardrobe_right_upper",
+      "y": 180
+    },
+    "facing=west,half=lower,part=left": {
+      "model": "projecthero:block/wardrobe_left_lower",
+      "y": 270
+    },
+    "facing=west,half=upper,part=left": {
+      "model": "projecthero:block/wardrobe_left_upper",
+      "y": 270
+    },
+    "facing=west,half=lower,part=center": {
+      "model": "projecthero:block/wardrobe_center_lower",
+      "y": 270
+    },
+    "facing=west,half=upper,part=center": {
+      "model": "projecthero:block/wardrobe_center_upper",
+      "y": 270
+    },
+    "facing=west,half=lower,part=right": {
+      "model": "projecthero:block/wardrobe_right_lower",
+      "y": 270
+    },
+    "facing=west,half=upper,part=right": {
+      "model": "projecthero:block/wardrobe_right_upper",
+      "y": 270
+    }
+  }
+}

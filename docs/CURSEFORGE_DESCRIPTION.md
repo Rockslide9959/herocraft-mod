@@ -86,7 +86,10 @@ Grown from the **Spider Climbing / Adhesion** mutation with an **Arachnid Mutage
 - Web Swing, Web Zip, Web Shot, Web Yank, Web Net and wall-crawling, all fed by an organic **Web Reserve** (no ammo).
 - Momentum-keeping web-swinging, full wall and ceiling crawling, a double jump and a super-leap.
 - **Spider-Sense:** directional danger warnings, auto-dodges and a glow on anything hunting you. No fall damage.
-- A craftable Spider-Man suit with a removable mask (**H**).
+- A craftable Spider-Man suit with a removable mask (**H**), plus film and comic suits to craft from it: Comic Classic,
+  Brand New Day, Amazing (2012), Amazing 2, 2002 and Future Foundation.
+- Show them off on a **Mannequin** (a player-shaped armour stand) or keep ten suits in a 3-wide **Wardrobe** -- browse
+  with the sides, swap your whole suit in one click.
 
 ### 🖤 The Symbiote
 A **living alien organism**: a pool of black goo that crawls, climbs walls, flees fire and hunts for a host. If it

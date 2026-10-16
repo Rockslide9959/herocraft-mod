@@ -134,6 +134,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
+		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " W ",
+    "WAW",
+    " S "
+  ],
+  "key": {
+    "W": {
+      "item": "minecraft:white_wool"
+    },
+    "A": {
+      "item": "minecraft:armor_stand"
+    },
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "projecthero:mannequin",
+    "count": 1
+  }
+}
