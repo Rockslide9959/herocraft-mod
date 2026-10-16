@@ -1,32 +1,25 @@
 package com.projecthero.mod.hero.power.p25;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
-import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.Handlers;
 import com.projecthero.mod.hero.power.PowerToggles;
-import com.projecthero.mod.hero.power.StanceMode;
-import com.projecthero.mod.hero.revamp.BatchBScheduler;
 import com.projecthero.mod.hero.revamp.BatchBUtil;
+import com.projecthero.mod.hero.revamp.batcha.BatchA;
+import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.fabricmc.fabric.api.event.player.UseItemCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -35,855 +28,965 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 25 -- Water Manipulation (v0.13.22 revamp). Signature: <b>a carried water supply.</b> A Water bar (the SLAB
- * on the HUD) that every move spends and nothing refills for free: stand in water (fast), in rain (slowly), or
- * right-click a water bottle (+20%) -- Sneak + right-click a water bucket (+50%) -- to top it up. A trickle of
- * moisture from the air refills it very slowly anywhere but the Nether. Aquatic Form halves every cost.
+ * Power 25 -- Water Manipulation (v0.16.5 rework, docs/V0165_POWERS_PROPOSAL.md section 12): a Katara / Aquaman water
+ * bender on a 0-100 <b>Water</b> meter that refills 10 a second -- 25 in rain, 40 standing in water. Every move is a
+ * real translucent water body ({@link WaterFxEntity}: a bolt, a whip, a prison sphere, a rolling wall, a geyser column,
+ * a healing swirl) or a body drawn round the player from the synced {@code p25.*} flags (the Hydro Jet beam, the
+ * orbiting shield, the surf wave) -- never water blocks, so nothing is left behind.
  *
- * <h2>Keys</h2>
- * R Water Shot (Sneak + hold: spray), G Water Whip (a visible tendril that lashes and pulls), X Riptide, Z Tidal
- * Wave (hold to charge; a rolling wall of real water), V Water Prison (Sneak + hold: shape a temporary water source /
- * siphon one), C Aquatic Form (shimmering wet shell), H Healing Water, N Geyser.
+ * <p>R Water Shot / Shift+R Hydro Jet (held). G Water Whip / Shift+G Water Prison. X Riptide / Shift+X Wave Ride. Z Tidal
+ * Wave / Shift+Z Geyser. V Water Shield (held) / Shift+V Healing Water. C Aquatic Form (toggle) / Shift+C Draw Water. No H
+ * / N. All six slots are HOLD, so the handlers own their tap / Shift / release logic; the two real cooldowns (Water
+ * Prison 12 s, Healing Water 20 s) are the handlers' own timers.
+ *
+ * <p>Passives: water breathing, fast swimming (full water movement efficiency), 30% less fire damage, and fire on you
+ * goes out at once.
  */
 public final class WaterHandlers {
 	public static final String KEY = "power_25_water_manipulation";
 
-	/** The Water bar: +15% over v0.12's 500. */
-	public static final float MAX_WATER = 575.0f;
-	public static final String SUPPLY = "water_supply";
-	private static final float REFILL_WATER = 10.0f;
-	private static final float REFILL_RAIN = 2.0f;
-	private static final float REFILL_AIR = 0.15f;
-	public static final float BOTTLE_REFILL = MAX_WATER * 0.2f;
-	public static final float BUCKET_REFILL = MAX_WATER * 0.5f;
+	// ---- the Water meter ----
+	public static final String METER = "water";
+	public static final float MAX_WATER = 100.0f;
+	public static final float REGEN_PER_SECOND = 10.0f;
+	public static final float REGEN_RAIN_PER_SECOND = 25.0f;
+	public static final float REGEN_WATER_PER_SECOND = 40.0f;
 
-	public static final float COST_SHOT = 25.0f;
-	private static final float COST_SPRAY_TICK = 2.5f;
-	public static final float COST_WHIP = 40.0f;
-	private static final float COST_RIPTIDE = 30.0f;
-	public static final float COST_TIDAL = 200.0f;
-	private static final float COST_PRISON = 60.0f;
-	public static final float COST_HEAL = 120.0f;
-	public static final float COST_GEYSER = 50.0f;
+	public static final float COST_SHOT = 8.0f;
+	public static final float COST_JET_PER_SECOND = 12.0f;
+	public static final float COST_WHIP = 10.0f;
+	public static final float COST_PRISON = 35.0f;
+	public static final float COST_RIPTIDE = 15.0f;
+	public static final float COST_SURF = 25.0f;
+	public static final float COST_TIDAL = 40.0f;
+	public static final float COST_GEYSER = 20.0f;
+	public static final float COST_SHIELD_PER_SECOND = 6.0f;
+	public static final float COST_HEAL = 40.0f;
+	public static final float COST_PLACE = 5.0f;
+	public static final float DRAW_REFILL = 30.0f;
 
-	public static final float SHOT_DAMAGE = 10.0f;
-	private static final float SPRAY_DAMAGE = 6.0f;
-	public static final float WHIP_DAMAGE = 19.0f;
-	private static final float RIPTIDE_DAMAGE = 7.0f;
-	public static final int TIDAL_CHARGE = 85;
-	public static final float TIDAL_DAMAGE = 42.0f;
-	private static final int TIDAL_CD = 38 * 20;
-	private static final int PRISON_TICKS = 8 * 20;
-	private static final int CREATE_TICKS = 80;
-	private static final int CREATED_WATER_TTL = 60 * 20;
-	public static final float HEAL_AMOUNT = 6.0f;
-	private static final double HEAL_RANGE = 6.0;
-	public static final float GEYSER_DAMAGE = 12.0f;
+	// ---- R ----
+	public static final float SHOT_DAMAGE = 12.0f;
+	public static final float JET_DAMAGE_PER_SECOND = 8.0f;
+	/** The jet's damage lands in two pulses a second (its own count, so hit invulnerability can't eat it). */
+	public static final int JET_PULSE = 10;
+	public static final double JET_RANGE = 16.0;
+	private static final double JET_RADIUS = 0.7;
 
-	private static final ResourceLocation AQUATIC_ATK = com.projecthero.mod.ProjectHeroMod.id("aquatic_atk");
-	private static final DustParticleOptions WATER_DUST = new DustParticleOptions(new org.joml.Vector3f(0.22f, 0.5f, 1.0f), 1.3f);
-	private static final DustParticleOptions FOAM = new DustParticleOptions(new org.joml.Vector3f(0.85f, 0.95f, 1.0f), 1.0f);
+	// ---- G ----
+	public static final double WHIP_RANGE = 14.0;
+	public static final float WHIP_DAMAGE = 12.0f;
+	public static final double PRISON_RANGE = 16.0;
+	public static final int PRISON_TICKS = 4 * 20;
+	public static final float PRISON_DAMAGE_PER_SECOND = 4.0f;
+	public static final int PRISON_CD = 12 * 20;
+
+	// ---- X ----
+	public static final double RIPTIDE_SPEED = 3.0; // a Riptide III trident
+	public static final float RIPTIDE_DAMAGE = 8.0f;
+	public static final int RIPTIDE_SPIN_TICKS = 20;
+	public static final int SURF_TICKS = 6 * 20;
+	/** Wave Ride's speed (blocks a tick), applied on the riding client. */
+	public static final double SURF_SPEED = 0.62;
+
+	// ---- Z ----
+	public static final float TIDAL_DAMAGE = 14.0f;
+	public static final double GEYSER_RANGE = 24.0;
+	public static final double GEYSER_HEIGHT = 10.0;
+
+	// ---- V ----
+	public static final double SHIELD_RADIUS = 2.3;
+	public static final float HEAL_TOTAL = 16.0f; // 8 hearts over 4 s
+	public static final double HEAL_RANGE = 6.0;
+	public static final int HEAL_CD = 20 * 20;
+
+	// ---- C ----
+	public static final double AQUATIC_MELEE = 6.0;
+	public static final double DRAW_RANGE = 12.0;
+
+	// ---- passives ----
+	public static final float FIRE_FACTOR = 0.7f;
+
+	private static final ResourceLocation SWIM = com.projecthero.mod.ProjectHeroMod.id("water_swim");
+	private static final ResourceLocation AQUATIC_MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("water_aquatic_melee");
+	private static final ResourceLocation SURF_STEP = com.projecthero.mod.ProjectHeroMod.id("water_surf_step");
+	/** The pre-v0.16.5 Aquatic Form modifier, cleared out of old saves. */
+	private static final ResourceLocation LEGACY_AQUATIC = com.projecthero.mod.ProjectHeroMod.id("aquatic_atk");
+	/** Pre-v0.16.5 resources (the 575 supply, the spray, the charge, the shaping), zeroed in old saves. */
+	private static final String[] LEGACY = { "water_supply", "spraying", "create_ticks", "prison_until", "tidal_start", "healed",
+			"no_fall_until" };
 
 	private WaterHandlers() {
 	}
 
-	private static Power power() {
-		return Powers.byKey(KEY);
+	// ================================================================ shared helpers / queries
+
+	private static float res(ServerPlayer p, String name) {
+		return BatchA.res(p, KEY, name);
 	}
 
-	public static boolean aquaticActive(ServerPlayer p) {
-		Power power = power();
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
+	private static void set(ServerPlayer p, String name, float v) {
+		BatchA.set(p, KEY, name, v);
 	}
 
-	/** +5 to every Water ability's damage in water / rain / snow. */
-	private static float waterBonus(ServerPlayer p) {
-		boolean snow = p.isInPowderSnow
-				|| p.level().getBlockState(p.blockPosition()).is(Blocks.SNOW)
-				|| p.level().getBlockState(p.blockPosition().below()).is(Blocks.SNOW);
-		return (p.isInWaterOrRain() || snow) ? 5.0f : 0.0f;
+	/** Reads a resource from the synced attachment (works on both sides; the client only has its own player's). */
+	private static float resAny(Player p, String name) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
 	}
 
-	private static float bonus(ServerPlayer p) {
-		return waterBonus(p) + (aquaticActive(p) ? StanceMode.ABILITY_BONUS : 0.0f);
+	public static boolean owns(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY);
 	}
 
-	// ---------------- the supply ----------------
-
-	public static float supply(ServerPlayer p) {
-		Power power = power();
-		return power == null ? 0.0f : ExperimentalPowers.getResource(p, power, SUPPLY);
+	public static float water(ServerPlayer p) {
+		seed(p);
+		return res(p, METER);
 	}
 
-	private static float cost(ServerPlayer p, float base) {
-		return aquaticActive(p) ? base * 0.5f : base;
+	/** For the gametests: the meter set directly. */
+	public static void setWater(ServerPlayer p, float value) {
+		seed(p);
+		set(p, METER, Math.max(0, Math.min(MAX_WATER, value)));
 	}
 
-	/** Spends {@code base} (halved in Aquatic Form); false (with feedback) if the bar is too low. */
-	private static boolean spend(ServerPlayer p, float base) {
-		Power power = power();
-		float c = cost(p, base);
-		float have = supply(p);
-		if (have < c) {
+	public static boolean jetting(Player p) {
+		return owns(p) && resAny(p, "jet") > 0.5f;
+	}
+
+	public static boolean shielding(Player p) {
+		return owns(p) && resAny(p, "shield") > 0.5f;
+	}
+
+	public static boolean surfing(Player p) {
+		return owns(p) && resAny(p, "surf") > 0.5f;
+	}
+
+	public static boolean aquaticActive(Player p) {
+		return owns(p) && resAny(p, "aquatic") > 0.5f;
+	}
+
+	private static void seed(ServerPlayer p) {
+		if (res(p, "seeded") < 0.5f) {
+			set(p, "seeded", 1);
+			set(p, METER, MAX_WATER);
+		}
+	}
+
+	/** Spends Water; false (with the "out of water" line) if there isn't enough. */
+	public static boolean spend(ServerPlayer p, float amount) {
+		seed(p);
+		float have = res(p, METER);
+		if (have + 1.0e-3f < amount) {
 			p.displayClientMessage(Component.translatable("message.projecthero.water.dry"), true);
 			return false;
 		}
-		ExperimentalPowers.setResource(p, power, SUPPLY, have - c, MAX_WATER);
+		set(p, METER, Math.max(0.0f, have - amount));
 		return true;
 	}
 
-	/** Adds to the supply; returns how much actually went in. */
+	/** Adds Water (capped at 100); returns how much went in. */
 	public static float refill(ServerPlayer p, float amount) {
-		Power power = power();
-		float have = supply(p);
+		seed(p);
+		float have = res(p, METER);
 		float next = Math.min(MAX_WATER, have + amount);
-		if (next != have) {
-			ExperimentalPowers.setResource(p, power, SUPPLY, next, MAX_WATER);
-		}
+		set(p, METER, next);
 		return next - have;
 	}
 
-	/** Either side: the player owns Water Manipulation and has room in the bar (reads the synced state). */
-	private static boolean canDrink(Player player) {
-		var st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
-		if (st == null || !st.ownedPowers.contains(KEY)) {
-			return false;
+	/** The Water a second the meter refills right now: 40 standing in water, 25 in rain, otherwise 10. */
+	public static float regenPerSecond(ServerPlayer p) {
+		if (p.isInWater()) {
+			return REGEN_WATER_PER_SECOND;
 		}
-		Float v = st.resources.get(KEY + "/" + SUPPLY);
-		return v == null || v < MAX_WATER - 1.0f;
+		if (p.level().isRainingAt(p.blockPosition()) || p.level().isRainingAt(BlockPos.containing(p.getX(), p.getBoundingBox().maxY, p.getZ()))) {
+			return REGEN_RAIN_PER_SECOND;
+		}
+		return REGEN_PER_SECOND;
 	}
 
-	private static boolean isWaterBottle(ItemStack stack) {
-		return stack.is(Items.POTION)
-				&& stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY).is(Potions.WATER);
+	private static boolean noBoss(LivingEntity t) {
+		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
 	}
 
-	// ---------------- registration ----------------
+	private static Vec3 mid(LivingEntity e) {
+		return e.position().add(0, e.getBbHeight() * 0.5, 0);
+	}
+
+	private static void cooling(AbilityContext ctx, String timer) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
+	}
+
+	/** Puts out fire (fire blocks, lit campfires) in the cube of {@code radius} round {@code pos}. */
+	public static void douse(ServerLevel level, BlockPos pos, int radius) {
+		for (BlockPos b : BlockPos.betweenClosed(pos.offset(-radius, -radius, -radius), pos.offset(radius, radius, radius))) {
+			BlockState s = level.getBlockState(b);
+			if (s.is(BlockTags.FIRE)) {
+				level.removeBlock(b, false);
+				level.playSound(null, b, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5f, 1.6f);
+			} else if (s.getBlock() instanceof CampfireBlock && s.getValue(CampfireBlock.LIT)) {
+				CampfireBlock.dowse(null, level, b, s);
+				level.setBlock(b, s.setValue(CampfireBlock.LIT, false), 11);
+			}
+		}
+	}
+
+	// ================================================================ registration
 
 	public static void register() {
-		// R: tap -- a high-pressure jet. Sneak + hold -- spray a stream (puts out fire).
+		WaterEntities.register();
+
+		// R -- Water Shot / Hydro Jet (Shift, held)
 		AbilityHandlers.register(KEY, "water_shot", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
+				seed(p);
 				if (p.isShiftKeyDown()) {
-					if (supply(p) < cost(p, COST_SPRAY_TICK * 4)) {
-						ctx.actionBar("message.projecthero.water.dry");
-						return;
-					}
-					ctx.setResource("spraying", 1, 1);
-					return;
+					startJet(ctx);
+				} else {
+					waterShot(p);
 				}
-				if (BatchBUtil.onCooldown(ctx) || !spend(p, COST_SHOT)) {
-					return;
-				}
-				waterShot(ctx);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				if (ctx.resource("spraying") > 0.5f) {
-					ctx.setResource("spraying", 0, 1);
-				}
-				MutationVisuals.stopIf(ctx.player(), "channel_right");
+				endJet(ctx.player());
 			}
+		});
 
+		// G -- Water Whip / Water Prison (Shift)
+		AbilityHandlers.register(KEY, "water_whip", new AbilityHandler() {
 			@Override
-			public void onServerTick(AbilityContext ctx) {
-				if (ctx.resource("spraying") >= 0.5f) {
-					sprayTick(ctx);
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (p.isShiftKeyDown()) {
+					if (res(p, "prison_cd") > 0.5f) {
+						cooling(ctx, "prison_cd");
+						return;
+					}
+					prison(ctx);
+				} else {
+					whip(ctx);
 				}
 			}
 		});
 
-		AbilityHandlers.register(KEY, "water_whip", Handlers.instant(ctx -> {
-			if (spend(ctx.player(), COST_WHIP)) {
-				waterWhip(ctx);
+		// X -- Riptide / Wave Ride (Shift; again to step off)
+		AbilityHandlers.register(KEY, "riptide", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (p.isShiftKeyDown()) {
+					if (res(p, "surf") > 0.5f) {
+						endSurf(p);
+					} else {
+						startSurf(p);
+					}
+				} else {
+					riptide(p);
+				}
 			}
-		}));
+		});
 
-		AbilityHandlers.register(KEY, "riptide", Handlers.instant(ctx -> {
-			ServerPlayer p = ctx.player();
-			boolean wet = p.isInWaterOrRain();
-			if (!wet && !spend(p, COST_RIPTIDE)) {
-				return;
-			}
-			riptide(ctx, wet);
-		}));
-
+		// Z -- Tidal Wave / Geyser (Shift)
 		AbilityHandlers.register(KEY, "tidal_wave", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
-				if (ctx.resource("tidal_start") <= 0.5f && supply(p) < cost(p, COST_TIDAL)) {
-					ctx.actionBar("message.projecthero.water.dry");
-					return;
-				}
-				if (BatchBUtil.chargeStart(ctx, "tidal_start")) {
-					AbilityHelpers.sound(p, SoundEvents.BUBBLE_COLUMN_UPWARDS_AMBIENT, 1.0f, 0.5f);
-				}
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				long held = BatchBUtil.chargeHeld(ctx, "tidal_start");
-				if (held < 0) {
-					return;
-				}
-				if (held >= TIDAL_CHARGE) {
-					tidalFire(ctx);
+				seed(p);
+				if (p.isShiftKeyDown()) {
+					geyser(ctx);
 				} else {
-					tidalCancel(ctx);
+					tidalWave(p);
 				}
-			}
-
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				tidalChargeTick(ctx);
 			}
 		});
 
-		AbilityHandlers.register(KEY, "water_prison", new AbilityHandler() {
+		// V -- Water Shield (held) / Healing Water (Shift)
+		AbilityHandlers.register(KEY, "water_shield", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
+				seed(p);
 				if (p.isShiftKeyDown()) {
-					ctx.setResource("create_ticks", CREATE_TICKS, CREATE_TICKS);
-					AbilityHelpers.sound(p, SoundEvents.BUCKET_FILL, 0.7f, 0.9f);
-					return;
+					if (res(p, "heal_cd") > 0.5f) {
+						cooling(ctx, "heal_cd");
+						return;
+					}
+					healingWater(p);
+				} else {
+					startShield(p);
 				}
-				if (ctx.resource("prison_until") > ctx.level().getGameTime()) {
-					ctx.setResource("prison_until", 0, 1e12f); // press again: let them go early
-					ctx.triggerCooldown();
-					return;
-				}
-				if (BatchBUtil.onCooldown(ctx)) {
-					return;
-				}
-				LivingEntity t = AbilityHelpers.raycastEntity(p, 16.0);
-				if (t == null) {
-					ctx.actionBar("message.projecthero.geo.no_target");
-					return;
-				}
-				if (!spend(p, COST_PRISON)) {
-					return;
-				}
-				startPrison(ctx, t);
-				MutationVisuals.play(p, "grab_pull");
-				AbilityHelpers.sound(p, SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, 1.0f, 0.8f);
 			}
 
 			@Override
 			public void onRelease(AbilityContext ctx) {
-				if (ctx.resource("create_ticks") > 0.5f) {
-					ctx.setResource("create_ticks", 0, CREATE_TICKS);
-				}
+				endShield(ctx.player());
 			}
+		});
 
+		// C -- Aquatic Form (toggle) / Draw Water (Shift)
+		AbilityHandlers.register(KEY, "aquatic_form", new AbilityHandler() {
 			@Override
-			public void onServerTick(AbilityContext ctx) {
-				createTick(ctx);
-			}
-		});
-
-		AbilityHandlers.register(KEY, "aquatic_form", Handlers.toggle(
-				ctx -> {
-					if (StanceMode.blockedByCooldown(ctx)) {
-						return;
-					}
-					MutationVisuals.play(ctx.player(), "power_up");
-					AbilityHelpers.sound(ctx.player(), SoundEvents.CONDUIT_ACTIVATE, 0.8f, 1.2f);
-					ctx.level().sendParticles(ParticleTypes.SPLASH, ctx.player().getX(), ctx.player().getY() + 1.0,
-							ctx.player().getZ(), 40, 0.4, 0.8, 0.4, 0.1);
-				},
-				ctx -> {
-					PowerToggles.clearModifier(ctx.player(), Attributes.ATTACK_DAMAGE, AQUATIC_ATK);
-					StanceMode.startDeactivateCooldown(ctx);
-				},
-				ctx -> {
-					ServerPlayer p = ctx.player();
-					PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, AQUATIC_ATK, StanceMode.MELEE_BONUS,
-							AttributeModifier.Operation.ADD_VALUE);
-					p.addEffect(new MobEffectInstance(MobEffects.DOLPHINS_GRACE, 20, 2, false, false, false));
-					p.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, 20, 0, false, false, false));
-					if (p.isInWater()) {
-						p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 20, 2, false, false, false));
-					}
-					AbilityHelpers.modeAura(p, ParticleTypes.FALLING_WATER, 4);
-					if (p.tickCount % 10 == 0) {
-						AbilityHelpers.modeAura(p, ParticleTypes.DRIPPING_WATER, 3);
-					}
-				}));
-
-		AbilityHandlers.register(KEY, "healing_water", Handlers.instant(ctx -> {
-			if (spend(ctx.player(), COST_HEAL)) {
-				healingWater(ctx);
-			}
-		}));
-
-		AbilityHandlers.register(KEY, "geyser", Handlers.instant(ctx -> {
-			if (spend(ctx.player(), COST_GEYSER)) {
-				geyser(ctx);
-			}
-		}));
-
-		// Right-click a water source while shaping water (Sneak + hold V) to siphon it into your supply.
-		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
-			if (level.isClientSide() || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer sp)) {
-				return InteractionResult.PASS;
-			}
-			Power power = power();
-			if (power == null || ExperimentalPowers.getResource(sp, power, "create_ticks") <= 0.5f) {
-				return InteractionResult.PASS;
-			}
-			BlockPos pos = hit.getBlockPos();
-			if (level.getBlockState(pos).getFluidState().is(Fluids.WATER) && level.getBlockState(pos).getFluidState().isSource()) {
-				level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-				((ServerLevel) level).sendParticles(ParticleTypes.SPLASH, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-						12, 0.3, 0.3, 0.3, 0.0);
-				level.playSound(null, pos, SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 0.8f, 1.1f);
-				refill(sp, BOTTLE_REFILL);
-				ExperimentalPowers.setResource(sp, power, "create_ticks", 0, CREATE_TICKS);
-				return InteractionResult.SUCCESS;
-			}
-			return InteractionResult.PASS;
-		});
-
-		// Drink water into the supply: a water bottle (right-click), or a water bucket (Sneak + right-click).
-		UseItemCallback.EVENT.register((player, level, hand) -> {
-			ItemStack stack = player.getItemInHand(hand);
-			boolean bottle = isWaterBottle(stack);
-			boolean bucket = stack.is(Items.WATER_BUCKET) && player.isShiftKeyDown();
-			if ((!bottle && !bucket) || !canDrink(player)) {
-				return InteractionResultHolder.pass(stack);
-			}
-			if (player instanceof ServerPlayer sp && level instanceof ServerLevel sl) {
-				refill(sp, bottle ? BOTTLE_REFILL : BUCKET_REFILL);
-				ItemStack empty = new ItemStack(bottle ? Items.GLASS_BOTTLE : Items.BUCKET);
-				if (!sp.getAbilities().instabuild) {
-					if (stack.getCount() <= 1) {
-						sp.setItemInHand(hand, empty);
-					} else {
-						stack.shrink(1);
-						if (!sp.getInventory().add(empty)) {
-							sp.drop(empty, false);
-						}
-					}
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (p.isShiftKeyDown()) {
+					drawWater(ctx);
+				} else {
+					setAquatic(p, res(p, "aquatic") < 0.5f);
+					ctx.actionBar(res(p, "aquatic") > 0.5f ? "message.projecthero.water.aquatic_on" : "message.projecthero.water.aquatic_off");
 				}
-				sl.sendParticles(ParticleTypes.SPLASH, sp.getX(), sp.getY() + 1.2, sp.getZ(), 20, 0.3, 0.3, 0.3, 0.1);
-				sl.playSound(null, sp.blockPosition(), bottle ? SoundEvents.BOTTLE_EMPTY : SoundEvents.BUCKET_EMPTY,
-						SoundSource.PLAYERS, 1.0f, 1.0f);
-				sl.playSound(null, sp.blockPosition(), SoundEvents.GENERIC_DRINK, SoundSource.PLAYERS, 0.6f, 1.2f);
-			}
-			return InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide());
-		});
-
-		PowerPassives.register(KEY, (player, active) -> {
-			if (!active) {
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, AQUATIC_ATK);
 			}
 		});
 
-		PowerPassives.registerTick(KEY, WaterHandlers::passiveTick);
+		ServerLivingEntityEvents.ALLOW_DAMAGE.register(WaterHandlers::allowDamage);
+		registerPassives();
 	}
 
-	private static void passiveTick(ServerPlayer player) {
-		Power power = power();
-		if (power == null) {
+	// ================================================================ upkeep (every tick for an owner)
+
+	private static void upkeep(ServerPlayer p) {
+		seed(p);
+		ServerLevel level = AbilityHelpers.level(p);
+		for (String timer : new String[] { "prison_cd", "heal_cd", "nofall", "prison" }) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, v - 1);
+			}
+		}
+		// the meter refills -- not while a held move (the jet, the shield) is pouring it out
+		boolean held = res(p, "jet") > 0.5f || res(p, "shield") > 0.5f;
+		float w = res(p, METER);
+		if (w < MAX_WATER && !held) {
+			set(p, METER, Math.min(MAX_WATER, w + regenPerSecond(p) / 20.0f));
+		}
+		jetTick(p, level);
+		shieldTick(p, level);
+		surfTick(p, level);
+		if (p.tickCount % 100 == 41) {
+			BatchBUtil.retire(p, Powers.byKey(KEY), LEGACY);
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, LEGACY_AQUATIC);
+		}
+	}
+
+	// ================================================================ R: Water Shot / Hydro Jet
+
+	public static WaterBoltEntity waterShot(ServerPlayer p) {
+		if (!spend(p, COST_SHOT)) {
+			return null;
+		}
+		MutationVisuals.play(p, "p25.shot");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 0.8f, 1.5f);
+		return WaterBoltEntity.fire(p);
+	}
+
+	private static void startJet(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (res(p, METER) < COST_JET_PER_SECOND / 20.0f * 4) {
+			ctx.actionBar("message.projecthero.water.dry");
 			return;
 		}
-		// v0.13.22: the old "water" build-up gauge is replaced by the carried supply -- start new owners full
-		BatchBUtil.retire(player, power, "water");
-		BatchBUtil.seed(player, power, SUPPLY, MAX_WATER);
-		float gain;
-		if (player.isInWater()) {
-			gain = REFILL_WATER;
-		} else if (player.isInWaterOrRain()) {
-			gain = REFILL_RAIN;
-		} else {
-			gain = player.level().dimension() == Level.NETHER ? 0.0f : REFILL_AIR;
-		}
-		if (aquaticActive(player)) {
-			gain *= 1.5f;
-		}
-		boolean spraying = BatchBUtil.get(player, power, "spraying") > 0.5f;
-		if (gain > 0 && !spraying) {
-			float have = supply(player);
-			if (have < MAX_WATER) {
-				BatchBUtil.set(player, power, SUPPLY, have + gain, MAX_WATER, 1.0f);
-			}
-		}
-		player.addEffect(new MobEffectInstance(MobEffects.WATER_BREATHING, 25, 0, false, false, false));
-		player.addEffect(new MobEffectInstance(MobEffects.DOLPHINS_GRACE, 25, 0, false, false, false));
-		if (player.isInWater()) {
-			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 300, 0, false, false, false));
-			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 25, 1, false, false, false));
-			player.setAirSupply(player.getMaxAirSupply());
-		}
+		set(p, "jet", 1);
+		set(p, "jet_t", 0);
+		MutationVisuals.play(p, "p25.jet");
+		AbilityHelpers.sound(p, SoundEvents.BUCKET_EMPTY, 1.0f, 1.4f);
 	}
 
-	// ---------------- R: Water Shot / spray ----------------
-
-	private static void waterShot(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 24.0);
-		Vec3 hand = AbilityHelpers.handPosition(p);
-		Vec3 end = AbilityHelpers.aimPoint(p, 24.0);
-		AbilityHelpers.line(level, hand, end, WATER_DUST, 4.0);
-		AbilityHelpers.line(level, hand, end, ParticleTypes.FALLING_WATER, 1.0);
-		level.sendParticles(ParticleTypes.SPLASH, end.x, end.y, end.z, 20, 0.3, 0.3, 0.3, 0.1);
-		if (t != null) {
-			if (AbilityHelpers.hurtLands(p, t, SHOT_DAMAGE + bonus(p))) {
-				AbilityHelpers.knockbackFrom(t, p.position(), 1.0);
-			}
-			t.clearFire();
-			markWet(t);
-		}
-		MutationVisuals.play(p, "cast_right");
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH, 1.0f, 0.9f);
-		ctx.triggerCooldown();
-	}
-
-	private static void sprayTick(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (!p.isShiftKeyDown() || !spendQuiet(p, COST_SPRAY_TICK)) {
-			ctx.setResource("spraying", 0, 1);
-			MutationVisuals.stopIf(p, "channel_right");
+	public static void endJet(ServerPlayer p) {
+		if (res(p, "jet") < 0.5f) {
 			return;
 		}
-		MutationVisuals.ensure(p, "channel_right");
-		ServerLevel level = ctx.level();
-		Vec3 origin = p.getEyePosition().add(0, -0.3, 0);
-		Vec3 look = p.getLookAngle();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, origin.add(look.scale(2.5)), 3.0)) {
-			if (e.position().subtract(origin).normalize().dot(look) > 0.6) {
-				AbilityHelpers.hurt(p, e, SPRAY_DAMAGE + bonus(p) * 0.4f);
-				e.clearFire();
-				markWet(e);
-				AbilityHelpers.push(e, look.scale(0.12));
-			}
-		}
-		BlockHitResult bhr = AbilityHelpers.raycastBlock(p, 7.0);
-		double streamLen = bhr.getType() == HitResult.Type.BLOCK ? origin.distanceTo(bhr.getLocation()) : 7.0;
-		for (double d = 0.6; d <= streamLen + 0.01; d += 0.5) {
-			Vec3 pt = origin.add(look.scale(d));
-			level.sendParticles(ParticleTypes.SPLASH, pt.x, pt.y, pt.z, 3, 0.08 * d, 0.08 * d, 0.08 * d, 0.01);
-			if (d % 1.0 < 0.5) {
-				level.sendParticles(WATER_DUST, pt.x, pt.y, pt.z, 1, 0.05, 0.05, 0.05, 0.0);
-			}
-			BlockPos bp = BlockPos.containing(pt);
-			if (level.getBlockState(bp).is(BlockTags.FIRE)) {
-				level.removeBlock(bp, false);
-			}
-		}
-		if (p.tickCount % 6 == 0) {
-			level.playSound(null, p.blockPosition(), SoundEvents.WEATHER_RAIN, SoundSource.PLAYERS, 0.5f, 1.6f);
-		}
+		set(p, "jet", 0);
+		MutationVisuals.stopIf(p, "p25.jet");
 	}
 
-	private static boolean spendQuiet(ServerPlayer p, float base) {
-		float c = cost(p, base);
-		float have = supply(p);
-		if (have < c) {
-			return false;
-		}
-		BatchBUtil.set(p, power(), SUPPLY, have - c, MAX_WATER, 0.0f);
-		return true;
-	}
-
-	// ---------------- G: Water Whip ----------------
-
-	/**
-	 * G: a tendril of water uncurls from your hand along your aim (12 blocks), sways through the air and snaps. Every
-	 * creature it touches takes 19 and is hauled toward you; it leaves them soaked (the Water + Electro combo).
-	 */
-	private static void waterWhip(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		Vec3 hand = AbilityHelpers.handPosition(p);
-		Vec3 look = p.getLookAngle();
-		Vec3 right = look.cross(new Vec3(0, 1, 0));
-		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
-		Vec3 up = right.cross(look).normalize();
-		float damage = WHIP_DAMAGE + bonus(p);
-		Set<LivingEntity> hit = new HashSet<>();
-		Vec3 sway = right;
-		Vec3 lift = up;
-		double range = 12.0;
-		BatchBScheduler.schedule(level, age -> {
-			if (!p.isAlive()) {
-				return false;
-			}
-			double reach = Math.min(range, (age + 1) * (range / 5.0));
-			int segs = (int) (reach * 2.5);
-			Vec3 tip = hand;
-			for (int i = 1; i <= segs; i++) {
-				double s = i / (double) segs;
-				double wave = Math.sin(s * Math.PI * 1.5 - age * 0.8) * 0.8 * s;
-				Vec3 pt = hand.add(look.scale(reach * s)).add(sway.scale(wave)).add(lift.scale(Math.sin(s * Math.PI) * 0.5));
-				level.sendParticles(WATER_DUST, pt.x, pt.y, pt.z, 2, 0.04, 0.04, 0.04, 0.0);
-				if (i % 2 == 0) {
-					level.sendParticles(ParticleTypes.FALLING_WATER, pt.x, pt.y, pt.z, 1, 0.05, 0.05, 0.05, 0.0);
-				}
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, pt, 1.0)) {
-					if (hit.add(e)) {
-						if (AbilityHelpers.hurtLands(p, e, damage)) {
-							Vec3 pull = p.position().subtract(e.position()).normalize();
-							AbilityHelpers.push(e, new Vec3(pull.x * 1.2, 0.35, pull.z * 1.2));
-						}
-						markWet(e);
-						level.sendParticles(ParticleTypes.SPLASH, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
-								16, 0.3, 0.3, 0.3, 0.1);
-					}
-				}
-				tip = pt;
-			}
-			if (age == 4) {
-				level.sendParticles(ParticleTypes.SPLASH, tip.x, tip.y, tip.z, 30, 0.4, 0.4, 0.4, 0.2);
-				level.sendParticles(FOAM, tip.x, tip.y, tip.z, 10, 0.3, 0.3, 0.3, 0.0);
-				level.playSound(null, tip.x, tip.y, tip.z, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.0f, 1.3f);
-			}
-			return age < 6;
-		});
-		MutationVisuals.play(p, "whip_right");
-		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.0f, 1.0f);
-		ctx.triggerCooldown();
-	}
-
-	// ---------------- X: Riptide ----------------
-
-	private static void riptide(AbilityContext ctx, boolean wet) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		Vec3 look = p.getLookAngle();
-		double strength = wet ? 3.4 : 2.6;
-		Vec3 impulse = look.scale(strength).add(0.0, look.y < -0.1 ? 0.05 : 0.4, 0.0);
-		AbilityHelpers.addImpulse(p, impulse);
-		p.resetFallDistance();
-		ctx.setResource("no_fall_until", level.getGameTime() + 60, 1.0e12f);
-		p.addEffect(new MobEffectInstance(MobEffects.DOLPHINS_GRACE, 80, 1, false, false, false));
-		AbilityHelpers.line(level, p.getEyePosition(), p.getEyePosition().add(look.scale(6.0)), ParticleTypes.SPLASH, 3.0);
-		AbilityHelpers.line(level, p.position(), p.position().subtract(look.scale(3.0)), WATER_DUST, 3.0);
-		AbilityHelpers.burst(level, p.position(), ParticleTypes.FALLING_WATER, 24, 0.5);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(look.scale(2.0)), 2.5)) {
-			AbilityHelpers.hurtLands(p, e, RIPTIDE_DAMAGE + bonus(p));
-			AbilityHelpers.push(e, look.scale(1.2).add(0, 0.2, 0));
-			markWet(e);
-		}
-		MutationVisuals.play(p, "dash_forward");
-		AbilityHelpers.sound(p, SoundEvents.TRIDENT_RIPTIDE_1, 1.0f, 1.1f);
-		ctx.triggerCooldown();
-	}
-
-	// ---------------- Z: Tidal Wave ----------------
-
-	private static void tidalChargeTick(AbilityContext ctx) {
-		long held = BatchBUtil.chargeHeld(ctx, "tidal_start");
-		if (held < 0) {
+	private static void jetTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "jet") < 0.5f) {
 			return;
 		}
-		ServerPlayer p = ctx.player();
-		if (held > TIDAL_CHARGE + 100) {
-			tidalCancel(ctx);
+		float w = res(p, METER);
+		float cost = COST_JET_PER_SECOND / 20.0f;
+		if (!p.isAlive() || w < cost) {
+			endJet(p);
+			if (p.isAlive()) {
+				p.displayClientMessage(Component.translatable("message.projecthero.water.dry"), true);
+			}
 			return;
 		}
-		BatchBUtil.chargeMeter(ctx, held, TIDAL_CHARGE);
-		MutationVisuals.ensure(p, "channel_two_hand");
-		p.setDeltaMovement(p.getDeltaMovement().multiply(0.3, 1.0, 0.3));
-		double frac = Math.min(1.0, held / (double) TIDAL_CHARGE);
-		// the water gathers into a swelling sphere in front of you
-		Vec3 ball = p.getEyePosition().add(BatchBUtil.flatLook(p).scale(1.8)).add(0, 0.3, 0);
-		ctx.level().sendParticles(WATER_DUST, ball.x, ball.y, ball.z, 4 + (int) (frac * 12), 0.2 + frac * 0.6,
-				0.2 + frac * 0.6, 0.2 + frac * 0.6, 0.0);
-		ctx.level().sendParticles(ParticleTypes.FALLING_WATER, p.getX(), p.getY() + 1.0, p.getZ(),
-				4 + (int) (frac * 10), 0.6 * frac + 0.4, 0.6, 0.6 * frac + 0.4, 0.02);
-		if (held % 16 == 0) {
-			AbilityHelpers.sound(p, SoundEvents.AMBIENT_UNDERWATER_LOOP, 0.7f, 0.4f + (float) frac);
-		}
-		if (held >= TIDAL_CHARGE) {
-			tidalFire(ctx);
+		set(p, METER, w - cost);
+		MutationVisuals.ensure(p, "p25.jet");
+		int t = (int) res(p, "jet_t") + 1;
+		set(p, "jet_t", t);
+		jetBeam(p, level, t % JET_PULSE == 0);
+		if (t % 5 == 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WEATHER_RAIN, SoundSource.PLAYERS, 0.6f, 1.8f);
 		}
 	}
 
-	private static void tidalCancel(AbilityContext ctx) {
-		BatchBUtil.chargeClear(ctx, "tidal_start");
-		MutationVisuals.stopIf(ctx.player(), "channel_two_hand");
-		AbilityHelpers.sound(ctx.player(), SoundEvents.GENERIC_SPLASH, 0.4f, 1.2f);
+	/** Where the jet ends: the first block within 16 along the aim. */
+	public static Vec3 jetEnd(Player p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(p.getLookAngle().scale(JET_RANGE));
+		BlockHitResult hit = p.level().clip(new ClipContext(eye, far, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		return hit.getType() == HitResult.Type.MISS ? far : hit.getLocation();
 	}
 
 	/**
-	 * Z: a wall of real water, 7 wide and 2 high, rolls 18 blocks out along your aim (1.2 blocks a tick). Everything it
-	 * sweeps over takes 42 and is carried along with it. The water only ever fills air and drains 6 ticks behind the
-	 * crest, so it leaves nothing behind.
+	 * One tick of the beam: everything hostile along it is pushed back (and doused); on a pulse (twice a second) each takes
+	 * 4, for 8 a second. It cuts through every creature in line, up to the first block. Returns how many it touched.
 	 */
-	private static void tidalFire(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		BatchBUtil.chargeClear(ctx, "tidal_start");
-		if (!spend(p, COST_TIDAL)) {
-			MutationVisuals.stopIf(p, "channel_two_hand");
-			return;
-		}
-		Vec3 dir = BatchBUtil.flatLook(p);
-		Vec3 side = new Vec3(-dir.z, 0, dir.x);
-		Vec3 origin = p.position();
-		float dmg = TIDAL_DAMAGE + bonus(p);
-		Set<LivingEntity> hit = new HashSet<>();
-		BlockState water = Blocks.WATER.defaultBlockState();
-		BatchBScheduler.schedule(level, age -> {
-			double d = 2.0 + age * 1.2;
-			if (d > 20.0) {
-				return false;
+	public static int jetBeam(ServerPlayer p, ServerLevel level, boolean pulse) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		Vec3 end = jetEnd(p);
+		double len = end.distanceTo(eye);
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, eye.add(look.scale(len * 0.5)), len * 0.5 + 1.5)) {
+			Vec3 to = mid(e).subtract(eye);
+			double along = to.dot(look);
+			if (along < 0.3 || along > len + 0.6) {
+				continue;
 			}
-			Vec3 front = origin.add(dir.scale(d));
-			for (int w = -3; w <= 3; w++) {
-				Vec3 col = front.add(side.scale(w));
-				BlockPos cell = surface(level, col.x, origin.y, col.z);
-				if (cell == null) {
-					continue;
-				}
-				if (Math.abs(w) < 3 || age % 2 == 0) {
-					BatchBScheduler.placeTemporarily(level, cell, water, 6);
-					if (Math.abs(w) < 2) {
-						BatchBScheduler.placeTemporarily(level, cell.above(), water, 4);
-					}
-				}
-				level.sendParticles(ParticleTypes.SPLASH, cell.getX() + 0.5, cell.getY() + 1.6, cell.getZ() + 0.5,
-						6, 0.4, 0.3, 0.4, 0.15);
-				if (w % 2 == 0) {
-					level.sendParticles(FOAM, cell.getX() + 0.5, cell.getY() + 2.2, cell.getZ() + 0.5, 2, 0.3, 0.1, 0.3, 0.0);
-				}
+			double off = to.subtract(look.scale(along)).length();
+			if (off > JET_RADIUS + e.getBbWidth() * 0.6) {
+				continue;
 			}
-			for (LivingEntity e : AbilityHelpers.enemiesAround(p, front.add(0, 1, 0), 4.0)) {
-				if (hit.add(e)) {
-					AbilityHelpers.hurtLands(p, e, dmg);
-					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1, false, true, true));
-					markWet(e);
-				}
-				AbilityHelpers.push(e, dir.scale(0.45).add(0, 0.12, 0));
+			n++;
+			if (pulse) {
+				AbilityHelpers.hurtBurst(p, e, JET_DAMAGE_PER_SECOND * JET_PULSE / 20.0f);
 			}
-			if (age % 4 == 0) {
-				level.playSound(null, BlockPos.containing(front), SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS,
-						1.4f, 0.5f);
-			}
-			return true;
-		});
-		MutationVisuals.play(p, "p25.wave_push");
-		level.playSound(null, p.blockPosition(), SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.6f, 0.4f);
-		ctx.triggerCooldown(TIDAL_CD);
-	}
-
-	/** The first air cell above solid (or water-free) ground near {@code (x, z)} around height {@code y}. */
-	private static BlockPos surface(ServerLevel level, double x, double y, double z) {
-		int bx = Mth.floor(x);
-		int bz = Mth.floor(z);
-		int top = Mth.floor(y) + 2;
-		for (int yy = top; yy >= top - 5; yy--) {
-			BlockPos bp = new BlockPos(bx, yy, bz);
-			BlockState below = level.getBlockState(bp.below());
-			if (level.getBlockState(bp).isAir() && !below.isAir()) {
-				return bp;
+			e.clearFire();
+			if (noBoss(e)) {
+				Vec3 v = e.getDeltaMovement();
+				e.setDeltaMovement(v.x * 0.6 + look.x * 0.28, Math.max(v.y, look.y * 0.2), v.z * 0.6 + look.z * 0.28);
+				e.hurtMarked = true;
 			}
 		}
-		return null;
-	}
-
-	// ---------------- V: Water Prison + water shaping ----------------
-
-	/**
-	 * V: seal a target (16 blocks) in a shell of water for 8 s -- pinned in place, unable to jump, weakened, but kept
-	 * breathing. The shell is real water that never flows and drains the tick the prison ends. Press V again to let
-	 * them go early; the cooldown starts when it ends.
-	 */
-	private static void startPrison(AbilityContext ctx, LivingEntity t) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		Power power = ctx.power();
-		var ability = ctx.ability();
-		long until = level.getGameTime() + PRISON_TICKS;
-		ctx.setResource("prison_until", until, 1e12f);
-		Vec3 pin = t.position();
-		boolean isPlayer = t instanceof Player;
-		BlockState water = Blocks.WATER.defaultBlockState();
-		BatchBScheduler.schedule(level, age -> {
-			boolean held = ExperimentalPowers.getResource(p, power, "prison_until") > level.getGameTime();
-			if (!t.isAlive() || !p.isAlive() || !held || !ExperimentalPowers.owns(p, power)) {
-				if (ExperimentalPowers.getResource(p, power, "prison_until") > 0.5f) {
-					ExperimentalPowers.setResource(p, power, "prison_until", 0, 1e12f);
-				}
-				// an early release already started the cooldown; otherwise it starts now
-				if (ExperimentalPowers.cooldownReady(p, power, ability)) {
-					ExperimentalPowers.triggerCooldown(p, power, ability,
-							com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(ability.cooldownTicks()));
-				}
-				return false;
-			}
-			t.setDeltaMovement(0, 0, 0);
-			t.hurtMarked = true;
-			t.fallDistance = 0;
-			t.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 10, isPlayer ? 4 : 9, false, false, false));
-			t.addEffect(new MobEffectInstance(MobEffects.JUMP, 10, -10, false, false, false));
-			t.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 10, 2, false, false, false));
-			t.setAirSupply(t.getMaxAirSupply()); // the prison traps, it does not drown
-			if (!isPlayer && t.distanceToSqr(pin) > 0.04) {
-				t.teleportTo(pin.x, pin.y, pin.z);
-			}
-			BlockPos base = t.blockPosition();
-			for (Direction d : Direction.values()) {
-				BatchBScheduler.placeTemporarily(level, base.relative(d), water, 3);
-				BatchBScheduler.placeTemporarily(level, base.above().relative(d), water, 3);
-			}
-			if (age % 4 == 0) {
-				level.sendParticles(ParticleTypes.BUBBLE, t.getX(), t.getY() + 1, t.getZ(), 20, 0.5, 1.0, 0.5, 0.0);
-				level.sendParticles(WATER_DUST, t.getX(), t.getY() + 1, t.getZ(), 10, 0.6, 1.0, 0.6, 0.0);
-			}
-			return true;
-		});
-	}
-
-	/** Sneak + hold V for 4 s: shape a (temporary, 60 s) water source where you look. */
-	private static void createTick(AbilityContext ctx) {
-		float ct = ctx.resource("create_ticks");
-		if (ct <= 0.5f) {
-			return;
+		if (p.tickCount % 2 == 0) {
+			level.sendParticles(ParticleTypes.SPLASH, end.x, end.y, end.z, 6, 0.25, 0.25, 0.25, 0.25);
 		}
-		ServerPlayer p = ctx.player();
-		if (!p.isShiftKeyDown()) {
-			ctx.setResource("create_ticks", 0, CREATE_TICKS);
-			return;
-		}
-		ct -= 1.0f;
-		ctx.setResource("create_ticks", ct, CREATE_TICKS);
-		MutationVisuals.ensure(p, "channel_right");
 		if (p.tickCount % 4 == 0) {
-			Vec3 aim = AbilityHelpers.aimPoint(p, 12.0);
-			ctx.level().sendParticles(ParticleTypes.SPLASH, aim.x, aim.y, aim.z, 4, 0.2, 0.2, 0.2, 0.0);
+			douse(level, BlockPos.containing(end.subtract(look.scale(0.3))), 1);
 		}
-		if (ct <= 0.5f) {
-			MutationVisuals.stopIf(p, "channel_right");
-			BlockHitResult hit = AbilityHelpers.raycastBlock(p, 12.0);
-			BlockPos target = hit.getType() == HitResult.Type.BLOCK
-					? hit.getBlockPos().relative(hit.getDirection())
-					: BlockPos.containing(AbilityHelpers.aimPoint(p, 12.0));
-			if (spend(p, COST_PRISON) && BatchBScheduler.placeTemporarily(ctx.level(), target,
-					Blocks.WATER.defaultBlockState(), CREATED_WATER_TTL)) {
-				AbilityHelpers.sound(p, SoundEvents.BUCKET_EMPTY, 1.0f, 1.0f);
+		return n;
+	}
+
+	// ================================================================ G: Water Whip / Water Prison
+
+	private static void whip(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!spend(p, COST_WHIP)) {
+			return;
+		}
+		LivingEntity t = AbilityHelpers.raycastEntity(p, WHIP_RANGE);
+		MutationVisuals.play(p, "p25.whip");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.0f, 1.2f);
+		if (t == null) {
+			WaterWhipEntity.lash(p, null, AbilityHelpers.aimPoint(p, WHIP_RANGE));
+			return;
+		}
+		WaterWhipEntity.lash(p, t, mid(t));
+		whipHit(p, t);
+	}
+
+	/** The lash lands: 12, and the target is hauled in to a couple of blocks in front of you. */
+	public static void whipHit(ServerPlayer p, LivingEntity t) {
+		AbilityHelpers.hurtLands(p, t, WHIP_DAMAGE);
+		t.clearFire();
+		if (noBoss(t) && HeroTargets.canHarm(p, t)) {
+			Vec3 to = p.position().subtract(t.position());
+			double d = Math.sqrt(to.x * to.x + to.z * to.z);
+			if (d > 2.5) {
+				// enough speed to slide ~(d - 2) blocks under ground friction / air drag
+				double speed = Math.min(2.2, 0.15 + (d - 2.0) * 0.16);
+				Vec3 h = new Vec3(to.x / d, 0, to.z / d).scale(speed);
+				t.setDeltaMovement(h.x, 0.32 + Math.max(0, to.y) * 0.08, h.z);
+				t.hurtMarked = true;
+				t.hasImpulse = true;
 			}
+		}
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 20, 0.3, 0.3, 0.3,
+				0.15);
+	}
+
+	private static void prison(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, PRISON_RANGE);
+		if (t == null || !AbilityHelpers.isValidGrabTarget(t, p) || !noBoss(t) || !HeroTargets.canHarm(p, t) || Squads.areAllies(p, t)) {
+			ctx.actionBar("message.projecthero.water.no_target");
+			return;
+		}
+		if (!spend(p, COST_PRISON)) {
+			return;
+		}
+		imprison(p, t);
+	}
+
+	/** Seals {@code t} in a water sphere for 4 s (no checks; the caller has made them). */
+	public static WaterPrisonEntity imprison(ServerPlayer p, LivingEntity t) {
+		set(p, "prison_cd", PRISON_CD);
+		set(p, "prison", PRISON_TICKS);
+		MutationVisuals.play(p, "p25.prison");
+		AbilityHelpers.sound(p, SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, 1.2f, 0.8f);
+		return WaterPrisonEntity.trap(p, t);
+	}
+
+	// ================================================================ X: Riptide / Wave Ride
+
+	/** Launches you like a Riptide trident (anywhere, wet or not), spinning through whatever you hit. */
+	public static void riptide(ServerPlayer p) {
+		if (!spend(p, COST_RIPTIDE)) {
+			return;
+		}
+		endSurf(p);
+		Vec3 look = p.getLookAngle();
+		Vec3 v = look.scale(RIPTIDE_SPEED);
+		if (p.onGround() && v.y < 0.4) {
+			v = v.add(0, 0.42, 0); // vanilla lifts a grounded riptide off the floor first
+		}
+		AbilityHelpers.launchSelf(p, p.getDeltaMovement().add(v));
+		p.startAutoSpinAttack(RIPTIDE_SPIN_TICKS, RIPTIDE_DAMAGE, ItemStack.EMPTY);
+		set(p, "nofall", 60);
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.8, p.getZ(), 30, 0.4, 0.6, 0.4, 0.3);
+		p.level().playSound(null, p, SoundEvents.TRIDENT_RIPTIDE_3.value(), SoundSource.PLAYERS, 1.0f, 1.0f);
+	}
+
+	private static void startSurf(ServerPlayer p) {
+		if (!spend(p, COST_SURF)) {
+			return;
+		}
+		set(p, "surf", SURF_TICKS);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SURF_STEP, 0.65, AttributeModifier.Operation.ADD_VALUE);
+		MutationVisuals.play(p, "p25.surf");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.2f, 0.7f);
+		if (p.onGround()) {
+			AbilityHelpers.launchSelf(p, p.getDeltaMovement().add(0, 0.3, 0)); // the wave lifts you onto it
 		}
 	}
 
-	// ---------------- H: Healing Water ----------------
+	public static void endSurf(ServerPlayer p) {
+		var step = p.getAttribute(Attributes.STEP_HEIGHT);
+		if (res(p, "surf") < 0.5f && (step == null || step.getModifier(SURF_STEP) == null)) {
+			return;
+		}
+		set(p, "surf", 0);
+		set(p, "nofall", Math.max(res(p, "nofall"), 30));
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SURF_STEP);
+		MutationVisuals.stopIf(p, "p25.surf");
+	}
 
-	/**
-	 * H: pour 120 water (60 in Aquatic Form) over yourself and everyone on your side within 6 blocks -- squadmates and
-	 * your own tamed animals: 6 health (3 hearts) each, 5 s of Regeneration I, and any fire put out.
-	 */
-	private static void healingWater(AbilityContext ctx) {
+	private static void surfTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "surf");
+		if (left < 0.5f) {
+			return;
+		}
+		if (left <= 1.0f || !p.isAlive()) {
+			endSurf(p);
+			return;
+		}
+		set(p, "surf", left - 1);
+		p.resetFallDistance();
+		MutationVisuals.ensure(p, "p25.surf");
+		knockAside(p, level);
+		if (p.tickCount % 2 == 0) {
+			Vec3 back = p.position().subtract(p.getLookAngle().multiply(1, 0, 1).normalize().scale(0.8));
+			level.sendParticles(ParticleTypes.SPLASH, back.x, p.getY() + 0.3, back.z, 6, 0.5, 0.1, 0.5, 0.2);
+		}
+	}
+
+	/** The wave shoulders mobs out of the way: anything hostile just in front is thrown aside. Returns how many. */
+	public static int knockAside(ServerPlayer p, ServerLevel level) {
+		Vec3 look = p.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		Vec3 dir = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		Vec3 side = new Vec3(-dir.z, 0, dir.x);
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(dir.scale(1.2)).add(0, 0.8, 0), 1.9)) {
+			if (Squads.areAllies(p, e) || !noBoss(e)) {
+				continue;
+			}
+			double s = e.position().subtract(p.position()).dot(side) >= 0 ? 1.0 : -1.0;
+			Vec3 push = side.scale(0.9 * s).add(dir.scale(0.35));
+			e.setDeltaMovement(push.x, 0.38, push.z);
+			e.hurtMarked = true;
+			e.clearFire();
+			n++;
+		}
+		return n;
+	}
+
+	// ================================================================ Z: Tidal Wave / Geyser
+
+	public static TidalWaveEntity tidalWave(ServerPlayer p) {
+		if (!spend(p, COST_TIDAL)) {
+			return null;
+		}
+		MutationVisuals.play(p, "p25.tidal");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.6f, 0.4f);
+		return TidalWaveEntity.roll(p);
+	}
+
+	private static void geyser(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, GEYSER_RANGE);
+		Vec3 at;
+		if (t != null) {
+			at = t.position();
+		} else {
+			BlockHitResult hit = AbilityHelpers.raycastBlock(p, GEYSER_RANGE);
+			if (hit.getType() != HitResult.Type.BLOCK) {
+				ctx.actionBar("message.projecthero.water.no_target");
+				return;
+			}
+			BlockPos b = hit.getBlockPos();
+			at = new Vec3(hit.getLocation().x, b.getY() + 1.0, hit.getLocation().z);
+		}
+		if (!spend(p, COST_GEYSER)) {
+			return;
+		}
+		MutationVisuals.play(p, "p25.geyser");
+		GeyserEntity.under(p, t, at);
+	}
+
+	// ================================================================ V: Water Shield / Healing Water
+
+	private static void startShield(ServerPlayer p) {
+		if (res(p, METER) < COST_SHIELD_PER_SECOND / 20.0f * 4) {
+			p.displayClientMessage(Component.translatable("message.projecthero.water.dry"), true);
+			return;
+		}
+		set(p, "shield", 1);
+		MutationVisuals.play(p, "p25.shield");
+		AbilityHelpers.sound(p, SoundEvents.BUCKET_FILL, 1.0f, 0.8f);
+	}
+
+	public static void endShield(ServerPlayer p) {
+		if (res(p, "shield") < 0.5f) {
+			return;
+		}
+		set(p, "shield", 0);
+		MutationVisuals.stopIf(p, "p25.shield");
+		shieldBurst(p);
+	}
+
+	private static void shieldTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "shield") < 0.5f) {
+			return;
+		}
+		float w = res(p, METER);
+		float cost = COST_SHIELD_PER_SECOND / 20.0f;
+		if (!p.isAlive() || w < cost) {
+			endShield(p);
+			return;
+		}
+		set(p, METER, w - cost);
+		MutationVisuals.ensure(p, "p25.shield");
+		stopProjectiles(p, level);
+		if (p.tickCount % 5 == 0) {
+			douse(level, p.blockPosition(), 2);
+		}
+		if (p.tickCount % 20 == 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMBIENT_UNDERWATER_LOOP_ADDITIONS, SoundSource.PLAYERS, 0.6f, 1.4f);
+		}
+	}
+
+	/** Every projectile reaching the sphere (not your own) is swallowed by it. Returns how many. */
+	public static int stopProjectiles(ServerPlayer p, ServerLevel level) {
+		Vec3 c = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		int n = 0;
+		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(SHIELD_RADIUS + 2.5),
+				pr -> pr.isAlive() && pr.getOwner() != p)) {
+			Vec3 next = pr.position().add(pr.getDeltaMovement());
+			if (pr.position().distanceTo(c) > SHIELD_RADIUS + 0.4 && next.distanceTo(c) > SHIELD_RADIUS + 0.4) {
+				continue;
+			}
+			level.sendParticles(ParticleTypes.SPLASH, pr.getX(), pr.getY(), pr.getZ(), 14, 0.2, 0.2, 0.2, 0.15);
+			level.sendParticles(ParticleTypes.BUBBLE, pr.getX(), pr.getY(), pr.getZ(), 6, 0.15, 0.15, 0.15, 0.05);
+			level.playSound(null, pr.getX(), pr.getY(), pr.getZ(), SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 0.7f, 1.5f);
+			pr.discard();
+			n++;
+		}
+		return n;
+	}
+
+	/** You and every squadmate (and your tamed pets) within 6: 8 hearts over 4 s, and every harmful effect washed off. */
+	public static int healingWater(ServerPlayer p) {
+		if (!spend(p, COST_HEAL)) {
+			return 0;
+		}
+		ServerLevel level = AbilityHelpers.level(p);
+		set(p, "heal_cd", HEAL_CD);
 		int healed = 0;
-		var squads = com.projecthero.mod.squad.SquadManager.get(level.getServer());
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(HEAL_RANGE))) {
-			boolean ally = e == p
-					|| e instanceof ServerPlayer other && squads.sameSquad(p.getUUID(), other.getUUID())
-					|| com.projecthero.mod.combat.HeroTargets.isFriendlyPet(p, e); // v0.15.11: + squadmates' pets
+			boolean ally = e == p || (e instanceof ServerPlayer other && Squads.areAllies(p, other)) || HeroTargets.isFriendlyPet(p, e);
 			if (!ally || !e.isAlive() || e.distanceToSqr(p) > HEAL_RANGE * HEAL_RANGE) {
 				continue;
 			}
-			e.heal(HEAL_AMOUNT);
-			e.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 0, false, true, true));
-			e.clearFire();
+			cleanse(e);
+			HealingWaterEntity.wrap(p, e, e == p ? (float) HEAL_RANGE : 0.0f);
 			healed++;
-			level.sendParticles(ParticleTypes.FALLING_WATER, e.getX(), e.getY() + e.getBbHeight() + 0.4, e.getZ(),
-					20, 0.35, 0.1, 0.35, 0.0);
-			level.sendParticles(ParticleTypes.HAPPY_VILLAGER, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
-					6, 0.3, 0.4, 0.3, 0.0);
 		}
-		for (int i = 0; i < 32; i++) {
-			double a = i / 32.0 * Math.PI * 2;
-			level.sendParticles(WATER_DUST, p.getX() + Math.cos(a) * 1.5, p.getY() + 0.2, p.getZ() + Math.sin(a) * 1.5,
-					1, 0.0, 0.3, 0.0, 0.0);
-		}
-		level.playSound(null, p.blockPosition(), SoundEvents.CONDUIT_AMBIENT_SHORT, SoundSource.PLAYERS, 1.2f, 1.2f);
-		level.playSound(null, p.blockPosition(), SoundEvents.BUCKET_EMPTY, SoundSource.PLAYERS, 0.8f, 1.3f);
-		ctx.setResource("healed", healed, 1000);
-		MutationVisuals.play(p, "cast_raise_both");
-		ctx.triggerCooldown();
+		MutationVisuals.play(p, "p25.heal");
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.CONDUIT_ACTIVATE, SoundSource.PLAYERS, 1.0f, 1.3f);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BUCKET_EMPTY, SoundSource.PLAYERS, 0.8f, 1.2f);
+		return healed;
 	}
 
-	// ---------------- N: Geyser ----------------
+	/** Washes every harmful effect off {@code e}. */
+	public static void cleanse(LivingEntity e) {
+		for (MobEffectInstance inst : new java.util.ArrayList<>(e.getActiveEffects())) {
+			if (inst.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
+				e.removeEffect(inst.getEffect());
+			}
+		}
+		e.clearFire();
+	}
+
+	// ================================================================ C: Aquatic Form / Draw Water
+
+	public static void setAquatic(ServerPlayer p, boolean on) {
+		set(p, "aquatic", on ? 1 : 0);
+		if (on) {
+			MutationVisuals.play(p, "p25.draw");
+			AbilityHelpers.sound(p, SoundEvents.CONDUIT_ACTIVATE, 0.8f, 1.2f);
+			AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.4, 0.8, 0.4, 0.1);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID);
+			AbilityHelpers.sound(p, SoundEvents.CONDUIT_DEACTIVATE, 0.6f, 1.2f);
+		}
+	}
+
+	private static void aquaticTick(ServerPlayer p) {
+		if (res(p, "aquatic") < 0.5f) {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID);
+			return;
+		}
+		refresh(p, MobEffects.DOLPHINS_GRACE);
+		if (p.isInWater()) {
+			var nv = p.getEffect(MobEffects.NIGHT_VISION);
+			if (nv == null || (!nv.isInfiniteDuration() && nv.getDuration() < 220)) {
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 260, 0, false, false, false));
+			}
+			PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID, AQUATIC_MELEE, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID);
+		}
+	}
 
 	/**
-	 * N: a geyser erupts. Looking at a creature (20 blocks): under them -- 12 damage and a launch straight up, soaked.
-	 * Otherwise under you -- it throws you ~8 blocks up with 8 s of no fall damage.
+	 * Shift+C: looking at a water source (12 blocks), you pull it out of the world into the meter (+30, free); otherwise a
+	 * source of water is placed where you aim (5 Water). Waterlogged blocks are drained / filled the same way.
 	 */
-	private static void geyser(AbilityContext ctx) {
+	private static void drawWater(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		ServerLevel level = ctx.level();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 20.0);
-		Entity rider = t != null ? t : p;
-		Vec3 base = rider.position();
-		if (t != null) {
-			AbilityHelpers.hurtLands(p, t, GEYSER_DAMAGE + bonus(p));
-			AbilityHelpers.push(t, new Vec3(0, 1.4, 0));
-			t.clearFire();
-			markWet(t);
-			MutationVisuals.play(p, "summon_ground");
-		} else {
-			Vec3 look = BatchBUtil.flatLook(p);
-			AbilityHelpers.launchSelf(p, new Vec3(look.x * 0.2, 1.4, look.z * 0.2));
-			ctx.setResource("no_fall_until", level.getGameTime() + 160, 1.0e12f);
-			MutationVisuals.play(p, "leap");
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(p.getLookAngle().scale(DRAW_RANGE));
+		BlockHitResult fluid = level.clip(new ClipContext(eye, far, ClipContext.Block.OUTLINE, ClipContext.Fluid.SOURCE_ONLY, p));
+		if (fluid.getType() == HitResult.Type.BLOCK && pullSource(p, level, fluid.getBlockPos())) {
+			return;
 		}
-		BatchBScheduler.schedule(level, age -> {
-			double h = Math.min(8.0, 1.0 + age * 1.5);
-			for (double y = 0; y < h; y += 0.5) {
-				level.sendParticles(WATER_DUST, base.x, base.y + y, base.z, 2, 0.25, 0.1, 0.25, 0.0);
-			}
-			level.sendParticles(ParticleTypes.SPLASH, base.x, base.y + h, base.z, 12, 0.5, 0.2, 0.5, 0.2);
-			level.sendParticles(ParticleTypes.BUBBLE_COLUMN_UP, base.x, base.y + 0.5, base.z, 6, 0.3, 0.3, 0.3, 0.1);
-			if (age == 0) {
-				level.playSound(null, BlockPos.containing(base), SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE,
-						SoundSource.PLAYERS, 1.6f, 0.7f);
-			}
-			return age < 12;
-		});
-		level.sendParticles(ParticleTypes.SPLASH, base.x, base.y + 0.2, base.z, 40, 1.0, 0.1, 1.0, 0.2);
-		level.playSound(null, BlockPos.containing(base), SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.4f, 0.7f);
-		ctx.triggerCooldown();
+		BlockHitResult hit = level.clip(new ClipContext(eye, far, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, p));
+		if (hit.getType() != HitResult.Type.BLOCK) {
+			ctx.actionBar("message.projecthero.water.no_aim");
+			return;
+		}
+		placeSource(ctx, hit);
 	}
 
-	/** Combo: Water + Electrokinesis -- mark a target "wet" for bonus electrical damage. */
-	private static void markWet(LivingEntity e) {
-		e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 0, false, false, false));
-		if (e.level() instanceof ServerLevel sl) {
-			sl.sendParticles(ParticleTypes.FALLING_WATER, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 8, 0.3, 0.1, 0.3, 0.0);
+	/** Pulls the water source at {@code pos} out (+30). False if there is none there. */
+	public static boolean pullSource(ServerPlayer p, ServerLevel level, BlockPos pos) {
+		BlockState s = level.getBlockState(pos);
+		if (!s.getFluidState().is(Fluids.WATER) || !s.getFluidState().isSource() || !level.mayInteract(p, pos)) {
+			return false;
 		}
+		if (s.is(Blocks.WATER)) {
+			level.setBlock(pos, Blocks.AIR.defaultBlockState(), 11);
+		} else if (s.hasProperty(BlockStateProperties.WATERLOGGED)) {
+			level.setBlock(pos, s.setValue(BlockStateProperties.WATERLOGGED, false), 11);
+		} else {
+			return false; // kelp / seagrass and the like: not a source you can lift
+		}
+		refill(p, DRAW_REFILL);
+		MutationVisuals.play(p, "p25.draw");
+		level.sendParticles(ParticleTypes.SPLASH, pos.getX() + 0.5, pos.getY() + 0.8, pos.getZ() + 0.5, 30, 0.4, 0.3, 0.4, 0.2);
+		Vec3 a = Vec3.atCenterOf(pos);
+		AbilityHelpers.line(level, a, p.position().add(0, 1.2, 0), ParticleTypes.FALLING_WATER, 3.0);
+		level.playSound(null, pos, SoundEvents.BUCKET_FILL, SoundSource.PLAYERS, 1.0f, 1.0f);
+		p.displayClientMessage(Component.translatable("message.projecthero.water.drawn"), true);
+		return true;
+	}
+
+	private static void placeSource(AbilityContext ctx, BlockHitResult hit) {
+		ServerPlayer p = ctx.player();
+		ServerLevel level = ctx.level();
+		BlockPos at = hit.getBlockPos();
+		BlockState s = level.getBlockState(at);
+		boolean log = s.hasProperty(BlockStateProperties.WATERLOGGED) && !s.getValue(BlockStateProperties.WATERLOGGED);
+		if (!log) {
+			at = at.relative(hit.getDirection());
+			s = level.getBlockState(at);
+			if (!s.isAir() && !s.canBeReplaced(Fluids.WATER)) {
+				ctx.actionBar("message.projecthero.water.no_aim");
+				return;
+			}
+		}
+		if (!level.mayInteract(p, at) || !p.mayUseItemAt(at, hit.getDirection(), ItemStack.EMPTY)) {
+			return;
+		}
+		if (level.dimensionType().ultraWarm()) {
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, at.getX() + 0.5, at.getY() + 0.5, at.getZ() + 0.5, 8, 0.3, 0.3, 0.3, 0.02);
+			level.playSound(null, at, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.6f, 2.0f);
+			ctx.actionBar("message.projecthero.water.evaporates");
+			return;
+		}
+		if (!spend(p, COST_PLACE)) {
+			return;
+		}
+		if (log) {
+			level.setBlock(at, s.setValue(BlockStateProperties.WATERLOGGED, true), 11);
+			level.scheduleTick(at, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+		} else {
+			if (!s.isAir()) {
+				level.destroyBlock(at, true);
+			}
+			level.setBlock(at, Blocks.WATER.defaultBlockState(), 11);
+		}
+		MutationVisuals.play(p, "p25.shot");
+		level.sendParticles(ParticleTypes.SPLASH, at.getX() + 0.5, at.getY() + 0.8, at.getZ() + 0.5, 20, 0.3, 0.2, 0.3, 0.1);
+		level.playSound(null, at, SoundEvents.BUCKET_EMPTY, SoundSource.PLAYERS, 1.0f, 1.0f);
+	}
+
+	// ================================================================ damage
+
+	/** The shield swallows projectiles outright. */
+	private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		return !(entity instanceof ServerPlayer sp && source.is(DamageTypeTags.IS_PROJECTILE) && shielding(sp));
+	}
+
+	/**
+	 * The water body's damage rule, read by {@link com.projecthero.mod.hero.power.HeroDamageRules}: a negative result means
+	 * "immune" (falls just after a Riptide or a Wave Ride; projectiles into the shield), otherwise a multiplier -- 0.7 for
+	 * fire and lava.
+	 */
+	public static float damageFactor(ServerPlayer p, DamageSource source) {
+		if (source.is(DamageTypeTags.IS_FALL) && (res(p, "nofall") > 0.5f || res(p, "surf") > 0.5f)) {
+			p.resetFallDistance();
+			return -1.0f;
+		}
+		if (source.is(DamageTypeTags.IS_PROJECTILE) && shielding(p)) {
+			return -1.0f;
+		}
+		if (source.is(DamageTypeTags.IS_FIRE)) {
+			return FIRE_FACTOR;
+		}
+		return 1.0f;
+	}
+
+	// ================================================================ passives
+
+	/** Keeps a hidden passive effect up, re-sending it only when it runs low (not every tick). */
+	private static void refresh(ServerPlayer p, net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect) {
+		MobEffectInstance cur = p.getEffect(effect);
+		if (cur == null || (!cur.isInfiniteDuration() && cur.getDuration() < 15)) {
+			p.addEffect(new MobEffectInstance(effect, 60, 0, false, false, false));
+		}
+	}
+
+	private static void registerPassives() {
+		com.projecthero.mod.hero.PowerPassives.register(KEY, (player, owned) -> {
+			if (!owned) {
+				PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM);
+				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID);
+				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, SURF_STEP);
+				Power power = Powers.byKey(KEY);
+				if (power != null && ExperimentalPowers.owns(player, power)) {
+					// still owned while forget() runs its teardown: drop the held / timed states too
+					endJet(player);
+					endShield(player);
+					endSurf(player);
+					set(player, "aquatic", 0);
+				}
+				MutationVisuals.stop(player);
+			}
+		});
+		com.projecthero.mod.hero.PowerPassives.registerTick(KEY, player -> {
+			upkeep(player);
+			// water breathing, fast swimming, and fire on you goes out at once
+			refresh(player, MobEffects.WATER_BREATHING);
+			PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM, 1.0, AttributeModifier.Operation.ADD_VALUE);
+			if (player.isOnFire()) {
+				player.clearFire();
+				if (player.tickCount % 10 == 0) {
+					AbilityHelpers.level(player).sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 4, 0.3,
+							0.5, 0.3, 0.02);
+					player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS,
+							0.5f, 1.6f);
+				}
+			}
+			aquaticTick(player);
+		});
+	}
+
+	// ================================================================ synced visuals + HUD (called from RevampBatchB)
+
+	public static void registerVisuals() {
+		MutationVisuals.registerFlag("p25.jet", WaterHandlers::jetting);
+		MutationVisuals.registerFlag("p25.shield", WaterHandlers::shielding);
+		MutationVisuals.registerFlag("p25.surf", WaterHandlers::surfing);
+		MutationVisuals.registerFlag("p25.aquatic", WaterHandlers::aquaticActive);
+	}
+
+	public static void registerMeters() {
+		int text = 0xFFBFE3FF;
+		MutationMeters.register(new MutationMeters.Spec(KEY, METER, MutationMeters.Kind.RESERVE, MutationMeters.Style.HAIRLINE, "Water",
+				MAX_WATER, 0xFF3A8DFF, true, true, false, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "surf", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, "Wave Ride",
+				SURF_TICKS, 0xFF7FC4FF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "prison", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Water Prison", PRISON_TICKS, 0xFF7FC4FF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "prison_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Prison cooldown", PRISON_CD, 0xFF5A7A9A, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "heal_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Healing cooldown", HEAL_CD, 0xFF5A7A9A, false, false, true, text));
+		for (String legacy : LEGACY) {
+			BatchBUtil.hideMeter(KEY, legacy);
+		}
+	}
+
+	/** The splash a shield makes as it lets go. */
+	private static void shieldBurst(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		level.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.9, 0.8, 0.9, 0.1);
+		level.sendParticles(ParticleTypes.FALLING_WATER, p.getX(), p.getY() + 1.6, p.getZ(), 16, 0.9, 0.4, 0.9, 0.0);
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_SPLASH, 0.7f, 1.3f);
 	}
 }

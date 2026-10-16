@@ -420,3 +420,46 @@ Still waiting on: your go-ahead (or changes) for each power, the three skin link
 - **Removed:** the Wind reserve, the Tailwind stance (+Speed / jump / step / +10 ability damage), the old updraft columns, sprint-jump glides, the rocket-free elytra boosts, the 50% slower drowning, the air-shell overlay and its texture.
 - **Boss:** the Gravebound Wind boss now uses the new ids: Wind Blade, Wind Barrier (its cone blast that turns projectiles), Tailwind (a gust-dash into a close target and a shove), Vacuum, and Tornado (its storm round itself).
 - **Not done:** first person shows the barrier swirl (fainter) and the Hurricane wall but not your own Air Bubble or glide streaks (they would fill the screen). The ridden tornado and the Glide steering are untested in real multiplayer.
+## 12. Water Manipulation Rework: Experimental (mutation)
+
+**What was wrong:** it was switched off (`Powers.ENABLED`). It used H (Healing Water) and N (Geyser), ran on a 575-point supply that hardly refilled, and its Tidal Wave and Water Prison placed real water blocks.
+
+**New design (user-approved):** a water bender on a **Water** meter (0-100) instead of cooldowns. It has six keys, each with a Shift version, and no H or N. Every move is a translucent, animated water model, never water blocks.
+
+- **Water:** refills 10 a second, 25 in rain, 40 standing in water.
+- **Getting it:** unchanged. The Hydrokinetic Serum plus 15 s fully underwater, or the Hydrostatic Test Tank. It returns to the power wheel and random serums.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Water Shot:** a pressurised bolt, 12 damage, puts out fire. 8 Water | **Hydro Jet** (hold): a cutting beam, 8 a second with push-back. 12 Water a second |
+| **G** | **Water Whip:** a 14-block lash, 12 damage, pulls the target. 10 Water | **Water Prison:** traps the target in a water sphere for 4 s. It can't breathe and takes 4 a second. No bosses. 35 Water, 12 s cooldown |
+| **X** | **Riptide:** launch like a Riptide trident, anywhere. 15 Water | **Wave Ride:** surf a wave across land or water for 6 s, knocking mobs aside. 25 Water |
+| **Z** | **Tidal Wave:** a 7-wide wall of water rolls 16 blocks forward, 14 damage, sweeps everything along, puts out fire. 40 Water | **Geyser:** a water column erupts under the target and launches it 10 blocks. 20 Water |
+| **V** | **Water Shield** (hold): an orbiting water sphere stops projectiles and puts out fire. 6 Water a second | **Healing Water:** you and squadmates within 6 heal 8 hearts over 4 s and lose harmful effects. 40 Water, 20 s cooldown |
+| **C** | **Aquatic Form** (toggle): Dolphin's Grace, night vision underwater, +6 melee in water. Free | **Draw Water:** at the aim point, pull a water source out (+30 Water) or place one (5 Water) |
+
+**Passives:** water breathing, fast swimming, 30% less fire damage, and fire on you goes out at once.
+
+**HUD:** mono keys, an always-on blue **Water Hairline**, and timers for Wave Ride, the Water Prison, and the Prison and Healing Water cooldowns.
+
+**Models and animations:** the bolt (a wobbling drop stretched along its flight, with a spray trail), the jet beam, the whip along a travelling S-curve, the prison sphere with bubbles rising through it, the surf wave under the player, the rolling curling tidal wall with a foam crest, the geyser column with a spray crown, the orbiting shield sphere and rings, and the healing swirl and ring. All are built in the vanilla animated water texture. Poses: a palm thrust (R), a braced two-hand pour (Shift+R), the whip crack (G), a clenching reach (Shift+G), the surf stance (Shift+X), a two-palm shove (Z), a scoop and raise (Shift+Z), circling arms (V), a pour over the head (Shift+V) and a pull to the chest (Shift+C). Riptide uses the vanilla trident spin.
+
+**Built (2026-10-16).** Where the spec was silent, I decided the following:
+- **Water refills only while no held move runs** (the Hydro Jet or the Water Shield). Otherwise the jet (12 a second) would cost almost nothing at 10 a second. A move needs its full cost up front. With too little Water it is refused ("Out of water").
+- **Rain** means rain is falling on your block. **In water** means standing or swimming in it.
+- **Water Shot:** the bolt flies 2.2 blocks a tick for up to 16 ticks (about 35 blocks). It hits the first mob in its path. It puts out fire on that mob and in the block it splashes against.
+- **Hydro Jet:** 16 blocks to the first block, about 0.7 blocks wide. It hits every mob in line and stops at the first block. The 8 a second lands in two pulses of 4 (its own count, so hit invulnerability can't eat it). Every tick it pushes mobs back along the beam. Bosses take the damage but aren't pushed.
+- **Water Whip:** the hit lands as it is cast. The target is pulled to about 2 blocks in front of you (not bosses). With no target it still lashes the aim point and costs its Water.
+- **Water Prison:** 16 blocks. It uses the grab rules (no armour stands, nothing over 200 HP, players only where hard crowd control on players is on). It never traps squadmates. The 4 drowning damage lands once a second, from 1 s in. The target is held where it was caught, and its AI loses its target.
+- **Riptide:** a Riptide III launch (3 blocks a tick along your look, a small hop off the ground) and a real 1 s auto-spin attack, so you hit what you spin into. No fall damage for 3 s after.
+- **Wave Ride:** about 12 blocks a second along your look. It gives +0.65 step height, skims the top of water, and has no fall damage. Mobs in front are thrown sideways (no damage, since the spec gives none; not bosses or squadmates). Shift+X again steps off early.
+- **Tidal Wave:** it rears up for 4 ticks, then rolls 16 blocks in 1 s, following the ground (up to 2-block steps, down any slope). A 3-block wall breaks it early. Each hostile takes 14 once, and dropped items are swept along too. It puts out fire in the cells it rolls over.
+- **Geyser:** 24 blocks. Aim at a mob, or at a spot on the ground. The ground bubbles for a quarter second (the geyser follows its target until then), then everything hostile standing on it is thrown about 10 blocks up. No damage, since the spec gives none; the fall does the rest.
+- **Water Shield:** it swallows projectiles within about 2.3 blocks (not your own) and, as a fallback, any projectile damage. Every quarter second it puts out fire blocks within 2.
+- **Healing Water:** 2 health every half second for 4 s (16 total, 8 hearts) to you, squadmates and your own tamed pets within 6. Harmful effects are removed at once.
+- **Aquatic Form:** Dolphin's Grace I. Night vision and +6 melee only while you are in water.
+- **Draw Water:** pulling out a source is free (+30). Placing one costs 5. It can drain or fill a waterlogged block. Placing water in the Nether boils it away (no cost).
+- **Fast swimming** is full water movement efficiency (Depth Strider III). **Fire** is everything in the fire damage tag, lava included.
+- **Removed:** the 575 supply, drinking bottles and buckets into it, the spray, Water Prison's water shaping, the H / N keys, and every temporary water block.
+- **Boss:** the Gravebound Water boss keeps its kit; its move ids are now the power's new ones.
+- **Not done:** the surf movement is on the riding client, so other players see you move at normal network smoothness. Real multiplayer play is untested.

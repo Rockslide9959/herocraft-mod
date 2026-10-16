@@ -62,6 +62,7 @@ public final class RevampClientB {
 
 	/** Called once from {@code ProjectHeroModClient.onInitializeClient}, after the shared pose library. */
 	public static void init() {
+		WaterClient.init(); // v0.16.5: 25 Water Manipulation rework
 		registerPoses();
 		registerOverlays();
 		com.projecthero.mod.client.mutation.geo.GeokinesisClient.init(); // v0.16.5: Geokinesis has its own client class

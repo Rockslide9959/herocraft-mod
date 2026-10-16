@@ -355,6 +355,12 @@ return as they're rebuilt:
   into walls, a Tailwind dash, an Updraft into an elytra-style **Glide**, a travelling **Tornado** that whirls mobs up and
   flings them, a Hurricane wall, a Wind Barrier that blows arrows back, a **tornado you can ride** and an Air Bubble.
   No fall damage, and arrows aimed at you often veer off.
+- **Water Manipulation** (reworked in 0.16.5) -- a water bender on a **Water** meter that refills faster in rain and
+  faster still standing in water: a pressurised Water Shot and a cutting **Hydro Jet**, a Water Whip that hauls mobs in,
+  a **Water Prison** sphere they cannot breathe in, Riptide launches anywhere, a **Wave Ride** you surf across land and
+  water, a 7-wide rolling **Tidal Wave**, a Geyser that throws mobs 10 blocks up, an orbiting Water Shield that
+  swallows arrows, squad-wide Healing Water, Aquatic Form and Draw Water. All of it is real moving water, and none of it
+  leaves water blocks behind.
 
 ---
 

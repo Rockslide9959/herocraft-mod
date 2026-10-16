@@ -82,7 +82,7 @@ public final class RevampBatchB {
 		// 09 Cryokinesis
 		CryokinesisHandlers.registerVisuals(); // v0.16.5 rework
 		// 25 Water Manipulation
-		MutationVisuals.registerFlag("p25.aquatic", WaterHandlers::aquaticActive);
+		WaterHandlers.registerVisuals(); // v0.16.5 rework
 	}
 
 	// ---------------- HUD ----------------
@@ -104,11 +104,8 @@ public final class RevampBatchB {
 		// 09 Cryokinesis
 		CryokinesisHandlers.registerMeters(); // v0.16.5 rework: the Cold Hairline + timers
 
-		// 25 Water Manipulation: the carried supply is the whole power's fuel -- a SLAB, always shown
-		MutationMeters.register(new Spec(WATER, WaterHandlers.SUPPLY, Kind.RESERVE, Style.SLAB, "Water",
-				WaterHandlers.MAX_WATER, 0xFF3A8DFF, true, true));
-		BatchBUtil.ultMeter(WATER);
-		BatchBUtil.hideMeter(WATER, "water");
+		// 25 Water Manipulation: v0.16.5 rework -- the always-on Water Hairline and its timers
+		WaterHandlers.registerMeters();
 	}
 
 }
