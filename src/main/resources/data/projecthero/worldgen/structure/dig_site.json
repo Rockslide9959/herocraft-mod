@@ -1,0 +1,7 @@
+{
+  "type": "projecthero:dig_site",
+  "biomes": "#projecthero:dig_site_biomes",
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

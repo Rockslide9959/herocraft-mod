@@ -590,4 +590,49 @@ public class BlueBeetleGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	// ---------------- v0.16.5: the dig site ----------------
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "dig_site", timeoutTicks = 100)
+	public void digSiteHoldsAtLeast23SuspiciousSandWithTheScarabTable(GameTestHelper helper) {
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		BlockPos at = helper.absolutePos(new BlockPos(2, 1, 2)).offset(0, 12, 0);
+		// a sandstone plinth deep enough for the pit
+		for (BlockPos q : BlockPos.betweenClosed(at.offset(-11, -10, -10), at.offset(11, 0, 13))) {
+			level.setBlock(q, (q.getY() == at.getY() ? Blocks.SAND : Blocks.SANDSTONE).defaultBlockState(), 2);
+		}
+		var piece = new com.projecthero.mod.bluebeetle.worldgen.DigSitePiece(at.getX(), at.getY(), at.getZ());
+		piece.build(level, piece.getBoundingBox());
+		int sand = 0;
+		for (BlockPos q : BlockPos.betweenClosed(at.offset(-11, -9, -10), at.offset(11, 4, 13))) {
+			if (level.getBlockState(q).is(Blocks.SUSPICIOUS_SAND)) {
+				var be = level.getBlockEntity(q);
+				helper.assertTrue(be != null && be.saveWithoutMetadata(level.registryAccess()).getString("LootTable").equals("projecthero:archaeology/dig_site"),
+						"every suspicious sand carries the dig-site table");
+				sand++;
+			}
+		}
+		helper.assertTrue(sand >= 23 && sand == com.projecthero.mod.bluebeetle.worldgen.DigSitePiece.suspiciousCount(),
+				"user: at least 23 suspicious sand (got " + sand + ")");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void digSiteSandCanTurnUpTheScarab(GameTestHelper helper) {
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		var table = level.getServer().reloadableRegistries().getLootTable(com.projecthero.mod.bluebeetle.worldgen.DigSitePiece.ARCHAEOLOGY);
+		int scarabs = 0;
+		for (int i = 0; i < 400; i++) {
+			var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+					.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.ZERO)
+					.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.ARCHAEOLOGY);
+			for (ItemStack st : table.getRandomItems(params, i * 7919L)) {
+				if (st.is(BlueBeetleItems.SCARAB)) {
+					scarabs++;
+				}
+			}
+		}
+		helper.assertTrue(scarabs >= 8 && scarabs <= 40, "about 1 in 18 (" + scarabs + " / 400)");
+		helper.succeed();
+	}
 }

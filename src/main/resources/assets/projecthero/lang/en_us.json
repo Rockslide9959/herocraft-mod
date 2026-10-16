@@ -5962,7 +5962,7 @@
   "projecthero.guide.blue_beetle.tier": "Hero-Tier power (Primary)",
   "projecthero.guide.blue_beetle.body": "Jaime Reyes and Khaji-Da, an alien scarab that builds weapons out of his armour on the fly. A flying all-rounder: blasters, a hammer, tentacles, spikes, a blade, a shield and tricks.",
   "projecthero.guide.blue_beetle.origin": "Getting it",
-  "projecthero.guide.blue_beetle.origin.body": "The Scarab turns up when you brush the suspicious sand in desert pyramids (and, rarely, in their chests). Right-click it and it bonds with you over 5 seconds as the armour builds itself across you. It replaces any other Primary power.",
+  "projecthero.guide.blue_beetle.origin.body": "The Scarab turns up when you brush suspicious sand: about 1 in 9 in a desert pyramid's few sands, and about 1 in 18 at an archaeologists' Dig Site (deserts and badlands -- an excavation pit with tents, a rope line and a buried blue beetle mosaic, holding 42 suspicious sand, so a fully brushed site nearly always gives one; its finds chest can hold one too). It is also rare in pyramid chests. Right-click it and it bonds with you over 5 seconds as the armour builds itself across you. It replaces any other Primary power.",
   "projecthero.guide.blue_beetle.suit": "The armour (H)",
   "projecthero.guide.blue_beetle.suit.body": "H puts the armour on or takes it off: it builds itself pixel by pixel outward from the Scarab on your back, and comes apart the same way. Suited, double-tap jump in the air to fly (the glowing wings spread); land or double-tap again to stop.",
   "projecthero.guide.blue_beetle.energy": "Scarab Energy",

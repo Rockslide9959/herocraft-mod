@@ -36,6 +36,10 @@ public final class ModStructurePieceTypes {
 	public static final StructurePieceType NOVA_POD_SITE =
 			register("nova_pod_site", com.projecthero.mod.nova.worldgen.NovaPodSitePiece::new);
 
+	/** v0.16.5: the Blue Beetle dig site. */
+	public static final StructurePieceType DIG_SITE =
+			register("dig_site", com.projecthero.mod.bluebeetle.worldgen.DigSitePiece::new);
+
 	private ModStructurePieceTypes() {
 	}
 
