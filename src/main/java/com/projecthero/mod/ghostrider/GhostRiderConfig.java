@@ -128,6 +128,12 @@ public final class GhostRiderConfig {
 	public static final int TRAIL_FIRE_TICKS = 60;
 	/** v0.16.5 (user): his punches set what they hit on fire, for this long. */
 	public static final int PUNCH_BURN_SECONDS = 5;
+	/**
+	 * v0.16.5 (user): "he can't transform during the day, during the day he can use his moves but only at 60% strength".
+	 * As a human (day or night) his moves do this share of their damage; by day the Spirit can't rise, and sunrise sends
+	 * it back.
+	 */
+	public static final float HUMAN_POWER = 0.6f;
 
 	// ---------------------------------------------------------------- Z: Judgement Mark
 	public static final double MARK_RANGE = 30.0;

@@ -103,8 +103,10 @@ public class HellCycleRenderer extends EntityRenderer<HellCycleEntity> {
 		// the headlight blazes full-bright
 		this.light.render(pose, buffers.getBuffer(RenderType.eyes(TEXTURE)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 		float age = bike.tickCount + partial;
-		renderWheelFire(pose, buffers, FRONT_Z, age, 0f);
-		renderWheelFire(pose, buffers, REAR_Z, age, 1.3f);
+		if (bike.burning()) { // v0.16.5: a human rider's bike doesn't burn
+			renderWheelFire(pose, buffers, FRONT_Z, age, 0f);
+			renderWheelFire(pose, buffers, REAR_Z, age, 1.3f);
+		}
 		pose.popPose();
 		super.render(bike, yaw, partial, pose, buffers, light);
 	}

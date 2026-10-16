@@ -296,6 +296,11 @@ public final class GhostRider {
 			}
 			revert(player);
 		} else {
+			// v0.16.5 (user): the Spirit only rises at night
+			if (isDaytime(dayTime(player))) {
+				say(player, "message.projecthero.ghost_rider.day_no_transform", ChatFormatting.GOLD);
+				return;
+			}
 			transform(player);
 		}
 	}
@@ -335,9 +340,15 @@ public final class GhostRider {
 		return null;
 	}
 
+	/**
+	 * Gametests only: a fixed day time for the Spirit's day/night rules (the test world sits at morning, and moving the
+	 * shared clock would disturb every other test running at the same time). Null in play.
+	 */
+	public static Long testDayTime;
+
 	/** Overworld day time (the day/night every dimension shares). */
-	private static long dayTime(ServerPlayer player) {
-		return player.server.overworld().getDayTime();
+	public static long dayTime(ServerPlayer player) {
+		return testDayTime != null ? testDayTime : player.server.overworld().getDayTime();
 	}
 
 	/** The next sunrise after {@code dayTime} (day time 0 of the next day). */
@@ -379,11 +390,15 @@ public final class GhostRider {
 			return false;
 		}
 		boolean wasHuman = !s.transformed;
-		GhostRiderState n = s.copy();
-		n.dayLockUntil = nextSunrise(dayTime(player));
-		save(player, n);
-		if (wasHuman) {
-			transform(player); // the Spirit takes over
+		// v0.16.5: by day the Spirit still keeps him alive, but it can't rise -- he stays human (and no lock)
+		boolean day = isDaytime(dayTime(player));
+		if (!day) {
+			GhostRiderState n = s.copy();
+			n.dayLockUntil = nextSunrise(dayTime(player));
+			save(player, n);
+			if (wasHuman) {
+				transform(player); // the Spirit takes over
+			}
 		}
 		player.setHealth(Math.min(player.getMaxHealth(), GhostRiderConfig.DEATH_SAVE_HEALTH));
 		player.clearFire();
@@ -393,8 +408,9 @@ public final class GhostRider {
 		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 60, 0.4, 0.9, 0.4, 0.06);
 		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y, c.z, 30, 0.4, 0.9, 0.4, 0.04);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.WITHER_SPAWN, SoundSource.PLAYERS, 0.5f, 1.6f);
-		player.displayClientMessage(Component.translatable(wasHuman ? "message.projecthero.ghost_rider.death_taken"
-				: "message.projecthero.ghost_rider.death_cheated").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
+		player.displayClientMessage(Component.translatable(day && wasHuman ? "message.projecthero.ghost_rider.death_cheated_day"
+				: wasHuman ? "message.projecthero.ghost_rider.death_taken" : "message.projecthero.ghost_rider.death_cheated")
+				.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 		return true;
 	}
 
@@ -423,7 +439,7 @@ public final class GhostRider {
 			return;
 		}
 		GhostRiderAbilities.clear(player);
-		GhostRiderAbilities.dismissCycle(player);
+		// v0.16.5: the bike stays (a human can ride it too -- it just stops burning)
 		long now = player.level().getGameTime();
 		GhostRiderState n = state(player).copy();
 		n.transformed = false;
@@ -482,8 +498,7 @@ public final class GhostRider {
 			return false;
 		}
 		if (!s.transformed) {
-			say(player, "message.projecthero.ghost_rider.not_transformed", ChatFormatting.GRAY);
-			return false;
+			return true; // v0.16.5: a human can use the moves, at 60% (GhostRiderCombat#strike)
 		}
 		if (player.level().getGameTime() - s.formChangeAt < GhostRiderConfig.TRANSFORM_TICKS - 10) {
 			return false; // still burning in
@@ -515,6 +530,12 @@ public final class GhostRider {
 		tickHunger(player, s.transformed);
 		if (s.dayLockUntil > 0L && now % 20 == 0) {
 			tickDayLock(player, dayTime(player));
+		}
+		// v0.16.5 (user): sunrise drives the Spirit back, whatever is going on
+		if (s.transformed && isDaytime(dayTime(player)) && now - s.formChangeAt > GhostRiderConfig.TRANSFORM_TICKS) {
+			revert(player);
+			say(player, "message.projecthero.ghost_rider.sunrise", ChatFormatting.GOLD);
+			s = state(player);
 		}
 		if (s.transformed) {
 			if (player.getAirSupply() < player.getMaxAirSupply()) {

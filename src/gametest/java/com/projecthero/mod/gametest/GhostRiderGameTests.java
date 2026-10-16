@@ -43,6 +43,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- helpers
 
 	private static ServerPlayer mock(GameTestHelper helper, double x, double y, double z) {
+		GhostRider.testDayTime = 18000L; // v0.16.5: the Spirit only rises at night -- the tests run at midnight
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
@@ -157,12 +158,13 @@ public class GhostRiderGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void movesNeedTheSpiritOut(GameTestHelper helper) {
+	public void aHumanCanStillUseTheMoves(GameTestHelper helper) {
+		// v0.16.5 (user): by day he can't change, but the moves still work (at 60%)
 		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
 		GhostRider.grant(p);
+		GhostRider.setHellfire(p, GhostRiderConfig.HELLFIRE_MAX);
 		GhostRiderAbilities.shield(p);
-		helper.assertFalse(GhostRider.shieldUp(p), "no Soul Shield while human");
-		helper.assertTrue(GhostRider.hellfire(p) == GhostRiderConfig.HELLFIRE_MAX, "nothing spent");
+		helper.assertTrue(GhostRider.hellfire(p) < GhostRiderConfig.HELLFIRE_MAX, "a human used the Soul Shield (Hellfire spent)");
 		helper.succeed();
 	}
 

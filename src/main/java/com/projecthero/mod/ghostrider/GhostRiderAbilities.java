@@ -287,7 +287,7 @@ public final class GhostRiderAbilities {
 	}
 
 	private static void tickBlast(ServerPlayer p, long start, long now) {
-		if (!GhostRider.transformed(p) || !p.isAlive()) {
+		if (!GhostRider.hasPower(p) || !p.isAlive()) { // v0.16.5: a human can hold the blast too (at 60%)
 			stopBlast(p);
 			return;
 		}
@@ -514,9 +514,14 @@ public final class GhostRiderAbilities {
 		p.startRiding(bike, true);
 		CYCLES.put(p.getUUID(), bike.getId());
 		GhostRider.setAnim(p, GhostRiderState.ANIM_SUMMON);
-		level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.5, p.getZ(), 50, 0.8, 0.4, 0.8, 0.06);
+		if (GhostRider.transformed(p)) {
+			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.5, p.getZ(), 50, 0.8, 0.4, 0.8, 0.06);
+			sound(p, SoundEvents.BLAZE_SHOOT, 1.2f, 0.4f);
+		} else {
+			// v0.16.5: a human's bike arrives cold -- smoke, no fire
+			sound(p, SoundEvents.ANVIL_PLACE, 0.6f, 0.6f);
+		}
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.5, p.getZ(), 6, 0.8, 0.3, 0.8, 0.02);
-		sound(p, SoundEvents.BLAZE_SHOOT, 1.2f, 0.4f);
 		sound(p, SoundEvents.RAVAGER_ROAR, 0.6f, 1.6f);
 	}
 
@@ -641,7 +646,7 @@ public final class GhostRiderAbilities {
 
 	private static void tickStare(ServerPlayer p, Stare st, long now) {
 		Entity e = p.level().getEntity(st.targetId);
-		if (!(e instanceof LivingEntity target) || !target.isAlive() || !GhostRider.transformed(p)
+		if (!(e instanceof LivingEntity target) || !target.isAlive() || !GhostRider.hasPower(p)
 				|| target.distanceToSqr(p) > (GhostRiderConfig.STARE_RANGE + 4) * (GhostRiderConfig.STARE_RANGE + 4)
 				|| !p.hasLineOfSight(target)) {
 			endStare(p);

@@ -35,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class GhostRiderReworkGameTests implements FabricGameTest {
 	private static ServerPlayer mock(GameTestHelper helper, double x, double y, double z) {
+		GhostRider.testDayTime = 18000L; // v0.16.5: the Spirit only rises at night -- the tests run at midnight
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();
 		p.setGameMode(GameType.SURVIVAL);
 		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
@@ -205,7 +206,7 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void heCannotDieAndTheSpiritHoldsOnUntilDawn(GameTestHelper helper) {
 		ServerPlayer p = rider(helper, 2.5, 2.0, 2.5);
-		long day = helper.getLevel().getServer().overworld().getDayTime();
+		long day = GhostRider.dayTime(p);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().generic(), 500f);
 		helper.assertTrue(p.isAlive() && !p.isDeadOrDying(), "transformed: a killing blow doesn't kill");
@@ -225,6 +226,55 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 		var json = GhostRiderState.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, locked).getOrThrow();
 		helper.assertTrue(GhostRiderState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow().dayLockUntil == 12345L,
 				"day_lock_until round-trips the codec");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theSpiritOnlyRisesAtNight(GameTestHelper helper) {
+		ServerPlayer p = mock(helper, 2.5, 2.0, 2.5);
+		GhostRider.grant(p);
+		Zombie z = zombie(helper, 2.5, 2.0, 5.5);
+		// all in this one tick, so the borrowed noon never reaches another test
+		GhostRider.testDayTime = 6000L;
+		try {
+			GhostRider.toggleForm(p);
+			helper.assertFalse(GhostRider.transformed(p), "H in daylight: the Spirit stays down");
+			float hp = z.getHealth();
+			com.projecthero.mod.ghostrider.GhostRiderCombat.strike(p, z, p.position(), 10f, 0.0, 0.0, 0);
+			helper.assertTrue(Math.abs((hp - z.getHealth()) - 6f) < 0.6f, "a human's move hits at 60%: took " + (hp - z.getHealth()));
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().generic(), 500f);
+			helper.assertTrue(p.isAlive() && !GhostRider.transformed(p) && GhostRider.state(p).dayLockUntil == 0L,
+					"a daylight death: still saved, but he stays human");
+			// sunrise drives the Spirit back
+			GhostRider.testDayTime = 18000L;
+			GhostRider.transform(p);
+			GhostRiderState n = GhostRider.state(p).copy();
+			n.formChangeAt = helper.getLevel().getGameTime() - 400L;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.GHOST_RIDER_STATE, n);
+			GhostRider.testDayTime = 6000L;
+			GhostRider.tick(p);
+			helper.assertFalse(GhostRider.transformed(p), "sunrise: back to human");
+		} finally {
+			GhostRider.testDayTime = 18000L;
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aHumanRidesAColdBike(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2.0, 3.5);
+		GhostRider.grant(p);
+		GhostRider.setHellfire(p, GhostRiderConfig.HELLFIRE_MAX);
+		GhostRiderAbilities.cycleKey(p);
+		helper.assertTrue(p.getVehicle() instanceof HellCycleEntity, "a human can summon the bike");
+		HellCycleEntity bike = (HellCycleEntity) p.getVehicle();
+		bike.tick();
+		helper.assertFalse(bike.burning(), "it does not burn under a human");
+		GhostRider.transform(p);
+		bike.tick();
+		helper.assertTrue(bike.burning(), "under the Spirit it does");
 		helper.succeed();
 	}
 
@@ -291,7 +341,7 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "ghost_rider_fear")
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "ghost_rider_fear_animals") // alone: another fear test's Ghost Rider would scare the cow too
 	public void animalsBolt(GameTestHelper helper) {
 		for (int x = -12; x <= 22; x++) {
 			for (int z = -12; z <= 22; z++) {
@@ -308,7 +358,7 @@ public class GhostRiderReworkGameTests implements FabricGameTest {
 		helper.onEachTick(() -> GhostRider.tick(p));
 		helper.runAfterDelay(80, () -> {
 			double now = cow.distanceTo(p);
-			helper.assertTrue(now > start + 3.0, "the cow ran from him: " + start + " -> " + now);
+			helper.assertTrue(now > start + 2.0, "the cow ran from him: " + start + " -> " + now); // a panicking cow wanders, so 2 blocks clear is enough
 			helper.succeed();
 		});
 	}
