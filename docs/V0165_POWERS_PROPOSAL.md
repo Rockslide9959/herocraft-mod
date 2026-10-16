@@ -197,6 +197,27 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 **Boss:** the Gravebound Elasticity boss controller is updated to the new move ids.
 
+**Built (2026-10-16).** Where the spec above was silent, I decided the following:
+- **The move that empties the meter still happens.** Then you go limp. While limp you can still switch off the Parachute or Long Reach and let go of a wrap.
+- **Stretch refills only while no held move runs** (a coil, the Gatling, the balloon, a slingshot being pulled back). Otherwise the Gatling (12 a second) and the balloon (8 a second) would cost nothing. "Standing still" means on the ground and not moving.
+- **Coils scale evenly** from tap to the full 1.5 s: Stretch Punch 12 to 24 damage, 18 to 22 blocks. The Hammer Fist goes 20 to 34, and its fist grows with the coil. A move's Stretch is spent when it fires.
+- **Gatling:** each punch hits everything in a ~40° cone out to 10 blocks. It keeps its own 6-a-second count, so it is not blocked by hit invulnerability.
+- **Elastic Grab:** it holds the target up to 6 s and reels it in over about half a second. It refuses bosses and anything over 200 HP, and players only where hard crowd control on players is allowed (the existing grab rule). The hurl damage lands on impact: 10 when it lands, 16 when it hits a wall or another mob (that mob takes 6 too).
+- **Wrap & Squeeze:** the first 4 damage lands after 1 s, then once a second. The creature is pinned to its block and its hits do nothing. It never wraps squadmates, and it lets go beyond 12 blocks.
+- **Slingshot:** "pull back" builds launch power (shown on the coil bar); you don't move back. The arms follow your crosshair while you hold. No impact damage, since the spec gives none.
+- **Rubber Ball:** your hitbox shrinks to 60% and you get +90% speed. Each mob is hit once per hit-invulnerability window. Pressing Shift+X again rolls you out early.
+- **Spring Stomp:** an ~8-block launch, the slam starts at the top, and the ring lands when you touch down. Mobs are thrown about a block a tick upward.
+- **Rubber Shield:** the 60% stacks on the blunt 25%, and you can't be knocked back.
+- **Parachute:** no time limit (it's free). It ends on landing or on Shift+V. Used on the ground it hops you up first.
+- **Long Reach:** 12 blocks for hitting and for blocks. Items within 12 blocks are dragged in to you (the arm stretches to the farthest one). The arm visibly stretches on any use past 4 blocks.
+- **Shape Shift:** you become the block you are looking at within 12 blocks (so a chest by looking at a chest), otherwise a barrel. It needs solid ground and snaps you to the middle of your block. Mobs can't target you. It ends when you move (a third of a block), attack, use any Elasticity move, or press Shift+C again.
+- **Landing bounce:** you spring back up at about half your landing speed (three quarters as the ball), so the bounces die away. Shift lands dead.
+- **Blunt** means melee (mob and player attacks) and explosions. **Fire** means everything in the fire damage tag, lava included. The shared damage-rule code can now *raise* damage, which it could not before.
+- **HUD:** mono keys, the always-on orange Stretch Hairline, a coil bar (also used by the slingshot pull), timers for the Hammer Fist, Spring Stomp and Shape Shift cooldowns, the Ball and the Wrap, and a LIMP bar.
+- **Removed:** Elastic Form with its three-shape wheel (the screen and its network payloads), Double Fist Slam, the Rubber reserve and the -25% melee passive.
+- **Boss:** Double Fist Slam became **Elastic Grab**: it reels a close target in and hurls it (10).
+- **Not done:** in first person you don't see your own arm stretch (other players do, and the hit and particles still show).
+
 ---
 
 ## 5. Cutting test time
