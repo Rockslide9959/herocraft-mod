@@ -1,7 +1,6 @@
 package com.projecthero.mod.hero.revamp;
 
 import com.projecthero.mod.ProjectHeroMod;
-import com.projecthero.mod.hero.power.p05.GeoRockEntity;
 import com.projecthero.mod.hero.power.p06.CrystalNodeEntity;
 import com.projecthero.mod.hero.power.p06.CrystalShardEntity;
 
@@ -15,14 +14,7 @@ import net.minecraft.world.entity.MobCategory;
 
 /** v0.13.22 batch B entity types (registered by referencing this class from {@link RevampBatchB#init}). */
 public final class BatchBEntities {
-	/** Geokinesis R: a chunk of the ground you stand on. */
-	public static final EntityType<GeoRockEntity> GEO_ROCK = register("geo_rock",
-			EntityType.Builder.<GeoRockEntity>of(GeoRockEntity::new, MobCategory.MISC)
-					.sized(0.5f, 0.5f)
-					.clientTrackingRange(6)
-					.updateInterval(10)
-					.noSave()
-					.build("geo_rock"));
+	// v0.16.5: the Geokinesis rock moved to GeoEntityTypes (it rises out of the ground, so it updates every tick)
 
 	/** Crystalkinesis R (and the Resonance Spire's ammunition): a flying amethyst shard. */
 	public static final EntityType<CrystalShardEntity> CRYSTAL_SHARD = register("crystal_shard",

@@ -83,6 +83,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.IronManLandingSlam.clearSessionState();
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
+		com.projecthero.mod.hero.power.p05.GeoTerrain.clearSessionState(); // v0.16.5: the wall / sinkhole ledger (restored on STOPPING)
 		ConjuredStructures.clearSessionState();
 		com.projecthero.mod.hero.power.ComboMoves.reset();
 		MagneticHandlers.clearSessionState();

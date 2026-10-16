@@ -163,16 +163,16 @@ final class PowerCatalog {
 	private static Power geokinesis() {
 		String k = "power_05_geokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				// v0.13.22 revamp (batch B): the ground under you is your ammo
-				.ability(ab(k, "rock_shot", SLOT_1, INSTANT, 34))
-				.ability(ab(k, "earth_spike", SLOT_2, INSTANT, 85))
-				.ability(ab(k, "rock_surf", SLOT_3, TOGGLE, 85))
-				.ability(ab(k, "earthquake", SLOT_4, HOLD, 55 * S))
-				.ability(ab(k, "stone_wall", SLOT_5, INSTANT, 7 * S))
-				.ability(ab(k, "earth_armor", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "sinkhole", AbilitySlot.SLOT_7, INSTANT, 12 * S))
-				.ability(ab(k, "tectonic_pillar", AbilitySlot.SLOT_8, INSTANT, 153))
-				.passives(pk(k, "passive.mining"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Earth meter instead of
+				// cooldowns. All HOLD so the handlers own tap / hold / Shift / release; the one real cooldown (Sinkhole
+				// 15 s) is the handler's own timer.
+				.ability(ab(k, "rock_shot", SLOT_1, HOLD, 0))
+				.ability(ab(k, "earth_grip", SLOT_2, HOLD, 0))
+				.ability(ab(k, "rock_surf", SLOT_3, HOLD, 0))
+				.ability(ab(k, "earthquake", SLOT_4, HOLD, 0))
+				.ability(ab(k, "stone_wall", SLOT_5, HOLD, 0))
+				.ability(ab(k, "tunnel", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.earth"), pk(k, "passive.knockback"), pk(k, "passive.mining"), pk(k, "passive.fall"))
 				.serum(SerumRecipe.of("minecraft:weakness", pk(k, "serum"), "minecraft:amethyst_shard")
 						.withFuel("minecraft:lapis_lazuli"))
 				.trigger(MutationTrigger.of(Kind.GEOLOGICAL_RESONANCE, pk(k, "trigger"), "projecthero.device.resonance_chamber"))

@@ -317,7 +317,7 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **five are available right now** (plus Super Speed, above), the rest
+experimental powers are being remade one by one; **six are available right now** (plus Super Speed, above), the rest
 return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
@@ -333,6 +333,11 @@ return as they're rebuilt:
   Slingshot, a bouncing **Rubber Ball**, a boulder-sized Hammer Fist, a Spring Stomp on stilts, a balloon that bounces
   arrows back, a parachute, 12-block Long Reach and a **Shape Shift** into a barrel or a chest. Run the meter dry and
   you go limp.
+- **Geokinesis** (reworked in 0.16.5) -- an earthbender on an **Earth** meter that refills fastest with your feet on
+  natural ground. Rip stones out of the ground and fire them, heave and hurl a **boulder** that shatters, stone hands
+  that grab legs, a **Sinkhole** that swallows a foe, Rock Surf on a slab of stone, Tectonic Pillars, an Earthquake
+  ripple, lines of Earth Spikes, Stone Walls, a skin of **rock armour**, a 3x3 Tunnel bore and a Seismic Sense that
+  shows every creature through the walls. Every rock and pillar is made of the ground it came from.
 
 ---
 

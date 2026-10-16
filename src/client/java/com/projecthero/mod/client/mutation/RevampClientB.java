@@ -65,7 +65,7 @@ public final class RevampClientB {
 	public static void init() {
 		registerPoses();
 		registerOverlays();
-		EntityRendererRegistry.register(BatchBEntities.GEO_ROCK, ctx -> new ThrownItemRenderer<>(ctx, 1.6f, false));
+		com.projecthero.mod.client.mutation.geo.GeokinesisClient.init(); // v0.16.5: Geokinesis has its own client class
 		EntityRendererRegistry.register(BatchBEntities.CRYSTAL_SHARD, CrystalShardRenderer::new);
 		EntityRendererRegistry.register(BatchBEntities.CRYSTAL_NODE, CrystalNodeRenderer::new);
 	}
@@ -82,22 +82,7 @@ public final class RevampClientB {
 	}
 
 	private static void registerPoses() {
-		// 05: surfing a slab -- side-on, knees bent, arms out for balance
-		MutationPose.registerLoop("p05.surf", 4, new float[][] { z(0),
-				f(4, -0.3f, 0, 1.15f, -0.3f, 0, -1.15f, 0.22f, 0.65f, -0.45f, 0.4f, 0.1f),
-				f(14, -0.4f, 0, 1.25f, -0.2f, 0, -1.05f, 0.26f, 0.7f, -0.5f, 0.45f, 0.1f),
-				f(24, -0.3f, 0, 1.15f, -0.3f, 0, -1.15f, 0.22f, 0.65f, -0.45f, 0.4f, 0.1f) });
-		// 05: heave a colossal rock from overhead
-		MutationPose.register("p05.heave", new float[][] { z(0),
-				f(3, -3.0f, 0, 0.3f, -3.0f, 0, -0.3f, -0.3f, 0, 0.2f, -0.2f, -0.3f),
-				f(7, -1.3f, 0, 0.1f, -1.3f, 0, -0.1f, 0.4f, 0, -0.4f, 0.4f, 0.1f),
-				f(12, -1.2f, 0, 0.1f, -1.2f, 0, -0.1f, 0.35f, 0, -0.4f, 0.4f, 0.1f), z(18) });
-		// 05: reach out, clench and drag the ground down
-		MutationPose.register("p05.sinkhole", new float[][] { z(0),
-				f(3, AIM, AIM, 0, 0.2f, 0, -0.2f, 0.1f, -0.2f, -0.1f, 0.1f, 0),
-				f(8, AIM, AIM, 0, 0.2f, 0, -0.2f, 0.1f, -0.2f, -0.1f, 0.1f, 0),
-				f(12, -0.2f, 0.2f, 0.2f, 0.3f, 0, -0.3f, 0.45f, -0.1f, -0.3f, 0.3f, 0.3f),
-				f(16, -0.2f, 0.2f, 0.2f, 0.3f, 0, -0.3f, 0.45f, -0.1f, -0.3f, 0.3f, 0.3f), z(21) });
+		// 05 Geokinesis: its poses moved to GeokinesisClient (v0.16.5)
 		// 06: fists pulled in, then flung wide as every node bursts
 		MutationPose.register("p06.shatter", new float[][] { z(0),
 				f(4, -1.2f, -0.9f, 0, -1.2f, 0.9f, 0, 0.15f, 0, 0, 0, 0.1f),
@@ -138,20 +123,7 @@ public final class RevampClientB {
 	// ---------------- overlays ----------------
 
 	private static void registerOverlays() {
-		// 05 Geokinesis: stone skin, tinted by the ground you are drawing on
-		MutationOverlays.register("p05.stone_skin", ctx -> {
-			int g = Mth.clamp((int) ctx.state().value("p05.ground", 0), 0, GROUND_TINT.length - 1);
-			MutationRender.shell(ctx, STONE, MutationRender.Shell.THICK, GROUND_TINT[g], false);
-		});
-		// 05: the slab of ground you ride on Rock Surf
-		MutationOverlays.register("p05.rock_surf", ctx -> {
-			int id = (int) ctx.state().value("p05.surf_block", 0);
-			BlockState st = id > 0 ? Block.stateById(id) : Blocks.STONE.defaultBlockState();
-			if (st.isAir()) {
-				st = Blocks.STONE.defaultBlockState();
-			}
-			underFoot(ctx, st, 1.1f, 0.3f, 1.7f, ctx.light());
-		});
+		// 05 Geokinesis: its overlays (rock plates, the surf slab) moved to GeokinesisClient (v0.16.5)
 
 		// 06 Crystalkinesis: amethyst plating with spikes at the shoulders and back
 		MutationOverlays.register("p06.crystal_armor", ctx -> {

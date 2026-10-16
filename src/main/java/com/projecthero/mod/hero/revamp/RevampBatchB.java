@@ -72,14 +72,8 @@ public final class RevampBatchB {
 	// ---------------- overlays (flags every viewer sees) ----------------
 
 	private static void registerVisuals() {
-		// 05 Geokinesis
-		MutationVisuals.registerFlag("p05.stone_skin", GeokinesisHandlers::armorActive);
-		MutationVisuals.registerFlag("p05.rock_surf", GeokinesisHandlers::surfing);
-		MutationVisuals.registerValue("p05.ground", p -> ExperimentalPowers.owns(p, GEO)
-				&& (GeokinesisHandlers.armorActive(p) || GeokinesisHandlers.surfing(p))
-				? GroundType.under(p).type().ordinal() + 1 : 0);
-		MutationVisuals.registerValue("p05.surf_block", p -> GeokinesisHandlers.surfing(p)
-				? Block.getId(GroundType.under(p).state()) : 0);
+		// 05 Geokinesis (v0.16.5 rework: its own class)
+		GeokinesisHandlers.registerVisuals();
 		// 06 Crystalkinesis
 		MutationVisuals.registerFlag("p06.crystal_armor", CrystalkinesisHandlers::armorActive);
 		MutationVisuals.registerFlag("p06.crystal_path", CrystalkinesisHandlers::onPath);
@@ -100,17 +94,8 @@ public final class RevampBatchB {
 	// ---------------- HUD ----------------
 
 	private static void registerMeters() {
-		// 05 Geokinesis: Earth Armor strain, the charge, and a line naming the ground you are drawing on
-		MutationMeters.register(new Spec(GEO, "earth_armor", Kind.RESERVE, Style.METER, "Earth Armor",
-				GeokinesisHandlers.MAX_STRAIN, 0xFF9C8E7A, false, false));
-		BatchBUtil.ultMeter(GEO);
-		groundLine(GroundType.NONE, "Ground: none — weak rock (x0.75)", 0xFF7A7A7A);
-		groundLine(GroundType.STONE, "Ground: Stone", 0xFFA8A8A8);
-		groundLine(GroundType.DEEPSLATE, "Ground: Deepslate — heavy (x1.35, slower)", 0xFF5A5A66);
-		groundLine(GroundType.SAND, "Ground: Sand — blinding dust", 0xFFE3D08A);
-		groundLine(GroundType.NETHER, "Ground: Nether — sets alight", 0xFFC0473A);
-		groundLine(GroundType.ORE, "Ground: Ore — x1.45 damage", 0xFF5FD4C8);
-		groundLine(GroundType.FROST, "Ground: Ice & Snow — slows", 0xFFA8DCFF);
+		// 05 Geokinesis (v0.16.5 rework): the always-on Earth Hairline + timers
+		GeokinesisHandlers.registerMeters();
 
 		// 06 Crystalkinesis
 		MutationMeters.register(new Spec(CRYSTAL, "crystal_armor", Kind.RESERVE, Style.METER, "Crystal Armor",
@@ -145,7 +130,4 @@ public final class RevampBatchB {
 		BatchBUtil.hideMeter(WATER, "water");
 	}
 
-	private static void groundLine(GroundType t, String label, int color) {
-		MutationMeters.register(new Spec(GEO, t.resource(), Kind.BUILD, Style.HAIRLINE, label, 1.0f, color, false, false));
-	}
 }

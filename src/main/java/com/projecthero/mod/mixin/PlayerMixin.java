@@ -107,7 +107,7 @@ public abstract class PlayerMixin {
 	private void projecthero$geoMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;
 		if (GeoBareHands.applies(self)) {
-			// Iron-tool hands whatever is held (a better tool still wins), and +50% for earth blocks.
+			// v0.16.5: stone / dirt (natural ground) break twice as fast, whatever is held.
 			float boosted = GeoBareHands.miningSpeed(state, cir.getReturnValue());
 			if (boosted > cir.getReturnValue()) {
 				cir.setReturnValue(boosted);
