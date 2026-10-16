@@ -83,6 +83,8 @@ public final class ElasticityClient {
 
 	/** From {@code RevampClientE.init()}. */
 	public static void init() {
+		// black-and-gray keys / name; the orange Stretch Hairline is a registered meter
+		com.projecthero.mod.client.gui.AbilityHudExtras.mono(ElasticityHandlers.KEY);
 		registerPoses();
 		MutationOverlays.register("p17.arm", ElasticityClient::armExtras);
 		MutationOverlays.register("p17.coiling", ElasticityClient::renderCoil);
