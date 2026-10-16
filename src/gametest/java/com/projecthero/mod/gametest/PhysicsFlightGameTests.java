@@ -43,7 +43,7 @@ public class PhysicsFlightGameTests implements FabricGameTest {
 				DirectionalFlightModel.ironManSuit(m6.flightSpeed(), m6.flightAcceleration(), m6.maxFlightSpeedMps(),
 						m6.flightCruiseFor(true), true, false, 1.0),
 				DirectionalFlightModel.maxSteel(0.1f, false),
-				DirectionalFlightModel.flightPower(com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED, true, 2, false));
+				DirectionalFlightModel.flightPower(true, true, false, false, false));
 	}
 
 	private static Vec3 fly(Vec3 v, Vec3 look, float throttle, Tune tune, int ticks) {

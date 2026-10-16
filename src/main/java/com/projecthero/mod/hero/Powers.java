@@ -31,6 +31,7 @@ public final class Powers {
 	public static final Set<String> ENABLED = Set.of(
 			"power_01_super_strength",
 			"power_02_laser_vision",
+			"power_03_flight", // v0.16.5: reworked (Lift meter, six keys + Shift)
 			"power_04_super_speed",
 			"power_11_teleportation", // v0.16.5: reworked (Strain meter, six keys + Shift)
 			"power_12_super_regeneration",

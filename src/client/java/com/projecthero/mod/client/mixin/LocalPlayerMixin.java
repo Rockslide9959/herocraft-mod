@@ -114,20 +114,13 @@ public abstract class LocalPlayerMixin {
 		}
 		Vec3 v = self.getDeltaMovement();
 		double horiz = Math.sqrt(v.x * v.x + v.z * v.z);
-		boolean sonic = st.resources.getOrDefault("power_03_flight/sonic_ticks", 0.0f) > 0.5f;
 
 		if (self.getAbilities().flying && com.projecthero.mod.client.flight.DirectionalFlight.engaged()) {
 			return; // v0.14.16: directional flight applies these same caps itself (flight.DirectionalFlightModel#flightPower)
 		}
 		if (self.getAbilities().flying && horiz > 1.0e-4) {
-			double capPerTick;
-			if (sonic) {
-				capPerTick = 50.0 / 20.0;
-			} else {
-				// v0.13.22: sprinting climbs Flight's speed tiers (synced by FlightHandlers): 25 / 32 / 39 / 46 blocks/s
-				int tier = Math.round(st.resources.getOrDefault("power_03_flight/speed_tier", 0.0f));
-				capPerTick = (self.isSprinting() ? 25.0 + 7.0 * Math.max(0, Math.min(3, tier)) : 15.0) / 20.0;
-			}
+			// v0.16.5 rework: 20 b/s cruising, 50 sprinting on Lift, x1.6 Afterburner, x1.5 Slipstream
+			double capPerTick = com.projecthero.mod.client.mutation.FlightClient.capBps(self) / 20.0;
 			if (horiz > capPerTick) {
 				double f = capPerTick / horiz;
 				self.setDeltaMovement(v.x * f, v.y, v.z * f);

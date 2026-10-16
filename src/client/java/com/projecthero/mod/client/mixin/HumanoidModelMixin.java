@@ -252,7 +252,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 
 		// Hero flight (Wind/rock/flame): lean like Thor but keep the arms pinned straight down at the
 		// sides instead of letting them run-cycle in the air.
-		if (FlightPoseHelper.heroFlight(player, partialTick)) {
+		if (FlightPoseHelper.heroFlight(player, partialTick)
+				&& !com.projecthero.mod.client.mutation.FlightClient.posing(player)) { // v0.16.5: Flight's move poses win
 			float w = Math.min(1.0f, legLean);
 			this.rightArm.xRot = Mth.lerp(w, this.rightArm.xRot, 0.0f);
 			this.rightArm.yRot = Mth.lerp(w, this.rightArm.yRot, 0.0f);

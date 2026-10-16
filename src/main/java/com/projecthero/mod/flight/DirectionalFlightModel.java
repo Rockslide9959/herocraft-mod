@@ -53,10 +53,8 @@ public final class DirectionalFlightModel {
 	/** Below this squared speed (blocks/tick) with no input, the hover snaps to a dead stop. */
 	public static final double HOVER_SNAP_SQR = 1.0e-4;
 
-	// -- Flight power (power_03_flight) caps, previously the LocalPlayerMixin clamp: 15 b/s cruise, 25/32/39/46 b/s
-	// sprint tiers, 50 b/s Sonic Flight.
-	public static final double FLIGHT_POWER_CRUISE_CAP = 15.0 / 20.0;
-	public static final double FLIGHT_POWER_SONIC_SPEED = 50.0 / 20.0;
+	// -- v0.16.5 Flight power (power_03_flight) rework: 20 b/s cruising, 50 sprint-flying (user numbers) -- the numbers live in
+	// hero.power.p03.FlightHandlers (CRUISE_BPS / SPRINT_BPS / AFTERBURNER_MULT / SLIPSTREAM_MULT / VERTICAL_BPS).
 
 	/** Iron Man's supersonic burst: the old server drive (0.7 kept + 0.9 along the look) settled at 3 blocks a tick. */
 	public static final double IRON_MAN_SUPERSONIC_SPEED = 3.0;
@@ -183,14 +181,30 @@ public final class DirectionalFlightModel {
 	}
 
 	/**
-	 * The experimental Flight power: the vanilla tune at its tier's flying speed, under its old caps -- 15 b/s cruising,
-	 * 25 / 32 / 39 / 46 b/s for sprint tiers 0-3 -- and Sonic Flight's 50 b/s forced drive.
+	 * v0.16.5: the experimental Flight power -- 20 b/s cruising, 50 sprint-flying while there is Lift left ({@code lift}),
+	 * x1.6 on Afterburner, x1.5 in a Slipstream, 12 b/s up / down, Green Lantern handling. Hover hangs dead still (no
+	 * cruise, no climb: the flier only aims).
 	 */
-	public static Tune flightPower(float flyingSpeed, boolean sprint, int tier, boolean sonic) {
-		int t = Math.max(0, Math.min(3, tier));
-		double cap = sprint ? (25.0 + 7.0 * t) / 20.0 : FLIGHT_POWER_CRUISE_CAP;
-		Tune tune = vanilla(flyingSpeed, sprint).withMaxHorizontal(sonic ? FLIGHT_POWER_SONIC_SPEED : cap);
-		return sonic ? tune.withForcedForward(FLIGHT_POWER_SONIC_SPEED) : tune;
+	public static Tune flightPower(boolean sprint, boolean lift, boolean afterburner, boolean slipstream, boolean hover) {
+		if (hover) {
+			return new Tune(0.0, 0.0, 0.0, DEFAULT_ACCELERATION, DEFAULT_REVERSE, 0.5, 0.0, 0.0, false, PUSH_CARRY_TICKS, true);
+		}
+		double bps = flightPowerBps(sprint, lift, afterburner, slipstream);
+		return new Tune(bps / 20.0, com.projecthero.mod.hero.power.p03.FlightHandlers.VERTICAL_BPS / 20.0, 1.0, DEFAULT_ACCELERATION,
+				DEFAULT_REVERSE, DEFAULT_IDLE, 0.0, 0.0, false, PUSH_CARRY_TICKS, true);
+	}
+
+	/** v0.16.5: the Flight power's level-flight speed in blocks a second. */
+	public static double flightPowerBps(boolean sprint, boolean lift, boolean afterburner, boolean slipstream) {
+		double bps = sprint && lift ? com.projecthero.mod.hero.power.p03.FlightHandlers.SPRINT_BPS
+				: com.projecthero.mod.hero.power.p03.FlightHandlers.CRUISE_BPS;
+		if (afterburner) {
+			bps *= com.projecthero.mod.hero.power.p03.FlightHandlers.AFTERBURNER_MULT;
+		}
+		if (slipstream) {
+			bps *= com.projecthero.mod.hero.power.p03.FlightHandlers.SLIPSTREAM_MULT;
+		}
+		return bps;
 	}
 
 	/**

@@ -317,7 +317,7 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **five are available right now** (plus Super Speed, above), the rest
+experimental powers are being remade one by one; **six are available right now** (plus Super Speed, above), the rest
 return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
@@ -333,6 +333,10 @@ return as they're rebuilt:
   Slingshot, a bouncing **Rubber Ball**, a boulder-sized Hammer Fist, a Spring Stomp on stilts, a balloon that bounces
   arrows back, a parachute, 12-block Long Reach and a **Shape Shift** into a barrel or a chest. Run the meter dry and
   you go limp.
+- **Flight** (reworked in 0.16.5) -- Superman-style flight: double-tap jump to take off, cruise at 20 blocks a second
+  and sprint-fly at 50. A **Lift** meter pays for sprint-flying and the big moves: Flying Punches, a cratering Dive
+  Bomb, Grab & Carry, an **Orbital Drop** that takes a foe 40 blocks up and lets go, Air Dash and Barrel Roll, a
+  **Sonic Boom** cone, a Takeoff Blast, Hover, a squad **Slipstream**, an Afterburner with a contrail and an Updraft.
 
 ---
 

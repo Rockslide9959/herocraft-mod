@@ -156,7 +156,8 @@ public abstract class PlayerRendererMixin {
 		// v0.16.2 Physics Flight: roll the body about its own long axis (the flight path) through its middle -- around
 		// the forward axis while still fairly upright, along the body once laid out flat or diving. Before the lean, so
 		// it turns the already-leaned body; a positive roll drops the flier's right side (local +X).
-		float physicsRoll = FlightPoseHelper.roll(player, partialTicks);
+		float physicsRoll = FlightPoseHelper.roll(player, partialTicks)
+				+ com.projecthero.mod.client.mutation.FlightClient.barrelRoll(player, partialTicks); // v0.16.5 Barrel Roll spin
 		if (Math.abs(physicsRoll) >= 0.05f) {
 			float l = lean * Mth.DEG_TO_RAD;
 			float axis = Math.max(lean, 90.0f) * Mth.DEG_TO_RAD;

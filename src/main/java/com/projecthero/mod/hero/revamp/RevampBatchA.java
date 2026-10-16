@@ -45,14 +45,7 @@ public final class RevampBatchA {
 		registerVisuals();
 		registerMeters();
 
-		// Flight's Barrel Roll: half a second of i-frames (the void and /kill still get through).
-		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-			if (entity instanceof ServerPlayer p && FlightHandlers.rolling(p)
-					&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
-				return false;
-			}
-			return true;
-		});
+		// v0.16.5: Flight's Barrel Roll only dodges projectiles now -- FlightHandlers#damageFactor, read by HeroDamageRules
 	}
 
 	/** Called once per server tick (END_SERVER_TICK). */
@@ -65,15 +58,8 @@ public final class RevampBatchA {
 
 		// 02 Laser Vision: v0.14.5 -- no eye glow any more; its beam flag lives in v0145/LaserVisionV0145
 
-		// 03 Flight: a sheath of wind streaks at the upper speed tiers and in Sonic Flight
-		MutationVisuals.registerFlag("p03.wind", p -> owns(p, FlightHandlers.KEY)
-				&& (BatchA.res(p, FlightHandlers.KEY, "speed_tier") >= 1.5f || BatchA.res(p, FlightHandlers.KEY, "sonic_ticks") > 0.5f));
-		MutationVisuals.registerValue("p03.speed", p -> {
-			if (!owns(p, FlightHandlers.KEY)) {
-				return 0;
-			}
-			return BatchA.res(p, FlightHandlers.KEY, "sonic_ticks") > 0.5f ? 4 : BatchA.res(p, FlightHandlers.KEY, "speed_tier");
-		});
+		// 03 Flight: v0.16.5 rework -- the wind sheath, hover, slipstream, afterburner and carry values live in FlightHandlers
+		FlightHandlers.registerVisuals();
 
 		// 04 Super Speed: v0.14.5 -- its after-image trail flags live in v0145.SuperSpeedV0145
 
@@ -87,13 +73,8 @@ public final class RevampBatchA {
 
 		// 02 Laser Vision: v0.14.5 -- its meters live in v0145/LaserVisionV0145
 
-		// 03 Flight
-		MutationMeters.register(new Spec(FlightHandlers.KEY, "speed_tier", Kind.BUILD, Style.METER, "Airspeed",
-				3f, 0xFF9FD8FF, false, false));
-		MutationMeters.register(new Spec(FlightHandlers.KEY, "sonic_ticks", Kind.TIMER, Style.HAIRLINE, "Sonic Flight",
-				500f, 0xFFE8F4FF, false, false));
-		MutationMeters.register(new Spec(FlightHandlers.KEY, "slip_ticks", Kind.TIMER, Style.HAIRLINE, "Slipstream",
-				240f, 0xFFB8E8D8, false, false));
+		// 03 Flight: v0.16.5 rework -- the always-on Lift Hairline + the Orbital Drop / Carry timers
+		FlightHandlers.registerMeters();
 
 		// 04 Super Speed: v0.14.5 -- meters registered in v0145.SuperSpeedV0145
 

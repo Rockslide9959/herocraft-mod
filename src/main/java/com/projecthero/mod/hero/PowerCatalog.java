@@ -116,16 +116,16 @@ final class PowerCatalog {
 	private static Power flight() {
 		String k = "power_03_flight";
 		return Power.Builder.of(Powers.id(k), PowerCategory.MOVEMENT)
-				// v0.13.22 revamp: speed tiers + the sonic boom
-				.ability(ab(k, "air_dash", SLOT_1, INSTANT, 51))
-				.ability(ab(k, "dive_bomb", SLOT_2, INSTANT, 136))
-				.ability(ab(k, "flight_toggle", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "orbital_drop", SLOT_4, INSTANT, 900))
-				.ability(ab(k, "carry", SLOT_5, TOGGLE, 0))
-				.ability(ab(k, "sonic_flight", SLOT_6, INSTANT, 510))
-				.ability(ab(k, "slipstream", AbilitySlot.SLOT_7, INSTANT, 320))
-				.ability(ab(k, "barrel_roll", AbilitySlot.SLOT_8, INSTANT, 70))
-				.passives(pk(k, "passive.air_control"), pk(k, "passive.fall"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Lift meter instead of
+				// cooldowns; flight itself is a double-tap of jump. All HOLD so the handlers own Shift / release; the one
+				// real cooldown (Orbital Drop, 15 s) is the handler's own timer.
+				.ability(ab(k, "flying_punch", SLOT_1, HOLD, 0))
+				.ability(ab(k, "grab_carry", SLOT_2, HOLD, 0))
+				.ability(ab(k, "air_dash", SLOT_3, HOLD, 0))
+				.ability(ab(k, "sonic_boom", SLOT_4, HOLD, 0))
+				.ability(ab(k, "hover", SLOT_5, HOLD, 0))
+				.ability(ab(k, "afterburner", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.lift"), pk(k, "passive.flight"), pk(k, "passive.speed"), pk(k, "passive.fall"))
 				.serum(SerumRecipe.of("minecraft:slow_falling", pk(k, "serum"),
 						"minecraft:feather", "minecraft:rabbit_foot", "minecraft:amethyst_shard"))
 				.trigger(MutationTrigger.of(Kind.GRAVITY_DISTORTION, pk(k, "trigger"), "projecthero.device.gravity_plate"))

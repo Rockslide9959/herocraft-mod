@@ -12,6 +12,7 @@ import net.minecraft.world.entity.MobCategory;
 /** v0.13.22 revamp batch A entities: the chunk of block / boulder Super Strength holds and hurls. */
 public final class BatchAEntities {
 	public static EntityType<ThrownChunkEntity> THROWN_CHUNK;
+	public static EntityType<FlightFxEntity> FLIGHT_FX;
 
 	private BatchAEntities() {
 	}
@@ -31,5 +32,16 @@ public final class BatchAEntities {
 						.noSummon()
 						.fireImmune()
 						.build("thrown_chunk"));
+		// v0.16.5 Flight rework: the shock rings / crater / wind columns, drawn as models
+		FLIGHT_FX = Registry.register(BuiltInRegistries.ENTITY_TYPE,
+				ResourceKey.create(Registries.ENTITY_TYPE, ProjectHeroMod.id("flight_fx")),
+				EntityType.Builder.<FlightFxEntity>of(FlightFxEntity::new, MobCategory.MISC)
+						.sized(0.5f, 0.5f)
+						.clientTrackingRange(10)
+						.updateInterval(20)
+						.noSave()
+						.noSummon()
+						.fireImmune()
+						.build("flight_fx"));
 	}
 }

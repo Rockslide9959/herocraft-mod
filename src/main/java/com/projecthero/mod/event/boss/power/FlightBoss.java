@@ -29,7 +29,8 @@ public class FlightBoss extends BossPowerController {
 	private static final int DIVE = 2;
 	private static final int ORBITAL = 3;
 	private static final int ROLL = 4;
-	private static final List<String> IDS = List.of("flight_toggle", "air_dash", "dive_bomb", "orbital_drop", "barrel_roll");
+	private static final List<String> IDS = List.of("afterburner", "air_dash", "flying_punch", "grab_carry", "air_dash");
+	// v0.16.5 rework ids: take-off = Afterburner (C), Dive Bomb = Shift+R, Orbital Drop = Shift+G, Barrel Roll = Shift+X
 
 	private int flyTicks;
 	private int groundedTicks;

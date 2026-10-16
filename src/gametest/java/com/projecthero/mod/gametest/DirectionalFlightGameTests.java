@@ -45,7 +45,7 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 				DirectionalFlightModel.ironMan(m2.flightSpeed(), m2.flightAcceleration(), m2.maxFlightSpeedMps(), false, false),
 				DirectionalFlightModel.repulsorBoots(false),
 				DirectionalFlightModel.vanilla(com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED, false),
-				DirectionalFlightModel.flightPower(com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED, false, 0, false));
+				DirectionalFlightModel.flightPower(false, true, false, false, false));
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -177,13 +177,12 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 				&& boots.maxHorizontal() == 0.0,
 				"Repulsor Boots: never slower than the creative-flight speed they always had, no extra ceiling");
 
-		Tune cruise = DirectionalFlightModel.flightPower(0.06f, false, 0, false);
-		Tune tier3 = DirectionalFlightModel.flightPower(0.105f, true, 3, false);
-		Tune sonic = DirectionalFlightModel.flightPower(0.06f, false, 0, true);
-		helper.assertTrue(Math.abs(cruise.maxHorizontal() - 15.0 / 20.0) < EPS
-				&& Math.abs(tier3.maxHorizontal() - 46.0 / 20.0) < EPS
-				&& Math.abs(sonic.forcedForward() - 50.0 / 20.0) < EPS,
-				"Flight power: 15 b/s cruise, 46 b/s top tier, 50 b/s Sonic Flight");
+		Tune cruise = DirectionalFlightModel.flightPower(false, true, false, false, false);
+		Tune sprint = DirectionalFlightModel.flightPower(true, true, false, false, false);
+		Tune dry = DirectionalFlightModel.flightPower(true, false, false, false, false);
+		helper.assertTrue(Math.abs(cruise.speed() - 20.0 / 20.0) < EPS && Math.abs(sprint.speed() - 50.0 / 20.0) < EPS
+				&& Math.abs(dry.speed() - cruise.speed()) < EPS,
+				"Flight power (v0.16.5): 20 b/s cruise, 50 b/s sprint-flying, cruise only with no Lift");
 		helper.succeed();
 	}
 

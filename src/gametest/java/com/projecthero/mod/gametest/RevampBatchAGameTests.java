@@ -138,8 +138,8 @@ public class RevampBatchAGameTests implements FabricGameTest {
 				"Power Leap stays on X (client-timed flow)");
 		helper.assertTrue("thermal_vision".equals(Powers.byKey(LaserVisionHandlers.KEY).ability(AbilitySlot.SLOT_6).id()),
 				"Thermal Vision stays on C (client glow mixin)");
-		helper.assertTrue("flight_toggle".equals(Powers.byKey(FlightHandlers.KEY).ability(AbilitySlot.SLOT_3).id()),
-				"Flight stays on X");
+		helper.assertTrue("flying_punch".equals(Powers.byKey(FlightHandlers.KEY).ability(AbilitySlot.SLOT_1).id()),
+				"v0.16.5: Flight's R is the Flying Punch (flight itself is the jump double-tap)");
 		helper.assertTrue("speed_mode".equals(Powers.byKey(SuperSpeedHandlers.KEY).ability(AbilitySlot.SLOT_6).id()),
 				"Speed Mode stays on C");
 		helper.assertTrue(Powers.byKey(SuperRegenerationHandlers.KEY).abilities().isEmpty(),
@@ -276,72 +276,7 @@ public class RevampBatchAGameTests implements FabricGameTest {
 	// v0.14.5: see LaserVisionV0145GameTests
 
 	// ---------------- 03 Flight ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_tiers")
-	public void flightSprintingClimbsSpeedTiers(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, FlightHandlers.KEY);
-		AbilityRouter.handleInput(p, 3, true); // X = Flight
-		helper.assertTrue(com.projecthero.mod.hero.power.HeroFlight.isFlying(p), "flying");
-		p.setSprinting(true);
-		setRes(p, FlightHandlers.KEY, "tier_ticks", 119);
-		tick(p, 1);
-		helper.assertTrue(res(p, FlightHandlers.KEY, "speed_tier") == 3f, "three tiers of sprinting reach the top tier");
-		helper.assertTrue(p.getAbilities().getFlyingSpeed() > 0.1f, "which flies faster");
-		refreshVisuals(p);
-		helper.assertTrue(MutationVisuals.hasFlag(p, "p03.wind"), "with the wind sheath");
-		p.setSprinting(false);
-		tick(p, 40);
-		helper.assertTrue(res(p, FlightHandlers.KEY, "speed_tier") == 0f, "letting go of sprint bleeds the tiers off");
-		AbilityRouter.handleInput(p, 3, true);
-		helper.assertTrue(p.getAbilities().getFlyingSpeed() < 0.055f, "landing restores the vanilla flying speed");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_roll")
-	public void flightBarrelRollGivesIFrames(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, FlightHandlers.KEY);
-		AbilityRouter.handleInput(p, 8, true); // N = Barrel Roll
-		helper.assertTrue(FlightHandlers.rolling(p), "the roll opens an i-frame window");
-		boolean allowed = ServerLivingEntityEvents.ALLOW_DAMAGE.invoker().allowDamage(p,
-				p.level().damageSources().generic(), 5f);
-		helper.assertFalse(allowed, "damage is refused mid-roll");
-		tick(p, 12);
-		helper.assertFalse(FlightHandlers.rolling(p), "the window closes");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_orbit")
-	public void flightOrbitalDropSlamsDown(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, FlightHandlers.KEY);
-		AbilityRouter.handleInput(p, 4, true); // Z = Orbital Drop
-		helper.assertTrue(res(p, FlightHandlers.KEY, "orbit_phase") == 1f, "it starts by rocketing up");
-		helper.assertTrue(onCooldown(p, FlightHandlers.KEY, AbilitySlot.SLOT_4), "on cooldown");
-		// skip to the end of the drop: on the floor, 20 blocks below where it started falling
-		Zombie z = zombieAhead(helper, p, 2.0);
-		float before = z.getHealth();
-		setRes(p, FlightHandlers.KEY, "orbit_phase", 3);
-		setRes(p, FlightHandlers.KEY, "orbit_drop_y", (float) (p.getY() + 1020));
-		p.setOnGround(true);
-		tick(p, 1);
-		helper.assertTrue(res(p, FlightHandlers.KEY, "orbit_phase") == 0f, "the landing ends it");
-		helper.assertTrue(z.getHealth() < before, "and the impact hits the zombie");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_a_slip")
-	public void flightSlipstreamTowsAllies(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, FlightHandlers.KEY);
-		Wolf w = petWolf(helper, p, 0, 7.0);
-		AbilityRouter.handleInput(p, 7, true); // H = Slipstream
-		helper.assertTrue(res(p, FlightHandlers.KEY, "slip_ticks") > 0f, "Slipstream runs");
-		setRes(p, FlightHandlers.KEY, "slip_ticks", 200); // on a 20-tick boundary: Slow Falling is (re)applied
-		tick(p, 1);
-		helper.assertTrue(w.getDeltaMovement().z < 0, "your pet is pulled along behind you");
-		setRes(p, FlightHandlers.KEY, "slip_ticks", 201);
-		tick(p, 1);
-		helper.assertTrue(w.hasEffect(MobEffects.SLOW_FALLING), "and kept on Slow Falling");
-		helper.succeed();
-	}
+	// v0.16.5: the reworked kit is covered in FlightV0165GameTests
 
 	// ---------------- 04 Super Speed ----------------
 	// v0.14.5: the reworked kit is covered in SuperSpeedV0145GameTests; this keeps Overdrive's basics.

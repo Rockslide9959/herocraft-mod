@@ -80,6 +80,8 @@ public final class DirectionalFlight {
 			reset();
 			return false;
 		}
+		// v0.16.5 Flight's Slipstream: a squadmate flying in its wake goes 50% faster, whatever flight they fly
+		tune = com.projecthero.mod.client.mutation.FlightClient.drafting(player, tune);
 
 		boolean sneak = player.input.shiftKeyDown;
 		boolean jump = player.input.jumping;
@@ -186,9 +188,8 @@ public final class DirectionalFlight {
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (player.getAttachedOrElse(ModAttachments.HERO_FLYING, false)) {
 			if (st != null && st.ownedPowers.contains("power_03_flight")) {
-				int tier = Math.round(st.resources.getOrDefault("power_03_flight/speed_tier", 0.0f));
-				boolean sonic = st.resources.getOrDefault("power_03_flight/sonic_ticks", 0.0f) > 0.5f;
-				return DirectionalFlightModel.flightPower(flyingSpeed, sprint, tier, sonic);
+				// v0.16.5 rework: 20 b/s, 50 sprinting on Lift, Afterburner x1.6, Slipstream x1.5, Hover dead still
+				return com.projecthero.mod.client.mutation.FlightClient.tune(player, sprint);
 			}
 			return DirectionalFlightModel.vanilla(flyingSpeed, sprint);
 		}

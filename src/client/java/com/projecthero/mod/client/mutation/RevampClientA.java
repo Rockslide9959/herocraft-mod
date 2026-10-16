@@ -3,7 +3,6 @@ package com.projecthero.mod.client.mutation;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.data.ExperimentalState;
-import com.projecthero.mod.network.AbilityInputPayload;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -47,6 +46,10 @@ public final class RevampClientA {
 		registerOverlays();
 		EntityRendererRegistry.register(com.projecthero.mod.hero.revamp.batcha.BatchAEntities.THROWN_CHUNK,
 				com.projecthero.mod.client.revamp.batcha.ThrownChunkRenderer::new);
+		// v0.16.5 Flight rework: the shock rings / crater / wind columns, and the rest of Flight's client side
+		EntityRendererRegistry.register(com.projecthero.mod.hero.revamp.batcha.BatchAEntities.FLIGHT_FX,
+				com.projecthero.mod.client.revamp.batcha.FlightFxRenderer::new);
+		FlightClient.init();
 		ClientTickEvents.END_CLIENT_TICK.register(RevampClientA::flightDoubleTap);
 		HudRenderCallback.EVENT.register((graphics, delta) -> haymakerPips(graphics));
 	}
@@ -82,27 +85,7 @@ public final class RevampClientA {
 		float[] sweepR = f(0, 0.2f, 0, 0.3f, 0.2f, 0, -0.3f, 0, -0.85f, 0, 0, 0);
 		MutationPose.register("p02.sweep", new float[][] { z(0), at(2, sweepL), at(12, sweepR), z(16) });
 
-		// ---- 03 Flight ----
-		float[] superA = f(0, -3.0f, 0.1f, 0.05f, 0.25f, 0, -0.18f, 0.08f, 0, 0.3f, 0.45f, 0);
-		float[] superB = f(0, -3.05f, 0.1f, 0.08f, 0.3f, 0, -0.22f, 0.1f, 0, 0.4f, 0.35f, 0);
-		MutationPose.registerLoop("p03.superman", 4, new float[][] { z(0), at(4, superA), at(14, superB), at(24, superA) });
-		float[] fdive = f(0, -3.05f, 0, -0.12f, -3.05f, 0, 0.12f, 0, 0, 0.1f, 0.1f, 0.4f);
-		float[] fdive2 = f(0, -3.1f, 0, -0.08f, -3.1f, 0, 0.08f, 0, 0, 0.14f, 0.06f, 0.4f);
-		MutationPose.registerLoop("p03.dive", 3, new float[][] { z(0), at(3, fdive), at(5, fdive2), at(7, fdive) });
-		float[] rise = f(0, -3.1f, 0, -0.06f, -3.1f, 0, 0.06f, -0.05f, 0, 0.05f, -0.05f, -0.35f);
-		float[] rise2 = f(0, -3.05f, 0, -0.1f, -3.05f, 0, 0.1f, -0.05f, 0, -0.05f, 0.05f, -0.35f);
-		MutationPose.registerLoop("p03.rise", 2, new float[][] { z(0), at(2, rise), at(4, rise2), at(6, rise) });
-		float[] rollR = f(0, -0.4f, 0, 1.4f, -0.4f, 0, -1.4f, 0, -0.7f, 0.2f, -0.2f, 0);
-		float[] rollR2 = f(0, -0.2f, 0, 1.2f, -0.2f, 0, -1.2f, 0, 0.6f, -0.2f, 0.2f, 0);
-		MutationPose.register("p03.roll_right", new float[][] { z(0), at(3, rollR), at(7, rollR2), z(12) });
-		float[] rollL = f(0, -0.4f, 0, 1.4f, -0.4f, 0, -1.4f, 0, 0.7f, -0.2f, 0.2f, 0);
-		float[] rollL2 = f(0, -0.2f, 0, 1.2f, -0.2f, 0, -1.2f, 0, -0.6f, 0.2f, -0.2f, 0);
-		MutationPose.register("p03.roll_left", new float[][] { z(0), at(3, rollL), at(7, rollL2), z(12) });
-		float[] beck1 = f(0, -1.7f, 0, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0);
-		float[] beck2 = f(0, -2.8f, 0, 0.45f, 0, 0, 0, -0.05f, 0, 0, 0, -0.1f);
-		MutationPose.register("p03.beckon", new float[][] { z(0), at(3, beck1), at(7, beck2), at(11, beck1), z(15) });
-		float[] carryF = f(0, -0.7f, 0, 0.25f, -0.7f, 0, -0.25f, 0.1f, 0, 0.15f, 0.2f, 0.25f);
-		MutationPose.registerLoop("p03.carry", 4, new float[][] { z(0), at(4, carryF), at(14, carryF) });
+		// ---- 03 Flight: v0.16.5 rework -- its poses live in FlightClient ----
 
 		// ---- 04 Super Speed ----
 		float[] jR = f(0, -1.6f, -0.1f, 0, 0.4f, 0.2f, 0, 0.15f, -0.4f, -0.2f, 0.2f, 0);
@@ -168,8 +151,8 @@ public final class RevampClientA {
 		boolean down = client.options.keyJump.isDown();
 		if (down && !jumpWasDown) {
 			if (clientTicks - lastJumpTap <= 7 && canToggleFlight(p)) {
-				ClientPlayNetworking.send(new AbilityInputPayload(3, true));
-				ClientPlayNetworking.send(new AbilityInputPayload(3, false));
+				// v0.16.5 rework: flight is the double-tap itself now (X is Air Dash) -- its own request, re-checked by the server
+				ClientPlayNetworking.send(new com.projecthero.mod.hero.power.p03.FlightHandlers.TogglePayload());
 				lastJumpTap = -100;
 			} else {
 				lastJumpTap = clientTicks;
