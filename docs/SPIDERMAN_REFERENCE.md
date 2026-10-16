@@ -1192,3 +1192,23 @@ the Trip Mine, else the Web Wall. `SpiderMoves.idFor` shows `trip_mine` on the S
   the laser is two crossed full-bright ribbons on the web-line texture.
 
 Tests: `SpiderSuitV2GameTests`.
+
+## v0.16.5 -- six film / comic suits, the Mannequin and the Wardrobe
+
+**Suits.** `SpiderItems.SKIN_SUIT_PIECES` (`spider_man_suit_<skin>_{helmet,chestplate,leggings,boots}`, skins `comic`,
+`bnd`, `tasm`, `tasm2`, `raimi`, `future_foundation`) are `SpiderManSkinSuitArmorItem` -- a `SpiderManArmorItem` that
+carries its own skin, `textures/armor/spider_man_<skin>.png`, so the mask, rig and poses all just work. The skins are
+minecraftskins.com skins (24313766 Classic -> id `comic`, because `spider_man_suit_classic_*` is the v0.16.4 Classic;
+24269310 BND, 24280721 TASM, 24280726 TASM 2, 24285458 2002, 23402302 Future Foundation), kept under
+`scratchpad/v0165_suits/skins/`. Every one but the Comic Classic has its chest and back spider darkened toward black by
+`scratchpad/v0165_suits/emblem.js` (per-skin row ranges in `gen.js`, which also draws the icons and writes the recipes).
+Recipes: `projecthero:spider_suit_upgrade`, `AHB` over ` C ` with H the original piece (kept): red + blue dye and paper
+(Comic), a sunflower (BND), a gold nugget (TASM), white dye (TASM 2), a cobweb (2002); white + black dye and string (FF).
+
+**`SpiderSuitRender`** now takes any `LivingEntity` (a non-player always wears its mask down; an invisible stand still
+shows its suit) and draws each distinct worn skin once instead of a fixed list of four. `StandSpiderSuitLayer` puts it on
+the Mannequin, the Wardrobe's figures and vanilla armour stands (a Spider-Man suit on an armour stand used to be invisible:
+the GeckoLib shell is skipped for this set and `SpiderSuitLayer` is players-only).
+
+**Mannequin / Wardrobe** (`com.projecthero.mod.wardrobe`, client `client.wardrobe`): see the Laboratory Devices guidebook
+page. Tests: `WardrobeV0165GameTests`.

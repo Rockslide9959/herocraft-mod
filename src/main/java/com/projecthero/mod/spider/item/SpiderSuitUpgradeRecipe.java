@@ -39,7 +39,7 @@ public class SpiderSuitUpgradeRecipe extends ShapedRecipe {
 	/** An original (red) Spider-Man Suit piece -- not the v2 one, not the Symbiote's. */
 	public static boolean isOriginalSuitPiece(ItemStack stack) {
 		return stack.getItem() instanceof SpiderManArmorItem && !(stack.getItem() instanceof SpiderManV2ArmorItem)
-				&& !(stack.getItem() instanceof SymbioteArmorItem);
+				&& !(stack.getItem() instanceof SymbioteArmorItem) && !(stack.getItem() instanceof SpiderManSkinSuitArmorItem);
 	}
 
 	@Override

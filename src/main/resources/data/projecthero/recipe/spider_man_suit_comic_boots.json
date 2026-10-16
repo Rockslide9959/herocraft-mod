@@ -1,0 +1,26 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    "AHB",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:red_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_boots"
+    },
+    "B": {
+      "item": "minecraft:blue_dye"
+    },
+    "C": {
+      "item": "minecraft:paper"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_comic_boots",
+    "count": 1
+  }
+}

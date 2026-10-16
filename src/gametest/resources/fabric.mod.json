@@ -8,6 +8,7 @@
     "fabric-gametest": [
       "com.projecthero.mod.gametest.ProjectHeroGameTests",
       "com.projecthero.mod.gametest.RegistryIdGameTest",
+      "com.projecthero.mod.gametest.WardrobeV0165GameTests",
       "com.projecthero.mod.gametest.HulkMindV0164GameTests",
       "com.projecthero.mod.gametest.HulkMovesV0164GameTests",
       "com.projecthero.mod.gametest.HulkWorldBreakerV0164GameTests",

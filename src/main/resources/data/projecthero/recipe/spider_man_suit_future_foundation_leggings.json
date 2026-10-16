@@ -1,0 +1,26 @@
+{
+  "type": "projecthero:spider_suit_upgrade",
+  "category": "equipment",
+  "pattern": [
+    "AHB",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "item": "minecraft:white_dye"
+    },
+    "H": {
+      "item": "projecthero:spider_man_suit_leggings"
+    },
+    "B": {
+      "item": "minecraft:black_dye"
+    },
+    "C": {
+      "item": "minecraft:string"
+    }
+  },
+  "result": {
+    "id": "projecthero:spider_man_suit_future_foundation_leggings",
+    "count": 1
+  }
+}

@@ -1,5 +1,8 @@
 package com.projecthero.mod.spider.item;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.armor.ArmorVisualDefinition;
 import com.projecthero.mod.armor.SuperheroArmorVisuals;
@@ -36,6 +39,12 @@ public final class SpiderItems {
 	public static SpiderManClassicArmorItem SUIT_CLASSIC_CHESTPLATE;
 	public static SpiderManClassicArmorItem SUIT_CLASSIC_LEGGINGS;
 	public static SpiderManClassicArmorItem SUIT_CLASSIC_BOOTS;
+	/**
+	 * v0.16.5 (user): the six film / comic suits ({@link SpiderManSkinSuitArmorItem}), in creative-tab order. Each entry
+	 * is the helmet, chestplate, leggings and boots of {@code spider_man_suit_<skin>_<piece>}.
+	 */
+	public static final String[] SKIN_SUITS = { "comic", "bnd", "tasm", "tasm2", "raimi", "future_foundation" };
+	public static final Map<String, SpiderManSkinSuitArmorItem[]> SKIN_SUIT_PIECES = new LinkedHashMap<>();
 
 	/**
 	 * The black Symbiote suit (v0.9.10) -- synthesised onto a bonded Spider-Man when the Symbiote is
@@ -67,6 +76,11 @@ public final class SpiderItems {
 		SUIT_CLASSIC_CHESTPLATE = registerClassic("spider_man_suit_classic_chestplate", ArmorItem.Type.CHESTPLATE);
 		SUIT_CLASSIC_LEGGINGS = registerClassic("spider_man_suit_classic_leggings", ArmorItem.Type.LEGGINGS);
 		SUIT_CLASSIC_BOOTS = registerClassic("spider_man_suit_classic_boots", ArmorItem.Type.BOOTS);
+		for (String skin : SKIN_SUITS) {
+			SKIN_SUIT_PIECES.put(skin, new SpiderManSkinSuitArmorItem[] {
+					registerSkin(skin, ArmorItem.Type.HELMET), registerSkin(skin, ArmorItem.Type.CHESTPLATE),
+					registerSkin(skin, ArmorItem.Type.LEGGINGS), registerSkin(skin, ArmorItem.Type.BOOTS) });
+		}
 		SpiderSuitUpgradeRecipe.initialize();
 
 		SYMBIOTE_HELMET = registerSymbiote("spider_man_symbiote_helmet", ArmorItem.Type.HELMET);
@@ -103,6 +117,11 @@ public final class SpiderItems {
 		output.accept(SUIT_CLASSIC_CHESTPLATE);
 		output.accept(SUIT_CLASSIC_LEGGINGS);
 		output.accept(SUIT_CLASSIC_BOOTS);
+		for (SpiderManSkinSuitArmorItem[] pieces : SKIN_SUIT_PIECES.values()) {
+			for (SpiderManSkinSuitArmorItem piece : pieces) {
+				output.accept(piece);
+			}
+		}
 	}
 
 	private static SpiderManArmorItem registerSuit(String path, ArmorItem.Type type) {
@@ -121,6 +140,12 @@ public final class SpiderItems {
 		SpiderManClassicArmorItem item = new SpiderManClassicArmorItem(ModArmorMaterials.SPIDER_MAN, type,
 				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(22)));
 		return (SpiderManClassicArmorItem) register(path, item);
+	}
+
+	private static SpiderManSkinSuitArmorItem registerSkin(String skin, ArmorItem.Type type) {
+		SpiderManSkinSuitArmorItem item = new SpiderManSkinSuitArmorItem(skin, ModArmorMaterials.SPIDER_MAN, type,
+				new Item.Properties().rarity(Rarity.RARE).durability(type.getDurability(22)));
+		return (SpiderManSkinSuitArmorItem) register("spider_man_suit_" + skin + "_" + type.getName(), item);
 	}
 
 	/** Symbiote piece: EPIC, fire-resistant, and deliberately NO {@code .durability(...)} -> unbreakable. */

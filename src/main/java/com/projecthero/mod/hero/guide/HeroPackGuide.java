@@ -308,6 +308,13 @@ public final class HeroPackGuide {
 			bullet(lines, "projecthero.guide.spider_man.suit_v2." + t);
 		}
 		blank(lines);
+		// v0.16.5 (user): the six film / comic suits and where to show them off
+		head(lines, "projecthero.guide.spider_man.suits");
+		para(lines, "projecthero.guide.spider_man.suits.body");
+		for (String t : new String[]{"recipe", "display"}) {
+			bullet(lines, "projecthero.guide.spider_man.suits." + t);
+		}
+		blank(lines);
 	}
 
 	private static void symbioteBlackSuitExtras(List<Component> lines) {
@@ -469,6 +476,11 @@ public final class HeroPackGuide {
 					"mass_compression_chamber", "pressure_chamber", "hydrostatic_test_tank", "electromagnetic_coil"}) {
 				lines.add(Component.translatable("block.projecthero." + d).withStyle(ChatFormatting.WHITE));
 			}
+			// v0.16.5 (user): the Mannequin and the ten-suit Wardrobe
+			blank(lines);
+			head(lines, "projecthero.guide.devices.wardrobe");
+			para(lines, "projecthero.guide.devices.wardrobe.mannequin");
+			para(lines, "projecthero.guide.devices.wardrobe.wardrobe");
 		}));
 
 		out.add(chapter("projecthero.guide.combos", lines -> {
