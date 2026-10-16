@@ -6,6 +6,7 @@ import com.projecthero.mod.bluebeetle.BlueBeetleAbilities;
 import com.projecthero.mod.bluebeetle.BlueBeetleConfig;
 import com.projecthero.mod.bluebeetle.BlueBeetleDamage;
 import com.projecthero.mod.bluebeetle.data.BlueBeetleState;
+import com.projecthero.mod.bluebeetle.entity.PlasmaBoltEntity;
 import com.projecthero.mod.bluebeetle.entity.ScarabDroneEntity;
 import com.projecthero.mod.bluebeetle.item.BlueBeetleItems;
 import com.projecthero.mod.hero.HeroTiers;
@@ -33,8 +34,9 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.5 Blue Beetle: the Scarab grant (one Primary), the armour and its passives, Adaptation, and one smoke test per
- * move. Mock players are not ticked by the server, so tests over time drive {@link BlueBeetle#tick} ({@link #pump}).
+ * v0.16.5 Blue Beetle: the Scarab grant (one Primary), the armour and its passives (+9 melee), Adaptation, flight, and one
+ * smoke test per move of the reworked kit. Mock players are not ticked by the server, so tests over time drive
+ * {@link BlueBeetle#tick} ({@link #pump}).
  */
 public class BlueBeetleGameTests implements FabricGameTest {
 	private static final float EPS = 0.6f;
@@ -143,17 +145,53 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void suitGivesNineMeleeAndTheBladeSevenMore(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
+		double base = p.getAttributeBaseValue(Attributes.ATTACK_DAMAGE);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + BlueBeetleConfig.SUIT_MELEE)) < 0.01, "+9 suited");
+		BlueBeetleAbilities.toggleBlade(p);
+		helper.assertTrue(BlueBeetle.state(p).fx.blade, "the blade is out");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + BlueBeetleConfig.SUIT_MELEE + BlueBeetleConfig.BLADE_MELEE)) < 0.01,
+				"+7 more with the blade, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
+		BlueBeetleAbilities.toggleBlade(p);
+		helper.assertFalse(BlueBeetle.state(p).fx.blade, "C again folds it away");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - (base + BlueBeetleConfig.SUIT_MELEE)) < 0.01, "back to +9");
+		BlueBeetle.state(p).abilityReadyAt.clear();
+		BlueBeetleAbilities.toggleBlade(p);
+		BlueBeetle.suitDown(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - base) < 0.01, "armour off: no melee bonus, no blade");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void doubleTapJumpFliesAndLandsAgain(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 3.0, 2.5);
+		BlueBeetle.toggleFlight(p);
+		helper.assertTrue(BlueBeetle.state(p).flying && p.getAbilities().mayfly && p.getAbilities().flying, "flying");
+		BlueBeetle.toggleFlight(p);
+		helper.assertTrue(!BlueBeetle.state(p).flying && !p.getAbilities().mayfly, "landed: flight taken back");
+		BlueBeetle.suitDown(p);
+		BlueBeetle.toggleFlight(p);
+		helper.assertFalse(BlueBeetle.state(p).flying, "no flight without the armour");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void plasmaBlasterHitsForSeven(GameTestHelper helper) {
+	public void plasmaBlasterFiresProjectilesForFifteen(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
 		pump(helper, p);
 		BlueBeetleAbilities.startBlast(p);
+		helper.assertTrue(BlueBeetle.state(p).fx.blasting, "the blaster builds on the arm");
+		int bolts = helper.getLevel().getEntitiesOfClass(PlasmaBoltEntity.class, new AABB(p.blockPosition()).inflate(8)).size();
+		helper.assertTrue(bolts == 1, "a real projectile, got " + bolts);
 		helper.runAfterDelay(5, () -> {
 			BlueBeetleAbilities.stopBlast(p);
+			helper.assertFalse(BlueBeetle.state(p).fx.blasting, "and comes apart");
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(taken >= BlueBeetleConfig.BLAST_DAMAGE - EPS && taken <= BlueBeetleConfig.BLAST_DAMAGE * 2 + EPS, "7 a bolt, took " + taken);
+			helper.assertTrue(taken >= BlueBeetleConfig.BLAST_DAMAGE - EPS && taken <= BlueBeetleConfig.BLAST_DAMAGE * 2 + EPS, "15 a bolt, took " + taken);
 			helper.succeed();
 		});
 	}
@@ -173,51 +211,62 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void energyBladeComboKnocksBackOnTheThird(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void scarabHammerSmashesTheFront(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
-		BlueBeetleAbilities.blade(p);
-		z.invulnerableTime = 0;
-		BlueBeetleAbilities.blade(p);
-		z.invulnerableTime = 0;
-		BlueBeetleAbilities.blade(p);
-		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - BlueBeetleConfig.BLADE_DAMAGE * 3) < 1f, "three swings of 10, took " + taken);
-		helper.assertTrue(BlueBeetle.energy(p) >= BlueBeetleConfig.ENERGY_MAX - BlueBeetleConfig.BLADE_COST - 0.5f, "one cost for the combo");
-		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.BLADE) > 0, "combo done: cooldown");
-		helper.succeed();
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 3.5);
+		Zombie front = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.5, 100);
+		Zombie behind = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 0.5, 100);
+		pump(helper, p);
+		BlueBeetleAbilities.hammer(p);
+		helper.runAfterDelay(BlueBeetleConfig.HAMMER_HIT_TICK + 3, () -> {
+			float taken = 100f - front.getHealth();
+			helper.assertTrue(Math.abs(taken - BlueBeetleConfig.HAMMER_DAMAGE) < EPS, "20 in front, took " + taken);
+			helper.assertTrue(behind.getHealth() == 100f, "nothing behind him");
+			helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.HAMMER) > 0, "cooldown");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void scarabGripLiftsAndSlams(GameTestHelper helper) {
+	public void scarabGrabStrikesTwiceAndKnocksFarBack(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 0.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 2.5, 100); // room behind it before the cage wall
 		z.setNoAi(false);
 		pump(helper, p);
-		BlueBeetleAbilities.grip(p);
-		helper.assertTrue(BlueBeetleAbilities.running(p, BlueBeetleAbilities.GRIP), "grabbed");
-		helper.runAfterDelay(40, () -> {
+		double[] fastest = new double[1];
+		helper.onEachTick(() -> fastest[0] = Math.max(fastest[0], z.getDeltaMovement().horizontalDistance()));
+		BlueBeetleAbilities.grab(p);
+		helper.assertTrue(BlueBeetleAbilities.running(p, BlueBeetleAbilities.GRAB) && BlueBeetle.state(p).fx.grabTarget == z.getId(), "tentacles out");
+		helper.runAfterDelay(BlueBeetleConfig.GRAB_SECOND_HIT + 6, () -> {
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(taken >= BlueBeetleConfig.GRIP_DAMAGE - EPS, "slammed for 14, took " + taken);
+			helper.assertTrue(Math.abs(taken - 2 * BlueBeetleConfig.GRAB_DAMAGE) < 1f, "two strikes of 10, took " + taken);
+			// (the 8x8 test cage stops it flying far, so measure the launch itself; the first strike alone is under 0.5)
+			helper.assertTrue(fastest[0] > 1.0, "knocked far back, launched at " + fastest[0] + " blocks a tick");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void plasmaSpikesRunAlongTheGround(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 0.5);
+		Zombie near = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 100);
+		Zombie far = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
+		pump(helper, p);
+		BlueBeetleAbilities.spikes(p);
+		helper.runAfterDelay(BlueBeetleConfig.SPIKE_SLAM_TICK + 1, () -> helper.assertTrue(BlueBeetle.state(p).fx.spikeStart != 0L
+				&& BlueBeetle.state(p).fx.spikeLine.size() == 4 + BlueBeetleConfig.SPIKE_COUNT, "the line is synced"));
+		helper.runAfterDelay(BlueBeetleConfig.SPIKE_SLAM_TICK + 12, () -> {
+			helper.assertTrue(Math.abs((100f - near.getHealth()) - BlueBeetleConfig.SPIKE_DAMAGE) < EPS, "18, once, took " + (100f - near.getHealth()));
+			helper.assertTrue(Math.abs((100f - far.getHealth()) - BlueBeetleConfig.SPIKE_DAMAGE) < EPS, "further along too, took " + (100f - far.getHealth()));
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void wingsLendFlightAndTakeItBack(GameTestHelper helper) {
-		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
-		BlueBeetleAbilities.toggleWings(p);
-		helper.assertTrue(BlueBeetle.state(p).flying && p.getAbilities().mayfly && p.getAbilities().flying, "flying");
-		BlueBeetleAbilities.toggleWings(p);
-		helper.assertTrue(!BlueBeetle.state(p).flying && !p.getAbilities().mayfly, "folded: flight taken back");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void energyShieldBlocksTheFront(GameTestHelper helper) {
+	public void energyShieldOnVBlocksTheFront(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
@@ -263,15 +312,53 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void camouflageHidesAndAttackingBreaksIt(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void camouflageHasNoTimerButAnyMoveEndsIt(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
+		mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.5, 100);
+		pump(helper, p);
 		BlueBeetleAbilities.camo(p);
-		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "invisible");
+		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY) && BlueBeetle.state(p).camo, "invisible");
+		helper.runAfterDelay(220, () -> {
+			helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY) && BlueBeetle.state(p).camo, "still invisible after 11 s");
+			BlueBeetleAbilities.hammer(p);
+			helper.assertFalse(p.hasEffect(MobEffects.INVISIBILITY) || BlueBeetle.state(p).camo, "using a move ends it");
+			helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.CAMO) > 0, "its cooldown starts now");
+			helper.succeed();
+		});
+	}
+
+	private static void freshCamo(ServerPlayer p) {
+		BlueBeetleState n = BlueBeetle.state(p).copy();
+		n.abilityReadyAt.clear();
+		n.energy = BlueBeetleConfig.ENERGY_MAX;
+		p.setAttached(ModAttachments.BLUE_BEETLE_STATE, n);
+		BlueBeetleAbilities.camo(p);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void camouflageBreaksOnTouchingHittingOrFlying(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 3.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
+		freshCamo(p);
+		helper.assertTrue(BlueBeetle.state(p).camo, "on");
 		z.hurt(p.damageSources().playerAttack(p), 2f);
-		helper.assertFalse(p.hasEffect(MobEffects.INVISIBILITY), "attacking ends it");
+		helper.assertFalse(BlueBeetle.state(p).camo || p.hasEffect(MobEffects.INVISIBILITY), "hitting something ends it");
+		freshCamo(p);
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND,
+				new net.minecraft.world.phys.BlockHitResult(helper.absoluteVec(new Vec3(3.5, 2.0, 2.5)), net.minecraft.core.Direction.UP,
+						helper.absolutePos(new BlockPos(3, 1, 2)), false));
+		helper.assertFalse(BlueBeetle.state(p).camo, "touching a block ends it");
+		freshCamo(p);
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND);
+		helper.assertFalse(BlueBeetle.state(p).camo, "using an item ends it");
+		freshCamo(p);
+		BlueBeetle.toggleFlight(p);
+		helper.assertTrue(BlueBeetle.state(p).flying && !BlueBeetle.state(p).camo, "taking off ends it");
+		freshCamo(p);
+		helper.assertFalse(BlueBeetle.state(p).camo, "and it will not start while flying");
 		helper.succeed();
 	}
 
@@ -284,9 +371,9 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		BlueBeetle.setEnergy(p, BlueBeetleConfig.ENERGY_MAX);
 		BlueBeetleAbilities.unleash(p);
 		helper.assertTrue(BlueBeetle.unleashed(p), "unleashed");
-		BlueBeetleAbilities.camo(p);
+		BlueBeetleAbilities.pulse(p);
 		helper.assertTrue(BlueBeetle.energy(p) == BlueBeetleConfig.ENERGY_MAX, "moves are free");
-		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.CAMO) <= BlueBeetleConfig.CAMO_COOLDOWN / 2 + 1, "half cooldowns");
+		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.PULSE) <= BlueBeetleConfig.PULSE_COOLDOWN / 2 + 1, "half cooldowns");
 		helper.succeed();
 	}
 }

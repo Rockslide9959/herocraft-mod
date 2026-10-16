@@ -8,10 +8,12 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-/** Client to server Blue Beetle requests that are not ability slots (v0.16.5): H (the armour on / off). */
+/** Client to server Blue Beetle requests that are not ability slots (v0.16.5): H (the armour on / off) and
+ * double-tap jump (flight on / off). */
 public record BlueBeetleActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_SUIT
+		TOGGLE_SUIT,
+		TOGGLE_FLIGHT
 	}
 
 	public static final CustomPacketPayload.Type<BlueBeetleActionPayload> TYPE =

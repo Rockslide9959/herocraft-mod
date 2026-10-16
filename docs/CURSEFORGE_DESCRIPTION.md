@@ -286,14 +286,16 @@ the plates spread over you from the chest core, and your own face shows on Victo
 
 ### 🪲 Blue Beetle
 Brush the suspicious sand of a **desert pyramid** and you might find **the Scarab**. Use it and Khaji-Da bonds to your
-spine; the armour grows out from your back, and the scarab talks to you in chat from then on.
-- **H** puts the armour on or off: diamond-level armour, no fall damage, night vision and **Adaptation** (the same kind
-  of damage 3 times in 10 s and the armour adapts: 40% less from it for a minute).
-- **Scarab Energy** (100) refills on its own, twice as fast standing still.
-  **R** Plasma Blaster (held) · **Shift+R** **Mega Cannon** (30 through a whole line) · **G** Energy Blade (3-hit combo) ·
-  **Shift+G** Scarab Grip (lift and slam) · **X** **Wings** (true flight) · **Shift+X** Afterburner · **Z** Energy Shield
-  (held) · **Shift+Z** Shield Pulse (sends arrows back) · **V** Scarab Swarm (drones) · **Shift+V** Bubble Prison ·
-  **C** Camouflage · **Shift+C** **Khaji-Da Unleashed** (15 s of +50% damage, free moves).
+spine; the armour builds itself pixel by pixel out from the scarab on your back, and Khaji-Da talks to you in chat from
+then on.
+- **H** puts the armour on or off: diamond-level armour, +9 melee, no fall damage, night vision and **Adaptation** (the
+  same kind of damage 3 times in 10 s and the armour adapts: 40% less from it for a minute).
+- **Double-tap jump** to fly on four glowing wings. **Scarab Energy** (100) refills on its own, twice as fast standing still.
+  **R** Plasma Blaster (a blaster builds on your arm; held, 15 a bolt) · **Shift+R** **Mega Cannon** (a twin cannon over
+  both arms, 30 through a whole line) · **G** **Scarab Hammer** · **Shift+G** Scarab Grab (two tentacles from your back) ·
+  **X** Scarab Swarm (drones) · **Shift+X** Bubble Prison · **Z** **Plasma Spikes** (a 14-block line) · **Shift+Z** Shield
+  Pulse (sends arrows back) · **V** Energy Shield (held) · **Shift+V** Camouflage (lasts until you touch anything) ·
+  **C** Energy Blade (toggle, +7) · **Shift+C** **Khaji-Da Unleashed** (15 s of +50% damage, free moves).
 
 ---
 

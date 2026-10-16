@@ -15,14 +15,13 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 
 import org.lwjgl.glfw.GLFW;
 
 /**
  * v0.16.5: the Blue Beetle HUD (bottom-right), mono style: hairline bars for Scarab Energy (blue; red while Khaji-Da is
  * unleashed, with its timer above), the Mega Cannon charge, and the Adaptation timer; a small "Adapted: fire" chip; the
- * six keys. Also the bonding flash: the screen washes blue while the scarab bonds.
+ * six keys (lit while their move runs). v0.16.5 rework: no blue screen flash on the bonding (user: no blue glow).
  */
 public final class BlueBeetleHud {
 	private static final int BOX = 20;
@@ -64,16 +63,6 @@ public final class BlueBeetleHud {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		float partial = delta.getGameTimeDeltaPartialTick(false);
-		// the bonding flash
-		if (s.animId == BlueBeetleState.ANIM_BOND) {
-			float age = now - s.animStart + partial;
-			if (age >= 0f && age < BlueBeetleConfig.BOND_TICKS) {
-				float t = age / BlueBeetleConfig.BOND_TICKS;
-				float a = (t < 0.15f ? t / 0.15f : 1f - (t - 0.15f) / 0.85f) * (0.55f + 0.15f * Mth.sin(age * 0.8f));
-				g.fill(0, 0, g.guiWidth(), g.guiHeight(), ((int) (Mth.clamp(a, 0f, 1f) * 170) << 24) | 0x1E6CFF);
-			}
-		}
 		if (mc.options.hideGui || !s.suited) {
 			return;
 		}
@@ -125,12 +114,12 @@ public final class BlueBeetleHud {
 					max = Math.max(1, BlueBeetleAbilityManager.maxCooldown(id));
 				}
 			}
-			boolean active = (slot == AbilitySlot.SLOT_1 && s.fx.chargeStart != 0L)
-					|| (slot == AbilitySlot.SLOT_2 && s.fx.bladeUntil > now)
-					|| (slot == AbilitySlot.SLOT_3 && s.flying)
-					|| (slot == AbilitySlot.SLOT_4 && s.fx.shield)
-					|| (slot == AbilitySlot.SLOT_5 && s.fx.bubbleTarget != -1)
-					|| (slot == AbilitySlot.SLOT_6 && (s.camoUntil > now || unleashed));
+			boolean active = (slot == AbilitySlot.SLOT_1 && (s.fx.chargeStart != 0L || s.fx.blasting))
+					|| (slot == AbilitySlot.SLOT_2 && s.fx.grabTarget != -1)
+					|| (slot == AbilitySlot.SLOT_3 && s.fx.bubbleTarget != -1)
+					|| (slot == AbilitySlot.SLOT_4 && s.fx.spikeStart != 0L)
+					|| (slot == AbilitySlot.SLOT_5 && (s.fx.shield || s.camo))
+					|| (slot == AbilitySlot.SLOT_6 && (s.fx.blade || unleashed));
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);

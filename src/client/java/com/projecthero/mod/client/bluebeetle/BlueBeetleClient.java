@@ -14,8 +14,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
- * v0.16.5: Blue Beetle's client side -- the armour layer (wings, blade, shield), the HUD (and the bonding flash), the
- * cannon beam / Bubble Prison, the drones' renderer and the H request (sent from {@code ProjectHeroModClient}).
+ * v0.16.5: Blue Beetle's client side -- the armour layer (wings, blade, shield, the voxel Scarab and arm tech), the HUD,
+ * the world effects (cannon beam, Bubble Prison, tentacles, spikes), the drone and plasma bolt renderers, and the H /
+ * double-tap-jump requests (sent from {@code ProjectHeroModClient}).
  */
 public final class BlueBeetleClient {
 	private BlueBeetleClient() {
@@ -30,6 +31,8 @@ public final class BlueBeetleClient {
 		HudRenderCallback.EVENT.register(BlueBeetleHud::render);
 		WorldRenderEvents.AFTER_ENTITIES.register(BlueBeetleEffectsRenderer::render);
 		EntityRendererRegistry.register(BlueBeetleEntityTypes.SCARAB_DRONE, ScarabDroneRenderer::new);
+		EntityRendererRegistry.register(BlueBeetleEntityTypes.PLASMA_BOLT, PlasmaBoltRenderer::new);
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> BlueBeetleTech.clearSessionState());
 	}
 
 	public static boolean ownsH(LocalPlayer player) {
@@ -38,5 +41,14 @@ public final class BlueBeetleClient {
 
 	public static void pressH() {
 		ClientPlayNetworking.send(new BlueBeetleActionPayload(BlueBeetleActionPayload.Action.TOGGLE_SUIT));
+	}
+
+	/** v0.16.5 (user): double-tap jump in the air while suited takes off / drops out of flight (the server re-checks). */
+	public static boolean wantsFlightToggle(LocalPlayer player) {
+		return !player.onGround() && BlueBeetle.suited(player);
+	}
+
+	public static void toggleFlight() {
+		ClientPlayNetworking.send(new BlueBeetleActionPayload(BlueBeetleActionPayload.Action.TOGGLE_FLIGHT));
 	}
 }

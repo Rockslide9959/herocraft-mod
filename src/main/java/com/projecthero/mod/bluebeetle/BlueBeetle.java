@@ -11,7 +11,6 @@ import com.projecthero.mod.hero.power.PowerToggles;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -36,12 +35,13 @@ import org.joml.Vector3f;
  * lines in {@link KhajiDa}, numbers in {@link BlueBeetleConfig}.
  *
  * <h2>How it works</h2>
- * The Scarab (desert pyramid suspicious sand) latches onto the player's spine: a 6 s bonding as the armour grows out from
- * the back. <b>H</b> suits up or down. Suited: diamond-level armour, no fall damage, night vision, Adaptation, the six
- * keys. Unsuited, Khaji-Da still warns him about hostiles nearby.
+ * The Scarab (desert pyramid suspicious sand) latches onto the player's spine: a 5 s bonding as the armour builds itself
+ * texel by texel outward from the Scarab. <b>H</b> suits up or down (the same build, reversed to take it off). Suited:
+ * diamond-level armour, +9 melee, no fall damage, night vision, Adaptation, flight (double-tap jump), the six keys.
+ * Unsuited, Khaji-Da still warns him about hostiles nearby.
  *
  * <h2>Scarab Energy</h2>
- * 0..100, refilling 3 a second (twice that standing still); the wings drain 2 a second. Khaji-Da Unleashed makes every
+ * 0..100, refilling 3 a second (twice that standing still); flying drains 2 a second. Khaji-Da Unleashed makes every
  * move free for 15 s, then the bar refills at half speed for 30 s.
  */
 public final class BlueBeetle {
@@ -49,6 +49,8 @@ public final class BlueBeetle {
 
 	private static final ResourceLocation ARMOR_ID = PowerToggles.id("blue_beetle_armor");
 	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("blue_beetle_toughness");
+	private static final ResourceLocation MELEE_ID = PowerToggles.id("blue_beetle_melee");
+	private static final ResourceLocation BLADE_ID = PowerToggles.id("blue_beetle_blade");
 
 	public static final DustParticleOptions BLUE = new DustParticleOptions(new Vector3f(0.15f, 0.55f, 1.0f), 1.2f);
 	public static final DustParticleOptions BLUE_BIG = new DustParticleOptions(new Vector3f(0.3f, 0.7f, 1.0f), 2.2f);
@@ -58,7 +60,7 @@ public final class BlueBeetle {
 	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
 	private static final Map<UUID, Long> LAST_TOGGLE = new ConcurrentHashMap<>();
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
-	/** Players the wings lent flight to (so exactly that is taken back). */
+	/** Players the suit lent flight to (so exactly that is taken back). */
 	private static final java.util.Set<UUID> FLIGHT_GRANTED = ConcurrentHashMap.newKeySet();
 
 	private BlueBeetle() {
@@ -182,10 +184,9 @@ public final class BlueBeetle {
 		s.animStart = now;
 		save(player, s);
 		reconcile(player);
+		// v0.16.5 (user): no blue glow -- the armour just builds itself out from the Scarab, texel by texel
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.2, 0);
-		level.sendParticles(BLUE_BIG, c.x, c.y, c.z, 60, 0.5, 0.9, 0.5, 0.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 40, 0.4, 0.8, 0.4, 0.2);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.2f, 0.6f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ELDER_GUARDIAN_CURSE, SoundSource.PLAYERS, 0.5f, 1.6f);
 		player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(
@@ -219,7 +220,7 @@ public final class BlueBeetle {
 
 	// ---------------------------------------------------------------- the suit (H)
 
-	/** The bonding (6 s) or a suit-up still spreading. */
+	/** The bonding (5 s) or a suit-up still building. */
 	public static boolean changing(Player player) {
 		BlueBeetleState s = peek(player);
 		if (s == null || !s.hasPower || !s.suited) {
@@ -263,7 +264,6 @@ public final class BlueBeetle {
 		reconcile(player);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.2, 0);
-		level.sendParticles(BLUE, c.x, c.y, c.z, 30, 0.35, 0.7, 0.35, 0.0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 1.2f);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.7f, 1.4f);
 		KhajiDa.speak(player, KhajiDa.Topic.SUIT_UP);
@@ -282,21 +282,46 @@ public final class BlueBeetle {
 		n.suitChangeAt = now;
 		n.flying = false;
 		n.unleashedUntil = 0L;
-		n.camoUntil = 0L;
-		n.bladeCombo = 0;
+		n.camo = false;
 		n.fx = new BlueBeetleState.Fx();
 		n.animId = BlueBeetleState.ANIM_SUIT_DOWN;
 		n.animStart = now;
 		save(player, n);
 		reconcile(player);
-		player.removeEffect(MobEffects.INVISIBILITY);
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, 1.2, 0);
-		level.sendParticles(BLUE, c.x, c.y, c.z, 30, 0.35, 0.7, 0.35, 0.0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), SoundSource.PLAYERS, 1.0f, 0.7f);
 	}
 
-	// ---------------------------------------------------------------- the wings (flight lent)
+	// ---------------------------------------------------------------- flight (double-tap jump; the wings come out)
+
+	/**
+	 * v0.16.5 (user: "make the player able to fly by double pressing space bar"): double-tap jump in the air takes off,
+	 * again drops out of flight; touching down lands him too ({@link #tick}). Suited only. Flying breaks Camouflage.
+	 */
+	public static void toggleFlight(ServerPlayer player) {
+		BlueBeetleState s = state(player);
+		if (s.flying) {
+			landWings(player);
+			return;
+		}
+		if (player.onGround() || !canAct(player)) {
+			return;
+		}
+		if (s.energy < BlueBeetleConfig.FLIGHT_DRAIN && !unleashed(player)) {
+			say(player, "message.projecthero.blue_beetle.low_energy", ChatFormatting.BLUE, (int) BlueBeetleConfig.FLIGHT_DRAIN,
+					(int) Math.floor(s.energy));
+			return;
+		}
+		BlueBeetleAbilities.breakCamo(player);
+		BlueBeetleState n = state(player).copy();
+		n.flying = true;
+		save(player, n);
+		openWings(player);
+		ServerLevel level = (ServerLevel) player.level();
+		// v0.16.5 (user): no wind sounds -- just the hum of the wings
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.5f, 1.7f);
+	}
 
 	static void openWings(ServerPlayer player) {
 		if (!player.getAbilities().mayfly) {
@@ -308,7 +333,7 @@ public final class BlueBeetle {
 		player.onUpdateAbilities();
 	}
 
-	/** Folds the wings and gives back exactly the flight they lent (creative / other powers keep theirs). */
+	/** Lands: folds the wings and gives back exactly the flight the suit lent (creative / other powers keep theirs). */
 	public static void landWings(ServerPlayer player) {
 		BlueBeetleState s = player.getAttachedOrElse(ModAttachments.BLUE_BEETLE_STATE, null);
 		if (s != null && s.flying) {
@@ -333,9 +358,16 @@ public final class BlueBeetle {
 		if (suited(player)) {
 			PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, BlueBeetleConfig.SUIT_ARMOR, AttributeModifier.Operation.ADD_VALUE);
 			PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, BlueBeetleConfig.SUIT_TOUGHNESS, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, BlueBeetleConfig.SUIT_MELEE, AttributeModifier.Operation.ADD_VALUE);
 		} else {
 			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
 			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID);
+		}
+		if (suited(player) && state(player).fx.blade) {
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, BLADE_ID, BlueBeetleConfig.BLADE_MELEE, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, BLADE_ID);
 		}
 	}
 
@@ -383,6 +415,9 @@ public final class BlueBeetle {
 				} else {
 					player.resetFallDistance();
 				}
+			}
+			if (s.camo && (s.flying || player.getAbilities().flying || !player.hasEffect(MobEffects.INVISIBILITY))) {
+				BlueBeetleAbilities.breakCamo(player); // flying (or milk) shows him
 			}
 			if (s.unleashedUntil != 0L && s.unleashedUntil <= now) {
 				BlueBeetleAbilities.endUnleashed(player);
@@ -441,12 +476,14 @@ public final class BlueBeetle {
 			return;
 		}
 		long now = player.level().getGameTime();
+		if (s.camo) {
+			player.removeEffect(MobEffects.INVISIBILITY); // the camouflage's endless invisibility
+		}
 		BlueBeetleState n = s.copy();
 		n.flying = false;
 		n.fx = new BlueBeetleState.Fx();
 		n.unleashedUntil = 0L;
-		n.camoUntil = 0L;
-		n.bladeCombo = 0;
+		n.camo = false;
 		n.suitChangeAt = 0L;
 		n.animId = BlueBeetleState.ANIM_NONE;
 		if (n.slowRegenUntil > now + BlueBeetleConfig.UNLEASH_AFTER_TICKS || n.adaptUntil > now + BlueBeetleConfig.ADAPT_TICKS) {
@@ -471,7 +508,7 @@ public final class BlueBeetle {
 		n.flying = false;
 		n.fx = new BlueBeetleState.Fx();
 		n.unleashedUntil = 0L;
-		n.camoUntil = 0L;
+		n.camo = false;
 		n.adaptType = "";
 		n.adaptUntil = 0L;
 		n.animId = BlueBeetleState.ANIM_NONE;
@@ -489,8 +526,9 @@ public final class BlueBeetle {
 		if (s != null && s.hasPower) {
 			BlueBeetleState n = s.copy();
 			n.fx = new BlueBeetleState.Fx();
-			n.bladeCombo = 0;
+			n.camo = false;
 			save(player, n);
+			reconcile(player);
 		}
 	}
 
