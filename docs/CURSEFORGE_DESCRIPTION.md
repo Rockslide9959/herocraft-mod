@@ -320,7 +320,7 @@ return as they're rebuilt:
 - **Laser Vision** -- beams straight from your eyes, driven by a 0-100 heat gauge that cools once you stop firing.
 - **Teleportation** (reworked in 0.16.5) -- Nightcrawler-style combat teleporting on a **Strain** meter instead of
   cooldowns: Blink, Bamf Strike, Swap, Escape and Sky Blink, Phase Step, Displace, a cross-dimension **Rift**, Mark /
-  Recall, a **Spatial Fold** that sends arrows back at their shooter, and a Group Jump for your squad. Push it to 100
+  Recall, a held **Spatial Fold** that sends arrows back at their shooter and folds enemies back out, and a Group Jump for your squad. Push it to 100
   strain and you overload.
 - **Super Regeneration** -- no keys at all: heals 2 HP every tick, burns off harmful effects in 2 seconds and holds
   **three revive charges**.
