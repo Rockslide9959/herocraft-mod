@@ -112,8 +112,13 @@ public final class ElasticityHandlers {
 	public static final float WRAP_DAMAGE_PER_SECOND = 4.0f;
 
 	// ---- X: Slingshot / Rubber Ball ----
-	public static final double SLING_RANGE = 40.0;
+	/** v0.16.5 (user): a longer reach for the anchor. */
+	public static final double SLING_RANGE = 80.0;
 	private static final int SLING_PULL_TICKS = 30;
+	/** The launch: up to this many blocks a tick, from the coil (0..1) and the anchor's distance. */
+	public static final double SLING_MAX_SPEED = 5.0;
+	/** The no-drag flight ends after this long at most (and on landing, a wall or water). */
+	private static final int SLING_FLY_TICKS = 15 * 20;
 	public static final int BALL_TICKS = 6 * 20;
 	public static final float BALL_HIT_DAMAGE = 6.0f;
 
@@ -282,7 +287,7 @@ public final class ElasticityHandlers {
 		if (!renewing) {
 			set(p, "arm_t", (float) (p.level().getGameTime() % 8192L) + 1.0f);
 		}
-		set(p, "arm_len", (float) Math.max(0.5, Math.min(48.0, blocks)));
+		set(p, "arm_len", (float) Math.max(0.5, Math.min(SLING_RANGE, blocks)));
 		set(p, "arm_ticks", ticks);
 		set(p, "arm_mode", mode);
 	}
@@ -370,6 +375,10 @@ public final class ElasticityHandlers {
 	// ================================================================ registration
 
 	public static void register() {
+		// v0.16.5 (user: "make the parachute glide work the same as elytra"): the open canopy is a custom elytra -- vanilla
+		// elytra flight (steer with your look, dive for speed, pull up to climb) for as long as it is out
+		net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents.CUSTOM.register((entity, tickElytra) ->
+				entity instanceof Player pl && gliding(pl) && !pl.getAbilities().flying);
 		// R -- Stretch Punch (tap / hold to coil) / Gatling Barrage (Shift, held). Also runs the power-wide upkeep.
 		AbilityHandlers.register(KEY, "stretch_punch", new AbilityHandler() {
 			@Override
@@ -1001,6 +1010,8 @@ public final class ElasticityHandlers {
 		Vec3 a = Vec3.atCenterOf(hit.getBlockPos());
 		set(p, "sling", 1);
 		set(p, "sling_start", p.level().getGameTime());
+		// the anchor is locked (the "sling_at" marker below): the arms grip this block, wherever you look, until you let go
+		set(p, "sling_fly", 0);
 		ExperimentalPowers.setMarker(p, Powers.byKey(KEY), "sling_at", hit.getBlockPos());
 		MutationVisuals.play(p, "p17.sling");
 		stretchArm(p, a.distanceTo(p.getEyePosition()) - 0.6, 6, ARM_HOLD_BOTH);
@@ -1013,6 +1024,16 @@ public final class ElasticityHandlers {
 	}
 
 	private static void slingTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "sling_fly") > 0.5f) {
+			float t = res(p, "sling_fly_t") + 1f;
+			set(p, "sling_fly_t", t);
+			// down (past a short take-off grace), into a wall or water, or simply long enough: the flight is over
+			if ((t > 4f && (p.onGround() || p.horizontalCollision)) || p.isInWater() || t > SLING_FLY_TICKS || !p.isAlive()) {
+				set(p, "sling_fly", 0);
+			} else {
+				p.resetFallDistance();
+			}
+		}
 		if (res(p, "sling") < 0.5f) {
 			return;
 		}
@@ -1029,9 +1050,33 @@ public final class ElasticityHandlers {
 		}
 	}
 
-	/** Launch speed of a slingshot pulled back for {@code pull} (0..1). */
-	public static double slingSpeed(float pull) {
-		return 1.8 + 1.4 * pull;
+	/**
+	 * Launch speed (blocks a tick) of a slingshot pulled back for {@code pull} (0..1) from an anchor {@code distance} blocks
+	 * away. v0.16.5 (user): "make the player coil charge stronger so player flies further based on the coil charge and
+	 * also ... based on how far the anchor block is": a full coil hits more than twice as hard as a tap, and a far anchor
+	 * stores more stretch than a near one.
+	 */
+	public static double slingSpeed(float pull, double distance) {
+		double coil = 1.3 + 2.7 * Math.max(0f, Math.min(1f, pull));
+		double reach = 0.55 + Math.min(SLING_RANGE, distance) / 32.0;
+		return Math.min(SLING_MAX_SPEED, coil * reach);
+	}
+
+	/** The locked anchor while a Slingshot is held (its centre), or null. */
+	public static Vec3 slingAnchorOf(Player p) {
+		if (!(p instanceof ServerPlayer sp) || !owns(p) || resAny(p, "sling") < 0.5f
+				|| ExperimentalPowers.getMarker(sp, Powers.byKey(KEY), "sling_at") == null) {
+			return null;
+		}
+		return slingAnchor(sp); // a block marker: resources are clamped at 0, so they cannot hold a negative coordinate
+	}
+
+	/** Resources cannot go below 0: the launch velocity is stored shifted up by this much. */
+	private static final float SLING_V_SHIFT = 16.0f;
+
+	/** In the no-drag flight after a Slingshot launch (the client keeps the launch speed until a landing). */
+	public static boolean slingFlying(Player p) {
+		return owns(p) && resAny(p, "sling_fly") > 0.5f;
 	}
 
 	private static void releaseSling(ServerPlayer p, ServerLevel level) {
@@ -1048,8 +1093,14 @@ public final class ElasticityHandlers {
 			return;
 		}
 		spend(p, COST_SLING);
-		AbilityHelpers.launchSelf(p, dir.normalize().scale(slingSpeed(pull)).add(0, 0.25, 0));
+		Vec3 launch = dir.normalize().scale(slingSpeed(pull, dir.length())).add(0, 0.25, 0);
+		AbilityHelpers.launchSelf(p, launch);
 		p.resetFallDistance();
+		// v0.16.5 (user): "they should carry all that momentum till they land" -- the client holds this speed in the air
+		set(p, "sling_fly", 1);
+		set(p, "sling_fly_t", 0);
+		set(p, "sling_vx", (float) launch.x + SLING_V_SHIFT);
+		set(p, "sling_vz", (float) launch.z + SLING_V_SHIFT);
 		MutationVisuals.play(p, "dash_forward");
 		stretchArm(p, 1.5, 8, ARM_BOTH);
 		slime(level, p.position().add(0, 1, 0), 16, 0.4);
@@ -1297,6 +1348,9 @@ public final class ElasticityHandlers {
 		}
 		set(p, "glide", 1);
 		set(p, "glide_t", 0);
+		if (!p.onGround() && !p.isInWater()) {
+			p.startFallFlying(); // in the air: the elytra flight starts at once
+		}
 		MutationVisuals.play(p, "p17.glide");
 		slime(AbilityHelpers.level(p), p.position().add(0, 1, 0), 20, 0.6);
 		AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP, 1.0f, 0.7f);
@@ -1313,10 +1367,9 @@ public final class ElasticityHandlers {
 			return;
 		}
 		p.resetFallDistance();
-		// the server-side half: a hidden Slow Falling, so the canopy holds even before the client's steering kicks in
-		var sf = p.getEffect(MobEffects.SLOW_FALLING);
-		if (sf == null || sf.getDuration() < 3) {
-			p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 8, 0, false, false, false));
+		// v0.16.5: elytra flight (the canopy is a custom elytra) -- hopped up from the ground, it opens once airborne
+		if (!p.isFallFlying() && !p.onGround() && !p.isInWater() && t > 2) {
+			p.startFallFlying();
 		}
 		MutationVisuals.ensure(p, "p17.glide");
 		if (p.tickCount % 3 == 0) {
@@ -1330,6 +1383,9 @@ public final class ElasticityHandlers {
 		}
 		set(p, "glide", 0);
 		MutationVisuals.stopIf(p, "p17.glide");
+		if (p.isFallFlying()) {
+			p.stopFallFlying();
+		}
 		p.resetFallDistance();
 	}
 
@@ -1586,6 +1642,14 @@ public final class ElasticityHandlers {
 		MutationVisuals.registerFlag("p17.limp", ElasticityHandlers::limp);
 		MutationVisuals.registerValue("p17.shape", ElasticityHandlers::shapeValue);
 		MutationVisuals.registerValue("p17.wrap", ElasticityHandlers::wrapId);
+		// v0.16.5 Slingshot: the locked anchor (the arms grip it) and the no-drag flight
+		MutationVisuals.registerValue("p17.sling_ax", p -> slingAnchorOf(p) == null ? 0.0 : slingAnchorOf(p).x);
+		MutationVisuals.registerValue("p17.sling_ay", p -> slingAnchorOf(p) == null ? 0.0 : slingAnchorOf(p).y);
+		MutationVisuals.registerValue("p17.sling_az", p -> slingAnchorOf(p) == null ? 0.0 : slingAnchorOf(p).z);
+		MutationVisuals.registerFlag("p17.sling_anchor", p -> slingAnchorOf(p) != null);
+		MutationVisuals.registerFlag("p17.sling_fly", ElasticityHandlers::slingFlying);
+		MutationVisuals.registerValue("p17.sling_vx", p -> slingFlying(p) ? resAny(p, "sling_vx") - SLING_V_SHIFT : 0.0);
+		MutationVisuals.registerValue("p17.sling_vz", p -> slingFlying(p) ? resAny(p, "sling_vz") - SLING_V_SHIFT : 0.0);
 	}
 
 	public static void registerMeters() {

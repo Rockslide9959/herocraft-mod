@@ -409,4 +409,27 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertFalse(ElasticityHandlers.shapeShifted(p), "a hit ends it");
 		helper.succeed();
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void slingshotScalesWithCoilAndDistance(GameTestHelper helper) {
+		helper.assertTrue(ElasticityHandlers.SLING_RANGE >= 80.0, "80-block reach");
+		double tap = ElasticityHandlers.slingSpeed(0f, 30.0), full = ElasticityHandlers.slingSpeed(1f, 30.0);
+		helper.assertTrue(full > tap * 2.0, "a full coil more than doubles the launch: " + tap + " -> " + full);
+		helper.assertTrue(ElasticityHandlers.slingSpeed(1f, 40.0) > ElasticityHandlers.slingSpeed(1f, 8.0), "a farther anchor flings harder");
+		helper.assertTrue(ElasticityHandlers.slingSpeed(1f, 80.0) <= ElasticityHandlers.SLING_MAX_SPEED, "capped");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theParachuteGlidesLikeAnElytra(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.setPos(p.getX(), p.getY() + 4.0, p.getZ());
+		p.setOnGround(false);
+		shiftPress(p, 5); // Shift+V in the air
+		helper.assertTrue(ElasticityHandlers.gliding(p), "the canopy is out");
+		helper.assertTrue(p.isFallFlying(), "elytra flight");
+		shiftPress(p, 5);
+		helper.assertFalse(p.isFallFlying(), "folded up: no more elytra flight");
+		helper.succeed();
+	}
 }

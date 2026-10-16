@@ -86,10 +86,16 @@ public final class ElasticityClient {
 		// black-and-gray keys / name; the orange Stretch Hairline is a registered meter
 		com.projecthero.mod.client.gui.AbilityHudExtras.mono(ElasticityHandlers.KEY);
 		registerPoses();
+		// v0.16.5: the Slingshot's no-drag flight, on the local player
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			if (mc.player != null) {
+				slingFlightTick(mc.player);
+			}
+		});
 		MutationOverlays.register("p17.arm", ElasticityClient::armExtras);
 		MutationOverlays.register("p17.coiling", ElasticityClient::renderCoil);
 		MutationOverlays.register("p17.gatling", ElasticityClient::gatlingGhosts);
-		MutationOverlays.register("p17.canopy", ElasticityClient::canopyMembrane);
+		// v0.16.5 (user): the canopy is the stretched torso itself now -- no grey membrane between the limbs
 		WorldRenderEvents.AFTER_ENTITIES.register(ElasticityClient::renderWraps);
 		ClientTickEvents.END_CLIENT_TICK.register(ElasticityClient::clientTick);
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -242,26 +248,36 @@ public final class ElasticityClient {
 		}
 
 		if (s.has("p17.canopy") && !fp) {
-			// a flat rubber sheet: the body pressed thin and wide, arms and legs stretched out to the corners
-			m.body.xScale *= 1.9f;
-			m.body.zScale *= 0.45f;
+			// v0.16.5 (user: "stretch the player torso to take up the space between the arms and legs"): the torso itself
+			// is the canopy -- pressed thin and stretched wide and long into a sheet of rubber in the shirt's own colours,
+			// the arms reaching out from its top corners and the legs from its bottom corners
 			float flutter = Mth.sin(t * 0.9f) * 0.04f;
+			float wide = 4.4f + Mth.sin(t * 0.9f) * 0.08f; // 8 px -> ~35 px across
+			float tall = 2.2f; // 12 px -> ~26 px from the neck to the hem
+			m.body.xScale *= wide;
+			m.body.yScale *= tall;
+			m.body.zScale *= 0.3f;
+			float edge = 4.0f * wide; // half the sheet's width, in model pixels
 			m.rightArm.xRot = -0.1f;
 			m.rightArm.yRot = 0.0f;
-			m.rightArm.zRot = 1.35f + flutter;
+			m.rightArm.zRot = 1.45f + flutter;
 			m.leftArm.xRot = -0.1f;
 			m.leftArm.yRot = 0.0f;
-			m.leftArm.zRot = -1.35f - flutter;
-			m.rightArm.x -= 3.0f;
-			m.leftArm.x += 3.0f;
-			stretchArm(m.rightArm, 22.0f, 1.0f);
-			stretchArm(m.leftArm, 22.0f, 1.0f);
+			m.leftArm.zRot = -1.45f - flutter;
+			m.rightArm.x = -edge;
+			m.leftArm.x = edge;
+			m.rightArm.y = 1.0f;
+			m.leftArm.y = 1.0f;
+			stretchArm(m.rightArm, 12.0f, 0.9f);
+			stretchArm(m.leftArm, 12.0f, 0.9f);
 			m.rightLeg.xRot = 0.0f;
 			m.leftLeg.xRot = 0.0f;
-			m.rightLeg.zRot = 0.55f;
-			m.leftLeg.zRot = -0.55f;
-			m.rightLeg.yScale *= 1.5f;
-			m.leftLeg.yScale *= 1.5f;
+			m.rightLeg.zRot = 0.75f;
+			m.leftLeg.zRot = -0.75f;
+			m.rightLeg.x = -edge * 0.7f;
+			m.leftLeg.x = edge * 0.7f;
+			m.rightLeg.y = 12.0f * tall - 1.0f;
+			m.leftLeg.y = 12.0f * tall - 1.0f;
 			// look ahead, not at the ground
 			m.head.xRot = Math.max(-1.45f, m.head.xRot - 1.3f);
 			m.hat.copyFrom(m.head);
@@ -282,6 +298,24 @@ public final class ElasticityClient {
 			m.leftLeg.zRot = -0.04f;
 			m.rightLeg.yScale *= legPx / 12.0f;
 			m.leftLeg.yScale *= legPx / 12.0f;
+		}
+
+		// v0.16.5 Slingshot: both arms grip the locked anchor, wherever the head turns (before the stretch, which lengthens
+		// them along their rotation)
+		if (s.has("p17.sling_anchor")) {
+			Vec3 anchor = new Vec3(s.value("p17.sling_ax", 0f), s.value("p17.sling_ay", 0f), s.value("p17.sling_az", 0f));
+			Vec3 shoulder = p.getPosition(partial()).add(0, 1.4, 0);
+			Vec3 d = anchor.subtract(shoulder);
+			double horiz = Math.sqrt(d.x * d.x + d.z * d.z);
+			float yawTo = (float) (Mth.atan2(d.z, d.x) * Mth.RAD_TO_DEG) - 90.0f;
+			float pitchTo = (float) -(Mth.atan2(d.y, horiz) * Mth.RAD_TO_DEG);
+			float bodyYaw = Mth.rotLerp(partial(), p.yBodyRotO, p.yBodyRot);
+			float rel = Mth.wrapDegrees(yawTo - bodyYaw) * Mth.DEG_TO_RAD;
+			for (ModelPart arm : new ModelPart[] { m.rightArm, m.leftArm }) {
+				arm.xRot = pitchTo * Mth.DEG_TO_RAD - Mth.HALF_PI;
+				arm.yRot = rel;
+				arm.zRot = 0.0f;
+			}
 		}
 
 		// the stretched arms
@@ -537,33 +571,6 @@ public final class ElasticityClient {
 		}
 	}
 
-	/** The Parachute's membrane: a thin sheet of the skin's own colour spanning arms and legs. */
-	private static void canopyMembrane(MutationOverlays.Context ctx) {
-		int rgb = skinColour(ctx.player().getSkin().texture());
-		PoseStack pose = ctx.pose();
-		pose.pushPose();
-		ctx.model().body.translateAndRotate(pose);
-		VertexConsumer vc = ctx.buffers().getBuffer(RenderType.entityTranslucentCull(MutationRender.WHITE));
-		PoseStack.Pose last = pose.last();
-		Matrix4f m = last.pose();
-		float sag = 0.03f * Mth.sin((ctx.ageInTicks() + ctx.partialTick()) * 0.5f);
-		// corners in body space (pixels): wrists out at the sides, ankles below, a gentle billow in the middle
-		float[][] pts = { { -16f, 1f }, { 16f, 1f }, { 7f, 22f }, { -7f, 22f } };
-		int r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
-		for (int side = 0; side < 2; side++) {
-			float z = side == 0 ? -0.6f / 16.0f : 0.6f / 16.0f;
-			float nz = side == 0 ? -1.0f : 1.0f;
-			int[] order = side == 0 ? new int[] { 0, 1, 2, 3 } : new int[] { 3, 2, 1, 0 };
-			for (int k : order) {
-				float x = pts[k][0] / 16.0f;
-				float y = pts[k][1] / 16.0f;
-				vc.addVertex(m, x, y, z + (k < 2 ? 0 : sag)).setColor(r, g, b, 215).setUv(0.5f, 0.5f).setOverlay(OverlayTexture.NO_OVERLAY)
-						.setLight(ctx.light()).setNormal(last, 0.0f, 0.0f, nz);
-			}
-		}
-		pose.popPose();
-	}
-
 	// ================================================================== whole-body replacements
 
 	/**
@@ -641,8 +648,8 @@ public final class ElasticityClient {
 
 	/** From {@code PlayerRenderer.setupRotations}: the canopy lies flat, face down, into the glide. */
 	public static void applyBodyRotation(Player p, PoseStack pose) {
-		if (!MutationVisuals.hasFlag(p, "p17.canopy")) {
-			return;
+		if (!MutationVisuals.hasFlag(p, "p17.canopy") || p.isFallFlying()) {
+			return; // in elytra flight vanilla already lays the body along the flight path
 		}
 		pose.translate(0.0f, 0.9f, 0.0f);
 		pose.mulPose(Axis.XP.rotationDegrees(-80.0f));
@@ -804,24 +811,8 @@ public final class ElasticityClient {
 		if (p == null || !ElasticityHandlers.owns(p)) {
 			return;
 		}
-		// Parachute steering (the client simulates, the server allows: fall damage is off and the server adds a hidden
-		// Slow Falling as the fallback)
-		if (ElasticityHandlers.gliding(p) && !p.onGround() && !p.isInWater() && !p.getAbilities().flying) {
-			Vec3 v = p.getDeltaMovement();
-			Vec3 look = p.getLookAngle();
-			Vec3 flat = new Vec3(look.x, 0, look.z);
-			if (flat.lengthSqr() > 1.0e-4) {
-				flat = flat.normalize();
-				boolean dive = look.y < -0.55;
-				double speed = dive ? 0.8 : 0.5;
-				double sink = dive ? -0.45 : -0.1;
-				Vec3 want = flat.scale(speed);
-				double nx = v.x + (want.x - v.x) * 0.18;
-				double nz = v.z + (want.z - v.z) * 0.18;
-				double ny = dive ? Math.max(Math.min(v.y, -0.2), sink) : Math.max(v.y, sink);
-				p.setDeltaMovement(nx, ny, nz);
-			}
-		}
+		// v0.16.5: the Parachute is a custom elytra now (EntityElytraEvents.CUSTOM in ElasticityHandlers) -- vanilla elytra
+		// physics steer it, so there is no hand-made glide here any more
 		// the Rubber Ball bounces off walls
 		if (ElasticityHandlers.balled(p)) {
 			Vec3 v = p.getDeltaMovement();
@@ -839,6 +830,32 @@ public final class ElasticityClient {
 	 * From {@code LocalPlayerMixin} on a landing after a real fall (peak fall speed {@code fall}): how hard the rubber body
 	 * springs back up (0 = no bounce). Holding Shift lands dead; the ball bounces higher.
 	 */
+	/**
+	 * v0.16.5 Slingshot flight (user: "dont make them slow down in the air or lose momentum ... till they land"): each
+	 * client tick the local player's horizontal speed is put back to the launch speed, so air drag never bleeds it off;
+	 * gravity still brings him down. It lets go on landing, on hitting a wall or in water (the server ends it too).
+	 */
+	public static void slingFlightTick(LocalPlayer self) {
+		MutationVisualState s = MutationVisuals.state(self);
+		if (!s.has("p17.sling_fly")) {
+			slingBroken = false;
+			return;
+		}
+		if (slingBroken || self.isInWater() || self.horizontalCollision || (self.onGround() && self.getDeltaMovement().y <= 0.0)) {
+			slingBroken = true; // a wall or the ground: let go until the server ends this flight
+			return;
+		}
+		float vx = s.value("p17.sling_vx", 0f);
+		float vz = s.value("p17.sling_vz", 0f);
+		if (vx * vx + vz * vz < 1.0e-4f) {
+			return;
+		}
+		self.setDeltaMovement(vx, self.getDeltaMovement().y, vz);
+		self.resetFallDistance();
+	}
+
+	private static boolean slingBroken;
+
 	public static double landingBounce(LocalPlayer self, double fall) {
 		if (self.isShiftKeyDown() || fall <= 0.55) {
 			return 0.0;
