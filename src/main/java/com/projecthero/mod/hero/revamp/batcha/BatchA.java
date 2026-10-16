@@ -83,7 +83,7 @@ public final class BatchA {
 	}
 	/** The stance loops this batch re-asserts every tick; any of them may replace another. */
 	private static final java.util.Set<String> STANCES = java.util.Set.of("float_arms", "carry_overhead", "p01.rush",
-			"p03.superman", "p03.carry", "p04.carry");
+			"p03.superman", "p03.carry", "p03.hover", "p03.fly", "p04.carry");
 
 	/**
 	 * Plays a one-shot pose. {@code holdTicks} is how long it needs before a stance loop may take over again -- kept

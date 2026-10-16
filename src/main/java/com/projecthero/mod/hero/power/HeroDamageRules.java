@@ -103,7 +103,13 @@ public final class HeroDamageRules {
 					return Verdict.mult(0.7f);
 				}
 			}
-			case "power_03_flight", "power_16_spider_climbing_adhesion" -> {
+			case "power_03_flight" -> {
+				// v0.16.5 rework: no fall damage; projectiles miss during a Barrel Roll
+				if (com.projecthero.mod.hero.power.p03.FlightHandlers.damageFactor(player, source) < 0.0f) {
+					return Verdict.immune();
+				}
+			}
+			case "power_16_spider_climbing_adhesion" -> {
 				if (fall) {
 					player.resetFallDistance();
 					return Verdict.immune();

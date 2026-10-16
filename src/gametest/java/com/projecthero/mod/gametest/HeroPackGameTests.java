@@ -407,12 +407,12 @@ public class HeroPackGameTests implements FabricGameTest {
 		ExperimentalPowers.grant(player, flight);
 		ExperimentalPowers.setActive(player, flight);
 
-		AbilityRouter.handleInput(player, 3, true); // H = flight_toggle
+		com.projecthero.mod.hero.power.p03.FlightHandlers.toggleFlight(player); // v0.16.5: the jump double-tap
 		helper.assertTrue(com.projecthero.mod.hero.power.HeroFlight.isFlying(player), "Flight toggle should engage hero flight");
 		helper.assertTrue(player.getAbilities().mayfly, "hero flight should grant mayfly");
 		helper.assertFalse(com.projecthero.mod.power.ThorPowers.isFlying(player), "hero flight must be independent of Thor flight");
 
-		AbilityRouter.handleInput(player, 3, true);
+		com.projecthero.mod.hero.power.p03.FlightHandlers.toggleFlight(player);
 		helper.assertFalse(com.projecthero.mod.hero.power.HeroFlight.isFlying(player), "toggling again should disable hero flight");
 		helper.succeed();
 	}
@@ -757,7 +757,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		ExperimentalPowers.grant(player, flight);
 		ExperimentalPowers.grant(player, strength);
 		ExperimentalPowers.setActive(player, flight);
-		AbilityRouter.handleInput(player, 3, true);
+		com.projecthero.mod.hero.power.p03.FlightHandlers.toggleFlight(player);
 		helper.assertTrue(com.projecthero.mod.hero.power.HeroFlight.isFlying(player), "should be flying");
 
 		ExperimentalPowers.setActive(player, strength);

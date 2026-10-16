@@ -48,6 +48,9 @@ public final class HeroFlight {
 		if (power == null) {
 			return false;
 		}
+		if ("power_03_flight".equals(power.key())) {
+			return true; // v0.16.5: Flight's flight is the double-tap of jump, not a slot
+		}
 		for (Ability ability : power.abilities()) {
 			if (ability.id().contains("flight")) {
 				return true;

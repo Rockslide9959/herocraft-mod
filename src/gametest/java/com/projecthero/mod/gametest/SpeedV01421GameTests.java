@@ -107,9 +107,9 @@ public class SpeedV01421GameTests implements FabricGameTest {
 		for (Power p : Powers.mutations()) {
 			mutations.add(p.key());
 		}
-		helper.assertTrue(mutations.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision",
+		helper.assertTrue(mutations.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision", "power_03_flight",
 				"power_04_super_speed", "power_11_teleportation", "power_12_super_regeneration", "power_17_elasticity")),
-				"exactly the remade mutations (v0.16.5: + Teleportation, + Elasticity): " + mutations);
+				"exactly the remade mutations (v0.16.5: + Teleportation, + Elasticity, + Flight): " + mutations);
 		helper.assertTrue(Powers.isEnabled(speed) && Powers.isMutation(speed) && !Powers.isHeroTier(speed), "Super Speed: enabled mutation");
 		for (Power p : Powers.all()) {
 			if (!mutations.contains(p.key())) {
@@ -117,7 +117,7 @@ public class SpeedV01421GameTests implements FabricGameTest {
 			}
 		}
 		ServerPlayer q = helper.makeMockServerPlayerInLevel();
-		helper.assertFalse(com.projecthero.mod.hero.PowerGrants.grantExperimental(q, Powers.byKey("power_03_flight")),
+		helper.assertFalse(com.projecthero.mod.hero.PowerGrants.grantExperimental(q, Powers.byKey("power_18_density_manipulation")),
 				"a disabled mutation is still never granted");
 		// obtainable: random-serum roll pool, a mutation grant, brewing and the reagent recipe
 		ServerPlayer p = helper.makeMockServerPlayerInLevel();

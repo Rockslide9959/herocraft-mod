@@ -241,3 +241,40 @@ Answered 2026-10-15:
 - **Test speed:** no preference picked. Section 5 lists the options.
 
 Still waiting on: your go-ahead (or changes) for each power, the three skin links, and which test-speed fixes to apply.
+
+---
+
+## 7. Flight Rework: Experimental (mutation)
+
+**What was wrong:** it was switched off (`Powers.ENABLED`). Flight itself took the X key, Slipstream and Barrel Roll sat on H and N, the speed tiers were hard to read, and every move was particles only.
+
+**New design (user-approved):** a Superman / Homelander flier. Flying is free and starts with a **double-tap of jump** (like Cyborg's Jet Flight). A **Lift** meter (0-100) pays for sprint-flying, the dashes and the big moves. Six keys, each with a Shift version, no H or N.
+
+- **Lift (0-100):** sprint-flying, dashes and big moves spend it. It refills 12 a second on the ground or while cruising.
+- **Passives:** double-tap jump to fly; cruise **20 blocks/s**, sprint-flying **50 blocks/s** (user numbers); landing ends flight; no fall damage; flight poses (lean forward cruising, laid out flat sprint-flying, arms at the sides).
+- **Getting it:** unchanged (Gravitational Instability Serum + a gravity device, or a 14+ block fall). It returns to the power wheel and random serums.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Flying Punch:** dash up to 8 blocks into the target: 14 and a big knockback. 15 Lift | **Dive Bomb:** in the air, rocket down at the aim point: 12-30 in a 4-block ring, scaling with height. 25 Lift |
+| **G** | **Grab & Carry:** grab the mob or player in front and fly with it; press again to throw (no bosses). 15 Lift | **Orbital Drop:** grab, shoot 40 blocks straight up and let go (full fall damage). 40 Lift, 15 s cooldown |
+| **X** | **Air Dash:** a 12-block burst the way you move. 10 Lift | **Barrel Roll:** a sideways roll with 0.5 s of projectile immunity. 10 Lift |
+| **Z** | **Sonic Boom:** break the sound barrier: a 10-block cone shockwave, 16 and a launch. 30 Lift | **Takeoff Blast:** launch 20 blocks up from the ground, knockback within 5. 20 Lift |
+| **V** | **Hover** (toggle): hang still for steady aim, no knockback. Free | **Slipstream** (toggle): you and squadmates flying behind you +50% speed. 4 Lift a second |
+| **C** | **Afterburner** (hold): +60% speed with a contrail. 8 Lift a second | **Updraft:** every enemy within 6 blocks is lifted 6 blocks up. 25 Lift |
+
+**Models and animations:** the Sonic Boom's vapour cone and shock-ring cone, the Afterburner's contrail ribbons, the Dive Bomb's crater (shock ring, scorch and cracks, a dust rim, thrown-up chunks of the ground block), the Takeoff Blast's ground rings and wind column, the Updraft's spiralling wind column, the Slipstream's wind funnel, the Hover's air rings, punch and dash rings; poses for the punch, dive, three-point landing, carry, throw, overhead lift and release, dash, barrel roll (a full body spin), sonic boom, takeoff, hover and updraft.
+
+**Built (2026-10-16).** Where the spec above was silent, I decided the following:
+- **Sprint-flying costs 6 Lift a second.** With the meter empty you can still fly, but only at cruise speed. Afterburner (8) and Slipstream (4) add to it, and **nothing refills while any of them runs** (otherwise cruising with Slipstream would be free). Creative players spend nothing.
+- **Not enough Lift refuses the move** with a message ("Not enough Lift (15 needed)"); nothing is spent. There is no limp state.
+- **Moves are driven by the server:** each dash re-sends its velocity every tick, so it flies the same distance flying or on foot. Flying Punch picks the target on your crosshair up to 8.5 blocks and lands on contact (or at the end of the dash if it is still within 3 blocks); with no target it dashes 8 blocks and hits the first thing it meets. Air Dash and Barrel Roll go the way you were last moving (Barrel Roll: the side you strafe, else alternating).
+- **Dive Bomb** needs you off the ground. It flies at 3.5 blocks a tick toward the aim point (96 blocks); an aim above the horizon still comes down steeply. Height is measured from where the dive started; the full 30 lands from 30 blocks. The Super Strength + Flight combo bonus still applies.
+- **Grab & Carry** reaches 5 blocks and holds for up to 30 s; the throw is 2.4 blocks a tick along your look, and the fall does the damage. **Orbital Drop** grabs the same way, carries the creature overhead at 3 blocks a tick and lets go at the top (or at a ceiling). You stay up flying.
+- **Sonic Boom** hits a ~40° cone; flying, it also surges you forward for 3 ticks. **Takeoff Blast** only works from the ground and starts flight at once. **Updraft** throws enemies up at ~1 block a tick (about 6 blocks).
+- **Hover** takes off if you are on the ground, holds you dead still (no drift, no climbing) and gives full knockback resistance; any dash, dive or rise ends it. **Slipstream drafting** is worked out by each squadmate's client: flying any flight within 16 blocks behind a Slipstreaming squadmate (judged by the leader's facing) gives +50%.
+- **Afterburner** takes off if you are not flying; it ends on release, at 0 Lift or on landing.
+- **Barrel Roll** now only stops projectiles (the old roll stopped all damage).
+- **HUD:** mono keys, the always-on blue Lift Hairline, timers for the Orbital Drop cooldown and the Carry.
+- **Removed:** the X Flight toggle (now the double-tap), the speed tiers, Sonic Flight, the old Orbital Drop slam, H Slipstream (now Shift+V), N Barrel Roll (now Shift+X) and the falling air-control passive.
+- **Boss:** the Gravebound Flight boss keeps its moves; its ids are the new ones (take-off = Afterburner, Dive Bomb = Flying Punch, Orbital Drop = Grab & Carry, Barrel Roll = Air Dash).
