@@ -189,8 +189,8 @@ public class MutationAcquisitionGameTests implements FabricGameTest {
 		for (int t = 0; t < 70 && !ExperimentalPowers.owns(p, cryo); t++) {
 			MutationManager.serverTick(p);
 		}
-		// v0.14.8: Cryokinesis is disabled
-		helper.assertFalse(ExperimentalPowers.owns(p, cryo), "a disabled power must not be granted by its detector");
+		// v0.16.5: Cryokinesis is enabled again (reworked) -- the serum + sinking in powder snow grants it
+		helper.assertTrue(ExperimentalPowers.owns(p, cryo), "powder snow grants Cryokinesis");
 		helper.succeed();
 	}
 

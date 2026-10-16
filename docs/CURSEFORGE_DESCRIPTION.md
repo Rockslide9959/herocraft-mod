@@ -341,6 +341,10 @@ return as they're rebuilt:
   and sprint-fly at 50. A **Lift** meter pays for sprint-flying and the big moves: Flying Punches, a cratering Dive
   Bomb, Grab & Carry, an **Orbital Drop** that takes a foe 40 blocks up and lets go, Air Dash and Barrel Roll, a
   **Sonic Boom** cone, a Takeoff Blast, Hover, a squad **Slipstream**, an Afterburner with a contrail and an Updraft.
+- **Cryokinesis** (reworked in 0.16.5) -- an Iceman ice caster on a **Cold** meter: ice hits add **Frost**, and five
+  Frost freeze a creature solid in a block of ice. Ice Bolts and Ice Shards, a held Freeze Beam, an Ice Prison, an
+  **Ice Slide** ramp you ride into the sky, an Ice Pillar launch, a racing line of Glacier Spikes, **Absolute Zero**, a
+  Glacier Wall, Frozen Armor plates, an Ice Blade on your arm and a **Shatter** that cashes in everything you froze.
 
 ---
 

@@ -20,8 +20,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Cryokinesis (v0.14.1 kit): Ice Bolt, Freeze Beam (held), Ice Spikes (Sneak Glacier Wall: spikes burst up under the
- * target), Flash Freeze around itself and -- once badly hurt -- Absolute Zero. Every hit adds the player power's real
+ * Cryokinesis (v0.16.5 rework ids): Ice Bolt, Freeze Beam (held), Glacier Spikes (spikes burst up under the
+ * target), a Shatter-style frost burst around itself (the Ice Blade / Shatter slot) and -- once badly hurt -- Absolute
+ * Zero (Shift+Z). Every hit adds the player power's real
  * frost stacks ({@link FrostStacks}); five freeze the victim solid, exactly as the player's do.
  */
 public class CryokinesisBoss extends BossPowerController {
@@ -32,7 +33,8 @@ public class CryokinesisBoss extends BossPowerController {
 	private static final int SPIKES = 2;
 	private static final int FLASH_FREEZE = 3;
 	private static final int ABSOLUTE_ZERO = 4;
-	private static final List<String> IDS = List.of("ice_bolt", "freeze_beam", "ice_wall", "flash_freeze", "absolute_zero");
+	private static final List<String> IDS = List.of("ice_bolt", "freeze_beam", "glacier_spikes", "ice_blade",
+			"glacier_spikes");
 
 	private static final ParticleOptions ICE = new BlockParticleOption(ParticleTypes.BLOCK, Blocks.ICE.defaultBlockState());
 	private static final ParticleOptions FROST_BEAM = BatchCFx.dust(0x9EE6FF, 1.0f);

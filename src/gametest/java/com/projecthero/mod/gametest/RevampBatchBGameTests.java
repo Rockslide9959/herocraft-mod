@@ -13,6 +13,7 @@ import com.projecthero.mod.hero.power.p05.GroundType;
 import com.projecthero.mod.hero.power.p06.CrystalNodeEntity;
 import com.projecthero.mod.hero.power.p09.FrostStacks;
 import com.projecthero.mod.hero.power.p09.IceBladeItem;
+import com.projecthero.mod.hero.power.p08.PyrokinesisHandlers;
 import com.projecthero.mod.hero.power.p25.WaterHandlers;
 import com.projecthero.mod.hero.revamp.BatchBScheduler;
 
@@ -28,7 +29,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -94,6 +94,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 	public void batchPowersRegistered(GameTestHelper helper) {
 		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
 		for (String key : new String[] { GEO, CRYSTAL, CRYO, WATER } /* 08 Pyrokinesis: reworked in v0.16.5 (six keys) */) {
+		for (String key : new String[] { GEO, CRYSTAL, PYRO, WATER }) { // v0.16.5: Cryokinesis reworked (six keys)
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {
@@ -245,52 +246,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 
 	// 08 Pyrokinesis: since the v0.16.5 rework in PyrokinesisV0165GameTests
 
-	// ---------------- 09 Cryokinesis ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void cryoFrostStacksFreezeSolid(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, CRYO);
-		Zombie z = zombieAhead(helper, p, 4);
-		AbilityRouter.handleInput(p, 1, true); // Ice Bolt
-		helper.assertTrue(FrostStacks.stacks(z) == 1, "Ice Bolt adds a frost stack, got " + FrostStacks.stacks(z));
-		helper.assertTrue(z.getTicksFrozen() > 0, "the stack shows as freezing");
-		FrostStacks.add(p, z, FrostStacks.MAX - 1);
-		helper.assertTrue(FrostStacks.frozen(z), "five stacks freeze the target solid");
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "and pin it");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void cryoIceBladeCannotBeKept(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, CRYO);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertTrue(IceBladeItem.isBlade(p.getMainHandItem()), "N conjures the Ice Blade into the hand");
-		// a dropped copy melts as it enters the world
-		ItemEntity dropped = new ItemEntity(helper.getLevel(), p.getX(), p.getY(), p.getZ(), p.getMainHandItem().copy());
-		helper.getLevel().addFreshEntity(dropped);
-		helper.assertTrue(dropped.isRemoved(), "a dropped Ice Blade never lies in the world");
-		// switching away from it melts it
-		p.getInventory().selected = (p.getInventory().selected + 1) % 9;
-		p.getInventory().tick();
-		boolean any = false;
-		for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
-			any |= IceBladeItem.isBlade(p.getInventory().getItem(i));
-		}
-		helper.assertFalse(any, "the blade melts the moment it leaves the hand");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void cryoFlashFreezeFreezesWater(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, CRYO);
-		BlockPos pool = p.blockPosition().offset(1, -1, 2);
-		helper.getLevel().setBlock(pool, Blocks.WATER.defaultBlockState(), 2);
-		Zombie z = zombieAhead(helper, p, 3);
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(helper.getLevel().getBlockState(pool).is(Blocks.ICE), "Flash Freeze turns the water to ice");
-		helper.assertTrue(FrostStacks.stacks(z) >= 2, "and frosts the creatures around you");
-		helper.succeed();
-	}
+	// 09 Cryokinesis: reworked in v0.16.5 -- see CryokinesisV0165GameTests
 
 	// ---------------- 25 Water Manipulation ----------------
 

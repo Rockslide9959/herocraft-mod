@@ -254,16 +254,16 @@ final class PowerCatalog {
 	private static Power cryokinesis() {
 		String k = "power_09_cryokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				// v0.13.22 revamp (batch B): frost stacks, then frozen solid
-				.ability(ab(k, "ice_bolt", SLOT_1, INSTANT, 34))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Cold meter. All HOLD so the
+				// handlers own Shift / release; the real cooldowns (Ice Prison 12 s, Absolute Zero 20 s) are their own timers.
+				.ability(ab(k, "ice_bolt", SLOT_1, HOLD, 0))
 				.ability(ab(k, "freeze_beam", SLOT_2, HOLD, 0))
-				.ability(ab(k, "ice_slide", SLOT_3, TOGGLE, 0))
-				.ability(ab(k, "absolute_zero", SLOT_4, HOLD, 38 * S))
-				.ability(ab(k, "ice_wall", SLOT_5, INSTANT, 7 * S))
-				.ability(ab(k, "frozen_armor", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "flash_freeze", AbilitySlot.SLOT_7, INSTANT, 12 * S))
-				.ability(ab(k, "ice_blade", AbilitySlot.SLOT_8, INSTANT, 32 * S))
-				.passives(pk(k, "passive.powder_snow"), pk(k, "passive.freeze_resist"))
+				.ability(ab(k, "ice_slide", SLOT_3, HOLD, 0))
+				.ability(ab(k, "glacier_spikes", SLOT_4, HOLD, 0))
+				.ability(ab(k, "glacier_wall", SLOT_5, HOLD, 0))
+				.ability(ab(k, "ice_blade", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.cold"), pk(k, "passive.frost"), pk(k, "passive.frost_walker"),
+						pk(k, "passive.freeze_resist"), pk(k, "passive.powder_snow"), pk(k, "passive.grip"))
 				.serum(SerumRecipe.of("minecraft:slowness", pk(k, "serum"),
 						"minecraft:snowball", "minecraft:ice", "minecraft:lapis_lazuli"))
 				.trigger(MutationTrigger.of(Kind.POWDER_SNOW, pk(k, "trigger"), "projecthero.device.crystal_chamber"))

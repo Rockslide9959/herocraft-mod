@@ -36,6 +36,7 @@ public final class Powers {
 			"power_08_pyrokinesis", // v0.16.5: reworked (Heat meter, six keys + Shift)
 			"power_11_teleportation", // v0.16.5: reworked (Strain meter, six keys + Shift)
 			"power_12_super_regeneration",
+			"power_09_cryokinesis", // v0.16.5: reworked (Cold meter, Frost, six keys + Shift)
 			"power_17_elasticity"); // v0.16.5: reworked (Stretch meter, six keys + Shift)
 
 	/**

@@ -318,3 +318,23 @@ Still waiting on: your go-ahead (or changes) for each power, the three skin link
 - **Fire is placed only where you may build** (and only with the server's terrain-damage switch on); all of it is temporary and goes out on its own.
 - **Removed:** the blue-flame tier (Flame Laser, blue Inferno, blue Flame Body), the old overheat (1 damage a second until 60%), Flame Spark (light / absorb / cook held items), the old Heat Wave vent on H and the Fire Whip on N.
 - **Not verified:** real multiplayer play, and lava walking (client movement) only in the screenshot harness.
+## 9. Cryokinesis Rework: Experimental (mutation)
+
+**Approved design, built.** An Iceman / Frozone ice caster on a **Cold** meter, built around **Frost**. Six keys, each with a Shift version, no H or N.
+
+- **Cold (0-100):** moves spend it; refills 15/s (25/s in a snowy biome or standing on snow / ice) while the Freeze Beam and Frozen Armor are not draining it. A move you cannot afford is refused (nothing spent). Shown as an always-on Hairline, plus Ice Slide / Ice Prison / Absolute Zero timers.
+- **Frost:** ice hits add Frost (ice-crystal pips over the target). At 5 it is **frozen solid for 2.5 s** in a block of ice: pinned, can't jump, can't attack (its hits and projectiles do nothing). Frost fades one at a time after 3 s; a thawed target can't be re-frozen for 2 s.
+- **Passives:** water freezes under your feet, immune to freezing / powder snow, no slipping on ice.
+
+| Key | Move | Shift | Move |
+|---|---|---|---|
+| R | **Ice Bolt**: 10 + 1 Frost, 8 Cold | Shift+R | **Ice Shards**: 7-shard fan, 4 + 1 Frost each, 15 Cold |
+| G | **Freeze Beam** (hold): 1 Frost / 0.5 s, freezes water, 10 Cold/s | Shift+G | **Ice Prison**: encase a target 4 s (no bosses), 30 Cold, 12 s cd |
+| X | **Ice Slide**: ride a ramp of ice you lay as you go, 5 s, 20 Cold | Shift+X | **Ice Pillar**: a column launches you 10 blocks, 15 Cold |
+| Z | **Glacier Spikes**: 12-block line, 16 + 2 Frost, 25 Cold | Shift+Z | **Absolute Zero**: everything within 8 gets 5 Frost, 50 Cold, 20 s cd |
+| V | **Glacier Wall**: 5 wide, 4 tall, melts after 15 s, 15 Cold | Shift+V | **Frozen Armor** (toggle): 8 absorption hearts, melee attackers get Frost, 3 Cold/s |
+| C | **Ice Blade** (toggle): +8 melee, 1 Frost a hit, free | Shift+C | **Shatter**: frosted enemies within 10 take 20, frozen ones 40 and break out, 20 Cold |
+
+**Models and animations:** an Ice Bolt lance (faceted, glowing core, tail fins), tumbling Ice Shards, a beam of a glowing core wrapped in a travelling spiral of ice crystals with frost rings and a frost bloom where it lands, the frozen-solid ice block (snaps shut, icicles, shivers, cracks; Ice Prison's is packed ice with blue-ice posts), the Frost pips, erupting spike clusters (Glacier Spikes as a travelling wave, Absolute Zero as a three-ring crown), an ice sled under the feet on the slide, Frozen Armor plates (chest, back, pauldrons with icicles, bracers, shins, a circlet), the Ice Blade on the forearm (third and first person), Shatter debris, and a cast pose for every move.
+
+**Notes:** the old ice-tool wheel, Flash Freeze and the conjured Ice Blade item are gone (old blades still melt out of inventories). The ramp, wall, pillar and frozen water are tracked by `CryoIce`: each block melts on its own clock, a block mined or built over is never overwritten, and everything still standing is melted back when the server stops. Frozen Armor shatters when its hearts are gone.

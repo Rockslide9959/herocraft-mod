@@ -90,6 +90,7 @@
 		"ModelPartCubeFrontFaceMixin",
 		"LevelRendererHighlightMixin",
 		"PlayerRendererClawsMixin",
+		"CryoFirstPersonArmMixin",
 		"PlayerRendererSymbioteBladeMixin",
 		"PlayerRendererFleshHandMixin",
 		"PlayerRendererFleshMixin",

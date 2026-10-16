@@ -51,6 +51,7 @@
 		"PlayerMixin",
 		"PowderSnowBlockMixin",
 		"PowderSnowSlowMixin",
+		"CryoIceFrictionMixin",
 		"ProjectileWeaponItemMixin",
 		"RangedAttackGoalMixin",
 		"RangedAttributeAccessor",

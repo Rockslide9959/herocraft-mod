@@ -236,11 +236,6 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.IronManSuitCallScreen(payload.options()))));
 
-		// Cryokinesis ice-weapon wheel (v0.10.11): server tells us the 2 s Sneak+R hold completed.
-		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.CryoWheelOpenPayload.TYPE,
-				(payload, context) -> context.client().execute(() -> context.client().setScreen(
-						new com.projecthero.mod.client.gui.CryoWeaponWheelScreen())));
-
 		// Teleportation Portal picker (v0.10.13): the 5-second Z charge finished.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.PortalPickerPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
