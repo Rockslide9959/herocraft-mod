@@ -495,4 +495,81 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		helper.assertFalse(BlueBeetle.shieldUp(p), "not again straight away");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- round 2b: the shield works like Cyborg's Defense Matrix
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shieldSoaksAHundredPointsThenBreaks(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
+		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true); // hits unscaled, so the pool maths is exact
+		p.removeAllEffects();
+		BlueBeetleAbilities.raiseShield(p);
+		helper.assertTrue(BlueBeetle.shieldUp(p) && BlueBeetle.state(p).fx.shieldHp == BlueBeetleConfig.SHIELD_HP, "up with 100 points");
+		float hp = p.getHealth();
+		p.hurt(p.damageSources().mobAttack(z), 30f);
+		helper.assertTrue(p.getHealth() == hp, "a 30-point hit from the front is soaked");
+		float left = BlueBeetle.state(p).fx.shieldHp;
+		helper.assertTrue(Math.abs(left - (BlueBeetleConfig.SHIELD_HP - 30f)) < 0.01f, "70 points left, got " + left);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().mobAttack(z), 90f);
+		helper.assertFalse(BlueBeetle.shieldUp(p), "the pool ran dry: it broke");
+		helper.assertTrue(p.getHealth() < hp, "and the 20 it could not take went through");
+		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.SHIELD) >= BlueBeetleConfig.SHIELD_COOLDOWN - 1, "8 s cooldown after a break");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void shieldCostsNoEnergyWhileHeld(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
+		BlueBeetle.setEnergy(p, 50f);
+		pump(helper, p);
+		BlueBeetleAbilities.raiseShield(p);
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(BlueBeetle.shieldUp(p), "still up after 3 s");
+			helper.assertTrue(BlueBeetle.energy(p) >= 50f, "no drain, energy " + BlueBeetle.energy(p));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void takeoverShieldsAgainstAnIncomingArrow(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
+		mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
+		unleashed(p);
+		Vec3 from = helper.absoluteVec(new Vec3(6.5, 3.4, 6.5));
+		net.minecraft.world.entity.projectile.Arrow a = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), from.x, from.y, from.z,
+				new ItemStack(Items.ARROW), null);
+		Vec3 d = p.position().add(0, 1.0, 0).subtract(from).normalize();
+		a.shoot(d.x, d.y, d.z, 1.6f, 0f);
+		helper.getLevel().addFreshEntity(a);
+		p.tickCount++;
+		BlueBeetle.tick(p);
+		helper.assertTrue(BlueBeetle.shieldUp(p) && com.projecthero.mod.bluebeetle.KhajiDaTakeover.blocks(p) == 1, "the shield went up for the arrow");
+		helper.assertTrue(p.getLookAngle().dot(d) < -0.5, "turned to face it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void takeoverBlocksAMeleeThenStrikesBack(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 2.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 4.0, 280);
+		z.setTarget(p);
+		boolean[] sawShield = new boolean[1];
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			BlueBeetle.tick(p);
+			z.setTarget(p);
+			sawShield[0] |= BlueBeetle.shieldUp(p);
+		});
+		unleashed(p);
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(sawShield[0], "the shield went up against the zombie next to him");
+			helper.assertTrue(z.getHealth() < 280f, "then came down to hit back, zombie at " + z.getHealth());
+			helper.succeed();
+		});
+	}
 }

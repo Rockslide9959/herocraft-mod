@@ -648,23 +648,29 @@ public final class BlueBeetleAbilities {
 
 	// ================================================================ V: Energy Shield (held) / Shift+V: Camouflage
 
+	/**
+	 * V held: the shield goes up with a fresh 100-point pool (v0.16.5, user: "the same as the cyborgs shield" -- Cyborg's
+	 * Defense Matrix). It soaks hits and projectiles from the front ({@code BlueBeetleDamage}) until V is let go or the
+	 * pool runs dry and it breaks; either way an 8 s cooldown. No energy drain.
+	 */
 	public static void raiseShield(ServerPlayer p) {
 		if (BlueBeetle.shieldUp(p) || !begin(p, SHIELD, 0f)) {
 			return;
 		}
-		if (BlueBeetle.energy(p) < BlueBeetleConfig.SHIELD_COST_PER_SECOND && !BlueBeetle.unleashed(p)) {
-			BlueBeetle.say(p, "message.projecthero.blue_beetle.low_energy", ChatFormatting.BLUE, (int) BlueBeetleConfig.SHIELD_COST_PER_SECOND,
-					(int) Math.floor(BlueBeetle.energy(p)));
-			return;
-		}
 		SHIELDS.put(p.getUUID(), p.level().getGameTime());
-		fx(p, n -> n.fx.shield = true);
+		fx(p, n -> {
+			n.fx.shield = true;
+			n.fx.shieldHp = BlueBeetleConfig.SHIELD_HP;
+		});
 		sound(p, SoundEvents.BEACON_ACTIVATE, 0.7f, 1.8f);
 	}
 
 	public static void lowerShield(ServerPlayer p) {
 		if (SHIELDS.remove(p.getUUID()) != null || BlueBeetle.state(p).fx.shield) {
-			fx(p, n -> n.fx.shield = false);
+			fx(p, n -> {
+				n.fx.shield = false;
+				n.fx.shieldHp = 0f;
+			});
 			cooldown(p, SHIELD, BlueBeetleConfig.SHIELD_COOLDOWN); // v0.16.5 (user): 8 s before it goes up again
 			sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.8f);
 		}
@@ -673,12 +679,19 @@ public final class BlueBeetleAbilities {
 	private static void tickShield(ServerPlayer p, long start, long now) {
 		if (!BlueBeetle.suited(p) || !p.isAlive()) {
 			lowerShield(p);
-			return;
+		} else if (!BlueBeetle.shieldUp(p)) {
+			SHIELDS.remove(p.getUUID()); // it broke (BlueBeetleDamage put it down and started the cooldown)
 		}
-		if ((now - start) % 20 == 19 && !BlueBeetle.spendEnergy(p, BlueBeetleConfig.SHIELD_COST_PER_SECOND)) {
-			BlueBeetle.say(p, "message.projecthero.blue_beetle.energy_empty", ChatFormatting.BLUE);
-			lowerShield(p);
-		}
+	}
+
+	/** The pool ran dry: the shield breaks (the same 8 s cooldown as letting go). */
+	static void breakShield(ServerPlayer p) {
+		SHIELDS.remove(p.getUUID());
+		fx(p, n -> {
+			n.fx.shield = false;
+			n.fx.shieldHp = 0f;
+		});
+		cooldown(p, SHIELD, BlueBeetleConfig.SHIELD_COOLDOWN);
 	}
 
 	/**

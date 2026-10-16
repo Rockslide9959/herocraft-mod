@@ -60,13 +60,16 @@ public final class BlueBeetleState {
 		public List<Double> spikeLine;
 		/** Khaji-Da's takeover: the entity it is fighting (-1 = none), so every client turns the body at it. */
 		public int takeTarget;
+		/** V: what is left of the held shield's 100-point pool. */
+		public float shieldHp;
 
 		public Fx() {
-			this(false, false, false, 0L, 0L, List.of(), -1, 0L, -1, 0L, 0L, List.of(), -1);
+			this(false, false, false, 0L, 0L, List.of(), -1, 0L, -1, 0L, 0L, List.of(), -1, 0f);
 		}
 
 		public Fx(boolean blade, boolean shield, boolean blasting, long chargeStart, long beamUntil, List<Double> beamEnd, int bubbleTarget,
-				long bubbleUntil, int grabTarget, long grabStart, long spikeStart, List<Double> spikeLine, int takeTarget) {
+				long bubbleUntil, int grabTarget, long grabStart, long spikeStart, List<Double> spikeLine, int takeTarget,
+				float shieldHp) {
 			this.blade = blade;
 			this.shield = shield;
 			this.blasting = blasting;
@@ -80,11 +83,12 @@ public final class BlueBeetleState {
 			this.spikeStart = spikeStart;
 			this.spikeLine = List.copyOf(spikeLine);
 			this.takeTarget = takeTarget;
+			this.shieldHp = shieldHp;
 		}
 
 		public Fx copy() {
 			return new Fx(blade, shield, blasting, chargeStart, beamUntil, beamEnd, bubbleTarget, bubbleUntil, grabTarget, grabStart, spikeStart,
-					spikeLine, takeTarget);
+					spikeLine, takeTarget, shieldHp);
 		}
 
 		public static final Codec<Fx> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -100,7 +104,8 @@ public final class BlueBeetleState {
 				Codec.LONG.optionalFieldOf("grab_start", 0L).forGetter(f -> f.grabStart),
 				Codec.LONG.optionalFieldOf("spike_start", 0L).forGetter(f -> f.spikeStart),
 				Codec.DOUBLE.listOf().optionalFieldOf("spike_line", List.of()).forGetter(f -> f.spikeLine),
-				Codec.INT.optionalFieldOf("take_target", -1).forGetter(f -> f.takeTarget)
+				Codec.INT.optionalFieldOf("take_target", -1).forGetter(f -> f.takeTarget),
+				Codec.FLOAT.optionalFieldOf("shield_hp", 0f).forGetter(f -> f.shieldHp)
 		).apply(i, Fx::new));
 	}
 

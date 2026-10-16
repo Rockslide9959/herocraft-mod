@@ -5887,7 +5887,7 @@
   "projecthero.blue_beetle.ability.energy_blade": "Energy Blade",
   "projecthero.blue_beetle.ability.energy_blade.desc": "Toggle: your arm forms a blue energy blade (+7 melee damage while it is out); press again to fold it away. 10 energy to form.",
   "projecthero.blue_beetle.ability.energy_shield": "Energy Shield",
-  "projecthero.blue_beetle.ability.energy_shield.desc": "Hold to raise a round shield on your arm that blocks every hit and arrow from the front. 3 energy a second; 8s cooldown after it drops.",
+  "projecthero.blue_beetle.ability.energy_shield.desc": "Hold to raise a round shield on your arm: it soaks every hit and arrow from the front out of a 100-point pool (shown on the HUD) and breaks when that runs dry. No energy cost; 8s cooldown after you let go or it breaks.",
   "projecthero.blue_beetle.ability.shield_pulse": "Shield Pulse",
   "projecthero.blue_beetle.ability.shield_pulse.desc": "The shield blasts out: everything within 6 blocks is pushed away and arrows fly back at their shooters. 30 energy, 12s cooldown.",
   "projecthero.blue_beetle.ability.plasma_spikes": "Plasma Spikes",

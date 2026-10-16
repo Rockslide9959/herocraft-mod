@@ -32,7 +32,8 @@ import net.minecraft.world.phys.Vec3;
  *       Hulk-rampage technique), so it plays smoothly.</li>
  *   <li><b>Fighting</b> -- the real kit, cooldowns respected (halved and free while unleashed): Scarab Hammer and the
  *       Energy Blade up close, Shield Pulse when surrounded, Plasma Spikes along level ground, Scarab Grab, the Mega
- *       Cannon and the Plasma Blaster at range, the Scarab Swarm on the way in.</li>
+ *       Cannon and the Plasma Blaster at range, the Scarab Swarm on the way in. The Energy Shield goes up to block what is
+ *       shot at him or a hostile about to hit, and comes down again to attack ({@link #guard}).</li>
  *   <li><b>The end</b> -- after the 15 s, or early once nothing hostile is left nearby (Khaji-Da says so in chat).</li>
  * </ul>
  */
@@ -52,6 +53,10 @@ public final class KhajiDaTakeover {
 		long blastUntil;
 		long nextBlast;
 		long nextMove;
+		/** The shield: when it went up, when the last threat was seen, and how often it was raised (tests). */
+		long shieldSince = -1L;
+		long lastThreat = -1000L;
+		int blocks;
 		/** The last move it used and how many blade swings landed (tests). */
 		String lastMove;
 		int swings;
@@ -89,13 +94,13 @@ public final class KhajiDaTakeover {
 
 	static void start(ServerPlayer p) {
 		BRAINS.put(p.getUUID(), new Brain());
-		BlueBeetleAbilities.lowerShield(p);
 	}
 
 	/** The takeover ended (time up, cleared, suited down): let go of anything held. */
 	static void stop(ServerPlayer p) {
 		if (BRAINS.remove(p.getUUID()) != null) {
 			BlueBeetleAbilities.stopBlast(p);
+			BlueBeetleAbilities.lowerShield(p);
 			if (BlueBeetle.state(p).fx.takeTarget != -1) {
 				BlueBeetleState n = BlueBeetle.state(p).copy();
 				n.fx.takeTarget = -1;
@@ -132,6 +137,10 @@ public final class KhajiDaTakeover {
 		aim(p, t);
 		Vec3 to = t.position().subtract(p.position());
 		double gap = Math.max(0.0, Math.sqrt(to.x * to.x + to.z * to.z) - p.getBbWidth() * 0.5 - t.getBbWidth() * 0.5);
+		if (guard(p, b, now)) {
+			move(p, b, t, gap, to.y, now);
+			return; // behind the shield: no attacking until it comes down
+		}
 		fight(p, b, t, gap, to.y, now);
 		aim(p, t);
 		move(p, b, t, gap, to.y, now);
@@ -182,6 +191,99 @@ public final class KhajiDaTakeover {
 		p.setYHeadRot(yaw);
 		p.yBodyRot = yaw;
 		p.setXRot(pitch);
+	}
+
+	// ---------------------------------------------------------------- blocking
+
+	/** A threat the shield should take: an incoming projectile, or a hostile closing in to hit him. */
+	private record Threat(Vec3 from, boolean projectile) {
+	}
+
+	/**
+	 * v0.16.5 (user: "make the khaji-da ai use the shield to block attacks aswell"): the shield goes up (when it is off
+	 * cooldown) as something is shot at him or a hostile next to him is about to hit, turned toward it; it comes down
+	 * again to attack -- after a moment behind it, once nothing is incoming -- or when things calm down. True while it
+	 * is held (no attacking then).
+	 */
+	private static boolean guard(ServerPlayer p, Brain b, long now) {
+		Threat threat = threat(p);
+		if (threat != null) {
+			b.lastThreat = now;
+		}
+		if (!BlueBeetle.shieldUp(p)) {
+			b.shieldSince = -1L;
+			if (threat == null || !ready(p, BlueBeetleAbilities.SHIELD) || busy(p)) {
+				return false;
+			}
+			BlueBeetleAbilities.stopBlast(p);
+			b.blastUntil = 0L;
+			face(p, threat.from());
+			BlueBeetleAbilities.raiseShield(p);
+			if (!BlueBeetle.shieldUp(p)) {
+				return false;
+			}
+			b.shieldSince = now;
+			b.blocks++;
+			b.lastMove = BlueBeetleAbilities.SHIELD;
+		}
+		if (threat != null) {
+			face(p, threat.from());
+		}
+		boolean calm = now - b.lastThreat > 6;
+		boolean strike = now - b.shieldSince >= 15 && (threat == null || !threat.projectile());
+		if (calm || strike) {
+			BlueBeetleAbilities.lowerShield(p); // down to fight back
+			return false;
+		}
+		return true;
+	}
+
+	private static Threat threat(ServerPlayer p) {
+		Vec3 me = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		for (net.minecraft.world.entity.projectile.Projectile proj : p.level().getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+				p.getBoundingBox().inflate(12.0), pr -> pr.getOwner() != p && pr.isAlive())) {
+			Vec3 v = proj.getDeltaMovement();
+			if (v.lengthSqr() < 0.09) {
+				continue; // lying still (an arrow in the ground)
+			}
+			Vec3 rel = me.subtract(proj.position());
+			Vec3 dir = v.normalize();
+			double along = rel.dot(dir);
+			if (along <= 0 || along > 12.0) {
+				continue; // going away, or still far off
+			}
+			if (rel.subtract(dir.scale(along)).length() < 1.6) {
+				return new Threat(proj.position(), true);
+			}
+		}
+		for (net.minecraft.world.entity.Mob m : p.level().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(3.0),
+				m -> m.isAlive() && m.getTarget() == p && BlueBeetleCombat.isHostile(p, m))) {
+			double reach = Math.sqrt(m.distanceToSqr(p)) - m.getBbWidth() * 0.5 - p.getBbWidth() * 0.5;
+			if (reach <= 1.6 || m.swinging) {
+				return new Threat(m.position().add(0, m.getBbHeight() * 0.5, 0), false);
+			}
+		}
+		return null;
+	}
+
+	/** Turns him to face {@code at} (so the shield, which only covers the front, takes it). */
+	private static void face(ServerPlayer p, Vec3 at) {
+		Vec3 d = at.subtract(p.getEyePosition());
+		double flat = Math.sqrt(d.x * d.x + d.z * d.z);
+		if (flat < 1.0e-4) {
+			return;
+		}
+		float yaw = (float) (Mth.atan2(d.z, d.x) * Mth.RAD_TO_DEG) - 90.0f;
+		p.setYRot(yaw);
+		p.setYHeadRot(yaw);
+		p.yBodyRot = yaw;
+		p.setXRot(Mth.clamp((float) (-Mth.atan2(d.y, flat) * Mth.RAD_TO_DEG), -85.0f, 85.0f));
+	}
+
+	/** Tests: how many times the takeover raised the shield. */
+	public static int blocks(ServerPlayer p) {
+		Brain b = BRAINS.get(p.getUUID());
+		return b == null ? 0 : b.blocks;
 	}
 
 	// ---------------------------------------------------------------- fighting

@@ -100,8 +100,9 @@ public final class BlueBeetleConfig {
 	public static final int PULSE_COOLDOWN = 240;
 
 	// ---------------------------------------------------------------- V: Energy Shield / Shift+V: Camouflage
-	public static final float SHIELD_COST_PER_SECOND = 3f;
-	/** v0.16.5 (user): 8 s after the shield drops before it can go up again. */
+	/** v0.16.5 (user: "the same as the cyborgs shield"): the held shield soaks hits from the front out of this pool, no energy drain. */
+	public static final float SHIELD_HP = 100f;
+	/** v0.16.5 (user): 8 s after the shield drops (let go) or breaks (pool run dry) before it can go up again. */
 	public static final int SHIELD_COOLDOWN = 160;
 	/** cos of the half-angle the shield covers in front of him (about 70 degrees). */
 	public static final double SHIELD_ARC = 0.34;

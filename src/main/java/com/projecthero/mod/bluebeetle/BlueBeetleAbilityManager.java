@@ -175,7 +175,6 @@ public final class BlueBeetleAbilityManager {
 			case BlueBeetleAbilities.BUBBLE -> BlueBeetleConfig.BUBBLE_COST;
 			case BlueBeetleAbilities.SPIKES -> BlueBeetleConfig.SPIKE_COST;
 			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COST;
-			case BlueBeetleAbilities.SHIELD -> BlueBeetleConfig.SHIELD_COST_PER_SECOND;
 			case BlueBeetleAbilities.CAMO -> BlueBeetleConfig.CAMO_COST;
 			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COST;
 			case BlueBeetleAbilities.UNLEASH -> BlueBeetleConfig.ENERGY_MAX;

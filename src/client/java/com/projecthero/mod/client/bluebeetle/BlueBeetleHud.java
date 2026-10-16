@@ -43,6 +43,7 @@ public final class BlueBeetleHud {
 	private static final int UNLEASHED = 0xFFFF3A2E;
 	private static final int CHARGE = 0xFFCFE6FF;
 	private static final int ADAPT = 0xFF7FD4FF;
+	private static final int SHIELD = 0xFF9FD8FF;
 
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
 			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
@@ -79,6 +80,9 @@ public final class BlueBeetleHud {
 		bars.add(new Bar(unleashed ? 1f : s.energy / BlueBeetleConfig.ENERGY_MAX, unleashed ? UNLEASHED : s.slowRegenUntil > now ? ENERGY_SLOW : ENERGY));
 		if (unleashed) {
 			bars.add(new Bar((s.unleashedUntil - now) / (float) BlueBeetleConfig.UNLEASH_TICKS, UNLEASHED));
+		}
+		if (s.fx.shield) {
+			bars.add(new Bar(s.fx.shieldHp / BlueBeetleConfig.SHIELD_HP, SHIELD)); // the held shield's pool
 		}
 		if (s.fx.chargeStart != 0L) {
 			bars.add(new Bar((now - s.fx.chargeStart) / (float) BlueBeetleConfig.CANNON_CHARGE_TICKS, CHARGE));

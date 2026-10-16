@@ -301,7 +301,7 @@ then on.
   **R** Plasma Blaster (a blaster builds on your arm; held, 15 a bolt) · **Shift+R** **Mega Cannon** (a twin cannon over
   both arms, 30 through a whole line) · **G** **Scarab Hammer** · **Shift+G** Scarab Grab (two tentacles from your back) ·
   **X** Scarab Swarm (drones) · **Shift+X** Bubble Prison · **Z** **Plasma Spikes** (a 14-block line) · **Shift+Z** Shield
-  Pulse (sends arrows back) · **V** Energy Shield (held, 8 s cooldown) · **Shift+V** Camouflage (lasts until you touch anything) ·
+  Pulse (sends arrows back) · **V** Energy Shield (held, a 100-point pool, 8 s cooldown) · **Shift+V** Camouflage (lasts until you touch anything) ·
   **C** Energy Blade (toggle, +7) · **Shift+C** **Khaji-Da Unleashed** (the scarab takes over your body for 15 s and
   hunts down everything hostile nearby: pathfinding, flight and the whole kit at +50% damage).
 

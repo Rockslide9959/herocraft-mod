@@ -27,7 +27,8 @@ import net.minecraft.world.phys.Vec3;
  * What hurts Blue Beetle, and the Bubble Prison (v0.16.5).
  * <ul>
  *   <li>A creature in a Bubble Prison can't be hurt by anything (the bubble cuts both ways).</li>
- *   <li>Suited: no fall damage; the held Energy Shield blocks every hit and projectile from the front.</li>
+ *   <li>Suited: no fall damage; the held Energy Shield soaks hits and projectiles from the front out of a 100-point pool
+ *       (it breaks when the pool runs dry).</li>
  *   <li><b>Adaptation:</b> the same kind of damage 3 times within 10 s and the armour adapts -- that kind does 40% less for
  *       60 s (one kind at a time).</li>
  *   <li>Camouflage ends the moment he hurts something.</li>
@@ -100,10 +101,25 @@ public final class BlueBeetleDamage {
 			return false;
 		}
 		if (BlueBeetle.shieldUp(player) && fromFront(player, source)) {
+			// v0.16.5 (user): like Cyborg's Defense Matrix -- the hit comes out of the shield's 100-point pool
+			BlueBeetleState sh = BlueBeetle.state(player);
+			float soak = Math.min(sh.fx.shieldHp, amount);
+			boolean broke = sh.fx.shieldHp - soak <= 0.01f;
+			if (broke) {
+				BlueBeetleAbilities.breakShield(player);
+			} else {
+				BlueBeetleState n = sh.copy();
+				n.fx.shieldHp = sh.fx.shieldHp - soak;
+				BlueBeetle.save(player, n);
+			}
 			ServerLevel level = (ServerLevel) player.level();
 			Vec3 at = player.getEyePosition().add(player.getLookAngle().scale(0.8));
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y - 0.4, at.z, 8, 0.3, 0.3, 0.3, 0.1);
-			level.playSound(null, at.x, at.y, at.z, SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.4f);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y - 0.4, at.z, broke ? 20 : 8, 0.3, 0.3, 0.3, 0.1);
+			level.playSound(null, at.x, at.y, at.z, broke ? SoundEvents.SHIELD_BREAK : SoundEvents.SHIELD_BLOCK, SoundSource.PLAYERS, 1.0f, 1.4f);
+			float rest = amount - soak;
+			if (rest > 0.05f) {
+				reissue(player, source, rest);
+			}
 			return false;
 		}
 		String kind = kind(source);
