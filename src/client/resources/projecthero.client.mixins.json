@@ -54,6 +54,7 @@
 		"NovaFirstPersonArmMixin",
 		"GhostRiderFirstPersonArmMixin",
 		"GhostRiderMarkGlowMixin",
+		"GeoSeismicGlowMixin",
 		"GhostRiderMarkColorMixin",
 		"CyborgFirstPersonArmMixin",
 		"BlueBeetleFirstPersonArmMixin",

@@ -84,6 +84,7 @@ public final class ServerStateReset {
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
 		com.projecthero.mod.hero.power.p09.CryoIce.clearSessionState(); // v0.16.5: Cryokinesis ice (melted on SERVER_STOPPING)
+		com.projecthero.mod.hero.power.p05.GeoTerrain.clearSessionState(); // v0.16.5: the wall / sinkhole ledger (restored on STOPPING)
 		ConjuredStructures.clearSessionState();
 		com.projecthero.mod.hero.power.ComboMoves.reset();
 		MagneticHandlers.clearSessionState();

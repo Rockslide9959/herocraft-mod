@@ -95,6 +95,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 		helper.assertTrue(Powers.count() == 26, "expected 26 powers (Super Durability removed in v0.14.5)");
 		for (String key : new String[] { GEO, CRYSTAL, CRYO, WATER } /* 08 Pyrokinesis: reworked in v0.16.5 (six keys) */) {
 		for (String key : new String[] { GEO, CRYSTAL, PYRO, WATER }) { // v0.16.5: Cryokinesis reworked (six keys)
+		for (String key : new String[] { CRYSTAL, PYRO, CRYO, WATER }) { // v0.16.5: Geokinesis has six keys now
 			Power p = Powers.byKey(key);
 			helper.assertTrue(p.abilities().size() == 8, key + " must define 8 abilities");
 			for (AbilitySlot slot : AbilitySlot.values()) {
@@ -106,78 +107,7 @@ public class RevampBatchBGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------- 05 Geokinesis ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void groundTypesClassifyTheirMaterials(GameTestHelper helper) {
-		helper.assertTrue(GroundType.of(Blocks.STONE.defaultBlockState()) == GroundType.STONE, "stone");
-		helper.assertTrue(GroundType.of(Blocks.GRASS_BLOCK.defaultBlockState()) == GroundType.STONE, "dirt counts as plain earth");
-		helper.assertTrue(GroundType.of(Blocks.DEEPSLATE.defaultBlockState()) == GroundType.DEEPSLATE, "deepslate");
-		helper.assertTrue(GroundType.of(Blocks.SAND.defaultBlockState()) == GroundType.SAND, "sand");
-		helper.assertTrue(GroundType.of(Blocks.GRAVEL.defaultBlockState()) == GroundType.SAND, "gravel");
-		helper.assertTrue(GroundType.of(Blocks.NETHERRACK.defaultBlockState()) == GroundType.NETHER, "netherrack");
-		helper.assertTrue(GroundType.of(Blocks.MAGMA_BLOCK.defaultBlockState()) == GroundType.NETHER, "magma");
-		helper.assertTrue(GroundType.of(Blocks.IRON_ORE.defaultBlockState()) == GroundType.ORE, "ore");
-		helper.assertTrue(GroundType.of(Blocks.PACKED_ICE.defaultBlockState()) == GroundType.FROST, "ice");
-		helper.assertTrue(GroundType.of(Blocks.OAK_PLANKS.defaultBlockState()) == GroundType.NONE, "wood is not earth");
-		helper.assertTrue(GroundType.DEEPSLATE.damageMult > 1.0f && GroundType.DEEPSLATE.cooldownMult > 1.0f,
-				"deepslate is heavier and slower");
-		helper.assertTrue(GroundType.ORE.damageMult > GroundType.STONE.damageMult, "ore hits harder");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void geoRockShotThrowsTheGroundUnderfoot(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, GEO, Blocks.DEEPSLATE.defaultBlockState());
-		helper.assertTrue(GroundType.under(p).type() == GroundType.DEEPSLATE, "standing on deepslate");
-		AbilityRouter.handleInput(p, 1, true);
-		var rocks = helper.getLevel().getEntitiesOfClass(GeoRockEntity.class, p.getBoundingBox().inflate(6.0));
-		helper.assertFalse(rocks.isEmpty(), "Rock Shot throws a real rock projectile");
-		GeoRockEntity rock = rocks.get(0);
-		helper.assertTrue(rock.getItem().is(Items.DEEPSLATE), "the rock is made of the ground (deepslate)");
-		helper.assertTrue(Math.abs(rock.damage() - GeokinesisHandlers.ROCK_SHOT_DAMAGE * GroundType.DEEPSLATE.damageMult) < 0.01f,
-				"deepslate rocks hit x1.35, got " + rock.damage());
-		Power geo = Powers.byKey(GEO);
-		int cd = ExperimentalPowers.cooldownRemainingTicks(p, geo, geo.ability(AbilitySlot.SLOT_1));
-		helper.assertTrue(cd > com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(34),
-				"deepslate lengthens the cooldown, got " + cd);
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void geoEarthSpikeLineRunsAlongTheGround(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, GEO);
-		Zombie z = zombieAhead(helper, p, 6);
-		p.setXRot(0.0f);
-		float before = z.getHealth();
-		AbilityRouter.handleInput(p, 2, true);
-		helper.succeedWhen(() -> helper.assertTrue(z.getHealth() < before, "the spike line reaches the zombie 6 blocks out"));
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 220)
-	public void geoSinkholeOpensAndClosesAPit(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, GEO);
-		Zombie z = zombieAhead(helper, p, 5);
-		BlockPos under = z.blockPosition().below();
-		helper.assertTrue(helper.getLevel().getBlockState(under).is(Blocks.STONE), "the floor is stone");
-		AbilityRouter.handleInput(p, 7, true);
-		helper.assertTrue(helper.getLevel().getBlockState(under).isAir(), "Sinkhole opens the ground under the target");
-		helper.assertTrue(BatchBScheduler.pendingRestores() > 0, "the pit is tracked for restoring");
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "the target is rooted");
-		helper.runAfterDelay(GeokinesisHandlers.SINKHOLE_TICKS + 6, () -> {
-			helper.assertTrue(helper.getLevel().getBlockState(under).is(Blocks.STONE), "the pit closes back up");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void geoTectonicPillarLaunchesTheTarget(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, GEO);
-		Zombie z = zombieAhead(helper, p, 4);
-		AbilityRouter.handleInput(p, 8, true);
-		helper.assertTrue(z.getDeltaMovement().y > 1.0, "the pillar throws the target skyward, dy=" + z.getDeltaMovement().y);
-		helper.succeed();
-	}
+	// 05 Geokinesis: reworked in v0.16.5 -- see GeokinesisV0165GameTests
 
 	// ---------------- 06 Crystalkinesis ----------------
 

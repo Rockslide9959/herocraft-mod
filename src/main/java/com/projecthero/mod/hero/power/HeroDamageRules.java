@@ -164,13 +164,13 @@ public final class HeroDamageRules {
 				}
 			}
 			case "power_05_geokinesis" -> {
-				// Earth Swim: while phased into the ground, nothing but the void or a command can hurt you
-				// (suffocation, fall, drowning, mobs are all shrugged off).
-				long swimUntil = (long) ExperimentalPowers.getResource(player, active, "earthswim_until");
-				if (swimUntil > player.level().getGameTime()
-						&& !source.is(DamageTypes.GENERIC_KILL) && !source.is(DamageTypes.FELL_OUT_OF_WORLD)) {
-					player.resetFallDistance();
+				// v0.16.5 rework: no fall damage onto natural ground (or landing off your own pillar / surf); Earth Armor -50%
+				float geoFactor = com.projecthero.mod.hero.power.p05.GeokinesisHandlers.damageFactor(player, source);
+				if (geoFactor < 0.0f) {
 					return Verdict.immune();
+				}
+				if (Math.abs(geoFactor - 1.0f) > 0.001f) {
+					return Verdict.mult(geoFactor);
 				}
 			}
 			case "power_08_pyrokinesis" -> {

@@ -1,1079 +1,1262 @@
 package com.projecthero.mod.hero.power.p05;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.AbilityContext;
 import com.projecthero.mod.hero.AbilityHandler;
 import com.projecthero.mod.hero.AbilityHandlers;
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
 import com.projecthero.mod.hero.PowerPassives;
 import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.AbilityHelpers;
-import com.projecthero.mod.hero.power.ConjuredStructures;
-import com.projecthero.mod.hero.power.Handlers;
-import com.projecthero.mod.hero.power.ModeMeter;
 import com.projecthero.mod.hero.power.PowerToggles;
-import com.projecthero.mod.hero.power.StanceMode;
-import com.projecthero.mod.hero.power.TempBlocks;
-import com.projecthero.mod.hero.power.TimedSelfFlight;
 import com.projecthero.mod.hero.revamp.BatchBScheduler;
-import com.projecthero.mod.hero.revamp.BatchBUtil;
+import com.projecthero.mod.hero.revamp.batcha.BatchA;
+import com.projecthero.mod.hero.visual.MutationMeters;
+import com.projecthero.mod.hero.visual.MutationMeters.Kind;
+import com.projecthero.mod.hero.visual.MutationMeters.Spec;
+import com.projecthero.mod.hero.visual.MutationMeters.Style;
 import com.projecthero.mod.hero.visual.MutationVisuals;
+import com.projecthero.mod.squad.Squads;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Power 05 -- Geokinesis (v0.13.22 revamp). Signature: <b>the ground under you is your ammo</b> -- see
- * {@link GroundType}: every rock, spike, quake and pillar is made of what you stand on, and the material changes
- * damage, cooldowns and what a hit does.
+ * Power 05 -- Geokinesis (v0.16.5 rework, docs/V0165_POWERS_PROPOSAL.md section 9): an earthbender on an <b>Earth</b>
+ * meter (0-100) that refills 15 a second standing on natural ground (stone, dirt, sand, gravel -- {@link GeoTerrain#natural})
+ * and 5 a second anywhere else.
  *
- * <h2>Keys</h2>
- * <ul>
- *   <li>R Rock Shot -- throw a chunk of the ground (a real projectile that looks like it). Sneak: ground-shake cone.</li>
- *   <li>G Earth Spike -- a line of spikes racing along the ground (16 blocks). Sneak: auto-tracking cone.</li>
- *   <li>X Rock Surf -- ride a slab of the ground across it (toggle). Sneak: Earth Swim.</li>
- *   <li>Z Earthquake -- hold to charge; ravines. Sneak at the press: Colossal Rock (the old Boulder Lift, folded in).</li>
- *   <li>V Stone Wall -- wall / dome (look up) / bridge (look down) of the local stone. Sneak: Seismic Sense.</li>
- *   <li>C Earth Armor -- stone-skin shell, strain bar.</li>
- *   <li>H Sinkhole -- the ground under your target drops away into a temporary pit.</li>
- *   <li>N Tectonic Pillar -- a column erupts under your target (or under you) and launches it skyward.</li>
- * </ul>
- * Passives: iron-tool hands, faster earth mining, bare-hand vein mining ({@link GeoBareHands}), Haste on earth,
- * Sneak + right-click the ground empty-handed for Seismic Sense.
+ * <p>R Rock Shot / Shift+R Boulder Toss (hold to lift). G Earth Grip / Shift+G Sinkhole. X Rock Surf / Shift+X Tectonic
+ * Pillar. Z Earthquake / Shift+Z Earth Spikes. V Stone Wall / Shift+V Earth Armor (toggle). C Tunnel (hold) / Shift+C
+ * Seismic Sense. No H / N. All six slots are HOLD, so the handlers own their tap / Shift / release logic.
+ *
+ * <p>Passives: 50% knockback resistance on the ground, stone and dirt break twice as fast ({@link GeoBareHands}), no fall
+ * damage onto natural ground. Every rock, hand, pillar, spike and ripple is drawn as a model in the texture of the block it
+ * came from ({@link GeoRockEntity}, {@link GeoBoulderEntity}, {@link GeoFormEntity}); the only real terrain changes are
+ * the Stone Wall and the Sinkhole (temporary, in {@link GeoTerrain}'s ledger, always put back) and the Tunnel (mining:
+ * you keep the blocks). All of them respect build permission.
  */
 public final class GeokinesisHandlers {
 	public static final String KEY = "power_05_geokinesis";
-	private static final BlockState STONE = Blocks.STONE.defaultBlockState();
-	private static final BlockParticleOption DIRT_DUST =
-			new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState());
-	private static final net.minecraft.resources.ResourceLocation ARMOR_KB =
-			com.projecthero.mod.ProjectHeroMod.id("earth_armor_kb");
-	private static final net.minecraft.resources.ResourceLocation ARMOR_SPD =
-			com.projecthero.mod.ProjectHeroMod.id("earth_armor_slow");
-	private static final net.minecraft.resources.ResourceLocation ARMOR_ATK =
-			com.projecthero.mod.ProjectHeroMod.id("earth_armor_atk");
 
-	/** Earth Armor strain: +15% over the v0.12 kit (500). */
-	public static final float MAX_STRAIN = 575.0f;
-	private static final float STRAIN_DRAIN = MAX_STRAIN / (29 * 20);
-	private static final float STRAIN_REGEN = MAX_STRAIN / (36 * 20);
+	// ---- Earth ----
+	public static final float MAX_EARTH = 100.0f;
+	public static final float REGEN_NATURAL = 15.0f / 20.0f;
+	public static final float REGEN_ELSEWHERE = 5.0f / 20.0f;
 
-	public static final float ROCK_SHOT_DAMAGE = 11.0f;
-	private static final int ROCK_SHOT_CD = 34;
-	private static final float SHAKE_DAMAGE = 11.0f;
-	private static final int SHAKE_CD = 170;
-	public static final float SPIKE_DAMAGE = 15.0f;
-	private static final int SPIKE_CD = 85;
-	private static final double SPIKE_LENGTH = 16.0;
-	private static final float CONE_DAMAGE = 18.0f;
-	private static final int CONE_CD = 19 * 20;
-	/** Z is a 4.25 s hold-to-charge for both the Earthquake and the Colossal Rock. */
-	public static final int QUAKE_CHARGE = 85;
-	public static final float QUAKE_DAMAGE = 54.0f;
-	private static final int QUAKE_CD = 55 * 20;
-	private static final float COLOSSAL_DAMAGE = 60.0f;
-	private static final int COLOSSAL_CD = 75 * 20;
-	private static final int SURF_MAX_TICKS = 15 * 20;
-	private static final int SURF_CD = 85;
-	private static final float SURF_BUMP_DAMAGE = 7.0f;
-	private static final int EARTHSWIM_TICKS = 12 * 20;
-	private static final int EARTHSWIM_CD = 25 * 20;
-	private static final int SEISMIC_TICKS = 12 * 20;
-	private static final int SEISMIC_CD = 10 * 20;
-	private static final double SEISMIC_RANGE = 30.0;
-	public static final float SINKHOLE_DAMAGE = 10.0f;
-	public static final int SINKHOLE_TICKS = 6 * 20;
-	private static final int SINKHOLE_ROOT = 3 * 20;
-	private static final int SINKHOLE_CD = 12 * 20;
-	public static final float PILLAR_DAMAGE = 12.0f;
-	private static final int PILLAR_CD = 153;
+	public static final float COST_ROCK = 8.0f;
+	public static final float COST_BOULDER = 30.0f;
+	public static final float COST_GRIP = 15.0f;
+	public static final float COST_SINKHOLE = 35.0f;
+	public static final float COST_SURF = 20.0f;
+	public static final float COST_PILLAR = 15.0f;
+	public static final float COST_QUAKE = 30.0f;
+	public static final float COST_SPIKES = 25.0f;
+	public static final float COST_WALL = 15.0f;
+	public static final float ARMOR_PER_SECOND = 4.0f;
+	public static final float TUNNEL_PER_SECOND = 3.0f;
+	public static final float COST_SEISMIC = 20.0f;
 
-	private static final ThreadLocal<Boolean> VEIN = ThreadLocal.withInitial(() -> false);
+	// ---- R ----
+	public static final float ROCK_DAMAGE = 12.0f;
+	public static final float BOULDER_DAMAGE = 26.0f;
+	/** A lifted boulder is thrown by itself after this long. */
+	public static final int BOULDER_MAX_HOLD = 8 * 20;
+	// ---- G ----
+	public static final double TARGET_RANGE = 20.0;
+	public static final int GRIP_TICKS = 3 * 20;
+	public static final int SINKHOLE_DEPTH = 3;
+	public static final int SINKHOLE_CD = 15 * 20;
+	/** A buried creature's pocket is refilled after this long at most, even if it is still down there. */
+	public static final int SINKHOLE_POCKET_MAX = 5 * 60 * 20;
+	/** Ticks the hole stays open before the ground closes over it. */
+	public static final int SINKHOLE_CLOSE_TICKS = 10;
+	/** Ticks the target takes to sink to the bottom of the hole. */
+	public static final int SINKHOLE_SINK_TICKS = 8;
+	// ---- X ----
+	public static final int SURF_TICKS = 8 * 20;
+	public static final double SURF_SPEED = 0.78;
+	/** Vertical launch that carries a creature ~12 blocks up (vanilla gravity and drag). */
+	public static final double PILLAR_LAUNCH = 1.49;
+	// ---- Z ----
+	public static final float QUAKE_DAMAGE = 14.0f;
+	public static final double QUAKE_RADIUS = 10.0;
+	public static final int QUAKE_SLOW_TICKS = 4 * 20;
+	public static final float SPIKE_DAMAGE = 18.0f;
+	public static final double SPIKE_LENGTH = 12.0;
+	// ---- V ----
+	public static final int WALL_WIDTH = 5;
+	public static final int WALL_HEIGHT = 4;
+	public static final int WALL_TICKS = 20 * 20;
+	public static final float ARMOR_DAMAGE_FACTOR = 0.5f;
+	public static final double ARMOR_SPEED = -0.2;
+	// ---- C ----
+	public static final int SEISMIC_TICKS = 10 * 20;
+	public static final double SEISMIC_RANGE = 32.0;
+	/** The Tunnel bores the next 3x3 slice this often. */
+	public static final int TUNNEL_INTERVAL = 2;
+	public static final double TUNNEL_REACH = 4.0;
+
+	// ---- passives ----
+	public static final double GROUND_KNOCKBACK_RESIST = 0.5;
+
+	private static final ResourceLocation GROUND_KB = com.projecthero.mod.ProjectHeroMod.id("geo_ground_kb");
+	private static final ResourceLocation ARMOR_SPD = com.projecthero.mod.ProjectHeroMod.id("geo_armor_speed");
+	/** Pre-v0.16.5 modifiers, cleared out of old saves. */
+	private static final ResourceLocation[] LEGACY = { com.projecthero.mod.ProjectHeroMod.id("earth_armor_kb"),
+			com.projecthero.mod.ProjectHeroMod.id("earth_armor_slow"), com.projecthero.mod.ProjectHeroMod.id("earth_armor_atk") };
+
+	private static ItemStack tunnelPick;
 
 	private GeokinesisHandlers() {
 	}
+
+	// ================================================================ shared helpers / queries
 
 	private static Power power() {
 		return Powers.byKey(KEY);
 	}
 
-	public static boolean armorActive(ServerPlayer p) {
-		Power power = power();
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_6));
+	private static float res(ServerPlayer p, String name) {
+		return BatchA.res(p, KEY, name);
 	}
 
-	public static boolean surfing(ServerPlayer p) {
-		Power power = power();
-		return power != null && ExperimentalPowers.owns(p, power)
-				&& ExperimentalPowers.isToggled(p, power, power.ability(AbilitySlot.SLOT_3));
+	private static void set(ServerPlayer p, String name, float v) {
+		BatchA.set(p, KEY, name, v);
 	}
 
-	/** Earth Armor adds a flat bonus to every Geokinesis attack (see {@link StanceMode}). */
-	private static float armorBonus(ServerPlayer p) {
-		return armorActive(p) ? StanceMode.ABILITY_BONUS : 0.0f;
+	/** Reads a resource from the synced attachment (works on both sides; the client only has its own player's). */
+	private static float resAny(Player p, String name) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null ? 0.0f : st.resources.getOrDefault(KEY + "/" + name, 0.0f);
 	}
 
-	private static float strengthBonus(ServerPlayer p) {
-		return com.projecthero.mod.hero.power.PowerCombos.geoStrengthBonus(p);
+	public static boolean owns(Player p) {
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st != null && st.ownedPowers.contains(KEY);
 	}
 
-	/** Base damage -> this ground's damage, plus Earth Armor and the Geo + Strength combo. */
-	private static float dmg(ServerPlayer p, GroundType.Ground g, float base) {
-		return g.damage(base + strengthBonus(p)) + armorBonus(p);
+	public static float earth(ServerPlayer p) {
+		seed(p);
+		return res(p, "earth");
 	}
 
-	/** Client-safe: is this player currently phased into the earth (Earth Swim). */
-	public static boolean earthSwimming(Player p) {
-		var st = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);
-		if (st == null || !st.ownedPowers.contains(KEY)) {
+	public static boolean armorOn(Player p) {
+		return owns(p) && resAny(p, "armor") > 0.5f;
+	}
+
+	public static boolean surfing(Player p) {
+		return owns(p) && resAny(p, "surf") > 0.5f;
+	}
+
+	public static boolean tunnelling(Player p) {
+		return owns(p) && resAny(p, "tunnel") > 0.5f;
+	}
+
+	public static boolean lifting(Player p) {
+		return owns(p) && resAny(p, "boulder_id") > 0.5f;
+	}
+
+	/** Seismic Sense is running (the client lights up every creature within 32 for this player alone). */
+	public static boolean sensing(Player p) {
+		return owns(p) && resAny(p, "seismic") > 0.5f;
+	}
+
+	private static void seed(ServerPlayer p) {
+		if (res(p, "seeded") < 0.5f) {
+			set(p, "seeded", 1);
+			set(p, "earth", MAX_EARTH);
+		}
+	}
+
+	/** Refuses (with a message) when the meter cannot pay {@code cost}. */
+	private static boolean canPay(AbilityContext ctx, float cost) {
+		ServerPlayer p = ctx.player();
+		seed(p);
+		if (res(p, "earth") + 1.0e-3f < cost) {
+			ctx.actionBar("message.projecthero.geo.low_earth", String.format(java.util.Locale.ROOT, "%.0f", cost));
 			return false;
 		}
-		Float until = st.resources.get(KEY + "/earthswim_until");
-		return until != null && until > p.level().getGameTime();
+		return true;
 	}
 
-	public static void register() {
-		AbilityHandlers.register(KEY, "rock_shot", Handlers.instant(ctx -> {
-			if (ctx.player().isShiftKeyDown()) {
-				groundShakeCone(ctx);
-			} else {
-				rockShot(ctx);
-			}
-		}));
-
-		AbilityHandlers.register(KEY, "earth_spike", Handlers.instant(ctx -> {
-			if (ctx.player().isShiftKeyDown()) {
-				earthSpikeCone(ctx);
-			} else {
-				earthSpikeLine(ctx);
-			}
-		}));
-
-		AbilityHandlers.register(KEY, "rock_surf", Handlers.toggle(GeokinesisHandlers::surfOn,
-				GeokinesisHandlers::surfOff, GeokinesisHandlers::surfTick));
-
-		// Z: hold to charge. Earthquake normally; Colossal Rock if sneaking at the press.
-		AbilityHandlers.register(KEY, "earthquake", new AbilityHandler() {
-			@Override
-			public void onActivate(AbilityContext ctx) {
-				if (BatchBUtil.chargeStart(ctx, "quake_start")) {
-					ctx.setResource("quake_colossal", ctx.player().isShiftKeyDown() ? 1 : 0, 1);
-					AbilityHelpers.sound(ctx.player(), SoundEvents.RAVAGER_ROAR, 0.7f, 0.5f);
-				}
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				long held = BatchBUtil.chargeHeld(ctx, "quake_start");
-				if (held < 0) {
-					return;
-				}
-				if (held >= QUAKE_CHARGE) {
-					quakeFire(ctx);
-				} else {
-					quakeCancel(ctx);
-				}
-			}
-
-			@Override
-			public void onServerTick(AbilityContext ctx) {
-				quakeTick(ctx);
-			}
-		});
-
-		AbilityHandlers.register(KEY, "stone_wall", Handlers.instant(GeokinesisHandlers::stoneWall));
-
-		AbilityHandlers.register(KEY, "earth_armor", Handlers.toggle(
-				ctx -> {
-					if (StanceMode.blockedByCooldown(ctx)) {
-						return;
-					}
-					ModeMeter.ensureSeeded(ctx, "earth_armor", MAX_STRAIN);
-					if (!ModeMeter.hasCharge(ctx, "earth_armor", 40.0f)) {
-						ctx.setToggled(false);
-						ctx.actionBar("message.projecthero.geo.strain_low");
-						return;
-					}
-					earthArmorOn(ctx);
-					MutationVisuals.play(ctx.player(), "flex");
-					AbilityHelpers.sound(ctx.player(), SoundEvents.DEEPSLATE_PLACE, 1.2f, 0.6f);
-					ctx.level().sendParticles(GroundType.under(ctx.player()).dust(), ctx.player().getX(),
-							ctx.player().getY() + 1.0, ctx.player().getZ(), 50, 0.5, 0.9, 0.5, 0.1);
-				},
-				ctx -> {
-					earthArmorOff(ctx);
-					StanceMode.startDeactivateCooldown(ctx);
-				},
-				ctx -> {
-					earthArmorOn(ctx);
-					AbilityHelpers.modeAura(ctx.player(), DIRT_DUST, 3);
-					if (!ModeMeter.drain(ctx, "earth_armor", MAX_STRAIN, STRAIN_DRAIN)) {
-						ctx.setToggled(false);
-						earthArmorOff(ctx);
-						StanceMode.startDeactivateCooldown(ctx);
-						ctx.actionBar("message.projecthero.geo.strain_out");
-					}
-				}));
-
-		AbilityHandlers.register(KEY, "sinkhole", Handlers.instant(GeokinesisHandlers::sinkhole));
-		AbilityHandlers.register(KEY, "tectonic_pillar", Handlers.instant(GeokinesisHandlers::tectonicPillar));
-
-		// Bare-handed vein mining: an empty-handed hit on an ore breaks the connected vein.
-		PlayerBlockBreakEvents.AFTER.register((level, player, pos, state, blockEntity) -> {
-			if (VEIN.get() || !(level instanceof ServerLevel sl) || !(player instanceof ServerPlayer sp)) {
-				return;
-			}
-			if (!GeoBareHands.applies(sp) || !sp.getMainHandItem().isEmpty() || !GroundType.isOre(state)) {
-				return;
-			}
-			VEIN.set(true);
-			try {
-				veinMine(sl, sp, pos.immutable(), state.getBlock());
-			} finally {
-				VEIN.set(false);
-			}
-		});
-
-		// Seismic Sense: sneak + right-click the ground, empty-handed.
-		UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
-			if (level.isClientSide || hand != InteractionHand.MAIN_HAND || !(player instanceof ServerPlayer sp)) {
-				return InteractionResult.PASS;
-			}
-			if (!sp.isShiftKeyDown() || !sp.getMainHandItem().isEmpty() || !GeoBareHands.applies(sp)
-					|| !(level instanceof ServerLevel serverLevel)) {
-				return InteractionResult.PASS;
-			}
-			if (!GeoBareHands.isEarth(serverLevel.getBlockState(hitResult.getBlockPos()))) {
-				return InteractionResult.PASS;
-			}
-			return trySeismicSense(sp) ? InteractionResult.SUCCESS : InteractionResult.PASS;
-		});
-
-		PowerPassives.registerTick(KEY, GeokinesisHandlers::passiveTick);
-		PowerPassives.register(KEY, (player, active) -> {
-			if (!active) {
-				// only this power's own modifiers: the shared Resistance effect is cleared by the toggle's own off
-				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB);
-				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, ARMOR_SPD);
-				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, ARMOR_ATK);
-			}
-		});
+	public static void spend(ServerPlayer p, float amount) {
+		seed(p);
+		set(p, "earth", Math.max(0.0f, res(p, "earth") - amount));
 	}
 
-	// ---- passive per-tick upkeep ------------------------------------------------------------------
-
-	private static void passiveTick(ServerPlayer player) {
-		Power power = power();
-		if (power == null || !(player.level() instanceof ServerLevel sl)) {
-			return;
-		}
-		ModeMeter.regen(player, power, "earth_armor", MAX_STRAIN, STRAIN_REGEN, armorActive(player));
-
-		// v0.13.22: the old rock flight / boulder are gone -- tear down any left running by an older save.
-		if (TimedSelfFlight.isActive(player, power, "rock")) {
-			TimedSelfFlight.stop(player, power, power.ability(AbilitySlot.SLOT_3), "rock", false);
-		}
-		if (BatchBUtil.get(player, power, "boulder") > 0.5f) {
-			for (int i = 0; i < 7; i++) {
-				int id = (int) BatchBUtil.get(player, power, "boulder_id" + i);
-				if (id != 0 && sl.getEntity(id) instanceof FallingBlockEntity chunk) {
-					chunk.discard();
-				}
-				ExperimentalPowers.setResource(player, power, "boulder_id" + i, 0, 1.0e9f);
-			}
-			ExperimentalPowers.setResource(player, power, "boulder", 0, 1);
-		}
-
-		// the HUD's "Ground:" line -- only written when the ground actually changes
-		if (player.tickCount % 5 == 0) {
-			GroundType now = GroundType.under(player).type();
-			int last = (int) BatchBUtil.get(player, power, "ground_last") - 1;
-			if (last != now.ordinal()) {
-				if (last >= 0 && last < GroundType.values().length) {
-					ExperimentalPowers.setResource(player, power, GroundType.values()[last].resource(), 0, 1);
-				}
-				ExperimentalPowers.setResource(player, power, now.resource(), 1, 1);
-				ExperimentalPowers.setResource(player, power, "ground_last", now.ordinal() + 1, 16);
-			}
-		}
-
-		// gentle mining haste while standing on earth (kept from the original kit)
-		if (player.onGround() && GeoBareHands.isEarth(sl.getBlockState(player.blockPosition().below()))) {
-			player.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, 40, 0, false, false, false));
-		}
-
-		// Earth Swim upkeep / teardown.
-		long now = sl.getGameTime();
-		float swimUntil = BatchBUtil.get(player, power, "earthswim_until");
-		boolean swimOn = BatchBUtil.get(player, power, "earthswim_on") > 0.5f;
-		if (swimUntil > now) {
-			player.noPhysics = true;
-			earthSwimSpeed(player);
-			if (!player.getAbilities().instabuild) {
-				player.getAbilities().mayfly = true;
-				if (!player.getAbilities().flying) {
-					player.getAbilities().flying = true;
-					player.onUpdateAbilities();
-				}
-			}
-			player.resetFallDistance();
-			player.setAirSupply(player.getMaxAirSupply());
-			player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 40, 0, false, false, false));
-			BlockPos at = player.blockPosition();
-			sl.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, earthAround(sl, at)),
-					player.getX(), player.getY() + 0.9, player.getZ(), 6, 0.4, 0.6, 0.4, 0.02);
-		} else if (swimOn) {
-			endEarthSwim(player);
-		}
+	private static boolean noBoss(LivingEntity t) {
+		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
 	}
 
-	// ---- R: Rock Shot / ground-shake cone ------------------------------------------------------
-
-	private static void rockShot(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		GroundType.Ground g = GroundType.under(p);
-		Vec3 dir = p.getLookAngle();
-		GeoRockEntity rock = new GeoRockEntity(level, p, dmg(p, g, ROCK_SHOT_DAMAGE), g);
-		Vec3 hand = AbilityHelpers.handPosition(p);
-		rock.setPos(hand.x, hand.y, hand.z);
-		rock.shoot(dir.x, dir.y, dir.z, 2.4f, 0.4f);
-		level.addFreshEntity(rock);
-		// the chunk visibly tears up out of the ground at your feet
-		level.sendParticles(g.dust(), p.getX(), p.getY() + 0.1, p.getZ(), 14, 0.35, 0.1, 0.35, 0.08);
-		MutationVisuals.play(p, "throw_right");
-		AbilityHelpers.sound(p, g.state().getSoundType().getBreakSound(), 1.0f, 0.7f);
-		AbilityHelpers.sound(p, SoundEvents.SNOWBALL_THROW, 0.8f, 0.5f);
-		ctx.triggerCooldown(g.cooldown(ROCK_SHOT_CD));
+	private static BlockParticleOption dust(BlockState s) {
+		return new BlockParticleOption(ParticleTypes.BLOCK, s);
 	}
 
-	/** Sneak + R: a ground shockwave in a ~10-block cone. */
-	private static void groundShakeCone(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		GroundType.Ground g = GroundType.under(p);
-		Vec3 flat = BatchBUtil.flatLook(p);
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(5.0)), 8.0)) {
-			Vec3 to = e.position().subtract(p.position());
-			Vec3 toFlat = new Vec3(to.x, 0, to.z);
-			if (toFlat.horizontalDistanceSqr() > 10.0 * 10.0 || toFlat.horizontalDistanceSqr() < 1.0e-4
-					|| toFlat.normalize().dot(flat) < 0.55) {
-				continue;
-			}
-			if (AbilityHelpers.hurtLands(p, e, dmg(p, g, SHAKE_DAMAGE))) {
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
-				g.type().onHit(p, e, p.position());
-			}
-		}
-		Vec3 side = new Vec3(-flat.z, 0, flat.x);
-		for (int i = 0; i < 40; i++) {
-			double d = 1.5 + level.random.nextDouble() * 8.5;
-			double lateral = (level.random.nextDouble() - 0.5) * d * 0.9;
-			double bx = p.getX() + flat.x * d + side.x * lateral;
-			double bz = p.getZ() + flat.z * d + side.z * lateral;
-			BlockPos gp = BlockPos.containing(bx, p.getY() - 0.5, bz);
-			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, level.getBlockState(gp)),
-					bx, p.getY() + 0.1, bz, 5, 0.2, 0.1, 0.2, 0.03);
-		}
-		MutationVisuals.play(p, "stomp");
-		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.8f, 0.5f);
-		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.4f, 0.5f);
-		ctx.triggerCooldown(g.cooldown(SHAKE_CD));
-	}
-
-	// ---- G: Earth Spike line / cone -------------------------------------------------------------
-
-	/** The surface cell (first air above solid ground) near {@code (x, z)} around height {@code y}. */
-	private static BlockPos surfaceCell(ServerLevel level, double x, double y, double z) {
+	/** The surface cell (first air above solid ground) at {@code (x, z)} within a few blocks of height {@code y}. */
+	static BlockPos surfaceCell(ServerLevel level, double x, double y, double z) {
 		int bx = Mth.floor(x);
 		int bz = Mth.floor(z);
 		int top = Mth.floor(y) + 2;
 		for (int yy = top; yy >= top - 5; yy--) {
 			BlockPos bp = new BlockPos(bx, yy, bz);
+			BlockState here = level.getBlockState(bp);
 			BlockState below = level.getBlockState(bp.below());
-			if ((level.getBlockState(bp).isAir() || level.getBlockState(bp).canBeReplaced())
-					&& !below.isAir() && below.isFaceSturdy(level, bp.below(), Direction.UP)) {
+			if ((here.isAir() || here.canBeReplaced()) && here.getFluidState().isEmpty() && !below.isAir()
+					&& below.isFaceSturdy(level, bp.below(), Direction.UP)) {
 				return bp;
 			}
 		}
 		return null;
 	}
 
+	/** The block a model torn from {@code cell}'s ground looks like: the block itself, else the hero's ground. */
+	private static BlockState surfaceBlock(ServerLevel level, BlockPos cell, ServerPlayer fallback) {
+		if (cell != null) {
+			BlockState s = level.getBlockState(cell.below());
+			if (!s.isAir() && s.getFluidState().isEmpty() && s.getRenderShape() == net.minecraft.world.level.block.RenderShape.MODEL) {
+				return s;
+			}
+		}
+		return GeoTerrain.groundBlock(fallback);
+	}
+
 	/**
-	 * G: a line of spikes races out along the ground in the direction you face -- two blocks a tick, 16 blocks long.
-	 * Every creature a spike erupts under is hit once (15 x ground), thrown up and slowed; the spikes themselves are
-	 * the local stone with a dripstone point and crumble after 2.5 s.
+	 * What a raised wall (and the armour plates) is built of: the stone you stand on; the stone it would be for dirt, ores
+	 * and anything that would fall (sand becomes sandstone).
 	 */
-	private static void earthSpikeLine(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		GroundType.Ground g = GroundType.under(p);
-		Vec3 flat = BatchBUtil.flatLook(p);
-		Vec3 origin = p.position();
-		float damage = dmg(p, g, SPIKE_DAMAGE);
-		BlockState column = g.type().buildBlock(g.state());
-		Set<Integer> hit = new HashSet<>();
-		BatchBScheduler.schedule(level, age -> {
-			for (int k = 0; k < 2; k++) {
-				double d = 1.8 + age * 2 + k;
-				if (d > SPIKE_LENGTH) {
-					return false;
-				}
-				Vec3 pt = origin.add(flat.scale(d));
-				BlockPos cell = surfaceCell(level, pt.x, origin.y, pt.z);
-				if (cell == null) {
-					continue;
-				}
-				Vec3 c = Vec3.atBottomCenterOf(cell);
-				if (AbilityHelpers.canGrief() && c.distanceToSqr(p.position()) > 2.5) {
-					boolean tall = (age + k) % 2 == 0;
-					TempBlocks.place(level, cell, column, 50);
-					if (tall && level.getBlockState(cell).is(column.getBlock())) {
-						TempBlocks.place(level, cell.above(), Blocks.POINTED_DRIPSTONE.defaultBlockState(), 50);
+	public static BlockState buildBlock(BlockState ground) {
+		if (ground.is(Blocks.RED_SAND)) {
+			return Blocks.RED_SANDSTONE.defaultBlockState();
+		}
+		if (ground.is(BlockTags.SAND) || ground.is(Blocks.SANDSTONE)) {
+			return Blocks.SANDSTONE.defaultBlockState();
+		}
+		if (ground.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) || ground.is(Blocks.COBBLED_DEEPSLATE)) {
+			return Blocks.DEEPSLATE.defaultBlockState();
+		}
+		if (ground.is(Blocks.DEEPSLATE) || ground.is(Blocks.TUFF) || ground.is(Blocks.GRANITE) || ground.is(Blocks.DIORITE)
+				|| ground.is(Blocks.ANDESITE) || ground.is(Blocks.CALCITE) || ground.is(BlockTags.TERRACOTTA)
+				|| ground.is(Blocks.RED_SANDSTONE)) {
+			return ground.getBlock().defaultBlockState();
+		}
+		return Blocks.STONE.defaultBlockState();
+	}
+
+	// ================================================================ registration
+
+	public static void register() {
+		// R -- Rock Shot / Boulder Toss (Shift, hold to lift). Also runs the power-wide upkeep.
+		AbilityHandlers.register(KEY, "rock_shot", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "boulder_id") < 0.5f && canPay(ctx, COST_BOULDER)) {
+						liftBoulder(p);
 					}
+					return;
 				}
-				level.sendParticles(g.dust(), c.x, c.y + 0.5, c.z, 12, 0.3, 0.5, 0.3, 0.1);
-				for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(0, 0.8, 0), 1.6)) {
-					if (!hit.add(e.getId())) {
-						continue;
+				if (canPay(ctx, COST_ROCK)) {
+					rockShot(p);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				upkeep(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (res(p, "boulder_id") > 0.5f) {
+					set(p, "boulder_release", 1); // thrown as soon as it is up overhead
+				}
+			}
+		});
+
+		// G -- Earth Grip / Sinkhole (Shift)
+		AbilityHandlers.register(KEY, "earth_grip", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "sink_cd") > 0.5f) {
+						cooling(ctx, "sink_cd");
+						return;
 					}
-					if (AbilityHelpers.hurtLands(p, e, damage)) {
-						AbilityHelpers.push(e, new Vec3(0, 0.85, 0));
-						AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 1);
-						g.type().onHit(p, e, origin);
+					if (canPay(ctx, COST_SINKHOLE)) {
+						sinkhole(ctx);
 					}
+					return;
 				}
-				if ((age + k) % 3 == 0) {
-					level.playSound(null, cell, SoundEvents.POINTED_DRIPSTONE_LAND, SoundSource.PLAYERS, 1.0f,
-							0.6f + level.random.nextFloat() * 0.3f);
+				if (canPay(ctx, COST_GRIP)) {
+					earthGrip(ctx);
 				}
+			}
+		});
+
+		// X -- Rock Surf (press again to step off) / Tectonic Pillar (Shift)
+		AbilityHandlers.register(KEY, "rock_surf", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (canPay(ctx, COST_PILLAR)) {
+						tectonicPillar(ctx);
+					}
+					return;
+				}
+				if (res(p, "surf") > 0.5f) {
+					endSurf(p);
+				} else if (canPay(ctx, COST_SURF)) {
+					startSurf(ctx);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				surfTick(ctx.player(), ctx.level());
+			}
+		});
+
+		// Z -- Earthquake / Earth Spikes (Shift)
+		AbilityHandlers.register(KEY, "earthquake", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (canPay(ctx, COST_SPIKES)) {
+						earthSpikes(p);
+					}
+					return;
+				}
+				if (canPay(ctx, COST_QUAKE)) {
+					earthquake(p);
+				}
+			}
+		});
+
+		// V -- Stone Wall / Earth Armor (Shift, toggle)
+		AbilityHandlers.register(KEY, "stone_wall", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (res(p, "armor") > 0.5f) {
+						setArmor(p, false);
+					} else if (canPay(ctx, 1.0f)) {
+						setArmor(p, true);
+					}
+					return;
+				}
+				if (canPay(ctx, COST_WALL)) {
+					stoneWall(ctx);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				armorTick(ctx.player());
+			}
+		});
+
+		// C -- Tunnel (held) / Seismic Sense (Shift)
+		AbilityHandlers.register(KEY, "tunnel", new AbilityHandler() {
+			@Override
+			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (p.isShiftKeyDown()) {
+					if (canPay(ctx, COST_SEISMIC)) {
+						seismicSense(p, ctx.level());
+					}
+					return;
+				}
+				if (canPay(ctx, 0.5f)) {
+					set(p, "tunnel", 1);
+					set(p, "tunnel_t", 0);
+					MutationVisuals.play(p, "p05.tunnel");
+					AbilityHelpers.sound(p, SoundEvents.GRINDSTONE_USE, 0.8f, 0.5f);
+				}
+			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				tunnelTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				endTunnel(ctx.player());
+			}
+		});
+
+		// temporary blocks (the wall, the sinkhole) never drop anything when broken -- they were never really yours
+		PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, be) -> {
+			if (level instanceof ServerLevel sl && GeoTerrain.isTemp(sl, pos) && !state.isAir()) {
+				GeoTerrain.restoreNow(sl, pos); // puts back what was there -- and the break is cancelled, so nothing drops
+				return false;
 			}
 			return true;
 		});
-		MutationVisuals.play(p, "ground_pound");
-		AbilityHelpers.sound(p, SoundEvents.POINTED_DRIPSTONE_LAND, 1.2f, 0.6f);
-		ctx.triggerCooldown(g.cooldown(SPIKE_CD));
+		ServerTickEvents.END_SERVER_TICK.register(GeoTerrain::tick);
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> GeoTerrain.restoreAll());
+
+		registerPassives();
 	}
 
-	/** Sneak + G: auto-tracks every enemy in a 10-block cone, a spike under each. */
-	private static void earthSpikeCone(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		GroundType.Ground g = GroundType.under(p);
-		Vec3 eye = p.getEyePosition();
-		Vec3 look = p.getLookAngle();
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, eye.add(look.scale(5.0)), 8.0)) {
-			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
-			if (to.length() > 10.5 || to.normalize().dot(look) < 0.6) {
-				continue;
-			}
-			if (AbilityHelpers.hurtLands(p, e, dmg(p, g, CONE_DAMAGE))) {
-				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 120, 1);
-				g.type().onHit(p, e, p.position());
-			}
-			BlockPos feet = e.blockPosition();
-			if (AbilityHelpers.canGrief() && !(e instanceof Player)) {
-				TempBlocks.place(level, feet, Blocks.DRIPSTONE_BLOCK.defaultBlockState(), 120);
-				TempBlocks.place(level, feet.above(), Blocks.POINTED_DRIPSTONE.defaultBlockState(), 120);
-			}
-			level.sendParticles(g.dust(), e.getX(), e.getY(), e.getZ(), 24, 0.4, 0.6, 0.4, 0.05);
-		}
-		AbilityHelpers.line(level, eye, eye.add(look.scale(10.0)), g.dust(), 2.0);
-		MutationVisuals.play(p, "slam_two_hand");
-		AbilityHelpers.sound(p, SoundEvents.POINTED_DRIPSTONE_LAND, 1.2f, 0.6f);
-		ctx.triggerCooldown(g.cooldown(CONE_CD));
+	private static void cooling(AbilityContext ctx, String timer) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey()),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
 	}
 
-	// ---- X: Rock Surf / Earth Swim ---------------------------------------------------------------
+	// ================================================================ upkeep (every tick for an owner)
 
-	private static void surfOn(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		if (p.isShiftKeyDown()) {
-			ctx.setToggled(false); // Sneak + X is Earth Swim, not a surf
-			startEarthSwim(ctx);
-			return;
+	private static void upkeep(ServerPlayer p, ServerLevel level) {
+		seed(p);
+		for (String timer : new String[] { "sink_cd", "seismic", "nofall" }) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, v - 1);
+			}
 		}
-		if (BatchBUtil.onCooldown(ctx)) {
-			ctx.setToggled(false);
-			return;
+		// Earth refills -- fast on natural ground, slowly anywhere else -- except while it drains (armour, tunnel)
+		float e = res(p, "earth");
+		if (e < MAX_EARTH && res(p, "armor") < 0.5f && res(p, "tunnel") < 0.5f) {
+			set(p, "earth", Math.min(MAX_EARTH, e + (GeoTerrain.onNaturalGround(p) ? REGEN_NATURAL : REGEN_ELSEWHERE)));
 		}
-		GroundType.Ground g = GroundType.under(p);
-		if (g.type() == GroundType.NONE) {
-			ctx.setToggled(false);
-			ctx.actionBar("message.projecthero.geo.no_earth");
-			return;
+		boulderTick(p, level);
+		if (p.tickCount % 100 == 37) {
+			dropLegacyState(p);
 		}
-		ctx.setResource("surf_start", ctx.level().getGameTime(), 1e12f);
-		ctx.setResource("surf_air_since", 0, 1e12f);
-		ctx.level().sendParticles(g.dust(), p.getX(), p.getY() + 0.1, p.getZ(), 30, 0.6, 0.1, 0.6, 0.12);
-		AbilityHelpers.sound(p, g.state().getSoundType().getBreakSound(), 1.2f, 0.6f);
-		AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.5f);
-		MutationVisuals.play(p, "p05.surf");
 	}
 
-	private static void surfOff(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		MutationVisuals.stopIf(p, "p05.surf");
-		if (BatchBUtil.get(p, ctx.power(), "surf_start") > 0.5f) {
-			ctx.setResource("surf_start", 0, 1e12f);
-			ctx.setResource("surf_air_since", 0, 1e12f);
-			ctx.triggerCooldown(SURF_CD);
-			ctx.setResource("no_fall_until", p.level().getGameTime() + 60, 1.0e12f);
-			if (p.level() instanceof ServerLevel sl) {
-				sl.sendParticles(GroundType.under(p).dust(), p.getX(), p.getY() + 0.1, p.getZ(), 20, 0.5, 0.1, 0.5, 0.1);
-			}
-			AbilityHelpers.sound(p, SoundEvents.STONE_BREAK, 0.9f, 0.8f);
+	/** Pre-v0.16.5 Earth Armor / Earth Swim leftovers are inert now: clear them out of old saves. */
+	private static void dropLegacyState(ServerPlayer p) {
+		for (ResourceLocation id : LEGACY) {
+			PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, id);
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, id);
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, id);
 		}
+		Power power = power();
+		if (power != null && ExperimentalPowers.getResource(p, power, "earthswim_on") > 0.5f) {
+			ExperimentalPowers.setResource(p, power, "earthswim_on", 0, 1);
+			ExperimentalPowers.setResource(p, power, "earthswim_until", 0, 1e12f);
+			p.noPhysics = false;
+		}
+	}
+
+	// ================================================================ R: Rock Shot / Boulder Toss
+
+	/** The ground a rock is torn out of: a step in front of you (where your aim meets the ground nearby). */
+	private static BlockPos tearCell(ServerPlayer p, double ahead) {
+		Vec3 flat = flatLook(p);
+		Vec3 at = p.position().add(flat.scale(ahead));
+		return surfaceCell(AbilityHelpers.level(p), at.x, p.getY(), at.z);
+	}
+
+	static Vec3 flatLook(Player p) {
+		Vec3 l = p.getLookAngle();
+		Vec3 f = new Vec3(l.x, 0, l.z);
+		return f.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0, p.getYRot()) : f.normalize();
+	}
+
+	/** R: a stone rips up out of the ground in front of you, rises to your hand, and flies (12). */
+	public static GeoRockEntity rockShot(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		BlockPos cell = tearCell(p, 1.4);
+		BlockState block = surfaceBlock(level, cell, p);
+		Vec3 from = cell != null ? Vec3.atBottomCenterOf(cell).add(0, -0.2, 0) : p.position().add(flatLook(p).scale(1.0));
+		GeoRockEntity rock = GeoRockEntity.rockShot(level, p, ROCK_DAMAGE, block, from);
+		level.addFreshEntity(rock);
+		spend(p, COST_ROCK);
+		MutationVisuals.play(p, "p05.rock");
+		AbilityHelpers.sound(p, block.getSoundType().getBreakSound(), 1.0f, 0.7f);
+		return rock;
+	}
+
+	/** Shift+R: a boulder heaves up out of the ground in front of you and is held overhead until you let go. */
+	public static GeoBoulderEntity liftBoulder(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		BlockPos cell = tearCell(p, 2.2);
+		BlockState block = surfaceBlock(level, cell, p);
+		Vec3 from = cell != null ? Vec3.atBottomCenterOf(cell).add(0, -0.8, 0) : p.position().add(flatLook(p).scale(2.0));
+		GeoBoulderEntity b = GeoBoulderEntity.lift(level, p, BOULDER_DAMAGE, block, from);
+		level.addFreshEntity(b);
+		spend(p, COST_BOULDER);
+		set(p, "boulder_id", b.getId());
+		set(p, "boulder_t", 0);
+		set(p, "boulder_release", 0);
+		MutationVisuals.play(p, "p05.lift");
+		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 0.6f, 0.5f);
+		level.playSound(null, from.x, from.y, from.z, block.getSoundType().getBreakSound(), SoundSource.PLAYERS, 1.4f, 0.5f);
+		return b;
+	}
+
+	private static GeoBoulderEntity heldBoulder(ServerPlayer p, ServerLevel level) {
+		int id = (int) res(p, "boulder_id");
+		return id != 0 && level.getEntity(id) instanceof GeoBoulderEntity b && b.isAlive() && b.held() ? b : null;
+	}
+
+	private static void boulderTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "boulder_id") < 0.5f) {
+			return;
+		}
+		GeoBoulderEntity b = heldBoulder(p, level);
+		if (b == null || !p.isAlive()) {
+			if (b != null) {
+				b.discard();
+			}
+			clearBoulder(p);
+			return;
+		}
+		float t = res(p, "boulder_t") + 1;
+		set(p, "boulder_t", t);
+		set(p, "lift", b.liftFraction() * 100.0f);
+		MutationVisuals.ensure(p, "p05.lift");
+		if (b.fullyLifted() && (res(p, "boulder_release") > 0.5f || t > BOULDER_MAX_HOLD)) {
+			tossBoulder(p, b);
+		}
+	}
+
+	/** Throws the held boulder now (for the gametests and the release). */
+	public static void tossBoulder(ServerPlayer p, GeoBoulderEntity b) {
+		b.toss();
+		clearBoulder(p);
+		MutationVisuals.play(p, "p05.heave");
+	}
+
+	private static void clearBoulder(ServerPlayer p) {
+		set(p, "boulder_id", 0);
+		set(p, "boulder_t", 0);
+		set(p, "boulder_release", 0);
+		set(p, "lift", 0);
+		MutationVisuals.stopIf(p, "p05.lift");
+	}
+
+	// ================================================================ G: Earth Grip / Sinkhole
+
+	/** The aimed creature within 20 blocks, or null (with a message). */
+	private static LivingEntity aimedTarget(AbilityContext ctx) {
+		LivingEntity t = AbilityHelpers.raycastEntity(ctx.player(), TARGET_RANGE);
+		if (t == null || !HeroTargets.canHarm(ctx.player(), t) || Squads.areAllies(ctx.player(), t)) {
+			ctx.actionBar("message.projecthero.geo.no_target");
+			return null;
+		}
+		return t;
+	}
+
+	/** The ground block right under {@code e} (within 1.5 blocks), or null when it stands on nothing. */
+	private static BlockPos groundUnder(LivingEntity e) {
+		for (int dy = 0; dy <= 2; dy++) {
+			BlockPos bp = BlockPos.containing(e.getX(), e.getY() - 0.2 - dy * 0.65, e.getZ());
+			BlockState s = e.level().getBlockState(bp);
+			if (!s.isAir() && s.isFaceSturdy(e.level(), bp, Direction.UP)) {
+				return bp;
+			}
+		}
+		return null;
+	}
+
+	/** G: two stone hands burst out of the ground round the target's legs and hold it fast for 3 s. */
+	private static void earthGrip(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		LivingEntity t = aimedTarget(ctx);
+		if (t == null) {
+			return;
+		}
+		BlockPos ground = groundUnder(t);
+		if (ground == null) {
+			ctx.actionBar("message.projecthero.geo.not_grounded");
+			return;
+		}
+		grip(p, t, ground);
+	}
+
+	public static GeoFormEntity grip(ServerPlayer p, LivingEntity t, BlockPos ground) {
+		ServerLevel level = AbilityHelpers.level(p);
+		spend(p, COST_GRIP);
+		BlockState block = level.getBlockState(ground);
+		Vec3 at = new Vec3(t.getX(), ground.getY() + 1.0, t.getZ());
+		GeoFormEntity hands = GeoFormEntity.create(level, GeoFormEntity.GRIP, p, at, block, Math.max(0.6f, t.getBbWidth()), GRIP_TICKS);
+		// bosses are held back hard (Slowness IV) instead of pinned to the spot
+		hands.target(t).pin(noBoss(t));
+		if (!noBoss(t)) {
+			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GRIP_TICKS, 3);
+		}
+		level.addFreshEntity(hands);
+		if (t instanceof Mob m) {
+			m.getNavigation().stop();
+		}
+		MutationVisuals.play(p, "p05.grip");
+		level.sendParticles(dust(block), t.getX(), at.y + 0.1, t.getZ(), 24, 0.5, 0.1, 0.5, 0.12);
+		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.PLAYERS, 1.4f, 0.6f);
+		level.playSound(null, t.getX(), t.getY(), t.getZ(), block.getSoundType().getPlaceSound(), SoundSource.PLAYERS, 1.2f, 0.6f);
+		return hands;
 	}
 
 	/**
-	 * X: you ride a slab of the ground itself, carried along the direction you face at a sprinting horse's pace
-	 * (faster on ice, slower on deepslate), hopping up single-block steps. Anything you plough into takes 7 x ground
-	 * and is bowled aside. Ends after 15 s, in water, if you leave the ground for 1.5 s, or on a second press.
+	 * Shift+G: the ground under the target (natural ground, 3 deep, the target's whole footprint) drops it 3 blocks, then
+	 * closes over it -- the ground is put back as it was, with the creature inside, suffocating until it digs out. The air
+	 * pocket at its feet is refilled once it is out (or dead). No bosses.
 	 */
-	private static void surfTick(AbilityContext ctx) {
+	private static void sinkhole(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		long now = level.getGameTime();
-		float start = ctx.resource("surf_start");
-		if (start <= 0.5f) {
-			ctx.setResource("surf_start", now, 1e12f); // toggled back on after a relog
-			start = now;
-		}
-		// airborne time, written only on the take-off / landing edges (every write re-syncs the whole state)
-		float airSince = ctx.resource("surf_air_since");
-		if (p.onGround() && airSince > 0.5f) {
-			ctx.setResource("surf_air_since", 0, 1e12f);
-			airSince = 0;
-		} else if (!p.onGround() && airSince <= 0.5f) {
-			ctx.setResource("surf_air_since", now, 1e12f);
-			airSince = now;
-		}
-		long air = airSince > 0.5f ? now - (long) airSince : 0;
-		if (now - (long) start > SURF_MAX_TICKS || air > 30 || p.isInWater() || p.getAbilities().flying
-				|| p.isPassenger() || !p.isAlive()) {
-			ctx.setToggled(false);
-			surfOff(ctx);
+		LivingEntity t = aimedTarget(ctx);
+		if (t == null) {
 			return;
 		}
-		GroundType.Ground g = GroundType.under(p);
-		double speed = switch (g.type()) {
-			case FROST -> 0.95;
-			case SAND -> 0.78;
-			case DEEPSLATE -> 0.62;
-			case NONE -> 0.5;
-			default -> 0.72;
-		};
-		Vec3 flat = BatchBUtil.flatLook(p);
-		Vec3 v = p.getDeltaMovement();
-		double vy = v.y;
+		if (!noBoss(t)) {
+			ctx.actionBar("message.projecthero.geo.too_big");
+			return;
+		}
+		if (!sink(p, t)) {
+			ctx.actionBar("message.projecthero.geo.hard_ground");
+		}
+	}
+
+	/** The columns of ground under {@code t}'s footprint. */
+	private static List<BlockPos> footprint(LivingEntity t) {
+		List<BlockPos> cols = new ArrayList<>();
+		AABB box = t.getBoundingBox();
+		int y = Mth.floor(t.getY() + 0.01);
+		for (int x = Mth.floor(box.minX + 0.01); x <= Mth.floor(box.maxX - 0.01); x++) {
+			for (int z = Mth.floor(box.minZ + 0.01); z <= Mth.floor(box.maxZ - 0.01); z++) {
+				cols.add(new BlockPos(x, y, z));
+			}
+		}
+		return cols;
+	}
+
+	/** Sinks {@code t} 3 blocks into the ground and closes it over. Returns false (and changes nothing) if it can't. */
+	public static boolean sink(ServerPlayer p, LivingEntity t) {
+		ServerLevel level = AbilityHelpers.level(p);
+		if (!t.onGround() && groundUnder(t) == null) {
+			return false;
+		}
+		List<BlockPos> cols = footprint(t);
+		AABB caster = p.getBoundingBox().inflate(0.3);
+		for (BlockPos c : cols) {
+			for (int d = 1; d <= SINKHOLE_DEPTH; d++) {
+				BlockPos bp = c.below(d);
+				if (!GeoTerrain.diggable(level, bp) || !GeoTerrain.canEdit(p, level, bp) || GeoTerrain.isTemp(level, bp)
+						|| caster.intersects(new AABB(bp).expandTowards(0, 4, 0))) {
+					return false;
+				}
+			}
+		}
+		BlockState look = level.getBlockState(cols.get(0).below());
+		// the bottom cell is the creature's pocket (waits for it); the two above close over it after a moment
+		for (BlockPos c : cols) {
+			GeoTerrain.pocket(level, c.below(SINKHOLE_DEPTH), t, SINKHOLE_POCKET_MAX, SINKHOLE_CLOSE_TICKS + 10);
+			for (int d = 1; d < SINKHOLE_DEPTH; d++) {
+				GeoTerrain.bury(level, c.below(d), SINKHOLE_CLOSE_TICKS);
+			}
+		}
+		// it is dragged down the hole over a moment (so the drop reads), then the ground closes over it
+		double startY = t.getY();
+		double x = t.getX();
+		double z = t.getZ();
+		BatchBScheduler.schedule(level, age -> {
+			if (!t.isAlive() || age >= SINKHOLE_SINK_TICKS) {
+				return false;
+			}
+			float f = (age + 1) / (float) SINKHOLE_SINK_TICKS;
+			t.teleportTo(x, startY - SINKHOLE_DEPTH * f * f, z);
+			t.setDeltaMovement(Vec3.ZERO);
+			t.hurtMarked = true;
+			return true;
+		});
+		t.setDeltaMovement(0, -0.6, 0);
+		t.hurtMarked = true;
+		AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, SINKHOLE_CLOSE_TICKS + 10, 9);
+		if (t instanceof Mob m) {
+			m.getNavigation().stop();
+		}
+		spend(p, COST_SINKHOLE);
+		set(p, "sink_cd", SINKHOLE_CD);
+		Vec3 top = new Vec3(t.getX(), cols.get(0).getY(), t.getZ());
+		level.addFreshEntity(GeoFormEntity.create(level, GeoFormEntity.SINK, p, top, look, Math.max(1.0f, t.getBbWidth() + 0.6f), 26));
+		level.sendParticles(dust(look), top.x, top.y + 0.2, top.z, 40, 0.7, 0.2, 0.7, 0.15);
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, top.x, top.y, top.z, 4, 0.6, 0.2, 0.6, 0.01);
+		level.playSound(null, top.x, top.y, top.z, SoundEvents.ROOTED_DIRT_BREAK, SoundSource.PLAYERS, 1.5f, 0.5f);
+		level.playSound(null, top.x, top.y, top.z, SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.4f, 0.4f);
+		MutationVisuals.play(p, "p05.sinkhole");
+		return true;
+	}
+
+	// ================================================================ X: Rock Surf / Tectonic Pillar
+
+	private static void startSurf(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!p.onGround()) {
+			ctx.actionBar("message.projecthero.geo.not_grounded");
+			return;
+		}
+		spend(p, COST_SURF);
+		BlockState under = buildBlock(GeoTerrain.groundBlock(p));
+		set(p, "surf", 1);
+		set(p, "surf_t", SURF_TICKS);
+		set(p, "surf_air", 0);
+		set(p, "surf_block", Block.getId(under) + 1);
+		ctx.level().sendParticles(dust(under), p.getX(), p.getY() + 0.1, p.getZ(), 30, 0.6, 0.1, 0.6, 0.12);
+		AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.5f);
+		AbilityHelpers.sound(p, under.getSoundType().getBreakSound(), 1.2f, 0.6f);
+		MutationVisuals.play(p, "p05.surf");
+	}
+
+	public static void endSurf(ServerPlayer p) {
+		if (res(p, "surf") < 0.5f) {
+			return;
+		}
+		set(p, "surf", 0);
+		set(p, "surf_t", 0);
+		MutationVisuals.stopIf(p, "p05.surf");
+		set(p, "nofall", 40);
+		if (p.level() instanceof ServerLevel sl) {
+			BlockState s = Block.stateById(Math.max(0, (int) res(p, "surf_block") - 1));
+			sl.sendParticles(dust(s.isAir() ? Blocks.STONE.defaultBlockState() : s), p.getX(), p.getY() + 0.1, p.getZ(), 24, 0.5,
+					0.1, 0.5, 0.1);
+		}
+		AbilityHelpers.sound(p, SoundEvents.STONE_BREAK, 0.9f, 0.8f);
+	}
+
+	/**
+	 * Rock Surf: carried along the way you face on a slab of rock, hopping single steps, for 8 s (or until a second press,
+	 * water, flight, or 1.5 s in the air).
+	 */
+	private static void surfTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "surf") < 0.5f) {
+			return;
+		}
+		float left = res(p, "surf_t") - 1;
+		float air = p.onGround() ? 0 : res(p, "surf_air") + 1;
+		set(p, "surf_t", Math.max(0, left));
+		if (air != res(p, "surf_air")) {
+			set(p, "surf_air", air);
+		}
+		if (left <= 0 || air > 30 || p.isInWater() || p.getAbilities().flying || p.isPassenger() || !p.isAlive()) {
+			endSurf(p);
+			return;
+		}
+		Vec3 flat = flatLook(p);
+		double vy = p.getDeltaMovement().y;
 		BlockPos ahead = BlockPos.containing(p.getX() + flat.x * 0.9, p.getY() + 0.1, p.getZ() + flat.z * 0.9);
 		if (p.onGround() && !level.getBlockState(ahead).getCollisionShape(level, ahead).isEmpty()
 				&& level.getBlockState(ahead.above()).getCollisionShape(level, ahead.above()).isEmpty()
 				&& level.getBlockState(p.blockPosition().above(2)).getCollisionShape(level, p.blockPosition().above(2)).isEmpty()) {
 			vy = 0.46; // hop the step
 		}
-		AbilityHelpers.launchSelf(p, new Vec3(flat.x * speed, vy, flat.z * speed));
+		AbilityHelpers.launchSelf(p, new Vec3(flat.x * SURF_SPEED, vy, flat.z * SURF_SPEED));
+		p.resetFallDistance();
 		MutationVisuals.ensure(p, "p05.surf");
-		if (p.tickCount % 2 == 0) {
-			level.sendParticles(g.dust(), p.getX() - flat.x * 0.6, p.getY() + 0.05, p.getZ() - flat.z * 0.6,
-					4, 0.3, 0.05, 0.3, 0.06);
+		BlockState s = Block.stateById(Math.max(0, (int) res(p, "surf_block") - 1));
+		if (p.tickCount % 2 == 0 && p.onGround()) {
+			level.sendParticles(dust(GeoTerrain.groundBlock(p)), p.getX() - flat.x * 0.8, p.getY() + 0.05, p.getZ() - flat.z * 0.8, 4,
+					0.3, 0.05, 0.3, 0.06);
 		}
 		if (p.tickCount % 8 == 0) {
-			level.playSound(null, p.blockPosition(), g.state().getSoundType().getStepSound(), SoundSource.PLAYERS, 0.7f, 0.6f);
-		}
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(flat.scale(1.0)).add(0, 0.8, 0), 1.3)) {
-			if (AbilityHelpers.hurtLands(p, e, dmg(p, g, SURF_BUMP_DAMAGE))) {
-				AbilityHelpers.push(e, flat.scale(1.1).add(0, 0.45, 0));
-				g.type().onHit(p, e, p.position());
-			}
+			level.playSound(null, p.blockPosition(), s.getSoundType().getStepSound(), SoundSource.PLAYERS, 0.7f, 0.6f);
 		}
 	}
-
-	private static void startEarthSwim(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		long now = level.getGameTime();
-		float readyAt = ctx.resource("earthswim_ready_at");
-		if (readyAt > now) {
-			ctx.actionBar("message.projecthero.ability.on_cooldown",
-					net.minecraft.network.chat.Component.translatable("projecthero.power.power_05_geokinesis.earth_swim"),
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil((readyAt - now) / 20.0f)));
-			return;
-		}
-		if (!GeoBareHands.isEarth(level.getBlockState(p.blockPosition().below()))
-				&& !GeoBareHands.isEarth(level.getBlockState(p.blockPosition()))) {
-			ctx.actionBar("message.projecthero.geo.no_earth");
-			return;
-		}
-		ctx.setResource("earthswim_until", now + EARTHSWIM_TICKS, 1e12f);
-		ctx.setResource("earthswim_on", 1, 1);
-		ctx.setResource("earthswim_ready_at", now + EARTHSWIM_TICKS
-				+ com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(EARTHSWIM_CD), 1e12f);
-		p.noPhysics = true;
-		if (!p.getAbilities().instabuild) {
-			p.getAbilities().mayfly = true;
-			p.getAbilities().flying = true;
-			p.onUpdateAbilities();
-		}
-		AbilityHelpers.launchSelf(p, new Vec3(0, -0.35, 0));
-		AbilityHelpers.burst(level, p.position(), DIRT_DUST, 50, 0.7);
-		MutationVisuals.play(p, "dash_forward");
-		level.playSound(null, p.blockPosition(), SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.2f, 0.5f);
-	}
-
-	/** Fast while inside the ground, slow the moment you are not (v0.10.10). */
-	private static void earthSwimSpeed(ServerPlayer p) {
-		BlockPos eye = BlockPos.containing(p.getEyePosition());
-		boolean submerged = GeoBareHands.isEarth(p.level().getBlockState(eye))
-				|| GeoBareHands.isEarth(p.level().getBlockState(p.blockPosition()))
-				|| p.level().getBlockState(eye).isSuffocating(p.level(), eye);
-		if (!p.getAbilities().instabuild) {
-			p.getAbilities().setFlyingSpeed(submerged ? 0.14f : 0.03f);
-			p.onUpdateAbilities();
-		}
-		if (!submerged) {
-			return;
-		}
-		Vec3 v = p.getDeltaMovement();
-		if (v.lengthSqr() > 1.0e-4) {
-			p.setDeltaMovement(v.add(v.normalize().scale(0.06)));
-			p.hurtMarked = true;
-		}
-	}
-
-	private static void endEarthSwim(ServerPlayer p) {
-		Power power = power();
-		ExperimentalPowers.setResource(p, power, "earthswim_on", 0, 1);
-		ExperimentalPowers.setResource(p, power, "earthswim_until", 0, 1e12f);
-		p.noPhysics = false;
-		if (!p.getAbilities().instabuild) {
-			p.getAbilities().setFlyingSpeed(0.05f);
-		}
-		if (!p.getAbilities().instabuild && !com.projecthero.mod.hero.power.HeroFlight.isFlying(p)) {
-			p.getAbilities().flying = false;
-			p.getAbilities().mayfly = false;
-			p.onUpdateAbilities();
-		}
-		int guard = 0;
-		while (guard++ < 16 && !p.level().getBlockState(p.blockPosition()).getCollisionShape(p.level(), p.blockPosition()).isEmpty()) {
-			p.setPos(p.getX(), p.getY() + 1.0, p.getZ());
-		}
-		p.setDeltaMovement(0, 0, 0);
-		p.resetFallDistance();
-		if (p.level() instanceof ServerLevel sl) {
-			AbilityHelpers.burst(sl, p.position(), DIRT_DUST, 40, 0.6);
-		}
-		AbilityHelpers.sound(p, SoundEvents.GRAVEL_PLACE, 1.0f, 0.7f);
-	}
-
-	// ---- Z: Earthquake hold-charge / Colossal Rock -------------------------------------------
-
-	private static void quakeTick(AbilityContext ctx) {
-		long held = BatchBUtil.chargeHeld(ctx, "quake_start");
-		if (held < 0) {
-			return;
-		}
-		ServerPlayer p = ctx.player();
-		if (held > QUAKE_CHARGE + 100) {
-			quakeCancel(ctx);
-			return;
-		}
-		BatchBUtil.chargeMeter(ctx, held, QUAKE_CHARGE);
-		ServerLevel level = ctx.level();
-		boolean colossal = ctx.resource("quake_colossal") > 0.5f;
-		MutationVisuals.ensure(p, colossal ? "carry_overhead" : "crouch_charge");
-		p.setDeltaMovement(p.getDeltaMovement().multiply(0.2, 1.0, 0.2));
-		p.hurtMarked = true;
-		double frac = Math.min(1.0, held / (double) QUAKE_CHARGE);
-		GroundType.Ground g = GroundType.under(p);
-		if (colossal) {
-			// the boulder gathers overhead as you charge
-			Vec3 over = p.position().add(0, p.getBbHeight() + 0.8 + frac * 0.8, 0);
-			level.sendParticles(g.dust(), over.x, over.y, over.z, 4 + (int) (frac * 10), 0.3 + frac * 0.6,
-					0.3 + frac * 0.6, 0.3 + frac * 0.6, 0.02);
-			level.sendParticles(g.dust(), p.getX(), p.getY() + 0.1, p.getZ(), 3, 0.8, 0.05, 0.8, 0.1);
-		} else {
-			level.sendParticles(g.dust(), p.getX(), p.getY() + 0.1, p.getZ(),
-					6 + (int) (frac * 14), 0.6 * frac + 0.3, 0.05, 0.6 * frac + 0.3, 0.03);
-		}
-		if (held % 20 == 0) {
-			AbilityHelpers.sound(p, SoundEvents.STONE_HIT, 0.7f, 0.4f + (float) frac * 0.6f);
-		}
-		if (held >= QUAKE_CHARGE) {
-			quakeFire(ctx);
-		}
-	}
-
-	private static void quakeCancel(AbilityContext ctx) {
-		BatchBUtil.chargeClear(ctx, "quake_start");
-		ctx.setResource("quake_colossal", 0, 1);
-		MutationVisuals.stopIf(ctx.player(), "crouch_charge");
-		MutationVisuals.stopIf(ctx.player(), "carry_overhead");
-		AbilityHelpers.sound(ctx.player(), SoundEvents.FIRE_EXTINGUISH, 0.5f, 1.2f);
-	}
-
-	private static void quakeFire(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		boolean colossal = ctx.resource("quake_colossal") > 0.5f;
-		BatchBUtil.chargeClear(ctx, "quake_start");
-		ctx.setResource("quake_colossal", 0, 1);
-		GroundType.Ground g = GroundType.under(p);
-
-		if (colossal) {
-			MutationVisuals.play(p, "p05.heave");
-			Vec3 dir = p.getLookAngle().normalize();
-			ColossalRockEntity rock = new ColossalRockEntity(level, p, dmg(p, g, COLOSSAL_DAMAGE));
-			Vec3 spawn = p.getEyePosition().add(dir.scale(3.0));
-			rock.setPos(spawn.x, spawn.y, spawn.z);
-			rock.shoot(dir.x, dir.y, dir.z, 2.6f, 0.0f);
-			level.addFreshEntity(rock);
-			AbilityHelpers.burst(level, spawn, g.dust(), 90, 1.5);
-			level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.5f, 0.35f);
-			level.playSound(null, p.blockPosition(), SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 1.2f, 0.5f);
-			ctx.triggerCooldown(COLOSSAL_CD);
-			return;
-		}
-
-		MutationVisuals.play(p, "slam_two_hand");
-		double r = 25.0;
-		float base = dmg(p, g, QUAKE_DAMAGE);
-		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), r)) {
-			double d = e.position().distanceTo(p.position());
-			float amount = (float) (base * (1.0 - Math.min(0.55, d / r)));
-			if (AbilityHelpers.hurtBurst(p, e, amount)) {
-				g.type().onHit(p, e, p.position());
-			}
-			AbilityHelpers.knockbackFrom(e, p.position(), 1.4);
-			AbilityHelpers.push(e, new Vec3(0, 0.6, 0));
-			AbilityHelpers.slow7s(e);
-			AbilityHelpers.applyControl(e, MobEffects.CONFUSION, 120, 0);
-		}
-		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY(), p.getZ(), 2, 3, 0.5, 3, 0);
-		level.sendParticles(g.dust(), p.getX(), p.getY() + 0.3, p.getZ(), 200, 8, 0.3, 8, 0.2);
-		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.4f, 0.35f);
-		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
-		carveRavines(p, level);
-		ctx.triggerCooldown(QUAKE_CD);
-	}
-
-	/** Several deep, winding ravines radiating from the epicentre (terrain-gated; a 3x3 pad under you survives). */
-	private static void carveRavines(ServerPlayer p, ServerLevel level) {
-		if (!AbilityHelpers.canGrief()) {
-			return;
-		}
-		int rifts = 5;
-		double base = level.random.nextDouble() * Math.PI * 2;
-		double ox = p.getX();
-		double oz = p.getZ();
-		int oy = Mth.floor(p.getY());
-		for (int rf = 0; rf < rifts; rf++) {
-			double heading = base + rf * (Math.PI * 2 / rifts) + (level.random.nextDouble() - 0.5) * 0.5;
-			double curve = (level.random.nextDouble() - 0.5) * 0.12;
-			int length = 16 + level.random.nextInt(10);
-			double cx = ox;
-			double cz = oz;
-			for (int step = 1; step <= length; step++) {
-				heading += curve;
-				cx += Math.cos(heading);
-				cz += Math.sin(heading);
-				double taper = 1.0 - step / (double) length;
-				int half = 1 + (int) Math.round(1.6 * taper);
-				int depth = 3 + (int) Math.round(4.0 * taper);
-				double perpX = -Math.sin(heading);
-				double perpZ = Math.cos(heading);
-				int surf = surfaceY(level, Mth.floor(cx), Mth.floor(cz), oy);
-				for (int w = -half; w <= half; w++) {
-					int bx = Mth.floor(cx + perpX * w);
-					int bz = Mth.floor(cz + perpZ * w);
-					if (Math.abs(bx + 0.5 - ox) < 2.0 && Math.abs(bz + 0.5 - oz) < 2.0) {
-						continue;
-					}
-					for (int dy = 1; dy >= -depth; dy--) {
-						BlockPos bp = new BlockPos(bx, surf + dy, bz);
-						BlockState st = level.getBlockState(bp);
-						if (!st.isAir() && GeoBareHands.isEarth(st) && st.getDestroySpeed(level, bp) >= 0
-								&& level.getFluidState(bp).isEmpty()) {
-							level.destroyBlock(bp, false);
-						}
-					}
-				}
-			}
-		}
-		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 2.0f, 0.3f);
-		level.playSound(null, p.blockPosition(), SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.8f, 0.4f);
-	}
-
-	private static int surfaceY(ServerLevel level, int x, int z, int guessY) {
-		int y = guessY + 4;
-		int floor = guessY - 10;
-		while (y > floor && level.getBlockState(new BlockPos(x, y, z)).isAir()) {
-			y--;
-		}
-		return y;
-	}
-
-	// ---- V: Stone Wall / Seismic Sense -----------------------------------------------------------
-
-	private static void stoneWall(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		if (p.isShiftKeyDown()) {
-			if (trySeismicSense(p)) {
-				MutationVisuals.play(p, "ground_pound");
-			}
-			return;
-		}
-		GroundType.Ground g = GroundType.under(p);
-		BlockState material = g.type().buildBlock(g.state());
-		float pitch = p.getXRot();
-		boolean built;
-		if (pitch < -75.0f) {
-			built = ConjuredStructures.dome(p, level, material);
-			MutationVisuals.play(p, "cast_raise_both");
-		} else if (pitch > 75.0f) {
-			built = ConjuredStructures.bridge(p, level, material);
-			MutationVisuals.play(p, "ground_pound");
-		} else {
-			built = ConjuredStructures.wall(p, level, material);
-			MutationVisuals.play(p, "summon_ground");
-		}
-		level.sendParticles(g.dust(), p.getX(), p.getY() + 1.0, p.getZ(), 40, 1.5, 1.5, 1.5, 0.1);
-		AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.0f, 0.5f);
-		if (built || !AbilityHelpers.canGrief()) {
-			ctx.triggerCooldown();
-		}
-	}
-
-	private static boolean trySeismicSense(ServerPlayer sp) {
-		Power power = power();
-		if (power == null || !(sp.level() instanceof ServerLevel level)) {
-			return false;
-		}
-		long now = level.getGameTime();
-		if (ExperimentalPowers.getResource(sp, power, "seismic_until") > now) {
-			return false;
-		}
-		seismicSense(level, sp);
-		ExperimentalPowers.setResource(sp, power, "seismic_until", now + SEISMIC_CD, 1e12f);
-		return true;
-	}
-
-	// ---- H: Sinkhole ---------------------------------------------------------------------------
 
 	/**
-	 * H: the ground beneath whatever you are looking at (20 blocks) drops away -- a pit three deep, sized to the
-	 * target, that closes back up after 6 s (lifting anything still in it back to the surface). The target takes
-	 * 10 x ground, is dragged down and rooted for 3 s. Players and boss-sized creatures are rooted without the dig.
-	 */
-	private static void sinkhole(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 20.0);
-		if (t == null) {
-			ctx.actionBar("message.projecthero.geo.no_target");
-			return;
-		}
-		GroundType.Ground g = GroundType.under(level, t.position());
-		BlockPos base = t.blockPosition();
-		boolean dig = AbilityHelpers.canGrief() && !(t instanceof Player) && t.getMaxHealth() <= 200.0f;
-		int dug = 0;
-		if (dig) {
-			int w = Math.max(1, Mth.ceil(t.getBbWidth() / 2.0));
-			for (int dy = 3; dy >= 1; dy--) { // bottom-up, so the refill lifts anything inside back out in order
-				for (int dx = -w; dx <= w; dx++) {
-					for (int dz = -w; dz <= w; dz++) {
-						BlockPos bp = base.offset(dx, -dy, dz);
-						// never open the ground under the caster
-						if (Math.abs(bp.getX() + 0.5 - p.getX()) < 1.3 && Math.abs(bp.getZ() + 0.5 - p.getZ()) < 1.3) {
-							continue;
-						}
-						if (BatchBScheduler.removeTemporarily(level, bp, SINKHOLE_TICKS)) {
-							dug++;
-						}
-					}
-				}
-			}
-		}
-		if (AbilityHelpers.hurtLands(p, t, dmg(p, g, SINKHOLE_DAMAGE))) {
-			g.type().onHit(p, t, p.position());
-		}
-		t.setDeltaMovement(0, -0.8, 0);
-		t.hurtMarked = true;
-		AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, SINKHOLE_ROOT, 9);
-		AbilityHelpers.applyControl(t, MobEffects.JUMP, SINKHOLE_ROOT, -10);
-		for (int i = 0; i < 24; i++) {
-			double a = i / 24.0 * Math.PI * 2;
-			level.sendParticles(g.dust(), t.getX() + Math.cos(a) * 1.6, t.getY() + 0.1, t.getZ() + Math.sin(a) * 1.6,
-					3, 0.1, 0.1, 0.1, 0.05);
-		}
-		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, t.getX(), t.getY(), t.getZ(), 4, 0.6, 0.2, 0.6, 0.01);
-		level.playSound(null, t.blockPosition(), SoundEvents.ROOTED_DIRT_BREAK, SoundSource.PLAYERS, 1.5f, 0.5f);
-		level.playSound(null, t.blockPosition(), SoundEvents.GRAVEL_BREAK, SoundSource.PLAYERS, 1.4f, 0.4f);
-		ctx.setResource("sinkhole_dug", dug, 1000);
-		MutationVisuals.play(p, "p05.sinkhole");
-		ctx.triggerCooldown(GroundType.under(p).cooldown(SINKHOLE_CD));
-	}
-
-	// ---- N: Tectonic Pillar --------------------------------------------------------------------
-
-	/**
-	 * N: a column of the local stone erupts. Looking at a creature (20 blocks): it bursts up under them -- 12 x ground
-	 * and a launch straight into the air. Otherwise it erupts under you and throws you ~9 blocks up (8 s of no fall
-	 * damage). The column stands for 4 s.
+	 * Shift+X: a pillar of rock erupts under the aimed creature (20 blocks) -- or under you, aiming at nothing -- and launches
+	 * it ~12 blocks straight up.
 	 */
 	private static void tectonicPillar(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
-		ServerLevel level = ctx.level();
-		LivingEntity t = AbilityHelpers.raycastEntity(p, 20.0);
-		Entity rider = t != null ? t : p;
-		GroundType.Ground g = GroundType.under(level, rider.position());
-		BlockState block = g.type().buildBlock(g.state());
-		BlockPos base = rider.blockPosition();
-		if (t != null) {
-			if (AbilityHelpers.hurtLands(p, t, dmg(p, g, PILLAR_DAMAGE))) {
-				g.type().onHit(p, t, p.position());
-			}
-			AbilityHelpers.push(t, new Vec3(0, 1.45, 0));
-			MutationVisuals.play(p, "summon_ground");
-		} else {
-			Vec3 look = BatchBUtil.flatLook(p);
-			AbilityHelpers.launchSelf(p, new Vec3(look.x * 0.25, 1.5, look.z * 0.25));
-			ctx.setResource("no_fall_until", level.getGameTime() + 160, 1.0e12f);
-			MutationVisuals.play(p, "leap");
+		LivingEntity t = AbilityHelpers.raycastEntity(p, TARGET_RANGE);
+		if (t != null && (!HeroTargets.canHarm(p, t) || Squads.areAllies(p, t))) {
+			t = null;
 		}
+		LivingEntity rider = t != null ? t : p;
+		BlockPos ground = groundUnder(rider);
+		if (ground == null) {
+			ctx.actionBar("message.projecthero.geo.not_grounded");
+			return;
+		}
+		pillar(p, rider, ground);
+	}
+
+	public static GeoFormEntity pillar(ServerPlayer p, LivingEntity rider, BlockPos ground) {
+		ServerLevel level = AbilityHelpers.level(p);
+		spend(p, COST_PILLAR);
+		BlockState block = level.getBlockState(ground);
+		Vec3 base = new Vec3(rider.getX(), ground.getY() + 1.0, rider.getZ());
+		level.addFreshEntity(GeoFormEntity.create(level, GeoFormEntity.PILLAR, p, base, block, Math.max(1.0f, rider.getBbWidth() + 0.5f), 50));
+		if (rider == p) {
+			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x * 0.3, PILLAR_LAUNCH, p.getDeltaMovement().z * 0.3));
+			set(p, "nofall", 8 * 20);
+			MutationVisuals.play(p, "p05.pillar_ride");
+		} else {
+			rider.setDeltaMovement(rider.getDeltaMovement().x * 0.3, PILLAR_LAUNCH, rider.getDeltaMovement().z * 0.3);
+			rider.hurtMarked = true;
+			rider.hasImpulse = true;
+			rider.setOnGround(false);
+			MutationVisuals.play(p, "p05.pillar");
+		}
+		level.sendParticles(dust(block), base.x, base.y + 0.1, base.z, 40, 0.8, 0.1, 0.8, 0.15);
+		level.playSound(null, base.x, base.y, base.z, SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 1.5f, 0.5f);
+		level.playSound(null, base.x, base.y, base.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 0.8f);
+		return null;
+	}
+
+	// ================================================================ Z: Earthquake / Earth Spikes
+
+	/** Z: the ground shakes in a 10-block ring round you -- a ripple runs out, and everything it passes takes 14. */
+	public static GeoFormEntity earthquake(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		spend(p, COST_QUAKE);
+		BlockState block = GeoTerrain.groundBlock(p);
+		GeoFormEntity wave = GeoFormEntity.create(level, GeoFormEntity.QUAKE, p, p.position(), block, (float) QUAKE_RADIUS, 22);
+		level.addFreshEntity(wave);
+		MutationVisuals.play(p, "p05.quake");
+		level.sendParticles(dust(block), p.getX(), p.getY() + 0.2, p.getZ(), 60, 1.5, 0.1, 1.5, 0.2);
+		level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0, 0, 0, 0);
+		level.playSound(null, p.blockPosition(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.0f, 0.4f);
+		level.playSound(null, p.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.25f, 0.4f);
+		level.playSound(null, p.blockPosition(), SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.6f, 0.4f);
+		return wave;
+	}
+
+	/** The quake wave reaching a creature: 14, a stagger (a jolt up and a moment's stun) and Slowness II for 4 s. */
+	public static void quakeHit(ServerPlayer p, LivingEntity e, Vec3 centre) {
+		if (AbilityHelpers.hurtLands(p, e, QUAKE_DAMAGE)) {
+			AbilityHelpers.knockbackFrom(e, centre, 0.35);
+			AbilityHelpers.push(e, new Vec3(0, 0.38, 0));
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 15, 5); // the stagger
+			AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, QUAKE_SLOW_TICKS, 1);
+			if (e instanceof Mob m) {
+				m.getNavigation().stop();
+			}
+		}
+	}
+
+	/** Shift+Z: a line of stone spikes stabs up along the ground, 12 blocks the way you face -- 18 to each creature. */
+	public static void earthSpikes(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		spend(p, COST_SPIKES);
+		Vec3 flat = flatLook(p);
+		Vec3 origin = p.position();
+		Set<Integer> hit = new HashSet<>();
+		MutationVisuals.play(p, "p05.spikes");
+		AbilityHelpers.sound(p, SoundEvents.POINTED_DRIPSTONE_LAND, 1.2f, 0.6f);
 		BatchBScheduler.schedule(level, age -> {
-			if (age > 4) {
-				return false;
-			}
-			BlockPos cell = base.above(age);
-			if (AbilityHelpers.canGrief()) {
-				// never inside a player (the launch has already carried the rider clear)
-				boolean occupied = !level.getEntitiesOfClass(Player.class, new net.minecraft.world.phys.AABB(cell)).isEmpty();
-				if (!occupied) {
-					TempBlocks.place(level, cell, block, 80);
+			for (int k = 0; k < 2; k++) {
+				double d = 1.5 + age * 2 + k;
+				if (d > SPIKE_LENGTH + 0.5) {
+					return false;
 				}
-			}
-			level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, block), cell.getX() + 0.5, cell.getY() + 0.5,
-					cell.getZ() + 0.5, 14, 0.5, 0.3, 0.5, 0.1);
-			if (age == 0) {
-				level.playSound(null, cell, SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 1.5f, 0.5f);
+				spikeAt(p, level, origin, flat, d, hit);
 			}
 			return true;
 		});
-		level.sendParticles(g.dust(), base.getX() + 0.5, base.getY() + 0.1, base.getZ() + 0.5, 40, 1.0, 0.1, 1.0, 0.15);
-		level.playSound(null, base, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 0.7f);
-		ctx.triggerCooldown(GroundType.under(p).cooldown(PILLAR_CD));
 	}
 
-	// ---- C: Earth Armor ----------------------------------------------------------------------
-
-	private static void earthArmorOn(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		PowerToggles.effect(p, MobEffects.DAMAGE_RESISTANCE, 1, true);
-		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB, 0.6, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, ARMOR_SPD, -0.25, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK, StanceMode.MELEE_BONUS,
-				AttributeModifier.Operation.ADD_VALUE);
-	}
-
-	private static void earthArmorOff(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		PowerToggles.clearEffect(p, MobEffects.DAMAGE_RESISTANCE);
-		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, ARMOR_KB);
-		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, ARMOR_SPD);
-		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, ARMOR_ATK);
-	}
-
-	// ---- Seismic Sense / vein mining ---------------------------------------------------------
-
-	private static void seismicSense(ServerLevel level, ServerPlayer p) {
-		int marked = 0;
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(SEISMIC_RANGE),
-				e -> e != p && e.isAlive() && !(e instanceof Player))) {
-			if (e.distanceToSqr(p) > SEISMIC_RANGE * SEISMIC_RANGE) {
-				continue;
-			}
-			// never mark players -- a shared GLOWING effect makes them trivial to spot for everyone
-			e.addEffect(new MobEffectInstance(MobEffects.GLOWING, SEISMIC_TICKS, 0, false, false, false));
-			marked++;
+	/** One spike of the line, {@code d} blocks out. Returns how many it hit. */
+	public static int spikeAt(ServerPlayer p, ServerLevel level, Vec3 origin, Vec3 flat, double d, Set<Integer> hit) {
+		Vec3 side = new Vec3(-flat.z, 0, flat.x);
+		Vec3 pt = origin.add(flat.scale(d)).add(side.scale((level.random.nextDouble() - 0.5) * 0.5));
+		BlockPos cell = surfaceCell(level, pt.x, origin.y, pt.z);
+		if (cell == null) {
+			return 0;
 		}
-		for (int i = 0; i < 60; i++) {
-			double a = i / 60.0 * Math.PI * 2;
-			for (double d = 2; d <= SEISMIC_RANGE; d += 6) {
-				level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, p.getX() + Math.cos(a) * d, p.getY() + 0.2,
-						p.getZ() + Math.sin(a) * d, 1, 0.0, 0.0, 0.0, 0.0);
+		BlockState block = level.getBlockState(cell.below());
+		Vec3 c = new Vec3(pt.x, cell.getY(), pt.z);
+		GeoFormEntity spike = GeoFormEntity.create(level, GeoFormEntity.SPIKE, p, c, block, 0.8f + level.random.nextFloat() * 0.5f, 26);
+		spike.setYRot(level.random.nextFloat() * 360.0f);
+		level.addFreshEntity(spike);
+		level.sendParticles(dust(block), c.x, c.y + 0.3, c.z, 10, 0.3, 0.3, 0.3, 0.1);
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(0, 0.8, 0), 1.4)) {
+			if (hit.add(e.getId()) && AbilityHelpers.hurtLands(p, e, SPIKE_DAMAGE)) {
+				AbilityHelpers.push(e, new Vec3(0, 0.7, 0));
+				n++;
 			}
 		}
-		level.playSound(null, p.blockPosition(), SoundEvents.SCULK_CLICKING, SoundSource.PLAYERS, 1.4f, 0.6f);
-		level.playSound(null, p.blockPosition(), SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.4f, 1.6f);
-		p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.geo.seismic", marked), true);
+		if (((int) d) % 3 == 0) {
+			level.playSound(null, cell, SoundEvents.POINTED_DRIPSTONE_LAND, SoundSource.PLAYERS, 1.0f, 0.6f + level.random.nextFloat() * 0.3f);
+		}
+		return n;
 	}
 
-	private static void veinMine(ServerLevel level, ServerPlayer p, BlockPos start, Block block) {
-		java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
-		java.util.HashSet<Long> seen = new java.util.HashSet<>();
-		queue.add(start);
-		seen.add(start.asLong());
-		int broken = 0;
-		final int cap = 64;
-		while (!queue.isEmpty() && broken < cap) {
-			BlockPos cur = queue.poll();
+	// ================================================================ V: Stone Wall / Earth Armor
+
+	/** V: a 5-wide, 4-tall wall of the local stone rises in front of you, row by row; it crumbles after 20 s. */
+	private static void stoneWall(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (!AbilityHelpers.canGrief() || !p.mayBuild()) {
+			ctx.actionBar("message.projecthero.geo.no_build");
+			return;
+		}
+		if (wall(p) == 0) {
+			ctx.actionBar("message.projecthero.geo.no_room");
+		}
+	}
+
+	/** Raises the wall (the first row now, the rest over the next three ticks). Returns the bottom row's block count. */
+	public static int wall(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		BlockState block = buildBlock(GeoTerrain.groundBlock(p));
+		Vec3 flat = flatLook(p);
+		// snap to the nearest axis so the wall is a clean straight line of blocks
+		Direction facing = Direction.getNearest(flat.x, 0, flat.z);
+		Direction along = facing.getClockWise();
+		BlockPos centre = BlockPos.containing(p.position().add(flat.scale(2.6)));
+		BlockPos baseCell = surfaceCell(level, centre.getX() + 0.5, p.getY(), centre.getZ() + 0.5);
+		BlockPos base = baseCell != null ? baseCell : centre;
+		List<BlockPos> row0 = new ArrayList<>();
+		for (int i = -WALL_WIDTH / 2; i <= WALL_WIDTH / 2; i++) {
+			BlockPos col = base.relative(along, i);
+			BlockPos s = surfaceCell(level, col.getX() + 0.5, base.getY(), col.getZ() + 0.5);
+			row0.add(s != null && Math.abs(s.getY() - base.getY()) <= 1 ? s : col);
+		}
+		long start = level.getGameTime();
+		int placed = 0;
+		for (BlockPos c : row0) {
+			if (wallCell(p, level, c, block, 0, start)) {
+				placed++;
+			}
+		}
+		if (placed == 0) {
+			return 0;
+		}
+		spend(p, COST_WALL);
+		MutationVisuals.play(p, "p05.wall");
+		AbilityHelpers.sound(p, SoundEvents.STONE_PLACE, 1.2f, 0.5f);
+		level.playSound(null, base, SoundEvents.DEEPSLATE_BREAK, SoundSource.PLAYERS, 1.2f, 0.6f);
+		BatchBScheduler.schedule(level, age -> {
+			int row = age + 1;
+			if (row >= WALL_HEIGHT) {
+				return false;
+			}
+			for (BlockPos c : row0) {
+				wallCell(p, level, c.above(row), block, row, start);
+			}
+			level.playSound(null, base.above(row), SoundEvents.STONE_PLACE, SoundSource.PLAYERS, 0.8f, 0.6f + row * 0.1f);
+			return true;
+		});
+		return placed;
+	}
+
+	/** One block of the wall; a row's blocks stand 20 s, the top row crumbling first. */
+	private static boolean wallCell(ServerPlayer p, ServerLevel level, BlockPos c, BlockState block, int row, long start) {
+		if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(c)).isEmpty()) {
+			return false; // never inside anybody
+		}
+		long restoreAt = start + WALL_TICKS + (WALL_HEIGHT - 1 - row) * 3L;
+		int ttl = (int) Math.max(1, restoreAt - level.getGameTime());
+		boolean ok = GeoTerrain.placeTemp(p, level, c, block, ttl);
+		if (ok) {
+			level.sendParticles(dust(block), c.getX() + 0.5, c.getY() + 0.5, c.getZ() + 0.5, 6, 0.4, 0.3, 0.4, 0.08);
+		}
+		return ok;
+	}
+
+	public static void setArmor(ServerPlayer p, boolean on) {
+		if (on) {
+			BlockState block = buildBlock(GeoTerrain.groundBlock(p));
+			set(p, "armor", 1);
+			set(p, "armor_block", Block.getId(block) + 1);
+			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, ARMOR_SPD, ARMOR_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			MutationVisuals.play(p, "p05.armor_up");
+			AbilityHelpers.level(p).sendParticles(dust(block), p.getX(), p.getY() + 1.0, p.getZ(), 50, 0.5, 0.9, 0.5, 0.1);
+			AbilityHelpers.sound(p, SoundEvents.DEEPSLATE_PLACE, 1.2f, 0.6f);
+			AbilityHelpers.sound(p, SoundEvents.ANVIL_PLACE, 0.4f, 0.6f);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, ARMOR_SPD);
+			if (res(p, "armor") < 0.5f) {
+				return;
+			}
+			set(p, "armor", 0);
+			BlockState s = Block.stateById(Math.max(0, (int) res(p, "armor_block") - 1));
+			AbilityHelpers.level(p).sendParticles(dust(s.isAir() ? Blocks.STONE.defaultBlockState() : s), p.getX(), p.getY() + 1.0,
+					p.getZ(), 40, 0.5, 0.9, 0.5, 0.12);
+			AbilityHelpers.sound(p, SoundEvents.STONE_BREAK, 1.2f, 0.7f);
+		}
+	}
+
+	private static void armorTick(ServerPlayer p) {
+		if (res(p, "armor") < 0.5f) {
+			return;
+		}
+		if (!p.isAlive()) {
+			setArmor(p, false);
+			return;
+		}
+		spend(p, ARMOR_PER_SECOND / 20.0f);
+		if (res(p, "earth") <= 0.01f) {
+			setArmor(p, false);
+			p.displayClientMessage(Component.translatable("message.projecthero.geo.armor_out"), true);
+		}
+	}
+
+	// ================================================================ C: Tunnel / Seismic Sense
+
+	public static void endTunnel(ServerPlayer p) {
+		if (res(p, "tunnel") < 0.5f) {
+			return;
+		}
+		set(p, "tunnel", 0);
+		MutationVisuals.stopIf(p, "p05.tunnel");
+	}
+
+	private static void tunnelTick(ServerPlayer p, ServerLevel level) {
+		if (res(p, "tunnel") < 0.5f) {
+			return;
+		}
+		float t = res(p, "tunnel_t") + 1;
+		set(p, "tunnel_t", t);
+		if (!p.isAlive() || t > 60 * 20) {
+			endTunnel(p);
+			return;
+		}
+		spend(p, TUNNEL_PER_SECOND / 20.0f);
+		if (res(p, "earth") <= 0.01f) {
+			endTunnel(p);
+			p.displayClientMessage(Component.translatable("message.projecthero.geo.tunnel_out"), true);
+			return;
+		}
+		MutationVisuals.ensure(p, "p05.tunnel");
+		if (((int) t) % TUNNEL_INTERVAL == 0) {
+			boreSlice(p, level);
+		}
+	}
+
+	/** The 3x3 slice of the tunnel {@code d} blocks ahead, across the look direction's main axis. */
+	public static List<BlockPos> slice(ServerPlayer p, int d) {
+		Vec3 look = p.getLookAngle();
+		List<BlockPos> cells = new ArrayList<>(9);
+		Vec3 centre;
+		if (Math.abs(look.y) > 0.75) {
+			// straight down / up: a 3x3 floor or ceiling slice
+			int y = look.y < 0 ? Mth.floor(p.getY() - 0.5) - (d - 1) : Mth.floor(p.getY() + p.getBbHeight() + 0.5) + (d - 1);
+			BlockPos c = BlockPos.containing(p.getX(), y, p.getZ());
 			for (int dx = -1; dx <= 1; dx++) {
-				for (int dy = -1; dy <= 1; dy++) {
-					for (int dz = -1; dz <= 1; dz++) {
-						if (dx == 0 && dy == 0 && dz == 0) {
-							continue;
-						}
-						BlockPos n = cur.offset(dx, dy, dz);
-						if (!seen.add(n.asLong()) || n.distSqr(start) > 22 * 22) {
-							continue;
-						}
-						if (level.getBlockState(n).is(block)) {
-							queue.add(n.immutable());
-							level.destroyBlock(n, true, p);
-							broken++;
-							if (broken >= cap) {
-								return;
-							}
-						}
-					}
+				for (int dz = -1; dz <= 1; dz++) {
+					cells.add(c.offset(dx, 0, dz));
 				}
 			}
+			return cells;
+		}
+		Direction facing = Direction.getNearest(look.x, 0, look.z);
+		Direction side = facing.getClockWise();
+		// a walking-height tunnel: centred a block above the feet, tilted up or down a block with the look
+		centre = p.position().add(0, 1.0 + Math.round(look.y * d * 1.2), 0);
+		BlockPos c = BlockPos.containing(centre).relative(facing, d);
+		for (int s = -1; s <= 1; s++) {
+			for (int h = -1; h <= 1; h++) {
+				cells.add(c.relative(side, s).above(h));
+			}
+		}
+		return cells;
+	}
+
+	/** Bores out the nearest 3x3 slice ahead with any stone in it (up to 4 blocks); you keep the blocks. */
+	public static int boreSlice(ServerPlayer p, ServerLevel level) {
+		for (int d = 1; d <= TUNNEL_REACH; d++) {
+			List<BlockPos> cells = slice(p, d);
+			List<BlockPos> dig = new ArrayList<>();
+			for (BlockPos c : cells) {
+				if (GeoTerrain.diggable(level, c) && !GeoTerrain.isTemp(level, c) && GeoTerrain.canEdit(p, level, c)) {
+					dig.add(c);
+				}
+			}
+			if (dig.isEmpty()) {
+				continue;
+			}
+			for (BlockPos c : dig) {
+				mineKeep(p, level, c);
+			}
+			BlockPos mid = cells.get(4);
+			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, mid.getX() + 0.5, mid.getY() + 0.5, mid.getZ() + 0.5, 1, 0.5, 0.5, 0.5,
+					0.01);
+			return dig.size();
+		}
+		return 0;
+	}
+
+	/** Breaks a block as an iron pickaxe would and puts the drops straight into your inventory (the rest at your feet). */
+	private static void mineKeep(ServerPlayer p, ServerLevel level, BlockPos pos) {
+		if (tunnelPick == null) {
+			tunnelPick = new ItemStack(Items.IRON_PICKAXE);
+		}
+		BlockState s = level.getBlockState(pos);
+		List<ItemStack> drops = Block.getDrops(s, level, pos, null, p, tunnelPick);
+		level.levelEvent(2001, pos, Block.getId(s));
+		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		for (ItemStack st : drops) {
+			if (!p.getInventory().add(st) && !st.isEmpty()) {
+				Block.popResource(level, p.blockPosition(), st);
+			}
 		}
 	}
 
-	/** A guaranteed-air point ~2.5 blocks along the player's aim. */
+	/** Shift+C: every creature and player within 32 lights up through walls for 10 s -- on your screen only. */
+	public static int seismicSense(ServerPlayer p, ServerLevel level) {
+		spend(p, COST_SEISMIC);
+		set(p, "seismic", SEISMIC_TICKS);
+		int n = 0;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(SEISMIC_RANGE),
+				e -> e != p && e.isAlive() && !e.isSpectator())) {
+			if (e.distanceToSqr(p) <= SEISMIC_RANGE * SEISMIC_RANGE) {
+				n++;
+			}
+		}
+		MutationVisuals.play(p, "p05.seismic");
+		BlockState ground = GeoTerrain.groundBlock(p);
+		for (int i = 0; i < 40; i++) {
+			double a = i / 40.0 * Math.PI * 2;
+			level.sendParticles(dust(ground), p.getX() + Math.cos(a) * 1.5, p.getY() + 0.1, p.getZ() + Math.sin(a) * 1.5, 1, 0, 0, 0, 0.05);
+		}
+		level.playSound(null, p.blockPosition(), SoundEvents.SCULK_CLICKING, SoundSource.PLAYERS, 1.4f, 0.6f);
+		level.playSound(null, p.blockPosition(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 1.0f, 0.8f);
+		p.displayClientMessage(Component.translatable("message.projecthero.geo.seismic", n), true);
+		return n;
+	}
+
+	// ================================================================ damage
+
+	/**
+	 * Read by {@link com.projecthero.mod.hero.power.HeroDamageRules}: a negative result means "immune" (a fall onto natural
+	 * ground, or the landing after your own pillar / surf), otherwise a multiplier -- Earth Armor's 0.5.
+	 */
+	public static float damageFactor(ServerPlayer p, DamageSource source) {
+		if (source.is(net.minecraft.tags.DamageTypeTags.IS_FALL)) {
+			BlockPos below = BlockPos.containing(p.getX(), p.getY() - 0.2, p.getZ());
+			if (GeoTerrain.natural(p.level().getBlockState(below)) || res(p, "nofall") > 0.5f) {
+				p.resetFallDistance();
+				return -1.0f;
+			}
+		}
+		if (armorOn(p) && !source.is(DamageTypes.FELL_OUT_OF_WORLD) && !source.is(DamageTypes.GENERIC_KILL)) {
+			return ARMOR_DAMAGE_FACTOR;
+		}
+		return 1.0f;
+	}
+
+	// ================================================================ passives
+
+	private static void registerPassives() {
+		PowerPassives.register(KEY, (player, owned) -> {
+			if (!owned) {
+				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, GROUND_KB);
+				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, ARMOR_SPD);
+				Power power = power();
+				if (power != null && ExperimentalPowers.owns(player, power)) {
+					// still owned while forget() runs its teardown: drop the transient states too
+					setArmor(player, false);
+					endSurf(player);
+					endTunnel(player);
+					if (player.level() instanceof ServerLevel sl) {
+						GeoBoulderEntity b = heldBoulder(player, sl);
+						if (b != null) {
+							b.discard();
+						}
+					}
+					clearBoulder(player);
+					set(player, "seismic", 0);
+				}
+				MutationVisuals.stop(player);
+			}
+		});
+		PowerPassives.registerTick(KEY, player -> {
+			// 50% knockback resistance while your feet are on the ground
+			if (player.onGround()) {
+				PowerToggles.modifier(player, Attributes.KNOCKBACK_RESISTANCE, GROUND_KB, GROUND_KNOCKBACK_RESIST,
+						AttributeModifier.Operation.ADD_VALUE);
+			} else {
+				PowerToggles.clearModifier(player, Attributes.KNOCKBACK_RESISTANCE, GROUND_KB);
+			}
+			// respawn-safe re-apply of the armour's slow
+			if (res(player, "armor") > 0.5f) {
+				PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, ARMOR_SPD, ARMOR_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			} else {
+				PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, ARMOR_SPD);
+			}
+		});
+	}
+
+	// ================================================================ synced visuals + HUD (called from RevampBatchB)
+
+	private static float blockValue(Player p, String name) {
+		return owns(p) ? Math.max(0, resAny(p, name) - 1) : 0;
+	}
+
+	public static void registerVisuals() {
+		MutationVisuals.registerFlag("p05.armor", GeokinesisHandlers::armorOn);
+		MutationVisuals.registerValue("p05.armor_block", p -> armorOn(p) ? blockValue(p, "armor_block") : 0);
+		MutationVisuals.registerFlag("p05.surf", GeokinesisHandlers::surfing);
+		MutationVisuals.registerValue("p05.surf_block", p -> surfing(p) ? blockValue(p, "surf_block") : 0);
+		MutationVisuals.registerFlag("p05.tunnel", GeokinesisHandlers::tunnelling);
+		MutationVisuals.registerFlag("p05.lifting", GeokinesisHandlers::lifting);
+	}
+
+	public static void registerMeters() {
+		int text = 0xFFE6D6B8;
+		MutationMeters.register(new Spec(KEY, "earth", Kind.RESERVE, Style.HAIRLINE, "Earth", MAX_EARTH, 0xFFB08A55, true, true, false, text));
+		MutationMeters.register(new Spec(KEY, "lift", Kind.BUILD, Style.HAIRLINE, "Boulder", 100, 0xFF9C8E7A, false, false, true, text));
+		MutationMeters.register(new Spec(KEY, "armor", Kind.BUILD, Style.HAIRLINE, "EARTH ARMOR", 1.0f, 0xFF8A7A66, false, false, true, text));
+		MutationMeters.register(new Spec(KEY, "surf_t", Kind.TIMER, Style.HAIRLINE, "Rock Surf", SURF_TICKS, 0xFFB08A55, false, false, true, text));
+		MutationMeters.register(new Spec(KEY, "seismic", Kind.TIMER, Style.HAIRLINE, "Seismic Sense", SEISMIC_TICKS, 0xFFC9B27A, false, false, true, text));
+		MutationMeters.register(new Spec(KEY, "sink_cd", Kind.TIMER, Style.HAIRLINE, "Sinkhole", SINKHOLE_CD, 0xFF9A7A5A, false, false, true, text));
+	}
+
+	/** For the gametests: the Earth meter set directly. */
+	public static void setEarth(ServerPlayer p, float value) {
+		seed(p);
+		set(p, "earth", Math.max(0, Math.min(MAX_EARTH, value)));
+	}
+
+	/**
+	 * Earth Swim was removed in the v0.16.5 rework: never true now. Kept so the shared flight / noclip code that still asks
+	 * (DirectionalFlight, LocalPlayerMixin) needs no change.
+	 */
+	public static boolean earthSwimming(Player p) {
+		return false;
+	}
+
+	/** A guaranteed-air point ~2.5 blocks along the player's aim (used by Crystalkinesis). */
 	public static Vec3 airSpawn(ServerLevel level, ServerPlayer p, Vec3 dir) {
 		Vec3 eye = p.getEyePosition();
 		for (double d = 2.5; d >= 0.6; d -= 0.5) {
@@ -1085,13 +1268,9 @@ public final class GeokinesisHandlers {
 		return eye;
 	}
 
-	private static BlockState earthAround(ServerLevel level, BlockPos at) {
-		for (Direction d : Direction.values()) {
-			BlockState st = level.getBlockState(at.relative(d));
-			if (GeoBareHands.isEarth(st)) {
-				return st;
-			}
-		}
-		return STONE;
+	/** True when the entity is within Seismic Sense range of {@code viewer} (the client glow rule, shared for tests). */
+	public static boolean sensedBy(Player viewer, Entity e) {
+		return e != viewer && e instanceof LivingEntity && e.isAlive() && !e.isSpectator()
+				&& e.distanceToSqr(viewer) <= SEISMIC_RANGE * SEISMIC_RANGE;
 	}
 }

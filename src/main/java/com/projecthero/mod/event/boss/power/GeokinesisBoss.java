@@ -35,7 +35,8 @@ public class GeokinesisBoss extends BossPowerController {
 	private static final int PILLAR = 2;
 	private static final int QUAKE = 3;
 	private static final int ARMOR = 4;
-	private static final List<String> IDS = List.of("rock_shot", "earth_spike", "tectonic_pillar", "earthquake", "earth_armor");
+	// v0.16.5 rework ids: Earth Spikes is Shift+Z (earthquake), Tectonic Pillar Shift+X (rock_surf), Earth Armor Shift+V (stone_wall)
+	private static final List<String> IDS = List.of("rock_shot", "earthquake", "rock_surf", "earthquake", "stone_wall");
 
 	private int armorTicks;
 

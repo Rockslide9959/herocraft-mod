@@ -66,9 +66,6 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.symbiote.SymbioteSpikeRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.symbiote.entity.SymbioteEntityTypes.TENDRIL,
 				com.projecthero.mod.client.symbiote.SymbioteTendrilRenderer::new);
-		// Geokinesis' Colossal Rock -- a heavily over-scaled stone block billboard.
-		EntityRendererRegistry.register(com.projecthero.mod.hero.power.p05.GeoEntityTypes.COLOSSAL_ROCK,
-				ctx -> new net.minecraft.client.renderer.entity.ThrownItemRenderer(ctx, 5.0f, false));
 		EntityRendererRegistry.register(com.projecthero.mod.behemoth.entity.BehemothEntityTypes.ABYSSAL_BEHEMOTH,
 				com.projecthero.mod.client.behemoth.BehemothRenderer::new);
 		// Renders as a spinning, full-bright, over-scaled fire charge -- exactly how vanilla itself renders

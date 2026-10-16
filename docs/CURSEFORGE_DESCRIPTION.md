@@ -345,6 +345,11 @@ return as they're rebuilt:
   Frost freeze a creature solid in a block of ice. Ice Bolts and Ice Shards, a held Freeze Beam, an Ice Prison, an
   **Ice Slide** ramp you ride into the sky, an Ice Pillar launch, a racing line of Glacier Spikes, **Absolute Zero**, a
   Glacier Wall, Frozen Armor plates, an Ice Blade on your arm and a **Shatter** that cashes in everything you froze.
+- **Geokinesis** (reworked in 0.16.5) -- an earthbender on an **Earth** meter that refills fastest with your feet on
+  natural ground. Rip stones out of the ground and fire them, heave and hurl a **boulder** that shatters, stone hands
+  that grab legs, a **Sinkhole** that swallows a foe, Rock Surf on a slab of stone, Tectonic Pillars, an Earthquake
+  ripple, lines of Earth Spikes, Stone Walls, a skin of **rock armour**, a 3x3 Tunnel bore and a Seismic Sense that
+  shows every creature through the walls. Every rock and pillar is made of the ground it came from.
 
 ---
 

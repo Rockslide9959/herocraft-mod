@@ -338,3 +338,42 @@ Still waiting on: your go-ahead (or changes) for each power, the three skin link
 **Models and animations:** an Ice Bolt lance (faceted, glowing core, tail fins), tumbling Ice Shards, a beam of a glowing core wrapped in a travelling spiral of ice crystals with frost rings and a frost bloom where it lands, the frozen-solid ice block (snaps shut, icicles, shivers, cracks; Ice Prison's is packed ice with blue-ice posts), the Frost pips, erupting spike clusters (Glacier Spikes as a travelling wave, Absolute Zero as a three-ring crown), an ice sled under the feet on the slide, Frozen Armor plates (chest, back, pauldrons with icicles, bracers, shins, a circlet), the Ice Blade on the forearm (third and first person), Shatter debris, and a cast pose for every move.
 
 **Notes:** the old ice-tool wheel, Flash Freeze and the conjured Ice Blade item are gone (old blades still melt out of inventories). The ramp, wall, pillar and frozen water are tracked by `CryoIce`: each block melts on its own clock, a block mined or built over is never overwritten, and everything still standing is melted back when the server stops. Frozen Armor shatters when its hearts are gone.
+## 9. Geokinesis Rework: Experimental (mutation)
+
+**What was wrong:** it was switched off. It used H (Sinkhole) and N (Tectonic Pillar), a hold-to-charge Earthquake, a strain bar for Earth Armor, and a "ground type" damage table that was hard to read. Most moves were particles and real blocks rather than models.
+
+**New design (user-approved, 2026-10-16):** an earthbender on an **Earth** meter (0-100). It refills **15 a second while you stand on natural ground** (stone, dirt, sand, gravel) and 5 a second anywhere else. Six keys, each with a Shift version, no H or N.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Rock Shot:** rip a stone out of the ground and fire it, 12. 8 Earth | **Boulder Toss** (hold to lift): a huge boulder, 26, and it shatters into shards. 30 Earth |
+| **G** | **Earth Grip:** stone hands grab the target's legs, rooted 3 s. 15 Earth | **Sinkhole:** the ground under the target drops it 3 blocks and closes over it (it suffocates until it digs out; no bosses). 35 Earth, 15 s cooldown |
+| **X** | **Rock Surf:** ride a slab of rock across the ground, fast, 8 s. 20 Earth | **Tectonic Pillar:** a pillar launches you or the aimed target 12 blocks up. 15 Earth |
+| **Z** | **Earthquake:** a 10-block ring of shaking ground, 14 + stagger + Slowness. 30 Earth | **Earth Spikes:** a line of stone spikes 12 blocks long, 18. 25 Earth |
+| **V** | **Stone Wall:** 5 wide, 4 tall, crumbles after 20 s. 15 Earth | **Earth Armor** (toggle): rock skin, -50% damage, -20% speed. 4 Earth a second |
+| **C** | **Tunnel** (hold): bore through stone fast, 3x3, keep the blocks. 3 Earth a second | **Seismic Sense:** every mob and player within 32 glows through walls for 10 s (on your screen only). 20 Earth |
+
+**Passives:** 50% knockback resistance on the ground; stone and dirt mine 2x faster; no fall damage onto natural ground.
+
+**Getting it:** unchanged (the Geological Resonance Serum and Chamber). It returns to the power wheel and random serums.
+
+**Built (2026-10-16).** Where the spec was silent, I decided the following:
+- **A move needs the Earth to pay for it** (no "limp" state). Earth Armor and the Tunnel switch off at 0. The meter does not refill while one of those two is draining it.
+- **"Natural ground"** is stone, deepslate, tuff, granite / diorite / andesite, calcite, dripstone, terracotta, dirt, grass, podzol, mud, moss, sand, sandstone, gravel, clay and the ores set in them. "Standing on" means on the ground with that block under your feet; in the air it is the 5-a-second rate.
+- **Models, not blocks:** the rock, the boulder, the shards, the stone hands, the pillar, the spikes, the earthquake ripple and the sinkhole cave-in are entities drawn as scaled copies of the real block they came from (its own textures). They never change the world, so nothing is left behind. Only the Stone Wall and the Sinkhole change blocks (temporarily), and the Tunnel mines.
+- **Rock Shot:** the stone rises out of the ground a step in front of you to your hand (4 ticks), then flies where you are looking at that moment.
+- **Boulder Toss:** it heaves up out of the ground in front of you over 0.6 s and rides over your head while you hold Shift+R. Let go and it is thrown as soon as it is all the way up; after 8 s it is thrown by itself. 26 to everything within 3 blocks of the impact; the 10 shards are for show (no extra damage).
+- **Earth Grip:** 20 blocks. The target must be on the ground. It is pinned to its spot with no jumping; players only where hard crowd control on players is allowed. Bosses (and anything over 200 HP) are only slowed (Slowness IV), not pinned.
+- **Sinkhole:** 20 blocks. The ground must be natural and breakable 3 deep under the target's whole footprint, and you must be allowed to build there. Otherwise nothing happens and no Earth is spent. The target drops 3 blocks and the ground closes over it 5 ticks later, put back exactly as it was. The air pocket at its feet is filled back in once it is dead or has dug out (or after 5 minutes at most). Never under the caster. Mined sinkhole blocks are the original ground, so they drop normally.
+- **Rock Surf:** about 15.6 blocks a second the way you face. It hops single steps and ends after 8 s, on a second press of X, in water, or after 1.5 s in the air. It does no damage.
+- **Tectonic Pillar:** aim at a mob (20 blocks) and it is launched; aim at nothing and you are. Either way the launch is ~12 blocks straight up. It does no damage itself; the target's fall does. You get 8 s of no fall damage after launching yourself.
+- **Earthquake:** the ripple runs from you out to 10 blocks over ~0.8 s and hits each creature once as the front passes it: 14 damage, a small jolt up, a 0.75 s heavy stagger, then Slowness II for 4 s. Things more than 4 blocks above or below you are missed.
+- **Earth Spikes:** the line runs out 2 blocks a tick, one spike a block. Each creature is hit once, for 18, and thrown up.
+- **Stone Wall:** 2.6 blocks ahead, snapped square to the nearest direction, rising a row a tick. It is made of the stone you stand on (sand makes sandstone; dirt, gravel and ores make plain stone, so it can never hand out ores). It is only placed into air or plants, never inside anyone, and only where you may build. The top row crumbles first. Mining a wall block gives nothing.
+- **Earth Armor:** -50% to every hit except the void and /kill, with the plates made of the ground you stood on when you raised it.
+- **Tunnel:** it bores the nearest 3x3 slice with stone or earth in it, up to 4 blocks ahead, every 2 ticks. Looking mostly level it is a walking-height tunnel (it follows a tilt up or down); looking straight up or down it digs a 3x3 shaft. The drops are an iron pickaxe's and go straight into your inventory. It only breaks natural ground, and only where you may build.
+- **Seismic Sense:** the outlines are drawn by your client alone (`Minecraft#shouldEntityAppearGlowing`), never the server's glowing flag, so nobody else sees them.
+- **Fall damage:** none when the block you land on is natural ground. Elsewhere it is normal, apart from the windows after Rock Surf (2 s) and your own Pillar (8 s).
+- **Removed:** Earth Swim, the Ground Type table on the HUD, the iron-tool hands, vein mining and Haste, the Colossal Rock, the ravine-carving charged Earthquake and the old H / N moves.
+- **Boss:** the Gravebound Geokinesis boss keeps its moves, on the new ids (Earth Spikes under `earthquake`, the Pillar under `rock_surf`, Earth Armor under `stone_wall`).
+- **HUD:** mono keys, an always-on tan Earth Hairline, and bars for the boulder lift, Earth Armor, Rock Surf, Seismic Sense and the Sinkhole cooldown.
