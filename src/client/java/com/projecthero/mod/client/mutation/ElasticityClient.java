@@ -319,6 +319,66 @@ public final class ElasticityClient {
 		}
 	}
 
+	/**
+	 * Whether {@code p}'s right (or left) arm is stretched out right now -- first person then draws that real arm
+	 * ({@code ElasticityFirstPersonArmMixin}). Single-arm moves stretch the right arm; Double-Fist / held two-arm moves and
+	 * the Gatling Barrage stretch both.
+	 */
+	public static boolean stretching(Player p, boolean right) {
+		return firstPersonReach(p, right) > 0f;
+	}
+
+	/**
+	 * v0.16.5 (user): the full third-person body is drawn in first person while an Elasticity move reshapes it -- a
+	 * stretched or coiled arm, the balloon, the canopy, the stilts. Not the Rubber Ball or Shape Shift (the camera would be
+	 * inside them): those keep the normal first-person view.
+	 */
+	public static boolean showsBodyInFirstPerson(Player p) {
+		MutationVisualState s = MutationVisuals.state(p);
+		if (s.flags().isEmpty() && s.values().isEmpty()) {
+			return false;
+		}
+		if (s.has("p17.ball") || s.value("p17.shape", 0.0f) > 0.5f) {
+			return false;
+		}
+		return stretching(p, true) || stretching(p, false) || s.value("p17.coil_kind", 0.0f) > 0.5f || s.has("p17.balloon")
+				|| s.has("p17.canopy") || s.has("p17.stilts");
+	}
+
+	/**
+	 * First person: how far (blocks) {@code p}'s right (or left) arm reaches out right now, 0 if it isn't stretched --
+	 * the same length the third-person model gets, with the Gatling's out-of-step jabs and the snap-back wobble.
+	 */
+	public static float firstPersonReach(Player p, boolean right) {
+		MutationVisualState s = MutationVisuals.state(p);
+		float len = s.value("p17.arm_len", 0.0f);
+		float t0 = s.value("p17.arm_t", 0.0f) - 1.0f;
+		int mode = Math.round(s.value("p17.arm_mode", 0.0f)) - 1;
+		if (len <= 0.05f || t0 < 0.0f || mode < 0) {
+			return 0f;
+		}
+		float age = age(p, t0);
+		float ext = extension(mode, age);
+		float wob = wobble(mode, age);
+		if (age >= 400.0f || (ext <= 0.01f && wob == 0.0f)) {
+			return 0f;
+		}
+		boolean both = mode == ElasticityHandlers.ARM_BOTH || mode == ElasticityHandlers.ARM_HOLD_BOTH || mode == ElasticityHandlers.ARM_GATLING;
+		if (!right && !both) {
+			return 0f;
+		}
+		float px;
+		if (mode == ElasticityHandlers.ARM_GATLING) {
+			float t = p.tickCount + partial();
+			float a = 0.5f + 0.5f * Mth.sin(t * 2.6f + (right ? 0f : Mth.PI));
+			px = 10.0f + a * (len * 16.0f - 10.0f);
+		} else {
+			px = (10.0f + ext * Math.max(0.0f, len * 16.0f - 10.0f)) * (1.0f + wob * 0.6f * (right ? 1f : -1f));
+		}
+		float blocks = px / 16.0f;
+		return blocks > 0.9f ? blocks : 0f; // a hair past arm length: leave the normal hand
+	}
+
 	/** Blocks of air under the player's feet (for the stilts), at most 12. */
 	private static float groundBelow(Player p) {
 		Vec3 pos = p.getPosition(partial());

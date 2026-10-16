@@ -100,6 +100,10 @@ public final class FirstPersonBodySequences {
 			return age > -20L && age < Math.max(1, s.transformDurationTicks);
 		});
 
+		// v0.16.5 Elasticity (user: "show the third person model in first person when using the elasticity powers"): while an
+		// arm is stretched or coiled, or the body is the balloon, the canopy or on stilts -- the real rubber body in view
+		FirstPersonBody.register(com.projecthero.mod.client.mutation.ElasticityClient::showsBodyInFirstPerson);
+
 		// Moon Knight: the transformation, the untransformation and an alter's suit swap
 		FirstPersonBody.register(p -> {
 			MoonKnightAction a = MoonKnightAnim.action(p);

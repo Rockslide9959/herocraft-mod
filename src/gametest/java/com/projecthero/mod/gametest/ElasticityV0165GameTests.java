@@ -391,9 +391,22 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(res(p, "shape_cd") > 150.0f, "10s cooldown");
 		((Mob) z).setTarget(p);
 		helper.assertTrue(z.getTarget() == null, "mobs cannot target a Shape Shift");
+		// v0.16.5 (user): you can creep about as the block
 		p.setPos(p.getX() + 1.0, p.getY(), p.getZ());
 		tick(p, 1);
-		helper.assertFalse(ElasticityHandlers.shapeShifted(p), "moving ends it");
+		helper.assertTrue(ElasticityHandlers.shapeShifted(p), "moving keeps it");
+		// ... but sprinting gives it away
+		p.setSprinting(true);
+		tick(p, 1);
+		helper.assertFalse(ElasticityHandlers.shapeShifted(p), "sprinting ends it");
+		p.setSprinting(false);
+		// and so does a hit
+		ExperimentalPowers.setResource(p, Powers.byKey(K), "shape_cd", 0f, 100000f);
+		shiftPress(p, 6);
+		helper.assertTrue(ElasticityHandlers.shapeShifted(p), "squashed again");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().generic(), 1f);
+		helper.assertFalse(ElasticityHandlers.shapeShifted(p), "a hit ends it");
 		helper.succeed();
 	}
 }

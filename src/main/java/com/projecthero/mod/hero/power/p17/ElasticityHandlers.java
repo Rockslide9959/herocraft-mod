@@ -587,10 +587,16 @@ public final class ElasticityHandlers {
 
 		// Long Reach: the arm visibly stretches out to whatever you hit or use beyond normal reach
 		AttackBlockCallback.EVENT.register((player, level, hand, pos, dir) -> {
+			if (player instanceof ServerPlayer sp && owns(sp)) {
+				endShape(sp); // so does hitting a block
+			}
 			reachVisual(player, Vec3.atCenterOf(pos));
 			return InteractionResult.PASS;
 		});
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
+			if (player instanceof ServerPlayer sp && owns(sp)) {
+				endShape(sp); // using a block gives the disguise away
+			}
 			reachVisual(player, hit.getLocation());
 			return InteractionResult.PASS;
 		});
@@ -1417,19 +1423,16 @@ public final class ElasticityHandlers {
 		ctx.actionBar("message.projecthero.elasticity.shape_on");
 	}
 
+	/**
+	 * v0.16.5 (user: "let player move during shape shift but end it if they take damage or start sprinting or m1 or attack
+	 * or interact with a block"): the block can creep about; it gives itself away by sprinting, by a swing of the arm (a
+	 * left click -- the server hears every swing -- or using something), an attack, a block used, or a hit taken.
+	 */
 	private static void shapeTick(ServerPlayer p, ServerLevel level) {
 		if (res(p, "shape") < 0.5f) {
 			return;
 		}
-		BlockPos at = ExperimentalPowers.getMarker(p, Powers.byKey(KEY), "shape_at");
-		if (at == null) {
-			endShape(p);
-			return;
-		}
-		double dx = p.getX() - (at.getX() + 0.5);
-		double dz = p.getZ() - (at.getZ() + 0.5);
-		double dy = Math.abs(p.getY() - at.getY()) > 1.0 ? 1.0 : 0.0;
-		if (dx * dx + dz * dz > 0.35 * 0.35 || dy > 0.6 || !p.isAlive()) {
+		if (!p.isAlive() || p.isSprinting() || p.swinging) {
 			endShape(p);
 			return;
 		}
@@ -1474,6 +1477,9 @@ public final class ElasticityHandlers {
 
 	/** Wrapped creatures cannot attack; the balloon swallows a hit whole and still flings the attacker. */
 	private static boolean allowDamage(LivingEntity entity, DamageSource source, float amount) {
+		if (amount > 0f && entity instanceof ServerPlayer hurt && owns(hurt) && shapeShifted(hurt)) {
+			endShape(hurt); // a hit knocks the disguise off
+		}
 		Entity atk = source.getEntity();
 		if (atk != null && source.getDirectEntity() == atk && isWrapped(atk)) {
 			return false;
