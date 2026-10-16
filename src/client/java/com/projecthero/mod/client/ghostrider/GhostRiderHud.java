@@ -28,8 +28,8 @@ import org.lwjgl.glfw.GLFW;
  *   [R] [G] [Z] [X] [C] [V]   the six keys; each box shows the longer cooldown of its plain and Shift move and
  *                             lights up while that key's move runs (blast, spin, bike, stare, rush, shield)
  * </pre>
- * No H / N boxes: H is the change. Hold Left-Alt for the move names. Shown only while transformed (human, the bars
- * would only read "full"). v0.16.5 rework: after a cheated death a short red "bound till dawn" sits right of the title.
+ * No H / N boxes: H is the change. Hold Left-Alt for the move names. v0.16.5 (user): shown whenever you have the power, transformed or not (the human moves still
+ * use the keys and their cooldowns). v0.16.5 rework: after a cheated death a short red "bound till dawn" sits right of the title.
  */
 public final class GhostRiderHud {
 	private static final int BOX = 20;
@@ -61,7 +61,7 @@ public final class GhostRiderHud {
 
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.player == null || mc.level == null || mc.options.hideGui || !GhostRider.transformed(mc.player)) {
+		if (mc.player == null || mc.level == null || mc.options.hideGui || !GhostRider.hasPower(mc.player)) {
 			return;
 		}
 		GhostRiderState s = mc.player.getAttachedOrElse(ModAttachments.GHOST_RIDER_STATE, null);

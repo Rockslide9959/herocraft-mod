@@ -159,14 +159,14 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		press(p, 1); // the punch that empties the meter still lands
 		helper.assertTrue(ElasticityHandlers.limp(p), "running dry goes limp");
 		var slow = p.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
-		helper.assertTrue(slow != null && slow.getAmplifier() == 1 && slow.getDuration() <= 40, "Slowness II for 2s");
+		helper.assertTrue(slow != null && slow.getAmplifier() == 1 && slow.getDuration() <= 160 && slow.getDuration() > 140, "Slowness II for 8s");
 		AbilityRouter.handleInput(p, 4, true); // Z: refused while limp
 		helper.assertTrue(res(p, "coil_kind") < 0.5f, "no moves while limp");
 		AbilityRouter.handleInput(p, 4, false);
-		tick(p, 12); // 18 back: still limp
-		helper.assertTrue(ElasticityHandlers.limp(p), "limp until the meter is back to 20");
-		tick(p, 2);
-		helper.assertFalse(ElasticityHandlers.limp(p), "back to 20: moves work again");
+		tick(p, 150); // the meter is long full again, but limp is a flat 8 s
+		helper.assertTrue(ElasticityHandlers.limp(p), "limp for a flat 8 seconds");
+		tick(p, 11);
+		helper.assertFalse(ElasticityHandlers.limp(p), "after 8 seconds: moves work again");
 		helper.succeed();
 	}
 

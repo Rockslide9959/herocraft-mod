@@ -165,13 +165,13 @@ Passives: reduced Ender Pearl damage, and no fall damage on the first second aft
 
 **New design:** a Mr. Fantastic / Plastic Man / Luffy rubber brawler. Your **real arms and legs stretch**: the limb model itself lengthens out to the target in your own skin, then snaps back. A **Stretch** meter replaces most cooldowns, so you can chain moves. It has six keys, each with a Shift version, and no H or N.
 
-- **Stretch (0-100):** each move spends some and it refills 15 per second (twice as fast standing still). Run it dry and you **go limp**: Slowness II for 2 s and no moves until it is back to 20.
+- **Stretch (0-100):** each move spends some and it refills 15 per second (twice as fast standing still). Run it dry and you **go limp**: Slowness II and no moves for a flat 8 s.
 - **Wind-up:** R and Z can be **held to coil** the limb. It visibly twists for up to 1.5 s, for more damage, reach and knockback. Release to snap.
 - **Getting it:** unchanged. The Elastic Polymer Serum plus a 10-block fall onto a Slime Block, or the Gravity Distortion Rig. It returns to the power wheel and random serums.
 
 | Key | Tap | Shift |
 |---|---|---|
-| **R** | **Stretch Punch:** the arm shoots out up to 18 blocks for 12. Hold to coil up to 1.5 s, for up to 24 damage, 22 blocks and a big knockback. 10 Stretch | **Gatling Barrage:** hold to flurry stretched punches into the cone in front, 6 hits a second at 3 each, many blurred arms. 12 Stretch a second |
+| **R** | **Stretch Punch:** the arm shoots out up to 18 blocks for 12. Hold to coil up to 1.5 s, for up to 24 damage, 22 blocks and a big knockback. 10 Stretch | **Gatling Barrage:** hold to flurry stretched punches into the cone in front, 6 hits a second at 12.8 each, many blurred arms. 12 Stretch a second |
 | **G** | **Elastic Grab:** the arm wraps a mob or player up to 20 blocks away and reels it in. Press again to hurl it where you look: 10 damage, plus 6 if it hits a wall or another mob. 15 Stretch (no bosses) | **Wrap & Squeeze:** your body coils round the grabbed or aimed target (6 blocks). It can't attack or move for 4 s and takes 4 a second. Press again to let go. 25 Stretch |
 | **X** | **Slingshot:** both arms grip the block you aim at (80 blocks, user 2026-10-16) and hold it wherever you look. Hold to coil, release to launch: speed from the coil and the anchor distance, and no air drag until you land. 15 Stretch | **Rubber Ball:** roll up into a bouncing ball for 6 s. It's fast, bounces off walls, and bowls through mobs for 6 each. Projectiles bounce off. 30 Stretch |
 | **Z** | **Giant Hammer Fist:** the fist swells to a boulder and slams the aim point (12 blocks). Hold to coil for a bigger fist: 20-34 damage in a 4.5-block area, plus Slowness. 30 Stretch, 8 s cooldown | **Spring Stomp:** your legs stretch you 8 blocks up on stilts, then you slam down: 20 damage in a 5-block ring, launching mobs. 25 Stretch, 6 s cooldown |

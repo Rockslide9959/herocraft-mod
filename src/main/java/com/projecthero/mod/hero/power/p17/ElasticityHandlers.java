@@ -58,7 +58,7 @@ import net.minecraft.world.phys.Vec3;
  * skin, from the synced {@code p17.*} visual values), and a <b>Stretch</b> meter replaces most cooldowns.
  *
  * <p>Stretch (0-100): every move spends some; it refills 15 a second (30 standing still) while no held move is
- * running. Run it dry and you go <b>limp</b>: Slowness II for 2 s and no moves until it is back to 20.
+ * running. Run it dry and you go <b>limp</b>: Slowness II and no moves for a flat 8 s.
  *
  * <p>R Stretch Punch (hold to coil, up to 1.5 s) / Shift+R Gatling Barrage (held). G Elastic Grab, press again to hurl /
  * Shift+G Wrap &amp; Squeeze. X Slingshot (hold to pull back, release) / Shift+X Rubber Ball. Z Giant Hammer Fist (hold
@@ -72,9 +72,8 @@ public final class ElasticityHandlers {
 	public static final float MAX_STRETCH = 100.0f;
 	/** 15 a second; twice that standing still. */
 	public static final float STRETCH_REGEN_PER_TICK = 15.0f / 20.0f;
-	/** Limp until the meter is back to this. */
-	public static final float LIMP_RECOVER = 20.0f;
-	public static final int LIMP_SLOW_TICKS = 2 * 20;
+	/** v0.16.5 (user): going limp lasts a flat 8 seconds (no moves, Slowness II), however fast the meter refills. */
+	public static final int LIMP_TICKS = 8 * 20;
 
 	public static final float COST_PUNCH = 10.0f;
 	public static final float COST_GATLING_PER_SECOND = 12.0f;
@@ -94,7 +93,7 @@ public final class ElasticityHandlers {
 	public static final float PUNCH_DAMAGE_COILED = 24.0f;
 	public static final double PUNCH_RANGE = 18.0;
 	public static final double PUNCH_RANGE_COILED = 22.0;
-	public static final float GATLING_DAMAGE = 3.0f;
+	public static final float GATLING_DAMAGE = 12.8f; // v0.16.5 (user): 12.8 a punch
 	public static final float GATLING_HITS_PER_SECOND = 6.0f;
 	public static final double GATLING_RANGE = 10.0;
 	/** cos of the cone's half-angle (~40 degrees). */
@@ -322,9 +321,9 @@ public final class ElasticityHandlers {
 	}
 
 	private static void goLimp(ServerPlayer p) {
-		set(p, "limp", 1);
+		set(p, "limp", LIMP_TICKS); // counts down in the upkeep
 		endChannels(p);
-		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, LIMP_SLOW_TICKS, 1, false, false, true));
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, LIMP_TICKS, 1, false, false, true));
 		p.displayClientMessage(Component.translatable("message.projecthero.elasticity.limp"), true);
 		MutationVisuals.play(p, "p17.limp");
 		AbilityHelpers.sound(p, SoundEvents.SLIME_SQUISH, 1.0f, 0.5f);
@@ -649,8 +648,9 @@ public final class ElasticityHandlers {
 			set(p, "stretch", s);
 		}
 		if (limp(p)) {
-			if (s >= LIMP_RECOVER) {
-				set(p, "limp", 0);
+			float left = res(p, "limp") - 1f;
+			set(p, "limp", Math.max(0f, left));
+			if (left < 0.5f) {
 				MutationVisuals.stopIf(p, "p17.limp");
 				AbilityHelpers.sound(p, SoundEvents.SLIME_JUMP_SMALL, 1.0f, 1.3f);
 			} else {
@@ -1660,7 +1660,7 @@ public final class ElasticityHandlers {
 				"Stretch", MAX_STRETCH, 0xFFFF9A3C, true, true, false, text));
 		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "limp",
 				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
-				"LIMP", 1, 0xFF8A8A8A, false, false, false, text));
+				"LIMP", LIMP_TICKS, 0xFF8A8A8A, false, false, false, text));
 		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "coil",
 				com.projecthero.mod.hero.visual.MutationMeters.Kind.BUILD, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
 				"Coil", 100, 0xFFFFC27A, false, true, true, text));
