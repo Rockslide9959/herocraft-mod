@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"NovaFirstPersonParticleMixin",
+		"PyroFlameSkinMixin",
 		"SpiderFirstPersonHandsMixin",
 		"SpiderPerchCameraMixin",
 		"SpiderPerchHandMixin",

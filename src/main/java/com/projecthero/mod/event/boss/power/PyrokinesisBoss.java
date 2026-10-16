@@ -29,7 +29,8 @@ public class PyrokinesisBoss extends BossPowerController {
 	private static final int FLAMETHROWER = 2;
 	private static final int HEAT_WAVE = 3;
 	private static final int INFERNO = 4;
-	private static final List<String> IDS = List.of("fireball", "fire_whip", "flamethrower", "heat_wave", "inferno");
+	// v0.16.5: the reworked kit's ids (its Flamethrower is Shift+R now; Inferno became the Z Meteor)
+	private static final List<String> IDS = List.of("fireball", "fire_whip", "flame_wall", "heat_wave", "meteor");
 
 	private float heat;
 	private int throwerTicks;

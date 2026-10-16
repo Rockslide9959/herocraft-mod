@@ -231,16 +231,16 @@ final class PowerCatalog {
 	private static Power pyrokinesis() {
 		String k = "power_08_pyrokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.ELEMENTAL)
-				// v0.13.22 revamp (batch B): one Heat bar -- hotter hits harder, blue above 75%, overheat burns
-				.ability(ab(k, "fireball", SLOT_1, INSTANT, 34))
-				.ability(ab(k, "flamethrower", SLOT_2, HOLD, 0))
-				.ability(ab(k, "jet_flight", SLOT_3, HOLD, 0))
-				.ability(ab(k, "inferno", SLOT_4, HOLD, 47 * S))
-				.ability(ab(k, "flame_wall", SLOT_5, INSTANT, 1 * S))
-				.ability(ab(k, "flame_body", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "heat_wave", AbilitySlot.SLOT_7, INSTANT, 10 * S))
-				.ability(ab(k, "fire_whip", AbilitySlot.SLOT_8, INSTANT, 51))
-				.passives(pk(k, "passive.fire_resist"))
+				// v0.16.5 rework: six keys (no H / N), each with a Shift version, on a 0-100 Heat meter that every move
+				// RAISES (hotter = stronger fire, 100 overheats). All HOLD so the handlers own tap / hold / Shift / release;
+				// the few real cooldowns are the handlers' own timers.
+				.ability(ab(k, "fireball", SLOT_1, HOLD, 0))
+				.ability(ab(k, "fire_whip", SLOT_2, HOLD, 0))
+				.ability(ab(k, "flame_dash", SLOT_3, HOLD, 0))
+				.ability(ab(k, "meteor", SLOT_4, HOLD, 0))
+				.ability(ab(k, "flame_wall", SLOT_5, HOLD, 0))
+				.ability(ab(k, "heat_wave", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.heat"), pk(k, "passive.fire_resist"), pk(k, "passive.punch"), pk(k, "passive.lava"))
 				.serum(SerumRecipe.of("minecraft:fire_resistance", pk(k, "serum"),
 						"minecraft:fire_charge", "minecraft:charcoal", "minecraft:redstone"))
 				.trigger(MutationTrigger.of(Kind.FIRE_EXPOSURE, pk(k, "trigger"), "projecthero.device.blast_chamber"))

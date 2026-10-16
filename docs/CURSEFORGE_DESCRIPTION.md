@@ -322,6 +322,10 @@ return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
 - **Laser Vision** -- beams straight from your eyes, driven by a 0-100 heat gauge that cools once you stop firing.
+- **Pyrokinesis** (reworked in 0.16.5) -- fire on a **Heat** meter that every move raises: the hotter you run, the
+  harder you burn, up to +40%. Fireballs and a flamethrower, a Fire Whip and a Fire Lasso, a Flame Dash and Jet Flight,
+  a charged **Meteor** and an Inferno nova, a Flame Wall that burns up arrows, a living-fire **Flame Body** that walks
+  on lava, a Heat Wave and Cauterize. Hit 100 and you overheat in a burst of fire.
 - **Teleportation** (reworked in 0.16.5) -- Nightcrawler-style combat teleporting on a **Strain** meter instead of
   cooldowns: Blink, Bamf Strike, Swap, Escape and Sky Blink, Phase Step, Displace, a cross-dimension **Rift**, Mark /
   Recall, a held **Spatial Fold** that sends arrows back at their shooter and folds enemies back out, and a Group Jump for your squad. Push it to 100
