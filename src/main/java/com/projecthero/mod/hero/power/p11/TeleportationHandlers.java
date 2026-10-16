@@ -56,7 +56,8 @@ import net.minecraft.world.phys.Vec3;
  * 4, 40) / Shift+G Swap (20). X Escape Blink (10 back + Resistance III, 15) / Shift+X Sky Blink (15 up + slow-fall,
  * 15). Z Phase Step (walls up to 3 thick, 20) / Shift+Z Displace (target 15 up, no bosses, 30). V Rift (5 s charge,
  * coordinate screen, one linked gate pair; merges the old Portal + Portal Anchor) / Shift+V Mark / Recall (recall 25).
- * C Spatial Fold (3 s of projectiles teleported back at their shooter, 25) / Shift+C Group Jump (the next Blink takes
+ * C Spatial Fold (v0.16.5 user: held -- a fold round you that sends projectiles back at their shooter and folds
+ * enemies who come close back out through space; 10 to raise, 18 a second while held) / Shift+C Group Jump (the next Blink takes
  * squadmates within 5 blocks). Every jump leaves the purple puff + afterimage and 1 s of fall-damage immunity.
  *
  * <p>All six slots are HOLD so the handlers own their tap / Shift / release logic (the router gates nothing).
@@ -84,11 +85,17 @@ public final class TeleportationHandlers {
 	public static final float STRAIN_PHASE = 20.0f;
 	public static final float STRAIN_DISPLACE = 30.0f;
 	public static final float STRAIN_RECALL = 25.0f;
-	public static final float STRAIN_FOLD = 25.0f;
+	/** Spatial Fold (held): this much to raise it, then this much a second while it is held (strain drains 10). */
+	public static final float STRAIN_FOLD = 10.0f;
+	public static final float STRAIN_FOLD_PER_SECOND = 18.0f;
+	/** Enemies who come this close are folded back out to {@link #FOLD_PUSH_TO} blocks. */
+	public static final double FOLD_KEEP_OUT = 3.0;
+	public static final double FOLD_PUSH_TO = 6.0;
 
 	// ---- ranges / timings ----
 	public static final double BLINK_RANGE = 25.0;
-	public static final double LONG_BLINK_RANGE = 75.0;
+	/** v0.16.5 (user): 150 blocks. */
+	public static final double LONG_BLINK_RANGE = 150.0;
 	public static final double ESCAPE_DISTANCE = 10.0;
 	public static final double SKY_DISTANCE = 15.0;
 	private static final int SKY_SLOW_FALL_TICKS = 6 * 20;
@@ -163,6 +170,11 @@ public final class TeleportationHandlers {
 	 */
 	public static void addStrain(ServerPlayer p, float amount) {
 		set(p, "jump_grace", JUMP_GRACE_TICKS);
+		strainOnly(p, amount);
+	}
+
+	/** Strain without a jump (no fall grace): the held Spatial Fold. */
+	private static void strainOnly(ServerPlayer p, float amount) {
 		float s = Math.min(MAX_STRAIN, strain(p) + amount);
 		set(p, "strain", s);
 		if (s >= MAX_STRAIN - 0.01f && !overloaded(p)) {
@@ -399,14 +411,21 @@ public final class TeleportationHandlers {
 					AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
 					return;
 				}
-				if (!canJump(ctx)) {
+				if (!canJump(ctx) || res(p, "fold_held") > 0.5f) {
 					return;
 				}
-				set(p, "fold", FOLD_TICKS);
-				addStrain(p, STRAIN_FOLD);
+				// v0.16.5 (user): held -- it stays up while C is held, building strain
+				set(p, "fold_held", 1);
+				set(p, "fold", 2);
+				strainOnly(p, STRAIN_FOLD);
 				MutationVisuals.play(p, "cast_raise_both");
 				AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.8f, 0.6f);
 				AbilityHelpers.sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.2f);
+			}
+
+			@Override
+			public void onRelease(AbilityContext ctx) {
+				dropFold(ctx.player());
 			}
 		});
 
@@ -444,6 +463,15 @@ public final class TeleportationHandlers {
 			float v = res(p, timer);
 			if (v > 0) {
 				set(p, timer, v - 1);
+			}
+		}
+		if (res(p, "fold_held") > 0.5f) {
+			if (overloaded(p) || !p.isAlive()) {
+				dropFold(p); // overloaded: the fold collapses
+			} else {
+				set(p, "fold", 2);
+				strainOnly(p, STRAIN_FOLD_PER_SECOND / 20.0f);
+				MutationVisuals.ensure(p, "cast_raise_both");
 			}
 		}
 		float fold = res(p, "fold");
@@ -764,7 +792,51 @@ public final class TeleportationHandlers {
 	 * it reappears two blocks in front of the shooter flying straight at them, and becomes yours. A projectile with
 	 * no living shooter simply vanishes.
 	 */
+	/** C released (or the fold collapsed): it drops. */
+	public static void dropFold(ServerPlayer p) {
+		if (res(p, "fold_held") < 0.5f) {
+			return;
+		}
+		set(p, "fold_held", 0);
+		set(p, "fold", 0);
+		MutationVisuals.stopIf(p, "cast_raise_both");
+		AbilityHelpers.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.5f, 1.4f);
+	}
+
+	/** Whether the held Spatial Fold is up (gametests). */
+	public static boolean foldHeld(ServerPlayer p) {
+		return res(p, "fold_held") > 0.5f;
+	}
+
 	private static void foldTick(ServerPlayer p, ServerLevel level) {
+		// v0.16.5 (user): "stop enemies from getting close to you" -- anyone hostile who comes inside the fold is folded
+		// back out through space (a boss, or one with nowhere to land, is thrown back instead)
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(FOLD_KEEP_OUT),
+				e -> e != p && e.isAlive() && com.projecthero.mod.combat.HeroTargets.canHarm(p, e))) {
+			if (e.distanceTo(p) > FOLD_KEEP_OUT + e.getBbWidth() * 0.5) {
+				continue;
+			}
+			Vec3 away = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
+			away = away.lengthSqr() < 1.0e-4 ? p.getLookAngle().multiply(1, 0, 1) : away;
+			away = away.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : away.normalize();
+			Vec3 from = e.position();
+			Vec3 to = p.position().add(away.scale(FOLD_PUSH_TO)).add(0, e.getY() - p.getY(), 0);
+			boolean boss = e.getMaxHealth() >= 300f;
+			if (!boss && level.noCollision(e, e.getBoundingBox().move(to.subtract(from)))) {
+				e.teleportTo(to.x, to.y, to.z);
+				e.setDeltaMovement(away.scale(0.3));
+				e.hurtMarked = true;
+				poof(level, from);
+				poof(level, to);
+			} else {
+				e.setDeltaMovement(away.scale(1.4).add(0, 0.3, 0));
+				e.hurtMarked = true;
+				level.sendParticles(ParticleTypes.REVERSE_PORTAL, e.getX(), e.getY() + 1, e.getZ(), 16, 0.3, 0.5, 0.3, 0.1);
+			}
+			if (e instanceof net.minecraft.world.entity.Mob m && m.getTarget() == p) {
+				m.getNavigation().stop();
+			}
+		}
 		if (p.tickCount % 3 == 0) {
 			BatchDFx.ring(level, p.position().add(0, 1.0, 0), 1.3, BatchDFx.TELE_GLOW, 14, p.tickCount * 0.3);
 		}

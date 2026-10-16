@@ -258,8 +258,8 @@ public class TeleportationV0165GameTests implements FabricGameTest {
 	public void spatialFoldSendsArrowsBack(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		Zombie shooter = zombie(helper, 2, 6);
-		press(p, 6); // C: Spatial Fold
-		helper.assertTrue(TeleportationHandlers.foldActive(p), "the fold is up");
+		AbilityRouter.handleInput(p, 6, true); // C held: Spatial Fold (v0.16.5: a hold move)
+		helper.assertTrue(TeleportationHandlers.foldActive(p) && TeleportationHandlers.foldHeld(p), "the fold is up while C is held");
 		assertStrain(helper, p, TeleportationHandlers.STRAIN_FOLD, "Spatial Fold");
 
 		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
@@ -271,6 +271,32 @@ public class TeleportationV0165GameTests implements FabricGameTest {
 		helper.assertTrue(arrow.getOwner() == p, "the folded arrow is now yours");
 		Vec3 toShooter = shooter.position().subtract(arrow.position());
 		helper.assertTrue(arrow.getDeltaMovement().dot(toShooter) > 0, "and flies at whoever shot it");
+		AbilityRouter.handleInput(p, 6, false);
+		helper.assertFalse(TeleportationHandlers.foldHeld(p), "letting go of C drops it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void spatialFoldKeepsEnemiesOutAndBuildsStrain(GameTestHelper helper) {
+		for (int x = -4; x <= 12; x++) {
+			for (int z = -4; z <= 12; z++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 1, z)), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = hero(helper);
+		Zombie close = zombie(helper, p.getX() - helper.absoluteVec(Vec3.ZERO).x + 1.5, p.getZ() - helper.absoluteVec(Vec3.ZERO).z);
+		AbilityRouter.handleInput(p, 6, true);
+		tick(p, 1);
+		// folded out (teleported) where there is room, else thrown back (the 8-block test cage leaves no room 6 out, and a
+		// no-AI zombie never moves on its own velocity, so the throw shows as its velocity)
+		helper.assertTrue(close.distanceTo(p) > TeleportationHandlers.FOLD_KEEP_OUT || close.getDeltaMovement().horizontalDistance() > 1.0,
+				"a zombie inside the fold is folded back out or thrown back: at " + close.distanceTo(p) + ", v=" + close.getDeltaMovement());
+		float before = TeleportationHandlers.strain(p);
+		tick(p, 20);
+		helper.assertTrue(TeleportationHandlers.strain(p) > before + 5f, "holding it builds strain: " + before + " -> " + TeleportationHandlers.strain(p));
+		AbilityRouter.handleInput(p, 6, false);
+		helper.assertFalse(TeleportationHandlers.foldHeld(p), "released");
+		helper.assertTrue(TeleportationHandlers.LONG_BLINK_RANGE == 150.0, "Long Blink reaches 150 blocks");
 		helper.succeed();
 	}
 }
