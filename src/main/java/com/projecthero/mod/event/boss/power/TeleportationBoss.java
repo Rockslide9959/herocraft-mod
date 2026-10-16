@@ -30,7 +30,8 @@ public class TeleportationBoss extends BossPowerController {
 	private static final int BAMF = 1;
 	private static final int SWAP = 2;
 	private static final int ESCAPE = 3;
-	private static final List<String> IDS = List.of("blink", "bamf_strike", "swap", "escape_blink");
+	/** v0.16.5: the player kit was reworked (Swap moved to Shift+G) -- the boss's place-trade now goes by Phase Step's id. */
+	private static final List<String> IDS = List.of("blink", "bamf_strike", "phase_step", "escape_blink");
 
 	public TeleportationBoss(EmpoweredZombie boss) {
 		super(boss);

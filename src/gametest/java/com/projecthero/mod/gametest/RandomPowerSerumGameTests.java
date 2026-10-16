@@ -39,9 +39,12 @@ public class RandomPowerSerumGameTests implements FabricGameTest {
 	public void mutagenicSerumStopsWhenThereIsNoRoom(GameTestHelper helper) {
 		ServerPlayer p = fresh(helper);
 		int capacity = ExperimentalPowers.capacity();
-		for (int i = 0; i < capacity; i++) {
+		// v0.16.5: fill until the slots are really full -- a serum that rolls Super Speed replaces the other mutations,
+		// so a fixed count of serums depends on the seed (re-enabling Teleportation reshuffled them)
+		for (int i = 0; !ExperimentalPowers.atCapacity(p); i++) {
+			helper.assertTrue(i < 40, "the slots fill up");
 			helper.assertTrue(RandomPowerSerumItem.grantRandom(p, RandomPowerSerumItem.Pool.EXPERIMENTAL, new Random(i)) != null,
-					"serum " + (i + 1) + " of " + capacity + " grants a power");
+					"serum " + (i + 1) + " grants a power (capacity " + capacity + ")");
 		}
 		helper.assertTrue(RandomPowerSerumItem.grantRandom(p, RandomPowerSerumItem.Pool.EXPERIMENTAL, new Random(99)) == null,
 				"with every mutation slot full nothing is granted (so the serum is kept)");
