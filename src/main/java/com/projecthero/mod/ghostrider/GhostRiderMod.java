@@ -29,6 +29,7 @@ public final class GhostRiderMod {
 		GhostRiderItems.initialize();
 		GhostRiderEntityTypes.initialize();
 		GhostRiderDamage.initialize();
+		GhostRiderFear.initialize();
 
 		PayloadTypeRegistry.playC2S().register(GhostRiderActionPayload.TYPE, GhostRiderActionPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GhostRiderMarkPayload.TYPE, GhostRiderMarkPayload.CODEC);

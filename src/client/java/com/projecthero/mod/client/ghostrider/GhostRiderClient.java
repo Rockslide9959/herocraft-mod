@@ -20,7 +20,7 @@ import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
  * v0.16.5: Ghost Rider's client side -- the skin layer (with the flaming skull), the HUD, the chain, the Judgement Mark
- * outlines, the Hell Cycle's renderer, the contract screen and the H request (sent from {@code ProjectHeroModClient}).
+ * outlines, the Hell Cycle's and the Hellfire Blast's renderers, the contract screen and the H request (sent from {@code ProjectHeroModClient}).
  */
 public final class GhostRiderClient {
 	private GhostRiderClient() {
@@ -34,6 +34,7 @@ public final class GhostRiderClient {
 		});
 		HudRenderCallback.EVENT.register(GhostRiderHud::render);
 		EntityRendererRegistry.register(GhostRiderEntityTypes.HELL_CYCLE, HellCycleRenderer::new);
+		EntityRendererRegistry.register(GhostRiderEntityTypes.HELLFIRE_BLAST, HellfireBlastRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(GhostRiderChainRenderer::render);
 		ClientPlayNetworking.registerGlobalReceiver(GhostRiderMarkPayload.TYPE, (payload, context) -> GhostRiderMarkClient.receive(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> GhostRiderMarkClient.reset());

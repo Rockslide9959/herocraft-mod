@@ -18,7 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (1)  Hellfire Blast (hold)   Shift+R  Hellfire Wave
  *   G (2)  Chain Whip              Shift+G  Chain Spin
- *   X (3)  Hell Cycle              Shift+X  Cycle Jump
+ *   X (3)  Hell Cycle / riding: Cycle Jump      Shift+X  send the bike back
  *   Z (4)  Judgement Mark          Shift+Z  Penance Stare
  *   V (5)  Hellfire Rush           Shift+V  Hellfire Eruption
  *   C (6)  Soul Shield             Shift+C  Rider's Wrath
@@ -94,9 +94,9 @@ public final class GhostRiderAbilityManager {
 				if (pressed) {
 					// (riding the bike Shift does not dismount -- PlayerMixin -- so Shift+X reaches here)
 					if (shift) {
-						GhostRiderAbilities.cycleJump(player);
+						GhostRiderAbilities.sendCycleBack(player);
 					} else {
-						GhostRiderAbilities.cycle(player);
+						GhostRiderAbilities.cycleKey(player);
 					}
 				}
 			}

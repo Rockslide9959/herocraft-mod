@@ -182,7 +182,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 			helper.assertTrue(taken >= GhostRiderConfig.BLAST_DAMAGE - EPS && taken <= GhostRiderConfig.BLAST_DAMAGE + 2f,
 					"one bolt: 20 (plus a little burning), took " + taken);
 			helper.assertTrue(z.isOnFire(), "the bolt sets it alight");
-			helper.assertTrue(Math.abs(GhostRider.hellfire(p) - (GhostRiderConfig.HELLFIRE_MAX - GhostRiderConfig.BLAST_COST)) < 2f, // (it refills a little meanwhile)
+			helper.assertTrue(Math.abs(GhostRider.hellfire(p) - (GhostRiderConfig.HELLFIRE_MAX - GhostRiderConfig.BLAST_COST)) < 3f, // (it refills a little meanwhile)
 					"10 Hellfire a bolt, left " + GhostRider.hellfire(p));
 			helper.succeed();
 		});
@@ -197,7 +197,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 		GhostRiderAbilities.wave(p);
 		helper.runAfterDelay(14, () -> {
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(taken >= GhostRiderConfig.WAVE_DAMAGE - EPS, "the wave hits for 10, took " + taken);
+			helper.assertTrue(taken >= GhostRiderConfig.WAVE_DAMAGE - EPS, "the wave hits for 30, took " + taken);
 			helper.assertTrue(GhostRider.cooldownRemaining(p, GhostRiderAbilities.WAVE) > 0, "on cooldown");
 			helper.succeed();
 		});
@@ -210,7 +210,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
 		GhostRiderAbilities.whip(p);
 		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - GhostRiderConfig.WHIP_DAMAGE) < EPS, "the whip hits for 9, took " + taken);
+		helper.assertTrue(Math.abs(taken - GhostRiderConfig.WHIP_DAMAGE) < EPS, "the whip hits for 18, took " + taken);
 		helper.assertTrue(z.getDeltaMovement().z < -0.1, "and yanks it toward him, v=" + z.getDeltaMovement());
 		helper.assertTrue(GhostRider.state(p).chainUntil > helper.getLevel().getGameTime(), "the chain is out (synced for the render)");
 		helper.succeed();
@@ -225,7 +225,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 		GhostRiderAbilities.spin(p);
 		helper.runAfterDelay(25, () -> {
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(taken >= GhostRiderConfig.SPIN_DAMAGE * 2 * 0.7f, "at least two spin hits, took " + taken);
+			helper.assertTrue(taken >= GhostRiderConfig.SPIN_DAMAGE * 2 - EPS, "at least two full 13-damage spin hits (no fall-off), took " + taken);
 			helper.succeed();
 		});
 	}
@@ -237,8 +237,8 @@ public class GhostRiderGameTests implements FabricGameTest {
 		GhostRiderAbilities.cycle(p);
 		helper.assertTrue(p.getVehicle() instanceof HellCycleEntity, "X summons the bike under him");
 		HellCycleEntity bike = (HellCycleEntity) p.getVehicle();
-		GhostRiderAbilities.cycle(p);
-		helper.assertFalse(p.isPassenger(), "X again sends it back");
+		GhostRiderAbilities.sendCycleBack(p); // v0.16.5 rework: Shift+X (X while riding is the Cycle Jump)
+		helper.assertFalse(p.isPassenger(), "Shift+X sends it back");
 		helper.assertTrue(bike.isRemoved(), "the bike is gone");
 		helper.succeed();
 	}
@@ -284,7 +284,8 @@ public class GhostRiderGameTests implements FabricGameTest {
 		helper.assertTrue(GhostRiderAbilities.running(p, GhostRiderAbilities.STARE), "the stare locks on");
 		helper.runAfterDelay(GhostRiderConfig.STARE_TICKS + 3, () -> {
 			float taken = 100f - v.getHealth();
-			helper.assertTrue(taken >= expected - EPS && taken <= expected + 2f, "penance " + expected + ", took " + taken);
+			// (Vengeance decays 1 a second during the 2 s stare: up to 0.6 less)
+			helper.assertTrue(taken >= expected - 1.5f && taken <= expected + 2f, "penance " + expected + ", took " + taken);
 			helper.assertTrue(GhostRider.vengeance(p) < 1f, "all Vengeance spent");
 			helper.succeed();
 		});
@@ -324,7 +325,7 @@ public class GhostRiderGameTests implements FabricGameTest {
 		helper.runAfterDelay(9, () -> {
 			float taken = 100f - z.getHealth();
 			helper.assertTrue(taken >= GhostRiderConfig.ERUPTION_DAMAGE * 0.7f, "the pillars hit hard, took " + taken);
-			helper.assertTrue(Math.abs(GhostRider.hellfire(p) - (GhostRiderConfig.HELLFIRE_MAX - GhostRiderConfig.ERUPTION_COST)) < 1.5f,
+			helper.assertTrue(Math.abs(GhostRider.hellfire(p) - (GhostRiderConfig.HELLFIRE_MAX - GhostRiderConfig.ERUPTION_COST)) < 3f,
 					"50 Hellfire");
 			helper.succeed();
 		});
@@ -342,8 +343,11 @@ public class GhostRiderGameTests implements FabricGameTest {
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().mobAttack(z), 8f);
 		float taken = hp - p.getHealth();
-		// HARD scales the zombie's 8 to 12 once; the shield halves that
-		helper.assertTrue(Math.abs(taken - 6f) < 0.6f, "a hit is halved (and scaled by the difficulty only once), took " + taken);
+		// HARD scales the zombie's 8 to 12 once; the shield halves that; then his built-in diamond armour (20 / 8) applies
+		float expected = net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(p, 6f, p.damageSources().mobAttack(z),
+				(float) p.getAttributeValue(Attributes.ARMOR), (float) p.getAttributeValue(Attributes.ARMOR_TOUGHNESS));
+		helper.assertTrue(Math.abs(taken - expected) < 0.3f, "a hit is halved (and scaled by the difficulty only once): " + expected
+				+ " after armour, took " + taken);
 		helper.assertTrue(z.isOnFire(), "the attacker burns");
 		GhostRiderAbilities.wrath(p);
 		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_BOOST) && p.hasEffect(MobEffects.FIRE_RESISTANCE), "Rider's Wrath: Strength + fire resistance");

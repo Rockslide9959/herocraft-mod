@@ -50,6 +50,8 @@ public final class GhostRiderDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(GhostRiderDamage::allowDamage);
+		// v0.16.5 rework: he can't die (see GhostRider#cheatDeath)
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !(entity instanceof ServerPlayer p) || !GhostRider.cheatDeath(p, source));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof AbstractVillager || entity instanceof Player) {
 				sin(source.getEntity(), entity, GhostRiderConfig.GUILT_KILL);
@@ -133,6 +135,15 @@ public final class GhostRiderDamage {
 		}
 		boolean bypass = source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)
 				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
+		// combat (H won't turn him back for a while): a Ghost Rider hitting something, or something hitting him
+		Entity culprit = source.getEntity();
+		if (culprit instanceof ServerPlayer gr && gr != entity && GhostRider.hasPower(gr)) {
+			GhostRider.markCombat(gr);
+		}
+		if (entity instanceof ServerPlayer gr && culprit != null && culprit != entity && GhostRider.hasPower(gr)
+				&& !source.is(DamageTypeTags.IS_FIRE)) {
+			GhostRider.markCombat(gr);
+		}
 		if (!(entity instanceof ServerPlayer player) || !GhostRider.hasPower(player)) {
 			if (!bypass && markedBy(entity, source.getEntity())) {
 				reissue(entity, source, amount * GhostRiderConfig.MARK_MULTIPLIER);

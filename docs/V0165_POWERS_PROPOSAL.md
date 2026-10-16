@@ -71,19 +71,24 @@ Shared rules for all four (they match the current mod):
 
 **Look:** a player model with a leather jacket. **H** sets your head on fire: flames climb up the body texel by texel, and the head becomes a **flaming skull** (an animated flame overlay, the same pixel-flame style as the existing fire effects). A spiked chain is wrapped around your chest.
 
-**Resource: Hellfire (100).** It regenerates faster at night and in the Nether, slower in daylight.
+**Resource: Hellfire (100).** It regenerates at Superman's sun rate (6 a second), always. *(Rework: was faster at night and in the Nether.)*
 **Second meter: Vengeance.** Every hostile mob that damages you, a villager or a squadmate gets marked as "guilty". Hitting a guilty target fills Vengeance, and Vengeance powers the Penance Stare.
 
 | Key | Tap | Shift |
 |---|---|---|
-| **R** | **Hellfire Blast:** hold to fire hellfire bolts, 2 per second, **20 damage each**, that set targets on fire. 10 hellfire per bolt (bosses capped like every power) | **Hellfire Wave:** a ground wave of fire 10 blocks forward |
-| **G** | **Chain Whip:** a burning chain with 8-block reach, 9 damage, that yanks small mobs to you | **Chain Spin:** spin the chain around you for 3 s, hitting everything within 4 blocks |
-| **X** | **Hell Cycle:** summon the flaming bike. It's fast, can drive up walls, leaves a fire trail, and can ride over lava. Tap again to dismiss | **Cycle Jump:** while riding, the bike leaps 15 blocks with a burning landing |
+| **R** | **Hellfire Blast:** hold to throw balls of skull fire (a real projectile with fire sprites and a trail), 2 per second, **20 damage each**, that set targets on fire. 10 hellfire per bolt (bosses capped like every power) | **Hellfire Wave:** a ground wave of fire 10 blocks forward, **30 damage** |
+| **G** | **Chain Whip:** a burning chain with 8-block reach, **18 damage**, that yanks small mobs to you | **Chain Spin:** spin the chain around you for 3 s, **13 damage a hit** (twice a second, no fall-off) to everything within 4 blocks |
+| **X** | **Hell Cycle:** summon the flaming bike: **15 blocks/s, 30 sprinting**, a 4-block step, slides along walls, drives up taller walls, leaves a fire trail, rides over lava. **X while riding: Cycle Jump** (leaps 15 blocks with a burning landing) | **Send the bike back** |
 | **Z** | **Judgement Mark:** mark every guilty mob within 30 blocks so they glow red; marked targets take +25 % damage from you for 15 s | **Penance Stare:** lock eyes with a target for 2 s. Damage scales with Vengeance and with how "guilty" the target is (more vs mobs that killed villagers or players). **Undead and bosses take a fixed 15**; players take damage from their own kill count |
 | **V** | **Hellfire Rush:** charge 12 blocks forward wreathed in hellfire, smashing through everything in your path for **18 damage** plus heavy knockback and burning. 30 hellfire, 8 s | **Hellfire Eruption:** slam the ground and hellfire pillars burst up in a 6-block radius around you for **25 damage**, launching enemies and leaving burning ground for 4 s. 50 hellfire, 20 s |
 | **C** | **Soul Shield:** a ring of hellfire for 4 s that halves damage and burns attackers | **Rider's Wrath:** 10 s of Strength II and fire immunity for squadmates within 6 blocks |
 
-**Passives (transformed):** immune to fire and lava, +6 max health, undead mobs are scared of you (Wither skeletons run away), and you can't drown. **Untransformed:** fire resistance only.
+**Passives (transformed):** **+11 melee**, **Regeneration III** (costs 2 hellfire a second; stops when the hellfire runs out), immune to fire and lava, +6 max health, undead mobs are scared of you (Wither skeletons run away), you can't drown, and **food goes twice as fast**. **Diamond-level armour built in** (+20 armour, +8 toughness) but **no armour can be worn** (worn pieces and the elytra go back into the inventory, or drop if it's full). **He looks like a demon:** iron and snow golems attack him (16 blocks), villagers and wandering traders panic, run (12 blocks) and refuse to trade, animals bolt (10 blocks), other people's cats and wolves hiss or growl and keep away (his own pets stay loyal), and creatures under his Judgement Mark cower (slowed). Undead keep the older rule (they lose their nerve). **Untransformed:** fire resistance only.
+
+**The rework's rules (user, v0.16.5):**
+- **H only turns you back out of combat:** 5 s since you last dealt or took combat damage, and no hostile monster within 20 blocks.
+- **You can't die while you carry the Spirit.** A killing blow leaves you on 3 hearts; if you were human, the Spirit takes over and you change on the spot. Either way H can't turn you back until the next sunrise (a saved lock, so it survives a relog). `/kill` and the void still kill.
+- **The change is slower:** 4.8 s, and the face burns away over about 2.5 s; the skull's eruption is flames only (no orange dust or lava).
 
 **New assets:** flaming-skull head overlay plus body flames, the chain (a 3D whip like the Symbiote tendril), the **Hell Cycle entity** (a GeckoLib vehicle, since it's a mount and not a mob), the contract item and screen, and the Penance Stare screen effect.
 

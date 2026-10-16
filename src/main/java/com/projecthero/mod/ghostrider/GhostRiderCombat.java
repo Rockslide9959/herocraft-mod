@@ -101,6 +101,12 @@ public final class GhostRiderCombat {
 	/** Everything harmable within {@code radius} of {@code center}; damage falls off to 70% at the edge. */
 	public static int radial(ServerPlayer owner, Vec3 center, double radius, float damage, double knockback, double lift, int burnSeconds,
 			Set<Integer> hit) {
+		return radial(owner, center, radius, damage, knockback, lift, burnSeconds, hit, true);
+	}
+
+	/** {@link #radial}, with or without the fall-off at the edge. */
+	public static int radial(ServerPlayer owner, Vec3 center, double radius, float damage, double knockback, double lift, int burnSeconds,
+			Set<Integer> hit, boolean falloff) {
 		AABB box = new AABB(center, center).inflate(radius, Math.min(radius, 5.0), radius);
 		int n = 0;
 		for (LivingEntity e : ((ServerLevel) owner.level()).getEntitiesOfClass(LivingEntity.class, box, e -> isTarget(owner, e))) {
@@ -111,7 +117,7 @@ public final class GhostRiderCombat {
 			if (dist > radius) {
 				continue;
 			}
-			float scale = (float) (1.0 - 0.3 * (dist / radius));
+			float scale = falloff ? (float) (1.0 - 0.3 * (dist / radius)) : 1f;
 			if (strike(owner, e, center, damage * scale, knockback, lift, burnSeconds)) {
 				n++;
 				if (hit != null) {

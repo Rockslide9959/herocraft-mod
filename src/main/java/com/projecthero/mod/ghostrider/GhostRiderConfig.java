@@ -10,12 +10,26 @@ public final class GhostRiderConfig {
 
 	// ---------------------------------------------------------------- resources
 	public static final float HELLFIRE_MAX = 100f;
-	/** Hellfire per second while transformed: daytime overworld / night / the Nether. */
-	public static final float HELLFIRE_REGEN_DAY = 2.5f;
-	public static final float HELLFIRE_REGEN_NIGHT = 5f;
-	public static final float HELLFIRE_REGEN_NETHER = 7f;
-	/** Untransformed the Spirit sleeps and Hellfire refills at this speed. */
-	public static final float HELLFIRE_REGEN_HUMAN = 4f;
+	/**
+	 * Hellfire per second, always (transformed or not, day or night, any dimension). v0.16.5 rework (user): "the same rate
+	 * as Superman's sun bar" -- the Kryptonian's Solar Energy refill in direct sunlight.
+	 */
+	public static final float HELLFIRE_REGEN = com.projecthero.mod.kryptonian.KryptonianConfig.SOLAR_SUN_PER_SECOND;
+	/** Transformed he keeps Regeneration III (amplifier 2); it costs this much Hellfire a second while it runs. */
+	public static final int REGEN_AMPLIFIER = 2;
+	public static final float REGEN_HELLFIRE_PER_SECOND = 2f;
+	/** +11 melee damage while transformed. */
+	public static final double MELEE_BONUS = 11.0;
+	/** Transformed: a full diamond set's armour (and he can't wear any). */
+	public static final double ARMOR_BONUS = 20.0;
+	public static final double TOUGHNESS_BONUS = 8.0;
+	/** Transformed, the world fears him: a scan this often (ticks), golems / villagers / animals within these ranges. */
+	public static final int FEAR_INTERVAL = 10;
+	public static final double GOLEM_RANGE = 16.0;
+	public static final double VILLAGER_FEAR_RANGE = 12.0;
+	public static final double ANIMAL_FEAR_RANGE = 10.0;
+	/** Transformed, every rise in food exhaustion is doubled (he burns through food twice as fast). */
+	public static final float HUNGER_FACTOR = 2f;
 	public static final float VENGEANCE_MAX = 100f;
 	/** Vengeance gained per point of damage dealt to a guilty target. */
 	public static final float VENGEANCE_PER_DAMAGE = 1.5f;
@@ -23,9 +37,21 @@ public final class GhostRiderConfig {
 	public static final float VENGEANCE_DECAY = 1f;
 
 	// ---------------------------------------------------------------- the change (H)
-	public static final int TRANSFORM_TICKS = 56;
+	/** v0.16.5 rework: 56 -> 96, and the face burns over ~2.5 s instead of ~0.7 s (user: "burn away slower"). */
+	public static final int TRANSFORM_TICKS = 96;
+	/** Where in the change each stage sits (0..1): the clothes fold round him, the face burns away, the skull erupts. */
+	public static final float FOLD_END = 0.33f;
+	public static final float BURN_START = 0.35f;
+	public static final float BURN_END = 0.86f;
+	public static final float ERUPT = 0.88f;
 	public static final int REVERT_TICKS = 24;
 	public static final int TOGGLE_COOLDOWN = 20;
+	/** H only turns him back when he has neither dealt nor taken combat damage for this long ... */
+	public static final int OUT_OF_COMBAT_TICKS = 100;
+	/** ... and no hostile monster is this close. */
+	public static final double REVERT_HOSTILE_RANGE = 20.0;
+	/** A death he cheated leaves him on this much health. */
+	public static final float DEATH_SAVE_HEALTH = 6f;
 	/** The contract's blood price: max health lost until the first transformation (5 hearts). */
 	public static final double BLOOD_PRICE = 10.0;
 
@@ -49,13 +75,13 @@ public final class GhostRiderConfig {
 	public static final int BLAST_COOLDOWN = 10;
 
 	// ---------------------------------------------------------------- Shift+R: Hellfire Wave
-	public static final float WAVE_DAMAGE = 10f;
+	public static final float WAVE_DAMAGE = 30f; // v0.16.5 rework: 10 -> 30
 	public static final double WAVE_LENGTH = 10.0;
 	public static final float WAVE_COST = 25f;
 	public static final int WAVE_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- G: Chain Whip
-	public static final float WHIP_DAMAGE = 9f;
+	public static final float WHIP_DAMAGE = 18f; // v0.16.5 rework: 9 -> 18
 	public static final double WHIP_RANGE = 8.0;
 	public static final float WHIP_COST = 5f;
 	public static final int WHIP_COOLDOWN = 30;
@@ -63,7 +89,8 @@ public final class GhostRiderConfig {
 	public static final double WHIP_YANK_MAX_WIDTH = 1.0;
 
 	// ---------------------------------------------------------------- Shift+G: Chain Spin
-	public static final float SPIN_DAMAGE = 6f;
+	/** Every spin hit, no fall-off at the edge (v0.16.5 rework: 6 -> 13). */
+	public static final float SPIN_DAMAGE = 13f;
 	public static final double SPIN_RADIUS = 4.0;
 	public static final int SPIN_TICKS = 60;
 	public static final int SPIN_HIT_INTERVAL = 10;
@@ -72,7 +99,20 @@ public final class GhostRiderConfig {
 
 	// ---------------------------------------------------------------- X: Hell Cycle / Shift+X: Cycle Jump
 	public static final int CYCLE_COOLDOWN = 40;
-	public static final double CYCLE_SPEED = 0.62;
+	/** v0.16.5 rework (user): 15 blocks a second cruising, 30 while the rider sprints; a 4-block step. */
+	public static final double CYCLE_CRUISE_BPS = 15.0;
+	public static final double CYCLE_SPRINT_BPS = 30.0;
+	public static final double CYCLE_STEP = 4.0;
+	/**
+	 * The movement-speed value that settles at {@code bps} on ordinary ground: a ridden mob adds {@code speed * 0.98}
+	 * (the rider's forward input) a tick and keeps 0.6 * 0.91 of its velocity, so it settles at
+	 * {@code speed * 0.98 / (1 - 0.546)} blocks a tick.
+	 */
+	public static double cycleSpeedFor(double bps) {
+		return bps / 20.0 * (1.0 - 0.6 * 0.91) / 0.98;
+	}
+
+	public static final double CYCLE_SPEED = cycleSpeedFor(CYCLE_CRUISE_BPS);
 	public static final double CYCLE_JUMP_DISTANCE = 15.0;
 	public static final float CYCLE_JUMP_DAMAGE = 10f;
 	public static final double CYCLE_JUMP_RADIUS = 4.0;

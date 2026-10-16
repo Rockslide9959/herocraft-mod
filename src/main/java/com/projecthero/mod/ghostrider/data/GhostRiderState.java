@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /**
@@ -58,6 +59,11 @@ public final class GhostRiderState {
 	public int stareTarget;
 	/** Hellfire Rush is charging forward. */
 	public boolean rushing;
+	/**
+	 * v0.16.5 rework: he cheated death, and the Spirit won't let go (no H back) until the overworld's day time reaches this
+	 * value in the day window -- the next sunrise after the death (0 = no lock). Persistent, so it survives relogs.
+	 */
+	public long dayLockUntil;
 
 	public GhostRiderState() {
 		this(false, false, 0L, false, 0f, 0f, 0, 0L, new HashMap<>(), false, 0L, List.of(), 0L, 0L, -1, false);
@@ -85,11 +91,14 @@ public final class GhostRiderState {
 	}
 
 	public GhostRiderState copy() {
-		return new GhostRiderState(hasPower, transformed, formChangeAt, bonded, hellfire, vengeance, animId, animStart, abilityReadyAt,
-				blasting, chainUntil, chainTarget, spinUntil, shieldUntil, stareTarget, rushing);
+		GhostRiderState n = new GhostRiderState(hasPower, transformed, formChangeAt, bonded, hellfire, vengeance, animId, animStart,
+				abilityReadyAt, blasting, chainUntil, chainTarget, spinUntil, shieldUntil, stareTarget, rushing);
+		n.dayLockUntil = dayLockUntil;
+		return n;
 	}
 
-	public static final Codec<GhostRiderState> CODEC = RecordCodecBuilder.create(i -> i.group(
+	/** The first sixteen fields (a codec group holds at most sixteen); {@link #CODEC} adds the rest. */
+	private static final MapCodec<GhostRiderState> BASE = RecordCodecBuilder.mapCodec(i -> i.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
 			Codec.BOOL.optionalFieldOf("transformed", false).forGetter(s -> s.transformed),
 			Codec.LONG.optionalFieldOf("form_change_at", 0L).forGetter(s -> s.formChangeAt),
@@ -108,4 +117,12 @@ public final class GhostRiderState {
 			Codec.INT.optionalFieldOf("stare_target", -1).forGetter(s -> s.stareTarget),
 			Codec.BOOL.optionalFieldOf("rushing", false).forGetter(s -> s.rushing)
 	).apply(i, GhostRiderState::new));
+
+	public static final Codec<GhostRiderState> CODEC = RecordCodecBuilder.create(i -> i.group(
+			BASE.forGetter(s -> s),
+			Codec.LONG.optionalFieldOf("day_lock_until", 0L).forGetter(s -> s.dayLockUntil)
+	).apply(i, (s, lock) -> {
+		s.dayLockUntil = lock;
+		return s;
+	}));
 }
