@@ -66,6 +66,9 @@ public final class BlueBeetleAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		if (KhajiDaTakeover.active(player)) {
+			return; // v0.16.5 (user): Khaji-Da has the body -- the player's keys do nothing
+		}
 		// v0.16.5 (user): the blaster (R) refires as fast as its 0.5 s cooldown allows -- it skips the 25-tick repeat guard
 		// (holding it can't double-fire: a running charge / blast ignores another press)
 		if (slot != AbilitySlot.SLOT_1 && !freshPress(player, slot, pressed)) {
@@ -154,6 +157,7 @@ public final class BlueBeetleAbilityManager {
 			case BlueBeetleAbilities.BUBBLE -> BlueBeetleConfig.BUBBLE_COOLDOWN;
 			case BlueBeetleAbilities.SPIKES -> BlueBeetleConfig.SPIKE_COOLDOWN;
 			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COOLDOWN;
+			case BlueBeetleAbilities.SHIELD -> BlueBeetleConfig.SHIELD_COOLDOWN;
 			case BlueBeetleAbilities.CAMO -> BlueBeetleConfig.CAMO_COOLDOWN;
 			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COOLDOWN;
 			case BlueBeetleAbilities.UNLEASH -> BlueBeetleConfig.UNLEASH_COOLDOWN;
@@ -171,7 +175,6 @@ public final class BlueBeetleAbilityManager {
 			case BlueBeetleAbilities.BUBBLE -> BlueBeetleConfig.BUBBLE_COST;
 			case BlueBeetleAbilities.SPIKES -> BlueBeetleConfig.SPIKE_COST;
 			case BlueBeetleAbilities.PULSE -> BlueBeetleConfig.PULSE_COST;
-			case BlueBeetleAbilities.SHIELD -> BlueBeetleConfig.SHIELD_COST_PER_SECOND;
 			case BlueBeetleAbilities.CAMO -> BlueBeetleConfig.CAMO_COST;
 			case BlueBeetleAbilities.BLADE -> BlueBeetleConfig.BLADE_COST;
 			case BlueBeetleAbilities.UNLEASH -> BlueBeetleConfig.ENERGY_MAX;

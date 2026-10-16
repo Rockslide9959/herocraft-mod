@@ -376,4 +376,200 @@ public class BlueBeetleGameTests implements FabricGameTest {
 		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.PULSE) <= BlueBeetleConfig.PULSE_COOLDOWN / 2 + 1, "half cooldowns");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- round 2: Khaji-Da's takeover, the shield cooldown
+
+	/** Unleashed (full bar), the takeover on. */
+	private static void unleashed(ServerPlayer p) {
+		BlueBeetle.setEnergy(p, BlueBeetleConfig.ENERGY_MAX);
+		BlueBeetleAbilities.unleash(p);
+	}
+
+	/** Like {@link #pump}, plus the movement his client would do with the velocity the takeover sends it. */
+	private static void drivePump(GameTestHelper helper, ServerPlayer p) {
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			BlueBeetle.tick(p);
+			p.move(net.minecraft.world.entity.MoverType.SELF, p.getDeltaMovement());
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void takeoverLocksThePlayersKeys(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 1.5, 2.0, 1.5);
+		mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 5.5, 100);
+		unleashed(p);
+		helper.assertTrue(BlueBeetle.unleashed(p) && com.projecthero.mod.bluebeetle.KhajiDaTakeover.active(p), "Khaji-Da has the body");
+		com.projecthero.mod.bluebeetle.BlueBeetleAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
+		helper.assertFalse(BlueBeetleAbilities.running(p, BlueBeetleAbilities.SPIKES), "the player's Z does nothing");
+		com.projecthero.mod.bluebeetle.BlueBeetleAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_5, true);
+		helper.assertFalse(BlueBeetle.shieldUp(p), "nor V");
+		BlueBeetle.toggleSuit(p);
+		helper.assertTrue(BlueBeetle.suited(p), "nor H");
+		BlueBeetle.toggleFlight(p);
+		helper.assertFalse(BlueBeetle.state(p).flying, "nor a double-tap jump");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void takeoverHuntsAHostileAndFightsWithTheKit(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 1.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 5.5, 280);
+		drivePump(helper, p);
+		unleashed(p);
+		helper.runAfterDelay(2, () -> helper.assertTrue(BlueBeetle.state(p).fx.takeTarget == z.getId(), "it picked the zombie"));
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(z.getHealth() < 280f || !z.isAlive(), "it fought: the zombie is at " + z.getHealth());
+			helper.assertTrue(com.projecthero.mod.bluebeetle.KhajiDaTakeover.lastMove(p) != null, "with the kit");
+			helper.assertTrue(p.distanceTo(z) < 4.5 || com.projecthero.mod.bluebeetle.KhajiDaTakeover.swings(p) > 0 || !z.isAlive(),
+					"and closed in, " + p.distanceTo(z) + " blocks off");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void takeoverFliesToATargetUpHigh(GameTestHelper helper) {
+		floor(helper);
+		for (int y = 2; y <= 4; y++) {
+			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(5, y, 5)), Blocks.STONE.defaultBlockState(), 3);
+		}
+		ServerPlayer p = beetle(helper, 1.5, 2.0, 1.5);
+		mob(helper, EntityType.ZOMBIE, 5.5, 5.0, 5.5, 100);
+		drivePump(helper, p);
+		unleashed(p);
+		helper.runAfterDelay(10, () -> {
+			helper.assertTrue(BlueBeetle.state(p).flying && p.getAbilities().flying, "the wings came out for a target 3 blocks up");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80, batch = "bluebeetle_takeover_alone") // alone: other tests' zombies would be in range
+	public void takeoverHandsBackWhenNothingHostileIsLeft(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 3.5);
+		pump(helper, p);
+		unleashed(p);
+		helper.runAfterDelay(BlueBeetleConfig.TAKEOVER_CLEAR_TICKS + 5, () -> {
+			helper.assertFalse(BlueBeetle.unleashed(p), "no hostiles: control back early");
+			helper.assertTrue(BlueBeetle.state(p).slowRegenUntil > helper.getLevel().getGameTime(), "drained as usual");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void takeoverPathGoesRoundAWall(GameTestHelper helper) {
+		floor(helper);
+		// a wall across z = 4, x 0..5, two high; the gap is at x 6..7
+		for (int x = 0; x <= 5; x++) {
+			for (int y = 2; y <= 3; y++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 4)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		BlockPos from = helper.absolutePos(new BlockPos(2, 2, 1));
+		BlockPos to = helper.absolutePos(new BlockPos(2, 2, 7));
+		java.util.List<BlockPos> path = com.projecthero.mod.bluebeetle.BeetlePath.find(helper.getLevel(), from, to, 0.5, 2000);
+		helper.assertTrue(path != null && !path.isEmpty(), "a path");
+		boolean round = path.stream().anyMatch(c -> c.getX() - helper.absolutePos(BlockPos.ZERO).getX() >= 6);
+		helper.assertTrue(round, "round the end of the wall, not through it: " + path);
+		helper.assertTrue(path.stream().noneMatch(c -> c.getZ() == helper.absolutePos(new BlockPos(0, 0, 4)).getZ()
+				&& c.getX() - helper.absolutePos(BlockPos.ZERO).getX() <= 5), "never through the wall");
+		// a one-block step it can jump up
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(6, 2, 4)), Blocks.STONE.defaultBlockState(), 3);
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(7, 2, 4)), Blocks.STONE.defaultBlockState(), 3);
+		java.util.List<BlockPos> up = com.projecthero.mod.bluebeetle.BeetlePath.find(helper.getLevel(), from, to, 0.5, 2000);
+		helper.assertTrue(up != null && up.stream().anyMatch(c -> c.getY() == from.getY() + 1), "it jumps up a block: " + up);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shieldHasAnEightSecondCooldown(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
+		BlueBeetleAbilities.raiseShield(p);
+		helper.assertTrue(BlueBeetle.shieldUp(p), "up");
+		BlueBeetleAbilities.lowerShield(p);
+		int cd = BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.SHIELD);
+		helper.assertTrue(cd >= BlueBeetleConfig.SHIELD_COOLDOWN - 1 && BlueBeetleConfig.SHIELD_COOLDOWN == 160, "8 s cooldown, got " + cd);
+		BlueBeetleAbilities.raiseShield(p);
+		helper.assertFalse(BlueBeetle.shieldUp(p), "not again straight away");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- round 2b: the shield works like Cyborg's Defense Matrix
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shieldSoaksAHundredPointsThenBreaks(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.5, 100);
+		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true); // hits unscaled, so the pool maths is exact
+		p.removeAllEffects();
+		BlueBeetleAbilities.raiseShield(p);
+		helper.assertTrue(BlueBeetle.shieldUp(p) && BlueBeetle.state(p).fx.shieldHp == BlueBeetleConfig.SHIELD_HP, "up with 100 points");
+		float hp = p.getHealth();
+		p.hurt(p.damageSources().mobAttack(z), 30f);
+		helper.assertTrue(p.getHealth() == hp, "a 30-point hit from the front is soaked");
+		float left = BlueBeetle.state(p).fx.shieldHp;
+		helper.assertTrue(Math.abs(left - (BlueBeetleConfig.SHIELD_HP - 30f)) < 0.01f, "70 points left, got " + left);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().mobAttack(z), 90f);
+		helper.assertFalse(BlueBeetle.shieldUp(p), "the pool ran dry: it broke");
+		helper.assertTrue(p.getHealth() < hp, "and the 20 it could not take went through");
+		helper.assertTrue(BlueBeetle.cooldownRemaining(p, BlueBeetleAbilities.SHIELD) >= BlueBeetleConfig.SHIELD_COOLDOWN - 1, "8 s cooldown after a break");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void shieldCostsNoEnergyWhileHeld(GameTestHelper helper) {
+		ServerPlayer p = beetle(helper, 2.5, 2.0, 2.5);
+		BlueBeetle.setEnergy(p, 50f);
+		pump(helper, p);
+		BlueBeetleAbilities.raiseShield(p);
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(BlueBeetle.shieldUp(p), "still up after 3 s");
+			helper.assertTrue(BlueBeetle.energy(p) >= 50f, "no drain, energy " + BlueBeetle.energy(p));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void takeoverShieldsAgainstAnIncomingArrow(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 1.5);
+		mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 6.5, 100);
+		unleashed(p);
+		Vec3 from = helper.absoluteVec(new Vec3(6.5, 3.4, 6.5));
+		net.minecraft.world.entity.projectile.Arrow a = new net.minecraft.world.entity.projectile.Arrow(helper.getLevel(), from.x, from.y, from.z,
+				new ItemStack(Items.ARROW), null);
+		Vec3 d = p.position().add(0, 1.0, 0).subtract(from).normalize();
+		a.shoot(d.x, d.y, d.z, 1.6f, 0f);
+		helper.getLevel().addFreshEntity(a);
+		p.tickCount++;
+		BlueBeetle.tick(p);
+		helper.assertTrue(BlueBeetle.shieldUp(p) && com.projecthero.mod.bluebeetle.KhajiDaTakeover.blocks(p) == 1, "the shield went up for the arrow");
+		helper.assertTrue(p.getLookAngle().dot(d) < -0.5, "turned to face it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void takeoverBlocksAMeleeThenStrikesBack(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = beetle(helper, 3.5, 2.0, 2.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 4.0, 280);
+		z.setTarget(p);
+		boolean[] sawShield = new boolean[1];
+		helper.onEachTick(() -> {
+			p.tickCount++;
+			BlueBeetle.tick(p);
+			z.setTarget(p);
+			sawShield[0] |= BlueBeetle.shieldUp(p);
+		});
+		unleashed(p);
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(sawShield[0], "the shield went up against the zombie next to him");
+			helper.assertTrue(z.getHealth() < 280f, "then came down to hit back, zombie at " + z.getHealth());
+			helper.succeed();
+		});
+	}
 }

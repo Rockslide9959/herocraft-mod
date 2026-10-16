@@ -23,7 +23,9 @@ public final class KhajiDa {
 		UNLEASHED(3, 0),
 		UNLEASH_END(2, 0),
 		WARN(3, 600),
-		KILL(4, 900);
+		KILL(4, 900),
+		/** v0.16.5: the takeover found nothing left to fight and hands the body back. */
+		TAKEOVER_CLEAR(3, 0);
 
 		final int lines;
 		final int cooldown;
@@ -58,7 +60,8 @@ public final class KhajiDa {
 			return;
 		}
 		Long any = LAST_ANY.get(player.getUUID());
-		boolean urgent = topic == Topic.BOND || topic == Topic.UNLEASHED || topic == Topic.UNLEASH_END || topic == Topic.ADAPTED;
+		boolean urgent = topic == Topic.BOND || topic == Topic.UNLEASHED || topic == Topic.UNLEASH_END || topic == Topic.ADAPTED
+				|| topic == Topic.TAKEOVER_CLEAR;
 		if (!urgent && any != null && now - any < 160 && now >= any) {
 			return;
 		}
