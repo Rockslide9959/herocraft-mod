@@ -39,7 +39,6 @@ public final class RevampBatchC {
 	public static final String FLAG_ABSORB = "p20.absorb";
 	public static final String FLAG_HANDS = "p20.hands";
 	public static final String FLAG_KINETIC = "p21.kinetic";
-	public static final String FLAG_AIR = "p24.air";
 	/** Synced visual values. */
 	public static final String VALUE_ELEMENT = "p20.element";
 	public static final String VALUE_FILL = "p20.fill";
@@ -71,7 +70,8 @@ public final class RevampBatchC {
 		MutationVisuals.registerValue(VALUE_KINETIC, p -> BatchCFx.ownsQuick(p, SHOCK)
 				? Math.round(BatchCFx.resourceQuick(p, SHOCK, "charge") / ShockwaveHandlers.MAX_CHARGE * 10) / 10.0
 				: 0);
-		MutationVisuals.registerFlag(FLAG_AIR, WindHandlers::airShell);
+		// 24 (v0.16.5 rework): the barrier / hurricane / bubble / glide / ride / flurry flags
+		WindHandlers.registerVisuals();
 	}
 
 	private static void registerMeters() {
@@ -96,15 +96,8 @@ public final class RevampBatchC {
 				ShockwaveHandlers.MAX_CHARGE, 0xFFFFB347, true, false));
 		MutationMeters.register(new Spec(SHOCK, "kd_progress", Kind.BUILD, Style.HAIRLINE, "Kinetic Detonation",
 				100f, 0xFFFFE0B0, false, false));
-		// 24 Wind: the wind reserve + the hurricane charge / storm and the wide blade
-		MutationMeters.register(new Spec(WIND, "tailwind", Kind.RESERVE, Style.METER, "Wind",
-				WindHandlers.MAX_WIND, 0xFFD8F4FF, true, false));
-		MutationMeters.register(new Spec(WIND, "ult_charge", Kind.BUILD, Style.HAIRLINE, "Hurricane",
-				100f, 0xFFB8E0FF, false, false));
-		MutationMeters.register(new Spec(WIND, "hurr", Kind.TIMER, Style.HAIRLINE, "Hurricane",
-				11 * 20f, 0xFF9FC8F0, false, false));
-		MutationMeters.register(new Spec(WIND, "blade_hold", Kind.BUILD, Style.HAIRLINE, "Wind Blade",
-				34f, 0xFFF0F8FF, false, false));
+		// 24 Wind (v0.16.5 rework): an always-on pale-blue Gust Hairline + the Hurricane / Air Bubble timers
+		WindHandlers.registerMeters();
 	}
 
 	private static final String[] ELEMENT_LABEL = { "Energy", "Energy - Fire", "Energy - Lightning", "Energy - Explosion",

@@ -317,7 +317,7 @@ or **lab devices**, found in rare research sites. The **Mutagenic**, **Heroic** 
 power you don't have yet.
 
 Own up to three at once: all their passives run permanently, and the one you select drives your ability keys. The
-experimental powers are being remade one by one; **five are available right now** (plus Super Speed, above), the rest
+experimental powers are being remade one by one; **six are available right now** (plus Super Speed, above), the rest
 return as they're rebuilt:
 
 - **Super Strength** -- six heavy-hitting keys, three passives and a superhero landing.
@@ -333,6 +333,11 @@ return as they're rebuilt:
   Slingshot, a bouncing **Rubber Ball**, a boulder-sized Hammer Fist, a Spring Stomp on stilts, a balloon that bounces
   arrows back, a parachute, 12-block Long Reach and a **Shape Shift** into a barrel or a chest. Run the meter dry and
   you go limp.
+- **Wind Manipulation** (reworked in 0.16.5) -- an air-bender on a **Gust** meter: crescent Wind Blades that cut
+  through whole crowds (or a held Blade Flurry), a Vacuum that drags enemies into one spot, a Wind Push that slams them
+  into walls, a Tailwind dash, an Updraft into an elytra-style **Glide**, a travelling **Tornado** that whirls mobs up and
+  flings them, a Hurricane wall, a Wind Barrier that blows arrows back, a **tornado you can ride** and an Air Bubble.
+  No fall damage, and arrows aimed at you often veer off.
 
 ---
 

@@ -241,3 +241,49 @@ Answered 2026-10-15:
 - **Test speed:** no preference picked. Section 5 lists the options.
 
 Still waiting on: your go-ahead (or changes) for each power, the three skin links, and which test-speed fixes to apply.
+
+---
+
+## 7. Wind Manipulation Rework: Experimental (mutation)
+
+**What was wrong:** it was switched off (`Powers.ENABLED`). It had eight keys (H Rideable Tornado, N Vacuum), a 575-point Wind reserve plus long cooldowns, a Tailwind stance toggle and only particle effects.
+
+**New design (user-approved):** an air-bender on a **Gust** meter. Six keys, each with a Shift version, no H or N. Every ability has a real model.
+
+- **Gust (0-100):** moves spend it; it refills 15 a second (25 above y 100).
+- **Getting it:** unchanged. The Atmospheric Pressure Serum inside an active Pressure Chamber / Industrial Fan Array. It returns to the power wheel and random serums.
+
+| Key | Tap | Shift |
+|---|---|---|
+| **R** | **Wind Blade:** a crescent that passes through enemies, 12 each. 8 Gust | **Blade Flurry** (hold): 4 blades a second at 6 each. 12 Gust a second |
+| **G** | **Vacuum:** pulls every enemy within 10 to the aim point and holds them 1 s. 20 Gust | **Wind Push:** a 10-block cone, huge knockback, 6 + wall-slam damage. 15 Gust |
+| **X** | **Tailwind:** a 14-block dash. 10 Gust | **Updraft:** launch 12 blocks up and open the glide. 15 Gust |
+| **Z** | **Tornado:** a travelling tornado that pulls in mobs, spins them 6 s and flings them, 4 a second. 35 Gust | **Hurricane:** a wind wall round you for 5 s; projectiles flung away, mobs pushed out. 30 Gust |
+| **V** | **Wind Barrier** (hold): projectiles in front are blown back. 6 Gust a second | **Glide** (toggle): elytra-like glide on the wind. Free |
+| **C** | **Rideable Tornado** (toggle): ride a tornado that carries you and bowls through mobs for 6. 8 Gust a second | **Air Bubble:** 20 s; breathe underwater, fire out, harmful gas / effects cleared round you. 20 Gust |
+
+**Passives:** no fall damage; arrows aimed at you veer off 30% of the time; no cobweb slow.
+
+**HUD:** mono keys, an always-on pale-blue **Gust** Hairline, and Hurricane / Air Bubble timers.
+
+**Models and animations:** a translucent swept crescent for the Wind Blade (with after-images); tornadoes as stacked, counter-rotating translucent rings inside a funnel skin over a dust swirl (the ridden one is a squat column with a flat top the hero stands on); a Vacuum vortex (spiral arms winding into a bright eye, rings collapsing inward); a Hurricane ring wall (two counter-turning streaked walls, racing rings, a dust skirt); a Wind Barrier swirl shield in front of the hero; an Air Bubble sphere; gust streak lines for Wind Push (a cone of streaks with pressure rings), Tailwind (trailing streaks) and the Glide; an Updraft column of rising rings. Cast poses for every move (slashes alternating sides, the pull, the two-palm push, the dash lean, arms up for the updraft, the overhead wind-up for the tornado, the cross-and-fling for the hurricane, held palms for the barrier, the spread glide, a surfer stance on the tornado, the cupped hands of the bubble).
+
+**Built (2026-10-16).** Where the spec above was silent, I decided the following:
+- **A move needs its full cost.** With too little Gust it is refused ("Not enough Gust"); nothing goes limp. A held move (Flurry, Barrier, the ridden tornado) ends when the meter runs dry.
+- **Gust refills only while no held move runs** (like Elasticity's Stretch), otherwise the Flurry, Barrier and ride would cost nothing.
+- **Wind Blade:** 1.6 blocks a tick, 30 blocks; it cuts each creature once and breaks up on the first block. The Flurry's blades are smaller, fly 24 blocks, fan out slightly and alternate hands; the first blade leaves at once.
+- **Vacuum:** opens at the aimed creature or block (up to 18 blocks, lifted off the floor). Everything within 10 of that point is drawn in over half a second, then held turning round the eye for 1 s, then dropped. No damage. It never moves bosses or creatures over 200 HP.
+- **Wind Push:** a ~40° cone; the shove is up to 3 blocks a tick, weaker at the far end. **The wall slam is 8** if the creature hits a wall within 1.5 s. Projectiles in the cone are blown away. Anything within 1.2 blocks is hit whatever way you face.
+- **Tailwind:** 2 blocks a tick for 7 ticks (re-applied every tick so ground friction can't eat it), along your look (kept level when you are on the ground looking ahead). No damage.
+- **Updraft:** a 1.5 block-a-tick launch (12 blocks under vanilla gravity); the Glide opens about 0.8 s in, at the top.
+- **Tornado:** touches down 2 blocks ahead and travels along your aim at 0.2 blocks a tick for 8 s (so a creature caught late still gets its 6 s). It catches what comes within ~2.4 blocks of its core and drags in everything within 7. Each one is whirled up the funnel for 6 s (4 damage at each full second, 24 in all), then flung out high. Nothing is caught twice; bosses are never carried.
+- **Hurricane:** a 4.5-block ring that follows you. Projectiles within ~7 blocks heading anywhere but out are flung outward and become yours; creatures inside are pushed out and round. No damage.
+- **Wind Barrier:** about a 120° cone in front, 5 blocks. Incoming projectiles go back at their shooter (or straight back) and become yours.
+- **Glide:** the same elytra hook as Elasticity's Parachute. No time limit; it ends on landing, in water, when you mount something or on Shift+V. Used on the ground it hops you up first.
+- **Rideable Tornado:** you stand on top (3.6 blocks up); it follows your look at 0.55 blocks a tick and hugs the ground. Each creature it runs into takes 6 and is thrown aside, at most once a second. C again, Sneak, or an empty meter ends it. Sneaking dismounts (vanilla), so the Shift moves are not usable while riding; Tailwind and Updraft are refused while riding.
+- **Air Bubble:** air is kept full; burning is put out every tick (lava still hurts); every 0.5 s it clears harmful effects from you and squadmates within 4 blocks and removes lingering gas clouds (area-effect clouds that are not yours) within ~5.5 blocks.
+- **Arrow veer:** every projectile on course to pass within ~1.6 blocks of your middle gets one 30% roll when it comes within 6 blocks; a hit turns it well aside at the same speed. Bosses' projectiles count too.
+- **No fall damage** now always (it was 80% less before, or none out of a glide).
+- **Removed:** the Wind reserve, the Tailwind stance (+Speed / jump / step / +10 ability damage), the old updraft columns, sprint-jump glides, the rocket-free elytra boosts, the 50% slower drowning, the air-shell overlay and its texture.
+- **Boss:** the Gravebound Wind boss now uses the new ids: Wind Blade, Wind Barrier (its cone blast that turns projectiles), Tailwind (a gust-dash into a close target and a shove), Vacuum, and Tornado (its storm round itself).
+- **Not done:** first person shows the barrier swirl (fainter) and the Hurricane wall but not your own Air Bubble or glide streaks (they would fill the screen). The ridden tornado and the Glide steering are untested in real multiplayer.

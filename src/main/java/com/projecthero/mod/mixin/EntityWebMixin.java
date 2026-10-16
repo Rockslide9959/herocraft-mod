@@ -31,7 +31,8 @@ public abstract class EntityWebMixin {
 	private void projecthero$spiderIgnoresWebbing(BlockState state, Vec3 motionMultiplier, CallbackInfo ci) {
 		Entity self = (Entity) (Object) this;
 		if (state.is(Blocks.COBWEB) && (SpiderWebs.movesFreelyThroughWebbing(self)
-				|| (self instanceof net.minecraft.world.entity.player.Player p && com.projecthero.mod.hulk.Hulk.isHulk(p)))) {
+				|| (self instanceof net.minecraft.world.entity.player.Player p && com.projecthero.mod.hulk.Hulk.isHulk(p))
+				|| com.projecthero.mod.hero.power.p24.WindHandlers.ignoresWebs(self))) { // v0.16.5: Wind Manipulation
 			ci.cancel();
 		}
 	}

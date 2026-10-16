@@ -11,8 +11,6 @@ import com.projecthero.mod.hero.power.p07.ElectrokinesisHandlers;
 import com.projecthero.mod.hero.power.p14.SonicScreamHandlers;
 import com.projecthero.mod.hero.power.p20.EnergyAbsorptionHandlers;
 import com.projecthero.mod.hero.power.p21.ShockwaveHandlers;
-import com.projecthero.mod.hero.power.p24.WindHandlers;
-import com.projecthero.mod.hero.power.p24.WindTornadoEntity;
 import com.projecthero.mod.hero.revamp.RevampBatchC;
 import com.projecthero.mod.hero.visual.MutationMeters;
 import com.projecthero.mod.hero.visual.MutationVisuals;
@@ -33,8 +31,7 @@ import net.minecraft.world.phys.Vec3;
 
 /** v0.13.22 mutation revamp, batch C: regression coverage for the reworked kits. */
 public class RevampBatchCGameTests implements FabricGameTest {
-	private static final String[] KEYS = { RevampBatchC.ELECTRO, RevampBatchC.SONIC, RevampBatchC.ENERGY, RevampBatchC.SHOCK,
-			RevampBatchC.WIND };
+	private static final String[] KEYS = { RevampBatchC.ELECTRO, RevampBatchC.SONIC, RevampBatchC.ENERGY, RevampBatchC.SHOCK }; // v0.16.5: Wind reworked (WindV0165GameTests)
 
 	// ---------------- helpers ----------------
 
@@ -101,14 +98,13 @@ public class RevampBatchCGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void batchVisualsAndMetersRegistered(GameTestHelper helper) {
 		for (String flag : new String[] { RevampBatchC.FLAG_CHARGED, RevampBatchC.FLAG_ECHO, RevampBatchC.FLAG_ABSORB,
-				RevampBatchC.FLAG_HANDS, RevampBatchC.FLAG_KINETIC, RevampBatchC.FLAG_AIR }) {
+				RevampBatchC.FLAG_HANDS, RevampBatchC.FLAG_KINETIC }) {
 			helper.assertTrue(MutationVisuals.registeredFlags().contains(flag), "visual flag " + flag + " registered");
 		}
 		helper.assertTrue(MutationMeters.get(RevampBatchC.ELECTRO, "ecell") != null, "Electrokinesis charge meter");
 		helper.assertTrue(MutationMeters.get(RevampBatchC.SONIC, "voice") != null, "Voice meter");
 		helper.assertTrue(MutationMeters.get(RevampBatchC.ENERGY, "energy") != null, "Energy meter");
 		helper.assertTrue(MutationMeters.get(RevampBatchC.SHOCK, "charge") != null, "Kinetic gauge");
-		helper.assertTrue(MutationMeters.get(RevampBatchC.WIND, "tailwind") != null, "Wind meter");
 		helper.succeed();
 	}
 
@@ -397,53 +393,5 @@ public class RevampBatchCGameTests implements FabricGameTest {
 		helper.assertTrue(ExperimentalPowers.getResource(p, shock, "kd_charging") > 0.5f, "a full gauge starts the charge-up");
 		release(p, 4);
 		helper.succeed();
-	}
-
-	// ---------------- 24 Wind ----------------
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_c_updraft")
-	public void windUpdraftOnTheGround(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, RevampBatchC.WIND);
-		Power wind = power(RevampBatchC.WIND);
-		p.setOnGround(true);
-		press(p, 3);
-		helper.assertTrue(WindHandlers.updrafts().stream().anyMatch(u -> u.owner().equals(p.getUUID())), "an updraft is raised");
-		helper.assertTrue(ExperimentalPowers.getResource(p, wind, "tailwind") < WindHandlers.MAX_WIND, "for Wind");
-		helper.assertFalse(ExperimentalPowers.cooldownReady(p, wind, wind.ability(AbilitySlot.SLOT_3)), "on cooldown");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void windGlideTogglesInTheAir(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, RevampBatchC.WIND);
-		p.setOnGround(false);
-		press(p, 3);
-		helper.assertTrue(WindHandlers.isGliding(p), "X in the air starts a glide");
-		helper.assertTrue(WindHandlers.airShell(p), "with the air shell");
-		press(p, 3);
-		helper.assertFalse(WindHandlers.isGliding(p), "and again stops it");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_c_tornado")
-	public void windTornadoCanBeRiddenAndDismissed(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, RevampBatchC.WIND);
-		press(p, 7);
-		helper.assertTrue(p.getVehicle() instanceof WindTornadoEntity, "H summons a tornado and mounts you on it");
-		WindTornadoEntity t = (WindTornadoEntity) p.getVehicle();
-		helper.assertTrue(p.getUUID().equals(t.owner()), "it is yours");
-		helper.assertTrue(t.life() <= WindTornadoEntity.MAX_LIFE, "with a bounded lifetime");
-		press(p, 7);
-		helper.assertTrue(p.getVehicle() == null && t.isRemoved(), "H again blows it out");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, batch = "revamp_c_vacuum", timeoutTicks = 80)
-	public void windVacuumSuffocates(GameTestHelper helper) {
-		ServerPlayer p = hero(helper, RevampBatchC.WIND);
-		IronGolem g = golemAhead(helper, p, 5.0);
-		press(p, 8);
-		helper.assertTrue(WindHandlers.vacuumActive(p), "Vacuum runs");
-		helper.succeedWhen(() -> helper.assertTrue(g.getHealth() < g.getMaxHealth(), "and suffocates what it drags in"));
 	}
 }
