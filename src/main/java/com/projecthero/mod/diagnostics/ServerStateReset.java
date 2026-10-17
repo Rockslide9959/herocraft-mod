@@ -176,6 +176,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.miraculous.MiraculousMod.clearSessionState();
 		// v0.16.6: open spawn-in calling offers
 		com.projecthero.mod.calling.SpawnCallings.clearSessionState();
+		// v0.16.6: keys waiting to be resolved as tap or hold
+		com.projecthero.mod.hero.HoldTap.clearSessionState();
 		// v0.16.5: Cyborg move sessions, hacked machines, hover flight grants
 		com.projecthero.mod.cyborg.CyborgMod.clearSessionState();
 		// v0.16.5: Blue Beetle move sessions, bubbles, Adaptation counts, Khaji-Da's lines, lent flight

@@ -56,6 +56,7 @@
   "gamerule.projectheroSpawnCallings": "Spawn-in callings (Green Lantern ring / Miraculous)",
   "hud.projecthero.move_list.shift": "Shift: %s",
   "hud.projecthero.move_list.hint": "Hold Left-Alt for the moves",
+  "hud.projecthero.move_list.hold": "Hold: %s",
   "hud.projecthero.miraculous.hidden": "%s is tucked away. Press N to call them out.",
   "message.projecthero.miraculous.kwami_hidden": "%s is hidden. Press N to call them out first.",
   "message.projecthero.miraculous.kwami_in_jewel": "%s is inside the Miraculous right now.",

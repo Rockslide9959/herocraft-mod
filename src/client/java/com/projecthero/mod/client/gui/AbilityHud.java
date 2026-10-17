@@ -182,6 +182,13 @@ public final class AbilityHud {
 
 			graphics.drawString(client.font, keyLabel(i), x + 2, y0 + 2, slot.isUtility() ? COLOR_KEY_UTILITY : keyColor, false);
 
+			// v0.16.6: a key with a hold move fills up while it is held (full = the hold move fires)
+			float hold = holdProgress(i, power.key(), ability.id(), gameTime);
+			if (hold > 0f) {
+				int h = Math.round((BOX - 2) * hold);
+				graphics.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, hold >= 1f ? 0xC0FFE27A : 0x80FFE27A);
+			}
+
 			if (cdRemain > 0) {
 				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
 				String secs = String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cdRemain / 20.0f));
@@ -199,8 +206,11 @@ public final class AbilityHud {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
 			for (int i = 0; i < slots; i++) {
 				Ability ability = power.ability(AbilitySlot.byNumber(i + 1));
+				// v0.16.6: and its hold move, when it has one (HoldTap)
+				Component holdMove = com.projecthero.mod.hero.HoldTap.hasHold(power.key(), ability.id())
+						? Component.translatable("hud.projecthero.move_list.hold", Component.translatable(ability.nameKey() + ".hold")) : null;
 				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(ability.nameKey()),
-						MoveListOverlay.shiftFromDescs(i, descKeys)));
+						MoveListOverlay.shiftFromDescs(i, descKeys), holdMove));
 			}
 			boolean extraLine = header != null || power.key().equals("power_19_shadow_manipulation")
 					|| power.key().equals("power_18_density_manipulation");
@@ -282,6 +292,28 @@ public final class AbilityHud {
 	private static final int COLOR_KEY_UTILITY = 0xFFE0C890;
 
 	/** The key actually bound to slot {@code i} (tracks rebinds; H / N are the Utility 1 / 2 keys). */
+	/** v0.16.6: game time each ability key went down (plain, no Sneak), or -1. */
+	private static final long[] HOLD_DOWN_SINCE = { -1, -1, -1, -1, -1, -1, -1, -1 };
+
+	/** 0..1 of the way to a key's hold move (0 = not held / no hold move / a Shift press). */
+	private static float holdProgress(int i, String powerKey, String abilityId, long gameTime) {
+		if (i >= HOLD_DOWN_SINCE.length || i >= com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS.length) {
+			return 0f;
+		}
+		boolean down = com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i].isDown();
+		if (!down || !com.projecthero.mod.hero.HoldTap.hasHold(powerKey, abilityId)) {
+			HOLD_DOWN_SINCE[i] = -1;
+			return 0f;
+		}
+		if (HOLD_DOWN_SINCE[i] < 0) {
+			HOLD_DOWN_SINCE[i] = net.minecraft.client.gui.screens.Screen.hasShiftDown() ? Long.MAX_VALUE : gameTime;
+		}
+		if (HOLD_DOWN_SINCE[i] == Long.MAX_VALUE) {
+			return 0f;
+		}
+		return Math.min(1f, (gameTime - HOLD_DOWN_SINCE[i]) / (float) com.projecthero.mod.hero.HoldTap.HOLD_TICKS);
+	}
+
 	private static String keyLabel(int i) {
 		net.minecraft.client.KeyMapping km = i < 6 ? com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS[i]
 				: i == 6 ? com.projecthero.mod.client.ModKeyBindings.POWER_SELECT

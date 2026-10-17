@@ -38,6 +38,13 @@ public interface AbilityHandler {
 	}
 
 	/**
+	 * v0.16.6: the key's HOLD move (only for abilities registered with {@link HoldTap#register}): fires once when the key
+	 * has been held {@link HoldTap#HOLD_TICKS}. Do the cost / cooldown checks here (the router does none for it).
+	 */
+	default void onHoldMove(AbilityContext ctx) {
+	}
+
+	/**
 	 * Runs every server tick for every ability of the player's active power (not just toggles). Use
 	 * for grab/charge/marker upkeep. Must be cheap and idempotent. {@code ctx.pressed()} is always
 	 * true here.

@@ -236,6 +236,16 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// v0.16.6: a key with a hold move (HoldTap) resolves tap vs hold itself; a tap replays the normal key-down below
+		if (HoldTap.onEdge(player, active, ability, slot, pressed, () -> runActivation(player, ability, handler,
+				new AbilityContext(player, active, ability, true), true))) {
+			return;
+		}
+		runActivation(player, ability, handler, ctx, pressed);
+	}
+
+	/** The activation-mode switch for one slot edge (split out in v0.16.6 so HoldTap can replay a tap). */
+	private static void runActivation(ServerPlayer player, Ability ability, AbilityHandler handler, AbilityContext ctx, boolean pressed) {
 		switch (ability.activation()) {
 			case INSTANT -> {
 				if (pressed) {
@@ -277,6 +287,8 @@ public final class AbilityRouter {
 	/** Called once per player per server tick (from {@code ProjectHeroMod}). */
 	public static void serverTick(ServerPlayer player) {
 		ExperimentalPowers.serverTick(player);
+		// v0.16.6: hold moves on mutation keys (a key held 0.6 s)
+		HoldTap.tick(player);
 		// v0.13.22: re-evaluate the mutation overlay flags everyone else sees (cheap: every 4th tick, syncs on change)
 		com.projecthero.mod.hero.visual.MutationVisuals.tick(player);
 		// Spider-Man's own upkeep runs regardless of which power holds the slots, because his
