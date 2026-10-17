@@ -44,6 +44,14 @@ public interface KwamiKit {
 	default void forget(java.util.UUID id) {
 	}
 
+	/**
+	 * CLIENT-SAFE (reads only the synced {@code MiraculousState}): whether a move on this key is running right now (the
+	 * HUD lights the key's box). Default: never.
+	 */
+	default boolean active(net.minecraft.world.entity.player.Player player, AbilitySlot slot) {
+		return false;
+	}
+
 	/** The two moves on one key: [plain, shift] ability ids (HUD, guide, PowerInfoScreen, lang). */
 	String[] idsOf(AbilitySlot slot);
 
