@@ -305,6 +305,10 @@ public class WaterV0165GameTests implements FabricGameTest {
 		helper.assertTrue(p.isAutoSpinAttack(), "a real riptide spin attack");
 		helper.assertTrue(p.getDeltaMovement().length() > 2.5, "a Riptide III launch, speed " + p.getDeltaMovement().length());
 		helper.assertTrue(WaterHandlers.damageFactor(p, p.damageSources().fall()) < 0, "no fall damage from the landing");
+		// v0.16.5 (user): still none after a long flight -- until he is down again
+		p.setOnGround(false);
+		tick(p, 120);
+		helper.assertTrue(WaterHandlers.damageFactor(p, p.damageSources().fall()) < 0, "no fall damage 6 s into the flight");
 		helper.succeed();
 	}
 

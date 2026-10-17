@@ -106,7 +106,10 @@ public final class CryokinesisHandlers {
 	public static final int PRISON_CD = 12 * 20;
 
 	// ---- X: Ice Slide / Ice Pillar ----
-	public static final int SLIDE_TICKS = 5 * 20;
+	/** v0.16.5 (user): the slide is a toggle now -- no time limit, it drains Cold while you ride. */
+	public static final float COST_SLIDE_PER_SECOND = 4.0f;
+	/** Step up a block on the slide without stopping (the client drives the ride; this is the attribute it reads). */
+	private static final ResourceLocation SLIDE_STEP = com.projecthero.mod.ProjectHeroMod.id("cryo_slide_step");
 	/** The slide's speed in blocks a tick (the client drives it). */
 	public static final double SLIDE_SPEED = 0.72;
 	private static final int SLIDE_ICE_TTL = 40;
@@ -449,7 +452,7 @@ public final class CryokinesisHandlers {
 		}
 		// Cold refills while neither drain is running
 		float c = res(p, "cold");
-		if (c < MAX_COLD && res(p, "beaming") < 0.5f && res(p, "armor") < 0.5f) {
+		if (c < MAX_COLD && res(p, "beaming") < 0.5f && res(p, "armor") < 0.5f && res(p, "slide") < 0.5f) {
 			set(p, "cold", Math.min(MAX_COLD, c + (inTheCold(p) ? COLD_REGEN_SNOW_PER_TICK : COLD_REGEN_PER_TICK)));
 		}
 		if (p.tickCount % 100 == 41) {
@@ -617,7 +620,8 @@ public final class CryokinesisHandlers {
 	// ================================================================ X: Ice Slide / Ice Pillar
 
 	private static void startSlide(ServerPlayer p) {
-		set(p, "slide", SLIDE_TICKS);
+		set(p, "slide", 1);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SLIDE_STEP, 0.65, AttributeModifier.Operation.ADD_VALUE);
 		MutationVisuals.play(p, "p09.slide");
 		AbilityHelpers.sound(p, SoundEvents.GLASS_PLACE, 1.0f, 0.8f);
 		if (p.onGround()) {
@@ -627,6 +631,7 @@ public final class CryokinesisHandlers {
 	}
 
 	public static void endSlide(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SLIDE_STEP);
 		if (res(p, "slide") > 0.5f) {
 			set(p, "slide", 0);
 			set(p, "fall_grace", FALL_GRACE_TICKS);
@@ -637,27 +642,33 @@ public final class CryokinesisHandlers {
 	/**
 	 * The ice ramp: every tick a 3-wide strip of packed ice under you and back along the way you came (the client drives
 	 * the ride itself -- forward along your look, climbing when you look up), melting 2 s behind you.
+	 *
+	 * <p>v0.16.5 (user: "remove the time limit ... should be toggleable", "ice blocks spawn on me then i cant move",
+	 * "descending with the power is hard"): it runs until X again or the Cold runs out (4 a second, no refill while
+	 * riding); looking down lays no ice under you, so you ride down; and no ice ever goes where it would box anyone in.
 	 */
 	private static void slideTick(ServerPlayer p, ServerLevel level) {
-		float left = res(p, "slide");
-		if (left < 0.5f) {
+		if (res(p, "slide") < 0.5f) {
 			return;
 		}
 		if (!p.isAlive() || p.getAbilities().flying || p.isPassenger()) {
 			endSlide(p);
 			return;
 		}
-		if (left - 1 < 0.5f) {
+		if (res(p, "cold") <= 0.01f) {
 			endSlide(p); // sets the landing grace (it only acts while the slide is still on)
+			p.displayClientMessage(Component.translatable("message.projecthero.cryo.out_of_cold"), true);
 			return;
 		}
-		set(p, "slide", left - 1);
+		drain(p, COST_SLIDE_PER_SECOND / 20.0f);
 		MutationVisuals.ensure(p, "p09.slide");
 		p.resetFallDistance();
 		Vec3 mv = p.getKnownMovement();
 		Vec3 flat = new Vec3(mv.x, 0, mv.z);
 		Vec3 dir = flat.lengthSqr() > 1.0e-4 ? flat.normalize() : BatchBUtil.flatLook(p);
-		layRamp(level, p.position(), dir, mv.length());
+		if (p.getXRot() <= DESCEND_PITCH) {
+			layRamp(level, p.position(), dir, mv.length());
+		}
 		if (p.tickCount % 2 == 0) {
 			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 0.1, p.getZ(), 3, 0.3, 0.05, 0.3, 0.0);
 			level.sendParticles(ICE_DUST, p.getX(), p.getY() + 0.05, p.getZ(), 2, 0.25, 0.02, 0.25, 0.04);
@@ -667,7 +678,13 @@ public final class CryokinesisHandlers {
 		}
 	}
 
-	/** Packed ice under {@code feet}, 3 wide across {@code dir}, and back along the last {@code travelled} blocks. */
+	/** Looking further down than this (degrees) the slide rides down instead of laying ice under you. */
+	public static final float DESCEND_PITCH = 15.0f;
+
+	/**
+	 * Packed ice under {@code feet}, 3 wide across {@code dir}, and back along the last {@code travelled} blocks. Never
+	 * above the feet, and never in a cell where a creature stands (v0.16.5: ice used to close round the rider).
+	 */
 	static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled) {
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		int placed = 0;
@@ -677,6 +694,9 @@ public final class CryokinesisHandlers {
 			BlockPos under = BlockPos.containing(at.x, at.y - 0.6, at.z);
 			for (int s = -1; s <= 1; s++) {
 				BlockPos cell = BlockPos.containing(at.x + side.x * s, under.getY(), at.z + side.z * s);
+				if (cell.getY() + 1 > feet.y + 0.01 || !level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(cell)).isEmpty()) {
+					continue;
+				}
 				if (CryoIce.place(level, cell, PACKED, SLIDE_ICE_TTL)) {
 					placed++;
 				}
@@ -1094,8 +1114,6 @@ public final class CryokinesisHandlers {
 		int text = 0xFFCFEFFF;
 		MutationMeters.register(new MutationMeters.Spec(KEY, "cold", MutationMeters.Kind.RESERVE, MutationMeters.Style.HAIRLINE,
 				"Cold", MAX_COLD, 0xFF8FDCFF, true, true, false, text));
-		MutationMeters.register(new MutationMeters.Spec(KEY, "slide", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
-				"Ice Slide", SLIDE_TICKS, 0xFFBFEAFF, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "prison_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Ice Prison", PRISON_CD, 0xFF6F95AE, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "zero_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,

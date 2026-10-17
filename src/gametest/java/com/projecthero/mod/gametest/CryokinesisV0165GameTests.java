@@ -130,7 +130,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		var cold = MutationMeters.get(K, "cold");
 		helper.assertTrue(cold != null && cold.always() && cold.style() == MutationMeters.Style.HAIRLINE,
 				"Cold is an always-on Hairline");
-		for (String timer : new String[] { "slide", "prison_cd", "zero_cd" }) {
+		for (String timer : new String[] { "prison_cd", "zero_cd" }) {
 			helper.assertTrue(MutationMeters.get(K, timer) != null, timer + " timer on the HUD");
 		}
 		for (String flag : new String[] { "p09.beam", "p09.slide", "p09.armor", "p09.blade", "p09.pillar" }) {
@@ -276,7 +276,7 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 	// ---------------- X ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void iceSlideFiveSecondsAndItsRamp(GameTestHelper helper) {
+	public void iceSlideTogglesAndItsRamp(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		press(p, 3);
 		helper.assertTrue(CryokinesisHandlers.sliding(p), "X starts the slide");
@@ -290,8 +290,17 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().fall(), 8.0f);
 		assertNear(helper, hp, p.getHealth(), "no fall damage while sliding");
-		tick(p, CryokinesisHandlers.SLIDE_TICKS + 1);
-		helper.assertFalse(CryokinesisHandlers.sliding(p), "it lasts 5 s");
+		// v0.16.5 (user): no time limit -- it runs on, draining 4 Cold a second with no refill
+		tick(p, 200);
+		helper.assertTrue(CryokinesisHandlers.sliding(p), "still sliding after 10 s (a toggle now)");
+		assertNear(helper, 80 - CryokinesisHandlers.COST_SLIDE_PER_SECOND * 10, CryokinesisHandlers.cold(p), "4 Cold a second");
+		// the ramp never closes round a creature: a cell a zombie stands in stays clear
+		var z = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(1, 5, 4));
+		Vec3 zf = z.position().add(0, 0.7, 0);
+		CryokinesisHandlers.layRampForTest(helper.getLevel(), zf, new Vec3(0, 0, 1));
+		helper.assertFalse(helper.getLevel().getBlockState(z.blockPosition()).is(Blocks.PACKED_ICE), "no ice where the zombie stands");
+		press(p, 3);
+		helper.assertFalse(CryokinesisHandlers.sliding(p), "X again steps off");
 		helper.assertTrue(CryokinesisHandlers.fallSafe(p), "with a 3 s landing grace");
 		helper.succeed();
 	}

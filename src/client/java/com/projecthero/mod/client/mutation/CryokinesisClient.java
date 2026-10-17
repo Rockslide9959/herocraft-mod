@@ -308,22 +308,41 @@ public final class CryokinesisClient {
 	 * The ride, on the local player: forward along the look at {@link CryokinesisHandlers#SLIDE_SPEED}, climbing when you
 	 * look up (the server lays the ramp under you), dropping when you look down.
 	 */
+	private static double rideX = Double.NaN;
+	private static double rideZ;
+
 	private static void slideRide(LocalPlayer p) {
 		if (!MutationVisuals.hasFlag(p, "p09.slide") || p.getAbilities().flying || p.isPassenger()) {
+			rideX = Double.NaN;
 			return;
 		}
 		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
 		double speed = CryokinesisHandlers.SLIDE_SPEED;
-		double dx = -Mth.sin(yaw) * speed;
-		double dz = Mth.cos(yaw) * speed;
 		Vec3 v = p.getDeltaMovement();
+		// v0.16.5 (user: "make it smoother"): ease into the speed and the turns instead of snapping to them. The eased
+		// velocity is kept here, not read back off the player, so ground friction never drags the ride down.
+		if (Double.isNaN(rideX)) {
+			rideX = v.x;
+			rideZ = v.z;
+		}
+		rideX = Mth.lerp(0.35, rideX, -Mth.sin(yaw) * speed);
+		rideZ = Mth.lerp(0.35, rideZ, Mth.cos(yaw) * speed);
+		double dx = rideX;
+		double dz = rideZ;
 		double vy = v.y;
 		float pitch = p.getXRot();
 		if (pitch < -12.0f) {
 			double climb = Math.min(0.42, speed * Mth.sin(-pitch * Mth.DEG_TO_RAD));
 			vy = Math.max(vy, climb);
-		} else if (pitch < 20.0f && vy < 0 && !p.onGround()) {
+		} else if (pitch > CryokinesisHandlers.DESCEND_PITCH) {
+			// look down to come down: no ice is laid under you, you ride down the slope you look along
+			double want = -Math.min(0.9, speed * Mth.sin(pitch * Mth.DEG_TO_RAD) * 1.2);
+			vy = p.onGround() ? vy : Mth.lerp(0.3, vy, want);
+		} else if (vy < 0 && !p.onGround()) {
 			vy = Math.max(vy, -0.12); // glide down gently onto the ice
+		}
+		if (p.horizontalCollision && pitch <= CryokinesisHandlers.DESCEND_PITCH) {
+			vy = Math.max(vy, 0.42); // a wall too tall to step: hop it instead of grinding to a stop
 		}
 		if (p.isInWater()) {
 			vy = Math.max(vy, 0.1);

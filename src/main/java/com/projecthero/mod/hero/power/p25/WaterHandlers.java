@@ -388,6 +388,7 @@ public final class WaterHandlers {
 		if (w < MAX_WATER && !held) {
 			set(p, METER, Math.min(MAX_WATER, w + regenPerSecond(p) / 20.0f));
 		}
+		ripAirTick(p);
 		jetTick(p, level);
 		shieldTick(p, level);
 		surfTick(p, level);
@@ -575,8 +576,25 @@ public final class WaterHandlers {
 		AbilityHelpers.launchSelf(p, p.getDeltaMovement().add(v));
 		p.startAutoSpinAttack(RIPTIDE_SPIN_TICKS, RIPTIDE_DAMAGE, ItemStack.EMPTY);
 		set(p, "nofall", 60);
+		// v0.16.5 (user): no fall damage after a Riptide -- whatever the launch, until you are down again
+		set(p, "rip_air", 1);
+		set(p, "rip_t", 0);
 		AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.8, p.getZ(), 30, 0.4, 0.6, 0.4, 0.3);
 		p.level().playSound(null, p, SoundEvents.TRIDENT_RIPTIDE_3.value(), SoundSource.PLAYERS, 1.0f, 1.0f);
+	}
+
+	/** After a Riptide: falls do nothing until you are back on the ground (or in water), however long the flight. */
+	private static void ripAirTick(ServerPlayer p) {
+		if (res(p, "rip_air") < 0.5f) {
+			return;
+		}
+		float t = res(p, "rip_t") + 1;
+		set(p, "rip_t", t);
+		p.resetFallDistance();
+		if (t > 5 && (p.onGround() || p.isInWater() || p.onClimbable() || !p.isAlive())) {
+			set(p, "rip_air", 0);
+			set(p, "nofall", Math.max(res(p, "nofall"), 10)); // the landing tick itself
+		}
 	}
 
 	private static void startSurf(ServerPlayer p) {
@@ -898,7 +916,7 @@ public final class WaterHandlers {
 	 * fire and lava.
 	 */
 	public static float damageFactor(ServerPlayer p, DamageSource source) {
-		if (source.is(DamageTypeTags.IS_FALL) && (res(p, "nofall") > 0.5f || res(p, "surf") > 0.5f)) {
+		if (source.is(DamageTypeTags.IS_FALL) && (res(p, "nofall") > 0.5f || res(p, "surf") > 0.5f || res(p, "rip_air") > 0.5f)) {
 			p.resetFallDistance();
 			return -1.0f;
 		}
