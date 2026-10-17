@@ -124,7 +124,12 @@
 		"ItemInHandLayerGunMixin",
 		"ItemInHandRendererGunMixin",
 		"GuiGunCrosshairMixin",
-		"CityVillagerSwingMixin"
+		"CityVillagerSwingMixin",
+		"RenaRougeFirstPersonArmMixin",
+		"RenaRougeFluteHandMixin",
+		"RenaRougeCamouflageMixin",
+		"RenaRougeHeldItemMixin",
+		"RenaRougeArmorMixin"
 	],
 	"client": [],
 	"server": [],
