@@ -1,0 +1,371 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.6 ring model screenshots. Fake players wear / hold the rings, the local player is the
+ * camera (and the first-person subject). Enabled by run/ring_v0166.flag; the flag file's first line is the shot prefix.
+ */
+public final class RingHarness {
+	public static boolean hideHud;
+	public static boolean pawTest;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static String prefix = "x";
+	private static Vec3 origin;
+	private static ServerPlayer glWide, glSlim, flWide, flSlim, holder;
+
+	private RingHarness() {
+	}
+
+	public static void init() {
+		Path flag = Path.of("ring_v0166.flag");
+		if (!Files.exists(flag)) {
+			return;
+		}
+		try {
+			String s = Files.readString(flag).trim();
+			if (!s.isEmpty()) {
+				prefix = s;
+			}
+		} catch (Exception e) {
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(RingHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[RING] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "ring-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[RING] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "ring_" + prefix + "_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		});
+		System.out.println("[RING] shot " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(RingHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks > 100) {
+			// the camera must hover: a falling camera drops ~0.4 blocks between a teleport and its shot
+			mc.player.getAbilities().flying = true;
+			mc.player.setDeltaMovement(Vec3.ZERO);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1600, 900);
+			System.out.println("[RING] local skin " + mc.player.getSkin().model());
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				if (com.projecthero.mod.hero.UniquePowers.RULE != null) {
+					level.getGameRules().getRule(com.projecthero.mod.hero.UniquePowers.RULE).set(false, p.server);
+				}
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		GameRules rules = new GameRules();
+		LevelSettings settings = new LevelSettings("Ring_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, rules, WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(net.minecraft.core.UUIDUtil.createOfflinePlayerUUID(name), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		System.out.println("[RING] fake " + name + " skin "
+				+ net.minecraft.client.resources.DefaultPlayerSkin.get(profile.getId()).model());
+		return f;
+	}
+
+	/** The camera: the local player at {@code eye} looking at {@code target}. */
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ItemStack flashRing() {
+		ItemStack ring = new ItemStack(com.projecthero.mod.flash.FlashSuit.RING);
+		ring.set(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents
+				.fromItems(java.util.List.of(new ItemStack(com.projecthero.mod.flash.FlashSuit.CHESTPLATE))));
+		return ring;
+	}
+
+	private static void flash(ServerPlayer p) {
+		com.projecthero.mod.flash.SpeedForce.grant(p);
+		com.projecthero.mod.flash.FlashRing.putOn(p, flashRing());
+	}
+
+	/**
+	 * Close-ups of {@code who}'s right hand (subject faces +Z, so the right hand is on -X). {@code key} names the shots.
+	 */
+	private static int handTour(Minecraft mc, int t, java.util.function.Supplier<ServerPlayer> who, String key) {
+		at(t, () -> server(mc, p -> {
+			Vec3 h = who.get().position().add(-0.37, 0.84, 0.0);
+			camera(p, h.add(-0.2, 0.12, 0.55), h);
+		}));
+		at(t + 6, () -> shot(mc, key + "_front"));
+		at(t + 7, () -> server(mc, p -> {
+			Vec3 h = who.get().position().add(-0.37, 0.84, 0.0);
+			camera(p, h.add(-0.6, 0.08, 0.05), h);
+		}));
+		at(t + 13, () -> shot(mc, key + "_outer"));
+		at(t + 14, () -> server(mc, p -> {
+			Vec3 h = who.get().position().add(-0.37, 0.84, 0.0);
+			camera(p, h.add(-0.45, 0.1, -0.4), h);
+		}));
+		at(t + 20, () -> shot(mc, key + "_outback"));
+		at(t + 21, () -> server(mc, p -> {
+			Vec3 h = who.get().position().add(-0.37, 0.84, 0.0);
+			camera(p, h.add(-0.15, 0.1, -0.6), h);
+		}));
+		at(t + 27, () -> shot(mc, key + "_back"));
+		at(t + 28, () -> server(mc, p -> {
+			Vec3 c = who.get().position().add(0, 1.0, 0);
+			camera(p, c.add(-1.2, 0.4, 2.2), c);
+		}));
+		at(t + 34, () -> shot(mc, key + "_body"));
+		// a punch: the ring has to ride the swing
+		at(t + 35, () -> server(mc, p -> {
+			Vec3 h = who.get().position().add(-0.36, 1.0, 0.0);
+			camera(p, h.add(-1.0, 0.3, 0.9), h.add(0, 0, 0.3));
+			who.get().swing(InteractionHand.MAIN_HAND, true);
+		}));
+		at(t + 37, () -> shot(mc, key + "_swing"));
+		return t + 42;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			glWide = fake(p, "RingWide2", origin.add(0, 0, 0));
+			com.projecthero.mod.greenlantern.GreenLantern.bond(glWide);
+			glSlim = fake(p, "RingE", origin.add(4, 0, 0));
+			com.projecthero.mod.greenlantern.GreenLantern.bond(glSlim);
+			flWide = fake(p, "RingA", origin.add(8, 0, 0));
+			flash(flWide);
+			flSlim = fake(p, "FlashSlim", origin.add(12, 0, 0));
+			flash(flSlim);
+			holder = fake(p, "RingB", origin.add(16, 0, 0));
+			holder.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(com.projecthero.mod.greenlantern.item.GreenLanternItems.POWER_RING));
+			holder.setItemInHand(InteractionHand.OFF_HAND, flashRing());
+			for (ServerPlayer f : new ServerPlayer[] { glWide, glSlim, flWide, flSlim, holder }) {
+				f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), 0f, 0f);
+				f.setYHeadRot(0f);
+				f.yBodyRot = 0f;
+			}
+			camera(p, origin.add(0, 2, -4), origin);
+		}));
+		// fake players are never ticked, so their equipment changes are never broadcast -- send them by hand
+		at(t + 20, () -> server(mc, p -> {
+			for (ServerPlayer f : new ServerPlayer[] { glWide, glSlim, flWide, flSlim, holder }) {
+				java.util.List<com.mojang.datafixers.util.Pair<net.minecraft.world.entity.EquipmentSlot, ItemStack>> eq = new java.util.ArrayList<>();
+				for (net.minecraft.world.entity.EquipmentSlot s : net.minecraft.world.entity.EquipmentSlot.values()) {
+					if (s != net.minecraft.world.entity.EquipmentSlot.BODY) {
+						eq.add(com.mojang.datafixers.util.Pair.of(s, f.getItemBySlot(s).copy()));
+					}
+				}
+				p.serverLevel().getChunkSource().broadcast(f,
+						new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(f.getId(), eq));
+			}
+		}));
+		t += 66;
+		t = handTour(mc, t, () -> glWide, "gl_wide");
+		t = handTour(mc, t, () -> glSlim, "gl_slim");
+		t = handTour(mc, t, () -> flWide, "flash_wide");
+		t = handTour(mc, t, () -> flSlim, "flash_slim");
+		at(t - 2, () -> pawTest = true);
+		t = handTour(mc, t, () -> flWide, "paw_wide");
+		at(t - 2, () -> pawTest = false);
+		// held in third person
+		at(t, () -> server(mc, p -> {
+			Vec3 c = holder.position().add(0, 0.8, 0);
+			camera(p, c.add(-0.2, 0.3, 1.6), c);
+		}));
+		at(t + 6, () -> shot(mc, "held_3p"));
+		at(t + 7, () -> server(mc, p -> {
+			Vec3 c = holder.position().add(0, 0.8, 0);
+			camera(p, c.add(-1.4, 0.3, 0.4), c);
+		}));
+		at(t + 13, () -> shot(mc, "held_3p_side"));
+		t += 16;
+		// on the ground
+		at(t, () -> server(mc, p -> {
+			Vec3 g = origin.add(0, 0, -6);
+			ItemEntity a = new ItemEntity(p.serverLevel(), g.x - 0.3, g.y + 0.2, g.z,
+					new ItemStack(com.projecthero.mod.greenlantern.item.GreenLanternItems.POWER_RING));
+			ItemEntity b = new ItemEntity(p.serverLevel(), g.x + 0.3, g.y + 0.2, g.z, flashRing());
+			for (ItemEntity e : new ItemEntity[] { a, b }) {
+				e.setDeltaMovement(Vec3.ZERO);
+				e.setNeverPickUp();
+				e.setUnlimitedLifetime();
+				p.serverLevel().addFreshEntity(e);
+			}
+		}));
+		at(t + 20, () -> server(mc, p -> {
+			Vec3 g = origin.add(0, 0.2, -6);
+			camera(p, g.add(0, 0.7, 1.1), g);
+		}));
+		at(t + 26, () -> shot(mc, "ground"));
+		at(t + 27, () -> server(mc, p -> p.serverLevel().setDayTime(18000L)));
+		at(t + 60, () -> shot(mc, "ground_night"));
+		at(t + 61, () -> server(mc, p -> p.serverLevel().setDayTime(6000L)));
+		t += 66;
+		// GUI (hotbar) + first person held
+		at(t, () -> server(mc, p -> {
+			camera(p, origin.add(0, 1.62, -12), origin.add(0, 1.4, -20));
+			p.getInventory().setItem(0, new ItemStack(com.projecthero.mod.greenlantern.item.GreenLanternItems.POWER_RING));
+			p.getInventory().setItem(1, flashRing());
+			p.getInventory().selected = 0;
+		}));
+		at(t + 2, () -> {
+			mc.player.getInventory().selected = 0;
+			mc.options.guiScale().set(4);
+			mc.resizeDisplay();
+		});
+		at(t + 8, () -> {
+			mc.options.hideGui = false;
+		});
+		at(t + 14, () -> shot(mc, "gui_hotbar"));
+		at(t + 15, () -> hideHud = true);
+		at(t + 20, () -> shot(mc, "fp_held_gl"));
+		at(t + 21, () -> mc.player.getInventory().selected = 1);
+		at(t + 28, () -> shot(mc, "fp_held_flash"));
+		at(t + 29, () -> {
+			mc.player.getInventory().selected = 3;
+			server(mc, p -> {
+				p.getInventory().selected = 3;
+				com.projecthero.mod.greenlantern.GreenLantern.bond(p);
+			});
+		});
+		t += 66;
+		at(t, () -> shot(mc, "fp_worn_gl"));
+		at(t + 1, () -> mc.player.setXRot(-40));
+		at(t + 4, () -> shot(mc, "fp_worn_gl_up"));
+		at(t + 5, () -> mc.player.setXRot(0));
+		at(t + 6, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 8, () -> shot(mc, "fp_worn_gl_swing"));
+		at(t + 14, () -> server(mc, p -> flash(p)));
+		t += 30;
+		at(t, () -> mc.player.setXRot(0));
+		at(t + 3, () -> shot(mc, "fp_worn_flash"));
+		at(t + 4, () -> mc.player.setXRot(-40));
+		at(t + 7, () -> shot(mc, "fp_worn_flash_up"));
+		at(t + 8, () -> mc.player.setXRot(0));
+		at(t + 9, () -> mc.player.swing(InteractionHand.MAIN_HAND));
+		at(t + 11, () -> shot(mc, "fp_worn_flash_swing"));
+		at(t + 20, () -> {
+			System.out.println("[RING] done");
+			mc.stop();
+		});
+	}
+}

@@ -31,7 +31,8 @@ import net.minecraft.world.entity.EquipmentSlot;
  *   <li><b>The Power Ring</b>: v0.14.3 redesign (still finger-sized, per v0.14.1's "not a bracelet"): a slim band round
  *   the ring finger at the front / outer corner of the knuckles, a dark raised bezel, a white-hot gem set in it and a
  *   soft halo of green light that breathes -- and flares whenever the ring is used. It sits a touch prouder over the
- *   suit's gauntlet and follows slim (Alex) arms.</li>
+ *   suit's gauntlet and follows slim (Alex) arms. v0.16.6: a real ring from {@link HandRing} (octagonal band, square
+ *   bezel, the raised Lantern emblem), drawn opaque, with the halo now a thin sheet of light over the emblem.</li>
  *   <li><b>The Emerald Gatling</b> (v0.14.3, Shift+X held): six spinning barrels of light built onto the fist.</li>
  *   <li><b>The Energy Blade</b> and <b>Mining Drill</b> while switched on (see
  *   {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}): a translucent full-bright blade out of the fist, or a
@@ -141,16 +142,20 @@ public final class GreenLanternHandRenderer {
 			// slim skin -- place the ring for a wide arm so it sits on the glove instead of inside it
 			HandRing.slimArm = false;
 		}
-		HandRing.draw(pose, vc, gap, forming > 0.05f ? BLAZING : HandRing.GREEN_LANTERN);
+		// v0.16.6: the ring itself goes in HandRing's opaque buffer, then the translucent halo (re-fetched after it)
+		HandRing.draw(pose, HandRing.buffer(buffers), gap, forming > 0.05f ? BLAZING : HandRing.GREEN_LANTERN);
+		vc = HardLightDraw.buffer(buffers);
 		// the halo: breathes softly, flares while the ring is working
 		float[] g = HandRing.gemCentre(gap);
-		float halo = busy ? 1.1f : 0.7f + 0.1f * breathe;
-		float haloAlpha = busy ? 0.4f : 0.1f + 0.1f * breathe;
+		// v0.16.6: a thin sheet of light lying over the emblem (and a wider, fainter one), not a glass cube round the whole
+		// ring -- the old 1.4 px box read as "a block on the hand"
+		float halo = busy ? 0.95f : 0.68f + 0.04f * breathe;
+		float haloAlpha = busy ? 0.42f : 0.14f + 0.1f * breathe;
 		pose.pushPose();
 		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
 		HandRing.place(pose, HandRing.GREEN_LANTERN, gap);
-		HandRing.box(vc, pose, g[0], g[1], g[2], halo, halo, halo * 0.6f, 0x35F075, haloAlpha);
-		HandRing.box(vc, pose, g[0], g[1], g[2], halo * 1.35f, halo * 1.35f, halo * 0.8f, 0x35F075, haloAlpha * 0.3f);
+		HandRing.box(vc, pose, g[0], g[1], g[2] - 0.06f, halo, halo, 0.05f, 0x5CFF8E, haloAlpha);
+		HandRing.box(vc, pose, g[0], g[1], g[2] - 0.12f, halo * 1.3f, halo * 1.3f, 0.03f, 0x35F075, haloAlpha * 0.35f);
 		if (forming > 0f) {
 			// a white-hot core, a big pulsing green glow round the whole fist, and rings of light pulsing out of it
 			float pulse = 0.5f + 0.5f * net.minecraft.util.Mth.sin(age * 1.3f);
