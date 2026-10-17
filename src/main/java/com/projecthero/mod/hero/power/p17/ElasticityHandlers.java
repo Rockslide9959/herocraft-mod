@@ -42,6 +42,8 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.block.Block;
@@ -71,7 +73,22 @@ public final class ElasticityHandlers {
 	// ---- Stretch ----
 	public static final float MAX_STRETCH = 100.0f;
 	/** 15 a second; twice that standing still. */
-	public static final float STRETCH_REGEN_PER_TICK = 15.0f / 20.0f;
+	/** v0.16.5 (user: "make stretch regenerate 3% per second, right now it regenerates too fast"): 3 a second, flat. */
+	public static final float STRETCH_REGEN_PER_TICK = 3.0f / 20.0f;
+
+	// ---- Gear 2 (user, v0.16.5) ----
+	/** Sneak + use a Lava Bucket: the blood pumps -- Gear Second for this long. */
+	public static final int GEAR2_TICKS = 150 * 20;
+	/** ...then the body pays for it: worn out for this long (no Gear 2 again until it has passed). */
+	public static final int GEAR2_FATIGUE_TICKS = 45 * 20;
+	/** In Gear 2: moves cost half the Stretch, it refills twice as fast, you are much faster and hit harder. */
+	public static final float GEAR2_COST_FACTOR = 0.5f;
+	public static final double GEAR2_SPEED = 0.6;
+	public static final double GEAR2_DAMAGE = 0.5;
+	public static final double GEAR2_ATTACK_SPEED = 0.6;
+	private static final ResourceLocation GEAR2_SPEED_ID = com.projecthero.mod.ProjectHeroMod.id("elastic_gear2_speed");
+	private static final ResourceLocation GEAR2_DAMAGE_ID = com.projecthero.mod.ProjectHeroMod.id("elastic_gear2_damage");
+	private static final ResourceLocation GEAR2_ATTACK_SPEED_ID = com.projecthero.mod.ProjectHeroMod.id("elastic_gear2_attack_speed");
 	/** v0.16.5 (user): going limp lasts a flat 8 seconds (no moves, Slowness II), however fast the meter refills. */
 	public static final int LIMP_TICKS = 8 * 20;
 
@@ -314,6 +331,9 @@ public final class ElasticityHandlers {
 	/** Spends Stretch. The move that empties the meter still happens; then you go limp. */
 	public static void spend(ServerPlayer p, float amount) {
 		seed(p);
+		if (gear2(p)) {
+			amount *= GEAR2_COST_FACTOR;
+		}
 		float s = Math.max(0.0f, res(p, "stretch") - amount);
 		set(p, "stretch", s);
 		if (s <= 0.01f && !limp(p)) {
@@ -375,7 +395,115 @@ public final class ElasticityHandlers {
 
 	// ================================================================ registration
 
+	// ================================================================ Gear 2
+
+	/** Gear Second is running (client-safe). */
+	public static boolean gear2(Player p) {
+		return owns(p) && resAny(p, "gear2") > 0.5f;
+	}
+
+	/** Worn out after a Gear 2 (client-safe). */
+	public static boolean gear2Fatigued(Player p) {
+		return owns(p) && resAny(p, "gear2_fatigue") > 0.5f;
+	}
+
+	/**
+	 * v0.16.5 (user: "add gear 2 ... right clicking a lava bucket ... last 2 or 3 minutes ... a drawback once it ends"):
+	 * Sneak + use a Lava Bucket and the heat of it drives your blood like a pump. Gear 2 for 2.5 minutes: +60% speed,
+	 * +50% melee, faster swings, moves at half the Stretch and it refills twice as fast, the skin flushed pink and
+	 * steaming. When it ends you go limp and are worn out for 45 s (Slowness II, Weakness II, Mining Fatigue, hungry).
+	 */
+	private static net.minecraft.world.InteractionResultHolder<ItemStack> gear2Use(Player player, Level level,
+			net.minecraft.world.InteractionHand hand) {
+		ItemStack held = player.getItemInHand(hand);
+		if (!held.is(net.minecraft.world.item.Items.LAVA_BUCKET) || !player.isShiftKeyDown() || player.isSpectator() || !owns(player)) {
+			return net.minecraft.world.InteractionResultHolder.pass(held);
+		}
+		if (player instanceof ServerPlayer sp) {
+			if (gear2(sp)) {
+				sp.displayClientMessage(Component.translatable("message.projecthero.elasticity.gear2_already"), true);
+				return net.minecraft.world.InteractionResultHolder.fail(held);
+			}
+			if (gear2Fatigued(sp) || limp(sp)) {
+				sp.displayClientMessage(Component.translatable("message.projecthero.elasticity.gear2_tired"), true);
+				return net.minecraft.world.InteractionResultHolder.fail(held);
+			}
+			startGear2(sp);
+			if (!sp.getAbilities().instabuild) {
+				sp.setItemInHand(hand, new ItemStack(net.minecraft.world.item.Items.BUCKET));
+			}
+		}
+		return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), level.isClientSide());
+	}
+
+	public static void startGear2(ServerPlayer p) {
+		set(p, "gear2", GEAR2_TICKS);
+		set(p, "gear2_fatigue", 0);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, GEAR2_SPEED_ID, GEAR2_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, GEAR2_DAMAGE_ID, GEAR2_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, GEAR2_ATTACK_SPEED_ID, GEAR2_ATTACK_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		ServerLevel level = AbilityHelpers.level(p);
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.4, 0.8, 0.4, 0.06);
+		AbilityHelpers.sound(p, SoundEvents.LAVA_EXTINGUISH, 1.2f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.4f, 1.3f);
+		p.displayClientMessage(Component.translatable("message.projecthero.elasticity.gear2_on"), true);
+		MutationVisuals.play(p, "p17.gear2");
+	}
+
+	/** Gear 2 ends (timer, death, power removed): the drawback follows unless {@code quiet}. */
+	public static void endGear2(ServerPlayer p, boolean quiet) {
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, GEAR2_SPEED_ID);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, GEAR2_DAMAGE_ID);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, GEAR2_ATTACK_SPEED_ID);
+		if (res(p, "gear2") < 0.5f) {
+			return;
+		}
+		set(p, "gear2", 0);
+		if (quiet) {
+			return;
+		}
+		// the drawback: the body gives out
+		set(p, "gear2_fatigue", GEAR2_FATIGUE_TICKS);
+		set(p, "stretch", 0);
+		goLimp(p);
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, GEAR2_FATIGUE_TICKS, 1, false, false, true));
+		p.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, GEAR2_FATIGUE_TICKS, 1, false, false, true));
+		p.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, GEAR2_FATIGUE_TICKS, 0, false, false, true));
+		p.getFoodData().addExhaustion(24.0f);
+		p.displayClientMessage(Component.translatable("message.projecthero.elasticity.gear2_off"), true);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_BREATH, 1.0f, 0.6f);
+	}
+
+	private static void gear2Tick(ServerPlayer p, ServerLevel level) {
+		float fatigue = res(p, "gear2_fatigue");
+		if (fatigue > 0.5f) {
+			set(p, "gear2_fatigue", fatigue - 1);
+		}
+		float left = res(p, "gear2");
+		if (left < 0.5f) {
+			return;
+		}
+		if (!p.isAlive()) {
+			endGear2(p, true);
+			return;
+		}
+		if (left - 1 < 0.5f) {
+			endGear2(p, false);
+			return;
+		}
+		set(p, "gear2", left - 1);
+		MutationVisuals.ensure(p, "p17.gear2");
+		// the steam coming off the skin
+		if (p.tickCount % 3 == 0) {
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.4 + p.getRandom().nextDouble() * 1.3, p.getZ(), 2, 0.25, 0.1, 0.25, 0.02);
+		}
+		if (p.tickCount % 30 == 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRE_EXTINGUISH, net.minecraft.sounds.SoundSource.PLAYERS, 0.25f, 1.6f);
+		}
+	}
+
 	public static void register() {
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(ElasticityHandlers::gear2Use);
 		// v0.16.5 (user: "make the parachute glide work the same as elytra"): the open canopy is a custom elytra -- vanilla
 		// elytra flight (steer with your look, dive for speed, pull up to climb) for as long as it is out
 		net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents.CUSTOM.register((entity, tickElytra) ->
@@ -641,14 +769,13 @@ public final class ElasticityHandlers {
 				set(p, timer, v - 1);
 			}
 		}
-		// Stretch refills while nothing held is running -- twice as fast standing still
+		// Stretch refills while nothing held is running -- 3 a second (twice that in Gear 2)
 		float s = res(p, "stretch");
 		if (s < MAX_STRETCH && !channelling(p)) {
-			Vec3 mv = p.getKnownMovement();
-			boolean still = p.onGround() && mv.x * mv.x + mv.z * mv.z < 1.0e-4;
-			s = Math.min(MAX_STRETCH, s + STRETCH_REGEN_PER_TICK * (still ? 2.0f : 1.0f));
+			s = Math.min(MAX_STRETCH, s + STRETCH_REGEN_PER_TICK * (gear2(p) ? 2.0f : 1.0f));
 			set(p, "stretch", s);
 		}
+		gear2Tick(p, AbilityHelpers.level(p));
 		if (limp(p)) {
 			float left = res(p, "limp") - 1f;
 			set(p, "limp", Math.max(0f, left));
@@ -1639,7 +1766,11 @@ public final class ElasticityHandlers {
 					setReach(player, false);
 					set(player, "stomp", 0);
 					set(player, "arm_ticks", 0);
+					endGear2(player, true);
 				} else {
+					PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, GEAR2_SPEED_ID);
+					PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, GEAR2_DAMAGE_ID);
+					PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, GEAR2_ATTACK_SPEED_ID);
 					PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, BALL_SPEED);
 					PowerToggles.clearModifier(player, Attributes.SCALE, BALL_SCALE);
 					PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SHIELD_SPEED);
@@ -1685,6 +1816,7 @@ public final class ElasticityHandlers {
 		MutationVisuals.registerFlag("p17.limp", ElasticityHandlers::limp);
 		MutationVisuals.registerValue("p17.shape", ElasticityHandlers::shapeValue);
 		MutationVisuals.registerValue("p17.wrap", ElasticityHandlers::wrapId);
+		MutationVisuals.registerFlag("p17.gear2", ElasticityHandlers::gear2);
 		// v0.16.5 Long Reach: the arm reaches to what it grabs
 		MutationVisuals.registerFlag("p17.arm_aim", p -> armAim(p) != null);
 		MutationVisuals.registerValue("p17.aim_dx", p -> armAim(p) == null ? 0.0 : armAim(p).x);
@@ -1703,6 +1835,12 @@ public final class ElasticityHandlers {
 	public static void registerMeters() {
 		String k = KEY;
 		int text = 0xFFFFD2A8;
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "gear2",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Gear 2", GEAR2_TICKS, 0xFFFF6A7A, false, false, true, text));
+		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "gear2_fatigue",
+				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
+				"Worn out", GEAR2_FATIGUE_TICKS, 0xFF8A8A8A, false, false, true, text));
 		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "stretch",
 				com.projecthero.mod.hero.visual.MutationMeters.Kind.RESERVE, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
 				"Stretch", MAX_STRETCH, 0xFFFF9A3C, true, true, false, text));

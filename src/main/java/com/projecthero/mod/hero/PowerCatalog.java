@@ -417,7 +417,7 @@ final class PowerCatalog {
 				.ability(ab(k, "rubber_shield", SLOT_5, HOLD, 0))
 				.ability(ab(k, "long_reach", SLOT_6, HOLD, 0))
 				.passives(pk(k, "passive.stretch"), pk(k, "passive.fall"), pk(k, "passive.knockback"),
-						pk(k, "passive.rubber"), pk(k, "passive.squeeze"), pk(k, "passive.reach"))
+						pk(k, "passive.rubber"), pk(k, "passive.squeeze"), pk(k, "passive.reach"), pk(k, "passive.gear2"))
 				.serum(SerumRecipe.of("minecraft:leaping", pk(k, "serum"),
 						"minecraft:slime_ball", "minecraft:string", "minecraft:rabbit_hide"))
 				.trigger(MutationTrigger.of(Kind.SLIME_IMPACT, pk(k, "trigger"), "projecthero.device.gravity_distortion_rig"))

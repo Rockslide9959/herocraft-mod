@@ -93,6 +93,7 @@ public final class ElasticityClient {
 			}
 		});
 		MutationOverlays.register("p17.arm", ElasticityClient::armExtras);
+		MutationOverlays.register("p17.gear2", ElasticityClient::gear2Flush);
 		MutationOverlays.register("p17.coiling", ElasticityClient::renderCoil);
 		MutationOverlays.register("p17.gatling", ElasticityClient::gatlingGhosts);
 		// v0.16.5 (user): the canopy is the stretched torso itself now -- no grey membrane between the limbs
@@ -492,6 +493,14 @@ public final class ElasticityClient {
 	}
 
 	/** On the stretched-arm flag: the boulder fist of the Hammer Fist, and the coil twist while R / Z is held. */
+	/** v0.16.5 Gear 2: the skin flushed pink-red with the blood pumping, pulsing with the heartbeat. */
+	private static void gear2Flush(MutationOverlays.Context ctx) {
+		float beat = 0.5f + 0.5f * Mth.sin(ctx.ageInTicks() * 0.45f);
+		int alpha = (int) (70 + 60 * beat);
+		ctx.model().renderToBuffer(ctx.pose(), ctx.buffers().getBuffer(RenderType.entityTranslucent(ctx.player().getSkin().texture())),
+				ctx.light(), OverlayTexture.NO_OVERLAY, (alpha << 24) | 0xFF5A6E);
+	}
+
 	private static void armExtras(MutationOverlays.Context ctx) {
 		bakeParts();
 		MutationVisualState s = ctx.state();

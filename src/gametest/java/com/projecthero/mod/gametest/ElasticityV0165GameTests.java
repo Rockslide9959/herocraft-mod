@@ -140,14 +140,13 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(ElasticityHandlers.stretch(p) >= 99.9f, "the meter starts full");
 		press(p, 1); // tap R: Stretch Punch
 		assertNear(helper, 90.0f, ElasticityHandlers.stretch(p), "a punch costs 10");
-		// standing still: 30 a second
+		// v0.16.5 (user): 3 a second, standing or moving
 		ElasticityHandlers.setStretch(p, 40.0f);
 		tick(p, 20);
-		assertNear(helper, 70.0f, ElasticityHandlers.stretch(p), "standing still refills 30 a second");
-		// moving: 15 a second
+		assertNear(helper, 43.0f, ElasticityHandlers.stretch(p), "refills 3 a second");
 		p.setKnownMovement(new Vec3(0.2, 0.0, 0.0));
 		tick(p, 20);
-		assertNear(helper, 85.0f, ElasticityHandlers.stretch(p), "moving refills 15 a second");
+		assertNear(helper, 46.0f, ElasticityHandlers.stretch(p), "the same moving");
 		helper.succeed();
 	}
 
@@ -436,6 +435,33 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(p.isFallFlying(), "elytra flight");
 		shiftPress(p, 5);
 		helper.assertFalse(p.isFallFlying(), "folded up: no more elytra flight");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void gearTwoFromALavaBucketThenWornOut(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LAVA_BUCKET));
+		p.setShiftKeyDown(true);
+		var r = net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.invoker().interact(p, helper.getLevel(), net.minecraft.world.InteractionHand.MAIN_HAND);
+		p.setShiftKeyDown(false);
+		helper.assertTrue(r.getResult().consumesAction() && ElasticityHandlers.gear2(p), "Sneak + use a Lava Bucket: Gear 2");
+		helper.assertTrue(p.getMainHandItem().is(net.minecraft.world.item.Items.BUCKET), "the bucket empties");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0.15, "much faster");
+		ElasticityHandlers.setStretch(p, 100.0f);
+		press(p, 1); // a Stretch Punch: half the usual 10
+		assertNear(helper, 95.0f, ElasticityHandlers.stretch(p), "moves at half the Stretch");
+		ExperimentalPowers.setResource(p, Powers.byKey(K), "gear2", 2f, 100000f);
+		tick(p, 3);
+		helper.assertFalse(ElasticityHandlers.gear2(p), "it runs out");
+		helper.assertTrue(ElasticityHandlers.gear2Fatigued(p) && ElasticityHandlers.limp(p), "then limp and worn out");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.WEAKNESS) && p.hasEffect(net.minecraft.world.effect.MobEffects.DIG_SLOWDOWN), "the drawback");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) < 0.11, "the speed is gone");
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LAVA_BUCKET));
+		p.setShiftKeyDown(true);
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.invoker().interact(p, helper.getLevel(), net.minecraft.world.InteractionHand.MAIN_HAND);
+		p.setShiftKeyDown(false);
+		helper.assertFalse(ElasticityHandlers.gear2(p), "no Gear 2 again while worn out");
 		helper.succeed();
 	}
 }

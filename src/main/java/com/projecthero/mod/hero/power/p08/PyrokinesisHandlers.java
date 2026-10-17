@@ -116,7 +116,7 @@ public final class PyrokinesisHandlers {
 	public static final int DASH_TICKS = 5;
 	public static final float HEAT_DASH = 10.0f;
 	private static final int DASH_CD = 30;
-	public static final float HEAT_JET_PER_SECOND = 5.0f;
+	public static final float HEAT_JET_PER_SECOND = 2.0f; // v0.16.5 (user): less heat, so you can fly for a while (was 5)
 	private static final String JET_LANDING = "pyro_jet";
 	private static final float JET_FLY_SPEED = HeroFlight.HERO_FLYING_SPEED;
 
