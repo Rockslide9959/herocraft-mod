@@ -88,6 +88,7 @@
       "com.projecthero.mod.gametest.SupervillainRaidGameTests",
       "com.projecthero.mod.gametest.PunisherGameTests",
       "com.projecthero.mod.gametest.PunisherAimSlowGameTests",
+      "com.projecthero.mod.gametest.CatNoirGameTests",
       "com.projecthero.mod.gametest.PunisherWeaponAbilityV01518GameTests",
       "com.projecthero.mod.gametest.PunisherKitGameTests",
       "com.projecthero.mod.gametest.TitanGameTests",

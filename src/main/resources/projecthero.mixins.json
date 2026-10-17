@@ -28,6 +28,7 @@
 		"PlayerAttackComboMixin",
 		"LootTableDisabledPowerMixin",
 		"LivingEntityClimbMixin",
+		"CatNoirClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
 		"LivingEntityFrostMixin",
