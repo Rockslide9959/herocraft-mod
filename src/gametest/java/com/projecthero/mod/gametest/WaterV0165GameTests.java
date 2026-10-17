@@ -503,7 +503,9 @@ public class WaterV0165GameTests implements FabricGameTest {
 		AABB area = new AABB(at).inflate(48);
 		helper.runAfterDelay(120, () -> {
 			helper.assertTrue(waterBlocks(level, at) == before, "and none appear later, got " + (waterBlocks(level, at) - before));
-			int left = level.getEntitiesOfClass(WaterFxEntity.class, area, e -> e.ownerId() == p.getId()).size();
+			// (only where entities tick: a wave that rolled on into a frozen test chunk cannot run out there -- CI flake)
+			int left = level.getEntitiesOfClass(WaterFxEntity.class, area,
+					e -> e.ownerId() == p.getId() && level.isPositionEntityTicking(e.blockPosition())).size();
 			helper.assertTrue(left == 0, "every water body has run out on its own, " + left + " left");
 			helper.assertTrue(g.isAlive(), "(the dummy survived)");
 			helper.succeed();

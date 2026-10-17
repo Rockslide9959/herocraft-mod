@@ -388,8 +388,9 @@ public final class CityRepair {
 			return true;
 		}
 		BlockPos target = job.todo.get(job.index);
-		if ((job.phase == Phase.BUILD || v == null) && job.cooldown <= 1 && occupied(level, target)) {
-			// someone is standing in the gap: do it last (or wait for them to move)
+		if ((job.phase == Phase.BUILD || v == null) && job.cooldown <= 1 && occupied(level, target, v)) {
+			// a player (or the worker) is standing in the gap: do it last (or wait for them to move). Anyone else is lifted
+			// out by clearHole below -- v0.16.5 fix: a villager standing in the hole used to put the block off forever
 			if (v != null && v.getBoundingBox().intersects(new AABB(target))) {
 				stepAside(level, job, v, target);
 			}
@@ -622,8 +623,9 @@ public final class CityRepair {
 	}
 
 	/** True if a living thing is inside the block space at {@code p} (a block is never rebuilt into someone). */
-	private static boolean occupied(ServerLevel level, BlockPos p) {
-		return !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new AABB(p), e -> e.isAlive() && !e.isSpectator()).isEmpty();
+	private static boolean occupied(ServerLevel level, BlockPos p, Villager worker) {
+		return !level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new AABB(p),
+				e -> e.isAlive() && !e.isSpectator() && (e instanceof net.minecraft.world.entity.player.Player || e == worker)).isEmpty();
 	}
 
 	private static void setPhase(Job job, Phase phase) {
