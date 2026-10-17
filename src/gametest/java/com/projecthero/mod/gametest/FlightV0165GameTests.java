@@ -341,6 +341,25 @@ public class FlightV0165GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.6 (user): the Takeoff Blast follows the look -- level look = forward and a little up; looking down still lifts off. */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "flight_v0166_takeoff_look")
+	public void takeoffBlastFollowsTheLook(GameTestHelper helper) {
+		Vec3 level = FlightHandlers.takeoffDirection(new Vec3(0, 0, 1));
+		helper.assertTrue(level.z > 0.9 && level.y >= FlightHandlers.TAKEOFF_MIN_RISE - 1.0e-6 && Math.abs(level.length() - 1.0) < 1.0e-6,
+				"a level look blasts forward and up, got " + level);
+		Vec3 down = FlightHandlers.takeoffDirection(new Vec3(0.3, -0.95, 0));
+		helper.assertTrue(down.y >= FlightHandlers.TAKEOFF_MIN_RISE - 1.0e-6 && down.x > 0.5, "looking down still leaves the ground, got " + down);
+		Vec3 up = FlightHandlers.takeoffDirection(new Vec3(0, 1, 0));
+		helper.assertTrue(up.y > 0.999, "straight up stays straight up, got " + up);
+		ServerPlayer p = hero(helper);
+		p.setYRot(0f);
+		p.setXRot(0f);
+		shiftPress(p, 4);
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(v.z > 2.0 && v.y > 0.5, "launched along the look (+Z), got " + v);
+		helper.succeed();
+	}
+
 	// ---------------- V: Hover / Slipstream, C: Updraft ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)

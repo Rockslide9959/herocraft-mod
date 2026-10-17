@@ -34,6 +34,7 @@ public final class MiraculousClient {
 		com.projecthero.mod.client.miraculous.ladybug.LadybugClient.initialize();
 		com.projecthero.mod.client.miraculous.catnoir.CatNoirClient.initialize();
 		com.projecthero.mod.client.miraculous.renarouge.RenaRougeClient.initialize();
+		com.projecthero.mod.client.miraculous.hawkmoth.HawkMothClient.initialize();
 		// the core -- registered after the kits so the jewels draw over their suits
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {

@@ -113,6 +113,8 @@ public final class FlightHandlers {
 	public static final double BOOM_CONE = 0.76;
 	public static final double TAKEOFF_HEIGHT = 20.0;
 	public static final double TAKEOFF_RADIUS = 5.0;
+	/** v0.16.6: the lowest the Takeoff Blast may aim (sine of the angle above the horizon): looking down still lifts off. */
+	public static final double TAKEOFF_MIN_RISE = 0.35;
 
 	// ---- C: Updraft ----
 	public static final double UPDRAFT_RADIUS = 6.0;
@@ -513,8 +515,8 @@ public final class FlightHandlers {
 				return;
 			}
 			case DRIVE_RISE -> {
-				// a ceiling stops it (a block in the way, not merely a late movement packet)
-				if (age > 1 && !level.noCollision(p, p.getBoundingBox().move(0, 1.0, 0))) {
+				// a ceiling / wall stops it (a block in the way along the launch, not merely a late movement packet)
+				if (age > 1 && !level.noCollision(p, p.getBoundingBox().move(v.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : v.normalize()))) {
 					left = 1;
 				}
 				level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() - 0.3, p.getZ(), 3, 0.15, 0.2, 0.15, 0.01);
@@ -930,11 +932,25 @@ public final class FlightHandlers {
 		takeoffKnockback(p);
 		ensureFlying(p);
 		int ticks = (int) Math.round(TAKEOFF_HEIGHT / 3.0);
-		drive(p, new Vec3(0, 3.0, 0), ticks, DRIVE_RISE);
+		// v0.16.6 (user): the blast throws you the way you look (20 blocks along it), not just straight up -- never into the
+		// ground you stand on, so the look is tipped up to at least TAKEOFF_MIN_RISE
+		Vec3 dir = takeoffDirection(p.getLookAngle());
+		drive(p, dir.scale(3.0), ticks, DRIVE_RISE);
 		MutationVisuals.play(p, "p03.rise");
-		fx(p, FlightFxEntity.TAKEOFF, p.position().add(0, 0.05, 0), new Vec3(0, 1, 0), (float) TAKEOFF_RADIUS, groundBelow(p));
+		fx(p, FlightFxEntity.TAKEOFF, p.position().add(0, 0.05, 0), dir, (float) TAKEOFF_RADIUS, groundBelow(p));
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.9f, 1.3f);
 		AbilityHelpers.sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.4f, 0.7f);
+	}
+
+	/** The Takeoff Blast's launch direction: the look, tipped up so it always leaves the ground (unit vector). */
+	public static Vec3 takeoffDirection(Vec3 look) {
+		Vec3 l = look.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : look.normalize();
+		if (l.y >= TAKEOFF_MIN_RISE) {
+			return l;
+		}
+		double flat = Math.sqrt(Math.max(0.0, l.x * l.x + l.z * l.z));
+		double k = flat < 1.0e-6 ? 0.0 : Math.sqrt(1.0 - TAKEOFF_MIN_RISE * TAKEOFF_MIN_RISE) / flat;
+		return flat < 1.0e-6 ? new Vec3(0, 1, 0) : new Vec3(l.x * k, TAKEOFF_MIN_RISE, l.z * k);
 	}
 
 	/** Everything within 5 blocks is blown away from the launch point. Returns how many. */
