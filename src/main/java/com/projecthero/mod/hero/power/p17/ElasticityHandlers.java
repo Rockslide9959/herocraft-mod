@@ -73,8 +73,8 @@ public final class ElasticityHandlers {
 	// ---- Stretch ----
 	public static final float MAX_STRETCH = 100.0f;
 	/** 15 a second; twice that standing still. */
-	/** v0.16.5 (user: "make stretch regenerate 3% per second, right now it regenerates too fast"): 3 a second, flat. */
-	public static final float STRETCH_REGEN_PER_TICK = 3.0f / 20.0f;
+	/** v0.16.5 (user): 5 a second, flat (was 15 / 30 standing, then 3). */
+	public static final float STRETCH_REGEN_PER_TICK = 5.0f / 20.0f;
 
 	// ---- Gear 2 (user, v0.16.5) ----
 	/** Sneak + use a Lava Bucket: the blood pumps -- Gear Second for this long. */
@@ -769,7 +769,7 @@ public final class ElasticityHandlers {
 				set(p, timer, v - 1);
 			}
 		}
-		// Stretch refills while nothing held is running -- 3 a second (twice that in Gear 2)
+		// Stretch refills while nothing held is running -- 5 a second (twice that in Gear 2)
 		float s = res(p, "stretch");
 		if (s < MAX_STRETCH && !channelling(p)) {
 			s = Math.min(MAX_STRETCH, s + STRETCH_REGEN_PER_TICK * (gear2(p) ? 2.0f : 1.0f));

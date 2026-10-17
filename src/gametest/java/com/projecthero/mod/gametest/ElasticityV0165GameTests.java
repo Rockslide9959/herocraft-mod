@@ -140,13 +140,13 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		helper.assertTrue(ElasticityHandlers.stretch(p) >= 99.9f, "the meter starts full");
 		press(p, 1); // tap R: Stretch Punch
 		assertNear(helper, 90.0f, ElasticityHandlers.stretch(p), "a punch costs 10");
-		// v0.16.5 (user): 3 a second, standing or moving
+		// v0.16.5 (user): 5 a second, standing or moving
 		ElasticityHandlers.setStretch(p, 40.0f);
 		tick(p, 20);
-		assertNear(helper, 43.0f, ElasticityHandlers.stretch(p), "refills 3 a second");
+		assertNear(helper, 45.0f, ElasticityHandlers.stretch(p), "refills 5 a second");
 		p.setKnownMovement(new Vec3(0.2, 0.0, 0.0));
 		tick(p, 20);
-		assertNear(helper, 46.0f, ElasticityHandlers.stretch(p), "the same moving");
+		assertNear(helper, 50.0f, ElasticityHandlers.stretch(p), "the same moving");
 		helper.succeed();
 	}
 
