@@ -96,6 +96,11 @@ public final class WindHandlers {
 	public static final double DASH_BLOCKS = 14.0;
 	public static final int DASH_TICKS = 7;
 	public static final float COST_UPDRAFT = 15.0f;
+	/**
+	 * v0.16.5 (user): X while gliding is a Gust Boost -- a firework rocket for the glide. It spends ALL your Gust (at least
+	 * this much), and the more it spends the longer it pushes: {@link #boostTicks}.
+	 */
+	public static final float BOOST_MIN_GUST = 10.0f;
 	/** The launch that rises 12 blocks (vanilla gravity and drag). */
 	public static final double UPDRAFT_SPEED = 1.5;
 	/** ~the top of the 12-block rise: the glide opens. */
@@ -319,6 +324,10 @@ public final class WindHandlers {
 				if (p.isShiftKeyDown()) {
 					if (afford(ctx, COST_UPDRAFT)) {
 						updraft(p);
+					}
+				} else if (res(p, "glide") > 0.5f && p.isFallFlying()) {
+					if (afford(ctx, BOOST_MIN_GUST)) {
+						glideBoost(p); // gliding: X is a firework for the glide, not the dash
 					}
 				} else if (afford(ctx, COST_DASH)) {
 					tailwind(p);
@@ -834,7 +843,43 @@ public final class WindHandlers {
 		AbilityHelpers.sound(p, SoundEvents.BREEZE_IDLE_AIR, 1.0f, 1.2f);
 	}
 
+	/** How long a Gust Boost pushes for the Gust it spends: 10 ticks plus 0.3 a point (a full 100 = 2 s, a long-fuse rocket). */
+	public static int boostTicks(float gust) {
+		return 10 + Math.round(gust * 0.3f);
+	}
+
+	/** Pushing on a Gust Boost right now (synced as p24.boost: the client applies the rocket thrust). */
+	public static boolean boosting(Player p) {
+		return owns(p) && resAny(p, "boost") > 0.5f;
+	}
+
+	/** X while gliding: all the Gust goes into a blast of wind behind you -- an elytra firework rocket. */
+	public static void glideBoost(ServerPlayer p) {
+		float g = res(p, "gust");
+		set(p, "gust", 0);
+		set(p, "boost", boostTicks(g));
+		// a kick at once (the client takes over the steady thrust as soon as the flag reaches it)
+		Vec3 look = p.getLookAngle();
+		Vec3 v = p.getDeltaMovement();
+		AbilityHelpers.launchSelf(p, v.add(look.x * 0.1 + (look.x * 1.5 - v.x) * 0.5, look.y * 0.1 + (look.y * 1.5 - v.y) * 0.5,
+				look.z * 0.1 + (look.z * 1.5 - v.z) * 0.5));
+		ServerLevel level = level(p);
+		level.addFreshEntity(new WindFxEntity(level, p, WindFxEntity.DASH, 14, p.position(), p.getYRot(), p.getXRot()));
+		level.sendParticles(ParticleTypes.GUST_EMITTER_SMALL, p.getX(), p.getY() + 0.5, p.getZ(), 1, 0, 0, 0, 0);
+		MutationVisuals.play(p, "p24.dash");
+		AbilityHelpers.sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 0.8f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_JUMP, 1.2f, 0.7f);
+	}
+
 	private static void glideTick(ServerPlayer p, ServerLevel level) {
+		float boost = res(p, "boost");
+		if (boost > 0.5f) {
+			set(p, "boost", res(p, "glide") > 0.5f && p.isFallFlying() ? boost - 1 : 0);
+			if (p.tickCount % 2 == 0) {
+				Vec3 back = p.position().subtract(p.getLookAngle().scale(0.8));
+				level.sendParticles(ParticleTypes.CLOUD, back.x, back.y + 0.4, back.z, 2, 0.08, 0.08, 0.08, 0.01);
+			}
+		}
 		if (res(p, "glide") < 0.5f) {
 			return;
 		}
@@ -856,6 +901,7 @@ public final class WindHandlers {
 			return;
 		}
 		set(p, "glide", 0);
+		set(p, "boost", 0);
 		MutationVisuals.stopIf(p, "p24.glide");
 		if (p.isFallFlying()) {
 			p.stopFallFlying();
@@ -1105,6 +1151,7 @@ public final class WindHandlers {
 		MutationVisuals.registerFlag("p24.hurricane", WindHandlers::hurricane);
 		MutationVisuals.registerFlag("p24.bubble", WindHandlers::bubble);
 		MutationVisuals.registerFlag("p24.glide", WindHandlers::gliding);
+		MutationVisuals.registerFlag("p24.boost", WindHandlers::boosting);
 		MutationVisuals.registerFlag("p24.ride", WindHandlers::riding);
 		MutationVisuals.registerFlag("p24.flurry", WindHandlers::flurrying);
 		// the Hurricane's start, so every client can grow the wall in and fade it out

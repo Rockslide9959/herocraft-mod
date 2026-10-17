@@ -284,7 +284,7 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 	// ---------------- X ----------------
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void rockSurfRidesForEightSeconds(GameTestHelper helper) {
+	public void rockSurfTogglesWithAStepAssist(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		press(p, 3);
 		helper.assertTrue(GeokinesisHandlers.surfing(p), "surfing");
@@ -292,12 +292,17 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 		tick(p, 1);
 		Vec3 v = p.getDeltaMovement();
 		helper.assertTrue(v.z > 0.7, "carried forward fast, got " + v);
-		p.setOnGround(true);
-		for (int i = 0; i < GeokinesisHandlers.SURF_TICKS; i++) {
+		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT) >= 3.99, "a 4-block step assist");
+		float before = res(p, "earth");
+		for (int i = 0; i < 200; i++) {
 			p.setOnGround(true);
 			tick(p, 1);
 		}
-		helper.assertFalse(GeokinesisHandlers.surfing(p), "over after 8 s");
+		helper.assertTrue(GeokinesisHandlers.surfing(p), "v0.16.5: no time limit -- still surfing after 10 s");
+		assertNear(helper, before - GeokinesisHandlers.COST_SURF_PER_SECOND * 10, res(p, "earth"), "1 Earth a second, no refill while riding");
+		press(p, 3);
+		helper.assertFalse(GeokinesisHandlers.surfing(p), "X again steps off");
+		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT) < 1.0, "and the step assist goes");
 		helper.succeed();
 	}
 

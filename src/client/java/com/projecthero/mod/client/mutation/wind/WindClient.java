@@ -52,6 +52,29 @@ public final class WindClient {
 		EntityRendererRegistry.register(WindEntities.BLADE, WindBladeRenderer::new);
 		EntityRendererRegistry.register(WindEntities.FX, WindFxRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(WindClient::renderAttached);
+		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+			if (mc.player != null && !mc.isPaused()) {
+				boostTick(mc.player);
+			}
+		});
+	}
+
+	/**
+	 * v0.16.5 (user: "boost their glide by pressing x ... similarly to elytra and fireworks"): while a Gust Boost runs the
+	 * local glider gets exactly a firework rocket's push each tick -- toward 1.5 blocks a tick along the look.
+	 */
+	private static void boostTick(net.minecraft.client.player.LocalPlayer p) {
+		if (!p.isFallFlying() || !com.projecthero.mod.hero.visual.MutationVisuals.hasFlag(p, "p24.boost")) {
+			return;
+		}
+		net.minecraft.world.phys.Vec3 look = p.getLookAngle();
+		net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
+		p.setDeltaMovement(v.add(look.x * 0.1 + (look.x * 1.5 - v.x) * 0.5, look.y * 0.1 + (look.y * 1.5 - v.y) * 0.5,
+				look.z * 0.1 + (look.z * 1.5 - v.z) * 0.5));
+		if (p.tickCount % 2 == 0) {
+			p.level().addParticle(net.minecraft.core.particles.ParticleTypes.CLOUD, p.getX() - look.x, p.getY() + 0.4 - look.y, p.getZ() - look.z,
+					-look.x * 0.2, -look.y * 0.2, -look.z * 0.2);
+		}
 	}
 
 	// ================================================================== poses

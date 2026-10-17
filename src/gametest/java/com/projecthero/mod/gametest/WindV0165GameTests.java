@@ -482,4 +482,23 @@ public class WindV0165GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xWhileGlidingIsAGustBoost(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.moveTo(p.getX(), p.getY() + 3, p.getZ());
+		p.setOnGround(false);
+		WindHandlers.startGlide(p);
+		helper.assertTrue(p.isFallFlying(), "gliding (elytra flight)");
+		WindHandlers.setGust(p, 80f);
+		press(p, 3);
+		helper.assertTrue(WindHandlers.boosting(p), "v0.16.5: X while gliding is a Gust Boost, not the dash");
+		helper.assertTrue(WindHandlers.gust(p) < 0.01f, "it spends all the Gust");
+		assertNear(helper, WindHandlers.boostTicks(80f), res(p, "boost"), "pushing longer for more Gust");
+		helper.assertTrue(p.getDeltaMovement().length() > 0.7, "a firework kick along the look, got " + p.getDeltaMovement().length());
+		WindHandlers.setGust(p, 5f);
+		WindHandlers.endGlide(p);
+		helper.assertFalse(WindHandlers.boosting(p), "landing / closing the glide ends the boost");
+		helper.succeed();
+	}
 }

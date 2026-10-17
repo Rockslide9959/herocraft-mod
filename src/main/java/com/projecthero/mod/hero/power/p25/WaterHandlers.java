@@ -107,7 +107,8 @@ public final class WaterHandlers {
 	public static final double RIPTIDE_SPEED = 3.0; // a Riptide III trident
 	public static final float RIPTIDE_DAMAGE = 8.0f;
 	public static final int RIPTIDE_SPIN_TICKS = 20;
-	public static final int SURF_TICKS = 6 * 20;
+	/** v0.16.5 (user): Wave Ride has no time limit -- a toggle that drains Water while you ride (like the Ice Slide). */
+	public static final float COST_SURF_PER_SECOND = 1.0f;
 	/** Wave Ride's speed (blocks a tick), applied on the riding client. */
 	public static final double SURF_SPEED = 0.62;
 
@@ -385,7 +386,7 @@ public final class WaterHandlers {
 			}
 		}
 		// the meter refills -- not while a held move (the jet, the shield) is pouring it out
-		boolean held = res(p, "jet") > 0.5f || res(p, "shield") > 0.5f;
+		boolean held = res(p, "jet") > 0.5f || res(p, "shield") > 0.5f || res(p, "surf") > 0.5f;
 		float w = res(p, METER);
 		if (w < MAX_WATER && !held) {
 			set(p, METER, Math.min(MAX_WATER, w + regenPerSecond(p) / 20.0f));
@@ -603,7 +604,7 @@ public final class WaterHandlers {
 		if (!spend(p, COST_SURF)) {
 			return;
 		}
-		set(p, "surf", SURF_TICKS);
+		set(p, "surf", 1);
 		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SURF_STEP, 0.65, AttributeModifier.Operation.ADD_VALUE);
 		MutationVisuals.play(p, "p25.surf");
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.2f, 0.7f);
@@ -624,15 +625,19 @@ public final class WaterHandlers {
 	}
 
 	private static void surfTick(ServerPlayer p, ServerLevel level) {
-		float left = res(p, "surf");
-		if (left < 0.5f) {
+		if (res(p, "surf") < 0.5f) {
 			return;
 		}
-		if (left <= 1.0f || !p.isAlive()) {
+		if (!p.isAlive()) {
 			endSurf(p);
 			return;
 		}
-		set(p, "surf", left - 1);
+		if (res(p, METER) <= 0.01f) {
+			endSurf(p);
+			p.displayClientMessage(Component.translatable("message.projecthero.water.dry"), true);
+			return;
+		}
+		set(p, METER, Math.max(0.0f, res(p, METER) - COST_SURF_PER_SECOND / 20.0f));
 		p.resetFallDistance();
 		MutationVisuals.ensure(p, "p25.surf");
 		knockAside(p, level);
@@ -991,8 +996,6 @@ public final class WaterHandlers {
 		int text = 0xFFBFE3FF;
 		MutationMeters.register(new MutationMeters.Spec(KEY, METER, MutationMeters.Kind.RESERVE, MutationMeters.Style.HAIRLINE, "Water",
 				MAX_WATER, 0xFF3A8DFF, true, true, false, text));
-		MutationMeters.register(new MutationMeters.Spec(KEY, "surf", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, "Wave Ride",
-				SURF_TICKS, 0xFF7FC4FF, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "prison", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Water Prison", PRISON_TICKS, 0xFF7FC4FF, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "prison_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,

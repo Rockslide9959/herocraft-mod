@@ -112,7 +112,11 @@ public final class GeokinesisHandlers {
 	/** Ticks the target takes to sink to the bottom of the hole. */
 	public static final int SINKHOLE_SINK_TICKS = 8;
 	// ---- X ----
-	public static final int SURF_TICKS = 8 * 20;
+	/** v0.16.5 (user): Rock Surf has no time limit -- a toggle that drains Earth while you ride (like the Ice Slide). */
+	public static final float COST_SURF_PER_SECOND = 1.0f;
+	/** ...and a 4-block step assist: the slab rides straight up ledges up to 4 blocks tall. */
+	public static final double SURF_STEP_HEIGHT = 4.0;
+	private static final net.minecraft.resources.ResourceLocation SURF_STEP = com.projecthero.mod.ProjectHeroMod.id("geo_surf_step");
 	public static final double SURF_SPEED = 0.78;
 	/** Vertical launch that carries a creature ~12 blocks up (vanilla gravity and drag). */
 	public static final double PILLAR_LAUNCH = 1.49;
@@ -461,7 +465,7 @@ public final class GeokinesisHandlers {
 		}
 		// Earth refills -- fast on natural ground, slowly anywhere else -- except while it drains (armour, tunnel)
 		float e = res(p, "earth");
-		if (e < MAX_EARTH && res(p, "armor") < 0.5f && res(p, "tunnel") < 0.5f) {
+		if (e < MAX_EARTH && res(p, "armor") < 0.5f && res(p, "tunnel") < 0.5f && res(p, "surf") < 0.5f) {
 			set(p, "earth", Math.min(MAX_EARTH, e + (GeoTerrain.onNaturalGround(p) ? REGEN_NATURAL : REGEN_ELSEWHERE)));
 		}
 		boulderTick(p, level);
@@ -735,7 +739,7 @@ public final class GeokinesisHandlers {
 		spend(p, COST_SURF);
 		BlockState under = buildBlock(GeoTerrain.groundBlock(p));
 		set(p, "surf", 1);
-		set(p, "surf_t", SURF_TICKS);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SURF_STEP, SURF_STEP_HEIGHT - 0.6, AttributeModifier.Operation.ADD_VALUE);
 		set(p, "surf_air", 0);
 		set(p, "surf_block", Block.getId(under) + 1);
 		ctx.level().sendParticles(dust(under), p.getX(), p.getY() + 0.1, p.getZ(), 30, 0.6, 0.1, 0.6, 0.12);
@@ -745,11 +749,11 @@ public final class GeokinesisHandlers {
 	}
 
 	public static void endSurf(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SURF_STEP);
 		if (res(p, "surf") < 0.5f) {
 			return;
 		}
 		set(p, "surf", 0);
-		set(p, "surf_t", 0);
 		MutationVisuals.stopIf(p, "p05.surf");
 		set(p, "nofall", 40);
 		if (p.level() instanceof ServerLevel sl) {
@@ -761,23 +765,28 @@ public final class GeokinesisHandlers {
 	}
 
 	/**
-	 * Rock Surf: carried along the way you face on a slab of rock, hopping single steps, for 8 s (or until a second press,
-	 * water, flight, or 1.5 s in the air).
+	 * Rock Surf: carried along the way you face on a slab of rock, stepping straight up ledges up to 4 blocks, until a second
+	 * press, the Earth runs out (1 a second, no refill while you ride), water, flight, or 1.5 s in the air. v0.16.5 (user):
+	 * no time limit any more.
 	 */
 	private static void surfTick(ServerPlayer p, ServerLevel level) {
 		if (res(p, "surf") < 0.5f) {
 			return;
 		}
-		float left = res(p, "surf_t") - 1;
 		float air = p.onGround() ? 0 : res(p, "surf_air") + 1;
-		set(p, "surf_t", Math.max(0, left));
 		if (air != res(p, "surf_air")) {
 			set(p, "surf_air", air);
 		}
-		if (left <= 0 || air > 30 || p.isInWater() || p.getAbilities().flying || p.isPassenger() || !p.isAlive()) {
+		if (air > 30 || p.isInWater() || p.getAbilities().flying || p.isPassenger() || !p.isAlive()) {
 			endSurf(p);
 			return;
 		}
+		if (res(p, "earth") <= 0.01f) {
+			endSurf(p);
+			p.displayClientMessage(Component.translatable("message.projecthero.geo.tunnel_out"), true);
+			return;
+		}
+		spend(p, COST_SURF_PER_SECOND / 20.0f);
 		Vec3 flat = flatLook(p);
 		double vy = p.getDeltaMovement().y;
 		BlockPos ahead = BlockPos.containing(p.getX() + flat.x * 0.9, p.getY() + 0.1, p.getZ() + flat.z * 0.9);
@@ -1237,7 +1246,6 @@ public final class GeokinesisHandlers {
 		MutationMeters.register(new Spec(KEY, "earth", Kind.RESERVE, Style.HAIRLINE, "Earth", MAX_EARTH, 0xFFB08A55, true, true, false, text));
 		MutationMeters.register(new Spec(KEY, "lift", Kind.BUILD, Style.HAIRLINE, "Boulder", 100, 0xFF9C8E7A, false, false, true, text));
 		MutationMeters.register(new Spec(KEY, "armor", Kind.BUILD, Style.HAIRLINE, "EARTH ARMOR", 1.0f, 0xFF8A7A66, false, false, true, text));
-		MutationMeters.register(new Spec(KEY, "surf_t", Kind.TIMER, Style.HAIRLINE, "Rock Surf", SURF_TICKS, 0xFFB08A55, false, false, true, text));
 		MutationMeters.register(new Spec(KEY, "seismic", Kind.TIMER, Style.HAIRLINE, "Seismic Sense", SEISMIC_TICKS, 0xFFC9B27A, false, false, true, text));
 		MutationMeters.register(new Spec(KEY, "sink_cd", Kind.TIMER, Style.HAIRLINE, "Sinkhole", SINKHOLE_CD, 0xFF9A7A5A, false, false, true, text));
 	}

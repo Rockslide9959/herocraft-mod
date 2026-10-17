@@ -159,7 +159,7 @@ public class WaterV0165GameTests implements FabricGameTest {
 		helper.assertTrue(meter != null && meter.always() && meter.style() == MutationMeters.Style.HAIRLINE,
 				"Water is an always-on Hairline");
 		helper.assertTrue(meter.max() == 100.0f, "the meter runs 0-100");
-		for (String timer : new String[] { "surf", "prison", "prison_cd", "heal_cd" }) {
+		for (String timer : new String[] { "prison", "prison_cd", "heal_cd" }) {
 			helper.assertTrue(MutationMeters.get(K, timer) != null, timer + " timer");
 		}
 		for (String flag : new String[] { "p25.jet", "p25.shield", "p25.surf", "p25.aquatic" }) {
@@ -313,11 +313,15 @@ public class WaterV0165GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void waveRideSixSecondsAndKnocksMobsAside(GameTestHelper helper) {
+	public void waveRideTogglesAndKnocksMobsAside(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		shiftPress(p, 3);
 		assertNear(helper, 100.0f - WaterHandlers.COST_SURF, WaterHandlers.water(p), "25 Water");
-		helper.assertTrue(WaterHandlers.surfing(p) && res(p, "surf") >= WaterHandlers.SURF_TICKS - 1.5f, "6 s on the wave");
+		helper.assertTrue(WaterHandlers.surfing(p), "on the wave");
+		tick(p, 200);
+		helper.assertTrue(WaterHandlers.surfing(p), "v0.16.5: no time limit -- still riding after 10 s");
+		assertNear(helper, 100.0f - WaterHandlers.COST_SURF - WaterHandlers.COST_SURF_PER_SECOND * 10, WaterHandlers.water(p),
+				"1 Water a second, no refill while riding");
 		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) > 1.0, "it rides up steps");
 		IronGolem g = dummy(helper, 2, 2);
 		g.moveTo(p.getX() + 0.3, p.getY(), p.getZ() + 1.2);
