@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
-import org.lwjgl.glfw.GLFW;
 
 /**
  * v0.16.5: the Ghost Rider HUD (bottom-right), in the black-and-gray "mono" style of the reworked powers:
@@ -93,7 +92,19 @@ public final class GhostRiderHud {
 			g.drawString(mc.font, bound, x0 + totalW - mc.font.width(bound), by - 7, VENGEANCE, false);
 		}
 
-		boolean expanded = GLFW.glfwGetKey(mc.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the title
+		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
+			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : SLOTS) {
+				String[] ids = GhostRiderAbilityManager.idsOf(slot);
+				if (ids.length > 0) {
+					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot),
+							Component.translatable("projecthero.ghost_rider.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.ghost_rider.ability." + ids[1]) : null));
+				}
+			}
+			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
+		}
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
 			int x = x0 + i * (BOX + GAP);
@@ -120,11 +131,6 @@ public final class GhostRiderHud {
 				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			if (expanded && ids.length == 2) {
-				Component line = Component.translatable("projecthero.ghost_rider.ability." + ids[0]).append(" / ")
-						.append(Component.translatable("projecthero.ghost_rider.ability." + ids[1]));
-				g.drawString(mc.font, line, x0 - 8 - mc.font.width(line), y0 - 54 + i * 10, 0xFFCFCFCF, true);
 			}
 		}
 	}

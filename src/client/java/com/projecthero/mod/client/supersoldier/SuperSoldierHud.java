@@ -43,7 +43,6 @@ public final class SuperSoldierHud {
 	/** Boxes in draw order: R G Z X V, then C when it applies. */
 	private static final AbilitySlot[] ORDER = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
 			AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 };
-	private static final String[] NAME_KEYS = { "r", "g", "z", "x", "v", "c" };
 
 	private SuperSoldierHud() {
 	}
@@ -72,8 +71,18 @@ public final class SuperSoldierHud {
 
 		g.drawString(mc.font, Component.translatable("hud.projecthero.super_soldier.title"), x0, y0 - 11, MONO_NAME);
 
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the title (and above C when it is showing)
+		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
+			java.util.List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int n = 0; n < boxes; n++) {
+				String[] ids = SuperSoldierAbilityManager.idsOf(ORDER[n]);
+				if (ids.length > 0) {
+					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(ORDER[n]), Component.translatable("projecthero.super_soldier.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.super_soldier.ability." + ids[1]) : null));
+				}
+			}
+			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + baseW, showC ? Math.min(y0 - 11, y0 - BOX - GAP) : y0 - 11, rows);
+		}
 		for (int n = 0; n < boxes; n++) {
 			int i = n;
 			AbilitySlot slot = ORDER[i];
@@ -91,10 +100,6 @@ public final class SuperSoldierHud {
 				g.fill(x + 1, y + 1, x + BOX - 1, y + BOX - 1, COLOR_COOLDOWN);
 				String secs = String.valueOf((cd + 19) / 20);
 				g.drawCenteredString(mc.font, secs, x + BOX / 2, y + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			if (expanded) {
-				Component name = Component.translatable("hud.projecthero.super_soldier.key." + NAME_KEYS[i]);
-				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + n * 10 - 52, 0xFFCFCFCF);
 			}
 		}
 	}

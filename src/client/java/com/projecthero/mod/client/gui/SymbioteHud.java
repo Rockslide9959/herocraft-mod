@@ -66,6 +66,10 @@ public final class SymbioteHud {
 	private static final String[] NORMAL_SLOT_ABILITIES = {
 			"tendril_strike", "spike_shot", "leap", "barrage", "blade", "spikes"
 	};
+	/** v0.16.6: the Shift move on each key (SymbioteAbilityManager.handle's sneak branches), for the move list. */
+	private static final String[] NORMAL_SHIFT_ABILITIES = {
+			"tendril_sweep", "spike_fan", "grapple", "onslaught", "shield", "tendril_grab"
+	};
 	private static final int[] AGENT_VENOM_COOLDOWNS = {
 			SymbioteAgentVenomAbilities.CD_SWING, SymbioteAgentVenomAbilities.CD_SNATCH,
 			SymbioteAgentVenomAbilities.CD_UNLEASHED
@@ -107,8 +111,7 @@ public final class SymbioteHud {
 			return;
 		}
 		long now = mc.level != null ? mc.level.getGameTime() : 0L;
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		if (type == SymbioteHostType.AGENT_VENOM) {
 			renderAgentVenom(g, mc, player, vitals, now, expanded);
@@ -171,11 +174,16 @@ public final class SymbioteHud {
 			if (v.broken) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0xB0400000);
 			}
-			if (expanded) {
-				Component name = Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[i]);
-				int tw = mc.font.width(name);
-				g.drawString(mc.font, name, x0 - 8 - tw, y0 + i * 10 - 40, 0xFFD8C8F0);
+		}
+		if (expanded) {
+			// v0.16.6: the shared move list (each key: plain move + Shift move), stacked above the boxes
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i),
+						Component.translatable("projecthero.symbiote.ability." + NORMAL_SLOT_ABILITIES[i]),
+						Component.translatable("projecthero.symbiote.ability." + NORMAL_SHIFT_ABILITIES[i])));
 			}
+			MoveListOverlay.draw(g, x0 + totalW, y0, rows);
 		}
 
 		g.drawString(mc.font, Component.translatable("entity.projecthero.symbiote")
@@ -380,14 +388,24 @@ public final class SymbioteHud {
 		g.fill(x0, barY, x0 + PANEL_W, barY + HAIRLINE, COLOR_BAR_BG);
 		g.fill(x0, barY, x0 + Math.round(PANEL_W * frac), barY + HAIRLINE, reviveLeft <= 0L ? accent : dim(accent));
 
-		if (expanded) {
-			// Sneak + key: name, listed above the panel, bottom line = the rightmost box
-			for (int i = 0; i < n; i++) {
-				Component name = Component.literal("Sneak+" + keys[i] + "  ").append(names[i]);
-				g.drawString(mc.font, name, g.guiWidth() - MARGIN - mc.font.width(name),
-						titleY - 14 - (n - 1 - i) * 10, 0xFFD8D4E8, true);
+		// v0.16.6: no list of its own -- Left-Alt's shared move list (PunisherHud) names these as the keys' Shift moves,
+		// stacked above this panel (agentVenomPanelTop)
+	}
+
+	/** v0.16.6: the top of the Agent Venom panel (its title line), so the Punisher's move list can stack above it. */
+	static int agentVenomPanelTop(GuiGraphics g) {
+		int punisherY = g.guiHeight() - BOX - MARGIN - 26; // PunisherHud's row, as renderAgentVenom places it
+		return punisherY - 9 - PANEL_GAP - HAIRLINE - 3 - BOX - 11;
+	}
+
+	/** v0.16.6: Agent Venom's Sneak extras by the Punisher key each rides on (null = that key keeps the Punisher's own). */
+	static Component agentVenomShift(AbilitySlot slot) {
+		for (int i = 0; i < SymbioteAgentVenomAbilities.KEYED_ON.length; i++) {
+			if (SymbioteAgentVenomAbilities.KEYED_ON[i] == slot) {
+				return Component.translatable("projecthero.agent_venom.ability." + SymbioteAgentVenomAbilities.ABILITIES[i]);
 			}
 		}
+		return null;
 	}
 
 	/**

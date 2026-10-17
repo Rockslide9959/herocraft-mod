@@ -56,11 +56,6 @@ public final class WolverineHud {
 		g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ready >= 1f ? SHIFT_BAR_READY : SHIFT_BAR_COOLING);
 	}
 
-	private static Component names(int i) {
-		return Component.translatable("hud.projecthero.wolverine.shift_pair", Component.translatable(NAME_KEYS[i]),
-				Component.translatable(SHIFT_NAME_KEYS[i]));
-	}
-
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || mc.options.hideGui || mc.level == null || !Wolverine.hasPower(mc.player)) {
@@ -84,8 +79,7 @@ public final class WolverineHud {
 		if (!skinRows.isEmpty()) {
 			y0 -= skinRows.size() * 9 + 6;
 		}
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		for (int i = 0; i < 6; i++) {
 			int x = x0 + i * (BOX + GAP);
@@ -101,10 +95,6 @@ public final class WolverineHud {
 				g.fill(x + 1, y0 + BOX - h, x + BOX - 1, y0 + BOX - 1, burning ? 0xA0FF3030 : (frac >= 1f ? 0xA0FF6A00 : 0x70A02020));
 				shiftBar(g, mc.player, slot, x, y0);
 				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, frac >= 1f || burning ? 0xFFFFFFFF : COLOR_KEY, true);
-				if (expanded) {
-					Component name = names(i);
-					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 52, COLOR_NAME, true);
-				}
 				continue;
 			}
 			int cd = Wolverine.cooldownRemaining(mc.player, WolverineAbilityManager.abilityIdOf(slot));
@@ -117,11 +107,15 @@ public final class WolverineHud {
 			} else {
 				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, COLOR_KEY, true);
 			}
-			if (expanded) {
-				Component name = names(i);
-				int tw = mc.font.width(name);
-				g.drawString(mc.font, name, x0 - 8 - tw, y0 + i * 10 - 52, COLOR_NAME, true);
+		}
+		if (expanded) {
+			// v0.16.6: the shared move list (each key: plain move + Shift move), stacked above the boxes
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(NAME_KEYS[i]),
+						Component.translatable(SHIFT_NAME_KEYS[i])));
 			}
+			MoveListOverlay.draw(g, x0 + totalW, y0, rows);
 		}
 
 		int line = y0 + BOX + 2;

@@ -428,9 +428,9 @@ public final class IronManHud {
 	private static void abilityStrip(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit,
 			String suitId, long now, boolean retro, boolean offline) {
 		Rect[] slots = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight());
-		boolean expanded = GLFW.glfwGetKey(Minecraft.getInstance().getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 		int accent = retro ? IronManGui.AMBER : IronManGui.CYAN;
-		List<String> names = new ArrayList<>();
+		List<MoveListOverlay.Row> names = new ArrayList<>();
 		for (int i = 0; i < 6; i++) {
 			Rect r = slots[i];
 			String abilityId = suit.abilityInSlot(i + 1);
@@ -491,18 +491,16 @@ public final class IronManHud {
 			}
 			g.pose().popPose();
 			if (expanded) {
-				names.add("[" + keyLabel(i) + "] " + Component.translatable(nameKey(suit, abilityId, effectiveId)).getString()
-						+ (left > 0 ? "  " + IronManUiLayout.secs(left) : ""));
+				names.add(MoveListOverlay.inline(MoveListOverlay.key(i), Component.translatable(nameKey(suit, abilityId, effectiveId))));
 			}
 		}
 		if (expanded && !names.isEmpty()) {
-			int sx = slots[0].x();
-			int sw = slots[5].right() - sx;
-			int top = slots[0].y() - 4 - names.size() * 10;
-			g.fill(sx - 2, top - 2, sx + sw + 2, slots[0].y() - 2, 0xC0060A10);
-			for (int i = 0; i < names.size(); i++) {
-				g.drawString(font, IronManGui.fit(font, names.get(i), sw), sx, top + i * 10, IronManGui.TEXT, false);
+			// v0.16.6: the shared move list (plain move + Shift move per key), stacked above the key strip
+			int top = slots[0].y();
+			for (Rect r : slots) {
+				top = Math.min(top, r.y());
 			}
+			MoveListOverlay.draw(g, slots[5].right(), top - 2, names);
 		}
 	}
 

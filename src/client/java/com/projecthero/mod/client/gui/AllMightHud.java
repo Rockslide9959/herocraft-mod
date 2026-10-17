@@ -60,6 +60,18 @@ public final class AllMightHud {
 		boolean charging = power && s.chargeStart > 0L;
 		int height = 11 + BAR_H + 3 + (power ? BOX + 3 : 0) + (charging ? BAR_H + 3 : 0) + 11;
 		int y = g.guiHeight() - 12 - height;
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the title (Power Form keys, then H)
+		if (MoveListOverlay.held()) {
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			if (power) {
+				for (int i = 0; i < 6; i++) {
+					rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable("projecthero.all_might.ability." + IDS[i]),
+							i == 0 ? Component.translatable("projecthero.all_might.ability." + AllMightAbilities.NEW_HAMPSHIRE) : null));
+				}
+			}
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(6), Component.translatable("projecthero.all_might.ability.transform"), null));
+			MoveListOverlay.draw(g, x0 + totalW, y, rows);
+		}
 
 		// v0.12.39: One For All is a timer -- 300 OFA is 5:00 of Power Form -- shown as m:ss beside the title, hairline bar under it
 		float frac = Math.max(0f, Math.min(1f, s.ofa / AllMightConfig.OFA_MAX));
@@ -74,8 +86,6 @@ public final class AllMightHud {
 		y += BAR_H + 3;
 
 		if (power) {
-			boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-					org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 			for (int i = 0; i < 6; i++) {
 				int x = x0 + i * (BOX + GAP);
 				String id = IDS[i];
@@ -98,10 +108,6 @@ public final class AllMightHud {
 				} else {
 					g.drawString(mc.font, String.valueOf(AbilitySlot.byNumber(i + 1).defaultKey()), x + 7, y + 6,
 							poor ? 0xFF7A7A7A : (on ? 0xFFFFFFFF : COLOR_KEY), true);
-				}
-				if (expanded) {
-					Component name = Component.translatable("projecthero.all_might.ability." + id);
-					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y + i * 10 - 30, COLOR_NAME, true);
 				}
 			}
 			y += BOX + 3;

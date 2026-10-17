@@ -16,7 +16,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
-import org.lwjgl.glfw.GLFW;
 
 /**
  * v0.14.8: the Kryptonian HUD (bottom-right), in the black-and-gray "mono" style of the reworked powers
@@ -106,7 +105,19 @@ public final class KryptonianHud {
 		g.drawString(mc.font, name, x0, by - 7, weak ? SOLAR_KRYPTONITE : burnt ? BURNT_OUT : NAME, false);
 
 		// ---- the five keys
-		boolean expanded = GLFW.glfwGetKey(mc.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the title
+		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
+			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
+			for (AbilitySlot slot : SLOTS) {
+				String[] ids = KryptonianAbilityManager.idsOf(slot);
+				if (ids.length > 0) {
+					rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot),
+							Component.translatable("projecthero.kryptonian.ability." + ids[0]),
+							ids.length > 1 ? Component.translatable("projecthero.kryptonian.ability." + ids[1]) : null));
+				}
+			}
+			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, by - 7, rows);
+		}
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
 			int x = x0 + i * (BOX + GAP);
@@ -131,11 +142,6 @@ public final class KryptonianHud {
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				String secs = String.valueOf((cd + 19) / 20);
 				g.drawCenteredString(mc.font, secs, x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			if (expanded && ids.length == 2) {
-				Component line = Component.translatable("projecthero.kryptonian.ability." + ids[0]).append(" / ")
-						.append(Component.translatable("projecthero.kryptonian.ability." + ids[1]));
-				g.drawString(mc.font, line, x0 - 8 - mc.font.width(line), y0 - 54 + i * 10, 0xFFCFCFCF, true);
 			}
 		}
 	}

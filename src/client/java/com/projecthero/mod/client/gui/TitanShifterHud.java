@@ -47,6 +47,11 @@ public final class TitanShifterHud {
 			"projecthero.titan_shifter.ability.roar", "projecthero.titan_shifter.ability.regeneration"
 	};
 
+	/** v0.16.6: each key's Shift move (TitanShifterAbilityManager), null where it has none -- for the move list. */
+	private static final String[] SHIFT_NAME_KEYS = {
+			null, null, "projecthero.titan_shifter.ability.roar", null, null, "projecthero.titan_shifter.ability.hardening"
+	};
+
 	private TitanShifterHud() {
 	}
 
@@ -76,6 +81,15 @@ public final class TitanShifterHud {
 			height += 11 + BAR_H + 3 + 11 + (s.regenOff ? 11 : 0); // energy label + bar, ready / status line (+ regen-off note)
 		}
 		int y = g.guiHeight() - 12 - height;
+		if (inside && MoveListOverlay.held()) {
+			// v0.16.6: the shared move list (X: Shift = Titan Roar, C: Shift = Titan Hardening), stacked above the block
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(NAME_KEYS[i]),
+						SHIFT_NAME_KEYS[i] == null ? null : Component.translatable(SHIFT_NAME_KEYS[i])));
+			}
+			MoveListOverlay.draw(g, x0 + totalW, y, rows);
+		}
 
 		if (emergency) {
 			float left = Math.max(0f, Math.min(1f, (s.emergencyUntil - now) / (float) TitanShifterConfig.emergency().durationTicks));
@@ -87,8 +101,6 @@ public final class TitanShifterHud {
 		y += 11;
 
 		if (inside) {
-			boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-					org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 			for (int i = 0; i < 6; i++) {
 				int x = x0 + i * (BOX + GAP);
 				g.fill(x, y, x + BOX, y + BOX, COLOR_BOX_BG);
@@ -108,10 +120,6 @@ public final class TitanShifterHud {
 					g.drawString(mc.font, String.valueOf((cd + 19) / 20), x + 5, y + 6, 0xFFFFFFFF, true);
 				} else {
 					g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y + 6, COLOR_KEY, true);
-				}
-				if (expanded) {
-					Component name = Component.translatable(NAME_KEYS[i]);
-					g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y + i * 10 - 30, COLOR_NAME, true);
 				}
 			}
 			y += BOX + 3;

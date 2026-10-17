@@ -49,6 +49,8 @@ public final class ThorHud {
 			"call_mjolnir", "lightning_strike", "lightning_beam",
 			"god_of_thunders_wrath", "hammer_volley", "chain_lightning"
 	};
+	/** v0.16.6: each key's Shift move (ThorAbilityAdapter), null where it has none -- for the move list. */
+	private static final String[] SLOT_SHIFT_KEYS = { null, "thunder_field", null, null, "thunderclap", null };
 	private static final ThorAbility[] SLOT_COOLDOWNS = {
 			ThorAbility.CALL_HAMMER, ThorAbility.LIGHTNING_STRIKE, null,
 			ThorAbility.GOD_OF_THUNDER, ThorAbility.HAMMER_VOLLEY, ThorAbility.CHAIN_LIGHTNING
@@ -95,8 +97,7 @@ public final class ThorHud {
 		// itself relative to this exact same offset (see its own boxesY) and the two must stay in sync.
 		int y0 = screenH - MARGIN - BOX - 20;
 
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
@@ -123,13 +124,22 @@ public final class ThorHud {
 					graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * left), y0 + BOX - 1, COLOR_FIELD_CD);
 				}
 			}
-			if (expanded) {
-				// v0.16.1: G names its Shift variant too (Thunder Field shares the box)
-				Component name = Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[i]
-						+ (i == 1 ? "_with_field" : ""));
-				int tw = client.font.width(name);
-				graphics.drawString(client.font, name, x0 - 8 - tw, y0 + i * 10 - 52, COLOR_NAME);
+		}
+		if (expanded) {
+			// v0.16.6: the shared move list (G: Shift = Thunder Field, V: Shift = Thunderclap), stacked above the status
+			// row and the Wrath charge bar
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable("projecthero.thor.ability." + SLOT_NAME_KEYS[i]),
+						SLOT_SHIFT_KEYS[i] == null ? null : Component.translatable("projecthero.thor.ability." + SLOT_SHIFT_KEYS[i])));
 			}
+			boolean dual = com.projecthero.mod.power.WeaponCombo.isDualWielding(player);
+			boolean storm = com.projecthero.mod.power.ThorVisuals.fx(player).stormPct() > 0;
+			int hudTop = dual || storm ? y0 - 12 : y0 - 2;
+			if ((dual && storm) || player.getAttachedOrElse(ModAttachments.THOR_WRATH_CHARGE, 0) > 0) {
+				hudTop = y0 - 22;
+			}
+			MoveListOverlay.draw(graphics, x0 + totalW, hudTop, rows);
 		}
 
 		// Storm Energy: name + percentage above a thin hairline bar.

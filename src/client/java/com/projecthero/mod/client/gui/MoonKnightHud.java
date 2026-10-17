@@ -55,6 +55,10 @@ public final class MoonKnightHud {
 	// v0.13.21 keys: R Darts, G Grapple Kick, Z Khonshu, X Dash, C Truncheon, V Alters
 	private static final String[] IDS = { "darts", "kick", "khonshu", "dash", "truncheon", "alter" };
 
+	/** v0.16.6: the move list's names per box (the guide's key table): the tap move and the Sneak move. */
+	private static final String[] TAP_MOVES = { "darts", "dive_kick", "moonbeam", "dash", "truncheon", "alter" };
+	private static final String[] SNEAK_MOVES = { "moon_mark", "shadow_step", "judgement", "grapple", "slam", "alter_special" };
+
 	private MoonKnightHud() {
 	}
 
@@ -76,8 +80,7 @@ public final class MoonKnightHud {
 		int labelY = barY - 11;
 		int y0 = labelY - 3 - BOX;
 		int topY = y0 - 15;
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		// ---- top line: lunar state (v0.14.4: DAY sun / NIGHT tonight's moon / FULL MOON) + multiplier, alter, resurrection
 		MoonKnightLunar.State lunar = MoonKnightLunar.state(mc.level);
@@ -110,6 +113,16 @@ public final class MoonKnightHud {
 			g.drawString(mc.font, Component.translatable(lunar.nameKey()), x0, topY - 11, powerColor, false);
 		}
 		drawKickTarget(g, mc, player, now);
+		if (expanded) {
+			// v0.16.6: Left-Alt -> the shared move list (each key: tap move + Sneak move), above the lunar line
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(ORDER[i]),
+						Component.translatable("projecthero.moon_knight.move." + TAP_MOVES[i]),
+						Component.translatable("projecthero.moon_knight.move." + SNEAK_MOVES[i])));
+			}
+			MoveListOverlay.draw(g, x0 + totalW, topY - 11, rows);
+		}
 
 		MoonKnightAlter alter = MoonKnightAlter.byOrdinal(s.alter);
 		Component alterName = Component.translatable(alter.nameKey()).withStyle(alter.colour());
@@ -140,10 +153,6 @@ public final class MoonKnightHud {
 			if (cd > 0) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0xB0000000);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			if (expanded) {
-				Component name = Component.translatable("projecthero.moon_knight.ability." + IDS[i]);
-				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10 - 40, 0xFFE0DCD0);
 			}
 		}
 

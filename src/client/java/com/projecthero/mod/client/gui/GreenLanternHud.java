@@ -204,8 +204,8 @@ public final class GreenLanternHud {
 		labelY = renderShieldHp(g, player, now, x0, labelY, totalW);
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
 		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
-		if (Screen.hasAltDown()) {
-			renderAltNames(g, mc, x0, labelY, totalW);
+		if (Screen.hasAltDown() || MoveListOverlay.held()) {
+			renderAltNames(g, x0 + totalW, labelY + LINE);
 		}
 	}
 
@@ -369,18 +369,16 @@ public final class GreenLanternHud {
 	}
 
 	/**
-	 * Alt held: every key's move names as plain lines (no panel), right-aligned with the key row and growing upward.
-	 * Several lines are wider than the key row, so right-anchoring keeps them on screen.
+	 * Alt held (v0.16.6: the shared move list): every key's moves, the Shift move lifted out of each guide name
+	 * ("Construct Fist / Shift: War Hammer Slam") into its own column, stacked above the topmost HUD line.
 	 */
-	private static void renderAltNames(GuiGraphics g, Minecraft mc, int x0, int topY, int w) {
-		int right = x0 + w;
-		int y = topY + LINE - KEYS * LINE;
+	private static void renderAltNames(GuiGraphics g, int right, int top) {
+		List<MoveListOverlay.Row> rows = new ArrayList<>();
 		for (int i = 0; i < KEYS; i++) {
-			Component label = Component.literal(KEY_LABELS[i] + "  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("projecthero.guide.green_lantern.ability." + KEY_NAMES[i]).withStyle(ChatFormatting.WHITE));
-			g.drawString(mc.font, label, Math.max(2, right - mc.font.width(label)), y, 0xFFFFFFFF, true);
-			y += LINE;
+			rows.add(MoveListOverlay.inline(MoveListOverlay.key(i),
+					Component.translatable("projecthero.guide.green_lantern.ability." + KEY_NAMES[i])));
 		}
+		MoveListOverlay.draw(g, right, top, rows);
 	}
 
 	private static int cooldownFor(Player player, int slot, GreenLanternState s) {
