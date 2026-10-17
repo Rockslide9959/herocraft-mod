@@ -1,0 +1,6 @@
+{
+  "parent": "projecthero:item/ladybug_lucky_bow",
+  "textures": {
+    "layer0": "projecthero:item/ladybug_lucky_bow_pulling_0"
+  }
+}
