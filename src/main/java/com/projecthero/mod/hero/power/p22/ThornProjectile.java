@@ -85,7 +85,7 @@ public class ThornProjectile extends ThrowableProjectile {
 		if (level().isClientSide()) {
 			return;
 		}
-		if (hit.getEntity() instanceof LivingEntity le) {
+		if (AbilityHelpers.asLiving(hit.getEntity()) instanceof LivingEntity le) {
 			if (getOwner() instanceof ServerPlayer sp) {
 				AbilityHelpers.hurt(sp, le, damage);
 			} else {

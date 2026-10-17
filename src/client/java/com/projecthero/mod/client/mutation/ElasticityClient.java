@@ -318,6 +318,19 @@ public final class ElasticityClient {
 			}
 		}
 
+		// v0.16.5 Long Reach (user: "make their arm actually reach out and grab it"): the right arm turns to the item / block
+		// it reaches for instead of stretching straight along the look
+		if (s.has("p17.arm_aim") && !s.has("p17.sling_anchor")) {
+			Vec3 d = new Vec3(s.value("p17.aim_dx", 0f), s.value("p17.aim_dy", 0f), s.value("p17.aim_dz", 0f));
+			double horiz = Math.sqrt(d.x * d.x + d.z * d.z);
+			float yawTo = (float) (Mth.atan2(d.z, d.x) * Mth.RAD_TO_DEG) - 90.0f;
+			float pitchTo = (float) -(Mth.atan2(d.y, horiz) * Mth.RAD_TO_DEG);
+			float bodyYaw = Mth.rotLerp(partial(), p.yBodyRotO, p.yBodyRot);
+			m.rightArm.xRot = pitchTo * Mth.DEG_TO_RAD - Mth.HALF_PI;
+			m.rightArm.yRot = Mth.wrapDegrees(yawTo - bodyYaw) * Mth.DEG_TO_RAD;
+			m.rightArm.zRot = 0.0f;
+		}
+
 		// the stretched arms
 		float len = s.value("p17.arm_len", 0.0f);
 		float t0 = s.value("p17.arm_t", 0.0f) - 1.0f;

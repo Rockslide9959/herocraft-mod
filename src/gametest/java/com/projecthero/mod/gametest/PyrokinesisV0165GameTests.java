@@ -396,4 +396,29 @@ public class PyrokinesisV0165GameTests implements FabricGameTest {
 		assertNear(helper, 4.0f, p.getHealth(), "not again while it cools down");
 		helper.succeed();
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void searsRawFoodInHandAndCooksWhatHeEats(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.BEEF, 5));
+		p.setShiftKeyDown(true);
+		var r = net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.invoker().interact(p, helper.getLevel(), net.minecraft.world.InteractionHand.MAIN_HAND);
+		helper.assertTrue(r.getResult().consumesAction(), "v0.16.5: Sneak + use raw food sears it");
+		helper.assertTrue(p.getMainHandItem().is(net.minecraft.world.item.Items.COOKED_BEEF) && p.getMainHandItem().getCount() == 5, "the whole stack is cooked");
+		p.setShiftKeyDown(false);
+		var raw = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.CHICKEN);
+		var food = com.projecthero.mod.symbiote.SymbioteDiet.resolve(p, raw, raw.get(net.minecraft.core.component.DataComponents.FOOD));
+		helper.assertTrue(food.nutrition() == 6 && food.effects().isEmpty(), "raw chicken eaten counts as cooked (6, no Hunger)");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void dragonPartsCountAsTheDragon(GameTestHelper helper) {
+		var dragon = net.minecraft.world.entity.EntityType.ENDER_DRAGON.create(helper.getLevel());
+		helper.assertTrue(dragon != null && dragon.getSubEntities().length > 0, "the dragon has body parts");
+		for (var part : dragon.getSubEntities()) {
+			helper.assertTrue(com.projecthero.mod.hero.power.AbilityHelpers.asLiving(part) == dragon, "a hit on a part is a hit on the dragon");
+		}
+		helper.succeed();
+	}
 }

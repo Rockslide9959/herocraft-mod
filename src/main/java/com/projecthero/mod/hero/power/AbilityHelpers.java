@@ -43,9 +43,25 @@ public final class AbilityHelpers {
 	// ---------------- targeting ----------------
 
 	public static LivingEntity raycastEntity(ServerPlayer player, double range) {
+		// v0.16.5 (user: the ice moves missed the Ender Dragon): the dragon is only pickable through its body parts, which
+		// are not LivingEntities -- aim at a part and you hit the dragon
 		HitResult hit = ProjectileUtil.getHitResultOnViewVector(player,
-				e -> e != player && e.isPickable() && e instanceof LivingEntity && !(e instanceof ArmorStand), range);
-		return hit instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le ? le : null;
+				e -> e != player && e.isPickable() && asLiving(e) != null && !(e instanceof ArmorStand), range);
+		return hit instanceof EntityHitResult ehr ? asLiving(ehr.getEntity()) : null;
+	}
+
+	/**
+	 * The creature an entity hit belongs to: itself if it is alive, the Ender Dragon for one of its body parts (a
+	 * projectile or a raycast meets the parts, never the dragon), otherwise null.
+	 */
+	public static LivingEntity asLiving(Entity e) {
+		if (e instanceof LivingEntity le) {
+			return le;
+		}
+		if (e instanceof net.minecraft.world.entity.boss.EnderDragonPart part) {
+			return part.parentMob;
+		}
+		return null;
 	}
 
 	public static BlockHitResult raycastBlock(ServerPlayer player, double range) {

@@ -243,6 +243,12 @@ public class ElasticityV0165GameTests implements FabricGameTest {
 		float h3 = bowled.getHealth();
 		ElasticityHandlers.ballBowl(p, helper.getLevel());
 		assertNear(helper, ElasticityHandlers.BALL_HIT_DAMAGE, h3 - bowled.getHealth(), "the ball bowls through for 6");
+		// v0.16.5 (user): no time limit -- it drains 3 Stretch a second instead (and nothing refills meanwhile)
+		float st = ElasticityHandlers.stretch(p);
+		tick(p, 200);
+		helper.assertTrue(ElasticityHandlers.balled(p), "still a ball after 10 s");
+		assertNear(helper, st - ElasticityHandlers.COST_BALL_PER_SECOND * 10, ElasticityHandlers.stretch(p), "3 Stretch a second");
+		helper.assertTrue(ElasticityHandlers.damageFactor(p, p.damageSources().flyIntoWall()) < 0, "no kinetic-energy deaths");
 		ElasticityHandlers.endBall(p);
 		helper.succeed();
 	}

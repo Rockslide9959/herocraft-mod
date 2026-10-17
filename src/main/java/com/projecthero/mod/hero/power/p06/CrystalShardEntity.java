@@ -78,7 +78,7 @@ public class CrystalShardEntity extends ThrowableItemProjectile {
 		if (result.getEntity() instanceof CrystalNodeEntity) {
 			return;
 		}
-		if (getOwner() instanceof ServerPlayer p && result.getEntity() instanceof LivingEntity e) {
+		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
 			if (AbilityHelpers.hurtLands(p, e, damage)) {
 				AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 40, 1);
 			}

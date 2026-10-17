@@ -118,7 +118,8 @@ public final class ElasticityHandlers {
 	public static final double SLING_MAX_SPEED = 5.0;
 	/** The no-drag flight ends after this long at most (and on landing, a wall or water). */
 	private static final int SLING_FLY_TICKS = 15 * 20;
-	public static final int BALL_TICKS = 6 * 20;
+	/** v0.16.5 (user): the Rubber Ball has no time limit -- a toggle that drains Stretch while you roll. */
+	public static final float COST_BALL_PER_SECOND = 3.0f;
 	public static final float BALL_HIT_DAMAGE = 6.0f;
 
 	// ---- Z: Giant Hammer Fist / Spring Stomp ----
@@ -347,7 +348,8 @@ public final class ElasticityHandlers {
 	}
 
 	private static boolean channelling(ServerPlayer p) {
-		return res(p, "coil_kind") > 0.5f || res(p, "gatling") > 0.5f || res(p, "shielding") > 0.5f || res(p, "sling") > 0.5f;
+		return res(p, "coil_kind") > 0.5f || res(p, "gatling") > 0.5f || res(p, "shielding") > 0.5f || res(p, "sling") > 0.5f
+				|| res(p, "ball") > 0.5f;
 	}
 
 	private static float coilFraction(ServerPlayer p) {
@@ -633,7 +635,7 @@ public final class ElasticityHandlers {
 	private static void upkeep(AbilityContext ctx) {
 		ServerPlayer p = ctx.player();
 		seed(p);
-		for (String timer : new String[] { "arm_ticks", "hammer_cd", "stomp_cd", "shape_cd" }) {
+		for (String timer : new String[] { "arm_ticks", "aim_t", "hammer_cd", "stomp_cd", "shape_cd" }) {
 			float v = res(p, timer);
 			if (v > 0) {
 				set(p, timer, v - 1);
@@ -1109,7 +1111,7 @@ public final class ElasticityHandlers {
 
 	private static void startBall(ServerPlayer p) {
 		spend(p, COST_BALL);
-		set(p, "ball", BALL_TICKS);
+		set(p, "ball", 1);
 		endGlide(p);
 		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, BALL_SPEED, 0.9, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		PowerToggles.modifier(p, Attributes.SCALE, BALL_SCALE, -0.4, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
@@ -1119,15 +1121,20 @@ public final class ElasticityHandlers {
 	}
 
 	private static void ballTick(ServerPlayer p, ServerLevel level) {
-		float left = res(p, "ball");
-		if (left < 0.5f) {
+		if (res(p, "ball") < 0.5f) {
 			return;
 		}
-		if (left <= 1.0f || !p.isAlive()) {
+		if (!p.isAlive()) {
 			endBall(p);
 			return;
 		}
-		set(p, "ball", left - 1);
+		// rolls until Shift+X again or the Stretch runs out (then you just pop back out -- no going limp)
+		float s = res(p, "stretch");
+		if (s <= 0.01f) {
+			endBall(p);
+			return;
+		}
+		set(p, "stretch", Math.max(0.0f, s - COST_BALL_PER_SECOND / 20.0f));
 		p.resetFallDistance();
 		reflectProjectiles(p, 1.8);
 		ballBowl(p, level);
@@ -1409,7 +1416,8 @@ public final class ElasticityHandlers {
 		if (res(p, "reach") < 0.5f || p.tickCount % 2 != 0 || p.isSpectator()) {
 			return;
 		}
-		// pick up items from 12 blocks away: the hand reaches out and drags them in
+		// pick up items from 12 blocks away: the hand reaches out to the item, grabs it and reels it in (v0.16.5, user:
+		// the arm used to stretch along the look, into the ground)
 		ItemEntity farthest = null;
 		double far = 0;
 		for (ItemEntity it : level.getEntitiesOfClass(ItemEntity.class, p.getBoundingBox().inflate(LONG_REACH),
@@ -1426,8 +1434,11 @@ public final class ElasticityHandlers {
 				farthest = it;
 			}
 		}
-		if (farthest != null && p.tickCount % 10 == 0 && res(p, "arm_ticks") < 0.5f) {
-			stretchArm(p, far, ARM_STRIKE_TICKS, ARM_RIGHT);
+		boolean reeling = Math.round(res(p, "arm_mode")) == ARM_HOLD && res(p, "aim_t") > 0.5f;
+		if (farthest != null && (reeling || res(p, "arm_ticks") < 0.5f)) {
+			Vec3 at = farthest.position().add(0, 0.15, 0);
+			aimArm(p, at, 4);
+			stretchArm(p, Math.max(0.6, at.distanceTo(shoulder(p)) - 0.2), 4, ARM_HOLD);
 		}
 	}
 
@@ -1438,8 +1449,37 @@ public final class ElasticityHandlers {
 		}
 		double d = at.distanceTo(sp.getEyePosition());
 		if (d > 4.0 && res(sp, "arm_ticks") < 4.5f) {
-			stretchArm(sp, d - 0.4, 10, ARM_RIGHT);
+			aimArm(sp, at, ARM_STRIKE_TICKS);
+			stretchArm(sp, at.distanceTo(shoulder(sp)) - 0.3, 10, ARM_RIGHT);
 		}
+	}
+
+	/** Where a stretched right arm starts from (about the shoulder). */
+	private static Vec3 shoulder(Player p) {
+		return p.position().add(0, 1.4, 0);
+	}
+
+	/** Resources cannot go below 0: the aim offset (blocks from the shoulder, within the 12-block reach) is shifted up. */
+	private static final float AIM_SHIFT = 32.0f;
+
+	/**
+	 * v0.16.5: point the stretched right arm at {@code at} for {@code ticks} (synced as an offset from the shoulder, so the
+	 * client turns the arm to it instead of stretching it along the look).
+	 */
+	public static void aimArm(ServerPlayer p, Vec3 at, int ticks) {
+		Vec3 d = at.subtract(shoulder(p));
+		set(p, "aim_dx", (float) net.minecraft.util.Mth.clamp(d.x, -AIM_SHIFT + 1, AIM_SHIFT - 1) + AIM_SHIFT);
+		set(p, "aim_dy", (float) net.minecraft.util.Mth.clamp(d.y, -AIM_SHIFT + 1, AIM_SHIFT - 1) + AIM_SHIFT);
+		set(p, "aim_dz", (float) net.minecraft.util.Mth.clamp(d.z, -AIM_SHIFT + 1, AIM_SHIFT - 1) + AIM_SHIFT);
+		set(p, "aim_t", ticks);
+	}
+
+	/** The aimed arm's target as an offset from the shoulder, or null. */
+	public static Vec3 armAim(Player p) {
+		if (!owns(p) || resAny(p, "aim_t") < 0.5f || resAny(p, "arm_ticks") < 0.5f) {
+			return null;
+		}
+		return new Vec3(resAny(p, "aim_dx") - AIM_SHIFT, resAny(p, "aim_dy") - AIM_SHIFT, resAny(p, "aim_dz") - AIM_SHIFT);
 	}
 
 	/** The block a Shape Shift turns into: the one you are looking at, else a barrel. */
@@ -1557,6 +1597,9 @@ public final class ElasticityHandlers {
 			p.resetFallDistance();
 			return -1.0f;
 		}
+		if (source.is(net.minecraft.world.damagesource.DamageTypes.FLY_INTO_WALL)) {
+			return -1.0f; // v0.16.5 (user): rubber cannot die of kinetic energy -- it just squashes against the wall
+		}
 		boolean shield = shielding(p);
 		if (source.is(DamageTypeTags.IS_PROJECTILE) && (shield || balled(p))) {
 			if (source.getDirectEntity() instanceof Projectile pr && pr.getOwner() != p) {
@@ -1642,6 +1685,11 @@ public final class ElasticityHandlers {
 		MutationVisuals.registerFlag("p17.limp", ElasticityHandlers::limp);
 		MutationVisuals.registerValue("p17.shape", ElasticityHandlers::shapeValue);
 		MutationVisuals.registerValue("p17.wrap", ElasticityHandlers::wrapId);
+		// v0.16.5 Long Reach: the arm reaches to what it grabs
+		MutationVisuals.registerFlag("p17.arm_aim", p -> armAim(p) != null);
+		MutationVisuals.registerValue("p17.aim_dx", p -> armAim(p) == null ? 0.0 : armAim(p).x);
+		MutationVisuals.registerValue("p17.aim_dy", p -> armAim(p) == null ? 0.0 : armAim(p).y);
+		MutationVisuals.registerValue("p17.aim_dz", p -> armAim(p) == null ? 0.0 : armAim(p).z);
 		// v0.16.5 Slingshot: the locked anchor (the arms grip it) and the no-drag flight
 		MutationVisuals.registerValue("p17.sling_ax", p -> slingAnchorOf(p) == null ? 0.0 : slingAnchorOf(p).x);
 		MutationVisuals.registerValue("p17.sling_ay", p -> slingAnchorOf(p) == null ? 0.0 : slingAnchorOf(p).y);
@@ -1673,9 +1721,6 @@ public final class ElasticityHandlers {
 		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "shape_cd",
 				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
 				"Shape Shift", SHAPE_CD, 0xFF9A7A5A, false, false, true, text));
-		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "ball",
-				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
-				"Rubber Ball", BALL_TICKS, 0xFFFF9A3C, false, false, true, text));
 		com.projecthero.mod.hero.visual.MutationMeters.register(new com.projecthero.mod.hero.visual.MutationMeters.Spec(k, "wrap_ticks",
 				com.projecthero.mod.hero.visual.MutationMeters.Kind.TIMER, com.projecthero.mod.hero.visual.MutationMeters.Style.HAIRLINE,
 				"Wrap & Squeeze", WRAP_TICKS, 0xFFFF9A3C, false, false, true, text));

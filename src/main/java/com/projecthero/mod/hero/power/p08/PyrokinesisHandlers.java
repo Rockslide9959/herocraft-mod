@@ -347,7 +347,52 @@ public final class PyrokinesisHandlers {
 
 	// ================================================================ registration
 
+	/**
+	 * v0.16.5 (user: "add a way for pyrokinesis players to cook raw food"): the cooked form of a food stack -- whatever a
+	 * furnace would make of it, if that is food -- or empty. Works on both sides (the client has the recipes too).
+	 */
+	public static ItemStack searedForm(Level level, ItemStack raw) {
+		if (raw.isEmpty() || raw.get(net.minecraft.core.component.DataComponents.FOOD) == null) {
+			return ItemStack.EMPTY;
+		}
+		Optional<RecipeHolder<SmeltingRecipe>> recipe = level.getRecipeManager().getRecipeFor(RecipeType.SMELTING,
+				new SingleRecipeInput(raw), level);
+		if (recipe.isEmpty()) {
+			return ItemStack.EMPTY;
+		}
+		ItemStack out = recipe.get().value().getResultItem(level.registryAccess());
+		if (out.isEmpty() || out.get(net.minecraft.core.component.DataComponents.FOOD) == null) {
+			return ItemStack.EMPTY;
+		}
+		return out.copyWithCount(Math.min(out.getMaxStackSize(), raw.getCount() * out.getCount()));
+	}
+
+	/** Sneak + use raw food: the whole stack is seared in your hand (a little Heat for it). */
+	private static net.minecraft.world.InteractionResultHolder<ItemStack> searInHand(Player player, Level level,
+			net.minecraft.world.InteractionHand hand) {
+		ItemStack held = player.getItemInHand(hand);
+		if (!player.isShiftKeyDown() || player.isSpectator() || !owns(player)) {
+			return net.minecraft.world.InteractionResultHolder.pass(held);
+		}
+		ItemStack cooked = searedForm(level, held);
+		if (cooked.isEmpty()) {
+			return net.minecraft.world.InteractionResultHolder.pass(held);
+		}
+		if (player instanceof ServerPlayer sp && level instanceof ServerLevel sl) {
+			sp.setItemInHand(hand, cooked);
+			set(sp, "heat", Math.min(MAX_HEAT, res(sp, "heat") + 2.0f));
+			Vec3 at = sp.position().add(sp.getLookAngle().scale(0.6)).add(0, 1.1, 0);
+			sl.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 10, 0.12, 0.12, 0.12, 0.02);
+			sl.sendParticles(ParticleTypes.SMOKE, at.x, at.y + 0.1, at.z, 6, 0.1, 0.1, 0.1, 0.01);
+			sl.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.FIRECHARGE_USE, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.4f);
+			sl.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.CAMPFIRE_CRACKLE, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f);
+		}
+		player.swing(hand);
+		return net.minecraft.world.InteractionResultHolder.sidedSuccess(held, level.isClientSide());
+	}
+
 	public static void register() {
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(PyrokinesisHandlers::searInHand);
 		PyroEntities.initialize();
 
 		// R -- Fireball / Flamethrower (Shift, held). Also runs the power-wide upkeep.

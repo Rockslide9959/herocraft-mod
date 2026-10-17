@@ -109,7 +109,7 @@ public class IceBoltEntity extends ThrowableProjectile {
 		if (!(level() instanceof ServerLevel) || result.getEntity() == getOwner()) {
 			return;
 		}
-		if (getOwner() instanceof ServerPlayer p && result.getEntity() instanceof LivingEntity e) {
+		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
 			// every shard of a volley lands (hurtBurst skips the hit window a shard ahead of it opened)
 			boolean landed = kind() == SHARD ? AbilityHelpers.hurtBurst(p, e, damage) : AbilityHelpers.hurtLands(p, e, damage);
 			if (landed || e instanceof net.minecraft.world.entity.player.Player) {

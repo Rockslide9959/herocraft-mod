@@ -170,7 +170,7 @@ public class GeoRockEntity extends ThrowableItemProjectile {
 		if (!(level() instanceof ServerLevel) || result.getEntity() == getOwner() || shard) {
 			return;
 		}
-		if (getOwner() instanceof ServerPlayer p && result.getEntity() instanceof LivingEntity e) {
+		if (getOwner() instanceof ServerPlayer p && AbilityHelpers.asLiving(result.getEntity()) instanceof LivingEntity e) {
 			if (AbilityHelpers.hurtLands(p, e, damage)) {
 				AbilityHelpers.knockbackFrom(e, position().subtract(getDeltaMovement()), 0.9);
 			}

@@ -40,7 +40,8 @@ public final class SymbioteDiet {
 	 */
 	public static FoodProperties resolve(Player eater, ItemStack stack, FoodProperties original) {
 		// v0.9.24: any bonded host, suit on or off -- "the Symbiote is always with you".
-		if (!Symbiote.isNormalHost(eater)) {
+		// v0.16.5 (user): a Pyrokinesis player cooks what he eats, too (the food is seared on the way in)
+		if (!Symbiote.isNormalHost(eater) && !com.projecthero.mod.hero.power.p08.PyrokinesisHandlers.owns(eater)) {
 			return original;
 		}
 		Item cooked = RAW_TO_COOKED.get(stack.getItem());
