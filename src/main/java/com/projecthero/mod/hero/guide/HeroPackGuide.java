@@ -479,6 +479,10 @@ public final class HeroPackGuide {
 			// v0.16.1: the projectheroUniquePowers gamerule
 			head(lines, "projecthero.guide.unique_powers");
 			para(lines, "projecthero.guide.unique_powers.body");
+			// v0.16.6: the spawn-in callings
+			blank(lines);
+			head(lines, "projecthero.guide.spawn_callings");
+			para(lines, "projecthero.guide.spawn_callings.body");
 			blank(lines);
 			head(lines, "projecthero.guide.controls.title");
 			para(lines, "projecthero.guide.controls.body");

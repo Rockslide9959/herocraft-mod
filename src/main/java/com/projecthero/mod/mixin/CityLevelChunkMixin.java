@@ -30,6 +30,8 @@ public abstract class CityLevelChunkMixin {
 		BlockState old = cir.getReturnValue();
 		if (old != null) {
 			CityDamageTracker.onBlockChanged(level, pos, old, state);
+			// v0.16.6: and Ladybug's Miraculous Ladybug memory (one empty-map check unless a Ladybug is transformed)
+			com.projecthero.mod.miraculous.ladybug.LadybugRestore.onBlockChanged(level, pos, old, state);
 		}
 	}
 }
