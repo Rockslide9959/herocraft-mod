@@ -180,7 +180,7 @@
   "projecthero.power.power_03_flight.ability.air_dash": "Air Dash",
   "projecthero.power.power_03_flight.ability.air_dash.desc": "X: a 12-block burst the way you are moving (or where you look). 10 Lift. Shift+X: Barrel Roll -- a spinning roll to the side you are strafing (or alternating); projectiles cannot touch you for 0.5s. 10 Lift.",
   "projecthero.power.power_03_flight.ability.sonic_boom": "Sonic Boom",
-  "projecthero.power.power_03_flight.ability.sonic_boom.desc": "Z: break the sound barrier -- a cone of shock rings 10 blocks ahead: 16 damage and a launch to everything in it, and a surge forward if you are flying. 30 Lift. Shift+Z: Takeoff Blast -- from the ground, blast 20 blocks straight up into flight, knocking everything within 5 blocks away. 20 Lift.",
+  "projecthero.power.power_03_flight.ability.sonic_boom.desc": "Z: break the sound barrier -- a cone of shock rings 10 blocks ahead: 16 damage and a launch to everything in it, and a surge forward if you are flying. 30 Lift. Shift+Z: Takeoff Blast -- from the ground, blast 20 blocks the way you look into flight (always at least a little upward), knocking everything within 5 blocks away. 20 Lift.",
   "projecthero.power.power_03_flight.ability.hover": "Hover",
   "projecthero.power.power_03_flight.ability.hover.desc": "V (toggle): hang dead still in the air for steady aim; nothing can knock you back. Any dash ends it. Free. Shift+V (toggle): Slipstream -- you fly 50% faster, and so does any squadmate flying behind you. 4 Lift a second.",
   "projecthero.power.power_03_flight.ability.afterburner": "Afterburner",
