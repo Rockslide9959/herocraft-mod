@@ -111,6 +111,9 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.onChat(p, "  trixx ,  LET\u2019S   pounce!!! "), "the phrase, leniently (case, spaces, curly apostrophe)");
 		helper.assertTrue(Miraculous.transformedAs(p, Kwami.TRIXX), "transformed");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour - MiraculousConfig.ARMOR_BONUS) < 0.01, "the suit's armour");
+		// v0.16.6 (user): Regeneration I while transformed
+		var regen = p.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+		helper.assertTrue(regen != null && regen.getAmplifier() == 0, "Regeneration I while transformed");
 		helper.assertFalse(Miraculous.canAct(p), "the moves wait for the sequence");
 		Miraculous.onChat(p, "Let's rest!");
 		helper.assertTrue(Miraculous.transformed(p), "can't change back mid-sequence");
@@ -119,6 +122,7 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.onChat(p, "Trixx, lets rest"), "the detransform phrase with the name");
 		helper.assertFalse(Miraculous.transformed(p), "changed back");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour) < 0.01, "the armour is gone");
+		helper.assertTrue(p.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION) == null, "and the Regeneration");
 		helper.assertTrue(Miraculous.hungry(p), "every detransformation leaves the Kwami hungry");
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "SPOTS OFF") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.PLAGG, "plagg claws out") == MiraculousPhrases.Spoken.TRANSFORM
