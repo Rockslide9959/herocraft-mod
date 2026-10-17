@@ -103,6 +103,19 @@ public abstract class PlayerMixin {
 		}
 	}
 
+	/**
+	 * v0.16.5 (user): Water Manipulation mines underwater as if on dry ground -- the submerged slowdown is lifted by the
+	 * SUBMERGED_MINING_SPEED attribute (WaterHandlers), and this lifts vanilla's x5 "not on the ground" penalty while
+	 * swimming or floating in water.
+	 */
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$waterMining(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (!self.onGround() && self.isInWater() && com.projecthero.mod.hero.power.p25.WaterHandlers.owns(self)) {
+			cir.setReturnValue(cir.getReturnValue() * 5.0f);
+		}
+	}
+
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$geoMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;

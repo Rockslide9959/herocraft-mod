@@ -67,6 +67,16 @@ public class FogRendererMixin {
 	@Inject(method = "setupFog", at = @At("TAIL"))
 	private static void projecthero$raidFog(Camera camera, FogRenderer.FogMode fogMode, float farPlaneDistance,
 			boolean shouldCreateFog, float partialTick, CallbackInfo ci) {
+		// v0.16.5 (user): Water Manipulation sees clearly underwater -- the murky water fog (96 blocks at best, much less
+		// when you have just gone under) is pushed out to most of the render distance
+		if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.WATER
+				&& camera.getEntity() instanceof net.minecraft.world.entity.player.Player viewer
+				&& com.projecthero.mod.hero.power.p25.WaterHandlers.owns(viewer)) {
+			float end = Math.max(96.0f, farPlaneDistance * 0.9f);
+			RenderSystem.setShaderFogStart(end * 0.35f);
+			RenderSystem.setShaderFogEnd(end);
+			return;
+		}
 		// v0.16.1: the Frost Giant blizzard closes the fog in to ~48 blocks (32 with the Casket open)
 		float frost = com.projecthero.mod.client.frostgiant.FrostBlizzardClient.fogEnd();
 		if (frost > 0.0f) {

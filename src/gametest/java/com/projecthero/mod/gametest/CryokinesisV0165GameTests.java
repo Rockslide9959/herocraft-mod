@@ -290,10 +290,10 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 		float hp = p.getHealth();
 		p.hurt(helper.getLevel().damageSources().fall(), 8.0f);
 		assertNear(helper, hp, p.getHealth(), "no fall damage while sliding");
-		// v0.16.5 (user): no time limit -- it runs on, draining 4 Cold a second with no refill
+		// v0.16.5 (user): no time limit -- it runs on, draining 1 Cold a second with no refill
 		tick(p, 200);
 		helper.assertTrue(CryokinesisHandlers.sliding(p), "still sliding after 10 s (a toggle now)");
-		assertNear(helper, 80 - CryokinesisHandlers.COST_SLIDE_PER_SECOND * 10, CryokinesisHandlers.cold(p), "4 Cold a second");
+		assertNear(helper, 80 - CryokinesisHandlers.COST_SLIDE_PER_SECOND * 10, CryokinesisHandlers.cold(p), "1 Cold a second");
 		// the ramp never closes round a creature: a cell a zombie stands in stays clear
 		var z = helper.spawnWithNoFreeWill(net.minecraft.world.entity.EntityType.ZOMBIE, new BlockPos(1, 5, 4));
 		Vec3 zf = z.position().add(0, 0.7, 0);

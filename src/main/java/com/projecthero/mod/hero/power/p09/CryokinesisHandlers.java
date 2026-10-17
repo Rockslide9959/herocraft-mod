@@ -107,7 +107,7 @@ public final class CryokinesisHandlers {
 
 	// ---- X: Ice Slide / Ice Pillar ----
 	/** v0.16.5 (user): the slide is a toggle now -- no time limit, it drains Cold while you ride. */
-	public static final float COST_SLIDE_PER_SECOND = 4.0f;
+	public static final float COST_SLIDE_PER_SECOND = 1.0f; // (user: drain a lot less, ride longer -- was 4)
 	/** Step up a block on the slide without stopping (the client drives the ride; this is the attribute it reads). */
 	private static final ResourceLocation SLIDE_STEP = com.projecthero.mod.ProjectHeroMod.id("cryo_slide_step");
 	/** The slide's speed in blocks a tick (the client drives it). */
@@ -666,8 +666,11 @@ public final class CryokinesisHandlers {
 		Vec3 mv = p.getKnownMovement();
 		Vec3 flat = new Vec3(mv.x, 0, mv.z);
 		Vec3 dir = flat.lengthSqr() > 1.0e-4 ? flat.normalize() : BatchBUtil.flatLook(p);
-		if (p.getXRot() <= DESCEND_PITCH) {
-			layRamp(level, p.position(), dir, mv.length());
+		// v0.16.5 (user: "ice blocks still get placed right underneath me"): nothing while falling, and nothing where the
+		// rider is about to be -- the server sees him a tick late, so the box is stretched along his movement
+		if (p.getXRot() <= DESCEND_PITCH && mv.y > -0.15) {
+			net.minecraft.world.phys.AABB ahead = p.getBoundingBox().expandTowards(mv.x * 3, Math.min(0, mv.y * 3), mv.z * 3).inflate(0.3, 0.0, 0.3);
+			layRamp(level, p.position(), dir, mv.length(), ahead);
 		}
 		if (p.tickCount % 2 == 0) {
 			level.sendParticles(ParticleTypes.SNOWFLAKE, p.getX(), p.getY() + 0.1, p.getZ(), 3, 0.3, 0.05, 0.3, 0.0);
@@ -686,6 +689,10 @@ public final class CryokinesisHandlers {
 	 * above the feet, and never in a cell where a creature stands (v0.16.5: ice used to close round the rider).
 	 */
 	static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled) {
+		return layRamp(level, feet, dir, travelled, null);
+	}
+
+	static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled, net.minecraft.world.phys.AABB keepClear) {
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		int placed = 0;
 		double back = Math.min(2.0, travelled);
@@ -694,7 +701,9 @@ public final class CryokinesisHandlers {
 			BlockPos under = BlockPos.containing(at.x, at.y - 0.6, at.z);
 			for (int s = -1; s <= 1; s++) {
 				BlockPos cell = BlockPos.containing(at.x + side.x * s, under.getY(), at.z + side.z * s);
-				if (cell.getY() + 1 > feet.y + 0.01 || !level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(cell)).isEmpty()) {
+				net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(cell);
+				if (cell.getY() + 1 > feet.y + 0.01 || (keepClear != null && box.intersects(keepClear))
+						|| !level.getEntitiesOfClass(LivingEntity.class, box).isEmpty()) {
 					continue;
 				}
 				if (CryoIce.place(level, cell, PACKED, SLIDE_ICE_TTL)) {

@@ -132,6 +132,8 @@ public final class WaterHandlers {
 	private static final ResourceLocation SWIM = com.projecthero.mod.ProjectHeroMod.id("water_swim");
 	private static final ResourceLocation AQUATIC_MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("water_aquatic_melee");
 	private static final ResourceLocation SURF_STEP = com.projecthero.mod.ProjectHeroMod.id("water_surf_step");
+	/** v0.16.5 (user): mining underwater at full speed (the submerged x0.2 lifted). */
+	private static final ResourceLocation WATER_MINING = com.projecthero.mod.ProjectHeroMod.id("water_submerged_mining");
 	/** The pre-v0.16.5 Aquatic Form modifier, cleared out of old saves. */
 	private static final ResourceLocation LEGACY_AQUATIC = com.projecthero.mod.ProjectHeroMod.id("aquatic_atk");
 	/** Pre-v0.16.5 resources (the 575 supply, the spray, the charge, the shaping), zeroed in old saves. */
@@ -945,6 +947,7 @@ public final class WaterHandlers {
 				PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM);
 				PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, AQUATIC_MELEE_ID);
 				PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, SURF_STEP);
+				PowerToggles.clearModifier(player, Attributes.SUBMERGED_MINING_SPEED, WATER_MINING);
 				Power power = Powers.byKey(KEY);
 				if (power != null && ExperimentalPowers.owns(player, power)) {
 					// still owned while forget() runs its teardown: drop the held / timed states too
@@ -961,6 +964,7 @@ public final class WaterHandlers {
 			// water breathing, fast swimming, and fire on you goes out at once
 			refresh(player, MobEffects.WATER_BREATHING);
 			PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM, 1.0, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(player, Attributes.SUBMERGED_MINING_SPEED, WATER_MINING, 0.8, AttributeModifier.Operation.ADD_VALUE);
 			if (player.isOnFire()) {
 				player.clearFire();
 				if (player.tickCount % 10 == 0) {
