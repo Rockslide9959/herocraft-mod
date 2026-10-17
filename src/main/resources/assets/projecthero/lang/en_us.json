@@ -5998,7 +5998,7 @@
   "projecthero.guide.hawk_moth.food": "Feeding Nooroo",
   "projecthero.guide.hawk_moth.food.body": "Every time you change back (by the phrase, the countdown or dying), Nooroo is worn out and hungry, and won't transform you again until he has had a honey bottle. Right-click him with one, or drink one while he is hungry and he has it instead.",
   "projecthero.guide.miraculous.passives": "While transformed",
-  "projecthero.guide.miraculous.passives.body": "+12 armour, +6 toughness, +10 max health, +5 melee damage, 25% faster, higher jumps and no fall damage.",
+  "projecthero.guide.miraculous.passives.body": "+12 armour, +6 toughness, +10 max health, +7 melee damage, 25% faster, higher jumps and no fall damage.",
   "projecthero.guide.miraculous.controls": "Controls (while transformed)",
   "projecthero.guide.miraculous.commands": "Commands",
   "projecthero.guide.miraculous.commands.body": "Operators: /projecthero power grant <player> ladybug, cat_noir, rena_rouge or hawk_moth, and /projecthero power tune miraculous kwami, feed, toggle or countdown <seconds>.",

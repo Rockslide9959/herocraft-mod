@@ -41,7 +41,7 @@ public final class MiraculousConfig {
 	public static final double ARMOR_BONUS = 12.0;
 	public static final double TOUGHNESS_BONUS = 6.0;
 	public static final double MAX_HEALTH_BONUS = 10.0;
-	public static final double MELEE_BONUS = 5.0;
+	public static final double MELEE_BONUS = 7.0; // v0.16.6 (user): +7 melee -- they are strong (was 5)
 	/** Multiplied total. */
 	public static final double SPEED_BONUS = 0.25;
 	/** Multiplied total. */

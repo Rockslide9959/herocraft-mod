@@ -99,7 +99,7 @@ the collar (darker violet transformed). Lifted further off the body while transf
 
 ## Shared passives (while transformed)
 
-`MiraculousStats`: +12 armour, +6 toughness, +10 max health, +5 melee, +25% speed, +35% jump. `MiraculousDamage`
+`MiraculousStats`: +12 armour, +6 toughness, +10 max health, +7 melee, +25% speed, +35% jump. `MiraculousDamage`
 (`ALLOW_DAMAGE`): no fall damage; every other hit goes through the kit's `KwamiKit.modifyIncomingDamage` (0 cancels,
 a changed amount is cancelled and re-issued once). `/kill` and the void are never touched.
 

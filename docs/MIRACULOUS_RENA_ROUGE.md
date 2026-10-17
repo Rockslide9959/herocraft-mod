@@ -2,7 +2,7 @@
 
 The Rena Rouge kit for the Miraculous core (`docs/MIRACULOUS_REFERENCE.md`). The core owns the box, the Necklace, the
 Kwami, the transformation, the 5-minute countdown and the shared transformed stats (+12 armour, +6 toughness, +10 max
-health, +5 melee, +25% speed, +35% jump, no fall damage). This kit owns the six keys, the Flute, the illusions, the suit.
+health, +7 melee, +25% speed, +35% jump, no fall damage). This kit owns the six keys, the Flute, the illusions, the suit.
 
 Code: `com.projecthero.mod.miraculous.renarouge` (server), `com.projecthero.mod.client.miraculous.renarouge` (client).
 Every number is a static final in `RenaRougeConfig`.

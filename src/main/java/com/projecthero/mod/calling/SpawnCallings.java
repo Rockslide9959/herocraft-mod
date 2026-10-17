@@ -79,9 +79,14 @@ public final class SpawnCallings {
 		}
 	}
 
+	@FunctionalInterface
+	private interface ParticleSink {
+		void send(net.minecraft.core.particles.ParticleOptions opt, double x, double y, double z, int n, double dx, double dy, double dz, double speed);
+	}
+
 	private static final Map<UUID, Offer> PENDING = new ConcurrentHashMap<>();
 
-	private static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.25f, 1.0f, 0.35f), 1.6f);
+	private static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.25f, 1.0f, 0.35f), 0.8f);
 
 	private SpawnCallings() {
 	}
@@ -102,6 +107,10 @@ public final class SpawnCallings {
 	// ---------------------------------------------------------------- the roll
 
 	static void onJoin(ServerPlayer player) {
+		// fake players (other mods' machines, test harness dummies) are never chosen
+		if (player instanceof net.fabricmc.fabric.api.entity.FakePlayer) {
+			return;
+		}
 		if (Boolean.TRUE.equals(player.getAttachedOrElse(ModAttachments.SPAWN_CALLING_DONE, false))) {
 			return;
 		}
@@ -209,21 +218,22 @@ public final class SpawnCallings {
 		player.displayClientMessage(Component.literal("   ").append(accept).append("   ").append(refuse), false);
 	}
 
-	/** The light of whatever chose them: a green ring of light, or the Kwami's colour. */
+	/** The light of whatever chose them: a green ring of light, or the Kwami's colour. Only the chosen player sees it. */
 	private static void glow(ServerPlayer player, Offer o, int count) {
 		ServerLevel level = player.serverLevel();
+		ParticleSink out = (opt, x, y, z, n, dx, dy, dz, s) -> level.sendParticles(player, opt, true, x, y, z, n, dx, dy, dz, s);
 		Vec3 c = player.position().add(0, 1.0, 0);
 		if (o.kind() == Kind.GREEN_LANTERN) {
 			for (int i = 0; i < count; i++) {
 				double a = i * Math.PI * 2 / Math.max(1, count);
-				level.sendParticles(GREEN, c.x + Math.cos(a) * 0.9, c.y + 0.6, c.z + Math.sin(a) * 0.9, 1, 0, 0, 0, 0);
+				out.send(GREEN, c.x + Math.cos(a) * 0.9, c.y + 0.6, c.z + Math.sin(a) * 0.9, 1, 0, 0, 0, 0);
 			}
-			level.sendParticles(ParticleTypes.GLOW, c.x, c.y + 1.4, c.z, Math.max(1, count / 6), 0.2, 0.2, 0.2, 0.01);
+			out.send(ParticleTypes.GLOW, c.x, c.y + 1.4, c.z, Math.max(1, count / 6), 0.2, 0.2, 0.2, 0.01);
 		} else {
 			int rgb = o.kwami().color;
 			DustParticleOptions dust = new DustParticleOptions(new Vector3f(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f), 1.2f);
-			level.sendParticles(dust, c.x, c.y, c.z, count, 0.5, 0.7, 0.5, 0.01);
-			level.sendParticles(ParticleTypes.END_ROD, c.x, c.y + 0.4, c.z, Math.max(1, count / 8), 0.3, 0.4, 0.3, 0.01);
+			out.send(dust, c.x, c.y, c.z, count, 0.5, 0.7, 0.5, 0.01);
+			out.send(ParticleTypes.END_ROD, c.x, c.y + 0.4, c.z, Math.max(1, count / 8), 0.3, 0.4, 0.3, 0.01);
 		}
 	}
 
