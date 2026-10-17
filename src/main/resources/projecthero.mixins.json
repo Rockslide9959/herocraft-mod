@@ -74,7 +74,8 @@
 		"CityBlockDropMixin",
 		"CityBlockItemMixin",
 		"CityVillagerMixin",
-		"CityVillagerPanicMixin"
+		"CityVillagerPanicMixin",
+		"RenaRougeFakeWallSightMixin"
 	],
 	"client": [],
 	"server": [],
