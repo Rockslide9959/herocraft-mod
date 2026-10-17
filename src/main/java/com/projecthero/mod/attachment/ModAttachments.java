@@ -426,6 +426,11 @@ public final class ModAttachments {
 			builder -> builder.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.targetOnly()));
 
+	/** v0.16.6: this player's one spawn-in calling roll (the Green Lantern ring / a Miraculous) is done in this world. Persistent. */
+	public static final AttachmentType<Boolean> SPAWN_CALLING_DONE = AttachmentRegistry.create(
+			ProjectHeroMod.id("spawn_calling_done"),
+			builder -> builder.persistent(Codec.BOOL).copyOnDeath().initializer(() -> false));
+
 	/** v0.16.1: Spider-Man's notification sounds are muted (Shift+N). False = on, the default. Persistent; synced to the owner. */
 	public static final AttachmentType<Boolean> SPIDER_SOUNDS_OFF = AttachmentRegistry.create(
 			ProjectHeroMod.id("spider_sounds_off"),

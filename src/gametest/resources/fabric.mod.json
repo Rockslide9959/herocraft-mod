@@ -171,6 +171,7 @@
       "com.projecthero.mod.gametest.UltronV01512GameTests",
       "com.projecthero.mod.gametest.UltronV0161GameTests",
       "com.projecthero.mod.gametest.NovaGameTests",
+      "com.projecthero.mod.gametest.SpawnCallingGameTests",
       "com.projecthero.mod.gametest.GhostRiderGameTests",
       "com.projecthero.mod.gametest.GhostRiderReworkGameTests",
       "com.projecthero.mod.gametest.CyborgGameTests",
