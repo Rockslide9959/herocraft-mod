@@ -93,8 +93,8 @@ public final class AllMightConfig {
 	public static final int CAROLINA_COOLDOWN = 5 * S;
 	public static final int CAROLINA_WINDUP = 5;
 	public static final float CAROLINA_DAMAGE = 20.0f;
-	public static final double CAROLINA_DISTANCE = 15.0; // v0.12.44: the slide covers 15 blocks
-	public static final double CAROLINA_SPEED = 1.5;
+	public static final double CAROLINA_DISTANCE = 30.0; // v0.12.44: the slide covers 15 blocks; v0.16.6 (user): launches him further -- 30
+	public static final double CAROLINA_SPEED = 2.0; // v0.16.6: was 1.5 (the longer slide still takes 15 ticks, not 20)
 	public static final double CAROLINA_KNOCKBACK = 2.4;
 
 	// New Hampshire Smash (Shift+R): an aerial launch and a crashing landing

@@ -116,6 +116,18 @@ public abstract class PlayerMixin {
 		}
 	}
 
+	/**
+	 * v0.16.6 (user): Spider-Man (any wall-crawler) stuck to a wall or ceiling mines at normal speed -- this lifts vanilla's
+	 * x5 "not on the ground" penalty while attached (SpiderClimb.attached reads the side's own copy of the climb engine).
+	 */
+	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
+	private void projecthero$wallCrawlMining(BlockState state, CallbackInfoReturnable<Float> cir) {
+		Player self = (Player) (Object) this;
+		if (!self.onGround() && com.projecthero.mod.spider.SpiderClimb.attached(self)) {
+			cir.setReturnValue(cir.getReturnValue() * 5.0f);
+		}
+	}
+
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void projecthero$geoMining(BlockState state, CallbackInfoReturnable<Float> cir) {
 		Player self = (Player) (Object) this;

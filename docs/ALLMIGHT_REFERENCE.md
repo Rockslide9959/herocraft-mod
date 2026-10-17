@@ -1,5 +1,7 @@
 # All Might / One For All — reference (v0.12.33)
 
+> **v0.16.6 (user):** Carolina Smash launches him further: `CAROLINA_DISTANCE` 30 (was 15), `CAROLINA_SPEED` 2.0 (was 1.5), so the slide is 15 ticks.
+
 > **v0.13.5:** Carolina Smash's `tickMove` DASH branch now re-reads `flatLook(p)` every tick instead of
 > locking to the heading captured once at launch -- the slide follows your aim continuously rather than
 > just the direction you were facing the instant it started. Leap (`AllMightAbilities.leap`) passes
