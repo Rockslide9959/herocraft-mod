@@ -11,11 +11,17 @@ import org.jetbrains.annotations.Nullable;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.miraculous.data.MiraculousState;
+import com.projecthero.mod.miraculous.entity.KwamiEntity;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -27,7 +33,7 @@ import net.minecraft.world.phys.Vec3;
  * {@link #setVec} (cleared by the core on detransformation). Shift+Z: {@link #startCountdown} when the special fires.
  *
  * <h2>The core</h2>
- * grant / revoke, H ({@link #toggleForm}), the transformation sequence, the countdown and the hungry Kwami, the Kwami
+ * grant / revoke, the spoken phrases ({@link #onChat}; {@link #toggleForm} for commands), the transformation sequence, the countdown and the hungry Kwami, the Kwami
  * entity, the shared transformed stats, the lifecycle. See {@code docs/MIRACULOUS_REFERENCE.md}.
  */
 public final class Miraculous {
@@ -42,6 +48,7 @@ public final class Miraculous {
 		LAST_TICK.clear();
 		MiraculousAbilityManager.clearSessionState();
 		MiraculousKits.clearSessionState();
+		KwamiCompanion.clearSessionState();
 	}
 
 	// ---------------------------------------------------------------- state
@@ -186,11 +193,81 @@ public final class Miraculous {
 		player.displayClientMessage(Component.translatable(key, args).withStyle(colour), true);
 	}
 
-	// ---------------------------------------------------------------- grant / revoke
-	// (CORE: the minimal versions below are enough for the kits to test against; the core build fleshes them out --
-	// intro, Kwami entity, sounds, the jewel back on revoke)
+	// ---------------------------------------------------------------- the Kwami's food
 
-	/** A jewel / the command. False if refused (already holds a Kwami, UniquePowers). */
+	/** The Kwami's favourite food: cookies (Tikki), Camembert (Plagg), macarons (Trixx), a honey bottle (Nooroo). */
+	public static net.minecraft.world.item.Item foodOf(Kwami kwami) {
+		return switch (kwami) {
+			case TIKKI -> net.minecraft.world.item.Items.COOKIE;
+			case PLAGG -> com.projecthero.mod.miraculous.item.MiraculousItems.CAMEMBERT;
+			case TRIXX -> com.projecthero.mod.miraculous.item.MiraculousItems.MACARON;
+			case NOOROO -> net.minecraft.world.item.Items.HONEY_BOTTLE;
+		};
+	}
+
+	/** Client-safe: the Kwami is worn out and must be fed before the next transformation. */
+	public static boolean hungry(Player player) {
+		MiraculousState s = peek(player);
+		return s != null && s.hasPower && s.hungry;
+	}
+
+	/**
+	 * Feeds the Kwami one of {@code stack} (right-clicking the Kwami with it, or eating it while the Kwami is hungry). Only
+	 * its favourite food, only while detransformed, not while it is still eating. Hungry: that clears it (the next
+	 * transformation is allowed again). Not hungry: it eats anyway and the holder gets a little Regeneration.
+	 */
+	public static boolean feed(ServerPlayer player, ItemStack stack) {
+		MiraculousState s = state(player);
+		Kwami k = kwami(player);
+		if (k == null || stack.isEmpty() || !stack.is(foodOf(k))) {
+			return false;
+		}
+		if (s.transformed) {
+			say(player, "message.projecthero.miraculous.feed_transformed", ChatFormatting.GOLD, kwamiName(k));
+			return false;
+		}
+		KwamiEntity e = KwamiCompanion.ensure(player);
+		if (e != null && e.busy() && e.mode() == KwamiEntity.MODE_EAT) {
+			return false;
+		}
+		if (!player.getAbilities().instabuild) {
+			ItemStack left = stack.getItem().getCraftingRemainingItem() == null ? ItemStack.EMPTY
+					: new ItemStack(stack.getItem().getCraftingRemainingItem());
+			if (stack.is(net.minecraft.world.item.Items.HONEY_BOTTLE)) {
+				left = new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE); // Nooroo hands the bottle back
+			}
+			stack.shrink(1);
+			if (!left.isEmpty() && !player.getInventory().add(left)) {
+				player.drop(left, false);
+			}
+		}
+		if (e != null) {
+			e.setMode(KwamiEntity.MODE_EAT, MiraculousConfig.EAT_TICKS);
+			player.level().playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GENERIC_EAT, SoundSource.NEUTRAL, 0.6f, 1.5f);
+		}
+		if (s.hungry) {
+			edit(player, n -> n.hungry = false);
+			KwamiCompanion.say(player, "message.projecthero.miraculous.fed." + k.id);
+		} else {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MiraculousConfig.SNACK_REGEN_TICKS, 0, false, true));
+			say(player, "message.projecthero.miraculous.snack", ChatFormatting.GREEN, kwamiName(k));
+		}
+		return true;
+	}
+
+	/** {@code UseItemCallback}: eating the Kwami's food while it is hungry and you are detransformed feeds it instead. */
+	public static boolean wantsFood(Player player, ItemStack stack) {
+		Kwami k = kwami(player);
+		return k != null && hungry(player) && !transformed(player) && stack.is(foodOf(k));
+	}
+
+	public static Component kwamiName(Kwami k) {
+		return Component.translatable("entity.projecthero.kwami." + k.id);
+	}
+
+	// ---------------------------------------------------------------- grant / revoke
+
+	/** A jewel / the command. False if refused (already holds this Kwami, UniquePowers). */
 	public static boolean grant(ServerPlayer player, Kwami kwami) {
 		MiraculousState s = state(player);
 		if (s.hasPower && kwami.id.equals(s.kwami)) {
@@ -208,6 +285,9 @@ public final class Miraculous {
 		n.kwami = kwami.id;
 		save(player, n);
 		MiraculousStats.reconcile(player);
+		KwamiCompanion.introduce(player, kwami);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.3f);
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ALLAY_AMBIENT_WITH_ITEM, SoundSource.PLAYERS, 0.8f, 1.2f);
 		return true;
 	}
 
@@ -216,9 +296,11 @@ public final class Miraculous {
 		if (s.transformed) {
 			MiraculousKits.of(Kwami.byId(s.kwami)).onDetransform(player);
 		}
+		KwamiCompanion.remove(player);
 		save(player, new MiraculousState());
 		MiraculousStats.reconcile(player);
 		forget(player);
+		KwamiCompanion.forget(player.getUUID());
 	}
 
 	private static void forget(ServerPlayer player) {
@@ -231,12 +313,15 @@ public final class Miraculous {
 		}
 	}
 
-	// ---------------------------------------------------------------- H
+	// ---------------------------------------------------------------- transforming
 
-	/** H: transform / detransform. */
+	/**
+	 * Transform / detransform (the payload, commands and tests; players SAY the phrases, see {@link #onChat}). Debounced
+	 * by {@link MiraculousConfig#TOGGLE_COOLDOWN}; a transformation can't be undone before it has finished.
+	 */
 	public static void toggleForm(ServerPlayer player) {
 		MiraculousState s = state(player);
-		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+		if (!s.hasPower || !player.isAlive() || player.isSpectator() || settling(player, s)) {
 			return;
 		}
 		if (s.transformed) {
@@ -246,15 +331,49 @@ public final class Miraculous {
 		}
 	}
 
+	/** Too soon after the last change. */
+	private static boolean settling(ServerPlayer player, MiraculousState s) {
+		long since = player.level().getGameTime() - s.formChangeAt;
+		return s.formChangeAt > 0L && since >= 0L && since < (s.transformed ? MiraculousConfig.TRANSFORM_TICKS : MiraculousConfig.TOGGLE_COOLDOWN);
+	}
+
+	/**
+	 * v0.16.6 (user): the spoken phrase ({@code ServerMessageEvents.CHAT_MESSAGE}). True if it was one of the holder's
+	 * phrases (the chat line still goes out either way).
+	 */
+	public static boolean onChat(ServerPlayer player, String message) {
+		Kwami k = kwami(player);
+		if (k == null) {
+			return false;
+		}
+		MiraculousPhrases.Spoken spoken = MiraculousPhrases.match(k, message);
+		if (spoken == null) {
+			return false;
+		}
+		MiraculousState s = state(player);
+		if (settling(player, s)) {
+			return true;
+		}
+		if (spoken == MiraculousPhrases.Spoken.TRANSFORM && !s.transformed) {
+			transform(player);
+		} else if (spoken == MiraculousPhrases.Spoken.DETRANSFORM && s.transformed) {
+			detransform(player, false);
+		}
+		return true;
+	}
+
 	public static void transform(ServerPlayer player) {
 		MiraculousState s = state(player);
-		if (!s.hasPower || s.transformed) {
+		if (!s.hasPower || s.transformed || !player.isAlive() || player.isSpectator() || settling(player, s)) {
+			return;
+		}
+		Kwami k = Kwami.byId(s.kwami);
+		if (k == null) {
 			return;
 		}
 		if (s.hungry) {
-			Kwami k = Kwami.byId(s.kwami);
-			say(player, "message.projecthero.miraculous.hungry", ChatFormatting.GOLD,
-					Component.translatable("entity.projecthero.kwami." + (k == null ? "tikki" : k.id)));
+			say(player, "message.projecthero.miraculous.hungry", ChatFormatting.GOLD, kwamiName(k),
+					Component.translatable(foodOf(k).getDescriptionId()));
 			return;
 		}
 		long now = player.level().getGameTime();
@@ -265,9 +384,16 @@ public final class Miraculous {
 			n.animStart = now;
 		});
 		MiraculousStats.reconcile(player);
+		KwamiCompanion.mood(player, KwamiEntity.MODE_INTO_JEWEL, MiraculousConfig.INTO_JEWEL_TICKS);
+		sound(player, SoundEvents.ENCHANTMENT_TABLE_USE, 1.0f, 1.2f);
+		sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 1.2f, 1.5f);
+		sound(player, SoundEvents.ILLUSIONER_PREPARE_MIRROR, 0.4f, 1.6f);
 	}
 
-	/** {@code exhausted}: the countdown ran out -- the Kwami comes out hungry. */
+	/**
+	 * {@code exhausted}: the countdown ran out. v0.16.6 (user): after EVERY detransformation the Kwami comes out tired and
+	 * hungry, and won't transform the holder again until it has been fed.
+	 */
 	public static void detransform(ServerPlayer player, boolean exhausted) {
 		MiraculousState s = state(player);
 		if (!s.transformed) {
@@ -279,13 +405,28 @@ public final class Miraculous {
 			n.transformed = false;
 			n.formChangeAt = now;
 			n.countdownEnd = 0L;
-			n.hungry = n.hungry || exhausted;
+			n.hungry = true;
 			n.animId = MiraculousState.ANIM_DETRANSFORM;
 			n.animStart = now;
 			n.vals.clear();
 			n.vecs.clear();
 		});
 		MiraculousStats.reconcile(player);
+		KwamiCompanion.mood(player, KwamiEntity.MODE_POP_TIRED, MiraculousConfig.POP_TIRED_TICKS);
+		sound(player, SoundEvents.AMETHYST_BLOCK_CHIME, 1.2f, 0.9f);
+		sound(player, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.7f);
+		Kwami k = Kwami.byId(s.kwami);
+		if (k != null && !exhausted) {
+			KwamiCompanion.say(player, "message.projecthero.miraculous.tired." + k.id);
+		}
+	}
+
+	private static void sound(ServerPlayer player, net.minecraft.sounds.SoundEvent sound, float volume, float pitch) {
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, volume, pitch);
+	}
+
+	private static void sound(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.sounds.SoundEvent> sound, float volume, float pitch) {
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), sound, SoundSource.PLAYERS, volume, pitch);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -303,11 +444,31 @@ public final class Miraculous {
 		if (player.tickCount % 20 == 0) {
 			MiraculousStats.reconcile(player);
 		}
+		if (s.transformed) {
+			long age = now - s.formChangeAt;
+			if (age == MiraculousConfig.SWIRL_SOUND_TICK) {
+				sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.6f);
+			} else if (age == MiraculousConfig.FLASH_TICK) {
+				sound(player, SoundEvents.PLAYER_LEVELUP, 0.6f, 1.6f);
+				sound(player, SoundEvents.FIREWORK_ROCKET_TWINKLE, 0.9f, 1.2f);
+				sound(player, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 1.8f);
+			}
+			if (s.countdownEnd > 0L) {
+				long left = s.countdownEnd - now;
+				if (left > 0L && left < MiraculousConfig.COUNTDOWN_TICKS && left % 1200L == 0L) {
+					// a soft beep for the holder at each minute mark (the jewel loses a spot)
+					player.playNotifySound(SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
+				} else if (left > 0L && left <= 200L && left % 20L == 0L) {
+					player.playNotifySound(SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.45f, 1.5f);
+				}
+			}
+		}
 		if (s.transformed && s.countdownEnd > 0L && now >= s.countdownEnd) {
 			detransform(player, true);
 			say(player, "message.projecthero.miraculous.time_up", ChatFormatting.RED);
 			s = state(player);
 		}
+		KwamiCompanion.tick(player, s);
 		MiraculousKits.of(Kwami.byId(s.kwami)).tick(player);
 	}
 
@@ -325,12 +486,14 @@ public final class Miraculous {
 		MiraculousStats.reconcile(player);
 	}
 
+	/** v0.16.6 (user): dying transformed is a detransformation too -- the Kwami comes back hungry. */
 	public static void onPlayerRespawn(ServerPlayer player) {
 		MiraculousState s = state(player);
 		if (!s.hasPower) {
 			return;
 		}
 		edit(player, n -> {
+			n.hungry = n.hungry || n.transformed;
 			n.transformed = false;
 			n.formChangeAt = 0L;
 			n.countdownEnd = 0L;
@@ -357,6 +520,7 @@ public final class Miraculous {
 				n.vecs.clear();
 			});
 		}
+		KwamiCompanion.remove(player);
 		forget(player);
 	}
 }

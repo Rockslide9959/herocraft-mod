@@ -42,6 +42,8 @@ public abstract class GreenLanternRingHandMixin {
 			}
 			// v0.14.13: the Flash Ring shows in first person too, on the same finger
 			com.projecthero.mod.client.flash.FlashRingLayer.render(pose, buffers, player, arm, partial);
+			// v0.16.6: Cat Noir's Miraculous ring, on the same finger
+			com.projecthero.mod.client.miraculous.MiraculousJewelLayer.renderFirstPersonRing(pose, buffers, player, arm);
 		} finally {
 			com.projecthero.mod.client.render.HandRing.firstPerson = false;
 		}

@@ -72,6 +72,11 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)) {
 			return "projecthero.squad.identity.blue_beetle";
 		}
+		// v0.16.6: Ladybug / Cat Noir / Rena Rouge (by the Kwami held)
+		com.projecthero.mod.miraculous.Kwami kwami = com.projecthero.mod.miraculous.Miraculous.kwami(player);
+		if (kwami != null) {
+			return "projecthero.squad.identity." + kwami.heroKey;
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

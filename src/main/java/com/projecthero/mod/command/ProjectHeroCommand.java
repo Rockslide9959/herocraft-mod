@@ -51,7 +51,8 @@ public final class ProjectHeroCommand {
 				.then(com.projecthero.mod.nova.NovaCommand.build())
 				.then(com.projecthero.mod.ghostrider.GhostRiderCommand.build())
 				.then(com.projecthero.mod.cyborg.CyborgCommand.build())
-				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())));
+				.then(com.projecthero.mod.bluebeetle.BlueBeetleMod.command())
+				.then(com.projecthero.mod.miraculous.MiraculousCommand.build())));
 		root.then(LocateCommand.build());
 		root.then(RaidAdminCommand.build());
 		// v0.14.8: /projecthero meteor [here] -- the Kryptonite Meteor world event (op only)

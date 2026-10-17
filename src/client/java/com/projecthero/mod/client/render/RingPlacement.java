@@ -73,6 +73,10 @@ public final class RingPlacement {
 		DEFAULTS.put(HandRing.FLASH.id(), new Placement[] {
 				new Placement(-2.4f, 0.9f, 1.15f, 0f, 90f, 0f, 1f),
 				new Placement(-2.5f, 0.5f, 1.2f, 0f, 90f, 0f, 1f) });
+		// v0.16.6: Cat Noir's Miraculous ring sits where the Flash Ring does
+		DEFAULTS.put("cat_ring", new Placement[] {
+				new Placement(-2.4f, 0.9f, 1.15f, 0f, 90f, 0f, 1f),
+				new Placement(-2.5f, 0.5f, 1.2f, 0f, 90f, 0f, 1f) });
 	}
 
 	/** v0.14.24: x shift on a wide arm, whose outer face is one pixel further out than a slim arm's. */

@@ -213,6 +213,11 @@ public final class PowerInfoScreen extends Screen {
 		if (com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.blueBeetleChapter();
 		}
+		// v0.16.6: Ladybug / Cat Noir / Rena Rouge
+		com.projecthero.mod.miraculous.Kwami kwami = com.projecthero.mod.miraculous.Miraculous.kwami(mc.player);
+		if (kwami != null) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.miraculousChapter(kwami);
+		}
 		if (com.projecthero.mod.wolverine.Wolverine.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.wolverineChapter();
 		}

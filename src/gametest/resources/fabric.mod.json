@@ -179,6 +179,7 @@
       "com.projecthero.mod.gametest.GhostRiderReworkGameTests",
       "com.projecthero.mod.gametest.CyborgGameTests",
       "com.projecthero.mod.gametest.BlueBeetleGameTests",
+      "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",
       "com.projecthero.mod.gametest.UltronContagionV0161GameTests",
       "com.projecthero.mod.gametest.GalactusGameTests",

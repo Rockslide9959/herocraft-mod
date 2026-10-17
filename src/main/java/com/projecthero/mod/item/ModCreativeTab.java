@@ -112,6 +112,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.ghostrider.item.GhostRiderItems.addToCreativeTab(output);
 				// v0.16.5 Blue Beetle: the Scarab
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
+				// v0.16.6 the Miraculous: the Miraculous Box, the three jewels, Camembert and macarons
+				com.projecthero.mod.miraculous.item.MiraculousItems.addToCreativeTab(output);
 				// v0.14.11: the Flash Suit (the ring itself only exists holding a suit)
 				com.projecthero.mod.flash.FlashSuit.addToCreativeTab(output);
 				// v0.14.12: the Horde blocks and the new mobs' spawn eggs
