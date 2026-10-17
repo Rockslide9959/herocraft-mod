@@ -13,7 +13,9 @@ public enum Kwami {
 	/** Cat Noir: the Ring, the Baton, Camembert. */
 	PLAGG("plagg", "cat_noir", "ring", 0xFF7EE23A),
 	/** Rena Rouge: the Necklace, the Flute, macarons. */
-	TRIXX("trixx", "rena_rouge", "necklace", 0xFFEE7C24);
+	TRIXX("trixx", "rena_rouge", "necklace", 0xFFEE7C24),
+	/** Hawk Moth (v0.16.6): the Brooch, the Cane, honey. */
+	NOOROO("nooroo", "hawk_moth", "brooch", 0xFF9A5CD6);
 
 	/** The Kwami's own id ({@code tikki}): the entity variant, the state's {@code kwami} field, lang keys. */
 	public final String id;

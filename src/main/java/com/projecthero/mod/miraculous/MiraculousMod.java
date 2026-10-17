@@ -36,6 +36,7 @@ public final class MiraculousMod {
 		com.projecthero.mod.miraculous.ladybug.LadybugMod.initialize();
 		com.projecthero.mod.miraculous.catnoir.CatNoirMod.initialize();
 		com.projecthero.mod.miraculous.renarouge.RenaRougeMod.initialize();
+		com.projecthero.mod.miraculous.hawkmoth.HawkMothMod.initialize();
 
 		ServerPlayerEvents.JOIN.register(Miraculous::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Miraculous.onPlayerRespawn(newPlayer));

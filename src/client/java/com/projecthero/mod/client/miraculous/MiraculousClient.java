@@ -27,6 +27,7 @@ public final class MiraculousClient {
 		com.projecthero.mod.client.miraculous.ladybug.LadybugClient.initialize();
 		com.projecthero.mod.client.miraculous.catnoir.CatNoirClient.initialize();
 		com.projecthero.mod.client.miraculous.renarouge.RenaRougeClient.initialize();
+		com.projecthero.mod.client.miraculous.hawkmoth.HawkMothClient.initialize();
 	}
 
 	public static void register(Kwami kwami, KwamiClientKit kit) {
