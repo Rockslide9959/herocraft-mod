@@ -1,0 +1,535 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.miraculous.Kwami;
+import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.miraculous.MiraculousKits;
+import com.projecthero.mod.miraculous.data.MiraculousState;
+import com.projecthero.mod.miraculous.ladybug.LadybugKeys;
+import com.projecthero.mod.miraculous.ladybug.LadybugMoves;
+import com.projecthero.mod.miraculous.ladybug.LuckyCharm;
+import com.projecthero.mod.miraculous.ladybug.item.LadybugItems;
+import com.projecthero.mod.miraculous.ladybug.network.LadybugGlowPayload;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.6 Ladybug stills. A fake player is Ladybug; the local player is the camera (and,
+ * at the end, Ladybug herself for the first-person and Ladybug Vision shots). Stills go to run/screenshots/lb_*.png.
+ * Enabled by run/lb.flag.
+ */
+public final class LadybugHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static ServerPlayer lb;
+	private static Vec3 origin;
+	private static final List<Mob> dummies = new ArrayList<>();
+	private static boolean move;
+
+	private LadybugHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("lb.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(LadybugHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "lb-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (a, b) -> () -> {
+			a.run();
+			b.run();
+		});
+	}
+
+	private static void snap(Minecraft mc, int t, String name) {
+		at(t, () -> Screenshot.grab(mc.gameDirectory, "lb_" + name + ".png", mc.getMainRenderTarget(), c -> {
+		}));
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(LadybugHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			server(mc, p -> physics());
+		}
+	}
+
+	private static void physics() {
+		if (lb == null || lb.isRemoved()) {
+			return;
+		}
+		lb.tickCount++;
+		Miraculous.tick(lb);
+		if (move) {
+			Vec3 v = lb.getDeltaMovement();
+			lb.move(MoverType.SELF, v);
+			double vy = lb.onGround() ? 0 : v.y - 0.08;
+			lb.setDeltaMovement(v.x * 0.91, vy * 0.98, v.z * 0.91);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("LB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.NORMAL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	/** A uuid whose default skin is {@code skin} (e.g. "wide/steve"), so the fake wears it offline. */
+	private static java.util.UUID uuidFor(String skin) {
+		for (int i = 0; i < 100000; i++) {
+			java.util.UUID u = java.util.UUID.randomUUID();
+			if (net.minecraft.client.resources.DefaultPlayerSkin.get(u).texture().getPath().endsWith(skin + ".png")) {
+				return u;
+			}
+		}
+		return java.util.UUID.randomUUID();
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, String skin) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(uuidFor(skin), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		return f;
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static void face(ServerPlayer r, float yaw, float pitch) {
+		r.teleportTo(r.serverLevel(), r.getX(), r.getY(), r.getZ(), yaw, pitch);
+		r.setYHeadRot(yaw);
+		r.yBodyRot = yaw;
+		r.yBodyRotO = yaw;
+	}
+
+	private static void home(ServerPlayer r) {
+		r.setDeltaMovement(Vec3.ZERO);
+		r.teleportTo(r.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+		face(r, 0f, 0f);
+	}
+
+	private static void ready(ServerPlayer r) {
+		Miraculous.edit(r, n -> {
+			n.abilityReadyAt.clear();
+			n.formChangeAt = r.level().getGameTime() - 200L;
+			n.animId = MiraculousState.ANIM_NONE;
+		});
+	}
+
+	private static void clearDummies() {
+		for (Mob m : dummies) {
+			m.discard();
+		}
+		dummies.clear();
+	}
+
+	private static <T extends Mob> T dummy(ServerPlayer p, EntityType<T> type, Vec3 at, float yaw) {
+		T m = type.create(p.serverLevel());
+		m.setNoAi(true);
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(100);
+		m.setHealth(100);
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.CARVED_PUMPKIN));
+		p.serverLevel().addFreshEntity(m);
+		dummies.add(m);
+		return m;
+	}
+
+	private static void block(ServerPlayer p, Vec3 rel, net.minecraft.world.level.block.Block b) {
+		p.serverLevel().setBlock(BlockPos.containing(origin.add(rel)), b.defaultBlockState(), 3);
+	}
+
+	private static Vec3 side(double along, double dist, double h) {
+		return origin.add(-dist, h, along);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			lb = fake(p, "Steve", origin, "wide/steve");
+			Miraculous.grant(lb, Kwami.TIKKI);
+			Miraculous.transform(lb);
+			ready(lb);
+			face(lb, 0f, 0f);
+			camera(p, origin.add(0, 1.5, 3.4), origin.add(0, 1.0, 0));
+		}));
+		snap(mc, t + 25, "steve_suit_front");
+		at(t + 27, () -> server(mc, p -> camera(p, origin.add(-2.4, 1.6, 2.4), origin.add(0, 1.0, 0))));
+		snap(mc, t + 31, "steve_suit_three_quarter");
+		at(t + 33, () -> server(mc, p -> camera(p, origin.add(0, 1.5, -3.4), origin.add(0, 1.0, 0))));
+		snap(mc, t + 37, "steve_suit_back");
+		at(t + 38, () -> server(mc, p -> camera(p, origin.add(-0.5, 1.4, -1.7), origin.add(-0.2, 1.1, 0))));
+		snap(mc, t + 42, "steve_back_arm_close");
+		at(t + 43, () -> server(mc, p -> camera(p, origin.add(0, 1.7, 1.15), origin.add(0, 1.65, 0))));
+		snap(mc, t + 47, "steve_mask_close");
+		at(t + 50, () -> server(mc, p -> {
+			Miraculous.revoke(lb);
+			lb.discard();
+			lb = fake(p, "Alex", origin, "slim/alex");
+			Miraculous.grant(lb, Kwami.TIKKI);
+			Miraculous.transform(lb);
+			ready(lb);
+			face(lb, 0f, 0f);
+			camera(p, origin.add(0, 1.5, 3.4), origin.add(0, 1.0, 0));
+		}));
+		// ---- 1. the suit (Alex: slim arms, long hair): front, back, 3/4, close-ups, the hip Yo-yo
+		t += 80;
+		snap(mc, t, "suit_front");
+		at(t + 2, () -> server(mc, p -> camera(p, origin.add(0, 1.5, -3.4), origin.add(0, 1.0, 0))));
+		snap(mc, t + 6, "suit_back");
+		at(t + 8, () -> server(mc, p -> camera(p, origin.add(-2.4, 1.6, 2.4), origin.add(0, 1.0, 0))));
+		snap(mc, t + 12, "suit_three_quarter");
+		at(t + 14, () -> server(mc, p -> camera(p, origin.add(-1.5, 0.9, 1.2), origin.add(-0.3, 0.75, 0))));
+		snap(mc, t + 18, "yoyo_hip");
+		at(t + 19, () -> server(mc, p -> camera(p, origin.add(-0.5, 1.4, -1.7), origin.add(-0.2, 1.1, 0))));
+		snap(mc, t + 23, "alex_back_arm_close");
+		at(t + 24, () -> server(mc, p -> camera(p, origin.add(0, 1.7, 1.15), origin.add(0, 1.65, 0))));
+		snap(mc, t + 28, "alex_mask_close");
+		t += 32;
+		// ---- 2. the transformation, half way
+		at(t, () -> server(mc, p -> {
+			Miraculous.detransform(lb, false);
+			camera(p, origin.add(-2.0, 1.5, 2.8), origin.add(0, 1.0, 0));
+		}));
+		at(t + 30, () -> server(mc, p -> Miraculous.transform(lb)));
+		snap(mc, t + 30 + 14, "transform_mid");
+		snap(mc, t + 30 + 26, "transform_late");
+		t += 30 + 50;
+		at(t, () -> server(mc, p -> {
+			ready(lb);
+			camera(p, side(4, 6, 2.2), origin.add(0, 1.2, 4));
+		}));
+		t += 10;
+		// ---- 3. R: Strike (string out), Ricochet
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			dummy(p, EntityType.ZOMBIE, origin.add(0, 0, 8), 180f);
+			ready(lb);
+			LadybugMoves.strike(lb);
+		}));
+		snap(mc, t + 4, "R_strike_out");
+		snap(mc, t + 8, "R_strike_back");
+		t += 16;
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			dummy(p, EntityType.ZOMBIE, origin.add(0, 0, 5), 180f);
+			dummy(p, EntityType.ZOMBIE, origin.add(2.5, 0, 7), 180f);
+			dummy(p, EntityType.ZOMBIE, origin.add(-2, 0, 9), 180f);
+			ready(lb);
+			LadybugMoves.ricochet(lb);
+		}));
+		snap(mc, t + 6, "ShiftR_ricochet");
+		snap(mc, t + 10, "ShiftR_ricochet_2");
+		t += 20;
+		// ---- 4. G: Bind (coils), Yank, Fling
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			dummy(p, EntityType.ZOMBIE, origin.add(0, 0, 6), 180f);
+			ready(lb);
+			LadybugMoves.bindOrYank(lb);
+		}));
+		snap(mc, t + 4, "G_bind_throw");
+		snap(mc, t + 14, "G_bind_coils");
+		at(t + 20, () -> server(mc, p -> camera(p, origin.add(-2.2, 2.4, 9.0), origin.add(0, 1.0, 6))));
+		snap(mc, t + 24, "G_bind_coils_close");
+		at(t + 24, () -> mc.level.players().forEach(pl -> {
+			MiraculousState s = Miraculous.peek(pl);
+			System.out.println("[HARNESS] bind " + pl.getName().getString() + " bound=" + LadybugKeys.bound(pl) + " vals="
+					+ (s == null ? null : s.vals) + " now=" + mc.level.getGameTime());
+		}));
+		at(t + 24, () -> server(mc, p -> System.out.println("[HARNESS] server vals=" + Miraculous.state(lb).vals + " now=" + p.level().getGameTime())));
+		t += 30;
+		// ---- 5. X: Swing / Zip (a ceiling block to hook)
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			LadybugMoves.detach(lb, false);
+			home(lb);
+			block(p, new Vec3(0, 9, 6), Blocks.STONE);
+			face(lb, 0f, -55f);
+			ready(lb);
+			LadybugMoves.lineDown(lb, false);
+			camera(p, side(3, 9, 4.5), origin.add(0, 4.5, 3));
+		}));
+		snap(mc, t + 6, "X_swing");
+		at(t + 8, () -> server(mc, p -> {
+			LadybugMoves.lineUp(lb);
+			ready(lb);
+			LadybugMoves.lineDown(lb, true);
+		}));
+		snap(mc, t + 12, "ShiftX_zip");
+		t += 20;
+		// ---- 6. Z: Spinning Shield
+		at(t, () -> server(mc, p -> {
+			LadybugMoves.detach(lb, false);
+			home(lb);
+			ready(lb);
+			LadybugMoves.shieldUp(lb);
+			camera(p, origin.add(-2.6, 1.8, 3.2), origin.add(0, 1.2, 0.5));
+		}));
+		snap(mc, t + 8, "Z_shield_3q");
+		at(t + 10, () -> server(mc, p -> camera(p, side(0.5, 3.5, 1.6), origin.add(0, 1.2, 0.5))));
+		snap(mc, t + 14, "Z_shield_side");
+		at(t + 16, () -> server(mc, p -> LadybugMoves.shieldDown(lb)));
+		t += 20;
+		// ---- 7. V: Pole Vault, Trip Wire
+		at(t, () -> server(mc, p -> {
+			home(lb);
+			ready(lb);
+			camera(p, side(5, 12, 4), origin.add(0, 3, 5));
+			move = true;
+			LadybugMoves.vault(lb);
+		}));
+		snap(mc, t + 4, "V_vault_plant");
+		snap(mc, t + 9, "V_vault_air");
+		t += 36;
+		at(t, () -> server(mc, p -> {
+			move = false;
+			home(lb);
+			ready(lb);
+			for (int y = 0; y < 3; y++) {
+				block(p, new Vec3(0, y, 8), Blocks.OAK_PLANKS);
+			}
+			face(lb, 0f, 15f);
+			LadybugMoves.wire(lb);
+			camera(p, side(4, 6, 2.5), origin.add(0, 0.6, 4));
+		}));
+		snap(mc, t + 4, "ShiftV_wire_throw");
+		at(t + 4, () -> server(mc, p -> {
+			lb.teleportTo(lb.serverLevel(), origin.x + 1.6, origin.y, origin.z - 1.5, 0f, 0f);
+			dummy(p, EntityType.ZOMBIE, origin.add(0, 0, 4), 90f);
+		}));
+		snap(mc, t + 14, "ShiftV_wire_caught");
+		t += 20;
+		at(t - 1, () -> server(mc, p -> Miraculous.edit(lb, n -> n.vals.remove(LadybugKeys.V_WIRE_UNTIL))));
+		// ---- 8. C: Scan (compact), its outlines for the camera
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			home(lb);
+			ready(lb);
+			dummy(p, EntityType.ZOMBIE, origin.add(4, 0, 9), 180f);
+			dummy(p, EntityType.SKELETON, origin.add(-4, 0, 12), 180f);
+			face(lb, 0f, 20f);
+			List<Integer> ids = LadybugMoves.scan(lb);
+			ServerPlayNetworking.send(p, new LadybugGlowPayload(ids, 200));
+			camera(p, origin.add(-1.4, 1.9, 2.0), origin.add(0, 1.3, 0.3));
+		}));
+		snap(mc, t + 10, "C_scan_compact");
+		at(t + 12, () -> server(mc, p -> camera(p, origin.add(-3, 3, -6), origin.add(0, 1, 10))));
+		snap(mc, t + 16, "C_scan_outlines");
+		t += 34;
+		// ---- 9. Shift+Z: Lucky Charm (yo-yo up, burst, the drop), then Miraculous Ladybug
+		at(t, () -> server(mc, p -> {
+			clearDummies();
+			home(lb);
+			ready(lb);
+			camera(p, origin.add(-4.5, 2.5, 5.5), origin.add(0, 3.5, 0));
+			LuckyCharm.handle(lb);
+		}));
+		snap(mc, t + 6, "ShiftZ_charm_throw");
+		snap(mc, t + 12, "ShiftZ_charm_burst");
+		snap(mc, t + 26, "ShiftZ_charm_drop");
+		t += 60;
+		at(t, () -> server(mc, p -> {
+			// damage to repair: a little brick wall, half knocked out
+			for (int x = -3; x <= 3; x++) {
+				for (int y = 0; y < 3; y++) {
+					block(p, new Vec3(x, y, 5), Blocks.BRICKS);
+				}
+			}
+		}));
+		at(t + 4, () -> server(mc, p -> {
+			for (int x = -2; x <= 2; x++) {
+				for (int y = 0; y < 3; y++) {
+					if ((x + y) % 2 == 0) {
+						p.serverLevel().destroyBlock(BlockPos.containing(origin.add(x, y, 5)), false);
+					}
+				}
+			}
+			camera(p, origin.add(-6, 4, -5), origin.add(0, 2, 3));
+		}));
+		snap(mc, t + 8, "ML_before");
+		at(t + 10, () -> server(mc, p -> {
+			LuckyCharm.Kind k = LuckyCharm.Kind.byId(Miraculous.state(lb).val(LadybugKeys.V_CHARM));
+			lb.setItemInHand(InteractionHand.MAIN_HAND, LadybugItems.bound(k == null ? LadybugItems.LUCKY_SWORD : k.item(), lb));
+			LuckyCharm.handle(lb);
+		}));
+		snap(mc, t + 16, "ML_swarm_1");
+		snap(mc, t + 30, "ML_swarm_2");
+		snap(mc, t + 60, "ML_swarm_3");
+		snap(mc, t + 100, "ML_after");
+		t += 110;
+		// ---- 10. the parachute
+		at(t, () -> server(mc, p -> {
+			lb.teleportTo(lb.serverLevel(), origin.x, origin.y + 14, origin.z, 0f, 0f);
+			face(lb, 0f, 0f);
+			lb.setItemInHand(InteractionHand.MAIN_HAND, LadybugItems.bound(LadybugItems.LUCKY_PARACHUTE, lb));
+			move = true;
+			camera(p, origin.add(-5, 12, 6), origin.add(0, 12.5, 0));
+		}));
+		snap(mc, t + 12, "chute");
+		t += 18;
+		// ---- 11. the camera becomes Ladybug: first person with the Yo-yo, Ladybug Vision
+		at(t, () -> server(mc, p -> {
+			move = false;
+			Miraculous.revoke(lb);
+			lb.discard();
+			lb = null;
+			clearDummies();
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			p.setGameMode(GameType.SURVIVAL);
+			Miraculous.grant(p, Kwami.TIKKI);
+			Miraculous.transform(p);
+			ready(p);
+			dummy(p, EntityType.ZOMBIE, origin.add(0, 0, 7), 180f);
+			dummy(p, EntityType.ZOMBIE, origin.add(3, 0, 10), 180f);
+		}));
+		at(t + 18, () -> mc.options.hideGui = false);
+		at(t + 20, () -> server(mc, p -> {
+			MiraculousKits.of(Kwami.TIKKI).tick(p);
+			ready(p);
+			LadybugMoves.strike(p);
+		}));
+		snap(mc, t + 23, "FP_strike");
+		snap(mc, t + 25, "FP_strike_2");
+		at(t + 30, () -> server(mc, p -> {
+			ready(p);
+			LadybugMoves.shieldUp(p);
+		}));
+		snap(mc, t + 36, "FP_shield");
+		at(t + 40, () -> server(mc, p -> LadybugMoves.shieldDown(p)));
+		snap(mc, t + 46, "FP_sleeve");
+		at(t + 50, () -> server(mc, p -> {
+			ready(p);
+			LuckyCharm.handle(p);
+		}));
+		snap(mc, t + 64, "vision_grey");
+		at(t + 66, () -> mc.options.setCameraType(CameraType.THIRD_PERSON_BACK));
+		snap(mc, t + 74, "vision_third_person");
+		t += 90;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
