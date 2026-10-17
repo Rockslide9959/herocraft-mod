@@ -124,8 +124,24 @@ public final class MiraculousHud {
 			}
 		}
 
-		boolean expanded = GLFW.glfwGetKey(mc.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
-		int nameRow = 0;
+		// v0.16.6: Left-Alt -> the shared move list, stacked above the whole HUD (title / note included)
+		int hudTop = ty;
+		if (note != null) {
+			hudTop = ty - 2 - mc.font.split(note, totalW).size() * 9;
+		}
+		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
+			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (AbilitySlot slot : SLOTS) {
+				String[] ids = kit.idsOf(slot);
+				if (ids.length == 0) {
+					continue;
+				}
+				rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(keyLabel(slot),
+						Component.translatable("projecthero.miraculous.ability." + ids[0]),
+						ids.length > 1 ? Component.translatable("projecthero.miraculous.ability." + ids[1]) : null));
+			}
+			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, hudTop, rows);
+		}
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
 			int x = x0 + i * (BOX + GAP);
@@ -147,19 +163,6 @@ public final class MiraculousHud {
 				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
-			}
-			if (expanded && ids.length > 0) {
-				Component line = Component.translatable("projecthero.miraculous.ability." + ids[0]);
-				if (ids.length > 1) {
-					line = line.copy().append(" / ").append(Component.translatable("projecthero.miraculous.ability." + ids[1]));
-				}
-				// right-aligned left of the HUD, never wider than the space there
-				int room = Math.max(60, x0 - 12);
-				List<FormattedCharSequence> parts = mc.font.split(line, Math.min(room, 200));
-				for (FormattedCharSequence part : parts) {
-					g.drawString(mc.font, part, x0 - 8 - mc.font.width(part), y0 - 64 + nameRow * 10, 0xFFCFCFCF, true);
-					nameRow++;
-				}
 			}
 		}
 	}

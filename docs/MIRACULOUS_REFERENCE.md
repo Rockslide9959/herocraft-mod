@@ -35,7 +35,7 @@ by `gen_kwami_game.js` (session scratchpad copy; see "Assets").
   three lines in chat (`[Tikki] ...`, `message.projecthero.miraculous.intro.<id>.1..3`) that name the phrases.
 - Revoking (commands, another Primary) gives no jewel back.
 - Recipes: Camembert = milk bucket + wheat + brown mushroom (shapeless, the bucket comes back); 4 macarons = 2 sugar +
-  egg + pink dye (shapeless).
+  egg + wheat (shapeless; v0.16.6 user: no pink dye).
 
 ## Transforming (spoken, not H)
 
