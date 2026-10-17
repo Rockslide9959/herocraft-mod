@@ -195,12 +195,13 @@ public final class Miraculous {
 
 	// ---------------------------------------------------------------- the Kwami's food
 
-	/** The Kwami's favourite food: cookies (Tikki), Camembert (Plagg), macarons (Trixx). */
+	/** The Kwami's favourite food: cookies (Tikki), Camembert (Plagg), macarons (Trixx), a honey bottle (Nooroo). */
 	public static net.minecraft.world.item.Item foodOf(Kwami kwami) {
 		return switch (kwami) {
 			case TIKKI -> net.minecraft.world.item.Items.COOKIE;
 			case PLAGG -> com.projecthero.mod.miraculous.item.MiraculousItems.CAMEMBERT;
 			case TRIXX -> com.projecthero.mod.miraculous.item.MiraculousItems.MACARON;
+			case NOOROO -> net.minecraft.world.item.Items.HONEY_BOTTLE;
 		};
 	}
 
@@ -230,7 +231,15 @@ public final class Miraculous {
 			return false;
 		}
 		if (!player.getAbilities().instabuild) {
+			ItemStack left = stack.getItem().getCraftingRemainingItem() == null ? ItemStack.EMPTY
+					: new ItemStack(stack.getItem().getCraftingRemainingItem());
+			if (stack.is(net.minecraft.world.item.Items.HONEY_BOTTLE)) {
+				left = new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE); // Nooroo hands the bottle back
+			}
 			stack.shrink(1);
+			if (!left.isEmpty() && !player.getInventory().add(left)) {
+				player.drop(left, false);
+			}
 		}
 		if (e != null) {
 			e.setMode(KwamiEntity.MODE_EAT, MiraculousConfig.EAT_TICKS);

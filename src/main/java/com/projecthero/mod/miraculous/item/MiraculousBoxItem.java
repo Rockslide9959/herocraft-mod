@@ -83,10 +83,13 @@ public class MiraculousBoxItem extends Item implements GeoItem {
 		return new ItemStack(MiraculousItems.jewelOf(k));
 	}
 
+	/** What the box can hold (v0.16.6: never the Butterfly Brooch -- Hawk Moth's jewel is found on its own). */
+	public static final List<Kwami> BOX_KWAMIS = List.of(Kwami.TIKKI, Kwami.PLAGG, Kwami.TRIXX);
+
 	private static Kwami pick(ServerPlayer player) {
 		List<Kwami> free = new ArrayList<>();
 		List<Kwami> freeNotMine = new ArrayList<>();
-		for (Kwami k : Kwami.values()) {
+		for (Kwami k : BOX_KWAMIS) {
 			if (com.projecthero.mod.hero.UniquePowers.blockingHolder(player, k.heroKey) == null) {
 				free.add(k);
 				if (!Miraculous.holds(player, k)) {
@@ -94,7 +97,7 @@ public class MiraculousBoxItem extends Item implements GeoItem {
 				}
 			}
 		}
-		List<Kwami> from = !freeNotMine.isEmpty() ? freeNotMine : !free.isEmpty() ? free : List.of(Kwami.values());
+		List<Kwami> from = !freeNotMine.isEmpty() ? freeNotMine : !free.isEmpty() ? free : BOX_KWAMIS;
 		return from.get(player.getRandom().nextInt(from.size()));
 	}
 

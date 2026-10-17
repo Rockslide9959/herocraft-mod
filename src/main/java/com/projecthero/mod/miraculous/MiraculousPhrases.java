@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
  *   Tikki, spots on!     Spots off!    (Tikki, spots off!)
  *   Plagg, claws out!    Claws in!     (Plagg, claws in!)
  *   Trixx, let's pounce! Let's rest!   (Trixx, let's rest!)
+ *   Nooroo, dark wings rise!  Dark wings fall!  (Nooroo, dark wings fall!)
  * </pre>
  */
 public final class MiraculousPhrases {
@@ -28,6 +29,7 @@ public final class MiraculousPhrases {
 			case TIKKI -> "Ladybug";
 			case PLAGG -> "Cat Noir";
 			case TRIXX -> "Rena Rouge";
+			case NOOROO -> "Hawk Moth";
 		};
 	}
 
@@ -37,6 +39,7 @@ public final class MiraculousPhrases {
 			case TIKKI -> "Tikki, spots on!";
 			case PLAGG -> "Plagg, claws out!";
 			case TRIXX -> "Trixx, let's pounce!";
+			case NOOROO -> "Nooroo, dark wings rise!";
 		};
 	}
 
@@ -46,12 +49,13 @@ public final class MiraculousPhrases {
 			case TIKKI -> "Spots off!";
 			case PLAGG -> "Claws in!";
 			case TRIXX -> "Let's rest!";
+			case NOOROO -> "Dark wings fall!";
 		};
 	}
 
 	/** Lower case, curly quotes straightened, then only letters / digits / single spaces (apostrophes dropped too). */
 	public static String normalize(String raw) {
-		String s = raw.toLowerCase(Locale.ROOT).replace('’', '\'').replace('‘', '\'').replace('ʼ', '\'');
+		String s = raw.toLowerCase(Locale.ROOT).replace('\u2019', '\'').replace('\u2018', '\'').replace('\u02BC', '\'');
 		StringBuilder b = new StringBuilder(s.length());
 		boolean space = false;
 		for (int i = 0; i < s.length(); i++) {

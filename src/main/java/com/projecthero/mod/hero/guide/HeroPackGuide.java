@@ -134,12 +134,13 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
-	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge, by the Kwami. */
+	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth, by the Kwami. */
 	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
 		return chapters().get(switch (kwami) {
 			case TIKKI -> CH_LADYBUG;
 			case PLAGG -> CH_CAT_NOIR;
 			case TRIXX -> CH_RENA_ROUGE;
+			case NOOROO -> CH_HAWK_MOTH;
 		});
 	}
 
@@ -463,7 +464,8 @@ public final class HeroPackGuide {
 	private static final int CH_LADYBUG = 42; // v0.16.6
 	private static final int CH_CAT_NOIR = 43; // v0.16.6
 	private static final int CH_RENA_ROUGE = 44; // v0.16.6
-	private static final int CHAPTER_POWER_BASE = 45;
+	private static final int CH_HAWK_MOTH = 45; // v0.16.6
+	private static final int CHAPTER_POWER_BASE = 46;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1370,6 +1372,7 @@ public final class HeroPackGuide {
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.TIKKI));
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.PLAGG));
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.TRIXX));
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.NOOROO)); // CH_HAWK_MOTH
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1417,6 +1420,7 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.ladybug", CH_LADYBUG); // v0.16.6
 		link(idx, "projecthero.guide.cat_noir", CH_CAT_NOIR); // v0.16.6
 		link(idx, "projecthero.guide.rena_rouge", CH_RENA_ROUGE); // v0.16.6
+		link(idx, "projecthero.guide.hawk_moth", CH_HAWK_MOTH); // v0.16.6
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

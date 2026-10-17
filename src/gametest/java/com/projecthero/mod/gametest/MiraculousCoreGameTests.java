@@ -108,7 +108,7 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		double armour = p.getAttributeValue(Attributes.ARMOR);
 		helper.assertFalse(Miraculous.onChat(p, "Tikki, spots on!"), "another Kwami's phrase means nothing");
 		helper.assertFalse(Miraculous.transformed(p), "still not transformed");
-		helper.assertTrue(Miraculous.onChat(p, "  trixx ,  LET’S   pounce!!! "), "the phrase, leniently (case, spaces, curly apostrophe)");
+		helper.assertTrue(Miraculous.onChat(p, "  trixx ,  LET\u2019S   pounce!!! "), "the phrase, leniently (case, spaces, curly apostrophe)");
 		helper.assertTrue(Miraculous.transformedAs(p, Kwami.TRIXX), "transformed");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour - MiraculousConfig.ARMOR_BONUS) < 0.01, "the suit's armour");
 		helper.assertFalse(Miraculous.canAct(p), "the moves wait for the sequence");
@@ -122,7 +122,9 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.hungry(p), "every detransformation leaves the Kwami hungry");
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "SPOTS OFF") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.PLAGG, "plagg claws out") == MiraculousPhrases.Spoken.TRANSFORM
-				&& MiraculousPhrases.match(Kwami.PLAGG, "claws out") == null, "the phrase table");
+				&& MiraculousPhrases.match(Kwami.PLAGG, "claws out") == null
+				&& MiraculousPhrases.match(Kwami.NOOROO, "Nooroo, DARK wings rise!") == MiraculousPhrases.Spoken.TRANSFORM
+				&& MiraculousPhrases.match(Kwami.NOOROO, "nooroo dark wings fall") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.succeed();
 	}
 
@@ -169,6 +171,21 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyGrantPathPlaysTheWelcomeAndNoorooReturnsTheBottle(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		helper.assertTrue(PowerGrants.grantHero(p, "hawk_moth").ok(), "the command grants Hawk Moth");
+		KwamiEntity k = KwamiCompanion.find(p);
+		helper.assertTrue(k != null && k.kwami() == Kwami.NOOROO && k.mode() == KwamiEntity.MODE_POP_OUT, "Nooroo pops out and waves");
+		helper.assertTrue(KwamiCompanion.introPending(p) == KwamiCompanion.INTRO_LINES, "the intro lines are on their way");
+		Miraculous.edit(p, n -> n.hungry = true);
+		ItemStack honey = new ItemStack(Items.HONEY_BOTTLE);
+		helper.assertTrue(Miraculous.feed(p, honey), "Nooroo has the honey");
+		helper.assertTrue(honey.isEmpty() && p.getInventory().contains(new ItemStack(Items.GLASS_BOTTLE)), "the bottle comes back");
+		helper.assertFalse(Miraculous.hungry(p), "fed");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void deathWhileTransformedLeavesItHungry(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);
 		Miraculous.grant(p, Kwami.TRIXX);
@@ -202,6 +219,9 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		ItemStack jewel = MiraculousBoxItem.open(p);
 		helper.assertTrue(jewel.is(MiraculousItems.LADYBUG_EARRINGS) || jewel.is(MiraculousItems.CAT_RING) || jewel.is(MiraculousItems.FOX_NECKLACE),
 				"one of the three jewels: " + jewel);
+		for (int i = 0; i < 24; i++) {
+			helper.assertFalse(MiraculousBoxItem.open(p).is(MiraculousItems.BUTTERFLY_BROOCH), "the Brooch is never in the box");
+		}
 		ServerPlayer q = mock(helper);
 		q.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(MiraculousItems.FOX_NECKLACE));
 		q.getMainHandItem().use(q.level(), q, InteractionHand.MAIN_HAND);

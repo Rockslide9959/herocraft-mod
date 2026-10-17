@@ -259,9 +259,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// 26 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
 		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
 		// Titan, Squads, Wolverine, Titan Shifter, All Might, The Abyssal Behemoth, The Oathbreaker, Hulk,
-		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage, v0.15.1 Sentinel Purge, v0.15.12 Ultron Uprising, v0.15.13 Nova, v0.16.1 Frost Giants (33), the Ultron Contagion (34), Galactus (35) , v0.16.2 Street Crime (36), Cities (37), City Services (38) v0.16.5 Ghost Rider (39), Cyborg (40) and Blue Beetle (41), v0.16.6 Ladybug (42), Cat Noir (43), Rena Rouge (44))
+		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage, v0.15.1 Sentinel Purge, v0.15.12 Ultron Uprising, v0.15.13 Nova, v0.16.1 Frost Giants (33), the Ultron Contagion (34), Galactus (35) , v0.16.2 Street Crime (36), Cities (37), City Services (38) v0.16.5 Ghost Rider (39), Cyborg (40) and Blue Beetle (41), v0.16.6 Ladybug (42), Cat Noir (43), Rena Rouge (44), Hawk Moth (45))
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
-		helper.assertTrue(chapters.size() == 45 + Powers.enabled().size(),
+		helper.assertTrue(chapters.size() == 46 + Powers.enabled().size(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");

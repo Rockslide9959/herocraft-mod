@@ -126,7 +126,16 @@ public final class KwamiCompanion {
 		}
 	}
 
-	/** The Kwami pops out of a newly used jewel, waves and introduces itself. */
+	/** Intro lines still to come for this holder (tests). */
+	public static int introPending(ServerPlayer player) {
+		Deque<Line> q = INTRO.get(player.getUUID());
+		return q == null ? 0 : q.size();
+	}
+
+	/**
+	 * The Kwami pops out, waves and introduces itself (its lines tell the holder the transformation phrase). Called by
+	 * {@link Miraculous#grant} itself, so every way of gaining the power gets it: a jewel, a command, the spawn calling.
+	 */
 	static void introduce(ServerPlayer player, Kwami kwami) {
 		mood(player, KwamiEntity.MODE_POP_OUT, MiraculousConfig.POP_OUT_TICKS);
 		long now = player.level().getGameTime();

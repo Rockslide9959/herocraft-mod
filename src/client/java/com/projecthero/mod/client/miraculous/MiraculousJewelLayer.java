@@ -22,14 +22,17 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
  *   <li>Tikki: the Earrings, a stud on each ear -- black, red with black spots while transformed;</li>
  *   <li>Plagg: the Ring on the right hand's finger (the shared {@link HandRing}, also in first person) -- silver, black
  *       with a green paw gem while transformed;</li>
- *   <li>Trixx: the Necklace, a chain and an orange fox-tail pendant on the chest.</li>
+ *   <li>Trixx: the Necklace, a chain and an orange fox-tail pendant on the chest;</li>
+ *   <li>Nooroo: the Brooch, a purple-and-silver butterfly at the collar -- darker purple while transformed.</li>
  * </ul>
  * Registered after the kits' suit layers, and lifted further off the body while transformed so it sits on the suit.
  */
 public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	public static final HandRing.Palette RING_PLAIN = new HandRing.Palette("cat_ring", 0xB9BEC8, 0xF2F4F8, 0x6E737C, 0xD8DCE4, 0x9AA0AA);
-	public static final HandRing.Palette RING_TRANSFORMED = new HandRing.Palette("cat_ring", 0x1C1C22, 0x50505C, 0x101014, 0xC8FF8A, 0x7EE23A);
+	public static final HandRing.Palette RING_TRANSFORMED = new HandRing.Palette("cat_ring", 0x1C1C22, 0x50505C, 0x101014, 0x121216, 0x24242A);
 
+	/** The transformed ring's glowing paw print (full-bright, like the other rings' gems). */
+	private static final int PAW = 0x8CFF4A;
 	private static final int STUD_BLACK = 0x18161A;
 	private static final int STUD_RED = 0xE0242C;
 	private static final int STUD_SPOT = 0x0E0C0E;
@@ -56,6 +59,7 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			case TIKKI -> earrings(pose, buffers, light, m.head, on);
 			case PLAGG -> ring(pose, buffers, player, m.rightArm, on);
 			case TRIXX -> necklace(pose, buffers, light, m.body, on);
+			case NOOROO -> brooch(pose, buffers, light, m.body, on);
 		}
 	}
 
@@ -70,7 +74,22 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 		pose.pushPose();
 		arm.translateAndRotate(pose);
 		HandRing.arm(player);
-		HandRing.draw(pose, HandRing.buffer(buffers), on ? 0.6f : HandRing.SKIN_GAP, on ? RING_TRANSFORMED : RING_PLAIN);
+		float gap = on ? 0.6f : HandRing.SKIN_GAP;
+		var vc = HandRing.buffer(buffers);
+		HandRing.draw(pose, vc, gap, on ? RING_TRANSFORMED : RING_PLAIN);
+		if (on) {
+			// transformed: a raised, glowing green paw print on the black bezel -- a pad and four toes (toward the fingers)
+			pose.pushPose();
+			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+			HandRing.place(pose, RING_TRANSFORMED, gap);
+			float[] g = HandRing.gemCentre(gap);
+			float z = g[2] - 0.07f;
+			HandRing.box(vc, pose, g[0], g[1] - 0.05f, z, 0.14f, 0.11f, 0.05f, PAW, 1f);
+			for (float[] toe : new float[][] { { -0.2f, 0.1f }, { -0.07f, 0.2f }, { 0.07f, 0.2f }, { 0.2f, 0.1f } }) {
+				HandRing.box(vc, pose, g[0] + toe[0], g[1] + toe[1], z, 0.045f, 0.045f, 0.05f, PAW, 1f);
+			}
+			pose.popPose();
+		}
 		pose.popPose();
 	}
 
@@ -118,6 +137,40 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 		box(vc, pose, 0f, 0.75f, -0.02f, 0.3f, 0.5f, 0.2f, FOX_DARK, light);
 		box(vc, pose, 0.05f, 1.75f, 0f, 0.36f, 0.36f, 0.2f, FOX_TIP, light);
 		pose.popPose();
+		pose.popPose();
+	}
+
+	private static final int BROOCH_WING = 0xA066DC;
+	private static final int BROOCH_WING_DARK = 0x4A1E78;
+	private static final int BROOCH_RIM = 0xD8DCE4;
+	private static final int BROOCH_BODY = 0xC8CCD4;
+
+	private static void brooch(PoseStack pose, MultiBufferSource buffers, int light, ModelPart body, boolean on) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
+		pose.pushPose();
+		body.translateAndRotate(pose);
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		float front = on ? -2.62f : -2.38f;
+		int wing = on ? BROOCH_WING_DARK : BROOCH_WING;
+		int inner = on ? 0x2A0C48 : 0xC9A4F0;
+		pose.translate(0f, 2.6f, front);
+		// the silver body, then two wings a side (upper broad, lower small), each with a silver rim and a pale centre
+		box(vc, pose, 0f, 0.15f, -0.1f, 0.18f, 0.85f, 0.14f, BROOCH_BODY, light);
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.translate(side * 0.75f, -0.25f, 0f);
+			pose.mulPose(Axis.ZP.rotationDegrees(side * 18f));
+			box(vc, pose, 0f, 0f, 0.02f, 0.66f, 0.55f, 0.1f, BROOCH_RIM, light);
+			box(vc, pose, 0f, 0f, -0.04f, 0.56f, 0.45f, 0.1f, wing, light);
+			box(vc, pose, side * 0.1f, -0.05f, -0.1f, 0.2f, 0.16f, 0.06f, inner, light);
+			pose.popPose();
+			pose.pushPose();
+			pose.translate(side * 0.55f, 0.65f, 0f);
+			pose.mulPose(Axis.ZP.rotationDegrees(side * -24f));
+			box(vc, pose, 0f, 0f, 0.02f, 0.42f, 0.36f, 0.1f, BROOCH_RIM, light);
+			box(vc, pose, 0f, 0f, -0.04f, 0.33f, 0.28f, 0.1f, wing, light);
+			pose.popPose();
+		}
 		pose.popPose();
 	}
 

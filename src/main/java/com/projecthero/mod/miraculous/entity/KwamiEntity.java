@@ -36,7 +36,7 @@ import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
- * v0.16.6: <b>the Kwami</b> -- Tikki, Plagg or Trixx floating over its holder's shoulder while they are not transformed.
+ * v0.16.6: <b>the Kwami</b> -- Tikki, Plagg, Trixx or Nooroo floating over its holder's shoulder while they are not transformed.
  * One entity type, the variant ({@link Kwami#id}) and the owner synced. Never saved: {@code KwamiCompanion} (the core)
  * keeps exactly one per detransformed holder and re-creates it the tick it goes missing (chunk unload, dimension change,
  * logout, a stray {@code /kill}).
@@ -336,13 +336,14 @@ public class KwamiEntity extends Entity implements GeoEntity {
 				case TIKKI -> base.add(0, owner.getEyeHeight() - 0.2, 0).add(right.scale(0.3));
 				case PLAGG -> base.add(0, owner.getBbHeight() * 0.38, 0).add(right.scale(0.4)).add(fwd.scale(0.1));
 				case TRIXX -> base.add(0, owner.getBbHeight() * 0.68, 0).add(fwd.scale(0.25));
+				case NOOROO -> base.add(0, owner.getBbHeight() * 0.74, 0).add(fwd.scale(0.25));
 			};
 		}
 		boolean tired = mode == MODE_TIRED || mode == MODE_POP_TIRED;
 		if ((mode == MODE_POP_OUT || mode == MODE_POP_TIRED) && poppingOut()) {
 			// popping out of the jewel: right in front of the owner's face (in first person you see it wave), then it
 			// settles back over the shoulder
-			return owner.getEyePosition().add(fwd.scale(0.95)).add(right.scale(0.18)).add(0, tired ? -0.62 : -0.42, 0);
+			return owner.getEyePosition().add(fwd.scale(1.6)).add(right.scale(0.25)).add(0, tired ? -0.62 : -0.42, 0);
 		}
 		double angle;
 		double radius;
@@ -402,7 +403,7 @@ public class KwamiEntity extends Entity implements GeoEntity {
 		double h = Math.sqrt(dx * dx + dz * dz);
 		float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90f;
 		float pitch = mode == MODE_TIRED ? 6f : (float) -(Mth.atan2(dy, h) * Mth.RAD_TO_DEG);
-		setYRot(getYRot() + Mth.clamp(Mth.wrapDegrees(yaw - getYRot()), -14f, 14f));
+		setYRot(getYRot() + Mth.clamp(Mth.wrapDegrees(yaw - getYRot()), -30f, 30f));
 		setXRot(Mth.clamp(getXRot() + Mth.clamp(pitch - getXRot(), -8f, 8f), -40f, 40f));
 	}
 
