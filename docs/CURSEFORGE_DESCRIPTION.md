@@ -1,7 +1,7 @@
 # Project Hero
 
 **A huge superhero mod for Minecraft 1.21.1 (Fabric).** Become Thor, Iron Man, Spider-Man, Max Steel, the Punisher,
-Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian, Ghost Rider, Cyborg or Blue Beetle, bond with a living alien Symbiote, or mutate
+Green Lantern, Wolverine, a Titan Shifter, All Might, the Hulk, Moon Knight, a Super Soldier, a Kryptonian, Ghost Rider, Cyborg, Blue Beetle, Ladybug, Cat Noir, Rena Rouge or Hawk Moth, bond with a living alien Symbiote, or mutate
 experimental superpowers. Then put them to the test against world raids, the Oathbreaker and Darkseid himself.
 
 Every hero is a full survival progression, not a creative-only toy: you earn each power, fuel it, master it, and can
@@ -307,6 +307,24 @@ then on.
   Pulse (sends arrows back) · **V** Energy Shield (held, a 100-point pool, 8 s cooldown) · **Shift+V** Camouflage (lasts until you touch anything) ·
   **C** Energy Blade (toggle, +7) · **Shift+C** **Khaji-Da Unleashed** (the scarab takes over your body for 15 s and
   hunts down everything hostile nearby: pathfinding, flight and the whole kit at +50% damage).
+
+### 🐞 The Miraculous: Ladybug, Cat Noir, Rena Rouge and Hawk Moth
+Find the Guardian's hexagonal **Miraculous Box** in jungle temple or woodland mansion chests and open it: inside is one
+jewel, the **Ladybug Earrings**, the **Cat Ring** or the **Fox Necklace**. The **Butterfly Brooch** is never in the box:
+it hides in stronghold libraries and ancient cities. Use a jewel and its **Kwami** pops out, waves and introduces
+itself: **Tikki**, **Plagg**, **Trixx** or **Nooroo**, tiny floating companions that follow you everywhere (caves,
+water, elytra, riding), look where you look and can never be hurt. You wear the jewel from then on.
+- **Say it to transform:** type the phrase in chat -- *"Tikki, spots on!"*, *"Plagg, claws out!"*, *"Trixx, let's
+  pounce!"* or *"Nooroo, dark wings rise!"*. The Kwami spins into the jewel, ribbons of light wrap round you and, with a
+  flash, you land in the suit. *"Spots off!"*, *"Claws in!"*, *"Let's rest!"* or *"Dark wings fall!"* changes you back.
+- **Transformed:** +12 armour, +10 max health, +5 melee, faster, higher jumps, no fall damage, and six moves (each with a
+  Shift version) on R, G, X, Z, V and C -- Ladybug's yo-yo and Lucky Charm, Cat Noir's baton and Cataclysm, Rena
+  Rouge's flute and illusions, Hawk Moth's cane and butterflies.
+- **The countdown:** each hero's Shift+Z special starts 5 minutes on the jewel (five spots on the HUD go out one a
+  minute, with a beep). At zero you change back.
+- **Feed your Kwami:** after every change back it is worn out and won't transform you again until it has eaten its
+  favourite food -- **cookies** for Tikki, **Camembert** for Plagg (milk, wheat and a brown mushroom), **macarons** for
+  Trixx (sugar, an egg and pink dye) and **honey** for Nooroo. Right-click it, or just eat the food while it is hungry.
 
 ---
 
