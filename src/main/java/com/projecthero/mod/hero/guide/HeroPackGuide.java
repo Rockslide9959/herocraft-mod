@@ -134,6 +134,56 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
+	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge, by the Kwami. */
+	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
+		return chapters().get(switch (kwami) {
+			case TIKKI -> CH_LADYBUG;
+			case PLAGG -> CH_CAT_NOIR;
+			case TRIXX -> CH_RENA_ROUGE;
+		});
+	}
+
+	/** The key labels of the six slots, [plain, shift] (the Miraculous controls tables). */
+	private static final String[][] SLOT_LABELS = { { "R", "Shift+R" }, { "G", "Shift+G" }, { "X", "Shift+X" }, { "Z", "Shift+Z" },
+			{ "V", "Shift+V" }, { "C", "Shift+C" } };
+
+	/**
+	 * v0.16.6: one Miraculous hero's chapter. The origin sections are shared text where the three are the same (the box,
+	 * the countdown, the passives) and the hero's own otherwise; the controls table is built from the kit
+	 * ({@code KwamiKit.idsOf} SLOT_1..SLOT_6, names and descriptions from {@code projecthero.miraculous.ability.<id>}).
+	 */
+	private static Chapter miraculous(com.projecthero.mod.miraculous.Kwami kwami) {
+		String hero = kwami.heroKey;
+		return chapter("projecthero.guide." + hero, lines -> {
+			lines.add(Component.translatable("projecthero.guide." + hero + ".tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide." + hero + ".body");
+			blank(lines);
+			for (String section : new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"}) {
+				boolean shared = section.equals("box") || section.equals("countdown") || section.equals("passives");
+				String key = "projecthero.guide." + (shared ? "miraculous" : hero) + "." + section;
+				head(lines, key);
+				para(lines, key + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.miraculous.controls");
+			com.projecthero.mod.miraculous.KwamiKit kit = com.projecthero.mod.miraculous.MiraculousKits.of(kwami);
+			com.projecthero.mod.hero.AbilitySlot[] slots = { com.projecthero.mod.hero.AbilitySlot.SLOT_1, com.projecthero.mod.hero.AbilitySlot.SLOT_2,
+					com.projecthero.mod.hero.AbilitySlot.SLOT_3, com.projecthero.mod.hero.AbilitySlot.SLOT_4,
+					com.projecthero.mod.hero.AbilitySlot.SLOT_5, com.projecthero.mod.hero.AbilitySlot.SLOT_6 };
+			for (int i = 0; i < slots.length; i++) {
+				String[] ids = kit.idsOf(slots[i]);
+				for (int j = 0; j < Math.min(2, ids.length); j++) {
+					lines.add(Component.literal(" " + SLOT_LABELS[i][j] + "  ").withStyle(ChatFormatting.GOLD)
+							.append(Component.translatable("projecthero.miraculous.ability." + ids[j]).withStyle(ChatFormatting.WHITE)));
+					para(lines, "projecthero.miraculous.ability." + ids[j] + ".desc");
+				}
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.miraculous.commands");
+			para(lines, "projecthero.guide.miraculous.commands.body");
+		});
+	}
+
 	/** Ghost Rider (v0.16.5). */
 	public static Chapter ghostRiderChapter() {
 		return chapters().get(CH_GHOST_RIDER);
@@ -410,7 +460,10 @@ public final class HeroPackGuide {
 	private static final int CH_GHOST_RIDER = 39; // v0.16.5
 	private static final int CH_CYBORG = 40; // v0.16.5
 	private static final int CH_BLUE_BEETLE = 41; // v0.16.5
-	private static final int CHAPTER_POWER_BASE = 42;
+	private static final int CH_LADYBUG = 42; // v0.16.6
+	private static final int CH_CAT_NOIR = 43; // v0.16.6
+	private static final int CH_RENA_ROUGE = 44; // v0.16.6
+	private static final int CHAPTER_POWER_BASE = 45;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1313,6 +1366,10 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.blue_beetle.commands");
 			para(lines, "projecthero.guide.blue_beetle.commands.body");
 		}));
+		// v0.16.6: the Miraculous -- Ladybug, Cat Noir, Rena Rouge (CH_LADYBUG, CH_CAT_NOIR, CH_RENA_ROUGE)
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.TIKKI));
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.PLAGG));
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.TRIXX));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1357,6 +1414,9 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		link(idx, "projecthero.guide.cyborg", CH_CYBORG);
 		link(idx, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
+		link(idx, "projecthero.guide.ladybug", CH_LADYBUG); // v0.16.6
+		link(idx, "projecthero.guide.cat_noir", CH_CAT_NOIR); // v0.16.6
+		link(idx, "projecthero.guide.rena_rouge", CH_RENA_ROUGE); // v0.16.6
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

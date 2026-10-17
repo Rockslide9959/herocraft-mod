@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:milk_bucket" },
+    { "item": "minecraft:wheat" },
+    { "item": "minecraft:brown_mushroom" }
+  ],
+  "result": {
+    "id": "projecthero:camembert",
+    "count": 1
+  }
+}

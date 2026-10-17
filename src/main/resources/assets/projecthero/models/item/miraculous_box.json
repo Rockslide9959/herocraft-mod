@@ -1,0 +1,130 @@
+{
+	"parent": "builtin/entity",
+	"gui_light": "front",
+	"textures": {
+		"particle": "projecthero:item/miraculous_box_particle"
+	},
+	"display": {
+		"gui": {
+			"rotation": [
+				52,
+				30,
+				0
+			],
+			"translation": [
+				0,
+				0,
+				0
+			],
+			"scale": [
+				1.3,
+				1.3,
+				1.3
+			]
+		},
+		"ground": {
+			"translation": [
+				0,
+				2,
+				0
+			],
+			"scale": [
+				0.6,
+				0.6,
+				0.6
+			]
+		},
+		"fixed": {
+			"rotation": [
+				-90,
+				0,
+				0
+			],
+			"scale": [
+				1.2,
+				1.2,
+				1.2
+			]
+		},
+		"thirdperson_righthand": {
+			"rotation": [
+				10,
+				30,
+				0
+			],
+			"translation": [
+				0,
+				3,
+				1.5
+			],
+			"scale": [
+				0.45,
+				0.45,
+				0.45
+			]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [
+				10,
+				30,
+				0
+			],
+			"translation": [
+				0,
+				3,
+				1.5
+			],
+			"scale": [
+				0.45,
+				0.45,
+				0.45
+			]
+		},
+		"firstperson_righthand": {
+			"rotation": [
+				15,
+				20,
+				0
+			],
+			"translation": [
+				1.5,
+				4,
+				-1
+			],
+			"scale": [
+				0.4,
+				0.4,
+				0.4
+			]
+		},
+		"firstperson_lefthand": {
+			"rotation": [
+				15,
+				20,
+				0
+			],
+			"translation": [
+				1.5,
+				4,
+				-1
+			],
+			"scale": [
+				0.4,
+				0.4,
+				0.4
+			]
+		},
+		"head": {
+			"translation": [
+				0,
+				13,
+				0
+			],
+			"scale": [
+				1,
+				1,
+				1
+			]
+		}
+	}
+}
