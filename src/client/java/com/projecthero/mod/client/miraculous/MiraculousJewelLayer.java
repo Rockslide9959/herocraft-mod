@@ -29,7 +29,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
  */
 public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	public static final HandRing.Palette RING_PLAIN = new HandRing.Palette("cat_ring", 0xB9BEC8, 0xF2F4F8, 0x6E737C, 0xD8DCE4, 0x9AA0AA);
-	public static final HandRing.Palette RING_TRANSFORMED = new HandRing.Palette("cat_ring", 0x1C1C22, 0x50505C, 0x101014, 0x121216, 0x24242A);
+	/** Transformed: a black band and a dark round face carrying Plagg's glowing green paw print ({@link HandRing.Emblem#PAW}). */
+	public static final HandRing.Palette RING_TRANSFORMED = new HandRing.Palette("cat_ring", 0x1C1C22, 0x50505C, 0x101014, 0x5CFF2A, 0x8CFF4A);
 
 	/** The transformed ring's glowing paw print (full-bright, like the other rings' gems). */
 	private static final int PAW = 0x8CFF4A;
@@ -76,20 +77,8 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 		HandRing.arm(player);
 		float gap = on ? 0.6f : HandRing.SKIN_GAP;
 		var vc = HandRing.buffer(buffers);
-		HandRing.draw(pose, vc, gap, on ? RING_TRANSFORMED : RING_PLAIN);
-		if (on) {
-			// transformed: a raised, glowing green paw print on the black bezel -- a pad and four toes (toward the fingers)
-			pose.pushPose();
-			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-			HandRing.place(pose, RING_TRANSFORMED, gap);
-			float[] g = HandRing.gemCentre(gap);
-			float z = g[2] - 0.07f;
-			HandRing.box(vc, pose, g[0], g[1] - 0.05f, z, 0.14f, 0.11f, 0.05f, PAW, 1f);
-			for (float[] toe : new float[][] { { -0.2f, 0.1f }, { -0.07f, 0.2f }, { 0.07f, 0.2f }, { 0.2f, 0.1f } }) {
-				HandRing.box(vc, pose, g[0] + toe[0], g[1] + toe[1], z, 0.045f, 0.045f, 0.05f, PAW, 1f);
-			}
-			pose.popPose();
-		}
+		// v0.16.6: the reworked ring shape -- silver with a plain domed face; transformed, black with the glowing paw emblem
+		HandRing.draw(pose, vc, gap, on ? RING_TRANSFORMED : RING_PLAIN, on ? HandRing.Emblem.PAW : HandRing.Emblem.GEM);
 		pose.popPose();
 	}
 

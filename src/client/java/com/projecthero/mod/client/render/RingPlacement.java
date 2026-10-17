@@ -60,24 +60,30 @@ public final class RingPlacement {
 	/** The rings that can be placed, by {@link HandRing.Palette#id()}. */
 	public static final String[] RINGS = { HandRing.GREEN_LANTERN.id(), HandRing.FLASH.id() };
 
-	/** Shipped defaults per ring id and view; anything missing is the built-in look. */
-	private static final Placement IDENTITY = new Placement();
-
+	/** Shipped defaults per ring id and view; anything missing uses {@link #FALLBACK} (v0.16.6). */
 	private static final Map<String, Placement[]> DEFAULTS = new LinkedHashMap<>();
 
 	static {
 		// v0.14.23: tuned in the ring editor (third person, first person)
+		// v0.16.6: half a pixel further up the hand -- the new ring's setting is bigger and hung off the end of the fist
 		DEFAULTS.put(HandRing.GREEN_LANTERN.id(), new Placement[] {
-				new Placement(-2.4f, 0.9f, 2.0f, 0f, 90f, 0f, 1f),
-				new Placement(-2.5f, 0.5f, 2.1f, 0f, 90f, 0f, 1f) });
+				new Placement(-2.4f, 0.4f, 2.0f, 0f, 90f, 0f, 1f),
+				new Placement(-2.5f, 0.1f, 2.1f, 0f, 90f, 0f, 1f) });
 		DEFAULTS.put(HandRing.FLASH.id(), new Placement[] {
-				new Placement(-2.4f, 0.9f, 1.15f, 0f, 90f, 0f, 1f),
-				new Placement(-2.5f, 0.5f, 1.2f, 0f, 90f, 0f, 1f) });
-		// v0.16.6: Cat Noir's Miraculous ring sits where the Flash Ring does
+				new Placement(-2.4f, 0.4f, 1.15f, 0f, 90f, 0f, 1f),
+				new Placement(-2.5f, 0.1f, 1.2f, 0f, 90f, 0f, 1f) });
+		// v0.16.6: Cat Noir's Miraculous ring sits where the Flash Ring does (the ring rework's half-pixel-higher spot)
 		DEFAULTS.put("cat_ring", new Placement[] {
-				new Placement(-2.4f, 0.9f, 1.15f, 0f, 90f, 0f, 1f),
-				new Placement(-2.5f, 0.5f, 1.2f, 0f, 90f, 0f, 1f) });
+				new Placement(-2.4f, 0.4f, 1.15f, 0f, 90f, 0f, 1f),
+				new Placement(-2.5f, 0.1f, 1.2f, 0f, 90f, 0f, 1f) });
 	}
+
+	/**
+	 * v0.16.6: where a ring with no placement of its own goes -- the same finger as the Lantern's ring (on the back of
+	 * the hand, toward the little finger), so a new ring drawn through {@link HandRing} sits right without being tuned.
+	 * (Before, an unknown ring got the bare built-in spot on the knuckle face.)
+	 */
+	private static final Placement[] FALLBACK = DEFAULTS.get(HandRing.GREEN_LANTERN.id());
 
 	/** v0.14.24: x shift on a wide arm, whose outer face is one pixel further out than a slim arm's. */
 	public static final float WIDE_ARM_SHIFT = -1f;
@@ -88,7 +94,7 @@ public final class RingPlacement {
 	/** The placement for {@code ring} in {@code view}. */
 	public static Placement get(String ring, View view) {
 		Placement[] d = DEFAULTS.get(ring);
-		return d == null ? IDENTITY : d[view.ordinal()];
+		return (d == null ? FALLBACK : d)[view.ordinal()];
 	}
 
 	public static View currentView() {

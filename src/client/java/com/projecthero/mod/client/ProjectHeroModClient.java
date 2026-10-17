@@ -88,6 +88,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.mutation.RevampClientC.init();
 		com.projecthero.mod.client.mutation.RevampClientD.init();
 		com.projecthero.mod.client.mutation.RevampClientE.init();
+		// v0.16.6: the Power Ring item's Lantern emblem glows full-bright
+		com.projecthero.mod.client.render.RingItemModels.init();
 		// v0.14.5 power reworks
 		com.projecthero.mod.client.mutation.v0145.LaserVisionClientV0145.init();
 		com.projecthero.mod.client.mutation.v0145.SuperStrengthClientV0145.init();
