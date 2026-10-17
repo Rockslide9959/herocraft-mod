@@ -172,6 +172,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.nova.NovaMod.clearSessionState();
 		// v0.16.5: Ghost Rider move sessions, bolts, guilt, Judgement Marks, summoned bikes
 		com.projecthero.mod.ghostrider.GhostRiderMod.clearSessionState();
+		// v0.16.6: the Miraculous core + kits (move sessions, summoned things)
+		com.projecthero.mod.miraculous.MiraculousMod.clearSessionState();
 		// v0.16.5: Cyborg move sessions, hacked machines, hover flight grants
 		com.projecthero.mod.cyborg.CyborgMod.clearSessionState();
 		// v0.16.5: Blue Beetle move sessions, bubbles, Adaptation counts, Khaji-Da's lines, lent flight

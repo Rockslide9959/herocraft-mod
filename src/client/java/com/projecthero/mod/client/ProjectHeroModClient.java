@@ -130,6 +130,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.nova.NovaClient.initialize();
 		// v0.16.5: Ghost Rider -- the skin layer + flaming skull, HUD, chain, Judgement Mark outlines, Hell Cycle, contract screen
 		com.projecthero.mod.client.ghostrider.GhostRiderClient.initialize();
+		com.projecthero.mod.client.miraculous.MiraculousClient.initialize();
 		// v0.16.5: Cyborg -- the plates layer, HUD, cannon beam / Defense Matrix, Scan outlines
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
@@ -811,6 +812,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.nova.NovaClient.ownsH(client.player)) {
 				// v0.15.13: H as Nova -- the Nova Corps uniform on / off (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.nova.NovaClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.miraculous.MiraculousClient.ownsH(client.player)) {
+				// v0.16.6: H as a Miraculous holder -- transform / detransform (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.miraculous.MiraculousClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.ghostrider.GhostRiderClient.ownsH(client.player)) {
 				// v0.16.5: H as Ghost Rider -- the Spirit of Vengeance out / back (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.ghostrider.GhostRiderClient.pressH();
@@ -864,6 +868,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.hulk.Hulk.hasPower(client.player)
 							|| com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player)
 							|| com.projecthero.mod.ghostrider.GhostRider.hasPower(client.player)
+							|| com.projecthero.mod.miraculous.Miraculous.hasPower(client.player)
 							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
 							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player))) {
 				// v0.12.32: H as a Thor bound to Mjolnir -- lightning strikes down and Thor's Armour forms (H again

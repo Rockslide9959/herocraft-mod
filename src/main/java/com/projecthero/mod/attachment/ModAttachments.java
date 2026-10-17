@@ -881,6 +881,18 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.ghostrider.data.GhostRiderState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.6: the Miraculous holders (Tikki / Plagg / Trixx) -- the power, the Kwami, the form, the Shift+Z countdown,
+	 * the hungry Kwami, the move timers and the kits' synced values. Persistent, kept through death and synced to every client.
+	 */
+	public static final AttachmentType<com.projecthero.mod.miraculous.data.MiraculousState> MIRACULOUS_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("miraculous_state"),
+					builder -> builder.persistent(com.projecthero.mod.miraculous.data.MiraculousState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.miraculous.data.MiraculousState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.miraculous.data.MiraculousState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Cyborg (Victor Stone) -- the power, the form, the Power Core, the move timers and the visible effects. */
 	public static final AttachmentType<com.projecthero.mod.cyborg.data.CyborgState> CYBORG_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("cyborg_state"),

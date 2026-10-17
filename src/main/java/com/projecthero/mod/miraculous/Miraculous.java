@@ -1,0 +1,362 @@
+package com.projecthero.mod.miraculous;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+
+import org.jetbrains.annotations.Nullable;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.miraculous.data.MiraculousState;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * v0.16.6: the Miraculous core -- one API for all three Kwamis (Tikki / Ladybug, Plagg / Cat Noir, Trixx / Rena Rouge).
+ *
+ * <h2>For the kits</h2>
+ * Read with {@link #state} / {@link #peek}; change only through {@link #edit} (copy, change, save). Cooldowns:
+ * {@link #ready} + {@link #setCooldown}. Poses: {@link #setAnim}. Kit-owned synced values: {@link #setVal} /
+ * {@link #setVec} (cleared by the core on detransformation). Shift+Z: {@link #startCountdown} when the special fires.
+ *
+ * <h2>The core</h2>
+ * grant / revoke, H ({@link #toggleForm}), the transformation sequence, the countdown and the hungry Kwami, the Kwami
+ * entity, the shared transformed stats, the lifecycle. See {@code docs/MIRACULOUS_REFERENCE.md}.
+ */
+public final class Miraculous {
+	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
+	private static final Map<UUID, Long> LAST_TICK = new ConcurrentHashMap<>();
+
+	private Miraculous() {
+	}
+
+	public static void clearSessionState() {
+		LAST_MESSAGE.clear();
+		LAST_TICK.clear();
+		MiraculousAbilityManager.clearSessionState();
+		MiraculousKits.clearSessionState();
+	}
+
+	// ---------------------------------------------------------------- state
+
+	public static MiraculousState state(ServerPlayer player) {
+		return player.getAttachedOrCreate(ModAttachments.MIRACULOUS_STATE);
+	}
+
+	/** Client-safe read (null if never attached). */
+	public static @Nullable MiraculousState peek(Player player) {
+		return player.getAttachedOrElse(ModAttachments.MIRACULOUS_STATE, null);
+	}
+
+	public static void save(ServerPlayer player, MiraculousState state) {
+		player.setAttached(ModAttachments.MIRACULOUS_STATE, state);
+	}
+
+	/** Copy, change, save. */
+	public static void edit(ServerPlayer player, Consumer<MiraculousState> change) {
+		MiraculousState n = state(player).copy();
+		change.accept(n);
+		save(player, n);
+	}
+
+	/** Client-safe: holds any Kwami. */
+	public static boolean hasPower(Player player) {
+		MiraculousState s = peek(player);
+		return s != null && s.hasPower && Kwami.byId(s.kwami) != null;
+	}
+
+	/** Client-safe: which Kwami (null without the power). */
+	public static @Nullable Kwami kwami(Player player) {
+		MiraculousState s = peek(player);
+		return s == null || !s.hasPower ? null : Kwami.byId(s.kwami);
+	}
+
+	/** Client-safe: holds this particular Kwami. */
+	public static boolean holds(Player player, Kwami kwami) {
+		return kwami(player) == kwami;
+	}
+
+	/** Client-safe: transformed. */
+	public static boolean transformed(Player player) {
+		MiraculousState s = peek(player);
+		return s != null && s.hasPower && s.transformed;
+	}
+
+	/** Client-safe: transformed as this Kwami's hero. */
+	public static boolean transformedAs(Player player, Kwami kwami) {
+		return transformed(player) && holds(player, kwami);
+	}
+
+	/** Client-safe: ticks until a move is ready (0 = ready). */
+	public static int cooldownRemaining(Player player, String abilityId) {
+		MiraculousState s = peek(player);
+		if (s == null) {
+			return 0;
+		}
+		Long ready = s.abilityReadyAt.get(abilityId);
+		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
+	}
+
+	public static boolean ready(ServerPlayer player, String abilityId) {
+		return cooldownRemaining(player, abilityId) <= 0;
+	}
+
+	public static void setCooldown(ServerPlayer player, String abilityId, int ticks) {
+		long at = player.level().getGameTime() + ticks;
+		edit(player, n -> n.abilityReadyAt.put(abilityId, at));
+	}
+
+	public static void setAnim(ServerPlayer player, int animId) {
+		long now = player.level().getGameTime();
+		edit(player, n -> {
+			n.animId = animId;
+			n.animStart = now;
+		});
+	}
+
+	public static void setVal(ServerPlayer player, String key, long value) {
+		edit(player, n -> {
+			if (value == 0L) {
+				n.vals.remove(key);
+			} else {
+				n.vals.put(key, value);
+			}
+		});
+	}
+
+	public static void setVec(ServerPlayer player, String key, @Nullable Vec3 v) {
+		edit(player, n -> {
+			if (v == null) {
+				n.vecs.remove(key);
+			} else {
+				n.vecs.put(key, List.of(v.x, v.y, v.z));
+			}
+		});
+	}
+
+	/** Client-safe helper for {@link MiraculousState#vec}: the 3-vector, or null. */
+	public static @Nullable Vec3 vec(MiraculousState s, String key) {
+		List<Double> v = s.vec(key);
+		return v.size() < 3 ? null : new Vec3(v.get(0), v.get(1), v.get(2));
+	}
+
+	/** Shift+Z fired: the 5-minute countdown to the forced detransformation starts (no-op if one is already running). */
+	public static void startCountdown(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.transformed || s.countdownEnd > 0L) {
+			return;
+		}
+		long end = player.level().getGameTime() + MiraculousConfig.COUNTDOWN_TICKS;
+		edit(player, n -> n.countdownEnd = end);
+	}
+
+	/** Client-safe: ticks left on the countdown (0 = none running). */
+	public static int countdownLeft(Player player) {
+		MiraculousState s = peek(player);
+		if (s == null || s.countdownEnd <= 0L) {
+			return 0;
+		}
+		return (int) Math.max(0L, s.countdownEnd - player.level().getGameTime());
+	}
+
+	/** Transformed, done transforming, alive: the kits' moves may run. */
+	public static boolean canAct(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.hasPower || !s.transformed || !player.isAlive() || player.isSpectator()) {
+			return false;
+		}
+		return player.level().getGameTime() - s.formChangeAt >= MiraculousConfig.TRANSFORM_TICKS;
+	}
+
+	/** Action-bar message, rate limited. */
+	public static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
+		long now = player.level().getGameTime();
+		Long last = LAST_MESSAGE.get(player.getUUID());
+		if (last != null && now - last < 10 && now >= last) {
+			return;
+		}
+		LAST_MESSAGE.put(player.getUUID(), now);
+		player.displayClientMessage(Component.translatable(key, args).withStyle(colour), true);
+	}
+
+	// ---------------------------------------------------------------- grant / revoke
+	// (CORE: the minimal versions below are enough for the kits to test against; the core build fleshes them out --
+	// intro, Kwami entity, sounds, the jewel back on revoke)
+
+	/** A jewel / the command. False if refused (already holds a Kwami, UniquePowers). */
+	public static boolean grant(ServerPlayer player, Kwami kwami) {
+		MiraculousState s = state(player);
+		if (s.hasPower && kwami.id.equals(s.kwami)) {
+			return false;
+		}
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, kwami.heroKey)) {
+			return false;
+		}
+		if (s.hasPower) {
+			revoke(player);
+		}
+		HeroTiers.claimPrimary(player, kwami.heroKey);
+		MiraculousState n = new MiraculousState();
+		n.hasPower = true;
+		n.kwami = kwami.id;
+		save(player, n);
+		MiraculousStats.reconcile(player);
+		return true;
+	}
+
+	public static void revoke(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (s.transformed) {
+			MiraculousKits.of(Kwami.byId(s.kwami)).onDetransform(player);
+		}
+		save(player, new MiraculousState());
+		MiraculousStats.reconcile(player);
+		forget(player);
+	}
+
+	private static void forget(ServerPlayer player) {
+		UUID id = player.getUUID();
+		LAST_MESSAGE.remove(id);
+		LAST_TICK.remove(id);
+		MiraculousAbilityManager.forget(id);
+		for (Kwami k : Kwami.values()) {
+			MiraculousKits.of(k).forget(id);
+		}
+	}
+
+	// ---------------------------------------------------------------- H
+
+	/** H: transform / detransform. */
+	public static void toggleForm(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.hasPower || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		if (s.transformed) {
+			detransform(player, false);
+		} else {
+			transform(player);
+		}
+	}
+
+	public static void transform(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.hasPower || s.transformed) {
+			return;
+		}
+		if (s.hungry) {
+			Kwami k = Kwami.byId(s.kwami);
+			say(player, "message.projecthero.miraculous.hungry", ChatFormatting.GOLD,
+					Component.translatable("entity.projecthero.kwami." + (k == null ? "tikki" : k.id)));
+			return;
+		}
+		long now = player.level().getGameTime();
+		edit(player, n -> {
+			n.transformed = true;
+			n.formChangeAt = now;
+			n.animId = MiraculousState.ANIM_TRANSFORM;
+			n.animStart = now;
+		});
+		MiraculousStats.reconcile(player);
+	}
+
+	/** {@code exhausted}: the countdown ran out -- the Kwami comes out hungry. */
+	public static void detransform(ServerPlayer player, boolean exhausted) {
+		MiraculousState s = state(player);
+		if (!s.transformed) {
+			return;
+		}
+		MiraculousKits.of(Kwami.byId(s.kwami)).onDetransform(player);
+		long now = player.level().getGameTime();
+		edit(player, n -> {
+			n.transformed = false;
+			n.formChangeAt = now;
+			n.countdownEnd = 0L;
+			n.hungry = n.hungry || exhausted;
+			n.animId = MiraculousState.ANIM_DETRANSFORM;
+			n.animStart = now;
+			n.vals.clear();
+			n.vecs.clear();
+		});
+		MiraculousStats.reconcile(player);
+	}
+
+	// ---------------------------------------------------------------- tick
+
+	public static void tick(ServerPlayer player) {
+		MiraculousState s = player.getAttachedOrElse(ModAttachments.MIRACULOUS_STATE, null);
+		if (s == null || !s.hasPower) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		Long prev = LAST_TICK.put(player.getUUID(), now);
+		if (prev != null && prev == now) {
+			return;
+		}
+		if (player.tickCount % 20 == 0) {
+			MiraculousStats.reconcile(player);
+		}
+		if (s.transformed && s.countdownEnd > 0L && now >= s.countdownEnd) {
+			detransform(player, true);
+			say(player, "message.projecthero.miraculous.time_up", ChatFormatting.RED);
+			s = state(player);
+		}
+		MiraculousKits.of(Kwami.byId(s.kwami)).tick(player);
+	}
+
+	// ---------------------------------------------------------------- lifecycle
+
+	public static void onPlayerJoin(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		edit(player, n -> {
+			n.animId = MiraculousState.ANIM_NONE;
+			n.formChangeAt = 0L;
+		});
+		MiraculousStats.reconcile(player);
+	}
+
+	public static void onPlayerRespawn(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		edit(player, n -> {
+			n.transformed = false;
+			n.formChangeAt = 0L;
+			n.countdownEnd = 0L;
+			n.animId = MiraculousState.ANIM_NONE;
+			n.abilityReadyAt.clear();
+			n.vals.clear();
+			n.vecs.clear();
+		});
+		MiraculousStats.reconcile(player);
+	}
+
+	/** Death / logout / dimension change: running moves end (the power and the form stay, except on death). */
+	public static void clearTransient(ServerPlayer player) {
+		MiraculousState s = player.getAttachedOrElse(ModAttachments.MIRACULOUS_STATE, null);
+		if (s == null || !s.hasPower) {
+			return;
+		}
+		if (s.transformed) {
+			MiraculousKits.of(Kwami.byId(s.kwami)).onDetransform(player);
+		}
+		if (!s.vals.isEmpty() || !s.vecs.isEmpty()) {
+			edit(player, n -> {
+				n.vals.clear();
+				n.vecs.clear();
+			});
+		}
+		forget(player);
+	}
+}

@@ -336,6 +336,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.16.6: the Miraculous heroes' poses (dispatched to the holder's kit). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$miraculousPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.miraculous.MiraculousClient.applyPose(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.5: Ghost Rider's poses (the change, blast, bike, spin, stare, rush and the short moves). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$ghostRiderPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
