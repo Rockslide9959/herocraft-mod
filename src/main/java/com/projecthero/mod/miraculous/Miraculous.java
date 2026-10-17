@@ -362,6 +362,37 @@ public final class Miraculous {
 		return true;
 	}
 
+	/**
+	 * v0.16.6 (user): N -- tuck the Kwami away (it ducks into a pocket: gone from the world, no following) or call it back
+	 * out. Detransformed only (transformed, it is inside the jewel). A hidden Kwami blocks transforming until called out.
+	 */
+	public static void toggleKwamiHidden(ServerPlayer player) {
+		MiraculousState s = state(player);
+		Kwami k = Kwami.byId(s.kwami);
+		if (!s.hasPower || k == null || !player.isAlive() || player.isSpectator()) {
+			return;
+		}
+		if (s.transformed) {
+			say(player, "message.projecthero.miraculous.kwami_in_jewel", ChatFormatting.GRAY, kwamiName(k));
+			return;
+		}
+		boolean hide = !s.kwamiHidden;
+		KwamiEntity e = KwamiCompanion.find(player);
+		if (hide && e != null) {
+			((net.minecraft.server.level.ServerLevel) player.level()).sendParticles(net.minecraft.core.particles.ParticleTypes.POOF,
+					e.getX(), e.getY() + 0.3, e.getZ(), 8, 0.12, 0.12, 0.12, 0.01);
+		}
+		edit(player, n -> n.kwamiHidden = hide);
+		if (hide) {
+			KwamiCompanion.remove(player);
+			sound(player, SoundEvents.BUNDLE_INSERT, 0.8f, 1.4f);
+		} else {
+			KwamiCompanion.mood(player, KwamiEntity.MODE_POP_OUT, MiraculousConfig.POP_OUT_TICKS / 2);
+			sound(player, SoundEvents.BUNDLE_REMOVE_ONE, 0.8f, 1.3f);
+		}
+		say(player, hide ? "message.projecthero.miraculous.kwami_tucked" : "message.projecthero.miraculous.kwami_out", ChatFormatting.LIGHT_PURPLE, kwamiName(k));
+	}
+
 	public static void transform(ServerPlayer player) {
 		MiraculousState s = state(player);
 		if (!s.hasPower || s.transformed || !player.isAlive() || player.isSpectator() || settling(player, s)) {
@@ -369,6 +400,11 @@ public final class Miraculous {
 		}
 		Kwami k = Kwami.byId(s.kwami);
 		if (k == null) {
+			return;
+		}
+		if (s.kwamiHidden) {
+			// v0.16.6 (user): only with the Kwami out
+			say(player, "message.projecthero.miraculous.kwami_hidden", ChatFormatting.GOLD, kwamiName(k));
 			return;
 		}
 		if (s.hungry) {

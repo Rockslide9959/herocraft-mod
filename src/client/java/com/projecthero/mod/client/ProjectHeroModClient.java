@@ -1024,6 +1024,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					? com.projecthero.mod.network.TitanShiftPayload.Action.LET_DOWN
 					: com.projecthero.mod.network.TitanShiftPayload.Action.GRAB_BITE));
 		} else if (down && !maxSteelTransformWasDown && client.player != null && !Screen.hasShiftDown()
+				&& com.projecthero.mod.miraculous.Miraculous.hasPower(client.player) && !mutationSelected(client)) {
+			// v0.16.6 (user): a Miraculous holder -- N tucks the Kwami away / calls it back out (transforming needs it out)
+			ClientPlayNetworking.send(new com.projecthero.mod.miraculous.network.MiraculousActionPayload(
+					com.projecthero.mod.miraculous.network.MiraculousActionPayload.Action.TOGGLE_KWAMI_HIDDEN));
+		} else if (down && !maxSteelTransformWasDown && client.player != null && !Screen.hasShiftDown()
 				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player) && !mutationSelected(client)) {
 			// v0.16.1: Spider-Man -- plain N switches the automatic wall crawl on / off (Shift+N still falls through to
 			// Nova's helmet / the Stark Gear screen below; a selected mutation keeps its own Utility 2)

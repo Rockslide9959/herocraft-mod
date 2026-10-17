@@ -65,6 +65,10 @@ public final class KwamiCompanion {
 		if (kwami == null) {
 			return null;
 		}
+		MiraculousState st = Miraculous.peek(player);
+		if (st != null && st.kwamiHidden) {
+			return null; // v0.16.6 (user): tucked away with N
+		}
 		KwamiEntity k = find(player);
 		if (k != null && k.kwami() == kwami) {
 			return k;
@@ -104,6 +108,8 @@ public final class KwamiCompanion {
 	static void tick(ServerPlayer player, MiraculousState s) {
 		long now = player.level().getGameTime();
 		if (!player.isAlive() || player.isSpectator()) {
+			remove(player);
+		} else if (!s.transformed && s.kwamiHidden) {
 			remove(player);
 		} else if (!s.transformed) {
 			ensure(player);

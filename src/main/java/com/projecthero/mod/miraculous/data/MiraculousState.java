@@ -34,6 +34,8 @@ public final class MiraculousState {
 	public long countdownEnd;
 	/** The Kwami is worn out (the countdown ran out): no transforming until it has eaten its favourite food. */
 	public boolean hungry;
+	/** v0.16.6 (user): N tucked the Kwami away (hidden, not following); it must be called out again before transforming. */
+	public boolean kwamiHidden;
 	public int animId;
 	public long animStart;
 	/** {@code abilityId} -> absolute game time it is ready again. */
@@ -64,7 +66,9 @@ public final class MiraculousState {
 	}
 
 	public MiraculousState copy() {
-		return new MiraculousState(hasPower, kwami, transformed, formChangeAt, countdownEnd, hungry, animId, animStart, abilityReadyAt, vals, vecs);
+		MiraculousState n = new MiraculousState(hasPower, kwami, transformed, formChangeAt, countdownEnd, hungry, animId, animStart, abilityReadyAt, vals, vecs);
+		n.kwamiHidden = kwamiHidden;
+		return n;
 	}
 
 	public long val(String key) {
@@ -88,6 +92,11 @@ public final class MiraculousState {
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of()).forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("vals", Map.of()).forGetter(s -> new HashMap<>(s.vals)),
-			Codec.unboundedMap(Codec.STRING, Codec.DOUBLE.listOf()).optionalFieldOf("vecs", Map.of()).forGetter(s -> new HashMap<>(s.vecs))
-	).apply(i, MiraculousState::new));
+			Codec.unboundedMap(Codec.STRING, Codec.DOUBLE.listOf()).optionalFieldOf("vecs", Map.of()).forGetter(s -> new HashMap<>(s.vecs)),
+			Codec.BOOL.optionalFieldOf("kwami_hidden", false).forGetter(s -> s.kwamiHidden)
+	).apply(i, (hasPower, kwami, transformed, formChangeAt, countdownEnd, hungry, animId, animStart, ready, vals, vecs, hidden) -> {
+		MiraculousState s = new MiraculousState(hasPower, kwami, transformed, formChangeAt, countdownEnd, hungry, animId, animStart, ready, vals, vecs);
+		s.kwamiHidden = hidden;
+		return s;
+	}));
 }

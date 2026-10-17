@@ -37,6 +37,11 @@ public final class MiraculousMod {
 						Miraculous.toggleForm(p);
 					}
 				}
+				case TOGGLE_KWAMI_HIDDEN -> {
+					if (Miraculous.hasPower(p)) {
+						Miraculous.toggleKwamiHidden(p);
+					}
+				}
 			}
 		});
 

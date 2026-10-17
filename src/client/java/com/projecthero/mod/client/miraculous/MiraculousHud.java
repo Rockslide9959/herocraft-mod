@@ -109,7 +109,9 @@ public final class MiraculousHud {
 		// hungry / the phrase to say (wrapped to the row's width)
 		Component note = null;
 		int noteColour = HINT;
-		if (s.hungry) {
+		if (!on && s.kwamiHidden) {
+			note = Component.translatable("hud.projecthero.miraculous.hidden", Component.translatable("entity.projecthero.kwami." + k.id));
+		} else if (s.hungry) {
 			note = Component.translatable("hud.projecthero.miraculous.hungry." + k.id);
 			noteColour = 0xFFFFB347;
 		} else if (!on) {

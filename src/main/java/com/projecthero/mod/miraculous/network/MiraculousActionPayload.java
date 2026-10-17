@@ -8,10 +8,12 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-/** v0.16.6: client to server Miraculous requests that are not ability slots: H (transform / detransform). Only a request. */
+/** v0.16.6: client to server Miraculous requests that are not ability slots: transform / detransform (commands) and N (hide / call out the Kwami). Only a request. */
 public record MiraculousActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TOGGLE_FORM
+		TOGGLE_FORM,
+		/** v0.16.6 (user): N -- hide the Kwami / call it out. */
+		TOGGLE_KWAMI_HIDDEN
 	}
 
 	public static final CustomPacketPayload.Type<MiraculousActionPayload> TYPE =
