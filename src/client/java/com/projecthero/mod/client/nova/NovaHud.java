@@ -127,7 +127,7 @@ public final class NovaHud {
 
 		// ---- the keys
 		long win = mc.getWindow().getWindow();
-		boolean alt = GLFW.glfwGetKey(win, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+		boolean alt = com.projecthero.mod.client.gui.MoveListOverlay.held(); // v0.16.6: the shared move list
 		boolean shift = mc.player.isShiftKeyDown() || GLFW.glfwGetKey(win, GLFW.GLFW_KEY_LEFT_SHIFT) == GLFW.GLFW_PRESS;
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
@@ -166,7 +166,16 @@ public final class NovaHud {
 				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ocd > 0 ? 0xFF6A4A1A : 0xFFFFD27A);
 			}
 		}
-		if (shift || alt) {
+		if (alt) {
+			// v0.16.6: Left-Alt -> the shared move list (plain move + Shift move per key), stacked above the title
+			java.util.List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (AbilitySlot slot : SLOTS) {
+				String[] ids = NovaAbilityManager.idsOf(slot);
+				rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(slot), Component.translatable("projecthero.nova.ability." + ids[0]),
+						Component.translatable("projecthero.nova.ability." + ids[1])));
+			}
+			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, x0 + totalW, sy - 10, rows);
+		} else if (shift) {
 			int right = x0 + totalW;
 			int lineY = sy - 14 - 6 * 10;
 			if (shift) {

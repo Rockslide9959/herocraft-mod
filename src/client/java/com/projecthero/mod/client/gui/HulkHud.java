@@ -155,15 +155,38 @@ public final class HulkHud {
 			com.projecthero.mod.client.hulk.HulkMovesClient.renderLeapBar(g, x0, formY - 3 - BOX - 3, totalW);
 			// v0.15.21: he can't see his own back -- who is riding it
 			Player rider = com.projecthero.mod.hulk.HulkRiding.rider(player);
+			int hudTop = formY - 3 - BOX - 3 - 2; // above the boxes and the Super Leap bar
 			if (rider != null) {
 				Component carrying = Component.translatable("hud.projecthero.hulk.carrying", rider.getDisplayName())
 						.withStyle(ChatFormatting.GREEN);
 				java.util.List<net.minecraft.util.FormattedCharSequence> rows = mc.font.split(carrying, totalW);
 				int cy = formY - 3 - BOX - 4 - rows.size() * 9;
+				hudTop = Math.min(hudTop, cy);
 				for (net.minecraft.util.FormattedCharSequence row : rows) {
 					g.drawString(mc.font, row, g.guiWidth() - MARGIN - mc.font.width(row), cy, 0xFF9CFF9C, true);
 					cy += 9;
 				}
+			}
+			// v0.16.6: Left-Alt -> the shared move list (each key: tap move + Shift move), stacked above the whole HUD
+			if (MoveListOverlay.held()) {
+				java.util.List<MoveListOverlay.Row> moves = new java.util.ArrayList<>();
+				for (int i = 0; i < 6; i++) {
+					AbilitySlot slot = AbilitySlot.byNumber(i + 1);
+					if (gladiator) {
+						String tap = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.tapId(slot);
+						String alt = com.projecthero.mod.hulk.gladiator.GladiatorAbilities.shiftId(slot);
+						moves.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot),
+								Component.translatable(com.projecthero.mod.hulk.gladiator.GladiatorAbilities.langName(tap)),
+								alt == null || alt.equals(tap) ? null
+										: Component.translatable(com.projecthero.mod.hulk.gladiator.GladiatorAbilities.langName(alt))));
+					} else {
+						String tap = HulkAbilityManager.abilityIdOf(slot);
+						String alt = HulkAbilityManager.shiftIdOf(slot);
+						moves.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), Component.translatable("projecthero.hulk.ability." + tap),
+								alt == null || alt.equals(tap) ? null : Component.translatable("projecthero.hulk.ability." + alt)));
+					}
+				}
+				MoveListOverlay.draw(g, x0 + totalW, hudTop, moves);
 			}
 		}
 		renderCentre(g, mc, player, s, now);
@@ -185,7 +208,6 @@ public final class HulkHud {
 		// v0.16.4 (user): the rebuilt kit -- each box shows the tap move (or, while Shift is held, the Shift move) and a strip
 		// along its bottom for the other one; Alt or Shift lists the names above the boxes. The leap bar is HulkMovesClient's.
 		long win = mc.getWindow().getWindow();
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean shift = player.isShiftKeyDown() || org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
 				== org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean locked = s.rampaging(now) || s.combat.calming;
@@ -220,7 +242,7 @@ public final class HulkHud {
 				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ocd > 0 ? 0xFF4F7F2A : 0xFFB8FF9A);
 			}
 		}
-		if (shift || expanded) {
+		if (shift && !MoveListOverlay.held()) { // v0.16.6: Left-Alt is the shared move list (render)
 			// one short line per key, stacked above the boxes and right-aligned with them (clear of the hotbar)
 			int right = x0 + 6 * BOX + 5 * GAP;
 			int lineY = y0 - 4 - 6 * 10;
@@ -241,7 +263,6 @@ public final class HulkHud {
 	 */
 	private static void renderGladiatorKeys(GuiGraphics g, Minecraft mc, Player player, HulkState s, int x0, int y0, long now) {
 		long win = mc.getWindow().getWindow();
-		boolean alt = org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean shift = player.isShiftKeyDown() || org.lwjgl.glfw.GLFW.glfwGetKey(win, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
 				== org.lwjgl.glfw.GLFW.GLFW_PRESS;
 		boolean locked = s.rampaging(now) || s.combat.calming;
@@ -284,7 +305,7 @@ public final class HulkHud {
 			float ready = omax <= 0 ? 1.0f : 1.0f - Math.min(1.0f, ocd / (float) omax);
 			g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ocd > 0 ? 0xFF6A4A1A : 0xFFFFD27A);
 		}
-		if (shift || alt) {
+		if (shift && !MoveListOverlay.held()) { // v0.16.6: Left-Alt is the shared move list (render)
 			// the names, one short line per key, stacked above the boxes and right-aligned with them (clear of the hotbar)
 			int right = x0 + 6 * BOX + 5 * GAP;
 			int lineY = y0 - 4 - 6 * 10;

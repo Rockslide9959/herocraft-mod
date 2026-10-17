@@ -110,7 +110,7 @@ public final class AbilityHud {
 		int y0 = screenH - MARGIN - (slots == 0 ? 0 : BOX) - barsBlock;
 
 		long gameTime = client.level != null ? client.level.getGameTime() : 0L;
-		boolean expanded = GLFW.glfwGetKey(client.getWindow().getWindow(), GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		// v0.14.5: black-and-gray theme for the powers that ask for it.
 		boolean mono = AbilityHudExtras.isMono(power.key());
@@ -188,13 +188,23 @@ public final class AbilityHud {
 				graphics.drawCenteredString(client.font, secs, x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 			}
 
-			if (expanded) {
-				Component name = Component.translatable(ability.nameKey());
-				int tw = client.font.width(name);
-				// Stack the names in a column that ends just above the keybind-box row, so the
-				// bottom entry stays on screen no matter how many meter bars are showing below.
-				graphics.drawString(client.font, name, x0 - 8 - tw, y0 + i * 10 - 52, 0xFFCfcfe6);
+		}
+		if (expanded && slots > 0) {
+			// v0.16.6: the shared move list -- each key's move with its Shift move (read from the move descriptions,
+			// the only place the mutations name them), stacked above the power name / header line
+			List<String> descKeys = new ArrayList<>();
+			for (Ability a : power.abilities()) {
+				descKeys.add(a.descKey());
 			}
+			List<MoveListOverlay.Row> rows = new ArrayList<>();
+			for (int i = 0; i < slots; i++) {
+				Ability ability = power.ability(AbilitySlot.byNumber(i + 1));
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(ability.nameKey()),
+						MoveListOverlay.shiftFromDescs(i, descKeys)));
+			}
+			boolean extraLine = header != null || power.key().equals("power_19_shadow_manipulation")
+					|| power.key().equals("power_18_density_manipulation");
+			MoveListOverlay.draw(graphics, x0 + totalW, extraLine ? nameY - 10 : nameY, rows);
 		}
 
 		if (power.key().equals("power_19_shadow_manipulation")) {

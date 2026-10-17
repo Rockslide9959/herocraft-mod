@@ -336,8 +336,7 @@ public final class SpiderHud {
 		int totalW = 6 * BOX + 5 * GAP;
 		int x0 = screenW - MARGIN - totalW;
 		int y0 = screenH - MARGIN - BOX - BOTTOM_STACK;
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(client.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		for (int i = 0; i < 6; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
@@ -362,7 +361,7 @@ public final class SpiderHud {
 		}
 		stealthEye(graphics, player, x0 - 15, y0 + BOX / 2 - 3);
 		if (expanded) {
-			renderNames(graphics, client, player, x0, y0);
+			renderNames(graphics, player, x0 + totalW, y0 - SymbioteHud.blackSuitPanelLift(player)); // above the Black Suit panel too
 		}
 
 		// Web Reserve. The ceiling doubles once bonded with a Symbiote (v0.9.10).
@@ -456,33 +455,20 @@ public final class SpiderHud {
 	}
 
 	/** Alt held: every key's tap / Shift / hold names, wrapped, stacked above-left of the row. */
-	private static void renderNames(GuiGraphics g, Minecraft mc, Player player, int x0, int y0) {
-		java.util.List<FormattedCharSequence> lines = new java.util.ArrayList<>();
-		java.util.List<Integer> colours = new java.util.ArrayList<>();
+	/** v0.16.6: Left-Alt -> the shared move list (tap move, Shift move, then the hold move), stacked above the boxes. */
+	private static void renderNames(GuiGraphics g, Player player, int right, int top) {
+		java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+		String hold = Component.translatable("projecthero.guide.spider_man.how.hold").getString();
+		hold = hold.isEmpty() ? hold : Character.toUpperCase(hold.charAt(0)) + hold.substring(1);
 		for (int i = 0; i < 6; i++) {
-			Component line = Component.literal(AbilitySlot.byNumber(i + 1).defaultKey() + "  ").withStyle(ChatFormatting.GOLD)
-					.append(Component.translatable("hud.projecthero.spider_man.move_triple",
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 0)),
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 1)),
-							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 2)))
-							.withStyle(ChatFormatting.WHITE));
-			for (FormattedCharSequence row : mc.font.split(line, NAMES_WIDTH)) {
-				lines.add(row);
-				colours.add(0xFFE0C8CC);
-			}
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i),
+					Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 0)),
+					Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 1)),
+					Component.literal(hold + ": ").append(
+							Component.translatable("projecthero.spider_man.ability." + SpiderMoves.idFor(player, i, 2)))));
 		}
-		lines.add(mc.font.split(Component.translatable("hud.projecthero.spider_man.traversal_hint"), NAMES_WIDTH).get(0));
-		colours.add(0xFFA0A0B0);
-		int width = 0;
-		for (FormattedCharSequence l : lines) {
-			width = Math.max(width, mc.font.width(l));
-		}
-		int x = Math.max(2, x0 - 8 - width);
-		int y = y0 + BOX - lines.size() * 10;
-		g.fill(x - 3, y - 3, x + width + 3, y + lines.size() * 10 + 1, 0x90100608);
-		for (int i = 0; i < lines.size(); i++) {
-			g.drawString(mc.font, lines.get(i), x, y + i * 10, colours.get(i), true);
-		}
+		rows.add(MoveListOverlay.Row.of("", Component.translatable("hud.projecthero.spider_man.traversal_hint"), null));
+		MoveListOverlay.draw(g, right, top, rows);
 	}
 
 	/** Weave Mode / anchor A / charging status for the line under the Web Reserve, or null. */

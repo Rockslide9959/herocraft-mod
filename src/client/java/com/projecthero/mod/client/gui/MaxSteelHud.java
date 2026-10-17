@@ -113,6 +113,9 @@ public final class MaxSteelHud {
 			g.drawString(mc.font, normal, nx, y, 0xFFE0E0E0, true);
 			y += 10;
 			energyBar(g, mc, x0, y, totalW, energy, overloaded, now);
+			if (MoveListOverlay.held()) { // v0.16.6: the shared move list -- only H (Go Turbo) does anything out of the suit
+				MoveListOverlay.draw(g, right, y - 10, java.util.List.of(hRow()));
+			}
 			return;
 		}
 
@@ -126,8 +129,15 @@ public final class MaxSteelHud {
 		int height = BOX + 2 + 10 + 11 + 10 + HAIR + 3 + 10 + HAIR + (blastCharging ? 3 + 10 + HAIR : 0) + (forming ? 3 + 10 + HAIR : 0);
 		int y0 = g.guiHeight() - MARGIN - height;
 		MaxSteelMode mode = MaxSteel.formMode(player); // v0.14.4: the target mode already, while suiting up into one
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		// v0.16.6: Left-Alt -> the shared move list (the six keys, then H), stacked above the key row
+		if (MoveListOverlay.held()) {
+			java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+			for (int i = 0; i < 6; i++) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable("projecthero.max_steel.ability." + SLOT_NAMES[i]), null));
+			}
+			rows.add(hRow());
+			MoveListOverlay.draw(g, right, y0, rows);
+		}
 
 		// ---- ability keys
 		for (int i = 0; i < 6; i++) {
@@ -151,14 +161,6 @@ public final class MaxSteelHud {
 			} else {
 				g.drawString(mc.font, String.valueOf(slot.defaultKey()), x + 7, y0 + 6, active ? 0xFFFFFFFF : KEY, true);
 			}
-			if (expanded) {
-				Component name = Component.translatable("projecthero.max_steel.ability." + SLOT_NAMES[i]);
-				g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y0 + i * 10, 0xFFE0E0E0, true);
-			}
-		}
-		if (expanded) {
-			Component h = Component.translatable("hud.projecthero.max_steel.key_h");
-			g.drawString(mc.font, h, x0 - 8 - mc.font.width(h), y0 + 60, 0xFFE0E0E0, true);
 		}
 
 		// ---- title + status
@@ -251,6 +253,12 @@ public final class MaxSteelHud {
 			int wy = cy - (int) (Math.cos(rad) * 40);
 			g.fill(wx - 3, wy - 3, wx + 3, wy + 3, ((now % 6) < 3) ? 0xFFFFDD33 : 0xFFFF6633);
 		}
+	}
+
+	/** v0.16.6: the H row of the move list ("Go Turbo / Power Down"; the lang line spells its own "H", so that is dropped). */
+	private static MoveListOverlay.Row hRow() {
+		String text = Component.translatable("hud.projecthero.max_steel.key_h").getString().replaceFirst("^\\S{1,3}\\s+", "");
+		return MoveListOverlay.Row.of(MoveListOverlay.key(6), Component.literal(text), null);
 	}
 
 	/** "T.U.R.B.O. 82%" then its hairline, with the overload recovery mark while locked out. */

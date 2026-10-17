@@ -95,8 +95,7 @@ public final class PunisherHud {
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - BOX - MARGIN - 26;
 
-		boolean expanded = org.lwjgl.glfw.GLFW.glfwGetKey(mc.getWindow().getWindow(),
-				org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 
 		for (int i = 0; i < ORDER.length; i++) {
 			AbilitySlot slot = ORDER[i];
@@ -129,11 +128,12 @@ public final class PunisherHud {
 			drawKey(g, mc, slot, x, y0);
 		}
 
-		if (expanded) {
-			renderNames(g, mc, x0, y0 + BOX);
-		}
-
 		renderWarzoneCall(g, mc, player, now, x0, y0 - 22, totalW);
+
+		if (expanded) {
+			// v0.16.6: the shared move list, stacked above the boxes (and above the Warzone call while it fills)
+			renderNames(g, player, x0 + totalW,warzoneChargeStart >= 0L ? y0 - 22 : y0);
+		}
 
 		int line = y0 + BOX + 2;
 		int markLeft = PunisherIntelClient.markTicksLeft(now);
@@ -191,22 +191,20 @@ public final class PunisherHud {
 		return k.length() > 2 ? k.substring(0, 2) : k;
 	}
 
-	/** Alt held: "R  Target Designation" with "Shift  Threat Assessment" under it, per key, right-aligned left of the row. */
-	private static void renderNames(GuiGraphics g, Minecraft mc, int x0, int bottom) {
-		int y = bottom - 10;
-		for (int i = NAMES.length - 1; i >= 0; i--) {
-			String key = keyLabel(ORDER[i]);
-			if (!NAMES[i][1].isEmpty()) {
-				Component sh = Component.translatable("hud.projecthero.punisher.shift_key",
-						key, Component.translatable("hud.projecthero.punisher.name." + NAMES[i][1]));
-				g.drawString(mc.font, sh, x0 - 8 - mc.font.width(sh), y, COLOR_SHIFT_NAME, true);
-				y -= 10;
+	/** Alt held (v0.16.6: the shared move list): "R  Target Designation   Shift: Threat Assessment", per key. */
+	private static void renderNames(GuiGraphics g, LocalPlayer player, int right, int top) {
+		// Agent Venom: the suit's Sneak extras take over the Shift moves of X / Z / V, and its panel sits above the boxes
+		boolean venom = com.projecthero.mod.symbiote.SymbioteAgentVenomAbilities.agentVenom(player);
+		java.util.List<MoveListOverlay.Row> rows = new java.util.ArrayList<>();
+		for (int i = 0; i < NAMES.length; i++) {
+			Component shift = venom ? SymbioteHud.agentVenomShift(ORDER[i]) : null;
+			if (shift == null && !NAMES[i][1].isEmpty()) {
+				shift = Component.translatable("hud.projecthero.punisher.name." + NAMES[i][1]);
 			}
-			Component name = Component.literal(key + "  ").append(
-					Component.translatable("hud.projecthero.punisher.name." + NAMES[i][0]));
-			g.drawString(mc.font, name, x0 - 8 - mc.font.width(name), y, COLOR_NAME, true);
-			y -= 11;
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(ORDER[i]),
+					Component.translatable("hud.projecthero.punisher.name." + NAMES[i][0]), shift));
 		}
+		MoveListOverlay.draw(g, right, venom ? Math.min(top, SymbioteHud.agentVenomPanelTop(g)) : top, rows);
 	}
 
 	/**
