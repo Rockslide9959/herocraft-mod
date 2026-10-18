@@ -216,12 +216,12 @@ public class WaterV0165GameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 1, false);
 		helper.assertFalse(WaterHandlers.jetting(p), "release stops it");
 		WaterHandlers.setWater(p, 50);
-		AbilityRouter.handleInput(p, 5, true); // hold V: the Water Shield
+		press(p, 5); // tap V: the Water Shield (v0.16.6: a toggle)
 		helper.assertTrue(WaterHandlers.shielding(p), "the shield is up");
 		tick(p, 20);
-		assertNear(helper, 50.0f - WaterHandlers.COST_SHIELD_PER_SECOND, WaterHandlers.water(p), "6 a second, no refill while held");
-		AbilityRouter.handleInput(p, 5, false);
-		helper.assertFalse(WaterHandlers.shielding(p), "release drops it");
+		assertNear(helper, 50.0f - WaterHandlers.COST_SHIELD_PER_SECOND, WaterHandlers.water(p), "6 a second, no refill while it is up");
+		press(p, 5);
+		helper.assertFalse(WaterHandlers.shielding(p), "a second tap drops it");
 		// a dry meter refuses a move outright
 		WaterHandlers.setWater(p, 5);
 		press(p, 1);
@@ -385,7 +385,7 @@ public class WaterV0165GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void waterShieldSwallowsProjectiles(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
-		AbilityRouter.handleInput(p, 5, true);
+		press(p, 5); // v0.16.6: tap V raises it
 		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
 		arrow.moveTo(p.getX(), p.getY() + 1.0, p.getZ() + 2.0);
 		arrow.setDeltaMovement(0, 0, -1.5);
@@ -396,7 +396,7 @@ public class WaterV0165GameTests implements FabricGameTest {
 		p.setRemainingFireTicks(100);
 		tick(p, 1);
 		helper.assertFalse(p.isOnFire(), "fire goes out");
-		AbilityRouter.handleInput(p, 5, false);
+		press(p, 5);
 		helper.succeed();
 	}
 

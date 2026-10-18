@@ -53,6 +53,12 @@ public final class WaterClient {
 		EntityRendererRegistry.register(WaterEntities.TIDAL_WAVE, WaterFxRenderer::new);
 		EntityRendererRegistry.register(WaterEntities.GEYSER, WaterFxRenderer::new);
 		EntityRendererRegistry.register(WaterEntities.HEALING_WATER, WaterFxRenderer::new);
+		// v0.16.6: the hold moves
+		EntityRendererRegistry.register(WaterEntities.WATER_DRAGON, WaterFxRenderer::new);
+		EntityRendererRegistry.register(WaterEntities.WHIRLPOOL, WaterFxRenderer::new);
+		EntityRendererRegistry.register(WaterEntities.TSUNAMI, WaterFxRenderer::new);
+		EntityRendererRegistry.register(WaterEntities.RAIN_CALL, WaterFxRenderer::new);
+		EntityRendererRegistry.register(WaterEntities.WATER_CLONE, com.projecthero.mod.client.mutation.water.WaterCloneRenderer::new);
 		WorldRenderEvents.AFTER_ENTITIES.register(WaterClient::renderPlayerBodies);
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			if (mc.player != null && !mc.isPaused()) {
@@ -121,6 +127,35 @@ public final class WaterClient {
 		float[] pull0 = p(AIM, AIM, 0, -0.3f, 0, -0.1f, 0.1f, -0.2f, 0, 0, 0);
 		float[] pull = p(-1.2f, -0.7f, 0, -0.9f, 0.5f, 0, -0.05f, 0, 0, 0, 0.1f);
 		MutationPose.register("p25.draw", new float[][] { zero(0), at(3, pull0), at(9, pull), at(14, pull), zero(19) });
+
+		// ---- v0.16.6 hold moves ----
+		// hold R: both hands drawn low, then flung up and forward as the dragon rises out of them
+		float[] drag0 = p(0.4f, 0.2f, 0.3f, 0.4f, -0.2f, -0.3f, 0.25f, 0, -0.2f, 0.2f, 0.2f);
+		float[] dragUp = p(-2.9f, 0.1f, 0.2f, -2.9f, -0.1f, -0.2f, -0.2f, 0, 0.1f, -0.1f, -0.4f);
+		float[] dragFwd = p(AIM, AIM, 0, -1.7f, 0.3f, -0.1f, 0.2f, -0.2f, -0.4f, 0.4f, 0);
+		MutationPose.register("p25.dragon", new float[][] { zero(0), at(3, drag0), at(7, dragUp), at(12, dragUp), at(16, dragFwd), at(24, dragFwd),
+				zero(30) });
+		// hold G: one hand stirs a wide circle over the vortex
+		float[] stir0 = p(-1.3f, -0.6f, 0.2f, 0.2f, 0, -0.2f, 0.15f, 0.2f, -0.2f, 0.2f, 0.1f);
+		float[] stir1 = p(-1.5f, 0.3f, 0.6f, 0.2f, 0, -0.2f, 0.15f, -0.15f, -0.2f, 0.2f, 0.1f);
+		float[] stir2 = p(-1.1f, 0.6f, -0.1f, 0.2f, 0, -0.2f, 0.15f, -0.3f, -0.2f, 0.2f, 0.1f);
+		MutationPose.register("p25.whirl", new float[][] { zero(0), at(3, stir0), at(7, stir1), at(11, stir2), at(15, stir0), at(19, stir1),
+				at(23, stir2), zero(30) });
+		// hold X: arms held down and back, palms to the ground, legs together -- the jets carry you
+		float[] jets = p(0.35f, 0, 0.32f, 0.35f, 0, -0.32f, 0.12f, 0, 0.12f, 0.12f, -0.1f);
+		float[] jets2 = p(0.42f, 0, 0.28f, 0.28f, 0, -0.36f, 0.15f, 0.04f, 0.16f, 0.08f, -0.1f);
+		MutationPose.registerLoop("p25.hjets", 4, new float[][] { zero(0), at(4, jets), at(12, jets2), at(20, jets) });
+		// hold Z: both arms raised high, then brought crashing down and forward as the tsunami rears
+		float[] tsu0 = p(-3.0f, 0, 0.45f, -3.0f, 0, -0.45f, -0.25f, 0, 0.15f, -0.15f, -0.35f);
+		float[] tsu1 = p(-1.35f, 0, 0.1f, -1.35f, 0, -0.1f, 0.45f, 0, -0.5f, 0.5f, 0.2f);
+		MutationPose.register("p25.tsunami", new float[][] { zero(0), at(5, tsu0), at(10, tsu0), at(14, tsu1), at(24, tsu1), zero(32) });
+		// hold V: the hand sweeps out to the side where the clone rises
+		float[] cl0 = p(-0.6f, 0, 0.3f, 0.2f, 0, -0.2f, 0.05f, 0.3f, 0, 0, 0);
+		float[] cl1 = p(-1.4f, 0, 1.35f, 0.2f, 0, -0.2f, 0.05f, -0.25f, 0, 0, 0.1f);
+		MutationPose.register("p25.clone", new float[][] { zero(0), at(3, cl0), at(8, cl1), at(16, cl1), zero(22) });
+		// hold C: both arms lifted to the sky, head back, calling the rain down
+		float[] rain = p(-2.7f, 0, 0.55f, -2.7f, 0, -0.55f, -0.15f, 0, 0, 0, -0.6f);
+		MutationPose.register("p25.rain", new float[][] { zero(0), at(6, rain), at(26, rain), zero(34) });
 	}
 
 	// ================================================================== hands
@@ -182,7 +217,8 @@ public final class WaterClient {
 			boolean jet = s.has("p25.jet");
 			boolean shield = s.has("p25.shield");
 			boolean surf = s.has("p25.surf");
-			if (!jet && !shield && !surf) {
+			boolean hjets = s.has("p25.hjets");
+			if (!jet && !shield && !surf && !hjets) {
 				continue;
 			}
 			float t = pl.tickCount + partial;
@@ -198,6 +234,66 @@ public final class WaterClient {
 			if (surf) {
 				renderSurf(pl, partial, t, cam, pose, vc, light);
 			}
+			if (hjets) {
+				renderHydroJets(pl, partial, t, cam, pose, vc, light);
+			}
+		}
+	}
+
+	/**
+	 * v0.16.6 hold X: four jets of water blasting down and back from the palms and the soles -- each a churning nozzle that
+	 * flares into a foaming plume, a spray burst at its end.
+	 */
+	private static void renderHydroJets(Player p, float partial, float t, Vec3 cam, PoseStack pose, VertexConsumer vc, int light) {
+		float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot) * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		Vec3 rgt = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
+		Vec3 feet = p.getPosition(partial);
+		boolean fp = firstPerson(p);
+		Vec3[] from = new Vec3[4];
+		if (fp) {
+			// in first person the palm jets come from low in the view, either side
+			from[0] = handPos(p, partial, true).add(0, -0.25, 0);
+			from[1] = handPos(p, partial, false).add(0, -0.25, 0);
+		} else {
+			from[0] = feet.add(0, 0.62, 0).add(rgt.scale(0.44)).add(fwd.scale(-0.08));
+			from[1] = feet.add(0, 0.62, 0).add(rgt.scale(-0.44)).add(fwd.scale(-0.08));
+		}
+		from[2] = feet.add(0, 0.02, 0).add(rgt.scale(0.12));
+		from[3] = feet.add(0, 0.02, 0).add(rgt.scale(-0.12));
+		Vec3 down = new Vec3(0, -1, 0).add(fwd.scale(-0.3)).normalize();
+		TextureAtlasSprite flow = WaterMesh.flow();
+		TextureAtlasSprite still = WaterMesh.still();
+		for (int j = 0; j < 4; j++) {
+			boolean foot = j >= 2;
+			float len = (foot ? 2.6f : 1.9f) + 0.3f * Mth.sin(t * 1.3f + j * 1.7f);
+			Vec3 side = down.cross(new Vec3(1, 0, 0));
+			side = side.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : side.normalize();
+			int n = 10;
+			Vec3[] pts = new Vec3[n];
+			float[] outer = new float[n];
+			float[] inner = new float[n];
+			for (int i = 0; i < n; i++) {
+				float s = i / (float) (n - 1);
+				Vec3 jitter = side.scale(Mth.sin(s * 9f - t * 2.4f + j) * 0.05f * s).add(rgt.scale(Mth.cos(s * 7f - t * 2f + j) * 0.05f * s));
+				pts[i] = from[j].add(down.scale(len * s)).add(jitter).subtract(cam);
+				outer[i] = (foot ? 0.11f : 0.08f) + (foot ? 0.3f : 0.22f) * s * s + 0.03f * Mth.sin(s * 18f - t * 3f);
+				inner[i] = outer[i] * 0.45f;
+			}
+			WaterMesh.tube(vc, pose, pts, outer, 10, 0.16f, t * 3f + j, WaterMesh.fade(WaterMesh.BODY, 0.9f), light, flow);
+			WaterMesh.tube(vc, pose, pts, inner, 6, 0.2f, t * 3f + j, WaterMesh.FOAM, light, still);
+			// the nozzle ring where the water leaves the palm / sole, and the spray at the end
+			pose.pushPose();
+			Vec3 a = pts[0];
+			pose.translate(a.x, a.y, a.z);
+			WaterMesh.ring(vc, pose, foot ? 0.14f : 0.1f, 0.035f, 12, 0.3f, t * 3f, WaterMesh.FOAM, light, flow);
+			pose.popPose();
+			pose.pushPose();
+			Vec3 b = pts[n - 1];
+			pose.translate(b.x, b.y, b.z);
+			float puff = (foot ? 0.42f : 0.32f) + 0.08f * Mth.sin(t * 2.1f + j);
+			WaterMesh.sphere(vc, pose, puff, 0.75f, 0.35f, t * 4f + j, WaterMesh.fade(WaterMesh.FOAM, 0.55f), light, flow);
+			pose.popPose();
 		}
 	}
 

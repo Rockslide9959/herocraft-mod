@@ -48,8 +48,13 @@ public class TidalWaveEntity extends WaterFxEntity {
 	}
 
 	public static TidalWaveEntity roll(ServerPlayer owner) {
+		return launch(owner, new TidalWaveEntity(WaterEntities.TIDAL_WAVE, AbilityHelpers.level(owner)));
+	}
+
+	/** v0.16.6: sets a wave (a Tidal Wave or the bigger Tsunami) rolling from {@code owner} along his flat aim. */
+	protected static <T extends TidalWaveEntity> T launch(ServerPlayer owner, T wave) {
 		ServerLevel level = AbilityHelpers.level(owner);
-		TidalWaveEntity e = new TidalWaveEntity(WaterEntities.TIDAL_WAVE, level);
+		TidalWaveEntity e = wave;
 		e.setup(owner, null, 1.0f);
 		Vec3 look = owner.getLookAngle();
 		Vec3 flat = new Vec3(look.x, 0, look.z);
@@ -58,13 +63,48 @@ public class TidalWaveEntity extends WaterFxEntity {
 		e.setPos(at.x, owner.getY(), at.z);
 		e.setYRot((float) (Mth.atan2(e.dir.z, e.dir.x) * Mth.RAD_TO_DEG) - 90.0f);
 		level.addFreshEntity(e);
-		return e;
+		return wave;
+	}
+
+	// ---- v0.16.6: the wave's size, overridden by the Tsunami (hold Z) ----
+
+	public double halfWidth() {
+		return HALF_WIDTH;
+	}
+
+	public double height() {
+		return HEIGHT;
+	}
+
+	public int rise() {
+		return RISE;
+	}
+
+	public int run() {
+		return RUN;
+	}
+
+	public int collapse() {
+		return COLLAPSE;
+	}
+
+	public double speed() {
+		return SPEED;
+	}
+
+	public float damage() {
+		return WaterHandlers.TIDAL_DAMAGE;
+	}
+
+	/** Whether the crest carries {@code e} along with it (the Tidal Wave carries everything). */
+	protected boolean carries(Entity e) {
+		return true;
 	}
 
 	/** Ticks since it broke (into a wall or at the end of its run), or -1 while it still rolls. Either side. */
 	public int brokenFor(float partial) {
 		float s = size();
-		float start = s >= 999.5f ? s - 1000.0f : (tickCount <= RISE + RUN ? -1 : RISE + RUN);
+		float start = s >= 999.5f ? s - 1000.0f : (tickCount <= rise() + run() ? -1 : rise() + run());
 		return start < 0 ? -1 : (int) Math.max(0, tickCount - start);
 	}
 
@@ -81,7 +121,7 @@ public class TidalWaveEntity extends WaterFxEntity {
 		ServerLevel level = (ServerLevel) level();
 		ServerPlayer owner = owner();
 		if (brokeAt >= 0) {
-			if (tickCount - brokeAt >= COLLAPSE || owner == null) {
+			if (tickCount - brokeAt >= collapse() || owner == null) {
 				discard();
 			} else if (tickCount - brokeAt == 1) {
 				spray(level);
@@ -92,9 +132,9 @@ public class TidalWaveEntity extends WaterFxEntity {
 			discard();
 			return;
 		}
-		if (tickCount > RISE) {
+		if (tickCount > rise()) {
 			// roll on, following the ground
-			Vec3 next = position().add(dir.scale(SPEED));
+			Vec3 next = position().add(dir.scale(speed()));
 			Double y = groundAt(level, next.x, getY(), next.z);
 			if (y == null) {
 				breakUp(); // a wall too tall to ride over
@@ -103,7 +143,7 @@ public class TidalWaveEntity extends WaterFxEntity {
 			setPos(next.x, y, next.z);
 		}
 		sweep(level, owner);
-		if (tickCount >= RISE + RUN) {
+		if (tickCount >= rise() + run()) {
 			breakUp();
 		}
 	}
@@ -113,11 +153,13 @@ public class TidalWaveEntity extends WaterFxEntity {
 		setSize(1000.0f + tickCount);
 	}
 
-	/** Everything in the wall's slab: hostiles take 14 once; everything is carried along. Fire goes out. */
+	/** Everything in the wall's slab: hostiles take {@link #damage} (14) once; everything is carried along. Fire goes out. */
 	public void sweep(ServerLevel level, ServerPlayer owner) {
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		Vec3 c = position();
-		AABB box = new AABB(c.x - 4.5, c.y - 0.5, c.z - 4.5, c.x + 4.5, c.y + HEIGHT + 0.5, c.z + 4.5);
+		double half = halfWidth();
+		double k = height() / HEIGHT; // the slab deepens with a taller wave
+		AABB box = new AABB(c.x - half - 1.0, c.y - 0.5, c.z - half - 1.0, c.x + half + 1.0, c.y + height() + 0.5, c.z + half + 1.0);
 		for (Entity e : level.getEntities(this, box, e -> e instanceof LivingEntity || e instanceof ItemEntity)) {
 			if (e == owner) {
 				continue;
@@ -125,7 +167,7 @@ public class TidalWaveEntity extends WaterFxEntity {
 			Vec3 rel = e.position().subtract(c);
 			double along = rel.dot(dir);
 			double across = rel.dot(side);
-			if (along < -1.4 || along > 1.6 || Math.abs(across) > HALF_WIDTH + e.getBbWidth() * 0.5) {
+			if (along < -1.4 * k || along > 1.6 * k || Math.abs(across) > half + e.getBbWidth() * 0.5) {
 				continue;
 			}
 			if (e instanceof LivingEntity le) {
@@ -133,28 +175,32 @@ public class TidalWaveEntity extends WaterFxEntity {
 					continue;
 				}
 				if (hit.add(le.getId())) {
-					AbilityHelpers.hurtBurst(owner, le, WaterHandlers.TIDAL_DAMAGE);
-					le.clearFire();
+					AbilityHelpers.hurtBurst(owner, le, damage());
 				}
+				le.clearFire(); // v0.16.6: every pass of the wall puts fire out, not only the one that hits
 				le.fallDistance = 0;
+			}
+			if (!carries(e)) {
+				continue;
 			}
 			// swept along with the crest
 			Vec3 v = e.getDeltaMovement();
 			double ahead = v.dot(dir);
-			Vec3 carry = v.subtract(dir.scale(ahead)).scale(0.5).add(dir.scale(Math.max(ahead, SPEED * 1.05)));
+			Vec3 carry = v.subtract(dir.scale(ahead)).scale(0.5).add(dir.scale(Math.max(ahead, speed() * 1.05)));
 			e.setDeltaMovement(carry.x, Math.max(v.y, 0.12), carry.z);
 			e.hurtMarked = true;
 		}
 		// douse the cells it rolls over
-		for (int w = -3; w <= 3; w++) {
-			Vec3 p = c.add(side.scale(w)).add(dir.scale(0.8));
+		int cells = (int) Math.floor(half);
+		for (int w = -cells; w <= cells; w++) {
+			Vec3 p = c.add(side.scale(w)).add(dir.scale(0.8 * k));
 			WaterHandlers.douse(level, BlockPos.containing(p.x, c.y + 0.2, p.z), 0);
 			WaterHandlers.douse(level, BlockPos.containing(p.x, c.y + 1.2, p.z), 0);
 		}
 		if (tickCount % 2 == 0) {
-			for (int w = -3; w <= 3; w += 2) {
-				Vec3 p = c.add(side.scale(w + level.random.nextDouble() - 0.5)).add(dir.scale(0.9));
-				level.sendParticles(ParticleTypes.SPLASH, p.x, c.y + 2.6, p.z, 3, 0.3, 0.2, 0.3, 0.15);
+			for (int w = -cells; w <= cells; w += 2) {
+				Vec3 p = c.add(side.scale(w + level.random.nextDouble() - 0.5)).add(dir.scale(0.9 * k));
+				level.sendParticles(ParticleTypes.SPLASH, p.x, c.y + height() * 0.87, p.z, 3, 0.3, 0.2, 0.3, 0.15);
 			}
 		}
 		if (tickCount % 5 == 0) {
@@ -186,10 +232,11 @@ public class TidalWaveEntity extends WaterFxEntity {
 
 	private void spray(ServerLevel level) {
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
-		for (int w = -3; w <= 3; w++) {
+		int cells = (int) Math.floor(halfWidth());
+		for (int w = -cells; w <= cells; w++) {
 			Vec3 p = position().add(side.scale(w)).add(dir.scale(0.6));
-			level.sendParticles(ParticleTypes.SPLASH, p.x, getY() + 1.5, p.z, 10, 0.4, 0.8, 0.4, 0.3);
-			level.sendParticles(ParticleTypes.FALLING_WATER, p.x, getY() + 2.5, p.z, 4, 0.4, 0.3, 0.4, 0.0);
+			level.sendParticles(ParticleTypes.SPLASH, p.x, getY() + height() * 0.5, p.z, 10, 0.4, 0.8, 0.4, 0.3);
+			level.sendParticles(ParticleTypes.FALLING_WATER, p.x, getY() + height() * 0.83, p.z, 4, 0.4, 0.3, 0.4, 0.0);
 		}
 		level.playSound(null, getX(), getY(), getZ(), SoundEvents.GENERIC_SPLASH, SoundSource.PLAYERS, 1.5f, 0.6f);
 	}
