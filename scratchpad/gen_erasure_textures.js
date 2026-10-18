@@ -192,8 +192,7 @@ function makeEyes() {
 	const im = img(64, 64);
 	const R = '#ff2626';
 	for (const x of [9, 10, 13, 14]) set(im, x, 12, hex(R, 255));
-	for (const x of [9, 10, 13, 14]) { set(im, x, 11, hex('#ff3a3a', 90)); set(im, x, 13, hex('#ff3a3a', 70)); }
-	for (const x of [8, 11, 12, 15]) set(im, x, 12, hex('#ff3030', 70));
+	// RenderType.eyes is additive and ignores alpha: only the eye texels themselves, or the whole face glows pink
 	return im;
 }
 

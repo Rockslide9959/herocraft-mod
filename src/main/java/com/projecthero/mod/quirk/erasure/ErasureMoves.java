@@ -444,10 +444,6 @@ public final class ErasureMoves {
 			}
 		}
 		LAST_ERASED.put(p.getUUID(), List.copyOf(ids));
-		if (p.tickCount % 4 == 0) {
-			Vec3 eye = p.getEyePosition().add(p.getLookAngle().scale(0.3));
-			level.sendParticles(RED, eye.x, eye.y, eye.z, 1, 0.08, 0.02, 0.08, 0.0);
-		}
 		float drain = ErasureConfig.ERASE_DRAIN * (glare ? ErasureConfig.GLARE_DRAIN_MULT : 1f);
 		if (Quirks.addMeter(p, -drain) <= 0f) {
 			blink(p);

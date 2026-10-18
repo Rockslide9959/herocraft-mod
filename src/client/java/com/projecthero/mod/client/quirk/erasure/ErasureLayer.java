@@ -76,7 +76,7 @@ public class ErasureLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 				.texOffs(0, 16).addBox(-4.5f, -1.6f, -0.6f, 9, 3, 1)
 				.texOffs(0, 21).addBox(-4.75f, -0.8f, -0.2f, 1, 1, 9)
 				.texOffs(0, 21).addBox(3.75f, -0.8f, -0.2f, 1, 1, 9)
-				.texOffs(20, 16).addBox(-4.5f, -0.8f, 8.2f, 9, 1, 1), PartPose.offsetAndRotation(0f, -7.9f, -4.3f, -0.42f, 0f, 0f));
+				.texOffs(20, 16).addBox(-4.5f, -0.8f, 8.2f, 9, 1, 1), PartPose.offsetAndRotation(0f, -6.9f, -4.45f, -0.3f, 0f, 0f));
 		ModelPart baked = LayerDefinition.create(mesh, 64, 32).bakeRoot();
 		hair = baked.getChild("hair");
 		gogglesDown = baked.getChild("goggles_down");
