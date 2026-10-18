@@ -165,10 +165,13 @@ lightning and steam.
 
 ### 💪 All Might / One For All
 Use a **Vestige of One For All**. **H** swaps between your Base Form and a towering **Power Form**.
-- **Detroit, New Hampshire, Texas and Carolina Smash**, a leap, **Plus Ultra** and the charged **United States of Smash**
-  that leaves a crater behind.
-- One For All is a 5-minute timer that drains while you're powered up, and the craftable costume goes on automatically
-  from your locker (**N**).
+- **Detroit, Texas and Carolina Smash**, a leap, **Plus Ultra** and the charged **United States of Smash** -- and every key
+  has a Shift Smash: **New Hampshire, Delaware, Manchester, Oklahoma, Missouri and St. Louis**.
+- **Output** climbs 20% -> 45% -> 100% as your hits land, making every move bigger -- but high Output builds **Strain**,
+  and at full Strain your arms give out. Your arms glow brighter the harder you push.
+- **Symbol of Peace**: squadmates near you take less damage. **Pass On** One For All for good ("Eat this"), or **lend** it
+  for 5 minutes -- at a price.
+- The craftable costume goes on automatically from your locker (**N**).
 
 ### 💚 The Hulk
 Find a ruined **Gamma Lab**, drink the **Gamma Serum**, then right-click the **Gamma Reactor** -- it goes critical and

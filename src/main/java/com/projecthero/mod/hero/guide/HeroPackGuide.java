@@ -1004,11 +1004,17 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.all_might.controls");
 			for (String[] row : new String[][] {
 					{ "H", "transform" }, { "R", "detroit_smash" }, { "Shift+R", "new_hampshire_smash" }, { "G", "texas_smash" },
-					{ "X", "all_might_leap" }, { "Z", "united_states_of_smash" }, { "V", "carolina_smash" }, { "C", "plus_ultra" } }) {
+					{ "Shift+G", "delaware_smash" }, { "X", "all_might_leap" }, { "Shift+X", "manchester_smash" },
+					{ "Z", "united_states_of_smash" }, { "Shift+Z", "oklahoma_smash" }, { "V", "carolina_smash" },
+					{ "Shift+V", "missouri_smash" }, { "C", "plus_ultra" }, { "Shift+C", "st_louis_smash" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.all_might.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.guide.all_might.ability." + row[1]);
 			}
+			blank(lines);
+			// v0.16.6: passing on / lending One For All
+			head(lines, "projecthero.guide.all_might.pass_on");
+			para(lines, "projecthero.guide.all_might.pass_on.body");
 			blank(lines);
 			head(lines, "projecthero.guide.all_might.passives");
 			para(lines, "projecthero.guide.all_might.passives.body");

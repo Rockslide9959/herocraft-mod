@@ -9,13 +9,17 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * Bridges the six universal ability slots to the All Might kit and runs the power's per-player server tick.
  * {@link com.projecthero.mod.hero.AbilityRouter} hands All Might the slots when {@link #hasContext} is true (Power Form, no
- * experimental mutation selected). The Base Form is a plain player and owns no keys. Ability 3 = X, 4 = Z, 5 = V, 6 = C:
+ * experimental mutation selected). The Base Form is a plain player and owns no keys. Ability 3 = X, 4 = Z, 5 = V, 6 = C.
+ * v0.16.6: every key has a Shift move:
  *
  * <pre>
- *   R (1)  Detroit Smash   (Shift+R = New Hampshire Smash)     G (2)  Texas Smash
- *   X (3)  Leap            Z (4)  United States of Smash (hold 5 s)
- *   V (5)  Carolina Smash  C (6)  Plus Ultra (toggle)
- *   H      Base Form / Power Form
+ *   R (1)  Detroit Smash            Shift: New Hampshire Smash
+ *   G (2)  Texas Smash              Shift: Delaware Smash
+ *   X (3)  Leap                     Shift: Manchester Smash
+ *   Z (4)  United States of Smash (hold 5 s)   Shift: Oklahoma Smash
+ *   V (5)  Carolina Smash           Shift: Missouri Smash
+ *   C (6)  Plus Ultra               Shift: St. Louis Smash
+ *   H      Base Form / Power Form   N  the costume locker
  * </pre>
  */
 public final class AllMightAbilityManager {
@@ -35,9 +39,14 @@ public final class AllMightAbilityManager {
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		boolean shift = player.isShiftKeyDown();
 		if (slot == AbilitySlot.SLOT_4) {
 			if (pressed) {
-				AllMightAbilities.unitedStatesPress(player);
+				if (shift) {
+					AllMightAbilities.oklahoma(player);
+				} else {
+					AllMightAbilities.unitedStatesPress(player);
+				}
 			} else {
 				AllMightAbilities.unitedStatesRelease(player);
 			}
@@ -48,23 +57,48 @@ public final class AllMightAbilityManager {
 		}
 		switch (slot) {
 			case SLOT_1 -> {
-				if (player.isShiftKeyDown()) {
+				if (shift) {
 					AllMightAbilities.newHampshire(player);
 				} else {
 					AllMightAbilities.detroit(player);
 				}
 			}
-			case SLOT_2 -> AllMightAbilities.texas(player);
-			case SLOT_3 -> AllMightAbilities.leap(player);
-			case SLOT_5 -> AllMightAbilities.carolina(player);
-			case SLOT_6, SLOT_7, SLOT_8 -> AllMightAbilities.plusUltra(player); // H / N are mutation-only (v0.13.22); never routed here
+			case SLOT_2 -> {
+				if (shift) {
+					AllMightAbilities.delaware(player);
+				} else {
+					AllMightAbilities.texas(player);
+				}
+			}
+			case SLOT_3 -> {
+				if (shift) {
+					AllMightAbilities.manchester(player);
+				} else {
+					AllMightAbilities.leap(player);
+				}
+			}
+			case SLOT_5 -> {
+				if (shift) {
+					AllMightAbilities.missouri(player);
+				} else {
+					AllMightAbilities.carolina(player);
+				}
+			}
+			case SLOT_6, SLOT_7, SLOT_8 -> { // H / N are mutation-only (v0.13.22); never routed here
+				if (shift) {
+					AllMightAbilities.stLouis(player);
+				} else {
+					AllMightAbilities.plusUltra(player);
+				}
+			}
 			default -> {
 			}
 		}
 	}
 
-	/** Runs for every All Might every server tick, whichever power currently holds the slots. */
+	/** Runs for every player every server tick, whichever power currently holds the slots (v0.16.6: lenders and offers too). */
 	public static void serverTick(ServerPlayer player) {
+		AllMightPassOn.tick(player);
 		if (!AllMight.hasPower(player)) {
 			return;
 		}
@@ -83,6 +117,18 @@ public final class AllMightAbilityManager {
 		};
 	}
 
+	/** v0.16.6: the Shift move's cooldown-map id for a slot. */
+	public static String shiftAbilityIdOf(AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_1 -> AllMightAbilities.NEW_HAMPSHIRE;
+			case SLOT_2 -> AllMightAbilities.DELAWARE;
+			case SLOT_3 -> AllMightAbilities.MANCHESTER;
+			case SLOT_4 -> AllMightAbilities.OKLAHOMA;
+			case SLOT_5 -> AllMightAbilities.MISSOURI;
+			case SLOT_6, SLOT_7, SLOT_8 -> AllMightAbilities.ST_LOUIS;
+		};
+	}
+
 	public static int maxCooldown(String id) {
 		return switch (id) {
 			case AllMightAbilities.DETROIT -> AllMightConfig.DETROIT_COOLDOWN;
@@ -92,20 +138,17 @@ public final class AllMightAbilityManager {
 			case AllMightAbilities.UNITED_STATES -> AllMightConfig.UNITED_STATES_COOLDOWN;
 			case AllMightAbilities.PLUS_ULTRA -> AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS;
 			case AllMightAbilities.LEAP -> AllMightConfig.LEAP_COOLDOWN;
+			case AllMightAbilities.DELAWARE -> AllMightConfig.DELAWARE_COOLDOWN;
+			case AllMightAbilities.MANCHESTER -> AllMightConfig.MANCHESTER_COOLDOWN;
+			case AllMightAbilities.OKLAHOMA -> AllMightConfig.OKLAHOMA_COOLDOWN;
+			case AllMightAbilities.MISSOURI -> AllMightConfig.MISSOURI_COOLDOWN;
+			case AllMightAbilities.ST_LOUIS -> AllMightConfig.ST_LOUIS_COOLDOWN;
 			default -> 0;
 		};
 	}
 
+	/** v0.16.6: nothing costs anything any more (Output and Strain replaced the OFA timer). Kept for callers; always 0. */
 	public static int cost(String id) {
-		return switch (id) {
-			case AllMightAbilities.DETROIT -> AllMightConfig.DETROIT_COST;
-			case AllMightAbilities.TEXAS -> AllMightConfig.TEXAS_COST;
-			case AllMightAbilities.NEW_HAMPSHIRE -> AllMightConfig.NEW_HAMPSHIRE_COST;
-			case AllMightAbilities.CAROLINA -> AllMightConfig.CAROLINA_COST;
-			case AllMightAbilities.UNITED_STATES -> AllMightConfig.UNITED_STATES_COST;
-			case AllMightAbilities.LEAP -> AllMightConfig.LEAP_COST;
-			case AllMightAbilities.PLUS_ULTRA -> AllMightConfig.PLUS_ULTRA_COST;
-			default -> 0;
-		};
+		return 0;
 	}
 }

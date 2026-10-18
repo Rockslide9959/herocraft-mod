@@ -97,6 +97,7 @@
 		"PunisherLockOnMouseMixin",
 		"PunisherKickCameraMixin",
 		"MoonKnightTruncheonSpinMixin",
+		"AllMightSpinMixin",
 		"PlayerModelMixin",
 		"ModelPartFrontFaceMixin",
 		"ModelPartCubeFrontFaceMixin",

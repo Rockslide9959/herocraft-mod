@@ -47,11 +47,28 @@ public final class AllMightShockwave {
 		public final double knockback;
 		public final double lift;
 		public final Set<Integer> hit = new HashSet<>();
+		/** v0.16.6: this wave has already charged Output once (a Smash charges once however many it hits). */
+		boolean charged;
+		/** v0.16.6: optional extra effect on every body it lands on (Missouri's boss stagger). */
+		java.util.function.Consumer<LivingEntity> after;
 
 		public Wave(float damage, double knockback, double lift) {
 			this.damage = damage;
 			this.knockback = knockback;
 			this.lift = lift;
+		}
+
+		public Wave then(java.util.function.Consumer<LivingEntity> effect) {
+			this.after = effect;
+			return this;
+		}
+
+		/** v0.16.6: each hit is a separate one-shot blow (Delaware's bullets) that lands even inside the target's hurt window. */
+		boolean burst;
+
+		public Wave burst() {
+			this.burst = true;
+			return this;
 		}
 	}
 
@@ -117,6 +134,39 @@ public final class AllMightShockwave {
 		return n;
 	}
 
+	/**
+	 * v0.16.6 (Delaware Smash's air bullets): strikes the first enemy whose box, grown by {@code radius}, the segment
+	 * {@code from -> to} passes through. Returns where it was hit, or null if nothing was.
+	 */
+	public static Vec3 strikeFirstAlong(ServerPlayer owner, Vec3 from, Vec3 to, double radius, Wave wave) {
+		ServerLevel level = (ServerLevel) owner.level();
+		AABB box = new AABB(from, to).inflate(radius + 1.0);
+		LivingEntity best = null;
+		Vec3 bestAt = null;
+		double bestD = Double.MAX_VALUE;
+		for (LivingEntity e : candidates(owner, level, box)) {
+			if (wave.hit.contains(e.getId())) {
+				continue;
+			}
+			AABB grown = e.getBoundingBox().inflate(radius);
+			var clip = grown.contains(from) ? java.util.Optional.of(from) : grown.clip(from, to);
+			if (clip.isEmpty()) {
+				continue;
+			}
+			double d = clip.get().distanceToSqr(from);
+			if (d < bestD) {
+				bestD = d;
+				best = e;
+				bestAt = clip.get();
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+		strike(owner, best, from, wave);
+		return bestAt;
+	}
+
 	private static List<LivingEntity> candidates(ServerPlayer owner, ServerLevel level, AABB box) {
 		// v0.14.20: the shared rule 1 (HeroTargets#canHarm) -- Smashes are aimed / centred on his own blow
 		return level.getEntitiesOfClass(LivingEntity.class, box, e -> com.projecthero.mod.combat.HeroTargets.canHarm(owner, e));
@@ -139,7 +189,9 @@ public final class AllMightShockwave {
 		boolean landed;
 		ABILITY_HIT.set(true);
 		try {
-			landed = AbilityHelpers.hurtLands(owner, target, Math.max(1.0f, dmg));
+			landed = wave.burst && !(target instanceof net.minecraft.world.entity.player.Player)
+					? AbilityHelpers.hurtBurst(owner, target, Math.max(1.0f, dmg))
+					: AbilityHelpers.hurtLands(owner, target, Math.max(1.0f, dmg));
 		} finally {
 			ABILITY_HIT.set(false);
 		}
@@ -151,6 +203,13 @@ public final class AllMightShockwave {
 		}
 		if (landed) {
 			AllMight.markCombat(owner);
+			if (!wave.charged) {
+				wave.charged = true;
+				AllMight.onHitLanded(owner, false); // v0.16.6: each Smash charges Output once
+			}
+			if (wave.after != null) {
+				wave.after.accept(target);
+			}
 			Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
 			((ServerLevel) owner.level()).sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, particles(6), 0.3, 0.3, 0.3, 0.3);
 		}

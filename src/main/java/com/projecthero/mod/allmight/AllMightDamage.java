@@ -47,12 +47,26 @@ public final class AllMightDamage {
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
-		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || amount <= 0f || !AllMight.hasPower(player)) {
+		if (REENTRANT.get() || !(entity instanceof ServerPlayer player) || amount <= 0f) {
 			return true;
 		}
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD)
 				|| source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
+		}
+		if (!AllMight.hasPower(player)) {
+			// v0.16.6: Symbol of Peace -- a squadmate near an All Might in his Power Form takes 15% less
+			float peace = symbolOfPeace(player);
+			if (peace >= 0.999f) {
+				return true;
+			}
+			REENTRANT.set(true);
+			try {
+				player.hurt(source, amount * peace);
+			} finally {
+				REENTRANT.set(false);
+			}
+			return false;
 		}
 		long now = player.level().getGameTime();
 		if (AllMight.transforming(player)) {
@@ -66,7 +80,7 @@ public final class AllMightDamage {
 			}
 			factor = 1.0f - AllMight.fallReduction(player);
 		} else {
-			factor = AllMight.damageTakenFactor(player);
+			factor = AllMight.damageTakenFactor(player) * symbolOfPeace(player); // another All Might's Symbol of Peace covers him too
 		}
 		if (factor >= 0.999f) {
 			return true;
@@ -84,6 +98,23 @@ public final class AllMightDamage {
 		return false;
 	}
 
+	/**
+	 * v0.16.6: Symbol of Peace -- the damage factor for {@code victim} from any squadmate (the shared squad API,
+	 * {@link com.projecthero.mod.squad.Squads#areAllies}) who is an All Might in the Power Form within
+	 * {@link AllMightConfig#SYMBOL_OF_PEACE_RADIUS} blocks: {@code 1 - SYMBOL_OF_PEACE_REDUCTION}, or 1 when nobody covers them.
+	 * Several All Mights do not stack.
+	 */
+	public static float symbolOfPeace(ServerPlayer victim) {
+		double r2 = AllMightConfig.SYMBOL_OF_PEACE_RADIUS * AllMightConfig.SYMBOL_OF_PEACE_RADIUS;
+		for (ServerPlayer other : ((ServerLevel) victim.level()).players()) {
+			if (other != victim && other.isAlive() && AllMight.isFullPower(other) && other.distanceToSqr(victim) <= r2
+					&& com.projecthero.mod.squad.Squads.areAllies(other, victim)) {
+				return 1.0f - AllMightConfig.SYMBOL_OF_PEACE_REDUCTION;
+			}
+		}
+		return 1.0f;
+	}
+
 	/** A plain melee hit by All Might: strong knockback, a compressed-air burst and an impact sound. */
 	private static void onPunch(ServerPlayer attacker, LivingEntity target, DamageSource source, float dealt) {
 		if (!AllMight.isFullPower(attacker) || AllMightShockwave.isAbilityHit() || dealt <= 0f || !source.is(DamageTypes.PLAYER_ATTACK)
@@ -91,6 +122,7 @@ public final class AllMightDamage {
 			return;
 		}
 		AllMight.markCombat(attacker);
+		AllMight.onHitLanded(attacker, true); // v0.16.6: punches charge Output too (throttled)
 		boolean boss = AllMightShockwave.isBoss(target);
 		if (!boss) {
 			double kb = attacker.isSprinting() ? AllMightConfig.SPRINT_PUNCH_KNOCKBACK : AllMightConfig.PUNCH_KNOCKBACK;

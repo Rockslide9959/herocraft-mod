@@ -115,6 +115,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.WolverineHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.TitanShifterHud::render);
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.AllMightHud::render);
+		com.projecthero.mod.client.allmight.AllMightClient.initialize(); // v0.16.6: Output glow layer + the Pass On / Lend screen
 		// v0.13.19: Moon Knight (Phase 1 -- lunar power, Vengeance, alter, resurrection, the six keys)
 		HudRenderCallback.EVENT.register(com.projecthero.mod.client.gui.MoonKnightHud::render);
 		// Moon Knight Phases 5 + 6: radial alter picker, Scholar's Sight outlines, Moonbeam / Eye of Khonshu / resurrection FX

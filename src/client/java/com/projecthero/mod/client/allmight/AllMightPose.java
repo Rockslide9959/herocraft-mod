@@ -1,6 +1,7 @@
 package com.projecthero.mod.client.allmight;
 
 import com.projecthero.mod.allmight.AllMight;
+import com.projecthero.mod.allmight.AllMightConfig;
 import com.projecthero.mod.allmight.data.AllMightState;
 import com.projecthero.mod.attachment.ModAttachments;
 
@@ -10,15 +11,19 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * All Might's poses (v0.12.33): keyframed limb poses for every Smash, the Full Cowl flex, the Leap and the
+ * All Might's poses (v0.12.33): keyframed limb poses for every Smash, the Plus Ultra flex, the Leap and the
  * transformation, applied to the humanoid model after vanilla's own animation. They are driven by the synced
  * {@link AllMightState#animId} / {@link AllMightState#animStart}, i.e. by the very game-time clock the server uses to
  * schedule each hit -- so the punch lands on the keyframe where the fist is fully extended and nothing can desync.
  * Because the costume's GeckoLib armour copies its bones from the vanilla model, the armour follows every pose too.
  *
  * <p>Each pose is a list of frames {@code {tick, rightArmX, rightArmY, rightArmZ, leftArmX, leftArmY, leftArmZ, bodyX, bodyY,
- * rightLegX, leftLegX, headX}} in radians (arm X negative = swung forward/up), interpolated with a smoothstep and faded
- * in/out over the first/last ticks.
+ * rightLegX, leftLegX, headX}} in radians (arm X negative = swung forward/up, right arm Z positive = raised out to his side),
+ * interpolated with a smoothstep and faded in/out over the first/last ticks.
+ *
+ * <p>v0.16.6: the five Shift moves; Oklahoma and St. Louis also spin the whole body ({@link #spinDegrees}) and Manchester flips it
+ * head over heels ({@link #flipDegrees}) -- both applied in {@code PlayerRenderer.setupRotations} by {@code AllMightSpinMixin}. In
+ * the recoil (his arms have given out) the arms hang limp ({@link #applyRecoil}).
  */
 public final class AllMightPose {
 	private static final float[][] DETROIT = {
@@ -74,6 +79,56 @@ public final class AllMightPose {
 			{ 0, -0.2f, 0, 0.8f, -0.2f, 0, -0.8f, 0, 0, 0, 0, 0 },
 			{ 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
 
+	// ---------------------------------------------------------------- v0.16.6: the Shift moves
+
+	/** Delaware: the right hand held out, three finger flicks (one per air bullet: ticks 5, 9, 13). */
+	private static final float[][] DELAWARE = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -1.45f, -0.3f, 0, 0.35f, 0.15f, 0, 0.1f, -0.35f, -0.15f, 0.15f, 0 },
+			{ 5, -1.66f, 0.02f, 0, 0.35f, 0.15f, 0, 0.16f, -0.28f, -0.15f, 0.15f, 0 },
+			{ 7, -1.45f, -0.3f, 0, 0.35f, 0.15f, 0, 0.1f, -0.35f, -0.15f, 0.15f, 0 },
+			{ 9, -1.66f, 0.02f, 0, 0.35f, 0.15f, 0, 0.16f, -0.28f, -0.15f, 0.15f, 0 },
+			{ 11, -1.45f, -0.3f, 0, 0.35f, 0.15f, 0, 0.1f, -0.35f, -0.15f, 0.15f, 0 },
+			{ 13, -1.66f, 0.02f, 0, 0.35f, 0.15f, 0, 0.16f, -0.28f, -0.15f, 0.15f, 0 },
+			{ 17, -1.5f, -0.15f, 0, 0.35f, 0.15f, 0, 0.12f, -0.3f, -0.15f, 0.15f, 0 },
+			{ 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** Manchester: spring with the arms up, tuck through the flip, the right leg high overhead, then the axe kick down. */
+	private static final float[][] MANCHESTER = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -2.6f, 0, 0.2f, -2.6f, 0, -0.2f, 0.3f, 0, -0.4f, -0.4f, 0.2f },
+			{ 8, -0.6f, 0, 0.3f, -0.6f, 0, -0.3f, 0.5f, 0, -1.6f, -1.6f, 0.4f },
+			{ 14, -0.6f, 0, 0.3f, -0.6f, 0, -0.3f, 0.5f, 0, -1.6f, -1.6f, 0.4f },
+			{ 17, 0.9f, 0, 0.45f, 0.9f, 0, -0.45f, -0.25f, 0, -2.7f, 0.4f, -0.3f },
+			{ 22, 0.6f, 0, 0.35f, 0.6f, 0, -0.35f, 0.35f, 0, -0.2f, 0.35f, 0.3f },
+			{ 34, 0.6f, 0, 0.35f, 0.6f, 0, -0.35f, 0.35f, 0, -0.2f, 0.35f, 0.3f },
+			{ 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** Oklahoma: arms flung straight out to his sides while the body spins (two full turns). */
+	private static final float[][] OKLAHOMA = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -0.1f, 0, 1.45f, -0.1f, 0, -1.45f, 0.15f, 0, 0.25f, -0.25f, 0 },
+			{ 18, -0.1f, 0, 1.45f, -0.1f, 0, -1.45f, 0.15f, 0, 0.25f, -0.25f, 0 },
+			{ 24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** Missouri: the right hand raised high, then a slanting chop down and across as he lunges. */
+	private static final float[][] MISSOURI = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 5, -2.9f, 0.2f, 0.35f, 0.4f, 0, 0, -0.15f, 0.4f, 0.3f, -0.3f, -0.2f },
+			{ 7, -0.45f, -0.65f, 0, 0.5f, 0, 0, 0.45f, -0.5f, -0.6f, 0.5f, 0.2f },
+			{ 14, -0.45f, -0.65f, 0, 0.5f, 0, 0, 0.45f, -0.5f, -0.6f, 0.5f, 0.2f },
+			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** St. Louis: a twist, then the right leg swung out level as the body whips round once. */
+	private static final float[][] ST_LOUIS = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -0.3f, 0, 0.9f, -0.3f, 0, -0.9f, 0.1f, 0.9f, 0.2f, -0.2f, 0 },
+			{ 7, 0, 0, 1.3f, 0, 0, -1.3f, -0.2f, 0, -1.6f, 0.2f, 0 },
+			{ 13, 0, 0, 1.3f, 0, 0, -1.3f, -0.2f, 0, -1.6f, 0.2f, 0 },
+			{ 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** Pass On / Lend: a hand held out to the other player. */
+	private static final float[][] PASS_ON = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 6, -1.25f, -0.2f, 0, 0, 0, 0, 0.1f, 0, 0, 0, 0.15f },
+			{ 50, -1.25f, -0.2f, 0, 0, 0, 0, 0.1f, 0, 0, 0, 0.15f },
+			{ 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+
 	private AllMightPose() {
 	}
 
@@ -88,6 +143,12 @@ public final class AllMightPose {
 			case AllMightState.ANIM_LEAP -> LEAP;
 			case AllMightState.ANIM_TRANSFORM_UP -> TRANSFORM_UP;
 			case AllMightState.ANIM_TRANSFORM_DOWN -> TRANSFORM_DOWN;
+			case AllMightState.ANIM_DELAWARE -> DELAWARE;
+			case AllMightState.ANIM_MANCHESTER -> MANCHESTER;
+			case AllMightState.ANIM_OKLAHOMA -> OKLAHOMA;
+			case AllMightState.ANIM_MISSOURI -> MISSOURI;
+			case AllMightState.ANIM_ST_LOUIS -> ST_LOUIS;
+			case AllMightState.ANIM_PASS_ON -> PASS_ON;
 			default -> null;
 		};
 	}
@@ -113,38 +174,97 @@ public final class AllMightPose {
 		return null;
 	}
 
+	private static float partial() {
+		return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+	}
+
 	public static void apply(Player player, HumanoidModel<?> m) {
 		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
-		if (s == null || !s.hasPower || s.animId == AllMightState.ANIM_NONE) {
+		if (s == null || !s.hasPower) {
 			return;
 		}
-		float[][] f = frames(s.animId);
-		if (f == null) {
-			return;
+		boolean posed = false;
+		float[][] f = s.animId == AllMightState.ANIM_NONE ? null : frames(s.animId);
+		if (f != null) {
+			float tick = (player.level().getGameTime() - s.animStart) + partial();
+			float[] p = sample(f, tick);
+			if (p != null) {
+				posed = true;
+				// fade in over the first 2 ticks and out over the last 3, so it blends with the walk cycle instead of snapping
+				float end = f[f.length - 1][0];
+				float w = Math.min(1f, Math.min(tick / 2f, (end - tick) / 3f));
+				w = Math.max(0f, w);
+				m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, p[1]);
+				m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, p[2]);
+				m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, p[3]);
+				m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, p[4]);
+				m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, p[5]);
+				m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, p[6]);
+				// v0.16.1: the torso bends from the hips (not the neck), so the bottom of it stays on the legs
+				com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, p[8]);
+				m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, p[9]);
+				m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, p[10]);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + p[11]);
+				m.hat.copyFrom(m.head);
+			}
 		}
-		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		float tick = (player.level().getGameTime() - s.animStart) + partial;
-		float[] p = sample(f, tick);
-		if (p == null) {
-			return;
+		if (!posed && s.recoilUntil > player.level().getGameTime()) {
+			applyRecoil(player, m);
 		}
-		// fade in over the first 2 ticks and out over the last 3, so it blends with the walk cycle instead of snapping
-		float end = f[f.length - 1][0];
-		float w = Math.min(1f, Math.min(tick / 2f, (end - tick) / 3f));
-		w = Math.max(0f, w);
-		m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, p[1]);
-		m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, p[2]);
-		m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, p[3]);
-		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, p[4]);
-		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, p[5]);
-		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, p[6]);
-		// v0.16.1: the torso bends from the hips (not the neck), so the bottom of it stays on the legs
-		com.projecthero.mod.client.HipBend.pitch(m, w, p[7]);
-		m.body.yRot = Mth.lerp(w, m.body.yRot, p[8]);
-		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, p[9]);
-		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, p[10]);
-		m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + p[11]);
+	}
+
+	/**
+	 * v0.16.6: his arms have given out -- they hang dead straight down and only sway a little with his steps, the shoulders
+	 * slumped forward and the head bowed.
+	 */
+	static void applyRecoil(Player player, HumanoidModel<?> m) {
+		float sway = Mth.sin(player.walkAnimation.position(partial()) * 0.6662f) * 0.12f * Math.min(1f, player.walkAnimation.speed(partial()));
+		m.rightArm.xRot = 0.12f + sway;
+		m.rightArm.yRot = 0f;
+		m.rightArm.zRot = 0.05f;
+		m.leftArm.xRot = 0.12f - sway;
+		m.leftArm.yRot = 0f;
+		m.leftArm.zRot = -0.05f;
+		com.projecthero.mod.client.HipBend.pitch(m, 1f, m.body.xRot + 0.22f);
+		m.head.xRot = m.head.xRot + 0.3f;
 		m.hat.copyFrom(m.head);
+	}
+
+	// ---------------------------------------------------------------- whole-body turns (AllMightSpinMixin)
+
+	private static float eased(float t) {
+		t = Mth.clamp(t, 0f, 1f);
+		return t * t * (3f - 2f * t);
+	}
+
+	/** Oklahoma (two full turns) and St. Louis (one): degrees to turn the whole body about its vertical axis, 0 otherwise. */
+	public static float spinDegrees(Player player, float partial) {
+		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
+		if (s == null || !s.hasPower) {
+			return 0f;
+		}
+		float tick = player.level().getGameTime() - s.animStart + partial;
+		if (s.animId == AllMightState.ANIM_OKLAHOMA) {
+			float t = (tick - AllMightConfig.OKLAHOMA_WINDUP) / AllMightConfig.OKLAHOMA_SPIN_TICKS;
+			return t <= 0f || t >= 1f ? 0f : -720f * eased(t);
+		}
+		if (s.animId == AllMightState.ANIM_ST_LOUIS) {
+			float t = (tick - 3f) / 8f;
+			return t <= 0f || t >= 1f ? 0f : -360f * eased(t);
+		}
+		return 0f;
+	}
+
+	/** Manchester: degrees to flip the whole body head over heels (forward) during the flip, 0 otherwise. */
+	public static float flipDegrees(Player player, float partial) {
+		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
+		if (s == null || !s.hasPower || s.animId != AllMightState.ANIM_MANCHESTER) {
+			return 0f;
+		}
+		float tick = player.level().getGameTime() - s.animStart + partial;
+		float t = (tick - AllMightConfig.MANCHESTER_WINDUP) / AllMightConfig.MANCHESTER_FLIP_TICKS;
+		return t <= 0f || t >= 1f ? 0f : 360f * eased(t);
 	}
 
 	/** Used by tests: whether an animation id has a pose. */
