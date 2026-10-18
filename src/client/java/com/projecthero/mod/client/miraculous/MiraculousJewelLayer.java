@@ -26,7 +26,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
  *   <li>Nooroo: the Brooch, a purple-and-silver butterfly at the collar -- darker purple while transformed;</li>
  *   <li>Wayzz (v0.16.6): the Turtle Bracelet on the left wrist, dark green beads round a turtle-shell bead -- bright
  *       green while transformed;</li>
- *   <li>Kaalki (v0.16.6): the Horseshoe Glasses on the face -- silver-grey frames, gold while transformed.</li>
+ *   <li>Kaalki (v0.16.6): the Horseshoe Glasses on the face -- silver-grey frames; v0.16.7: hidden while the Pegasus suit
+ *       covers the face, whose own goggles (painted on the suit skin) take their place.</li>
  * </ul>
  * Registered after the kits' suit layers, and lifted further off the body while transformed so it sits on the suit.
  */
@@ -65,7 +66,13 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			case TRIXX -> necklace(pose, buffers, light, m.body, on);
 			case NOOROO -> brooch(pose, buffers, light, m.body, on);
 			case WAYZZ -> bracelet(pose, buffers, player, light, m.leftArm, on);
-			case KAALKI -> glasses(pose, buffers, light, m.head, on);
+			case KAALKI -> {
+				// v0.16.7 (user): transformed, Pegasus wears the suit's goggles (painted on the suit skin) -- the glasses go once
+				// the reveal has passed the face and come back as it leaves it
+				if (com.projecthero.mod.client.miraculous.pegasus.PegasusRender.cover(player, partialTick) < GOGGLES_COVER) {
+					glasses(pose, buffers, light, m.head, on);
+				}
+			}
 		}
 	}
 
@@ -219,7 +226,13 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 		pose.popPose();
 	}
 
-	// v0.16.6: Kaalki's Horseshoe Glasses: frame, lit, dark, nail holes -- silver-grey (gold transformed)
+	/**
+	 * v0.16.7: how much of the Pegasus suit must show before the Horseshoe Glasses give way to the suit's goggles -- the
+	 * reveal starts at the face, so by 0.15 the goggles' texels are on.
+	 */
+	public static final float GOGGLES_COVER = 0.15f;
+
+	// v0.16.6: Kaalki's Horseshoe Glasses: frame, lit, dark, nail holes -- silver-grey (gold while the suit is still forming)
 	private static final int[] GLASSES_PLAIN = { 0xA8ACB4, 0xD4D8E0, 0x6A6E78, 0x34363E };
 	private static final int[] GLASSES_ON = { 0xE6B84A, 0xFFE08A, 0xA87A20, 0x5A3A0C };
 

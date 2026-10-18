@@ -98,8 +98,8 @@ finger through the shared `HandRing` (also first person, `GreenLanternRingHandMi
 green paw print transformed; `RingPlacement` id `cat_ring`), the fox-tail necklace on the chest, the butterfly brooch at
 the collar (darker violet transformed), the Turtle Bracelet round the LEFT wrist (a dark green cord, three jade beads a
 face and a turtle-shell bead on the outer face; bright green transformed; fits wide and slim arms), the Horseshoe
-Glasses on the face (two horseshoe frames with nail holes, an arched bridge, temples along the head; silver-grey, gold
-transformed). Lifted further off the body while transformed so they sit on the suits.
+Glasses on the face (two horseshoe frames with nail holes, an arched bridge, temples along the head; silver-grey -- hidden
+while transformed, v0.16.7: the Pegasus suit's own goggles, painted on its skin, take their place). Lifted further off the body while transformed so they sit on the suits.
 
 ## Shared passives (while transformed)
 

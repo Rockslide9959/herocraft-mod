@@ -36,8 +36,10 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.16.6: Pegasus drawn over a player -- the user's suit skin (minecraftskins.com 15258841, "pegasus", slim arms; cut
- * to suit-only by {@code scratchpad/make_suit_skins.js}, his face and eyes transparent, its own black glasses taken off
- * the hat layer by {@code gen_pegasus_v0166.js} because the core draws the Horseshoe Glasses jewel there) in a slim and a
+ * to suit-only, his face and eyes transparent, its own black glasses taken off the hat layer; v0.16.7: made by
+ * {@code scratchpad/suits/make_suit_skins.js}, which paints the suit's GOGGLES there instead -- turquoise lenses in a
+ * light frame, a strap round the head -- and fills the faces the source left empty; the core's Horseshoe Glasses jewel
+ * is hidden while the suit covers the face, see {@code MiraculousJewelLayer#GOGGLES_COVER}) in a slim and a
  * wide version picked by the wearer's skin model, drawn OVER the wearer's own skin: the cream mane hood, the dark suit
  * with its white stripes. Not bulky (user): the base layer sits {@link #BASE_INFLATE} over the body, the second layer at
  * exactly vanilla's own overlay offsets (+0.25, the head +0.5) -- the wearer's own second layer is hidden while the suit
