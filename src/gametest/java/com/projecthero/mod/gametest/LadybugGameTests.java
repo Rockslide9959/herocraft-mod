@@ -313,7 +313,7 @@ public class LadybugGameTests implements FabricGameTest {
 		LuckyCharm.handle(p);
 		LuckyCharm.Kind kind = LuckyCharm.Kind.byId(val(p, LadybugKeys.V_CHARM));
 		helper.assertTrue(kind != null, "a charm is out");
-		helper.assertTrue(Miraculous.countdownLeft(p) > 0, "the 5-minute countdown started");
+		helper.assertTrue(Miraculous.countdownLeft(p) > 0, "the 3-minute countdown started");
 		helper.assertTrue(LadybugKeys.vision(p), "Ladybug Vision is on");
 		List<ItemEntity> drops = helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(p.blockPosition()).inflate(4, 8, 4),
 				e -> LadybugItems.isCharm(e.getItem()));

@@ -62,7 +62,7 @@ Detransforming: a flash and a burst in the hero's colour, the Kwami pops out in 
 
 ## The countdown and the hungry Kwami
 
-- The kit calls `Miraculous.startCountdown` when its Shift+Z special really fires: 5 minutes (`COUNTDOWN_TICKS`). A
+- The kit calls `Miraculous.startCountdown` when its Shift+Z special really fires: 3 minutes (`COUNTDOWN_TICKS`). A
   soft note-block chime for the holder at each minute mark, a pling every second of the last 10; at 0 the forced
   detransformation (`message.projecthero.miraculous.time_up`).
 - **After EVERY detransformation** (the phrase, the countdown, death while transformed) the Kwami is tired and

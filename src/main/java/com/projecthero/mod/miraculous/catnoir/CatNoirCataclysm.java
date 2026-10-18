@@ -42,7 +42,7 @@ import org.joml.Vector3f;
  *
  * <ul>
  *   <li><b>The call</b> ({@link #call}): his hand crackles with black destruction energy for
- *       {@link CatNoirConfig#CATACLYSM_CHARGE_TICKS}, and the core's 5-minute countdown starts NOW -- as in the show,
+ *       {@link CatNoirConfig#CATACLYSM_CHARGE_TICKS}, and the core's 3-minute countdown starts NOW -- as in the show,
  *       calling the power is what spends the Miraculous, not landing it. One Cataclysm per transformation: once a touch
  *       has landed it is spent ({@link CatNoir#V_SPENT}) for the rest of it (v0.16.6: the baton stays silver). If the charge runs out
  *       untouched it fizzles and can be called again after {@link CatNoirConfig#CATACLYSM_COOLDOWN} (the countdown

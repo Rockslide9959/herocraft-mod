@@ -303,7 +303,7 @@ public class CatNoirGameTests implements FabricGameTest {
 		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(1, 4, 5)), Blocks.STONE.defaultBlockState(), 3);
 		CatNoirCataclysm.call(p);
 		helper.assertTrue(CatNoir.charged(p), "the hand crackles");
-		helper.assertTrue(Miraculous.countdownLeft(p) > 0, "calling it starts the 5-minute countdown");
+		helper.assertTrue(Miraculous.countdownLeft(p) > 0, "calling it starts the 3-minute countdown");
 		BlockPos touch = helper.absolutePos(new BlockPos(0, 4, 3));
 		InteractionResult r = AttackBlockCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, touch, Direction.UP);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the punch is the touch");

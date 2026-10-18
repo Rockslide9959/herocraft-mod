@@ -154,7 +154,7 @@ public final class Miraculous {
 		return v.size() < 3 ? null : new Vec3(v.get(0), v.get(1), v.get(2));
 	}
 
-	/** Shift+Z fired: the 5-minute countdown to the forced detransformation starts (no-op if one is already running). */
+	/** Shift+Z fired: the 3-minute countdown to the forced detransformation starts (no-op if one is already running). */
 	public static void startCountdown(ServerPlayer player) {
 		MiraculousState s = state(player);
 		if (!s.transformed || s.countdownEnd > 0L) {
@@ -596,8 +596,8 @@ public final class Miraculous {
 			}
 			if (s.countdownEnd > 0L) {
 				long left = s.countdownEnd - now;
-				if (left > 0L && left < MiraculousConfig.COUNTDOWN_TICKS && left % 1200L == 0L) {
-					// a soft beep for the holder at each minute mark (the jewel loses a spot)
+				if (left > 0L && left < MiraculousConfig.COUNTDOWN_TICKS && left % MiraculousConfig.COUNTDOWN_SPOT_TICKS == 0L) {
+					// a soft beep for the holder each time the jewel loses a spot
 					player.playNotifySound(SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.PLAYERS, 0.6f, 1.2f);
 				} else if (left > 0L && left <= 200L && left % 20L == 0L) {
 					player.playNotifySound(SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.45f, 1.5f);

@@ -5,8 +5,10 @@ public final class MiraculousConfig {
 	private MiraculousConfig() {
 	}
 
-	/** Shift+Z's countdown to the forced detransformation: 5 minutes. */
-	public static final int COUNTDOWN_TICKS = 5 * 60 * 20;
+	/** Shift+Z's countdown to the forced detransformation: 3 minutes (v0.16.7, user: was 5). */
+	public static final int COUNTDOWN_TICKS = 3 * 60 * 20;
+	/** The HUD jewel's five spots go out one every this long (a fifth of the countdown: 36 s). */
+	public static final int COUNTDOWN_SPOT_TICKS = COUNTDOWN_TICKS / 5;
 	/** The transformation sequence: the Kwami into the jewel, the light, the suit (moves wait for it). */
 	public static final int TRANSFORM_TICKS = 40;
 	/** Gap between two transformations / detransformations (a phrase, a command). */

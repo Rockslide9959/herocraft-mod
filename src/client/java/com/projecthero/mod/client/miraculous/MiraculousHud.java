@@ -81,8 +81,8 @@ public final class MiraculousHud {
 
 		// the jewel's five spots
 		int left = Miraculous.countdownLeft(mc.player);
-		int spots = left > 0 ? (left + 1199) / 1200 : 5;
-		boolean blink = left > 0 && (left <= 200 ? (now / 4) % 2 == 0 : (left % 1200) < 100 && (now / 6) % 2 == 0);
+		int spots = left > 0 ? (left + MiraculousConfig.COUNTDOWN_SPOT_TICKS - 1) / MiraculousConfig.COUNTDOWN_SPOT_TICKS : 5;
+		boolean blink = left > 0 && (left <= 200 ? (now / 4) % 2 == 0 : (left % MiraculousConfig.COUNTDOWN_SPOT_TICKS) < 100 && (now / 6) % 2 == 0);
 		int sy = y0 - 7;
 		for (int i = 0; i < 5; i++) {
 			int sx = x0 + i * 7;

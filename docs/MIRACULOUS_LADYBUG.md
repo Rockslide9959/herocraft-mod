@@ -28,7 +28,7 @@ Strike cooldown 0.8 s.
    is further than 10, a **spotted bow** (needs no arrows, arrows +50%). Then **Ladybug Vision** 10 s: her world goes
    grey (post chain `shaders/post/ladybug_vision.json`, vanilla `color_convolve` at saturation 0, run at the END of
    world rendering so the hand, GUI and outlines stay in colour) and the charm + threats within 32 glow red. The
-   5-minute countdown starts (`Miraculous.startCountdown`).
+   3-minute countdown starts (`Miraculous.startCountdown`).
 2. **Miraculous Ladybug** (Shift+Z again while holding the charm): the charm is used up, a burst and a swarm of ~700
    tiny 3D ladybugs (client sim, `LadybugSwarm`) fly out; every block broken within 64 of her in the last 5 minutes that
    is still missing comes back (48 a tick, nearest first); she and every squadmate within 128 heal to full. Does NOT

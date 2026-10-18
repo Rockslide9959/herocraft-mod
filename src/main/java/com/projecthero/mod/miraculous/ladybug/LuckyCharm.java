@@ -43,7 +43,7 @@ import net.minecraft.world.phys.Vec3;
  *   <li>Shift+Z: the Yo-yo goes up, a burst of ladybug-red light, and a spotted object drops out of the sky that suits
  *       the moment ({@link #choose}): a golden apple when she is hurt, TNT when surrounded, a parachute when falling
  *       (straight into her hand), otherwise a sword -- or a bow when the nearest threat is far. Then 10 s of Ladybug
- *       Vision: the world goes grey for her and the charm and the threats near her glow red. The 5-minute countdown
+ *       Vision: the world goes grey for her and the charm and the threats near her glow red. The 3-minute countdown
  *       starts. One charm per transformation.</li>
  *   <li>Shift+Z again, holding the charm: it is thrown up and a swarm of ladybugs flies out -- every block broken near
  *       her in the last 5 minutes comes back ({@link LadybugRestore}) and she and her squadmates heal to full. The

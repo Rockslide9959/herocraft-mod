@@ -140,7 +140,7 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.transformed(p), "transformed by the command path");
 		settle(p);
 		Miraculous.startCountdown(p);
-		helper.assertTrue(Miraculous.countdownLeft(p) == MiraculousConfig.COUNTDOWN_TICKS, "5 minutes");
+		helper.assertTrue(Miraculous.countdownLeft(p) == MiraculousConfig.COUNTDOWN_TICKS, "3 minutes");
 		long end = p.level().getGameTime() + 2L;
 		Miraculous.edit(p, n -> n.countdownEnd = end);
 		helper.runAfterDelay(4, () -> {

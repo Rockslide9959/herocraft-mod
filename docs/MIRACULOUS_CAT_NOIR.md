@@ -2,7 +2,7 @@
 
 Cat Noir is one of the three Miraculous kits. The Miraculous core (`com.projecthero.mod.miraculous`) handles the
 Kwami, the jewel, the transformation, the shared transformed stats (armour, health, melee, speed, jump, no fall
-damage), the 5-minute countdown and the HUD. This kit adds the six keys, the suit and the Baton.
+damage), the 3-minute countdown and the HUD. This kit adds the six keys, the suit and the Baton.
 
 All numbers are static finals in `CatNoirConfig`. Ability ids start with `cat_noir_`, and their lang keys are
 `projecthero.miraculous.ability.<id>` / `.desc`.
@@ -30,7 +30,7 @@ pets, and players only when PvP is on.
 
 ## CATACLYSM
 
-- **The call.** The main hand crackles with dark destruction energy for 10 s (see **CATACLYSM visuals** below). The core's 5-minute countdown starts **when it is called**, because
+- **The call.** The main hand crackles with dark destruction energy for 10 s (see **CATACLYSM visuals** below). The core's 3-minute countdown starts **when it is called**, because
   in the show calling the power is what spends the Miraculous.
 - **One touch.** A punch on a block, a right-click on a block, or an attack on a creature.
   - **On a block:** the block and every block joined to it face-to-face within 4 blocks crumble to dust in a spreading

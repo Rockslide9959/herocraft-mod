@@ -95,7 +95,7 @@ public final class HawkMothConfig {
 	public static final double CHAMPION_DAMAGE_BONUS = 1.0;
 	/** A player has this long to answer the offer before it counts as refused. */
 	public static final int OFFER_TICKS = 30 * 20;
-	/** Rise, Akuma! cooldown from the release (the 5-minute countdown starts too). */
+	/** Rise, Akuma! cooldown from the release (the 3-minute countdown starts too). */
 	public static final int RISE_COOLDOWN = 60 * 20;
 	/** ... cut to this when the offer is refused, runs out, or the akuma never arrives. */
 	public static final int RISE_REFUSED_COOLDOWN = 10 * 20;

@@ -1,7 +1,7 @@
 # Carapace (Wayzz, the Turtle Miraculous) — v0.16.6
 
 The Carapace kit for the Miraculous core (`docs/MIRACULOUS_REFERENCE.md`). The core owns the box, the Turtle Bracelet,
-the Kwami, the transformation, the 5-minute countdown and the shared transformed stats (+12 armour, +6 toughness, +10 max
+the Kwami, the transformation, the 3-minute countdown and the shared transformed stats (+12 armour, +6 toughness, +10 max
 health, +7 melee, Regeneration I, +25% speed, +35% jump, no fall damage). This kit owns the six keys, the Shield, the
 green energy shell and the suit.
 
