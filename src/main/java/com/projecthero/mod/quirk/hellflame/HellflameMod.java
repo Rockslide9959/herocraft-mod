@@ -1,32 +1,30 @@
 package com.projecthero.mod.quirk.hellflame;
 
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.QuirkKit;
 import com.projecthero.mod.quirk.QuirkKits;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 
-/** v0.16.7: the Hellflame Quirk's server init (STUB -- the kit agent replaces this with the real kit). */
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+
+/**
+ * v0.16.7: the Hellflame Quirk's server init (called from {@code QuirkMod.initialize}): the kit, and the Flame Cloak's
+ * burning melee (a punch while cloaked sets the target alight; the swing itself is untouched).
+ */
 public final class HellflameMod {
 	private HellflameMod() {
 	}
 
 	public static void initialize() {
-		QuirkKits.register(Quirk.HELLFLAME, new QuirkKit() {
-			@Override
-			public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
+		HellflameParticles.register();
+		QuirkKits.register(Quirk.HELLFLAME, new HellflameKit());
+		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (!level.isClientSide() && player instanceof ServerPlayer sp && entity instanceof LivingEntity le && Hellflame.cloaked(sp)) {
+				HellflameMoves.cloakMelee(sp, le);
 			}
-
-			@Override
-			public String[] idsOf(AbilitySlot slot) {
-				return new String[0];
-			}
-
-			@Override
-			public int maxCooldown(String abilityId) {
-				return 0;
-			}
+			return InteractionResult.PASS;
 		});
 	}
 }
