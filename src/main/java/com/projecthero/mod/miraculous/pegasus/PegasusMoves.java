@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.miraculous.Kwami;
 import com.projecthero.mod.miraculous.Miraculous;
 import com.projecthero.mod.miraculous.pegasus.entity.HorseshoeEntity;
@@ -28,6 +29,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -38,6 +40,8 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -321,7 +325,7 @@ public final class PegasusMoves {
 		return true;
 	}
 
-	/** Shift+X: Gallop on (Speed III, golden hoof prints) or off. */
+	/** Shift+X: Gallop on (Speed III, step assist, golden hoof prints) or off. */
 	public static boolean gallop(ServerPlayer p) {
 		boolean on = Miraculous.state(p).val(Pegasus.V_GALLOP) == 0L;
 		Miraculous.setVal(p, Pegasus.V_GALLOP, on ? 1L : 0L);
@@ -339,7 +343,11 @@ public final class PegasusMoves {
 		return on;
 	}
 
+	/** v0.16.7 (user): Gallop also gives step assist -- he runs straight up full blocks without jumping. */
+	private static final ResourceLocation GALLOP_STEP = PowerToggles.id("pegasus_gallop_step");
+
 	private static void refreshGallop(ServerPlayer p) {
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, GALLOP_STEP, PegasusConfig.GALLOP_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		MobEffectInstance cur = p.getEffect(MobEffects.MOVEMENT_SPEED);
 		if (cur == null || (cur.getAmplifier() <= PegasusConfig.GALLOP_SPEED_AMPLIFIER && cur.getDuration() < 30)) {
 			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 40, PegasusConfig.GALLOP_SPEED_AMPLIFIER, true, false, true));
@@ -347,6 +355,7 @@ public final class PegasusMoves {
 	}
 
 	private static void stopGallop(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, GALLOP_STEP);
 		MobEffectInstance cur = p.getEffect(MobEffects.MOVEMENT_SPEED);
 		if (cur != null && cur.getAmplifier() == PegasusConfig.GALLOP_SPEED_AMPLIFIER && cur.getDuration() <= 40 && cur.isAmbient()) {
 			p.removeEffect(MobEffects.MOVEMENT_SPEED);

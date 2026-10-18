@@ -77,6 +77,8 @@ public final class PegasusConfig {
 	public static final int HOP_COOLDOWN = 80;
 	/** Gallop: Speed of this amplifier (2 = Speed III), refreshed while it is on. */
 	public static final int GALLOP_SPEED_AMPLIFIER = 2;
+	/** v0.16.7 (user): Gallop step assist, added to the 0.6 base step height so he steps up full blocks (1.1). */
+	public static final double GALLOP_STEP_BONUS = 0.5;
 	/** Pressing Gallop again within this long is ignored (on / off debounce). */
 	public static final int GALLOP_COOLDOWN = 20;
 

@@ -251,8 +251,10 @@ public class PegasusGameTests implements FabricGameTest {
 		MobEffectInstance s = p.getEffect(MobEffects.MOVEMENT_SPEED);
 		helper.assertTrue(s != null && s.getAmplifier() == PegasusConfig.GALLOP_SPEED_AMPLIFIER, "Speed III");
 		helper.assertTrue(Pegasus.galloping(p), "synced on");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) >= 1.0, "v0.16.7: step assist (full blocks)");
 		helper.assertTrue(!PegasusMoves.gallop(p), "off again");
 		helper.assertTrue(!p.hasEffect(MobEffects.MOVEMENT_SPEED), "the speed goes");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 1.0, "the step assist goes");
 		helper.succeed();
 	}
 

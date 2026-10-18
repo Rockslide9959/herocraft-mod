@@ -41,7 +41,7 @@
   "projecthero.miraculous.ability.pegasus_portal_hop": "Portal Hop",
   "projecthero.miraculous.ability.pegasus_portal_hop.desc": "Step through a portal to the spot you look at, up to 20 blocks away. Only a safe spot on solid ground: never into a wall, over the void or above the Nether roof. 4 s cooldown.",
   "projecthero.miraculous.ability.pegasus_gallop": "Gallop",
-  "projecthero.miraculous.ability.pegasus_gallop.desc": "Toggle: run with Speed III, leaving golden hoof prints behind you. Press again to stop.",
+  "projecthero.miraculous.ability.pegasus_gallop.desc": "Toggle: run with Speed III and step assist (walk straight up full blocks), leaving golden hoof prints behind you. Press again to stop.",
   "projecthero.miraculous.ability.pegasus_portal_trap": "Portal Trap",
   "projecthero.miraculous.ability.pegasus_portal_trap.desc": "A portal opens under the creature you aim at (24 blocks). It drops out of another portal up to 20 blocks above it and takes the fall damage. Not on bosses. 15 s cooldown.",
   "projecthero.miraculous.ability.pegasus_voyage": "VOYAGE",
