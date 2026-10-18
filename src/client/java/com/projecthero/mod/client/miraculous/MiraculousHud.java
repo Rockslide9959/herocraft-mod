@@ -25,7 +25,7 @@ import org.lwjgl.glfw.GLFW;
  * {@code GhostRiderHud}):
  * <pre>
  *   Tikki is hungry -- feed her cookies        (when hungry; wrapped to the box row's width)
- *   Ladybug                    4:12            the hero; the countdown's mm:ss while it runs
+ *   Ladybug                                    the hero (v0.16.6: no mm:ss -- the spots below are the countdown)
  *   o o o o o                                  five jewel spots in the hero's colour, one blinks out per minute
  *   [R] [G] [Z] [X] [C] [V]                    the six keys (the longer cooldown of each key's plain and Shift move;
  *                                              lit while that key's move runs); dimmed while detransformed
@@ -97,14 +97,9 @@ public final class MiraculousHud {
 			g.fill(sx, sy + 1, sx + 5, sy + 4, c);
 		}
 
-		// title + mm:ss
+		// title (v0.16.6, user: no mm:ss -- the five spots show the countdown)
 		int ty = sy - 11;
 		g.drawString(mc.font, Component.translatable("projecthero.hero_tier." + k.heroKey), x0, ty, on ? NAME : HINT, false);
-		if (left > 0) {
-			int sec = (left + 19) / 20;
-			String time = (sec / 60) + ":" + String.format("%02d", sec % 60);
-			g.drawString(mc.font, time, x0 + totalW - mc.font.width(time), ty, left <= 200 ? 0xFFFF5050 : accent, false);
-		}
 
 		// hungry / the phrase to say (wrapped to the row's width)
 		Component note = null;
