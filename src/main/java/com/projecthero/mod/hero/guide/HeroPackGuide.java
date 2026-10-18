@@ -55,6 +55,7 @@ public final class HeroPackGuide {
 
 	public static List<IndexEntry> index() {
 		if (index == null) {
+			buildCategories();
 			index = buildIndex();
 		}
 		return index;
@@ -469,7 +470,10 @@ public final class HeroPackGuide {
 	private static final int CH_HAWK_MOTH = 45; // v0.16.6
 	private static final int CH_CARAPACE = 46; // v0.16.6
 	private static final int CH_PEGASUS = 47; // v0.16.6
-	private static final int CHAPTER_POWER_BASE = 48;
+	private static final int CH_QUIRKS = 48; // v0.16.7: the Quirks overview
+	/** v0.16.7: one chapter per Quirk, in {@link com.projecthero.mod.quirk.Quirk#values()} order. */
+	private static final int CH_QUIRK_BASE = 49;
+	private static final int CHAPTER_POWER_BASE = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.values().length; // 56
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1389,6 +1393,11 @@ public final class HeroPackGuide {
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.NOOROO)); // CH_HAWK_MOTH
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.WAYZZ)); // CH_CARAPACE
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.KAALKI)); // CH_PEGASUS
+		// v0.16.7: the Quirks -- the overview (CH_QUIRKS), then one chapter per Quirk (CH_QUIRK_BASE + ordinal)
+		out.add(quirksOverview());
+		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
+			out.add(quirk(q));
+		}
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1398,75 +1407,227 @@ public final class HeroPackGuide {
 		return out;
 	}
 
-	private static List<IndexEntry> buildIndex() {
+	// ---- v0.16.7: the remade guidebook -- categories, icons and search ----
+
+	/**
+	 * v0.16.7 (user: "more sub menus like marvel, dc, quirks, miraculous"): the home page's tiles. Every chapter sits in
+	 * exactly one category ({@link #categoryEntries}); {@link #index()} is all of them in this order.
+	 *
+	 * @param colour the tile's accent colour (ARGB)
+	 * @param icons  item ids for the tile's icon, the first one that exists is used (client side)
+	 */
+	public enum Category {
+		GETTING_STARTED("getting_started", 0xFFE8C66A, "projecthero:guidebook"),
+		MARVEL("marvel", 0xFFE23A3A, "projecthero:iron_man_mark_3_helmet", "projecthero:vibranium_shield"),
+		DC("dc", 0xFF3A8CFF, "projecthero:power_ring", "projecthero:kryptonian_crystal"),
+		QUIRKS("quirks", 0xFF4FD08A, "projecthero:quirk_serum_random", "projecthero:one_for_all_vestige"),
+		MIRACULOUS("miraculous", 0xFFFF5A8C, "projecthero:miraculous_box", "projecthero:ladybug_earrings"),
+		OTHER("other", 0xFFB07AFF, "projecthero:mutagenic_serum", "projecthero:prismatic_serum"),
+		EVENTS("events", 0xFFFF9A3A, "projecthero:boss_trophy", "projecthero:supervillain_token"),
+		WORLD("world", 0xFF8FD3C7, "projecthero:stark_fabricator", "minecraft:crafting_table");
+
+		public final String id;
+		public final int colour;
+		public final String[] icons;
+
+		Category(String id, int colour, String... icons) {
+			this.id = id;
+			this.colour = colour;
+			this.icons = icons;
+		}
+
+		public String nameKey() {
+			return "projecthero.guide.category." + id;
+		}
+
+		public String descKey() {
+			return "projecthero.guide.category." + id + ".desc";
+		}
+	}
+
+	private static java.util.Map<Category, List<IndexEntry>> categoryEntries;
+	private static int[] categoryOfChapter;
+
+	/** One category's page: sub-headings (depth 1, not clickable) and chapter links (depth 1, or 2 under a sub-heading). */
+	public static List<IndexEntry> categoryEntries(Category category) {
+		buildCategories();
+		return categoryEntries.get(category);
+	}
+
+	/** How many chapters a category links. */
+	public static int chapterCount(Category category) {
+		int n = 0;
+		for (IndexEntry e : categoryEntries(category)) {
+			if (!e.isHeading()) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** The category a chapter is filed under (breadcrumbs, colours, the search results' dot). */
+	public static Category categoryOf(int chapterIndex) {
+		buildCategories();
+		if (chapterIndex < 0 || chapterIndex >= categoryOfChapter.length || categoryOfChapter[chapterIndex] < 0) {
+			return Category.GETTING_STARTED;
+		}
+		return Category.values()[categoryOfChapter[chapterIndex]];
+	}
+
+	/** The chapters of the category {@code chapterIndex} is in, in page order (the chapter page's "Next" link). */
+	public static List<Integer> chaptersIn(Category category) {
+		List<Integer> out = new ArrayList<>();
+		for (IndexEntry e : categoryEntries(category)) {
+			if (!e.isHeading()) {
+				out.add(e.chapterIndex());
+			}
+		}
+		return out;
+	}
+
+	/** v0.16.7: the chapter's list / header icon (an item id; the client falls back to the category's icon). */
+	public static String iconOf(int chapterIndex) {
+		buildCategories();
+		String id = CHAPTER_ICONS.get(chapterIndex);
+		if (id != null) {
+			return id;
+		}
+		if (chapterIndex >= CH_QUIRK_BASE && chapterIndex < CHAPTER_POWER_BASE) {
+			return "projecthero:quirk_serum_" + com.projecthero.mod.quirk.Quirk.values()[chapterIndex - CH_QUIRK_BASE].id;
+		}
+		return null;
+	}
+
+	/** The Quirk's own chapter (v0.16.7; the "Your Power" screen can show it). */
+	public static Chapter quirkChapter(com.projecthero.mod.quirk.Quirk quirk) {
+		return chapters().get(CH_QUIRK_BASE + quirk.ordinal());
+	}
+
+	/** The Quirks overview chapter (v0.16.7). */
+	public static Chapter quirksOverviewChapter() {
+		return chapters().get(CH_QUIRKS);
+	}
+
+	private static final java.util.Map<Integer, String> CHAPTER_ICONS = new java.util.HashMap<>();
+
+	static {
+		icon(CH_OVERVIEW, "guidebook");
+		icon(CH_SQUADS, "minecraft:shield");
+		icon(CH_MUTATION, "mutagenic_serum");
+		icon(CH_COMBOS, "prismatic_serum");
+		icon(CH_STRUCTURES, "research_note");
+		icon(CH_DEVICES, "overloaded_redstone_coil");
+		icon(CH_STARK_SORTER, "stark_sorting_station");
+		icon(CH_CITY, "daily_bulletin");
+		icon(CH_CITY_SERVICES, "food_bank");
+		icon(CH_THOR, "thor_armor_chestplate"); // the Mjolnir item renders tiny in a GUI slot
+		icon(CH_IRON_MAN, "iron_man_mark_3_helmet");
+		icon(CH_SPIDER_MAN, "spider_man_suit_helmet");
+		icon(CH_PUNISHER, "punisher_pistol");
+		icon(CH_SYMBIOTE, "symbiote_vial_filled");
+		icon(CH_WOLVERINE, "adamantium_serum");
+		icon(CH_HULK, "gamma_serum");
+		icon(CH_MOON_KNIGHT, "moon_knight_helmet");
+		icon(CH_SUPER_SOLDIER, "vibranium_shield");
+		icon(CH_NOVA, "nova_corps_helmet");
+		icon(CH_GHOST_RIDER, "mephisto_contract");
+		icon(CH_GREEN_LANTERN, "power_ring");
+		icon(CH_KRYPTONIAN, "kryptonian_crystal");
+		icon(CH_CYBORG, "basic_circuit");
+		icon(CH_BLUE_BEETLE, "scarab");
+		icon(CH_ALL_MIGHT, "one_for_all_vestige");
+		icon(CH_QUIRKS, "quirk_serum_random");
+		icon(CH_LADYBUG, "ladybug_earrings");
+		icon(CH_CAT_NOIR, "cat_ring");
+		icon(CH_RENA_ROUGE, "fox_necklace");
+		icon(CH_HAWK_MOTH, "butterfly_brooch");
+		icon(CH_CARAPACE, "turtle_bracelet");
+		icon(CH_PEGASUS, "horseshoe_glasses");
+		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
+		icon(CH_TITAN_SHIFTER, "titan_serum");
+		icon(CH_ZOMBIE_RAID, "zombie_horde");
+		icon(CH_SUPERVILLAIN_RAID, "supervillain_token");
+		icon(CH_TITAN, "boss_trophy");
+		icon(CH_ABYSSAL_BEHEMOTH, "abyssal_core");
+		icon(CH_OATHBREAKER, "broken_oath");
+		icon(CH_DARKSEID_RAID, "mother_box");
+		icon(CH_HORDES, "skeleton_horde");
+		icon(CH_SYNDICATE, "kingpin_cane_icon");
+		icon(CH_CARNAGE, "crimson_biomass");
+		icon(CH_SENTINEL_PURGE, "trask_signal");
+		icon(CH_ULTRON, "ultron_core");
+		icon(CH_FROST_GIANTS, "casket_of_ancient_winters");
+		icon(CH_ULTRON_CONTAGION, "override_spike");
+		icon(CH_GALACTUS, "ultimate_nullifier_icon");
+		icon(CH_CRIME, "police_scanner");
+	}
+
+	private static void icon(int chapter, String item) {
+		CHAPTER_ICONS.put(chapter, item.contains(":") ? item : "projecthero:" + item);
+	}
+
+	private static void buildCategories() {
+		if (categoryEntries != null) {
+			return;
+		}
 		chapters(); // make sure the flat list exists
-		List<IndexEntry> idx = new ArrayList<>();
+		java.util.Map<Category, List<IndexEntry>> map = new java.util.EnumMap<>(Category.class);
+		for (Category c : Category.values()) {
+			map.put(c, new ArrayList<>());
+		}
 
-		section(idx, "projecthero.guide.section.getting_started", false);
-		link(idx, "projecthero.guide.overview", CH_OVERVIEW);
-		link(idx, "projecthero.guide.mutation", CH_MUTATION);
-		link(idx, "projecthero.guide.combos", CH_COMBOS);
+		List<IndexEntry> start = map.get(Category.GETTING_STARTED);
+		link(start, "projecthero.guide.overview", CH_OVERVIEW);
+		link(start, "projecthero.guide.squads", CH_SQUADS);
 
-		section(idx, "projecthero.guide.section.world", true);
-		link(idx, "projecthero.guide.structures", CH_STRUCTURES);
-		link(idx, "projecthero.guide.devices", CH_DEVICES);
-		link(idx, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
-		link(idx, "projecthero.guide.city", CH_CITY); // v0.16.2 City part A
-		link(idx, "projecthero.guide.city_services", CH_CITY_SERVICES); // v0.16.2 City part B
+		List<IndexEntry> marvel = map.get(Category.MARVEL);
+		link(marvel, "projecthero.guide.thor", CH_THOR);
+		link(marvel, "projecthero.guide.iron_man", CH_IRON_MAN);
+		link(marvel, "projecthero.guide.spider_man", CH_SPIDER_MAN);
+		link(marvel, "projecthero.guide.hulk", CH_HULK);
+		link(marvel, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
+		link(marvel, "projecthero.guide.wolverine", CH_WOLVERINE);
+		link(marvel, "projecthero.guide.punisher", CH_PUNISHER);
+		link(marvel, "projecthero.guide.symbiote", CH_SYMBIOTE);
+		link(marvel, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
+		link(marvel, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
+		link(marvel, "projecthero.guide.nova", CH_NOVA);
 
-		section(idx, "projecthero.guide.section.heroes", true);
-		link(idx, "projecthero.guide.thor", CH_THOR);
-		link(idx, "projecthero.guide.iron_man", CH_IRON_MAN);
-		link(idx, "projecthero.guide.spider_man", CH_SPIDER_MAN);
-		link(idx, "projecthero.guide.max_steel", CH_MAX_STEEL);
-		link(idx, "projecthero.guide.punisher", CH_PUNISHER);
-		link(idx, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);
-		link(idx, "projecthero.guide.symbiote", CH_SYMBIOTE);
-		link(idx, "projecthero.guide.wolverine", CH_WOLVERINE);
-		link(idx, "projecthero.guide.titan_shifter", CH_TITAN_SHIFTER);
-		link(idx, "projecthero.guide.all_might", CH_ALL_MIGHT);
-		link(idx, "projecthero.guide.hulk", CH_HULK);
-		link(idx, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
-		link(idx, "projecthero.guide.super_soldier", CH_SUPER_SOLDIER);
-		link(idx, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
-		link(idx, "projecthero.guide.nova", CH_NOVA);
-		link(idx, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
-		link(idx, "projecthero.guide.cyborg", CH_CYBORG);
-		link(idx, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
-		link(idx, "projecthero.guide.ladybug", CH_LADYBUG); // v0.16.6
-		link(idx, "projecthero.guide.cat_noir", CH_CAT_NOIR); // v0.16.6
-		link(idx, "projecthero.guide.rena_rouge", CH_RENA_ROUGE); // v0.16.6
-		link(idx, "projecthero.guide.hawk_moth", CH_HAWK_MOTH); // v0.16.6
-		link(idx, "projecthero.guide.carapace", CH_CARAPACE); // v0.16.6
-		link(idx, "projecthero.guide.pegasus", CH_PEGASUS); // v0.16.6
-		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
+		List<IndexEntry> dc = map.get(Category.DC);
+		link(dc, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);
+		link(dc, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
+		link(dc, "projecthero.guide.cyborg", CH_CYBORG);
+		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
+		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {
-				idx.add(new IndexEntry(Component.translatable(Powers.enabled().get(i).nameKey()), 1, CHAPTER_POWER_BASE + i));
+				dc.add(new IndexEntry(Component.translatable(Powers.enabled().get(i).nameKey()), 1, CHAPTER_POWER_BASE + i));
 			}
 		}
 
-		section(idx, "projecthero.guide.section.events", true);
-		link(idx, "projecthero.guide.zombie_raid", CH_ZOMBIE_RAID);
-		link(idx, "projecthero.guide.supervillain_raid", CH_SUPERVILLAIN_RAID);
-		link(idx, "projecthero.guide.titan", CH_TITAN);
-		link(idx, "projecthero.guide.abyssal_behemoth", CH_ABYSSAL_BEHEMOTH);
-		link(idx, "projecthero.guide.oathbreaker", CH_OATHBREAKER);
-		link(idx, "projecthero.guide.darkseid_raid", CH_DARKSEID_RAID);
-		link(idx, "projecthero.guide.hordes", CH_HORDES);
-		link(idx, "projecthero.guide.syndicate", CH_SYNDICATE);
-		link(idx, "projecthero.guide.carnage", CH_CARNAGE);
-		link(idx, "projecthero.guide.sentinel_purge", CH_SENTINEL_PURGE);
-		link(idx, "projecthero.guide.ultron", CH_ULTRON);
-		link(idx, "projecthero.guide.frost_giants", CH_FROST_GIANTS);
-		link(idx, "projecthero.guide.ultron_contagion", CH_ULTRON_CONTAGION); // v0.16.1
-		link(idx, "projecthero.guide.galactus", CH_GALACTUS); // v0.16.1
-		link(idx, "projecthero.guide.crime", CH_CRIME); // v0.16.2
+		List<IndexEntry> quirks = map.get(Category.QUIRKS);
+		link(quirks, "projecthero.guide.quirks", CH_QUIRKS);
+		link(quirks, "projecthero.guide.all_might", CH_ALL_MIGHT);
+		sub(quirks, "projecthero.guide.sub.quirks");
+		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
+			quirks.add(new IndexEntry(Component.translatable("projecthero.guide.quirk." + q.id), 2, CH_QUIRK_BASE + q.ordinal()));
+		}
 
-		section(idx, "projecthero.guide.section.squads", true);
-		link(idx, "projecthero.guide.squads", CH_SQUADS);
+		List<IndexEntry> miraculous = map.get(Category.MIRACULOUS);
+		link(miraculous, "projecthero.guide.ladybug", CH_LADYBUG);
+		link(miraculous, "projecthero.guide.cat_noir", CH_CAT_NOIR);
+		link(miraculous, "projecthero.guide.rena_rouge", CH_RENA_ROUGE);
+		link(miraculous, "projecthero.guide.hawk_moth", CH_HAWK_MOTH);
+		link(miraculous, "projecthero.guide.carapace", CH_CARAPACE);
+		link(miraculous, "projecthero.guide.pegasus", CH_PEGASUS);
 
-		section(idx, "projecthero.guide.section.powers", true);
+		List<IndexEntry> other = map.get(Category.OTHER);
+		sub(other, "projecthero.guide.sub.other_heroes");
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.max_steel"), 2, CH_MAX_STEEL));
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.titan_shifter"), 2, CH_TITAN_SHIFTER));
+		sub(other, "projecthero.guide.sub.mutations");
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));
 		List<Power> powers = new ArrayList<>(Powers.enabled());
 		for (PowerCategory category : PowerCategory.values()) {
 			boolean started = false;
@@ -1475,13 +1636,51 @@ public final class HeroPackGuide {
 					continue;
 				}
 				if (!started) {
-					idx.add(new IndexEntry(Component.translatable(category.translationKey())
-							.withStyle(ChatFormatting.YELLOW), 1, -1));
+					other.add(new IndexEntry(Component.translatable(category.translationKey()), 1, -1));
 					started = true;
 				}
-				idx.add(new IndexEntry(Component.translatable(powers.get(i).nameKey()), 2,
-						CHAPTER_POWER_BASE + i));
+				other.add(new IndexEntry(Component.translatable(powers.get(i).nameKey()), 2, CHAPTER_POWER_BASE + i));
 			}
+		}
+
+		List<IndexEntry> events = map.get(Category.EVENTS);
+		sub(events, "projecthero.guide.sub.raids");
+		for (int[] row : new int[][] { { CH_ZOMBIE_RAID }, { CH_SUPERVILLAIN_RAID }, { CH_DARKSEID_RAID }, { CH_HORDES }, { CH_SYNDICATE },
+				{ CH_SENTINEL_PURGE }, { CH_ULTRON }, { CH_ULTRON_CONTAGION }, { CH_FROST_GIANTS }, { CH_GALACTUS }, { CH_CRIME } }) {
+			events.add(new IndexEntry(chapters().get(row[0]).title(), 2, row[0]));
+		}
+		sub(events, "projecthero.guide.sub.bosses");
+		for (int ch : new int[] { CH_TITAN, CH_ABYSSAL_BEHEMOTH, CH_OATHBREAKER, CH_CARNAGE }) {
+			events.add(new IndexEntry(chapters().get(ch).title(), 2, ch));
+		}
+
+		List<IndexEntry> world = map.get(Category.WORLD);
+		link(world, "projecthero.guide.structures", CH_STRUCTURES);
+		link(world, "projecthero.guide.devices", CH_DEVICES);
+		link(world, "projecthero.guide.stark_sorter", CH_STARK_SORTER);
+		link(world, "projecthero.guide.city", CH_CITY);
+		link(world, "projecthero.guide.city_services", CH_CITY_SERVICES);
+
+		int[] of = new int[chapters().size()];
+		java.util.Arrays.fill(of, -1);
+		for (Category c : Category.values()) {
+			for (IndexEntry e : map.get(c)) {
+				if (!e.isHeading() && e.chapterIndex() < of.length) {
+					of[e.chapterIndex()] = c.ordinal();
+				}
+			}
+		}
+		categoryOfChapter = of;
+		categoryEntries = map;
+	}
+
+	private static List<IndexEntry> buildIndex() {
+		List<IndexEntry> idx = new ArrayList<>();
+		boolean first = true;
+		for (Category c : Category.values()) {
+			section(idx, c.nameKey(), !first);
+			first = false;
+			idx.addAll(categoryEntries(c));
 		}
 		return idx;
 	}
@@ -1493,8 +1692,203 @@ public final class HeroPackGuide {
 		idx.add(new IndexEntry(Component.translatable(key).withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), 0, -1));
 	}
 
+	private static void sub(List<IndexEntry> idx, String key) {
+		idx.add(new IndexEntry(Component.translatable(key), 1, -1));
+	}
+
 	private static void link(List<IndexEntry> idx, String titleKey, int chapterIndex) {
 		idx.add(new IndexEntry(Component.translatable(titleKey), 1, chapterIndex));
+	}
+
+	// ---- v0.16.7: search ----
+
+	/**
+	 * One search result.
+	 *
+	 * @param chapter    the chapter it is in
+	 * @param line       the line of {@link Chapter#lines()} that matched, or -1 for a match in the chapter's title
+	 * @param section    the section heading the line sits under (or the chapter title), for the result's second label
+	 * @param text       the matched text: the whole line (the screen cuts a window around the match)
+	 * @param matchStart where the match starts in {@code text}
+	 * @param matchLength the query's length
+	 */
+	public record SearchHit(int chapter, int line, String section, String text, int matchStart, int matchLength) {
+	}
+
+	/** At most this many results (the list is sorted best first). */
+	public static final int MAX_HITS = 200;
+	/** At most this many body-text hits from one chapter, so one huge chapter doesn't bury the rest. */
+	private static final int MAX_HITS_PER_CHAPTER = 6;
+
+	private static Object searchLanguage;
+	private static List<String[]> searchText;
+
+	/**
+	 * v0.16.7 (user: "add a search bar"): case-insensitive search across every chapter's title, section headings and
+	 * body text. Title matches come first, then section headings, then body text, each in book order.
+	 */
+	public static List<SearchHit> search(String query) {
+		List<SearchHit> titles = new ArrayList<>();
+		List<SearchHit> heads = new ArrayList<>();
+		List<SearchHit> body = new ArrayList<>();
+		String q = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+		if (q.isEmpty()) {
+			return titles;
+		}
+		List<Chapter> all = chapters();
+		List<String[]> text = searchText();
+		for (int c = 0; c < all.size(); c++) {
+			Chapter ch = all.get(c);
+			String title = ch.title().getString();
+			int t = title.toLowerCase(java.util.Locale.ROOT).indexOf(q);
+			if (t >= 0) {
+				titles.add(new SearchHit(c, -1, title, title, t, q.length()));
+			}
+			String[] lines = text.get(c);
+			String section = title;
+			int bodyHits = 0;
+			for (int i = 0; i < lines.length; i++) {
+				boolean isHead = isSectionLine(ch.lines().get(i));
+				String plain = ch.lines().get(i).getString();
+				if (isHead && !plain.isBlank()) {
+					section = plain;
+				}
+				int at = lines[i].indexOf(q);
+				if (at < 0) {
+					continue;
+				}
+				if (isHead) {
+					heads.add(new SearchHit(c, i, section, plain, at, q.length()));
+				} else if (bodyHits < MAX_HITS_PER_CHAPTER) {
+					body.add(new SearchHit(c, i, section, plain, at, q.length()));
+					bodyHits++;
+				}
+			}
+		}
+		titles.addAll(heads);
+		titles.addAll(body);
+		return titles.size() > MAX_HITS ? new ArrayList<>(titles.subList(0, MAX_HITS)) : titles;
+	}
+
+	/** A section heading line: drawn bold by {@link #head} (and the bold unit / traversal titles). */
+	public static boolean isSectionLine(Component line) {
+		if (line.getStyle().isBold()) {
+			return true;
+		}
+		for (Component sib : line.getSiblings()) {
+			if (sib.getStyle().isBold()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Every chapter's lines, lower-cased, cached until the language changes. */
+	private static List<String[]> searchText() {
+		Object lang = net.minecraft.locale.Language.getInstance();
+		if (searchText == null || searchLanguage != lang) {
+			List<String[]> out = new ArrayList<>();
+			for (Chapter ch : chapters()) {
+				String[] lines = new String[ch.lines().size()];
+				for (int i = 0; i < lines.length; i++) {
+					lines[i] = ch.lines().get(i).getString().toLowerCase(java.util.Locale.ROOT);
+				}
+				out.add(lines);
+			}
+			searchText = out;
+			searchLanguage = lang;
+		}
+		return searchText;
+	}
+
+	// ---- v0.16.7: the Quirk chapters ----
+
+	/** The Quirks overview: how a Quirk is gained, the serums, the meter, the moves, the costume and the Erasure rule. */
+	private static Chapter quirksOverview() {
+		return chapter("projecthero.guide.quirks", lines -> {
+			lines.add(Component.translatable("projecthero.guide.quirks.tier").withStyle(ChatFormatting.GREEN));
+			para(lines, "projecthero.guide.quirks.body");
+			blank(lines);
+			for (String s : new String[] { "get", "serums", "meter", "controls", "costume", "erasure" }) {
+				head(lines, "projecthero.guide.quirks." + s);
+				para(lines, "projecthero.guide.quirks." + s + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.quirks.list");
+			for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
+						.append(Component.translatable("projecthero.quirk." + q.id).withStyle(s -> s.withColor(q.meterColour & 0xFFFFFF)))
+						.append(Component.literal("  "))
+						.append(Component.translatable("projecthero.quirk." + q.id + ".hero").withStyle(ChatFormatting.GRAY)));
+			}
+			blank(lines);
+			para(lines, "projecthero.guide.quirks.one_for_all");
+		});
+	}
+
+	/**
+	 * v0.16.7: one Quirk's chapter, built like the Miraculous ones: overview, how to get it (with its serum's name),
+	 * its meter and overload, its quirk-specific rules, the 12-move table from the registered kit ({@code
+	 * QuirkKits.of(q).idsOf(SLOT_1..SLOT_6)}, names and descriptions from {@code projecthero.quirk.ability.<id>}), the
+	 * costume command and the Erased rule.
+	 */
+	private static Chapter quirk(com.projecthero.mod.quirk.Quirk q) {
+		String k = "projecthero.guide.quirk." + q.id;
+		return chapter(k, lines -> {
+			lines.add(Component.translatable(k + ".tier").withStyle(s -> s.withColor(q.meterColour & 0xFFFFFF)));
+			para(lines, k + ".body");
+			blank(lines);
+			head(lines, "projecthero.guide.quirks.get");
+			para(lines, "projecthero.guide.quirks.get.short");
+			lines.add(Component.translatable("projecthero.guide.quirks.serum",
+					Component.translatableWithFallback("item.projecthero.quirk_serum_" + q.id, "Quirk Serum (" + q.quirkName + ")"))
+					.withStyle(ChatFormatting.LIGHT_PURPLE));
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.quirks.meter_of", Component.translatable("projecthero.quirk.meter." + q.meterId))
+					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
+			para(lines, k + ".meter.body");
+			blank(lines);
+			head(lines, k + ".overload");
+			para(lines, k + ".overload.body");
+			blank(lines);
+			head(lines, k + ".passive");
+			para(lines, k + ".passive.body");
+			blank(lines);
+			head(lines, "projecthero.guide.quirks.moves");
+			com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(q);
+			AbilitySlot[] slots = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
+					AbilitySlot.SLOT_6 };
+			int rows = 0;
+			for (int i = 0; i < slots.length; i++) {
+				String[] ids = kit.idsOf(slots[i]);
+				for (int j = 0; j < Math.min(2, ids.length); j++) {
+					net.minecraft.network.chat.MutableComponent row = Component.literal(" " + SLOT_LABELS[i][j] + "  ").withStyle(ChatFormatting.GOLD)
+							.append(Component.translatable("projecthero.quirk.ability." + ids[j]).withStyle(ChatFormatting.WHITE));
+					int cd = kit.maxCooldown(ids[j]);
+					if (cd > 0) {
+						row.append(Component.literal("  "))
+								.append(Component.translatable("projecthero.guide.quirks.cooldown", seconds(cd)).withStyle(ChatFormatting.DARK_GRAY));
+					}
+					lines.add(row);
+					para(lines, "projecthero.quirk.ability." + ids[j] + ".desc");
+					rows++;
+				}
+			}
+			if (rows == 0) {
+				lines.add(Component.translatable("projecthero.guide.quirks.moves.none").withStyle(ChatFormatting.DARK_GRAY));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.quirks.costume");
+			para(lines, "projecthero.guide.quirks.costume.body");
+			blank(lines);
+			head(lines, "projecthero.guide.quirks.erased");
+			para(lines, q == com.projecthero.mod.quirk.Quirk.ERASURE ? "projecthero.guide.quirks.erased.self" : "projecthero.guide.quirks.erased.body");
+		});
+	}
+
+	/** Ticks as seconds, "12" or "1.5". */
+	private static String seconds(int ticks) {
+		return ticks % 20 == 0 ? String.valueOf(ticks / 20) : String.valueOf(Math.round(ticks / 2.0) / 10.0);
 	}
 
 	/**

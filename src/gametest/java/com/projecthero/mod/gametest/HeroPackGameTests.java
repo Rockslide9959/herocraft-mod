@@ -259,9 +259,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// 26 framing chapters (overview, mutation, structures, devices, combos, Thor, Iron Man,
 		// Spider-Man, Max Steel, Punisher, Green Lantern, Symbiote, Zombie Raid, Supervillain Raid,
 		// Titan, Squads, Wolverine, Titan Shifter, All Might, The Abyssal Behemoth, The Oathbreaker, Hulk,
-		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage, v0.15.1 Sentinel Purge, v0.15.12 Ultron Uprising, v0.15.13 Nova, v0.16.1 Frost Giants (33), the Ultron Contagion (34), Galactus (35) , v0.16.2 Street Crime (36), Cities (37), City Services (38) v0.16.5 Ghost Rider (39), Cyborg (40) and Blue Beetle (41), v0.16.6 Ladybug (42), Cat Noir (43), Rena Rouge (44), Hawk Moth (45), Carapace (46), Pegasus (47))
+		// Apokolips Invasion, Moon Knight, Super Soldier, Kryptonian, Horde Blocks, Stark Sorting Station, v0.14.25 Syndicate Bust, Carnage, v0.15.1 Sentinel Purge, v0.15.12 Ultron Uprising, v0.15.13 Nova, v0.16.1 Frost Giants (33), the Ultron Contagion (34), Galactus (35) , v0.16.2 Street Crime (36), Cities (37), City Services (38) v0.16.5 Ghost Rider (39), Cyborg (40) and Blue Beetle (41), v0.16.6 Ladybug (42), Cat Noir (43), Rena Rouge (44), Hawk Moth (45), Carapace (46), Pegasus (47), v0.16.7 the Quirks overview (48) and the seven Quirks (49-55))
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
-		helper.assertTrue(chapters.size() == 48 + Powers.enabled().size(),
+		helper.assertTrue(chapters.size() == 56 + Powers.enabled().size(),
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");
@@ -282,6 +282,72 @@ public class HeroPackGameTests implements FabricGameTest {
 		}
 		helper.assertTrue(links == chapters.size(),
 				"outline should link every chapter exactly once, got " + links + " links for " + chapters.size() + " chapters");
+		helper.succeed();
+	}
+
+	/** v0.16.7: the remade guidebook -- every chapter in exactly one category, the Quirk chapters, and the search. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void guideCategoriesAndSearch(GameTestHelper helper) {
+		var chapters = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
+		var lang = net.minecraft.locale.Language.getInstance();
+		int[] seen = new int[chapters.size()];
+		for (var cat : com.projecthero.mod.hero.guide.HeroPackGuide.Category.values()) {
+			helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.chapterCount(cat) > 0, cat + " has chapters");
+			helper.assertTrue(lang.has(cat.nameKey()) && lang.has(cat.descKey()), cat + " has its name and description");
+			for (var e : com.projecthero.mod.hero.guide.HeroPackGuide.categoryEntries(cat)) {
+				if (!e.isHeading()) {
+					seen[e.chapterIndex()]++;
+					helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(e.chapterIndex()) == cat,
+							"chapter " + e.chapterIndex() + " knows its category");
+				}
+			}
+		}
+		for (int i = 0; i < seen.length; i++) {
+			helper.assertTrue(seen[i] == 1, "chapter '" + chapters.get(i).title().getString() + "' is in " + seen[i] + " categories (want 1)");
+		}
+		// the Quirk chapters: one per Quirk, filed under Quirks, with the shared sections, all translated
+		for (var q : com.projecthero.mod.quirk.Quirk.values()) {
+			var ch = com.projecthero.mod.hero.guide.HeroPackGuide.quirkChapter(q);
+			int at = chapters.indexOf(ch);
+			helper.assertTrue(at == 49 + q.ordinal(), q + " chapter at " + at);
+			helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(at) == com.projecthero.mod.hero.guide.HeroPackGuide.Category.QUIRKS,
+					q + " is filed under Quirks");
+			StringBuilder all = new StringBuilder();
+			for (var line : ch.lines()) {
+				String text = line.getString();
+				helper.assertFalse(text.contains("projecthero.guide."), q + " has an untranslated guide line: " + text);
+				all.append(text).append('\n');
+			}
+			helper.assertTrue(all.indexOf("/projecthero quirk costume") >= 0 && all.indexOf("5%") >= 0, q + " explains the costume and how to get it");
+		}
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(chapters.indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.ironManChapter()))
+				== com.projecthero.mod.hero.guide.HeroPackGuide.Category.MARVEL, "Iron Man is Marvel");
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(chapters.indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.greenLanternChapter()))
+				== com.projecthero.mod.hero.guide.HeroPackGuide.Category.DC, "Green Lantern is DC");
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(chapters.indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.allMightChapter()))
+				== com.projecthero.mod.hero.guide.HeroPackGuide.Category.QUIRKS, "All Might is filed under Quirks");
+
+		// search: case-insensitive, title hits first, body hits carry their section and a correct match offset
+		var hits = com.projecthero.mod.hero.guide.HeroPackGuide.search("HELLFLAME");
+		helper.assertFalse(hits.isEmpty(), "searching Hellflame finds something");
+		helper.assertTrue(hits.get(0).line() == -1 && hits.get(0).chapter() == 49, "the Hellflame chapter title is the first hit, got " + hits.get(0));
+		int peg = chapters.indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.miraculousChapter(com.projecthero.mod.miraculous.Kwami.KAALKI));
+		boolean stepAssist = false;
+		for (var h : com.projecthero.mod.hero.guide.HeroPackGuide.search("step assist")) {
+			if (h.chapter() == peg && h.line() >= 0) {
+				stepAssist = true;
+				helper.assertTrue(h.text().toLowerCase(java.util.Locale.ROOT).startsWith("step assist", h.matchStart()), "the match offset points at the match");
+				helper.assertFalse(h.section().isBlank(), "a body hit names its section");
+			}
+		}
+		helper.assertTrue(stepAssist, "searching 'step assist' finds Pegasus's Gallop");
+		boolean countdown = false;
+		for (var h : com.projecthero.mod.hero.guide.HeroPackGuide.search("every 36 seconds")) {
+			countdown |= h.chapter() == peg;
+		}
+		helper.assertTrue(countdown, "the Miraculous countdown text (a spot every 36 s) is in the Pegasus chapter");
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.search("   ").isEmpty(), "a blank search finds nothing");
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.search("zzqqxx-no-such-text").isEmpty(), "nonsense finds nothing");
 		helper.succeed();
 	}
 
