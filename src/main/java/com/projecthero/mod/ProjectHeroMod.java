@@ -199,6 +199,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
 		com.projecthero.mod.allmight.AllMightDamage.initialize();
+		com.projecthero.mod.allmight.AllMightPassOn.initialize(); // v0.16.6: passing on / lending One For All
 		com.projecthero.mod.hulk.HulkDamage.initialize();
 		com.projecthero.mod.hulk.GammaOverload.initialize();
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.initialize();

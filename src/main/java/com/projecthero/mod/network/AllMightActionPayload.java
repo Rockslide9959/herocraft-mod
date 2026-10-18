@@ -9,14 +9,23 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client to server All Might requests that are not one of the six ability slots: H (transform / change back) and N
- * (the costume locker). Only requests -- the server checks the power, the cooldown, the OFA and the current state.
+ * Client to server All Might requests that are not one of the six ability slots: H (transform / change back), N (the costume
+ * locker) and (v0.16.6) the Pass On / Lend choice from the offer screen, which names the other player by entity id. Only
+ * requests -- the server checks the power, the cooldowns, the distance and the current state.
  */
-public record AllMightActionPayload(Action action) implements CustomPacketPayload {
+public record AllMightActionPayload(Action action, int target) implements CustomPacketPayload {
 	public enum Action {
 		TOGGLE_FORM,
 		/** v0.12.36: N in the Power Form -- open the costume locker. */
-		OPEN_LOCKER
+		OPEN_LOCKER,
+		/** v0.16.6: offer to pass One For All on to {@code target} for good. */
+		PASS_ON,
+		/** v0.16.6: offer to lend it to {@code target} for 5 minutes. */
+		LEND
+	}
+
+	public AllMightActionPayload(Action action) {
+		this(action, 0);
 	}
 
 	public static final CustomPacketPayload.Type<AllMightActionPayload> TYPE =
@@ -25,6 +34,8 @@ public record AllMightActionPayload(Action action) implements CustomPacketPayloa
 	public static final StreamCodec<RegistryFriendlyByteBuf, AllMightActionPayload> CODEC = StreamCodec.composite(
 			ByteBufCodecs.VAR_INT.map(i -> Action.values()[Math.floorMod(i, Action.values().length)], Action::ordinal),
 			AllMightActionPayload::action,
+			ByteBufCodecs.VAR_INT,
+			AllMightActionPayload::target,
 			AllMightActionPayload::new);
 
 	@Override

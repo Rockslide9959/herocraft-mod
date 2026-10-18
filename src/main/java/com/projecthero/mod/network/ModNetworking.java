@@ -224,6 +224,11 @@ public final class ModNetworking {
 			switch (payload.action()) {
 				case TOGGLE_FORM -> com.projecthero.mod.allmight.AllMight.toggleForm(p);
 				case OPEN_LOCKER -> com.projecthero.mod.allmight.AllMightSuit.openLocker(p);
+				// v0.16.6: the offer screen's choice (sneak + right-click on another player)
+				case PASS_ON -> com.projecthero.mod.allmight.AllMightPassOn.offerFromScreen(p, payload.target(),
+						com.projecthero.mod.allmight.AllMightPassOn.Kind.PASS_ON);
+				case LEND -> com.projecthero.mod.allmight.AllMightPassOn.offerFromScreen(p, payload.target(),
+						com.projecthero.mod.allmight.AllMightPassOn.Kind.LEND);
 			}
 		});
 

@@ -1,5 +1,25 @@
 # All Might / One For All — reference (v0.12.33)
 
+> **v0.16.6 revamp (user-approved; supersedes everything below about OFA):** the 300-point OFA timer is GONE (`OFA_MAX` and the drain/regen constants removed; an old save's `ofa` key is ignored by the codec, so it loads at 20% with no Strain -- `onPlayerJoin` also clears a stale old-style Plus Ultra).
+>
+> **Output** (`AllMightState.output` 0/1/2 = 20/45/100%, `outputProgress`, `lastHitAt`): landed hits charge the next level -- `OUTPUT_HITS_TO_45` 4, `OUTPUT_HITS_TO_100` 6; a Smash charges once per `Wave` however many it hits (`Wave.charged`), punches charge too (throttled to one per `OUTPUT_PUNCH_SPACING_TICKS` 6). `OUTPUT_DAMAGE` x1.0 / x1.25 / x1.6 (`AllMight.smashMultiplier`), `OUTPUT_SIZE` x1.0 / x1.2 / x1.4 on every shockwave width / radius (`AllMight.sizeScale`). Drops one level after `OUTPUT_DECAY_TICKS` 8 s without a hit. Every form change resets to 20%.
+>
+> **Strain** (`strain` 0..100, `recoilUntil`): +1.5/s at 45%, +5/s at 100%, none during Plus Ultra; recovers 3/s at 20% (Power Form) and 5/s in the Base Form; applied in 5-tick steps. United States of Smash adds 30 (`STRAIN_UNITED_STATES`, no OFA cost now). Full Strain = `AllMight.recoil`: forced to 20%, Plus Ultra ends, every Smash (not the Leap) locked `RECOIL_TICKS` 20 s, Weakness II + Mining Fatigue I, limp-arm pose (`AllMightPose.applyRecoil`), smoking arms. Warning at 75 (`STRAIN_WARNING`).
+>
+> **Plus Ultra (C)**: free; 100% (a borrower: 45%) for 22 s, no Strain while it lasts, Strain set to 75 when it ends, 45 s cooldown (was 20), locked in the recoil.
+>
+> **Shift moves** (`AllMightAbilityManager.handle` reads `isShiftKeyDown`): Shift+G **Delaware** (3 air bullets 4 ticks apart, 30 blocks at 6/tick, 10 each, kb 3.4, `Wave.burst()` so all three land; 7 s), Shift+X **Manchester** (hop 5 + flip 12 ticks, axe-kick dive at 2.6/tick, 6-block crater 22, `Kind.SLAM`; 8 s), Shift+Z **Oklahoma** (14-tick spin, radius 7, 16, outward kb 3.2 + lift 0.9; 10 s), Shift+V **Missouri** (lunge + 12-block line of air 2.5 wide, 20, bosses staggered Slowness VI + Weakness 2 s via `Wave.then`; 8 s), Shift+C **St. Louis** (crescent 20 blocks at 2.5/tick, 4 -> 10 wide, 18; 9 s). Whole-body spin/flip in `AllMightSpinMixin` (`PlayerRenderer.setupRotations`).
+>
+> **Symbol of Peace**: `AllMightDamage.symbolOfPeace` -- any squadmate (`Squads.areAllies`) within 16 of an All Might in the Power Form takes 15% less (cancel-and-reissue; several All Mights do not stack).
+>
+> **Visuals**: `client.allmight.AllMightGlowLayer` -- additive (`RenderType.lightning()`) shells on both arms, strength 0.16 / 0.4 / 0.72 by Output, gold -> gold-white; at 100% / Plus Ultra a torso shell and jagged gold arcs re-struck every 2 ticks, plus server arm steam (`AllMight.armSteam`) and sparks. No glow in the recoil.
+>
+> **Passing on / lending** (`AllMightPassOn`): sneak + right-click another player with an empty hand -> `client.allmight.AllMightOfferScreen` (Pass On / Lend) -> `AllMightActionPayload.PASS_ON|LEND` (now carries the target entity id) -> chat offer with clickable `/oneforall accept|refuse`, 30 s (`OFFER_TICKS`), within 8 blocks. Everything re-checked on accept; UniquePowers checked with the giver's own slot excluded BEFORE anything changes. Pass On = `revoke(giver)` then `grant(receiver)` (`claimPrimary`), "Eat this" + strand-of-hair chat, a travelling gold glow. Lend = lender keeps state but `hasPower=false`, `loanRole=LENDER` (Weakness I + Slowness I refreshed all loan); borrower = fresh state, `loanRole=BORROWER`, cap 45% (`BORROWED_OUTPUT_CAP`), Strain x2, cannot pass on/lend. **Existing-Primary rule: loans are refused to anyone holding any power** (hero, mutation or Symbiote) -- there is no generic save/restore for other powers. Ends on time (5 min), borrower death (`AFTER_DEATH`), either side's logout, lender's sneak-right-click recall, borrower full Strain, or the borrower being revoked any other way (`revoke` -> `returnToLender`). The lender is restored through `claimPrimary` and gets `LEND_COOLDOWN_TICKS` 60 s. A loan never survives a logout; `onJoin` resolves a crash-interrupted loan per side, never leaving both holding it. Static offers/glows cleared via `AllMight.clearSessionState`. HUD shows the lender "Lent to X -- m:ss" and the borrower's time left.
+>
+> **HUD**: title + Output %, a three-segment Output gauge (next level filling), Strain hairline (red/blinking from 75), boxes crossed out in the recoil, status line (recoil seconds / Plus Ultra seconds / form). Left-Alt list shows every key's Shift move plus H and N.
+>
+> **Tests**: `AllMightRevampGameTests` (16) + the updated `AllMightGameTests`.
+
 > **v0.16.6 (user):** Carolina Smash launches him further: `CAROLINA_DISTANCE` 30 (was 15), `CAROLINA_SPEED` 2.0 (was 1.5), so the slide is 15 ticks.
 
 > **v0.13.5:** Carolina Smash's `tickMove` DASH branch now re-reads `flatLook(p)` every tick instead of
