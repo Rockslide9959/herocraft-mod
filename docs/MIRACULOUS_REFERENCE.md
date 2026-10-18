@@ -14,19 +14,20 @@ by `gen_kwami_game.js` (session scratchpad copy; see "Assets").
 
 ## Getting a Miraculous
 
-| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth |
-|---|---|---|---|---|
-| Kwami | Tikki | Plagg | Trixx | Nooroo |
-| Jewel (item) | `ladybug_earrings` | `cat_ring` | `fox_necklace` | `butterfly_brooch` |
-| Where | the Miraculous Box | the Miraculous Box | the Miraculous Box | stronghold library chests 1 in 6, ancient city chests 1 in 10 (never in the box) |
-| Food | cookie (vanilla) | `camembert` | `macaron` | honey bottle (vanilla; the bottle comes back) |
-| Transform | `Tikki, spots on!` | `Plagg, claws out!` | `Trixx, let's pounce!` | `Nooroo, dark wings rise!` |
-| Detransform | `Spots off!` | `Claws in!` | `Let's rest!` | `Dark wings fall!` |
-| Colour | `0xE0242C` | `0x7EE23A` | `0xEE7C24` | `0x9A5CD6` |
+| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth | Carapace | Pegasus |
+|---|---|---|---|---|---|---|
+| Kwami | Tikki | Plagg | Trixx | Nooroo | Wayzz | Kaalki |
+| Jewel (item) | `ladybug_earrings` | `cat_ring` | `fox_necklace` | `butterfly_brooch` | `turtle_bracelet` | `horseshoe_glasses` |
+| Where | the Miraculous Box | the Miraculous Box | the Miraculous Box | stronghold library chests 1 in 6, ancient city chests 1 in 10 (never in the box) | the Miraculous Box | the Miraculous Box |
+| Food | cookie (vanilla) | `camembert` | `macaron` | honey bottle (vanilla; the bottle comes back) | dried kelp (vanilla) | sugar (vanilla) |
+| Transform | `Tikki, spots on!` | `Plagg, claws out!` | `Trixx, let's pounce!` | `Nooroo, dark wings rise!` | `Wayzz, shell on!` | `Kaalki, full gallop!` |
+| Detransform | `Spots off!` | `Claws in!` | `Let's rest!` | `Dark wings fall!` | `Shell off!` | `Dismount!` |
+| Colour | `0xE0242C` | `0x7EE23A` | `0xEE7C24` | `0x9A5CD6` | `0x3FAE5A` | `0xE6C276` |
 
 - **The Miraculous Box** (`miraculous_box`, a GeckoLib item: three 60-degree slabs make the hexagon, black lacquer with
   red trim, a Greek-key band and the red emblem on top): jungle temple chests 1 in 8, woodland mansion chests 1 in 6.
-  Right-click: a chime and a red/gold burst, the box is used up, ONE random jewel of the three (never the Brooch). With
+  Right-click: a chime and a red/gold burst, the box is used up, ONE random jewel of the five (Earrings, Ring, Necklace,
+  Turtle Bracelet, Horseshoe Glasses; never the Brooch). With
   `projectheroUniquePowers` on it prefers a Kwami nobody holds (and not the one you already hold).
 - **A jewel**: right-click -> `Miraculous.grant`. Refused (jewel kept) when you already hold that Kwami, or by
   `UniquePowers.refuse` (asked BEFORE the jewel is used). Used up on success.
@@ -95,7 +96,10 @@ anything that removed it).
 earrings on the ear sides of the head (black; red with black spots transformed), the Cat Ring on the right hand's
 finger through the shared `HandRing` (also first person, `GreenLanternRingHandMixin`; silver; black with a glowing
 green paw print transformed; `RingPlacement` id `cat_ring`), the fox-tail necklace on the chest, the butterfly brooch at
-the collar (darker violet transformed). Lifted further off the body while transformed so they sit on the suits.
+the collar (darker violet transformed), the Turtle Bracelet round the LEFT wrist (a dark green cord, three jade beads a
+face and a turtle-shell bead on the outer face; bright green transformed; fits wide and slim arms), the Horseshoe
+Glasses on the face (two horseshoe frames with nail holes, an arched bridge, temples along the head; silver-grey, gold
+transformed). Lifted further off the body while transformed so they sit on the suits.
 
 ## Shared passives (while transformed)
 
@@ -113,12 +117,12 @@ row's width).
 
 ## Commands
 
-- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth` (and `revoke`).
+- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth | carapace | pegasus` (and `revoke`).
 - `/projecthero power tune miraculous kwami` (info) `| feed | toggle | countdown <seconds>`.
 
 ## Guide
 
-Four chapters (`CH_LADYBUG` 42 .. `CH_HAWK_MOTH` 45, `CHAPTER_POWER_BASE` 46): tier line, body, the box, the jewel,
+Six chapters (`CH_LADYBUG` 42 .. `CH_HAWK_MOTH` 45, `CH_CARAPACE` 46, `CH_PEGASUS` 47, `CHAPTER_POWER_BASE` 48): tier line, body, the box, the jewel,
 the Kwami, transforming, the countdown, feeding, the passives, and a controls table built from the kit's `idsOf`
 (R / Shift+R / G / Shift+G / X / Shift+X / Z / Shift+Z / V / Shift+V / C / Shift+C, names + `.desc`).
 
@@ -158,10 +162,15 @@ Kit: see `MIRACULOUS_HAWK_MOTH.md` (the kit build fills it in).
 
 `gen_kwami_game.js --out src/main/resources --nooroo <nooroo assets dir>` writes the four rigs + textures, all 24
 clips, the box's geo / texture, and the JSON element models + hand-painted 16 x 16 textures of the jewels and foods.
+v0.16.6: Wayzz and Kaalki come from `gen_wayzz_kaalki_concept.js` (concept sheets + rigs in
+`scratchpad/concepts_wayzz_kaalki/`) and `gen_wayzz_kaalki_game.js --out src/main/resources` (their rigs, their 12 clips
+added to `kwami.animation.json` with the same clip code, and the Turtle Bracelet / Horseshoe Glasses item models).
 
 ## Tests
 
 `MiraculousCoreGameTests`: grant / revoke per Kwami, one Primary, the phrases, stats on / off, the countdown's forced
 detransformation, hungry refusal + feeding, the snack, death leaves it hungry, no fall damage, box + jewel, the Brooch
 never in the box, unique powers refuse before the jewel is used, every grant path plays the welcome, Nooroo returns the
-bottle, the Kwami follows / snaps back / can't die / is re-created / goes into the jewel.
+bottle, the Kwami follows / snaps back / can't die / is re-created / goes into the jewel. `MiraculousTurtleHorseGameTests`:
+Carapace / Pegasus grant + revoke, their phrases, dried kelp / sugar, the box giving both new jewels (and the jewels
+granting), their own guide chapters.

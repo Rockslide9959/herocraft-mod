@@ -23,7 +23,10 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
  *   <li>Plagg: the Ring on the right hand's finger (the shared {@link HandRing}, also in first person) -- silver, black
  *       with a green paw gem while transformed;</li>
  *   <li>Trixx: the Necklace, a chain and an orange fox-tail pendant on the chest;</li>
- *   <li>Nooroo: the Brooch, a purple-and-silver butterfly at the collar -- darker purple while transformed.</li>
+ *   <li>Nooroo: the Brooch, a purple-and-silver butterfly at the collar -- darker purple while transformed;</li>
+ *   <li>Wayzz (v0.16.6): the Turtle Bracelet on the left wrist, dark green beads round a turtle-shell bead -- bright
+ *       green while transformed;</li>
+ *   <li>Kaalki (v0.16.6): the Horseshoe Glasses on the face -- silver-grey frames, gold while transformed.</li>
  * </ul>
  * Registered after the kits' suit layers, and lifted further off the body while transformed so it sits on the suit.
  */
@@ -61,6 +64,8 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			case PLAGG -> ring(pose, buffers, player, m.rightArm, on);
 			case TRIXX -> necklace(pose, buffers, light, m.body, on);
 			case NOOROO -> brooch(pose, buffers, light, m.body, on);
+			case WAYZZ -> bracelet(pose, buffers, player, light, m.leftArm, on);
+			case KAALKI -> glasses(pose, buffers, light, m.head, on);
 		}
 	}
 
@@ -160,6 +165,100 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			box(vc, pose, 0f, 0f, -0.04f, 0.33f, 0.28f, 0.1f, wing, light);
 			pose.popPose();
 		}
+		pose.popPose();
+	}
+
+	// v0.16.6: Wayzz's Turtle Bracelet: cord, bead, bead glint, shell, plate, seam, rim -- dark green (bright transformed)
+	private static final int[] BRACELET_PLAIN = { 0x1C3A24, 0x2E6B3C, 0x4A9A5A, 0x3A7E3E, 0x24562A, 0x8CCB6E, 0x5E7A3A };
+	private static final int[] BRACELET_ON = { 0x1E6A2E, 0x46C25A, 0x8AF09A, 0x3FAE5A, 0x2A7A3A, 0xB8F08C, 0x8EB04E };
+
+	/**
+	 * v0.16.6: the Turtle Bracelet round the LEFT wrist -- a dark green cord hugging the arm (wide or slim), three jade
+	 * beads on each face, and on the outer face the turtle-shell bead: an olive rim, the domed shell with a darker centre
+	 * plate and light seams. Bright green while transformed, a little further off the arm to sit on the suit.
+	 */
+	private static void bracelet(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player, int light, ModelPart arm, boolean on) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
+		int[] c = on ? BRACELET_ON : BRACELET_PLAIN;
+		boolean slim = player.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		float gap = on ? 0.55f : 0.12f;
+		// the left arm's box: x -1..3 (wide) or -1..2 (slim), z -2..2; the outer face is +x
+		float cx = slim ? 0.5f : 1.0f;
+		float hx = (slim ? 1.5f : 2.0f) + gap, hz = 2.0f + gap;
+		float y = 7.6f;
+		// the cord: four slabs round the wrist
+		box(vc, pose, cx, y, -hz, hx + 0.12f, 0.26f, 0.12f, c[0], light);
+		box(vc, pose, cx, y, hz, hx + 0.12f, 0.26f, 0.12f, c[0], light);
+		box(vc, pose, cx - hx, y, 0f, 0.12f, 0.26f, hz + 0.12f, c[0], light);
+		box(vc, pose, cx + hx, y, 0f, 0.12f, 0.26f, hz + 0.12f, c[0], light);
+		// the jade beads (each with a glint on its outer face)
+		for (int i = -1; i <= 1; i++) {
+			float bx = cx + i * (hx - 0.5f) * 0.72f, bz = i * (hz - 0.5f) * 0.72f;
+			for (int s = -1; s <= 1; s += 2) {
+				box(vc, pose, bx, y, s * (hz + 0.2f), 0.3f, 0.32f, 0.2f, c[1], light);
+				box(vc, pose, bx - 0.08f, y - 0.1f, s * (hz + 0.41f), 0.08f, 0.08f, 0.02f, c[2], light);
+			}
+			box(vc, pose, cx - hx - 0.2f, y, bz, 0.2f, 0.32f, 0.3f, c[1], light);
+			box(vc, pose, cx - hx - 0.41f, y - 0.1f, bz - 0.08f, 0.02f, 0.08f, 0.08f, c[2], light);
+			if (i != 0) {
+				box(vc, pose, cx + hx + 0.2f, y, bz, 0.2f, 0.32f, 0.3f, c[1], light);
+				box(vc, pose, cx + hx + 0.41f, y - 0.1f, bz - 0.08f, 0.02f, 0.08f, 0.08f, c[2], light);
+			}
+		}
+		// the turtle-shell bead on the outer face of the wrist
+		float ox = cx + hx;
+		box(vc, pose, ox + 0.2f, y, 0f, 0.18f, 0.56f, 0.66f, c[6], light);  // the rim
+		box(vc, pose, ox + 0.5f, y, 0f, 0.16f, 0.5f, 0.58f, c[3], light);   // the dome
+		box(vc, pose, ox + 0.72f, y, 0f, 0.08f, 0.32f, 0.38f, c[3], light); // its crown
+		box(vc, pose, ox + 0.81f, y, 0f, 0.02f, 0.16f, 0.18f, c[4], light); // the centre plate
+		box(vc, pose, ox + 0.67f, y, 0f, 0.02f, 0.46f, 0.03f, c[5], light); // seams
+		box(vc, pose, ox + 0.67f, y, 0f, 0.02f, 0.03f, 0.54f, c[5], light);
+		pose.popPose();
+	}
+
+	// v0.16.6: Kaalki's Horseshoe Glasses: frame, lit, dark, nail holes -- silver-grey (gold transformed)
+	private static final int[] GLASSES_PLAIN = { 0xA8ACB4, 0xD4D8E0, 0x6A6E78, 0x34363E };
+	private static final int[] GLASSES_ON = { 0xE6B84A, 0xFFE08A, 0xA87A20, 0x5A3A0C };
+
+	/**
+	 * v0.16.6: the Horseshoe Glasses on the face -- each eye framed by a horseshoe (two sides with nail holes, a rounded
+	 * toe at the bottom, the heels turned in at the top), an arched bridge, and the temples back along the sides of the
+	 * head. Silver-grey; gold while transformed, lifted a little further off the face to sit on the suit.
+	 */
+	private static void glasses(PoseStack pose, MultiBufferSource buffers, int light, ModelPart head, boolean on) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
+		int[] c = on ? GLASSES_ON : GLASSES_PLAIN;
+		pose.pushPose();
+		head.translateAndRotate(pose);
+		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+		// head space: y -8 (top) .. 0 (chin), the face is z = -4, the eyes are the row y = -4 .. -3
+		float z = on ? -4.78f : -4.62f;
+		float side = on ? 4.66f : 4.54f;
+		for (int s = -1; s <= 1; s += 2) {
+			float cx = s * 2.0f;
+			for (int e = -1; e <= 1; e += 2) {
+				float x = cx + e * 1.45f;
+				box(vc, pose, x, -3.75f, z, 0.17f, 0.85f, 0.13f, c[0], light);                // the sides
+				box(vc, pose, x - e * 0.04f, -4.1f, z - 0.14f, 0.06f, 0.06f, 0.02f, c[3], light); // nail holes
+				box(vc, pose, x - e * 0.04f, -3.45f, z - 0.14f, 0.06f, 0.06f, 0.02f, c[3], light);
+				box(vc, pose, cx + e * 1.2f, -4.52f, z, 0.32f, 0.15f, 0.14f, c[1], light);    // the heels, turned in
+				// the rounded toe's corners
+				pose.pushPose();
+				pose.translate(cx + e * 1.18f, -2.72f, z);
+				pose.mulPose(Axis.ZP.rotationDegrees(e * -45f));
+				box(vc, pose, 0f, 0f, 0f, 0.42f, 0.16f, 0.13f, c[0], light);
+				pose.popPose();
+			}
+			box(vc, pose, cx, -2.42f, z, 0.82f, 0.16f, 0.13f, c[2], light);                  // the toe
+			// the temple: round the corner of the face, then back along the side of the head
+			box(vc, pose, s * (3.45f + side) / 2f, -4.4f, z, (side - 3.45f) / 2f + 0.12f, 0.12f, 0.12f, c[0], light);
+			box(vc, pose, s * side, -4.4f, (z + 0.6f) / 2f, 0.12f, 0.12f, (0.6f - z) / 2f, c[2], light);
+		}
+		box(vc, pose, 0f, -4.42f, z, 0.62f, 0.12f, 0.12f, c[0], light);                        // the arched bridge
+		box(vc, pose, 0f, -4.6f, z, 0.32f, 0.08f, 0.12f, c[1], light);
 		pose.popPose();
 	}
 

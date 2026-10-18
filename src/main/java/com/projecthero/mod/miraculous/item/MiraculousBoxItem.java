@@ -83,8 +83,11 @@ public class MiraculousBoxItem extends Item implements GeoItem {
 		return new ItemStack(MiraculousItems.jewelOf(k));
 	}
 
-	/** What the box can hold (v0.16.6: never the Butterfly Brooch -- Hawk Moth's jewel is found on its own). */
-	public static final List<Kwami> BOX_KWAMIS = List.of(Kwami.TIKKI, Kwami.PLAGG, Kwami.TRIXX);
+	/**
+	 * What the box can hold (v0.16.6: never the Butterfly Brooch -- Hawk Moth's jewel is found on its own; the Turtle
+	 * Bracelet and the Horseshoe Glasses joined the pool with Carapace and Pegasus).
+	 */
+	public static final List<Kwami> BOX_KWAMIS = List.of(Kwami.TIKKI, Kwami.PLAGG, Kwami.TRIXX, Kwami.WAYZZ, Kwami.KAALKI);
 
 	private static Kwami pick(ServerPlayer player) {
 		List<Kwami> free = new ArrayList<>();

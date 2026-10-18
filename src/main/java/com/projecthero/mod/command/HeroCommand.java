@@ -375,7 +375,7 @@ public final class HeroCommand {
 		String name = target.getGameProfile().getName();
 		if (!revokeHeroTier(target, hero)) {
 			c.getSource().sendFailure(Component.literal(
-					"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, super_soldier, kryptonian, nova, ghost_rider, cyborg, blue_beetle, ladybug, cat_noir, rena_rouge, hawk_moth, symbiote)"));
+					"Unknown Hero-Tier power (thor, iron_man, spider_man, max_steel, punisher, green_lantern, wolverine, titan_shifter, all_might, hulk, moon_knight, super_soldier, kryptonian, nova, ghost_rider, cyborg, blue_beetle, ladybug, cat_noir, rena_rouge, hawk_moth, carapace, pegasus, symbiote)"));
 			return 0;
 		}
 		c.getSource().sendSuccess(() -> Component.literal("Revoked " + hero + " from " + name), true);
@@ -402,7 +402,7 @@ public final class HeroCommand {
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
-			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth" -> {
+			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus" -> {
 				// v0.16.6: only if they hold THAT Kwami (no jewel comes back)
 				if (com.projecthero.mod.hero.HeroTiers.holdsHero(target, hero)) {
 					com.projecthero.mod.miraculous.Miraculous.revoke(target);

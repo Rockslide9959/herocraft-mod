@@ -195,7 +195,7 @@ public final class Miraculous {
 
 	// ---------------------------------------------------------------- the Kwami's food
 
-	/** The Kwami's favourite food: cookies (Tikki), Camembert (Plagg), macarons (Trixx), a honey bottle (Nooroo). */
+	/** The Kwami's favourite food: cookies (Tikki), Camembert (Plagg), macarons (Trixx), a honey bottle (Nooroo), dried kelp (Wayzz), sugar (Kaalki). */
 	public static net.minecraft.world.item.Item foodOf(Kwami kwami) {
 		return switch (kwami) {
 			case TIKKI -> net.minecraft.world.item.Items.COOKIE;
