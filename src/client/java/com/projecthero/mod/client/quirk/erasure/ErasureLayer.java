@@ -125,9 +125,10 @@ public class ErasureLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 			}
 			hair.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(PARTS)), light, overlay);
 		}
-		if (goggles || Quirks.costumeOn(player)) {
-			ModelPart g = goggles ? gogglesDown : gogglesUp;
-			g.render(pose, buffers.getBuffer(RenderType.entityTranslucent(PARTS)), light, overlay);
+		// v0.16.7 (user skin): the costume's own skin has the goggles pushed up on the forehead, so only the
+		// Goggles move draws the 3D pair (down over the eyes)
+		if (goggles) {
+			gogglesDown.render(pose, buffers.getBuffer(RenderType.entityTranslucent(PARTS)), light, overlay);
 		}
 		pose.popPose();
 
