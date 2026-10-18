@@ -48,11 +48,18 @@ only while holding Kaalki. Nobody else is sent them.
 
 ## Suit
 
-The user's skin (minecraftskins.com 15258841, slim) cut to suit-only by `scratchpad/make_suit_skins.js`
-(`kwami_skins/pegasus_suit_{slim,wide}.png`), copied in by `scratchpad/gen_pegasus_v0166.js`, which also takes the
-skin's own black glasses off the hat layer (16 texels) -- the core draws the Horseshoe Glasses jewel on the face, so the
-two never fight. Drawn over the wearer's own skin, picked by `PlayerSkin.Model`, with the per-texel reveal spreading from
-the glasses. Not bulky: base layer +0.02, second layer exactly vanilla's offsets (+0.25, head +0.5). The wearer's own
+The user's skin (minecraftskins.com 15258841, slim) cut to suit-only. Since v0.16.7 the suit PNGs are made by
+`scratchpad/suits/make_suit_skins.js` (the v0.16.6 cut from the main checkout's `scratchpad/make_suit_skins.js` +
+`gen_pegasus_v0166.js`, plus the gap fixes), which takes the skin's own black glasses off the hat layer and paints the
+suit's **goggles** instead (v0.16.7, user: Pegasus wears goggles in the show, not glasses): two big rounded turquoise
+lenses in a light cream frame on the hat layer's face (rows 10-14), a dark strap round the sides and the back of the head
+(under the mane, a cream buckle at the back) on the hat and base layers, and the same goggles a shade darker on the base
+layer under the raised frame. The Horseshoe Glasses jewel (`MiraculousJewelLayer`) is the Miraculous only while he is NOT
+transformed: once the suit's reveal passes the face (`PegasusRender.cover` >= `GOGGLES_COVER`, 0.15) the glasses are
+hidden and the suit's goggles show; changing back, the glasses return as the goggles go. The v0.16.7 cut also paints the
+faces the source skin left empty (the inner faces of both arms -- they showed the wearer's skin through the inside of the
+arms, in first person too -- the torso's top and bottom and the legs' tops). Drawn over the wearer's own skin, picked by
+`PlayerSkin.Model`, with the per-texel reveal spreading from the goggles. Not bulky: base layer +0.02, second layer exactly vanilla's offsets (+0.25, head +0.5). The wearer's own
 second layer is hidden while the suit shows -- hat included, because the cream mane hood replaces the hair (texel by
 texel during the change). Worn armour is hidden (`PegasusArmorMixin`).
 
