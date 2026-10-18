@@ -595,6 +595,9 @@ public class GalactusEntity extends GalactusMob {
 	}
 
 	private void chooseMove(ServerLevel level, LivingEntity target) {
+		if (com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased
+			return;
+		}
 		GalactusEvent e = event();
 		boolean canSummon = e == null || e.punishersAlive(level) < GalactusConfig.summons().cap;
 		int roll = random.nextInt(100);

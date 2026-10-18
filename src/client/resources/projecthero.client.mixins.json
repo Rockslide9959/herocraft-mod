@@ -150,7 +150,8 @@
 		"RenaRougeFluteHandMixin",
 		"RenaRougeCamouflageMixin",
 		"RenaRougeHeldItemMixin",
-		"RenaRougeArmorMixin"
+		"RenaRougeArmorMixin",
+		"ErasureGogglesGlowMixin"
 	],
 	"client": [],
 	"server": [],

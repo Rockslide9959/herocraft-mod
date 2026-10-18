@@ -414,7 +414,7 @@ public class AbyssalBehemothEntity extends Monster implements GeoEntity {
 			tickAbility(server, target);
 			return;
 		}
-		if (target == null || server.getGameTime() < globalLockUntil) {
+		if (target == null || server.getGameTime() < globalLockUntil || com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased
 			return;
 		}
 		Ability choice = chooseAbility(server, target);

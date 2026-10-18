@@ -313,6 +313,9 @@ public class KingLaufeyEntity extends FrostGiantEntity {
 	}
 
 	private Clip pickMove(ServerLevel level, LivingEntity target, double dist) {
+		if (com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased
+			return null;
+		}
 		FrostGiantConfig.Laufey cfg = FrostGiantConfig.laufey();
 		List<Clip> options = new ArrayList<>();
 		options.add(FrostGiantAnims.LAUFEY_SPEAR_FAN);
