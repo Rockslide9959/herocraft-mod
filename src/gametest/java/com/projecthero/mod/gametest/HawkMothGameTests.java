@@ -167,7 +167,8 @@ public class HawkMothGameTests implements FabricGameTest {
 				hm.hurt(helper.getLevel().damageSources().mobAttack(ally), 6f);
 				helper.assertTrue(near(hm.getHealth(), before), "an akuma never hurts Hawk Moth");
 			}
-			if (ally.getTarget() == hm) {
+			// (before the akuma lands it is just a zombie and may well go for him; once akumatized, never)
+			if (b != null && helper.getLevel().getGameTime() > bondedAt[0] + 1 && ally.getTarget() == hm) {
 				helper.fail("the akumatized zombie targeted Hawk Moth");
 			}
 			// once it has fought the hostile: fast-forward to the end of its 30 s
@@ -357,8 +358,14 @@ public class HawkMothGameTests implements FabricGameTest {
 		helper.assertTrue(HawkMothAkumas.offer(p) == null, "the open offer is withdrawn");
 		helper.assertFalse(hm.getAbilities().mayfly, "the swarm stops carrying him");
 		helper.assertFalse(HawkMothKit.shieldUp(hm) || HawkMothKit.flying(hm), "no kit value left");
-		// a Champion player is freed too
+		// a Champion player is freed too (Nooroo is hungry after every detransformation: fed first)
+		long settled = helper.getLevel().getGameTime() - 200L;
+		Miraculous.edit(hm, n -> {
+			n.hungry = false;
+			n.formChangeAt = settled; // (and past the gap between two changes)
+		});
 		Miraculous.transform(hm);
+		helper.assertTrue(Miraculous.transformed(hm), "transformed again");
 		long back = helper.getLevel().getGameTime() - 200L;
 		Miraculous.edit(hm, n -> n.formChangeAt = back);
 		HawkMothAkumas.makeOffer(hm, q);
