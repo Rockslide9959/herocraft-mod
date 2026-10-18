@@ -39,6 +39,10 @@ import net.minecraft.world.phys.Vec3;
  * <li>{@link #QUAKE} -- Earthquake: a ripple of heaving ground running out to {@code size} blocks; it hits whatever the
  * wave front passes (see {@link GeokinesisHandlers#quakeHit}).</li>
  * <li>{@link #SINK} -- Sinkhole: the ground caving in, a ring of rubble tipping down into the hole.</li>
+ * <li>v0.16.6 hold moves: {@link #BURROW} ({@link GeoBurrowEntity}, the mound you travel under), {@link #FISSURE} (the
+ * jagged lips of the crack, opening and grinding shut -- the crack itself is real, in {@link GeoTerrain}'s ledger),
+ * {@link #QUICKSAND} (the churning sand surface over the pool; holds what is in it) and {@link #AVALANCHE} (the rubble
+ * piling up where the rocks land).</li>
  * </ul>
  */
 public class GeoFormEntity extends Entity {
@@ -47,6 +51,14 @@ public class GeoFormEntity extends Entity {
 	public static final int SPIKE = 2;
 	public static final int QUAKE = 3;
 	public static final int SINK = 4;
+	/** v0.16.6 Burrow: the travelling mound ({@link GeoBurrowEntity}). */
+	public static final int BURROW = 5;
+	/** v0.16.6 Fissure: the lips of the crack; {@code size} = its length. */
+	public static final int FISSURE = 6;
+	/** v0.16.6 Quicksand: the pool's surface; {@code size} = its diameter. */
+	public static final int QUICKSAND = 7;
+	/** v0.16.6 Avalanche: the rubble heap in the target area; {@code size} = its diameter. */
+	public static final int AVALANCHE = 8;
 
 	private static final EntityDataAccessor<Integer> KIND = SynchedEntityData.defineId(GeoFormEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> BLOCK = SynchedEntityData.defineId(GeoFormEntity.class, EntityDataSerializers.INT);
@@ -58,6 +70,12 @@ public class GeoFormEntity extends Entity {
 	private Vec3 anchor;
 	private boolean pin = true;
 	private final Set<Integer> struck = new HashSet<>();
+	/** A ripple that only shows (the Burrow burst does its own damage). */
+	private boolean harmless;
+	/** Fissure: the surface cell (first air) over each carved column, for lifting out whatever is still down there. */
+	private final java.util.List<net.minecraft.core.BlockPos> columns = new java.util.ArrayList<>();
+	/** Fissure / Quicksand: the tick of the form's life the ground goes back on (whoever is inside is lifted out first). */
+	private int closeAt = -1;
 
 	public GeoFormEntity(EntityType<? extends GeoFormEntity> type, Level level) {
 		super(type, level);
@@ -65,12 +83,15 @@ public class GeoFormEntity extends Entity {
 	}
 
 	public static GeoFormEntity create(ServerLevel level, int kind, ServerPlayer owner, Vec3 at, BlockState block, float size, int life) {
-		GeoFormEntity f = new GeoFormEntity(GeoEntityTypes.GEO_FORM, level);
+		return init(new GeoFormEntity(GeoEntityTypes.GEO_FORM, level), kind, owner, at, block, size, life);
+	}
+
+	static <T extends GeoFormEntity> T init(T f, int kind, ServerPlayer owner, Vec3 at, BlockState block, float size, int life) {
 		f.entityData.set(KIND, kind);
 		f.entityData.set(BLOCK, Block.getId(block));
 		f.entityData.set(SIZE, size);
 		f.entityData.set(LIFE, life);
-		f.owner = owner == null ? null : owner.getUUID();
+		((GeoFormEntity) f).owner = owner == null ? null : owner.getUUID();
 		f.setPos(at.x, at.y, at.z);
 		f.setYRot(owner == null ? 0 : owner.getYRot());
 		return f;
@@ -86,6 +107,31 @@ public class GeoFormEntity extends Entity {
 	public GeoFormEntity pin(boolean pin) {
 		this.pin = pin;
 		return this;
+	}
+
+	/** A ripple that only shows: nothing it passes is hit (the Burrow burst does its own damage). */
+	public GeoFormEntity harmless() {
+		this.harmless = true;
+		return this;
+	}
+
+	/** Fissure / Quicksand: the ground goes back on tick {@code tick} of the form's life. */
+	public GeoFormEntity closeAt(int tick) {
+		this.closeAt = tick;
+		return this;
+	}
+
+	/** Fissure: remembers a carved column (its surface cell). */
+	public void addColumn(net.minecraft.core.BlockPos surface) {
+		columns.add(surface.immutable());
+	}
+
+	public java.util.List<net.minecraft.core.BlockPos> columns() {
+		return columns;
+	}
+
+	protected UUID ownerId() {
+		return owner;
 	}
 
 	@Override
@@ -135,13 +181,19 @@ public class GeoFormEntity extends Entity {
 		}
 		switch (kind()) {
 			case GRIP -> gripTick(server);
-			case QUAKE -> quakeTick(server);
+			case QUAKE -> {
+				if (!harmless) {
+					quakeTick(server);
+				}
+			}
+			case QUICKSAND -> GeokinesisHandlers.quicksandTick(server, this, ownerPlayer(server), tickCount >= closeAt && closeAt >= 0);
+			case FISSURE -> GeokinesisHandlers.fissureTick(server, this, ownerPlayer(server), tickCount == closeAt);
 			default -> {
 			}
 		}
 	}
 
-	private ServerPlayer ownerPlayer(ServerLevel server) {
+	protected ServerPlayer ownerPlayer(ServerLevel server) {
 		return owner == null ? null : server.getServer().getPlayerList().getPlayer(owner);
 	}
 

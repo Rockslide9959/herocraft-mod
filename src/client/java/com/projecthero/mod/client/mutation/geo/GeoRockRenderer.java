@@ -30,7 +30,11 @@ public class GeoRockRenderer<T extends Entity> extends EntityRenderer<T> {
 		if (entity instanceof GeoRockEntity rock) {
 			float s = rock.scale();
 			pose.translate(0, s * 0.5, 0);
-			if (rock.rising() > 0) {
+			if (rock.orbiting()) {
+				// v0.16.6 Stone Barrage: circling the hero -- turning slowly on two axes, a little bob
+				pose.mulPose(Axis.YP.rotationDegrees(t * 14 + entity.getId() * 40));
+				pose.mulPose(Axis.XP.rotationDegrees((float) Math.sin(t * 0.3 + entity.getId()) * 25));
+			} else if (rock.rising() > 0) {
 				// still coming up out of the ground: a slow wobble, no tumble yet
 				pose.mulPose(Axis.YP.rotationDegrees(t * 9));
 				pose.mulPose(Axis.ZP.rotationDegrees((float) Math.sin(t * 0.8) * 10));

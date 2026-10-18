@@ -36,6 +36,7 @@ public final class GeokinesisClient {
 		EntityRendererRegistry.register(GeoEntityTypes.GEO_ROCK, GeoRockRenderer::new);
 		EntityRendererRegistry.register(GeoEntityTypes.GEO_BOULDER, GeoRockRenderer::new);
 		EntityRendererRegistry.register(GeoEntityTypes.GEO_FORM, GeoFormRenderer::new);
+		EntityRendererRegistry.register(GeoEntityTypes.GEO_BURROW, GeoFormRenderer::new);
 	}
 
 	/** Seismic Sense: whether this client draws {@code e} outlined (the local geokinetic's sense is running and it's in range). */
@@ -124,6 +125,55 @@ public final class GeokinesisClient {
 				f(2, AIM, AIM, 0, -1.2f, 0.3f, 0, 0.3f, -0.2f, -0.3f, 0.3f, 0),
 				f(5, -1.2f, -0.3f, 0, AIM, AIM, 0, 0.3f, 0.2f, 0.3f, -0.3f, 0),
 				f(8, AIM, AIM, 0, -1.2f, 0.3f, 0, 0.3f, -0.2f, -0.3f, 0.3f, 0) });
+		// ---- v0.16.6 hold moves ----
+		// hold R, Stone Barrage: palms low and out (calling the stones up), both arms raised as they circle, then alternate
+		// punches along the aim as each one fires
+		MutationPose.register("p05.barrage", new float[][] { z(0),
+				f(4, 0.25f, 0, 0.75f, 0.25f, 0, -0.75f, 0.3f, 0, -0.3f, 0.3f, 0.25f),
+				f(11, -1.5f, 0, 0.55f, -1.5f, 0, -0.55f, -0.1f, 0, 0.1f, -0.1f, -0.15f),
+				f(17, -1.4f, 0, 0.5f, -1.4f, 0, -0.5f, -0.1f, 0, 0.1f, -0.1f, -0.1f),
+				f(19, AIM, AIM, 0, -0.6f, 0.4f, 0, 0.1f, -0.35f, -0.2f, 0.2f, 0),
+				f(24, -0.6f, -0.4f, 0, AIM, AIM, 0, 0.1f, 0.35f, 0.2f, -0.2f, 0),
+				f(29, AIM, AIM, 0, -0.6f, 0.4f, 0, 0.1f, -0.35f, -0.2f, 0.2f, 0),
+				f(34, -0.6f, -0.4f, 0, AIM, AIM, 0, 0.1f, 0.35f, 0.2f, -0.2f, 0),
+				f(39, AIM, AIM, 0, -0.6f, 0.4f, 0, 0.1f, -0.35f, -0.2f, 0.2f, 0), z(46) });
+		// hold G, Quicksand: the right palm thrust down at the target, then stirring the ground in slow circles
+		MutationPose.register("p05.quicksand", new float[][] { z(0),
+				f(3, AIM, AIM, 0, 0.3f, 0, -0.3f, 0.25f, -0.2f, -0.2f, 0.2f, 0.15f),
+				f(8, -0.9f, -0.3f, 0.5f, -0.9f, 0.3f, -0.5f, 0.45f, 0, -0.3f, 0.3f, 0.25f),
+				f(13, -0.7f, 0.3f, 0.2f, -0.7f, -0.3f, -0.2f, 0.45f, 0.15f, -0.3f, 0.3f, 0.25f),
+				f(18, -0.9f, -0.3f, 0.5f, -0.9f, 0.3f, -0.5f, 0.45f, -0.15f, -0.3f, 0.3f, 0.25f),
+				f(23, -0.7f, 0.3f, 0.2f, -0.7f, -0.3f, -0.2f, 0.45f, 0, -0.3f, 0.3f, 0.25f), z(29) });
+		// hold X, Burrow: a dive -- both arms driven straight down over the head, bent double, as you sink in (held while you
+		// travel)
+		MutationPose.registerLoop("p05.burrow", 8, new float[][] { z(0),
+				f(3, -2.9f, 0, 0.12f, -2.9f, 0, -0.12f, 0.6f, 0, -0.5f, 0.3f, 0.5f),
+				f(8, -3.1f, 0, 0.05f, -3.1f, 0, -0.05f, 1.1f, 0, -0.2f, 0.2f, 0.7f),
+				f(14, -3.0f, 0, 0.08f, -3.0f, 0, -0.08f, 1.05f, 0, -0.3f, 0.3f, 0.7f),
+				f(20, -3.1f, 0, 0.05f, -3.1f, 0, -0.05f, 1.1f, 0, -0.2f, 0.2f, 0.7f) });
+		// the burst out: arms flung up and wide, back arched, knees tucked
+		MutationPose.register("p05.burst", new float[][] {
+				f(0, -3.0f, 0, 0.1f, -3.0f, 0, -0.1f, 0.5f, 0, -0.4f, 0.4f, 0.4f),
+				f(4, -2.6f, 0, 1.2f, -2.6f, 0, -1.2f, -0.3f, 0, -0.8f, -0.6f, -0.35f),
+				f(12, -2.2f, 0, 1.3f, -2.2f, 0, -1.3f, -0.2f, 0, -0.3f, -0.2f, -0.2f), z(18) });
+		// hold Z, Fissure: both fists up, driven down into the ground -- then wrenched apart, tearing the crack open
+		MutationPose.register("p05.fissure", new float[][] { z(0),
+				f(3, -2.9f, 0, 0.2f, -2.9f, 0, -0.2f, -0.2f, 0, 0.1f, -0.1f, -0.2f),
+				f(6, -0.5f, 0, 0.1f, -0.5f, 0, -0.1f, 0.75f, 0, -0.9f, 0.4f, 0.45f),
+				f(11, -0.45f, 0, 1.0f, -0.45f, 0, -1.0f, 0.6f, 0, -0.9f, 0.4f, 0.4f),
+				f(18, -0.45f, 0, 1.05f, -0.45f, 0, -1.05f, 0.6f, 0, -0.9f, 0.4f, 0.4f), z(24) });
+		// hold V, Stone Dome: arms sweep up from the sides and close overhead as the dome closes
+		MutationPose.register("p05.dome", new float[][] { z(0),
+				f(3, 0.2f, 0, 1.3f, 0.2f, 0, -1.3f, 0.3f, 0, -0.3f, 0.3f, 0.2f),
+				f(9, -1.6f, 0, 1.4f, -1.6f, 0, -1.4f, 0.05f, 0, 0, 0, -0.1f),
+				f(14, -3.0f, 0, 0.35f, -3.0f, 0, -0.35f, -0.1f, 0, 0.1f, -0.1f, -0.3f),
+				f(22, -3.0f, 0, 0.3f, -3.0f, 0, -0.3f, -0.1f, 0, 0.1f, -0.1f, -0.3f), z(28) });
+		// hold C, Avalanche: both arms up at the sky, fists clenched -- then hauled down hard, pulling the rocks down
+		MutationPose.register("p05.avalanche", new float[][] { z(0),
+				f(4, -2.7f, -0.2f, 0.45f, -2.7f, 0.2f, -0.45f, -0.25f, 0, 0.1f, -0.1f, -0.45f),
+				f(12, -2.9f, -0.2f, 0.4f, -2.9f, 0.2f, -0.4f, -0.3f, 0, 0.1f, -0.1f, -0.5f),
+				f(17, -0.6f, 0, 0.3f, -0.6f, 0, -0.3f, 0.55f, 0, -0.5f, 0.3f, 0.35f),
+				f(26, -0.6f, 0, 0.3f, -0.6f, 0, -0.3f, 0.5f, 0, -0.5f, 0.3f, 0.3f), z(32) });
 		// Shift+C: crouch, a palm pressed flat to the ground, head down, listening
 		MutationPose.register("p05.seismic", new float[][] { z(0),
 				f(4, -0.25f, 0.1f, 0.1f, 0.2f, 0, -0.35f, 0.85f, 0, -1.0f, 0.5f, 0.5f),
