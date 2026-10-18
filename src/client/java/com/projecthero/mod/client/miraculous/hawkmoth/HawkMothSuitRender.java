@@ -38,8 +38,8 @@ import net.minecraft.world.entity.player.Player;
  * ({@code scratchpad/make_suit_skins.js}: the silver mask covers the head, the eyes and mouth are see-through, the gaps
  * filled), in a wide (Steve) and a slim (Alex) cut picked per wearer. Drawn as a second player model a hair larger than
  * the wearer's (the Nova technique: base +0.04, outer +0.29) so his own face shows through the mask's eye holes; the mask
- * itself sits at +0.62, just outside the wearer's hat layer, which stays (redrawn here: {@code PlayerModelMixin} hides
- * every overlay part while a suit shows).
+ * itself sits at +0.08 (v0.16.6: was +0.62 outside the hat layer, which looked bulky), and the wearer's own hat layer is
+ * hidden under it as the mask closes.
  *
  * <p><b>The transformation</b>: a purple wave washes out from the brooch on his chest -- every body texel turns into the
  * suit in order of how far it sits from the brooch (up the chest, down the arms and legs), a bright violet rim on the
@@ -54,6 +54,8 @@ public final class HawkMothSuitRender {
 	private static final float BROOCH = 9.5f;
 	/** The body is done by this point of the change; the mask takes the rest. */
 	private static final float BODY_END = 0.72f;
+	/** v0.16.6: how far the silver mask sits off the head (a hair over the base layer, not a bulky shell). */
+	private static final float HELMET_INFLATE = 0.08f;
 
 	private static PlayerModel<LivingEntity> wide;
 	private static PlayerModel<LivingEntity> slim;
@@ -66,9 +68,10 @@ public final class HawkMothSuitRender {
 
 	private static PlayerModel<LivingEntity> build(boolean slimArms) {
 		MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(0.04f), slimArms);
-		// the mask sits just outside the wearer's hat layer (+0.5), so only its see-through eyes and mouth show his face
+		// v0.16.6 (user: the helmet was bulky): the mask sits right on the face (+0.08, was +0.62 outside the hat layer); the
+		// wearer's own hat layer is hidden under it (HawkMothLayer), so only the see-through eyes and mouth show his face
 		mesh.getRoot().addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0).addBox(-4f, -8f, -4f, 8f, 8f, 8f,
-				new CubeDeformation(0.62f)), PartPose.offset(0f, 0f, 0f));
+				new CubeDeformation(HELMET_INFLATE)), PartPose.offset(0f, 0f, 0f));
 		return new PlayerModel<>(LayerDefinition.create(mesh, 64, 64).bakeRoot(), slimArms);
 	}
 
