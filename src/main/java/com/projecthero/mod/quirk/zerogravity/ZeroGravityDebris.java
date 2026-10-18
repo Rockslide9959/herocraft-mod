@@ -349,9 +349,14 @@ public final class ZeroGravityDebris {
 				}
 				continue;
 			}
-			// flying, homing a little
-			Vec3 want = aim.subtract(pc.pos).normalize().scale(ZeroGravityConfig.SHOWER_SPEED);
-			pc.vel = pc.vel.lerp(want, 0.15);
+			// flying, homing a little -- until it is nearly there (then straight on, into the ground if it missed)
+			if (pc.pos.distanceToSqr(aim) > 2.25) {
+				Vec3 want = aim.subtract(pc.pos).normalize().scale(ZeroGravityConfig.SHOWER_SPEED);
+				pc.vel = pc.vel.lerp(want, 0.15);
+			}
+			if (pc.vel.lengthSqr() < 0.25) {
+				pc.vel = new Vec3(pc.vel.x, -ZeroGravityConfig.SHOWER_SPEED, pc.vel.z);
+			}
 			Vec3 next = pc.pos.add(pc.vel);
 			if (impactAlong(p, s, pc.pos, next, ZeroGravityConfig.SHOWER_DAMAGE, ZeroGravityConfig.SHOWER_SPLASH, 0.4)) {
 				remove(level, pc, true);

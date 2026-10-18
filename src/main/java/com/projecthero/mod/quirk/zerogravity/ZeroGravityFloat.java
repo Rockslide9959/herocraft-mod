@@ -179,7 +179,8 @@ public final class ZeroGravityFloat {
 		e.addTag(ZeroGravity.TAG_FLOAT);
 		e.setOnGround(false);
 		Vec3 v = e.getDeltaMovement();
-		e.setDeltaMovement(v.x * 0.3, Math.max(v.y, ZeroGravityConfig.FLOAT_LIFT_SPEED), v.z * 0.3);
+		// a gentle, even lift (a hit's own knock-up is replaced, or it would overshoot its hover height)
+		e.setDeltaMovement(v.x * 0.3, ZeroGravityConfig.FLOAT_LIFT_SPEED, v.z * 0.3);
 		e.hurtMarked = true;
 		if (e instanceof Mob m) {
 			m.getNavigation().stop();
