@@ -194,7 +194,12 @@ public final class RenaRougeMoves {
 		}
 		Vec3 look = p.getLookAngle();
 		Vec3 from = p.getEyePosition().add(0, -0.25, 0).add(look.scale(0.6));
-		f.launch(p, from, look);
+		// v0.16.6 (user: "when i aim at something it doesnt actually hit them"): lock what is under the crosshair (with a
+		// little aim assist) so the arc ends on it, else the block / spot you aim at
+		LivingEntity lock = fluteTarget(p);
+		Vec3 aim = lock != null ? lock.position().add(0, lock.getBbHeight() * 0.5, 0)
+				: com.projecthero.mod.hero.power.AbilityHelpers.aimPoint(p, RenaRougeConfig.THROW_RANGE);
+		f.launch(p, from, aim, lock);
 		p.serverLevel().addFreshEntity(f);
 		Miraculous.setVal(p, RenaRouge.V_FLUTE_OUT, 1L);
 		Miraculous.setAnim(p, RenaRouge.ANIM_THROW);
@@ -204,6 +209,36 @@ public final class RenaRougeMoves {
 	}
 
 	/** The Flute is back in her hand; the throw's cooldown starts now. */
+	/**
+	 * The Flute Throw's target: the creature under the crosshair, else the valid target nearest the crosshair within
+	 * {@link RenaRougeConfig#THROW_ASSIST_DEGREES} and {@link RenaRougeConfig#THROW_RANGE} that she can see.
+	 */
+	static @Nullable LivingEntity fluteTarget(ServerPlayer p) {
+		LivingEntity direct = com.projecthero.mod.hero.power.AbilityHelpers.raycastEntity(p, RenaRougeConfig.THROW_RANGE);
+		if (direct != null && RenaRougeCombat.isTarget(p, direct)) {
+			return direct;
+		}
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double cos = Math.cos(Math.toRadians(RenaRougeConfig.THROW_ASSIST_DEGREES));
+		LivingEntity best = null;
+		double bestDot = cos;
+		for (LivingEntity le : p.serverLevel().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(RenaRougeConfig.THROW_RANGE),
+				e -> e != p && e.isAlive() && RenaRougeCombat.isTarget(p, e))) {
+			Vec3 to = le.position().add(0, le.getBbHeight() * 0.5, 0).subtract(eye);
+			double d = to.length();
+			if (d < 0.5 || d > RenaRougeConfig.THROW_RANGE) {
+				continue;
+			}
+			double dot = to.scale(1.0 / d).dot(look);
+			if (dot > bestDot && p.hasLineOfSight(le)) {
+				bestDot = dot;
+				best = le;
+			}
+		}
+		return best;
+	}
+
 	public static void fluteCaught(ServerPlayer p, FluteBoomerangEntity f) {
 		if (!Miraculous.holds(p, Kwami.TRIXX)) {
 			return;

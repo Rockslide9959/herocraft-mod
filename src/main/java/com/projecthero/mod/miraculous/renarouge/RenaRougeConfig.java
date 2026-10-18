@@ -50,6 +50,10 @@ public final class RenaRougeConfig {
 	public static final int THROW_OUT_TICKS = 16;
 	/** The arc bows this far to the side (blocks) at its widest. */
 	public static final double THROW_CURVE = 3.5;
+	/** v0.16.6 (user: the throw missed what was aimed at): aim assist -- a target this close to the crosshair (degrees) is locked. */
+	public static final double THROW_ASSIST_DEGREES = 6.0;
+	/** The arc's sideways bow is at most this share of the distance to the target (a near throw curves little). */
+	public static final double THROW_CURVE_PER_BLOCK = 0.18;
 	/** Coming back: blocks a tick. */
 	public static final double THROW_RETURN_SPEED = 1.3;
 	/** It gives up and pops back into her hand after this long. */

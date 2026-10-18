@@ -158,8 +158,9 @@ public class RenaRougeGameTests implements FabricGameTest {
 	public void fluteThrowHitsAndComesBack(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = rena(helper, 4.5, 2.0, 1.5);
-		// the arc bows to her right (-X when facing +Z): about 1.7 blocks out at 4 blocks along
-		Zombie z = mob(helper, EntityType.ZOMBIE, 2.9, 2.0, 5.0, 100, false);
+		// v0.16.6 (user: the throw missed what was aimed at): a zombie straight under the crosshair 5 blocks ahead -- the old
+		// fixed bow swung 3+ blocks wide of it; the arc now ends on what she aims at
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.5, 100, false);
 		pump(helper, p);
 		FluteBoomerangEntity f = RenaRougeMoves.throwFlute(p);
 		helper.assertTrue(f != null && RenaRouge.fluteOut(p), "the flute is out");
@@ -171,6 +172,21 @@ public class RenaRougeGameTests implements FabricGameTest {
 			helper.assertTrue(f.isRemoved(), "the flute came back and was caught");
 			helper.assertTrue(!RenaRouge.fluteOut(p), "the flute is no longer out");
 			helper.assertTrue(Miraculous.state(p).abilityReadyAt.containsKey(RenaRougeConfig.THROW), "the throw's cooldown was set on the catch");
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.6: aim assist -- a zombie a few degrees off the crosshair is locked and hit. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void fluteThrowAimAssistLocksANearMiss(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = rena(helper, 4.5, 2.0, 1.5);
+		// about 4 degrees to her left of the crosshair, 7 blocks out
+		Zombie z = mob(helper, EntityType.ZOMBIE, 5.0, 2.0, 8.5, 100, false);
+		pump(helper, p);
+		helper.assertTrue(RenaRougeMoves.throwFlute(p) != null, "thrown");
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(z.getHealth() <= 100f - RenaRougeConfig.THROW_DAMAGE + EPS, "the near miss was locked and hit, health " + z.getHealth());
 			helper.succeed();
 		});
 	}

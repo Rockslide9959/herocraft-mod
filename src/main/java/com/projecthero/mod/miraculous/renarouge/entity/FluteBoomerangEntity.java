@@ -39,8 +39,12 @@ public class FluteBoomerangEntity extends Entity {
 
 	private @Nullable UUID owner;
 	private Vec3 start = Vec3.ZERO;
-	private Vec3 fwd = new Vec3(0, 0, 1);
+	/** Where the outbound arc ends: the locked creature's centre (followed each tick) or the aimed spot. */
+	private Vec3 aim = Vec3.ZERO;
+	/** The creature the throw was aimed at (-1 = none). */
+	private int lockId = -1;
 	private Vec3 side = new Vec3(1, 0, 0);
+	private int outTicks = RenaRougeConfig.THROW_OUT_TICKS;
 	private int age;
 	private boolean returning;
 	private final Set<Integer> hitOut = new HashSet<>();
@@ -56,15 +60,21 @@ public class FluteBoomerangEntity extends Entity {
 		builder.define(OWNER_ID, -1);
 	}
 
-	/** Thrown by {@code thrower} from {@code from} along {@code look} (curving to her right). */
-	public void launch(ServerPlayer thrower, Vec3 from, Vec3 look) {
+	/**
+	 * Thrown by {@code thrower} from {@code from} at {@code aimAt} (v0.16.6: the arc ENDS there, so what is under the
+	 * crosshair is hit), curving to her right; {@code lock} (nullable) is followed if it moves.
+	 */
+	public void launch(ServerPlayer thrower, Vec3 from, Vec3 aimAt, @Nullable LivingEntity lock) {
 		owner = thrower.getUUID();
 		entityData.set(OWNER_ID, thrower.getId());
 		start = from;
-		Vec3 flat = new Vec3(look.x, 0, look.z);
-		fwd = look.normalize();
-		Vec3 right = flat.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : new Vec3(-flat.z, 0, flat.x).normalize();
-		side = right;
+		aim = aimAt;
+		lockId = lock == null ? -1 : lock.getId();
+		Vec3 dir = aimAt.subtract(from);
+		Vec3 flat = new Vec3(dir.x, 0, dir.z);
+		side = flat.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : new Vec3(-flat.z, 0, flat.x).normalize();
+		// the same speed as a full-range throw, so a near target is reached sooner
+		outTicks = Math.max(5, (int) Math.round(RenaRougeConfig.THROW_OUT_TICKS * Math.min(1.0, dir.length() / RenaRougeConfig.THROW_RANGE)));
 		setPos(from.x, from.y, from.z);
 	}
 
@@ -102,10 +112,17 @@ public class FluteBoomerangEntity extends Entity {
 		Vec3 prev = position();
 		Vec3 next;
 		if (!returning) {
-			double t = Math.min(1.0, age / (double) RenaRougeConfig.THROW_OUT_TICKS);
-			double out = RenaRougeConfig.THROW_RANGE * Math.sin(t * Math.PI / 2.0);
-			double bow = RenaRougeConfig.THROW_CURVE * Math.sin(t * Math.PI);
-			next = start.add(fwd.scale(out)).add(side.scale(bow));
+			// follow a locked target that moves
+			if (lockId >= 0 && level().getEntity(lockId) instanceof LivingEntity le && le.isAlive()) {
+				aim = le.position().add(0, le.getBbHeight() * 0.5, 0);
+			}
+			// a quadratic arc from the hand that lands exactly on the aim point, bowed to the right mid-flight
+			double t = Math.min(1.0, age / (double) outTicks);
+			double e = Math.sin(t * Math.PI / 2.0);
+			double dist = aim.distanceTo(start);
+			double bow = Math.min(RenaRougeConfig.THROW_CURVE, dist * RenaRougeConfig.THROW_CURVE_PER_BLOCK);
+			Vec3 control = start.add(aim).scale(0.5).add(side.scale(bow * 2.0));
+			next = start.scale((1 - e) * (1 - e)).add(control.scale(2 * (1 - e) * e)).add(aim.scale(e * e));
 			HitResult wall = level().clip(new ClipContext(prev, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
 			if (wall.getType() != HitResult.Type.MISS) {
 				next = wall.getLocation().add(prev.subtract(next).normalize().scale(0.2));
