@@ -3,7 +3,11 @@
 //   * Endeavor (skin 15896107 "Sloth endeavour"): the user does not like its mask -> the whole head (base + hat) goes;
 //     the Hellflame Cloak's own flame beard / brows are the head look;
 //   * Uravity (24262834): hair, face, eyes go; the pink helmet pods stay;
-//   * Eraser Head (23927756): hair and face go; the yellow goggles and their dark lenses stay.
+//   * Eraser Head (23927756): hair and face go; the yellow goggles and their dark lenses stay;
+//   * Ingenium (planetminecraft 13983559, the hero suit): hair, face, glasses go; the helmet rim stays;
+//   * Overhaul (planetminecraft "chisaki" 11899997): the user does not want its head -- our own white plague-doctor
+//     beak mask (from the kit costume) goes on instead.
+// Usage: node scratchpad/quirk_user_skins_v0167.js <dir> [ids...]   (ids: only redo those)
 // Writes textures/entity/quirk/<id>_wide.png and _slim.png (slim arms converted from the source's arms).
 // Usage: node scratchpad/quirk_user_skins_v0167.js <dir with endeavor.png uravity.png eraserhead.png>
 'use strict';
@@ -42,6 +46,17 @@ function cut(name, img) {
 			}
 			return true;
 		}
+		if (name === 'engine') {
+			// only PALE skin goes (the suit's gold leg / knee details are skin-coloured too)
+			if (skinTone(r, g, b) && b >= 150) return false;
+			// the head: Iida's hair and face go; only the dark navy helmet rim on the hat layer stays
+			if (inHead(x, y)) return x >= 32 && r < 50 && g < 60 && b < 90 && b > r;
+			return true;
+		}
+		if (name === 'overhaul') {
+			if (inHead(x, y)) return false; // the user: not the skin's head -- our own plague-doctor mask goes on instead
+			return !skinTone(r, g, b);
+		}
 		if (name === 'erasure') {
 			if (skinTone(r, g, b)) return false;
 			if (inHead(x, y)) {
@@ -71,10 +86,14 @@ function isSlim(img) { // a slim skin leaves x 54..55 of the right arm's front r
 	return true;
 }
 
-for (const [file, id] of [['endeavor.png', 'hellflame'], ['uravity.png', 'zero_gravity'], ['eraserhead.png', 'erasure']]) {
+// the plague-doctor beak mask (our own, from the v0.16.7 Overhaul kit's costume) is laid over the cut Chisaki head
+const MASK = T.decode(path.join(OUT, 'overhaul_wide.png'));
+for (const [file, id] of [['endeavor.png', 'hellflame'], ['uravity.png', 'zero_gravity'], ['eraserhead.png', 'erasure'], ['ingenium.png', 'engine'], ['chisaki.png', 'overhaul']]) {
+	if (process.argv[3] && !process.argv.slice(3).includes(id)) continue;
 	const img = T.decode(path.join(SRC, file));
 	const slim = isSlim(img);
 	const n = cut(id, img);
+	if (id === 'overhaul') for (let y = 0; y < 16; y++) for (let x = 0; x < 64; x++) { const i = (y * 64 + x) * 4; MASK.px.copy(img.px, i, i, i + 4); }
 	const wide = slim ? T.convertArms(img, false) : img;
 	const slimImg = slim ? img : T.convertArms(img, true);
 	fs.writeFileSync(path.join(OUT, id + '_wide.png'), T.encode(64, 64, wide.px));
