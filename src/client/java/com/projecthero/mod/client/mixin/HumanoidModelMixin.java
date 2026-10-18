@@ -342,6 +342,7 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
 		if (entity instanceof Player player) {
 			com.projecthero.mod.client.miraculous.MiraculousClient.applyPose(player, (HumanoidModel<?>) (Object) this);
+			com.projecthero.mod.client.quirk.QuirkClient.applyPose(player, (HumanoidModel<?>) (Object) this);
 		}
 	}
 

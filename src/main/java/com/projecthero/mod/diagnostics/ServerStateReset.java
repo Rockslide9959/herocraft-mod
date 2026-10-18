@@ -174,6 +174,8 @@ public final class ServerStateReset {
 		com.projecthero.mod.ghostrider.GhostRiderMod.clearSessionState();
 		// v0.16.6: the Miraculous core + kits (move sessions, summoned things)
 		com.projecthero.mod.miraculous.MiraculousMod.clearSessionState();
+		// v0.16.7: the Quirk core + kits, and Erasure's power suppression
+		com.projecthero.mod.quirk.QuirkMod.clearSessionState();
 		// v0.16.6: open spawn-in calling offers
 		com.projecthero.mod.calling.SpawnCallings.clearSessionState();
 		// v0.16.6: keys waiting to be resolved as tap or hold

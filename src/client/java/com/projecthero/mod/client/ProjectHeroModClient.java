@@ -134,6 +134,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		// v0.16.5: Ghost Rider -- the skin layer + flaming skull, HUD, chain, Judgement Mark outlines, Hell Cycle, contract screen
 		com.projecthero.mod.client.ghostrider.GhostRiderClient.initialize();
 		com.projecthero.mod.client.miraculous.MiraculousClient.initialize();
+		// v0.16.7: the Quirks
+		com.projecthero.mod.client.quirk.QuirkClient.initialize();
 		// v0.16.5: Cyborg -- the plates layer, HUD, cannon beam / Defense Matrix, Scan outlines
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash

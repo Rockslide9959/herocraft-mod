@@ -898,6 +898,19 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.miraculous.data.MiraculousState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.7: the Quirk holders (Hellflame / Overhaul / Engine / Dark Shadow / Erasure / Explosion / Zero Gravity) -- the
+	 * power, the costume toggle, the meter, overload, the move timers and the kits' synced values. Persistent, kept
+	 * through death and synced to every client.
+	 */
+	public static final AttachmentType<com.projecthero.mod.quirk.data.QuirkState> QUIRK_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("quirk_state"),
+					builder -> builder.persistent(com.projecthero.mod.quirk.data.QuirkState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.quirk.data.QuirkState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.quirk.data.QuirkState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/** v0.16.5: Cyborg (Victor Stone) -- the power, the form, the Power Core, the move timers and the visible effects. */
 	public static final AttachmentType<com.projecthero.mod.cyborg.data.CyborgState> CYBORG_STATE =
 			AttachmentRegistry.create(ProjectHeroMod.id("cyborg_state"),

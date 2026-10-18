@@ -55,6 +55,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 				// v0.16.5: Ghost Rider is drawn the same way
 				|| com.projecthero.mod.client.ghostrider.GhostRiderRender.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.miraculous.MiraculousClient.hidesSkinOverlay(player)
+				|| com.projecthero.mod.client.quirk.QuirkClient.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player)) {
 			model.hat.visible = false;
 			model.jacket.visible = false;

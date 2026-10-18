@@ -196,6 +196,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.miraculous.MiraculousAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.16.7: a Quirk holder, on the same terms
+		if (com.projecthero.mod.quirk.QuirkAbilityManager.hasContext(player)) {
+			com.projecthero.mod.quirk.QuirkAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.16.5: Ghost Rider, on the same terms
 		if (com.projecthero.mod.ghostrider.GhostRiderAbilityManager.hasContext(player)) {
 			com.projecthero.mod.ghostrider.GhostRiderAbilityManager.handle(player, slot, pressed);
@@ -316,6 +321,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.ghostrider.GhostRider.tick(player);
 		// v0.16.6: the Miraculous holders -- the countdown, the Kwami, the running moves
 		com.projecthero.mod.miraculous.Miraculous.tick(player);
+		// v0.16.7: the Quirk holders -- the meter, overload, the running moves
+		com.projecthero.mod.quirk.Quirks.tick(player);
 		// v0.16.5: Cyborg -- the Power Core, passives, the running moves, hacked machines
 		com.projecthero.mod.cyborg.Cyborg.tick(player);
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves

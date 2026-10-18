@@ -136,6 +136,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.ghostrider.GhostRiderMod.initialize();
 		// v0.16.6: the Miraculous Kwamis -- Tikki / Ladybug, Plagg / Cat Noir, Trixx / Rena Rouge (core + three kits)
 		com.projecthero.mod.miraculous.MiraculousMod.initialize();
+		// v0.16.7: the Quirks -- Hellflame, Overhaul, Engine, Dark Shadow, Erasure, Explosion, Zero Gravity (core + seven kits)
+		com.projecthero.mod.quirk.QuirkMod.initialize();
 		// v0.16.6: the spawn-in callings -- 5% the Green Lantern ring, else 5% a Miraculous, offered on a player's first spawn
 		com.projecthero.mod.calling.SpawnCallings.initialize();
 		// v0.16.5: Cyborg -- damage rules, payloads, lifecycle hooks (the Mother Box grants it)
