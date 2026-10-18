@@ -30,8 +30,7 @@ pets, and players only when PvP is on.
 
 ## CATACLYSM
 
-- **The call.** The main hand crackles with black and violet energy for 10 s: a dark wrap and a purple swirl on the
-  arm, in third and first person, plus particles. The core's 5-minute countdown starts **when it is called**, because
+- **The call.** The main hand crackles with dark destruction energy for 10 s (see **CATACLYSM visuals** below). The core's 5-minute countdown starts **when it is called**, because
   in the show calling the power is what spends the Miraculous.
 - **One touch.** A punch on a block, a right-click on a block, or an attack on a creature.
   - **On a block:** the block and every block joined to it face-to-face within 4 blocks crumble to dust in a spreading
@@ -46,6 +45,29 @@ pets, and players only when PvP is on.
 - **Once per transformation.** After a touch the baton is rotted black for the rest of the transformation (state flag
   `cn_rotted`). If the charge runs out untouched it fizzles, and it can be called again after 20 s. The countdown keeps
   running either way.
+
+## CATACLYSM visuals (`CataclysmFx`, v0.16.6 rework)
+
+Real geometry, not an enchantment-style arm overlay (the old `cataclysm_dark` / `cataclysm_swirl` wrap is gone).
+
+- **The hand** (third person for every viewer, and first person). Churning dark matter clings to the fist only (an
+  animated box over the last 4 pixels of the arm). At the open palm sits a ball of crackling darkness, billboarded
+  to the camera:
+  - a sickly green-black edge and a soft dark halo, with swirling near-black smoke wisps (8-frame animated sheet)
+    over them;
+  - black lightning arcs with a dark violet glow, drawn as segmented ribbons and re-forked every 2 ticks;
+  - green and violet sparks, plus faint green-black motes drifting off (particles).
+  - **Forming:** over the call animation the sparks pull in, the ball swells and it throws off a ring of smoke.
+  - First person uses a compact version above the fist, so it never blots out the view.
+- **On a block.** The server sends `CataclysmFxPayload` (the crumbling blocks). Each block blackens from the side
+  facing the touch: dark veins race ahead of a blotchy black front, then grey fracture lines split it. These are
+  decals on its open faces (8 stages of `cataclysm_corrode.png`), timed to the server's rings. When it falls it
+  breaks into tumbling charcoal chunks (voxel debris) and black dust. The server no longer sends vanilla crack
+  stages, and the block is removed without the vanilla stone-chip particles.
+- **On a creature.** It turns dark and cracks for 3.5 s (`CataclysmTouchLayer`, on every living renderer). Its
+  shattered armour bursts into grey chunks that blacken as they fall, and a dark surge bursts from the point of contact.
+- **Sound:** a low sculk bloom surge, then the deepslate rumble and sand-like crumbling.
+- Textures are made by `scratchpad/make_cataclysm_textures.js` (Node, no Python).
 
 ## Suit and visuals (`client/miraculous/catnoir`)
 
@@ -67,7 +89,7 @@ pets, and players only when PvP is on.
   - It is drawn in the world for Extend (up to 15 blocks) and the Vault pole (`CatNoirWorldFx`).
   - It has its own entity renderer when thrown, and a rotted texture after Cataclysm.
 - **First person.** The suit sleeve is drawn on the arm. During baton moves and the Cataclysm charge, the main hand
-  shows the bare gloved arm with the baton or the energy wrap (`CatNoirItemInHandMixin`). In third person, the held
+  shows the bare gloved arm with the baton or the Cataclysm energy (`CatNoirItemInHandMixin`). In third person, the held
   item is hidden at those times.
 - **Poses** (`CatNoirPose`, animation ids 40-55): three strike swings, the sweep crouch, the extend thrust, the
   throw and catch, the vault plant and ride, the spin, the leap, the pounce, a hand to the mask, the reflex guard,

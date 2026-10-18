@@ -28,11 +28,11 @@ import org.joml.Vector3f;
  * v0.16.6: the long baton, drawn in the world (it reaches far past the player's model): <b>Baton Extend</b> shooting
  * out up to 15 blocks from the hand along the direction it was cast, and the <b>Pole Vault</b> pole from where it is
  * planted up to his hands as it carries him into the air -- both telescoping tube by tube ({@link CatNoirBaton}). Also
- * the CATACLYSM hand's crackle (client particles, every viewer).
+ * the CATACLYSM hand's drifting motes (client particles, every viewer; the hand itself is {@link CataclysmFx}).
  */
 public final class CatNoirWorldFx {
 	private static final DustParticleOptions BLACK = new DustParticleOptions(new Vector3f(0.04f, 0.02f, 0.06f), 0.45f);
-	private static final DustParticleOptions PURPLE = new DustParticleOptions(new Vector3f(0.45f, 0.12f, 0.7f), 0.4f);
+	private static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.16f, 0.34f, 0.08f), 0.35f);
 
 	private CatNoirWorldFx() {
 	}
@@ -113,7 +113,7 @@ public final class CatNoirWorldFx {
 		pose.popPose();
 	}
 
-	/** Each client tick: the charged hands crackle (black and violet sparks, every viewer). */
+	/** Each client tick: faint green-black motes drift off the charged hands (every viewer). */
 	public static void tickParticles(Minecraft mc) {
 		if (mc.level == null || mc.isPaused()) {
 			return;
@@ -131,22 +131,19 @@ public final class CatNoirWorldFx {
 					? p.getEyePosition().add(p.getLookAngle().scale(0.6)).add(right.scale(0.45)).add(0, -0.35, 0)
 					: p.position().add(right.scale(0.36)).add(fwd.scale(0.55)).add(0, 1.55, 0);
 			if (first) {
-				// his own view: only a faint violet fizz, never black blots over the screen
-				if (level.random.nextInt(2) == 0) {
-					level.addParticle(ParticleTypes.REVERSE_PORTAL, hand.x, hand.y, hand.z, 0, 0, 0);
+				// his own view: only the odd faint green mote, never black blots over the screen
+				if (level.random.nextInt(4) == 0) {
+					level.addParticle(GREEN, hand.x, hand.y, hand.z, 0, 0.02, 0);
 				}
 				continue;
 			}
-			for (int i = 0; i < 2; i++) {
-				double ox = (level.random.nextDouble() - 0.5) * 0.3, oy = (level.random.nextDouble() - 0.5) * 0.3, oz = (level.random.nextDouble() - 0.5) * 0.3;
-				level.addParticle(i % 2 == 0 ? BLACK : PURPLE, hand.x + ox, hand.y + oy, hand.z + oz, 0, 0.02, 0);
+			if (level.random.nextInt(2) == 0) {
+				double ox = (level.random.nextDouble() - 0.5) * 0.4, oy = (level.random.nextDouble() - 0.5) * 0.4, oz = (level.random.nextDouble() - 0.5) * 0.4;
+				level.addParticle(level.random.nextInt(3) == 0 ? GREEN : BLACK, hand.x + ox, hand.y + oy, hand.z + oz, 0, 0.025, 0);
 			}
 			if (level.random.nextInt(8) == 0) {
 				level.addParticle(ParticleTypes.SMOKE, hand.x, hand.y, hand.z, (level.random.nextDouble() - 0.5) * 0.04, 0.03,
 						(level.random.nextDouble() - 0.5) * 0.04);
-			}
-			if (level.random.nextInt(4) == 0) {
-				level.addParticle(ParticleTypes.REVERSE_PORTAL, hand.x, hand.y, hand.z, 0, 0, 0);
 			}
 		}
 	}
