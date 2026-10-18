@@ -38,10 +38,27 @@ public class WindFxEntity extends Entity {
 	public static final int PUSH = 2;
 	public static final int DASH = 3;
 	public static final int UPDRAFT = 4;
+	/** v0.16.6 G hold: the collapsing bubble of air round a Suffocate victim's head (it follows the victim). */
+	public static final int SUFFOCATE = 5;
+	/** v0.16.6 X hold: a Sky Step ring of air left under the feet. */
+	public static final int STEP = 6;
+	/** v0.16.6 C hold: the Downburst's down-rushing column and the ring it leaves on the ground. */
+	public static final int DOWNBURST = 7;
 
 	/** Vacuum: the pull, then the hold (1 s), then a short fade. */
 	public static final int VACUUM_PULL_TICKS = 10;
 	public static final int VACUUM_HOLD_TICKS = 20;
+	/** Downburst: the column takes this long to come down before it lands. */
+	public static final int DOWNBURST_DROP_TICKS = 8;
+
+	private static final net.minecraft.resources.ResourceLocation SUFFOCATE_SLOW = com.projecthero.mod.ProjectHeroMod.id("wind_suffocate_slow");
+	private static final net.minecraft.resources.ResourceLocation SUFFOCATE_JUMP = com.projecthero.mod.ProjectHeroMod.id("wind_suffocate_jump");
+	/** Ids of creatures being suffocated right now (a player victim's client stops sprinting off the synced flag). */
+	private static final java.util.Set<Integer> SUFFOCATED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+	/** Suffocate: the victim, and whether it is only slowed (a boss / anything the wind cannot carry). */
+	private LivingEntity victim;
+	private boolean victimOnlySlowed;
 
 	private static final EntityDataAccessor<Integer> KIND = SynchedEntityData.defineId(WindFxEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> MAX_LIFE = SynchedEntityData.defineId(WindFxEntity.class, EntityDataSerializers.INT);
@@ -104,6 +121,110 @@ public class WindFxEntity extends Entity {
 		}
 	}
 
+	// ---------------- v0.16.6 Suffocate ----------------
+
+	/** Suffocate takes hold of {@code target}: this effect follows it, its jumps go and it slows (a boss only slows). */
+	public void startSuffocate(LivingEntity target) {
+		victim = target;
+		victimOnlySlowed = !WindHandlers.movable(target);
+		entityData.set(FOLLOW, target.getId());
+		SUFFOCATED.add(target.getId());
+		net.minecraft.world.entity.ai.attributes.AttributeInstance speed = target.getAttribute(
+				net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+		if (speed != null) {
+			speed.addOrUpdateTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(SUFFOCATE_SLOW,
+					victimOnlySlowed ? -0.35 : -0.25, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+		}
+		if (!victimOnlySlowed) {
+			net.minecraft.world.entity.ai.attributes.AttributeInstance jump = target.getAttribute(
+					net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH);
+			if (jump != null) {
+				jump.addOrUpdateTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(SUFFOCATE_JUMP, -1.0,
+						net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			}
+			target.setSprinting(false);
+		}
+	}
+
+	/** Whose effect this is (server side; gametests). */
+	public UUID ownerId() {
+		return owner;
+	}
+
+	/** Suffocate's victim (gametests), or null. */
+	public LivingEntity victim() {
+		return victim;
+	}
+
+	/** Whether {@code e} is being suffocated right now (synced as p24.suffocated for a player victim). */
+	public static boolean isSuffocated(Entity e) {
+		return SUFFOCATED.contains(e.getId());
+	}
+
+	public static void clearSessionState() {
+		SUFFOCATED.clear();
+	}
+
+	private void releaseVictim() {
+		if (victim == null) {
+			return;
+		}
+		LivingEntity v = victim;
+		victim = null;
+		SUFFOCATED.remove(v.getId());
+		net.minecraft.world.entity.ai.attributes.AttributeInstance speed = v.getAttribute(
+				net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+		if (speed != null) {
+			speed.removeModifier(SUFFOCATE_SLOW);
+		}
+		net.minecraft.world.entity.ai.attributes.AttributeInstance jump = v.getAttribute(
+				net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH);
+		if (jump != null) {
+			jump.removeModifier(SUFFOCATE_JUMP);
+		}
+	}
+
+	private void suffocateTick(ServerLevel level) {
+		LivingEntity v = victim;
+		ServerPlayer p = owner == null ? null : (ServerPlayer) level.getPlayerByUUID(owner);
+		if (v == null || !v.isAlive() || v.level() != level || p == null) {
+			discard();
+			return;
+		}
+		if (!victimOnlySlowed) {
+			v.setSprinting(false);
+			if (v instanceof Mob m) {
+				m.setJumping(false);
+			}
+		}
+		if (tickCount % 20 == 0) {
+			AbilityHelpers.hurtBurst(p, v, WindHandlers.SUFFOCATE_DPS);
+			level.sendParticles(ParticleTypes.CLOUD, v.getX(), v.getEyeY(), v.getZ(), 4, 0.25, 0.15, 0.25, 0.01);
+		}
+		if (tickCount % 8 == 0) {
+			// the air being drawn out of the bubble
+			level.sendParticles(ParticleTypes.POOF, v.getX(), v.getEyeY(), v.getZ(), 1, 0.3, 0.2, 0.3, 0.01);
+		}
+	}
+
+	// ---------------- v0.16.6 Downburst ----------------
+
+	private void downburstTick(ServerLevel level) {
+		if (tickCount != DOWNBURST_DROP_TICKS) {
+			return;
+		}
+		ServerPlayer p = owner == null ? null : (ServerPlayer) level.getPlayerByUUID(owner);
+		if (p != null) {
+			WindHandlers.downburstImpact(p, position());
+		}
+	}
+
+	@Override
+	public void remove(RemovalReason reason) {
+		releaseVictim();
+		super.remove(reason);
+	}
+
 	@Override
 	public void tick() {
 		super.tick();
@@ -122,6 +243,10 @@ public class WindFxEntity extends Entity {
 		}
 		if (kind() == VACUUM) {
 			vacuumTick(level);
+		} else if (kind() == SUFFOCATE) {
+			suffocateTick(level);
+		} else if (kind() == DOWNBURST) {
+			downburstTick(level);
 		}
 	}
 
@@ -181,6 +306,15 @@ public class WindFxEntity extends Entity {
 	@Override
 	public boolean isPushable() {
 		return false;
+	}
+
+	/** The Downburst column stands 16 blocks over its little entity: keep it drawn while any of it is on screen. */
+	@Override
+	public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+		if (kind() == DOWNBURST) {
+			return getBoundingBox().inflate(4.0, 0.0, 4.0).expandTowards(0, 17.0, 0);
+		}
+		return super.getBoundingBoxForCulling();
 	}
 
 	@Override

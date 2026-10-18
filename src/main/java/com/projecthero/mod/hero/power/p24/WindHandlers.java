@@ -129,6 +129,50 @@ public final class WindHandlers {
 	public static final int BUBBLE_TICKS = 20 * 20;
 	public static final double BUBBLE_RADIUS = 4.0;
 
+	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s). Each has its own cooldown (ticks, from the cast). ----
+	/** R hold: Cyclone Blade -- one huge spinning blade of air, 3 blocks across. */
+	public static final float COST_CYCLONE = 25.0f;
+	public static final float CYCLONE_DAMAGE = 22.0f;
+	public static final double CYCLONE_RANGE = 40.0;
+	public static final double CYCLONE_SPEED = 1.4;
+	/** Half its width: everything within 1.5 blocks of its path is cut. */
+	public static final double CYCLONE_HALF_WIDTH = 1.5;
+	public static final int CYCLONE_COOLDOWN = 5 * 20;
+	/** G hold: Suffocate -- the air round the target is stolen for 5 s. */
+	public static final float COST_SUFFOCATE = 30.0f;
+	public static final double SUFFOCATE_RANGE = 20.0;
+	public static final int SUFFOCATE_TICKS = 5 * 20;
+	public static final float SUFFOCATE_DPS = 3.0f;
+	public static final int SUFFOCATE_COOLDOWN = 10 * 20;
+	/** X hold: Sky Step -- 10 s of walking on air, up to 5 mid-air jumps. */
+	public static final float COST_SKYSTEP = 20.0f;
+	public static final int SKYSTEP_TICKS = 10 * 20;
+	public static final int SKYSTEP_JUMPS = 5;
+	/** The client's mid-air jump (a little higher than a normal 0.42 jump). */
+	public static final double SKYSTEP_JUMP_SPEED = 0.62;
+	public static final int SKYSTEP_COOLDOWN = 12 * 20;
+	/** Z hold: Twin Tornadoes -- two funnels orbit you for 8 s. */
+	public static final float COST_TWIN = 45.0f;
+	public static final int TWIN_TICKS = 8 * 20;
+	public static final float TWIN_DPS = 4.0f;
+	public static final double TWIN_ORBIT_RADIUS = 3.5;
+	/** A creature this close to a twin funnel's axis is touched by it. */
+	public static final double TWIN_TOUCH = 1.6;
+	public static final int TWIN_COOLDOWN = 14 * 20;
+	/** V hold: Eye of the Storm -- a calm bubble round you for 8 s. */
+	public static final float COST_EYE = 35.0f;
+	public static final int EYE_TICKS = 8 * 20;
+	public static final double EYE_RADIUS = 5.0;
+	public static final int EYE_COOLDOWN = 16 * 20;
+	/** C hold: Downburst -- a column of air slammed down on the aim point. */
+	public static final float COST_DOWNBURST = 30.0f;
+	public static final double DOWNBURST_RANGE = 24.0;
+	/** 6 blocks across. */
+	public static final double DOWNBURST_RADIUS = 3.0;
+	public static final float DOWNBURST_DAMAGE = 18.0f;
+	public static final int DOWNBURST_COOLDOWN = 8 * 20;
+	private static final String[] HOLD_COOLDOWNS = { "cyclone", "suffocate", "skystep", "twin", "eye", "downburst" };
+
 	// ---- passives ----
 	public static final float ARROW_VEER_CHANCE = 0.3f;
 	private static final String VEER_TAG = "projecthero.wind_checked";
@@ -146,6 +190,9 @@ public final class WindHandlers {
 	}
 
 	private static final Map<Integer, Slam> SLAMS = new ConcurrentHashMap<>();
+
+	/** Sky Step: per player {last y, last y-speed, was on the ground (1/0)} -- how the server spots a mid-air jump. */
+	private static final Map<UUID, double[]> SKY_PREV = new ConcurrentHashMap<>();
 
 	private WindHandlers() {
 	}
@@ -211,6 +258,29 @@ public final class WindHandlers {
 		return owns(p) && resAny(p, "dash") > 0.5f;
 	}
 
+	/** v0.16.6 hold moves running (synced flags; both sides). */
+	public static boolean skyStepping(Player p) {
+		return owns(p) && resAny(p, "skystep") > 0.5f;
+	}
+
+	public static boolean eyeOfStorm(Player p) {
+		return owns(p) && resAny(p, "eye") > 0.5f;
+	}
+
+	public static boolean twinActive(Player p) {
+		return owns(p) && resAny(p, "twin") > 0.5f;
+	}
+
+	/** Sky Step: mid-air jumps left. */
+	public static int skyJumpsLeft(Player p) {
+		return skyStepping(p) ? Math.round(resAny(p, "sky_jumps")) : 0;
+	}
+
+	/** Ticks left on a hold move's own cooldown (gametests / HUD). */
+	public static int holdCooldown(ServerPlayer p, String move) {
+		return Math.round(res(p, "cd_" + move));
+	}
+
 	/** Cobwebs never slow a wind user (EntityWebMixin). Works on both sides. */
 	public static boolean ignoresWebs(Entity e) {
 		return e instanceof Player p && owns(p);
@@ -237,6 +307,25 @@ public final class WindHandlers {
 			ctx.actionBar("message.projecthero.wind.gust_low");
 			return false;
 		}
+		return true;
+	}
+
+	/**
+	 * v0.16.6: a hold move may go -- its own cooldown is over (the "on cooldown" message otherwise) and its Gust is there.
+	 * Starts the cooldown when it says yes.
+	 */
+	private static boolean holdReady(AbilityContext ctx, String move, float cost, int cooldown) {
+		ServerPlayer p = ctx.player();
+		float left = res(p, "cd_" + move);
+		if (left > 0.5f) {
+			ctx.actionBar("message.projecthero.ability.on_cooldown", net.minecraft.network.chat.Component.translatable(
+					ctx.ability().nameKey() + ".hold"), String.format(java.util.Locale.ROOT, "%.1f", left / 20.0f));
+			return false;
+		}
+		if (!afford(ctx, cost)) {
+			return false;
+		}
+		set(p, "cd_" + move, cooldown);
 		return true;
 	}
 
@@ -287,6 +376,13 @@ public final class WindHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (holdReady(ctx, "cyclone", COST_CYCLONE, CYCLONE_COOLDOWN)) {
+					cycloneBlade(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				upkeep(ctx.player(), ctx.level());
 			}
@@ -308,6 +404,17 @@ public final class WindHandlers {
 					}
 				} else if (afford(ctx, COST_VACUUM)) {
 					vacuum(p);
+				}
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				LivingEntity t = suffocateTarget(p);
+				if (t == null) {
+					ctx.actionBar("message.projecthero.wind.no_target");
+				} else if (holdReady(ctx, "suffocate", COST_SUFFOCATE, SUFFOCATE_COOLDOWN)) {
+					suffocate(p, t);
 				}
 			}
 		});
@@ -335,9 +442,19 @@ public final class WindHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (ctx.player().isPassenger()) {
+					ctx.actionBar("message.projecthero.wind.riding");
+				} else if (holdReady(ctx, "skystep", COST_SKYSTEP, SKYSTEP_COOLDOWN)) {
+					skyStep(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				dashTick(ctx.player());
 				updraftTick(ctx.player());
+				skyStepTick(ctx.player());
 			}
 		});
 
@@ -359,12 +476,22 @@ public final class WindHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (holdReady(ctx, "twin", COST_TWIN, TWIN_COOLDOWN)) {
+					twinTornadoes(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				hurricaneTick(ctx.player(), ctx.level());
+				if (res(ctx.player(), "twin") > 0.5f && BatchA.countDown(ctx.player(), KEY, "twin") < 0.5f) {
+					MutationVisuals.stopIf(ctx.player(), "p24.twin");
+				}
 			}
 		});
 
-		// V -- Wind Barrier (held) / Glide (Shift, toggle)
+		// V -- Wind Barrier (v0.16.6: a toggle -- tap on, tap off) / Glide (Shift, toggle) / Eye of the Storm (hold)
 		AbilityHandlers.register(KEY, "wind_barrier", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
@@ -377,8 +504,19 @@ public final class WindHandlers {
 					}
 					return;
 				}
-				if (afford(ctx, COST_BARRIER_PER_SECOND / 20.0f * 5)) {
+				// v0.16.6 (user: keys that used holding become toggles): a tap raises it, the next tap drops it
+				if (res(p, "barrier") > 0.5f) {
+					endBarrier(p);
+					AbilityHelpers.sound(p, SoundEvents.BREEZE_IDLE_AIR, 0.8f, 0.8f);
+				} else if (afford(ctx, COST_BARRIER_PER_SECOND / 20.0f * 5)) {
 					startBarrier(p);
+				}
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (holdReady(ctx, "eye", COST_EYE, EYE_COOLDOWN)) {
+					eyeOfTheStorm(ctx.player());
 				}
 			}
 
@@ -386,11 +524,7 @@ public final class WindHandlers {
 			public void onServerTick(AbilityContext ctx) {
 				barrierTick(ctx.player());
 				glideTick(ctx.player(), ctx.level());
-			}
-
-			@Override
-			public void onRelease(AbilityContext ctx) {
-				endBarrier(ctx.player());
+				eyeTick(ctx.player(), ctx.level());
 			}
 		});
 
@@ -413,10 +547,32 @@ public final class WindHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (holdReady(ctx, "downburst", COST_DOWNBURST, DOWNBURST_COOLDOWN)) {
+					downburst(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				rideTick(ctx.player());
 				bubbleTick(ctx.player(), ctx.level());
 			}
+		});
+
+		// v0.16.6 (user: "extra moves that are triggered by holding down the ability key"): every key taps as before and
+		// holds (0.6 s) for its hold move; Shift moves are unchanged
+		for (String id : new String[] { "wind_blade", "vacuum", "tailwind", "tornado", "wind_barrier", "rideable_tornado" }) {
+			com.projecthero.mod.hero.HoldTap.register(KEY, id);
+		}
+		// logging out ends the running hold moves (their models are never saved either)
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			ServerPlayer p = handler.player;
+			if (owns(p)) {
+				endHoldMoves(p);
+				endBarrier(p);
+			}
+			SKY_PREV.remove(p.getUUID());
 		});
 
 		registerPassives();
@@ -426,6 +582,17 @@ public final class WindHandlers {
 
 	private static void upkeep(ServerPlayer p, ServerLevel level) {
 		seed(p);
+		for (String cd : HOLD_COOLDOWNS) {
+			BatchA.countDown(p, KEY, "cd_" + cd);
+		}
+		// v0.16.6: another power took the keys -- the toggled Barrier and the running hold moves end
+		Power active = ExperimentalPowers.getActive(p);
+		if (active == null || !KEY.equals(active.key())) {
+			if (res(p, "barrier") > 0.5f || res(p, "skystep") > 0.5f || res(p, "eye") > 0.5f || res(p, "twin") > 0.5f) {
+				endBarrier(p);
+				endHoldMoves(p);
+			}
+		}
 		float g = res(p, "gust");
 		if (g < MAX_GUST && !channelling(p)) {
 			set(p, "gust", Math.min(MAX_GUST, g + regenPerTick(p.getY())));
@@ -1046,6 +1213,303 @@ public final class WindHandlers {
 		return n;
 	}
 
+	// ================================================================ v0.16.6 hold moves
+
+	/** R hold: Cyclone Blade -- a huge spinning blade of air, 3 blocks across, 40 blocks, 22 to everything it passes. */
+	public static WindBladeEntity cycloneBlade(ServerPlayer p) {
+		spend(p, COST_CYCLONE);
+		WindBladeEntity b = new WindBladeEntity(p.level(), p, p.getLookAngle(), CYCLONE_SPEED, CYCLONE_RANGE, CYCLONE_DAMAGE, 1.0f, 0.0f);
+		b.makeCyclone(CYCLONE_HALF_WIDTH);
+		p.level().addFreshEntity(b);
+		MutationVisuals.play(p, "p24.cyclone");
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_WHIRL, 1.3f, 1.4f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 1.2f, 0.7f);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.6f);
+		return b;
+	}
+
+	/** G hold: whom Suffocate would take the air from -- the creature you aim at within 20 blocks, if you may hurt it. */
+	public static LivingEntity suffocateTarget(ServerPlayer p) {
+		LivingEntity t = AbilityHelpers.raycastEntity(p, SUFFOCATE_RANGE);
+		if (t == null || t == p || !t.isAlive() || t instanceof ArmorStand || !com.projecthero.mod.combat.HeroTargets.canHarm(p, t)) {
+			return null;
+		}
+		return t;
+	}
+
+	/**
+	 * G hold: Suffocate -- the air round {@code t} is stolen for 5 s: 3 a second, no sprinting or jumping, a collapsing
+	 * bubble of air round its head. A boss (or anything the wind cannot carry) is only slowed.
+	 */
+	public static WindFxEntity suffocate(ServerPlayer p, LivingEntity t) {
+		spend(p, COST_SUFFOCATE);
+		ServerLevel level = level(p);
+		WindFxEntity fx = new WindFxEntity(level, p, WindFxEntity.SUFFOCATE, SUFFOCATE_TICKS, t.position(), t.getYRot(), 0);
+		level.addFreshEntity(fx);
+		fx.startSuffocate(t);
+		MutationVisuals.play(p, "p24.suffocate");
+		level.playSound(null, t.getX(), t.getEyeY(), t.getZ(), SoundEvents.BREEZE_INHALE, SoundSource.PLAYERS, 1.4f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_INHALE, 0.8f, 1.3f);
+		return fx;
+	}
+
+	/** X hold: Sky Step -- 10 s of walking on air, up to 5 mid-air jumps (the client jumps; the server counts them). */
+	public static void skyStep(ServerPlayer p) {
+		spend(p, COST_SKYSTEP);
+		endGlide(p);
+		set(p, "skystep", SKYSTEP_TICKS);
+		set(p, "sky_jumps", SKYSTEP_JUMPS);
+		SKY_PREV.remove(p.getUUID());
+		MutationVisuals.play(p, "p24.skystep");
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_IDLE_AIR, 1.2f, 1.5f);
+		ServerLevel level = level(p);
+		level.addFreshEntity(new WindFxEntity(level, p, WindFxEntity.STEP, 16, p.position(), p.getYRot(), 0));
+	}
+
+	public static void endSkyStep(ServerPlayer p) {
+		if (res(p, "skystep") > 0.5f || res(p, "sky_jumps") > 0.5f) {
+			set(p, "skystep", 0);
+			set(p, "sky_jumps", 0);
+		}
+		SKY_PREV.remove(p.getUUID());
+	}
+
+	private static void skyStepTick(ServerPlayer p) {
+		float left = res(p, "skystep");
+		if (left < 0.5f) {
+			return;
+		}
+		if (left - 1 < 0.5f || !p.isAlive()) {
+			endSkyStep(p);
+			return;
+		}
+		set(p, "skystep", left - 1);
+		p.resetFallDistance();
+		// a mid-air jump: the client threw itself up (y-speed leapt by more than a quarter block a tick, off the ground)
+		double y = p.getY();
+		double[] prev = SKY_PREV.get(p.getUUID());
+		if (prev != null) {
+			double vy = y - prev[0];
+			boolean wasGround = prev[2] > 0.5;
+			if (!p.onGround() && !wasGround && vy > 0.3 && vy - prev[1] > 0.25 && res(p, "sky_jumps") >= 1 && res(p, "dash") < 0.5f
+					&& res(p, "updraft") < 0.5f && !p.isPassenger()) {
+				skyJump(p);
+			}
+			prev[0] = y;
+			prev[1] = vy;
+			prev[2] = p.onGround() ? 1 : 0;
+		} else {
+			SKY_PREV.put(p.getUUID(), new double[] { y, 0, p.onGround() ? 1 : 0 });
+		}
+	}
+
+	/** One Sky Step jump: a jump spent, a little ring of air left under the feet. */
+	public static WindFxEntity skyJump(ServerPlayer p) {
+		set(p, "sky_jumps", Math.max(0, res(p, "sky_jumps") - 1));
+		p.resetFallDistance();
+		ServerLevel level = level(p);
+		WindFxEntity ring = new WindFxEntity(level, p, WindFxEntity.STEP, 16, p.position().add(0, -0.1, 0), p.getYRot(), 0);
+		level.addFreshEntity(ring);
+		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BREEZE_JUMP, SoundSource.PLAYERS, 0.9f, 1.6f);
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 6, 0.3, 0.02, 0.3, 0.02);
+		return ring;
+	}
+
+	/** Z hold: Twin Tornadoes -- two funnels orbit you for 8 s, 4 a second to whatever they touch, which they fling away. */
+	public static WindTornadoEntity[] twinTornadoes(ServerPlayer p) {
+		spend(p, COST_TWIN);
+		set(p, "twin", TWIN_TICKS);
+		WindTornadoEntity[] out = new WindTornadoEntity[2];
+		for (int i = 0; i < 2; i++) {
+			double phase = Math.toRadians(p.getYRot()) + i * Math.PI;
+			Vec3 at = p.position().add(Math.cos(phase) * TWIN_ORBIT_RADIUS, 0, Math.sin(phase) * TWIN_ORBIT_RADIUS);
+			WindTornadoEntity t = new WindTornadoEntity(p.level(), p, WindTornadoEntity.ORBIT, at, Vec3.ZERO);
+			t.orbit(phase);
+			p.level().addFreshEntity(t);
+			out[i] = t;
+		}
+		MutationVisuals.play(p, "p24.twin");
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_WHIRL, 1.5f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_WHIRL, 1.2f, 0.9f);
+		return out;
+	}
+
+	/** Whether {@code p}'s Twin Tornadoes are still running (the funnels blow out when not). */
+	public static boolean twinRunning(ServerPlayer p) {
+		return res(p, "twin") > 0.5f && p.isAlive();
+	}
+
+	/** A twin funnel touched {@code e}: 4, and flung away from you. */
+	public static void twinTouch(ServerPlayer p, LivingEntity e, Vec3 axis) {
+		AbilityHelpers.hurtBurst(p, e, TWIN_DPS);
+		if (movable(e)) {
+			Vec3 out = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
+			out = out.lengthSqr() < 1.0e-4 ? new Vec3(e.getX() - axis.x, 0, e.getZ() - axis.z) : out;
+			out = out.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : out.normalize();
+			e.setDeltaMovement(out.x * 1.4, 0.75, out.z * 1.4);
+			e.hurtMarked = true;
+			e.hasImpulse = true;
+		}
+		ServerLevel level = level(p);
+		level.sendParticles(ParticleTypes.SWEEP_ATTACK, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 2, 0.3, 0.3, 0.3, 0);
+		level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.8f, 0.8f);
+	}
+
+	/** V hold: Eye of the Storm -- 8 s in a calm bubble (radius 5): projectiles stop dead and drop, mobs are pushed out. */
+	public static void eyeOfTheStorm(ServerPlayer p) {
+		spend(p, COST_EYE);
+		set(p, "eye", EYE_TICKS);
+		MutationVisuals.play(p, "p24.eye");
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_INHALE, 1.2f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 0.6f, 1.6f);
+		eyePulse(p, level(p));
+	}
+
+	private static void eyeTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "eye");
+		if (left < 0.5f) {
+			return;
+		}
+		set(p, "eye", left - 1);
+		if (!p.isAlive()) {
+			set(p, "eye", 0);
+			return;
+		}
+		eyePulse(p, level);
+		if (((int) left) % 30 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.BREEZE_IDLE_GROUND, 0.7f, 0.6f);
+		}
+	}
+
+	/** One tick of the Eye: every foreign projectile inside stops dead and drops; mobs inside are pushed out. Returns stopped. */
+	public static int eyePulse(ServerPlayer p, ServerLevel level) {
+		Vec3 c = mid(p);
+		int stopped = 0;
+		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(EYE_RADIUS + 1),
+				pr -> pr.isAlive() && pr.getOwner() != p)) {
+			if (pr.position().distanceToSqr(c) > EYE_RADIUS * EYE_RADIUS) {
+				continue;
+			}
+			if (pr.getOwner() instanceof Player o && Squads.areAllies(p, o)) {
+				continue;
+			}
+			Vec3 v = pr.getDeltaMovement();
+			if (pr instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile) {
+				// fireballs, skulls, wind charges: the calm air snuffs them out
+				level.sendParticles(ParticleTypes.CLOUD, pr.getX(), pr.getY(), pr.getZ(), 8, 0.2, 0.2, 0.2, 0.02);
+				pr.discard();
+				stopped++;
+				continue;
+			}
+			if (v.horizontalDistanceSqr() < 1.0e-4 && v.y <= 0) {
+				continue; // already dropping
+			}
+			pr.setDeltaMovement(0, Math.min(0, v.y) * 0.3, 0);
+			pr.hasImpulse = true;
+			pr.hurtMarked = true;
+			if (!pr.getTags().contains("projecthero.wind_eye")) {
+				pr.addTag("projecthero.wind_eye");
+				level.sendParticles(ParticleTypes.CLOUD, pr.getX(), pr.getY(), pr.getZ(), 4, 0.1, 0.1, 0.1, 0.01);
+			}
+			stopped++;
+		}
+		Vec3 feet = p.position();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, EYE_RADIUS + 0.5)) {
+			if (e == p || !movable(e)) {
+				continue;
+			}
+			Vec3 out = new Vec3(e.getX() - feet.x, 0, e.getZ() - feet.z);
+			double d = out.length();
+			if (d > EYE_RADIUS + 0.3) {
+				continue;
+			}
+			out = d < 1.0e-3 ? new Vec3(1, 0, 0) : out.scale(1.0 / d);
+			double push = 0.35 + 0.5 * (1 - d / EYE_RADIUS);
+			e.setDeltaMovement(out.x * push, Math.max(e.getDeltaMovement().y, 0.08), out.z * push);
+			e.hurtMarked = true;
+			e.hasImpulse = true;
+		}
+		if (stopped > 0) {
+			AbilityHelpers.sound(p, SoundEvents.BREEZE_DEFLECT, 0.8f, 0.6f);
+		}
+		return stopped;
+	}
+
+	/** C hold: where the Downburst comes down -- the aim point (24 blocks), dropped to the ground beneath it. */
+	public static Vec3 downburstPoint(ServerPlayer p) {
+		LivingEntity t = AbilityHelpers.raycastEntity(p, DOWNBURST_RANGE);
+		Vec3 at;
+		if (t != null) {
+			at = t.position();
+		} else {
+			BlockHitResult hit = AbilityHelpers.raycastBlock(p, DOWNBURST_RANGE);
+			at = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().subtract(p.getLookAngle().scale(0.3))
+					: p.getEyePosition().add(p.getLookAngle().scale(DOWNBURST_RANGE));
+		}
+		BlockHitResult down = p.level().clip(new net.minecraft.world.level.ClipContext(at.add(0, 0.5, 0), at.subtract(0, 24, 0),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+		return down.getType() == HitResult.Type.BLOCK ? down.getLocation() : at;
+	}
+
+	/** C hold: Downburst -- a column of air slams down on the aim point: 18 to everything within 3 blocks, knocked flat. */
+	public static WindFxEntity downburst(ServerPlayer p) {
+		spend(p, COST_DOWNBURST);
+		Vec3 at = downburstPoint(p);
+		ServerLevel level = level(p);
+		WindFxEntity fx = new WindFxEntity(level, p, WindFxEntity.DOWNBURST, WindFxEntity.DOWNBURST_DROP_TICKS + 24, at, p.getYRot(), 0);
+		level.addFreshEntity(fx);
+		MutationVisuals.play(p, "p24.downburst");
+		level.playSound(null, at.x, at.y + 8, at.z, SoundEvents.BREEZE_INHALE, SoundSource.PLAYERS, 1.6f, 0.4f);
+		return fx;
+	}
+
+	/** The Downburst lands at {@code at}: 18 to every enemy within 3 blocks, everything that can be moved slammed flat. */
+	public static int downburstImpact(ServerPlayer p, Vec3 at) {
+		ServerLevel level = level(p);
+		int hit = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at.add(0, 1.5, 0), DOWNBURST_RADIUS + 2.5)) {
+			if (e == p) {
+				continue;
+			}
+			double d = Math.hypot(e.getX() - at.x, e.getZ() - at.z);
+			if (d > DOWNBURST_RADIUS + e.getBbWidth() * 0.5 || e.getY() > at.y + 6 || e.getY() + e.getBbHeight() < at.y - 1.5) {
+				continue;
+			}
+			if (AbilityHelpers.hurtBurst(p, e, DOWNBURST_DAMAGE)) {
+				hit++;
+			}
+			if (movable(e)) {
+				// knocked flat: driven into the ground, a little outward, and slow to get back up
+				Vec3 out = new Vec3(e.getX() - at.x, 0, e.getZ() - at.z);
+				out = out.lengthSqr() < 1.0e-4 ? Vec3.ZERO : out.normalize().scale(0.35);
+				e.setDeltaMovement(out.x, -1.4, out.z);
+				e.hurtMarked = true;
+				e.hasImpulse = true;
+				AbilityHelpers.applyControl(e, net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 30, 3);
+				if (e instanceof Mob m) {
+					m.getNavigation().stop();
+				}
+			}
+		}
+		level.sendParticles(ParticleTypes.GUST_EMITTER_LARGE, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);
+		BatchA.debrisRing(level, at.add(0, 0.1, 0), DOWNBURST_RADIUS, 24);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.6f, 0.5f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.3f);
+		return hit;
+	}
+
+	/** Ends every running hold move (power switch, power removal, logout). */
+	public static void endHoldMoves(ServerPlayer p) {
+		endSkyStep(p);
+		if (res(p, "eye") > 0.5f) {
+			set(p, "eye", 0);
+		}
+		if (res(p, "twin") > 0.5f) {
+			set(p, "twin", 0); // the funnels see it and blow out
+		}
+		MutationVisuals.stopIf(p, "p24.twin");
+	}
+
 	// ================================================================ passives
 
 	/**
@@ -1111,6 +1575,7 @@ public final class WindHandlers {
 					set(player, "bubble", 0);
 					set(player, "dash", 0);
 					set(player, "updraft", 0);
+					endHoldMoves(player);
 				}
 				MutationVisuals.stop(player);
 			}
@@ -1142,6 +1607,8 @@ public final class WindHandlers {
 
 	public static void clearSessionState() {
 		SLAMS.clear();
+		SKY_PREV.clear();
+		WindFxEntity.clearSessionState();
 	}
 
 	// ================================================================ synced visuals + HUD (called from RevampBatchC)
@@ -1154,6 +1621,12 @@ public final class WindHandlers {
 		MutationVisuals.registerFlag("p24.boost", WindHandlers::boosting);
 		MutationVisuals.registerFlag("p24.ride", WindHandlers::riding);
 		MutationVisuals.registerFlag("p24.flurry", WindHandlers::flurrying);
+		// v0.16.6 hold moves: Sky Step's air rings at the feet, the Eye of the Storm's calm bubble, a Suffocate victim's lock
+		MutationVisuals.registerFlag("p24.skystep", WindHandlers::skyStepping);
+		MutationVisuals.registerFlag("p24.eye", WindHandlers::eyeOfStorm);
+		MutationVisuals.registerFlag("p24.suffocated", WindFxEntity::isSuffocated);
+		MutationVisuals.registerValue("p24.sky_jumps", p -> skyJumpsLeft(p));
+		MutationVisuals.registerValue("p24.eye_left", p -> eyeOfStorm(p) ? resAny(p, "eye") : 0.0);
 		// the Hurricane's start, so every client can grow the wall in and fade it out
 		MutationVisuals.registerValue("p24.hurricane_left", p -> hurricane(p) ? resAny(p, "hurricane") : 0.0);
 		MutationVisuals.registerValue("p24.bubble_left", p -> bubble(p) ? resAny(p, "bubble") : 0.0);
@@ -1167,5 +1640,12 @@ public final class WindHandlers {
 				"Hurricane", HURRICANE_TICKS, 0xFF9FC8F0, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "bubble", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Air Bubble", BUBBLE_TICKS, 0xFF8FE0F0, false, false, true, text));
+		// v0.16.6 hold moves with a duration
+		MutationMeters.register(new MutationMeters.Spec(KEY, "skystep", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Sky Step", SKYSTEP_TICKS, 0xFFC8F0FF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "twin", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Twin Tornadoes", TWIN_TICKS, 0xFFA8D4F4, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "eye", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Eye of the Storm", EYE_TICKS, 0xFFB0E8E0, false, false, true, text));
 	}
 }
