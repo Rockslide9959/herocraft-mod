@@ -202,6 +202,8 @@ public final class Miraculous {
 			case PLAGG -> com.projecthero.mod.miraculous.item.MiraculousItems.CAMEMBERT;
 			case TRIXX -> com.projecthero.mod.miraculous.item.MiraculousItems.MACARON;
 			case NOOROO -> net.minecraft.world.item.Items.HONEY_BOTTLE;
+			case WAYZZ -> net.minecraft.world.item.Items.DRIED_KELP;
+			case KAALKI -> net.minecraft.world.item.Items.SUGAR;
 		};
 	}
 
@@ -219,43 +221,132 @@ public final class Miraculous {
 	public static boolean feed(ServerPlayer player, ItemStack stack) {
 		MiraculousState s = state(player);
 		Kwami k = kwami(player);
-		if (k == null || stack.isEmpty() || !stack.is(foodOf(k))) {
+		if (k == null || stack.isEmpty()) {
+			return false;
+		}
+		boolean favourite = stack.is(foodOf(k));
+		// v0.16.6 (user): 10 pieces of any other food will do instead of the favourite
+		if (!favourite && !isSubstituteFood(stack)) {
 			return false;
 		}
 		if (s.transformed) {
 			say(player, "message.projecthero.miraculous.feed_transformed", ChatFormatting.GOLD, kwamiName(k));
 			return false;
 		}
-		KwamiEntity e = KwamiCompanion.ensure(player);
-		if (e != null && e.busy() && e.mode() == KwamiEntity.MODE_EAT) {
+		long now = player.level().getGameTime();
+		if (s.val(V_EAT_UNTIL) > now) {
+			say(player, "message.projecthero.miraculous.still_eating", ChatFormatting.GOLD, kwamiName(k),
+					(int) Math.ceil((s.val(V_EAT_UNTIL) - now) / 20.0));
 			return false;
 		}
-		if (!player.getAbilities().instabuild) {
-			ItemStack left = stack.getItem().getCraftingRemainingItem() == null ? ItemStack.EMPTY
-					: new ItemStack(stack.getItem().getCraftingRemainingItem());
-			if (stack.is(net.minecraft.world.item.Items.HONEY_BOTTLE)) {
-				left = new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE); // Nooroo hands the bottle back
+		KwamiEntity e = KwamiCompanion.ensure(player);
+		if (!favourite) {
+			if (!s.hungry) {
+				say(player, "message.projecthero.miraculous.not_hungry_substitute", ChatFormatting.GRAY, kwamiName(k));
+				return false;
 			}
-			stack.shrink(1);
-			if (!left.isEmpty() && !player.getInventory().add(left)) {
-				player.drop(left, false);
+			// collected a piece at a time across feeds (a stack hands over as much as is still needed)
+			int have = (int) s.val(V_SUB_FOOD);
+			int take = player.getAbilities().instabuild ? MiraculousConfig.SUBSTITUTE_FOOD_COUNT - have
+					: Math.min(stack.getCount(), MiraculousConfig.SUBSTITUTE_FOOD_COUNT - have);
+			consumeFood(player, stack, take);
+			int now2 = have + take;
+			edit(player, n -> n.vals.put(V_SUB_FOOD, (long) now2));
+			if (e != null) {
+				player.level().playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.ITEM_PICKUP, SoundSource.NEUTRAL, 0.5f, 1.3f);
 			}
+			if (now2 < MiraculousConfig.SUBSTITUTE_FOOD_COUNT) {
+				say(player, "message.projecthero.miraculous.substitute_progress", ChatFormatting.YELLOW, kwamiName(k), now2,
+						MiraculousConfig.SUBSTITUTE_FOOD_COUNT, Component.translatable(foodOf(k).getDescriptionId()));
+				return true;
+			}
+		} else {
+			consumeFood(player, stack, 1);
 		}
+		// it eats for 10 s (v0.16.6, user); a hungry Kwami is only fed (and the next transformation allowed) at the end
+		long until = now + MiraculousConfig.EAT_TICKS;
+		boolean wasHungry = s.hungry;
+		edit(player, n -> {
+			n.vals.put(V_EAT_UNTIL, until);
+			n.vals.put(V_EAT_FEEDS, wasHungry ? 1L : 0L);
+			n.vals.remove(V_SUB_FOOD);
+		});
 		if (e != null) {
 			e.setMode(KwamiEntity.MODE_EAT, MiraculousConfig.EAT_TICKS);
 			player.level().playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GENERIC_EAT, SoundSource.NEUTRAL, 0.6f, 1.5f);
 		}
-		if (s.hungry) {
-			edit(player, n -> n.hungry = false);
+		say(player, "message.projecthero.miraculous.eating", ChatFormatting.GREEN, kwamiName(k), MiraculousConfig.EAT_TICKS / 20);
+		return true;
+	}
+
+	/** Ends a meal in progress right now (tests, the operator feed command). False if the Kwami was not eating. */
+	public static boolean finishMeal(ServerPlayer player) {
+		MiraculousState s = state(player);
+		Kwami k = Kwami.byId(s.kwami);
+		if (k == null || s.val(V_EAT_UNTIL) <= 0L) {
+			return false;
+		}
+		finishEating(player, s, k);
+		return true;
+	}
+
+	/** The meal is over: a hungry Kwami is fed; a snack gives the holder a little Regeneration. */
+	private static void finishEating(ServerPlayer player, MiraculousState s, Kwami k) {
+		boolean feeds = s.val(V_EAT_FEEDS) != 0L;
+		edit(player, n -> {
+			n.vals.remove(V_EAT_UNTIL);
+			n.vals.remove(V_EAT_FEEDS);
+			if (feeds) {
+				n.hungry = false;
+			}
+		});
+		if (feeds) {
 			KwamiCompanion.say(player, "message.projecthero.miraculous.fed." + k.id);
 		} else {
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MiraculousConfig.SNACK_REGEN_TICKS, 0, false, true));
 			say(player, "message.projecthero.miraculous.snack", ChatFormatting.GREEN, kwamiName(k));
 		}
-		return true;
 	}
 
-	/** {@code UseItemCallback}: eating the Kwami's food while it is hungry and you are detransformed feeds it instead. */
+	private static void consumeFood(ServerPlayer player, ItemStack stack, int count) {
+		if (player.getAbilities().instabuild || count <= 0) {
+			return;
+		}
+		ItemStack left = stack.getItem().getCraftingRemainingItem() == null ? ItemStack.EMPTY
+				: new ItemStack(stack.getItem().getCraftingRemainingItem(), count);
+		if (stack.is(net.minecraft.world.item.Items.HONEY_BOTTLE)) {
+			left = new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE, count); // Nooroo hands the bottle back
+		}
+		stack.shrink(count);
+		if (!left.isEmpty() && !player.getInventory().add(left)) {
+			player.drop(left, false);
+		}
+	}
+
+	/** v0.16.6: anything edible that is not the favourite counts toward the 10-piece substitute meal. */
+	public static boolean isSubstituteFood(ItemStack stack) {
+		return stack.has(net.minecraft.core.component.DataComponents.FOOD);
+	}
+
+	/** Client-safe: seconds left of the Kwami's meal (0 = not eating). */
+	public static int eatingSecondsLeft(Player player) {
+		MiraculousState s = peek(player);
+		if (s == null) {
+			return 0;
+		}
+		long left = s.val(V_EAT_UNTIL) - player.level().getGameTime();
+		return left <= 0L ? 0 : (int) Math.ceil(left / 20.0);
+	}
+
+	/** Core-owned keys in {@link MiraculousState#vals} (survive until the meal is over; detransforming can't happen meanwhile). */
+	public static final String V_EAT_UNTIL = "core_eat_until";
+	public static final String V_EAT_FEEDS = "core_eat_feeds";
+	public static final String V_SUB_FOOD = "core_sub_food";
+
+	/**
+	 * {@code UseItemCallback}: eating the Kwami's FAVOURITE food while it is hungry and you are detransformed feeds it
+	 * instead (other food is eaten normally; hand it to the Kwami by right-clicking it).
+	 */
 	public static boolean wantsFood(Player player, ItemStack stack) {
 		Kwami k = kwami(player);
 		return k != null && hungry(player) && !transformed(player) && stack.is(foodOf(k));
@@ -407,6 +498,11 @@ public final class Miraculous {
 			say(player, "message.projecthero.miraculous.kwami_hidden", ChatFormatting.GOLD, kwamiName(k));
 			return;
 		}
+		if (s.val(V_EAT_UNTIL) > player.level().getGameTime()) {
+			// v0.16.6 (user): a meal takes 10 s
+			say(player, "message.projecthero.miraculous.still_eating", ChatFormatting.GOLD, kwamiName(k), eatingSecondsLeft(player));
+			return;
+		}
 		if (s.hungry) {
 			say(player, "message.projecthero.miraculous.hungry", ChatFormatting.GOLD, kwamiName(k),
 					Component.translatable(foodOf(k).getDescriptionId()));
@@ -480,6 +576,15 @@ public final class Miraculous {
 		if (player.tickCount % 20 == 0) {
 			MiraculousStats.reconcile(player);
 		}
+		// v0.16.6: the end of a meal
+		long eatUntil = s.val(V_EAT_UNTIL);
+		if (eatUntil > 0L && now >= eatUntil) {
+			Kwami eating = Kwami.byId(s.kwami);
+			if (eating != null) {
+				finishEating(player, s, eating);
+			}
+			s = state(player);
+		}
 		if (s.transformed) {
 			long age = now - s.formChangeAt;
 			if (age == MiraculousConfig.SWIRL_SOUND_TICK) {
@@ -552,7 +657,8 @@ public final class Miraculous {
 		}
 		if (!s.vals.isEmpty() || !s.vecs.isEmpty()) {
 			edit(player, n -> {
-				n.vals.clear();
+				// the kits' values go; the core's own (a meal in progress, substitute food handed over) stay
+				n.vals.keySet().removeIf(key -> !key.startsWith("core_"));
 				n.vecs.clear();
 			});
 		}

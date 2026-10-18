@@ -412,7 +412,7 @@ public class KwamiEntity extends Entity implements GeoEntity {
 	@Override
 	public InteractionResult interact(Player player, InteractionHand hand) {
 		ItemStack stack = player.getItemInHand(hand);
-		if (!player.getUUID().equals(ownerId()) || !stack.is(Miraculous.foodOf(kwami()))) {
+		if (!player.getUUID().equals(ownerId()) || !(stack.is(Miraculous.foodOf(kwami())) || Miraculous.isSubstituteFood(stack))) {
 			return InteractionResult.PASS;
 		}
 		if (player instanceof ServerPlayer sp) {

@@ -15,7 +15,11 @@ public enum Kwami {
 	/** Rena Rouge: the Necklace, the Flute, macarons. */
 	TRIXX("trixx", "rena_rouge", "necklace", 0xFFEE7C24),
 	/** Hawk Moth (v0.16.6): the Brooch, the Cane, honey. */
-	NOOROO("nooroo", "hawk_moth", "brooch", 0xFF9A5CD6);
+	NOOROO("nooroo", "hawk_moth", "brooch", 0xFF9A5CD6),
+	/** Carapace (v0.16.6): the Turtle Bracelet, the Shield, dried kelp. */
+	WAYZZ("wayzz", "carapace", "bracelet", 0xFF3FAE5A),
+	/** Pegasus (v0.16.6): the Horseshoe Glasses, the Horseshoe, sugar. */
+	KAALKI("kaalki", "pegasus", "glasses", 0xFFE6C276);
 
 	/** The Kwami's own id ({@code tikki}): the entity variant, the state's {@code kwami} field, lang keys. */
 	public final String id;

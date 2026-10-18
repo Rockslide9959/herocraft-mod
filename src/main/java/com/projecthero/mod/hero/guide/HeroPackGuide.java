@@ -141,6 +141,8 @@ public final class HeroPackGuide {
 			case PLAGG -> CH_CAT_NOIR;
 			case TRIXX -> CH_RENA_ROUGE;
 			case NOOROO -> CH_HAWK_MOTH;
+			// (Carapace / Pegasus get their own chapters with their core build; until then the Miraculous overview)
+			case WAYZZ, KAALKI -> CH_LADYBUG;
 		});
 	}
 

@@ -150,13 +150,20 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 			settle(p);
 			Miraculous.toggleForm(p);
 			helper.assertFalse(Miraculous.transformed(p), "a hungry Kwami refuses to transform");
-			ItemStack bread = new ItemStack(Items.BREAD);
-			helper.assertFalse(Miraculous.feed(p, bread), "only its favourite food");
+			ItemStack stone = new ItemStack(Items.STONE);
+			helper.assertFalse(Miraculous.feed(p, stone), "not food");
 			ItemStack cookies = new ItemStack(Items.COOKIE, 3);
 			helper.assertTrue(Miraculous.wantsFood(p, cookies), "eating a cookie feeds the hungry Kwami");
-			helper.assertTrue(Miraculous.feed(p, cookies), "Tikki eats");
-			helper.assertTrue(!Miraculous.hungry(p) && cookies.getCount() == 2, "fed, one cookie used");
+			helper.assertTrue(Miraculous.feed(p, cookies), "Tikki starts eating");
+			helper.assertTrue(cookies.getCount() == 2, "one cookie used");
+			// v0.16.6 (user): a meal takes 10 s -- still hungry (and no transforming) until it is over
+			helper.assertTrue(Miraculous.hungry(p) && Miraculous.eatingSecondsLeft(p) == MiraculousConfig.EAT_TICKS / 20, "10 s to eat");
+			Miraculous.toggleForm(p);
+			helper.assertFalse(Miraculous.transformed(p), "no transforming mid-meal");
+			helper.assertTrue(Miraculous.finishMeal(p), "the meal ends");
+			helper.assertTrue(!Miraculous.hungry(p), "fed once the meal is over");
 			helper.assertFalse(Miraculous.wantsFood(p, cookies), "not hungry: you eat your own cookies");
+			settle(p);
 			Miraculous.toggleForm(p);
 			helper.assertTrue(Miraculous.transformed(p), "fed: transforming works again");
 			helper.succeed();
@@ -169,8 +176,28 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		Miraculous.grant(p, Kwami.PLAGG);
 		ItemStack cheese = new ItemStack(MiraculousItems.CAMEMBERT, 2);
 		helper.assertTrue(Miraculous.feed(p, cheese), "Plagg snacks");
-		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION), "a little Regeneration for you");
 		helper.assertFalse(Miraculous.feed(p, cheese), "not while still eating");
+		helper.assertTrue(Miraculous.finishMeal(p), "the meal ends");
+		helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION), "a little Regeneration for you when the snack is eaten");
+		helper.succeed();
+	}
+
+	/** v0.16.6 (user): 10 pieces of any other food stand in for the favourite. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void tenOfAnyFoodFeedsAHungryKwami(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		Miraculous.grant(p, Kwami.TRIXX);
+		Miraculous.edit(p, n -> n.hungry = true);
+		ItemStack bread = new ItemStack(Items.BREAD, 4);
+		helper.assertTrue(Miraculous.feed(p, bread), "4 bread handed over");
+		helper.assertTrue(bread.isEmpty() && Miraculous.hungry(p) && Miraculous.eatingSecondsLeft(p) == 0, "4 of 10: not eating yet");
+		ItemStack apples = new ItemStack(Items.APPLE, 9);
+		helper.assertTrue(Miraculous.feed(p, apples), "the rest");
+		helper.assertTrue(apples.getCount() == 3, "only the 6 still needed are taken, left " + apples.getCount());
+		helper.assertTrue(Miraculous.eatingSecondsLeft(p) > 0, "10 pieces: it eats");
+		helper.assertTrue(Miraculous.finishMeal(p), "the meal ends");
+		helper.assertFalse(Miraculous.hungry(p), "fed");
+		helper.assertFalse(Miraculous.feed(p, new ItemStack(Items.BREAD, 10)), "substitute food only for a hungry Kwami");
 		helper.succeed();
 	}
 
@@ -184,6 +211,7 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		Miraculous.edit(p, n -> n.hungry = true);
 		ItemStack honey = new ItemStack(Items.HONEY_BOTTLE);
 		helper.assertTrue(Miraculous.feed(p, honey), "Nooroo has the honey");
+		helper.assertTrue(Miraculous.finishMeal(p), "the meal ends (it takes 10 s)");
 		helper.assertTrue(honey.isEmpty() && p.getInventory().contains(new ItemStack(Items.GLASS_BOTTLE)), "the bottle comes back");
 		helper.assertFalse(Miraculous.hungry(p), "fed");
 		helper.succeed();

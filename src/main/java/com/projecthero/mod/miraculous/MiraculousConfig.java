@@ -30,7 +30,9 @@ public final class MiraculousConfig {
 	/** Coming out after a detransformation: the pop, then tired, in front of the face this long. */
 	public static final int POP_TIRED_TICKS = 30;
 	/** One snack. */
-	public static final int EAT_TICKS = 40;
+	public static final int EAT_TICKS = 200; // v0.16.6 (user): 10 seconds to eat (was 2 s)
+	/** v0.16.6 (user): this many pieces of any other food stand in for the favourite. */
+	public static final int SUBSTITUTE_FOOD_COUNT = 10;
 	/** Feeding a Kwami that is not hungry: Regeneration I for the holder, this long. */
 	public static final int SNACK_REGEN_TICKS = 100;
 	/** The intro's three chat lines: the first this long after the jewel, then this far apart. */

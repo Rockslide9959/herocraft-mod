@@ -109,7 +109,11 @@ public final class MiraculousHud {
 		// hungry / the phrase to say (wrapped to the row's width)
 		Component note = null;
 		int noteColour = HINT;
-		if (!on && s.kwamiHidden) {
+		int eatLeft = Miraculous.eatingSecondsLeft(mc.player);
+		if (eatLeft > 0) {
+			note = Component.translatable("hud.projecthero.miraculous.eating", Component.translatable("entity.projecthero.kwami." + k.id), eatLeft);
+			noteColour = 0xFF9BE57A;
+		} else if (!on && s.kwamiHidden) {
 			note = Component.translatable("hud.projecthero.miraculous.hidden", Component.translatable("entity.projecthero.kwami." + k.id));
 		} else if (s.hungry) {
 			note = Component.translatable("hud.projecthero.miraculous.hungry." + k.id);
