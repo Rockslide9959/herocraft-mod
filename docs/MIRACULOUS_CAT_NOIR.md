@@ -42,8 +42,8 @@ pets, and players only when PvP is on.
       voided with its contents.
   - **On a creature:** its worn armour shatters first (mobs only; a player's armour is spared). Then it takes 40 damage
     and Wither III for 8 s.
-- **Once per transformation.** After a touch the baton is rotted black for the rest of the transformation (state flag
-  `cn_rotted`). If the charge runs out untouched it fizzles, and it can be called again after 20 s. The countdown keeps
+- **Once per transformation.** After a touch Cataclysm is spent for the rest of the transformation (state flag
+  `cn_cataclysm_spent`; v0.16.6, user: the baton no longer rots black). If the charge runs out untouched it fizzles, and it can be called again after 20 s. The countdown keeps
   running either way.
 
 ## CATACLYSM visuals (`CataclysmFx`, v0.16.6 rework)

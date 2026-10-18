@@ -60,7 +60,12 @@ public final class CatNoir {
 	public static final String V_ROOFTOP = "cn_rooftop";
 	/** CATACLYSM charged until this game time. */
 	public static final String V_CATACLYSM = "cn_cataclysm";
-	/** Cataclysm has been used this transformation (1): the baton is rotted black. */
+	/** Cataclysm has been used this transformation (1): it can't be called again until the next one. */
+	public static final String V_SPENT = "cn_cataclysm_spent";
+	/**
+	 * The baton rotted black. v0.16.6 (user: "the staff turns black after using cataclysm, that shouldn't happen"): never set
+	 * any more -- the baton stays silver; kept so the old rotted look could come back as an option.
+	 */
 	public static final String V_ROTTED = "cn_rotted";
 	/** The thrown baton's entity id + 1 (0 = in hand). */
 	public static final String V_THROWN = "cn_thrown";
@@ -105,6 +110,11 @@ public final class CatNoir {
 	public static boolean charged(Player player) {
 		long until = val(player, V_CATACLYSM);
 		return until > 0L && player.level() != null && player.level().getGameTime() < until;
+	}
+
+	/** Cataclysm already used this transformation. */
+	public static boolean spent(Player player) {
+		return val(player, V_SPENT) != 0L;
 	}
 
 	public static boolean rotted(Player player) {

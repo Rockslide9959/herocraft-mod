@@ -44,7 +44,7 @@ import org.joml.Vector3f;
  *   <li><b>The call</b> ({@link #call}): his hand crackles with black destruction energy for
  *       {@link CatNoirConfig#CATACLYSM_CHARGE_TICKS}, and the core's 5-minute countdown starts NOW -- as in the show,
  *       calling the power is what spends the Miraculous, not landing it. One Cataclysm per transformation: once a touch
- *       has landed the baton is rotted black ({@link CatNoir#V_ROTTED}) for the rest of it. If the charge runs out
+ *       has landed it is spent ({@link CatNoir#V_SPENT}) for the rest of it (v0.16.6: the baton stays silver). If the charge runs out
  *       untouched it fizzles and can be called again after {@link CatNoirConfig#CATACLYSM_COOLDOWN} (the countdown
  *       keeps running).</li>
  *   <li><b>A block</b> ({@link #touchBlock}: punched or used): it and every block joined to it face-to-face within
@@ -88,7 +88,7 @@ public final class CatNoirCataclysm {
 
 	/** Shift+Z: call CATACLYSM. */
 	public static void call(ServerPlayer p) {
-		if (CatNoir.rotted(p)) {
+		if (CatNoir.spent(p)) {
 			Miraculous.say(p, "message.projecthero.cat_noir.cataclysm_spent", ChatFormatting.DARK_PURPLE);
 			return;
 		}
@@ -125,12 +125,12 @@ public final class CatNoirCataclysm {
 		}
 	}
 
-	/** The touch landed: the charge is spent and the baton rots. */
+	/** The touch landed: the charge is spent (once per transformation; v0.16.6: the baton no longer rots black). */
 	private static void spend(ServerPlayer p) {
 		long t = p.level().getGameTime();
 		Miraculous.edit(p, n -> {
 			n.vals.remove(CatNoir.V_CATACLYSM);
-			n.vals.put(CatNoir.V_ROTTED, 1L);
+			n.vals.put(CatNoir.V_SPENT, 1L);
 			n.animId = CatNoir.ANIM_CATACLYSM_TOUCH;
 			n.animStart = t;
 		});

@@ -307,7 +307,7 @@ public class CatNoirGameTests implements FabricGameTest {
 		BlockPos touch = helper.absolutePos(new BlockPos(0, 4, 3));
 		InteractionResult r = AttackBlockCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, touch, Direction.UP);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the punch is the touch");
-		helper.assertTrue(!CatNoir.charged(p) && CatNoir.rotted(p), "spent: the baton rots black");
+		helper.assertTrue(!CatNoir.charged(p) && CatNoir.spent(p) && !CatNoir.rotted(p), "spent, and the baton stays silver");
 		helper.runAfterDelay(4 * CatNoirConfig.CATACLYSM_STEP_TICKS + CatNoirConfig.CATACLYSM_CRACK_TICKS + 4, () -> {
 			for (int x = 0; x <= 4; x++) {
 				helper.assertBlockPresent(Blocks.AIR, new BlockPos(x, 4, 3));
@@ -341,7 +341,7 @@ public class CatNoirGameTests implements FabricGameTest {
 		MobEffectInstance wither = z.getEffect(MobEffects.WITHER);
 		helper.assertTrue(wither != null && wither.getAmplifier() == CatNoirConfig.CATACLYSM_WITHER_AMPLIFIER, "Wither III");
 		helper.assertTrue(z.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && z.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "its armour shattered");
-		helper.assertTrue(CatNoir.rotted(p) && !CatNoir.charged(p), "spent, the baton rotted");
+		helper.assertTrue(CatNoir.spent(p) && !CatNoir.rotted(p) && !CatNoir.charged(p), "spent, the baton not rotted");
 		helper.succeed();
 	}
 
