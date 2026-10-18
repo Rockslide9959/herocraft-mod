@@ -73,6 +73,8 @@ public final class CatNoir {
 	public static final String VEC_EXTEND_DIR = "cn_extend_dir";
 	/** Pole Vault: where the baton is planted. */
 	public static final String VEC_VAULT_BASE = "cn_vault_base";
+	/** v0.16.6: 1 while X is held and the pole is extending (the client keeps the riding pose and the pole up). */
+	public static final String V_VAULT_ON = "cn_vault_on";
 
 	private CatNoir() {
 	}

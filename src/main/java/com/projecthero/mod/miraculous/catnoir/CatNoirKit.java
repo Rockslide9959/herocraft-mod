@@ -12,12 +12,17 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.16.6: Cat Noir's six keys (Plagg's Miraculous, the Ring). The moves are in {@link CatNoirAbilities} and
- * {@link CatNoirCataclysm}; the ids in {@link CatNoir}. Only a key going DOWN does anything (no held moves).
+ * {@link CatNoirCataclysm}; the ids in {@link CatNoir}. Only a key going DOWN does anything, except X (v0.16.6: the Pole
+ * Vault is held -- the baton keeps extending until X is let go).
  */
 public final class CatNoirKit implements KwamiKit {
 	@Override
 	public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
 		if (!pressed) {
+			// v0.16.6 (user): X is held -- letting go flings him off the pole
+			if (slot == AbilitySlot.SLOT_3) {
+				CatNoirAbilities.releaseVault(player);
+			}
 			return;
 		}
 		switch (slot) {

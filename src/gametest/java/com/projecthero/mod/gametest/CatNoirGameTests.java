@@ -205,18 +205,42 @@ public class CatNoirGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- X / Shift+X
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void poleVaultLaunchesFifteenBlocksUp(GameTestHelper helper) {
+	/** v0.16.6 (user): the Pole Vault follows the look and keeps extending while X is held; letting go flings him. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void poleVaultExtendsAlongTheLookWhileHeld(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = cat(helper, 3.5, 2.6, 3.5);
+		ServerPlayer p = cat(helper, 3.5, 2.6, 1.5);
+		p.setYRot(0f);
+		p.setXRot(0f); // looking level along +Z: the pole still tips him up a little
 		pump(helper, p);
 		CatNoirAbilities.vault(p);
 		helper.assertTrue(Miraculous.vec(Miraculous.state(p), CatNoir.VEC_VAULT_BASE) != null, "the baton is planted on the floor");
-		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + 1, () -> {
+		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + 2, () -> {
+			net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
+			helper.assertTrue(v.z > 0.6 && v.y > 0.1, "carried along the look (+Z) and a little up while X is held, got " + v);
+			helper.assertTrue(Miraculous.state(p).val(CatNoir.V_VAULT_ON) != 0L, "still extending");
+			helper.assertTrue(Miraculous.cooldownRemaining(p, CatNoir.VAULT) == 0, "no cooldown while it is held");
+			CatNoirAbilities.releaseVault(p);
+		});
+		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + CatNoirConfig.VAULT_MIN_EXTEND_TICKS + 4, () -> {
+			helper.assertTrue(Miraculous.state(p).val(CatNoir.V_VAULT_ON) == 0L, "let go: off the pole");
+			helper.assertTrue(Miraculous.cooldownRemaining(p, CatNoir.VAULT) > 0, "the cooldown starts at the fling");
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.6: looking straight up, the pole carries him straight up for as long as X is held (no limit). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void poleVaultStraightUpKeepsRising(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = cat(helper, 3.5, 2.6, 3.5);
+		p.setXRot(-90f);
+		pump(helper, p);
+		CatNoirAbilities.vault(p);
+		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + 2, () -> {
 			double vy = p.getDeltaMovement().y;
-			double apex = CatNoirAbilities.apex(vy);
-			helper.assertTrue(apex > CatNoirConfig.VAULT_HEIGHT - 0.5 && apex < CatNoirConfig.VAULT_HEIGHT + 1.0,
-					"launched to about 15 blocks: vy " + vy + " -> " + apex);
+			helper.assertTrue(Math.abs(vy - CatNoirConfig.VAULT_EXTEND_SPEED) < 0.15, "rising at the extension speed, vy " + vy);
+			CatNoirAbilities.releaseVault(p);
 			helper.succeed();
 		});
 	}

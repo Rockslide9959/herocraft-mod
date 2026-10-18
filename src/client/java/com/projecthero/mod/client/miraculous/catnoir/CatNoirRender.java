@@ -349,7 +349,7 @@ public final class CatNoirRender {
 		}
 		MiraculousState s = Miraculous.peek(player);
 		float age = player.level().getGameTime() - s.animStart + partial;
-		int len = CatNoirPose.length(s.animId);
+		int len = s.animId == CatNoir.ANIM_VAULT && s.val(CatNoir.V_VAULT_ON) != 0L ? Integer.MAX_VALUE / 4 : CatNoirPose.length(s.animId);
 		boolean running = age >= 0f && age < len;
 		if (running) {
 			switch (s.animId) {

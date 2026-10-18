@@ -62,7 +62,7 @@ public final class CatNoirConfig {
 	public static final double THROW_KNOCKBACK = 0.8;
 	public static final int THROW_COOLDOWN = 100;
 
-	// ---------------------------------------------------------------- X: Pole Vault
+	// ---------------------------------------------------------------- X: Pole Vault (v0.16.6: held -- VAULT_HEIGHT / VAULT_FORWARD are no longer used by the move)
 	/** Blocks straight up. */
 	public static final double VAULT_HEIGHT = 15.0;
 	/** A little carry along the look (blocks a tick of horizontal speed). */
@@ -73,6 +73,17 @@ public final class CatNoirConfig {
 	public static final int VAULT_PLANT_TICKS = 4;
 	/** Ticks the extended pole stays drawn from the plant point to the hands. */
 	public static final int VAULT_POLE_TICKS = 22;
+	/** v0.16.6 (user: hold X to keep extending, no limit): the baton grows this many blocks a tick while X is held, carrying him along his look. */
+	public static final double VAULT_EXTEND_SPEED = 0.9;
+	/** The look is tipped up to at least this (sine above the horizon) -- the pole always lifts him. */
+	public static final double VAULT_MIN_RISE = 0.25;
+	/** A tap still vaults: he is carried at least this long before the fling. */
+	public static final int VAULT_MIN_EXTEND_TICKS = 8;
+	/** Let go: flung along the look at this speed (blocks a tick), plus {@link #VAULT_RELEASE_LIFT} up. */
+	public static final double VAULT_RELEASE_SPEED = 1.6;
+	public static final double VAULT_RELEASE_LIFT = 0.25;
+	/** The planted pole stays drawn this long after the fling. */
+	public static final int VAULT_LINGER_TICKS = 8;
 	public static final int VAULT_COOLDOWN = 120;
 
 	// ---------------------------------------------------------------- Shift+X: Rooftop Run (toggle)

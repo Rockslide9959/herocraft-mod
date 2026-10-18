@@ -69,7 +69,8 @@ public final class CatNoirWorldFx {
 					draw(pose, buffers, level, cam, from, dir, front, reach, 0.35f, rotted);
 				}
 			}
-			if (s.animId == CatNoir.ANIM_VAULT && age >= 0f && age < CatNoirPose.length(CatNoir.ANIM_VAULT)) {
+			// v0.16.6: the pole stays up (planted, as long as it needs to be) while X is held, then lingers through the fling
+			if (s.animId == CatNoir.ANIM_VAULT && age >= 0f && (s.val(CatNoir.V_VAULT_ON) != 0L || age < CatNoirPose.length(CatNoir.ANIM_VAULT))) {
 				Vec3 base = Miraculous.vec(s, CatNoir.VEC_VAULT_BASE);
 				if (base != null) {
 					Vec3 at = p.getPosition(partial);
@@ -80,7 +81,7 @@ public final class CatNoirWorldFx {
 					if (l > 0.2f) {
 						// planted at the foot: the front end reaches up to the hands (the grip is held at the top)
 						Vec3 dir = up.normalize();
-						draw(pose, buffers, level, cam, grip, dir.scale(-1), l, (float) (CatNoirConfig.VAULT_HEIGHT + 2.5), 0.3f, rotted);
+						draw(pose, buffers, level, cam, grip, dir.scale(-1), l, Math.max(l, (float) (CatNoirConfig.VAULT_HEIGHT + 2.5)), 0.3f, rotted);
 					}
 				}
 			}

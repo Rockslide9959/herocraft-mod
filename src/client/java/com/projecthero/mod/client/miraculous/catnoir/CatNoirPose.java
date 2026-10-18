@@ -73,7 +73,9 @@ public final class CatNoirPose {
 		float side = rightMain ? 1f : -1f;
 		float t = now + partial;
 
-		int len = length(s.animId);
+		// v0.16.6: a held Pole Vault keeps its riding pose for as long as X is held
+		boolean vaultHeld = s.animId == CatNoir.ANIM_VAULT && s.val(CatNoir.V_VAULT_ON) != 0L;
+		int len = vaultHeld ? Integer.MAX_VALUE / 4 : length(s.animId);
 		float age = (now - s.animStart) + partial;
 		boolean running = s.animId >= 40 && s.animId < 60 && age >= 0f && age < len;
 

@@ -51,6 +51,17 @@ public final class CatNoirAbilities {
 	private record Timed(long start) {
 	}
 
+	/** v0.16.6: a held Pole Vault -- planted at {@code start}; {@code released} once X is let go (or it hits something). */
+	private static final class Vault {
+		final long start;
+		boolean held = true;
+		long releasedAt = -1L;
+
+		Vault(long start) {
+			this.start = start;
+		}
+	}
+
 	private record Extend(long start, int hitTick, int targetId, @Nullable Vec3 blockHit) {
 	}
 
@@ -69,7 +80,7 @@ public final class CatNoirAbilities {
 	private static final Map<UUID, Timed> STRIKES = new ConcurrentHashMap<>();
 	private static final Map<UUID, Timed> SWEEPS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Extend> EXTENDS = new ConcurrentHashMap<>();
-	private static final Map<UUID, Timed> VAULTS = new ConcurrentHashMap<>();
+	private static final Map<UUID, Vault> VAULTS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Spin> SPINS = new ConcurrentHashMap<>();
 	private static final Map<UUID, Pounce> POUNCES = new ConcurrentHashMap<>();
 
@@ -377,29 +388,89 @@ public final class CatNoirAbilities {
 		if (!begin(p, CatNoir.VAULT)) {
 			return;
 		}
-		VAULTS.put(p.getUUID(), new Timed(now(p)));
+		if (VAULTS.containsKey(p.getUUID())) {
+			return;
+		}
+		VAULTS.put(p.getUUID(), new Vault(now(p)));
 		Vec3 b = base;
 		long t = now(p);
 		Miraculous.edit(p, n -> {
 			n.vecs.put(CatNoir.VEC_VAULT_BASE, java.util.List.of(b.x, b.y, b.z));
+			n.vals.put(CatNoir.V_VAULT_ON, 1L);
 			n.animId = CatNoir.ANIM_VAULT;
 			n.animStart = t;
 		});
-		Miraculous.setCooldown(p, CatNoir.VAULT, CatNoirConfig.VAULT_COOLDOWN);
 		sound(p, SoundEvents.ANVIL_PLACE, 0.4f, 1.8f);
 	}
 
-	private static void tickVault(ServerPlayer p, long age) {
+	/** X let go: the fling comes as soon as the minimum carry is done ({@link #tickVault}). */
+	public static void releaseVault(ServerPlayer p) {
+		Vault v = VAULTS.get(p.getUUID());
+		if (v != null) {
+			v.held = false;
+		}
+	}
+
+	/** The way the pole carries him: his look, tipped up to at least {@link CatNoirConfig#VAULT_MIN_RISE}. */
+	static Vec3 vaultDirection(Vec3 look) {
+		Vec3 l = look.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : look.normalize();
+		if (l.y >= CatNoirConfig.VAULT_MIN_RISE) {
+			return l;
+		}
+		double flat = Math.sqrt(l.x * l.x + l.z * l.z);
+		if (flat < 1.0e-6) {
+			return new Vec3(0, 1, 0);
+		}
+		double k = Math.sqrt(1.0 - CatNoirConfig.VAULT_MIN_RISE * CatNoirConfig.VAULT_MIN_RISE) / flat;
+		return new Vec3(l.x * k, CatNoirConfig.VAULT_MIN_RISE, l.z * k);
+	}
+
+	/**
+	 * v0.16.6 (user): directional and held. After the plant the baton keeps extending under him for as long as X is held --
+	 * no limit -- carrying him along his look (always at least a little upward); let go (or hit something) and he is flung
+	 * off the end the way he looks. A tap still carries him {@link CatNoirConfig#VAULT_MIN_EXTEND_TICKS}.
+	 */
+	private static void tickVault(ServerPlayer p, Vault v, long now) {
+		long age = now - v.start;
+		if (v.releasedAt >= 0L) {
+			if (now - v.releasedAt >= CatNoirConfig.VAULT_LINGER_TICKS) {
+				VAULTS.remove(p.getUUID());
+				Miraculous.setVec(p, CatNoir.VEC_VAULT_BASE, null);
+			}
+			return;
+		}
+		if (age < CatNoirConfig.VAULT_PLANT_TICKS) {
+			return;
+		}
+		Vec3 dir = vaultDirection(p.getLookAngle());
 		if (age == CatNoirConfig.VAULT_PLANT_TICKS) {
-			Vec3 flat = p.getLookAngle().multiply(1, 0, 1);
-			flat = flat.lengthSqr() < 1.0e-4 ? Vec3.ZERO : flat.normalize().scale(CatNoirConfig.VAULT_FORWARD);
-			AbilityHelpers.launchSelf(p, new Vec3(flat.x, velocityForHeight(CatNoirConfig.VAULT_HEIGHT), flat.z));
 			sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 0.8f, 1.6f);
 			level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 10, 0.3, 0.05, 0.3, 0.05);
 		}
-		if (age >= CatNoirConfig.VAULT_POLE_TICKS) {
-			VAULTS.remove(p.getUUID());
-			Miraculous.setVec(p, CatNoir.VEC_VAULT_BASE, null);
+		long carried = age - CatNoirConfig.VAULT_PLANT_TICKS;
+		// something in the way (after the first tick of the push): the pole stops there
+		boolean blocked = carried > 1 && (p.horizontalCollision || (p.verticalCollision && dir.y > 0 && !p.onGround()));
+		if ((!v.held && carried >= CatNoirConfig.VAULT_MIN_EXTEND_TICKS) || blocked) {
+			v.releasedAt = now;
+			Vec3 fling = dir.scale(CatNoirConfig.VAULT_RELEASE_SPEED).add(0, CatNoirConfig.VAULT_RELEASE_LIFT, 0);
+			AbilityHelpers.launchSelf(p, fling);
+			p.resetFallDistance();
+			long t = now - CatNoirConfig.VAULT_PLANT_TICKS;
+			Miraculous.edit(p, n -> {
+				n.vals.remove(CatNoir.V_VAULT_ON);
+				// the rest of the riding pose plays out over the fling
+				n.animId = CatNoir.ANIM_VAULT;
+				n.animStart = t;
+			});
+			Miraculous.setCooldown(p, CatNoir.VAULT, CatNoirConfig.VAULT_COOLDOWN);
+			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 0.8f);
+			return;
+		}
+		// the baton grows: carried along the look at the extension speed
+		AbilityHelpers.launchSelf(p, dir.scale(CatNoirConfig.VAULT_EXTEND_SPEED));
+		p.resetFallDistance();
+		if (age % 6 == 0) {
+			sound(p, SoundEvents.CHAIN_STEP, 0.5f, 1.8f);
 		}
 	}
 
@@ -676,9 +747,9 @@ public final class CatNoirAbilities {
 		if (ex != null) {
 			tickExtend(p, ex, now - ex.start());
 		}
-		Timed v = VAULTS.get(id);
+		Vault v = VAULTS.get(id);
 		if (v != null) {
-			tickVault(p, now - v.start());
+			tickVault(p, v, now);
 		}
 		Spin s = SPINS.get(id);
 		if (s != null) {
