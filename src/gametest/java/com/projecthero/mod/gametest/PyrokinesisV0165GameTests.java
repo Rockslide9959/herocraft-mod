@@ -283,12 +283,12 @@ public class PyrokinesisV0165GameTests implements FabricGameTest {
 		helper.assertTrue(hit == 1, "the blast reaches 1.5 blocks out");
 		assertNear(helper, 16.0f, before - g.getHealth(), "the Meteor blast");
 		g.discard();
-		AbilityRouter.handleInput(p, 4, true); // hold Z
-		helper.assertTrue(PyrokinesisHandlers.charging(p), "holding Z charges a Meteor");
+		press(p, 4); // v0.16.6: Z is a toggle -- a tap starts the charge
+		helper.assertTrue(PyrokinesisHandlers.charging(p), "a tap of Z charges a Meteor");
 		helper.runAfterDelay(PyrokinesisHandlers.METEOR_CHARGE_TICKS + 2, () -> {
-			AbilityRouter.handleInput(p, 4, false);
+			press(p, 4); // a second tap throws it
 			var bolts = helper.getLevel().getEntitiesOfClass(PyroBoltEntity.class, p.getBoundingBox().inflate(5));
-			helper.assertTrue(bolts.size() == 1 && bolts.get(0).meteor(), "letting go throws the Meteor");
+			helper.assertTrue(bolts.size() == 1 && bolts.get(0).meteor(), "the second tap throws the Meteor");
 			assertNear(helper, 30.0f, bolts.get(0).damage(), "a full 2 s charge: 30");
 			assertNear(helper, PyrokinesisHandlers.HEAT_METEOR, PyrokinesisHandlers.heat(p), "+25 Heat");
 			bolts.get(0).discard();

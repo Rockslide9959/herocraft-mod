@@ -36,7 +36,23 @@ public final class PyroDraw {
 	private PyroDraw() {
 	}
 
+	private static boolean soul;
+	private static final ResourceLocation SOUL_0 = ResourceLocation.withDefaultNamespace("block/soul_fire_0");
+	private static final ResourceLocation SOUL_1 = ResourceLocation.withDefaultNamespace("block/soul_fire_1");
+
+	/**
+	 * v0.16.6: while on, every fire sprite drawn is vanilla's blue soul fire (the Blue Flame). Render thread only -- turn it
+	 * off again straight after.
+	 */
+	public static void soul(boolean on) {
+		soul = on;
+	}
+
 	public static TextureAtlasSprite fire(int frame) {
+		if (soul) {
+			return Minecraft.getInstance().getTextureAtlas(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS)
+					.apply((frame & 1) == 0 ? SOUL_0 : SOUL_1);
+		}
 		return (frame & 1) == 0 ? ModelBakery.FIRE_0.sprite() : ModelBakery.FIRE_1.sprite();
 	}
 
@@ -406,15 +422,28 @@ public final class PyroDraw {
 	 * way it flies: the tongues stream back from it.
 	 */
 	public static void fireball(PoseStack pose, MultiBufferSource buffers, float r, float time, Vec3 dir, boolean meteor) {
+		fireball(pose, buffers, r, time, dir, meteor, false);
+	}
+
+	/** {@code blue}: the v0.16.6 Blue Flame -- a white-blue core in blue shells, with soul-fire tongues. */
+	public static void fireball(PoseStack pose, MultiBufferSource buffers, float r, float time, Vec3 dir, boolean meteor, boolean blue) {
 		VertexConsumer add = additive(buffers);
 		// the solid molten body, so it is a real ball and not just light
 		VertexConsumer solid = solidBuffer(buffers);
-		sphere(pose, solid, r * 0.62f, meteor ? 0xFFFFE6A0 : 0xFFFFF4C8, meteor ? 0xFFE0501A : 0xFFFF9A2A, 0.08f, time * 1.3f, FULL);
-		sphere(pose, add, r * 0.8f, 0xFFFFB040, 0xFF902000, 0.16f, time * 1.7f + 3.0f, FULL);
-		sphere(pose, add, r * 1.0f, 0xFF7A2200, 0xFF140300, 0.28f, -time * 1.1f + 7.0f, FULL);
-		glow(pose, glowBuffer(buffers), Vec3.ZERO, r * 2.4f, meteor ? 0xFFB04010 : 0xFF904010);
+		if (blue) {
+			sphere(pose, solid, r * 0.62f, 0xFFF6FBFF, 0xFF9CCBFF, 0.08f, time * 1.3f, FULL);
+			sphere(pose, add, r * 0.8f, 0xFF70B8FF, 0xFF0A2C9A, 0.16f, time * 1.7f + 3.0f, FULL);
+			sphere(pose, add, r * 1.0f, 0xFF16388A, 0xFF02061A, 0.28f, -time * 1.1f + 7.0f, FULL);
+			glow(pose, glowBuffer(buffers), Vec3.ZERO, r * 2.6f, 0xFF2A64E0);
+		} else {
+			sphere(pose, solid, r * 0.62f, meteor ? 0xFFFFE6A0 : 0xFFFFF4C8, meteor ? 0xFFE0501A : 0xFFFF9A2A, 0.08f, time * 1.3f, FULL);
+			sphere(pose, add, r * 0.8f, 0xFFFFB040, 0xFF902000, 0.16f, time * 1.7f + 3.0f, FULL);
+			sphere(pose, add, r * 1.0f, 0xFF7A2200, 0xFF140300, 0.28f, -time * 1.1f + 7.0f, FULL);
+			glow(pose, glowBuffer(buffers), Vec3.ZERO, r * 2.4f, meteor ? 0xFFB04010 : 0xFF904010);
+		}
 		// the tongues: fire sheets streaming back along the flight
 		VertexConsumer fire = fireBuffer(buffers);
+		soul(blue);
 		Vec3 back = dir == null || dir.lengthSqr() < 1.0e-6 ? new Vec3(0, 1, 0) : dir.normalize().scale(-1.0);
 		int n = meteor ? 8 : 5;
 		for (int i = 0; i < n; i++) {
@@ -428,6 +457,43 @@ public final class PyroDraw {
 			// the fire sheet stands along +y; a tongue streams back = along +y here
 			fireSheet(pose, fire, r * 1.1f, len, i + (int) time);
 			pose.popPose();
+		}
+		soul(false);
+	}
+
+	// ------------------------------------------------------------------ blades (feathers, wing panels)
+
+	/**
+	 * v0.16.6: a flat tapered blade in the pose's space -- a feather, a wing panel -- from {@code root} to {@code tip}, bowed
+	 * through {@code bow} (a quadratic curve), {@code w0} wide at the root and {@code w1} at the tip across {@code side},
+	 * coloured {@code c0} at the root to {@code c1} at the tip. Additive, both faces.
+	 */
+	public static void blade(PoseStack pose, VertexConsumer vc, Vec3 root, Vec3 bow, Vec3 tip, Vec3 side, float w0, float w1, int c0,
+			int c1) {
+		PoseStack.Pose last = pose.last();
+		int n = 6;
+		Vec3 pl = null, pr = null;
+		int pc = 0;
+		for (int i = 0; i <= n; i++) {
+			double u = i / (double) n;
+			Vec3 p = root.scale((1 - u) * (1 - u)).add(bow.scale(2 * u * (1 - u))).add(tip.scale(u * u));
+			double w = (w0 + (w1 - w0) * u) * 0.5;
+			Vec3 l = p.add(side.scale(w));
+			Vec3 r = p.subtract(side.scale(w));
+			int c = lerpRgb(c0, c1, (float) u);
+			if (pl != null) {
+				v(vc, last, (float) pl.x, (float) pl.y, (float) pl.z, pc, 0, 0, FULL, 0, 1, 0);
+				v(vc, last, (float) pr.x, (float) pr.y, (float) pr.z, pc, 0, 1, FULL, 0, 1, 0);
+				v(vc, last, (float) r.x, (float) r.y, (float) r.z, c, 1, 1, FULL, 0, 1, 0);
+				v(vc, last, (float) l.x, (float) l.y, (float) l.z, c, 1, 0, FULL, 0, 1, 0);
+				v(vc, last, (float) l.x, (float) l.y, (float) l.z, c, 1, 0, FULL, 0, -1, 0);
+				v(vc, last, (float) r.x, (float) r.y, (float) r.z, c, 1, 1, FULL, 0, -1, 0);
+				v(vc, last, (float) pr.x, (float) pr.y, (float) pr.z, pc, 0, 1, FULL, 0, -1, 0);
+				v(vc, last, (float) pl.x, (float) pl.y, (float) pl.z, pc, 0, 0, FULL, 0, -1, 0);
+			}
+			pl = l;
+			pr = r;
+			pc = c;
 		}
 	}
 }

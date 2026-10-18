@@ -67,6 +67,11 @@ import net.minecraft.world.phys.Vec3;
  * (toggle). Z Meteor (hold to charge) / Shift+Z Inferno. V Flame Wall / Shift+V Flame Body (toggle). C Heat Wave /
  * Shift+C Cauterize. No H / N. All six slots are HOLD so the handlers own their tap / Shift / release logic.
  *
+ * <p>v0.16.6 (user: hold moves for the elemental powers): every key is tap vs hold ({@link com.projecthero.mod.hero.HoldTap}) --
+ * a tap is the old move (on the release), holding 0.6 s fires the key's hold move: R Blue Flame, G Flame Serpent, X Phoenix
+ * Dive, Z Meteor Shower, V Ring of Fire, C Solar Flare, each with its own cooldown. The Z Meteor used to be held to charge,
+ * so it is a toggle now: tap to start charging, tap again to throw (it throws itself after 5 s).
+ *
  * <p>Passives: immune to fire and lava, punches set things alight, lava doesn't slow you ({@code PyroLavaMixin}).
  */
 public final class PyrokinesisHandlers {
@@ -149,6 +154,52 @@ public final class PyrokinesisHandlers {
 	public static final float CAUTERIZE_HEAT = 40.0f;
 	public static final float CAUTERIZE_HEAL = 16.0f;
 	public static final int CAUTERIZE_CD = 20 * 20;
+
+	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s; a tap is the old move) ----
+	/** Hold R: Blue Flame -- a short wind-up, then a blue-white fireball that ignores Fire Resistance. */
+	public static final float BLUE_DAMAGE = 24.0f;
+	public static final float HEAT_BLUE = 20.0f;
+	public static final int BLUE_BURN_TICKS = 8 * 20;
+	public static final int BLUE_WINDUP = 10;
+	public static final int BLUE_CD = 6 * 20;
+	private static final double BLUE_SPEED = 2.1;
+	/** Hold G: Flame Serpent -- coils off the arm, then hunts the nearest enemy within 25 blocks. */
+	public static final float SERPENT_DAMAGE = 18.0f;
+	public static final double SERPENT_RANGE = 25.0;
+	public static final float HEAT_SERPENT = 25.0f;
+	public static final int SERPENT_CD = 10 * 20;
+	public static final int SERPENT_BURN_TICKS = 8 * 20;
+	/** Hold X: Phoenix Dive -- rise wrapped in a firebird, then dive along the aim into a blast. */
+	public static final float PHOENIX_DAMAGE = 20.0f;
+	/** 8 blocks across. */
+	public static final double PHOENIX_RADIUS = 4.0;
+	public static final float HEAT_PHOENIX = 25.0f;
+	public static final int PHOENIX_CD = 8 * 20;
+	public static final int PHOENIX_RISE_TICKS = 10;
+	public static final int PHOENIX_DIVE_MAX_TICKS = 30;
+	private static final double PHOENIX_DIVE_SPEED = 1.7;
+	/** Hold Z: Meteor Shower -- six smaller meteors on the aimed spot (up to 30 away). */
+	public static final int SHOWER_COUNT = 6;
+	public static final float SHOWER_DAMAGE = 10.0f;
+	public static final double SHOWER_RANGE = 30.0;
+	public static final double SHOWER_SPREAD = 4.0;
+	public static final double SHOWER_BLAST = 2.5;
+	public static final float HEAT_SHOWER = 35.0f;
+	public static final int SHOWER_CD = 15 * 20;
+	/** Z: the Meteor is a toggle now (tap to charge, tap to throw); it throws itself this long after the tap. */
+	public static final int METEOR_AUTO_THROW_TICKS = 5 * 20;
+	/** Hold V: Ring of Fire -- a circle of flame round you; whatever crosses it burns. */
+	public static final double RING_RADIUS = 6.0;
+	public static final int RING_TICKS = 10 * 20;
+	public static final float RING_DAMAGE = 4.0f;
+	public static final float HEAT_RING = 20.0f;
+	public static final int RING_CD = 15 * 20;
+	/** Hold C: Solar Flare -- a blinding burst 12 blocks round you. */
+	public static final double FLARE_RADIUS = 12.0;
+	public static final int FLARE_BLIND_TICKS = 4 * 20;
+	public static final int FLARE_IGNITE_TICKS = 6 * 20;
+	public static final float HEAT_FLARE = 15.0f;
+	public static final int FLARE_CD = 12 * 20;
 
 	/** Pre-v0.16.5 Flame Body melee modifier, cleared out of old saves. */
 	private static final ResourceLocation LEGACY_BODY_ATK = com.projecthero.mod.ProjectHeroMod.id("flame_body_atk");
@@ -304,6 +355,17 @@ public final class PyrokinesisHandlers {
 		return true;
 	}
 
+	/** v0.16.6: {@link #cooling} for a hold move (the message names the hold move). */
+	private static boolean coolingHold(AbilityContext ctx, String timer) {
+		float left = res(ctx.player(), timer);
+		if (left < 0.5f) {
+			return false;
+		}
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey() + ".hold"),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(left / 20.0f)));
+		return true;
+	}
+
 	/** Any held / toggled fire that holds the Heat up (cooling pauses while one runs). */
 	private static boolean burning(ServerPlayer p) {
 		return res(p, "thrower") > 0.5f || res(p, "jet") > 0.5f || res(p, "body") > 0.5f || res(p, "meteor") > 0.5f;
@@ -414,8 +476,16 @@ public final class PyrokinesisHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (canAct(ctx) && !coolingHold(ctx, "blue_cd")) {
+					startBlueFlame(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				upkeep(ctx);
+				blueTick(ctx.player());
 			}
 
 			@Override
@@ -446,6 +516,13 @@ public final class PyrokinesisHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (canAct(ctx) && !coolingHold(ctx, "serpent_cd")) {
+					flameSerpent(ctx.player());
+				}
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				lassoTick(ctx.player(), ctx.level());
 			}
@@ -470,20 +547,38 @@ public final class PyrokinesisHandlers {
 			}
 
 			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (res(p, "phoenix") > 0.5f || !canAct(ctx) || coolingHold(ctx, "phoenix_cd")) {
+					return;
+				}
+				if (p.isInWater()) {
+					ctx.actionBar("message.projecthero.pyro.doused");
+					return;
+				}
+				startPhoenix(p);
+			}
+
+			@Override
 			public void onServerTick(AbilityContext ctx) {
 				dashTick(ctx.player(), ctx.level());
 				jetTick(ctx.player(), ctx.level());
+				phoenixTick(ctx.player(), ctx.level());
 			}
 		});
 
-		// Z -- Meteor (hold to charge) / Inferno (Shift)
+		// Z -- Meteor (v0.16.6: a toggle -- tap to charge, tap again to throw) / Inferno (Shift) / hold: Meteor Shower
 		AbilityHandlers.register(KEY, "meteor", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				if (!p.isShiftKeyDown() && res(p, "meteor") > 0.5f) {
+					releaseMeteor(p); // the second tap throws it
+					return;
+				}
 				if (!canAct(ctx)) {
 					return;
 				}
-				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
 					inferno(ctx);
 					return;
@@ -494,13 +589,15 @@ public final class PyrokinesisHandlers {
 			}
 
 			@Override
-			public void onServerTick(AbilityContext ctx) {
-				meteorTick(ctx.player());
+			public void onHoldMove(AbilityContext ctx) {
+				if (canAct(ctx) && !coolingHold(ctx, "shower_cd")) {
+					meteorShower(ctx.player());
+				}
 			}
 
 			@Override
-			public void onRelease(AbilityContext ctx) {
-				releaseMeteor(ctx.player());
+			public void onServerTick(AbilityContext ctx) {
+				meteorTick(ctx.player());
 			}
 		});
 
@@ -519,6 +616,13 @@ public final class PyrokinesisHandlers {
 				}
 				if (canAct(ctx) && !cooling(ctx, "wall_cd")) {
 					flameWall(p);
+				}
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (canAct(ctx) && !coolingHold(ctx, "ring_cd")) {
+					ringOfFire(ctx.player());
 				}
 			}
 
@@ -543,6 +647,25 @@ public final class PyrokinesisHandlers {
 				} else if (res(p, "wave_cd") < 0.5f) {
 					heatWave(p);
 				}
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				if (canAct(ctx) && !coolingHold(ctx, "flare_cd")) {
+					solarFlare(ctx.player());
+				}
+			}
+		});
+
+		// v0.16.6 (user: hold moves for the elemental powers): every key is tap vs hold
+		for (String id : new String[] { "fireball", "fire_whip", "flame_dash", "meteor", "flame_wall", "heat_wave" }) {
+			com.projecthero.mod.hero.HoldTap.register(KEY, id);
+		}
+		// a logout mid-move leaves nothing half-done (the summoned serpent / ring see their owner gone and go out)
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			ServerPlayer sp = handler.getPlayer();
+			if (owns(sp)) {
+				endHoldMoves(sp);
 			}
 		});
 
@@ -573,7 +696,8 @@ public final class PyrokinesisHandlers {
 		ServerLevel level = ctx.level();
 		seed(p);
 		for (String timer : new String[] { "fireball_cd", "whip_cd", "whip_ticks", "lasso_cd", "dash_cd", "meteor_cd", "wall_cd",
-				"wave_cd", "cauterize_cd", "cauterize_fx", "nofall" }) {
+				"wave_cd", "cauterize_cd", "cauterize_fx", "nofall", "blue_cd", "serpent_cd", "phoenix_cd", "shower_cd", "ring_cd",
+				"flare_cd", "flare_fx", "serpent_fx" }) {
 			float v = res(p, timer);
 			if (v > 0) {
 				set(p, timer, v - 1);
@@ -634,6 +758,23 @@ public final class PyrokinesisHandlers {
 		cancelMeteor(p);
 		endLasso(p);
 		set(p, "dash", 0);
+		endHoldMoves(p);
+	}
+
+	/** v0.16.6: the hold moves that run on the player (the Blue Flame wind-up, the Phoenix Dive) stop. */
+	public static void endHoldMoves(ServerPlayer p) {
+		if (res(p, "blue_charge") > 0.5f) {
+			set(p, "blue_charge", 0);
+			MutationVisuals.stopIf(p, "p08.blue_charge");
+		}
+		if (res(p, "phoenix") > 0.5f) {
+			set(p, "phoenix", 0);
+			set(p, "phoenix_t", 0);
+			set(p, "nofall", 60);
+			p.resetFallDistance();
+			MutationVisuals.stopIf(p, "p08.phoenix_rise");
+			MutationVisuals.stopIf(p, "p08.phoenix_dive");
+		}
 	}
 
 	/** At 100 Heat: a forced nova of fire (12 to everything near), Heat vented to 0, no moves for 5 s. */
@@ -1056,8 +1197,8 @@ public final class PyrokinesisHandlers {
 		if (held % 12 == 0) {
 			AbilityHelpers.sound(p, SoundEvents.FIRE_AMBIENT, 1.0f, 0.5f + f);
 		}
-		if (held > 6 * 20) {
-			releaseMeteor(p); // safety: the release was lost
+		if (held >= METEOR_AUTO_THROW_TICKS) {
+			releaseMeteor(p); // v0.16.6: a toggle now -- it throws itself at full charge after 5 s
 		}
 	}
 
@@ -1095,19 +1236,27 @@ public final class PyrokinesisHandlers {
 
 	/** The Meteor bursts: {@code damage} to everything within 5 blocks, burning, knockback, fires. Returns how many were hit. */
 	public static int meteorImpact(ServerPlayer p, ServerLevel level, Vec3 at, float damage, float size, BlockHitResult block) {
+		return meteorImpact(p, level, at, damage, size, block, METEOR_RADIUS);
+	}
+
+	/** v0.16.6: any meteor blast of {@code radius} (a Meteor Shower's are 2.5). */
+	public static int meteorImpact(ServerPlayer p, ServerLevel level, Vec3 at, float damage, float size, BlockHitResult block,
+			double radius) {
 		int hit = 0;
-		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, METEOR_RADIUS)) {
+		boolean small = radius < METEOR_RADIUS - 0.5;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at, radius)) {
 			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
 				hit++;
 			}
 			ignite(e, 8 * 20);
-			AbilityHelpers.knockbackFrom(e, at, 1.3);
-			AbilityHelpers.push(e, new Vec3(0, 0.35, 0));
+			AbilityHelpers.knockbackFrom(e, at, small ? 0.6 : 1.3);
+			AbilityHelpers.push(e, new Vec3(0, small ? 0.2 : 0.35, 0));
 		}
-		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, at, 0.0f, (float) METEOR_RADIUS, 18);
+		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, at, 0.0f, (float) radius, small ? 14 : 18);
 		BlockPos c = BlockPos.containing(at);
-		for (int i = 0; i < 14; i++) {
-			BlockPos b = c.offset(level.random.nextInt(7) - 3, level.random.nextInt(3) - 1, level.random.nextInt(7) - 3);
+		int span = small ? 2 : 3;
+		for (int i = 0; i < (small ? 5 : 14); i++) {
+			BlockPos b = c.offset(level.random.nextInt(span * 2 + 1) - span, level.random.nextInt(3) - 1, level.random.nextInt(span * 2 + 1) - span);
 			for (int dy = 1; dy >= -2; dy--) {
 				BlockPos q = b.offset(0, dy, 0);
 				if (level.getBlockState(q).isAir() && !level.getBlockState(q.below()).isAir()) {
@@ -1116,10 +1265,11 @@ public final class PyrokinesisHandlers {
 				}
 			}
 		}
-		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, 3, 1.0, 0.4, 1.0, 0);
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, 120, 2.0, 1.0, 2.0, 0.15);
-		level.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.5, at.z, 30, 1.5, 0.6, 1.5, 0.0);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 2.0f, 0.7f);
+		double k = small ? 0.5 : 1.0;
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, small ? 1 : 3, 1.0 * k, 0.4, 1.0 * k, 0);
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, small ? 40 : 120, 2.0 * k, 1.0 * k, 2.0 * k, 0.15);
+		level.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.5, at.z, small ? 8 : 30, 1.5 * k, 0.6, 1.5 * k, 0.0);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, small ? 1.2f : 2.0f, small ? 1.0f : 0.7f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 0.4f);
 		return hit;
 	}
@@ -1256,7 +1406,8 @@ public final class PyrokinesisHandlers {
 			p.clearFire();
 			return -1.0f;
 		}
-		if (source.is(DamageTypeTags.IS_FALL) && (res(p, "nofall") > 0.5f || res(p, "jet") > 0.5f || res(p, "dash") > 0.5f)) {
+		if (source.is(DamageTypeTags.IS_FALL) && (res(p, "nofall") > 0.5f || res(p, "jet") > 0.5f || res(p, "dash") > 0.5f
+				|| res(p, "phoenix") > 0.5f)) {
 			p.resetFallDistance();
 			return -1.0f;
 		}
@@ -1384,6 +1535,357 @@ public final class PyrokinesisHandlers {
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_HURT, 0.6f, 1.4f);
 	}
 
+	// ================================================================ v0.16.6 hold moves
+
+	// ---------------- hold R: Blue Flame
+
+	/** The wind-up: a blue-white ball swells in the drawn-back hand for half a second, then flies. */
+	private static void startBlueFlame(ServerPlayer p) {
+		if (p.isUnderWater()) {
+			p.displayClientMessage(Component.translatable("message.projecthero.pyro.doused"), true);
+			return;
+		}
+		set(p, "blue_charge", BLUE_WINDUP);
+		set(p, "blue_cd", BLUE_CD);
+		MutationVisuals.play(p, "p08.blue_charge");
+		AbilityHelpers.sound(p, SoundEvents.SOUL_ESCAPE.value(), 1.2f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 0.7f, 1.6f);
+	}
+
+	private static void blueTick(ServerPlayer p) {
+		float left = res(p, "blue_charge");
+		if (left < 0.5f) {
+			return;
+		}
+		if (!p.isAlive()) {
+			set(p, "blue_charge", 0);
+			return;
+		}
+		set(p, "blue_charge", left - 1);
+		MutationVisuals.ensure(p, "p08.blue_charge");
+		Vec3 h = AbilityHelpers.handPosition(p);
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.SOUL_FIRE_FLAME, h.x, h.y, h.z, 3, 0.12, 0.12, 0.12, 0.02);
+		if (left <= 1.5f) {
+			blueFlame(p);
+		}
+	}
+
+	/** The Blue Flame flies: 24 (+Heat) on a direct hit -- not fire damage, so Fire Resistance doesn't stop it -- and 8 s of burning. +20 Heat. */
+	public static PyroBoltEntity blueFlame(ServerPlayer p) {
+		set(p, "blue_charge", 0);
+		float damage = dmg(p, BLUE_DAMAGE);
+		PyroBoltEntity b = PyroBoltEntity.launch(p, p.getLookAngle(), BLUE_SPEED, damage, false, 0.55f);
+		b.setBlue(true);
+		set(p, "blue_cd", BLUE_CD);
+		MutationVisuals.play(p, "p08.throw");
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.2f, 1.5f);
+		AbilityHelpers.sound(p, SoundEvents.SOUL_ESCAPE.value(), 1.4f, 1.2f);
+		addHeat(p, HEAT_BLUE);
+		return b;
+	}
+
+	/** A Blue Flame lands. */
+	public static void blueImpact(ServerPlayer p, ServerLevel level, Vec3 at, LivingEntity direct, float damage, BlockHitResult block) {
+		if (direct != null && enemy(p, direct)) {
+			AbilityHelpers.hurtBurst(p, direct, AbilityHelpers.kinetic(p), damage);
+			ignite(direct, BLUE_BURN_TICKS);
+		}
+		if (block != null) {
+			placeFire(p, level, block.getBlockPos().relative(block.getDirection()), 100);
+		}
+		level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z, 34, 0.35, 0.35, 0.35, 0.09);
+		level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.02);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.2f, 1.4f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.SOUL_ESCAPE.value(), SoundSource.PLAYERS, 1.6f, 0.8f);
+	}
+
+	// ---------------- hold G: Flame Serpent
+
+	/** A serpent of fire coils off your arm and hunts the nearest enemy within 25 blocks: 18 (+Heat) and 8 s of burning. +25 Heat. */
+	public static PyroSerpentEntity flameSerpent(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		PyroSerpentEntity s = PyroSerpentEntity.spawn(level, p, dmg(p, SERPENT_DAMAGE));
+		set(p, "serpent_cd", SERPENT_CD);
+		set(p, "serpent_fx", 14);
+		MutationVisuals.play(p, "p08.serpent");
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.2f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.ENDER_DRAGON_GROWL, 0.35f, 1.7f);
+		addHeat(p, HEAT_SERPENT);
+		return s;
+	}
+
+	/** The serpent's quarry: what you aim at (25 blocks), else the nearest threat within 25 blocks of you. */
+	public static LivingEntity serpentQuarry(ServerPlayer p) {
+		LivingEntity aimed = AbilityHelpers.raycastEntity(p, SERPENT_RANGE);
+		if (aimed != null && enemy(p, aimed)) {
+			return aimed;
+		}
+		LivingEntity best = null;
+		double bd = Double.MAX_VALUE;
+		for (LivingEntity e : AbilityHelpers.hostilesAround(p, p.position(), SERPENT_RANGE)) {
+			if (!enemy(p, e)) {
+				continue;
+			}
+			double d = e.distanceToSqr(p);
+			if (d < bd) {
+				bd = d;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	/** The serpent strikes {@code t}. */
+	public static boolean serpentStrike(ServerPlayer p, ServerLevel level, LivingEntity t, float damage) {
+		boolean dealt = AbilityHelpers.hurtBurst(p, t, AbilityHelpers.fire(p), damage);
+		ignite(t, SERPENT_BURN_TICKS);
+		if (noBoss(t)) {
+			AbilityHelpers.push(t, new Vec3(0, 0.3, 0));
+		}
+		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, t.position(), 0.0f, 1.6f, 12);
+		level.sendParticles(ParticleTypes.FLAME, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 40, 0.4, 0.5, 0.4, 0.12);
+		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.4f, 0.6f);
+		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.BLAZE_HURT, SoundSource.PLAYERS, 1.0f, 0.5f);
+		return dealt;
+	}
+
+	// ---------------- hold X: Phoenix Dive
+
+	private static void startPhoenix(ServerPlayer p) {
+		stopJet(p);
+		set(p, "dash", 0);
+		set(p, "phoenix", 1);
+		set(p, "phoenix_t", 0);
+		set(p, "phoenix_dmg", dmg(p, PHOENIX_DAMAGE));
+		set(p, "phoenix_cd", PHOENIX_CD);
+		set(p, "nofall", 80);
+		p.resetFallDistance();
+		AbilityHelpers.launchSelf(p, new Vec3(0, 0.8, 0));
+		MutationVisuals.play(p, "p08.phoenix_rise");
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.3, p.getZ(), 50, 0.6, 0.2, 0.6, 0.12);
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.3f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_FLAP, 1.6f, 0.6f);
+		addHeat(p, HEAT_PHOENIX);
+	}
+
+	/** True while the Phoenix Dive runs (rising or diving). */
+	public static boolean phoenix(Player p) {
+		return owns(p) && resAny(p, "phoenix") > 0.5f;
+	}
+
+	public static boolean phoenixDiving(Player p) {
+		return owns(p) && resAny(p, "phoenix") > 1.5f;
+	}
+
+	private static void phoenixTick(ServerPlayer p, ServerLevel level) {
+		float phase = res(p, "phoenix");
+		if (phase < 0.5f) {
+			return;
+		}
+		if (!p.isAlive() || p.isPassenger()) {
+			endHoldMoves(p);
+			return;
+		}
+		float t = res(p, "phoenix_t") + 1;
+		set(p, "phoenix_t", t);
+		set(p, "nofall", 80);
+		p.resetFallDistance();
+		if (t <= PHOENIX_RISE_TICKS) {
+			MutationVisuals.ensure(p, "p08.phoenix_rise");
+			double up = 0.75 * (1.0 - (t - 1) / PHOENIX_RISE_TICKS) + 0.08; // ~4-5 blocks up
+			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x * 0.5, up, p.getDeltaMovement().z * 0.5));
+			if (p.tickCount % 2 == 0) {
+				level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.2, p.getZ(), 8, 0.5, 0.1, 0.5, 0.04);
+			}
+			return;
+		}
+		if (phase < 1.5f) {
+			// the turn: down along the aim (always at least a little downward)
+			Vec3 look = p.getLookAngle();
+			Vec3 dir = new Vec3(look.x, Math.min(-0.35, look.y), look.z).normalize();
+			set(p, "phoenix", 2);
+			set(p, "phoenix_vx", (float) dir.x + V_SHIFT);
+			set(p, "phoenix_vy", (float) dir.y + V_SHIFT);
+			set(p, "phoenix_vz", (float) dir.z + V_SHIFT);
+			MutationVisuals.play(p, "p08.phoenix_dive");
+			AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.7f);
+			AbilityHelpers.sound(p, SoundEvents.PHANTOM_SWOOP, 1.6f, 0.8f);
+		}
+		MutationVisuals.ensure(p, "p08.phoenix_dive");
+		boolean landed = t > PHOENIX_RISE_TICKS + 1 && (p.onGround() || p.horizontalCollision || p.verticalCollision || p.isInWater());
+		if (landed || t > PHOENIX_RISE_TICKS + PHOENIX_DIVE_MAX_TICKS) {
+			phoenixImpact(p, level, p.position());
+			return;
+		}
+		Vec3 dir = new Vec3(res(p, "phoenix_vx") - V_SHIFT, res(p, "phoenix_vy") - V_SHIFT, res(p, "phoenix_vz") - V_SHIFT);
+		AbilityHelpers.launchSelf(p, dir.scale(PHOENIX_DIVE_SPEED));
+		level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.8, p.getZ(), 10, 0.4, 0.4, 0.4, 0.03);
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(0, 0.9, 0), 2.0)) {
+			ignite(e, IGNITE_TICKS);
+		}
+	}
+
+	/** The Phoenix lands: 20 (+Heat) to everything within 4 blocks (8 across), burning, knockback, and the ground on fire. */
+	public static int phoenixImpact(ServerPlayer p, ServerLevel level, Vec3 at) {
+		float damage = res(p, "phoenix_dmg");
+		if (damage <= 0.0f) {
+			damage = dmg(p, PHOENIX_DAMAGE);
+		}
+		endHoldMoves(p);
+		int hit = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, at.add(0, 0.5, 0), PHOENIX_RADIUS)) {
+			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage)) {
+				hit++;
+			}
+			ignite(e, 8 * 20);
+			if (noBoss(e)) {
+				AbilityHelpers.knockbackFrom(e, at, 1.2);
+				AbilityHelpers.push(e, new Vec3(0, 0.4, 0));
+			}
+		}
+		PyroFxEntity.spawn(level, p, PyroFxEntity.NOVA, at.add(0, 0.1, 0), p.getYRot(), (float) PHOENIX_RADIUS, 18);
+		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, at, 0.0f, (float) PHOENIX_RADIUS, 16);
+		// the ground burns
+		BlockPos c = BlockPos.containing(at);
+		for (int i = 0; i < 18; i++) {
+			BlockPos b = c.offset(level.random.nextInt(7) - 3, 0, level.random.nextInt(7) - 3);
+			for (int dy = 1; dy >= -2; dy--) {
+				BlockPos q = b.offset(0, dy, 0);
+				if (level.getBlockState(q).isAir() && !level.getBlockState(q.below()).isAir()) {
+					placeFire(p, level, q, 160);
+					break;
+				}
+			}
+		}
+		AbilityHelpers.launchSelf(p, new Vec3(0, 0.05, 0));
+		MutationVisuals.play(p, "p08.nova");
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, 3, 1.2, 0.3, 1.2, 0);
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, 120, 2.0, 0.6, 2.0, 0.2);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.6f, 0.8f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 0.4f);
+		return hit;
+	}
+
+	// ---------------- hold Z: Meteor Shower
+
+	/** The ground under {@code at} (up to 30 blocks down), or {@code at} itself. */
+	private static Vec3 groundUnder(ServerLevel level, Vec3 at) {
+		BlockPos b = BlockPos.containing(at);
+		for (int dy = 0; dy < 30; dy++) {
+			BlockPos q = b.below(dy);
+			if (!level.getBlockState(q.below()).getCollisionShape(level, q.below()).isEmpty()) {
+				return new Vec3(at.x, q.getY(), at.z);
+			}
+		}
+		return at;
+	}
+
+	/** Six smaller meteors rain on the aimed spot (up to 30 away): 10 (+Heat) each in 2.5-block blasts, setting fires. +35 Heat. */
+	public static java.util.List<PyroBoltEntity> meteorShower(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		LivingEntity aimed = AbilityHelpers.raycastEntity(p, SHOWER_RANGE);
+		Vec3 target = aimed != null && enemy(p, aimed) ? aimed.position() : groundUnder(level, AbilityHelpers.aimPoint(p, SHOWER_RANGE));
+		float damage = dmg(p, SHOWER_DAMAGE);
+		Vec3 flat = p.getLookAngle().multiply(1, 0, 1);
+		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
+		java.util.List<PyroBoltEntity> out = new java.util.ArrayList<>();
+		double spin = level.random.nextDouble() * Math.PI * 2.0;
+		for (int i = 0; i < SHOWER_COUNT; i++) {
+			double a = spin + i * 2.39996;
+			double r = i == 0 ? 0.0 : SHOWER_SPREAD * Math.sqrt(i / (double) (SHOWER_COUNT - 1));
+			Vec3 spot = target.add(Math.cos(a) * r, 0.0, Math.sin(a) * r);
+			// they come down out of the sky from behind you, one after another
+			Vec3 start = spot.subtract(flat.scale(7.0)).add(0, 20.0 + i * 4.5, 0);
+			Vec3 dir = spot.subtract(start).normalize();
+			out.add(PyroBoltEntity.launchFrom(p, start, dir, 1.3, damage, 0.55f, SHOWER_BLAST));
+		}
+		set(p, "shower_cd", SHOWER_CD);
+		MutationVisuals.play(p, "p08.shower");
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.6f, 0.4f);
+		level.playSound(null, target.x, target.y, target.z, SoundEvents.BLAZE_AMBIENT, SoundSource.PLAYERS, 2.0f, 0.4f);
+		addHeat(p, HEAT_SHOWER);
+		return out;
+	}
+
+	// ---------------- hold V: Ring of Fire
+
+	/** A circle of flame 6 blocks round you for 10 s: whatever crosses it burns (4 (+Heat) every half second); you don't. +20 Heat. */
+	public static PyroFxEntity ringOfFire(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		Vec3 at = p.position();
+		PyroFxEntity ring = PyroFxEntity.spawn(level, p, PyroFxEntity.RING, at, p.getYRot(), (float) RING_RADIUS, RING_TICKS);
+		ring.setWallDamage(dmg(p, RING_DAMAGE));
+		set(p, "ring_cd", RING_CD);
+		MutationVisuals.play(p, "p08.ring");
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 80, RING_RADIUS * 0.6, 0.2, RING_RADIUS * 0.6, 0.05);
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.4f, 0.4f);
+		addHeat(p, HEAT_RING);
+		return ring;
+	}
+
+	/** The ring burns everything standing in its flames. Returns how many were hit. */
+	public static int ringBurn(ServerPlayer p, ServerLevel level, PyroFxEntity ring, float damage) {
+		int hit = 0;
+		double r = ring.size();
+		net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(ring.getX() - r - 1.5, ring.getY() - 1.0, ring.getZ() - r - 1.5,
+				ring.getX() + r + 1.5, ring.getY() + 3.0, ring.getZ() + r + 1.5);
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> enemy(p, e))) {
+			double dx = e.getX() - ring.getX();
+			double dz = e.getZ() - ring.getZ();
+			double d = Math.sqrt(dx * dx + dz * dz);
+			if (Math.abs(d - r) > 0.9 + e.getBbWidth() * 0.5) {
+				continue;
+			}
+			if (AbilityHelpers.hurtBurst(p, e, AbilityHelpers.fire(p), damage > 0 ? damage : RING_DAMAGE)) {
+				hit++;
+			}
+			ignite(e, IGNITE_TICKS);
+		}
+		return hit;
+	}
+
+	// ---------------- hold C: Solar Flare
+
+	/** A sun bursts out of you: everything hostile within 12 blocks is ignited and blinded for 4 s (bosses only burn). +15 Heat. */
+	public static int solarFlare(ServerPlayer p) {
+		ServerLevel level = AbilityHelpers.level(p);
+		Vec3 c = p.position().add(0, 1.2, 0);
+		java.util.Set<LivingEntity> caught = new java.util.LinkedHashSet<>(AbilityHelpers.hostilesAround(p, c, FLARE_RADIUS));
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, FLARE_RADIUS)) {
+			if (e instanceof Player) {
+				caught.add(e); // a PvP foe is caught in the flash too
+			}
+		}
+		int hit = 0;
+		for (LivingEntity e : caught) {
+			if (!enemy(p, e)) {
+				continue;
+			}
+			ignite(e, FLARE_IGNITE_TICKS);
+			if (noBoss(e)) {
+				AbilityHelpers.applyControl(e, MobEffects.BLINDNESS, FLARE_BLIND_TICKS, 0);
+				if (e instanceof Mob m) {
+					m.setTarget(null); // dazzled: it loses you
+					m.getNavigation().stop();
+				}
+			}
+			hit++;
+		}
+		PyroFxEntity.spawn(level, p, PyroFxEntity.FLARE, c, p.getYRot(), (float) FLARE_RADIUS, 24);
+		set(p, "flare_cd", FLARE_CD);
+		set(p, "flare_fx", 12);
+		MutationVisuals.play(p, "p08.flare");
+		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 90, 1.2, 1.2, 1.2, 0.35);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 1.6f, 1.8f);
+		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.4f);
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.6f, 1.6f);
+		addHeat(p, HEAT_FLARE);
+		return hit;
+	}
+
 	// ================================================================ passives
 
 	private static void registerPassives() {
@@ -1435,6 +1937,12 @@ public final class PyrokinesisHandlers {
 		MutationVisuals.registerValue("p08.whip_t", p -> owns(p) && resAny(p, "whip_ticks") > 0.5f ? resAny(p, "whip_t") : 0.0);
 		MutationVisuals.registerValue("p08.whip_len", p -> owns(p) && resAny(p, "whip_ticks") > 0.5f ? resAny(p, "whip_len") : 0.0);
 		MutationVisuals.registerValue("p08.lasso", PyrokinesisHandlers::lassoId);
+		// v0.16.6 hold moves
+		MutationVisuals.registerFlag("p08.blue_charge", p -> owns(p) && resAny(p, "blue_charge") > 0.5f);
+		MutationVisuals.registerFlag("p08.phoenix", PyrokinesisHandlers::phoenix);
+		MutationVisuals.registerFlag("p08.phoenix_dive", PyrokinesisHandlers::phoenixDiving);
+		MutationVisuals.registerFlag("p08.serpent_cast", p -> owns(p) && resAny(p, "serpent_fx") > 0.5f);
+		MutationVisuals.registerFlag("p08.flare", p -> owns(p) && resAny(p, "flare_fx") > 0.5f);
 	}
 
 	public static void registerMeters() {
@@ -1456,6 +1964,14 @@ public final class PyrokinesisHandlers {
 				"Fire Lasso", LASSO_CD, 0xFF9A7A5A, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(k, "cauterize_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Cauterize", CAUTERIZE_CD, 0xFF9A7A5A, false, false, true, text));
+		// v0.16.6: the hold moves' own cooldowns
+		Object[][] holds = { { "blue_cd", "Blue Flame", BLUE_CD }, { "serpent_cd", "Flame Serpent", SERPENT_CD },
+				{ "phoenix_cd", "Phoenix Dive", PHOENIX_CD }, { "shower_cd", "Meteor Shower", SHOWER_CD }, { "ring_cd", "Ring of Fire", RING_CD },
+				{ "flare_cd", "Solar Flare", FLARE_CD } };
+		for (Object[] h : holds) {
+			MutationMeters.register(new MutationMeters.Spec(k, (String) h[0], MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+					(String) h[1], (int) h[2], 0xFF9A7A5A, false, false, true, text));
+		}
 		// pre-v0.16.5 resources: never drawn
 		for (String old : LEGACY) {
 			BatchBUtil.hideMeter(k, old);

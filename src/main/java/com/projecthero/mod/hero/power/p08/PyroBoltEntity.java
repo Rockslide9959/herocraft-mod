@@ -21,14 +21,19 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.16.5 Pyrokinesis: the R Fireball and the Z Meteor. A straight-flying ball of fire (drawn as layered glowing
  * spheres with a flame tail by {@code PyroBoltRenderer}); the damage is fixed when it is thrown, so the Heat bonus is
- * the one you had at the cast. A Meteor's {@link #size()} (0.6 - 1.4 blocks) grows with the charge.
+ * the one you had at the cast. A Meteor's {@link #size()} (0.6 - 1.4 blocks) grows with the charge. v0.16.6: the hold-R
+ * Blue Flame ({@link #blue()}) and the hold-Z Meteor Shower's smaller meteors ({@link #launchFrom}).
  */
 public class PyroBoltEntity extends Fireball {
 	private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(PyroBoltEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Boolean> METEOR = SynchedEntityData.defineId(PyroBoltEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.6: the hold-R Blue Flame (blue-white, not fire damage). */
+	private static final EntityDataAccessor<Boolean> BLUE = SynchedEntityData.defineId(PyroBoltEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private float damage = PyrokinesisHandlers.FIREBALL_DAMAGE;
 	private int life;
+	/** v0.16.6: a meteor's blast radius (a Meteor Shower's are smaller). */
+	private double blastRadius = PyrokinesisHandlers.METEOR_RADIUS;
 
 	public PyroBoltEntity(EntityType<? extends PyroBoltEntity> type, Level level) {
 		super(type, level);
@@ -51,11 +56,45 @@ public class PyroBoltEntity extends Fireball {
 		return b;
 	}
 
+	/**
+	 * v0.16.6: a meteor of a Meteor Shower -- from {@code from} (in the sky) along {@code dir}, a {@code blast}-block
+	 * blast of {@code damage} where it lands.
+	 */
+	public static PyroBoltEntity launchFrom(ServerPlayer owner, Vec3 from, Vec3 dir, double speed, float damage, float size, double blast) {
+		PyroBoltEntity b = new PyroBoltEntity(PyroEntities.BOLT, owner.level());
+		b.setOwner(owner);
+		Vec3 d = dir.normalize();
+		float yaw = (float) (Math.atan2(-d.x, d.z) * 180.0 / Math.PI);
+		float pitch = (float) (-Math.asin(Math.max(-1.0, Math.min(1.0, d.y))) * 180.0 / Math.PI);
+		b.moveTo(from.x, from.y, from.z, yaw, pitch);
+		b.setDeltaMovement(d.scale(speed));
+		b.accelerationPower = speed * 0.05 / 0.95;
+		b.damage = damage;
+		b.blastRadius = blast;
+		b.entityData.set(METEOR, true);
+		b.entityData.set(SIZE, size);
+		owner.level().addFreshEntity(b);
+		return b;
+	}
+
 	@Override
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		super.defineSynchedData(builder);
 		builder.define(SIZE, 0.45f);
 		builder.define(METEOR, false);
+		builder.define(BLUE, false);
+	}
+
+	public boolean blue() {
+		return entityData.get(BLUE);
+	}
+
+	void setBlue(boolean blue) {
+		entityData.set(BLUE, blue);
+	}
+
+	public double blastRadius() {
+		return blastRadius;
 	}
 
 	public float size() {
@@ -92,7 +131,7 @@ public class PyroBoltEntity extends Fireball {
 
 	@Override
 	protected ParticleOptions getTrailParticle() {
-		return meteor() ? ParticleTypes.LAVA : ParticleTypes.FLAME;
+		return blue() ? ParticleTypes.SOUL_FIRE_FLAME : meteor() ? ParticleTypes.LAVA : ParticleTypes.FLAME;
 	}
 
 	@Override
@@ -129,7 +168,9 @@ public class PyroBoltEntity extends Fireball {
 		LivingEntity direct = result instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity le ? le : null;
 		if (getOwner() instanceof ServerPlayer p) {
 			if (meteor()) {
-				PyrokinesisHandlers.meteorImpact(p, sl, at, damage, size(), result instanceof BlockHitResult bhr ? bhr : null);
+				PyrokinesisHandlers.meteorImpact(p, sl, at, damage, size(), result instanceof BlockHitResult bhr ? bhr : null, blastRadius);
+			} else if (blue()) {
+				PyrokinesisHandlers.blueImpact(p, sl, at, direct, damage, result instanceof BlockHitResult bhr ? bhr : null);
 			} else {
 				PyrokinesisHandlers.fireballImpact(p, sl, at, direct, damage, result instanceof BlockHitResult bhr ? bhr : null);
 			}
