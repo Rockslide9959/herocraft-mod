@@ -20,6 +20,8 @@ public final class QuirkMod {
 		// the core: Erasure's client sync + status effect, the Quirk Serums
 		com.projecthero.mod.hero.PowerSuppression.initialize();
 		com.projecthero.mod.quirk.item.QuirkItems.initialize();
+		// the kits' damage hook (Shadow Guard, cushioned landings...)
+		QuirkDamage.initialize();
 		com.projecthero.mod.quirk.hellflame.HellflameMod.initialize();
 		com.projecthero.mod.quirk.overhaul.OverhaulMod.initialize();
 		com.projecthero.mod.quirk.engine.EngineMod.initialize();
