@@ -40,6 +40,11 @@ public class WindBladeRenderer extends EntityRenderer<WindBladeEntity> {
 		float yaw = (float) Mth.atan2(v.x, v.z);
 		float pitch = (float) Mth.atan2(v.y, v.horizontalDistance());
 		int bright = LightTexture.pack(15, Math.max(10, LightTexture.sky(light)));
+		if (e.cyclone()) {
+			cyclone(e, time, yaw, pitch, pose, buffers, bright);
+			super.render(e, entityYaw, partialTick, pose, buffers, light);
+			return;
+		}
 		pose.pushPose();
 		pose.translate(0, 0.1, 0);
 		pose.mulPose(Axis.YP.rotation(yaw));
@@ -63,6 +68,64 @@ public class WindBladeRenderer extends EntityRenderer<WindBladeEntity> {
 		}
 		pose.popPose();
 		super.render(e, entityYaw, partialTick, pose, buffers, light);
+	}
+
+	/**
+	 * v0.16.6 Cyclone Blade (R hold): a 3-block whirling disc of air flying flat along its path -- three swept crescent
+	 * arms spinning round a churning core (two counter-turning layers), a bright rim band and a short spinning drum of
+	 * rings in the middle, tipped a little toward the viewer so it never vanishes edge-on.
+	 */
+	private static void cyclone(WindBladeEntity e, float time, float yaw, float pitch, PoseStack pose, MultiBufferSource buffers, int light) {
+		float grow = Mth.clamp(time / 3.0f, 0.4f, 1.0f);
+		float rad = (float) e.halfWidth() * grow;
+		pose.pushPose();
+		pose.translate(0, 0.1, 0);
+		pose.mulPose(Axis.YP.rotation(yaw));
+		pose.mulPose(Axis.XP.rotation(-pitch));
+		pose.mulPose(Axis.XP.rotation(-0.6f)); // tipped back, so the disc reads from the side and from behind
+		VertexConsumer body = buffers.getBuffer(RenderType.entityTranslucent(WindMesh.SOLID));
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotation(time * 0.9f));
+		for (int k = 0; k < 3; k++) {
+			pose.pushPose();
+			pose.mulPose(Axis.YP.rotation(k * Mth.TWO_PI / 3));
+			crescent(body, pose.last(), rad * 0.7f, rad * 0.45f, rad * 0.6f, 0, 190, light, 0.0f);
+			pose.popPose();
+		}
+		pose.popPose();
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(WindMesh.STREAK));
+		// the spinning arms (streaked skin), then a second counter-turning set a little above
+		for (int layer = 0; layer < 2; layer++) {
+			pose.pushPose();
+			pose.translate(0, layer * 0.18f - 0.09f, 0);
+			pose.mulPose(Axis.YP.rotation((layer == 0 ? 1 : -0.7f) * time * 0.9f + layer));
+			for (int k = 0; k < 3; k++) {
+				pose.pushPose();
+				pose.mulPose(Axis.YP.rotation(k * Mth.TWO_PI / 3));
+				crescent(vc, pose.last(), rad * 0.66f, rad * 0.46f, rad * 0.6f, time * 0.3f + k, layer == 0 ? 235 : 150, light, 0.01f);
+				pose.popPose();
+			}
+			pose.popPose();
+		}
+		// the rim: a bright band racing round the edge, a second one a little inside it, and the churning air between
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotation(time * 1.3f));
+		WindMesh.band(vc, pose.last(), -0.22f, rad * 0.95f, 0.22f, rad, 36, 4, time * 0.1f, 0.15f, 0.85f, 255, 255, light);
+		WindMesh.band(vc, pose.last(), -0.14f, rad * 0.72f, 0.14f, rad * 0.75f, 32, 3, -time * 0.15f, 0.2f, 0.8f, 200, 200, light);
+		WindMesh.flatRing(vc, pose.last(), 0.02f, rad * 0.2f, rad * 0.98f, 36, time * 0.2f, 200, 120, light);
+		WindMesh.flatRing(vc, pose.last(), -0.02f, rad * 0.2f, rad * 0.98f, 36, -time * 0.25f, 150, 90, light);
+		pose.popPose();
+		// the core: a short drum of rings whirling the other way
+		for (int k = 0; k < 3; k++) {
+			float y = (k - 1) * 0.16f;
+			float r = rad * (0.3f - Math.abs(k - 1) * 0.06f);
+			pose.pushPose();
+			pose.translate(0, y, 0);
+			pose.mulPose(Axis.YP.rotation(-time * 1.6f + k));
+			WindMesh.band(vc, pose.last(), -0.07f, r, 0.07f, r * 1.05f, 20, 2, 0, 0.2f, 0.8f, 230, 230, light);
+			pose.popPose();
+		}
+		pose.popPose();
 	}
 
 	/**

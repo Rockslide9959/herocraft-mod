@@ -41,6 +41,12 @@ public class WindTornadoRenderer extends EntityRenderer<WindTornadoEntity> {
 		float height = (ride ? 3.6f : 7.0f) * (0.4f + 0.6f * grow);
 		int bright = LightTexture.pack(15, Math.max(9, LightTexture.sky(light)));
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(WindMesh.STREAK));
+		// v0.16.6 Twin Tornadoes (Z hold): the travelling funnel's model at 72% -- a 5-block twister circling the hero
+		boolean orbit = e.mode() == WindTornadoEntity.ORBIT;
+		pose.pushPose();
+		if (orbit) {
+			pose.scale(0.72f, 0.72f, 0.72f);
+		}
 
 		// the dust swirl on the ground
 		pose.pushPose();
@@ -77,6 +83,7 @@ public class WindTornadoRenderer extends EntityRenderer<WindTornadoEntity> {
 					bright);
 			pose.popPose();
 		}
+		pose.popPose();
 		super.render(e, entityYaw, partialTick, pose, buffers, light);
 	}
 

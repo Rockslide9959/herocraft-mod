@@ -43,6 +43,10 @@ import net.minecraft.world.phys.Vec3;
 public class WindTornadoEntity extends Entity {
 	public static final int TRAVEL = 0;
 	public static final int RIDE = 1;
+	/** v0.16.6 Z hold: one of the Twin Tornadoes, circling its owner for {@link WindHandlers#TWIN_TICKS}. */
+	public static final int ORBIT = 2;
+	/** Twin Tornadoes: radians a tick round the owner (a lap every ~2.6 s). */
+	private static final double ORBIT_SPEED = 0.12;
 	/** The travelling tornado blows out after 8 s (so a creature caught early still gets its full 6 s spin). */
 	public static final int TRAVEL_LIFE = 8 * 20;
 	private static final double TRAVEL_SPEED = 0.2;
@@ -59,6 +63,8 @@ public class WindTornadoEntity extends Entity {
 	private final Set<Integer> released = new HashSet<>();
 	/** RIDE: creature id -> the tick it was last bowled over. */
 	private final Map<Integer, Integer> bowled = new HashMap<>();
+	/** ORBIT: where on the circle it started (radians). */
+	private double phase;
 
 	public WindTornadoEntity(EntityType<? extends WindTornadoEntity> type, Level level) {
 		super(type, level);
@@ -69,7 +75,7 @@ public class WindTornadoEntity extends Entity {
 		this(WindEntities.TORNADO, level);
 		this.owner = owner.getUUID();
 		entityData.set(MODE, mode);
-		entityData.set(LIFE, mode == TRAVEL ? TRAVEL_LIFE : 0);
+		entityData.set(LIFE, mode == TRAVEL ? TRAVEL_LIFE : mode == ORBIT ? WindHandlers.TWIN_TICKS : 0);
 		Vec3 flat = new Vec3(heading.x, 0, heading.z);
 		this.drift = flat.lengthSqr() < 1.0e-4 ? Vec3.ZERO : flat.normalize().scale(mode == TRAVEL ? TRAVEL_SPEED : 0.0);
 		this.moveTo(at.x, at.y, at.z, owner.getYRot(), 0);
@@ -92,6 +98,17 @@ public class WindTornadoEntity extends Entity {
 
 	public UUID owner() {
 		return owner;
+	}
+
+	/** ORBIT: starts the funnel on its circle at {@code phase} radians. */
+	public void orbit(double phase) {
+		this.phase = phase;
+	}
+
+	/** ORBIT: where on the circle round {@code centre} it is at tick {@code t}. */
+	private Vec3 orbitPoint(Vec3 centre, int t) {
+		double a = phase + t * ORBIT_SPEED;
+		return centre.add(Math.cos(a) * WindHandlers.TWIN_ORBIT_RADIUS, 0, Math.sin(a) * WindHandlers.TWIN_ORBIT_RADIUS);
 	}
 
 	/** TRAVEL: how many creatures it is whirling right now (gametests). */
@@ -132,6 +149,17 @@ public class WindTornadoEntity extends Entity {
 		ServerPlayer ownerPlayer = owner == null ? null : (ServerPlayer) level.getPlayerByUUID(owner);
 		if (ownerPlayer == null || !ownerPlayer.isAlive() || ownerPlayer.level() != level) {
 			dissipate();
+			return;
+		}
+		if (mode() == ORBIT) {
+			// v0.16.6 Twin Tornadoes: round and round the owner, shredding what they touch
+			int life = life() - 1;
+			entityData.set(LIFE, life);
+			if (life <= 0 || !WindHandlers.twinRunning(ownerPlayer)) {
+				dissipate();
+				return;
+			}
+			orbitTick(level, ownerPlayer);
 			return;
 		}
 		if (mode() == TRAVEL) {
@@ -231,6 +259,40 @@ public class WindTornadoEntity extends Entity {
 			if (t % 20 == 0) {
 				AbilityHelpers.hurtBurst(p, e, WindHandlers.TORNADO_DPS);
 			}
+		}
+	}
+
+	/** ORBIT: follow the circle round the owner (on the ground under it when there is ground near), and touch what is there. */
+	private void orbitTick(ServerLevel level, ServerPlayer p) {
+		Vec3 to = orbitPoint(p.position(), tickCount);
+		int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING, Mth.floor(to.x), Mth.floor(to.z));
+		double y = Math.abs(surface - p.getY()) < 4.0 ? surface : p.getY();
+		// noPhysics: it simply goes there (the client interpolates the lerp)
+		setDeltaMovement(to.x - getX(), y - getY(), to.z - getZ());
+		setPos(to.x, y, to.z);
+		Vec3 axis = position();
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, axis.add(0, 2.0, 0), WindHandlers.TWIN_TOUCH + 3.0)) {
+			if (e == p) {
+				continue;
+			}
+			double d = Math.hypot(e.getX() - axis.x, e.getZ() - axis.z);
+			if (d > WindHandlers.TWIN_TOUCH + e.getBbWidth() * 0.5 || e.getY() > axis.y + 4.5 || e.getY() + e.getBbHeight() < axis.y - 1.0) {
+				continue;
+			}
+			Integer last = bowled.get(e.getId());
+			if (last != null && tickCount - last < 20) {
+				continue; // 4 a second
+			}
+			bowled.put(e.getId(), tickCount);
+			WindHandlers.twinTouch(p, e, axis);
+		}
+		if (tickCount % 4 == 0) {
+			double a = tickCount * 0.45;
+			level.sendParticles(ParticleTypes.CLOUD, getX() + Math.cos(a) * 0.8, getY() + 0.3 + (tickCount % 12) * 0.25,
+					getZ() + Math.sin(a) * 0.8, 0, -Math.sin(a), 0.2, Math.cos(a), 0.1);
+		}
+		if (tickCount % 30 == 0) {
+			level.playSound(null, blockPosition(), SoundEvents.BREEZE_WHIRL, SoundSource.PLAYERS, 0.9f, 0.8f);
 		}
 	}
 

@@ -55,8 +55,34 @@ public final class WindClient {
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			if (mc.player != null && !mc.isPaused()) {
 				boostTick(mc.player);
+				skyStepTick(mc, mc.player);
 			}
 		});
+	}
+
+	/** Sky Step: whether Jump was down last tick, and when the last mid-air jump was made (client ticks). */
+	private static boolean jumpWasDown;
+	private static int lastSkyJump = -100;
+
+	/**
+	 * v0.16.6 X hold, Sky Step: a fresh Jump press in mid-air (while jumps are left) throws the local player up off the
+	 * air -- the client owns its own movement; the server sees the jump, counts it and leaves the ring of air. Also: a
+	 * Suffocate victim cannot sprint.
+	 */
+	private static void skyStepTick(Minecraft mc, net.minecraft.client.player.LocalPlayer p) {
+		boolean jump = mc.options.keyJump.isDown();
+		MutationVisualState s = MutationVisuals.state(p);
+		if (jump && !jumpWasDown && s.flags().contains("p24.skystep") && s.value("p24.sky_jumps", 0) >= 1 && !p.onGround()
+				&& !p.isFallFlying() && !p.isInWater() && !p.isPassenger() && !p.getAbilities().flying && p.tickCount - lastSkyJump >= 8) {
+			Vec3 v = p.getDeltaMovement();
+			p.setDeltaMovement(v.x, WindHandlers.SKYSTEP_JUMP_SPEED, v.z);
+			p.resetFallDistance();
+			lastSkyJump = p.tickCount;
+		}
+		jumpWasDown = jump;
+		if (s.flags().contains("p24.suffocated") && p.isSprinting()) {
+			p.setSprinting(false);
+		}
 	}
 
 	/**
@@ -145,6 +171,31 @@ public final class WindClient {
 		float[] cup = p(-1.5f, -0.65f, 0.25f, -1.5f, 0.65f, -0.25f, 0.1f, 0, 0, 0, 0.1f);
 		float[] open = p(-1.1f, 0.15f, 1.0f, -1.1f, -0.15f, -1.0f, -0.08f, 0, 0, 0, -0.1f);
 		MutationPose.register("p24.bubble", new float[][] { zero(0), at(3, cup), at(8, cup), at(13, open), at(17, open), zero(21) });
+
+		// ---- v0.16.6 hold moves ----
+		// R hold, Cyclone Blade: both arms wound back over the right shoulder, then swept wide across to hurl the disc
+		float[] cycWind = p(-2.2f, 1.0f, 0.6f, -1.9f, 0.9f, -0.15f, -0.1f, 0.65f, 0.2f, -0.2f, 0);
+		float[] cycSweep = p(-1.45f, -1.15f, -0.2f, -1.35f, -0.95f, 0.3f, 0.18f, -0.65f, -0.35f, 0.3f, 0);
+		MutationPose.register("p24.cyclone", new float[][] { zero(0), at(3, cycWind), at(6, cycWind), at(9, cycSweep), at(16, cycSweep), zero(20) });
+		// G hold, Suffocate: the hand thrown at the victim, then clenched and slowly lifted, squeezing the air out
+		float[] grip = p(AIM, AIM, 0, -0.45f, 0.2f, -0.2f, 0.1f, -0.3f, -0.25f, 0.25f, 0);
+		float[] squeeze = p(-1.95f, -0.35f, 0.1f, -0.5f, 0.3f, -0.3f, -0.05f, -0.2f, -0.2f, 0.2f, -0.15f);
+		MutationPose.register("p24.suffocate", new float[][] { zero(0), at(3, grip), at(10, grip), at(18, squeeze), at(34, squeeze), zero(40) });
+		// X hold, Sky Step: a light hop, arms out for balance
+		float[] hop = p(-0.35f, 0, 0.95f, -0.35f, 0, -0.95f, 0.05f, 0, -0.55f, 0.4f, -0.1f);
+		MutationPose.register("p24.skystep", new float[][] { zero(0), at(3, hop), at(9, hop), zero(14) });
+		// Z hold, Twin Tornadoes: both arms raised wide and turning, winding the pair up round you
+		float[] twinA = p(-2.6f, 0, 0.65f, -2.6f, 0, -0.65f, -0.1f, 0.5f, 0, 0, -0.2f);
+		float[] twinB = p(-2.6f, 0, 0.65f, -2.6f, 0, -0.65f, -0.1f, -0.5f, 0, 0, -0.2f);
+		MutationPose.register("p24.twin", new float[][] { zero(0), at(4, twinA), at(10, twinB), at(16, twinA), at(22, twinB), zero(28) });
+		// V hold, Eye of the Storm: arms lowered and spread, palms down -- the air goes still
+		float[] calm = p(-0.45f, 0, 0.85f, -0.45f, 0, -0.85f, 0, 0, 0, 0, 0.12f);
+		MutationPose.register("p24.eye", new float[][] { zero(0), at(5, calm), at(30, calm), zero(36) });
+		// C hold, Downburst: both arms flung up high, then slammed down with a stoop
+		float[] burstUp = p(-3.0f, 0, 0.25f, -3.0f, 0, -0.25f, -0.15f, 0, 0.1f, -0.1f, -0.35f);
+		float[] burstDown = p(-0.85f, 0, 0.15f, -0.85f, 0, -0.15f, 0.45f, 0, -0.4f, 0.4f, 0.35f);
+		MutationPose.register("p24.downburst", new float[][] { zero(0), at(3, burstUp), at(7, burstUp), at(10, burstDown), at(18, burstDown),
+				zero(23) });
 	}
 
 	// ================================================================== the models on the hero
@@ -169,7 +220,9 @@ public final class WindClient {
 			boolean barrier = s.flags().contains("p24.barrier");
 			boolean bubble = s.flags().contains("p24.bubble");
 			boolean glide = s.flags().contains("p24.glide") && pl.isFallFlying();
-			if (!hurricane && !barrier && !bubble && !glide) {
+			boolean sky = s.flags().contains("p24.skystep");
+			boolean eye = s.flags().contains("p24.eye");
+			if (!hurricane && !barrier && !bubble && !glide && !sky && !eye) {
 				continue;
 			}
 			if (vc == null) {
@@ -196,6 +249,13 @@ public final class WindClient {
 			}
 			if (glide && !self) {
 				glideStreaks(vc, pose, pl, time, partial, bright);
+			}
+			if (sky) {
+				skyRings(vc, pose, pl, time, partial, Math.round(s.value("p24.sky_jumps", 0)), bright);
+			}
+			if (eye) {
+				float left = s.value("p24.eye_left", WindHandlers.EYE_TICKS);
+				eyeOfStorm(vc, pose, pl, time, WindHandlers.EYE_TICKS - left + partial, left, self, bright);
 			}
 			pose.popPose();
 		}
@@ -280,6 +340,71 @@ public final class WindClient {
 		pose.scale(wob, 1 / wob, wob);
 		WindMesh.sphere(vc, pose.last(), 1.3f, 12, 22, time * 0.02f, 215, 240, 255, (int) (25 * fade), (int) (150 * fade), light);
 		WindMesh.sphere(vc, pose.last(), 1.24f, 8, 16, -time * 0.035f, 240, 250, 255, 0, (int) (60 * fade), light);
+		pose.popPose();
+	}
+
+	/**
+	 * v0.16.6 Sky Step: a small whirling ring of air round each foot (the air you will stand on), plus a dot of air per
+	 * jump left circling the ankles.
+	 */
+	private static void skyRings(VertexConsumer vc, PoseStack pose, Player pl, float time, float partial, int jumps, int light) {
+		float yaw = Mth.rotLerp(partial, pl.yBodyRotO, pl.yBodyRot);
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.translate(side * 0.13f, 0.08f, 0);
+			pose.mulPose(Axis.YP.rotation(time * 0.6f * side));
+			WindMesh.flatRing(vc, pose.last(), 0, 0.16f, 0.34f, 18, time * 0.2f, 60, 220, light);
+			WindMesh.band(vc, pose.last(), 0, 0.3f, 0.16f, 0.24f, 18, 2, time * 0.1f, 0.2f, 0.8f, 200, 30, light);
+			pose.popPose();
+		}
+		// one little puff of air per jump left, circling the ankles
+		for (int i = 0; i < jumps; i++) {
+			float a = time * 0.25f + i * Mth.TWO_PI / Math.max(1, jumps);
+			pose.pushPose();
+			pose.translate(Mth.cos(a) * 0.55f, 0.25f, Mth.sin(a) * 0.55f);
+			WindMesh.sphere(vc, pose.last(), 0.07f, 4, 8, 0, 240, 250, 255, 220, 120, light);
+			pose.popPose();
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * v0.16.6 Eye of the Storm: a 5-block bubble of calm air round the hero -- a pale dome with slow streaks, a calm band
+	 * turning at its middle, and the storm's edge marked by a ring on the ground. Grows in and fades out. Fainter from
+	 * inside.
+	 */
+	private static void eyeOfStorm(VertexConsumer vc, PoseStack pose, Player pl, float time, float age, float left, boolean self, int light) {
+		float grow = Mth.clamp(age / 8f, 0, 1);
+		float fade = Mth.clamp(left / 10f, 0, 1) * grow;
+		if (fade < 0.01f) {
+			return;
+		}
+		float r = (float) WindHandlers.EYE_RADIUS * (0.4f + 0.6f * grow * (2 - grow));
+		float inside = self ? 0.45f : 1f;
+		pose.pushPose();
+		pose.translate(0, 0.2f, 0);
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotation(time * 0.02f));
+		WindMesh.sphere(vc, pose.last(), r, 16, 32, time * 0.008f, 210, 238, 250, (int) (18 * fade * inside), (int) (130 * fade * inside), light);
+		pose.popPose();
+		// calm bands drifting round the middle and lower dome
+		for (int k = 0; k < 3; k++) {
+			float y = r * (0.12f + k * 0.22f);
+			float rr = (float) Math.sqrt(Math.max(0, r * r - y * y)) * 0.995f;
+			pose.pushPose();
+			pose.translate(0, y, 0);
+			pose.mulPose(Axis.YP.rotation(time * (0.03f + k * 0.012f) + k * 2.1f));
+			int a = (int) (110 * fade * inside * (1 - k * 0.25f));
+			WindMesh.band(vc, pose.last(), -0.18f, rr, 0.18f, rr, 48, 6, 0, 0.25f, 0.75f, a, a, light);
+			pose.popPose();
+		}
+		// the edge on the ground
+		pose.pushPose();
+		pose.mulPose(Axis.YP.rotation(-time * 0.04f));
+		WindMesh.flatRing(vc, pose.last(), -0.12f, r * 0.9f, r * 1.02f, 48, time * 0.02f, 0, (int) (150 * fade), light);
+		pose.popPose();
 		pose.popPose();
 	}
 

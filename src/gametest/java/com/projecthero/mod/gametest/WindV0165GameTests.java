@@ -120,7 +120,8 @@ public class WindV0165GameTests implements FabricGameTest {
 	}
 
 	private static List<WindBladeEntity> blades(GameTestHelper helper, ServerPlayer p) {
-		return helper.getLevel().getEntitiesOfClass(WindBladeEntity.class, p.getBoundingBox().inflate(40));
+		return helper.getLevel().getEntitiesOfClass(WindBladeEntity.class, p.getBoundingBox().inflate(40),
+				b -> p.getUUID().equals(b.ownerId())); // v0.16.6: not a neighbouring test's
 	}
 
 	private static void assertNear(GameTestHelper helper, float expected, float got, String what) {
@@ -342,8 +343,8 @@ public class WindV0165GameTests implements FabricGameTest {
 	public void windBarrierBlowsBackWhatComesFromTheFront(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		Zombie shooter = zombie(helper, 2, 6);
-		AbilityRouter.handleInput(p, 5, true);
-		helper.assertTrue(WindHandlers.barrierUp(p), "hold V: the barrier is up");
+		press(p, 5);
+		helper.assertTrue(WindHandlers.barrierUp(p), "v0.16.6: a tap of V raises the barrier (a toggle now)");
 		Arrow front = arrow(helper, p.position().add(0, 1.4, 3.0), new Vec3(0, 0, -1.5), shooter);
 		Arrow back = arrow(helper, p.position().add(0, 1.4, -2.5), new Vec3(0, 0, 1.5), shooter);
 		int turned = WindHandlers.barrierPulse(p);
@@ -354,9 +355,9 @@ public class WindV0165GameTests implements FabricGameTest {
 		back.discard();
 		WindHandlers.setGust(p, 100);
 		tick(p, 20);
-		assertNear(helper, 100 - WindHandlers.COST_BARRIER_PER_SECOND, WindHandlers.gust(p), "6 Gust a second, no refill while held");
-		AbilityRouter.handleInput(p, 5, false);
-		helper.assertTrue(!WindHandlers.barrierUp(p), "down on release");
+		assertNear(helper, 100 - WindHandlers.COST_BARRIER_PER_SECOND, WindHandlers.gust(p), "6 Gust a second, no refill while up");
+		press(p, 5);
+		helper.assertTrue(!WindHandlers.barrierUp(p), "the next tap drops it");
 		helper.succeed();
 	}
 

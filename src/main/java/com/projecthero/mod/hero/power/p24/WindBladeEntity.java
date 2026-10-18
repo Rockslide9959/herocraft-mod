@@ -34,11 +34,15 @@ import net.minecraft.world.phys.Vec3;
 public class WindBladeEntity extends Entity {
 	private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(WindBladeEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Float> ROLL = SynchedEntityData.defineId(WindBladeEntity.class, EntityDataSerializers.FLOAT);
+	/** v0.16.6 R hold: a Cyclone Blade (the spinning disc model, a wider cut). */
+	private static final EntityDataAccessor<Boolean> CYCLONE = SynchedEntityData.defineId(WindBladeEntity.class, EntityDataSerializers.BOOLEAN);
 
 	private UUID owner;
 	private float damage;
 	private int life;
 	private final Set<Integer> cut = new HashSet<>();
+	/** How far either side of its path it cuts (0 = the crescent's own 1.15 x size). */
+	private double halfWidth;
 
 	public WindBladeEntity(EntityType<? extends WindBladeEntity> type, Level level) {
 		super(type, level);
@@ -70,6 +74,27 @@ public class WindBladeEntity extends Entity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(SIZE, 1.0f);
 		builder.define(ROLL, 0.0f);
+		builder.define(CYCLONE, false);
+	}
+
+	/** v0.16.6: makes this a Cyclone Blade cutting {@code half} blocks either side of its path. */
+	public void makeCyclone(double half) {
+		entityData.set(CYCLONE, true);
+		this.halfWidth = half;
+	}
+
+	/** Who threw it (server side; gametests). */
+	public UUID ownerId() {
+		return owner;
+	}
+
+	public boolean cyclone() {
+		return entityData.get(CYCLONE);
+	}
+
+	/** How far either side of its path it cuts. */
+	public double halfWidth() {
+		return halfWidth > 0 ? halfWidth : 1.15 * size();
 	}
 
 	public float size() {
@@ -102,6 +127,9 @@ public class WindBladeEntity extends Entity {
 		BlockHitResult wall = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
 		Vec3 end = wall.getType() == HitResult.Type.BLOCK ? wall.getLocation() : to;
 		cutAlong(level, p, from, end);
+		if (cyclone() && tickCount % 5 == 0) {
+			level.playSound(null, getX(), getY(), getZ(), SoundEvents.BREEZE_WHIRL, SoundSource.PLAYERS, 0.8f, 1.6f);
+		}
 		if (wall.getType() == HitResult.Type.BLOCK) {
 			breakUp(level, end, true);
 			return;
@@ -111,7 +139,7 @@ public class WindBladeEntity extends Entity {
 
 	/** Every creature the crescent sweeps through between {@code a} and {@code b} takes the blade's damage, once each. */
 	private void cutAlong(ServerLevel level, ServerPlayer p, Vec3 a, Vec3 b) {
-		double half = 1.15 * size();
+		double half = halfWidth();
 		Vec3 mid = a.add(b).scale(0.5);
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, mid, a.distanceTo(b) * 0.5 + half + 0.6)) {
 			if (e == p || cut.contains(e.getId())) {
