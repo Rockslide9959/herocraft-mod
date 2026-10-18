@@ -68,17 +68,10 @@ public final class AbilityHud {
 			return;
 		}
 
-		// v0.9.3: the six boxes + names are the SELECTED power's kit, but the meter bars are gathered
-		// from EVERY owned Experimental Tier power -- a second power's aura / stance / reserve keeps its
-		// bar while a different power holds the slots.
+		// v0.16.7 (user): only the SELECTED power's bars -- with several elemental powers stacked, every other power's
+		// always-on fuel bar (Earth, Water...) piled up under the selected one. (v0.9.3 gathered every owned power's.)
 		long meterTime = client.level != null ? client.level.getGameTime() : 0L;
-		List<Meter> meters = new ArrayList<>();
-		for (String key : state.ownedPowers) {
-			Power owned = Powers.byKey(key);
-			if (owned != null) {
-				meters.addAll(collectMeters(state, owned, meterTime));
-			}
-		}
+		List<Meter> meters = new ArrayList<>(collectMeters(state, power, meterTime));
 		meters.sort((a, b) -> a.label.getString().compareToIgnoreCase(b.label.getString()));
 
 		int screenW = graphics.guiWidth();

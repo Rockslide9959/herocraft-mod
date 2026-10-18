@@ -72,21 +72,8 @@ public final class PegasusPose {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float ageTicks = player.tickCount + partial;
 		ModelPart r = model.rightArm, l = model.leftArm;
-		// (from the position, not the velocity: other players' velocity isn't synced)
-		float speed = (float) Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
-		// Gallop, moving: leaning into it, the arms pumping
+		// v0.16.7 (user): Gallop runs with the regular Minecraft running animation (no lean / arm-pump pose of its own)
 		boolean standing = PegasusWorldFx.standing(player);
-		if (Pegasus.galloping(player) && speed > 0.12f && standing) {
-			float sw = Mth.sin(ageTicks * 1.1f);
-			model.body.xRot = Mth.lerp(0.8f, model.body.xRot, 0.32f);
-			pose(r, 0.8f, -0.9f + 0.9f * sw, 0f, 0.1f);
-			pose(l, 0.8f, -0.9f - 0.9f * sw, 0f, -0.1f);
-			model.head.xRot = Mth.lerp(0.5f, model.head.xRot, -0.2f);
-			model.rightLeg.z += 2.0f;
-			model.leftLeg.z += 2.0f;
-			model.rightLeg.y -= 0.5f;
-			model.leftLeg.y -= 0.5f;
-		}
 		// Sky Gallop: knees high, running on the air
 		if (Pegasus.skyGalloping(player) && !standing) {
 			float sw = Mth.sin(ageTicks * 0.75f);

@@ -79,6 +79,23 @@ public final class CatNoirPose {
 		float age = (now - s.animStart) + partial;
 		boolean running = s.animId >= 40 && s.animId < 60 && age >= 0f && age < len;
 
+		// v0.16.7 (user): Rooftop Run, sprinting -- on all fours like a cat (the body is tipped flat by
+		// CatNoirAllFoursMixin; here the arms and legs become front and back legs in a bounding gait)
+		float fours = running ? 0f : allFours(player, partial);
+		if (fours > 0.01f) {
+			float phase = player.walkAnimation.position(partial) * 0.55f;
+			float front = 0.75f * Mth.sin(phase);
+			float back = 0.75f * Mth.sin(phase + (float) Math.PI * 0.8f);
+			float down = -(float) Math.PI / 2f;
+			pose(model.rightArm, fours, down + front, 0f, 0.08f);
+			pose(model.leftArm, fours, down + front * 0.85f, 0f, -0.08f);
+			pose(model.rightLeg, fours, down + back, 0f, 0.05f);
+			pose(model.leftLeg, fours, down + back * 0.85f, 0f, -0.05f);
+			model.body.xRot = Mth.lerp(fours, model.body.xRot, 0f);
+			// the head looks ahead (the model lies face down), still nodding with the look a little
+			model.head.xRot = Mth.lerp(fours, model.head.xRot, down + model.head.xRot * 0.35f);
+			model.hat.copyFrom(model.head);
+		}
 		// climbing a wall on Rooftop Run: hand over hand
 		if (!running && CatNoir.climbing(player) && !player.onGround()) {
 			float c = Mth.sin(t * 0.45f);
@@ -222,6 +239,40 @@ public final class CatNoirPose {
 	private static void crouchLegs(HumanoidModel<?> model, float w) {
 		pose(model.rightLeg, w, -0.7f, 0.15f, 0.1f);
 		pose(model.leftLeg, w, 0.35f, -0.1f, -0.1f);
+	}
+
+	/** entity id -> [blend 0..1, the game time (with partial) it was last eased at]. */
+	private static final java.util.Map<Integer, float[]> FOURS = new java.util.HashMap<>();
+
+	/**
+	 * v0.16.7 (user): how far Cat Noir is into his all-fours run, 0..1, eased in and out (about a quarter second): Rooftop
+	 * Run on, sprinting, moving, on (or just above) the ground, not climbing, swimming, flying, riding or mid-move.
+	 * Read by the limb pose here and by {@code CatNoirAllFoursMixin}, which tips the whole body flat.
+	 */
+	public static float allFours(Player player, float partial) {
+		if (player.level() == null) {
+			return 0f;
+		}
+		boolean want = false;
+		if (CatNoir.active(player) && CatNoir.rooftop(player) && player.isSprinting() && !player.isPassenger()
+				&& !player.isSwimming() && !player.isFallFlying() && !player.getAbilities().flying && !CatNoir.climbing(player)) {
+			MiraculousState s = Miraculous.peek(player);
+			boolean moving = s == null || !(s.animId >= 40 && s.animId < 60
+					&& player.level().getGameTime() - s.animStart < Math.max(1, length(s.animId)));
+			double speed = Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
+			boolean nearGround = player.onGround()
+					|| !player.level().noCollision(player, player.getBoundingBox().move(0.0, -1.0, 0.0));
+			want = moving && speed > 0.06 && nearGround;
+		}
+		float now = player.level().getGameTime() + partial;
+		float[] st = FOURS.computeIfAbsent(player.getId(), k -> new float[] { 0f, now });
+		float dt = Mth.clamp(now - st[1], 0f, 5f);
+		st[1] = now;
+		st[0] = Mth.clamp(st[0] + (want ? 0.2f : -0.25f) * dt, 0f, 1f);
+		if (FOURS.size() > 256) {
+			FOURS.clear();
+		}
+		return smooth(st[0]);
 	}
 
 	private static float smooth(float x) {
