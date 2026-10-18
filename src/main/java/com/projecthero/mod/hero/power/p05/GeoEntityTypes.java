@@ -44,6 +44,16 @@ public final class GeoEntityTypes {
 					.noSummon()
 					.build("geo_form"));
 
+	/** v0.16.6 hold X: the Burrow carrier (a mound on the surface; the hero rides it underground). Updated every tick. */
+	public static final EntityType<GeoBurrowEntity> GEO_BURROW = register("geo_burrow",
+			EntityType.Builder.<GeoBurrowEntity>of(GeoBurrowEntity::new, MobCategory.MISC)
+					.sized(1.0f, 1.0f)
+					.clientTrackingRange(10)
+					.updateInterval(1)
+					.noSave()
+					.noSummon()
+					.build("geo_burrow"));
+
 	private GeoEntityTypes() {
 	}
 

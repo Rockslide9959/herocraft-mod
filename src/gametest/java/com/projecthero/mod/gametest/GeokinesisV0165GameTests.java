@@ -440,7 +440,7 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 				}
 			}
 		}
-		AbilityRouter.handleInput(p, 6, true);
+		press(p, 6); // v0.16.6: a tap starts it (it used to be held)
 		helper.assertTrue(GeokinesisHandlers.tunnelling(p), "boring");
 		GeokinesisHandlers.setEarth(p, 50);
 		tick(p, 20);
@@ -452,8 +452,8 @@ public class GeokinesisV0165GameTests implements FabricGameTest {
 		helper.assertTrue(p.getInventory().countItem(Items.COBBLESTONE) >= 9, "you keep the blocks, got "
 				+ p.getInventory().countItem(Items.COBBLESTONE));
 		assertNear(helper, 47, res(p, "earth"), "3 Earth a second");
-		AbilityRouter.handleInput(p, 6, false);
-		helper.assertFalse(GeokinesisHandlers.tunnelling(p), "stops on release");
+		press(p, 6);
+		helper.assertFalse(GeokinesisHandlers.tunnelling(p), "v0.16.6: a second tap stops it");
 		helper.succeed();
 	}
 
