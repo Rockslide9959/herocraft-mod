@@ -61,6 +61,11 @@ import net.minecraft.world.phys.Vec3;
  * / N. All six slots are HOLD, so the handlers own their tap / Shift / release logic; the two real cooldowns (Water
  * Prison 12 s, Healing Water 20 s) are the handlers' own timers.
  *
+ * <p>v0.16.6 (user: "give all the elemental powers extra moves that are triggered by holding down the ability key"): every
+ * key is {@link com.projecthero.mod.hero.HoldTap tap vs hold} -- a tap does what it always did, holding 0.6 s fires the
+ * key's hold move: R Water Dragon, G Whirlpool, X Hydro Jets, Z Tsunami, V Water Clone, C Rain Call (each with its own
+ * cooldown timer). The Water Shield became a toggle (tap up, tap down) so V could have one. Shift+hold is unchanged.
+ *
  * <p>Passives: water breathing, fast swimming (full water movement efficiency), 30% less fire damage, and fire on you
  * goes out at once.
  */
@@ -129,6 +134,47 @@ public final class WaterHandlers {
 
 	// ---- passives ----
 	public static final float FIRE_FACTOR = 0.7f;
+
+	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s); each has its own cooldown, kept apart from the tap move ----
+	/** Hold R -- Water Dragon. */
+	public static final float COST_DRAGON = 25.0f;
+	public static final double DRAGON_RANGE = 30.0;
+	public static final float DRAGON_DAMAGE = 20.0f;
+	public static final int DRAGON_CD = 8 * 20;
+	/** Hold G -- Whirlpool (8 across). */
+	public static final float COST_WHIRLPOOL = 35.0f;
+	public static final double WHIRLPOOL_RANGE = 24.0;
+	public static final double WHIRLPOOL_RADIUS = 4.0;
+	public static final int WHIRLPOOL_TICKS = 6 * 20;
+	public static final float WHIRLPOOL_DAMAGE_PER_SECOND = 3.0f;
+	public static final int WHIRLPOOL_CD = 15 * 20;
+	/** Hold X -- Hydro Jets: 10 s of flight. The cooldown runs from take-off. */
+	public static final float COST_HYDRO_JETS = 30.0f;
+	public static final int HYDRO_JETS_TICKS = 10 * 20;
+	public static final int HYDRO_JETS_CD = 18 * 20;
+	private static final String HYDRO_JETS_LANDING = "water_hydro_jets";
+	/** Hold Z -- Tsunami (12 wide, 6 tall, 30 blocks). */
+	public static final float COST_TSUNAMI = 60.0f;
+	public static final float TSUNAMI_DAMAGE = 22.0f;
+	public static final int TSUNAMI_CD = 20 * 20;
+	/** Hold V -- Water Clone: 15 s at half your melee damage. The cooldown runs from the cast. */
+	public static final float COST_CLONE = 40.0f;
+	public static final int CLONE_TICKS = 15 * 20;
+	public static final float CLONE_HEALTH = 20.0f;
+	public static final double CLONE_DAMAGE_FACTOR = 0.5;
+	public static final int CLONE_CD = 25 * 20;
+	/** Hold C -- Rain Call: 60 s of local rain in a 16-block circle. The cooldown runs from the cast. */
+	public static final float COST_RAIN = 30.0f;
+	public static final int RAIN_TICKS = 60 * 20;
+	public static final double RAIN_RADIUS = 16.0;
+	public static final int RAIN_HEAL_EVERY = 5 * 20;
+	public static final float RAIN_HEAL = 2.0f;
+	public static final int RAIN_CD = 90 * 20;
+	/**
+	 * The hold moves' own timers (counted down every tick in {@link #upkeep}); the clone and the rain end on their own when
+	 * theirs run out, the jets' {@code hjet} is counted in {@link #hydroJetsTick}.
+	 */
+	private static final String[] HOLD_TIMERS = { "dragon_cd", "whirl_cd", "hjet_cd", "tsunami_cd", "clone_cd", "rain_cd", "rain", "clone" };
 
 	private static final ResourceLocation SWIM = com.projecthero.mod.ProjectHeroMod.id("water_swim");
 	private static final ResourceLocation AQUATIC_MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("water_aquatic_melee");
@@ -220,19 +266,77 @@ public final class WaterHandlers {
 		return next - have;
 	}
 
-	/** The Water a second the meter refills right now: 40 standing in water, 25 in rain, otherwise 10. */
+	/**
+	 * The Water a second the meter refills right now: 40 standing in water, 25 in rain, otherwise 10 -- and v0.16.6, twice
+	 * that standing under your own Rain Call.
+	 */
 	public static float regenPerSecond(ServerPlayer p) {
+		float base;
 		if (p.isInWater()) {
-			return REGEN_WATER_PER_SECOND;
+			base = REGEN_WATER_PER_SECOND;
+		} else if (p.level().isRainingAt(p.blockPosition())
+				|| p.level().isRainingAt(BlockPos.containing(p.getX(), p.getBoundingBox().maxY, p.getZ()))) {
+			base = REGEN_RAIN_PER_SECOND;
+		} else {
+			base = REGEN_PER_SECOND;
 		}
-		if (p.level().isRainingAt(p.blockPosition()) || p.level().isRainingAt(BlockPos.containing(p.getX(), p.getBoundingBox().maxY, p.getZ()))) {
-			return REGEN_RAIN_PER_SECOND;
-		}
-		return REGEN_PER_SECOND;
+		return inRainCall(p) ? base * 2.0f : base;
 	}
 
 	private static boolean noBoss(LivingEntity t) {
 		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
+	}
+
+	/** v0.16.6: a boss (or anything that big): hold moves hit it but never drag, carry or lure it. */
+	public static boolean isBossLike(LivingEntity t) {
+		return !noBoss(t);
+	}
+
+	/** v0.16.6: a Rain Call of yours is falling somewhere (its timer is up). */
+	public static boolean rainCalled(ServerPlayer p) {
+		return res(p, "rain") > 0.5f;
+	}
+
+	/** v0.16.6: you are standing under your own Rain Call (within 16 blocks of its centre, across, under its cloud). */
+	public static boolean inRainCall(ServerPlayer p) {
+		if (!rainCalled(p)) {
+			return false;
+		}
+		for (RainCallEntity rain : p.level().getEntitiesOfClass(RainCallEntity.class, p.getBoundingBox().inflate(RAIN_RADIUS + 1.0, 12.0,
+				RAIN_RADIUS + 1.0), e -> e.ownerId() == p.getId() && e.isAlive())) {
+			double dx = p.getX() - rain.getX();
+			double dz = p.getZ() - rain.getZ();
+			double dy = p.getY() - rain.getY();
+			if (dx * dx + dz * dz <= RAIN_RADIUS * RAIN_RADIUS && dy > -8.0 && dy < RainCallEntity.CLOUD_HEIGHT + 1.0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.16.6: your Water Clone's timer is up (the clone bursts when it runs out). */
+	public static boolean cloneCalled(ServerPlayer p) {
+		return res(p, "clone") > 0.5f;
+	}
+
+	/** v0.16.6: Hydro Jets are carrying you. Either side. */
+	public static boolean hydroJetting(Player p) {
+		return owns(p) && resAny(p, "hjet") > 0.5f;
+	}
+
+	/** A hold move refused on its own cooldown: "<hold move> is cooling down (Ns)". */
+	private static void coolingHold(AbilityContext ctx, String timer) {
+		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(ctx.ability().nameKey() + ".hold"),
+				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
+	}
+
+	/** True (and the cooldown line shown) if the hold move's {@code timer} is still running. */
+	private static boolean holdCooling(AbilityContext ctx, String timer) {
+		if (res(ctx.player(), timer) > 0.5f) {
+			coolingHold(ctx, timer);
+			return true;
+		}
+		return false;
 	}
 
 	private static Vec3 mid(LivingEntity e) {
@@ -279,6 +383,14 @@ public final class WaterHandlers {
 			@Override
 			public void onRelease(AbilityContext ctx) {
 				endJet(ctx.player());
+				switchedAway(ctx.player());
+			}
+
+			// v0.16.6: hold R -- Water Dragon
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				seed(ctx.player());
+				waterDragon(ctx);
 			}
 		});
 
@@ -298,6 +410,13 @@ public final class WaterHandlers {
 					whip(ctx);
 				}
 			}
+
+			// v0.16.6: hold G -- Whirlpool
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				seed(ctx.player());
+				whirlpool(ctx);
+			}
 		});
 
 		// X -- Riptide / Wave Ride (Shift; again to step off)
@@ -316,6 +435,20 @@ public final class WaterHandlers {
 					riptide(p);
 				}
 			}
+
+			// v0.16.6: hold X -- Hydro Jets (hold again while flying to cut them)
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (res(p, "hjet") > 0.5f) {
+					endHydroJets(p);
+					return;
+				}
+				if (!holdCooling(ctx, "hjet_cd")) {
+					startHydroJets(ctx);
+				}
+			}
 		});
 
 		// Z -- Tidal Wave / Geyser (Shift)
@@ -330,9 +463,19 @@ public final class WaterHandlers {
 					tidalWave(p);
 				}
 			}
+
+			// v0.16.6: hold Z -- Tsunami
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (!holdCooling(ctx, "tsunami_cd")) {
+					tsunami(p);
+				}
+			}
 		});
 
-		// V -- Water Shield (held) / Healing Water (Shift)
+		// V -- Water Shield (v0.16.6: a toggle -- tap up, tap down) / Healing Water (Shift)
 		AbilityHandlers.register(KEY, "water_shield", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
@@ -344,14 +487,23 @@ public final class WaterHandlers {
 						return;
 					}
 					healingWater(p);
+				} else if (res(p, "shield") > 0.5f) {
+					endShield(p);
 				} else {
 					startShield(p);
 				}
 			}
 
+			// v0.16.6 (user: the held key becomes a toggle so it can have a hold move): letting go no longer drops it
+
+			// v0.16.6: hold V -- Water Clone
 			@Override
-			public void onRelease(AbilityContext ctx) {
-				endShield(ctx.player());
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (!holdCooling(ctx, "clone_cd")) {
+					waterClone(p);
+				}
 			}
 		});
 
@@ -368,10 +520,84 @@ public final class WaterHandlers {
 					ctx.actionBar(res(p, "aquatic") > 0.5f ? "message.projecthero.water.aquatic_on" : "message.projecthero.water.aquatic_off");
 				}
 			}
+
+			// v0.16.6: hold C -- Rain Call
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				ServerPlayer p = ctx.player();
+				seed(p);
+				if (!holdCooling(ctx, "rain_cd")) {
+					rainCall(p);
+				}
+			}
 		});
 
+		// v0.16.6: every key also has a HOLD move (hold 0.6 s); a tap does exactly what it did before
+		for (String id : new String[] { "water_shot", "water_whip", "riptide", "tidal_wave", "water_shield", "aquatic_form" }) {
+			com.projecthero.mod.hero.HoldTap.register(KEY, id);
+		}
+
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(WaterHandlers::allowDamage);
+		// v0.16.6: a logout ends the jets and calls the clone and the rain back (their bodies vanish with their caster)
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (owns(handler.player)) {
+				endHolds(handler.player);
+			}
+		});
 		registerPassives();
+	}
+
+	// ================================================================ v0.16.6 hold moves: shared upkeep
+
+	/** Ends every running hold move of {@code p}'s (the jets land him; the clone and the rain go). */
+	public static void endHolds(ServerPlayer p) {
+		endHydroJets(p);
+		set(p, "clone", 0);
+		set(p, "rain", 0);
+		set(p, "rain_heal", 0);
+		ServerLevel level = AbilityHelpers.level(p);
+		for (WaterCloneEntity c : level.getEntitiesOfClass(WaterCloneEntity.class, p.getBoundingBox().inflate(64),
+				c -> c.ownerId().map(p.getUUID()::equals).orElse(false))) {
+			c.burst();
+		}
+		for (RainCallEntity r : level.getEntitiesOfClass(RainCallEntity.class, p.getBoundingBox().inflate(64), r -> r.ownerId() == p.getId())) {
+			r.discard();
+		}
+	}
+
+	/**
+	 * A HOLD key's release reached the handler: when the Water power is no longer the one on the keys (a power switch
+	 * releases every held key of the power being left), the shield, the jets, the clone and the rain end with it.
+	 */
+	private static void switchedAway(ServerPlayer p) {
+		Power active = ExperimentalPowers.getActive(p);
+		if (active == null || !KEY.equals(active.key())) {
+			endShield(p);
+			endHolds(p);
+		}
+	}
+
+	/** The hold moves' timers, the jets' flight and the rain's healing (every tick, from {@link #upkeep}). */
+	private static void holdTick(ServerPlayer p, ServerLevel level) {
+		for (String timer : HOLD_TIMERS) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, v - 1);
+			}
+		}
+		hydroJetsTick(p, level);
+		// Rain Call: under it, a heart every 5 s (the doubled refill is in regenPerSecond)
+		if (inRainCall(p) && p.isAlive()) {
+			float t = res(p, "rain_heal") + 1;
+			if (t >= RAIN_HEAL_EVERY) {
+				t = 0;
+				if (p.getHealth() < p.getMaxHealth()) {
+					p.heal(RAIN_HEAL);
+					level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1.2, p.getZ(), 4, 0.3, 0.4, 0.3, 0.0);
+				}
+			}
+			set(p, "rain_heal", t);
+		}
 	}
 
 	// ================================================================ upkeep (every tick for an owner)
@@ -392,6 +618,7 @@ public final class WaterHandlers {
 			set(p, METER, Math.min(MAX_WATER, w + regenPerSecond(p) / 20.0f));
 		}
 		ripAirTick(p);
+		holdTick(p, level);
 		jetTick(p, level);
 		shieldTick(p, level);
 		surfTick(p, level);
@@ -910,6 +1137,205 @@ public final class WaterHandlers {
 		level.playSound(null, at, SoundEvents.BUCKET_EMPTY, SoundSource.PLAYERS, 1.0f, 1.0f);
 	}
 
+	// ================================================================ v0.16.6 hold moves
+
+	/** Hold R: a serpent of water rises and rams the creature you aim at (30 blocks) -- or the spot -- for 20. */
+	private static void waterDragon(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (holdCooling(ctx, "dragon_cd")) {
+			return;
+		}
+		LivingEntity t = AbilityHelpers.raycastEntity(p, DRAGON_RANGE);
+		if (t != null && (!HeroTargets.canHarm(p, t) || Squads.areAllies(p, t))) {
+			t = null;
+		}
+		Vec3 point = t != null ? mid(t) : AbilityHelpers.aimPoint(p, DRAGON_RANGE);
+		if (!spend(p, COST_DRAGON)) {
+			return;
+		}
+		set(p, "dragon_cd", DRAGON_CD);
+		MutationVisuals.play(p, "p25.dragon");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.4f, 0.5f);
+		AbilityHelpers.sound(p, SoundEvents.ELDER_GUARDIAN_AMBIENT, 0.6f, 1.6f);
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 1.2, p.getZ(), 40, 0.5, 0.4, 0.5, 0.3);
+		WaterDragonEntity.summon(p, t, point);
+	}
+
+	/** Where a ground effect aimed at {@code at} sits: the first floor at or below it (up to 6 down), else {@code at}. */
+	private static Vec3 groundBelow(ServerLevel level, Vec3 at) {
+		BlockPos b = BlockPos.containing(at.x, at.y + 0.01, at.z);
+		for (int dy = 0; dy <= 6; dy++) {
+			BlockPos below = b.below(dy + 1);
+			if (!level.getBlockState(below).getCollisionShape(level, below).isEmpty()) {
+				double top = below.getY() + level.getBlockState(below).getCollisionShape(level, below).max(net.minecraft.core.Direction.Axis.Y);
+				return new Vec3(at.x, Math.min(at.y, top), at.z);
+			}
+		}
+		return at;
+	}
+
+	/** Hold G: an 8-across whirlpool opens where you aim (24 blocks) for 6 s. */
+	private static void whirlpool(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (holdCooling(ctx, "whirl_cd")) {
+			return;
+		}
+		ServerLevel level = ctx.level();
+		LivingEntity t = AbilityHelpers.raycastEntity(p, WHIRLPOOL_RANGE);
+		Vec3 at;
+		if (t != null) {
+			at = groundBelow(level, t.position());
+		} else {
+			BlockHitResult hit = AbilityHelpers.raycastBlock(p, WHIRLPOOL_RANGE);
+			if (hit.getType() != HitResult.Type.BLOCK) {
+				ctx.actionBar("message.projecthero.water.no_target");
+				return;
+			}
+			// the open cell in front of the face it hit, dropped to the floor there
+			Vec3 l = hit.getLocation();
+			BlockPos cell = hit.getBlockPos().relative(hit.getDirection());
+			at = groundBelow(level, new Vec3(l.x, cell.getY() + 0.01, l.z));
+		}
+		if (!spend(p, COST_WHIRLPOOL)) {
+			return;
+		}
+		set(p, "whirl_cd", WHIRLPOOL_CD);
+		MutationVisuals.play(p, "p25.whirl");
+		AbilityHelpers.sound(p, SoundEvents.BUBBLE_COLUMN_WHIRLPOOL_INSIDE, 1.2f, 0.7f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.PLAYERS, 1.4f, 0.5f);
+		WhirlpoolEntity.open(p, at);
+	}
+
+	/** Hold X: water jets from your hands and feet carry you -- 10 s of the shared directional flight. */
+	private static void startHydroJets(AbilityContext ctx) {
+		ServerPlayer p = ctx.player();
+		if (p.getAbilities().instabuild || com.projecthero.mod.power.ThorPowers.isFlying(p) || p.isPassenger()) {
+			return;
+		}
+		if (!spend(p, COST_HYDRO_JETS)) {
+			return;
+		}
+		endSurf(p);
+		set(p, "hjet", HYDRO_JETS_TICKS);
+		set(p, "hjet_cd", HYDRO_JETS_CD);
+		// HeroFlight leaves a flight alone while a timed self-flight resource is up (as Pyrokinesis's Jet Flight does)
+		ExperimentalPowers.setResource(p, Powers.byKey(KEY), "flame_fly_ticks", 1, 1);
+		com.projecthero.mod.flight.FlightLanding.started(p, HYDRO_JETS_LANDING);
+		p.setAttached(ModAttachments.HERO_FLYING, true); // the shared directional flight steers it
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.getAbilities().setFlyingSpeed(com.projecthero.mod.hero.power.HeroFlight.HERO_FLYING_SPEED);
+		p.onUpdateAbilities();
+		if (p.onGround()) {
+			AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, 0.6, p.getDeltaMovement().z));
+		}
+		MutationVisuals.play(p, "p25.hjets");
+		AbilityHelpers.level(p).sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.1, p.getZ(), 50, 0.5, 0.1, 0.5, 0.3);
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 1.2f, 0.8f);
+		AbilityHelpers.sound(p, SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, 1.0f, 1.2f);
+	}
+
+	public static void endHydroJets(ServerPlayer p) {
+		if (res(p, "hjet") < 0.5f && res(p, "flame_fly_ticks") < 0.5f) {
+			return;
+		}
+		set(p, "hjet", 0);
+		ExperimentalPowers.setResource(p, Powers.byKey(KEY), "flame_fly_ticks", 0, 1);
+		com.projecthero.mod.flight.FlightLanding.ended(p, HYDRO_JETS_LANDING);
+		p.setAttached(ModAttachments.HERO_FLYING, false);
+		if (!p.getAbilities().instabuild && !p.isSpectator()) {
+			p.getAbilities().mayfly = false;
+			p.getAbilities().flying = false;
+		}
+		p.getAbilities().setFlyingSpeed(0.05f);
+		p.onUpdateAbilities();
+		set(p, "nofall", Math.max(res(p, "nofall"), 60));
+		p.resetFallDistance();
+		MutationVisuals.stopIf(p, "p25.hjets");
+		AbilityHelpers.sound(p, SoundEvents.GENERIC_SPLASH, 0.6f, 1.4f);
+	}
+
+	private static void hydroJetsTick(ServerPlayer p, ServerLevel level) {
+		float left = res(p, "hjet");
+		if (left < 0.5f) {
+			return;
+		}
+		if (!p.isAlive() || p.isPassenger() || p.getAbilities().instabuild
+				|| com.projecthero.mod.flight.FlightLanding.landed(p, HYDRO_JETS_LANDING)) {
+			endHydroJets(p);
+			return;
+		}
+		left -= 1;
+		if (left < 0.5f) {
+			endHydroJets(p);
+			return;
+		}
+		set(p, "hjet", left);
+		ExperimentalPowers.setResource(p, Powers.byKey(KEY), "flame_fly_ticks", 1, 1);
+		p.setAttached(ModAttachments.HERO_FLYING, true);
+		if (!p.getAbilities().flying || !p.getAbilities().mayfly) {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		}
+		p.resetFallDistance();
+		p.clearFire();
+		MutationVisuals.ensure(p, "p25.hjets");
+		if (p.tickCount % 2 == 0) {
+			level.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() - 0.4, p.getZ(), 5, 0.2, 0.15, 0.2, 0.1);
+			level.sendParticles(ParticleTypes.FALLING_WATER, p.getX(), p.getY() - 0.8, p.getZ(), 2, 0.15, 0.3, 0.15, 0.0);
+		}
+		if (p.tickCount % 8 == 0) {
+			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WEATHER_RAIN, SoundSource.PLAYERS, 0.5f, 2.0f);
+		}
+	}
+
+	/** Hold Z: a 12-wide, 6-tall wave rolls 30 blocks -- 22 damage, sweeping everything along, putting out fire. */
+	public static TsunamiEntity tsunami(ServerPlayer p) {
+		if (!spend(p, COST_TSUNAMI)) {
+			return null;
+		}
+		set(p, "tsunami_cd", TSUNAMI_CD);
+		MutationVisuals.play(p, "p25.tsunami");
+		AbilityHelpers.sound(p, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, 2.0f, 0.3f);
+		AbilityHelpers.sound(p, SoundEvents.ELDER_GUARDIAN_AMBIENT, 0.8f, 0.6f);
+		return TsunamiEntity.raise(p);
+	}
+
+	/** Hold V: a clone of you made of water fights for 15 s at half your melee damage (one at a time). */
+	public static WaterCloneEntity waterClone(ServerPlayer p) {
+		if (!spend(p, COST_CLONE)) {
+			return null;
+		}
+		ServerLevel level = AbilityHelpers.level(p);
+		for (WaterCloneEntity old : level.getEntitiesOfClass(WaterCloneEntity.class, p.getBoundingBox().inflate(64),
+				c -> c.ownerId().map(p.getUUID()::equals).orElse(false))) {
+			old.burst();
+		}
+		set(p, "clone", CLONE_TICKS);
+		set(p, "clone_cd", CLONE_CD);
+		MutationVisuals.play(p, "p25.clone");
+		return WaterCloneEntity.raise(p);
+	}
+
+	/** Hold C: local rain over a 16-block circle round you for 60 s (the world's weather is left alone). */
+	public static RainCallEntity rainCall(ServerPlayer p) {
+		if (!spend(p, COST_RAIN)) {
+			return null;
+		}
+		ServerLevel level = AbilityHelpers.level(p);
+		for (RainCallEntity old : level.getEntitiesOfClass(RainCallEntity.class, p.getBoundingBox().inflate(64), r -> r.ownerId() == p.getId())) {
+			old.discard();
+		}
+		set(p, "rain", RAIN_TICKS);
+		set(p, "rain_cd", RAIN_CD);
+		set(p, "rain_heal", 0);
+		MutationVisuals.play(p, "p25.rain");
+		AbilityHelpers.sound(p, SoundEvents.WEATHER_RAIN_ABOVE, 1.0f, 0.8f);
+		AbilityHelpers.sound(p, SoundEvents.CONDUIT_AMBIENT, 1.0f, 0.8f);
+		return RainCallEntity.gather(p);
+	}
+
 	// ================================================================ damage
 
 	/** The shield swallows projectiles outright. */
@@ -960,6 +1386,13 @@ public final class WaterHandlers {
 					endShield(player);
 					endSurf(player);
 					set(player, "aquatic", 0);
+					endHolds(player); // v0.16.6: the jets, the clone and the rain
+				} else if (player.getAttachedOrElse(ModAttachments.HERO_FLYING, false) && !player.getAbilities().instabuild && power != null
+						&& ExperimentalPowers.getResource(player, power, "hjet") > 0.5f) {
+					player.setAttached(ModAttachments.HERO_FLYING, false);
+					player.getAbilities().mayfly = false;
+					player.getAbilities().flying = false;
+					player.onUpdateAbilities();
 				}
 				MutationVisuals.stop(player);
 			}
@@ -990,6 +1423,7 @@ public final class WaterHandlers {
 		MutationVisuals.registerFlag("p25.shield", WaterHandlers::shielding);
 		MutationVisuals.registerFlag("p25.surf", WaterHandlers::surfing);
 		MutationVisuals.registerFlag("p25.aquatic", WaterHandlers::aquaticActive);
+		MutationVisuals.registerFlag("p25.hjets", WaterHandlers::hydroJetting); // v0.16.6
 	}
 
 	public static void registerMeters() {
@@ -1002,6 +1436,22 @@ public final class WaterHandlers {
 				"Prison cooldown", PRISON_CD, 0xFF5A7A9A, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "heal_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Healing cooldown", HEAL_CD, 0xFF5A7A9A, false, false, true, text));
+		// v0.16.6: the hold moves -- the jets' flight, the clone's and the rain's time, and their own cooldowns
+		MutationMeters.register(new MutationMeters.Spec(KEY, "hjet", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, "Hydro Jets",
+				HYDRO_JETS_TICKS, 0xFF7FC4FF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "clone", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, "Water Clone",
+				CLONE_TICKS, 0xFF7FC4FF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "rain", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, "Rain Call",
+				RAIN_TICKS, 0xFF7FC4FF, false, false, true, text));
+		String[][] cds = { { "dragon_cd", "Dragon cooldown" }, { "whirl_cd", "Whirlpool cooldown" }, { "hjet_cd", "Jets cooldown" },
+				{ "tsunami_cd", "Tsunami cooldown" }, { "clone_cd", "Clone cooldown" }, { "rain_cd", "Rain cooldown" } };
+		int[] cdMax = { DRAGON_CD, WHIRLPOOL_CD, HYDRO_JETS_CD, TSUNAMI_CD, CLONE_CD, RAIN_CD };
+		for (int i = 0; i < cds.length; i++) {
+			MutationMeters.register(new MutationMeters.Spec(KEY, cds[i][0], MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE, cds[i][1],
+					cdMax[i], 0xFF5A7A9A, false, false, true, text));
+		}
+		BatchBUtil.hideMeter(KEY, "rain_heal");
+		BatchBUtil.hideMeter(KEY, "flame_fly_ticks");
 		for (String legacy : LEGACY) {
 			BatchBUtil.hideMeter(KEY, legacy);
 		}

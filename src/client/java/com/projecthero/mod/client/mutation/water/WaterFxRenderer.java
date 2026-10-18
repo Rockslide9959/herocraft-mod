@@ -6,7 +6,10 @@ import com.mojang.math.Axis;
 import com.projecthero.mod.client.mutation.WaterClient;
 import com.projecthero.mod.hero.power.p25.GeyserEntity;
 import com.projecthero.mod.hero.power.p25.HealingWaterEntity;
+import com.projecthero.mod.hero.power.p25.RainCallEntity;
 import com.projecthero.mod.hero.power.p25.TidalWaveEntity;
+import com.projecthero.mod.hero.power.p25.WaterDragonEntity;
+import com.projecthero.mod.hero.power.p25.WhirlpoolEntity;
 import com.projecthero.mod.hero.power.p25.WaterBoltEntity;
 import com.projecthero.mod.hero.power.p25.WaterFxEntity;
 import com.projecthero.mod.hero.power.p25.WaterHandlers;
@@ -67,6 +70,12 @@ public class WaterFxRenderer<T extends WaterFxEntity> extends EntityRenderer<T> 
 			geyser(g, t, pose, vc, lit);
 		} else if (e instanceof HealingWaterEntity h) {
 			healing(h, t, pose, vc, lit);
+		} else if (e instanceof WaterDragonEntity d) {
+			WaterHoldFx.dragon(d, t, partial, pose, vc, lit);
+		} else if (e instanceof WhirlpoolEntity w) {
+			WaterHoldFx.whirlpool(w, t, pose, vc, lit);
+		} else if (e instanceof RainCallEntity r) {
+			WaterHoldFx.rain(r, t, partial, pose, vc, lit);
 		}
 		pose.popPose();
 		super.render(e, yaw, partial, pose, buffers, light);
@@ -226,31 +235,52 @@ public class WaterFxRenderer<T extends WaterFxEntity> extends EntityRenderer<T> 
 
 	private static void tidal(TidalWaveEntity e, float t, float partial, PoseStack pose, VertexConsumer vc, int light) {
 		pose.mulPose(Axis.YP.rotationDegrees(-e.getYRot()));
-		float rise = Math.min(1f, t / TidalWaveEntity.RISE);
+		// v0.16.6: the same wall scaled to the wave's size -- the Tidal Wave (7 x 3) or the Tsunami (12 x 6)
+		float k = (float) (e.height() / TidalWaveEntity.HEIGHT);
+		float rise = Math.min(1f, t / e.rise());
 		rise = rise * rise * (3f - 2f * rise);
 		int broken = e.brokenFor(partial);
-		float fall = broken < 0 ? 0f : Math.min(1f, (broken + partial) / TidalWaveEntity.COLLAPSE);
+		float fall = broken < 0 ? 0f : Math.min(1f, (broken + partial) / e.collapse());
 		float alpha = 1f - fall * fall;
-		float h = 0.15f + 0.85f * rise;
-		float half = (float) TidalWaveEntity.HALF_WIDTH;
+		float h = (0.15f + 0.85f * rise) * k;
+		float half = (float) e.halfWidth();
+		int cols = Math.max(14, (int) (half * 2f * 1.4f));
+		float wobK = 0.6f + 0.4f * k;
 		WaterMesh.Profile body = (x, s) -> {
-			float edge = Mth.clamp((Math.abs(x) - (half - 1.2f)) / 1.2f, 0f, 1f);
+			float edge = Mth.clamp((Math.abs(x) - (half - 1.2f * k)) / (1.2f * k), 0f, 1f);
 			float taper = 1f - 0.7f * edge * edge;
-			Vec3 p = curl(s, h * taper, 0.8f + 0.2f * taper, fall);
-			float wob = Mth.sin(x * 1.35f + t * 0.55f + s * 3f) * 0.13f * s + Mth.sin(x * 0.6f - t * 0.3f) * 0.08f;
-			return new Vec3(x, p.y + wob, p.z + Mth.sin(x * 0.9f - t * 0.4f) * 0.12f * s);
+			Vec3 p = curl(s, h * taper, (0.8f + 0.2f * taper) * k, fall);
+			float wob = (Mth.sin(x * 1.35f / wobK + t * 0.55f + s * 3f) * 0.13f * s + Mth.sin(x * 0.6f - t * 0.3f) * 0.08f) * wobK;
+			return new Vec3(x, p.y + wob, p.z + Mth.sin(x * 0.9f / wobK - t * 0.4f) * 0.12f * s * wobK);
 		};
-		WaterMesh.sheet(vc, pose, half, 14, 14, body, WaterMesh.fade(WaterMesh.BODY, alpha), light, WaterMesh.still());
+		WaterMesh.sheet(vc, pose, half, cols, 14 + (int) (4 * (k - 1)), body, WaterMesh.fade(WaterMesh.BODY, alpha), light, WaterMesh.still());
 		// the foaming crest, riding just outside the top of the face
 		WaterMesh.Profile crest = (x, s) -> {
 			Vec3 p = body.at(x, 0.5f + 0.5f * s);
-			return new Vec3(x, p.y + 0.05f, p.z + 0.04f);
+			return new Vec3(x, p.y + 0.05f * k, p.z + 0.04f * k);
 		};
-		WaterMesh.sheet(vc, pose, half - 0.2f, 14, 6, crest, WaterMesh.fade(WaterMesh.FOAM, alpha * 0.85f), light, WaterMesh.flow());
+		WaterMesh.sheet(vc, pose, half - 0.2f, cols, 6, crest, WaterMesh.fade(WaterMesh.FOAM, alpha * 0.85f), light, WaterMesh.flow());
 		// the churning foot running ahead of it
-		WaterMesh.Profile foot = (x, s) -> new Vec3(x, 0.06f + 0.12f * Mth.sin(s * Mth.PI) * (1f + Mth.sin(x * 2f + t)),
-				0.6f + s * (1.2f + fall * 1.5f));
-		WaterMesh.sheet(vc, pose, half, 10, 3, foot, WaterMesh.fade(WaterMesh.LIGHT, alpha * 0.8f), light, WaterMesh.flow());
+		WaterMesh.Profile foot = (x, s) -> new Vec3(x, 0.06f + 0.12f * k * Mth.sin(s * Mth.PI) * (1f + Mth.sin(x * 2f + t)),
+				(0.6f + s * (1.2f + fall * 1.5f)) * k);
+		WaterMesh.sheet(vc, pose, half, Math.max(10, cols * 2 / 3), 3, foot, WaterMesh.fade(WaterMesh.LIGHT, alpha * 0.8f), light,
+				WaterMesh.flow());
+		if (k > 1.2f) {
+			// the Tsunami: spray streaming off the lip of the crest
+			for (int i = 0; i < 9; i++) {
+				float x = -half + 1f + (2f * half - 2f) * i / 8f;
+				Vec3 lip = body.at(x, 0.97f);
+				int n = 6;
+				Vec3[] pts = new Vec3[n];
+				float[] radii = new float[n];
+				for (int j = 0; j < n; j++) {
+					float s = j / (float) (n - 1);
+					pts[j] = lip.add(Mth.sin(t * 0.3f + i) * 0.2f * s, s * 0.6f * k - s * s * 1.4f, s * 1.3f * k);
+					radii[j] = (0.22f * (1f - s) + 0.04f) * k * 0.6f;
+				}
+				WaterMesh.tube(vc, pose, pts, radii, 6, 0.25f, t * 2f + i, WaterMesh.fade(WaterMesh.FOAM, alpha * 0.7f), light, WaterMesh.flow());
+			}
+		}
 	}
 
 	// ---------------------------------------------------------------- Shift+Z: the geyser
