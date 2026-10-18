@@ -31,6 +31,10 @@ public final class MiraculousItems {
 	public static Item FOX_NECKLACE;
 	/** Hawk Moth's jewel: NOT in the box -- stronghold library chests (1 in 6), ancient city chests (1 in 10). */
 	public static Item BUTTERFLY_BROOCH;
+	/** v0.16.6: Carapace's jewel (the core build adds its model, loot and worn render). */
+	public static Item TURTLE_BRACELET;
+	/** v0.16.6: Pegasus's jewel. */
+	public static Item HORSESHOE_GLASSES;
 	public static Item CAMEMBERT;
 	public static Item MACARON;
 
@@ -49,6 +53,8 @@ public final class MiraculousItems {
 		CAT_RING = register("cat_ring", new KwamiJewelItem(Kwami.PLAGG, jewel()));
 		FOX_NECKLACE = register("fox_necklace", new KwamiJewelItem(Kwami.TRIXX, jewel()));
 		BUTTERFLY_BROOCH = register("butterfly_brooch", new KwamiJewelItem(Kwami.NOOROO, jewel()));
+		TURTLE_BRACELET = register("turtle_bracelet", new KwamiJewelItem(Kwami.WAYZZ, jewel()));
+		HORSESHOE_GLASSES = register("horseshoe_glasses", new KwamiJewelItem(Kwami.KAALKI, jewel()));
 		CAMEMBERT = register("camembert", new Item(new Item.Properties()
 				.food(new FoodProperties.Builder().nutrition(5).saturationModifier(0.6f).build())));
 		MACARON = register("macaron", new Item(new Item.Properties()
@@ -93,6 +99,8 @@ public final class MiraculousItems {
 			case PLAGG -> CAT_RING;
 			case TRIXX -> FOX_NECKLACE;
 			case NOOROO -> BUTTERFLY_BROOCH;
+			case WAYZZ -> TURTLE_BRACELET;
+			case KAALKI -> HORSESHOE_GLASSES;
 		};
 	}
 

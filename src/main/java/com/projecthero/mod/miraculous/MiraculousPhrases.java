@@ -30,6 +30,8 @@ public final class MiraculousPhrases {
 			case PLAGG -> "Cat Noir";
 			case TRIXX -> "Rena Rouge";
 			case NOOROO -> "Hawk Moth";
+			case WAYZZ -> "Carapace";
+			case KAALKI -> "Pegasus";
 		};
 	}
 
@@ -40,6 +42,8 @@ public final class MiraculousPhrases {
 			case PLAGG -> "Plagg, claws out!";
 			case TRIXX -> "Trixx, let's pounce!";
 			case NOOROO -> "Nooroo, dark wings rise!";
+			case WAYZZ -> "Wayzz, shell on!";
+			case KAALKI -> "Kaalki, full gallop!";
 		};
 	}
 
@@ -50,6 +54,8 @@ public final class MiraculousPhrases {
 			case PLAGG -> "Claws in!";
 			case TRIXX -> "Let's rest!";
 			case NOOROO -> "Dark wings fall!";
+			case WAYZZ -> "Shell off!";
+			case KAALKI -> "Dismount!";
 		};
 	}
 

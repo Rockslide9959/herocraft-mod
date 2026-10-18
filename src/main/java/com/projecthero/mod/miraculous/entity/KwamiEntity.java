@@ -337,6 +337,9 @@ public class KwamiEntity extends Entity implements GeoEntity {
 				case PLAGG -> base.add(0, owner.getBbHeight() * 0.38, 0).add(right.scale(0.4)).add(fwd.scale(0.1));
 				case TRIXX -> base.add(0, owner.getBbHeight() * 0.68, 0).add(fwd.scale(0.25));
 				case NOOROO -> base.add(0, owner.getBbHeight() * 0.74, 0).add(fwd.scale(0.25));
+				// the bracelet (wrist) and the glasses (eyes)
+				case WAYZZ -> base.add(0, owner.getBbHeight() * 0.42, 0).add(right.scale(0.4)).add(fwd.scale(0.1));
+				case KAALKI -> base.add(0, owner.getEyeHeight(), 0).add(fwd.scale(0.25));
 			};
 		}
 		boolean tired = mode == MODE_TIRED || mode == MODE_POP_TIRED;
