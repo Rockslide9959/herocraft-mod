@@ -457,6 +457,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		zombieInFront(helper, player, 6);
 
 		AbilityRouter.handleInput(player, 1, true); // R = fireball
+		AbilityRouter.handleInput(player, 1, false); // v0.16.6: a tap fires on release (holding R is the Blue Flame)
 
 		long fireballs = helper.getLevel().getEntitiesOfClass(
 				net.minecraft.world.entity.projectile.Fireball.class,
