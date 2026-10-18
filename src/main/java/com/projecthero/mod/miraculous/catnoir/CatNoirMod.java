@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -28,6 +29,8 @@ public final class CatNoirMod {
 	public static void initialize() {
 		MiraculousKits.register(Kwami.PLAGG, new CatNoirKit());
 		CatNoirEntityTypes.initialize();
+		// v0.16.6: the CATACLYSM touch, for the client's VFX (the spreading corrosion, dust, the darkened creature)
+		PayloadTypeRegistry.playS2C().register(CataclysmFxPayload.TYPE, CataclysmFxPayload.CODEC);
 
 		// Cat Reflexes: the next hits slip past (the sidestep is in tryDodge)
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {

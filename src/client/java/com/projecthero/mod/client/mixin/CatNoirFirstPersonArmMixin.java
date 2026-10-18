@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.projecthero.mod.client.miraculous.catnoir.CataclysmFx;
 import com.projecthero.mod.client.miraculous.catnoir.CatNoirFirstPerson;
 import com.projecthero.mod.client.miraculous.catnoir.CatNoirRender;
 import com.projecthero.mod.miraculous.catnoir.CatNoir;
@@ -19,7 +20,7 @@ import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 /**
  * v0.16.6: Cat Noir in first person -- the suit sleeve over the bare arm vanilla just rendered, then (main arm) the
- * baton in the fist and the CATACLYSM wrap. See {@link CatNoirFirstPerson}.
+ * baton in the fist and the CATACLYSM hand (v0.16.6: the dark matter on the fist and the compact crackling ball). See {@link CatNoirFirstPerson}.
  */
 @Mixin(PlayerRenderer.class)
 public abstract class CatNoirFirstPersonArmMixin {
@@ -41,7 +42,7 @@ public abstract class CatNoirFirstPersonArmMixin {
 		float age = player.tickCount + partial;
 		CatNoirFirstPerson.renderBaton(pose, buffers, light, player, arm, right, age, partial);
 		if (CatNoir.charged(player) && CatNoirFirstPerson.isMainArm(player, right)) {
-			CatNoirRender.renderCataclysmArm(pose, buffers, arm, right, age);
+			CataclysmFx.renderHand(pose, buffers, player, arm, right, CatNoirRender.slim(player), age, partial, true);
 		}
 	}
 }

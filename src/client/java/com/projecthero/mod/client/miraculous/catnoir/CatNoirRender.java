@@ -25,14 +25,12 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.Resource;
-import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.LivingEntity;
@@ -52,16 +50,14 @@ import net.minecraft.world.entity.player.Player;
  * newest texels flashing Plagg green; the ears, tail and bell pop on at the end. Detransforming runs it backwards.
  * The wearer's own second layer goes texel by texel in step ({@link OverlayStrips} with {@link #order}).
  *
- * <p><b>CATACLYSM</b>: while charged, the main hand is wrapped in a dark mottled skin and a purple energy swirl (third
- * and first person); the particles are {@code CatNoirClient}'s.
+ * <p><b>CATACLYSM</b>: while charged, the main hand holds the show's crackling dark matter ({@link CataclysmFx}; v0.16.6
+ * replaced the old enchantment-like arm wrap).
  */
 public final class CatNoirRender {
 	/** The suit for wide-armed (Steve) and slim-armed (Alex) wearers, so its arms always line up with the player's own. */
 	public static final ResourceLocation SKIN_WIDE = ProjectHeroMod.id("textures/entity/miraculous/cat_noir/suit_wide.png");
 	public static final ResourceLocation SKIN_SLIM = ProjectHeroMod.id("textures/entity/miraculous/cat_noir/suit_slim.png");
 	public static final ResourceLocation PARTS = ProjectHeroMod.id("textures/entity/miraculous/cat_noir/parts.png");
-	public static final ResourceLocation CATACLYSM_DARK = ProjectHeroMod.id("textures/entity/miraculous/cat_noir/cataclysm_dark.png");
-	public static final ResourceLocation CATACLYSM_SWIRL = ProjectHeroMod.id("textures/entity/miraculous/cat_noir/cataclysm_swirl.png");
 	private static final int FRAMES = 48;
 	/** Where the ring sits (model pixels, rest pose): the bottom of the right hand. */
 	private static final float RING_X = -6f, RING_Y = 12f, RING_Z = 0f;
@@ -71,7 +67,6 @@ public final class CatNoirRender {
 
 	private static PlayerModel<LivingEntity> model;
 	private static PlayerModel<LivingEntity> slimModel;
-	private static PlayerModel<LivingEntity> handModel;
 	private static ModelPart parts;
 	private static ResourceLocation[] frames;
 	private static ResourceLocation[] slimFrames;
@@ -218,15 +213,6 @@ public final class CatNoirRender {
 		return model;
 	}
 
-	/** The CATACLYSM wrap: a player model a little larger again (only an arm of it is drawn). */
-	private static PlayerModel<LivingEntity> handModel() {
-		if (handModel == null) {
-			MeshDefinition mesh = PlayerModel.createMesh(new CubeDeformation(0.32f), false);
-			handModel = new PlayerModel<>(LayerDefinition.create(mesh, 64, 64).bakeRoot(), false);
-		}
-		return handModel;
-	}
-
 	/**
 	 * The 3D parts (texture {@code parts.png}, 32x32): two ears (head space), the belt-tail (four hanging segments and a
 	 * silver tip, body space) and the bell (body space).
@@ -284,7 +270,7 @@ public final class CatNoirRender {
 		}
 		if (CatNoir.charged(player)) {
 			boolean right = player.getMainArm() == HumanoidArm.RIGHT;
-			renderCataclysmArm(pose, buffers, right ? m.rightArm : m.leftArm, right, ageInTicks);
+			CataclysmFx.renderHand(pose, buffers, player, right ? m.rightArm : m.leftArm, right, slim, ageInTicks, partial, false);
 		}
 	}
 
@@ -329,20 +315,6 @@ public final class CatNoirRender {
 		t0.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 		p.getChild("bell").render(pose, vc, light, OverlayTexture.NO_OVERLAY);
 		pose.popPose();
-	}
-
-	/** CATACLYSM: the dark mottled wrap and the purple swirl over one arm (in that arm's current pose). */
-	public static void renderCataclysmArm(PoseStack pose, MultiBufferSource buffers, ModelPart posedArm, boolean right, float ageInTicks) {
-		PlayerModel<LivingEntity> hm = handModel();
-		ModelPart arm = right ? hm.rightArm : hm.leftArm;
-		arm.copyFrom(posedArm);
-		arm.visible = true;
-		float pulse = 0.75f + 0.25f * Mth.sin(ageInTicks * 0.6f);
-		arm.render(pose, buffers.getBuffer(RenderType.entityTranslucent(CATACLYSM_DARK)), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-				FastColor.ARGB32.color(Math.round(220 * pulse), 255, 255, 255));
-		float t = ageInTicks * 0.02f;
-		arm.render(pose, buffers.getBuffer(RenderType.energySwirl(CATACLYSM_SWIRL, t % 1f, (t * 0.7f) % 1f)), LightTexture.FULL_BRIGHT,
-				OverlayTexture.NO_OVERLAY, FastColor.ARGB32.color(255, Math.round(150 * pulse), Math.round(60 * pulse), Math.round(200 * pulse)));
 	}
 
 	/** First person: the suit sleeve over the arm vanilla just drew. */

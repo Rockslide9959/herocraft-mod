@@ -11,6 +11,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.miraculous.Miraculous;
 
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -58,8 +61,8 @@ import org.joml.Vector3f;
  * The touch hooks are in {@link CatNoirMod} (attack block / use block / attack entity).
  */
 public final class CatNoirCataclysm {
-	/** One block of a crumble: where, which ring, the progress id its cracks are sent under. */
-	private record Grain(BlockPos pos, int ring, int crackId) {
+	/** One block of a crumble: where, and which ring (its rounded distance from the touch). */
+	private record Grain(BlockPos pos, int ring) {
 	}
 
 	private static final class Crumble {
@@ -75,7 +78,6 @@ public final class CatNoirCataclysm {
 	}
 
 	private static final List<Crumble> CRUMBLES = new CopyOnWriteArrayList<>();
-	private static int nextCrackId = 0x6C000000;
 
 	private CatNoirCataclysm() {
 	}
@@ -108,8 +110,7 @@ public final class CatNoirCataclysm {
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WITHER_AMBIENT, SoundSource.PLAYERS, 0.6f, 1.6f);
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.SCULK_SHRIEKER_SHRIEK, SoundSource.PLAYERS, 0.4f, 1.8f);
 		Vec3 hand = AbilityHelpers.handPosition(p);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, hand.x, hand.y + 0.3, hand.z, 3, 0.1, 0.2, 0.1, 0.02);
-		level.sendParticles(ParticleTypes.REVERSE_PORTAL, hand.x, hand.y + 0.3, hand.z, 10, 0.15, 0.3, 0.15, 0.05);
+		// (v0.16.6: the energy forming in his palm is drawn by the client -- CataclysmFx)
 	}
 
 	/** The charge ran out untouched: it fizzles (the countdown keeps running), and can be called again later. */
@@ -164,8 +165,12 @@ public final class CatNoirCataclysm {
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = Vec3.atCenterOf(pos);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.WITHER_BREAK_BLOCK, SoundSource.PLAYERS, 0.7f, 0.6f);
-		level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 8, 0.4, 0.4, 0.4, 0.03);
+		// v0.16.6: a dark crackling surge, then the deep rumble of the crumble (the cracks, dust and debris are the client's:
+		// CataclysmFxPayload)
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.SCULK_CATALYST_BLOOM, SoundSource.PLAYERS, 1.2f, 0.5f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.DEEPSLATE_BREAK, SoundSource.BLOCKS, 1.0f, 0.5f);
 		if (!canCrumble(level) || !crumbles(level, p, pos)) {
+			sendFx(level, pos, List.of(), -1, 0);
 			return true; // the touch is spent all the same
 		}
 		List<Grain> grains = new ArrayList<>();
@@ -177,7 +182,7 @@ public final class CatNoirCataclysm {
 		while (!queue.isEmpty() && grains.size() < CatNoirConfig.CATACLYSM_MAX_BLOCKS) {
 			BlockPos b = queue.poll();
 			int ring = (int) Math.round(Math.sqrt(b.distSqr(pos)));
-			grains.add(new Grain(b, ring, nextCrackId++));
+			grains.add(new Grain(b, ring));
 			for (Direction d : Direction.values()) {
 				BlockPos n = b.relative(d);
 				if (seen.contains(n) || n.distSqr(pos) > r2 + 1.0e-6) {
@@ -190,7 +195,22 @@ public final class CatNoirCataclysm {
 			}
 		}
 		CRUMBLES.add(new Crumble(level, level.getGameTime(), grains));
+		List<BlockPos> blocks = new ArrayList<>(grains.size());
+		for (Grain g : grains) {
+			blocks.add(g.pos());
+		}
+		sendFx(level, pos, blocks, -1, 0);
 		return true;
+	}
+
+	/** v0.16.6: the touch, to every player near, for the client's VFX (the spreading corrosion, the dust, the darkened creature). */
+	private static void sendFx(ServerLevel level, BlockPos origin, List<BlockPos> blocks, int entityId, int armourMask) {
+		CataclysmFxPayload payload = new CataclysmFxPayload(origin.immutable(), blocks, entityId, armourMask);
+		for (ServerPlayer near : PlayerLookup.around(level, Vec3.atCenterOf(origin), 96)) {
+			if (ServerPlayNetworking.canSend(near, CataclysmFxPayload.TYPE)) {
+				ServerPlayNetworking.send(near, payload);
+			}
+		}
 	}
 
 	/** The crumbles in this level, a step a tick (END_WORLD_TICK). */
@@ -213,20 +233,20 @@ public final class CatNoirCataclysm {
 					left = true;
 				}
 				if (age >= crackAt && age < fallAt) {
-					// cracking and darkening: the break overlay creeps up to stage 9, black ash smokes off it
-					int stage = (int) Math.min(9, 2 + (age - crackAt) * 8 / CatNoirConfig.CATACLYSM_CRACK_TICKS);
-					level.destroyBlockProgress(g.crackId(), g.pos(), stage);
+					// cracking and darkening (v0.16.6: the black corrosion and its cracks are drawn by the client), black ash smokes off it
 					if ((age + g.pos().hashCode()) % 3 == 0) {
 						Vec3 p = Vec3.atCenterOf(g.pos());
-						level.sendParticles(new DustParticleOptions(new Vector3f(0.08f, 0.04f, 0.1f), 1.2f), p.x, p.y + 0.45, p.z, 2, 0.3, 0.1, 0.3, 0.0);
+						level.sendParticles(new DustParticleOptions(new Vector3f(0.06f, 0.04f, 0.07f), 0.7f), p.x, p.y + 0.45, p.z, 2, 0.3, 0.1, 0.3, 0.0);
 					}
 				} else if (age == fallAt) {
-					level.destroyBlockProgress(g.crackId(), g.pos(), -1);
 					BlockState st = level.getBlockState(g.pos());
 					if (!st.isAir() && !st.hasBlockEntity() && st.getFluidState().isEmpty()) {
-						level.destroyBlock(g.pos(), false);
+						// gone without a drop, as destroyBlock(pos, false) did -- but crumbling to dark dust, not the block's own chips
+						level.removeBlock(g.pos(), false);
+						level.gameEvent(net.minecraft.world.level.gameevent.GameEvent.BLOCK_DESTROY, g.pos(),
+								net.minecraft.world.level.gameevent.GameEvent.Context.of(st));
 						Vec3 p = Vec3.atCenterOf(g.pos());
-						level.sendParticles(new DustParticleOptions(new Vector3f(0.22f, 0.2f, 0.18f), 1.6f), p.x, p.y, p.z, 5, 0.3, 0.3, 0.3, 0.0);
+						level.sendParticles(new DustParticleOptions(new Vector3f(0.2f, 0.19f, 0.18f), 0.9f), p.x, p.y, p.z, 4, 0.3, 0.3, 0.3, 0.0);
 						level.sendParticles(ParticleTypes.ASH, p.x, p.y, p.z, 6, 0.35, 0.35, 0.35, 0.0);
 						if (g.ring() == 0 || (g.pos().hashCode() & 7) == 0) {
 							level.playSound(null, p.x, p.y, p.z, SoundEvents.SAND_BREAK, SoundSource.BLOCKS, 0.6f, 0.6f);
@@ -254,6 +274,7 @@ public final class CatNoirCataclysm {
 		}
 		spend(p);
 		boolean boss = CatNoirCombat.isBoss(target);
+		int armourMask = boss || target instanceof Player ? 0 : armourMask(target);
 		// the armour goes first, so the destruction lands in full
 		if (!boss && !(target instanceof Player)) {
 			// (a player's armour is spared: hero suits and enchanted sets are far too costly to void with one PvP touch)
@@ -270,18 +291,36 @@ public final class CatNoirCataclysm {
 		}
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.5, 0);
-		level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 8, target.getBbWidth() * 0.5, target.getBbHeight() * 0.4,
-				target.getBbWidth() * 0.5, 0.05);
-		level.sendParticles(new DustParticleOptions(new Vector3f(0.3f, 0.05f, 0.4f), 1.4f), c.x, c.y, c.z, 20, target.getBbWidth() * 0.5,
+		// (v0.16.6: the darkening, cracks, dust and surge are the client's -- CataclysmFxPayload)
+		level.sendParticles(new DustParticleOptions(new Vector3f(0.05f, 0.04f, 0.06f), 0.7f), c.x, c.y, c.z, 10, target.getBbWidth() * 0.5,
 				target.getBbHeight() * 0.4, target.getBbWidth() * 0.5, 0.0);
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.WITHER_HURT, SoundSource.PLAYERS, 0.7f, 0.7f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.SCULK_CATALYST_BLOOM, SoundSource.PLAYERS, 1.2f, 0.5f);
+		if (armourMask != 0) {
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.SAND_BREAK, SoundSource.PLAYERS, 1.0f, 0.6f);
+		}
+		sendFx(level, target.blockPosition(), List.of(), target.getId(), armourMask);
 		return true;
+	}
+
+	private static final EquipmentSlot[] ARMOUR_SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
+			EquipmentSlot.BODY };
+
+	/** v0.16.6: bit i set = {@link #ARMOUR_SLOTS}[i] holds armour (what crumbles to dust, for the client). */
+	private static int armourMask(LivingEntity target) {
+		int mask = 0;
+		for (int i = 0; i < ARMOUR_SLOTS.length; i++) {
+			ItemStack worn = target.getItemBySlot(ARMOUR_SLOTS[i]);
+			if (!worn.isEmpty() && worn.getItem() instanceof net.minecraft.world.item.ArmorItem) {
+				mask |= 1 << i;
+			}
+		}
+		return mask;
 	}
 
 	/** Every worn armour piece breaks (with the vanilla break sound and particles). */
 	public static void shatterArmour(LivingEntity target) {
-		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET,
-				EquipmentSlot.BODY }) {
+		for (EquipmentSlot slot : ARMOUR_SLOTS) {
 			ItemStack worn = target.getItemBySlot(slot);
 			if (worn.isEmpty() || !(worn.getItem() instanceof net.minecraft.world.item.ArmorItem)) {
 				continue;
