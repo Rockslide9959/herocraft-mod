@@ -31,9 +31,9 @@ public final class MiraculousItems {
 	public static Item FOX_NECKLACE;
 	/** Hawk Moth's jewel: NOT in the box -- stronghold library chests (1 in 6), ancient city chests (1 in 10). */
 	public static Item BUTTERFLY_BROOCH;
-	/** v0.16.6: Carapace's jewel (the core build adds its model, loot and worn render). */
+	/** v0.16.6: Carapace's jewel (in the Miraculous Box). */
 	public static Item TURTLE_BRACELET;
-	/** v0.16.6: Pegasus's jewel. */
+	/** v0.16.6: Pegasus's jewel (in the Miraculous Box). */
 	public static Item HORSESHOE_GLASSES;
 	public static Item CAMEMBERT;
 	public static Item MACARON;
@@ -110,6 +110,8 @@ public final class MiraculousItems {
 		output.accept(CAT_RING);
 		output.accept(FOX_NECKLACE);
 		output.accept(BUTTERFLY_BROOCH);
+		output.accept(TURTLE_BRACELET);
+		output.accept(HORSESHOE_GLASSES);
 		output.accept(CAMEMBERT);
 		output.accept(MACARON);
 	}

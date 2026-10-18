@@ -134,15 +134,15 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
-	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth, by the Kwami. */
+	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth / Carapace / Pegasus, by the Kwami. */
 	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
 		return chapters().get(switch (kwami) {
 			case TIKKI -> CH_LADYBUG;
 			case PLAGG -> CH_CAT_NOIR;
 			case TRIXX -> CH_RENA_ROUGE;
 			case NOOROO -> CH_HAWK_MOTH;
-			// (Carapace / Pegasus get their own chapters with their core build; until then the Miraculous overview)
-			case WAYZZ, KAALKI -> CH_LADYBUG;
+			case WAYZZ -> CH_CARAPACE;
+			case KAALKI -> CH_PEGASUS;
 		});
 	}
 
@@ -467,7 +467,9 @@ public final class HeroPackGuide {
 	private static final int CH_CAT_NOIR = 43; // v0.16.6
 	private static final int CH_RENA_ROUGE = 44; // v0.16.6
 	private static final int CH_HAWK_MOTH = 45; // v0.16.6
-	private static final int CHAPTER_POWER_BASE = 46;
+	private static final int CH_CARAPACE = 46; // v0.16.6
+	private static final int CH_PEGASUS = 47; // v0.16.6
+	private static final int CHAPTER_POWER_BASE = 48;
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1385,6 +1387,8 @@ public final class HeroPackGuide {
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.PLAGG));
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.TRIXX));
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.NOOROO)); // CH_HAWK_MOTH
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.WAYZZ)); // CH_CARAPACE
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.KAALKI)); // CH_PEGASUS
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1433,6 +1437,8 @@ public final class HeroPackGuide {
 		link(idx, "projecthero.guide.cat_noir", CH_CAT_NOIR); // v0.16.6
 		link(idx, "projecthero.guide.rena_rouge", CH_RENA_ROUGE); // v0.16.6
 		link(idx, "projecthero.guide.hawk_moth", CH_HAWK_MOTH); // v0.16.6
+		link(idx, "projecthero.guide.carapace", CH_CARAPACE); // v0.16.6
+		link(idx, "projecthero.guide.pegasus", CH_PEGASUS); // v0.16.6
 		// v0.14.13: Super Speed is Hero-Tier -- its chapter is still the generated power chapter
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {
