@@ -75,7 +75,13 @@
 		"CityBlockItemMixin",
 		"CityVillagerMixin",
 		"CityVillagerPanicMixin",
-		"RenaRougeFakeWallSightMixin"
+		"RenaRougeFakeWallSightMixin",
+		"ErasureMobAiMixin",
+		"ErasureWrappedGoalMixin",
+		"ErasureCreeperMixin",
+		"ErasureEnderManMixin",
+		"ErasureShulkerMixin",
+		"ErasureServerLevelSpawnMixin"
 	],
 	"client": [],
 	"server": [],

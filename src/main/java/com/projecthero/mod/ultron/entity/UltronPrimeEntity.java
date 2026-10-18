@@ -295,6 +295,9 @@ public class UltronPrimeEntity extends UltronRobot {
 	}
 
 	private void pickMove(ServerLevel server, LivingEntity target) {
+		if (com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased -- no moves
+			return;
+		}
 		int phase = phase();
 		List<Move> options = new ArrayList<>(List.of(Move.BARRAGE, Move.ENCEPHALO, Move.SWARM));
 		if (phase >= 2 && anyMetalNear(server)) {

@@ -389,6 +389,10 @@ public class UltronOmegaEntity extends UltronRobot implements GeoEntity {
 	// ---------------------------------------------------------------- moves
 
 	private void pickMove(ServerLevel server, LivingEntity target) {
+		if (com.projecthero.mod.quirk.erasure.ErasureMobs.specialsHeld(this)) { // v0.16.7: Erased -- only the plain strike
+			startMove(server, Move.STRIKE, target);
+			return;
+		}
 		List<Move> options = new ArrayList<>(List.of(Move.STRIKE, Move.BLAST));
 		if (!isDecoy()) {
 			options.add(Move.LATTICE);

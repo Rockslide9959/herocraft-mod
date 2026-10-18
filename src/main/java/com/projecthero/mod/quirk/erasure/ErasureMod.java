@@ -1,32 +1,22 @@
 package com.projecthero.mod.quirk.erasure;
 
-import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.QuirkKit;
 import com.projecthero.mod.quirk.QuirkKits;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
-/** v0.16.7: the Erasure Quirk's server init (STUB -- the kit agent replaces this with the real kit). */
+/**
+ * v0.16.7: the Erasure Quirk's server init -- the kit ({@link ErasureKit}) and the END_SERVER_TICK that holds its binds.
+ * What Erasure does to mobs is {@link ErasureMobs} (with the {@code Erasure*Mixin}s).
+ */
 public final class ErasureMod {
 	private ErasureMod() {
 	}
 
 	public static void initialize() {
-		QuirkKits.register(Quirk.ERASURE, new QuirkKit() {
-			@Override
-			public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
-			}
-
-			@Override
-			public String[] idsOf(AbilitySlot slot) {
-				return new String[0];
-			}
-
-			@Override
-			public int maxCooldown(String abilityId) {
-				return 0;
-			}
-		});
+		QuirkKits.register(Quirk.ERASURE, new ErasureKit());
+		ServerTickEvents.END_SERVER_TICK.register(ErasureMoves::serverTick);
+		PayloadTypeRegistry.playS2C().register(ErasureGogglesPayload.TYPE, ErasureGogglesPayload.CODEC);
 	}
 }
