@@ -79,7 +79,11 @@ public final class FlashRing {
 
 	static void initialize() {
 		PayloadTypeRegistry.playC2S().register(TogglePayload.TYPE, TogglePayload.CODEC);
-		ServerPlayNetworking.registerGlobalReceiver(TogglePayload.TYPE, (payload, context) -> toggle(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(TogglePayload.TYPE, (payload, context) -> {
+			if (!com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) { // v0.16.7: Erased
+				toggle(context.player());
+			}
+		});
 		ServerTickEvents.END_SERVER_TICK.register(FlashRing::serverTick);
 		// v0.14.14: a dropped ring holding the suit never despawns
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {

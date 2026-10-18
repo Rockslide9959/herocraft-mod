@@ -31,7 +31,7 @@ public final class NovaMod {
 		PayloadTypeRegistry.playS2C().register(NovaScanPayload.TYPE, NovaScanPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(NovaActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
-			if (!Nova.hasPower(p)) {
+			if (!Nova.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) { // v0.16.7: Erased
 				return;
 			}
 			switch (payload.action()) {

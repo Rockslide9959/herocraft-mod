@@ -33,7 +33,7 @@ public final class KryptonianMod {
 		PayloadTypeRegistry.playC2S().register(KryptonianActionPayload.TYPE, KryptonianActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(KryptonianActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
-			if (!Kryptonian.hasPower(p)) {
+			if (!Kryptonian.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) { // v0.16.7: Erased
 				return;
 			}
 			if (payload.action() == KryptonianActionPayload.Action.TOGGLE_FLIGHT) {

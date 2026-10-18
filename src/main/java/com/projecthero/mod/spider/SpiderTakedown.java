@@ -68,6 +68,9 @@ public final class SpiderTakedown {
 		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(SpiderReflexFxPayload.TYPE, SpiderReflexFxPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(SpiderReflexPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(player)) { // v0.16.7: Erased
+				return;
+			}
 			if (payload.action() == SpiderReflexPayload.TAKEDOWN) {
 				request(player);
 			} else if (payload.action() == SpiderReflexPayload.DODGE) {

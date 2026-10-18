@@ -77,6 +77,11 @@ public final class HeroIdentity {
 		if (kwami != null) {
 			return "projecthero.squad.identity." + kwami.heroKey;
 		}
+		// v0.16.7: a Quirk holder (by the hero name: Endeavor, Uravity...)
+		com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(player);
+		if (quirk != null) {
+			return "projecthero.quirk." + quirk.id + ".hero";
+		}
 		if (com.projecthero.mod.wolverine.WolverineAbilityManager.hasContext(player)) {
 			return "projecthero.squad.identity.wolverine";
 		}

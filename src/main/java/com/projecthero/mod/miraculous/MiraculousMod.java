@@ -31,6 +31,10 @@ public final class MiraculousMod {
 		PayloadTypeRegistry.playC2S().register(MiraculousActionPayload.TYPE, MiraculousActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(MiraculousActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
+			// v0.16.7: Erased -- no transforming / Kwami calls (detransforming still works)
+			if (!Miraculous.transformed(p) && com.projecthero.mod.hero.PowerSuppression.refuse(p)) {
+				return;
+			}
 			switch (payload.action()) {
 				case TOGGLE_FORM -> {
 					if (Miraculous.hasPower(p)) {

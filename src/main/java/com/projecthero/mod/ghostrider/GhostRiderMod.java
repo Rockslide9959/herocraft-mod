@@ -35,6 +35,10 @@ public final class GhostRiderMod {
 		PayloadTypeRegistry.playS2C().register(GhostRiderMarkPayload.TYPE, GhostRiderMarkPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(GhostRiderActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
+			// v0.16.7: Erased -- no power actions (signing the contract is not one)
+			if (payload.action() != GhostRiderActionPayload.Action.SIGN_CONTRACT && com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
+				return;
+			}
 			switch (payload.action()) {
 				case TOGGLE_FORM -> {
 					if (GhostRider.hasPower(p)) {

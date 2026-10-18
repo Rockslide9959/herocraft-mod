@@ -33,10 +33,14 @@ public final class CyborgMod {
 		PayloadTypeRegistry.playC2S().register(com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.TYPE,
 				com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(com.projecthero.mod.cyborg.network.CyborgBoomActionPayload.TYPE,
-				(payload, context) -> context.server().execute(() -> CyborgBoomTube.handleAction(context.player(), payload)));
+				(payload, context) -> context.server().execute(() -> {
+					if (!com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) { // v0.16.7: Erased
+						CyborgBoomTube.handleAction(context.player(), payload);
+					}
+				}));
 		ServerPlayNetworking.registerGlobalReceiver(CyborgActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
-			if (!Cyborg.hasPower(p)) {
+			if (!Cyborg.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) { // v0.16.7: Erased
 				return;
 			}
 			if (payload.action() == CyborgActionPayload.Action.TOGGLE_FORM) {

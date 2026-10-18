@@ -114,6 +114,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
 				// v0.16.6 the Miraculous: the Miraculous Box, the three jewels, Camembert and macarons
 				com.projecthero.mod.miraculous.item.MiraculousItems.addToCreativeTab(output);
+				// v0.16.7 the Quirks: the seven Quirk Serums and the Quirk Trigger
+				com.projecthero.mod.quirk.item.QuirkItems.addToCreativeTab(output);
 				// v0.14.11: the Flash Suit (the ring itself only exists holding a suit)
 				com.projecthero.mod.flash.FlashSuit.addToCreativeTab(output);
 				// v0.14.12: the Horde blocks and the new mobs' spawn eggs

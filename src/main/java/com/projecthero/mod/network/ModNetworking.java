@@ -91,6 +91,10 @@ public final class ModNetworking {
 		// Thor flight double-tap-jump (unchanged). The other Thor actions now arrive via the universal
 		// slot router below, but the enum values are left intact for save/packet compatibility.
 		ServerPlayNetworking.registerGlobalReceiver(ThorActionPayload.TYPE, (payload, context) -> {
+			// v0.16.7: Erased -- no power actions (PowerSuppression); the same line opens every power receiver below
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player(), payload.action())) {
+				return;
+			}
 			if (payload.action() == ThorActionPayload.Action.TOGGLE_FLIGHT) {
 				ThorPowers.toggleFlight(context.player());
 			} else if (payload.action() == ThorActionPayload.Action.TOGGLE_ARMOUR) {
@@ -101,6 +105,9 @@ public final class ModNetworking {
 		// Green Lantern Ring Flight double-tap-jump (v0.11.5 -- moved off the X ability slot, which now
 		// fires the "Green Lantern's Light!" Oath empowerment mode instead, v0.11.7).
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternActionPayload.TYPE, (payload, context) -> {
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player(), payload.action())) {
+				return;
+			}
 			switch (payload.action()) {
 				case TOGGLE_FLIGHT -> com.projecthero.mod.greenlantern.GreenLanternAbilityManager.toggleFlight(context.player());
 				// v0.14.3: H / N / Shift + hold N
@@ -149,6 +156,9 @@ public final class ModNetworking {
 		// Spider-Man jump gestures. Server-validated: a request the player is not entitled to is
 		// simply ignored, so neither of these can be abused into free height.
 		ServerPlayNetworking.registerGlobalReceiver(SpiderActionPayload.TYPE, (payload, context) -> {
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player(), payload.action())) {
+				return;
+			}
 			switch (payload.action()) {
 				case DOUBLE_JUMP -> com.projecthero.mod.spider.SpiderAbilities.doubleJump(context.player());
 				case SURFACE_LEAP -> com.projecthero.mod.spider.SpiderClimbActions.leap(context.player());
@@ -179,6 +189,9 @@ public final class ModNetworking {
 		// Super Strength: the charged punch and Power Leap are both wound up by a key hold and thrown on
 		// release, tracked client-side. Timing comes from the client; the server owns power + cooldown.
 		ServerPlayNetworking.registerGlobalReceiver(StrengthActionPayload.TYPE, (payload, context) -> {
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player(), payload.action())) {
+				return;
+			}
 			switch (payload.action()) {
 				case PERFORM_CHARGED_PUNCH ->
 						com.projecthero.mod.hero.power.p01.SuperStrengthHandlers.performChargedPunch(context.player());
@@ -193,6 +206,9 @@ public final class ModNetworking {
 			if (!com.projecthero.mod.maxsteel.MaxSteel.hasPower(p)) {
 				return;
 			}
+			if (payload.action() != MaxSteelActionPayload.Action.POWER_DOWN && com.projecthero.mod.hero.PowerSuppression.refuse(p)) {
+				return;
+			}
 			switch (payload.action()) {
 				case TRANSFORM_TOGGLE -> com.projecthero.mod.maxsteel.MaxSteelTransform.toggle(p);
 				case TOGGLE_HELMET -> com.projecthero.mod.maxsteel.MaxSteelFaceplate.toggle(p);
@@ -204,6 +220,9 @@ public final class ModNetworking {
 		// Titan Energy, cooldown and room -- this is only a request.
 		ServerPlayNetworking.registerGlobalReceiver(TitanShiftPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
+			if (payload.action() != TitanShiftPayload.Action.LET_DOWN && com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
+				return;
+			}
 			switch (payload.action()) {
 				case TOGGLE_SHIFT -> com.projecthero.mod.titanshifter.TitanShifter.requestToggle(p);
 				case GRAB_BITE -> com.projecthero.mod.titanshifter.TitanAbilities.grabOrBite(p);
@@ -218,7 +237,7 @@ public final class ModNetworking {
 		// All Might: H (Base Form / Power Form). Server re-validates power, cooldown, OFA and state.
 		ServerPlayNetworking.registerGlobalReceiver(AllMightActionPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
-			if (!com.projecthero.mod.allmight.AllMight.hasPower(p)) {
+			if (!com.projecthero.mod.allmight.AllMight.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
 				return;
 			}
 			switch (payload.action()) {
@@ -235,7 +254,7 @@ public final class ModNetworking {
 		// Moon Knight (v0.13.19): H suits up / down; the alter picker sends its choice. Server re-validates.
 		ServerPlayNetworking.registerGlobalReceiver(MoonKnightActionPayload.TYPE, (payload, context) -> {
 			net.minecraft.server.level.ServerPlayer p = context.player();
-			if (!com.projecthero.mod.moonknight.MoonKnight.hasPower(p)) {
+			if (!com.projecthero.mod.moonknight.MoonKnight.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) {
 				return;
 			}
 			switch (payload.action()) {
@@ -263,6 +282,11 @@ public final class ModNetworking {
 			if (!com.projecthero.mod.hulk.Hulk.hasPower(p)) {
 				return;
 			}
+			// v0.16.7: Erased -- no letting the Hulk out, no Roar / push (the mind-room answers still go through)
+			if ((payload.action() == HulkActionPayload.Action.TRANSFORM || payload.action() == HulkActionPayload.Action.ROAR
+					|| (payload.action() == HulkActionPayload.Action.PUSH && payload.a() != 0)) && com.projecthero.mod.hero.PowerSuppression.refuse(p)) {
+				return;
+			}
 			switch (payload.action()) {
 				case TRANSFORM -> com.projecthero.mod.hulk.Hulk.pressH(p);
 				case TRANSFORM_RELEASE -> com.projecthero.mod.hulk.Hulk.releaseH(p);
@@ -278,6 +302,9 @@ public final class ModNetworking {
 
 		// Wolverine: the H-key claw toggle, the N sniff and the right-click claw block. Server re-validates.
 		ServerPlayNetworking.registerGlobalReceiver(WolverineActionPayload.TYPE, (payload, context) -> {
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player(), payload.action())) {
+				return;
+			}
 			if (payload.action() == WolverineActionPayload.Action.BLOCK_START) {
 				com.projecthero.mod.wolverine.WolverineBlock.start(context.player());
 			} else if (payload.action() == WolverineActionPayload.Action.BLOCK_STOP) {
@@ -325,6 +352,9 @@ public final class ModNetworking {
 
 		// v0.16.1: Green Lantern Sniper Rifle construct -- attack charges / fires, right-click scopes.
 		ServerPlayNetworking.registerGlobalReceiver(GreenLanternSniperPayload.TYPE, (payload, context) -> {
+			if (payload.action() == GreenLanternSniperPayload.Action.CHARGE_START && com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) {
+				return;
+			}
 			switch (payload.action()) {
 				case CHARGE_START -> com.projecthero.mod.greenlantern.GreenLanternSniper.chargeStart(context.player());
 				case FIRE -> com.projecthero.mod.greenlantern.GreenLanternSniper.release(context.player());
@@ -342,13 +372,21 @@ public final class ModNetworking {
 				com.projecthero.mod.greenlantern.GreenLanternTrial.handleAnswer(context.player(), payload.yes()));
 
 		// Teleportation Portal picker: the player chose a destination + dimension.
-		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) ->
-				com.projecthero.mod.hero.power.p11.TeleportationHandlers.createDestinationPortal(
-						context.player(), payload.x(), payload.y(), payload.z(), payload.dimension()));
+		ServerPlayNetworking.registerGlobalReceiver(PortalCreatePayload.TYPE, (payload, context) -> {
+			if (com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) {
+				return;
+			}
+			com.projecthero.mod.hero.power.p11.TeleportationHandlers.createDestinationPortal(
+					context.player(), payload.x(), payload.y(), payload.z(), payload.dimension());
+		});
 
 		// Stormbreaker's Bifrost screen (v0.14.20): travel / save / clear -- all re-validated in Bifrost.handleAction.
 		ServerPlayNetworking.registerGlobalReceiver(BifrostActionPayload.TYPE, (payload, context) ->
-				context.server().execute(() -> com.projecthero.mod.stormbreaker.Bifrost.handleAction(context.player(), payload)));
+				context.server().execute(() -> {
+					if (!com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) {
+						com.projecthero.mod.stormbreaker.Bifrost.handleAction(context.player(), payload);
+					}
+				}));
 
 		// v0.15.3: Thor's N weapon screen -- one weapon ACTIVE / INACTIVE for R, re-validated in ThorWeaponSelection.
 		ServerPlayNetworking.registerGlobalReceiver(ThorWeaponTogglePayload.TYPE, (payload, context) ->
