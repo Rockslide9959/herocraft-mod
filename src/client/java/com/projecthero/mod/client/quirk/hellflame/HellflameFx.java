@@ -76,18 +76,19 @@ public final class HellflameFx {
 	private static void cloak(ClientLevel level, RandomSource rnd, Player p, boolean firstPerson) {
 		Vec3[] body = frame(p, false);
 		double crouch = p.isCrouching() ? -0.3 : 0.0;
-		// the shoulder flames: tall tongues rising off both shoulders
+		// the shoulder flames: tongues rising off both shoulders, leaning outward (clear of the face)
 		for (int side = -1; side <= 1; side += 2) {
-			Vec3 sh = p.position().add(0, 1.42 + crouch, 0).add(body[1].scale(side * 0.36));
-			for (int i = 0; i < 2; i++) {
-				Vec3 at = sh.add((rnd.nextDouble() - 0.5) * 0.22, rnd.nextDouble() * 0.1, (rnd.nextDouble() - 0.5) * 0.22);
-				add(level, ParticleTypes.FLAME, at, side * body[1].x * 0.01, 0.05 + rnd.nextDouble() * 0.04, side * body[1].z * 0.01);
+			Vec3 sh = p.position().add(0, 1.42 + crouch, 0).add(body[1].scale(side * 0.4));
+			Vec3 out = body[1].scale(side * 0.018);
+			if (rnd.nextInt(3) != 0) {
+				Vec3 at = sh.add((rnd.nextDouble() - 0.5) * 0.2, rnd.nextDouble() * 0.08, (rnd.nextDouble() - 0.5) * 0.2);
+				add(level, ParticleTypes.FLAME, at, out.x, 0.02 + rnd.nextDouble() * 0.02, out.z);
 			}
 			if (rnd.nextInt(3) == 0) {
-				add(level, HellflameCombat.YELLOW, sh.add(0, 0.12, 0), 0, 0.02, 0);
+				add(level, HellflameCombat.YELLOW, sh.add(out.scale(4)).add(0, 0.1, 0), out.x, 0.02, out.z);
 			}
 			if (rnd.nextInt(5) == 0) {
-				add(level, HellflameCombat.WHITE_HOT, sh.add(0, 0.05, 0), 0, 0.01, 0);
+				add(level, HellflameCombat.WHITE_HOT, sh.add(0, 0.04, 0), 0, 0.01, 0);
 			}
 		}
 		// a few flames licking up the forearms
@@ -99,24 +100,22 @@ public final class HellflameFx {
 		if (firstPerson) {
 			return;
 		}
-		// the flame beard (round the jaw and chin) and the flaming eyebrows
+		// the flame beard along the jaw and chin, and the flaming eyebrows -- small, low flames that hug the face
 		Vec3[] head = frame(p, true);
 		Vec3 eye = p.getEyePosition();
-		for (int i = 0; i < 3; i++) {
-			double s = (rnd.nextDouble() - 0.5) * 0.5;
-			double jaw = 1.0 - Math.abs(s) * 1.2; // the chin hangs lowest
-			Vec3 at = eye.add(head[0].scale(0.24 + 0.06 * jaw)).add(head[1].scale(s)).add(0, -0.3 - 0.12 * jaw, 0);
-			add(level, ParticleTypes.FLAME, at, head[0].x * 0.01, 0.035 + rnd.nextDouble() * 0.02, head[0].z * 0.01);
+		if (rnd.nextInt(3) != 0) {
+			double s = (rnd.nextDouble() - 0.5) * 2.0; // -1 (right jaw) .. 1 (left jaw)
+			double fwd = 0.27 - 0.12 * s * s;   // round the jaw: the chin in front, the jaw hinges at the sides
+			Vec3 at = eye.add(head[0].scale(fwd)).add(head[1].scale(-s * 0.26)).add(0, -0.1 - 0.04 * (1 - Math.abs(s)), 0);
+			add(level, ParticleTypes.SMALL_FLAME, at, head[0].x * 0.004, 0.004, head[0].z * 0.004);
+		}
+		if (rnd.nextInt(4) == 0) {
+			add(level, HellflameCombat.YELLOW, eye.add(head[0].scale(0.29)).add(0, -0.14, 0), 0, 0.004, 0);
 		}
 		if (rnd.nextInt(2) == 0) {
-			Vec3 chin = eye.add(head[0].scale(0.3)).add(0, -0.42, 0);
-			add(level, HellflameCombat.YELLOW, chin, 0, 0.015, 0);
-		}
-		for (int side = -1; side <= 1; side += 2) {
-			if (rnd.nextInt(2) == 0) {
-				Vec3 brow = eye.add(head[0].scale(0.3)).add(head[1].scale(side * (0.1 + rnd.nextDouble() * 0.08))).add(0, 0.1, 0);
-				add(level, ParticleTypes.SMALL_FLAME, brow, 0, 0.02, 0);
-			}
+			int side = rnd.nextBoolean() ? 1 : -1;
+			Vec3 brow = eye.add(head[0].scale(0.27)).add(head[1].scale(side * (0.06 + rnd.nextDouble() * 0.1))).add(0, 0.19, 0);
+			add(level, ParticleTypes.SMALL_FLAME, brow, 0, 0.006, 0);
 		}
 	}
 
@@ -159,10 +158,15 @@ public final class HellflameFx {
 		double len = from.distanceTo(end);
 		Vec3 dir = end.subtract(from).normalize();
 		double start = firstPerson ? 0.8 : 0.0;
-		for (double d = start; d <= len; d += 0.4) {
+		int k = 0;
+		for (double d = start; d <= len; d += 0.25, k++) {
 			Vec3 at = from.add(dir.scale(d));
+			// the white-hot core, sheathed in yellow
 			add(level, HellflameCombat.WHITE_HOT, at, 0, 0, 0);
-			if (rnd.nextInt(2) == 0) {
+			if ((k & 1) == 0) {
+				add(level, HellflameCombat.YELLOW, at.add((rnd.nextDouble() - 0.5) * 0.15, (rnd.nextDouble() - 0.5) * 0.15, (rnd.nextDouble() - 0.5) * 0.15), 0, 0, 0);
+			}
+			if (rnd.nextInt(3) == 0) {
 				Vec3 j = at.add((rnd.nextDouble() - 0.5) * 0.3, (rnd.nextDouble() - 0.5) * 0.3, (rnd.nextDouble() - 0.5) * 0.3);
 				add(level, ParticleTypes.FLAME, j, dir.x * 0.08, dir.y * 0.08 + 0.01, dir.z * 0.08);
 			}

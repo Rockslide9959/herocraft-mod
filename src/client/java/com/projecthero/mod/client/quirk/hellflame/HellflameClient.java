@@ -22,6 +22,7 @@ public final class HellflameClient implements QuirkClientKit {
 
 	public static void initialize() {
 		QuirkClient.register(Quirk.HELLFLAME, new HellflameClient());
+		HellflameParticleClient.register();
 		ClientTickEvents.START_CLIENT_TICK.register(HellflameFlightClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(HellflameFx::tick);
 	}

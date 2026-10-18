@@ -18,6 +18,7 @@ public final class HellflameMod {
 	}
 
 	public static void initialize() {
+		HellflameParticles.register();
 		QuirkKits.register(Quirk.HELLFLAME, new HellflameKit());
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (!level.isClientSide() && player instanceof ServerPlayer sp && entity instanceof LivingEntity le && Hellflame.cloaked(sp)) {

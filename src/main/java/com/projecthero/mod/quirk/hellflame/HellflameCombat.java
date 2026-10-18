@@ -12,6 +12,7 @@ import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
 import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,11 +29,13 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class HellflameCombat {
 	/** Endeavor's flames: the white-hot core, the yellow, the orange and the deep red-orange edge. */
-	public static final DustParticleOptions WHITE_HOT = new DustParticleOptions(new Vector3f(1.0f, 0.97f, 0.82f), 1.2f);
-	public static final DustParticleOptions YELLOW = new DustParticleOptions(new Vector3f(1.0f, 0.84f, 0.25f), 1.4f);
-	public static final DustParticleOptions ORANGE = new DustParticleOptions(new Vector3f(1.0f, 0.48f, 0.08f), 1.6f);
+	/** (Full-bright: {@link HellflameParticles}.) */
+	public static final ParticleOptions WHITE_HOT = HellflameParticles.CORE;
+	public static final ParticleOptions YELLOW = HellflameParticles.GLOW;
+	public static final ParticleOptions ORANGE = HellflameParticles.BLAZE;
+	public static final ParticleOptions BIG_ORANGE = HellflameParticles.BIG;
+	/** A deep red ember (world-lit dust: only for the dying sparks). */
 	public static final DustParticleOptions EMBER = new DustParticleOptions(new Vector3f(0.85f, 0.22f, 0.04f), 1.1f);
-	public static final DustParticleOptions BIG_ORANGE = new DustParticleOptions(new Vector3f(1.0f, 0.55f, 0.12f), 2.6f);
 
 	private HellflameCombat() {
 	}

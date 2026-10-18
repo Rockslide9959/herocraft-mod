@@ -149,7 +149,7 @@ public final class HellflameMoves {
 		Quirks.setAnim(p, Hellflame.ANIM_OVERHEAT);
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position().add(0, 1.0, 0);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 30, 0.4, 0.7, 0.4, 0.04);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 14, 0.4, 0.7, 0.4, 0.03);
 		level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 8, 0.3, 0.5, 0.3, 0.0);
 		sound(p, SoundEvents.FIRE_EXTINGUISH, 1.0f, 0.6f);
 		sound(p, SoundEvents.LAVA_EXTINGUISH, 0.8f, 0.8f);
@@ -175,7 +175,7 @@ public final class HellflameMoves {
 			float pitchOff = (i % 2 == 0 ? -1.5f : 1.5f) * (i == threads / 2 ? 0f : 1f);
 			Vec3 dir = Vec3.directionFromRotation(p.getXRot() + pitchOff, (float) (p.getYRot() + off));
 			Vec3 end = clip(p, from, dir, HellflameConfig.SPIDER_RANGE);
-			HellflameCombat.streak(level, from, end, 2.5, true);
+			HellflameCombat.streak(level, from, end, 4.0, true);
 			for (LivingEntity e : HellflameCombat.alongPath(p, from, end, HellflameConfig.SPIDER_THREAD_RADIUS, hit)) {
 				if (HellflameCombat.strike(p, e, from, HellflameConfig.SPIDER_DAMAGE, HellflameConfig.SPIDER_BURN_SECONDS, 0.3, 0.0, true)) {
 					n++;
@@ -649,8 +649,12 @@ public final class HellflameMoves {
 			int pts = 10 + (int) (rr * 3);
 			for (int i = 0; i < pts; i++) {
 				double a = i / (double) pts * Math.PI * 2.0 + y * 0.35;
-				level.sendParticles(ParticleTypes.FLAME, base.x + Math.cos(a) * rr, base.y + y, base.z + Math.sin(a) * rr, 0, -Math.sin(a) * 0.2, 0.35,
-						Math.cos(a) * 0.2, 0.5);
+				// a swirling wall of flame racing upward
+				level.sendParticles(ParticleTypes.FLAME, base.x + Math.cos(a) * rr, base.y + y, base.z + Math.sin(a) * rr, 0, -Math.sin(a) * 0.15, 1.0,
+						Math.cos(a) * 0.15, 0.32);
+				if ((i & 3) == 0) {
+					level.sendParticles(HellflameCombat.ORANGE, base.x + Math.cos(a) * rr * 0.8, base.y + y, base.z + Math.sin(a) * rr * 0.8, 0, 0, 1.0, 0, 0.2);
+				}
 			}
 			level.sendParticles(HellflameCombat.WHITE_HOT, base.x, base.y + y, base.z, 4, 0.3, 0.4, 0.3, 0.0);
 			level.sendParticles(HellflameCombat.BIG_ORANGE, base.x, base.y + y, base.z, 3, rr * 0.4, 0.4, rr * 0.4, 0.0);
@@ -766,7 +770,7 @@ public final class HellflameMoves {
 		Quirks.setVal(p, Hellflame.V_CLOAK, s.cloak ? 1L : 0L);
 		if (s.cloak) {
 			Quirks.setAnim(p, Hellflame.ANIM_CLOAK);
-			HellflameCombat.flare(p.serverLevel(), p.position().add(0, 1.0, 0), 30, 0.5);
+			HellflameCombat.flare(p.serverLevel(), p.position().add(0, 1.0, 0), 14, 0.4);
 			sound(p, SoundEvents.FIRECHARGE_USE, 1.0f, 0.6f);
 			sound(p, SoundEvents.BLAZE_SHOOT, 0.8f, 0.5f);
 			s.lastFireAt = now(p);
