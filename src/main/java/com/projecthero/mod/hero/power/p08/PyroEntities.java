@@ -32,6 +32,16 @@ public final class PyroEntities {
 					.fireImmune()
 					.build("pyro_fx"));
 
+	/** v0.16.6 hold G: the Flame Serpent. */
+	public static final EntityType<PyroSerpentEntity> SERPENT = register("pyro_serpent",
+			EntityType.Builder.<PyroSerpentEntity>of(PyroSerpentEntity::new, MobCategory.MISC)
+					.sized(0.6f, 0.6f)
+					.clientTrackingRange(8)
+					.updateInterval(1)
+					.noSave()
+					.fireImmune()
+					.build("pyro_serpent"));
+
 	private PyroEntities() {
 	}
 

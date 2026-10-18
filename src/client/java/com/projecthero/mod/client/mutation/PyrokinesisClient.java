@@ -15,7 +15,9 @@ import com.projecthero.mod.client.mutation.pyro.PyroBoltRenderer;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.mutation.pyro.PyroFireSkin;
 import com.projecthero.mod.client.mutation.pyro.PyroFxRenderer;
+import com.projecthero.mod.client.mutation.pyro.PyroSerpentRenderer;
 import com.projecthero.mod.hero.power.p08.PyroEntities;
+import com.projecthero.mod.hero.power.p08.PyroFxEntity;
 import com.projecthero.mod.hero.power.p08.PyrokinesisHandlers;
 import com.projecthero.mod.hero.visual.MutationVisualState;
 import com.projecthero.mod.hero.visual.MutationVisuals;
@@ -46,7 +48,10 @@ import net.minecraft.world.phys.Vec3;
  * of fire round the target and a burning rope to your hand) and the Flamethrower's roaring cone;</li>
  * <li>the entity models: {@link PyroBoltRenderer} (Fireball, Meteor) and {@link PyroFxRenderer} (Flame Wall, novas, Heat
  * Wave, the Meteor blast);</li>
- * <li>the cast poses ({@link MutationPose}).</li>
+ * <li>the cast poses ({@link MutationPose});</li>
+ * <li>v0.16.6 hold moves: the Blue Flame swelling in the hand, rings of fire down the arm for the Flame Serpent
+ * ({@link PyroSerpentRenderer}), the Phoenix's wings / tail / crest, the Solar Flare's white-hot body and its screen
+ * flash.</li>
  * </ul>
  */
 public final class PyrokinesisClient {
@@ -71,6 +76,13 @@ public final class PyrokinesisClient {
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(PyroFireSkin::tick);
 		EntityRendererRegistry.register(PyroEntities.BOLT, PyroBoltRenderer::new);
 		EntityRendererRegistry.register(PyroEntities.FX, PyroFxRenderer::new);
+		// v0.16.6 hold moves
+		EntityRendererRegistry.register(PyroEntities.SERPENT, PyroSerpentRenderer::new);
+		MutationOverlays.register("p08.blue_charge", PyrokinesisClient::blueCharge);
+		MutationOverlays.register("p08.serpent_cast", PyrokinesisClient::serpentCast);
+		MutationOverlays.register("p08.phoenix", PyrokinesisClient::phoenixBody);
+		MutationOverlays.register("p08.flare", PyrokinesisClient::flareBody);
+		net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(PyrokinesisClient::flash);
 	}
 
 	// ================================================================== poses
@@ -146,6 +158,33 @@ public final class PyrokinesisClient {
 		float[] spent = p(-0.25f, 0.1f, 0.15f, -0.25f, -0.1f, -0.15f, 0.45f, 0, 0.3f, 0.2f, 0.45f);
 		float[] spent2 = p(-0.3f, 0.12f, 0.12f, -0.2f, -0.12f, -0.18f, 0.5f, 0, 0.3f, 0.2f, 0.5f);
 		MutationPose.registerLoop("p08.overheat", 4, new float[][] { zero(0), at(4, spent), at(14, spent2), at(24, spent) });
+
+		// ---- v0.16.6 hold moves
+		// hold R Blue Flame: the right hand drawn back by the ear cradling the ball, the left aimed at the mark
+		float[] blueA = p(-2.35f, 0.55f, 0.25f, AIM, AIM, 0, -0.06f, 0.55f, 0.15f, -0.15f, 0);
+		float[] blueB = p(-2.45f, 0.6f, 0.3f, AIM, AIM, 0, -0.08f, 0.6f, 0.17f, -0.17f, 0.02f);
+		MutationPose.registerLoop("p08.blue_charge", 3, new float[][] { zero(0), at(3, blueA), at(7, blueB), at(11, blueA) });
+		// hold G Flame Serpent: a whirl of the arm overhead, then thrust out along the aim as the serpent pours off it
+		float[] coilUp = p(-2.9f, 0.5f, 0.6f, 0.3f, 0, -0.2f, -0.1f, 0.4f, 0.15f, -0.15f, -0.1f);
+		float[] coilOut = p(AIM, AIM, 0, 0.5f, 0, -0.25f, 0.2f, -0.35f, -0.3f, 0.3f, 0);
+		MutationPose.register("p08.serpent", new float[][] { zero(0), at(3, coilUp), at(7, coilOut), at(14, coilOut), zero(18) });
+		// hold X Phoenix Dive: arms flung wide and beating like wings on the way up, swept back hard in the dive
+		float[] wingsUp = p(-0.35f, 0, 1.75f, -0.35f, 0, -1.75f, -0.15f, 0, 0.1f, -0.1f, -0.3f);
+		float[] wingsDown = p(-0.1f, 0, 1.15f, -0.1f, 0, -1.15f, 0.05f, 0, 0.15f, -0.05f, -0.2f);
+		MutationPose.registerLoop("p08.phoenix_rise", 2, new float[][] { zero(0), at(2, wingsUp), at(6, wingsDown), at(10, wingsUp) });
+		float[] diveA = p(1.25f, 0, 0.45f, 1.25f, 0, -0.45f, 0.6f, 0, 0.3f, 0.3f, -0.6f);
+		float[] diveB = p(1.3f, 0, 0.5f, 1.3f, 0, -0.5f, 0.62f, 0, 0.32f, 0.28f, -0.62f);
+		MutationPose.registerLoop("p08.phoenix_dive", 2, new float[][] { zero(0), at(2, diveA), at(5, diveB), at(8, diveA) });
+		// hold Z Meteor Shower: both arms to the sky, calling them down, then a sweep down along the aim
+		float[] call = p(-3.0f, 0, 0.45f, -3.0f, 0, -0.45f, -0.2f, 0, 0.2f, -0.2f, -0.45f);
+		MutationPose.register("p08.shower", new float[][] { zero(0), at(3, call), at(9, call), at(13, slam), at(18, slam), zero(23) });
+		// hold V Ring of Fire: a crouch with both hands sweeping out low and round
+		float[] ringLow = p(-0.5f, 0, 1.1f, -0.5f, 0, -1.1f, 0.35f, 0, 0.45f, -0.25f, 0.2f);
+		float[] ringOut = p(-0.15f, 0, 1.5f, -0.15f, 0, -1.5f, 0.0f, 0, 0.0f, 0.0f, -0.1f);
+		MutationPose.register("p08.ring", new float[][] { zero(0), at(3, ringLow), at(8, ringOut), at(14, ringOut), zero(18) });
+		// hold C Solar Flare: curl in, then everything flung up and out, head thrown back
+		float[] flareOut = p(-2.6f, 0, 0.9f, -2.6f, 0, -0.9f, -0.3f, 0, -0.1f, 0.1f, -0.55f);
+		MutationPose.register("p08.flare", new float[][] { zero(0), at(3, curl), at(6, flareOut), at(14, flareOut), zero(20) });
 	}
 
 	// ================================================================== body overlays
@@ -323,6 +362,165 @@ public final class PyrokinesisClient {
 	private static void smoulder(MutationOverlays.Context ctx) {
 		float k = 0.5f + 0.5f * MutationRender.pulse(ctx, 14f);
 		MutationRender.shell(ctx, MutationRender.WHITE, MutationRender.Shell.THIN, PyroDraw.dim(0xFF801000, 0.35f + 0.25f * k), true);
+	}
+
+	// ================================================================== v0.16.6 hold moves (body)
+
+	/** Where the right hand is in model space (after the arm's rotation), for things held in it. */
+	private static void toRightHand(MutationOverlays.Context ctx) {
+		boolean slim = "slim".equals(ctx.player().getSkin().model().id());
+		ctx.model().rightArm.translateAndRotate(ctx.pose());
+		ctx.pose().translate((slim ? -0.5 : -1.0) / 16.0, 10.5 / 16.0, 0.0);
+	}
+
+	/** Hold R, the wind-up: a blue-white fireball swelling in the drawn-back hand. */
+	private static void blueCharge(MutationOverlays.Context ctx) {
+		float t = time(ctx);
+		PoseStack pose = ctx.pose();
+		pose.pushPose();
+		toRightHand(ctx);
+		float r = 0.3f + 0.04f * Mth.sin(t * 1.3f);
+		PyroDraw.fireball(pose, ctx.buffers(), r, t, new Vec3(0, -1, 0), false, true);
+		pose.popPose();
+		MutationRender.shell(ctx, MutationRender.WHITE, MutationRender.Shell.THIN, PyroDraw.dim(0xFF2050C0, 0.25f), true);
+	}
+
+	/** Hold G, the cast: rings of fire spiral down the right arm as the serpent pours off it. */
+	private static void serpentCast(MutationOverlays.Context ctx) {
+		float t = time(ctx);
+		PoseStack pose = ctx.pose();
+		VertexConsumer add = PyroDraw.additive(ctx.buffers());
+		pose.pushPose();
+		ctx.model().rightArm.translateAndRotate(pose);
+		pose.translate(-1.0 / 16.0, 0, 0);
+		for (int i = 0; i < 4; i++) {
+			float y = (((t * 0.9f + i * 3.0f) % 12.0f) / 12.0f) * 0.75f;
+			pose.pushPose();
+			pose.translate(0, y, 0);
+			pose.mulPose(new Quaternionf().rotationX(0.25f * Mth.sin(t * 0.4f + i)));
+			PyroDraw.band(pose, add, 0.2f, 0.05f, 0xFFFFB050, 0xFF401000);
+			pose.popPose();
+		}
+		PyroDraw.glow(pose, PyroDraw.glowBuffer(ctx.buffers()), new Vec3(0, 0.66, 0), 0.4f, PyroDraw.dim(0xFFFF8030, 0.9f));
+		pose.popPose();
+	}
+
+	/** Hold C: the caster is the heart of the sun for a moment -- white-hot all over. */
+	private static void flareBody(MutationOverlays.Context ctx) {
+		MutationRender.shell(ctx, FLAME, MutationRender.Shell.THIN, 0xFFFFF4D0, true);
+		MutationRender.shell(ctx, MutationRender.WHITE, MutationRender.Shell.THICK, PyroDraw.dim(0xFFFFE0A0, 0.6f), true);
+		MutationRender.eyes(ctx, 0xFFFFFFFF);
+	}
+
+	/**
+	 * Hold X: the Phoenix -- the caster wrapped in a firebird: two great wings of glowing feathers off the shoulder blades
+	 * (beating while it rises, swept back in the dive), a fanned tail, a flame crest on the head and the body ablaze.
+	 */
+	private static void phoenixBody(MutationOverlays.Context ctx) {
+		float t = time(ctx);
+		boolean dive = ctx.state().has("p08.phoenix_dive");
+		MutationRender.shell(ctx, FLAME, MutationRender.Shell.THIN, 0xFFFFB050, true);
+		limbFlames(ctx, dive ? 1.4f : 1.0f, dive ? 0.9f : 0.0f);
+		MutationRender.eyes(ctx, 0xFFFFF0B0);
+		PoseStack pose = ctx.pose();
+		VertexConsumer add = PyroDraw.additive(ctx.buffers());
+		VertexConsumer fire = PyroDraw.fireBuffer(ctx.buffers());
+		VertexConsumer glow = PyroDraw.glowBuffer(ctx.buffers());
+		pose.pushPose();
+		ctx.model().body.translateAndRotate(pose);
+		// model space: y down, the back is +z, the player's left is +x
+		float lift = dive ? 0.18f + 0.04f * Mth.sin(t * 2.2f) : 0.3f + 0.6f * Mth.sin(t * 0.75f);
+		float sweep = dive ? 1.05f : 0.3f;
+		for (int s = -1; s <= 1; s += 2) {
+			pose.pushPose();
+			pose.translate(s * 0.1f, 0.16f, 0.16f);
+			pose.mulPose(new Quaternionf().rotationY(-s * sweep));
+			pose.mulPose(new Quaternionf().rotationZ(-s * lift));
+			wing(pose, add, fire, glow, s, t);
+			pose.popPose();
+		}
+		// the tail: a fan of long feathers off the small of the back
+		for (int i = -2; i <= 2; i++) {
+			float sway = 0.06f * Mth.sin(t * 0.5f + i);
+			Vec3 root = new Vec3(i * 0.05, 0.7, 0.14);
+			Vec3 tip = new Vec3(i * 0.32 + sway, 1.6 - Math.abs(i) * 0.12, dive ? 1.1 : 0.75);
+			Vec3 bow = root.lerp(tip, 0.5).add(0, 0, 0.18);
+			PyroDraw.blade(pose, add, root, bow, tip, new Vec3(1, 0, 0), 0.12f, 0.3f, 0xFFFFE0A0, PyroDraw.dim(0xFFC02800, 0.8f));
+		}
+		pose.popPose();
+		// the crest on the head: three flame plumes swept back
+		pose.pushPose();
+		ctx.model().head.translateAndRotate(pose);
+		for (int i = -1; i <= 1; i++) {
+			Vec3 root = new Vec3(i * 0.1, -0.5, -0.05);
+			Vec3 tip = new Vec3(i * 0.18, -0.9 + Math.abs(i) * 0.12, 0.55);
+			PyroDraw.blade(pose, add, root, root.lerp(tip, 0.5).add(0, -0.12, 0), tip, new Vec3(1, 0, 0), 0.1f, 0.02f, 0xFFFFF0C0,
+					PyroDraw.dim(0xFFFF5010, 0.7f));
+		}
+		pose.popPose();
+	}
+
+	/** One wing in its own frame: the leading edge runs out along x = {@code s}, the feathers hang down (+y) and back (+z). */
+	private static void wing(PoseStack pose, VertexConsumer add, VertexConsumer fire, VertexConsumer glow, int s, float t) {
+		float span = 2.1f;
+		int feathers = 9;
+		Vec3 prevEdge = null;
+		for (int i = 0; i < feathers; i++) {
+			float u = i / (float) (feathers - 1);
+			// the leading edge arches up to the wrist and droops to the tip
+			Vec3 edge = new Vec3(s * span * u, -0.38 * Mth.sin(Mth.PI * Math.min(1.0f, u * 1.25f)) + 0.12 * u * u, 0.05 * u);
+			float len = 0.55f + 0.95f * u * (1.1f - 0.3f * u);
+			Vec3 dir = new Vec3(s * (0.15 + 0.9 * u * u), 0.85 * (1.0 - u) + 0.25, 0.35).normalize();
+			float ripple = 0.05f * Mth.sin(t * 1.4f - u * 5.0f);
+			Vec3 tip = edge.add(dir.scale(len)).add(0, ripple, 0);
+			Vec3 bow = edge.lerp(tip, 0.5).add(0, 0, 0.12);
+			Vec3 side = dir.cross(new Vec3(0, 0, 1));
+			side = side.lengthSqr() < 1.0e-6 ? new Vec3(1, 0, 0) : side.normalize();
+			// a dim, wide underlayer of heat and the bright feather over it
+			PyroDraw.blade(pose, add, edge, bow, tip, side, 0.42f, 0.22f, PyroDraw.dim(0xFFB03000, 0.6f), 0xFF000000);
+			PyroDraw.blade(pose, add, edge, bow, tip, side, 0.24f, 0.07f, 0xFFFFF0B0, PyroDraw.dim(0xFFE04010, 0.9f));
+			if (prevEdge != null) {
+				// the covert: a band of fire along the leading edge between this feather and the last
+				PyroDraw.blade(pose, add, prevEdge, prevEdge.lerp(edge, 0.5).add(0, -0.03, 0), edge, new Vec3(0, 1, 0.3).normalize(), 0.22f,
+						0.22f, 0xFFFFC060, 0xFFFFC060);
+			}
+			if (i % 2 == 1) {
+				pose.pushPose();
+				pose.translate(edge.x, edge.y, edge.z);
+				pose.scale(1.0f, -1.0f, 1.0f); // model space is y-down: flames rise
+				PyroDraw.fireCross(pose, fire, 0.35f, 0.5f + 0.15f * Mth.sin(t * 0.8f + i), (int) (t / 2) + i, i * 0.9f);
+				pose.popPose();
+			}
+			prevEdge = edge;
+		}
+		PyroDraw.glow(pose, glow, new Vec3(s * span * 0.55, 0.35, 0.2), 1.3f, PyroDraw.dim(0xFFFF7020, 0.55f));
+	}
+
+	// ================================================================== v0.16.6 the Solar Flare's flash
+
+	/** A white flash over the screen of everyone near a Solar Flare (softer for its caster). */
+	private static void flash(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.DeltaTracker delta) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || mc.player == null) {
+			return;
+		}
+		float partial = delta.getGameTimeDeltaPartialTick(false);
+		float best = 0f;
+		for (PyroFxEntity fx : mc.level.getEntitiesOfClass(PyroFxEntity.class, mc.player.getBoundingBox().inflate(PyrokinesisHandlers.FLARE_RADIUS + 4))) {
+			if (fx.kind() != PyroFxEntity.FLARE) {
+				continue;
+			}
+			float age = fx.age() + partial;
+			double d = fx.position().distanceTo(mc.player.getEyePosition(partial));
+			float k = (float) Math.max(0.0, 1.0 - Math.max(0.0, d - PyrokinesisHandlers.FLARE_RADIUS * 0.6) / (PyrokinesisHandlers.FLARE_RADIUS * 0.6));
+			float a = age < 2.0f ? age / 2.0f : Math.max(0.0f, 1.0f - (age - 2.0f) / 16.0f);
+			float own = fx.ownerEntityId() == mc.player.getId() ? 0.4f : 0.95f;
+			best = Math.max(best, a * a * k * own);
+		}
+		if (best > 0.01f) {
+			int alpha = Math.round(255 * Math.min(1f, best));
+			g.fill(0, 0, g.guiWidth(), g.guiHeight(), alpha << 24 | 0xFFF8E8);
+		}
 	}
 
 	// ================================================================== world: whip, lasso, flamethrower

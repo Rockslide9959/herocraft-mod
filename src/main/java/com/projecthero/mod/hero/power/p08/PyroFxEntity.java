@@ -24,17 +24,24 @@ import net.minecraft.world.phys.Vec3;
  * v0.16.5 Pyrokinesis: a short-lived fire shape with a model of its own ({@code PyroFxRenderer}) -- never saved, no
  * physics. {@link #WALL} is the V Flame Wall (8 wide, 3 tall, along its yaw; it burns whatever crosses it and burns up
  * arrows), {@link #NOVA} the ring of fire of an overheat / Inferno (radius {@link #size()}), {@link #WAVE} the C Heat
- * Wave's rolling cone of heat and {@link #BLAST} a Meteor's fireball blast.
+ * Wave's rolling cone of heat and {@link #BLAST} a Meteor's fireball blast; v0.16.6 adds {@link #RING} (hold V) and
+ * {@link #FLARE} (hold C).
  */
 public class PyroFxEntity extends Entity {
 	public static final int WALL = 0;
 	public static final int NOVA = 1;
 	public static final int WAVE = 2;
 	public static final int BLAST = 3;
+	/** v0.16.6 hold V: the Ring of Fire (radius {@link #size()}, burns what crosses it). */
+	public static final int RING = 4;
+	/** v0.16.6 hold C: the Solar Flare's sun burst (and the white flash it puts on nearby screens). */
+	public static final int FLARE = 5;
 
 	private static final EntityDataAccessor<Integer> KIND = SynchedEntityData.defineId(PyroFxEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(PyroFxEntity.class, EntityDataSerializers.FLOAT);
 	private static final EntityDataAccessor<Integer> LIFE = SynchedEntityData.defineId(PyroFxEntity.class, EntityDataSerializers.INT);
+	/** v0.16.6: the caster's entity id (the Solar Flare's flash is softer on their own screen). */
+	private static final EntityDataAccessor<Integer> OWNER = SynchedEntityData.defineId(PyroFxEntity.class, EntityDataSerializers.INT);
 
 	private UUID ownerId;
 	private int age;
@@ -57,6 +64,7 @@ public class PyroFxEntity extends Entity {
 		e.entityData.set(KIND, kind);
 		e.entityData.set(SIZE, size);
 		e.entityData.set(LIFE, life);
+		e.entityData.set(OWNER, owner == null ? -1 : owner.getId());
 		level.addFreshEntity(e);
 		return e;
 	}
@@ -66,6 +74,7 @@ public class PyroFxEntity extends Entity {
 		builder.define(KIND, WALL);
 		builder.define(SIZE, 1.0f);
 		builder.define(LIFE, 20);
+		builder.define(OWNER, -1);
 	}
 
 	public int kind() {
@@ -78,6 +87,11 @@ public class PyroFxEntity extends Entity {
 
 	public int life() {
 		return entityData.get(LIFE);
+	}
+
+	/** The caster's entity id, or -1. */
+	public int ownerEntityId() {
+		return entityData.get(OWNER);
 	}
 
 	/** Ticks lived (client: counted from when it appeared). */
@@ -130,6 +144,28 @@ public class PyroFxEntity extends Entity {
 		if (kind() == WALL) {
 			ServerPlayer owner = ownerId == null ? null : sl.getServer().getPlayerList().getPlayer(ownerId);
 			wallTick(sl, owner);
+		} else if (kind() == RING) {
+			ringTick(sl);
+		}
+	}
+
+	/** v0.16.6: the Ring of Fire burns every half second; it goes out with its caster (logout, death, another power). */
+	private void ringTick(ServerLevel sl) {
+		ServerPlayer owner = ownerId == null ? null : sl.getPlayerByUUID(ownerId) instanceof ServerPlayer sp ? sp : null;
+		com.projecthero.mod.hero.Power active = owner == null ? null : com.projecthero.mod.hero.ExperimentalPowers.getActive(owner);
+		if (owner == null || !owner.isAlive() || active == null || !PyrokinesisHandlers.KEY.equals(active.key())) {
+			discard();
+			return;
+		}
+		if (age % 10 == 0) {
+			PyrokinesisHandlers.ringBurn(owner, sl, this, wallDamage);
+		}
+		if (age % 16 == 0) {
+			sl.playSound(null, getX(), getY(), getZ(), SoundEvents.FIRE_AMBIENT, SoundSource.PLAYERS, 1.2f, 0.7f);
+		}
+		if (age % 3 == 0) {
+			double a = random.nextDouble() * Math.PI * 2.0;
+			sl.sendParticles(ParticleTypes.FLAME, getX() + Math.cos(a) * size(), getY() + 0.4, getZ() + Math.sin(a) * size(), 2, 0.2, 0.3, 0.2, 0.02);
 		}
 	}
 

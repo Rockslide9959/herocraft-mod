@@ -21,7 +21,11 @@ import net.minecraft.world.phys.Vec3;
  * column by column, over a glowing ember bed; it roars up over a few ticks and gutters out at the end;</li>
  * <li><b>Nova</b> -- a ring of flame sheets rolling outward over the ground with a glowing shock ring and a flash;</li>
  * <li><b>Heat Wave</b> -- three shells of shimmering heat rolling out across the cone;</li>
- * <li><b>Meteor blast</b> -- a ball of fire swelling and fading, a ground shock ring and a crown of flames.</li>
+ * <li><b>Meteor blast</b> -- a ball of fire swelling and fading, a ground shock ring and a crown of flames;</li>
+ * <li>v0.16.6 <b>Ring of Fire</b> -- two staggered rings of fire sheets with a swell rolling round them, over a glowing ember
+ * band;</li>
+ * <li>v0.16.6 <b>Solar Flare</b> -- a white-hot sun swelling out of the caster with a corona of long rays and a shock
+ * ring.</li>
  * </ul>
  */
 public class PyroFxRenderer extends EntityRenderer<PyroFxEntity> {
@@ -43,6 +47,8 @@ public class PyroFxRenderer extends EntityRenderer<PyroFxEntity> {
 			case PyroFxEntity.NOVA -> nova(e, age, pose, buffers);
 			case PyroFxEntity.WAVE -> wave(e, age, pose, buffers);
 			case PyroFxEntity.BLAST -> blast(e, age, pose, buffers);
+			case PyroFxEntity.RING -> ring(e, age, pose, buffers);
+			case PyroFxEntity.FLARE -> flare(e, age, pose, buffers);
 			default -> {
 			}
 		}
@@ -249,6 +255,97 @@ public class PyroFxRenderer extends EntityRenderer<PyroFxEntity> {
 			PyroDraw.fireCross(pose, fire, 1.0f, h, (int) (age / 2) + i, a);
 			pose.popPose();
 		}
+	}
+
+	// ------------------------------------------------------------------ v0.16.6 Ring of Fire
+
+	private static void ring(PyroFxEntity e, float age, PoseStack pose, MultiBufferSource buffers) {
+		float life = e.life();
+		float grow = ease(age / 8.0f);
+		float die = Mth.clamp((life - age) / 14.0f, 0.0f, 1.0f);
+		float k = grow * die;
+		if (k < 0.02f) {
+			return;
+		}
+		float r = e.size();
+		VertexConsumer add = PyroDraw.additive(buffers);
+		// the ember bed: a glowing band of scorched ground under the flames
+		PyroDraw.annulus(pose, add, r - 0.7f, r, 0xFF000000, PyroDraw.dim(0xFFFF5010, 0.95f * k), 0.04f);
+		PyroDraw.annulus(pose, add, r, r + 0.7f, PyroDraw.dim(0xFFFF5010, 0.95f * k), 0xFF000000, 0.04f);
+		// a low wall of heat light round the circle
+		pose.pushPose();
+		pose.translate(0, 0.55f, 0);
+		PyroDraw.band(pose, add, r, 0.55f * k, PyroDraw.dim(0xFFFF6A10, 0.55f * k), 0xFF000000);
+		pose.popPose();
+		// the flames: two staggered rings of crossed fire sheets, a swell rolling round them
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		int n = Math.max(24, Math.round(Mth.TWO_PI * r * 1.7f));
+		int frame = (int) (age / 3);
+		for (int row = 0; row < 2; row++) {
+			float rr = r + (row == 0 ? -0.18f : 0.18f);
+			for (int i = 0; i < n; i++) {
+				float a = Mth.TWO_PI * (i + row * 0.5f) / n + age * 0.004f;
+				float flick = 0.7f + 0.3f * Mth.sin(age * 0.45f + i * 1.9f + row * 2.3f);
+				float roll = 0.85f + 0.25f * Mth.sin(a * 3.0f - age * 0.2f);
+				float h = 2.2f * k * flick * roll * (row == 0 ? 1.0f : 0.8f);
+				if (h < 0.05f) {
+					continue;
+				}
+				pose.pushPose();
+				pose.translate(Mth.cos(a) * rr, 0, Mth.sin(a) * rr);
+				PyroDraw.fireCross(pose, fire, 0.9f, h, frame + i + row, a + i * 0.4f);
+				pose.popPose();
+			}
+		}
+		// glows round the ring (camera-facing)
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		for (int i = 0; i < 12; i++) {
+			float a = Mth.TWO_PI * i / 12 + age * 0.01f;
+			float flick = 0.75f + 0.25f * Mth.sin(age * 0.6f + i * 2.1f);
+			PyroDraw.glow(pose, glow, new Vec3(Mth.cos(a) * r, 0.9, Mth.sin(a) * r), 1.6f * k, PyroDraw.dim(0xFFFF6A10, 0.45f * k * flick));
+		}
+	}
+
+	// ------------------------------------------------------------------ v0.16.6 Solar Flare
+
+	private static void flare(PyroFxEntity e, float age, PoseStack pose, MultiBufferSource buffers) {
+		float life = e.life();
+		float f = Mth.clamp(age / life, 0.0f, 1.0f);
+		float swell = ease(age / 4.0f);
+		float k = (1.0f - f) * (1.0f - f);
+		VertexConsumer add = PyroDraw.additive(buffers);
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		// the sun: a white-hot churning core in a yellow photosphere, swelling out and burning down
+		float r = (0.6f + 1.9f * swell) * (1.0f - 0.45f * f);
+		VertexConsumer solid = PyroDraw.solidBuffer(buffers);
+		if (f < 0.55f) {
+			PyroDraw.sphere(pose, solid, r * 0.55f, 0xFFFFFFFF, 0xFFFFF0B0, 0.06f, age * 2.0f, PyroDraw.FULL);
+		}
+		PyroDraw.sphere(pose, add, r * 0.8f, PyroDraw.dim(0xFFFFFCE0, k), PyroDraw.dim(0xFFFFB030, k), 0.14f, age * 2.6f, PyroDraw.FULL);
+		PyroDraw.sphere(pose, add, r, PyroDraw.dim(0xFFFF9020, k * 0.9f), PyroDraw.dim(0xFF601000, k * 0.6f), 0.3f, -age * 1.7f + 4.0f,
+				PyroDraw.FULL);
+		// the corona: long rays flung out in every direction, growing and thinning
+		int rays = 22;
+		for (int i = 0; i < rays; i++) {
+			float a = i * 2.39996f;
+			float y = 1.0f - 2.0f * (i + 0.5f) / rays;
+			float rad = Mth.sqrt(Math.max(0.0f, 1.0f - y * y));
+			Vec3 dir = new Vec3(Mth.cos(a) * rad, y, Mth.sin(a) * rad);
+			float len = (2.0f + 5.5f * ease(age / 8.0f)) * (0.7f + 0.3f * Mth.sin(i * 3.7f)) * (1.0f - 0.3f * f);
+			pose.pushPose();
+			pose.translate(dir.x * r * 0.7, dir.y * r * 0.7, dir.z * r * 0.7);
+			PyroDraw.alignY(pose, dir);
+			PyroDraw.cone(pose, add, 0.32f * (1.0f - 0.5f * f), len, PyroDraw.dim(0xFFFFF0C0, k), 0xFF000000);
+			pose.popPose();
+		}
+		// the shock ring rolling out to the edge of the flare
+		float ring = e.size() * ease(age / (life * 0.6f));
+		pose.pushPose();
+		pose.translate(0, -1.1f, 0);
+		PyroDraw.annulus(pose, add, Math.max(0.0f, ring - 1.4f), ring, 0xFF000000, PyroDraw.dim(0xFFFFD080, k), 0.06f);
+		pose.popPose();
+		PyroDraw.glow(pose, glow, Vec3.ZERO, 3.0f + 7.0f * swell, PyroDraw.dim(0xFFFFE6A0, k));
+		PyroDraw.glow(pose, glow, Vec3.ZERO, 1.5f + 3.0f * swell, PyroDraw.dim(0xFFFFFFFF, k));
 	}
 
 	@Override
