@@ -174,14 +174,40 @@ public class QuirkCoreGameTests implements FabricGameTest {
 	public void meterFlushesToTheSyncedState(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);
 		Quirks.grant(p, Quirk.ENGINE);
-		Quirks.setMeter(p, 50f);
-		Quirks.tick(p);
-		helper.assertTrue(Quirks.state(p).meter == 50f, "first change flushes at once, got " + Quirks.state(p).meter);
+		// the real Engine kit cools its heat every tick; a do-nothing kit keeps the numbers exact
+		QuirkKit real = QuirkKits.of(Quirk.ENGINE);
+		QuirkKits.register(Quirk.ENGINE, new QuirkKit() {
+			@Override
+			public void handle(ServerPlayer player, com.projecthero.mod.hero.AbilitySlot slot, boolean pressed, boolean shift) {
+			}
+
+			@Override
+			public String[] idsOf(com.projecthero.mod.hero.AbilitySlot slot) {
+				return real.idsOf(slot);
+			}
+
+			@Override
+			public int maxCooldown(String abilityId) {
+				return real.maxCooldown(abilityId);
+			}
+		});
+		try {
+			Quirks.setMeter(p, 50f);
+			Quirks.tick(p);
+			helper.assertTrue(Quirks.state(p).meter == 50f, "first change flushes at once, got " + Quirks.state(p).meter);
+		} catch (RuntimeException e) {
+			QuirkKits.register(Quirk.ENGINE, real);
+			throw e;
+		}
 		Quirks.setMeter(p, 100f);
 		helper.runAfterDelay(1, () -> {
-			Quirks.tick(p);
-			helper.assertTrue(Quirks.state(p).meter == 100f, "hitting 100 flushes at once (edge)");
-			helper.assertTrue(Quirks.clientMeter(p) == 100f, "clientMeter reads the synced value");
+			try {
+				Quirks.tick(p);
+				helper.assertTrue(Quirks.state(p).meter == 100f, "hitting 100 flushes at once (edge)");
+				helper.assertTrue(Quirks.clientMeter(p) == 100f, "clientMeter reads the synced value");
+			} finally {
+				QuirkKits.register(Quirk.ENGINE, real);
+			}
 			helper.succeed();
 		});
 	}
