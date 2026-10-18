@@ -78,6 +78,7 @@
       "com.projecthero.mod.gametest.GraveboundBossPowerGameTests",
       "com.projecthero.mod.gametest.SpiderManGameTests",
       "com.projecthero.mod.gametest.SpiderManRevampGameTests",
+      "com.projecthero.mod.gametest.CarapaceGameTests",
       "com.projecthero.mod.gametest.SpiderFreerunGameTests",
       "com.projecthero.mod.gametest.SpiderWebPullGameTests",
       "com.projecthero.mod.gametest.SpiderWebPinGameTests",
