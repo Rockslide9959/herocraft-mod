@@ -40,6 +40,11 @@ public final class AbilityRouter {
 			return;
 		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
+		// v0.16.7: Erased (Eraser Head) -- no power of any system takes a key press (releases pass so held moves end;
+		// an Iron Man suit and the Punisher's kit are machines, not powers, and keep working)
+		if (PowerSuppression.blocksAbility(player, slot, pressed)) {
+			return;
+		}
 		if (slot.isUtility()) {
 			// v0.13.22: H / N (slots 7-8) are mutation-only -- the client only sends them when no Hero-Tier power
 			// owns the key (or with Alt held), so they skip the whole hero chain and go straight to the mutation.
@@ -359,5 +364,7 @@ public final class AbilityRouter {
 		com.projecthero.mod.symbiote.SymbioteDialogue.tick(player);
 		// Same discipline for Max Steel's suit.
 		com.projecthero.mod.maxsteel.MaxSteel.enforce(player);
+		// v0.16.7: Erased -- the client sync, the status effect, power flight held off (runs last so it wins)
+		PowerSuppression.tickPlayer(player);
 	}
 }

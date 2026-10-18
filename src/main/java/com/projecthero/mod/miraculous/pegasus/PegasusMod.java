@@ -28,7 +28,7 @@ public final class PegasusMod {
 		PayloadTypeRegistry.playS2C().register(PegasusWaypointsPayload.TYPE, PegasusWaypointsPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PegasusVoyageChoicePayload.TYPE, PegasusVoyageChoicePayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(PegasusVoyageChoicePayload.TYPE, (payload, context) -> {
-			if (Miraculous.transformedAs(context.player(), Kwami.KAALKI)) {
+			if (Miraculous.transformedAs(context.player(), Kwami.KAALKI) && !com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) { // v0.16.7
 				PegasusMoves.chooseVoyage(context.player(), payload.index());
 			}
 		});

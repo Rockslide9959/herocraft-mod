@@ -18,7 +18,12 @@ public final class SpiderSuitV2 {
 		SpiderTripMines.initialize();
 		PayloadTypeRegistry.playC2S().register(SpiderGlidePayload.TYPE, SpiderGlidePayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(SpiderGlidePayload.TYPE,
-				(payload, context) -> SpiderWebWings.request(context.player(), payload.gliding()));
+				(payload, context) -> {
+					if (payload.gliding() && com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) { // v0.16.7: Erased
+						return;
+					}
+					SpiderWebWings.request(context.player(), payload.gliding());
+				});
 		ServerTickEvents.END_SERVER_TICK.register(SpiderWebWings::tick);
 	}
 }

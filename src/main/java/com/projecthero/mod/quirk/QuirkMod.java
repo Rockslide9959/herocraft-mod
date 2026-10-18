@@ -17,6 +17,9 @@ public final class QuirkMod {
 	}
 
 	public static void initialize() {
+		// the core: Erasure's client sync + status effect, the Quirk Serums
+		com.projecthero.mod.hero.PowerSuppression.initialize();
+		com.projecthero.mod.quirk.item.QuirkItems.initialize();
 		com.projecthero.mod.quirk.hellflame.HellflameMod.initialize();
 		com.projecthero.mod.quirk.overhaul.OverhaulMod.initialize();
 		com.projecthero.mod.quirk.engine.EngineMod.initialize();
@@ -33,7 +36,10 @@ public final class QuirkMod {
 			}
 		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> Quirks.clearTransient(player));
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> Quirks.clearTransient(handler.getPlayer()));
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			Quirks.clearTransient(handler.getPlayer());
+			com.projecthero.mod.hero.PowerSuppression.forget(handler.getPlayer());
+		});
 	}
 
 	public static void clearSessionState() {

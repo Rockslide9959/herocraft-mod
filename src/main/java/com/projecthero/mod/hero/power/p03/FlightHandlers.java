@@ -284,7 +284,11 @@ public final class FlightHandlers {
 
 	public static void register() {
 		PayloadTypeRegistry.playC2S().register(TogglePayload.TYPE, TogglePayload.CODEC);
-		ServerPlayNetworking.registerGlobalReceiver(TogglePayload.TYPE, (payload, context) -> toggleFlight(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(TogglePayload.TYPE, (payload, context) -> {
+			if (!com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) { // v0.16.7: Erased
+				toggleFlight(context.player());
+			}
+		});
 
 		// R -- Flying Punch / Dive Bomb (Shift). Also runs the power-wide upkeep.
 		AbilityHandlers.register(KEY, "flying_punch", new AbilityHandler() {

@@ -11,6 +11,9 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.miraculous.Kwami;
 import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkConfig;
+import com.projecthero.mod.quirk.Quirks;
 
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -45,6 +48,8 @@ import org.joml.Vector3f;
  * who chose them, and clickable [Accept] / [Refuse] run {@code /herocalling accept|refuse}. Accepting grants it through
  * the power's own path ({@code GreenLantern.bond} / {@code Miraculous.grant}, which replace the Primary power and
  * respect {@code projectheroUniquePowers}); refusing, ignoring it for {@link #OFFER_TICKS} or logging out lets it go.
+ * v0.16.7 (user): when both miss, {@code QuirkConfig.SPAWN_CHANCE} (5%) a random Quirk awakens the same way
+ * ({@code Quirks.grant} on Accept).
  *
  * <p>"First spawn" = the {@link ModAttachments#SPAWN_CALLING_DONE} flag is not set yet AND the player has under
  * {@link #NEW_PLAYER_PLAY_TICKS} of play time in this world, so worlds that existed before this update don't roll for
@@ -69,13 +74,22 @@ public final class SpawnCallings {
 
 	public enum Kind {
 		GREEN_LANTERN,
-		MIRACULOUS
+		MIRACULOUS,
+		/** v0.16.7: a Quirk ({@link Offer#quirk}). */
+		QUIRK
 	}
 
-	/** {@code kwami} only for MIRACULOUS. {@code showAt}: game time it is announced; {@code expiresAt}: when it lapses. */
-	public record Offer(Kind kind, @Nullable Kwami kwami, long showAt, long expiresAt, boolean shown) {
+	/**
+	 * {@code kwami} only for MIRACULOUS, {@code quirk} only for QUIRK. {@code showAt}: game time it is announced;
+	 * {@code expiresAt}: when it lapses.
+	 */
+	public record Offer(Kind kind, @Nullable Kwami kwami, long showAt, long expiresAt, boolean shown, @Nullable Quirk quirk) {
+		public Offer(Kind kind, @Nullable Kwami kwami, long showAt, long expiresAt, boolean shown) {
+			this(kind, kwami, showAt, expiresAt, shown, null);
+		}
+
 		Offer announced() {
-			return new Offer(kind, kwami, showAt, expiresAt, true);
+			return new Offer(kind, kwami, showAt, expiresAt, true, quirk);
 		}
 	}
 
@@ -128,13 +142,14 @@ public final class SpawnCallings {
 		}
 	}
 
-	/** One roll: the ring first, then a Miraculous. Null = nothing chose them. */
+	/** One roll: the ring first, then a Miraculous, then (v0.16.7) a Quirk. Null = nothing chose them. */
 	public static @Nullable Offer roll(ServerPlayer player) {
 		long now = player.level().getGameTime();
 		if (forceNext != null) {
 			Offer f = forceNext;
 			forceNext = null;
-			return new Offer(f.kind(), f.kwami(), now + OFFER_DELAY_TICKS, now + OFFER_DELAY_TICKS + OFFER_TICKS, false);
+			Quirk fq = f.kind() == Kind.QUIRK && f.quirk() == null ? randomQuirk(player.getRandom()) : f.quirk();
+			return new Offer(f.kind(), f.kwami(), now + OFFER_DELAY_TICKS, now + OFFER_DELAY_TICKS + OFFER_TICKS, false, fq);
 		}
 		var random = player.getRandom();
 		if (random.nextFloat() < RING_CHANCE) {
@@ -145,7 +160,17 @@ public final class SpawnCallings {
 			Kwami k = all[random.nextInt(all.length)];
 			return new Offer(Kind.MIRACULOUS, k, now + OFFER_DELAY_TICKS, now + OFFER_DELAY_TICKS + OFFER_TICKS, false);
 		}
+		// v0.16.7: the ring and the Miraculous both missed -- 5% a random Quirk
+		if (random.nextDouble() < QuirkConfig.SPAWN_CHANCE) {
+			return new Offer(Kind.QUIRK, null, now + OFFER_DELAY_TICKS, now + OFFER_DELAY_TICKS + OFFER_TICKS, false, randomQuirk(random));
+		}
 		return null;
+	}
+
+	/** v0.16.7: one of the seven Quirks, evenly. */
+	public static Quirk randomQuirk(net.minecraft.util.RandomSource random) {
+		Quirk[] all = Quirk.values();
+		return all[random.nextInt(all.length)];
 	}
 
 	public static @Nullable Offer pending(ServerPlayer player) {
@@ -156,6 +181,15 @@ public final class SpawnCallings {
 	public static void offerNow(ServerPlayer player, Kind kind, @Nullable Kwami kwami) {
 		long now = player.level().getGameTime();
 		Offer o = new Offer(kind, kwami, now, now + OFFER_TICKS, false);
+		PENDING.put(player.getUUID(), o);
+		announce(player, o);
+		PENDING.put(player.getUUID(), o.announced());
+	}
+
+	/** v0.16.7 test / command hook: a Quirk offer now. */
+	public static void offerNow(ServerPlayer player, Quirk quirk) {
+		long now = player.level().getGameTime();
+		Offer o = new Offer(Kind.QUIRK, null, now, now + OFFER_TICKS, false, quirk);
 		PENDING.put(player.getUUID(), o);
 		announce(player, o);
 		PENDING.put(player.getUUID(), o.announced());
@@ -181,6 +215,7 @@ public final class SpawnCallings {
 			} else if (o.shown() && now >= o.expiresAt()) {
 				PENDING.remove(e.getKey());
 				p.displayClientMessage(Component.translatable(o.kind() == Kind.GREEN_LANTERN ? "message.projecthero.calling.ring_left"
+						: o.kind() == Kind.QUIRK ? "message.projecthero.calling.quirk_left"
 						: "message.projecthero.calling.miraculous_left").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), false);
 			} else if (o.shown() && now % 10 == 0) {
 				glow(p, o, 6);
@@ -197,6 +232,14 @@ public final class SpawnCallings {
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.8f);
 			player.displayClientMessage(Component.translatable("message.projecthero.calling.ring_title").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 			player.displayClientMessage(Component.translatable("message.projecthero.calling.ring_body").withStyle(ChatFormatting.GREEN), false);
+		} else if (o.kind() == Kind.QUIRK) {
+			// v0.16.7: a Quirk stirs
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);
+			level.playSound(null, c.x, c.y, c.z, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6f, 1.5f);
+			player.displayClientMessage(Component.translatable("message.projecthero.calling.quirk_title", Quirks.quirkName(o.quirk()))
+					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+			player.displayClientMessage(Component.translatable("message.projecthero.calling.quirk_body", Quirks.quirkName(o.quirk()), Quirks.heroName(o.quirk()))
+					.withStyle(ChatFormatting.GOLD), false);
 		} else {
 			Component kwami = Component.translatable("projecthero.calling.kwami." + o.kwami().id);
 			Component hero = Component.translatable("projecthero.calling.hero." + o.kwami().heroKey);
@@ -230,7 +273,7 @@ public final class SpawnCallings {
 			}
 			out.send(ParticleTypes.GLOW, c.x, c.y + 1.4, c.z, Math.max(1, count / 6), 0.2, 0.2, 0.2, 0.01);
 		} else {
-			int rgb = o.kwami().color;
+			int rgb = o.kind() == Kind.QUIRK ? o.quirk().meterColour & 0xFFFFFF : o.kwami().color;
 			DustParticleOptions dust = new DustParticleOptions(new Vector3f(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f), 1.2f);
 			out.send(dust, c.x, c.y, c.z, count, 0.5, 0.7, 0.5, 0.01);
 			out.send(ParticleTypes.END_ROD, c.x, c.y + 0.4, c.z, Math.max(1, count / 8), 0.3, 0.4, 0.3, 0.01);
@@ -246,7 +289,8 @@ public final class SpawnCallings {
 			player.displayClientMessage(Component.translatable("message.projecthero.calling.none").withStyle(ChatFormatting.GRAY), false);
 			return false;
 		}
-		boolean ok = o.kind() == Kind.GREEN_LANTERN ? com.projecthero.mod.greenlantern.GreenLantern.bond(player) : Miraculous.grant(player, o.kwami());
+		boolean ok = o.kind() == Kind.GREEN_LANTERN ? com.projecthero.mod.greenlantern.GreenLantern.bond(player)
+				: o.kind() == Kind.QUIRK ? Quirks.grant(player, o.quirk()) : Miraculous.grant(player, o.kwami());
 		if (ok && o.kind() == Kind.GREEN_LANTERN) {
 			player.displayClientMessage(Component.translatable("message.projecthero.calling.ring_accepted").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		} else if (!ok) {
@@ -263,6 +307,7 @@ public final class SpawnCallings {
 			return;
 		}
 		player.displayClientMessage(Component.translatable(o.kind() == Kind.GREEN_LANTERN ? "message.projecthero.calling.ring_refused"
+				: o.kind() == Kind.QUIRK ? "message.projecthero.calling.quirk_refused"
 				: "message.projecthero.calling.miraculous_refused").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC), false);
 	}
 

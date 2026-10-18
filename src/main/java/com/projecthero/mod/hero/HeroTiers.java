@@ -61,7 +61,8 @@ public final class HeroTiers {
 				|| com.projecthero.mod.ghostrider.GhostRider.hasPower(player)
 				|| com.projecthero.mod.cyborg.Cyborg.hasPower(player)
 				|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)
-				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player); // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
+				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player) // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
+				|| com.projecthero.mod.quirk.Quirks.hasPower(player); // v0.16.7: the seven Quirks
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -97,7 +98,9 @@ public final class HeroTiers {
 	/** Every non-experimental Primary power key, as used by {@code HeroCommand}. */
 	public static final java.util.List<String> HERO_KEYS = java.util.List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
-			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus");
+			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus",
+			// v0.16.7: the seven Quirks (one shared state; each key is "holds that Quirk")
+			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity");
 
 	/** Whether the player currently holds the Hero-Tier power named by {@code key}. */
 	public static boolean holdsHero(ServerPlayer player, String key) {
@@ -126,7 +129,10 @@ public final class HeroTiers {
 			case "hawk_moth" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.NOOROO);
 			case "carapace" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.WAYZZ);
 			case "pegasus" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.KAALKI);
-			default -> false;
+			default -> {
+				com.projecthero.mod.quirk.Quirk q = key.startsWith("quirk_") ? com.projecthero.mod.quirk.Quirk.byHeroKey(key) : null;
+				yield q != null && com.projecthero.mod.quirk.Quirks.holds(player, q);
+			}
 		};
 	}
 
@@ -220,6 +226,11 @@ public final class HeroTiers {
 				}
 			}
 			default -> {
+				// v0.16.7: a Quirk key
+				com.projecthero.mod.quirk.Quirk q = key.startsWith("quirk_") ? com.projecthero.mod.quirk.Quirk.byHeroKey(key) : null;
+				if (q != null && com.projecthero.mod.quirk.Quirks.holds(player, q)) {
+					com.projecthero.mod.quirk.Quirks.revoke(player);
+				}
 			}
 		}
 	}
@@ -522,6 +533,11 @@ public final class HeroTiers {
 		// v0.16.6: a Miraculous holder (whichever of the three keys their Kwami is)
 		com.projecthero.mod.miraculous.Kwami kwami = com.projecthero.mod.miraculous.Miraculous.kwami(player);
 		if (kwami != null && !excludeHeroKeys.contains(kwami.heroKey)) {
+			return true;
+		}
+		// v0.16.7: a Quirk holder
+		com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(player);
+		if (quirk != null && !excludeHeroKeys.contains(quirk.heroKey())) {
 			return true;
 		}
 		return false;

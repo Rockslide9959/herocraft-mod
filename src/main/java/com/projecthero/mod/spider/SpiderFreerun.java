@@ -21,6 +21,9 @@ public final class SpiderFreerun {
 		PayloadTypeRegistry.playC2S().register(SpiderFreerunPayload.TYPE, SpiderFreerunPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(SpiderFreerunPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
+			if (payload.action() != SpiderFreerunPayload.WALL_RUN_STOP && com.projecthero.mod.hero.PowerSuppression.refuse(p)) { // v0.16.7: Erased
+				return;
+			}
 			switch (payload.action()) {
 				case SpiderFreerunPayload.WALL_RUN_START -> SpiderWallRun.start(p, payload.arg());
 				case SpiderFreerunPayload.WALL_RUN_STOP -> SpiderWallRun.stop(p);

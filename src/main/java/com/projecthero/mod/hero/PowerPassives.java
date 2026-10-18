@@ -72,8 +72,10 @@ public final class PowerPassives {
 	 * name is kept for its many call sites.)
 	 */
 	public static void reconcileActive(ServerPlayer player) {
+		// v0.16.7: Erased (PowerSuppression) -- every passive is off until the stare breaks (PowerSuppression re-runs this)
+		boolean erased = PowerSuppression.isSuppressed(player);
 		for (Map.Entry<String, PassiveSet> e : BY_POWER.entrySet()) {
-			e.getValue().reconcile(player, ExperimentalPowers.owns(player, e.getKey()));
+			e.getValue().reconcile(player, !erased && ExperimentalPowers.owns(player, e.getKey()));
 		}
 	}
 }

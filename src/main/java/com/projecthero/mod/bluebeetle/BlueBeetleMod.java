@@ -37,7 +37,7 @@ public final class BlueBeetleMod {
 		PayloadTypeRegistry.playC2S().register(BlueBeetleActionPayload.TYPE, BlueBeetleActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(BlueBeetleActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
-			if (!BlueBeetle.hasPower(p)) {
+			if (!BlueBeetle.hasPower(p) || com.projecthero.mod.hero.PowerSuppression.refuse(p, payload.action())) { // v0.16.7: Erased
 				return;
 			}
 			if (payload.action() == BlueBeetleActionPayload.Action.TOGGLE_SUIT) {

@@ -96,6 +96,14 @@ public final class PowerInfoScreen extends Screen {
 			return;
 		}
 
+		// v0.16.7: a Quirk holder -- the Quirk, its meter and its 12 moves (R / G / X / Z / V / C and the Shift versions)
+		com.projecthero.mod.quirk.Quirk quirk = Minecraft.getInstance().player == null ? null
+				: com.projecthero.mod.quirk.Quirks.quirk(Minecraft.getInstance().player);
+		if (quirk != null) {
+			quirkBody(quirk, wrapW);
+			return;
+		}
+
 		com.projecthero.mod.hero.guide.HeroPackGuide.Chapter heroChapter = heroTierChapter();
 		if (heroChapter != null) {
 			this.heading = net.minecraft.network.chat.Component.empty().append(heroChapter.title())
@@ -140,6 +148,35 @@ public final class PowerInfoScreen extends Screen {
 		// Full description of the power, its abilities and passives — exactly the HeroPack Guide entry.
 		for (Component line : com.projecthero.mod.hero.guide.HeroPackGuide.powerChapter(power, -1).lines()) {
 			wrap(line, wrapW);
+		}
+	}
+
+	/** v0.16.7: the Quirk page, built straight from the kit ({@code QuirkKits.of(q).idsOf(slot)}) and lang. */
+	private void quirkBody(com.projecthero.mod.quirk.Quirk quirk, int wrapW) {
+		this.heading = Component.empty().append(com.projecthero.mod.quirk.Quirks.quirkName(quirk))
+				.append(Component.literal(" - ")).append(com.projecthero.mod.quirk.Quirks.heroName(quirk))
+				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+		wrap(Component.translatable("projecthero.quirk." + quirk.id + ".intro").withStyle(ChatFormatting.GRAY), wrapW);
+		wrap(Component.translatable("screen.projecthero.power_info.quirk.meter",
+				Component.translatable("projecthero.quirk.meter." + quirk.meterId).withColor(quirk.meterColour & 0xFFFFFF))
+				.withStyle(ChatFormatting.GRAY), wrapW);
+		wrap(Component.translatable("screen.projecthero.power_info.quirk.costume").withStyle(ChatFormatting.DARK_GRAY), wrapW);
+		body.add(FormattedCharSequence.EMPTY);
+		wrap(Component.translatable("screen.projecthero.power_info.controls").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), wrapW);
+		com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(quirk);
+		for (AbilitySlot slot : AbilitySlot.values()) {
+			String[] ids = kit.idsOf(slot);
+			for (int i = 0; i < ids.length && i < 2; i++) {
+				Component key = i == 0 ? Component.keybind(slot.keyBindingTranslationKey())
+						: Component.translatable("screen.projecthero.power_info.quirk.shift", Component.keybind(slot.keyBindingTranslationKey()));
+				wrap(Component.empty()
+						.append(Component.literal(" [").withStyle(ChatFormatting.DARK_GRAY))
+						.append(Component.empty().append(key).withStyle(ChatFormatting.GOLD))
+						.append(Component.literal("] ").withStyle(ChatFormatting.DARK_GRAY))
+						.append(Component.translatable("projecthero.quirk.ability." + ids[i]).withStyle(ChatFormatting.WHITE)), wrapW);
+				wrap(Component.literal("    ").append(Component.translatable("projecthero.quirk.ability." + ids[i] + ".desc"))
+						.withStyle(ChatFormatting.GRAY), wrapW);
+			}
 		}
 	}
 

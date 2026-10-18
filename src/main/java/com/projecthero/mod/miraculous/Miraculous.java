@@ -493,6 +493,10 @@ public final class Miraculous {
 		if (k == null) {
 			return;
 		}
+		// v0.16.7: Erased (Eraser Head) -- the phrase does nothing
+		if (com.projecthero.mod.hero.PowerSuppression.refuse(player)) {
+			return;
+		}
 		if (s.kwamiHidden) {
 			// v0.16.6 (user): only with the Kwami out
 			say(player, "message.projecthero.miraculous.kwami_hidden", ChatFormatting.GOLD, kwamiName(k));
