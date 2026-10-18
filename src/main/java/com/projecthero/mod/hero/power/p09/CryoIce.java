@@ -107,6 +107,17 @@ public final class CryoIce {
 		return ORDER.size();
 	}
 
+	/** v0.16.6: melts these cells (if they still hold our ice) on the next tick -- an Ice Fortress dropped early. */
+	public static void meltEarly(ServerLevel level, Iterable<BlockPos> cells) {
+		long now = level.getGameTime();
+		for (BlockPos pos : cells) {
+			Entry e = BY_POS.get(key(level, pos));
+			if (e != null) {
+				e.meltAt = Math.min(e.meltAt, now);
+			}
+		}
+	}
+
 	/** Once per server tick: melt what is due (chunks that are loaded), forget what has been mined away. */
 	public static void tick(MinecraftServer server) {
 		if (ORDER.isEmpty()) {
@@ -154,5 +165,6 @@ public final class CryoIce {
 	public static void clearSessionState() {
 		ORDER.clear();
 		BY_POS.clear();
+		CryoHoldMoves.clearSessionState(); // v0.16.6: the hold moves' per-player summons / fortress cells
 	}
 }

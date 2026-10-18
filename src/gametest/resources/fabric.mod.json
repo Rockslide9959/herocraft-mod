@@ -68,6 +68,7 @@
       "com.projecthero.mod.gametest.V01425GameTests",
       "com.projecthero.mod.gametest.CarnageV01515GameTests",
       "com.projecthero.mod.gametest.V01519GameTests",
+      "com.projecthero.mod.gametest.CryokinesisHoldGameTests",
       "com.projecthero.mod.gametest.BossThreatV01519GameTests",
       "com.projecthero.mod.gametest.V01521GameTests",
       "com.projecthero.mod.gametest.UniquePowersV0161GameTests",
