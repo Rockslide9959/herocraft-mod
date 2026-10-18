@@ -136,6 +136,46 @@ public final class CryokinesisHandlers {
 	public static final double SHATTER_RADIUS = 10.0;
 	public static final float SHATTER_DAMAGE = 20.0f;
 
+	// ---- v0.16.6 hold moves (HoldTap: hold the key 0.6 s), see CryoHoldMoves ----
+	/** R held: Ice Javelin -- pierces up to 4, 18 damage + 3 Frost each. */
+	public static final float COST_JAVELIN = 25.0f;
+	public static final float JAVELIN_DAMAGE = 18.0f;
+	public static final int JAVELIN_FROST = 3;
+	public static final int JAVELIN_PIERCE = 4;
+	public static final int JAVELIN_CD = 6 * 20;
+	/** G held: Frozen Ground -- 10-block radius for 8 s, slowed and slipping, +1 Frost every 2 s. */
+	public static final float COST_GROUND = 30.0f;
+	public static final double GROUND_RADIUS = 10.0;
+	public static final int GROUND_FROST_TICKS = 2 * 20;
+	public static final int GROUND_CD = 16 * 20;
+	/** Frozen Ground and Blizzard both last 8 s. */
+	public static final int FIELD_TICKS = 8 * 20;
+	/** X held: Ice Wings -- 10 s of flight. */
+	public static final float COST_WINGS = 30.0f;
+	public static final int WINGS_TICKS = 10 * 20;
+	public static final int WINGS_CD = 25 * 20;
+	/** Z held: Blizzard -- 10 blocks across, up to 30 away, 8 s: Slowness III, +1 Frost a second, blinding snow. */
+	public static final float COST_BLIZZARD = 45.0f;
+	public static final double BLIZZARD_RANGE = 30.0;
+	public static final double BLIZZARD_RADIUS = 5.0;
+	public static final double BLIZZARD_HEIGHT = 7.0;
+	public static final int BLIZZARD_FROST_TICKS = 20;
+	public static final int BLIZZARD_CD = 24 * 20;
+	/** V held: Ice Fortress -- a radius-4 dome round you, melting after 15 s. */
+	public static final float COST_FORTRESS = 30.0f;
+	public static final double FORTRESS_RADIUS = 4.0;
+	public static final int FORTRESS_TTL = 15 * 20;
+	public static final int FORTRESS_CD = 25 * 20;
+	/** C held: Ice Golem -- 20 s, 60 HP, 10-damage punches (+1 Frost). */
+	public static final float COST_GOLEM = 50.0f;
+	public static final int GOLEM_TICKS = 20 * 20;
+	public static final double GOLEM_HEALTH = 60.0;
+	public static final double GOLEM_DAMAGE = 10.0;
+	public static final int GOLEM_FROST = 1;
+	public static final int GOLEM_CD = 40 * 20;
+	/** The hold moves' cooldown timers (resources ticked down by the upkeep). */
+	static final String[] HOLD_TIMERS = { "javelin_cd", "ground_cd", "wings_cd", "blizzard_cd", "fortress_cd", "golem_cd" };
+
 	private static final ResourceLocation BLADE_ATK = com.projecthero.mod.ProjectHeroMod.id("cryo_ice_blade");
 	private static final ResourceLocation ARMOR_ABS = com.projecthero.mod.ProjectHeroMod.id("cryo_frozen_armor");
 	/** Pre-v0.16.5 modifiers, cleared out of old saves. */
@@ -152,11 +192,11 @@ public final class CryokinesisHandlers {
 
 	// ================================================================ shared helpers / queries
 
-	private static float res(ServerPlayer p, String name) {
+	static float res(ServerPlayer p, String name) {
 		return BatchA.res(p, KEY, name);
 	}
 
-	private static void set(ServerPlayer p, String name, float v) {
+	static void set(ServerPlayer p, String name, float v) {
 		BatchA.set(p, KEY, name, v);
 	}
 
@@ -226,7 +266,7 @@ public final class CryokinesisHandlers {
 	}
 
 	/** Spends {@code cost} Cold, or refuses with a message (nothing spent). */
-	private static boolean pay(AbilityContext ctx, float cost) {
+	static boolean pay(AbilityContext ctx, float cost) {
 		ServerPlayer p = ctx.player();
 		seed(p);
 		float c = res(p, "cold");
@@ -247,16 +287,25 @@ public final class CryokinesisHandlers {
 		return !com.projecthero.mod.titanshifter.TitanCombat.isBoss(t) && t.getMaxHealth() <= 200.0f;
 	}
 
+	/** v0.16.6: not a boss -- may be slowed, slid, blinded and shoved by the hold moves. */
+	public static boolean notBoss(LivingEntity t) {
+		return noBoss(t);
+	}
+
+	public static boolean winged(Player p) {
+		return owns(p) && resAny(p, "wings") > 0.5f;
+	}
+
 	private static Vec3 mid(Entity e) {
 		return e.position().add(0, e.getBbHeight() * 0.5, 0);
 	}
 
-	private static void cooling(AbilityContext ctx, String timer, String nameKey) {
+	static void cooling(AbilityContext ctx, String timer, String nameKey) {
 		ctx.actionBar("message.projecthero.ability.on_cooldown", Component.translatable(nameKey),
 				String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(ctx.player(), timer) / 20.0f)));
 	}
 
-	private static String ab(String id) {
+	static String ab(String id) {
 		return "projecthero.power." + KEY + ".ability." + id;
 	}
 
@@ -299,15 +348,24 @@ public final class CryokinesisHandlers {
 			public void onServerTick(AbilityContext ctx) {
 				upkeep(ctx.player(), ctx.level());
 			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.javelin(ctx);
+			}
 		});
 
-		// G -- Freeze Beam (held) / Ice Prison (Shift)
+		// G -- Freeze Beam (v0.16.6: a toggle -- tap on, tap off) / Ice Prison (Shift) / Frozen Ground (held)
 		AbilityHandlers.register(KEY, "freeze_beam", new AbilityHandler() {
 			@Override
 			public void onActivate(AbilityContext ctx) {
 				ServerPlayer p = ctx.player();
 				if (p.isShiftKeyDown()) {
 					icePrison(ctx);
+					return;
+				}
+				if (beaming(p)) {
+					endBeam(p); // tap again: the beam stops
 					return;
 				}
 				seed(p);
@@ -327,8 +385,8 @@ public final class CryokinesisHandlers {
 			}
 
 			@Override
-			public void onRelease(AbilityContext ctx) {
-				endBeam(ctx.player());
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.frozenGround(ctx);
 			}
 		});
 
@@ -350,6 +408,12 @@ public final class CryokinesisHandlers {
 			public void onServerTick(AbilityContext ctx) {
 				slideTick(ctx.player(), ctx.level());
 				pillarTick(ctx.player(), ctx.level());
+				CryoHoldMoves.wingsTick(ctx.player(), ctx.level());
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.wings(ctx);
 			}
 		});
 
@@ -371,6 +435,11 @@ public final class CryokinesisHandlers {
 				if (pay(ctx, COST_SPIKES)) {
 					glacierSpikes(p, ctx.level());
 				}
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.blizzard(ctx);
 			}
 		});
 
@@ -401,6 +470,11 @@ public final class CryokinesisHandlers {
 			public void onServerTick(AbilityContext ctx) {
 				armorTick(ctx.player(), ctx.level());
 			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.fortress(ctx);
+			}
 		});
 
 		// C -- Ice Blade (toggle) / Shatter (Shift)
@@ -414,7 +488,25 @@ public final class CryokinesisHandlers {
 				}
 				setBlade(p, res(p, "blade") < 0.5f);
 			}
+
+			@Override
+			public void onServerTick(AbilityContext ctx) {
+				CryoHoldMoves.summonTick(ctx.player());
+			}
+
+			@Override
+			public void onHoldMove(AbilityContext ctx) {
+				CryoHoldMoves.iceGolem(ctx);
+			}
 		});
+
+		// v0.16.6: every key has a hold move (tap = the move above, Shift = the Shift move, as before)
+		for (String id : new String[] { "ice_bolt", "freeze_beam", "ice_slide", "glacier_spikes", "glacier_wall", "ice_blade" }) {
+			com.projecthero.mod.hero.HoldTap.register(KEY, id);
+		}
+		// a logout takes the caster's wings, golem, storms and fortress with him
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				CryoHoldMoves.forget(handler.getPlayer()));
 
 		// Frozen Armor: whatever strikes you in melee takes a Frost
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
@@ -450,6 +542,12 @@ public final class CryokinesisHandlers {
 				set(p, timer, v - 1);
 			}
 		}
+		for (String timer : HOLD_TIMERS) {
+			float v = res(p, timer);
+			if (v > 0) {
+				set(p, timer, Math.max(0, v - 1));
+			}
+		}
 		// Cold refills while neither drain is running
 		float c = res(p, "cold");
 		if (c < MAX_COLD && res(p, "beaming") < 0.5f && res(p, "armor") < 0.5f && res(p, "slide") < 0.5f) {
@@ -470,7 +568,7 @@ public final class CryokinesisHandlers {
 
 	// ================================================================ R: Ice Bolt / Ice Shards
 
-	private static Vec3 castPoint(ServerPlayer p) {
+	static Vec3 castPoint(ServerPlayer p) {
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
 		Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
@@ -800,7 +898,7 @@ public final class CryokinesisHandlers {
 	// ================================================================ Z: Glacier Spikes / Absolute Zero
 
 	/** The ground top under {@code at} (searching 3 up and 5 down), or NaN over a drop. */
-	private static double groundAt(ServerLevel level, Vec3 at) {
+	static double groundAt(ServerLevel level, Vec3 at) {
 		BlockPos start = BlockPos.containing(at.x, at.y + 3, at.z);
 		for (int dy = 0; dy <= 8; dy++) {
 			BlockPos cell = start.below(dy);
@@ -1062,12 +1160,14 @@ public final class CryokinesisHandlers {
 					// still owned while forget() runs its teardown: drop the transient states too
 					endBeam(player);
 					endSlide(player);
+					CryoHoldMoves.endAll(player); // v0.16.6: wings, golem, storms, fortress
 					armorOff(player, false);
 					setBlade(player, false);
 					set(player, "pillar", 0);
 				} else {
 					PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, BLADE_ATK);
 					PowerToggles.clearModifier(player, Attributes.MAX_ABSORPTION, ARMOR_ABS);
+					CryoHoldMoves.forget(player); // v0.16.6
 				}
 				MutationVisuals.stop(player);
 				dropLegacyState(player);
@@ -1117,6 +1217,7 @@ public final class CryokinesisHandlers {
 		MutationVisuals.registerFlag("p09.armor", CryokinesisHandlers::armored);
 		MutationVisuals.registerFlag("p09.blade", CryokinesisHandlers::bladed);
 		MutationVisuals.registerFlag("p09.pillar", CryokinesisHandlers::rising);
+		MutationVisuals.registerFlag("p09.wings", CryokinesisHandlers::winged); // v0.16.6 hold-X
 	}
 
 	public static void registerMeters() {
@@ -1127,6 +1228,17 @@ public final class CryokinesisHandlers {
 				"Ice Prison", PRISON_CD, 0xFF6F95AE, false, false, true, text));
 		MutationMeters.register(new MutationMeters.Spec(KEY, "zero_cd", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
 				"Absolute Zero", ZERO_CD, 0xFF6F95AE, false, false, true, text));
+		// v0.16.6 hold moves: the flight / golem time left, then the cooldowns
+		MutationMeters.register(new MutationMeters.Spec(KEY, "wings", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Ice Wings", WINGS_TICKS, 0xFFBDEBFF, false, false, true, text));
+		MutationMeters.register(new MutationMeters.Spec(KEY, "golem", MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+				"Ice Golem", GOLEM_TICKS, 0xFFBDEBFF, false, false, true, text));
+		String[] labels = { "Ice Javelin", "Frozen Ground", "Ice Wings CD", "Blizzard", "Ice Fortress", "Ice Golem CD" };
+		int[] lens = { JAVELIN_CD, GROUND_CD, WINGS_CD, BLIZZARD_CD, FORTRESS_CD, GOLEM_CD };
+		for (int i = 0; i < HOLD_TIMERS.length; i++) {
+			MutationMeters.register(new MutationMeters.Spec(KEY, HOLD_TIMERS[i], MutationMeters.Kind.TIMER, MutationMeters.Style.HAIRLINE,
+					labels[i], lens[i], 0xFF6F95AE, false, false, true, text));
+		}
 	}
 
 	/** For the gametests: a slide's ramp laid at an explicit spot. */

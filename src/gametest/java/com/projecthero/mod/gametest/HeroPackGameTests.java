@@ -474,6 +474,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		net.minecraft.world.entity.monster.Zombie z = zombieInFront(helper, player, 4);
 
 		AbilityRouter.handleInput(player, 1, true); // R = ice_bolt (v0.16.5: a flying ice lance)
+		AbilityRouter.handleInput(player, 1, false); // v0.16.6: a tap (holding R is the Ice Javelin)
 
 		helper.succeedWhen(() -> helper.assertTrue(z.getTicksFrozen() > 0
 				|| com.projecthero.mod.hero.power.p09.FrostStacks.stacks(z) > 0, "Ice Bolt should build freeze on the target"));

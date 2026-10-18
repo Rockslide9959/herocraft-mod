@@ -43,10 +43,42 @@ public final class CryoEntities {
 					.fireImmune()
 					.build("ice_spike"));
 
+	/** v0.16.6 hold-R: the Ice Javelin. */
+	public static final EntityType<IceJavelinEntity> ICE_JAVELIN = register("cryo_javelin",
+			EntityType.Builder.<IceJavelinEntity>of(IceJavelinEntity::new, MobCategory.MISC)
+					.sized(0.4f, 0.4f)
+					.clientTrackingRange(8)
+					.updateInterval(2)
+					.noSave()
+					.noSummon()
+					.build("cryo_javelin"));
+
+	/** v0.16.6 hold-G Frozen Ground / hold-Z Blizzard. */
+	public static final EntityType<CryoFieldEntity> CRYO_FIELD = register("cryo_field",
+			EntityType.Builder.<CryoFieldEntity>of(CryoFieldEntity::new, MobCategory.MISC)
+					.sized(0.5f, 0.5f)
+					.clientTrackingRange(10)
+					.updateInterval(20)
+					.noSave()
+					.noSummon()
+					.fireImmune()
+					.build("cryo_field"));
+
+	/** v0.16.6 hold-C: the Ice Golem ally. */
+	public static final EntityType<IceGolemEntity> ICE_GOLEM = register("ice_golem",
+			EntityType.Builder.<IceGolemEntity>of(IceGolemEntity::new, MobCategory.MISC)
+					.sized(1.4f, 2.7f)
+					.clientTrackingRange(10)
+					.noSave()
+					.noSummon()
+					.build("ice_golem"));
+
 	private CryoEntities() {
 	}
 
 	public static void initialize() {
+		net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(ICE_GOLEM,
+				IceGolemEntity.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {

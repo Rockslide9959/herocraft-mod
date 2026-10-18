@@ -56,11 +56,16 @@ public final class CryokinesisClient {
 		EntityRendererRegistry.register(CryoEntities.ICE_BOLT, IceBoltRenderer::new);
 		EntityRendererRegistry.register(CryoEntities.FROST_SHELL, FrostShellRenderer::new);
 		EntityRendererRegistry.register(CryoEntities.ICE_SPIKE, IceSpikeRenderer::new);
+		// v0.16.6 hold moves
+		EntityRendererRegistry.register(CryoEntities.ICE_JAVELIN, com.projecthero.mod.client.mutation.cryo.IceJavelinRenderer::new);
+		EntityRendererRegistry.register(CryoEntities.CRYO_FIELD, com.projecthero.mod.client.mutation.cryo.CryoFieldRenderer::new);
+		EntityRendererRegistry.register(CryoEntities.ICE_GOLEM, com.projecthero.mod.client.mutation.cryo.IceGolemRenderer::new);
 		registerPoses();
 		MutationOverlays.register("p09.armor", CryokinesisClient::armor);
 		MutationOverlays.register("p09.blade", ctx -> blade(ctx.pose(), ctx.buffers(), ctx.light(), ctx.model().rightArm,
 				ctx.ageInTicks() + ctx.partialTick(), false));
 		MutationOverlays.register("p09.slide", CryokinesisClient::sled);
+		MutationOverlays.register("p09.wings", CryokinesisClient::wings); // v0.16.6 hold-X
 		WorldRenderEvents.AFTER_ENTITIES.register(CryokinesisClient::renderBeams);
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			if (mc.player != null && !mc.isPaused()) {
@@ -81,6 +86,7 @@ public final class CryokinesisClient {
 	}
 
 	private static void registerPoses() {
+		registerHoldPoses();
 		// R: the bolt -- right arm thrust out along the look, the body turning into it
 		MutationPose.register("p09.cast", new float[][] { z(0),
 				f(2, -0.6f, 0.4f, 0.1f, 0.2f, 0, -0.1f, 0, -0.25f, 0, 0, 0),
@@ -140,6 +146,43 @@ public final class CryokinesisClient {
 				f(4, -1.2f, -0.6f, 0, -1.2f, 0.6f, 0, 0.3f, 0, 0, 0, 0.25f),
 				f(7, -1.0f, 0.6f, 1.1f, -1.0f, -0.6f, -1.1f, -0.2f, 0, 0, 0, -0.25f),
 				f(14, -0.9f, 0.5f, 1.0f, -0.9f, -0.5f, -1.0f, -0.15f, 0, 0, 0, -0.2f), z(19) });
+	}
+
+	/** v0.16.6: the hold moves' poses. */
+	private static void registerHoldPoses() {
+		// hold R: the javelin forms in the raised right hand, drawn back over the shoulder -- then the throw
+		MutationPose.register("p09.javelin", new float[][] { z(0),
+				f(3, -2.7f, -0.3f, 0.35f, -0.6f, 0.3f, -0.2f, 0.0f, 0.35f, 0.15f, -0.15f, 0),
+				f(10, -2.9f, -0.3f, 0.4f, -0.8f, 0.35f, -0.25f, -0.08f, 0.45f, 0.2f, -0.2f, -0.05f),
+				f(12, AIM, AIM, 0.0f, 0.4f, 0.2f, -0.2f, 0.25f, -0.35f, -0.35f, 0.3f, 0.1f),
+				f(18, AIM, AIM, 0.0f, 0.4f, 0.2f, -0.2f, 0.2f, -0.3f, -0.3f, 0.3f, 0.1f), z(24) });
+		// hold G: both hands up, then both palms flat down onto the ground -- the ice spreads from them
+		MutationPose.register("p09.ground", new float[][] { z(0),
+				f(3, -2.6f, 0, 0.5f, -2.6f, 0, -0.5f, -0.2f, 0, 0, 0, -0.3f),
+				f(7, -0.25f, 0, 0.9f, -0.25f, 0, -0.9f, 0.6f, 0, -0.7f, -0.7f, 0.45f),
+				f(18, -0.2f, 0, 0.95f, -0.2f, 0, -0.95f, 0.55f, 0, -0.7f, -0.7f, 0.45f), z(24) });
+		// hold X: on the wings -- arms swept back and out, legs trailing
+		MutationPose.registerLoop("p09.wings", 6, new float[][] { z(0),
+				f(6, 0.45f, 0, 0.55f, 0.45f, 0, -0.55f, 0.15f, 0, 0.25f, 0.15f, -0.15f),
+				f(16, 0.5f, 0, 0.6f, 0.5f, 0, -0.6f, 0.17f, 0, 0.2f, 0.2f, -0.15f),
+				f(26, 0.45f, 0, 0.55f, 0.45f, 0, -0.55f, 0.15f, 0, 0.25f, 0.15f, -0.15f) });
+		// hold Z: both arms flung up at the sky, then pointed at the storm
+		MutationPose.register("p09.blizzard", new float[][] { z(0),
+				f(4, -2.9f, 0.2f, 0.45f, -2.9f, -0.2f, -0.45f, -0.25f, 0, 0, 0, -0.4f),
+				f(9, -2.6f, 0.3f, 0.7f, -2.6f, -0.3f, -0.7f, -0.25f, 0, 0, 0, -0.4f),
+				f(13, AIM, AIM, 0.1f, AIM, AIM, -0.1f, 0.1f, 0, -0.2f, 0.2f, 0),
+				f(22, AIM, AIM, 0.1f, AIM, AIM, -0.1f, 0.1f, 0, -0.2f, 0.2f, 0), z(28) });
+		// hold V: arms sweep up from the sides and meet overhead -- the dome closes with them
+		MutationPose.register("p09.fortress", new float[][] { z(0),
+				f(3, 0.2f, 0, 1.2f, 0.2f, 0, -1.2f, 0.2f, 0, -0.3f, 0.3f, 0.1f),
+				f(9, -2.4f, 0, 0.9f, -2.4f, 0, -0.9f, -0.05f, 0, -0.3f, 0.3f, -0.15f),
+				f(13, -2.9f, 0, 0.25f, -2.9f, 0, -0.25f, -0.1f, 0, -0.3f, 0.3f, -0.25f),
+				f(18, -2.9f, 0, 0.2f, -2.9f, 0, -0.2f, -0.1f, 0, -0.3f, 0.3f, -0.25f), z(24) });
+		// hold C: a fist down to the ground, then the palm turned up and raised -- the golem rises with it
+		MutationPose.register("p09.golem", new float[][] { z(0),
+				f(4, 0.3f, 0, 0.2f, 0.2f, 0, -0.15f, 0.5f, 0.3f, -0.6f, 0.4f, 0.3f),
+				f(10, -1.6f, 0.4f, 0.2f, 0.2f, 0, -0.15f, 0.0f, 0.3f, -0.2f, 0.2f, -0.1f),
+				f(16, -1.9f, 0.45f, 0.25f, 0.2f, 0, -0.15f, -0.05f, 0.3f, -0.2f, 0.2f, -0.15f), z(22) });
 	}
 
 	private static float[] at(int tick, float[] frame) {
@@ -270,6 +313,62 @@ public final class CryokinesisClient {
 			armPlates(pose, buf, light, true, true);
 			pose.popPose();
 		}
+	}
+
+	// ================================================================== Ice Wings (v0.16.6 hold-X)
+
+	/**
+	 * Wings of ice on the back, beating: each a long blue-ice spar sweeping out and up from the shoulder blade with five
+	 * clear-ice feathers hanging off it (a faint glowing vein down each), the whole wing swinging forward and back with
+	 * every beat and flexing at the root.
+	 */
+	private static void wings(MutationOverlays.Context ctx) {
+		if (com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand) {
+			return;
+		}
+		PoseStack pose = ctx.pose();
+		MultiBufferSource buf = ctx.buffers();
+		float px = 1.0f / 16.0f;
+		float t = ctx.ageInTicks() + ctx.partialTick();
+		int light = LightTexture.pack(Math.max(LightTexture.block(ctx.light()), 9), LightTexture.sky(ctx.light()));
+		float beat = Mth.sin(t * 0.55f);
+		pose.pushPose();
+		ctx.model().body.translateAndRotate(pose);
+		// a frozen harness between the shoulder blades
+		IceDraw.box(pose, buf.getBuffer(RenderType.entityTranslucent(IceDraw.PACKED)), -2.5f * px, 1.0f * px, 2.0f * px, 2.5f * px, 6.0f * px, 3.0f * px, 0.5f, 0xF0FFFFFF, light);
+		for (int s = -1; s <= 1; s += 2) {
+			pose.pushPose();
+			pose.translate(s * 1.8f * px, 2.5f * px, 2.6f * px);
+			pose.scale(1.6f, 1.6f, 1.6f);
+			// the beat: the wing swings back and forth about the spine, and lifts a little on the upstroke
+			pose.mulPose(Axis.YP.rotation(-s * (0.55f + 0.5f * beat)));
+			pose.mulPose(Axis.ZP.rotation(s * 0.18f * beat));
+			// the spar: out and up
+			float sparAng = -s * 1.95f;
+			float sx = -Mth.sin(sparAng);
+			float sy = Mth.cos(sparAng);
+			pose.pushPose();
+			pose.mulPose(Axis.ZP.rotation(sparAng));
+			IceDraw.crystal(pose, buf.getBuffer(RenderType.entityTranslucent(IceDraw.BLUE)), 2.6f * px, 19.0f * px, 4.0f * px, 0xF4FFFFFF, light);
+			pose.popPose();
+			// the feathers hanging off it, longest in the middle, flexing behind the beat
+			float[] along = { 3.0f, 6.5f, 10.0f, 13.5f, 16.5f };
+			float[] len = { 11.0f, 13.5f, 15.0f, 14.0f, 11.0f };
+			for (int i = 0; i < along.length; i++) {
+				float d = along[i] * px;
+				float out = 0.12f + i * 0.17f + 0.1f * Mth.sin(t * 0.55f - 0.6f - i * 0.25f);
+				float ang = (float) Mth.atan2(-s * out, 1.0f);
+				pose.pushPose();
+				pose.translate(sx * d, sy * d, 0.2f * px * i);
+				pose.mulPose(Axis.ZP.rotation(ang));
+				pose.mulPose(Axis.YP.rotation(0.4f));
+				IceDraw.crystal(pose, buf.getBuffer(RenderType.entityTranslucent(IceDraw.ICE)), 2.4f * px, len[i] * px, 2.0f * px, 0xE2EAF8FF, light);
+				IceDraw.crystal(pose, buf.getBuffer(RenderType.eyes(IceDraw.WHITE)), 0.5f * px, len[i] * 0.85f * px, 2.0f * px, 0x707FD8FF, LightTexture.FULL_BRIGHT);
+				pose.popPose();
+			}
+			pose.popPose();
+		}
+		pose.popPose();
 	}
 
 	// ================================================================== Ice Slide

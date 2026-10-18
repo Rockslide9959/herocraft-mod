@@ -249,13 +249,13 @@ public class CryokinesisV0165GameTests implements FabricGameTest {
 	public void freezeBeamBuildsFrostAndDrains(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		IronGolem g = dummy(helper, 2, 6);
-		AbilityRouter.handleInput(p, 2, true);
-		helper.assertTrue(CryokinesisHandlers.beaming(p), "holding G beams");
+		press(p, 2); // v0.16.6: a toggle (holding G is Frozen Ground now)
+		helper.assertTrue(CryokinesisHandlers.beaming(p), "tapping G beams");
 		tick(p, 20);
 		helper.assertTrue(FrostStacks.stacks(g) == 2, "1 Frost every half second, got " + FrostStacks.stacks(g));
 		assertNear(helper, 90, CryokinesisHandlers.cold(p), "10 Cold a second, no refill while beaming");
-		AbilityRouter.handleInput(p, 2, false);
-		helper.assertFalse(CryokinesisHandlers.beaming(p), "letting go ends it");
+		press(p, 2);
+		helper.assertFalse(CryokinesisHandlers.beaming(p), "tapping G again ends it");
 		helper.succeed();
 	}
 
