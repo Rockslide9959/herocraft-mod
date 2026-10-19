@@ -5,8 +5,8 @@ import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * v0.16.6 (user): the transformation is SPOKEN -- the holder types the phrase in chat (it still goes out to chat: the
- * hero shouts it). Matching is lenient: case, punctuation, extra spaces and curly vs straight apostrophes don't matter,
+ * v0.16.6 (user): the transformation is SPOKEN -- the holder types the phrase in chat (v0.16.7, user: it goes out as
+ * the HERO saying it, {@code <Ladybug> Spots on!}, never under the player's name -- {@code MiraculousShowExtras.speakPhrase}). Matching is lenient: case, punctuation, extra spaces and curly vs straight apostrophes don't matter,
  * and the Kwami's name is optional in both phrases (v0.16.7, user: "Spots on!" alone transforms). Only the holder's own Kwami's phrases count.
  * <pre>
  *   (Tikki,) spots on!   Spots off!    (Tikki, spots off!)

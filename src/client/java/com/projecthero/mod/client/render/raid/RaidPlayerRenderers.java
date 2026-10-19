@@ -53,12 +53,18 @@ public final class RaidPlayerRenderers {
 	private RaidPlayerRenderers() {
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> SKIN_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation skin(String name) {
-		return ProjectHeroMod.id("textures/entity/raid_skin/" + name + ".png");
+		return SKIN_CACHE.computeIfAbsent(name, k -> ProjectHeroMod.id("textures/entity/raid_skin/" + k + ".png"));
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> GLOW_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation glow(String name) {
-		return ProjectHeroMod.id("textures/entity/raid_skin/" + name + "_glow.png");
+		return GLOW_CACHE.computeIfAbsent(name, k -> ProjectHeroMod.id("textures/entity/raid_skin/" + k + "_glow.png"));
 	}
 
 	// ---------------------------------------------------------------- models

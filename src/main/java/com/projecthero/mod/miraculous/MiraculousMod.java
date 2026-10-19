@@ -64,12 +64,18 @@ public final class MiraculousMod {
 		com.projecthero.mod.miraculous.pegasus.PegasusMod.initialize();
 		com.projecthero.mod.miraculous.viperion.ViperionMod.initialize(); // v0.16.7
 
-		// v0.16.6 (user): the transformation is spoken in chat ("Tikki, spots on!"); the line still goes out to chat
-		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
-			if (Miraculous.hasPower(sender)) {
-				String text = message.signedContent();
-				sender.server.execute(() -> Miraculous.onChat(sender, text));
+		// v0.16.6 (user): the transformation is spoken in chat ("Tikki, spots on!"). v0.16.7 (user): it goes out as the
+		// HERO saying it ("<Ladybug> Spots on!"), never under the player's own name -- chat is global
+		ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
+			if (!Miraculous.hasPower(sender)) {
+				return true;
 			}
+			String text = message.signedContent();
+			if (!MiraculousShowExtras.speakPhrase(sender, text)) {
+				return true;
+			}
+			sender.server.execute(() -> Miraculous.onChat(sender, text));
+			return false;
 		});
 		// eating the Kwami's favourite food while it is hungry feeds the Kwami instead
 		UseItemCallback.EVENT.register((player, world, hand) -> {

@@ -40,7 +40,11 @@ by `gen_kwami_game.js` (session scratchpad copy; see "Assets").
 
 ## Transforming (spoken, not H)
 
-The holder types the phrase in chat (`ServerMessageEvents.CHAT_MESSAGE`; the line still goes out: the hero shouts it).
+The holder types the phrase in chat (`ServerMessageEvents.ALLOW_CHAT_MESSAGE`). v0.16.7 (user): chat is global, so a
+phrase (transform OR detransform, with or without the Kwami's name) never goes out under the player's own name: the
+normal line is cancelled and `MiraculousShowExtras.speakPhrase` broadcasts instead, to everyone, a chat-style line from
+the HERO in the Kwami's colour (`chat.type.text` with `projecthero.hero_tier.<key>`), keeping the player's own wording --
+`<Ladybug> Tikki, spots on!`. Then the transformation / detransformation runs as before. Other chat is untouched.
 `MiraculousPhrases.match` is lenient: case, punctuation, extra spaces and curly / straight apostrophes are ignored, and
 the detransformation phrase may start with the Kwami's name. Only the holder's own Kwami's phrases count. **H does not
 transform** (`MiraculousClient.ownsH` is false); `Miraculous.toggleForm` / the `MiraculousActionPayload` stay for

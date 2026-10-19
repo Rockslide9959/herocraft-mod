@@ -1032,17 +1032,27 @@ public class BroodQueen extends Spider implements GeoEntity {
 	}
 
 	private void ring(ServerLevel level, Vec3 c, double r, ParticleOptions particle, int points) {
+		// v0.16.7 (perf): one batched payload per viewer, not a packet per point
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points;
-			level.sendParticles(particle, c.x + Math.cos(a) * r, c.y + 0.15, c.z + Math.sin(a) * r, 1, 0, 0.05, 0, 0);
+			batch.add(particle, c.x + Math.cos(a) * r, c.y + 0.15, c.z + Math.sin(a) * r, 1, 0, 0.05, 0, 0);
 		}
+		batch.send(level);
 	}
 
+	/** v0.16.7 (perf): built once, not per call. */
+	private static ItemParticleOption webParticle;
+
 	private void webLine(ServerLevel level, Vec3 from, int length) {
-		ItemParticleOption web = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.COBWEB));
-		for (int i = 0; i < length; i++) {
-			level.sendParticles(web, from.x, from.y + i, from.z, 1, 0.05, 0.3, 0.05, 0);
+		if (webParticle == null) {
+			webParticle = new ItemParticleOption(ParticleTypes.ITEM, new ItemStack(Items.COBWEB));
 		}
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+		for (int i = 0; i < length; i++) {
+			batch.add(webParticle, from.x, from.y + i, from.z, 1, 0.05, 0.3, 0.05, 0);
+		}
+		batch.send(level);
 	}
 
 	private void setBusy(boolean busy) {

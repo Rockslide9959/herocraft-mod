@@ -134,6 +134,35 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): a spoken phrase goes out as the HERO saying it ("<Ladybug> Spots on!"), never under the player's name. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void phrasesAreSpokenAsTheHero(GameTestHelper helper) {
+		helper.assertFalse(com.projecthero.mod.miraculous.MiraculousShowExtras.speakPhrase(mock(helper), "Spots on!"), "no Kwami: just chat");
+		ServerPlayer p = mock(helper);
+		Miraculous.grant(p, Kwami.TIKKI);
+		helper.assertFalse(com.projecthero.mod.miraculous.MiraculousShowExtras.speakPhrase(p, "hello there"), "other chat is untouched");
+		helper.assertFalse(com.projecthero.mod.miraculous.MiraculousShowExtras.speakPhrase(p, "Claws out!"), "another Kwami's phrase is just chat");
+		for (String said : new String[] { "Spots on!", "Tikki, spots on!" }) {
+			helper.assertTrue(com.projecthero.mod.miraculous.MiraculousShowExtras.speakPhrase(p, said), "'" + said + "' is the phrase: the normal line is cancelled");
+		}
+		net.minecraft.network.chat.Component line = com.projecthero.mod.miraculous.MiraculousShowExtras.phraseLine(Kwami.TIKKI, "Tikki, spots on!");
+		helper.assertTrue(line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t && t.getKey().equals("chat.type.text")
+				&& t.getArgs().length == 2 && t.getArgs()[0] instanceof net.minecraft.network.chat.Component hero
+				&& hero.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents h && h.getKey().equals("projecthero.hero_tier.ladybug")
+				&& hero.getStyle().getColor() != null && hero.getStyle().getColor().getValue() == (Kwami.TIKKI.color & 0xFFFFFF)
+				&& t.getArgs()[1] instanceof net.minecraft.network.chat.Component said && said.getString().equals("Tikki, spots on!"),
+				"a chat line from Ladybug, in Tikki's colour, in the player's own words: " + line);
+		helper.assertTrue(line.getString().equals("<Ladybug> Tikki, spots on!"), "reads " + line.getString());
+		helper.assertTrue(Miraculous.onChat(p, "Tikki, spots on!") && Miraculous.transformedAs(p, Kwami.TIKKI), "and the transformation still happens");
+		settle(p);
+		helper.assertTrue(com.projecthero.mod.miraculous.MiraculousShowExtras.speakPhrase(p, "Spots off!"), "the detransformation phrase too");
+		for (Kwami k : Kwami.values()) {
+			helper.assertTrue(com.projecthero.mod.miraculous.MiraculousShowExtras.phraseLine(k, "x").getString().startsWith("<" + MiraculousPhrases.heroName(k) + ">"),
+					"every Kwami speaks as its hero: " + k.id);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void countdownForcesDetransformAndTheKwamiMustBeFed(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);

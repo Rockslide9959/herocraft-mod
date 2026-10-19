@@ -5,7 +5,12 @@ import java.util.EnumSet;
 import com.projecthero.mod.firearm.item.FirearmItems;
 import com.projecthero.mod.syndicate.SyndicateGunfire;
 
+import org.joml.Vector3f;
+
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -119,9 +124,38 @@ public class SyndicateGunman extends SyndicateCriminal {
 
 	private Kind kind = Kind.PISTOL;
 
+	/**
+	 * v0.16.7 (perf): where a sniper's laser sight points (world coordinates), or {@link #LASER_OFF}. The laser used to be
+	 * up to 80 dust particles -- 80 packets -- a tick per sniper; now this one synced value drives a client-drawn beam
+	 * ({@code client.syndicate.SyndicateRenderer}).
+	 */
+	private static final EntityDataAccessor<Vector3f> DATA_LASER = SynchedEntityData.defineId(SyndicateGunman.class,
+			EntityDataSerializers.VECTOR3);
+	public static final Vector3f LASER_OFF = new Vector3f(0, -1.0e7f, 0);
+
 	public SyndicateGunman(EntityType<? extends SyndicateGunman> type, Level level) {
 		super(type, level);
 		this.xpReward = 8;
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		builder.define(DATA_LASER, new Vector3f(LASER_OFF));
+	}
+
+	/** The laser sight's aim point, or null when it is off. */
+	public Vec3 laserAim() {
+		Vector3f v = entityData.get(DATA_LASER);
+		return v.y < -1.0e6f ? null : new Vec3(v.x, v.y, v.z);
+	}
+
+	/** Points the laser sight at {@code aim} (null switches it off). Synced only when it changes. */
+	public void setLaserAim(Vec3 aim) {
+		Vector3f v = aim == null ? LASER_OFF : new Vector3f((float) aim.x, (float) aim.y, (float) aim.z);
+		if (!v.equals(entityData.get(DATA_LASER))) {
+			entityData.set(DATA_LASER, new Vector3f(v));
+		}
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -236,7 +270,9 @@ public class SyndicateGunman extends SyndicateCriminal {
 		public void stop() {
 			aiming = 0;
 			mob.setAction(ACTION_NONE);
+			mob.setLaserAim(null);
 			mob.getNavigation().stop();
+			lastPathTarget = null;
 		}
 
 		@Override
@@ -244,8 +280,40 @@ public class SyndicateGunman extends SyndicateCriminal {
 			return true;
 		}
 
+		/** Set by {@link #aimAndShoot} when the sniper's laser is on this tick. */
+		private boolean lasing;
+		/** v0.16.7 (perf): where the last path was aimed and when (re-path every 10 ticks or when the target moved). */
+		private Vec3 lastPathTarget;
+		private int lastPathTick;
+
 		@Override
 		public void tick() {
+			lasing = false;
+			aimAndShoot();
+			if (!lasing) {
+				mob.setLaserAim(null);
+			}
+		}
+
+		/** v0.16.7 (perf): {@code moveTo(target)} at most every 10 ticks, sooner if the target moved > 1.5 blocks. */
+		private void chase(LivingEntity target, double speed) {
+			Vec3 at = target.position();
+			boolean stale = lastPathTarget == null || mob.tickCount - lastPathTick >= 10 || at.distanceToSqr(lastPathTarget) > 1.5 * 1.5;
+			if (stale) {
+				mob.getNavigation().moveTo(target, speed);
+				lastPathTarget = at;
+				lastPathTick = mob.tickCount;
+			}
+		}
+
+		private void halt() {
+			if (lastPathTarget != null || !mob.getNavigation().isDone()) {
+				mob.getNavigation().stop();
+				lastPathTarget = null;
+			}
+		}
+
+		private void aimAndShoot() {
 			LivingEntity target = mob.getTarget();
 			if (target == null || !(mob.level() instanceof ServerLevel level)) {
 				return;
@@ -272,7 +340,8 @@ public class SyndicateGunman extends SyndicateCriminal {
 			aiming++;
 			Vec3 aimAt = target.position().add(0, target.getBbHeight() * 0.6, 0);
 			if (k == Kind.SNIPER) {
-				SyndicateGunfire.laser(level, mob, aimAt);
+				mob.setLaserAim(SyndicateGunfire.laserEnd(mob, aimAt));
+				lasing = true;
 				if (aiming == 1) {
 					level.playSound(null, mob.getX(), mob.getY(), mob.getZ(), SoundEvents.SPYGLASS_USE, SoundSource.HOSTILE, 1.2f, 0.7f);
 				}
@@ -300,25 +369,25 @@ public class SyndicateGunman extends SyndicateCriminal {
 			if (k == Kind.SNIPER) {
 				// a sniper holds his perch; only after 5 s without a shot does he go looking for one
 				if (blindTicks > 100) {
-					mob.getNavigation().moveTo(target, 0.9);
+					chase(target, 0.9);
 				} else {
-					mob.getNavigation().stop();
+					halt();
 				}
 				return;
 			}
 			if (!sees || dist > k.maxDist) {
-				mob.getNavigation().moveTo(target, k == Kind.SHOTGUN ? 1.15 : 1.0);
+				chase(target, k == Kind.SHOTGUN ? 1.15 : 1.0);
 				return;
 			}
 			if (k == Kind.SHOTGUN) {
 				if (dist > 3.0) {
-					mob.getNavigation().moveTo(target, 1.1);
+					chase(target, 1.1);
 				} else {
-					mob.getNavigation().stop();
+					halt();
 				}
 				return;
 			}
-			mob.getNavigation().stop();
+			halt();
 			if (++strafeTicks >= 30) {
 				strafeTicks = 0;
 				if (mob.random.nextFloat() < 0.4f) {

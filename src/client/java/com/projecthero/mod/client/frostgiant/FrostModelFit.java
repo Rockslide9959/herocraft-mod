@@ -27,16 +27,25 @@ public final class FrostModelFit {
 	private FrostModelFit() {
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> GEO_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation geo(String model) {
-		return ProjectHeroMod.id("geo/frost_giant/" + model + ".geo.json");
+		return GEO_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("geo/frost_giant/" + k + ".geo.json"));
 	}
+
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> TEXTURE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public static ResourceLocation texture(String model) {
-		return ProjectHeroMod.id("textures/entity/frost_giant/" + model + ".png");
+		return TEXTURE_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("textures/entity/frost_giant/" + k + ".png"));
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> ANIMATION_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation animation(String model) {
-		return ProjectHeroMod.id("animations/frost_giant/" + model + ".animation.json");
+		return ANIMATION_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("animations/frost_giant/" + k + ".animation.json"));
 	}
 
 	/** The rest pose's height in blocks (the vertical extent of every cube), measured once per baked model. */

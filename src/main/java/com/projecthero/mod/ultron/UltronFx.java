@@ -68,9 +68,12 @@ public final class UltronFx {
 
 	/** A ring of dust at height {@code y}. */
 	public static void ring(ServerLevel level, ParticleOptions particle, Vec3 centre, double radius, int points) {
+		// v0.16.7 (perf): one batched payload per viewer, not one packet per point
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points;
-			level.sendParticles(particle, centre.x + Math.cos(a) * radius, centre.y, centre.z + Math.sin(a) * radius, 1, 0, 0.05, 0, 0);
+			batch.add(particle, centre.x + Math.cos(a) * radius, centre.y, centre.z + Math.sin(a) * radius, 1, 0, 0.05, 0, 0);
 		}
+		batch.send(level);
 	}
 }
