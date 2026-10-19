@@ -123,7 +123,7 @@ public final class MiraculousHud {
 		int noteColour = HINT;
 		int eatLeft = Miraculous.eatingSecondsLeft(mc.player);
 		if (eatLeft > 0) {
-			note = Component.translatable("hud.projecthero.miraculous.eating", Component.translatable("entity.projecthero.kwami." + k.id), eatLeft);
+			note = Component.translatable("hud.projecthero.miraculous.eating", Component.translatable("entity.projecthero.kwami." + k.id)); // v0.16.7 (user): no countdown
 			noteColour = 0xFF9BE57A;
 		} else if (!on && s.kwamiHidden) {
 			note = Component.translatable("hud.projecthero.miraculous.hidden", Component.translatable("entity.projecthero.kwami." + k.id));

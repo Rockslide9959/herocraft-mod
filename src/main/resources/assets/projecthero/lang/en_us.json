@@ -107,7 +107,7 @@
   "message.projecthero.miraculous.substitute_progress": "%s takes the food: %s of %s (or one %s).",
   "message.projecthero.miraculous.still_eating": "%s is still eating.",
   "message.projecthero.miraculous.eating": "%s is eating.",
-  "hud.projecthero.miraculous.eating": "%s is eating... %ss",
+  "hud.projecthero.miraculous.eating": "%s is eating...",
   "hud.projecthero.miraculous.hidden": "%s is tucked away. Press N to call them out.",
   "message.projecthero.miraculous.take_off_bar": "Taking off the Miraculous...",
   "message.projecthero.miraculous.take_off_transformed": "Change back before you take the Miraculous off.",
