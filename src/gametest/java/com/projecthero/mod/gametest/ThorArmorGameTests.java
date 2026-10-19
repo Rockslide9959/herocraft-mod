@@ -106,9 +106,11 @@ public class ThorArmorGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 12.0) < 1e-6,
 				"bare-handed melee is 1 + 11, got " + p.getAttributeValue(Attributes.ATTACK_DAMAGE));
 		// player.hurt() on a GameTest mock player never reaches ALLOW_DAMAGE (see HeroPackGameTests), so drive the listener directly:
-		helper.assertTrue(ThorPassives.DAMAGE_TAKEN_FACTOR == 0.2f, "Thor takes 20% of the damage");
+		helper.assertTrue(ThorPassives.DAMAGE_TAKEN_FACTOR == 0.7f, "v0.16.7: Thor takes 70% of the damage, then his armour");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - 20.0) < 1e-6 && Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - 8.0) < 1e-6,
+				"v0.16.7: built-in 20 armour / 8 toughness");
 		helper.assertFalse(ThorPassives.onAllowDamage(p, helper.getLevel().damageSources().generic(), 10.0f),
-				"an ordinary hit is cancelled and re-issued at 20%");
+				"an ordinary hit is cancelled and re-issued at 70%");
 		helper.assertTrue(ThorPassives.onAllowDamage(p, helper.getLevel().damageSources().genericKill(), 10.0f),
 				"/kill-style damage is never reduced");
 		helper.assertFalse(ThorPassives.onAllowDamage(p, helper.getLevel().damageSources().lightningBolt(), 10.0f),

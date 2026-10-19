@@ -23,7 +23,7 @@ Config `config/projecthero_thor.json` (`power/ThorConfig`, versioned, sections `
 - Effect: +`storm.damageBonus` (0.30) on every hit whose `DamageSource.getEntity()` is that player. ONE hook: a
   `@ModifyVariable` at `LivingEntity#hurt` HEAD (like the Punisher mark), paired with a RETURN inject. Double-count
   guards: (1) a per-thread stack of victims being hurt by a scaled hit -- a hit re-issued from inside the same `hurt`
-  (Thor's 80% reduction, Nova, Moon Knight...) on that victim is not scaled again; (2) the single-weapon combo
+  (Thor's 30% reduction + built-in armour, Nova, Moon Knight...) on that victim is not scaled again; (2) the single-weapon combo
   finisher's re-hurt (whose amount comes from Fabric's `AFTER_DAMAGE` base, which already carries the bonus) runs in
   `ThorStorm.unscaled`. The stack is cleared every player tick (nothing is inside a hurt then).
 - Tell: `ThorFx.stormPct` (synced) -- the client draws little arcs crackling over him (`ThorFxRenderer.stormCrackle`),

@@ -31,7 +31,7 @@ Kryptonian flight as hero flight (body lean); the double-tap is in `ProjectHeroM
 ## Passives (always on while `empowered`)
 
 40 max HP (+20), 15 fist damage (+14), knockback resistance 1.0, +40% speed, +0.5 step, +1 reach, ~4-block jump,
-safe-fall 1000, 80% damage reduction, the immunities above, no air loss, fire cleared. Sun: `DIRECT` (day, sky at the
+safe-fall 1000, built-in 20 armour / 8 toughness + 30% damage reduction (v0.16.7; was 80%), the immunities above, no air loss, fire cleared. Sun: `DIRECT` (day, sky at the
 eyes, no rain) heals 1 HP / 10 ticks, feeds 1 food / 10 s. (v0.14.16: the 1 HP / 40 ticks shade trickle is gone.)
 
 **Regeneration III (v0.14.16)** replaces v0.14.15's permanent Regeneration I: `Kryptonian.tickRegeneration` (every

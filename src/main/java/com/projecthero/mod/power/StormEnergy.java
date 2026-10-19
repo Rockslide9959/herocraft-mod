@@ -28,6 +28,8 @@ public final class StormEnergy {
 	public static final float REGEN_PER_SECOND_THUNDER = 8.0f;
 	/** Regen while a Storm Call is active -- faster than even the passive thunderstorm bonus. */
 	public static final float REGEN_PER_SECOND_STORM_CALL = 10.0f;
+	/** v0.16.7 (user): wearing any piece of Thor's Armour, regeneration is 50% faster. */
+	public static final float ARMOUR_REGEN_MULTIPLIER = 1.5f;
 
 	private StormEnergy() {
 	}

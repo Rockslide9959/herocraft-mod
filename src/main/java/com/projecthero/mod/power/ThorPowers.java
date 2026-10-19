@@ -572,6 +572,10 @@ public final class ThorPowers {
 			} else {
 				regenPerSecond = StormEnergy.REGEN_PER_SECOND;
 			}
+			// v0.16.7 (user): wearing Thor's Armour regenerates Storm Energy 50% faster
+			if (com.projecthero.mod.thorarmor.ThorArmor.isWearing(player)) {
+				regenPerSecond *= StormEnergy.ARMOUR_REGEN_MULTIPLIER;
+			}
 			StormEnergy.add(player, regenPerSecond / 20.0f);
 		}
 	}

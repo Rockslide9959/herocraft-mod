@@ -60,6 +60,8 @@ public final class Kryptonian {
 	private static final ResourceLocation REACH_ID = PowerToggles.id("kryptonian_reach");
 	private static final ResourceLocation JUMP_ID = PowerToggles.id("kryptonian_jump");
 	private static final ResourceLocation SAFE_FALL_ID = PowerToggles.id("kryptonian_safe_fall");
+	private static final ResourceLocation ARMOR_ID = PowerToggles.id("kryptonian_armor");
+	private static final ResourceLocation TOUGHNESS_ID = PowerToggles.id("kryptonian_toughness");
 
 	static final DustParticleOptions SUN_GOLD = new DustParticleOptions(new Vector3f(1.0f, 0.82f, 0.25f), 1.4f);
 	static final DustParticleOptions KRYPTONITE_GREEN = new DustParticleOptions(new Vector3f(0.35f, 1.0f, 0.3f), 1.2f);
@@ -298,6 +300,8 @@ public final class Kryptonian {
 			PowerToggles.clearModifier(player, Attributes.ENTITY_INTERACTION_RANGE, REACH_ID);
 			PowerToggles.clearModifier(player, Attributes.JUMP_STRENGTH, JUMP_ID);
 			PowerToggles.clearModifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+			PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 			reconcileRegeneration(player, false);
 			if (player.getHealth() > player.getMaxHealth()) {
 				player.setHealth(player.getMaxHealth());
@@ -316,6 +320,8 @@ public final class Kryptonian {
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		// the client predicts fall damage off this; the server cancels it outright either way
 		PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, KryptonianConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, KryptonianConfig.TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE);
 		reconcileRegeneration(player, wantsRegeneration(player));
 	}
 
@@ -390,7 +396,7 @@ public final class Kryptonian {
 		return (lo + hi) * 0.5;
 	}
 
-	/** Damage-taken factor for everything that is not simply ignored: 0.25 at full strength, 1.0 near kryptonite. */
+	/** Damage-taken factor for everything that is not simply ignored: 0.70 at full strength (plus the built-in armour), 1.0 near kryptonite. */
 	public static float damageTakenFactor(ServerPlayer player) {
 		return empowered(player) ? 1.0f - KryptonianConfig.DAMAGE_REDUCTION : 1.0f;
 	}

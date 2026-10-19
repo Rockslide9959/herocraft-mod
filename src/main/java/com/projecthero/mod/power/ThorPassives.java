@@ -44,8 +44,11 @@ import net.minecraft.tags.DamageTypeTags;
 public final class ThorPassives {
 	/** v0.12.32: a flat +11 weapon-independent melee bonus (was +10) -- Thor hits like a god bare-handed. */
 	private static final double STRENGTH_BONUS = 11.0;
-	/** v0.12.32: Thor takes 20% of incoming damage (80% less) -- replaces the old infinite Resistance IV. */
-	public static final float DAMAGE_TAKEN_FACTOR = 0.2f;
+	/** v0.16.7 (user): Thor takes 70% of incoming damage (30% less) on top of his built-in armour (was a flat 80% less). */
+	public static final float DAMAGE_TAKEN_FACTOR = 0.7f;
+	/** v0.16.7 (user): built-in diamond-level armour -- 20 armour, 8 toughness (adds to worn armour; vanilla caps at 30 / 20). */
+	public static final double ARMOR_BONUS = 20.0;
+	public static final double TOUGHNESS_BONUS = 8.0;
 	/** +18%: quick enough to feel Asgardian, slow enough that terrain still matters. */
 	private static final double SPEED_BONUS = 0.18;
 	/** Hard to shove, far from immovable. */
@@ -63,6 +66,8 @@ public final class ThorPassives {
 	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("power_of_thor_speed");
 	private static final ResourceLocation KNOCKBACK_ID = ProjectHeroMod.id("power_of_thor_knockback");
 	private static final ResourceLocation MAX_HEALTH_ID = ProjectHeroMod.id("power_of_thor_max_health");
+	private static final ResourceLocation ARMOR_ID = ProjectHeroMod.id("power_of_thor_armor");
+	private static final ResourceLocation TOUGHNESS_ID = ProjectHeroMod.id("power_of_thor_toughness");
 
 	private ThorPassives() {
 	}
@@ -116,6 +121,8 @@ public final class ThorPassives {
 				AttributeModifier.Operation.ADD_VALUE, shouldHave);
 		setModifier(player, Attributes.MAX_HEALTH, MAX_HEALTH_ID, MAX_HEALTH_BONUS,
 				AttributeModifier.Operation.ADD_VALUE, shouldHave);
+		setModifier(player, Attributes.ARMOR, ARMOR_ID, ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE, shouldHave);
+		setModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE, shouldHave);
 
 		reconcileRegeneration(player, shouldHave);
 		removeLegacyResistance(player);
@@ -208,8 +215,8 @@ public final class ThorPassives {
 
 		player.setAttached(ModAttachments.LAST_HURT_TICK, player.level().getGameTime());
 
-		// v0.12.32: 80% less damage from everything that gets this far. Fabric's ALLOW_DAMAGE is a veto with no
-		// "reduce" -- so cancel the hit and re-apply 20% of it (the guard lets the re-issued hit straight through).
+		// v0.16.7: 30% less damage from everything that gets this far (the built-in armour does the rest; was 80% less). Fabric's ALLOW_DAMAGE is a veto with no
+		// "reduce" -- so cancel the hit and re-apply 70% of it (the guard lets the re-issued hit straight through).
 		// Void / /kill-style damage is never reduced.
 		if (REDUCING.get() || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY) || amount <= 0.0f) {
 			return true;

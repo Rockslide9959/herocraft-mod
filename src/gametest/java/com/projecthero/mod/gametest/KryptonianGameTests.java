@@ -117,9 +117,16 @@ public class KryptonianGameTests implements FabricGameTest {
 		p.setHealth(p.getMaxHealth());
 		float before = p.getHealth();
 		p.invulnerableTime = 0;
-		p.hurt(p.damageSources().generic(), 20.0f);
+		// v0.16.7: a mob's hit (vanilla "generic" damage bypasses armour, so it would not show the built-in armour)
+		net.minecraft.world.entity.monster.Zombie z = net.minecraft.world.entity.EntityType.ZOMBIE.create(helper.getLevel());
+		net.minecraft.world.damagesource.DamageSource hit = p.damageSources().mobAttack(z);
+		p.hurt(hit, 20.0f);
 		float lost = before - p.getHealth();
-		helper.assertTrue(Math.abs(lost - 4.0f) < 0.01f, "20 damage is cut by 80% to 4 (v0.14.15), lost " + lost);
+		// v0.16.7 (user): 30% less, then his built-in diamond-level armour (20 armour, 8 toughness)
+		float expected = net.minecraft.world.damagesource.CombatRules.getDamageAfterAbsorb(p, 20.0f * 0.7f, hit, 20.0f, 8.0f);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - 20.0) < 1e-6 && Math.abs(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - 8.0) < 1e-6,
+				"built-in 20 armour / 8 toughness");
+		helper.assertTrue(Math.abs(lost - expected) < 0.1f, "20 damage: 30% off, then the armour -> " + expected + ", lost " + lost);
 		before = p.getHealth();
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().fall(), 30.0f);

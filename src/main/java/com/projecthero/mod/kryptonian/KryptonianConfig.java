@@ -31,7 +31,11 @@ public final class KryptonianConfig {
 	 * Every hit that gets through is cut by 80% (fire, lava, falls, lightning and drowning never get through at all).
 	 * v0.14.15: was 75% -- now the same as Thor's.
 	 */
-	public static final float DAMAGE_REDUCTION = 0.80f;
+	/** v0.16.7 (user): 30% less damage on top of the built-in armour below (was a flat 80% less). */
+	public static final float DAMAGE_REDUCTION = 0.30f;
+	/** v0.16.7 (user): built-in diamond-level armour -- 20 armour, 8 toughness (adds to the suit; vanilla caps at 30 / 20). */
+	public static final double ARMOR_BONUS = 20.0;
+	public static final double TOUGHNESS_BONUS = 8.0;
 	/** Melee punches: extra knockback (sprinting: more, plus a little lift). */
 	public static final double PUNCH_KNOCKBACK = 1.2;
 	public static final double SPRINT_PUNCH_KNOCKBACK = 2.2;
