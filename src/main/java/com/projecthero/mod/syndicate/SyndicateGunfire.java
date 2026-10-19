@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.core.particles.BlockParticleOption;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,8 +28,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-
-import org.joml.Vector3f;
 
 /**
  * v0.14.25: the Syndicate's guns. The Punisher's {@link com.projecthero.mod.firearm.FirearmShooting} is player-only
@@ -193,10 +190,13 @@ public final class SyndicateGunfire {
 	private static void tracer(ServerLevel level, Vec3 a, Vec3 b) {
 		double len = a.distanceTo(b);
 		int steps = Math.max(1, (int) (len / 1.5));
+		// v0.16.7 (perf): one batched payload per viewer, not a packet per crit
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 1; i <= steps; i++) {
 			Vec3 pt = a.lerp(b, (double) i / (steps + 1));
-			level.sendParticles(ParticleTypes.CRIT, pt.x, pt.y, pt.z, 1, 0.0, 0.0, 0.0, 0.0);
+			batch.add(ParticleTypes.CRIT, pt.x, pt.y, pt.z, 1, 0.0, 0.0, 0.0, 0.0);
 		}
+		batch.send(level);
 	}
 
 	/**
@@ -237,16 +237,18 @@ public final class SyndicateGunfire {
 		}
 	}
 
-	/** A sniper's laser sight: a thin red line from the muzzle to where the shot will go. */
-	public static void laser(ServerLevel level, LivingEntity shooter, Vec3 aim) {
+	/**
+	 * A sniper's laser sight: where the thin red line from the muzzle toward {@code aim} ends (at most 48 blocks out).
+	 * v0.16.7 (perf): the line itself is drawn by the client from {@code SyndicateGunman#laserAim} -- it used to be up to
+	 * 80 dust particles (80 packets) a tick per sniper, which is what dropped the frames in the Syndicate raid.
+	 */
+	public static Vec3 laserEnd(LivingEntity shooter, Vec3 aim) {
 		Vec3 from = muzzle(shooter);
 		Vec3 dir = aim.subtract(from);
-		double len = Math.min(48, dir.length());
-		dir = dir.normalize();
-		DustParticleOptions red = new DustParticleOptions(new Vector3f(1.0f, 0.05f, 0.05f), 0.45f);
-		for (double t = 0.5; t < len; t += 0.6) {
-			Vec3 p = from.add(dir.scale(t));
-			level.sendParticles(red, p.x, p.y, p.z, 1, 0, 0, 0, 0);
+		double len = dir.length();
+		if (len < 1.0e-4) {
+			return aim;
 		}
+		return len <= 48 ? aim : from.add(dir.scale(48 / len));
 	}
 }

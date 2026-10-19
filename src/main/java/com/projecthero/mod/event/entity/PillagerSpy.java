@@ -176,7 +176,7 @@ public class PillagerSpy extends Pillager {
 			if (!(level() instanceof ServerLevel server)) {
 				return false;
 			}
-			BlockPos goal = locateVillage(server);
+			BlockPos goal = cachedVillage(server);
 			if (goal == null) {
 				return false;
 			}
@@ -216,7 +216,22 @@ public class PillagerSpy extends Pillager {
 			}
 		}
 
+		/** Game time of the last POI search (v0.16.7 perf). */
+		private long lastSearch = -1000L;
+
+		/**
+		 * v0.16.7 (perf): canUse / canContinueToUse run every tick, and each used to search the POI map 128 blocks round
+		 * (a few thousand chunk sections) -- now a fresh search at most every 100 ticks, the remembered goal between.
+		 */
+		private BlockPos cachedVillage(ServerLevel server) {
+			if (server.getGameTime() - lastSearch >= 100) {
+				return locateVillage(server);
+			}
+			return villageGoal;
+		}
+
 		private BlockPos locateVillage(ServerLevel server) {
+			lastSearch = server.getGameTime();
 			PoiManager poi = server.getPoiManager();
 			Optional<BlockPos> meeting = poi.findClosest(
 					holder -> holder.is(PoiTypes.MEETING), blockPosition(), VILLAGE_SEARCH, PoiManager.Occupancy.ANY);

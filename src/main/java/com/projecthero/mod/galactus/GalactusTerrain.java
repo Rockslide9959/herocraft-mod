@@ -204,7 +204,7 @@ public final class GalactusTerrain extends SavedData {
 		level.setBlock(pos, placed, FLAGS);
 		l.entries.put(key, new Entry(id(placed), id(original), g, expires));
 		if (expires >= 0) {
-			nextExpiry = Math.min(nextExpiry, expires);
+			nextExpiry = Math.min(nextExpiry, coalesce(expires));
 		}
 		setDirty();
 		return true;
@@ -280,6 +280,15 @@ public final class GalactusTerrain extends SavedData {
 		return true;
 	}
 
+	/**
+	 * v0.16.7 (perf): expiries are handled in 10-tick buckets -- every expiry used to trigger a full scan of the ledger,
+	 * so blocks expiring on different ticks meant a full scan nearly every tick. A block now goes back up to half a second
+	 * after its time.
+	 */
+	private static long coalesce(long at) {
+		return at == Long.MAX_VALUE || at == Long.MIN_VALUE ? at : Math.floorDiv(at + 9, 10) * 10;
+	}
+
 	/** Puts back up to {@code budget} marked or expired blocks (loaded chunks only). Returns how many. Once a server tick. */
 	public int tickRevert(MinecraftServer server, int budget) {
 		long now = server.overworld().getGameTime();
@@ -330,7 +339,7 @@ public final class GalactusTerrain extends SavedData {
 				it.remove();
 			}
 		}
-		nextExpiry = soonest;
+		nextExpiry = coalesce(soonest);
 		work = left && done >= budget; // more ready to go next tick; unloaded leftovers wait for the 5 s retry
 		if (done > 0) {
 			setDirty();

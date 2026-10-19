@@ -225,6 +225,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.thor.ThorCapeClient.initialize(); // v0.14.16: Thor's Armour's crimson cape
 		com.projecthero.mod.client.firearm.BulletHoleRenderer.initialize();
 		com.projecthero.mod.client.firearm.GunTracers.initialize(); // v0.15.16: tracers + impact flashes
+		com.projecthero.mod.client.ParticleBatchClient.initialize(); // v0.16.7 perf: batched rings / lines / borders
 		com.projecthero.mod.client.greenlantern.GreenLanternClient.initialize();
 		com.projecthero.mod.client.grave.TrophyHeadClient.initialize(); // v0.14.4 trophy heads: cutout, power tint, glow
 		com.projecthero.mod.client.grave.NecroticBladeClient.initialize(); // v0.14.21: 3D blade glow, flat GUI icon, soul wisps

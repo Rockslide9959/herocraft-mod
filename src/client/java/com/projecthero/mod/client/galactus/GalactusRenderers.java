@@ -51,16 +51,25 @@ public final class GalactusRenderers {
 	private GalactusRenderers() {
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> GEO_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation geo(String model) {
-		return ProjectHeroMod.id("geo/galactus/" + model + ".geo.json");
+		return GEO_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("geo/galactus/" + k + ".geo.json"));
 	}
+
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> TEXTURE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public static ResourceLocation texture(String model) {
-		return ProjectHeroMod.id("textures/entity/galactus/" + model + ".png");
+		return TEXTURE_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("textures/entity/galactus/" + k + ".png"));
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> ANIMATION_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation animation(String model) {
-		return ProjectHeroMod.id("animations/galactus/" + model + ".animation.json");
+		return ANIMATION_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("animations/galactus/" + k + ".animation.json"));
 	}
 
 	/** A model at a fixed asset name. */

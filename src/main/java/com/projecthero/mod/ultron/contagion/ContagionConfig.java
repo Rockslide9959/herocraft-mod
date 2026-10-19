@@ -16,6 +16,7 @@ public final class ContagionConfig {
 					"rewards", "resurgence.chance", "resurgence.intervalDays", "resurgence.unitHealthPerVersion", "resurgence.extraNexusPerVersion",
 					"resurgence.omegaHealthPerVersion", "resurgence.omegaDamagePerVersion", "resurgence.maxVersion", "mindBeam")
 			.introduce(1, "v0.16.1 Ultron Contagion")
+			.reset(2, "v0.16.7 perf: revert 300 -> 48 blocks a tick (300 forced chunk rebuilds a tick stuttered)", "nexus.revertPerTick")
 			.build();
 
 	private static ContagionConfig instance = new ContagionConfig();
@@ -77,7 +78,7 @@ public final class ContagionConfig {
 		public int columnsPerTick = 6;
 		public int blocksPerTick = 24;
 		/** Recorded blocks put back per tick while reverting. */
-		public int revertPerTick = 300;
+		public int revertPerTick = 48; // v0.16.7 perf: was 300
 		/** Blocks kept clear of any block entity (chests, furnaces, beds...): a base is never corrupted. */
 		public int blockEntityClearance = 4;
 		/** The Override capture. */

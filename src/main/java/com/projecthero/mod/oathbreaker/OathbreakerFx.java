@@ -43,11 +43,14 @@ public final class OathbreakerFx {
 
 	/** A flat ring of {@code points} particles at {@code radius} around {@code center}. */
 	public static void ring(ServerLevel level, ParticleOptions particle, Vec3 center, double radius, int points, double speed) {
+		// v0.16.7 (perf): one batched payload per viewer, not a packet per point
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 0; i < points; i++) {
 			double a = (Math.PI * 2.0 * i) / points;
-			level.sendParticles(particle, center.x + Math.cos(a) * radius, center.y, center.z + Math.sin(a) * radius,
+			batch.add(particle, center.x + Math.cos(a) * radius, center.y, center.z + Math.sin(a) * radius,
 					1, 0.05, 0.02, 0.05, speed);
 		}
+		batch.send(level);
 	}
 
 	/** Particles every {@code spacing} blocks along the segment {@code from -> to}. */
@@ -58,9 +61,13 @@ public final class OathbreakerFx {
 			return;
 		}
 		Vec3 step = d.scale(1.0 / len);
+		// v0.16.7 (perf): one batched payload per viewer, and never more than 96 points a call
+		spacing = Math.max(spacing, len / 96.0);
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (double t = 0; t <= len; t += spacing) {
 			Vec3 p = from.add(step.scale(t));
-			level.sendParticles(particle, p.x, p.y, p.z, 1, spread, spread, spread, 0.0);
+			batch.add(particle, p.x, p.y, p.z, 1, spread, spread, spread, 0.0);
 		}
+		batch.send(level);
 	}
 }

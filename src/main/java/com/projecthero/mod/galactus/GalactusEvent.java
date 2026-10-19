@@ -485,17 +485,21 @@ public class GalactusEvent extends EventInstance {
 			return;
 		}
 		int points = Math.max(16, Math.min(192, GalactusConfig.arena().borderPoints));
+		// v0.16.7 (perf): one batched payload per viewer (it was a packet per point per viewer)
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+		double reach = com.projecthero.mod.network.ParticleBatch.FORCE_RANGE;
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points + (now % 120) * 0.0015;
 			double x = c.getX() + 0.5 + Math.cos(a) * r;
 			double z = c.getZ() + 0.5 + Math.sin(a) * r;
 			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
-			for (ServerPlayer viewer : viewers) {
-				level.sendParticles(viewer, i % 2 == 0 ? GalactusFx.COSMIC : GalactusFx.SILVER, true, x, y + 0.8, z, 1, 0, 0.5, 0, 0);
-				if (i % 3 == 0) {
-					level.sendParticles(viewer, ParticleTypes.END_ROD, true, x, y + 1.6, z, 1, 0, 0.6, 0, 0);
-				}
+			batch.addForced(i % 2 == 0 ? GalactusFx.COSMIC : GalactusFx.SILVER, reach, x, y + 0.8, z, 1, 0, 0.5, 0, 0);
+			if (i % 3 == 0) {
+				batch.addForced(ParticleTypes.END_ROD, reach, x, y + 1.6, z, 1, 0, 0.6, 0, 0);
 			}
+		}
+		for (ServerPlayer viewer : viewers) {
+			batch.send(level, viewer);
 		}
 	}
 

@@ -66,10 +66,18 @@ public class CrimsonMeteorEntity extends Entity {
 				impact(server, hit.getLocation());
 				return;
 			}
-			for (ServerLevelViewer viewer : ServerLevelViewer.of(server, from)) {
-				viewer.send(server, ParticleTypes.FLAME, from, 8, 0.4);
-				viewer.send(server, RED, from, 6, 0.6);
-				viewer.send(server, ParticleTypes.LARGE_SMOKE, from, 3, 0.5);
+			if (tickCount % 2 == 0) {
+				// v0.16.7 (perf): every other tick, both ticks' trail points in ONE batched payload per viewer (it was three
+				// forced packets a tick), and a little less of the heavy LARGE_SMOKE
+				com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+				for (Vec3 at : new Vec3[] { from.subtract(v), from }) {
+					batch.addForced(ParticleTypes.FLAME, 192, at.x, at.y, at.z, 8, 0.4, 0.4, 0.4, 0.01);
+					batch.addForced(RED, 192, at.x, at.y, at.z, 6, 0.6, 0.6, 0.6, 0.01);
+					batch.addForced(ParticleTypes.LARGE_SMOKE, 192, at.x, at.y, at.z, 1, 0.5, 0.5, 0.5, 0.01);
+				}
+				for (ServerLevelViewer viewer : ServerLevelViewer.of(server, from)) {
+					batch.send(server, viewer.player());
+				}
 			}
 			if (tickCount % 10 == 0) {
 				server.playSound(null, getX(), getY(), getZ(), SoundEvents.BLAZE_SHOOT, SoundSource.HOSTILE, 2.5f, 0.4f);

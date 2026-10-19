@@ -71,6 +71,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(FirearmHeadshotPayload.TYPE, FirearmHeadshotPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(BulletHolePayload.TYPE, BulletHolePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(GunTracerPayload.TYPE, GunTracerPayload.CODEC); // v0.15.16
+		PayloadTypeRegistry.playS2C().register(ParticleBatchPayload.TYPE, ParticleBatchPayload.CODEC); // v0.16.7 perf
 		PayloadTypeRegistry.playS2C().register(PunisherArsenalOpenPayload.TYPE, PunisherArsenalOpenPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PunisherLockOnPayload.TYPE, PunisherLockOnPayload.CODEC); // v0.15.18
 		PayloadTypeRegistry.playS2C().register(PunisherIntelPayload.TYPE, PunisherIntelPayload.CODEC); // v0.15.18
