@@ -21,7 +21,7 @@ import org.joml.Vector3f;
 /**
  * v0.16.6: Ladybug on every player who holds Tikki (every viewer: the state is synced) -- the suit ({@link LadybugRender})
  * over the wearer's own skin, their jacket / sleeve / trouser layer going texel by texel during a change and their hat
- * layer (hair, hats, glasses) kept, the Yo-yo hanging at her right hip from the
+ * layer (hair, hats, glasses) kept, the Yo-yo stored on her back (v0.16.7; it hung at her right hip) from the
  * belt while no move has it out, and the posed right hand's world position for {@link LadybugWorld}'s string.
  */
 public class LadybugLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
@@ -58,13 +58,13 @@ public class LadybugLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		if (!Miraculous.transformed(player)) {
 			return;
 		}
-		// the Yo-yo on the front of her right hip, on the belt, its face forward (model space: her right is -x, +y is
-			// down, the front is -z; the arm hangs over the side of the hip, so not there)
+		// v0.16.7 (user): the Yo-yo is stored on her BACK, in the middle of the small of her back, its face outward
+		// (model space: +y is down, the back is +z; was on the front of her right hip)
 		if (anim.cover() > 0.8f && !LadybugWorld.yoyoOut(player)) {
 			pose.pushPose();
 			parent.body.translateAndRotate(pose);
-			pose.translate(-0.16f, 0.70f, -0.215f);
-			pose.mulPose(com.mojang.math.Axis.YP.rotation((float) (Math.PI / 2)));
+			pose.translate(0.0f, 0.55f, 0.215f);
+			pose.mulPose(com.mojang.math.Axis.YP.rotation((float) (-Math.PI / 2)));
 			LadybugGeometry.yoyo(pose, buffers, light, 0f, 0f, 0.8f);
 			pose.popPose();
 		}
