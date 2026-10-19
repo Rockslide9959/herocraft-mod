@@ -475,16 +475,20 @@ public class UltronUprising extends EventInstance {
 			return;
 		}
 		int points = 80;
+		// v0.16.7 (perf): one batched payload per viewer (it was two packets per point per viewer)
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+		double reach = com.projecthero.mod.network.ParticleBatch.FORCE_RANGE;
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points + (now % 80) * 0.002;
 			double x = c.getX() + 0.5 + Math.cos(a) * r;
 			double z = c.getZ() + 0.5 + Math.sin(a) * r;
 			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
 			var dust = i % 2 == 0 ? UltronFx.RED : UltronFx.CYAN;
-			for (ServerPlayer viewer : viewers) {
-				level.sendParticles(viewer, dust, true, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
-				level.sendParticles(viewer, dust, true, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
-			}
+			batch.addForced(dust, reach, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
+			batch.addForced(dust, reach, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
+		}
+		for (ServerPlayer viewer : viewers) {
+			batch.send(level, viewer);
 		}
 	}
 

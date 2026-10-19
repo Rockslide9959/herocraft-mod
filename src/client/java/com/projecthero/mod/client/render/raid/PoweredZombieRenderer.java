@@ -54,14 +54,19 @@ public class PoweredZombieRenderer extends RaidUndeadRenderer<EmpoweredZombie> {
 		};
 	}
 
+	private static final java.util.Map<String, String> ACC_PREFIX = new java.util.concurrent.ConcurrentHashMap<>();
+
 	@Override
 	protected void customBones(EmpoweredZombie boss, GeoModel<EmpoweredZombie> model, AnimationState<EmpoweredZombie> state) {
 		String a = PoweredBossAnims.look(boss.powerKey()).accent();
 		String b = boss.secondPowerKey().isEmpty() ? a : PoweredBossAnims.look(boss.secondPowerKey()).accent();
+		// v0.16.7 (perf): the "acc_<power>" prefixes are cached, not concatenated per bone per frame
+		String pa = ACC_PREFIX.computeIfAbsent(a, k -> "acc_" + k);
+		String pb = ACC_PREFIX.computeIfAbsent(b, k -> "acc_" + k);
 		for (GeoBone bone : model.getAnimationProcessor().getRegisteredBones()) {
 			String n = bone.getName();
 			if (n.startsWith("acc_")) {
-				boolean show = n.startsWith("acc_" + a) || n.startsWith("acc_" + b);
+				boolean show = n.startsWith(pa) || n.startsWith(pb);
 				bone.setHidden(!show);
 			}
 		}

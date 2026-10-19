@@ -248,16 +248,20 @@ public class HordeRaid extends EventInstance {
 		if (viewers.isEmpty()) {
 			return;
 		}
+		// v0.16.7 (perf): the whole ring goes to each viewer as ONE batched payload (it was two packets per point per viewer)
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+		double reach = com.projecthero.mod.network.ParticleBatch.FORCE_RANGE;
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points + (now % 40) * 0.004;
 			double x = c.getX() + 0.5 + Math.cos(a) * ARENA;
 			double z = c.getZ() + 0.5 + Math.sin(a) * ARENA;
 			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
 			// long-range (forced) particles, so the ring shows from anywhere in the arena -- normal ones vanish past ~32 blocks
-			for (ServerPlayer viewer : viewers) {
-				level.sendParticles(viewer, dust, true, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
-				level.sendParticles(viewer, dust, true, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
-			}
+			batch.addForced(dust, reach, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
+			batch.addForced(dust, reach, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
+		}
+		for (ServerPlayer viewer : viewers) {
+			batch.send(level, viewer);
 		}
 	}
 

@@ -2,6 +2,7 @@ package com.projecthero.mod.frostgiant;
 
 import org.joml.Vector3f;
 
+import com.projecthero.mod.network.ParticleBatch;
 import com.projecthero.mod.network.TitanShakePayload;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -45,34 +46,50 @@ public final class FrostFx {
 		}
 	}
 
-	/** A ring of {@code particle} at {@code centre}'s height. */
+	/**
+	 * A ring of {@code particle} at {@code centre}'s height. v0.16.7 (perf): one {@link ParticleBatch} payload per viewer
+	 * instead of one packet per point per viewer, and never denser than a point every ~0.6 blocks (max 160).
+	 */
 	public static void ring(ServerLevel level, ParticleOptions particle, Vec3 centre, double radius, int points, boolean force) {
+		points = Math.max(1, Math.min(points, Math.min(160, (int) Math.ceil(Math.PI * 2 * radius / 0.6) + 4)));
+		ParticleBatch batch = new ParticleBatch();
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points;
 			double x = centre.x + Math.cos(a) * radius;
 			double z = centre.z + Math.sin(a) * radius;
 			if (force) {
-				forced(level, particle, x, centre.y, z, 1, 0, 0.05, 0, 0);
+				batch.addForced(particle, FORCED_RANGE, x, centre.y, z, 1, 0, 0.05, 0, 0);
 			} else {
-				level.sendParticles(particle, x, centre.y, z, 1, 0, 0.05, 0, 0);
+				batch.add(particle, x, centre.y, z, 1, 0, 0.05, 0, 0);
 			}
 		}
+		batch.send(level);
 	}
 
-	/** A dotted line {@code a -> b}. */
+	/**
+	 * A dotted line {@code a -> b}. v0.16.7 (perf): batched like {@link #ring}, a point at most every 0.4 blocks and never
+	 * more than {@link #MAX_LINE_POINTS} a call (a longer line spaces its points out).
+	 */
 	public static void line(ServerLevel level, ParticleOptions particle, Vec3 a, Vec3 b, double step, boolean force) {
 		Vec3 d = b.subtract(a);
 		double len = d.length();
-		int n = Math.max(1, (int) (len / Math.max(0.2, step)));
+		int n = Math.max(1, Math.min(MAX_LINE_POINTS, (int) (len / Math.max(0.4, step))));
+		ParticleBatch batch = new ParticleBatch();
 		for (int i = 0; i <= n; i++) {
 			Vec3 p = a.add(d.scale(i / (double) n));
 			if (force) {
-				forced(level, particle, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0);
+				batch.addForced(particle, FORCED_RANGE, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0);
 			} else {
-				level.sendParticles(particle, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0);
+				batch.add(particle, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0);
 			}
 		}
+		batch.send(level);
 	}
+
+	/** How far a forced (long-range) event particle reaches. */
+	public static final double FORCED_RANGE = 128.0;
+	/** The most points one {@link #line} call draws (v0.16.7). */
+	public static final int MAX_LINE_POINTS = 96;
 
 	/** Snow-burst where a giant lands. */
 	public static void landing(ServerLevel level, Vec3 at, double size) {

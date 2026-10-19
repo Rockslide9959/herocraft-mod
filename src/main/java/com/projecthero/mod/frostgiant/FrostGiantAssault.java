@@ -547,23 +547,27 @@ public class FrostGiantAssault extends EventInstance {
 			return;
 		}
 		int points = 128;
+		// v0.16.7 (perf): one batched payload per viewer (it was ~2.5 packets per point per viewer, ~640 a second)
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
+		double reach = com.projecthero.mod.network.ParticleBatch.FORCE_RANGE;
 		for (int i = 0; i < points; i++) {
 			double a = i * Math.PI * 2 / points + (now % 80) * 0.002;
 			double x = c.getX() + 0.5 + Math.cos(a) * r;
 			double z = c.getZ() + 0.5 + Math.sin(a) * r;
 			int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
 			var dust = i % 2 == 0 ? FrostFx.PALE : FrostFx.WHITE;
-			for (ServerPlayer viewer : viewers) {
-				level.sendParticles(viewer, dust, true, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
-				level.sendParticles(viewer, dust, true, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
-				if (i % 3 == 0) {
-					// full-bright, so the edge still reads at night (dust takes the world's light)
-					level.sendParticles(viewer, ParticleTypes.END_ROD, true, x, y + 1.3, z, 1, 0, 0.5, 0, 0);
-				}
-				if (i % 6 == 0) {
-					level.sendParticles(viewer, ParticleTypes.SNOWFLAKE, true, x, y + 1.2, z, 1, 0.1, 0.6, 0.1, 0.01);
-				}
+			batch.addForced(dust, reach, x, y + 0.6, z, 1, 0, 0.4, 0, 0);
+			batch.addForced(dust, reach, x, y + 2.0, z, 1, 0, 0.4, 0, 0);
+			if (i % 3 == 0) {
+				// full-bright, so the edge still reads at night (dust takes the world's light)
+				batch.addForced(ParticleTypes.END_ROD, reach, x, y + 1.3, z, 1, 0, 0.5, 0, 0);
 			}
+			if (i % 6 == 0) {
+				batch.addForced(ParticleTypes.SNOWFLAKE, reach, x, y + 1.2, z, 1, 0.1, 0.6, 0.1, 0.01);
+			}
+		}
+		for (ServerPlayer viewer : viewers) {
+			batch.send(level, viewer);
 		}
 	}
 

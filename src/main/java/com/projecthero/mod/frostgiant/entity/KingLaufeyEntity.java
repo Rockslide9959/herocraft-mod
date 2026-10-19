@@ -527,12 +527,15 @@ public class KingLaufeyEntity extends FrostGiantEntity {
 		face(position().add(lockedDir));
 		Vec3 dir = lockedDir.add(0, -0.18, 0).normalize();
 		if (moveTick % 2 == 0) {
+			// v0.16.7 (perf): one batched payload per viewer, not two forced packets per step
+			com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 			for (double r = 1.5; r <= cfg.breathRange; r += 1.6) {
 				double spread = Math.tan(Math.toRadians(cfg.breathHalfAngle)) * r * 0.6;
 				Vec3 p = c.add(dir.scale(r));
-				FrostFx.forced(level, ParticleTypes.SNOWFLAKE, p.x, p.y, p.z, 3, spread, spread * 0.5, spread, 0.05);
-				FrostFx.forced(level, FrostFx.WHITE, p.x, p.y, p.z, 2, spread, spread * 0.5, spread, 0.02);
+				batch.addForced(ParticleTypes.SNOWFLAKE, FrostFx.FORCED_RANGE, p.x, p.y, p.z, 3, spread, spread * 0.5, spread, 0.05);
+				batch.addForced(FrostFx.WHITE, FrostFx.FORCED_RANGE, p.x, p.y, p.z, 2, spread, spread * 0.5, spread, 0.02);
 			}
+			batch.send(level);
 		}
 		if (moveTick == hit) {
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.ELYTRA_FLYING, SoundSource.HOSTILE, 2.0f, 0.4f);

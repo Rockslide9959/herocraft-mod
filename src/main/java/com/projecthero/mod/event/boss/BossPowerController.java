@@ -609,19 +609,24 @@ public abstract class BossPowerController {
 	protected final void particleLine(ServerLevel level, ParticleOptions particle, Vec3 from, Vec3 to, double perBlock) {
 		double length = from.distanceTo(to);
 		int steps = Math.min(60, Math.max(1, (int) (length * perBlock)));
+		// v0.16.7 (perf): one batched payload per viewer, not a packet per point
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 0; i <= steps; i++) {
 			Vec3 p = from.lerp(to, (double) i / steps);
-			level.sendParticles(particle, p.x, p.y, p.z, 1, 0.02, 0.02, 0.02, 0.0);
+			batch.add(particle, p.x, p.y, p.z, 1, 0.02, 0.02, 0.02, 0.0);
 		}
+		batch.send(level);
 	}
 
 	/** A flat ring of particles on the ground -- the "something lands here" telegraph. */
 	protected final void ring(ServerLevel level, ParticleOptions particle, Vec3 center, double radius, int points) {
+		com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 		for (int i = 0; i < points; i++) {
 			double a = (Math.PI * 2.0 * i) / points;
-			level.sendParticles(particle, center.x + Math.cos(a) * radius, center.y + 0.15, center.z + Math.sin(a) * radius,
+			batch.add(particle, center.x + Math.cos(a) * radius, center.y + 0.15, center.z + Math.sin(a) * radius,
 					1, 0.02, 0.02, 0.02, 0.0);
 		}
+		batch.send(level);
 	}
 
 	protected final AABB box(Vec3 center, double radius) {

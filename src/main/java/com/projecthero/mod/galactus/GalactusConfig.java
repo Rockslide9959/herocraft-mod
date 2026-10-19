@@ -15,6 +15,7 @@ public final class GalactusConfig {
 			.introduce(1, "v0.16.1 Galactus: The Devourer")
 			.reset(2, "v0.16.4 Galactus takes full damage on his body once the pylons are down, 4000 health (+1000 a fighter)", "galactus.bodyDamageMultiplier",
 					"galactus.health", "galactus.healthPerExtraFighter")
+			.reset(3, "v0.16.7 perf: revert 160 -> 64 blocks a tick", "converters.revertPerTick")
 			.build();
 
 	private static GalactusConfig instance = new GalactusConfig();
@@ -130,7 +131,7 @@ public final class GalactusConfig {
 		public int columnsPerTick = 6;
 		public int blocksPerTick = 48;
 		/** Blocks put back per server tick while reverting (the "un-consuming" wave). */
-		public int revertPerTick = 160;
+		public int revertPerTick = 64; // v0.16.7 perf: was 160
 		/** Nothing within this many blocks of a block entity (chests, furnaces, beds) is ever consumed. */
 		public int blockEntityClearance = 3;
 		/** Ground blocks deep a column is consumed. */

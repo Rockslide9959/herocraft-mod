@@ -230,10 +230,13 @@ public class FrostGiantWarlordEntity extends FrostGiantEntity {
 				if (r <= cfg.plantRadius) {
 					Vec3 c = position().add(0, 0.2, 0);
 					int points = Math.max(12, (int) (r * 5));
+					// v0.16.7 (perf): one batched payload per viewer, not a forced packet per point
+					com.projecthero.mod.network.ParticleBatch batch = new com.projecthero.mod.network.ParticleBatch();
 					for (int i = 0; i < points; i++) {
 						double a = i * Math.PI * 2 / points;
-						FrostFx.forced(level, FrostFx.ICE, c.x + Math.cos(a) * r, c.y + 0.3, c.z + Math.sin(a) * r, 2, 0.1, 0.4, 0.1, 0.2);
+						batch.addForced(FrostFx.ICE, FrostFx.FORCED_RANGE, c.x + Math.cos(a) * r, c.y + 0.3, c.z + Math.sin(a) * r, 2, 0.1, 0.4, 0.1, 0.2);
 					}
+					batch.send(level);
 					for (LivingEntity e : FrostCombat.targetsNear(level, position(), r + 0.6)) {
 						double d = Math.sqrt(e.distanceToSqr(getX(), e.getY(), getZ()));
 						if (d < r - 1.4 || !e.onGround() && !(e instanceof RuneBrazierEntity) || !ringHit.add(e.getUUID())) {

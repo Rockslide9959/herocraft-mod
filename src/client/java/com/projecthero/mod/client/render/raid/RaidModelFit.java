@@ -28,16 +28,25 @@ public final class RaidModelFit {
 	private RaidModelFit() {
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> GEO_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation geo(String model) {
-		return ProjectHeroMod.id("geo/raid/" + model + ".geo.json");
+		return GEO_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("geo/raid/" + k + ".geo.json"));
 	}
+
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> TEXTURE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public static ResourceLocation texture(String model) {
-		return ProjectHeroMod.id("textures/entity/raid/" + model + ".png");
+		return TEXTURE_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("textures/entity/raid/" + k + ".png"));
 	}
 
+	/** v0.16.7 (perf): asked for every frame by the renderers -- built once per name. */
+	private static final java.util.Map<String, ResourceLocation> ANIMATION_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
 	public static ResourceLocation animation(String model) {
-		return ProjectHeroMod.id("animations/raid/" + model + ".animation.json");
+		return ANIMATION_CACHE.computeIfAbsent(model, k -> ProjectHeroMod.id("animations/raid/" + k + ".animation.json"));
 	}
 
 	public static float restHeight(BakedGeoModel model) {
