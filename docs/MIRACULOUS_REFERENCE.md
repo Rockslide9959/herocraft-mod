@@ -169,7 +169,7 @@ added to `kwami.animation.json` with the same clip code, and the Turtle Bracelet
 ## Tests
 
 `MiraculousCoreGameTests`: grant / revoke per Kwami, one Primary, the phrases, stats on / off, the countdown's forced
-detransformation, hungry refusal + feeding, the snack, death leaves it hungry, no fall damage, box + jewel, the Brooch
+detransformation, hungry refusal + feeding, the snack, death leaves it hungry, half fall damage (none after a movement move), box + jewel, the Brooch
 never in the box, unique powers refuse before the jewel is used, every grant path plays the welcome, Nooroo returns the
 bottle, the Kwami follows / snaps back / can't die / is re-created / goes into the jewel. `MiraculousTurtleHorseGameTests`:
 Carapace / Pegasus grant + revoke, their phrases, dried kelp / sugar, the box giving both new jewels (and the jewels

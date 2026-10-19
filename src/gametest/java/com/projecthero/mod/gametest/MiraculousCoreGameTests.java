@@ -33,7 +33,7 @@ import net.minecraft.world.phys.Vec3;
  * v0.16.6 the Miraculous core: grant / revoke for each Kwami and the one-Primary rule, the spoken phrases, the
  * transformation's stats on and off, the countdown's forced detransformation, the hungry Kwami (after every
  * detransformation) refusing the next transformation until fed, the box and the jewels (the unique-powers refusal before
- * anything is used up), no fall damage while transformed, and the Kwami that follows and can't die. Mock players are
+ * anything is used up), half fall damage while transformed (none after a movement move), and the Kwami that follows and can't die. Mock players are
  * not ticked by the server, so tests drive {@link Miraculous#tick} themselves.
  */
 public class MiraculousCoreGameTests implements FabricGameTest {
@@ -228,14 +228,28 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void noFallDamageWhileTransformed(GameTestHelper helper) {
+	public void halfFallDamageWhileTransformedAndNoneAfterAMovementMove(GameTestHelper helper) {
 		ServerPlayer p = mock(helper);
 		Miraculous.grant(p, Kwami.TIKKI);
 		Miraculous.transform(p);
 		settle(p);
+		// v0.16.7 (user): half fall damage transformed
 		float before = p.getHealth();
 		p.hurt(p.damageSources().fall(), 6f);
-		helper.assertTrue(p.getHealth() == before, "no fall damage transformed, health " + p.getHealth());
+		helper.assertTrue(Math.abs((before - p.getHealth()) - 6f * MiraculousConfig.FALL_DAMAGE_FACTOR) < 0.01f,
+				"half fall damage transformed, lost " + (before - p.getHealth()));
+		// ...and none for the landing after a movement move (a Pole Vault's cooldown starting arms it)
+		Miraculous.setCooldown(p, "ladybug_pole_vault", 20);
+		helper.assertTrue(Miraculous.hasSafeLanding(p), "the vault arms a safe landing");
+		p.invulnerableTime = 0;
+		before = p.getHealth();
+		p.hurt(p.damageSources().fall(), 6f);
+		helper.assertTrue(p.getHealth() == before, "the landing after the vault is free, health " + p.getHealth());
+		helper.assertFalse(Miraculous.hasSafeLanding(p), "and it is used up");
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().fall(), 6f);
+		helper.assertTrue(p.getHealth() < before, "the next fall hurts (half) again");
+		before = p.getHealth();
 		Miraculous.detransform(p, false);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().fall(), 6f);

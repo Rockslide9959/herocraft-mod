@@ -9,8 +9,8 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
- * v0.16.6: the shared passives of every Miraculous suit, as an {@code ALLOW_DAMAGE} veto: no fall damage while
- * transformed, and the holder's kit gets {@link KwamiKit#modifyIncomingDamage} for every other hit (0 cancels it, a
+ * v0.16.6: the shared passives of every Miraculous suit, as an {@code ALLOW_DAMAGE} veto: v0.16.7 (user) half fall
+ * damage while transformed (none at all for the landing after a movement move), and the holder's kit gets {@link KwamiKit#modifyIncomingDamage} for every other hit (0 cancels it, a
  * changed amount cancels and re-issues it behind a re-entrancy guard, the pattern every power here uses). Damage that
  * bypasses invulnerability ({@code /kill}, the void) is never touched.
  */
@@ -32,6 +32,16 @@ public final class MiraculousDamage {
 			return true;
 		}
 		if (source.is(DamageTypeTags.IS_FALL)) {
+			// v0.16.7 (user): a landing after a movement move (dash, vault, leap, swing...) is free; any other fall hurts half
+			if (Miraculous.hasSafeLanding(player)) {
+				Miraculous.clearSafeLanding(player);
+				player.resetFallDistance();
+				return false;
+			}
+			float half = amount * MiraculousConfig.FALL_DAMAGE_FACTOR;
+			if (half > 0.01f) {
+				reissue(player, source, half);
+			}
 			return false;
 		}
 		float changed = MiraculousKits.of(Miraculous.kwami(player)).modifyIncomingDamage(player, source, amount);

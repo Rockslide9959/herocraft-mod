@@ -116,8 +116,42 @@ public final class Miraculous {
 	}
 
 	public static void setCooldown(ServerPlayer player, String abilityId, int ticks) {
-		long at = player.level().getGameTime() + ticks;
-		edit(player, n -> n.abilityReadyAt.put(abilityId, at));
+		long now = player.level().getGameTime();
+		long at = now + ticks;
+		boolean safe = MiraculousConfig.SAFE_LANDING_MOVES.contains(abilityId);
+		edit(player, n -> {
+			n.abilityReadyAt.put(abilityId, at);
+			if (safe) {
+				// v0.16.7 (user): a movement move fired -- the next landing takes no fall damage
+				n.vals.put(V_SAFE_LAND, Math.max(1L, now));
+				n.vals.remove(V_SAFE_AIR);
+			}
+		});
+	}
+
+	/** v0.16.7: the next landing takes no fall damage (kits may call this for any other movement). */
+	public static void safeLanding(ServerPlayer player) {
+		long now = player.level().getGameTime();
+		edit(player, n -> {
+			n.vals.put(V_SAFE_LAND, Math.max(1L, now));
+			n.vals.remove(V_SAFE_AIR);
+		});
+	}
+
+	/** v0.16.7: a safe landing is waiting (server). */
+	public static boolean hasSafeLanding(ServerPlayer player) {
+		return state(player).val(V_SAFE_LAND) > 0L;
+	}
+
+	/** v0.16.7: the safe landing is used up / dropped. */
+	public static void clearSafeLanding(ServerPlayer player) {
+		MiraculousState s = state(player);
+		if (s.val(V_SAFE_LAND) > 0L || s.val(V_SAFE_AIR) > 0L) {
+			edit(player, n -> {
+				n.vals.remove(V_SAFE_LAND);
+				n.vals.remove(V_SAFE_AIR);
+			});
+		}
 	}
 
 	public static void setAnim(ServerPlayer player, int animId) {
@@ -342,6 +376,10 @@ public final class Miraculous {
 
 	/** Core-owned keys in {@link MiraculousState#vals} (survive until the meal is over; detransforming can't happen meanwhile). */
 	public static final String V_EAT_UNTIL = "core_eat_until";
+	/** v0.16.7: a movement move fired at this game time -- the next landing is safe. */
+	public static final String V_SAFE_LAND = "core_safe_land";
+	/** v0.16.7: the player has been off the ground since then (1). */
+	public static final String V_SAFE_AIR = "core_safe_air";
 	public static final String V_EAT_FEEDS = "core_eat_feeds";
 	public static final String V_SUB_FOOD = "core_sub_food";
 
@@ -643,6 +681,18 @@ public final class Miraculous {
 		if (s.transformed && s.countdownEnd > 0L && now >= s.countdownEnd) {
 			detransform(player, true);
 			say(player, "message.projecthero.miraculous.time_up", ChatFormatting.RED);
+			s = state(player);
+		}
+		// v0.16.7: the safe landing -- armed once airborne, used up (or dropped) back on the ground
+		long safeAt = s.val(V_SAFE_LAND);
+		if (safeAt > 0L) {
+			boolean ground = player.onGround() || player.isInWater() || player.onClimbable();
+			if (!ground && s.val(V_SAFE_AIR) == 0L) {
+				edit(player, n -> n.vals.put(V_SAFE_AIR, 1L));
+			} else if (ground && (s.val(V_SAFE_AIR) != 0L ? now - safeAt > 2L : now - safeAt > MiraculousConfig.SAFE_LANDING_GROUND_TICKS)) {
+				// (landed: the fall damage, if any, was dealt this tick before we get here)
+				clearSafeLanding(player);
+			}
 			s = state(player);
 		}
 		KwamiCompanion.tick(player, s);

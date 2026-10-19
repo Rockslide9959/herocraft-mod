@@ -37,6 +37,21 @@ public final class MiraculousConfig {
 	public static final int SUBSTITUTE_EAT_TICKS = 440;
 	/** v0.16.7 (user): Shift+N is held this long to take the Miraculous off. */
 	public static final int TAKE_OFF_HOLD_TICKS = 100;
+	/** v0.16.7 (user): transformed, falls hurt half as much (they used to never hurt). */
+	public static final float FALL_DAMAGE_FACTOR = 0.5f;
+	/**
+	 * v0.16.7 (user): the movement moves -- when one fires (its cooldown starts) the NEXT landing takes no fall damage at
+	 * all (dashes, vaults, leaps, swings, surf, portal hops...).
+	 */
+	public static final java.util.Set<String> SAFE_LANDING_MOVES = java.util.Set.of(
+			"ladybug_yoyo_swing", "ladybug_zip_line", "ladybug_pole_vault",
+			"cat_noir_pole_vault", "cat_noir_cat_leap", "cat_noir_pounce_strike",
+			"rena_rouge_fox_dash", "rena_rouge_fox_pounce", "rena_rouge_illusion_swap",
+			"hawk_moth_swarm_flight", "hawk_moth_swarm_dash",
+			"carapace_shield_surf", "carapace_shell_roll", "carapace_shield_slam", "carapace_tidal_swim",
+			"pegasus_gallop_trample", "pegasus_portal_hop", "pegasus_sky_gallop");
+	/** A safe landing that never left the ground is dropped after this long. */
+	public static final int SAFE_LANDING_GROUND_TICKS = 400;
 	/** v0.16.6 (user): this many pieces of any other food stand in for the favourite. */
 	public static final int SUBSTITUTE_FOOD_COUNT = 10;
 	/** Feeding a Kwami that is not hungry: Regeneration I for the holder, this long. */
