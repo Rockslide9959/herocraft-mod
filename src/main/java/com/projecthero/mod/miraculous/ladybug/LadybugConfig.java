@@ -12,6 +12,10 @@ public final class LadybugConfig {
 	/** How far the Yo-yo whips out along the look. */
 	public static final double STRIKE_RANGE = 12.0;
 	public static final float STRIKE_DAMAGE = 10f;
+	/** v0.16.7 (user): the strike's slight auto-aim -- up to ~15 degrees off the crosshair (the cosine)... */
+	public static final double STRIKE_ASSIST_COS = 0.966;
+	/** ...or within this many blocks of the aim line. */
+	public static final double STRIKE_ASSIST_RADIUS = 1.0;
 	public static final int STRIKE_COOLDOWN = 16;
 	/** Ticks out, then back (the client draws the throw from these). */
 	public static final int STRIKE_OUT_TICKS = 3;

@@ -149,6 +149,18 @@ public class LadybugGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): the strike's slight auto-aim -- a zombie just off the crosshair is hit, one far to the side is not. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void yoyoStrikeAutoAimsSlightly(GameTestHelper helper) {
+		ServerPlayer p = ladybug(helper, 3.5, 2.0, 0.5);
+		Zombie off = mob(helper, EntityType.ZOMBIE, 4.6, 2.0, 6.5, 100); // ~1.1 blocks off the line at 6: within the cone
+		Zombie wide = mob(helper, EntityType.ZOMBIE, 0.5, 2.0, 2.5, 100); // 3 off at 2 forward: far outside it
+		helper.assertTrue(LadybugMoves.strike(p), "the strike fires");
+		helper.assertTrue(off.getHealth() < 100f, "the nearly-aimed zombie is hit, health " + off.getHealth());
+		helper.assertTrue(wide.getHealth() == 100f, "the one well off to the side is not");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void ricochetBouncesBetweenFourForSevenEach(GameTestHelper helper) {
 		ServerPlayer p = ladybug(helper, 3.5, 2.0, 0.5);

@@ -187,6 +187,9 @@ public final class LadybugMoves {
 			return false;
 		}
 		LivingEntity t = aimed(p, LadybugConfig.STRIKE_RANGE);
+		if (t == null) {
+			t = strikeAssist(p); // v0.16.7 (user): a slight auto-aim
+		}
 		Vec3 tip;
 		if (t != null) {
 			tip = mid(t);
@@ -204,6 +207,36 @@ public final class LadybugMoves {
 		Miraculous.setCooldown(p, LadybugKeys.STRIKE, LadybugConfig.STRIKE_COOLDOWN);
 		sound(p, SoundEvents.FISHING_BOBBER_THROW, 0.7f, 1.5f);
 		return true;
+	}
+
+	/**
+	 * v0.16.7 (user): Yo-yo Strike's slight auto-aim, when the crosshair itself is on nothing -- the enemy nearest the
+	 * aim within {@link LadybugConfig#STRIKE_ASSIST_COS} of it, or within {@link LadybugConfig#STRIKE_ASSIST_RADIUS} blocks
+	 * of the aim line (so a close one just off the crosshair counts), in reach and in sight. Never a squadmate or a pet.
+	 */
+	static @Nullable LivingEntity strikeAssist(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		LivingEntity best = null;
+		double bestScore = Double.MAX_VALUE;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, eye, LadybugConfig.STRIKE_RANGE)) {
+			Vec3 to = mid(e).subtract(eye);
+			double along = to.dot(look);
+			if (along <= 0.5 || along > LadybugConfig.STRIKE_RANGE) {
+				continue;
+			}
+			double off = to.subtract(look.scale(along)).length();
+			double cos = along / to.length();
+			if ((cos < LadybugConfig.STRIKE_ASSIST_COS && off > LadybugConfig.STRIKE_ASSIST_RADIUS) || !p.hasLineOfSight(e)) {
+				continue;
+			}
+			double score = off / along; // closest to the crosshair
+			if (score < bestScore) {
+				bestScore = score;
+				best = e;
+			}
+		}
+		return best;
 	}
 
 	/** Ricochet: up to {@link LadybugConfig#RICOCHET_TARGETS} creatures, each within a hop of the last, {@link LadybugConfig#RICOCHET_DAMAGE} each. */
