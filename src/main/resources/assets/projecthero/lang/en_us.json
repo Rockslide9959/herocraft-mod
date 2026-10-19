@@ -6091,7 +6091,7 @@
   "projecthero.miraculous.ability.ladybug_spinning_shield": "Spinning Shield",
   "projecthero.miraculous.ability.ladybug_spinning_shield.desc": "Hold: the Yo-yo spins in front of you as a red disc. Arrows shatter on it, other shots bounce back, and melee from the front does a quarter damage and throws the attacker back. Up to 6 s; 2 s cooldown.",
   "projecthero.miraculous.ability.ladybug_lucky_charm": "LUCKY CHARM",
-  "projecthero.miraculous.ability.ladybug_lucky_charm.desc": "A spotted object drops from the sky that suits the moment: an apple when hurt, TNT when surrounded, a parachute when falling, otherwise a sword or bow (+50%). 10 s of Ladybug Vision; starts the 3-minute countdown. Again while holding it: Miraculous Ladybug -- broken blocks within 64 come back and you and your squad heal to full.",
+  "projecthero.miraculous.ability.ladybug_lucky_charm.desc": "A spotted object drops from the sky that suits the moment: an apple when hurt (Regeneration II 1 min, Absorption V, full hunger), TNT when surrounded (as strong as 10 TNT), a parachute when falling, otherwise a Sharpness V netherite-strength sword or a Power V bow. 10 s of Ladybug Vision; starts the 3-minute countdown. Again while holding it: Miraculous Ladybug -- broken blocks within 64 come back and you and your squad heal to full.",
   "projecthero.miraculous.ability.ladybug_pole_vault": "Pole Vault",
   "projecthero.miraculous.ability.ladybug_pole_vault.desc": "Plant the string and vault about 10 blocks up and 10 forward. 3 s cooldown.",
   "projecthero.miraculous.ability.ladybug_trip_wire": "Trip Wire",

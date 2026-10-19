@@ -84,11 +84,17 @@ public final class LadybugConfig {
 	/** Ladybug Vision after the charm. */
 	public static final int VISION_TICKS = 200;
 	public static final double VISION_RADIUS = 32.0;
-	/** The spotted weapons: +50%. */
-	public static final double CHARM_SWORD_DAMAGE = 10.5;
-	public static final float CHARM_WEAPON_BONUS = 1.5f;
-	public static final float CHARM_TNT_DAMAGE = 20f;
-	public static final double CHARM_TNT_RADIUS = 5.0;
+	/** v0.16.7 (user): the spotted sword hits like a Sharpness V netherite sword (8 + 3 = 11). */
+	public static final double CHARM_SWORD_DAMAGE = 11.0;
+	/** v0.16.7 (user): the spotted bow's arrows hit like Power V (base 2 x 2.5 = 5). */
+	public static final double CHARM_ARROW_DAMAGE = 5.0;
+	/** v0.16.7 (user): the TNT is as strong as 10 TNT blocks -- 100 at the centre, half at the edge, 12 blocks round. */
+	public static final float CHARM_TNT_DAMAGE = 100f;
+	public static final double CHARM_TNT_RADIUS = 12.0;
+	public static final double CHARM_TNT_KNOCKBACK = 2.5;
+	/** v0.16.7 (user): the apple -- Regeneration II for a minute, Absorption V. */
+	public static final int CHARM_APPLE_REGEN_TICKS = 1200;
+	public static final int CHARM_APPLE_ABSORPTION_AMPLIFIER = 4;
 	/** The parachute's fall: no faster than this. */
 	public static final double CHUTE_FALL = -0.12;
 

@@ -55,7 +55,7 @@ public class LuckyTntEntity extends ThrowableItemProjectile {
 				double d = Math.sqrt(AbilityHelpers.distanceSqToBox(e, c));
 				float dmg = (float) (LadybugConfig.CHARM_TNT_DAMAGE * (1.0 - 0.5 * Math.min(1.0, d / r)));
 				AbilityHelpers.hurtBurst(owner, e, level.damageSources().explosion(this, owner), dmg);
-				AbilityHelpers.knockbackFrom(e, c, 1.2);
+				AbilityHelpers.knockbackFrom(e, c, LadybugConfig.CHARM_TNT_KNOCKBACK);
 			}
 		}
 		discard();

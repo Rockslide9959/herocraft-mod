@@ -463,4 +463,31 @@ public class LadybugGameTests implements FabricGameTest {
 		helper.assertFalse(Miraculous.canAct(p), "no moves while detransformed");
 		helper.succeed();
 	}
+
+	/** v0.16.7 (user): the Lucky Charm's numbers -- Sharpness V netherite sword, Power V arrows, 10-TNT blast, the big apple. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void luckyCharmItemsHitLikeTheirVanillaPeers(GameTestHelper helper) {
+		var sword = new net.minecraft.world.item.ItemStack(com.projecthero.mod.miraculous.ladybug.item.LadybugItems.LUCKY_SWORD);
+		double[] dmg = { 0 };
+		sword.getOrDefault(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS, net.minecraft.world.item.component.ItemAttributeModifiers.EMPTY).forEach(net.minecraft.world.entity.EquipmentSlot.MAINHAND, (attr, mod) -> {
+			if (attr.is(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)) {
+				dmg[0] += mod.amount();
+			}
+		});
+		helper.assertTrue(Math.abs(1.0 + dmg[0] - 11.0) < 1e-6, "sword hits 11 like Sharpness V netherite, got " + (1.0 + dmg[0]));
+		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_ARROW_DAMAGE == 5.0, "Power V arrows (base 5)");
+		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_DAMAGE == 100f
+				&& com.projecthero.mod.miraculous.ladybug.LadybugConfig.CHARM_TNT_RADIUS == 12.0, "10-TNT blast");
+		var food = new net.minecraft.world.item.ItemStack(com.projecthero.mod.miraculous.ladybug.item.LadybugItems.LUCKY_APPLE)
+				.get(net.minecraft.core.component.DataComponents.FOOD);
+		helper.assertTrue(food != null && food.nutrition() == 20 && Math.abs(food.saturation() - 20f) < 1e-3, "apple fills hunger and saturation");
+		boolean regen2 = false, absorb5 = false;
+		for (var e : food.effects()) {
+			var fx = e.effect();
+			if (fx.getEffect().equals(net.minecraft.world.effect.MobEffects.REGENERATION) && fx.getAmplifier() == 1 && fx.getDuration() == 1200) regen2 = true;
+			if (fx.getEffect().equals(net.minecraft.world.effect.MobEffects.ABSORPTION) && fx.getAmplifier() == 4) absorb5 = true;
+		}
+		helper.assertTrue(regen2 && absorb5, "Regeneration II for a minute and Absorption V");
+		helper.succeed();
+	}
 }

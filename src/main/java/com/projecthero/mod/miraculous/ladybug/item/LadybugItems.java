@@ -65,10 +65,11 @@ public final class LadybugItems {
 
 	public static void initialize() {
 		Item.Properties base = new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant();
-		FoodProperties apple = new FoodProperties.Builder().nutrition(4).saturationModifier(1.2f).alwaysEdible()
+		// v0.16.7 (user): fills hunger AND saturation to the top (20 / 20), Regeneration II for a minute, Absorption V
+		FoodProperties apple = new FoodProperties.Builder().nutrition(20).saturationModifier(0.5f).alwaysEdible()
 				.effect(new MobEffectInstance(MobEffects.HEAL, 1, 1), 1f)
-				.effect(new MobEffectInstance(MobEffects.REGENERATION, 200, 1), 1f)
-				.effect(new MobEffectInstance(MobEffects.ABSORPTION, 2400, 1), 1f)
+				.effect(new MobEffectInstance(MobEffects.REGENERATION, LadybugConfig.CHARM_APPLE_REGEN_TICKS, 1), 1f)
+				.effect(new MobEffectInstance(MobEffects.ABSORPTION, 2400, LadybugConfig.CHARM_APPLE_ABSORPTION_AMPLIFIER), 1f)
 				.effect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 600, 0), 1f).build();
 		LUCKY_APPLE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("ladybug_lucky_apple"),
 				new AppleItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant().food(apple)));
@@ -180,10 +181,10 @@ public final class LadybugItems {
 		}
 	}
 
-	/** A spotted sword: {@link LadybugConfig#CHARM_SWORD_DAMAGE} (a diamond sword +50%), unbreakable. */
+	/** A spotted sword: {@link LadybugConfig#CHARM_SWORD_DAMAGE} (a Sharpness V netherite sword), unbreakable. */
 	public static final class LuckySwordItem extends SwordItem implements Charm {
 		public LuckySwordItem(Properties p) {
-			super(Tiers.DIAMOND, p);
+			super(Tiers.NETHERITE, p);
 		}
 
 		@Override
@@ -192,7 +193,7 @@ public final class LadybugItems {
 		}
 	}
 
-	/** A spotted bow: needs no arrows, its arrows hit +50%, unbreakable. */
+	/** A spotted bow: needs no arrows, its arrows hit like Power V, unbreakable. */
 	public static final class LuckyBowItem extends BowItem implements Charm {
 		public LuckyBowItem(Properties p) {
 			super(p);
@@ -216,7 +217,7 @@ public final class LadybugItems {
 			if (!level.isClientSide()) {
 				Arrow arrow = new Arrow(level, player, new ItemStack(Items.ARROW), stack);
 				arrow.shootFromRotation(player, player.getXRot(), player.getYRot(), 0f, power * 3.0f, 1.0f);
-				arrow.setBaseDamage(arrow.getBaseDamage() * LadybugConfig.CHARM_WEAPON_BONUS);
+				arrow.setBaseDamage(LadybugConfig.CHARM_ARROW_DAMAGE); // v0.16.7 (user): Power V
 				arrow.setCritArrow(power >= 1.0f);
 				arrow.pickup = AbstractArrow.Pickup.CREATIVE_ONLY;
 				level.addFreshEntity(arrow);
