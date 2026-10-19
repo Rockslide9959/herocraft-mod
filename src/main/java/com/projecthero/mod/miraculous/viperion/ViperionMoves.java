@@ -56,12 +56,18 @@ public final class ViperionMoves {
 	public static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.35f, 0.95f, 0.45f), 1.4f);
 
 	static final class Session {
-		// Lyre Strike: blows left, the next one at
-		int comboLeft;
-		long nextBlow;
+		// Lyre Strike: swings pressed so far (1..3), the last press at, its hit lands at (0 = none), a press queued
+		int comboStep;
+		long comboLast;
+		long hitAt;
+		int hitStep;
+		boolean queued;
 		// Serpent Dash
 		Vec3 driveDir;
 		int driveTicks;
+		// Coil Leap: in the air from it (no fall damage on the landing), since
+		boolean coilAir;
+		long coilAt;
 		// Constrict
 		int constrictId = -1;
 		Vec3 constrictAt;
@@ -210,41 +216,85 @@ public final class ViperionMoves {
 
 	// ================================================================ R: Lyre Strike / Shift+R: Lyre Sweep
 
-	/** Three quick blows of the lyre (club-end first) on whatever is in front; the last one knocks it back. The first lands now: returns what it hit. */
-	public static @Nullable LivingEntity strike(ServerPlayer p) {
+	/**
+	 * v0.16.7 (user): one press = one swing of a three-press combo, as Cat Noir's Baton Strike (his reach, cone, damage,
+	 * knockback): forehand, backhand, then the overhead finisher (harder knockback, and the cooldown starts). Each swing
+	 * lands {@link ViperionConfig#STRIKE_WINDUP} ticks after its press (in {@link #tick}). The next press must come within
+	 * {@link ViperionConfig#STRIKE_WINDOW} of the last, else the combo starts over; a press sooner than
+	 * {@link ViperionConfig#STRIKE_GAP} is queued. Returns the swing started (1..3), or 0 if the press was queued.
+	 */
+	public static int strike(ServerPlayer p) {
 		Session s = session(p);
-		s.comboLeft = ViperionConfig.STRIKE_HITS;
-		s.nextBlow = now(p);
-		Miraculous.setVal(p, Viperion.V_COMBO, now(p) + (long) ViperionConfig.STRIKE_GAP * ViperionConfig.STRIKE_HITS);
-		Miraculous.setAnim(p, Viperion.ANIM_STRIKE);
-		Miraculous.setCooldown(p, ViperionConfig.STRIKE, ViperionConfig.STRIKE_COOLDOWN);
-		return blow(p, s);
+		long now = now(p);
+		if (s.comboStep >= ViperionConfig.STRIKE_HITS || (s.comboStep > 0 && now - s.comboLast > ViperionConfig.STRIKE_WINDOW)) {
+			s.comboStep = 0;
+		}
+		if (s.comboStep > 0 && now - s.comboLast < ViperionConfig.STRIKE_GAP) {
+			s.queued = true;
+			return 0;
+		}
+		return swing(p, s, now);
 	}
 
-	private static @Nullable LivingEntity blow(ServerPlayer p, Session s) {
-		boolean last = s.comboLeft == 1;
-		s.comboLeft--;
-		s.nextBlow = now(p) + ViperionConfig.STRIKE_GAP;
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
-		sound(p, SoundEvents.NOTE_BLOCK_HARP, 0.7f, last ? 0.8f : 1.2f + 0.2f * s.comboLeft);
-		LivingEntity t = nearestInFront(p, ViperionConfig.STRIKE_REACH);
-		Vec3 front = chest(p).add(flatLook(p).scale(1.2));
-		p.serverLevel().sendParticles(STRING, front.x, front.y, front.z, 4, 0.3, 0.2, 0.3, 0.0);
-		if (t == null) {
-			return null;
+	/** Gametests / HUD: swings of the running combo so far (0 = none). */
+	public static int comboStep(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s == null ? 0 : s.comboStep;
+	}
+
+	private static int swing(ServerPlayer p, Session s, long now) {
+		if (s.hitAt > 0L) {
+			land(p, s); // a swing still winding up lands first
 		}
-		Vec3 before = t.getDeltaMovement();
-		boolean ok = hit(p, t, p.position(), last ? ViperionConfig.STRIKE_FINISHER_DAMAGE : ViperionConfig.STRIKE_DAMAGE,
-				last ? ViperionConfig.STRIKE_FINISHER_KNOCKBACK : 0.0, last ? 0.25 : 0.0);
-		if (ok && !last && !isBoss(t)) {
-			// the first blows keep it in reach of the next (no vanilla knockback); the finisher sends it flying
-			t.setDeltaMovement(before.x * 0.3, Math.min(before.y, 0.0), before.z * 0.3);
-			t.hurtMarked = true;
+		s.comboStep++;
+		s.comboLast = now;
+		s.queued = false;
+		s.hitAt = now + ViperionConfig.STRIKE_WINDUP;
+		s.hitStep = s.comboStep;
+		int step = s.comboStep;
+		Miraculous.setVal(p, Viperion.V_COMBO, now + (step >= ViperionConfig.STRIKE_HITS ? ViperionConfig.STRIKE_SWING_TICKS : ViperionConfig.STRIKE_WINDOW));
+		Miraculous.setAnim(p, step == 1 ? Viperion.ANIM_STRIKE : step == 2 ? Viperion.ANIM_STRIKE_2 : Viperion.ANIM_STRIKE_3);
+		if (step >= ViperionConfig.STRIKE_HITS) {
+			Miraculous.setCooldown(p, ViperionConfig.STRIKE, ViperionConfig.STRIKE_COOLDOWN);
 		}
-		if (ok) {
-			sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, last ? 0.8f : 1.1f);
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.5f, step >= ViperionConfig.STRIKE_HITS ? 0.8f : 1.3f + 0.15f * step);
+		return step;
+	}
+
+	/** A swing lands: everything in the cone in front, as Cat Noir's. Returns how many it hit. */
+	private static int land(ServerPlayer p, Session s) {
+		boolean finisher = s.hitStep >= ViperionConfig.STRIKE_HITS;
+		s.hitAt = 0L;
+		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, finisher ? 0.8f : 1.2f + 0.15f * s.hitStep);
+		sound(p, SoundEvents.NOTE_BLOCK_HARP, 0.7f, finisher ? 0.7f : 1.0f + 0.25f * s.hitStep);
+		Vec3 front = p.position().add(flatLook(p).scale(1.6)).add(0, 1.0, 0);
+		p.serverLevel().sendParticles(ParticleTypes.SWEEP_ATTACK, front.x, front.y, front.z, 1, 0, 0, 0, 0);
+		p.serverLevel().sendParticles(STRING, front.x, front.y, front.z, 5, 0.4, 0.25, 0.4, 0.0);
+		int n = 0;
+		for (LivingEntity e : com.projecthero.mod.miraculous.catnoir.CatNoirCombat.cone(p, ViperionConfig.STRIKE_REACH, ViperionConfig.STRIKE_CONE)) {
+			if (hit(p, e, p.position(), ViperionConfig.STRIKE_DAMAGE, finisher ? ViperionConfig.STRIKE_FINISHER_KNOCKBACK : ViperionConfig.STRIKE_KNOCKBACK,
+					finisher ? ViperionConfig.STRIKE_FINISHER_LIFT : 0.0)) {
+				n++;
+			}
 		}
-		return ok ? t : null;
+		if (n > 0) {
+			sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 0.8f, finisher ? 0.8f : 1.1f);
+		}
+		return n;
+	}
+
+	private static void tickStrike(ServerPlayer p, Session s, long now) {
+		if (s.hitAt > 0L && now >= s.hitAt) {
+			land(p, s);
+		}
+		if (s.queued && s.comboStep > 0 && s.comboStep < ViperionConfig.STRIKE_HITS && now - s.comboLast >= ViperionConfig.STRIKE_GAP) {
+			swing(p, s, now);
+		}
+		if (s.comboStep > 0 && s.hitAt == 0L && !s.queued
+				&& (s.comboStep >= ViperionConfig.STRIKE_HITS || now - s.comboLast > ViperionConfig.STRIKE_WINDOW)) {
+			s.comboStep = 0; // done, or the window lapsed: the next press starts over
+		}
 	}
 
 	/** One wide swing: everything within {@link ViperionConfig#SWEEP_RADIUS} in front (a wide arc). Returns how many. */
@@ -372,6 +422,12 @@ public final class ViperionMoves {
 		Miraculous.setAnim(p, Viperion.ANIM_COIL);
 		Miraculous.setCooldown(p, ViperionConfig.COIL, ViperionConfig.COIL_COOLDOWN);
 		Miraculous.setVal(p, Viperion.V_LEAP, now(p) + 40);
+		// v0.16.7 (user): the landing never hurts -- the core's safe landing (armed by the cooldown) and, belt and
+		// braces, the fall is forgotten every tick until he is down again (see tick)
+		Miraculous.safeLanding(p);
+		Session s = session(p);
+		s.coilAir = true;
+		s.coilAt = now(p);
 		Vec3 f = flatLook(p);
 		double fwd = ViperionConfig.COIL_BLOCKS / 12.0;
 		Vec3 v = new Vec3(f.x * fwd, ViperionConfig.COIL_UP, f.z * fwd);
@@ -631,12 +687,22 @@ public final class ViperionMoves {
 		if (p.hasEffect(MobEffects.POISON)) {
 			p.removeEffect(MobEffects.POISON);
 		}
-		// the combo's next blows
-		if (s != null && s.comboLeft > 0 && now >= s.nextBlow) {
-			blow(p, s);
+		// the combo's swings
+		if (s != null) {
+			tickStrike(p, s, now);
 		}
-		if (st.val(Viperion.V_COMBO) != 0L && now >= st.val(Viperion.V_COMBO) && (s == null || s.comboLeft <= 0)) {
+		if (st.val(Viperion.V_COMBO) != 0L && now >= st.val(Viperion.V_COMBO) && (s == null || (s.hitAt == 0L && !s.queued))) {
 			Miraculous.setVal(p, Viperion.V_COMBO, 0L);
+		}
+		// Coil Leap: no fall damage on the landing (the fall is forgotten until he is down)
+		if (s != null && s.coilAir) {
+			p.resetFallDistance();
+			boolean down = p.onGround() || p.isInWater() || p.onClimbable();
+			if ((down && now - s.coilAt > 6) || now - s.coilAt > 20 * 20) {
+				s.coilAir = false;
+			} else if (!down && !Miraculous.hasSafeLanding(p)) {
+				Miraculous.safeLanding(p); // (dropped early by a brush with the ground: armed again while still airborne)
+			}
 		}
 		// the slither
 		if (s != null && s.driveTicks > 0) {
@@ -652,9 +718,8 @@ public final class ViperionMoves {
 					}
 					p.serverLevel().sendParticles(TEAL, p.getX(), p.getY() + 0.3, p.getZ(), 2, 0.3, 0.1, 0.3, 0.0);
 				}
-			} else {
-				AbilityHelpers.launchSelf(p, s.driveDir.scale(0.15).add(0, Math.min(0, p.getDeltaMovement().y), 0));
 			}
+			// v0.16.7 (user): when it ends nothing brakes him -- the last push carries on and slows naturally
 		}
 		if (st.val(Viperion.V_DASH) != 0L && now >= st.val(Viperion.V_DASH)) {
 			Miraculous.setVal(p, Viperion.V_DASH, 0L);

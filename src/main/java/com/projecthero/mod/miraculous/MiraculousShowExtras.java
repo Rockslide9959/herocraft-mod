@@ -76,8 +76,35 @@ public final class MiraculousShowExtras {
 		if (k == null || !Miraculous.transformed(player)) {
 			return null;
 		}
+		return heroName(k);
+	}
+
+	/** The hero's name ({@code projecthero.hero_tier.<key>}) in the Kwami's colour. */
+	public static MutableComponent heroName(Kwami k) {
 		return Component.translatable("projecthero.hero_tier." + k.heroKey)
 				.withStyle(st -> st.withColor(TextColor.fromRgb(k.color & 0xFFFFFF)));
+	}
+
+	// ---------------------------------------------------------------- the phrases, spoken as the hero
+
+	/** v0.16.7 (user): the chat line a spoken phrase becomes -- a normal chat line from the HERO: {@code <Ladybug> Spots on!}. */
+	public static MutableComponent phraseLine(Kwami k, String text) {
+		return Component.translatable("chat.type.text", heroName(k), Component.literal(text));
+	}
+
+	/**
+	 * v0.16.7 (user): {@code ALLOW_CHAT_MESSAGE} -- chat is global, so a holder saying their transformation (or
+	 * detransformation) phrase under their own name would give their identity away. If {@code text} is one of the
+	 * sender's phrases it goes out instead, to everyone, as {@link #phraseLine} (their own wording); true = it was a
+	 * phrase (the caller cancels the normal line, then transforms / detransforms). Anything else: false, untouched.
+	 */
+	public static boolean speakPhrase(ServerPlayer sender, String text) {
+		Kwami k = Miraculous.kwami(sender);
+		if (k == null || MiraculousPhrases.match(k, text) == null) {
+			return false;
+		}
+		sender.server.getPlayerList().broadcastSystemMessage(phraseLine(k, text.strip()), false);
+		return true;
 	}
 
 	private static void refreshTabList(MinecraftServer server, ServerPlayer p) {

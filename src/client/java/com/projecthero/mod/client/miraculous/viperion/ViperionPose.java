@@ -16,7 +16,7 @@ import net.minecraft.world.entity.player.Player;
  * same thing. The Lyre is in his RIGHT hand. Negative {@code xRot} swings a limb forward / up; positive {@code zRot} lifts
  * the right arm out to the side (the left mirrors).
  * <ul>
- *   <li><b>Lyre Strike</b>: three swings, forehand, backhand, overhead; <b>Lyre Sweep</b>: one wide swing right to left;</li>
+ *   <li><b>Lyre Strike</b> (v0.16.7, user: one swing a press, as Cat Noir): forehand, backhand, the overhead finisher; <b>Lyre Sweep</b>: one wide swing right to left;</li>
  *   <li><b>Sonic Chord</b>: the Lyre held out, the left hand strumming across it; <b>Resonance</b>: raised high, then struck down;</li>
  *   <li><b>Serpent Dash</b>: the swim / crawl pose (the slither, see {@code ViperionDashPoseMixin}); <b>Coil Leap</b>: a deep
  *       crouch, then arms flung forward and up;</li>
@@ -32,7 +32,7 @@ public final class ViperionPose {
 
 	public static int length(int animId) {
 		return switch (animId) {
-			case Viperion.ANIM_STRIKE -> 16;
+			case Viperion.ANIM_STRIKE, Viperion.ANIM_STRIKE_2, Viperion.ANIM_STRIKE_3 -> com.projecthero.mod.miraculous.viperion.ViperionConfig.STRIKE_SWING_TICKS;
 			case Viperion.ANIM_SWEEP -> 12;
 			case Viperion.ANIM_CHORD -> 14;
 			case Viperion.ANIM_RESONANCE -> 16;
@@ -103,20 +103,25 @@ public final class ViperionPose {
 		float w = Math.min(1f, age / 2f) * Math.min(1f, (len - age) / 3f);
 		switch (id) {
 			case Viperion.ANIM_STRIKE -> {
-				// three blows five ticks apart: forehand, backhand, overhead
-				int k = Math.min(2, (int) (age / 5f));
-				float t = ease(Mth.clamp((age - k * 5f) / 3f, 0f, 1f));
-				if (k == 0) {
-					pose(r, w, -1.6f, Mth.lerp(t, 0.9f, -0.7f), 0f);
-					model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, 0.35f, -0.3f));
-				} else if (k == 1) {
-					pose(r, w, -1.4f, Mth.lerp(t, -0.7f, 0.8f), 0f);
-					model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, -0.3f, 0.35f));
-				} else {
-					pose(r, w, Mth.lerp(t, -2.9f, -0.9f), 0f, 0f);
-					model.body.xRot = Mth.lerp(w, model.body.xRot, 0.25f * t);
-				}
-				pose(l, w, -0.4f, 0f, -0.3f);
+				// 1 (first press): the forehand -- out wide to the right, cut flat across the front
+				float t = ease(Mth.clamp((age - 1f) / 3f, 0f, 1f));
+				pose(r, w, -1.45f, Mth.lerp(t, 1.0f, -0.8f), 0.1f);
+				pose(l, w, -0.5f, 0f, -0.45f);
+				model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, 0.35f, -0.3f));
+			}
+			case Viperion.ANIM_STRIKE_2 -> {
+				// 2: the backhand -- from the far left back across, a little higher
+				float t = ease(Mth.clamp((age - 1f) / 3f, 0f, 1f));
+				pose(r, w, -1.75f, Mth.lerp(t, -0.8f, 0.9f), -0.15f);
+				pose(l, w, -0.5f, 0f, -0.45f);
+				model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, -0.3f, 0.35f));
+			}
+			case Viperion.ANIM_STRIKE_3 -> {
+				// 3: the overhead finisher -- the Lyre up high in both hands, driven down in front
+				float t = ease(Mth.clamp((age - 1f) / 3f, 0f, 1f));
+				pose(r, w, Mth.lerp(t, -3.0f, -0.75f), -0.1f, 0f);
+				pose(l, w, Mth.lerp(t, -2.6f, -0.6f), 0.1f, 0f);
+				model.body.xRot = Mth.lerp(w, model.body.xRot, 0.35f * t);
 			}
 			case Viperion.ANIM_SWEEP -> {
 				float t = ease(Mth.clamp((age - 2f) / 5f, 0f, 1f));

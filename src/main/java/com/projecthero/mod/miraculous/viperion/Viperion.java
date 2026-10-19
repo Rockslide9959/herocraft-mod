@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
  * {@code vp_}) and the small client-safe reads the HUD, the poses and the renderers share. Timers are absolute game times.
  */
 public final class Viperion {
-	/** Lyre Strike: the three-hit combo runs until. */
+	/** Lyre Strike: the combo's window for the next press runs until (the Lyre is in his hand). */
 	public static final String V_COMBO = "vp_combo_until";
 	/** Serpent Dash: slithering (low, the swim / crawl pose) until. */
 	public static final String V_DASH = "vp_dash_until";
@@ -53,6 +53,9 @@ public final class Viperion {
 	public static final int ANIM_SHIELD = 150;
 	public static final int ANIM_HEAT = 151;
 	public static final int ANIM_HISS = 152;
+	/** v0.16.7 (user): Lyre Strike's three presses -- {@link #ANIM_STRIKE} is the forehand, then the backhand, the overhead. */
+	public static final int ANIM_STRIKE_2 = 153;
+	public static final int ANIM_STRIKE_3 = 154;
 
 	private Viperion() {
 	}

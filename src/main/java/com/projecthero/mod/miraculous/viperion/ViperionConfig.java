@@ -30,13 +30,25 @@ public final class ViperionConfig {
 	public static final double FRONT_DOT = 0.4;
 
 	// ---------------------------------------------------------------- R: Lyre Strike / Shift+R: Lyre Sweep
-	/** Three blows, this far apart; the last one hits harder and knocks back. */
+	/**
+	 * v0.16.7 (user): Cat Noir's Baton Strike, pressed three times -- each press is one swing (forehand, backhand, the
+	 * overhead finisher) with his reach, cone, damage and knockback. A swing lands {@link #STRIKE_WINDUP} ticks after its
+	 * press; the next press must come within {@link #STRIKE_WINDOW} of the last (one sooner than {@link #STRIKE_GAP} is
+	 * queued), else the combo starts over. The cooldown starts with the third swing.
+	 */
 	public static final int STRIKE_HITS = 3;
+	public static final int STRIKE_WINDUP = 3;
 	public static final int STRIKE_GAP = 5;
-	public static final float STRIKE_DAMAGE = 7f;
-	public static final float STRIKE_FINISHER_DAMAGE = 11f;
-	public static final double STRIKE_REACH = 3.8;
-	public static final double STRIKE_FINISHER_KNOCKBACK = 1.3;
+	public static final int STRIKE_WINDOW = 20;
+	/** One swing's pose (ticks). */
+	public static final int STRIKE_SWING_TICKS = 10;
+	public static final float STRIKE_DAMAGE = 9f;
+	public static final double STRIKE_REACH = 4.0;
+	/** Cosine of the half-angle of each swing's cone (about 60 degrees either side), as Cat Noir's. */
+	public static final double STRIKE_CONE = 0.5;
+	public static final double STRIKE_KNOCKBACK = 0.4;
+	public static final double STRIKE_FINISHER_KNOCKBACK = 1.0;
+	public static final double STRIKE_FINISHER_LIFT = 0.15;
 	public static final int STRIKE_COOLDOWN = 30;
 	public static final double SWEEP_RADIUS = 4.5;
 	/** The sweep's half arc: everything with a flattened dot above this (about 100 degrees either side: a wide swing). */
@@ -59,13 +71,15 @@ public final class ViperionConfig {
 	public static final int RESONANCE_COOLDOWN = 300;
 
 	// ---------------------------------------------------------------- X: Serpent Dash / Shift+X: Coil Leap
-	public static final double DASH_DISTANCE = 12.0;
+	/** v0.16.7 (user): further (was 12); when it ends his momentum carries on (no braking). */
+	public static final double DASH_DISTANCE = 18.0;
 	/** Blocks a tick (the slither lasts distance / speed ticks; he stays low a few ticks longer). */
 	public static final double DASH_SPEED = 1.2;
 	public static final int DASH_LOW_EXTRA = 6;
 	public static final int DASH_COOLDOWN = 100;
 	/** The spring: about this many blocks forward, up a good way. */
-	public static final double COIL_BLOCKS = 14.0;
+	/** v0.16.7 (user): a little further (was 14); the landing never hurts. */
+	public static final double COIL_BLOCKS = 17.5;
 	public static final double COIL_UP = 0.95;
 	public static final int COIL_WINDUP = 6;
 	public static final int COIL_COOLDOWN = 120;

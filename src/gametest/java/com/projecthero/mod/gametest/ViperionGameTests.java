@@ -128,17 +128,48 @@ public class ViperionGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- R
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void lyreStrikeLandsThreeBlows(GameTestHelper helper) {
+	/** v0.16.7 (user): three presses, three swings, as Cat Noir's Baton Strike (his numbers); the cooldown only after the third. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void lyreStrikeIsThreePressesLikeCatNoir(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = viperion(helper, 3.5, 2.0, 2.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 4.5, 100, false);
 		pump(helper, p);
-		helper.assertTrue(ViperionMoves.strike(p) == z, "the first blow lands now");
-		helper.runAfterDelay(20, () -> {
-			float want = 2 * ViperionConfig.STRIKE_DAMAGE + ViperionConfig.STRIKE_FINISHER_DAMAGE;
-			helper.assertTrue(Math.abs(taken(z, 100) - want) < 1.0f, "7 + 7 + 11, took " + taken(z, 100) + " dist " + z.position().distanceTo(p.position()));
-			helper.succeed();
+		helper.assertTrue(ViperionConfig.STRIKE_DAMAGE == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_DAMAGE
+				&& ViperionConfig.STRIKE_REACH == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_REACH
+				&& ViperionConfig.STRIKE_CONE == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_CONE
+				&& ViperionConfig.STRIKE_KNOCKBACK == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_KNOCKBACK
+				&& ViperionConfig.STRIKE_FINISHER_KNOCKBACK == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_FINISHER_KNOCKBACK
+				&& ViperionConfig.STRIKE_COOLDOWN == com.projecthero.mod.miraculous.catnoir.CatNoirConfig.STRIKE_COOLDOWN, "Cat Noir's numbers");
+		helper.assertTrue(ViperionMoves.strike(p) == 1 && Miraculous.state(p).animId == Viperion.ANIM_STRIKE, "press 1: the forehand");
+		helper.assertTrue(Miraculous.ready(p, ViperionConfig.STRIKE), "no cooldown mid-combo");
+		helper.runAfterDelay(6, () -> {
+			helper.assertTrue(Math.abs(taken(z, 100) - ViperionConfig.STRIKE_DAMAGE) < EPS, "one swing, 9: took " + taken(z, 100));
+			helper.assertTrue(ViperionMoves.strike(p) == 2 && Miraculous.state(p).animId == Viperion.ANIM_STRIKE_2, "press 2: the backhand");
+			helper.runAfterDelay(6, () -> {
+				helper.assertTrue(Math.abs(taken(z, 100) - 2 * ViperionConfig.STRIKE_DAMAGE) < EPS, "two swings: took " + taken(z, 100));
+				helper.assertTrue(ViperionMoves.strike(p) == 3 && Miraculous.state(p).animId == Viperion.ANIM_STRIKE_3, "press 3: the overhead");
+				helper.assertFalse(Miraculous.ready(p, ViperionConfig.STRIKE), "the cooldown starts with the finisher");
+				helper.runAfterDelay(6, () -> {
+					helper.assertTrue(Math.abs(taken(z, 100) - 3 * ViperionConfig.STRIKE_DAMAGE) < EPS, "three swings, 27: took " + taken(z, 100));
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void lyreStrikeComboStartsOverAfterTheWindow(GameTestHelper helper) {
+		ServerPlayer p = viperion(helper, 3.5, 2.0, 2.5);
+		pump(helper, p);
+		helper.assertTrue(ViperionMoves.strike(p) == 1, "swing 1");
+		helper.assertTrue(ViperionMoves.strike(p) == 0, "a press too soon is queued");
+		helper.runAfterDelay(ViperionConfig.STRIKE_GAP + 2, () -> {
+			helper.assertTrue(ViperionMoves.comboStep(p) == 2, "the queued press swung");
+			helper.runAfterDelay(ViperionConfig.STRIKE_WINDOW + 3, () -> {
+				helper.assertTrue(ViperionMoves.strike(p) == 1, "too late: the combo starts over");
+				helper.succeed();
+			});
 		});
 	}
 
@@ -199,14 +230,41 @@ public class ViperionGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	/** v0.16.7 (user): further (18 blocks), and when it ends his momentum is not taken away. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void serpentDashKeepsItsMomentumWhenItEnds(GameTestHelper helper) {
+		ServerPlayer p = viperion(helper, 3.5, 2.0, 0.5);
+		helper.assertTrue(ViperionConfig.DASH_DISTANCE >= 18.0, "1.5x further");
+		pump(helper, p);
+		ViperionMoves.dash(p);
+		int ticks = (int) Math.ceil(ViperionConfig.DASH_DISTANCE / ViperionConfig.DASH_SPEED);
+		helper.runAfterDelay(ticks + 2, () -> {
+			helper.assertTrue(p.getDeltaMovement().horizontalDistance() >= ViperionConfig.DASH_SPEED - 0.05,
+					"the slither is over and nothing braked him: " + p.getDeltaMovement());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
 	public void coilLeapSpringsForwardAndUp(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = viperion(helper, 3.5, 2.0, 0.5);
 		Vec3 v = ViperionMoves.coil(p);
-		helper.assertTrue(v.y >= ViperionConfig.COIL_UP - 0.01 && v.z > 1.0, "up and forward: " + v);
+		helper.assertTrue(ViperionConfig.COIL_BLOCKS >= 17.0, "1.25x further");
+		helper.assertTrue(v.y >= ViperionConfig.COIL_UP - 0.01 && v.z > 1.4, "up and forward: " + v);
 		helper.assertTrue(Miraculous.hasSafeLanding(p) && MiraculousConfig.SAFE_LANDING_MOVES.contains(ViperionConfig.COIL), "the landing is free");
-		helper.succeed();
+		// in the air (the mock is never moved): the fall is forgotten each tick, and a landing hit does nothing
+		p.setOnGround(false);
+		pump(helper, p);
+		helper.runAfterDelay(8, () -> p.fallDistance = 30f);
+		helper.runAfterDelay(11, () -> {
+			helper.assertTrue(p.fallDistance == 0f, "the fall is forgotten while he is in the air");
+			float hp = p.getHealth();
+			p.invulnerableTime = 0;
+			p.hurt(p.damageSources().fall(), 12f);
+			helper.assertTrue(p.getHealth() == hp, "no fall damage on the landing");
+			helper.succeed();
+		});
 	}
 
 	// ---------------------------------------------------------------- Z
@@ -319,6 +377,73 @@ public class ViperionGameTests implements FabricGameTest {
 			helper.assertTrue(Viperion.checkpointTicksLeft(p) == 0, "and the HUD knows");
 			helper.assertFalse(SecondChance.rewind(p, true), "nothing to rewind to");
 			helper.succeed();
+		});
+	}
+
+	/**
+	 * v0.16.7 (user): a rewind turns back TIME -- the Miraculous countdown and every cooldown have the time left they had
+	 * at the checkpoint, a move used since is ready again, and the 90 s window starts over.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80, batch = "viperion_rewindTurnsBackTheTimers")
+	public void rewindTurnsBackTheTimers(GameTestHelper helper) {
+		ServerPlayer p = viperion(helper, 3.5, 2.0, 3.5);
+		pump(helper, p);
+		Miraculous.setCooldown(p, ViperionConfig.CHORD, ViperionConfig.CHORD_COOLDOWN);
+		Miraculous.setVal(p, Viperion.V_SHIELD, helper.getLevel().getGameTime() + 100);
+		SecondChance.checkpoint(p);
+		int countdown = Miraculous.countdownLeft(p);
+		int chord = Miraculous.cooldownRemaining(p, ViperionConfig.CHORD);
+		int special = Miraculous.cooldownRemaining(p, ViperionConfig.SECOND_CHANCE);
+		helper.assertTrue(countdown > 0 && chord == ViperionConfig.CHORD_COOLDOWN, "the countdown runs, Sonic Chord is cooling");
+		helper.runAfterDelay(30, () -> {
+			ViperionMoves.dash(p); // used since the checkpoint
+			helper.assertTrue(Miraculous.countdownLeft(p) <= countdown - 29 && Viperion.checkpointTicksLeft(p) <= ViperionConfig.SECOND_CHANCE_WINDOW - 29,
+					"time has passed");
+			helper.assertTrue(SecondChance.rewind(p, false), "rewound");
+			helper.assertTrue(Math.abs(Miraculous.countdownLeft(p) - countdown) <= 1, "the 3-minute countdown is back where it was: "
+					+ Miraculous.countdownLeft(p) + " vs " + countdown);
+			helper.assertTrue(Math.abs(Miraculous.cooldownRemaining(p, ViperionConfig.CHORD) - chord) <= 1, "Sonic Chord's cooldown too");
+			helper.assertTrue(Math.abs(Miraculous.cooldownRemaining(p, ViperionConfig.SECOND_CHANCE) - special) <= 1, "and the special's");
+			helper.assertTrue(Miraculous.ready(p, ViperionConfig.DASH), "the dash used since is ready again");
+			helper.assertTrue(Viperion.running(p, Viperion.V_SHIELD) && Math.abs(Viperion.val(p, Viperion.V_SHIELD) - helper.getLevel().getGameTime() - 100) <= 1,
+					"a kit timer (the String Shield) has the time it had left");
+			helper.assertTrue(Viperion.checkpointTicksLeft(p) == ViperionConfig.SECOND_CHANCE_WINDOW && Viperion.rewindsLeft(p) == 2,
+					"the 90 s window starts over; two rewinds left");
+			helper.assertTrue(SecondChance.live(p), "still live");
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.7 (user): a squadmate's Miraculous countdown and cooldowns are turned back too. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80, batch = "viperion_rewindTurnsBackASquadmatesTimers")
+	public void rewindTurnsBackASquadmatesTimers(GameTestHelper helper) {
+		ServerPlayer p = viperion(helper, 2.5, 2.0, 2.5);
+		ServerPlayer mate = mock(helper, 5.5, 2.0, 5.5);
+		helper.assertTrue(Miraculous.grant(mate, Kwami.TIKKI), "Tikki");
+		Miraculous.transform(mate);
+		ready(helper, mate);
+		Miraculous.startCountdown(mate);
+		var squads = com.projecthero.mod.squad.SquadManager.get(helper.getLevel().getServer());
+		var squad = squads.create("ViperionRewind" + helper.getLevel().getGameTime(), p.getUUID());
+		squads.addMember(squad, mate.getUUID());
+		pump(helper, p);
+		helper.runAfterDelay(10, () -> {
+			SecondChance.checkpoint(p);
+			int mateCountdown = Miraculous.countdownLeft(mate);
+			helper.assertTrue(mateCountdown > 0, "her countdown is running");
+			helper.runAfterDelay(30, () -> {
+				try {
+					Miraculous.setCooldown(mate, "ladybug_lucky_charm", 600);
+					helper.assertTrue(Miraculous.countdownLeft(mate) <= mateCountdown - 29, "her time has run down");
+					helper.assertTrue(SecondChance.rewind(p, false), "rewound");
+					helper.assertTrue(Math.abs(Miraculous.countdownLeft(mate) - mateCountdown) <= 1, "her countdown is back where it was: "
+							+ Miraculous.countdownLeft(mate) + " vs " + mateCountdown);
+					helper.assertTrue(Miraculous.ready(mate, "ladybug_lucky_charm"), "her move used since is ready again");
+					helper.succeed();
+				} finally {
+					squads.disband(squad);
+				}
+			});
 		});
 	}
 
