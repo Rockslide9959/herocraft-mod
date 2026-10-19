@@ -340,6 +340,8 @@ public class KwamiEntity extends Entity implements GeoEntity {
 				// v0.16.6: the bracelet on the LEFT wrist, and the glasses on the eyes
 				case WAYZZ -> base.add(0, owner.getBbHeight() * 0.44, 0).add(right.scale(-0.38)).add(fwd.scale(0.05));
 				case KAALKI -> base.add(0, owner.getEyeHeight() + 0.08, 0).add(fwd.scale(0.3));
+				// v0.16.7: the Snake Bracelet on the RIGHT wrist
+				case SASS -> base.add(0, owner.getBbHeight() * 0.44, 0).add(right.scale(0.38)).add(fwd.scale(0.05));
 			};
 		}
 		boolean tired = mode == MODE_TIRED || mode == MODE_POP_TIRED;

@@ -238,6 +238,7 @@ public final class Miraculous {
 			case NOOROO -> net.minecraft.world.item.Items.HONEY_BOTTLE;
 			case WAYZZ -> net.minecraft.world.item.Items.DRIED_KELP;
 			case KAALKI -> net.minecraft.world.item.Items.SUGAR;
+			case SASS -> net.minecraft.world.item.Items.EGG; // v0.16.7
 		};
 	}
 
