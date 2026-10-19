@@ -34,19 +34,19 @@ public final class ModArmorMaterials {
 			() -> Ingredient.of(Items.NETHERITE_INGOT));
 
 	/**
-	 * v0.14.15: Thor's Armour's own material (it used to share {@link #THOR} with All Might / Moon Knight). v0.16.7 (user):
-	 * IRON level -- 2 / 5 / 6 (helmet 2 unused: the set has no helmet), no toughness, no knockback resistance (Thor's
-	 * own built-in diamond-level armour is a passive now, see ThorPassives); diamond durability.
+	 * v0.14.15: Thor's Armour's own material (it used to share {@link #THOR} with All Might / Moon Knight). The set has no
+	 * helmet, so its three pieces carry a whole diamond set between them: 4 / 7 / 9 (= 20 armour, ten armour icons, like
+	 * full diamond) and 8/3 toughness each (= 8 in all, like full diamond), no knockback resistance, diamond durability.
 	 */
 	public static final Holder<ArmorMaterial> THOR_ARMOUR = registerWithLayer("thor_armour", "thor",
 			Map.of(
-					ArmorItem.Type.BOOTS, 2,
-					ArmorItem.Type.LEGGINGS, 5,
-					ArmorItem.Type.CHESTPLATE, 6,
-					ArmorItem.Type.HELMET, 2),
+					ArmorItem.Type.BOOTS, 4,
+					ArmorItem.Type.LEGGINGS, 7,
+					ArmorItem.Type.CHESTPLATE, 9,
+					ArmorItem.Type.HELMET, 3),
 			10,
 			SoundEvents.ARMOR_EQUIP_DIAMOND,
-			0.0f,
+			8.0f / 3.0f,
 			0.0f,
 			() -> Ingredient.of(Items.DIAMOND));
 

@@ -70,16 +70,15 @@ public final class SupermanSuit {
 		MATERIAL = Registry.registerForHolder(BuiltInRegistries.ARMOR_MATERIAL,
 				ResourceKey.create(Registries.ARMOR_MATERIAL, ProjectHeroMod.id("superman")),
 				new ArmorMaterial(
-						// v0.16.7 (user): IRON level (his built-in diamond-level armour is a passive now)
-						Map.of(ArmorItem.Type.BOOTS, 2, ArmorItem.Type.LEGGINGS, 5, ArmorItem.Type.CHESTPLATE, 6,
-								ArmorItem.Type.HELMET, 2, ArmorItem.Type.BODY, 5),
+						Map.of(ArmorItem.Type.BOOTS, 3, ArmorItem.Type.LEGGINGS, 6, ArmorItem.Type.CHESTPLATE, 8,
+								ArmorItem.Type.HELMET, 3, ArmorItem.Type.BODY, 11),
 						15,
 						SoundEvents.ARMOR_EQUIP_LEATHER,
 						() -> Ingredient.of(Items.DIAMOND),
 						// the flat vanilla layer is never seen (GeckoLib draws the suit); Thor's, like every other set
 						List.of(new ArmorMaterial.Layer(ProjectHeroMod.id("thor"))),
-						0.0f,
-						0.0f));
+						3.0f,
+						0.1f));
 		CHESTPLATE = piece("superman_suit_chestplate", ArmorItem.Type.CHESTPLATE);
 		LEGGINGS = piece("superman_suit_leggings", ArmorItem.Type.LEGGINGS);
 		BOOTS = piece("superman_suit_boots", ArmorItem.Type.BOOTS);

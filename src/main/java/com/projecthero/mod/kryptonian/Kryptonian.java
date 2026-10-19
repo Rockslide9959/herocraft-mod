@@ -320,8 +320,9 @@ public final class Kryptonian {
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		// the client predicts fall damage off this; the server cancels it outright either way
 		PowerToggles.modifier(player, Attributes.SAFE_FALL_DISTANCE, SAFE_FALL_ID, 1000.0, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ARMOR, ARMOR_ID, KryptonianConfig.ARMOR_BONUS, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID, KryptonianConfig.TOUGHNESS_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		// (v0.16.7: the short-lived built-in armour is taken off anyone who still has it)
+		PowerToggles.clearModifier(player, Attributes.ARMOR, ARMOR_ID);
+		PowerToggles.clearModifier(player, Attributes.ARMOR_TOUGHNESS, TOUGHNESS_ID);
 		reconcileRegeneration(player, wantsRegeneration(player));
 	}
 
@@ -396,7 +397,7 @@ public final class Kryptonian {
 		return (lo + hi) * 0.5;
 	}
 
-	/** Damage-taken factor for everything that is not simply ignored: 0.70 at full strength (plus the built-in armour), 1.0 near kryptonite. */
+	/** Damage-taken factor for everything that is not simply ignored: 0.20 at full strength, 1.0 near kryptonite. */
 	public static float damageTakenFactor(ServerPlayer player) {
 		return empowered(player) ? 1.0f - KryptonianConfig.DAMAGE_REDUCTION : 1.0f;
 	}

@@ -21,9 +21,9 @@ public class V01415GameTests implements FabricGameTest {
 		p.setGameMode(GameType.SURVIVAL);
 		Kryptonian.grant(p);
 		Kryptonian.reconcile(p);
-		helper.assertTrue(KryptonianConfig.DAMAGE_REDUCTION == 0.30f
+		helper.assertTrue(KryptonianConfig.DAMAGE_REDUCTION == 0.80f
 				&& Math.abs(Kryptonian.damageTakenFactor(p) - com.projecthero.mod.power.ThorPassives.DAMAGE_TAKEN_FACTOR) < 1.0e-6,
-				"v0.16.7: 30% damage reduction (plus built-in armour), the same as Thor");
+				"80% damage reduction, the same as Thor");
 		// v0.14.16: no longer a permanent Regeneration I -- Regeneration III only while hurt (KryptonianV01416GameTests)
 		p.setHealth(p.getMaxHealth() - 6.0f);
 		Kryptonian.reconcile(p);
@@ -59,14 +59,14 @@ public class V01415GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void thorsArmourIsIronLevel(GameTestHelper helper) {
+	public void thorsArmourIsAFullDiamondSet(GameTestHelper helper) {
 		int defense = ThorArmorItems.CHESTPLATE.getDefense() + ThorArmorItems.LEGGINGS.getDefense() + ThorArmorItems.BOOTS.getDefense();
 		float toughness = ThorArmorItems.CHESTPLATE.getToughness() + ThorArmorItems.LEGGINGS.getToughness() + ThorArmorItems.BOOTS.getToughness();
-		helper.assertTrue(defense == 13, "v0.16.7: iron level, 6 + 5 + 2 = 13 armour, got " + defense);
-		helper.assertTrue(Math.abs(toughness) < 1.0e-3, "v0.16.7: no toughness, got " + toughness);
-		helper.assertTrue(com.projecthero.mod.power.StormEnergy.ARMOUR_REGEN_MULTIPLIER == 1.5f, "v0.16.7: the armour regenerates Storm Energy 50% faster");
+		helper.assertTrue(defense == 20, "20 armour like full diamond, got " + defense);
+		helper.assertTrue(Math.abs(toughness - 8.0f) < 1.0e-3, "8 toughness like full diamond, got " + toughness);
 		helper.assertTrue(ThorArmorItems.CHESTPLATE.getDefaultInstance().getMaxDamage() == net.minecraft.world.item.Items.DIAMOND_CHESTPLATE
 				.getDefaultInstance().getMaxDamage(), "diamond durability");
+		helper.assertTrue(com.projecthero.mod.power.StormEnergy.ARMOUR_REGEN_MULTIPLIER == 1.5f, "v0.16.7: the armour regenerates Storm Energy 50% faster");
 		helper.succeed();
 	}
 }
