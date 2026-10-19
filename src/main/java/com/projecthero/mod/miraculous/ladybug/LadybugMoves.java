@@ -93,12 +93,14 @@ public final class LadybugMoves {
 		LINE_BLOCK.clear();
 		WIRE_CAUGHT.clear();
 		LAST_MARKED.clear();
+		RESCUES.clear();
 	}
 
 	static void forget(UUID id) {
 		LINE_BLOCK.remove(id);
 		WIRE_CAUGHT.remove(id);
 		LAST_MARKED.remove(id);
+		RESCUES.remove(id);
 		ROOTS.values().removeIf(r -> r.owner().equals(id));
 	}
 
@@ -706,47 +708,90 @@ public final class LadybugMoves {
 		return ids;
 	}
 
-	/** Yo-yo Phone: her position pinged to every squadmate online (chat + compass marker); they glow for her. */
-	public static List<Integer> phone(ServerPlayer p) {
-		if (!Miraculous.ready(p, LadybugKeys.PHONE)) {
-			return List.of();
+	/** v0.16.7 (user): Rescue Line pulls in flight: rescuer UUID -> [target entity id, start game time]. */
+	private static final Map<UUID, long[]> RESCUES = new ConcurrentHashMap<>();
+
+	/**
+	 * v0.16.7 (user): Shift+C Rescue Line -- the Yo-yo string lassos the squadmate she aims at (up to
+	 * {@link LadybugConfig#RESCUE_RANGE} blocks, in sight, within a few degrees of the crosshair -- a mob in between does
+	 * not get in the way) and reels them to her side; landed, they get Resistance II and a moment of Slow Falling, and no
+	 * fall damage. Returns the squadmate (null: nobody to rescue, no cooldown spent).
+	 */
+	public static @Nullable ServerPlayer rescue(ServerPlayer p) {
+		if (!Miraculous.ready(p, LadybugKeys.RESCUE) || RESCUES.containsKey(p.getUUID())) {
+			return null;
 		}
-		MinecraftServer server = p.getServer();
-		Squad squad = server == null ? null : SquadManager.get(server).squadOf(p.getUUID());
-		List<ServerPlayer> mates = new ArrayList<>();
-		if (squad != null) {
-			for (UUID id : squad.members()) {
-				if (id.equals(p.getUUID())) {
-					continue;
-				}
-				Player m = p.level().getPlayerByUUID(id);
-				ServerPlayer sm = m instanceof ServerPlayer x ? x : server.getPlayerList().getPlayer(id);
-				if (sm != null) {
-					mates.add(sm);
-				}
+		ServerPlayer target = rescueTarget(p);
+		if (target == null) {
+			Miraculous.say(p, "message.projecthero.ladybug.no_rescue", ChatFormatting.GRAY);
+			return null;
+		}
+		RESCUES.put(p.getUUID(), new long[] { target.getId(), now(p) });
+		Miraculous.setAnim(p, LadybugKeys.ANIM_YANK);
+		Miraculous.setCooldown(p, LadybugKeys.RESCUE, LadybugConfig.RESCUE_COOLDOWN);
+		Miraculous.say(p, "message.projecthero.ladybug.rescuing", ChatFormatting.RED, target.getDisplayName());
+		sound(p, SoundEvents.FISHING_BOBBER_THROW, 1.0f, 1.2f);
+		return target;
+	}
+
+	/** The nearest squadmate her aim line passes through (their box, a little enlarged), in range and in sight. */
+	static @Nullable ServerPlayer rescueTarget(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = eye.add(p.getLookAngle().scale(LadybugConfig.RESCUE_RANGE));
+		ServerPlayer best = null;
+		double bestD = Double.MAX_VALUE;
+		for (ServerPlayer m : p.serverLevel().players()) {
+			if (m == p || !m.isAlive() || m.isSpectator() || !com.projecthero.mod.squad.Squads.areAllies(p, m)) {
+				continue;
+			}
+			java.util.Optional<Vec3> hit = m.getBoundingBox().inflate(LadybugConfig.RESCUE_AIM_INFLATE).clip(eye, end);
+			if (hit.isEmpty() && !m.getBoundingBox().inflate(LadybugConfig.RESCUE_AIM_INFLATE).contains(eye)) {
+				continue;
+			}
+			double d = m.distanceTo(p);
+			if (d < bestD && p.hasLineOfSight(m)) {
+				bestD = d;
+				best = m;
 			}
 		}
-		if (mates.isEmpty()) {
-			Miraculous.say(p, "message.projecthero.ladybug.no_squad", ChatFormatting.GRAY);
-			return List.of();
+		return best;
+	}
+
+	/** A Rescue Line in flight: reel the squadmate in; done beside her (or after {@link LadybugConfig#RESCUE_MAX_TICKS}). */
+	private static void tickRescue(ServerPlayer p) {
+		long[] r = RESCUES.get(p.getUUID());
+		if (r == null) {
+			return;
 		}
-		List<Integer> ids = new ArrayList<>();
-		Vec3 at = p.position();
-		for (ServerPlayer m : mates) {
-			m.sendSystemMessage(Component.translatable("message.projecthero.ladybug.ping", p.getDisplayName(), (int) Math.floor(at.x),
-					(int) Math.floor(at.y), (int) Math.floor(at.z)).withStyle(ChatFormatting.RED));
-			send(m, new LadybugPingPayload(at.x, at.y, at.z, LadybugConfig.PHONE_MARKER_TICKS, p.getGameProfile().getName()));
-			if (m.level() == p.level()) {
-				ids.add(m.getId());
-			}
+		Entity e = p.level().getEntity((int) r[0]);
+		long age = now(p) - r[1];
+		if (!(e instanceof ServerPlayer m) || !m.isAlive() || m.level() != p.level() || age > LadybugConfig.RESCUE_MAX_TICKS) {
+			RESCUES.remove(p.getUUID());
+			return;
 		}
-		LAST_MARKED.put(p.getUUID(), List.copyOf(ids));
-		send(p, new LadybugGlowPayload(ids, LadybugConfig.PHONE_GLOW_TICKS));
-		Miraculous.setAnim(p, LadybugKeys.ANIM_PHONE);
-		Miraculous.setCooldown(p, LadybugKeys.PHONE, LadybugConfig.PHONE_COOLDOWN);
-		Miraculous.say(p, "message.projecthero.ladybug.phoned", ChatFormatting.RED, mates.size());
-		sound(p, SoundEvents.NOTE_BLOCK_CHIME.value(), 0.8f, 1.4f);
-		return ids;
+		Vec3 home = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(1.2)).add(0, 0.3, 0);
+		Vec3 to = home.subtract(m.position());
+		double d = to.length();
+		m.resetFallDistance();
+		if (d < 1.6) {
+			RESCUES.remove(p.getUUID());
+			m.setDeltaMovement(Vec3.ZERO);
+			m.hurtMarked = true;
+			m.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, LadybugConfig.RESCUE_RESISTANCE_TICKS, 1, false, true));
+			m.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 30, 0, false, false));
+			p.serverLevel().sendParticles(RED, m.getX(), m.getY() + 1.0, m.getZ(), 20, 0.4, 0.6, 0.4, 0.0);
+			sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.9f, 1.5f);
+			return;
+		}
+		double speed = Math.min(LadybugConfig.RESCUE_SPEED, 0.3 + d * 0.25);
+		m.setDeltaMovement(to.scale(speed / d).add(0, d > 4 ? 0.08 : 0.0, 0));
+		m.hurtMarked = true;
+		// the string between her hand and them
+		Vec3 a = p.getEyePosition().subtract(0, 0.4, 0), b = m.getBoundingBox().getCenter();
+		for (int i = 1; i < 8; i++) {
+			Vec3 q = a.lerp(b, i / 8.0);
+			p.serverLevel().sendParticles(RED, q.x, q.y, q.z, 1, 0, 0, 0, 0.0);
+		}
 	}
 
 	public static List<Integer> lastMarked(UUID id) {
@@ -760,6 +805,7 @@ public final class LadybugMoves {
 		tickLine(p, s);
 		tickShield(p, s);
 		tickWire(p, s);
+		tickRescue(p);
 		if (s.val(LadybugKeys.V_BIND) != 0L && (s.val(LadybugKeys.V_BIND_UNTIL) < now(p) || boundTarget(p) == null)) {
 			endBind(p, null);
 		}

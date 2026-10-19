@@ -152,7 +152,7 @@ public final class LadybugPose {
 				float k = Mth.clamp(age / 3f, 0f, 1f);
 				pose(arm, w, aimX + 0.2f * (1f - k), aimY, 0f);
 			}
-			case LadybugKeys.ANIM_SCAN, LadybugKeys.ANIM_PHONE -> {
+			case LadybugKeys.ANIM_SCAN -> {
 				pose(arm, w, -1.75f, -0.45f, 0.1f);
 				pose(other, w, -1.45f, 0.45f, -0.1f);
 				head(m, w, 0.45f);

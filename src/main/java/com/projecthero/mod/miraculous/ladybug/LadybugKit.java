@@ -21,7 +21,7 @@ import net.minecraft.world.entity.player.Player;
  *   X  Yo-yo Swing (hold)      Shift+X  Zip Line
  *   Z  Spinning Shield (hold)  Shift+Z  LUCKY CHARM / (holding it) Miraculous Ladybug
  *   V  Pole Vault              Shift+V  Trip Wire
- *   C  Yo-yo Scan              Shift+C  Yo-yo Phone
+ *   C  Yo-yo Scan              Shift+C  Rescue Line
  * </pre>
  * The moves: {@link LadybugMoves}; Lucky Charm and Miraculous Ladybug: {@link LuckyCharm}; the restore memory:
  * {@link LadybugRestore}. Every number: {@link LadybugConfig}.
@@ -78,7 +78,7 @@ public final class LadybugKit implements KwamiKit {
 			case SLOT_6 -> {
 				if (pressed) {
 					if (shift) {
-						LadybugMoves.phone(player);
+						LadybugMoves.rescue(player);
 					} else {
 						LadybugMoves.scan(player);
 					}
@@ -158,7 +158,7 @@ public final class LadybugKit implements KwamiKit {
 			case SLOT_3 -> new String[] { LadybugKeys.SWING, LadybugKeys.ZIP };
 			case SLOT_4 -> new String[] { LadybugKeys.SHIELD, LadybugKeys.LUCKY_CHARM };
 			case SLOT_5 -> new String[] { LadybugKeys.VAULT, LadybugKeys.WIRE };
-			case SLOT_6 -> new String[] { LadybugKeys.SCAN, LadybugKeys.PHONE };
+			case SLOT_6 -> new String[] { LadybugKeys.SCAN, LadybugKeys.RESCUE };
 			default -> new String[0];
 		};
 	}
@@ -176,7 +176,7 @@ public final class LadybugKit implements KwamiKit {
 			case LadybugKeys.VAULT -> LadybugConfig.VAULT_COOLDOWN;
 			case LadybugKeys.WIRE -> LadybugConfig.WIRE_COOLDOWN;
 			case LadybugKeys.SCAN -> LadybugConfig.SCAN_COOLDOWN;
-			case LadybugKeys.PHONE -> LadybugConfig.PHONE_COOLDOWN;
+			case LadybugKeys.RESCUE -> LadybugConfig.RESCUE_COOLDOWN;
 			default -> 0;
 		};
 	}

@@ -64,7 +64,7 @@ public final class LadybugWorld {
 			case LadybugKeys.ANIM_MIRACULOUS -> 40;
 			case LadybugKeys.ANIM_VAULT -> 16;
 			case LadybugKeys.ANIM_WIRE -> 10;
-			case LadybugKeys.ANIM_SCAN, LadybugKeys.ANIM_PHONE -> LadybugConfig.COMPACT_TICKS;
+			case LadybugKeys.ANIM_SCAN -> LadybugConfig.COMPACT_TICKS;
 			default -> 0;
 		};
 	}
@@ -288,7 +288,7 @@ public final class LadybugWorld {
 					yoyoAt(mc, pose, buffers, cam, at, hand, spin(now, partial, 1.4f), 0f);
 				}
 			}
-			case LadybugKeys.ANIM_SCAN, LadybugKeys.ANIM_PHONE -> {
+			case LadybugKeys.ANIM_SCAN -> {
 				float open = Mth.clamp(age / 5f, 0f, 1f) * Mth.clamp((LadybugConfig.COMPACT_TICKS - age) / 5f, 0f, 1f);
 				Vec3 at = fp ? camera.getPosition().add(p.getViewVector(partial).scale(0.55)).add(0, -0.1, 0) : hand;
 				pose.pushPose();

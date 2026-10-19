@@ -119,14 +119,21 @@ public final class LadybugConfig {
 	public static final int WIRE_ROOT_TICKS = 40;
 	public static final int WIRE_COOLDOWN = 200;
 
-	// ---------------------------------------------------------------- C: Yo-yo Scan / Yo-yo Phone
+	// ---------------------------------------------------------------- C: Yo-yo Scan / Shift+C: Rescue Line
 	public static final double SCAN_RADIUS = 40.0;
 	public static final int SCAN_TICKS = 200;
 	public static final int SCAN_COOLDOWN = 300;
-	public static final int PHONE_GLOW_TICKS = 200;
-	/** The squadmates' compass marker. */
-	public static final int PHONE_MARKER_TICKS = 600;
-	public static final int PHONE_COOLDOWN = 200;
+	/** v0.16.7 (user): Rescue Line -- lasso the squadmate she aims at, up to this far, and reel them to her side. */
+	public static final double RESCUE_RANGE = 50.0;
+	/** The aim line may pass this close to a squadmate's box (blocks) -- forgiving at range. */
+	public static final double RESCUE_AIM_INFLATE = 0.6;
+	/** The pull gives up after this long (a 50-block reel takes about 2 s). */
+	public static final int RESCUE_MAX_TICKS = 50;
+	/** The pull's top speed, blocks a tick. */
+	public static final double RESCUE_SPEED = 1.4;
+	/** Landed beside her: Resistance II this long (and a moment of Slow Falling). */
+	public static final int RESCUE_RESISTANCE_TICKS = 80;
+	public static final int RESCUE_COOLDOWN = 300;
 	/** The compact pose. */
 	public static final int COMPACT_TICKS = 30;
 }

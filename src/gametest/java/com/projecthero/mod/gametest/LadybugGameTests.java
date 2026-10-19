@@ -433,19 +433,23 @@ public class LadybugGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): Shift+C Rescue Line -- lassos the squadmate she aims at (up to 50 blocks) and reels them in. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void yoyoPhoneNeedsASquadAndMarksIt(GameTestHelper helper) {
+	public void rescueLineNeedsASquadmateInSight(GameTestHelper helper) {
 		ServerPlayer p = ladybug(helper, 1.5, 2.0, 1.5);
-		helper.assertTrue(LadybugMoves.phone(p).isEmpty(), "no squad: nobody to call");
-		helper.assertTrue(Miraculous.ready(p, LadybugKeys.PHONE), "and no cooldown spent");
-		ServerPlayer mate = mock(helper, 5.5, 2.0, 5.5);
+		ServerPlayer mate = mock(helper, 1.5, 2.0, 6.5);
+		p.setYRot(0f); // looking along +Z, at the mate
+		p.setXRot(0f);
+		p.setYHeadRot(0f);
+		helper.assertTrue(LadybugMoves.rescue(p) == null, "not a squadmate: nobody to rescue");
+		helper.assertTrue(Miraculous.ready(p, LadybugKeys.RESCUE), "and no cooldown spent");
 		SquadManager squads = SquadManager.get(helper.getLevel().getServer());
-		Squad squad = squads.create("lp" + p.getUUID().toString().substring(0, 8), p.getUUID());
+		Squad squad = squads.create("lr" + p.getUUID().toString().substring(0, 8), p.getUUID());
 		squads.addMember(squad, mate.getUUID());
 		try {
-			List<Integer> ids = LadybugMoves.phone(p);
-			helper.assertTrue(ids.contains(mate.getId()), "the squadmate glows for her");
-			helper.assertTrue(Miraculous.cooldownRemaining(p, LadybugKeys.PHONE) == LadybugConfig.PHONE_COOLDOWN, "on cooldown");
+			helper.assertTrue(LadybugMoves.rescue(p) == mate, "the squadmate in her sights is lassoed");
+			helper.assertTrue(Miraculous.cooldownRemaining(p, LadybugKeys.RESCUE) == LadybugConfig.RESCUE_COOLDOWN, "on cooldown");
+			helper.assertTrue(LadybugConfig.RESCUE_RANGE == 50.0, "50 blocks");
 		} finally {
 			squads.disband(squad);
 		}

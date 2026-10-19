@@ -33,7 +33,8 @@ public final class LadybugKeys {
 	public static final String VAULT = "ladybug_pole_vault";
 	public static final String WIRE = "ladybug_trip_wire";
 	public static final String SCAN = "ladybug_yoyo_scan";
-	public static final String PHONE = "ladybug_yoyo_phone";
+	/** v0.16.7 (user): Shift+C Rescue Line (replaced the Yo-yo Phone -- squadmates already see each other). */
+	public static final String RESCUE = "ladybug_rescue_line";
 
 	// ---------------------------------------------------------------- animation ids (MiraculousState.animId)
 	public static final int ANIM_STRIKE = 20;
@@ -47,7 +48,6 @@ public final class LadybugKeys {
 	public static final int ANIM_VAULT = 28;
 	public static final int ANIM_WIRE = 29;
 	public static final int ANIM_SCAN = 30;
-	public static final int ANIM_PHONE = 31;
 	public static final int ANIM_SWING = 32;
 
 	// ---------------------------------------------------------------- vals

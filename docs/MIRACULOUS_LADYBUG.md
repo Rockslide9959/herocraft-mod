@@ -13,7 +13,7 @@ the Ladybug kit only. Code: `com.projecthero.mod.miraculous.ladybug` (server) an
 | X | **Yo-yo Swing** (`ladybug_yoyo_swing`) | HOLD: hook a block within 30, Spider-Man's rope physics (Jump reels in, Sneak out); let go (or press again) to release with the arc's speed; 0.3 s cd | **Zip Line** (`ladybug_zip_line`) | hook within 30, reel straight to it at 1.6 b/t, ends 1.8 from the hook (3 s max) with a hop; 2 s cd |
 | Z | **Spinning Shield** (`ladybug_spinning_shield`) | HOLD (6 s max): a spinning spotted disc in front; arrows shatter, other projectiles are reflected (vanilla `ProjectileDeflection.REVERSE`), front melee does 25% and knocks the attacker back 1.4; 2 s cd | **LUCKY CHARM** (`ladybug_lucky_charm`) | see below |
 | V | **Pole Vault** (`ladybug_pole_vault`) | string planted 1.6 ahead, launched 1.3 up + 1.0 forward (~10 up, ~10 on); 3 s cd | **Trip Wire** (`ladybug_trip_wire`) | wire from her shins to the block she looks at (10 max) for 20 s; anything she may hit that crosses it is rooted 2 s (once each); 10 s cd |
-| C | **Yo-yo Scan** (`ladybug_yoyo_scan`) | compact pose; every threat within 40 outlined red through walls for 10 s, for her alone; 15 s cd | **Yo-yo Phone** (`ladybug_yoyo_phone`) | chat ping + 30 s compass marker to every online squadmate; they glow for her 10 s; no squad = refused, no cd; 10 s cd |
+| C | **Yo-yo Scan** (`ladybug_yoyo_scan`) | compact pose; every threat within 40 outlined red through walls for 10 s, for her alone; 15 s cd | **Rescue Line** (`ladybug_rescue_line`, v0.16.7) | lassos the squadmate she aims at (50 blocks, in sight, ~6 degrees off the crosshair) and reels them to her side; landed: Resistance II 4 s, Slow Falling, no fall damage; 15 s cd |
 
 Strike cooldown 0.8 s.
 
