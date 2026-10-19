@@ -126,7 +126,9 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.hungry(p), "every detransformation leaves the Kwami hungry");
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "SPOTS OFF") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.PLAGG, "plagg claws out") == MiraculousPhrases.Spoken.TRANSFORM
-				&& MiraculousPhrases.match(Kwami.PLAGG, "claws out") == null
+				&& MiraculousPhrases.match(Kwami.PLAGG, "claws out") == MiraculousPhrases.Spoken.TRANSFORM // v0.16.7: the name is optional
+				&& MiraculousPhrases.match(Kwami.TIKKI, "Spots on!") == MiraculousPhrases.Spoken.TRANSFORM
+				&& MiraculousPhrases.match(Kwami.TIKKI, "claws out") == null
 				&& MiraculousPhrases.match(Kwami.NOOROO, "Nooroo, DARK wings rise!") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.NOOROO, "nooroo dark wings fall") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.succeed();
