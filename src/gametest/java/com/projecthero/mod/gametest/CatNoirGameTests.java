@@ -215,9 +215,12 @@ public class CatNoirGameTests implements FabricGameTest {
 		pump(helper, p);
 		CatNoirAbilities.vault(p);
 		helper.assertTrue(Miraculous.vec(Miraculous.state(p), CatNoir.VEC_VAULT_BASE) != null, "the baton is planted on the floor");
+		// v0.16.7 (user): turning once the pole is extending does not steer it
+		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + 1, () -> p.setYRot(90f));
 		helper.runAfterDelay(CatNoirConfig.VAULT_PLANT_TICKS + 2, () -> {
 			net.minecraft.world.phys.Vec3 v = p.getDeltaMovement();
-			helper.assertTrue(v.z > 0.6 && v.y > 0.1, "carried along the look (+Z) and a little up while X is held, got " + v);
+			helper.assertTrue(v.z > 0.6 && v.y > 0.1 && Math.abs(v.x) < 0.1,
+					"carried along the look it had when the pole started extending (+Z), not the new one (-X), got " + v);
 			helper.assertTrue(Miraculous.state(p).val(CatNoir.V_VAULT_ON) != 0L, "still extending");
 			helper.assertTrue(Miraculous.cooldownRemaining(p, CatNoir.VAULT) == 0, "no cooldown while it is held");
 			CatNoirAbilities.releaseVault(p);

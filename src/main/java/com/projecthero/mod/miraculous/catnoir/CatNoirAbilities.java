@@ -56,6 +56,9 @@ public final class CatNoirAbilities {
 		final long start;
 		boolean held = true;
 		long releasedAt = -1L;
+		/** v0.16.7 (user): the direction, locked the moment the pole starts extending (turning no longer steers it). */
+		@Nullable
+		Vec3 dir;
 
 		Vault(long start) {
 			this.start = start;
@@ -442,7 +445,11 @@ public final class CatNoirAbilities {
 		if (age < CatNoirConfig.VAULT_PLANT_TICKS) {
 			return;
 		}
-		Vec3 dir = vaultDirection(p.getLookAngle());
+		// v0.16.7 (user): locked once the pole starts extending -- the carry and the fling keep that direction
+		if (v.dir == null) {
+			v.dir = vaultDirection(p.getLookAngle());
+		}
+		Vec3 dir = v.dir;
 		if (age == CatNoirConfig.VAULT_PLANT_TICKS) {
 			sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 0.8f, 1.6f);
 			level(p).sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 10, 0.3, 0.05, 0.3, 0.05);
