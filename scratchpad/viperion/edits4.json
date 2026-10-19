@@ -1,0 +1,5 @@
+[
+ {"file": "src/gametest/resources/fabric.mod.json", "find": "      \"com.projecthero.mod.gametest.PegasusGameTests\",", "after": "      \"com.projecthero.mod.gametest.ViperionGameTests\","},
+ {"file": "src/gametest/java/com/projecthero/mod/gametest/HeroPackGameTests.java", "find": "		helper.assertTrue(chapters.size() == 56 + Powers.enabled().size(),", "replace": "		// v0.16.7: + Viperion (56), after the Quirks\n		helper.assertTrue(chapters.size() == 57 + Powers.enabled().size(),"},
+ {"file": "src/gametest/java/com/projecthero/mod/gametest/MiraculousTurtleHorseGameTests.java", "find": "		helper.assertTrue(chapters.size() == 56 + com.projecthero.mod.hero.Powers.enabled().size(), \"56 framing chapters (v0.16.7: + the Quirks) + the powers, got \" + chapters.size());", "replace": "		helper.assertTrue(chapters.size() == 57 + com.projecthero.mod.hero.Powers.enabled().size(), \"57 framing chapters (v0.16.7: + the Quirks, + Viperion) + the powers, got \" + chapters.size());"}
+]

@@ -28,6 +28,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
  *       green while transformed;</li>
  *   <li>Kaalki (v0.16.6): the Horseshoe Glasses on the face -- silver-grey frames; v0.16.7: hidden while the Pegasus suit
  *       covers the face, whose own goggles (painted on the suit skin) take their place.</li>
+ *   <li>Sass (v0.16.7): the Snake Bracelet round the right wrist -- green and black scales, the head biting the tail.</li>
  * </ul>
  * Registered after the kits' suit layers, and lifted further off the body while transformed so it sits on the suit.
  */
@@ -66,6 +67,9 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			case TRIXX -> necklace(pose, buffers, light, m.body, on);
 			case NOOROO -> brooch(pose, buffers, light, m.body, on);
 			case WAYZZ -> bracelet(pose, buffers, player, light, m.leftArm, on);
+			// v0.16.7: the Snake Bracelet round the RIGHT wrist (first person: ViperionFirstPersonArmMixin)
+			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionRender.renderBracelet(pose, buffers, light, m.rightArm,
+					com.projecthero.mod.client.miraculous.viperion.ViperionRender.slim(player), on);
 			case KAALKI -> {
 				// v0.16.7 (user): transformed, Pegasus wears the suit's goggles (painted on the suit skin) -- the glasses go once
 				// the reveal has passed the face and come back as it leaves it

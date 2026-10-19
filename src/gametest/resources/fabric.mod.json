@@ -121,6 +121,7 @@
       "com.projecthero.mod.gametest.MoonKnightAbilityGameTests",
       "com.projecthero.mod.gametest.MoonKnightPowerGameTests",
       "com.projecthero.mod.gametest.PegasusGameTests",
+      "com.projecthero.mod.gametest.ViperionGameTests",
       "com.projecthero.mod.gametest.QuirkCoreGameTests",
       "com.projecthero.mod.gametest.QuirkHellflameGameTests",
       "com.projecthero.mod.gametest.QuirkOverhaulGameTests",

@@ -32,6 +32,8 @@ public abstract class CityLevelChunkMixin {
 			CityDamageTracker.onBlockChanged(level, pos, old, state);
 			// v0.16.6: and Ladybug's Miraculous Ladybug memory (one empty-map check unless a Ladybug is transformed)
 			com.projecthero.mod.miraculous.ladybug.LadybugRestore.onBlockChanged(level, pos, old, state);
+			// v0.16.7: and Viperion's Second Chance checkpoints (one empty-map check unless a checkpoint is live)
+			com.projecthero.mod.miraculous.viperion.SecondChance.onBlockChanged(level, pos, old, state);
 		}
 	}
 }

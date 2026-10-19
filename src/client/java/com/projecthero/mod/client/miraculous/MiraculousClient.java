@@ -37,6 +37,7 @@ public final class MiraculousClient {
 		com.projecthero.mod.client.miraculous.hawkmoth.HawkMothClient.initialize();
 		com.projecthero.mod.client.miraculous.carapace.CarapaceClient.initialize();
 		com.projecthero.mod.client.miraculous.pegasus.PegasusClient.initialize();
+		com.projecthero.mod.client.miraculous.viperion.ViperionClient.initialize(); // v0.16.7
 		// the core -- registered after the kits so the jewels draw over their suits
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
