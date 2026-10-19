@@ -97,7 +97,7 @@ public final class CatNoirPose {
 			model.hat.copyFrom(model.head);
 		}
 		// climbing a wall on Rooftop Run: hand over hand
-		if (!running && CatNoir.climbing(player) && !player.onGround()) {
+		if (!running && CatNoir.onWall(player) && !player.onGround()) {
 			float c = Mth.sin(t * 0.45f);
 			pose(model.rightArm, 1f, -2.7f + 0.45f * c, 0f, 0.1f);
 			pose(model.leftArm, 1f, -2.7f - 0.45f * c, 0f, -0.1f);
@@ -255,7 +255,7 @@ public final class CatNoirPose {
 		}
 		boolean want = false;
 		if (CatNoir.active(player) && CatNoir.rooftop(player) && player.isSprinting() && !player.isPassenger()
-				&& !player.isSwimming() && !player.isFallFlying() && !player.getAbilities().flying && !CatNoir.climbing(player)) {
+				&& !player.isSwimming() && !player.isFallFlying() && !player.getAbilities().flying && !CatNoir.onWall(player)) {
 			MiraculousState s = Miraculous.peek(player);
 			boolean moving = s == null || !(s.animId >= 40 && s.animId < 60
 					&& player.level().getGameTime() - s.animStart < Math.max(1, length(s.animId)));

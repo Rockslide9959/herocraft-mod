@@ -6465,7 +6465,7 @@
   "projecthero.miraculous.ability.cat_noir_pole_vault": "Pole Vault",
   "projecthero.miraculous.ability.cat_noir_pole_vault.desc": "HOLD X: plant the baton (ground within 4 blocks below) and it keeps extending under you for as long as you hold X, with no limit, carrying you the way you were looking when it started extending (always at least a little upward; turning no longer steers it). Let go to be flung off the end in that direction. A wall or ceiling in the way ends it. A quick tap still gives a short vault. 6s cooldown after the fling.",
   "projecthero.miraculous.ability.cat_noir_rooftop_run": "Rooftop Run",
-  "projecthero.miraculous.ability.cat_noir_rooftop_run.desc": "Toggle: sprint 35% faster on all fours like a cat, and walk into a wall to climb it (Sneak to cling).",
+  "projecthero.miraculous.ability.cat_noir_rooftop_run.desc": "Toggle: sprint 35% faster on all fours like a cat, step up 2 blocks, and hold Space against a wall to climb it, right over the top (Sneak to cling).",
   "projecthero.miraculous.ability.cat_noir_baton_spin": "Baton Spin",
   "projecthero.miraculous.ability.cat_noir_baton_spin.desc": "Spin the baton like a propeller for 2s: 8 damage to everything within 4 blocks (again every 0.75s), and arrows and other projectiles are batted back. 5s cooldown.",
   "projecthero.miraculous.ability.cat_noir_cataclysm": "CATACLYSM",

@@ -135,16 +135,54 @@ public final class CatNoir {
 		return (int) val(player, V_REFLEX_LEFT);
 	}
 
+	/** v0.16.7: the last game time each player was against a wall on Rooftop Run, per side (client / server). */
+	private static final java.util.Map<String, Long> LAST_ON_WALL = new java.util.concurrent.ConcurrentHashMap<>();
+
 	/**
-	 * Rooftop Run: is he against a wall (so he climbs it like a ladder: walk into it to go up, Sneak to cling)? A thin
-	 * probe round his box, off the floor and ceiling. Client-safe; asked from {@code LivingEntity#onClimbable}.
+	 * Rooftop Run: against a wall -- a thin probe round his box, off the floor and ceiling. Client-safe (also drives the
+	 * climbing pose for every viewer).
 	 */
-	public static boolean climbing(Player player) {
+	public static boolean onWall(Player player) {
 		if (player.isSpectator() || player.getAbilities().flying || !rooftop(player)) {
 			return false;
 		}
 		AABB b = player.getBoundingBox();
 		AABB probe = new AABB(b.minX - 0.08, b.minY + 0.25, b.minZ - 0.08, b.maxX + 0.08, b.maxY - 0.2, b.maxZ + 0.08);
 		return !player.level().noCollision(player, probe);
+	}
+
+	/**
+	 * Rooftop Run: does he count as on a ladder ({@code LivingEntity#onClimbable})? v0.16.7 (user): only while he HOLDS
+	 * SPACE against a wall (or Sneaks to cling to it) -- walking into a wall no longer climbs it; and for a moment after
+	 * his hands leave the top of the wall ({@link CatNoirConfig#CLIMB_TOP_GRACE_TICKS}) he keeps rising, so he gets over
+	 * the edge instead of sliding back. The jump key is only known on his own client, which is where vanilla moves him;
+	 * the server side stays lenient (it only uses this for fall bookkeeping).
+	 */
+	public static boolean climbing(Player player) {
+		if (player.isSpectator() || player.getAbilities().flying || !rooftop(player)) {
+			return false;
+		}
+		boolean client = player.level().isClientSide();
+		String key = player.getUUID() + (client ? "c" : "s");
+		long now = player.level().getGameTime();
+		boolean wall = onWall(player);
+		if (wall) {
+			LAST_ON_WALL.put(key, now);
+		}
+		boolean jumping = ((com.projecthero.mod.mixin.LivingEntityAccessor) player).projecthero$isJumping();
+		if (client && !jumping && !player.isShiftKeyDown()) {
+			return false; // Space climbs, Sneak clings; otherwise he just stands against it
+		}
+		if (wall) {
+			return true;
+		}
+		// just over the top: keep rising for a moment (no grace while clinging or on the ground)
+		Long last = LAST_ON_WALL.get(key);
+		return last != null && now - last <= CatNoirConfig.CLIMB_TOP_GRACE_TICKS && now >= last
+				&& !player.onGround() && (!client || jumping) && !player.isShiftKeyDown();
+	}
+
+	public static void clearSessionState() {
+		LAST_ON_WALL.clear();
 	}
 }

@@ -90,6 +90,7 @@ public final class CatNoirKit implements KwamiKit {
 	@Override
 	public void clearSessionState() {
 		CatNoirAbilities.clearSessionState();
+		CatNoir.clearSessionState();
 		CatNoirCataclysm.clearSessionState();
 	}
 

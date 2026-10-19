@@ -263,9 +263,12 @@ public class CatNoirGameTests implements FabricGameTest {
 		Miraculous.tick(p);
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > base * 1.2, "sprints faster: " + base + " -> "
 				+ p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 2.0) < 1e-6, "v0.16.7: steps up 2 blocks, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
 		ready(p);
 		CatNoirAbilities.rooftop(p);
+		Miraculous.tick(p);
 		helper.assertFalse(CatNoir.rooftop(p) || p.onClimbable(), "off again: no climbing");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 1.0, "and no step assist");
 		helper.succeed();
 	}
 

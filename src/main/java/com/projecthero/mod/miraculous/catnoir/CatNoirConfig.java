@@ -89,6 +89,10 @@ public final class CatNoirConfig {
 	// ---------------------------------------------------------------- Shift+X: Rooftop Run (toggle)
 	/** Extra speed while sprinting, multiplied total (on top of the suit's +25%). */
 	public static final double ROOFTOP_SPRINT_BONUS = 0.35;
+	/** v0.16.7 (user): Rooftop Run step assist -- added to the 0.6 base step height for 2 blocks. */
+	public static final double ROOFTOP_STEP_BONUS = 1.4;
+	/** v0.16.7 (user): after his hands leave the top of a wall he keeps rising this long (0.2 blocks a tick) to get over it. */
+	public static final int CLIMB_TOP_GRACE_TICKS = 6;
 	public static final int ROOFTOP_TOGGLE_COOLDOWN = 20;
 
 	// ---------------------------------------------------------------- Z: Baton Spin

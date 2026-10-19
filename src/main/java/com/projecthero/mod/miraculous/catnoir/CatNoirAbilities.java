@@ -47,6 +47,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class CatNoirAbilities {
 	private static final ResourceLocation ROOFTOP_SPEED_ID = PowerToggles.id("cat_noir_rooftop_sprint");
+	/** v0.16.7 (user): Rooftop Run steps up 2 blocks. */
+	private static final ResourceLocation ROOFTOP_STEP_ID = PowerToggles.id("cat_noir_rooftop_step");
 
 	private record Timed(long start) {
 	}
@@ -138,6 +140,7 @@ public final class CatNoirAbilities {
 			p.removeEffect(MobEffects.NIGHT_VISION);
 		}
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, ROOFTOP_SPEED_ID);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, ROOFTOP_STEP_ID);
 	}
 
 	// ---------------------------------------------------------------- the gate
@@ -498,6 +501,7 @@ public final class CatNoirAbilities {
 		});
 		if (!on) {
 			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, ROOFTOP_SPEED_ID);
+			PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, ROOFTOP_STEP_ID);
 		}
 		Miraculous.setCooldown(p, CatNoir.ROOFTOP, CatNoirConfig.ROOFTOP_TOGGLE_COOLDOWN);
 		Miraculous.say(p, on ? "message.projecthero.cat_noir.rooftop_on" : "message.projecthero.cat_noir.rooftop_off", ChatFormatting.GREEN);
@@ -775,6 +779,11 @@ public final class CatNoirAbilities {
 					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		} else {
 			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, ROOFTOP_SPEED_ID);
+		}
+		if (CatNoir.rooftop(p)) {
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, ROOFTOP_STEP_ID, CatNoirConfig.ROOFTOP_STEP_BONUS, AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, ROOFTOP_STEP_ID);
 		}
 		long reflexUntil = CatNoir.val(p, CatNoir.V_REFLEX_UNTIL);
 		if (reflexUntil > 0L && now >= reflexUntil) {
