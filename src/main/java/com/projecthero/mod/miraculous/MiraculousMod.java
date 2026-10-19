@@ -28,6 +28,8 @@ public final class MiraculousMod {
 		com.projecthero.mod.miraculous.entity.MiraculousEntityTypes.initialize();
 		com.projecthero.mod.miraculous.item.MiraculousItems.initialize();
 		MiraculousDamage.initialize();
+		// v0.16.7 (user): secret identity + Kwami chatter
+		MiraculousShowExtras.initialize();
 		PayloadTypeRegistry.playC2S().register(MiraculousActionPayload.TYPE, MiraculousActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(MiraculousActionPayload.TYPE, (payload, context) -> {
 			ServerPlayer p = context.player();
@@ -93,5 +95,6 @@ public final class MiraculousMod {
 
 	public static void clearSessionState() {
 		Miraculous.clearSessionState();
+		MiraculousShowExtras.clearSessionState();
 	}
 }

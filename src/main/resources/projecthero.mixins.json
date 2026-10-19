@@ -4,6 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ServerLevelGunkMixin",
+		"MiraculousIdentityMixin",
+		"MiraculousTabListMixin",
 		"ArmorStandMannequinMixin",
 		"SpiderStealthVisibilityMixin",
 		"LegacyItemIdMixin",

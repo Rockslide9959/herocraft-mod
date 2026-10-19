@@ -369,4 +369,29 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(p.getInventory().contains(new ItemStack(MiraculousItems.LADYBUG_EARRINGS)), "the Earrings are back in the inventory");
 		helper.succeed();
 	}
+
+	/** v0.16.7 (user): secret identity -- transformed, the display name is the hero name; and every Kwami has its chatter lines. */
+	@SuppressWarnings("removal")
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void secretIdentityAndKwamiChatter(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		String own = p.getGameProfile().getName();
+		Miraculous.grant(p, Kwami.PLAGG);
+		helper.assertTrue(p.getDisplayName().getString().contains(own), "not transformed: your own name");
+		Miraculous.edit(p, n -> { n.hungry = false; n.transformed = true; });
+		var shown = p.getDisplayName();
+		helper.assertTrue(shown.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents tc
+				&& tc.getKey().equals("projecthero.hero_tier.cat_noir"), "transformed: known only as Cat Noir, got " + shown);
+		helper.assertTrue(p.getTabListDisplayName() != null, "the tab list hides you too");
+		Miraculous.edit(p, n -> n.transformed = false);
+		helper.assertTrue(p.getDisplayName().getString().contains(own), "changed back: your own name again");
+		var lang = net.minecraft.locale.Language.getInstance();
+		for (Kwami k : Kwami.values()) {
+			for (String ev : new String[] { "countdown", "danger", "hurt", "victory", "idle" }) {
+				String key = "message.projecthero.kwami_chat." + k.id + "." + ev + ".1";
+				helper.assertTrue(!lang.getOrDefault(key).equals(key), "missing chatter line " + key);
+			}
+		}
+		helper.succeed();
+	}
 }
