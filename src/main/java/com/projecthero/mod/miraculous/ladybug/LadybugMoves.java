@@ -394,13 +394,15 @@ public final class LadybugMoves {
 		if (!Miraculous.ready(p, id)) {
 			return false;
 		}
-		BlockHitResult b = AbilityHelpers.raycastBlock(p, LadybugConfig.SWING_RANGE);
+		// v0.16.7 (user): the Zip Line reaches 75 blocks, the Swing 45
+		double range = shift ? LadybugConfig.ZIP_RANGE : LadybugConfig.SWING_RANGE;
+		BlockHitResult b = AbilityHelpers.raycastBlock(p, range);
 		if (b.getType() != HitResult.Type.BLOCK) {
 			Miraculous.say(p, "message.projecthero.ladybug.no_hook", ChatFormatting.GRAY);
 			return false;
 		}
 		Vec3 hook = b.getLocation();
-		double rope = Math.max(3.0, Math.min(LadybugConfig.SWING_RANGE + 2.0, hook.distanceTo(p.getEyePosition())));
+		double rope = Math.max(3.0, Math.min(range + 2.0, hook.distanceTo(p.getEyePosition())));
 		long t = now(p);
 		Miraculous.edit(p, n -> {
 			n.vals.put(LadybugKeys.V_LINE, shift ? 2L : 1L);

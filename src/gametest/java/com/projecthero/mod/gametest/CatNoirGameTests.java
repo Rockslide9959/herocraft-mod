@@ -298,12 +298,19 @@ public class CatNoirGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void cataclysmCrumblesTheConnectedBlocksWithinFour(GameTestHelper helper) {
+	public void cataclysmCrumblesTheConnectedBlocksWithinTheRadius(GameTestHelper helper) {
 		ServerPlayer p = cat(helper, 0.5, 2.0, 0.5);
 		pump(helper, p);
-		// a beam of 8 stone at y 4 along x, a block hanging off its start, and one loose block (not touching) close by
+		// v0.16.7 (user): radius 8. A beam of 8 stone at y 4 along x, then a bend up and back into the far corner (its end
+		// (7,7,7) is ~8.6 from the touch, out of reach), a block hanging off its start, and one loose block close by
 		for (int x = 0; x <= 7; x++) {
 			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 4, 3)), Blocks.STONE.defaultBlockState(), 3);
+		}
+		for (int y = 5; y <= 7; y++) {
+			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(7, y, 3)), Blocks.STONE.defaultBlockState(), 3);
+		}
+		for (int z = 4; z <= 7; z++) {
+			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(7, 7, z)), Blocks.STONE.defaultBlockState(), 3);
 		}
 		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(0, 4, 2)), Blocks.COBBLESTONE.defaultBlockState(), 3);
 		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(1, 4, 5)), Blocks.STONE.defaultBlockState(), 3);
@@ -314,14 +321,14 @@ public class CatNoirGameTests implements FabricGameTest {
 		InteractionResult r = AttackBlockCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, touch, Direction.UP);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the punch is the touch");
 		helper.assertTrue(!CatNoir.charged(p) && CatNoir.spent(p) && !CatNoir.rotted(p), "spent, and the baton stays silver");
-		helper.runAfterDelay(4 * CatNoirConfig.CATACLYSM_STEP_TICKS + CatNoirConfig.CATACLYSM_CRACK_TICKS + 4, () -> {
-			for (int x = 0; x <= 4; x++) {
+		helper.runAfterDelay(10 * CatNoirConfig.CATACLYSM_STEP_TICKS + CatNoirConfig.CATACLYSM_CRACK_TICKS + 4, () -> {
+			helper.assertTrue(CatNoirConfig.CATACLYSM_RADIUS == 8.0, "radius 8");
+			for (int x = 0; x <= 7; x++) {
 				helper.assertBlockPresent(Blocks.AIR, new BlockPos(x, 4, 3));
 			}
 			helper.assertBlockPresent(Blocks.AIR, new BlockPos(0, 4, 2));
-			for (int x = 5; x <= 7; x++) {
-				helper.assertBlockPresent(Blocks.STONE, new BlockPos(x, 4, 3));
-			}
+			helper.assertBlockPresent(Blocks.AIR, new BlockPos(7, 7, 3)); // 7.6 away: gone
+			helper.assertBlockPresent(Blocks.STONE, new BlockPos(7, 7, 7)); // 8.6 away: out of reach
 			helper.assertBlockPresent(Blocks.STONE, new BlockPos(1, 4, 5));
 			ready(p);
 			CatNoirCataclysm.call(p);
@@ -334,18 +341,19 @@ public class CatNoirGameTests implements FabricGameTest {
 	public void cataclysmOnAMobIsFortyWitherAndShatteredArmour(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = cat(helper, 3.5, 2.0, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 100);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 3.0, 200); // v0.16.7: 100 damage now, so a 200-health target
 		z.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.IRON_CHESTPLATE));
 		z.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
 		pump(helper, p);
 		CatNoirCataclysm.call(p);
 		InteractionResult r = AttackEntityCallback.EVENT.invoker().interact(p, helper.getLevel(), InteractionHand.MAIN_HAND, z, null);
 		helper.assertTrue(r == InteractionResult.SUCCESS, "the blow is the touch");
-		// the armour shatters first, so the full 40 lands
-		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - CatNoirConfig.CATACLYSM_DAMAGE) < EPS, "40 through the shattered armour, took " + taken);
+		// the armour shatters first, so the full 100 lands
+		float taken = 200f - z.getHealth();
+		helper.assertTrue(Math.abs(taken - CatNoirConfig.CATACLYSM_DAMAGE) < EPS && CatNoirConfig.CATACLYSM_DAMAGE == 100f,
+				"100 through the shattered armour, took " + taken);
 		MobEffectInstance wither = z.getEffect(MobEffects.WITHER);
-		helper.assertTrue(wither != null && wither.getAmplifier() == CatNoirConfig.CATACLYSM_WITHER_AMPLIFIER, "Wither III");
+		helper.assertTrue(wither != null && wither.getAmplifier() == 4 && wither.getDuration() <= 140, "Wither V for 7 s");
 		helper.assertTrue(z.getItemBySlot(EquipmentSlot.CHEST).isEmpty() && z.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "its armour shattered");
 		helper.assertTrue(CatNoir.spent(p) && !CatNoir.rotted(p) && !CatNoir.charged(p), "spent, the baton not rotted");
 		helper.succeed();

@@ -42,7 +42,10 @@ public final class LadybugConfig {
 	public static final int FLING_COOLDOWN = 140;
 
 	// ---------------------------------------------------------------- X: Yo-yo Swing / Zip Line
-	public static final double SWING_RANGE = 30.0;
+	/** v0.16.7 (user): 45 blocks (was 30). */
+	public static final double SWING_RANGE = 45.0;
+	/** v0.16.7 (user): the Zip Line reaches 75 blocks. */
+	public static final double ZIP_RANGE = 75.0;
 	/** After letting go. */
 	public static final int SWING_COOLDOWN = 6;
 	/** The line is dropped when she ends up this much further from the hook than its length. */
@@ -50,7 +53,7 @@ public final class LadybugConfig {
 	public static final double ZIP_SPEED = 1.6;
 	/** The zip ends this close to the hook. */
 	public static final double ZIP_ARRIVE = 1.8;
-	public static final int ZIP_MAX_TICKS = 60;
+	public static final int ZIP_MAX_TICKS = 70; // 75 blocks at 1.6 a tick fits
 	public static final int ZIP_COOLDOWN = 40;
 
 	// ---------------------------------------------------------------- Z: Spinning Shield (held) / Lucky Charm

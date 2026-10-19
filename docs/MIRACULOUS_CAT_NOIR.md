@@ -33,15 +33,15 @@ pets, and players only when PvP is on.
 - **The call.** The main hand crackles with dark destruction energy for 10 s (see **CATACLYSM visuals** below). The core's 3-minute countdown starts **when it is called**, because
   in the show calling the power is what spends the Miraculous.
 - **One touch.** A punch on a block, a right-click on a block, or an attack on a creature.
-  - **On a block:** the block and every block joined to it face-to-face within 4 blocks crumble to dust in a spreading
+  - **On a block:** the block and every block joined to it face-to-face within 8 blocks (v0.16.7; was 4) crumble to dust in a spreading
     wave. Each ring cracks and darkens over 6 ticks and then falls, one block further out every 5 ticks (about 1 s to
     the edge). The limit is 300 blocks, and nothing drops.
     - It follows the mod's block-damage rules: the `abilityTerrainDamage` config, the `mobGriefing` gamerule,
       `mayInteract` (spawn protection and claims) and loaded chunks only.
     - It never breaks fluids, unbreakables (hardness -1 or `#wither_immune`), or block entities, so a chest is never
       voided with its contents.
-  - **On a creature:** its worn armour shatters first (mobs only; a player's armour is spared). Then it takes 40 damage
-    and Wither III for 8 s.
+  - **On a creature:** its worn armour shatters first (mobs only; a player's armour is spared). Then it takes 100 damage
+    and Wither V for 7 s (v0.16.7).
 - **Once per transformation.** After a touch Cataclysm is spent for the rest of the transformation (state flag
   `cn_cataclysm_spent`; v0.16.6, user: the baton no longer rots black). If the charge runs out untouched it fizzles, and it can be called again after 20 s. The countdown keeps
   running either way.

@@ -109,18 +109,20 @@ public final class CatNoirConfig {
 	// ---------------------------------------------------------------- Shift+Z: CATACLYSM
 	/** The hand crackles this long waiting for a touch. */
 	public static final int CATACLYSM_CHARGE_TICKS = 200;
-	public static final float CATACLYSM_DAMAGE = 40f;
-	/** Wither III for 8 s. */
-	public static final int CATACLYSM_WITHER_TICKS = 160;
-	public static final int CATACLYSM_WITHER_AMPLIFIER = 2;
+	/** v0.16.7 (user): 100 (was 40). */
+	public static final float CATACLYSM_DAMAGE = 100f;
+	/** v0.16.7 (user): Wither V for 7 s (was Wither III for 8 s). */
+	public static final int CATACLYSM_WITHER_TICKS = 140;
+	public static final int CATACLYSM_WITHER_AMPLIFIER = 4;
 	/** A touched block and everything joined to it within this radius crumbles. */
-	public static final double CATACLYSM_RADIUS = 4.0;
-	/** Ticks between rings of the crumble (one block further out each step: about 1 s to the edge). */
-	public static final int CATACLYSM_STEP_TICKS = 5;
+	/** v0.16.7 (user): 8 blocks (was 4). */
+	public static final double CATACLYSM_RADIUS = 8.0;
+	/** Ticks between rings of the crumble (one block further out each step: about 1.5 s to the edge). */
+	public static final int CATACLYSM_STEP_TICKS = 3;
 	/** Ticks a block cracks and darkens before it falls to dust. */
 	public static final int CATACLYSM_CRACK_TICKS = 6;
-	/** Hard limit of blocks one touch can crumble (a 4-block ball is about 270). */
-	public static final int CATACLYSM_MAX_BLOCKS = 300;
+	/** Hard limit of blocks one touch can crumble (an 8-block ball is about 2,140). */
+	public static final int CATACLYSM_MAX_BLOCKS = 2200;
 	/** If the 10 s run out with nothing touched, Cataclysm can be called again after this long. */
 	public static final int CATACLYSM_COOLDOWN = 400;
 
