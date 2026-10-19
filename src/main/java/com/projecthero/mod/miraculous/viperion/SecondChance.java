@@ -51,9 +51,12 @@ import net.minecraft.world.phys.Vec3;
  * to that moment, {@link ViperionConfig#SECOND_CHANCE_REWINDS} times, then it is spent:
  * <ul>
  *   <li>him: position, rotation, health, absorption, hunger / saturation, effects, fire, air (not his inventory);</li>
- *   <li>his squadmates who were within {@link ViperionConfig#SECOND_CHANCE_RADIUS}: position, rotation, health (other
- *       players are never moved -- fair in multiplayer);</li>
- *   <li>every creature that was within the radius: back where it was with its health and effects then; one that died
+ *   <li>his squadmates who were within {@link ViperionConfig#SECOND_CHANCE_RADIUS}: the same (other players are never
+ *       moved -- fair in multiplayer);</li>
+ *   <li>v0.16.7 (user) TIME itself, for him and those squadmates ({@link TimeRewind}): the Miraculous countdown, every
+ *       move's cooldown, the kit timers, the Kwami's hunger / meal, a Quirk's cooldowns / overload / meter -- each back
+ *       to the time it had left at the checkpoint; and the checkpoint's own window starts again (a full 90 s);</li>
+ *   <li>every creature that was within the radius: back where it was with its health, effects, fire and air then; one that died
  *       since comes back (rebuilt from its saved data -- never a boss); hostile mobs that appeared since are removed,
  *       and so are the item drops / XP orbs that appeared since (not items a player threw);</li>
  *   <li>the blocks broken, placed or changed within the radius since: put back (the same hook as Ladybug's
@@ -65,10 +68,11 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class SecondChance {
 	private record PlayerSnap(UUID id, Vec3 pos, float yRot, float xRot, float health, float absorption, int food, float saturation,
-			List<MobEffectInstance> effects, int fire, int air) {
+			List<MobEffectInstance> effects, int fire, int air, TimeRewind.Snap powers) {
 	}
 
-	private record MobSnap(UUID id, Vec3 pos, float yRot, float xRot, float health, boolean boss, @Nullable CompoundTag tag, List<MobEffectInstance> effects) {
+	private record MobSnap(UUID id, Vec3 pos, float yRot, float xRot, float health, boolean boss, @Nullable CompoundTag tag, List<MobEffectInstance> effects,
+			int fire, int air) {
 	}
 
 	static final class Checkpoint {
@@ -148,7 +152,7 @@ public final class SecondChance {
 
 	private static PlayerSnap snap(ServerPlayer p) {
 		return new PlayerSnap(p.getUUID(), p.position(), p.getYRot(), p.getXRot(), p.getHealth(), p.getAbsorptionAmount(), p.getFoodData().getFoodLevel(),
-				p.getFoodData().getSaturationLevel(), effects(p), p.getRemainingFireTicks(), p.getAirSupply());
+				p.getFoodData().getSaturationLevel(), effects(p), p.getRemainingFireTicks(), p.getAirSupply(), TimeRewind.snap(p));
 	}
 
 	private static MobSnap snap(LivingEntity e) {
@@ -160,7 +164,7 @@ public final class SecondChance {
 			e.saveWithoutId(tag);
 			tag.remove("Passengers");
 		}
-		return new MobSnap(e.getUUID(), e.position(), e.getYRot(), e.getXRot(), e.getHealth(), boss, tag, effects(e));
+		return new MobSnap(e.getUUID(), e.position(), e.getYRot(), e.getXRot(), e.getHealth(), boss, tag, effects(e), e.getRemainingFireTicks(), e.getAirSupply());
 	}
 
 	/** First Shift+Z: the checkpoint, here and now. Starts the Miraculous countdown. */
@@ -188,17 +192,19 @@ public final class SecondChance {
 		for (ServerPlayer o : level.getEntitiesOfClass(ServerPlayer.class, box, o -> o != p && o.isAlive() && !o.isSpectator() && Squads.areAllies(p, o))) {
 			mates.add(snap(o));
 		}
-		Checkpoint cp = new Checkpoint(level.dimension(), c, now + ViperionConfig.SECOND_CHANCE_WINDOW, snap(p), mates, mobs, known);
-		CHECKPOINTS.put(p.getUUID(), cp);
+		long until = now + ViperionConfig.SECOND_CHANCE_WINDOW;
 		Miraculous.edit(p, n -> {
-			n.vals.put(Viperion.V_CP_UNTIL, cp.until);
-			n.vals.put(Viperion.V_CP_LEFT, (long) cp.left);
+			n.vals.put(Viperion.V_CP_UNTIL, until);
+			n.vals.put(Viperion.V_CP_LEFT, (long) ViperionConfig.SECOND_CHANCE_REWINDS);
 			n.vals.put(Viperion.V_CHECKPOINT_AT, now);
 			n.vecs.put(Viperion.X_CP, List.of(c.x, c.y, c.z));
 		});
 		Miraculous.setAnim(p, Viperion.ANIM_CHECKPOINT);
 		Miraculous.setCooldown(p, ViperionConfig.SECOND_CHANCE, ViperionConfig.SECOND_CHANCE_COOLDOWN);
 		Miraculous.startCountdown(p);
+		// (him last: his snapshot holds the countdown and the cooldown just started -- a rewind restarts both)
+		Checkpoint cp = new Checkpoint(level.dimension(), c, until, snap(p), mates, mobs, known);
+		CHECKPOINTS.put(p.getUUID(), cp);
 		// the green flash: a clock face of light round him, a chime
 		clockRipple(level, c, 2.2);
 		level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1.0, c.z, 1, 0, 0, 0, 0);
@@ -229,7 +235,8 @@ public final class SecondChance {
 		// 2. the creatures
 		double r = ViperionConfig.SECOND_CHANCE_RADIUS;
 		Set<UUID> placed = new HashSet<>();
-		for (MobSnap m : cp.mobs) {
+		for (int mi = 0; mi < cp.mobs.size(); mi++) {
+			MobSnap m = cp.mobs.get(mi);
 			Entity e = level.getEntity(m.id());
 			if (e instanceof LivingEntity le && le.isAlive() && !le.isRemoved()) {
 				restore(le, m);
@@ -252,8 +259,14 @@ public final class SecondChance {
 			bl.moveTo(m.pos().x, m.pos().y, m.pos().z, m.yRot(), m.xRot());
 			bl.deathTime = 0;
 			bl.setHealth(Math.max(1f, m.health()));
+			bl.setRemainingFireTicks(m.fire());
 			if (level.addFreshEntity(bl)) {
 				placed.add(bl.getUUID());
+				if (!bl.getUUID().equals(m.id())) {
+					// a new id: the next rewind restores this one (never a second copy)
+					cp.known.add(bl.getUUID());
+					cp.mobs.set(mi, new MobSnap(bl.getUUID(), m.pos(), m.yRot(), m.xRot(), m.health(), m.boss(), m.tag(), m.effects(), m.fire(), m.air()));
+				}
 				level.sendParticles(ViperionMoves.GREEN, bl.getX(), bl.getY() + bl.getBbHeight() * 0.5, bl.getZ(), 16, 0.3, 0.5, 0.3, 0.0);
 			}
 		}
@@ -273,20 +286,25 @@ public final class SecondChance {
 				e.discard();
 			}
 		}
-		// 3. the squad, then him
+		// 3. the squad, then him -- and every timer of their powers (v0.16.7, user: as if time itself went back)
 		for (PlayerSnap s : cp.mates) {
 			if (level.getEntity(s.id()) instanceof ServerPlayer o && o.isAlive() && !o.isSpectator() && Squads.areAllies(p, o)) {
-				restorePlayer(level, o, s, false);
+				restorePlayer(level, o, s);
 			}
 		}
-		restorePlayer(level, p, cp.self, true);
+		ViperionMoves.forget(p.getUUID()); // what he was doing since is undone (the timers come back from the snapshot)
+		restorePlayer(level, p, cp.self);
 		cp.left--;
 		cp.lastRewind = now;
+		// v0.16.7 (user): the window starts again -- a full 90 s from the rewind
+		cp.until = now + ViperionConfig.SECOND_CHANCE_WINDOW;
 		int left = cp.left;
+		long until = cp.until;
 		Miraculous.edit(p, n -> {
 			n.vals.put(Viperion.V_REWIND_AT, now);
 			if (left > 0) {
 				n.vals.put(Viperion.V_CP_LEFT, (long) left);
+				n.vals.put(Viperion.V_CP_UNTIL, until);
 			} else {
 				n.vals.remove(Viperion.V_CP_LEFT);
 				n.vals.remove(Viperion.V_CP_UNTIL);
@@ -324,6 +342,12 @@ public final class SecondChance {
 		e.resetFallDistance();
 		e.clearFire();
 		e.setHealth(Math.min(e.getMaxHealth(), Math.max(1f, m.health())));
+		if (m.fire() > 0) {
+			e.setRemainingFireTicks(m.fire());
+		}
+		e.setAirSupply(m.air());
+		e.hurtTime = 0;
+		e.invulnerableTime = 0;
 		e.removeAllEffects();
 		for (MobEffectInstance i : m.effects()) {
 			e.addEffect(new MobEffectInstance(i));
@@ -335,7 +359,7 @@ public final class SecondChance {
 		level.sendParticles(ViperionMoves.GREEN, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 8, 0.3, 0.4, 0.3, 0.0);
 	}
 
-	private static void restorePlayer(ServerLevel level, ServerPlayer o, PlayerSnap s, boolean full) {
+	private static void restorePlayer(ServerLevel level, ServerPlayer o, PlayerSnap s) {
 		if (o.isPassenger()) {
 			o.stopRiding();
 		}
@@ -344,17 +368,17 @@ public final class SecondChance {
 		o.hurtMarked = true;
 		o.resetFallDistance();
 		o.setHealth(Math.min(o.getMaxHealth(), Math.max(1f, s.health())));
-		if (full) {
-			o.setAbsorptionAmount(s.absorption());
-			o.getFoodData().setFoodLevel(s.food());
-			o.getFoodData().setSaturation(s.saturation());
-			o.removeAllEffects();
-			for (MobEffectInstance i : s.effects()) {
-				o.addEffect(new MobEffectInstance(i));
-			}
-			o.setRemainingFireTicks(s.fire());
-			o.setAirSupply(s.air());
+		o.setAbsorptionAmount(s.absorption());
+		o.getFoodData().setFoodLevel(s.food());
+		o.getFoodData().setSaturation(s.saturation());
+		o.removeAllEffects();
+		for (MobEffectInstance i : s.effects()) {
+			o.addEffect(new MobEffectInstance(i));
 		}
+		o.setRemainingFireTicks(s.fire());
+		o.setAirSupply(s.air());
+		// the power timers: the Miraculous countdown, every cooldown, the kit timers, the Kwami, a Quirk
+		TimeRewind.restore(o, s.powers());
 	}
 
 	private static void restoreBlocks(ServerLevel level, Checkpoint cp) {
