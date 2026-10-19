@@ -7,9 +7,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * v0.16.6 (user): the transformation is SPOKEN -- the holder types the phrase in chat (it still goes out to chat: the
  * hero shouts it). Matching is lenient: case, punctuation, extra spaces and curly vs straight apostrophes don't matter,
- * and the detransformation phrase may start with the Kwami's name. Only the holder's own Kwami's phrases count.
+ * and the Kwami's name is optional in both phrases (v0.16.7, user: "Spots on!" alone transforms). Only the holder's own Kwami's phrases count.
  * <pre>
- *   Tikki, spots on!     Spots off!    (Tikki, spots off!)
+ *   (Tikki,) spots on!   Spots off!    (Tikki, spots off!)
  *   Plagg, claws out!    Claws in!     (Plagg, claws in!)
  *   Trixx, let's pounce! Let's rest!   (Trixx, let's rest!)
  *   Nooroo, dark wings rise!  Dark wings fall!  (Nooroo, dark wings fall!)
@@ -85,7 +85,10 @@ public final class MiraculousPhrases {
 	/** What {@code message} says for this Kwami's holder, or null for anything else. */
 	public static @Nullable Spoken match(Kwami k, String message) {
 		String m = normalize(message);
-		if (m.equals(normalize(transformPhrase(k)))) {
+		String on = normalize(transformPhrase(k));
+		// v0.16.7 (user): the Kwami's name is optional ("Spots on!" works as well as "Tikki, spots on!")
+		String prefix = k.id + " ";
+		if (m.equals(on) || (on.startsWith(prefix) && m.equals(on.substring(prefix.length())))) {
 			return Spoken.TRANSFORM;
 		}
 		String off = normalize(detransformPhrase(k));
