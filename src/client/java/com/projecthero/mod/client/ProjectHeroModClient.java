@@ -971,6 +971,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	}
 
 	private static boolean maxSteelTransformWasDown = false;
+	/** v0.16.7: ticks Shift+N has been held by a Miraculous holder (5 s takes the Miraculous off). */
+	private static int miraculousTakeOffHold;
 
 	/** v0.13.9: true while this client has told the server its claw guard is up (see {@link #handleWolverineOffHand}). */
 	public static boolean wolverineGuardSent;
@@ -1016,6 +1018,23 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			maxSteelTransformWasDown = down;
 			return;
 		}
+		// v0.16.7 (user): a Miraculous holder holding Shift+N for 5 s takes the Miraculous off (a countdown on the action bar)
+		if (down && client.player != null && Screen.hasShiftDown()
+				&& com.projecthero.mod.miraculous.Miraculous.hasPower(client.player) && !mutationSelected(client)) {
+			miraculousTakeOffHold++;
+			int need = com.projecthero.mod.miraculous.MiraculousConfig.TAKE_OFF_HOLD_TICKS;
+			if (miraculousTakeOffHold < need && miraculousTakeOffHold % 20 == 1) {
+				client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+						"message.projecthero.miraculous.take_off_hold", (need - miraculousTakeOffHold + 19) / 20)
+						.withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
+			} else if (miraculousTakeOffHold == need) {
+				ClientPlayNetworking.send(new com.projecthero.mod.miraculous.network.MiraculousActionPayload(
+						com.projecthero.mod.miraculous.network.MiraculousActionPayload.Action.TAKE_OFF));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
+		miraculousTakeOffHold = 0;
 		boolean humanShifter = client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 				&& com.projecthero.mod.titanshifter.TitanShifter.phase(client.player) == com.projecthero.mod.titanshifter.TitanPhase.HUMAN;
 		if (down && !maxSteelTransformWasDown && humanShifter && Screen.hasShiftDown()) {

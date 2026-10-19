@@ -46,6 +46,11 @@ public final class MiraculousMod {
 						Miraculous.toggleKwamiHidden(p);
 					}
 				}
+				case TAKE_OFF -> {
+					if (Miraculous.hasPower(p)) {
+						Miraculous.takeOff(p);
+					}
+				}
 			}
 		});
 

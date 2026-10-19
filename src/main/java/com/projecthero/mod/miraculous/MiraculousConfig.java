@@ -33,6 +33,10 @@ public final class MiraculousConfig {
 	public static final int POP_TIRED_TICKS = 30;
 	/** One snack. */
 	public static final int EAT_TICKS = 200; // v0.16.6 (user): 10 seconds to eat (was 2 s)
+	/** v0.16.7 (user): the 10-piece substitute meal takes 22 s (the favourite food stays at {@link #EAT_TICKS}). */
+	public static final int SUBSTITUTE_EAT_TICKS = 440;
+	/** v0.16.7 (user): Shift+N is held this long to take the Miraculous off. */
+	public static final int TAKE_OFF_HOLD_TICKS = 100;
 	/** v0.16.6 (user): this many pieces of any other food stand in for the favourite. */
 	public static final int SUBSTITUTE_FOOD_COUNT = 10;
 	/** Feeding a Kwami that is not hungry: Regeneration I for the holder, this long. */

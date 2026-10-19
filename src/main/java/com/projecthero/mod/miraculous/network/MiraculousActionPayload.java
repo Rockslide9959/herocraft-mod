@@ -13,7 +13,9 @@ public record MiraculousActionPayload(Action action) implements CustomPacketPayl
 	public enum Action {
 		TOGGLE_FORM,
 		/** v0.16.6 (user): N -- hide the Kwami / call it out. */
-		TOGGLE_KWAMI_HIDDEN
+		TOGGLE_KWAMI_HIDDEN,
+		/** v0.16.7 (user): Shift+N held 5 s -- take the Miraculous off (the client times the hold). */
+		TAKE_OFF
 	}
 
 	public static final CustomPacketPayload.Type<MiraculousActionPayload> TYPE =

@@ -263,8 +263,10 @@ public final class Miraculous {
 		} else {
 			consumeFood(player, stack, 1);
 		}
-		// it eats for 10 s (v0.16.6, user); a hungry Kwami is only fed (and the next transformation allowed) at the end
-		long until = now + MiraculousConfig.EAT_TICKS;
+		// it eats for 10 s, or 22 s for the substitute meal (v0.16.7, user); a hungry Kwami is only fed (and the next
+		// transformation allowed) at the end
+		int eatTicks = favourite ? MiraculousConfig.EAT_TICKS : MiraculousConfig.SUBSTITUTE_EAT_TICKS;
+		long until = now + eatTicks;
 		boolean wasHungry = s.hungry;
 		edit(player, n -> {
 			n.vals.put(V_EAT_UNTIL, until);
@@ -272,10 +274,10 @@ public final class Miraculous {
 			n.vals.remove(V_SUB_FOOD);
 		});
 		if (e != null) {
-			e.setMode(KwamiEntity.MODE_EAT, MiraculousConfig.EAT_TICKS);
+			e.setMode(KwamiEntity.MODE_EAT, eatTicks);
 			player.level().playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GENERIC_EAT, SoundSource.NEUTRAL, 0.6f, 1.5f);
 		}
-		say(player, "message.projecthero.miraculous.eating", ChatFormatting.GREEN, kwamiName(k), MiraculousConfig.EAT_TICKS / 20);
+		say(player, "message.projecthero.miraculous.eating", ChatFormatting.GREEN, kwamiName(k), eatTicks / 20);
 		return true;
 	}
 
@@ -379,6 +381,36 @@ public final class Miraculous {
 		KwamiCompanion.introduce(player, kwami);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.PLAYERS, 1.0f, 1.3f);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ALLAY_AMBIENT_WITH_ITEM, SoundSource.PLAYERS, 0.8f, 1.2f);
+		return true;
+	}
+
+	/**
+	 * v0.16.7 (user): Shift+N held 5 s -- take the Miraculous off. The Kwami goes back into its jewel, which lands in the
+	 * inventory (or at the feet when full), and the power is gone until the jewel is worn again. Refused while
+	 * transformed and while the Kwami is hungry or eating (taking it off must not be a way round feeding it).
+	 */
+	public static boolean takeOff(ServerPlayer player) {
+		MiraculousState s = state(player);
+		Kwami k = Kwami.byId(s.kwami);
+		if (!s.hasPower || k == null) {
+			return false;
+		}
+		if (s.transformed) {
+			say(player, "message.projecthero.miraculous.take_off_transformed", ChatFormatting.GOLD);
+			return false;
+		}
+		if (s.hungry || s.val(V_EAT_UNTIL) > player.level().getGameTime()) {
+			say(player, "message.projecthero.miraculous.take_off_hungry", ChatFormatting.GOLD, kwamiName(k));
+			return false;
+		}
+		revoke(player);
+		ItemStack jewel = new ItemStack(com.projecthero.mod.miraculous.item.MiraculousItems.jewelOf(k));
+		if (!player.getInventory().add(jewel)) {
+			player.drop(jewel, false);
+		}
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.0f, 0.8f);
+		player.displayClientMessage(Component.translatable("message.projecthero.miraculous.taken_off", kwamiName(k),
+				Component.translatable(jewel.getDescriptionId())).withStyle(ChatFormatting.LIGHT_PURPLE), false);
 		return true;
 	}
 

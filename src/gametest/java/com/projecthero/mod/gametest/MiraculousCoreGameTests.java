@@ -194,7 +194,7 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		ItemStack apples = new ItemStack(Items.APPLE, 9);
 		helper.assertTrue(Miraculous.feed(p, apples), "the rest");
 		helper.assertTrue(apples.getCount() == 3, "only the 6 still needed are taken, left " + apples.getCount());
-		helper.assertTrue(Miraculous.eatingSecondsLeft(p) > 0, "10 pieces: it eats");
+		helper.assertTrue(Miraculous.eatingSecondsLeft(p) == MiraculousConfig.SUBSTITUTE_EAT_TICKS / 20, "10 pieces: it eats, for 22 s (v0.16.7)");
 		helper.assertTrue(Miraculous.finishMeal(p), "the meal ends");
 		helper.assertFalse(Miraculous.hungry(p), "fed");
 		helper.assertFalse(Miraculous.feed(p, new ItemStack(Items.BREAD, 10)), "substitute food only for a hungry Kwami");
@@ -334,5 +334,23 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 				helper.succeed();
 			});
 		});
+	}
+
+	/** v0.16.7 (user): Shift+N held 5 s takes the Miraculous off -- the jewel comes back; never while hungry or transformed. */
+	@SuppressWarnings("removal")
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void takingTheMiraculousOffGivesTheJewelBack(GameTestHelper helper) {
+		ServerPlayer p = mock(helper);
+		helper.assertTrue(Miraculous.grant(p, Kwami.TIKKI), "granted");
+		Miraculous.edit(p, n -> n.hungry = true);
+		helper.assertFalse(Miraculous.takeOff(p), "refused while Tikki is hungry");
+		fed(p);
+		Miraculous.edit(p, n -> n.transformed = true);
+		helper.assertFalse(Miraculous.takeOff(p), "refused while transformed");
+		Miraculous.edit(p, n -> n.transformed = false);
+		helper.assertTrue(Miraculous.takeOff(p), "taken off");
+		helper.assertFalse(Miraculous.hasPower(p), "the power is gone");
+		helper.assertTrue(p.getInventory().contains(new ItemStack(MiraculousItems.LADYBUG_EARRINGS)), "the Earrings are back in the inventory");
+		helper.succeed();
 	}
 }
