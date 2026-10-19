@@ -205,7 +205,9 @@ public final class CatNoirCataclysm {
 
 	/** v0.16.6: the touch, to every player near, for the client's VFX (the spreading corrosion, the dust, the darkened creature). */
 	private static void sendFx(ServerLevel level, BlockPos origin, List<BlockPos> blocks, int entityId, int armourMask) {
-		CataclysmFxPayload payload = new CataclysmFxPayload(origin.immutable(), blocks, entityId, armourMask);
+		// (never more than the codec carries -- an over-long list fails to encode and drops the connection)
+		List<BlockPos> sent = blocks.size() > CataclysmFxPayload.MAX_BLOCKS ? List.copyOf(blocks.subList(0, CataclysmFxPayload.MAX_BLOCKS)) : blocks;
+		CataclysmFxPayload payload = new CataclysmFxPayload(origin.immutable(), sent, entityId, armourMask);
 		for (ServerPlayer near : PlayerLookup.around(level, Vec3.atCenterOf(origin), 96)) {
 			if (ServerPlayNetworking.canSend(near, CataclysmFxPayload.TYPE)) {
 				ServerPlayNetworking.send(near, payload);

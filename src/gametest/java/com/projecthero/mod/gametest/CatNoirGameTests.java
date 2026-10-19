@@ -432,4 +432,21 @@ public class CatNoirGameTests implements FabricGameTest {
 		helper.assertTrue(p.getHealth() < hp, "the fourth lands");
 		helper.succeed();
 	}
+
+	/** v0.16.7: a full-size Cataclysm crumble's VFX payload encodes (it once went over the list limit and kicked the player). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void cataclysmFxPayloadCarriesAFullCrumble(GameTestHelper helper) {
+		helper.assertTrue(CatNoirConfig.CATACLYSM_MAX_BLOCKS <= com.projecthero.mod.miraculous.catnoir.CataclysmFxPayload.MAX_BLOCKS,
+				"the block cap fits in one payload");
+		java.util.List<BlockPos> blocks = new java.util.ArrayList<>();
+		for (int i = 0; i < CatNoirConfig.CATACLYSM_MAX_BLOCKS; i++) {
+			blocks.add(new BlockPos(i % 17, i / 289, (i / 17) % 17));
+		}
+		var payload = new com.projecthero.mod.miraculous.catnoir.CataclysmFxPayload(BlockPos.ZERO, blocks, -1, 0);
+		var buf = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), helper.getLevel().registryAccess());
+		com.projecthero.mod.miraculous.catnoir.CataclysmFxPayload.CODEC.encode(buf, payload);
+		var back = com.projecthero.mod.miraculous.catnoir.CataclysmFxPayload.CODEC.decode(buf);
+		helper.assertTrue(back.blocks().size() == blocks.size(), "all " + blocks.size() + " blocks round-trip");
+		helper.succeed();
+	}
 }

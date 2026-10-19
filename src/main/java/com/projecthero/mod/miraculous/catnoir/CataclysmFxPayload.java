@@ -21,12 +21,18 @@ import net.minecraft.resources.ResourceLocation;
  * </ul>
  */
 public record CataclysmFxPayload(BlockPos origin, List<BlockPos> blocks, int entityId, int armourMask) implements CustomPacketPayload {
+	/**
+	 * v0.16.7: the most blocks one payload carries. It was 1024 -- the 8-block crumble (up to
+	 * {@link CatNoirConfig#CATACLYSM_MAX_BLOCKS}) went over it and the encode failure disconnected the player.
+	 */
+	public static final int MAX_BLOCKS = 4096;
+
 	public static final CustomPacketPayload.Type<CataclysmFxPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "cat_noir_cataclysm_fx"));
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, CataclysmFxPayload> CODEC = StreamCodec.composite(
 			BlockPos.STREAM_CODEC, CataclysmFxPayload::origin,
-			BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list(1024)), CataclysmFxPayload::blocks,
+			BlockPos.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_BLOCKS)), CataclysmFxPayload::blocks,
 			ByteBufCodecs.VAR_INT, CataclysmFxPayload::entityId,
 			ByteBufCodecs.VAR_INT, CataclysmFxPayload::armourMask,
 			CataclysmFxPayload::new);
