@@ -38,7 +38,7 @@ current target if that one is allowed, so a mirrored mob stays on the mob it fig
 | # | Illusion | Server effect | Visual |
 |---|---|---|---|
 | 1 | **Army of Foxes** | the classic Mirage (5 copies that swing when she swings, a 9x4 fake wall, monsters within 20 confused) + 8 `RenaFoxEntity` that chase the nearest enemy within 16, bite for 6 (`RenaRougeCombat.strike`, never her / squad / pets), pull the bitten onto themselves, take 3 mob hits (a player's at once). A copy hit by anything bursts: Blindness 3 s + Nausea 5 s (a player) or 5 s no target + wander (a mob) | vanilla fox model, orange, see-through, shimmering |
-| 2 | **Monster** | every mob within 24 of the beast: no target, runs 16 blocks away (every 0.5 s) | `MirageFxEntity.MONSTER`: the fox model x8, rearing, translucent orange |
+| 2 | **Monster** | every mob within 24 of the beast: no target, runs 16 blocks away (every 0.5 s) | `MirageFxEntity.MONSTER`: the fox model x10, rearing on its hind legs, translucent orange |
 | 3 | **Vanishing Act** | mobs within 32 that were after her / her squad drop them and can't pick them again unless one of them hit that mob within 5 s; 3 RUNNER copies sprint off (behind her and to the sides) and take the aggro | runners + a puff |
 | 4 | **Mirage Zone** | radius 12 at the aim: mobs inside drop targets and walk out; mobs outside have a path / chase into it cut and are nudged back | `ZONE`: glowing disc, cracks, 34 flame sprites, client smoke / flame / lava particles |
 | 5 | **Golden Lure** | every mob within 30 of the prize: no target, walks to it, stares | `LURE`: a rotating heap of gold items in a halo |

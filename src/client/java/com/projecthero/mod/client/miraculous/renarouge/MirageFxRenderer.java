@@ -108,8 +108,10 @@ public class MirageFxRenderer extends EntityRenderer<MirageFxEntity> {
 		float rear = (38f + 5f * Mth.sin(age * 0.08f)) * (1f - (1f - rise) * (1f - rise));
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(180f - e.facing()));
-		pose.translate(0f, 0f, 0.25f * s);
-		pose.mulPose(Axis.XP.rotationDegrees(-rear));
+		// pivot on the hind legs (the model faces -Z here): the head end lifts
+		pose.translate(0f, 0f, 0.3f * s);
+		pose.mulPose(Axis.XP.rotationDegrees(rear));
+		pose.translate(0f, 0f, -0.3f * s);
 		pose.scale(s, s, s);
 		pose.scale(-1f, -1f, 1f);
 		pose.translate(0f, -1.501f, 0f);
@@ -313,7 +315,6 @@ public class MirageFxRenderer extends EntityRenderer<MirageFxEntity> {
 		float r = e.radius();
 		TextureAtlasSprite glass = Minecraft.getInstance().getBlockRenderer().getBlockModel(Blocks.WHITE_STAINED_GLASS.defaultBlockState()).getParticleIcon();
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(TextureAtlas.LOCATION_BLOCKS));
-		VertexConsumer frame = buffers.getBuffer(RenderType.entityTranslucentEmissive(white()));
 		int n = 8;
 		for (int i = 0; i < n; i++) {
 			double a = Math.PI * 2 * i / n + age * 0.006;
@@ -329,6 +330,18 @@ public class MirageFxRenderer extends EntityRenderer<MirageFxEntity> {
 			vert(vc, last, w, 0f, 0f, u1, v1, tint);
 			vert(vc, last, w, h, 0f, u1, v0, tint);
 			vert(vc, last, -w, h, 0f, u0, v0, tint);
+			pose.popPose();
+		}
+		// the frames in a second pass (one buffer at a time)
+		VertexConsumer frame = buffers.getBuffer(RenderType.entityTranslucentEmissive(white()));
+		for (int i = 0; i < n; i++) {
+			double a = Math.PI * 2 * i / n + age * 0.006;
+			float rise = Mth.clamp(age / 12f, 0f, 1f);
+			pose.pushPose();
+			pose.translate((float) Math.cos(a) * r, 0f, (float) Math.sin(a) * r);
+			pose.mulPose(Axis.YP.rotation((float) (-a - Math.PI / 2)));
+			PoseStack.Pose last = pose.last();
+			float w = 1.1f, h = 3.2f * rise;
 			int fc = FastColor.ARGB32.color(Math.round(220 * fade), 255, 150, 50);
 			float t = 0.07f;
 			rect(frame, last, -w - t, -t, -w, h + t, fc);

@@ -119,8 +119,8 @@ public final class RenaRougeConfig {
 	public static final int COPY_BURST_CONFUSE_TICKS = 100;
 	// 2. Monster
 	public static final double MONSTER_RADIUS = 24.0;
-	/** The beast is the fox model this many times over (about 6 blocks tall, more when it rears). */
-	public static final float MONSTER_SCALE = 8f;
+	/** The beast is the fox model this many times over (about 7 blocks tall, more when it rears). */
+	public static final float MONSTER_SCALE = 10f;
 	/** Panicked mobs run this far away from it. */
 	public static final double MONSTER_FLEE = 16.0;
 	// 3. Vanishing Act
