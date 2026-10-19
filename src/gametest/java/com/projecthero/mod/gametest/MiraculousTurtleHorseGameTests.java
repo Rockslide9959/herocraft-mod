@@ -93,7 +93,7 @@ public class MiraculousTurtleHorseGameTests implements FabricGameTest {
 
 		helper.assertTrue(MiraculousPhrases.match(Kwami.WAYZZ, "WAYZZ SHELL ON") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.WAYZZ, "wayzz, shell off") == MiraculousPhrases.Spoken.DETRANSFORM
-				&& MiraculousPhrases.match(Kwami.WAYZZ, "shell on") == null
+				&& MiraculousPhrases.match(Kwami.WAYZZ, "shell on") == MiraculousPhrases.Spoken.TRANSFORM /* v0.16.7: the name is optional now */
 				&& MiraculousPhrases.match(Kwami.KAALKI, "Kaalki full gallop") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.KAALKI, "DISMOUNT!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.assertTrue("Carapace".equals(MiraculousPhrases.heroName(Kwami.WAYZZ)) && "Pegasus".equals(MiraculousPhrases.heroName(Kwami.KAALKI)), "hero names");

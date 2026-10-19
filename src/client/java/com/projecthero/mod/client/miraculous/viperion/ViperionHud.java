@@ -38,7 +38,7 @@ public final class ViperionHud {
 		}
 		int rewinds = Viperion.rewindsLeft(mc.player);
 		int cx = g.guiWidth() / 2;
-		int cy = g.guiHeight() - 92;
+		int cy = g.guiHeight() - 112;
 		int r = 9;
 		// the ring of scales
 		for (int i = 0; i < 28; i++) {

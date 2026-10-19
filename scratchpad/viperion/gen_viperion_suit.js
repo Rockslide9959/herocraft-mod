@@ -1,6 +1,7 @@
 // v0.16.7 (user): Viperion's suit from the user's chosen skin (minecraftskins.com 20294512, a WIDE skin), cut to the SUIT
 // ONLY so the wearer's own skin shows ("remove the regular skin so the player's skin can be used"):
-//   * the whole head goes (the character's black + teal hair, face, ears, the hat layer's hair strands) -- except a
+//   * the whole head goes (the character's black + teal hair, face, ears, the hat layer's hair strands) -- except the skin's own
+//     visor (rows 13-15 of the face as drawn, lens highlights and the two yellow texels under the eyes kept, user) and a
 //     teal visor mask painted over the eyes, open eye holes on the eye rows (12 and 13) so the wearer's eyes show, the
 //     mask wrapping one texel round each side of the head;
 //   * every skin-tone texel on the body goes (the neck opening at the collar);
@@ -21,6 +22,14 @@ if (img.w !== 64 || img.h !== 64) throw new Error('want a 64x64 skin');
 const set = (x, y, c) => { const i = (y * 64 + x) * 4; img.px[i] = c[0]; img.px[i + 1] = c[1]; img.px[i + 2] = c[2]; img.px[i + 3] = 255; };
 const hex = h => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
 
+// 0. (user, v0.16.7) the source's own visor must survive: remember its head-front texels (rows 12-15, x 8-15) that are
+// not skin -- the mask's teal / dark texels, its lens highlights, and the two bright yellow texels #fcfa2d under the eyes
+const SOURCE_MASK = [];
+for (let y = 12; y < 16; y++) for (let x = 8; x < 16; x++) {
+	const i = (y * 64 + x) * 4;
+	const r = img.px[i], g = img.px[i + 1], b = img.px[i + 2];
+	if (img.px[i + 3] && !skinTone(r, g, b)) SOURCE_MASK.push([x, y, [r, g, b]]);
+}
 // 1. the head (base + hat) clear; skin tones everywhere else clear
 let cut = 0;
 for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
@@ -48,6 +57,17 @@ for (let dy = 0; dy < 3; dy++) {
 }
 // a highlight glint on each lens rim
 set(8, 12, S); set(15, 12, S);
+// 2b. the source visor back on (its lower rows, the lens highlights and the yellow texels), except on the wearer's eye
+// row (y 12, x 9-10 / 13-14): those stay open so their own eyes show
+let kept = 0;
+for (const [x, y, c] of SOURCE_MASK) {
+	if (y === 12 && (x === 9 || x === 10 || x === 13 || x === 14)) continue;
+	if (y === 12) continue; // row 12 keeps the painted bridge / rims round the holes
+	set(x, y, c);
+	kept++;
+}
+const yellow = SOURCE_MASK.filter(([, , c]) => c[0] === 0xfc && c[1] === 0xfa && c[2] === 0x2d).length;
+if (yellow < 2) throw new Error('the yellow texels went missing');
 
 // 3. wide (as drawn) and slim (4 -> 3 px arms)
 const wide = { w: 64, h: 64, px: Buffer.from(img.px) };

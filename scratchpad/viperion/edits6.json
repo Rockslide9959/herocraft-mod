@@ -1,0 +1,12 @@
+[
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth | Carapace | Pegasus |\n|---|---|---|---|---|---|---|\n| Kwami | Tikki | Plagg | Trixx | Nooroo | Wayzz | Kaalki |", "replace": "| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth | Carapace | Pegasus | Viperion (v0.16.7) |\n|---|---|---|---|---|---|---|---|\n| Kwami | Tikki | Plagg | Trixx | Nooroo | Wayzz | Kaalki | Sass |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| `turtle_bracelet` | `horseshoe_glasses` |", "replace": "| `turtle_bracelet` | `horseshoe_glasses` | `snake_bracelet` |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "(never in the box) | the Miraculous Box | the Miraculous Box |", "replace": "(never in the box) | the Miraculous Box | the Miraculous Box | the Miraculous Box |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| dried kelp (vanilla) | sugar (vanilla) |", "replace": "| dried kelp (vanilla) | sugar (vanilla) | egg (vanilla; not thrown while he is hungry) |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| `Wayzz, shell on!` | `Kaalki, full gallop!` |", "replace": "| `Wayzz, shell on!` | `Kaalki, full gallop!` | `Sass, scales slither!` |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| `Shell off!` | `Dismount!` |", "replace": "| `Shell off!` | `Dismount!` | `Scales rest!` |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "| `0x3FAE5A` | `0xE6C276` |", "replace": "| `0x3FAE5A` | `0xE6C276` | `0x2FB7B0` |"},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "  Turtle Bracelet, Horseshoe Glasses; never the Brooch).", "replace": "  Turtle Bracelet, Horseshoe Glasses, v0.16.7 the Snake Bracelet; never the Brooch)."},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth | carapace | pegasus` (and `revoke`).", "replace": "- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth | carapace | pegasus | viperion` (and `revoke`)."},
+ {"file": "docs/MIRACULOUS_REFERENCE.md", "find": "## Ladybug\n", "replace": "v0.16.7: Viperion's chapter `CH_VIPERION` (56) sits after the Quirks (49-55), so `CHAPTER_POWER_BASE` is 57; it adds a\n`second_chance` section after the passives.\n\n## Viperion (v0.16.7)\n\nKit: see `MIRACULOUS_VIPERION.md`. The Snake Bracelet is on the RIGHT wrist; Shift+Z = Second Chance (a checkpoint you\ncan rewind to three times in 90 s; starts the countdown).\n\n## Ladybug\n"}
+]
