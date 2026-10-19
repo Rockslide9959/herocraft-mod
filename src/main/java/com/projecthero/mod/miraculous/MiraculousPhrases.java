@@ -32,6 +32,7 @@ public final class MiraculousPhrases {
 			case NOOROO -> "Hawk Moth";
 			case WAYZZ -> "Carapace";
 			case KAALKI -> "Pegasus";
+			case SASS -> "Viperion";
 		};
 	}
 
@@ -44,6 +45,7 @@ public final class MiraculousPhrases {
 			case NOOROO -> "Nooroo, dark wings rise!";
 			case WAYZZ -> "Wayzz, shell on!";
 			case KAALKI -> "Kaalki, full gallop!";
+			case SASS -> "Sass, scales slither!";
 		};
 	}
 
@@ -56,6 +58,7 @@ public final class MiraculousPhrases {
 			case NOOROO -> "Dark wings fall!";
 			case WAYZZ -> "Shell off!";
 			case KAALKI -> "Dismount!";
+			case SASS -> "Scales rest!";
 		};
 	}
 

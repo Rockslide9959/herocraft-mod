@@ -62,6 +62,7 @@ public final class MiraculousMod {
 		com.projecthero.mod.miraculous.hawkmoth.HawkMothMod.initialize();
 		com.projecthero.mod.miraculous.carapace.CarapaceMod.initialize();
 		com.projecthero.mod.miraculous.pegasus.PegasusMod.initialize();
+		com.projecthero.mod.miraculous.viperion.ViperionMod.initialize(); // v0.16.7
 
 		// v0.16.6 (user): the transformation is spoken in chat ("Tikki, spots on!"); the line still goes out to chat
 		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {

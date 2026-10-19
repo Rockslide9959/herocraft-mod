@@ -14,20 +14,20 @@ by `gen_kwami_game.js` (session scratchpad copy; see "Assets").
 
 ## Getting a Miraculous
 
-| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth | Carapace | Pegasus |
-|---|---|---|---|---|---|---|
-| Kwami | Tikki | Plagg | Trixx | Nooroo | Wayzz | Kaalki |
-| Jewel (item) | `ladybug_earrings` | `cat_ring` | `fox_necklace` | `butterfly_brooch` | `turtle_bracelet` | `horseshoe_glasses` |
-| Where | the Miraculous Box | the Miraculous Box | the Miraculous Box | stronghold library chests 1 in 6, ancient city chests 1 in 10 (never in the box) | the Miraculous Box | the Miraculous Box |
-| Food | cookie (vanilla) | `camembert` | `macaron` | honey bottle (vanilla; the bottle comes back) | dried kelp (vanilla) | sugar (vanilla) |
-| Transform | `Tikki, spots on!` | `Plagg, claws out!` | `Trixx, let's pounce!` | `Nooroo, dark wings rise!` | `Wayzz, shell on!` | `Kaalki, full gallop!` |
-| Detransform | `Spots off!` | `Claws in!` | `Let's rest!` | `Dark wings fall!` | `Shell off!` | `Dismount!` |
-| Colour | `0xE0242C` | `0x7EE23A` | `0xEE7C24` | `0x9A5CD6` | `0x3FAE5A` | `0xE6C276` |
+| | Ladybug | Cat Noir | Rena Rouge | Hawk Moth | Carapace | Pegasus | Viperion (v0.16.7) |
+|---|---|---|---|---|---|---|---|
+| Kwami | Tikki | Plagg | Trixx | Nooroo | Wayzz | Kaalki | Sass |
+| Jewel (item) | `ladybug_earrings` | `cat_ring` | `fox_necklace` | `butterfly_brooch` | `turtle_bracelet` | `horseshoe_glasses` | `snake_bracelet` |
+| Where | the Miraculous Box | the Miraculous Box | the Miraculous Box | stronghold library chests 1 in 6, ancient city chests 1 in 10 (never in the box) | the Miraculous Box | the Miraculous Box | the Miraculous Box |
+| Food | cookie (vanilla) | `camembert` | `macaron` | honey bottle (vanilla; the bottle comes back) | dried kelp (vanilla) | sugar (vanilla) | egg (vanilla; not thrown while he is hungry) |
+| Transform | `Tikki, spots on!` | `Plagg, claws out!` | `Trixx, let's pounce!` | `Nooroo, dark wings rise!` | `Wayzz, shell on!` | `Kaalki, full gallop!` | `Sass, scales slither!` |
+| Detransform | `Spots off!` | `Claws in!` | `Let's rest!` | `Dark wings fall!` | `Shell off!` | `Dismount!` | `Scales rest!` |
+| Colour | `0xE0242C` | `0x7EE23A` | `0xEE7C24` | `0x9A5CD6` | `0x3FAE5A` | `0xE6C276` | `0x2FB7B0` |
 
 - **The Miraculous Box** (`miraculous_box`, a GeckoLib item: three 60-degree slabs make the hexagon, black lacquer with
   red trim, a Greek-key band and the red emblem on top): jungle temple chests 1 in 8, woodland mansion chests 1 in 6.
   Right-click: a chime and a red/gold burst, the box is used up, ONE random jewel of the five (Earrings, Ring, Necklace,
-  Turtle Bracelet, Horseshoe Glasses; never the Brooch). With
+  Turtle Bracelet, Horseshoe Glasses, v0.16.7 the Snake Bracelet; never the Brooch). With
   `projectheroUniquePowers` on it prefers a Kwami nobody holds (and not the one you already hold).
 - **A jewel**: right-click -> `Miraculous.grant`. Refused (jewel kept) when you already hold that Kwami, or by
   `UniquePowers.refuse` (asked BEFORE the jewel is used). Used up on success.
@@ -117,7 +117,7 @@ row's width).
 
 ## Commands
 
-- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth | carapace | pegasus` (and `revoke`).
+- `/projecthero power grant <player> ladybug | cat_noir | rena_rouge | hawk_moth | carapace | pegasus | viperion` (and `revoke`).
 - `/projecthero power tune miraculous kwami` (info) `| feed | toggle | countdown <seconds>`.
 
 ## Guide
@@ -125,6 +125,14 @@ row's width).
 Six chapters (`CH_LADYBUG` 42 .. `CH_HAWK_MOTH` 45, `CH_CARAPACE` 46, `CH_PEGASUS` 47, `CHAPTER_POWER_BASE` 48): tier line, body, the box, the jewel,
 the Kwami, transforming, the countdown, feeding, the passives, and a controls table built from the kit's `idsOf`
 (R / Shift+R / G / Shift+G / X / Shift+X / Z / Shift+Z / V / Shift+V / C / Shift+C, names + `.desc`).
+
+v0.16.7: Viperion's chapter `CH_VIPERION` (56) sits after the Quirks (49-55), so `CHAPTER_POWER_BASE` is 57; it adds a
+`second_chance` section after the passives.
+
+## Viperion (v0.16.7)
+
+Kit: see `MIRACULOUS_VIPERION.md`. The Snake Bracelet is on the RIGHT wrist; Shift+Z = Second Chance (a checkpoint you
+can rewind to three times in 90 s; starts the countdown).
 
 ## Ladybug
 

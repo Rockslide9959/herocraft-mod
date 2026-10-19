@@ -93,7 +93,7 @@ public class MiraculousTurtleHorseGameTests implements FabricGameTest {
 
 		helper.assertTrue(MiraculousPhrases.match(Kwami.WAYZZ, "WAYZZ SHELL ON") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.WAYZZ, "wayzz, shell off") == MiraculousPhrases.Spoken.DETRANSFORM
-				&& MiraculousPhrases.match(Kwami.WAYZZ, "shell on") == null
+				&& MiraculousPhrases.match(Kwami.WAYZZ, "shell on") == MiraculousPhrases.Spoken.TRANSFORM /* v0.16.7: the name is optional now */
 				&& MiraculousPhrases.match(Kwami.KAALKI, "Kaalki full gallop") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.KAALKI, "DISMOUNT!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.assertTrue("Carapace".equals(MiraculousPhrases.heroName(Kwami.WAYZZ)) && "Pegasus".equals(MiraculousPhrases.heroName(Kwami.KAALKI)), "hero names");
@@ -153,7 +153,7 @@ public class MiraculousTurtleHorseGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void carapaceAndPegasusHaveTheirOwnGuideChapters(GameTestHelper helper) {
 		var chapters = HeroPackGuide.chapters();
-		helper.assertTrue(chapters.size() == 56 + com.projecthero.mod.hero.Powers.enabled().size(), "56 framing chapters (v0.16.7: + the Quirks) + the powers, got " + chapters.size());
+		helper.assertTrue(chapters.size() == 57 + com.projecthero.mod.hero.Powers.enabled().size(), "57 framing chapters (v0.16.7: + the Quirks, + Viperion) + the powers, got " + chapters.size());
 		String[] want = { "projecthero.guide.carapace", "projecthero.guide.pegasus" };
 		Kwami[] ks = { Kwami.WAYZZ, Kwami.KAALKI };
 		for (int i = 0; i < 2; i++) {

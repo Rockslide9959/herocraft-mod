@@ -1,0 +1,405 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.miraculous.Kwami;
+import com.projecthero.mod.miraculous.KwamiCompanion;
+import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.miraculous.data.MiraculousState;
+import com.projecthero.mod.miraculous.entity.KwamiEntity;
+import com.projecthero.mod.miraculous.item.MiraculousItems;
+import com.projecthero.mod.miraculous.viperion.SecondChance;
+import com.projecthero.mod.miraculous.viperion.Viperion;
+import com.projecthero.mod.miraculous.viperion.ViperionMoves;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.16.7 Viperion screenshots. Fake players hold Sass; the local player is the camera.
+ * Shots go to run/screenshots/vp_&lt;name&gt;.png. Enabled by run/vp.flag.
+ */
+public final class ViperionHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer a, b;
+
+	private ViperionHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("vp.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(ViperionHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "vp-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "vp_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(ViperionHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			server(mc, p -> {
+				for (ServerPlayer f : new ServerPlayer[] { a, b }) {
+					if (f != null) {
+						f.tickCount++;
+						Miraculous.tick(f);
+						f.yBodyRot = f.getYRot();
+						f.yBodyRotO = f.getYRot();
+						f.setYHeadRot(f.getYRot());
+						try {
+							java.lang.reflect.Method m = net.minecraft.world.entity.player.Player.class.getDeclaredMethod("updatePlayerPose");
+							m.setAccessible(true);
+							m.invoke(f);
+						} catch (ReflectiveOperationException ex) {
+							System.out.println("[HARNESS] pose " + ex);
+						}
+					}
+				}
+			});
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("VP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static java.util.UUID skinUuid(boolean slim) {
+		for (int i = 0; i < 1000; i++) {
+			java.util.UUID id = java.util.UUID.randomUUID();
+			boolean s = net.minecraft.client.resources.DefaultPlayerSkin.get(id).model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM;
+			if (s == slim) {
+				return id;
+			}
+		}
+		return java.util.UUID.randomUUID();
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, java.util.UUID id) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(id, name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		return f;
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static void settle(ServerPlayer f) {
+		MiraculousState n = Miraculous.state(f).copy();
+		n.formChangeAt = f.level().getGameTime() - 200L;
+		n.animId = MiraculousState.ANIM_NONE;
+		f.setAttached(ModAttachments.MIRACULOUS_STATE, n);
+	}
+
+	private static void transformNow(ServerPlayer f) {
+		settle(f);
+		Miraculous.edit(f, n -> n.hungry = false);
+		Miraculous.transform(f);
+		settle(f);
+	}
+
+	private static void ready(ServerPlayer f) {
+		Miraculous.edit(f, n -> n.abilityReadyAt.clear());
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			a = fake(p, "Luka", origin, skinUuid(false));
+			b = fake(p, "Juleka", origin.add(2.4, 0, 0), skinUuid(true));
+			Miraculous.grant(a, Kwami.SASS);
+			Miraculous.grant(b, Kwami.SASS);
+			camera(p, origin.add(1.2, 1.9, 5.0), origin.add(1.2, 1.3, 0));
+		}));
+		shot(t + 20, "sass_popout_wave");
+		t += 80;
+		at(t, () -> server(mc, p -> {
+			KwamiEntity k = KwamiCompanion.find(a);
+			if (k != null) {
+				Vec3 at = k.position().add(0, 0.33, 0);
+				camera(p, at.add(0.4, 0.15, 1.35), at);
+			}
+		}));
+		shot(t + 6, "sass_idle_closeup");
+		at(t + 8, () -> server(mc, p -> {
+			KwamiEntity k = KwamiCompanion.find(a);
+			if (k != null) {
+				camera(p, k.position().add(-1.2, 0.5, 0.4), k.position().add(0, 0.3, 0));
+			}
+		}));
+		shot(t + 14, "sass_side");
+		// the bracelet on the right wrist (-X when facing +Z), plain
+		at(t + 16, () -> server(mc, p -> camera(p, a.position().add(-0.95, 1.15, 0.45), a.position().add(-0.36, 0.72, 0))));
+		shot(t + 22, "bracelet_wide_plain");
+		at(t + 24, () -> server(mc, p -> camera(p, b.position().add(-0.95, 1.15, 0.45), b.position().add(-0.33, 0.72, 0))));
+		shot(t + 30, "bracelet_slim_plain");
+		t += 40;
+		// the transformation (Luka), front
+		at(t, () -> server(mc, p -> {
+			Miraculous.edit(a, n -> n.hungry = false);
+			settle(a);
+			camera(p, origin.add(0.6, 1.5, 3.4), origin.add(0, 1.0, 0));
+		}));
+		at(t + 4, () -> server(mc, p -> Miraculous.transform(a)));
+		shot(t + 24, "transform_reveal");
+		shot(t + 50, "transform_done");
+		t += 60;
+		at(t, () -> server(mc, p -> {
+			transformNow(a);
+			transformNow(b);
+			camera(p, origin.add(1.2, 1.5, 4.2), origin.add(1.2, 1.0, 0));
+		}));
+		shot(t + 10, "suit_front_wide_slim");
+		at(t + 12, () -> server(mc, p -> camera(p, origin.add(1.2, 1.5, -4.2), origin.add(1.2, 1.0, 0))));
+		shot(t + 20, "suit_back_lyre");
+		at(t + 22, () -> server(mc, p -> camera(p, a.getEyePosition().add(0.0, 0.05, 0.9), a.getEyePosition())));
+		shot(t + 28, "face_wide");
+		at(t + 30, () -> server(mc, p -> camera(p, b.getEyePosition().add(0.0, 0.05, 0.9), b.getEyePosition())));
+		shot(t + 36, "face_slim");
+		at(t + 38, () -> server(mc, p -> camera(p, a.position().add(-0.95, 1.15, 0.45), a.position().add(-0.36, 0.72, 0))));
+		shot(t + 44, "bracelet_transformed");
+		at(t + 46, () -> server(mc, p -> camera(p, origin.add(-2.2, 1.6, 1.5), origin.add(0.6, 1.0, 0))));
+		shot(t + 52, "suit_side");
+		t += 60;
+		// the moves, from in front and to the side
+		at(t, () -> server(mc, p -> {
+			ready(a);
+			camera(p, origin.add(3.0, 1.8, 3.4), origin.add(0, 1.1, 1.5));
+			ViperionMoves.chord(a);
+		}));
+		shot(t + 4, "move_sonic_chord");
+		at(t + 14, () -> server(mc, p -> {
+			ready(a);
+			ViperionMoves.strike(a);
+		}));
+		shot(t + 18, "move_lyre_strike");
+		at(t + 20, () -> server(mc, p -> {
+			ready(a);
+			camera(p, a.position().add(-1.3, 1.7, 1.6), a.position().add(-0.3, 1.2, 0.4));
+			ViperionMoves.chord(a);
+		}));
+		shot(t + 25, "lyre_in_hand_close");
+		at(t + 30, () -> server(mc, p -> {
+			ready(a);
+			ViperionMoves.shield(a);
+		}));
+		at(t + 36, () -> server(mc, p -> camera(p, a.position().add(1.0, 1.7, 2.6), a.position().add(0, 1.2, 0.5))));
+		shot(t + 40, "move_string_shield");
+		at(t + 42, () -> server(mc, p -> {
+			ready(b);
+			Mob pig = EntityType.PIG.create(p.serverLevel());
+			pig.moveTo(b.getX(), b.getY(), b.getZ() + 4.0, 180f, 0f);
+			pig.setNoAi(true);
+			p.serverLevel().addFreshEntity(pig);
+			b.teleportTo(p.serverLevel(), b.getX(), b.getY(), b.getZ(), 0f, 17f);
+		}));
+		at(t + 44, () -> server(mc, p -> {
+			ViperionMoves.constrict(b);
+			camera(p, b.position().add(3.4, 1.9, 2.5), b.position().add(0, 0.9, 2.5));
+		}));
+		shot(t + 56, "move_constrict");
+		at(t + 130, () -> server(mc, p -> {
+			ready(a);
+			camera(p, origin.add(2.5, 2.4, 3.5), origin.add(0, 0.8, 0));
+			ViperionMoves.resonance(a);
+		}));
+		shot(t + 134, "move_resonance");
+		at(t + 136, () -> server(mc, p -> {
+			ready(b);
+			Viperion.is(b);
+			Miraculous.setVal(b, Viperion.V_DASH, b.level().getGameTime() + 200L);
+			camera(p, b.position().add(2.2, 1.5, 1.4), b.position().add(0, 0.4, 0));
+		}));
+		shot(t + 142, "move_serpent_dash_low");
+		at(t + 144, () -> server(mc, p -> Miraculous.setVal(b, Viperion.V_DASH, 0L)));
+		t += 150;
+		// Second Chance: the checkpoint, then the rewind
+		at(t, () -> server(mc, p -> {
+			ready(a);
+			a.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			camera(p, origin.add(3.2, 2.2, 3.6), origin.add(0, 0.6, 0));
+			SecondChance.checkpoint(a);
+		}));
+		shot(t + 3, "second_chance_checkpoint");
+		shot(t + 12, "second_chance_checkpoint_pose");
+		at(t + 30, () -> server(mc, p -> a.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z - 4.0, 0f, 0f)));
+		at(t + 40, () -> server(mc, p -> SecondChance.rewind(a, false)));
+		shot(t + 42, "second_chance_rewind");
+		shot(t + 50, "second_chance_rewind_pose");
+		t += 60;
+		// the HUD and first person: the local player is Viperion with a live checkpoint, the Lyre in hand
+		at(t, () -> {
+			mc.options.hideGui = false;
+			mc.options.guiScale().set(2);
+			server(mc, p -> {
+				p.getInventory().clearContent();
+				Miraculous.grant(p, Kwami.SASS);
+				transformNow(p);
+				camera(p, origin.add(-3, 1.7, -3), origin.add(-3, 1.2, -6));
+				SecondChance.checkpoint(p);
+				Miraculous.setAnim(p, Viperion.ANIM_CHORD);
+			});
+		});
+		shot(t + 4, "firstperson_lyre_hud");
+		at(t + 20, () -> server(mc, p -> Miraculous.setAnim(p, MiraculousState.ANIM_NONE)));
+		shot(t + 26, "firstperson_bracelet_hud");
+		at(t + 28, () -> server(mc, p -> {
+			// Heat Sense: a pig and a cow behind a wall
+			ServerLevel level = p.serverLevel();
+			Vec3 w = origin.add(-3, 0, -8);
+			for (int x = -3; x <= 3; x++) {
+				for (int y = 0; y <= 3; y++) {
+					level.setBlockAndUpdate(BlockPos.containing(w.x + x, w.y + y, w.z), Blocks.STONE.defaultBlockState());
+				}
+			}
+			for (EntityType<? extends Mob> type : java.util.List.of(EntityType.PIG, EntityType.COW, EntityType.SHEEP)) {
+				Mob m = type.create(level);
+				m.moveTo(w.x - 1.5 + level.random.nextInt(3), w.y, w.z - 2.0, 0f, 0f);
+				m.setNoAi(true);
+				level.addFreshEntity(m);
+			}
+			camera(p, origin.add(-3, 1.7, -3), origin.add(-3, 1.0, -10));
+			ViperionMoves.heatSense(p);
+		}));
+		shot(t + 40, "heat_sense");
+		at(t + 44, () -> server(mc, p -> {
+			p.getInventory().setItem(0, new ItemStack(MiraculousItems.SNAKE_BRACELET));
+			p.getInventory().selected = 0;
+			Miraculous.revoke(p);
+		}));
+		shot(t + 54, "item_bracelet_in_hand");
+		at(t + 60, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

@@ -1,0 +1,3 @@
+[
+ {"file": "src/main/resources/projecthero.mixins.json", "find": "		\"SuperSpeedPhasePoseMixin\",", "after": "		\"ViperionDashPoseMixin\","}
+]

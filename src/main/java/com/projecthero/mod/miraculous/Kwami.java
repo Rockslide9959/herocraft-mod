@@ -19,7 +19,9 @@ public enum Kwami {
 	/** Carapace (v0.16.6): the Turtle Bracelet, the Shield, dried kelp. */
 	WAYZZ("wayzz", "carapace", "bracelet", 0xFF3FAE5A),
 	/** Pegasus (v0.16.6): the Horseshoe Glasses, the Horseshoe, sugar. */
-	KAALKI("kaalki", "pegasus", "glasses", 0xFFE6C276);
+	KAALKI("kaalki", "pegasus", "glasses", 0xFFE6C276),
+	/** Viperion (v0.16.7): the Snake Bracelet, the Lyre, eggs. */
+	SASS("sass", "viperion", "snake_bracelet", 0xFF2FB7B0);
 
 	/** The Kwami's own id ({@code tikki}): the entity variant, the state's {@code kwami} field, lang keys. */
 	public final String id;

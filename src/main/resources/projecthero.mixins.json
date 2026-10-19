@@ -65,6 +65,7 @@
 		"SuperSpeedLeavesMixin",
 		"SuperSpeedPhaseCollideMixin",
 		"SuperSpeedPhasePoseMixin",
+		"ViperionDashPoseMixin",
 		"SuperSpeedTimeSlowMixin",
 		"SuperSpeedWaterSoundMixin",
 		"ZombieSpawnMixin",

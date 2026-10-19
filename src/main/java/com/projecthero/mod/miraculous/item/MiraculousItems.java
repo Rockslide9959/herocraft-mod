@@ -35,6 +35,8 @@ public final class MiraculousItems {
 	public static Item TURTLE_BRACELET;
 	/** v0.16.6: Pegasus's jewel (in the Miraculous Box). */
 	public static Item HORSESHOE_GLASSES;
+	/** v0.16.7: Viperion's jewel (in the Miraculous Box). */
+	public static Item SNAKE_BRACELET;
 	public static Item CAMEMBERT;
 	public static Item MACARON;
 
@@ -55,6 +57,7 @@ public final class MiraculousItems {
 		BUTTERFLY_BROOCH = register("butterfly_brooch", new KwamiJewelItem(Kwami.NOOROO, jewel()));
 		TURTLE_BRACELET = register("turtle_bracelet", new KwamiJewelItem(Kwami.WAYZZ, jewel()));
 		HORSESHOE_GLASSES = register("horseshoe_glasses", new KwamiJewelItem(Kwami.KAALKI, jewel()));
+		SNAKE_BRACELET = register("snake_bracelet", new KwamiJewelItem(Kwami.SASS, jewel()));
 		CAMEMBERT = register("camembert", new Item(new Item.Properties()
 				.food(new FoodProperties.Builder().nutrition(5).saturationModifier(0.6f).build())));
 		MACARON = register("macaron", new Item(new Item.Properties()
@@ -101,6 +104,7 @@ public final class MiraculousItems {
 			case NOOROO -> BUTTERFLY_BROOCH;
 			case WAYZZ -> TURTLE_BRACELET;
 			case KAALKI -> HORSESHOE_GLASSES;
+			case SASS -> SNAKE_BRACELET;
 		};
 	}
 
@@ -112,6 +116,7 @@ public final class MiraculousItems {
 		output.accept(BUTTERFLY_BROOCH);
 		output.accept(TURTLE_BRACELET);
 		output.accept(HORSESHOE_GLASSES);
+		output.accept(SNAKE_BRACELET);
 		output.accept(CAMEMBERT);
 		output.accept(MACARON);
 	}

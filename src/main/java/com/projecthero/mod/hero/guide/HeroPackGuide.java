@@ -144,6 +144,7 @@ public final class HeroPackGuide {
 			case NOOROO -> CH_HAWK_MOTH;
 			case WAYZZ -> CH_CARAPACE;
 			case KAALKI -> CH_PEGASUS;
+			case SASS -> CH_VIPERION;
 		});
 	}
 
@@ -162,7 +163,11 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide." + hero + ".tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide." + hero + ".body");
 			blank(lines);
-			for (String section : new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"}) {
+			// v0.16.7: Viperion adds his special's own section (Second Chance) after the passives
+			String[] sections = kwami == com.projecthero.mod.miraculous.Kwami.SASS
+					? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "second_chance"}
+					: new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"};
+			for (String section : sections) {
 				boolean shared = section.equals("box") || section.equals("countdown") || section.equals("passives");
 				String key = "projecthero.guide." + (shared ? "miraculous" : hero) + "." + section;
 				head(lines, key);
@@ -473,7 +478,9 @@ public final class HeroPackGuide {
 	private static final int CH_QUIRKS = 48; // v0.16.7: the Quirks overview
 	/** v0.16.7: one chapter per Quirk, in {@link com.projecthero.mod.quirk.Quirk#values()} order. */
 	private static final int CH_QUIRK_BASE = 49;
-	private static final int CHAPTER_POWER_BASE = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.values().length; // 56
+	/** v0.16.7: Viperion (after the Quirks, so their indices stay put). */
+	private static final int CH_VIPERION = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.values().length; // 56
+	private static final int CHAPTER_POWER_BASE = CH_VIPERION + 1; // 57
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1398,6 +1405,7 @@ public final class HeroPackGuide {
 		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
 			out.add(quirk(q));
 		}
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.SASS)); // CH_VIPERION (v0.16.7)
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1543,6 +1551,7 @@ public final class HeroPackGuide {
 		icon(CH_HAWK_MOTH, "butterfly_brooch");
 		icon(CH_CARAPACE, "turtle_bracelet");
 		icon(CH_PEGASUS, "horseshoe_glasses");
+		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
 		icon(CH_TITAN_SHIFTER, "titan_serum");
 		icon(CH_ZOMBIE_RAID, "zombie_horde");
@@ -1620,6 +1629,7 @@ public final class HeroPackGuide {
 		link(miraculous, "projecthero.guide.hawk_moth", CH_HAWK_MOTH);
 		link(miraculous, "projecthero.guide.carapace", CH_CARAPACE);
 		link(miraculous, "projecthero.guide.pegasus", CH_PEGASUS);
+		link(miraculous, "projecthero.guide.viperion", CH_VIPERION);
 
 		List<IndexEntry> other = map.get(Category.OTHER);
 		sub(other, "projecthero.guide.sub.other_heroes");
