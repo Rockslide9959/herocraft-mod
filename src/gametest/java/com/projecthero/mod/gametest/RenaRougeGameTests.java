@@ -292,8 +292,8 @@ public class RenaRougeGameTests implements FabricGameTest {
 				}
 			}
 		});
-		helper.assertTrue(RenaRougeMoves.mirage(p), "the Mirage starts");
-		helper.assertFalse(RenaRougeMoves.mirage(p), "a second one is refused while it runs");
+		helper.assertTrue(RenaRougeMoves.mirage(p, com.projecthero.mod.miraculous.renarouge.MirageIllusion.FOXES), "the Mirage starts (Army of Foxes)");
+		helper.assertFalse(RenaRougeMoves.mirage(p, com.projecthero.mod.miraculous.renarouge.MirageIllusion.FOXES), "a second one is refused while it runs");
 		helper.assertTrue(Miraculous.countdownLeft(p) == 0, "no countdown until the bubble pops");
 		int pop = RenaRougeConfig.MIRAGE_PLAY_TICKS + RenaRougeConfig.MIRAGE_BUBBLE_TICKS + 6;
 		helper.runAfterDelay(pop, () -> {

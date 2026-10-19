@@ -167,6 +167,11 @@ public final class HeroPackGuide {
 			String[] sections = kwami == com.projecthero.mod.miraculous.Kwami.SASS
 					? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "second_chance"}
 					: new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"};
+			// v0.16.7: Rena Rouge adds the Mirage wheel and one section per illusion
+			if (kwami == com.projecthero.mod.miraculous.Kwami.TRIXX) {
+				sections = new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "mirage", "mirage_foxes",
+						"mirage_monster", "mirage_vanish", "mirage_zone", "mirage_lure", "mirage_pitfall", "mirage_eclipse", "mirage_mirrors"};
+			}
 			for (String section : sections) {
 				boolean shared = section.equals("box") || section.equals("countdown") || section.equals("passives");
 				String key = "projecthero.guide." + (shared ? "miraculous" : hero) + "." + section;

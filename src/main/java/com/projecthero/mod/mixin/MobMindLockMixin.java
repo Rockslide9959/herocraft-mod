@@ -25,6 +25,13 @@ public abstract class MobMindLockMixin {
 				&& (TelekinesisHandlers.isLocked(self) || com.projecthero.mod.punisher.PunisherControl.refusesTarget(self))) {
 			return null;
 		}
+		// v0.16.7: Rena Rouge's Mirage (Vanishing Act, Hall of Mirrors, Eclipse) refuses some targets -- the mob keeps
+		// whatever it was on instead (a mirrored mob stays on the mob it fights)
+		if (target != null && !self.level().isClientSide() && com.projecthero.mod.miraculous.renarouge.RenaMirage.refusesTarget(self, target)) {
+			LivingEntity current = self.getTarget();
+			return current != null && current != target && current.isAlive()
+					&& !com.projecthero.mod.miraculous.renarouge.RenaMirage.refusesTarget(self, current) ? current : null;
+		}
 		return target;
 	}
 }

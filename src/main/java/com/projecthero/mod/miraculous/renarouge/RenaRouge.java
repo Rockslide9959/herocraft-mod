@@ -33,6 +33,8 @@ public final class RenaRouge {
 	public static final String V_DOUBLE = "rr_double_until";
 	/** The Mirage (its copies, its wall, the confusion) lasts until. */
 	public static final String V_MIRAGE = "rr_mirage_until";
+	/** v0.16.7: which illusion of the Mirage wheel runs ({@code MirageIllusion} ordinal + 1; 0 = none). */
+	public static final String V_MIRAGE_KIND = "rr_mirage_kind";
 	/** The Fake Wall stands until. */
 	public static final String V_WALL = "rr_wall_until";
 

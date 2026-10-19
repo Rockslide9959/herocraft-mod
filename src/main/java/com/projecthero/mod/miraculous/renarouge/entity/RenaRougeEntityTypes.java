@@ -34,12 +34,23 @@ public final class RenaRougeEntityTypes {
 			EntityType.Builder.<MirageBubbleEntity>of(MirageBubbleEntity::new, MobCategory.MISC)
 					.sized(0.5f, 0.5f).noSave().noSummon().clientTrackingRange(10).updateInterval(1)
 					.build("rena_rouge_bubble"));
+	/** v0.16.7: the Army of Foxes. */
+	public static final EntityType<RenaFoxEntity> FOX = register("rena_rouge_fox",
+			EntityType.Builder.<RenaFoxEntity>of(RenaFoxEntity::new, MobCategory.MISC)
+					.sized(0.6f, 0.7f).eyeHeight(0.4f).noSave().noSummon().clientTrackingRange(10).updateInterval(2)
+					.build("rena_rouge_fox"));
+	/** v0.16.7: the big visuals of the Mirage wheel's illusions (drawn client-side). */
+	public static final EntityType<MirageFxEntity> MIRAGE_FX = register("rena_rouge_mirage_fx",
+			EntityType.Builder.<MirageFxEntity>of(MirageFxEntity::new, MobCategory.MISC)
+					.sized(0.5f, 0.5f).noSave().noSummon().clientTrackingRange(12).updateInterval(2)
+					.build("rena_rouge_mirage_fx"));
 
 	private RenaRougeEntityTypes() {
 	}
 
 	public static void initialize() {
 		FabricDefaultAttributeRegistry.register(ILLUSION, RenaIllusionEntity.createAttributes());
+		FabricDefaultAttributeRegistry.register(FOX, RenaFoxEntity.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {

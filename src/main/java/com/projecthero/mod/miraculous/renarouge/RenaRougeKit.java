@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Player;
  *   R  Flute Strike        Shift+R  Flute Sweep
  *   G  Flute Throw         Shift+G  Melody Lure
  *   X  Fox Dash            Shift+X  Illusion Swap
- *   Z  Illusion Double     Shift+Z  MIRAGE (starts the countdown when the bubble pops)
+ *   Z  Illusion Double     Shift+Z  MIRAGE -- v0.16.7: a wheel of 8 illusions (starts the countdown when the bubble pops)
  *   V  Fox Camouflage      Shift+V  Fake Wall
  *   C  Fox Pounce          Shift+C  Fox Feint
  * </pre>
@@ -72,12 +72,14 @@ public final class RenaRougeKit implements KwamiKit {
 	@Override
 	public void clearSessionState() {
 		RenaRougeMoves.clearSessionState();
+		RenaMirage.clearSessionState();
 		FakeWallEntity.ACTIVE.clear();
 	}
 
 	@Override
 	public void forget(UUID id) {
 		RenaRougeMoves.forget(id);
+		RenaMirage.forget(id);
 	}
 
 	@Override

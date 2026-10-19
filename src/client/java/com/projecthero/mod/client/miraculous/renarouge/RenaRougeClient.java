@@ -35,6 +35,11 @@ public final class RenaRougeClient implements KwamiClientKit {
 		EntityRendererRegistry.register(RenaRougeEntityTypes.FLUTE, FluteBoomerangRenderer::new);
 		EntityRendererRegistry.register(RenaRougeEntityTypes.FAKE_WALL, FakeWallRenderer::new);
 		EntityRendererRegistry.register(RenaRougeEntityTypes.BUBBLE, MirageBubbleRenderer::new);
+		// v0.16.7: the Mirage wheel, its foxes and its big visuals
+		EntityRendererRegistry.register(RenaRougeEntityTypes.FOX, RenaFoxRenderer::new);
+		EntityRendererRegistry.register(RenaRougeEntityTypes.MIRAGE_FX, MirageFxRenderer::new);
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+				com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload.TYPE, (payload, context) -> RenaMirageWheelScreen.receive(payload));
 	}
 
 	@Override

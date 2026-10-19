@@ -23,6 +23,19 @@ public final class RenaRougeMod {
 	public static void initialize() {
 		MiraculousKits.register(Kwami.TRIXX, new RenaRougeKit());
 		RenaRougeEntityTypes.initialize();
+		// v0.16.7: the Mirage wheel (Shift+Z opens it on the client; the pick comes back here)
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(
+				com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload.TYPE, com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload.CODEC);
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playC2S().register(
+				com.projecthero.mod.miraculous.renarouge.network.RenaMirageChoicePayload.TYPE, com.projecthero.mod.miraculous.renarouge.network.RenaMirageChoicePayload.CODEC);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.registerGlobalReceiver(com.projecthero.mod.miraculous.renarouge.network.RenaMirageChoicePayload.TYPE,
+				(payload, context) -> {
+					if (Miraculous.transformedAs(context.player(), Kwami.TRIXX) && !com.projecthero.mod.hero.PowerSuppression.refuse(context.player())) {
+						RenaRougeMoves.chooseMirage(context.player(), payload.index());
+					}
+				});
+		// v0.16.7: Eclipse -- a mob's shot loosed inside the night flies off course
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> RenaMirage.onEntityLoad(entity));
 
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
 			if (entity instanceof ServerPlayer p && Miraculous.holds(p, Kwami.TRIXX) && RenaRougeMoves.feintHit(p, source)) {
@@ -38,6 +51,7 @@ public final class RenaRougeMod {
 		AttackEntityCallback.EVENT.register((player, level, hand, target, hit) -> {
 			if (!level.isClientSide && player instanceof ServerPlayer p && Miraculous.holds(p, Kwami.TRIXX)) {
 				RenaRouge.breakCamouflage(p);
+				RenaMirage.onSwing(p); // v0.16.7: the Mirage copies swing with her
 			}
 			return InteractionResult.PASS;
 		});

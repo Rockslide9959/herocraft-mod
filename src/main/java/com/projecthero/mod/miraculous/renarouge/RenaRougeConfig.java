@@ -93,7 +93,63 @@ public final class RenaRougeConfig {
 	public static final int MIRAGE_WALL_HEIGHT = 4;
 	/** A confused mob rethinks (another mob, an illusion, or wandering) this often. */
 	public static final int CONFUSE_RETHINK = 30;
-	public static final int MIRAGE_COOLDOWN = 1800;
+	/** v0.16.7 (user): 2 minutes from the cast (the pick on the wheel), so twice in one transformation. */
+	public static final int MIRAGE_COOLDOWN = 2400;
+
+	// ---------------------------------------------------------------- v0.16.7: the Mirage wheel's eight illusions
+	/** The wheel's offer stays good this long after Shift+Z (a pick after that is ignored). */
+	public static final int MIRAGE_MENU_TICKS = 600;
+	/** The aimed illusions (Mirage Zone, Golden Lure, Pitfall) land where she looks, at most this far. */
+	public static final double MIRAGE_AIM_RANGE = 32.0;
+	/** When any illusion ends, the mobs it fooled stay dazed (Slowness II, no target) this long. */
+	public static final int MIRAGE_DAZE_TICKS = 60;
+	/** Moving at most this (MOVEMENT_SPEED): a boss that can't really walk (Galactus) only stops attacking instead. */
+	public static final double MIRAGE_IMMOBILE_SPEED = 0.01;
+	// 1. Army of Foxes (the classic Mirage, plus the foxes)
+	public static final int FOX_COUNT = 8;
+	public static final float FOX_DAMAGE = 6f;
+	/** Mob hits a fox takes before it pops into orange mist (a player's hit pops one at once). */
+	public static final int FOX_HITS = 3;
+	public static final double FOX_SPEED = 0.42;
+	/** A fox goes for enemies within this of itself. */
+	public static final double FOX_SEEK_RANGE = 16.0;
+	/** Hitting a Mirage copy bursts it into mist: the hitter is blinded this long ... */
+	public static final int COPY_BURST_BLIND_TICKS = 60;
+	/** ... and confused (Nausea for a player; a mob loses its target and wanders) this long. */
+	public static final int COPY_BURST_CONFUSE_TICKS = 100;
+	// 2. Monster
+	public static final double MONSTER_RADIUS = 24.0;
+	/** The beast is the fox model this many times over (about 6 blocks tall, more when it rears). */
+	public static final float MONSTER_SCALE = 8f;
+	/** Panicked mobs run this far away from it. */
+	public static final double MONSTER_FLEE = 16.0;
+	// 3. Vanishing Act
+	public static final int VANISH_RUNNERS = 3;
+	public static final double VANISH_RUN_DISTANCE = 20.0;
+	/** A mob she (or a squadmate) hit within this long may still fight back. */
+	public static final int VANISH_RETALIATE_TICKS = 100;
+	/** Mobs this close that were after her / her squad lose them. */
+	public static final double VANISH_RADIUS = 32.0;
+	// 4. Mirage Zone
+	public static final double ZONE_RADIUS = 12.0;
+	// 5. Golden Lure
+	public static final double GOLD_RADIUS = 30.0;
+	// 6. Pitfall
+	public static final int PIT_SIZE = 4;
+	public static final int PIT_DEPTH = 3;
+	/** Mobs within this of the pit walk for its illusory floor. */
+	public static final double PIT_STEER_RADIUS = 16.0;
+	// 7. Eclipse
+	/** The bubble of night round her: this radius (about 20 blocks across). */
+	public static final double ECLIPSE_RADIUS = 10.0;
+	/** Enemies inside lose track of anything farther than this. */
+	public static final double ECLIPSE_SIGHT = 4.0;
+	/** Their arrows / fireballs fly off up to this many degrees. */
+	public static final double ECLIPSE_SCATTER_DEGREES = 25.0;
+	// 8. Hall of Mirrors
+	public static final double MIRRORS_RADIUS = 20.0;
+	/** Every tick a mirrored mob whose fight broke off is put on another mirrored mob; a lone one stays off her for this long at a time. */
+	public static final int MIRRORS_RETHINK = 10;
 
 	// ---------------------------------------------------------------- V: Fox Camouflage / Shift+V: Fake Wall
 	public static final int CAMO_TICKS = 20 * 20;

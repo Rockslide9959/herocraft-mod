@@ -99,7 +99,7 @@ public final class RenaRougeIllusions {
 				continue;
 			}
 			if (RenaRougeCombat.isBoss(m)) {
-				if (afterHer || illusion.kind() == RenaIllusionEntity.MIRAGE) {
+				if (afterHer || illusion.kind() == RenaIllusionEntity.MIRAGE || illusion.kind() == RenaIllusionEntity.RUNNER) {
 					taunt(m, illusion);
 				}
 			} else if (RenaRougeCombat.isFoolable(owner, m)) {

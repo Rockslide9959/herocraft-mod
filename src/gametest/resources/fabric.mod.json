@@ -149,6 +149,7 @@
       "com.projecthero.mod.gametest.RaidRepeatGameTests",
       "com.projecthero.mod.gametest.LaserVisionV0145GameTests",
       "com.projecthero.mod.gametest.RenaRougeGameTests",
+      "com.projecthero.mod.gametest.RenaMirageGameTests",
       "com.projecthero.mod.gametest.TeleportationV0165GameTests",
       "com.projecthero.mod.gametest.ElasticityV0165GameTests",
       "com.projecthero.mod.gametest.FlightV0165GameTests",

@@ -66,6 +66,10 @@ public final class RenaRougeMoves {
 		long mirageUntil;
 		final Map<Integer, Long> confused = new HashMap<>();
 		final Map<Integer, Long> rethinkAt = new HashMap<>();
+		/** v0.16.7: the wheel's offer is good until; the illusion being played and where she aimed it. */
+		long menuUntil;
+		MirageIllusion mirageKind = MirageIllusion.FOXES;
+		@Nullable Vec3 mirageAim;
 		// Fox Pounce
 		long pounceAt;
 		// a little flute tune: game time -> pitch
@@ -128,6 +132,7 @@ public final class RenaRougeMoves {
 			target = inFront(p, RenaRougeConfig.STRIKE_REACH, 0.5);
 		}
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.7f, 1.3f + 0.15f * step);
+		RenaMirage.onSwing(p);
 		if (target == null) {
 			return null;
 		}
@@ -176,6 +181,7 @@ public final class RenaRougeMoves {
 			level.sendParticles(RenaRougeCombat.ORANGE, c.x + Math.cos(a) * 3.0, c.y, c.z + Math.sin(a) * 3.0, 1, 0, 0, 0, 0);
 		}
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.9f);
+		RenaMirage.onSwing(p);
 		return RenaRougeCombat.radial(p, c, RenaRougeConfig.SWEEP_RADIUS, RenaRougeConfig.SWEEP_DAMAGE, RenaRougeConfig.SWEEP_KNOCKBACK,
 				RenaRougeConfig.SWEEP_LIFT, new HashSet<>());
 	}
@@ -408,17 +414,61 @@ public final class RenaRougeMoves {
 		return d;
 	}
 
+	/** A Mirage is running, or its melody / bubble is on the way. */
+	private static boolean mirageBusy(ServerPlayer p, Session s) {
+		return RenaMirage.running(p) || s.mirageBubbleAt != 0;
+	}
+
 	/**
-	 * Shift+Z: she plays the Flute ({@link RenaRougeConfig#MIRAGE_PLAY_TICKS}), an orange bubble floats from it and pops
-	 * ({@link #miragePop}). False: a Mirage is already running.
+	 * v0.16.7 Shift+Z: opens the Mirage wheel on her client ({@link com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload});
+	 * nothing is spent until she picks ({@link #chooseMirage}). False: a Mirage is already running.
 	 */
 	public static boolean mirage(ServerPlayer p) {
 		Session s = session(p);
 		long now = now(p);
-		if (s.mirageUntil > now || s.mirageBubbleAt != 0) {
+		if (mirageBusy(p, s)) {
 			Miraculous.say(p, "message.projecthero.rena_rouge.mirage_running", ChatFormatting.GOLD);
 			return false;
 		}
+		s.menuUntil = now + RenaRougeConfig.MIRAGE_MENU_TICKS;
+		if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(p,
+				com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload.TYPE)) {
+			net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(p,
+					new com.projecthero.mod.miraculous.renarouge.network.RenaMirageMenuPayload(RenaRougeConfig.MIRAGE_MENU_TICKS / 20));
+		}
+		sound(p, SoundEvents.AMETHYST_BLOCK_CHIME, 0.7f, 1.4f);
+		return true;
+	}
+
+	/**
+	 * The wheel's pick ({@code index} a {@link MirageIllusion} ordinal; -1 = closed without one, which spends nothing).
+	 * Refused unless the wheel was opened within {@link RenaRougeConfig#MIRAGE_MENU_TICKS} and the Mirage is ready.
+	 */
+	public static boolean chooseMirage(ServerPlayer p, int index) {
+		Session s = session(p);
+		long now = now(p);
+		boolean offered = s.menuUntil > now;
+		s.menuUntil = 0L;
+		MirageIllusion kind = MirageIllusion.byIndex(index);
+		if (kind == null || !offered || !Miraculous.transformedAs(p, Kwami.TRIXX) || !Miraculous.ready(p, RenaRougeConfig.MIRAGE)) {
+			return false;
+		}
+		return mirage(p, kind);
+	}
+
+	/**
+	 * The cast: she plays the Flute ({@link RenaRougeConfig#MIRAGE_PLAY_TICKS}), an orange bubble floats from it and pops
+	 * ({@link #miragePop}) into {@code kind}. The 2-minute cooldown starts now. False: a Mirage is already running.
+	 */
+	public static boolean mirage(ServerPlayer p, MirageIllusion kind) {
+		Session s = session(p);
+		long now = now(p);
+		if (mirageBusy(p, s)) {
+			Miraculous.say(p, "message.projecthero.rena_rouge.mirage_running", ChatFormatting.GOLD);
+			return false;
+		}
+		s.mirageKind = kind;
+		s.mirageAim = kind.aimed ? RenaMirage.aimPoint(p) : null;
 		s.mirageBubbleAt = now + RenaRougeConfig.MIRAGE_PLAY_TICKS;
 		Miraculous.setVal(p, RenaRouge.V_PLAY, now + RenaRougeConfig.MIRAGE_PLAY_TICKS + 6);
 		Miraculous.setAnim(p, RenaRouge.ANIM_MIRAGE);
@@ -444,17 +494,36 @@ public final class RenaRougeMoves {
 			return;
 		}
 		Session s = session(p);
-		long now = now(p);
 		s.mirageBubbleAt = 0L;
-		s.mirageUntil = now + RenaRougeConfig.MIRAGE_TICKS;
 		Miraculous.startCountdown(p);
-		Miraculous.setVal(p, RenaRouge.V_MIRAGE, s.mirageUntil);
 		ServerLevel level = p.serverLevel();
 		level.sendParticles(RenaRougeCombat.ORANGE_BIG, at.x, at.y, at.z, 60, 1.2, 1.0, 1.2, 0.0);
 		level.sendParticles(ParticleTypes.WAX_ON, at.x, at.y, at.z, 40, 2.5, 1.5, 2.5, 1.0);
 		level.sendParticles(ParticleTypes.FLASH, at.x, at.y, at.z, 1, 0, 0, 0, 0);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BUBBLE_COLUMN_BUBBLE_POP, SoundSource.PLAYERS, 2.0f, 0.8f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.ILLUSIONER_CAST_SPELL, SoundSource.PLAYERS, 1.2f, 1.1f);
+		MirageIllusion kind = s.mirageKind == null ? MirageIllusion.FOXES : s.mirageKind;
+		Vec3 aim = s.mirageAim != null ? s.mirageAim : p.position();
+		RenaMirage.start(p, kind, at, aim);
+	}
+
+	/**
+	 * v0.16.7 (test hook / no melody): {@code kind} starts at once at {@code aim} (the aimed ones) -- as if the bubble had
+	 * just popped. The countdown starts.
+	 */
+	public static void mirageNow(ServerPlayer p, MirageIllusion kind, Vec3 aim) {
+		Session s = session(p);
+		s.mirageKind = kind;
+		s.mirageAim = aim;
+		miragePop(p, p.getEyePosition());
+	}
+
+	/** Army of Foxes' first half -- the original Mirage: copies round her, the fake wall, the confused monsters. */
+	static void classicMirage(ServerPlayer p) {
+		Session s = session(p);
+		long now = now(p);
+		s.mirageUntil = now + RenaRougeConfig.MIRAGE_TICKS;
+		ServerLevel level = p.serverLevel();
 		// the copies, in a ring round her
 		List<RenaIllusionEntity> copies = new ArrayList<>();
 		Vec3 f = flatLook(p);
@@ -672,6 +741,7 @@ public final class RenaRougeMoves {
 		if (feint != 0L && now >= feint) {
 			Miraculous.setVal(p, RenaRouge.V_FEINT, 0L);
 		}
+		RenaMirage.tick(p);
 		if (s == null) {
 			return;
 		}
@@ -723,10 +793,7 @@ public final class RenaRougeMoves {
 		// the Mirage: the confusion
 		if (s.mirageUntil > 0) {
 			if (now >= s.mirageUntil) {
-				s.mirageUntil = 0;
-				s.confused.clear();
-				s.rethinkAt.clear();
-				Miraculous.setVal(p, RenaRouge.V_MIRAGE, 0L);
+				stopConfusion(p);
 			} else {
 				confuse(p, s, level, now);
 			}
@@ -799,8 +866,32 @@ public final class RenaRougeMoves {
 		return s != null && s.confused.containsKey(m.getId()) && s.mirageUntil > now(p);
 	}
 
+	/** The classic Mirage's confusion stops (its copies fade on their own clock). */
+	static void stopConfusion(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			return;
+		}
+		s.mirageUntil = 0;
+		s.confused.clear();
+		s.rethinkAt.clear();
+	}
+
+	/** Test hook: the wheel's offer is open. */
+	public static boolean mirageMenuOpen(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s != null && s.menuUntil > now(p);
+	}
+
+	/** Test hook: the melody / bubble of a cast is on its way. */
+	public static boolean miragePending(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s != null && s.mirageBubbleAt != 0;
+	}
+
 	/** Detransformation / logout: every running move of hers ends, everything she conjured goes. */
 	static void endAll(ServerPlayer p) {
+		RenaMirage.end(p, false);
 		RenaRouge.breakCamouflage(p);
 		RenaRougeIllusions.dissolveAll(p);
 		ServerLevel level = p.serverLevel();
@@ -813,6 +904,14 @@ public final class RenaRougeMoves {
 		}
 		for (MirageBubbleEntity b : level.getEntitiesOfClass(MirageBubbleEntity.class, all, b -> p.getUUID().equals(b.ownerId()))) {
 			b.discard();
+		}
+		for (com.projecthero.mod.miraculous.renarouge.entity.MirageFxEntity fx : level.getEntitiesOfClass(
+				com.projecthero.mod.miraculous.renarouge.entity.MirageFxEntity.class, all, fx -> p.getUUID().equals(fx.ownerId()))) {
+			fx.discard();
+		}
+		for (com.projecthero.mod.miraculous.renarouge.entity.RenaFoxEntity fox : level.getEntitiesOfClass(
+				com.projecthero.mod.miraculous.renarouge.entity.RenaFoxEntity.class, all, fox -> p.getUUID().equals(fox.getOwnerUUID()))) {
+			fox.pop();
 		}
 		SESSIONS.remove(p.getUUID());
 	}
