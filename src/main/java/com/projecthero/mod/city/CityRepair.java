@@ -663,6 +663,13 @@ public final class CityRepair {
 		boolean safeHere = v.onGround() && safeSpot(level, v.blockPosition(), pending(job));
 		if (there || (safeHere && inReach(v, target, job.reach))) {
 			freeze(v, job);
+			if (!inReach(v, target, job.reach)) {
+				// v0.16.7 fix: "there" is within 0.8 of the spot, but only the spot's centre is sure to be in reach -- from
+				// its edge BUILD found the block out of reach, sent him back to WALK, he was "there" again, and so on every
+				// tick without ever placing a block (the flaky road-hole test). Step onto the centre.
+				v.setPos(spot.x, spot.y, spot.z);
+				job.hold = spot;
+			}
 			job.cooldown = 4;
 			setPhase(job, high(v, target) ? Phase.CLIMB : Phase.BUILD);
 			return;
