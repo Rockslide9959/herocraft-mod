@@ -99,7 +99,7 @@ public final class PegasusConfig {
 	/** The destination menu is good for this long (pick within 30 s). */
 	public static final int VOYAGE_MENU_TICKS = 30 * 20;
 	/** Starts when the portal opens. */
-	public static final int VOYAGE_COOLDOWN = 2400;
+	public static final int VOYAGE_COOLDOWN = 600; // v0.16.7 (user): 30 s (was 2 min)
 
 	// ---------------------------------------------------------------- V: Portal Shield / Shift+V: Sky Gallop
 	public static final int SHIELD_TICKS = 10 * 20;

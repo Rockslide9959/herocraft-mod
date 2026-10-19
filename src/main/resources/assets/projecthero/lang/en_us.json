@@ -45,7 +45,7 @@
   "projecthero.miraculous.ability.pegasus_portal_trap": "Portal Trap",
   "projecthero.miraculous.ability.pegasus_portal_trap.desc": "A portal opens under the creature you aim at (24 blocks). It drops out of another portal up to 20 blocks above it and takes the fall damage. Not on bosses. 15 s cooldown.",
   "projecthero.miraculous.ability.pegasus_voyage": "VOYAGE",
-  "projecthero.miraculous.ability.pegasus_voyage.desc": "Pick a destination (your bed, the world spawn, a squadmate, a waypoint) and open a big portal there for 30 s that anyone can walk through, both ways. Across worlds only players can pass. Starts the 3-minute countdown. 2 min cooldown.",
+  "projecthero.miraculous.ability.pegasus_voyage.desc": "Pick a destination (your bed, the world spawn, a squadmate, a waypoint) and open a big portal there for 30 s that anyone can walk through, both ways. Across worlds only players can pass. Starts the 3-minute countdown. 30 s cooldown.",
   "projecthero.miraculous.ability.pegasus_portal_shield": "Portal Shield",
   "projecthero.miraculous.ability.pegasus_portal_shield.desc": "A portal in front of you for 10 s swallows incoming projectiles and spits them out of a second portal back at the attacker. Press again to close it. 15 s cooldown after.",
   "projecthero.miraculous.ability.pegasus_sky_gallop": "Sky Gallop",
