@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 
 import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -24,12 +23,13 @@ public final class QuirkClient {
 	}
 
 	public static void initialize() {
-		// the core: the costume layer (registered BEFORE the kits, so a kit's own layers -- Dark Shadow, flames -- draw
-		// over the costume), the HUD (meter, the six keys, ERASED) and the Erasure sync
+		// the core: the worn-suit layer (registered BEFORE the kits, so a kit's own layers -- Dark Shadow, flames -- draw
+		// over the suit; v0.16.7: on every humanoid, so armour stands / mannequins show a suit too), the HUD (meter, the
+		// six keys, ERASED) and the Erasure sync
 		QuirkCostume.initialize();
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
-			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
-				helper.register(new QuirkCostumeLayer(playerRenderer));
+			if (entityRenderer.getModel() instanceof HumanoidModel<?>) {
+				helper.register(new QuirkCostumeLayer<>(entityRenderer));
 			}
 		});
 		HudRenderCallback.EVENT.register(QuirkHud::render);
@@ -61,11 +61,11 @@ public final class QuirkClient {
 		}
 	}
 
-	/** From PlayerModelMixin: the kit says so, or the core's costume is drawn (the wearer's outer layer would poke through). */
+	/**
+	 * From PlayerModelMixin: the kit says its effect covers the whole body. (v0.16.7: the worn suit pieces hide only the
+	 * parts they cover, through {@link QuirkCostume#hideCoveredOverlay}.)
+	 */
 	public static boolean hidesSkinOverlay(Player player) {
-		if (QuirkCostume.shows(player)) {
-			return true;
-		}
 		QuirkClientKit kit = kitOf(player);
 		return kit != null && kit.hidesSkinOverlay(player);
 	}

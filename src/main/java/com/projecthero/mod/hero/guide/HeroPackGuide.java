@@ -1803,13 +1803,13 @@ public final class HeroPackGuide {
 
 	// ---- v0.16.7: the Quirk chapters ----
 
-	/** The Quirks overview: how a Quirk is gained, the serums, the meter, the moves, the costume and the Erasure rule. */
+	/** The Quirks overview: how a Quirk is gained, the serums, the meter, the moves, the craftable suit and the Erasure rule. */
 	private static Chapter quirksOverview() {
 		return chapter("projecthero.guide.quirks", lines -> {
 			lines.add(Component.translatable("projecthero.guide.quirks.tier").withStyle(ChatFormatting.GREEN));
 			para(lines, "projecthero.guide.quirks.body");
 			blank(lines);
-			for (String s : new String[] { "get", "serums", "meter", "controls", "costume", "erasure" }) {
+			for (String s : new String[] { "get", "serums", "meter", "controls", "suit", "erasure" }) {
 				head(lines, "projecthero.guide.quirks." + s);
 				para(lines, "projecthero.guide.quirks." + s + ".body");
 				blank(lines);
@@ -1830,7 +1830,7 @@ public final class HeroPackGuide {
 	 * v0.16.7: one Quirk's chapter, built like the Miraculous ones: overview, how to get it (with its serum's name),
 	 * its meter and overload, its quirk-specific rules, the 12-move table from the registered kit ({@code
 	 * QuirkKits.of(q).idsOf(SLOT_1..SLOT_6)}, names and descriptions from {@code projecthero.quirk.ability.<id>}), the
-	 * costume command and the Erased rule.
+	 * craftable suit (its four pieces and recipe) and the Erased rule.
 	 */
 	private static Chapter quirk(com.projecthero.mod.quirk.Quirk q) {
 		String k = "projecthero.guide.quirk." + q.id;
@@ -1878,8 +1878,19 @@ public final class HeroPackGuide {
 				lines.add(Component.translatable("projecthero.guide.quirks.moves.none").withStyle(ChatFormatting.DARK_GRAY));
 			}
 			blank(lines);
-			head(lines, "projecthero.guide.quirks.costume");
-			para(lines, "projecthero.guide.quirks.costume.body");
+			// v0.16.7 (user): the hero suit is craftable armour now (a Quirk never changes your look)
+			head(lines, "projecthero.guide.quirks.suit");
+			para(lines, "projecthero.guide.quirks.suit.short");
+			com.projecthero.mod.quirk.item.QuirkSuits.Suit suit = com.projecthero.mod.quirk.item.QuirkSuits.Suit.of(q);
+			for (net.minecraft.world.item.ArmorItem.Type t : com.projecthero.mod.quirk.item.QuirkSuits.TYPES) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
+						.append(com.projecthero.mod.quirk.item.QuirkSuits.piece(q, t).getDescription().copy().withStyle(ChatFormatting.WHITE)));
+			}
+			lines.add(Component.translatable("projecthero.guide.quirks.suit.recipe", net.minecraft.world.item.Items.IRON_INGOT.getDescription(),
+					suit.main.getDescription(), suit.accent.getDescription()).withStyle(ChatFormatting.LIGHT_PURPLE));
+			if (q == com.projecthero.mod.quirk.Quirk.DARK_SHADOW) {
+				para(lines, "projecthero.guide.quirk.dark_shadow.bird");
+			}
 			blank(lines);
 			head(lines, "projecthero.guide.quirks.erased");
 			para(lines, q == com.projecthero.mod.quirk.Quirk.ERASURE ? "projecthero.guide.quirks.erased.self" : "projecthero.guide.quirks.erased.body");

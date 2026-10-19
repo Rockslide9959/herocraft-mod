@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "IAI",
+    "B B",
+    "I I"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "A": {
+      "item": "minecraft:blaze_powder"
+    },
+    "B": {
+      "item": "minecraft:magma_cream"
+    }
+  },
+  "result": {
+    "id": "projecthero:endeavor_suit_leggings",
+    "count": 1
+  }
+}

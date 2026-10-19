@@ -1,0 +1,35 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_accent": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": [
+              "minecraft:black_wool",
+              "minecraft:string"
+            ]
+          }
+        ]
+      }
+    },
+    "has_the_recipe": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "projecthero:eraser_head_suit_chestplate"
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_accent",
+      "has_the_recipe"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "projecthero:eraser_head_suit_chestplate"
+    ]
+  }
+}

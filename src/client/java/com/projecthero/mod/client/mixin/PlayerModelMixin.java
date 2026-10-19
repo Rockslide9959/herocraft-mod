@@ -46,6 +46,9 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		PlayerModel<?> model = (PlayerModel<?>) (Object) this;
 		// v0.15.11: the shared model's hat part is drawn whole unless an open Iron Man faceplate says otherwise (below)
 		com.projecthero.mod.client.render.FrontFaceOnlyPart.set(model.hat, false);
+		// v0.16.7: a worn Quirk hero suit piece hides the wearer's outer layer only on the parts it covers (and the
+		// Dark Shadow bird head the hat layer)
+		com.projecthero.mod.client.quirk.QuirkCostume.hideCoveredOverlay(player, model);
 		// Max Steel's suit-up / suit-down is a pixel-by-pixel reveal -- the player's own skin (second
 		// layer included) must stay visible underneath while the suit forms, so do not suppress it
 		// until the reveal has settled.

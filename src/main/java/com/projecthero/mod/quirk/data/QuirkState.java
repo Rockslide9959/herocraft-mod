@@ -22,7 +22,10 @@ public final class QuirkState {
 	public boolean hasPower;
 	/** {@code Quirk.id}; empty without the power. */
 	public String quirk;
-	/** v0.16.7: the hero costume is drawn over the player's skin (default on; {@code /projecthero quirk costume}). */
+	/**
+	 * v0.16.7: UNUSED -- kept only so old saves still decode. The hero costume used to be drawn automatically while this
+	 * was on; it is now a craftable suit ({@code QuirkSuits}) and a Quirk never changes the player's look.
+	 */
 	public boolean costume;
 	/** The kit's meter, 0..100 (Heat, Engine, Sweat...). */
 	public float meter;

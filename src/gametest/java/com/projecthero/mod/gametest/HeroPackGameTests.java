@@ -318,7 +318,10 @@ public class HeroPackGameTests implements FabricGameTest {
 				helper.assertFalse(text.contains("projecthero.guide."), q + " has an untranslated guide line: " + text);
 				all.append(text).append('\n');
 			}
-			helper.assertTrue(all.indexOf("/projecthero quirk costume") >= 0 && all.indexOf("5%") >= 0, q + " explains the costume and how to get it");
+			// v0.16.7: the costume is a craftable suit -- the chapter lists its pieces and the recipe
+			String helmet = com.projecthero.mod.quirk.item.QuirkSuits.piece(q, net.minecraft.world.item.ArmorItem.Type.HELMET).getDescription().getString();
+			helper.assertTrue(all.indexOf(helmet) >= 0 && all.indexOf("Recipe:") >= 0 && all.indexOf("5%") >= 0,
+					q + " lists the suit, its recipe and how to get the Quirk");
 		}
 		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(chapters.indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.ironManChapter()))
 				== com.projecthero.mod.hero.guide.HeroPackGuide.Category.MARVEL, "Iron Man is Marvel");

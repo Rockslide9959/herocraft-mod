@@ -69,6 +69,7 @@
 		"CarapaceHeldItemMixin",
 		"PegasusFirstPersonArmMixin",
 		"QuirkFirstPersonArmMixin",
+		"QuirkSuitArmourMixin",
 		"PegasusHorseshoeHandMixin",
 		"PegasusArmorMixin",
 		"CyborgFirstPersonArmMixin",

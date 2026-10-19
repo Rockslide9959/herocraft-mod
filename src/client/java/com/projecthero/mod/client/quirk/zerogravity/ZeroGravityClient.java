@@ -3,7 +3,6 @@ package com.projecthero.mod.client.quirk.zerogravity;
 import com.projecthero.mod.client.quirk.QuirkClient;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravity;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravityConfig;
 
@@ -71,10 +70,4 @@ public final class ZeroGravityClient implements QuirkClientKit {
 	@Override
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		ZeroGravityPose.apply(player, model);
-	}
-
-	@Override
-	public boolean hidesSkinOverlay(Player player) {
-		return Quirks.costumeOn(player);
-	}
-}
+	}}

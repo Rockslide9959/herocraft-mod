@@ -3,7 +3,6 @@ package com.projecthero.mod.client.quirk.hellflame;
 import com.projecthero.mod.client.quirk.QuirkClient;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.Quirks;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -30,10 +29,4 @@ public final class HellflameClient implements QuirkClientKit {
 	@Override
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		HellflamePose.apply(player, model);
-	}
-
-	@Override
-	public boolean hidesSkinOverlay(Player player) {
-		return Quirks.costumeOn(player);
-	}
-}
+	}}
