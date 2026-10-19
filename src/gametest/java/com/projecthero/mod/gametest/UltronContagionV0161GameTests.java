@@ -349,8 +349,18 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 		helper.succeedWhen(() -> helper.assertTrue(!o.isAlive() && !o.killedByMindStone(), "no Mind Stone: he self-destructs and still dies"));
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, batch = "contagion_upload", timeoutTicks = 40)
+	/**
+	 * v0.16.7 fix: the upload is faked as having started {@code uploadTicks + 1} ago -- which is a negative game time (read
+	 * as "no upload") when this runs early in a fresh test server, so it waits until the world clock is far enough along.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, batch = "contagion_upload", timeoutTicks = 900)
 	public void uploadFinishingMeansHeEscapes(GameTestHelper helper) {
+		long need = ContagionConfig.omega().uploadTicks + 2L;
+		long wait = Math.max(0L, need - helper.getLevel().getGameTime());
+		helper.runAfterDelay(wait, () -> uploadFinishes(helper));
+	}
+
+	private static void uploadFinishes(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel().getServer().overworld();
 		ServerLevel here = helper.getLevel();
 		ContagionState st = ContagionState.get(level);
@@ -372,6 +382,7 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 			here.addFreshEntity(ant);
 			f.antennae.add(ant.getUUID());
 			f.uploadStart = here.getGameTime() - ContagionConfig.omega().uploadTicks - 1;
+			helper.assertTrue(f.uploadStart >= 0, "the faked upload start is a real game time");
 			if (here == level) {
 				SokoviaFinale.tick(level, st);
 				helper.assertTrue(f.outcome == SokoviaFinale.Outcome.ESCAPE, "the upload finished: he escaped, got " + f.outcome);
