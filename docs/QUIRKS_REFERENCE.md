@@ -9,16 +9,16 @@ Seven My Hero Academia Quirks (Hellflame, Overhaul, Engine, Dark Shadow, Erasure
 | Piece | Where | What |
 |---|---|---|
 | `Quirk` enum | `quirk/Quirk.java` | id, `heroKey()` = `quirk_<id>`, meter id + colour, `animBase` |
-| `QuirkState` | `quirk/data/QuirkState.java` | the synced attachment `projecthero:quirk_state` (hasPower, quirk, costume, meter, overloadUntil, anim, cooldowns, kit `vals` / `vecs`) |
+| `QuirkState` | `quirk/data/QuirkState.java` | the synced attachment `projecthero:quirk_state` (hasPower, quirk, costume (unused), meter, overloadUntil, anim, cooldowns, kit `vals` / `vecs`) |
 | `Quirks` | `quirk/Quirks.java` | the core API (below); `tick` runs from `AbilityRouter.serverTick` |
 | `QuirkKit` / `QuirkKits` | `quirk/QuirkKit*.java` | a kit's 12 moves; each kit registers itself from `<Kit>Mod.initialize()` |
 | `QuirkAbilityManager` | `quirk/` | routes R G X Z V C (+ Shift) to the kit; key-repeat filter; Erased / overloaded presses refused |
-| `QuirkCommand` | `quirk/` | `/projecthero quirk costume \| meter <0-100> \| erase <seconds> \| info` (also under `power tune quirk`) |
-| `QuirkItems`, `QuirkSerumItem` | `quirk/item/` | the 7 serums + the Quirk Trigger, loot |
+| `QuirkCommand` | `quirk/` | `/projecthero quirk meter <0-100> \| erase <seconds> \| info` (also under `power tune quirk`) |
+| `QuirkItems`, `QuirkSerumItem`, `QuirkSuits`, `QuirkSuitItem` | `quirk/item/` | the 7 serums + the Quirk Trigger, loot; the 7 craftable hero suits (28 armour pieces) |
 | `PowerSuppression` | `hero/PowerSuppression.java` | Erasure: cancels ANY power (see below) |
 | `QuirkClient` | `client/quirk/` | the client core + kit dispatch (`QuirkClientKit`: poses, hidesSkinOverlay) |
 | `QuirkHud` | `client/quirk/` | meter bar, OVERLOADED line, the six key boxes, Alt move list, the ERASED banner |
-| `QuirkCostume` / `QuirkCostumeLayer` / `QuirkFirstPersonArmMixin` | `client/quirk/`, `client/mixin/` | the costume over the player (third person + first-person sleeve) |
+| `QuirkCostume` / `QuirkCostumeLayer` / `QuirkFirstPersonArmMixin` | `client/quirk/`, `client/mixin/` | the worn hero-suit pieces + Dark Shadow bird head (third person + first-person sleeve); `QuirkSuitArmourMixin` hides their vanilla armour model |
 | `PowerSuppressionClient` | `client/quirk/` | receives the Erased sync for the local player |
 
 Slot mapping: `SLOT_1 = R, SLOT_2 = G, SLOT_3 = X, SLOT_4 = Z, SLOT_5 = V, SLOT_6 = C`; Shift = sneaking.
@@ -26,7 +26,7 @@ Slot mapping: `SLOT_1 = R, SLOT_2 = G, SLOT_3 = X, SLOT_4 = Z, SLOT_5 = V, SLOT_
 ## Core API (`Quirks`)
 
 - state: `state` / `peek` (client-safe) / `edit(player, n -> ...)` (always a copy) / `save`
-- who: `hasPower`, `quirk`, `holds`, `activeAs` (holds AND not Erased -- passives / visuals check this), `costumeOn`
+- who: `hasPower`, `quirk`, `holds`, `activeAs` (holds AND not Erased -- passives / visuals check this)
 - cooldowns: `cooldownRemaining` (client-safe), `ready`, `setCooldown`
 - poses: `setAnim(player, animId)` (ids from `quirk.animBase`); kit numbers `setVal` / `setVec` / `vec`
 - the meter (0..100): server `meter` / `setMeter` / `addMeter` (a map, cheap every tick); flushed into the synced state
@@ -35,7 +35,7 @@ Slot mapping: `SLOT_1 = R, SLOT_2 = G, SLOT_3 = X, SLOT_4 = Z, SLOT_5 = V, SLOT_
   `QuirkKit.usableWhileOverloaded`
 - `say(player, key, colour, args)` (action bar, rate limited), `quirkName` / `heroName`
 - `grant(player, quirk)` (refused if already held or by the unique-powers rule; replaces any Primary power through
-  `HeroTiers.claimPrimary`), `revoke`, `toggleCostume`
+  `HeroTiers.claimPrimary`), `revoke`
 - lifecycle (wired in `QuirkMod`): join resets the anim; respawn resets meter / cooldowns / overload / kit values; death,
   logout and dimension change end running moves (`QuirkKit.stopAll`)
 
@@ -79,15 +79,41 @@ For a suppressed **player**:
 What Erasure does to **mobs** (creepers, skeletons, endermen, bosses' special moves) belongs to the Erasure kit.
 Static state is cleared by `ServerStateReset` (`QuirkMod.clearSessionState` -> `PowerSuppression.clearSessionState`).
 
-## Costumes
+## Hero suits (craftable armour) -- v0.16.7 user rework
 
-`textures/entity/quirk/<id>_wide.png` / `<id>_slim.png` (64x64 player-skin layout, costume only, transparent where the
-wearer shows), picked by the wearer's skin model and drawn over the player while `Quirks.costumeOn` (default on): the base
-layer +0.02 px, the outer layer at vanilla's overlay offsets. While drawn, `QuirkClient.hidesSkinOverlay` hides the
-wearer's own outer layer; if the costume's whole hat region (u 32-63, v 0-15) is empty the wearer's own hat layer (hair)
-is drawn again. A missing texture draws (and hides) nothing; existence is cached and re-read on resource reload. The
-costume layer is registered before the kits' client inits, so kit layers draw over it. First person: the costume
-sleeve over the bare arm (`QuirkFirstPersonArmMixin`).
+**Getting a Quirk never changes your look.** The costumes are seven craftable armour sets (`quirk/item/QuirkSuits`,
+`QuirkSuitItem`), worn by anyone, Quirk or not:
+
+| Suit | Quirk skin | Items | Recipe (I = iron ingot, A, B) |
+|---|---|---|---|
+| Endeavor Costume | `hellflame_*` | `endeavor_suit_<piece>` | blaze powder, magma cream |
+| Overhaul Costume | `overhaul_*` | `overhaul_suit_<piece>` | green wool, bone |
+| Ingenium Armour | `engine_*` | `ingenium_suit_<piece>` | quartz, blue dye |
+| Tsukuyomi Costume | `dark_shadow_*` | `tsukuyomi_suit_<piece>` | black wool, phantom membrane |
+| Eraser Head Costume | `erasure_*` | `eraser_head_suit_<piece>` | black wool, string |
+| Ground Zero Costume | `explosion_*` | `ground_zero_suit_<piece>` | gunpowder, orange dye |
+| Uravity Costume | `zero_gravity_*` | `uravity_suit_<piece>` | pink wool, white wool |
+
+`<piece>` = helmet / chestplate / leggings / boots. Shapes: helmet `IAI / B B`, chestplate `I I / ABA / III`, leggings
+`IAI / B B / I I`, boots `B B / I I`. Stats: one shared material `projecthero:quirk_suit` -- 2 / 6 / 5 / 2 armour, no
+toughness, durability multiplier 17 (iron 15), enchantability 12, repaired with iron. Recipe unlocks: holding A or B.
+Icons / models / recipes / advancements are generated by `scratchpad/quirk_suits/gen_quirk_suits.js` (the icons are
+armour silhouettes filled from the suit's own skin); lang by `scratchpad/quirk_suits/lang_quirk_suits.js`.
+
+Rendering (`client/quirk/QuirkCostume`, `QuirkCostumeLayer` on every humanoid renderer -- players, armour stands,
+mannequins, zombies): the costume skin `textures/entity/quirk/<quirk>_wide.png` / `_slim.png` (picked by the wearer's
+skin model; never change these, the user approved them), base layer +0.02 px, outer layer at vanilla's overlay offsets,
+**only the worn piece's parts**: helmet = head + hat; chestplate = body + jacket + arms + sleeves (+ the first-person
+sleeve, `QuirkFirstPersonArmMixin`); leggings = the leg texels above side row `BOOT_ROW` (7) + leg tops; boots = rows 7-11
++ soles (two masked `DynamicTexture` copies per skin). `QuirkCostume.hideCoveredOverlay` (from `PlayerModelMixin`) hides
+the wearer's own outer layer only where a piece covers it (a helmet whose skin has an empty hat region keeps the
+wearer's hair). `QuirkSuitArmourMixin` skips the vanilla armour model for these items slot by slot. Pieces of
+different suits mix. `QuirkState.costume` is unused (kept for old saves); `/projecthero quirk costume` only says the
+costume is a craftable suit.
+
+**Dark Shadow bird head** (the one exception, user): holding Dark Shadow (Erased or not) draws
+`textures/entity/quirk/dark_shadow_head.png` (head + hat only) over the head for every viewer and hides the wearer's hat
+layer; it wins over any Quirk suit helmet.
 
 ## Quirk Serums
 
@@ -107,4 +133,4 @@ models / recipes are generated by `scratchpad/gen_quirk_serums.js`.
    `PowerGrants.grantHero` / `revokeHeroTier` and `HeroCommand.revokeHeroTier`.
 4. A serum: an entry in `gen_quirk_serums.js` (colours + two themed ingredients); lang for the item.
 5. Lang: name, hero, intro, meter, overload message, `projecthero.hero_tier.quirk_<id>`, every move + `.desc`.
-6. The costume textures, a gametest class listed in `src/gametest/resources/fabric.mod.json`.
+6. The costume textures, a `QuirkSuits.Suit` entry (+ generator rows), a gametest class listed in `src/gametest/resources/fabric.mod.json`.

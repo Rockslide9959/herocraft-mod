@@ -3,7 +3,6 @@ package com.projecthero.mod.client.quirk.overhaul;
 import com.projecthero.mod.client.quirk.QuirkClient;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.Quirks;
 
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 
@@ -32,11 +31,4 @@ public final class OverhaulClient implements QuirkClientKit {
 	@Override
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		OverhaulPose.apply(player, model);
-	}
-
-	/** The costume (mask, fur collar, jacket) replaces the wearer's own second layer while it is on. */
-	@Override
-	public boolean hidesSkinOverlay(Player player) {
-		return Quirks.costumeOn(player);
-	}
-}
+	}}

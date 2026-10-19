@@ -36,7 +36,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.7: the Quirk core -- grant / revoke (direct, command, serum, calling), the one-Primary rule against a Miraculous,
- * revoke cleaning up, the costume toggle, the meter's sync flush, overload and Erasure ({@link PowerSuppression}) holding
+ * revoke cleaning up, the meter's sync flush, overload and Erasure ({@link PowerSuppression}) holding
  * the keys of a Quirk AND of another hero (All Might), Erasure's flight cut and status effect, the serum items and
  * recipes. Mock players are not ticked by the server, so tests call the ticks themselves.
  */
@@ -126,10 +126,9 @@ public class QuirkCoreGameTests implements FabricGameTest {
 		ServerPlayer p = mock(helper);
 		command(p, "projecthero power grant quirk_explosion");
 		helper.assertTrue(Quirks.holds(p, Quirk.EXPLOSION), "/projecthero power grant quirk_explosion");
-		helper.assertTrue(Quirks.costumeOn(p), "the costume is on by default");
+		// v0.16.7: the costume is a craftable suit now; the command only says so and changes nothing
 		command(p, "projecthero quirk costume");
-		helper.assertFalse(Quirks.costumeOn(p), "/projecthero quirk costume turns it off");
-		helper.assertTrue(Quirks.toggleCostume(p) && Quirks.costumeOn(p), "and back on");
+		helper.assertTrue(Quirks.holds(p, Quirk.EXPLOSION), "/projecthero quirk costume leaves the Quirk alone");
 		command(p, "projecthero quirk meter 42");
 		helper.assertTrue(Quirks.meter(p) == 42f, "/projecthero quirk meter 42");
 		command(p, "projecthero power remove quirk_explosion");
@@ -156,13 +155,12 @@ public class QuirkCoreGameTests implements FabricGameTest {
 		Quirks.setCooldown(p, ids.length > 0 ? ids[0] : "quirk_overhaul_test", 200);
 		Quirks.setVal(p, "test", 7L);
 		Quirks.setVec(p, "test", new Vec3(1, 2, 3));
-		Quirks.toggleCostume(p);
 		Quirks.overload(p, 200);
 		Quirks.setMeter(p, 80f);
 		Quirks.revoke(p);
 		var s = Quirks.state(p);
 		helper.assertTrue(!s.hasPower && s.quirk.isEmpty() && s.vals.isEmpty() && s.vecs.isEmpty() && s.abilityReadyAt.isEmpty()
-				&& s.overloadUntil == 0L && s.costume, "the state is fresh again");
+				&& s.overloadUntil == 0L, "the state is fresh again");
 		helper.assertTrue(Quirks.meter(p) == 0f, "the meter is forgotten");
 		helper.assertTrue(!HeroTiers.hasHeroTier(p), "no Hero-Tier power left");
 		helper.succeed();

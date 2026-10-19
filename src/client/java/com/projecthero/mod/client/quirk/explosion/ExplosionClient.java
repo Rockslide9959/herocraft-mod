@@ -64,10 +64,4 @@ public final class ExplosionClient implements QuirkClientKit {
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		ExplosionPose.apply(player, model);
 	}
-
-	/** The costume is drawn over his own skin while it is on: his own second layer goes. */
-	@Override
-	public boolean hidesSkinOverlay(Player player) {
-		return Quirks.costumeOn(player);
-	}
 }

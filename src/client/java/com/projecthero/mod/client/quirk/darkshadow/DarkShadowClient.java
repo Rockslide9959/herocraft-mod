@@ -3,7 +3,6 @@ package com.projecthero.mod.client.quirk.darkshadow;
 import com.projecthero.mod.client.quirk.QuirkClient;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
 import com.projecthero.mod.quirk.Quirk;
-import com.projecthero.mod.quirk.Quirks;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
@@ -38,9 +37,5 @@ public final class DarkShadowClient implements QuirkClientKit {
 		DarkShadowPose.apply(player, model);
 	}
 
-	/** The bird-head costume covers the head: the wearer's own hat layer (hair) would poke through it. */
-	@Override
-	public boolean hidesSkinOverlay(Player player) {
-		return Quirks.costumeOn(player);
-	}
+	// v0.16.7: the bird head (and hiding the wearer's hat under it) is the core's -- QuirkCostume.birdHead
 }

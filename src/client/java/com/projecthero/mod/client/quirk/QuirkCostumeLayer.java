@@ -2,27 +2,27 @@ package com.projecthero.mod.client.quirk;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
-import net.minecraft.client.model.PlayerModel;
-import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.world.entity.LivingEntity;
 
 /**
- * v0.16.7: the Quirk hero costume on every player who has a Quirk with the costume on (every viewer: the state is
- * synced). See {@link QuirkCostume}; the first-person sleeve is {@code QuirkFirstPersonArmMixin}.
+ * v0.16.7: the worn Quirk hero suit pieces (and the Dark Shadow bird head) on every humanoid -- players, armour stands,
+ * mannequins, zombies. See {@link QuirkCostume}; the first-person sleeve is {@code QuirkFirstPersonArmMixin}.
  */
-public class QuirkCostumeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
-	public QuirkCostumeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
+public class QuirkCostumeLayer<T extends LivingEntity, M extends EntityModel<T>> extends RenderLayer<T, M> {
+	public QuirkCostumeLayer(RenderLayerParent<T, M> parent) {
 		super(parent);
 	}
 
 	@Override
-	public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
+	public void render(PoseStack pose, MultiBufferSource buffers, int light, T entity, float limbSwing, float limbSwingAmount,
 			float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-		if (player.isInvisible()) {
-			return;
+		if (getParentModel() instanceof HumanoidModel<?> humanoid) {
+			QuirkCostume.render(pose, buffers, light, entity, humanoid);
 		}
-		QuirkCostume.render(pose, buffers, light, player, getParentModel());
 	}
 }

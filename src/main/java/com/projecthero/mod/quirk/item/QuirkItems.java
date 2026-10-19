@@ -46,6 +46,8 @@ public final class QuirkItems {
 			SERUMS.put(q, register("quirk_serum_" + q.id, new QuirkSerumItem(q, new Item.Properties().rarity(Rarity.RARE))));
 		}
 		QUIRK_TRIGGER = register("quirk_serum_random", new QuirkSerumItem(null, new Item.Properties().rarity(Rarity.RARE)));
+		// v0.16.7 (user): the seven craftable hero suits
+		QuirkSuits.initialize();
 
 		LootTableEvents.MODIFY.register((key, builder, source, registries) -> {
 			if (!source.isBuiltin()) {
@@ -84,5 +86,6 @@ public final class QuirkItems {
 			output.accept(SERUMS.get(q));
 		}
 		output.accept(QUIRK_TRIGGER);
+		QuirkSuits.addToCreativeTab(output);
 	}
 }

@@ -97,12 +97,6 @@ public final class Quirks {
 		return holds(player, quirk) && !PowerSuppression.isSuppressed(player);
 	}
 
-	/** Client-safe: the costume is drawn. */
-	public static boolean costumeOn(Player player) {
-		QuirkState s = peek(player);
-		return s != null && s.hasPower && s.costume;
-	}
-
 	/** Client-safe: ticks until a move is ready (0 = ready). */
 	public static int cooldownRemaining(Player player, String abilityId) {
 		QuirkState s = peek(player);
@@ -282,13 +276,6 @@ public final class Quirks {
 		WAS_SUPPRESSED.remove(id);
 		QuirkAbilityManager.forget(id);
 		QuirkKits.forget(id);
-	}
-
-	/** {@code /projecthero quirk costume}: costume on / off. Returns the new value. */
-	public static boolean toggleCostume(ServerPlayer player) {
-		boolean on = !state(player).costume;
-		edit(player, n -> n.costume = on);
-		return on;
 	}
 
 	// ---------------------------------------------------------------- tick

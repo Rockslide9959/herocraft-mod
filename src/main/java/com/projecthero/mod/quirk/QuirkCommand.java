@@ -15,7 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * v0.16.7 Quirk admin / test commands (op only), at {@code /projecthero quirk} and {@code /projecthero power tune quirk}:
  * <ul>
- *   <li>{@code costume} -- the hero costume on / off;</li>
+ *   <li>{@code costume} -- (v0.16.7) only says the costume is now a craftable suit;</li>
  *   <li>{@code meter <0-100>} -- sets the kit's meter (Heat, Dry Eyes...);</li>
  *   <li>{@code erase <seconds>} -- Erases YOU for testing (every power off; {@code 0} lifts it);</li>
  *   <li>{@code info} -- which Quirk, meter, overload.</li>
@@ -29,14 +29,10 @@ public final class QuirkCommand {
 	public static LiteralArgumentBuilder<CommandSourceStack> build() {
 		return Commands.literal("quirk")
 				.requires(source -> source.hasPermission(2))
+				// v0.16.7 (user): the costume is a craftable suit now -- a Quirk no longer changes your look
 				.then(Commands.literal("costume").executes(c -> {
-					ServerPlayer p = holder(c);
-					if (p == null) {
-						return 0;
-					}
-					boolean on = Quirks.toggleCostume(p);
-					c.getSource().sendSuccess(() -> Component.literal("Quirk costume " + (on ? "on" : "off")), false);
-					return 1;
+					c.getSource().sendFailure(Component.translatable("message.projecthero.quirk.costume_is_suit"));
+					return 0;
 				}))
 				.then(Commands.literal("meter")
 						.then(Commands.argument("value", IntegerArgumentType.integer(0, 100)).executes(c -> {
@@ -82,7 +78,6 @@ public final class QuirkCommand {
 		Quirk q = Quirks.quirk(p);
 		String text = q.quirkName + " (" + q.heroName + ") meter " + Math.round(Quirks.meter(p))
 				+ (Quirks.overloaded(p) ? ", overloaded " + Quirks.overloadLeft(p) / 20 + " s" : "")
-				+ (s.costume ? ", costume on" : ", costume off")
 				+ (PowerSuppression.isSuppressed(p) ? ", ERASED " + PowerSuppression.remaining(p) / 20 + " s" : "");
 		c.getSource().sendSuccess(() -> Component.literal(text), false);
 		return 1;

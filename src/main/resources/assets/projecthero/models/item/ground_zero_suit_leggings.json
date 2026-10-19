@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/ground_zero_suit_leggings"
+  }
+}

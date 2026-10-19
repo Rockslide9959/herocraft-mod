@@ -129,6 +129,7 @@
       "com.projecthero.mod.gametest.QuirkErasureGameTests",
       "com.projecthero.mod.gametest.QuirkExplosionGameTests",
       "com.projecthero.mod.gametest.QuirkZeroGravityGameTests",
+      "com.projecthero.mod.gametest.QuirkSuitGameTests",
       "com.projecthero.mod.gametest.MoonKnightTruncheonGameTests",
       "com.projecthero.mod.gametest.MoonKnightV0144GameTests",
       "com.projecthero.mod.gametest.OathbreakerGameTests",
