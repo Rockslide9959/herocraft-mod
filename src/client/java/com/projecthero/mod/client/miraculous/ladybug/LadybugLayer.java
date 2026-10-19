@@ -58,12 +58,12 @@ public class LadybugLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		if (!Miraculous.transformed(player)) {
 			return;
 		}
-		// v0.16.7 (user): the Yo-yo is stored on her BACK, in the middle of the small of her back, its face outward
+		// v0.16.7 (user): the Yo-yo is stored on her BACK, on the right side of the small of her back, its face outward
 		// (model space: +y is down, the back is +z; was on the front of her right hip)
 		if (anim.cover() > 0.8f && !LadybugWorld.yoyoOut(player)) {
 			pose.pushPose();
 			parent.body.translateAndRotate(pose);
-			pose.translate(0.0f, 0.55f, 0.215f);
+			pose.translate(-0.40f, 0.58f, 0.215f); // the right side of her back, where she keeps it in the show (-x is her right; the spool is drawn from one end, so its centre sits ~0.2 to her left of this point)
 			pose.mulPose(com.mojang.math.Axis.YP.rotation((float) (-Math.PI / 2)));
 			LadybugGeometry.yoyo(pose, buffers, light, 0f, 0f, 0.8f);
 			pose.popPose();

@@ -37,6 +37,17 @@ for (let dy = 0; dy < 3; dy++) {
 	set(16, 12 + dy, dy === 1 ? R : S);  // left side, front edge
 }
 
+// 2b. v0.16.7 (user): black spots on the front and back of both arms -- two dots per face in the red, offset so
+// they read as spots, not bands (slim faces are 3 px; each has a 2-px red strip beside a black stripe)
+const isRed = (x, y) => { const i = (y * 64 + x) * 4; return img.px[i + 3] && img.px[i] > 110 && img.px[i + 1] < 70; };
+const SPOT = [20, 16, 18];
+const dot = (x, y) => { for (const yy of [y, y + 1]) if (isRed(x, yy)) set(x, yy, SPOT); };
+// [face x, red columns (outer first)] -- rows are the arm's 12, starting at the face's top
+for (const [fx, fy, outer, inner] of [[44, 20, 0, 1], [51, 20, 2, 1], [36, 52, 2, 1], [43, 52, 0, 1]]) {
+	dot(fx + outer, fy + 2);
+	dot(fx + inner, fy + 6);
+}
+
 // 3. slim (as drawn) and wide (3 -> 4 px arms)
 const slimImg = { w: 64, h: 64, px: Buffer.from(img.px) };
 const wide = T.convertArms(slimImg, false);
