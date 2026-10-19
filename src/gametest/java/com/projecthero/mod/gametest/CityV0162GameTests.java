@@ -299,7 +299,8 @@ public class CityV0162GameTests implements FabricGameTest {
 		helper.succeedWhen(() -> {
 			for (BlockPos p : hole) {
 				helper.assertTrue(level.getBlockState(helper.absolutePos(p)).is(p.getY() == 3 ? Blocks.GRAY_CONCRETE : Blocks.STONE),
-						"hole block " + p + " not refilled; stuck villager at " + helper.relativePos(stuck.blockPosition()) + " worker at " + helper.relativePos(worker.blockPosition()) + " job=" + (CityRepair.job(level, city.id()) != null));
+						"hole block " + p + " not refilled; stuck villager at " + stuck.blockPosition().subtract(helper.absolutePos(BlockPos.ZERO))
+								+ " worker at " + worker.blockPosition().subtract(helper.absolutePos(BlockPos.ZERO)) + " job=" + (CityRepair.job(level, city.id()) != null)); // (not relativePos: it mirrors x/z)
 			}
 			helper.assertTrue(CityRepair.job(level, city.id()) == null, "the trip is over");
 			for (Villager v : new Villager[]{stuck, worker}) {
