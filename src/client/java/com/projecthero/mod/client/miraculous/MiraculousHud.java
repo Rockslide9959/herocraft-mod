@@ -56,6 +56,20 @@ public final class MiraculousHud {
 	private MiraculousHud() {
 	}
 
+	/** v0.16.7 (user): 0..1 while Shift+N is held to take the Miraculous off (set by the client key handler). */
+	public static volatile float takeOffProgress;
+
+	/** The take-off bar: centred above the hotbar, the label over it, filling in the Kwami's colour. */
+	private static void takeOffBar(GuiGraphics g, Minecraft mc, Kwami k, float progress) {
+		int w = 100, h = 5;
+		int x = (g.guiWidth() - w) / 2;
+		int y = g.guiHeight() - 62;
+		net.minecraft.network.chat.Component label = net.minecraft.network.chat.Component.translatable("message.projecthero.miraculous.take_off_bar");
+		g.drawString(mc.font, label, (g.guiWidth() - mc.font.width(label)) / 2, y - 11, 0xFFFFFFFF, true);
+		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xC0000000);
+		g.fill(x, y, x + Math.round(w * Math.min(1f, progress)), y + h, 0xFF000000 | (k.color & 0xFFFFFF));
+	}
+
 	public static void render(GuiGraphics g, DeltaTracker delta) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || mc.level == null || mc.options.hideGui) {
@@ -65,6 +79,9 @@ public final class MiraculousHud {
 		Kwami k = Miraculous.kwami(mc.player);
 		if (s == null || k == null) {
 			return;
+		}
+		if (takeOffProgress > 0f) {
+			takeOffBar(g, mc, k, takeOffProgress);
 		}
 		flash(g, mc, s, k, delta.getGameTimeDeltaPartialTick(false));
 		var exp = mc.player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.EXPERIMENTAL_STATE, null);

@@ -1023,11 +1023,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				&& com.projecthero.mod.miraculous.Miraculous.hasPower(client.player) && !mutationSelected(client)) {
 			miraculousTakeOffHold++;
 			int need = com.projecthero.mod.miraculous.MiraculousConfig.TAKE_OFF_HOLD_TICKS;
-			if (miraculousTakeOffHold < need && miraculousTakeOffHold % 20 == 1) {
-				client.player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-						"message.projecthero.miraculous.take_off_hold", (need - miraculousTakeOffHold + 19) / 20)
-						.withStyle(net.minecraft.ChatFormatting.LIGHT_PURPLE), true);
-			} else if (miraculousTakeOffHold == need) {
+			// v0.16.7 (user): a filling bar above the hotbar, not a countdown (MiraculousHud draws it)
+			com.projecthero.mod.client.miraculous.MiraculousHud.takeOffProgress = miraculousTakeOffHold < need
+					? miraculousTakeOffHold / (float) need : 0f;
+			if (miraculousTakeOffHold == need) {
 				ClientPlayNetworking.send(new com.projecthero.mod.miraculous.network.MiraculousActionPayload(
 						com.projecthero.mod.miraculous.network.MiraculousActionPayload.Action.TAKE_OFF));
 			}
@@ -1035,6 +1034,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 		miraculousTakeOffHold = 0;
+		com.projecthero.mod.client.miraculous.MiraculousHud.takeOffProgress = 0f;
 		boolean humanShifter = client.player != null && com.projecthero.mod.titanshifter.TitanShifter.isShifter(client.player)
 				&& com.projecthero.mod.titanshifter.TitanShifter.phase(client.player) == com.projecthero.mod.titanshifter.TitanPhase.HUMAN;
 		if (down && !maxSteelTransformWasDown && humanShifter && Screen.hasShiftDown()) {

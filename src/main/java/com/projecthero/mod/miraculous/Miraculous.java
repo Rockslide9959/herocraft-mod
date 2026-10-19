@@ -311,7 +311,7 @@ public final class Miraculous {
 			e.setMode(KwamiEntity.MODE_EAT, eatTicks);
 			player.level().playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.GENERIC_EAT, SoundSource.NEUTRAL, 0.6f, 1.5f);
 		}
-		say(player, "message.projecthero.miraculous.eating", ChatFormatting.GREEN, kwamiName(k), eatTicks / 20);
+		// v0.16.7 (user): no "starts eating" pop-up -- the ability HUD shows the meal
 		return true;
 	}
 
@@ -336,9 +336,8 @@ public final class Miraculous {
 				n.hungry = false;
 			}
 		});
-		if (feeds) {
-			KwamiCompanion.say(player, "message.projecthero.miraculous.fed." + k.id);
-		} else {
+		// v0.16.7 (user): no "fed" line when a hungry Kwami finishes -- the ability HUD already shows the meal
+		if (!feeds) {
 			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, MiraculousConfig.SNACK_REGEN_TICKS, 0, false, true));
 			say(player, "message.projecthero.miraculous.snack", ChatFormatting.GREEN, kwamiName(k));
 		}
