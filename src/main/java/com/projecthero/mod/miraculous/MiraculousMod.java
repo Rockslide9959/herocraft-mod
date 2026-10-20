@@ -97,7 +97,15 @@ public final class MiraculousMod {
 			}
 		});
 		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> Miraculous.clearTransient(player));
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> Miraculous.clearTransient(handler.getPlayer()));
+		// v0.16.7: a dropped connection (FastQuit, a crash) fires this on the Netty thread -- removing the Kwami there threw
+		// "Async entity unload" in the middle of the world save, so the world part is always done on the server thread
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			if (server.isSameThread()) {
+				Miraculous.clearTransient(handler.getPlayer());
+			} else {
+				server.executeIfPossible(() -> Miraculous.clearTransient(handler.getPlayer()));
+			}
+		});
 	}
 
 	public static void clearSessionState() {
