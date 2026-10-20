@@ -22,11 +22,15 @@ const writeJson = (f, o) => { mk(path.dirname(f)); fs.writeFileSync(f, JSON.stri
 const writePng = (f, w, h, px) => { mk(path.dirname(f)); fs.writeFileSync(f, L.encodePng(w, h, px)); };
 
 // ================================================================ the rig
+// v0.16.7 (user, round 2): remodelled after the show -- a teal Kwami with a wide cat-like face, narrow half-lidded
+// yellow snake eyes, a big striped cobra HOOD over the top and back of the head, a tiny body, and a long thin tail that
+// coils into a spiral underneath (no chunky body, no big cartoon eyes).
 let DY = 0; // the whole rig is lifted so its lowest point sits on y = 0 (painters subtract it)
-const HC = () => [0, 9.6 + DY, 0];
-const HS = [9.4, 7.8, 8.2];
-const BC = () => [0, 4.4 + DY, 0];
-const EYE = () => ({ x: 1.9, y: HC()[1] - 0.2, rx: 1.5, ry: 1.9 });
+const HC = () => [0, 9.4 + DY, 0];
+const HS = [9.8, 7.2, 7.4];
+const BC = () => [0, 4.5 + DY, 0];
+const EYE = () => ({ x: 2.35, y: HC()[1] - 0.1, rx: 1.75, ry: 1.2 });
+const HEAD_TOP = 9.4 + 3.6;
 
 function blob(M, b, ctr, size, k, mat, opts = {}) {
 	const [w, h, d] = size;
@@ -37,34 +41,62 @@ function blob(M, b, ctr, size, k, mat, opts = {}) {
 }
 const up = (v) => [v[0], v[1] + DY, v[2]];
 
+// the tail's path: down from under the body, then a spiral loop (seen from the front) to his right, tapering to a tip
+function tailPath() {
+	const pts = [[0, 3.2, 0.3], [0.05, 1.8, 0.45], [0.35, 0.4, 0.6]];
+	const c = [2.0, -1.5];
+	const a0 = Math.atan2(0.4 - c[1], 0.35 - c[0]);
+	const n = 15;
+	for (let i = 1; i <= n; i++) {
+		const t = i / n;
+		const a = a0 + t * Math.PI * 2.15;
+		const r = 2.55 - 1.45 * t;
+		pts.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r, 0.6 + 0.9 * t]);
+	}
+	const widths = [];
+	for (let i = 0; i < pts.length - 1; i++) {
+		const t = i / (pts.length - 2);
+		const w = 2.3 - 1.6 * t;
+		widths.push([w, w]);
+	}
+	return { pts: pts.map(up), widths };
+}
+
 function build() {
 	const M = new Model('sass_kwami', { TW: 512, D: 8 });
 	M.bone('root', null, [0, 0, 0]);
 	const body = M.bone('body', 'root', up([0, 2.4, 0]));
-	blob(M, body, BC(), [4.6, 4.6, 4.2], 1.0, 'body');
+	blob(M, body, BC(), [3.4, 3.8, 3.0], 0.8, 'body');
 	const head = M.bone('head', 'body', up([0, 5.8, 0]));
 	blob(M, head, HC(), HS, 1.5, 'head');
-	// a soft snout on the lower face, and the crest of darker scales down the back of the head
-	M.cbox(head, up([0, 7.35, -4.25]), [4.6, 1.5, 1.1], 'snout', { seed: 70 });
-	M.cbox(head, up([0, 13.55, 0.6]), [2.6, 0.7, 6.0], 'crest', { seed: 80 });
-	M.cbox(head, up([0, 12.2, 4.2]), [2.2, 2.8, 0.9], 'crest', { seed: 81 });
+	// a flat little muzzle on the lower face (the smirk and the two fangs are painted on it)
+	M.cbox(head, up([0, 7.45, -3.8]), [5.2, 1.6, 0.7], 'snout', { seed: 70 });
+	// the cobra hood: a broad striped dome over the top, sweeping back and down behind the head, its rim over the brow
+	M.cbox(head, up([0, HEAD_TOP + 0.55, 0.7]), [11.2, 1.6, 9.6], 'hood', { seed: 80 });
+	M.cbox(head, up([0, HEAD_TOP + 1.45, 1.1]), [8.8, 1.0, 8.0], 'hood', { seed: 81 });
+	M.cbox(head, up([0, HEAD_TOP - 0.15, -3.95]), [10.6, 0.9, 1.2], 'hood_rim', { seed: 82 });
+	M.cbox(head, up([0, HEAD_TOP - 2.6, 5.15]), [10.4, 5.8, 1.5], 'hood', { seed: 83, rot: [18, 0, 0], pivot: up([0, HEAD_TOP + 0.3, 5.0]) });
+	M.cbox(head, up([0, HEAD_TOP - 6.0, 6.35]), [7.6, 2.4, 1.2], 'hood', { seed: 84, rot: [30, 0, 0], pivot: up([0, HEAD_TOP - 4.8, 6.0]) });
+	for (const s of [-1, 1]) {
+		M.cbox(head, up([s * 5.15, HEAD_TOP - 1.0, 1.9]), [0.9, 2.4, 6.4], 'hood', { seed: 85 + s });
+	}
 	for (const s of [-1, 1]) {
 		const n = s < 0 ? 'r' : 'l';
-		const arm = M.bone(`arm_${n}`, 'body', up([s * 2.3, 5.6, 0]), [0, 0, -s * 18]);
-		M.box(arm, s * 2.3 - 0.7, 3.2 + DY, -0.7, s * 2.3 + 0.7, 6.0 + DY, 0.7, 'limb');
-		M.box(arm, s * 2.3 - 0.78, 2.9 + DY, -0.78, s * 2.3 + 0.78, 3.8 + DY, 0.78, 'paw');
-		M.bone(`leg_${n}`, 'body', up([s * 1.25, 2.2, 0])); // empty: the tail is his legs
+		// tiny arms high on the little body
+		const arm = M.bone(`arm_${n}`, 'body', up([s * 1.7, 5.8, 0]), [0, 0, -s * 18]);
+		M.box(arm, s * 1.7 - 0.55, 4.0 + DY, -0.55, s * 1.7 + 0.55, 6.1 + DY, 0.55, 'limb');
+		M.box(arm, s * 1.7 - 0.62, 3.7 + DY, -0.62, s * 1.7 + 0.62, 4.4 + DY, 0.62, 'paw');
+		M.bone(`leg_${n}`, 'body', up([s * 1.0, 2.6, 0])); // empty: the tail is his legs
 	}
-	// the tail: from under the body, down and back, curling round to the side with the tip turned up
-	const tail = M.bone('tail', 'body', up([0, 2.6, 0.4]));
-	M.tube(tail, [up([0, 2.9, 0.2]), up([0, 1.3, 1.2]), up([0.9, 0.7, 2.8]), up([2.4, 1.0, 3.6]), up([3.4, 2.0, 3.1]), up([3.6, 3.2, 2.0])],
-		[[3.0, 3.0], [2.5, 2.5], [2.0, 2.0], [1.5, 1.5], [1.0, 1.0]], 'tail', { seed: 100 });
+	const tail = M.bone('tail', 'body', up([0, 2.9, 0.3]));
+	const T = tailPath();
+	M.tube(tail, T.pts, T.widths, 'tail', { seed: 100 });
 	return M;
 }
 
 // ================================================================ the paint
-const SS = { green: [126, 204, 104], greenD: [70, 150, 74], greenL: [168, 228, 128], belly: [222, 236, 168], mark: [44, 112, 60],
-	iris: [86, 150, 230], paw: [100, 182, 92] };
+const SS = { teal: [86, 208, 184], tealD: [52, 158, 140], tealL: [150, 232, 212], belly: [184, 242, 226], stripe: [34, 118, 104],
+	stripeM: [62, 168, 148], lid: [58, 168, 150], iris: [206, 226, 62], irisD: [150, 178, 40], paw: [76, 196, 172] };
 const inEll = (x, y, cx, cy, rx, ry) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
 function soft(base, c, f, p, info) {
 	let col = mul(base, 0.95 + 0.08 * fbm(p[0] * 0.8 + c.seed, p[1] * 0.8, p[2] * 0.8, 3));
@@ -72,71 +104,77 @@ function soft(base, c, f, p, info) {
 	if (info.ePx < 0.18) col = mul(col, 0.92);
 	return col;
 }
+// narrow, slanted, half-lidded snake eyes: yellow-green, a thin black slit, a heavy teal upper lid
 function eyes(p) {
 	const E = EYE();
 	for (const s of [-1, 1]) {
 		const ex = s * E.x;
-		const q = inEll(p[0], p[1], ex, E.y, E.rx, E.ry);
+		const dx = p[0] - ex, dy = p[1] - E.y;
+		const a = -s * 0.28; // the inner corners lower: a sly look
+		const u = dx * Math.cos(a) + dy * Math.sin(a), v = -dx * Math.sin(a) + dy * Math.cos(a);
+		const q = (u / E.rx) ** 2 + (v / E.ry) ** 2;
 		if (q >= 1) continue;
-		if (q > 0.8) return [18, 22, 20];
-		const lower = clamp((E.y - p[1]) / E.ry * 0.5 + 0.5, 0, 1);
-		let col = mix(mul(SS.iris, 0.7), mix(SS.iris, [255, 255, 255], 0.25), lower);
-		if (inEll(p[0], p[1], ex, E.y + 0.1, 0.55, 1.2) < 1) col = [14, 20, 30]; // a gentle slit of a pupil
-		if (inEll(p[0], p[1], ex + 0.5, E.y + 0.8, 0.36, 0.4) < 1) col = [255, 255, 255];
-		if (inEll(p[0], p[1], ex - 0.45, E.y - 0.65, 0.2, 0.22) < 1) col = [236, 244, 255];
+		if (q > 0.78) return [16, 30, 26];
+		if (v > E.ry * 0.12) return v < E.ry * 0.28 ? [20, 40, 34] : SS.lid; // the lid, a dark lash line under it
+		const lower = clamp(-v / E.ry * 0.5 + 0.5, 0, 1);
+		let col = mix(SS.irisD, SS.iris, lower);
+		if (Math.abs(u) < 0.24) col = [10, 14, 12]; // the slit
+		if (inEll(u, v, 0.62, 0.05, 0.2, 0.2) < 1) col = [250, 255, 230];
 		return col;
 	}
 	return null;
 }
-// diamond scale markings: a lattice of darker diamonds along the back / top
 function diamond(a, b, size) {
 	const u = (a + b) / size, v = (a - b) / size;
 	const fu = u - Math.floor(u), fv = v - Math.floor(v);
 	return Math.min(fu, 1 - fu, fv, 1 - fv);
+}
+// the hood's stripes, by distance from the middle: a broad dark band, a pale band, a thin dark band, a pale rim
+function hoodStripe(x) {
+	const ax = Math.abs(x);
+	if (ax < 1.7) return SS.stripe;
+	if (ax < 3.3) return SS.tealL;
+	if (ax < 4.4) return SS.stripeM;
+	return SS.teal;
 }
 function shade(c, f, s, t, p, info) {
 	let col;
 	const y = p[1] - DY;
 	switch (c.mat) {
 		case 'paw': col = soft(SS.paw, c, f, p, info); break;
-		case 'limb': col = soft(SS.green, c, f, p, info); break;
-		case 'crest': col = soft(hash3(Math.floor(p[2] * 1.5), Math.floor(y * 1.5), 3) > 0.5 ? SS.mark : mul(SS.mark, 1.2), c, f, p, info); break;
+		case 'limb': col = soft(SS.teal, c, f, p, info); break;
+		case 'hood': col = soft(f === 'down' ? SS.tealD : hoodStripe(p[0]), c, f, p, info); break;
+		case 'hood_rim': col = soft(f === 'down' ? SS.tealD : mix(hoodStripe(p[0]), SS.tealD, 0.35), c, f, p, info); break;
 		case 'snout': {
-			col = soft(SS.greenL, c, f, p, info);
+			col = soft(mix(SS.teal, SS.belly, 0.35), c, f, p, info);
 			if (f === 'north') {
-				for (const sx of [-1, 1]) if (inEll(p[0], y, sx * 0.8, 7.55, 0.22, 0.18) < 1) col = [44, 70, 40]; // nostrils
-				// a calm little smile
-				if (Math.abs(p[0]) < 1.3 && Math.abs(y - (7.0 + 0.25 * (p[0] / 1.3) ** 2)) < 0.13) col = [40, 70, 36];
+				// a sly little smirk, higher on one side, and two small fangs under it
+				const sm = 7.25 + 0.18 * (p[0] / 2.0) + 0.16 * (p[0] / 2.0) ** 2;
+				if (Math.abs(p[0]) < 2.0 && Math.abs(y - sm) < 0.12) col = [24, 70, 60];
+				for (const fx of [-0.75, 0.75]) if (Math.abs(p[0] - fx) < 0.17 && y < 7.2 + 0.18 * (fx / 2.0) && y > 6.82) col = [250, 252, 244];
 			}
 			break;
 		}
 		case 'tail': {
-			// pale belly scales underneath, the diamond pattern along the top
 			const under = f === 'down' || (info.j / info.h > 0.6 && (f === 'east' || f === 'west'));
-			col = soft(under ? SS.belly : SS.green, c, f, p, info);
-			if (!under && diamond(p[0] * 1.3, p[2] * 1.3, 2.4) < 0.12) col = soft(SS.mark, c, f, p, info);
+			col = soft(under ? SS.belly : SS.teal, c, f, p, info);
+			if (!under && diamond(p[0] * 0.9, (p[1] + p[2]) * 0.9, 3.4) < 0.07) col = soft(SS.stripe, c, f, p, info);
 			break;
 		}
 		case 'body': {
-			const belly = p[2] < -0.6 && Math.abs(p[0]) < 1.8 - 0.15 * Math.abs(y - 4.4);
-			col = soft(belly ? SS.belly : SS.green, c, f, p, info);
-			if (belly && f === 'north' && Math.abs(((y - 2.6) % 1.1) - 0.55) > 0.47) col = mul(col, 0.88); // belly scale rows
-			if (!belly && (f === 'south' || f === 'up') && diamond(p[0], y, 2.2) < 0.13) col = soft(SS.mark, c, f, p, info);
+			const belly = p[2] < -0.5 && Math.abs(p[0]) < 1.3;
+			col = soft(belly ? SS.belly : SS.teal, c, f, p, info);
+			if (belly && f === 'north' && Math.abs(((y - 2.6) % 0.9) - 0.45) > 0.39) col = mul(col, 0.9);
 			break;
 		}
-		default: col = soft(SS.green, c, f, p, info);
+		default: col = soft(SS.teal, c, f, p, info);
 	}
 	if (c.mat === 'head') {
-		// darker diamond markings over the top and back of the head; a paler chin
-		const cap = y > 12.0 || f === 'south';
-		if (cap && diamond(p[0] * 1.1, f === 'up' ? p[2] * 1.1 : y * 1.1, 2.6) < 0.14) col = soft(SS.mark, c, f, p, info);
-		if (p[2] < -0.4 && y < 6.9) col = soft(mix(SS.green, SS.belly, 0.55), c, f, p, info);
+		// a paler lower face and chin
+		if (p[2] < -0.4 && y < 7.6) col = soft(mix(SS.teal, SS.belly, 0.45), c, f, p, info);
 		if (f === 'north' && p[2] < -3.0) {
 			const e = eyes([p[0], p[1], p[2]]);
 			if (e) col = e;
-			// soft brow ridges: a calm, half-lidded look
-			const E = EYE();
-			for (const s of [-1, 1]) if (inEll(p[0], p[1], s * E.x, E.y + 1.75, 1.6, 0.32) < 1 && !e) col = soft(SS.greenD, c, f, p, info);
 		}
 	}
 	return [col, 255, null];
@@ -180,7 +218,7 @@ function clip(len, loop, fn, step = 0.1) {
 	else if (loop === 'hold') o.loop = 'hold_on_last_frame';
 	return o;
 }
-const FLOAT = { body: [6, 0, 0], head: [-8, 0, 5], arm_r: [-20, 0, 52], arm_l: [-30, 0, -36], tail: [-6, 0, 0] };
+const FLOAT = { body: [6, 0, 0], head: [-6, 0, 5], arm_r: [-20, 0, 40], arm_l: [-30, 0, -30], tail: [-4, 0, 0] };
 function idleFrame(t, len) {
 	const w = TAU * t / len, w2 = 2 * w;
 	return {
@@ -192,7 +230,7 @@ function idleFrame(t, len) {
 		leg_r: { rot: [0, 0, 0] },
 		leg_l: { rot: [0, 0, 0] },
 		// the tail sways slowly from side to side, like a calm snake
-		tail: { rot: [FLOAT.tail[0] + 5 * Math.sin(w2), 22 * Math.sin(w), 6 * Math.sin(w + 1)] },
+		tail: { rot: [FLOAT.tail[0] + 4 * Math.sin(w2), 12 * Math.sin(w), 5 * Math.sin(w + 1)] },
 	};
 }
 const ANIM = path.join(A, 'animations', 'miraculous', 'kwami.animation.json');
@@ -321,4 +359,4 @@ L.sheet(path.join(__dirname, 'sass_sheet.png'), 'SASS', 'KWAMI OF INTUITION - VI
 	{ label: 'THREE-QUARTER', items: [it(POSES.float)], cam: { yaw: 35, pitch: 12 }, floor: fl },
 	{ label: 'SIDE', items: [it(POSES.float)], cam: { yaw: 90, pitch: 6 }, floor: fl },
 	{ label: 'BACK', items: [it(POSES.float)], cam: { yaw: 180, pitch: 10 }, floor: fl },
-], { panelH: 800, minW: 2000, bg: { top: [96, 150, 120], bottom: [30, 60, 46] } });
+], { panelH: 800, minW: 2000, bg: { top: [150, 160, 170], bottom: [60, 66, 74] } });

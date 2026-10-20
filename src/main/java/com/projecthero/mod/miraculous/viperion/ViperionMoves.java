@@ -407,9 +407,22 @@ public final class ViperionMoves {
 		Miraculous.setVal(p, Viperion.V_DASH, now(p) + s.driveTicks + ViperionConfig.DASH_LOW_EXTRA);
 		Miraculous.setAnim(p, Viperion.ANIM_DASH);
 		Miraculous.setCooldown(p, ViperionConfig.DASH, ViperionConfig.DASH_COOLDOWN);
+		dashStep(p, true);
 		drive(p, s);
 		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 1.0f, 1.6f);
 		sound(p, SoundEvents.SAND_BREAK, 0.8f, 1.6f);
+	}
+
+	private static final net.minecraft.resources.ResourceLocation DASH_STEP_ID = com.projecthero.mod.hero.power.PowerToggles.id("viperion_dash_step");
+
+	/** Serpent Dash's step assist on (while the dash runs) or off. */
+	public static void dashStep(ServerPlayer p, boolean on) {
+		if (on) {
+			com.projecthero.mod.hero.power.PowerToggles.modifier(p, net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT, DASH_STEP_ID,
+					ViperionConfig.DASH_STEP_BONUS, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			com.projecthero.mod.hero.power.PowerToggles.clearModifier(p, net.minecraft.world.entity.ai.attributes.Attributes.STEP_HEIGHT, DASH_STEP_ID);
+		}
 	}
 
 	private static void drive(ServerPlayer p, Session s) {
@@ -724,6 +737,8 @@ public final class ViperionMoves {
 		if (st.val(Viperion.V_DASH) != 0L && now >= st.val(Viperion.V_DASH)) {
 			Miraculous.setVal(p, Viperion.V_DASH, 0L);
 		}
+		// v0.16.7 (user): the slither climbs steps up to 2 blocks while it runs
+		dashStep(p, Miraculous.state(p).vals.getOrDefault(Viperion.V_DASH, 0L) != 0L);
 		long leap = st.val(Viperion.V_LEAP);
 		if (leap != 0L && (now >= leap || (p.onGround() && now >= leap - 30))) {
 			Miraculous.setVal(p, Viperion.V_LEAP, 0L);
@@ -750,6 +765,7 @@ public final class ViperionMoves {
 
 	/** Detransformation / logout: every running move of his ends. */
 	static void endAll(ServerPlayer p) {
+		dashStep(p, false);
 		Miraculous.edit(p, n -> {
 			n.vals.keySet().removeIf(k -> k.startsWith("vp_"));
 			n.vecs.keySet().removeIf(k -> k.startsWith("vp_"));

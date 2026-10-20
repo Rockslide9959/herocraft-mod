@@ -298,6 +298,22 @@ public class ViperionGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): Serpent Dash climbs 2-block steps while it runs, and the step assist goes when it ends. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void serpentDashHasATwoBlockStepAssist(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = viperion(helper, 3.5, 2.0, 3.5);
+		pump(helper, p);
+		ViperionMoves.dash(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 2.0) < 0.01, "2-block steps while dashing: " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		helper.runAfterDelay(40, () -> {
+			p.tickCount++;
+			Miraculous.tick(p);
+			helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 1.0, "back to normal after: " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+			helper.succeed();
+		});
+	}
+
 	// ---------------------------------------------------------------- Shift+Z: Second Chance
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80, batch = "viperion_checkpointAndRewindRestoreHimAndAMob")

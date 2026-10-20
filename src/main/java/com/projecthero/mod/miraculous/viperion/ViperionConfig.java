@@ -77,6 +77,8 @@ public final class ViperionConfig {
 	public static final double DASH_SPEED = 1.2;
 	public static final int DASH_LOW_EXTRA = 6;
 	public static final int DASH_COOLDOWN = 100;
+	/** v0.16.7 (user): step assist while the dash runs, added to the 0.6 base -- he slithers up 2-block steps. */
+	public static final double DASH_STEP_BONUS = 1.4;
 	/** The spring: about this many blocks forward, up a good way. */
 	/** v0.16.7 (user): a little further (was 14); the landing never hurts. */
 	public static final double COIL_BLOCKS = 17.5;
