@@ -40,6 +40,8 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private float clusterDamage;
 	private boolean vacuum;
 	private boolean torpedo;
+	/** v0.16.7 Era I (user): the Mk IV Hydro torpedo drops out of the air (it only runs straight in water). */
+	private boolean sinksOnLand;
 	/** v0.15.12: Ultron's missiles (the Heavy's barrage, the Sentry's missile rain) are drawn with a red tint and trail. */
 	private static final net.minecraft.network.syncher.EntityDataAccessor<Boolean> DATA_RED = net.minecraft.network.syncher.SynchedEntityData
 			.defineId(IronManMissileEntity.class, net.minecraft.network.syncher.EntityDataSerializers.BOOLEAN);
@@ -124,6 +126,12 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 		return this;
 	}
 
+	/** v0.16.7 Era I (user): out of the water this torpedo falls (gravity), in water it runs straight. */
+	public IronManMissileEntity withSinking() {
+		this.sinksOnLand = true;
+		return this;
+	}
+
 	public boolean isTorpedo() {
 		return torpedo;
 	}
@@ -175,6 +183,10 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			level().addParticle(ParticleTypes.SMOKE, getX(), getY(), getZ(), 0, 0, 0);
 			level().addParticle(ParticleTypes.FLAME, getX(), getY(), getZ(), 0, 0, 0);
 			return;
+		}
+		if (sinksOnLand && !isInWater() && life > 3) {
+			setDeltaMovement(getDeltaMovement().add(0, -0.04, 0)); // v0.16.7 Era I: a torpedo on land drops
+			hurtMarked = true;
 		}
 		if (++life > 100) {
 			detonate();

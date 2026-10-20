@@ -171,7 +171,9 @@ public final class DirectionalFlight {
 			boolean boost = com.projecthero.mod.ironman.ability.IronManFlares.boosting(ts, suit.id(), player.level().getGameTime());
 			return DirectionalFlightModel.ironManSuit(suit.flightSpeed(), suit.flightAcceleration(), suit.maxFlightSpeedMps(),
 					suit.flightCruiseFor(sprint && suit.sprintFlight()), sprint && suit.sprintFlight(), supersonic, // v0.15.11: exact per-mark speeds
-					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER : 1.0); // v0.15.4: no Mark 6 surge
+					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER // v0.15.4: no Mark 6 surge
+							// v0.16.7 Era I (user): the Mk III Flight Boost, x1.8 for 3 s
+							: com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.flightBoostMultiplier(ts, suit.id(), player.level().getGameTime()));
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight

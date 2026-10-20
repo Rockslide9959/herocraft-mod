@@ -389,13 +389,22 @@ public final class IronManComicState {
 						0.3, 0.3, 0.3, 0.2);
 			}
 		}
+		// v0.16.7 Era I (user): the Mk III Targeting HUD -- +20% crit chance while it is on
+		mult *= com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.outgoingMultiplier(attacker, target);
 		return mult;
 	}
 
 	/** Incoming: the share of a hit that gets past the comic Energy Shield / Hydraulic Brace (1 = all of it). */
 	public static float incomingFactor(ServerPlayer player, IronManSuit suit, DamageSource source) {
 		Rt r = peek(player);
-		if (r == null || source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+		if (source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return 1f;
+		}
+		// v0.16.7 Era I (user): the Mk III Barrel Roll i-frames dodge the hit outright
+		if (com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.invulnerable(player)) {
+			return 0f;
+		}
+		if (r == null) {
 			return 1f;
 		}
 		long now = player.level().getGameTime();
