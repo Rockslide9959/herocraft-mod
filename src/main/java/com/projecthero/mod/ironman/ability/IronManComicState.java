@@ -365,12 +365,14 @@ public final class IronManComicState {
 
 	/** Outgoing: JARVIS-scanned targets take +25%, a Marked Shot target crits (x1.5) for its next 3 hits. */
 	public static float outgoingMultiplier(ServerPlayer attacker, LivingEntity target) {
+		// v0.16.7 Era I: an armed Reactor Overload (Mk I / Mk II) lands the next hit x2
+		float era1 = com.projecthero.mod.ironman.ability.era1.EraOneMk12State.outgoingMultiplier(attacker, target);
 		Rt r = peek(attacker);
 		if (r == null) {
-			return 1f;
+			return era1;
 		}
 		long now = attacker.level().getGameTime();
-		float mult = 1f;
+		float mult = era1;
 		Long scannedUntil = r.scanned.get(target.getId());
 		if (scannedUntil != null) {
 			if (scannedUntil > now) {
@@ -394,12 +396,14 @@ public final class IronManComicState {
 
 	/** Incoming: the share of a hit that gets past the comic Energy Shield / Hydraulic Brace (1 = all of it). */
 	public static float incomingFactor(ServerPlayer player, IronManSuit suit, DamageSource source) {
+		// v0.16.7 Era I: the Mk I Brace (-60%) and the Mk II Magnetic Shield (projectiles stopped)
+		float era1 = com.projecthero.mod.ironman.ability.era1.EraOneMk12State.incomingFactor(player, source);
 		Rt r = peek(player);
 		if (r == null || source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
-			return 1f;
+			return era1;
 		}
 		long now = player.level().getGameTime();
-		float f = 1f;
+		float f = era1;
 		if (r.shieldUntil > now) {
 			f *= r.shieldFactor;
 			IronManSounds.play(player, IronManSounds.SHIELD_DEFLECT, 0.6f, 1.1f);

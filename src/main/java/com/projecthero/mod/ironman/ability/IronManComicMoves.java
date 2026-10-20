@@ -343,7 +343,7 @@ public final class IronManComicMoves {
 		return true;
 	}
 
-	private static boolean repel(ServerPlayer p, double radius, double strength, float damage) {
+	static boolean repel(ServerPlayer p, double radius, double strength, float damage) {
 		ServerLevel level = IronManComicFx.level(p);
 		for (LivingEntity e : IronManComicFx.around(p, p.position(), radius)) {
 			IronManComicFx.hit(p, e, damage);
@@ -427,7 +427,7 @@ public final class IronManComicMoves {
 	}
 
 	/** A blinding flash in a wide cone (the Mark 1 V2 chest lamp, the Hydro floodlight). */
-	private static boolean lampFlash(ServerPlayer p, double range, double halfDeg, int blindTicks) {
+	static boolean lampFlash(ServerPlayer p, double range, double halfDeg, int blindTicks) {
 		ServerLevel level = IronManComicFx.level(p);
 		Vec3 from = IronManComicFx.chest(p);
 		Vec3 dir = p.getLookAngle();
