@@ -346,7 +346,9 @@ public final class IronManAbilities {
 			case IronManMark7.LASER -> IronManMark7.trigger(player, suit, ability, pressed);
 			case IronManMark8.SENTRY -> IronManMark8.trigger(player, suit, ability, pressed); // v0.15.9: Sentry Mode
 			// v0.16.1: the comic-accurate kit -- every suit's R / G / X / Z / V, tap and Shift (IronManComicKit)
-			case IronManComicKit.SLOT_R, IronManComicKit.SLOT_G, IronManComicKit.SLOT_X, IronManComicKit.SLOT_Z, IronManComicKit.SLOT_V ->
+			// v0.16.7: + C on the Era I kits (its Shift edge is the eject, handled in the router / IronManAbilityManager)
+			case IronManComicKit.SLOT_R, IronManComicKit.SLOT_G, IronManComicKit.SLOT_X, IronManComicKit.SLOT_Z, IronManComicKit.SLOT_V,
+					IronManComicKit.SLOT_C ->
 					IronManComicRouter.trigger(player, suit, ability, pressed);
 			default -> { }
 		}
