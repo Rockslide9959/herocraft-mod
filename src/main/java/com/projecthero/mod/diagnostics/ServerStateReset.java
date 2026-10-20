@@ -105,6 +105,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.ability.era1.EraOneMk5Stealth.clearSessionState(); // v0.16.7 (user): Mk V glide / Silent Running / sleepers
 		com.projecthero.mod.ironman.ability.IronManComicRouter.clearSessionState();
 		com.projecthero.mod.ironman.ability.era1.EraOneMk34State.clearSessionState(); // v0.16.7 Era I: Mk III / Mk IV running moves, mines, charges, lamps
+		com.projecthero.mod.ironman.ability.era1.EraOneMk12State.clearSessionState(); // v0.16.7 Era I Mk I / Mk II running moves
 		com.projecthero.mod.ironman.IronManIntegrity.clearSessionState();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.clearSessionState();
 		com.projecthero.mod.event.raid.ZombieRaidNetworking.clearSessionState();
