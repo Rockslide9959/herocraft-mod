@@ -6,10 +6,14 @@ import com.projecthero.mod.ironman.TonyStark;
 import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerFactory;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.ContainerHelper;
@@ -24,26 +28,20 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
-import software.bernie.geckolib.animatable.GeoBlockEntity;
-import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.animation.AnimatableManager;
-import software.bernie.geckolib.animation.AnimationController;
-import software.bernie.geckolib.animation.RawAnimation;
-import software.bernie.geckolib.util.GeckoLibUtil;
-
 /**
- * The Stark Fabricator's state: 9 component-input slots, 1 output slot, 1 blueprint slot, an internal
- * Stark-energy buffer, and a fabrication timer (spec sections 8-11).
+ * The Stark Workbench's state (it is still the Stark Fabricator underneath): 9 component-input slots, 1 output slot,
+ * 1 blueprint slot, an internal Stark-energy buffer, and a fabrication timer (spec sections 8-11).
  *
- * <p>Operating restriction (spec section 6): the Fabricator only makes progress while a player with
- * the Tony Stark power is within {@value #OPERATOR_RADIUS} blocks. That is what stops a player without
- * the power from driving it with hoppers or other automation.
+ * <p>Operating restriction (spec section 6): it only makes progress while a player with the Tony Stark power is within
+ * {@value #OPERATOR_RADIUS} blocks. That is what stops a player without the power from driving it with hoppers or other
+ * automation.
  *
- * <p>v0.14.21: also the GeckoLib animatable for the Fabricator's rig (arm, hologram, light strips). The server mirrors
- * "a fabrication is in progress" into the block's {@link StarkFabricatorBlock#WORKING} state, which the client's
- * animation controller reads -- so the rig works even for players who never open the menu.
+ * <p>v0.16.7 (user): the GeckoLib rig is gone -- the client draws the holograms ({@code StarkWorkbenchRenderer}) from a
+ * small synced "job" (which suit / piece, progress, which recipe slots are filled; see {@link #getUpdateTag}). The block
+ * entity lives on the main half of the two-block desk (or the one block of an old {@link WorkbenchPart#SINGLE}
+ * fabricator, which claims its side half here once that block is air).
  */
-public class StarkFabricatorBlockEntity extends BlockEntity implements Container, ExtendedScreenHandlerFactory<BlockPos>, GeoBlockEntity {
+public class StarkFabricatorBlockEntity extends BlockEntity implements Container, ExtendedScreenHandlerFactory<BlockPos> {
 	public static final int SIZE = 11;
 	public static final int OUTPUT_SLOT = 9;
 	public static final int BLUEPRINT_SLOT = 10;
@@ -56,6 +54,17 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 	private String activeRecipeId = "";
 	/** "changes 18": which suit piece the operator picked (0 = none, 1 = helmet, 2 = chest, 3 = legs, 4 = boots). */
 	private int selectedPiece;
+
+	// ---- v0.16.7 (user): the hologram job, synced to every client in range (not the inventory)
+	/** Bit i set = recipe input i of the selected piece is satisfied by the grid. */
+	private int slotMask;
+	private int slotCount;
+	/** Client only: the game time the last job sync arrived (the renderer runs the progress bar on from it). */
+	private long syncedAt;
+	private int syncCountdown;
+	private int syncChecks;
+	private int claimCountdown;
+	private boolean holoDirty = true;
 
 	/**
 	 * Vanilla {@link AbstractContainerMenu} data slots are synchronised as <b>signed 16-bit</b>, so a
@@ -99,30 +108,13 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		super(IronManBlocks.STARK_FABRICATOR_BE, pos, state);
 	}
 
-	// ---------------- model / animation (v0.14.21) ----------------
-
-	public static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("animation.stark_fabricator.idle");
-	public static final RawAnimation WORKING_ANIM = RawAnimation.begin().thenLoop("animation.stark_fabricator.working");
 	/**
 	 * How long the WORKING state outlasts the last progress tick. Between two queued pieces the recipe resets for a
 	 * tick; without this grace the block state (and the chunk mesh) would flicker off and on at every hand-off.
 	 */
 	public static final int WORKING_LINGER_TICKS = 10;
-	private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this);
 	/** Ticks since progress was last made; starts "long ago" so a freshly loaded idle machine stays idle. */
 	private int idleTicks = WORKING_LINGER_TICKS;
-
-	@Override
-	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-		controllers.add(new AnimationController<>(this, "main", 8, state -> state.setAndContinue(
-				getBlockState().hasProperty(StarkFabricatorBlock.WORKING) && getBlockState().getValue(StarkFabricatorBlock.WORKING)
-						? WORKING_ANIM : IDLE_ANIM)));
-	}
-
-	@Override
-	public AnimatableInstanceCache getAnimatableInstanceCache() {
-		return geoCache;
-	}
 
 	/** Mirror "fabricating right now" into the block state (with a short linger, see {@link #WORKING_LINGER_TICKS}). */
 	private void syncWorkingState(Level level, BlockPos pos, BlockState state) {
@@ -130,6 +122,7 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		boolean working = idleTicks < WORKING_LINGER_TICKS;
 		if (state.hasProperty(StarkFabricatorBlock.WORKING) && state.getValue(StarkFabricatorBlock.WORKING) != working) {
 			level.setBlock(pos, state.setValue(StarkFabricatorBlock.WORKING, working), Block.UPDATE_ALL);
+			holoDirty = true;
 		}
 	}
 
@@ -166,7 +159,82 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		progress = 0;
 		activeRecipeId = "";
 		maxProgress = 0;
+		holoDirty = true;
 		setChanged();
+	}
+
+	// ---------------- v0.16.7 (user): the job the hologram shows ----------------
+
+	/** The suit whose blueprint sits in the blueprint slot (the suit being worked on), or null when idle. */
+	public String jobSuit() {
+		return items.get(BLUEPRINT_SLOT).getItem() instanceof com.projecthero.mod.ironman.item.BlueprintItem bp ? bp.suitId() : null;
+	}
+
+	private String clientJobSuit;
+
+	/** Client: the synced job suit (the client block entity does not know the inventory unless a menu is open). */
+	public String holoSuit() {
+		return level != null && level.isClientSide() ? clientJobSuit : jobSuit();
+	}
+
+	public int progress() {
+		return progress;
+	}
+
+	public int maxProgress() {
+		return maxProgress;
+	}
+
+	public int slotMask() {
+		return slotMask;
+	}
+
+	public int slotCount() {
+		return slotCount;
+	}
+
+	public long syncedAt() {
+		return syncedAt;
+	}
+
+	private void updateSlotMask() {
+		FabricationRecipe recipe = StarkWorkbench.recipe(jobSuit(), selectedPiece);
+		int mask = 0;
+		int count = 0;
+		if (recipe != null) {
+			count = Math.min(recipe.inputs().size(), 9);
+			for (int i = 0; i < count; i++) {
+				FabricationRecipe.Input in = recipe.inputs().get(i);
+				int have = 0;
+				for (int s = 0; s < 9; s++) {
+					if (items.get(s).is(in.item())) {
+						have += items.get(s).getCount();
+					}
+				}
+				if (have >= in.count()) {
+					mask |= 1 << i;
+				}
+			}
+		}
+		if (mask != slotMask || count != slotCount) {
+			slotMask = mask;
+			slotCount = count;
+			holoDirty = true;
+		}
+	}
+
+	/** Send the job to clients when it changed (checked twice a second), and every 2 s while working to keep the bar true. */
+	private void syncHologram(Level level, BlockPos pos, BlockState state) {
+		if (--syncCountdown > 0) {
+			return;
+		}
+		syncCountdown = 10;
+		updateSlotMask();
+		syncChecks++;
+		if (holoDirty || (progress > 0 && syncChecks % 4 == 0)) {
+			level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+			holoDirty = false;
+		}
 	}
 
 	// ---------------- tick ----------------
@@ -216,8 +284,33 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 	}
 
 	public static void serverTick(Level level, BlockPos pos, BlockState state, StarkFabricatorBlockEntity be) {
+		state = be.claimSideHalf(level, pos, state);
 		be.tickFabrication(level, pos);
 		be.syncWorkingState(level, pos, state);
+		be.syncHologram(level, pos, level.getBlockState(pos));
+	}
+
+	/**
+	 * v0.16.7 (user): an old one-block Fabricator (loaded as {@link WorkbenchPart#SINGLE}) grows its side half as soon as
+	 * the block to its right is plain air -- never replacing anything, checked once a second. Until then it works as a
+	 * complete one-block desk.
+	 */
+	private BlockState claimSideHalf(Level level, BlockPos pos, BlockState state) {
+		if (!state.hasProperty(StarkFabricatorBlock.PART) || state.getValue(StarkFabricatorBlock.PART) != WorkbenchPart.SINGLE
+				|| --claimCountdown > 0) {
+			return state;
+		}
+		claimCountdown = 20;
+		Direction sideDir = StarkFabricatorBlock.sideDirection(state.getValue(StarkFabricatorBlock.FACING));
+		BlockPos side = pos.relative(sideDir);
+		if (!level.isLoaded(side) || !level.getBlockState(side).isAir() || !level.getWorldBorder().isWithinBounds(side)) {
+			return state;
+		}
+		BlockState main = state.setValue(StarkFabricatorBlock.PART, WorkbenchPart.MAIN);
+		level.setBlock(pos, main, Block.UPDATE_ALL);
+		level.setBlock(side, main.setValue(StarkFabricatorBlock.PART, WorkbenchPart.SIDE), Block.UPDATE_ALL);
+		holoDirty = true;
+		return level.getBlockState(pos);
 	}
 
 	private void tickFabrication(Level level, BlockPos pos) {
@@ -233,6 +326,7 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 				be.progress = 0;
 				be.activeRecipeId = "";
 				be.maxProgress = 0;
+				be.holoDirty = true;
 				be.setChanged();
 			}
 			return;
@@ -242,6 +336,7 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 			be.activeRecipeId = recipe.id();
 			be.progress = 0;
 			be.maxProgress = recipe.timeTicks();
+			be.holoDirty = true;
 		}
 		be.progress++;
 		if (be.progress >= recipe.timeTicks()) {
@@ -263,6 +358,7 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 			be.progress = 0;
 			be.activeRecipeId = "";
 			be.maxProgress = 0;
+			be.holoDirty = true;
 		}
 		be.setChanged();
 	}
@@ -306,12 +402,18 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 	@Override
 	public ItemStack removeItem(int slot, int amount) {
 		ItemStack result = ContainerHelper.removeItem(items, slot, amount);
+		if (slot == BLUEPRINT_SLOT) {
+			holoDirty = true;
+		}
 		setChanged();
 		return result;
 	}
 
 	@Override
 	public ItemStack removeItemNoUpdate(int slot) {
+		if (slot == BLUEPRINT_SLOT) {
+			holoDirty = true;
+		}
 		return ContainerHelper.takeItem(items, slot);
 	}
 
@@ -320,6 +422,9 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		items.set(slot, stack);
 		if (stack.getCount() > stack.getMaxStackSize()) {
 			stack.setCount(stack.getMaxStackSize());
+		}
+		if (slot == BLUEPRINT_SLOT) {
+			holoDirty = true;
 		}
 		setChanged();
 	}
@@ -362,18 +467,33 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		return worldPosition;
 	}
 
-	// ---------------- nbt ----------------
+	// ---------------- nbt + client sync ----------------
 
 	@Override
 	protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
 		super.loadAdditional(tag, registries);
-		items.clear();
-		ContainerHelper.loadAllItems(tag, items, registries);
-		energy = tag.getInt("Energy");
+		if (tag.contains("Items")) { // the client job sync carries no inventory -- keep the menu's copy
+			items.clear();
+			ContainerHelper.loadAllItems(tag, items, registries);
+		}
+		if (tag.contains("Energy")) {
+			energy = tag.getInt("Energy");
+		}
 		progress = tag.getInt("Progress");
 		maxProgress = tag.getInt("MaxProgress");
-		activeRecipeId = tag.getString("ActiveRecipe");
+		if (tag.contains("ActiveRecipe")) {
+			activeRecipeId = tag.getString("ActiveRecipe");
+		}
 		selectedPiece = tag.getInt("SelectedPiece");
+		if (tag.contains("Holo")) {
+			CompoundTag h = tag.getCompound("Holo");
+			clientJobSuit = h.getString("Suit").isEmpty() ? null : h.getString("Suit");
+			slotMask = h.getInt("Mask");
+			slotCount = h.getInt("Slots");
+			if (level != null) {
+				syncedAt = level.getGameTime();
+			}
+		}
 	}
 
 	@Override
@@ -385,5 +505,26 @@ public class StarkFabricatorBlockEntity extends BlockEntity implements Container
 		tag.putInt("MaxProgress", maxProgress);
 		tag.putString("ActiveRecipe", activeRecipeId);
 		tag.putInt("SelectedPiece", selectedPiece);
+	}
+
+	/** The job only (suit, piece, progress, filled recipe slots) -- never the inventory. */
+	@Override
+	public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+		CompoundTag tag = new CompoundTag();
+		tag.putInt("Progress", progress);
+		tag.putInt("MaxProgress", maxProgress);
+		tag.putInt("SelectedPiece", selectedPiece);
+		CompoundTag h = new CompoundTag();
+		String suit = jobSuit();
+		h.putString("Suit", suit == null ? "" : suit);
+		h.putInt("Mask", slotMask);
+		h.putInt("Slots", slotCount);
+		tag.put("Holo", h);
+		return tag;
+	}
+
+	@Override
+	public Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
 	}
 }

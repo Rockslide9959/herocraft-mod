@@ -322,45 +322,64 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): the Stark Workbench screen (it replaced the Fabricator screen) fits 320 x 240 and its text fits. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fabricatorLayoutFits(GameTestHelper helper) {
 		int fw = IronManUiLayout.FAB_W;
-		helper.assertTrue(IronManUiLayout.FAB_H <= H, "the fabricator panel fits 240 high");
+		helper.assertTrue(fw <= W && IronManUiLayout.FAB_H <= H, "the workbench panel fits " + W + " x " + H);
 		for (int i = 0; i < 4; i++) {
 			Rect tab = IronManUiLayout.fabTab(i);
-			helper.assertTrue(tab.right() <= fw - 6 && tab.h() >= 16 && tab.w() >= 40, "tab " + i + " is big and inside the panel");
+			helper.assertTrue(tab.right() <= IronManUiLayout.FAB_HOLO_X + IronManUiLayout.FAB_HOLO_W && tab.h() >= 16 && tab.w() >= 22,
+					"piece toggle " + i + " is big enough and under the hologram");
+			helper.assertTrue(tab.y() >= IronManUiLayout.FAB_HOLO_Y + IronManUiLayout.FAB_HOLO_H && tab.bottom() < IronManUiLayout.FAB_INV_Y - 4,
+					"piece toggles between the hologram and the inventory");
 			for (int[] sl : IronManUiLayout.FAB_SLOTS) {
-				helper.assertFalse(tab.overlaps(new Rect(sl[0] - 1, sl[1] - 1, 18, 18)), "tab clear of every slot");
+				helper.assertFalse(tab.overlaps(new Rect(sl[0] - 1, sl[1] - 1, 18, 18)), "toggle clear of every slot");
 			}
 			String piece = t("screen.projecthero.stark_fabricator.piece." + new String[] { "helmet", "chestplate", "leggings", "boots" }[i]);
-			helper.assertTrue(w(f("screen.projecthero.stark_fabricator.needs_short", piece)) <= IronManUiLayout.FAB_BOX_W - 8 - IronManUiLayout.FAB_MORE_W - 6,
-					"the checklist header names the piece (tabs are icon-only): " + piece);
+			helper.assertTrue(w(f("screen.projecthero.stark_fabricator.needs_short", piece)) <= IronManUiLayout.FAB_BOX_W - 8 - IronManUiLayout.FAB_MORE_W - 2,
+					"the recipe header names the piece: " + piece);
+			Rect era = IronManUiLayout.fabEraTab(i);
+			helper.assertTrue(era.right() <= fw - 4 && era.x() > 8 + w(t("screen.projecthero.stark_workbench.title").toUpperCase(java.util.Locale.ROOT)),
+					"era tab " + i + " inside the panel, right of the title");
+			helper.assertTrue(w(f("screen.projecthero.stark_workbench.era", new String[] { "I", "II", "III", "IV" }[i])) + 7 <= era.w() - 4,
+					"era tab " + i + " label + lock fit");
+		}
+		helper.assertTrue(w(t("screen.projecthero.stark_workbench.built")) <= IronManUiLayout.FAB_TAB_W - 2
+				&& w(t("screen.projecthero.stark_workbench.not_built")) <= IronManUiLayout.FAB_TAB_W - 2, "toggle labels fit");
+		for (String k : new String[] { "armour", "integrity", "reactor", "flight" }) {
+			helper.assertTrue(w(t("screen.projecthero.stark_workbench.stat." + k)) <= IronManUiLayout.FAB_STAT_LABEL_W - 2, "stat label " + k + " fits");
 		}
 		Rect box = new Rect(IronManUiLayout.FAB_BOX_X, IronManUiLayout.FAB_BOX_Y, IronManUiLayout.FAB_BOX_W, IronManUiLayout.FAB_BOX_H);
-		helper.assertTrue(box.bottom() < IronManUiLayout.FAB_INV_Y - 1, "checklist ends above the inventory");
-		helper.assertTrue(box.y() > IronManUiLayout.fabTab(0).bottom(), "checklist below the tabs");
+		helper.assertTrue(box.y() >= IronManUiLayout.FAB_STATS_Y + 4 * IronManUiLayout.FAB_STAT_ROW_H, "recipe box below the stat bars");
+		helper.assertTrue(IronManUiLayout.fabBuild().y() >= box.bottom() && IronManUiLayout.fabBuild().bottom() < IronManUiLayout.FAB_INV_Y - 2,
+				"Build between the recipe box and the inventory");
+		helper.assertTrue(box.right() <= fw - 4, "right column inside the panel");
 		int maxInputs = 0;
 		for (FabricationRecipe r : FabricatorRecipes.all()) {
 			if (r.result().getItem() instanceof IronManArmorItem) {
 				maxInputs = Math.max(maxInputs, r.inputs().size());
 				for (FabricationRecipe.Input in : r.inputs()) {
-					helper.assertTrue(w(in.count() + "/" + in.count()) <= IronManUiLayout.FAB_CHECK_CELL_W - 12,
-							"have/need text fits a checklist cell");
+					helper.assertTrue(w(in.count() + "/" + in.count()) * 0.7f <= IronManUiLayout.FAB_CHECK_CELL_W - 18,
+							"have/need text fits a recipe cell");
 				}
 			}
 		}
-		helper.assertTrue(maxInputs > 0 && maxInputs <= 12, "every armour recipe fits the 4 x 3 checklist (max " + maxInputs + ")");
+		helper.assertTrue(maxInputs > 0 && maxInputs <= IronManUiLayout.FAB_CHECK_PER_ROW * 3,
+				"every armour recipe fits the 3 x 3 recipe cells (max " + maxInputs + ")");
 		for (int i = 0; i < maxInputs; i++) {
-			Rect c = IronManUiLayout.checklistCell(i, box.x() + 4, IronManUiLayout.FAB_CHECK_TOP, IronManUiLayout.FAB_CHECK_PER_ROW,
+			Rect c = IronManUiLayout.checklistCell(i, box.x() + 1, IronManUiLayout.FAB_CHECK_TOP, IronManUiLayout.FAB_CHECK_PER_ROW,
 					IronManUiLayout.FAB_CHECK_CELL_W, IronManUiLayout.FAB_CHECK_ROW_H);
-			helper.assertTrue(c.right() <= box.right() && c.y() + 8 <= box.bottom(), "checklist cell " + i + " inside the box");
+			helper.assertTrue(c.right() <= box.right() && c.bottom() <= box.bottom() + 1, "recipe cell " + i + " inside the box");
 		}
-		helper.assertTrue(w(t("screen.projecthero.stark_fabricator.view_more")) <= IronManUiLayout.FAB_MORE_W - 4, "View more fits");
+		helper.assertTrue(w(t("screen.projecthero.stark_fabricator.view_more")) * 0.75f <= IronManUiLayout.FAB_MORE_W - 4, "View more fits");
+		helper.assertTrue(w(t("screen.projecthero.stark_workbench.build").toUpperCase(java.util.Locale.ROOT)) <= IronManUiLayout.FAB_BUILD_W - 4, "Build fits");
 		helper.assertFalse(t("screen.projecthero.stark_fabricator.pick_piece").contains("→"), "no misleading arrow");
+		int statusW = fw - IronManUiLayout.FAB_STATUS_X - 6;
 		for (String k : new String[] { "ready", "low_energy", "missing", "idle" }) {
-			helper.assertTrue(w(t("screen.projecthero.stark_fabricator.status." + k)) + 6 + w("50000 / 50000") <= fw - 20,
-					"status '" + k + "' and the energy readout share one line");
+			helper.assertTrue(w(t("screen.projecthero.stark_fabricator.status." + k)) <= statusW, "status '" + k + "' fits its line");
 		}
+		helper.assertTrue(w(f("screen.projecthero.stark_fabricator.energy", 50000, 50000)) <= statusW, "the energy readout fits its line");
 		helper.succeed();
 	}
 
@@ -376,8 +395,9 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 		for (int i = IronManUiLayout.FAB_SLOTS.length; i < fab.slots.size(); i++) {
 			var sl = fab.slots.get(i);
 			helper.assertTrue(sl.y >= IronManUiLayout.FAB_INV_Y && sl.y + 17 <= IronManUiLayout.FAB_H - 4 && sl.x + 17 <= IronManUiLayout.FAB_W,
-					"player slot " + i + " inside the 200 x 236 panel");
-			helper.assertTrue(sl.y >= IronManUiLayout.FAB_BOX_Y + IronManUiLayout.FAB_BOX_H, "player slots below the checklist");
+					"player slot " + i + " inside the workbench panel");
+			helper.assertTrue(sl.y >= IronManUiLayout.FAB_BOX_Y + IronManUiLayout.FAB_BOX_H, "player slots below the recipe box");
+			helper.assertTrue(sl.x + 17 < IronManUiLayout.FAB_SLOTS[9][0], "player slots left of the machine slots");
 		}
 		var plat = new com.projecthero.mod.ironman.fabricator.IronManSuitPlatformMenu(2, player.getInventory(), helper.absolutePos(net.minecraft.core.BlockPos.ZERO));
 		for (int i = 0; i < 4; i++) {
@@ -411,7 +431,7 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void guiTexturesAreSized(GameTestHelper helper) {
-		for (Map.Entry<String, int[]> e : Map.of("stark_fabricator", new int[] { 256, 256 },
+		for (Map.Entry<String, int[]> e : Map.of( // v0.16.7 (user): the Stark Workbench screen is drawn in code (no texture)
 				"iron_man_suit_platform", new int[] { 256, 256 }).entrySet()) {
 			try (InputStream in = IronManUiV01421GameTests.class.getResourceAsStream(
 					"/assets/projecthero/textures/gui/" + e.getKey() + ".png")) {

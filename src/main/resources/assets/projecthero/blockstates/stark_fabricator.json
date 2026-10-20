@@ -1,18 +1,48 @@
 {
 	"variants": {
-		"facing=north": {
-			"model": "projecthero:block/stark_fabricator"
+		"facing=north,part=single": {
+			"model": "projecthero:block/stark_workbench_single"
 		},
-		"facing=east": {
-			"model": "projecthero:block/stark_fabricator",
+		"facing=north,part=main": {
+			"model": "projecthero:block/stark_workbench_main"
+		},
+		"facing=north,part=side": {
+			"model": "projecthero:block/stark_workbench_side"
+		},
+		"facing=east,part=single": {
+			"model": "projecthero:block/stark_workbench_single",
 			"y": 90
 		},
-		"facing=south": {
-			"model": "projecthero:block/stark_fabricator",
+		"facing=east,part=main": {
+			"model": "projecthero:block/stark_workbench_main",
+			"y": 90
+		},
+		"facing=east,part=side": {
+			"model": "projecthero:block/stark_workbench_side",
+			"y": 90
+		},
+		"facing=south,part=single": {
+			"model": "projecthero:block/stark_workbench_single",
 			"y": 180
 		},
-		"facing=west": {
-			"model": "projecthero:block/stark_fabricator",
+		"facing=south,part=main": {
+			"model": "projecthero:block/stark_workbench_main",
+			"y": 180
+		},
+		"facing=south,part=side": {
+			"model": "projecthero:block/stark_workbench_side",
+			"y": 180
+		},
+		"facing=west,part=single": {
+			"model": "projecthero:block/stark_workbench_single",
+			"y": 270
+		},
+		"facing=west,part=main": {
+			"model": "projecthero:block/stark_workbench_main",
+			"y": 270
+		},
+		"facing=west,part=side": {
+			"model": "projecthero:block/stark_workbench_side",
 			"y": 270
 		}
 	}

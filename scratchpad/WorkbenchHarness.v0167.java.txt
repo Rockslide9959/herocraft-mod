@@ -1,0 +1,315 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.ironman.IronManBlocks;
+import com.projecthero.mod.ironman.TonyStark;
+import com.projecthero.mod.ironman.fabricator.FabricationRecipe;
+import com.projecthero.mod.ironman.fabricator.FabricatorRecipes;
+import com.projecthero.mod.ironman.fabricator.StarkFabricatorBlock;
+import com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity;
+import com.projecthero.mod.ironman.fabricator.StarkWorkbench;
+import com.projecthero.mod.ironman.fabricator.WorkbenchPart;
+import com.projecthero.mod.ironman.item.IronManItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.16.7 Stark Workbench screenshots (desk + holograms, the screen). Enabled by run/wb.flag. */
+public final class WorkbenchHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static BlockPos M;
+	private static BlockPos IDLE;
+	private static BlockPos OLD;
+
+	private WorkbenchHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("wb.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(WorkbenchHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(360_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "wb-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "wb_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(WorkbenchHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.guiScale().set(2);
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				BlockPos o = p.blockPosition();
+				M = o.offset(0, 0, 4);
+				IDLE = o.offset(6, 0, 4);
+				OLD = o.offset(-6, 0, 4);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("WB_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static void desk(ServerLevel level, BlockPos main) {
+		BlockState s = IronManBlocks.STARK_FABRICATOR.defaultBlockState().setValue(StarkFabricatorBlock.FACING, Direction.NORTH)
+				.setValue(StarkFabricatorBlock.PART, WorkbenchPart.MAIN);
+		level.setBlockAndUpdate(main, s);
+		level.setBlockAndUpdate(main.relative(StarkFabricatorBlock.sideDirection(Direction.NORTH)), s.setValue(StarkFabricatorBlock.PART, WorkbenchPart.SIDE));
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			TonyStark.grant(p);
+			desk(level, M);
+			desk(level, IDLE);
+			level.setBlockAndUpdate(OLD.relative(StarkFabricatorBlock.sideDirection(Direction.NORTH)), Blocks.CHEST.defaultBlockState());
+			level.setBlockAndUpdate(OLD, IronManBlocks.STARK_FABRICATOR.defaultBlockState()); // an old one-block fabricator, blocked
+			// the job: the Mk III-ish (third Era I suit) chestplate, helmet already built
+			java.util.List<String> era = StarkWorkbench.eraSuits(1);
+			String suit = era.size() > 2 ? era.get(2) : era.get(0);
+			System.out.println("[HARNESS] era1 = " + era + " job = " + suit);
+			String pre = IronManItems.prerequisiteSuit(suit);
+			if (pre != null) {
+				TonyStark.markBuilt(p, com.projecthero.mod.ironman.suit.IronManSuits.byId(pre));
+			}
+			TonyStark.recordSuitPiece(p, suit, ArmorItem.Type.HELMET);
+			var be = (StarkFabricatorBlockEntity) level.getBlockEntity(M);
+			be.setItem(StarkFabricatorBlockEntity.BLUEPRINT_SLOT, new ItemStack(IronManItems.blueprintFor(suit)));
+			be.setSelectedPiece(2);
+			FabricationRecipe r = StarkWorkbench.recipe(suit, 2);
+			int slot = 0;
+			for (FabricationRecipe.Input in : r.inputs()) {
+				if (slot < 9 && slot < r.inputs().size() - 2) { // leave two missing so the screen shows red
+					be.setItem(slot++, new ItemStack(in.item(), in.count()));
+				}
+			}
+			be.addEnergy(FabricatorRecipes.MAX_ENERGY);
+			// inventory: some of the missing parts for the screen's have counts
+			p.getInventory().add(new ItemStack(IronManItems.BLANK_BLUEPRINT));
+			Vec3 c = StarkFabricatorBlock.deskCentre(level.getBlockState(M), M);
+			camera(p, c.add(0, 0.75, -2.7), c.add(0, 0.55, 0));
+		}));
+		shot(t + 30, "front_missing");
+		// complete the recipe so it fabricates (the chest prints up)
+		at(t + 32, () -> server(mc, p -> {
+			var be = (StarkFabricatorBlockEntity) p.serverLevel().getBlockEntity(M);
+			String suit = be.jobSuit();
+			FabricationRecipe r = StarkWorkbench.recipe(suit, 2);
+			int slot = 0;
+			for (FabricationRecipe.Input in : r.inputs()) {
+				be.setItem(slot++, new ItemStack(in.item(), in.count()));
+			}
+		}));
+		shot(t + 130, "front_fabricating");
+		at(t + 132, () -> server(mc, p -> {
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(M), M);
+			camera(p, c.add(-2.3, 1.3, -2.4), c.add(0, 0.5, 0));
+		}));
+		shot(t + 140, "three_quarter");
+		at(t + 142, () -> server(mc, p -> {
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(M), M);
+			camera(p, c.add(1.0, 2.6, -1.6), c.add(0, 0.3, 0.2));
+		}));
+		shot(t + 150, "above");
+		at(t + 152, () -> server(mc, p -> {
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(IDLE), IDLE);
+			camera(p, c.add(-1.2, 0.8, -2.6), c.add(0, 0.45, 0));
+		}));
+		shot(t + 160, "idle_reactor");
+		at(t + 162, () -> server(mc, p -> {
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(OLD), OLD);
+			camera(p, c.add(1.5, 0.9, -2.4), c.add(0, 0.3, 0));
+		}));
+		shot(t + 172, "old_single_blocked");
+		at(t + 174, () -> server(mc, p -> {
+			p.serverLevel().setDayTime(18000L);
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(M), M);
+			camera(p, c.add(-1.6, 0.9, -2.6), c.add(0, 0.55, 0));
+		}));
+		shot(t + 184, "night");
+		at(t + 186, () -> server(mc, p -> {
+			p.serverLevel().setDayTime(6000L);
+			Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(M), M);
+			camera(p, c.add(0, 0.9, -9.5), c.add(0, 0.5, 0));
+		}));
+		shot(t + 196, "far_10_blocks");
+		at(t + 197, () -> {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				p.getInventory().setItem(0, new ItemStack(IronManBlocks.STARK_FABRICATOR_ITEM));
+				p.getInventory().selected = 0;
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(0));
+			});
+		});
+		shot(t + 205, "item_icon");
+		at(t + 206, () -> {
+			mc.options.hideGui = true;
+			mc.options.guiScale().set(2);
+		});
+		// the screen
+		at(t + 198, () -> {
+			mc.options.hideGui = false;
+			server(mc, p -> {
+				Vec3 c = StarkFabricatorBlock.deskCentre(p.serverLevel().getBlockState(M), M);
+				camera(p, c.add(0, 0.75, -2.7), c.add(0, 0.55, 0));
+				p.openMenu((StarkFabricatorBlockEntity) p.serverLevel().getBlockEntity(M));
+			});
+		});
+		shot(t + 215, "screen");
+		at(t + 217, () -> {
+			if (mc.screen != null) {
+				int sx = (mc.screen.width - 320) / 2;
+				int sy = (mc.screen.height - 236) / 2;
+				mc.screen.mouseMoved(sx + 260, sy + 90);
+			}
+		});
+		shot(t + 222, "screen_hover_recipe");
+		at(t + 224, () -> {
+			if (mc.screen != null) {
+				int sx = (mc.screen.width - 320) / 2;
+				int sy = (mc.screen.height - 236) / 2;
+				mc.screen.mouseClicked(sx + 30, sy + 40, 0); // first list row
+			}
+		});
+		shot(t + 230, "screen_mk1");
+		at(t + 232, () -> {
+			if (mc.screen != null) {
+				int sx = (mc.screen.width - 320) / 2;
+				int sy = (mc.screen.height - 236) / 2;
+				mc.screen.mouseClicked(sx + 30, sy + 40 + 21 * 4, 0); // last row (locked)
+			}
+		});
+		shot(t + 238, "screen_locked");
+		at(t + 250, () -> {
+			if (mc.screen != null) {
+				int sx = (mc.screen.width - 320) / 2;
+				int sy = (mc.screen.height - 236) / 2;
+				mc.screen.mouseClicked(sx + 290, sy + 72, 0); // View more
+			}
+		});
+		shot(t + 256, "screen_view_more");
+		at(t + 260, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

@@ -91,15 +91,17 @@ public class IronManBlocksV01421GameTests implements FabricGameTest {
 			helper.assertFalse(contains(s, front.x, front.y, front.z), "platform front must be open (" + facing + ")");
 			helper.assertFalse(contains(s, 8, 10, 8), "the suit's spot must be open (" + facing + ")");
 		}
-		// Fabricator: bench up to the worktop; the gantry at the back; open air over the front of the work plate
+		// v0.16.7 (user): the Stark Workbench (one-block SINGLE desk, as old worlds load it): the desk top is solid, a
+		// cabinet leg holds it up, the space above the top's front edge is open, and the knee gap under the middle is open
 		for (Direction facing : Direction.Plane.HORIZONTAL) {
 			helper.setBlock(rel, IronManBlocks.STARK_FABRICATOR.defaultBlockState().setValue(StarkFabricatorBlock.FACING, facing));
 			VoxelShape s = helper.getLevel().getBlockState(abs).getShape(helper.getLevel(), abs, CollisionContext.empty());
-			Vec3 back = new Vec3(8, 14, 8).add(Vec3.atLowerCornerOf(facing.getOpposite().getNormal()).scale(5.5));
-			Vec3 front = new Vec3(8, 14, 8).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(6.0));
-			helper.assertTrue(contains(s, 8, 5, 8), "fabricator bench must be solid (" + facing + ")");
-			helper.assertTrue(contains(s, back.x, back.y, back.z), "fabricator gantry must be at the back (" + facing + ")");
-			helper.assertFalse(contains(s, front.x, front.y, front.z), "space over the work plate must be open (" + facing + ")");
+			Vec3 front = new Vec3(8, 15, 8).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(6.5));
+			helper.assertTrue(contains(s, 8, 12.5, 8), "workbench top must be solid (" + facing + ")");
+			helper.assertTrue(contains(s, 13.5, 5, 8) || contains(s, 2.5, 5, 8) || contains(s, 8, 5, 13.5) || contains(s, 8, 5, 2.5),
+					"a workbench cabinet leg must be solid (" + facing + ")");
+			helper.assertFalse(contains(s, front.x, front.y, front.z), "space over the front of the desk must be open (" + facing + ")");
+			helper.assertFalse(contains(s, 8, 4, 8), "the knee gap under the desk must be open (" + facing + ")");
 		}
 		helper.succeed();
 	}

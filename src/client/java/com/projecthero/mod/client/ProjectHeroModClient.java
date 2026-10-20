@@ -161,7 +161,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				com.projecthero.mod.client.gui.AllMightLockerScreen::new);
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_MENU,
-				com.projecthero.mod.client.gui.StarkFabricatorScreen::new);
+				com.projecthero.mod.client.gui.StarkWorkbenchScreen::new); // v0.16.7 (user): the Stark Workbench screen
 		net.minecraft.client.gui.screens.MenuScreens.register(
 				com.projecthero.mod.ironman.IronManBlocks.SUIT_PLATFORM_MENU,
 				com.projecthero.mod.client.gui.IronManSuitPlatformScreen::new);
@@ -176,9 +176,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.StarkGantryMenuPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(
 						new com.projecthero.mod.client.gui.StarkGantryScreen(payload))));
-		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register( // v0.14.21: Fabricator rig
+		net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry.register( // v0.16.7 (user): the Stark Workbench holograms
 				com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR_BE,
-				ctx -> new com.projecthero.mod.client.render.StarkFabricatorRenderer());
+				ctx -> new com.projecthero.mod.client.render.StarkWorkbenchRenderer());
 		// Moon Knight Phase 7: the Altar of Khonshu's scarab renderer + the ritual's white fade (receiver + overlay).
 		com.projecthero.mod.client.moonknight.KhonshuTempleClient.register();
 		com.projecthero.mod.client.render.IronManEntityRenderers.initialize();
