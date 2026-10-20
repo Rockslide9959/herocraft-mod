@@ -56,6 +56,22 @@ public final class MiraculousHud {
 	private MiraculousHud() {
 	}
 
+	/**
+	 * v0.16.7 (user): a kit's own panel (Viperion's Second Chance), stacked right above the HUD's title -- the same width as
+	 * the six boxes, so it reads as part of the ability HUD. Height 0 = nothing to show.
+	 */
+	public interface Panel {
+		int height(net.minecraft.client.player.LocalPlayer player);
+
+		void draw(GuiGraphics g, Minecraft mc, int x, int y, int width, float partial);
+	}
+
+	private static final List<Panel> PANELS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	public static void addPanel(Panel panel) {
+		PANELS.add(panel);
+	}
+
 	/** v0.16.7 (user): 0..1 while Shift+N is held to take the Miraculous off (set by the client key handler). */
 	public static volatile float takeOffProgress;
 
@@ -146,6 +162,13 @@ public final class MiraculousHud {
 		int hudTop = ty;
 		if (note != null) {
 			hudTop = ty - 2 - mc.font.split(note, totalW).size() * 9;
+		}
+		for (Panel panel : PANELS) {
+			int h = panel.height(mc.player);
+			if (h > 0) {
+				hudTop -= h + 4;
+				panel.draw(g, mc, x0, hudTop, totalW, delta.getGameTimeDeltaPartialTick(false));
+			}
 		}
 		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
 			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new java.util.ArrayList<>();

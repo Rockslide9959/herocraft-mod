@@ -86,6 +86,7 @@
   "message.projecthero.viperion.rewind_auto_spent": "A killing blow... rewound! Second Chance is spent.",
   "message.projecthero.viperion.checkpoint_gone": "The checkpoint has slipped away.",
   "hud.projecthero.viperion.second_chance": "x%s  %s",
+  "hud.projecthero.viperion.rewinds": "rewinds",
   "message.projecthero.pegasus.shoe_out": "The Horseshoe is still out.",
   "message.projecthero.pegasus.no_landing": "No safe place to land there.",
   "message.projecthero.pegasus.too_close": "Too close: look further away.",

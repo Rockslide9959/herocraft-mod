@@ -31,6 +31,7 @@ public final class ViperionClient implements KwamiClientKit {
 			}
 		});
 		HudRenderCallback.EVENT.register(ViperionHud::render);
+		ViperionHud.initialize(); // v0.16.7 (user): the Second Chance card, above the ability HUD
 	}
 
 	@Override
