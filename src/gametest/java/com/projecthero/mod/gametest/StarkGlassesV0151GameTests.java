@@ -207,24 +207,25 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void callingASuitNeedsTheGlasses(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = tony(h, new BlockPos(6, 1, 6));
-		IronManSuitPlatformBlockEntity be = platformWith(h, p, new BlockPos(2, 2, 2), "mark_iii");
+		IronManSuitPlatformBlockEntity be = platformWith(h, p, new BlockPos(2, 2, 2), "mark_6");
 
-		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
+		IronManSuitCall.execute(p, "mark_6", IronManSuitListPayload.SOURCE_PLATFORM);
 		h.assertTrue(be.isFull(), "without the glasses the platform call is refused -- the suit stays put");
 		h.assertFalse(IronManSuitUpManager.inTransition(p), "and nothing is inbound");
 		h.assertFalse(IronManSuitCall.callBest(p), "the quick call is refused");
-		h.assertFalse(IronManSuitCall.commandCall(p, "mark_iii"), "/ironman suit is refused");
-		h.assertFalse(IronManSuitCall.callPiece(p, "mark_iii", ArmorItem.Type.HELMET), "/ironman part is refused");
-		h.assertTrue(com.projecthero.mod.ironman.drone.IronManDrones.deploy(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM) == null,
+		h.assertFalse(IronManSuitCall.commandCall(p, "mark_6"), "/ironman suit is refused");
+		h.assertFalse(IronManSuitCall.callPiece(p, "mark_6", ArmorItem.Type.HELMET), "/ironman part is refused");
+		h.assertTrue(com.projecthero.mod.ironman.drone.IronManDrones.deploy(p, "mark_6", IronManSuitListPayload.SOURCE_PLATFORM) == null,
 				"Remote Pilot off a platform is refused");
 		h.assertTrue(be.isFull(), "the platform still holds the whole suit");
 
 		StarkGear.equip(p, glasses());
-		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
+		IronManSuitCall.execute(p, "mark_6", IronManSuitListPayload.SOURCE_PLATFORM);
 		h.assertTrue(be.isFull(), "v0.15.7: the glasses alone only call a Mark 8+, so the Mark 3 stays");
 		wearGlasses(p);
-		IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
+		IronManSuitCall.execute(p, "mark_6", IronManSuitListPayload.SOURCE_PLATFORM);
 		h.assertTrue(be.isEmptyPlatform(), "with (test) glasses on the suit is called off the platform");
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "and is inbound");
 		h.succeed();
@@ -232,8 +233,9 @@ public class StarkGlassesV0151GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void puttingOnACarriedSuitIsNotACall(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = tony(h, new BlockPos(2, 1, 2));
-		packSuit(p, "mark_iii");
+		packSuit(p, "mark_6");
 		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "plain C still puts on a suit you carry, no glasses needed");
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "the staged suit-up runs");
 

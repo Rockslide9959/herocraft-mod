@@ -135,8 +135,11 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 			h.assertTrue(IronManComicKit.SLOT_C.equals(s.abilityInSlot(6)), ERA_ONE[i] + ": C is a kit key");
 			IronManComicKit.Key c = IronManComicKit.kit(ERA_ONE[i]).key(6);
 			h.assertTrue(c != null && c.tap() != null && c.shift() == null, ERA_ONE[i] + ": C tap move, Shift+C = the eject");
-			String name = lang(s.nameKey());
-			h.assertTrue(name == null || names[i].equals(name), ERA_ONE[i] + " is called " + names[i] + ", got " + name);
+			// the short mark (.name, HUD / cards) + the comic subtitle (.comic) = the display name the armour items carry
+			String name = lang(s.nameKey()) + " " + lang(s.displayKey());
+			h.assertTrue(lang(s.nameKey()) == null || names[i].equals(name), ERA_ONE[i] + " is called " + names[i] + ", got " + name);
+			String item = lang(s.armor(ArmorItem.Type.HELMET).getDescriptionId());
+			h.assertTrue(item == null || (names[i] + " Helmet").equals(item), ERA_ONE[i] + " helmet item name, got " + item);
 		}
 		h.assertTrue(IronManSuits.MARK_1.scale() == 1.0f && IronManSuits.MARK_1.walkSpeedBonus() == -0.10 && !IronManSuits.MARK_1.manualFlight(),
 				"Mk I: normal size, walks 10% slower, no flight");
@@ -150,8 +153,8 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		String[] later = { "mark_2", "mark_6", "mark_vii", "mark_8" };
 		String[] laterNames = { "Mk VI Suitcase", "Mk VII Silver Centurion", "Mk VIII Space", "Hulkbuster I Bruiser" };
 		for (int i = 0; i < later.length; i++) {
-			String name = lang("projecthero.ironman.suit." + later[i] + ".name");
-			h.assertTrue(name == null || laterNames[i].equals(name), later[i] + " is renamed " + laterNames[i] + ", got " + name);
+			String name = lang(IronManSuits.byId(later[i]).armor(ArmorItem.Type.HELMET).getDescriptionId());
+			h.assertTrue(name == null || (laterNames[i] + " Helmet").equals(name), later[i] + " is renamed " + laterNames[i] + ", got " + name);
 		}
 		String reactor = lang("item.projecthero.arc_reactor");
 		h.assertTrue(reactor == null || "Arc Reactor Mk1".equals(reactor), "the Arc Reactor Mk1, got " + reactor);

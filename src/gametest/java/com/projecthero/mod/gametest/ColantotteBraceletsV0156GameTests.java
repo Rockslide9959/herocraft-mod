@@ -44,7 +44,7 @@ import net.minecraft.world.phys.AABB;
  */
 public class ColantotteBraceletsV0156GameTests implements FabricGameTest {
 	private static final String M7 = "mark_vii";
-	private static final String M3 = "mark_iii";
+	private static final String M3 = "mark_6"; // v0.16.7: a later suit (the Era I Mark 3 is never called)
 	private static final ArmorItem.Type[] TYPES = {
 			ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
 	private static final EquipmentSlot[] SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };

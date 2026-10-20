@@ -173,11 +173,12 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitUpWritesTheSyncedClockForEveryPiece(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(marked(h, "mark_iii", t));
+			p.getInventory().add(marked(h, "mark_6", t));
 		}
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_SUIT_UP, "the suit-up pose clock is running");
 		runSequence(p);
 		IronManSuitFx fx = IronManSuitFx.of(p);
@@ -192,15 +193,16 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void inventorySuitUpAndDownKeepTheRealStacks(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(marked(h, "mark_iii", t));
+			p.getInventory().add(marked(h, "mark_6", t));
 		}
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		runSequence(p);
-		assertWornMarked(h, p, "mark_iii");
+		assertWornMarked(h, p, "mark_6");
 
-		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_iii"), "suit-down starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_6"), "suit-down starts");
 		// the helmet's plates break away BEFORE it leaves the slot
 		int helmetStage = IronManSuitUpManager.stageTick(0, false, SuitUpType.MECHANICAL_REMOTE);
 		for (int i = 0; i <= helmetStage; i++) {
@@ -211,24 +213,25 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		runSequence(p);
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is off");
 		for (ArmorItem.Type t : TYPES) {
-			h.assertTrue(copiesOf(h, p, null, "mark_iii", t) == 1, t.getName() + " exists exactly once, enchanted and named");
+			h.assertTrue(copiesOf(h, p, null, "mark_6", t) == 1, t.getName() + " exists exactly once, enchanted and named");
 		}
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
 	public void courierCarriesTheRealStackOntoTheBody(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = player(h);
 		placeAt(h, p, new BlockPos(4, 1, 4));
-		p.getInventory().add(marked(h, "mark_iii", ArmorItem.Type.CHESTPLATE));
-		h.assertTrue(IronManSuitCall.callPiece(p, "mark_iii", ArmorItem.Type.CHESTPLATE), "the chestplate launches");
+		p.getInventory().add(marked(h, "mark_6", ArmorItem.Type.CHESTPLATE));
+		h.assertTrue(IronManSuitCall.callPiece(p, "mark_6", ArmorItem.Type.CHESTPLATE), "the chestplate launches");
 		List<IronManSuitPartEntity> couriers = h.getLevel().getEntitiesOfClass(IronManSuitPartEntity.class, p.getBoundingBox().inflate(12), e -> e.ownerEntityId() == p.getId());
-		h.assertTrue(couriers.size() == 1 && isMarked(h, couriers.get(0).piece(), "mark_iii", ArmorItem.Type.CHESTPLATE),
+		h.assertTrue(couriers.size() == 1 && isMarked(h, couriers.get(0).piece(), "mark_6", ArmorItem.Type.CHESTPLATE),
 				"the courier carries the very same enchanted, named stack");
-		h.assertTrue(p.getInventory().countItem(IronManItems.armor("mark_iii", ArmorItem.Type.CHESTPLATE)) == 0,
+		h.assertTrue(p.getInventory().countItem(IronManItems.armor("mark_6", ArmorItem.Type.CHESTPLATE)) == 0,
 				"and it left the inventory");
 		h.succeedWhen(() -> {
-			h.assertTrue(isMarked(h, p.getItemBySlot(EquipmentSlot.CHEST), "mark_iii", ArmorItem.Type.CHESTPLATE),
+			h.assertTrue(isMarked(h, p.getItemBySlot(EquipmentSlot.CHEST), "mark_6", ArmorItem.Type.CHESTPLATE),
 					"the courier clamps its real stack onto the chest");
 			h.assertTrue(h.getLevel().getEntitiesOfClass(IronManSuitPartEntity.class, p.getBoundingBox().inflate(30), e -> e.ownerEntityId() == p.getId()).isEmpty(),
 					"and is gone");
@@ -406,15 +409,16 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void commandSuitUsesTheRealCallPath(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(marked(h, "mark_iii", t));
+			p.getInventory().add(marked(h, "mark_6", t));
 		}
-		h.assertTrue(IronManSuitCall.commandCall(p, "mark_iii"), "/ironman suit with the suit in the pack suits up");
+		h.assertTrue(IronManSuitCall.commandCall(p, "mark_6"), "/ironman suit with the suit in the pack suits up");
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "as a staged suit-up");
 		runSequence(p);
-		assertWornMarked(h, p, "mark_iii");
-		h.assertFalse(IronManSuitCall.commandCall(p, "mark_iii"), "not while already suited");
+		assertWornMarked(h, p, "mark_6");
+		h.assertFalse(IronManSuitCall.commandCall(p, "mark_6"), "not while already suited");
 		h.succeed();
 	}
 

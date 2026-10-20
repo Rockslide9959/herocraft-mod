@@ -101,13 +101,14 @@ public class IronManV0153GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 600)
 	public void immuneWhileTheSuitAssemblesAndNotAfter(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.getInventory().add(new ItemStack(IronManItems.armor("mark_iii", t)));
+			p.getInventory().add(new ItemStack(IronManItems.armor("mark_6", t)));
 		}
 		DamageSource hit = p.damageSources().generic();
 		h.assertTrue(IronManDamage.onAllowDamage(p, hit, 5f), "before the suit-up a hit lands");
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "the suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "the suit-up starts");
 		h.assertTrue(IronManDamage.suitUpImmune(p), "immune the moment it starts");
 		h.assertFalse(IronManDamage.onAllowDamage(p, hit, 5f), "a hit is cancelled while the suit assembles");
 		h.assertTrue(IronManDamage.onAllowDamage(p, p.damageSources().genericKill(), 5f), "/kill still works");
@@ -118,12 +119,12 @@ public class IronManV0153GameTests implements FabricGameTest {
 		});
 		h.succeedWhen(() -> {
 			h.assertFalse(IronManSuitUpManager.inTransition(p), "the suit-up finishes");
-			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "with the suit on");
+			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_6"), "with the suit on");
 			h.assertFalse(IronManDamage.suitUpImmune(p), "the immunity ends with it");
 			// v0.16.1: a worn suit absorbs its share of the hit (the rest is reissued), so "hits land again" = integrity wears
-			float before = IronManEnergy.integrity(p, "mark_iii");
+			float before = IronManEnergy.integrity(p, "mark_6");
 			IronManDamage.onAllowDamage(p, p.damageSources().generic(), 5f);
-			h.assertTrue(IronManEnergy.integrity(p, "mark_iii") < before, "hits reach the suit again");
+			h.assertTrue(IronManEnergy.integrity(p, "mark_6") < before, "hits reach the suit again");
 		});
 	}
 
@@ -229,7 +230,8 @@ public class IronManV0153GameTests implements FabricGameTest {
 			IronManFlight.setFlying(p, true);
 			IronManFlight.tick(p);
 			h.assertTrue(IronManFlight.isFlying(p), id + " still airborne");
-			h.assertTrue(IronManEnergy.energy(p, id) == IronManEnergy.FULL, id + " the inert energy shim always reads full");
+			// v0.16.7: an Era I suit (the Mk III) has a reactor again -- IronManEraOneCoreGameTests checks its flight drain
+			h.assertTrue(IronManEnergy.real(id) || IronManEnergy.energy(p, id) == IronManEnergy.FULL, id + " the inert energy shim always reads full");
 			h.assertTrue(IronManEnergy.integrity(p, id) == IronManEnergy.maxIntegrity(id), id + " flying costs no integrity");
 			IronManFlight.setFlying(p, false);
 			leave(h, p);

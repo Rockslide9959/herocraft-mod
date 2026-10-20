@@ -191,77 +191,85 @@ public class IronManHandSuitUpV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void markOneBuildsByHandInSixHundredTicks(GameTestHelper h) {
-		runHandBuild(h, "mark_1", 600);
+		// v0.16.7 (user): the Era I Mk I goes on only in a Stark Gantry -- C with it in the pack starts no hand build
+		ServerPlayer p = tony(h, "mark_1", 0b1111);
+		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "C answers with the Gantry message");
+		h.assertFalse(IronManManualSuitUp.running(p) || IronManSuitUpManager.inTransition(p), "no cave build any more");
+		h.assertTrue(inPack(p, "mark_1") == 4, "the pieces stay in the pack");
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void marksTwoToSevenGoOnByHandInFiveHundredTicks(GameTestHelper h) {
-		runHandBuild(h, "mark_iii", 500);
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
+		runHandBuild(h, "mark_6", 500);
 		runHandBuild(h, "mark_vii", 500);
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void piecesLandInTheirSlotsOnSchedule(GameTestHelper h) {
-		ServerPlayer p = tony(h, "mark_1", 0b1111);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_1", true), "by hand");
-		var sch = IronManManualSuitUp.schedule(IronManManualSuitUp.KIND_MK1, 0b1111);
+		// v0.16.7: mark_6 (the Era I mark_1 goes on / comes off only in a Stark Gantry)
+		ServerPlayer p = tony(h, "mark_6", 0b1111);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6", true), "by hand");
+		var sch = IronManManualSuitUp.schedule(IronManManualSuitUp.KIND_WORKSHOP, 0b1111);
 		for (int t = 1; t <= sch.pieceAt(1); t++) {
 			IronManSuitUpManager.tick(p);
 			if (t == sch.pieceAt(3) - 1) {
 				h.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "the boots are still being carried");
 			}
 			if (t == sch.pieceAt(3)) {
-				h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.FEET, "mark_1"), "the boots land when fitted");
+				h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.FEET, "mark_6"), "the boots land when fitted");
 				h.assertTrue(IronManSuitFx.of(p).building(3, p.level().getGameTime()), "and start building on");
 			}
 		}
-		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, "mark_1")
+		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, "mark_6")
 				&& p.getItemBySlot(EquipmentSlot.HEAD).isEmpty(), "chestplate on, helmet still in the pack");
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void deathMidBuildStopsWithNoLostOrCopiedPiece(GameTestHelper h) {
-		ServerPlayer p = tony(h, "mark_iii", 0b1111);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii", true), "by hand");
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
+		ServerPlayer p = tony(h, "mark_6", 0b1111);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6", true), "by hand");
 		for (int i = 0; i < 250; i++) {
 			IronManSuitUpManager.tick(p);
 		}
 		int worn = 0;
 		for (EquipmentSlot s : SLOTS) {
-			worn += IronManArmor.isPieceWorn(p, s, "mark_iii") ? 1 : 0;
+			worn += IronManArmor.isPieceWorn(p, s, "mark_6") ? 1 : 0;
 		}
 		h.assertTrue(worn >= 2 && worn < 4, "partway: some pieces on, some in the pack (" + worn + ")");
 		IronManManualSuitUp.onDeath(p);
 		h.assertFalse(IronManSuitUpManager.inTransition(p) || IronManManualSuitUp.running(p), "the build stops");
 		h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(p), "the movement lock is gone");
-		h.assertTrue(pieces(p, "mark_iii") == 4, "all four pieces still exist exactly once");
+		h.assertTrue(pieces(p, "mark_6") == 4, "all four pieces still exist exactly once");
 		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_NONE, "no pose left running");
 		for (int i = 0; i < 40; i++) {
 			IronManSuitUpManager.tick(p);
 		}
-		h.assertTrue(pieces(p, "mark_iii") == 4, "and nothing moves afterwards");
+		h.assertTrue(pieces(p, "mark_6") == 4, "and nothing moves afterwards");
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void logoutOrDimensionChangeMidBuildFinishesTheSuit(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_1 goes on / comes off only in a Stark Gantry)
 		for (int which = 0; which < 2; which++) {
-			ServerPlayer p = tony(h, "mark_1", 0b1111);
-			h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_1", true), "by hand");
+			ServerPlayer p = tony(h, "mark_6", 0b1111);
+			h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6", true), "by hand");
 			for (int i = 0; i < 200; i++) {
 				IronManSuitUpManager.tick(p);
 			}
-			h.assertTrue(inPack(p, "mark_1") > 0, "some pieces are still in the pack");
+			h.assertTrue(inPack(p, "mark_6") > 0, "some pieces are still in the pack");
 			if (which == 0) {
 				IronManManualSuitUp.onDisconnect(p);
 			} else {
 				IronManManualSuitUp.onChangeWorld(p);
 			}
-			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_1"), "the rest goes straight on");
-			h.assertTrue(inPack(p, "mark_1") == 0 && pieces(p, "mark_1") == 4, "exactly four pieces, all worn");
+			h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_6"), "the rest goes straight on");
+			h.assertTrue(inPack(p, "mark_6") == 0 && pieces(p, "mark_6") == 4, "exactly four pieces, all worn");
 			h.assertFalse(IronManSuitUpManager.inTransition(p), "the build is over");
 			h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(p), "no movement lock saved with the player");
 			h.assertFalse(p.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false), "faceplate shut");
@@ -271,21 +279,23 @@ public class IronManHandSuitUpV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void partialSetAndPieceDroppedMidBuild(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_1 goes on / comes off only in a Stark Gantry)
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		// only boots + chestplate carried: a shorter build, both end up on
-		ServerPlayer p = tony(h, "mark_1", 0b1010);
+		ServerPlayer p = tony(h, "mark_6", 0b1010);
 		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "C with a partial set");
-		int expect = IronManManualSuitUp.schedule(IronManManualSuitUp.KIND_MK1, 0b1010).total();
+		int expect = IronManManualSuitUp.schedule(IronManManualSuitUp.KIND_WORKSHOP, 0b1010).total();
 		int ticks = 0;
 		while (IronManSuitUpManager.inTransition(p) && ticks < 1000) {
 			IronManSuitUpManager.tick(p);
 			ticks++;
 		}
-		h.assertTrue(ticks == expect && expect < 600, "shorter: " + ticks);
-		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.FEET, "mark_1")
-				&& IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, "mark_1"), "both carried pieces are on");
+		h.assertTrue(ticks == expect && expect < 500, "shorter: " + ticks);
+		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.FEET, "mark_6")
+				&& IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, "mark_6"), "both carried pieces are on");
 		// the helmet thrown away mid-build is simply skipped (never conjured)
-		ServerPlayer q = tony(h, "mark_iii", 0b1111);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(q, "mark_iii", true), "by hand");
+		ServerPlayer q = tony(h, "mark_6", 0b1111);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(q, "mark_6", true), "by hand");
 		for (int i = 0; i < q.getInventory().items.size(); i++) {
 			if (q.getInventory().items.get(i).getItem() instanceof IronManArmorItem a && a.getType() == ArmorItem.Type.HELMET) {
 				q.getInventory().items.set(i, ItemStack.EMPTY);
@@ -296,7 +306,7 @@ public class IronManHandSuitUpV01511GameTests implements FabricGameTest {
 			IronManSuitUpManager.tick(q);
 			ticks++;
 		}
-		h.assertTrue(q.getItemBySlot(EquipmentSlot.HEAD).isEmpty() && pieces(q, "mark_iii") == 3,
+		h.assertTrue(q.getItemBySlot(EquipmentSlot.HEAD).isEmpty() && pieces(q, "mark_6") == 3,
 				"no helmet appears out of nowhere");
 		h.assertFalse(IronManSuitPlatformBlockEntity.isFrozen(q), "and the build still ends cleanly");
 		h.succeed();
@@ -304,9 +314,10 @@ public class IronManHandSuitUpV01511GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void onlyPlainCarriedSuitUpsGoOnByHand(GameTestHelper h) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		// the old entry point (Protocol Phoenix, commands, the pod) keeps the self-building suit-up
-		ServerPlayer p = tony(h, "mark_iii", 0b1111);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		ServerPlayer p = tony(h, "mark_6", 0b1111);
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		h.assertFalse(IronManManualSuitUp.running(p), "not by hand");
 		h.assertTrue(IronManSuitFx.of(p).poseKind() == IronManSuitFx.POSE_SUIT_UP, "the ordinary build pose");
 		// the Mark 8 keeps its own suit-up even on C

@@ -55,10 +55,11 @@ public class V01422GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void cEquipsAPartialSetFromTheInventory(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_1 goes on / comes off only in a Stark Gantry)
 		ServerPlayer p = at(helper, helper.makeMockServerPlayerInLevel());
 		TonyStark.grant(p);
-		p.getInventory().add(new ItemStack(IronManItems.armor("mark_1", ArmorItem.Type.HELMET)));
-		p.getInventory().add(new ItemStack(IronManItems.armor("mark_1", ArmorItem.Type.CHESTPLATE)));
+		p.getInventory().add(new ItemStack(IronManItems.armor("mark_6", ArmorItem.Type.HELMET)));
+		p.getInventory().add(new ItemStack(IronManItems.armor("mark_6", ArmorItem.Type.CHESTPLATE)));
 		helper.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "C puts on the two Mark I pieces (tech 0, so no research gate)");
 		helper.assertTrue(IronManSuitUpManager.inTransition(p), "the suit-up has started");
 		helper.succeed();

@@ -145,8 +145,9 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		for (ArmorItem.Type t : TYPES) {
 			p.getInventory().add(new ItemStack(IronManItems.armor("mark_v", t)));
 		}
-		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "plain C puts the Mark 5 on");
-		h.assertTrue(IronManSuitUpManager.inTransition(p), "the suit-up started");
+		// v0.16.7 (user): the Era I Mk V Stealth goes on only in a Stark Gantry -- plain C just says so
+		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "plain C answers (the Gantry message)");
+		h.assertFalse(IronManSuitUpManager.inTransition(p), "no suit-up starts off a Gantry");
 		h.succeed();
 	}
 

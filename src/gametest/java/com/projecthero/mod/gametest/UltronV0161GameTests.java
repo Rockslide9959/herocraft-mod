@@ -409,7 +409,7 @@ public class UltronV0161GameTests implements FabricGameTest {
 			float lost = max - com.projecthero.mod.ironman.IronManEnergy.integrity(p, "mark_iii");
 			helper.assertTrue(Math.abs(lost - (float) (max * cfg.ironManIntegrityDrain)) < 0.01f,
 					"the latch tears 5% of max integrity off the hull, lost " + lost);
-			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(p, "mark_iii") == com.projecthero.mod.ironman.IronManEnergy.FULL,
+			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(p, "mark_iii") == com.projecthero.mod.ironman.IronManEnergy.capacity("mark_iii"), // v0.16.7: Era I capacity
 					"no energy drain any more");
 			helper.assertTrue(com.projecthero.mod.ironman.TonyStark.overloaded(p), "the suit is locked out");
 			helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(p).overloadUntil == level.getGameTime() + cfg.ironManLockoutTicks,

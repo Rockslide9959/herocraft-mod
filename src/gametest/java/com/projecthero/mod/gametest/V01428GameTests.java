@@ -84,8 +84,10 @@ public class V01428GameTests implements FabricGameTest {
 		}
 		for (IronManSuit suit : IronManSuits.all()) {
 			String name = lang.get("projecthero.ironman.suit." + suit.id() + ".name").getAsString();
-			// v0.16.7: the comic rework's gold Mark 1 V2 is its own suit sharing the Mark 1's number, so it keeps its "V2"
-			String want = "Mark " + suit.markNumber() + (suit == IronManSuits.MARK_1_V2 ? " V2" : "");
+			// v0.16.7 (user) Era I: the suits are named by their place in the new progression -- "Mk I" .. "Mk VIII" and the
+			// Hulkbuster "HB I" (the plan's own Roman-numeral "Mk" names; the old "Mark n" rule is retired)
+			String want = java.util.Map.of("mark_1", "Mk I", "mark_1_v2", "Mk II", "mark_iii", "Mk III", "mark_4", "Mk IV",
+					"mark_v", "Mk V", "mark_2", "Mk VI", "mark_6", "Mk VII", "mark_vii", "Mk VIII", "mark_8", "HB I").get(suit.id());
 			h.assertTrue(name.equals(want), suit.id() + " should be named " + want + ", got " + name);
 		}
 		for (var e : lang.entrySet()) {
