@@ -102,6 +102,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.ability.IronManHeldBeam.clearSessionState();
 		// v0.16.1 Iron Man comic rework: running comic moves / areas / follow-ups, held keys, the combat clock
 		com.projecthero.mod.ironman.ability.IronManComicState.clearSessionState();
+		com.projecthero.mod.ironman.ability.era1.EraOneMk5Stealth.clearSessionState(); // v0.16.7 (user): Mk V glide / Silent Running / sleepers
 		com.projecthero.mod.ironman.ability.IronManComicRouter.clearSessionState();
 		com.projecthero.mod.ironman.IronManIntegrity.clearSessionState();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.clearSessionState();

@@ -55,6 +55,7 @@
 		"IronManStealthMixin",
 		"IronManStealthStepMixin",
 		"IronManStealthVibrationMixin",
+		"IronManMk5MobMixin",
 		"PowderSnowBlockMixin",
 		"PowderSnowSlowMixin",
 		"CryoIceFrictionMixin",
