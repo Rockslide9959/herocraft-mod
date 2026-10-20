@@ -35,6 +35,7 @@ public final class IronManBlocks {
 					.mapColor(MapColor.COLOR_BLUE).strength(4.0f, 8.0f).sound(SoundType.NETHERITE_BLOCK)
 					.requiresCorrectToolForDrops()
 					.lightLevel(s -> s.hasProperty(StarkFabricatorBlock.WORKING) && s.getValue(StarkFabricatorBlock.WORKING) ? 10 : 7)
+					.pushReaction(net.minecraft.world.level.material.PushReaction.BLOCK) // v0.16.7 (user): a two-block desk must not be split by pistons
 					.noOcclusion()));
 
 	public static final Block IRON_MAN_SUIT_PLATFORM = register("iron_man_suit_platform",

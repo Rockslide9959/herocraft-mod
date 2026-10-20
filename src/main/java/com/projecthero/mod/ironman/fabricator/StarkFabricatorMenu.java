@@ -16,7 +16,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
- * The Stark Fabricator container menu: 9 component inputs, 1 blueprint slot, 1 output slot, plus the
+ * The Stark Workbench (ex-Fabricator) container menu: 9 component inputs, 1 blueprint slot, 1 output slot, plus the
  * player inventory. Four {@link ContainerData} ints (energy, maxEnergy, progress, maxProgress) sync
  * the FABRICATE bar and ENERGY bar to the client.
  *
@@ -49,37 +49,37 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 		this.access = access;
 		checkContainerSize(container, StarkFabricatorBlockEntity.SIZE);
 
-		// 3x3 component inputs (top-left cluster)
-		for (int row = 0; row < 3; row++) {
-			for (int col = 0; col < 3; col++) {
-				addSlot(new Slot(container, row * 3 + col, 44 + col * 18, 17 + row * 18));
-			}
+		// v0.16.7 (user): the Stark Workbench screen -- the machine slots sit bottom-right beside the player inventory
+		// (IronManUiLayout.FAB_SLOTS); the suit list / hologram / stats / recipe live above them
+		int[][] at = com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_SLOTS;
+		// 3x3 component inputs
+		for (int i = 0; i < 9; i++) {
+			addSlot(new Slot(container, i, at[i][0], at[i][1]));
 		}
 		// blueprint slot (left of the grid)
-		addSlot(new Slot(container, StarkFabricatorBlockEntity.BLUEPRINT_SLOT, 12, 35) {
+		addSlot(new Slot(container, StarkFabricatorBlockEntity.BLUEPRINT_SLOT, at[9][0], at[9][1]) {
 			@Override
 			public boolean mayPlace(ItemStack stack) {
 				return stack.getItem() instanceof BlueprintItem;
 			}
 		});
 		// output slot (right of the grid)
-		addSlot(new Slot(container, StarkFabricatorBlockEntity.OUTPUT_SLOT, 120, 35) {
+		addSlot(new Slot(container, StarkFabricatorBlockEntity.OUTPUT_SLOT, at[10][0], at[10][1]) {
 			@Override
 			public boolean mayPlace(ItemStack stack) {
 				return false;
 			}
 		});
 
-		// player inventory (pushed down so the fabricator's energy / status readouts + the "changes 18"
-		// per-piece button band have their own space -- see StarkFabricatorScreen; imageHeight matches)
+		// player inventory (bottom-left; v0.16.7 (user): FAB_INV_Y / FAB_HOTBAR_Y are the Workbench layout)
 		for (int row = 0; row < 3; row++) {
 			for (int col = 0; col < 9; col++) {
 				addSlot(new Slot(playerInv, col + row * 9 + 9, 8 + col * 18,
-						com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_INV_Y + row * 18)); // v0.14.21: 164 -> 156
+						com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_INV_Y + row * 18));
 			}
 		}
 		for (int col = 0; col < 9; col++) {
-			addSlot(new Slot(playerInv, col, 8 + col * 18, com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_HOTBAR_Y)); // 224 -> 214
+			addSlot(new Slot(playerInv, col, 8 + col * 18, com.projecthero.mod.ironman.ui.IronManUiLayout.FAB_HOTBAR_Y));
 		}
 
 		addDataSlots(data);
@@ -121,6 +121,18 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 		// ids 1..4 pick a suit piece to fabricate; the same id again clears the pick.
 		if (id >= 1 && id <= 4 && container instanceof StarkFabricatorBlockEntity fab) {
 			fab.setSelectedPiece(fab.selectedPiece() == id ? 0 : id);
+			return true;
+		}
+		// v0.16.7 (user): the Workbench Build button -- BUILD_BASE + suitIndex * 10 + piece (suit index into MARK_ORDER)
+		if (id >= StarkWorkbench.BUILD_BASE && container instanceof StarkFabricatorBlockEntity fab
+				&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
+			int code = id - StarkWorkbench.BUILD_BASE;
+			int suitIndex = code / 10;
+			int piece = code % 10;
+			java.util.List<String> order = com.projecthero.mod.ironman.item.IronManItems.MARK_ORDER;
+			if (suitIndex >= 0 && suitIndex < order.size()) {
+				StarkWorkbench.build(sp, fab, order.get(suitIndex), piece);
+			}
 			return true;
 		}
 		return false;

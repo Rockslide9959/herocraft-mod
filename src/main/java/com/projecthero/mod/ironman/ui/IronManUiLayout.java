@@ -378,36 +378,90 @@ public final class IronManUiLayout {
 		return cur.isEmpty() ? lines : lines + 1;
 	}
 
-	// ------------------------------------------------------------------ Stark Fabricator (200 x 236, panel-relative)
+	// ------------------------------------------------------------------ Stark Workbench (320 x 236, panel-relative)
+	// v0.16.7 (user): the Stark Fabricator rebuilt as the Stark Workbench. Panel 320 x 236 (fits a 320 x 240 screen):
+	//   y 0..18     title + era tabs
+	//   y 22..146   suit list (left) | hologram preview + piece toggles (middle) | stats, recipe slots, Build (right)
+	//   y 150..236  player inventory (left) | blueprint, 3x3 inputs, output, energy gauge, status (right)
 
-	public static final int FAB_W = 200;
+	public static final int FAB_W = 320;
 	public static final int FAB_H = 236;
-	public static final int FAB_TAB_X = 8;
-	public static final int FAB_TAB_Y = 92;
-	public static final int FAB_TAB_W = 44;
-	public static final int FAB_TAB_H = 18;
+	/** Era tabs (top right). */
+	public static final int FAB_ERA_X = 128;
+	public static final int FAB_ERA_Y = 3;
+	public static final int FAB_ERA_W = 45;
+	public static final int FAB_ERA_H = 13;
+	public static final int FAB_ERA_GAP = 2;
+	/** Suit list. */
+	public static final int FAB_LIST_X = 6;
+	public static final int FAB_LIST_Y = 22;
+	public static final int FAB_LIST_W = 78;
+	public static final int FAB_LIST_H = 124;
+	public static final int FAB_LIST_ROW_Y = FAB_LIST_Y + 13;
+	public static final int FAB_LIST_ROW_H = 21;
+	/** Hologram preview + the four piece toggles under it. */
+	public static final int FAB_HOLO_X = 88;
+	public static final int FAB_HOLO_Y = 22;
+	public static final int FAB_HOLO_W = 102;
+	public static final int FAB_HOLO_H = 92;
+	public static final int FAB_TAB_X = 88;
+	public static final int FAB_TAB_Y = 117;
+	public static final int FAB_TAB_W = 24;
+	public static final int FAB_TAB_H = 29;
 	public static final int FAB_TAB_GAP = 2;
-	public static final int FAB_BOX_X = 7;
-	public static final int FAB_BOX_Y = 112;
-	public static final int FAB_BOX_W = 186;
-	public static final int FAB_BOX_H = 40;
-	public static final int FAB_MORE_W = 58;
-	public static final int FAB_CHECK_PER_ROW = 4;
-	public static final int FAB_CHECK_CELL_W = 44;
-	public static final int FAB_CHECK_ROW_H = 9;
+	/** Right column: stats, recipe slots, Build. */
+	public static final int FAB_RIGHT_X = 194;
+	public static final int FAB_RIGHT_W = 120;
+	public static final int FAB_STATS_Y = 22;
+	public static final int FAB_STAT_ROW_H = 11;
+	public static final int FAB_STAT_LABEL_W = 48;
+	public static final int FAB_BOX_X = FAB_RIGHT_X;
+	public static final int FAB_BOX_Y = 67;
+	public static final int FAB_BOX_W = FAB_RIGHT_W;
+	public static final int FAB_BOX_H = 66;
+	public static final int FAB_MORE_W = 40;
+	public static final int FAB_CHECK_PER_ROW = 3;
+	public static final int FAB_CHECK_CELL_W = 39;
+	public static final int FAB_CHECK_ROW_H = 18;
 	public static final int FAB_CHECK_TOP = FAB_BOX_Y + 12;
-	public static final int FAB_PROGRESS_Y = 75;
-	public static final int FAB_STATUS_Y = 82;
-	/** Player inventory rows / hotbar (moved up from 164 / 224 in v0.14.21 so the panel fits 240 high). */
-	public static final int FAB_INV_Y = 156;
-	public static final int FAB_HOTBAR_Y = 214;
-	/** Every slot the Stark Fabricator menu places (item top-left), for overlap checks: 9 inputs, blueprint, output. */
+	public static final int FAB_BUILD_Y = 135;
+	public static final int FAB_BUILD_W = 42;
+	public static final int FAB_BUILD_H = 12;
+	/** Bottom-right machine area. */
+	public static final int FAB_GAUGE_X = 304;
+	public static final int FAB_GAUGE_Y = 154;
+	public static final int FAB_GAUGE_H = 54;
+	public static final int FAB_STATUS_X = 178;
+	public static final int FAB_STATUS_Y = 213;
+	/** Player inventory rows / hotbar. */
+	public static final int FAB_INV_Y = 154;
+	public static final int FAB_HOTBAR_Y = 212;
+	/** Every slot the Workbench menu places (item top-left), for overlap checks: 9 inputs, blueprint, output. */
 	public static final int[][] FAB_SLOTS = {
-			{ 44, 17 }, { 62, 17 }, { 80, 17 }, { 44, 35 }, { 62, 35 }, { 80, 35 }, { 44, 53 }, { 62, 53 }, { 80, 53 },
-			{ 12, 35 }, { 120, 35 } };
+			{ 200, 154 }, { 218, 154 }, { 236, 154 }, { 200, 172 }, { 218, 172 }, { 236, 172 }, { 200, 190 }, { 218, 190 }, { 236, 190 },
+			{ 180, 172 }, { 282, 172 } };
 
+	/** Piece toggle {@code i} (0 = helmet .. 3 = boots) under the hologram. */
 	public static Rect fabTab(int i) {
 		return new Rect(FAB_TAB_X + i * (FAB_TAB_W + FAB_TAB_GAP), FAB_TAB_Y, FAB_TAB_W, FAB_TAB_H);
+	}
+
+	/** Era tab {@code i} (0 = Era I .. 3 = Era IV). */
+	public static Rect fabEraTab(int i) {
+		return new Rect(FAB_ERA_X + i * (FAB_ERA_W + FAB_ERA_GAP), FAB_ERA_Y, FAB_ERA_W, FAB_ERA_H);
+	}
+
+	/** Suit list row {@code i}. */
+	public static Rect fabListRow(int i) {
+		return new Rect(FAB_LIST_X + 2, FAB_LIST_ROW_Y + i * FAB_LIST_ROW_H, FAB_LIST_W - 4, FAB_LIST_ROW_H - 1);
+	}
+
+	public static Rect fabBuild() {
+		return new Rect(FAB_RIGHT_X, FAB_BUILD_Y, FAB_BUILD_W, FAB_BUILD_H);
+	}
+
+	public static Rect fabMore() {
+		return new Rect(FAB_BOX_X + FAB_BOX_W - FAB_MORE_W, FAB_BOX_Y, FAB_MORE_W, 11);
 	}
 
 	// ------------------------------------------------------------------ Suit Platform (176 x 202, panel-relative)
