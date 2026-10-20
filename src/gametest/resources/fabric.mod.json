@@ -192,6 +192,7 @@
       "com.projecthero.mod.gametest.GladiatorGearV0153GameTests",
       "com.projecthero.mod.gametest.IronManMark8V0159GameTests",
       "com.projecthero.mod.gametest.IronManComicV0161GameTests",
+      "com.projecthero.mod.gametest.IronManEraOneCoreGameTests",
       "com.projecthero.mod.gametest.V01511MiscGameTests",
       "com.projecthero.mod.gametest.UltronV01512GameTests",
       "com.projecthero.mod.gametest.UltronV0161GameTests",

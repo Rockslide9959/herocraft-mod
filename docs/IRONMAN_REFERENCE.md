@@ -2393,3 +2393,39 @@ Tests: `IronManComicV0161GameTests`.
   nautilus) < Stealth 139.0 (Stealth Coating: 2 black dye + echo shard + phantom membrane + 2 metal plating + amethyst) <
   Centurion 140.1 < Space 148.6 < Hulkbuster 163.1. The five signature parts are Fabricator-only (no crafting-table JSON).
 * Comic statuses (shield, brace, cloak, glide, holds...) end when another suit comes on without a tick in between.
+
+## v0.16.7 Era I core (the Gantry Age) -- plan: docs/IRONMAN_ERA1_PLAN.md
+
+* **Suits / order.** `IronManItems.MARK_ORDER` = mark_1 (Mk I Cave-Forged) -> mark_1_v2 (Mk II Golden Avenger) -> mark_iii
+  (Mk III Classic) -> mark_4 (Mk IV Hydro) -> mark_v (Mk V Stealth) -> mark_2 (Mk VI Suitcase) -> mark_6 (Mk VII Silver
+  Centurion) -> mark_vii (Mk VIII Space) -> mark_8 (Hulkbuster I Bruiser); `FabricatorRecipes.ARMOR_BUILD_ORDER` follows.
+  Item / suit ids unchanged. Lang: `.name` = the full name, `.comic` = the subtitle, `.short` = "Mk I" (blueprint track).
+  Era I stats live in `IronManSuits` (integrity / absorb / melee per the plan table, `energy(cap)` + `energyRegen`); only
+  the Mk III has `manualFlight`; Mk I scale 1.0; Mk IV Slowness I on land (`IronManPassives`). `IronManSuit.eraOne()`.
+* **Costs.** The Mk VI Suitcase (mark_2) is now an `armorSet` (cost tier 3, micro-thruster signature, ~140.3) so it costs
+  more than the Mk V Stealth (139.0); Centurion / Space / Hulkbuster moved one tier up (~142.4 / ~157.7 / ~165.4).
+  Arc Reactor Mk1 recipe: 4 iron, 4 copper, a redstone block.
+* **Energy (Era I only).** `IronManEnergy` is real for `IronManEraOne.SUITS` (later suits keep the always-full shim):
+  `energy` / `stackEnergy` / `setEnergy` / `drain` / `drainRunning` / `brownedOut`; `stampStack` keeps `SUIT_ENERGY` on Era I
+  stacks; `spend` / `has` stay no-ops for every suit (legacy helpers reused by Era I moves never double-charge). Router:
+  `IronManEraOne.canPay` on the press ("LOW POWER"), `pay` (kit `energyCost`) on the edge the move goes off. Held / toggled
+  moves call `IronManEraOne.drainTick(player, suit, moveId)` every tick (false = stop). Worn: `tickRecharge` = the Mk III's
+  flight drain (6/s, sprint 12/s, `flightDrainTick`) + once a second `rechargeStep` (own regen; standing on a complete
+  Gantry floor +50/s and a 5/s repair). Brownout at 0 (`TonyStarkState.brownout`, saved in the misc group): no moves /
+  flight / hover (the ticker treats it like a lockout), armour + absorb still work, back at 10%.
+* **Gantry-only** (`ability.era1.EraOneGantry`): `IronManSuitUpManager.beginSuitUp` / `beginSuitDown`,
+  `IronManSuitCall.execute` / `commandCall` / `callPiece`, the `gather` listing (calls, glasses picker, Phoenix,
+  auto-equip) and send-home of a worn suit all refuse an Era I suit ("Era I suits suit up in a Stark Gantry"); plain C with
+  only Era I armour in the pack says so. Hand / shift-click / dispenser equipping was already blocked for all Iron Man
+  armour. A Suit Platform repairs (5/s) and fast-charges (+50/s) an Era I suit only with a complete Gantry floor within 20
+  blocks (`IronManSuitPlatformBlockEntity.gantryInRange`, cached 1 s, synced as `GantryNear`); otherwise it only trickles
+  the suit's own regen and the platform screen says why.
+* **Emergency eject** (`ability.era1.EraOneEject`): Shift+C (routed by `IronManAbilityManager` before the overload /
+  ceiling locks) held 3 s -> the worn suit's stacks, stamped with integrity + energy, go into a **Suit Crate**
+  (`item.SuitCrateItem`, `minecraft:container` slots 0 helmet .. 3 boots, Slowness I while carried). Use it on a Gantry
+  floor -> `StarkGantry.beginEquipFromCrate` (normal gantry build; an interrupted one re-crates what is left, floor BE
+  `ToCrate`); on a Suit Platform in a Gantry's range -> `SuitCrateItem.rackOn`. Nowhere else.
+* **HUD.** Era I: INTEGRITY (red-gold) + REACTOR (cyan; LOW POWER below 20%, flashing BROWNOUT) thin bars and one label
+  line right above the key boxes; the C box shows its tap move, and with Shift the EJECT box (crate icon, fills during
+  the hold) plus a centred eject bar. Spec sheet / platform screen / gantry menu show the reactor again for Era I suits.
+* Tests: `IronManEraOneCoreGameTests`.

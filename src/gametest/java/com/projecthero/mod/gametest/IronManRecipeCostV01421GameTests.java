@@ -122,6 +122,9 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 			}
 			// v0.16.1 comic rework (user): strictly rising again -- Mark 1 34.7 < Mark 1 V2 52.1 < Mark 2 55.2 < Mark 3 117.1
 			// < Hydro 135.5 < Stealth 139.0 < Centurion 140.1 < Space 148.6 < Hulkbuster 163.1
+			// v0.16.7 (user) Era I order (FabricatorRecipes.ARMOR_BUILD_ORDER): Mk I < Mk II < Mk III < Mk IV Hydro < Mk V
+			// Stealth < Mk VI Suitcase (mark_2, raised to a titanium-gold set ~140.3) < Mk VII Centurion (~142.4) < Mk VIII
+			// Space (~157.7) < Hulkbuster (~165.4)
 			helper.assertTrue(cost > previous, suit + " (" + cost + ") must cost more than " + previousSuit + " (" + previous + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
 			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher

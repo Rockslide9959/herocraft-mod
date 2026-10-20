@@ -212,13 +212,28 @@ public final class IronManEnergy {
 		if (suit == null || !suit.eraOne() || !IronManArmor.hasChestplate(player, suit.id())) {
 			return;
 		}
-		if (com.projecthero.mod.ironman.IronManFlight.isFlying(player) && suit.manualFlight()) {
+		flightDrainTick(player, suit);
+		if (player.level().getGameTime() % 20L == 0L) {
+			rechargeStep(player, suit);
+		}
+	}
+
+	/** v0.16.7: one tick of the Mk III's flight drain (6/s, sprint 12/s); running dry lands it. Public for the gametests. */
+	public static void flightDrainTick(ServerPlayer player, IronManSuit suit) {
+		if (suit != null && suit.eraOne() && suit.manualFlight() && com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			float perSecond = player.isSprinting() ? ERA_ONE_SPRINT_FLIGHT_PER_SECOND : ERA_ONE_FLIGHT_PER_SECOND;
 			if (!drainRunning(player, suit.id(), perSecond / 20f)) {
 				com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
 			}
 		}
-		if (player.level().getGameTime() % 20L != 0L) {
+	}
+
+	/**
+	 * v0.16.7: one second of a worn Era I suit's reactor -- its own regen, or (standing on a complete Stark Gantry floor)
+	 * +{@link #GANTRY_CHARGE_PER_SECOND} and a 5/s repair. Public for the gametests.
+	 */
+	public static void rechargeStep(ServerPlayer player, IronManSuit suit) {
+		if (suit == null || !suit.eraOne()) {
 			return;
 		}
 		boolean gantry = com.projecthero.mod.ironman.ability.era1.EraOneGantry.onGantryFloor(player);

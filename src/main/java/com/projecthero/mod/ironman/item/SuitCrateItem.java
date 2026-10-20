@@ -88,8 +88,15 @@ public class SuitCrateItem extends Item {
 	@Override
 	public void inventoryTick(ItemStack stack, Level level, Entity entity, int slot, boolean selected) {
 		super.inventoryTick(stack, level, entity, slot, selected);
-		if (!level.isClientSide() && entity instanceof ServerPlayer p && !p.getAbilities().instabuild && level.getGameTime() % 10L == 0L) {
-			p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SLOW_TICKS, 0, true, false, true));
+		if (!level.isClientSide() && entity instanceof ServerPlayer p && level.getGameTime() % 10L == 0L) {
+			applyWeight(p);
+		}
+	}
+
+	/** The crate's weight: Slowness I (refreshed while it is carried; creative players do not feel it). */
+	public static void applyWeight(ServerPlayer player) {
+		if (!player.getAbilities().instabuild) {
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, SLOW_TICKS, 0, true, false, true));
 		}
 	}
 
