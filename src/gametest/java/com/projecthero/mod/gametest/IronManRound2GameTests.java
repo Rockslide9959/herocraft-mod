@@ -424,6 +424,9 @@ public class IronManRound2GameTests implements FabricGameTest {
 					helper.assertTrue(false, m + ": no mark has blades since the v0.16.1 comic rework (" + name + ")");
 				} else if (skin.contains(name)) {
 					helper.assertTrue(cubes == 2, m + " " + name + ": base + layer, got " + cubes);
+				} else if ("mark_4".equals(m) && (name.equals("right_shoulder") || name.equals("left_shoulder"))) {
+					// v0.16.7 Era I: the Mk IV Hydro's two small pauldrons (the approved concept's HYDRO_RIG), one cube each
+					helper.assertTrue(cubes == 1, m + " " + name + ": one pauldron cube, got " + cubes);
 				} else {
 					helper.assertTrue(cubes == 0, m + " " + name + " adds no geometry beyond the skin model, got " + cubes);
 				}
