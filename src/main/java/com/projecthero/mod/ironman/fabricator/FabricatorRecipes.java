@@ -212,7 +212,7 @@ public final class FabricatorRecipes {
 		armorSet("mark_vii", 3, 5, IronManItems.THERMAL_SHIELDING); // Mk VIII SPACE
 		// v0.15.9: the Mark 8 -- the top cost tier (3 more plates than the Mark 7 on the chest, +1 elsewhere) and a Suit
 		// Computer as its signature part
-		armorSet("mark_8", 3, 6, IronManItems.HYDRAULIC_FRAME); // v0.16.1: HULKBUSTER (v0.16.7: Hulkbuster I Bruiser)
+		armorSet("mark_8", 3, 7, IronManItems.HYDRAULIC_FRAME); // v0.16.7: tier 7 -- extra plates rise every other tier, so 6 tied the Mk VIII Space // v0.16.1: HULKBUSTER (v0.16.7: Hulkbuster I Bruiser)
 	}
 
 	/**

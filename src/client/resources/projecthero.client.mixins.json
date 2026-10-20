@@ -161,7 +161,8 @@
 		"RenaRougeCamouflageMixin",
 		"RenaRougeHeldItemMixin",
 		"RenaRougeArmorMixin",
-		"ErasureGogglesGlowMixin"
+		"ErasureGogglesGlowMixin",
+		"GuiActionBarLiftMixin"
 	],
 	"client": [],
 	"server": [],

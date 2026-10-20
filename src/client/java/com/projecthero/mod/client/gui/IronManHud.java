@@ -446,6 +446,22 @@ public final class IronManHud {
 		return IronManUiLayout.cooldownFraction(readyAt, seen[1], now);
 	}
 
+	/** v0.16.7: the top of the key strip (bars included) drawn this frame, for {@link #actionBarLift}. */
+	private static int stripTop = -1;
+	private static long stripFrame = -1L;
+
+	/**
+	 * v0.16.7: how far up the vanilla action-bar message must move so it sits just above the Iron Man key strip drawn
+	 * this frame (0 when no strip is on screen). Vanilla draws the message centred on {@code guiHeight - 68}.
+	 */
+	public static int actionBarLift(int guiHeight) {
+		if (stripTop < 0 || System.nanoTime() - stripFrame > 200_000_000L) { // drawn within the last 0.2 s (the HUD draws after the action bar)
+			return 0;
+		}
+		int messageBottom = guiHeight - 68 + 5;
+		return Math.max(0, messageBottom - (stripTop - 3));
+	}
+
 	private static void abilityStrip(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit,
 			String suitId, long now, boolean retro, boolean offline) {
 		Rect[] slots = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight());
@@ -531,6 +547,8 @@ public final class IronManHud {
 		if (suit.eraOne()) {
 			top = eraOneBars(g, font, state, suit, slots[0].x(), slots[5].right(), top, now);
 		}
+		stripTop = top;
+		stripFrame = System.nanoTime();
 		if (expanded && !names.isEmpty()) {
 			// v0.16.6: the shared move list (plain move + Shift move per key), stacked above the key strip
 			MoveListOverlay.draw(g, slots[5].right(), top - 2, names);
