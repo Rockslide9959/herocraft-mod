@@ -216,7 +216,7 @@ public final class WorkbenchHolo {
 
 	/** The projector's light: a soft square column from the lens (y 0) up to {@code top}, brightest at the lens. */
 	public static void beam(VertexConsumer vc, Matrix4f m, float r0, float r1, float top, float k) {
-		int a0 = alpha(70, k);
+		int a0 = alpha(45, k);
 		int a1 = 0;
 		float[][] c = { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } };
 		for (int i = 0; i < 4; i++) {

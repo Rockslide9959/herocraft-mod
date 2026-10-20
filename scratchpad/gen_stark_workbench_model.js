@@ -191,12 +191,12 @@ const DISPLAY_BLOCK = {
 	fixed: { rotation: [0, 180, 0], translation: [0, 0, 0], scale: [0.5, 0.5, 0.5] },
 	thirdperson_righthand: { rotation: [75, 45, 0], translation: [0, 2.5, 0], scale: [0.375, 0.375, 0.375] },
 	thirdperson_lefthand: { rotation: [75, 45, 0], translation: [0, 2.5, 0], scale: [0.375, 0.375, 0.375] },
-	firstperson_righthand: { rotation: [0, 135, 0], translation: [0, 0, 0], scale: [0.4, 0.4, 0.4] },
-	firstperson_lefthand: { rotation: [0, 135, 0], translation: [0, 0, 0], scale: [0.4, 0.4, 0.4] },
+	firstperson_righthand: { rotation: [0, 135, 0], translation: [0, 0, 0], scale: [0.48, 0.48, 0.48] },
+	firstperson_lefthand: { rotation: [0, 135, 0], translation: [0, 0, 0], scale: [0.48, 0.48, 0.48] },
 };
 // the item is the whole 2-block desk centred on the block (x -8..24), so it is shown smaller
 const DISPLAY_ITEM = {
-	gui: { rotation: [25, 210, 0], translation: [0, 1.5, 0], scale: [0.4, 0.4, 0.4] },
+	gui: { rotation: [25, 210, 0], translation: [0, 1.5, 0], scale: [0.48, 0.48, 0.48] },
 	ground: { rotation: [0, 0, 0], translation: [0, 3, 0], scale: [0.18, 0.18, 0.18] },
 	fixed: { rotation: [0, 180, 0], translation: [0, 0, 0], scale: [0.35, 0.35, 0.35] },
 	thirdperson_righthand: { rotation: [75, 45, 0], translation: [0, 2.5, 0], scale: [0.25, 0.25, 0.25] },

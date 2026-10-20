@@ -453,11 +453,11 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		boolean moreHover = in(more, mx, my, x, y);
 		g.fill(x + more.x(), y + more.y(), x + more.right(), y + more.bottom(), moreHover ? 0xF0183044 : 0xE00C121A);
 		g.renderOutline(x + more.x(), y + more.y(), more.w(), more.h(), moreHover ? IronManGui.CYAN : LINE);
-		String ms = IronManGui.fit(font, Component.translatable("screen.projecthero.stark_fabricator.view_more"), more.w() - 4);
+		String ms = IronManGui.fit(font, Component.translatable("screen.projecthero.stark_fabricator.view_more"), (int) ((more.w() - 4) / 0.75f)); // drawn at 0.75 scale
 		g.pose().pushPose();
 		g.pose().translate(x + more.x() + more.w() / 2f, y + more.y() + 3, 0);
 		g.pose().scale(0.75f, 0.75f, 1f);
-		g.drawString(font, IronManGui.fit(font, ms, (int) ((more.w() - 4) / 0.75f)), -font.width(ms) / 2, 0,
+		g.drawString(font, ms, -font.width(ms) / 2, 0,
 				moreHover ? 0xFFFFFFFF : IronManGui.TEXT, false);
 		g.pose().popPose();
 
