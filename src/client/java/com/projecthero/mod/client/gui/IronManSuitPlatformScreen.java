@@ -134,8 +134,12 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 				139, 31, IronManGui.TEXT_DIM, false);
 		// v0.15.20: the energy rate is the stored suit's own passive rate (a dash when empty)
 		// v0.16.1: no suit energy -- the platform only repairs, so the plate shows its integrity repair rate
-		String rv = IronManGui.fit(font, suit == null ? "-" : "+" + rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND) + "/s", 30);
-		g.drawString(font, rv, 139, 41, IronManGui.CYAN, false);
+		// v0.16.7 (user) Era I: no Gantry in range = no repair here
+		boolean eraOne = suit != null && suit.eraOne();
+		boolean gantry = menu.gantryInRange();
+		String rv = IronManGui.fit(font, suit == null ? "-" : eraOne && !gantry ? "0/s"
+				: "+" + rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND) + "/s", 30);
+		g.drawString(font, rv, 139, 41, eraOne && !gantry ? IronManGui.TEXT_MUTED : IronManGui.CYAN, false);
 
 		if (menu.hasStoredSuit()) {
 			// v0.16.1 comic rework: integrity is the only bar; the second row is the suit's absorb share
@@ -143,14 +147,33 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 			float maxI = suitId == null ? IronManEnergy.MAX_INTEGRITY : IronManEnergy.maxIntegrity(suitId);
 			meter(g, 57, Component.translatable("screen.projecthero.suit_call.integrity").getString(), integPct / 100f,
 					IronManUiLayout.exact(integPct / 100f * maxI, maxI), integPct < 30f ? IronManGui.RED : IronManGui.GREEN);
-			float absorb = suit == null ? 0f : suit.absorbShare();
-			meter(g, 78, Component.translatable("screen.projecthero.suit_call.absorb").getString(), absorb,
-					Math.round(absorb * 100f) + "%", IronManGui.BLUE);
+			if (eraOne) {
+				// v0.16.7 (user) Era I: the reactor is back -- the second row is its charge
+				// read off the menu's slot stacks (synced every change), not the block entity's (re-sent only on contents)
+				float cap = Math.max(1f, suit.energyCapacity());
+				ItemStack[] ps = pieces();
+				ItemStack ref = ps[1].getItem() instanceof IronManArmorItem ? ps[1] : null;
+				for (ItemStack s : ps) {
+					if (ref == null && s.getItem() instanceof IronManArmorItem) {
+						ref = s;
+					}
+				}
+				float en = ref == null ? 0f : Math.max(0f, Math.min(cap, IronManEnergy.stackEnergy(ref, suitId)));
+				meter(g, 78, Component.translatable("screen.projecthero.suit_platform.energy_short").getString(), en / cap,
+						IronManUiLayout.exact(en, cap), IronManGui.CYAN);
+			} else {
+				float absorb = suit == null ? 0f : suit.absorbShare();
+				meter(g, 78, Component.translatable("screen.projecthero.suit_call.absorb").getString(), absorb,
+						Math.round(absorb * 100f) + "%", IronManGui.BLUE);
+			}
 		}
 		// v0.15.4: the Stark Gantry hint, word-wrapped into the old button strip (y 97..115)
+		// v0.16.7: an Era I suit says whether a Gantry is in range (it is only repaired / fast-charged then)
+		String hintKey = !eraOne ? "screen.projecthero.suit_platform.gantry_hint"
+				: gantry ? "screen.projecthero.suit_platform.gantry_ok" : "screen.projecthero.suit_platform.no_gantry";
 		int gy = 97;
-		for (var line : font.split(Component.translatable("screen.projecthero.suit_platform.gantry_hint"), MW)) {
-			g.drawString(font, line, MX + 1, gy, IronManGui.CYAN_DIM, false);
+		for (var line : font.split(Component.translatable(hintKey), MW)) {
+			g.drawString(font, line, MX + 1, gy, eraOne && !gantry ? IronManGui.GOLD : IronManGui.CYAN_DIM, false);
 			gy += 9;
 			if (gy > 106) {
 				break;
@@ -206,8 +229,9 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 					mouseX, mouseY);
 		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
-			g.renderTooltip(font, Component.translatable("screen.projecthero.suit_platform.regen_tip",
-					rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), mouseX, mouseY);
+			// v0.16.7: wrapped (the tip is longer now -- TooltipWrap rule)
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.regen_tip",
+					rate(IronManSuitPlatformBlockEntity.REGEN_INTEGRITY_PER_SECOND)), 180), mouseX, mouseY);
 		}
 	}
 }

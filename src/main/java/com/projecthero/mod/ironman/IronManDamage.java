@@ -62,6 +62,7 @@ public final class IronManDamage {
 			IronManComicState.forget(id);
 			com.projecthero.mod.ironman.ability.IronManComicRouter.forget(id);
 			IronManIntegrity.forget(id);
+			com.projecthero.mod.ironman.ability.era1.EraOneEject.forget(id); // v0.16.7
 		});
 	}
 

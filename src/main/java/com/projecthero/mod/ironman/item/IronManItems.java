@@ -94,6 +94,9 @@ public final class IronManItems {
 			new Item.Properties().rarity(Rarity.EPIC).component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)));
 	public static final Item MARK_V_SUITCASE = register("mark_v_suitcase", new MarkVSuitcaseItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+	/** v0.16.7 (user) Era I: what the Shift+C emergency eject packs an Era I suit into (opens only in a Stark Gantry). */
+	public static final Item SUIT_CRATE = register("suit_crate", new SuitCrateItem(
+			new Item.Properties().stacksTo(1).rarity(Rarity.UNCOMMON)));
 	// v0.15.1: Tony Stark's tinted glasses -- worn in the Stark Gear slot (Sneak + N), see ironman.gear.StarkGear
 	public static final Item STARK_GLASSES = register("stark_glasses", new com.projecthero.mod.ironman.gear.StarkGlassesItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
@@ -124,9 +127,14 @@ public final class IronManItems {
 	public static final Item BLANK_BLUEPRINT = register("blank_blueprint",
 			new BlankBlueprintItem(new Item.Properties()));
 
-	/** Every mark in linear progression order (by mark number). Index 0 has no blueprint prerequisite. */
+	/**
+	 * Every mark in linear progression order. Index 0 has no blueprint prerequisite. v0.16.7 (user): the Era I order -- Mk I
+	 * Cave-Forged, Mk II Golden Avenger, Mk III Classic, Mk IV Hydro, Mk V Stealth -- then the later suits under their
+	 * future-era names: Mk VI Suitcase ({@code mark_2}), Mk VII Silver Centurion ({@code mark_6}), Mk VIII Space
+	 * ({@code mark_vii}), Hulkbuster I Bruiser ({@code mark_8}). Item / suit ids are unchanged.
+	 */
 	public static final List<String> MARK_ORDER =
-			List.of("mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"); // v0.16.1: + Mark 1 V2
+			List.of("mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8");
 
 	/** The blueprint item a Blank Blueprint becomes when stamped for {@code suitId}, or null. */
 	public static Item blueprintFor(String suitId) {
@@ -254,16 +262,17 @@ public final class IronManItems {
 		output.accept(com.projecthero.mod.ironman.sorter.StarkSorter.STATION_ITEM); // v0.14.16
 		output.accept(REACTOR_CORE);
 		output.accept(MARK_V_SUITCASE);
+		output.accept(SUIT_CRATE); // v0.16.7
 		output.accept(STARK_GLASSES); // v0.15.1
 		output.accept(COLANTOTTE_BRACELETS); // v0.15.4
 
 		output.accept(BLANK_BLUEPRINT);
 		output.accept(MARK_1_BLUEPRINT);
 		output.accept(MARK_1_V2_BLUEPRINT); // v0.16.1
-		output.accept(MARK_2_BLUEPRINT);
-		output.accept(MARK_III_BLUEPRINT);
+		output.accept(MARK_III_BLUEPRINT); // v0.16.7: the Era I order (MARK_ORDER)
 		output.accept(MARK_4_BLUEPRINT);
 		output.accept(MARK_V_BLUEPRINT);
+		output.accept(MARK_2_BLUEPRINT);
 		output.accept(MARK_6_BLUEPRINT);
 		output.accept(MARK_VII_BLUEPRINT);
 		output.accept(MARK_8_BLUEPRINT); // v0.15.9

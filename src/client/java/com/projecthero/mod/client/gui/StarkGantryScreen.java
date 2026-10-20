@@ -233,9 +233,14 @@ public final class StarkGantryScreen extends Screen {
 		int half = (iw - 6) / 2;
 		float cap = suit == null ? 0f : suit.energyCapacity();
 		float maxI = IronManEnergy.maxIntegrity(e.suitId());
-		// v0.16.1: no suit energy -- the first bar is the suit's absorb share
-		bar(g, ix, y + 17, half, Component.translatable("screen.projecthero.suit_call.absorb").getString(),
-				suit == null ? 0f : suit.absorbShare(), 0f, IronManGui.BLUE);
+		// v0.16.1: no suit energy -- the first bar is the suit's absorb share (v0.16.7: an Era I suit's reactor charge)
+		if (suit != null && suit.eraOne()) {
+			bar(g, ix, y + 17, half, Component.translatable("screen.projecthero.suit_platform.energy_short").getString(),
+					e.energyFrac(), cap, IronManGui.CYAN);
+		} else {
+			bar(g, ix, y + 17, half, Component.translatable("screen.projecthero.suit_call.absorb").getString(),
+					suit == null ? 0f : suit.absorbShare(), 0f, IronManGui.BLUE);
+		}
 		bar(g, ix + half + 6, y + 17, half, Component.translatable("screen.projecthero.suit_call.integrity").getString(),
 				e.integrityFrac(), maxI, e.integrityFrac() < 0.3f ? IronManGui.RED : IronManGui.GREEN);
 	}

@@ -97,6 +97,10 @@ public final class IronManSuitUpManager {
 		if (inTransition(player)) {
 			return false;
 		}
+		// v0.16.7 (user): an Era I suit goes on only in a Stark Gantry (its arms fit it with receivePart directly)
+		if (com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuses(player, suitId)) {
+			return false;
+		}
 		if (suit.summonType() == SummonType.SUITCASE_ITEM) {
 			// v0.14.29: the Mark 5 only ever suits up by right-clicking its suitcase (beginSuitUpFromCase)
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk5_use_case")
@@ -182,6 +186,10 @@ public final class IronManSuitUpManager {
 		}
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null) {
+			return false;
+		}
+		// v0.16.7 (user): an Era I suit comes off only in a Stark Gantry (or by the Shift+C emergency eject)
+		if (com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuses(player, suitId)) {
 			return false;
 		}
 		int mask = wornMask(player, suitId);

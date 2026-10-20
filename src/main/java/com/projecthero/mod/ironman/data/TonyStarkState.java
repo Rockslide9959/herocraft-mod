@@ -105,6 +105,12 @@ public final class TonyStarkState {
 	public long phoenixReadyAt;
 	/** Built-in air-tank charge of the worn suit, 0..1 (1 = full). Synced for the HUD air bar. */
 	public float suitAir = 1.0f;
+	/**
+	 * v0.16.7 (user) Era I: the suit ids whose reactor has BROWNED OUT -- it hit 0 energy and stays offline (no moves, no
+	 * flight / hover; armour + absorb still work) until it is back to 10% ({@code IronManEnergy#BROWNOUT_RECOVER}). Saved
+	 * (misc group) and synced, so the HUD can show it.
+	 */
+	public final Set<String> brownout = new HashSet<>();
 
 	// --- transient (not persisted): the in-progress suit-up / suit-down animation ---
 	/**
@@ -225,6 +231,7 @@ public final class TonyStarkState {
 				suitEnergy, suitIntegrity, abilityReadyAt, mobHighlightOn, flamethrowerHeat,
 				timedFlightUntil, wristLaserUntil, overloadUntil, wristLaserSpent, weaponWheelChoice,
 				phoenixReadyAt, suitAir);
+		c.brownout.addAll(brownout); // v0.16.7
 		c.supersonicUntil = supersonicUntil;
 		c.ceilingFreezeUntil = ceilingFreezeUntil;
 		c.wasAboveCeiling = wasAboveCeiling;
@@ -319,10 +326,11 @@ public final class TonyStarkState {
 	}
 
 	/** Weapon state that fits nowhere else. Add new persisted fields to a group with room (or a new group). */
-	private record Misc(float flamethrowerHeat, Set<String> wristLaserSpent) {
+	private record Misc(float flamethrowerHeat, Set<String> wristLaserSpent, Set<String> brownout) {
 		static final Codec<Misc> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.FLOAT.optionalFieldOf("flamethrower_heat", 0.0f).forGetter(Misc::flamethrowerHeat),
-				STRING_SET.optionalFieldOf("wrist_laser_spent", new HashSet<>()).forGetter(Misc::wristLaserSpent)
+				STRING_SET.optionalFieldOf("wrist_laser_spent", new HashSet<>()).forGetter(Misc::wristLaserSpent),
+				STRING_SET.optionalFieldOf("brownout", new HashSet<>()).forGetter(Misc::brownout) // v0.16.7 Era I
 		).apply(i, Misc::new));
 	}
 
@@ -339,12 +347,16 @@ public final class TonyStarkState {
 			Cooldowns.CODEC.optionalFieldOf("cooldowns", new Cooldowns(new HashMap<>(), 0L, 0L, 0L, 0L))
 					.forGetter(s -> new Cooldowns(new HashMap<>(s.abilityReadyAt), s.timedFlightUntil, s.wristLaserUntil,
 							s.overloadUntil, s.phoenixReadyAt)),
-			Misc.CODEC.optionalFieldOf("misc", new Misc(0.0f, new HashSet<>()))
-					.forGetter(s -> new Misc(s.flamethrowerHeat, new HashSet<>(s.wristLaserSpent)))
-	).apply(instance, (core, suit, cd, misc) -> new TonyStarkState(core.hasPower(), core.techLevel(), core.builtSuits(),
-			core.activeSuit(), suit.energy(), suit.integrity(), cd.abilityReadyAt(), suit.mobHighlightOn(),
-			misc.flamethrowerHeat(), cd.timedFlightUntil(), cd.wristLaserUntil(), cd.overloadUntil(),
-			misc.wristLaserSpent(), suit.weaponWheelChoice(), cd.phoenixReadyAt(), suit.air())));
+			Misc.CODEC.optionalFieldOf("misc", new Misc(0.0f, new HashSet<>(), new HashSet<>()))
+					.forGetter(s -> new Misc(s.flamethrowerHeat, new HashSet<>(s.wristLaserSpent), new HashSet<>(s.brownout)))
+	).apply(instance, (core, suit, cd, misc) -> {
+		TonyStarkState out = new TonyStarkState(core.hasPower(), core.techLevel(), core.builtSuits(),
+				core.activeSuit(), suit.energy(), suit.integrity(), cd.abilityReadyAt(), suit.mobHighlightOn(),
+				misc.flamethrowerHeat(), cd.timedFlightUntil(), cd.wristLaserUntil(), cd.overloadUntil(),
+				misc.wristLaserSpent(), suit.weaponWheelChoice(), cd.phoenixReadyAt(), suit.air());
+		out.brownout.addAll(misc.brownout()); // v0.16.7
+		return out;
+	}));
 
 	/**
 	 * The persisted codec: always <b>writes</b> {@link #NESTED_CODEC}; <b>reads</b> the nested shape and, failing that

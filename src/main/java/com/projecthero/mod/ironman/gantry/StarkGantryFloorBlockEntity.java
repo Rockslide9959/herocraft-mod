@@ -109,6 +109,11 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	 */
 	private boolean toPack;
 	/**
+	 * v0.16.7 (user) Era I: the buffer came out of a Suit Crate -- if the sequence is interrupted, what is left goes back
+	 * into a new crate (handed to the owner, else dropped here), never loose. Saved with the buffer.
+	 */
+	private boolean toCrate;
+	/**
 	 * v0.15.9, "Swap Suit": while taking the worn suit off, the suit to put on next -- racked at {@link #swapPlatform}, or
 	 * carried in the pack when that is null. Part of the running sequence, so (like it) never saved: a reload mid-swap
 	 * just flushes the floor.
@@ -226,6 +231,13 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		startEquip(player, suitId, StarkGantry.takeFromPack(player, suitId), null, true);
 	}
 
+	/** v0.16.7 (user): start putting on the suit out of a Suit Crate ({@code pieces} by rack slot; the crate is spent). */
+	void beginEquipFromCrate(ServerPlayer player, String suitId, ItemStack[] pieces) {
+		startEquip(player, suitId, pieces, null, true);
+		toCrate = true;
+		changed();
+	}
+
 	/**
 	 * The suit's pieces ({@code taken}, by rack slot) go into the floor and the putting-on sequence starts. The wearer
 	 * adopts the armour's carried charge and integrity (the chestplate's, else any piece's -- the rack has kept it
@@ -252,6 +264,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		}
 		platformPos = from;
 		toPack = fromPack;
+		toCrate = false;
 		begin(player, MODE_EQUIP, suitId, order);
 	}
 
@@ -276,6 +289,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		}
 		platformPos = target == null ? null : target.getBlockPos();
 		toPack = target == null;
+		toCrate = false;
 		if (com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
 		}
@@ -631,6 +645,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		swapSuit = null; // an interrupted swap stops where it is: whatever is still in the floor goes home
 		swapPlatform = null;
 		flushBuffer(player);
+		toCrate = false; // v0.16.7
 		playerId = null;
 		if (level instanceof ServerLevel sl) {
 			setOpen(sl, false);
@@ -666,6 +681,26 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 	 */
 	void flushBuffer(ServerPlayer player) {
 		if (!(level instanceof ServerLevel sl) || bufferEmpty()) {
+			return;
+		}
+		if (toCrate) {
+			// v0.16.7 (user) Era I: a suit that came out of a Suit Crate goes back into one -- never loose pieces
+			toCrate = false;
+			NonNullList<ItemStack> slots = NonNullList.withSize(4, ItemStack.EMPTY);
+			for (int idx = 0; idx < buffer.size(); idx++) {
+				slots.set(idx, buffer.get(idx));
+				buffer.set(idx, ItemStack.EMPTY);
+			}
+			ItemStack crate = com.projecthero.mod.ironman.item.SuitCrateItem.of(slots);
+			boolean here = player != null && player.isAlive() && !player.hasDisconnected() && player.level() == sl
+					&& player.position().distanceTo(standAt()) < 8.0;
+			if (here) {
+				IronManSuitUpManager.giveBack(player, crate);
+			} else {
+				Vec3 at = standAt();
+				net.minecraft.world.Containers.dropItemStack(sl, at.x, at.y + 0.5, at.z, crate);
+			}
+			changed();
 			return;
 		}
 		for (int idx = 0; idx < buffer.size(); idx++) {
@@ -786,6 +821,7 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		platformPos = tag.contains("Platform") ? NbtUtils.readBlockPos(tag, "Platform").orElse(null) : null;
 		owner = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
 		toPack = tag.getBoolean("ToPack");
+		toCrate = tag.getBoolean("ToCrate"); // v0.16.7
 		if (level != null && level.isClientSide()) {
 			// the running sequence, for the renderer only (never read from disk -- see the class notes)
 			mode = tag.getInt("SeqMode");
@@ -813,6 +849,9 @@ public class StarkGantryFloorBlockEntity extends BlockEntity {
 		}
 		if (toPack) {
 			tag.putBoolean("ToPack", true);
+		}
+		if (toCrate) {
+			tag.putBoolean("ToCrate", true); // v0.16.7
 		}
 	}
 

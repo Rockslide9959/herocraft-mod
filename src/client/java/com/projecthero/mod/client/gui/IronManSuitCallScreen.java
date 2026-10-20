@@ -145,7 +145,7 @@ public final class IronManSuitCallScreen extends Screen {
 
 	private static int mark(String suitId) {
 		IronManSuit s = IronManSuits.byId(suitId);
-		return s == null ? 99 : s.markNumber();
+		return s == null ? 99 : s.progressionIndex(); // v0.16.7: the progression order
 	}
 
 	private void pick(Card c) {

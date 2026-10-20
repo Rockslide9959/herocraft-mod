@@ -162,11 +162,12 @@ public final class IronManSuitCall {
 		List<IronManSuitListPayload.Option> out = new ArrayList<>();
 		BlockPos here = player.blockPosition();
 		List<IronManSuit> suits = new ArrayList<>(IronManSuits.all());
-		suits.sort(java.util.Comparator.comparingInt(IronManSuit::markNumber));
+		suits.sort(java.util.Comparator.comparingInt(IronManSuit::progressionIndex)); // v0.16.7: the Era I order
 		String worn = IronManArmor.wornSuitId(player);
 		for (IronManSuit suit : suits) {
 			var carried = carriedPieces(player, suit.id());
-			boolean wearing = suit.id().equals(worn) && wornMask(player, suit.id()) != 0;
+			// v0.16.7 (user): a worn Era I suit never flies itself home -- it comes off in a Stark Gantry
+			boolean wearing = suit.id().equals(worn) && wornMask(player, suit.id()) != 0 && !suit.eraOne();
 			if (carried.isEmpty() && !wearing) {
 				continue;
 			}
@@ -396,11 +397,14 @@ public final class IronManSuitCall {
 		// "changes 17": list the suits in progression order (Mark I, II, III, ...) rather than the order
 		// the marks happened to be added to the registry.
 		List<IronManSuit> suits = new ArrayList<>(IronManSuits.all());
-		suits.sort(java.util.Comparator.comparingInt(IronManSuit::markNumber));
+		suits.sort(java.util.Comparator.comparingInt(IronManSuit::progressionIndex)); // v0.16.7: the Era I order
 		for (IronManSuit suit : suits) {
 			String suitId = suit.id();
 			if (suit.summonType() == SummonType.SUITCASE_ITEM) {
 				continue; // v0.14.29: the Mark V suits up only from its suitcase (right-click), never from C / the picker
+			}
+			if (suit.eraOne()) {
+				continue; // v0.16.7 (user): an Era I suit is never called or put on by C -- only a Stark Gantry fits it
 			}
 
 			// fully in the inventory?
@@ -485,8 +489,8 @@ public final class IronManSuitCall {
 		String partial = null;
 		int best = 0;
 		for (IronManSuit suit : IronManSuits.all()) {
-			if (suit.summonType() == SummonType.SUITCASE_ITEM) {
-				continue; // v0.14.29: never by C
+			if (suit.summonType() == SummonType.SUITCASE_ITEM || suit.eraOne()) {
+				continue; // v0.14.29: never by C (v0.16.7: nor an Era I suit -- Stark Gantry only)
 			}
 			int n = 0;
 			for (ArmorItem.Type type : TYPES) {
@@ -499,7 +503,18 @@ public final class IronManSuitCall {
 				partial = suit.id();
 			}
 		}
-		return partial != null && IronManSuitUpManager.beginSuitUp(player, partial, true); // v0.15.11: by hand
+		if (partial != null) {
+			return IronManSuitUpManager.beginSuitUp(player, partial, true); // v0.15.11: by hand
+		}
+		// v0.16.7 (user): only Era I armour in the pack -- say where it goes on instead of doing nothing
+		for (ItemStack s : player.getInventory().items) {
+			if (s.getItem() instanceof IronManArmorItem a && com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(a.suitId())
+					|| s.getItem() instanceof com.projecthero.mod.ironman.item.SuitCrateItem) {
+				com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuse(player);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -558,6 +573,9 @@ public final class IronManSuitCall {
 		}
 		if (suit == null || IronManArmor.wearingAnyIronMan(player) || IronManSuitUpManager.inTransition(player)) {
 			return;
+		}
+		if (com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuses(player, suitId)) {
+			return; // v0.16.7 (user): Era I suits are never called -- Stark Gantry only
 		}
 		var s = TonyStark.state(player);
 		if (suitId.equals(s.transitionSuit) && s.transitionTicks > 0) {
@@ -894,6 +912,9 @@ public final class IronManSuitCall {
 				|| IronManArmor.wearingAnyIronMan(player)) {
 			return false;
 		}
+		if (com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuses(player, suitId)) {
+			return false; // v0.16.7 (user): Stark Gantry only
+		}
 		if (fullyInInventory(player, suitId)) {
 			return IronManSuitUpManager.beginSuitUp(player, suitId);
 		}
@@ -920,6 +941,9 @@ public final class IronManSuitCall {
 	public static boolean callPiece(ServerPlayer player, String suitId, ArmorItem.Type type) {
 		if (!TonyStark.hasPower(player) || IronManSuits.byId(suitId) == null) {
 			return false;
+		}
+		if (com.projecthero.mod.ironman.ability.era1.EraOneGantry.refuses(player, suitId)) {
+			return false; // v0.16.7 (user): Stark Gantry only
 		}
 		if (!com.projecthero.mod.ironman.gear.StarkGear.canCall(player, suitId)) { // v0.15.1: flying a piece in is a call -- needs the Stark Glasses
 			com.projecthero.mod.ironman.gear.StarkGear.refuseCall(player, suitId);

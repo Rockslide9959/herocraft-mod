@@ -165,6 +165,12 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 			}
 			return ItemInteractionResult.sidedSuccess(level.isClientSide());
 		}
+		if (stack.getItem() instanceof com.projecthero.mod.ironman.item.SuitCrateItem) { // v0.16.7: racks a crated Era I suit
+			if (!level.isClientSide() && player instanceof ServerPlayer sp) {
+				com.projecthero.mod.ironman.item.SuitCrateItem.rackOn(sp, be, stack);
+			}
+			return ItemInteractionResult.sidedSuccess(level.isClientSide());
+		}
 		if (stack.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
 			if (!level.isClientSide() && be.store(stack)) {
 				((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.8f, 1.0f);

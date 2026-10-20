@@ -74,6 +74,15 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt)
 				+ (integ <= 0f ? "  " + Component.translatable("hud.projecthero.ironman.disabled_title").getString() : ""));
+		if (suit.eraOne()) {
+			// v0.16.7 (user) Era I: the reactor -- live energy / capacity, regen, and a brownout flag
+			float cap = suit.energyCapacity();
+			float en = st == null ? cap : Math.max(0f, Math.min(cap, st.suitEnergy.getOrDefault(suit.id(), cap)));
+			boolean out = st != null && st.brownout.contains(suit.id());
+			row(wrap, Component.translatable("screen.projecthero.ironman_comic.energy"), fmt(en) + " / " + fmt(cap) + "  +"
+					+ fmt(suit.energyRegenPerSecond()) + "/s"
+					+ (out ? "  " + Component.translatable("hud.projecthero.ironman.era1.brownout").getString() : ""));
+		}
 		// v0.15.12: Vibranium Plating -- how many worn pieces are plated, and what it adds
 		int plated = 0;
 		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
@@ -116,15 +125,17 @@ public class IronManSuitInfoScreen extends Screen {
 
 		// v0.16.1: the comic kit -- every key, tap / Shift, with damage and cooldown
 		head("screen.projecthero.ironman_comic.moves");
-		String[] keys = new String[5];
-		for (int i = 0; i < 5; i++) {
+		String[] keys = new String[6];
+		for (int i = 0; i < 6; i++) {
 			keys[i] = ModKeyBindings.ABILITY_SLOTS[i].getTranslatedKeyMessage().getString();
 		}
 		for (Component line : com.projecthero.mod.ironman.ui.IronManComicText.moves(suit, keys)) {
 			lines.addAll(font.split(line.copy().withStyle(ChatFormatting.WHITE), wrap));
 		}
-		String c = ModKeyBindings.ABILITY_SLOTS[5].getTranslatedKeyMessage().getString();
-		row(wrap, Component.literal("[" + c + "]"), Component.translatable("hud.projecthero.ironman.ability." + suit.abilityInSlot(6)).getString());
+		if (!suit.eraOne()) { // v0.16.7: an Era I kit lists its C key above (tap move / Shift eject)
+			String c = keys[5];
+			row(wrap, Component.literal("[" + c + "]"), Component.translatable("hud.projecthero.ironman.ability." + suit.abilityInSlot(6)).getString());
+		}
 
 		head("screen.projecthero.ironman_info.systems");
 		row(wrap, "screen.projecthero.ironman_info.scanner", "mark_1".equals(suit.id()) ? "-"

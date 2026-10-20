@@ -200,15 +200,19 @@ public final class FabricatorRecipes {
 		// v0.14.21: each mark in the build order (III -> 4 -> V -> 6 -> VII) has a cost tier and a
 		// signature component, so every suit costs a little more than the one before it.
 		mark1V2Upgrade(); // v0.16.1: the gold Mark 1 V2 -- a Mark 1 upgraded piece by piece
-		mark2ArmorSet();
 		armorSet("mark_iii", 1, 0, IronManItems.STARK_CIRCUIT);
 		armorSet("mark_4", 1, 1, IronManItems.PRESSURE_HULL); // v0.16.1: HYDRO
 		armorSet("mark_v", 2, 2, IronManItems.STEALTH_COATING); // v0.16.1: STEALTH
-		armorSet("mark_6", 2, 3, IronManItems.FLIGHT_STABILIZER); // SILVER CENTURION
-		armorSet("mark_vii", 3, 4, IronManItems.THERMAL_SHIELDING); // v0.16.1: SPACE
+		// v0.16.7 (user): the Mk VI Suitcase (mark_2) now comes after the Mk V Stealth in the progression, so it is built
+		// like the later suits (titanium-gold plate, micro-thrusters as its signature) one cost tier up from the Stealth;
+		// the Centurion / Space / Hulkbuster each move one tier up to stay above it (strictly rising costs, see
+		// IronManRecipeCostV01421GameTests)
+		armorSet("mark_2", 2, 3, IronManItems.MICRO_THRUSTER); // Mk VI SUITCASE
+		armorSet("mark_6", 2, 4, IronManItems.FLIGHT_STABILIZER); // Mk VII SILVER CENTURION
+		armorSet("mark_vii", 3, 5, IronManItems.THERMAL_SHIELDING); // Mk VIII SPACE
 		// v0.15.9: the Mark 8 -- the top cost tier (3 more plates than the Mark 7 on the chest, +1 elsewhere) and a Suit
 		// Computer as its signature part
-		armorSet("mark_8", 3, 5, IronManItems.HYDRAULIC_FRAME); // v0.16.1: HULKBUSTER
+		armorSet("mark_8", 3, 6, IronManItems.HYDRAULIC_FRAME); // v0.16.1: HULKBUSTER (v0.16.7: Hulkbuster I Bruiser)
 	}
 
 	/**
@@ -231,7 +235,7 @@ public final class FabricatorRecipes {
 	}
 
 	/** v0.14.21: the build order of the Fabricator-built marks, cheapest first. */
-	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8");
+	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8"); // v0.16.7: the Era I order
 
 	/** "changes 18/19": true if this suit has Fabricator armour recipes (i.e. everything except the Mark 1). */
 	public static boolean hasArmorRecipes(String suitId) {
@@ -268,33 +272,6 @@ public final class FabricatorRecipes {
 		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, 200,
 				in(plate, 4 + extra), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1), in(signature, 1)));
-	}
-
-	/**
-	 * Mark 2's own fixed component list (v0.11.13, explicit user request) -- replaces the shared
-	 * {@link #armorSet} generation entirely. Built from the basic {@code METAL_PLATING} rather than the
-	 * advanced {@code TITANIUM_GOLD_PLATE} every other mark's armour uses, in keeping with Mark 2 being
-	 * the cheaper primitive-tier suit. v0.14.21: no Suit Computer and about half the servos / circuits.
-	 */
-	private static void mark2ArmorSet() {
-		int timeTier = 1;
-		Item plate = IronManItems.METAL_PLATING;
-
-		add(armor("mark_2", ArmorItem.Type.HELMET, timeTier, 160,
-				in(plate, 5), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
-				in(IronManItems.STARK_CIRCUIT, 2)));
-
-		add(armor("mark_2", ArmorItem.Type.CHESTPLATE, timeTier, 240,
-				in(plate, 6), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.STARK_CIRCUIT, 2)));
-
-		add(armor("mark_2", ArmorItem.Type.LEGGINGS, timeTier, 200,
-				in(plate, 6), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1)));
-
-		add(armor("mark_2", ArmorItem.Type.BOOTS, timeTier, 200,
-				in(plate, 5), in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1)));
 	}
 
 	/**

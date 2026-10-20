@@ -317,7 +317,7 @@ public final class StarkGantry {
 
 	private static int markOf(String suitId) {
 		IronManSuit s = IronManSuits.byId(suitId);
-		return s == null ? 0 : s.markNumber();
+		return s == null ? 0 : s.progressionIndex(); // v0.16.7: the progression order (the Mk VI Suitcase after the Mk V)
 	}
 
 	/** Rack-slot mask (bit i = rack slot i) of the pieces of {@code suitId} the player is wearing. */
@@ -516,6 +516,34 @@ public final class StarkGantry {
 		}
 		IronManSuitPlatformBlockEntity home = removeTarget(level, centre, player, worn);
 		be.beginSwap(player, worn, home, next, fromPack ? null : platform.getBlockPos());
+		return true;
+	}
+
+	/**
+	 * v0.16.7 (user) Era I: the player used a Suit Crate (in {@code hand}) standing on the floor -- the arms put the crated
+	 * suit on, as an ordinary gantry suit-up. The crate is used up the moment its pieces go into the floor; an
+	 * interrupted sequence packs whatever is left back into a new crate. Re-validated; true if the sequence started.
+	 */
+	public static boolean beginEquipFromCrate(ServerPlayer player, net.minecraft.world.InteractionHand hand) {
+		BlockPos centre = centreUnder(player);
+		String why = blocker(player, centre);
+		if (why == null && IronManArmor.wearingAnyIronMan(player)) {
+			why = "message.projecthero.gantry.already_suited";
+		}
+		ItemStack crate = player.getItemInHand(hand);
+		String suitId = crate.getItem() instanceof com.projecthero.mod.ironman.item.SuitCrateItem
+				? com.projecthero.mod.ironman.item.SuitCrateItem.suitId(crate) : null;
+		if (why == null && (suitId == null || IronManSuits.byId(suitId) == null)) {
+			why = "message.projecthero.ironman.era1.crate_empty";
+		}
+		ServerLevel level = player.serverLevel();
+		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {
+			tell(player, why == null ? "message.projecthero.gantry.incomplete" : why, ChatFormatting.GOLD);
+			return false;
+		}
+		ItemStack[] pieces = com.projecthero.mod.ironman.item.SuitCrateItem.pieces(crate);
+		crate.shrink(1);
+		be.beginEquipFromCrate(player, suitId, pieces);
 		return true;
 	}
 

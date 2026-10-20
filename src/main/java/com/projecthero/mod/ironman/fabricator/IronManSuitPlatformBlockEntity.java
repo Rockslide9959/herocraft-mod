@@ -87,6 +87,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	private long repairToggledAt = Long.MIN_VALUE;
 	/** Ticks the welding arms take to rise out of / sink back into the pad. */
 	public static final float REPAIR_ARM_TICKS = 14f;
+	/** v0.16.7: is a complete Stark Gantry in range (Era I suits repair / fast-charge only then)? Cached, synced. */
+	private boolean gantryNear;
+	private long gantryCheckedAt = Long.MIN_VALUE / 2;
 
 	public final ContainerData data = new ContainerData() {
 		@Override
@@ -146,7 +149,8 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			}
 		}
 		// v0.15.20: the welding arms -- up while a damaged suit is racked, with a quiet weld crackle now and then
-		boolean nowRepairing = suitId != null && be.suitIntegrity() < IronManEnergy.maxIntegrity(suitId) - 0.001f;
+		boolean nowRepairing = suitId != null && be.suitIntegrity() < IronManEnergy.maxIntegrity(suitId) - 0.001f
+				&& (!com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suitId) || be.gantryInRange()); // v0.16.7
 		be.setRepairing(serverLevel, nowRepairing);
 		if (nowRepairing && level.getGameTime() % 9L == 0L) {
 			float pitch = 1.5f + level.random.nextFloat() * 0.5f;
@@ -181,10 +185,47 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 		float integ = suitIntegrity();
 		float maxInteg = IronManEnergy.maxIntegrity(suitId);
+		if (suit.eraOne()) {
+			// v0.16.7 (user) Era I: repaired -- and charged +50/s -- only within range of a complete Stark Gantry; on any
+			// other rack the reactor just trickles its own regen and the hull stays as it is (the screen says why)
+			boolean gantry = gantryInRange();
+			float energy = suitEnergy();
+			float cap = suit.energyCapacity();
+			float newEnergy = Math.min(cap, energy + (gantry ? IronManEnergy.GANTRY_CHARGE_PER_SECOND : suit.energyRegenPerSecond()) / 20f);
+			float newInteg = gantry ? Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)) : integ;
+			if (newEnergy != energy || newInteg != integ) {
+				stampAllPieces(newEnergy, newInteg);
+			}
+			return;
+		}
 		if (integ >= maxInteg) {
 			return;
 		}
 		stampAllPieces(IronManEnergy.FULL, Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f)));
+	}
+
+	/**
+	 * v0.16.7 (user) Era I: is a complete Stark Gantry floor within range of this rack? Re-checked once a second on the
+	 * server (and whenever asked after that), synced to the client for the platform screen.
+	 */
+	public boolean gantryInRange() {
+		if (level != null && !level.isClientSide() && level.getGameTime() - gantryCheckedAt >= 20L) {
+			gantryCheckedAt = level.getGameTime();
+			boolean now = com.projecthero.mod.ironman.ability.era1.EraOneGantry.platformInRange(level, worldPosition);
+			if (now != gantryNear) {
+				gantryNear = now;
+				setChanged();
+				if (level instanceof ServerLevel sl) {
+					sl.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+				}
+			}
+		}
+		return gantryNear;
+	}
+
+	/** v0.16.7: gametests -- forget the cached Gantry check so the next {@link #gantryInRange} scans again. */
+	public void recheckGantry() {
+		gantryCheckedAt = Long.MIN_VALUE / 2;
 	}
 
 	/** v0.15.20: is a damaged suit on the rack being welded right now? (Synced -- the client draws the arms from it.) */
@@ -711,6 +752,7 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		packStart = tag.getLong("PackStart");
 		packFor = tag.hasUUID("PackFor") ? tag.getUUID("PackFor") : null;
 		unpackStart = tag.getLong("UnpackStart");
+		gantryNear = tag.getBoolean("GantryNear"); // v0.16.7
 		boolean wasRepairing = repairing;
 		repairing = tag.getBoolean("Repairing");
 		if (level != null && level.isClientSide && wasRepairing != repairing) {
@@ -736,6 +778,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		}
 		if (repairing) {
 			tag.putBoolean("Repairing", true);
+		}
+		if (gantryNear) {
+			tag.putBoolean("GantryNear", true); // v0.16.7: for the platform screen
 		}
 	}
 
