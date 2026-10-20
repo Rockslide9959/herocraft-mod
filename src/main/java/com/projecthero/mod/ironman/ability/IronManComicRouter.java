@@ -61,7 +61,15 @@ public final class IronManComicRouter {
 		if (slot == 0) {
 			return;
 		}
-		String[] held = PRESSED.computeIfAbsent(player.getUUID(), k -> new String[6]);
+		String[] held = PRESSED.computeIfAbsent(player.getUUID(), k -> new String[7]);
+		// v0.16.7 Era I: Shift+C is the emergency eject (hold 3 s), never a move
+		boolean eraOne = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suit);
+		if (eraOne && slot == 6 && (player.isShiftKeyDown() || held[slot] == null && !pressed)) {
+			if (held[slot] == null) {
+				com.projecthero.mod.ironman.ability.era1.IronManEraOne.ejectKey(player, suit, pressed);
+				return;
+			}
+		}
 		if (!pressed) {
 			String id = held[slot];
 			held[slot] = null;
@@ -89,12 +97,18 @@ public final class IronManComicRouter {
 							TonyStark.abilityCooldownRemaining(player, suit.id(), m.cooldownKey()) / 20.0f)), true);
 			return;
 		}
+		if (eraOne && !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
+			return;
+		}
 		if (m.input() == IronManComicKit.Input.HOLD) {
 			held[slot] = m.id();
 		}
 		boolean fired = IronManComicMoves.fire(player, suit, m, true);
 		if (fired) {
 			startCooldown(player, suit, m);
+			if (eraOne) {
+				com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
+			}
 		}
 	}
 

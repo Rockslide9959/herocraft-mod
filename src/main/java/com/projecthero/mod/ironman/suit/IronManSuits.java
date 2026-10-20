@@ -31,7 +31,7 @@ public final class IronManSuits {
 	// a gold copy of its texture). Armour points / toughness live in IronManArmorMaterials.
 	// =====================================================================================================================
 
-	public static final IronManSuit MARK_1 = register(comicKit(IronManSuit.Builder.of("mark_1"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_1 = register(comicKit(IronManSuit.Builder.of("mark_1"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 1)
 			.maxIntegrity(600f)
 			.absorb(0.20f)
@@ -56,7 +56,7 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the Mark 1 rebuilt in gold -- made by upgrading a full Mark 1 at the Fabricator. */
-	public static final IronManSuit MARK_1_V2 = register(comicKit(IronManSuit.Builder.of("mark_1_v2"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_1_V2 = register(comicKit(IronManSuit.Builder.of("mark_1_v2"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 1)
 			.maxIntegrity(750f)
 			.absorb(0.25f)
@@ -103,7 +103,7 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_2_BLUEPRINT)
 			.build());
 
-	public static final IronManSuit MARK_III = register(comicKit(IronManSuit.Builder.of("mark_iii"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_III = register(comicKit(IronManSuit.Builder.of("mark_iii"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(1, 3)
 			.maxIntegrity(1400f)
 			.absorb(0.35f)
@@ -126,7 +126,7 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the HYDRO armour -- slow in the air, three times as fast underwater, and its kit hits harder there. */
-	public static final IronManSuit MARK_4 = register(comicKit(IronManSuit.Builder.of("mark_4"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_4 = register(comicKit(IronManSuit.Builder.of("mark_4"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 4)
 			.maxIntegrity(1800f)
 			.absorb(0.40f)
@@ -148,7 +148,7 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the STEALTH armour -- silent, sculk-proof, built for the unaware target. No briefcase any more. */
-	public static final IronManSuit MARK_V = register(comicKit(IronManSuit.Builder.of("mark_v"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_V = register(comicKit(IronManSuit.Builder.of("mark_v"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(2, 5)
 			.maxIntegrity(1100f)
 			.absorb(0.30f)

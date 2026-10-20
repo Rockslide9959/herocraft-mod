@@ -24,8 +24,10 @@ public final class IronManComicKit {
 	public static final String SLOT_X = "comic_x";
 	public static final String SLOT_Z = "comic_z";
 	public static final String SLOT_V = "comic_v";
-	/** Kit slot ids in key order R, G, X, Z, V (ability slots 1-5). */
-	public static final List<String> SLOTS = List.of(SLOT_R, SLOT_G, SLOT_X, SLOT_Z, SLOT_V);
+	/** v0.16.7 Era I: C is a kit key too (slot 6) -- its Shift edge is the emergency eject, not a move. */
+	public static final String SLOT_C = "comic_c";
+	/** Kit slot ids in key order R, G, X, Z, V, C (ability slots 1-6; only the Era I suits bind C). */
+	public static final List<String> SLOTS = List.of(SLOT_R, SLOT_G, SLOT_X, SLOT_Z, SLOT_V, SLOT_C);
 
 	/** TAP moves fire on the key press; HOLD moves also get the release (charge, hold-and-throw, held stream). */
 	public enum Input { TAP, HOLD }
@@ -52,7 +54,7 @@ public final class IronManComicKit {
 	}
 
 	public record Kit(String suitId, List<Key> keys) {
-		/** {@code slot} 1..5 (R, G, X, Z, V). */
+		/** {@code slot} 1..6 (R, G, X, Z, V, C); C only on the Era I kits. */
 		public Key key(int slot) {
 			return slot < 1 || slot > keys.size() ? null : keys.get(slot - 1);
 		}
@@ -84,6 +86,35 @@ public final class IronManComicKit {
 		KITS.put(suitId, new Kit(suitId, List.of(r, g, x, z, v)));
 	}
 
+	/** v0.16.7 Era I: a six-key kit (the C key's Shift is the eject, so its {@code shift} is null). */
+	private static void kit6(String suitId, Key r, Key g, Key x, Key z, Key v, Move c) {
+		KITS.put(suitId, new Kit(suitId, List.of(r, g, x, z, v, new Key(c, null))));
+	}
+
+	/** v0.16.7 Era I energy: what a move costs when it goes off, and (held / toggled moves) per second while it runs. */
+	private static final Map<String, Float> ENERGY = new LinkedHashMap<>();
+	private static final Map<String, Float> ENERGY_PER_SECOND = new LinkedHashMap<>();
+
+	private static Move en(Move m, float cost) {
+		ENERGY.put(m.id(), cost);
+		return m;
+	}
+
+	private static Move enPerSecond(Move m, float perSecond) {
+		ENERGY_PER_SECOND.put(m.id(), perSecond);
+		return m;
+	}
+
+	/** Energy a move costs when it goes off (0 for the later suits -- no energy there yet). */
+	public static float energyCost(String moveId) {
+		return ENERGY.getOrDefault(moveId, 0f);
+	}
+
+	/** Energy a held / toggled move drains per second while it runs (0 if none). */
+	public static float energyPerSecond(String moveId) {
+		return ENERGY_PER_SECOND.getOrDefault(moveId, 0f);
+	}
+
 	private static int s(double seconds) {
 		return (int) Math.round(seconds * 20.0);
 	}
@@ -91,21 +122,53 @@ public final class IronManComicKit {
 	// ------------------------------------------------------------------ the nine kits
 
 	static {
-		// MARK 1 (grey iron): the cave-built prototype. No sustained flight -- rocket-boot hops and a glide.
-		kit("mark_1",
-				key(tap("mk1_iron_punch", s(1), 15f, Items.PISTON), tap("mk1_ground_pound", s(8), 12f, Items.ANVIL)),
-				key(hold("mk1_flamethrower", 0, 8f, Items.FIRE_CHARGE), tap("mk1_smoke_screen", s(14), 0f, Items.CAMPFIRE)),
-				key(tap("mk1_rocket_hop", s(2), 0f, Items.FEATHER), tap("mk1_glide", s(4), 0f, Items.ELYTRA)),
-				key(tap("mk1_shoulder_rocket", s(8), 30f, Items.FIREWORK_ROCKET), tap("mk1_cluster_rocket", s(14), 12f, Items.FIREWORK_STAR)),
-				key(tap("mk1_electromagnet", s(8), 0f, Items.LODESTONE), tap("mk1_magnetic_repel", s(8), 4f, Items.PISTON)));
+		// ================================================================ v0.16.7 ERA I -- THE GANTRY AGE (user design)
+		// docs/IRONMAN_ERA1_PLAN.md. Every key has a tap + Shift move; C's Shift is the emergency eject. en = energy.
 
-		// MARK 1 V2 (gold): the rebuilt prototype -- palm repulsors, magnets, rocket skates, the chest lamp and an oil slick.
-		kit("mark_1_v2",
-				key(tap("mk1v2_palm_repulsor", s(1), 12f, Items.GLOWSTONE_DUST), tap("mk1v2_dash", s(7), 14f, Items.FEATHER)),
-				key(tap("mk1v2_magnet_pull", s(6), 4f, Items.LODESTONE), tap("mk1v2_magnet_push", s(6), 6f, Items.PISTON)),
-				key(tap("mk1v2_rocket_skates", s(10), 0f, Items.GOLDEN_BOOTS), tap("mk1v2_spin_kick", s(6), 14f, Items.GOLDEN_SWORD)),
-				key(tap("mk1v2_lamp_flash", s(10), 0f, Items.LANTERN), tap("mk1v2_searchlight", s(12), 0f, Items.SPYGLASS)),
-				key(tap("mk1v2_oil_slick", s(12), 0f, Items.INK_SAC), tap("mk1v2_ignite_slick", s(10), 6f, Items.FLINT_AND_STEEL)));
+		// MK I CAVE-FORGED: grey scrap iron, slow, no flight -- rocket jumps, a wrist flamethrower, hits hard.
+		kit6("mark_1",
+				key(enPerSecond(hold("e1mk1_flamethrower", 0, 8f, Items.FIRE_CHARGE), 15f), en(tap("e1mk1_fire_wall", s(14), 3f, Items.CAMPFIRE), 80f)),
+				key(en(tap("e1mk1_iron_fist", s(1.5), 18f, Items.PISTON), 20f), en(hold("e1mk1_haymaker", s(8), 36f, Items.ANVIL), 60f)),
+				key(en(tap("e1mk1_rocket_jump", s(3), 0f, Items.FIREWORK_ROCKET), 40f), en(tap("e1mk1_rocket_leap", s(6), 0f, Items.FEATHER), 60f)),
+				key(en(tap("e1mk1_smoke_screen", s(14), 0f, Items.CAMPFIRE), 50f), en(tap("e1mk1_scrap_burst", s(6), 7f, Items.IRON_NUGGET), 40f)),
+				key(en(tap("e1mk1_magnetic_repel", s(8), 4f, Items.LODESTONE), 40f), en(tap("e1mk1_brace", s(16), 0f, Items.IRON_BLOCK), 50f)),
+				en(tap("e1mk1_reactor_overload", s(20), 0f, Items.REDSTONE_BLOCK), 120f));
+
+		// MK II GOLDEN AVENGER: the Mk I rebuilt in gold -- the first repulsors and a short boot-jet hover.
+		kit6("mark_1_v2",
+				key(en(tap("e1mk2_repulsor", s(1), 12f, Items.GLOWSTONE_DUST), 20f), en(hold("e1mk2_charged_repulsor", s(6), 26f, Items.GLOWSTONE), 70f)),
+				key(en(tap("e1mk2_gold_uppercut", s(5), 14f, Items.GOLDEN_SWORD), 40f), en(tap("e1mk2_ground_pound", s(8), 16f, Items.ANVIL), 60f)),
+				key(enPerSecond(tap("e1mk2_boot_hover", s(2), 0f, Items.GOLDEN_BOOTS), 10f), en(tap("e1mk2_jet_dash", s(7), 14f, Items.FEATHER), 50f)),
+				key(en(tap("e1mk2_golden_glare", s(12), 0f, Items.GLOWSTONE), 50f), en(tap("e1mk2_jet_skates", s(14), 0f, Items.GOLDEN_BOOTS), 60f)),
+				key(en(tap("e1mk2_magnetic_pull", s(6), 0f, Items.LODESTONE), 30f), en(tap("e1mk2_magnetic_shield", s(15), 0f, Items.SHIELD), 70f)),
+				en(tap("e1mk2_reactor_overload", s(20), 0f, Items.REDSTONE_BLOCK), 120f));
+
+		// MK III CLASSIC: the iconic red and gold (Armor Model 4) -- real flight, the chest unibeam, good all-round.
+		kit6("mark_iii",
+				key(en(tap("e1mk3_repulsor", s(0.8), 14f, Items.GLOWSTONE_DUST), 20f), en(tap("e1mk3_twin_volley", s(3), 12f, Items.GLOWSTONE), 45f)),
+				key(en(hold("e1mk3_unibeam", s(10), 36f, Items.BEACON), 150f), en(tap("e1mk3_unibeam_sweep", s(14), 24f, Items.END_ROD), 160f)),
+				key(en(tap("e1mk3_flight_boost", s(8), 0f, Items.FIREWORK_ROCKET), 60f), en(tap("e1mk3_barrel_roll", s(5), 0f, Items.FEATHER), 40f)),
+				key(en(tap("e1mk3_mini_missiles", s(10), 18f, Items.FIREWORK_ROCKET), 100f), en(tap("e1mk3_missile_barrage", s(18), 14f, Items.TARGET), 160f)),
+				key(enPerSecond(hold("e1mk3_tractor_beam", s(6), 0f, Items.LEAD), 15f), en(tap("e1mk3_tractor_throw", s(8), 16f, Items.SLIME_BALL), 60f)),
+				enPerSecond(tap("e1mk3_targeting_hud", s(1), 0f, Items.SPYGLASS), 4f));
+
+		// MK IV HYDRO: the gold deep-sea suit -- torpedoes, sonar, jets and a bubble shield; heavy and slow on land.
+		kit6("mark_4",
+				key(en(tap("e1mk4_torpedo", s(4), 30f, Items.TRIDENT), 50f), en(tap("e1mk4_homing_torpedo", s(8), 26f, Items.HEART_OF_THE_SEA), 80f)),
+				key(en(tap("e1mk4_sonar_ping", s(12), 0f, Items.ECHO_SHARD), 40f), en(tap("e1mk4_sonic_pulse", s(14), 10f, Items.BELL), 70f)),
+				key(en(tap("e1mk4_hydro_surge", s(4), 0f, Items.NAUTILUS_SHELL), 40f), en(tap("e1mk4_ballast_drop", s(10), 20f, Items.ANVIL), 60f)),
+				key(en(tap("e1mk4_depth_charge", s(10), 28f, Items.TNT), 80f), en(tap("e1mk4_mine_field", s(20), 22f, Items.SEA_PICKLE), 120f)),
+				key(en(tap("e1mk4_whirlpool", s(16), 3f, Items.NAUTILUS_SHELL), 100f), en(tap("e1mk4_bubble_shield", s(20), 0f, Items.GLASS), 90f)),
+				tap("e1mk4_headlamps", s(0.5), 0f, Items.SEA_LANTERN));
+
+		// MK V STEALTH: matte black and silent -- mobs lose you; paper-thin armour.
+		kit6("mark_v",
+				key(en(tap("e1mk5_silenced_dart", s(1.5), 6f, Items.ARROW), 20f), en(tap("e1mk5_sleeper_dart", s(12), 0f, Items.TIPPED_ARROW), 60f)),
+				key(en(tap("e1mk5_silent_takedown", s(4), 15f, Items.IRON_SWORD), 40f), en(tap("e1mk5_shadow_strike", s(10), 15f, Items.ENDER_PEARL), 80f)),
+				key(en(tap("e1mk5_light_bend_blink", s(5), 0f, Items.ENDER_PEARL), 50f), enPerSecond(tap("e1mk5_silent_glide", s(3), 0f, Items.PHANTOM_MEMBRANE), 8f)),
+				key(en(tap("e1mk5_emp", s(18), 0f, Items.REDSTONE_TORCH), 120f), en(tap("e1mk5_decoy", s(18), 0f, Items.ARMOR_STAND), 80f)),
+				key(en(tap("e1mk5_radar", s(10), 0f, Items.COMPASS), 30f), en(tap("e1mk5_thermal_vision", s(16), 0f, Items.SPIDER_EYE), 60f)),
+				enPerSecond(tap("e1mk5_silent_running", s(1), 0f, Items.BLACK_WOOL), 5f));
 
 		// MARK 2 (classic red and gold): repulsors, the tractor beam, flares, the round Unibeam and JARVIS.
 		kit("mark_2",
@@ -116,30 +179,6 @@ public final class IronManComicKit {
 				key(tap("mk2_flares", s(10), 5f, Items.FIREWORK_STAR), tap("mk2_supersonic", s(25), 0f, Items.ELYTRA)),
 				key(tap("mk2_unibeam", s(12), 26f, Items.BEACON), tap("mk2_unibeam_flash", s(10), 8f, Items.GLOWSTONE)),
 				key(tap("mk2_highlight", s(1), 0f, Items.ENDER_EYE), tap("mk2_jarvis_scan", s(15), 0f, Items.SPYGLASS)));
-
-		// MARK 3 (upgraded classic): rapid repulsors, pulse bolts, missiles, the triangular Unibeam and an energy shield.
-		kit("mark_iii",
-				key(tap("mk3_rapid_repulsors", s(1.5), 9f, Items.GLOWSTONE_DUST), tap("mk3_dash", s(8), 19f, Items.FEATHER)),
-				key(tap("mk3_pulse_bolts", s(1.5), 8f, Items.AMETHYST_SHARD), tap("mk3_sonic_clap", s(8), 20f, Items.BELL)),
-				key(tap("mk3_micro_missiles", s(10), 18f, Items.FIREWORK_ROCKET), tap("mk3_missile_barrage", s(18), 16f, Items.TARGET)),
-				key(tap("mk3_tri_unibeam", s(12), 32f, Items.BEACON), tap("mk3_unibeam_sweep", s(14), 22f, Items.END_ROD)),
-				key(tap("mk3_energy_shield", s(16), 0f, Items.SHIELD), tap("mk3_shield_bash", s(8), 18f, Items.IRON_DOOR)));
-
-		// MARK 4 HYDRO: sonar, torpedoes, the propeller, lights and the ballast -- all x1.5 underwater.
-		kit("mark_4",
-				key(tap("mk4_sonar_pulse", s(10), 6f, Items.ECHO_SHARD), tap("mk4_sonar_mark", s(14), 0f, Items.SCULK_SENSOR)),
-				key(tap("mk4_torpedo", s(6), 30f, Items.TRIDENT), tap("mk4_depth_charge", s(12), 28f, Items.TNT)),
-				key(tap("mk4_propeller_dash", s(6), 16f, Items.HEART_OF_THE_SEA), tap("mk4_whirlpool", s(16), 3f, Items.NAUTILUS_SHELL)),
-				key(tap("mk4_headlamp_beam", s(5), 14f, Items.SEA_LANTERN), tap("mk4_floodlight", s(14), 0f, Items.GLOWSTONE)),
-				key(tap("mk4_ballast_anchor", s(12), 10f, Items.ANVIL), tap("mk4_pressure_crush", s(14), 24f, Items.HEAVY_CORE)));
-
-		// MARK 5 STEALTH: silent shots, the cloak, jammers and decoys.
-		kit("mark_v",
-				key(tap("mk5_silenced_repulsor", s(1), 14f, Items.GLOWSTONE_DUST), tap("mk5_silent_takedown", s(12), 45f, Items.IRON_SWORD)),
-				key(tap("mk5_chameleon_cloak", s(25), 0f, Items.GLASS_PANE), tap("mk5_light_bend_blink", s(6), 0f, Items.ENDER_PEARL)),
-				key(tap("mk5_sensor_jammer", s(14), 0f, Items.SCULK_SHRIEKER), tap("mk5_emp_pulse", s(18), 8f, Items.REDSTONE_TORCH)),
-				key(tap("mk5_low_glow_shot", s(4), 26f, Items.SPYGLASS), tap("mk5_marked_shot", s(14), 0f, Items.TARGET)),
-				key(tap("mk5_holo_decoy", s(18), 0f, Items.ARMOR_STAND), tap("mk5_decoy_swap", s(10), 0f, Items.CHORUS_FRUIT)));
 
 		// MARK 6 SILVER CENTURION: pulse storms, ricochets, the chameleon effect and the heavy Unibeam.
 		kit("mark_6",
