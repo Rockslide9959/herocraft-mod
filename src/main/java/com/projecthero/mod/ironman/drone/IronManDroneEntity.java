@@ -203,7 +203,7 @@ public class IronManDroneEntity extends Entity {
 	}
 
 	public void setEnergy(float v) {
-		energy = Math.max(0f, Math.min(IronManEnergy.capacity(suitId()), v));
+		energy = IronManEnergy.FULL; // v0.16.1: no suit energy -- always full (old saves' values ignored)
 		getEntityData().set(ENERGY, energy);
 	}
 

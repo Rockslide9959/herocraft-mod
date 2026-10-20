@@ -149,7 +149,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 		ChunkPos cp = isolate(helper, p, 2500);
 		ServerLevel level = helper.getLevel();
 		BlockPos far = farPlatform(helper, p, 500, true, 0.6f, 0.75f);
-		float racked = 0.6f * IronManSuits.byId("mark_iii").energyCapacity();
+		float racked = 0.75f * IronManEnergy.maxIntegrity("mark_iii"); // v0.16.1: integrity is what travels with the suit
 		GlobalPos gp = GlobalPos.of(level.dimension(), far);
 		helper.startSequence()
 				.thenWaitUntil(() -> helper.assertTrue(unloaded(level, far), "the far platform's chunk unloads"))
@@ -158,8 +158,9 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 					Optional<IronManSuitListPayload.Option> o = opts.stream()
 							.filter(x -> x.suitId().equals("mark_iii") && x.source() == IronManSuitListPayload.SOURCE_PLATFORM).findFirst();
 					helper.assertTrue(o.isPresent(), "the picker lists the Mark III on the unloaded platform");
-					helper.assertTrue(Math.abs(o.get().energyFrac() - 0.6f) < 0.01f,
-							"with the charge it was racked with (" + o.get().energyFrac() + ")");
+					// v0.16.1: no suit energy -- the option carries the condition it was racked with
+					helper.assertTrue(o.get().integrityFrac() >= 0.74f && o.get().integrityFrac() < 1f, // (the rack may have welded a little on before it unloaded)
+							"with the condition it was racked with (" + o.get().integrityFrac() + ")");
 					helper.assertTrue(o.get().distance() > 600, "and its real distance (" + o.get().distance() + ")");
 					IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
 					helper.assertTrue(IronManSuitCall.hasPendingCall(p), "the call is travelling");
@@ -178,8 +179,8 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 							"the registry shows the platform empty");
 					IronManSuitPlatformBlockEntity be = IronManChunkTickets.loadPlatform(level, far);
 					helper.assertTrue(be != null && be.isEmptyPlatform(), "and the platform itself is empty");
-					helper.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - racked) < racked * 0.05f + 1f,
-							"the worn suit carries the racked charge (" + IronManEnergy.energy(p, "mark_iii") + ")");
+					helper.assertTrue(IronManEnergy.integrity(p, "mark_iii") >= racked - 1f && IronManEnergy.integrity(p, "mark_iii") < IronManEnergy.maxIntegrity("mark_iii"),
+							"the worn suit carries the racked integrity (" + IronManEnergy.integrity(p, "mark_iii") + ")");
 					Optional<GlobalPos> home = IronManPlatformReturn.homeOf(p.getItemBySlot(IronManSuitUpManager.slotFor(ArmorItem.Type.CHESTPLATE)));
 					helper.assertTrue(home.isPresent() && home.get().equals(gp), "each piece remembers the platform it came off");
 					// a nearer empty platform of the player's: send-home still prefers the suit's own platform

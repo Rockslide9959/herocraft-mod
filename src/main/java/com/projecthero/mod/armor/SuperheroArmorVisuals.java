@@ -52,6 +52,9 @@ public final class SuperheroArmorVisuals {
 			register(setId, new ArmorVisualDefinition(ProjectHeroMod.id("geo/" + setId + ".geo.json"),
 					ProjectHeroMod.id("textures/armor/" + setId + ".png"), SHARED_ANIMATION));
 		}
+		// v0.16.1 comic rework: the gold Mark 1 V2 is a placeholder on the Mark 1's model with a gold copy of its texture
+		register("mark_1_v2", new ArmorVisualDefinition(ProjectHeroMod.id("geo/mark_1.geo.json"),
+				ProjectHeroMod.id("textures/armor/mark_1_v2.png"), SHARED_ANIMATION));
 	}
 
 	private SuperheroArmorVisuals() {

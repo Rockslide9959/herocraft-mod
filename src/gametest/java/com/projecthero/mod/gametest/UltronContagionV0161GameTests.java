@@ -476,4 +476,30 @@ public class UltronContagionV0161GameTests implements FabricGameTest {
 		SuitHijack.clearSessionState();
 		helper.succeed();
 	}
+
+	/** v0.16.1: a Proximity Mine's EMP no longer drains suit energy -- it locks a suited Iron Man out for empLockoutTicks. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void proximityEmpLocksASuitOut(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+		p.moveTo(net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(2, 2, 2))));
+		com.projecthero.mod.ironman.TonyStark.grant(p);
+		for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE,
+				ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
+			p.setItemSlot(com.projecthero.mod.ironman.suit.IronManSuitUpManager.slotFor(t),
+					new net.minecraft.world.item.ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+		}
+		float integ = com.projecthero.mod.ironman.IronManEnergy.integrity(p, "mark_iii");
+		int ticks = ContagionConfig.assimilation().empLockoutTicks;
+		helper.assertTrue(ticks == 60, "the EMP lockout is 3 s");
+		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.overloaded(p), "not locked out before the EMP");
+		Assimilation.proximityEmp(level, p.position());
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.overloaded(p), "the EMP locks the suit out");
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.state(p).overloadUntil == level.getGameTime() + ticks,
+				"for empLockoutTicks");
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.integrity(p, "mark_iii") == integ, "and costs no integrity");
+		helper.getLevel().getServer().getPlayerList().remove(p);
+		helper.succeed();
+	}
 }

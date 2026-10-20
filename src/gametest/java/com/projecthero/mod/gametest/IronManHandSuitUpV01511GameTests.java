@@ -139,8 +139,10 @@ public class IronManHandSuitUpV01511GameTests implements FabricGameTest {
 		}
 		h.assertTrue(IronManManualSuitUp.kindFor("mark_1") == IronManManualSuitUp.KIND_MK1
 				&& IronManManualSuitUp.kindFor("mark_vii") == IronManManualSuitUp.KIND_WORKSHOP
-				&& IronManManualSuitUp.kindFor("mark_v") < 0 && IronManManualSuitUp.kindFor("mark_8") < 0,
-				"Mark 1 = cave, Marks 2-7 = workshop (not the case-only Mark 5), Mark 8 keeps its own");
+				&& IronManManualSuitUp.kindFor("mark_1_v2") == IronManManualSuitUp.KIND_MK1
+				&& IronManManualSuitUp.kindFor("mark_v") == IronManManualSuitUp.KIND_WORKSHOP
+				&& IronManManualSuitUp.kindFor("mark_2") < 0 && IronManManualSuitUp.kindFor("mark_8") < 0,
+				"v0.16.1: Mark 1 / 1 V2 = cave, Marks 3-7 = workshop (not the briefcase-only Mark 2), Mark 8 keeps its own");
 		h.succeed();
 	}
 

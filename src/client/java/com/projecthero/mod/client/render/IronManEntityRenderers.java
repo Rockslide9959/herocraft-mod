@@ -15,6 +15,8 @@ public final class IronManEntityRenderers {
 		EntityRendererRegistry.register(IronManEntityTypes.DELIVERY_POD,
 				com.projecthero.mod.client.ironman.IronManDeliveryPodRenderer::new);
 		com.projecthero.mod.client.ironman.MarkVSuitcaseClient.initialize();
+		// v0.16.1: the Hulkbuster Rocket Fist in flight
+		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_FIST, com.projecthero.mod.client.ironman.HulkbusterFistRenderer::new);
 		// v0.15.11: the hammer / wrench / carried piece of a hand-built suit-up
 		com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.initialize();
 	}

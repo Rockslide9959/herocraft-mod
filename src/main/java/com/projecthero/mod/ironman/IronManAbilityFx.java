@@ -33,6 +33,62 @@ public final class IronManAbilityFx {
 	public static final int MINIGUN = 22;
 	/** v0.15.11: the Mark 1 Shift+R ground pound ({@code IronManGroundPound}) -- fists overhead, then slammed down. */
 	public static final int GROUND_POUND = 60;
+	// v0.16.1 comic kit poses (IronManAbilityPose): numbered 80+ to stay clear of every other pose id
+	/** Both palms thrown forward and wide (magnets, pressor, tractor, gravity tether). */
+	public static final int COMIC_MAGNET = 80;
+	/** A crouch then both arms flung down and back (rocket hop, booster launch, rocket skates). */
+	public static final int COMIC_LAUNCH = 81;
+	/** Arms spread wide, body level (glide). */
+	public static final int COMIC_GLIDE = 82;
+	/** A full-turn spin with one leg out (skate spin-kick). */
+	public static final int COMIC_SPIN = 83;
+	/** Both forearms crossed in front of the face (Hydraulic Brace, cloak). */
+	public static final int COMIC_GUARD = 84;
+	/** Both hands out in front at chest height, holding something (grab, tractor hold). */
+	public static final int COMIC_GRAB = 85;
+	/** A big overhead throw with the right arm (grab and throw, depth charge, oil slick). */
+	public static final int COMIC_THROW = 86;
+	/** The right arm raised straight up at the sky (orbital strike, replacement pod). */
+	public static final int COMIC_SKY = 87;
+	/** Head and arms tucked down, diving (meteor dive). */
+	public static final int COMIC_DIVE = 88;
+	/** Knee lifted high, then a stomp (earthquake stomp, pressure crush). */
+	public static final int COMIC_STOMP = 89;
+	/** Alternating hammer fists (grab and pound, punch combo). */
+	public static final int COMIC_POUND = 90;
+	/** Arms out to the sides, chest thrust out (lamp flash, floodlight, solar flare, overload burst, sonar pulse). */
+	public static final int COMIC_FLARE = 91;
+	// v0.16.1: the Hulkbuster body's clips (client IronManHulkbusterAnimatable plays them while the full Mark 8 is worn);
+	// numbered 100+ (the body never uses the humanoid poses)
+	public static final int HB_PUNCH = 100;
+	public static final int HB_ROCKET_FIST = 101;
+	public static final int HB_PILE_DRIVER = 102;
+	public static final int HB_EARTHQUAKE = 103;
+	public static final int HB_GRAB = 104;
+	public static final int HB_GRAB_POUND = 105;
+	public static final int HB_GRAB_THROW = 106;
+	public static final int HB_CHEST_BEAM = 107;
+	public static final int HB_MISSILE_SWARM = 108;
+	public static final int HB_HYDRAULIC_BRACE = 109;
+	public static final int HB_REPLACEMENT_POD = 110;
+
+	/** v0.16.1: the Hulkbuster body clip name for a HB_* pose id, or null. */
+	public static String hulkbusterClip(int anim) {
+		return switch (anim) {
+			case HB_PUNCH -> "punch_combo";
+			case HB_ROCKET_FIST -> "rocket_fist";
+			case HB_PILE_DRIVER -> "pile_driver";
+			case HB_EARTHQUAKE -> "earthquake_stomp";
+			case HB_GRAB -> "grab";
+			case HB_GRAB_POUND -> "grab_pound";
+			case HB_GRAB_THROW -> "grab_throw";
+			case HB_CHEST_BEAM -> "chest_beam";
+			case HB_MISSILE_SWARM -> "missile_swarm";
+			case HB_HYDRAULIC_BRACE -> "hydraulic_brace";
+			case HB_REPLACEMENT_POD -> "replacement_pod";
+			default -> null;
+		};
+	}
 
 	private IronManAbilityFx() {
 	}

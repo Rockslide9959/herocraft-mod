@@ -368,7 +368,7 @@ public class IronManV0159GameTests implements FabricGameTest {
 		h.assertTrue(be.storeSuitcase(p, caseStack), "the case docks");
 		h.assertTrue(be.unpacking() && be.locked() && be.pieceMask() == 15, "it unfolds on the rack, every piece already there");
 		h.assertTrue(be.storedSuitId() == null, "hidden from calls / the gantry while it unfolds");
-		h.assertTrue(be.removeItem(1, 1).isEmpty() && !be.canPlaceItem(0, new ItemStack(IronManItems.armor("mark_v", ArmorItem.Type.HELMET))),
+		h.assertTrue(be.removeItem(1, 1).isEmpty() && !be.canPlaceItem(0, new ItemStack(IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, ArmorItem.Type.HELMET))),
 				"the rack is locked");
 		h.assertFalse(be.packSuitcase(p), "and can't be packed again mid-unfold");
 		h.assertTrue(StarkGantry.menuFor(h.getLevel(), StarkGantry.centreUnder(p), p).entries().isEmpty(), "the gantry doesn't list it yet");
@@ -381,9 +381,9 @@ public class IronManV0159GameTests implements FabricGameTest {
 		h.runAfterDelay(IronManSuitPlatformBlockEntity.UNPACK_TICKS / 2, () -> h.assertTrue(be.unpacking(), "halfway: still unfolding"));
 		h.runAfterDelay(IronManSuitPlatformBlockEntity.UNPACK_TICKS + 3, () -> {
 			h.assertFalse(be.unpacking() || be.locked(), "done: unlocked");
-			h.assertTrue("mark_v".equals(be.storedSuitId()) && be.isFull(), "a Mark 5 stands on the rack");
+			h.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(be.storedSuitId()) && be.isFull(), "a Mark 2 (v0.16.1: the briefcase suit) stands on the rack");
 			h.assertTrue(StarkGantry.menuFor(h.getLevel(), StarkGantry.centreUnder(p), p).entries().stream()
-					.anyMatch(e -> e.suitId().equals("mark_v")), "and the gantry lists it");
+					.anyMatch(e -> e.suitId().equals(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT)), "and the gantry lists it");
 			leave(h, p);
 			h.succeed();
 		});

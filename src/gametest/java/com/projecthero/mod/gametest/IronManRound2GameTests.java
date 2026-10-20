@@ -150,10 +150,8 @@ public class IronManRound2GameTests implements FabricGameTest {
 		helper.assertTrue(s.pendingMissiles == IronManAbilities.HOMING_MISSILE_COUNT && s.pendingMissileHoming,
 				"X queues a 4-missile homing volley (got " + s.pendingMissiles + ")");
 		helper.assertTrue(s.pendingMissileTargetId == zombie.getId(), "locked on to the zombie");
-		float spent = before - IronManEnergy.energy(p, "mark_vii");
-		float expected = IronManSuits.byId("mark_vii").missileEnergyCost() * IronManSuits.byId("mark_vii").energyCostMultiplier();
-		helper.assertTrue(spent > 0f && Math.abs(spent - expected) <= Math.max(1f, expected * 0.05f),
-				"costs the same as Micro-Missiles (" + spent + " vs " + expected + ")");
+		// v0.16.1: no suit energy -- the volley costs nothing
+		helper.assertTrue(IronManEnergy.energy(p, "mark_vii") == before, "no energy spent");
 		helper.assertTrue(s.abilityReadyAt.containsKey("mark_vii/" + IronManAbilities.HOMING_MISSILES),
 				"its own cooldown (the HUD strip reads mark_vii/homing_missiles)");
 		IronManAbilities.tickMicroMissiles(p, IronManSuits.byId("mark_vii"));
@@ -222,19 +220,6 @@ public class IronManRound2GameTests implements FabricGameTest {
 		helper.assertFalse(IronManBladeLook.visible(0f), "stowed = hidden");
 		helper.assertTrue(IronManBladeLook.visible(IronManBladeLook.eased(1f / 6f)), "visible from the first tick out");
 		helper.assertTrue(IronManBladeLook.boneScale(0f) > 0f && IronManBladeLook.boneScale(1f) == 1f, "bone scale never 0");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void bladeStateIsSyncedTheClientDrivesItFrom(GameTestHelper helper) {
-		ServerPlayer p = suited(helper, "mark_v");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // v0.14.29: Blades moved to V
-		helper.assertTrue(p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BLADES, false),
-				"V sets the synced IRON_MAN_BLADES flag the blade geometry reads");
-		IronManBlade.tick(p);
-		helper.assertTrue(IronManBlade.active(p), "blades stay out while the Mark V runs");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		helper.assertFalse(IronManBlade.active(p), "V again retracts them");
 		helper.succeed();
 	}
 

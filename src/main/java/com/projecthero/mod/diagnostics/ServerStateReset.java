@@ -100,6 +100,10 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.ability.IronManMark6.clearSessionState(); // v0.14.29 (agent C)
 		com.projecthero.mod.ironman.ability.IronManMark7.clearSessionState();
 		com.projecthero.mod.ironman.ability.IronManHeldBeam.clearSessionState();
+		// v0.16.1 Iron Man comic rework: running comic moves / areas / follow-ups, held keys, the combat clock
+		com.projecthero.mod.ironman.ability.IronManComicState.clearSessionState();
+		com.projecthero.mod.ironman.ability.IronManComicRouter.clearSessionState();
+		com.projecthero.mod.ironman.IronManIntegrity.clearSessionState();
 		com.projecthero.mod.event.entity.CursedZombieSpawns.clearSessionState();
 		com.projecthero.mod.event.raid.ZombieRaidNetworking.clearSessionState();
 		com.projecthero.mod.worldgen.GraveyardTracker.clearSessionState();

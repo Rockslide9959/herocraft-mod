@@ -264,9 +264,9 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 	public void markVCaseHoldsTheRealSuitBothWays(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
-			p.setItemSlot(IronManSuitUpManager.slotFor(t), marked(h, "mark_v", t));
+			p.setItemSlot(IronManSuitUpManager.slotFor(t), marked(h, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t));
 		}
-		h.assertTrue(IronManSuitUpManager.beginSuitDownToCase(p, "mark_v"), "fold into the case");
+		h.assertTrue(IronManSuitUpManager.beginSuitDownToCase(p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT), "fold into the case");
 		runSequence(p);
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "the suit is folded away");
 		int caseIdx = -1;
@@ -280,12 +280,12 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		ItemStack caseStack = p.getInventory().getItem(caseIdx);
 		var slots = SuitcaseContents.read(caseStack);
 		for (int i = 0; i < 4; i++) {
-			h.assertTrue(isMarked(h, slots.get(i), "mark_v", TYPES[i]), "the case holds the real " + TYPES[i].getName());
+			h.assertTrue(isMarked(h, slots.get(i), com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, TYPES[i]), "the case holds the real " + TYPES[i].getName());
 		}
 
-		h.assertTrue(IronManSuitUpManager.beginSuitUpFromCase(p, "mark_v"), "unfold from the case");
+		h.assertTrue(IronManSuitUpManager.beginSuitUpFromCase(p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT), "unfold from the case");
 		runSequence(p);
-		assertWornMarked(h, p, "mark_v");
+		assertWornMarked(h, p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT);
 		h.assertTrue(p.getInventory().countItem(IronManItems.MARK_V_SUITCASE) == 0, "the emptied case is used up");
 		h.succeed();
 	}
@@ -296,14 +296,14 @@ public class IronManSuitUpV01421GameTests implements FabricGameTest {
 		ItemStack empty = new ItemStack(IronManItems.MARK_V_SUITCASE);
 		SuitcaseContents.write(empty, net.minecraft.core.NonNullList.withSize(4, ItemStack.EMPTY));
 		p.getInventory().add(empty);
-		h.assertFalse(IronManSuitUpManager.beginSuitUpFromCase(p, "mark_v"),
+		h.assertFalse(IronManSuitUpManager.beginSuitUpFromCase(p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT),
 				"an emptied (modern) case must never conjure a free suit");
 		p.getInventory().clearContent();
 
 		p.getInventory().add(new ItemStack(IronManItems.MARK_V_SUITCASE)); // crafted / creative / pre-0.14.21
-		h.assertTrue(IronManSuitUpManager.beginSuitUpFromCase(p, "mark_v"), "a legacy case still unfolds");
+		h.assertTrue(IronManSuitUpManager.beginSuitUpFromCase(p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT), "a legacy case still unfolds");
 		runSequence(p);
-		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_v"), "into a whole Mark V");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT), "into a whole Mark 2 (v0.16.1: the briefcase suit)");
 		h.assertTrue(p.getInventory().countItem(IronManItems.MARK_V_SUITCASE) == 0, "and is used up");
 		h.succeed();
 	}

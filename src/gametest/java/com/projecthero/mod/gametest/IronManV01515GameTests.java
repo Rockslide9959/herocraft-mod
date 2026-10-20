@@ -138,11 +138,13 @@ public class IronManV01515GameTests implements FabricGameTest {
 		ServerPlayer p = tony(h);
 		wear(p, "mark_iii");
 		// v0.15.19, user request: Marks 2-7 are unbuilt off the body by hand like the Mark 1 (no more retract)
-		for (String id : new String[] { "mark_2", "mark_iii", "mark_4", "mark_6", "mark_vii" }) {
+		// v0.16.1: the Mark 5 Stealth comes off by hand now; the Mark 2 folds into its briefcase instead
+		for (String id : new String[] { "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" }) {
 			h.assertTrue(IronManSuitRemoval.kindFor(id) == IronManSuitRemoval.KIND_WORKSHOP, id + " comes off by hand");
 		}
-		h.assertTrue(IronManSuitRemoval.kindFor("mark_v") < 0 && IronManSuitRemoval.kindFor("mark_8") < 0,
-				"the Mark 5 keeps its suitcase fold, the Mark 8 its reverse build");
+		h.assertTrue(IronManSuitRemoval.kindFor("mark_1_v2") == IronManSuitRemoval.KIND_MK1, "the Mark 1 V2 like the Mark 1");
+		h.assertTrue(IronManSuitRemoval.kindFor("mark_2") < 0 && IronManSuitRemoval.kindFor("mark_8") < 0,
+				"the Mark 2 keeps its briefcase fold, the Mark 8 its reverse build");
 		h.assertTrue(IronManSuitUpManager.beginSuitDown(p, "mark_iii"), "C starts the removal");
 		h.assertTrue(IronManSuitRemoval.running(p) && !IronManManualSuitUp.running(p), "a removal, not a hand build");
 		IronManSuitFx fx = IronManSuitFx.of(p);
@@ -171,8 +173,9 @@ public class IronManV01515GameTests implements FabricGameTest {
 		for (int i = 0; i < 9; i++) {
 			h.assertFalse(p.getInventory().items.get(i).getItem() instanceof IronManArmorItem, "nothing lands in the hotbar");
 		}
-		h.assertTrue(IronManEnergy.stackEnergy(findInPack(p, "mark_iii", ArmorItem.Type.CHESTPLATE), "mark_iii")
-				> IronManSuits.byId("mark_iii").energyCapacity() * 0.45f, "its charge is stamped on the stored pieces");
+		// v0.16.1: the suit's integrity (no energy any more) is stamped on the stored pieces
+		h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(findInPack(p, "mark_iii", ArmorItem.Type.CHESTPLATE), "mark_iii")
+				- IronManEnergy.integrity(p, "mark_iii")) < 1f, "its integrity is stamped on the stored pieces");
 		h.succeed();
 	}
 
@@ -296,32 +299,29 @@ public class IronManV01515GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void callingTheMarkSevenCostsTenPercent(GameTestHelper h) {
+	public void callingTheMarkSevenIsFree(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		p.setOnGround(true);
 		StarkGear.setGlasses(p, ColantotteBracelets.bind(new ItemStack(IronManItems.COLANTOTTE_BRACELETS), p.getUUID(), 0));
 		IronManSuitPlatformBlockEntity be = rack(h, p, "mark_vii", 0.5f);
-		h.assertTrue(IronManSuitCall.callCosts(IronManSuits.byId("mark_vii")) && !IronManSuitCall.callCosts(IronManSuits.byId("mark_iii")),
-				"only the Mark 7's call costs power here (the Mark 8 is the Mark 8 builder's)");
+		// v0.16.1: no suit energy -- no call costs anything any more
+		for (var suit : IronManSuits.all()) {
+			h.assertFalse(IronManSuitCall.callCosts(suit), suit.id() + "'s call is free");
+		}
 		h.assertTrue(IronManSuitCall.braceletCall(p), "the bracelets call the Mark 7");
 		h.assertTrue(be.isEmptyPlatform(), "it leaves its platform");
-		float cap = IronManSuits.byId("mark_vii").energyCapacity();
-		float e = IronManEnergy.energy(p, "mark_vii");
-		h.assertTrue(Math.abs(e - cap * 0.4f) < cap * 0.001f, "50% on the rack -> 40% after the call, got " + e / cap);
 		h.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void aMarkSevenUnderTenPercentStaysPut(GameTestHelper h) {
+	public void aLowChargeMarkSevenIsStillCalled(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		p.setOnGround(true);
 		StarkGear.setGlasses(p, ColantotteBracelets.bind(new ItemStack(IronManItems.COLANTOTTE_BRACELETS), p.getUUID(), 0));
+		// v0.16.1: no suit energy -- an old save's 5% charge stamp no longer keeps the Mark 7 on its rack
 		IronManSuitPlatformBlockEntity be = rack(h, p, "mark_vii", 0.05f);
-		IronManSuitCall.braceletCall(p);
-		h.assertFalse(be.isEmptyPlatform(), "5% power: the Mark 7 is not called");
-		h.assertFalse(IronManSuitUpManager.inTransition(p), "nothing inbound");
-		h.assertTrue(StarkGear.hasBracelets(p), "and the bracelets are not used up");
-		h.assertFalse(p.getAttachedOrElse(ModAttachments.IRON_MAN_FACEPLATE_OPEN, false), "(nothing else touched)");
+		h.assertTrue(IronManSuitCall.braceletCall(p), "the bracelets still call it");
+		h.assertTrue(be.isEmptyPlatform(), "the Mark 7 leaves its platform");
 		h.succeed();
 	}
 }

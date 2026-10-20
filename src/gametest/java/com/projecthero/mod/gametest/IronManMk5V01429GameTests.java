@@ -33,6 +33,8 @@ import net.minecraft.world.phys.AABB;
 
 /** v0.14.29: the Mark 5 rework -- stats, kit, instant repulsor, the suitcase fold / build, C never deploys it. */
 public class IronManMk5V01429GameTests implements FabricGameTest {
+	/** v0.16.1: the suit the briefcase (the old Mark V Suitcase item) carries -- the Mark 2. */
+	private static final String BRIEFCASE = IronManSuitUpManager.BRIEFCASE_SUIT;
 	private static final ArmorItem.Type[] TYPES = {
 			ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS };
 
@@ -72,58 +74,16 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void mk5StatsAndKit(GameTestHelper h) {
-		IronManSuit mv = IronManSuits.MARK_V;
-		h.assertTrue(mv.energyCapacity() == 2500f, "energy 2500");
-		h.assertTrue(mv.energyRegenPerSecond() == 5f, "regens 5 energy/s");
-		h.assertTrue(mv.maxIntegrity() == 800f && IronManEnergy.maxIntegrity("mark_v") == 800f, "integrity 800");
-		h.assertTrue(mv.arrowFireImmune(), "immune to arrows + fire");
-		h.assertTrue(mv.waterBreathing(), "breathes underwater");
-		h.assertTrue(mv.autoFeed(), "auto-feeds");
-		h.assertTrue(mv.targeting() && IronManTargeting.hasTargeting(mv), "lock-on / auto-aim");
-		h.assertTrue(mv.strengthBonus() == 6f, "melee +6");
-		h.assertTrue(mv.repulsorWindupTicks() == 0, "no repulsor spin-up");
-		String[] kit = { IronManAbilities.REPULSOR_BLAST, IronManAbilities.SONIC_CLAP, IronManAbilities.FLARE,
-				IronManAbilities.UNIBEAM, IronManAbilities.BLADE, IronManAbilities.SUIT_TOGGLE };
-		for (int s = 1; s <= 6; s++) {
-			h.assertTrue(kit[s - 1].equals(mv.abilityInSlot(s)), "slot " + s + " must be " + kit[s - 1]);
-		}
-		IronManSuit m2 = IronManSuits.MARK_2;
-		h.assertTrue(mv.hasDash() && mv.dashDamage() == m2.dashDamage() && mv.sonicClapDamage() == m2.sonicClapDamage()
-				&& mv.unibeamChannelTicks() == m2.unibeamChannelTicks(), "the Mark 2's numbers for the shared kit");
-		int[] defense = { 3, 8, 6, 3 };
-		for (int i = 0; i < 4; i++) {
-			ArmorItem a = (ArmorItem) IronManItems.armor("mark_v", TYPES[i]);
-			h.assertTrue(a.getDefense() == defense[i], "diamond-level " + TYPES[i].getName() + ": " + a.getDefense());
-			h.assertTrue(a.getToughness() == 2.0f, "diamond toughness");
-		}
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void mk5RepulsorTapFiresInstantly(GameTestHelper h) {
-		ServerPlayer p = player(h);
-		wear(p, "mark_v");
-		IronManEnergy.setEnergy(p, "mark_v", 2000f);
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		h.assertTrue(TonyStark.state(p).repulsorWindupAt == 0L, "no spin-up is queued");
-		h.assertTrue(IronManEnergy.energy(p, "mark_v") < 2000f, "the tap fired (and paid) on release");
-		h.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
 	public void mk5StoreFoldsIntoACaseInTheMainHand(GameTestHelper h) {
 		ServerPlayer p = player(h);
-		wear(p, "mark_v");
-		IronManEnergy.setEnergy(p, "mark_v", 1234f);
-		IronManEnergy.setIntegrity(p, "mark_v", 456f);
+		wear(p, BRIEFCASE); // v0.16.1: the briefcase carries the Mark 2
+		IronManEnergy.setIntegrity(p, BRIEFCASE, 456f);
 		p.getInventory().selected = 2;
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, true); // plain C
 		h.assertTrue(IronManSuitUpManager.inTransition(p), "C starts the fold");
 		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.DOWN_TICKS && IronManMk5Suitcase.DOWN_TICKS == 140,
 				"v0.15.8: the fold is the 7 s build backwards");
-		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_v"), "the pieces stay on until the fold ends");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, BRIEFCASE), "the pieces stay on until the fold ends");
 		runSequence(p);
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "folded away");
 		h.assertTrue(p.getInventory().items.get(2).is(IronManItems.MARK_V_SUITCASE), "the case lands in the empty main hand");
@@ -133,8 +93,7 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		}
 		ItemStack c = p.getInventory().items.get(2);
 		h.assertTrue(SuitcaseContents.nonEmpty(c).size() == 4, "the case holds all four pieces");
-		h.assertTrue(Math.abs(IronManEnergy.stackEnergy(c, "mark_v") - 1234f) < 1f
-				&& Math.abs(IronManEnergy.stackIntegrity(c, "mark_v") - 456f) < 1f, "and the suit's energy / integrity");
+		h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(c, BRIEFCASE) - 456f) < 1f, "and the suit's integrity");
 		h.succeed();
 	}
 
@@ -164,17 +123,30 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void cNeverDeploysTheMk5(GameTestHelper h) {
+		// v0.16.1: the briefcase suit is the Mark 2 now -- C never deploys it from loose pieces or its case
+		ServerPlayer p = player(h);
+		for (ArmorItem.Type t : TYPES) {
+			p.getInventory().add(new ItemStack(IronManItems.armor(BRIEFCASE, t)));
+		}
+		ItemStack packed = new ItemStack(IronManItems.MARK_V_SUITCASE); // a legacy case = a whole briefcase suit
+		p.getInventory().add(packed);
+		h.assertFalse(IronManSuitCall.autoEquipInventorySuit(p), "plain C ignores the Mark 2 pieces and its case");
+		h.assertFalse(IronManSuitUpManager.inTransition(p), "nothing started");
+		h.assertTrue(IronManSuitCall.assemblableSuits(p).stream().noneMatch(o -> o.suitId().equals(BRIEFCASE)),
+				"the Sneak+C picker never lists the Mark 2");
+		h.assertFalse(IronManSuitUpManager.beginSuitUp(p, BRIEFCASE), "no inventory suit-up path for the Mark 2");
+		h.succeed();
+	}
+
+	/** v0.16.1: the Mark 5 is the Stealth armour now -- a normal suit that plain C puts on from the pack. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void cPutsOnTheStealthMarkFive(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		for (ArmorItem.Type t : TYPES) {
 			p.getInventory().add(new ItemStack(IronManItems.armor("mark_v", t)));
 		}
-		ItemStack packed = new ItemStack(IronManItems.MARK_V_SUITCASE); // a legacy case = a whole Mark 5
-		p.getInventory().add(packed);
-		h.assertFalse(IronManSuitCall.autoEquipInventorySuit(p), "plain C ignores the Mark 5 pieces and its case");
-		h.assertFalse(IronManSuitUpManager.inTransition(p), "nothing started");
-		h.assertTrue(IronManSuitCall.assemblableSuits(p).stream().noneMatch(o -> o.suitId().equals("mark_v")),
-				"the Sneak+C picker never lists the Mark 5");
-		h.assertFalse(IronManSuitUpManager.beginSuitUp(p, "mark_v"), "no inventory suit-up path for the Mark 5");
+		h.assertTrue(IronManSuitCall.autoEquipInventorySuit(p), "plain C puts the Mark 5 on");
+		h.assertTrue(IronManSuitUpManager.inTransition(p), "the suit-up started");
 		h.succeed();
 	}
 
@@ -195,12 +167,11 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		}
 		h.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "the case is still held out in front");
 		IronManSuitUpManager.tick(p);
-		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, "mark_v") && p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()
+		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, BRIEFCASE) && p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()
 				&& p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "the case became the chestplate, first");
-		IronManAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		h.assertFalse(com.projecthero.mod.ironman.IronManBlade.active(p), "abilities stay locked while it builds");
+		h.assertTrue(IronManSuitUpManager.blockedWhileAssembling(p, true), "abilities stay locked while it builds");
 		runSequence(p);
-		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_v"), "the whole Mark 5 is on");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, BRIEFCASE), "the whole Mark 2 is on (v0.16.1: the briefcase suit)");
 		h.assertTrue(caseSlot(p) < 0, "the case is used up");
 		h.succeed();
 	}
