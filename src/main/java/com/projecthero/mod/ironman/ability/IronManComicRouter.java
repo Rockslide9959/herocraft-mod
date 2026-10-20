@@ -78,6 +78,10 @@ public final class IronManComicRouter {
 				boolean fired = IronManComicMoves.fire(player, suit, m, false);
 				if (fired) {
 					startCooldown(player, suit, m);
+					// v0.16.7 Era I: a hold move that goes off on the release (unibeam, haymaker, charged repulsor) pays then
+					if (eraOne) {
+						com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
+					}
 				}
 			}
 			return;
