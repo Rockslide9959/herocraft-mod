@@ -460,7 +460,7 @@ public final class IronManHud {
 			}
 			// v0.16.1: the comic kit -- the box shows the move Shift would fire while Shift is held, else the tap move
 			if (com.projecthero.mod.ironman.ability.IronManComicKit.isKitSlot(abilityId)) {
-				String n = comicBox(g, font, player, state, suitId, i, r, now, retro, offline, accent);
+				MoveListOverlay.Row n = comicBox(g, font, player, state, suitId, i, r, now, retro, offline, accent);
 				if (expanded && n != null) {
 					names.add(n);
 				}
@@ -532,7 +532,7 @@ public final class IronManHud {
 	}
 
 	/** v0.16.1: one comic-kit key box. Returns the expanded-list line ("[R] Tap / Shift  cooldowns"). */
-	private static String comicBox(GuiGraphics g, Font font, Player player, TonyStarkState state, String suitId, int i, Rect r, long now,
+	private static MoveListOverlay.Row comicBox(GuiGraphics g, Font font, Player player, TonyStarkState state, String suitId, int i, Rect r, long now,
 			boolean retro, boolean offline, int accent) {
 		var kitKey = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suitId) == null ? null
 				: com.projecthero.mod.ironman.ability.IronManComicKit.kit(suitId).key(i + 1);
@@ -575,10 +575,9 @@ public final class IronManHud {
 			g.drawString(font, "⇧", r.right() - 7, r.y() + 1, IronManGui.GOLD, true);
 		}
 		g.pose().popPose();
-		String tapName = Component.translatable(kitKey.tap().nameKey()).getString();
-		String shiftName = Component.translatable(kitKey.shift().nameKey()).getString();
-		return Component.translatable("hud.projecthero.ironman.comic.pair", keyLabel(i), tapName, shiftName).getString()
-				+ (left > 0 ? "  " + IronManUiLayout.secs(left) : "");
+		// v0.16.7: a row of the shared move list (tap move, its Shift move, the cooldown)
+		return MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(kitKey.tap().nameKey()),
+				Component.translatable(kitKey.shift().nameKey()), left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
 	}
 
 	private static boolean isActive(Player player, TonyStarkState state, String abilityId, long now) {
