@@ -25,6 +25,12 @@ public abstract class CityLevelChunkMixin {
 	@Final
 	Level level;
 
+	/** v0.16.7 (user): Second Chance remembers a block entity's data (a chest's contents) before the spot changes. */
+	@Inject(method = "setBlockState", at = @At("HEAD"))
+	private void projecthero$beforeBlockChanged(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> cir) {
+		com.projecthero.mod.miraculous.viperion.SecondChance.beforeBlockChange(level, pos);
+	}
+
 	@Inject(method = "setBlockState", at = @At("RETURN"))
 	private void projecthero$cityBlockChanged(BlockPos pos, BlockState state, boolean moved, CallbackInfoReturnable<BlockState> cir) {
 		BlockState old = cir.getReturnValue();
@@ -32,8 +38,8 @@ public abstract class CityLevelChunkMixin {
 			CityDamageTracker.onBlockChanged(level, pos, old, state);
 			// v0.16.6: and Ladybug's Miraculous Ladybug memory (one empty-map check unless a Ladybug is transformed)
 			com.projecthero.mod.miraculous.ladybug.LadybugRestore.onBlockChanged(level, pos, old, state);
-			// v0.16.7: and Viperion's Second Chance checkpoints (one empty-map check unless a checkpoint is live)
-			com.projecthero.mod.miraculous.viperion.SecondChance.onBlockChanged(level, pos, old, state);
 		}
+		// v0.16.7: and Viperion's Second Chance checkpoints, every dimension (also on no change: it pairs the HEAD hook)
+		com.projecthero.mod.miraculous.viperion.SecondChance.onBlockChanged(level, pos, old, state);
 	}
 }

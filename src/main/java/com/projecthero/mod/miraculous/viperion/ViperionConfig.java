@@ -95,11 +95,14 @@ public final class ViperionConfig {
 	public static final int SECOND_CHANCE_WINDOW = 90 * 20;
 	/** Rewinds a checkpoint gives; then it is spent. */
 	public static final int SECOND_CHANCE_REWINDS = 3;
-	/** Everything within this of the checkpoint is remembered and rewound (mobs, squadmates, blocks). */
-	public static final double SECOND_CHANCE_RADIUS = 32.0;
-	/** At most this many creatures (nearest first) and block spots are remembered. */
-	public static final int SECOND_CHANCE_MAX_MOBS = 96;
-	public static final int SECOND_CHANCE_MAX_BLOCKS = 8192;
+	/** v0.16.7 (user): the rewind covers the WHOLE world, every dimension. At most this many loaded creatures are noted at the
+	 * checkpoint (his dimension first, nearest first), block spots remembered, and new entities tracked. */
+	public static final int SECOND_CHANCE_MAX_MOBS = 8000;
+	public static final int SECOND_CHANCE_MAX_BLOCKS = 250_000;
+	public static final int SECOND_CHANCE_MAX_NEW = 20_000;
+	/** Rewind sparkles only within this of him (the rest of the world rewinds quietly), at most this many block sparkles. */
+	public static final double SECOND_CHANCE_FX_RANGE = 48.0;
+	public static final int SECOND_CHANCE_FX_BLOCKS = 300;
 	/** Two rewinds at least this far apart (one key press, not a double one). */
 	public static final int SECOND_CHANCE_REWIND_GAP = 20;
 	/** The special's cooldown, from the checkpoint. */

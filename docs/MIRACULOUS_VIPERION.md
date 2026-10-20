@@ -46,21 +46,26 @@ rooted, stunned or scared. Both X moves are in `MiraculousConfig.SAFE_LANDING_MO
 
 First Shift+Z: a checkpoint (green clock-face ripple, bell + chime, HUD ring) and the Miraculous countdown. For **90 s**
 (user) Shift+Z again rewinds (never on the cooldown, 20 ticks between presses); **3 rewinds**, then it is spent.
-Rewound, within **32 blocks** of the checkpoint:
+Rewound, across the **whole world, every dimension** (v0.16.7, user -- it used to be a 32-block bubble). Lazy, so it
+costs nothing up front: a cheap note of every loaded creature at the checkpoint, save data copied only at `ALLOW_DEATH`,
+every block change (+ block-entity data via a HEAD hook in `CityLevelChunkMixin`), every `addFreshEntity`
+(`SecondChanceSpawnMixin`); leftovers in unloaded chunks wait in `PENDING` and are applied on `CHUNK_LOAD`:
 
 - him: position, rotation, health, absorption, hunger / saturation, effects, fire, air (not the inventory);
-- squadmates who were there: the same -- other players are never moved;
+- squadmates, wherever they are: the same -- other players are never moved;
 - **time** (v0.16.7, user: "as if time were rewound", `TimeRewind`): the checkpoint stores its game time and copies of
   his and those squadmates' `MiraculousState` / `QuirkState`; a rewind shifts every absolute time in them by
   `now - checkpointTime`: the Miraculous countdown (`countdownEnd`), every cooldown (`abilityReadyAt`; ready then = ready
   now), every kit timer in `vals` named `*_until` / `*_at` / `*_since` / `*_end` (one started since is removed; toggles,
   counts and ids stay), the Kwami's hunger + meal, a Quirk's cooldowns / overload / meter. The window restarts (a full
   90 s from the rewind); the special's own cooldown goes back to its checkpoint value too. His running move sessions end;
-- every creature that was there (up to 96, nearest first): position, rotation, health, effects, fire, air (no deeper AI
-  state / boss move timers); one killed since is
-  rebuilt from its saved NBT (never a boss); hostile mobs that appeared since, and new item drops (no thrower) / XP orbs,
-  are removed;
-- blocks broken / placed / changed since (first old state per spot, up to 8192) are put back at once.
+- every loaded creature (up to 8000, his dimension nearest first): position, rotation, health, effects, fire, air (no deeper AI
+  state / boss move timers); one killed since
+  (anywhere -- also one that wandered in from an unloaded chunk after the checkpoint, back where it fell at full health) is
+  rebuilt from the NBT copied the moment before it died (never a boss); hostile mobs that appeared since, new item drops
+  (no thrower), XP orbs and arrows are removed wherever they are;
+- blocks broken / placed / changed since (first old state per spot + its block entity data, up to
+  250,000) are put back at once (no neighbour updates; sparkles only within 48 blocks of him).
 
 A **killing blow** while a checkpoint is live rewinds instead (`ALLOW_DEATH`, one rewind). `/kill` (`GENERIC_KILL`) and
 other invulnerability-bypassing damage still kill, except falling out of the world (that is rewound).
@@ -83,5 +88,6 @@ The checkpoint lives in `SecondChance` (server); the HUD reads `vp_cp_until`, `v
 keeping its momentum; Coil Leap's fall forgotten + no fall damage), the checkpoint + manual rewind (him + a mob), the automatic rewind on a lethal
 hit, three rewinds then spent, the 90 s window closing, the timers turned back (countdown, a cooldown, a kit timer, the
 window restarting) and a squadmate's countdown + cooldown turned back, the dead / blocks / newcomers rewind, poison immunity, the
-phrases + eggs, box / jewel / guide chapter. The hero-voice phrase line is in `MiraculousCoreGameTests`. The Second Chance tests each run in their own batch (their 32-block reach
-would rewind the neighbouring tests' mobs).
+phrases + eggs, box / jewel / guide chapter. The hero-voice phrase line is in `MiraculousCoreGameTests`. The Second Chance tests each run in their own batch (their world-wide reach
+would rewind the neighbouring tests' mobs); `rewindReachesTheWholeWorld` is the 40-block / chest-contents / far-drop one
+(the test world keeps only about 40 blocks round a test entity-ticking).

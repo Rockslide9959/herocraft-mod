@@ -84,7 +84,8 @@
 		"ErasureCreeperMixin",
 		"ErasureEnderManMixin",
 		"ErasureShulkerMixin",
-		"ErasureServerLevelSpawnMixin"
+		"ErasureServerLevelSpawnMixin",
+		"SecondChanceSpawnMixin"
 	],
 	"client": [],
 	"server": [],

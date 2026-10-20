@@ -479,6 +479,51 @@ public class ViperionGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * v0.16.7 (user): the rewind covers the WHOLE world -- a zombie killed 40 blocks away (outside the old 32-block
+	 * bubble) comes back, a broken chest comes back with what was in it, and a drop that appeared far away is gone.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100, batch = "viperion_rewindReachesTheWholeWorld")
+	public void rewindReachesTheWholeWorld(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = viperion(helper, 1.5, 2.0, 1.5);
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		BlockPos farFloor = helper.absolutePos(new BlockPos(40, 1, 1));
+		level.setBlock(farFloor, Blocks.STONE.defaultBlockState(), 3);
+		Zombie far = mob(helper, EntityType.ZOMBIE, 40.5, 2.0, 1.5, 20, false);
+		UUID farId = far.getUUID();
+		BlockPos chest = helper.absolutePos(new BlockPos(4, 2, 1));
+		level.setBlock(chest, Blocks.CHEST.defaultBlockState(), 3);
+		if (level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity cbe) {
+			cbe.setItem(0, new ItemStack(Items.DIAMOND, 7));
+		}
+		pump(helper, p);
+		net.minecraft.world.entity.item.ItemEntity[] drop = new net.minecraft.world.entity.item.ItemEntity[1];
+		helper.runAfterDelay(2, () -> {
+			helper.assertTrue(level.getEntity(farId) != null, "the far zombie is in the world (40 blocks away)");
+			SecondChance.checkpoint(p);
+			helper.assertTrue(SecondChance.trackedMobs(p) >= 1, "the far zombie is noted");
+		});
+		helper.runAfterDelay(8, () -> {
+			far.hurt(level.damageSources().generic(), 1000f);
+			level.destroyBlock(chest, false);
+			drop[0] = new net.minecraft.world.entity.item.ItemEntity(level, farFloor.getX() + 2.5, farFloor.getY() + 1.0, farFloor.getZ() + 0.5,
+					new ItemStack(Items.ROTTEN_FLESH));
+			level.addFreshEntity(drop[0]);
+		});
+		helper.runAfterDelay(34, () -> {
+			helper.assertTrue(SecondChance.rewind(p, false), "rewound");
+			Entity back = level.getEntity(farId);
+			helper.assertTrue(back instanceof Zombie bz && bz.isAlive() && bz.position().distanceTo(Vec3.atBottomCenterOf(farFloor.above())) < 0.1,
+					"the zombie killed 40 blocks away is back where it stood: " + back);
+			helper.assertTrue(level.getBlockState(chest).is(Blocks.CHEST) && level.getBlockEntity(chest) instanceof net.minecraft.world.level.block.entity.ChestBlockEntity c
+					&& c.getItem(0).is(Items.DIAMOND) && c.getItem(0).getCount() == 7, "the chest is back with its 7 diamonds");
+			helper.assertTrue(drop[0].isRemoved(), "the far-off drop that appeared since is gone");
+			back.discard();
+			helper.succeed();
+		});
+	}
+
 	// ---------------------------------------------------------------- V
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
