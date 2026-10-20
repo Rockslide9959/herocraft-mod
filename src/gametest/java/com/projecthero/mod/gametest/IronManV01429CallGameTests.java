@@ -86,7 +86,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 	/** A platform bound to {@code owner}, {@code offset} blocks beyond it (+x/+z), optionally racked with a full Mark III. */
 	private static BlockPos farPlatform(GameTestHelper helper, ServerPlayer owner, int offset, boolean racked,
 			float energy, float integrity) {
-		return farPlatform(helper, owner, offset, racked, energy, integrity, "mark_iii");
+		return farPlatform(helper, owner, offset, racked, energy, integrity, "mark_6"); // v0.16.7: a later suit (Era I suits are never called)
 	}
 
 	/** v0.15.1: any mark (Protocol Phoenix only recalls a Mark 7 or later). */
@@ -120,7 +120,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 
 	/** Every Mark III piece the player has anywhere: worn + pack + couriers / drops around them. */
 	private static int piecesAround(GameTestHelper helper, ServerPlayer p) {
-		return piecesAround(helper, p, "mark_iii");
+		return piecesAround(helper, p, "mark_6");
 	}
 
 	private static int piecesAround(GameTestHelper helper, ServerPlayer p, String suitId) {
@@ -149,20 +149,20 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 		ChunkPos cp = isolate(helper, p, 2500);
 		ServerLevel level = helper.getLevel();
 		BlockPos far = farPlatform(helper, p, 500, true, 0.6f, 0.75f);
-		float racked = 0.75f * IronManEnergy.maxIntegrity("mark_iii"); // v0.16.1: integrity is what travels with the suit
+		float racked = 0.75f * IronManEnergy.maxIntegrity("mark_6"); // v0.16.1: integrity is what travels with the suit
 		GlobalPos gp = GlobalPos.of(level.dimension(), far);
 		helper.startSequence()
 				.thenWaitUntil(() -> helper.assertTrue(unloaded(level, far), "the far platform's chunk unloads"))
 				.thenExecute(() -> {
 					List<IronManSuitListPayload.Option> opts = IronManSuitCall.assemblableSuits(p);
 					Optional<IronManSuitListPayload.Option> o = opts.stream()
-							.filter(x -> x.suitId().equals("mark_iii") && x.source() == IronManSuitListPayload.SOURCE_PLATFORM).findFirst();
+							.filter(x -> x.suitId().equals("mark_6") && x.source() == IronManSuitListPayload.SOURCE_PLATFORM).findFirst();
 					helper.assertTrue(o.isPresent(), "the picker lists the Mark III on the unloaded platform");
 					// v0.16.1: no suit energy -- the option carries the condition it was racked with
 					helper.assertTrue(o.get().integrityFrac() >= 0.74f && o.get().integrityFrac() < 1f, // (the rack may have welded a little on before it unloaded)
 							"with the condition it was racked with (" + o.get().integrityFrac() + ")");
 					helper.assertTrue(o.get().distance() > 600, "and its real distance (" + o.get().distance() + ")");
-					IronManSuitCall.execute(p, "mark_iii", IronManSuitListPayload.SOURCE_PLATFORM);
+					IronManSuitCall.execute(p, "mark_6", IronManSuitListPayload.SOURCE_PLATFORM);
 					helper.assertTrue(IronManSuitCall.hasPendingCall(p), "the call is travelling");
 					helper.assertTrue(StarkPlatformRegistry.get(level).at(level, far).map(StarkPlatformRegistry.Entry::pieceMask).orElse(0) == 15,
 							"nothing has left the platform while the suit travels");
@@ -170,7 +170,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 					IronManSuitCall.skipPendingTravel(p);
 				})
 				.thenWaitUntil(() -> {
-					helper.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "the whole Mark III ends up on the player");
+					helper.assertTrue(IronManArmor.wearingFullSuit(p, "mark_6"), "the whole Mark III ends up on the player");
 					helper.assertFalse(IronManSuitUpManager.inTransition(p), "and the suit-up has finished");
 				})
 				.thenExecute(() -> {
@@ -179,8 +179,8 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 							"the registry shows the platform empty");
 					IronManSuitPlatformBlockEntity be = IronManChunkTickets.loadPlatform(level, far);
 					helper.assertTrue(be != null && be.isEmptyPlatform(), "and the platform itself is empty");
-					helper.assertTrue(IronManEnergy.integrity(p, "mark_iii") >= racked - 1f && IronManEnergy.integrity(p, "mark_iii") < IronManEnergy.maxIntegrity("mark_iii"),
-							"the worn suit carries the racked integrity (" + IronManEnergy.integrity(p, "mark_iii") + ")");
+					helper.assertTrue(IronManEnergy.integrity(p, "mark_6") >= racked - 1f && IronManEnergy.integrity(p, "mark_6") < IronManEnergy.maxIntegrity("mark_6"),
+							"the worn suit carries the racked integrity (" + IronManEnergy.integrity(p, "mark_6") + ")");
 					Optional<GlobalPos> home = IronManPlatformReturn.homeOf(p.getItemBySlot(IronManSuitUpManager.slotFor(ArmorItem.Type.CHESTPLATE)));
 					helper.assertTrue(home.isPresent() && home.get().equals(gp), "each piece remembers the platform it came off");
 					// a nearer empty platform of the player's: send-home still prefers the suit's own platform
@@ -188,7 +188,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 					level.setBlockAndUpdate(near, IronManBlocks.IRON_MAN_SUIT_PLATFORM.defaultBlockState());
 					((IronManSuitPlatformBlockEntity) level.getBlockEntity(near)).bindTo(p.getUUID());
 					Optional<IronManSuitListPayload.Option> back = IronManSuitCall.sendBackOptions(p).stream()
-							.filter(x -> x.suitId().equals("mark_iii")).findFirst();
+							.filter(x -> x.suitId().equals("mark_6")).findFirst();
 					helper.assertTrue(back.isPresent() && back.get().distance() > 600,
 							"the worn suit is offered home to the platform it came from, not the nearer one");
 					level.removeBlock(near, false);
@@ -211,15 +211,15 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 				.thenExecute(() -> {
 					helper.assertTrue(StarkPlatformRegistry.get(level).at(level, far).isPresent(), "the registry kept the unloaded platform");
 					for (ArmorItem.Type t : ALL) {
-						p.setItemSlot(IronManSuitUpManager.slotFor(t), new ItemStack(IronManItems.armor("mark_iii", t)));
+						p.setItemSlot(IronManSuitUpManager.slotFor(t), new ItemStack(IronManItems.armor("mark_6", t)));
 					}
-					TonyStark.setActiveSuit(p, "mark_iii");
-					IronManEnergy.setEnergy(p, "mark_iii", 700f);
-					IronManEnergy.setIntegrity(p, "mark_iii", 400f);
-					helper.assertTrue(IronManSuitCall.sendBackOptions(p).stream().anyMatch(o -> o.suitId().equals("mark_iii")
+					TonyStark.setActiveSuit(p, "mark_6");
+					IronManEnergy.setEnergy(p, "mark_6", 700f);
+					IronManEnergy.setIntegrity(p, "mark_6", 400f);
+					helper.assertTrue(IronManSuitCall.sendBackOptions(p).stream().anyMatch(o -> o.suitId().equals("mark_6")
 							&& o.source() == IronManSuitListPayload.SOURCE_SEND_BACK && o.distance() > 600),
 							"Sneak+C while suited offers the worn Mark III home to the unloaded platform");
-					helper.assertTrue(IronManSuitCall.sendBack(p, "mark_iii") == 4, "all four worn pieces leave");
+					helper.assertTrue(IronManSuitCall.sendBack(p, "mark_6") == 4, "all four worn pieces leave");
 					helper.assertFalse(IronManArmor.wearingAnyIronMan(p), "the player is out of the suit");
 				})
 				.thenWaitUntil(() -> {
@@ -236,7 +236,7 @@ public class IronManV01429CallGameTests implements FabricGameTest {
 							"racked at once through a chunk ticket -- nothing waits on the return queue");
 					helper.assertTrue(piecesAround(helper, p) == 0, "nothing came back to the player (no duplicate)");
 					IronManSuitPlatformBlockEntity be = IronManChunkTickets.loadPlatform(level, far);
-					helper.assertTrue(be != null && be.isFull() && "mark_iii".equals(be.storedSuitId()), "the platform really holds the suit");
+					helper.assertTrue(be != null && be.isFull() && "mark_6".equals(be.storedSuitId()), "the platform really holds the suit");
 					helper.assertTrue(Math.abs(be.suitIntegrity() - 400f) < 1f, "with the integrity it was sent home with, to repair there");
 					release(helper, cp);
 				})

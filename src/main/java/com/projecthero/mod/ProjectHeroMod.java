@@ -82,6 +82,7 @@ public class ProjectHeroMod implements ModInitializer {
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
+		com.projecthero.mod.ironman.ability.era1.IronManEraOne.initialize(); // v0.16.7 Era I: the moves' ticks + hooks register at startup
 		IronManBlocks.initialize();
 		com.projecthero.mod.ironman.furnace.StarkFurnaces.initialize(); // v0.14.26: Stark Furnace / Smelter / Smoker
 		com.projecthero.mod.ironman.sorter.StarkSorter.initialize(); // v0.14.16: Stark Sorting Station + Sorter Bot

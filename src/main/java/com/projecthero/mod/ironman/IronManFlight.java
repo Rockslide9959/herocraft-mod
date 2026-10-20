@@ -53,6 +53,12 @@ public final class IronManFlight {
 		if (suit != null && suit.altitudeCeiling() > 0.0 && player.getY() >= suit.altitudeCeiling()) {
 			return; // Mark 2's altitude ceiling -- systems frozen, no taking off from up here either
 		}
+		if (IronManEnergy.brownedOut(player, suitId)) {
+			// v0.16.7 (user) Era I: a browned-out reactor cannot lift the suit
+			player.displayClientMessage(net.minecraft.network.chat.Component
+					.translatable("message.projecthero.ironman.era1.brownout"), true);
+			return;
+		}
 		if (!IronManEnergy.has(player, suitId, 1.0f)) {
 			player.displayClientMessage(net.minecraft.network.chat.Component
 					.translatable("message.projecthero.ironman.no_energy"), true);

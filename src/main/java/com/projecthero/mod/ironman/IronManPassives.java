@@ -89,6 +89,9 @@ public final class IronManPassives {
 			if (IronManArmor.hasHelmet(player, suitId)) {
 				player.addEffect(new MobEffectInstance(MobEffects.CONDUIT_POWER, RESISTANCE_REFRESH_TICKS, 0, true, false, false));
 			}
+		} else if (hydro && suit.eraOne() && !player.isInWater() && player.level().getGameTime() % 10L == 0L) {
+			// v0.16.7 (user): the Era I Mk IV Hydro is a deep-sea suit -- heavy on land (Slowness I; it has no flight)
+			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 0, true, false, false));
 		}
 		// v0.16.1: the Mark 1 is a heavy cave-built iron shell -- it sinks
 		if (powered && suit != null && "mark_1".equals(suit.id()) && frac >= 1.0 && player.isInWater() && !player.getAbilities().flying) {

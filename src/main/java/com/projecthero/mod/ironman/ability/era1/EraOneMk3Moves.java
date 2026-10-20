@@ -115,10 +115,7 @@ public final class EraOneMk3Moves {
 	 * energy, the move stops.
 	 */
 	private static boolean drain(ServerPlayer p, String moveId) {
-		// TODO(CORE drain): wire to the CORE per-tick drain helper in IronManEraOne (e.g.
-		// IronManEraOne.drainTick(p, IronManSuits.byId(SUIT), IronManComicKit.byId(moveId))) -- e1mk3_tractor_beam 15/s,
-		// e1mk3_targeting_hud 4/s. Until then the held move runs free.
-		return true;
+		return IronManEraOne.drainTick(p, com.projecthero.mod.ironman.suit.IronManSuits.byId(SUIT), moveId);
 	}
 
 	// ================================================================== R

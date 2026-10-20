@@ -389,6 +389,6 @@ public final class EraOneMk1Moves {
 
 	/** The held / toggled move's per-second energy (the kit table's {@code energyPerSecond}). False = out of power. */
 	static boolean drain(ServerPlayer p, IronManSuit suit, String moveId) {
-		return true; // TODO(CORE drain): IronManEraOne per-tick drain of IronManComicKit.energyPerSecond(moveId) / 20
+		return IronManEraOne.drainTick(p, suit, moveId);
 	}
 }

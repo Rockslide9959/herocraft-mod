@@ -51,15 +51,16 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 	/** v0.15.20: the welding arms' synced flag is on exactly while a racked suit is below max integrity. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void platformRepairFlagFollowsIntegrity(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		BlockPos rel = new BlockPos(2, 2, 2);
 		IronManSuitPlatformBlockEntity be = platform(helper, rel);
 		BlockPos abs = helper.absolutePos(rel);
 		var level = helper.getLevel();
 		IronManSuitPlatformBlockEntity.serverTick(level, abs, be.getBlockState(), be);
 		helper.assertFalse(be.repairing(), "an empty rack welds nothing");
-		float maxI = IronManEnergy.maxIntegrity("mark_iii");
+		float maxI = IronManEnergy.maxIntegrity("mark_6");
 		for (ArmorItem.Type t : ALL) {
-			ItemStack piece = new ItemStack(IronManItems.armor("mark_iii", t));
+			ItemStack piece = new ItemStack(IronManItems.armor("mark_6", t));
 			IronManEnergy.stampStack(piece, 0f, maxI - 2f);
 			be.store(piece);
 		}
@@ -75,8 +76,9 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void platformRegenIsFlatTenPerSecondForEveryMark(GameTestHelper helper) {
-		for (String suitId : new String[] { "mark_1", "mark_iii" }) {
-			BlockPos rel = new BlockPos(suitId.equals("mark_1") ? 1 : 3, 2, 1);
+		// v0.16.7: later suits (an Era I suit repairs only near a Stark Gantry -- IronManEraOneCoreGameTests)
+		for (String suitId : new String[] { "mark_2", "mark_6" }) {
+			BlockPos rel = new BlockPos(suitId.equals("mark_2") ? 1 : 3, 2, 1);
 			IronManSuitPlatformBlockEntity be = platform(helper, rel);
 			for (ArmorItem.Type t : ALL) {
 				ItemStack piece = new ItemStack(IronManItems.armor(suitId, t));

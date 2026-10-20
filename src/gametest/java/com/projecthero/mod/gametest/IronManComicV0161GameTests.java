@@ -42,9 +42,10 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 	private static final EquipmentSlot[] SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 	private static final ArmorItem.Type[] TYPES = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
 			ArmorItem.Type.BOOTS };
-	private static final String[] ORDER = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
-	private static final float[] SHARES = { 0.20f, 0.25f, 0.30f, 0.35f, 0.40f, 0.30f, 0.45f, 0.50f, 0.60f };
-	private static final float[] INTEGRITY = { 600, 750, 1000, 1400, 1800, 1100, 2200, 2600, 4500 };
+	// v0.16.7 (user) Era I: the Gantry Age order and its integrity / absorb table (the Mk VI Suitcase follows the Mk V)
+	private static final String[] ORDER = { "mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8" };
+	private static final float[] SHARES = { 0.30f, 0.32f, 0.38f, 0.40f, 0.15f, 0.30f, 0.45f, 0.50f, 0.60f };
+	private static final float[] INTEGRITY = { 700, 850, 1400, 1600, 500, 1000, 2200, 2600, 4500 };
 
 	private static ServerPlayer tony(GameTestHelper h) {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
@@ -86,7 +87,9 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 			h.assertTrue(s.maxIntegrity() == INTEGRITY[i], ORDER[i] + " integrity " + INTEGRITY[i] + ", got " + s.maxIntegrity());
 			h.assertTrue(s.progressionIndex() == i, ORDER[i] + " progression index " + i);
 			IronManComicKit.Kit kit = IronManComicKit.kit(ORDER[i]);
-			h.assertTrue(kit != null && kit.keys().size() == 5, ORDER[i] + " has a five-key comic kit");
+			// v0.16.7: the Era I kits have a sixth key (C)
+			int keys = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(ORDER[i]) ? 6 : 5;
+			h.assertTrue(kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
 			for (int slot = 1; slot <= 5; slot++) {
 				h.assertTrue(IronManComicKit.isKitSlot(s.abilityInSlot(slot)), ORDER[i] + " slot " + slot + " is a comic key");
 			}
@@ -98,6 +101,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 				&& IronManSuits.MARK_8.armor(ArmorItem.Type.CHESTPLATE).getToughness() == 5f, "Hulkbuster 10 chest, toughness 5");
 		h.assertTrue(IronManSuits.MARK_8.scale() == 1.45f, "Hulkbuster is about 3 blocks tall");
 		h.assertTrue(!IronManSuits.MARK_1.manualFlight(), "the Mark 1 has no sustained flight");
+		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && !IronManSuits.MARK_4.manualFlight()
+				&& !IronManSuits.MARK_V.manualFlight(), "v0.16.7: the Mk III is the one Era I flier");
 		h.assertTrue(IronManSuits.MARK_VII.hazardImmune() && IronManSuits.MARK_VII.altitudeCeiling() <= 0.0,
 				"the Space armour ignores fire / lava / freezing and has no ceiling");
 		h.assertTrue(IronManSuits.MARK_V.stealth() && IronManSuits.MARK_4.hydro() && IronManSuits.MARK_8.hulkbuster(), "special flags");
@@ -109,24 +114,24 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void thereIsNoSuitEnergyAnywhere(GameTestHelper h) {
 		ServerPlayer p = tony(h);
-		wear(p, "mark_iii");
+		wear(p, "mark_6");
 		// wipe any energy the state could ever have held -- the suit must not care
 		TonyStarkState s = TonyStark.state(p).copy();
 		s.suitEnergy.clear();
 		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, s);
-		IronManEnergy.setEnergy(p, "mark_iii", 0f);
-		h.assertTrue(IronManEnergy.energy(p, "mark_iii") == IronManEnergy.FULL, "the shim always reads full");
-		h.assertTrue(IronManEnergy.spend(p, "mark_iii", 1.0e6f) && IronManEnergy.has(p, "mark_iii", 1.0e6f), "spend / has never refuse");
-		h.assertTrue(IronManEnergy.platformEnergyPerSecond(IronManSuits.MARK_III) == 0f, "platforms only repair");
-		// abilities fire on cooldown alone: the Mark 3 Energy Shield (V) and the Triangular Unibeam (Z)
-		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_III, 5, false), "Energy Shield fires with no energy field");
-		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_III, 4, false), "Unibeam fires with no energy field");
+		IronManEnergy.setEnergy(p, "mark_6", 0f);
+		h.assertTrue(IronManEnergy.energy(p, "mark_6") == IronManEnergy.FULL, "the shim always reads full");
+		h.assertTrue(IronManEnergy.spend(p, "mark_6", 1.0e6f) && IronManEnergy.has(p, "mark_6", 1.0e6f), "spend / has never refuse");
+		h.assertTrue(IronManEnergy.platformEnergyPerSecond(IronManSuits.MARK_6) == 0f, "platforms only repair");
+		// abilities fire on cooldown alone: v0.16.7: a later suit (the Era I suits have a reactor again) -- the Centurion Energy Shield (V) and Heavy Unibeam (Z)
+		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_6, 5, false), "Energy Shield fires with no energy field");
+		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_6, 4, false), "Unibeam fires with no energy field");
 		h.assertTrue(TonyStark.state(p).suitEnergy.isEmpty(), "nothing wrote an energy value back");
 		// the stamp no longer carries energy
-		ItemStack chest = new ItemStack(IronManItems.armor("mark_iii", ArmorItem.Type.CHESTPLATE));
+		ItemStack chest = new ItemStack(IronManItems.armor("mark_6", ArmorItem.Type.CHESTPLATE));
 		IronManEnergy.stampStack(chest, 5f, 700f);
 		h.assertTrue(!chest.has(com.projecthero.mod.item.ModDataComponents.SUIT_ENERGY), "no energy component on a stamped stack");
-		h.assertTrue(IronManEnergy.stackIntegrity(chest, "mark_iii") == 700f, "integrity still stamped");
+		h.assertTrue(IronManEnergy.stackIntegrity(chest, "mark_6") == 700f, "integrity still stamped");
 		leave(h, p);
 		h.succeed();
 	}
@@ -235,7 +240,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theMarkOneVTwoIsAnUpgradedMarkOne(GameTestHelper h) {
 		h.assertTrue("mark_1".equals(IronManItems.prerequisiteSuit("mark_1_v2")), "unlocks after the Mark 1");
-		h.assertTrue("mark_1_v2".equals(IronManItems.prerequisiteSuit("mark_2")), "the Mark 2 now follows the Mark 1 V2");
+		h.assertTrue("mark_1_v2".equals(IronManItems.prerequisiteSuit("mark_iii")), "v0.16.7: the Mk III follows the Mk II Golden Avenger");
+		h.assertTrue("mark_v".equals(IronManItems.prerequisiteSuit("mark_2")), "v0.16.7: the Mk VI Suitcase follows the Mk V Stealth");
 		h.assertTrue(IronManItems.blueprintFor("mark_1_v2") == IronManItems.MARK_1_V2_BLUEPRINT, "its own blueprint");
 		for (int i = 0; i < 4; i++) {
 			FabricationRecipe r = FabricatorRecipes.byId("iron_man_mark_1_v2_" + TYPES[i].getName());
@@ -327,34 +333,12 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markOneTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_1", 5); // Electromagnet / Magnetic Repel
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markOneVTwoTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_1_v2", 3); // Rocket Skates / Skate Spin-Kick
-	}
+	// v0.16.7: the five Era I kits (Mk I .. Mk V) are new moves, tested by their own Era I move test classes; the later
+	// suits keep these.
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void markTwoTapAndShiftAreSeparate(GameTestHelper h) {
 		tapAndShift(h, "mark_2", 4); // Unibeam / Unibeam Flash
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markThreeTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_iii", 4); // Triangular Unibeam / Unibeam Sweep
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markFourTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_4", 1); // Sonar Pulse / Sonar Mark
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void markFiveTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_v", 3); // Sensor Jammer / EMP Pulse
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

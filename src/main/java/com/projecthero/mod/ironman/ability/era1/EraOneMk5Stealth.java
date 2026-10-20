@@ -385,7 +385,6 @@ public final class EraOneMk5Stealth {
 		long now = level.getGameTime();
 		// ---- Silent Glide
 		if (s.glideUntil > now) {
-			// TODO(CORE drain): 8 energy / s while the glide runs (IronManComicKit.energyPerSecond("e1mk5_silent_glide"))
 			boolean landed = now - s.glideStart > 10 && (p.onGround() || p.isInWater());
 			if (landed || !EraOneMk5Moves.drain(p, "e1mk5_silent_glide")) {
 				endGlide(p);
@@ -408,7 +407,6 @@ public final class EraOneMk5Stealth {
 		}
 		// ---- Silent Running
 		if (s.running) {
-			// TODO(CORE drain): 5 energy / s while Silent Running is on (IronManComicKit.energyPerSecond("e1mk5_silent_running"))
 			if (!EraOneMk5Moves.drain(p, "e1mk5_silent_running")) {
 				s.running = false;
 				p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.running_off"), true);

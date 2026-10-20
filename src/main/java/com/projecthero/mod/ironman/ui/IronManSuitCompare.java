@@ -160,7 +160,8 @@ public final class IronManSuitCompare {
 				com.projecthero.mod.ironman.ability.IronManComicKit.Kit kit = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suit.id());
 				if (kit != null) {
 					out.add(kit.key(slot).tap().nameKey());
-					out.add(kit.key(slot).shift().nameKey());
+					// v0.16.7: an Era I C key has no Shift move (Shift+C is the emergency eject)
+					out.add(kit.key(slot).shift() != null ? kit.key(slot).shift().nameKey() : "hud.projecthero.ironman.era1.eject_move");
 				}
 				continue;
 			}

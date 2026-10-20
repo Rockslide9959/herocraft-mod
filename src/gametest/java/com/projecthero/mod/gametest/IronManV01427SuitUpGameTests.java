@@ -33,7 +33,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	private static final EquipmentSlot[] SLOTS = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
 
 	private static ServerPlayer suitedUpReady(GameTestHelper h) {
-		return suitedUpReady(h, "mark_iii");
+		return suitedUpReady(h, "mark_6"); // v0.16.7: the Era I Mark 3 goes on only in a Stark Gantry
 	}
 
 	private static ServerPlayer suitedUpReady(GameTestHelper h, String suitId) {
@@ -83,7 +83,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitUpCompletesOnlyAfterEveryPieceIsBuilt(GameTestHelper h) {
 		ServerPlayer p = suitedUpReady(h);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		int total = IronManSuitUpManager.buildSequenceTicks(4);
 		int ticks = 0;
 		boolean sawFullSuitStillAssembling = false;
@@ -97,7 +97,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 			if (ticks == 120) {
 				h.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "the chestplate waits for the leggings to finish");
 			}
-			if (IronManArmor.wearingFullSuit(p, "mark_iii") && IronManSuitUpManager.inTransition(p)) {
+			if (IronManArmor.wearingFullSuit(p, "mark_6") && IronManSuitUpManager.inTransition(p)) {
 				sawFullSuitStillAssembling = true;
 				h.assertTrue(IronManSuitUpManager.assembling(p), "while the helmet builds the suit is still assembling");
 				h.assertTrue(IronManSuitFx.of(p).faceplateAt() == 0L, "and not online yet");
@@ -105,7 +105,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 		}
 		h.assertTrue(ticks == total, "the suit-up ran exactly 4 x 60 (+1) ticks, got " + ticks);
 		h.assertTrue(sawFullSuitStillAssembling, "the last piece is worn for its whole 3 s build before completion");
-		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii") && !IronManSuitUpManager.assembling(p),
+		h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_6") && !IronManSuitUpManager.assembling(p),
 				"complete: the whole suit is on and the lock is released");
 		h.assertTrue(IronManSuitFx.of(p).faceplateAt() > 0L, "completion ends with the faceplate seal");
 		h.succeed();
@@ -114,7 +114,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void abilitiesAndFlightStayLockedWhileAssembling(GameTestHelper h) {
 		ServerPlayer p = suitedUpReady(h);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		for (int i = 0; i < 70; i++) {
 			IronManSuitUpManager.tick(p);
 		}
@@ -129,7 +129,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 	public void suitUpPoseIsAPureFunctionOfThePieceNoRandomVariant(GameTestHelper h) {
 		for (int run = 0; run < 6; run++) {
 			ServerPlayer p = suitedUpReady(h);
-			h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+			h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 			IronManSuitFx fx = IronManSuitFx.of(p);
 			h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_SUIT_UP, "the suit-up pose runs");
 			h.assertTrue(fx.poseVariant() == 0, "v0.14.28: no random pose variant any more");
@@ -195,7 +195,7 @@ public class IronManV01427SuitUpGameTests implements FabricGameTest {
 		h.assertTrue(IronManSuitPoses.weight(fx, done + 2, 0f) < 1f, "and it is already easing out right after");
 		// and on the server the pose clock is dropped the moment the suit-up completes
 		ServerPlayer p = suitedUpReady(h);
-		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_iii"), "suit-up starts");
+		h.assertTrue(IronManSuitUpManager.beginSuitUp(p, "mark_6"), "suit-up starts");
 		for (int i = 0; i < 400 && IronManSuitUpManager.inTransition(p); i++) {
 			IronManSuitUpManager.tick(p);
 		}

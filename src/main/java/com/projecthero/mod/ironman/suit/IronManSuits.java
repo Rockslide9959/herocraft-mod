@@ -31,10 +31,16 @@ public final class IronManSuits {
 	// a gold copy of its texture). Armour points / toughness live in IronManArmorMaterials.
 	// =====================================================================================================================
 
+	// v0.16.7 (user) ERA I -- THE GANTRY AGE (docs/IRONMAN_ERA1_PLAN.md): the first five suits below (Mk I Cave-Forged,
+	// Mk II Golden Avenger, Mk III Classic, Mk IV Hydro, Mk V Stealth) have the plan's integrity / absorb / melee, a real
+	// reactor again (energy(cap) + energyRegen(per s), IronManEnergy) and suit up / come off only in a Stark Gantry. Only
+	// the Mk III flies; the Mk II's X hover and the Mk V's Shift+X glide are moves. The later suits keep their mechanics.
 	public static final IronManSuit MARK_1 = register(comicKit(IronManSuit.Builder.of("mark_1"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 1)
-			.maxIntegrity(600f)
-			.absorb(0.20f)
+			.maxIntegrity(700f) // v0.16.7 (user): Era I table
+			.absorb(0.30f)
+			.energy(600f, 0f)
+			.energyRegen(1.0f)
 			.noAutoFeed()
 			.flamethrowerTuning(100f, 5f, 5f, 60, 0f, 8f) // G: 8 dmg/s + burning, overheats at 100
 			.flightCruise(8.0) // the Shift+X glide's forward speed
@@ -43,11 +49,11 @@ public final class IronManSuits {
 			.repulsorTap(10.0f, 0f, 20)
 			.unibeam(0f)
 			.missiles(0, 0f, 0f)
-			.strength(6.0f)
+			.strength(8.0f) // v0.16.7 (user): +8
 			.walkSpeed(-0.10)
 			.noFlightLean()
 			.noManualFlight() // no sustained flight: rocket-boot hops + glide only
-			.scale(1.25f)
+			.scale(1.0f) // v0.16.7 (user): normal size (was 1.25) -- the Era I armour is thin
 			.noHelmetNightVision()
 			.waterMoveMultiplier(0.5) // heavy: sinks and wades slowly
 			.targetScanRange(25.0)
@@ -58,16 +64,19 @@ public final class IronManSuits {
 	/** v0.16.1: the Mark 1 rebuilt in gold -- made by upgrading a full Mark 1 at the Fabricator. */
 	public static final IronManSuit MARK_1_V2 = register(comicKit(IronManSuit.Builder.of("mark_1_v2"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 1)
-			.maxIntegrity(750f)
-			.absorb(0.25f)
+			.maxIntegrity(850f) // v0.16.7 (user): Era I Mk II Golden Avenger
+			.absorb(0.32f)
+			.energy(800f, 0f)
+			.energyRegen(1.5f)
 			.noAutoFeed()
 			.flight(1.0f, 0.07f)
 			.flightSpeeds(12.0, 18.0)
 			.maxFlightSpeed(18.0)
+			.noManualFlight() // v0.16.7 (user): no sustained flight -- its X move is the 5 s boot-jet hover
 			.repulsorTap(10.0f, 0f, 20)
 			.unibeam(0f)
 			.missiles(0, 0f, 0f)
-			.strength(6.0f)
+			.strength(7.0f)
 			.noHelmetNightVision()
 			.altitudeCeiling(320.0)
 			.ceilingFreeze() // the gold suit ices up in thin air
@@ -106,7 +115,9 @@ public final class IronManSuits {
 	public static final IronManSuit MARK_III = register(comicKit(IronManSuit.Builder.of("mark_iii"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(1, 3)
 			.maxIntegrity(1400f)
-			.absorb(0.35f)
+			.absorb(0.38f) // v0.16.7 (user): Era I Mk III Classic -- the one Era I suit with full flight (6 energy/s, sprint 12/s)
+			.energy(1200f, 0f)
+			.energyRegen(2.0f)
 			.waterBreathing()
 			.targeting()
 			.flight(1.0f, 0.08f)
@@ -128,14 +139,17 @@ public final class IronManSuits {
 	/** v0.16.1: the HYDRO armour -- slow in the air, three times as fast underwater, and its kit hits harder there. */
 	public static final IronManSuit MARK_4 = register(comicKit(IronManSuit.Builder.of("mark_4"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(0, 4)
-			.maxIntegrity(1800f)
+			.maxIntegrity(1600f) // v0.16.7 (user): Era I Mk IV Hydro -- no flight, Slowness I on land (IronManPassives)
 			.absorb(0.40f)
+			.energy(1200f, 0f)
+			.energyRegen(2.0f)
 			.waterBreathing()
 			.targeting()
 			.hydro()
 			.flight(1.0f, 0.08f)
 			.flightSpeeds(14.0, 22.0)
 			.maxFlightSpeed(22.0)
+			.noManualFlight()
 			.repulsorTap(14.0f, 0f, 10)
 			.unibeam(20.0f)
 			.missiles(0, 0f, 0f)
@@ -150,18 +164,21 @@ public final class IronManSuits {
 	/** v0.16.1: the STEALTH armour -- silent, sculk-proof, built for the unaware target. No briefcase any more. */
 	public static final IronManSuit MARK_V = register(comicKit(IronManSuit.Builder.of("mark_v"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(2, 5)
-			.maxIntegrity(1100f)
-			.absorb(0.30f)
+			.maxIntegrity(500f) // v0.16.7 (user): Era I Mk V Stealth -- paper-thin; its only flight is the Shift+X Silent Glide
+			.absorb(0.15f)
+			.energy(1000f, 0f)
+			.energyRegen(2.5f)
 			.waterBreathing()
 			.targeting()
 			.stealth()
 			.flight(1.0f, 0.08f)
 			.flightSpeeds(20.0, 34.0)
 			.maxFlightSpeed(34.0)
+			.noManualFlight()
 			.repulsorTap(14.0f, 0f, 10)
 			.unibeam(18.0f)
 			.missiles(0, 0f, 0f)
-			.strength(7.0f)
+			.strength(6.0f)
 			.altitudeCeiling(320.0)
 			.targetScanRange(60.0)
 			.suitUp(SuitUpType.MECHANICAL_REMOTE)

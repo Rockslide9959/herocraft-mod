@@ -59,6 +59,13 @@ public final class IronManAbilityManager {
 			if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, pressed)) {
 				return;
 			}
+			// v0.16.7 (user) Era I: Shift+C is the emergency eject (hold 3 s) -- straight to it, past the overload / ceiling
+			// locks (it is how you get out of a wrecked or locked suit); its release always reaches it too
+			if (slot == AbilitySlot.SLOT_6 && suit.eraOne()
+					&& (player.isShiftKeyDown() || com.projecthero.mod.ironman.ability.era1.EraOneEject.holding(player))) {
+				com.projecthero.mod.ironman.ability.era1.IronManEraOne.ejectKey(player, suit, pressed);
+				return;
+			}
 			// v0.15.3, explicit user request: using any suit ability seals an open faceplate (C -- store the suit -- doesn't)
 			if (pressed && !IronManAbilities.SUIT_TOGGLE.equals(suit.abilityInSlot(slot.number()))) {
 				com.projecthero.mod.ironman.IronManFaceplate.autoClose(player);

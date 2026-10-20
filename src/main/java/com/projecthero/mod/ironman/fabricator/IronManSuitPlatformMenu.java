@@ -102,6 +102,12 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return container instanceof IronManSuitPlatformBlockEntity be ? be : null;
 	}
 
+	/** v0.16.7 (user) Era I: is a complete Stark Gantry in this rack's range (synced from the block entity)? */
+	public boolean gantryInRange() {
+		IronManSuitPlatformBlockEntity be = liveBE();
+		return be != null && be.gantryInRange();
+	}
+
 	public boolean hasStoredSuit() {
 		IronManSuitPlatformBlockEntity be = liveBE();
 		if (be != null) {

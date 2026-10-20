@@ -22,7 +22,9 @@ import net.minecraft.server.level.ServerPlayer;
  *   <li>The cooldown starts when the move reports it went off ({@link IronManComicMoves#fire}); a HOLD move gets the
  *       release too and decides on which edge that is.</li>
  * </ul>
- * There is no energy: nothing is ever paid.
+ * There is no energy: nothing is ever paid. v0.16.7 (user): except on the five Era I suits -- a press is refused ("LOW
+ * POWER") unless {@code IronManEraOne.canPay}, and the move pays its kit cost on the edge it goes off on
+ * ({@code IronManEraOne.pay}); Shift+C there is the emergency eject, not a move.
  */
 public final class IronManComicRouter {
 	/** player -> slot (1..5) -> the move id pressed on that slot. */
@@ -78,8 +80,9 @@ public final class IronManComicRouter {
 				boolean fired = IronManComicMoves.fire(player, suit, m, false);
 				if (fired) {
 					startCooldown(player, suit, m);
-					// v0.16.7 Era I: a hold move that goes off on the release (unibeam, haymaker, charged repulsor) pays then
 					if (eraOne) {
+						// v0.16.7: a HOLD move pays on the edge it reports going off on, like its cooldown (a charged
+						// move fires on the release)
 						com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
 					}
 				}
@@ -128,12 +131,19 @@ public final class IronManComicRouter {
 		if (m.cooldownTicks() > 0 && !TonyStark.abilityReady(player, suit.id(), m.cooldownKey())) {
 			return false;
 		}
+		boolean eraOne = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suit);
+		if (eraOne && !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
+			return false; // v0.16.7: Era I energy
+		}
 		boolean fired = IronManComicMoves.fire(player, suit, m, true);
 		if (m.input() == IronManComicKit.Input.HOLD) {
 			fired |= IronManComicMoves.fire(player, suit, m, false);
 		}
 		if (fired) {
 			startCooldown(player, suit, m);
+			if (eraOne) {
+				com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
+			}
 		}
 		return fired;
 	}

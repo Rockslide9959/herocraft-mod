@@ -49,8 +49,18 @@ public final class IronManComicText {
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.armour"), armour(suit)));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.integrity"), fmt(suit.maxIntegrity())));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.absorb"), Math.round(suit.absorbShare() * 100f) + "%"));
+		if (suit.eraOne()) {
+			// v0.16.7 (user) Era I: the reactor is back -- capacity and regen
+			out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.energy"), Component.translatable(
+					"screen.projecthero.ironman_comic.energy_value", fmt(suit.energyCapacity()), fmt(suit.energyRegenPerSecond())).getString()));
+		}
 		String flight;
-		if (!suit.manualFlight()) {
+		if (suit.eraOne() && !suit.manualFlight()) {
+			flight = Component.translatable("screen.projecthero.ironman_comic.flight." + suit.id()).getString(); // v0.16.7
+		} else if (suit.eraOne()) {
+			flight = Component.translatable("screen.projecthero.ironman_comic.flight_era1", fmt(suit.flightNormalBps()),
+					fmt(suit.flightSprintBps())).getString();
+		} else if (!suit.manualFlight()) {
 			flight = Component.translatable("screen.projecthero.ironman_comic.flight_hops").getString();
 		} else if (suit.sprintFlight() && suit.flightSprintBps() > suit.flightNormalBps()) {
 			flight = Component.translatable("screen.projecthero.ironman_comic.flight_value", fmt(suit.flightNormalBps()),
@@ -60,7 +70,8 @@ public final class IronManComicText {
 		}
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.flight"), flight));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.melee"), "+" + fmt(suit.strengthBonus())));
-		String repair = suit.selfRepairPerSecond() > 0f
+		String repair = suit.eraOne() ? Component.translatable("screen.projecthero.ironman_comic.repair_gantry").getString() // v0.16.7
+				: suit.selfRepairPerSecond() > 0f
 				? Component.translatable("screen.projecthero.ironman_comic.repair_self", fmt(suit.selfRepairPerSecond())).getString()
 				: Component.translatable(suit.hulkbuster() ? "screen.projecthero.ironman_comic.repair_pod"
 						: "screen.projecthero.ironman_comic.repair_platform").getString();
@@ -81,6 +92,12 @@ public final class IronManComicText {
 			IronManComicKit.Key k = kit.key(slot);
 			String key = keys != null && keys.length >= slot ? keys[slot - 1] : String.valueOf(slot);
 			out.add(Component.translatable("screen.projecthero.ironman_comic.move_line", key, move(k.tap()), move(k.shift())));
+		}
+		// v0.16.7 (user) Era I: C is a kit key too -- its tap move, and Shift+C held 3 s is the emergency eject
+		IronManComicKit.Key c = kit.key(6);
+		if (c != null && c.tap() != null) {
+			String key = keys != null && keys.length >= 6 ? keys[5] : "6";
+			out.add(Component.translatable("screen.projecthero.ironman_comic.move_line_c", key, move(c.tap())));
 		}
 		return out;
 	}

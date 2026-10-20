@@ -1053,61 +1053,63 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitCallLaunchesCouriersFromInventory(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		net.minecraft.world.phys.Vec3 mid = net.minecraft.world.phys.Vec3.atBottomCenterOf(
 				helper.absolutePos(new net.minecraft.core.BlockPos(4, 1, 4)));
 		player.setPos(mid.x, mid.y, mid.z);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
 		StarkGlassesV0151GameTests.wearGlasses(player); // v0.15.1: calling a suit needs the Stark Glasses
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
-				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t) != null) {
+				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 			}
 		}
 		// v0.14.21: the legacy IronManSuitSummonManager is gone -- /ironman part's real path flies each piece in
 		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
 				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, net.minecraft.world.item.ArmorItem.Type.BOOTS,
 				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.HELMET }) {
-			helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.callPiece(player, "mark_iii", t),
+			helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.callPiece(player, "mark_6", t),
 					"callPiece should launch the " + t + " out of the inventory");
 		}
 		long couriers = helper.getLevel().getEntitiesOfClass(
 				com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
 				player.getBoundingBox().inflate(9),
-				e -> "mark_iii".equals(e.suitId())).size();
+				e -> "mark_6".equals(e.suitId())).size();
 		helper.assertTrue(couriers == 4, "four armour couriers should be in flight, got " + couriers);
 		helper.assertTrue(player.getInventory().countItem(
-				com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", net.minecraft.world.item.ArmorItem.Type.HELMET)) == 0,
+				com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", net.minecraft.world.item.ArmorItem.Type.HELMET)) == 0,
 				"the pieces should have left the inventory");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitCallLaunchesCouriersFromNearbyPlatform(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		net.minecraft.core.BlockPos platPos = new net.minecraft.core.BlockPos(2, 2, 2);
 		net.minecraft.world.phys.Vec3 pp = net.minecraft.world.phys.Vec3.atBottomCenterOf(helper.absolutePos(new net.minecraft.core.BlockPos(6, 1, 6)));
 		player.setPos(pp.x, pp.y, pp.z);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
 
 		helper.setBlock(platPos, com.projecthero.mod.ironman.IronManBlocks.IRON_MAN_SUIT_PLATFORM);
 		var be = (com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity) helper.getBlockEntity(platPos);
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
-				be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t) != null) {
+				be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 			}
 		}
 		// v0.14.21: through the real call path (the legacy IronManSuitSummonManager is gone)
 		StarkGlassesV0151GameTests.wearGlasses(player); // v0.15.1: calling a suit needs the Stark Glasses
-		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_iii",
+		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_6",
 				com.projecthero.mod.network.IronManSuitListPayload.SOURCE_PLATFORM);
 		// couriers spawn at (platform centre + up 1), same tick as the call
 		long couriers = helper.getLevel().getEntitiesOfClass(
 				com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
 				net.minecraft.world.phys.AABB.ofSize(net.minecraft.world.phys.Vec3.atCenterOf(helper.absolutePos(platPos)), 6, 6, 6),
-				e -> "mark_iii".equals(e.suitId())).size();
+				e -> "mark_6".equals(e.suitId())).size();
 		helper.assertTrue(couriers == 4, "four couriers should launch from the platform, got " + couriers);
 		helper.assertTrue(be.isEmptyPlatform(), "the platform should now be empty");
 		helper.succeed();
@@ -1115,40 +1117,42 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitChargeTravelsWithTheArmour(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
 		// a Mark III chestplate that has been drained to 30%
-		ItemStack chest = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii",
+		ItemStack chest = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6",
 				net.minecraft.world.item.ArmorItem.Type.CHESTPLATE));
 		com.projecthero.mod.ironman.IronManEnergy.stampStack(chest, 1_000f, 55f); // v0.14.26: under the Mark III's new 1500 capacity
 		player.getInventory().add(chest);
 		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] {
 				net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.LEGGINGS,
 				net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
-			player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+			player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 		}
 
-		com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_iii");
+		com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_6");
 		// v0.16.1: no suit energy -- only the carried integrity travels with the armour
-		helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_iii") - 55f) < 1f,
+		helper.assertTrue(Math.abs(com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_6") - 55f) < 1f,
 				"suit-up must adopt the chestplate's carried integrity (55)");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void callSuitFromInventoryEquipsImmediately(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
-				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t) != null) {
+				player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 			}
 		}
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.fullyInInventory(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitCall.fullyInInventory(player, "mark_6"),
 				"the four pieces are in the pack");
-		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_iii",
+		com.projecthero.mod.ironman.suit.IronManSuitCall.execute(player, "mark_6",
 				com.projecthero.mod.network.IronManSuitListPayload.SOURCE_INVENTORY);
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player),
 				"picking an inventory suit must start an immediate staged suit-up");
@@ -1157,6 +1161,7 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void callBestPullsASuitOffABoundPlatform(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		net.minecraft.world.phys.Vec3 pp = net.minecraft.world.phys.Vec3.atBottomCenterOf(
 				helper.absolutePos(new net.minecraft.core.BlockPos(6, 1, 6)));
@@ -1168,8 +1173,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		var be = (com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity) helper.getBlockEntity(platPos);
 		be.bindTo(player.getUUID());
 		for (net.minecraft.world.item.ArmorItem.Type t : net.minecraft.world.item.ArmorItem.Type.values()) {
-			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t) != null) {
-				be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", t)));
+			if (com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t) != null) {
+				be.store(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor("mark_6", t)));
 			}
 		}
 		// no built suit, no pieces on the player -- only the bound platform. C must still call it.
@@ -1180,7 +1185,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		long couriers = helper.getLevel().getEntitiesOfClass(
 				com.projecthero.mod.ironman.entity.IronManSuitPartEntity.class,
 				player.getBoundingBox().inflate(140),
-				e -> "mark_iii".equals(e.suitId())).size();
+				e -> "mark_6".equals(e.suitId())).size();
 		helper.assertTrue(couriers == 4, "four couriers should be inbound, got " + couriers);
 		helper.succeed();
 	}
@@ -1265,16 +1270,17 @@ public class HeroPackGameTests implements FabricGameTest {
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void interruptedSuitUpKeepsThePiecesInTheInventory(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
-		giveWholeSuit(player, "mark_iii");
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
+		giveWholeSuit(player, "mark_6");
 
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_6"),
 				"suit-up should start");
-		helper.assertTrue(countIronManPieces(player, "mark_iii") == 4,
+		helper.assertTrue(countIronManPieces(player, "mark_6") == 4,
 				"beginSuitUp must only RESERVE the pieces, not remove them -- found "
-						+ countIronManPieces(player, "mark_iii") + " of 4 still in the pack");
+						+ countIronManPieces(player, "mark_6") + " of 4 still in the pack");
 
 		// Simulate the relog: the transient transition state is gone, nothing else changes.
 		var s = com.projecthero.mod.ironman.TonyStark.state(player);
@@ -1282,7 +1288,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		s.transitionTicks = 0;
 		s.transitionMask = 0;
 
-		helper.assertTrue(countIronManPieces(player, "mark_iii") == 4,
+		helper.assertTrue(countIronManPieces(player, "mark_6") == 4,
 				"an interrupted suit-up must leave all four pieces in the inventory");
 		helper.succeed();
 	}
@@ -1293,25 +1299,26 @@ public class HeroPackGameTests implements FabricGameTest {
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void suitUpEvictsOrdinaryArmourInsteadOfDeletingIt(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
-		giveWholeSuit(player, "mark_iii");
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_6);
+		giveWholeSuit(player, "mark_6");
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST,
 				new ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
 
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitUp(player, "mark_6"),
 				"suit-up should start");
 		// v0.14.27: 3 s per piece -> a four-piece suit-up runs 241 ticks
 		for (int i = 0; i < 400 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
 			com.projecthero.mod.ironman.suit.IronManSuitUpManager.tick(player);
 		}
 
-		helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_6"),
 				"the whole Mark III should be on at the end of the sequence");
 		helper.assertTrue(inventoryHas(player, net.minecraft.world.item.Items.DIAMOND_CHESTPLATE),
 				"the diamond chestplate it replaced must come back to the inventory, not vanish");
-		helper.assertTrue(countIronManPieces(player, "mark_iii") == 0,
+		helper.assertTrue(countIronManPieces(player, "mark_6") == 0,
 				"every reserved piece should have moved from the pack onto the body exactly once");
 		helper.succeed();
 	}
@@ -1392,26 +1399,28 @@ public class HeroPackGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void storingSuitRefusesWithoutFourFreeMainSlots(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_iii");
+		giveFullSuit(player, "mark_6");
 		fillMainInventory(player);
 
-		helper.assertFalse(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitDown(player, "mark_iii"),
+		helper.assertFalse(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitDown(player, "mark_6"),
 				"suit-down must refuse when the main inventory has no room");
-		helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(player, "mark_6"),
 				"the suit must still be fully worn -- nothing should have been touched");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void storingSuitLandsInMainInventoryNotHotbar(GameTestHelper helper) {
+		// v0.16.7: mark_6 (the Era I mark_iii goes on / comes off only in a Stark Gantry)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
-		giveFullSuit(player, "mark_iii");
+		giveFullSuit(player, "mark_6");
 		helper.assertTrue(freeMainInvSlots(player) >= 4, "test setup needs room in the main inventory");
 
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitDown(player, "mark_iii"),
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuitUpManager.beginSuitDown(player, "mark_6"),
 				"suit-down should start with room available");
 		for (int i = 0; i < 400 && com.projecthero.mod.ironman.suit.IronManSuitUpManager.inTransition(player); i++) {
 			com.projecthero.mod.ironman.suit.IronManSuitUpManager.tick(player);
@@ -1475,7 +1484,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.assertTrue(mark1.techLevel() == 0 && mark2.techLevel() == 0,
 				"both are tech level 0 (no tech-level gate). 'changes 19': only the Mark 1 is table-craftable;"
 						+ " the Mark 2 is Fabricator-built.");
-		helper.assertTrue(mark1.scale() == 1.25f, "Mark 1 is 25% bigger, got scale " + mark1.scale());
+		helper.assertTrue(mark1.scale() == 1.0f, "v0.16.7: the Era I Mk I is normal size (thin armour), got scale " + mark1.scale());
 		helper.assertTrue(mark2.altitudeCeiling() == 320.0, "Mark 2's altitude ceiling should be Y320 (v0.16.1)");
 		for (net.minecraft.world.item.ArmorItem.Type t : new net.minecraft.world.item.ArmorItem.Type[] { net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
 			helper.assertTrue(com.projecthero.mod.ironman.item.IronManItems.armor("mark_1", t) != null, "mark_1 " + t + " item missing");
@@ -1492,19 +1501,20 @@ public class HeroPackGameTests implements FabricGameTest {
 		giveFullSuit(player, "mark_1");
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
 		double total = 1.0 /* vanilla base fist */ + atk.getModifier(com.projecthero.mod.ProjectHeroMod.id("iron_man_strength")).amount();
-		helper.assertTrue(total > 6.5 && total < 7.5, "Mark 1 fist damage should total ~7 (+6, v0.14.27), got " + total);
+		helper.assertTrue(total > 8.5 && total < 9.5, "Mark 1 fist damage should total ~9 (v0.16.7 Era I: +8), got " + total);
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void mark1IsTwentyFivePercentBiggerFullySuited(GameTestHelper helper) {
+		// v0.16.7: the Era I Mk I is normal size now -- the full-suit scale rule is checked on the Hulkbuster (1.45x)
 		ServerPlayer player = survivalMockPlayer(helper);
 		com.projecthero.mod.ironman.TonyStark.grant(player);
 		var scaleAttr = player.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.SCALE);
-		giveFullSuit(player, "mark_1");
+		giveFullSuit(player, "mark_8");
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
-		helper.assertTrue(Math.abs(scaleAttr.getValue() - 1.25) < 0.01,
-				"a fully-suited Mark 1 wearer should be scaled to 1.25x, got " + scaleAttr.getValue());
+		helper.assertTrue(Math.abs(scaleAttr.getValue() - 1.45) < 0.01,
+				"a fully-suited Hulkbuster wearer should be scaled to 1.45x, got " + scaleAttr.getValue());
 
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
 		com.projecthero.mod.ironman.IronManPassives.tick(player);
@@ -1588,7 +1598,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// user request.
 		// v0.16.1 comic rework: the nine marks' integrity pools
 		String[] ids = {"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"};
-		float[] pools = {600f, 750f, 1000f, 1400f, 1800f, 1100f, 2200f, 2600f, 4500f};
+		float[] pools = {700f, 850f, 1000f, 1400f, 1600f, 500f, 2200f, 2600f, 4500f}; // v0.16.7: the Era I table
 		for (int i = 0; i < ids.length; i++) {
 			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity(ids[i]) == pools[i],
 					ids[i] + " max integrity must be " + pools[i] + ", got "
@@ -1648,7 +1658,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		var m4 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_4");
 		helper.assertTrue(m4 != null, "mark_4 must be registered");
 		helper.assertFalse(m4.hasWristLaser(), "v0.14.29: the Mark 4 wrist laser is gone");
-		helper.assertTrue(m4.maxIntegrity() == 1800f, "mark_4 integrity must be 1800 (v0.16.1)");
+		helper.assertTrue(m4.maxIntegrity() == 1600f, "mark_4 integrity must be 1600 (v0.16.7 Era I)");
 		helper.assertTrue(m4.hydro(), "v0.16.1: the Mark 4 is the Hydro armour");
 		var m3 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_iii"); // v0.16.1: every mark carries the comic slot ids
 		for (int s = 1; s <= 6; s++) {
@@ -1666,9 +1676,9 @@ public class HeroPackGameTests implements FabricGameTest {
 	public void markVRedefinedAsMovieMarkFive(GameTestHelper helper) {
 		var mv = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_v");
 		var m2 = com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_2");
-		helper.assertTrue(mv.maxIntegrity() == 1100f, "mark_v integrity must be 1100 (v0.16.1)");
+		helper.assertTrue(mv.maxIntegrity() == 500f, "mark_v integrity must be 500 (v0.16.7 Era I)");
 		helper.assertTrue(mv.stealth(), "mark_v is the Stealth armour");
-		for (int s = 1; s <= 6; s++) {
+		for (int s = 1; s <= 5; s++) { // v0.16.7: slot 6 differs -- the Era I Mk V's C is a kit key, the Mark 2's stores the suit
 			helper.assertTrue(java.util.Objects.equals(mv.abilityInSlot(s), m2.abilityInSlot(s)),
 					"mark_v slot " + s + " must match Mark 2 (both carry the comic kit + C store)");
 		}
@@ -1754,9 +1764,11 @@ public class HeroPackGameTests implements FabricGameTest {
 
 		// v0.16.1: no suit energy -- a platform only repairs, a flat 5 integrity/s
 		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m1, m2, m7 }) {
-			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == 0f
+			// v0.16.7: an Era I suit (the Mk I) charges +50/s on a platform in a Stark Gantry's range
+			float energy = suit.eraOne() ? com.projecthero.mod.ironman.IronManEnergy.GANTRY_CHARGE_PER_SECOND : 0f;
+			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == energy
 					&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
-					"no energy + 5/s integrity platform repair for " + suit.id());
+					"platform charge / 5/s integrity repair for " + suit.id());
 		}
 		helper.succeed();
 	}
@@ -2038,16 +2050,21 @@ public class HeroPackGameTests implements FabricGameTest {
 				net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS }) {
 			com.projecthero.mod.ironman.TonyStark.recordSuitPiece(player, "mark_1_v2", t);
 		}
-		player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BLANK_BLUEPRINT));
-		com.projecthero.mod.ironman.TonyStark.stampBlueprint(player, "mark_2");
-		helper.assertTrue(player.getInventory().countItem(com.projecthero.mod.ironman.item.IronManItems.MARK_2_BLUEPRINT) == 1,
-				"Mark 2 blueprint unlocks once the whole Mark 1 V2 suit is built");
-
-		// Skipping ahead is still blocked: Mark III needs the full Mark 2.
+		// v0.16.7 (user) Era I order: Mk II Golden Avenger (mark_1_v2) -> Mk III -> Mk IV -> Mk V -> Mk VI Suitcase (mark_2)
 		player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BLANK_BLUEPRINT));
 		com.projecthero.mod.ironman.TonyStark.stampBlueprint(player, "mark_iii");
-		helper.assertTrue(player.getInventory().countItem(com.projecthero.mod.ironman.item.IronManItems.MARK_III_BLUEPRINT) == 0,
-				"Mark III is still gated on a full Mark 2 suit");
+		helper.assertTrue(player.getInventory().countItem(com.projecthero.mod.ironman.item.IronManItems.MARK_III_BLUEPRINT) == 1,
+				"the Mk III blueprint unlocks once the whole Mk II (mark_1_v2) is built");
+		player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BLANK_BLUEPRINT));
+		com.projecthero.mod.ironman.TonyStark.stampBlueprint(player, "mark_2");
+		helper.assertTrue(player.getInventory().countItem(com.projecthero.mod.ironman.item.IronManItems.MARK_2_BLUEPRINT) == 0,
+				"the Mk VI Suitcase (mark_2) is gated on a full Mk V now");
+
+		// Skipping ahead is still blocked: the Mk IV needs the full Mk III.
+		player.getInventory().add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BLANK_BLUEPRINT));
+		com.projecthero.mod.ironman.TonyStark.stampBlueprint(player, "mark_4");
+		helper.assertTrue(player.getInventory().countItem(com.projecthero.mod.ironman.item.IronManItems.MARK_4_BLUEPRINT) == 0,
+				"the Mk IV is still gated on a full Mk III suit");
 		helper.succeed();
 	}
 

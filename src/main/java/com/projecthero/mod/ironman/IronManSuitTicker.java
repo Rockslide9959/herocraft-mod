@@ -34,6 +34,7 @@ public final class IronManSuitTicker {
 	public static void tick(ServerPlayer player) {
 		mirrorPrivateHighlight(player);
 		IronManArmor.enforce(player);
+		com.projecthero.mod.ironman.ability.era1.EraOneEject.tick(player); // v0.16.7: the Shift+C emergency eject hold
 		JarvisDialogue.tick(player); // v0.14.29 agent F: JARVIS voice lines
 		// "changes 19": a lifted faceplate / extended blades must not survive the armour coming off.
 		IronManFaceplate.reconcile(player);
@@ -148,8 +149,12 @@ public final class IronManSuitTicker {
 			s = TonyStark.state(player);
 		}
 		boolean overloaded = TonyStark.overloaded(player);
+		// v0.16.7 (user) Era I: the reactor (regen, Gantry charge + repair, the Mk III's flight drain) -- and a browned-out
+		// reactor takes the suit offline like a lockout (armour and absorb still work)
+		IronManEnergy.tickRecharge(player, suit);
+		boolean brownout = IronManEnergy.brownedOut(player, suitId);
 		// v0.16.1: no suit energy -- the suit is offline only at 0 integrity, above its ceiling, or locked out
-		boolean depleted = integrityFailed || altitudeLocked || overloaded || ceilingFreezing;
+		boolean depleted = integrityFailed || altitudeLocked || overloaded || ceilingFreezing || brownout;
 		IronManIntegrity.tick(player, suit); // v0.16.1: the Mark 6 / Mark 7 out-of-combat self-repair (even from 0)
 		if (depleted) {
 			// Suit is powered down: no active abilities run, targeting drops. Physical armour only.

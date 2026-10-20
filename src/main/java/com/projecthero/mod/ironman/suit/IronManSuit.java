@@ -220,8 +220,19 @@ public final class IronManSuit {
 	public String nameKey() { return nameKey; }
 	public int techLevel() { return techLevel; }
 	public int markNumber() { return markNumber; }
-	/** v0.16.1: suit energy is gone -- every suit reads the inert {@code IronManEnergy.FULL} (old callers / UIs stay "full"). */
-	public float energyCapacity() { return com.projecthero.mod.ironman.IronManEnergy.FULL; }
+	/**
+	 * v0.16.1: suit energy is gone -- every suit reads the inert {@code IronManEnergy.FULL} (old callers / UIs stay "full").
+	 * v0.16.7 (user): except the five Era I suits, whose reactor is real again -- their own capacity (Mk I 600 .. Mk III 1200).
+	 */
+	public float energyCapacity() {
+		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(id) ? energyCapacity
+				: com.projecthero.mod.ironman.IronManEnergy.FULL;
+	}
+
+	/** v0.16.7 (user): is this one of the five Era I (Gantry Age) suits? */
+	public boolean eraOne() {
+		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(id);
+	}
 	public float flightEnergyCost() { return flightEnergyCost; }
 	public float flightSpeed() { return flightSpeed; }
 	public float flightAcceleration() { return flightAcceleration; }

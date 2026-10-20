@@ -82,9 +82,7 @@ public final class EraOneMk5Moves {
 	 * Silent Running 5/s). Returns false when the suit cannot pay (the status ends).
 	 */
 	static boolean drain(ServerPlayer p, String moveId) {
-		// TODO(CORE drain): wire to the CORE agent's per-tick drain helper in IronManEraOne, e.g.
-		// return IronManEraOne.drainTick(p, suit, IronManComicKit.energyPerSecond(moveId));
-		return true;
+		return IronManEraOne.drainTick(p, com.projecthero.mod.ironman.suit.IronManSuits.MARK_V, moveId);
 	}
 
 	// ------------------------------------------------------------------ helpers

@@ -134,7 +134,8 @@ public final class BlankBlueprintScreen extends Screen {
 				padlock(g, r.right() - 8, r.bottom() - 9);
 				g.pose().popPose();
 			}
-			String label = IronManGui.fit(font, markName(e.suitId()), labelMax);
+			// v0.16.7: the track node label is the short mark ("Mk III") -- the full name is on the detail line below
+			String label = IronManGui.fit(font, Component.translatable("projecthero.ironman.suit." + e.suitId() + ".short"), labelMax);
 			int ly = i % 2 == 0 ? r.bottom() + 4 : r.y() - 12;
 			int col = !unlocked ? IronManGui.TEXT_MUTED : hot ? 0xFFFFFFFF : IronManGui.TEXT;
 			g.drawString(font, label, r.x() + r.w() / 2 - font.width(label) / 2, ly, col, false);

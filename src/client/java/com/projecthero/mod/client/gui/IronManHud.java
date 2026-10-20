@@ -108,6 +108,8 @@ public final class IronManHud {
 		if (suit == null) {
 			return;
 		}
+		// v0.16.7 (user) Era I: the Shift+C emergency eject bar -- drawn first, so it shows on a wrecked (dark-visor) suit too
+		ejectBar(g, font, player, suit, now);
 		if (com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity.visorDark(player)) {
 			// v0.15.15, explicit user request: on a Stark Gantry the HUD goes off the moment the arms lift the faceplate
 			// away (and comes on once it is fitted) -- the display lives in the faceplate, not the helmet
@@ -120,7 +122,7 @@ public final class IronManHud {
 		float integrityFrac = IronManUiLayout.clamp01(integrity / maxIntegrity);
 		boolean overloaded = state.overloadUntil > now;
 		boolean disabled = integrity <= 0.001f;
-		boolean offline = disabled || overloaded;
+		boolean offline = disabled || overloaded || state.brownout.contains(suitId); // v0.16.7: an Era I brownout too
 
 		// v0.11.12, explicit user request: Mark 1's HUD is deliberately stripped down to ENERGY, INTEGRITY, the
 		// ability list and its own mob-highlight duration -- no altitude, speed, clock, target readout or Phoenix.
@@ -521,14 +523,78 @@ public final class IronManHud {
 				names.add(MoveListOverlay.inline(MoveListOverlay.key(i), Component.translatable(nameKey(suit, abilityId, effectiveId))));
 			}
 		}
+		int top = slots[0].y();
+		for (Rect r : slots) {
+			top = Math.min(top, r.y());
+		}
+		// v0.16.7 (user) Era I: the INTEGRITY + REACTOR bars sit right above the key boxes
+		if (suit.eraOne()) {
+			top = eraOneBars(g, font, state, suit, slots[0].x(), slots[5].right(), top, now);
+		}
 		if (expanded && !names.isEmpty()) {
 			// v0.16.6: the shared move list (plain move + Shift move per key), stacked above the key strip
-			int top = slots[0].y();
-			for (Rect r : slots) {
-				top = Math.min(top, r.y());
-			}
 			MoveListOverlay.draw(g, slots[5].right(), top - 2, names);
 		}
+	}
+
+	/** v0.16.7 (user): the two thin Era I bars and their one label line, above {@code top}. Returns the new top. */
+	private static int eraOneBars(GuiGraphics g, Font font, TonyStarkState state, IronManSuit suit, int x0, int x1, int top, long now) {
+		String id = suit.id();
+		int w = x1 - x0;
+		float maxI = suit.maxIntegrity();
+		float integ = Math.max(0f, Math.min(maxI, state.suitIntegrity.getOrDefault(id, maxI)));
+		float cap = Math.max(1f, suit.energyCapacity());
+		float en = Math.max(0f, Math.min(cap, state.suitEnergy.getOrDefault(id, cap)));
+		boolean brownout = state.brownout.contains(id);
+		boolean low = !brownout && en / cap < com.projecthero.mod.ironman.IronManEnergy.LOW_POWER;
+		int reactorY = top - 5;
+		int integY = reactorY - 6;
+		// INTEGRITY: red-gold; REACTOR: cyan (flickering red while browned out)
+		IronManGui.gaugeBar(g, x0 + 1, integY, w - 2, integ / maxI, integ / maxI < 0.3f ? IronManGui.RED : 0xFFE0A030,
+				IronManGui.BAR_BG, IronManGui.PANEL_BORDER);
+		int reactorFill = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE : 0xFF4FE0FF;
+		IronManGui.gaugeBar(g, x0 + 1, reactorY, w - 2, en / cap, reactorFill, IronManGui.BAR_BG, IronManGui.PANEL_BORDER);
+		int textY = integY - 11;
+		String left = Component.translatable("hud.projecthero.ironman.era1.integrity").getString() + " " + Math.round(integ);
+		String right = brownout ? Component.translatable("hud.projecthero.ironman.era1.brownout").getString()
+				: low ? Component.translatable("hud.projecthero.ironman.era1.low_power").getString() + " " + Math.round(en)
+				: Component.translatable("hud.projecthero.ironman.era1.reactor").getString() + " " + Math.round(en);
+		right = IronManGui.fit(font, right, w / 2 - 2);
+		left = IronManGui.fit(font, left, w - font.width(right) - 6);
+		g.drawString(font, left, x0 + 1, textY, 0xFFE0A030, true);
+		int rc = brownout ? ((now / 10) % 2 == 0 ? IronManGui.RED : 0xFFFF9090) : low ? IronManGui.ORANGE : 0xFF4FE0FF;
+		g.drawString(font, right, x1 - 1 - font.width(right), textY, rc, true);
+		return textY;
+	}
+
+	/** v0.16.7 (user): the game time this client started holding Shift+C on an Era I suit, or -1. */
+	private static long ejectHeldSince = -1L;
+
+	/**
+	 * v0.16.7 (user): while Shift+C is held on a worn Era I suit, a bar fills over {@code EraOneEject.HOLD_TICKS} (3 s),
+	 * centred above the key boxes (like the Miraculous take-off bar). The server times the real eject; this only shows it.
+	 */
+	private static void ejectBar(GuiGraphics g, Font font, Player player, IronManSuit suit, long now) {
+		Minecraft mc = Minecraft.getInstance();
+		boolean holding = suit.eraOne() && mc.screen == null && ModKeyBindings.ABILITY_SLOTS[5].isDown() && player.isShiftKeyDown();
+		if (!holding) {
+			ejectHeldSince = -1L;
+			return;
+		}
+		if (ejectHeldSince < 0L || ejectHeldSince > now) {
+			ejectHeldSince = now;
+		}
+		float progress = Math.min(1f, (now - ejectHeldSince) / (float) com.projecthero.mod.ironman.ability.era1.EraOneEject.HOLD_TICKS);
+		int w = 120;
+		int h = 5;
+		int x = (g.guiWidth() - w) / 2;
+		Rect[] slots = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight());
+		int y = slots[0].y() - 44;
+		Component label = Component.translatable("hud.projecthero.ironman.era1.eject_bar");
+		String l = IronManGui.fit(font, label, g.guiWidth() - 16);
+		g.drawString(font, l, (g.guiWidth() - font.width(l)) / 2, y - 11, 0xFFFFFFFF, true);
+		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xC0000000);
+		g.fill(x, y, x + Math.round(w * progress), y + h, IronManGui.GOLD);
 	}
 
 	/** v0.16.1: one comic-kit key box. Returns the expanded-list line ("[R] Tap / Shift  cooldowns"). */
@@ -540,6 +606,10 @@ public final class IronManHud {
 			return null;
 		}
 		boolean shift = player.isShiftKeyDown();
+		if (kitKey.shift() == null) {
+			// v0.16.7 (user) Era I: the C box -- its tap move, and with Shift held the emergency EJECT
+			return ejectKeyBox(g, font, state, suitId, kitKey.tap(), i, r, now, retro, offline, accent, shift);
+		}
 		var shown = kitKey.get(shift);
 		var other = kitKey.get(!shift);
 		String cdKey = suitId + "/" + shown.cooldownKey();
@@ -578,6 +648,62 @@ public final class IronManHud {
 		// v0.16.7: a row of the shared move list (tap move, its Shift move, the cooldown)
 		return MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(kitKey.tap().nameKey()),
 				Component.translatable(kitKey.shift().nameKey()), left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
+	}
+
+	/**
+	 * v0.16.7 (user) Era I: the C key box. Plain: the tap move (icon, cooldown sweep) like any kit box. Shift held: EJECT --
+	 * the Suit Crate icon in a gold frame (the whole box glows while the 3 s hold runs). The move-list row is
+	 * "[C] tap / Shift: Emergency eject (hold 3 s)".
+	 */
+	private static MoveListOverlay.Row ejectKeyBox(GuiGraphics g, Font font, TonyStarkState state, String suitId,
+			com.projecthero.mod.ironman.ability.IronManComicKit.Move tap, int i, Rect r, long now, boolean retro, boolean offline,
+			int accent, boolean shift) {
+		String cdKey = suitId + "/" + tap.cooldownKey();
+		Long readyAt = state.abilityReadyAt.get(cdKey);
+		long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
+		g.fill(r.x(), r.y(), r.right(), r.bottom(), retro ? 0xC0140C04 : 0xC0081018);
+		int border = shift ? IronManGui.GOLD : offline ? 0xFF6A2020 : retro ? IronManGui.AMBER_DIM : IronManGui.PANEL_BORDER;
+		g.renderOutline(r.x(), r.y(), r.w(), r.h(), border);
+		if (shift) {
+			if (ejectHeldSince >= 0L) {
+				float p = Math.min(1f, (now - ejectHeldSince) / (float) com.projecthero.mod.ironman.ability.era1.EraOneEject.HOLD_TICKS);
+				int fillH = Math.round((r.h() - 2) * p);
+				g.fill(r.x() + 1, r.bottom() - 1 - fillH, r.right() - 1, r.bottom() - 1, 0x80FFC24A);
+			}
+			g.renderFakeItem(new ItemStack(IronManItems.SUIT_CRATE), r.x() + (r.w() - 16) / 2, r.y() + 2);
+		} else {
+			if (!offline && left <= 0) {
+				g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
+			}
+			g.renderFakeItem(new ItemStack(tap.icon()), r.x() + (r.w() - 16) / 2, r.y() + 2);
+		}
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 200);
+		if (shift) {
+			// small (x0.7) so the word fits the 26 px box
+			String e = Component.translatable("hud.projecthero.ironman.era1.eject").getString();
+			float sc = Math.min(0.7f, (r.w() - 2) / (float) Math.max(1, font.width(e)));
+			g.pose().pushPose();
+			g.pose().translate(r.x() + r.w() / 2f, r.bottom() - 7f, 0f);
+			g.pose().scale(sc, sc, 1f);
+			g.drawString(font, e, -font.width(e) / 2, 0, IronManGui.GOLD, true);
+			g.pose().popPose();
+		} else if (left > 0) {
+			float frac = cooldownFrac(cdKey, readyAt, now);
+			int coverH = Math.round((r.h() - 2) * frac);
+			g.fill(r.x() + 1, r.bottom() - 1 - coverH, r.right() - 1, r.bottom() - 1, 0xB0000000);
+			String s = String.valueOf(IronManUiLayout.ceilSecs(left));
+			g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
+		} else if (offline) {
+			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
+		}
+		g.drawString(font, keyLabel(i), r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
+		if (shift) {
+			g.drawString(font, "⇧", r.right() - 7, r.y() + 1, IronManGui.GOLD, true);
+		}
+		g.pose().popPose();
+		return MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(tap.nameKey()),
+				Component.translatable("hud.projecthero.ironman.era1.eject_move"), left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
 	}
 
 	private static boolean isActive(Player player, TonyStarkState state, String abilityId, long now) {
