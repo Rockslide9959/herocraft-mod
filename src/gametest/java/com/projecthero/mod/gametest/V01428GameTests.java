@@ -84,7 +84,9 @@ public class V01428GameTests implements FabricGameTest {
 		}
 		for (IronManSuit suit : IronManSuits.all()) {
 			String name = lang.get("projecthero.ironman.suit." + suit.id() + ".name").getAsString();
-			h.assertTrue(name.equals("Mark " + suit.markNumber()), suit.id() + " should be named Mark " + suit.markNumber() + ", got " + name);
+			// v0.16.7: the comic rework's gold Mark 1 V2 is its own suit sharing the Mark 1's number, so it keeps its "V2"
+			String want = "Mark " + suit.markNumber() + (suit == IronManSuits.MARK_1_V2 ? " V2" : "");
+			h.assertTrue(name.equals(want), suit.id() + " should be named " + want + ", got " + name);
 		}
 		for (var e : lang.entrySet()) {
 			h.assertFalse(e.getValue().getAsString().matches(".*\\bMark (I|II|III|IV|V|VI|VII|VIII)\\b.*"),

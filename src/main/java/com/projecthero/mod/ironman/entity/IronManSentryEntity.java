@@ -193,6 +193,8 @@ public class IronManSentryEntity extends Entity {
 	public static final double CALM_RADIUS = 16.0;
 	/** v0.15.15: a called Mark 8 lands this far in front of its owner. */
 	public static final double ARRIVE_FRONT = 2.0;
+	/** v0.16.7: the straight-down orbital drop (when the 10-22 block ring has no sight line) starts up to this high. */
+	public static final double OVERHEAD_UP = 14.0;
 	/** v0.15.15: an arriving suit that hasn't landed after this long (stuck in a cave, say) is set down on the spot. */
 	public static final int ARRIVE_TIMEOUT = 400;
 	/** v0.15.15 send-home: stands this long once closed, then takes off. */
@@ -440,7 +442,7 @@ public class IronManSentryEntity extends Entity {
 		return s;
 	}
 
-	/** Somewhere up in the air round the owner, in ticking, open air (falls back closer in under a roof / in a cave). */
+	/** Somewhere up in the air round the owner, in ticking, open air (then straight overhead, then closer in under a low roof / in a cave). */
 	private static Vec3 skyStart(ServerLevel level, ServerPlayer owner, IronManSentryEntity s) {
 		var dims = s.getType().getDimensions();
 		for (int attempt = 0; attempt < 8; attempt++) {
@@ -454,6 +456,18 @@ public class IronManSentryEntity extends Entity {
 							ClipContext.Fluid.NONE, owner)).getType() == HitResult.Type.MISS) {
 				return c;
 			}
+		}
+		// v0.16.7: the Hulkbuster is an orbital drop, so before giving up and walking in from behind, try a drop straight
+		// down onto the owner -- from up to OVERHEAD_UP blocks above, or from just under whatever roof is in the way. The
+		// ring needs a clear sight line from 10-22 blocks out (a forest, a canyon, a walled yard or the gametest barrier
+		// cage all block it) while the column right overhead is usually open. Only counts if it's a real drop (>= 3 blocks).
+		Vec3 eye = owner.getEyePosition();
+		var roof = level.clip(new ClipContext(eye, eye.add(0, OVERHEAD_UP, 0), ClipContext.Block.COLLIDER,
+				ClipContext.Fluid.NONE, owner));
+		double topY = roof.getType() == HitResult.Type.MISS ? owner.getY() + OVERHEAD_UP : roof.getLocation().y - dims.height() - 0.05;
+		Vec3 over = new Vec3(owner.getX(), Math.min(owner.getY() + OVERHEAD_UP, topY), owner.getZ());
+		if (over.y >= owner.getY() + 3.0 && level.noCollision(s, dims.makeBoundingBox(over))) {
+			return over;
 		}
 		Vec3 back = Vec3.directionFromRotation(0f, owner.getYRot()).scale(-4.0);
 		Vec3 c = owner.position().add(back).add(0, 1.0, 0);

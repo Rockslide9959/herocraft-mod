@@ -359,30 +359,15 @@ public class IronManRound2GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void markVGeoHasBladeBones(GameTestHelper helper) throws Exception {
-		JsonObject geo;
-		try (InputStream in = res("/assets/projecthero/geo/mark_v.geo.json")) {
-			geo = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
-		}
-		Map<String, JsonObject> bones = new HashMap<>();
-		for (JsonElement b : geo.getAsJsonArray("minecraft:geometry").get(0).getAsJsonObject().getAsJsonArray("bones")) {
-			bones.put(b.getAsJsonObject().get("name").getAsString(), b.getAsJsonObject());
-		}
-		for (String[] pair : new String[][] { { "right_blade", "armorRightArm" }, { "left_blade", "armorLeftArm" } }) {
-			JsonObject b = bones.get(pair[0]);
-			helper.assertTrue(b != null, pair[0] + " bone exists");
-			helper.assertTrue(pair[1].equals(b.get("parent").getAsString()), pair[0] + " hangs off " + pair[1]);
-			helper.assertTrue(b.getAsJsonArray("cubes").size() == 3, pair[0] + ": housing, blade, tip");
-			float pivotY = b.getAsJsonArray("pivot").get(1).getAsFloat();
-			float lowest = Float.MAX_VALUE;
-			for (JsonElement c : b.getAsJsonArray("cubes")) {
-				lowest = Math.min(lowest, c.getAsJsonObject().getAsJsonArray("origin").get(1).getAsFloat());
+	public void noIronManGeoHasBladeBones(GameTestHelper helper) throws Exception {
+		// v0.16.7: the comic rework replaced the movie Mark V (suitcase suit + wrist blades) with the Mark 5 Stealth; its
+		// geo was rebuilt from the skin rig without the blade bones and no comic kit binds the Blade ability any more, so
+		// no mark carries blades now (the renderer's blade hooks are by bone name and simply never fire).
+		for (String m : MARKS) {
+			try (InputStream in = res("/assets/projecthero/geo/" + m + ".geo.json")) {
+				String geo = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+				helper.assertFalse(geo.contains("right_blade") || geo.contains("left_blade"), m + " has no blade bones");
 			}
-			helper.assertTrue(pivotY > 16f && lowest < 12f, pair[0] + " extends from the gauntlet past the fist (y 12)");
-		}
-		// the rest of the marks have no blades
-		try (InputStream in = res("/assets/projecthero/geo/mark_vii.geo.json")) {
-			helper.assertFalse(new String(in.readAllBytes(), StandardCharsets.UTF_8).contains("right_blade"), "Mark VII has no blades");
 		}
 		helper.succeed();
 	}
@@ -411,10 +396,7 @@ public class IronManRound2GameTests implements FabricGameTest {
 				}
 			}
 		}
-		if ("mark_v".equals(mark)) {
-			need.add("right_blade");
-			need.add("left_blade");
-		}
+		// v0.16.7: no blade bones any more -- the comic Mark 5 Stealth has no wrist blades (see noIronManGeoHasBladeBones)
 		return need;
 	}
 
@@ -439,7 +421,7 @@ public class IronManRound2GameTests implements FabricGameTest {
 				String name = e.getKey();
 				int cubes = e.getValue().has("cubes") ? e.getValue().getAsJsonArray("cubes").size() : 0;
 				if (name.endsWith("_blade")) {
-					helper.assertTrue("mark_v".equals(m) && cubes == 3, m + ": only the Mark V has (3-cube) blades");
+					helper.assertTrue(false, m + ": no mark has blades since the v0.16.1 comic rework (" + name + ")");
 				} else if (skin.contains(name)) {
 					helper.assertTrue(cubes == 2, m + " " + name + ": base + layer, got " + cubes);
 				} else {
@@ -465,13 +447,13 @@ public class IronManRound2GameTests implements FabricGameTest {
 							m + " " + side + " leg: 12 texel rows between thigh and boot");
 				}
 			}
-			// the skin's unused top-left corner stays empty -- except the Mark V's blade swatch
+			// the skin's unused top-left corner stays empty (v0.16.7: on every mark -- the Mark 5 Stealth skin has no blade swatch)
 			BufferedImage img;
 			try (InputStream in = res("/assets/projecthero/textures/armor/" + m + ".png")) {
 				img = ImageIO.read(in);
 			}
 			helper.assertTrue(img.getWidth() == 64 && img.getHeight() == 64, m + " texture is a 64x64 skin");
-			helper.assertTrue(((img.getRGB(2, 2) >>> 24) != 0) == "mark_v".equals(m), m + ": blade swatch only on the Mark V");
+			helper.assertTrue((img.getRGB(2, 2) >>> 24) == 0, m + ": no blade swatch");
 			// no enchanted shimmer on any piece
 			for (ArmorItem.Type type : ArmorItem.Type.values()) {
 				if (type == ArmorItem.Type.BODY) {

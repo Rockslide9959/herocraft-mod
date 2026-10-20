@@ -1917,7 +1917,7 @@
   "screen.projecthero.ironman_comic.name": "Armour",
   "screen.projecthero.suit_call.absorb": "ABSORB",
   "screen.projecthero.suit_call.cmp.absorb": "Absorb",
-  "screen.projecthero.suit_call.cmp.self_repair": "Self-repair",
+  "screen.projecthero.suit_call.cmp.self_repair": "Repair",
   "screen.projecthero.ironman_comic.stats": "Comic stats",
   "screen.projecthero.ironman_comic.moves": "Keys (tap / Shift)",
   "screen.projecthero.ironman_comic.move_line": "[%s] %s / Shift: %s",
