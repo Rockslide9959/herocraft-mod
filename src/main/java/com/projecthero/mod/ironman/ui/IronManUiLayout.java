@@ -135,30 +135,97 @@ public final class IronManUiLayout {
 
 	// ------------------------------------------------------------------ helmet HUD
 
-	/** Top-left block anchor and width. */
+	/**
+	 * v0.16.7 (user) HUD redesign: the top-left anchor (the slim telemetry strip, then the contextual meters / chips) and
+	 * the width of both the top-left block and the top-right suit status block.
+	 */
 	public static final int HUD_X = 6;
 	public static final int HUD_Y = 6;
 	public static final int HUD_W = 150;
 	/** One Gauge row: a 9 px label/value line over a 3 px bar, 2 px gap. */
 	public static final int GAUGE_ROW_H = 15;
 
-	/** Ability strip slot size and gap. */
-	public static final int SLOT_W = 26;
+	/** v0.16.7 (user): the top-right suit status block -- margin, the header line, the dial and one gauge (label, bar, detail). */
+	public static final int STATUS_MARGIN = 6;
+	public static final int STATUS_PAD = 4;
+	public static final int STATUS_HEADER_H = 12;
+	public static final int STATUS_DIAL = 36;
+	public static final int STATUS_GAUGE_H = 24;
+	public static final int STATUS_GAUGE_GAP = 3;
+
+	/** v0.16.7 (user): the top-right status block (two gauges with a reactor, one without). */
+	public static Rect statusBlock(int screenW, boolean reactor) {
+		int gauges = reactor ? 2 * STATUS_GAUGE_H + STATUS_GAUGE_GAP : STATUS_GAUGE_H;
+		int h = STATUS_PAD + STATUS_HEADER_H + Math.max(STATUS_DIAL, gauges) + STATUS_PAD - 1;
+		return new Rect(screenW - STATUS_MARGIN - HUD_W, STATUS_MARGIN, HUD_W, h);
+	}
+
+	/** v0.16.7 (user): the widest the top-left telemetry strip may be -- up to the status block, with a gap. */
+	public static int stripMaxWidth(int screenW) {
+		return Math.max(60, statusBlock(screenW, true).x() - HUD_X - 10);
+	}
+
+	/**
+	 * v0.16.7 (user): the telemetry strip's segments flowed onto lines no wider than {@code maxW} ({@code sep} px between
+	 * two segments on one line). Returns the line index of each segment.
+	 */
+	public static int[] flowSegments(int[] widths, int sep, int maxW) {
+		int[] line = new int[widths.length];
+		int l = 0;
+		int x = 0;
+		for (int i = 0; i < widths.length; i++) {
+			if (x > 0 && x + sep + widths[i] > maxW) {
+				l++;
+				x = 0;
+			}
+			x += (x > 0 ? sep : 0) + widths[i];
+			line[i] = l;
+		}
+		return line;
+	}
+
+	/** Ability column box size and gap. */
+	public static final int SLOT_W = 22;
 	public static final int SLOT_H = 22;
 	public static final int SLOT_GAP = 3;
-	/** The strip's bottom edge sits this far above the screen bottom: clear of hotbar, XP bar, hearts and armour. */
-	public static final int STRIP_BOTTOM_MARGIN = 52;
+	/** The column's right / bottom margins, and the room its key letters take to the LEFT of the boxes. */
+	public static final int COLUMN_MARGIN_RIGHT = 6;
+	public static final int COLUMN_MARGIN_BOTTOM = 8;
+	public static final int KEY_LABEL_W = 9;
 
-	/** The six ability-strip slots (R G X Z V C), centred above the hotbar. */
+	/**
+	 * The six ability boxes (R G X Z V C, top to bottom), v0.16.7 (user): stacked in a column along the bottom-right edge
+	 * of the screen (they used to sit in a row above the hotbar). The key letters sit {@link #KEY_LABEL_W} px to the left.
+	 */
 	public static Rect[] abilityStrip(int screenW, int screenH) {
 		Rect[] out = new Rect[6];
-		int total = 6 * SLOT_W + 5 * SLOT_GAP;
-		int x0 = screenW / 2 - total / 2;
-		int y0 = screenH - STRIP_BOTTOM_MARGIN - SLOT_H;
+		int total = 6 * SLOT_H + 5 * SLOT_GAP;
+		int x0 = screenW - COLUMN_MARGIN_RIGHT - SLOT_W;
+		int y0 = screenH - COLUMN_MARGIN_BOTTOM - total;
 		for (int i = 0; i < 6; i++) {
-			out[i] = new Rect(x0 + i * (SLOT_W + SLOT_GAP), y0, SLOT_W, SLOT_H);
+			out[i] = new Rect(x0, y0 + i * (SLOT_H + SLOT_GAP), SLOT_W, SLOT_H);
 		}
 		return out;
+	}
+
+	/**
+	 * v0.16.7 (user): where the target card goes -- just right of the crosshair, or just left of it when the right side
+	 * would run into the ability column; never over the crosshair, kept on screen.
+	 */
+	public static final int CARD_BOTTOM_CLEAR = 52;
+
+	public static Rect targetCard(int screenW, int screenH, int w, int h) {
+		int cx = screenW / 2;
+		int cy = screenH / 2;
+		int columnLeft = abilityStrip(screenW, screenH)[0].x() - KEY_LABEL_W - 4;
+		int x = cx + 18;
+		if (x + w > columnLeft) {
+			x = cx - 18 - w;
+		}
+		x = Math.max(2, x);
+		// above vanilla's bottom-centre stack (hotbar, XP, hearts / food, air bubbles) -- the card sits beside the crosshair
+		int y = Math.max(2, Math.min(cy - 10, screenH - CARD_BOTTOM_CLEAR - h));
+		return new Rect(x, y, w, h);
 	}
 
 	/**

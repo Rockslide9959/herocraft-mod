@@ -38,15 +38,17 @@ import net.minecraft.world.phys.EntityHitResult;
  * <ul>
  *   <li><b>Visor</b> -- while the faceplate is closed: a faint edge vignette + corner brackets (Mark I: a heavier
  *       eye-slit band in amber).</li>
- *   <li><b>Top-left block</b> -- suit name (+ small ALT / SPD), ENERGY and INTEGRITY Gauges with the exact values on
- *       their label line, one dim clock / position line, then <i>only the meters that matter right now</i>: AIR
- *       (underwater / refilling), HEAT, FLIGHT burst, OVERLOAD, WRIST LASER, MISSILE reload, plus the Mark II
- *       ceiling warning, a blinking SUIT CRITICAL banner and the SUIT OFFLINE line.</li>
- *   <li><b>Status chips</b> -- mob highlight, weapon-wheel binding, blades, entity scan, missiles ready, visor
- *       open, Protocol Phoenix cooldown.</li>
- *   <li><b>Ability strip</b> -- six slots (R G X Z V C) centred above the hotbar, read from the worn suit's
- *       {@code abilityInSlot()}: an icon, the bound key, and a cooldown sweep + seconds. Hold Left Alt to list
- *       the slot names above the strip.</li>
+ *   <li><b>Top-left</b> (v0.16.7 user redesign) -- one slim telemetry strip (ALT, SPD, X Y Z, clock / day), then
+ *       <i>only the meters that matter right now</i>: AIR (underwater / refilling), HEAT, FLIGHT burst, OVERLOAD, WRIST
+ *       LASER, MISSILE reload, the Mark II ceiling warning, and the status chips (mob highlight, weapon-wheel binding,
+ *       blades, entity scan, missiles ready, Protocol Phoenix cooldown).</li>
+ *   <li><b>Top-right</b> (v0.16.7) -- the suit status in the helmet's holographic line-art style: the suit's full name, a
+ *       dial (segmented INTEGRITY / REACTOR rings around a wireframe suit that reddens with damage) and the INTEGRITY and
+ *       (Era I) REACTOR gauges with percentages, exact values, absorb share, regen and LOW POWER / BROWNOUT.</li>
+ *   <li><b>Ability column</b> (v0.16.7) -- six boxes (R G X Z V C) stacked along the bottom-right edge, read from the
+ *       worn suit's {@code abilityInSlot()}: an icon, the key letter beside it, a cooldown sweep + seconds. Hold Left Alt
+ *       for the move names, one row to the left of each box. Nothing sits above the hotbar.</li>
+ *   <li><b>Target scanner</b> -- a holographic reticle on the target and a threat card beside the crosshair.</li>
  *   <li>Unarmoured Tony Stark: the CALL ARMOUR chip and the Phoenix timer.</li>
  * </ul>
  * Mark I keeps its stripped-down retro HUD ({@code minimalHud}): amber cells, no telemetry / chips except its own
@@ -147,58 +149,21 @@ public final class IronManHud {
 			return;
 		}
 
-		// v0.15.20, explicit user request: the clock line carries X, Y and Z, and the whole block grows wider to fit it (it
-		// used to be clipped to the fixed width, so a 3-digit X already cut the Z off) -- never past the screen edge.
-		String clockLine = null;
-		if (!minimalHud && client.level != null) {
-			long dayTime = client.level.getDayTime();
-			long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
-			clockLine = Component.translatable("hud.projecthero.ironman.clock_pos",
-					String.format(java.util.Locale.ROOT, "%02d:%02d", tod / 1000L, (tod % 1000L) * 60L / 1000L),
-					dayTime / 24000L + 1L, (int) Math.floor(player.getX()), (int) Math.floor(player.getY()),
-					(int) Math.floor(player.getZ())).getString();
-			w = Math.min(Math.max(w, font.width(clockLine)), g.guiWidth() - 2 * x);
-		}
+		// v0.16.7 (user) HUD redesign: the top-left keeps only the slim telemetry strip (ALT, SPD, X Y Z, clock / day -- the
+		// v0.15.20 user request for X, Y and Z stays) with the contextual meters / chips under it; the suit's name, INTEGRITY and
+		// REACTOR moved to the top-right status block; the key boxes to a column along the bottom-right edge.
+		int y = minimalHud ? IronManUiLayout.HUD_Y : telemetryStrip(g, font, client, player);
 
-		// Two passes: measure the text block, then draw a soft backdrop behind it (readable over a bright sky) and the block.
-		int textBottom = IronManUiLayout.HUD_Y;
+		// Two passes: measure the contextual block, then draw a soft backdrop behind it (readable over a bright sky) and the block.
+		int blockTop = y;
+		int textBottom = blockTop;
 		boolean missilesReady = true;
 		for (int pass = 0; pass < 2; pass++) {
 			boolean draw = pass == 1;
-			if (draw) {
-				backdrop(g, x - 3, IronManUiLayout.HUD_Y - 3, w + 6, textBottom - IronManUiLayout.HUD_Y + 2, minimalHud);
+			if (draw && textBottom > blockTop) {
+				backdrop(g, x - 3, blockTop - 3, w + 6, textBottom - blockTop + 2, minimalHud);
 			}
-			int y = IronManUiLayout.HUD_Y;
-			// ---- header: suit name, then (full HUD) ALT / SPD right-aligned
-			Component name = Component.translatable(suit.nameKey()).withStyle(s -> s.withBold(true));
-			if (draw) {
-				g.drawString(font, name, x, y, accent, true);
-			}
-			if (!minimalHud) {
-				double speed = player.getDeltaMovement().horizontalDistance() * 20.0;
-				String tele = Component.translatable("hud.projecthero.ironman.alt_spd",
-						(int) Math.round(player.getY()), (int) Math.round(speed)).getString();
-				String t = IronManGui.fit(font, tele, w - font.width(name) - 8);
-				if (draw) {
-					g.drawString(font, t, x + w - font.width(t), y, IronManGui.TEXT_DIM, false);
-				}
-			}
-			y += 12;
-
-			// ---- v0.16.1: INTEGRITY is the main Gauge (no energy any more); the label carries the absorb share
-			y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.integrity_abs",
-					Math.round(suit.absorbShare() * 100f)).getString(),
-					Math.round(integrity) + "/" + Math.round(maxIntegrity), // the bar shows the fraction; the label carries the absorb share
-					integrityFrac, integrityFrac < 0.3f ? IronManGui.RED : integrityFrac < 0.6f ? IronManGui.GOLD : IronManGui.GREEN);
-
-			// ---- one dim clock + position line ("changes 18" clock); the block is widened to fit it (v0.15.20)
-			if (clockLine != null) {
-				if (draw) {
-					g.drawString(font, IronManGui.fit(font, clockLine, w), x, y, IronManGui.TEXT_DIM, false);
-				}
-				y += 11;
-			}
-
+			y = blockTop;
 			// ---- contextual meters, only while relevant
 			if (!minimalHud && suit.airTankSeconds() > 0 && state.suitAir < 0.999f) {
 				float airFrac = IronManUiLayout.clamp01(state.suitAir);
@@ -252,22 +217,12 @@ public final class IronManHud {
 							IronManGui.GOLD);
 				}
 			}
-			if (!minimalHud && integrityFrac < 0.35f && !offline) {
-				if (draw && (now % 20) < 13) {
-					String crit = IronManGui.fit(font, Component.translatable("hud.projecthero.ironman.critical_short"), w - 6);
-					g.fill(x, y, x + font.width(crit) + 6, y + 11, 0xC0400808);
-					g.renderOutline(x, y, font.width(crit) + 6, 11, IronManGui.RED);
-					g.drawString(font, crit, x + 3, y + 2, 0xFFFF7070, false);
-				}
-				y += 13;
-			}
-			if (!minimalHud && offline) {
-				y = wrapped(draw, g, font, x, y, w, Component.translatable("hud.projecthero.ironman.offline"), IronManGui.RED);
-			}
+			// v0.16.7 (user): the SUIT CRITICAL banner and the SUIT OFFLINE line are gone from here -- the status block's
+			// INTEGRITY gauge blinks CRITICAL and the key boxes go red while the suit is offline
 
 			textBottom = y;
 		}
-		int y = textBottom;
+		y = textBottom;
 
 		// ---- status chips
 		List<String> chipText = new ArrayList<>();
@@ -295,15 +250,6 @@ public final class IronManHud {
 						Component.translatable("hud.projecthero.ironman.ability." + state.weaponWheelChoice)).getString());
 				chipColor.add(IronManGui.GOLD);
 			}
-			if (false) { // v0.16.1: the old Mark 6-8 wheel is gone (the comic kit has no wheel)
-				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk6_wheel",
-						Component.translatable("hud.projecthero.ironman.ability." + com.projecthero.mod.ironman.ability.IronManMark6.selectedWeapon(state, suitId))).getString());
-				chipColor.add(IronManGui.GOLD);
-			}
-			if (false) { // v0.16.1: the old Mark III shield is gone
-				chipText.add(Component.translatable("hud.projecthero.ironman.chip.mk3_shield").getString()); // v0.14.27
-				chipColor.add(IronManGui.CYAN);
-			}
 			if (player.getAttachedOrElse(ModAttachments.IRON_MAN_BLADES, false)) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.chip.blades").getString());
 				chipColor.add(IronManGui.CYAN);
@@ -312,10 +258,6 @@ public final class IronManHud {
 					&& !com.projecthero.mod.ironman.ability.IronManMark6.isKitSuit(suitId) && missilesReady) {
 				chipText.add(Component.translatable("hud.projecthero.ironman.missiles", suit.missileCount()).getString());
 				chipColor.add(IronManGui.GOLD);
-			}
-			if (!visorClosed) {
-				chipText.add(Component.translatable("hud.projecthero.ironman.chip.visor_open").getString());
-				chipColor.add(IronManGui.TEXT_DIM);
 			}
 			long phoenixIn = state.phoenixReadyAt - now;
 			if (phoenixIn > 0 && com.projecthero.mod.ironman.gear.StarkGear.phoenixArmed(player)) { // v0.15.7: glasses only
@@ -336,14 +278,304 @@ public final class IronManHud {
 			}
 		}
 
-		// ---- target readout just under the crosshair (helmet feel; replaces the old "TARGET" line)
-		// v0.14.26: the target scanner (Mark II+, visor closed): name / health / armour / distance / threat of the target
-		// under the crosshair out to 100 blocks (Mark II: 25), or the Mark III targeting lock
-		if (!minimalHud && visorClosed) {
+		// ---- v0.16.7 (user): the top-right suit status block (name, INTEGRITY, REACTOR, the dial + suit silhouette)
+		statusBlock(g, font, player, state, suit, now, minimalHud, integrity, maxIntegrity, offline);
+
+		// ---- the target scanner (Mark II+, visor closed): v0.16.7 (user) holographic reticle + threat card
+		if (!minimalHud && visorClosed && !MoveListOverlay.held()) { // the Left-Alt move list takes the space while held
 			com.projecthero.mod.client.ironman.IronManTargetScanner.renderPanel(g, font, player, suit, delta.getGameTimeDeltaPartialTick(false));
 		}
 
 		abilityStrip(g, font, player, state, suit, suitId, now, minimalHud, offline);
+	}
+
+	// ------------------------------------------------------------------ v0.16.7 (user) top-left telemetry strip
+
+	/**
+	 * The slim telemetry strip: ALT, SPD, X Y Z and the clock / day, segments separated by thin dividers, on one line --
+	 * wrapping onto more only when the screen is too narrow (it never runs into the status block). Returns the y under it.
+	 */
+	private static int telemetryStrip(GuiGraphics g, Font font, Minecraft client, Player player) {
+		if (client.level == null) {
+			return IronManUiLayout.HUD_Y;
+		}
+		double speed = player.getDeltaMovement().horizontalDistance() * 20.0;
+		long dayTime = client.level.getDayTime();
+		long tod = ((dayTime + 6000L) % 24000L + 24000L) % 24000L;
+		List<Component> segs = new ArrayList<>();
+		segs.add(seg("hud.projecthero.ironman.strip.alt", (int) Math.round(player.getY())));
+		segs.add(seg("hud.projecthero.ironman.strip.spd", (int) Math.round(speed)));
+		segs.add(seg("hud.projecthero.ironman.strip.pos", (int) Math.floor(player.getX()), (int) Math.floor(player.getY()),
+				(int) Math.floor(player.getZ())));
+		segs.add(seg("hud.projecthero.ironman.strip.clock",
+				String.format(java.util.Locale.ROOT, "%02d:%02d", tod / 1000L, (tod % 1000L) * 60L / 1000L), dayTime / 24000L + 1L));
+		int maxW = IronManUiLayout.stripMaxWidth(g.guiWidth()) - 10;
+		int[] widths = new int[segs.size()];
+		for (int i = 0; i < widths.length; i++) {
+			widths[i] = Math.min(maxW, font.width(segs.get(i)));
+		}
+		int sep = 11;
+		int[] line = IronManUiLayout.flowSegments(widths, sep, maxW);
+		int lines = line[line.length - 1] + 1;
+		int[] lineW = new int[lines];
+		for (int i = 0; i < widths.length; i++) {
+			lineW[line[i]] += (lineW[line[i]] > 0 ? sep : 0) + widths[i];
+		}
+		int innerW = 0;
+		for (int lw : lineW) {
+			innerW = Math.max(innerW, lw);
+		}
+		int x0 = IronManUiLayout.HUD_X;
+		int y0 = IronManUiLayout.HUD_Y;
+		int h = lines * 10 + 5;
+		int bw = innerW + 10;
+		g.fill(x0, y0, x0 + bw, y0 + h, 0x8C050B12);
+		g.renderOutline(x0, y0, bw, h, IronManGui.alpha(IronManGui.CYAN_DIM, 0.55f));
+		g.fill(x0, y0, x0 + 2, y0 + h, IronManGui.alpha(IronManGui.CYAN, 0.9f)); // the brighter left accent edge
+		g.fill(x0 + bw - 5, y0 - 1, x0 + bw - 1, y0, IronManGui.alpha(IronManGui.RED, 0.8f)); // a small red tick
+		int cx = x0 + 6;
+		int curLine = 0;
+		for (int i = 0; i < segs.size(); i++) {
+			if (line[i] != curLine) {
+				curLine = line[i];
+				cx = x0 + 6;
+			} else if (cx > x0 + 6) {
+				g.fill(cx + 5, y0 + 4 + curLine * 10, cx + 6, y0 + 10 + curLine * 10, IronManGui.alpha(IronManGui.CYAN_DIM, 0.8f));
+				cx += sep;
+			}
+			g.drawString(font, IronManGui.fit(font, segs.get(i), maxW), cx, y0 + 3 + curLine * 10, IronManGui.TEXT_DIM, false);
+			cx += widths[i];
+		}
+		return y0 + h + 4;
+	}
+
+	/** One strip segment: the label dim, the numbers bright. */
+	private static Component seg(String key, Object... args) {
+		Object[] bright = new Object[args.length];
+		for (int i = 0; i < args.length; i++) {
+			bright[i] = Component.literal(String.valueOf(args[i])).withStyle(s -> s.withColor(IronManGui.TEXT & 0xFFFFFF));
+		}
+		return Component.translatable(key, bright).withStyle(s -> s.withColor(IronManGui.CYAN_DIM & 0xFFFFFF));
+	}
+
+	// ------------------------------------------------------------------ v0.16.7 (user) top-right suit status
+
+	/** Pale holographic blue for the gauge labels, and the healthy integrity fill. */
+	private static final int HOLO = 0xFFA9DDF2;
+	private static final int HOLO_FILL = 0xFFBFEFFF;
+	private static final int REACTOR_FILL = 0xFF4FE0FF;
+
+	/**
+	 * The top-right status block, in the helmet's holographic line-art style: the suit's full name, a dial (an outer
+	 * segmented ring for INTEGRITY, an inner one for the REACTOR, small red ticks) around a wireframe suit silhouette whose
+	 * parts turn red as the hull is damaged, and beside it the INTEGRITY and (Era I) REACTOR gauges -- a percentage, a
+	 * segmented bar, the exact values and the absorb share / regen / LOW POWER / BROWNOUT. Mark I keeps its amber retro look.
+	 */
+	private static void statusBlock(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit, long now,
+			boolean retro, float integrity, float maxIntegrity, boolean offline) {
+		boolean reactor = suit.eraOne();
+		Rect b = IronManUiLayout.statusBlock(g.guiWidth(), reactor);
+		int line = retro ? IronManGui.AMBER : IronManGui.CYAN;
+		int lineDim = retro ? IronManGui.AMBER_DIM : IronManGui.CYAN_DIM;
+		int label = retro ? 0xFFD09040 : HOLO;
+		// frame: a faint wash, a hairline outline, brighter corner brackets and a few red ticks
+		g.fill(b.x(), b.y(), b.right(), b.bottom(), retro ? 0xA0140C04 : 0xA0040C14);
+		g.renderOutline(b.x(), b.y(), b.w(), b.h(), IronManGui.alpha(lineDim, 0.45f));
+		IronManGui.brackets(g, b.x(), b.y(), b.w(), b.h(), 6, IronManGui.alpha(line, 0.85f));
+		for (int k = 0; k < 3; k++) {
+			g.fill(b.right() - 14 - k * 4, b.bottom() - 1, b.right() - 12 - k * 4, b.bottom() + 1, IronManGui.alpha(IronManGui.RED, 0.85f));
+		}
+		int px = b.x() + IronManUiLayout.STATUS_PAD;
+		int py = b.y() + IronManUiLayout.STATUS_PAD;
+		int innerW = b.w() - 2 * IronManUiLayout.STATUS_PAD;
+
+		// header: "MK III CLASSIC"
+		String name = (Component.translatable(suit.nameKey()).getString() + " "
+				+ Component.translatable(suit.displayKey()).getString()).toUpperCase(java.util.Locale.ROOT);
+		// bold when it fits, regular for the long comic names ("MK VII SILVER CENTURION"), never cut short
+		Component boldName = Component.literal(name).withStyle(s -> s.withBold(true));
+		int nameW;
+		if (font.width(boldName) <= innerW - 9) {
+			g.drawString(font, boldName, px, py, line, true);
+			nameW = font.width(boldName);
+		} else {
+			String n = IronManGui.fit(font, name, innerW - 9);
+			g.drawString(font, n, px, py, line, true);
+			nameW = font.width(n);
+		}
+		if (nameW < innerW - 11) { // the little red / dim tick pair, only where the name leaves room for it
+			g.fill(px + innerW - 7, py + 2, px + innerW - 1, py + 3, IronManGui.alpha(IronManGui.RED, 0.85f));
+			g.fill(px + innerW - 7, py + 5, px + innerW - 3, py + 6, IronManGui.alpha(lineDim, 0.9f));
+		}
+		g.fill(px, py + 10, px + innerW, py + 11, IronManGui.alpha(lineDim, 0.5f));
+
+		int rowTop = py + IronManUiLayout.STATUS_HEADER_H;
+		float iFrac = IronManUiLayout.clamp01(integrity / Math.max(1f, maxIntegrity));
+		float cap = Math.max(1f, suit.energyCapacity());
+		float en = reactor ? Math.max(0f, Math.min(cap, state.suitEnergy.getOrDefault(suit.id(), cap))) : 0f;
+		float eFrac = en / cap;
+		boolean brownout = state.brownout.contains(suit.id());
+		boolean low = reactor && !brownout && eFrac < IronManEnergy.LOW_POWER;
+		boolean critical = iFrac < 0.35f;
+		int iFill = retro ? IronManGui.AMBER : iFrac < 0.3f ? IronManGui.RED : iFrac < 0.6f ? IronManGui.ORANGE : HOLO_FILL;
+		int eFill = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE : retro ? IronManGui.AMBER : REACTOR_FILL;
+
+		// the dial + silhouette
+		int gaugesH = reactor ? 2 * IronManUiLayout.STATUS_GAUGE_H + IronManUiLayout.STATUS_GAUGE_GAP : IronManUiLayout.STATUS_GAUGE_H;
+		int dialH = Math.max(IronManUiLayout.STATUS_DIAL, gaugesH);
+		float dcx = px + IronManUiLayout.STATUS_DIAL / 2f;
+		float dcy = rowTop + dialH / 2f;
+		dial(g, dcx, dcy, iFrac, iFill, reactor ? eFrac : -1f, eFill, line, lineDim);
+		silhouette(g, Math.round(dcx) - 5, Math.round(dcy) - 10, iFrac, now, retro);
+
+		// the gauges
+		int gx = px + IronManUiLayout.STATUS_DIAL + 6;
+		int gw = px + innerW - gx;
+		int gy = rowTop + (dialH - gaugesH) / 2;
+		boolean blink = (now % 20) < 12;
+		String iLabel = Component.translatable("hud.projecthero.ironman.status.integrity").getString();
+		String iRight = critical && !offline && !retro
+				? Component.translatable("hud.projecthero.ironman.status.critical").getString()
+				: Component.translatable("hud.projecthero.ironman.status.absorb", Math.round(suit.absorbShare() * 100f)).getString();
+		gauge(g, font, gx, gy, gw, iLabel, critical && blink ? IronManGui.RED : label, pctText(iFrac), iFrac, iFill,
+				new String[] { Math.round(integrity) + "/" + Math.round(maxIntegrity), String.valueOf(Math.round(integrity)), "" },
+				iRight, critical ? (blink ? IronManGui.RED : 0xFFFF9090) : IronManGui.TEXT_DIM, retro);
+		if (reactor) {
+			int ry = gy + IronManUiLayout.STATUS_GAUGE_H + IronManUiLayout.STATUS_GAUGE_GAP;
+			String eRight;
+			int eRightColour;
+			if (brownout) {
+				eRight = Component.translatable("hud.projecthero.ironman.status.brownout").getString();
+				eRightColour = (now / 10) % 2 == 0 ? IronManGui.RED : 0xFFFF9090;
+			} else if (low) {
+				eRight = Component.translatable("hud.projecthero.ironman.status.low_power").getString();
+				eRightColour = IronManGui.ORANGE;
+			} else if (gantryCached(player, now)) {
+				eRight = Component.translatable("hud.projecthero.ironman.status.gantry", Math.round(IronManEnergy.GANTRY_CHARGE_PER_SECOND)).getString();
+				eRightColour = IronManGui.GREEN;
+			} else {
+				eRight = Component.translatable("hud.projecthero.ironman.status.regen", fmt1(suit.energyRegenPerSecond())).getString();
+				eRightColour = IronManGui.TEXT_DIM;
+			}
+			gauge(g, font, gx, ry, gw, Component.translatable("hud.projecthero.ironman.status.reactor").getString(),
+					brownout ? IronManGui.RED : label, pctText(eFrac), eFrac, eFill,
+					new String[] { Math.round(en) + "/" + Math.round(cap), String.valueOf(Math.round(en)), "" },
+					eRight, eRightColour, retro);
+		}
+	}
+
+	/** One status gauge: label + percentage, the segmented bar, then the exact value (shortened to fit) and a right note. */
+	private static void gauge(GuiGraphics g, Font font, int x, int y, int w, String label, int labelColour, String pct, float frac,
+			int fill, String[] valueChoices, String right, int rightColour, boolean retro) {
+		g.drawString(font, IronManGui.fit(font, label, w - font.width(pct) - 4), x, y, labelColour, false);
+		g.drawString(font, pct, x + w - font.width(pct), y, retro ? IronManGui.AMBER : 0xFFFFFFFF, true);
+		if (retro) {
+			IronManGui.cells(g, x, y + 10, w, frac, IronManGui.AMBER, IronManGui.AMBER_BG);
+		} else {
+			holoBar(g, x, y + 10, w, frac, fill);
+		}
+		String r = IronManGui.fit(font, right, w);
+		int room = w - font.width(r) - (r.isEmpty() ? 0 : 5);
+		String v = "";
+		for (String c : valueChoices) {
+			if (font.width(c) <= room) {
+				v = c;
+				break;
+			}
+		}
+		g.drawString(font, v, x, y + 15, retro ? 0xFFD09040 : IronManGui.TEXT_DIM, false);
+		g.drawString(font, r, x + w - font.width(r), y + 15, rightColour, false);
+	}
+
+	/** A 3 px holographic bar: a faint track, the fill in ten segments with 1 px gaps, a bright leading edge. */
+	private static void holoBar(GuiGraphics g, int x, int y, int w, float frac, int fill) {
+		g.fill(x, y, x + w, y + 3, 0x50103040);
+		int fw = Math.round(w * IronManUiLayout.clamp01(frac));
+		g.fill(x, y, x + fw, y + 3, IronManGui.alpha(fill, 0.9f));
+		for (int k = 1; k < 10; k++) {
+			int sx = x + w * k / 10;
+			g.fill(sx, y, sx + 1, y + 3, 0xA0020810);
+		}
+		if (fw > 1) {
+			g.fill(x + fw - 1, y - 1, x + fw, y + 4, 0xFFFFFFFF);
+		}
+		g.fill(x, y + 4, x + w, y + 5, IronManGui.alpha(IronManGui.CYAN_DIM, 0.35f));
+	}
+
+	/** The dial: an outer segmented ring (integrity), an optional inner one (reactor), four small red ticks. */
+	private static void dial(GuiGraphics g, float cx, float cy, float iFrac, int iFill, float eFrac, int eFill, int line, int lineDim) {
+		var vc = IronManGui.guiBuffer(g);
+		var m = g.pose().last().pose();
+		int segs = 30;
+		double step = Math.PI * 2 / segs;
+		int lit = (int) Math.ceil(iFrac * segs - 1e-4);
+		for (int k = 0; k < segs; k++) {
+			double a0 = -Math.PI / 2 + k * step + 0.03;
+			double a1 = a0 + step - 0.06;
+			IronManGui.sector(vc, m, cx, cy, 15.5f, 17.5f, a0, a1, k < lit ? IronManGui.alpha(iFill, 0.95f) : IronManGui.alpha(lineDim, 0.3f));
+		}
+		if (eFrac >= 0f) {
+			int esegs = 20;
+			double es = Math.PI * 2 / esegs;
+			int elit = (int) Math.ceil(eFrac * esegs - 1e-4);
+			for (int k = 0; k < esegs; k++) {
+				double a0 = -Math.PI / 2 + k * es + 0.04;
+				double a1 = a0 + es - 0.08;
+				IronManGui.sector(vc, m, cx, cy, 12.5f, 13.8f, a0, a1, k < elit ? IronManGui.alpha(eFill, 0.9f) : IronManGui.alpha(lineDim, 0.25f));
+			}
+		}
+		for (int k = 0; k < 4; k++) {
+			double a = k * Math.PI / 2 - Math.PI / 4;
+			IronManGui.sector(vc, m, cx, cy, 17.9f, 19.3f, a - 0.07, a + 0.07, IronManGui.alpha(IronManGui.RED, 0.85f));
+		}
+		IronManGui.sector(vc, m, cx, cy, 10.8f, 11.3f, 0, Math.PI * 2, IronManGui.alpha(line, 0.25f));
+		g.flush();
+	}
+
+	/**
+	 * A 10 x 20 px wireframe of the suit. Each part goes red (blinking once the hull is critical) as integrity falls, in a
+	 * fixed order -- right arm, left leg, left arm, torso, right leg, helmet -- so the figure reads as battle damage.
+	 */
+	private static void silhouette(GuiGraphics g, int x, int y, float iFrac, long now, boolean retro) {
+		int ok = retro ? IronManGui.AMBER : HOLO;
+		boolean blink = iFrac < 0.35f && (now % 16) < 8;
+		// {x, y, w, h, damaged below this integrity}
+		int[][] parts = {
+				{ 3, 0, 4, 4, 10 },   // helmet
+				{ 2, 5, 6, 7, 30 },   // torso
+				{ 0, 5, 2, 7, 45 },   // left arm (screen left)
+				{ 8, 5, 2, 7, 80 },   // right arm
+				{ 2, 13, 2, 7, 60 },  // left leg
+				{ 6, 13, 2, 7, 20 } };// right leg
+		for (int[] p : parts) {
+			boolean damaged = iFrac * 100f < p[4];
+			int c = damaged ? (blink ? 0xFFFF9090 : IronManGui.RED) : ok;
+			g.fill(x + p[0], y + p[1], x + p[0] + p[2], y + p[1] + p[3], IronManGui.alpha(c, damaged ? 0.75f : 0.35f));
+			g.renderOutline(x + p[0], y + p[1], p[2], p[3], IronManGui.alpha(c, 0.95f));
+		}
+		// the eye slit and the arc reactor
+		g.fill(x + 4, y + 2, x + 6, y + 3, retro ? IronManGui.AMBER : 0xFFFFFFFF);
+		g.fill(x + 4, y + 7, x + 6, y + 9, retro ? IronManGui.AMBER : 0xFFE6FBFF);
+	}
+
+	private static String pctText(float frac) {
+		return Math.round(IronManUiLayout.clamp01(frac) * 100f) + "%";
+	}
+
+	private static String fmt1(float v) {
+		return v == Math.floor(v) ? String.valueOf((int) v) : String.format(java.util.Locale.ROOT, "%.1f", v);
+	}
+
+	/** The gantry floor check, at most twice a second (it walks block entities). */
+	private static long gantryCheckedAt = -100L;
+	private static boolean gantryOn;
+
+	private static boolean gantryCached(Player player, long now) {
+		if (now - gantryCheckedAt >= 10L || now < gantryCheckedAt) {
+			gantryCheckedAt = now;
+			gantryOn = com.projecthero.mod.ironman.ability.era1.EraOneGantry.onGantryFloor(player);
+		}
+		return gantryOn;
 	}
 
 	// ------------------------------------------------------------------ pieces
@@ -446,42 +678,34 @@ public final class IronManHud {
 		return IronManUiLayout.cooldownFraction(readyAt, seen[1], now);
 	}
 
-	/** v0.16.7: the top of the key strip (bars included) drawn this frame, for {@link #actionBarLift}. */
-	private static int stripTop = -1;
-	private static long stripFrame = -1L;
-
 	/**
-	 * v0.16.7: how far up the vanilla action-bar message must move so it sits just above the Iron Man key strip drawn
-	 * this frame (0 when no strip is on screen). Vanilla draws the message centred on {@code guiHeight - 68}.
+	 * v0.16.7 (user): the six key boxes, stacked in a column along the bottom-right edge (nothing above the hotbar any
+	 * more), each in a thin holographic frame with its key letter to the left. Left Alt opens the move list to the LEFT of
+	 * the column, one row per key, level with its box.
 	 */
-	public static int actionBarLift(int guiHeight) {
-		if (stripTop < 0 || System.nanoTime() - stripFrame > 200_000_000L) { // drawn within the last 0.2 s (the HUD draws after the action bar)
-			return 0;
-		}
-		int messageBottom = guiHeight - 68 + 5;
-		return Math.max(0, messageBottom - (stripTop - 3));
-	}
-
 	private static void abilityStrip(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit,
 			String suitId, long now, boolean retro, boolean offline) {
 		Rect[] slots = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight());
 		boolean expanded = MoveListOverlay.held(); // v0.16.6: the shared move list
 		int accent = retro ? IronManGui.AMBER : IronManGui.CYAN;
-		List<MoveListOverlay.Row> names = new ArrayList<>();
+		boolean shiftHeld = player.isShiftKeyDown();
+		MoveListOverlay.Row[] names = new MoveListOverlay.Row[6];
+		// a thin spine joining the column, behind the boxes
+		g.fill(slots[0].x() + slots[0].w() / 2, slots[0].y() - 4, slots[0].x() + slots[0].w() / 2 + 1, slots[5].bottom(),
+				IronManGui.alpha(retro ? IronManGui.AMBER_DIM : IronManGui.CYAN_DIM, 0.35f));
+		g.fill(slots[0].x() + 3, slots[0].y() - 5, slots[0].right() - 3, slots[0].y() - 4, IronManGui.alpha(IronManGui.RED, 0.8f));
 		for (int i = 0; i < 6; i++) {
 			Rect r = slots[i];
 			String abilityId = suit.abilityInSlot(i + 1);
+			keyTag(g, font, i, r, retro, shiftHeld && abilityId != null);
 			if (abilityId == null) {
-				g.fill(r.x(), r.y(), r.right(), r.bottom(), 0x60060A10);
+				g.fill(r.x(), r.y(), r.right(), r.bottom(), 0x40060A10);
 				g.renderOutline(r.x(), r.y(), r.w(), r.h(), 0x40303A48);
 				continue;
 			}
 			// v0.16.1: the comic kit -- the box shows the move Shift would fire while Shift is held, else the tap move
 			if (com.projecthero.mod.ironman.ability.IronManComicKit.isKitSlot(abilityId)) {
-				MoveListOverlay.Row n = comicBox(g, font, player, state, suitId, i, r, now, retro, offline, accent);
-				if (expanded && n != null) {
-					names.add(n);
-				}
+				names[i] = comicBox(g, font, player, state, suitId, i, r, now, retro, offline, accent);
 				continue;
 			}
 			boolean wheel = IronManAbilities.WEAPON_WHEEL_SLOT.equals(abilityId);
@@ -499,16 +723,13 @@ public final class IronManHud {
 					|| (com.projecthero.mod.ironman.ability.IronManMark3.WHEEL.equals(abilityId)
 							&& com.projecthero.mod.ironman.ability.IronManMark3.shieldOn(state, suitId)); // v0.14.29: Mark 4 shield
 
-			int bg = retro ? 0xC0140C04 : 0xC0081018;
-			g.fill(r.x(), r.y(), r.right(), r.bottom(), bg);
-			int border = offline ? 0xFF6A2020 : active ? IronManGui.GOLD : retro ? IronManGui.AMBER_DIM : IronManGui.PANEL_BORDER;
-			g.renderOutline(r.x(), r.y(), r.w(), r.h(), border);
+			holoBox(g, r, offline ? 0xFF8A2828 : active ? IronManGui.GOLD : 0, retro);
 			if (!offline && left <= 0) {
-				g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, active ? 0.9f : 0.45f));
+				g.fill(r.x() + 2, r.bottom() - 2, r.right() - 2, r.bottom() - 1, IronManGui.alpha(accent, active ? 0.9f : 0.5f));
 			}
 			ItemStack icon = icon(effectiveId, suit);
 			int ix = r.x() + (r.w() - 16) / 2;
-			int iy = r.y() + 2;
+			int iy = r.y() + 3;
 			if (!icon.isEmpty()) {
 				g.renderFakeItem(icon, ix, iy);
 			}
@@ -527,62 +748,104 @@ public final class IronManHud {
 				String s = String.valueOf(IronManUiLayout.ceilSecs(state.timedFlightUntil - now));
 				g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, IronManGui.GOLD, true);
 			}
-			String key = keyLabel(i);
-			g.drawString(font, key, r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
 			if (wheel || mk3Arsenal) {
 				// a small gold corner notch marks the weapon-wheel slot
 				g.fill(r.right() - 5, r.y() + 1, r.right() - 1, r.y() + 2, IronManGui.GOLD);
 				g.fill(r.right() - 2, r.y() + 1, r.right() - 1, r.y() + 5, IronManGui.GOLD);
 			}
 			g.pose().popPose();
-			if (expanded) {
-				names.add(MoveListOverlay.inline(MoveListOverlay.key(i), Component.translatable(nameKey(suit, abilityId, effectiveId))));
-			}
+			names[i] = MoveListOverlay.inline(MoveListOverlay.key(i), Component.translatable(nameKey(suit, abilityId, effectiveId)));
 		}
-		int top = slots[0].y();
-		for (Rect r : slots) {
-			top = Math.min(top, r.y());
-		}
-		// v0.16.7 (user) Era I: the INTEGRITY + REACTOR bars sit right above the key boxes
-		if (suit.eraOne()) {
-			top = eraOneBars(g, font, state, suit, slots[0].x(), slots[5].right(), top, now);
-		}
-		stripTop = top;
-		stripFrame = System.nanoTime();
-		if (expanded && !names.isEmpty()) {
-			// v0.16.6: the shared move list (plain move + Shift move per key), stacked above the key strip
-			MoveListOverlay.draw(g, slots[5].right(), top - 2, names);
+		if (expanded) {
+			moveList(g, font, slots, names, retro);
 		}
 	}
 
-	/** v0.16.7 (user): the two thin Era I bars and their one label line, above {@code top}. Returns the new top. */
-	private static int eraOneBars(GuiGraphics g, Font font, TonyStarkState state, IronManSuit suit, int x0, int x1, int top, long now) {
-		String id = suit.id();
-		int w = x1 - x0;
-		float maxI = suit.maxIntegrity();
-		float integ = Math.max(0f, Math.min(maxI, state.suitIntegrity.getOrDefault(id, maxI)));
-		float cap = Math.max(1f, suit.energyCapacity());
-		float en = Math.max(0f, Math.min(cap, state.suitEnergy.getOrDefault(id, cap)));
-		boolean brownout = state.brownout.contains(id);
-		boolean low = !brownout && en / cap < com.projecthero.mod.ironman.IronManEnergy.LOW_POWER;
-		int reactorY = top - 5;
-		int integY = reactorY - 6;
-		// INTEGRITY: red-gold; REACTOR: cyan (flickering red while browned out)
-		IronManGui.gaugeBar(g, x0 + 1, integY, w - 2, integ / maxI, integ / maxI < 0.3f ? IronManGui.RED : 0xFFE0A030,
-				IronManGui.BAR_BG, IronManGui.PANEL_BORDER);
-		int reactorFill = brownout ? ((now / 6) % 2 == 0 ? IronManGui.RED : 0xFF601010) : low ? IronManGui.ORANGE : 0xFF4FE0FF;
-		IronManGui.gaugeBar(g, x0 + 1, reactorY, w - 2, en / cap, reactorFill, IronManGui.BAR_BG, IronManGui.PANEL_BORDER);
-		int textY = integY - 11;
-		String left = Component.translatable("hud.projecthero.ironman.era1.integrity").getString() + " " + Math.round(integ);
-		String right = brownout ? Component.translatable("hud.projecthero.ironman.era1.brownout").getString()
-				: low ? Component.translatable("hud.projecthero.ironman.era1.low_power").getString() + " " + Math.round(en)
-				: Component.translatable("hud.projecthero.ironman.era1.reactor").getString() + " " + Math.round(en);
-		right = IronManGui.fit(font, right, w / 2 - 2);
-		left = IronManGui.fit(font, left, w - font.width(right) - 6);
-		g.drawString(font, left, x0 + 1, textY, 0xFFE0A030, true);
-		int rc = brownout ? ((now / 10) % 2 == 0 ? IronManGui.RED : 0xFFFF9090) : low ? IronManGui.ORANGE : 0xFF4FE0FF;
-		g.drawString(font, right, x1 - 1 - font.width(right), textY, rc, true);
-		return textY;
+	/** The key letter just left of its box (gold while Shift picks the Shift moves). */
+	private static void keyTag(GuiGraphics g, Font font, int i, Rect r, boolean retro, boolean shift) {
+		String key = keyLabel(i);
+		int c = shift ? IronManGui.GOLD : retro ? IronManGui.AMBER : IronManGui.CYAN;
+		g.drawString(font, key, r.x() - 3 - font.width(key), r.y() + 7, c, true);
+	}
+
+	/** One box's thin holographic frame: a dark translucent fill, a hairline outline and brighter corners. */
+	private static void holoBox(GuiGraphics g, Rect r, int override, boolean retro) {
+		g.fill(r.x(), r.y(), r.right(), r.bottom(), retro ? 0x90140C04 : 0x80040C14);
+		int line = override != 0 ? override : retro ? IronManGui.AMBER_DIM : IronManGui.alpha(IronManGui.CYAN_DIM, 0.75f);
+		g.renderOutline(r.x(), r.y(), r.w(), r.h(), line);
+		if (override == 0) {
+			IronManGui.brackets(g, r.x(), r.y(), r.w(), r.h(), 4, retro ? IronManGui.AMBER : IronManGui.alpha(IronManGui.CYAN, 0.9f));
+		}
+	}
+
+	/**
+	 * v0.16.7 (user): the Left-Alt move list, to the left of the key column -- one row per key, level with its box (two
+	 * lines at most, the second shortened if it still does not fit), on a soft dark plate with a cyan edge.
+	 */
+	private static void moveList(GuiGraphics g, Font font, Rect[] slots, MoveListOverlay.Row[] rows, boolean retro) {
+		int right = slots[0].x() - IronManUiLayout.KEY_LABEL_W - 6;
+		for (int i = 0; i < 6; i++) {
+			MoveListOverlay.Row row = rows[i];
+			if (row == null || row.plain() == null) {
+				continue;
+			}
+			// rows level with vanilla's bottom-centre stack (hotbar, XP, hearts / food, held-item name, action bar) stop short of it
+			int leftLimit = slots[i].bottom() > g.guiHeight() - 76 ? g.guiWidth() / 2 + 91 + 29 + 4 : 4;
+			int maxW = Math.max(40, Math.min(MoveListOverlay.maxWidth(g), right - leftLimit - 4));
+			// one line when it fits; else the tap move on line one and the Shift move (+ cooldown) on line two, each shortened to fit
+			net.minecraft.network.chat.MutableComponent tap = row.plain().copy().withStyle(s -> s.withColor(IronManGui.TEXT & 0xFFFFFF));
+			net.minecraft.network.chat.MutableComponent second = Component.empty();
+			if (row.shift() != null) {
+				second.append(Component.translatable("hud.projecthero.move_list.shift", row.shift())
+						.withStyle(s -> s.withColor(IronManGui.GOLD & 0xFFFFFF)));
+			}
+			if (row.extra() != null) {
+				if (row.shift() != null) {
+					second.append(Component.literal("  "));
+				}
+				second.append(row.extra().copy().withStyle(s -> s.withColor(IronManGui.TEXT_DIM & 0xFFFFFF)));
+			}
+			boolean hasSecond = row.shift() != null || row.extra() != null;
+			net.minecraft.network.chat.MutableComponent one = tap.copy();
+			if (hasSecond) {
+				one.append(Component.literal("  ")).append(second.copy());
+			}
+			List<FormattedCharSequence> shown = new ArrayList<>();
+			if (font.width(one) <= maxW) {
+				shown.add(one.getVisualOrderText());
+			} else {
+				shown.add(fitLine(font, tap, maxW));
+				if (hasSecond) {
+					shown.add(fitLine(font, second, maxW));
+				}
+			}
+			int w = 0;
+			for (FormattedCharSequence p : shown) {
+				w = Math.max(w, font.width(p));
+			}
+			Rect r = slots[i];
+			int h = shown.size() * 10 + 2;
+			int x = right - w - 4;
+			int y = r.y() + (r.h() - h) / 2;
+			g.fill(x - 3, y - 1, right + 2, y + h, 0xC0040A12);
+			g.fill(right + 1, y - 1, right + 2, y + h, IronManGui.alpha(retro ? IronManGui.AMBER : IronManGui.CYAN, 0.9f));
+			g.fill(right + 2, r.y() + r.h() / 2, right + 4, r.y() + r.h() / 2 + 1, IronManGui.alpha(IronManGui.CYAN_DIM, 0.8f));
+			int ly = y + 1;
+			for (FormattedCharSequence p : shown) {
+				g.drawString(font, p, right - 1 - font.width(p), ly, IronManGui.TEXT, false);
+				ly += 10;
+			}
+		}
+	}
+
+	/** A styled line cut to {@code maxW} with a trailing "..." (its colours kept), unchanged when it fits. */
+	private static FormattedCharSequence fitLine(Font font, Component c, int maxW) {
+		if (font.width(c) <= maxW) {
+			return c.getVisualOrderText();
+		}
+		net.minecraft.network.chat.FormattedText cut = font.substrByWidth(c, Math.max(0, maxW - font.width("...")));
+		return net.minecraft.locale.Language.getInstance().getVisualOrder(
+				net.minecraft.network.chat.FormattedText.composite(cut, Component.literal("...").withStyle(s -> s.withColor(IronManGui.TEXT_DIM & 0xFFFFFF))));
 	}
 
 	/** v0.16.7 (user): the game time this client started holding Shift+C on an Era I suit, or -1. */
@@ -590,7 +853,8 @@ public final class IronManHud {
 
 	/**
 	 * v0.16.7 (user): while Shift+C is held on a worn Era I suit, a bar fills over {@code EraOneEject.HOLD_TICKS} (3 s),
-	 * centred above the key boxes (like the Miraculous take-off bar). The server times the real eject; this only shows it.
+	 * centred low on the screen like the Miraculous take-off bar (the C box fills up too). The server times the real
+	 * eject; this only shows it.
 	 */
 	private static void ejectBar(GuiGraphics g, Font font, Player player, IronManSuit suit, long now) {
 		Minecraft mc = Minecraft.getInstance();
@@ -606,8 +870,7 @@ public final class IronManHud {
 		int w = 120;
 		int h = 5;
 		int x = (g.guiWidth() - w) / 2;
-		Rect[] slots = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight());
-		int y = slots[0].y() - 44;
+		int y = g.guiHeight() - 62;
 		Component label = Component.translatable("hud.projecthero.ironman.era1.eject_bar");
 		String l = IronManGui.fit(font, label, g.guiWidth() - 16);
 		g.drawString(font, l, (g.guiWidth() - font.width(l)) / 2, y - 11, 0xFFFFFFFF, true);
@@ -636,13 +899,11 @@ public final class IronManHud {
 		Long otherAt = state.abilityReadyAt.get(suitId + "/" + other.cooldownKey());
 		long otherLeft = otherAt == null ? 0 : Math.max(0, otherAt - now);
 
-		g.fill(r.x(), r.y(), r.right(), r.bottom(), retro ? 0xC0140C04 : 0xC0081018);
-		int border = offline ? 0xFF6A2020 : shift ? IronManGui.GOLD : retro ? IronManGui.AMBER_DIM : IronManGui.PANEL_BORDER;
-		g.renderOutline(r.x(), r.y(), r.w(), r.h(), border);
+		holoBox(g, r, offline ? 0xFF8A2828 : shift ? IronManGui.GOLD : 0, retro); // v0.16.7 (user): the holographic frame
 		if (!offline && left <= 0) {
 			g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
 		}
-		g.renderFakeItem(new ItemStack(shown.icon()), r.x() + (r.w() - 16) / 2, r.y() + 2);
+		g.renderFakeItem(new ItemStack(shown.icon()), r.x() + (r.w() - 16) / 2, r.y() + 3);
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 200);
 		if (left > 0) {
@@ -658,7 +919,6 @@ public final class IronManHud {
 		if (otherLeft > 0) {
 			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.y() + 2, 0xC0FF5050);
 		}
-		g.drawString(font, keyLabel(i), r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
 		if (shift) {
 			g.drawString(font, "⇧", r.right() - 7, r.y() + 1, IronManGui.GOLD, true);
 		}
@@ -679,21 +939,19 @@ public final class IronManHud {
 		String cdKey = suitId + "/" + tap.cooldownKey();
 		Long readyAt = state.abilityReadyAt.get(cdKey);
 		long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
-		g.fill(r.x(), r.y(), r.right(), r.bottom(), retro ? 0xC0140C04 : 0xC0081018);
-		int border = shift ? IronManGui.GOLD : offline ? 0xFF6A2020 : retro ? IronManGui.AMBER_DIM : IronManGui.PANEL_BORDER;
-		g.renderOutline(r.x(), r.y(), r.w(), r.h(), border);
+		holoBox(g, r, shift ? IronManGui.GOLD : offline ? 0xFF8A2828 : 0, retro); // v0.16.7 (user): the holographic frame
 		if (shift) {
 			if (ejectHeldSince >= 0L) {
 				float p = Math.min(1f, (now - ejectHeldSince) / (float) com.projecthero.mod.ironman.ability.era1.EraOneEject.HOLD_TICKS);
 				int fillH = Math.round((r.h() - 2) * p);
 				g.fill(r.x() + 1, r.bottom() - 1 - fillH, r.right() - 1, r.bottom() - 1, 0x80FFC24A);
 			}
-			g.renderFakeItem(new ItemStack(IronManItems.SUIT_CRATE), r.x() + (r.w() - 16) / 2, r.y() + 2);
+			g.renderFakeItem(new ItemStack(IronManItems.SUIT_CRATE), r.x() + (r.w() - 16) / 2, r.y() + 3);
 		} else {
 			if (!offline && left <= 0) {
 				g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
 			}
-			g.renderFakeItem(new ItemStack(tap.icon()), r.x() + (r.w() - 16) / 2, r.y() + 2);
+			g.renderFakeItem(new ItemStack(tap.icon()), r.x() + (r.w() - 16) / 2, r.y() + 3);
 		}
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 200);
@@ -715,7 +973,6 @@ public final class IronManHud {
 		} else if (offline) {
 			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
 		}
-		g.drawString(font, keyLabel(i), r.x() + 2, r.y() + 1, retro ? IronManGui.AMBER : IronManGui.GOLD, true);
 		if (shift) {
 			g.drawString(font, "⇧", r.right() - 7, r.y() + 1, IronManGui.GOLD, true);
 		}
