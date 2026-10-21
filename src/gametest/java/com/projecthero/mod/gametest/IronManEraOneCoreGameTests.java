@@ -121,9 +121,9 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void eraOneOrderNamesAndStats(GameTestHelper h) {
 		h.assertTrue(IronManItems.MARK_ORDER.equals(java.util.List.of("mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v",
-				"mark_2", "mark_6", "mark_vii", "mark_8")), "the Era I order, then the later suits: " + IronManItems.MARK_ORDER);
+				"mark_2", "mark_6", "mark_vii", "mark_9", "mark_8")), "the Era I order, then the later suits: " + IronManItems.MARK_ORDER);
 		h.assertTrue(FabricatorRecipes.ARMOR_BUILD_ORDER.equals(java.util.List.of("mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2",
-				"mark_6", "mark_vii", "mark_8")), "the Fabricator build order follows it");
+				"mark_6", "mark_vii", "mark_9", "mark_8")), "the Fabricator build order follows it");
 		h.assertTrue("mark_v".equals(IronManItems.prerequisiteSuit("mark_2")) && "mark_4".equals(IronManItems.prerequisiteSuit("mark_v"))
 				&& "mark_2".equals(IronManItems.prerequisiteSuit("mark_6")), "blueprint prerequisites follow the order");
 		float[] integ = { 700, 850, 1400, 1600, 500 };
@@ -154,12 +154,12 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && IronManSuits.MARK_4.manualFlight()
 				&& IronManSuits.MARK_V.manualFlight(), "the Mk III, Mk IV and Mk V fly; the Mk I / Mk II do not");
 		h.assertTrue(IronManSuits.MARK_4.hydro() && IronManSuits.MARK_4.waterBreathing() && IronManSuits.MARK_V.stealth(), "Hydro / Stealth");
-		for (String later : new String[] { "mark_2", "mark_6", "mark_vii", "mark_8" }) {
+		for (String later : new String[] { "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" }) { // v0.16.7: + Mk IX
 			h.assertTrue(!IronManEraOne.isEraOne(later) && IronManSuits.byId(later).energyCapacity() == IronManEnergy.FULL,
 					later + " keeps the no-energy shim");
 		}
-		String[] later = { "mark_2", "mark_6", "mark_vii", "mark_8" };
-		String[] laterNames = { "Mk VI Suitcase", "Mk VII Silver Centurion", "Mk VIII Space", "Hulkbuster I Bruiser" };
+		String[] later = { "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" };
+		String[] laterNames = { "Mk VI Suitcase", "Mk VII Silver Centurion", "Mk VIII Space", "Mk IX Inferno", "Hulkbuster I Bruiser" };
 		for (int i = 0; i < later.length; i++) {
 			String name = lang(IronManSuits.byId(later[i]).armor(ArmorItem.Type.HELMET).getDescriptionId());
 			h.assertTrue(name == null || (laterNames[i] + " Helmet").equals(name), later[i] + " is renamed " + laterNames[i] + ", got " + name);

@@ -53,7 +53,7 @@ import net.minecraft.world.phys.AABB;
  * assets (glowmasks, blade bones, Repulsor Boots / palm-glow textures). Rendering itself is not testable here.
  */
 public class IronManRound2GameTests implements FabricGameTest {
-	private static final String[] MARKS = { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" };
+	private static final String[] MARKS = { "mark_1", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_9" }; // v0.16.7: + the Mk IX Inferno
 	private static final int[][] SCREENS = { { 320, 240 }, { 426, 240 }, { 480, 270 }, { 960, 540 } };
 	private static JsonObject lang;
 

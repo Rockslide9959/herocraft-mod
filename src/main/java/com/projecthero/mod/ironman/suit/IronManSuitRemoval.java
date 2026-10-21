@@ -134,7 +134,7 @@ public final class IronManSuitRemoval {
 			case "mark_1", "mark_1_v2" -> KIND_MK1;
 			// v0.15.19, explicit user request: unbuilt off the body by hand like the Mark 1 (was KIND_SLEEK, the retract)
 			// v0.16.1: the Mark 2 folds into its briefcase; the Mark 5 Stealth comes off by hand
-			case "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii" -> KIND_WORKSHOP;
+			case "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_9" -> KIND_WORKSHOP; // v0.16.7: + Mk IX
 			default -> -1;
 		};
 	}

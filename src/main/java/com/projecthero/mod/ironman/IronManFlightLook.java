@@ -103,6 +103,7 @@ public final class IronManFlightLook {
 			case "mark_4" -> 0x3FE6D2; // the Hydro's aqua
 			case "mark_v" -> AIR_THRUST;
 			case "mark_6" -> 0xA8DCFF; // the Silver Centurion's ice blue
+			case "mark_9" -> 0xFF7A1E; // v0.16.7 (user) Era II: the Mk IX Inferno's fiery orange
 			default -> DEFAULT_THRUST;
 		};
 	}

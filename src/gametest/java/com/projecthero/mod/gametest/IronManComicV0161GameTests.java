@@ -43,9 +43,9 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 	private static final ArmorItem.Type[] TYPES = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
 			ArmorItem.Type.BOOTS };
 	// v0.16.7 (user) Era I: the Gantry Age order and its integrity / absorb table (the Mk VI Suitcase follows the Mk V)
-	private static final String[] ORDER = { "mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8" };
-	private static final float[] SHARES = { 0.30f, 0.32f, 0.38f, 0.40f, 0.15f, 0.30f, 0.45f, 0.50f, 0.60f };
-	private static final float[] INTEGRITY = { 700, 850, 1400, 1600, 500, 1000, 2200, 2600, 4500 };
+	private static final String[] ORDER = { "mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" }; // v0.16.7: + the Era II Mk IX Inferno
+	private static final float[] SHARES = { 0.30f, 0.32f, 0.38f, 0.40f, 0.15f, 0.30f, 0.45f, 0.50f, 0.55f, 0.60f };
+	private static final float[] INTEGRITY = { 700, 850, 1400, 1600, 500, 1000, 2200, 2600, 3200, 4500 };
 
 	private static ServerPlayer tony(GameTestHelper h) {
 		ServerPlayer p = h.makeMockServerPlayerInLevel();
@@ -89,7 +89,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 			IronManComicKit.Kit kit = IronManComicKit.kit(ORDER[i]);
 			// v0.16.7: the Era I kits have a sixth key (C)
 			int keys = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(ORDER[i]) ? 6 : 5;
-			h.assertTrue(kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
+			// v0.16.7 (user) Era II stage 1: the Mk IX Inferno's kit comes in a later stage (its keys stay empty until then)
+			h.assertTrue("mark_9".equals(ORDER[i]) ? kit == null : kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
 			for (int slot = 1; slot <= 5; slot++) {
 				h.assertTrue(IronManComicKit.isKitSlot(s.abilityInSlot(slot)), ORDER[i] + " slot " + slot + " is a comic key");
 			}

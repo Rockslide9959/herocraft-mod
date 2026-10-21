@@ -849,9 +849,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// "changes 12" added Mark 1 / Mark 2 (primitive, non-Fabricator prototypes) alongside the
 		// original five Fabricator-gated marks.
 		// "changes 17": Mark XLII / Mark L removed -> 7 suits.
-		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.all().size() == 9, // v0.16.1: + the gold Mark 1 V2
-				"expected 9 Iron Man suits");
-		for (String id : new String[]{"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"}) {
+		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.all().size() == 10, // v0.16.1: + the gold Mark 1 V2; v0.16.7: + the Mk IX Inferno
+				"expected 10 Iron Man suits");
+		for (String id : new String[]{"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8", "mark_9"}) {
 			helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId(id) != null, id + " missing");
 		}
 		helper.assertTrue(com.projecthero.mod.ironman.suit.IronManSuits.byId("mark_42") == null
@@ -1597,8 +1597,8 @@ public class HeroPackGameTests implements FabricGameTest {
 		// "changes 18": per-mark condition pools rebalanced. v0.11.12: Mark 1 bumped to 1000, explicit
 		// user request.
 		// v0.16.1 comic rework: the nine marks' integrity pools
-		String[] ids = {"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8"};
-		float[] pools = {700f, 850f, 1000f, 1400f, 1600f, 500f, 2200f, 2600f, 4500f}; // v0.16.7: the Era I table
+		String[] ids = {"mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8", "mark_9"};
+		float[] pools = {700f, 850f, 1000f, 1400f, 1600f, 500f, 2200f, 2600f, 4500f, 3200f}; // v0.16.7: the Era I table
 		for (int i = 0; i < ids.length; i++) {
 			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.maxIntegrity(ids[i]) == pools[i],
 					ids[i] + " max integrity must be " + pools[i] + ", got "

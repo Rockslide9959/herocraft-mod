@@ -121,6 +121,11 @@ public final class IronManDamage {
 			player.clearFire();
 			return false;
 		}
+		// v0.16.7 (user) Era II: the Mk IX Inferno -- fire and lava do nothing, with the whole suit on
+		if (fireProof(player, suit, source)) {
+			player.clearFire();
+			return false;
+		}
 		// v0.16.1: the comic Energy Shields / Hydraulic Brace (a share of the hit is stopped outright)
 		float factor = IronManComicState.incomingFactor(player, suit, source);
 		// v0.16.1: the suit absorbs its share of what is left, from integrity
@@ -183,6 +188,16 @@ public final class IronManDamage {
 	/** v0.16.1: fire, lava, hot floors and freezing -- what the Space armour ignores. */
 	public static boolean isHazard(DamageSource source) {
 		return source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_FREEZING);
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: does the Mk IX Inferno's full-set immunity stop this hit? Fire, lava, magma blocks (all in
+	 * {@code #is_fire}), only while all four pieces of a {@link IronManSuit#fireImmune()} suit are worn. Public for the
+	 * gametests (mock players never fire the damage events).
+	 */
+	public static boolean fireProof(ServerPlayer player, IronManSuit suit, DamageSource source) {
+		return suit != null && suit.fireImmune() && source.is(DamageTypeTags.IS_FIRE)
+				&& IronManArmor.wearingFullSuit(player, suit.id());
 	}
 
 	/**
