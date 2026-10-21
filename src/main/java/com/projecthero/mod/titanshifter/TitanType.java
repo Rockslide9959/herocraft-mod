@@ -11,7 +11,14 @@ import net.minecraft.resources.ResourceLocation;
  * next step: {@code TitanAbilities} dispatches on the type where a kit differs.
  */
 public enum TitanType {
-	GENERIC_TITAN("generic_titan", "titan_form", 11.0f, 3.67f, 500.0f, 25.0, 8.0, 0.45, 1.0f);
+	/** The Attack Titan (id kept as generic_titan so saved shifters keep their Titan). v0.16.7: 15 blocks (config). */
+	GENERIC_TITAN("generic_titan", "titan_form", 15.0f, 5.0f, 500.0f, 25.0, 8.0, 0.45, 1.0f),
+	/** v0.16.7 (user): the Armoured Titan -- 15 blocks, slow crystal-plated tank. Stats are first-pass; tune in the revamp. */
+	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 900.0f, 40.0, 14.0, 0.38, 1.1f),
+	/** v0.16.7 (user): the Female Titan -- 12 blocks, fast and agile, hardened fists and shins. */
+	FEMALE_TITAN("female_titan", "titan_female", 12.0f, 4.0f, 450.0f, 20.0, 6.0, 0.55, 0.95f),
+	/** v0.16.7 (user): the Beast Titan -- 14 blocks, long arms, throws boulders. */
+	BEAST_TITAN("beast_titan", "titan_beast", 14.0f, 4.67f, 600.0f, 22.0, 6.0, 0.42, 1.0f);
 
 	public final String id;
 	private final String modelName;
