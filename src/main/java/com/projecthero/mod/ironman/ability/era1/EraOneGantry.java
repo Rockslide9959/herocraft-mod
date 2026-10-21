@@ -23,6 +23,9 @@ import net.minecraft.world.level.chunk.LevelChunk;
  *   <li>its reactor charges +50/s there (IronManEnergy), slowly anywhere else.</li>
  * </ul>
  * The one way out of an Era I suit away from a Gantry is the emergency eject ({@link EraOneEject}) into a Suit Crate.
+ * v0.16.7 (user): and the one way back in is that crate -- Shift+right-click the Suit Crate block for the 30 s suit-up
+ * ({@code ironman.crate.CrateSuitUp}, which never goes through {@link #refuses}); iron ingots used on the crate are the
+ * one repair outside a Gantry.
  */
 public final class EraOneGantry {
 	private EraOneGantry() {

@@ -1,0 +1,268 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.16.7 Suit Crate eject / fold / suit-up screenshots. Enabled by run/crate.flag. */
+public final class CrateHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer tony;
+	private static Vec3 vel = Vec3.ZERO;
+	private static int flying;
+
+	private CrateHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("crate.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(CrateHarness::tick);
+		// the fake Tony has no connection ticking it: tick it here (equipment sync, poses), and fly the launch if nothing else does
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(srv -> {
+			if (tony == null || tony.isRemoved()) {
+				return;
+			}
+			Vec3 before = tony.position();
+			tony.doTick();
+			if (flying > 0) {
+				flying--;
+				if (tony.position().distanceToSqr(before) < 1.0E-6 && !(tony.onGround() && vel.y <= 0)) {
+					tony.move(MoverType.SELF, vel);
+					vel = vel.add(0, -0.08, 0).multiply(0.91, 0.98, 0.91);
+					tony.setDeltaMovement(vel);
+				}
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(360_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "crate-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			mc.gui.getChat().clearMessages(false);
+			Screenshot.grab(mc.gameDirectory, "crate_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(CrateHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.guiScale().set(2);
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SPECTATOR);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("CR_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		return f;
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static final net.minecraft.world.entity.EquipmentSlot[] SL = { net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET };
+	private static final net.minecraft.world.item.ArmorItem.Type[] TY = { net.minecraft.world.item.ArmorItem.Type.HELMET, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE, net.minecraft.world.item.ArmorItem.Type.LEGGINGS, net.minecraft.world.item.ArmorItem.Type.BOOTS };
+
+	private static void wear(ServerPlayer p, String suit) {
+		for (int i = 0; i < 4; i++) {
+			p.setItemSlot(SL[i], new net.minecraft.world.item.ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(suit, TY[i])));
+		}
+		com.projecthero.mod.ironman.TonyStark.setActiveSuit(p, suit);
+		com.projecthero.mod.ironman.IronManEnergy.setIntegrity(p, suit, com.projecthero.mod.ironman.IronManEnergy.maxIntegrity(suit) * 0.6f);
+		com.projecthero.mod.ironman.IronManEnergy.setEnergy(p, suit, com.projecthero.mod.ironman.IronManEnergy.capacity(suit) * 0.7f);
+	}
+
+	private static com.projecthero.mod.ironman.crate.SuitCrateBlockEntity findCrate(ServerLevel level) {
+		BlockPos c = BlockPos.containing(origin);
+		for (BlockPos q : BlockPos.betweenClosed(c.offset(-3, -1, -3), c.offset(3, 2, 3))) {
+			if (level.getBlockEntity(q) instanceof com.projecthero.mod.ironman.crate.SuitCrateBlockEntity be) {
+				return be;
+			}
+		}
+		return null;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			tony = fake(p, "Tony", origin);
+			com.projecthero.mod.ironman.TonyStark.grant(tony);
+			wear(tony, "mark_iii");
+			tony.teleportTo(tony.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f); // facing south (+Z)
+			tony.setYHeadRot(0f);
+			tony.yBodyRot = 0f;
+			// the camera: in front of him and off to the east, looking back across the eject spot and the space behind it
+			camera(p, origin.add(4.2, 2.2, 4.4), origin.add(0, 1.0, -1.2));
+		}));
+		shot(t + 50, "0_suited");
+		int e = t + 60;
+		at(e, () -> server(mc, p -> {
+			com.projecthero.mod.ironman.ability.era1.EraOneEject.eject(tony);
+			vel = tony.getDeltaMovement();
+			flying = 40;
+		}));
+		shot(e + 2, "1_launch");
+		shot(e + 5, "1b_launch");
+		shot(e + 14, "2_standing");
+		shot(e + 25, "3_fold_a");
+		shot(e + 29, "4_fold_b");
+		shot(e + 33, "5_fold_c");
+		at(e + 55, () -> server(mc, p -> {
+			var be = findCrate(p.serverLevel());
+			BlockPos c = be == null ? BlockPos.containing(origin) : be.getBlockPos();
+			System.out.println("[HARNESS] crate at " + c + " (origin " + origin + ")");
+			Vec3 cc = Vec3.atBottomCenterOf(c);
+			camera(p, cc.add(1.6, 1.6, 2.2), cc.add(0, 0.4, 0));
+		}));
+		shot(e + 70, "6_crate");
+		// the suit-up: Tony stands beside the crate (west of it) and Shift+right-clicks it
+		at(e + 90, () -> server(mc, p -> {
+			var be = findCrate(p.serverLevel());
+			Vec3 cc = Vec3.atBottomCenterOf(be.getBlockPos());
+			tony.teleportTo(tony.serverLevel(), cc.x - 1.4, cc.y, cc.z, -90f, 20f);
+			tony.setYHeadRot(-90f);
+			tony.yBodyRot = -90f;
+			tony.setShiftKeyDown(true);
+			boolean ok = com.projecthero.mod.ironman.crate.CrateSuitUp.begin(tony, be);
+			tony.setShiftKeyDown(false);
+			System.out.println("[HARNESS] crate suit-up started: " + ok);
+			camera(p, cc.add(0.4, 2.0, 3.6), cc.add(-0.8, 0.5, 0));
+		}));
+		shot(e + 160, "7_suitup_early");
+		shot(e + 90 + 300, "8_suitup_mid");
+		shot(e + 90 + 450, "9_suitup_late");
+		shot(e + 90 + 620, "10_suitup_done");
+		at(e + 90 + 625, () -> server(mc, p -> System.out.println("[HARNESS] worn full: "
+				+ com.projecthero.mod.ironman.IronManArmor.wearingFullSuit(tony, "mark_iii") + " crate left: " + (findCrate(p.serverLevel()) != null))));
+		at(e + 90 + 630, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

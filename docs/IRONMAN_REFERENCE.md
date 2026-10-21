@@ -2421,10 +2421,23 @@ Tests: `IronManComicV0161GameTests`.
   blocks (`IronManSuitPlatformBlockEntity.gantryInRange`, cached 1 s, synced as `GantryNear`); otherwise it only trickles
   the suit's own regen and the platform screen says why.
 * **Emergency eject** (`ability.era1.EraOneEject`): Shift+C (routed by `IronManAbilityManager` before the overload /
-  ceiling locks) held 3 s -> the worn suit's stacks, stamped with integrity + energy, go into a **Suit Crate**
-  (`item.SuitCrateItem`, `minecraft:container` slots 0 helmet .. 3 boots, Slowness I while carried). Use it on a Gantry
-  floor -> `StarkGantry.beginEquipFromCrate` (normal gantry build; an interrupted one re-crates what is left, floor BE
-  `ToCrate`); on a Suit Platform in a Gantry's range -> `SuitCrateItem.rackOn`. Nowhere else.
+  ceiling locks) held 3 s -> the wearer is shot out of the back (`EraOneEject.launch`: 0.85 back + 0.55 up, fall-safe
+  until landing -- fall damage cancelled in `ALLOW_DAMAGE`, fall distance reset) and the empty suit stands on its own
+  (`crate.SuitCrateFoldEntity`, the real stacks stamped with integrity + energy, saved; drawn by `SuitCrateFoldRenderer`
+  on an invisible ArmorStand like Sentry Mode, back panels open, lights on) for 1 s, then folds for 1 s (arms in, head
+  down, plates shrink while the crate's walls swing up off the ground and the lid slams; clanks + sparks) into a
+  **Suit Crate block** (`crate.SuitCrateBlock` + `SuitCrateBlockEntity`, nearest free spot, front facing the suit's way).
+  Block: right-click = name / integrity / energy on the action bar; iron ingot = +4% max integrity each (capped, the one
+  repair outside a Gantry); Shift+right-click (any hand, caught by `SuitCrateBlocks`' `UseBlockCallback`) = the 30 s
+  Mark 1 cave hand build for any crated suit (`crate.CrateSuitUp` -> `IronManManualSuitUp.startFromCrate`; pieces come out
+  of the crate as each is fitted, the crate opens, and is removed when it ends empty; death leaves the rest in it).
+  Breaking drops the **Suit Crate** item (`item.SuitCrateItem`, now its `BlockItem`; `minecraft:container` slots 0 helmet
+  .. 3 boots, Slowness I while carried; loot table `copy_components`; creative breaks drop it too unless empty); placing
+  it puts the block back. The item still works on a Gantry floor (not sneaking) -> `StarkGantry.beginEquipFromCrate`
+  (normal gantry build; an interrupted one re-crates what is left, floor BE `ToCrate`) and on a Suit Platform in a
+  Gantry's range -> `SuitCrateItem.rackOn`. `IronManItems.SUIT_CRATE` is assigned in `initialize()` (not a static final):
+  `IronManItems` is first loaded inside the registry bootstrap (legacy-id mixin) and a block registered that early gets
+  no block-state ids. Tests: `SuitCrateBlockGameTests`.
 * **HUD.** Era I: INTEGRITY (red-gold) + REACTOR (cyan; LOW POWER below 20%, flashing BROWNOUT) thin bars and one label
   line right above the key boxes; the C box shows its tap move, and with Shift the EJECT box (crate icon, fills during
   the hold) plus a centred eject bar. Spec sheet / platform screen / gantry menu show the reactor again for Era I suits.

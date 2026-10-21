@@ -1,0 +1,218 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "projecthero:block/suit_crate_side",
+    "front": "projecthero:block/suit_crate_front",
+    "side": "projecthero:block/suit_crate_side",
+    "top": "projecthero:block/suit_crate_top",
+    "bottom": "projecthero:block/suit_crate_bottom",
+    "inside": "projecthero:block/suit_crate_inside"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        13,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            3,
+            16,
+            16
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            0,
+            3,
+            16,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            0,
+            3,
+            16,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            0,
+            3,
+            16,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#inside"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#bottom",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        13,
+        0
+      ],
+      "to": [
+        16,
+        15,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            2
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#top"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#inside"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          13,
+          16
+        ],
+        "axis": "x",
+        "angle": 45
+      }
+    },
+    {
+      "from": [
+        6,
+        6,
+        -0.5
+      ],
+      "to": [
+        11,
+        11,
+        0
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            5,
+            10,
+            10
+          ],
+          "texture": "#front"
+        },
+        "east": {
+          "uv": [
+            9.5,
+            5,
+            10,
+            10
+          ],
+          "texture": "#front"
+        },
+        "west": {
+          "uv": [
+            5,
+            5,
+            5.5,
+            10
+          ],
+          "texture": "#front"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            10,
+            5.5
+          ],
+          "texture": "#front"
+        },
+        "down": {
+          "uv": [
+            5,
+            9.5,
+            10,
+            10
+          ],
+          "texture": "#front"
+        }
+      }
+    }
+  ]
+}

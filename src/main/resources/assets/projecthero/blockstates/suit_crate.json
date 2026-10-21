@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,open=false": { "model": "projecthero:block/suit_crate" },
+    "facing=east,open=false": { "model": "projecthero:block/suit_crate", "y": 90 },
+    "facing=south,open=false": { "model": "projecthero:block/suit_crate", "y": 180 },
+    "facing=west,open=false": { "model": "projecthero:block/suit_crate", "y": 270 },
+    "facing=north,open=true": { "model": "projecthero:block/suit_crate_open" },
+    "facing=east,open=true": { "model": "projecthero:block/suit_crate_open", "y": 90 },
+    "facing=south,open=true": { "model": "projecthero:block/suit_crate_open", "y": 180 },
+    "facing=west,open=true": { "model": "projecthero:block/suit_crate_open", "y": 270 }
+  }
+}

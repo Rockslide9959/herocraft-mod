@@ -62,6 +62,7 @@ public final class IronManSentryClient {
 
 	public static void initialize() {
 		EntityRendererRegistry.register(IronManEntityTypes.SENTRY, IronManSentryRenderer::new);
+		EntityRendererRegistry.register(IronManEntityTypes.SUIT_CRATE_FOLD, SuitCrateFoldRenderer::new); // v0.16.7 (user): the eject's folding suit
 		ClientTickEvents.END_CLIENT_TICK.register(client -> tick());
 		// v0.15.15: short-lived thruster jets (vanilla flames live ~1 s and settled on the ground as little fires)
 		IronManSentryEntity.thrusterSink = (type, at, v, life) -> {

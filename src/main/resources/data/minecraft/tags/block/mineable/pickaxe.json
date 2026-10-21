@@ -2,6 +2,7 @@
   "replace": false,
   "values": [
     "projecthero:power_battery",
+    "projecthero:suit_crate",
     "projecthero:safe_deposit",
     "projecthero:ultron_beacon",
     "projecthero:ultron_core",

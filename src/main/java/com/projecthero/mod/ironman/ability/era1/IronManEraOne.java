@@ -83,6 +83,7 @@ public final class IronManEraOne {
 	/** Mod init. */
 	public static void initialize() {
 		bootstrap();
+		EraOneEject.initialize(); // v0.16.7 (user): no fall damage while shot out of the back of an ejected suit
 	}
 
 	public static boolean has(String moveId) {
