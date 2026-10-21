@@ -34,6 +34,12 @@ public final class IronManFaceplate {
 			return;
 		}
 		boolean open = !isOpen(player);
+		// v0.16.7 (user): the Mk IV Hydro's helmet is sealed under its glass dome -- the faceplate never opens
+		if (open && player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem helm
+				&& "mark_4".equals(helm.armorSetId())) {
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.hydro_sealed"), true);
+			return;
+		}
 		player.setAttached(ModAttachments.IRON_MAN_FACEPLATE_OPEN, open);
 		// v0.14.21: the visor now swings (helmet_open / helmet_close clips) instead of popping -- every viewer gets the clock
 		com.projecthero.mod.ironman.suit.IronManSuitFx.faceplateMoved(player);

@@ -422,6 +422,13 @@ public class IronManRound2GameTests implements FabricGameTest {
 				int cubes = e.getValue().has("cubes") ? e.getValue().getAsJsonArray("cubes").size() : 0;
 				if (name.endsWith("_blade")) {
 					helper.assertTrue(false, m + ": no mark has blades since the v0.16.1 comic rework (" + name + ")");
+				} else if ("faceplate".equals(name)) {
+					// v0.16.7 (user): one SOLID plate (it read as stacked flat sheets when lifted), not two flat planes
+					helper.assertTrue(cubes == 1 && e.getValue().getAsJsonArray("cubes").get(0).getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() > 0f,
+							m + " faceplate: one solid plate, got " + cubes);
+				} else if ("mark_4".equals(m) && "helmet".equals(name)) {
+					// v0.16.7: the Hydro helmet also carries its glass dome front (it stays shut while the faceplate lifts)
+					helper.assertTrue(cubes == 3, m + " helmet: base + dome + dome front, got " + cubes);
 				} else if (skin.contains(name)) {
 					helper.assertTrue(cubes == 2, m + " " + name + ": base + layer, got " + cubes);
 				} else if ("mark_4".equals(m) && (name.equals("right_shoulder") || name.equals("left_shoulder"))) {
@@ -433,6 +440,9 @@ public class IronManRound2GameTests implements FabricGameTest {
 			}
 			// the helmet's front faces are the faceplate (H lifts it)
 			for (JsonElement c : bones.get("helmet").getAsJsonArray("cubes")) {
+				if ("mark_4".equals(m) && c.getAsJsonObject().getAsJsonArray("size").get(2).getAsFloat() == 0f) {
+					continue; // the Hydro dome front pane (glass)
+				}
 				helper.assertFalse(c.getAsJsonObject().getAsJsonObject("uv").has("north"), m + " helmet has no front faces");
 			}
 			// leggings + boots are exactly the model's legs: each layer's thigh starts where its boot ends
