@@ -43,7 +43,8 @@ import net.minecraft.world.entity.player.Player;
  *       boots; each boot (right, then left), the helmet and the faceplate are carried on whole.</li>
  * </ul>
  * The worn piece is drawn with every texel whose stage has not reached it yet transparent ({@link #texture}), built
- * texels flashing a white-hot then cyan seam for a few ticks; the piece the arm is carrying is drawn with only its own
+ * texels flashing a white-hot then cyan seam for a few ticks (v0.16.7: not on the gantry any more -- its base plates slide
+ * out from under the carried parts and the outer layer builds on plain, see {@link #slides}); the piece the arm is carrying is drawn with only its own
  * stage's texels ({@link #solo}). Taking the suit off plays the same frames backwards. Textures are made lazily and
  * shared between every frame that looks the same (a frame is "how many texels are on", unless a seam is still hot).
  *
@@ -166,8 +167,41 @@ public final class IronManGantryBuild {
 		return def == null ? base : frame(def.geometry(), base, bit, RETRACT, f);
 	}
 
-	/** Per texel of a piece: its stage (-1 = not this piece) and build position. */
-	private record Parts(int w, int h, byte[] stage, float[] k) {
+	/**
+	 * Per texel of a piece: its stage (-1 = not this piece) and build position. v0.16.7: for the gantry's slide stages
+	 * ({@link #slides}) every base texel also has a column ({@code col}, -1 = none) -- the texels of one vertical strip of
+	 * the plate, nearest the seam first -- and its place in it ({@code row}).
+	 */
+	private record Parts(int w, int h, byte[] stage, float[] k, int[] col, int[] row, int[][] cols) {
+		Parts(int w, int h, byte[] stage, float[] k) {
+			this(w, h, stage, k, null, null, null);
+		}
+	}
+
+	/**
+	 * v0.16.7, user request: on the gantry the self-built BASE plates no longer build on texel by texel -- they slide out
+	 * from under the part the arm placed (the torso bottom down from the chest top, each arm up out of its gauntlet, the
+	 * thighs down from the thigh tops). Drawn in texture space: at progress p a column shows its far-end rows in the
+	 * rows nearest the seam, so the plate's leading edge comes out first and the strip moves along until it is home.
+	 */
+	static boolean slides(int stage) {
+		return stage == GantryTimeline.TORSO_BOTTOM || stage == GantryTimeline.R_ARM || stage == GantryTimeline.L_ARM
+				|| stage == GantryTimeline.THIGH_BOTTOM;
+	}
+
+	/** Distance (model pixels) of a base texel at height {@code y} from its slide stage's seam. */
+	private static float fromSeam(int stage, float y) {
+		return stage == GantryTimeline.R_ARM || stage == GantryTimeline.L_ARM ? y - 17f
+				: stage == GantryTimeline.TORSO_BOTTOM ? 18f - y : 8f - y;
+	}
+
+	/** 0..1 how far slide stage {@code s} has come at frame {@code f} (NaN if the plan has no such stage). */
+	private static float slideProgress(Timing timing, int s, float f) {
+		float a = timing.appear(s, 0f), b = timing.appear(s, 1f);
+		if (Float.isNaN(a) || Float.isNaN(b)) {
+			return Float.NaN;
+		}
+		return b <= a ? (f >= a ? 1f : 0f) : Math.max(0f, Math.min(1f, (f - a) / (b - a)));
 	}
 
 	/** A piece under one plan: each texel's appear frame, all of them sorted, the last, and the frames made so far. */
@@ -363,18 +397,29 @@ public final class IronManGantryBuild {
 			return base;
 		}
 		int fi = (int) Math.floor(f);
-		if (fi >= t.last + GLOW_TICKS) {
+		// v0.16.7 (user): the gantry builds on without the glowing seam
+		boolean glow = timing.scheme() != S_GANTRY;
+		if (fi >= t.last + (glow ? GLOW_TICKS : 0)) {
 			return base;
 		}
 		boolean hot = false;
-		for (int i = 0; i < t.appear.length; i++) {
+		for (int i = 0; glow && i < t.appear.length; i++) {
 			float a = t.appear[i];
 			if (!Float.isNaN(a) && a <= fi && fi - a < GLOW_TICKS && !timing.whole(parts.stage()[i])) {
 				hot = true;
 				break;
 			}
 		}
-		String sig = hot ? "t" + fi : "c" + t.countAtOrBefore(fi);
+		// v0.16.7: a plate mid-slide changes every tick
+		float[] slide = new float[GantryTimeline.STAGES];
+		boolean sliding = false;
+		if (parts.cols() != null) {
+			for (int st = 0; st < GantryTimeline.STAGES; st++) {
+				slide[st] = slides(st) ? slideProgress(timing, st, fi) : Float.NaN;
+				sliding |= slide[st] > 0f && slide[st] < 1f;
+			}
+		}
+		String sig = hot || sliding ? "t" + fi : "c" + t.countAtOrBefore(fi);
 		ResourceLocation got = t.bySignature.get(sig);
 		if (got != null) {
 			return got;
@@ -388,12 +433,25 @@ public final class IronManGantryBuild {
 			}
 			int x = i % parts.w();
 			int y = i / parts.w();
+			int c = parts.col() == null ? -1 : parts.col()[i];
+			if (c >= 0 && !Float.isNaN(slide[parts.stage()[i]])) {
+				float p = slide[parts.stage()[i]];
+				int[] strip = parts.cols()[c];
+				int n = strip.length, on = Math.round(p * n), j = parts.row()[i];
+				if (j >= on) {
+					img.setPixelRGBA(x, y, 0);
+				} else if (on < n) {
+					int from = strip[j + n - on];
+					img.setPixelRGBA(x, y, src.getPixelRGBA(from % parts.w(), from / parts.w()));
+				}
+				continue;
+			}
 			if (fi < a) {
 				img.setPixelRGBA(x, y, 0);
 				continue;
 			}
 			int orig = src.getPixelRGBA(x, y);
-			if (((orig >>> 24) & 0xFF) == 0 || timing.whole(parts.stage()[i])) {
+			if (!glow || ((orig >>> 24) & 0xFF) == 0 || timing.whole(parts.stage()[i])) {
 				continue;
 			}
 			float age = fi - a;
@@ -497,7 +555,35 @@ public final class IronManGantryBuild {
 				k[i] = sk[1];
 			}
 		}
-		return new Parts(w, h, stage, k);
+		if (scheme != S_GANTRY) {
+			return new Parts(w, h, stage, k);
+		}
+		// v0.16.7: the slide columns -- base texels of the slide stages, grouped by bone + their spot round the plate
+		Map<String, List<float[]>> byCol = new HashMap<>();
+		for (IronManAssemblyReveal.Sample s : samples) {
+			int i = s.index();
+			if (s.cube() != 0 || !slides(stage[i])) {
+				continue;
+			}
+			String key = s.bone() + "|" + Math.round(s.pos().x * 4f) + "|" + Math.round(s.pos().z * 4f);
+			byCol.computeIfAbsent(key, x -> new ArrayList<>()).add(new float[] { i, fromSeam(stage[i], s.pos().y) });
+		}
+		int[] col = new int[w * h], row = new int[w * h];
+		Arrays.fill(col, -1);
+		List<int[]> cols = new ArrayList<>();
+		for (List<float[]> c : byCol.values()) {
+			c.sort((a, b) -> Float.compare(a[1], b[1]));
+			int[] ids = c.stream().mapToInt(a -> (int) a[0]).distinct().filter(i -> col[i] < 0).toArray();
+			if (ids.length == 0) {
+				continue;
+			}
+			for (int j = 0; j < ids.length; j++) {
+				col[ids[j]] = cols.size();
+				row[ids[j]] = j;
+			}
+			cols.add(ids);
+		}
+		return new Parts(w, h, stage, k, col, row, cols.toArray(new int[0][]));
 	}
 
 	/** {stage, k} of a texel of {@code bone}'s cube {@code cube} at rest height {@code y} (model pixels). */
