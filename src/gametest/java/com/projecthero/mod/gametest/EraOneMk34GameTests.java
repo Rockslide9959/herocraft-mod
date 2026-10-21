@@ -303,7 +303,7 @@ public class EraOneMk34GameTests implements FabricGameTest {
 			h.assertTrue(cow.distanceTo(p) < 5.0, "pulled in from 6 blocks, now " + cow.distanceTo(p));
 			h.assertTrue(edge(p, mk3(), "e1mk3_tractor_beam", false), "the release lets go (and starts the cooldown)");
 			h.assertTrue(EraOneMk3Moves.tractorHeld(p) == null, "nothing held");
-			h.assertTrue(IronManComicKit.energyPerSecond("e1mk3_tractor_beam") == 15f, "15 energy a second in the table");
+			h.assertTrue(IronManComicKit.energyPerSecond("e1mk3_tractor_beam") == 5f, "5 energy a second in the table (v0.16.7 user: costs lowered)");
 			leave(h, p);
 			h.succeed();
 		});
