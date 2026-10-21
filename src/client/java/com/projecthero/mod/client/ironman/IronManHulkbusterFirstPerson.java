@@ -108,9 +108,9 @@ public final class IronManHulkbusterFirstPerson {
 			for (GeoBone bone : model.topLevelBones()) {
 				showOnly(bone, side ? "forearm_r" : "forearm_l", side ? "hand_r" : "hand_l");
 			}
-			// centre the forearm on the origin (drawArm has already laid it along the view)
-			float cx = (side ? -15f : 15f) / 16f;
-			poseStack.translate(cx, -16f / 16f, 0f); // GeckoLib mirrors bedrock X, so the right forearm sits at +cx
+			// centre the forearm + fist (v0.16.7 player-model rig: x 6..12 px, y 18..27 px) on the origin (drawArm has already laid it along the view)
+			float cx = (side ? -9f : 9f) / 16f;
+			poseStack.translate(cx, -22.5f / 16f, 0f); // GeckoLib mirrors bedrock X, so the right forearm sits at +cx
 		}
 
 		private static void showOnly(GeoBone bone, String a, String b) {
