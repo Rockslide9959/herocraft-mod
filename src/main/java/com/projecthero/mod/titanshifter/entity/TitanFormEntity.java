@@ -93,6 +93,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	/** v0.12.39: the pale, 7-block, 40%-weaker Emergency Titan. */
 	private static final EntityDataAccessor<Boolean> DATA_EMERGENCY =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.7 (user, Titan revamp): severed limbs ({@link #LIMB_R_ARM} ...), drawn missing until they regrow. */
+	private static final EntityDataAccessor<Integer> DATA_SEVERED =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
+	public static final int LIMB_R_ARM = 1, LIMB_L_ARM = 2, LIMB_R_LEG = 4, LIMB_L_LEG = 8;
 
 	/** Every animation lives under this prefix in every Titan type's own animation file. */
 	public static final String ANIM = "animation.titan.";
@@ -176,6 +180,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		builder.define(DATA_RUNNING, false);
 		builder.define(DATA_HOLDING, false);
 		builder.define(DATA_EMERGENCY, false);
+		builder.define(DATA_SEVERED, 0);
 	}
 
 	/** Server: bind this Titan to its owner and stats. Call before adding to the world. */
@@ -218,6 +223,15 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(type.speedValue() * k);
 		getAttribute(Attributes.KNOCKBACK_RESISTANCE).setBaseValue(TitanShifterConfig.stats().knockbackResistance);
 		getAttribute(Attributes.STEP_HEIGHT).setBaseValue(TitanShifterConfig.stats().stepHeight);
+	}
+
+	/** v0.16.7: the severed-limb bits ({@link #LIMB_R_ARM}, {@link #LIMB_L_ARM}, {@link #LIMB_R_LEG}, {@link #LIMB_L_LEG}). */
+	public int severedLimbs() {
+		return this.entityData.get(DATA_SEVERED);
+	}
+
+	public void setSeveredLimbs(int bits) {
+		this.entityData.set(DATA_SEVERED, bits);
 	}
 
 	public TitanType titanType() {
