@@ -1,6 +1,7 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "projecthero:item/experimental_reagent"
+    "layer0": "projecthero:item/experimental_reagent_liquid",
+    "layer1": "projecthero:item/experimental_reagent_glass"
   }
 }

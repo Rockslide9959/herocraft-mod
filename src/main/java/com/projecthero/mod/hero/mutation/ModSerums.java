@@ -52,6 +52,20 @@ public final class ModSerums {
 		return BY_POWER_KEY.get(powerKey);
 	}
 
+	/** v0.16.7: the power whose serum {@code potion} is, or null (a vanilla / other potion). Used by the serum item tint. */
+	public static Power powerOf(Holder<Potion> potion) {
+		if (potion == null) {
+			return null;
+		}
+		for (int i = 0; i < ORDER.size(); i++) {
+			Holder<Potion> h = BY_POWER_KEY.get(ORDER.get(i).key());
+			if (h != null && (h == potion || h.value() == potion.value())) {
+				return ORDER.get(i);
+			}
+		}
+		return null;
+	}
+
 	/** The power an {@code UNSTABLE_MUTATION} amplifier refers to, or null if out of range. */
 	public static Power powerForAmplifier(int amplifier) {
 		return amplifier >= 0 && amplifier < ORDER.size() ? ORDER.get(amplifier) : null;

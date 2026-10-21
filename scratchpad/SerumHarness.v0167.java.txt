@@ -1,0 +1,179 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.hero.Power;
+import com.projecthero.mod.hero.Powers;
+import com.projecthero.mod.hero.item.HeroPackItems;
+import com.projecthero.mod.hero.mutation.ModSerums;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.Potions;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/** TEMP-HARNESS (not shipped): v0.16.7 serum icons in the inventory. Enabled by run/serum.flag. */
+public final class SerumHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+
+	private static final String[] NAMES = { "refined_super_soldier_serum", "unrefined_super_soldier_serum", "adamantium_serum",
+			"gamma_serum", "titan_serum", "heroic_serum", "mutagenic_serum", "prismatic_serum", "arachnid_mutagen", "grave_essence",
+			"symbiote_vial", "symbiote_vial_filled", "quirk_serum_hellflame", "quirk_serum_overhaul", "quirk_serum_engine",
+			"quirk_serum_dark_shadow", "quirk_serum_erasure", "quirk_serum_explosion", "quirk_serum_zero_gravity", "quirk_serum_random" };
+
+	private SerumHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("serum.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SerumHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(380_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "serum-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void fill(ServerPlayer p, boolean reagents) {
+		List<ItemStack> list = new ArrayList<>();
+		if (!reagents) {
+			for (String n : NAMES) {
+				list.add(new ItemStack(BuiltInRegistries.ITEM.get(ProjectHeroMod.id(n))));
+			}
+		}
+		for (Power power : Powers.all()) {
+			if (!Powers.isEnabled(power)) {
+				continue;
+			}
+			if (reagents) {
+				list.add(new ItemStack(HeroPackItems.reagent(power)));
+			}
+			list.add(PotionContents.createItemStack(Items.POTION, ModSerums.serum(power)));
+		}
+		list.add(PotionContents.createItemStack(Items.POTION, Potions.HEALING)); // vanilla potion must stay vanilla
+		list.add(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.SWIFTNESS));
+		p.getInventory().clearContent();
+		for (int i = 0; i < Math.min(35, list.size()); i++) {
+			int slot = (i + 9 + (i >= 4 ? 1 : 0)) % 36; // slot 13 sits under the centred cursor: leave it empty
+			p.getInventory().setItem(slot, list.get(i));
+		}
+		p.getInventory().selected = 0;
+	}
+
+	private static void shot(Minecraft mc, String name) {
+		Screenshot.grab(mc.gameDirectory, "serum_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SerumHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		int t = inWorldTicks;
+		if (t == 100) {
+			mc.options.guiScale().set(2);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				p.setGameMode(GameType.SURVIVAL);
+				fill(p, false);
+			});
+		}
+		if (t == 120) {
+			mc.setScreen(new InventoryScreen(mc.player));
+		}
+		if (t == 125 || t == 140) {
+			org.lwjgl.glfw.GLFW.glfwSetCursorPos(mc.getWindow().getWindow(), 4, 4);
+		}
+		if (t == 130) {
+			shot(mc, "inventory_items");
+		}
+		if (t == 135) {
+			server(mc, p -> fill(p, true));
+		}
+		if (t == 150) {
+			shot(mc, "inventory_reagents");
+		}
+		if (t == 155) {
+			mc.setScreen(null);
+		}
+		if (t == 175) {
+			shot(mc, "held_serum");
+		}
+		if (t == 185) {
+			mc.player.getInventory().selected = 1;
+		}
+		if (t == 200) {
+			shot(mc, "held_serum2");
+		}
+		if (t == 215) {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SER_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
