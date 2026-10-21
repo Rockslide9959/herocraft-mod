@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "projecthero:item/mutation_serum_liquid",
+    "layer1": "projecthero:item/mutation_serum_glass"
+  }
+}
