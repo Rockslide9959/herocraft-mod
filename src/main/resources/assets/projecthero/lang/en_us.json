@@ -1062,6 +1062,7 @@
   "projecthero.guide.iron_man.era1_eject.line": "hold 3 s: emergency eject into a Suit Crate",
   "projecthero.guide.iron_man.workbench": "The Stark Workbench",
   "projecthero.guide.iron_man.workbench.body": "The Stark Fabricator is now the Stark Workbench: a two-block desk (it takes the block to your right). Up close it projects a turning hologram of the suit you are building -- built pieces bright, the rest a wireframe -- with a ring and two floating screens. Its screen has era tabs (Era I now, the rest coming), the suit list, a hologram preview you can drag to spin, the suit's stats, the selected piece's recipe (missing parts in red) and a Build button that loads the blueprint and the parts for you. Old one-block Fabricators keep working and grow into the full desk once the block to their right is free.",
+  "message.projecthero.ironman.hydro_sealed": "The Hydro's helmet is sealed under its glass dome.",
   "__anchor_ironman_era1_core": "v0.16.7 Iron Man Era I (core) -- add this agent's keys right after this line",
   "message.projecthero.ironman.era1.gantry_only": "Era I suits suit up in a Stark Gantry.",
   "message.projecthero.ironman.era1.low_power": "LOW POWER",
