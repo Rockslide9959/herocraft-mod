@@ -126,7 +126,8 @@ public final class BlankBlueprintScreen extends Screen {
 				IronManGui.brackets(g, r.x() - 2, r.y() - 2, r.w() + 4, r.h() + 4, 4, IronManGui.GOLD);
 			}
 			ItemStack helmet = IronManGui.suitPieces(e.suitId())[0];
-			g.renderFakeItem(helmet, r.x() + 4, r.y() + 4);
+			// v0.16.7: centred (the node shrank to 20 px in v0.16.1 but the icon kept its old +4 offset and poked out)
+			g.renderFakeItem(helmet, r.x() + (r.w() - 16) / 2, r.y() + (r.h() - 16) / 2);
 			if (!unlocked) {
 				g.pose().pushPose();
 				g.pose().translate(0, 0, 200);

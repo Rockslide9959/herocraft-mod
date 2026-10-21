@@ -18,6 +18,20 @@ import net.minecraft.world.item.TooltipFlag;
  * enforces the Mark III -> V -> VII -> 42 -> 50 progression.
  */
 public class BlueprintItem extends Item {
+	/**
+	 * v0.16.7 (user): Shift+right-click a Stark Workbench with a blueprint and it goes straight into the blueprint slot
+	 * (the one already there comes back to you). Sneaking skips the block's own click handling, so the item does it.
+	 */
+	@Override
+	public net.minecraft.world.InteractionResult useOn(net.minecraft.world.item.context.UseOnContext ctx) {
+		net.minecraft.world.entity.player.Player player = ctx.getPlayer();
+		if (player == null || !player.isSecondaryUseActive()
+				|| !(ctx.getLevel().getBlockState(ctx.getClickedPos()).getBlock() instanceof com.projecthero.mod.ironman.fabricator.StarkFabricatorBlock)) {
+			return super.useOn(ctx);
+		}
+		return com.projecthero.mod.ironman.fabricator.StarkFabricatorBlock.insertBlueprint(ctx.getLevel(), ctx.getClickedPos(), player, ctx.getHand());
+	}
+
 	private final int techLevel;
 	private final String suitId;
 

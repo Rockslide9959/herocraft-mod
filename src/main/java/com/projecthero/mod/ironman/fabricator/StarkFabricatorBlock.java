@@ -342,6 +342,40 @@ public class StarkFabricatorBlock extends BaseEntityBlock {
 		return InteractionResult.sidedSuccess(level.isClientSide());
 	}
 
+	/**
+	 * v0.16.7 (user): put the blueprint in {@code hand} into the Workbench's blueprint slot (either half); whatever blueprint
+	 * was there goes back to the player. Tony Stark only, like opening the menu.
+	 */
+	public static InteractionResult insertBlueprint(Level level, BlockPos pos, Player player, net.minecraft.world.InteractionHand hand) {
+		if (!TonyStark.hasPower(player)) {
+			if (!level.isClientSide()) {
+				deny(player);
+			}
+			return InteractionResult.SUCCESS;
+		}
+		if (level.isClientSide()) {
+			return InteractionResult.SUCCESS;
+		}
+		StarkFabricatorBlockEntity be = blockEntity(level, pos);
+		if (be == null) {
+			return InteractionResult.PASS;
+		}
+		net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+		net.minecraft.world.item.ItemStack old = be.getItem(StarkFabricatorBlockEntity.BLUEPRINT_SLOT).copy();
+		net.minecraft.world.item.ItemStack in = held.copyWithCount(1);
+		be.setItem(StarkFabricatorBlockEntity.BLUEPRINT_SLOT, in);
+		if (!player.getAbilities().instabuild) {
+			held.shrink(1);
+		}
+		if (!old.isEmpty() && !player.getInventory().add(old)) {
+			player.drop(old, false);
+		}
+		((ServerLevel) level).playSound(null, be.getBlockPos(), SoundEvents.ITEM_FRAME_ADD_ITEM, SoundSource.BLOCKS, 0.8f, 1.2f);
+		player.displayClientMessage(Component.translatable("message.projecthero.stark_fabricator.blueprint_in", in.getHoverName())
+				.withStyle(ChatFormatting.AQUA), true);
+		return InteractionResult.CONSUME;
+	}
+
 	private static void deny(Player player) {
 		player.displayClientMessage(
 				Component.translatable("message.projecthero.stark_fabricator.no_understanding").withStyle(ChatFormatting.RED), true);

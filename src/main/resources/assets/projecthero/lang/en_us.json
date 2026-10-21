@@ -6510,6 +6510,7 @@
   "hud.projecthero.hulk.taken_over": "THE HULK HAS TAKEN OVER",
   "hud.projecthero.hulk.taken_over_forced": "He gives the body back in %s",
   "hud.projecthero.hulk.taken_over_phase.0": "He smashes everything in sight -- %s left",
+  "message.projecthero.stark_fabricator.blueprint_in": "%s is in the Workbench's blueprint slot.",
   "__anchor_ironman_era1_bench": "v0.16.7 Iron Man Era I (bench) -- add this agent's keys right after this line",
   "screen.projecthero.stark_workbench.title": "Stark Workbench",
   "screen.projecthero.stark_workbench.era": "Era %s",
