@@ -104,8 +104,7 @@ public final class EraOneEject {
 			return;
 		}
 		HOLD_START.put(player.getUUID(), player.level().getGameTime());
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.era1.eject_hold")
-				.withStyle(ChatFormatting.GOLD), true);
+		// v0.16.7 (user): no text above the hotbar -- the C box in the HUD fills while the hold runs
 	}
 
 	/** Per player tick (from {@code IronManSuitTicker}): the launch's fall safety, then finish (or drop) a running hold. */
@@ -159,8 +158,6 @@ public final class EraOneEject {
 		IronManSounds.play(player, IronManSounds.RELEASE, 1.0f, 0.8f);
 		IronManSounds.play(player, IronManSounds.CLAMP, 0.8f, 0.6f);
 		IronManSounds.play(player, IronManSounds.FACEPLATE_OPEN, 0.8f, 0.7f);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.era1.ejected")
-				.withStyle(ChatFormatting.AQUA), true);
 		return suit;
 	}
 

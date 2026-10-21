@@ -34,7 +34,7 @@ import net.minecraft.server.level.ServerPlayer;
  *   <li>Reused pre-v0.16.1 helpers ({@code IronManDash}, {@code IronManGroundPound}...) charge nothing
  *       ({@code IronManEnergy.spend} stays a no-op), so there is never a double charge.</li>
  *   <li>Hover moves that use {@code IronManFlight.setFlying} are landed by the brownout; only the Mk III pays the
- *       flight drain (6 / sprint 12 per second, {@code IronManEnergy.tickRecharge}) -- the hover pays through
+ *       flight drain (2 / sprint 4 per second, {@code IronManEnergy.tickRecharge}) -- the hover pays through
  *       {@link #drainTick}.</li>
  * </ul>
  */

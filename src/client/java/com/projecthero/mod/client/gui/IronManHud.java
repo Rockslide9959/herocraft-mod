@@ -73,7 +73,7 @@ public final class IronManHud {
 		}
 		Font font = client.font;
 		long now = client.level != null ? client.level.getGameTime() : 0L;
-		int x = IronManUiLayout.HUD_X;
+		int x = IronManUiLayout.rightColumnX(g.guiWidth()); // v0.16.7 (user): the HUD is on the left; this column (strip, meters, chips) is top-right
 		int w = IronManUiLayout.HUD_W;
 
 		ItemStack helmet = player.getItemBySlot(EquipmentSlot.HEAD);
@@ -325,10 +325,10 @@ public final class IronManHud {
 		for (int lw : lineW) {
 			innerW = Math.max(innerW, lw);
 		}
-		int x0 = IronManUiLayout.HUD_X;
-		int y0 = IronManUiLayout.HUD_Y;
 		int h = lines * 10 + 5;
 		int bw = innerW + 10;
+		int x0 = g.guiWidth() - IronManUiLayout.HUD_X - bw; // v0.16.7 (user): top-right (the status block is top-left now)
+		int y0 = IronManUiLayout.HUD_Y;
 		g.fill(x0, y0, x0 + bw, y0 + h, 0x8C050B12);
 		g.renderOutline(x0, y0, bw, h, IronManGui.alpha(IronManGui.CYAN_DIM, 0.55f));
 		g.fill(x0, y0, x0 + 2, y0 + h, IronManGui.alpha(IronManGui.CYAN, 0.9f)); // the brighter left accent edge
@@ -783,15 +783,15 @@ public final class IronManHud {
 	 * lines at most, the second shortened if it still does not fit), on a soft dark plate with a cyan edge.
 	 */
 	private static void moveList(GuiGraphics g, Font font, Rect[] slots, MoveListOverlay.Row[] rows, boolean retro) {
-		int right = slots[0].x() - IronManUiLayout.KEY_LABEL_W - 6;
+		int left = slots[0].right() + 6; // v0.16.7 (user): the column is on the left, so the list opens to its right
 		for (int i = 0; i < 6; i++) {
 			MoveListOverlay.Row row = rows[i];
 			if (row == null || row.plain() == null) {
 				continue;
 			}
 			// rows level with vanilla's bottom-centre stack (hotbar, XP, hearts / food, held-item name, action bar) stop short of it
-			int leftLimit = slots[i].bottom() > g.guiHeight() - 76 ? g.guiWidth() / 2 + 91 + 29 + 4 : 4;
-			int maxW = Math.max(40, Math.min(MoveListOverlay.maxWidth(g), right - leftLimit - 4));
+			int rightLimit = slots[i].bottom() > g.guiHeight() - 76 ? g.guiWidth() / 2 - 91 - 29 - 4 : g.guiWidth() / 2 - 16;
+			int maxW = Math.max(40, Math.min(MoveListOverlay.maxWidth(g), rightLimit - left - 4));
 			// one line when it fits; else the tap move on line one and the Shift move (+ cooldown) on line two, each shortened to fit
 			net.minecraft.network.chat.MutableComponent tap = row.plain().copy().withStyle(s -> s.withColor(IronManGui.TEXT & 0xFFFFFF));
 			net.minecraft.network.chat.MutableComponent second = Component.empty();
@@ -825,14 +825,14 @@ public final class IronManHud {
 			}
 			Rect r = slots[i];
 			int h = shown.size() * 10 + 2;
-			int x = right - w - 4;
+			int x = left + 4;
 			int y = r.y() + (r.h() - h) / 2;
-			g.fill(x - 3, y - 1, right + 2, y + h, 0xC0040A12);
-			g.fill(right + 1, y - 1, right + 2, y + h, IronManGui.alpha(retro ? IronManGui.AMBER : IronManGui.CYAN, 0.9f));
-			g.fill(right + 2, r.y() + r.h() / 2, right + 4, r.y() + r.h() / 2 + 1, IronManGui.alpha(IronManGui.CYAN_DIM, 0.8f));
+			g.fill(left - 2, y - 1, x + w + 3, y + h, 0xC0040A12);
+			g.fill(left - 2, y - 1, left - 1, y + h, IronManGui.alpha(retro ? IronManGui.AMBER : IronManGui.CYAN, 0.9f));
+			g.fill(left - 4, r.y() + r.h() / 2, left - 2, r.y() + r.h() / 2 + 1, IronManGui.alpha(IronManGui.CYAN_DIM, 0.8f));
 			int ly = y + 1;
 			for (FormattedCharSequence p : shown) {
-				g.drawString(font, p, right - 1 - font.width(p), ly, IronManGui.TEXT, false);
+				g.drawString(font, p, x, ly, IronManGui.TEXT, false);
 				ly += 10;
 			}
 		}
@@ -867,15 +867,7 @@ public final class IronManHud {
 			ejectHeldSince = now;
 		}
 		float progress = Math.min(1f, (now - ejectHeldSince) / (float) com.projecthero.mod.ironman.ability.era1.EraOneEject.HOLD_TICKS);
-		int w = 120;
-		int h = 5;
-		int x = (g.guiWidth() - w) / 2;
-		int y = g.guiHeight() - 62;
-		Component label = Component.translatable("hud.projecthero.ironman.era1.eject_bar");
-		String l = IronManGui.fit(font, label, g.guiWidth() - 16);
-		g.drawString(font, l, (g.guiWidth() - font.width(l)) / 2, y - 11, 0xFFFFFFFF, true);
-		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xC0000000);
-		g.fill(x, y, x + Math.round(w * progress), y + h, IronManGui.GOLD);
+		// v0.16.7 (user): nothing above the hotbar -- the C box in the ability column shows the eject progress
 	}
 
 	/** v0.16.1: one comic-kit key box. Returns the expanded-list line ("[R] Tap / Shift  cooldowns"). */

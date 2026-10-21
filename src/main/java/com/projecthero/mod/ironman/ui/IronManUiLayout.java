@@ -153,16 +153,21 @@ public final class IronManUiLayout {
 	public static final int STATUS_GAUGE_H = 24;
 	public static final int STATUS_GAUGE_GAP = 3;
 
-	/** v0.16.7 (user): the top-right status block (two gauges with a reactor, one without). */
+	/** v0.16.7 (user): the top-LEFT status block (two gauges with a reactor, one without). */
 	public static Rect statusBlock(int screenW, boolean reactor) {
 		int gauges = reactor ? 2 * STATUS_GAUGE_H + STATUS_GAUGE_GAP : STATUS_GAUGE_H;
 		int h = STATUS_PAD + STATUS_HEADER_H + Math.max(STATUS_DIAL, gauges) + STATUS_PAD - 1;
-		return new Rect(screenW - STATUS_MARGIN - HUD_W, STATUS_MARGIN, HUD_W, h);
+		return new Rect(STATUS_MARGIN, STATUS_MARGIN, HUD_W, h);
 	}
 
-	/** v0.16.7 (user): the widest the top-left telemetry strip may be -- up to the status block, with a gap. */
+	/** v0.16.7 (user): the widest the top-RIGHT telemetry strip may be -- back to the status block, with a gap. */
 	public static int stripMaxWidth(int screenW) {
-		return Math.max(60, statusBlock(screenW, true).x() - HUD_X - 10);
+		return Math.max(60, screenW - HUD_X - statusBlock(screenW, true).right() - 10);
+	}
+
+	/** v0.16.7 (user): the x of the top-right column (the telemetry strip's meters / chips, {@link #HUD_W} wide). */
+	public static int rightColumnX(int screenW) {
+		return screenW - HUD_X - HUD_W;
 	}
 
 	/**
@@ -188,20 +193,21 @@ public final class IronManUiLayout {
 	public static final int SLOT_W = 22;
 	public static final int SLOT_H = 22;
 	public static final int SLOT_GAP = 3;
-	/** The column's right / bottom margins, and the room its key letters take to the LEFT of the boxes. */
-	public static final int COLUMN_MARGIN_RIGHT = 6;
-	public static final int COLUMN_MARGIN_BOTTOM = 8;
+	/** The column's left margin (its key letters sit in it, left of the boxes) and its gap under the status block. */
+	public static final int COLUMN_MARGIN_LEFT = 6;
+	public static final int COLUMN_GAP_BELOW_STATUS = 8;
 	public static final int KEY_LABEL_W = 9;
 
 	/**
-	 * The six ability boxes (R G X Z V C, top to bottom), v0.16.7 (user): stacked in a column along the bottom-right edge
-	 * of the screen (they used to sit in a row above the hotbar). The key letters sit {@link #KEY_LABEL_W} px to the left.
+	 * The six ability boxes (R G X Z V C, top to bottom), v0.16.7 (user): stacked in a column down the LEFT edge, right
+	 * under the status block (they used to sit in a row above the hotbar). The key letters sit {@link #KEY_LABEL_W} px to
+	 * the left; the move list opens to the right.
 	 */
 	public static Rect[] abilityStrip(int screenW, int screenH) {
 		Rect[] out = new Rect[6];
 		int total = 6 * SLOT_H + 5 * SLOT_GAP;
-		int x0 = screenW - COLUMN_MARGIN_RIGHT - SLOT_W;
-		int y0 = screenH - COLUMN_MARGIN_BOTTOM - total;
+		int x0 = COLUMN_MARGIN_LEFT + KEY_LABEL_W;
+		int y0 = Math.max(2, Math.min(statusBlock(screenW, true).bottom() + COLUMN_GAP_BELOW_STATUS, screenH - 2 - total));
 		for (int i = 0; i < 6; i++) {
 			out[i] = new Rect(x0, y0 + i * (SLOT_H + SLOT_GAP), SLOT_W, SLOT_H);
 		}
@@ -209,20 +215,19 @@ public final class IronManUiLayout {
 	}
 
 	/**
-	 * v0.16.7 (user): where the target card goes -- just right of the crosshair, or just left of it when the right side
-	 * would run into the ability column; never over the crosshair, kept on screen.
+	 * v0.16.7 (user): where the target card goes -- just right of the crosshair, or just left of it when it would run off
+	 * the right edge (very narrow screens only); never over the crosshair, kept on screen.
 	 */
 	public static final int CARD_BOTTOM_CLEAR = 52;
 
 	public static Rect targetCard(int screenW, int screenH, int w, int h) {
 		int cx = screenW / 2;
 		int cy = screenH / 2;
-		int columnLeft = abilityStrip(screenW, screenH)[0].x() - KEY_LABEL_W - 4;
 		int x = cx + 18;
-		if (x + w > columnLeft) {
-			x = cx - 18 - w;
+		if (x + w > screenW - 2) {
+			x = cx - 18 - w; // only on very narrow screens: it may then cover the left key column, never the crosshair
 		}
-		x = Math.max(2, x);
+		x = Math.max(2, Math.min(x, screenW - 2 - w));
 		// above vanilla's bottom-centre stack (hotbar, XP, hearts / food, air bubbles) -- the card sits beside the crosshair
 		int y = Math.max(2, Math.min(cy - 10, screenH - CARD_BOTTOM_CLEAR - h));
 		return new Rect(x, y, w, h);

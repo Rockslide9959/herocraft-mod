@@ -62,8 +62,8 @@ public final class IronManEnergy {
 	/** v0.16.7 (user): what a Stark Gantry charges an Era I suit per second (racked in range, or worn on its floor). */
 	public static final float GANTRY_CHARGE_PER_SECOND = 50f;
 	/** v0.16.7 (user): the Mk III's flight drain per second (sprint flight: double). */
-	public static final float ERA_ONE_FLIGHT_PER_SECOND = 6f;
-	public static final float ERA_ONE_SPRINT_FLIGHT_PER_SECOND = 12f;
+	public static final float ERA_ONE_FLIGHT_PER_SECOND = 2f; // v0.16.7 (user): was 6 -- reactors must last long missions
+	public static final float ERA_ONE_SPRINT_FLIGHT_PER_SECOND = 4f; // v0.16.7 (user): was 12
 
 	/** v0.16.7: does {@code suitId} have a real reactor (an Era I suit)? */
 	public static boolean real(String suitId) {

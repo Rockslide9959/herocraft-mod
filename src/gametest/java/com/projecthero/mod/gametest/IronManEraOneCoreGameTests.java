@@ -186,18 +186,22 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		ServerPlayer p = tony(h);
 		IronManSuit suit = IronManSuits.MARK_III;
 		wear(p, "mark_iii");
-		IronManEnergy.setEnergy(p, "mark_iii", 100f);
-		IronManComicKit.Move unibeam = IronManComicKit.byId("e1mk3_unibeam"); // 150
-		IronManComicKit.Move repulsor = IronManComicKit.byId("e1mk3_repulsor"); // 20
-		h.assertFalse(IronManEraOne.canPay(p, suit, unibeam), "100 energy can't pay a 150 unibeam (LOW POWER)");
-		h.assertTrue(IronManEraOne.canPay(p, suit, repulsor), "but pays a 20 repulsor");
+		IronManComicKit.Move unibeam = IronManComicKit.byId("e1mk3_unibeam");
+		IronManComicKit.Move repulsor = IronManComicKit.byId("e1mk3_repulsor");
+		float beamCost = IronManComicKit.energyCost(unibeam.id()), boltCost = IronManComicKit.energyCost(repulsor.id());
+		float start = beamCost - 1f; // just short of a unibeam (v0.16.7: the costs are read from the kit, not hard-coded)
+		IronManEnergy.setEnergy(p, "mark_iii", start);
+		h.assertFalse(IronManEraOne.canPay(p, suit, unibeam), "just short of a unibeam can't pay it (LOW POWER)");
+		h.assertTrue(boltCost < start && IronManEraOne.canPay(p, suit, repulsor), "but pays a repulsor");
 		IronManEraOne.pay(p, suit, repulsor);
-		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - 80f) < 1e-3f, "paid 20 -> 80, got " + IronManEnergy.energy(p, "mark_iii"));
-		// a held move drains its per-second cost each tick (tractor beam 15/s)
-		h.assertTrue(IronManEraOne.drainTick(p, suit, "e1mk3_tractor_beam"), "drains while there is energy");
-		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (80f - 0.75f)) < 1e-3f, "15/s = 0.75 a tick");
+		float after = start - boltCost;
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - after) < 1e-3f, "paid the repulsor, got " + IronManEnergy.energy(p, "mark_iii"));
+		// a held move drains its per-second cost each tick (the tractor beam)
+		float perTick = IronManComicKit.energyPerSecond("e1mk3_tractor_beam") / 20f;
+		h.assertTrue(perTick > 0f && IronManEraOne.drainTick(p, suit, "e1mk3_tractor_beam"), "drains while there is energy");
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (after - perTick)) < 1e-3f, "the beam's per-second cost a tick");
 		// run it dry: brownout
-		IronManEnergy.setEnergy(p, "mark_iii", 1.0f);
+		IronManEnergy.setEnergy(p, "mark_iii", perTick * 1.5f); // one tick's worth and a half: the second tick runs dry
 		h.assertFalse(IronManEraOne.drainTick(p, suit, "e1mk3_tractor_beam") && IronManEraOne.drainTick(p, suit, "e1mk3_tractor_beam"),
 				"the drain stops the move once the reactor is dry");
 		h.assertTrue(IronManEnergy.energy(p, "mark_iii") == 0f && IronManEnergy.brownedOut(p, "mark_iii"), "0 energy = BROWNOUT");
@@ -226,10 +230,11 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		IronManFlight.setFlying(p, true);
 		p.setSprinting(false);
 		IronManEnergy.flightDrainTick(p, IronManSuits.MARK_III);
-		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (500f - 0.3f)) < 1e-3f, "flight 6/s = 0.3 a tick");
+		float fly = IronManEnergy.ERA_ONE_FLIGHT_PER_SECOND / 20f, sprint = IronManEnergy.ERA_ONE_SPRINT_FLIGHT_PER_SECOND / 20f;
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (500f - fly)) < 1e-3f, "flight drains its per-second cost a tick");
 		p.setSprinting(true);
 		IronManEnergy.flightDrainTick(p, IronManSuits.MARK_III);
-		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (500f - 0.9f)) < 1e-3f, "sprint flight 12/s = 0.6 a tick");
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_iii") - (500f - fly - sprint)) < 1e-3f, "sprint flight drains double");
 		IronManEnergy.setEnergy(p, "mark_iii", 0.2f);
 		IronManEnergy.flightDrainTick(p, IronManSuits.MARK_III);
 		h.assertFalse(IronManFlight.isFlying(p), "running dry lands it");

@@ -173,31 +173,31 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 	 * the offhand slot and the hotbar attack indicator (key letters included), and below the top-right status block.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void abilityColumnSitsBottomRight(GameTestHelper helper) {
+	public void abilityColumnSitsOnTheLeft(GameTestHelper helper) {
 		for (int[] s : SCREENS) {
 			Rect[] slots = IronManUiLayout.abilityStrip(s[0], s[1]);
 			helper.assertTrue(slots.length == 6, "six slots");
-			// the hotbar's right edge plus the offhand slot (29) / attack indicator (6 + 18) when they sit on the right
-			int vanillaRight = s[0] / 2 + 91 + 29;
+			// v0.16.7 (user): the HUD is on the LEFT -- the column hugs the left edge, right under the status block, and its
+			// right edge stays left of the offhand slot (29) left of the hotbar
+			int vanillaLeft = s[0] / 2 - 91 - 29;
 			Rect status = IronManUiLayout.statusBlock(s[0], true);
 			for (int i = 0; i < 6; i++) {
 				Rect r = slots[i];
 				helper.assertTrue(r.insideScreen(s[0], s[1]), "slot on screen at " + s[0] + "x" + s[1]);
-				helper.assertTrue(r.x() - IronManUiLayout.KEY_LABEL_W >= vanillaRight + 2,
-						"column + key letters clear of the hotbar / offhand / attack indicator at " + s[0] + "x" + s[1]);
-				helper.assertTrue(s[0] - r.right() <= 8, "column hugs the right edge");
+				helper.assertTrue(r.x() - IronManUiLayout.KEY_LABEL_W >= 2, "key letters on screen at " + s[0] + "x" + s[1]);
+				helper.assertTrue(r.right() <= vanillaLeft - 2,
+						"column clear of the hotbar / offhand slot at " + s[0] + "x" + s[1]);
+				helper.assertTrue(r.x() <= 20, "column hugs the left edge");
 				if (i > 0) {
 					helper.assertTrue(r.y() >= slots[i - 1].bottom() && r.x() == slots[i - 1].x(), "slots stacked in order, no overlap");
 				}
 			}
+			helper.assertTrue(status.x() <= 8, "the status block is top-left at " + s[0] + "x" + s[1]);
 			helper.assertTrue(status.bottom() + 3 <= slots[0].y() - 5, // the column's red tick sits 5 px above its first box
 					"the status block stays above the column at " + s[0] + "x" + s[1] + " (" + status + ")");
-			// the top-left block's worst case (strip 3 lines + 6 context meters + 2 chip rows) stays left of the column
-			int blockBottom = IronManUiLayout.HUD_Y + 35 + 6 * IronManUiLayout.GAUGE_ROW_H + 26;
-			helper.assertTrue(blockBottom <= slots[0].y() || IronManUiLayout.HUD_X + IronManUiLayout.HUD_W <= slots[0].x() - IronManUiLayout.KEY_LABEL_W,
-					"a busy top-left block does not run into the ability column at " + s[0] + "x" + s[1]);
-			helper.assertTrue(status.x() >= IronManUiLayout.HUD_X + IronManUiLayout.HUD_W || s[0] < 320,
-					"top-left block and status block side by side at " + s[0] + "x" + s[1]);
+			// the top-right column (strip + its meters / chips) stays right of the status block
+			helper.assertTrue(IronManUiLayout.rightColumnX(s[0]) >= status.right() || s[0] < 320,
+					"top-right block and status block side by side at " + s[0] + "x" + s[1]);
 		}
 		helper.succeed();
 	}
@@ -220,8 +220,8 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 				lw[line[i]] += (lw[line[i]] > 0 ? 11 : 0) + widths[i];
 			}
 			for (int l : lw) {
-				helper.assertTrue(IronManUiLayout.HUD_X + l + 10 <= IronManUiLayout.statusBlock(s[0], true).x(),
-						"strip line stays left of the status block at " + s[0]);
+				helper.assertTrue(s[0] - IronManUiLayout.HUD_X - l - 10 >= IronManUiLayout.statusBlock(s[0], true).right(),
+						"strip line stays right of the status block at " + s[0]);
 			}
 		}
 		// a normal reading (5-digit coordinates) is one line from GUI scale 3 on a 1080p window up
@@ -244,7 +244,8 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 				Rect[] slots = IronManUiLayout.abilityStrip(s[0], s[1]);
 				Rect column = new Rect(slots[0].x() - IronManUiLayout.KEY_LABEL_W, slots[0].y(), slots[0].w() + IronManUiLayout.KEY_LABEL_W,
 						slots[5].bottom() - slots[0].y());
-				helper.assertFalse(card.overlaps(column), "card clear of the key column at " + s[0] + "x" + s[1]);
+				// (on a 320-wide screen the card has to flip left of the crosshair; it may cover the left column there)
+				helper.assertTrue(s[0] <= 320 || !card.overlaps(column), "card clear of the key column at " + s[0] + "x" + s[1]);
 				// hotbar (22) + XP bar + hearts / food + air bubbles end 49 px above the bottom
 				helper.assertTrue(card.bottom() <= s[1] - 49, "card clear of the hotbar, hearts and food at " + s[0] + "x" + s[1]);
 			}

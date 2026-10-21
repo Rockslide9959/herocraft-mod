@@ -46,9 +46,7 @@ public final class IronManFlight {
 		if (suit != null && !suit.manualFlight()) {
 			// Mark 1 ("changes 13"): no double-tap-jump repulsor flight -- it flies only via its own
 			// timed-flight ability, which calls setFlying() directly and bypasses this path.
-			player.displayClientMessage(net.minecraft.network.chat.Component
-					.translatable("message.projecthero.ironman.no_manual_flight"), true);
-			return;
+			return; // v0.16.7 (user): silently -- no "can't fly" text above the hotbar (Mk I / Mk II)
 		}
 		if (suit != null && suit.altitudeCeiling() > 0.0 && player.getY() >= suit.altitudeCeiling()) {
 			return; // Mark 2's altitude ceiling -- systems frozen, no taking off from up here either
