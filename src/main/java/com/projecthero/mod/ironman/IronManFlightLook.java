@@ -64,6 +64,102 @@ public final class IronManFlightLook {
 		};
 	}
 
+	// ---------------------------------------------------------------- v0.16.7 (user): the repulsor flight VFX upgrade
+
+	/**
+	 * How a suit's thrusters look. REPULSOR: a white-hot core in a coloured cone (every flier by default); HYDRO: the same in
+	 * aqua out of the water, a stream of bubbles (water-jet propulsors) in it; AIR: the Mk V Stealth's clear air jets -- no
+	 * fire, no glow, near-silent; ROCKET: the Mk I's crude orange rocket boots (unchanged).
+	 */
+	public enum ThrusterStyle { REPULSOR, HYDRO, AIR, ROCKET }
+
+	/** The default repulsor thrust colour: cyan-blue. */
+	public static final int DEFAULT_THRUST = 0x4FB8FF;
+	/** The white-hot core every repulsor jet has. */
+	public static final int CORE_THRUST = 0xF4FBFF;
+	/** The Mk V's air jets: a pale, cool grey. */
+	public static final int AIR_THRUST = 0xE2E8EE;
+
+	public static ThrusterStyle style(String suitId) {
+		if (suitId == null) {
+			return ThrusterStyle.REPULSOR; // bare Repulsor Boots
+		}
+		return switch (suitId) {
+			case "mark_1" -> ThrusterStyle.ROCKET;
+			case "mark_4" -> ThrusterStyle.HYDRO;
+			case "mark_v" -> ThrusterStyle.AIR;
+			default -> ThrusterStyle.REPULSOR;
+		};
+	}
+
+	/** The suit-tinted thrust colour (0xRRGGBB): cyan-blue by default. */
+	public static int thrustColour(String suitId) {
+		if (suitId == null) {
+			return DEFAULT_THRUST;
+		}
+		return switch (suitId) {
+			case "mark_1" -> 0xFF7020; // the Mk I's rocket fire (as before)
+			case "mark_1_v2" -> 0xFFC65A; // the Golden Avenger's warm gold
+			case "mark_4" -> 0x3FE6D2; // the Hydro's aqua
+			case "mark_v" -> AIR_THRUST;
+			case "mark_6" -> 0xA8DCFF; // the Silver Centurion's ice blue
+			default -> DEFAULT_THRUST;
+		};
+	}
+
+	/** The Mk II's X boot hover: boot jets only, smaller (its "flight" is a 5 s hover on the boots). */
+	public static boolean bootsOnly(String suitId) {
+		return "mark_1_v2".equals(suitId);
+	}
+
+	/** Jet size multiplier per suit: the Mk II's hover jets are small, the Hulkbuster's big. */
+	public static float jetScale(String suitId) {
+		if ("mark_1_v2".equals(suitId)) {
+			return 0.65f;
+		}
+		return "mark_8".equals(suitId) ? 1.3f : 1.0f;
+	}
+
+	/**
+	 * How hard the PALM repulsors work in a flight state (the boots are always 1): full while hovering / braking (the palms
+	 * are the stabilisers), backed off in forward flight where the boots do the pushing.
+	 */
+	public static float palmWeight(JetState s) {
+		return switch (s) {
+			case HOVER, BACK -> 1.0f;
+			case FORWARD -> 0.6f;
+			case SPRINT -> 0.5f;
+			case SUPERSONIC -> 0.45f;
+		};
+	}
+
+	/** The exhaust / heat-shimmer trail behind a nozzle (blocks): nothing at a hover, stretching with speed, capped. */
+	public static float trailLength(double speed) {
+		return (float) Mth.clamp((speed - 0.08) * 2.6, 0.0, 3.6);
+	}
+
+	/** Below this height over a block (or water) a flier's jets kick up dust / spray. */
+	public static final double GROUND_WASH_HEIGHT = 3.5;
+
+	/** 0..1 strength of the ground wash at {@code height} blocks over the surface: strongest skimming, gone at the cap. */
+	public static float groundWash(double height) {
+		if (height < 0.0 || height >= GROUND_WASH_HEIGHT) {
+			return 0f;
+		}
+		float f = 1f - (float) (height / GROUND_WASH_HEIGHT);
+		return f * f;
+	}
+
+	/** The jet flicker: a short, fast shimmer around 1 (0.8 .. 1.0), per nozzle so they never pulse together. */
+	public static float flicker(float time, int nozzle) {
+		return 0.9f + 0.07f * Mth.sin(time * 11.3f + nozzle * 1.7f) + 0.03f * Mth.sin(time * 23.9f + nozzle * 3.1f);
+	}
+
+	/** The Mk V's near-silent flight: its only sound is a very quiet air whoosh swelling a little with speed. */
+	public static float stealthWhooshVolume(double speed) {
+		return 0.05f + Mth.clamp((float) (speed / 1.6), 0f, 1f) * 0.12f;
+	}
+
 	// ---------------------------------------------------------------- landing
 
 	/** Falling at least this fast (blocks/tick, ~9 m/s) when flight ends on the ground = a superhero landing. */

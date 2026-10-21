@@ -125,6 +125,7 @@
 		"PlayerRendererFleshHandMixin",
 		"PlayerRendererFleshMixin",
 		"PlayerRendererHandMixin",
+		"ItemInHandRendererCamoMixin",
 		"PlayerRendererHulkMixin",
 		"PlayerRendererHulkbusterMixin",
 		"ItemInHandRendererHulkbusterMixin",

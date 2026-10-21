@@ -306,4 +306,34 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	/** v0.16.7 (user) repulsor flight VFX: the per-suit thruster styles and the numbers the client jets run on. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ironManThrusterStylesPerSuit(GameTestHelper helper) {
+		helper.assertTrue(IronManFlightLook.style("mark_1") == IronManFlightLook.ThrusterStyle.ROCKET, "the Mk I keeps its rockets");
+		helper.assertTrue(IronManFlightLook.style("mark_4") == IronManFlightLook.ThrusterStyle.HYDRO, "the Hydro has water jets");
+		helper.assertTrue(IronManFlightLook.style("mark_v") == IronManFlightLook.ThrusterStyle.AIR, "the Stealth blows clear air");
+		for (String id : new String[] { "mark_1_v2", "mark_2", "mark_iii", "mark_6", "mark_vii", "mark_8" }) {
+			helper.assertTrue(IronManFlightLook.style(id) == IronManFlightLook.ThrusterStyle.REPULSOR, id + " has repulsor jets");
+		}
+		helper.assertTrue(IronManFlightLook.style(null) == IronManFlightLook.ThrusterStyle.REPULSOR
+				&& IronManFlightLook.thrustColour(null) == IronManFlightLook.DEFAULT_THRUST, "bare Repulsor Boots: default cyan-blue");
+		helper.assertTrue(IronManFlightLook.thrustColour("mark_iii") == IronManFlightLook.DEFAULT_THRUST, "cyan-blue by default");
+		helper.assertTrue(IronManFlightLook.bootsOnly("mark_1_v2") && !IronManFlightLook.bootsOnly("mark_iii")
+				&& IronManFlightLook.jetScale("mark_1_v2") < 1f, "the Mk II's hover is small boot jets only");
+		IronManFlightLook.JetState hover = IronManFlightLook.JetState.HOVER;
+		IronManFlightLook.JetState sprint = IronManFlightLook.JetState.SPRINT;
+		helper.assertTrue(IronManFlightLook.palmWeight(hover) == 1f && IronManFlightLook.palmWeight(IronManFlightLook.JetState.BACK) == 1f
+				&& IronManFlightLook.palmWeight(sprint) < 1f, "palms full hovering / braking, backed off at speed");
+		helper.assertTrue(IronManFlightLook.trailLength(0.0) == 0f && IronManFlightLook.trailLength(0.6) < IronManFlightLook.trailLength(1.2)
+				&& IronManFlightLook.trailLength(50.0) <= 3.6f, "the exhaust trail stretches with speed, capped");
+		helper.assertTrue(IronManFlightLook.groundWash(0.2) > IronManFlightLook.groundWash(2.0)
+				&& IronManFlightLook.groundWash(IronManFlightLook.GROUND_WASH_HEIGHT) == 0f, "dust / spray only hovering low");
+		helper.assertTrue(IronManFlightLook.stealthWhooshVolume(2.0) < 0.2f, "the Stealth's flight is near-silent");
+		for (int i = 0; i < 40; i++) {
+			float f = IronManFlightLook.flicker(i * 0.37f, i % 4);
+			helper.assertTrue(f >= 0.79f && f <= 1.01f, "the flicker stays short: " + f);
+		}
+		helper.succeed();
+	}
 }

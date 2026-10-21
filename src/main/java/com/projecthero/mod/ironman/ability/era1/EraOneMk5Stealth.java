@@ -31,7 +31,8 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 (user) Era I Mk V Stealth: everything the Mk V's moves leave RUNNING -- the Silent Glide hover, Silent Running
+ * v0.16.7 (user) Era I Mk V Stealth: everything the Mk V's moves leave RUNNING -- Active Camo (the wearer and the suit
+ * invisible, mobs lose him; a hit given or taken breaks it for 5 s -- it replaced the Silent Glide once the Mk V flew), Silent Running
  * (mobs cannot pick the wearer as a target; attacking breaks it for 5 s), Thermal Vision (private marks refreshed every
  * second), and mobs put out of action: the Sleeper Dart's sleep (any hit wakes it) and the EMP's shutdown. A frozen mob's
  * AI step is skipped ({@code IronManMk5MobMixin}) and it cannot take a target, so it can neither move nor attack.
@@ -41,22 +42,21 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class EraOneMk5Stealth {
 	public static final String SUIT = "mark_v";
-	public static final int GLIDE_TICKS = 10 * 20;
 	public static final int SLEEP_TICKS = 8 * 20;
 	public static final int THERMAL_TICKS = 10 * 20;
 	public static final int RUNNING_BREAK_TICKS = 5 * 20;
 	public static final double THERMAL_RANGE = 32.0;
 	public static final double RUNNING_SHAKE_RANGE = 48.0;
-	/** Silent Glide speeds (blocks / tick) the client flies with. */
-	public static final double GLIDE_SPEED = 0.32;
-	public static final double GLIDE_VERTICAL = 0.22;
+	/** v0.16.7 (user): Active Camo is broken this long by a hit given or taken. */
+	public static final int CAMO_BREAK_TICKS = 5 * 20;
 
 	private static final DustParticleOptions SLEEP_DUST = new DustParticleOptions(new org.joml.Vector3f(0.7f, 0.85f, 1.0f), 0.8f);
 
 	static final class Mk5 {
-		long glideUntil;
-		long glideStart;
-		boolean glideMayfly;
+		boolean camo;
+		long camoBrokenUntil;
+		/** The camo put this Invisibility on (so switching off only takes away our own). */
+		boolean camoInvis;
 		boolean running;
 		long runningBrokenUntil;
 		long thermalUntil;
@@ -127,7 +127,7 @@ public final class EraOneMk5Stealth {
 		if (frozen(self)) {
 			return true;
 		}
-		return target instanceof ServerPlayer p && hidden(p);
+		return target instanceof ServerPlayer p && (hidden(p) || camoHidden(p));
 	}
 
 	/** Silent Running is on and not broken by an attack. */
@@ -141,9 +141,22 @@ public final class EraOneMk5Stealth {
 		return s != null && s.running;
 	}
 
-	public static boolean gliding(ServerPlayer p) {
+	/** v0.16.7 (user): Active Camo is switched on (it may be broken for a moment by a hit). */
+	public static boolean camo(ServerPlayer p) {
 		Mk5 s = peek(p);
-		return s != null && s.glideUntil > p.level().getGameTime();
+		return s != null && s.camo;
+	}
+
+	/** Active Camo is on and not broken: invisible, suit and all, and no mob can pick him. */
+	public static boolean camoHidden(ServerPlayer p) {
+		Mk5 s = peek(p);
+		return s != null && s.camo && s.camoBrokenUntil <= p.level().getGameTime();
+	}
+
+	/** Gametest helper: was the camo broken by a hit (still on, showing for a moment)? */
+	public static boolean camoBroken(ServerPlayer p) {
+		Mk5 s = peek(p);
+		return s != null && s.camo && s.camoBrokenUntil > p.level().getGameTime();
 	}
 
 	public static boolean thermal(ServerPlayer p) {
@@ -222,6 +235,13 @@ public final class EraOneMk5Stealth {
 				wake(mob);
 			}
 		}
+		// v0.16.7 (user): Active Camo flickers out for 5 s on any hit the wearer gives OR takes
+		if (attacker instanceof ServerPlayer p && attacker != entity) {
+			breakCamo(p);
+		}
+		if (entity instanceof ServerPlayer hurt) {
+			breakCamo(hurt);
+		}
 		if (attacker instanceof ServerPlayer p && attacker != entity) {
 			Mk5 s = peek(p);
 			if (s != null && s.running) {
@@ -235,56 +255,50 @@ public final class EraOneMk5Stealth {
 		}
 	}
 
+	private static void breakCamo(ServerPlayer p) {
+		Mk5 s = peek(p);
+		if (s == null || !s.camo) {
+			return;
+		}
+		boolean wasHidden = s.camoBrokenUntil <= p.level().getGameTime();
+		s.camoBrokenUntil = p.level().getGameTime() + CAMO_BREAK_TICKS;
+		dropCamoInvisibility(p, s);
+		if (wasHidden) {
+			p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.camo_broken", CAMO_BREAK_TICKS / 20), true);
+		}
+	}
+
 	// ------------------------------------------------------------------ statuses
 
-	static void startGlide(ServerPlayer p) {
+	/** v0.16.7 (user): Active Camo on / off. Off takes the camo's own Invisibility straight away. */
+	static void setCamo(ServerPlayer p, boolean on) {
 		Mk5 s = state(p);
-		long now = p.level().getGameTime();
-		s.glideStart = now;
-		s.glideUntil = now + GLIDE_TICKS;
-		floatTolerance(p, s, true);
-	}
-
-	static void endGlide(ServerPlayer p) {
-		Mk5 s = peek(p);
-		if (s == null) {
-			return;
-		}
-		s.glideUntil = 0L;
-		floatTolerance(p, s, false);
-		MobEffectInstance sf = p.getEffect(MobEffects.SLOW_FALLING);
-		if (sf != null && sf.isAmbient() && !sf.isVisible()) {
-			p.removeEffect(MobEffects.SLOW_FALLING);
-		}
-	}
-
-	/**
-	 * Vanilla kicks a player who floats ("flying is not enabled") -- a hover looks just like that. {@code mayfly} for the
-	 * glide (with {@code flying} kept off), handed back after unless another flight still needs it (the Hellflame pattern).
-	 */
-	private static void floatTolerance(ServerPlayer p, Mk5 s, boolean on) {
-		if (p.getAbilities().instabuild || p.isSpectator()) {
-			return;
-		}
+		s.camo = on;
+		s.camoBrokenUntil = 0L;
 		if (on) {
-			if (!p.getAbilities().mayfly) {
-				p.getAbilities().mayfly = true;
-				p.getAbilities().flying = false;
-				p.onUpdateAbilities();
-				s.glideMayfly = true;
-			}
+			applyCamoInvisibility(p, s);
+		} else {
+			dropCamoInvisibility(p, s);
+		}
+	}
+
+	/** A short, ambient, icon-less Invisibility -- refreshed by the tick, gone on its own the moment the camo stops. */
+	private static void applyCamoInvisibility(ServerPlayer p, Mk5 s) {
+		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
+		if (inv == null || (inv.isAmbient() && inv.getDuration() < 10)) {
+			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 20, 0, true, false, false));
+		}
+		s.camoInvis = true;
+	}
+
+	private static void dropCamoInvisibility(ServerPlayer p, Mk5 s) {
+		if (!s.camoInvis) {
 			return;
 		}
-		if (s.glideMayfly) {
-			s.glideMayfly = false;
-			if (p.getAbilities().mayfly && !com.projecthero.mod.hero.power.HeroFlight.isFlying(p)
-					&& !com.projecthero.mod.power.ThorPowers.isFlying(p)
-					&& !p.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)
-					&& !p.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
-				p.getAbilities().mayfly = false;
-				p.getAbilities().flying = false;
-				p.onUpdateAbilities();
-			}
+		s.camoInvis = false;
+		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
+		if (inv != null && inv.isAmbient() && !inv.isVisible() && inv.getDuration() <= 20) {
+			p.removeEffect(MobEffects.INVISIBILITY);
 		}
 	}
 
@@ -313,8 +327,8 @@ public final class EraOneMk5Stealth {
 		if (s == null) {
 			return;
 		}
-		if (s.glideUntil != 0L || s.glideMayfly) {
-			endGlide(p);
+		if (s.camo) {
+			setCamo(p, false);
 		}
 		s.running = false;
 		s.thermalUntil = 0L;
@@ -373,7 +387,7 @@ public final class EraOneMk5Stealth {
 
 	/** One player's Mk V statuses, once a tick. Package-visible for the gametests (mock players never tick on their own). */
 	static void tickPlayer(ServerPlayer p, Mk5 s) {
-		boolean anything = s.glideUntil != 0L || s.running || s.thermalUntil != 0L || s.glideMayfly;
+		boolean anything = s.camo || s.running || s.thermalUntil != 0L;
 		if (!anything) {
 			return;
 		}
@@ -383,27 +397,23 @@ public final class EraOneMk5Stealth {
 		}
 		ServerLevel level = (ServerLevel) p.level();
 		long now = level.getGameTime();
-		// ---- Silent Glide
-		if (s.glideUntil > now) {
-			boolean landed = now - s.glideStart > 10 && (p.onGround() || p.isInWater());
-			if (landed || !EraOneMk5Moves.drain(p, "e1mk5_silent_glide")) {
-				endGlide(p);
+		// ---- Active Camo (v0.16.7 (user)): pays 3/s even while a hit has it broken; a brown-out / dry reactor ends it
+		if (s.camo) {
+			if (!EraOneMk5Moves.drain(p, "e1mk5_active_camo")) {
+				setCamo(p, false);
+				p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.camo_off"), true);
+			} else if (s.camoBrokenUntil <= now) {
+				if (s.camoBrokenUntil != 0L) {
+					s.camoBrokenUntil = 0L;
+					p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.camo_back"), true);
+				}
+				applyCamoInvisibility(p, s);
+				if (now % 5 == 0) {
+					shake(p, RUNNING_SHAKE_RANGE);
+				}
 			} else {
-				if (p.getAbilities().flying && !p.getAbilities().instabuild) {
-					p.getAbilities().flying = false; // a double-tap of Space while mayfly is on: no creative flight
-					p.onUpdateAbilities();
-				}
-				p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 10, 0, true, false, false));
-				p.resetFallDistance();
-				IronManAbilityFx.hold(p, IronManAbilityFx.COMIC_GLIDE);
-				if (now % 6 == 0) {
-					// quiet: a faint shimmer under the boots, no thruster roar
-					level.sendParticles(ParticleTypes.WHITE_ASH, p.getX(), p.getY() - 0.1, p.getZ(), 2, 0.2, 0.05, 0.2, 0.0);
-				}
+				dropCamoInvisibility(p, s);
 			}
-		} else if (s.glideUntil != 0L) {
-			endGlide(p);
-			p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.glide_off"), true);
 		}
 		// ---- Silent Running
 		if (s.running) {
@@ -445,6 +455,11 @@ public final class EraOneMk5Stealth {
 	public static void shutDownForTests(ServerPlayer p) {
 		shutDown(p);
 		PLAYERS.remove(p.getUUID());
+	}
+
+	/** Gametest helper: {@code entity} was hurt by {@code attacker} (mock players never fire the damage events themselves). */
+	public static void damagedForTests(LivingEntity entity, net.minecraft.world.entity.Entity attacker) {
+		onDamaged(entity, attacker);
 	}
 
 	/** Gametest helper: one frozen-mob pass, as the server tick would. */

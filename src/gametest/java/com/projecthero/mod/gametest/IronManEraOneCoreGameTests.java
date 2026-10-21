@@ -150,8 +150,9 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		}
 		h.assertTrue(IronManSuits.MARK_1.scale() == 1.0f && IronManSuits.MARK_1.walkSpeedBonus() == -0.10 && !IronManSuits.MARK_1.manualFlight(),
 				"Mk I: normal size, walks 10% slower, no flight");
-		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && !IronManSuits.MARK_4.manualFlight()
-				&& !IronManSuits.MARK_V.manualFlight(), "only the Mk III flies");
+		// v0.16.7 (user): the Hydro and the Stealth fly too
+		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && IronManSuits.MARK_4.manualFlight()
+				&& IronManSuits.MARK_V.manualFlight(), "the Mk III, Mk IV and Mk V fly; the Mk I / Mk II do not");
 		h.assertTrue(IronManSuits.MARK_4.hydro() && IronManSuits.MARK_4.waterBreathing() && IronManSuits.MARK_V.stealth(), "Hydro / Stealth");
 		for (String later : new String[] { "mark_2", "mark_6", "mark_vii", "mark_8" }) {
 			h.assertTrue(!IronManEraOne.isEraOne(later) && IronManSuits.byId(later).energyCapacity() == IronManEnergy.FULL,
@@ -241,11 +242,46 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		h.assertTrue(IronManEnergy.brownedOut(p, "mark_iii"), "browned out");
 		IronManFlight.toggle(p);
 		h.assertFalse(IronManFlight.isFlying(p), "no take-off while browned out");
-		// the Mk II / IV / V have no sustained flight at all
+		// the Mk II has no sustained flight at all (v0.16.7 (user): the Mk IV / Mk V do now -- see below)
 		wear(p, "mark_1_v2");
 		IronManFlight.toggle(p);
 		h.assertFalse(IronManFlight.isFlying(p), "the Mk II only hovers with its X move");
 		p.setSprinting(false);
+		leave(h, p);
+		h.succeed();
+	}
+
+	/** v0.16.7 (user): the Mk IV Hydro and the Mk V Stealth take off with the double-tap and pay the Era I flight drain. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theHydroAndTheStealthFlyAndPayTheEraOneDrain(GameTestHelper h) {
+		ServerPlayer p = tony(h);
+		float fly = IronManEnergy.ERA_ONE_FLIGHT_PER_SECOND / 20f, sprint = IronManEnergy.ERA_ONE_SPRINT_FLIGHT_PER_SECOND / 20f;
+		for (String id : new String[] { "mark_4", "mark_v" }) {
+			IronManSuit suit = IronManSuits.byId(id);
+			wear(p, id);
+			IronManEnergy.setEnergy(p, id, 500f);
+			p.setSprinting(false);
+			IronManFlight.toggle(p);
+			h.assertTrue(IronManFlight.isFlying(p), id + " takes off with the double-tap");
+			IronManEnergy.flightDrainTick(p, suit);
+			h.assertTrue(Math.abs(IronManEnergy.energy(p, id) - (500f - fly)) < 1e-3f, id + " flight drains 2/s, got " + IronManEnergy.energy(p, id));
+			p.setSprinting(true);
+			IronManEnergy.flightDrainTick(p, suit);
+			h.assertTrue(Math.abs(IronManEnergy.energy(p, id) - (500f - fly - sprint)) < 1e-3f, id + " sprint flight drains 4/s");
+			p.setSprinting(false);
+			if ("mark_4".equals(id)) {
+				// its land Slowness is for walking only: taking off drops the suit's own Slowness
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 20, 0,
+						true, false, false));
+				com.projecthero.mod.ironman.IronManPassives.tick(p);
+				h.assertFalse(p.hasEffect(net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN), "no Hydro Slowness while flying");
+			}
+			IronManEnergy.setEnergy(p, id, 0.05f);
+			IronManEnergy.flightDrainTick(p, suit);
+			h.assertFalse(IronManFlight.isFlying(p), id + ": running dry lands it");
+			IronManFlight.toggle(p);
+			h.assertFalse(IronManFlight.isFlying(p), id + ": no take-off while browned out");
+		}
 		leave(h, p);
 		h.succeed();
 	}

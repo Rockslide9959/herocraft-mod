@@ -26,7 +26,7 @@ import net.minecraft.server.level.ServerPlayer;
  *       {@link IronManComicKit#energyCost}) on the edge the handler returns true on -- a handler never pays its own
  *       up-front cost.</li>
  *   <li>A held / toggled move with a per-second cost ({@link IronManComicKit#energyPerSecond}: flamethrower, boot
- *       hover, tractor beam, targeting HUD, silent glide, silent running...) calls
+ *       hover, tractor beam, targeting HUD, active camo, silent running...) calls
  *       {@link #drainTick drainTick(player, suit, moveId)} once per server tick while it runs and stops when it returns
  *       false (reactor dry / browned out / disabled / suit off).</li>
  *   <li>{@link #brownedOut} tells a running effect the suit just browned out (the brownout also runs
@@ -131,7 +131,7 @@ public final class IronManEraOne {
 
 	/**
 	 * <b>For the move agents:</b> call this once per server tick while a held / toggled Era I move runs (flamethrower,
-	 * boot hover, tractor beam, targeting HUD, silent glide, silent running...). It drains that move's
+	 * boot hover, tractor beam, targeting HUD, active camo, silent running...). It drains that move's
 	 * {@link IronManComicKit#energyPerSecond} / 20 from the worn suit's reactor and returns <b>false when the move must
 	 * stop</b>: the reactor ran dry (the suit browns out at 0 -- {@link IronManEnergy#brownedOut}), it was already browned
 	 * out, the suit is disabled (0 integrity) or no longer worn. A move with no per-second cost only gets those checks.

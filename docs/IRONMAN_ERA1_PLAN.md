@@ -14,9 +14,9 @@ version), never release.
 |---|---|---|---|---|---|---|---|---|
 | Mk I | `mark_1` | Mk I Cave-Forged | 700 | 30% | 600 | 1.0 | no flight: rocket jumps; walk -10%; scale 1.0 (was 1.25) | +8 |
 | Mk II | `mark_1_v2` | Mk II Golden Avenger | 850 | 32% | 800 | 1.5 | no sustained flight: the X boot-jet hover (5 s) | +7 |
-| Mk III | `mark_iii` | Mk III Classic | 1400 | 38% | 1200 | 2.0 | full flight (drains 6 energy/s, sprint-flight 12/s) | +8 |
-| Mk IV | `mark_4` | Mk IV Hydro | 1600 | 40% | 1200 | 2.0 | swims ~3x + water breathing + clear vision underwater; on land Slowness I and NO flight | +8 (x1.5 in water) |
-| Mk V | `mark_v` | Mk V Stealth | 500 | 15% | 1000 | 2.5 | quiet hover only (the Shift+X Silent Glide), silent (no steps / vibrations, kept) | +6 |
+| Mk III | `mark_iii` | Mk III Classic | 1400 | 38% | 1200 | 2.0 | full flight (drains 2 energy/s, sprint-flight 4/s; v0.16.7 (user): was 6 / 12) | +8 |
+| Mk IV | `mark_4` | Mk IV Hydro | 1600 | 40% | 1200 | 2.0 | swims ~3x + water breathing + clear vision underwater; v0.16.7 (user): full flight like the Mk III (2/s, sprint 4/s; water-jet thrusters), Slowness I only while WALKING on land | +8 (x1.5 in water) |
+| Mk V | `mark_v` | Mk V Stealth | 500 | 15% | 1000 | 2.5 | v0.16.7 (user): full flight like the Mk III (2/s, sprint 4/s) on near-silent clear air jets; Shift+X Active Camo; silent (no steps / vibrations, kept) | +6 |
 
 Progression (Workbench order): Mk I -> Mk II (upgrade: a full Mk I + gold, as the current Mark 1 V2 upgrade) -> Mk III ->
 Mk IV -> Mk V. The later suits keep working exactly as they are for now and are renamed to their future-era names:
@@ -101,7 +101,7 @@ tables. H stays the faceplate / gantry key.
 |---|---|---|
 | R | `silenced_dart` 6 + Poison II 4 s + Slowness II 4 s; cd 1.5, en 20 | `sleeper_dart` mob sleeps 8 s (no AI; never bosses / players, a hit wakes it); cd 12, en 60 |
 | G | `silent_takedown` 15, x3 from behind / unaware; cd 4, en 40 | `shadow_strike` blink behind the target in 16 blocks + takedown hit; cd 10, en 80 |
-| X | `light_bend_blink` 8-block invisible dash; cd 5, en 50 | `silent_glide` 10 s quiet hover / glide (Space up, Shift down), 8 en/s; cd 3 |
+| X | `light_bend_blink` 8-block invisible dash; cd 5, en 50 | `active_camo` (v0.16.7 (user), replaced `silent_glide` once the Mk V flew) toggle: you AND the suit invisible (armour / GeckoLib suit hidden, faint first-person arm), mobs lose track and cannot target you; any hit given or taken breaks it for 5 s; 3 en/s; not while browned out; cd 1 |
 | Z | `emp` 10-block pulse: mobs stunned 3 s, drones / Ultron / sentries 6 s; cd 18, en 120 | `decoy` a hologram of you for 10 s that mobs target; cd 18, en 80 |
 | V | `radar` marks mobs within 32 for 8 s (private glow); cd 10, en 30 | `thermal_vision` see living things through walls 10 s (private); cd 16, en 60 |
 | C | `silent_running` toggle: mobs cannot pick you as a target until you attack (breaks for 5 s on attack), 5 en/s | (eject) |

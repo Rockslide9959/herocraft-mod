@@ -27,7 +27,9 @@ public abstract class ItemInHandLayerCloakMixin {
 	private void projecthero$hideHeldItemsWhileCloaked(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
 			LivingEntity entity, float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
 			float netHeadYaw, float headPitch, CallbackInfo ci) {
-		if (entity instanceof Player player && InvisibilityLightHandlers.hideArmor(player)) {
+		if (entity instanceof Player player && (InvisibilityLightHandlers.hideArmor(player)
+				// v0.16.7 (user): an invisible Iron Man (the Mk V's Active Camo) leaves nothing floating in his hands either
+				|| (player.isInvisible() && com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(player)))) {
 			ci.cancel();
 		}
 	}

@@ -22,7 +22,8 @@ import net.minecraft.world.entity.player.Player;
  * {@code sounds.json} -- the SoundManager resolves them by id.
  */
 public class IronManThrusterSoundInstance extends AbstractTickableSoundInstance {
-	public enum Layer { ROAR, WHINE, WIND }
+	/** v0.16.7 (user): WHOOSH = the Mk V Stealth's only flight sound, a very quiet rush of air (no roar, no whine). */
+	public enum Layer { ROAR, WHINE, WIND, WHOOSH }
 
 	public static final SoundEvent ROAR = SoundEvent.createVariableRangeEvent(ProjectHeroMod.id("ironman_thruster_roar"));
 	public static final SoundEvent WHINE = SoundEvent.createVariableRangeEvent(ProjectHeroMod.id("ironman_thruster_whine"));
@@ -36,7 +37,7 @@ public class IronManThrusterSoundInstance extends AbstractTickableSoundInstance 
 		super(switch (layer) {
 			case ROAR -> ROAR;
 			case WHINE -> WHINE;
-			case WIND -> WIND;
+			case WIND, WHOOSH -> WIND;
 		}, SoundSource.PLAYERS, SoundInstance.createUnseededRandom());
 		this.player = player;
 		this.layer = layer;
@@ -83,13 +84,19 @@ public class IronManThrusterSoundInstance extends AbstractTickableSoundInstance 
 				base = markOne ? 0f : IronManFlightLook.whineVolume(speed);
 				pitch = 1.35f + (float) Math.min(1.0, speed / 2.0) * 0.3f;
 			}
+			case WHOOSH -> {
+				base = IronManFlightLook.stealthWhooshVolume(speed);
+				pitch = 1.15f + (float) Math.min(1.0, speed / 3.0) * 0.3f;
+			}
 			default -> {
 				base = IronManFlightLook.windVolume(speed);
 				pitch = 0.8f + (float) Math.min(1.0, speed / 3.0) * 0.4f;
 			}
 		}
-		this.volume = base * fade * (boots ? 0.6f : 1f);
-		this.pitch = pitch;
+		// v0.16.7 (user): under water the jets are a muffled, lower rumble (the Hydro's water-jet propulsors)
+		boolean under = player.isUnderWater();
+		this.volume = base * fade * (boots ? 0.6f : 1f) * (under ? 0.6f : 1f);
+		this.pitch = pitch * (under ? 0.7f : 1f);
 		this.x = player.getX();
 		this.y = player.getY();
 		this.z = player.getZ();

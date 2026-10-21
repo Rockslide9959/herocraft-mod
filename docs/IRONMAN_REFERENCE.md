@@ -2401,7 +2401,7 @@ Tests: `IronManComicV0161GameTests`.
   Centurion) -> mark_vii (Mk VIII Space) -> mark_8 (Hulkbuster I Bruiser); `FabricatorRecipes.ARMOR_BUILD_ORDER` follows.
   Item / suit ids unchanged. Lang: `.name` = the full name, `.comic` = the subtitle, `.short` = "Mk I" (blueprint track).
   Era I stats live in `IronManSuits` (integrity / absorb / melee per the plan table, `energy(cap)` + `energyRegen`); only
-  the Mk III has `manualFlight`; Mk I scale 1.0; Mk IV Slowness I on land (`IronManPassives`). `IronManSuit.eraOne()`.
+  the Mk III, Mk IV and Mk V have `manualFlight` (v0.16.7 (user): the Hydro and the Stealth fly too); Mk I scale 1.0; Mk IV Slowness I only walking on land (`IronManPassives`). `IronManSuit.eraOne()`.
 * **Costs.** The Mk VI Suitcase (mark_2) is now an `armorSet` (cost tier 3, micro-thruster signature, ~140.3) so it costs
   more than the Mk V Stealth (139.0); Centurion / Space / Hulkbuster moved one tier up (~142.4 / ~157.7 / ~165.4).
   Arc Reactor Mk1 recipe: 4 iron, 4 copper, a redstone block.
@@ -2410,7 +2410,7 @@ Tests: `IronManComicV0161GameTests`.
   stacks; `spend` / `has` stay no-ops for every suit (legacy helpers reused by Era I moves never double-charge). Router:
   `IronManEraOne.canPay` on the press ("LOW POWER"), `pay` (kit `energyCost`) on the edge the move goes off. Held / toggled
   moves call `IronManEraOne.drainTick(player, suit, moveId)` every tick (false = stop). Worn: `tickRecharge` = the Mk III's
-  flight drain (6/s, sprint 12/s, `flightDrainTick`) + once a second `rechargeStep` (own regen; standing on a complete
+  flight drain (2/s, sprint 4/s, `flightDrainTick`, every Era I flier) + once a second `rechargeStep` (own regen; standing on a complete
   Gantry floor +50/s and a 5/s repair). Brownout at 0 (`TonyStarkState.brownout`, saved in the misc group): no moves /
   flight / hover (the ticker treats it like a lockout), armour + absorb still work, back at 10%.
 * **Gantry-only** (`ability.era1.EraOneGantry`): `IronManSuitUpManager.beginSuitUp` / `beginSuitDown`,
