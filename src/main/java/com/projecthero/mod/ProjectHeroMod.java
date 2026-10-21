@@ -218,6 +218,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.symbiote.SymbiotePet.initialize();
 		com.projecthero.mod.combat.SonicTriggers.initialize();
 		ModNetworking.initialize();
+		com.projecthero.mod.ironman.scan.IronManScan.initialize(); // v0.16.7 (user): the Iron Man target scanner threat assessment
 		// ---- Zombie Raid / world-event framework ----
 		com.projecthero.mod.grave.item.GraveItems.initialize();
 		com.projecthero.mod.event.entity.RaidEntityTypes.initialize();

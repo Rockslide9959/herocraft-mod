@@ -14,6 +14,7 @@ import com.projecthero.mod.ironman.ability.IronManAbilities;
 import com.projecthero.mod.ironman.fabricator.FabricationRecipe;
 import com.projecthero.mod.ironman.fabricator.FabricatorRecipes;
 import com.projecthero.mod.ironman.item.IronManArmorItem;
+import com.projecthero.mod.ironman.scan.IronManThreat;
 import com.projecthero.mod.ironman.suit.IronManSuit;
 import com.projecthero.mod.ironman.suit.IronManSuits;
 import com.projecthero.mod.ironman.ui.IronManUiLayout;
@@ -111,8 +112,24 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 			float heat = IronManAbilities.flamethrowerMaxHeat(suit);
 			String h = IronManUiLayout.pct(1f) + " " + IronManUiLayout.amount(heat, heat);
 			helper.assertTrue(w(t("hud.projecthero.ironman.heat")) + 6 + w(h) <= bw, "HEAT line fits: " + h);
-			helper.assertTrue(IronManUiLayout.approxWidth(t(suit.nameKey()), true) + 8 + w(f("hud.projecthero.ironman.alt_spd", 320, 99)) <= bw,
-					"name + ALT / SPD fit on the header for " + suit.id());
+			// v0.16.7 (user): the suit's full name heads the top-right status block (the client ellipsizes, but none should need it)
+			String header = (t(suit.nameKey()) + " " + t(suit.displayKey())).toUpperCase(java.util.Locale.ROOT);
+			int innerW = bw - 2 * IronManUiLayout.STATUS_PAD;
+			helper.assertTrue(IronManUiLayout.approxWidth(header, false) <= innerW - 9, "status header fits (bold, or regular when long) for " + suit.id() + ": " + header);
+			// the gauges beside the dial: label + percentage, then the exact value + absorb share
+			int gw = innerW - IronManUiLayout.STATUS_DIAL - 6;
+			helper.assertTrue(w(t("hud.projecthero.ironman.status.integrity")) + 4 + w("100%") <= gw, "INTEGRITY label + % fit");
+			String abs = f("hud.projecthero.ironman.status.absorb", Math.round(suit.absorbShare() * 100f));
+			helper.assertTrue(w(Math.round(maxI) + "") + 5 + w(abs) <= gw, "INTEGRITY value + absorb fit for " + suit.id());
+			if (suit.eraOne()) {
+				helper.assertTrue(w(t("hud.projecthero.ironman.status.reactor")) + 4 + w("100%") <= gw, "REACTOR label + % fit");
+				for (String k : new String[] { "low_power", "brownout" }) {
+					helper.assertTrue(w(t("hud.projecthero.ironman.status." + k)) <= gw, k + " fits the gauge");
+				}
+				// the client drops "/max" when the right-hand note is long; the bare value must still fit beside it
+				helper.assertTrue(w(Math.round(cap) + "") + 5 + w(f("hud.projecthero.ironman.status.gantry", 50)) <= gw,
+						"REACTOR value + gantry regen fit for " + suit.id());
+			}
 		}
 		helper.assertTrue(w(t("hud.projecthero.ironman.overloaded")) + 6 + w(IronManUiLayout.secs(600)) <= bw, "OVERLOAD line fits");
 		helper.assertTrue(w(t("hud.projecthero.ironman.ability.wrist_laser")) + 6 + w(IronManUiLayout.secs(80)) <= bw, "laser line fits");
@@ -151,27 +168,112 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/**
+	 * v0.16.7 (user): the key boxes are a column along the bottom-right edge -- on screen, in order, clear of the hotbar,
+	 * the offhand slot and the hotbar attack indicator (key letters included), and below the top-right status block.
+	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void abilityStripSitsAboveTheHotbar(GameTestHelper helper) {
+	public void abilityColumnSitsBottomRight(GameTestHelper helper) {
 		for (int[] s : SCREENS) {
 			Rect[] slots = IronManUiLayout.abilityStrip(s[0], s[1]);
 			helper.assertTrue(slots.length == 6, "six slots");
-			int hotbarL = s[0] / 2 - 91;
-			int hotbarR = s[0] / 2 + 91;
+			// the hotbar's right edge plus the offhand slot (29) / attack indicator (6 + 18) when they sit on the right
+			int vanillaRight = s[0] / 2 + 91 + 29;
+			Rect status = IronManUiLayout.statusBlock(s[0], true);
 			for (int i = 0; i < 6; i++) {
 				Rect r = slots[i];
 				helper.assertTrue(r.insideScreen(s[0], s[1]), "slot on screen at " + s[0] + "x" + s[1]);
-				helper.assertTrue(r.x() >= hotbarL && r.right() <= hotbarR, "strip no wider than the hotbar");
-				// hotbar (22) + XP bar + hearts + armour row end 49 px above the bottom
-				helper.assertTrue(r.bottom() <= s[1] - 49, "strip clears the hotbar, hearts and armour row");
+				helper.assertTrue(r.x() - IronManUiLayout.KEY_LABEL_W >= vanillaRight + 2,
+						"column + key letters clear of the hotbar / offhand / attack indicator at " + s[0] + "x" + s[1]);
+				helper.assertTrue(s[0] - r.right() <= 8, "column hugs the right edge");
 				if (i > 0) {
-					helper.assertTrue(r.x() >= slots[i - 1].right(), "slots in order, no overlap");
+					helper.assertTrue(r.y() >= slots[i - 1].bottom() && r.x() == slots[i - 1].x(), "slots stacked in order, no overlap");
 				}
 			}
-			// the HUD block's worst case (header + 2 gauges + clock + 6 context meters + 2 chip rows) stays above it
-			int blockBottom = IronManUiLayout.HUD_Y + 12 + 2 * IronManUiLayout.GAUGE_ROW_H + 11 + 3 * IronManUiLayout.GAUGE_ROW_H + 26;
-			helper.assertTrue(blockBottom <= slots[0].y() || IronManUiLayout.HUD_X + IronManUiLayout.HUD_W <= slots[0].x(),
-					"a busy HUD block does not run into the ability strip at " + s[0] + "x" + s[1]);
+			helper.assertTrue(status.bottom() + 3 <= slots[0].y() - 5, // the column's red tick sits 5 px above its first box
+					"the status block stays above the column at " + s[0] + "x" + s[1] + " (" + status + ")");
+			// the top-left block's worst case (strip 3 lines + 6 context meters + 2 chip rows) stays left of the column
+			int blockBottom = IronManUiLayout.HUD_Y + 35 + 6 * IronManUiLayout.GAUGE_ROW_H + 26;
+			helper.assertTrue(blockBottom <= slots[0].y() || IronManUiLayout.HUD_X + IronManUiLayout.HUD_W <= slots[0].x() - IronManUiLayout.KEY_LABEL_W,
+					"a busy top-left block does not run into the ability column at " + s[0] + "x" + s[1]);
+			helper.assertTrue(status.x() >= IronManUiLayout.HUD_X + IronManUiLayout.HUD_W || s[0] < 320,
+					"top-left block and status block side by side at " + s[0] + "x" + s[1]);
+		}
+		helper.succeed();
+	}
+
+	/** v0.16.7 (user): the telemetry strip wraps (to at most three lines) rather than running into the status block. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void telemetryStripFitsBesideTheStatusBlock(GameTestHelper helper) {
+		String[] segs = { f("hud.projecthero.ironman.strip.alt", 320), f("hud.projecthero.ironman.strip.spd", 99),
+				f("hud.projecthero.ironman.strip.pos", -29999999, 320, -29999999), f("hud.projecthero.ironman.strip.clock", "23:59", 9999) };
+		for (int[] s : SCREENS) {
+			int maxW = IronManUiLayout.stripMaxWidth(s[0]) - 10;
+			int[] widths = new int[segs.length];
+			for (int i = 0; i < segs.length; i++) {
+				widths[i] = Math.min(maxW, w(segs[i]));
+			}
+			int[] line = IronManUiLayout.flowSegments(widths, 11, maxW);
+			helper.assertTrue(line[line.length - 1] <= 2, "strip at most three lines at " + s[0] + "x" + s[1]);
+			int[] lw = new int[3];
+			for (int i = 0; i < segs.length; i++) {
+				lw[line[i]] += (lw[line[i]] > 0 ? 11 : 0) + widths[i];
+			}
+			for (int l : lw) {
+				helper.assertTrue(IronManUiLayout.HUD_X + l + 10 <= IronManUiLayout.statusBlock(s[0], true).x(),
+						"strip line stays left of the status block at " + s[0]);
+			}
+		}
+		// a normal reading (5-digit coordinates) is one line from GUI scale 3 on a 1080p window up
+		int[] normal = { w(f("hud.projecthero.ironman.strip.alt", 64)), w(f("hud.projecthero.ironman.strip.spd", 12)),
+				w(f("hud.projecthero.ironman.strip.pos", 12345, 64, -12345)), w(f("hud.projecthero.ironman.strip.clock", "12:00", 12)) };
+		int[] line = IronManUiLayout.flowSegments(normal, 11, IronManUiLayout.stripMaxWidth(640) - 10);
+		helper.assertTrue(line[3] == 0, "one line at 640 wide");
+		helper.succeed();
+	}
+
+	/** v0.16.7 (user): the target card never covers the crosshair or the key column, and stays on screen. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void targetCardKeepsClear(GameTestHelper helper) {
+		for (int[] s : SCREENS) {
+			for (int h : new int[] { 60, 110 }) {
+				Rect card = IronManUiLayout.targetCard(s[0], s[1], 150, h);
+				helper.assertTrue(card.insideScreen(s[0], s[1]), "card on screen at " + s[0] + "x" + s[1]);
+				Rect crosshair = new Rect(s[0] / 2 - 8, s[1] / 2 - 8, 16, 16);
+				helper.assertFalse(card.overlaps(crosshair), "card clear of the crosshair at " + s[0] + "x" + s[1]);
+				Rect[] slots = IronManUiLayout.abilityStrip(s[0], s[1]);
+				Rect column = new Rect(slots[0].x() - IronManUiLayout.KEY_LABEL_W, slots[0].y(), slots[0].w() + IronManUiLayout.KEY_LABEL_W,
+						slots[5].bottom() - slots[0].y());
+				helper.assertFalse(card.overlaps(column), "card clear of the key column at " + s[0] + "x" + s[1]);
+				// hotbar (22) + XP bar + hearts / food + air bubbles end 49 px above the bottom
+				helper.assertTrue(card.bottom() <= s[1] - 49, "card clear of the hotbar, hearts and food at " + s[0] + "x" + s[1]);
+			}
+		}
+		helper.succeed();
+	}
+
+	/** v0.16.7 (user): the threat levels read the way a player would expect. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void threatLevelsAreIntuitive(GameTestHelper helper) {
+		IronManThreat.Level cow = IronManThreat.level(0f, 20f, 2, false, false, false);
+		IronManThreat.Level zombie = IronManThreat.level(1.5f, 20f, 2, false, false, true);
+		IronManThreat.Level vindicator = IronManThreat.level(6f, 20f, 3, false, false, true);
+		IronManThreat.Level wounded = IronManThreat.level(6f, 8f, 3, false, false, true);
+		IronManThreat.Level golem = IronManThreat.level(12f, 20f, 10, false, false, false);
+		IronManThreat.Level boss = IronManThreat.level(3f, 20f, 60, true, false, true);
+		IronManThreat.Level bigBoss = IronManThreat.level(8f, 20f, 60, true, false, true);
+		IronManThreat.Level hero = IronManThreat.level(1f, 20f, 4, false, true, true);
+		helper.assertTrue(cow == IronManThreat.Level.MINIMAL, "a harmless mob is MINIMAL: " + cow);
+		helper.assertTrue(zombie == IronManThreat.Level.LOW, "a zombie against an armoured suit is LOW: " + zombie);
+		helper.assertTrue(vindicator == IronManThreat.Level.HIGH, "a hit taking ~30% of you is HIGH: " + vindicator);
+		helper.assertTrue(wounded == IronManThreat.Level.EXTREME, "the same hit at 8 HP is EXTREME: " + wounded);
+		helper.assertTrue(golem == IronManThreat.Level.LOW, "a neutral golem stays LOW until provoked: " + golem);
+		helper.assertTrue(boss == IronManThreat.Level.HIGH && bigBoss == IronManThreat.Level.EXTREME, "bosses: " + boss + " / " + bigBoss);
+		helper.assertTrue(hero == IronManThreat.Level.MODERATE, "a player with a power is at least MODERATE: " + hero);
+		helper.assertTrue(IronManThreat.hitsToDown(20f, 7f) == 3 && IronManThreat.hitsToDown(20f, 0f) == 0, "hits to down");
+		helper.assertTrue("3".equals(IronManThreat.hearts(6f)) && "1.5".equals(IronManThreat.hearts(3f)), "hearts format");
+		for (IronManThreat.Level l : IronManThreat.Level.values()) {
+			helper.assertTrue(w(t(l.langKey())) + 8 + w(t("hud.projecthero.ironman.threat.title")) + 5 + 25 <= 140, "threat pill fits: " + l);
 		}
 		helper.succeed();
 	}

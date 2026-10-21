@@ -11,7 +11,6 @@ import com.google.gson.GsonBuilder;
 
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.gui.IronManGui;
-import com.projecthero.mod.ironman.ui.IronManUiLayout;
 import com.projecthero.mod.network.IronManJarvisPayload;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -149,9 +148,9 @@ public final class JarvisClient {
 		boxW += 9;
 		int boxH = 4 + fullLines.size() * 10;
 		int x = (g.guiWidth() - boxW) / 2;
-		// between the crosshair and the Iron Man ability strip, clear of the HUD panel top-left
-		int stripTop = IronManUiLayout.abilityStrip(g.guiWidth(), g.guiHeight())[0].y();
-		int y = Math.max(g.guiHeight() / 2 + 10, stripTop - 5 - boxH);
+		// v0.16.7 (user): below the crosshair, just above vanilla's action-bar line (the key boxes moved to the right edge)
+		int floor = g.guiHeight() - 76;
+		int y = Math.max(g.guiHeight() / 2 + 10, floor - boxH);
 		g.fill(x, y, x + boxW, y + boxH, IronManGui.alpha(currentCrude ? 0xFF140C04 : 0xFF041826, 0.72f * alpha));
 		g.renderOutline(x, y, boxW, boxH, IronManGui.alpha(accent, 0.8f * alpha));
 		g.fill(x, y, x + 2, y + boxH, IronManGui.alpha(accent, alpha));
