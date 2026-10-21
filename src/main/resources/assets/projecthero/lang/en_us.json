@@ -5457,6 +5457,8 @@
   "projecthero.guide.iron_man.combat": "Combat Systems",
   "projecthero.guide.iron_man.combat.body": "Any repulsor hit Staggers its target for 3 s (the Mark 1's punch and flamethrower do it too): it slows, crackles with sparks, and your next punch on it deals bonus damage. Punch then repulsor within 1.5 s for extra knockback. As integrity falls the suit shows it: sparks below 60%, scorched cracked plating, smoke and a flickering glow below 35%, and a cracked visor on your HUD.",
   "__anchor_ironman_era1_art": "v0.16.7 Iron Man Era I (art) -- add this agent's keys right after this line",
+  "item.projecthero.tab_icon_iron_man": "Iron Man",
+  "item.projecthero.tab_icon_superheroes": "Superheroes",
   "projecthero.guide.iron_man.jarvis": "J.A.R.V.I.S.",
   "projecthero.guide.iron_man.jarvis.body": "JARVIS talks you through the fight: suit online, low energy, hull damage, first target lock, sealing up underwater, Protocol Phoenix and more. The Mark 1 only has crude SYSTEM readouts. Type /jarvis off (or on) to mute him.",
   "projecthero.guide.iron_man.remote_pilot": "Remote Pilot",

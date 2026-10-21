@@ -184,6 +184,9 @@ function stamp(dst, src, sx, sy, sw, sh, dx, dy, dw, dh) {
 	}
 }
 function writeIcon(name, im) {
+	// v0.16.7 icons pass: the armour item icons are now hand-drawn by scratchpad/icons_v0167.js --
+	// don't overwrite them with these flat skin cut-outs (pass --icons to force the old behaviour).
+	if (!process.argv.includes('--icons')) return;
 	fs.writeFileSync(path.join(RES, 'textures/item', name + '.png'), P.encode(im.w, im.h, im.px));
 	console.log('wrote textures/item/' + name + '.png');
 }

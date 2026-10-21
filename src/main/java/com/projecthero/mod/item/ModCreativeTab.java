@@ -27,8 +27,7 @@ public final class ModCreativeTab {
 
 	public static final CreativeModeTab IRON_MAN = FabricItemGroup.builder()
 			.title(Component.translatable("itemGroup.projecthero.iron_man"))
-			.icon(() -> new ItemStack(
-					com.projecthero.mod.ironman.item.IronManItems.armor("mark_iii", net.minecraft.world.item.ArmorItem.Type.HELMET)))
+			.icon(() -> new ItemStack(ModItems.TAB_ICON_IRON_MAN)) // v0.16.7: a dedicated icon sprite
 			.displayItems((parameters, output) -> {
 				// The Arc Reactor, the machines, the reactor core + suitcase, then every blueprint, then
 				// the components (basic → advanced), then all the armour ordered by mark. See
@@ -58,7 +57,7 @@ public final class ModCreativeTab {
 
 	public static final CreativeModeTab SUPERHEROES = FabricItemGroup.builder()
 			.title(Component.translatable("itemGroup.projecthero.superheroes"))
-			.icon(() -> new ItemStack(ModItems.MJOLNIR))
+			.icon(() -> new ItemStack(ModItems.TAB_ICON_SUPERHEROES)) // v0.16.7: was the tiny 3D Mjolnir
 			.displayItems((parameters, output) -> {
 				output.accept(ModItems.MJOLNIR);
 				output.accept(ModItems.STORMBREAKER);
