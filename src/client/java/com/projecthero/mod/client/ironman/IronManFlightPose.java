@@ -101,6 +101,11 @@ public final class IronManFlightPose {
 		public boolean evHardLand;
 		public boolean evSoftLand;
 		public boolean evSupersonic;
+		/** v0.16.7 (user): sprint-flight just kicked in (the boost burst). */
+		public boolean evBoost;
+		/** v0.16.7 (user): the worn boots' suit id (null = bare Repulsor Boots) -- picks the thruster style / colour. */
+		public String suitId;
+		private boolean sprintFlying;
 
 		float blend;
 		float blendPrev;
@@ -158,7 +163,7 @@ public final class IronManFlightPose {
 	}
 
 	private static void tickPlayer(ClientLevel level, Player player, Anim a, long now) {
-		a.evTakeoff = a.evHardLand = a.evSoftLand = a.evSupersonic = false;
+		a.evTakeoff = a.evHardLand = a.evSoftLand = a.evSupersonic = a.evBoost = false;
 		boolean settled = a.seenTicks >= 5;
 		if (a.seenTicks < 1000) {
 			a.seenTicks++;
@@ -196,7 +201,12 @@ public final class IronManFlightPose {
 		a.kind = kind;
 		if (a.flying) {
 			a.shownKind = kind;
+			a.suitId = player.getItemBySlot(EquipmentSlot.FEET).getItem() instanceof IronManArmorItem piece ? piece.suitId() : null;
 		}
+		// v0.16.7 (user): the sprint-flight boost burst -- sprinting in the air after flying along without it
+		boolean sprintFlying = a.flying && a.moving && a.sprinting && !a.backward;
+		a.evBoost = sprintFlying && !a.sprintFlying && settled && wasFlying && now - a.flightStart > 6;
+		a.sprintFlying = sprintFlying;
 
 		if (a.flying && !wasFlying) {
 			// just tracked / just joined mid-flight: no crouch, no burst

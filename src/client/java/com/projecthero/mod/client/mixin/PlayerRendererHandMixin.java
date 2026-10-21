@@ -40,6 +40,30 @@ public abstract class PlayerRendererHandMixin {
 		com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand = true;
 	}
 
+	/**
+	 * v0.16.7 (user) Mk V Active Camo: the faint first-person arm ({@code ItemInHandRendererCamoMixin}) -- no skin arm, no
+	 * sleeve, only the gauntlet drawn translucent in the arm's posed space (the vanilla hand set-up, then cancel).
+	 */
+	@Inject(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
+			at = @At("HEAD"), cancellable = true)
+	private void projecthero$faintCamoHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
+			ModelPart arm, ModelPart sleeve, CallbackInfo ci) {
+		if (!com.projecthero.mod.client.ironman.IronManFirstPersonGauntlets.faint
+				|| !(player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof SuperheroArmorItem piece)) {
+			return;
+		}
+		PlayerModel<AbstractClientPlayer> model = ((PlayerRenderer) (Object) this).getModel();
+		model.attackTime = 0.0f;
+		model.crouching = false;
+		model.swimAmount = 0.0f;
+		model.setupAnim(player, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+		arm.xRot = 0.0f;
+		com.projecthero.mod.client.ironman.IronManFlightPose.firstPersonHand = false;
+		com.projecthero.mod.client.ironman.IronManFirstPersonGauntlets.render(pose, buffers, light, arm, arm == model.rightArm,
+				piece.armorSetId(), player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+		ci.cancel();
+	}
+
 	@Inject(method = "renderHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;ILnet/minecraft/client/player/AbstractClientPlayer;Lnet/minecraft/client/model/geom/ModelPart;Lnet/minecraft/client/model/geom/ModelPart;)V",
 			at = @At("TAIL"))
 	private void projecthero$armorOverArm(PoseStack pose, MultiBufferSource buffers, int light,

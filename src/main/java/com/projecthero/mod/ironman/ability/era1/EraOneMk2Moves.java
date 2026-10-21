@@ -221,9 +221,8 @@ public final class EraOneMk2Moves {
 			IronManComicAccess.launch(p, p.getDeltaMovement().add(0, 0.6, 0));
 		}
 		IronManFlight.setFlying(p, true);
-		ServerLevel level = IronManComicAccess.level(p);
-		level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY(), p.getZ(), 16, 0.2, 0.05, 0.2, 0.04);
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 10, 0.4, 0.05, 0.4, 0.05);
+		// v0.16.7 (user): no server particles -- every client draws the (small, gold) boot jets and the lift-off burst off the
+		// synced flight flag (client.IronManFlightFxClient), in the new repulsor look
 		IronManComicAccess.pose(p, IronManAbilityFx.COMIC_LAUNCH, 8);
 		IronManComicAccess.sound(p, IronManSounds.THRUSTER, 0.9f, 1.1f);
 		p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk12.hover_on"), true);
@@ -235,11 +234,6 @@ public final class EraOneMk2Moves {
 		if (now >= r.hoverUntil || !IronManFlight.isFlying(p) || suit == null || !EraOneMk1Moves.drain(p, suit, "e1mk2_boot_hover")) {
 			endHover(p, r);
 			return;
-		}
-		if (now % 2 == 0) {
-			ServerLevel level = IronManComicAccess.level(p);
-			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() - 0.1, p.getZ(), 2, 0.12, 0.05, 0.12, 0.01);
-			level.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() - 0.2, p.getZ(), 1, 0.12, 0.05, 0.12, 0.01);
 		}
 		if (r.hoverUntil - now == 20) {
 			p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk12.hover_ending"), true);

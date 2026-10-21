@@ -35,8 +35,9 @@ import net.minecraft.world.phys.Vec3;
  * bosses / players; any hit wakes it).</li>
  * <li>G silent_takedown: 15, x3 from behind or on an unaware mob. Shift shadow_strike: blink behind the target you look
  * at (16 blocks) + the takedown hit.</li>
- * <li>X light_bend_blink: an 8-block invisible dash. Shift silent_glide: 10 s quiet hover (Space up / Shift down), the
- * Mk V's only air time.</li>
+ * <li>X light_bend_blink: an 8-block invisible dash. Shift active_camo (toggle, v0.16.7 (user) -- replaced the Silent Glide
+ * once the Mk V got real flight): the wearer AND the suit vanish, mobs lose track; drains 3/s, any hit given or taken
+ * breaks it for 5 s.</li>
  * <li>Z emp: a 10-block pulse, mobs out 3 s, drones / Ultron / sentries 6 s. Shift decoy: a hologram of you for 10 s that
  * mobs go for (the Mark 5 Holo-Decoy).</li>
  * <li>V radar: mobs within 32 marked 8 s, privately. Shift thermal_vision: living things through walls 10 s, privately.</li>
@@ -69,7 +70,7 @@ public final class EraOneMk5Moves {
 		IronManEraOne.register("e1mk5_silent_takedown", (p, suit, m, pressed) -> silentTakedown(p, m.damage()));
 		IronManEraOne.register("e1mk5_shadow_strike", (p, suit, m, pressed) -> shadowStrike(p, m.damage()));
 		IronManEraOne.register("e1mk5_light_bend_blink", (p, suit, m, pressed) -> lightBendBlink(p));
-		IronManEraOne.register("e1mk5_silent_glide", (p, suit, m, pressed) -> silentGlide(p));
+		IronManEraOne.register("e1mk5_active_camo", (p, suit, m, pressed) -> activeCamo(p));
 		IronManEraOne.register("e1mk5_emp", (p, suit, m, pressed) -> emp(p));
 		IronManEraOne.register("e1mk5_decoy", (p, suit, m, pressed) -> decoy(p));
 		IronManEraOne.register("e1mk5_radar", (p, suit, m, pressed) -> radar(p));
@@ -78,8 +79,8 @@ public final class EraOneMk5Moves {
 	}
 
 	/**
-	 * The per-tick energy drain of a toggled / timed Mk V move ({@link IronManComicKit#energyPerSecond}: Silent Glide 8/s,
-	 * Silent Running 5/s). Returns false when the suit cannot pay (the status ends).
+	 * The per-tick energy drain of a toggled Mk V move ({@link IronManComicKit#energyPerSecond}: Active Camo 3/s, Silent
+	 * Running 2/s). Returns false when the suit cannot pay or is browned out (the status ends).
 	 */
 	static boolean drain(ServerPlayer p, String moveId) {
 		return IronManEraOne.drainTick(p, com.projecthero.mod.ironman.suit.IronManSuits.MARK_V, moveId);
@@ -279,22 +280,32 @@ public final class EraOneMk5Moves {
 		return true;
 	}
 
-	/** Shift+X: 10 s of quiet hover / glide (Space up, Shift down). Again while it runs: land it (no cooldown). */
-	static boolean silentGlide(ServerPlayer p) {
-		if (EraOneMk5Stealth.gliding(p)) {
-			EraOneMk5Stealth.endGlide(p);
-			say(p, "glide_off");
+	/**
+	 * Shift+X (toggle, v0.16.7 (user)): Active Camo -- the wearer and the whole suit vanish (Invisibility, and the armour
+	 * layers / GeckoLib suit are not drawn on an invisible Iron Man -- {@code HumanoidArmorLayerMixin}); mobs on him lose
+	 * him and cannot pick him while it holds. Drains 3 energy/s; a hit given or taken breaks it for 5 s; never while
+	 * browned out (the router's {@link IronManEraOne#canPay} refuses the press, {@link #drain} ends it).
+	 */
+	static boolean activeCamo(ServerPlayer p) {
+		ServerLevel level = IronManComicMk5Access.level(p);
+		if (EraOneMk5Stealth.camo(p)) {
+			EraOneMk5Stealth.setCamo(p, false);
+			level.sendParticles(ParticleTypes.GLOW, p.getX(), p.getY() + 1.0, p.getZ(), 10, 0.3, 0.6, 0.3, 0.01);
+			hush(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 0.15f, 1.2f);
+			say(p, "camo_off");
+			return true;
+		}
+		if (IronManEraOne.brownedOut(p, com.projecthero.mod.ironman.suit.IronManSuits.MARK_V)) {
 			return false;
 		}
-		if (p.onGround()) {
-			com.projecthero.mod.hero.power.AbilityHelpers.launchSelf(p, p.getDeltaMovement().add(0, 0.55, 0));
-		}
-		EraOneMk5Stealth.startGlide(p);
-		ServerLevel level = IronManComicMk5Access.level(p);
-		level.sendParticles(ParticleTypes.WHITE_ASH, p.getX(), p.getY(), p.getZ(), 10, 0.3, 0.05, 0.3, 0.01);
-		IronManComicMk5Access.pose(p, IronManAbilityFx.COMIC_GLIDE, 8);
-		hush(p, SoundEvents.PHANTOM_FLAP, 0.15f, 1.5f);
-		say(p, "glide_on", EraOneMk5Stealth.GLIDE_TICKS / 20);
+		EraOneMk5Stealth.setCamo(p, true);
+		int lost = EraOneMk5Stealth.shake(p, EraOneMk5Stealth.RUNNING_SHAKE_RANGE);
+		// the shimmer of the suit bending the light round itself -- one soft ripple, then nothing
+		level.sendParticles(ParticleTypes.REVERSE_PORTAL, p.getX(), p.getY() + 1.0, p.getZ(), 14, 0.3, 0.7, 0.3, 0.01);
+		IronManComicMk5Access.pose(p, IronManAbilityFx.COMIC_GUARD, 6);
+		hush(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 0.2f, 1.7f);
+		p.displayClientMessage(Component.translatable("message.projecthero.ironman.e1mk5.camo_on", lost)
+				.withStyle(ChatFormatting.DARK_AQUA), true);
 		return true;
 	}
 

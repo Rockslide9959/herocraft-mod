@@ -162,11 +162,11 @@ public final class IronManComicKit {
 				key(en(tap("e1mk4_whirlpool", s(16), 3f, Items.NAUTILUS_SHELL), 30f), en(tap("e1mk4_bubble_shield", s(20), 0f, Items.GLASS), 25f)),
 				tap("e1mk4_headlamps", s(0.5), 0f, Items.SEA_LANTERN));
 
-		// MK V STEALTH: matte black and silent -- mobs lose you; paper-thin armour.
+		// MK V STEALTH: matte black and silent -- quiet air-jet flight, mobs lose you, Active Camo (v0.16.7 (user)); paper-thin armour.
 		kit6("mark_v",
 				key(en(tap("e1mk5_silenced_dart", s(1.5), 6f, Items.ARROW), 5f), en(tap("e1mk5_sleeper_dart", s(12), 0f, Items.TIPPED_ARROW), 15f)),
 				key(en(tap("e1mk5_silent_takedown", s(4), 15f, Items.IRON_SWORD), 10f), en(tap("e1mk5_shadow_strike", s(10), 15f, Items.ENDER_PEARL), 25f)),
-				key(en(tap("e1mk5_light_bend_blink", s(5), 0f, Items.ENDER_PEARL), 15f), enPerSecond(tap("e1mk5_silent_glide", s(3), 0f, Items.PHANTOM_MEMBRANE), 3f)),
+				key(en(tap("e1mk5_light_bend_blink", s(5), 0f, Items.ENDER_PEARL), 15f), enPerSecond(tap("e1mk5_active_camo", s(1), 0f, Items.TINTED_GLASS), 3f)),
 				key(en(tap("e1mk5_emp", s(18), 0f, Items.REDSTONE_TORCH), 35f), en(tap("e1mk5_decoy", s(18), 0f, Items.ARMOR_STAND), 25f)),
 				key(en(tap("e1mk5_radar", s(10), 0f, Items.COMPASS), 10f), en(tap("e1mk5_thermal_vision", s(16), 0f, Items.SPIDER_EYE), 15f)),
 				enPerSecond(tap("e1mk5_silent_running", s(1), 0f, Items.BLACK_WOOL), 2f));

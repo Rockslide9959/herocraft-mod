@@ -205,7 +205,7 @@ public final class IronManEnergy {
 
 	/**
 	 * v0.16.7 (user): one tick of a worn Era I suit's reactor -- once a second its own regen (+50/s and a 5/s repair instead
-	 * while the wearer stands on a complete Stark Gantry floor), and the Mk III's flight drain every tick. No-op for the
+	 * while the wearer stands on a complete Stark Gantry floor), and the flying suits' (Mk III / IV / V) flight drain every tick. No-op for the
 	 * later suits.
 	 */
 	public static void tickRecharge(ServerPlayer player, IronManSuit suit) {
@@ -218,7 +218,7 @@ public final class IronManEnergy {
 		}
 	}
 
-	/** v0.16.7: one tick of the Mk III's flight drain (6/s, sprint 12/s); running dry lands it. Public for the gametests. */
+	/** v0.16.7: one tick of an Era I flier's (Mk III / IV / V) flight drain (2/s, sprint 4/s); running dry lands it. Public for the gametests. */
 	public static void flightDrainTick(ServerPlayer player, IronManSuit suit) {
 		if (suit != null && suit.eraOne() && suit.manualFlight() && com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			float perSecond = player.isSprinting() ? ERA_ONE_SPRINT_FLIGHT_PER_SECOND : ERA_ONE_FLIGHT_PER_SECOND;

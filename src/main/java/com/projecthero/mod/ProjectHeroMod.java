@@ -83,6 +83,7 @@ public class ProjectHeroMod implements ModInitializer {
 		ModItems.initialize();
 		IronManItems.initialize();
 		com.projecthero.mod.ironman.ability.era1.IronManEraOne.initialize(); // v0.16.7 Era I: the moves' ticks + hooks register at startup
+		com.projecthero.mod.ironman.IronManThrusterParticles.register(); // v0.16.7 (user): repulsor thrust / air-jet puffs
 		IronManBlocks.initialize();
 		com.projecthero.mod.ironman.crate.SuitCrateBlocks.initialize(); // v0.16.7 (user) Era I: the Suit Crate block's sneak-use hook
 		com.projecthero.mod.ironman.furnace.StarkFurnaces.initialize(); // v0.14.26: Stark Furnace / Smelter / Smoker

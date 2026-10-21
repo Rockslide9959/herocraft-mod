@@ -34,7 +34,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.16.7 (user) Iron Man Era I, Mk V Stealth: one test per move, each checking its server effect -- the dart's poison +
  * slowness, the sleeper dart's sleep (no target, a hit wakes it, bosses resist), the takedown's x3 from behind / unaware,
- * the shadow strike landing behind, the blink, the glide, the EMP's 3 s / 6 s shutdown, the decoy pulling a mob off,
+ * the shadow strike landing behind, the blink, Active Camo (v0.16.7 (user), replaced the glide), the EMP's 3 s / 6 s shutdown, the decoy pulling a mob off,
  * radar, thermal vision and Silent Running (no target until an attack breaks it).
  */
 public class EraOneMk5GameTests implements FabricGameTest {
@@ -195,18 +195,52 @@ public class EraOneMk5GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
+	/** v0.16.7 (user): Shift+X Active Camo -- invisible suit and all, mobs lose you, 3/s, a hit breaks it, never browned out. */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void silentGlideHoversThenLands(GameTestHelper h) {
+	public void activeCamoHidesTheSuitDrainsAndBreaksOnHits(GameTestHelper h) {
 		ServerPlayer p = tony(h);
-		h.assertTrue(fire(p, X, true), "the glide starts");
-		h.assertTrue(EraOneMk5Stealth.gliding(p), "gliding");
-		h.assertTrue(p.getAbilities().mayfly && !p.getAbilities().flying, "float tolerance on, no creative flight");
+		com.projecthero.mod.ironman.ability.IronManComicKit.Move camo = com.projecthero.mod.ironman.ability.IronManComicKit.byId("e1mk5_active_camo");
+		h.assertTrue(camo != null && com.projecthero.mod.ironman.ability.IronManComicKit.byId("e1mk5_silent_glide") == null,
+				"Shift+X is Active Camo now (the glide is gone)");
+		h.assertTrue(Math.abs(com.projecthero.mod.ironman.ability.IronManComicKit.energyPerSecond("e1mk5_active_camo") - 3f) < 1e-4f,
+				"it costs 3 energy a second");
+		Mob zombie = mob(h, p, EntityType.ZOMBIE, 4.0, 60f, true);
+		zombie.setTarget(p);
+		IronManEnergy.setEnergy(p, "mark_v", 500f);
+		h.assertTrue(fire(p, X, true), "Active Camo on");
+		h.assertTrue(EraOneMk5Stealth.camo(p) && EraOneMk5Stealth.camoHidden(p), "camo running");
+		h.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "the wearer is invisible (the shared flag follows on his next tick)");
+		// an invisible Iron Man's armour layers / GeckoLib suit are not drawn for anyone (HumanoidArmorLayerMixin)
+		h.assertTrue(com.projecthero.mod.ironman.IronManArmor.wearingAnyIronMan(p), "the hidden-armour rule applies to this wearer");
+		h.assertTrue(zombie.getTarget() == null, "a mob already on you loses you");
+		zombie.setTarget(p);
+		h.assertTrue(zombie.getTarget() == null, "nothing can pick you while it holds");
+		float before = IronManEnergy.energy(p, "mark_v");
+		for (int t = 0; t < 20; t++) {
+			EraOneMk5Stealth.tickForTests(p);
+		}
+		float spent = before - IronManEnergy.energy(p, "mark_v");
+		h.assertTrue(Math.abs(spent - 3f) < 0.05f, "drains 3 energy a second, spent " + spent);
+		h.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "still invisible after a second");
+		// a hit given breaks it for 5 s
+		AbilityHelpers.hurtBurst(p, zombie, 1f);
+		h.assertTrue(EraOneMk5Stealth.camoBroken(p), "attacking breaks it");
+		h.assertTrue(!p.hasEffect(MobEffects.INVISIBILITY), "visible while broken");
+		zombie.setTarget(p);
+		h.assertTrue(zombie.getTarget() == p, "broken: mobs can target you again");
+		// a second press switches it off (straight through the handler: the toggle's 1 s cooldown is running)
+		h.assertTrue(com.projecthero.mod.ironman.ability.era1.IronManEraOne.fire(p, IronManSuits.MARK_V, camo, true), "switched off");
+		h.assertTrue(!EraOneMk5Stealth.camo(p) && !p.hasEffect(MobEffects.INVISIBILITY), "camo off, visible");
+		// a hit taken breaks it too
+		h.assertTrue(com.projecthero.mod.ironman.ability.era1.IronManEraOne.fire(p, IronManSuits.MARK_V, camo, true), "on again");
+		EraOneMk5Stealth.damagedForTests(p, zombie); // the AFTER_DAMAGE hook (mock players never fire it themselves)
+		h.assertTrue(EraOneMk5Stealth.camoBroken(p), "taking a hit breaks it");
+		// a dry reactor ends it; a browned-out suit cannot switch it on
+		IronManEnergy.setEnergy(p, "mark_v", 0.05f);
 		EraOneMk5Stealth.tickForTests(p);
-		h.assertTrue(p.hasEffect(MobEffects.SLOW_FALLING), "held up while it runs");
-		// again: lands it, with no cooldown
-		h.assertTrue(!com.projecthero.mod.ironman.ability.era1.IronManEraOne.fire(p, IronManSuits.MARK_V,
-				com.projecthero.mod.ironman.ability.IronManComicKit.byId("e1mk5_silent_glide"), true), "a second press only ends it");
-		h.assertTrue(!EraOneMk5Stealth.gliding(p) && !p.getAbilities().mayfly, "glide over, mayfly handed back");
+		h.assertTrue(!EraOneMk5Stealth.camo(p) && !p.hasEffect(MobEffects.INVISIBILITY), "running dry ends it");
+		h.assertTrue(IronManEnergy.brownedOut(p, "mark_v"), "browned out");
+		h.assertFalse(fire(p, X, true) && EraOneMk5Stealth.camo(p), "no camo while browned out");
 		leave(h, p);
 		h.succeed();
 	}

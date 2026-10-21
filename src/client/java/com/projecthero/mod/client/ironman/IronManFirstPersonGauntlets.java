@@ -79,7 +79,21 @@ public final class IronManFirstPersonGauntlets {
 	/** Mark V blade in right-arm space: housing, blade, tip (blade swatch painted at 0..8 x 0..8 of mark_v.png). */
 	private static final float BLADE_TOP = 4.6f;
 
+	/**
+	 * v0.16.7 (user): set while {@code mixin.ItemInHandRendererCamoMixin} draws the arm of an INVISIBLE Iron Man (the Mk V's
+	 * Active Camo) -- vanilla hides an invisible player's first-person hand outright; the wearer sees a faint ghost of the
+	 * gauntlet instead, so he still knows where his hand is.
+	 */
+	public static boolean faint;
+	private static final int FAINT_ARGB = 0x48FFFFFF;
+
 	private IronManFirstPersonGauntlets() {
+	}
+
+	/** v0.16.7 (user): draw the faint arm for this invisible local player (wearing an Iron Man chestplate)? */
+	public static boolean faintArm(Player player) {
+		return player.isInvisible() && player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof com.projecthero.mod.armor.SuperheroArmorItem piece
+				&& handles(piece.armorSetId());
 	}
 
 	public static boolean handles(String setId) {
@@ -108,17 +122,23 @@ public final class IronManFirstPersonGauntlets {
 			pose.popPose();
 			return;
 		}
-		VertexConsumer vc = buffers.getBuffer(RenderType.armorCutoutNoCull(texture));
+		boolean ghost = faint;
+		int argb = ghost ? FAINT_ARGB : 0xFFFFFFFF;
+		VertexConsumer vc = buffers.getBuffer(ghost ? RenderType.entityTranslucent(texture) : RenderType.armorCutoutNoCull(texture));
 		for (Box b : boxes(setId, right)) {
-			IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+			IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, argb);
 		}
 		if ("mark_v".equals(setId) && reveal >= 1f) { // no blades mid-assembly
 			float ext = IronManBladeClient.extension(player, partialTick);
 			if (IronManBladeLook.visible(ext)) {
 				for (Box b : bladeBoxes(right, ext)) {
-					IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+					IronManBoxes.draw(pose, vc, b, TEX, TEX, light, OverlayTexture.NO_OVERLAY, argb);
 				}
 			}
+		}
+		if (ghost) {
+			pose.popPose();
+			return; // camo: no glowing palm to give the hand away
 		}
 		// v0.15.15: no palm glow while the plates retract (powered down); the texture above already carries the retract
 		if (!"mark_1".equals(setId) && reveal >= 1f && !IronManGantryBuild.retracting(player)) {
@@ -129,6 +149,23 @@ public final class IronManFirstPersonGauntlets {
 			IronManBoxes.glowQuad(pose, glow, 0, right ? 1 : -1, palmX, 8.6f, 0f, 1.25f, full, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 			float endX = right ? -1f : 1f;
 			IronManBoxes.glowQuad(pose, glow, 1, 1, endX, palm[1], 0f, 1.1f, full, OverlayTexture.NO_OVERLAY, 0xE0FFFFFF);
+			// v0.16.7 (user) flight VFX: while flying the palm repulsor burns -- a big flickering suit-tinted halo on the palm
+			// and the fist end, so first-person flight reads too (not the Stealth's air jets, not the Mk II's boot hover)
+			com.projecthero.mod.ironman.IronManFlightLook.ThrusterStyle st = com.projecthero.mod.ironman.IronManFlightLook.style(setId);
+			if (player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_FLYING, false)
+					&& (st == com.projecthero.mod.ironman.IronManFlightLook.ThrusterStyle.REPULSOR
+							|| st == com.projecthero.mod.ironman.IronManFlightLook.ThrusterStyle.HYDRO)) {
+				if (!com.projecthero.mod.ironman.IronManFlightLook.bootsOnly(setId)) {
+					int tint = com.projecthero.mod.ironman.IronManFlightLook.thrustColour(setId);
+					float f = com.projecthero.mod.ironman.IronManFlightLook.flicker(player.tickCount + partialTick, right ? 2 : 3);
+					IronManBoxes.glowQuad(pose, glow, 0, right ? 1 : -1, palmX + (right ? 0.05f : -0.05f), 8.6f, 0f, 2.7f * f, full,
+							OverlayTexture.NO_OVERLAY, 0x9A000000 | tint);
+					IronManBoxes.glowQuad(pose, glow, 0, right ? 1 : -1, palmX + (right ? 0.08f : -0.08f), 8.6f, 0f, 1.5f * f, full,
+							OverlayTexture.NO_OVERLAY, 0xF0FFFFFF);
+					IronManBoxes.glowQuad(pose, glow, 1, 1, endX, palm[1] + 0.05f, 0f, 2.2f * f, full, OverlayTexture.NO_OVERLAY,
+							0x80000000 | tint);
+				}
+			}
 		}
 		pose.popPose();
 	}

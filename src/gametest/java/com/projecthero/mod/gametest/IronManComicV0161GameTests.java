@@ -101,8 +101,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 				&& IronManSuits.MARK_8.armor(ArmorItem.Type.CHESTPLATE).getToughness() == 5f, "Hulkbuster 10 chest, toughness 5");
 		h.assertTrue(IronManSuits.MARK_8.scale() == 1.45f, "Hulkbuster is about 3 blocks tall");
 		h.assertTrue(!IronManSuits.MARK_1.manualFlight(), "the Mark 1 has no sustained flight");
-		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && !IronManSuits.MARK_4.manualFlight()
-				&& !IronManSuits.MARK_V.manualFlight(), "v0.16.7: the Mk III is the one Era I flier");
+		h.assertTrue(IronManSuits.MARK_III.manualFlight() && !IronManSuits.MARK_1_V2.manualFlight() && IronManSuits.MARK_4.manualFlight()
+				&& IronManSuits.MARK_V.manualFlight(), "v0.16.7 (user): the Mk III, the Hydro and the Stealth are the Era I fliers");
 		h.assertTrue(IronManSuits.MARK_VII.hazardImmune() && IronManSuits.MARK_VII.altitudeCeiling() <= 0.0,
 				"the Space armour ignores fire / lava / freezing and has no ceiling");
 		h.assertTrue(IronManSuits.MARK_V.stealth() && IronManSuits.MARK_4.hydro() && IronManSuits.MARK_8.hulkbuster(), "special flags");
