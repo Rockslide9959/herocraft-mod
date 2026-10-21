@@ -87,6 +87,13 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		return IronManArmor.wearingAnyIronMan(p);
 	}
 
+	/** v0.16.7 (user): the eject now folds the suit into a crate BLOCK; for the item paths, pack it straight into the item. */
+	private static ItemStack ejectToItem(ServerPlayer p) {
+		ItemStack crate = SuitCrateItem.of(EraOneEject.packSuit(p));
+		p.getInventory().add(crate.copy());
+		return crate;
+	}
+
 	private static ItemStack findCrate(ServerPlayer p) {
 		for (ItemStack s : p.getInventory().items) {
 			if (s.is(IronManItems.SUIT_CRATE)) {
@@ -349,7 +356,7 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ eject -> crate -> gantry
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void holdingShiftCEjectsTheSuitIntoACrate(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		wear(p, "mark_iii");
@@ -365,10 +372,15 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		h.runAfterDelay(EraOneEject.HOLD_TICKS / 2, () -> h.assertTrue(IronManArmor.wearingFullSuit(p, "mark_iii"), "still on at 1.5 s"));
 		h.succeedWhen(() -> {
 			h.assertFalse(wearingAny(p), "the suit came off");
-			ItemStack crate = findCrate(p);
-			h.assertTrue(!crate.isEmpty() && SuitCrateItem.mask(crate) == 15 && "mark_iii".equals(SuitCrateItem.suitId(crate)),
-					"all four pieces in a Suit Crate");
-			ItemStack chest = SuitCrateItem.pieces(crate)[1];
+			// v0.16.7 (user): the empty suit stands, then folds into a Suit Crate BLOCK (SuitCrateBlockGameTests has the rest)
+			com.projecthero.mod.ironman.crate.SuitCrateBlockEntity be = null;
+			for (BlockPos q : BlockPos.betweenClosed(h.absolutePos(new BlockPos(0, 0, 3)), h.absolutePos(new BlockPos(4, 3, 7)))) {
+				if (h.getLevel().getBlockEntity(q) instanceof com.projecthero.mod.ironman.crate.SuitCrateBlockEntity c) {
+					be = c;
+				}
+			}
+			h.assertTrue(be != null && be.mask() == 15 && "mark_iii".equals(be.suitId()), "all four pieces in a Suit Crate");
+			ItemStack chest = be.reference();
 			float en = IronManEnergy.stackEnergy(chest, "mark_iii");
 			// (the reactor regens 2/s while the hold runs)
 			h.assertTrue(IronManEnergy.stackIntegrity(chest, "mark_iii") == 0f && en >= 400f && en <= 412f,
@@ -384,7 +396,7 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 		wear(p, "mark_1_v2");
 		IronManEnergy.setIntegrity(p, "mark_1_v2", 420f);
 		IronManEnergy.setEnergy(p, "mark_1_v2", 300f);
-		ItemStack crate = EraOneEject.eject(p);
+		ItemStack crate = ejectToItem(p);
 		h.assertTrue(!crate.isEmpty() && !wearingAny(p), "ejected");
 		ItemStack carried = findCrate(p);
 		SuitCrateItem.applyWeight(p);
@@ -408,7 +420,7 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 			h.assertTrue(IronManEnergy.integrity(p, "mark_1_v2") >= 420f && IronManEnergy.energy(p, "mark_1_v2") >= 300f,
 					"with its integrity and energy");
 			// eject again and rack it on the platform in range of this Gantry
-			ItemStack again = EraOneEject.eject(p);
+			ItemStack again = ejectToItem(p);
 			ItemStack held = findCrate(p);
 			h.assertTrue(!again.isEmpty() && !held.isEmpty(), "ejected again");
 			be.recheckGantry();
@@ -423,7 +435,7 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 	public void aCrateWillNotRackFarFromAGantry(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		wear(p, "mark_v");
-		EraOneEject.eject(p);
+		ejectToItem(p);
 		ItemStack crate = findCrate(p);
 		h.setBlock(PLATFORM, IronManBlocks.IRON_MAN_SUIT_PLATFORM);
 		IronManSuitPlatformBlockEntity be = (IronManSuitPlatformBlockEntity) h.getBlockEntity(PLATFORM);

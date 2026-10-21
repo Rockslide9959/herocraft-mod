@@ -95,8 +95,12 @@ public final class IronManItems {
 	public static final Item MARK_V_SUITCASE = register("mark_v_suitcase", new MarkVSuitcaseItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
 	/** v0.16.7 (user) Era I: what the Shift+C emergency eject packs an Era I suit into (opens only in a Stark Gantry). */
-	public static final Item SUIT_CRATE = register("suit_crate", new SuitCrateItem(
-			new Item.Properties().stacksTo(1).rarity(Rarity.UNCOMMON)));
+	/**
+	 * v0.16.7 (user): the item of the Suit Crate BLOCK (placing it puts the crate down, contents and all). Registered in
+	 * {@link #initialize}, not here: this class is first touched from inside vanilla's registry bootstrap (the legacy-id
+	 * mixin), and a block registered that early never gets its block states numbered -- the server then cannot send it.
+	 */
+	public static Item SUIT_CRATE;
 	// v0.15.1: Tony Stark's tinted glasses -- worn in the Stark Gear slot (Sneak + N), see ironman.gear.StarkGear
 	public static final Item STARK_GLASSES = register("stark_glasses", new com.projecthero.mod.ironman.gear.StarkGlassesItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
@@ -165,6 +169,10 @@ public final class IronManItems {
 
 	public static void initialize() {
 		IronManArmorMaterials.initialize();
+		if (SUIT_CRATE == null) { // v0.16.7 (user): see SUIT_CRATE -- the block is registered here, during mod init
+			SUIT_CRATE = registerBlockItem("suit_crate", new SuitCrateItem(
+					com.projecthero.mod.ironman.crate.SuitCrateBlocks.SUIT_CRATE, new Item.Properties().stacksTo(1).rarity(Rarity.UNCOMMON)));
+		}
 		for (String suitId : SUIT_IDS) {
 			var material = switch (suitId) {
 				case "mark_iii" -> IronManArmorMaterials.MARK_III;
@@ -329,6 +337,13 @@ public final class IronManItems {
 		ResourceKey<Item> key = ResourceKey.create(Registries.ITEM, ProjectHeroMod.id(path));
 		T registered = Registry.register(BuiltInRegistries.ITEM, key, item);
 		ALL.put(path, registered);
+		return registered;
+	}
+
+	/** v0.16.7: a {@link net.minecraft.world.item.BlockItem} -- also tied to its block (pick-block, the block's drops). */
+	private static <T extends net.minecraft.world.item.BlockItem> T registerBlockItem(String path, T item) {
+		T registered = register(path, item);
+		registered.registerBlocks(Item.BY_BLOCK, registered);
 		return registered;
 	}
 }

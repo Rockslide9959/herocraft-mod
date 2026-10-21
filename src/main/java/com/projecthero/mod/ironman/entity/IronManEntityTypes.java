@@ -54,6 +54,19 @@ public final class IronManEntityTypes {
 					.noSave()
 					.build("hulkbuster_fist"));
 
+	/**
+	 * v0.16.7 (user) Era I: the empty suit left standing after a Shift+C emergency eject, folding itself into its Suit
+	 * Crate (carries the real stacks; saved).
+	 */
+	public static final EntityType<com.projecthero.mod.ironman.crate.SuitCrateFoldEntity> SUIT_CRATE_FOLD = register("suit_crate_fold",
+			EntityType.Builder.<com.projecthero.mod.ironman.crate.SuitCrateFoldEntity>of(
+					com.projecthero.mod.ironman.crate.SuitCrateFoldEntity::new, MobCategory.MISC)
+					.sized(0.6f, 1.9f)
+					.fireImmune()
+					.clientTrackingRange(10)
+					.updateInterval(1)
+					.build("suit_crate_fold"));
+
 	private IronManEntityTypes() {
 	}
 

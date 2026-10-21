@@ -966,6 +966,15 @@ public final class IronManManualSuitUp {
 		playAt(player, SoundEvents.ARMOR_EQUIP_GENERIC.value(), 0f, 0.5f, 0f, 0.7f, 0.9f);
 	}
 
+	/**
+	 * v0.16.7 (user) ERA I: the 30 s suit-up from a Suit Crate block ({@code ironman.crate.CrateSuitUp}) -- the Mark 1's
+	 * cave build for every crated suit, the pieces coming out of the crate (not the pack) as each is fitted. The caller
+	 * has registered the crate as this player's piece source and loaded the suit's integrity / energy.
+	 */
+	public static void startFromCrate(ServerPlayer player, IronManSuit suit, int mask) {
+		start(player, suit, KIND_MK1, mask & 15);
+	}
+
 	/** One server tick of a hand build ({@code IronManSuitUpManager#tick} hands it over while one runs). */
 	static void tick(ServerPlayer player, TonyStarkState s) {
 		if (s.transitionManual >= IronManSuitRemoval.CODE_MK1) {
@@ -1002,11 +1011,7 @@ public final class IronManManualSuitUp {
 	/** The piece leaves the pack and lands in its slot (the real stack), starting its hand build-on. */
 	private static void fitPiece(ServerPlayer player, TonyStarkState s, int bit, int kind) {
 		EquipmentSlot slot = SLOT_BY_BIT[bit];
-		int idx = IronManSuitUpManager.findInInventory(player, s.transitionSuit, IronManSuitUpManager.typeOf(slot));
-		if (idx < 0) {
-			return; // gone (dropped, traded) -- skip it rather than conjure one
-		}
-		ItemStack piece = player.getInventory().removeItem(idx, 1);
+		ItemStack piece = takeFromSource(player, s.transitionSuit, bit); // gone (dropped, traded) -> EMPTY, skipped
 		if (piece.isEmpty()) {
 			return;
 		}
@@ -1144,11 +1149,7 @@ public final class IronManManualSuitUp {
 			}
 			s.transitionMask &= ~(1 << bit);
 			EquipmentSlot slot = SLOT_BY_BIT[bit];
-			int idx = IronManSuitUpManager.findInInventory(player, suitId, IronManSuitUpManager.typeOf(slot));
-			if (idx < 0) {
-				continue;
-			}
-			ItemStack piece = player.getInventory().removeItem(idx, 1);
+			ItemStack piece = takeFromSource(player, suitId, bit);
 			if (!piece.isEmpty()) {
 				IronManSuitUpManager.evictSlot(player, slot);
 				player.setItemSlot(slot, piece);
@@ -1180,6 +1181,21 @@ public final class IronManManualSuitUp {
 		s.transitionTicks = 0;
 		s.transitionSuit = "";
 		IronManSuitPlatformBlockEntity.setFrozen(player, false);
+		com.projecthero.mod.ironman.crate.CrateSuitUp.ended(player); // v0.16.7 (user): an emptied Suit Crate is gone, else it closes
+	}
+
+	/**
+	 * The real stack for piece {@code bit}, out of where this build takes its pieces: v0.16.7 (user) a Suit Crate block
+	 * when the build started from one, else the pack. EMPTY if it is gone (dropped, traded, the crate broken) -- it is
+	 * skipped rather than conjured.
+	 */
+	private static ItemStack takeFromSource(ServerPlayer player, String suitId, int bit) {
+		ItemStack fromCrate = com.projecthero.mod.ironman.crate.CrateSuitUp.takePiece(player, bit);
+		if (fromCrate != null) {
+			return fromCrate;
+		}
+		int idx = IronManSuitUpManager.findInInventory(player, suitId, IronManSuitUpManager.typeOf(SLOT_BY_BIT[bit]));
+		return idx < 0 ? ItemStack.EMPTY : player.getInventory().removeItem(idx, 1);
 	}
 
 	/** Where on the body an event happens, in the world (body-relative, scaled with the wearer, lowered while sitting). */

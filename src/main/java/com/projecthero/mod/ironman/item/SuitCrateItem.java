@@ -17,7 +17,11 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -28,24 +32,38 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.16.7 (user) ERA I: the <b>Suit Crate</b> an Era I suit is packed into by the Shift+C emergency eject
- * ({@code ability.era1.EraOneEject}). It holds the four real armour stacks (the vanilla {@code minecraft:container}
- * component, slot 0 helmet .. 3 boots -- {@link SuitcaseContents}), each stamped with the suit's integrity and energy.
+ * v0.16.7 (user) ERA I: the <b>Suit Crate</b> item -- the item of the Suit Crate block ({@code ironman.crate.SuitCrateBlock})
+ * the Shift+C emergency eject folds an Era I suit into; breaking the block gives this, placing this puts the block back.
+ * It holds the four real armour stacks (the vanilla {@code minecraft:container} component, slot 0 helmet .. 3 boots --
+ * {@link SuitcaseContents}), each stamped with the suit's integrity and energy -- the same data the block holds.
  * <ul>
  *   <li>Heavy: Slowness I while it is anywhere in your inventory.</li>
- *   <li>Used while standing on a complete Stark Gantry floor: the Gantry's arms put the suit back on you
+ *   <li>Placed: the crate block (Shift+right-click it to suit up in 30 s anywhere, iron ingots repair it).</li>
+ *   <li>Used while standing on a complete Stark Gantry floor (not sneaking): the Gantry's arms put the suit back on you
  *       ({@code StarkGantry.beginEquipFromCrate}, the ordinary gantry build).</li>
  *   <li>Used on a Suit Platform within range of a complete Gantry: the suit is racked there
  *       ({@link #rackOn}, from {@code IronManSuitPlatformBlock}).</li>
- *   <li>Nowhere else: it cannot be worn or opened.</li>
  * </ul>
  */
-public class SuitCrateItem extends Item {
+public class SuitCrateItem extends BlockItem {
 	/** Ticks of the carried Slowness, refreshed while the crate is in the inventory (it fades soon after it leaves). */
 	private static final int SLOW_TICKS = 30;
 
-	public SuitCrateItem(Properties properties) {
-		super(properties);
+	public SuitCrateItem(Block block, Properties properties) {
+		super(block, properties);
+	}
+
+	/**
+	 * v0.16.7 (user): used on a block it places the Suit Crate block (contents and all) -- except standing on a complete
+	 * Stark Gantry floor without sneaking, where the Gantry's arms put the suit on as before ({@link #use}).
+	 */
+	@Override
+	public InteractionResult useOn(UseOnContext context) {
+		Player player = context.getPlayer();
+		if (player != null && !player.isSecondaryUseActive() && EraOneGantry.onGantryFloor(player)) {
+			return use(context.getLevel(), player, context.getHand()).getResult();
+		}
+		return super.useOn(context);
 	}
 
 	/** A new crate holding {@code slots} (slot 0 helmet .. 3 boots). */
