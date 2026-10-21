@@ -256,8 +256,8 @@ const SUITS = [
 	{ id: 'mark_4', tex: 'mark_4', label: 'MK IV', pal: pal(POLISHED_GOLD, RED, CYAN, '#2a1606', '#3a1a08'), dome: true, helmetPal: pal(RED, POLISHED_GOLD, CYAN, '#2a0606', '#3a0a0a') },
 	{ id: 'mark_v', tex: 'mark_5', label: 'MK V', pal: pal(BLACK, GRAPHITE, DEEPBLUE, '#000000', '#05060a') },
 	{ id: 'mark_2', tex: 'mark_2', label: 'MK VI', pal: pal(CRIMSON, PALE_GOLD, CYAN, '#220408', '#30060c'), triangle: true },
-	{ id: 'mark_6', tex: 'mark_6', label: 'MK VII', pal: pal(SILVER, RED, CYAN, '#1a1c22', '#30343c') },
-	{ id: 'mark_vii', tex: 'mark_7', label: 'MK VIII', pal: pal(WHITE, RED, CYAN, '#1c2028', '#3a404a', { u: '#fff8c8', V: '#f0c040', w: '#a87018' }), visor: true },
+	{ id: 'mark_6', tex: 'mark_6', label: 'MK VII', pal: pal(RED, SILVER, CYAN, '#2a0606', '#3a0a0a') }, // Era II: red chest, silver faceplate + limbs
+	{ id: 'mark_vii', tex: 'mark_7', label: 'MK VIII', pal: pal(WHITE, BLACK, CYAN, '#1c2028', '#3a404a', { u: '#fff8c8', V: '#f0c040', w: '#a87018' }), visor: true },
 	{ id: 'mark_8', tex: 'mark_8', label: 'HB I', pal: pal(HB_RED, GOLD, CYAN, '#1e0204', '#2e0406'), bulky: true },
 ];
 
