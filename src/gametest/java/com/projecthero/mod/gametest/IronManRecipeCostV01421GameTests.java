@@ -128,7 +128,8 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 			helper.assertTrue(cost > previous, suit + " (" + cost + ") must cost more than " + previousSuit + " (" + previous + ")");
 			// The pre-v0.14.21 Mark III-VII cost ~258-268 in these units; the pass targets roughly half.
 			// v0.15.9: the Mark 8 is deliberately the priciest suit (user decision) -- capped a little higher
-			double cap = "mark_8".equals(suit) ? 185 : 160;
+			// v0.16.7 (user) Era II: the Mk IX Inferno sits between the Mk VIII Space and the Hulkbuster, so it shares the higher cap
+			double cap = "mark_8".equals(suit) || "mark_9".equals(suit) ? 185 : 160;
 			helper.assertTrue(cost < cap, suit + " raw cost " + cost + " should be about half the old ~260");
 			previous = cost;
 			previousSuit = suit;
@@ -154,6 +155,8 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 		if (item == Items.GLOWSTONE) return 1.5;
 		if (item == Items.GUNPOWDER) return 0.5;
 		if (item == Items.NETHERITE_INGOT) return 40;
+		if (item == Items.NETHERITE_SCRAP) return 8; // v0.16.7 (user) Mk IX Inferno: an ingot is 4 scrap + 4 gold
+		if (item == Items.BLAZE_ROD) return 4; // two blaze powder
 		// v0.15.11: each Mark 1 piece is built around the matching vanilla iron armour piece (its ingot count)
 		if (item == Items.IRON_HELMET) return 5;
 		if (item == Items.IRON_CHESTPLATE) return 8;

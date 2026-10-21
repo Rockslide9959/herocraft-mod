@@ -237,6 +237,36 @@ public final class IronManSuits {
 			.blueprint(IronManItems.MARK_VII_BLUEPRINT)
 			.build());
 
+	/**
+	 * v0.16.7 (user) Era II stage 1: the Mk IX INFERNO -- the Nether suit. Charcoal plate, bronze trim, heat-sink fins;
+	 * fire and lava immunity while the full suit is worn and an orange jet. Flies like the Mk VIII Space; integrity /
+	 * absorb sit between the Mk VIII and the Hulkbuster. Keeps the no-energy shim; its own kit comes in a later stage
+	 * (until then its R / G / X / Z / V keys are empty).
+	 */
+	public static final IronManSuit MARK_9 = register(comicKit(IronManSuit.Builder.of("mark_9"), IronManAbilities.SUIT_TOGGLE)
+			.tech(4, 9)
+			.maxIntegrity(3200f)
+			.absorb(0.55f)
+			.selfRepair(12.0f)
+			.waterBreathing()
+			.targeting()
+			.coloredGlow()
+			.fireImmune()
+			.flight(1.7f, 0.14f)
+			.flightSpeeds(24.0, 44.0)
+			.maxFlightSpeed(44.0)
+			.repulsorTap(21.0f, 0f, 10)
+			.unibeam(30.0f)
+			.missiles(0, 0f, 0f)
+			.strength(10.0f)
+			.fullBodyShield()
+			.altitudeCeiling(320.0)
+			.targetScanRange(80.0)
+			.suitUp(SuitUpType.MECHANICAL_REMOTE)
+			.summon(SummonType.FLYING_SET)
+			.blueprint(IronManItems.MARK_9_BLUEPRINT)
+			.build());
+
 	/** v0.16.1: the HULKBUSTER -- about 3 blocks tall (x1.45), slow jet-hover, knockback immune, never self-repairs (its
 	 *  Replacement Pod is the field fix). Keeps Sentry Mode on C and the Stark Glasses call; arrives as an orbital drop. */
 	public static final IronManSuit MARK_8 = register(comicKit(IronManSuit.Builder.of("mark_8"),

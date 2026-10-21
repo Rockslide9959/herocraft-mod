@@ -87,7 +87,7 @@ public class V01428GameTests implements FabricGameTest {
 			// v0.16.7 (user) Era I: the suits are named by their place in the new progression -- "Mk I" .. "Mk VIII" and the
 			// Hulkbuster "HB I" (the plan's own Roman-numeral "Mk" names; the old "Mark n" rule is retired)
 			String want = java.util.Map.of("mark_1", "Mk I", "mark_1_v2", "Mk II", "mark_iii", "Mk III", "mark_4", "Mk IV",
-					"mark_v", "Mk V", "mark_2", "Mk VI", "mark_6", "Mk VII", "mark_vii", "Mk VIII", "mark_8", "HB I").get(suit.id());
+					"mark_v", "Mk V", "mark_2", "Mk VI", "mark_6", "Mk VII", "mark_vii", "Mk VIII", "mark_8", "HB I", "mark_9", "Mk IX").get(suit.id()); // v0.16.7: + the Era II Mk IX
 			h.assertTrue(name.equals(want), suit.id() + " should be named " + want + ", got " + name);
 		}
 		for (var e : lang.entrySet()) {

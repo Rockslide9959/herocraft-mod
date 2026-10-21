@@ -343,7 +343,7 @@ public final class IronManUiLayout {
 
 	// ------------------------------------------------------------------ blank-blueprint progression track
 
-	public static final int NODE = 20; // v0.16.1: 20 (was 24) so the nine-Mark track fits a 320-wide screen
+	public static final int NODE = 18; // v0.16.1: 20 (was 24) so the nine-Mark track fits a 320-wide screen; v0.16.7: 18 for ten (+ the Mk IX)
 
 	/**
 	 * Node rectangles for an {@code n}-mark track, centred on a single row: spacing shrinks with the screen but

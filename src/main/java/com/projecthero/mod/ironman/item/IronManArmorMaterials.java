@@ -47,6 +47,9 @@ public final class IronManArmorMaterials {
 			15, SoundEvents.ARMOR_EQUIP_IRON, 3.5f, 0.175f, Items.IRON_INGOT);
 	public static final Holder<ArmorMaterial> MARK_VII = register("mark_vii", hclb(4, 9, 7, 4),
 			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 4.0f, 0.175f);
+	// v0.16.7 (user) Era II stage 1: the Mk IX Inferno (the Nether suit) -- between the Mk VIII Space and the Hulkbuster
+	public static final Holder<ArmorMaterial> MARK_9 = register("mark_9", hclb(4, 9, 7, 4),
+			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 4.5f, 0.175f);
 	public static final Holder<ArmorMaterial> MARK_8 = register("mark_8", hclb(5, 10, 8, 5),
 			15, SoundEvents.ARMOR_EQUIP_NETHERITE, 5.0f, 0.25f);
 

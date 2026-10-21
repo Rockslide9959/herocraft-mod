@@ -35,7 +35,7 @@ public final class IronManItems {
 
 	/** suit ids of the first content pack, tech tier order (Stark Fabricator + blueprint gated).
 	 *  "changes 17": Mark XLII / Mark L removed. */
-	public static final List<String> SUIT_IDS = List.of("mark_iii", "mark_v", "mark_vii", "mark_8");
+	public static final List<String> SUIT_IDS = List.of("mark_iii", "mark_v", "mark_vii", "mark_8", "mark_9"); // v0.16.7 (user) Era II: + the Mk IX Inferno
 	/**
 	 * Mark 1 / Mark 2 ("changes 12"): primitive first-generation prototypes. Deliberately NOT in
 	 * {@link #SUIT_IDS} -- they skip the Stark Fabricator / blueprint / tech-level gate entirely and
@@ -121,6 +121,8 @@ public final class IronManItems {
 	public static final Item MARK_V_BLUEPRINT = blueprint("mark_v_blueprint", 2, "mark_v");
 	public static final Item MARK_VII_BLUEPRINT = blueprint("mark_vii_blueprint", 3, "mark_vii");
 	public static final Item MARK_8_BLUEPRINT = blueprint("mark_8_blueprint", 3, "mark_8"); // v0.15.9
+	// v0.16.7 (user) Era II stage 1: the Mk IX Inferno (the Nether suit) -- one tech tier past the Mk VIII Space
+	public static final Item MARK_9_BLUEPRINT = blueprint("mark_9_blueprint", 4, "mark_9");
 	// "changes 17": Mark XLII / Mark L blueprints removed with those suits.
 
 	/**
@@ -138,7 +140,7 @@ public final class IronManItems {
 	 * ({@code mark_vii}), Hulkbuster I Bruiser ({@code mark_8}). Item / suit ids are unchanged.
 	 */
 	public static final List<String> MARK_ORDER =
-			List.of("mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8");
+			List.of("mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8"); // v0.16.7 (user): + the Mk IX Inferno after the Mk VIII Space
 
 	/** The blueprint item a Blank Blueprint becomes when stamped for {@code suitId}, or null. */
 	public static Item blueprintFor(String suitId) {
@@ -152,6 +154,7 @@ public final class IronManItems {
 			case "mark_6" -> MARK_6_BLUEPRINT;
 			case "mark_vii" -> MARK_VII_BLUEPRINT;
 			case "mark_8" -> MARK_8_BLUEPRINT;
+			case "mark_9" -> MARK_9_BLUEPRINT; // v0.16.7 (user) Era II
 			default -> null;
 		};
 	}
@@ -178,6 +181,7 @@ public final class IronManItems {
 				case "mark_iii" -> IronManArmorMaterials.MARK_III;
 				case "mark_v" -> IronManArmorMaterials.MARK_V;
 				case "mark_8" -> IronManArmorMaterials.MARK_8;
+				case "mark_9" -> IronManArmorMaterials.MARK_9; // v0.16.7 (user) Era II: the Mk IX Inferno
 				default -> IronManArmorMaterials.MARK_VII;
 			};
 			registerSuitArmor(suitId, material);
@@ -203,14 +207,16 @@ public final class IronManItems {
 		for (ArmorItem.Type type : new ArmorItem.Type[] {
 				ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS, ArmorItem.Type.BOOTS }) {
 			String path = "iron_man_" + itemName(suitId) + "_" + type.getName();
-			IronManArmorItem item = register(path, new IronManArmorItem(material, type,
-					new Item.Properties().rarity(Rarity.EPIC)
-							// v0.14.22, explicit user request: no durability -- suit integrity is the damage model.
-							// No max_damage means vanilla never wears the piece down (and an old save's leftover
-							// damage value is simply ignored); durability() also set the stack size, so keep it at 1.
-							.stacksTo(1)
-							.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false), // v0.14.27: no enchanted shimmer on Iron Man armour
-					suitId));
+			Item.Properties props = new Item.Properties().rarity(Rarity.EPIC)
+					// v0.14.22, explicit user request: no durability -- suit integrity is the damage model.
+					// No max_damage means vanilla never wears the piece down (and an old save's leftover
+					// damage value is simply ignored); durability() also set the stack size, so keep it at 1.
+					.stacksTo(1)
+					.component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false); // v0.14.27: no enchanted shimmer on Iron Man armour
+			if ("mark_9".equals(suitId)) {
+				props.fireResistant(); // v0.16.7 (user) Era II: the Nether suit's pieces float in lava like netherite
+			}
+			IronManArmorItem item = register(path, new IronManArmorItem(material, type, props, suitId));
 			pieces.put(type, item);
 		}
 		ARMOR.put(suitId, pieces);
@@ -283,6 +289,7 @@ public final class IronManItems {
 		output.accept(MARK_2_BLUEPRINT);
 		output.accept(MARK_6_BLUEPRINT);
 		output.accept(MARK_VII_BLUEPRINT);
+		output.accept(MARK_9_BLUEPRINT); // v0.16.7 (user) Era II: the Mk IX Inferno
 		output.accept(MARK_8_BLUEPRINT); // v0.15.9
 
 		for (Item item : List.of(COPPER_WIRING, METAL_PLATING, BASIC_CIRCUIT, MECHANICAL_PARTS,

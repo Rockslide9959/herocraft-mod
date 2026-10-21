@@ -210,6 +210,14 @@ public final class FabricatorRecipes {
 		armorSet("mark_2", 2, 3, IronManItems.MICRO_THRUSTER); // Mk VI SUITCASE
 		armorSet("mark_6", 2, 4, IronManItems.FLIGHT_STABILIZER); // Mk VII SILVER CENTURION
 		armorSet("mark_vii", 3, 5, IronManItems.THERMAL_SHIELDING); // Mk VIII SPACE
+		// v0.16.7 (user) Era II stage 1: the Mk IX INFERNO (the Nether suit) -- the Mk VIII's plate count, magma cream as its
+		// signature (one per piece, two in the chest), a netherite scrap heat sink in the chest, a blaze rod in the boot
+		// thrusters. Costs a little more than the Mk VIII (~161.5 vs ~157.7 raw), less than the Hulkbuster (~165.4).
+		armorSet("mark_9", 3, 5, Items.MAGMA_CREAM,
+				NONE,
+				new FabricationRecipe.Input[] { in(Items.NETHERITE_SCRAP, 1) },
+				NONE,
+				new FabricationRecipe.Input[] { in(Items.BLAZE_ROD, 1) });
 		// v0.15.9: the Mark 8 -- the top cost tier (3 more plates than the Mark 7 on the chest, +1 elsewhere) and a Suit
 		// Computer as its signature part
 		armorSet("mark_8", 3, 7, IronManItems.HYDRAULIC_FRAME); // v0.16.7: tier 7 -- extra plates rise every other tier, so 6 tied the Mk VIII Space // v0.16.1: HULKBUSTER (v0.16.7: Hulkbuster I Bruiser)
@@ -235,7 +243,7 @@ public final class FabricatorRecipes {
 	}
 
 	/** v0.14.21: the build order of the Fabricator-built marks, cheapest first. */
-	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_8"); // v0.16.7: the Era I order
+	public static final List<String> ARMOR_BUILD_ORDER = List.of("mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8"); // v0.16.7: the Era I order (+ the Era II Mk IX Inferno)
 
 	/** "changes 18/19": true if this suit has Fabricator armour recipes (i.e. everything except the Mark 1). */
 	public static boolean hasArmorRecipes(String suitId) {
@@ -253,25 +261,40 @@ public final class FabricatorRecipes {
 	 * {@code signature} components (two in the chestplate).
 	 */
 	private static void armorSet(String suitId, int timeTier, int costTier, Item signature) {
+		armorSet(suitId, timeTier, costTier, signature, NONE, NONE, NONE, NONE);
+	}
+
+	private static final FabricationRecipe.Input[] NONE = {};
+
+	/** v0.16.7 (user): {@link #armorSet(String, int, int, Item)} plus extra inputs per piece (helmet / chest / legs / boots). */
+	private static void armorSet(String suitId, int timeTier, int costTier, Item signature, FabricationRecipe.Input[] helmetExtra,
+			FabricationRecipe.Input[] chestExtra, FabricationRecipe.Input[] legsExtra, FabricationRecipe.Input[] bootsExtra) {
 		Item plate = IronManItems.TITANIUM_GOLD_PLATE;
 		int extra = (costTier + 1) / 2;
 
-		add(armor(suitId, ArmorItem.Type.HELMET, timeTier, 160,
+		add(armor(suitId, ArmorItem.Type.HELMET, timeTier, 160, with(helmetExtra,
 				in(plate, 4 + extra), in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.TARGETING_MODULE, 1),
-				in(IronManItems.STARK_CIRCUIT, 1), in(IronManItems.SUIT_COMPUTER, 1), in(signature, 1)));
+				in(IronManItems.STARK_CIRCUIT, 1), in(IronManItems.SUIT_COMPUTER, 1), in(signature, 1))));
 
-		add(armor(suitId, ArmorItem.Type.CHESTPLATE, timeTier, 240,
+		add(armor(suitId, ArmorItem.Type.CHESTPLATE, timeTier, 240, with(chestExtra,
 				in(plate, 6 + costTier), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.REPULSOR, 1),
 				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.ADVANCED_ARC_REACTOR, 1),
-				in(IronManItems.STARK_CIRCUIT, 2), in(signature, 2)));
+				in(IronManItems.STARK_CIRCUIT, 2), in(signature, 2))));
 
-		add(armor(suitId, ArmorItem.Type.LEGGINGS, timeTier, 200,
+		add(armor(suitId, ArmorItem.Type.LEGGINGS, timeTier, 200, with(legsExtra,
 				in(plate, 5 + extra), in(IronManItems.SERVO_MOTOR, 2), in(IronManItems.STARK_CIRCUIT, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(signature, 1)));
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(signature, 1))));
 
-		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, 200,
+		add(armor(suitId, ArmorItem.Type.BOOTS, timeTier, 200, with(bootsExtra,
 				in(plate, 4 + extra), in(IronManItems.MICRO_THRUSTER, 1), in(IronManItems.REPULSOR, 1),
-				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1), in(signature, 1)));
+				in(IronManItems.FLIGHT_STABILIZER, 1), in(IronManItems.SERVO_MOTOR, 1), in(signature, 1))));
+	}
+
+	/** {@code base} followed by {@code extra}. */
+	private static FabricationRecipe.Input[] with(FabricationRecipe.Input[] extra, FabricationRecipe.Input... base) {
+		FabricationRecipe.Input[] out = java.util.Arrays.copyOf(base, base.length + extra.length);
+		System.arraycopy(extra, 0, out, base.length, extra.length);
+		return out;
 	}
 
 	/**

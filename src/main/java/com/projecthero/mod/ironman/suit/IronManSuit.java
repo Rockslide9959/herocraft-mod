@@ -116,6 +116,7 @@ public final class IronManSuit {
 	private final boolean hydro;                 // Mark 4: 3x swimming, clear underwater vision, underwater-boosted kit
 	private final boolean stealth;               // Mark 5: no footsteps / flight sounds, sculk ignores the wearer
 	private final boolean hazardImmune;          // Mark 7: fire, lava contact and freezing do nothing
+	private final boolean fireImmune;            // v0.16.7 (user) Mk IX Inferno: fire + lava do nothing while the FULL suit is worn
 	private final boolean hulkbuster;            // Mark 8: knockback immune, bonus damage vs bosses and the Hulk
 	private final String displayKey;             // v0.16.1: the comic name shown beside "Mark n" (lang key)
 
@@ -208,6 +209,7 @@ public final class IronManSuit {
 		this.hydro = b.hydro;
 		this.stealth = b.stealth;
 		this.hazardImmune = b.hazardImmune;
+		this.fireImmune = b.fireImmune;
 		this.hulkbuster = b.hulkbuster;
 		this.displayKey = "projecthero.ironman.suit." + b.id + ".comic";
 		this.abilities = b.abilities;
@@ -339,6 +341,8 @@ public final class IronManSuit {
 	public boolean hydro() { return hydro; }
 	public boolean stealth() { return stealth; }
 	public boolean hazardImmune() { return hazardImmune; }
+	/** v0.16.7 (user) Era II: the Mk IX Inferno -- fire and lava immunity, but only with all four pieces on. */
+	public boolean fireImmune() { return fireImmune; }
 	public boolean hulkbuster() { return hulkbuster; }
 	/** v0.16.1: the comic suit name ("Hydro Armour", "Hulkbuster", ...) lang key. */
 	public String displayKey() { return displayKey; }
@@ -443,6 +447,7 @@ public final class IronManSuit {
 		private boolean hydro = false;
 		private boolean stealth = false;
 		private boolean hazardImmune = false;
+		private boolean fireImmune = false;
 		private boolean hulkbuster = false;
 		private String[] abilities = new String[6];
 		private SuitUpType suitUpType = SuitUpType.MECHANICAL_REMOTE;
@@ -587,6 +592,7 @@ public final class IronManSuit {
 		public Builder hydro() { this.hydro = true; return this; }
 		public Builder stealth() { this.stealth = true; return this; }
 		public Builder hazardImmune() { this.hazardImmune = true; return this; }
+		public Builder fireImmune() { this.fireImmune = true; return this; }
 		public Builder hulkbuster() { this.hulkbuster = true; return this; }
 		public Builder abilities(String s1, String s2, String s3, String s4, String s5, String s6) {
 			this.abilities = new String[] { s1, s2, s3, s4, s5, s6 };

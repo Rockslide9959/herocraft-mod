@@ -100,6 +100,10 @@ public final class IronManPassives {
 			// v0.16.7 (user): the Era I Mk IV Hydro is a deep-sea suit -- heavy on land (Slowness I while walking)
 			player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20, 0, true, false, false));
 		}
+		// v0.16.7 (user) Era II: the Mk IX Inferno's wearer never catches fire (the damage itself is stopped in IronManDamage)
+		if (powered && suit != null && suit.fireImmune() && frac >= 1.0 && player.isOnFire()) {
+			player.clearFire();
+		}
 		// v0.16.1: the Mark 1 is a heavy cave-built iron shell -- it sinks
 		if (powered && suit != null && "mark_1".equals(suit.id()) && frac >= 1.0 && player.isInWater() && !player.getAbilities().flying) {
 			player.setDeltaMovement(player.getDeltaMovement().add(0, -0.03, 0));
