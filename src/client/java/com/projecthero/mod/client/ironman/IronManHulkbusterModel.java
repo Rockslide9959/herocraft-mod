@@ -14,8 +14,10 @@ import software.bernie.geckolib.model.data.EntityModelData;
 
 /**
  * v0.16.1: the Hulkbuster body -- {@code geo/ironman/hulkbuster_body.geo.json}, {@code textures/armor/hulkbuster_body.png}
- * (+ {@code _glowmask}), {@code animations/ironman/hulkbuster_body.animation.json}, all from
- * {@code scratchpad/gen_hulkbuster_body.js}. The never-keyed {@code head} follows the look; the never-keyed {@code flinch}
+ * (+ {@code _glowmask}), {@code animations/ironman/hulkbuster_body.animation.json}, the clips from
+ * {@code scratchpad/gen_hulkbuster_body.js}. v0.16.7 (user): the body is a regular Steve player model x1.5 (3 blocks) in
+ * the approved Era II skin with a raised plate layer, from {@code scratchpad/gen_hulkbuster_player_model.js}; it keeps the
+ * old bone names (limbs cut at the elbow / wrist / knee / ankle) so the clips still play. The never-keyed {@code head} follows the look; the never-keyed {@code flinch}
  * jolts back when the wearer is hit. Shared by the worn body, the Sentry and the Rocket Fist.
  */
 public class IronManHulkbusterModel<T extends GeoAnimatable> extends GeoModel<T> {

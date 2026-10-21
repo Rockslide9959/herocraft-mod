@@ -18,8 +18,8 @@ import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
  */
 public class HulkbusterFistRenderer extends GeoEntityRenderer<HulkbusterFistEntity> {
 	/** The forearm's middle in model pixels (x, y): it is centred on the entity. */
-	private static final float CX = -15f / 16f;
-	private static final float CY = 16f / 16f;
+	private static final float CX = -9f / 16f;
+	private static final float CY = 22.5f / 16f;
 
 	public HulkbusterFistRenderer(EntityRendererProvider.Context context) {
 		super(context, new IronManHulkbusterModel<>());
@@ -55,6 +55,6 @@ public class HulkbusterFistRenderer extends GeoEntityRenderer<HulkbusterFistEnti
 		super.applyRotations(entity, poseStack, ageInTicks, rotationYaw, partialTick, nativeScale);
 		poseStack.mulPose(Axis.XP.rotationDegrees(entity.getViewXRot(partialTick)));
 		poseStack.mulPose(Axis.XP.rotationDegrees(90f)); // the arm lies along the flight line, fist leading
-		poseStack.translate(CX, -CY, 0f); // GeckoLib mirrors bedrock X: the right forearm renders at +15 px, CX is -15 px
+		poseStack.translate(CX, -CY, 0f); // GeckoLib mirrors bedrock X: the right forearm renders at +9 px, CX is -9 px
 	}
 }

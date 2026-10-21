@@ -14,7 +14,7 @@ import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
  * v0.16.1: draws the Hulkbuster body ({@link IronManHulkbusterAnimatable}) in place of a player wearing the full Mark 8
  * -- so the vanilla body, the armour pieces, the cape and held items are all replaced, like the Hulk. Called from
  * {@code PlayerRendererHulkbusterMixin}. GeckoLib scales a replaced entity by its scale attribute (the Mark 8's 1.45x);
- * the body is modelled at its true size (about 2.9 blocks at model scale 1), so that scale is divided back out here.
+ * the body is modelled at its true size (v0.16.7: a Steve player model x1.5, 3 blocks at model scale 1), so that scale is divided back out here.
  * The glowmask (eyes, reactor, palms, thrusters) is drawn full-bright by the auto-glow layer.
  */
 public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer, IronManHulkbusterAnimatable> {
