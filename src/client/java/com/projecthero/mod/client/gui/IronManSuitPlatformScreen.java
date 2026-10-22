@@ -44,9 +44,7 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 	private static final int MX = IronManUiLayout.PLAT_METER_X;
 	private static final int MW = IronManUiLayout.PLAT_METER_W;
 	private final long openedAt = Util.getMillis();
-	/** v0.15.4: the side tab that hands out the Colantotte Bracelets -- only shown while a Mark 7 is stored. */
-	private IronManGui.StarkButton bracelets;
-	/** v0.15.6: the side tab that packs a racked Mark 5 into its suitcase -- only shown while a Mark 5 is stored. */
+	/** v0.15.6 / v0.16.7 (user): the side tab that packs the racked Era II suit into its briefcase / pack / case. */
 	private IronManGui.StarkButton suitcase;
 
 	public IronManSuitPlatformScreen(IronManSuitPlatformMenu menu, Inventory inv, Component title) {
@@ -61,23 +59,40 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 	@Override
 	protected void init() {
 		super.init();
-		// v0.15.4: a small tab off the right edge of the panel (the panel itself has no free row)
-		bracelets = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, BRACELETS_W, 15,
-				Component.translatable("screen.projecthero.suit_platform.bracelets"),
-				() -> click(IronManSuitPlatformMenu.BRACELETS_BUTTON));
-		bracelets.accent = IronManGui.RED;
-		bracelets.visible = menu.offersBracelets();
-		addRenderableWidget(bracelets);
-		// v0.15.6: the same tab spot packs a racked Mark 5 back into its suitcase (a platform holds one suit at a time)
-		suitcase = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, BRACELETS_W, 15,
-				Component.translatable("screen.projecthero.suit_platform.suitcase"),
-				() -> click(IronManSuitPlatformMenu.SUITCASE_BUTTON));
+		// v0.16.7 (user): the Bracelets tab is gone (the Era II Mk VII / Mk VIII pack into their backpacks instead).
+		// v0.15.6 -> v0.16.7 (user): a tab off the right edge of the panel (the panel has no free row) packs the racked
+		// Era II suit into its carried form -- "Pack into Briefcase / Backpack / Thruster Pack / Heat Case", wrapped onto
+		// two lines. On a screen too narrow for it on the right it sits off the left edge instead.
+		int tabX = leftPos + imageWidth + 2 + PACK_W <= width ? leftPos + imageWidth + 2 : Math.max(0, leftPos - 2 - PACK_W);
+		suitcase = new IronManGui.StarkButton(tabX, topPos + 94, PACK_W, PACK_H, Component.empty(),
+				() -> click(IronManSuitPlatformMenu.SUITCASE_BUTTON)) {
+			@Override
+			protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+				super.renderWidget(g, mouseX, mouseY, partialTick); // the frame; its own (empty) label draws nothing
+				var lines = font.split(packLabel(), getWidth() - 6);
+				int n = Math.min(2, lines.size());
+				int ty = getY() + (getHeight() - n * 9) / 2 + 1;
+				for (int i = 0; i < n; i++) {
+					g.drawString(font, lines.get(i), getX() + (getWidth() - font.width(lines.get(i))) / 2, ty + i * 9,
+							isHoveredOrFocused() ? 0xFFFFFFFF : IronManGui.TEXT, false);
+				}
+			}
+		};
 		suitcase.visible = menu.offersSuitcase();
 		addRenderableWidget(suitcase);
 	}
 
-	/** v0.15.4: width of the Bracelets tab. */
-	public static final int BRACELETS_W = 60;
+	/** v0.16.7 (user): size of the pack tab (two wrapped lines: "Pack into" / "Thruster Pack"). */
+	public static final int PACK_W = 86;
+	public static final int PACK_H = 24;
+
+	/** v0.16.7 (user): "Pack into Backpack" etc. for the racked suit's form. */
+	private Component packLabel() {
+		var form = menu.packForm();
+		return Component.translatable("screen.projecthero.suit_platform.pack_into", form == null
+				? Component.translatable("screen.projecthero.suit_platform.suitcase")
+				: Component.translatable("screen.projecthero.suit_platform.form." + form.suitId()));
+	}
 
 	private void click(int id) {
 		if (minecraft != null && minecraft.gameMode != null) {
@@ -212,21 +227,17 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-		if (bracelets != null) {
-			bracelets.visible = menu.offersBracelets(); // v0.15.4: only while a Mark 7 is stored
-		}
 		if (suitcase != null) {
-			suitcase.visible = menu.offersSuitcase(); // v0.15.6: only while a Mark 5 is stored
+			suitcase.visible = menu.offersSuitcase(); // v0.16.7: only while an Era II suit with a carried form is racked
 		}
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
-		if (bracelets != null && bracelets.visible && bracelets.isHovered()) {
-			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.bracelets_tip"), 160),
-					mouseX, mouseY);
-		}
-		if (suitcase != null && suitcase.visible && suitcase.isHovered()) {
-			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.suitcase_tip"), 160),
-					mouseX, mouseY);
+		var form = menu.packForm();
+		if (suitcase != null && suitcase.visible && suitcase.isHovered() && form != null) {
+			IronManSuit s = IronManSuits.byId(form.suitId());
+			Component suitName = s == null ? Component.literal(form.suitId()) : Component.translatable(s.nameKey());
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.suitcase_tip", suitName,
+					new ItemStack(form.packedItem().get()).getHoverName()), 160), mouseX, mouseY);
 		}
 		if (mouseX >= leftPos + 136 && mouseX < leftPos + 170 && mouseY >= topPos + 29 && mouseY < topPos + 51) {
 			// v0.16.7: wrapped (the tip is longer now -- TooltipWrap rule)

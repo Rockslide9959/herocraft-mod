@@ -159,7 +159,7 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 		if (!(level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be)) {
 			return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 		}
-		if (stack.is(IronManItems.MARK_V_SUITCASE)) { // v0.14.30: the case unfolds onto the rack
+		if (IronManSuitPlatformBlockEntity.platformForm(stack) != null) { // v0.14.30: the case unfolds onto the rack (v0.16.7: any Era II packed item)
 			if (!level.isClientSide()) {
 				unfoldCase(level, pos, be, player, stack);
 			}
@@ -183,9 +183,11 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 
 	/** v0.14.30: unfold a Mark 5 Suitcase into its armour on this platform, with feedback either way. */
 	private static void unfoldCase(Level level, BlockPos pos, IronManSuitPlatformBlockEntity be, Player player, ItemStack caseStack) {
+		// v0.16.7 (user): any Era II packed item -- the messages name it (they used to say "Mark 5 Suitcase")
+		Component name = caseStack.getHoverName().copy();
 		if (be.storeSuitcase(player, caseStack)) {
 			((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.9f, 0.8f);
-			player.displayClientMessage(Component.translatable("message.projecthero.ironman.case_to_platform").withStyle(ChatFormatting.AQUA), true);
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.case_to_platform", name).withStyle(ChatFormatting.AQUA), true);
 		} else {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.case_platform_full").withStyle(ChatFormatting.RED), true);
 		}
@@ -210,7 +212,8 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 			// v0.14.30: a carried Mark 5 Suitcase unfolds onto the rack. (v0.15.4: the old Sneak + right-click retrieve is
 			// gone -- a worn suit comes off on a Stark Gantry Floor, which says so here.)
 			for (ItemStack carried : serverPlayer.getInventory().items) {
-				if (carried.is(IronManItems.MARK_V_SUITCASE)) {
+				if (IronManSuitPlatformBlockEntity.platformForm(carried) != null // v0.16.7: any Era II packed item holding a suit
+						&& (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(carried) || !com.projecthero.mod.ironman.item.SuitcaseContents.isEmpty(carried))) {
 					unfoldCase(level, pos, be, serverPlayer, carried);
 					return InteractionResult.SUCCESS;
 				}

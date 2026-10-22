@@ -371,22 +371,53 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
+	// ---------------- v0.16.7 (user): Era II packed forms on the platform ----------------
+	//
+	// The Mk VI briefcase (mark_2), Mk VII backpack (mark_6), Mk VIII thruster pack (mark_vii) and Mk IX heat case
+	// (mark_9) all pack / unpack here through the same two calls (storeSuitcase / packSuitcase, names kept from v0.15.x).
+	// The Hulkbuster (mark_8, a BLOCK form: the Uplink + drop crate) is NOT handled here -- it has its own platform path.
+
+	/** v0.16.7 (user): the portable form a rack can fold {@code suitId} into / unfold it out of, or null (none / BLOCK). */
+	public static com.projecthero.mod.ironman.suit.PortableForm platformForm(String suitId) {
+		com.projecthero.mod.ironman.suit.PortableForm f = com.projecthero.mod.ironman.suit.PortableForms.byId(suitId);
+		return f != null && f.rest() != com.projecthero.mod.ironman.suit.PortableForm.Place.BLOCK ? f : null;
+	}
+
+	/** v0.16.7 (user): the platform form whose packed item {@code stack} is, or null. */
+	public static com.projecthero.mod.ironman.suit.PortableForm platformForm(ItemStack stack) {
+		com.projecthero.mod.ironman.suit.PortableForm f = com.projecthero.mod.ironman.suit.PortableForms.byStack(stack);
+		return f != null && f.rest() != com.projecthero.mod.ironman.suit.PortableForm.Place.BLOCK ? f : null;
+	}
+
+	/** v0.16.7 (user): the racked suit's id even while it is folding / unfolding (the renderer needs it), or null. */
+	public String rackedSuitId() {
+		for (ItemStack stack : pieces) {
+			if (stack.getItem() instanceof IronManArmorItem piece) {
+				return piece.suitId();
+			}
+		}
+		return null;
+	}
+
 	/**
 	 * v0.14.30, explicit user request: a Mark 5 Suitcase handed to the platform (right-click it with the case, Sneak +
 	 * right-click "retrieve" while carrying one, or shift-click it in the platform screen) unfolds into the four armour
 	 * pieces on the rack. All-or-nothing: nothing moves unless every piece has a free slot on a rack that can hold the
-	 * Mark 5. A never-used (legacy) case unfolds a fresh suit. Uses up the case.
+	 * suit. A never-used (legacy) case unfolds a fresh suit. Uses up the case. v0.16.7 (user): any Era II packed item
+	 * ({@link #platformForm(ItemStack)}: briefcase, backpack, thruster pack, heat case) docks the same way, and the
+	 * integrity / energy stamped on the packed item go onto the racked pieces.
 	 */
 	public boolean storeSuitcase(Player player, ItemStack caseStack) {
-		if (!caseStack.is(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE)
-				|| !matchesStoredSuit(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT)) {
+		com.projecthero.mod.ironman.suit.PortableForm form = platformForm(caseStack);
+		if (form == null || !matchesStoredSuit(form.suitId())) {
 			return false;
 		}
+		String formSuit = form.suitId();
 		java.util.List<ItemStack> contents = new java.util.ArrayList<>();
 		if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(caseStack)) {
 			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
 					ArmorItem.Type.BOOTS }) {
-				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT, t)));
+				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(formSuit, t)));
 			}
 		} else {
 			contents.addAll(com.projecthero.mod.ironman.item.SuitcaseContents.nonEmpty(caseStack));
@@ -395,12 +426,22 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			return false;
 		}
 		for (ItemStack piece : contents) {
-			if (!(piece.getItem() instanceof IronManArmorItem a) || slotOf(a.getType()) < 0 || !pieces.get(slotOf(a.getType())).isEmpty()) {
+			if (!(piece.getItem() instanceof IronManArmorItem a) || !formSuit.equals(a.suitId()) || slotOf(a.getType()) < 0
+					|| !pieces.get(slotOf(a.getType())).isEmpty()) {
 				return false;
 			}
 		}
+		// the packed item's stamps are the suit's (a deploy loads them from it): carry them onto the racked pieces
+		Float packedInteg = caseStack.get(com.projecthero.mod.item.ModDataComponents.SUIT_INTEGRITY);
+		Float packedEnergy = caseStack.get(com.projecthero.mod.item.ModDataComponents.SUIT_ENERGY);
 		for (ItemStack piece : contents) {
-			pieces.set(slotOf(((IronManArmorItem) piece.getItem()).getType()), piece.copyWithCount(1));
+			ItemStack racked = piece.copyWithCount(1);
+			if (packedInteg != null || packedEnergy != null) {
+				IronManEnergy.stampStack(racked,
+						packedEnergy != null ? packedEnergy : IronManEnergy.stackEnergy(racked, formSuit),
+						packedInteg != null ? packedInteg : IronManEnergy.stackIntegrity(racked, formSuit));
+			}
+			pieces.set(slotOf(((IronManArmorItem) piece.getItem()).getType()), racked);
 		}
 		if (owner == null) {
 			owner = player.getUUID();
@@ -470,7 +511,8 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	 * here, nothing is packing yet and the player may use this platform.
 	 */
 	public boolean packSuitcase(net.minecraft.server.level.ServerPlayer player) {
-		if (!com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(storedSuitId()) || owner != null && !owner.equals(player.getUUID()) || level == null) {
+		// v0.16.7 (user): any Era II suit with a carried form (Mk VI / VII / VIII / IX), not just the briefcase suit
+		if (platformForm(storedSuitId()) == null || owner != null && !owner.equals(player.getUUID()) || level == null) {
 			return false;
 		}
 		packStart = Math.max(1L, level.getGameTime());
@@ -484,22 +526,37 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		UUID to = packFor;
 		packStart = 0L;
 		packFor = null;
-		ItemStack caseStack = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE);
+		// v0.16.7 (user): the racked suit's own packed item (briefcase / backpack / thruster pack / heat case)
+		String suitId = rackedSuitId();
+		com.projecthero.mod.ironman.suit.PortableForm form = platformForm(suitId);
+		if (form == null) {
+			afterContentsChanged(); // nothing that packs is racked (cleared mid-fold): just unlock
+			return;
+		}
+		ItemStack ref = referencePiece();
+		float energy = ref == null ? IronManEnergy.capacity(suitId) : IronManEnergy.stackEnergy(ref, suitId);
+		float integrity = ref == null ? IronManEnergy.maxIntegrity(suitId) : IronManEnergy.stackIntegrity(ref, suitId);
+		ItemStack caseStack = new ItemStack(form.packedItem().get());
 		NonNullList<ItemStack> slots = NonNullList.withSize(com.projecthero.mod.ironman.item.SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		for (int i = 0; i < SIZE; i++) {
 			ItemStack s = pieces.get(i);
 			if (s.getItem() instanceof IronManArmorItem a) {
-				slots.set(com.projecthero.mod.ironman.item.SuitcaseContents.slotOf(a.getType()), s.copyWithCount(1));
+				ItemStack out = s.copyWithCount(1);
+				IronManEnergy.stampStack(out, energy, integrity);
+				slots.set(com.projecthero.mod.ironman.item.SuitcaseContents.slotOf(a.getType()), out);
 			}
 		}
 		com.projecthero.mod.ironman.item.SuitcaseContents.write(caseStack, slots);
+		stampPacked(caseStack, suitId, energy, integrity);
 		for (int i = 0; i < SIZE; i++) {
 			pieces.set(i, ItemStack.EMPTY);
 		}
 		afterContentsChanged();
 		ServerPlayer player = to == null ? null : level.getServer().getPlayerList().getPlayer(to);
 		if (player != null && player.level() == level && player.blockPosition().closerThan(worldPosition, 24.0)) {
-			if (!player.getInventory().add(caseStack)) {
+			if (form.rest() == com.projecthero.mod.ironman.suit.PortableForm.Place.BACK) {
+				com.projecthero.mod.ironman.suit.PortableDeploy.placePack(player, caseStack); // a pack goes on the back
+			} else if (!player.getInventory().add(caseStack)) {
 				player.drop(caseStack, false);
 			}
 			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.4f);
@@ -510,6 +567,20 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		drop.setDefaultPickUpDelay();
 		level.addFreshEntity(drop);
 	}
+
+	/**
+	 * v0.16.7 (user): stamp a packed item with its suit's integrity -- and its energy when that suit's energy is real
+	 * ({@link IronManEnergy#real}; {@code stampStack} alone drops energy on a non-armour stack) -- so a deploy out of it,
+	 * or docking it back here, loads exactly what was racked.
+	 */
+	public static void stampPacked(ItemStack packed, String suitId, float energy, float integrity) {
+		IronManEnergy.stampStack(packed, energy, integrity);
+		if (IronManEnergy.real(suitId)) {
+			packed.set(com.projecthero.mod.item.ModDataComponents.SUIT_ENERGY,
+					Math.max(0f, Math.min(IronManEnergy.capacity(suitId), energy)));
+		}
+	}
+	// ---------------- end v0.16.7 (user) Era II packed forms ----------------
 
 	// ---------------- v0.15.4: suiting up / down is the Stark Gantry's job ----------------
 	//

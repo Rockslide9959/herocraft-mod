@@ -386,6 +386,14 @@ public final class IronManGantryBuild {
 	 */
 	public static float standMk5Frame = Float.NaN;
 
+	/**
+	 * v0.16.7 (user): the Era II portable form a Suit Platform is folding its racked suit into (or unfolding it out of),
+	 * and the frame of that form's clock -- the stand's pieces draw {@link #portableTexture} at it. Set by the platform
+	 * renderer around one draw call of its stand, render thread only; null / NaN otherwise.
+	 */
+	public static PortableForm standForm;
+	public static float standFormFrame = Float.NaN;
+
 	/** v0.15.8: the texture of a Mark 5 piece on a folding Suit Platform ({@link #standMk5Frame}). */
 	public static ResourceLocation mk5TextureAt(String setId, EquipmentSlot slot, ResourceLocation base, float frame) {
 		int bit = IronManSuitFx.bit(slot);

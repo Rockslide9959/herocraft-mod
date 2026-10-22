@@ -100,8 +100,9 @@ public class IronManV0156GameTests implements FabricGameTest {
 		for (int i = 0; i < 4; i++) {
 			be.setItem(i, ItemStack.EMPTY);
 		}
-		be.store(new ItemStack(IronManItems.armor("mark_vii", ArmorItem.Type.HELMET)));
-		h.assertFalse(be.packSuitcase(p), "only the Mark 2 packs into a suitcase");
+		// v0.16.7 (user): every Era II carried form packs on the platform now -- a suit with none (Era I Mk III) still can't
+		be.store(new ItemStack(IronManItems.armor("mark_iii", ArmorItem.Type.HELMET)));
+		h.assertFalse(be.packSuitcase(p), "a suit with no carried form does not pack");
 		h.getLevel().getServer().getPlayerList().remove(p);
 		h.succeed();
 	}

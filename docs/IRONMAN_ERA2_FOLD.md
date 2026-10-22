@@ -188,6 +188,28 @@ entity: `wallOpen`, `lidOpen`, `height`, `floor`, `squash`).
   full; hidden once the fold starts. It stops short of the hotbar on short screens. Tests:
   `gametest/IronManFoldPolishGameTests.java` (3).
 
+## Suit Platform pack / unpack (v0.16.7 user)
+
+* **Pack:** with a Mk VI / VII / VIII / IX racked, the platform screen shows a tab off the panel's right edge (left
+  edge on a narrow screen), "Pack into Briefcase / Backpack / Thruster Pack / Heat Case", wrapped onto two lines, with
+  a wrapped tooltip. Pressing it (menu button 3, `IronManSuitPlatformBlockEntity.packSuitcase`) closes the screen and
+  locks the rack. The stand plays the form's own build backwards over `PACK_FOLD_TICKS` (54): frames `lastAppear+1`
+  down to the first stage's start, through `IronManGantryBuild.standForm` / `standFormFrame` and `portableTexture`, so
+  it is the exact reverse of a worn deploy (backpacks lose legs first, the cases lose the helmet first), with a few
+  sparks. Then the packed item grows at the chest, drops and hops off (`PACK_TICKS` = 70). `finishPack` writes the four
+  pieces into the form's packed item. Pieces and item are stamped with the rack's integrity and energy
+  (`stampPacked`), and the item goes to the player: backpacks via `PortableDeploy.placePack`, cases into the
+  inventory, else dropped on the pad.
+* **Unpack (docking):** the same ways the Mk VI briefcase always docked: right-click the platform holding the packed
+  item, sneak + right-click empty-handed while carrying one, or shift-click it in the platform screen.
+  `storeSuitcase` is all-or-nothing. It is refused if the rack holds another suit, and an emptied item racks nothing.
+  A never-used item racks a fresh suit. The packed item's integrity and energy stamps go onto the racked pieces.
+  The unfold is the fold played backwards (`UNPACK_TICKS`), with the rack locked until it stands complete.
+* **Hulkbuster (`mark_8`, a BLOCK form) is excluded** (`platformForm` returns null for it). Its Uplink has its own path.
+* **No Bracelets tab.** The platform no longer hands out Colantotte Bracelets. Menu button 2 is reserved and refused.
+  The item, `ColantotteBracelets.claim` and a pair already owned keep working, so old saves are fine.
+* Tests: `gametest/IronManPlatformPackGameTests.java` (5).
+
 ## Not done yet / known limits
 
 * The carried Mk VII / Mk VIII pack is not drawn on your back in first person (only the held sprite is hidden).

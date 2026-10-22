@@ -144,28 +144,23 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 
 	// v0.15.4: no more DEPLOY / RETRIEVE buttons -- suiting up and down is done on a Stark Gantry Floor (StarkGantry).
 
-	/** v0.15.4: menu button id of the side "Bracelets" button (only while a Mark 7 is stored). */
+	/**
+	 * v0.15.4: menu button id of the old side "Bracelets" button. v0.16.7 (user): RETIRED -- the platform no longer hands
+	 * out Colantotte Bracelets (the Era II Mk VII / Mk VIII pack into their backpacks instead); the id stays reserved so
+	 * an old client's press is simply refused. The bracelets item itself stays registered for old saves.
+	 */
 	public static final int BRACELETS_BUTTON = 2;
 
-	/** v0.15.4: is a Mark 7 stored here, so the Bracelets button is offered? */
+	/** v0.16.7 (user): never -- the Bracelets tab is gone from the platform (see {@link #BRACELETS_BUTTON}). */
 	public boolean offersBracelets() {
-		IronManSuitPlatformBlockEntity be = liveBE();
-		String id = be != null ? be.storedSuitId() : null;
-		if (id == null) {
-			for (int i = 0; i < 4 && id == null; i++) {
-				if (getSlot(i).getItem().getItem() instanceof IronManArmorItem a) {
-					id = a.suitId();
-				}
-			}
-		}
-		return com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRACELET_SUIT.equals(id);
+		return false;
 	}
 
-	/** v0.15.6: menu button id of the side "Suitcase" button (only while a Mark 5 is stored). */
+	/** v0.15.6: menu button id of the side pack tab (v0.16.7: any Era II suit with a carried form). */
 	public static final int SUITCASE_BUTTON = 3;
 
-	/** v0.15.6: is a Mark 5 stored here, so the Suitcase button is offered? */
-	public boolean offersSuitcase() {
+	/** v0.16.7 (user): the racked suit's id (the block entity's, else read off the synced slots), or null. */
+	public String rackedSuitId() {
 		IronManSuitPlatformBlockEntity be = liveBE();
 		String id = be != null ? be.storedSuitId() : null;
 		if (id == null) {
@@ -175,31 +170,48 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 				}
 			}
 		}
-		return com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(id); // v0.16.1: the Mark 2 briefcase
+		return id;
+	}
+
+	/**
+	 * v0.16.7 (user): the form the racked suit packs into (Mk VI briefcase, Mk VII backpack, Mk VIII thruster pack, Mk IX
+	 * heat case), or null -- the pack tab is shown only then. Never the Hulkbuster (its Uplink has its own path).
+	 */
+	public com.projecthero.mod.ironman.suit.PortableForm packForm() {
+		IronManSuitPlatformBlockEntity be = liveBE();
+		if (be != null && be.locked()) {
+			return null; // already folding / unfolding
+		}
+		return IronManSuitPlatformBlockEntity.platformForm(rackedSuitId());
+	}
+
+	/** v0.15.6: is a suit that packs racked here, so the pack tab is offered? (v0.16.7: any of the four Era II forms.) */
+	public boolean offersSuitcase() {
+		return packForm() != null;
 	}
 
 	@Override
 	public boolean clickMenuButton(Player player, int id) {
 		if (player instanceof ServerPlayer sp && id == SUITCASE_BUTTON) {
-			// v0.15.6: fold the racked Mark 5 back into its suitcase and hand it over
-			boolean packed = access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
+			// v0.15.6: fold the racked suit back into its packed form and hand it over (v0.16.7: any Era II form)
+			com.projecthero.mod.ironman.suit.PortableForm form = packForm();
+			boolean packed = form != null && access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
 					&& be.packSuitcase(sp), false);
-			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(packed
-					? "message.projecthero.suit_platform.suitcase_packed" : "message.projecthero.suit_platform.suitcase_refused")
-					.withStyle(packed ? net.minecraft.ChatFormatting.AQUA : net.minecraft.ChatFormatting.GOLD), true);
+			net.minecraft.network.chat.Component msg = packed
+					? net.minecraft.network.chat.Component.translatable("message.projecthero.suit_platform.suitcase_packed",
+							net.minecraft.network.chat.Component.translatable(
+									com.projecthero.mod.ironman.suit.IronManSuits.byId(form.suitId()).nameKey()),
+							new ItemStack(form.packedItem().get()).getHoverName())
+					: net.minecraft.network.chat.Component.translatable("message.projecthero.suit_platform.suitcase_refused");
+			sp.displayClientMessage(msg.copy().withStyle(packed ? net.minecraft.ChatFormatting.AQUA : net.minecraft.ChatFormatting.GOLD), true);
 			if (packed) {
 				com.projecthero.mod.ironman.IronManSounds.play(sp, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.2f);
 				sp.closeContainer(); // v0.15.8: step back and watch the suit fold itself up into its case
 			}
 			return packed;
 		}
-		if (!(player instanceof ServerPlayer sp) || id != BRACELETS_BUTTON) {
-			return false;
-		}
-		// v0.15.4: one pair of Colantotte Bracelets, only with a Mark 7 stored and only if you have none
-		return access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
-				&& com.projecthero.mod.ironman.gear.ColantotteBracelets.claim(sp, be)
-						== com.projecthero.mod.ironman.gear.ColantotteBracelets.Claim.GIVEN, false);
+		// v0.16.7 (user): BRACELETS_BUTTON (2) is retired -- the platform hands out no bracelets any more
+		return false;
 	}
 
 	@Override
@@ -220,8 +232,8 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 			if (!moveItemStackTo(stack, platformSlots, platformSlots + 36, true)) {
 				return ItemStack.EMPTY;
 			}
-		} else if (stack.is(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE)) {
-			// v0.14.30: shift-clicking the Mark 5 Suitcase unfolds it onto the rack
+		} else if (IronManSuitPlatformBlockEntity.platformForm(stack) != null) {
+			// v0.14.30: shift-clicking the Mark 5 Suitcase unfolds it onto the rack (v0.16.7: any Era II packed item)
 			if (container instanceof IronManSuitPlatformBlockEntity be && be.storeSuitcase(player, stack)) {
 				slot.setChanged();
 			}

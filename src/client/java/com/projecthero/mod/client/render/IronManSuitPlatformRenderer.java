@@ -212,20 +212,44 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 	private void renderPack(IronManSuitPlatformBlockEntity be, ArmorStand rack, float age, float partialTick, PoseStack pose,
 			MultiBufferSource buffers, int light) {
 		var dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-		float frame = com.projecthero.mod.ironman.suit.IronManMk5Suitcase.UP_TICKS - 6 - 2f * age; // 134 -> 26
+		// v0.16.7 (user): the racked Era II suit's own portable form -- its deploy build (the same stage windows and
+		// texel order as a worn deploy out of the briefcase / backpack / thruster pack / heat case) played backwards on
+		// the stand over PACK_FOLD_TICKS; no form (should not happen) = the old Mark 5 frames
+		com.projecthero.mod.ironman.suit.PortableForm form = IronManSuitPlatformBlockEntity.platformForm(be.rackedSuitId());
+		float fold = Math.min(1f, age / IronManSuitPlatformBlockEntity.PACK_FOLD_TICKS);
 		if (age < IronManSuitPlatformBlockEntity.PACK_FOLD_TICKS) {
 			dispatcher.setRenderShadow(false);
 			pose.pushPose();
 			pose.translate(0.5, DISPLAY_Y_OFFSET, 0.5);
 			pose.scale(RACK_SCALE, RACK_SCALE, RACK_SCALE);
-			com.projecthero.mod.client.ironman.IronManGantryBuild.standMk5Frame = frame;
+			if (form != null) {
+				float hi = form.lastAppear() + 1f;
+				float lo = firstFrame(form) - 1f;
+				com.projecthero.mod.client.ironman.IronManGantryBuild.standForm = form;
+				com.projecthero.mod.client.ironman.IronManGantryBuild.standFormFrame = hi - (hi - lo) * fold;
+			} else {
+				com.projecthero.mod.client.ironman.IronManGantryBuild.standMk5Frame =
+						com.projecthero.mod.ironman.suit.IronManMk5Suitcase.UP_TICKS - 6 - 2f * age; // 134 -> 26
+			}
 			try {
 				dispatcher.render(rack, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, light);
 			} finally {
 				com.projecthero.mod.client.ironman.IronManGantryBuild.standMk5Frame = Float.NaN;
+				com.projecthero.mod.client.ironman.IronManGantryBuild.standForm = null;
+				com.projecthero.mod.client.ironman.IronManGantryBuild.standFormFrame = Float.NaN;
 			}
 			pose.popPose();
 			dispatcher.setRenderShadow(true);
+			// a few sparks where the plates are folding away (only while it moves)
+			Level lv = be.getLevel();
+			Long lastSpark = lv == null ? null : LAST_SPARK.get(be);
+			if (lv != null && (lastSpark == null || lastSpark != lv.getGameTime()) && fold > 0.02f && fold < 0.98f) {
+				LAST_SPARK.put(be, lv.getGameTime()); // once per tick, not per frame
+				double y = be.getBlockPos().getY() + DISPLAY_Y_OFFSET + RACK_SCALE * 2.0 * (1.0 - fold) * lv.random.nextDouble();
+				lv.addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
+						be.getBlockPos().getX() + 0.5 + (lv.random.nextDouble() - 0.5) * 0.4, y,
+						be.getBlockPos().getZ() + 0.5 + (lv.random.nextDouble() - 0.5) * 0.4, 0, 0.02, 0);
+			}
 		}
 		// the case: grows out of the chest as the chest top folds away, closes, drops to the pad, then hops off
 		float caseFrom = IronManSuitPlatformBlockEntity.PACK_FOLD_TICKS - 4;
@@ -241,15 +265,23 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		if (scale <= 0.01f) {
 			return;
 		}
-		if (caseStack == null) {
-			caseStack = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE);
-		}
+		// v0.16.7 (user): the racked suit's own packed item -- briefcase, backpack, thruster pack or heat case
+		net.minecraft.world.item.Item packed = form != null ? form.packedItem().get()
+				: com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE;
+		ItemStack caseStack = CASES.computeIfAbsent(packed, ItemStack::new);
+		boolean geoCase = packed == com.projecthero.mod.ironman.item.IronManItems.MARK_V_SUITCASE; // the GeckoLib briefcase
 		pose.pushPose();
 		pose.translate(0.5, y, 0.5);
 		pose.scale(scale, scale, scale);
+		if (!geoCase) {
+			// a flat / cube item model: draw it item-frame style, a little bigger, turning slowly so it reads from any side
+			pose.mulPose(Axis.YP.rotationDegrees(age * 9f));
+			pose.scale(1.3f, 1.3f, 1.3f);
+		}
 		com.projecthero.mod.client.ironman.MarkVSuitcaseRenderer.openness = 1f - smooth((age - (caseFrom + 4)) / 4f);
 		try {
-			Minecraft.getInstance().getItemRenderer().renderStatic(caseStack, net.minecraft.world.item.ItemDisplayContext.NONE,
+			Minecraft.getInstance().getItemRenderer().renderStatic(caseStack, geoCase ? net.minecraft.world.item.ItemDisplayContext.NONE
+					: net.minecraft.world.item.ItemDisplayContext.FIXED,
 					light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, pose, buffers, be.getLevel(), 0);
 		} finally {
 			com.projecthero.mod.client.ironman.MarkVSuitcaseRenderer.openness = 0f;
@@ -257,7 +289,17 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		pose.popPose();
 	}
 
-	private static ItemStack caseStack;
+	/** v0.16.7 (user): one display stack per packed item (render thread only). */
+	private static final Map<net.minecraft.world.item.Item, ItemStack> CASES = new java.util.HashMap<>();
+
+	/** v0.16.7 (user): the first frame any stage of {@code form}'s build starts. */
+	private static int firstFrame(com.projecthero.mod.ironman.suit.PortableForm form) {
+		int first = Integer.MAX_VALUE;
+		for (int st = 0; st < com.projecthero.mod.ironman.gantry.GantryTimeline.STAGES; st++) {
+			first = Math.min(first, form.firstAppear(st));
+		}
+		return first == Integer.MAX_VALUE ? 0 : first;
+	}
 
 	private static float smooth(float x) {
 		x = Math.max(0f, Math.min(1f, x));

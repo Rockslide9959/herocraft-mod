@@ -492,6 +492,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 				&& com.projecthero.mod.client.ironman.IronManGantryBuild.solo >= 0) {
 			// v0.15.5: the part a Stark Gantry arm is carrying -- only that part of the piece
 			texture = com.projecthero.mod.client.ironman.IronManGantryBuild.soloTexture(ima3.armorSetId(), getCurrentSlot(), texture);
+		} else if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima5
+				&& com.projecthero.mod.client.ironman.IronManGantryBuild.standForm != null) {
+			// v0.16.7 (user): a racked Era II suit folding into / unfolding out of its briefcase / pack / case on the platform
+			texture = com.projecthero.mod.client.ironman.IronManGantryBuild.portableTexture(
+					com.projecthero.mod.client.ironman.IronManGantryBuild.standForm, ima5.armorSetId(), getCurrentSlot(), texture,
+					com.projecthero.mod.client.ironman.IronManGantryBuild.standFormFrame);
 		} else if (animatable instanceof com.projecthero.mod.ironman.item.IronManArmorItem ima4
 				&& !Float.isNaN(com.projecthero.mod.client.ironman.IronManGantryBuild.standMk5Frame)) {
 			// v0.15.8: a racked Mark 5 folding itself into its case on the Suit Platform

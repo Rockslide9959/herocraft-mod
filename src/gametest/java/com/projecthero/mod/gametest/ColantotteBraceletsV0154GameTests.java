@@ -151,15 +151,19 @@ public class ColantotteBraceletsV0154GameTests implements FabricGameTest {
 
 		IronManSuitPlatformBlockEntity mk7 = platform(h, p, M7, 7);
 		menu = new IronManSuitPlatformMenu(2, p.getInventory(), mk7, new SimpleContainerData(3));
-		h.assertTrue(menu.offersBracelets(), "the Bracelets button shows with a Mark 7 stored");
-		h.assertTrue(menu.clickMenuButton(p, IronManSuitPlatformMenu.BRACELETS_BUTTON), "pressing it hands out a pair");
+		// v0.16.7 (user): the platform's Bracelets tab is retired (the Era II Mk VIII packs into its thruster pack) --
+		// no button and an old client's press does nothing; the claim logic itself is unchanged (old saves)
+		h.assertFalse(menu.offersBracelets(), "v0.16.7: no Bracelets tab even with the Mk VIII (mark_vii) racked");
+		h.assertFalse(menu.clickMenuButton(p, IronManSuitPlatformMenu.BRACELETS_BUTTON), "v0.16.7: the retired button does nothing");
+		h.assertTrue(ColantotteBracelets.count(p) == 0, "v0.16.7: and hands out nothing");
+		h.assertTrue(ColantotteBracelets.claim(p, mk7) == ColantotteBracelets.Claim.GIVEN, "the claim itself still works");
 		h.assertTrue(ColantotteBracelets.count(p) == 1, "exactly one pair");
 		h.assertTrue(p.getInventory().countItem(IronManItems.COLANTOTTE_BRACELETS) == 1, "in the pack");
 		h.assertTrue(p.getUUID().equals(ColantotteBracelets.owner(p.getInventory().getItem(slotOf(p)))), "bound to the player");
 
 		// no spam: pressing again, with the pair in the pack or worn, gives nothing more
 		for (int i = 0; i < 5; i++) {
-			h.assertFalse(menu.clickMenuButton(p, IronManSuitPlatformMenu.BRACELETS_BUTTON), "no second pair while you have one");
+			h.assertTrue(ColantotteBracelets.claim(p, mk7) == ColantotteBracelets.Claim.ALREADY_HAVE, "no second pair while you have one");
 		}
 		h.assertTrue(ColantotteBracelets.count(p) == 1, "still exactly one pair after spamming the button");
 		ItemStack pair = p.getInventory().getItem(slotOf(p));
