@@ -30,7 +30,7 @@ import org.joml.Vector3f;
 
 /**
  * v0.16.7: Eraser Head on every player who holds Erasure (every viewer: the state is synced) -- while he stares
- * ({@link ErasureConfig#V_ERASE}) his hair rises and floats up around his head and his eyes glow red; his yellow
+ * ({@link ErasureConfig#V_ERASE}) his eyes glow red (v0.16.7 user: no risen hair); his yellow
  * goggles sit pushed up on his forehead (with the costume) or down over his eyes (the Goggles move); and the posed right
  * hand's world position is recorded for {@link ErasureWorld}'s scarf.
  */
@@ -111,20 +111,7 @@ public class ErasureLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 
 		pose.pushPose();
 		parent.head.translateAndRotate(pose);
-		if (rise > 0f) {
-			float t = ageInTicks;
-			for (int i = 0; i < LOCKS.length; i++) {
-				ModelPart lock = hair.getChild("lock" + i);
-				// they float: a slow sway once up
-				lock.yScale = 0.15f + 0.85f * rise;
-				lock.xScale = lock.zScale = 1f;
-				float sway = 0.06f * rise * Mth.sin(t * 0.25f + i * 1.7f);
-				float x = LOCKS[i][0], z = LOCKS[i][1];
-				lock.xRot = -z * 0.13f * rise + sway;
-				lock.zRot = x * 0.13f * rise - sway;
-			}
-			hair.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(PARTS)), light, overlay);
-		}
+		// v0.16.7 (user): no risen hair on the stare ("it looks weird") -- only the red eyes show it
 		// v0.16.7 (user skin): the costume's own skin has the goggles pushed up on the forehead, so only the
 		// Goggles move draws the 3D pair (down over the eyes)
 		if (goggles) {
