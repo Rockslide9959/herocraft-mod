@@ -111,6 +111,7 @@
       "com.projecthero.mod.gametest.WolverineGameTests",
       "com.projecthero.mod.gametest.TitanShifterGameTests",
       "com.projecthero.mod.gametest.TitanRevampGameTests",
+      "com.projecthero.mod.gametest.BeastTitanRocksGameTests",
       "com.projecthero.mod.gametest.ThorArmorGameTests",
       "com.projecthero.mod.gametest.ThorSquadGameTests",
       "com.projecthero.mod.gametest.AllMightGameTests",

@@ -102,12 +102,13 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	 * v0.16.7 (user, Titan revamp gameplay): move states the visuals read (synced bit set, see {@link #moveFlags()}):
 	 * {@link #FLAG_RAGING} Attack Titan Rage, {@link #FLAG_NAPE_GUARD} a hand held over the nape, {@link #FLAG_CRYSTAL}
 	 * the Female Titan's crystal fists / shins (and hardened nape), {@link #FLAG_BRACING} the Armoured Titan's Brace,
-	 * {@link #FLAG_CHARGING} the Armoured Titan's Shoulder Charge, {@link #FLAG_HOLDING_BOULDER} a boulder in the Beast's hand.
+	 * {@link #FLAG_CHARGING} the Armoured Titan's Shoulder Charge, {@link #FLAG_HOLDING_BOULDER} a boulder in the Beast's hand,
+	 * {@link #FLAG_HOLDING_ROCKS} a handful of stones in it (Boulder Volley, Pitcher's Fastball).
 	 */
 	private static final EntityDataAccessor<Integer> DATA_MOVE_FLAGS =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
 	public static final int FLAG_RAGING = 1, FLAG_NAPE_GUARD = 2, FLAG_CRYSTAL = 4, FLAG_BRACING = 8, FLAG_CHARGING = 16,
-			FLAG_HOLDING_BOULDER = 32;
+			FLAG_HOLDING_BOULDER = 32, FLAG_HOLDING_ROCKS = 64;
 	/** v0.16.7: how long (ticks) the current {@link #formState()} lasts -- TRANSFORMING (3 s, or a fast Bite Shift), REVERTING (3 s), DEFEATED. */
 	private static final EntityDataAccessor<Integer> DATA_STATE_TICKS =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
@@ -302,6 +303,8 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	private long crystalUntil;
 	private long braceUntil;
 	private long chargeUntil;
+	/** v0.16.7 (user): a rock in the hand is let go of by this time at the latest (a throw cut short). */
+	private long holdUntil;
 	private long lastAttackAt = -1000;
 	/** Game time each limb (index into {@link #LIMBS}) was severed; 0 = attached. */
 	private final long[] severedAt = new long[4];
@@ -339,6 +342,13 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	public void setHoldingBoulder(boolean holding) {
 		setMoveFlag(FLAG_HOLDING_BOULDER, holding);
+		holdUntil = holding ? level().getGameTime() + 60 : 0L;
+	}
+
+	/** v0.16.7 (user): a handful of stones in the Beast's right hand (the boulder bone draws them, smaller). */
+	public void setHoldingRocks(boolean holding) {
+		setMoveFlag(FLAG_HOLDING_ROCKS, holding);
+		holdUntil = holding ? level().getGameTime() + 60 : 0L;
 	}
 
 	public boolean isCharging() {
@@ -458,6 +468,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		}
 		if (chargeUntil != 0L && now >= chargeUntil) {
 			endCharge();
+		}
+		if (holdUntil != 0L && now >= holdUntil) {
+			holdUntil = 0L;
+			setMoveFlag(FLAG_HOLDING_BOULDER | FLAG_HOLDING_ROCKS, false);
 		}
 		int bits = severedLimbs();
 		if (bits == 0) {

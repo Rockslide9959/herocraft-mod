@@ -126,8 +126,14 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 		if (name.startsWith("crystal_") && !animatable.isCrystal()) {
 			return; // the Female Titan's crystal fists / shins / nape, only while Crystal Fists runs
 		}
-		if (name.equals("boulder") && !animatable.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_BOULDER)) {
-			return; // the Beast's boulder, only while it is in the hand
+		if (name.equals("boulder")) {
+			// v0.16.7 (user): the Beast's boulder / handful of stones, only while it is in the hand -- the same block-built
+			// rock models as the flying ones (TitanRockRenderer), centred on the bone's cube so they follow the clip
+			boolean big = animatable.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_BOULDER);
+			if (mainPass && !isReRender && (big || animatable.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_ROCKS))) {
+				renderHeldRock(poseStack, animatable, bone, bufferSource, packedLight, big);
+			}
+			return;
 		}
 		for (int slot = 0; slot < 4; slot++) {
 			if (name.equals(STUMPS[slot])) {
@@ -158,6 +164,59 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 		}
 		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 				packedLight, packedOverlay, colour);
+	}
+
+	/**
+	 * v0.16.7 (user): the rock in the Beast's right hand, drawn from block models at the {@code boulder} bone's cube (its
+	 * centre and size, read from the baked vertices): a boulder, or a smaller handful of stones. The stone is the ground the
+	 * Titan stands on, as the server picks it ({@code TitanBoulders#groundState}). Block models go to the fixed block-sheet
+	 * buffers, so the Titan's own buffer is not interrupted.
+	 */
+	private void renderHeldRock(PoseStack poseStack, TitanFormEntity form, GeoBone bone, MultiBufferSource buffers, int light, boolean big) {
+		float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
+		float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+		for (var cube : bone.getCubes()) {
+			for (var quad : cube.quads()) {
+				if (quad == null) {
+					continue;
+				}
+				for (var v : quad.vertices()) {
+					Vector3f p = v.position();
+					minX = Math.min(minX, p.x);
+					minY = Math.min(minY, p.y);
+					minZ = Math.min(minZ, p.z);
+					maxX = Math.max(maxX, p.x);
+					maxY = Math.max(maxY, p.y);
+					maxZ = Math.max(maxZ, p.z);
+				}
+			}
+		}
+		if (minX > maxX) {
+			return;
+		}
+		float size = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
+		poseStack.pushPose();
+		software.bernie.geckolib.util.RenderUtil.prepMatrixForBone(poseStack, bone);
+		poseStack.translate((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f);
+		var state = heldStone(form);
+		if (big) {
+			TitanRockRenderer.boulder(poseStack, buffers, light, state, form.getId(), size * 1.6f);
+		} else {
+			TitanRockRenderer.handful(poseStack, buffers, light, state, form.getId(), size * 1.5f);
+		}
+		poseStack.popPose();
+	}
+
+	/** The ground under the Titan when it is plain natural stuff, else cobblestone (mirrors TitanBoulders#groundState). */
+	private static net.minecraft.world.level.block.state.BlockState heldStone(TitanFormEntity form) {
+		var level = form.level();
+		var below = net.minecraft.core.BlockPos.containing(form.getX(), form.getY() - 0.5, form.getZ());
+		var s = level.getBlockState(below);
+		if (s.isAir() || s.hasBlockEntity() || !s.getFluidState().isEmpty() || !s.isCollisionShapeFullBlock(level, below)) {
+			return net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState();
+		}
+		float h = s.getDestroySpeed(level, below);
+		return h >= 0.3f && h <= 3.0f ? s : net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState();
 	}
 
 	@Override

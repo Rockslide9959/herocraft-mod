@@ -49,6 +49,16 @@ public final class TitanShifterEntities {
 					.updateInterval(Integer.MAX_VALUE)
 					.build("titan_lightning"));
 
+	/** v0.16.7 (user): the Beast Titan's flying rocks -- boulders and debris chunks ({@link TitanRockEntity}). */
+	public static final EntityType<TitanRockEntity> TITAN_ROCK = register("titan_rock",
+			EntityType.Builder.<TitanRockEntity>of(TitanRockEntity::new, MobCategory.MISC)
+					.sized(0.6f, 0.6f)
+					.clientTrackingRange(10)
+					.updateInterval(1)
+					.noSave()
+					.noSummon()
+					.build("titan_rock"));
+
 	private TitanShifterEntities() {
 	}
 
