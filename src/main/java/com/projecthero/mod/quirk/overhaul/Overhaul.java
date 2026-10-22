@@ -26,7 +26,7 @@ public final class Overhaul {
 	public static final String V_GLOVES = "ov_gloves";
 	/** v0.16.7 revamp: the Overhaul Strike dash runs until (the pose holds the reach). */
 	public static final String V_STRIKE = "ov_strike";
-	/** v0.16.7 revamp: Terrain Surf carries him until (X again ends it). */
+	/** v0.16.7 (user): Terrain Surf is carrying him (Long.MAX_VALUE while X is held; 0 = off). */
 	public static final String V_SURF = "ov_surf";
 
 	public static final int ANIM_BASE = Quirk.OVERHAUL.animBase;

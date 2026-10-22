@@ -200,20 +200,94 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7 (user): a steady elemental-style refill -- 12 a second bare, 24 gloved, 6 fused. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void focusRegeneratesFasterWithTheGlovesOn(GameTestHelper helper) {
+	public void focusRegeneratesSteadilyTwiceAsFastGloved(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer bare = overhaul(helper, 1.5, 1.5);
 		ServerPlayer gloved = overhaul(helper, 6.5, 1.5);
 		OverhaulMoves.gloves(gloved);
+		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(false, false) * 20f - 12f) < 0.01f, "12 a second");
+		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(true, false) * 20f - 24f) < 0.01f, "24 a second gloved");
+		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(false, true) * 20f - 6f) < 0.01f, "6 a second fused");
 		Quirks.setMeter(bare, 20f);
 		Quirks.setMeter(gloved, 20f);
 		pump(helper, bare);
 		pump(helper, gloved);
-		helper.runAfterDelay(60, () -> {
+		helper.runAfterDelay(40, () -> {
 			float a = Quirks.meter(bare), b = Quirks.meter(gloved);
-			helper.assertTrue(a > 25f, "Focus refilled, now " + a);
-			helper.assertTrue(b - 20f > (a - 20f) * 1.6f, "twice as fast gloved: " + a + " vs " + b);
+			// two seconds: +24 bare, +48 gloved (a tick of slack either way)
+			helper.assertTrue(Math.abs(a - 44f) <= 1.5f, "12 a second: 20 -> " + a);
+			helper.assertTrue(Math.abs(b - 68f) <= 2.5f, "24 a second gloved: 20 -> " + b);
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.7 (user): spammable -- every move costs Focus, the cooldowns are short, several casts in a row work. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void movesCostFocusAndChainOnShortCooldowns(GameTestHelper helper) {
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		for (String id : new String[] { OverhaulConfig.DISASSEMBLE, OverhaulConfig.DISARM, OverhaulConfig.SPIKE_WAVE, OverhaulConfig.SPIKE_FIELD,
+				OverhaulConfig.SURF, OverhaulConfig.PILLAR, OverhaulConfig.STRIKE, OverhaulConfig.PIT, OverhaulConfig.WALL }) {
+			helper.assertTrue(kit.maxCooldown(id) >= 5 && kit.maxCooldown(id) <= 30, "a short cooldown (0.25-1.5 s) on " + id + ": " + kit.maxCooldown(id));
+		}
+		helper.assertTrue(kit.maxCooldown(OverhaulConfig.FUSION) >= 400 && kit.maxCooldown(OverhaulConfig.REASSEMBLE) >= 400,
+				"the big moves keep real cooldowns");
+		for (float cost : new float[] { OverhaulConfig.DISASSEMBLE_COST, OverhaulConfig.DISARM_COST, OverhaulConfig.SPIKE_WAVE_COST,
+				OverhaulConfig.SPIKE_FIELD_COST, OverhaulConfig.SURF_COST, OverhaulConfig.PILLAR_COST, OverhaulConfig.STRIKE_COST, OverhaulConfig.PIT_COST,
+				OverhaulConfig.WALL_COST, OverhaulConfig.FUSION_COST, OverhaulConfig.REASSEMBLE_COST }) {
+			helper.assertTrue(cost > 0f, "every move costs Focus");
+		}
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
+		pump(helper, p);
+		// back to back in one tick: different moves never wait on each other
+		helper.assertTrue(OverhaulMoves.disassemble(p), "Disassemble");
+		helper.assertTrue(OverhaulMoves.strike(p), "then straight into Overhaul Strike");
+		float after = 100f - OverhaulConfig.DISASSEMBLE_COST - OverhaulConfig.STRIKE_COST;
+		helper.assertTrue(Math.abs(Quirks.meter(p) - after) < 0.01f, "both paid in Focus: " + Quirks.meter(p));
+		helper.assertFalse(Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "a cooldown is set");
+		final int cd = OverhaulConfig.DISASSEMBLE_COOLDOWN + 1;
+		// the same move again as soon as its short cooldown is up, and again
+		helper.runAfterDelay(cd, () -> {
+			helper.assertTrue(Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "ready again after " + cd + " ticks");
+			helper.assertTrue(OverhaulMoves.disassemble(p), "Disassemble again");
+		});
+		helper.runAfterDelay(2 * cd, () -> {
+			helper.assertTrue(z.isAlive() && Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "ready a third time");
+			helper.assertTrue(OverhaulMoves.disassemble(p), "and a third time");
+			float m = Quirks.meter(p);
+			// four moves (48 Focus) in ~1 s, refilling 12 a second in between: Focus, not cooldowns, is the limit
+			helper.assertTrue(m < 100f - 3 * OverhaulConfig.DISASSEMBLE_COST - OverhaulConfig.STRIKE_COST + 2 * cd * OverhaulConfig.FOCUS_REGEN_PER_TICK + 1f
+					&& m > 20f, "Focus went down as he chained them: " + m);
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.7 (user): run dry and the moves stop for a short lockout (the gloves still work), then come back. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void runningFocusDryLocksTheMovesBriefly(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
+		pump(helper, p);
+		Quirks.setMeter(p, OverhaulConfig.DISASSEMBLE_COST);
+		helper.assertTrue(OverhaulMoves.disassemble(p), "the last of his Focus");
+		helper.assertTrue(Quirks.overloaded(p), "dry: locked out");
+		float hp = z.getHealth();
+		Quirks.edit(p, n -> n.abilityReadyAt.clear());
+		com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		helper.assertTrue(z.getHealth() == hp, "R does nothing while locked out");
+		com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.runAfterDelay(OverhaulConfig.FOCUS_SPENT_TICKS - 5, () -> helper.assertTrue(Quirks.overloaded(p), "still locked just before 2 s"));
+		helper.runAfterDelay(OverhaulConfig.FOCUS_SPENT_TICKS + 2, () -> {
+			helper.assertFalse(Quirks.overloaded(p), "the lockout is short (2 s)");
+			float m = Quirks.meter(p);
+			helper.assertTrue(m >= OverhaulConfig.DISASSEMBLE_COST, "Focus came back during it: " + m);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+			helper.assertTrue(z.getHealth() < hp, "R works again");
 			helper.succeed();
 		});
 	}
@@ -331,25 +405,106 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- X (movement)
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void terrainSurfCarriesHimAndItsWakeCleansUp(GameTestHelper helper) {
+	/** v0.16.7 (user): the surf runs for as long as X is held (well past the old 1.7 s), drains Focus, ends on release. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void terrainSurfRunsWhileHeldAndEndsOnRelease(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 4.5);
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
 		pump(helper, p);
-		helper.assertTrue(OverhaulMoves.surf(p), "on the wave");
-		helper.assertTrue(QuirkKits.of(Quirk.OVERHAUL).active(p, AbilitySlot.SLOT_3), "the X box lights");
+		kit.handle(p, AbilitySlot.SLOT_3, true, false); // X down
+		helper.assertTrue(OverhaulMoves.surfing(p), "on the wave");
+		helper.assertTrue(kit.active(p, AbilitySlot.SLOT_3), "the X box lights");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.SURF_COST)) < 0.01f, "6 Focus to start");
 		helper.runAfterDelay(4, () -> {
 			Vec3 v = p.getDeltaMovement();
 			helper.assertTrue(v.z > OverhaulConfig.SURF_SPEED * 0.8, "carried forward: " + v);
-			float fall = QuirkKits.of(Quirk.OVERHAUL).modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
+			helper.assertTrue(v.y < 0.0, "pressed onto the ground (so the step assist can lift him): " + v);
+			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
 			helper.assertTrue(fall == 0f, "no fall damage while surfing");
 			helper.assertTrue(GeoTerrain.pending() > 0, "a wake of earth rises behind him");
 		});
-		helper.runAfterDelay(OverhaulConfig.SURF_TICKS + 2, () -> helper.assertFalse(QuirkKits.of(Quirk.OVERHAUL).active(p, AbilitySlot.SLOT_3), "it ends"));
-		helper.runAfterDelay(OverhaulConfig.SURF_TICKS + OverhaulConfig.SURF_WAKE_TTL + 15, () -> {
+		final int held = 70; // 3.5 s: twice the old fixed ride
+		helper.runAfterDelay(held, () -> {
+			helper.assertTrue(OverhaulMoves.surfing(p) && kit.active(p, AbilitySlot.SLOT_3), "still riding while X is held");
+			float m = Quirks.meter(p);
+			float expect = 100f - OverhaulConfig.SURF_COST - held * OverhaulConfig.SURF_DRAIN_PER_TICK;
+			helper.assertTrue(Math.abs(m - expect) <= 2 * OverhaulConfig.SURF_DRAIN_PER_TICK + 0.01f, "8 Focus a second, no refill: " + m + " vs " + expect);
+			kit.handle(p, AbilitySlot.SLOT_3, false, false); // X up
+			helper.assertFalse(OverhaulMoves.surfing(p), "off the wave on release");
+			helper.assertFalse(kit.active(p, AbilitySlot.SLOT_3), "the X box goes dark");
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1.0e-3, "the step assist goes with it");
+			int cd = Quirks.cooldownRemaining(p, OverhaulConfig.SURF);
+			helper.assertTrue(cd > 0 && cd <= OverhaulConfig.SURF_COOLDOWN, "a short cooldown from the end: " + cd);
+			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
+			helper.assertTrue(fall == 0f, "still no fall damage just after");
+		});
+		helper.runAfterDelay(held + OverhaulConfig.SURF_SAFE_TICKS + 2, () -> {
+			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
+			helper.assertTrue(fall == 6f, "fall damage back once the safe window ends");
+		});
+		helper.runAfterDelay(held + OverhaulConfig.SURF_SAFE_TICKS + OverhaulConfig.SURF_WAKE_TTL + 15, () -> {
 			assertRestored(helper);
 			helper.succeed();
 		});
+	}
+
+	/** v0.16.7 (user): held X can't ride forever -- Focus running dry throws him off and locks the moves briefly. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void terrainSurfEndsWhenFocusRunsDry(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 4.5);
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		Quirks.setMeter(p, OverhaulConfig.SURF_COST + 4f);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_3, true, false); // X down, and never let go
+		helper.assertTrue(OverhaulMoves.surfing(p), "on the wave");
+		// 4 Focus at 0.4 a tick: dry in about 8-10 ticks
+		helper.runAfterDelay(16, () -> {
+			helper.assertFalse(OverhaulMoves.surfing(p), "dry: off the wave though X is still held");
+			helper.assertTrue(Quirks.overloaded(p), "his focus is spent (the lockout)");
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1.0e-3, "no step assist left behind");
+		});
+		helper.runAfterDelay(16 + OverhaulConfig.SURF_WAKE_TTL + 15, () -> {
+			assertRestored(helper);
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.7 (user): 2-block step assist while surfing -- the wave carries him up a 2-block rise (and not without it). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void terrainSurfStepsUpTwoBlockRises(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		// a 2-block-high ledge from z 6 on, y 3..4 (its top at y 5)
+		for (int x = 2; x <= 7; x++) {
+			for (int z = 6; z <= 7; z++) {
+				level.setBlock(abs(helper, x, 3, z), Blocks.STONE.defaultBlockState(), 3);
+				level.setBlock(abs(helper, x, 4, z), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = overhaul(helper, 4.5, 4.5);
+		double y0 = p.getY();
+		Vec3 push = new Vec3(0, -0.08, OverhaulConfig.SURF_SPEED);
+		// walking: the ledge stops him
+		for (int i = 0; i < 4; i++) {
+			p.setOnGround(true);
+			p.move(net.minecraft.world.entity.MoverType.SELF, push);
+		}
+		helper.assertTrue(Math.abs(p.getY() - y0) < 0.01, "a 2-block rise stops him on foot: y " + (p.getY() - y0));
+		p.teleportTo(p.getX(), y0, helper.absoluteVec(new Vec3(4.5, 3, 4.5)).z);
+		p.setOnGround(true);
+		helper.assertTrue(OverhaulMoves.surf(p), "on the wave");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - OverhaulConfig.SURF_STEP_HEIGHT) < 1.0e-3,
+				"2-block step assist: " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		for (int i = 0; i < 4; i++) {
+			p.setOnGround(true);
+			p.move(net.minecraft.world.entity.MoverType.SELF, push);
+		}
+		helper.assertTrue(Math.abs(p.getY() - (y0 + 2.0)) < 0.01, "carried up onto the ledge: y +" + (p.getY() - y0));
+		OverhaulMoves.endSurf(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1.0e-3, "back to a player's own step");
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
@@ -463,7 +618,7 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		helper.assertTrue(p.getHealth() == p.getMaxHealth(), "whole");
 		helper.assertFalse(p.hasEffect(MobEffects.POISON), "the poison is gone");
 		helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SPEED), "good effects stay");
-		helper.assertTrue(Quirks.cooldownRemaining(p, OverhaulConfig.REASSEMBLE) > 1100, "once a minute");
+		helper.assertTrue(Quirks.cooldownRemaining(p, OverhaulConfig.REASSEMBLE) > OverhaulConfig.REASSEMBLE_COOLDOWN - 100, "a real cooldown (45 s)");
 		helper.runAfterDelay(OverhaulConfig.RESTORE_WAVE_TICKS + 10, () -> {
 			helper.assertTrue(level.getBlockState(hole).is(Blocks.COBBLESTONE), "the broken block is back");
 			level.setBlock(hole, Blocks.AIR.defaultBlockState(), 3);

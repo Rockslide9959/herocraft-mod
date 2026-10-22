@@ -11,12 +11,16 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.16.7 revamp: Overhaul's six keys (Kai Chisaki) -- see {@link OverhaulConfig} for the table. Every move but the
- * gloves is a bare-handed touch and spends Focus. The moves live in {@link OverhaulMoves}.
+ * gloves is a bare-handed touch and spends Focus; Terrain Surf (X) is held. The moves live in {@link OverhaulMoves}.
  */
 public final class OverhaulKit implements QuirkKit {
 	@Override
 	public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
 		if (!pressed) {
+			// v0.16.7 (user): Terrain Surf is held -- letting X go gets off the wave (whatever Shift says now)
+			if (slot == AbilitySlot.SLOT_3) {
+				OverhaulMoves.endSurf(player);
+			}
 			return;
 		}
 		String[] ids = idsOf(slot);
@@ -29,8 +33,8 @@ public final class OverhaulKit implements QuirkKit {
 			OverhaulMoves.endFusion(player);
 			return;
 		}
-		// X again while surfing gets off the wave
-		if (id.equals(OverhaulConfig.SURF) && Quirks.state(player).val(Overhaul.V_SURF) != 0L) {
+		// X again while surfing gets off the wave too (a release that never arrived)
+		if (id.equals(OverhaulConfig.SURF) && OverhaulMoves.surfing(player)) {
 			OverhaulMoves.endSurf(player);
 			return;
 		}
