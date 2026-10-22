@@ -326,15 +326,15 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 			pose.pushPose();
 			pose.translate(0f, top, FWD);
 			pose.mulPose(Axis.YP.rotationDegrees(rot));
-			ribbon(pose.last(), vc, frame, k * 1.7f, 0.17f + 0.03f * (k % 3), 0.62f + 0.12f * (k % 2), 0.055f,
-					glow * (0.30f - 0.03f * k), 0f);
+			ribbon(pose.last(), vc, frame, k * 1.7f, 0.20f + 0.04f * (k % 3), 0.85f + 0.15f * (k % 2), 0.065f,
+					glow * (0.62f - 0.05f * k), 0f);
 			pose.popPose();
 		}
 		for (int k = 0; k < 2; k++) {
 			pose.pushPose();
 			pose.translate(0f, top + 0.18f, FWD);
 			pose.mulPose(Axis.YP.rotationDegrees(45f + k * 90f + frame * 0.6f));
-			ribbon(pose.last(), vc, frame * 0.7f, 4f + k * 2.3f, 0.34f, 1.15f, 0.11f, glow * 0.12f, 0.25f);
+			ribbon(pose.last(), vc, frame * 0.7f, 4f + k * 2.3f, 0.40f, 1.45f, 0.12f, glow * 0.26f, 0.25f);
 			pose.popPose();
 		}
 		// embers: launched one every half tick while the case is open, each rising and fading over 16 ticks
@@ -397,8 +397,8 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 				pa[i] = (int) (255 * Mth.clamp(alpha * vf * edge * flicker, 0f, 1f));
 				// white-hot at the mouth of the case, through amber to a dull orange where it thins out
 				pr[i] = 255;
-				pg[i] = (int) Mth.lerp(v, 225, 120);
-				pb[i] = (int) Mth.lerp(v, 160, 50);
+				pg[i] = (int) Mth.lerp(v, 200, 95);
+				pb[i] = (int) Mth.lerp(v, 110, 30);
 			}
 		}
 		for (int side = 0; side < 2; side++) {

@@ -299,8 +299,13 @@ public final class IronManPortableClient {
 		if (packed == null || !(PROPS.get(packed.propId()) instanceof BackpackProp bp)) {
 			return;
 		}
+		if (p.getViewXRot(partial) < 25f) {
+			return; // only when looking down (they would sit below the view anyway)
+		}
 		Vec3 at = p.getPosition(partial);
-		float bodyYaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
+		// the view's yaw, not the body's: no body is drawn in first person, and a standing body lags up to ~50 degrees
+		// behind the head -- the straps must run straight down the middle of your view
+		float bodyYaw = p.getViewYRot(partial);
 		PoseStack pose = context.matrixStack();
 		pose.pushPose();
 		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);

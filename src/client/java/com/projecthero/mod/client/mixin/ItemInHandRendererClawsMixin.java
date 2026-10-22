@@ -37,6 +37,27 @@ public abstract class ItemInHandRendererClawsMixin {
 	protected abstract void renderPlayerArm(PoseStack pose, MultiBufferSource buffers, int light, float equipProgress,
 			float swingProgress, HumanoidArm arm);
 
+	/**
+	 * v0.16.7 (user): the Mk VII Silver Centurion's blades in first person -- one over EACH fist, like Wolverine's claws:
+	 * while they are out the empty off hand is raised too (the vanilla arm, with its own equip / swing), so the blade the
+	 * hand mixin adds shows on both.
+	 */
+	@Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
+	private void projecthero$centurionOffHand(AbstractClientPlayer player, float partialTick, float pitch,
+			InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack pose,
+			MultiBufferSource buffers, int light, CallbackInfo ci) {
+		if (hand != InteractionHand.OFF_HAND || !stack.isEmpty() || player.isInvisible()
+				|| !com.projecthero.mod.client.ironman.CenturionBladeLayer.wearing(player)
+				|| !com.projecthero.mod.ironman.IronManBladeLook.visible(
+						com.projecthero.mod.client.ironman.IronManBladeClient.extension(player, partialTick))) {
+			return;
+		}
+		pose.pushPose();
+		renderPlayerArm(pose, buffers, light, equipProgress, 0.0f, player.getMainArm().getOpposite());
+		pose.popPose();
+		ci.cancel();
+	}
+
 	@Inject(method = "renderArmWithItem", at = @At("HEAD"), cancellable = true)
 	private void projecthero$wolverineOffHand(AbstractClientPlayer player, float partialTick, float pitch,
 			InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack pose,

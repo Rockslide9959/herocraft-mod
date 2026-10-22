@@ -105,16 +105,17 @@ final class BackpackProp implements IronManPortableClient.PortableProp {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
 		for (int s = -1; s <= 1; s += 2) {
 			float x = s * 2.5f;
-			// over the shoulder (front half only) and down the chest to the bottom of the ribs
-			box(pose, vc, light, x - 0.65f, -0.4f, -2.55f, x + 0.65f, 0.15f, 0.2f, STRAP);
-			box(pose, vc, light, x - 0.65f, -0.4f, -2.55f, x + 0.65f, 8.6f, -2.15f, STRAP);
+			// down the chest from the shoulder to the bottom of the ribs (the over-the-shoulder part is at the lens)
+			box(pose, vc, light, x - 0.55f, 2.6f, -2.55f, x + 0.55f, 9.2f, -2.2f, STRAP);
+			// a lighter stitched edge line down the strap's middle, so it reads as webbing
+			box(pose, vc, light, x - 0.12f, 2.6f, -2.6f, x + 0.12f, 9.2f, -2.5f, GREY);
 			// the buckle: a small plate in the pack's colour with a darker clasp
 			box(pose, vc, light, x - 0.85f, 4.6f, -2.75f, x + 0.85f, 5.9f, -2.45f, style.core);
 			box(pose, vc, light, x - 0.35f, 4.9f, -2.85f, x + 0.35f, 5.6f, -2.7f, style.tanks ? GOLD : RED2);
 		}
 		// a sternum strap across, and the pack's status light on the left strap
 		box(pose, vc, light, -2.0f, 6.6f, -2.45f, 2.0f, 7.2f, -2.2f, STRAP);
-		box(pose, vc, LightTexture.FULL_BRIGHT, 2.15f, 2.2f, -2.75f, 2.85f, 2.9f, -2.5f, GLOW);
+		box(pose, vc, LightTexture.FULL_BRIGHT, 2.15f, 3.3f, -2.75f, 2.85f, 4.0f, -2.5f, GLOW);
 	}
 
 	/** The Mk VIII's O2 tanks left on the suit after a pack deploy (flush on the back). */
