@@ -12,21 +12,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.Nullable;
 
 import com.mojang.math.Transformation;
+import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.p05.GeoTerrain;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,66 +41,66 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * v0.16.7: Zero Gravity's floating rubble -- the Meteor Shower, the Debris Shield and the Uravity Meteor. Every piece is
- * a vanilla block DISPLAY (no physics, no collision: it can never place a block), moved here every tick and removed when
- * its move ends. The ground it came from is emptied through {@link GeoTerrain#pocket} (natural, breakable blocks with no
- * block entity -- never a chest, a spawner or bedrock -- only where she may build and terrain damage is on) and put back
- * exactly as it was after {@link ZeroGravityConfig#RUBBLE_RESTORE_TICKS} (and on server stop). With terrain damage off
- * the rubble is only a copy of the ground and nothing is taken.
+ * v0.16.7 revamp: every BLOCK Zero Gravity floats -- a touched block, the Meteor Shower's rubble cloud, the Debris Shield --
+ * and what happens when it comes down. Every piece is a vanilla block DISPLAY (a falling-block look with no physics of its
+ * own, so it can never place a block or drop an item), moved here every tick:
+ * <ul>
+ *   <li>{@link #HELD}: a touched block hanging where she lifted it; {@link #CLOUD}: the Meteor Shower's rubble, risen into a
+ *       cloud high over her that drifts toward where she aims; {@link #SHIELD}: orbiting her, stopping projectiles;</li>
+ *   <li>{@link #FALL}: let go (Release): it drops under gravity and smashes on whatever it lands on; {@link #THROWN}: Comet
+ *       Toss -- it flies along her look and smashes into the first creature or block.</li>
+ * </ul>
+ * The ground a piece came from is emptied through the {@link GeoTerrain} ledger (only with the terrain-damage config and
+ * {@code mobGriefing} on, where she may build; rubble only from natural ground, a touched block any plain full block with no
+ * block entity) and put back EXACTLY as it was the moment the piece smashes or is dissolved ({@link GeoTerrain#restoreNow}),
+ * on its own safety clock otherwise, and on server stop. Without permission the rubble is only a copy of the ground and nothing
+ * is taken; a touched block is refused.
  *
- * <p>The display entities carry {@link ZeroGravity#TAG_DEBRIS}: one found on load that no session owns (the server
- * stopped mid-move) is removed ({@link #cleanup}).
+ * <p>The display entities carry {@link ZeroGravity#TAG_DEBRIS}: one found on load that no session owns (the server stopped
+ * mid-move) is removed ({@link #cleanup}).
  */
 public final class ZeroGravityDebris {
-	static final int SHOWER = 0;
-	static final int SHIELD = 1;
-	static final int METEOR = 2;
+	public static final int HELD = 0;
+	public static final int CLOUD = 1;
+	public static final int SHIELD = 2;
+	public static final int FALL = 3;
+	public static final int THROWN = 4;
 
 	static final class Piece {
 		final int id;
 		final UUID uuid;
 		final BlockState state;
-		final int kind;
+		int kind;
 		final int slot;
 		final long born;
+		long kindSince;
+		final float scale;
 		Vec3 pos;
 		Vec3 vel = Vec3.ZERO;
-		/** Shower: 0 hovering, 1 flying. */
-		int phase;
-		long fireAt;
-		/** Meteor: the piece's place in the 3x3 slab. */
-		double ox, oz;
-		Vec3 from = Vec3.ZERO;
+		/** Where it was lifted from (refilled when it smashes); null = a copy, nothing was taken. */
+		@Nullable BlockPos origin;
+		/** HELD: where it hangs. */
+		Vec3 home = Vec3.ZERO;
+		float damage;
 
-		Piece(Display.BlockDisplay d, BlockState state, int kind, int slot, long born) {
+		Piece(Display.BlockDisplay d, BlockState state, int kind, int slot, long born, float scale) {
 			this.id = d.getId();
 			this.uuid = d.getUUID();
 			this.state = state;
 			this.kind = kind;
 			this.slot = slot;
 			this.born = born;
+			this.kindSince = born;
+			this.scale = scale;
 			this.pos = d.position();
 		}
 	}
 
-	/** The Uravity Meteor's slab (one per player at a time). */
-	static final class Meteor {
-		final List<Piece> pieces = new ArrayList<>();
-		int targetId = -1;
-		Vec3 point = Vec3.ZERO;
-		long born;
-		/** 0 rising, 1 holding, 2 falling. */
-		int phase;
-		double fall;
-	}
-
 	static final class Session {
-		final List<Piece> shower = new ArrayList<>();
-		int showerTarget = -1;
-		Vec3 showerPoint = Vec3.ZERO;
-		final List<Piece> shield = new ArrayList<>();
+		final List<Piece> pieces = new ArrayList<>();
 		long shieldUntil;
-		@Nullable Meteor meteor;
+		long cloudUntil;
+		Vec3 cloudCenter = Vec3.ZERO;
 		final Set<Integer> hit = new HashSet<>();
 	}
 
@@ -122,28 +124,41 @@ public final class ZeroGravityDebris {
 		return SESSIONS.computeIfAbsent(p.getUUID(), k -> new Session());
 	}
 
-	/** How many pieces she holds up (the Nausea counts them). */
+	// ================================================================ queries
+
+	/** How many pieces she has (every kind). */
 	public static int count(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s == null ? 0 : s.pieces.size();
+	}
+
+	/** How many pieces of {@code kind}. */
+	public static int count(ServerPlayer p, int kind) {
 		Session s = SESSIONS.get(p.getUUID());
 		if (s == null) {
 			return 0;
 		}
-		return s.shower.size() + s.shield.size() + (s.meteor == null ? 0 : s.meteor.pieces.size());
+		int n = 0;
+		for (Piece pc : s.pieces) {
+			if (pc.kind == kind) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** How many pieces she holds up (the Nausea weighs them): everything not yet falling or thrown. */
+	public static int held(ServerPlayer p) {
+		return count(p, HELD) + count(p, CLOUD) + count(p, SHIELD);
 	}
 
 	public static boolean shieldUp(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
-		return s != null && !s.shield.isEmpty() && s.shieldUntil > p.level().getGameTime();
+		return s != null && s.shieldUntil > p.level().getGameTime() && count(p, SHIELD) > 0;
 	}
 
-	public static boolean showerRunning(ServerPlayer p) {
-		Session s = SESSIONS.get(p.getUUID());
-		return s != null && !s.shower.isEmpty();
-	}
-
-	public static boolean meteorRunning(ServerPlayer p) {
-		Session s = SESSIONS.get(p.getUUID());
-		return s != null && s.meteor != null;
+	public static boolean cloudUp(ServerPlayer p) {
+		return count(p, CLOUD) > 0;
 	}
 
 	/** The display entities of her live pieces (tests, FX). */
@@ -153,12 +168,7 @@ public final class ZeroGravityDebris {
 		if (s == null) {
 			return out;
 		}
-		List<Piece> all = new ArrayList<>(s.shower);
-		all.addAll(s.shield);
-		if (s.meteor != null) {
-			all.addAll(s.meteor.pieces);
-		}
-		for (Piece pc : all) {
+		for (Piece pc : s.pieces) {
 			if (p.serverLevel().getEntity(pc.id) instanceof Display.BlockDisplay d) {
 				out.add(d);
 			}
@@ -168,12 +178,25 @@ public final class ZeroGravityDebris {
 
 	// ================================================================ the ground
 
+	/** She may take real ground here (the terrain-damage config, {@code mobGriefing}, build rights). */
+	static boolean mayTake(ServerPlayer p, BlockPos pos) {
+		ServerLevel level = p.serverLevel();
+		return level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING) && GeoTerrain.canEdit(p, level, pos);
+	}
+
+	/** A block a touch can lift: a plain full block, breakable, not too hard, no block entity, no fluid, not one of the ledger's. */
+	static boolean liftable(ServerLevel level, BlockPos pos) {
+		BlockState s = level.getBlockState(pos);
+		float hard = s.getDestroySpeed(level, pos);
+		return !s.isAir() && !s.hasBlockEntity() && s.getFluidState().isEmpty() && hard >= 0f && hard <= ZeroGravityConfig.BLOCK_MAX_HARDNESS
+				&& s.isCollisionShapeFullBlock(level, pos) && !GeoTerrain.isTemp(level, pos);
+	}
+
 	/**
-	 * Takes the loose top block of the column at {@code column} (searching a few blocks up and down for the surface):
-	 * the block state of the rubble, or null if there is no natural ground there. Taken for real (and restored after
-	 * {@code ttl}) when she may edit it; otherwise only copied.
+	 * The loose top block of the column at {@code column} (searching a few blocks up and down for the surface): its state and,
+	 * when it was really taken, its position. Null if there is no natural ground there.
 	 */
-	static @Nullable BlockState takeSurface(ServerPlayer p, BlockPos column, int ttl, @Nullable List<BlockPos> taken) {
+	static @Nullable Object[] takeSurface(ServerPlayer p, BlockPos column, int ttl) {
 		ServerLevel level = p.serverLevel();
 		for (int dy = 2; dy >= -4; dy--) {
 			BlockPos pos = column.offset(0, dy, 0);
@@ -185,52 +208,18 @@ public final class ZeroGravityDebris {
 				continue;
 			}
 			BlockState state = level.getBlockState(pos);
-			// never the block she (or anything standing right on it) is standing on
+			// never the block anything is standing on
 			if (!level.getEntitiesOfClass(LivingEntity.class, new AABB(pos.above()).inflate(-0.05, 0.0, -0.05)).isEmpty()) {
 				return null;
 			}
-			if (GeoTerrain.canEdit(p, level, pos) && GeoTerrain.pocket(level, pos, null, ttl, 0)) {
-				if (taken != null) {
-					taken.add(pos.immutable());
-				}
+			BlockPos taken = null;
+			if (mayTake(p, pos) && GeoTerrain.pocket(level, pos, null, ttl, 0)) {
+				taken = pos.immutable();
 				level.levelEvent(2001, pos, Block.getId(state));
 			}
-			return state;
+			return new Object[] { state, taken };
 		}
 		return null;
-	}
-
-	/** Up to {@code n} pieces of rubble from the loose ground around her (any shortfall is plain cobblestone dust). */
-	static List<BlockState> gather(ServerPlayer p, int n, int ttl, @Nullable List<BlockPos> taken) {
-		List<BlockState> out = new ArrayList<>();
-		BlockPos feet = p.blockPosition();
-		int r = ZeroGravityConfig.RUBBLE_RADIUS;
-		// a deterministic spiral-ish order: the nearest columns first, skipping her own
-		List<BlockPos> cols = new ArrayList<>();
-		for (int dx = -r; dx <= r; dx++) {
-			for (int dz = -r; dz <= r; dz++) {
-				if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
-					continue;
-				}
-				if (dx * dx + dz * dz <= r * r) {
-					cols.add(feet.offset(dx, -1, dz));
-				}
-			}
-		}
-		cols.sort((a, b) -> Double.compare(a.distSqr(feet), b.distSqr(feet)));
-		// spread the picks around her: every other column of the sorted ring
-		for (int pass = 0; pass < 2 && out.size() < n; pass++) {
-			for (int i = pass; i < cols.size() && out.size() < n; i += 2) {
-				BlockState st = takeSurface(p, cols.get(i), ttl, taken);
-				if (st != null) {
-					out.add(st);
-				}
-			}
-		}
-		while (out.size() < n) {
-			out.add(Blocks.COBBLESTONE.defaultBlockState());
-		}
-		return out;
 	}
 
 	// ================================================================ the displays
@@ -259,12 +248,12 @@ public final class ZeroGravityDebris {
 		d.setTransformation(new Transformation(half, new Quaternionf(rot), new Vector3f(scale, scale, scale), null));
 	}
 
-	private static void tumble(ServerLevel level, Piece pc, float scale, long now) {
+	private static void tumble(ServerLevel level, Piece pc, long now, float speed) {
 		if ((now + pc.slot) % 3 != 0 || !(level.getEntity(pc.id) instanceof Display.BlockDisplay d)) {
 			return;
 		}
-		float a = (now - pc.born) * 0.12f + pc.slot;
-		setSpin(d, new Quaternionf().rotateXYZ(a * 0.7f, a, a * 0.4f), scale);
+		float a = (now - pc.born) * speed + pc.slot;
+		setSpin(d, new Quaternionf().rotateXYZ(a * 0.7f, a, a * 0.4f), pc.scale);
 	}
 
 	private static void move(ServerLevel level, Piece pc, Vec3 to) {
@@ -275,6 +264,7 @@ public final class ZeroGravityDebris {
 		}
 	}
 
+	/** The piece goes: the display is removed, the ground it came from put back at once. */
 	private static void remove(ServerLevel level, Piece pc, boolean crumble) {
 		LIVE.remove(pc.uuid);
 		Entity e = level.getEntity(pc.id);
@@ -284,97 +274,274 @@ public final class ZeroGravityDebris {
 		if (crumble) {
 			level.levelEvent(2001, BlockPos.containing(pc.pos), Block.getId(pc.state));
 		}
-	}
-
-	private static void removeAll(ServerLevel level, List<Piece> list, boolean crumble) {
-		for (Piece pc : list) {
-			remove(level, pc, crumble);
+		if (pc.origin != null) {
+			GeoTerrain.restoreNow(level, pc.origin);
+			pc.origin = null;
 		}
-		list.clear();
 	}
 
-	// ================================================================ X: Meteor Shower
+	private static Piece add(ServerPlayer p, Session s, BlockState state, @Nullable BlockPos origin, Vec3 at, int kind, int slot, float scale) {
+		Display.BlockDisplay d = spawn(p.serverLevel(), state, at, scale);
+		if (d == null) {
+			if (origin != null) {
+				GeoTerrain.restoreNow(p.serverLevel(), origin);
+			}
+			return null;
+		}
+		Piece pc = new Piece(d, state, kind, slot, p.level().getGameTime(), scale);
+		pc.origin = origin;
+		s.pieces.add(pc);
+		return pc;
+	}
 
-	/** Lifts the rubble; it hovers about her, then rains on {@code target} (or {@code point}). Returns the pieces. */
-	static int startShower(ServerPlayer p, @Nullable LivingEntity target, Vec3 point, @Nullable List<BlockPos> taken) {
+	// ================================================================ V: a touched block
+
+	/** Lifts the block at {@code pos} (a touch): it hangs {@link ZeroGravityConfig#BLOCK_RISE} above. False if refused. */
+	static boolean holdBlock(ServerPlayer p, BlockPos pos) {
+		ServerLevel level = p.serverLevel();
+		if (!liftable(level, pos) || !mayTake(p, pos) || count(p, HELD) >= ZeroGravityConfig.TOUCH_BLOCKS_MAX) {
+			return false;
+		}
+		BlockState state = level.getBlockState(pos);
+		if (!GeoTerrain.lift(level, pos, ZeroGravityConfig.BLOCK_SAFETY_TICKS)) {
+			return false;
+		}
+		Session s = session(p);
+		Piece pc = add(p, s, state, pos.immutable(), Vec3.atCenterOf(pos), HELD, s.pieces.size(), 0.98f);
+		if (pc == null) {
+			return false;
+		}
+		pc.home = Vec3.atCenterOf(pos).add(0, ZeroGravityConfig.BLOCK_RISE, 0);
+		pc.damage = ZeroGravityConfig.BLOCK_FALL_DAMAGE;
+		return true;
+	}
+
+	// ================================================================ R: the Meteor Shower cloud
+
+	/** Rips up the loose ground round her into a cloud high overhead. Returns the pieces (0: no ground to lift). */
+	static int liftCloud(ServerPlayer p, @Nullable List<BlockPos> taken) {
+		Session s = session(p);
+		long now = p.level().getGameTime();
+		BlockPos feet = p.blockPosition();
+		int r = ZeroGravityConfig.RUBBLE_RADIUS;
+		List<BlockPos> cols = new ArrayList<>();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) {
+					continue;
+				}
+				if (dx * dx + dz * dz <= r * r) {
+					cols.add(feet.offset(dx, -1, dz));
+				}
+			}
+		}
+		cols.sort((a, b) -> Double.compare(a.distSqr(feet), b.distSqr(feet)));
+		int n = 0;
+		int want = ZeroGravityConfig.SHOWER_PIECES;
+		// spread the picks round her: every third column of the sorted rings
+		for (int pass = 0; pass < 3 && n < want; pass++) {
+			for (int i = pass; i < cols.size() && n < want; i += 3) {
+				Object[] got = takeSurface(p, cols.get(i), ZeroGravityConfig.CLOUD_MAX_TICKS + ZeroGravityConfig.FALL_LIFE + 200);
+				if (got == null) {
+					continue;
+				}
+				BlockPos origin = (BlockPos) got[1];
+				Vec3 at = Vec3.atCenterOf(cols.get(i));
+				Piece pc = add(p, s, (BlockState) got[0], origin, at, CLOUD, n, 0.7f + 0.25f * ((n * 7) % 3) / 2f);
+				if (pc != null) {
+					pc.damage = ZeroGravityConfig.SHOWER_DAMAGE;
+					if (origin != null && taken != null) {
+						taken.add(origin);
+					}
+					n++;
+				}
+			}
+		}
+		if (n > 0) {
+			s.cloudUntil = now + ZeroGravityConfig.CLOUD_MAX_TICKS;
+			s.cloudCenter = p.position().add(0, ZeroGravityConfig.CLOUD_HEIGHT, 0);
+			s.hit.clear();
+		}
+		return n;
+	}
+
+	/**
+	 * The cloud's aim: over the point she looks at (within range), at cloud height above her -- or, under a roof or in a cave,
+	 * a block and a half below the ceiling over that point (never lower than 3 blocks up).
+	 */
+	private static Vec3 cloudTarget(ServerPlayer p) {
+		Vec3 aim = AbilityHelpers.aimPoint(p, ZeroGravityConfig.CLOUD_AIM_RANGE);
+		double base = p.getY() + 1.0;
+		Vec3 from = new Vec3(aim.x, base, aim.z);
+		Vec3 to = new Vec3(aim.x, p.getY() + ZeroGravityConfig.CLOUD_HEIGHT + 1.5, aim.z);
+		BlockHitResult up = p.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		double y = p.getY() + ZeroGravityConfig.CLOUD_HEIGHT;
+		if (up.getType() != HitResult.Type.MISS) {
+			y = Math.max(p.getY() + 3.0, up.getLocation().y - 1.5);
+		}
+		return new Vec3(aim.x, y, aim.z);
+	}
+
+	/** Release: the cloud rains -- every cloud piece falls. Returns how many. */
+	static int rain(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			return 0;
+		}
+		int n = 0;
+		var rnd = p.getRandom();
+		for (Piece pc : s.pieces) {
+			if (pc.kind == CLOUD) {
+				pc.kind = FALL;
+				pc.kindSince = p.level().getGameTime();
+				// a ragged start, so it rains rather than drops as one slab
+				pc.vel = new Vec3((rnd.nextDouble() - 0.5) * 0.1, 0.05 - rnd.nextDouble() * 0.35, (rnd.nextDouble() - 0.5) * 0.1);
+				n++;
+			}
+		}
+		s.cloudUntil = 0L;
+		return n;
+	}
+
+	/** Release: every touched block drops. Returns how many. */
+	static int dropHeld(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			return 0;
+		}
+		int n = 0;
+		for (Piece pc : s.pieces) {
+			if (pc.kind == HELD) {
+				pc.kind = FALL;
+				pc.kindSince = p.level().getGameTime();
+				pc.vel = Vec3.ZERO;
+				n++;
+			}
+		}
+		return n;
+	}
+
+	// ================================================================ G: Comet Toss (a block)
+
+	/** The held / cloud piece nearest her crosshair (within the pick cone), or null. */
+	static @Nullable Piece best(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			return null;
+		}
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double bestDot = Math.cos(Math.toRadians(ZeroGravityConfig.COMET_PICK_DEGREES));
+		Piece best = null;
+		for (Piece pc : s.pieces) {
+			if (pc.kind != HELD && pc.kind != CLOUD) {
+				continue;
+			}
+			Vec3 to = pc.pos.subtract(eye);
+			double d = to.length();
+			if (d < 0.5 || d > ZeroGravityConfig.COMET_PICK_RANGE) {
+				continue;
+			}
+			double dot = to.scale(1.0 / d).dot(look);
+			if (dot > bestDot) {
+				bestDot = dot;
+				best = pc;
+			}
+		}
+		return best;
+	}
+
+	/** Angle-closeness (dot with her look) of the best piece, or -2 if none. */
+	static double bestDot(ServerPlayer p) {
+		Piece pc = best(p);
+		if (pc == null) {
+			return -2.0;
+		}
+		Vec3 to = pc.pos.subtract(p.getEyePosition()).normalize();
+		return to.dot(p.getLookAngle());
+	}
+
+	/** Throws the best piece hard along her aim (from where it is, toward what she aims at). True if one was thrown. */
+	static boolean throwBest(ServerPlayer p) {
+		Piece pc = best(p);
+		if (pc == null) {
+			return false;
+		}
+		Vec3 aim = AbilityHelpers.aimPoint(p, 48.0);
+		Vec3 dir = aim.subtract(pc.pos);
+		dir = dir.lengthSqr() < 1.0e-4 ? p.getLookAngle() : dir.normalize();
+		pc.kind = THROWN;
+		pc.kindSince = p.level().getGameTime();
+		pc.vel = dir.scale(ZeroGravityConfig.COMET_BLOCK_SPEED);
+		pc.damage = ZeroGravityConfig.COMET_DAMAGE;
+		ServerLevel level = p.serverLevel();
+		level.playSound(null, pc.pos.x, pc.pos.y, pc.pos.z, SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 0.9f, 0.6f);
+		return true;
+	}
+
+	// ================================================================ Shift+R: Debris Shield
+
+	static int startShield(ServerPlayer p, @Nullable List<BlockPos> taken) {
 		Session s = session(p);
 		ServerLevel level = p.serverLevel();
-		removeAll(level, s.shower, true);
 		long now = level.getGameTime();
-		List<BlockState> rubble = gather(p, ZeroGravityConfig.SHOWER_PIECES, ZeroGravityConfig.RUBBLE_RESTORE_TICKS, taken);
-		for (int i = 0; i < rubble.size(); i++) {
-			double a = i * Math.PI * 2.0 / rubble.size();
-			Vec3 at = p.position().add(Math.cos(a) * 2.4, 0.3, Math.sin(a) * 2.4);
-			Display.BlockDisplay d = spawn(level, rubble.get(i), at, 0.6f);
-			if (d == null) {
-				continue;
-			}
-			Piece pc = new Piece(d, rubble.get(i), SHOWER, i, now);
-			pc.fireAt = now + ZeroGravityConfig.SHOWER_HOVER_TICKS + (long) i * ZeroGravityConfig.SHOWER_FIRE_GAP;
-			s.shower.add(pc);
-		}
-		s.showerTarget = target == null ? -1 : target.getId();
-		s.showerPoint = point;
-		s.hit.clear();
-		return s.shower.size();
-	}
-
-	private static Vec3 showerAim(ServerPlayer p, Session s) {
-		if (s.showerTarget >= 0 && p.serverLevel().getEntity(s.showerTarget) instanceof LivingEntity le && le.isAlive()) {
-			return ZeroGravityCombat.center(le);
-		}
-		return s.showerPoint;
-	}
-
-	private static void tickShower(ServerPlayer p, Session s, long now) {
-		ServerLevel level = p.serverLevel();
-		Iterator<Piece> it = s.shower.iterator();
-		Vec3 aim = showerAim(p, s);
-		while (it.hasNext()) {
+		for (Iterator<Piece> it = s.pieces.iterator(); it.hasNext();) {
 			Piece pc = it.next();
-			tumble(level, pc, 0.6f, now);
-			if (now - pc.born > ZeroGravityConfig.SHOWER_LIFE) {
+			if (pc.kind == SHIELD) {
 				remove(level, pc, true);
 				it.remove();
-				continue;
 			}
-			if (pc.phase == 0) {
-				double a = pc.slot * Math.PI * 2.0 / ZeroGravityConfig.SHOWER_PIECES + (now - pc.born) * 0.08;
-				Vec3 hover = p.position().add(Math.cos(a) * 1.7, 2.7 + 0.25 * Math.sin(a * 2.0), Math.sin(a) * 1.7);
-				move(level, pc, pc.pos.lerp(hover, 0.25));
-				if (now >= pc.fireAt) {
-					pc.phase = 1;
-					pc.vel = aim.subtract(pc.pos).normalize().scale(ZeroGravityConfig.SHOWER_SPEED);
-					level.playSound(null, pc.pos.x, pc.pos.y, pc.pos.z, SoundEvents.TRIDENT_THROW.value(), SoundSource.PLAYERS, 0.5f, 0.7f);
-				}
-				continue;
-			}
-			// flying, homing a little -- until it is nearly there (then straight on, into the ground if it missed)
-			if (pc.pos.distanceToSqr(aim) > 2.25) {
-				Vec3 want = aim.subtract(pc.pos).normalize().scale(ZeroGravityConfig.SHOWER_SPEED);
-				pc.vel = pc.vel.lerp(want, 0.15);
-			}
-			if (pc.vel.lengthSqr() < 0.25) {
-				pc.vel = new Vec3(pc.vel.x, -ZeroGravityConfig.SHOWER_SPEED, pc.vel.z);
-			}
-			Vec3 next = pc.pos.add(pc.vel);
-			if (impactAlong(p, s, pc.pos, next, ZeroGravityConfig.SHOWER_DAMAGE, ZeroGravityConfig.SHOWER_SPLASH, 0.4)) {
-				remove(level, pc, true);
-				it.remove();
-				continue;
-			}
-			move(level, pc, next);
-			ZeroGravityCombat.trail(level, next);
 		}
+		BlockPos feet = p.blockPosition();
+		int n = 0;
+		int ring = 0;
+		for (int r = 2; r <= 4 && n < ZeroGravityConfig.SHIELD_PIECES; r++) {
+			for (int i = 0; i < 8 && n < ZeroGravityConfig.SHIELD_PIECES; i++) {
+				double a = i * Math.PI / 4 + r * 0.4;
+				BlockPos col = feet.offset((int) Math.round(Math.cos(a) * r), -1, (int) Math.round(Math.sin(a) * r));
+				Object[] got = takeSurface(p, col, ZeroGravityConfig.SHIELD_TICKS + 200);
+				if (got == null) {
+					continue;
+				}
+				BlockPos origin = (BlockPos) got[1];
+				Piece pc = add(p, s, (BlockState) got[0], origin, Vec3.atCenterOf(col), SHIELD, ring++, 0.55f);
+				if (pc != null) {
+					n++;
+					if (origin != null && taken != null) {
+						taken.add(origin);
+					}
+				}
+			}
+		}
+		// any shortfall: a copy of the ground she stands on (nothing taken)
+		BlockState fallback = level.getBlockState(feet.below()).isAir() ? Blocks.COBBLESTONE.defaultBlockState() : level.getBlockState(feet.below());
+		while (n < ZeroGravityConfig.SHIELD_PIECES) {
+			if (add(p, s, fallback, null, p.position().add(0, 0.3, 0), SHIELD, ring++, 0.55f) == null) {
+				break;
+			}
+			n++;
+		}
+		s.shieldUntil = now + ZeroGravityConfig.SHIELD_TICKS;
+		return n;
 	}
 
-	/** A piece flying {@code a}->{@code b}: hits the first creature or block on the way. True if it struck. */
-	private static boolean impactAlong(ServerPlayer p, Session s, Vec3 a, Vec3 b, float damage, double splash, double knock) {
+	static void catchProjectile(ServerLevel level, Projectile pr) {
+		Vec3 at = pr.position();
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.STONE_HIT, SoundSource.PLAYERS, 1.0f, 0.9f);
+		ZeroGravityCombat.burst(level, at, 5, 0.2);
+		pr.discard();
+	}
+
+	// ================================================================ impacts
+
+	/** A piece moving {@code a}->{@code b}: smashes into the first creature or block on the way. True if it struck. */
+	private static boolean impactAlong(ServerPlayer p, Session s, Piece pc, Vec3 a, Vec3 b) {
 		ServerLevel level = p.serverLevel();
 		Vec3 hitAt = null;
 		AABB box = new AABB(a, b).inflate(0.6);
-		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> ZeroGravityCombat.isTarget(p, e))) {
-			if (e.getBoundingBox().inflate(0.35).clip(a, b).isPresent() || e.getBoundingBox().inflate(0.35).contains(b)) {
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> e != p && ZeroGravityCombat.isTarget(p, e))) {
+			AABB eb = e.getBoundingBox().inflate(pc.scale * 0.45);
+			if (eb.clip(a, b).isPresent() || eb.contains(b)) {
 				hitAt = b;
 				break;
 			}
@@ -386,215 +553,148 @@ public final class ZeroGravityDebris {
 			}
 			hitAt = bh.getLocation();
 		}
+		double splash = pc.kind == THROWN ? ZeroGravityConfig.COMET_SPLASH
+				: pc.damage == ZeroGravityConfig.SHOWER_DAMAGE ? ZeroGravityConfig.SHOWER_SPLASH : ZeroGravityConfig.BLOCK_SPLASH;
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(hitAt, hitAt).inflate(splash),
-				e -> ZeroGravityCombat.isTarget(p, e))) {
-			ZeroGravityCombat.strike(p, e, hitAt, damage, knock, 0.15);
+				e -> e != p && ZeroGravityCombat.isTarget(p, e))) {
+			ZeroGravityCombat.strike(p, e, hitAt, pc.damage, pc.kind == THROWN ? 0.6 : 0.3, 0.15);
 		}
-		level.playSound(null, hitAt.x, hitAt.y, hitAt.z, SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 0.9f, 0.8f);
+		level.playSound(null, hitAt.x, hitAt.y, hitAt.z, SoundEvents.STONE_BREAK, SoundSource.PLAYERS, 1.0f, 0.75f);
+		if (pc.kind == THROWN || pc.scale > 0.9f) {
+			level.playSound(null, hitAt.x, hitAt.y, hitAt.z, SoundEvents.MACE_SMASH_GROUND, SoundSource.PLAYERS, 0.8f, 1.0f);
+			level.sendParticles(ParticleTypes.EXPLOSION, hitAt.x, hitAt.y + 0.2, hitAt.z, 1, 0, 0, 0, 0);
+		}
+		level.sendParticles(ParticleTypes.CLOUD, hitAt.x, hitAt.y + 0.2, hitAt.z, 4, 0.3, 0.1, 0.3, 0.02);
 		ZeroGravityCombat.burst(level, hitAt, 4, 0.3);
 		return true;
-	}
-
-	// ================================================================ Shift+X: Debris Shield
-
-	static int startShield(ServerPlayer p, @Nullable List<BlockPos> taken) {
-		Session s = session(p);
-		ServerLevel level = p.serverLevel();
-		removeAll(level, s.shield, true);
-		long now = level.getGameTime();
-		List<BlockState> rubble = gather(p, ZeroGravityConfig.SHIELD_PIECES, ZeroGravityConfig.RUBBLE_RESTORE_TICKS, taken);
-		for (int i = 0; i < rubble.size(); i++) {
-			double a = i * Math.PI * 2.0 / rubble.size();
-			Vec3 at = p.position().add(Math.cos(a) * 2.0, 0.2, Math.sin(a) * 2.0);
-			Display.BlockDisplay d = spawn(level, rubble.get(i), at, 0.55f);
-			if (d != null) {
-				s.shield.add(new Piece(d, rubble.get(i), SHIELD, i, now));
-			}
-		}
-		s.shieldUntil = now + ZeroGravityConfig.SHIELD_TICKS;
-		return s.shield.size();
-	}
-
-	private static void tickShield(ServerPlayer p, Session s, long now) {
-		ServerLevel level = p.serverLevel();
-		if (now >= s.shieldUntil) {
-			removeAll(level, s.shield, true);
-			return;
-		}
-		int n = Math.max(1, s.shield.size());
-		for (Piece pc : s.shield) {
-			double a = pc.slot * Math.PI * 2.0 / n + (now - pc.born) * 0.22;
-			Vec3 at = p.position().add(Math.cos(a) * ZeroGravityConfig.SHIELD_RADIUS, 1.0 + 0.35 * Math.sin(a * 2.0 + pc.slot),
-					Math.sin(a) * ZeroGravityConfig.SHIELD_RADIUS);
-			move(level, pc, pc.pos.lerp(at, 0.5));
-			tumble(level, pc, 0.55f, now);
-		}
-		// projectiles that come close are stopped by the rubble
-		Vec3 c = p.position().add(0, 1.0, 0);
-		double r = ZeroGravityConfig.SHIELD_CATCH_RADIUS;
-		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(r + 2.0),
-				pr -> pr.isAlive() && pr.getOwner() != p)) {
-			Vec3 next = pr.position().add(pr.getDeltaMovement());
-			if (pr.position().distanceTo(c) <= r || next.distanceTo(c) <= r) {
-				catchProjectile(level, pr);
-			}
-		}
-	}
-
-	static void catchProjectile(ServerLevel level, Projectile pr) {
-		Vec3 at = pr.position();
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.STONE_HIT, SoundSource.PLAYERS, 1.0f, 0.9f);
-		ZeroGravityCombat.burst(level, at, 5, 0.2);
-		pr.discard();
-	}
-
-	// ================================================================ Shift+V: Uravity Meteor
-
-	/** Rips up a 3x3 slab of ground before her; it rises above {@code target} and comes down on it. */
-	static int startMeteor(ServerPlayer p, @Nullable LivingEntity target, Vec3 point, @Nullable List<BlockPos> taken) {
-		Session s = session(p);
-		ServerLevel level = p.serverLevel();
-		if (s.meteor != null) {
-			removeAll(level, s.meteor.pieces, true);
-		}
-		Meteor m = new Meteor();
-		long now = level.getGameTime();
-		m.born = now;
-		m.targetId = target == null ? -1 : target.getId();
-		m.point = point;
-		Vec3 l = p.getLookAngle();
-		Vec3 f = new Vec3(l.x, 0, l.z);
-		f = f.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0f, p.getYRot()) : f.normalize();
-		BlockPos mid = BlockPos.containing(p.position().add(f.scale(3.0))).below();
-		int slot = 0;
-		for (int dx = -1; dx <= 1; dx++) {
-			for (int dz = -1; dz <= 1; dz++) {
-				BlockState st = takeSurface(p, mid.offset(dx, 0, dz), ZeroGravityConfig.METEOR_RESTORE_TICKS, taken);
-				if (st == null) {
-					st = Blocks.STONE.defaultBlockState();
-				}
-				Vec3 at = Vec3.atCenterOf(mid.offset(dx, 0, dz));
-				Display.BlockDisplay d = spawn(level, st, at, 1.0f);
-				if (d == null) {
-					continue;
-				}
-				Piece pc = new Piece(d, st, METEOR, slot++, now);
-				pc.ox = dx;
-				pc.oz = dz;
-				pc.from = at;
-				m.pieces.add(pc);
-			}
-		}
-		s.meteor = m;
-		s.hit.clear();
-		level.playSound(null, mid.getX() + 0.5, mid.getY() + 1.0, mid.getZ() + 0.5, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.5f, 0.6f);
-		return m.pieces.size();
-	}
-
-	private static Vec3 meteorAim(ServerPlayer p, Meteor m) {
-		if (m.targetId >= 0 && p.serverLevel().getEntity(m.targetId) instanceof LivingEntity le && le.isAlive()) {
-			m.point = le.position();
-		}
-		return m.point;
-	}
-
-	private static void tickMeteor(ServerPlayer p, Session s, long now) {
-		Meteor m = s.meteor;
-		ServerLevel level = p.serverLevel();
-		long age = now - m.born;
-		if (age > ZeroGravityConfig.METEOR_LIFE) {
-			removeAll(level, m.pieces, true);
-			s.meteor = null;
-			return;
-		}
-		Vec3 aim = meteorAim(p, m);
-		double topY = aim.y + ZeroGravityConfig.METEOR_HEIGHT;
-		if (age < ZeroGravityConfig.METEOR_RISE_TICKS) {
-			float t = Mth.clamp(age / (float) ZeroGravityConfig.METEOR_RISE_TICKS, 0f, 1f);
-			float e = t * t * (3f - 2f * t);
-			for (Piece pc : m.pieces) {
-				Vec3 top = new Vec3(aim.x + pc.ox, topY, aim.z + pc.oz);
-				Vec3 arc = pc.from.lerp(top, e).add(0, Math.sin(e * Math.PI) * 2.0, 0);
-				move(level, pc, arc);
-			}
-			if (age % 4 == 0) {
-				ZeroGravityCombat.burst(level, m.pieces.isEmpty() ? aim : m.pieces.get(0).pos, 3, 0.8);
-			}
-			return;
-		}
-		if (age < ZeroGravityConfig.METEOR_RISE_TICKS + ZeroGravityConfig.METEOR_HOLD_TICKS) {
-			for (Piece pc : m.pieces) {
-				move(level, pc, new Vec3(aim.x + pc.ox, topY, aim.z + pc.oz));
-			}
-			return;
-		}
-		// falling: faster every tick; the slab lands as one
-		m.phase = 2;
-		m.fall = Math.min(2.2, m.fall + 0.18);
-		boolean landed = false;
-		Vec3 impact = null;
-		for (Piece pc : m.pieces) {
-			Vec3 next = new Vec3(pc.pos.x, pc.pos.y - m.fall, pc.pos.z);
-			BlockHitResult bh = level.clip(new ClipContext(pc.pos, next.add(0, -0.5, 0), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
-			if (bh.getType() != HitResult.Type.MISS) {
-				landed = true;
-				impact = bh.getLocation();
-			}
-			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(pc.pos, next).inflate(0.5),
-					e -> ZeroGravityCombat.isTarget(p, e))) {
-				landed = true;
-				impact = next;
-			}
-			move(level, pc, next);
-		}
-		if (landed) {
-			Vec3 c = impact == null ? aim : new Vec3(aim.x, impact.y, aim.z);
-			for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new AABB(c, c).inflate(ZeroGravityConfig.METEOR_RADIUS, 2.5,
-					ZeroGravityConfig.METEOR_RADIUS), e -> ZeroGravityCombat.isTarget(p, e))) {
-				if (s.hit.add(e.getId())) {
-					ZeroGravityCombat.strike(p, e, c, ZeroGravityConfig.METEOR_DAMAGE, ZeroGravityConfig.METEOR_KNOCKBACK, 0.35);
-				}
-			}
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.0f, 0.7f);
-			level.playSound(null, c.x, c.y, c.z, SoundEvents.MACE_SMASH_GROUND_HEAVY, SoundSource.PLAYERS, 1.0f, 0.8f);
-			level.sendParticles(net.minecraft.core.particles.ParticleTypes.EXPLOSION, c.x, c.y + 0.5, c.z, 3, 1.0, 0.3, 1.0, 0.0);
-			ZeroGravityCombat.burst(level, c.add(0, 0.5, 0), 20, 1.4);
-			removeAll(level, m.pieces, true);
-			s.meteor = null;
-		}
 	}
 
 	// ================================================================ tick / stop
 
 	static void tick(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
-		if (s == null) {
+		if (s == null || s.pieces.isEmpty()) {
 			return;
 		}
-		long now = p.level().getGameTime();
-		if (!s.shower.isEmpty()) {
-			tickShower(p, s, now);
+		ServerLevel level = p.serverLevel();
+		long now = level.getGameTime();
+		if (s.cloudUntil != 0L && now >= s.cloudUntil) {
+			rain(p);
 		}
-		if (!s.shield.isEmpty()) {
-			tickShield(p, s, now);
+		boolean shieldDone = now >= s.shieldUntil;
+		Vec3 cloudTo = cloudTarget(p);
+		s.cloudCenter = s.cloudCenter.lerp(cloudTo, 0.08);
+		int cloudN = Math.max(1, count(p, CLOUD));
+		int shieldN = Math.max(1, count(p, SHIELD));
+		int ci = 0, si = 0;
+		Iterator<Piece> it = s.pieces.iterator();
+		while (it.hasNext()) {
+			Piece pc = it.next();
+			switch (pc.kind) {
+				case HELD -> {
+					if (pc.pos.distanceToSqr(p.position()) > ZeroGravityConfig.FLOAT_LEASH * ZeroGravityConfig.FLOAT_LEASH) {
+						pc.kind = FALL;
+						pc.kindSince = now;
+						continue;
+					}
+					double t = (now - pc.born) * 0.06 + pc.slot;
+					Vec3 bob = pc.home.add(Math.sin(t) * 0.12, Math.sin(t * 1.3) * 0.15, Math.cos(t) * 0.12);
+					move(level, pc, pc.pos.lerp(bob, 0.15));
+					tumble(level, pc, now, 0.03f);
+					if ((now + pc.slot) % 4 == 0) {
+						ZeroGravityCombat.trail(level, pc.pos.add(0, -0.5, 0));
+					}
+				}
+				case CLOUD -> {
+					double a = ci * Math.PI * 2.0 / cloudN + (now - pc.born) * 0.025;
+					double rr = ZeroGravityConfig.CLOUD_RADIUS * (0.45 + 0.55 * ((ci % 3) / 2.0));
+					Vec3 at = s.cloudCenter.add(Math.cos(a) * rr, Math.sin(a * 2.0 + ci) * 0.6 + (ci % 2) * 0.8, Math.sin(a) * rr);
+					// rising from the ground first: faster when far
+					move(level, pc, pc.pos.lerp(at, now - pc.born < 30 ? 0.09 : 0.2));
+					tumble(level, pc, now, 0.08f);
+					if ((now + pc.slot) % 5 == 0) {
+						ZeroGravityCombat.trail(level, pc.pos);
+					}
+					ci++;
+				}
+				case SHIELD -> {
+					if (shieldDone) {
+						remove(level, pc, true);
+						it.remove();
+						continue;
+					}
+					double a = si * Math.PI * 2.0 / shieldN + (now - pc.born) * 0.22;
+					Vec3 at = p.position().add(Math.cos(a) * ZeroGravityConfig.SHIELD_RADIUS, 1.0 + 0.35 * Math.sin(a * 2.0 + si),
+							Math.sin(a) * ZeroGravityConfig.SHIELD_RADIUS);
+					move(level, pc, pc.pos.lerp(at, 0.5));
+					tumble(level, pc, now, 0.12f);
+					si++;
+				}
+				case FALL, THROWN -> {
+					boolean thrown = pc.kind == THROWN;
+					if (now - pc.kindSince > (thrown ? ZeroGravityConfig.COMET_WATCH_TICKS + 20 : ZeroGravityConfig.FALL_LIFE)) {
+						remove(level, pc, true);
+						it.remove();
+						continue;
+					}
+					double g = thrown ? 0.02 : ZeroGravityConfig.FALL_GRAVITY;
+					pc.vel = new Vec3(pc.vel.x * 0.99, Math.max(-ZeroGravityConfig.FALL_MAX_SPEED, pc.vel.y - g), pc.vel.z * 0.99);
+					Vec3 next = pc.pos.add(pc.vel);
+					if (impactAlong(p, s, pc, pc.pos, next)) {
+						remove(level, pc, true);
+						it.remove();
+						continue;
+					}
+					move(level, pc, next);
+					tumble(level, pc, now, thrown ? 0.3f : 0.15f);
+					if (thrown || (now % 2 == 0)) {
+						ZeroGravityCombat.trail(level, next);
+					}
+				}
+				default -> {
+				}
+			}
 		}
-		if (s.meteor != null) {
-			tickMeteor(p, s, now);
+		// projectiles that come close to the shield are stopped by the rubble
+		if (!shieldDone && count(p, SHIELD) > 0) {
+			Vec3 c = p.position().add(0, 1.0, 0);
+			double r = ZeroGravityConfig.SHIELD_CATCH_RADIUS;
+			for (Projectile pr : level.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(r + 2.0), pr -> pr.isAlive() && pr.getOwner() != p)) {
+				Vec3 next = pr.position().add(pr.getDeltaMovement());
+				if (pr.position().distanceTo(c) <= r || next.distanceTo(c) <= r) {
+					catchProjectile(level, pr);
+				}
+			}
 		}
 	}
 
-	/** Drops every piece (the ground keeps its own restore clock). */
+	/** Every piece goes at once, the ground put back (stopAll: death, logout, sickness, Erasure...). */
 	static void dropAll(ServerPlayer p) {
 		Session s = SESSIONS.remove(p.getUUID());
 		if (s == null) {
 			return;
 		}
 		ServerLevel level = p.serverLevel();
-		removeAll(level, s.shower, true);
-		removeAll(level, s.shield, true);
-		if (s.meteor != null) {
-			removeAll(level, s.meteor.pieces, true);
+		for (Piece pc : s.pieces) {
+			remove(level, pc, true);
 		}
+		s.pieces.clear();
+	}
+
+	/** Settle: every piece is lowered away quietly -- dissolved in pink sparkles, the ground put back. Returns how many. */
+	static int dissolveAll(ServerPlayer p) {
+		Session s = SESSIONS.remove(p.getUUID());
+		if (s == null) {
+			return 0;
+		}
+		ServerLevel level = p.serverLevel();
+		int n = s.pieces.size();
+		for (Piece pc : s.pieces) {
+			ZeroGravityCombat.burst(level, pc.pos, 4, 0.25);
+			remove(level, pc, false);
+		}
+		s.pieces.clear();
+		return n;
 	}
 
 	/** SERVER_STOPPING: nothing of hers is saved into the world. */

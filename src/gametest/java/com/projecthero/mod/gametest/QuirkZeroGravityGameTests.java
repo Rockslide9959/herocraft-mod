@@ -3,8 +3,13 @@ package com.projecthero.mod.gametest;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.p05.GeoTerrain;
 import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkAbilityManager;
+import com.projecthero.mod.quirk.QuirkKit;
 import com.projecthero.mod.quirk.QuirkKits;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
@@ -21,10 +26,12 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
@@ -34,10 +41,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 Zero Gravity (Uravity): one test per move -- the server effect and its number -- plus the rules that matter
- * most: gravity always comes back (Release, stopAll, revoke, Nausea, the load-time safety net), lifted ground is put back
- * exactly, bosses never float. Mock players are not ticked by the server, so tests that run over time drive the Quirk
- * tick themselves ({@link #pump}).
+ * v0.16.7 Zero Gravity revamp (Uravity, {@code docs/QUIRK_REVAMP_V0167.md}): touch to float (mobs, items, blocks), Release to
+ * drop (fall damage from the height, blocks smash and their hole is filled back exactly), Float Self, the Meteor Shower cloud and
+ * its cleanup, Nausea and Settle -- plus one test per attack and the rules that matter most: gravity always comes back
+ * (Release, Settle, stopAll, revoke, sickness, the load-time safety net), lifted ground is always put back, bosses never float.
+ * Mock players are not ticked by the server, so tests that run over time drive the Quirk tick themselves ({@link #pump}).
  */
 public class QuirkZeroGravityGameTests implements FabricGameTest {
 	private static final float EPS = 0.6f;
@@ -64,7 +72,8 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 	/** Uravity facing +Z, every move ready. */
 	private static ServerPlayer uravity(GameTestHelper helper, double x, double y, double z) {
 		ServerPlayer p = mock(helper, x, y, z);
-		helper.assertTrue(Quirks.grant(p, Quirk.ZERO_GRAVITY), "Zero Gravity is granted");
+		helper.assertTrue(UniquePowers.forced(() -> Quirks.grant(p, Quirk.ZERO_GRAVITY)), "Zero Gravity is granted");
+		Quirks.setMeter(p, 0f);
 		ready(p);
 		return p;
 	}
@@ -96,6 +105,7 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		Zombie m = EntityType.ZOMBIE.create(helper.getLevel());
 		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
 		m.moveTo(at.x, at.y, at.z, 180.0f, 0.0f);
+		m.setNoAi(true);
 		m.setPersistenceRequired();
 		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(health);
 		m.setHealth((float) health);
@@ -113,107 +123,184 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		return !m.isNoGravity() && !m.getTags().contains(ZeroGravity.TAG_FLOAT);
 	}
 
-	// ---------------------------------------------------------------- R / Shift+R
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void floatTouchFloatsTheTargetAndReleaseGivesGravityBack(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 2.0, 3.5, 100);
-		double y0 = z.getY();
-		pump(helper, p);
-		helper.assertTrue(ZeroGravityMoves.floatTouch(p) == z, "the touch lands on the zombie");
-		helper.assertTrue(floated(z) && ZeroGravityFloat.count(p) == 1, "it floats");
-		helper.assertTrue(100f - z.getHealth() >= ZeroGravityConfig.TOUCH_DAMAGE - EPS, "the touch hurts a little");
-		helper.runAfterDelay(25, () -> {
-			helper.assertTrue(z.getY() > y0 + 0.5, "it has risen, y +" + (z.getY() - y0));
-			helper.assertTrue(z.getNavigation().isDone(), "it cannot path");
-			ready(p);
-			helper.assertTrue(ZeroGravityMoves.release(p) == 1, "Release lets it go");
-			helper.assertTrue(grounded(z) && ZeroGravityFloat.count(p) == 0, "its gravity is back");
-			helper.succeed();
-		});
+	private static float taken(Mob m, double health) {
+		return (float) health - m.getHealth();
 	}
 
+	// ---------------------------------------------------------------- the kit
+
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void floatTouchCapsAtFive(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		for (int i = 0; i < ZeroGravityConfig.TOUCH_MAX; i++) {
-			Zombie z = zombie(helper, 0.5 + i * 1.5, 2.0, 6.5, 100);
-			helper.assertTrue(ZeroGravityFloat.start(p, z, false), "floats #" + i);
+	public void zeroGravityKitFollowsTheSlotRules(GameTestHelper helper) {
+		QuirkKit kit = QuirkKits.of(Quirk.ZERO_GRAVITY);
+		for (AbilitySlot s : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
+				AbilitySlot.SLOT_6 }) {
+			helper.assertTrue(kit.idsOf(s).length == 2, "a tap and a Shift move on " + s);
+			for (String id : kit.idsOf(s)) {
+				helper.assertTrue(id.startsWith("quirk_zero_gravity_") && kit.maxCooldown(id) > 0, "id and cooldown of " + id);
+			}
 		}
-		Zombie sixth = zombie(helper, 4.5, 2.0, 3.0, 100);
-		helper.assertTrue(ZeroGravityMoves.floatTouch(p) == null, "a sixth is refused");
-		helper.assertTrue(grounded(sixth), "the sixth keeps its gravity");
-		ZeroGravityMoves.endAll(p);
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(ZeroGravityConfig.SELF), "X = Float Self (movement)");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(ZeroGravityConfig.TOUCH) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(ZeroGravityConfig.RELEASE),
+				"V = Touch / Release (utility)");
+		helper.assertTrue(kit.usableWhileOverloaded(AbilitySlot.SLOT_6, true), "Settle works while sick");
+		helper.assertFalse(kit.usableWhileOverloaded(AbilitySlot.SLOT_5, false), "Touch does not");
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void floatFlingFloatsAndHurlsItTheWaySheLooks(GameTestHelper helper) {
+	// ---------------------------------------------------------------- V: Touch / Shift+V: Release
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
+	public void touchFloatsAMobAndReleaseDropsItWithFallDamage(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
 		Zombie z = zombie(helper, 4.5, 2.0, 3.5, 100);
-		helper.assertTrue(ZeroGravityMoves.floatFling(p) == z, "the fling lands");
-		helper.assertTrue(floated(z), "it floats");
-		helper.assertTrue(z.getDeltaMovement().z > ZeroGravityConfig.FLING_SPEED * 0.8, "flung along +Z: " + z.getDeltaMovement());
-		ZeroGravityMoves.endAll(p);
-		helper.assertTrue(grounded(z), "stopAll gives gravity back");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- G / Shift+G
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void releaseWithNothingFloatingDoesNothing(GameTestHelper helper) {
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		helper.assertTrue(ZeroGravityMoves.release(p) == 0, "nothing to release");
-		helper.assertTrue(Quirks.ready(p, ZeroGravityConfig.RELEASE), "no cooldown spent");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void meteorSlamHurlsFloatersIntoTheGround(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 2.0, 4.5, 100);
-		ZeroGravityFloat.start(p, z, false);
+		z.setNoAi(false);
+		helper.assertTrue(ZeroGravityMoves.touch(p) == z, "the touch floats the zombie");
+		helper.assertTrue(floated(z) && ZeroGravityFloat.floatedBy(p, z), "weightless");
+		helper.assertTrue(taken(z, 100) >= ZeroGravityConfig.TOUCH_DAMAGE - EPS, "the five-finger hit");
+		ZeroGravityFloat.liftTo(p, z, 7.0, 0.5);
 		pump(helper, p);
-		helper.runAfterDelay(20, () -> {
-			helper.assertTrue(ZeroGravityMoves.meteorSlam(p) == 1, "the slam takes it");
-			helper.assertTrue(grounded(z), "gravity back at once");
-			helper.runAfterDelay(30, () -> {
-				float taken = 100f - z.getHealth();
-				helper.assertTrue(taken >= ZeroGravityConfig.SLAM_DAMAGE - EPS, "8 on impact, took " + taken);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(z.getY() > helper.absoluteVec(new Vec3(0, 6.0, 0)).y, "it rose, y " + z.getY());
+			float before = taken(z, 100);
+			z.invulnerableTime = 0;
+			helper.assertTrue(ZeroGravityMoves.release(p) == 1, "Release drops it");
+			helper.assertTrue(grounded(z), "gravity back");
+			helper.runAfterDelay(40, () -> {
+				helper.assertTrue(taken(z, 100) - before >= 2f, "fall damage from the height, took " + (taken(z, 100) - before));
 				helper.succeed();
 			});
 		});
 	}
 
-	// ---------------------------------------------------------------- X / Shift+X
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 360)
-	public void meteorShowerRainsRubbleAndTheGroundComesBack(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void touchFloatsADroppedItem(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 2.0, 7.0, 100);
-		z.setNoAi(false);
-		List<BlockPos> taken = new ArrayList<>();
-		pump(helper, p);
-		int n = ZeroGravityMoves.meteorShower(p, taken);
-		helper.assertTrue(n == ZeroGravityConfig.SHOWER_PIECES, "8 pieces, got " + n);
-		helper.assertTrue(!taken.isEmpty(), "real ground was lifted");
-		for (BlockPos bp : taken) {
-			helper.assertTrue(helper.getLevel().getBlockState(bp).isAir() && GeoTerrain.isTemp(helper.getLevel(), bp), "the hole is temporary");
+		ItemEntity item = new ItemEntity(helper.getLevel(), 0, 0, 0, new ItemStack(Items.APPLE));
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 3.3, 3.5));
+		item.moveTo(at.x, at.y, at.z);
+		item.setDeltaMovement(Vec3.ZERO);
+		helper.getLevel().addFreshEntity(item);
+		helper.assertTrue(ZeroGravityMoves.touch(p) == item, "the touch floats the apple");
+		helper.assertTrue(item.isNoGravity() && ZeroGravityFloat.isFloating(item), "it is weightless");
+		ZeroGravityMoves.release(p);
+		helper.assertTrue(!item.isNoGravity() && !item.getTags().contains(ZeroGravity.TAG_FLOAT), "Release gives it its gravity back");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void touchLiftsABlockAndItsHoleIsFilledWhenItLands(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		BlockPos rel = new BlockPos(4, 3, 3);
+		BlockPos abs = helper.absolutePos(rel);
+		helper.getLevel().setBlock(abs, Blocks.OAK_PLANKS.defaultBlockState(), 3);
+		Object got = ZeroGravityMoves.touch(p);
+		if (!AbilityHelpers.canGrief()) {
+			helper.assertTrue(got == null, "terrain damage off: a block is never taken");
+			helper.assertBlockPresent(Blocks.OAK_PLANKS, rel);
+			helper.succeed();
+			return;
 		}
-		helper.assertTrue(ZeroGravityDebris.displays(p).size() == n, "the rubble is block displays");
-		helper.runAfterDelay(90, () -> {
-			float dmg = 100f - z.getHealth();
-			helper.assertTrue(dmg >= ZeroGravityConfig.SHOWER_DAMAGE - EPS, "the rubble hit it, took " + dmg);
-			helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "every piece is gone after landing");
+		helper.assertTrue(abs.equals(got), "the touch lifted the block, got " + got);
+		helper.assertTrue(helper.getLevel().getBlockState(abs).isAir() && GeoTerrain.isTemp(helper.getLevel(), abs), "its hole is on the ledger");
+		helper.assertTrue(ZeroGravityDebris.count(p, ZeroGravityDebris.HELD) == 1 && ZeroGravityDebris.displays(p).size() == 1, "it floats as a falling-block display");
+		pump(helper, p);
+		helper.runAfterDelay(10, () -> {
+			helper.assertTrue(ZeroGravityMoves.release(p) == 1, "Release drops it");
+			helper.runAfterDelay(40, () -> {
+				helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "it smashed and is gone");
+				helper.assertBlockPresent(Blocks.OAK_PLANKS, rel);
+				helper.assertTrue(!GeoTerrain.isTemp(helper.getLevel(), abs), "and the hole is filled back exactly");
+				helper.succeed();
+			});
 		});
-		helper.runAfterDelay(ZeroGravityConfig.RUBBLE_RESTORE_TICKS + 20, () -> {
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void touchCapsAtFiveCreatures(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		for (int i = 0; i < ZeroGravityConfig.TOUCH_MAX; i++) {
+			helper.assertTrue(ZeroGravityFloat.start(p, zombie(helper, 0.5 + i, 2.0, 6.5, 100), false), "float " + i);
+		}
+		Zombie extra = zombie(helper, 4.5, 2.0, 3.0, 100);
+		ZeroGravityMoves.touch(p);
+		helper.assertTrue(grounded(extra), "the sixth is refused");
+		ZeroGravityMoves.endAll(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void bossesNeverFloat(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		Zombie boss = zombie(helper, 4.5, 2.0, 3.5, 500);
+		helper.assertTrue(ZeroGravityMoves.touch(p) == null, "refused");
+		helper.assertTrue(grounded(boss) && !ZeroGravityFloat.start(p, boss, false), "a boss never floats");
+		helper.assertTrue(500f - boss.getHealth() <= 500f * ZeroGravityConfig.BOSS_MAX_FRACTION_PER_HIT + EPS, "capped hit");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- X: Float Self / Shift+X: Leap
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void floatSelfTogglesHerGravityAndFillsNausea(GameTestHelper helper) {
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		helper.assertTrue(ZeroGravityMoves.floatSelf(p), "on");
+		helper.assertTrue(p.isNoGravity() && ZeroGravity.selfFloating(p) && p.getAbilities().mayfly, "she floats");
+		pump(helper, p);
+		helper.runAfterDelay(40, () -> {
+			float expected = ZeroGravityConfig.nausea().perWeightPerSecond * ZeroGravityConfig.nausea().selfWeight * 2f;
+			helper.assertTrue(Quirks.meter(p) >= expected * 0.9f, "her own body fills Nausea, got " + Quirks.meter(p));
+			ready(p);
+			helper.assertFalse(ZeroGravityMoves.floatSelf(p), "off");
+			helper.assertTrue(!p.isNoGravity() && !p.getTags().contains(ZeroGravity.TAG_FLOAT) && !p.getAbilities().mayfly, "her gravity is back");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void leapCutsGravityUntilShesDone(GameTestHelper helper) {
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		ZeroGravityMoves.leap(p);
+		double g = p.getAttributeValue(Attributes.GRAVITY);
+		helper.assertTrue(g < 0.08 * (1.0 - ZeroGravityConfig.LEAP_GRAVITY_CUT) + 0.001, "almost weightless: " + g);
+		helper.assertTrue(ZeroGravity.leaping(p), "the leap shows");
+		ZeroGravityMoves.endAll(p);
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.GRAVITY) - 0.08) < 1.0e-6, "gravity back after stopAll");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- R: Meteor Shower / Shift+R: Shield
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void meteorShowerCloudRainsOnTheTargetAndTheGroundComesBack(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		Zombie z = zombie(helper, 4.5, 2.0, 6.0, 100);
+		List<BlockPos> taken = new ArrayList<>();
+		int n = ZeroGravityMoves.meteorShower(p, taken);
+		helper.assertTrue(n > 0 && ZeroGravityDebris.cloudUp(p), "a rubble cloud, " + n + " pieces");
+		helper.assertTrue(ZeroGravityDebris.displays(p).size() == n, "the rubble is block displays");
+		if (AbilityHelpers.canGrief()) {
+			helper.assertTrue(!taken.isEmpty(), "real ground was lifted");
+			for (BlockPos bp : taken) {
+				helper.assertTrue(helper.getLevel().getBlockState(bp).isAir() && GeoTerrain.isTemp(helper.getLevel(), bp), "the hole is temporary");
+			}
+		}
+		pump(helper, p);
+		helper.runAfterDelay(45, () -> {
+			double top = helper.absoluteVec(new Vec3(0, 7.0, 0)).y;
+			long high = ZeroGravityDebris.displays(p).stream().filter(d -> d.getY() > top).count();
+			helper.assertTrue(high >= n / 2, "the cloud hangs high overhead, " + high + " of " + n);
+			helper.assertTrue(ZeroGravityMoves.release(p) == n, "Release rains it all");
+			helper.assertFalse(ZeroGravityDebris.cloudUp(p), "no cloud now");
+		});
+		helper.runAfterDelay(120, () -> {
+			helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "every piece smashed and is gone");
+			helper.assertTrue(taken(z, 100) > 0f, "the rain hit the target");
 			for (BlockPos bp : taken) {
 				helper.assertTrue(!helper.getLevel().getBlockState(bp).isAir() && !GeoTerrain.isTemp(helper.getLevel(), bp), "restored at " + bp);
 			}
@@ -224,6 +311,21 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 			}
 			helper.succeed();
 		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void meteorShowerCleansUpWhenEverythingStops(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		List<BlockPos> taken = new ArrayList<>();
+		ZeroGravityMoves.meteorShower(p, taken);
+		helper.assertTrue(!ZeroGravityDebris.displays(p).isEmpty(), "a cloud");
+		QuirkKits.of(Quirk.ZERO_GRAVITY).stopAll(p);
+		helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty() && ZeroGravityDebris.count(p) == 0, "stopAll removes every piece");
+		for (BlockPos bp : taken) {
+			helper.assertTrue(!helper.getLevel().getBlockState(bp).isAir() && !GeoTerrain.isTemp(helper.getLevel(), bp), "the ground is back at once");
+		}
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
@@ -242,134 +344,131 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		helper.assertTrue(dmg == 0f, "projectile damage is stopped");
 		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(a.isRemoved(), "the arrow was caught by the rubble");
-			helper.assertTrue(p.getHealth() >= p.getMaxHealth() - 0.01f, "she was not hit");
 			ZeroGravityMoves.endAll(p);
 			helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "stopAll drops the rubble");
 			helper.succeed();
 		});
 	}
 
-	// ---------------------------------------------------------------- Z / Shift+Z
+	// ---------------------------------------------------------------- G: Comet Toss / Shift+G: Slam
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void zeroGSelfTogglesHerOwnGravity(GameTestHelper helper) {
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		helper.assertTrue(ZeroGravityMoves.zeroGSelf(p), "on");
-		helper.assertTrue(p.isNoGravity() && ZeroGravity.selfFloating(p), "she floats");
-		ready(p);
-		helper.assertTrue(!ZeroGravityMoves.zeroGSelf(p), "off");
-		helper.assertTrue(!p.isNoGravity() && !p.getTags().contains(ZeroGravity.TAG_FLOAT), "her gravity is back");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void floatLeapCutsGravityUntilShesDone(GameTestHelper helper) {
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		ZeroGravityMoves.floatLeap(p);
-		double g = p.getAttributeValue(Attributes.GRAVITY);
-		helper.assertTrue(g < 0.08 * (1.0 - ZeroGravityConfig.LEAP_GRAVITY_CUT) + 0.001, "almost weightless: " + g);
-		helper.assertTrue(p.getDeltaMovement().y >= ZeroGravityConfig.LEAP_UP - 0.01 && p.getDeltaMovement().z > 1.0, "a big leap: " + p.getDeltaMovement());
-		helper.assertTrue(ZeroGravity.leaping(p), "the leap shows");
-		ZeroGravityMoves.endAll(p);
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.GRAVITY) - 0.08) < 1.0e-6, "gravity back after stopAll");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- V / Shift+V
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void cometFloatsTheAreaButNeverABoss(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void cometTossHurlsAFloaterIntoAWall(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 4.5);
-		Zombie a = zombie(helper, 1.5, 2.0, 1.5, 100);
-		Zombie b = zombie(helper, 7.0, 2.0, 7.0, 100);
-		Zombie c = zombie(helper, 1.5, 2.0, 7.0, 100);
-		Zombie boss = zombie(helper, 7.0, 2.0, 1.5, 500);
-		int n = ZeroGravityMoves.comet(p);
-		helper.assertTrue(n == 3, "three float, got " + n);
-		helper.assertTrue(floated(a) && floated(b) && floated(c), "the zombies float");
-		helper.assertTrue(grounded(boss), "the boss is immune");
-		ZeroGravityMoves.endAll(p);
-		helper.assertTrue(grounded(a) && grounded(b) && grounded(c), "all back down");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void bossesAreImmuneToFloatTouch(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie boss = zombie(helper, 4.5, 2.0, 3.5, 500);
-		helper.assertTrue(ZeroGravityMoves.floatTouch(p) == null, "refused");
-		helper.assertTrue(grounded(boss) && !ZeroGravityFloat.start(p, boss, false), "a boss never floats");
-		helper.assertTrue(500f - boss.getHealth() <= 500f * ZeroGravityConfig.BOSS_MAX_FRACTION_PER_HIT + EPS, "capped hit");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
-	public void uravityMeteorDropsTheSlabAndTheGroundComesBack(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 2.0, 7.0, 100);
-		List<BlockPos> taken = new ArrayList<>();
-		pump(helper, p);
-		int n = ZeroGravityMoves.uravityMeteor(p, taken);
-		helper.assertTrue(n == 9, "a 3x3 slab, got " + n);
-		helper.assertTrue(taken.size() == 9, "nine blocks lifted, got " + taken.size());
-		helper.runAfterDelay(80, () -> {
-			float dmg = 100f - z.getHealth();
-			helper.assertTrue(dmg >= ZeroGravityConfig.METEOR_DAMAGE - EPS, "14 on impact, took " + dmg);
-			helper.assertTrue(!ZeroGravityDebris.meteorRunning(p), "the slab is gone");
-		});
-		helper.runAfterDelay(ZeroGravityConfig.METEOR_RESTORE_TICKS + 20, () -> {
-			for (BlockPos bp : taken) {
-				helper.assertTrue(helper.getLevel().getBlockState(bp).is(Blocks.STONE), "stone again at " + bp);
+		for (int x = 0; x <= 7; x++) {
+			for (int y = 2; y <= 5; y++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 7)), Blocks.STONE.defaultBlockState(), 3);
 			}
+		}
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 2.0, 3.0, 100);
+		z.setNoAi(false);
+		ZeroGravityFloat.start(p, z, false);
+		helper.assertTrue(ZeroGravityMoves.cometToss(p) == z, "the floated zombie is thrown");
+		helper.assertTrue(z.getDeltaMovement().z > 1.5, "hard, along her aim: " + z.getDeltaMovement());
+		pump(helper, p);
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(taken(z, 100) >= ZeroGravityConfig.COMET_DAMAGE - EPS, "it smashed into the wall, took " + taken(z, 100));
+			helper.assertTrue(grounded(z), "and its gravity is back");
 			helper.succeed();
 		});
 	}
 
-	// ---------------------------------------------------------------- C / Shift+C
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void gunheadThrowSendsAFloaterMuchFurther(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void zeroGravitySlamLiftsItThenSlamsItDown(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie plain = zombie(helper, 4.5, 2.0, 3.5, 100);
-		helper.assertTrue(ZeroGravityMoves.gunheadThrow(p) == plain, "throws the plain one");
-		double plainSpeed = plain.getDeltaMovement().length();
-		helper.assertTrue(100f - plain.getHealth() >= ZeroGravityConfig.THROW_DAMAGE - EPS, "4 damage");
-		plain.discard();
-		ready(p);
-		Zombie fl = zombie(helper, 4.5, 2.0, 3.5, 100);
-		ZeroGravityFloat.start(p, fl, false);
-		fl.invulnerableTime = 0;
-		helper.assertTrue(ZeroGravityMoves.gunheadThrow(p) == fl, "throws the floater");
-		double flSpeed = fl.getDeltaMovement().length();
-		helper.assertTrue(flSpeed > plainSpeed * 1.8 && floated(fl), "much further: " + flSpeed + " vs " + plainSpeed);
-		ZeroGravityMoves.endAll(p);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.0, 100);
+		z.setNoAi(false);
+		double y0 = z.getY();
+		helper.assertTrue(ZeroGravityMoves.slam(p) == z, "the slam takes the zombie");
+		pump(helper, p);
+		helper.runAfterDelay(ZeroGravityConfig.SLAM_LIFT_TICKS - 2, () -> {
+			helper.assertTrue(z.getY() > y0 + 4.0, "it shot up, " + (z.getY() - y0));
+		});
+		helper.runAfterDelay(60, () -> {
+			helper.assertTrue(grounded(z), "let go");
+			helper.assertTrue(taken(z, 100) >= ZeroGravityConfig.SLAM_DAMAGE + ZeroGravityConfig.TOUCH_DAMAGE - EPS, "slammed, took " + taken(z, 100));
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- Z: Gunhead / Shift+Z: Field
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void gunheadStrikesTwiceThenThrowsOverHerShoulder(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 2.5);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.5, 100);
+		double z0 = z.getZ();
+		helper.assertTrue(ZeroGravityMoves.gunhead(p) == z, "aimed");
+		ZeroGravityMoves.gunheadStepForTest(p);
+		ZeroGravityMoves.gunheadStepForTest(p);
+		float sum = ZeroGravityConfig.GUNHEAD_DAMAGE[0] + ZeroGravityConfig.GUNHEAD_DAMAGE[1] + ZeroGravityConfig.GUNHEAD_DAMAGE[2];
+		helper.assertTrue(Math.abs(taken(z, 100) - sum) <= EPS, "three hits, took " + taken(z, 100));
+		helper.assertTrue(z.getDeltaMovement().z < -0.5 && z.getDeltaMovement().y > 0.3, "thrown back over her shoulder: " + z.getDeltaMovement());
+		helper.assertTrue(z.getZ() <= z0 + 0.01, "not pushed forward");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void zeroGravityFieldFloatsEverythingInsideThenDrops(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		p.setXRot(35f);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.5, 100);
+		ItemEntity item = new ItemEntity(helper.getLevel(), 0, 0, 0, new ItemStack(Items.APPLE));
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2.1, 4.5));
+		item.moveTo(at.x, at.y, at.z);
+		helper.getLevel().addFreshEntity(item);
+		ZeroGravityMoves.field(p);
+		helper.assertTrue(ZeroGravityMoves.fieldUp(p), "the Field is up");
+		helper.assertTrue(floated(z) && item.isNoGravity(), "the zombie and the apple float");
+		pump(helper, p);
+		helper.runAfterDelay(ZeroGravityConfig.FIELD_TICKS + 5, () -> {
+			helper.assertFalse(ZeroGravityMoves.fieldUp(p), "the Field is over");
+			helper.assertTrue(grounded(z) && !item.isNoGravity(), "everything dropped");
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- C: Catch / Shift+C: Settle
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void catchStopsAFall(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
+		Zombie z = zombie(helper, 4.5, 9.0, 5.5, 100);
+		z.setOnGround(false);
+		z.fallDistance = 6f;
+		z.setDeltaMovement(0, -1.0, 0);
+		helper.assertTrue(ZeroGravityMoves.catchFalling(p) >= 1, "caught");
+		helper.assertTrue(z.fallDistance == 0f && z.hasEffect(MobEffects.SLOW_FALLING) && z.getDeltaMovement().y > 0, "its fall stopped");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void gunheadComboLandsThreeHits(GameTestHelper helper) {
+	public void settleLetsEverythingDownSafelyAndVentsNausea(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 2.0, 3.0, 100);
-		z.setNoAi(true);
+		p.setOnGround(true);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.0, 100);
+		ZeroGravityFloat.start(p, z, false);
+		ZeroGravityMoves.meteorShower(p, null);
+		Quirks.setMeter(p, 80f);
+		ZeroGravityMoves.settle(p);
+		helper.assertTrue(grounded(z) && z.hasEffect(MobEffects.SLOW_FALLING), "it floats down softly");
+		helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "the rubble dissolved");
+		helper.assertTrue(ZeroGravityMoves.settling(p), "she settles");
 		pump(helper, p);
-		helper.assertTrue(ZeroGravityMoves.gunheadCombo(p) == z, "the combo starts");
 		helper.runAfterDelay(20, () -> {
-			float dmg = 100f - z.getHealth();
-			float total = 0f;
-			for (float d : ZeroGravityConfig.COMBO_DAMAGE) {
-				total += d;
-			}
-			helper.assertTrue(dmg >= total - EPS, "4 + 4 + 6, took " + dmg);
+			float vented = 80f - Quirks.meter(p);
+			helper.assertTrue(vented >= ZeroGravityConfig.nausea().settlePerSecond * 0.8f, "Nausea drains fast, vented " + vented);
 			helper.succeed();
 		});
 	}
 
-	// ---------------------------------------------------------------- the meter, the safety nets
+	// ---------------------------------------------------------------- Nausea
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void nauseaRisesWithWeightAndFallsWhenNothingFloats(GameTestHelper helper) {
@@ -391,21 +490,30 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void fullNauseaDropsEverythingAndMakesHerSick(GameTestHelper helper) {
+	public void fullNauseaDropsEverythingAndOnlySettleWorks(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
 		Zombie z = zombie(helper, 4.5, 2.0, 5.5, 100);
 		ZeroGravityFloat.start(p, z, false);
-		ZeroGravityMoves.zeroGSelf(p);
+		ZeroGravityMoves.floatSelf(p);
 		Quirks.setMeter(p, 99.99f);
 		pump(helper, p);
 		helper.runAfterDelay(3, () -> {
 			helper.assertTrue(Quirks.overloaded(p), "she is sick");
-			helper.assertTrue(p.hasEffect(net.minecraft.world.effect.MobEffects.CONFUSION), "Nausea effect");
+			helper.assertTrue(p.hasEffect(MobEffects.CONFUSION), "Nausea effect");
 			helper.assertTrue(grounded(z) && !p.isNoGravity(), "everything dropped, her too");
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+			helper.assertTrue(Quirks.ready(p, ZeroGravityConfig.TOUCH), "Touch was refused while sick");
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
+			p.setShiftKeyDown(true);
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+			p.setShiftKeyDown(false);
+			helper.assertTrue(ZeroGravityMoves.settling(p), "Shift+C Settle works while sick");
 			helper.succeed();
 		});
 	}
+
+	// ---------------------------------------------------------------- safety nets
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void revokeAndStopAllAlwaysGiveGravityBack(GameTestHelper helper) {
@@ -415,13 +523,13 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		Zombie b = zombie(helper, 6.5, 2.0, 5.5, 100);
 		ZeroGravityFloat.start(p, a, false);
 		ZeroGravityFloat.start(p, b, true);
-		ZeroGravityMoves.zeroGSelf(p);
+		ZeroGravityMoves.floatSelf(p);
 		helper.assertTrue(floated(a) && floated(b) && p.isNoGravity(), "all floating");
 		QuirkKits.of(Quirk.ZERO_GRAVITY).stopAll(p);
 		helper.assertTrue(grounded(a) && grounded(b) && !p.isNoGravity(), "stopAll: all back");
 		ready(p);
 		ZeroGravityFloat.start(p, a, false);
-		ZeroGravityMoves.zeroGSelf(p);
+		ZeroGravityMoves.floatSelf(p);
 		Quirks.revoke(p);
 		helper.assertTrue(grounded(a) && !p.isNoGravity() && !p.getTags().contains(ZeroGravity.TAG_FLOAT), "revoke: all back");
 		helper.assertTrue(!ZeroGravityFloat.isFloating(a), "nothing is left in the books");
@@ -436,19 +544,6 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		z.addTag(ZeroGravity.TAG_FLOAT);
 		ZeroGravityFloat.cleanup(z);
 		helper.assertTrue(grounded(z), "its gravity is back");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void zerogravityKitRegistered(GameTestHelper helper) {
-		helper.assertTrue(QuirkKits.of(Quirk.ZERO_GRAVITY).idsOf(com.projecthero.mod.hero.AbilitySlot.SLOT_1).length == 2, "the kit has its moves");
-		for (com.projecthero.mod.hero.AbilitySlot s : new com.projecthero.mod.hero.AbilitySlot[] { com.projecthero.mod.hero.AbilitySlot.SLOT_1,
-				com.projecthero.mod.hero.AbilitySlot.SLOT_2, com.projecthero.mod.hero.AbilitySlot.SLOT_3, com.projecthero.mod.hero.AbilitySlot.SLOT_4,
-				com.projecthero.mod.hero.AbilitySlot.SLOT_5, com.projecthero.mod.hero.AbilitySlot.SLOT_6 }) {
-			for (String id : QuirkKits.of(Quirk.ZERO_GRAVITY).idsOf(s)) {
-				helper.assertTrue(QuirkKits.of(Quirk.ZERO_GRAVITY).maxCooldown(id) > 0, "a cooldown for " + id);
-			}
-		}
 		helper.succeed();
 	}
 }

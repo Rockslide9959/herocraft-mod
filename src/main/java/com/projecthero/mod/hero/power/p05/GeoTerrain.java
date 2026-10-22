@@ -170,6 +170,24 @@ public final class GeoTerrain {
 	}
 
 	/**
+	 * v0.16.7 (Zero Gravity's touch): empties ANY plain cell at {@code pos} -- a full, breakable block with no block entity
+	 * and no fluid, the caller having checked {@link #canEdit} -- for at most {@code maxTicks}; put back exactly as it was by
+	 * {@link #restoreNow} or on its clock (or on server stop).
+	 */
+	public static boolean lift(ServerLevel level, BlockPos pos, int maxTicks) {
+		BlockState was = level.getBlockState(pos);
+		if (count >= MAX_ENTRIES || find(level, pos) != null || was.isAir() || was.hasBlockEntity() || !was.getFluidState().isEmpty()
+				|| was.getDestroySpeed(level, pos) < 0) {
+			return false;
+		}
+		level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+		Entry e = new Entry(level, pos.immutable(), was, Blocks.AIR.defaultBlockState(), level.getGameTime() + maxTicks, 0);
+		e.watchFrom = level.getGameTime();
+		track(e);
+		return true;
+	}
+
+	/**
 	 * Sinkhole: empties the (natural) cell at {@code pos} for {@code ticks}, then puts the ground back exactly as it was --
 	 * over anything that has fallen into it (it is buried, not lifted out).
 	 */
