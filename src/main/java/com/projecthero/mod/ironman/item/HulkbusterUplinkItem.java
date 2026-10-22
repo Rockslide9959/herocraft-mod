@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.projecthero.mod.ironman.IronManArmor;
 import com.projecthero.mod.ironman.IronManEnergy;
+import com.projecthero.mod.ironman.IronManFlight;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.crate.HulkbusterCrate;
 
@@ -19,15 +20,26 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.16.7 (user) Iron Man Era II stage 2: the <b>Hulkbuster Uplink</b> -- the beacon you carry while the Hulkbuster I
- * (mark_8) waits in orbit in its drop crate. It holds the suit's four real armour stacks ({@link SuitcaseContents}, stamped
- * with integrity) exactly like the Mk VI briefcase does; while the suit is down (crate on the ground, or worn) it is kept,
- * EMPTY, and the next fold puts the suit back into it. A never-used uplink (creative tab) stands for a fresh suit.
+ * v0.16.7 (user) Iron Man Era II stage 2: the <b>Hulkbuster Uplink</b> -- the beacon that calls the Hulkbuster I (mark_8)
+ * down. It holds the suit's four real armour stacks ({@link SuitcaseContents}, stamped with integrity and charge).
  *
- * <p>C (no suit on) or right-click: call the crate down where you look ({@link HulkbusterCrate#call}); with the crate
- * already down and the suit still in it, C / right-click sends it back up.
+ * <p>v0.16.7 (user) Veronica overhaul: <b>single use</b> -- "make it a one use item, it gets used up once you call in the
+ * armour and thats it". Calling the suit (right-click, or C with no suit on) spends it. Afterwards the suit lives on its
+ * Suit Platform: a fold (hold Shift+C) or a recall sends it home there in its crate ({@link HulkbusterCrate#toOrbit}), and
+ * that platform's Uplink tab programs a new one. A never-used Uplink (creative tab) stands for a fresh suit.
+ *
+ * <ul>
+ *   <li>On the ground: the drop crate comes down where you look ({@link HulkbusterCrate#call}).</li>
+ *   <li>In the air (flying, or a good drop below you): a pod comes in above and behind you and the Hulkbuster builds
+ *       itself round you piece by piece ({@code HulkbusterPodEntity#callBuild}).</li>
+ *   <li>Wearing another suit (any Iron Man suit or armour) is fine: it is kept underneath and comes back when the
+ *       Hulkbuster comes off ({@code HulkbusterInnerSuit}).</li>
+ * </ul>
  */
 public class HulkbusterUplinkItem extends Item {
+	/** Higher than this above the ground counts as "in the air" for the mid-air build. */
+	public static final double AIRBORNE_HEIGHT = 2.5;
+
 	public HulkbusterUplinkItem(Properties properties) {
 		super(properties);
 	}
@@ -45,22 +57,42 @@ public class HulkbusterUplinkItem extends Item {
 			sp.displayClientMessage(Component.translatable("message.projecthero.ironman.armor_rejects").withStyle(ChatFormatting.RED), true);
 			return InteractionResultHolder.fail(stack);
 		}
-		if (IronManArmor.wearingAnyIronMan(sp)) {
+		if (com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(sp)) {
 			sp.displayClientMessage(Component.translatable("message.projecthero.ironman.portable_fold_hint").withStyle(ChatFormatting.GRAY), true);
 			return InteractionResultHolder.fail(stack);
 		}
-		boolean ok = HulkbusterCrate.recall(sp) || HulkbusterCrate.call(sp);
+		if (HulkbusterCrate.recall(sp)) {
+			return InteractionResultHolder.success(stack);
+		}
+		if (!SuitcaseContents.isLegacyEmpty(stack) && SuitcaseContents.isEmpty(stack)) {
+			sp.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_uplink.spent").withStyle(ChatFormatting.GOLD), true);
+			return InteractionResultHolder.fail(stack);
+		}
+		boolean ok = airborne(sp) ? HulkbusterCrate.buildInAir(sp) : HulkbusterCrate.call(sp);
 		return ok ? InteractionResultHolder.success(stack) : InteractionResultHolder.fail(stack);
+	}
+
+	/** Flying, or off the ground with a real drop under you (not a hop, not swimming). */
+	public static boolean airborne(ServerPlayer p) {
+		if (IronManFlight.isFlying(p)) {
+			return true;
+		}
+		if (p.onGround() || p.isInWater() || p.isPassenger() || p.getAbilities().flying && !p.isCreative()) {
+			return false;
+		}
+		var hit = p.level().clip(new net.minecraft.world.level.ClipContext(p.position(), p.position().add(0, -AIRBORNE_HEIGHT, 0),
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.ANY, p));
+		return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
 	}
 
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+		tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.single_use").withStyle(ChatFormatting.GOLD));
 		tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.hint").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
 		if (SuitcaseContents.isLegacyEmpty(stack)) {
 			tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.fresh").withStyle(ChatFormatting.AQUA));
 		} else if (SuitcaseContents.isEmpty(stack)) {
-			tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.deployed").withStyle(ChatFormatting.GOLD));
-			tooltip.add(Component.translatable("item.projecthero.portable.empty").withStyle(ChatFormatting.GRAY)); // v0.16.7 (user)
+			tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.spent_tip").withStyle(ChatFormatting.GRAY));
 		} else {
 			int pct = Math.round(100f * IronManEnergy.stackIntegrity(stack, HulkbusterCrate.SUIT_ID)
 					/ Math.max(1f, IronManEnergy.maxIntegrity(HulkbusterCrate.SUIT_ID)));

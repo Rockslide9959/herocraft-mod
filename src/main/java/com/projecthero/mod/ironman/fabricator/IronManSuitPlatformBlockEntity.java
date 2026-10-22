@@ -496,8 +496,8 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			pieces.set(i, ItemStack.EMPTY);
 		}
 		afterContentsChanged();
-		com.projecthero.mod.ironman.crate.HulkbusterCrate.toOrbit(sl, player, out, integrity,
-				net.minecraft.world.phys.Vec3.atCenterOf(worldPosition));
+		// v0.16.7 (user) Veronica: a NEW single-use Uplink, each piece remembering this platform (a fold sends it home here)
+		com.projecthero.mod.ironman.crate.HulkbusterCrate.mintUplink(player, out, integrity, sl, worldPosition);
 		return true;
 	}
 
@@ -540,9 +540,11 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		if (owner == null) {
 			owner = player.getUUID();
 		}
-		// the Uplink stays in the pack, emptied (never mistaken for a fresh one): the suit is on the rack now
-		com.projecthero.mod.ironman.item.SuitcaseContents.write(uplink,
-				NonNullList.withSize(com.projecthero.mod.ironman.item.SuitcaseContents.SLOTS, ItemStack.EMPTY));
+		// v0.16.7 (user) Veronica: the single-use Uplink is used up racking the suit (the tab makes a new one)
+		for (ItemStack s : pieces) {
+			com.projecthero.mod.ironman.suit.IronManPlatformReturn.clearHome(s);
+		}
+		uplink.shrink(1);
 		player.getInventory().setChanged();
 		afterContentsChanged();
 		return true;

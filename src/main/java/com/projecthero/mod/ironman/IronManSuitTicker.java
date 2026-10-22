@@ -33,6 +33,8 @@ public final class IronManSuitTicker {
 
 	public static void tick(ServerPlayer player) {
 		mirrorPrivateHighlight(player);
+		HulkbusterInnerSuit.tick(player); // v0.16.7 (user): the suit worn under a Hulkbuster comes back when it comes off
+		HulkbusterParts.tick(player); // v0.16.7 (user): broken-leg slow, cracked-torso reactor leak
 		IronManArmor.enforce(player);
 		com.projecthero.mod.ironman.ability.era1.EraOneEject.tick(player); // v0.16.7: the Shift+C emergency eject hold
 		com.projecthero.mod.ironman.suit.PortableDeploy.holdTick(player); // v0.16.7 (user) Era II: the Shift+C fold hold
@@ -80,7 +82,9 @@ public final class IronManSuitTicker {
 			IronManAutoFeed.tick(player);
 		}
 		// v0.14.26: the Mark III targeting system (lock-on + auto-aim)
-		IronManTargeting.tick(player, suit);
+		// v0.16.7 (user): a Hulkbuster with its head broken has no targeting
+		IronManTargeting.tick(player, suit != null && HulkbusterParts.SUIT_ID.equals(suit.id())
+				&& HulkbusterParts.broken(HulkbusterParts.of(player)[HulkbusterParts.HEAD]) ? null : suit);
 		// v0.15.1: Mark 3+ helmets switch the mob highlight on by themselves
 		IronManAbilities.tickAutoHighlight(player, suit, suitId != null && IronManArmor.hasHelmet(player, suitId)
 				&& !IronManIntegrity.disabled(player, suitId)); // v0.16.1: no energy -- a disabled suit's optics are dark

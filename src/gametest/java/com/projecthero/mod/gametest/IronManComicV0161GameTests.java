@@ -184,7 +184,7 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ 0 integrity
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 400)
 	public void zeroIntegrityDisablesTheSuit(GameTestHelper h) {
 		ServerPlayer p = tony(h);
 		wear(p, "mark_6");
@@ -202,9 +202,11 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 		IronManEnergy.setIntegrity(p, "mark_8", 0f);
 		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_8, 5, true), "Replacement Pod fires on a disabled Hulkbuster");
 		h.assertFalse(IronManComicRouter.fireForTests(p, IronManSuits.MARK_8, 5, false), "but the Palm Cannon does not");
-		h.runAfterDelay(IronManComicMoves.POD_DELAY_TICKS + 5, () -> {
+		// v0.16.7 (user): the pod flies in (3 s), repairs (8 s): the suit comes back whole
+		h.runAfterDelay(com.projecthero.mod.ironman.entity.HulkbusterPodEntity.ARRIVE_TICKS
+				+ com.projecthero.mod.ironman.entity.HulkbusterPodEntity.REPAIR_TICKS + 5, () -> {
 			float integ = IronManEnergy.integrity(p, "mark_8");
-			h.assertTrue(Math.abs(integ - 4500f * IronManComicMoves.POD_REPAIR_FRACTION) < 1f, "the pod restored 30%, got " + integ);
+			h.assertTrue(Math.abs(integ - IronManEnergy.maxIntegrity("mark_8")) < 1f, "the pod restored the suit, got " + integ);
 			leave(h, p);
 			h.succeed();
 		});

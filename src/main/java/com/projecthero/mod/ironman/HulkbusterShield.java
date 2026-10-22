@@ -85,6 +85,10 @@ public final class HulkbusterShield {
 		float integrity = IronManEnergy.integrity(player, suit.id());
 		float left = Math.max(0f, integrity - take);
 		IronManEnergy.setIntegrity(player, suit.id(), left);
+		// v0.16.7 (user) Veronica overhaul: the part the hit struck takes it too (an arm / leg can break off)
+		if (left > 0f) {
+			HulkbusterParts.onHit(player, source, integrity - left);
+		}
 		// the suit flinches and rings; the pilot inside feels nothing
 		player.serverLevel().getChunkSource().broadcastAndSend(player, new ClientboundHurtAnimationPacket(player));
 		player.level().playSound(null, player.getX(), player.getY() + 1.5, player.getZ(), SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.PLAYERS,

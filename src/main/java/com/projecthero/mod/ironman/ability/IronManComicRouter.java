@@ -100,6 +100,13 @@ public final class IronManComicRouter {
 					.withStyle(ChatFormatting.RED), true);
 			return;
 		}
+		String partBlock = partBlock(player, suit, m);
+		if (partBlock != null) {
+			// v0.16.7 (user) Veronica: a broken Hulkbuster part takes its moves offline
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_part.offline_" + partBlock)
+					.withStyle(ChatFormatting.RED), true);
+			return;
+		}
 		if (m.cooldownTicks() > 0 && !TonyStark.abilityReady(player, suit.id(), m.cooldownKey())) {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.on_cooldown",
 					String.format(java.util.Locale.ROOT, "%.1f",
@@ -131,6 +138,9 @@ public final class IronManComicRouter {
 		if (m == null || IronManIntegrity.disabled(player, suit.id()) && !IronManComicMoves.worksWhileDisabled(m)) {
 			return false;
 		}
+		if (partBlock(player, suit, m) != null) {
+			return false; // v0.16.7 (user): a broken Hulkbuster part
+		}
 		if (m.cooldownTicks() > 0 && !TonyStark.abilityReady(player, suit.id(), m.cooldownKey())) {
 			return false;
 		}
@@ -150,6 +160,14 @@ public final class IronManComicRouter {
 			}
 		}
 		return fired;
+	}
+
+	/** v0.16.7 (user): why a broken Hulkbuster part blocks {@code m} (lang key tail), or null. */
+	static String partBlock(ServerPlayer player, IronManSuit suit, IronManComicKit.Move m) {
+		if (!com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id())) {
+			return null;
+		}
+		return com.projecthero.mod.ironman.HulkbusterParts.blockedBy(m.id(), com.projecthero.mod.ironman.HulkbusterParts.of(player));
 	}
 
 	private static void startCooldown(ServerPlayer player, IronManSuit suit, IronManComicKit.Move m) {

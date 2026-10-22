@@ -77,6 +77,15 @@ public final class IronManEntityTypes {
 					.updateInterval(1)
 					.build("hulkbuster_crate"));
 
+	/** v0.16.7 (user): the Hulkbuster's support pod -- the Replacement Pod repair and the mid-air build (one synced clock). */
+	public static final EntityType<HulkbusterPodEntity> HULKBUSTER_POD = register("hulkbuster_pod",
+			EntityType.Builder.<HulkbusterPodEntity>of(HulkbusterPodEntity::new, MobCategory.MISC)
+					.sized(1.6f, 3.4f)
+					.fireImmune()
+					.clientTrackingRange(16)
+					.updateInterval(1)
+					.build("hulkbuster_pod"));
+
 	private IronManEntityTypes() {
 	}
 

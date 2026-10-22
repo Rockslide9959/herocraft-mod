@@ -125,6 +125,17 @@ public final class ModDataComponents {
 					.networkSynchronized(ByteBufCodecs.VAR_LONG)
 					.build());
 
+	/**
+	 * v0.16.7 (user) Hulkbuster: the per-part damage of a Hulkbuster I, kept on its CHESTPLATE stack -- six floats, 0 whole
+	 * .. 1 broken (head, torso, left arm, right arm, left leg, right leg; {@code ironman.HulkbusterParts}). Absent = whole.
+	 * Synced, so every viewer (worn body, Sentry, rack) draws the same broken limbs.
+	 */
+	public static final DataComponentType<java.util.List<Float>> HULKBUSTER_PARTS = register("hulkbuster_parts",
+			DataComponentType.<java.util.List<Float>>builder()
+					.persistent(Codec.FLOAT.listOf())
+					.networkSynchronized(ByteBufCodecs.FLOAT.apply(ByteBufCodecs.list(8)))
+					.build());
+
 	private ModDataComponents() {
 	}
 

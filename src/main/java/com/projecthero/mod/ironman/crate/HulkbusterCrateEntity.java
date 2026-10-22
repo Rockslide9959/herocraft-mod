@@ -363,7 +363,7 @@ public class HulkbusterCrateEntity extends Entity {
 
 	/** Is {@code p} walking into the Hulkbuster's open back (just behind it, between it and the front wall)? */
 	private boolean walkingIn(ServerPlayer p) {
-		if (p.level() != level() || Math.abs(p.getY() - getY()) > 0.8 || IronManArmor.wearingAnyIronMan(p)) {
+		if (p.level() != level() || Math.abs(p.getY() - getY()) > 0.8 || com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(p)) {
 			return false;
 		}
 		double[] l = local(p.position());

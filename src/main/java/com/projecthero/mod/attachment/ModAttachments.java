@@ -1096,6 +1096,16 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> 0f)
 					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.targetOnly()));
 
+	/**
+	 * v0.16.7 (user) Hulkbuster: the armour a player had on when the Hulkbuster went on OVER it ("the inner suit", Age of
+	 * Ultron) -- the four worn stacks saved whole (components, integrity and energy stamped), see
+	 * {@code ironman.HulkbusterInnerSuit}. Persistent and kept through death (the death handler drops it unless
+	 * keepInventory is on, exactly like the worn armour); an empty tag = nothing stashed. Server only, not synced.
+	 */
+	public static final AttachmentType<net.minecraft.nbt.CompoundTag> HULKBUSTER_INNER_SUIT = AttachmentRegistry.create(
+			ProjectHeroMod.id("hulkbuster_inner_suit"),
+			builder -> builder.persistent(net.minecraft.nbt.CompoundTag.CODEC).copyOnDeath());
+
 	private ModAttachments() {
 	}
 
