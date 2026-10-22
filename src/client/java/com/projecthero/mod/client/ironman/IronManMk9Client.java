@@ -52,6 +52,11 @@ public final class IronManMk9Client {
 			return;
 		}
 		Vec3 v = pl.getDeltaMovement();
+		if (v.y > LAVA_SWIM_SPEED * 1.4) {
+			// v0.16.7 (user): something is throwing us up faster than any swim (the Lava Geyser drive) -- don't damp it
+			pl.fallDistance = 0f;
+			return;
+		}
 		float fwd = pl.input.forwardImpulse;
 		float left = pl.input.leftImpulse;
 		double up = (pl.input.jumping ? 1.0 : 0.0) - (pl.input.shiftKeyDown ? 1.0 : 0.0);

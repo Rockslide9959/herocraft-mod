@@ -144,16 +144,32 @@ public final class IronManPortableClient {
 	 * raised into the hand like any newly held item).
 	 */
 	public static boolean firstPersonHidesHeld(Player player, float partialTick) {
-		if (!ownsRightHand(player)) {
-			return false;
-		}
-		IronManSuitFx fx = IronManSuitFx.of(player);
-		if (!PortableForms.deployPose(fx.poseKind())) {
-			return true;
-		}
-		PortableForm form = form(player);
-		float f = frame(player, partialTick);
-		return Float.isNaN(f) || f > form.beats().dropFrom();
+		// v0.16.7 (user) fix: the world pass now draws your own case at the first-person hand from frame 0
+		// ({@link #firstPersonHand}), so the vanilla held item is hidden for the whole sequence (no double case)
+		return ownsRightHand(player);
+	}
+
+	/** First person: the held case sits this far ahead / to the right / below the eye (blocks, vanilla held-item-ish). */
+	static final float FP_HAND_FWD = 0.62f, FP_HAND_RIGHT = 0.36f, FP_HAND_DOWN = 0.40f;
+
+	/**
+	 * v0.16.7 (user) fix, FIRST person: where your right hand holds a case in your own view, as a matrix in the anchor
+	 * frame (+z the anchor's forward, -x its right, +y up; no scale) -- in front of the camera, low and to the right, turned
+	 * with your view's yaw. The case props start their hand-to-floor move from here when drawn for your own eyes (the body
+	 * model's hand hangs at the hip, out of view), so the case is seen in your hand and then set down without a gap.
+	 */
+	public static org.joml.Matrix4f firstPersonHand(Anchor a) {
+		net.minecraft.client.Camera c = Minecraft.getInstance().gameRenderer.getMainCamera();
+		org.joml.Vector3f look = c.getLookVector(), up = c.getUpVector(), left = c.getLeftVector();
+		Vec3 eye = c.getPosition();
+		double wx = eye.x + look.x() * FP_HAND_FWD - left.x() * FP_HAND_RIGHT - up.x() * FP_HAND_DOWN;
+		double wy = eye.y + look.y() * FP_HAND_FWD - left.y() * FP_HAND_RIGHT - up.y() * FP_HAND_DOWN;
+		double wz = eye.z + look.z() * FP_HAND_FWD - left.z() * FP_HAND_RIGHT - up.z() * FP_HAND_DOWN;
+		float yaw = (float) Math.toRadians(a.yaw());
+		org.joml.Vector3f local = new org.joml.Vector3f((float) (wx - a.pos().x), (float) (wy - a.pos().y), (float) (wz - a.pos().z))
+				.rotateY(yaw);
+		float relYaw = (float) Math.toRadians(-(c.getYRot() - a.yaw()));
+		return new org.joml.Matrix4f().translation(local).rotateY(relYaw);
 	}
 
 	/** v0.16.7 (user) fold polish: is {@code player} the one whose eyes this frame is drawn from (first person)? */
@@ -234,6 +250,7 @@ public final class IronManPortableClient {
 		}
 		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
 		Vec3 cam = context.camera().getPosition();
+		renderOwnStraps(context, mc, partial, cam);
 		for (AbstractClientPlayer player : mc.level.players()) {
 			PortableForm form = form(player);
 			if (form == null || player.isInvisible()) {
@@ -257,6 +274,55 @@ public final class IronManPortableClient {
 				pose.popPose();
 			}
 		}
+	}
+
+	/**
+	 * v0.16.7 (user) fix: in plain first person (no full-body view running) a carried Mk VII / Mk VIII pack shows as its
+	 * shoulder straps down your chest when you look down ({@link BackpackProp#renderOwnStraps}), drawn in the same body
+	 * frame the player renderer would use (feet, body yaw, the crouch lean).
+	 */
+	private static void renderOwnStraps(WorldRenderContext context, Minecraft mc, float partial, Vec3 cam) {
+		AbstractClientPlayer p = mc.player;
+		if (p == null || !viewedFromInside(p) || p.isInvisible() || p.isSpectator() || p.isSleeping() || p.isSwimming()
+				|| p.isFallFlying() || active(p) || com.projecthero.mod.client.fpbody.FirstPersonBody.active()) {
+			return;
+		}
+		String carried = p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BACK_PACK, "");
+		if (carried.isEmpty()) {
+			return;
+		}
+		var chest = p.getItemBySlot(EquipmentSlot.CHEST);
+		if (chest.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
+			return; // never over an Iron Man suit (as on the back)
+		}
+		PortableForm packed = PortableForms.byId(carried);
+		if (packed == null || !(PROPS.get(packed.propId()) instanceof BackpackProp bp)) {
+			return;
+		}
+		if (p.getViewXRot(partial) < 25f) {
+			return; // only when looking down (they would sit below the view anyway)
+		}
+		Vec3 at = p.getPosition(partial);
+		// the view's yaw, not the body's: no body is drawn in first person, and a standing body lags up to ~50 degrees
+		// behind the head -- the straps must run straight down the middle of your view
+		float bodyYaw = p.getViewYRot(partial);
+		PoseStack pose = context.matrixStack();
+		pose.pushPose();
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		// LivingEntityRenderer's model frame
+		pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180f - bodyYaw));
+		pose.scale(-1f, -1f, 1f);
+		pose.translate(0f, -1.501f, 0f);
+		if (p.isCrouching()) {
+			pose.translate(0f, 3.2f / 16f, 0f); // the crouched body: lower and leaning forward (PlayerModel)
+			pose.mulPose(com.mojang.math.Axis.XP.rotation(0.5f));
+		}
+		if (!chest.isEmpty()) {
+			pose.translate(0f, 0f, -1.1f / 16f); // over a worn chestplate
+		}
+		int light = net.minecraft.client.renderer.LevelRenderer.getLightColor(mc.level, p.blockPosition().above());
+		bp.renderOwnStraps(pose, context.consumers(), light);
+		pose.popPose();
 	}
 
 	/** The body pass: a player render layer. */

@@ -315,7 +315,9 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 			helper.assertTrue(i > last, "the list follows MARK_ORDER");
 			last = i;
 		}
-		helper.assertTrue(StarkWorkbench.eraSuits(2).isEmpty(), "Era II is not live yet");
+		helper.assertTrue(StarkWorkbench.eraSuits(2).equals(List.of("mark_2", "mark_6", "mark_vii", "mark_9", "mark_8")),
+				"Era II lists the Mk VI .. Mk IX and the Hulkbuster in progression order, got " + StarkWorkbench.eraSuits(2));
+		helper.assertTrue(StarkWorkbench.eraSuits(3).isEmpty(), "Era III is not live yet");
 		String locked = era1.get(era1.size() - 1);
 		helper.assertTrue(StarkWorkbench.status(StarkWorkbench.state(tony), locked) == StarkWorkbench.Status.LOCKED,
 				"a fresh Tony Stark has the last Era I suit locked");
@@ -332,6 +334,46 @@ public class StarkWorkbenchGameTests implements FabricGameTest {
 		for (float b : bars) {
 			helper.assertTrue(b > 0f && b <= 1f, "every stat bar is in (0, 1]");
 		}
+		helper.succeed();
+	}
+
+	/** v0.16.7 (user): the Era II tab -- every suit has its four Workbench recipes, a blueprint, and unlocks off the one before it. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theEraTwoTabBuildsThroughTheSameFlow(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer tony = player(helper, 180f);
+		BlockPos rel = new BlockPos(2, 1, 2);
+		place(helper, tony, rel);
+		TonyStark.grant(tony);
+		List<String> era2 = StarkWorkbench.eraSuits(2);
+		helper.assertTrue(StarkWorkbench.LIVE_ERAS >= 2 && !era2.isEmpty(), "Era II is live");
+		for (String id : era2) {
+			helper.assertTrue(IronManItems.blueprintFor(id) != null, id + " has a blueprint");
+			for (int p = 1; p <= 4; p++) {
+				helper.assertTrue(StarkWorkbench.recipe(id, p) != null, id + " piece " + p + " has a Workbench recipe");
+			}
+		}
+		helper.assertTrue("mark_v".equals(IronManItems.prerequisiteSuit(era2.get(0))), "the Mk VI unlocks off the Mk V Stealth");
+		helper.assertTrue(StarkWorkbench.status(StarkWorkbench.state(tony), era2.get(0)) == StarkWorkbench.Status.LOCKED,
+				"a fresh Tony Stark has the Mk VI locked");
+		// unlock it and Build its helmet: the blueprint is stamped and the components loaded, as on the Era I tab
+		String suitId = era2.get(0);
+		TonyStark.markBuilt(tony, IronManSuits.byId(IronManItems.prerequisiteSuit(suitId)));
+		helper.assertTrue(StarkWorkbench.status(StarkWorkbench.state(tony), suitId) == StarkWorkbench.Status.BUILDABLE, "now buildable");
+		var be = (StarkFabricatorBlockEntity) helper.getBlockEntity(rel);
+		be.addEnergy(FabricatorRecipes.MAX_ENERGY);
+		FabricationRecipe recipe = StarkWorkbench.recipe(suitId, 1);
+		tony.getInventory().clearContent();
+		tony.getInventory().add(new ItemStack(IronManItems.BLANK_BLUEPRINT));
+		for (FabricationRecipe.Input in : recipe.inputs()) {
+			tony.getInventory().add(new ItemStack(in.item(), in.count()));
+		}
+		StarkFabricatorMenu menu = (StarkFabricatorMenu) be.createMenu(9, tony.getInventory(), tony);
+		tony.containerMenu = menu;
+		menu.clickMenuButton(tony, StarkWorkbench.buildButtonId(IronManItems.MARK_ORDER.indexOf(suitId), 1));
+		helper.assertTrue(be.getItem(StarkFabricatorBlockEntity.BLUEPRINT_SLOT).is(IronManItems.blueprintFor(suitId)),
+				"Build stamped and loaded the Mk VI blueprint");
+		helper.assertTrue(recipe.matches(be), "the grid satisfies the Mk VI helmet recipe");
 		helper.succeed();
 	}
 }
