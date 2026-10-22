@@ -1,5 +1,8 @@
 package com.projecthero.mod.client.quirk.hellflame;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.client.darkseid.BeamDraw;
@@ -58,38 +61,47 @@ public final class HellflameRender {
 		Vec3 cam = ctx.camera().getPosition();
 		PoseStack pose = ctx.matrixStack();
 		MultiBufferSource buffers = ctx.consumers();
-		VertexConsumer vc = null;
 		long now = level.getGameTime();
-		pose.pushPose();
-		pose.translate(-cam.x, -cam.y, -cam.z);
-		PoseStack.Pose last = pose.last();
+		List<Player> who = new ArrayList<>();
 		for (Player p : level.players()) {
 			if (!Hellflame.is(p) || p.distanceToSqr(mc.player) > 160 * 160) {
 				continue;
 			}
-			boolean firstPerson = p == mc.player && mc.options.getCameraType().isFirstPerson();
 			long spiderAt = Hellflame.val(p, Hellflame.V_SPIDER);
-			boolean spider = spiderAt != 0L && now - spiderAt < HellflameConfig.SPIDER_DRAW_TICKS;
-			boolean mesh = Hellflame.meshUp(p);
-			boolean beam = Hellflame.beaming(p);
-			if (!spider && !mesh && !beam) {
-				continue;
+			if ((spiderAt != 0L && now - spiderAt < HellflameConfig.SPIDER_DRAW_TICKS) || Hellflame.meshUp(p) || Hellflame.beaming(p)) {
+				who.add(p);
 			}
-			if (vc == null) {
-				vc = buffers.getBuffer(RenderType.lightning());
-			}
-			if (spider) {
-				strings(vc, last, level, p, cam, now - spiderAt + partial, partial, firstPerson);
-			}
-			if (mesh) {
-				mesh(vc, last, level, p, cam, now, partial);
-			}
-			if (beam) {
-				beam(vc, last, level, p, cam, now, partial, firstPerson);
+		}
+		if (who.isEmpty()) {
+			return;
+		}
+		pose.pushPose();
+		pose.translate(-cam.x, -cam.y, -cam.z);
+		PoseStack.Pose last = pose.last();
+		// two passes (the BeamDraw rule): the orange / red glow with ordinary alpha blending first, so it stays orange against
+		// the sky; then the yellow / white-hot cores in the additive lightning buffer. Never interleave the two buffers.
+		for (boolean glowPass : new boolean[] { true, false }) {
+			glow = glowPass;
+			VertexConsumer vc = buffers.getBuffer(glowPass ? RenderType.debugQuads() : RenderType.lightning());
+			for (Player p : who) {
+				boolean firstPerson = p == mc.player && mc.options.getCameraType().isFirstPerson();
+				long spiderAt = Hellflame.val(p, Hellflame.V_SPIDER);
+				if (spiderAt != 0L && now - spiderAt < HellflameConfig.SPIDER_DRAW_TICKS) {
+					strings(vc, last, level, p, cam, now - spiderAt + partial, partial, firstPerson);
+				}
+				if (Hellflame.meshUp(p)) {
+					mesh(vc, last, level, p, cam, now, partial);
+				}
+				if (Hellflame.beaming(p)) {
+					beam(vc, last, level, p, cam, now, partial, firstPerson);
+				}
 			}
 		}
 		pose.popPose();
 	}
+
+	/** Which pass is drawing: the glow (true) or the cores (false). */
+	private static boolean glow;
 
 	/** His right hand now (interpolated). */
 	private static Vec3 hand(Player p, float partial, boolean firstPerson) {
@@ -110,8 +122,8 @@ public final class HellflameRender {
 
 	/** One thin glowing string a-b: an orange glow round a white-hot core. */
 	private static void string(VertexConsumer vc, PoseStack.Pose last, Vec3 a, Vec3 b, Vec3 cam, float width, float alpha) {
-		BeamDraw.segment(vc, last, a, b, cam, width * 2.6f, width * 2.0f, ORANGE, alpha * 0.55f, alpha * 0.35f);
-		BeamDraw.segment(vc, last, a, b, cam, width, width * 0.8f, WHITE, alpha, alpha * 0.8f);
+		if (glow) BeamDraw.segment(vc, last, a, b, cam, width * 2.6f, width * 2.0f, ORANGE, alpha * 0.55f, alpha * 0.35f);
+		if (!glow) BeamDraw.segment(vc, last, a, b, cam, width, width * 0.8f, WHITE, alpha, alpha * 0.8f);
 	}
 
 	private static void strings(VertexConsumer vc, PoseStack.Pose last, ClientLevel level, Player p, Vec3 cam, float age, float partial,
@@ -145,7 +157,7 @@ public final class HellflameRender {
 			string(vc, last, tip, end, cam, 0.012f * (float) size, fade * flick);
 			// the cutting point glows
 			if (fade > 0.2f) {
-				BeamDraw.segment(vc, last, end.subtract(dir.scale(0.25)), end.add(dir.scale(0.05)), cam, 0.06f, 0.02f, YELLOW, fade * 0.8f, 0f);
+				if (!glow) BeamDraw.segment(vc, last, end.subtract(dir.scale(0.25)), end.add(dir.scale(0.05)), cam, 0.06f, 0.02f, YELLOW, fade * 0.8f, 0f);
 			}
 		}
 	}
@@ -230,19 +242,19 @@ public final class HellflameRender {
 			float t0 = (float) Mth.clamp(i * step.length() / 4.0, 0.25, 1.0);
 			float t1 = (float) Mth.clamp((i + 1) * step.length() / 4.0, 0.25, 1.0);
 			float rip = 0.9f + 0.1f * Mth.sin(age * 1.9f - i * 0.8f);
-			BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 1.15f * rip, wFull * t1 * 1.15f * rip, RED, 0.28f, 0.28f);
-			BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.85f, wFull * t1 * 0.85f, ORANGE, 0.5f, 0.5f);
-			BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.5f * rip, wFull * t1 * 0.5f * rip, YELLOW, 0.75f, 0.75f);
-			BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.22f, wFull * t1 * 0.22f, WHITE, 1f, 1f);
+			if (glow) BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 1.15f * rip, wFull * t1 * 1.15f * rip, RED, 0.4f, 0.4f);
+			if (glow) BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.85f, wFull * t1 * 0.85f, ORANGE, 0.62f, 0.62f);
+			if (!glow) BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.5f * rip, wFull * t1 * 0.5f * rip, YELLOW, 0.75f, 0.75f);
+			if (!glow) BeamDraw.segment(vc, last, s0, s1, cam, wFull * t0 * 0.22f, wFull * t1 * 0.22f, WHITE, 1f, 1f);
 		}
 		// the flare at the fist and the burst where it lands
 		for (int k = 0; k < 4; k++) {
 			double ang = k * Math.PI / 4 + age * 0.3;
 			Vec3 axis = perpendicular(look, ang).scale(wFull * 0.9);
-			BeamDraw.segment(vc, last, end.subtract(axis), end.add(axis), cam, wFull * 0.35f, wFull * 0.35f, YELLOW, 0.7f, 0.7f);
+			if (!glow) BeamDraw.segment(vc, last, end.subtract(axis), end.add(axis), cam, wFull * 0.35f, wFull * 0.35f, YELLOW, 0.7f, 0.7f);
 			if (!firstPerson) {
 				Vec3 ax2 = perpendicular(look, ang).scale(0.45 * size);
-				BeamDraw.segment(vc, last, from.subtract(ax2), from.add(ax2), cam, 0.2f, 0.2f, WHITE, 0.8f, 0.8f);
+				if (!glow) BeamDraw.segment(vc, last, from.subtract(ax2), from.add(ax2), cam, 0.2f, 0.2f, WHITE, 0.8f, 0.8f);
 			}
 		}
 	}

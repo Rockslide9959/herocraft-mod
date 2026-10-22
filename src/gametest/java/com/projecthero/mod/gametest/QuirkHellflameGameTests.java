@@ -353,6 +353,29 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void fireWallFiresGoOutOnTime(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		helper.getLevel().getGameRules().getRule(GameRules.RULE_MOBGRIEFING).set(true, helper.getLevel().getServer());
+		int fires = HellflameMoves.fireWall(p);
+		if (fires == 0) {
+			helper.succeed(); // terrain damage off in this config: nothing to put out
+			return;
+		}
+		helper.assertTrue(HellflameMoves.firesLit(p) == fires, "every fire is on his clock");
+		pump(helper, p);
+		helper.runAfterDelay(HellflameConfig.WALL_TICKS + 15, () -> {
+			for (int x = 0; x <= 7; x++) {
+				for (int z = 0; z <= 7; z++) {
+					helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(x, 2, z));
+				}
+			}
+			helper.assertTrue(HellflameMoves.firesLit(p) == 0, "and off it");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void flameCloakBurnsWhatIsClose(GameTestHelper helper) {
 		floor(helper);

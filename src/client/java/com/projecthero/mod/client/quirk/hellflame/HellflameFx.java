@@ -70,7 +70,7 @@ public final class HellflameFx {
 			if (Hellflame.decoyUp(p)) {
 				decoy(level, rnd, p, now);
 			}
-			if (Hellflame.overheated(p) && rnd.nextInt(2) == 0) {
+			if (Hellflame.overheated(p) && !firstPerson && rnd.nextInt(2) == 0) {
 				boolean burnt = Hellflame.burntOut(p);
 				add(level, burnt ? ParticleTypes.CLOUD : ParticleTypes.SMOKE,
 						new Vec3(p.getX() + (rnd.nextDouble() - 0.5) * 0.6, p.getY() + 1.2 + rnd.nextDouble() * 0.6, p.getZ() + (rnd.nextDouble() - 0.5) * 0.6),
@@ -96,8 +96,9 @@ public final class HellflameFx {
 		Vec3[] body = frame(p, false);
 		double crouch = p.isCrouching() ? -0.3 : 0.0;
 		int boost = plus ? 3 : 1;
-		// the shoulder flames: tongues rising off both shoulders, leaning outward (clear of the face)
-		for (int side = -1; side <= 1; side += 2) {
+		// the shoulder flames: tongues rising off both shoulders, leaning outward (clear of the face) -- not in your own
+		// first-person view, where they would sit right in front of the camera
+		for (int side = -1; side <= 1 && !firstPerson; side += 2) {
 			Vec3 sh = p.position().add(0, 1.42 + crouch, 0).add(body[1].scale(side * 0.4));
 			Vec3 out = body[1].scale(side * 0.018);
 			for (int k = 0; k < boost; k++) {
@@ -125,7 +126,7 @@ public final class HellflameFx {
 			double r = HellflameConfig.CLOAK_RADIUS * (plus ? HellflameConfig.PLUS_SIZE_MULT : 1.0) * (0.6 + rnd.nextDouble() * 0.4);
 			add(level, plus ? HellflameCombat.BIG_ORANGE : ParticleTypes.FLAME, p.position().add(Math.cos(a) * r, 0.1, Math.sin(a) * r), 0, 0.04, 0);
 		}
-		if (plus) {
+		if (plus && !firstPerson) {
 			// Plus Ultra: the whole body roars, white-hot at the core
 			for (int i = 0; i < 4; i++) {
 				Vec3 at = p.position().add((rnd.nextDouble() - 0.5) * 0.8, rnd.nextDouble() * 2.0, (rnd.nextDouble() - 0.5) * 0.8);
@@ -231,8 +232,8 @@ public final class HellflameFx {
 		}
 		// the recoil flare at the fist and the heat shimmer round his feet
 		add(level, HellflameCombat.WHITE_HOT, from, look.x * 0.1, look.y * 0.1, look.z * 0.1);
-		if (rnd.nextInt(2) == 0) {
-			add(level, ParticleTypes.LARGE_SMOKE, p.position().add((rnd.nextDouble() - 0.5), 0.1, (rnd.nextDouble() - 0.5)), 0, 0.02, 0);
+		if (rnd.nextInt(5) == 0) {
+			add(level, ParticleTypes.SMOKE, p.position().add((rnd.nextDouble() - 0.5), 0.1, (rnd.nextDouble() - 0.5)), 0, 0.02, 0);
 		}
 	}
 
@@ -256,8 +257,8 @@ public final class HellflameFx {
 		if (rnd.nextInt(2) == 0) {
 			add(level, HellflameCombat.BIG_ORANGE, a.lerp(b, rnd.nextDouble()).add(0, 0.6 + rnd.nextDouble() * 2.0, 0), 0, 0.06, 0);
 		}
-		if (rnd.nextInt(3) == 0) {
-			add(level, ParticleTypes.LARGE_SMOKE, a.lerp(b, rnd.nextDouble()).add(0, HellflameConfig.WALL_HEIGHT, 0), 0, 0.05, 0);
+		if (rnd.nextInt(8) == 0) {
+			add(level, ParticleTypes.SMOKE, a.lerp(b, rnd.nextDouble()).add(0, HellflameConfig.WALL_HEIGHT, 0), 0, 0.05, 0);
 		}
 	}
 

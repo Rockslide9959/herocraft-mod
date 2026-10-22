@@ -100,6 +100,8 @@ public final class HellflameMoves {
 		// Shift+V: Plus Ultra and the burnout after it
 		long plusUntil;
 		long burnoutUntil;
+		// the fire blocks he has lit: position -> when they go out
+		final Map<Long, Long> fires = new java.util.HashMap<>();
 	}
 
 	private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
@@ -203,7 +205,7 @@ public final class HellflameMoves {
 		Quirks.setAnim(p, Hellflame.ANIM_OVERHEAT);
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position().add(0, 1.0, 0);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 18, 0.4, 0.7, 0.4, 0.03);
+		level.sendParticles(ParticleTypes.SMOKE, c.x, p.getY() + 0.3, c.z, 18, 0.5, 0.3, 0.5, 0.03);
 		level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 8, 0.3, 0.5, 0.3, 0.0);
 		sound(p, SoundEvents.FIRE_EXTINGUISH, 1.0f, 0.6f);
 		sound(p, SoundEvents.LAVA_EXTINGUISH, 0.8f, 0.8f);
@@ -261,7 +263,36 @@ public final class HellflameMoves {
 				return false;
 			}
 		}
-		return GeoTerrain.placeTemp(p, level, at, BaseFireBlock.getState(level, at), ttl);
+		if (!GeoTerrain.placeTemp(p, level, at, BaseFireBlock.getState(level, at), ttl)) {
+			return false;
+		}
+		// the ledger only takes back a fire that has not aged (doFireTick changes its state): put out whatever is left ourselves
+		session(p).fires.put(at.asLong(), level.getGameTime() + ttl + 2);
+		return true;
+	}
+
+	/** Puts out his fires whose time is up (still fire: the ledger missed an aged one). */
+	private static void firesTick(ServerPlayer p, Session s, long now) {
+		if (s.fires.isEmpty() || now % 10 != 0) {
+			return;
+		}
+		ServerLevel level = p.serverLevel();
+		s.fires.entrySet().removeIf(en -> {
+			if (now < en.getValue()) {
+				return false;
+			}
+			BlockPos pos = BlockPos.of(en.getKey());
+			if (level.hasChunkAt(pos) && level.getBlockState(pos).getBlock() instanceof BaseFireBlock) {
+				level.removeBlock(pos, false);
+			}
+			return true;
+		});
+	}
+
+	/** Test read: fires he has lit that are still on his clock. */
+	public static int firesLit(ServerPlayer p) {
+		Session s = peekSession(p);
+		return s == null ? 0 : s.fires.size();
 	}
 
 	// ================================================================ Shift+X: Flashfire Fist: Jet Burn
@@ -946,7 +977,7 @@ public final class HellflameMoves {
 		Quirks.setVal(p, Hellflame.V_BEAM, now(p));
 		Vec3 h = hand(p);
 		ServerLevel level = p.serverLevel();
-		level.sendParticles(ParticleTypes.EXPLOSION, h.x, h.y, h.z, 1, 0, 0, 0, 0);
+		HellflameCombat.flare(level, h.add(p.getLookAngle().scale(0.6)), 18, 0.25);
 		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.4f, 0.5f);
 		sound(p, SoundEvents.GHAST_SHOOT, 1.2f, 0.45f);
 		sound(p, SoundEvents.BLAZE_SHOOT, 1.2f, 0.4f);
@@ -1175,8 +1206,8 @@ public final class HellflameMoves {
 			}
 		}
 		HellflameCombat.flare(level, c, 20 + (int) (h * 0.3), 0.6);
-		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.6, c.z, 30, 0.5, 0.9, 0.5, 0.08);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 14, 0.6, 0.6, 0.6, 0.04);
+		level.sendParticles(ParticleTypes.WHITE_SMOKE, c.x, c.y + 0.6, c.z, 26, 0.6, 0.9, 0.6, 0.05);
+		level.sendParticles(ParticleTypes.POOF, c.x, c.y, c.z, 10, 0.6, 0.5, 0.6, 0.06);
 		Quirks.setAnim(p, Hellflame.ANIM_COOL);
 		Quirks.setCooldown(p, HellflameConfig.COOL, HellflameConfig.COOL_COOLDOWN);
 		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.2f, 0.7f);
@@ -1198,8 +1229,8 @@ public final class HellflameMoves {
 		Quirks.setCooldown(p, HellflameConfig.PLUS, HellflameConfig.PLUS_COOLDOWN);
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position().add(0, 1.0, 0);
-		HellflameCombat.flare(level, c, 60, 0.9);
-		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		HellflameCombat.flare(level, p.position().add(0, 0.3, 0), 50, 0.9);
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, p.getY() + 0.2, c.z, 4, 1.4, 0.1, 1.4, 0);
 		for (int i = 0; i < 40; i++) {
 			double a = i / 40.0 * Math.PI * 2.0;
 			level.sendParticles(ParticleTypes.FLAME, c.x, p.getY() + 0.2, c.z, 0, Math.cos(a), 0.15, Math.sin(a), 0.6);
@@ -1229,7 +1260,7 @@ public final class HellflameMoves {
 		}
 		Quirks.setAnim(p, Hellflame.ANIM_OVERHEAT);
 		ServerLevel level = p.serverLevel();
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 1.0, p.getZ(), 24, 0.5, 0.8, 0.5, 0.04);
+		level.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 0.3, p.getZ(), 24, 0.6, 0.3, 0.6, 0.04);
 		sound(p, SoundEvents.FIRE_EXTINGUISH, 1.2f, 0.4f);
 		sound(p, SoundEvents.LAVA_EXTINGUISH, 1.0f, 0.6f);
 		Quirks.say(p, "message.projecthero.hellflame.burnout", ChatFormatting.RED);
@@ -1254,6 +1285,7 @@ public final class HellflameMoves {
 	static void tick(ServerPlayer p) {
 		Session s = session(p);
 		long now = now(p);
+		firesTick(p, s, now);
 		if (s.plusUntil != 0L && now >= s.plusUntil) {
 			endPlus(p, s, now);
 		}
