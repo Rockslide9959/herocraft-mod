@@ -67,8 +67,11 @@ public class IronManSentryV0159GameTests implements FabricGameTest {
 	}
 
 	private static IronManSentryEntity deploy(GameTestHelper helper, ServerPlayer p) {
-		helper.assertTrue(IronManMark8.SENTRY.equals(IronManSuits.byId(SUIT).abilityInSlot(6)), "the Mark 8 has Sentry Mode on C");
-		IronManMark8.trigger(p, IronManSuits.byId(SUIT), IronManSuits.byId(SUIT).abilityInSlot(6), true);
+		// v0.16.7 (user): Sentry Mode is the Hulkbuster's C held for 1 s (a tap is the Hydraulic Brace)
+		helper.assertTrue("mk8_hydraulic_brace".equals(com.projecthero.mod.ironman.ability.IronManComicKit.kit(SUIT).key(6).tap().id()),
+				"the Mark 8's C is Brace / hold: Sentry Mode");
+		com.projecthero.mod.ironman.ability.IronManComicMoves.hulkbusterCForTests(p, IronManSuits.byId(SUIT),
+				com.projecthero.mod.ironman.ability.IronManComicMoves.SENTRY_HOLD_TICKS + 2);
 		List<IronManSentryEntity> found = helper.getLevel().getEntities(IronManEntityTypes.SENTRY,
 				new AABB(p.position(), p.position()).inflate(3), s -> p.getUUID().equals(s.ownerId()));
 		helper.assertTrue(found.size() == 1, "C in the full suit deploys exactly one sentry (" + found.size() + ")");

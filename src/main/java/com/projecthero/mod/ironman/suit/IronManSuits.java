@@ -88,10 +88,12 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the classic red and gold -- the Briefcase armour (the old Mark 5 suitcase system is its delivery now). */
-	public static final IronManSuit MARK_2 = register(comicKit(IronManSuit.Builder.of("mark_2"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_2 = register(comicKit(IronManSuit.Builder.of("mark_2"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C) // v0.16.7 (user): C = a kit key (Highlight); hold Shift+C folds
 			.tech(0, 2)
 			.maxIntegrity(1000f)
 			.absorb(0.30f)
+			.energy(1400f, 0f) // v0.16.7 (user) Era II: an Arc Reactor Mk2 -- the Era I energy rules (IronManEraOne.hasReactor)
+			.energyRegen(2.5f)
 			.noAutoFeed()
 			.targeting()
 			.waterBreathing()
@@ -188,10 +190,12 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the SILVER CENTURION -- Resistance I and a slow out-of-combat self-repair. */
-	public static final IronManSuit MARK_6 = register(comicKit(IronManSuit.Builder.of("mark_6"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_6 = register(comicKit(IronManSuit.Builder.of("mark_6"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C) // v0.16.7 (user): C = Energy Shield
 			.tech(0, 6)
 			.maxIntegrity(2200f)
 			.absorb(0.45f)
+			.energy(1800f, 0f) // v0.16.7 (user) Era II reactor
+			.energyRegen(2.5f)
 			.selfRepair(8.0f)
 			.waterBreathing()
 			.resistance(1)
@@ -214,10 +218,12 @@ public final class IronManSuits {
 
 	/** v0.16.1: the SPACE armour -- the fastest flier, no altitude ceiling, fire / lava / freeze proof; keeps the orbital
 	 *  pod and the Colantotte Bracelets. Self-repairs faster than the Centurion. */
-	public static final IronManSuit MARK_VII = register(comicKit(IronManSuit.Builder.of("mark_vii"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_VII = register(comicKit(IronManSuit.Builder.of("mark_vii"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C) // v0.16.7 (user): C = Zero-G Field
 			.tech(3, 7)
 			.maxIntegrity(2600f)
 			.absorb(0.50f)
+			.energy(1600f, 0f) // v0.16.7 (user) Era II reactor
+			.energyRegen(2.5f)
 			.selfRepair(15.0f)
 			.waterBreathing()
 			.targeting()
@@ -240,14 +246,16 @@ public final class IronManSuits {
 	/**
 	 * v0.16.7 (user) Era II stage 1: the Mk IX INFERNO -- the Nether suit. Charcoal plate, bronze trim, heat-sink fins;
 	 * fire and lava immunity while the full suit is worn and an orange jet. Flies like the Mk VIII Space; integrity /
-	 * absorb sit between the Mk VIII and the Hulkbuster. Keeps the no-energy shim. v0.16.7 (user) Era II stage 3: its kit
+	 * absorb sit between the Mk VIII and the Hulkbuster. v0.16.7 (user): a real reactor now (1700, the Era I rules) on top of its heat sink. v0.16.7 (user) Era II stage 3: its kit
 	 * ({@code IronManComicKit} "mark_9", {@code IronManMark9}): fire blast / stream, magma fist / eruption, afterburner /
 	 * lava geyser, magma bomb / firestorm, heat dump / thermal siphon, the heat sink and lava swimming.
 	 */
-	public static final IronManSuit MARK_9 = register(comicKit(IronManSuit.Builder.of("mark_9"), IronManAbilities.SUIT_TOGGLE)
+	public static final IronManSuit MARK_9 = register(comicKit(IronManSuit.Builder.of("mark_9"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C) // v0.16.7 (user): C = Thermal Siphon
 			.tech(4, 9)
 			.maxIntegrity(3200f)
 			.absorb(0.55f)
+			.energy(1700f, 0f) // v0.16.7 (user) Era II reactor
+			.energyRegen(2.5f)
 			.selfRepair(12.0f)
 			.waterBreathing()
 			.targeting()
@@ -269,12 +277,13 @@ public final class IronManSuits {
 			.build());
 
 	/** v0.16.1: the HULKBUSTER -- about 3 blocks tall (x1.45), slow jet-hover, knockback immune, never self-repairs (its
-	 *  Replacement Pod is the field fix). Keeps Sentry Mode on C and the Stark Glasses call; arrives as an orbital drop. */
-	public static final IronManSuit MARK_8 = register(comicKit(IronManSuit.Builder.of("mark_8"),
-			com.projecthero.mod.ironman.ability.IronManMark8.SENTRY) // C = Sentry Mode
+	 *  Replacement Pod is the field fix). v0.16.7 (user): C is a kit key -- tap = Hydraulic Brace, hold 1 s = Sentry Mode. */
+	public static final IronManSuit MARK_8 = register(comicKit(IronManSuit.Builder.of("mark_8"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(3, 8)
 			.maxIntegrity(4500f)
 			.absorb(0.60f)
+			.energy(2500f, 0f) // v0.16.7 (user) Era II reactor
+			.energyRegen(2.5f)
 			.waterBreathing()
 			.targeting()
 			.coloredGlow()

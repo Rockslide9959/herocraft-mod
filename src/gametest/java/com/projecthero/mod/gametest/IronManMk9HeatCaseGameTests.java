@@ -56,7 +56,7 @@ public class IronManMk9HeatCaseGameTests implements FabricGameTest {
 			slots.set(bit, new ItemStack(IronManItems.armor(SUIT, TYPES[bit])));
 		}
 		SuitcaseContents.write(c, slots);
-		IronManEnergy.stampStack(c, 0f, integrity);
+		IronManEnergy.stampStack(c, IronManEnergy.capacity(SUIT), integrity); // v0.16.7 (user): a full Era II reactor
 		return c;
 	}
 

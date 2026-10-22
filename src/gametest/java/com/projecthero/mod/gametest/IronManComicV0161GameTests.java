@@ -34,7 +34,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 
 /**
- * v0.16.1 COMIC-ACCURATE IRON MAN REWORK: no suit energy anywhere, the integrity absorption share per Mark, the 0-integrity
+ * v0.16.1 COMIC-ACCURATE IRON MAN REWORK (v0.16.7 (user): every suit has a reactor again -- Era I, then Era II), the integrity absorption share per Mark, the 0-integrity
  * disable, the Mark 6 / Mark 7 out-of-combat self-repair, the Mark 1 V2 Fabricator upgrade, the Mark 2 Briefcase remap and,
  * for every Mark, that tap and Shift on one key are different moves with separate cooldowns.
  */
@@ -87,8 +87,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 			h.assertTrue(s.maxIntegrity() == INTEGRITY[i], ORDER[i] + " integrity " + INTEGRITY[i] + ", got " + s.maxIntegrity());
 			h.assertTrue(s.progressionIndex() == i, ORDER[i] + " progression index " + i);
 			IronManComicKit.Kit kit = IronManComicKit.kit(ORDER[i]);
-			// v0.16.7: the Era I kits have a sixth key (C)
-			int keys = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(ORDER[i]) ? 6 : 5;
+			// v0.16.7: the Era I kits have a sixth key (C); v0.16.7 (user): the Era II kits too (a utility moved to C)
+			int keys = 6;
 			// v0.16.7 (user) Era II stage 3: the Mk IX Inferno has its own five-key kit now (stage 1 left it empty)
 			h.assertTrue(kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
 			for (int slot = 1; slot <= 5; slot++) {
@@ -110,28 +110,26 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	// ------------------------------------------------------------------ no energy
+	// ------------------------------------------------------------------ energy (v0.16.7 (user): every suit has a reactor)
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void thereIsNoSuitEnergyAnywhere(GameTestHelper h) {
+	public void everySuitHasAReactorNow(GameTestHelper h) {
+		for (String id : ORDER) {
+			h.assertTrue(IronManSuits.byId(id).hasReactor() && IronManEnergy.real(id),
+					id + " runs on a real reactor (" + IronManEnergy.capacity(id) + ")");
+		}
 		ServerPlayer p = tony(h);
 		wear(p, "mark_6");
-		// wipe any energy the state could ever have held -- the suit must not care
-		TonyStarkState s = TonyStark.state(p).copy();
-		s.suitEnergy.clear();
-		p.setAttached(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, s);
-		IronManEnergy.setEnergy(p, "mark_6", 0f);
-		h.assertTrue(IronManEnergy.energy(p, "mark_6") == IronManEnergy.FULL, "the shim always reads full");
+		// the pre-v0.16.1 helpers' own costs stay free (the kit table is the one price list)
 		h.assertTrue(IronManEnergy.spend(p, "mark_6", 1.0e6f) && IronManEnergy.has(p, "mark_6", 1.0e6f), "spend / has never refuse");
-		h.assertTrue(IronManEnergy.platformEnergyPerSecond(IronManSuits.MARK_6) == 0f, "platforms only repair");
-		// abilities fire on cooldown alone: v0.16.7: a later suit (the Era I suits have a reactor again) -- the Centurion Energy Shield (V) and Heavy Unibeam (Z)
-		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_6, 5, false), "Energy Shield fires with no energy field");
-		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_6, 4, false), "Unibeam fires with no energy field");
-		h.assertTrue(TonyStark.state(p).suitEnergy.isEmpty(), "nothing wrote an energy value back");
-		// the stamp no longer carries energy
+		float before = IronManEnergy.energy(p, "mark_6");
+		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_6, 4, false), "Heavy Unibeam fires");
+		h.assertTrue(Math.abs(IronManEnergy.energy(p, "mark_6") - (before - IronManComicKit.energyCost("mk6_heavy_unibeam"))) < 0.01f,
+				"and pays its kit cost");
+		// the stamp carries the charge
 		ItemStack chest = new ItemStack(IronManItems.armor("mark_6", ArmorItem.Type.CHESTPLATE));
-		IronManEnergy.stampStack(chest, 5f, 700f);
-		h.assertTrue(!chest.has(com.projecthero.mod.item.ModDataComponents.SUIT_ENERGY), "no energy component on a stamped stack");
+		IronManEnergy.stampStack(chest, 500f, 700f);
+		h.assertTrue(IronManEnergy.stackEnergy(chest, "mark_6") == 500f, "energy stamped on the piece");
 		h.assertTrue(IronManEnergy.stackIntegrity(chest, "mark_6") == 700f, "integrity still stamped");
 		leave(h, p);
 		h.succeed();
@@ -202,7 +200,7 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 		wear(p, "mark_8");
 		IronManEnergy.setIntegrity(p, "mark_8", 0f);
 		h.assertTrue(IronManComicRouter.fireForTests(p, IronManSuits.MARK_8, 5, true), "Replacement Pod fires on a disabled Hulkbuster");
-		h.assertFalse(IronManComicRouter.fireForTests(p, IronManSuits.MARK_8, 5, false), "but the Brace does not");
+		h.assertFalse(IronManComicRouter.fireForTests(p, IronManSuits.MARK_8, 5, false), "but the Palm Cannon does not");
 		h.runAfterDelay(IronManComicMoves.POD_DELAY_TICKS + 5, () -> {
 			float integ = IronManEnergy.integrity(p, "mark_8");
 			h.assertTrue(Math.abs(integ - 4500f * IronManComicMoves.POD_REPAIR_FRACTION) < 1f, "the pod restored 30%, got " + integ);
@@ -344,7 +342,7 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void markSixTapAndShiftAreSeparate(GameTestHelper h) {
-		tapAndShift(h, "mark_6", 5); // Energy Shield / Overload Burst
+		tapAndShift(h, "mark_6", 2); // Pulse Bolts / Pulse Storm (v0.16.7 (user): V is Deploy Blades / Blade Whirl now)
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

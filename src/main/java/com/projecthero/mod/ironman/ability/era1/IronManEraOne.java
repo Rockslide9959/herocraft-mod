@@ -17,7 +17,7 @@ import net.minecraft.server.level.ServerPlayer;
  * ({@link EraOneMk1Moves} .. {@link EraOneMk5Moves}), each registering a {@link Handler} per move id here, so
  * {@code IronManComicMoves} only has to ask {@link #has} / {@link #fire}.
  *
- * <p>Energy is back for Era I (the later suits keep the v0.16.1 no-energy shim for now): the kit table gives every Era I
+ * <p>Energy is back for Era I (and, v0.16.7 (user), Era II -- {@link #hasReactor}): the kit table gives every Era I / II
  * move its cost; {@link #canPay} / {@link #pay} are the router's hooks (implemented with {@code IronManEnergy}).
  *
  * <p><b>Energy rules for the move code</b> (v0.16.7 CORE):
@@ -42,6 +42,14 @@ public final class IronManEraOne {
 	/** The Era I suit ids, in progression order. */
 	public static final Set<String> SUITS = Set.of("mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v");
 
+	/**
+	 * v0.16.7 (user): the five Era II suits (Mk VI Suitcase, Mk VII Silver Centurion, Mk VIII Space, Mk IX Inferno,
+	 * Hulkbuster I). They are NOT Gantry Age suits (they suit up / fold anywhere), but since v0.16.7 they run on the same
+	 * reactor as Era I ("all the armours should have energy levels"): capacity / regen per suit, every move pays its kit
+	 * cost, flight drains, brownout at 0. See {@link #hasReactor}.
+	 */
+	public static final Set<String> ERA_TWO = Set.of("mark_2", "mark_6", "mark_vii", "mark_9", "mark_8");
+
 	/** One move edge: {@code pressed} = key down (a TAP move only ever gets the press). Returns true when it went off. */
 	@FunctionalInterface
 	public interface Handler {
@@ -60,6 +68,20 @@ public final class IronManEraOne {
 
 	public static boolean isEraOne(IronManSuit suit) {
 		return suit != null && isEraOne(suit.id());
+	}
+
+	/** v0.16.7 (user): is this an Era II suit (Mk VI .. Hulkbuster I)? */
+	public static boolean isEraTwo(String suitId) {
+		return suitId != null && ERA_TWO.contains(suitId);
+	}
+
+	/**
+	 * v0.16.7 (user): does this suit run on a real reactor (Era I or Era II)? The energy rules ({@link #canPay},
+	 * {@link #pay}, {@link #drainTick}, brownout, flight drain, regen) apply to exactly these; every other suit keeps the
+	 * v0.16.1 always-full shim. The Gantry-only rules (suit up / off only in a Stark Gantry, the Shift+C eject) stay Era I's.
+	 */
+	public static boolean hasReactor(String suitId) {
+		return isEraOne(suitId) || isEraTwo(suitId);
 	}
 
 	/** Called by each suit's moves class from its {@code init()}. */
@@ -106,7 +128,7 @@ public final class IronManEraOne {
 	 * true for a later suit.
 	 */
 	public static boolean canPay(ServerPlayer player, IronManSuit suit, IronManComicKit.Move move) {
-		if (suit == null || !isEraOne(suit) || move == null) {
+		if (suit == null || !hasReactor(suit.id()) || move == null) {
 			return true;
 		}
 		float cost = IronManComicKit.energyCost(move.id());
@@ -120,13 +142,33 @@ public final class IronManEraOne {
 
 	/** Router: the move went off -- pay its energy ({@link IronManComicKit#energyCost}). */
 	public static void pay(ServerPlayer player, IronManSuit suit, IronManComicKit.Move move) {
-		if (suit == null || !isEraOne(suit) || move == null) {
+		if (suit == null || !hasReactor(suit.id()) || move == null) {
 			return;
 		}
-		float cost = IronManComicKit.energyCost(move.id());
-		if (cost > 0f) {
+		payAmount(player, suit, IronManComicKit.energyCost(move.id()));
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: pay a flat {@code cost} from a reactor suit -- for the few moves that go off away from the
+	 * router's press / release edges (the Mk VI's shared repulsor slot, the Hulkbuster's C tap / hold). No-op without one.
+	 */
+	public static void payAmount(ServerPlayer player, IronManSuit suit, float cost) {
+		if (suit != null && hasReactor(suit.id()) && cost > 0f) {
 			IronManEnergy.setEnergy(player, suit.id(), IronManEnergy.energy(player, suit.id()) - cost);
 		}
+	}
+
+	/** v0.16.7 (user) Era II: could a flat {@code cost} be paid now (not browned out, enough left)? LOW POWER if not. */
+	public static boolean canPayAmount(ServerPlayer player, IronManSuit suit, float cost) {
+		if (suit == null || !hasReactor(suit.id())) {
+			return true;
+		}
+		float e = IronManEnergy.energy(player, suit.id());
+		boolean ok = !IronManEnergy.brownedOut(player, suit.id()) && (cost > 0f ? e >= cost - 1.0e-4f : e > 0f);
+		if (!ok) {
+			lowPower(player);
+		}
+		return ok;
 	}
 
 	/**
@@ -138,7 +180,7 @@ public final class IronManEraOne {
 	 * Always true for a later suit.
 	 */
 	public static boolean drainTick(ServerPlayer player, IronManSuit suit, String moveId) {
-		if (suit == null || !isEraOne(suit)) {
+		if (suit == null || !hasReactor(suit.id())) {
 			return true;
 		}
 		if (!suit.id().equals(com.projecthero.mod.ironman.IronManArmor.wornSuitId(player))

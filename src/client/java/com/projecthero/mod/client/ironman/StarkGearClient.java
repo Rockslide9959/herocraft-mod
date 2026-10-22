@@ -21,6 +21,7 @@ public final class StarkGearClient {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new StarkGlassesLayer(playerRenderer));
 				helper.register(new ColantotteBraceletsLayer(playerRenderer)); // v0.15.4
+				helper.register(new CenturionBladeLayer(playerRenderer)); // v0.16.7 (user): the Mk VII's forearm blades
 			}
 		});
 	}

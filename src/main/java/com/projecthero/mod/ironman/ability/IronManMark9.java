@@ -87,6 +87,11 @@ public final class IronManMark9 {
 	public static final float GEYSER_HEAT = 6f;
 	public static final float BOMB_HEAT = 8f;
 	public static final float FIRESTORM_HEAT = 10f;
+	/** v0.16.7 (user): the Molten Lash (Shift+V, the new attack once Thermal Siphon moved to C). */
+	public static final float LASH_HEAT = 6f;
+	public static final double LASH_REACH = 7.0;
+	public static final double LASH_HALF_DEG = 60.0;
+	public static final int LASH_HIT = 4;
 
 	// tuning
 	public static final double BLAST_RANGE = 40.0;
@@ -247,7 +252,8 @@ public final class IronManMark9 {
 	/** The moves that put heat in refuse while the sink is saturated. */
 	private static boolean addsHeat(String id) {
 		return switch (id) {
-			case "mk9_fire_blast", "mk9_inferno_stream", "mk9_magma_fist", "mk9_eruption", "mk9_magma_bomb", "mk9_firestorm" -> true;
+			case "mk9_fire_blast", "mk9_inferno_stream", "mk9_magma_fist", "mk9_eruption", "mk9_magma_bomb", "mk9_firestorm",
+					"mk9_molten_lash" -> true;
 			default -> false;
 		};
 	}
@@ -278,6 +284,7 @@ public final class IronManMark9 {
 			case "mk9_firestorm" -> firestorm(p, d);
 			case "mk9_heat_dump" -> heatDump(p);
 			case "mk9_thermal_siphon" -> siphon(p);
+			case "mk9_molten_lash" -> moltenLash(p, d); // v0.16.7 (user)
 			default -> false;
 		};
 	}
@@ -343,6 +350,17 @@ public final class IronManMark9 {
 
 	private static void streamTick(ServerPlayer p, P s, long now) {
 		ServerLevel level = IronManComicFx.level(p);
+		// v0.16.7 (user) Era II energy: the stream drains 4/s from the reactor; a dry reactor chokes it like a full sink
+		if (!com.projecthero.mod.ironman.ability.era1.IronManEraOne.drainTick(p,
+				com.projecthero.mod.ironman.suit.IronManSuits.byId(SUIT), "mk9_inferno_stream")) {
+			s.streaming = false;
+			IronManComicKit.Move m = IronManComicKit.byId("mk9_inferno_stream");
+			if (m != null) {
+				TonyStark.triggerCooldown(p, SUIT, m.cooldownKey(), m.cooldownTicks());
+			}
+			IronManComicFx.soundAt(level, p.position(), SoundEvents.FIRE_EXTINGUISH, 0.8f, 0.8f);
+			return;
+		}
 		IronManAbilityFx.hold(p, IronManAbilityFx.FLAME);
 		Vec3 look = p.getLookAngle();
 		Vec3 nozzle = IronManComicFx.palm(p);
@@ -373,6 +391,54 @@ public final class IronManMark9 {
 			}
 			IronManComicFx.soundAt(level, p.position(), SoundEvents.FIRE_EXTINGUISH, 0.8f, 0.8f);
 		}
+	}
+
+	// ================================================================== Shift+V (v0.16.7 (user))
+
+	/**
+	 * Molten Lash: a whip of molten alloy cracked across the front -- every enemy in a {@link #LASH_REACH}-block,
+	 * 120-degree arc takes the move's damage (Hot Plating x1.25) + 5 s of fire and is yanked a step toward you.
+	 */
+	private static boolean moltenLash(ServerPlayer p, float damage) {
+		IronManComicFx.pose(p, IronManAbilityFx.MK9_LASH, 14);
+		IronManComicFx.sound(p, SoundEvents.FIRECHARGE_USE, 0.8f, 0.6f);
+		addHeat(p, LASH_HEAT);
+		final float dmg = damage * hotMultiplier(p);
+		// the whip uncoiling: a short trail of drips off the right wrist while the arm cocks back
+		for (int t = 1; t < LASH_HIT; t++) {
+			IronManComicState.later(p, t, w -> {
+				Vec3 h = IronManComicFx.palm(w);
+				IronManComicFx.level(w).sendParticles(ParticleTypes.DRIPPING_LAVA, h.x, h.y, h.z, 3, 0.1, 0.1, 0.1, 0.0);
+			});
+		}
+		IronManComicState.later(p, LASH_HIT, w -> {
+			if (!SUIT.equals(IronManArmor.wornSuitId(w))) {
+				return;
+			}
+			ServerLevel level = IronManComicFx.level(w);
+			Vec3 eye = w.getEyePosition().add(0, -0.35, 0);
+			Vec3 look = w.getLookAngle();
+			for (LivingEntity e : IronManComicFx.cone(w, eye, look, LASH_REACH, LASH_HALF_DEG)) {
+				IronManComicFx.burn(w, e, dmg, 100);
+				IronManComicFx.pull(e, w.position(), 0.45);
+				Vec3 c = IronManComicFx.centre(e);
+				level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0.0);
+			}
+			// the lash itself: a glowing arc swept right-to-left across the front, thickening toward the tip
+			Vec3 flat = new Vec3(look.x, 0, look.z).normalize();
+			for (int k = 0; k <= 14; k++) {
+				double a = Math.toRadians(-LASH_HALF_DEG + k * (2 * LASH_HALF_DEG / 14.0));
+				Vec3 dir = new Vec3(flat.x * Math.cos(a) - flat.z * Math.sin(a), 0, flat.x * Math.sin(a) + flat.z * Math.cos(a));
+				for (double r = 1.5; r <= LASH_REACH; r += 1.4) {
+					Vec3 at = eye.add(dir.scale(r)).add(0, Math.sin(k / 14.0 * Math.PI) * 0.3, 0);
+					level.sendParticles(r > LASH_REACH - 1.5 ? ParticleTypes.LAVA : ParticleTypes.FLAME, at.x, at.y, at.z, 1, 0.03, 0.03, 0.03, 0.0);
+				}
+			}
+			IronManComicFx.sound(w, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.6f);
+			IronManComicFx.sound(w, SoundEvents.BLAZE_SHOOT, 0.7f, 1.3f);
+			IronManComicFx.soundAt(level, eye.add(look.scale(LASH_REACH)), SoundEvents.FIRECHARGE_USE, 0.6f, 1.6f);
+		});
+		return true;
 	}
 
 	// ================================================================== G

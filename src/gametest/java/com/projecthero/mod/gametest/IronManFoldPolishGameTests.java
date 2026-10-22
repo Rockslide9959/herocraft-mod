@@ -109,7 +109,7 @@ public class IronManFoldPolishGameTests implements FabricGameTest {
 			loose(p, form.suitId());
 			ItemStack worn = p.getInventory().items.get(3);
 			float half = IronManEnergy.maxIntegrity(form.suitId()) * 0.5f;
-			IronManEnergy.stampStack(worn, 0f, half);
+			IronManEnergy.stampStack(worn, IronManEnergy.capacity(form.suitId()), half);
 			h.assertTrue(IronManArmorItem.packLoose(p, form.suitId()), form.suitId() + ": packs");
 			h.assertTrue(count(p, packed) == 1, form.suitId() + ": the emptied one is filled, no second one made");
 			ItemStack c = p.getInventory().items.get(20);

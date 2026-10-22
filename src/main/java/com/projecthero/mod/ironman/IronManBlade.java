@@ -31,6 +31,8 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class IronManBlade {
 	public static final float MELEE_BONUS = 4.0f;
+	/** v0.16.7 (user): the Mk VII Silver Centurion's blades hit harder (and sweep: {@code IronManCenturionBlades}). */
+	public static final float CENTURION_MELEE_BONUS = 6.0f;
 	private static final ResourceLocation ATK_ID = ProjectHeroMod.id("iron_man_blade_strength");
 
 	private IronManBlade() {
@@ -67,16 +69,24 @@ public final class IronManBlade {
 	 * Mark 5 is no longer the worn/powered suit, and keep the blades out.
 	 */
 	public static void tick(ServerPlayer player) {
-		boolean want = active(player) && "mark_v".equals(IronManArmor.wornSuitId(player))
+		String worn = IronManArmor.wornSuitId(player);
+		// v0.16.7 (user): the Mk VII Silver Centurion deploys blades too (V) -- they drain 1 energy/s while out
+		boolean centurion = "mark_6".equals(worn);
+		boolean want = active(player) && ("mark_v".equals(worn) || centurion)
 				&& IronManArmor.canOperate(player)
-				&& IronManEnergy.energy(player, "mark_v") > 0f
+				&& IronManEnergy.energy(player, worn) > 0f
 				&& !TonyStark.overloaded(player);
+		if (want && centurion && !com.projecthero.mod.ironman.ability.era1.IronManEraOne.drainTick(player,
+				com.projecthero.mod.ironman.suit.IronManSuits.byId(worn), "mk6_deploy_blades")) {
+			want = false;
+		}
+		float bonus = centurion ? CENTURION_MELEE_BONUS : MELEE_BONUS;
 		AttributeInstance atk = player.getAttribute(Attributes.ATTACK_DAMAGE);
 		if (atk != null) {
 			AttributeModifier cur = atk.getModifier(ATK_ID);
-			if (want && cur == null) {
+			if (want && (cur == null || cur.amount() != bonus)) {
 				atk.addOrUpdateTransientModifier(
-						new AttributeModifier(ATK_ID, MELEE_BONUS, AttributeModifier.Operation.ADD_VALUE));
+						new AttributeModifier(ATK_ID, bonus, AttributeModifier.Operation.ADD_VALUE));
 			} else if (!want && cur != null) {
 				atk.removeModifier(ATK_ID);
 			}

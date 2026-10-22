@@ -9,7 +9,7 @@ built by registering a form and writing its prop renderer.
 |---|---|
 | **C** (no suit on) | Deploys the first packed form you carry: the main hand first, then the rest of the inventory. Right-clicking the packed item does the same. |
 | **Hold Shift+C** (wearing it) | Folds the suit back into its packed form after holding for `PortableDeploy.FOLD_HOLD_TICKS` (0.5 s). |
-| **C** (wearing it) | Shows an action-bar hint ("Hold Shift+C to fold...") and nothing else. |
+| **C** (wearing it) | v0.16.7 (user): a kit move -- the utility moved to C (see `IRONMAN_ERA2_KITS.md`, "Energy + C utility round"). Was: the fold hint. |
 | H | Not used (it stays the power selector). |
 
 ## Files

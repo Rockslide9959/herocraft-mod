@@ -227,8 +227,12 @@ public final class IronManSuit {
 	 * v0.16.7 (user): except the five Era I suits, whose reactor is real again -- their own capacity (Mk I 600 .. Mk III 1200).
 	 */
 	public float energyCapacity() {
-		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(id) ? energyCapacity
-				: com.projecthero.mod.ironman.IronManEnergy.FULL;
+		return hasReactor() ? energyCapacity : com.projecthero.mod.ironman.IronManEnergy.FULL; // v0.16.7 (user): + Era II
+	}
+
+	/** v0.16.7 (user): does this suit run on a real reactor (Era I or Era II -- the energy rules)? */
+	public boolean hasReactor() {
+		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.hasReactor(id);
 	}
 
 	/** v0.16.7 (user): is this one of the five Era I (Gantry Age) suits? */

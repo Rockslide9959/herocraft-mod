@@ -66,6 +66,8 @@ public final class IronManComicRouter {
 		String[] held = PRESSED.computeIfAbsent(player.getUUID(), k -> new String[7]);
 		// v0.16.7 Era I: Shift+C is the emergency eject (hold 3 s), never a move
 		boolean eraOne = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suit);
+		// v0.16.7 (user): Era II suits pay energy too (the eject stays Era I's; Era II's Shift+C fold never reaches here)
+		boolean reactor = suit.hasReactor();
 		if (eraOne && slot == 6 && (player.isShiftKeyDown() || held[slot] == null && !pressed)) {
 			if (held[slot] == null) {
 				com.projecthero.mod.ironman.ability.era1.IronManEraOne.ejectKey(player, suit, pressed);
@@ -80,7 +82,7 @@ public final class IronManComicRouter {
 				boolean fired = IronManComicMoves.fire(player, suit, m, false);
 				if (fired) {
 					startCooldown(player, suit, m);
-					if (eraOne) {
+					if (reactor) {
 						// v0.16.7: a HOLD move pays on the edge it reports going off on, like its cooldown (a charged
 						// move fires on the release)
 						com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
@@ -104,7 +106,8 @@ public final class IronManComicRouter {
 							TonyStark.abilityCooldownRemaining(player, suit.id(), m.cooldownKey()) / 20.0f)), true);
 			return;
 		}
-		if (eraOne && !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
+		if (reactor && !IronManComicMoves.skipsEnergyGate(m)
+				&& !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
 			return;
 		}
 		if (m.input() == IronManComicKit.Input.HOLD) {
@@ -113,7 +116,7 @@ public final class IronManComicRouter {
 		boolean fired = IronManComicMoves.fire(player, suit, m, true);
 		if (fired) {
 			startCooldown(player, suit, m);
-			if (eraOne) {
+			if (reactor) {
 				com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
 			}
 		}
@@ -131,9 +134,10 @@ public final class IronManComicRouter {
 		if (m.cooldownTicks() > 0 && !TonyStark.abilityReady(player, suit.id(), m.cooldownKey())) {
 			return false;
 		}
-		boolean eraOne = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suit);
-		if (eraOne && !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
-			return false; // v0.16.7: Era I energy
+		boolean reactor = suit.hasReactor();
+		if (reactor && !IronManComicMoves.skipsEnergyGate(m)
+				&& !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPay(player, suit, m)) {
+			return false; // v0.16.7: Era I / Era II energy
 		}
 		boolean fired = IronManComicMoves.fire(player, suit, m, true);
 		if (m.input() == IronManComicKit.Input.HOLD) {
@@ -141,7 +145,7 @@ public final class IronManComicRouter {
 		}
 		if (fired) {
 			startCooldown(player, suit, m);
-			if (eraOne) {
+			if (reactor) {
 				com.projecthero.mod.ironman.ability.era1.IronManEraOne.pay(player, suit, m);
 			}
 		}

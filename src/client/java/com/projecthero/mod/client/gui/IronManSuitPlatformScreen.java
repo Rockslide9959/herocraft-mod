@@ -147,8 +147,8 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 			float maxI = suitId == null ? IronManEnergy.MAX_INTEGRITY : IronManEnergy.maxIntegrity(suitId);
 			meter(g, 57, Component.translatable("screen.projecthero.suit_call.integrity").getString(), integPct / 100f,
 					IronManUiLayout.exact(integPct / 100f * maxI, maxI), integPct < 30f ? IronManGui.RED : IronManGui.GREEN);
-			if (eraOne) {
-				// v0.16.7 (user) Era I: the reactor is back -- the second row is its charge
+			if (suit != null && suit.hasReactor()) {
+				// v0.16.7 (user) Era I / Era II: the reactor is back -- the second row is its charge
 				// read off the menu's slot stacks (synced every change), not the block entity's (re-sent only on contents)
 				float cap = Math.max(1f, suit.energyCapacity());
 				ItemStack[] ps = pieces();

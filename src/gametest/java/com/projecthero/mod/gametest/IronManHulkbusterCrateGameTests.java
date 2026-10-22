@@ -69,7 +69,7 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 			slots.set(bit, new ItemStack(IronManItems.armor(SUIT, TYPES[bit])));
 		}
 		SuitcaseContents.write(u, slots);
-		IronManEnergy.stampStack(u, 0f, integrity);
+		IronManEnergy.stampStack(u, IronManEnergy.capacity(SUIT), integrity); // v0.16.7 (user): a full Era II reactor
 		return u;
 	}
 

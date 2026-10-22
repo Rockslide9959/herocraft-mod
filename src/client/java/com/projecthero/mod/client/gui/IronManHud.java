@@ -388,7 +388,7 @@ public final class IronManHud {
 	 */
 	private static void statusBlock(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit, long now,
 			boolean retro, float integrity, float maxIntegrity, boolean offline) {
-		boolean reactor = suit.eraOne();
+		boolean reactor = suit.hasReactor(); // v0.16.7 (user): Era I and Era II
 		Rect b = IronManUiLayout.statusBlock(g.guiWidth(), reactor);
 		int line = retro ? IronManGui.AMBER : IronManGui.CYAN;
 		int lineDim = retro ? IronManGui.AMBER_DIM : IronManGui.CYAN_DIM;
@@ -896,7 +896,8 @@ public final class IronManHud {
 		boolean shift = player.isShiftKeyDown();
 		if (kitKey.shift() == null) {
 			// v0.16.7 (user) Era I: the C box -- its tap move, and with Shift held the emergency EJECT
-			return ejectKeyBox(g, font, state, suitId, kitKey.tap(), i, r, now, retro, offline, accent, shift);
+			// v0.16.7 (user) Era II: its tap move (a utility moved off V), and with Shift held FOLD into the portable form
+			return ejectKeyBox(g, font, player, state, suitId, kitKey.tap(), i, r, now, retro, offline, accent, shift);
 		}
 		var shown = kitKey.get(shift);
 		var other = kitKey.get(!shift);
@@ -940,21 +941,37 @@ public final class IronManHud {
 	 * the Suit Crate icon in a gold frame (the whole box glows while the 3 s hold runs). The move-list row is
 	 * "[C] tap / Shift: Emergency eject (hold 3 s)".
 	 */
-	private static MoveListOverlay.Row ejectKeyBox(GuiGraphics g, Font font, TonyStarkState state, String suitId,
+	private static MoveListOverlay.Row ejectKeyBox(GuiGraphics g, Font font, Player player, TonyStarkState state, String suitId,
 			com.projecthero.mod.ironman.ability.IronManComicKit.Move tap, int i, Rect r, long now, boolean retro, boolean offline,
 			int accent, boolean shift) {
 		String cdKey = suitId + "/" + tap.cooldownKey();
 		Long readyAt = state.abilityReadyAt.get(cdKey);
 		long left = readyAt == null ? 0 : Math.max(0, readyAt - now);
+		// v0.16.7 (user) Era II: Shift+C folds into the portable form (its packed item is the Shift icon)
+		com.projecthero.mod.ironman.suit.PortableForm fold = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suitId)
+				? null : com.projecthero.mod.ironman.suit.PortableForms.byId(suitId);
+		// v0.16.7 (user): the Hulkbuster / Silver Centurion C has a hold move -- the box fills while C is held
+		boolean holdKey = tap.input() == com.projecthero.mod.ironman.ability.IronManComicKit.Input.HOLD;
+		boolean cDown = holdKey && !shift && Minecraft.getInstance().screen == null && ModKeyBindings.ABILITY_SLOTS[5].isDown();
+		if (!cDown) {
+			cHeldSince = -1L;
+		} else if (cHeldSince < 0L || cHeldSince > now) {
+			cHeldSince = now;
+		}
 		holoBox(g, r, shift ? IronManGui.GOLD : offline ? 0xFF8A2828 : 0, retro); // v0.16.7 (user): the holographic frame
 		if (shift) {
-			if (ejectHeldSince >= 0L) {
+			if (fold == null && ejectHeldSince >= 0L) {
 				float p = Math.min(1f, (now - ejectHeldSince) / (float) com.projecthero.mod.ironman.ability.era1.EraOneEject.HOLD_TICKS);
 				int fillH = Math.round((r.h() - 2) * p);
 				g.fill(r.x() + 1, r.bottom() - 1 - fillH, r.right() - 1, r.bottom() - 1, 0x80FFC24A);
 			}
-			g.renderFakeItem(new ItemStack(IronManItems.SUIT_CRATE), r.x() + (r.w() - 16) / 2, r.y() + 3);
+			g.renderFakeItem(new ItemStack(fold != null ? fold.packedItem().get() : IronManItems.SUIT_CRATE), r.x() + (r.w() - 16) / 2, r.y() + 3);
 		} else {
+			if (cDown) {
+				float p = Math.min(1f, (now - cHeldSince) / (float) com.projecthero.mod.ironman.ability.IronManComicMoves.SENTRY_HOLD_TICKS);
+				int fillH = Math.round((r.h() - 2) * p);
+				g.fill(r.x() + 1, r.bottom() - 1 - fillH, r.right() - 1, r.bottom() - 1, p >= 1f ? 0x90FFC24A : 0x604FE0FF);
+			}
 			if (!offline && left <= 0) {
 				g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
 			}
@@ -964,7 +981,7 @@ public final class IronManHud {
 		g.pose().translate(0, 0, 200);
 		if (shift) {
 			// small (x0.7) so the word fits the 26 px box
-			String e = Component.translatable("hud.projecthero.ironman.era1.eject").getString();
+			String e = Component.translatable(fold != null ? "hud.projecthero.ironman.era2.fold" : "hud.projecthero.ironman.era1.eject").getString();
 			float sc = Math.min(0.7f, (r.w() - 2) / (float) Math.max(1, font.width(e)));
 			g.pose().pushPose();
 			g.pose().translate(r.x() + r.w() / 2f, r.bottom() - 7f, 0f);
@@ -985,8 +1002,12 @@ public final class IronManHud {
 		}
 		g.pose().popPose();
 		return MoveListOverlay.Row.of(MoveListOverlay.key(i), Component.translatable(tap.nameKey()),
-				Component.translatable("hud.projecthero.ironman.era1.eject_move"), left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
+				Component.translatable(fold != null ? "hud.projecthero.ironman.era2.fold_move" : "hud.projecthero.ironman.era1.eject_move"),
+				left > 0 ? Component.literal(IronManUiLayout.secs(left)) : null);
 	}
+
+	/** v0.16.7 (user): the game time this client started holding plain C on a hold-C suit (Hulkbuster / Mk VII), or -1. */
+	private static long cHeldSince = -1L;
 
 	private static boolean isActive(Player player, TonyStarkState state, String abilityId, long now) {
 		if (IronManAbilities.MOB_HIGHLIGHT_TOGGLE.equals(abilityId)) {

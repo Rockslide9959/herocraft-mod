@@ -67,7 +67,8 @@ public final class IronManEnergy {
 
 	/** v0.16.7: does {@code suitId} have a real reactor (an Era I suit)? */
 	public static boolean real(String suitId) {
-		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(suitId) && IronManSuits.byId(suitId) != null;
+		// v0.16.7 (user): Era II too ("all the armours should have energy levels")
+		return com.projecthero.mod.ironman.ability.era1.IronManEraOne.hasReactor(suitId) && IronManSuits.byId(suitId) != null;
 	}
 
 	/** The suit's current energy: Era I -- the stored value (full until first used); every later suit -- always full. */
@@ -200,8 +201,14 @@ public final class IronManEnergy {
 	 * {@link #GANTRY_CHARGE_PER_SECOND}; the platform decides whether it is in range.
 	 */
 	public static float platformEnergyPerSecond(IronManSuit suit) {
-		return suit != null && suit.eraOne() ? GANTRY_CHARGE_PER_SECOND : 0f;
+		return suit == null ? 0f : suit.eraOne() ? GANTRY_CHARGE_PER_SECOND : suit.hasReactor() ? ERA_TWO_PLATFORM_CHARGE_PER_SECOND : 0f;
 	}
+
+	/**
+	 * v0.16.7 (user) Era II: what any Suit Platform charges a racked Era II suit per second (they are not Gantry-bound;
+	 * in range of a complete Stark Gantry it is the full {@link #GANTRY_CHARGE_PER_SECOND}).
+	 */
+	public static final float ERA_TWO_PLATFORM_CHARGE_PER_SECOND = 25f;
 
 	/**
 	 * v0.16.7 (user): one tick of a worn Era I suit's reactor -- once a second its own regen (+50/s and a 5/s repair instead
@@ -209,7 +216,7 @@ public final class IronManEnergy {
 	 * later suits.
 	 */
 	public static void tickRecharge(ServerPlayer player, IronManSuit suit) {
-		if (suit == null || !suit.eraOne() || !IronManArmor.hasChestplate(player, suit.id())) {
+		if (suit == null || !suit.hasReactor() || !IronManArmor.hasChestplate(player, suit.id())) {
 			return;
 		}
 		flightDrainTick(player, suit);
@@ -220,7 +227,7 @@ public final class IronManEnergy {
 
 	/** v0.16.7: one tick of an Era I flier's (Mk III / IV / V) flight drain (2/s, sprint 4/s); running dry lands it. Public for the gametests. */
 	public static void flightDrainTick(ServerPlayer player, IronManSuit suit) {
-		if (suit != null && suit.eraOne() && suit.manualFlight() && com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
+		if (suit != null && suit.hasReactor() && suit.manualFlight() && com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			float perSecond = player.isSprinting() ? ERA_ONE_SPRINT_FLIGHT_PER_SECOND : ERA_ONE_FLIGHT_PER_SECOND;
 			if (!drainRunning(player, suit.id(), perSecond / 20f)) {
 				com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
@@ -233,7 +240,7 @@ public final class IronManEnergy {
 	 * +{@link #GANTRY_CHARGE_PER_SECOND} and a 5/s repair. Public for the gametests.
 	 */
 	public static void rechargeStep(ServerPlayer player, IronManSuit suit) {
-		if (suit == null || !suit.eraOne()) {
+		if (suit == null || !suit.hasReactor()) {
 			return;
 		}
 		boolean gantry = com.projecthero.mod.ironman.ability.era1.EraOneGantry.onGantryFloor(player);
@@ -263,6 +270,11 @@ public final class IronManEnergy {
 	 */
 	public static void stampStack(net.minecraft.world.item.ItemStack stack, float energy, float integrity) {
 		String suitId = stack.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a ? a.suitId() : null;
+		if (suitId == null) {
+			// v0.16.7 (user) Era II: a packed form (briefcase, backpack, heat case, Hulkbuster Uplink) carries its suit's charge
+			com.projecthero.mod.ironman.suit.PortableForm form = com.projecthero.mod.ironman.suit.PortableForms.byItem(stack.getItem());
+			suitId = form == null ? null : form.suitId();
+		}
 		if (real(suitId)) {
 			stack.set(com.projecthero.mod.item.ModDataComponents.SUIT_ENERGY, Math.max(0f, Math.min(capacity(suitId), energy)));
 		} else {

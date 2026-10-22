@@ -81,6 +81,8 @@ public final class IronManAbilityVisuals {
 			case 8, 11 -> 3; // v0.16.1 tractor / mega-beam (re-sent while held)
 			case 6, 10 -> 5; // v0.16.1 pulse bolt / stealth shot
 			case 12 -> 7; // v0.16.7 Mk IX Fire Blast
+			case 13 -> 5; // v0.16.7 (user) Mk VI Wrist Laser
+			case 15 -> 8; // v0.16.7 (user) Hulkbuster Palm Cannon
 			default -> 6;
 		};
 	}
@@ -211,6 +213,14 @@ public final class IronManAbilityVisuals {
 				width = 0.36f;
 				colour = 0xFF5A14;
 			}
+			case 13 -> { // v0.16.7 (user) Mk VI Wrist Laser -- a thin, hot red cutting beam
+				width = 0.1f;
+				colour = 0xFF2418;
+			}
+			case 15 -> { // v0.16.7 (user) Hulkbuster Palm Cannon -- a fat white-gold palm blast
+				width = 0.75f;
+				colour = 0xFFE9A8;
+			}
 			default -> {
 				width = 0.2f;
 				colour = 0x9FE8FF;
@@ -219,7 +229,7 @@ public final class IronManAbilityVisuals {
 		// the beam thins as it fades
 		float w = width * (0.5f + 0.5f * fade);
 		// v0.15.4: the red laser keeps a hot-red core (not white) so it reads unmistakably red
-		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : b.kind() == 5 ? 0xFF8A8A : b.kind() == 12 ? 0xFFE08A : 0xFFFFFF, fade);
+		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : b.kind() == 5 || b.kind() == 13 ? 0xFF8A8A : b.kind() == 12 ? 0xFFE08A : 0xFFFFFF, fade);
 		// a flare ring at the palm / chest
 		if (b.kind() != 3 && b.kind() != 4) {
 			ring(vc, glow, pose, b.a(), b.b().subtract(b.a()).normalize(), width * (1.2f + (1f - fade) * 1.5f), glow ? colour : 0xFFFFFF,

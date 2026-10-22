@@ -74,8 +74,8 @@ public class IronManSuitInfoScreen extends Screen {
 		row(wrap, "screen.projecthero.ironman_info.pieces", pieces + " / 4");
 		row(wrap, "screen.projecthero.ironman_info.integrity", fmt(integ) + " / " + fmt(maxInt)
 				+ (integ <= 0f ? "  " + Component.translatable("hud.projecthero.ironman.disabled_title").getString() : ""));
-		if (suit.eraOne()) {
-			// v0.16.7 (user) Era I: the reactor -- live energy / capacity, regen, and a brownout flag
+		if (suit.hasReactor()) {
+			// v0.16.7 (user) Era I (and Era II): the reactor -- live energy / capacity, regen, and a brownout flag
 			float cap = suit.energyCapacity();
 			float en = st == null ? cap : Math.max(0f, Math.min(cap, st.suitEnergy.getOrDefault(suit.id(), cap)));
 			boolean out = st != null && st.brownout.contains(suit.id());
@@ -132,7 +132,8 @@ public class IronManSuitInfoScreen extends Screen {
 		for (Component line : com.projecthero.mod.ironman.ui.IronManComicText.moves(suit, keys)) {
 			lines.addAll(font.split(line.copy().withStyle(ChatFormatting.WHITE), wrap));
 		}
-		if (!suit.eraOne()) { // v0.16.7: an Era I kit lists its C key above (tap move / Shift eject)
+		var infoKit = com.projecthero.mod.ironman.ability.IronManComicKit.kit(suit.id());
+		if (infoKit == null || infoKit.key(6) == null) { // v0.16.7: an Era I / Era II kit lists its C key above
 			String c = keys[5];
 			row(wrap, Component.literal("[" + c + "]"), Component.translatable("hud.projecthero.ironman.ability." + suit.abilityInSlot(6)).getString());
 		}

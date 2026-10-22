@@ -173,10 +173,15 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		SuitcaseContents.write(packed, slots);
 		// the case carries the suit's integrity: the most worn piece's (the deploy loads it from the case)
 		float integrity = Float.MAX_VALUE;
+		float energy = Float.MAX_VALUE; // v0.16.7 (user) Era II: and its reactor charge (the emptiest piece's)
 		for (ItemStack piece : slots) {
 			integrity = Math.min(integrity, com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(piece, suit));
+			if (!piece.isEmpty()) {
+				energy = Math.min(energy, com.projecthero.mod.ironman.IronManEnergy.stackEnergy(piece, suit));
+			}
 		}
-		com.projecthero.mod.ironman.IronManEnergy.stampStack(packed, 0f, integrity);
+		com.projecthero.mod.ironman.IronManEnergy.stampStack(packed,
+				energy == Float.MAX_VALUE ? com.projecthero.mod.ironman.IronManEnergy.capacity(suit) : energy, integrity);
 		if (emptied < 0) {
 			com.projecthero.mod.ironman.suit.PortableForm form = com.projecthero.mod.ironman.suit.PortableForms.byItem(packedItem);
 			if (form != null && form.rest() == com.projecthero.mod.ironman.suit.PortableForm.Place.BACK) {

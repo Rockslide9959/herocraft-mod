@@ -45,7 +45,7 @@ public final class IronManHulkbusterAnimatable implements GeoReplacedEntity {
 
 	static {
 		for (String clip : new String[] { "punch_combo", "rocket_fist", "pile_driver", "earthquake_stomp", "grab_pound", "grab_throw",
-				"chest_beam", "missile_swarm", "replacement_pod" }) {
+				"chest_beam", "missile_swarm", "replacement_pod", "palm_cannon" }) { // v0.16.7 (user): + the Palm Cannon
 			MOVES.put(clip, RawAnimation.begin().thenPlay(P + clip));
 		}
 		MOVES.put("grab", RawAnimation.begin().thenPlayAndHold(P + "grab"));
