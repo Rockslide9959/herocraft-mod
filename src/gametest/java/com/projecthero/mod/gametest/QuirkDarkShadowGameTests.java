@@ -497,4 +497,51 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	/**
+	 * v0.16.7 (user) "make pressing N hide dark shadow": N (toggleHidden, what the N payload calls) hides it -- no move
+	 * works, it can't go berserk in the pitch dark at a full meter, Shadow drains -- and N again calls it back out (the
+	 * summon clip), after which the moves work again.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void nHidesAndShowsIt(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 99.9f, 1f);
+		helper.assertTrue(DarkShadowMoves.toggleHidden(p), "N hides it");
+		helper.assertTrue(DarkShadow.recalled(p), "hidden");
+		helper.assertTrue(Quirks.peek(p).animId == DarkShadow.ANIM_RECALL, "the tuck-away clip plays");
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true); // R
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.STRIKE), "no Strike while hidden");
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true); // C: Berserk on purpose
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
+		helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "no Berserk on purpose while hidden");
+		pumpFrom(helper, p, 4);
+		helper.runAfterDelay(30, () -> {
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "it can't go berserk while hidden, even in the pitch dark");
+			helper.assertTrue(Quirks.meter(p) < 99f, "the meter drains while hidden, " + Quirks.meter(p));
+			helper.assertTrue(DarkShadowMoves.toggleHidden(p), "N again calls it out");
+			helper.assertFalse(DarkShadow.recalled(p), "out again");
+			helper.assertTrue(Quirks.peek(p).animId == DarkShadow.ANIM_SUMMON, "the emerge clip plays");
+			helper.assertFalse(DarkShadowMoves.toggleHidden(p), "hiding again waits out the short cooldown");
+			helper.assertFalse(DarkShadow.recalled(p), "still out");
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			Quirks.setMeter(p, 10f);
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // Z: Shadow Scout works again
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, false);
+			helper.assertFalse(Quirks.ready(p, DarkShadowConfig.SCOUT), "moves work once it is out");
+			helper.succeed();
+		});
+	}
+
+	/** v0.16.7 (user): a berserk Dark Shadow won't hide on N (only light calms it). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void berserkWontHideOnN(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f, 1f);
+		DarkShadowMoves.goBerserk(p, 2);
+		helper.assertFalse(DarkShadowMoves.toggleHidden(p), "refused while berserk");
+		helper.assertFalse(DarkShadow.recalled(p), "still out");
+		helper.succeed();
+	}
 }

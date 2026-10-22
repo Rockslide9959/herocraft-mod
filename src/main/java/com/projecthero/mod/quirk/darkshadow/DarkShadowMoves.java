@@ -698,7 +698,33 @@ public final class DarkShadowMoves {
 		Quirks.setAnim(p, DarkShadow.ANIM_RECALL);
 		Quirks.setCooldown(p, DarkShadowConfig.RECALL, mv().recallCooldown);
 		AbilityHelpers.sound(p, SoundEvents.SCULK_BLOCK_CHARGE, 1.0f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_FLAP, 0.8f, 0.7f);
 		DarkShadowCombat.smoke(p.serverLevel(), DarkShadowCombat.back(p), 14, 0.3);
+		return true;
+	}
+
+	/**
+	 * v0.16.7 (user) "make pressing N hide dark shadow": N hides it (the Recall state: it tucks away into your back, isn't
+	 * drawn, no move works, Shadow drains, it can't go berserk) and calls it back out. Shift+V is the same toggle. Calling
+	 * it out always works; hiding waits out the short Recall cooldown, and a berserk shadow won't listen (only light calms
+	 * it). Returns true if the state changed.
+	 */
+	public static boolean toggleHidden(ServerPlayer p) {
+		if (!DarkShadow.is(p)) {
+			return false;
+		}
+		if (DarkShadow.recalled(p)) {
+			toggleRecall(p);
+			return true;
+		}
+		if (DarkShadow.on(p, DarkShadow.V_BERSERK)) {
+			Quirks.say(p, "message.projecthero.dark_shadow.wont_hide", ChatFormatting.DARK_PURPLE);
+			return false;
+		}
+		if (!Quirks.ready(p, DarkShadowConfig.RECALL)) {
+			return false;
+		}
+		toggleRecall(p);
 		return true;
 	}
 

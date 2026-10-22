@@ -3,8 +3,13 @@ package com.projecthero.mod.quirk.darkshadow;
 import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.QuirkKits;
 
-import net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents;
+import com.projecthero.mod.hero.PowerSuppression;
 
+import net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -19,6 +24,19 @@ public final class DarkShadowMod {
 	public static void initialize() {
 		DarkShadowConfig.load();
 		QuirkKits.register(Quirk.DARK_SHADOW, new DarkShadowKit());
+		// v0.16.7 (user): N hides / calls out Dark Shadow (the client sends it only for a holder with no mutation selected)
+		PayloadTypeRegistry.playC2S().register(DarkShadowHidePayload.TYPE, DarkShadowHidePayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(DarkShadowHidePayload.TYPE, (payload, context) -> {
+			ServerPlayer p = context.player();
+			if (!p.isAlive() || p.isSpectator() || !DarkShadow.is(p)) {
+				return;
+			}
+			// Erased: it can't be hidden or called out (it is already powerless); a hidden one stays hidden
+			if (PowerSuppression.refuse(p)) {
+				return;
+			}
+			DarkShadowMoves.toggleHidden(p);
+		});
 		EntityElytraEvents.CUSTOM.register((entity, tickElytra) ->
 				entity instanceof Player pl && DarkShadow.abyssal(pl) && DarkShadow.is(pl) && !pl.getAbilities().flying);
 	}

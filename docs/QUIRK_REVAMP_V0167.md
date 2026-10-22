@@ -113,6 +113,21 @@ User rule (all Quirks): **X = movement, V = the mode / utility, R G Z C (and the
   fast, it can't go berserk; Shift+V again calls it back).
 - **C / Shift+C:** Berserk on purpose (only in darkness; it stops only when light falls on it) / Light Flare (needs a
   light source in hand or daylight: a flash that blinds nearby mobs, calms it and ends Berserk; works while berserk).
+- **N (user-assigned, v0.16.7 fix): hide / show.** N toggles the Recall state: it flinches, folds its arms in, ducks
+  its head and pours back into your back (a 0.6 s `recall` clip with shadow streaming into you), then isn't drawn for
+  anyone (synced); no move works but the Light Flare, the meter drains (0.75/tick) and it can't go berserk. N again and
+  it boils back out (`summon`). A berserk shadow won't hide (only light calms it); hiding waits out the 1 s Recall
+  cooldown, coming out never waits; Erased, N does nothing. **Decision:** Shift+V stays Recall (the same toggle; V is
+  the mode key and hiding is a mode), so the slot didn't change and no new move was invented. The move is now named
+  "Hide" in the HUD / guide; the HUD shows "N: hide it" while it's out and "Hidden: N calls it out" while hidden.
+  Plain N only (Shift+N keeps its other owners). Wiring: `DarkShadowHidePayload` (C2S) to `DarkShadowMoves.toggleHidden`.
+- **Arms (v0.16.7 fix, user: "dark shadows hands are in his face"):** the arms rested reaching forward, which put both
+  clawed hands beside Tokoyami's face. They now hang down from the shoulders, a little back and out (`ARM_REST` /
+  `FOREARM_REST` in `scratchpad/gen_dark_shadow_v0167.js`). The reaching clips (strike, bite, grab, slam, nova, scout,
+  fetch, summon) are re-based by `keep()` so their poses are unchanged and they settle back to the hanging rest; timid
+  clutches its own chest, shield wraps low round his waist, calm hugs itself and turns its head away (no hands over its
+  face), and berserk rakes overhead and out to the sides. The generator's preview now renders each pose next to a
+  player stand-in placed the way `DarkShadowRender` places it (`ds_user_*.png`).
 
 ## Erasure (Shota Aizawa, Eraser Head): the capture weapon plus the stare
 As built (v0.16.7). Slot rule: X = movement, V = utility, the rest attacks.

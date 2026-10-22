@@ -46,7 +46,8 @@ import net.minecraft.world.phys.Vec3;
  *   <li><b>Shield:</b> it coils round its user, the wings closed in front.</li>
  *   <li><b>Berserk:</b> towering ({@link DarkShadowConfig.Berserk#size}), spiked, red-eyed, thrashing.</li>
  *   <li><b>Black Ankh:</b> not drawn here (it is the armour, {@link DarkShadowAnkhLayer}) unless a move sends it out.</li>
- *   <li><b>Recall:</b> it pours back into the back, then is gone.</li>
+ *   <li><b>Hidden (N, or Shift+V Recall):</b> it flinches, folds up and pours back into the back with a puff of shadow,
+ *       then is gone (synced, so every viewer sees it hidden); N again and it boils back out ({@code summon}).</li>
  * </ul>
  * First person, your own shadow shows only while it is out of the way of the camera (reaching, scouting, berserk). It sheds
  * faint dark motes off its outline (client particles).
@@ -225,8 +226,9 @@ public final class DarkShadowRender {
 		if (ankh && ext <= 0.02f && !scouting && !"nova".equals(clip)) {
 			return; // it is the armour now
 		}
-		if (DarkShadow.recalled(p) && s.animId == DarkShadow.ANIM_RECALL && age > 11f) {
-			return; // tucked away
+		if (DarkShadow.recalled(p) && (s.animId != DarkShadow.ANIM_RECALL || age > 12f)) {
+			return; // hidden (N / Shift+V): tucked away once the 0.6 s fold-up has played -- and gone for good if another
+			// clip id (the Light Flare, which works while hidden) replaced it, so it never pops back out un-summoned
 		}
 
 		// ---- its size (smoothed per frame, time-based)
@@ -348,16 +350,41 @@ public final class DarkShadowRender {
 			int n = berserk ? 2 : 1;
 			for (int i = 0; i < n; i++) {
 				Vec3 m = root.add((rnd.nextDouble() - 0.5) * 0.9 * size, rnd.nextDouble() * 2.0 * size, (rnd.nextDouble() - 0.5) * 0.9 * size);
-				p.level().addParticle(DarkShadowCombat.SHADOW, m.x, m.y, m.z, 0, 0.015, 0);
+				mote(p, firstPerson, cam, DarkShadowCombat.SHADOW, m.x, m.y, m.z, 0, 0.015, 0);
+			}
+			// v0.16.7 (user) N hide / show: shadow streams INTO the back as it tucks away, and bursts out of it as it emerges
+			if ("recall".equals(clip)) {
+				for (int i = 0; i < 4; i++) {
+					Vec3 m = root.add((rnd.nextDouble() - 0.5) * 1.2 * size, rnd.nextDouble() * 2.0 * size, (rnd.nextDouble() - 0.5) * 1.2 * size);
+					Vec3 v = back.subtract(m).scale(0.12);
+					mote(p, firstPerson, cam, DarkShadowCombat.SHADOW_BIG, m.x, m.y, m.z, v.x, v.y, v.z);
+				}
+			} else if ("summon".equals(clip) && age < 8f) {
+				for (int i = 0; i < 4; i++) {
+					Vec3 v = new Vec3(rnd.nextDouble() - 0.5, rnd.nextDouble() * 0.8, rnd.nextDouble() - 0.5).scale(0.18);
+					mote(p, firstPerson, cam, DarkShadowCombat.SHADOW_BIG, back.x, back.y, back.z, v.x, v.y, v.z);
+				}
 			}
 			if (ext > 0.1f && ext < 0.95f) {
 				Vec3 a = back, b = root.add(0, 1.2 * size, 0);
 				for (int i = 0; i < 4; i++) {
 					Vec3 m = a.lerp(b, rnd.nextDouble());
-					p.level().addParticle(DarkShadowCombat.SHADOW_BIG, m.x, m.y, m.z, 0, 0, 0);
+					mote(p, firstPerson, cam, DarkShadowCombat.SHADOW_BIG, m.x, m.y, m.z, 0, 0, 0);
 				}
 			}
 		}
+	}
+
+	/**
+	 * One mote. v0.16.7 (user): in first person your own shadow's motes never spawn right at the camera (within 1.6 blocks
+	 * of it they would be screen-filling blotches -- the lunge smear runs from your back, past your eyes).
+	 */
+	private static void mote(Player p, boolean firstPerson, Vec3 cam, net.minecraft.core.particles.ParticleOptions o,
+			double x, double y, double z, double vx, double vy, double vz) {
+		if (firstPerson && cam.distanceToSqr(x, y, z) < 1.6 * 1.6) {
+			return;
+		}
+		p.level().addParticle(o, x, y, z, vx, vy, vz);
 	}
 
 	private static int light(Player p, Vec3 at) {

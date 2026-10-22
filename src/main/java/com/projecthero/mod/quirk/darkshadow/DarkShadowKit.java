@@ -22,6 +22,9 @@ import net.minecraft.world.entity.player.Player;
  * </pre>
  * Toggles (Black Ankh, Abyssal, Recall) always turn off whatever their cooldown. While recalled only Shift+V (call it
  * back) and Shift+C (the flare) work. The moves are in {@link DarkShadowMoves}, the numbers in {@link DarkShadowConfig}.
+ * <p>v0.16.7 (user) "make pressing N hide dark shadow": N is the dedicated hide / show key ({@link DarkShadowHidePayload}
+ * to {@link DarkShadowMoves#toggleHidden}) -- the same Recall state. Shift+V stays Recall too (V is the mode key, and
+ * hiding it is a mode), so nothing moved and no new move was invented for that slot.
  */
 public final class DarkShadowKit implements QuirkKit {
 	@Override
