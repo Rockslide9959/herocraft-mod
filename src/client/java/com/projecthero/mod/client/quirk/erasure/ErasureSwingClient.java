@@ -48,7 +48,7 @@ public final class ErasureSwingClient {
 					v = v.normalize().scale(cfg.swingMaxSpeed);
 				}
 				p.setDeltaMovement(v);
-			} else if (was == 2) {
+			} else if (was == 2 || was == 3) {
 				Vec3 v = p.getDeltaMovement();
 				p.setDeltaMovement(v.x * 0.25, Math.max(v.y * 0.25, 0.25), v.z * 0.25);
 			}
@@ -68,7 +68,8 @@ public final class ErasureSwingClient {
 				p.setDeltaMovement(v0.x, Math.max(v0.y, 0.48), v0.z);
 			}
 		}
-		if (line == 2) {
+		if (line == 2 || line == 3) {
+			// Scarf Pull: reeled straight to the creature (2) or the latched point (3)
 			if (dist > ErasureConfig.ZIP_ARRIVE) {
 				p.setDeltaMovement(hook.subtract(eye).normalize().scale(Math.min(ErasureConfig.ZIP_SPEED, dist * 0.6)));
 			}

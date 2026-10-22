@@ -94,7 +94,8 @@ public final class SpiderClimb {
 	 * saves keep working untouched.
 	 */
 	public static Profile profile(Player player) {
-		if (player == null || player.isSpectator() || player.getAbilities().flying) {
+		// v0.16.7 (Erasure revamp): no wall-crawling while Erased (client side too: the local flag)
+		if (player == null || player.isSpectator() || player.getAbilities().flying || com.projecthero.mod.hero.PowerSuppression.isSuppressed(player)) {
 			return null;
 		}
 		if (SpiderMan.hasPower(player)) {

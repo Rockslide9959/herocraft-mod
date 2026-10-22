@@ -115,6 +115,7 @@
 		"PunisherKickCameraMixin",
 		"MoonKnightTruncheonSpinMixin",
 		"AllMightSpinMixin",
+		"ErasureSpinMixin",
 		"PlayerModelMixin",
 		"ModelPartFrontFaceMixin",
 		"ModelPartCubeFrontFaceMixin",

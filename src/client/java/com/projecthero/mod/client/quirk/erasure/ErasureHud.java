@@ -88,16 +88,39 @@ public final class ErasureHud {
 		if (s.val(ErasureConfig.V_GOGGLES) != 0L) {
 			g.fill(0, 0, w, h, 0x18E8C020);
 		}
-		if (s.animId == ErasureConfig.ANIM_BLINK) {
-			float age = p.level().getGameTime() - s.animStart + delta.getGameTimeDeltaPartialTick(false);
-			// shut fast, held, then open
-			float shut = age < 4f ? age / 4f : age < 14f ? 1f : Math.max(0f, 1f - (age - 14f) / 6f);
-			if (shut > 0f) {
-				int lid = (int) (h * 0.5f * shut);
-				g.fill(0, 0, w, lid, 0xF0050505);
-				g.fill(0, h - lid, w, h, 0xF0050505);
+		// v0.16.7 revamp: eyes forced shut (Dry Eyes at 100): the lids close fast and stay nearly shut -- a sliver of
+		// sight -- until the eyes recover, then open
+		float pt = delta.getGameTimeDeltaPartialTick(false);
+		if (s.val(ErasureConfig.V_SHUT) != 0L) {
+			float age = p.level().getGameTime() - s.val(ErasureConfig.V_SHUT_AT) + pt;
+			float shut = Math.min(1f, age / 4f) * (0.86f + 0.05f * Mth.sin(t * 0.3f));
+			lids(g, w, h, shut);
+			lastShut = p.level().getGameTime();
+		} else if (lastShut > 0L) {
+			float since = p.level().getGameTime() - lastShut + pt;
+			if (since < 6f) {
+				lids(g, w, h, 0.9f * (1f - since / 6f));
+			} else {
+				lastShut = 0L;
 			}
 		}
+		// the stare: a faint red rim while he holds it, a little brighter as his eyes dry
+		if (s.val(ErasureConfig.V_ERASE) != 0L) {
+			float dry = Mth.clamp(Quirks.clientMeter(p) / 100f, 0f, 1f);
+			vignette(g, w, h, (int) (40 + 90 * dry), 0xB01010);
+		}
+	}
+
+	private static long lastShut;
+
+	/** Eyelids closing from the top and bottom ({@code shut} 0..1). */
+	private static void lids(GuiGraphics g, int w, int h, float shut) {
+		if (shut <= 0f) {
+			return;
+		}
+		int lid = (int) (h * 0.5f * shut);
+		g.fillGradient(0, 0, w, lid, 0xF8050505, 0xF0100606);
+		g.fillGradient(0, h - lid, w, h, 0xF0100606, 0xF8050505);
 	}
 
 	/** A soft frame of {@code rgb} round the screen edges, {@code alpha} 0..255 at the very edge. */

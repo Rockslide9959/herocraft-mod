@@ -106,7 +106,7 @@ public class ErasureLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		PlayerModel<AbstractClientPlayer> parent = getParentModel();
 		int overlay = LivingEntityRenderer.getOverlayCoords(player, 0f);
 		float rise = rise(player, s, partialTick);
-		boolean blinking = Quirks.overloaded(player);
+		boolean blinking = com.projecthero.mod.quirk.erasure.ErasureMoves.eyesShut(player);
 		boolean goggles = s.val(ErasureConfig.V_GOGGLES) != 0L;
 
 		pose.pushPose();
@@ -132,8 +132,9 @@ public class ErasureLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		}
 		pose.popPose();
 
-		// the red eyes (full bright, drawn on the face of the head)
-		if (rise > 0f && !blinking) {
+		// the red eyes (full bright, drawn on the face of the head) -- v0.16.7 revamp: hidden behind the goggles (they hide
+		// where he is looking)
+		if (rise > 0f && !blinking && !goggles) {
 			int a = (int) (255 * Mth.clamp(rise * 1.5f, 0f, 1f));
 			int argb = (a << 24) | 0xFFFFFF;
 			parent.head.render(pose, buffers.getBuffer(RenderType.eyes(EYES)), LightTexture.FULL_BRIGHT,

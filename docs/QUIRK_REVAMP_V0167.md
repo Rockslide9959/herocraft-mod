@@ -91,24 +91,29 @@ As built (v0.16.7). Slot rule: X = movement, V = mode / utility, the rest attack
 - **Shift+C:** light flare, which calms it (it needs a light source: a torch in hand or day).
 
 ## Erasure (Shota Aizawa, Eraser Head): the capture weapon plus the stare
-- **Erasure Stare (R, hold):** look at a powered player or a mob, and while held its powers, abilities and special
-  attacks (mob ranged attacks, Quirks, hero powers) are switched off.
-  - Your eyes dry out: the **Dry Eyes** meter fills.
-  - Blinking (letting go) resets the stare.
-  - At max, your eyes are forced shut and you can't use the stare until they recover. Eye drops (an item) refill.
-- **Capture Weapon:** the scarf.
-  - **G:** whip-grab a mob or player and bind them (rooted, tied).
-  - **Shift+G:** pull them to you.
-  - **X:** **Scarf Swing**, latch onto a block and swing like a grapple.
-  - **Shift+X:** **Scarf Pull**, yank yourself to the latched point.
-  - **Z:** **Bind and Spin**, swing a bound mob into others.
-  - **Shift+Z:** **Disarm Throw**, rip a held item away.
-- **Combat:**
-  - **V:** **Close Combat**, a fast martial-arts combo.
-  - **Shift+V:** **Counter**, a parry window.
-- **Goggles:**
-  - **C:** put the goggles on or off (hides where you're looking; the stare can't be dodged by mobs).
-  - **Shift+C:** **Eye Drops**, refill the meter from an item.
+As built (v0.16.7). Slot rule: X = movement, V = utility, the rest attacks.
+
+| Key | Tap | Shift |
+|---|---|---|
+| R | **Capture Bind**: the scarf whips round the target and ties it up: rooted 4 s (players: the softened crowd-control rule). Not bosses. | **Capture Pull**: yank the bound target (or the looked-at one) in to you, 3 damage. |
+| G | **Close Combat**: a four-strike combo -- jab, elbow, knee, spinning kick (3, 3, 4, 7), re-aimed each strike, the kick knocks back. | **Counter**: a 0.6 s parry stance; the next hit is caught (0 damage) and a close attacker takes 8 and is tied up 2 s. |
+| X | **Scarf Swing** (hold, movement): latch a block and swing like a grapple (Spider-Man's rope model); let go to fly on. | **Scarf Pull** (movement): yank yourself to the latched point -- up the swing line mid-swing, or to the block / creature you look at (4 on arrival at a creature). |
+| Z | **Bind and Spin**: the bound (or looked-at) target is swung round you twice on the scarf (1.5 s, radius 3), smashing everyone it passes (6 each), then flung the way you look (6). Your whole body turns with it. Not bosses. | **Disarm Throw**: the scarf rips the held item out of a mob's (or a PvP player's) hand and throws it back to your feet. |
+| C | **Scarf Whip**: a cracking lash, 10 blocks: 5 damage and a stagger. | **Goggles** (toggle): night vision, powered players / special mobs glow (only for you), the red eyes are hidden, the stare locks on (a held target can't dodge out of it inside 45 degrees) and your eyes dry 25% slower. |
+| V | **Erasure Stare** (hold, utility): the one you look at (24 blocks, narrow cone) has its powers switched off while you hold; letting go is the blink. Hair rises, eyes glow red. | **Eye Drops**: uses an Eye Drops item from your inventory: Dry Eyes to 0, shut eyes open. |
+
+- **Dry Eyes** (meter, 0 = fresh): fills 10/s while staring (7.5/s goggled), drains 12/s otherwise. At 100 the eyes are
+  **forced shut**: the stare ends and can't restart until they recover (at least 3 s and back to 30); every other move
+  still works. Screen: the lids close to a sliver, a red rim while staring. Old saves (the meter used to count down)
+  restart fresh.
+- **Eye Drops** item (`projecthero:eye_drops`): glass bottle + sugar + kelp = 2. Right-click works too (non-Erasure
+  players: clears Blindness / Darkness).
+- **What the stare switches off** (`PowerSuppression`): every power key and action payload, hero / Thor / Kryptonian /
+  Nova / Green Lantern / Max Steel flight (each stopped through its own stop on the first erased tick), wall-crawling
+  (Spider adhesion), mutation passives, the Quirk kit's tick; on mobs ranged / swell / spell / beam goals, spawned
+  projectiles and summons, creeper explosions, enderman / shulker teleports, bosses' special moves. Tech (Iron Man, the
+  Punisher) keeps working.
+- Dropped from the first draft by the slot rule: Erase Glare, Capture Hoist, Bind Slam and Double Bind.
 
 ## Explosion (Katsuki Bakugo, Ground Zero): nitroglycerin sweat
 - **Sweat:** builds up as you fight, move and get hot. More sweat means bigger blasts; deserts and Nether are faster,

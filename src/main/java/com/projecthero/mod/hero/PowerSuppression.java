@@ -228,10 +228,27 @@ public final class PowerSuppression {
 		}
 	}
 
-	/** The stare just landed on {@code player}: hero flight ends, mutation passives go off. */
+	/**
+	 * The stare just landed on {@code player}: every power's flight ends (hero flight; v0.16.7 Erasure revamp: Thor,
+	 * Kryptonian, Nova, Green Lantern and Max Steel flight too -- each through its own stop, so none of them keeps
+	 * re-granting {@code mayfly} against the per-tick cut), mutation passives go off. Iron Man / Repulsor Boots flight is
+	 * tech and stays.
+	 */
 	private static void onErased(ServerPlayer player) {
 		if (com.projecthero.mod.hero.power.HeroFlight.isFlying(player)) {
 			com.projecthero.mod.hero.power.HeroFlight.setFlying(player, false);
+		}
+		try {
+			if (com.projecthero.mod.power.ThorPowers.isFlying(player)) {
+				com.projecthero.mod.power.ThorPowers.toggleFlight(player);
+			}
+			com.projecthero.mod.kryptonian.KryptonianFlight.stop(player, false);
+			com.projecthero.mod.nova.NovaFlight.stop(player, false);
+			com.projecthero.mod.greenlantern.GreenLanternFlight.forceStop(player, true);
+			com.projecthero.mod.maxsteel.MaxSteelFlight.forceStop(player, true);
+		} catch (RuntimeException e) {
+			// a power's own stop must never break the stare
+			com.projecthero.mod.ProjectHeroMod.LOGGER.debug("[ProjectHero] erased flight stop failed", e);
 		}
 		PowerPassives.reconcileActive(player);
 	}
