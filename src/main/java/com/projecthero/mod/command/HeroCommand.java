@@ -48,18 +48,26 @@ public final class HeroCommand {
 	 * Hero-Tier keys, so {@code /heropower grant spider_man} just works without having to remember the
 	 * {@code hero} sub-literal.
 	 */
+	/** v0.16.7 (user): the power is "One For All" -- typed and suggested as one_for_all (all_might still accepted). */
+	private static final java.util.List<String> SHOWN_HERO_KEYS = HERO_TIER_KEYS.stream().map(k -> "all_might".equals(k) ? "one_for_all" : k).toList();
+
+	/** v0.16.7: one_for_all is typed for the power; the code keeps its internal all_might key. */
+	private static String canonical(String key) {
+		return "one_for_all".equals(key) ? "all_might" : key;
+	}
+
 	private static final SuggestionProvider<CommandSourceStack> POWER_KEYS = (ctx, builder) ->
 			SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(
-					HERO_TIER_KEYS.stream(), Powers.enabled().stream().map(Power::key)), builder);
+					SHOWN_HERO_KEYS.stream(), Powers.enabled().stream().map(Power::key)), builder);
 
 	private static final SuggestionProvider<CommandSourceStack> POWER_KEYS_OR_ALL = (ctx, builder) ->
 			SharedSuggestionProvider.suggest(java.util.stream.Stream.concat(
 					java.util.stream.Stream.of("all"),
-					java.util.stream.Stream.concat(HERO_TIER_KEYS.stream(), Powers.enabled().stream().map(Power::key))),
+					java.util.stream.Stream.concat(SHOWN_HERO_KEYS.stream(), Powers.enabled().stream().map(Power::key))),
 					builder);
 
 	private static final SuggestionProvider<CommandSourceStack> HERO_TIER =
-			(ctx, builder) -> SharedSuggestionProvider.suggest(HERO_TIER_KEYS, builder);
+			(ctx, builder) -> SharedSuggestionProvider.suggest(SHOWN_HERO_KEYS, builder);
 
 	private HeroCommand() {
 	}
@@ -202,7 +210,7 @@ public final class HeroCommand {
 
 	/** Any registered power, enabled or not (revoking a disabled power must still work). */
 	private static Power resolveAny(CommandContext<CommandSourceStack> c) {
-		String key = StringArgumentType.getString(c, "power");
+		String key = canonical(StringArgumentType.getString(c, "power"));
 		Power power = Powers.byKey(key);
 		return power != null ? power : Powers.get(com.projecthero.mod.ProjectHeroMod.id(key));
 	}
@@ -221,12 +229,12 @@ public final class HeroCommand {
 	private static int grant(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean force) {
 		// v0.6.20: the bare form also accepts a Hero-Tier key, so "/heropower grant spider_man" routes
 		// to the same path as "/heropower grant hero spider_man".
-		String rawKey = StringArgumentType.getString(c, "power");
+		String rawKey = canonical(StringArgumentType.getString(c, "power"));
 		boolean heroKey = HERO_TIER_KEYS.contains(rawKey);
 		Power power = heroKey ? null : resolve(c);
 		if (power == null && !heroKey) {
 			c.getSource().sendFailure(Component.literal("Unknown or disabled power (experimental key or "
-					+ String.join("/", HERO_TIER_KEYS) + ")"));
+					+ String.join("/", SHOWN_HERO_KEYS) + ")"));
 			return 0;
 		}
 		// v0.16.1: projectheroUniquePowers -- refused before anything is wiped; "force" overrides
@@ -279,7 +287,7 @@ public final class HeroCommand {
 	}
 
 	private static int stack(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean force) {
-		String rawKey = StringArgumentType.getString(c, "power");
+		String rawKey = canonical(StringArgumentType.getString(c, "power"));
 		if (HERO_TIER_KEYS.contains(rawKey)) {
 			if (force) {
 				return com.projecthero.mod.hero.UniquePowers.forced(() -> grantHeroByKey(c, target, rawKey));
@@ -301,7 +309,7 @@ public final class HeroCommand {
 	}
 
 	private static int revoke(CommandContext<CommandSourceStack> c, ServerPlayer target) {
-		String rawKey = StringArgumentType.getString(c, "power");
+		String rawKey = canonical(StringArgumentType.getString(c, "power"));
 		if (HERO_TIER_KEYS.contains(rawKey)) {
 			return revokeHeroByKey(c, target, rawKey);
 		}
@@ -351,7 +359,7 @@ public final class HeroCommand {
 	 * Adhesion (granting that first if it is missing), Max Steel bonds.
 	 */
 	private static int grantHero(CommandContext<CommandSourceStack> c, ServerPlayer target) {
-		return grantHeroByKey(c, target, StringArgumentType.getString(c, "hero"));
+		return grantHeroByKey(c, target, canonical(StringArgumentType.getString(c, "hero")));
 	}
 
 	private static int grantHeroByKey(CommandContext<CommandSourceStack> c, ServerPlayer target, String hero) {
@@ -368,7 +376,7 @@ public final class HeroCommand {
 	/** Remove a Hero-Tier power, tearing every power's state down cleanly (v0.13.5: Thor included --
 	 * see {@code ThorPowers#revokePower} for why a bare worthiness reset used to leave it half-removed). */
 	private static int revokeHero(CommandContext<CommandSourceStack> c, ServerPlayer target) {
-		return revokeHeroByKey(c, target, StringArgumentType.getString(c, "hero"));
+		return revokeHeroByKey(c, target, canonical(StringArgumentType.getString(c, "hero")));
 	}
 
 	private static int revokeHeroByKey(CommandContext<CommandSourceStack> c, ServerPlayer target, String hero) {
@@ -423,7 +431,7 @@ public final class HeroCommand {
 	}
 
 	private static int active(CommandContext<CommandSourceStack> c, ServerPlayer target) {
-		String key = StringArgumentType.getString(c, "power");
+		String key = canonical(StringArgumentType.getString(c, "power"));
 		if (key.equalsIgnoreCase("none")) {
 			ExperimentalPowers.setActive(target, null);
 			c.getSource().sendSuccess(() -> Component.literal("Active experimental power cleared"), true);
