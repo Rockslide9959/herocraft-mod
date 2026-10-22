@@ -129,6 +129,7 @@ public final class IronManMark9 {
 		boolean streaming;
 		long streamNextHit;
 		long noFallUntil;
+		int geyserDriveTicks;
 	}
 
 	/** A Magma Bomb in flight (a simulated point: arcs, lands on a block or a mob, or bursts at 3 s). */
@@ -535,8 +536,17 @@ public final class IronManMark9 {
 			IronManComicFx.burn(p, e, dmg, 100);
 			IronManComicFx.shove(e, base, 0.7, 0.3);
 		}
-		IronManComicFx.launch(p, new Vec3(p.getDeltaMovement().x * 0.3, p.isInLava() ? 2.2 : 1.3, p.getDeltaMovement().z * 0.3));
-		of(p).noFallUntil = p.level().getGameTime() + 80;
+		P st = of(p);
+		if (inLava(p)) {
+			// v0.16.7 (user): deep in lava a single kick died in the lava drag (halved every tick, and the client's lava swim
+			// damped it again). Instead the column DRIVES you up at GEYSER_LAVA_RISE a tick until your feet clear the surface,
+			// then the open-air kick fires from there -- so the geyser throws you as high above lava as above ground.
+			st.geyserDriveTicks = GEYSER_MAX_DRIVE_TICKS;
+			IronManComicFx.launch(p, new Vec3(p.getDeltaMovement().x * 0.3, GEYSER_LAVA_RISE, p.getDeltaMovement().z * 0.3));
+		} else {
+			IronManComicFx.launch(p, new Vec3(p.getDeltaMovement().x * 0.3, GEYSER_KICK, p.getDeltaMovement().z * 0.3));
+		}
+		st.noFallUntil = p.level().getGameTime() + 80;
 		for (int i = 0; i < 10; i++) {
 			level.sendParticles(ParticleTypes.FLAME, base.x, base.y + i * 0.5, base.z, 6, 0.25, 0.1, 0.25, 0.03);
 		}
@@ -550,6 +560,51 @@ public final class IronManMark9 {
 	}
 
 	// ================================================================== Z
+
+	/** The open-air Lava Geyser kick (~9.5 blocks of rise). */
+	public static final double GEYSER_KICK = 1.3;
+	/** Blocks a tick the geyser column drives you up through lava (well over the client lava swim's top speed). */
+	public static final double GEYSER_LAVA_RISE = 1.0;
+	/** The drive gives up after this many ticks (a very deep pool) and fires the kick anyway. */
+	public static final int GEYSER_MAX_DRIVE_TICKS = 24;
+
+	/** Feet (or body) in lava, by the block -- the server's own {@code isInLava} lags a tick behind a fast rise. */
+	public static boolean inLava(Player p) {
+		Level level = p.level();
+		return level.getFluidState(BlockPos.containing(p.getX(), p.getY() + 0.1, p.getZ())).is(net.minecraft.tags.FluidTags.LAVA)
+				|| level.getFluidState(BlockPos.containing(p.getX(), p.getY() + 0.9, p.getZ())).is(net.minecraft.tags.FluidTags.LAVA);
+	}
+
+	/** True while a Lava Geyser is driving {@code p} up through lava (gametests). */
+	public static boolean geyserDriving(ServerPlayer p) {
+		P s = STATE.get(p.getUUID());
+		return s != null && s.geyserDriveTicks > 0;
+	}
+
+	/** One tick of the geyser's lava drive: keep pushing while in lava, then the open-air kick at the surface. */
+	private static void geyserTick(ServerPlayer p, P s, long now) {
+		Vec3 v = p.getDeltaMovement();
+		ServerLevel level = IronManComicFx.level(p);
+		if (inLava(p) && --s.geyserDriveTicks > 0) {
+			IronManComicFx.launch(p, new Vec3(v.x * 0.8, GEYSER_LAVA_RISE, v.z * 0.8));
+			// the column: flame and lava boiling up round you
+			level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.4, p.getZ(), 6, 0.35, 0.4, 0.35, 0.04);
+			level.sendParticles(ParticleTypes.LAVA, p.getX(), p.getY(), p.getZ(), 2, 0.4, 0.2, 0.4, 0.0);
+			if (now % 3 == 0) {
+				IronManComicFx.soundAt(level, p.position(), SoundEvents.LAVA_POP, 0.9f, 0.7f);
+			}
+			return;
+		}
+		// out of the lava (or out of drive): the open-air kick from the surface
+		s.geyserDriveTicks = 0;
+		IronManComicFx.launch(p, new Vec3(v.x * 0.8, GEYSER_KICK, v.z * 0.8));
+		s.noFallUntil = Math.max(s.noFallUntil, now + 80);
+		level.sendParticles(ParticleTypes.LAVA, p.getX(), p.getY(), p.getZ(), 16, 0.8, 0.1, 0.8, 0.0);
+		level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY(), p.getZ(), 24, 0.5, 0.3, 0.5, 0.08);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY(), p.getZ(), 6, 0.8, 0.2, 0.8, 0.03);
+		IronManComicFx.soundAt(level, p.position(), SoundEvents.BLAZE_SHOOT, 1.0f, 0.6f);
+		IronManComicFx.soundAt(level, p.position(), SoundEvents.LAVA_EXTINGUISH, 0.8f, 0.8f);
+	}
 
 	private static boolean magmaBomb(ServerPlayer p, float damage) {
 		Vec3 look = p.getLookAngle();
@@ -737,6 +792,7 @@ public final class IronManMark9 {
 		if (!wearing) {
 			if (s != null) {
 				s.streaming = false;
+				s.geyserDriveTicks = 0;
 				if (s.heat > 0f || s.synced > 0f) {
 					setHeat(p, 0f);
 				}
@@ -744,6 +800,9 @@ public final class IronManMark9 {
 			return;
 		}
 		s = of(p);
+		if (s.geyserDriveTicks > 0) {
+			geyserTick(p, s, now);
+		}
 		if (s.noFallUntil > now) {
 			p.fallDistance = 0f;
 		}

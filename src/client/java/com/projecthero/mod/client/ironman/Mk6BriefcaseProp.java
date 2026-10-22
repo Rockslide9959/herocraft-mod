@@ -51,8 +51,8 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 	@Override
 	public void renderBody(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
 			PlayerModel<AbstractClientPlayer> model, PortableForm form, float frame) {
-		if (frame > form.beats().dropFrom()) {
-			return;
+		if (frame > form.beats().dropFrom() || IronManPortableClient.viewedFromInside(player)) {
+			return; // v0.16.7 (user) fix: in your own view the world pass holds it at your view's hand
 		}
 		pose.pushPose();
 		model.translateToHand(HumanoidArm.RIGHT, pose);
@@ -69,7 +69,8 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 	public void renderWorld(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
 			PortableForm form, float frame, IronManPortableClient.Anchor anchor) {
 		PortableForm.Beats b = form.beats();
-		if (frame <= b.dropFrom()) {
+		boolean inside = IronManPortableClient.viewedFromInside(player);
+		if (frame <= b.dropFrom() && !inside) {
 			return;
 		}
 		float vanish = smooth((frame - (b.total() - VANISH_TICKS)) / VANISH_TICKS);
@@ -80,22 +81,34 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 		float t = Mth.clamp((frame - b.dropFrom()) / (float) (b.dropTo() - b.dropFrom()), 0f, 1f);
 		float tip = smooth(t);
 		float restUp = 2f / 16f * SCALE; // the base half's thickness, so it lies on the floor
-		float x = Mth.lerp(t, -START_RIGHT, 0f); // local -x is the wearer's right
-		float z = Mth.lerp(t, START_FWD, HINGE_FWD);
-		float y = Mth.lerp(t * t, START_UP, restUp) + 0.22f * (float) Math.sin(Math.PI * t) * (1f - t);
+		// v0.16.7 (user) fix: in your own view it starts from your view's hand (following the camera), not the body's hip
+		float sx = -START_RIGHT, sy = START_UP, sz = START_FWD;
+		Quaternionf carried = new Quaternionf().rotateY((float) Math.toRadians(90));
+		float startScale = SCALE;
+		if (inside) {
+			org.joml.Matrix4f fp = IronManPortableClient.firstPersonHand(anchor);
+			org.joml.Vector3f at = fp.getTranslation(new org.joml.Vector3f());
+			sx = at.x;
+			sy = at.y - 0.12f;
+			sz = at.z;
+			carried = fp.getUnnormalizedRotation(new Quaternionf()).normalize().rotateY((float) Math.toRadians(90));
+			startScale = SCALE * 0.7f;
+		}
+		float x = Mth.lerp(t, sx, 0f); // local -x is the wearer's right
+		float z = Mth.lerp(t, sz, HINGE_FWD);
+		float y = Mth.lerp(t * t, sy, restUp) + 0.22f * (float) Math.sin(Math.PI * t) * (1f - t);
 		// a small bounce when it lands
 		float land = frame - b.dropTo();
 		if (land > 0f && land < 4f) {
 			y += 0.025f * (float) Math.sin(Math.PI * land / 4f);
 		}
 		y *= 1f - vanish;
-		Quaternionf carried = new Quaternionf().rotateY((float) Math.toRadians(90));
 		Quaternionf flat = new Quaternionf().rotateY((float) Math.PI).rotateX((float) Math.toRadians(90));
 		Quaternionf rot = new Quaternionf(carried).slerp(flat, tip);
 		// lid: opens over dropTo .. openTo, shuts again from closeFrom
 		float open = smooth((frame - b.dropTo()) / (float) (b.openTo() - b.dropTo()));
 		open = Math.min(open, 1f - smooth((frame - b.closeFrom()) / (float) (b.total() - VANISH_TICKS - b.closeFrom())));
-		float s = SCALE * (1f - vanish);
+		float s = Mth.lerp(tip, startScale, SCALE) * (1f - vanish);
 		pose.pushPose();
 		pose.translate(x, y, z);
 		pose.mulPose(rot);

@@ -114,7 +114,7 @@ public class RepulsorItem extends ArmorItem {
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		super.appendHoverText(stack, context, tooltip, flag);
 		tooltip.add(Component.translatable("item.projecthero.repulsor.tooltip.flight",
-				Math.round(RepulsorBoots.FLIGHT_SPEED * 100), IronManSuits.MARK_2.markNumber())
+				Math.round(RepulsorBoots.FLIGHT_SPEED * 100), Component.translatable("projecthero.guide.iron_man.mark_2")) // v0.16.7: "Mk VI Suitcase", not "Mark 2"
 				.withStyle(net.minecraft.ChatFormatting.GRAY));
 		tooltip.add(Component.translatable("item.projecthero.repulsor.tooltip.blast")
 				.withStyle(net.minecraft.ChatFormatting.DARK_GRAY));

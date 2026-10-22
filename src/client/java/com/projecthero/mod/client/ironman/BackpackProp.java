@@ -43,6 +43,8 @@ final class BackpackProp implements IronManPortableClient.PortableProp {
 
 	/** Swatch cells of {@link #TEXTURE} (4x4 each, a 64x16 strip). */
 	static final int RED = 0, RED2 = 1, SILVER = 2, STRAP = 3, GLOW = 4, WHITE = 5, GOLD = 6, GREY = 7, SILVER2 = 8, WHITE2 = 9;
+	/** v0.16.7 (user): the O2 tanks' contrast swatches (navy band, bright gold, the gauge's green glass, gunmetal). */
+	static final int NAVY = 10, GOLD_BRIGHT = 11, GAUGE = 12, GUNMETAL = 13;
 
 	/** A pack's look. */
 	record Style(int core, int coreSide, int plateTop, int plateBottom, int chipA, int chipB, boolean tanks) {
@@ -93,14 +95,39 @@ final class BackpackProp implements IronManPortableClient.PortableProp {
 		pose.popPose();
 	}
 
+	/**
+	 * v0.16.7 (user) fix, FIRST person: your own carried pack can't be seen on your back, so its two shoulder straps are
+	 * drawn where they run down your chest -- over the shoulders and down the front, with the suit's colour on the chest
+	 * buckles and the pack's glow on the left strap's status light. {@code pose} is in body space (as the body layer's,
+	 * +y down from the neck, +z the back); only the front half is drawn (the rest is behind the camera anyway).
+	 */
+	void renderOwnStraps(PoseStack pose, MultiBufferSource buffers, int light) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
+		for (int s = -1; s <= 1; s += 2) {
+			float x = s * 2.5f;
+			// over the shoulder (front half only) and down the chest to the bottom of the ribs
+			box(pose, vc, light, x - 0.65f, -0.4f, -2.55f, x + 0.65f, 0.15f, 0.2f, STRAP);
+			box(pose, vc, light, x - 0.65f, -0.4f, -2.55f, x + 0.65f, 8.6f, -2.15f, STRAP);
+			// the buckle: a small plate in the pack's colour with a darker clasp
+			box(pose, vc, light, x - 0.85f, 4.6f, -2.75f, x + 0.85f, 5.9f, -2.45f, style.core);
+			box(pose, vc, light, x - 0.35f, 4.9f, -2.85f, x + 0.35f, 5.6f, -2.7f, style.tanks ? GOLD : RED2);
+		}
+		// a sternum strap across, and the pack's status light on the left strap
+		box(pose, vc, light, -2.0f, 6.6f, -2.45f, 2.0f, 7.2f, -2.2f, STRAP);
+		box(pose, vc, LightTexture.FULL_BRIGHT, 2.15f, 2.2f, -2.75f, 2.85f, 2.9f, -2.5f, GLOW);
+	}
+
 	/** The Mk VIII's O2 tanks left on the suit after a pack deploy (flush on the back). */
 	static void renderWornTanks(PoseStack pose, MultiBufferSource buffers, int light, PlayerModel<AbstractClientPlayer> model) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
 		pose.pushPose();
 		model.body.translateAndRotate(pose);
-		drawTanks(pose, vc, light, -TANK_SLIDE, 0f);
+		drawTanks(pose, vc, light, -TANK_SLIDE + WORN_TANK_RAISE, 0f);
 		pose.popPose();
 	}
+
+	/** v0.16.7 (user): the worn tanks sit a touch proud of the suit's back so they read on the white plate. */
+	static final float WORN_TANK_RAISE = 0.35f;
 
 	// ======================================================================== the pack
 
@@ -180,17 +207,33 @@ final class BackpackProp implements IronManPortableClient.PortableProp {
 		pose.popPose();
 	}
 
-	/** The twin O2 tanks; {@code dz} slides them toward the back, {@code vent} 0..1 lights the nozzles. */
+	/**
+	 * The twin O2 tanks; {@code dz} slides them toward the back, {@code vent} 0..1 lights the nozzles. v0.16.7 (user): they
+	 * read on the white Mk VIII now -- a cooler silver body a shade off the suit's white, two navy contrast bands, bright
+	 * gold domed caps, a gunmetal mounting bracket tying the pair together and a small glowing gauge on the right tank.
+	 */
 	static void drawTanks(PoseStack pose, VertexConsumer vc, int light, float dz, float vent) {
+		int lit = Math.max(light, LightTexture.pack(12, 12));
 		for (int s = -1; s <= 1; s += 2) {
-			float cx = s * 2.0f;
-			box(pose, vc, light, cx - 1.3f, 1.8f, 5.2f + dz, cx + 1.3f, 10.4f, 7.6f + dz, SILVER2);
-			box(pose, vc, light, cx - 1.35f, 4.0f, 5.15f + dz, cx + 1.35f, 4.6f, 7.65f + dz, STRAP); // a dark band
-			box(pose, vc, light, cx - 1.0f, 0.6f, 5.5f + dz, cx + 1.0f, 1.8f, 7.3f + dz, GOLD);
-			box(pose, vc, light, cx - 0.9f, 10.4f, 5.6f + dz, cx + 0.9f, 12.0f, 7.2f + dz, STRAP);
-			box(pose, vc, vent > 0.05f ? LightTexture.FULL_BRIGHT : Math.max(light, LightTexture.pack(12, 12)),
-					cx - 0.6f, 12.0f, 5.9f + dz, cx + 0.6f, 12.3f, 6.9f + dz, GLOW);
+			float cx = s * 2.05f;
+			float z0 = 5.1f + dz, z1 = 7.75f + dz;
+			box(pose, vc, light, cx - 1.42f, 1.8f, z0, cx + 1.42f, 10.4f, z1, SILVER); // the body
+			box(pose, vc, light, cx - 1.48f, 3.4f, z0 - 0.05f, cx + 1.48f, 4.3f, z1 + 0.06f, NAVY); // contrast bands
+			box(pose, vc, light, cx - 1.48f, 8.1f, z0 - 0.05f, cx + 1.48f, 9.0f, z1 + 0.06f, NAVY);
+			box(pose, vc, light, cx - 1.15f, 0.9f, z0 + 0.25f, cx + 1.15f, 1.85f, z1 - 0.25f, GOLD_BRIGHT); // the domed cap
+			box(pose, vc, light, cx - 0.7f, 0.35f, z0 + 0.6f, cx + 0.7f, 0.95f, z1 - 0.6f, GOLD_BRIGHT);
+			box(pose, vc, light, cx - 0.35f, -0.05f, z0 + 0.95f, cx + 0.35f, 0.4f, z1 - 0.95f, GUNMETAL); // the valve
+			box(pose, vc, light, cx - 1.0f, 10.4f, z0 + 0.35f, cx + 1.0f, 11.9f, z1 - 0.35f, GUNMETAL); // the collar
+			box(pose, vc, vent > 0.05f ? LightTexture.FULL_BRIGHT : lit, cx - 0.6f, 11.9f, z0 + 0.75f, cx + 0.6f, 12.25f,
+					z1 - 0.9f, GLOW); // the nozzle
 		}
+		// the mounting bracket across both tanks
+		box(pose, vc, light, -3.2f, 5.5f, 4.9f + dz, 3.2f, 6.2f, 7.3f + dz, GUNMETAL);
+		// the gauge: a small glowing window on the right tank, pulsing slowly
+		float pulse = 0.75f + 0.25f * Mth.sin((float) (net.minecraft.Util.getMillis() % 100000L) / 420f);
+		int g = Mth.clamp((int) (15 * pulse), 9, 15);
+		box(pose, vc, light, -2.05f - 0.75f, 5.75f, 7.75f + dz, -2.05f + 0.75f, 7.15f, 7.95f + dz, GUNMETAL); // the bezel
+		box(pose, vc, LightTexture.pack(g, g), -2.05f - 0.5f, 6.0f, 7.9f + dz, -2.05f + 0.5f, 6.9f, 8.05f + dz, GAUGE);
 	}
 
 	// ======================================================================== the plates in flight

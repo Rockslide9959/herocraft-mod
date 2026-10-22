@@ -112,7 +112,8 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 		pose.translate(-0.5F, -0.5F, -0.5F);
 		HAND.put(player.getId(), new Capture(new Matrix4f(pose.last().pose()), renderFrame));
 		pose.popPose();
-		if (frame <= form.beats().dropFrom()) {
+		// first person: the world pass draws your own case at your view's hand (the body's hand is out of sight at the hip)
+		if (frame <= form.beats().dropFrom() && !IronManPortableClient.viewedFromInside(player)) {
 			Minecraft.getInstance().getEntityRenderDispatcher().getItemInHandRenderer().renderItem(player, stack(),
 					ItemDisplayContext.THIRD_PERSON_RIGHT_HAND, false, pose, buffers, light);
 		}
@@ -125,8 +126,9 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 	public void renderWorld(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player,
 			PortableForm form, float frame, IronManPortableClient.Anchor anchor) {
 		PortableForm.Beats b = form.beats();
-		if (frame <= b.dropFrom()) {
-			return;
+		boolean inside = IronManPortableClient.viewedFromInside(player);
+		if (frame <= b.dropFrom() && !inside) {
+			return; // third person: still in the body pass's hand
 		}
 		float vanish = smooth((frame - (b.total() - VANISH_TICKS)) / VANISH_TICKS);
 		if (vanish >= 0.999f) {
@@ -138,7 +140,7 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 		Matrix4f here = new Matrix4f().translate((float) (anchor.pos().x - cam.x), (float) (anchor.pos().y - cam.y),
 				(float) (anchor.pos().z - cam.z)).rotateY((float) Math.toRadians(-anchor.yaw()));
 		floorLift = floorLift(player, anchor);
-		Matrix4f caseM = caseMatrix(player, b, frame, here, vanish);
+		Matrix4f caseM = caseMatrix(player, b, frame, here, vanish, inside ? IronManPortableClient.firstPersonHand(anchor) : null);
 		float leaf = leafAngle(b, frame);
 		float glow = Mth.clamp(leaf / 70f, 0f, 1f) * (1f - vanish);
 		// the vents warm from the held item's flat orange to a full glow as the case is set down
@@ -158,11 +160,16 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 
 	/** The case's matrix in the anchor frame: from the hand (live) to the floor in front, then shrinking away. */
 	private static Matrix4f caseMatrix(AbstractClientPlayer player, PortableForm.Beats b, float frame, Matrix4f here,
-			float vanish) {
+			float vanish, Matrix4f fpHand) {
 		float floorScale = SCALE / 16f;
 		Capture c = HAND.get(player.getId());
 		Matrix4f hand;
-		if (c != null && c.frame() == renderFrame) {
+		if (fpHand != null) {
+			// v0.16.7 (user) fix: your own view -- held low on the right like any held item (standing on its end, handle up,
+			// vents toward you), following the camera, and set down from exactly there
+			hand = new Matrix4f(fpHand).rotateY((float) Math.toRadians(-12)).rotateZ((float) Math.toRadians(90))
+					.scale(floorScale * 0.62f).translate(0f, -BASE_H * 0.5f, 0f);
+		} else if (c != null && c.frame() == renderFrame) {
 			hand = new Matrix4f(here).invert().mul(c.matrix()).scale(1f / 16f).translate(JSON_OFFSET);
 		} else {
 			// first person (no body pass): beside the right hand, standing on its end, vents out
@@ -310,19 +317,24 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 	private void renderHeat(PoseStack pose, MultiBufferSource buffers, float frame, float glow, PortableForm.Beats b) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(TEXTURE));
 		float top = floorLift + BASE_H * SCALE / 16f;
-		PoseStack.Pose p = pose.last();
-		// heat shimmer: three crossed sheets of faint orange, wavering and fading upwards
-		for (int k = 0; k < 3; k++) {
-			float ph = frame * 0.55f + k * 2.1f;
-			float w = 0.22f + 0.05f * k;
-			float h = 0.55f + 0.18f * (float) Math.sin(ph * 0.7f);
-			float sway = 0.05f * (float) Math.sin(ph);
-			float a = glow * (0.16f - 0.035f * k);
-			float rot = k * 60f + 10f * (float) Math.sin(ph * 0.4f);
+		// v0.16.7 (user) fix: a real heat shimmer -- the old three flat glowing sheets are now soft-edged wavy ribbons that
+		// ripple upward (a travelling sine along their height, swaying side to side and in depth), widening and fading as
+		// they rise, layered at different angles so the waves cross like refracted air; above them two wide, faint haze
+		// veils roll slowly upward; embers rise through it all
+		for (int k = 0; k < SHIMMER_RIBBONS; k++) {
+			float rot = k * (180f / SHIMMER_RIBBONS) + 14f * (float) Math.sin(frame * 0.05f + k * 1.3f);
 			pose.pushPose();
 			pose.translate(0f, top, FWD);
 			pose.mulPose(Axis.YP.rotationDegrees(rot));
-			sheet(pose.last(), vc, w, h, sway, a);
+			ribbon(pose.last(), vc, frame, k * 1.7f, 0.17f + 0.03f * (k % 3), 0.62f + 0.12f * (k % 2), 0.055f,
+					glow * (0.30f - 0.03f * k), 0f);
+			pose.popPose();
+		}
+		for (int k = 0; k < 2; k++) {
+			pose.pushPose();
+			pose.translate(0f, top + 0.18f, FWD);
+			pose.mulPose(Axis.YP.rotationDegrees(45f + k * 90f + frame * 0.6f));
+			ribbon(pose.last(), vc, frame * 0.7f, 4f + k * 2.3f, 0.34f, 1.15f, 0.11f, glow * 0.12f, 0.25f);
 			pose.popPose();
 		}
 		// embers: launched one every half tick while the case is open, each rising and fading over 16 ticks
@@ -351,16 +363,57 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 		}
 	}
 
-	/** One shimmer sheet: a quad from the floor of the case up {@code h}, bright at the bottom and gone at the top. */
-	private static void sheet(PoseStack.Pose p, VertexConsumer vc, float w, float h, float sway, float alpha) {
-		float u0 = INTERIOR[0] / 16f, u1 = (INTERIOR[0] + 4) / 16f, v0 = INTERIOR[1] / 16f, v1 = (INTERIOR[1] + 4) / 16f;
-		int a0 = (int) (255 * Mth.clamp(alpha, 0f, 1f));
-		float[][] q = { { -w, 0f, a0, u0, v1 }, { w, 0f, a0, u1, v1 }, { w + sway, h, 0, u1, v0 }, { -w + sway, h, 0, u0, v0 } };
+	/** Heat shimmer ribbons over the open case. */
+	static final int SHIMMER_RIBBONS = 5;
+	private static final int RIB_ROWS = 14, RIB_COLS = 4;
+
+	/**
+	 * One heat-shimmer ribbon: a soft-edged strip from the case up {@code h}, subdivided so a travelling wave can ripple
+	 * up it (sideways and in depth, growing with height), widening as it rises; alpha is strongest low down and in the
+	 * middle, gone at the top and at both edges. {@code fadeIn} (0..1 of the height) hides the base (the haze veils).
+	 */
+	private static void ribbon(PoseStack.Pose p, VertexConsumer vc, float frame, float phase, float w, float h, float amp,
+			float alpha, float fadeIn) {
+		float u0 = WHITE_HOT[0] / 16f + 0.02f, u1 = (WHITE_HOT[0] + 4) / 16f - 0.02f;
+		float vt0 = WHITE_HOT[1] / 16f + 0.02f, vt1 = (WHITE_HOT[1] + 4) / 16f - 0.02f;
+		float[] px = new float[(RIB_ROWS + 1) * (RIB_COLS + 1)], py = new float[px.length], pz = new float[px.length];
+		int[] pa = new int[px.length], pr = new int[px.length], pg = new int[px.length], pb = new int[px.length];
+		for (int r = 0; r <= RIB_ROWS; r++) {
+			float v = r / (float) RIB_ROWS;
+			float wave = (float) (Math.PI * 2 * (v * 1.8f) - frame * 0.42f + phase);
+			float sway = amp * (0.25f + v) * (float) Math.sin(wave) + amp * 0.4f * v * (float) Math.sin(wave * 0.53f + 1.1f);
+			float depth = amp * 0.7f * v * (float) Math.cos(wave * 0.8f + phase);
+			float width = w * (0.75f + 0.6f * v) * (1f + 0.12f * (float) Math.sin(wave * 1.7f));
+			// the air shimmers in bands: a faster flicker riding up the ribbon
+			float flicker = 0.72f + 0.28f * (float) Math.sin(v * 22f - frame * 0.9f + phase * 2f);
+			float vf = (float) Math.pow(1f - v, 1.4f) * (fadeIn > 0f ? Mth.clamp(v / fadeIn, 0f, 1f) : 1f);
+			for (int c = 0; c <= RIB_COLS; c++) {
+				float cu = c / (float) RIB_COLS;
+				int i = r * (RIB_COLS + 1) + c;
+				px[i] = (cu - 0.5f) * 2f * width + sway;
+				py[i] = v * h;
+				pz[i] = depth + 0.03f * (float) Math.sin(cu * 3.1f + wave);
+				float edge = (float) Math.sin(Math.PI * cu);
+				pa[i] = (int) (255 * Mth.clamp(alpha * vf * edge * flicker, 0f, 1f));
+				// white-hot at the mouth of the case, through amber to a dull orange where it thins out
+				pr[i] = 255;
+				pg[i] = (int) Mth.lerp(v, 225, 120);
+				pb[i] = (int) Mth.lerp(v, 160, 50);
+			}
+		}
 		for (int side = 0; side < 2; side++) {
-			for (int k = 0; k < 4; k++) {
-				float[] v = q[side == 0 ? k : 3 - k];
-				vc.addVertex(p, v[0], v[1], 0f).setColor(255, 200, 140, (int) v[2]).setUv(v[3], v[4])
-						.setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(p, 0f, 0f, side == 0 ? 1f : -1f);
+			for (int r = 0; r < RIB_ROWS; r++) {
+				for (int c = 0; c < RIB_COLS; c++) {
+					int[] q = { r * (RIB_COLS + 1) + c, r * (RIB_COLS + 1) + c + 1, (r + 1) * (RIB_COLS + 1) + c + 1,
+							(r + 1) * (RIB_COLS + 1) + c };
+					for (int k = 0; k < 4; k++) {
+						int i = q[side == 0 ? k : 3 - k];
+						float uu = (i % (RIB_COLS + 1)) / (float) RIB_COLS, vv = (i / (RIB_COLS + 1)) / (float) RIB_ROWS;
+						vc.addVertex(p, px[i], py[i], pz[i]).setColor(pr[i], pg[i], pb[i], pa[i])
+								.setUv(Mth.lerp(uu, u0, u1), Mth.lerp(vv, vt1, vt0)).setOverlay(OverlayTexture.NO_OVERLAY)
+								.setLight(LightTexture.FULL_BRIGHT).setNormal(p, 0f, 0f, side == 0 ? 1f : -1f);
+					}
+				}
 			}
 		}
 	}

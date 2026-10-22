@@ -37,7 +37,7 @@ import net.minecraft.world.item.ItemStack;
  * energy, progress, the blueprint and nine input slots), laid out like the approved mockup (geometry in
  * {@link IronManUiLayout}, 320 x 236 so it fits a 320 x 240 GUI):
  * <pre>
- *   STARK WORKBENCH                                [ERA I][ERA II][ERA III][ERA IV]   (II-IV locked, "coming soon")
+ *   STARK WORKBENCH                                [ERA I][ERA II][ERA III][ERA IV]   (III-IV locked, "coming soon")
  *   suit list           | rotating hologram preview      | stat bars: Armour / Integrity / Reactor / Flight
  *   (owned / buildable  | (drag to spin; the same mesh    | "Helmet needs:"                    [View more]
  *    / locked)          |  as the in-world hologram)     | recipe slots: icon + have/need (missing in red)
@@ -650,7 +650,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		for (int i = 0; i < StarkWorkbench.ERA_COUNT; i++) {
 			if (in(IronManUiLayout.fabEraTab(i), mouseX, mouseY, x, y)) {
 				renderWrapped(g, List.of(Component.translatable("screen.projecthero.stark_workbench.era", ERA_NUM[i]),
-						Component.translatable(i < StarkWorkbench.LIVE_ERAS ? "screen.projecthero.stark_workbench.era_live"
+						Component.translatable(i < StarkWorkbench.LIVE_ERAS ? "screen.projecthero.stark_workbench.era_live." + (i + 1)
 								: "screen.projecthero.stark_workbench.coming_soon").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
 				return;
 			}
@@ -819,7 +819,12 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		if (button == 0) {
 			for (int i = 0; i < StarkWorkbench.LIVE_ERAS; i++) {
 				if (in(IronManUiLayout.fabEraTab(i), mx, my, x, y)) {
-					era = i + 1;
+					if (era != i + 1) {
+						era = i + 1;
+						browseSuit = null; // re-picked from the new tab's list (the job's suit, else the first buildable)
+						listScroll = 0;
+						click();
+					}
 					return true;
 				}
 			}

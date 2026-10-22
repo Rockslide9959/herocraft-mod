@@ -35,9 +35,9 @@ import net.minecraft.world.item.ItemStack;
  * ({@link FabricatorRecipes}, machine energy, the Tony-Stark-nearby rule) fabricates it.
  */
 public final class StarkWorkbench {
-	/** The four era tabs; only Era I is live in v0.16.7. */
+	/** The four era tabs; Era I (the Gantry Age) and Era II (the portable suits + the Hulkbuster) are live in v0.16.7. */
 	public static final int ERA_COUNT = 4;
-	public static final int LIVE_ERAS = 1;
+	public static final int LIVE_ERAS = 2;
 
 	/** Menu button ids: {@code BUILD_BASE + suitIndex * 10 + piece} = Build that piece (1..4) of {@code MARK_ORDER[suitIndex]}. */
 	public static final int BUILD_BASE = 1000;
@@ -55,14 +55,16 @@ public final class StarkWorkbench {
 		return BUILD_BASE + suitIndex * 10 + piece;
 	}
 
-	/** The suits an era tab lists, in progression order (era 1 = the Era I suits of {@link IronManItems#MARK_ORDER}). */
+	/**
+	 * The suits an era tab lists, in progression order (era 1 = the Era I suits of {@link IronManItems#MARK_ORDER}, era 2 =
+	 * the Era II ones: Mk VI Suitcase .. Hulkbuster I).
+	 */
 	public static List<String> eraSuits(int era) {
 		List<String> out = new ArrayList<>();
-		if (era == 1) {
-			for (String id : IronManItems.MARK_ORDER) {
-				if (IronManEraOne.isEraOne(id) && IronManSuits.byId(id) != null) {
-					out.add(id);
-				}
+		for (String id : IronManItems.MARK_ORDER) {
+			boolean inEra = era == 1 ? IronManEraOne.isEraOne(id) : era == 2 && IronManEraOne.isEraTwo(id);
+			if (inEra && IronManSuits.byId(id) != null) {
+				out.add(id);
 			}
 		}
 		return out;

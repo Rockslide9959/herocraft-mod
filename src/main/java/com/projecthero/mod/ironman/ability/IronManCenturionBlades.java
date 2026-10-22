@@ -19,8 +19,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.7 (user): "the silver centurion armour should have a blade ability where it deploys blades to use". The Mk VII
- * Silver Centurion ({@code mark_6}) slides a thin silver blade with a red spine and a soft glowing edge out of each
- * gauntlet (client {@code CenturionBladeLayer}, eased in / out over {@code IronManBladeLook.EXTEND_TICKS}).
+ * Silver Centurion ({@code mark_6}) snikts one long, curved, polished-silver claw-style blade out of a red-and-silver
+ * housing on the back of each gauntlet, over the knuckles and past the fist (client {@code CenturionBladeLayer}, modelled
+ * on Wolverine's claws; in / out over {@code IronManBladeLook.EXTEND_TICKS}).
  * <ul>
  *   <li><b>V</b> -- Deploy Blades: a toggle (the V = mode key). Out: 10 energy, then 1 per second while they stay out
  *       ({@link IronManBlade#tick} drains it and retracts them on a dry reactor / brownout); in again: free.</li>
@@ -64,6 +65,7 @@ public final class IronManCenturionBlades {
 			p.setAttached(ModAttachments.IRON_MAN_BLADES, false);
 			IronManComicFx.pose(p, IronManAbilityFx.COMIC_BLADE_DEPLOY, DEPLOY_TICKS);
 			IronManSounds.move(p, IronManSounds.BLADE_RETRACT, 0.9f, 0.85f);
+			snikt(p, 1.15f);
 			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.ironman.blades_in"), true);
 			return false;
 		}
@@ -74,7 +76,8 @@ public final class IronManCenturionBlades {
 	private static void extend(ServerPlayer p, boolean announce) {
 		p.setAttached(ModAttachments.IRON_MAN_BLADES, true);
 		IronManComicFx.pose(p, IronManAbilityFx.COMIC_BLADE_DEPLOY, DEPLOY_TICKS);
-		IronManSounds.move(p, IronManSounds.BLADE_EXTEND, 1.0f, 0.9f);
+		IronManSounds.move(p, IronManSounds.BLADE_EXTEND, 1.0f, 1.1f);
+		snikt(p, 1.35f);
 		IronManSounds.play(p, IronManSounds.BLADE_RING, 0.8f, 1.15f);
 		ServerLevel level = IronManComicFx.level(p);
 		for (int side = 0; side < 2; side++) {
@@ -85,6 +88,14 @@ public final class IronManCenturionBlades {
 		if (announce) {
 			p.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.ironman.blades_out"), true);
 		}
+	}
+
+	/** v0.16.7 (user): the claw-style "snikt" of a blade sliding out of / back into its housing (metal on metal). */
+	private static void snikt(ServerPlayer p, float pitch) {
+		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.CHAIN_BREAK, net.minecraft.sounds.SoundSource.PLAYERS,
+				0.8f, pitch);
+		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.IRON_TRAPDOOR_CLOSE,
+				net.minecraft.sounds.SoundSource.PLAYERS, 0.3f, pitch + 0.25f);
 	}
 
 	/** Shift+V: the Blade Whirl. */
