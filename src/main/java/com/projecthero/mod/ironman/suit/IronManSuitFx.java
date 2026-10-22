@@ -94,6 +94,17 @@ public record IronManSuitFx(long headStart, long chestStart, long legsStart, lon
 	public static final int POSE_SUIT_UP = 1;
 	/** Suit-down: the reverse -- arms ease out as the plates break away, then drop. */
 	public static final int POSE_SUIT_DOWN = 2;
+	/**
+	 * v0.16.7 (user) Era II stage 2: a suit deploying out of / folding into its portable form ({@link PortableDeploy}) --
+	 * no piece clocks at all: the pieces build texel by texel off the pose clock (pose kinds from
+	 * {@link PortableForms#poseKind}, which carry the form), and the prop is drawn from the same clock.
+	 */
+	public static final int STYLE_PORTABLE = 50;
+
+	/** v0.16.7 (user): is this a portable-form deploy / fold ({@link #STYLE_PORTABLE})? */
+	public boolean portable() {
+		return style == STYLE_PORTABLE && PortableForms.byPoseKind(poseKind) != null;
+	}
 	/** Mark V: the suitcase unfolds from the right hand and the suit climbs the arm. */
 	public static final int POSE_CASE_UP = 3;
 	/** Mark V: the suit folds back into the case, which snaps shut in the right hand. */

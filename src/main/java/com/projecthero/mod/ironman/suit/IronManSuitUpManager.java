@@ -239,6 +239,9 @@ public final class IronManSuitUpManager {
 		if (inTransition(player)) {
 			return false;
 		}
+		if (PortableForms.byId(suitId) != null) {
+			return PortableDeploy.fold(player, suitId); // v0.16.7 (user) Era II: the portable-form fold (Mk VI briefcase)
+		}
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null || suitcaseItemFor(suitId) == null) {
 			return beginSuitDown(player, suitId); // no case for this mark -- fall back to the normal store
@@ -261,6 +264,9 @@ public final class IronManSuitUpManager {
 	 * the body in one tick. A legacy case (never had a suit folded into it) is first filled with a fresh Mark V.
 	 */
 	public static boolean beginSuitUpFromCase(ServerPlayer player, String suitId) {
+		if (PortableForms.byId(suitId) != null) {
+			return PortableDeploy.deploy(player, suitId); // v0.16.7 (user) Era II: drop, open, climb on (Mk VI briefcase)
+		}
 		IronManSuit suit = IronManSuits.byId(suitId);
 		if (suit == null || !TonyStark.hasPower(player) || inTransition(player)) {
 			return false;
@@ -535,6 +541,10 @@ public final class IronManSuitUpManager {
 			if (!s.transitionSuit.isEmpty() && s.transitionTicks <= 0) {
 				s.transitionSuit = "";
 			}
+			return;
+		}
+		if (s.transitionPortable) {
+			PortableDeploy.tick(player, s); // v0.16.7 (user) Era II: a portable-form deploy / fold runs its own clock
 			return;
 		}
 		if (s.transitionManual != 0) {

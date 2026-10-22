@@ -158,6 +158,8 @@ public final class TonyStarkState {
 	 * Marks 2-7 workshop build (the kind + 1).
 	 */
 	public transient int transitionManual = 0;
+	/** v0.16.7 (user) Era II: this sequence is a portable-form deploy / fold ({@code ironman.suit.PortableDeploy}). */
+	public transient boolean transitionPortable = false;
 	/** game time the R-slot (slot 1) hold started, or 0 if not held -- drives the charged-repulsor spin-up. */
 	public transient long chargeStartTick = 0L;
 	/** true once the current R-hold has crossed the charged threshold, so the "ready" cue only fires once. */
@@ -249,6 +251,7 @@ public final class TonyStarkState {
 		c.transitionPlan = transitionPlan;
 		c.transitionBracelet = transitionBracelet;
 		c.transitionManual = transitionManual;
+		c.transitionPortable = transitionPortable;
 		c.chargeStartTick = chargeStartTick;
 		c.chargeReadyPinged = chargeReadyPinged;
 		c.unibeamUntil = unibeamUntil;

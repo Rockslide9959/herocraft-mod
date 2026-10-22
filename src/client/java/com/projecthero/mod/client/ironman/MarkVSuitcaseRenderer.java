@@ -33,6 +33,8 @@ public class MarkVSuitcaseRenderer extends GeoItemRenderer<MarkVSuitcaseItem> {
 	public static final ResourceLocation ICON_MODEL = ProjectHeroMod.id("item/mark_v_suitcase_icon");
 	/** 0 = closed (every ordinary render) .. 1 = fully unfolded. Render thread only. */
 	public static float openness = 0f;
+	/** Which way the lid swings (chosen so it goes up and over, not through the floor). */
+	static float LID_SIGN = -1f;
 
 	public MarkVSuitcaseRenderer() {
 		super(new Model());
@@ -72,12 +74,11 @@ public class MarkVSuitcaseRenderer extends GeoItemRenderer<MarkVSuitcaseItem> {
 		float sy = bone.getScaleY();
 		float sz = bone.getScaleZ();
 		switch (bone.getName()) {
-			case "front_shell" -> bone.setRotX(rx + o * (float) Math.toRadians(105));
-			case "panel_left" -> bone.setRotY(ry - o * (float) Math.toRadians(80));
-			case "panel_right" -> bone.setRotY(ry + o * (float) Math.toRadians(80));
-			case "handle" -> bone.setRotX(rx - o * (float) Math.toRadians(90));
-			case "core" -> {
-				float s = 0.2f + 1.0f * o;
+			// v0.16.7 (user) Era II: the Mk VI briefcase -- the lid flips right over its bottom hinge (180 degrees), the
+			// packed plates rise out of the tray as it opens
+			case "lid" -> bone.setRotX(rx + LID_SIGN * o * (float) Math.PI);
+			case "plates" -> {
+				float s = 0.05f + 0.95f * Mth.clamp((o - 0.35f) / 0.65f, 0f, 1f);
 				bone.setScaleX(s);
 				bone.setScaleY(s);
 				bone.setScaleZ(s);

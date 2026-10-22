@@ -165,7 +165,8 @@ public final class FirstPersonBodySequences {
 		int kind = fx.poseKind();
 		boolean down = kind == IronManSuitFx.POSE_SUIT_DOWN || kind == IronManSuitFx.POSE_CASE_DOWN
 				|| kind == IronManSuitFx.POSE_PLATFORM_OFF || kind == IronManSuitFx.POSE_MK5_DOWN
-				|| IronManSuitFx.removalPose(kind);
+				|| IronManSuitFx.removalPose(kind)
+				|| com.projecthero.mod.ironman.suit.PortableForms.foldPose(kind); // v0.16.7 (user) Era II fold
 		return down ? anyWorn : !allOnAndBuilt;
 	}
 }

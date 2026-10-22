@@ -79,10 +79,20 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 		wear(p, BRIEFCASE); // v0.16.1: the briefcase carries the Mark 2
 		IronManEnergy.setIntegrity(p, BRIEFCASE, 456f);
 		p.getInventory().selected = 2;
+		// v0.16.7 (user) Era II: plain C no longer folds the Mk VI -- HOLD Shift+C does (PortableDeploy)
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, true); // plain C
-		h.assertTrue(IronManSuitUpManager.inTransition(p), "C starts the fold");
-		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.DOWN_TICKS && IronManMk5Suitcase.DOWN_TICKS == 140,
-				"v0.15.8: the fold is the 7 s build backwards");
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
+		h.assertFalse(IronManSuitUpManager.inTransition(p), "plain C only says to hold Shift+C");
+		p.setShiftKeyDown(true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, true); // Shift+C, held
+		long t0 = p.level().getGameTime();
+		com.projecthero.mod.ironman.suit.PortableDeploy.holdTick(p, t0 + 1);
+		h.assertFalse(IronManSuitUpManager.inTransition(p), "a tap of Shift+C is not enough");
+		com.projecthero.mod.ironman.suit.PortableDeploy.holdTick(p, t0 + com.projecthero.mod.ironman.suit.PortableDeploy.FOLD_HOLD_TICKS);
+		p.setShiftKeyDown(false);
+		h.assertTrue(IronManSuitUpManager.inTransition(p), "holding Shift+C starts the fold");
+		h.assertTrue(TonyStark.state(p).transitionTotal == com.projecthero.mod.ironman.suit.PortableForms.MK6_BRIEFCASE.beats().total(),
+				"v0.16.7: the fold is the briefcase deploy backwards");
 		h.assertTrue(IronManArmor.wearingFullSuit(p, BRIEFCASE), "the pieces stay on until the fold ends");
 		runSequence(p);
 		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "folded away");
@@ -152,24 +162,25 @@ public class IronManMk5V01429GameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void rightClickTheCaseSuitsUpInSixSeconds(GameTestHelper h) {
+	public void rightClickTheCaseDeploysTheMkSix(GameTestHelper h) {
 		ServerPlayer p = player(h);
 		p.getInventory().selected = 0;
 		p.getInventory().items.set(0, new ItemStack(IronManItems.MARK_V_SUITCASE));
 		IronManItems.MARK_V_SUITCASE.use(h.getLevel(), p, InteractionHand.MAIN_HAND);
 		h.assertTrue(IronManSuitUpManager.inTransition(p) && IronManSuitUpManager.assembling(p), "right-click starts the build");
-		h.assertTrue(TonyStark.state(p).transitionTotal == IronManMk5Suitcase.UP_TICKS && IronManMk5Suitcase.UP_TICKS == 140,
-				"v0.15.8: the build takes 7 s");
+		// v0.16.7 (user) Era II: the Mk VI briefcase drops, flips open and the suit climbs on boots first (PortableDeploy)
+		var form = com.projecthero.mod.ironman.suit.PortableForms.MK6_BRIEFCASE;
+		h.assertTrue(TonyStark.state(p).transitionTotal == form.beats().total(), "the briefcase deploy clock");
 		IronManSuitFx fx = IronManSuitFx.of(p);
-		h.assertTrue(fx.poseKind() == IronManSuitFx.POSE_MK5_UP && fx.style() == IronManSuitFx.STYLE_MK5, "the Mark 5 pose + style");
-		// held out first: nothing is on the body until the hold is over, then the chest arrives first
-		for (int i = 0; i < IronManMk5Suitcase.upStart(1) - 1; i++) {
+		h.assertTrue(fx.poseKind() == com.projecthero.mod.ironman.suit.PortableForms.poseKind(form, true)
+				&& fx.style() == IronManSuitFx.STYLE_PORTABLE, "the portable pose + style");
+		for (int i = 0; i < form.pieceOnAt(3) - 1; i++) {
 			IronManSuitUpManager.tick(p);
 		}
-		h.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "the case is still held out in front");
+		h.assertTrue(p.getItemBySlot(EquipmentSlot.FEET).isEmpty(), "the case is still dropping / opening");
 		IronManSuitUpManager.tick(p);
-		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.CHEST, BRIEFCASE) && p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()
-				&& p.getItemBySlot(EquipmentSlot.LEGS).isEmpty(), "the case became the chestplate, first");
+		h.assertTrue(IronManArmor.isPieceWorn(p, EquipmentSlot.FEET, BRIEFCASE) && p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()
+				&& p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "the boots go on first");
 		h.assertTrue(IronManSuitUpManager.blockedWhileAssembling(p, true), "abilities stay locked while it builds");
 		runSequence(p);
 		h.assertTrue(IronManArmor.wearingFullSuit(p, BRIEFCASE), "the whole Mark 2 is on (v0.16.1: the briefcase suit)");

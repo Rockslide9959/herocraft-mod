@@ -32,6 +32,9 @@ public final class IronManSkinOverlay {
 		if (age < 0f) {
 			return false;
 		}
+		if (fx.portable()) {
+			return IronManPortableClient.bare(player, region); // v0.16.7 (user) Era II portable forms
+		}
 		if (fx.mk5() && (kind == IronManSuitFx.POSE_MK5_UP || kind == IronManSuitFx.POSE_MK5_DOWN)) {
 			float frame = IronManMk5Suitcase.frame(kind == IronManSuitFx.POSE_MK5_UP, age);
 			int stage = switch (region) {

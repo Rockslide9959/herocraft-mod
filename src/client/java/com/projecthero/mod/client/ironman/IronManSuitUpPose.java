@@ -106,6 +106,12 @@ public final class IronManSuitUpPose {
 						}
 					}
 					default -> {
+						// v0.16.7 (user) Era II: a portable form's own body-pose keys (PortableForm#pose)
+						float[] pk = IronManPortableClient.pose(player, partial);
+						if (pk != null && pk[0] > 0.001f) {
+							apply(model, pk[0], java.util.Arrays.copyOfRange(pk, 1, pk.length));
+							touched = true;
+						}
 					}
 				}
 			}

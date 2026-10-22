@@ -35,6 +35,7 @@ public final class IronManSuitTicker {
 		mirrorPrivateHighlight(player);
 		IronManArmor.enforce(player);
 		com.projecthero.mod.ironman.ability.era1.EraOneEject.tick(player); // v0.16.7: the Shift+C emergency eject hold
+		com.projecthero.mod.ironman.suit.PortableDeploy.holdTick(player); // v0.16.7 (user) Era II: the Shift+C fold hold
 		JarvisDialogue.tick(player); // v0.14.29 agent F: JARVIS voice lines
 		// "changes 19": a lifted faceplate / extended blades must not survive the armour coming off.
 		IronManFaceplate.reconcile(player);
