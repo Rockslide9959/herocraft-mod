@@ -132,7 +132,10 @@ function build(id) {
 		// muscle: inset sideways, and at the ends of a chain (the crown, the shoulder, the fingertips)
 		// (a hair inside at the joint cuts and the soles too, so muscle and skin never share a plane and z-fight)
 		const mb = [b[0] + i, b[1] + (s.bottom ? i : 0.06), b[2] + i, b[3] - i, b[4] - (s.top && s.tag !== 'chest' ? i : 0.06), b[5] - i];
-		add(s.bone, 'mus', s.tag, mb, { seg: mb, side: s.side, layer: 1 });
+		// v0.16.7 (user): the muscle wears the Cyborg flesh (player layout), mapped over the part's muscle box like the skin
+		const F0 = part.box, arm = s.part === 'rarm' || s.part === 'larm', topIn = arm || s.part === 'head';
+		const mfull = [F0[0] + i, F0[1] + (arm ? i : 0), F0[2] + i, F0[3] - i, F0[4] - (topIn ? i : 0), F0[5] - i];
+		add(s.bone, 'mus', s.tag, mb, { seg: mb, side: s.side, layer: 1, s, mpart: s.part, mfull, region: part.base, dims: [0, 1, 2].map(q => Math.round(part.box[q + 3] - part.box[q])) });
 		const sk = { seg: b, side: s.side, layer: 2, part: s.part, full: part.box, region: part.base, s, dims: [0, 1, 2].map(q => Math.round(part.box[q + 3] - part.box[q])) };
 		add(s.bone, 'skin', s.tag, b, sk);
 		// the second layer: inflated outward, but flush at the cuts (so neighbours never overlap)
