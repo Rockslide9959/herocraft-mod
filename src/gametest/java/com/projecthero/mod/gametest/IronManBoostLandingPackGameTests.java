@@ -2,6 +2,7 @@ package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.ironman.HulkbusterLanding;
+import com.projecthero.mod.ironman.IronManFallLanding;
 import com.projecthero.mod.ironman.IronManEnergy;
 import com.projecthero.mod.ironman.IronManFlight;
 import com.projecthero.mod.ironman.IronManLandingSlam;
@@ -231,29 +232,77 @@ public class IronManBoostLandingPackGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void hulkbusterBigFallLandsAndOtherSuitsDoNot(GameTestHelper h) {
-		ServerPlayer p = tony(h, "mark_8");
+	/** Drop {@code p} {@code blocks} onto the ground through the fall tracker; the landing it made (or null). */
+	private static IronManFallLanding.Landing fall(ServerPlayer p, double blocks) {
 		double y = p.getY();
+		IronManFallLanding.Landing before = IronManFallLanding.last(p);
 		p.setOnGround(false);
-		p.teleportTo(p.getX(), y + 9, p.getZ());
-		HulkbusterLanding.tick(p);
+		p.teleportTo(p.getX(), y + blocks, p.getZ());
+		IronManFallLanding.tick(p);
 		p.teleportTo(p.getX(), y, p.getZ());
 		p.setOnGround(true);
-		HulkbusterLanding.tick(p);
-		HulkbusterLanding.Landing l = HulkbusterLanding.last(p);
-		h.assertTrue(l != null && l.heavy(), "a 9-block fall -> the heavy landing");
-		ServerPlayer q = tony(h, "mark_vii");
-		q.setOnGround(false);
-		q.teleportTo(q.getX(), y + 9, q.getZ());
-		HulkbusterLanding.tick(q);
-		q.teleportTo(q.getX(), y, q.getZ());
-		q.setOnGround(true);
-		HulkbusterLanding.tick(q);
-		h.assertTrue(HulkbusterLanding.last(q) == null, "only the Hulkbuster");
-		leave(h, p);
-		leave(h, q);
+		IronManFallLanding.tick(p);
+		IronManFallLanding.Landing after = IronManFallLanding.last(p);
+		return after == before ? null : after;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aBigFallLandsWithThePoseInEverySuit(GameTestHelper h) {
+		// v0.16.7 (user): Era I (Mk III), Era II (Mk VIII Space) and the Hulkbuster all land a long fall
+		for (String suit : new String[] { "mark_iii", "mark_vii", "mark_8" }) {
+			ServerPlayer p = tony(h, suit);
+			IronManFallLanding.Landing heavy = fall(p, 9);
+			h.assertTrue(heavy != null && heavy.heavy() && !heavy.flight() && suit.equals(heavy.suitId()),
+					suit + ": a 9-block fall -> the full superhero landing (" + heavy + ")");
+			if ("mark_8".equals(suit)) {
+				HulkbusterLanding.Landing hb = HulkbusterLanding.last(p);
+				h.assertTrue(hb != null && hb.heavy(), "the Hulkbuster plays its own heavy landing clip");
+			}
+			leave(h, p);
+			ServerPlayer q = tony(h, suit);
+			IronManFallLanding.Landing light = fall(q, 5.5);
+			h.assertTrue(light != null && !light.heavy() && light.intensity() < IronManFallLanding.HEAVY_AT,
+					suit + ": a 5.5-block drop -> a light touchdown (" + light + ")");
+			h.assertTrue(light.intensity() > 0f, "scaled by the height");
+			leave(h, q);
+			ServerPlayer r = tony(h, suit);
+			h.assertTrue(fall(r, 3) == null, suit + ": a 3-block hop is no landing");
+			leave(h, r);
+		}
+		// the pose scales with the height, like a flight landing with its speed
+		h.assertTrue(IronManFallLanding.fallIntensity(5) < IronManFallLanding.fallIntensity(9)
+				&& IronManFallLanding.fallIntensity(9) < IronManFallLanding.fallIntensity(14), "deeper the further it fell");
+		// no suit, no landing
+		ServerPlayer bare = tony(h, null);
+		h.assertTrue(fall(bare, 9) == null, "no Iron Man suit: no landing pose");
+		leave(h, bare);
 		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aFlightLandingIsNeverDoubledByAFallLanding(GameTestHelper h) {
+		ServerPlayer p = tony(h, "mark_vii");
+		p.setOnGround(false);
+		double x = p.getX(), y = p.getY(), z = p.getZ();
+		p.teleportTo(x, y + 8, z);
+		IronManFlight.setFlying(p, true);
+		h.runAfterDelay(12, () -> {
+			IronManFallLanding.tick(p); // flying: nothing tracked
+			for (int i = 5; i >= 0; i--) {
+				p.teleportTo(x, y + i, z);
+				IronManLandingSlam.recordFlightTick(p);
+				IronManFallLanding.tick(p);
+			}
+			p.setOnGround(true);
+			IronManFlight.tick(p); // the flight lands on the ground
+			IronManFallLanding.tick(p);
+			IronManFallLanding.Landing l = IronManFallLanding.last(p);
+			h.assertTrue(l != null && l.flight(), "the flight's landing is the one that played (" + l + ")");
+			h.assertFalse(IronManFallLanding.land(p, 0.9f), "a fall landing on the same touchdown is refused");
+			h.assertTrue(IronManFallLanding.last(p) == l, "still just the flight landing");
+			leave(h, p);
+			h.succeed();
+		});
 	}
 
 	// ------------------------------------------------------------------ Thruster Pack flight

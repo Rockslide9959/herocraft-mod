@@ -301,24 +301,19 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		h.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
-	public void sendHomeStepsOutThenFliesTheWholeSuitToItsPlatform(GameTestHelper h) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void theHulkbusterIsNeverSentHomeToAPlatform(GameTestHelper h) {
+		// v0.16.7 (user): "The suit only returns to a platform when the player puts the Uplink back into a Suit Platform"
+		// -- Send Home on the worn Hulkbuster is refused (it goes back to orbit with a fold instead)
 		floor(h);
 		ServerPlayer p = suitedTony(h, new BlockPos(1, 2, 1));
 		IronManSuitPlatformBlockEntity be = platform(h, p, new BlockPos(6, 2, 6));
-		h.assertTrue(IronManSuitCall.sendBack(p, SUIT) == 4, "Send Home on the worn Mark 8");
-		IronManSentryEntity s = only(h, p);
-		h.assertTrue(s.phase() == IronManSentryEntity.PHASE_EJECT && s.isOpen(), "it opens and the owner steps out first");
-		h.assertTrue(s.homeDock() != null && s.homeDock().equals(be.getBlockPos()), "bound for the platform");
-		h.assertTrue(!IronManArmor.wearingAnyIronMan(p), "the owner is out of it");
-		h.runAfterDelay(IronManSentryEntity.CLIMB_OUT_CLOSE_TICK + 2, () -> h.assertTrue(
-				!s.isOpen() && s.phase() == IronManSentryEntity.PHASE_HOME, "closed, then off home"));
-		h.succeedWhen(() -> {
-			h.assertTrue(s.isRemoved(), "the sentry is gone");
-			h.assertTrue(be.isFull() && SUIT.equals(be.storedSuitId()), "all four pieces are back on the platform");
-			// (the platform starts repairing it at 5/s straight away, so allow a little on top)
-			h.assertTrue(be.suitIntegrity() > 2999f && be.suitIntegrity() < 3020f, "with the suit's integrity (" + be.suitIntegrity() + ")");
-			leave(h, p);
-		});
+		h.assertTrue(IronManSuitCall.sendBack(p, SUIT) == 0, "Send Home on the worn Hulkbuster is refused");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, SUIT), "still wearing it");
+		h.assertTrue(be.isEmptyPlatform(), "nothing flies to the platform");
+		h.assertTrue(h.getLevel().getEntities(IronManEntityTypes.SENTRY, new AABB(p.position(), p.position()).inflate(20),
+				e -> p.getUUID().equals(e.ownerId())).isEmpty(), "no Sentry set off home");
+		leave(h, p);
+		h.succeed();
 	}
 }

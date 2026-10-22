@@ -471,9 +471,9 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 	// ---------------- v0.16.7 (user): the Hulkbuster's Uplink ----------------
 	//
 	// "you can get the uplink from the suit platform and then you can use that the call the armour". The Hulkbuster I
-	// can't go on at a Stark Gantry, so the rack hands it over as its Uplink (the four stacks, integrity kept) and takes an
-	// Uplink back onto the rack. The Uplink's own rules are unchanged: a loaded one calls the drop crate, an emptied one
-	// stays in the pack meanwhile.
+	// can't go on at a Stark Gantry, so the Uplink tab sends the racked suit up to orbit (HulkbusterOrbit) and hands over
+	// its Uplink -- a reusable key. Putting that Uplink back into a platform brings the suit home onto the rack (repaired
+	// here as usual) and uses the Uplink up. A lost Uplink is re-cut here too ("Re-link", IronManSuitPlatformMenu).
 
 	/** v0.16.7 (user): is the whole Hulkbuster racked here (the Uplink tab is offered)? */
 	public boolean holdsHulkbuster() {
@@ -496,15 +496,16 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			pieces.set(i, ItemStack.EMPTY);
 		}
 		afterContentsChanged();
-		// v0.16.7 (user) Veronica: a NEW single-use Uplink, each piece remembering this platform (a fold sends it home here)
+		// v0.16.7 (user): the suit lifts off to orbit; the player gets its (reusable) Uplink
 		com.projecthero.mod.ironman.crate.HulkbusterCrate.mintUplink(player, out, integrity, sl, worldPosition);
 		return true;
 	}
 
 	/**
-	 * v0.16.7 (user): a loaded Hulkbuster Uplink handed to the platform (right-click the pad with it, or shift-click it in the
-	 * screen) racks the suit -- its four stacks onto the rack, the Uplink kept, emptied. A never-used (fresh) Uplink racks a
-	 * new suit at full integrity. All-or-nothing; false if the Uplink is empty or the rack can't take the Hulkbuster.
+	 * v0.16.7 (user): a Hulkbuster Uplink handed to the platform (right-click the pad with it, or shift-click it in the
+	 * screen) brings its suit home out of orbit onto the rack, as it is (the platform then repairs it), and is used up. A
+	 * never-used (fresh) Uplink racks a new suit at full integrity. All-or-nothing; false if the suit isn't in orbit (it is
+	 * down: fold or recall it first), the key is dead, or the rack can't take the Hulkbuster.
 	 */
 	public boolean storeUplink(Player player, ItemStack uplink) {
 		if (!uplink.is(com.projecthero.mod.ironman.item.IronManItems.HULKBUSTER_UPLINK) || locked()
@@ -514,7 +515,22 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		String sid = com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID;
 		java.util.List<ItemStack> contents = new java.util.ArrayList<>();
 		float integrity;
-		if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(uplink)) {
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit orbit = null;
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit.Slot slot = null;
+		if (com.projecthero.mod.ironman.crate.HulkbusterOrbit.isKey(uplink)) {
+			// v0.16.7 (user): "the suit only returns to a platform when the player puts the Uplink back into a Suit Platform"
+			// -- the key brings its suit down out of orbit onto this rack (only while it IS in orbit)
+			if (!(level instanceof ServerLevel sl)) {
+				return false;
+			}
+			orbit = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(sl.getServer());
+			slot = orbit.slotOfKey(uplink);
+			if (slot == null || !slot.inOrbit) {
+				return false;
+			}
+			contents.addAll(slot.pieces());
+			integrity = slot.integrity;
+		} else if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(uplink)) {
 			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
 					ArmorItem.Type.BOOTS }) {
 				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(sid, t)));
@@ -532,18 +548,23 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 				return false;
 			}
 		}
+		if (slot != null) {
+			orbit.takeDown(slot); // the stacks leave orbit for this rack ...
+			orbit.remove(slot); // ... and the slot is closed: the suit lives here now
+		}
 		for (ItemStack piece : contents) {
 			ItemStack s = piece.copyWithCount(1);
 			IronManEnergy.stampStack(s, IronManEnergy.FULL, integrity);
+			com.projecthero.mod.ironman.crate.HulkbusterOrbit.unlink(s);
 			pieces.set(slotOf(((IronManArmorItem) s.getItem()).getType()), s);
 		}
 		if (owner == null) {
 			owner = player.getUUID();
 		}
-		// v0.16.7 (user) Veronica: the single-use Uplink is used up racking the suit (the tab makes a new one)
 		for (ItemStack s : pieces) {
 			com.projecthero.mod.ironman.suit.IronManPlatformReturn.clearHome(s);
 		}
+		// v0.16.7 (user): the Uplink is used up bringing the suit home (the Uplink tab cuts a new one)
 		uplink.shrink(1);
 		player.getInventory().setChanged();
 		afterContentsChanged();

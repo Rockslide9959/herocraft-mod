@@ -89,6 +89,13 @@ public class IronManFoldPolishGameTests implements FabricGameTest {
 				h.assertFalse(s.getItem() instanceof IronManArmorItem, form.suitId() + ": no loose pieces left");
 			}
 			ItemStack c = find(p, packed);
+			if (form.rest() == PortableForm.Place.BLOCK) {
+				// v0.16.7 (user): the Hulkbuster's pieces go up into an orbit slot; the Uplink is the key to it
+				var slot = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(h.getLevel().getServer()).slotOfKey(c);
+				h.assertTrue(slot != null && slot.inOrbit && slot.pieces().size() == 4, form.suitId() + ": all four in orbit");
+				p.discard();
+				continue;
+			}
 			h.assertTrue(SuitcaseContents.nonEmpty(c).size() == 4, form.suitId() + ": it holds all four");
 			if (form.rest() == PortableForm.Place.BACK) {
 				h.assertFalse(p.getInventory().getSelected().is(packed), form.suitId() + ": a pack goes on the back, not in the hand");
@@ -101,6 +108,9 @@ public class IronManFoldPolishGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void packingFillsAnEmptiedPackedItem(GameTestHelper h) {
 		for (PortableForm form : PortableForms.all()) {
+			if (form.rest() == PortableForm.Place.BLOCK) {
+				continue; // v0.16.7 (user): the Hulkbuster's Uplink holds no stacks (a key to its orbit slot)
+			}
 			ServerPlayer p = player(h);
 			Item packed = form.packedItem().get();
 			ItemStack empty = new ItemStack(packed);
@@ -124,6 +134,9 @@ public class IronManFoldPolishGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyPackedItemHasAnEmptyRecipe(GameTestHelper h) {
 		for (PortableForm form : PortableForms.all()) {
+			if (form.rest() == PortableForm.Place.BLOCK) {
+				continue; // v0.16.7 (user): no recipe -- a Suit Platform cuts the Hulkbuster's Uplink (Uplink tab / Re-link)
+			}
 			Item packed = form.packedItem().get();
 			String path = BuiltInRegistries.ITEM.getKey(packed).getPath();
 			Recipe<?> r = h.getLevel().getRecipeManager().byKey(ProjectHeroMod.id(path)).<Recipe<?>>map(x -> x.value()).orElse(null);

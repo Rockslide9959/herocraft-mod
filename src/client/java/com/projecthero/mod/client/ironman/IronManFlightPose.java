@@ -95,6 +95,15 @@ public final class IronManFlightPose {
 
 		public long flightStart = Long.MIN_VALUE / 4;
 		public long landStart = Long.MIN_VALUE / 4;
+		/**
+		 * v0.16.7 (user) fall landing: how deep the landing pose goes (1 = the full superhero landing) and how fast it plays
+		 * (a light touchdown is quicker); a fall landing waiting for the next tick (intensity step 0..10, -1 none).
+		 */
+		public float landScale = 1f;
+		public float landRate = 1f;
+		int pendingFall = -1;
+		/** v0.16.7 (user): a light fall touchdown this tick (the hard one raises {@link #evHardLand}); its scale. */
+		public boolean evFallSoft;
 
 		// events raised this tick (consumed by the FX)
 		public boolean evTakeoff;
@@ -163,7 +172,7 @@ public final class IronManFlightPose {
 	}
 
 	private static void tickPlayer(ClientLevel level, Player player, Anim a, long now) {
-		a.evTakeoff = a.evHardLand = a.evSoftLand = a.evSupersonic = a.evBoost = false;
+		a.evTakeoff = a.evHardLand = a.evSoftLand = a.evSupersonic = a.evBoost = a.evFallSoft = false;
 		boolean settled = a.seenTicks >= 5;
 		if (a.seenTicks < 1000) {
 			a.seenTicks++;
@@ -223,9 +232,26 @@ public final class IronManFlightPose {
 					|| !level.noCollision(player, player.getBoundingBox().move(0.0, -0.5, 0.0));
 			if (a.shownKind != Kind.BOOTS && IronManFlightLook.isHardLanding(peakSpeed, peakDescent, grounded)) {
 				a.landStart = now;
+				a.landScale = 1f;
+				a.landRate = 1f;
 				a.evHardLand = true;
 			} else {
 				a.evSoftLand = true;
+			}
+			a.pendingFall = -1; // the flight's own landing is THE landing
+		}
+		if (a.pendingFall >= 0) {
+			// v0.16.7 (user): a long fall landed (the server says how hard): light touchdown .. the full slam
+			int step = a.pendingFall;
+			a.pendingFall = -1;
+			boolean heavy = step >= FALL_HEAVY_STEP;
+			a.landStart = now;
+			a.landScale = fallScale(step);
+			a.landRate = heavy ? 1f : 1.45f;
+			if (heavy) {
+				a.evHardLand = true;
+			} else {
+				a.evFallSoft = true;
 			}
 		}
 
@@ -320,8 +346,33 @@ public final class IronManFlightPose {
 		if (a == null || a.flying) {
 			return false;
 		}
-		float t = player.level().getGameTime() - a.landStart;
+		float t = (player.level().getGameTime() - a.landStart) * a.landRate;
 		return t >= 0f && t < IronManFlightLook.LANDING_END;
+	}
+
+	// ---------------------------------------------------------------- v0.16.7 (user): the fall landing
+
+	/** The server's intensity step (tenths) from which a fall lands with the full superhero landing. */
+	public static final int FALL_HEAVY_STEP = 4;
+
+	/** How deep the pose goes for a fall of intensity step {@code step}: a light touchdown 0.3..0.75, then the full 1. */
+	public static float fallScale(int step) {
+		return step >= FALL_HEAVY_STEP ? 1f : 0.3f + 0.45f * Mth.clamp(step / (float) FALL_HEAVY_STEP, 0f, 1f);
+	}
+
+	/**
+	 * The server landed a long fall for player {@code entityId} ({@code IronManAbilityFx.IM_LAND_BASE} + step). Played on
+	 * the next tick, unless that player is flying or just made a flight landing (no double landing).
+	 */
+	public static void onFallLanding(ClientLevel level, int entityId, int step) {
+		if (level == null || !(level.getEntity(entityId) instanceof Player p)) {
+			return;
+		}
+		Anim a = ANIMS.computeIfAbsent(p.getUUID(), id -> new Anim());
+		if (a.flying || level.getGameTime() - a.landStart < 10) {
+			return;
+		}
+		a.pendingFall = Mth.clamp(step, 0, 10);
 	}
 
 	// ---------------------------------------------------------------- the limb targets
@@ -499,8 +550,9 @@ public final class IronManFlightPose {
 			set(m.rightLeg, blend, t[6], t[7], t[8]);
 			set(m.leftLeg, blend, t[9], t[10], t[11]);
 		}
-		float tLand = (player.level().getGameTime() - a.landStart) + partial;
-		float k = a.flying ? 0f : IronManFlightLook.landingWeight(tLand);
+		// v0.16.7 (user): a fall landing scales the pose (a light touchdown is shallower and quicker)
+		float tLand = ((player.level().getGameTime() - a.landStart) + partial) * a.landRate;
+		float k = a.flying ? 0f : IronManFlightLook.landingWeight(tLand) * a.landScale;
 		if (k > 0f) {
 			applyLanding(m, k, tLand);
 		}

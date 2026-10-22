@@ -83,6 +83,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.IronManLandingSlam.clearSessionState();
 		com.projecthero.mod.ironman.ability.IronManSpaceBoost.clearSessionState(); // v0.16.7 (user): the Mk VIII Flight Boost
 		com.projecthero.mod.ironman.HulkbusterLanding.clearSessionState(); // v0.16.7 (user): the Hulkbuster landing
+		com.projecthero.mod.ironman.IronManFallLanding.clearSessionState(); // v0.16.7 (user): the fall landing, every suit
 		CraterAmbience.clearSessionState();
 		TempBlocks.clearSessionState();
 		com.projecthero.mod.hero.power.p09.CryoIce.clearSessionState(); // v0.16.5: Cryokinesis ice (melted on SERVER_STOPPING)

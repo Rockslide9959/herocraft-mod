@@ -67,11 +67,19 @@ public final class HulkbusterBuildClient {
 		}
 	}
 
-	/** The Replacement Pod's mid-air build: its own launch order and flight time. */
+	/**
+	 * The Replacement Pod's mid-air build over another Iron Man suit: its own launch order and flight time, and the
+	 * gantry-style per-texel build-on.
+	 */
 	static final Schedule VERONICA;
-	/** Stepping in: every carried half there at once, the legs first, then torso, arms, head. */
-	static final Schedule STEP_IN = new Schedule("step", new float[] { 0f, 0f, 0f, 0f, 0f, 0f },
-			new float[] { 9f, 5f, 7f, 7f, 0f, 0f });
+	/**
+	 * v0.16.7 (user) "the hulkbuster seems to rebuild itself everytime you enter the suit, thats not supposed to happen,
+	 * its only supposed to happen when the suit gets called over and builds itself onto the player while the player is
+	 * wearing another iron man armour": the same pod build onto a player in NO Iron Man suit -- the pieces fly on whole (no
+	 * per-texel build-on). Stepping into the Sentry / crate or swapping on never builds at all any more (the old STEP_IN
+	 * schedule is gone): the climb-in and the suit closing round you (its back plate shutting) are the whole show.
+	 */
+	static final Schedule PLAIN;
 
 	static {
 		float[] launch = new float[HulkbusterParts.COUNT], attach = new float[HulkbusterParts.COUNT];
@@ -81,10 +89,21 @@ public final class HulkbusterBuildClient {
 			attach[part] = launch[part] + HulkbusterPodEntity.PIECE_FLIGHT;
 		}
 		VERONICA = new Schedule("pod", launch, attach);
+		PLAIN = new Schedule("plain", launch, attach);
 	}
 
-	/** Per texel: kind, part, build position k (0..1), slide column / row. */
-	private record Texels(int w, int h, byte[] kind, byte[] part, float[] k, int[] col, int[] row, int[][] cols) {
+	/**
+	 * v0.16.7 (user) "you dont really see the player while the suits building itself, find a solution to this that isnt
+	 * just making the player invisible": the first thing the pod puts round the pilot is the Hulkbuster's dark <b>inner
+	 * frame</b> -- a gunmetal under-structure at the suit's full proportions (struts and ribs, rivets, a few amber seams
+	 * glowing) that climbs up round them from the feet between {@link #FRAME_START} and {@link #FRAME_START} +
+	 * {@link #FRAME_TICKS} (half a second, as the pod comes in), with a burst of steam. Through every gap in the half-built
+	 * suit you then see that frame, not the player; each base plate replaces the frame texel by texel as it builds on.
+	 */
+	public static final float FRAME_START = 14f, FRAME_TICKS = 10f;
+
+	/** Per texel: kind, part, build position k (0..1), slide column / row; the inner frame's order (0..1) and colours. */
+	private record Texels(int w, int h, byte[] kind, byte[] part, float[] k, int[] col, int[] row, int[][] cols, float[] fk) {
 	}
 
 	private static Texels texels;
@@ -138,6 +157,10 @@ public final class HulkbusterBuildClient {
 		for (Player p : level.players()) {
 			int id = p.getId();
 			observe(p, now);
+			HulkbusterPodEntity pod = HulkbusterVeronicaClient.buildPod(p);
+			if (pod != null && !mc.isPaused()) {
+				frameFx(mc, level, p, pod);
+			}
 			Schedule s = RUNNING.get(id);
 			Long start = START.get(id);
 			if (s != null && start != null && now - start > s.end() + 2) {
@@ -149,28 +172,67 @@ public final class HulkbusterBuildClient {
 	}
 
 	/**
-	 * Notice a build starting on {@code p}: the pod's mid-air build, or the suit closing round them (stepped in / swapped
-	 * on) while this client watched. Called every tick and from the render too, so the very first frame of a fresh suit is
-	 * already the first build frame (no flash of the whole suit before the tick catches up).
+	 * Notice the pod's mid-air build starting on {@code p} and pick its kind once: the per-texel build-on only when they
+	 * are in another Iron Man suit ({@link #VERONICA}), else the pieces fly on whole ({@link #PLAIN}). Nothing else ever
+	 * starts a build -- stepping in / swapping on just closes the suit round you. Called every tick and from the render.
 	 */
 	private static void observe(Player p, long now) {
 		int id = p.getId();
 		HulkbusterPodEntity pod = HulkbusterVeronicaClient.buildPod(p);
 		if (pod != null) {
 			START.put(id, now - (long) Math.floor(pod.age(0f)));
-			RUNNING.put(id, VERONICA);
-		}
-		boolean active = IronManHulkbusterAnimatable.active(p);
-		boolean was = WAS_ACTIVE.getOrDefault(id, active);
-		WAS_ACTIVE.put(id, active);
-		if (!active) {
-			LAST_INACTIVE.put(id, now);
-		} else if (!was && pod == null && RUNNING.get(id) != VERONICA) {
-			Long seen = LAST_INACTIVE.get(id);
-			if (seen != null && now - seen <= 2) {
-				START.put(id, now);
-				RUNNING.put(id, STEP_IN);
+			if (!RUNNING.containsKey(id)) {
+				RUNNING.put(id, overArmour(p) ? VERONICA : PLAIN);
 			}
+		}
+		WAS_ACTIVE.put(id, IronManHulkbusterAnimatable.active(p));
+	}
+
+	/** Is {@code p} in another Iron Man suit (the shared rule, {@link HulkbusterPodEntity#buildsOnOverArmour})? */
+	static boolean overArmour(Player p) {
+		return HulkbusterPodEntity.buildsOnOverArmour(p);
+	}
+
+	/** v0.16.7 (user) gametests / harness: the build kind this client picked for {@code p} ("pod", "plain"), or null. */
+	public static String buildKind(Player p) {
+		Schedule s = p == null ? null : RUNNING.get(p.getId());
+		return s == null ? null : s.key();
+	}
+
+	/**
+	 * v0.16.7 (user): the inner frame closing round the pilot -- steam venting out of it as it climbs up and locks, a hiss
+	 * and a heavy clamp the moment it shuts.
+	 */
+	private static void frameFx(Minecraft mc, ClientLevel level, Player p, HulkbusterPodEntity pod) {
+		float age = pod.age(0f);
+		if (age < FRAME_START || age > FRAME_START + FRAME_TICKS + 6f) {
+			return;
+		}
+		var r = level.random;
+		boolean self = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
+		float up = Math.min(1f, (age - FRAME_START) / FRAME_TICKS); // the steam rises with the frame
+		int n = self ? 1 : 3;
+		for (int k = 0; k < n; k++) {
+			double a = r.nextDouble() * Math.PI * 2;
+			double rad = 0.75 + r.nextDouble() * 0.2;
+			double y = p.getY() + 0.2 + r.nextDouble() * (0.4 + 2.4 * up);
+			level.addParticle(net.minecraft.core.particles.ParticleTypes.CLOUD, p.getX() + Math.cos(a) * rad, y, p.getZ() + Math.sin(a) * rad,
+					Math.cos(a) * 0.06, 0.02 + r.nextDouble() * 0.03, Math.sin(a) * 0.06);
+		}
+		if (r.nextInt(3) == 0 && !self) {
+			double a = r.nextDouble() * Math.PI * 2;
+			level.addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, p.getX() + Math.cos(a) * 0.8,
+					p.getY() + 0.3 + r.nextDouble() * 2.4 * up, p.getZ() + Math.sin(a) * 0.8, 0, 0.05, 0);
+		}
+		if ((int) age == (int) FRAME_START) {
+			level.playLocalSound(p.getX(), p.getY() + 1, p.getZ(), net.minecraft.sounds.SoundEvents.PISTON_EXTEND,
+					net.minecraft.sounds.SoundSource.PLAYERS, 0.7f, 0.6f, false);
+		}
+		if ((int) age == (int) (FRAME_START + FRAME_TICKS)) {
+			level.playLocalSound(p.getX(), p.getY() + 1, p.getZ(), net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH,
+					net.minecraft.sounds.SoundSource.PLAYERS, 0.8f, 0.55f, false);
+			level.playLocalSound(p.getX(), p.getY() + 1, p.getZ(), net.minecraft.sounds.SoundEvents.IRON_DOOR_CLOSE,
+					net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 0.6f, false);
 		}
 	}
 
@@ -181,7 +243,7 @@ public final class HulkbusterBuildClient {
 		if (s == null || start == null || p.level() == null) {
 			return Float.NaN;
 		}
-		HulkbusterPodEntity pod = s == VERONICA ? HulkbusterVeronicaClient.buildPod(p) : null;
+		HulkbusterPodEntity pod = HulkbusterVeronicaClient.buildPod(p);
 		float age = pod != null ? pod.age(partial) : p.level().getGameTime() - start + partial;
 		if (age < 0f || age >= s.end()) {
 			return Float.NaN;
@@ -203,10 +265,138 @@ public final class HulkbusterBuildClient {
 		observe(p, p.level().getGameTime());
 		Schedule[] s = new Schedule[1];
 		float age = age(p, partial, s);
-		if (Float.isNaN(age)) {
+		if (Float.isNaN(age) || s[0] == PLAIN) {
 			return null;
 		}
 		return frame(s[0], (int) Math.floor(age));
+	}
+
+	/**
+	 * v0.16.7 (user): the inner frame to draw round {@code p} this frame -- {base, glow} textures, or null when there is
+	 * none (no pod build, or the frame is not up yet). Each part's frame gives way to its plates once they are on.
+	 */
+	public static ResourceLocation[] frameTextures(Player p, float partial) {
+		if (p == null || p.level() == null) {
+			return null;
+		}
+		HulkbusterPodEntity pod = HulkbusterVeronicaClient.buildPod(p);
+		if (pod == null) {
+			return null;
+		}
+		observe(p, p.level().getGameTime());
+		Schedule s = RUNNING.getOrDefault(p.getId(), PLAIN);
+		int t = (int) Math.floor(pod.age(partial));
+		if (t < FRAME_START) {
+			return null;
+		}
+		return innerFrame(s, Math.min(t, (int) s.end() + 1));
+	}
+
+	/** The inner frame at build tick {@code t} of {@code s}: {base, glow}. */
+	static ResourceLocation[] innerFrame(Schedule s, int t) {
+		String key = "frame_" + s.key() + "_" + t;
+		ResourceLocation got = FRAMES.get(key);
+		if (got != null) {
+			return new ResourceLocation[] { got, FRAMES.get(key + "_glow") };
+		}
+		Texels tx = texels();
+		if (tx == null) {
+			return null;
+		}
+		NativeImage base = new NativeImage(tx.w(), tx.h(), true);
+		NativeImage glow = new NativeImage(tx.w(), tx.h(), true);
+		base.fillRect(0, 0, tx.w(), tx.h(), 0);
+		glow.fillRect(0, 0, tx.w(), tx.h(), 0);
+		boolean texelBuild = s != PLAIN;
+		for (int i = 0; i < tx.kind().length; i++) {
+			byte kind = tx.kind()[i];
+			if (kind == NONE) {
+				continue;
+			}
+			int x = i % tx.w(), y = i / tx.w();
+			boolean strut = x % 4 == 0 || y % 6 == 0;
+			float appear = FRAME_START + (strut ? tx.fk()[i] * 0.55f : 0.3f + tx.fk()[i] * 0.7f) * FRAME_TICKS;
+			if (t < appear) {
+				continue;
+			}
+			int part = tx.part()[i];
+			if (t >= s.attach()[part] && (!texelBuild || builtOpaque(tx, s, i, t))) {
+				continue; // that plate is on: it replaces the frame here (never both: no z-fighting)
+			}
+			base.setPixelRGBA(x, y, frameColour(x, y, source.getPixelRGBA(x, y), i));
+			if (seam(x, y, i)) {
+				// the seams glow amber, brightest the moment the frame locks shut, then a steady low burn
+				float since = t - appear;
+				float k = since < 4f ? 1f : 0.65f + 0.1f * (float) Math.sin((t + i % 7) * 0.6f);
+				glow.setPixelRGBA(x, y, abgr(Math.round(255 * k), Math.round(150 * k), Math.round(55 * k), 255));
+			}
+		}
+		ResourceLocation bid = ProjectHeroMod.id("dynamic/hulkbuster_build/" + (made++) + "_" + key);
+		ResourceLocation gid = ProjectHeroMod.id("dynamic/hulkbuster_build/" + (made++) + "_" + key + "_glow");
+		Minecraft.getInstance().getTextureManager().register(bid, new DynamicTexture(base));
+		Minecraft.getInstance().getTextureManager().register(gid, new DynamicTexture(glow));
+		FRAMES.put(key, bid);
+		FRAMES.put(key + "_glow", gid);
+		return new ResourceLocation[] { bid, gid };
+	}
+
+	/** Has the per-texel build made base texel {@code i} opaque by tick {@code t} (the build's own rules)? */
+	private static boolean builtOpaque(Texels tx, Schedule s, int i, int t) {
+		int part = tx.part()[i];
+		return switch (tx.kind()[i]) {
+			case CARRIED -> t >= s.launch()[part];
+			case SLIDE -> {
+				int c = tx.col()[i];
+				if (c < 0) {
+					yield t >= s.attach()[part] + 1f + SLIDE_TICKS;
+				}
+				float p = Math.max(0f, Math.min(1f, (t - (s.attach()[part] + 1f)) / SLIDE_TICKS));
+				yield tx.row()[i] < Math.round(p * tx.cols()[c].length);
+			}
+			case SLIDE_CAP -> t >= s.attach()[part] + 1f + SLIDE_TICKS;
+			// the raised plates' frame clears as the part clamps on, so the base plates' build-on underneath is seen
+			case OUTER -> true;
+			default -> false;
+		};
+	}
+
+	/** Seam texels: a sparse set of horizontal runs between the ribs (never on a strut). */
+	private static boolean seam(int x, int y, int i) {
+		return y % 12 == 9 && x % 4 != 0 && IronManAssemblyPlan.hash("hb_frame_seam", (y / 12) * 997 + x / 6) < 0.42f;
+	}
+
+	/**
+	 * The frame's gunmetal (ABGR): a dark base keeping a little of the plate's own shading, brighter vertical struts with
+	 * rivets where they cross the ribs, dark rib lines, and a dull bronze bed under each glowing seam.
+	 */
+	private static int frameColour(int x, int y, int src, int i) {
+		int sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
+		float lum = (0.3f * sr + 0.59f * sg + 0.11f * sb) / 255f;
+		float n = IronManAssemblyPlan.hash("hb_frame", i) * 0.06f;
+		if (seam(x, y, i)) {
+			return abgr(96, 62, 34, 255);
+		}
+		boolean strut = x % 4 == 0, rib = y % 6 == 0;
+		if (strut && rib) {
+			return abgr(122, 128, 138, 255); // a rivet
+		}
+		if (strut) {
+			return grey(0.33f + 0.08f * lum + n, 1.04f);
+		}
+		if (rib) {
+			return grey(0.09f + n * 0.5f, 1.0f);
+		}
+		return grey(0.15f + 0.12f * lum + n, 1.06f);
+	}
+
+	/** A cool gunmetal grey of brightness {@code v} (0..1), blue lifted by {@code cool}. */
+	private static int grey(float v, float cool) {
+		int c = Math.round(Math.max(0f, Math.min(1f, v)) * 255f);
+		return abgr(c, Math.round(c * 1.02f), Math.min(255, Math.round(c * cool * 1.06f)), 255);
+	}
+
+	private static int abgr(int r, int g, int b, int a) {
+		return (a & 0xFF) << 24 | (b & 0xFF) << 16 | (g & 0xFF) << 8 | r & 0xFF;
 	}
 
 	// ------------------------------------------------------------------ frames
@@ -323,6 +513,7 @@ public final class HulkbusterBuildClient {
 		byte[] part = new byte[w * h];
 		float[] k = new float[w * h];
 		float[] seamDist = new float[w * h];
+		float[] fk = new float[w * h]; // v0.16.7 (user): the inner frame climbs up from the feet
 		String[] colKey = new String[w * h];
 		Arrays.fill(kind, NONE);
 		for (JsonElement b : model.getAsJsonArray("bones")) {
@@ -394,6 +585,7 @@ public final class HulkbusterBuildClient {
 								part[i] = (byte) pt;
 								k[i] = kk;
 								seamDist[i] = seam;
+								fk[i] = mix(y / 48f, scatter, 0.25f);
 								colKey[i] = kd == SLIDE ? pt + "|" + face + "|" + tx : null;
 							}
 						}
@@ -420,7 +612,7 @@ public final class HulkbusterBuildClient {
 			}
 			cols.add(ids);
 		}
-		return new Texels(w, h, kind, part, k, col, row, cols.toArray(new int[0][]));
+		return new Texels(w, h, kind, part, k, col, row, cols.toArray(new int[0][]), fk);
 	}
 
 	private static float mix(float k, float scatter, float amount) {

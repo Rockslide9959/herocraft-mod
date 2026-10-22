@@ -195,6 +195,8 @@ public final class IronManFlightFxClient {
 			}
 			if (a.evHardLand) {
 				landingImpact(level, player);
+			} else if (a.evFallSoft) {
+				fallTouchdown(level, player, a.landScale); // v0.16.7 (user): a light fall landing
 			} else if (a.evSoftLand && !com.projecthero.mod.ironman.IronManArmor.stealthed(player)) { // v0.16.1: Stealth is silent
 				level.playLocalSound(player.getX(), player.getY(), player.getZ(), POWER_DOWN, SoundSource.PLAYERS,
 						0.55f, 1.0f, false);
@@ -681,6 +683,34 @@ public final class IronManFlightFxClient {
 		// the fist hits right in front of the right knee -- a little crater puff there
 		level.addParticle(ParticleTypes.DUST_PLUME, feet.x, feet.y + 0.1, feet.z, 0, 0.05, 0);
 		SHOCKS.add(new Shock(new Vec3(feet.x, feet.y + 0.06, feet.z), new Vec3(0, 1, 0), level.getGameTime(), 3.4f * s, 10));
+	}
+
+	/**
+	 * v0.16.7 (user): a light fall landing ({@code scale} 0.3..0.75 of the full one) -- the boots thump down: a smaller
+	 * dust ring and a few kicked-up bits of the ground, a muffled impact, a faint shock ring for the bigger drops.
+	 */
+	private static void fallTouchdown(ClientLevel level, Player player, float scale) {
+		RandomSource r = level.random;
+		Vec3 feet = player.position();
+		float s = player.getScale();
+		level.playLocalSound(feet.x, feet.y, feet.z, LAND_IMPACT, SoundSource.PLAYERS, 0.35f + 0.5f * scale, 1.15f - 0.2f * scale, false);
+		BlockState ground = level.getBlockState(player.blockPosition().below());
+		boolean debris = !ground.isAir() && ground.getRenderShape() != RenderShape.INVISIBLE;
+		int n = 10 + Math.round(14 * scale);
+		for (int i = 0; i < n; i++) {
+			double ang = (Math.PI * 2 * i) / n + r.nextDouble() * 0.2;
+			double cx = Math.cos(ang);
+			double cz = Math.sin(ang);
+			level.addParticle(ParticleTypes.POOF, feet.x + cx * 0.4, feet.y + 0.08, feet.z + cz * 0.4,
+					cx * (0.12 + 0.18 * scale), 0.01, cz * (0.12 + 0.18 * scale));
+			if (debris && i % 2 == 0) {
+				level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, ground), feet.x + cx * 0.5, feet.y + 0.1,
+						feet.z + cz * 0.5, cx * 0.15, 0.12 + r.nextDouble() * 0.1, cz * 0.15);
+			}
+		}
+		if (scale > 0.5f) {
+			SHOCKS.add(new Shock(new Vec3(feet.x, feet.y + 0.06, feet.z), new Vec3(0, 1, 0), level.getGameTime(), 2.0f * s * scale, 8));
+		}
 	}
 
 	private static Vec3 travel(Player player, IronManFlightPose.Anim a) {

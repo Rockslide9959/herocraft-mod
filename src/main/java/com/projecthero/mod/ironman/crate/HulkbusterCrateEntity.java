@@ -103,6 +103,8 @@ public class HulkbusterCrateEntity extends Entity {
 	// server
 	private UUID ownerId;
 	private UUID sentryId;
+	/** v0.16.7 (user): a recall crate coming down round this free-standing Hulkbuster (Sentry Mode / a wreck), or null. */
+	private UUID pickupId;
 	private final ItemStack[] stacks = { ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY };
 	private float integrity;
 	private boolean recall;
@@ -198,6 +200,76 @@ public class HulkbusterCrateEntity extends Entity {
 	private void setPhase(int p) {
 		entityData.set(PHASE, (byte) p);
 		entityData.set(PHASE_START, level().getGameTime());
+	}
+
+	/** v0.16.7 (user) server: the orbit slot of the suit this crate carries as stacks (in the drop or the lift), or null. */
+	public UUID carriedLink() {
+		for (ItemStack s : stacks) {
+			UUID id = s.isEmpty() ? null : HulkbusterOrbit.linkOf(s);
+			if (id != null) {
+				return id;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * v0.16.7 (user): "Calling while the suit is already down: recall it to orbit" -- a Hulkbuster standing free (Sentry
+	 * Mode, or a wreck) is picked up: a crate comes down open round it (the fold's drop), the suit's back shuts, the walls
+	 * close and it lifts off to orbit with the suit as it is. Null when it is coming, else why not (a lang key tail).
+	 */
+	public static String pickUp(ServerLevel level, ServerPlayer caller, IronManSentryEntity s) {
+		if (s.phase() != IronManSentryEntity.PHASE_IDLE || s.busy() || s.isVehicle() || s.flying()) {
+			return "busy";
+		}
+		if (HulkbusterCrate.crateOf(caller) != null) {
+			return "busy";
+		}
+		String problem = HulkbusterCrate.landingProblem(level, caller, s.position(), false);
+		if (problem != null) {
+			return problem;
+		}
+		HulkbusterCrateEntity c = new HulkbusterCrateEntity(IronManEntityTypes.HULKBUSTER_CRATE, level);
+		float h = Math.max(10f, Math.min(HulkbusterCrate.FOLD_HEIGHT, level.getMaxBuildHeight() - (float) s.getY() - 6f));
+		c.init(caller, s.position(), s.getYRot(), h);
+		c.pickupId = s.getUUID();
+		c.setPhase(P_FOLD_DROP);
+		level.addFreshEntity(c);
+		s.setMode(IronManSentryEntity.REGULAR); // it stands still for the crate
+		s.setCrated(true);
+		return null;
+	}
+
+	/** The recall crate's drop and settle round a free-standing suit; then it is the crate's, and it shuts and lifts. */
+	private void tickPickup(ServerLevel level, int age, boolean settling) {
+		IronManSentryEntity s = level.getEntity(pickupId) instanceof IronManSentryEntity e && !e.isRemoved() ? e : null;
+		if (s == null) {
+			pickupId = null;
+			setPhase(P_LIFT); // it went away meanwhile (stepped into, killed): the empty crate goes back up
+			return;
+		}
+		if (!settling) {
+			if (age == 0) {
+				IronManSounds.playAt(level, getX(), getY() + 12, getZ(), IronManSounds.THRUSTER, 2.5f, 0.8f);
+			}
+			if (age >= FOLD_DROP_TICKS) {
+				impact(level, false, null);
+				setPhase(P_FOLD_SETTLE);
+			}
+			return;
+		}
+		if (age == 6) {
+			for (int w = 0; w < 3; w++) {
+				wallLands(level, w);
+			}
+		}
+		if (age >= SETTLE_TICKS) {
+			sentryId = pickupId;
+			pickupId = null;
+			s.setCrated(true);
+			recall = true; // shut its back, close the walls and lift once its caller is clear
+			setPhase(P_OPEN);
+		}
 	}
 
 	/** Server: does the crate hold the suit as stacks (closed, in the drop or the lift)? */
@@ -541,6 +613,10 @@ public class HulkbusterCrateEntity extends Entity {
 				}
 			}
 			case P_FOLD_DROP -> {
+				if (pickupId != null) {
+					tickPickup(level, age, false);
+					return;
+				}
 				if (owner == null || !IronManArmor.wearingFullSuit(owner, HulkbusterCrate.SUIT_ID)) {
 					abortFold(owner);
 					return;
@@ -555,6 +631,10 @@ public class HulkbusterCrateEntity extends Entity {
 				}
 			}
 			case P_FOLD_SETTLE -> {
+				if (pickupId != null) {
+					tickPickup(level, age, true);
+					return;
+				}
 				if (owner == null || !IronManArmor.wearingFullSuit(owner, HulkbusterCrate.SUIT_ID)) {
 					abortFold(owner);
 					return;
@@ -710,7 +790,7 @@ public class HulkbusterCrateEntity extends Entity {
 		setPhase(P_LIFT);
 	}
 
-	/** The top of the lift: a carried suit goes back into its owner's Uplink (an emptied one they carry, else a new one). */
+	/** The top of the lift: a carried suit goes back up into its orbit slot, as it is (v0.16.7 (user): no healing up there). */
 	private void reachOrbit(ServerLevel level, ServerPlayer owner) {
 		if (!carrying()) {
 			return;
@@ -720,7 +800,7 @@ public class HulkbusterCrateEntity extends Entity {
 			pieces.add(stacks[i]);
 			stacks[i] = ItemStack.EMPTY;
 		}
-		HulkbusterCrate.toOrbit(level, owner, pieces, integrity, position());
+		HulkbusterCrate.toOrbit(level, owner, ownerId, pieces, integrity, position());
 	}
 
 	/** Recall (C with the suit still standing in it): shut its back, then close and lift once its owner is clear. */
@@ -904,11 +984,14 @@ public class HulkbusterCrateEntity extends Entity {
 				pieces.add(stacks[i]);
 				stacks[i] = ItemStack.EMPTY;
 			}
-			HulkbusterCrate.toOrbit((ServerLevel) level(), null, pieces, integrity, position()); // dropped as an Uplink
+			HulkbusterCrate.toOrbit((ServerLevel) level(), null, ownerId, pieces, integrity, position()); // back up into its slot
 		}
 		IronManSentryEntity s = sentry();
 		if (s != null) {
 			s.setCrated(false);
+		}
+		if (pickupId != null && level() instanceof ServerLevel sl && sl.getEntity(pickupId) instanceof IronManSentryEntity p) {
+			p.setCrated(false); // a recall crate cleared away before it reached the suit: the suit is free again
 		}
 		super.kill();
 	}

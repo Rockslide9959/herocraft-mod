@@ -365,6 +365,7 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 		p.setDeltaMovement(Vec3.ZERO);
 		p.resetFallDistance();
 		if (!p.startRiding(pod, true)) {
+			java.util.Arrays.fill(pod.pieces, ItemStack.EMPTY); // v0.16.7 (user): the caller keeps the stacks (back up to orbit)
 			pod.discard();
 			return null;
 		}
@@ -577,13 +578,8 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 			return;
 		}
 		if (p == null || !p.isAlive()) {
-			// died (or gone) mid-build: the suit's pieces fall where the pod is -- never lost
-			for (int i = 0; i < 4; i++) {
-				if (!pieces[i].isEmpty()) {
-					spawnAtLocation(pieces[i], 0.5f);
-					pieces[i] = ItemStack.EMPTY;
-				}
-			}
+			// died (or gone) mid-build: v0.16.7 (user) the pod takes the rest of the suit back up to orbit -- never lost
+			returnToOrbit(level);
 			if (ownerId != null) {
 				BUILDING.remove(ownerId);
 			}
@@ -748,16 +744,61 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 		return false;
 	}
 
+	/**
+	 * v0.16.7 (user) "its only supposed to happen when the suit gets called over and builds itself onto the player while
+	 * the player is wearing another iron man armour": does a pod build onto {@code p} play the gantry-style per-texel
+	 * build-on? Only over another Iron Man suit (any Iron Man piece worn that isn't the Hulkbuster). A bare player gets the
+	 * pieces flying on whole; stepping into the Sentry / crate is never a pod build, so it never builds on at all.
+	 */
+	public static boolean buildsOnOverArmour(net.minecraft.world.entity.player.Player p) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] {
+				net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+				net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET }) {
+			if (p.getItemBySlot(slot).getItem() instanceof IronManArmorItem a
+					&& !com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(a.suitId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.16.7 (user): a build cut short -- the pieces still aboard go back into their orbit slot (or a new one), as they are. */
+	private void returnToOrbit(ServerLevel level) {
+		java.util.List<ItemStack> aboard = new java.util.ArrayList<>();
+		for (int i = 0; i < 4; i++) {
+			if (!pieces[i].isEmpty()) {
+				aboard.add(pieces[i]);
+				pieces[i] = ItemStack.EMPTY;
+			}
+		}
+		if (aboard.isEmpty()) {
+			return;
+		}
+		float integrity = com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(aboard.get(0),
+				com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID);
+		for (ItemStack s : aboard) {
+			integrity = Math.min(integrity, com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(s,
+					com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID));
+		}
+		com.projecthero.mod.ironman.crate.HulkbusterCrate.toOrbit(level, null, ownerId, aboard, integrity, position());
+	}
+
+	/** v0.16.7 (user): the orbit slot of the suit this pod still carries (a build on its way), or null. */
+	public UUID carriedLink() {
+		for (ItemStack s : pieces) {
+			UUID id = s.isEmpty() ? null : com.projecthero.mod.ironman.crate.HulkbusterOrbit.linkOf(s);
+			if (id != null) {
+				return id;
+			}
+		}
+		return null;
+	}
+
 	@Override
 	public void remove(RemovalReason reason) {
 		if (!level().isClientSide() && reason.shouldDestroy()) {
-			// never strand a build: what is still aboard drops
-			for (int i = 0; i < 4; i++) {
-				if (!pieces[i].isEmpty()) {
-					spawnAtLocation(pieces[i], 0.5f);
-					pieces[i] = ItemStack.EMPTY;
-				}
-			}
+			// never strand a build: v0.16.7 (user) what is still aboard goes back up to orbit
+			returnToOrbit((ServerLevel) level());
 			if (ownerId != null && mode() == MODE_BUILD) {
 				BUILDING.remove(ownerId);
 			}

@@ -44,6 +44,11 @@ public final class IronManAbilityPose {
 				return;
 			}
 			long now = mc.level.getGameTime();
+			if (IronManAbilityFx.isFallLanding(payload.anim())) {
+				// v0.16.7 (user): a long fall landed -- the superhero landing pose (scaled), not an ability pose
+				IronManFlightPose.onFallLanding(mc.level, payload.playerId(), payload.anim() - IronManAbilityFx.IM_LAND_BASE);
+				return;
+			}
 			Play prev = PLAYS.get(payload.playerId());
 			// a held ability refreshing itself keeps its original start (so the ease-in doesn't restart)
 			long start = prev != null && prev.anim() == payload.anim() && now <= prev.start() + prev.ticks() ? prev.start() : now;
