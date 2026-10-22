@@ -124,8 +124,11 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, new BlockPos(0, 2, 0));
 		p.getInventory().items.set(0, new ItemStack(IronManItems.HULKBUSTER_UPLINK)); // fresh: a whole new suit
 		h.assertTrue(HulkbusterCrate.callTo(p, centre(h)), "the call is accepted");
-		// v0.16.7 (user) Veronica: single use -- the Uplink is used up
-		h.assertTrue(p.getInventory().items.get(0).isEmpty(), "the Uplink is used up calling the suit");
+		// v0.16.7 (user): the Uplink is reusable -- it stays, a key to the suit's orbit slot (now down)
+		ItemStack key = p.getInventory().items.get(0);
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit orbit = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(h.getLevel().getServer());
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit.Slot slot = orbit.slotOfKey(key);
+		h.assertTrue(key.is(IronManItems.HULKBUSTER_UPLINK) && slot != null && !slot.inOrbit, "the Uplink stays; its suit is down");
 		HulkbusterCrateEntity c = crate(h, p);
 		h.assertTrue(c != null && c.phase() == HulkbusterCrateEntity.P_DROP && c.carrying(), "the crate is dropping with the suit");
 		h.assertFalse(HulkbusterCrate.callTo(p, centre(h).add(1, 0, 0)), "only one crate at a time");
@@ -136,8 +139,8 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 			h.assertTrue(s != null && s.isOpen() && s.crated() && s.pieceCount() == 4 && SUIT.equals(s.suitId()),
 					"the Hulkbuster stands in it, back open");
 			h.assertTrue(s.position().distanceTo(cc.position()) < 0.3, "at the crate's centre");
-			// C again: it shuts and goes back up -- with no Suit Platform to fly home to, the pieces come back loose
-			h.assertTrue(HulkbusterCrate.recall(p), "C recalls it");
+			// the Uplink used again while the suit is down recalls it: it shuts and goes back up into its orbit slot
+			h.assertTrue(HulkbusterCrate.use(p, p.getInventory().items.get(0), false), "the Uplink recalls it");
 			h.succeedWhen(() -> {
 				h.assertTrue(crate(h, p) == null, "the crate has lifted off");
 				int loose = 0, uplinks = 0;
@@ -145,7 +148,8 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 					loose += st.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a && SUIT.equals(a.suitId()) ? 1 : 0;
 					uplinks += st.is(IronManItems.HULKBUSTER_UPLINK) ? 1 : 0;
 				}
-				h.assertTrue(loose == 4 && uplinks == 0, "the four pieces back loose, no new Uplink (" + loose + ", " + uplinks + ")");
+				h.assertTrue(loose == 0 && uplinks == 1, "no loose pieces, still the one Uplink (" + loose + ", " + uplinks + ")");
+				h.assertTrue(slot.inOrbit && slot.pieces().size() == 4, "the suit is back in orbit");
 				cleanup(h, p);
 			});
 		});
@@ -159,7 +163,8 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 		h.setBlock(new BlockPos(4, 6, 4), Blocks.STONE); // a roof over the spot
 		h.assertFalse(HulkbusterCrate.callTo(p, centre(h)), "no crate under a roof");
 		h.assertTrue(crate(h, p) == null, "nothing spawned");
-		h.assertTrue(SuitcaseContents.isLegacyEmpty(p.getInventory().items.get(0)), "the Uplink is untouched");
+		var slot = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(h.getLevel().getServer()).slotOfKey(p.getInventory().items.get(0));
+		h.assertTrue(slot != null && slot.inOrbit && slot.pieces().size() == 4, "the suit stays in orbit");
 		h.setBlock(new BlockPos(4, 6, 4), Blocks.AIR);
 		h.setBlock(new BlockPos(4, 3, 4), Blocks.STONE); // no room
 		h.assertFalse(HulkbusterCrate.callTo(p, centre(h)), "no crate where it cannot stand");
@@ -219,17 +224,20 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 				.thenExecute(() -> h.assertFalse(PortableDeploy.running(p), "free again once out"))
 				.thenWaitUntil(() -> h.assertTrue(crate(h, p) == null, "it shut and lifted off"))
 				.thenExecute(() -> {
-					// v0.16.7 (user) Veronica: no Uplink is refilled -- with no platform the pieces come back loose
+					// v0.16.7 (user): the suit goes back up to ORBIT as it is -- this one had no orbit slot yet (put on by
+					// hand), so it gets one and its owner a new Uplink; the old spent Uplink stays spent
 					ItemStack u = p.getInventory().items.get(5);
 					h.assertTrue(u.is(IronManItems.HULKBUSTER_UPLINK) && SuitcaseContents.isEmpty(u), "the old spent Uplink stays spent");
 					int loose = 0;
+					com.projecthero.mod.ironman.crate.HulkbusterOrbit.Slot slot = null;
 					for (ItemStack s : p.getInventory().items) {
-						if (s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a && SUIT.equals(a.suitId())) {
-							loose++;
-							h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(s, SUIT) - 1234f) < 1f, "with its integrity");
-						}
+						loose += s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a && SUIT.equals(a.suitId()) ? 1 : 0;
+						var sl = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(h.getLevel().getServer()).slotOfKey(s);
+						slot = sl != null ? sl : slot;
 					}
-					h.assertTrue(loose == 4, "all four pieces (" + p.getInventory().items + ")");
+					h.assertTrue(loose == 0, "no loose pieces (" + p.getInventory().items + ")");
+					h.assertTrue(slot != null && slot.inOrbit && slot.pieces().size() == 4, "a new Uplink, the suit in orbit");
+					h.assertTrue(Math.abs(slot.integrity - 1234f) < 1f, "with its integrity, unhealed (" + slot.integrity + ")");
 					h.assertTrue(h.getLevel().getEntities(IronManEntityTypes.SENTRY, new AABB(p.position(), p.position()).inflate(20),
 							s -> p.getUUID().equals(s.ownerId())).isEmpty(), "no suit left standing");
 					cleanup(h, p);

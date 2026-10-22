@@ -106,6 +106,28 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		if (form == null) {
 			return false;
 		}
+		if (form.rest() == com.projecthero.mod.ironman.suit.PortableForm.Place.BLOCK) {
+			// v0.16.7 (user): the Hulkbuster is not packed into its Uplink any more -- the four loose pieces go back up into
+			// their orbit slot (or a new one, with a new Uplink), as they are
+			if (!hasAllLoose(player, suit)) {
+				return false;
+			}
+			java.util.List<ItemStack> taken = new java.util.ArrayList<>();
+			boolean[] got = new boolean[4];
+			float integrity = Float.MAX_VALUE;
+			for (ItemStack s : player.getInventory().items) {
+				if (s.getItem() instanceof IronManArmorItem a && suit.equals(a.suitId) && !got[SuitcaseContents.slotOf(a.getType())]) {
+					got[SuitcaseContents.slotOf(a.getType())] = true;
+					ItemStack one = s.split(1);
+					integrity = Math.min(integrity, com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(one, suit));
+					taken.add(one);
+				}
+			}
+			player.getInventory().setChanged();
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.WEAPON_SELECT, 0.7f, 0.8f);
+			com.projecthero.mod.ironman.crate.HulkbusterCrate.toOrbit(player.serverLevel(), player, taken, integrity, player.position());
+			return true;
+		}
 		String message = switch (form.rest()) {
 			case BACK -> "message.projecthero.ironman.pack_packed";
 			case BLOCK -> "message.projecthero.ironman.uplink_packed";

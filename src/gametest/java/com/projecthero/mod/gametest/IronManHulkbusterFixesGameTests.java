@@ -200,14 +200,18 @@ public class IronManHulkbusterFixesGameTests implements FabricGameTest {
 				uplink = st;
 			}
 		}
-		h.assertTrue(!uplink.isEmpty() && SuitcaseContents.nonEmpty(uplink).size() == 4, "an Uplink holding all four pieces");
-		h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(uplink, SUIT) - 3100f) < 1f, "with its integrity");
+		// v0.16.7 (user): the Uplink is a key -- the suit is up in its orbit slot, with its integrity
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit orbit = com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(h.getLevel().getServer());
+		com.projecthero.mod.ironman.crate.HulkbusterOrbit.Slot slot = uplink.isEmpty() ? null : orbit.slotOfKey(uplink);
+		h.assertTrue(slot != null && slot.inOrbit && slot.pieces().size() == 4, "an Uplink whose suit is in orbit");
+		h.assertTrue(Math.abs(slot.integrity - 3100f) < 1f, "with its integrity");
 		h.assertFalse(be.packUplink(p), "nothing left to pack");
-		// and back onto the rack: v0.16.7 (user) Veronica -- the single-use Uplink is used up doing it
+		// and back onto the rack: the Uplink brings it home and is used up doing it
 		h.assertTrue(be.storeUplink(p, uplink), "an Uplink handed to the platform racks the Hulkbuster");
 		h.assertTrue(be.isFull() && SUIT.equals(be.storedSuitId()), "all four pieces on the rack");
 		h.assertTrue(Math.abs(be.suitIntegrity() - 3100f) < 1f, "integrity kept (" + be.suitIntegrity() + ")");
 		h.assertTrue(uplink.isEmpty(), "the Uplink is used up");
+		h.assertTrue(orbit.slot(slot.id) == null, "the orbit slot is closed: the suit lives on the rack now");
 		ItemStack spent = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
 		SuitcaseContents.write(spent, NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY));
 		h.assertFalse(be.storeUplink(p, spent), "a spent (emptied) Uplink racks nothing");

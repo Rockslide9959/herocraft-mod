@@ -105,6 +105,19 @@ public final class IronManAbilityFx {
 	public static final int HB_LAND_HEAVY = 112;
 	/** v0.16.7 (user): the light touchdown (a gentle hover landing) -- the knees soak it up. */
 	public static final int HB_LAND_LIGHT = 113;
+	/**
+	 * v0.16.7 (user): a long fall landed in any (non-Hulkbuster) Iron Man suit -- the three-point landing pose on the player
+	 * model. Ids {@code IM_LAND_BASE + 0..10}: the fall's intensity in tenths (light touchdown .. full slam).
+	 */
+	public static final int IM_LAND_BASE = 130;
+	public static final int IM_LAND_MAX = IM_LAND_BASE + 10;
+	/** Ticks the fall landing pose runs (the flight landing's {@code IronManFlightLook.LANDING_END}). */
+	public static final int IM_LAND_TICKS = 19;
+
+	/** v0.16.7 (user): is {@code anim} a fall landing ({@link #IM_LAND_BASE}..{@link #IM_LAND_MAX})? */
+	public static boolean isFallLanding(int anim) {
+		return anim >= IM_LAND_BASE && anim <= IM_LAND_MAX;
+	}
 
 	/** v0.16.1: the Hulkbuster body clip name for a HB_* pose id, or null. */
 	public static String hulkbusterClip(int anim) {

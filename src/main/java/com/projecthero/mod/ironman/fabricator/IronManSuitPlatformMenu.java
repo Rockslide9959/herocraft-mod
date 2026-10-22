@@ -27,6 +27,7 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 	private final Container container;
 	private final ContainerData data;
 	private final ContainerLevelAccess access;
+	private final net.minecraft.world.inventory.DataSlot relink;
 
 	public IronManSuitPlatformMenu(int syncId, Inventory playerInv, IronManSuitPlatformBlockEntity be, ContainerData data) {
 		this(syncId, playerInv, be, data, ContainerLevelAccess.create(be.getLevel(), be.getBlockPos()));
@@ -69,6 +70,19 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 			addSlot(new Slot(playerInv, col, 8 + col * 18, 182));
 		}
 		addDataSlots(data);
+		// v0.16.7 (user): 1 while this player has a Hulkbuster (in orbit or down) whose Uplink they don't carry -- the
+		// "Re-link" tab. Worked out per player on the server; a plain synced slot on the client.
+		this.relink = playerInv.player instanceof ServerPlayer sp ? new net.minecraft.world.inventory.DataSlot() {
+			@Override
+			public int get() {
+				return sp.getServer() != null && com.projecthero.mod.ironman.crate.HulkbusterOrbit.get(sp.getServer()).keyless(sp) != null ? 1 : 0;
+			}
+
+			@Override
+			public void set(int v) {
+			}
+		} : net.minecraft.world.inventory.DataSlot.standalone();
+		addDataSlot(relink);
 	}
 
 	private static Container resolve(Inventory playerInv, BlockPos pos) {
@@ -208,8 +222,26 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return true;
 	}
 
+	/** v0.16.7 (user): menu button id of the "Re-link" tab (a lost Uplink: cut a new key, the old one goes dead). */
+	public static final int RELINK_BUTTON = 8;
+
+	/** v0.16.7 (user): offer "Re-link" (same spot as the Uplink tab, never both)? */
+	public boolean offersRelink() {
+		return !offersUplink() && !offersSuitcase() && relink.get() == 1;
+	}
+
 	@Override
 	public boolean clickMenuButton(Player player, int id) {
+		if (player instanceof ServerPlayer sp && id == RELINK_BUTTON) {
+			ItemStack key = com.projecthero.mod.ironman.crate.HulkbusterCrate.relink(sp);
+			sp.displayClientMessage(net.minecraft.network.chat.Component.translatable(key != null
+					? "message.projecthero.suit_platform.uplink_relinked" : "message.projecthero.suit_platform.uplink_cant_relink")
+					.withStyle(key != null ? net.minecraft.ChatFormatting.AQUA : net.minecraft.ChatFormatting.GOLD), true);
+			if (key != null) {
+				com.projecthero.mod.ironman.IronManSounds.play(sp, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 1.1f);
+			}
+			return key != null;
+		}
 		if (player instanceof ServerPlayer sp && id == UPLINK_BUTTON) {
 			// v0.16.7 (user): the racked Hulkbuster goes into its Uplink, ready to call down in its drop crate
 			boolean packed = access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be

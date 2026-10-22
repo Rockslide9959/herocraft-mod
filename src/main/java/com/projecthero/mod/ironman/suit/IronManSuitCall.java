@@ -281,6 +281,12 @@ public final class IronManSuitCall {
 		if (suit == null || !TonyStark.hasPower(player)) {
 			return 0;
 		}
+		if (com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(suitId)) {
+			// v0.16.7 (user): the Hulkbuster lives in orbit -- it only goes home to a platform with its Uplink
+			player.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.no_send_home")
+					.withStyle(ChatFormatting.GOLD), true);
+			return 0;
+		}
 		var carried = carriedPieces(player, suitId);
 		// v0.14.29 (agent D): the worn suit can be sent home too (Sneak+C picker while suited) -- never mid-transition
 		int worn = IronManSuitUpManager.inTransition(player) ? 0 : wornMask(player, suitId);

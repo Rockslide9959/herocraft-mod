@@ -40,8 +40,8 @@ public final class HulkbusterLanding {
 	public static final int LIGHT_TICKS = 12; // touchdown_land is 0.6 s
 	/** The heavy clip's impact frame (0.15 s); movement cancels the clip only after it. */
 	public static final int IMPACT_TICKS = 3;
-	/** A fall at least this high (blocks) lands with the animation. */
-	public static final double FALL_MIN = 4.0;
+	/** A fall at least this high (blocks) lands with the animation (v0.16.7 (user): the shared rule for every suit). */
+	public static final double FALL_MIN = IronManFallLanding.FALL_MIN;
 	/** Intensity at or above which a landing is the heavy one. */
 	public static final float HEAVY_AT = 0.4f;
 
@@ -50,7 +50,6 @@ public final class HulkbusterLanding {
 	}
 
 	private static final Map<UUID, Landing> LAST = new HashMap<>();
-	private static final Map<UUID, Double> FALL_PEAK = new HashMap<>();
 
 	private HulkbusterLanding() {
 	}
@@ -70,9 +69,9 @@ public final class HulkbusterLanding {
 		return (float) Mth.clamp(Math.max(byDescent, bySpeed), 0.0, 1.0);
 	}
 
-	/** 0..1 for a fall of {@code height} blocks (4 = light-ish, 14+ = full). */
+	/** 0..1 for a fall of {@code height} blocks ({@link IronManFallLanding#fallIntensity}). */
 	public static float fallIntensity(double height) {
-		return (float) Mth.clamp((height - 2.5) / 11.5, 0.0, 1.0);
+		return IronManFallLanding.fallIntensity(height);
 	}
 
 	/** Flight ended on the ground ({@code IronManLandingSlam.onLanded}): land with the motion it came in with. */
@@ -80,29 +79,11 @@ public final class HulkbusterLanding {
 		if (!suited(p)) {
 			return;
 		}
-		FALL_PEAK.remove(p.getUUID());
 		float i = intensity(peakSpeed, peakDescent);
 		land(p, i, i >= HEAVY_AT || IronManFlightLook.isHardLanding(peakSpeed, peakDescent, true));
 	}
 
-	/** Every server tick: track a non-flying fall and land it when it is big enough. */
-	public static void tick(ServerPlayer p) {
-		UUID id = p.getUUID();
-		if (!suited(p) || IronManFlight.isFlying(p) || p.getAbilities().flying || p.isInWater() || p.isPassenger()
-				|| p.onClimbable()) {
-			FALL_PEAK.remove(id);
-			return;
-		}
-		if (!p.onGround()) {
-			FALL_PEAK.merge(id, p.getY(), Math::max);
-			return;
-		}
-		Double peak = FALL_PEAK.remove(id);
-		if (peak != null && peak - p.getY() >= FALL_MIN) {
-			float i = fallIntensity(peak - p.getY());
-			land(p, i, i >= HEAVY_AT);
-		}
-	}
+	// v0.16.7 (user): a big fall (not flying) is landed by IronManFallLanding for every Iron Man suit, the Hulkbuster too
 
 	/** Play the landing: the clip for everyone, the dust / block ring, the thud and the shake. Public for the gametests. */
 	public static void land(ServerPlayer p, float intensity, boolean heavy) {
@@ -193,6 +174,5 @@ public final class HulkbusterLanding {
 	/** Server stopped: drop the per-player maps (ServerStateReset). */
 	public static void clearSessionState() {
 		LAST.clear();
-		FALL_PEAK.clear();
 	}
 }

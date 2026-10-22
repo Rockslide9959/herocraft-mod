@@ -189,6 +189,18 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 
 	/** v0.16.7 (user): rack the Hulkbuster out of its Uplink, with feedback either way. Public for the screen's shift-click. */
 	public static void rackUplink(Level level, BlockPos pos, IronManSuitPlatformBlockEntity be, Player player, ItemStack uplink) {
+		// v0.16.7 (user): why it can't (the suit is down, an old spent one) -- a dead (re-linked) key is recycled
+		String why = level.getServer() == null ? null : com.projecthero.mod.ironman.crate.HulkbusterCrate.rackRefusal(level.getServer(), uplink);
+		if ("uplink_dead".equals(why)) {
+			uplink.shrink(1);
+			player.getInventory().setChanged();
+			player.displayClientMessage(Component.translatable("message.projecthero.suit_platform.uplink_recycled").withStyle(ChatFormatting.GRAY), true);
+			return;
+		}
+		if (why != null) {
+			player.displayClientMessage(Component.translatable("message.projecthero.suit_platform." + why).withStyle(ChatFormatting.RED), true);
+			return;
+		}
 		if (be.storeUplink(player, uplink)) {
 			((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.9f, 0.7f);
 			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 0.8f);

@@ -13,6 +13,8 @@ import com.projecthero.mod.ironman.IronManFlight;
 import com.projecthero.mod.ironman.TonyStark;
 import com.projecthero.mod.ironman.ability.IronManComicRouter;
 import com.projecthero.mod.ironman.crate.HulkbusterCrate;
+import com.projecthero.mod.ironman.crate.HulkbusterCrateEntity;
+import com.projecthero.mod.ironman.crate.HulkbusterOrbit;
 import com.projecthero.mod.ironman.entity.HulkbusterPodEntity;
 import com.projecthero.mod.ironman.entity.IronManEntityTypes;
 import com.projecthero.mod.ironman.entity.IronManSentryEntity;
@@ -120,10 +122,35 @@ public class IronManHulkbusterVeronicaGameTests implements FabricGameTest {
 		return n;
 	}
 
-	// ================================================================== 1. the single-use Uplink
+	// ================================================================== 1. the reusable Uplink and the orbit
+
+	private static ItemStack onlyUplink(ServerPlayer p) {
+		ItemStack up = ItemStack.EMPTY;
+		for (ItemStack st : p.getInventory().items) {
+			if (st.is(IronManItems.HULKBUSTER_UPLINK)) {
+				h_assert(up.isEmpty(), "only one Uplink");
+				up = st;
+			}
+		}
+		return up;
+	}
+
+	private static void h_assert(boolean ok, String what) {
+		if (!ok) {
+			throw new net.minecraft.gametest.framework.GameTestAssertException(what);
+		}
+	}
+
+	private static int uplinks(ServerPlayer p) {
+		int n = 0;
+		for (ItemStack st : p.getInventory().items) {
+			n += st.is(IronManItems.HULKBUSTER_UPLINK) ? 1 : 0;
+		}
+		return n;
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
-	public void theUplinkIsUsedUpAndTheSuitFliesHomeToItsPlatform(GameTestHelper h) {
+	public void theUplinkIsReusableAndTheSuitGoesBackToOrbitUnhealed(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = tony(h, new BlockPos(0, 2, 0));
 		h.setBlock(new BlockPos(7, 2, 7), IronManBlocks.IRON_MAN_SUIT_PLATFORM);
@@ -134,39 +161,113 @@ public class IronManHulkbusterVeronicaGameTests implements FabricGameTest {
 			IronManEnergy.stampStack(piece, IronManEnergy.FULL, 3000f);
 			h.assertTrue(be.store(piece), "racked");
 		}
-		// the platform's Uplink tab programs a NEW single-use Uplink; each piece remembers this platform
+		// the Uplink tab: the suit leaves the platform for orbit, the player gets its Uplink (a key)
 		h.assertTrue(be.packUplink(p) && be.isEmptyPlatform(), "the Uplink tab");
-		ItemStack up = ItemStack.EMPTY;
-		for (ItemStack st : p.getInventory().items) {
-			if (st.is(IronManItems.HULKBUSTER_UPLINK)) {
-				up = st;
-			}
-		}
-		h.assertTrue(!up.isEmpty(), "an Uplink");
-		List<ItemStack> pieces = SuitcaseContents.nonEmpty(up);
-		h.assertTrue(pieces.size() == 4 && pieces.stream().allMatch(s -> IronManPlatformReturn.homeOf(s)
-				.map(g -> g.pos().equals(be.getBlockPos())).orElse(false)), "every piece knows its platform");
-		// calling it spends it
-		p.getInventory().items.set(0, up.copy());
-		for (int i = 1; i < p.getInventory().items.size(); i++) {
-			if (p.getInventory().items.get(i).is(IronManItems.HULKBUSTER_UPLINK)) {
-				p.getInventory().items.set(i, ItemStack.EMPTY);
-			}
-		}
+		HulkbusterOrbit orbit = HulkbusterOrbit.get(h.getLevel().getServer());
+		ItemStack up = onlyUplink(p);
+		HulkbusterOrbit.Slot slot = orbit.slotOfKey(up);
+		h.assertTrue(slot != null && slot.inOrbit && slot.pieces().size() == 4, "the suit is in orbit");
+		h.assertTrue(slot.pieces().stream().allMatch(s -> slot.id.equals(HulkbusterOrbit.linkOf(s))), "every piece knows its slot");
+		h.assertTrue(SuitcaseContents.isLegacyEmpty(up), "the Uplink holds no stacks itself");
+		// calling it does NOT use it up
 		h.assertTrue(HulkbusterCrate.callTo(p, Vec3.atBottomCenterOf(h.absolutePos(new BlockPos(4, 2, 4)))), "called");
-		h.assertTrue(p.getInventory().items.get(0).isEmpty(), "the Uplink is used up");
-		h.getLevel().getEntities(IronManEntityTypes.HULKBUSTER_CRATE, new AABB(p.position(), p.position()).inflate(40),
-				c -> p.getUUID().equals(c.ownerId())).forEach(c -> c.discard()); // (its flight is covered by the crate tests)
-		// a fold / recall ends with the crate reaching the top: the pieces fly home and are racked again
-		HulkbusterCrate.toOrbit(h.getLevel(), p, pieces, 2000f, p.position());
-		h.assertTrue(be.isFull() && HB.equals(be.storedSuitId()), "racked again on its own platform");
-		h.assertTrue(Math.abs(be.suitIntegrity() - 2000f) < 1f, "with its integrity (" + be.suitIntegrity() + ")");
-		boolean anyUplink = false;
-		for (ItemStack st : p.getInventory().items) {
-			anyUplink |= st.is(IronManItems.HULKBUSTER_UPLINK);
+		h.assertTrue(uplinks(p) == 1 && orbit.slotOfKey(onlyUplink(p)) == slot, "the Uplink stays, still the live key");
+		h.assertTrue(!slot.inOrbit && slot.pieces().isEmpty(), "the suit left orbit");
+		h.assertFalse(HulkbusterCrate.callTo(p, Vec3.atBottomCenterOf(h.absolutePos(new BlockPos(4, 2, 4)))), "no second suit");
+		HulkbusterCrateEntity crate = h.getLevel().getEntities(IronManEntityTypes.HULKBUSTER_CRATE,
+				new AABB(p.position(), p.position()).inflate(40), c -> p.getUUID().equals(c.ownerId())).get(0);
+		h.assertTrue(slot.id.equals(crate.carriedLink()), "the crate carries that suit");
+		crate.kill(); // a crate cleared away mid-flight: the suit goes back up, never lost
+		h.assertTrue(slot.inOrbit && slot.pieces().size() == 4, "back in orbit");
+		// worn and damaged, then folded: it goes back to ORBIT (not the platform) exactly as damaged
+		List<ItemStack> pieces = orbit.takeDown(slot);
+		HulkbusterParts.write(pieces.get(1), new float[] { 0f, 0.5f, 0.2f, 0f, 0f, 0.9f });
+		HulkbusterCrate.toOrbit(h.getLevel(), p, pieces, 2000f, p.position()); // what the fold's lift ends with
+		h.assertTrue(slot.inOrbit && Math.abs(slot.integrity - 2000f) < 1f, "in orbit at 2000 integrity, unhealed (" + slot.integrity + ")");
+		h.assertTrue(Math.abs(HulkbusterParts.raw(slot.stacks[1])[5] - 0.9f) < 1e-3f, "the per-part damage kept");
+		h.assertTrue(be.isEmptyPlatform(), "it did not fly home to the platform");
+		h.assertTrue(uplinks(p) == 1, "no extra Uplink");
+		leave(h, p);
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theUplinkBackInAPlatformRacksTheSuitAndIsUsedUp(GameTestHelper h) {
+		floor(h);
+		ServerPlayer p = tony(h, new BlockPos(0, 2, 0));
+		h.setBlock(new BlockPos(6, 2, 6), IronManBlocks.IRON_MAN_SUIT_PLATFORM);
+		IronManSuitPlatformBlockEntity be = (IronManSuitPlatformBlockEntity) h.getBlockEntity(new BlockPos(6, 2, 6));
+		be.bindTo(p.getUUID());
+		HulkbusterOrbit orbit = HulkbusterOrbit.get(h.getLevel().getServer());
+		ItemStack up = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		List<ItemStack> fresh = new java.util.ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			fresh.add(new ItemStack(IronManItems.armor(HB, t)));
 		}
-		h.assertFalse(anyUplink, "no Uplink comes back: take a new one from the tab");
-		h.assertTrue(be.holdsHulkbuster() && be.packUplink(p), "and the tab makes the next one");
+		HulkbusterOrbit.Slot slot = orbit.create(p.getUUID(), fresh, 1500f);
+		HulkbusterOrbit.bindKey(up, slot);
+		p.getInventory().items.set(0, up);
+		// while the suit is down the platform refuses (it would double it)
+		List<ItemStack> down = orbit.takeDown(slot);
+		h.assertFalse(be.storeUplink(p, up), "refused while the suit is down");
+		h.assertTrue(HulkbusterCrate.rackRefusal(h.getLevel().getServer(), up).equals("uplink_down"), "and says why");
+		h.assertTrue(be.isEmptyPlatform() && !up.isEmpty(), "nothing moved");
+		orbit.store(slot, down, 1500f);
+		// in orbit: it comes home onto the rack, as damaged as it was, and the Uplink is used up
+		h.assertTrue(be.storeUplink(p, up), "racked");
+		h.assertTrue(be.holdsHulkbuster() && Math.abs(be.suitIntegrity() - 1500f) < 1f, "the whole suit on the rack (" + be.suitIntegrity() + ")");
+		h.assertTrue(up.isEmpty() && uplinks(p) == 0, "the Uplink is used up");
+		h.assertTrue(orbit.slot(slot.id) == null, "the orbit slot is closed");
+		for (int i = 0; i < 4; i++) {
+			h.assertTrue(HulkbusterOrbit.linkOf(be.getItem(i)) == null, "the racked pieces carry no orbit slot any more");
+		}
+		leave(h, p);
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void noUplinkDuplicatesTheSuit(GameTestHelper h) {
+		floor(h);
+		ServerPlayer p = tony(h, new BlockPos(0, 2, 0));
+		HulkbusterOrbit orbit = HulkbusterOrbit.get(h.getLevel().getServer());
+		List<ItemStack> fresh = new java.util.ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			fresh.add(new ItemStack(IronManItems.armor(HB, t)));
+		}
+		HulkbusterOrbit.Slot slot = orbit.create(p.getUUID(), fresh, 4000f);
+		ItemStack up = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		HulkbusterOrbit.bindKey(up, slot);
+		ItemStack copy = up.copy(); // a copied key (creative middle-click)
+		h.setBlock(new BlockPos(6, 2, 6), IronManBlocks.IRON_MAN_SUIT_PLATFORM);
+		IronManSuitPlatformBlockEntity a = (IronManSuitPlatformBlockEntity) h.getBlockEntity(new BlockPos(6, 2, 6));
+		h.setBlock(new BlockPos(3, 2, 6), IronManBlocks.IRON_MAN_SUIT_PLATFORM);
+		IronManSuitPlatformBlockEntity b = (IronManSuitPlatformBlockEntity) h.getBlockEntity(new BlockPos(3, 2, 6));
+		h.assertTrue(a.storeUplink(p, up), "the first key brings the suit home");
+		h.assertFalse(b.storeUplink(p, copy), "the copy brings nothing: there is one suit");
+		h.assertTrue(b.isEmptyPlatform(), "the second rack stays empty");
+		// a second set of pieces claiming a slot that already holds its suit is never merged into it
+		List<ItemStack> again = new java.util.ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			again.add(new ItemStack(IronManItems.armor(HB, t)));
+		}
+		HulkbusterOrbit.Slot s2 = orbit.create(p.getUUID(), again, 4000f);
+		List<ItemStack> clones = new java.util.ArrayList<>();
+		for (ItemStack s : s2.stacks) {
+			clones.add(s.copy());
+		}
+		HulkbusterCrate.toOrbit(h.getLevel(), p, clones, 4000f, p.position());
+		h.assertTrue(s2.pieces().size() == 4, "the slot still holds just its own four");
+		h.assertTrue(count(p, HB) == 4 && clones.stream().allMatch(c -> c.isEmpty() || HulkbusterOrbit.linkOf(c) == null),
+				"the extra set comes back loose and unlinked (" + count(p, HB) + ")");
+		// Re-link: a lost key is replaced and the old one goes dead
+		ItemStack lost = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		HulkbusterOrbit.bindKey(lost, s2);
+		h.assertTrue(orbit.keyless(p) == s2, "a Hulkbuster whose key isn't carried");
+		ItemStack fresh2 = HulkbusterCrate.relink(p);
+		h.assertTrue(fresh2 != null && orbit.slotOfKey(fresh2) == s2, "a new key");
+		h.assertTrue(orbit.slotOfKey(lost) == null, "the lost one is dead");
+		h.assertTrue(orbit.keyless(p) == null, "nothing more to re-link");
+		h.assertTrue(HulkbusterCrate.rackRefusal(h.getLevel().getServer(), lost).equals("uplink_dead"), "a dead key racks nothing");
 		leave(h, p);
 		h.succeed();
 	}
@@ -293,6 +394,50 @@ public class IronManHulkbusterVeronicaGameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true, timeoutTicks = 400)
+	public void theUplinkRecallsAWreckToOrbitAsAWreck(GameTestHelper h) {
+		floor(h);
+		ServerPlayer p = tony(h, new BlockPos(4, 2, 4));
+		HulkbusterOrbit orbit = HulkbusterOrbit.get(h.getLevel().getServer());
+		List<ItemStack> fresh = new java.util.ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			fresh.add(new ItemStack(IronManItems.armor(HB, t)));
+		}
+		HulkbusterOrbit.Slot slot = orbit.create(p.getUUID(), fresh, 15f);
+		ItemStack key = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		HulkbusterOrbit.bindKey(key, slot);
+		p.getInventory().items.set(3, key);
+		List<ItemStack> worn = orbit.takeDown(slot); // called down and stepped into
+		for (ItemStack piece : worn) {
+			p.setItemSlot(IronManSuitUpManagerSlots.of(piece), piece);
+		}
+		TonyStark.setActiveSuit(p, HB);
+		IronManEnergy.setIntegrity(p, HB, 15f);
+		IronManEnergy.setEnergy(p, HB, IronManEnergy.capacity(HB));
+		h.assertFalse(IronManDamage.onAllowDamage(p, h.getLevel().damageSources().generic(), 40f), "wrecked");
+		IronManSentryEntity s = h.getLevel().getEntities(IronManEntityTypes.SENTRY, new AABB(p.position(), p.position()).inflate(8),
+				e -> p.getUUID().equals(e.ownerId())).get(0);
+		h.assertTrue(s.wrecked(), "a wreck standing in the world");
+		Vec3 away = s.position().add(0, 0, -6);
+		p.teleportTo(h.getLevel(), away.x, away.y, away.z, 0f, 0f);
+		h.assertTrue(HulkbusterCrate.use(p, key, false), "the Uplink recalls the wreck");
+		h.assertTrue(s.crated(), "a crate is coming down round it");
+		h.succeedWhen(() -> {
+			h.assertTrue(slot.inOrbit && slot.pieces().size() == 4, "back in orbit");
+			h.assertTrue(slot.integrity < 1f, "still a wreck up there: nothing repairs it in orbit (" + slot.integrity + ")");
+			h.assertTrue(s.isRemoved(), "the wreck left the world");
+			h.assertTrue(uplinks(p) == 1, "the Uplink stays");
+			leave(h, p);
+		});
+	}
+
+	/** Which armour slot a piece goes in. */
+	private static final class IronManSuitUpManagerSlots {
+		static EquipmentSlot of(ItemStack piece) {
+			return ((ArmorItem) piece.getItem()).getEquipmentSlot();
+		}
+	}
+
 	// ================================================================== 4. the inner suit
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -414,7 +559,9 @@ public class IronManHulkbusterVeronicaGameTests implements FabricGameTest {
 		p.getInventory().selected = 0;
 		h.assertTrue(com.projecthero.mod.ironman.item.HulkbusterUplinkItem.airborne(p), "in the air");
 		h.assertTrue(HulkbusterCrate.buildInAir(p), "the Uplink, used in the air, calls the build pod");
-		h.assertTrue(p.getInventory().items.get(0).isEmpty(), "and is used up");
+		HulkbusterOrbit.Slot slot = HulkbusterOrbit.get(h.getLevel().getServer()).slotOfKey(p.getInventory().items.get(0));
+		h.assertTrue(slot != null && !slot.inOrbit, "the Uplink stays (v0.16.7 (user): reusable); its suit is on its way down");
+		h.assertTrue(slot.id.equals(((HulkbusterPodEntity) p.getVehicle()).carriedLink()), "the pod carries that suit");
 		h.assertTrue(p.getVehicle() instanceof HulkbusterPodEntity && HulkbusterPodEntity.building(p), "held by the pod");
 		h.assertTrue(wearsMk3(p), "the Mk III stays on while the pieces fly in");
 		HulkbusterPodEntity pod = (HulkbusterPodEntity) p.getVehicle();
@@ -443,6 +590,49 @@ public class IronManHulkbusterVeronicaGameTests implements FabricGameTest {
 		h.assertTrue(HulkbusterCrate.buildInAir(p), "build started");
 		HulkbusterPodEntity.completeFor(p); // what the disconnect hook does
 		h.assertTrue(IronManArmor.wearingFullSuit(p, HB) && !HulkbusterPodEntity.building(p), "the suit goes on at once");
+		leave(h, p);
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBuildOnPlaysOnlyForTheCallOverAnotherSuit(GameTestHelper h) {
+		ServerPlayer p = tony(h, new BlockPos(3, 2, 3));
+		h.assertFalse(HulkbusterPodEntity.buildsOnOverArmour(p), "no suit on: the pieces fly on whole, no build-on");
+		wear(p, MK3, 333f);
+		h.assertTrue(HulkbusterPodEntity.buildsOnOverArmour(p), "over the Mk III: the per-texel build-on plays");
+		wear(p, HB, 4000f);
+		h.assertFalse(HulkbusterPodEntity.buildsOnOverArmour(p), "the Hulkbuster itself is never 'another suit'");
+		// stepping in is never a pod build (the client only builds on for a pod): the Sentry closes round you
+		for (EquipmentSlot s : SLOTS) {
+			p.setItemSlot(s, ItemStack.EMPTY);
+		}
+		TonyStark.setActiveSuit(p, "");
+		List<ItemStack> pieces = new java.util.ArrayList<>();
+		for (ArmorItem.Type t : TYPES) {
+			pieces.add(new ItemStack(IronManItems.armor(HB, t)));
+		}
+		IronManSentryEntity s = IronManSentryEntity.standInCrate(h.getLevel(), p.getUUID(), HB, pieces, p.position(), 0f, 4000f);
+		s.equipOnto(p);
+		h.assertTrue(IronManArmor.wearingFullSuit(p, HB), "stepped in");
+		h.assertFalse(HulkbusterPodEntity.building(p) || p.getVehicle() instanceof HulkbusterPodEntity, "no build pod: nothing rebuilds");
+		leave(h, p);
+		h.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void aBuildCutShortSendsTheSuitBackToOrbit(GameTestHelper h) {
+		ServerPlayer p = tony(h, new BlockPos(3, 9, 3));
+		p.setOnGround(false);
+		p.getInventory().items.set(0, new ItemStack(IronManItems.HULKBUSTER_UPLINK));
+		h.assertTrue(HulkbusterCrate.buildInAir(p), "build started");
+		HulkbusterOrbit.Slot slot = HulkbusterOrbit.get(h.getLevel().getServer()).slotOfKey(p.getInventory().items.get(0));
+		HulkbusterPodEntity pod = (HulkbusterPodEntity) p.getVehicle();
+		p.stopRiding();
+		BlockPos podAt = pod.blockPosition();
+		pod.discard(); // the pod gone (cleared away / its chunk destroyed) before the pieces went on
+		h.assertTrue(slot.inOrbit && slot.pieces().size() == 4, "the pieces went back up into the slot");
+		h.assertTrue(h.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(podAt).inflate(4)).isEmpty(), "nothing dropped");
+		h.assertFalse(IronManArmor.wearingAnyIronMan(p), "and nothing was put on");
 		leave(h, p);
 		h.succeed();
 	}

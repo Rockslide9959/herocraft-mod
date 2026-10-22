@@ -86,7 +86,16 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 				() -> click(IronManSuitPlatformMenu.UPLINK_BUTTON));
 		uplink.visible = menu.offersUplink();
 		addRenderableWidget(uplink);
+		// v0.16.7 (user): a lost Uplink -- the same spot cuts a new one (never shown with the Uplink tab)
+		relink = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, UPLINK_W, 15,
+				Component.translatable("screen.projecthero.suit_platform.relink"),
+				() -> click(IronManSuitPlatformMenu.RELINK_BUTTON));
+		relink.visible = menu.offersRelink();
+		addRenderableWidget(relink);
 	}
+
+	/** v0.16.7 (user): the side tab that re-cuts a lost Uplink. */
+	private IronManGui.StarkButton relink;
 
 	/** v0.16.7 (user): size of the pack tab (two wrapped lines: "Pack into" / "Thruster Pack"). */
 	public static final int PACK_W = 86;
@@ -246,8 +255,14 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		if (uplink != null) {
 			uplink.visible = menu.offersUplink(); // v0.16.7 (user): only while the whole Hulkbuster is racked
 		}
+		if (relink != null) {
+			relink.visible = menu.offersRelink();
+		}
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
+		if (relink != null && relink.visible && relink.isHovered()) {
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.relink_tip"), 160), mouseX, mouseY);
+		}
 		if (uplink != null && uplink.visible && uplink.isHovered()) {
 			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.uplink_tip"), 160),
 					mouseX, mouseY);
