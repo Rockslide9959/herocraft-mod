@@ -18,6 +18,8 @@ public final class IronManEntityRenderers {
 		com.projecthero.mod.client.ironman.IronManPortableClient.initialize(); // v0.16.7 (user) Era II portable forms
 		// v0.16.1: the Hulkbuster Rocket Fist in flight
 		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_FIST, com.projecthero.mod.client.ironman.HulkbusterFistRenderer::new);
+		// v0.16.7 (user) Era II: the Hulkbuster I drop crate
+		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_CRATE, com.projecthero.mod.client.ironman.HulkbusterCrateRenderer::new);
 		// v0.15.11: the hammer / wrench / carried piece of a hand-built suit-up
 		com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.initialize();
 	}

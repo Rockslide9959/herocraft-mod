@@ -94,6 +94,9 @@ public final class IronManItems {
 			new Item.Properties().rarity(Rarity.EPIC).component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)));
 	public static final Item MARK_V_SUITCASE = register("mark_v_suitcase", new MarkVSuitcaseItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+	/** v0.16.7 (user) Era II: the beacon the Hulkbuster I waits "in orbit" in (holds its four stacks); C calls the drop crate. */
+	public static final Item HULKBUSTER_UPLINK = register("hulkbuster_uplink", new HulkbusterUplinkItem(
+			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
 	/** v0.16.7 (user) Era I: what the Shift+C emergency eject packs an Era I suit into (opens only in a Stark Gantry). */
 	/**
 	 * v0.16.7 (user): the item of the Suit Crate BLOCK (placing it puts the crate down, contents and all). Registered in
@@ -276,6 +279,7 @@ public final class IronManItems {
 		output.accept(com.projecthero.mod.ironman.sorter.StarkSorter.STATION_ITEM); // v0.14.16
 		output.accept(REACTOR_CORE);
 		output.accept(MARK_V_SUITCASE);
+		output.accept(HULKBUSTER_UPLINK); // v0.16.7 (user) Era II
 		output.accept(SUIT_CRATE); // v0.16.7
 		output.accept(STARK_GLASSES); // v0.15.1
 		output.accept(COLANTOTTE_BRACELETS); // v0.15.4

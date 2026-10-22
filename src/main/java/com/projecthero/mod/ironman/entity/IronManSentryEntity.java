@@ -301,6 +301,8 @@ public class IronManSentryEntity extends Entity {
 	private BlockPos homeDock;
 	private boolean homeSkyward;
 	private double homeSpeed;
+	/** v0.16.7 (user) Era II: standing in a Hulkbuster drop crate (plain right-click steps in, no auto-defend). */
+	private boolean crated;
 
 	// client-only interpolation (a plain Entity's lerpTo is a hard setPos: no motion between ticks, no walk cycle)
 	private int lerpSteps;
@@ -487,6 +489,76 @@ public class IronManSentryEntity extends Entity {
 			s.homeDock = dock.immutable();
 		}
 		return s;
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: the Hulkbuster stands up inside its landed drop crate ({@code HulkbusterCrateEntity}) --
+	 * closed, Regular, facing {@code yaw}, holding the four stacks the crate brought down. The crate opens its back.
+	 */
+	public static IronManSentryEntity standInCrate(ServerLevel level, UUID owner, String suitId, List<ItemStack> pieces, Vec3 at,
+			float yaw, float integrity) {
+		IronManSentryEntity s = new IronManSentryEntity(IronManEntityTypes.SENTRY, level);
+		s.ownerId = owner;
+		s.getEntityData().set(OWNER, Optional.ofNullable(owner));
+		s.suitId = suitId;
+		for (ItemStack piece : pieces) {
+			if (piece.getItem() instanceof ArmorItem a) {
+				for (int i = 0; i < 4; i++) {
+					if (TYPES[i] == a.getType() && s.stacks[i].isEmpty()) {
+						s.setStack(i, piece);
+						break;
+					}
+				}
+			}
+		}
+		s.setEnergy(IronManEnergy.FULL);
+		s.setIntegrity(integrity);
+		s.setMode(REGULAR);
+		s.setOpen(false);
+		s.crated = true;
+		s.moveTo(at.x, at.y, at.z, yaw, 0f);
+		s.setYHeadRot(yaw);
+		level.addFreshEntity(s);
+		return s;
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: the Hulkbuster fold -- its wearer steps out backwards (the ordinary eject) into the crate that
+	 * came down round them; the suit stands facing {@code yaw}, in Regular, and the crate takes it. Null if it can't.
+	 */
+	public static IronManSentryEntity ejectIntoCrate(ServerPlayer player, float yaw) {
+		IronManSentryEntity s = deploy(player, false);
+		if (s != null) {
+			s.setMode(REGULAR);
+			s.crated = true;
+			s.moveTo(s.getX(), s.getY(), s.getZ(), yaw, 0f);
+			s.setYHeadRot(yaw);
+		}
+		return s;
+	}
+
+	/** v0.16.7 (user) Era II: the crate has shut round the suit -- the four stamped stacks leave with it; the sentry is gone. */
+	public List<ItemStack> packIntoCrate() {
+		List<ItemStack> out = new java.util.ArrayList<>();
+		if (level().isClientSide() || isRemoved()) {
+			return out;
+		}
+		for (ItemStack st : takeAll()) {
+			if (!st.isEmpty()) {
+				out.add(st);
+			}
+		}
+		finish();
+		return out;
+	}
+
+	/** v0.16.7 (user) Era II: is this suit standing in its drop crate? */
+	public boolean crated() {
+		return crated;
+	}
+
+	public void setCrated(boolean crated) {
+		this.crated = crated;
 	}
 
 	private static int rememberedMode(ItemStack chest) {
@@ -731,7 +803,7 @@ public class IronManSentryEntity extends Entity {
 		if (phase != PHASE_IDLE || isRemoved()) {
 			return false;
 		}
-		if (sneak && isOpen()) {
+		if ((sneak || crated) && isOpen()) { // v0.16.7 (user): in its drop crate a plain right-click steps in too
 			if (!canWrap(owner) || owner.distanceTo(this) > STEP_REACH) {
 				owner.displayClientMessage(Component.translatable("message.projecthero.ironman.sentry.cant_enter")
 						.withStyle(ChatFormatting.RED), true);
@@ -909,7 +981,9 @@ public class IronManSentryEntity extends Entity {
 			}
 			return;
 		}
-		autoDefend(level, owner);
+		if (!crated) {
+			autoDefend(level, owner); // v0.16.7 (user): a crated Hulkbuster stays put in its crate
+		}
 		int mode = mode();
 		if (owner != null && mode != REGULAR) {
 			// v0.15.15: Follow / Defensive cost energy every second they run
@@ -2241,6 +2315,7 @@ public class IronManSentryEntity extends Entity {
 		setIntegrity(tag.contains("Integrity") ? tag.getFloat("Integrity") : IronManEnergy.maxIntegrity(suitId()));
 		setMode(tag.getInt("Mode"));
 		setOpen(tag.getBoolean("Open"));
+		crated = tag.getBoolean("Crated");
 		lightPos = tag.contains("Light") ? BlockPos.of(tag.getLong("Light")) : null;
 		setPhase(PHASE_IDLE);
 		if (tag.contains("HomeDock")) {
@@ -2266,6 +2341,7 @@ public class IronManSentryEntity extends Entity {
 		tag.putFloat("Integrity", integrity);
 		tag.putInt("Mode", prevMode >= 0 ? prevMode : mode()); // v0.15.15: an auto-defend saves the mode it came from
 		tag.putBoolean("Open", isOpen());
+		tag.putBoolean("Crated", crated);
 		if (homeDock != null) {
 			tag.putLong("HomeDock", homeDock.asLong());
 		}
