@@ -14,7 +14,7 @@ public enum TitanType {
 	/** The Attack Titan (id kept as generic_titan so saved shifters keep their Titan). v0.16.7: 15 blocks (config). */
 	GENERIC_TITAN("generic_titan", "titan_form", 15.0f, 5.0f, 500.0f, 25.0, 8.0, 0.45, 1.0f),
 	/** v0.16.7 (user): the Armoured Titan -- 15 blocks, slow crystal-plated tank. Stats are first-pass; tune in the revamp. */
-	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 800.0f, 35.0, 14.0, 0.36, 1.1f),
+	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.5f, 800.0f, 35.0, 14.0, 0.36, 1.1f),
 	/** v0.16.7 (user): the Female Titan -- 12 blocks, fast and agile, hardened fists and shins. */
 	FEMALE_TITAN("female_titan", "titan_female", 12.0f, 4.0f, 450.0f, 20.0, 6.0, 0.55, 0.95f),
 	/** v0.16.7 (user): the Beast Titan -- 14 blocks, long arms, throws boulders. */
