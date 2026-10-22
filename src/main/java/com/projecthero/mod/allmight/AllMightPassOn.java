@@ -60,11 +60,11 @@ import org.joml.Vector3f;
  * <h2>Lend (5 minutes)</h2>
  * The lender keeps their state (cooldowns, locker) but {@code hasPower} goes false and {@code loanRole = LOAN_LENDER}: they have no One
  * For All for the loan and are exhausted (Weakness I + Slowness I, refreshed for the whole loan). The borrower gets a fresh All Might
- * with {@code loanRole = LOAN_BORROWER}: capped at 45% Output, Strain builds twice as fast, cannot pass it on or re-lend it.
+ * with {@code loanRole = LOAN_BORROWER}: it runs on the lender's timer as it stands, and cannot be passed on or re-lent.
  * <b>Existing-Primary rule:</b> a loan is refused to anyone who already holds a power (any Primary hero, any mutation, the Symbiote) --
  * powers are granted and revoked by each power's own routines and there is no generic way to save one and hand it back, so refusing is
  * the only rule that can never lose or duplicate anything. The loan ends on time, the borrower's death, either player logging out, the
- * lender sneak-right-clicking the borrower again, the borrower's Strain maxing out, or the borrower losing the power any other way
+ * lender sneak-right-clicking the borrower again, or the borrower losing the power any other way
  * ({@link AllMight#revoke} calls {@link #returnToLender}). The lender then gets it back (through {@code claimPrimary} again -- anything
  * they picked up during the loan is replaced) and must wait {@code LEND_COOLDOWN_TICKS} before lending again.
  *
@@ -81,7 +81,7 @@ public final class AllMightPassOn {
 	}
 
 	public enum EndReason {
-		TIME, DEATH, LOGOUT, RECALL, STRAIN, LOST
+		TIME, DEATH, LOGOUT, RECALL, LOST
 	}
 
 	/** A pending chat offer, keyed by the player it was made to. Expires on the server tick count. */
@@ -335,7 +335,6 @@ public final class AllMightPassOn {
 		g.fullPower = false;
 		g.plusUltra = false;
 		g.plusUltraUntil = 0L;
-		g.outputPct = 0f; // v0.16.7: the lender's safe limit and limbs stay as they were, for when it comes back
 		g.animId = AllMightState.ANIM_NONE;
 		g.busyUntil = 0L;
 		g.transformUntil = 0L;

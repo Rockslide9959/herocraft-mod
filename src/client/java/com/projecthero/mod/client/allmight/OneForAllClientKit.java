@@ -3,9 +3,7 @@ package com.projecthero.mod.client.allmight;
 import java.util.List;
 
 import com.projecthero.mod.allmight.AllMightConfig;
-import com.projecthero.mod.allmight.AllMightStrain;
 import com.projecthero.mod.allmight.data.AllMightState;
-import com.projecthero.mod.allmight.data.AllMightState.Limb;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
@@ -22,27 +20,22 @@ import net.minecraft.world.entity.player.Player;
  * v0.16.7: One For All on the Quirk HUD -- its status block, drawn by {@code QuirkHud} between the Quirk's name and the six keys
  * (the old separate All Might HUD only remains for a lender, who holds no power). Top to bottom:
  * <pre>
- *   Power Form [H]                    the form / PLUS ULTRA 18s / a broken limb and how far it has to mend (wrapped)
- *   [==============-----]   18:42     v0.16.7: the One For All timer (20:00 of Power Form), green / amber low / red empty
- *   Output 45%            Limit 20%   Output (gold, red past the limit) and the safe limit
- *   [=====|######-----------]         the gauge: gold up to the limit, red past it; the white tick is the limit
- *   R arm     L arm     Legs          the three limbs: a bar each, green / yellow / orange / blinking red (broken)
- *   ----      ------    ---
+ *   Power Form [H]                    the form / transforming / PLUS ULTRA 18s (wrapped)
+ *   [==============-----]   18:42     the One For All timer (20:00 of Power Form), green / amber low / blinking red empty
+ *   -----------                       the United States of Smash charge, a hairline (only while holding Z)
  * </pre>
+ * v0.16.7 (user: "remove strain and output, it should just be the 20 minute timer"): the Output / Limit gauge and the three limb
+ * bars are gone -- the timer is the whole block again, as in v0.12.39.
  */
 public final class OneForAllClientKit implements QuirkClientKit {
-	private static final int GOLD = 0xFFFFC83A;
-	private static final int GOLD_WHITE = 0xFFFFF0B0;
 	private static final int RED = 0xFFFF4A3A;
 	private static final int RED_LIGHT = 0xFFFF8A7A;
 	private static final int BAR_BG = 0xC0141414;
 	private static final int BORDER = 0xFF4A4A4A;
 	private static final int TEXT = 0xFFE2E2E2;
-	private static final int HINT = 0xFF9A9A9A;
 	/** v0.16.7: the timer bar, as v0.12.39 drew it: green, amber when low. */
 	private static final int TIMER = 0xFF40E070;
 	private static final int TIMER_LOW = 0xFFD0A030;
-	private static final int[] TIER_COLOUR = { 0xFF7FD06A, 0xFFE8C040, 0xFFFF8A2A, 0xFFFF3A2A };
 
 	@Override
 	public int drawStatus(GuiGraphics g, Player player, int x0, int bottom, int width) {
@@ -55,66 +48,16 @@ public final class OneForAllClientKit implements QuirkClientKit {
 		boolean blink = (now / 5L) % 2L == 0L;
 		int y = bottom;
 
-		// the limbs: three cells, a label over a bar
-		int gap = 4;
-		int cellW = (width - 2 * gap) / 3;
-		y -= 3;
-		int labelY = y - 10;
-		for (Limb l : Limb.values()) {
-			int cx = x0 + l.ordinal() * (cellW + gap);
-			int tier = AllMightStrain.tier(s, l);
-			float v = Mth.clamp(s.limb(l) / 100f, 0f, 1f);
-			g.fill(cx, y, cx + cellW, y + 3, BAR_BG);
-			int col = tier == 3 ? (blink ? TIER_COLOUR[3] : RED_LIGHT) : TIER_COLOUR[tier];
-			int fill = tier == 3 ? cellW : Math.round(cellW * v);
-			if (fill > 0) {
-				g.fill(cx, y, cx + fill, y + 3, col);
-			}
-			Component label = Component.translatable("hud.projecthero.all_might.limb." + l.id);
-			int lc = tier == 0 ? HINT : tier == 3 ? RED : TIER_COLOUR[tier];
-			drawFit(g, mc, label, cx, labelY, cellW, lc);
-		}
-		y = labelY - 4;
-
-		// the gauge: Output, with the limit marked
-		float limit = AllMightStrain.limit(s);
-		float out = s.fullPower ? s.outputPct : 0f;
-		boolean over = out > limit + 0.01f;
-		int gh = 5;
-		y -= gh;
-		g.fill(x0 - 1, y - 1, x0 + width + 1, y + gh + 1, BORDER);
-		g.fill(x0, y, x0 + width, y + gh, BAR_BG);
-		int limX = x0 + Math.round(width * Mth.clamp(limit / 100f, 0f, 1f));
-		int outX = x0 + Math.round(width * Mth.clamp(out / 100f, 0f, 1f));
-		// the safe zone, faintly, then Output over it
-		g.fill(x0, y, limX, y + gh, 0x40FFC83A);
-		if (outX > x0) {
-			g.fill(x0, y, Math.min(outX, limX), y + gh, out >= 90f ? GOLD_WHITE : GOLD);
-			if (over) {
-				g.fill(limX, y, outX, y + gh, blink ? RED : RED_LIGHT);
-			}
-			g.fill(x0, y, outX, y + 1, 0x60FFFFFF);
-		}
-		g.fill(limX - 1, y - 2, limX + 1, y + gh + 2, 0xFFFFFFFF); // the limit tick
 		if (s.fullPower && s.chargeStart > 0L) {
-			// the United States of Smash charge: a hairline over the gauge
+			// the United States of Smash charge: a hairline under the timer
 			float cf = Mth.clamp((now - s.chargeStart) / (float) AllMightConfig.UNITED_STATES_CHARGE_TICKS, 0f, 1f);
-			g.fill(x0, y - 4, x0 + (int) (width * cf), y - 3, 0xFFFFE04A);
-			y -= 3;
+			y -= 2;
+			g.fill(x0, y, x0 + width, y + 1, BAR_BG);
+			g.fill(x0, y, x0 + (int) (width * cf), y + 1, 0xFFFFE04A);
+			y -= 1;
 		}
-		y -= 2 + 9;
-
-		// Output and the limit
-		Component outText = s.fullPower
-				? Component.translatable("hud.projecthero.all_might.output", Math.round(out))
-				: Component.translatable("hud.projecthero.all_might.output_off");
-		Component limText = Component.translatable("hud.projecthero.all_might.limit", limitText(limit));
-		int lw = mc.font.width(limText);
-		drawFit(g, mc, outText, x0, y, width - lw - 4, !s.fullPower ? HINT : over ? (blink ? RED : RED_LIGHT) : out >= 90f ? GOLD_WHITE : GOLD);
-		g.drawString(mc.font, limText, x0 + width - lw, y, TEXT, false);
-
-		// v0.16.7: the One For All timer -- m:ss on the right, a draining bar beside it (one 9-px row)
-		y = drawTimer(g, mc, s, x0, y - 2 - 9, width, blink);
+		// the One For All timer -- m:ss on the right, a draining bar beside it (one 9-px row)
+		y = drawTimer(g, mc, s, x0, y - 9, width, blink);
 
 		// the status line (wrapped to the width, drawn upward)
 		Component status = status(s, now);
@@ -168,12 +111,7 @@ public final class OneForAllClientKit implements QuirkClientKit {
 		return y;
 	}
 
-	private static String limitText(float limit) {
-		return limit >= 99.95f ? "100" : Math.abs(limit - Math.round(limit)) < 0.05f ? String.valueOf(Math.round(limit))
-				: String.format(java.util.Locale.ROOT, "%.1f", limit);
-	}
-
-	/** The one-line status: transforming, Plus Ultra, a broken limb, or the form. */
+	/** The one-line status: transforming, Plus Ultra, or the form. */
 	private static Component status(AllMightState s, long now) {
 		Component key = ModKeyBindings.POWER_SELECT.getTranslatedKeyMessage();
 		if (s.transformUntil > now) {
@@ -183,29 +121,8 @@ public final class OneForAllClientKit implements QuirkClientKit {
 			return Component.translatable("hud.projecthero.all_might.plus_ultra", (s.plusUltraUntil - now + 19) / 20)
 					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
 		}
-		for (Limb l : Limb.values()) {
-			if (s.isBroken(l)) {
-				return Component.translatable("hud.projecthero.all_might.broken." + l.id, Math.round(s.limb(l)), Math.round(AllMightConfig.LIMB_MENDED))
-						.withStyle(ChatFormatting.RED);
-			}
-		}
 		return Component.translatable(s.fullPower ? "hud.projecthero.all_might.power_form" : "hud.projecthero.all_might.base_form", key)
 				.withStyle(s.fullPower ? ChatFormatting.GOLD : ChatFormatting.GRAY);
-	}
-
-	/** One label, shrunk to fit its width rather than spilling past it (the TooltipWrap rule). */
-	private static void drawFit(GuiGraphics g, Minecraft mc, Component text, int x, int y, int width, int colour) {
-		int w = mc.font.width(text);
-		if (w <= width) {
-			g.drawString(mc.font, text, x, y, colour, false);
-			return;
-		}
-		float scale = Math.max(0.6f, width / (float) w);
-		g.pose().pushPose();
-		g.pose().translate(x, y + (1f - scale) * 4f, 0);
-		g.pose().scale(scale, scale, 1f);
-		g.drawString(mc.font, text, 0, 0, colour, false);
-		g.pose().popPose();
 	}
 
 	private static String clock(long ticks) {

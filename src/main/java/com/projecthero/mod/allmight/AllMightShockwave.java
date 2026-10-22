@@ -47,8 +47,6 @@ public final class AllMightShockwave {
 		public final double knockback;
 		public final double lift;
 		public final Set<Integer> hit = new HashSet<>();
-		/** v0.16.6: this wave has already charged Output once (a Smash charges once however many it hits). */
-		boolean charged;
 		/** v0.16.6: optional extra effect on every body it lands on (Missouri's boss stagger). */
 		java.util.function.Consumer<LivingEntity> after;
 
@@ -72,8 +70,8 @@ public final class AllMightShockwave {
 		}
 
 		/**
-		 * v0.16.7: the damage multiplier fixed when the Smash was thrown (its Output x its limb's factor, from
-		 * {@code AllMightStrain.cast}); NaN (landing impacts) uses the current Output.
+		 * The damage multiplier fixed when the Smash was thrown ({@code AllMight.smashMultiplier}: x1, or more in Plus Ultra);
+		 * NaN (landing impacts) uses the current one.
 		 */
 		float mult = Float.NaN;
 
@@ -214,10 +212,6 @@ public final class AllMightShockwave {
 		}
 		if (landed) {
 			AllMight.markCombat(owner);
-			if (!wave.charged) {
-				wave.charged = true;
-				AllMight.onHitLanded(owner, false); // v0.16.6: each Smash charges Output once
-			}
 			if (wave.after != null) {
 				wave.after.accept(target);
 			}
