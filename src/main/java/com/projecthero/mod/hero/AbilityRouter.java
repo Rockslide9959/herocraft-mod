@@ -213,6 +213,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// v0.16.7 (user, Titan revamp): a Titan Shifter in human form -- Partial Shifting on R / G / X (tap and Shift)
+		if (com.projecthero.mod.titanshifter.TitanShifterAbilityManager.hasHumanContext(player)) {
+			com.projecthero.mod.titanshifter.TitanShifterAbilityManager.handleHuman(player, slot, pressed);
+			return;
+		}
+
 		// A Normal Symbiote host (bonded, suit active, NOT also Spider-Man -- that combination is Black
 		// Suit Spider-Man and stays on SpiderManAbilityManager above) gets its own six tendril/mobility/
 		// defence abilities. Moot in practice that this sits after every Hero-Tier check: bonding purges

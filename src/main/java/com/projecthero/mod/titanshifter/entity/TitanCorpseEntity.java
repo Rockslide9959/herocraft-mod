@@ -1,7 +1,5 @@
 package com.projecthero.mod.titanshifter.entity;
 
-import java.util.List;
-
 import com.projecthero.mod.titanshifter.TitanShifterConfig;
 import com.projecthero.mod.titanshifter.TitanType;
 
@@ -27,10 +25,11 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 
 /**
- * v0.12.36 -- what a Titan leaves behind when its shifter changes back: the body slumps where it stood, steams every
- * three seconds and dissolves over a full minute, breaking apart piece by piece (the renderer hides one
- * {@code piece_*} bone of the sliced corpse model after another, see {@link #PIECES}). Purely cosmetic: not saved,
- * not pickable, not solid, cannot be hurt.
+ * v0.12.36 -- what a Titan leaves behind when its shifter changes back. v0.16.7 (user, Titan revamp): it falls to its
+ * knees and bows its head over the ground ({@code animation.titan.corpse_kneel}), the nape torn open where the shifter
+ * climbed out, steams, and dissolves over the minute -- skin, then muscle, then skeleton, every pixel blowing away on the
+ * wind (all client-side, see {@code TitanCorpseRenderer}). It is sized like the Titan type it was. Purely cosmetic: not
+ * saved, not pickable, not solid, cannot be hurt.
  */
 public class TitanCorpseEntity extends Entity implements GeoEntity {
 	private static final EntityDataAccessor<Integer> DATA_TYPE =
@@ -43,14 +42,8 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 	private static final EntityDataAccessor<Boolean> DATA_EMERGENCY =
 			SynchedEntityData.defineId(TitanCorpseEntity.class, EntityDataSerializers.BOOLEAN);
 
-	private static final RawAnimation DEATH = RawAnimation.begin().thenPlayAndHold("animation.titan.death");
-
-	/** The sliced model's pieces in the order they break off: extremities first, the head last. */
-	public static final List<String> PIECES = List.of(
-			"piece_rarm_2", "piece_larm_2", "piece_rleg_2", "piece_lleg_2",
-			"piece_rarm_1", "piece_larm_1", "piece_rleg_1", "piece_lleg_1",
-			"piece_body_2", "piece_rarm_0", "piece_larm_0", "piece_rleg_0", "piece_lleg_0",
-			"piece_head_1", "piece_body_1", "piece_body_0", "piece_head_0");
+	private static final RawAnimation KNEEL = RawAnimation.begin().thenPlayAndHold("animation.titan.corpse_kneel");
+	private static final RawAnimation DEFEAT = RawAnimation.begin().thenPlayAndHold("animation.titan.corpse_defeat");
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 	private int age;
@@ -65,6 +58,7 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 
 	public void bind(TitanType type) {
 		this.entityData.set(DATA_TYPE, type.ordinal());
+		refreshDimensions();
 	}
 
 	public void bind(TitanType type, boolean emergency) {
@@ -77,28 +71,37 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 		return this.entityData.get(DATA_EMERGENCY);
 	}
 
+	/**
+	 * v0.16.7 (user, Titan revamp): why the body was left behind (synced, for the visuals) -- {@link #CAUSE_REVERT} the
+	 * shifter climbed out after the 3 s REVERTING steam, {@link #CAUSE_CUT_OUT} they were cut out of the nape, or
+	 * {@link #CAUSE_DEFEAT} the Titan fell at 0 HP.
+	 */
+	private static final EntityDataAccessor<Integer> DATA_CAUSE =
+			SynchedEntityData.defineId(TitanCorpseEntity.class, EntityDataSerializers.INT);
+	public static final int CAUSE_REVERT = 0, CAUSE_CUT_OUT = 1, CAUSE_DEFEAT = 2;
+
+	public int cause() {
+		return this.entityData.get(DATA_CAUSE);
+	}
+
+	public void setCause(int cause) {
+		this.entityData.set(DATA_CAUSE, cause);
+	}
+
 	@Override
 	public net.minecraft.world.entity.EntityDimensions getDimensions(net.minecraft.world.entity.Pose pose) {
 		net.minecraft.world.entity.EntityDimensions base = super.getDimensions(pose);
-		if (this.entityData == null || !isEmergency()) {
+		if (this.entityData == null) {
 			return base;
 		}
-		float shrink = (float) (TitanShifterConfig.emergency().heightBlocks / TitanShifterConfig.stats().heightBlocks);
-		return base.scale(shrink);
+		// v0.16.7: sized to its own Titan type, and ~60% of it for an Emergency Titan
+		TitanType t = titanType();
+		base = net.minecraft.world.entity.EntityDimensions.scalable(t.dimensionWidth(), t.dimensionHeight());
+		return isEmergency() ? base.scale((float) TitanShifterConfig.emergency().heightFraction) : base;
 	}
 
 	public TitanType titanType() {
 		return TitanType.byOrdinal(this.entityData.get(DATA_TYPE));
-	}
-
-	public static int pieceIndex(String bone) {
-		return bone.startsWith("piece_") ? PIECES.indexOf(bone) : -1;
-	}
-
-	/** The fraction (0..1) of the dissolve at which piece {@code index} is gone -- staggered through the minute with a little jitter. */
-	public static float vanishFraction(int index) {
-		float jitter = (((index * 7919) % 13) / 13.0f - 0.5f) * 0.03f;
-		return 0.06f + 0.90f * index / (PIECES.size() - 1) + jitter;
 	}
 
 	/** Ticks since the corpse formed, smooth on the client. */
@@ -118,12 +121,13 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 		builder.define(DATA_TYPE, 0);
 		builder.define(DATA_AGE, 0);
 		builder.define(DATA_EMERGENCY, false);
+		builder.define(DATA_CAUSE, CAUSE_REVERT);
 	}
 
 	@Override
 	public void onSyncedDataUpdated(EntityDataAccessor<?> accessor) {
 		super.onSyncedDataUpdated(accessor);
-		if (DATA_EMERGENCY.equals(accessor)) {
+		if (DATA_EMERGENCY.equals(accessor) || DATA_TYPE.equals(accessor)) {
 			refreshDimensions();
 		}
 		if (DATA_AGE.equals(accessor)) {
@@ -148,9 +152,7 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 				sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 1.0, getZ(), 40, 1.5, 0.6, 1.5, 0.05);
 				discard();
 			}
-			return;
 		}
-		clientCrumble();
 	}
 
 	private void steam(ServerLevel sl) {
@@ -160,24 +162,6 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 		sl.sendParticles(ParticleTypes.CLOUD, getX(), getY() + h * 0.3, getZ(), n, 1.6, h * 0.22, 1.6, 0.05);
 		sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, getX(), getY() + h * 0.4, getZ(), 6, 1.2, h * 0.25, 1.2, 0.02);
 		sl.playSound(null, getX(), getY() + h * 0.3, getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 1.6f, 0.5f);
-	}
-
-	/** Client: a puff of dust where each piece lets go. */
-	private void clientCrumble() {
-		float now = dissolveAge(0.0f);
-		float before = now - 1.0f;
-		float total = dissolveTicks();
-		for (int i = 0; i < PIECES.size(); i++) {
-			float at = vanishFraction(i) * total;
-			if (before < at && now >= at) {
-				double h = getBbHeight();
-				for (int k = 0; k < 6; k++) {
-					level().addParticle(ParticleTypes.POOF, getX() + (random.nextDouble() - 0.5) * 3.0,
-							getY() + random.nextDouble() * h * 0.45, getZ() + (random.nextDouble() - 0.5) * 3.0, 0.0, 0.05, 0.0);
-				}
-				level().addParticle(ParticleTypes.CLOUD, getX() + (random.nextDouble() - 0.5) * 2.0, getY() + h * 0.2, getZ() + (random.nextDouble() - 0.5) * 2.0, 0.0, 0.08, 0.0);
-			}
-		}
 	}
 
 	@Override
@@ -211,7 +195,8 @@ public class TitanCorpseEntity extends Entity implements GeoEntity {
 	@Override
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
 		controllers.add(new AnimationController<>(this, "corpse", 0, state -> {
-			state.setAndContinue(DEATH);
+			// a defeated Titan was already down on its hands; any other body falls to its knees
+			state.setAndContinue(cause() == CAUSE_DEFEAT ? DEFEAT : KNEEL);
 			return PlayState.CONTINUE;
 		}));
 	}

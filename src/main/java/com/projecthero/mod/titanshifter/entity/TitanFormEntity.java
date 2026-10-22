@@ -97,6 +97,20 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	private static final EntityDataAccessor<Integer> DATA_SEVERED =
 			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
 	public static final int LIMB_R_ARM = 1, LIMB_L_ARM = 2, LIMB_R_LEG = 4, LIMB_L_LEG = 8;
+	public static final int[] LIMBS = { LIMB_R_ARM, LIMB_L_ARM, LIMB_R_LEG, LIMB_L_LEG };
+	/**
+	 * v0.16.7 (user, Titan revamp gameplay): move states the visuals read (synced bit set, see {@link #moveFlags()}):
+	 * {@link #FLAG_RAGING} Attack Titan Rage, {@link #FLAG_NAPE_GUARD} a hand held over the nape, {@link #FLAG_CRYSTAL}
+	 * the Female Titan's crystal fists / shins (and hardened nape), {@link #FLAG_BRACING} the Armoured Titan's Brace,
+	 * {@link #FLAG_CHARGING} the Armoured Titan's Shoulder Charge, {@link #FLAG_HOLDING_BOULDER} a boulder in the Beast's hand.
+	 */
+	private static final EntityDataAccessor<Integer> DATA_MOVE_FLAGS =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
+	public static final int FLAG_RAGING = 1, FLAG_NAPE_GUARD = 2, FLAG_CRYSTAL = 4, FLAG_BRACING = 8, FLAG_CHARGING = 16,
+			FLAG_HOLDING_BOULDER = 32;
+	/** v0.16.7: how long (ticks) the current {@link #formState()} lasts -- TRANSFORMING (3 s, or a fast Bite Shift), REVERTING (3 s), DEFEATED. */
+	private static final EntityDataAccessor<Integer> DATA_STATE_TICKS =
+			SynchedEntityData.defineId(TitanFormEntity.class, EntityDataSerializers.INT);
 
 	/** Every animation lives under this prefix in every Titan type's own animation file. */
 	public static final String ANIM = "animation.titan.";
@@ -181,6 +195,8 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		builder.define(DATA_HOLDING, false);
 		builder.define(DATA_EMERGENCY, false);
 		builder.define(DATA_SEVERED, 0);
+		builder.define(DATA_MOVE_FLAGS, 0);
+		builder.define(DATA_STATE_TICKS, 60);
 	}
 
 	/** Server: bind this Titan to its owner and stats. Call before adding to the world. */
@@ -234,6 +250,288 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		this.entityData.set(DATA_SEVERED, bits);
 	}
 
+	public boolean hasLimb(int limb) {
+		return (severedLimbs() & limb) == 0;
+	}
+
+	/** Arms still attached (0-2). */
+	public int armsLeft() {
+		return (hasLimb(LIMB_R_ARM) ? 1 : 0) + (hasLimb(LIMB_L_ARM) ? 1 : 0);
+	}
+
+	/** Legs still attached (0-2). Fewer than two: the Titan kneels and drags itself (and cannot leap, jump or run). */
+	public int legsLeft() {
+		return (hasLimb(LIMB_R_LEG) ? 1 : 0) + (hasLimb(LIMB_L_LEG) ? 1 : 0);
+	}
+
+	/** v0.16.7: synced -- a leg is missing, so the Titan is down on one knee (visuals: kneel / stumble pose). */
+	public boolean isKneeling() {
+		return legsLeft() < 2;
+	}
+
+	/** v0.16.7: the synced move-state bits ({@link #FLAG_RAGING} ...). */
+	public int moveFlags() {
+		return this.entityData.get(DATA_MOVE_FLAGS);
+	}
+
+	public boolean hasMoveFlag(int flag) {
+		return (moveFlags() & flag) != 0;
+	}
+
+	private void setMoveFlag(int flag, boolean on) {
+		int cur = moveFlags();
+		int next = on ? cur | flag : cur & ~flag;
+		if (next != cur) {
+			this.entityData.set(DATA_MOVE_FLAGS, next);
+		}
+	}
+
+	/** v0.16.7: synced -- the length in ticks of the current form state (see {@link #setFormState(int, int)}). */
+	public int formStateTicks() {
+		return this.entityData.get(DATA_STATE_TICKS);
+	}
+
+	/** v0.16.7: synced -- how far (0..1) the current TRANSFORMING / REVERTING / DEFEATED state has run. */
+	public float formStateProgress(float partialTick) {
+		return Math.min(1.0f, (tickCount - stateChangedTick + partialTick) / (float) Math.max(1, formStateTicks()));
+	}
+
+	// ---------------- v0.16.7: timed move states (server) ----------------
+
+	private long rageUntil;
+	private long napeGuardUntil;
+	private long crystalUntil;
+	private long braceUntil;
+	private long chargeUntil;
+	private long lastAttackAt = -1000;
+	/** Game time each limb (index into {@link #LIMBS}) was severed; 0 = attached. */
+	private final long[] severedAt = new long[4];
+
+	public void startRage(int ticks) {
+		rageUntil = level().getGameTime() + ticks;
+		setMoveFlag(FLAG_RAGING, true);
+	}
+
+	public void startNapeGuard(int ticks) {
+		napeGuardUntil = level().getGameTime() + ticks;
+		setMoveFlag(FLAG_NAPE_GUARD, true);
+	}
+
+	public void startCrystal(int ticks) {
+		crystalUntil = level().getGameTime() + ticks;
+		setMoveFlag(FLAG_CRYSTAL, true);
+	}
+
+	public void startBrace(int ticks) {
+		braceUntil = level().getGameTime() + ticks;
+		setMoveFlag(FLAG_BRACING, true);
+		lockFor(ticks);
+	}
+
+	public void startCharge(int ticks) {
+		chargeUntil = level().getGameTime() + ticks;
+		setMoveFlag(FLAG_CHARGING, true);
+	}
+
+	public void endCharge() {
+		chargeUntil = 0L;
+		setMoveFlag(FLAG_CHARGING, false);
+	}
+
+	public void setHoldingBoulder(boolean holding) {
+		setMoveFlag(FLAG_HOLDING_BOULDER, holding);
+	}
+
+	public boolean isCharging() {
+		return hasMoveFlag(FLAG_CHARGING);
+	}
+
+	public boolean isNapeGuarded() {
+		return hasMoveFlag(FLAG_NAPE_GUARD);
+	}
+
+	public boolean isCrystal() {
+		return hasMoveFlag(FLAG_CRYSTAL);
+	}
+
+	/**
+	 * v0.16.7: the Attack Titan's Rage, 0..1 -- rises as it takes damage (1 - HP fraction), and is full while Rage (Shift+X)
+	 * is active. Other types have none. Safe on both sides (health and the flag are synced).
+	 */
+	public float rage() {
+		if (titanType() != TitanType.GENERIC_TITAN) {
+			return 0f;
+		}
+		if (hasMoveFlag(FLAG_RAGING)) {
+			return 1f;
+		}
+		float max = getMaxHealth();
+		return max <= 0f ? 0f : Math.max(0f, Math.min(1f, 1f - getHealth() / max));
+	}
+
+	/** v0.16.7: every hit this Titan lands is multiplied by this (Rage up to +50%, crystal fists +50%). */
+	public float outgoingDamageFactor() {
+		float f = 1.0f + 0.5f * rage();
+		if (isCrystal()) {
+			f *= 1.5f;
+		}
+		return f;
+	}
+
+	/** v0.16.7: Rage also speeds the R combo up -- its recharge shrinks by up to 40%. */
+	public double attackSpeedFactor() {
+		return 1.0 - 0.4 * rage();
+	}
+
+	public void markAttacked() {
+		lastAttackAt = level().getGameTime();
+	}
+
+	/** v0.16.7: no hit taken or dealt for {@code ticks}. */
+	public boolean outOfCombat(int ticks) {
+		long now = level().getGameTime();
+		return now - lastHurtAt >= ticks && now - lastAttackAt >= ticks;
+	}
+
+	/** World position of a limb (for the sever burst and the regrowing steam). */
+	public Vec3 limbPos(int limb) {
+		Vec3 right = Vec3.directionFromRotation(0, getYRot() + 90.0f);
+		double w = getBbWidth();
+		double h = getBbHeight();
+		return switch (limb) {
+			case LIMB_R_ARM -> position().add(right.scale(w * 0.62)).add(0, h * 0.6, 0);
+			case LIMB_L_ARM -> position().add(right.scale(-w * 0.62)).add(0, h * 0.6, 0);
+			case LIMB_R_LEG -> position().add(right.scale(w * 0.2)).add(0, h * 0.2, 0);
+			default -> position().add(right.scale(-w * 0.2)).add(0, h * 0.2, 0);
+		};
+	}
+
+	/** v0.16.7: cuts a limb off (server). Returns false if it was already gone. */
+	public boolean sever(int limb) {
+		if (!hasLimb(limb) || !(level() instanceof ServerLevel sl)) {
+			return false;
+		}
+		setSeveredLimbs(severedLimbs() | limb);
+		for (int i = 0; i < LIMBS.length; i++) {
+			if (LIMBS[i] == limb) {
+				severedAt[i] = sl.getGameTime();
+			}
+		}
+		Vec3 at = limbPos(limb);
+		double h = getBbHeight();
+		// the server-side event: a burst of blood-red mist and steam where the limb came off, and a heavy thud
+		sl.sendParticles(SEVER_BLOOD, at.x, at.y, at.z, 70, h * 0.06, h * 0.08, h * 0.06, 0.25);
+		sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, 30, h * 0.05, h * 0.06, h * 0.05, 0.05);
+		sl.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 25, h * 0.05, h * 0.05, h * 0.05, 0.08);
+		sl.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 3.0f, 0.4f);
+		sl.playSound(null, at.x, at.y, at.z, SoundEvents.SLIME_SQUISH, SoundSource.HOSTILE, 3.0f, 0.5f);
+		sl.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 2.5f, 0.6f);
+		if (limb == LIMB_R_LEG || limb == LIMB_L_LEG) {
+			play("stumble");
+			footstep(sl, 1.6f, false);
+		} else {
+			play("hurt");
+		}
+		releaseHeld();
+		return true;
+	}
+
+	private static final net.minecraft.core.particles.DustParticleOptions SEVER_BLOOD =
+			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.55f, 0.05f, 0.05f), 2.5f);
+
+	/** Server: the move timers run out, and severed limbs regrow (steaming) while the shifter has Steam to spend. */
+	private void tickMoves(ServerLevel sl, long now) {
+		if (rageUntil != 0L && now >= rageUntil) {
+			rageUntil = 0L;
+			setMoveFlag(FLAG_RAGING, false);
+		}
+		if (napeGuardUntil != 0L && now >= napeGuardUntil) {
+			napeGuardUntil = 0L;
+			setMoveFlag(FLAG_NAPE_GUARD, false);
+		}
+		if (crystalUntil != 0L && now >= crystalUntil) {
+			crystalUntil = 0L;
+			setMoveFlag(FLAG_CRYSTAL, false);
+		}
+		if (braceUntil != 0L && now >= braceUntil) {
+			braceUntil = 0L;
+			setMoveFlag(FLAG_BRACING, false);
+		}
+		if (chargeUntil != 0L && now >= chargeUntil) {
+			endCharge();
+		}
+		int bits = severedLimbs();
+		if (bits == 0) {
+			return;
+		}
+		var lc = TitanShifterConfig.limbs();
+		ServerPlayer owner = owner();
+		for (int i = 0; i < LIMBS.length; i++) {
+			int limb = LIMBS[i];
+			if ((bits & limb) == 0) {
+				continue;
+			}
+			if (severedAt[i] == 0L) {
+				severedAt[i] = now; // set from outside (a test, a command): start its clock now
+			}
+			if (tickCount % 4 == 0) {
+				Vec3 at = limbPos(limb);
+				sl.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, 2, 0.4, 0.4, 0.4, 0.02);
+				sl.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 1, 0.3, 0.3, 0.3, 0.01);
+			}
+			// the Regeneration ability (C) knits it twice as fast
+			long need = owner != null && TitanShifter.state(owner).regenUntil > now ? lc.regrowTicks / 2 : lc.regrowTicks;
+			if (now - severedAt[i] >= need && (owner == null || TitanShifter.spendSteam(owner, (float) lc.regrowSteamCost))) {
+				severedAt[i] = 0L;
+				setSeveredLimbs(severedLimbs() & ~limb);
+				Vec3 at = limbPos(limb);
+				sl.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 30, 0.8, 0.8, 0.8, 0.06);
+				sl.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 2.0f, 0.7f);
+			}
+		}
+	}
+
+	/** v0.16.7: the hit zone of a hit at {@code p} -- a limb bit, {@link #ZONE_NAPE}, or 0 (the body). */
+	public int zoneOf(Vec3 p) {
+		Vec3 rel = p.subtract(position());
+		Vec3 fwd = Vec3.directionFromRotation(0, getYRot());
+		Vec3 right = Vec3.directionFromRotation(0, getYRot() + 90.0f);
+		double hf = rel.y / Math.max(0.1, getBbHeight());
+		double lateral = rel.x * right.x + rel.z * right.z;
+		double depth = rel.x * fwd.x + rel.z * fwd.z;
+		if (hf >= TitanShifterConfig.nape().shoulderFraction && depth < -getBbWidth() * 0.05) {
+			return ZONE_NAPE;
+		}
+		if (hf < 0.375) {
+			return lateral >= 0 ? LIMB_R_LEG : LIMB_L_LEG;
+		}
+		if (hf < 0.75 && Math.abs(lateral) > getBbWidth() * 0.3) {
+			return lateral >= 0 ? LIMB_R_ARM : LIMB_L_ARM;
+		}
+		return 0;
+	}
+
+	public static final int ZONE_NAPE = 16;
+
+	/** Where a hit landed: the projectile / blast position, or the attacker's eyes clamped onto the body. Null if unknown. */
+	private Vec3 hitPoint(DamageSource source) {
+		Entity direct = source.getDirectEntity();
+		if (direct instanceof net.minecraft.world.entity.projectile.Projectile) {
+			return direct.position();
+		}
+		if (source.is(DamageTypeTags.IS_EXPLOSION) && source.getSourcePosition() != null) {
+			return source.getSourcePosition();
+		}
+		Entity attacker = source.getEntity();
+		if (attacker != null) {
+			Vec3 eye = attacker.getEyePosition();
+			// a rider (another Titan's shifter) strikes from its own Titan's eye height; clamp onto this body's height
+			double y = Math.max(getY(), Math.min(getY() + getBbHeight(), eye.y));
+			return new Vec3(eye.x, y, eye.z);
+		}
+		return source.getSourcePosition();
+	}
+
 	public TitanType titanType() {
 		return TitanType.byOrdinal(this.entityData.get(DATA_TYPE));
 	}
@@ -266,6 +564,18 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	}
 
 	public void setFormState(int state) {
+		var t = TitanShifterConfig.transformation();
+		setFormState(state, switch (state) {
+			case FORM_TRANSFORMING -> t.transformTicks;
+			case FORM_REVERTING -> t.revertTicks;
+			case FORM_DEFEATED -> t.defeatTicks;
+			default -> 0;
+		});
+	}
+
+	/** v0.16.7: with the state's length (synced as {@link #formStateTicks()}) -- a Bite Shift's fast transformation, say. */
+	public void setFormState(int state, int ticks) {
+		this.entityData.set(DATA_STATE_TICKS, Math.max(1, ticks));
 		this.entityData.set(DATA_FORM_STATE, state);
 	}
 
@@ -301,28 +611,19 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	 * body. Derived from {@link #tickCount} on both sides, so client and server agree without any packet.
 	 */
 	public float visualScale() {
-		var t = TitanShifterConfig.transformation();
 		int elapsed = tickCount - stateChangedTick;
 		switch (formState()) {
 			case FORM_TRANSFORMING: {
-				float p = Math.min(1.0f, elapsed / (float) Math.max(1, t.transformTicks));
-				// mirrors the keyframes of animation.titan.transformation (0.25 -> 0.5 -> 1.05 -> 1.0)
-				if (p < 1.0f / 3.0f) {
-					return 0.25f + 0.25f * (p / (1.0f / 3.0f));
-				}
-				if (p < 2.2f / 3.0f) {
-					return 0.5f + 0.55f * ((p - 1.0f / 3.0f) / (2.2f / 3.0f - 1.0f / 3.0f));
-				}
-				return 1.05f - 0.05f * ((p - 2.2f / 3.0f) / (1.0f - 2.2f / 3.0f));
+				float p = Math.min(1.0f, elapsed / (float) Math.max(1, formStateTicks()));
+				// v0.16.7: mirrors the root scale of animation.titan.transformation (stretched to the shift: 0.86 crouched
+				// -> 1.0 standing at 3.85 of its 4.5 s)
+				return 0.86f + 0.14f * Math.min(1.0f, p / (3.85f / 4.5f));
 			}
-			case FORM_REVERTING: {
-				float p = Math.min(1.0f, elapsed / (float) Math.max(1, t.revertTicks));
-				return p < 0.5f ? 1.0f - 0.4f * p : 0.8f - 1.1f * (p - 0.5f);
-			}
-			case FORM_DEFEATED: {
-				float p = Math.min(1.0f, elapsed / (float) Math.max(1, t.defeatTicks));
-				return 1.0f - 0.6f * p;
-			}
+			case FORM_REVERTING:
+				// v0.16.7: the body does not shrink while the shifter climbs out of the nape -- it steams where it stands
+				return 1.0f;
+			case FORM_DEFEATED:
+				// v0.16.7: the body sinks to its hands (animation.titan.death) and the full-size corpse takes over from that pose
 			default:
 				return 1.0f;
 		}
@@ -331,8 +632,8 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	@Override
 	protected EntityDimensions getDefaultDimensions(Pose pose) {
 		TitanType type = this.entityData == null ? TitanType.GENERIC_TITAN : titanType();
-		float shrink = this.entityData == null || !isEmergency() ? 1.0f
-				: (float) (TitanShifterConfig.emergency().heightBlocks / TitanShifterConfig.stats().heightBlocks);
+		// v0.16.7: the pale Emergency Titan is ~60% of the selected type's own height
+		float shrink = this.entityData == null || !isEmergency() ? 1.0f : (float) TitanShifterConfig.emergency().heightFraction;
 		return EntityDimensions.scalable(type.dimensionWidth() * shrink, type.dimensionHeight() * shrink)
 				.withEyeHeight(type.dimensionHeight() * shrink * 0.9f); // a player's eyes sit at 0.9 of their height
 	}
@@ -464,6 +765,11 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		if (isRunning()) {
 			speed *= TitanShifterConfig.stats().runSpeedMultiplier;
 		}
+		// v0.16.7: a missing leg -- down on one knee, dragging itself; both gone -- it cannot walk
+		int legs = legsLeft();
+		if (legs < 2) {
+			speed *= legs == 1 ? TitanShifterConfig.limbs().oneLegSpeedFactor : 0.0;
+		}
 		return (float) speed;
 	}
 
@@ -473,7 +779,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		float yaw = player.getYRot();
 		this.setRot(yaw, Math.max(-30.0f, Math.min(30.0f, player.getXRot() * 0.4f)));
 		this.yRotO = this.yBodyRot = this.yHeadRot = yaw;
-		if (!level().isClientSide && !isLocked() && onGround()
+		if (!level().isClientSide && !isLocked() && onGround() && legsLeft() == 2
 				&& ((LivingEntityAccessor) player).projecthero$isJumping()) {
 			Vec3 v = getDeltaMovement();
 			setDeltaMovement(v.x, TitanShifterConfig.stats().jumpVelocity, v.z);
@@ -564,6 +870,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				this.entityData.set(DATA_RUNNING, false);
 			}
 		}
+		tickMoves(sl, now);
 		if (formState() == FORM_NORMAL) {
 			tickRun(owner);
 			tickHeld(sl);
@@ -576,7 +883,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	/** v0.12.34: hold Sprint while walking forward for runChargeTicks and the Titan starts running; let go or stop and it walks again. */
 	private void tickRun(ServerPlayer owner) {
-		boolean forward = owner.zza > 0.1f && !isLocked();
+		boolean forward = owner.zza > 0.1f && !isLocked() && legsLeft() == 2;
 		if (forward && TitanShifter.sprintHeld(owner.getUUID())) {
 			sprintTicks = Math.min(sprintTicks + 1, 100000);
 		} else {
@@ -805,15 +1112,50 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		if (isHardened()) {
 			dealt *= 1.0f - (float) TitanShifterConfig.abilities().hardenDamageReduction;
 		}
+		// v0.16.7: the Armoured Titan's crystal plates are always on; its Brace takes three quarters more off
+		dealt *= 1.0f - (float) titanType().plateReduction();
+		if (hasMoveFlag(FLAG_BRACING)) {
+			dealt *= 0.25f;
+		}
+		// v0.16.7 (user): the nape -- a hit from behind at or above the shoulders deals 3x (unless a hand guards it)
+		Vec3 at = hitPoint(source);
+		int zone = at == null ? 0 : zoneOf(at);
+		boolean nape = zone == ZONE_NAPE;
+		if (nape && !isNapeGuarded()) {
+			dealt *= (float) TitanShifterConfig.nape().multiplier;
+		}
 		if (dealt <= 0.0f) {
 			return false;
 		}
+		float hpBefore = getHealth();
 		mobHit = fromMob;
 		boolean hit;
 		try {
 			hit = super.hurt(source, dealt);
 		} finally {
 			mobHit = false;
+		}
+		if (hit && !defeatStarted && isAlive() && formState() == FORM_NORMAL) {
+			float lost = hpBefore - getHealth();
+			float max = getMaxHealth();
+			ServerPlayer owner = owner();
+			var nc = TitanShifterConfig.nape();
+			var lc = TitanShifterConfig.limbs();
+			// a heavy nape hit, or any nape hit under 20% HP, cuts the shifter out -- unless the nape is guarded or crystal
+			boolean napeSafe = isNapeGuarded() || isCrystal() || isHardened();
+			if (nape && !napeSafe && owner != null && owner.getVehicle() == this
+					&& (lost >= max * nc.heavyHitFraction || getHealth() < max * nc.cutOutHealthFraction)) {
+				lastHurtAt = level().getGameTime();
+				TitanShifter.cutOut(owner, this);
+				return true;
+			}
+			// v0.16.7 (user): a big hit on an arm / leg (or a big blast near one) severs it; hardened skin holds
+			if (!isHardened() && zone != 0 && zone != ZONE_NAPE) {
+				boolean blast = source.is(DamageTypeTags.IS_EXPLOSION);
+				if (lost >= max * lc.severHitFraction || (blast && lost >= max * lc.severExplosionFraction)) {
+					sever(zone);
+				}
+			}
 		}
 		if (hit) {
 			long now = level().getGameTime();
@@ -958,11 +1300,46 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				"regeneration", "hardening", "grab", "bite" }) {
 			action.triggerableAnim(name, RawAnimation.begin().thenPlay(ANIM + name));
 		}
-		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate));
+		// v0.16.7 (user, Titan revamp): the new moves' clips (each type's own animation file; see TitanMove#ANIMS)
+		for (String name : com.projecthero.mod.titanshifter.TitanMove.NEW_ANIMS) {
+			action.triggerableAnim(name, RawAnimation.begin().thenPlay(ANIM + name));
+		}
+		// v0.16.7: the 4.5 s transformation clip is stretched to the shift's length (60 ticks, 12 for a Bite Shift)
+		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate).setAnimationSpeedHandler(
+				f -> f.formState() == FORM_TRANSFORMING ? 90.0 / Math.max(1, f.formStateTicks())
+						: f.formState() == FORM_REVERTING ? 60.0 / Math.max(1, f.formStateTicks()) : 1.0));
 		// the raised right arm while a mob is in the hand (only that bone is keyed, so it layers over walk / run)
 		controllers.add(new AnimationController<>(this, "carry", 6, state -> isHolding() && formState() == FORM_NORMAL
 				? state.setAndContinue(CARRY) : PlayState.STOP));
+		// v0.16.7 (user, Titan revamp): held poses for the timed move states (upper body only, so they layer over walk / run)
+		controllers.add(new AnimationController<>(this, "flags", 5, this::flagPredicate));
 		controllers.add(action);
+	}
+
+	private static final RawAnimation CHARGE_LOOP = RawAnimation.begin().thenLoop(ANIM + "shoulder_charge_loop");
+	private static final RawAnimation BRACE_HOLD = RawAnimation.begin().thenLoop(ANIM + "brace_hold");
+	private static final RawAnimation NAPE_HOLD = RawAnimation.begin().thenLoop(ANIM + "nape_guard_hold");
+	private static final RawAnimation BOULDER_HOLD = RawAnimation.begin().thenLoop(ANIM + "boulder_hold");
+	private static final RawAnimation KNEEL = RawAnimation.begin().thenLoop(ANIM + "kneel");
+	private static final RawAnimation KNEEL_CRAWL = RawAnimation.begin().thenLoop(ANIM + "kneel_crawl");
+
+	private PlayState flagPredicate(AnimationState<TitanFormEntity> state) {
+		if (formState() != FORM_NORMAL) {
+			return PlayState.STOP;
+		}
+		if (hasMoveFlag(FLAG_CHARGING)) {
+			return state.setAndContinue(CHARGE_LOOP);
+		}
+		if (hasMoveFlag(FLAG_BRACING)) {
+			return state.setAndContinue(BRACE_HOLD);
+		}
+		if (hasMoveFlag(FLAG_NAPE_GUARD)) {
+			return state.setAndContinue(NAPE_HOLD);
+		}
+		if (hasMoveFlag(FLAG_HOLDING_BOULDER)) {
+			return state.setAndContinue(BOULDER_HOLD);
+		}
+		return PlayState.STOP;
 	}
 
 	private PlayState mainPredicate(AnimationState<TitanFormEntity> state) {
@@ -975,6 +1352,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				return state.setAndContinue(DEATH);
 			default:
 				break;
+		}
+		if (isKneeling()) {
+			// v0.16.7: a leg is gone -- down on one knee, dragging itself when it moves
+			return state.setAndContinue(state.getLimbSwingAmount() > 0.04f ? KNEEL_CRAWL : KNEEL);
 		}
 		float swing = state.getLimbSwingAmount();
 		if (isRunning() && swing > 0.04f) {

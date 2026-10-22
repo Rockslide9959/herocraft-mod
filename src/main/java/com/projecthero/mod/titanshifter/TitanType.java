@@ -14,7 +14,7 @@ public enum TitanType {
 	/** The Attack Titan (id kept as generic_titan so saved shifters keep their Titan). v0.16.7: 15 blocks (config). */
 	GENERIC_TITAN("generic_titan", "titan_form", 15.0f, 5.0f, 500.0f, 25.0, 8.0, 0.45, 1.0f),
 	/** v0.16.7 (user): the Armoured Titan -- 15 blocks, slow crystal-plated tank. Stats are first-pass; tune in the revamp. */
-	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 900.0f, 40.0, 14.0, 0.38, 1.1f),
+	ARMORED_TITAN("armored_titan", "titan_armored", 15.0f, 5.0f, 800.0f, 35.0, 14.0, 0.36, 1.1f),
 	/** v0.16.7 (user): the Female Titan -- 12 blocks, fast and agile, hardened fists and shins. */
 	FEMALE_TITAN("female_titan", "titan_female", 12.0f, 4.0f, 450.0f, 20.0, 6.0, 0.55, 0.95f),
 	/** v0.16.7 (user): the Beast Titan -- 14 blocks, long arms, throws boulders. */
@@ -42,6 +42,44 @@ public enum TitanType {
 		this.toughness = toughness;
 		this.speed = speed;
 		this.damageScale = damageScale;
+	}
+
+	/** v0.16.7: "Attack Titan" etc. ({@code projecthero.titan_shifter.type.<id>}). */
+	public String nameKey() {
+		return "projecthero.titan_shifter.type." + id;
+	}
+
+	/** v0.16.7: the one-paragraph pitch shown on the Titan Serum picker. */
+	public String descKey() {
+		return nameKey() + ".desc";
+	}
+
+	/** v0.16.7: how far a Titan Leap carries (the Armoured Titan is heavy, the Female Titan agile). */
+	public double leapScale() {
+		return switch (this) {
+			case ARMORED_TITAN -> 0.7;
+			case FEMALE_TITAN -> 1.25;
+			default -> 1.0;
+		};
+	}
+
+	/** v0.16.7: the R combo's recharge scale (Female jabs fast, Armoured swings slow). */
+	public double comboCooldownScale() {
+		return switch (this) {
+			case ARMORED_TITAN -> 1.5;
+			case FEMALE_TITAN -> 0.6;
+			default -> 1.0;
+		};
+	}
+
+	/** v0.16.7: extra fist reach of the R combo (the Beast Titan's long arms). */
+	public double extraReach() {
+		return this == BEAST_TITAN ? 3.0 : 0.0;
+	}
+
+	/** v0.16.7: the Armoured Titan's crystal plates -- built-in damage reduction (0..1), always on. */
+	public double plateReduction() {
+		return this == ARMORED_TITAN ? 0.35 : 0.0;
 	}
 
 	/** The baseline reads the live config; a future type would return its own constants. */
@@ -77,11 +115,12 @@ public enum TitanType {
 		return ProjectHeroMod.id("textures/entity/" + modelName + ".png");
 	}
 
-	/** v0.12.36: the sliced model and atlas of the dissolving corpse. */
-	public ResourceLocation corpseGeo() {
-		return ProjectHeroMod.id("geo/" + modelName + "_corpse.geo.json");
+	/** v0.16.7: the asset name ("titan_form", "titan_armored" ...) -- also keys the client's per-texel data. */
+	public String modelName() {
+		return modelName;
 	}
 
+	/** v0.16.7: the corpse is the same rig with this atlas (the nape torn open where the shifter climbed out). */
 	public ResourceLocation corpseTexture() {
 		return ProjectHeroMod.id("textures/entity/" + modelName + "_corpse.png");
 	}

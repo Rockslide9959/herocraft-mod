@@ -16,8 +16,9 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * The Titan Serum: using it unlocks Titan Shifting for good. It never transforms the player by itself (the
- * config can turn that on); the Titan Shift key does that. All rules live in {@link TitanShifter#grant}.
+ * The Titan Serum: using it opens the Titan picker, and the Titan picked unlocks Titan Shifting for good (v0.16.7: a
+ * shifter drinking another re-forges into a different Titan). It never transforms the player by itself (the config can
+ * turn that on); the Titan Shift key does that. All rules live in {@link TitanShifter#offerPick} / {@link TitanShifter#choose}.
  */
 public class TitanSerumItem extends Item {
 	public TitanSerumItem(Properties properties) {
@@ -34,12 +35,11 @@ public class TitanSerumItem extends Item {
 		if (!TitanShifter.isShifter(sp) && com.projecthero.mod.hero.UniquePowers.refuse(sp, TitanShifter.KEY)) {
 			return InteractionResultHolder.fail(held);
 		}
-		if (!TitanShifter.grant(sp)) {
-			sp.displayClientMessage(Component.translatable("message.projecthero.titan_serum.already")
-					.withStyle(ChatFormatting.GRAY), true);
+		// v0.16.7 (user, Titan revamp): the serum opens the Titan picker (Attack / Armoured / Female / Beast). A shifter who
+		// drinks another re-forges into whichever Titan they pick. The serum is only used up once a Titan is picked.
+		if (!TitanShifter.offerPick(sp)) {
 			return InteractionResultHolder.fail(held);
 		}
-		held.shrink(1);
 		return InteractionResultHolder.success(held);
 	}
 

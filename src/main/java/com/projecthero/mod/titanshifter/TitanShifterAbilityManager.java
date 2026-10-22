@@ -1,22 +1,26 @@
 package com.projecthero.mod.titanshifter;
 
+import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.data.ExperimentalState;
 
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * Bridges the six universal ability slots to the Titan kit and runs the power's per-player server tick.
- * {@link com.projecthero.mod.hero.AbilityRouter} hands the Titan Shifter the slots the whole time they are
- * inside a Titan form (whatever other powers they hold) -- Ability 1-6 keep their normal keys:
+ * Bridges the six universal ability slots to the Titan kits and runs the power's per-player server tick.
+ * {@link com.projecthero.mod.hero.AbilityRouter} hands the Titan Shifter the slots the whole time they are inside a Titan
+ * form (whatever other powers they hold), and -- v0.16.7 -- in human form too (Partial Shifting), unless a mutation is
+ * selected on the power wheel. Every key has a tap and a Shift move; the table is {@link TitanMove#of}:
  *
  * <pre>
- *   R (1)  Titan Punch  (Shift+R = Titan Kick, third swing of a combo = Heavy Punch)
- *   G (2)  Heavy Smash
- *   X (3)  Titan Leap   (Shift+X = Titan Roar)
- *   Z (4)  Titan Stomp
- *   V (5)  Titan Roar
- *   C (6)  Titan Regeneration  (Shift+C = Titan Hardening)
- *   H      Titan Shift -- transform / revert (handled by {@link TitanShifter#requestToggle}, not a slot)
+ *   R (1)  combo (Punch / Jab / Swipe)          Shift: Kick / Elbow / Roundhouse / Backhand
+ *   G (2)  Heavy Smash / Axe Kick                Shift: Uppercut / Ground Pound / Sweep Kick / Rock Scatter
+ *   X (3)  Titan Leap                            Shift: the SIGNATURE -- Rage / Shoulder Charge / Crystal Fists / Boulder Throw
+ *   Z (4)  Titan Stomp                           Shift: Dropkick / Brace / Scream / Boulder Volley
+ *   V (5)  Titan Roar                            Shift: Nape Guard
+ *   C (6)  Titan Regeneration                    Shift: Titan Hardening
+ *   N      grab / bite (Shift+N: set down)       H: Titan Shift -- transform / revert (TitanShifter#requestToggle)
+ *   human: R Titan Arm (Shift: Crystal Blade), G Steam Burst (Shift: Bite Shift), X Crystal Wall (Shift: Crystal Cocoon)
  * </pre>
  */
 public final class TitanShifterAbilityManager {
@@ -26,6 +30,8 @@ public final class TitanShifterAbilityManager {
 	public static void clearSessionState() {
 		TitanShifter.clearSessionState();
 		TitanAbilities.clearSessionState();
+		TitanBoulders.clearSessionState();
+		TitanHumanKit.clearSessionState();
 	}
 
 	/** True while the player is inside an active Titan (the abilities are usable). */
@@ -33,30 +39,27 @@ public final class TitanShifterAbilityManager {
 		return TitanShifter.inTitan(player) && TitanShifter.formOf(player) != null;
 	}
 
+	/** v0.16.7: a shifter in human form with no mutation selected -- the R / G / X keys are Partial Shifting. */
+	public static boolean hasHumanContext(ServerPlayer player) {
+		if (!TitanShifter.isShifter(player) || TitanShifter.phase(player) != TitanPhase.HUMAN) {
+			return false;
+		}
+		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null || st.activePower.isEmpty();
+	}
+
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
 		if (!pressed) {
 			return;
 		}
-		switch (slot) {
-			case SLOT_1 -> TitanAbilities.punch(player);
-			case SLOT_2 -> TitanAbilities.heavySmash(player);
-			case SLOT_3 -> {
-				if (player.isShiftKeyDown()) {
-					TitanAbilities.roar(player);
-				} else {
-					TitanAbilities.leap(player);
-				}
-			}
-			case SLOT_4 -> TitanAbilities.stomp(player);
-			case SLOT_5 -> TitanAbilities.roar(player);
-			case SLOT_6 -> {
-				if (player.isShiftKeyDown()) {
-					TitanAbilities.hardening(player);
-				} else {
-					TitanAbilities.regeneration(player);
-				}
-			}
+		TitanKit.handle(player, slot.ordinal() + 1, player.isShiftKeyDown());
+	}
+
+	public static void handleHuman(ServerPlayer player, AbilitySlot slot, boolean pressed) {
+		if (!pressed) {
+			return;
 		}
+		TitanHumanKit.handle(player, slot.ordinal() + 1, player.isShiftKeyDown());
 	}
 
 	/** Runs for every player every server tick. */
@@ -64,29 +67,14 @@ public final class TitanShifterAbilityManager {
 		TitanShifter.tick(player);
 	}
 
-	/** Cooldown-map id for a slot -- the HUD reads it client-side from the synced state. */
+	/** Cooldown-map id for a slot (the tapped move of the Attack Titan's kit). */
 	public static String abilityIdOf(AbilitySlot slot) {
-		return switch (slot) {
-			case SLOT_1 -> TitanAbilities.PUNCH;
-			case SLOT_2 -> TitanAbilities.SMASH;
-			case SLOT_3 -> TitanAbilities.LEAP;
-			case SLOT_4 -> TitanAbilities.STOMP;
-			case SLOT_5 -> TitanAbilities.ROAR;
-			case SLOT_6, SLOT_7, SLOT_8 -> TitanAbilities.REGEN; // H / N are mutation-only (v0.13.22); never routed here
-		};
+		TitanMove m = TitanMove.of(TitanType.GENERIC_TITAN, Math.min(6, slot.ordinal() + 1), false);
+		return m == null ? TitanMove.REGEN.id : m.id;
 	}
 
 	public static int maxCooldown(String abilityId) {
-		var a = TitanShifterConfig.abilities();
-		return switch (abilityId) {
-			case TitanAbilities.PUNCH -> a.punchCooldown;
-			case TitanAbilities.SMASH -> a.smashCooldown;
-			case TitanAbilities.STOMP -> a.stompCooldown;
-			case TitanAbilities.LEAP -> a.leapCooldown;
-			case TitanAbilities.ROAR -> a.roarCooldown;
-			case TitanAbilities.REGEN -> a.regenCooldown;
-			case TitanAbilities.HARDEN -> a.hardenCooldown;
-			default -> 0;
-		};
+		TitanMove m = TitanMove.byId(abilityId);
+		return m == null ? 0 : Math.max(0, m.cooldown());
 	}
 }

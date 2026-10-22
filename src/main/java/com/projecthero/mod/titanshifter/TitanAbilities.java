@@ -43,7 +43,7 @@ public final class TitanAbilities {
 	// ---------------- shared plumbing ----------------
 
 	/** The form to act with, or null (with feedback) if the ability cannot fire right now. */
-	private static TitanFormEntity begin(ServerPlayer player, String id) {
+	static TitanFormEntity begin(ServerPlayer player, String id) {
 		TitanShifterState s = TitanShifter.state(player);
 		TitanFormEntity form = TitanShifter.formOf(player);
 		if (!s.unlocked || s.phase() != TitanPhase.TITAN || form == null || !form.isAlive()) {
@@ -62,63 +62,97 @@ public final class TitanAbilities {
 		return form;
 	}
 
-	private static net.minecraft.network.chat.Component Component_translatable(String id) {
+	static net.minecraft.network.chat.Component Component_translatable(String id) {
 		return net.minecraft.network.chat.Component.translatable("projecthero.titan_shifter.ability." + id);
 	}
 
-	private static boolean stillGood(TitanFormEntity form) {
+	static boolean stillGood(TitanFormEntity form) {
 		return form.isAlive() && !form.isDefeated() && form.formState() == TitanFormEntity.FORM_NORMAL;
 	}
 
-	private static ServerLevel level(TitanFormEntity form) {
+	static ServerLevel level(TitanFormEntity form) {
 		return (ServerLevel) form.level();
 	}
 
 	// ---------------- Ability 1: Titan Punch (Shift = Titan Kick) ----------------
 
+	/** Titan Kick (Shift+R, Attack Titan): a wide, low sweep. */
+	public static void kick(ServerPlayer player) {
+		TitanFormEntity form = begin(player, KICK);
+		if (form == null) {
+			return;
+		}
+		if (form.legsLeft() < 2) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.no_leg", ChatFormatting.GRAY);
+			return;
+		}
+		var d = TitanShifterConfig.damage();
+		TitanShifter.startCooldown(player, KICK, TitanMove.KICK.cooldown(), 1);
+		ServerLevel level = level(form);
+		form.play("kick");
+		level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP,
+				SoundSource.HOSTILE, 2.5f, 0.35f);
+		form.schedule(TitanMove.KICK.impactTick, () -> {
+			if (!stillGood(form)) {
+				return;
+			}
+			var box = TitanCombat.fistBox(form, 4.5, form.getBbWidth() * 0.9);
+			int n = TitanCombat.hitBox(form, player, new net.minecraft.world.phys.AABB(box.minX, form.getY(), box.minZ,
+					box.maxX, form.getY() + form.getBbHeight() * 0.3, box.maxZ), (float) d.kick, d.punchKnockback * 1.4, 0.55,
+					form.position());
+			meleeFx(level, defaultFxSpot(form), 1.1f, n);
+		});
+	}
+
+	public static final String KICK = "kick";
+
+	/**
+	 * R: the punch combo -- punch (right), punch (left), heavy punch (right). v0.16.7: the Female Titan's version is a fast
+	 * crystal-fist jab, the Armoured Titan's a slow plated haymaker, the Beast Titan's a long-armed swipe (+3 reach); a missing
+	 * arm's swings come from the other arm, and with no arms there is no punch. Rage (Attack Titan) speeds it up.
+	 */
 	public static void punch(ServerPlayer player) {
 		TitanFormEntity form = begin(player, PUNCH);
 		if (form == null) {
 			return;
 		}
+		if (form.armsLeft() == 0) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.no_arms", ChatFormatting.GRAY);
+			return;
+		}
 		var a = TitanShifterConfig.abilities();
 		var d = TitanShifterConfig.damage();
-		TitanShifter.startCooldown(player, PUNCH, a.punchCooldown, 1);
+		TitanType type = form.titanType();
+		int cd = (int) Math.max(4, Math.round(a.punchCooldown * type.comboCooldownScale() * form.attackSpeedFactor()));
+		TitanShifter.startCooldown(player, PUNCH, cd, 1);
 		ServerLevel level = level(form);
 		long now = level.getGameTime();
 
-		if (player.isShiftKeyDown()) {
-			// Titan Kick: a wide, low sweep
-			form.play("kick");
-			level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.PLAYER_ATTACK_SWEEP,
-					SoundSource.HOSTILE, 2.5f, 0.35f);
-			form.schedule(7, () -> {
-				if (!stillGood(form)) {
-					return;
-				}
-				var box = TitanCombat.fistBox(form, 4.5, form.getBbWidth() * 0.9);
-				int n = TitanCombat.hitBox(form, player, new net.minecraft.world.phys.AABB(box.minX, form.getY(), box.minZ,
-						box.maxX, form.getY() + form.getBbHeight() * 0.3, box.maxZ), (float) d.kick, d.punchKnockback * 1.4, 0.55,
-						form.position());
-				meleeFx(level, defaultFxSpot(form), 1.1f, n);
-			});
-			return;
-		}
-
 		int combo = comboStep(player, now);
 		boolean heavy = combo >= 2;
-		form.play(heavy ? "heavy_punch" : "punch");
+		// right, left, right -- unless that arm is gone
+		boolean left = combo == 1;
+		if (left && !form.hasLimb(TitanFormEntity.LIMB_L_ARM)) {
+			left = false;
+		} else if (!left && !form.hasLimb(TitanFormEntity.LIMB_R_ARM)) {
+			left = true;
+		}
+		form.play(heavy ? "heavy_punch" : left ? "punch_left" : "punch");
 		level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.PLAYER_ATTACK_STRONG,
 				SoundSource.HOSTILE, 2.5f, heavy ? 0.3f : 0.45f);
-		form.schedule(heavy ? 9 : 6, () -> {
+		double extra = type.extraReach();
+		form.schedule(heavy ? 9 : TitanMove.PUNCH.impactTick, () -> {
 			if (!stillGood(form)) {
 				return;
 			}
 			float dmg = (float) (heavy ? d.heavyPunch : d.punch);
+			if (type == TitanType.FEMALE_TITAN && !heavy) {
+				dmg *= 0.85f; // quick jabs: a little lighter, much faster
+			}
 			double kb = heavy ? d.punchKnockback * 1.8 : d.punchKnockback;
 			// v0.13.10: aimed -- the fist swings from the shoulder toward the crosshair (up, level or down),
 			// on top of the old volume right in front of the Titan
-			double reach = heavy ? 5.5 : 4.5;
+			double reach = (heavy ? 5.5 : 4.5) + extra;
 			Vec3 tip = TitanCombat.aimedFistTip(form, player, form.getBbWidth() * 0.5 + reach + 3.0);
 			int n = TitanCombat.hitAimedFist(form, player, tip, reach, form.getBbWidth() * 0.55, dmg, kb,
 					heavy ? 0.5 : 0.25);
@@ -146,12 +180,12 @@ public final class TitanAbilities {
 		return step;
 	}
 
-	private static Vec3 defaultFxSpot(TitanFormEntity form) {
+	static Vec3 defaultFxSpot(TitanFormEntity form) {
 		Vec3 fwd = Vec3.directionFromRotation(0, form.getYRot());
 		return form.position().add(fwd.scale(form.getBbWidth() * 0.5 + 3.0)).add(0, form.getBbHeight() * 0.35, 0);
 	}
 
-	private static void meleeFx(ServerLevel level, Vec3 at, float power, int hits) {
+	static void meleeFx(ServerLevel level, Vec3 at, float power, int hits) {
 		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y, at.z, hits > 0 ? 2 : 1, 0.6, 0.6, 0.6, 0.0);
 		level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 6, 0.6, 0.5, 0.6, 0.05);
 		if (hits > 0) {
@@ -167,6 +201,12 @@ public final class TitanAbilities {
 		if (form == null) {
 			return;
 		}
+		if (form.armsLeft() == 0) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.no_arms", ChatFormatting.GRAY);
+			return;
+		}
+		// v0.16.7: one arm gone -- a one-fisted smash, 60% as hard
+		float oneArm = form.armsLeft() == 2 ? 1.0f : 0.6f;
 		var a = TitanShifterConfig.abilities();
 		var d = TitanShifterConfig.damage();
 		TitanShifter.startCooldown(player, SMASH, a.smashCooldown, 2);
@@ -194,7 +234,7 @@ public final class TitanAbilities {
 			}
 			form.lockFor(8);
 			Vec3 at = smashPoint(form, player);
-			int n = TitanCombat.hitRadius(form, player, at, a.smashRadius, (float) d.heavySmash, d.smashKnockback, 0.7);
+			int n = TitanCombat.hitRadius(form, player, at, a.smashRadius, (float) d.heavySmash * oneArm, d.smashKnockback, 0.7);
 			TitanCombat.impactFx(level, at, a.smashRadius * 1.3, 1.6f);
 			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, at.x, at.y + 0.5, at.z, 1, 0, 0, 0, 0);
 			TitanCombat.impactBlocks(level, at, a.smashRadius);
@@ -208,7 +248,7 @@ public final class TitanAbilities {
 	 * so something on a ledge or up in the air can be smashed); if the crosshair is on nothing, a point
 	 * straight down the look direction when looking up, or the old ground spot otherwise.
 	 */
-	private static Vec3 smashPoint(TitanFormEntity form, ServerPlayer player) {
+	static Vec3 smashPoint(TitanFormEntity form, ServerPlayer player) {
 		double bodyHalf = form.getBbWidth() * 0.5;
 		TitanCombat.Aim aim = TitanCombat.aim(form, player, bodyHalf + SMASH_AIM_RANGE + form.getBbHeight() * 0.3);
 		if (aim.hitSomething()) {
@@ -259,11 +299,17 @@ public final class TitanAbilities {
 			TitanShifter.say(player, "message.projecthero.titan_shifter.need_ground", ChatFormatting.GRAY);
 			return;
 		}
+		if (form.legsLeft() < 2) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.no_leg", ChatFormatting.GRAY);
+			return;
+		}
 		var a = TitanShifterConfig.abilities();
 		// v0.12.35: leaping while sprinting (or already running) is a long jump
 		boolean sprintLeap = form.isRunning() || TitanShifter.sprintHeld(player.getUUID());
-		double leapH = sprintLeap ? a.leapSprintHorizontal : a.leapHorizontal;
-		double leapV = sprintLeap ? a.leapSprintVertical : a.leapVertical;
+		// v0.16.7: the Armoured Titan is heavy (70%), the Female Titan agile (125%)
+		double scale = form.titanType().leapScale();
+		double leapH = (sprintLeap ? a.leapSprintHorizontal : a.leapHorizontal) * scale;
+		double leapV = (sprintLeap ? a.leapSprintVertical : a.leapVertical) * Math.sqrt(scale);
 		TitanShifter.startCooldown(player, LEAP, a.leapCooldown, 3);
 		ServerLevel level = level(form);
 		form.play("leap");
@@ -374,6 +420,10 @@ public final class TitanAbilities {
 		}
 		LivingEntity held = form.held();
 		if (held == null) {
+			if (form.armsLeft() == 0) {
+				TitanShifter.say(player, "message.projecthero.titan_shifter.no_arms", ChatFormatting.GRAY);
+				return;
+			}
 			grab(player, form);
 		} else {
 			bite(player, form, held);

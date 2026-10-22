@@ -502,8 +502,9 @@ public final class ModAttachments {
 					builder -> builder.persistent(com.projecthero.mod.titanshifter.data.TitanShifterState.CODEC)
 							.copyOnDeath()
 							.initializer(com.projecthero.mod.titanshifter.data.TitanShifterState::new)
+							// v0.16.7: synced to everyone -- other players pose a shifter's Partial Shifting moves from it
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.titanshifter.data.TitanShifterState.CODEC),
-									AttachmentSyncPredicate.targetOnly()));
+									AttachmentSyncPredicate.all()));
 
 	/**
 	 * The whole All Might / One For All power for one player (v0.12.33): the power, the chosen form, OFA Power, Full Cowl

@@ -350,6 +350,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					com.projecthero.mod.client.titanshifter.TitanRoarSenseClient.accept(payload.ids(), payload.ticks(), now);
 				}));
 
+		// v0.16.7 (user, Titan revamp): a Titan Serum was drunk -- pick (or re-forge into) a Titan.
+		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.TitanPickerPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> context.client().setScreen(
+						new com.projecthero.mod.client.titanshifter.TitanPickerScreen(payload.current()))));
+
 		// Wolverine senses: the per-viewer orange hunter glow + the N-key sniff highlight.
 		ClientPlayNetworking.registerGlobalReceiver(com.projecthero.mod.network.WolverineSensePayload.TYPE,
 				(payload, context) -> context.client().execute(() -> {

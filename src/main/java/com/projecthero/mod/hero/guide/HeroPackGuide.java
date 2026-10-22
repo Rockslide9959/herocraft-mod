@@ -1003,18 +1003,35 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.titan_shifter.controls");
 			lines.add(Component.literal(" H  ").withStyle(ChatFormatting.GOLD)
 					.append(Component.translatable("projecthero.guide.titan_shifter.shift_key").withStyle(ChatFormatting.WHITE)));
-			for (String slot : new String[]{"R", "G", "X", "Z", "V", "C", "Shift+C"}) {
+			// v0.16.7 (user, Titan revamp): the keys every Titan shares; each Titan's own moves follow
+			for (String slot : new String[]{"R", "G", "X", "Z", "V", "Shift+V", "C", "Shift+C"}) {
 				String key = switch (slot) {
 					case "R" -> "punch"; case "G" -> "heavy_smash"; case "X" -> "leap"; case "Z" -> "stomp";
-					case "V" -> "roar"; case "C" -> "regeneration"; default -> "hardening";
+					case "V" -> "roar"; case "Shift+V" -> "nape_guard"; case "C" -> "regeneration"; default -> "hardening";
 				};
 				lines.add(Component.literal(" " + slot + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.titan_shifter.ability." + key).withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.guide.titan_shifter.ability." + key);
+				if (!"nape_guard".equals(key)) {
+					para(lines, "projecthero.guide.titan_shifter.ability." + key);
+				}
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.titan_shifter.stats");
 			para(lines, "projecthero.guide.titan_shifter.stats.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.kits");
+			for (com.projecthero.mod.titanshifter.TitanType t : com.projecthero.mod.titanshifter.TitanType.values()) {
+				para(lines, "projecthero.guide.titan_shifter.kit." + t.id);
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.nape");
+			para(lines, "projecthero.guide.titan_shifter.nape.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.limbs");
+			para(lines, "projecthero.guide.titan_shifter.limbs.body");
+			blank(lines);
+			head(lines, "projecthero.guide.titan_shifter.human");
+			para(lines, "projecthero.guide.titan_shifter.human.body");
 			blank(lines);
 			head(lines, "projecthero.guide.titan_shifter.defeat");
 			para(lines, "projecthero.guide.titan_shifter.defeat.body");
