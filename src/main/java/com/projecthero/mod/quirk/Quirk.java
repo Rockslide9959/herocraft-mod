@@ -25,7 +25,7 @@ public enum Quirk {
 	EXPLOSION("explosion", "Explosion", "Ground Zero", "sweat", 0xFFFFB020, 120),
 	ZERO_GRAVITY("zero_gravity", "Zero Gravity", "Uravity", "nausea", 0xFFFF8FC8, 140),
 	/** v0.16.7: One For All -- standalone (its own All Might engine and state), hero key {@code all_might}. Keep it LAST. */
-	ONE_FOR_ALL("one_for_all", "One For All", "All Might", "output", 0xFFFFC83A, 160, "all_might");
+	ONE_FOR_ALL("one_for_all", "One For All", "One For All", "output", 0xFFFFC83A, 160, "all_might");
 
 	/** State / lang / texture id: {@code projecthero.quirk.<id>}, {@code textures/entity/quirk/<id>_wide.png}. */
 	public final String id;
