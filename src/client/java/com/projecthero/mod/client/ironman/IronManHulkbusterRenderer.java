@@ -34,10 +34,16 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 		return instance;
 	}
 
+	/** v0.16.7 (user): the pose at the player's render origin, for {@link HulkbusterLocators} (render thread). */
+	private final org.joml.Matrix4f origin = new org.joml.Matrix4f();
+	private float frameTick;
+
 	/** Render {@code player} as the Hulkbuster at model scale 1 (undoing the scale attribute GeckoLib applies). */
 	public void renderBody(AbstractClientPlayer player, float entityYaw, float partialTick, PoseStack poseStack, MultiBufferSource buffer,
 			int packedLight) {
 		float s = Math.max(0.01f, player.getScale());
+		origin.set(poseStack.last().pose());
+		frameTick = partialTick;
 		poseStack.pushPose();
 		poseStack.scale(1f / s, 1f / s, 1f / s);
 		try {
@@ -58,6 +64,22 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 			}
 		}
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
+	}
+
+	/** v0.16.7 (user): record the jet / palm / reactor locators for the flight and unibeam VFX (no fx geometry any more). */
+	@Override
+	public void renderRecursively(PoseStack poseStack, IronManHulkbusterAnimatable animatable,
+			software.bernie.geckolib.cache.object.GeoBone bone, net.minecraft.client.renderer.RenderType renderType,
+			MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender, float partialTick,
+			int packedLight, int packedOverlay, int colour) {
+		if (!isReRender && currentEntity != null) {
+			int slot = HulkbusterLocators.slotOf(bone);
+			if (slot >= 0) {
+				HulkbusterLocators.capture(currentEntity, slot, bone, poseStack, origin, frameTick);
+			}
+		}
+		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight,
+				packedOverlay, colour);
 	}
 
 	static void showAll(software.bernie.geckolib.cache.object.GeoBone bone) {

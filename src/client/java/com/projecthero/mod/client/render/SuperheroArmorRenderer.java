@@ -551,6 +551,12 @@ public class SuperheroArmorRenderer extends GeoArmorRenderer<SuperheroArmorItem>
 					&& !com.projecthero.mod.client.spider.SpiderSuitRender.legacyShell) {
 				return;
 			}
+			// v0.16.7 (user) Hulkbuster fixes: the Hulkbuster I is never drawn as player armour (the old player-size Mark 8
+			// textures) -- worn whole it is the Hulkbuster body (PlayerRendererHulkbusterMixin), racked / previewed it is
+			// that body too (HulkbusterDisplay), and the Stark Gantry never builds it.
+			if (getAnimatable() != null && "mark_8".equals(getAnimatable().armorSetId())) {
+				return;
+			}
 			// Max Steel's Turbo Stealth fades the suit out entirely.
 			if (getCurrentEntity() instanceof Player p
 					&& com.projecthero.mod.client.maxsteel.MaxSteelReveal.isStealthed(p)) {

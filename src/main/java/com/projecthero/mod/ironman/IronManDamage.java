@@ -62,6 +62,7 @@ public final class IronManDamage {
 			IronManComicState.forget(id);
 			com.projecthero.mod.ironman.ability.IronManComicRouter.forget(id);
 			IronManIntegrity.forget(id);
+			HulkbusterShield.forget(id); // v0.16.7 (user)
 			com.projecthero.mod.ironman.ability.era1.EraOneEject.forget(id); // v0.16.7
 		});
 	}
@@ -129,6 +130,11 @@ public final class IronManDamage {
 		}
 		// v0.16.1: the comic Energy Shields / Hydraulic Brace (a share of the hit is stopped outright)
 		float factor = IronManComicState.incomingFactor(player, suit, source);
+		// v0.16.7 (user): a working Hulkbuster takes the whole hit itself, like a Titan Shifter's Titan (HulkbusterShield)
+		if (HulkbusterShield.take(player, suit, source, scaled * factor)) {
+			IronManIntegrity.markCombat(player);
+			return false;
+		}
 		// v0.16.1: the suit absorbs its share of what is left, from integrity
 		float landed = absorb(player, suit, source, scaled * factor);
 		if (landed < 0.05f && amount > 0f) {

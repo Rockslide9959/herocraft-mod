@@ -129,7 +129,7 @@ public final class HulkbusterCrate {
 	 * The suit is back in orbit: its four stacks go into {@code owner}'s emptied uplink (else a new one, placed like a
 	 * folded briefcase); with no owner online the uplink drops where the crate stood.
 	 */
-	static void toOrbit(ServerLevel level, ServerPlayer owner, List<ItemStack> pieces, float integrity, Vec3 at) {
+	public static void toOrbit(ServerLevel level, ServerPlayer owner, List<ItemStack> pieces, float integrity, Vec3 at) {
 		NonNullList<ItemStack> slots = NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		boolean any = false;
 		for (ItemStack s : pieces) {

@@ -128,6 +128,13 @@ public abstract class PlayerRendererMixin {
 		}
 	}
 
+	/** v0.16.7 (user): climbing out of / into a Hulkbuster's back, the whole body pitches about the hips. */
+	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
+	private void projecthero$hulkbusterClimb(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,
+			float rotationYaw, float partialTicks, float scale, CallbackInfo ci) {
+		com.projecthero.mod.client.ironman.HulkbusterClimbPose.rotate(player, poseStack);
+	}
+
 	/** v0.14.11: the speed-force whirl of a Flash Ring suit-up (two turns) / suit-down (one turn back). */
 	@Inject(method = "setupRotations(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;FFFF)V", at = @At("TAIL"))
 	private void projecthero$flashWhirl(AbstractClientPlayer player, PoseStack poseStack, float ageInTicks,

@@ -26,12 +26,36 @@ public final class IronManBeamClient {
 				context.client().execute(() -> draw(context.client(), payload)));
 	}
 
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: the mega-beam (kind 11) is VFX only now -- no beam cube on the model -- so it starts
+	 * at the reactor where the shooting Hulkbuster body is actually drawn ({@code beam_fx}, {@link
+	 * com.projecthero.mod.client.ironman.HulkbusterLocators}). The nearest Hulkbuster within 3 blocks of the server's start
+	 * point is the shooter; with none drawn (first person) the server's point is kept.
+	 */
+	private static Vec3 hulkbusterReactor(ClientLevel level, Vec3 start) {
+		Vec3 best = start;
+		double bestD = 9.0;
+		for (net.minecraft.world.entity.player.Player p : level.players()) {
+			com.projecthero.mod.client.ironman.HulkbusterLocators.Frame f = com.projecthero.mod.client.ironman.HulkbusterLocators.fresh(p);
+			if (f == null) {
+				continue;
+			}
+			Vec3 at = p.position().add(f.pos[com.projecthero.mod.client.ironman.HulkbusterLocators.BEAM]);
+			double d = at.distanceToSqr(start);
+			if (d < bestD) {
+				bestD = d;
+				best = at;
+			}
+		}
+		return best;
+	}
+
 	private static void draw(Minecraft client, IronManBeamPayload beam) {
 		ClientLevel level = client.level;
 		if (level == null) {
 			return;
 		}
-		Vec3 a = beam.start();
+		Vec3 a = beam.kind() == 11 ? hulkbusterReactor(level, beam.start()) : beam.start();
 		Vec3 b = beam.end();
 		double length = a.distanceTo(b);
 		// v0.14.27: kind 4 = a Mark III minigun tracer -- just the streak and a spark where it lands (no flash spam)

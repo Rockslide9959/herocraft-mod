@@ -41,6 +41,18 @@ public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<I
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
 	}
 
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: face the sentry's own yaw. The sentry is a plain {@code Entity}, for which GeckoLib
+	 * passes a body yaw of 0 -- so the body always faced south, and an owner stepping out "backwards" (along the suit's
+	 * facing) came out of its FRONT whenever they had not been facing south.
+	 */
+	@Override
+	protected void applyRotations(Body animatable, com.mojang.blaze3d.vertex.PoseStack poseStack, float ageInTicks, float rotationYaw,
+			float partialTick, float nativeScale) {
+		float yaw = currentEntity == null ? rotationYaw : currentEntity.getViewYRot(partialTick);
+		super.applyRotations(animatable, poseStack, ageInTicks, yaw, partialTick, nativeScale);
+	}
+
 	/** The sentry's animatable (one singleton, keyed per entity by GeckoLib). */
 	public static final class Body implements GeoReplacedEntity {
 		static final Body INSTANCE = new Body();
@@ -50,6 +62,8 @@ public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<I
 		private static final RawAnimation IDLE = RawAnimation.begin().thenLoop(P + "idle");
 		private static final RawAnimation WALK = RawAnimation.begin().thenLoop(P + "walk");
 		private static final RawAnimation HOVER = RawAnimation.begin().thenLoop(P + "jet_hover");
+		/** v0.16.7 (user): a wrecked Hulkbuster staggers, drops to one knee and stays down, smoking. */
+		private static final RawAnimation WRECKED = RawAnimation.begin().thenPlay(P + "wreck_collapse").thenLoop(P + "wrecked");
 		private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
 		@Override
@@ -65,6 +79,9 @@ public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<I
 		private PlayState main(AnimationState<Body> state) {
 			if (!(state.getData(DataTickets.ENTITY) instanceof IronManSentryEntity s)) {
 				return PlayState.STOP;
+			}
+			if (s.wrecked()) {
+				return state.setAndContinue(WRECKED); // v0.16.7 (user): down on one knee until it reboots
 			}
 			if (s.isOpen()) {
 				return state.setAndContinue(OPEN);

@@ -80,8 +80,15 @@ public class IronManSuitPlatformRenderer implements BlockEntityRenderer<IronManS
 		pose.pushPose();
 		pose.translate(0.5, DISPLAY_Y_OFFSET + bob, 0.5);
 		pose.mulPose(Axis.YP.rotationDegrees(spin));
-		pose.scale(RACK_SCALE, RACK_SCALE, RACK_SCALE);
-		dispatcher.render(rack, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, packedLight);
+		if (com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(be.storedSuitId())) {
+			// v0.16.7 (user): the racked Hulkbuster is its real body (scaled to the rack), never the old player armour
+			float hb = com.projecthero.mod.client.ironman.HulkbusterDisplay.RACK_SCALE;
+			pose.scale(hb, hb, hb);
+			com.projecthero.mod.client.ironman.HulkbusterDisplay.render(level, pose, buffers, packedLight, partialTick, 0f);
+		} else {
+			pose.scale(RACK_SCALE, RACK_SCALE, RACK_SCALE);
+			dispatcher.render(rack, 0.0, 0.0, 0.0, 0.0f, partialTick, pose, buffers, packedLight);
+		}
 		pose.popPose();
 		dispatcher.setRenderShadow(true);
 		// v0.15.20, user request: welding arms rise out of the pad's open front while a damaged suit is repaired; the suit

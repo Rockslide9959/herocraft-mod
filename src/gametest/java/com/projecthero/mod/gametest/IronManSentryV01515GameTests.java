@@ -107,36 +107,49 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 
 	// ------------------------------------------------------------------ step out / step in
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void deployWalksTheOwnerBackwardsOutOfTheBack(GameTestHelper h) {
+	/**
+	 * v0.16.7 (user): the Hulkbuster's Sentry Mode climbs its owner up and out of the BACK -- riding the suit along the
+	 * climb path (over the rim, along the open plate, a hop and a drop) -- onto the ground behind it, facing away.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void deployClimbsTheOwnerOutOfTheBack(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = suitedTony(h, new BlockPos(3, 2, 3));
 		IronManSentryEntity s = deploy(h, p);
 		h.assertTrue(s.isOpen() && s.phase() == IronManSentryEntity.PHASE_EJECT, "the back opens");
-		h.runAfterDelay(IronManSentryEntity.EJECT_PUSH_TICK + IronManSentryEntity.STEP_OUT_TICKS / 2, () -> {
-			h.assertTrue(s.stepperId() == p.getId() && s.stepKind() == IronManSentryEntity.STEP_OUT,
-					"mid-way the owner is the one being walked out (body locked to the suit)");
+		Vec3 fwd = Vec3.directionFromRotation(0f, s.getYRot());
+		h.runAfterDelay(24, () -> {
+			h.assertTrue(s.stepperId() == p.getId() && s.stepKind() == IronManSentryEntity.STEP_CLIMB_OUT,
+					"mid-way the owner is the one climbing out");
+			h.assertTrue(p.getVehicle() == s, "carried along the climb (riding the suit)");
+			double along = p.position().subtract(s.position()).dot(fwd);
+			h.assertTrue(along < -0.2 && p.getY() > s.getY() + 1.0, "up over the rim and out of the back (" + along + ", "
+					+ (p.getY() - s.getY()) + ")");
+			h.assertTrue(IronManSentryEntity.steppingIn(p), "unhurtable while climbing");
 			h.assertTrue(s.isOpen(), "still open");
 		});
-		h.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> {
-			Vec3 fwd = Vec3.directionFromRotation(0f, s.getYRot());
+		h.runAfterDelay(IronManSentryEntity.CLIMB_OUT_CLOSE_TICK + 3, () -> {
 			double along = p.position().subtract(s.position()).dot(fwd);
-			h.assertTrue(along < -0.6, "the owner ended up BEHIND the suit -- walked backwards out of its back (" + along + ")");
-			h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() - s.getYRot())) < 1f, "still facing the suit's way");
+			h.assertTrue(along < -1.4, "the owner ended up well BEHIND the suit -- out of its back (" + along + ")");
+			h.assertTrue(Math.abs(p.getY() - s.getY()) < 0.6, "down on the ground (" + (p.getY() - s.getY()) + ")");
+			h.assertTrue(p.getVehicle() == null, "off the ride");
+			h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() - (s.getYRot() + 180f))) < 1f, "facing away from it, the way they climbed");
 			h.assertTrue(!s.isOpen() && s.phase() == IronManSentryEntity.PHASE_IDLE, "then it closes");
-			h.assertTrue(s.stepperId() == -1, "and lets go of them");
+			h.assertTrue(s.stepperId() == -1 && !IronManSentryEntity.steppingIn(p), "and lets go of them");
 			s.discard();
 			leave(h, p);
 			h.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	/** v0.16.7 (user): round behind it, then (the Hulkbuster) up onto the open plate and in over the rim. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
 	public void stepInGoesRoundBehindTurnsToItsFacingAndWalksIn(GameTestHelper h) {
 		floor(h);
 		ServerPlayer p = suitedTony(h, new BlockPos(3, 2, 2));
 		IronManSentryEntity s = deploy(h, p);
-		h.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> {
+		boolean[] sawClimb = { false };
+		h.runAfterDelay(IronManSentryEntity.CLIMB_OUT_CLOSE_TICK + 2, () -> {
 			// stand IN FRONT of it, facing it
 			Vec3 front = s.position().add(Vec3.directionFromRotation(0f, s.getYRot()).scale(2.0));
 			p.teleportTo(h.getLevel(), front.x, front.y, front.z, s.getYRot() + 180f, 0f);
@@ -144,13 +157,19 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 			h.assertTrue(s.use(p, true), "Sneak + right-click the open suit: step in");
 			h.assertTrue(s.stepKind() == IronManSentryEntity.STEP_APPROACH, "first they are walked round to its back");
 			h.succeedWhen(() -> {
-				if (s.stepKind() == IronManSentryEntity.STEP_IN) {
+				if (s.stepKind() == IronManSentryEntity.STEP_IN || s.stepKind() == IronManSentryEntity.STEP_CLIMB_IN) {
 					// caught on the way in: behind it and turned to face its way
 					double along = p.position().subtract(s.position()).dot(Vec3.directionFromRotation(0f, s.getYRot()));
 					h.assertTrue(along <= 0.05, "coming in from behind (" + along + ")");
 					h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() - s.getYRot())) < 1f, "facing the suit's way");
+					if (s.stepKind() == IronManSentryEntity.STEP_CLIMB_IN) {
+						sawClimb[0] = true;
+						h.assertTrue(p.getVehicle() == s, "climbing in, carried by the suit");
+					}
 				}
 				h.assertTrue(s.isRemoved() && IronManArmor.wearingFullSuit(p, SUIT), "and it closes around them");
+				h.assertTrue(sawClimb[0], "the Hulkbuster was climbed into (not walked into)");
+				h.assertTrue(p.getVehicle() == null, "off the ride once it is on");
 				h.assertTrue(Math.abs(Mth.wrapDegrees(p.getYRot() - s.getYRot())) < 1f, "lined up with the suit");
 				leave(h, p);
 			});
@@ -291,7 +310,7 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		h.assertTrue(s.phase() == IronManSentryEntity.PHASE_EJECT && s.isOpen(), "it opens and the owner steps out first");
 		h.assertTrue(s.homeDock() != null && s.homeDock().equals(be.getBlockPos()), "bound for the platform");
 		h.assertTrue(!IronManArmor.wearingAnyIronMan(p), "the owner is out of it");
-		h.runAfterDelay(IronManSentryEntity.EJECT_CLOSE_TICK + 2, () -> h.assertTrue(
+		h.runAfterDelay(IronManSentryEntity.CLIMB_OUT_CLOSE_TICK + 2, () -> h.assertTrue(
 				!s.isOpen() && s.phase() == IronManSentryEntity.PHASE_HOME, "closed, then off home"));
 		h.succeedWhen(() -> {
 			h.assertTrue(s.isRemoved(), "the sentry is gone");

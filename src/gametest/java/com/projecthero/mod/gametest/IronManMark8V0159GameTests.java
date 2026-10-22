@@ -99,7 +99,7 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 		// v0.16.1 comic rework: the HULKBUSTER
 		h.assertTrue(m8.maxIntegrity() == 4500f, "4500 integrity, got " + m8.maxIntegrity());
 		h.assertTrue(m8.strengthBonus() == 16f, "+16 melee, got " + m8.strengthBonus());
-		h.assertTrue(Math.abs(m8.absorbShare() - 0.60f) < 1e-4f, "absorbs 60% of a hit");
+		h.assertTrue(Math.abs(m8.absorbShare() - 1.0f) < 1e-4f, "takes every hit itself (v0.16.7: HulkbusterShield, was 60%)");
 		h.assertTrue(m8.selfRepairPerSecond() == 0f && m8.wornIntegrityRegenPerSecond() == 0f, "never self-repairs");
 		h.assertTrue(m8.hulkbuster() && m8.scale() == 1.45f, "the Hulkbuster, scaled x1.45");
 		h.assertTrue(m8.waterBreathing(), "breathes underwater");

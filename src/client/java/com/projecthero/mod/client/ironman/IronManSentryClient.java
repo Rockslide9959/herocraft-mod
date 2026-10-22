@@ -198,7 +198,7 @@ public final class IronManSentryClient {
 	/** Is this step kind one where the player's body is locked to the suit (walking out, walking in, closing)? */
 	private static boolean locked(int kind) {
 		return kind == IronManSentryEntity.STEP_OUT || kind == IronManSentryEntity.STEP_IN
-				|| kind == IronManSentryEntity.STEP_WRAP;
+				|| kind == IronManSentryEntity.STEP_WRAP || HulkbusterClimbPose.climbing(kind); // v0.16.7: + the Hulkbuster climbs
 	}
 
 	/** The sentry walking {@code player} out of / into it right now, if any (render / client thread). */
@@ -223,7 +223,8 @@ public final class IronManSentryClient {
 			}
 			STEPPERS.put(s.stepperId(), s);
 			if (mc.level.getEntity(s.stepperId()) instanceof LivingEntity le) {
-				float yaw = s.getYRot();
+				// v0.16.7 (user): climbing out of a Hulkbuster's back they face away from it
+				float yaw = s.getYRot() + (s.stepKind() == IronManSentryEntity.STEP_CLIMB_OUT ? 180f : 0f);
 				le.yBodyRot = yaw;
 				le.yBodyRotO = yaw;
 				if (Math.abs(Mth.wrapDegrees(le.yHeadRot - yaw)) > 60f) {
@@ -243,6 +244,10 @@ public final class IronManSentryClient {
 		if (s == null) {
 			return;
 		}
+		if (HulkbusterClimbPose.climbing(s.stepKind())) {
+			HulkbusterClimbPose.apply(s, model); // v0.16.7 (user): climbing out of / into the Hulkbuster's back
+			return;
+		}
 		float roll = OPEN_ARM_ROLL * Mth.DEG_TO_RAD;
 		float pitch = OPEN_ARM_PITCH * Mth.DEG_TO_RAD;
 		boolean closing = s.stepKind() == IronManSentryEntity.STEP_WRAP;
@@ -256,6 +261,8 @@ public final class IronManSentryClient {
 		if (closing) {
 			model.rightLeg.xRot = 0f;
 			model.leftLeg.xRot = 0f;
+			model.rightLeg.yRot = 0f; // v0.16.7: a Hulkbuster pilot rides the suit while it closes (no sitting splay)
+			model.leftLeg.yRot = 0f;
 			model.rightLeg.zRot = 0f;
 			model.leftLeg.zRot = 0f;
 			model.head.xRot = 0f;
