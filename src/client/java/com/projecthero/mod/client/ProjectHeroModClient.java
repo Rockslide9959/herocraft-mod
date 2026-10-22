@@ -1064,6 +1064,10 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ClientPlayNetworking.send(new com.projecthero.mod.miraculous.network.MiraculousActionPayload(
 					com.projecthero.mod.miraculous.network.MiraculousActionPayload.Action.TOGGLE_KWAMI_HIDDEN));
 		} else if (down && !maxSteelTransformWasDown && client.player != null && !Screen.hasShiftDown()
+				&& com.projecthero.mod.quirk.darkshadow.DarkShadow.is(client.player) && !mutationSelected(client)) {
+			// v0.16.7 (user): Dark Shadow -- N hides it in your body / calls it back out (the server checks berserk / cooldown)
+			ClientPlayNetworking.send(com.projecthero.mod.quirk.darkshadow.DarkShadowHidePayload.INSTANCE);
+		} else if (down && !maxSteelTransformWasDown && client.player != null && !Screen.hasShiftDown()
 				&& com.projecthero.mod.spider.SpiderMan.hasPower(client.player) && !mutationSelected(client)) {
 			// v0.16.1: Spider-Man -- plain N switches the automatic wall crawl on / off (Shift+N still falls through to
 			// Nova's helmet / the Stark Gear screen below; a selected mutation keeps its own Utility 2)

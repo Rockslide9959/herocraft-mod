@@ -28,7 +28,8 @@ import net.minecraft.world.entity.player.Player;
  * every viewer), the Black Ankh armour layer ({@link DarkShadowAnkhLayer}), Tokoyami's poses ({@link DarkShadowPose}) and
  * its HUD block:
  * <pre>
- *   Night  x1.43  (or Daylight / Pitch dark / Recalled ... -- wrapped)   the darkness it feels and its strength
+ *   Night  x1.43  (or Daylight / Pitch dark / Hidden ... -- wrapped)     the darkness it feels and its strength
+ *   N: hide it                                                           (v0.16.7 user: the N hide key, dim, while it is out)
  *   [darkness gauge, light-to-dark]
  *   Shadow [==========-----] 63                                          the meter (red, pulsing, at Berserk)
  * </pre>
@@ -114,10 +115,23 @@ public final class DarkShadowClient implements QuirkClientKit {
 		g.fill(mx - 1, y - 2, mx + 2, y + gh + 2, 0xFFFFFFFF);
 		y -= 3;
 
+		// ---- v0.16.7 (user): the N hide key -- a dim hint while it is out (wrapped)
+		String nKey = com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM.getTranslatedKeyMessage().getString();
+		if (!DarkShadow.recalled(player) && !berserk) {
+			List<FormattedCharSequence> hint = mc.font.split(Component.translatable("hud.projecthero.dark_shadow.hide_hint", nKey), width);
+			y -= hint.size() * 9;
+			int hy = y;
+			for (FormattedCharSequence line : hint) {
+				g.drawString(mc.font, line, x0, hy, HINT, false);
+				hy += 9;
+			}
+			y -= 1;
+		}
+
 		// ---- the state line (wrapped)
 		Component state;
 		if (DarkShadow.recalled(player)) {
-			state = Component.translatable("hud.projecthero.dark_shadow.recalled");
+			state = Component.translatable("hud.projecthero.dark_shadow.hidden", nKey);
 		} else if (berserk) {
 			state = Component.translatable("hud.projecthero.dark_shadow.state.berserk");
 		} else {

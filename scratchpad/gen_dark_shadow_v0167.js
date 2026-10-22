@@ -73,6 +73,12 @@ class DSModel extends L.Model {
 }
 
 // ================================================================ the creature
+// The arms' rest rotations (s = +1 its left, -1 its right, the side toward its user). OLD_* are the pre-fix rests: the
+// reaching clips were authored against them, so keep() re-bases their arm keys and those poses look as they did.
+const ARM_REST = s => [12, 0, s > 0 ? -14 : 6];
+const FOREARM_REST = s => [-20, 0, 4 * s];
+const OLD_ARM_REST = s => [-28, 0, -16 * s];
+const OLD_FOREARM_REST = s => [-38, 0, 4 * s];
 const M = new DSModel('dark_shadow', { D: 2, TW: 256 });
 M.k = 1 / 16;
 function buildCreature() {
@@ -107,9 +113,12 @@ function buildCreature() {
 	// ---- long thin arms with big clawed hands (+X = its left)
 	for (const [side, s] of [['l', 1], ['r', -1]]) {
 		const x = 4.6 * s;
-		M.bone('arm_' + side, 'chest', [x, 21, 0], [-28, 0, -16 * s]);
+		// v0.16.7 (user) "dark shadows hands are in his face": the arms used to rest reaching forward (-28 / -38), which put
+		// both clawed hands right beside Tokoyami's face. They now HANG: down from the shoulders, a little back and out, the
+		// elbows softly bent -- the hands rest behind its user's shoulder, never in front of his face (ARM_REST / FOREARM_REST).
+		M.bone('arm_' + side, 'chest', [x, 21, 0], ARM_REST(s));
 		M.oct('arm_' + side, x, 13, 21.4, 0, 1.1, 1.1, 'shadow', { seed: 40 });
-		M.bone('forearm_' + side, 'arm_' + side, [x, 13, 0], [-38, 0, 4 * s]);
+		M.bone('forearm_' + side, 'arm_' + side, [x, 13, 0], FOREARM_REST(s));
 		M.oct('forearm_' + side, x, 5.2, 13.3, 0, 0.95, 0.95, 'shadow', { seed: 42 });
 		M.box('forearm_' + side, x - 0.5, 9, 0.6, x + 0.5, 12.5, 2.2, 'wisp', { rot: [-30, 0, 0], pivot: [x, 12.5, 1], seed: 43 }); // a trailing wisp off the elbow
 		M.bone('hand_' + side, 'forearm_' + side, [x, 5.2, 0], [12, 0, 0]);
@@ -335,6 +344,22 @@ function clip(len, loop, bones, opts = {}, extras = EXTRAS_C) {
 	for (const e of extras) if (!b[e] || !b[e].s) b[e] = Object.assign({}, b[e] || {}, { s: HIDE });
 	return { len, loop, bones: b, hold: opts.hold };
 }
+/**
+ * Re-bases a reaching clip's arm / forearm keys from the old forward rest onto the new hanging one (ARM_REST), so its
+ * poses are unchanged. In a one-shot clip ({@code settle}) the closing [0,0,0] key stays 0, so it eases back to the NEW
+ * rest -- the hands drop back down at its sides instead of returning to his face.
+ */
+function keep(bones, len, settle) {
+	for (const [side, s] of [['l', 1], ['r', -1]]) {
+		for (const [b, o, n] of [['arm_' + side, OLD_ARM_REST(s), ARM_REST(s)], ['forearm_' + side, OLD_FOREARM_REST(s), FOREARM_REST(s)]]) {
+			const ch = bones[b];
+			if (!ch || !ch.r) continue;
+			const d = o.map((v, j) => v - n[j]);
+			ch.r = ch.r.map(([t, v]) => (settle && t >= len - 1e-6 && v.every(q => q === 0)) ? [t, v] : [t, v.map((q, j) => q + d[j])]);
+		}
+	}
+	return bones;
+}
 /** A travelling sway: one channel per chain bone, phase-shifted, so the body moves like a snake. */
 function wave(bones, len, amp, axis, phaseStep, extra = {}) {
 	const out = {};
@@ -392,10 +417,11 @@ C.timid = clip(2.4, true, merge(
 		chest: { r: [[0, [14, 0, 0]], [2.4, [14, 0, 0]]] },
 		neck1: { r: [[0, [10, 0, 0]], [2.4, [10, 0, 0]]] },
 		neck2: { r: [[0, [6, -12, 0]], [1.2, [6, 12, 0]], [2.4, [6, -12, 0]]] },
-		arm_l: { r: [[0, [-50, 30, 30]], [2.4, [-50, 30, 30]]] },
-		arm_r: { r: [[0, [-50, -30, -30]], [2.4, [-50, -30, -30]]] },
-		forearm_l: { r: [[0, [-50, 0, 0]], [2.4, [-50, 0, 0]]] },
-		forearm_r: { r: [[0, [-50, 0, 0]], [2.4, [-50, 0, 0]]] },
+		// v0.16.7 (user): the hands clutch its own chest (elbows tucked in at its sides), never reaching round his face
+		arm_l: { r: [[0, [-14, 0, 14]], [1.2, [-18, 0, 12]], [2.4, [-14, 0, 14]]] },
+		arm_r: { r: [[0, [-14, 0, -4]], [1.2, [-10, 0, -6]], [2.4, [-14, 0, -4]]] },
+		forearm_l: { r: [[0, [-95, -20, 0]], [1.2, [-100, -20, 0]], [2.4, [-95, -20, 0]]] },
+		forearm_r: { r: [[0, [-95, 20, 0]], [1.2, [-90, 20, 0]], [2.4, [-95, 20, 0]]] },
 		hood: { r: [[0, [14, 0, 0]], [2.4, [14, 0, 0]]] },
 	},
 	fingers('l', { f: [[0, [35, 0, 0]]], t: [[0, [35, 0, 0]]] }), fingers('r', { f: [[0, [35, 0, 0]]], t: [[0, [35, 0, 0]]] }),
@@ -463,10 +489,11 @@ C.shield = clip(1.6, true, {
 	wing_r: { r: [[0, [0, 78, 10]], [0.8, [0, 82, 6]], [1.6, [0, 78, 10]]] },
 	wing_l2: { r: [[0, [0, -75, 0]], [1.6, [0, -75, 0]]] },
 	wing_r2: { r: [[0, [0, 75, 0]], [1.6, [0, 75, 0]]] },
-	arm_l: { r: [[0, [-90, -50, 0]], [1.6, [-90, -50, 0]]] },
-	arm_r: { r: [[0, [-90, 50, 0]], [1.6, [-90, 50, 0]]] },
-	forearm_l: { r: [[0, [-30, 0, 0]], [1.6, [-30, 0, 0]]] },
-	forearm_r: { r: [[0, [-30, 0, 0]], [1.6, [-30, 0, 0]]] },
+	// v0.16.7 (user): the arms wrap LOW round his waist (they were level with his face)
+	arm_l: { r: [[0, [-40, -35, 10]], [0.8, [-44, -38, 10]], [1.6, [-40, -35, 10]]] },
+	arm_r: { r: [[0, [-40, 35, -10]], [0.8, [-44, 38, -10]], [1.6, [-40, 35, -10]]] },
+	forearm_l: { r: [[0, [-35, 0, 0]], [1.6, [-35, 0, 0]]] },
+	forearm_r: { r: [[0, [-35, 0, 0]], [1.6, [-35, 0, 0]]] },
 	neck1: { r: [[0, [14, 0, 0]], [1.6, [14, 0, 0]]] },
 	hood: { r: [[0, [-20, 0, 0]], [1.6, [-20, 0, 0]]] },
 });
@@ -480,10 +507,11 @@ C.berserk = clip(1.0, true, merge(
 		float: { p: [[0, [0, 1, 0]], [0.25, [-2, 2.5, -1]], [0.5, [1, 0, -2]], [0.75, [2, 2, 0]], [1.0, [0, 1, 0]]] },
 		head: { r: [[0, [-10, 0, 10]], [0.25, [15, 0, -14]], [0.5, [-15, 0, 14]], [0.75, [10, 0, -10]], [1.0, [-10, 0, 10]]] },
 		jaw: { r: [[0, [50, 0, 0]], [0.12, [8, 0, 0]], [0.25, [50, 0, 0]], [0.5, [50, 0, 0]], [0.62, [8, 0, 0]], [0.75, [50, 0, 0]], [1.0, [50, 0, 0]]] },
-		arm_l: { r: [[0, [-150, 0, -40]], [0.3, [-20, 0, -30]], [0.6, [-120, 0, -55]], [1.0, [-150, 0, -40]]] },
-		arm_r: { r: [[0, [-30, 0, 35]], [0.35, [-155, 0, 40]], [0.7, [-15, 0, 25]], [1.0, [-30, 0, 35]]] },
-		forearm_l: { r: [[0, [-50, 0, 0]], [0.3, [10, 0, 0]], [1.0, [-50, 0, 0]]] },
-		forearm_r: { r: [[0, [10, 0, 0]], [0.35, [-50, 0, 0]], [1.0, [10, 0, 0]]] },
+		// v0.16.7 (user): the claws rake overhead and out to the SIDES (the low forward swipes crossed his face)
+		arm_l: { r: [[0, [-150, 0, -40]], [0.3, [-25, 0, -70]], [0.6, [-120, 0, -75]], [1.0, [-150, 0, -40]]] },
+		arm_r: { r: [[0, [-25, 0, 70]], [0.35, [-155, 0, 40]], [0.7, [-15, 0, 75]], [1.0, [-25, 0, 70]]] },
+		forearm_l: { r: [[0, [-50, 0, 0]], [0.3, [-10, 0, 0]], [1.0, [-50, 0, 0]]] },
+		forearm_r: { r: [[0, [-10, 0, 0]], [0.35, [-50, 0, 0]], [1.0, [-10, 0, 0]]] },
 		tail: { r: [[0, [-10, 0, 14]], [0.5, [-10, 0, -14]], [1.0, [-10, 0, 14]]] },
 		hood: { r: [[0, [-30, 0, 0]], [0.5, [-10, 0, 0]], [1.0, [-30, 0, 0]]] },
 	},
@@ -528,14 +556,24 @@ C.fetch = clip(0.7, false, merge({
 	forearm_r: { r: [[0, [-40, 0, 0]], [0.15, [30, 0, 0]], [0.35, [30, 0, 0]], [0.5, [-60, 0, 0]], [0.7, [0, 0, 0]]] },
 	neck1: { r: [[0, [0, 0, 0]], [0.15, [15, 0, 0]], [0.7, [0, 0, 0]]] },
 }, fingers('r', { f: [[0, [0, 0, 0]], [0.15, [-40, 0, 0]], [0.25, [55, 0, 0]], [0.5, [55, 0, 0]], [0.7, [0, 0, 0]]], t: [[0, [0, 0, 0]], [0.15, [-30, 0, 0]], [0.25, [50, 0, 0]], [0.5, [50, 0, 0]], [0.7, [0, 0, 0]]] })));
-// recall: it shrinks and pours back into its user's back
-C.recall = clip(0.5, false, {
-	float: { p: [[0, [0, 0, 0]], [0.5, [0, -6, 1]]], s: [[0, [1, 1, 1]], [0.2, [1.1, 0.9, 1.1]], [0.5, [0.01, 0.01, 0.01]]] },
-	chest: { r: [[0, [0, 0, 0]], [0.3, [30, 0, 0]], [0.5, [30, 0, 0]]] },
-	neck1: { r: [[0, [0, 0, 0]], [0.3, [40, 0, 0]], [0.5, [40, 0, 0]]] },
-	arm_l: { r: [[0, [0, 0, 0]], [0.3, [-40, -20, 30]], [0.5, [-40, -20, 30]]] },
-	arm_r: { r: [[0, [0, 0, 0]], [0.3, [-40, 20, -30]], [0.5, [-40, 20, -30]]] },
-}, { hold: true });
+// recall (v0.16.7 user: N hides it): a startled flinch, then it folds up -- arms hugged in, the head ducked, the body
+// coiling down -- and pours back into its user's back, the smoky tail drawn in last
+C.recall = clip(0.6, false, merge({
+	float: { p: [[0, [0, 0, 0]], [0.12, [0, 1.2, 0.5]], [0.6, [0, -7, 1.5]]], s: [[0, [1, 1, 1]], [0.12, [1.06, 1.08, 1.06]], [0.3, [0.85, 0.7, 0.85]], [0.6, [0.01, 0.01, 0.01]]] },
+	spine1: { r: [[0, [0, 0, 0]], [0.12, [-8, 0, 0]], [0.45, [28, 0, 0]], [0.6, [32, 0, 0]]] },
+	spine3: { r: [[0, [0, 0, 0]], [0.45, [22, 0, 0]], [0.6, [24, 0, 0]]] },
+	chest: { r: [[0, [0, 0, 0]], [0.12, [-10, 0, 0]], [0.4, [32, 0, 0]], [0.6, [36, 0, 0]]] },
+	neck1: { r: [[0, [0, 0, 0]], [0.12, [-14, 0, 0]], [0.4, [42, 0, 0]], [0.6, [46, 0, 0]]] },
+	neck2: { r: [[0, [0, 0, 0]], [0.4, [20, 0, 0]], [0.6, [24, 0, 0]]] },
+	arm_l: { r: [[0, [0, 0, 0]], [0.12, [-6, 0, -12]], [0.4, [-12, 0, 16]], [0.6, [-12, 0, 18]]] },
+	arm_r: { r: [[0, [0, 0, 0]], [0.12, [-6, 0, 12]], [0.4, [-12, 0, -6]], [0.6, [-12, 0, -8]]] },
+	forearm_l: { r: [[0, [0, 0, 0]], [0.4, [-100, -20, 0]], [0.6, [-110, -20, 0]]] },
+	forearm_r: { r: [[0, [0, 0, 0]], [0.4, [-100, 20, 0]], [0.6, [-110, 20, 0]]] },
+	jaw: { r: [[0, [0, 0, 0]], [0.08, [26, 0, 0]], [0.25, [0, 0, 0]], [0.6, [0, 0, 0]]] },
+	hood: { r: [[0, [0, 0, 0]], [0.12, [-18, 0, 0]], [0.45, [20, 0, 0]], [0.6, [22, 0, 0]]] },
+	tail: { r: [[0, [0, 0, 0]], [0.3, [20, 0, 0]], [0.6, [40, 0, 0]]] },
+}, fingers('l', { f: [[0, [0, 0, 0]], [0.4, [50, 0, 0]], [0.6, [55, 0, 0]]], t: [[0, [0, 0, 0]], [0.4, [45, 0, 0]], [0.6, [50, 0, 0]]] }),
+	fingers('r', { f: [[0, [0, 0, 0]], [0.4, [50, 0, 0]], [0.6, [55, 0, 0]]], t: [[0, [0, 0, 0]], [0.4, [45, 0, 0]], [0.6, [50, 0, 0]]] })), { hold: true });
 // summon: it boils up out of its user's back and unfurls with a cry
 C.summon = clip(0.7, false, {
 	float: { p: [[0, [0, -6, 1]], [0.35, [0, 1.5, 0]], [0.7, [0, 0, 0]]], s: [[0, [0.01, 0.01, 0.01]], [0.3, [1.15, 1.15, 1.15]], [0.7, [1, 1, 1]]] },
@@ -546,21 +584,25 @@ C.summon = clip(0.7, false, {
 	jaw: { r: [[0, [0, 0, 0]], [0.3, [44, 0, 0]], [0.55, [30, 0, 0]], [0.7, [0, 0, 0]]] },
 	hood: { r: [[0, [0, 0, 0]], [0.35, [-30, 0, 0]], [0.7, [0, 0, 0]]] },
 });
-// calm: the light hits it -- it recoils, hides its eyes behind its hands and shrinks with a whimper
+// calm: the light hits it -- it recoils, turns its head away and hugs itself small with a whimper (v0.16.7 user: the
+// hands no longer come up over its face -- they clutch its chest, then sink back to its sides)
 C.calm = clip(1.4, false, merge({
 	float: { p: [[0, [0, 2, 1]], [0.25, [0, -1, 4]], [1.4, [0, -0.5, 2]]] },
 	spine1: { r: [[0, [-10, 0, 0]], [0.25, [-30, 0, 0]], [1.4, [-15, 0, 0]]] },
 	chest: { r: [[0, [-25, 0, 0]], [0.25, [30, 0, 0]], [1.4, [12, 0, 0]]] },
 	neck1: { r: [[0, [-35, 0, 0]], [0.25, [35, 0, 0]], [0.9, [28, 0, 0]], [1.4, [10, 0, 0]]] },
-	neck2: { r: [[0, [0, 0, 0]], [0.5, [0, -12, 0]], [0.8, [0, 12, 0]], [1.1, [0, -8, 0]], [1.4, [0, 0, 0]]] },
-	arm_l: { r: [[0, [-120, -30, 0]], [0.25, [-150, -55, 20]], [0.9, [-140, -50, 15]], [1.4, [-40, 20, 20]]] },
-	arm_r: { r: [[0, [-120, 30, 0]], [0.25, [-150, 55, -20]], [0.9, [-140, 50, -15]], [1.4, [-40, -20, -20]]] },
-	forearm_l: { r: [[0, [-60, 0, 0]], [0.25, [-85, 0, 0]], [1.4, [-40, 0, 0]]] },
-	forearm_r: { r: [[0, [-60, 0, 0]], [0.25, [-85, 0, 0]], [1.4, [-40, 0, 0]]] },
+	neck2: { r: [[0, [0, 0, 0]], [0.25, [0, 30, 0]], [0.5, [0, 18, 0]], [0.8, [0, 34, 0]], [1.1, [0, 20, 0]], [1.4, [0, 0, 0]]] },
+	arm_l: { r: [[0, [-30, 0, -30]], [0.25, [-18, 0, 16]], [0.9, [-16, 0, 14]], [1.4, [0, 0, 0]]] },
+	arm_r: { r: [[0, [-30, 0, 30]], [0.25, [-18, 0, -6]], [0.9, [-16, 0, -4]], [1.4, [0, 0, 0]]] },
+	forearm_l: { r: [[0, [-20, 0, 0]], [0.25, [-105, -20, 0]], [0.9, [-100, -20, 0]], [1.4, [0, 0, 0]]] },
+	forearm_r: { r: [[0, [-20, 0, 0]], [0.25, [-105, 20, 0]], [0.9, [-100, 20, 0]], [1.4, [0, 0, 0]]] },
 	jaw: { r: [[0, [40, 0, 0]], [0.2, [40, 0, 0]], [0.4, [4, 0, 0]], [0.6, [10, 0, 0]], [0.8, [3, 0, 0]], [1.4, [0, 0, 0]]] },
 	hood: { r: [[0, [-35, 0, 0]], [0.25, [18, 0, 0]], [1.4, [10, 0, 0]]] },
 	tail: { r: [[0, [0, 0, 0]], [0.25, [25, 0, 0]], [1.4, [10, 0, 0]]] },
 }, fingers('l', { f: [[0, [20, 0, 0]], [1.4, [30, 0, 0]]], t: [[0, [20, 0, 0]], [1.4, [30, 0, 0]]] }), fingers('r', { f: [[0, [20, 0, 0]], [1.4, [30, 0, 0]]], t: [[0, [20, 0, 0]], [1.4, [30, 0, 0]]] })));
+
+// the reaching / one-shot clips keep their authored arm poses on the new hanging rest (see keep())
+for (const n of ['strike', 'bite', 'grab', 'slam', 'nova', 'scout', 'fetch', 'summon']) keep(C[n].bones, C[n].len, !C[n].loop && !C[n].hold);
 
 // ---- the Black Ankh parts' clips (wings hidden unless Abyssal)
 const AE = ['wings'];
@@ -702,6 +744,29 @@ if (PREVIEW) {
 		return { label: `${a} ${t}`, items: [item(M, pose)], cam: { yaw: +(process.env.YAW || 35), pitch: 10 }, ownScale: true };
 	});
 	for (let k = 0; k < panels.length; k += 8) L.sheet(path.join(PREVIEW, `ds_clips_${k / 8}.png`), 'Dark Shadow clips', '', panels.slice(k, k + 8), { panelH: 560, minW: 2400, maxW: 3600 });
+	// v0.16.7 (user) "hands in his face" check: each pose WITH its user -- a plain player-sized stand-in placed exactly as
+	// DarkShadowRender places him relative to the creature's root (size s; the shield / berserk roots differ)
+	const U = new DSModel('user_standin', { D: 1, TW: 64 });
+	U.bone('root', null, [0, 0, 0]);
+	U.box('root', -4, 0, -1, -0.1, 12, 1, 'stand'); U.box('root', 0.1, 0, -1, 4, 12, 1, 'stand');
+	U.box('root', -4, 12, -2, 4, 24, 2, 'stand'); U.box('root', -8, 12, -2, -4, 24, 2, 'stand'); U.box('root', 4, 12, -2, 8, 24, 2, 'stand');
+	U.box('root', -4, 24, -4, 4, 32, 4, 'stand');
+	U.box('root', -3, 27, -4.3, -1, 28, -4, 'eye'); U.box('root', 1, 27, -4.3, 3, 28, -4, 'eye');
+	U.layout(); U.paint((c, f) => c.mat === 'eye' ? put([255, 220, 90], 255) : put([150 + (f === 'up' ? 40 : 0), 150, 140], 255));
+	const userAt = (name, sz) => name === 'shield' ? [0, -0.55, -0.35] : name === 'berserk' ? [-0.3, -1.22, -0.52] : [-(0.34 + 0.16 * sz), -1.22, -(0.22 + 0.12 * sz)];
+	const sizeOf = { idle: 1, timid: 0.45, shield: 0.85, berserk: 2.2, calm: 0.5, recall: 1, summon: 1, nova: 1, strike: 1, grab: 1, slam: 1, bite: 1, fetch: 1, scout: 1 };
+	const withUser = (process.env.USER_CLIPS || 'idle:0,idle:1.6,timid:0,timid:1.2,shield:0,calm:0.5,calm:1.4,berserk:0,berserk:0.3,berserk:0.7,recall:0.12,recall:0.4,summon:0.35,summon:0.7,strike:0.6,slam:0.55').split(',');
+	for (const [vlab, vyaw] of [['front', 0], ['three-quarter', 35], ['side', 90]]) {
+		const ps = withUser.map(sx => {
+			const [a, t] = sx.split(':');
+			const sz = sizeOf[a] || 1;
+			const pose = sample(C[a], +t);
+			return { label: `${a} ${t}`, cam: { yaw: vyaw, pitch: 8 }, ownScale: true,
+				items: [{ model: M, pose, scale: sz / 16, pos: [0, 0, 0], yaw: 0, hide: tiny(M, pose) },
+					{ model: U, pose: {}, scale: 1 / 16, pos: userAt(a, sz), yaw: 0, floorR: 0.6 }] };
+		});
+		for (let k = 0; k < ps.length; k += 8) L.sheet(path.join(PREVIEW, `ds_user_${vlab}_${k / 8}.png`), 'Dark Shadow with its user', vlab, ps.slice(k, k + 8), { panelH: 560, minW: 2400, maxW: 3600 });
+	}
 	const aw = sample(CA.wings, 0.2);
 	L.sheet(path.join(PREVIEW, 'ds_ankh.png'), 'Black Ankh parts', 'all parts at their limb origins (not on a body)',
 		views.map(([lab, yaw, pitch]) => ({ label: lab, items: [item(A, aw)], cam: { yaw, pitch } })), { panelH: 700, minW: 1800 });
