@@ -47,6 +47,8 @@ public final class ExplosionConfig {
 	public static final int SOFT_LANDING_MAX = 200;
 
 	// ---------------------------------------------------------------- Sweat (the meter, 0..100)
+	/** v0.16.7 (user): the sweat builds on its own, 4 a second (0.2 a tick), on top of what moving / fighting adds. */
+	public static final float SWEAT_NATURAL = 0.2f;
 	/** A tick of walking / sprinting / being in a fight. */
 	public static final float SWEAT_WALK = 0.08f;
 	public static final float SWEAT_SPRINT = 0.14f;
@@ -103,8 +105,9 @@ public final class ExplosionConfig {
 
 	// ---------------------------------------------------------------- X (hold): Explosion Propulsion / Shift+X: Explosion Dash
 	/** Propulsion (client-simulated, like every flight): cruise / sprint along the look, blocks a tick. */
-	public static final double PROPEL_SPEED = 0.95;
-	public static final double PROPEL_SPRINT_SPEED = 1.45;
+	// v0.16.7 (user): 22 blocks a second cruise (was 19); sprint scaled to match
+	public static final double PROPEL_SPEED = 1.1;
+	public static final double PROPEL_SPRINT_SPEED = 1.65;
 	public static final double PROPEL_VERTICAL = 0.5;
 	public static final double PROPEL_STRAFE = 0.8;
 	public static final double PROPEL_ACCELERATION = 0.2;
@@ -113,7 +116,8 @@ public final class ExplosionConfig {
 	public static final double PROPEL_IDLE = 0.12;
 	public static final double PROPEL_IDLE_SINK = 0.06;
 	/** A tick of flying burns this much Sweat (net of what flying sweats back: about 30 s from soaked); dry, it sputters out. */
-	public static final float PROPEL_SWEAT = 0.3f;
+	// v0.16.7 (user): 0.5 (was 0.3) so the natural 4/s sweat still leaves the same net drain -- about 30 s of flight from full
+	public static final float PROPEL_SWEAT = 0.5f;
 	public static final float PROPEL_MIN_SWEAT = 2f;
 	public static final float PROPEL_STRAIN = 0.35f;
 	/** A palm blast sound every this many ticks. */

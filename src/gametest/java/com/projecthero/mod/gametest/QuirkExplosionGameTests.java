@@ -394,6 +394,19 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.16.7 (user): the sweat charges on its own, 4 a second, standing still out of a fight. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void sweatChargesFourASecondOnItsOwn(GameTestHelper helper) {
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
+		Quirks.setMeter(p, 0f);
+		pump(helper, p);
+		helper.runAfterDelay(20, () -> {
+			float m = Quirks.meter(p);
+			helper.assertTrue(m > 3.4f && m < 6f, "about 4 sweat after a second standing still, got " + m);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
 	public void propulsionSputtersOutWhenDry(GameTestHelper helper) {
 		ServerPlayer p = bakugo(helper, 3.5, 4.0, 3.5);

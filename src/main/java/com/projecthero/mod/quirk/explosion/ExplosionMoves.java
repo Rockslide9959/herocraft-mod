@@ -249,7 +249,7 @@ public final class ExplosionMoves {
 		double moved = s.lastPos == null ? 0.0 : Math.hypot(pos.x - s.lastPos.x, pos.z - s.lastPos.z);
 		s.lastPos = pos;
 		boolean fighting = s.combatUntil > now;
-		float gain = 0f;
+		float gain = ExplosionConfig.SWEAT_NATURAL; // v0.16.7 (user): it charges on its own
 		if (moved > 0.08 || s.propel) {
 			gain += p.isSprinting() || s.propel ? ExplosionConfig.SWEAT_SPRINT : ExplosionConfig.SWEAT_WALK;
 			s.stillSince = now;
@@ -261,7 +261,8 @@ public final class ExplosionMoves {
 		if (p.isInWaterOrRain()) {
 			Quirks.addMeter(p, -ExplosionConfig.SWEAT_WASH);
 		} else if (gain > 0f) {
-			Quirks.addMeter(p, gain * heat(p));
+			// the natural 4/s is steady; only what moving / fighting adds scales with the heat
+			Quirks.addMeter(p, ExplosionConfig.SWEAT_NATURAL + (gain - ExplosionConfig.SWEAT_NATURAL) * heat(p));
 		} else if (now - s.stillSince > ExplosionConfig.DRY_DELAY) {
 			Quirks.addMeter(p, -ExplosionConfig.SWEAT_DRY);
 		}
