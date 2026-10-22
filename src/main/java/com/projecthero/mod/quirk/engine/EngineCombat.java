@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 /**
- * v0.16.7: Engine's shared hit code and its exhaust colours. Every hit goes through {@link #strike}: the mod-wide
+ * v0.16.7: Engine's shared hit code and its exhaust colours. Every hit goes through {@link #strike} (x1.5 in Recipro Turbo): the mod-wide
  * targeting rules ({@link HeroTargets}: never himself, a squadmate or a friendly pet; players only with PvP on); bosses
  * take at most {@link EngineConfig#BOSS_MAX_FRACTION_PER_HIT} of their max health a hit and are never knocked about.
  */
@@ -46,6 +46,9 @@ public final class EngineCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		if (Engine.turbo(owner)) {
+			damage *= EngineConfig.TURBO_DAMAGE_MULT; // v0.16.7: Recipro Turbo -- every hit +50%
+		}
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * EngineConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1f, dmg))) {
 			return false;
@@ -121,13 +124,18 @@ public final class EngineCombat {
 		return n;
 	}
 
-	/** Blue-white exhaust fire out of both calves, pushed backward along {@code back}. */
-	public static void exhaust(ServerLevel level, ServerPlayer p, int count, double speed) {
+	/** Where the calf engines sit (server approximation of the drawn nozzles: the outer back of each calf). */
+	public static Vec3 calf(ServerPlayer p, int side) {
 		float yaw = p.yBodyRot * ((float) Math.PI / 180f);
 		Vec3 fwd = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
 		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
+		return p.position().add(right.scale(side * 0.22 * p.getScale())).add(fwd.scale(-0.1 * p.getScale())).add(0, 0.38 * p.getScale(), 0);
+	}
+
+	/** Blue-white exhaust fire out of both calves' engines. */
+	public static void exhaust(ServerLevel level, ServerPlayer p, int count, double speed) {
 		for (int side = -1; side <= 1; side += 2) {
-			Vec3 at = p.position().add(right.scale(side * 0.13)).add(fwd.scale(-0.2)).add(0, 0.35, 0);
+			Vec3 at = calf(p, side);
 			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y, at.z, count, 0.04, 0.06, 0.04, 0.01 * speed);
 			level.sendParticles(EXHAUST, at.x, at.y, at.z, count, 0.06, 0.06, 0.06, 0.0);
 		}

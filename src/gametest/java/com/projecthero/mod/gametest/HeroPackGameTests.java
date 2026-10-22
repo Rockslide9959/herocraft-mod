@@ -325,7 +325,8 @@ public class HeroPackGameTests implements FabricGameTest {
 				all.append(text).append('\n');
 			}
 			// v0.16.7: the costume is a craftable suit -- the chapter lists its pieces and the recipe
-			String helmet = com.projecthero.mod.quirk.item.QuirkSuits.piece(q, net.minecraft.world.item.ArmorItem.Type.HELMET).getDescription().getString();
+			// (v0.16.7: the chestplate -- the Ingenium suit has no helmet any more)
+			String helmet = com.projecthero.mod.quirk.item.QuirkSuits.piece(q, net.minecraft.world.item.ArmorItem.Type.CHESTPLATE).getDescription().getString();
 			helper.assertTrue(all.indexOf(helmet) >= 0 && all.indexOf("Recipe:") >= 0 && all.indexOf("5%") >= 0,
 					q + " lists the suit, its recipe and how to get the Quirk");
 		}

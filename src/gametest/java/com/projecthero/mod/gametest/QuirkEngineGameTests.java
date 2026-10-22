@@ -35,7 +35,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 Engine (Tenya Iida / Ingenium), revamped: the gears (speed, momentum, heat), Recipro inside the mode, the one dash,
+ * v0.16.7 Engine (Tenya Iida / Ingenium), revamped: the gears (20 / 30 / 40 b/s, momentum, heat), Recipro Turbo (the mode:
+ * 30 s at 2x, no heat, +50% damage, then a minute's stall; Burst / Extend gone), the one dash (the Turbo Strike in Turbo),
  * every kick and the stall. Mock players are not ticked by the server, so tests that run over time
  * drive the Quirk tick themselves ({@link #pump}).
  */
@@ -174,13 +175,38 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** Flat-ground sprint speed (blocks a second) a movement-speed attribute value runs at (see SuperSpeedHandlers.BLOCKS_PER_SECOND_PER_SPEED). */
+	private static double sprintBps(double attribute) {
+		return attribute * 1.3 * com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.BLOCKS_PER_SECOND_PER_SPEED;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void gearTopSpeedsAre20_30_40BlocksASecond(GameTestHelper helper) {
+		double[] want = { 0.0, 20.0, 30.0, 40.0 };
+		for (int g = 1; g <= 3; g++) {
+			helper.assertTrue(Math.abs(EngineMoves.runBps(g, 1f, 1.0) - want[g]) < 1e-6, "Gear " + g + " top is " + want[g]);
+			double bps = EngineConfig.VANILLA_SPRINT_BPS * (1.0 + EngineMoves.speedBonus(g, 1f, 1.0));
+			helper.assertTrue(Math.abs(bps - want[g]) < 0.01, "Gear " + g + "'s modifier sprints at " + bps);
+		}
+		helper.assertTrue(Math.abs(EngineConfig.VANILLA_SPRINT_BPS - 5.612) < 0.01, "vanilla sprint is 5.6 b/s");
+		// on a real player: Gear 3 with the run built, the attribute itself sprints at 40 b/s (the modifier is stepped 0.05)
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		EngineMoves.setGear(p, 3);
+		EngineMoves.setMomentum(p, 1f);
+		QuirkKits.of(Quirk.ENGINE).tick(p);
+		double attr = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(Math.abs(sprintBps(attr) - 40.0) < 0.5, "Gear 3 sprints at " + sprintBps(attr) + " b/s");
+		helper.assertTrue(p.getAttribute(Attributes.MOVEMENT_SPEED).getModifier(EngineMoves.GEAR_ID).operation()
+				== AttributeModifier.Operation.ADD_MULTIPLIED_BASE, "an ADD_MULTIPLIED_BASE modifier, like Super Speed's");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
 	public void eachGearIsFasterAndMomentumBuildsTheRest(GameTestHelper helper) {
 		helper.assertTrue(EngineMoves.speedBonus(1, 1f, 1.0) < EngineMoves.speedBonus(2, 1f, 1.0)
 				&& EngineMoves.speedBonus(2, 1f, 1.0) < EngineMoves.speedBonus(3, 1f, 1.0), "each gear is faster");
-		helper.assertTrue(Math.abs(EngineMoves.speedBonus(3, 1f, 1.0) - 1.4) < 1e-6, "Gear 3 flat out is Speed VII (+140%)");
-		helper.assertTrue(Math.abs(EngineMoves.speedBonus(1, 1f, 1.0) - 0.6) < 1e-6, "Gear 1 flat out is Speed III");
 		helper.assertTrue(EngineMoves.speedBonus(3, 0f, 1.0) < EngineMoves.speedBonus(3, 1f, 1.0) * 0.5, "a fresh gear starts well below its top");
+		helper.assertTrue(1f / EngineConfig.MOMENTUM_BUILD[3] <= 30f, "Gear 3 builds to the top in 1.5 s or less");
 		ServerPlayer p = engine(helper, 4.5, 2.0, 0.5);
 		EngineMoves.setGear(p, 2);
 		run(helper, p, 0.45);
@@ -243,47 +269,122 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- Recipro (inside the mode)
+	// ---------------------------------------------------------------- C: Recipro Turbo (the mode)
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void gearUpAtTopGearIsReciproBurstThenExtend(GameTestHelper helper) {
+	public void gearUpAtTopGearDoesNothingMore(GameTestHelper helper) {
 		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
 		EngineMoves.setGear(p, 3);
-		EngineMoves.setMomentum(p, 1f);
-		EngineMoves.shiftUp(p);
-		helper.assertTrue(Engine.running(p, Engine.V_BURST), "V at Gear 3 engages Recipro Burst");
-		QuirkKits.of(Quirk.ENGINE).tick(p);
-		double burst = mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID);
-		helper.assertTrue(Math.abs(burst - EngineMoves.speedBonus(3, EngineMoves.momentum(p), EngineConfig.BURST_MULT)) < 0.03,
-				"double the gear's speed, got " + burst);
-		helper.assertTrue(burst > 3.5, "Recipro Burst at Gear 3 is about 4.8x walking speed");
-		Quirks.edit(p, n -> n.abilityReadyAt.clear());
-		EngineMoves.shiftUp(p);
-		helper.assertTrue(Engine.running(p, Engine.V_EXTEND) && !Engine.running(p, Engine.V_BURST), "V again in Burst is Recipro Extend");
-		QuirkKits.of(Quirk.ENGINE).tick(p);
-		helper.assertTrue(mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID) > burst, "Extend is faster still");
+		helper.assertTrue(EngineMoves.shiftUp(p) == -1 && EngineMoves.gear(p) == 3, "V at Gear 3: Max gear, nothing else");
+		helper.assertFalse(Engine.running(p, Engine.V_TURBO), "and no Recipro (Burst / Extend are gone)");
+		var kit = QuirkKits.of(Quirk.ENGINE);
+		for (AbilitySlot slot : AbilitySlot.values()) {
+			for (String id : kit.idsOf(slot)) {
+				helper.assertFalse(id.equals("quirk_engine_recipro_burst") || id.equals("quirk_engine_recipro_extend"), "no Recipro Burst / Extend key: " + id);
+			}
+		}
+		helper.assertTrue(kit.maxCooldown("quirk_engine_recipro_burst") == 0 && kit.maxCooldown("quirk_engine_recipro_extend") == 0,
+				"Burst / Extend are not moves any more");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_6)[0].equals(EngineConfig.TURBO), "Recipro Turbo is on C");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void reciproBurstEndsCleanlyButExtendStalls(GameTestHelper helper) {
-		ServerPlayer a = engine(helper, 1.5, 2.0, 4.5);
-		ServerPlayer b = engine(helper, 6.5, 2.0, 4.5);
-		EngineMoves.setGear(a, 3);
-		EngineMoves.setGear(b, 3);
-		EngineMoves.burst(a);
-		EngineMoves.extend(b);
-		pump(helper, a);
-		pump(helper, b);
-		helper.runAfterDelay(2, () -> {
-			EngineMoves.shiftDown(a); // ends the Burst
-			EngineMoves.shiftDown(b); // ends the Extend -- into its stall
+	public void reciproTurboIsThirtySecondsAtDoubleSpeed(GameTestHelper helper) {
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		EngineMoves.setGear(p, 3);
+		EngineMoves.setMomentum(p, 1f);
+		helper.assertTrue(EngineMoves.turbo(p), "C engages Recipro Turbo");
+		helper.assertTrue(Engine.val(p, Engine.V_TURBO) - p.level().getGameTime() == EngineConfig.TURBO_TICKS && EngineConfig.TURBO_TICKS == 600,
+				"for 30 s");
+		helper.assertTrue(Engine.turbo(p), "Turbo reads as running");
+		QuirkKits.of(Quirk.ENGINE).tick(p);
+		double m = mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID);
+		helper.assertTrue(Math.abs(m - EngineMoves.speedBonus(3, 1f, EngineConfig.TURBO_MULT)) < 0.03, "double the gear's speed, modifier " + m);
+		double bps = sprintBps(p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		helper.assertTrue(Math.abs(bps - 80.0) < 0.6, "Gear 3 in Turbo sprints at 80 b/s, got " + bps);
+		// a lower gear in Turbo is double THAT gear
+		EngineMoves.setGear(p, 1);
+		EngineMoves.setMomentum(p, 1f);
+		QuirkKits.of(Quirk.ENGINE).tick(p);
+		bps = sprintBps(p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		helper.assertTrue(Math.abs(bps - 40.0) < 0.6, "Gear 1 in Turbo sprints at 40 b/s, got " + bps);
+		// neutral: Turbo puts him in Gear 1
+		ServerPlayer q = engine(helper, 1.5, 2.0, 4.5);
+		EngineMoves.turbo(q);
+		helper.assertTrue(EngineMoves.gear(q) == 1, "Turbo from neutral is Gear 1");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void reciproTurboHasNoHeatAndNoStall(GameTestHelper helper) {
+		ServerPlayer p = engine(helper, 4.5, 2.0, 0.5);
+		EngineMoves.setGear(p, 3);
+		EngineMoves.turbo(p);
+		Quirks.setMeter(p, 50f);
+		run(helper, p, 0.4);
+		helper.runAfterDelay(40, () -> {
+			helper.assertTrue(Math.abs(Quirks.meter(p) - 50f) < 0.01f, "sprinting at Gear 3 in Turbo builds no heat: " + Quirks.meter(p));
+			EngineMoves.heat(p, 80f);
+			EngineMoves.kick(p);
+			helper.assertTrue(Math.abs(Quirks.meter(p) - 50f) < 0.01f && !Quirks.overloaded(p), "moves add no heat, no stall: " + Quirks.meter(p));
+			helper.succeed();
 		});
-		helper.runAfterDelay(6, () -> {
-			helper.assertTrue(!Engine.recipro(a) && !Quirks.overloaded(a), "Burst ends with no stall");
-			helper.assertTrue(Quirks.overloaded(b), "Extend ends in the stall");
-			helper.assertTrue(b.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && b.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2, "Slowness III");
-			helper.assertTrue(Quirks.overloadLeft(b) > EngineConfig.EXTEND_STALL_TICKS - 10, "a 6 s stall");
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void reciproTurboHitsHalfAgainHarder(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 2.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 4.5, 100);
+		EngineMoves.turbo(p);
+		EngineMoves.setSpeed(p, 0.0);
+		EngineMoves.kick(p);
+		float t = taken(z, 100);
+		helper.assertTrue(Math.abs(t - EngineConfig.KICK_DAMAGE * 1.5f) < EPS, "a standing kick is 7.5 in Turbo (+50%), took " + t);
+		QuirkKits.of(Quirk.ENGINE).tick(p);
+		helper.assertTrue(Math.abs(mod(p, Attributes.ATTACK_DAMAGE, EngineMoves.TURBO_DAMAGE_ID) - 0.5) < 1e-6, "and his plain melee +50%");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void reciproTurboEndsInAOneMinuteStall(GameTestHelper helper) {
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		EngineMoves.setGear(p, 3);
+		EngineMoves.turbo(p);
+		pump(helper, p);
+		// run it out: the timer reaches its end
+		helper.runAfterDelay(2, () -> Quirks.setVal(p, Engine.V_TURBO, p.level().getGameTime() + 2));
+		helper.runAfterDelay(8, () -> {
+			helper.assertFalse(Engine.running(p, Engine.V_TURBO), "Turbo is over");
+			helper.assertTrue(Quirks.overloaded(p) && Engine.stalled(p), "the engines stall");
+			helper.assertTrue(Quirks.overloadLeft(p) > EngineConfig.TURBO_STALL_TICKS - 12 && EngineConfig.TURBO_STALL_TICKS == 1200, "for a minute: "
+					+ Quirks.overloadLeft(p));
+			helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && p.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2
+					&& p.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getDuration() > 1100, "a slow walk the whole time");
+			helper.assertTrue(EngineMoves.gear(p) == 0 && mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID) == 0.0, "no gears");
+			helper.assertTrue(mod(p, Attributes.ATTACK_DAMAGE, EngineMoves.TURBO_DAMAGE_ID) == 0.0, "the damage boost is gone");
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+			helper.assertTrue(EngineMoves.gear(p) == 0 && Quirks.ready(p, EngineConfig.KICK), "no gears, no moves while stalled");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void cAgainEndsTurboEarlyIntoTheStall(GameTestHelper helper) {
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		EngineMoves.setGear(p, 2);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		helper.assertTrue(Engine.running(p, Engine.V_TURBO), "C engages it");
+		helper.assertTrue(!Quirks.ready(p, EngineConfig.TURBO), "and its cooldown runs");
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false));
+		helper.runAfterDelay(4, () -> QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true));
+		helper.runAfterDelay(8, () -> {
+			helper.assertFalse(Engine.running(p, Engine.V_TURBO), "C again ends it despite the cooldown");
+			helper.assertTrue(Quirks.overloadLeft(p) > EngineConfig.TURBO_STALL_TICKS - 12, "into the minute-long stall");
 			helper.succeed();
 		});
 	}
@@ -409,18 +510,20 @@ public class QuirkEngineGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void reciproTurboStrikesThePathThenStalls(GameTestHelper helper) {
+	public void dashInTurboIsTheTurboStrike(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = engine(helper, 4.5, 2.0, 0.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 4.0, 100);
 		Pig pig = mob(helper, EntityType.PIG, 1.5, 2.0, 4.0, 10);
-		pump(helper, p);
 		EngineMoves.turbo(p);
-		helper.runAfterDelay(EngineConfig.TURBO_TICKS + 3, () -> {
-			helper.assertTrue(EngineMoves.turboHit(p).contains(z.getId()), "the zombie in the path was hit");
-			helper.assertTrue(Math.abs(taken(z, 100) - EngineConfig.TURBO_DAMAGE) < EPS, "18 damage");
+		pump(helper, p);
+		EngineMoves.dash(p);
+		helper.assertTrue(Engine.running(p, Engine.V_STRIKE), "X in Turbo is the Turbo Strike");
+		helper.runAfterDelay(EngineConfig.STRIKE_TICKS + 3, () -> {
+			helper.assertTrue(EngineMoves.strikeHit(p).contains(z.getId()), "the zombie in the path was hit");
+			helper.assertTrue(Math.abs(taken(z, 100) - EngineConfig.STRIKE_DAMAGE * 1.5f) < EPS, "18 +50% = 27 damage, took " + taken(z, 100));
 			helper.assertTrue(pig.getHealth() == 10f, "a pig 3 blocks off the path is left alone");
-			helper.assertTrue(Quirks.overloaded(p), "the engines red-line and stall");
+			helper.assertTrue(!Quirks.overloaded(p) && Engine.running(p, Engine.V_TURBO), "Turbo keeps running (no stall)");
 			helper.succeed();
 		});
 	}

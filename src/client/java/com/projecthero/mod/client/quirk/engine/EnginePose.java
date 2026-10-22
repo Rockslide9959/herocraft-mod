@@ -19,13 +19,13 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.16.7 (revamp): Ingenium's poses on the vanilla humanoid model, set at the end of {@code setupAnim}. Two layers:
  * <ul>
- *   <li><b>The run</b> (procedural, from the synced gear / momentum / Recipro): a racer's forward lean that deepens with
+ *   <li><b>The run</b> (procedural, from the synced gear / momentum / Recipro Turbo): a racer's forward lean that deepens with
  *       each gear and with the momentum, long driving strides, arms pumping straight like Iida's; the skid of a sliding
  *       turn (braced leg, arms out for balance); the stall (slumped, head down).</li>
  *   <li><b>The moves</b> (keyframed, {@link QuirkKeyframes}, from the synced {@code animId / animStart}, ids 60..79): the
- *       gear-change clutch and brake, the Recipro sprinter's set and launch, the dash, the speed kick, the spin kick, the
- *       kick barrage, the charged Extend Kick, the flip Rising Kick, the axe kick, the low sweep, the Turbo strike (a
- *       flying kick) and the three-part finisher.</li>
+ *       gear-change clutch and brake, the Recipro Turbo sprinter's set and launch, the dash, the speed kick, the spin
+ *       kick, the kick barrage, the charged Extend Kick, the flip Rising Kick, the axe kick, the low sweep, the Turbo
+ *       Strike (a flying kick) and the three-part finisher.</li>
  * </ul>
  * The whole-body turns (the spin / sweep / finisher turns, the Rising Kick's back flip) are {@link #bodyTurn}, applied by
  * {@code QuirkBodyTurnMixin}.
@@ -44,16 +44,11 @@ public final class EnginePose {
 			rest(0),
 			f(3, -0.35f, 0, 0.55f, -0.35f, 0, -0.55f, -0.22f, 0, -0.55f, 0, 0.05f, 0.25f, 0, -0.05f, 0.15f),
 			rest(9) };
-	/** V at Gear 3: Recipro Burst -- a sprinter's set (deep crouch, arms back), the engines flare, then the explosive first stride. */
-	static final float[][] BURST = {
-			rest(0),
-			f(3, 0.9f, 0, 0.2f, 0.9f, 0, -0.2f, 0.75f, 0, -0.95f, 0, 0, 0.55f, 0, 0, -0.45f),
-			f(6, 0.95f, 0, 0.25f, 0.95f, 0, -0.25f, 0.8f, 0, -1.0f, 0, 0, 0.6f, 0, 0, -0.5f),
-			f(8, -1.35f, 0, 0.1f, 1.1f, 0, -0.1f, 0.55f, 0, 0.8f, 0, 0, -1.25f, 0, 0, -0.35f),
-			f(11, 1.0f, 0, 0.1f, -1.2f, 0, -0.1f, 0.5f, 0, -1.1f, 0, 0, 0.8f, 0, 0, -0.3f),
-			rest(15) };
-	/** V in Burst: Recipro Extend -- the same set held longer and lower while the engines scream, then a bigger launch. */
-	static final float[][] EXTEND = {
+	/**
+	 * C: Recipro Turbo engaged -- a sprinter's set held low while the calf engines ignite blue and scream, then the
+	 * explosive launch into the run.
+	 */
+	static final float[][] TURBO_ON = {
 			rest(0),
 			f(3, 1.0f, 0, 0.3f, 1.0f, 0, -0.3f, 0.85f, 0, -1.1f, 0, 0.05f, 0.6f, 0, -0.05f, -0.55f),
 			f(9, 1.05f, 0, 0.35f, 1.05f, 0, -0.35f, 0.9f, 0, -1.15f, 0, 0.05f, 0.65f, 0, -0.05f, -0.6f),
@@ -118,14 +113,14 @@ public final class EnginePose {
 			f(4, -1.1f, 0, 0.7f, -1.1f, 0, -0.7f, 0.8f, 0, -0.3f, 0, 1.35f, -1.0f, 0, 0, -0.5f),
 			f(9, -1.1f, 0, 0.7f, -1.1f, 0, -0.7f, 0.8f, 0, -0.3f, 0, 1.35f, -1.0f, 0, 0, -0.5f),
 			rest(14) };
-	/** C: Recipro Turbo -- a low set, then the strike as one flying kick: the lead leg thrust ahead, arms swept back. */
-	static final float[][] TURBO = {
+	/** X in Turbo: the Turbo Strike -- a low set, then the rush as one flying kick: the lead leg thrust ahead, arms swept back. */
+	static final float[][] STRIKE = {
 			rest(0),
 			f(2, 1.0f, 0, 0.3f, 1.0f, 0, -0.3f, 0.9f, 0, -0.4f, 0, 0, 0.8f, 0, 0, -0.55f),
 			f(4, 1.15f, 0, 0.45f, 1.15f, 0, -0.45f, 0.25f, 0, -1.55f, 0, 0.05f, 0.95f, 0, -0.05f, -0.15f),
-			f(EngineConfig.TURBO_TICKS + 3, 1.15f, 0, 0.45f, 1.15f, 0, -0.45f, 0.25f, 0, -1.55f, 0, 0.05f, 0.95f, 0, -0.05f, -0.15f),
-			f(EngineConfig.TURBO_TICKS + 7, -0.4f, 0, 0.5f, -0.4f, 0, -0.5f, 0.55f, 0, -0.5f, 0, 0.1f, 0.4f, 0, -0.1f, 0.2f),
-			rest(EngineConfig.TURBO_TICKS + 12) };
+			f(EngineConfig.STRIKE_TICKS + 3, 1.15f, 0, 0.45f, 1.15f, 0, -0.45f, 0.25f, 0, -1.55f, 0, 0.05f, 0.95f, 0, -0.05f, -0.15f),
+			f(EngineConfig.STRIKE_TICKS + 7, -0.4f, 0, 0.5f, -0.4f, 0, -0.5f, 0.55f, 0, -0.5f, 0, 0.1f, 0.4f, 0, -0.1f, 0.2f),
+			rest(EngineConfig.STRIKE_TICKS + 12) };
 	/** Shift+C: Ingenium Finisher -- a straight kick, a spinning kick (whole-body turn), then the high afterburner kick. */
 	static final float[][] FINISHER = {
 			rest(0),
@@ -162,8 +157,7 @@ public final class EnginePose {
 		return switch (animId) {
 			case Engine.ANIM_SHIFT_UP -> SHIFT_UP;
 			case Engine.ANIM_SHIFT_DOWN -> SHIFT_DOWN;
-			case Engine.ANIM_BURST -> BURST;
-			case Engine.ANIM_EXTEND -> EXTEND;
+			case Engine.ANIM_TURBO_ON -> TURBO_ON;
 			case Engine.ANIM_KICK -> KICK;
 			case Engine.ANIM_SPIN -> SPIN;
 			case Engine.ANIM_DASH -> DASH;
@@ -172,7 +166,7 @@ public final class EnginePose {
 			case Engine.ANIM_EXTEND_KICK -> EXTEND_KICK;
 			case Engine.ANIM_AXE -> AXE;
 			case Engine.ANIM_SWEEP -> SWEEP;
-			case Engine.ANIM_TURBO -> TURBO;
+			case Engine.ANIM_STRIKE -> STRIKE;
 			case Engine.ANIM_FINISHER -> FINISHER;
 			case Engine.ANIM_STALL -> STALL;
 			default -> null;

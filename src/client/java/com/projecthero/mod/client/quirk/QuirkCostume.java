@@ -306,6 +306,22 @@ public final class QuirkCostume {
 		}
 	}
 
+	/**
+	 * v0.16.7: only the legs (worn leggings / boots) on {@code parent}'s posed legs -- the Engine Quirk's first-person legs
+	 * ({@code EngineFirstPersonLegs}).
+	 */
+	public static void renderLegs(PoseStack pose, MultiBufferSource buffers, int light, LivingEntity entity, HumanoidModel<?> parent) {
+		boolean slim = slim(entity);
+		Tex legs = worn(entity, EquipmentSlot.LEGS);
+		Tex feet = worn(entity, EquipmentSlot.FEET);
+		if (legs != null) {
+			draw(pose, buffers, light, OverlayTexture.NO_OVERLAY, parent, slim, legs.legs(), false, false, true);
+		}
+		if (feet != null) {
+			draw(pose, buffers, light, OverlayTexture.NO_OVERLAY, parent, slim, feet.boots(), false, false, true);
+		}
+	}
+
 	/** First person: the worn chestplate's sleeve over the bare arm vanilla just drew. */
 	public static void renderArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, ModelPart arm, boolean right) {
 		Tex chest = worn(player, EquipmentSlot.CHEST);

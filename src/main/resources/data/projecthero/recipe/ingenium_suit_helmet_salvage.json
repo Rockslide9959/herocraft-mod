@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:ingenium_suit_helmet"
+    }
+  ],
+  "result": {
+    "id": "minecraft:iron_ingot",
+    "count": 2
+  }
+}
