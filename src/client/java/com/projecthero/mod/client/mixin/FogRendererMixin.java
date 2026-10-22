@@ -77,6 +77,17 @@ public class FogRendererMixin {
 			RenderSystem.setShaderFogEnd(end);
 			return;
 		}
+		// v0.16.7 (user) Era II: the full Mk IX Inferno's lava visor -- lava fog pushed out to 24 blocks (vanilla: 1, 5 with
+		// Fire Resistance)
+		if (camera.getFluidInCamera() == net.minecraft.world.level.material.FogType.LAVA
+				&& camera.getEntity() instanceof net.minecraft.world.entity.player.Player lavaViewer) {
+			float visor = com.projecthero.mod.client.ironman.IronManMk9Client.lavaVisor(lavaViewer);
+			if (visor > 0.0f) {
+				RenderSystem.setShaderFogStart(0.5f);
+				RenderSystem.setShaderFogEnd(visor);
+				return;
+			}
+		}
 		// v0.16.1: the Frost Giant blizzard closes the fog in to ~48 blocks (32 with the Casket open)
 		float frost = com.projecthero.mod.client.frostgiant.FrostBlizzardClient.fogEnd();
 		if (frost > 0.0f) {

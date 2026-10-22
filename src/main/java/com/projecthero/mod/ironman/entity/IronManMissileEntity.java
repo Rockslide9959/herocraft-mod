@@ -39,6 +39,8 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	private int clusterCount;
 	private float clusterDamage;
 	private boolean vacuum;
+	/** v0.16.7 (user) Era II stage 3: the Mk IX Firestorm -- the blast sets everything it splashes burning. Not saved. */
+	private boolean incendiary;
 	private boolean torpedo;
 	/** v0.16.7 Era I (user): the Mk IV Hydro torpedo drops out of the air (it only runs straight in water). */
 	private boolean sinksOnLand;
@@ -117,6 +119,12 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 	/** v0.16.1: the blast first sucks everything within a few blocks into it (Mark 7 Vacuum Micro-missiles). */
 	public IronManMissileEntity withVacuum() {
 		this.vacuum = true;
+		return this;
+	}
+
+	/** v0.16.7 (user) Era II stage 3: an incendiary warhead (the Mk IX Firestorm) -- the splash sets things burning 6 s. */
+	public IronManMissileEntity withIncendiary() {
+		this.incendiary = true;
 		return this;
 	}
 
@@ -340,6 +348,13 @@ public class IronManMissileEntity extends AbstractHurtingProjectile {
 			double dist = Math.sqrt(e.distanceToSqr(getX(), getY(), getZ()));
 			float falloff = (float) Math.max(0.25, 1.0 - dist / (aoe + 1.0));
 			e.hurt(damageSources().explosion(this, getOwner() instanceof LivingEntity o ? o : null), splashDamage * falloff);
+			if (incendiary && e != getOwner()) {
+				e.setRemainingFireTicks(Math.max(e.getRemainingFireTicks(), 120));
+			}
+		}
+		if (incendiary) {
+			level.sendParticles(ParticleTypes.FLAME, getX(), getY(), getZ(), 24, 0.8, 0.5, 0.8, 0.06);
+			level.sendParticles(ParticleTypes.LAVA, getX(), getY(), getZ(), 5, 0.5, 0.3, 0.5, 0.0);
 		}
 		discard();
 	}

@@ -240,8 +240,9 @@ public final class IronManSuits {
 	/**
 	 * v0.16.7 (user) Era II stage 1: the Mk IX INFERNO -- the Nether suit. Charcoal plate, bronze trim, heat-sink fins;
 	 * fire and lava immunity while the full suit is worn and an orange jet. Flies like the Mk VIII Space; integrity /
-	 * absorb sit between the Mk VIII and the Hulkbuster. Keeps the no-energy shim; its own kit comes in a later stage
-	 * (until then its R / G / X / Z / V keys are empty).
+	 * absorb sit between the Mk VIII and the Hulkbuster. Keeps the no-energy shim. v0.16.7 (user) Era II stage 3: its kit
+	 * ({@code IronManComicKit} "mark_9", {@code IronManMark9}): fire blast / stream, magma fist / eruption, afterburner /
+	 * lava geyser, magma bomb / firestorm, heat dump / thermal siphon, the heat sink and lava swimming.
 	 */
 	public static final IronManSuit MARK_9 = register(comicKit(IronManSuit.Builder.of("mark_9"), IronManAbilities.SUIT_TOGGLE)
 			.tech(4, 9)

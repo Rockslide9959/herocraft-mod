@@ -89,8 +89,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 			IronManComicKit.Kit kit = IronManComicKit.kit(ORDER[i]);
 			// v0.16.7: the Era I kits have a sixth key (C)
 			int keys = com.projecthero.mod.ironman.ability.era1.IronManEraOne.isEraOne(ORDER[i]) ? 6 : 5;
-			// v0.16.7 (user) Era II stage 1: the Mk IX Inferno's kit comes in a later stage (its keys stay empty until then)
-			h.assertTrue("mark_9".equals(ORDER[i]) ? kit == null : kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
+			// v0.16.7 (user) Era II stage 3: the Mk IX Inferno has its own five-key kit now (stage 1 left it empty)
+			h.assertTrue(kit != null && kit.keys().size() == keys, ORDER[i] + " has a " + keys + "-key comic kit");
 			for (int slot = 1; slot <= 5; slot++) {
 				h.assertTrue(IronManComicKit.isKitSlot(s.abilityInSlot(slot)), ORDER[i] + " slot " + slot + " is a comic key");
 			}

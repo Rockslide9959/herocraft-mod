@@ -78,6 +78,10 @@ public final class IronManComicMoves {
 		if (com.projecthero.mod.ironman.ability.era1.IronManEraOne.has(m.id())) {
 			return com.projecthero.mod.ironman.ability.era1.IronManEraOne.fire(p, suit, m, pressed);
 		}
+		// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's kit lives in IronManMark9 (heat sink, stream, bombs, pools)
+		if (m.id().startsWith("mk9_")) {
+			return IronManMark9.fire(p, suit, m, pressed);
+		}
 		float d = m.damage();
 		if (m.input() == IronManComicKit.Input.HOLD) {
 			return switch (m.id()) {

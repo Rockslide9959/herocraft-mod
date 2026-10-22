@@ -180,6 +180,20 @@ public final class IronManHud {
 						IronManUiLayout.pct(heatFrac) + " " + IronManUiLayout.amount(state.flamethrowerHeat, maxHeat),
 						heatFrac, heatFrac > 0.8f ? IronManGui.RED : 0xFFFFA23C);
 			}
+			// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's heat sink -- always shown while it is worn (HOT from 50, FULL at 100)
+			if (com.projecthero.mod.ironman.ability.IronManMark9.SUIT.equals(suitId)) {
+				float sink = com.projecthero.mod.ironman.ability.IronManMark9.syncedHeat(player);
+				float sinkFrac = IronManUiLayout.clamp01(sink / com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX);
+				String sinkValue = Math.round(sink) + "%"; // whole points: the sink is a 0-100 gauge
+				if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f) {
+					sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.full").getString();
+				} else if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT) {
+					sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.hot").getString();
+				}
+				y = meter(draw, g, font, x, y, w, minimalHud, Component.translatable("hud.projecthero.ironman.heat_sink").getString(),
+						sinkValue, sinkFrac, sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f ? IronManGui.RED
+								: sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT ? 0xFFFF6A1A : 0xFFFFA23C);
+			}
 			if (!minimalHud && state.timedFlightUntil > now) {
 				long left = state.timedFlightUntil - now;
 				y = meter(draw, g, font, x, y, w, false, Component.translatable("hud.projecthero.ironman.flight").getString(),

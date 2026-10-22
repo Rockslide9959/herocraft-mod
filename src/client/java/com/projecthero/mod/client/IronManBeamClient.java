@@ -47,7 +47,7 @@ public final class IronManBeamClient {
 				? new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.05f, 0.05f), 0.7f)
 				: ParticleTypes.END_ROD;
 		ParticleOptions spark = redLaser ? ParticleTypes.FLAME
-				: beam.kind() == 0 ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.GLOW;
+				: beam.kind() == 0 ? ParticleTypes.ELECTRIC_SPARK : beam.kind() == 12 ? ParticleTypes.FLAME : ParticleTypes.GLOW; // v0.16.7: Mk IX Fire Blast
 
 		// v0.14.26: a real rendered beam (IronManAbilityVisuals) instead of a dense particle line -- a few sparks remain
 		com.projecthero.mod.client.ironman.IronManAbilityVisuals.addBeam(a, b, beam.kind());

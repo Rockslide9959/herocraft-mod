@@ -45,6 +45,8 @@ final class IronManComicFx {
 	static final int BEAM_SOLAR = 9;
 	static final int BEAM_STEALTH = 10;
 	static final int BEAM_MEGA = 11;
+	/** v0.16.7 (user) Era II stage 3: the Mk IX Inferno's Fire Blast -- an orange-red plasma bolt. */
+	static final int BEAM_FIRE = 12;
 
 	private IronManComicFx() {
 	}

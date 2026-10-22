@@ -104,6 +104,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.ability.IronManHeldBeam.clearSessionState();
 		// v0.16.1 Iron Man comic rework: running comic moves / areas / follow-ups, held keys, the combat clock
 		com.projecthero.mod.ironman.ability.IronManComicState.clearSessionState();
+		com.projecthero.mod.ironman.ability.IronManMark9.clearSessionState(); // v0.16.7 Era II: Mk IX heat sinks, magma bombs + pools
 		com.projecthero.mod.ironman.ability.era1.EraOneMk5Stealth.clearSessionState(); // v0.16.7 (user): Mk V Active Camo / Silent Running / sleepers
 		com.projecthero.mod.ironman.ability.IronManComicRouter.clearSessionState();
 		com.projecthero.mod.ironman.ability.era1.EraOneMk34State.clearSessionState(); // v0.16.7 Era I: Mk III / Mk IV running moves, mines, charges, lamps
