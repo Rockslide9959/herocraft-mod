@@ -615,22 +615,15 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		switch (formState()) {
 			case FORM_TRANSFORMING: {
 				float p = Math.min(1.0f, elapsed / (float) Math.max(1, formStateTicks()));
-				// mirrors the keyframes of animation.titan.transformation (0.25 -> 0.5 -> 1.05 -> 1.0)
-				if (p < 1.0f / 3.0f) {
-					return 0.25f + 0.25f * (p / (1.0f / 3.0f));
-				}
-				if (p < 2.2f / 3.0f) {
-					return 0.5f + 0.55f * ((p - 1.0f / 3.0f) / (2.2f / 3.0f - 1.0f / 3.0f));
-				}
-				return 1.05f - 0.05f * ((p - 2.2f / 3.0f) / (1.0f - 2.2f / 3.0f));
+				// v0.16.7: mirrors the root scale of animation.titan.transformation (stretched to the shift: 0.86 crouched
+				// -> 1.0 standing at 3.85 of its 4.5 s)
+				return 0.86f + 0.14f * Math.min(1.0f, p / (3.85f / 4.5f));
 			}
 			case FORM_REVERTING:
 				// v0.16.7: the body does not shrink while the shifter climbs out of the nape -- it steams where it stands
 				return 1.0f;
-			case FORM_DEFEATED: {
-				float p = Math.min(1.0f, elapsed / (float) Math.max(1, formStateTicks()));
-				return 1.0f - 0.6f * p;
-			}
+			case FORM_DEFEATED:
+				// v0.16.7: the body sinks to its hands (animation.titan.death) and the full-size corpse takes over from that pose
 			default:
 				return 1.0f;
 		}
@@ -1311,11 +1304,42 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		for (String name : com.projecthero.mod.titanshifter.TitanMove.NEW_ANIMS) {
 			action.triggerableAnim(name, RawAnimation.begin().thenPlay(ANIM + name));
 		}
-		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate));
+		// v0.16.7: the 4.5 s transformation clip is stretched to the shift's length (60 ticks, 12 for a Bite Shift)
+		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate).setAnimationSpeedHandler(
+				f -> f.formState() == FORM_TRANSFORMING ? 90.0 / Math.max(1, f.formStateTicks())
+						: f.formState() == FORM_REVERTING ? 60.0 / Math.max(1, f.formStateTicks()) : 1.0));
 		// the raised right arm while a mob is in the hand (only that bone is keyed, so it layers over walk / run)
 		controllers.add(new AnimationController<>(this, "carry", 6, state -> isHolding() && formState() == FORM_NORMAL
 				? state.setAndContinue(CARRY) : PlayState.STOP));
+		// v0.16.7 (user, Titan revamp): held poses for the timed move states (upper body only, so they layer over walk / run)
+		controllers.add(new AnimationController<>(this, "flags", 5, this::flagPredicate));
 		controllers.add(action);
+	}
+
+	private static final RawAnimation CHARGE_LOOP = RawAnimation.begin().thenLoop(ANIM + "shoulder_charge_loop");
+	private static final RawAnimation BRACE_HOLD = RawAnimation.begin().thenLoop(ANIM + "brace_hold");
+	private static final RawAnimation NAPE_HOLD = RawAnimation.begin().thenLoop(ANIM + "nape_guard_hold");
+	private static final RawAnimation BOULDER_HOLD = RawAnimation.begin().thenLoop(ANIM + "boulder_hold");
+	private static final RawAnimation KNEEL = RawAnimation.begin().thenLoop(ANIM + "kneel");
+	private static final RawAnimation KNEEL_CRAWL = RawAnimation.begin().thenLoop(ANIM + "kneel_crawl");
+
+	private PlayState flagPredicate(AnimationState<TitanFormEntity> state) {
+		if (formState() != FORM_NORMAL) {
+			return PlayState.STOP;
+		}
+		if (hasMoveFlag(FLAG_CHARGING)) {
+			return state.setAndContinue(CHARGE_LOOP);
+		}
+		if (hasMoveFlag(FLAG_BRACING)) {
+			return state.setAndContinue(BRACE_HOLD);
+		}
+		if (hasMoveFlag(FLAG_NAPE_GUARD)) {
+			return state.setAndContinue(NAPE_HOLD);
+		}
+		if (hasMoveFlag(FLAG_HOLDING_BOULDER)) {
+			return state.setAndContinue(BOULDER_HOLD);
+		}
+		return PlayState.STOP;
 	}
 
 	private PlayState mainPredicate(AnimationState<TitanFormEntity> state) {
@@ -1328,6 +1352,10 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 				return state.setAndContinue(DEATH);
 			default:
 				break;
+		}
+		if (isKneeling()) {
+			// v0.16.7: a leg is gone -- down on one knee, dragging itself when it moves
+			return state.setAndContinue(state.getLimbSwingAmount() > 0.04f ? KNEEL_CRAWL : KNEEL);
 		}
 		float swing = state.getLimbSwingAmount();
 		if (isRunning() && swing > 0.04f) {

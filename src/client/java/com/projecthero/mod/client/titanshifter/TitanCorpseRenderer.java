@@ -1,35 +1,47 @@
 package com.projecthero.mod.client.titanshifter;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import com.projecthero.mod.titanshifter.TitanType;
 import com.projecthero.mod.titanshifter.entity.TitanCorpseEntity;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.phys.Vec3;
 
-import org.joml.Vector3f;
+import org.joml.Matrix4f;
 
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
-import software.bernie.geckolib.cache.object.GeoCube;
-import software.bernie.geckolib.cache.object.GeoQuad;
-import software.bernie.geckolib.cache.object.GeoVertex;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 
 /**
- * Draws the Titan's dissolving corpse (v0.12.36): each {@code piece_*} bone of the sliced model starts to shake loose, drifts
- * outward and sinks while it shrinks, then is gone -- one piece after another across the whole minute (the order and timing
- * live in {@link TitanCorpseEntity}).
+ * Draws the Titan's abandoned body (v0.16.7, user): it sinks to its knees and bows its head over the ground, the nape
+ * torn open where the shifter climbed out and steaming, then it dissolves -- skin, muscle, skeleton -- and the pixels do
+ * not just vanish: each frame, the texels that just went (sampled down to the particle budget) fly off the posed body in
+ * their own colour on one steady wind per corpse, lifting a little and fading as they drift away.
  */
 public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
-	/** How long (ticks) a piece crumbles before it disappears. */
-	private static final float CRUMBLE_TICKS = 90.0f;
-	private static final Map<String, Vector3f> CENTRES = new HashMap<>();
+	/** Dust pixels per tick at the All particle setting (Decreased 40%, Minimal 10%). */
+	private static final float DUST_PER_TICK = 30.0f;
+
+	private boolean mainPass;
+	private TitanTexels tx;
+	private TitanFx.State fx;
+	private NativeImage colours;
+	private double windX;
+	private double windZ;
+	private float dissolve;
+	private Vec3 centre = Vec3.ZERO;
 
 	public TitanCorpseRenderer(EntityRendererProvider.Context context) {
 		super(context, new TitanCorpseModel());
@@ -42,59 +54,107 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 			int packedLight, int packedOverlay, int colour) {
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight,
 				packedOverlay, colour);
+		if (isReRender) {
+			return;
+		}
 		float scale = animatable.getBbHeight() / animatable.titanType().modelHeight();
 		if (Math.abs(scale - 1.0f) > 0.01f) {
 			poseStack.scale(scale, scale, scale);
 		}
+		// the baked model is shared with the living Titans (whose first-person rider hides the head)
+		model.getBone("head").ifPresent(b -> b.setHidden(false));
+		mainPass = true;
+		TitanType type = animatable.titanType();
+		tx = TitanTexels.get(type.modelName());
+		fx = TitanFx.state(animatable);
+		TitanFx.fxTick(animatable);
+		colours = TitanSkinFrames.source(type.corpseTexture(), animatable.isEmergency());
+		// one steady wind per corpse
+		long seed = animatable.getUUID().getLeastSignificantBits() ^ animatable.getUUID().getMostSignificantBits();
+		double ang = (seed & 0xFFFF) / 65536.0 * Math.PI * 2.0;
+		windX = Math.cos(ang);
+		windZ = Math.sin(ang);
+		centre = animatable.position().add(0.0, animatable.getBbHeight() * 0.3, 0.0);
+		dissolve = TitanFx.dissolveProgress(animatable, partialTick);
+		Minecraft mc = Minecraft.getInstance();
+		if (tx != null && dissolve > 0.0f && !mc.isPaused()) {
+			float last = fx.lastDissolve < 0.0f || fx.lastDissolve > dissolve ? dissolve : fx.lastDissolve;
+			float span = Math.max(1, TitanCorpseEntity.dissolveTicks() - 10 - TitanFx.KNEEL_TICKS);
+			float ticks = (dissolve - last) * span;
+			fx.window.prepare(tx, tx.byDissolve, tx.dissolveSorted, last, dissolve, Math.round(DUST_PER_TICK * ticks * TitanFx.budget() + 0.5f));
+			fx.lastDissolve = dissolve;
+		} else {
+			fx.window.clear();
+		}
+	}
+
+	@Override
+	public void applyRenderLayers(PoseStack poseStack, TitanCorpseEntity animatable, BakedGeoModel model, RenderType renderType,
+			MultiBufferSource bufferSource, VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
+		mainPass = false;
+		super.applyRenderLayers(poseStack, animatable, model, renderType, bufferSource, buffer, partialTick, packedLight, packedOverlay);
 	}
 
 	@Override
 	public void renderRecursively(PoseStack poseStack, TitanCorpseEntity animatable, GeoBone bone, RenderType renderType,
 			MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender, float partialTick, int packedLight,
 			int packedOverlay, int colour) {
-		int index = TitanCorpseEntity.pieceIndex(bone.getName());
-		if (index < 0) {
-			super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
-					packedLight, packedOverlay, colour);
-			return;
+		if (bone.getName().endsWith("_stump") || bone.getName().startsWith("crystal_") || bone.getName().equals("boulder")) {
+			return; // stumps belong to a living Titan's severed limbs
 		}
-		float age = animatable.dissolveAge(partialTick);
-		float vanishAt = TitanCorpseEntity.vanishFraction(index) * TitanCorpseEntity.dissolveTicks();
-		if (age >= vanishAt) {
-			return; // gone
-		}
-		float c = Math.max(0.0f, Math.min(1.0f, (age - (vanishAt - CRUMBLE_TICKS)) / CRUMBLE_TICKS));
-		if (c <= 0.0f) {
-			super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
-					packedLight, packedOverlay, colour);
-			return;
-		}
-		Vector3f centre = CENTRES.computeIfAbsent(bone.getName(), n -> centreOf(bone));
-		float e = c * c;
-		float side = Math.signum(centre.x) * 0.9f + (index % 3 - 1) * 0.35f;
-		float shake = (float) Math.sin(age * 1.7f + index * 2.3f) * 0.012f * c;
-		// v0.12.39: shrinks all the way to nothing before it is dropped, so it never pops out of existence
-		float s = Math.max(0.001f, 1.0f - e);
-		poseStack.pushPose();
-		poseStack.translate(centre.x + side * 0.08f * e + shake, centre.y - 0.10f * e, centre.z + 0.05f * e - shake);
-		poseStack.scale(s, s, s);
-		poseStack.translate(-centre.x, -centre.y, -centre.z);
 		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick,
 				packedLight, packedOverlay, colour);
-		poseStack.popPose();
 	}
 
-	/** The middle of a piece's cubes in render space (blocks), so it can shrink about its own centre. */
-	private static Vector3f centreOf(GeoBone bone) {
-		Vector3f min = new Vector3f(Float.MAX_VALUE), max = new Vector3f(-Float.MAX_VALUE);
-		for (GeoCube cube : bone.getCubes()) {
-			for (GeoQuad quad : cube.quads()) {
-				for (GeoVertex v : quad.vertices()) {
-					min.min(v.position());
-					max.max(v.position());
+	@Override
+	public void renderCubesOfBone(PoseStack poseStack, GeoBone bone, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
+		super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);
+		if (!mainPass || tx == null || fx == null || bone.isHidden() || Minecraft.getInstance().isPaused()) {
+			return;
+		}
+		Integer idx = tx.boneIndex.get(bone.getName());
+		ClientLevel level = Minecraft.getInstance().level;
+		if (idx == null || level == null) {
+			return;
+		}
+		Matrix4f pose = poseStack.last().pose();
+		RandomSource r = level.random;
+		IntArrayList list = fx.window.of(idx);
+		if (list != null && colours != null) {
+			Minecraft mc = Minecraft.getInstance();
+			for (int k = 0; k < list.size(); k++) {
+				int t = list.getInt(k);
+				int pix = tx.index[t];
+				int abgr = colours.getPixelRGBA(pix % tx.w, pix / tx.w);
+				if ((abgr >>> 24) == 0) {
+					continue; // the open nape: nothing there to blow away
+				}
+				Vec3 at = TitanFx.world(pose, tx.px[t], tx.py[t], tx.pz[t]);
+				Vec3 out = at.subtract(centre);
+				double len = Math.max(0.01, out.length());
+				double push = 0.02 + r.nextDouble() * 0.03;
+				double vx = out.x / len * push + windX * 0.04, vz = out.z / len * push + windZ * 0.04;
+				double vy = 0.015 + r.nextDouble() * 0.03;
+				float cr = (abgr & 0xFF) / 255.0f, cg = (abgr >> 8 & 0xFF) / 255.0f, cb = (abgr >> 16 & 0xFF) / 255.0f;
+				float size = 0.07f + r.nextFloat() * 0.07f;
+				mc.particleEngine.add(new TitanDustParticle(level, at.x, at.y, at.z, vx, vy, vz, cr, cg, cb, windX, windZ, size,
+						45 + r.nextInt(45)));
+			}
+		}
+		// the open nape steams until the flesh round it is gone
+		if (fx.fxTick && bone.getName().equals("body") && dissolve < 0.62f) {
+			float[] a = tx.anchors.get("nape");
+			if (a != null) {
+				Vec3 at = TitanFx.world(pose, a[1], a[2], a[3]);
+				float k = 1.0f - dissolve / 0.62f;
+				if (r.nextFloat() < 0.9f * k + 0.1f) {
+					level.addParticle(ParticleTypes.CLOUD, at.x + (r.nextDouble() - 0.5) * 0.6, at.y, at.z + (r.nextDouble() - 0.5) * 0.6,
+							windX * 0.02, 0.09 + r.nextDouble() * 0.05, windZ * 0.02);
+				}
+				if (r.nextInt(5) == 0) {
+					level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, windX * 0.01, 0.05, windZ * 0.01);
 				}
 			}
 		}
-		return min.x > max.x ? new Vector3f() : min.add(max).mul(0.5f);
 	}
 }

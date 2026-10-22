@@ -29,6 +29,27 @@ public final class PaleTextures {
 	private PaleTextures() {
 	}
 
+	/** v0.16.7: washes {@code img} pale in place (also used for the Titan's per-texel build / dissolve frames). */
+	public static void wash(NativeImage img) {
+		for (int y = 0; y < img.getHeight(); y++) {
+			for (int x = 0; x < img.getWidth(); x++) {
+				int abgr = img.getPixelRGBA(x, y);
+				int a = abgr >>> 24;
+				if (a == 0) {
+					continue;
+				}
+				int b = abgr >> 16 & 0xFF;
+				int g = abgr >> 8 & 0xFF;
+				int r = abgr & 0xFF;
+				// keep a little of the original shading so the face and the muscle lines still read
+				r = Math.round(r + (PALE_R - r) * WASH);
+				g = Math.round(g + (PALE_G - g) * WASH);
+				b = Math.round(b + (PALE_B - b) * WASH);
+				img.setPixelRGBA(x, y, a << 24 | b << 16 | g << 8 | r);
+			}
+		}
+	}
+
 	/** The pale twin of {@code source}; falls back to {@code source} itself if it cannot be read. */
 	public static ResourceLocation of(ResourceLocation source) {
 		Minecraft mc = Minecraft.getInstance();
@@ -39,23 +60,7 @@ public final class PaleTextures {
 		}
 		try (InputStream in = mc.getResourceManager().getResourceOrThrow(source).open()) {
 			NativeImage img = NativeImage.read(in);
-			for (int y = 0; y < img.getHeight(); y++) {
-				for (int x = 0; x < img.getWidth(); x++) {
-					int abgr = img.getPixelRGBA(x, y);
-					int a = abgr >>> 24;
-					if (a == 0) {
-						continue;
-					}
-					int b = abgr >> 16 & 0xFF;
-					int g = abgr >> 8 & 0xFF;
-					int r = abgr & 0xFF;
-					// keep a little of the original shading so the face and the muscle lines still read
-					r = Math.round(r + (PALE_R - r) * WASH);
-					g = Math.round(g + (PALE_G - g) * WASH);
-					b = Math.round(b + (PALE_B - b) * WASH);
-					img.setPixelRGBA(x, y, a << 24 | b << 16 | g << 8 | r);
-				}
-			}
+			wash(img);
 			ResourceLocation id = ProjectHeroMod.id("dynamic/pale/" + source.getPath().replace('/', '_').replace('.', '_'));
 			tm.register(id, new DynamicTexture(img));
 			CACHE.put(source, id);

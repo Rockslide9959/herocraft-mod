@@ -126,6 +126,7 @@ public final class TitanShifterConfig {
 	}
 
 	public static final class Transformation {
+		/** v0.16.7: the client's skeleton -> muscle -> skin build is stretched to whatever this is. */
 		public int transformTicks = 60;
 		/** v0.16.7: the REVERTING phase -- the Titan steams for ~3 s while the shifter climbs out of the nape. */
 		public int revertTicks = 60;

@@ -115,11 +115,12 @@ public enum TitanType {
 		return ProjectHeroMod.id("textures/entity/" + modelName + ".png");
 	}
 
-	/** v0.12.36: the sliced model and atlas of the dissolving corpse. */
-	public ResourceLocation corpseGeo() {
-		return ProjectHeroMod.id("geo/" + modelName + "_corpse.geo.json");
+	/** v0.16.7: the asset name ("titan_form", "titan_armored" ...) -- also keys the client's per-texel data. */
+	public String modelName() {
+		return modelName;
 	}
 
+	/** v0.16.7: the corpse is the same rig with this atlas (the nape torn open where the shifter climbed out). */
 	public ResourceLocation corpseTexture() {
 		return ProjectHeroMod.id("textures/entity/" + modelName + "_corpse.png");
 	}
