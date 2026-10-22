@@ -124,6 +124,11 @@ public final class IronManSuitReveal {
 		if (gantry != null) {
 			return gantry;
 		}
+		// v0.16.7 (user) Era II: a suit deploying out of / folding into its portable form (IronManPortableClient)
+		ResourceLocation portable = IronManPortableClient.texture(player, setId, slot, base, partialTick);
+		if (portable != null) {
+			return portable;
+		}
 		// v0.15.15: Marks 2-7 taken off with C -- the plates retract panel by panel into the reactor
 		ResourceLocation retract = IronManGantryBuild.retractTexture(player, setId, slot, base, partialTick);
 		if (retract != null) {

@@ -131,7 +131,8 @@ public final class IronManSuitCall {
 	 * Glasses on. Without them nothing happens (silent, v0.15.7).
 	 */
 	public static void unsuitedC(ServerPlayer player) {
-		if (!player.isShiftKeyDown() && (braceletCall(player) || autoEquipInventorySuit(player))) {
+		// v0.16.7 (user) Era II: C with a packed suit (the Mk VI briefcase ...) deploys it -- first, before the other C actions
+		if (!player.isShiftKeyDown() && (PortableDeploy.deployFromC(player) || braceletCall(player) || autoEquipInventorySuit(player))) {
 			return;
 		}
 		if (com.projecthero.mod.ironman.gear.StarkGear.hasGlasses(player)) {

@@ -76,6 +76,7 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		if (IronManGantryBuild.solo >= 0 || !Float.isNaN(IronManGantryBuild.standMk5Frame) || wearer instanceof Player gp && armor.getCurrentSlot() != null
 				&& (IronManGantryBuild.incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)
 						|| IronManGantryBuild.mk5Incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)
+						|| IronManPortableClient.incomplete(gp, armor.getCurrentSlot(), item.armorSetId(), partialTick)
 						|| IronManGantryBuild.retracting(gp))) { // v0.15.15: powered down while it retracts
 			return;
 		}

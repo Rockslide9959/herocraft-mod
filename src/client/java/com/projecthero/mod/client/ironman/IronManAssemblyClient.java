@@ -175,6 +175,9 @@ public final class IronManAssemblyClient {
 				pose.translate(-hx, -hy, -hz);
 			}
 		}
+		if (IronManPortableClient.active(player)) {
+			return true; // v0.16.7 (user) Era II: a portable form builds on texel by texel -- the bones stay put
+		}
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		long now = player.level().getGameTime();
 		float p = IronManSuitReveal.progress(player, slot, partialTick); // smooth + monotonic

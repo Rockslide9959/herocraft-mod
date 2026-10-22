@@ -279,7 +279,11 @@ public final class IronManAbilities {
 				if (pressed) {
 					// "changes 15": the Mark 5 folds into its suitcase item instead of storing four pieces in the
 					// inventory. v0.14.29: on plain C too (was sneak + C only) -- it never stores as loose pieces.
-					if (suit.summonType() == com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM) {
+					if (com.projecthero.mod.ironman.suit.PortableForms.byId(suit.id()) != null) {
+						// v0.16.7 (user) Era II: C deploys, HOLD Shift+C folds (IronManAbilityManager) -- plain C just says so
+						player.displayClientMessage(Component.translatable("message.projecthero.ironman.portable_fold_hint")
+								.withStyle(net.minecraft.ChatFormatting.GRAY), true);
+					} else if (suit.summonType() == com.projecthero.mod.ironman.suit.SummonType.SUITCASE_ITEM) {
 						IronManSuitUpManager.beginSuitDownToCase(player, suit.id());
 					} else {
 						IronManSuitUpManager.beginSuitDown(player, suit.id());

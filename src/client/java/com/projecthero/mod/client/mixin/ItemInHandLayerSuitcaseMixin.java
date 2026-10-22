@@ -30,6 +30,12 @@ public abstract class ItemInHandLayerSuitcaseMixin {
 				&& (arm == HumanoidArm.RIGHT || com.projecthero.mod.client.ironman.MarkVSuitcaseLayer.bothHands(player))) {
 			ci.cancel();
 		}
+		// v0.16.7 (user) Era II: a portable form carried in the hand (the Mk VI briefcase) draws its own case while it
+		// deploys / folds (IronManPortableClient), never the item in the hand
+		if (arm == HumanoidArm.RIGHT && entity instanceof Player player
+				&& com.projecthero.mod.client.ironman.IronManPortableClient.ownsRightHand(player)) {
+			ci.cancel();
+		}
 		// v0.15.11: while a suit is put on by hand the hands hold the hammer / wrench / the piece being fitted
 		// (IronManManualSuitUpLayer), never whatever was in them
 		if (entity instanceof Player player && com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.active(player)) {

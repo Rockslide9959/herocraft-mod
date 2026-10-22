@@ -93,6 +93,7 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.ironman.drone.IronManDrones.initialize(); // v0.14.29 agent E: Remote Pilot
 		com.projecthero.mod.ironman.gear.StarkGear.initialize(); // v0.15.1: Stark Glasses / Stark Gear slot
 		com.projecthero.mod.ironman.suit.IronManManualSuitUp.initialize(); // v0.15.11: hand-built suit-up safety hooks
+		com.projecthero.mod.ironman.suit.PortableDeploy.initialize(); // v0.16.7 (user) Era II: portable-form safety hooks
 		ModEntityTypes.initialize();
 		ProjectHeroSounds.initialize();
 		com.projecthero.mod.spider.item.SpiderItems.initialize();

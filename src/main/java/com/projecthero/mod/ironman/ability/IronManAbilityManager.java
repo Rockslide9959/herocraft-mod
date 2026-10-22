@@ -59,6 +59,16 @@ public final class IronManAbilityManager {
 			if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.blockedWhileAssembling(player, pressed)) {
 				return;
 			}
+			// v0.16.7 (user) Era II: nothing fires while a suit folds back into its portable form
+			if (com.projecthero.mod.ironman.suit.PortableDeploy.running(player)) {
+				return;
+			}
+			// v0.16.7 (user) Era II: on a suit with a portable form (Mk VI briefcase ...), HOLD Shift+C folds it back in
+			if (slot == AbilitySlot.SLOT_6 && com.projecthero.mod.ironman.suit.PortableForms.byId(suit.id()) != null
+					&& (player.isShiftKeyDown() || com.projecthero.mod.ironman.suit.PortableDeploy.holdingFold(player))) {
+				com.projecthero.mod.ironman.suit.PortableDeploy.foldKey(player, suit, pressed);
+				return;
+			}
 			// v0.16.7 (user) Era I: Shift+C is the emergency eject (hold 3 s) -- straight to it, past the overload / ceiling
 			// locks (it is how you get out of a wrecked or locked suit); its release always reaches it too
 			if (slot == AbilitySlot.SLOT_6 && suit.eraOne()

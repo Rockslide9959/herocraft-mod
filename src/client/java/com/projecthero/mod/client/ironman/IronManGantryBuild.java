@@ -23,6 +23,7 @@ import com.projecthero.mod.ironman.suit.IronManAssemblyPlan;
 import com.projecthero.mod.ironman.suit.IronManMk5Suitcase;
 import com.projecthero.mod.ironman.suit.IronManSuitFx;
 import com.projecthero.mod.ironman.suit.IronManSuitRemoval;
+import com.projecthero.mod.ironman.suit.PortableForm;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -71,6 +72,58 @@ public final class IronManGantryBuild {
 
 		/** Does a stage go on whole (no hot seam)? */
 		boolean whole(int stage);
+
+		/** v0.16.7: do freshly built texels flash the hot seam? (Not on the gantry, nor an Era II portable form.) */
+		default boolean glow() {
+			return scheme() != S_GANTRY;
+		}
+	}
+
+	/**
+	 * v0.16.7 (user) Era II stage 2: a suit deploying out of / folding into its portable form ({@link PortableForm}) --
+	 * the gantry's own stages and slide columns, so the base plates slide out from under the part before them and the rest
+	 * builds on texel by texel with no seam; only the timetable (the form's stage windows) and the texel order (up the
+	 * body, {@link PortableForm.Direction#CLIMB}, or down it) are the form's.
+	 */
+	private record PortableTiming(PortableForm form) implements Timing {
+		public String key() {
+			return "p_" + form.suitId();
+		}
+
+		public int scheme() {
+			return form.direction() == PortableForm.Direction.CLIMB ? S_PORTABLE_CLIMB : S_PORTABLE_DROP;
+		}
+
+		public float appear(int stage, float k) {
+			return form.appear(stage, k);
+		}
+
+		public boolean whole(int stage) {
+			return false;
+		}
+
+		public boolean glow() {
+			return false;
+		}
+	}
+
+	/** v0.16.7 (user): the texture of {@code player}'s piece in {@code slot} at {@code frame} of {@code form}'s clock. */
+	public static ResourceLocation portableTexture(PortableForm form, String setId, EquipmentSlot slot, ResourceLocation base,
+			float frame) {
+		int bit = IronManSuitFx.bit(slot);
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		return def == null || bit < 0 ? base : frame(def.geometry(), base, bit, new PortableTiming(form), frame);
+	}
+
+	/** v0.16.7 (user): is part of the piece in {@code slot} still missing at {@code frame} (lights dark until whole)? */
+	public static boolean portableIncomplete(PortableForm form, String setId, EquipmentSlot slot, float frame) {
+		int bit = IronManSuitFx.bit(slot);
+		ArmorVisualDefinition def = SuperheroArmorVisuals.get(setId);
+		if (bit < 0 || def == null) {
+			return false;
+		}
+		Timed t = timed(def.geometry(), def.texture(), bit, new PortableTiming(form));
+		return t != null && frame < t.last;
 	}
 
 	private record GantryTiming(GantryTimeline.Plan plan) implements Timing {
@@ -111,6 +164,13 @@ public final class IronManGantryBuild {
 
 	/** v0.15.15: the texel schemes -- the Stark Gantry's stages, the Mark 5 suitcase's, the Marks 2-7 C retract. */
 	static final int S_GANTRY = 0, S_MK5 = 1, S_RETRACT = 2;
+	/** v0.16.7 (user) Era II: the portable forms -- gantry stages, texels timed up the body / down it. */
+	static final int S_PORTABLE_CLIMB = 3, S_PORTABLE_DROP = 4;
+
+	/** Does {@code scheme} use the gantry's stages and slide columns? */
+	private static boolean gantryStages(int scheme) {
+		return scheme == S_GANTRY || scheme == S_PORTABLE_CLIMB || scheme == S_PORTABLE_DROP;
+	}
 
 	/**
 	 * v0.15.15, explicit user request: the Marks 2-7 C removal ({@link IronManSuitRemoval#KIND_SLEEK}) -- every panel
@@ -398,7 +458,7 @@ public final class IronManGantryBuild {
 		}
 		int fi = (int) Math.floor(f);
 		// v0.16.7 (user): the gantry builds on without the glowing seam
-		boolean glow = timing.scheme() != S_GANTRY;
+		boolean glow = timing.glow();
 		if (fi >= t.last + (glow ? GLOW_TICKS : 0)) {
 			return base;
 		}
@@ -496,7 +556,7 @@ public final class IronManGantryBuild {
 	// ---------------- geometry -> per-texel stage ----------------
 
 	private static Parts parts(ResourceLocation geometry, ResourceLocation base, int bit, int scheme) {
-		String key = geometry + "|" + base + "|" + bit + (scheme == S_MK5 ? "|mk5" : scheme == S_RETRACT ? "|ret" : "");
+		String key = geometry + "|" + base + "|" + bit + (scheme == S_GANTRY ? "" : "|s" + scheme);
 		if (PARTS.containsKey(key)) {
 			return PARTS.get(key);
 		}
@@ -536,6 +596,8 @@ public final class IronManGantryBuild {
 		for (IronManAssemblyReveal.Sample s : samples) {
 			float[] sk = scheme == S_RETRACT ? retractStageOf(s, bit)
 					: scheme == S_MK5 ? mk5StageOf(s.bone(), s.cube(), s.pos().y, s.pos().z, s.index(), bit)
+					: scheme == S_PORTABLE_CLIMB || scheme == S_PORTABLE_DROP
+							? portableStageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit, scheme == S_PORTABLE_CLIMB)
 					: stageOf(s.bone(), s.cube(), s.pos().y, s.index(), bit);
 			int st = (int) sk[0];
 			int i = s.index();
@@ -555,7 +617,7 @@ public final class IronManGantryBuild {
 				k[i] = sk[1];
 			}
 		}
-		if (scheme != S_GANTRY) {
+		if (!gantryStages(scheme)) {
 			return new Parts(w, h, stage, k);
 		}
 		// v0.16.7: the slide columns -- base texels of the slide stages, grouped by bone + their spot round the plate
@@ -648,6 +710,31 @@ public final class IronManGantryBuild {
 			default:
 				return new float[] { IronManMk5Suitcase.S_LEGS, mix((12.5f - y) / 12.5f, scatter, cube == 0 ? 0.08f : 0.2f) };
 		}
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: {stage, k} of a texel in a portable form -- the gantry's stage ({@link #stageOf}); the slide
+	 * stages keep their seam order, every other stage builds up the body ({@code climb}: the boots from the soles, the
+	 * trousers from the ankles, the helmet from the jaw) or down it, with a little scatter so it reads texel by texel.
+	 */
+	static float[] portableStageOf(String bone, int cube, float y, int texel, int bit, boolean climb) {
+		float[] g = stageOf(bone, cube, y, texel, bit);
+		int st = (int) g[0];
+		if (slides(st)) {
+			return g;
+		}
+		float lo, hi;
+		switch (st) {
+			case GantryTimeline.HELMET, GantryTimeline.FACEPLATE -> { lo = 24f; hi = 32.5f; }
+			case GantryTimeline.R_GAUNTLET, GantryTimeline.L_GAUNTLET -> { lo = 11.5f; hi = 17f; }
+			case GantryTimeline.R_SLEEVE, GantryTimeline.L_SLEEVE, GantryTimeline.JACKET -> { lo = 11.5f; hi = 24.5f; }
+			case GantryTimeline.TORSO_TOP -> { lo = 18f; hi = 24.5f; }
+			case GantryTimeline.THIGH_TOP -> { lo = 8f; hi = 12.5f; }
+			case GantryTimeline.R_BOOT, GantryTimeline.L_BOOT -> { lo = -0.5f; hi = 5f; }
+			default -> { lo = -0.5f; hi = 12.75f; } // the trouser / boot-shaft outer layer
+		}
+		float k = (y - lo) / (hi - lo);
+		return new float[] { st, mix(climb ? k : 1f - k, IronManAssemblyPlan.hash("portable", texel), 0.15f) };
 	}
 
 	/** v0.15.15: {region, vanishAt} of a texel in the Marks 2-7 retract -- one jitter per 2x2 panel. */
