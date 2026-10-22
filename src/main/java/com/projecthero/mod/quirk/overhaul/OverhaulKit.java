@@ -7,20 +7,11 @@ import com.projecthero.mod.quirk.QuirkKit;
 import com.projecthero.mod.quirk.Quirks;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.7: Overhaul's six keys (Kai Chisaki). Every move is a touch: an empty main hand, and Focus to spend.
- * <pre>
- *   R  Disassemble       Shift+R  Shrapnel Burst
- *   G  Spike Wave        Shift+G  Spike Field
- *   X  Reshape Wall      Shift+X  Launch Ramp
- *   Z  Restore           Shift+Z  Reassemble Armour
- *   V  Overhaul Field    Shift+V  Collapse Pit
- *   C  Fusion            Shift+C  Shard Shot
- * </pre>
- * The moves live in {@link OverhaulMoves}; every number is in {@link OverhaulConfig}.
+ * v0.16.7 revamp: Overhaul's six keys (Kai Chisaki) -- see {@link OverhaulConfig} for the table. Every move but the
+ * gloves is a bare-handed touch and spends Focus. The moves live in {@link OverhaulMoves}.
  */
 public final class OverhaulKit implements QuirkKit {
 	@Override
@@ -33,22 +24,32 @@ public final class OverhaulKit implements QuirkKit {
 			return;
 		}
 		String id = ids[shift ? 1 : 0];
+		// V again while fused ends the form, whatever the cooldown says
+		if (id.equals(OverhaulConfig.FUSION) && Overhaul.fused(player)) {
+			OverhaulMoves.endFusion(player);
+			return;
+		}
+		// X again while surfing gets off the wave
+		if (id.equals(OverhaulConfig.SURF) && Quirks.state(player).val(Overhaul.V_SURF) != 0L) {
+			OverhaulMoves.endSurf(player);
+			return;
+		}
 		if (!Quirks.ready(player, id)) {
 			return;
 		}
 		switch (id) {
 			case OverhaulConfig.DISASSEMBLE -> OverhaulMoves.disassemble(player);
-			case OverhaulConfig.SHRAPNEL -> OverhaulMoves.shrapnel(player);
+			case OverhaulConfig.REASSEMBLE -> OverhaulMoves.reassemble(player);
 			case OverhaulConfig.SPIKE_WAVE -> OverhaulMoves.spikeWave(player);
 			case OverhaulConfig.SPIKE_FIELD -> OverhaulMoves.spikeField(player);
 			case OverhaulConfig.WALL -> OverhaulMoves.wall(player);
-			case OverhaulConfig.RAMP -> OverhaulMoves.ramp(player);
-			case OverhaulConfig.RESTORE -> OverhaulMoves.restore(player);
-			case OverhaulConfig.REASSEMBLE -> OverhaulMoves.reassemble(player);
-			case OverhaulConfig.FIELD -> OverhaulMoves.field(player);
 			case OverhaulConfig.PIT -> OverhaulMoves.pit(player);
+			case OverhaulConfig.STRIKE -> OverhaulMoves.strike(player);
+			case OverhaulConfig.DISARM -> OverhaulMoves.disarm(player);
 			case OverhaulConfig.FUSION -> OverhaulMoves.fusion(player);
-			case OverhaulConfig.SHARD -> OverhaulMoves.shard(player);
+			case OverhaulConfig.SURF -> OverhaulMoves.surf(player);
+			case OverhaulConfig.GLOVES -> OverhaulMoves.gloves(player);
+			case OverhaulConfig.PILLAR -> OverhaulMoves.pillar(player);
 			default -> {
 			}
 		}
@@ -65,7 +66,7 @@ public final class OverhaulKit implements QuirkKit {
 	}
 
 	@Override
-	public float modifyIncomingDamage(ServerPlayer player, DamageSource source, float amount) {
+	public float modifyIncomingDamage(ServerPlayer player, net.minecraft.world.damagesource.DamageSource source, float amount) {
 		return OverhaulMoves.modifyIncomingDamage(player, source, amount);
 	}
 
@@ -79,12 +80,25 @@ public final class OverhaulKit implements QuirkKit {
 		OverhaulMoves.forget(id);
 	}
 
+	/** The gloves (Shift+C) work while his focus is spent. */
+	@Override
+	public boolean usableWhileOverloaded(AbilitySlot slot, boolean shift) {
+		return slot == AbilitySlot.SLOT_6 && shift;
+	}
+
+	@Override
+	public boolean keyLocked(Player player, AbilitySlot slot, boolean shift) {
+		// gloves on: every touch is held back (the HUD dims those keys)
+		return !(slot == AbilitySlot.SLOT_6 && shift) && Overhaul.gloved(player);
+	}
+
 	@Override
 	public boolean active(Player player, AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_3 -> Overhaul.running(player, Overhaul.V_WALL);
-			case SLOT_5 -> Overhaul.running(player, Overhaul.V_PIT);
-			case SLOT_6 -> Overhaul.fused(player);
+			case SLOT_3 -> Overhaul.running(player, Overhaul.V_SURF);
+			case SLOT_4 -> Overhaul.running(player, Overhaul.V_STRIKE) || Overhaul.running(player, Overhaul.V_PIT);
+			case SLOT_5 -> Overhaul.fused(player);
+			case SLOT_6 -> Overhaul.gloved(player) || Overhaul.running(player, Overhaul.V_WALL);
 			default -> false;
 		};
 	}
@@ -92,12 +106,12 @@ public final class OverhaulKit implements QuirkKit {
 	@Override
 	public String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> new String[] { OverhaulConfig.DISASSEMBLE, OverhaulConfig.SHRAPNEL };
+			case SLOT_1 -> new String[] { OverhaulConfig.DISASSEMBLE, OverhaulConfig.DISARM };
 			case SLOT_2 -> new String[] { OverhaulConfig.SPIKE_WAVE, OverhaulConfig.SPIKE_FIELD };
-			case SLOT_3 -> new String[] { OverhaulConfig.WALL, OverhaulConfig.RAMP };
-			case SLOT_4 -> new String[] { OverhaulConfig.RESTORE, OverhaulConfig.REASSEMBLE };
-			case SLOT_5 -> new String[] { OverhaulConfig.FIELD, OverhaulConfig.PIT };
-			case SLOT_6 -> new String[] { OverhaulConfig.FUSION, OverhaulConfig.SHARD };
+			case SLOT_3 -> new String[] { OverhaulConfig.SURF, OverhaulConfig.PILLAR };
+			case SLOT_4 -> new String[] { OverhaulConfig.STRIKE, OverhaulConfig.PIT };
+			case SLOT_5 -> new String[] { OverhaulConfig.FUSION, OverhaulConfig.REASSEMBLE };
+			case SLOT_6 -> new String[] { OverhaulConfig.WALL, OverhaulConfig.GLOVES };
 			default -> new String[0];
 		};
 	}
@@ -106,17 +120,17 @@ public final class OverhaulKit implements QuirkKit {
 	public int maxCooldown(String abilityId) {
 		return switch (abilityId) {
 			case OverhaulConfig.DISASSEMBLE -> OverhaulConfig.DISASSEMBLE_COOLDOWN;
-			case OverhaulConfig.SHRAPNEL -> OverhaulConfig.SHRAPNEL_COOLDOWN;
+			case OverhaulConfig.REASSEMBLE -> OverhaulConfig.REASSEMBLE_COOLDOWN;
 			case OverhaulConfig.SPIKE_WAVE -> OverhaulConfig.SPIKE_WAVE_COOLDOWN;
 			case OverhaulConfig.SPIKE_FIELD -> OverhaulConfig.SPIKE_FIELD_COOLDOWN;
 			case OverhaulConfig.WALL -> OverhaulConfig.WALL_COOLDOWN;
-			case OverhaulConfig.RAMP -> OverhaulConfig.RAMP_COOLDOWN;
-			case OverhaulConfig.RESTORE -> OverhaulConfig.RESTORE_COOLDOWN;
-			case OverhaulConfig.REASSEMBLE -> OverhaulConfig.REASSEMBLE_COOLDOWN;
-			case OverhaulConfig.FIELD -> OverhaulConfig.FIELD_COOLDOWN;
 			case OverhaulConfig.PIT -> OverhaulConfig.PIT_COOLDOWN;
+			case OverhaulConfig.STRIKE -> OverhaulConfig.STRIKE_COOLDOWN;
+			case OverhaulConfig.DISARM -> OverhaulConfig.DISARM_COOLDOWN;
 			case OverhaulConfig.FUSION -> OverhaulConfig.FUSION_COOLDOWN;
-			case OverhaulConfig.SHARD -> OverhaulConfig.SHARD_COOLDOWN;
+			case OverhaulConfig.SURF -> OverhaulConfig.SURF_COOLDOWN;
+			case OverhaulConfig.GLOVES -> OverhaulConfig.GLOVES_COOLDOWN;
+			case OverhaulConfig.PILLAR -> OverhaulConfig.PILLAR_COOLDOWN;
 			default -> 0;
 		};
 	}

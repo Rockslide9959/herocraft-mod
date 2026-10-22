@@ -89,6 +89,7 @@
 		"ErasureEnderManMixin",
 		"ErasureShulkerMixin",
 		"ErasureServerLevelSpawnMixin",
+		"OverhaulExplosionMixin",
 		"SecondChanceSpawnMixin"
 	],
 	"client": [],

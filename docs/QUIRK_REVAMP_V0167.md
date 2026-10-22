@@ -6,6 +6,8 @@ decide the abilities".
 
 ## Rules for every Quirk
 - Every key R / G / X / Z / V / C has a **tap** move and a **Shift** move. H stays the power selector. N is not used.
+- **Slot rule (user, 2026-10-22; overrides the per-Quirk letters below where they differ):** X = the MOVEMENT ability, V = the
+  UTILITY / mode ability, and the rest (R, G, Z, C and their Shifts) are mainly attacks.
 - Each Quirk keeps its own meter (heat, focus, engine, shadow, dry eyes, sweat, nausea) and its Overload. They are
   re-tuned so the **signature sustained mechanic** below is the heart of the kit, not a row of one-shot moves.
 - Every move gets a proper keyframed player pose, plus VFX and SFX in the style of the One For All moves.
@@ -51,20 +53,24 @@ decide the abilities".
 - **Plus Ultra: Full Power (Shift+C):** for 15 s all fire moves are doubled; afterwards heat is pinned at max.
 
 ## Overhaul (Kai Chisaki): disassemble and reassemble by touch
-- **Focus** is the meter; every touch costs focus.
-- **Disassemble (R):** a touch that deals heavy damage, plus disassemble particles.
-- **Reassemble (Shift+R):** instantly heal yourself or an ally to full, once per 60 s.
-- **Ground Spikes (G):** touch the floor and the terrain erupts in a line of stone spikes toward the target. The spikes
-  are temporary blocks and clean themselves up.
-- **Spike Field (Shift+G):** spikes in a ring around you.
-- **Wall Burst (X):** raise a temporary stone wall.
-- **Disassemble Terrain (Shift+X):** break the floor out from under mobs, a pit that closes again later.
-- **Overhaul Strike (Z):** a dash and touch.
-- **Disarm (Shift+Z):** destroy a mob's held item or armour piece.
-- **Chronostasis Fusion (V):** a fused form. You grow, gain stone armour and spike limbs, and get extra reach for 20 s.
-- **Restore (Shift+V):** repairs blocks broken nearby.
-- **Gloves (C):** puts your gloves on or takes them off. Gloves on, touches don't trigger, so you can be in melee safely.
-  This is the Quirk's toggle; Shift+C cleans off contamination (vents focus).
+As built (v0.16.7). Slot rule: X = movement, V = mode / utility, the rest attacks.
+
+| Key | Tap | Shift |
+|---|---|---|
+| R | **Disassemble**: a bare-hand touch, 18 damage; a body it kills bursts on everything within 3.5 blocks (6). 14 Focus. | **Disarm**: touch what a mob holds (or, empty-handed, an armour piece) and it is destroyed; a player's is knocked from their grip instead. Not bosses. 20 Focus. |
+| G | **Ground Spikes**: palm to the floor, a jagged line of stone spikes erupts toward the target, 14 blocks: 10 and a toss. 18 Focus. | **Spike Field**: both palms down, two rings of spikes round you: 9 to all within 5 blocks. 28 Focus. |
+| X | **Terrain Surf** (movement): the ground breaks and reforms a step ahead and carries you the way you look for ~1.7 s, a ridge of earth rising in your wake, throwing aside what it runs over (5). X again: off. No fall damage. 14 Focus. | **Pillar Launch** (movement): a 3-block stone pillar shoots up under you and flings you high; no fall damage for 5 s. 12 Focus. |
+| Z | **Overhaul Strike**: a low dash, bare hand out: the first enemy touched takes 14 and is thrown. 16 Focus. | **Disassemble Terrain**: the floor breaks out from under up to 6 creatures near where you aim; each drops into its own 2-deep pit, a lid closes over it, and 4 s later the ground closes back up and pushes it out. Not bosses / big mobs. 30 Focus. |
+| C | **Wall Burst**: the ground ahead bursts into a 5x3 wall for 10 s, throwing back whatever stood there (5). 18 Focus. | **Gloves** (toggle; works while spent): on, no touch triggers (safe melee), every other key is locked and Focus refills twice as fast; off, the moves work and a bare-handed punch disassembles (+4 for 3 Focus). |
+| V | **Chronostasis Fusion** (mode): absorb the ground for 20 s: bigger (x1.5), stone-plated, spiked limbs (thorns on gauntlets, shoulders, back) and two extra spiked arms; +8 damage, +12 armour, +2.5 reach. V again: end. 45 Focus. | **Reassemble** (utility): you, or the ally you look at, to full health with debuffs gone, and **Restore**: every block an explosion broke within 12 blocks in the last 5 minutes rebuilds as a wave, its dropped debris drawn back in. Once a minute. 30 Focus. |
+
+- **Focus** (meter, starts full): every touch spends it; it refills 6/s a second after the last spend (12/s gloved).
+  Spent to nothing: 2.5 s with no moves but the gloves.
+- Every block goes through the Geokinesis temporary-block ledger (`GeoTerrain`): the terrain-damage config, build rights,
+  claims, never into a living thing, always put back on its own clock and on server stop. Restore's memory is
+  `OverhaulRestore` (recorded only while an Overhaul holder is in that level; block entities are never rebuilt).
+- Dropped from the first draft by the slot rule: Decontaminate (Shift+C) and a separate Restore key (folded into
+  Reassemble).
 
 ## Dark Shadow (Fumikage Tokoyami, Tsukuyomi): a living shadow companion
 - **The shadow:** Dark Shadow is a visible shadow-bird creature attached to your back, a GeckoLib or particle-built

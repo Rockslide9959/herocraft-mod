@@ -1,8 +1,19 @@
 package com.projecthero.mod.quirk.overhaul;
 
 /**
- * v0.16.7: every number of the Overhaul Quirk (Kai Chisaki). Ticks unless named otherwise; damage in half-hearts (HP).
- * Focus is the meter (0..100): every move spends it, it refills on its own after a short pause.
+ * v0.16.7 revamp (docs/QUIRK_REVAMP_V0167.md): every number of the Overhaul Quirk (Kai Chisaki). Ticks unless named
+ * otherwise; damage in half-hearts (HP). Focus is the meter (0..100): every touch spends it, it refills on its own after
+ * a short pause (twice as fast with the gloves on).
+ * The user's slot rule (2026-10-22): X = movement, V = utility / mode, the rest mainly attacks.
+ * <pre>
+ *   R  Disassemble            Shift+R  Disarm
+ *   G  Ground Spikes          Shift+G  Spike Field
+ *   X  Terrain Surf           Shift+X  Pillar Launch           (movement)
+ *   Z  Overhaul Strike        Shift+Z  Disassemble Terrain (pits that close again)
+ *   C  Wall Burst             Shift+C  Gloves (toggle; works while spent)
+ *   V  Chronostasis Fusion    Shift+V  Reassemble (full heal + Restore broken ground, 60 s)   (mode / utility)
+ * </pre>
+ * The Quirk numbers are static (no config file), like every Quirk's; nothing to migrate.
  */
 public final class OverhaulConfig {
 	private OverhaulConfig() {
@@ -10,24 +21,28 @@ public final class OverhaulConfig {
 
 	// ---------------------------------------------------------------- ability ids (quirk_overhaul_<move>)
 	public static final String DISASSEMBLE = "quirk_overhaul_disassemble";
-	public static final String SHRAPNEL = "quirk_overhaul_shrapnel";
+	public static final String REASSEMBLE = "quirk_overhaul_reassemble";
+	/** Ground Spikes (the id predates the revamp's name). */
 	public static final String SPIKE_WAVE = "quirk_overhaul_spike_wave";
 	public static final String SPIKE_FIELD = "quirk_overhaul_spike_field";
 	public static final String WALL = "quirk_overhaul_wall";
-	public static final String RAMP = "quirk_overhaul_ramp";
-	public static final String RESTORE = "quirk_overhaul_restore";
-	public static final String REASSEMBLE = "quirk_overhaul_reassemble";
-	public static final String FIELD = "quirk_overhaul_field";
+	/** Disassemble Terrain (the id predates the revamp's name). */
 	public static final String PIT = "quirk_overhaul_pit";
+	public static final String STRIKE = "quirk_overhaul_strike";
+	public static final String DISARM = "quirk_overhaul_disarm";
 	public static final String FUSION = "quirk_overhaul_fusion";
-	public static final String SHARD = "quirk_overhaul_shard";
+	public static final String GLOVES = "quirk_overhaul_gloves";
+	public static final String SURF = "quirk_overhaul_surf";
+	public static final String PILLAR = "quirk_overhaul_pillar";
 
 	// ---------------------------------------------------------------- Focus
 	/** Focus refilled a tick (6 a second)... */
 	public static final float FOCUS_REGEN_PER_TICK = 0.3f;
+	/** ...this many times faster with the gloves on. */
+	public static final float GLOVES_REGEN_MULT = 2f;
 	/** ...starting this long after the last spend. */
 	public static final int FOCUS_REGEN_DELAY = 20;
-	/** Spent to (almost) nothing: "your focus is spent" -- no moves for this long. */
+	/** Spent to (almost) nothing: "your focus is spent" -- no moves (but Shift+C) for this long. */
 	public static final int FOCUS_SPENT_TICKS = 50;
 
 	// ---------------------------------------------------------------- shared
@@ -38,23 +53,32 @@ public final class OverhaulConfig {
 	/** Bosses take at most this fraction of their max health from one hit, and are never knocked about. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.10f;
 
-	// ---------------------------------------------------------------- R: Disassemble / Shift+R: Shrapnel Burst
-	public static final float DISASSEMBLE_COST = 12f;
+	// ---------------------------------------------------------------- passive: the bare-hand touch (gloves off)
+	/** A bare-handed (empty main hand) melee hit with the gloves off disassembles a little too: extra damage... */
+	public static final float TOUCH_PASSIVE_DAMAGE = 4f;
+	/** ...for this much Focus (no Focus: a plain punch). */
+	public static final float TOUCH_PASSIVE_COST = 3f;
+
+	// ---------------------------------------------------------------- R: Disassemble / Shift+V: Reassemble
+	public static final float DISASSEMBLE_COST = 14f;
 	public static final int DISASSEMBLE_COOLDOWN = 30;
-	public static final float DISASSEMBLE_DAMAGE = 14f;
+	public static final float DISASSEMBLE_DAMAGE = 18f;
 	public static final double DISASSEMBLE_KNOCKBACK = 0.6;
+	/** A body Disassemble kills bursts: shards to everything this close... */
+	public static final double DISASSEMBLE_BURST_RADIUS = 3.5;
+	public static final float DISASSEMBLE_BURST_DAMAGE = 6f;
 
-	public static final float SHRAPNEL_COST = 22f;
-	public static final int SHRAPNEL_COOLDOWN = 80;
-	public static final float SHRAPNEL_DAMAGE = 10f;
-	public static final float SHRAPNEL_SPLASH_DAMAGE = 8f;
-	public static final double SHRAPNEL_RADIUS = 4.5;
+	public static final float REASSEMBLE_COST = 30f;
+	/** Once per 60 s. */
+	public static final int REASSEMBLE_COOLDOWN = 1200;
+	/** Reaches the ally he looks at this far; otherwise he reassembles himself. */
+	public static final double REASSEMBLE_RANGE = 6.0;
 
-	// ---------------------------------------------------------------- G: Spike Wave / Shift+G: Spike Field
+	// ---------------------------------------------------------------- G: Ground Spikes / Shift+G: Spike Field
 	public static final float SPIKE_WAVE_COST = 18f;
 	public static final int SPIKE_WAVE_COOLDOWN = 60;
-	public static final int SPIKE_WAVE_LENGTH = 12;
-	public static final float SPIKE_WAVE_DAMAGE = 9f;
+	public static final int SPIKE_WAVE_LENGTH = 14;
+	public static final float SPIKE_WAVE_DAMAGE = 10f;
 	/** How far either side of a spike a creature is still caught. */
 	public static final double SPIKE_HIT_RADIUS = 1.1;
 	public static final double SPIKE_LIFT = 0.65;
@@ -65,48 +89,26 @@ public final class OverhaulConfig {
 	public static final int SPIKE_FIELD_COOLDOWN = 140;
 	public static final double SPIKE_FIELD_INNER = 2.5;
 	public static final double SPIKE_FIELD_OUTER = 4.5;
-	public static final float SPIKE_FIELD_DAMAGE = 8f;
+	public static final float SPIKE_FIELD_DAMAGE = 9f;
 
-	// ---------------------------------------------------------------- X: Reshape Wall / Shift+X: Launch Ramp
+	// ---------------------------------------------------------------- C: Wall Burst / Shift+Z: Disassemble Terrain
 	public static final float WALL_COST = 18f;
 	public static final int WALL_COOLDOWN = 100;
 	public static final int WALL_WIDTH = 5;
 	public static final int WALL_HEIGHT = 3;
 	public static final int WALL_DISTANCE = 2;
 	public static final int WALL_TTL = 200;
-
-	public static final float RAMP_COST = 12f;
-	public static final int RAMP_COOLDOWN = 80;
-	public static final int RAMP_TTL = 40;
-	public static final double RAMP_FORWARD = 1.45;
-	public static final double RAMP_UP = 1.25;
-	/** No fall damage for this long after the launch. */
-	public static final int RAMP_SAFE_TICKS = 80;
-
-	// ---------------------------------------------------------------- Z: Restore / Shift+Z: Reassemble Armour
-	public static final float RESTORE_COST = 35f;
-	public static final int RESTORE_COOLDOWN = 900;
-	public static final double RESTORE_RANGE = 6.0;
-	/** Squadmates this close are restored too. */
-	public static final double RESTORE_SQUAD_RADIUS = 5.0;
-
-	public static final float REASSEMBLE_COST = 25f;
-	public static final int REASSEMBLE_COOLDOWN = 600;
-	/** Absorption amplifier (1 = 8 HP) and duration. */
-	public static final int REASSEMBLE_ABSORPTION_AMP = 1;
-	public static final int REASSEMBLE_ABSORPTION_TICKS = 600;
-
-	// ---------------------------------------------------------------- V: Overhaul Field / Shift+V: Collapse Pit
-	public static final float FIELD_COST = 55f;
-	public static final int FIELD_COOLDOWN = 900;
-	public static final double FIELD_RADIUS = 7.0;
-	public static final float FIELD_DAMAGE = 12f;
-	public static final int FIELD_TTL = 140;
+	/** Anything standing where the wall bursts up is shoved back and takes this. */
+	public static final float WALL_BURST_DAMAGE = 5f;
 
 	public static final float PIT_COST = 30f;
-	public static final int PIT_COOLDOWN = 300;
-	public static final double PIT_RANGE = 12.0;
-	/** How long the pit holds its prisoner under the lid. */
+	public static final int PIT_COOLDOWN = 260;
+	public static final double PIT_RANGE = 14.0;
+	/** Everything this close to where he aims drops in (a pit each)... */
+	public static final double PIT_AREA_RADIUS = 3.0;
+	/** ...at most this many. */
+	public static final int PIT_MAX_TARGETS = 6;
+	/** How long the pits hold their prisoners under the lids before the ground closes back up (pushing them out). */
 	public static final int PIT_TICKS = 80;
 	public static final int PIT_DEPTH = 2;
 	public static final float PIT_DAMAGE = 6f;
@@ -114,15 +116,30 @@ public final class OverhaulConfig {
 	public static final double PIT_MAX_WIDTH = 1.0;
 	public static final double PIT_MAX_HEIGHT = 2.0;
 
-	// ---------------------------------------------------------------- C: Fusion / Shift+C: Shard Shot
+	// ---------------------------------------------------------------- Z: Overhaul Strike / Shift+R: Disarm
+	public static final float STRIKE_COST = 16f;
+	public static final int STRIKE_COOLDOWN = 70;
+	/** The dash: blocks a tick along the ground, for {@link #STRIKE_TICKS}. */
+	public static final double STRIKE_SPEED = 1.35;
+	public static final int STRIKE_TICKS = 7;
+	/** The first enemy his reaching hand touches on the way. */
+	public static final double STRIKE_HIT_RADIUS = 1.4;
+	public static final float STRIKE_DAMAGE = 14f;
+
+	public static final float DISARM_COST = 20f;
+	public static final int DISARM_COOLDOWN = 200;
+	public static final int DISARM_MISS_COOLDOWN = 15;
+
+	// ---------------------------------------------------------------- V: Chronostasis Fusion (Shift+V Reassemble: above)
 	public static final float FUSION_COST = 45f;
 	/** Starts when Fusion ends. */
 	public static final int FUSION_COOLDOWN = 1200;
-	public static final int FUSION_TICKS = 600;
+	/** 20 s. */
+	public static final int FUSION_TICKS = 400;
 	/** Added to Attributes.SCALE (ADD_MULTIPLIED_BASE): 1.8 -> 2.7 blocks. */
 	public static final double FUSION_SCALE = 0.5;
 	public static final int FUSION_GROW_TICKS = 12;
-	public static final double FUSION_REACH_BONUS = 2.0;
+	public static final double FUSION_REACH_BONUS = 2.5;
 	public static final double FUSION_ATTACK_BONUS = 8.0;
 	public static final double FUSION_ARMOR = 12.0;
 	public static final double FUSION_TOUGHNESS = 6.0;
@@ -130,12 +147,39 @@ public final class OverhaulConfig {
 	public static final double FUSION_SPEED = -0.1;
 	public static final double FUSION_ABSORB_RADIUS = 5.0;
 
-	public static final float SHARD_COST = 15f;
-	public static final int SHARD_COOLDOWN = 50;
-	public static final double SHARD_BLOCK_RANGE = 6.0;
-	public static final double SHARD_RANGE = 10.0;
-	public static final double SHARD_HALF_ANGLE = 35.0;
-	public static final float SHARD_DAMAGE = 9f;
-	/** The block that burst comes back after this long. */
-	public static final int SHARD_BLOCK_TTL = 100;
+	// ---- Restore: part of Reassemble (Shift+V) since the slot rule -- it also puts back the broken ground around him
+	/** Blocks broken (exploded) within this of him in the last {@link #RESTORE_MEMORY_TICKS} are rebuilt. */
+	public static final double RESTORE_RADIUS = 12.0;
+	public static final int RESTORE_MEMORY_TICKS = 6000;
+	/** At most this many blocks a Restore... */
+	public static final int RESTORE_MAX_BLOCKS = 384;
+	/** ...rebuilt as a wave, nearest first, over this long. */
+	public static final int RESTORE_WAVE_TICKS = 24;
+	/** The ledger keeps at most this many broken blocks per level (oldest dropped first). */
+	public static final int RESTORE_LEDGER_CAP = 16384;
+
+	// ---------------------------------------------------------------- Shift+C: Gloves
+	public static final int GLOVES_COOLDOWN = 12;
+
+	// ---------------------------------------------------------------- X: Terrain Surf / Shift+X: Pillar Launch
+	public static final float SURF_COST = 14f;
+	public static final int SURF_COOLDOWN = 60;
+	/** The ground carries him this long (X again ends it early)... */
+	public static final int SURF_TICKS = 34;
+	/** ...at this speed, blocks a tick, along the way he looks. */
+	public static final double SURF_SPEED = 0.85;
+	/** The wave of earth rising behind him stands this long. */
+	public static final int SURF_WAKE_TTL = 16;
+	/** What it runs over is thrown aside. */
+	public static final float SURF_DAMAGE = 5f;
+	/** No fall damage while surfing and this long after. */
+	public static final int SURF_SAFE_TICKS = 40;
+
+	public static final float PILLAR_COST = 12f;
+	public static final int PILLAR_COOLDOWN = 80;
+	public static final int PILLAR_HEIGHT = 3;
+	public static final int PILLAR_TTL = 60;
+	public static final double PILLAR_UP = 1.35;
+	public static final double PILLAR_FORWARD = 0.35;
+	public static final int PILLAR_SAFE_TICKS = 100;
 }
