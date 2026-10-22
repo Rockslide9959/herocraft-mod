@@ -77,6 +77,11 @@ public class IronManPackItem extends Item {
 						Math.round(100f * IronManEnergy.stackIntegrity(stack, suitId) / max)).withStyle(ChatFormatting.GRAY));
 			}
 		}
+		if (com.projecthero.mod.ironman.suit.ThrusterPackFlight.SUIT.equals(suitId)) {
+			// v0.16.7 (user): carried, the thruster pack gives slow basic flight (TooltipWrap wraps the long line)
+			tooltip.add(Component.translatable("item.projecthero.space_thruster_pack.flight",
+					Math.round(IronManEnergy.stackEnergy(stack, suitId))).withStyle(ChatFormatting.AQUA));
+		}
 		tooltip.add(Component.translatable("item.projecthero.ironman.requires_tony_stark").withStyle(ChatFormatting.DARK_AQUA));
 	}
 }

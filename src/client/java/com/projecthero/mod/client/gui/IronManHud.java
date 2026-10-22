@@ -473,6 +473,10 @@ public final class IronManHud {
 			} else if (low) {
 				eRight = Component.translatable("hud.projecthero.ironman.status.low_power").getString();
 				eRightColour = IronManGui.ORANGE;
+			} else if (com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player)) {
+				// v0.16.7 (user): the Mk VIII Flight Boost drinks the reactor at 2.5x
+				eRight = Component.translatable("hud.projecthero.ironman.status.boost_drain").getString();
+				eRightColour = IronManGui.ORANGE;
 			} else if (gantryCached(player, now)) {
 				eRight = Component.translatable("hud.projecthero.ironman.status.gantry", Math.round(IronManEnergy.GANTRY_CHARGE_PER_SECOND)).getString();
 				eRightColour = IronManGui.GREEN;
@@ -485,6 +489,37 @@ public final class IronManHud {
 					new String[] { Math.round(en) + "/" + Math.round(cap), String.valueOf(Math.round(en)), "" },
 					eRight, eRightColour, retro);
 		}
+		boostTag(g, font, player, state, suit, b, now);
+	}
+
+	/**
+	 * v0.16.7 (user): the Mk VIII Flight Boost tag, centred under the crosshair -- "BOOST x2" pulsing orange-white while it
+	 * runs, a dim cyan "BOOST ARMED" while it waits for sprint flight. Fitted to the status block's width.
+	 */
+	private static void boostTag(GuiGraphics g, Font font, Player player, TonyStarkState state, IronManSuit suit, Rect b, long now) {
+		if (!com.projecthero.mod.ironman.ability.IronManSpaceBoost.armed(state, suit.id())) {
+			return;
+		}
+		boolean on = com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player);
+		String tag = IronManGui.fit(font, Component.translatable(on ? "hud.projecthero.ironman.status.boost"
+				: "hud.projecthero.ironman.status.boost_armed").getString(), Math.min(b.w(), g.guiWidth() - 32) - 12);
+		int w = font.width(tag) + 12;
+		int h = 13;
+		// centred just under the crosshair: clear of the status block and the key strip down the left, and of the
+		// telemetry at the top right, at any window size
+		int x = (g.guiWidth() - w) / 2;
+		int y = g.guiHeight() / 2 + 14;
+		int line = on ? IronManGui.ORANGE : IronManGui.CYAN_DIM;
+		g.fill(x, y, x + w, y + h, on ? 0xB0281204 : 0xA0040C14);
+		g.renderOutline(x, y, w, h, IronManGui.alpha(line, 0.55f));
+		IronManGui.brackets(g, x, y, w, h, 3, IronManGui.alpha(on ? 0xFFFFD8A0 : IronManGui.CYAN, 0.9f));
+		// a little chevron that pulses while the boost runs
+		int pulse = on ? (int) (now % 10) : 0;
+		int chev = on ? (pulse < 5 ? 0xFFFFFFFF : IronManGui.ORANGE) : IronManGui.CYAN_DIM;
+		g.fill(x + 3, y + 4, x + 5, y + 9, chev);
+		g.fill(x + 5, y + 5, x + 6, y + 8, chev);
+		int text = on ? (pulse < 5 ? 0xFFFFF2E0 : 0xFFFFB060) : IronManGui.TEXT_DIM;
+		g.drawString(font, tag, x + 9, y + 3, text, true);
 	}
 
 	/** One status gauge: label + percentage, the segmented bar, then the exact value (shortened to fit) and a right note. */
@@ -958,6 +993,13 @@ public final class IronManHud {
 		long otherLeft = otherAt == null ? 0 : Math.max(0, otherAt - now);
 
 		holoBox(g, r, offline ? 0xFF8A2828 : shift ? IronManGui.GOLD : 0, retro); // v0.16.7 (user): the holographic frame
+		if (com.projecthero.mod.ironman.ability.IronManSpaceBoost.MOVE.equals(shown.id())
+				&& com.projecthero.mod.ironman.ability.IronManSpaceBoost.armed(state, suitId)) {
+			// v0.16.7 (user): the Flight Boost box lights while it is armed (orange while it runs)
+			boolean on = com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player);
+			g.renderOutline(r.x(), r.y(), r.w(), r.h(), on ? IronManGui.ORANGE : IronManGui.CYAN);
+			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, on ? 0x40FF8020 : 0x3020C0FF);
+		}
 		if (!offline && left <= 0) {
 			g.fill(r.x() + 1, r.bottom() - 2, r.right() - 1, r.bottom() - 1, IronManGui.alpha(accent, 0.6f));
 		}

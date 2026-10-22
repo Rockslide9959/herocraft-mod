@@ -44,6 +44,8 @@ public final class IronManSuitTicker {
 		IronManFaceplate.reconcile(player);
 		IronManBlade.tick(player);
 		IronManFlight.tick(player);
+		com.projecthero.mod.ironman.ability.IronManSpaceBoost.tick(player); // v0.16.7 (user): the Mk VIII Flight Boost
+		HulkbusterLanding.tick(player); // v0.16.7 (user): the Hulkbuster's superhero landing after a big fall
 		IronManSuitUpManager.tick(player);
 		IronManSuitArrows.tick(player); // v0.15.9: stuck arrows fall off at the start and end of every suit-up / suit-down
 		IronManPassives.tick(player);

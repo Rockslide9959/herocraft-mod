@@ -207,11 +207,13 @@ public final class IronManComicKit {
 				// 30 energy) -- both keep their own cooldown / energy in IronManComicMoves.shieldOrBurst
 				reg(new Move("mk6_energy_shield", Input.HOLD, 0, 0f, Items.SHIELD, "mk6_energy_shield")));
 
-		// MK VIII SPACE (mark_vii): vacuum missiles, the orbital strike, boosters, the meteor dive, solar power and gravity.
+		// MK VIII SPACE (mark_vii): vacuum missiles, the orbital strike, the Flight Boost, the meteor dive, solar power and gravity.
 		kit6("mark_vii",
 				key(en(tap("mk7_repulsor", s(0.5), 20f, Items.GLOWSTONE_DUST), 5f), en(tap("mk7_dash", s(7), 25f, Items.FEATHER), 15f)),
 				key(en(tap("mk7_vacuum_missiles", s(10), 20f, Items.FIREWORK_ROCKET), 25f), en(tap("mk7_orbital_strike", s(22), 18f, Items.TARGET), 45f)),
-				key(en(tap("mk7_booster_rockets", s(6), 0f, Items.FIREWORK_ROCKET), 15f), en(tap("mk7_meteor_dive", s(10), 15f, Items.FIRE_CHARGE), 20f)),
+				// v0.16.7 (user): X = Flight Boost (replaces Booster Rockets) -- a toggle: arming is free, its price is the
+				// x2.5 sprint-flight drain while it runs (IronManSpaceBoost)
+				key(tap(IronManSpaceBoost.MOVE, s(1), 0f, Items.FIREWORK_ROCKET), en(tap("mk7_meteor_dive", s(10), 15f, Items.FIRE_CHARGE), 20f)),
 				key(en(tap("mk7_solar_beam", s(10), 30f, Items.SUNFLOWER), 30f), en(tap("mk7_solar_flare", s(16), 22f, Items.BLAZE_POWDER), 30f)),
 				// v0.16.7 (user): Shift+V = the new Singularity (Zero-G Field moved to C)
 				key(en(tap("mk7_gravity_tether", s(12), 6f, Items.LEAD), 15f), en(tap("mk7_singularity", s(14), 22f, Items.CRYING_OBSIDIAN), 35f)),

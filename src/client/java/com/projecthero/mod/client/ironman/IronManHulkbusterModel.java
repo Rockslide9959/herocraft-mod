@@ -24,6 +24,8 @@ public class IronManHulkbusterModel<T extends GeoAnimatable> extends GeoModel<T>
 	public static final ResourceLocation GEO = ProjectHeroMod.id("geo/ironman/hulkbuster_body.geo.json");
 	public static final ResourceLocation TEXTURE = ProjectHeroMod.id("textures/armor/hulkbuster_body.png");
 	public static final ResourceLocation ANIMATION = ProjectHeroMod.id("animations/ironman/hulkbuster_body.animation.json");
+	/** v0.16.7 (user): how far the Hulkbuster's head turns / tips with the look (degrees). */
+	static final float HEAD_YAW_LIMIT = 70f, HEAD_PITCH_LIMIT = 50f;
 
 	@Override
 	public ResourceLocation getModelResource(T animatable) {
@@ -44,9 +46,24 @@ public class IronManHulkbusterModel<T extends GeoAnimatable> extends GeoModel<T>
 	public void setCustomAnimations(T animatable, long instanceId, AnimationState<T> state) {
 		EntityModelData data = state.getData(DataTickets.ENTITY_MODEL_DATA);
 		// head and flinch are never keyed by any clip, so they are set absolutely each frame
+		// v0.16.7 (user) "when the hulkbuster suit spawns in the head is upside down or at a weird angle": GeckoLib hands
+		// over head - body yaw UNWRAPPED (a body that has just appeared, been teleported or turned round to step out of the
+		// suit can be 180 or 360 degrees off its head), so the head spun round / flipped for a moment. Work it out here
+		// from the living entity's own interpolated rotations, wrapped to -180..180 and clamped to what the big neck can
+		// turn; anything that is not a living body (the Sentry, the crate) looks straight ahead.
+		float yawDeg = 0f, pitchDeg = 0f;
+		if (state.getData(DataTickets.ENTITY) instanceof LivingEntity le) {
+			float pt = state.getPartialTick();
+			float body = Mth.rotLerp(pt, le.yBodyRotO, le.yBodyRot);
+			float headYaw = Mth.rotLerp(pt, le.yHeadRotO, le.yHeadRot);
+			yawDeg = Mth.clamp(Mth.wrapDegrees(headYaw - body), -HEAD_YAW_LIMIT, HEAD_YAW_LIMIT);
+			pitchDeg = Mth.clamp(Mth.wrapDegrees(Mth.lerp(pt, le.xRotO, le.getXRot())), -HEAD_PITCH_LIMIT, HEAD_PITCH_LIMIT);
+		}
+		final float yawRad = -yawDeg * Mth.DEG_TO_RAD, pitchRad = -pitchDeg * Mth.DEG_TO_RAD; // GeckoLib's sign (data is negated)
 		getBone("head").ifPresent(head -> {
-			head.setRotX(data == null ? 0f : data.headPitch() * Mth.DEG_TO_RAD); // same sign as the Hulk model
-			head.setRotY(data == null ? 0f : data.netHeadYaw() * Mth.DEG_TO_RAD);
+			head.setRotX(pitchRad); // same sign as the Hulk model
+			head.setRotY(yawRad);
+			head.setRotZ(0f);
 		});
 		getBone("flinch").ifPresent(flinch -> {
 			float jolt = 0f;

@@ -1272,6 +1272,22 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
+		// v0.16.7 (user): the Mk VIII Thruster Pack carried (worn on the back) with no suit on -- its slow pack flight
+		// (server re-validates: Tony Stark, no armour, a charged pack -- ThrusterPackFlight)
+		if (!player.onGround() && !isWearingIronMan(player)
+				&& (com.projecthero.mod.ironman.suit.ThrusterPackFlight.SUIT.equals(
+						player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BACK_PACK, ""))
+						|| com.projecthero.mod.ironman.suit.ThrusterPackFlight.packFlying(player))) {
+			com.projecthero.mod.ironman.data.TonyStarkState packStark =
+					player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.TONY_STARK_STATE, null);
+			if (packStark != null && packStark.hasPower) {
+				ticksSinceJumpPress = Integer.MAX_VALUE;
+				ClientPlayNetworking.send(new com.projecthero.mod.network.IronManActionPayload(
+						com.projecthero.mod.network.IronManActionPayload.Action.TOGGLE_FLIGHT));
+				return;
+			}
+		}
+
 		// Iron Man: same gesture. Airborne + wearing a suit -> repulsor flight; grounded + not wearing
 		// but has developed a suit -> summon it. Server re-validates power / suit / energy.
 		com.projecthero.mod.ironman.data.TonyStarkState stark =

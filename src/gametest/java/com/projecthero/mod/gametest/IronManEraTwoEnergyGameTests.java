@@ -137,7 +137,9 @@ public class IronManEraTwoEnergyGameTests implements FabricGameTest {
 					}
 					// the Replacement Pod is free (the field repair); the two hold-C keys pay inside (brace / shield / burst)
 					boolean free = "mk8_replacement_pod".equals(m.id()) || "mk8_hydraulic_brace".equals(m.id())
-							|| "mk6_energy_shield".equals(m.id());
+							|| "mk6_energy_shield".equals(m.id())
+							// v0.16.7 (user): the Mk VIII Flight Boost pays through the x2.5 flight drain, not on the press
+							|| com.projecthero.mod.ironman.ability.IronManSpaceBoost.MOVE.equals(m.id());
 					float cost = IronManComicKit.energyCost(m.id());
 					float perSecond = IronManComicKit.energyPerSecond(m.id());
 					h.assertTrue(free || cost > 0f || perSecond > 0f, m.id() + " costs energy");
@@ -153,9 +155,10 @@ public class IronManEraTwoEnergyGameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, "mark_vii");
 		IronManSuit suit = IronManSuits.MARK_VII;
 		float before = IronManEnergy.energy(p, "mark_vii");
-		h.assertTrue(IronManComicRouter.fireForTests(p, suit, 3, false), "Booster Rockets fire");
-		h.assertTrue(near(IronManEnergy.energy(p, "mark_vii"), before - IronManComicKit.energyCost("mk7_booster_rockets")),
-				"and pay 15");
+		// v0.16.7 (user): X is the Flight Boost now (free to arm -- its price is the flight drain), so the paid move is Dash
+		h.assertTrue(IronManComicRouter.fireForTests(p, suit, 1, true), "Dash fires");
+		h.assertTrue(near(IronManEnergy.energy(p, "mark_vii"), before - IronManComicKit.energyCost("mk7_dash")),
+				"and pays 15");
 		// not enough for a move: refused, nothing paid
 		IronManEnergy.setEnergy(p, "mark_vii", 10f);
 		h.assertFalse(IronManComicRouter.fireForTests(p, suit, 2, true), "Orbital Strike (45) refused on 10");

@@ -23,6 +23,7 @@ public final class IronManEntityRenderers {
 		// v0.16.7 (user) Veronica: the Hulkbuster's Replacement Pod / mid-air build pod, its plates, part damage FX
 		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_POD, com.projecthero.mod.client.ironman.HulkbusterPodRenderer::new);
 		com.projecthero.mod.client.ironman.HulkbusterVeronicaClient.initialize();
+		com.projecthero.mod.client.ironman.HulkbusterBuildClient.initialize(); // v0.16.7 (user): the gantry-style build-on
 		// v0.15.11: the hammer / wrench / carried piece of a hand-built suit-up
 		com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.initialize();
 	}

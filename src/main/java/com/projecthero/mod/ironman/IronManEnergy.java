@@ -229,6 +229,10 @@ public final class IronManEnergy {
 	public static void flightDrainTick(ServerPlayer player, IronManSuit suit) {
 		if (suit != null && suit.hasReactor() && suit.manualFlight() && com.projecthero.mod.ironman.IronManFlight.isFlying(player)) {
 			float perSecond = player.isSprinting() ? ERA_ONE_SPRINT_FLIGHT_PER_SECOND : ERA_ONE_FLIGHT_PER_SECOND;
+			if (com.projecthero.mod.ironman.ability.IronManSpaceBoost.engagedServer(player)) {
+				// v0.16.7 (user): the Mk VIII Flight Boost -- 2.5x the sprint-flight drain while it runs
+				perSecond = ERA_ONE_SPRINT_FLIGHT_PER_SECOND * com.projecthero.mod.ironman.ability.IronManSpaceBoost.DRAIN_MULTIPLIER;
+			}
 			if (!drainRunning(player, suit.id(), perSecond / 20f)) {
 				com.projecthero.mod.ironman.IronManFlight.setFlying(player, false);
 			}

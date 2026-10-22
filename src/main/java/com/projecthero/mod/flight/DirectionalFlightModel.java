@@ -263,6 +263,16 @@ public final class DirectionalFlightModel {
 	 * Repulsor Boots: the Mark 2's cruise speed (never slower than the creative-flight speed they always really had) with
 	 * {@code FLIGHT_ACCELERATION} (half its pick-up) -- no extra ceiling, so sprint flight is as quick as it was.
 	 */
+	/**
+	 * v0.16.7 (user): the Mk VIII Thruster Pack's slow basic flight (carried, no suit on) -- a gentle {@value #THRUSTER_PACK_BPS}
+	 * blocks / s cruise, a little under vanilla creative flight, with the boots' soft pick-up; never sprint flight.
+	 */
+	public static Tune thrusterPack() {
+		return ironManSuit(1.0f, 0.04f, 0.0, THRUSTER_PACK_BPS, false, false, 1.0);
+	}
+
+	public static final double THRUSTER_PACK_BPS = 8.0;
+
 	public static Tune repulsorBoots(boolean sprint) {
 		return ironMan(com.projecthero.mod.ironman.RepulsorBoots.FLIGHT_SPEED,
 				com.projecthero.mod.ironman.RepulsorBoots.FLIGHT_ACCELERATION, 0.0, sprint, false);

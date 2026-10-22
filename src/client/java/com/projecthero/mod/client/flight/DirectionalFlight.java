@@ -175,9 +175,15 @@ public final class DirectionalFlight {
 							// v0.16.7 Era I (user): the Mk III Flight Boost, x1.8 for 3 s
 							: com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.flightBoostMultiplier(ts, suit.id(), player.level().getGameTime())
 									// v0.16.7 (user) Veronica: a broken Hulkbuster leg's boot jet -- x0.7, x0.45 with both
-									* com.projecthero.mod.ironman.HulkbusterParts.flightFactor(player));
+									* com.projecthero.mod.ironman.HulkbusterParts.flightFactor(player)
+									// v0.16.7 (user): the Mk VIII Flight Boost -- x2 while sprint-flying
+									* com.projecthero.mod.ironman.ability.IronManSpaceBoost.speedMultiplier(ts, suit.id(), true,
+											sprint && suit.sprintFlight()));
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
+			if (com.projecthero.mod.ironman.suit.ThrusterPackFlight.packFlying(player)) {
+				return DirectionalFlightModel.thrusterPack(); // v0.16.7 (user): the Mk VIII Thruster Pack's slow flight
+			}
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight
 		}
 		// Thor's flight

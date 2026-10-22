@@ -101,6 +101,10 @@ public final class IronManAbilityFx {
 	public static final int HB_REPLACEMENT_POD = 110;
 	/** v0.16.7 (user): both huge palms thrust out together, then the recoil (Palm Cannon). */
 	public static final int HB_PALM_CANNON = 111;
+	/** v0.16.7 (user): the heavy three-point superhero landing after a hard flight landing / big fall ({@code HulkbusterLanding}). */
+	public static final int HB_LAND_HEAVY = 112;
+	/** v0.16.7 (user): the light touchdown (a gentle hover landing) -- the knees soak it up. */
+	public static final int HB_LAND_LIGHT = 113;
 
 	/** v0.16.1: the Hulkbuster body clip name for a HB_* pose id, or null. */
 	public static String hulkbusterClip(int anim) {
@@ -117,6 +121,8 @@ public final class IronManAbilityFx {
 			case HB_HYDRAULIC_BRACE -> "hydraulic_brace";
 			case HB_REPLACEMENT_POD -> "replacement_pod";
 			case HB_PALM_CANNON -> "palm_cannon";
+			case HB_LAND_HEAVY -> "superhero_land";
+			case HB_LAND_LIGHT -> "touchdown_land";
 			default -> null;
 		};
 	}

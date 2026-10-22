@@ -125,7 +125,7 @@ Damage per hit; cd = cooldown s; en = energy (one-off) or en/s (held / toggled).
 |---|---|---|
 | R | Repulsor 20; cd 0.5, en 5 | Dash 25; cd 7, en 15 |
 | G | Vacuum Missiles 20; cd 10, en 25 | Orbital Strike 18; cd 22, en 45 |
-| X | Booster Rockets; cd 6, en 15 | Meteor Dive 15; cd 10, en 20 |
+| X | **Flight Boost** (toggle: x2 speed while sprint-flying, off when you stop; flight drain x2.5); cd 1, en 0 | Meteor Dive 15; cd 10, en 20 |
 | Z | Solar Beam 30; cd 10, en 30 | Solar Flare 22; cd 16, en 30 |
 | V | Gravity Tether 6; cd 12, en 15 | **Singularity** 22; cd 14, en 35 |
 | C | **Zero-G Field**; cd 20, en 20 | (fold) |
@@ -234,7 +234,7 @@ bracelets); the Hulkbuster keeps Sentry Mode.
 |---|---|---|---|---|---|
 | Mk VI Suitcase (`mark_2`) | Repulsor (hold = charged) / Dash | Tractor Beam / Pressor Blast | Flares / Supersonic | Unibeam / Unibeam Flash | Highlight / JARVIS Scan |
 | Mk VII Silver Centurion (`mark_6`) | Repulsor / Dash | Pulse Bolts / Pulse Storm | Ricochet / Chameleon | Heavy Unibeam / Unibeam Overcharge | Energy Shield / Overload Burst |
-| Mk VIII Space (`mark_vii`) | Repulsor / Dash | Vacuum Missiles / Orbital Strike | Booster Rockets / Meteor Dive | Solar Beam / Solar Flare | Gravity Tether / Zero-G Field |
+| Mk VIII Space (`mark_vii`) | Repulsor / Dash | Vacuum Missiles / Orbital Strike | Flight Boost / Meteor Dive | Solar Beam / Solar Flare | Gravity Tether / Zero-G Field |
 | Hulkbuster I (`mark_8`) | Punch Combo / Rocket Fist | Pile Driver / Earthquake Stomp | Grab + Pound / Grab + Throw | Mega Beam / Missile Swarm | Hydraulic Brace / Replacement Pod |
 
 ### Collision check with the stage 2 fold / deploy

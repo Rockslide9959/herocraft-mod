@@ -24,8 +24,27 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 	public IronManHulkbusterRenderer(EntityRendererProvider.Context context) {
 		super(context, new IronManHulkbusterModel<>(), IronManHulkbusterAnimatable.INSTANCE);
 		this.shadowRadius = 1.0f;
-		addRenderLayer(new AutoGlowingGeoLayer<>(this));
+		addRenderLayer(new AutoGlowingGeoLayer<>(this) {
+			@Override
+			public void render(PoseStack poseStack, IronManHulkbusterAnimatable animatable, software.bernie.geckolib.cache.object.BakedGeoModel model,
+					net.minecraft.client.renderer.RenderType renderType, MultiBufferSource bufferSource,
+					com.mojang.blaze3d.vertex.VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
+				// v0.16.7 (user): the lights stay dark while the suit builds on
+				if (!buildTexture) {
+					super.render(poseStack, animatable, model, renderType, bufferSource, buffer, partialTick, packedLight, packedOverlay);
+				}
+			}
+		});
 		addRenderLayer(new HulkbusterPartRender.Layer<>(this, this)); // v0.16.7 (user): each part at its own damage
+	}
+
+	/** v0.16.7 (user): this frame draws the build-on texture ({@link HulkbusterBuildClient}) instead of the plain one. */
+	private boolean buildTexture;
+	private net.minecraft.resources.ResourceLocation buildFrame;
+
+	@Override
+	public net.minecraft.resources.ResourceLocation getTextureLocation(IronManHulkbusterAnimatable animatable) {
+		return buildFrame != null ? buildFrame : super.getTextureLocation(animatable);
 	}
 
 	/** v0.16.7 (user) Veronica: this frame's per-part tiers / the parts there at all (the mid-air build). */
@@ -62,12 +81,16 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 		float s = Math.max(0.01f, player.getScale());
 		origin.set(poseStack.last().pose());
 		frameTick = partialTick;
+		buildFrame = HulkbusterBuildClient.texture(player, partialTick); // v0.16.7 (user): building on, gantry style
+		buildTexture = buildFrame != null;
 		poseStack.pushPose();
 		poseStack.scale(1f / s, 1f / s, 1f / s);
 		try {
 			render(player, entityYaw, partialTick, poseStack, buffer, packedLight);
 		} finally {
 			poseStack.popPose();
+			buildFrame = null;
+			buildTexture = false;
 		}
 	}
 

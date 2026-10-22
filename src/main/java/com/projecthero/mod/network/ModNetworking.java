@@ -145,7 +145,9 @@ public final class ModNetworking {
 				// The suit path gets first refusal; RepulsorBoots.toggle no-ops unless the boots are on.
 				case TOGGLE_FLIGHT -> {
 					if (!com.projecthero.mod.ironman.RepulsorBoots.worn(context.player())
-							&& !com.projecthero.mod.ironman.RepulsorBoots.isFlying(context.player())) {
+							&& !com.projecthero.mod.ironman.RepulsorBoots.isFlying(context.player())
+							// v0.16.7 (user): a carried Mk VIII Thruster Pack flies like the boots when no suit is on
+							&& !com.projecthero.mod.ironman.suit.ThrusterPackFlight.available(context.player())) {
 						com.projecthero.mod.ironman.IronManFlight.toggle(context.player());
 					} else {
 						com.projecthero.mod.ironman.RepulsorBoots.toggle(context.player());

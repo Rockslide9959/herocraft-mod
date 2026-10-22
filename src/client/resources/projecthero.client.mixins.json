@@ -21,6 +21,8 @@
 		"MouseHandlerHulkMindMixin",
 		"MinecraftHulkMindMusicMixin",
 		"GantryFovMixin",
+		"IronManSpaceBoostFovMixin",
+		"HulkbusterLandingInputMixin",
 		"QuirkEngineFovMixin",
 		"QuirkBodyTurnMixin",
 		"IronManRemovalParticleMixin",

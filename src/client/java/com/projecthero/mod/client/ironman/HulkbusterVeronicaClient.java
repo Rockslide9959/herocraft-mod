@@ -148,9 +148,12 @@ public final class HulkbusterVeronicaClient {
 				out.pos[part][1] = (float) (dy * 16.0);
 				out.pos[part][2] = (float) (dz * 16.0);
 				float spin = (1f - e) * (1f - e);
-				out.rot[part][0] = spin * (part % 2 == 0 ? 1.6f : -1.4f);
-				out.rot[part][1] = spin * 2.2f * (part == HulkbusterParts.HEAD ? 2f : 1f);
-				out.rot[part][2] = spin * 0.9f;
+				// v0.16.7 (user) "the head is upside down or at a weird angle": the helmet flies in upright, only turning
+				// a little to face front -- no tumble over (it read as an upside-down head on the body)
+				boolean helmet = part == HulkbusterParts.HEAD;
+				out.rot[part][0] = helmet ? 0f : spin * (part % 2 == 0 ? 1.6f : -1.4f);
+				out.rot[part][1] = spin * (helmet ? 1.2f : 2.2f);
+				out.rot[part][2] = helmet ? 0f : spin * 0.9f;
 			} else {
 				// clamped on: a short settle (down a hair and back)
 				float s = age - launch - HulkbusterPodEntity.PIECE_FLIGHT;

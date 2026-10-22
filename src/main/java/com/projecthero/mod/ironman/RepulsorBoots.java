@@ -76,7 +76,8 @@ public final class RepulsorBoots {
 			setFlying(player, false);
 			return true;
 		}
-		if (!worn(player) || player.getAbilities().instabuild) {
+		// v0.16.7 (user): or a carried, charged Mk VIII Thruster Pack (ThrusterPackFlight) -- the same gear flight
+		if (!worn(player) && !com.projecthero.mod.ironman.suit.ThrusterPackFlight.available(player) || player.getAbilities().instabuild) {
 			return false;
 		}
 		setFlying(player, true);
@@ -109,8 +110,14 @@ public final class RepulsorBoots {
 			return;
 		}
 		// v0.15.19: touching down (past the shared take-off grace, not rising) lands it -- FlightLanding
-		if (player.getAbilities().instabuild || !worn(player)
+		if (player.getAbilities().instabuild
 				|| com.projecthero.mod.flight.FlightLanding.landed(player, com.projecthero.mod.flight.FlightLanding.REPULSOR_BOOTS)) {
+			setFlying(player, false);
+			return;
+		}
+		// v0.16.7 (user): no Repulsor on the feet = flying on the Mk VIII Thruster Pack -- it drains the pack, and ends when
+		// the pack is gone / dry or a suit goes on
+		if (!worn(player) && !com.projecthero.mod.ironman.suit.ThrusterPackFlight.tick(player)) {
 			setFlying(player, false);
 			return;
 		}

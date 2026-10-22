@@ -67,6 +67,7 @@ public final class IronManAssemblyClient {
 			SNAPPED.clear();
 			IronManSuitReveal.clear();
 			IronManGantryBuild.clear();
+			HulkbusterBuildClient.clear(); // v0.16.7 (user)
 			return;
 		}
 		if (mc.isPaused()) {

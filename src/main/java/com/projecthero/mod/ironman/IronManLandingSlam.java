@@ -70,6 +70,7 @@ public final class IronManLandingSlam {
 	public static boolean onLanded(ServerPlayer player) {
 		Track t = TRACKS.remove(player.getUUID());
 		if (t == null) {
+			HulkbusterLanding.onFlightLanded(player, 0.0, 0.0); // v0.16.7 (user): no history -- a gentle touchdown
 			return false;
 		}
 		// the move that touched down is not in the history yet (onGround is checked before the record)
@@ -84,6 +85,8 @@ public final class IronManLandingSlam {
 			peakSpeed = Math.max(peakSpeed, t.speeds[k]);
 			peakDescent = Math.max(peakDescent, t.descents[k]);
 		}
+		// v0.16.7 (user): the Hulkbuster's landing animation (heavy or light, scaled by how hard it came in)
+		HulkbusterLanding.onFlightLanded(player, peakSpeed, peakDescent);
 		if (!IronManFlightLook.isHardLanding(peakSpeed, peakDescent, true)) {
 			return false;
 		}

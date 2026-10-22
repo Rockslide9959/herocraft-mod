@@ -225,7 +225,7 @@ public final class IronManComicMoves {
 			// ---------------- Mark 7 SPACE
 			case "mk7_vacuum_missiles" -> vacuumMissiles(p, d);
 			case "mk7_orbital_strike" -> orbitalStrike(p, d);
-			case "mk7_booster_rockets" -> booster(p);
+			case IronManSpaceBoost.MOVE -> IronManSpaceBoost.toggle(p); // v0.16.7 (user): replaces Booster Rockets
 			case "mk7_meteor_dive" -> meteorDive(p);
 			case "mk7_solar_beam" -> solarBeam(p, d);
 			case "mk7_solar_flare" -> burst360(p, 10.0, d, 1.4, true);
@@ -1289,22 +1289,6 @@ public final class IronManComicMoves {
 				IronManComicFx.spawn(w, m);
 			});
 		}
-		return true;
-	}
-
-	private static boolean booster(ServerPlayer p) {
-		IronManComicFx.launch(p, new Vec3(p.getDeltaMovement().x * 0.3, 2.6, p.getDeltaMovement().z * 0.3));
-		ServerLevel level = IronManComicFx.level(p);
-		level.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY(), p.getZ(), 40, 0.3, 0.1, 0.3, 0.1);
-		level.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY(), p.getZ(), 1, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY(), p.getZ(), 30, 0.6, 0.1, 0.6, 0.15);
-		IronManComicFx.pose(p, IronManAbilityFx.COMIC_LAUNCH, 12);
-		IronManComicFx.sound(p, IronManSounds.SUPERSONIC, 1.2f, 1.0f);
-		IronManComicState.later(p, 12, w -> {
-			if (IronManComicState.suited(w) && !w.onGround()) {
-				IronManFlight.setFlying(w, true);
-			}
-		});
 		return true;
 	}
 

@@ -116,6 +116,23 @@ public final class IronManFlightFxClient {
 	private static final Map<UUID, IronManThrusterSoundInstance[]> SOUNDS = new HashMap<>();
 	private static final List<Shock> SHOCKS = new ArrayList<>();
 	private static final List<Flash> FLASHES = new ArrayList<>();
+	/** v0.16.7 (user): the fliers whose Mk VIII Flight Boost is running (for its kick-in edge). */
+	private static final java.util.Set<UUID> BOOSTED = new java.util.HashSet<>();
+	/** v0.16.7 (user): when the local player's Flight Boost kicked in (game time), or -1 -- the FOV kick reads it. */
+	private static long localBoostStart = -1L;
+
+	/**
+	 * v0.16.7 (user): the local player's FOV multiplier from the Mk VIII Flight Boost -- a hard kick out for the first
+	 * moment, then a steady widening while it runs (vanilla's own FOV easing smooths both edges).
+	 */
+	public static float boostFovFactor() {
+		Minecraft mc = Minecraft.getInstance();
+		if (localBoostStart < 0L || mc.level == null || !BOOSTED.contains(mc.player == null ? null : mc.player.getUUID())) {
+			return 1.0f;
+		}
+		long age = mc.level.getGameTime() - localBoostStart;
+		return age < 5 ? 1.16f : 1.08f;
+	}
 
 	/** An expanding ring: the supersonic shockwave (in the plane across the flight) or a landing's ground ring. */
 	private record Shock(Vec3 center, Vec3 normal, long start, float maxRadius, int life, int rgb, float alpha) {
@@ -182,6 +199,18 @@ public final class IronManFlightFxClient {
 				level.playLocalSound(player.getX(), player.getY(), player.getZ(), POWER_DOWN, SoundSource.PLAYERS,
 						0.55f, 1.0f, false);
 			}
+			// v0.16.7 (user): the Mk VIII Flight Boost kicking in -- a sonic-boom ring (and, for you, the FOV kick)
+			boolean boosting = a.flying && com.projecthero.mod.ironman.ability.IronManSpaceBoost.boosting(player);
+			if (boosting && BOOSTED.add(player.getUUID())) {
+				if (!hidden) {
+					spaceBoom(level, player, a);
+				}
+				if (player == client.player) {
+					localBoostStart = now;
+				}
+			} else if (!boosting && BOOSTED.remove(player.getUUID()) && player == client.player) {
+				localBoostStart = -1L;
+			}
 			if (!a.flying) {
 				continue;
 			}
@@ -189,11 +218,15 @@ public final class IronManFlightFxClient {
 				supersonicBoom(level, player, a);
 			}
 			if (!hidden) {
-				if (a.evBoost) {
-					boostBurst(level, player, a);
+				if (com.projecthero.mod.ironman.suit.ThrusterPackFlight.packFlying(player)) {
+					packPuffs(client, level, player, a); // v0.16.7 (user): the carried Thruster Pack's own small jets
+				} else {
+					if (a.evBoost) {
+						boostBurst(level, player, a);
+					}
+					emitJets(client, level, player, a);
+					groundWash(level, player, a);
 				}
-				emitJets(client, level, player, a);
-				groundWash(level, player, a);
 				if (a.supersonic) {
 					vapourCone(level, player, a);
 				}
@@ -283,14 +316,30 @@ public final class IronManFlightFxClient {
 		}
 		int count = nozzles(player, a, 1.0f);
 		JetState js = a.jetState();
-		int n = IronManFlightLook.jetParticles(js);
-		double sp = IronManFlightLook.jetSpeed(js);
+		// v0.16.7 (user): the Mk VIII Flight Boost runs its jets longer and harder
+		boolean boost = BOOSTED.contains(player.getUUID());
+		int n = IronManFlightLook.jetParticles(js) + (boost ? 2 : 0);
+		double sp = IronManFlightLook.jetSpeed(js) * (boost ? 1.6 : 1.0);
 		float scale = player.getScale() * IronManFlightLook.jetScale(a.suitId);
 		int tint = IronManFlightLook.thrustColour(a.suitId);
 		boolean fp = firstPersonSelf(client, player);
 		boolean wet = wet(player, st);
 		boolean fast = js == JetState.SPRINT || js == JetState.SUPERSONIC;
 		RandomSource r = level.random;
+		if (boost && !wet && st != ThrusterStyle.AIR && !fp) {
+			// the two back thrusters' plumes
+			Vec3[] back = new Vec3[2];
+			Vec3 bd = backNozzles(player, a, 1.0f, back);
+			for (Vec3 b : back) {
+				double x = player.getX() + b.x, y = player.getY() + b.y, z = player.getZ() + b.z;
+				for (int k = 0; k < 3; k++) {
+					double v = sp * (0.75 + 0.5 * r.nextDouble());
+					IronManThrusterParticleClient.thrust(level, x, y, z, bd.x * v + (r.nextDouble() - 0.5) * 0.03,
+							bd.y * v + (r.nextDouble() - 0.5) * 0.03, bd.z * v + (r.nextDouble() - 0.5) * 0.03, k == 0 ? IronManFlightLook.CORE_THRUST : tint,
+							0.9f, 0.2f * scale, 6);
+				}
+			}
+		}
 		// at speed a flier covers more than a block a tick: spread the puffs back along this tick's path so the trail
 		// reads as one continuous jet instead of dotted beads
 		int steps = Mth.clamp(Mth.ceil(a.speed / 0.4), 1, 4);
@@ -670,6 +719,112 @@ public final class IronManFlightFxClient {
 		}
 	}
 
+	/**
+	 * v0.16.7 (user): the Mk VIII Flight Boost kicking in -- a double sonic-boom ring across the flight just behind the
+	 * suit (a wide white one and a tighter suit-tinted one), a burst of vapour flung out round it, ignition flashes at
+	 * both boots and the boom.
+	 */
+	private static void spaceBoom(ClientLevel level, Player player, IronManFlightPose.Anim a) {
+		Vec3 dir = travel(player, a);
+		float s = player.getScale();
+		Vec3 centre = player.position().add(bodyCentre(player, 1.0f)).subtract(dir.scale(0.4 * s));
+		level.playLocalSound(centre.x, centre.y, centre.z, SONIC_BOOM, SoundSource.PLAYERS, 1.1f, 1.15f, false);
+		level.playLocalSound(centre.x, centre.y, centre.z, TAKEOFF_KICK, SoundSource.PLAYERS, 0.7f, 0.8f, false);
+		int tint = IronManFlightLook.thrustColour(a.suitId);
+		long now = level.getGameTime();
+		SHOCKS.add(new Shock(centre, dir, now, 6.0f * s, 14, 0xF2F8FF, 0.85f));
+		SHOCKS.add(new Shock(centre.subtract(dir.scale(0.6 * s)), dir, now, 3.6f * s, 10, tint, 0.7f));
+		Vec3[] basis = basis(dir);
+		RandomSource r = level.random;
+		for (int i = 0; i < 40; i++) {
+			double ang = (Math.PI * 2 * i) / 40;
+			Vec3 radial = basis[0].scale(Math.cos(ang)).add(basis[1].scale(Math.sin(ang)));
+			Vec3 at = centre.add(radial.scale(0.7 * s));
+			Vec3 v = radial.scale(0.45 + r.nextDouble() * 0.08).subtract(dir.scale(0.1));
+			level.addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, v.x, v.y, v.z);
+		}
+		int count = Math.min(2, nozzles(player, a, 1.0f));
+		for (int i = 0; i < count; i++) {
+			Vector3f p = POS[i];
+			FLASHES.add(new Flash(new Vec3(player.getX() + p.x(), player.getY() + p.y(), player.getZ() + p.z()), now, 0.7f * s, 8, tint));
+		}
+	}
+
+	/**
+	 * v0.16.7 (user): the Mk VIII Flight Boost's two back thrusters -- just behind the shoulder blades, firing straight
+	 * back along the flight (relative to the feet). Fills {@code out} (2 positions) and returns the jet direction.
+	 */
+	private static Vec3 backNozzles(Player player, IronManFlightPose.Anim a, float partial, Vec3[] out) {
+		Vec3 dir = travel(player, a);
+		float s = player.getScale();
+		Vec3 c = bodyCentre(player, partial);
+		Vec3 side = dir.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 up = side.cross(dir).normalize();
+		Vec3 base = c.add(up.scale(0.22 * s)).subtract(dir.scale(0.2 * s));
+		out[0] = base.add(side.scale(0.14 * s));
+		out[1] = base.subtract(side.scale(0.14 * s));
+		return dir.scale(-1.0);
+	}
+
+	/**
+	 * v0.16.7 (user): the carried Mk VIII Thruster Pack's two nozzles (relative to the feet), at the bottom of the pack on
+	 * the back -- through the same body yaw / lean chain as {@link #bodyCentre}. Returns the (downward) jet direction.
+	 */
+	private static Vec3 packNozzles(Player player, float partial, Vec3[] out) {
+		float yaw = Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot);
+		float lean = FlightPoseHelper.lean(player, partial);
+		Matrix4f m = new Matrix4f()
+				.rotateY((180.0f - yaw) * Mth.DEG_TO_RAD)
+				.scale(player.getScale())
+				.rotateX(-lean * Mth.DEG_TO_RAD)
+				.scale(-0.9375f, -0.9375f, 0.9375f)
+				.translate(0.0f, -1.501f, 0.0f);
+		for (int k = 0; k < 2; k++) {
+			Vector3f v = m.transformPosition((k == 0 ? -2.6f : 2.6f) / 16f, 12.5f / 16f, 5.2f / 16f, new Vector3f());
+			out[k] = new Vec3(v.x(), v.y(), v.z());
+		}
+		Vector3f d = m.transformDirection(0f, 1f, 0.25f, new Vector3f()).normalize();
+		return new Vec3(d.x(), d.y(), d.z());
+	}
+
+	/** v0.16.7 (user): the Thruster Pack's small puffs -- a little blue-white jet and a wisp of vapour from each nozzle. */
+	private static void packPuffs(Minecraft client, ClientLevel level, Player player, IronManFlightPose.Anim a) {
+		Vec3[] nz = new Vec3[2];
+		Vec3 d = packNozzles(player, 1.0f, nz);
+		RandomSource r = level.random;
+		int tint = IronManFlightLook.thrustColour("mark_vii");
+		boolean fp = firstPersonSelf(client, player);
+		for (Vec3 n : nz) {
+			double x = player.getX() + n.x, y = player.getY() + n.y, z = player.getZ() + n.z;
+			int puffs = fp ? 1 : 2;
+			for (int k = 0; k < puffs; k++) {
+				double v = 0.12 + r.nextDouble() * 0.06;
+				IronManThrusterParticleClient.thrust(level, x, y, z, d.x * v + (r.nextDouble() - 0.5) * 0.02, d.y * v,
+						d.z * v + (r.nextDouble() - 0.5) * 0.02, k == 0 ? IronManFlightLook.CORE_THRUST : tint, 0.7f, 0.07f, 5);
+			}
+			if (r.nextInt(3) == 0 && !fp) {
+				level.addParticle(ParticleTypes.CLOUD, x + d.x * 0.2, y + d.y * 0.2, z + d.z * 0.2, d.x * 0.03, d.y * 0.03, d.z * 0.03);
+			}
+		}
+	}
+
+	/** v0.16.7 (user): the Thruster Pack's nozzle glows and short flames (drawn instead of the boot jets). */
+	private static void renderPack(VertexConsumer vc, PoseStack.Pose pose, Player player, double fx, double fy, double fz, Vec3 cam,
+			Vector3f left, Vector3f up, float time, float partial) {
+		Vec3[] nz = new Vec3[2];
+		Vec3 d = packNozzles(player, partial, nz);
+		int tint = IronManFlightLook.thrustColour("mark_vii");
+		for (int k = 0; k < 2; k++) {
+			float f = IronManFlightLook.flicker(time, 8 + k);
+			Vec3 at = new Vec3(fx + nz[k].x, fy + nz[k].y, fz + nz[k].z);
+			BeamDraw.segment(vc, pose, at, at.add(d.scale(0.32 * f)), cam, 0.045f * f, 0.01f, tint, 0.6f, 0f);
+			BeamDraw.segment(vc, pose, at, at.add(d.scale(0.16 * f)), cam, 0.02f * f, 0.005f, 0xFFFFFF, 0.9f, 0f);
+			glow(vc, pose, at, left, up, 0.07f * f, 0xFFFFFF, 0.9f);
+			glow(vc, pose, at, left, up, 0.2f * f, tint, 0.45f);
+		}
+	}
+
 	private static void vapourCone(ClientLevel level, Player player, IronManFlightPose.Anim a) {
 		Vec3 dir = travel(player, a);
 		float s = player.getScale();
@@ -736,7 +891,9 @@ public final class IronManFlightFxClient {
 			double fy = Mth.lerp(partial, player.yo, player.getY());
 			double fz = Mth.lerp(partial, player.zo, player.getZ());
 			ThrusterStyle st = style(a);
-			if (st == ThrusterStyle.ROCKET) {
+			if (com.projecthero.mod.ironman.suit.ThrusterPackFlight.packFlying(player)) {
+				renderPack(vc, pose, player, fx, fy, fz, cam, left, up, time, partial); // v0.16.7 (user)
+			} else if (st == ThrusterStyle.ROCKET) {
 				renderRocket(vc, pose, player, a, count, fx, fy, fz, cam, left, up, time);
 			} else {
 				renderJets(client, vc, pose, player, a, st, count, fx, fy, fz, cam, left, up, time);
@@ -775,6 +932,27 @@ public final class IronManFlightFxClient {
 		Vec3 vel = new Vec3(a.vx, a.vy, a.vz);
 		float trail = IronManFlightLook.trailLength(a.speed) * s;
 		Vec3 back = vel.lengthSqr() > 1.0e-4 ? vel.normalize().scale(-1.0) : null;
+		// v0.16.7 (user): the Mk VIII Flight Boost -- boot flames nearly twice as long and hotter, plus the back thrusters
+		boolean boost = BOOSTED.contains(player.getUUID()) && st != ThrusterStyle.AIR && !wet;
+		if (boost) {
+			len *= 1.9f;
+		}
+		if (boost && !fp) {
+			Vec3[] nz = new Vec3[2];
+			float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+			Vec3 bd = backNozzles(player, a, partial, nz);
+			for (int k = 0; k < 2; k++) {
+				float f = IronManFlightLook.flicker(time, 6 + k);
+				Vec3 at = new Vec3(fx + nz[k].x, fy + nz[k].y, fz + nz[k].z);
+				float l = len * 0.85f * f;
+				Vec3 mid = at.add(bd.scale(l * 0.38));
+				BeamDraw.segment(vc, pose, at, mid, cam, 0.09f * scale * f, 0.2f * scale * f, tint, 0.4f, 0.28f);
+				BeamDraw.segment(vc, pose, mid, at.add(bd.scale(l)), cam, 0.2f * scale * f, 0.02f * scale, tint, 0.28f, 0f);
+				BeamDraw.segment(vc, pose, at, at.add(bd.scale(l * 0.6)), cam, 0.05f * scale * f, 0.01f * scale, 0xFFFFFF, 1f, 0f);
+				glow(vc, pose, at, left, up, 0.16f * scale * f, 0xFFFFFF, 1f);
+				glow(vc, pose, at, left, up, 0.55f * scale * f, tint, 0.6f);
+			}
+		}
 		for (int i = 0; i < count; i++) {
 			boolean boot = fullJet(i);
 			if (fp && !boot) {
@@ -811,6 +989,11 @@ public final class IronManFlightFxClient {
 			// the nozzle glow: a hot white centre in a soft coloured halo
 			glow(vc, pose, at, left, up, 0.13f * scale * f * (boot ? 1f : 0.85f), 0xFFFFFF, 0.95f * am);
 			glow(vc, pose, at, left, up, 0.42f * scale * f * (boot ? 1f : 0.8f), tint, 0.5f * am);
+			if (boost && boot) {
+				// the boost: a hotter, brighter boot -- a longer white core and a wider halo
+				BeamDraw.segment(vc, pose, at, at.add(dv.scale(l * 0.7)), cam, 0.06f * scale * f, 0.01f * scale, 0xFFFFFF, am, 0f);
+				glow(vc, pose, at, left, up, 0.7f * scale * f, tint, 0.45f * am);
+			}
 			// the exhaust / heat-shimmer trail, stretching back along the flight with speed
 			if (!wet && back != null && trail > 0.05f) {
 				float tl = trail * (boot ? 1f : 0.5f);
@@ -980,6 +1163,8 @@ public final class IronManFlightFxClient {
 		SOUNDS.clear();
 		SHOCKS.clear();
 		FLASHES.clear();
+		BOOSTED.clear();
+		localBoostStart = -1L;
 		IronManFlightPose.clear();
 	}
 
