@@ -67,22 +67,30 @@ decide the abilities".
   This is the Quirk's toggle; Shift+C cleans off contamination (vents focus).
 
 ## Dark Shadow (Fumikage Tokoyami, Tsukuyomi): a living shadow companion
-- **The shadow:** Dark Shadow is a visible shadow-bird creature attached to your back, a GeckoLib or particle-built
-  entity. It is weak in daylight and strong in darkness. In **pitch dark it goes berserk**: huge, strong, and attacking
-  everything near you, including you, until light returns. Light falling on it (torches, day) shrinks it.
-- **Shadow meter:** rises in darkness and when you push it; at the top it goes berserk.
-- **Shadow Strike (R):** a beak or claw strike at range.
-- **Dark Fang (Shift+R):** a lunging multi-bite.
-- **Shadow Grab (G):** grab a mob and slam it.
-- **Shadow Shield (Shift+G):** it wraps round you and blocks hits.
-- **Black Ankh (X):** an armour mode. Dark Shadow coats you as armour: melee claws, damage reduction and a dash.
-- **Abyssal Black Ankh (Shift+X):** Black Ankh plus gliding flight on shadow wings.
-- **Shadow Scout (Z):** it flies out and marks mobs.
-- **Fetch (Shift+Z):** it carries you or an item to it.
-- **Sunshine Ankh (V):** a short shadow nova.
-- **Berserk on purpose (Shift+V):** an intentional berserk that you can only stop by lighting it.
-- **Recall (C):** tuck the shadow away; it can't be used, but it calms and the meter drains.
-- **Shift+C:** light flare, which calms it (it needs a light source: a torch in hand or day).
+User rule (all Quirks): **X = movement, V = the mode / utility, R G Z C (and their Shifts) = mainly attacks.**
+- **The shadow:** Dark Shadow is a visible shadow-bird spirit growing out of your back: a GeckoLib model (a long
+  serpentine body, a teardrop hooded head with a pointed beak and two big glowing almond eyes, long thin arms with big
+  taloned hands, a frayed smoky tail). Every player sees it (it is drawn from the synced Quirk state).
+- **Light and darkness:** its size and strength follow the light at it (the brighter of the block and sky light, a light
+  source held in either hand, a flare). Daylight: small, timid and weak (x0.4). Night: big and aggressive. Pitch dark
+  (light 3 or less): the meter climbs toward Berserk.
+- **Shadow meter:** rises in the pitch dark (fast) and in dim light (slowly, to 85 at most), falls in bright light, and
+  every move pushes it up. At 100 it goes **berserk**: huge, spiked, red-eyed, attacking everything near you, **you
+  included** (its hits on you never take you below 2 HP), until light returns. Light on it calms it: a light source held,
+  daylight, the flare.
+- **R / Shift+R:** Shadow Strike (a long-reach lunging claw strike; in Black Ankh, a clawed dash instead) / Dark Fang (a
+  lunging rapid multi-bite).
+- **G / Shift+G:** Shadow Grab (it wraps a mob in shadow, lifts it and slams it) / Shadow Shield (hold: it wraps round you
+  and soaks hits from every side).
+- **X / Shift+X (movement):** Abyssal Black Ankh (armour plus great shadow wings: elytra-style gliding flight, boosted in
+  the dark) / Fetch (it carries you to the point you look at, or snatches the items there for you).
+- **Z / Shift+Z:** Shadow Scout (it flies out along your look and marks every mob near its path with Glowing) / Sunshine
+  Ankh (a burst of shadow feathers all round you).
+- **V / Shift+V (mode):** Black Ankh (armour mode on / off: it coats you -- bird-skull helm, clawed gauntlets, shoulder
+  plumes; armour, claws, reach, and the meter rises at half speed) / Recall (tuck it away: no moves, the meter drains
+  fast, it can't go berserk; Shift+V again calls it back).
+- **C / Shift+C:** Berserk on purpose (only in darkness; it stops only when light falls on it) / Light Flare (needs a
+  light source in hand or daylight: a flash that blinds nearby mobs, calms it and ends Berserk; works while berserk).
 
 ## Erasure (Shota Aizawa, Eraser Head): the capture weapon plus the stare
 - **Erasure Stare (R, hold):** look at a powered player or a mob, and while held its powers, abilities and special

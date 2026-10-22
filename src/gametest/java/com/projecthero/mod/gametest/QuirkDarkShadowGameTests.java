@@ -13,8 +13,6 @@ import com.projecthero.mod.quirk.darkshadow.DarkShadow;
 import com.projecthero.mod.quirk.darkshadow.DarkShadowCombat;
 import com.projecthero.mod.quirk.darkshadow.DarkShadowConfig;
 import com.projecthero.mod.quirk.darkshadow.DarkShadowMoves;
-import com.projecthero.mod.squad.Squad;
-import com.projecthero.mod.squad.SquadManager;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -23,11 +21,14 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -36,10 +37,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 Dark Shadow: one test per move (the server effect and its number), the Shadow meter following the light,
- * strength scaling with the meter, Berserk (triggered by full Shadow in the dark; never hits its user or a squadmate,
- * even with friendly fire on), Calm through the core's key routing while berserk, and the Berserk burning out. Mock
- * players are not ticked by the server, so tests that run over time drive the Quirk tick themselves ({@link #pump}).
+ * v0.16.7 (user) Quirk revamp -- Dark Shadow: the kit layout (X movement, V mode), the darkness it feels following the
+ * light (and a held torch), the meter, Berserk (in the pitch dark; hits mobs and, non-lethally, its user; light calms it;
+ * the flare works through the keys while berserk), intentional Berserk only in darkness, Black Ankh and Abyssal Black
+ * Ankh, every move's server effect, Recall, and the versioned config. Mock players are not ticked by the server, so tests
+ * that run over time drive the Quirk tick themselves ({@link #pump}); tests that set the darkness directly don't pump.
  */
 public class QuirkDarkShadowGameTests implements FabricGameTest {
 	private static final float EPS = 0.6f;
@@ -64,12 +66,13 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		return p;
 	}
 
-	/** A Dark Shadow user facing +Z, every move ready, the meter at {@code meter}. */
-	private static ServerPlayer user(GameTestHelper helper, double x, double y, double z, float meter) {
+	/** A Dark Shadow user facing +Z, every move ready, the meter at {@code meter}, the darkness at {@code dark} (0..1). */
+	private static ServerPlayer user(GameTestHelper helper, double x, double y, double z, float meter, float dark) {
 		ServerPlayer p = mock(helper, x, y, z);
 		helper.assertTrue(Quirks.grant(p, Quirk.DARK_SHADOW), "Dark Shadow is granted");
 		Quirks.edit(p, n -> n.abilityReadyAt.clear());
 		Quirks.setMeter(p, meter);
+		Quirks.setVal(p, DarkShadow.V_DARK, Math.round(dark * 1000f));
 		return p;
 	}
 
@@ -77,6 +80,17 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		helper.onEachTick(() -> {
 			p.tickCount++;
 			Quirks.tick(p);
+		});
+	}
+
+	/** The Quirk tick from the {@code from}-th tick on (the light engine needs a few ticks after a room is built). */
+	private static void pumpFrom(GameTestHelper helper, ServerPlayer p, long from) {
+		long[] n = { 0 };
+		helper.onEachTick(() -> {
+			if (n[0]++ >= from) {
+				p.tickCount++;
+				Quirks.tick(p);
+			}
 		});
 	}
 
@@ -88,12 +102,12 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		}
 	}
 
-	/** A sealed stone room: walls x/z 1 and 7, floor y 1, roof y 5 -- inside (2..6, 2..4, 2..6) is pitch dark. */
+	/** A sealed stone room: walls x/z 1 and 7, floor y 1, roof y 6 -- inside (2..6, 2..5, 2..6) is pitch dark (give the light engine a few ticks). */
 	private static void darkRoom(GameTestHelper helper) {
 		for (int x = 1; x <= 7; x++) {
-			for (int y = 1; y <= 5; y++) {
+			for (int y = 1; y <= 6; y++) {
 				for (int z = 1; z <= 7; z++) {
-					boolean shell = x == 1 || x == 7 || z == 1 || z == 7 || y == 1 || y == 5;
+					boolean shell = x == 1 || x == 7 || z == 1 || z == 7 || y == 1 || y == 6;
 					helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, z)),
 							shell ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
 				}
@@ -122,323 +136,364 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		return QuirkKits.of(Quirk.DARK_SHADOW);
 	}
 
-	// ---------------------------------------------------------------- the kit
+	private static DarkShadowConfig.Moves mv() {
+		return DarkShadowConfig.get().moves;
+	}
+
+	// ---------------------------------------------------------------- the kit and the config
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void darkshadowKitRegistered(GameTestHelper helper) {
+	public void darkshadowKitLayout(GameTestHelper helper) {
 		Set<String> ids = new HashSet<>();
 		for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4,
 				AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 }) {
 			String[] two = kit().idsOf(slot);
-			helper.assertTrue(two.length == 2, "two moves on " + slot);
+			helper.assertTrue(two.length == 2, "a tap and a Shift move on " + slot);
 			for (String id : two) {
 				helper.assertTrue(id.startsWith("quirk_dark_shadow_") && kit().maxCooldown(id) > 0, "id and cooldown " + id);
 				ids.add(id);
 			}
 		}
 		helper.assertTrue(ids.size() == 12, "12 distinct moves, " + ids.size());
-		helper.assertTrue(kit().usableWhileOverloaded(AbilitySlot.SLOT_6, true), "Calm works while berserk");
+		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_3)[0].equals(DarkShadowConfig.ABYSSAL), "X is the movement move (Abyssal Black Ankh)");
+		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_5)[0].equals(DarkShadowConfig.ANKH), "V is the mode (Black Ankh)");
+		helper.assertTrue(kit().usableWhileOverloaded(AbilitySlot.SLOT_6, true), "the flare works while berserk");
 		helper.assertFalse(kit().usableWhileOverloaded(AbilitySlot.SLOT_1, false), "Strike does not");
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- the meter / strength
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void darkshadowConfigIsVersioned(GameTestHelper helper) {
+		helper.assertTrue(DarkShadowConfig.SPEC.currentVersion() >= 1, "versioned");
+		DarkShadowConfig fresh = DarkShadowConfig.SPEC.fromJson("{\"moves\": {\"strikeDamage\": \"lots\"}, \"bogus\": 3}");
+		helper.assertTrue(fresh.configVersion != null && fresh.configVersion == DarkShadowConfig.SPEC.currentVersion(), "stamped");
+		helper.assertTrue(Math.abs(fresh.moves.strikeDamage - new DarkShadowConfig().moves.strikeDamage) < 1e-4, "a bad value gets its default");
+		helper.assertTrue(fresh.light != null && fresh.berserk != null && fresh.meter != null, "every section filled in");
+		helper.succeed();
+	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void shadowRisesInTheDarkAndFallsInTheLight(GameTestHelper helper) {
+	// ---------------------------------------------------------------- light and darkness
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
+	public void darknessFollowsTheLight(GameTestHelper helper) {
 		darkRoom(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 0f);
 		pump(helper, p);
-		helper.runAfterDelay(6, () -> {
-			helper.assertTrue(DarkShadowCombat.lightAt(p) <= DarkShadowConfig.DARK_LIGHT, "dark inside, light " + DarkShadowCombat.lightAt(p));
-			Quirks.setMeter(p, 50f);
-		});
-		helper.runAfterDelay(31, () -> {
-			float m = Quirks.meter(p);
-			helper.assertTrue(m > 54f, "the meter rose in the dark, " + m);
-			// a lamp right beside his eyes
-			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(5, 3, 4)), Blocks.GLOWSTONE.defaultBlockState(), 3);
-		});
 		helper.runAfterDelay(40, () -> {
-			helper.assertTrue(DarkShadowCombat.lightAt(p) >= 12, "lit now, light " + DarkShadowCombat.lightAt(p));
-			Quirks.setMeter(p, 50f);
+			helper.assertTrue(DarkShadowCombat.lightAt(p) <= 3, "pitch dark inside, light " + DarkShadowCombat.lightAt(p));
+			float d = DarkShadow.darkness(p);
+			helper.assertTrue(d > 0.9f, "it feels the dark, " + d);
+			helper.assertTrue(DarkShadow.size(d, false) > DarkShadow.size(0f, false) * 1.8f, "big in the dark");
+			helper.assertTrue(DarkShadowCombat.strength(p) > 1.5f, "strong in the dark, " + DarkShadowCombat.strength(p));
+			// a lamp right where it floats
+			BlockPos at = BlockPos.containing(DarkShadowCombat.shadowPos(p)).above();
+			helper.getLevel().setBlock(at, Blocks.GLOWSTONE.defaultBlockState(), 3);
 		});
-		helper.runAfterDelay(65, () -> {
-			float m = Quirks.meter(p);
-			helper.assertTrue(m < 46f, "the meter fell in the light, " + m);
+		helper.runAfterDelay(90, () -> {
+			float d = DarkShadow.darkness(p);
+			helper.assertTrue(d < 0.15f, "it shrinks in the light, " + d);
+			helper.assertTrue(DarkShadowCombat.strength(p) < 0.6f, "weak in the light, " + DarkShadowCombat.strength(p));
 			helper.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void strengthScalesWithShadow(GameTestHelper helper) {
-		floor(helper);
-		helper.assertTrue(Math.abs(DarkShadowCombat.strengthAt(0f) - DarkShadowConfig.STRENGTH_MIN) < 1e-4, "empty: x0.5");
-		helper.assertTrue(Math.abs(DarkShadowCombat.strengthAt(100f) - DarkShadowConfig.STRENGTH_MAX) < 1e-4, "full: x1.6");
-		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 0f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 100);
-		helper.assertTrue(DarkShadowMoves.strike(p) == z, "the strike lands");
-		float weak = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(weak - DarkShadowConfig.STRIKE_DAMAGE * DarkShadowConfig.STRENGTH_MIN) < EPS, "weak in the light, " + weak);
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void heldTorchIsLight(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 1f);
+		helper.runAfterDelay(6, () -> {
+			helper.assertTrue(DarkShadowCombat.lightAt(p) <= 3, "dark first, " + DarkShadowCombat.lightAt(p));
+			p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.TORCH));
+			int l = DarkShadowCombat.lightAt(p);
+			helper.assertTrue(l >= DarkShadowConfig.get().light.calmLight, "a torch in hand lights it, " + l);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void meterRisesInPitchDarkFallsInLight(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 40f, 1f);
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			float m = Quirks.meter(p);
+			helper.assertTrue(m > 44f, "rose in the pitch dark, " + m);
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.LANTERN));
+			Quirks.setMeter(p, 40f);
+		});
+		helper.runAfterDelay(60, () -> {
+			float m = Quirks.meter(p);
+			helper.assertTrue(m < 36f, "fell in the light, " + m);
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- Berserk
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void berserkHitsMobsAndItsUserButNeverKills(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 50f, 1f);
+		p.setHealth(4f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
+		pumpFrom(helper, p, 6);
+		helper.runAfterDelay(6, () -> Quirks.setMeter(p, 99.8f));
+		helper.runAfterDelay(12, () -> {
+			helper.assertTrue(DarkShadow.berserk(p), "full Shadow in the dark: berserk");
+			helper.assertTrue(Quirks.overloaded(p), "the keys are locked");
+		});
+		helper.runAfterDelay(120, () -> {
+			helper.assertTrue(z.getHealth() < 200f - DarkShadowConfig.get().berserk.damage, "it mauled the zombie, " + z.getHealth());
+			helper.assertTrue(p.getHealth() < 4f, "it turned on its user too, " + p.getHealth());
+			helper.assertTrue(p.isAlive() && p.getHealth() >= DarkShadowConfig.get().berserk.selfFloor - 0.01f, "never fatally, " + p.getHealth());
+			helper.assertTrue(DarkShadow.berserk(p), "still berserk: no light yet");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void lightCalmsBerserk(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f, 1f);
+		pumpFrom(helper, p, 3);
+		helper.runAfterDelay(2, () -> {
+			DarkShadowMoves.goBerserk(p, 1);
+			helper.assertTrue(DarkShadow.berserk(p), "berserk");
+		});
+		helper.runAfterDelay(8, () -> {
+			helper.assertTrue(DarkShadow.berserk(p), "still berserk in the dark");
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.TORCH));
+		});
+		helper.runAfterDelay(12, () -> {
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "a torch in hand calms it");
+			helper.assertFalse(Quirks.overloaded(p), "the keys work again");
+			helper.assertTrue(Quirks.meter(p) <= DarkShadowConfig.get().berserk.afterMeter + 0.01f, "the meter settled, " + Quirks.meter(p));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void flareThroughTheKeysWhileBerserk(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f, 1f);
+		helper.runAfterDelay(6, () -> flareSteps(helper, p));
+	}
+
+	private static void flareSteps(GameTestHelper helper, ServerPlayer p) {
+		DarkShadowMoves.goBerserk(p, 2);
+		p.setShiftKeyDown(false);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.STRIKE), "Strike refused while berserk");
+		p.setShiftKeyDown(true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
+		helper.assertTrue(DarkShadow.berserk(p), "no light source: the flare fails, still berserk");
+		p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.TORCH));
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "the flare ends Berserk");
+		helper.assertTrue(DarkShadow.running(p, DarkShadow.V_FLARE), "it shines");
+		helper.assertTrue(Quirks.meter(p) <= mv().flareMeter + 0.01f, "Shadow drops");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void berserkOnPurposeOnlyInTheDark(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 20f, 1f);
+		helper.runAfterDelay(6, () -> unleashSteps(helper, p));
+	}
+
+	private static void unleashSteps(GameTestHelper helper, ServerPlayer p) {
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.TORCH));
+		helper.assertFalse(DarkShadowMoves.unleash(p), "refused with a light in hand");
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		helper.assertTrue(DarkShadowMoves.unleash(p), "lets loose in the dark");
+		helper.assertTrue(DarkShadow.val(p, DarkShadow.V_BERSERK) == 2L && DarkShadow.berserk(p), "on purpose");
 		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- R
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void shadowStrikeHitsEightBlocksOut(GameTestHelper helper) {
+	public void shadowStrikeReachAndDamageFollowTheDark(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 0.2, 100f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.2, 100);
-		helper.assertTrue(DarkShadowMoves.strike(p) == z, "the strike reaches 7 blocks");
-		float taken = 100f - z.getHealth();
-		float want = DarkShadowConfig.STRIKE_DAMAGE * DarkShadowConfig.STRENGTH_MAX;
-		helper.assertTrue(Math.abs(taken - want) < EPS, "9 x 1.6 in the dark, took " + taken);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.2, 0f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.4, 100);
+		LivingEntity hit = DarkShadowMoves.strike(p);
+		helper.assertTrue(hit == z, "7 blocks in the dark, hit " + hit);
+		float want = mv().strikeDamage * DarkShadowConfig.get().light.strengthMax;
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - want) < EPS, "8 x 1.7, took " + (100f - z.getHealth()));
 		helper.assertTrue(DarkShadow.reach(p) != null, "the reach point is synced for the model");
-		helper.assertTrue(!Quirks.ready(p, DarkShadowConfig.STRIKE), "on cooldown");
+		Quirks.edit(p, n -> n.abilityReadyAt.clear());
+		Quirks.setVal(p, DarkShadow.V_DARK, 0L);
+		helper.assertTrue(DarkShadowMoves.strike(p) == null, "too far in daylight");
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void shadowFlurryStrikesSixTimes(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void darkFangBitesFourTimes(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 50f);
+		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 0f, 1f);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
 		pump(helper, p);
-		helper.assertTrue(DarkShadowMoves.flurry(p), "flurry starts");
+		helper.runAfterDelay(1, () -> helper.assertTrue(DarkShadowMoves.fang(p), "a target"));
 		helper.runAfterDelay(30, () -> {
 			float taken = 200f - z.getHealth();
-			float lo = DarkShadowConfig.FLURRY_HITS * DarkShadowConfig.FLURRY_DAMAGE * DarkShadowConfig.STRENGTH_MIN;
-			float hi = DarkShadowConfig.FLURRY_HITS * DarkShadowConfig.FLURRY_DAMAGE * DarkShadowConfig.STRENGTH_MAX;
-			helper.assertTrue(taken >= lo - EPS && taken <= hi + EPS, "six strikes, took " + taken);
-			helper.assertFalse(DarkShadow.running(p, DarkShadow.V_FLURRY), "it ended");
+			helper.assertTrue(taken > mv().fangDamage * DarkShadowConfig.get().light.strengthMin * (mv().fangBites - 0.5f), "four bites, took " + taken);
 			helper.succeed();
 		});
 	}
 
 	// ---------------------------------------------------------------- G
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void shadowGuardBlocksTheFront(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 3.5, 50f);
-		Zombie front = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 20);
-		Zombie back = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 1.5, 20);
-		DarkShadowMoves.guardOn(p);
-		helper.assertTrue(DarkShadow.guarding(p), "the guard is up");
-		DamageSource fromFront = helper.getLevel().damageSources().mobAttack(front);
-		DamageSource fromBack = helper.getLevel().damageSources().mobAttack(back);
-		float f = kit().modifyIncomingDamage(p, fromFront, 10f);
-		float b = kit().modifyIncomingDamage(p, fromBack, 10f);
-		helper.assertTrue(Math.abs(f - 10f * (1f - DarkShadowConfig.GUARD_BLOCK)) < 0.01f, "85% off from the front, " + f);
-		helper.assertTrue(b == 10f, "nothing off from behind, " + b);
-		kit().handle(p, AbilitySlot.SLOT_2, false, false);
-		helper.assertFalse(DarkShadow.guarding(p), "released");
-		helper.assertTrue(!Quirks.ready(p, DarkShadowConfig.GUARD), "the cooldown starts on release");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void shadowCounterAnswersTheHit(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 3.5, 100f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.0, 100);
-		DarkShadowMoves.counter(p);
-		float got = kit().modifyIncomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 8f);
-		helper.assertTrue(got == 0f, "the hit is blocked, " + got);
-		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - DarkShadowConfig.COUNTER_DAMAGE * DarkShadowConfig.STRENGTH_MAX) < EPS, "answered, took " + taken);
-		float second = kit().modifyIncomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 8f);
-		helper.assertTrue(second == 8f, "one counter only, " + second);
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- X
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void blackFallenAngelGivesFlight(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f);
-		helper.assertTrue(DarkShadowMoves.toggleAngel(p), "wings out");
-		helper.assertTrue(p.getAbilities().mayfly && p.getAbilities().flying, "flying");
-		helper.assertTrue(DarkShadow.angel(p), "synced");
-		kit().handle(p, AbilitySlot.SLOT_3, true, false);
-		helper.assertFalse(DarkShadow.angel(p), "the key turns it off");
-		helper.assertFalse(p.getAbilities().mayfly, "the lent flight is taken back");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void shadowDiveDashesAndStrikes(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 100f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 3.8, 100);
-		DarkShadowMoves.dive(p);
-		Vec3 v = p.getDeltaMovement();
-		helper.assertTrue(Math.abs(v.z - DarkShadowConfig.DIVE_SPEED) < 0.05, "dashing along the look, v=" + v);
-		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - DarkShadowConfig.DIVE_DAMAGE * DarkShadowConfig.STRENGTH_MAX) < EPS, "what it passes is struck, " + taken);
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- Z
-
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void shadowGrabPullsItIn(GameTestHelper helper) {
+	public void shadowGrabLiftsAndSlams(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 50f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.5, 100);
-		pump(helper, p);
-		helper.assertTrue(DarkShadowMoves.grab(p) == z, "snatched");
-		helper.runAfterDelay(12, () -> {
-			double d = z.position().distanceTo(p.position());
-			helper.assertTrue(d < DarkShadowConfig.GRAB_HOLD_DISTANCE + 0.6, "pulled to him, " + d);
-			helper.assertTrue(z.getHealth() < 100f, "and hurt");
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 0f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 200);
+		double y0 = z.getY();
+		LivingEntity got = DarkShadowMoves.grab(p);
+		helper.assertTrue(got == z, "grabbed " + got);
+		helper.onEachTick(() -> Quirks.tick(p));
+		helper.runAfterDelay(mv().grabPullTicks, () -> helper.assertTrue(z.getY() > y0 + 1.5, "hoisted, y " + (z.getY() - y0)));
+		helper.runAfterDelay(mv().grabPullTicks + mv().grabSlamTicks + 4, () -> {
+			helper.assertTrue(Math.abs(z.getY() - y0) < 0.6, "slammed back down, dy " + (z.getY() - y0));
+			float taken = 200f - z.getHealth();
+			helper.assertTrue(taken > mv().grabSlamDamage * DarkShadowConfig.get().light.strengthMin, "the slam hurt, took " + taken);
 			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_GRAB), "let go");
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void grabAndThrowHurlsIt(GameTestHelper helper) {
+	public void shadowShieldSoaksFromEverySide(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 100f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.5, 100);
-		helper.assertTrue(DarkShadowMoves.grabThrow(p) == z, "snatched");
-		Vec3 v = z.getDeltaMovement();
-		helper.assertTrue(v.z > DarkShadowConfig.THROW_SPEED * 0.8 && v.y > 0.2, "hurled forward and up, v=" + v);
-		float taken = 100f - z.getHealth();
-		helper.assertTrue(Math.abs(taken - DarkShadowConfig.THROW_DAMAGE * DarkShadowConfig.STRENGTH_MAX) < EPS, "hurt, " + taken);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 1f);
+		Zombie behind = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 2.5, 20);
+		DarkShadowMoves.shieldOn(p);
+		float got = kit().modifyIncomingDamage(p, p.damageSources().mobAttack(behind), 10f);
+		helper.assertTrue(Math.abs(got - 10f * (1f - mv().shieldBlockMax)) < 0.05f, "95% soaked from behind in the dark, " + got);
+		DarkShadowMoves.shieldOff(p);
+		helper.assertTrue(kit().modifyIncomingDamage(p, p.damageSources().mobAttack(behind), 10f) == 10f, "down: no help");
+		helper.assertFalse(Quirks.ready(p, DarkShadowConfig.SHIELD), "cooldown after release");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- X
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void abyssalBlackAnkhWingsAndArmour(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 1f);
+		p.setOnGround(true);
+		double armour = p.getAttributeValue(Attributes.ARMOR);
+		helper.assertTrue(DarkShadowMoves.toggleAbyssal(p), "the wings open");
+		helper.assertTrue(DarkShadow.ankh(p) && DarkShadow.abyssal(p), "Black Ankh comes with them");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) > armour + 5, "armoured");
+		helper.assertTrue(p.getDeltaMovement().y > 0.5, "a wing beat lifts you, " + p.getDeltaMovement().y);
+		helper.assertFalse(DarkShadowMoves.toggleAbyssal(p), "folded again");
+		helper.assertTrue(DarkShadow.ankh(p) && !DarkShadow.abyssal(p), "the armour stays");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fetchBringsItems(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 0f, 1f);
+		p.setXRot(20f);
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.1, 5.5));
+		ItemEntity item = new ItemEntity(helper.getLevel(), at.x, at.y, at.z, new ItemStack(Items.DIAMOND));
+		item.setDeltaMovement(Vec3.ZERO);
+		helper.getLevel().addFreshEntity(item);
+		helper.assertTrue(DarkShadowMoves.fetch(p) == 2, "it goes for the item");
+		pump(helper, p);
+		helper.runAfterDelay(mv().fetchTicks + 3, () -> {
+			helper.assertTrue(item.distanceTo(p) < 2.0, "the item is at your feet, " + item.distanceTo(p));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fetchCarriesYouToABlock(GameTestHelper helper) {
+		floor(helper);
+		for (int y = 2; y <= 4; y++) {
+			helper.getLevel().setBlock(helper.absolutePos(new BlockPos(4, y, 7)), Blocks.STONE.defaultBlockState(), 3);
+		}
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 0f, 1f);
+		helper.assertTrue(DarkShadowMoves.fetch(p) == 1, "no items: it carries you");
+		helper.assertTrue(DarkShadow.val(p, DarkShadow.V_FETCH) == 1L, "synced");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- Z
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void shadowScoutMarksMobs(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 0f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 7.0, 100);
+		DarkShadowMoves.scout(p);
+		pump(helper, p);
+		helper.runAfterDelay(mv().scoutOutTicks + 3, () -> {
+			helper.assertTrue(z.hasEffect(MobEffects.GLOWING), "marked");
+			helper.assertTrue(DarkShadow.scoutTarget(p) != null, "the flight is synced");
+		});
+		helper.runAfterDelay(DarkShadowMoves.scoutTicks() + 3, () -> {
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_SCOUT), "home again");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sunshineAnkhHitsAllAround(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 1f);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 1.5, 2.0, 4.5, 100);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 7.0, 2.0, 4.5, 100);
+		Zombie c = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 1.5, 100);
+		helper.assertTrue(DarkShadowMoves.nova(p) == 3, "all three");
+		float want = mv().novaDamage * DarkShadowConfig.get().light.strengthMax;
+		helper.assertTrue(Math.abs((100f - a.getHealth()) - want) < EPS && b.getHealth() < 100f && c.getHealth() < 100f, "10 x 1.7 each");
 		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- V
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void abyssalRampageRefusedInTheLight(GameTestHelper helper) {
-		darkRoom(helper);
-		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(4, 3, 3)), Blocks.GLOWSTONE.defaultBlockState(), 3);
-		ServerPlayer p = user(helper, 3.5, 2.0, 3.5, 50f);
-		helper.runAfterDelay(6, () -> {
-			helper.assertTrue(DarkShadowCombat.lightAt(p) > DarkShadowConfig.DARK_LIGHT, "lit, " + DarkShadowCombat.lightAt(p));
-			helper.assertFalse(DarkShadowMoves.rampage(p), "refused in the light");
-			helper.assertTrue(Quirks.ready(p, DarkShadowConfig.RAMPAGE), "no cooldown spent");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void abyssalRampageHitsAllAround(GameTestHelper helper) {
-		darkRoom(helper);
-		ServerPlayer p = user(helper, 3.5, 2.0, 3.5, 30f);
-		Zombie a = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 5.5, 200);
-		Zombie b = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 5.5, 200);
-		pump(helper, p);
-		helper.runAfterDelay(6, () -> {
-			helper.assertTrue(DarkShadowMoves.rampage(p), "the rampage starts in the dark");
-		});
-		helper.runAfterDelay(30, () -> {
-			helper.assertTrue(a.getHealth() < 200f - 10f && b.getHealth() < 200f - 10f,
-					"both hit again and again, " + a.getHealth() + " / " + b.getHealth());
-			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "never its user");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
-	public void abyssalSwallowHoldsAndChews(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 50f);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 100);
-		pump(helper, p);
-		helper.assertTrue(DarkShadowMoves.swallow(p) == z, "swallowed");
-		helper.runAfterDelay(40, () -> {
-			Vec3 maw = DarkShadowMoves.mawPoint(p);
-			double d = z.position().add(0, z.getBbHeight() * 0.5, 0).distanceTo(maw);
-			helper.assertTrue(d < 0.6, "held in the maw, " + d);
-			helper.assertTrue(z.getHealth() < 100f - 3f, "chewed, " + z.getHealth());
-		});
-		helper.runAfterDelay(DarkShadowConfig.SWALLOW_TICKS + 10, () -> {
-			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_SWALLOW), "let go after 5 s");
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- C
-
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void blackAnkhArmour(GameTestHelper helper) {
+	public void blackAnkhArmourAndClawDash(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 100f);
+		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 0f, 1f);
 		double armour = p.getAttributeValue(Attributes.ARMOR);
-		double tough = p.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
-		double dmg = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		double reach = p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE);
 		helper.assertTrue(DarkShadowMoves.toggleAnkh(p), "on");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) - armour >= DarkShadowConfig.ANKH_ARMOR - 0.01, "armour");
-		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR_TOUGHNESS) - tough >= DarkShadowConfig.ANKH_TOUGHNESS - 0.01, "toughness");
-		double gain = p.getAttributeValue(Attributes.ATTACK_DAMAGE) - dmg;
-		helper.assertTrue(Math.abs(gain - DarkShadowConfig.ANKH_DAMAGE * DarkShadowConfig.STRENGTH_MAX) < 0.11, "claws: +damage x strength, " + gain);
-		kit().handle(p, AbilitySlot.SLOT_6, true, false);
-		helper.assertFalse(DarkShadow.ankh(p), "the key turns it off");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour) < 0.01, "armour gone");
+		helper.assertTrue(p.getAttributeValue(Attributes.ARMOR) >= armour + mv().ankhArmorMax - 0.5, "full armour in the dark");
+		helper.assertTrue(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) > reach + 0.5, "the claws reach further");
+		p.setDeltaMovement(Vec3.ZERO);
+		DarkShadowMoves.strike(p);
+		helper.assertTrue(p.getDeltaMovement().z > 1.0, "R in Black Ankh is a dash, vz " + p.getDeltaMovement().z);
+		helper.assertTrue(DarkShadow.running(p, DarkShadow.V_DASH), "dashing");
+		helper.assertFalse(DarkShadowMoves.toggleAnkh(p), "off");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ARMOR) - armour) < 1e-6, "armour gone");
 		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void calmEndsBerserkThroughTheKeys(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 100f);
-		DarkShadowMoves.goBerserk(p);
-		helper.assertTrue(DarkShadow.berserk(p) && Quirks.overloaded(p), "berserk");
-		p.setShiftKeyDown(false);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.STRIKE), "moves are locked while berserk");
-		p.setShiftKeyDown(true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
-		helper.assertFalse(Quirks.overloaded(p), "Calm ended the Berserk");
-		helper.assertTrue(Quirks.meter(p) <= DarkShadowConfig.CALM_METER + 0.01f, "Shadow dropped, " + Quirks.meter(p));
-		helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "flag cleared");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- Berserk
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void berserkInTheDarkNeverHitsUserOrSquad(GameTestHelper helper) {
-		darkRoom(helper);
-		ServerPlayer p = user(helper, 3.5, 2.0, 3.5, 50f);
-		ServerPlayer mate = mock(helper, 5.5, 2.0, 3.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
-		SquadManager squads = SquadManager.get(helper.getLevel().getServer());
-		Squad squad = squads.create("ds" + p.getUUID().toString().substring(0, 8), p.getUUID());
-		squads.addMember(squad, mate.getUUID());
-		squads.setFriendlyFire(squad, true); // the frenzy must spare squadmates even then
-		pump(helper, p);
-		helper.runAfterDelay(6, () -> Quirks.setMeter(p, 99.5f));
-		helper.runAfterDelay(50, () -> {
-			try {
-				helper.assertTrue(DarkShadow.berserk(p), "full Shadow in the dark: berserk");
-				helper.assertTrue(z.getHealth() < 200f - 10f, "it rampages at the zombie, " + z.getHealth());
-				helper.assertTrue(mate.getHealth() == mate.getMaxHealth(), "never the squadmate, " + mate.getHealth());
-				helper.assertTrue(p.getHealth() == p.getMaxHealth(), "never its user, " + p.getHealth());
-			} finally {
-				squads.disband(squad);
-			}
-			helper.succeed();
-		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void berserkBurnsOutToSixty(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 100f);
-		Quirks.overload(p, 10);
-		Quirks.setVal(p, DarkShadow.V_BERSERK, 1L);
+	public void recallTucksItAway(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 99.9f, 1f);
+		p.setShiftKeyDown(true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // Shift+V
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
+		helper.assertTrue(DarkShadow.recalled(p), "recalled");
+		p.setShiftKeyDown(false);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // Z
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, false);
+		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.SCOUT), "no moves while recalled");
 		pump(helper, p);
-		helper.runAfterDelay(16, () -> {
-			helper.assertFalse(DarkShadow.berserk(p), "over");
-			float m = Quirks.meter(p);
-			helper.assertTrue(m > DarkShadowConfig.BERSERK_AFTER_METER - 3f && m < DarkShadowConfig.BERSERK_AFTER_METER + 3f, "back to 60, " + m);
+		helper.runAfterDelay(20, () -> {
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "it can't go berserk while recalled");
+			helper.assertTrue(Quirks.meter(p) < 90f, "the meter drains fast, " + Quirks.meter(p));
 			helper.succeed();
 		});
 	}

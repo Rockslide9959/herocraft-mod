@@ -1,122 +1,199 @@
 package com.projecthero.mod.quirk.darkshadow;
 
+import com.projecthero.mod.config.VersionedConfig;
+
 /**
- * v0.16.7: every Dark Shadow number (ticks unless noted). Damage values are the base at full strength 1.0; the real hit
- * is {@code base * DarkShadowCombat.strength(player)} -- {@link #STRENGTH_MIN} with an empty Shadow meter (daylight),
- * {@link #STRENGTH_MAX} with a full one (darkness).
+ * v0.16.7: Dark Shadow's ability ids (constants) and every number (a file, {@code config/projecthero_quirk_dark_shadow.json},
+ * through {@link VersionedConfig}: {@link #get()}). Ticks unless noted; damage values are the base at strength 1.0 -- the
+ * real hit is {@code base * DarkShadowCombat.strength(player)}, which follows the light at the shadow
+ * ({@link Light#strengthMin} in daylight, {@link Light#strengthMax} in the pitch dark, {@link Berserk#strength} berserk).
+ *
+ * <p>The Quirk revamp (docs/QUIRK_REVAMP_V0167.md) replaced the old static numbers; there was no file before, so version 1
+ * is the file's start ({@code introduce}). The ability ids of moves that kept their job keep their id (old saves' cooldowns
+ * stay valid): Strike, Grab, Guard (now Shadow Shield), Black Ankh, Calm (now Light Flare).
  */
 public final class DarkShadowConfig {
-	private DarkShadowConfig() {
+	// ---------------------------------------------------------------- ability ids (R G X Z V C, tap / Shift)
+	public static final String STRIKE = "quirk_dark_shadow_strike";
+	public static final String FANG = "quirk_dark_shadow_dark_fang";
+	public static final String GRAB = "quirk_dark_shadow_grab";
+	public static final String SHIELD = "quirk_dark_shadow_guard";
+	public static final String ABYSSAL = "quirk_dark_shadow_abyssal_ankh";
+	public static final String FETCH = "quirk_dark_shadow_fetch";
+	public static final String SCOUT = "quirk_dark_shadow_scout";
+	public static final String NOVA = "quirk_dark_shadow_sunshine_ankh";
+	public static final String ANKH = "quirk_dark_shadow_black_ankh";
+	public static final String RECALL = "quirk_dark_shadow_recall";
+	public static final String BERSERK = "quirk_dark_shadow_berserk";
+	public static final String FLARE = "quirk_dark_shadow_calm";
+
+	public static final VersionedConfig<DarkShadowConfig> SPEC = VersionedConfig
+			.builder(DarkShadowConfig.class, "projecthero_quirk_dark_shadow.json", DarkShadowConfig::new)
+			.balance("light", "meter", "berserk", "moves")
+			.introduce(1, "v0.16.7 Dark Shadow revamp -- the living shadow (light / darkness, Berserk until light, 12 new moves)")
+			.build();
+
+	private static DarkShadowConfig instance = new DarkShadowConfig();
+
+	public static DarkShadowConfig get() {
+		return instance;
 	}
 
-	// ---------------------------------------------------------------- ability ids
-	public static final String STRIKE = "quirk_dark_shadow_strike";
-	public static final String FLURRY = "quirk_dark_shadow_flurry";
-	public static final String GUARD = "quirk_dark_shadow_guard";
-	public static final String COUNTER = "quirk_dark_shadow_counter";
-	public static final String ANGEL = "quirk_dark_shadow_fallen_angel";
-	public static final String DIVE = "quirk_dark_shadow_dive";
-	public static final String GRAB = "quirk_dark_shadow_grab";
-	public static final String THROW = "quirk_dark_shadow_grab_throw";
-	public static final String RAMPAGE = "quirk_dark_shadow_abyssal_rampage";
-	public static final String SWALLOW = "quirk_dark_shadow_abyssal_swallow";
-	public static final String ANKH = "quirk_dark_shadow_black_ankh";
-	public static final String CALM = "quirk_dark_shadow_calm";
+	/** Reads (migrating) the file; called from {@code DarkShadowMod.initialize}. */
+	public static void load() {
+		instance = SPEC.load();
+	}
 
-	// ---------------------------------------------------------------- the Shadow meter
-	/** Light level (0..15, block light and sky light at the eyes) where the meter neither rises nor falls. */
-	public static final float LIGHT_PIVOT = 7.5f;
-	/** Meter change per tick per light level away from the pivot (light 0: +0.3 a tick = 6 a second). */
-	public static final float METER_RATE = 0.04f;
-	/** "In darkness": light at or below this (Berserk and Abyssal Rampage need it). */
-	public static final int DARK_LIGHT = 7;
-	/** Damage multiplier with an empty / a full meter. */
-	public static final float STRENGTH_MIN = 0.5f;
-	public static final float STRENGTH_MAX = 1.6f;
+	public Integer configVersion;
+	public Light light = new Light();
+	public Meter meter = new Meter();
+	public Berserk berserk = new Berserk();
+	public Moves moves = new Moves();
 
-	// ---------------------------------------------------------------- Berserk
-	public static final int BERSERK_TICKS = 160;
-	/** The meter after a Berserk burns out on its own (Calm drops it to {@link #CALM_METER}). */
-	public static final float BERSERK_AFTER_METER = 60f;
-	public static final int BERSERK_INTERVAL = 8;
-	public static final double BERSERK_RADIUS = 10.0;
-	/** Base damage (always at {@link #STRENGTH_MAX}). */
-	public static final float BERSERK_DAMAGE = 7f;
-	public static final double BERSERK_KNOCKBACK = 0.9;
+	public DarkShadowConfig() {
+	}
 
-	// ---------------------------------------------------------------- bosses
-	public static final float BOSS_HEALTH_THRESHOLD = 300f;
-	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.10f;
+	/** How light at the shadow becomes darkness (0 bright .. 1 pitch dark), its size and its strength. */
+	public static final class Light {
+		/** Light at or above this: darkness 0 (it is small, timid, weak). */
+		public int brightLight = 13;
+		/** Light at or below this: darkness 1. Between the two it scales linearly. */
+		public int pitchLight = 2;
+		/** "Pitch dark" for the meter: at or below this it climbs fast toward Berserk. */
+		public int pitchDarkMeter = 3;
+		/** "Darkness" for intentional Berserk: at or below this. */
+		public int darkLight = 7;
+		/** Light at or above this calms it: a Berserk ends, the meter can't reach 100. */
+		public int calmLight = 10;
+		/** A light source held in either hand counts as its light emission minus this (a torch: 14 - 2 = 12). */
+		public int heldLightPenalty = 2;
+		/** How fast the darkness it feels follows the real light, per tick (0..1). */
+		public float smoothing = 0.15f;
+		/** Damage multiplier at darkness 0 / 1. */
+		public float strengthMin = 0.4f;
+		public float strengthMax = 1.7f;
+		/** The model's scale at darkness 0 / 1 (Berserk: {@link Berserk#size}); the client reads these from its own copy. */
+		public float sizeMin = 0.45f;
+		public float sizeMax = 1.0f;
+	}
 
-	// ---------------------------------------------------------------- R: Shadow Strike / Shift+R: Shadow Flurry
-	public static final double STRIKE_RANGE = 8.0;
-	public static final double STRIKE_ASSIST_DEGREES = 10.0;
-	public static final float STRIKE_DAMAGE = 9f;
-	public static final double STRIKE_KNOCKBACK = 0.7;
-	public static final int STRIKE_COOLDOWN = 16;
-	public static final double FLURRY_RANGE = 8.0;
-	public static final int FLURRY_HITS = 6;
-	public static final int FLURRY_INTERVAL = 3;
-	public static final float FLURRY_DAMAGE = 3.5f;
-	public static final int FLURRY_COOLDOWN = 90;
+	/** The Shadow meter, per tick. */
+	public static final class Meter {
+		public float pitchRise = 0.25f;
+		public float dimRise = 0.05f;
+		/** In dim light (above {@link Light#pitchDarkMeter}, below {@link Light#calmLight}) the light alone stops here. */
+		public float dimCap = 85f;
+		public float brightFall = 0.5f;
+		public float recallFall = 0.75f;
+		/** In Black Ankh it is close to you and calmer: its rise is multiplied by this. */
+		public float ankhRiseFactor = 0.5f;
+		/** What the moves push it by. */
+		public float strikePush = 2f;
+		public float fangPush = 6f;
+		public float grabPush = 6f;
+		public float scoutPush = 4f;
+		public float fetchPush = 3f;
+		public float novaPush = 10f;
+		public float shieldPushPerSecond = 1f;
+	}
 
-	// ---------------------------------------------------------------- G: Shadow Guard / Shift+G: Shadow Counter
-	/** Fraction of a frontal hit the Guard soaks (projectiles from the front: all of it). */
-	public static final float GUARD_BLOCK = 0.85f;
-	/** Within this angle of where the body faces counts as "the front" (degrees from the facing, each side). */
-	public static final double GUARD_ARC_DEGREES = 80.0;
-	public static final int GUARD_MAX_TICKS = 120;
-	public static final int GUARD_COOLDOWN = 40;
-	public static final int COUNTER_WINDOW = 15;
-	public static final float COUNTER_DAMAGE = 10f;
-	public static final double COUNTER_KNOCKBACK = 1.1;
-	public static final int COUNTER_COOLDOWN = 100;
+	public static final class Berserk {
+		/** Its scale while berserk (it towers over you). */
+		public float size = 2.2f;
+		public float strength = 2.0f;
+		public double radius = 8.0;
+		public int interval = 10;
+		public int targetsPerSwing = 2;
+		public float damage = 7f;
+		public double knockback = 1.0;
+		/** It turns on you too: every this many ticks, {@link #selfDamage} -- never taking you under {@link #selfFloor} HP. */
+		public int selfInterval = 50;
+		public float selfDamage = 3f;
+		public float selfFloor = 2f;
+		/** The meter once light has calmed it. */
+		public float afterMeter = 35f;
+		/** Never hits villagers (the frenzy has some limits). */
+		public boolean spareVillagers = true;
+		public float bossHealthThreshold = 300f;
+		public float bossMaxFractionPerHit = 0.10f;
+	}
 
-	// ---------------------------------------------------------------- X: Black Fallen Angel / Shift+X: Shadow Dive
-	public static final float ANGEL_FLY_SPEED = 0.07f;
-	public static final int ANGEL_COOLDOWN = 20;
-	/** Slow Falling given when the wings vanish in mid-air (so a Berserk or an Erase never drops you to death). */
-	public static final int ANGEL_SAFE_FALL_TICKS = 100;
-	public static final double DIVE_SPEED = 2.1;
-	public static final int DIVE_TICKS = 8;
-	public static final double DIVE_HIT_RADIUS = 1.6;
-	public static final float DIVE_DAMAGE = 6f;
-	public static final int DIVE_COOLDOWN = 60;
-
-	// ---------------------------------------------------------------- Z: Shadow Grab / Shift+Z: Grab and Throw
-	public static final double GRAB_RANGE = 12.0;
-	public static final double GRAB_ASSIST_DEGREES = 10.0;
-	public static final int GRAB_PULL_TICKS = 6;
-	/** Where the catch lands: this far in front of you. */
-	public static final double GRAB_HOLD_DISTANCE = 1.7;
-	public static final float GRAB_DAMAGE = 3f;
-	public static final int GRAB_COOLDOWN = 60;
-	public static final double THROW_SPEED = 1.9;
-	public static final double THROW_LIFT = 0.35;
-	public static final float THROW_DAMAGE = 6f;
-	public static final int THROW_COOLDOWN = 80;
-
-	// ---------------------------------------------------------------- V: Abyssal Rampage / Shift+V: Abyssal Swallow
-	public static final int RAMPAGE_TICKS = 120;
-	public static final int RAMPAGE_INTERVAL = 5;
-	public static final int RAMPAGE_TARGETS_PER_HIT = 3;
-	public static final double RAMPAGE_RADIUS = 9.0;
-	public static final float RAMPAGE_DAMAGE = 5f;
-	public static final double RAMPAGE_KNOCKBACK = 0.8;
-	public static final int RAMPAGE_COOLDOWN = 600;
-	public static final double SWALLOW_RANGE = 8.0;
-	public static final int SWALLOW_TICKS = 100;
-	public static final int SWALLOW_INTERVAL = 10;
-	public static final float SWALLOW_DAMAGE = 2f;
-	public static final int SWALLOW_COOLDOWN = 300;
-
-	// ---------------------------------------------------------------- C: Black Ankh / Shift+C: Calm
-	/** Black Ankh: attack damage at strength 1.0 (scaled like the moves), flat armour and toughness. */
-	public static final double ANKH_DAMAGE = 4.0;
-	public static final double ANKH_ARMOR = 8.0;
-	public static final double ANKH_TOUGHNESS = 4.0;
-	public static final int ANKH_REFRESH = 20;
-	public static final int ANKH_COOLDOWN = 20;
-	public static final float CALM_METER = 10f;
-	public static final int CALM_COOLDOWN = 200;
+	public static final class Moves {
+		// R: Shadow Strike (in Black Ankh: a clawed dash) / Shift+R: Dark Fang
+		public double strikeRangeMin = 5.0;
+		public double strikeRangeMax = 10.0;
+		public double strikeAssistDegrees = 10.0;
+		public float strikeDamage = 8f;
+		public double strikeKnockback = 0.7;
+		public int strikeCooldown = 14;
+		public double ankhDashSpeed = 1.7;
+		public int ankhDashTicks = 6;
+		public float ankhDashDamage = 7f;
+		public int ankhDashCooldown = 24;
+		public double fangRangeMin = 4.0;
+		public double fangRangeMax = 8.0;
+		public int fangBites = 4;
+		public int fangInterval = 4;
+		public float fangDamage = 3.5f;
+		public int fangCooldown = 80;
+		// G: Shadow Grab (lift + slam) / Shift+G: Shadow Shield (held)
+		public double grabRangeMin = 6.0;
+		public double grabRangeMax = 12.0;
+		public int grabPullTicks = 8;
+		public int grabSlamTicks = 6;
+		public double grabHoldDistance = 2.4;
+		public double grabLift = 2.5;
+		public float grabDamage = 2f;
+		public float grabSlamDamage = 9f;
+		public double grabSplashRadius = 2.5;
+		public float grabSplashDamage = 4f;
+		public int grabCooldown = 80;
+		public float shieldBlockMin = 0.55f;
+		public float shieldBlockMax = 0.95f;
+		public int shieldMaxTicks = 160;
+		public int shieldCooldown = 50;
+		// X: Abyssal Black Ankh (glide) / Shift+X: Fetch
+		public double abyssalLaunch = 0.95;
+		public double abyssalBoostMin = 0.02;
+		public double abyssalBoostMax = 0.07;
+		public double abyssalMaxSpeed = 1.5;
+		public int abyssalCooldown = 30;
+		public double fetchRangeMin = 10.0;
+		public double fetchRangeMax = 20.0;
+		public double fetchItemRadius = 3.0;
+		public int fetchTicks = 10;
+		public int fetchMaxTicks = 30;
+		public int fetchCooldown = 100;
+		// Z: Shadow Scout / Shift+Z: Sunshine Ankh (the nova)
+		public double scoutRangeMin = 12.0;
+		public double scoutRangeMax = 28.0;
+		public int scoutOutTicks = 10;
+		public int scoutHoverTicks = 12;
+		public double scoutRadius = 7.0;
+		public double scoutPathRadius = 3.0;
+		public int scoutGlowTicks = 200;
+		public int scoutCooldown = 200;
+		public double novaRadiusMin = 4.0;
+		public double novaRadiusMax = 8.0;
+		public float novaDamage = 10f;
+		public double novaKnockback = 1.3;
+		public int novaCooldown = 300;
+		// V: Black Ankh (mode) / Shift+V: Recall
+		public double ankhArmorMin = 4.0;
+		public double ankhArmorMax = 10.0;
+		public double ankhToughness = 3.0;
+		public double ankhDamage = 3.0;
+		public double ankhReach = 1.0;
+		public int ankhRefresh = 20;
+		public int ankhCooldown = 30;
+		public int recallCooldown = 20;
+		// C: Berserk on purpose / Shift+C: Light Flare
+		public int berserkCooldown = 600;
+		public int flareCooldown = 300;
+		public double flareRadius = 8.0;
+		public int flareBlindTicks = 60;
+		/** The flare's light lasts this long (darkness 0, it shrinks). */
+		public int flareLightTicks = 60;
+		public float flareMeter = 15f;
+	}
 }
