@@ -1,8 +1,10 @@
 package com.projecthero.mod.client.quirk.erasure;
 
+import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.erasure.ErasureConfig;
+import com.projecthero.mod.quirk.erasure.ErasureMoves;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -13,18 +15,127 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7: Eraser Head's poses on the vanilla player model (from {@code QuirkClient.applyPose}, the END of setupAnim),
- * driven by the synced state so every viewer sees the same. Negative {@code xRot} swings an arm forward / up; the scarf
- * is always thrown from the RIGHT hand.
- * <ul>
- *   <li>Held: the stare (head locked forward, shoulders hunched, the scarf hand ready at the chest); the swing / zip
- *       arm reaching up the line; the bind / slam / double-bind hands pulling the scarf taut toward the creature.</li>
- *   <li>Lash / Disarm: wound back then whipped out along the look. Bind / Hoist: a two-handed throw, then a haul.</li>
- *   <li>Goggles: a hand up to the face. Eye Drops: head back, a hand over the eyes. The blink: head dips.</li>
- * </ul>
+ * v0.16.7 revamp: Eraser Head's poses on the vanilla player model (from {@code QuirkClient.applyPose}, the END of
+ * setupAnim), driven by the synced state so every viewer sees the same; keyframed like the One For All poses.
+ *
+ * <p>Two layers: <b>held poses</b> read straight off the running state (the stare's hunch, the arm up the scarf line,
+ * both hands hauling a bound creature, the Bind and Spin wind-up, the eyes-shut rub), then the <b>move keyframes</b>
+ * ({@code {tick, rArmX, rArmY, rArmZ, lArmX, lArmY, lArmZ, bodyX, bodyY, rLegX, lLegX, headX, crouch}}, smoothstepped,
+ * faded in / out). Bind and Spin and the Close Combat finisher also turn the whole body ({@link #spinDegrees},
+ * {@code ErasureSpinMixin}). The scarf is always thrown from the RIGHT hand; negative arm X swings forward / up.
  */
 public final class ErasurePose {
+	// Shift+R Capture Pull: whip out, then a two-handed yank back
+	private static final float[][] PULL = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 2, -2.6f, 0.4f, -0.2f, -0.3f, 0, -0.3f, -0.05f, 0.3f, 0.2f, -0.2f, 0, 0 },
+			{ 4, -1.55f, -0.05f, 0, -1.3f, 0.3f, 0, 0.12f, -0.2f, -0.3f, 0.3f, 0, 0.1f },
+			{ 7, 0.45f, -0.1f, 0.15f, 0.25f, 0.2f, -0.15f, -0.2f, 0.25f, 0.35f, -0.35f, -0.1f, 0.25f },
+			{ 10, 0.4f, -0.1f, 0.15f, 0.2f, 0.2f, -0.15f, -0.18f, 0.25f, 0.3f, -0.3f, -0.1f, 0.2f },
+			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// R Capture Bind: the scarf circled overhead, thrown, then both hands tug the wraps tight
+	private static final float[][] BIND = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, -2.8f, 0.7f, -0.25f, -0.4f, 0, -0.35f, -0.08f, 0.35f, 0.15f, -0.15f, -0.1f, 0 },
+			{ 5, -1.6f, -0.1f, 0, -1.25f, 0.35f, 0, 0.15f, -0.25f, -0.35f, 0.35f, 0, 0.15f },
+			{ 9, -1.0f, -0.25f, 0, -1.05f, 0.45f, 0, 0.05f, 0, -0.15f, 0.15f, 0, 0.1f },
+			{ 11, -0.75f, -0.25f, 0, -0.8f, 0.45f, 0, -0.08f, 0, 0.1f, -0.1f, 0, 0.1f },
+			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// G Close Combat: jab, elbow, knee, then the spinning kick (the body turn is spinDegrees)
+	private static final float[][] COMBO = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 1, 0.3f, 0, 0, -0.9f, 0.3f, 0, 0.05f, 0.35f, 0.2f, -0.2f, 0, 0.2f },
+			{ 2, -1.62f, -0.1f, 0, 0.35f, 0.2f, -0.1f, 0.15f, -0.45f, -0.35f, 0.3f, 0, 0.2f },
+			{ 4, -0.9f, -0.3f, 0, -0.6f, 0.4f, 0, 0.1f, -0.1f, -0.2f, 0.2f, 0, 0.2f },
+			{ 6, -0.2f, 0, 0.2f, -1.45f, -0.95f, -0.35f, 0.15f, 0.55f, 0.2f, -0.35f, 0, 0.2f },
+			{ 8, -0.6f, -0.3f, 0, -0.9f, 0.2f, 0, 0.1f, 0.1f, 0, 0, 0, 0.1f },
+			{ 10, -1.1f, -0.2f, 0.2f, -1.1f, 0.2f, -0.2f, 0.35f, 0, -1.55f, 0.25f, 0.2f, 0 },
+			{ 12, -0.5f, 0, 0.5f, -0.5f, 0, -0.5f, 0.1f, 0, -0.3f, 0.2f, 0, 0.15f },
+			{ 15, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.5f, 0.35f, -0.1f, 0 },
+			{ 17, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.45f, 0.35f, -0.1f, 0 },
+			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// Shift+G Counter: forearms crossed in a low guard, weight back, held through the window
+	private static final float[][] COUNTER = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 2, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
+			{ 12, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
+			{ 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// the riposte: guard opens into a palm strike, the scarf snapping out with the other hand
+	private static final float[][] COUNTER_HIT = {
+			{ 0, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
+			{ 3, -1.65f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.2f, -0.55f, -0.5f, 0.4f, 0, 0.2f },
+			{ 8, -1.6f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.18f, -0.5f, -0.45f, 0.4f, 0, 0.2f },
+			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// C Scarf Whip: overhead, then a snapping crack down along the look
+	private static final float[][] WHIP = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 2, -2.95f, 0.3f, -0.15f, -0.3f, 0, -0.25f, -0.1f, 0.3f, 0.15f, -0.15f, -0.1f, 0 },
+			{ 4, -1.25f, -0.25f, 0, -0.2f, 0, -0.25f, 0.2f, -0.35f, -0.3f, 0.3f, 0.05f, 0.1f },
+			{ 6, -1.1f, -0.3f, 0, -0.2f, 0, -0.25f, 0.18f, -0.35f, -0.3f, 0.3f, 0.05f, 0.1f },
+			{ 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// Shift+Z Disarm Throw: whip at the hand, then rip it back over the shoulder
+	private static final float[][] DISARM = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, -1.6f, -0.05f, 0, -0.3f, 0, -0.25f, 0.12f, -0.2f, -0.2f, 0.2f, 0, 0 },
+			{ 7, -2.4f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.15f, 0.45f, 0.25f, -0.25f, -0.15f, 0 },
+			{ 9, -2.3f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.12f, 0.4f, 0.2f, -0.2f, -0.15f, 0 },
+			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// Shift+C Goggles: both hands up to the goggles
+	private static final float[][] GOGGLES = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, -2.55f, -0.5f, 0, -2.55f, 0.5f, 0, 0, 0, 0, 0, 0.1f, 0 },
+			{ 6, -2.4f, -0.5f, 0, -2.4f, 0.5f, 0, 0, 0, 0, 0, 0.15f, 0 },
+			{ 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// Shift+V Eye Drops: head back, the bottle held over one eye, then the other
+	private static final float[][] DROPS = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
+			{ 9, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
+			{ 12, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
+			{ 17, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
+			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	// Shift+X Scarf Pull: both hands snap up the line as he is reeled in (the held line pose takes over)
+	private static final float[][] ZIP = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, -2.6f, -0.2f, 0, -2.4f, 0.2f, 0, -0.1f, 0, -0.5f, 0.2f, -0.2f, 0 },
+			{ 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+
 	private ErasurePose() {
+	}
+
+	static float[][] frames(int animId) {
+		return switch (animId) {
+			case ErasureConfig.ANIM_PULL -> PULL;
+			case ErasureConfig.ANIM_BIND -> BIND;
+			case ErasureConfig.ANIM_COMBO -> COMBO;
+			case ErasureConfig.ANIM_COUNTER -> COUNTER;
+			case ErasureConfig.ANIM_COUNTER_HIT -> COUNTER_HIT;
+			case ErasureConfig.ANIM_WHIP -> WHIP;
+			case ErasureConfig.ANIM_DISARM -> DISARM;
+			case ErasureConfig.ANIM_GOGGLES -> GOGGLES;
+			case ErasureConfig.ANIM_DROPS -> DROPS;
+			case ErasureConfig.ANIM_ZIP -> ZIP;
+			default -> null;
+		};
+	}
+
+	static float[] sample(float[][] f, float tick) {
+		if (tick < 0f || tick > f[f.length - 1][0]) {
+			return null;
+		}
+		for (int i = 1; i < f.length; i++) {
+			if (tick <= f[i][0]) {
+				float[] a = f[i - 1], b = f[i];
+				float t = (tick - a[0]) / Math.max(1e-4f, b[0] - a[0]);
+				t = t * t * (3f - 2f * t);
+				float[] out = new float[13];
+				for (int k = 1; k < 13; k++) {
+					out[k] = Mth.lerp(t, a[k], b[k]);
+				}
+				return out;
+			}
+		}
+		return null;
 	}
 
 	private static void pose(ModelPart part, float w, float x, float y, float z) {
@@ -45,23 +156,13 @@ public final class ErasurePose {
 		pose(arm, w, -Mth.HALF_PI - pitch, rel, 0f);
 	}
 
-	static int length(int animId) {
-		return switch (animId) {
-			case ErasureConfig.ANIM_LASH, ErasureConfig.ANIM_DISARM -> 10;
-			case ErasureConfig.ANIM_SWING, ErasureConfig.ANIM_ZIP -> 8;
-			case ErasureConfig.ANIM_BIND, ErasureConfig.ANIM_HOIST -> 14;
-			case ErasureConfig.ANIM_SLAM -> ErasureConfig.SLAM_LIFT_TICKS + 10;
-			case ErasureConfig.ANIM_DOUBLE -> 14;
-			case ErasureConfig.ANIM_GOGGLES -> 8;
-			case ErasureConfig.ANIM_DROPS -> 20;
-			case ErasureConfig.ANIM_BLINK -> ErasureConfig.BLINK_TICKS;
-			default -> 0;
-		};
-	}
-
 	private static Entity entity(Player p, QuirkState s, String key) {
 		long v = s.val(key);
 		return v == 0L ? null : p.level().getEntity((int) (v - 1L));
+	}
+
+	private static float partial() {
+		return Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 	}
 
 	public static void apply(Player p, HumanoidModel<?> m) {
@@ -69,22 +170,24 @@ public final class ErasurePose {
 		if (s == null || p.level() == null) {
 			return;
 		}
-		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float partial = partial();
 		long now = p.level().getGameTime();
 		float t = now + partial;
 		ModelPart arm = m.rightArm, other = m.leftArm;
-		float aimX = m.head.xRot - Mth.HALF_PI, aimY = m.head.yRot;
 
-		// ---- the stare: hunched, the scarf hand at the chest
+		// ---- the stare: hunched forward, head locked on, both hands holding the scarf ready at the chest
 		if (s.val(ErasureConfig.V_ERASE) != 0L) {
 			float w = Mth.clamp((now - s.val(ErasureConfig.V_ERASE_AT) + partial) / 4f, 0f, 1f);
-			pose(arm, w, -0.9f, -0.45f, 0.1f);
-			pose(other, w, -0.25f, 0.1f, -0.15f);
-			if (s.val(ErasureConfig.V_ERASE) == 2L) {
-				// the glare: both arms out a little, taking everything in
-				pose(arm, w, -0.6f, -0.2f, 0.45f);
-				pose(other, w, -0.6f, 0.2f, -0.45f);
-			}
+			pose(arm, w, -0.95f, -0.5f, 0.05f);
+			pose(other, w, -0.7f, 0.45f, -0.05f);
+			com.projecthero.mod.client.HipBend.pitch(m, w, 0.14f);
+		}
+		// ---- eyes forced shut: the head drops and a hand rubs the eyes
+		if (s.val(ErasureConfig.V_SHUT) != 0L) {
+			float age = now - s.val(ErasureConfig.V_SHUT_AT) + partial;
+			float w = Mth.clamp(age / 4f, 0f, 1f);
+			pose(arm, w, -2.15f + 0.08f * Mth.sin(t * 0.6f), -0.65f, 0f);
+			m.head.xRot = Mth.lerp(w, m.head.xRot, 0.45f);
 		}
 		// ---- the line
 		Vec3 hook = Quirks.vec(s, ErasureConfig.P_HOOK);
@@ -94,97 +197,100 @@ public final class ErasurePose {
 			Vec3 to = z != null ? z.getPosition(partial).add(0, z.getBbHeight() * 0.5, 0) : hook;
 			if (to != null) {
 				pointAt(p, arm, to, partial, 1f);
-				if (line == 2L) {
+				if (line != 1L) {
+					// reeled in: both hands on the line, legs tucked for the landing
 					pose(other, 1f, arm.xRot + 0.2f, arm.yRot - 0.25f, 0f);
-					pose(m.rightLeg, 1f, -0.6f, 0f, 0.05f);
-					pose(m.leftLeg, 1f, -0.3f, 0f, -0.05f);
+					pose(m.rightLeg, 1f, -0.7f, 0f, 0.05f);
+					pose(m.leftLeg, 1f, -0.35f, 0f, -0.05f);
 				} else {
+					// the swing: the free arm out for balance, legs trailing
 					pose(other, 1f, -0.4f + 0.2f * Mth.sin(t * 0.2f), 0f, -0.55f);
 					pose(m.rightLeg, 0.6f, 0.35f, 0f, 0f);
 					pose(m.leftLeg, 0.6f, -0.45f, 0f, 0f);
 				}
 			}
 		}
-		// ---- holding a bound / slammed creature: both hands on the scarf
+		// ---- holding a bound creature: both hands on the scarf, hauling
 		Entity held = s.val(ErasureConfig.V_BIND_UNTIL) > now ? entity(p, s, ErasureConfig.V_BIND) : null;
-		if (held == null) {
-			held = entity(p, s, ErasureConfig.V_SLAM);
-		}
 		if (held != null && line == 0L) {
 			Vec3 at = held.getPosition(partial).add(0, held.getBbHeight() * 0.6, 0);
 			pointAt(p, arm, at, partial, 1f);
 			pose(other, 1f, arm.xRot + 0.35f, arm.yRot + 0.35f, 0f);
 		}
-		Entity a = entity(p, s, ErasureConfig.V_DB_A), b = entity(p, s, ErasureConfig.V_DB_B);
-		if (a != null && b != null) {
-			pointAt(p, arm, a.getPosition(partial).add(0, a.getBbHeight() * 0.6, 0), partial, 1f);
-			pointAt(p, other, b.getPosition(partial).add(0, b.getBbHeight() * 0.6, 0), partial, 1f);
+		// ---- Bind and Spin: leaning back against the weight, both hands out on the scarf (the body turns with it)
+		if (s.val(ErasureConfig.V_SPIN) != 0L) {
+			float age = now - s.val(ErasureConfig.V_SPIN_AT) + partial;
+			float w = Mth.clamp(age / 3f, 0f, 1f);
+			pose(arm, w, -1.45f, -0.15f, 0.25f);
+			pose(other, w, -1.3f, 0.35f, -0.1f);
+			com.projecthero.mod.client.HipBend.pitch(m, w, -0.22f);
+			pose(m.rightLeg, w, -0.35f, 0f, 0.1f);
+			pose(m.leftLeg, w, 0.35f, 0f, -0.1f);
 		}
 
 		// ---- the moves' keyframes
-		if (s.animId < 100 || s.animId > 119) {
+		float[][] f = s.animId >= 100 && s.animId <= 119 ? frames(s.animId) : null;
+		if (f != null) {
+			float tick = now - s.animStart + partial;
+			float[] v = sample(f, tick);
+			if (v != null) {
+				float end = f[f.length - 1][0];
+				float w = Math.max(0f, Math.min(1f, Math.min(tick / 1.5f + 0.25f, (end - tick) / 3f)));
+				pose(arm, w, v[1], v[2], v[3]);
+				pose(other, w, v[4], v[5], v[6]);
+				com.projecthero.mod.client.HipBend.pitch(m, w, v[7]);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, v[8]);
+				m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, v[9]);
+				m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, v[10]);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + v[11]);
+				crouch(m, w * v[12]);
+			}
+		}
+		m.hat.copyFrom(m.head);
+	}
+
+	/** A crouch: legs bent, body lowered (the model's sneak offsets, weighted). */
+	private static void crouch(HumanoidModel<?> model, float w) {
+		if (w <= 0.001f || model.crouching) {
 			return;
 		}
-		int len = length(s.animId);
-		float age = now - s.animStart + partial;
-		if (age < 0f || age >= len) {
-			return;
+		model.body.y += 3.2f * w;
+		model.head.y += 4.2f * w;
+		model.rightArm.y += 3.2f * w;
+		model.leftArm.y += 3.2f * w;
+		model.rightLeg.z += 4.0f * w;
+		model.leftLeg.z += 4.0f * w;
+		model.rightLeg.y += 0.2f * w;
+		model.leftLeg.y += 0.2f * w;
+	}
+
+	private static float eased(float x) {
+		x = Mth.clamp(x, 0f, 1f);
+		return x * x * (3f - 2f * x);
+	}
+
+	/**
+	 * Degrees to turn the whole body about its vertical axis ({@code ErasureSpinMixin}): Bind and Spin turns him with the
+	 * creature on his scarf (two turns, matching the server's orbit); the Close Combat finisher is one spinning kick.
+	 */
+	public static float spinDegrees(Player p, float partial) {
+		if (!Quirks.holds(p, Quirk.ERASURE)) {
+			return 0f;
 		}
-		float w = Math.min(1f, age / 2f + 0.25f) * Math.min(1f, (len - age) / 3f);
-		switch (s.animId) {
-			case ErasureConfig.ANIM_LASH, ErasureConfig.ANIM_DISARM -> {
-				float k = Mth.clamp(age / 2.5f, 0f, 1f);
-				pose(arm, w, Mth.lerp(k, -2.6f, aimX), Mth.lerp(k, 0.7f, aimY), Mth.lerp(k, -0.3f, 0f));
-				pose(other, w, -0.3f, 0f, -0.35f);
-				if (s.animId == ErasureConfig.ANIM_DISARM && age > 4f) {
-					// the yank back
-					pose(arm, w, -0.6f, 0.2f, 0f);
-				}
-			}
-			case ErasureConfig.ANIM_BIND, ErasureConfig.ANIM_HOIST -> {
-				float k = Mth.clamp(age / 3f, 0f, 1f);
-				pose(arm, w, Mth.lerp(k, -2.8f, aimX), aimY - 0.1f, 0f);
-				pose(other, w, Mth.lerp(k, -2.4f, aimX + 0.3f), aimY + 0.2f, 0f);
-				if (age > 6f) {
-					float up = s.animId == ErasureConfig.ANIM_HOIST ? -2.3f : -1.0f;
-					pose(arm, w, up, -0.2f, 0f);
-					pose(other, w, up + 0.3f, 0.2f, 0f);
-				}
-			}
-			case ErasureConfig.ANIM_SLAM -> {
-				float lift = ErasureConfig.SLAM_LIFT_TICKS;
-				if (age < lift) {
-					pose(arm, w, -2.9f, 0f, 0.2f);
-					pose(other, w, -2.7f, 0f, -0.2f);
-				} else {
-					float k = Mth.clamp((age - lift) / 3f, 0f, 1f);
-					pose(arm, w, Mth.lerp(k, -2.9f, -0.4f), 0f, 0.2f);
-					pose(other, w, Mth.lerp(k, -2.7f, -0.3f), 0f, -0.2f);
-					m.body.xRot = Mth.lerp(w * k, m.body.xRot, 0.3f);
-				}
-			}
-			case ErasureConfig.ANIM_DOUBLE -> {
-				float k = Mth.clamp(age / 3f, 0f, 1f);
-				pose(arm, w, -1.6f, Mth.lerp(k, -0.9f, 0.3f), 0f);
-				pose(other, w, -1.6f, Mth.lerp(k, 0.9f, -0.3f), 0f);
-			}
-			case ErasureConfig.ANIM_GOGGLES -> {
-				pose(arm, w, -2.6f, -0.5f, 0f);
-			}
-			case ErasureConfig.ANIM_DROPS -> {
-				pose(arm, w, -2.8f, -0.35f, 0f);
-				pose(other, w, -0.4f, 0f, -0.2f);
-				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.7f);
-				m.hat.copyFrom(m.head);
-			}
-			case ErasureConfig.ANIM_BLINK -> {
-				float dip = age < 6f ? 1f : Math.max(0f, 1f - (age - 6f) / 10f);
-				m.head.xRot = Mth.lerp(w * dip, m.head.xRot, 0.55f);
-				m.hat.copyFrom(m.head);
-				pose(arm, w * dip, -1.9f, -0.5f, 0f);
-			}
-			default -> {
-			}
+		QuirkState s = Quirks.peek(p);
+		if (s == null) {
+			return 0f;
 		}
+		long now = p.level().getGameTime();
+		if (s.val(ErasureConfig.V_SPIN) != 0L) {
+			float age = now - s.val(ErasureConfig.V_SPIN_AT) + partial;
+			return (float) -Math.toDegrees(ErasureMoves.spinAngle(age));
+		}
+		if (s.animId == ErasureConfig.ANIM_COMBO) {
+			float age = now - s.animStart + partial;
+			float k = (age - 12f) / 5f;
+			return k <= 0f || k >= 1f ? 0f : -360f * eased(k);
+		}
+		return 0f;
 	}
 }

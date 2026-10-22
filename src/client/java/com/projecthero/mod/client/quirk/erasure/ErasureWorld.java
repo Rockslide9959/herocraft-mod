@@ -33,8 +33,8 @@ import org.joml.Vector3f;
 /**
  * v0.16.7: the capture weapon in the world, for every Eraser any client can see, straight from his synced state: a
  * flat grey cloth ribbon from his hand -- whipped out and back (Lash / Disarm / a missed throw), taut to the hook (Swing),
- * reeling him to a creature (Zip), wound round a bound / hoisted creature (Bind / Hoist), hauling one up and down (Bind
- * Slam), or two at once (Double Bind).
+ * reeling him to a creature or a block (Scarf Pull), wound round a bound creature (Capture Bind), or whirling one round
+ * him (Bind and Spin).
  */
 public final class ErasureWorld {
 	public static final ResourceLocation SCARF = ProjectHeroMod.id("textures/entity/quirk/erasure_scarf.png");
@@ -127,16 +127,10 @@ public final class ErasureWorld {
 			double len = hand.distanceTo(m);
 			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, bound, partial, 1f, t), (float) Math.min(0.5, len * 0.04), t, 0.04f));
 		}
-		// ---- Bind Slam
-		Entity slam = entity(mc, s, ErasureConfig.V_SLAM);
-		if (slam != null) {
-			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, slam, partial, 0.7f, t), 0f, t, 0.03f));
-		}
-		// ---- Double Bind
-		Entity a = entity(mc, s, ErasureConfig.V_DB_A), b = entity(mc, s, ErasureConfig.V_DB_B);
-		if (a != null && b != null) {
-			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, a, partial, 0.6f, t), 0f, t, 0.03f));
-			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, b, partial, 0.6f, t), 0f, t, 0.03f));
+		// ---- Bind and Spin: taut from his hand to the wrapped creature whirling round him (a little lag in the cloth)
+		Entity spun = entity(mc, s, ErasureConfig.V_SPIN);
+		if (spun != null) {
+			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, spun, partial, 0.8f, t), 0.05f, t, 0.05f));
 		}
 		// ---- the whip (out and back)
 		float age = now - s.val(ErasureConfig.V_LASH_AT) + partial;

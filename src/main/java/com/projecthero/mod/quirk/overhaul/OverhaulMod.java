@@ -24,6 +24,14 @@ public final class OverhaulMod {
 
 	public static void initialize() {
 		QuirkKits.register(Quirk.OVERHAUL, new OverhaulKit());
+		// v0.16.7 revamp: gloves off, a bare-handed punch disassembles a little too
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer sp
+					&& entity instanceof net.minecraft.world.entity.LivingEntity le && com.projecthero.mod.quirk.Quirks.activeAs(sp, Quirk.OVERHAUL)) {
+				OverhaulMoves.bareTouch(sp, le);
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		PlayerBlockBreakEvents.BEFORE.addPhaseOrdering(EARLY, Event.DEFAULT_PHASE);
 		PlayerBlockBreakEvents.BEFORE.register(EARLY, (level, player, pos, state, be) -> {
 			if (level instanceof ServerLevel sl && GeoTerrain.isTemp(sl, pos)) {

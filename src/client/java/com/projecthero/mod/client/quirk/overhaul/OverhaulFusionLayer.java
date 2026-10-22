@@ -21,7 +21,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.InventoryMenu;
 
 /**
- * v0.16.7: the Fusion form on every viewer -- the body (already scaled up by the synced SCALE attribute) is plated in
+ * v0.16.7 (revamp: spike limbs -- thorns on the gauntlets, shoulders, back and the extra arms' fists; and the gloves,
+ * drawn on the forearms while they are on): the Chronostasis Fusion form on every viewer -- the body (already scaled up by the synced SCALE attribute) is plated in
  * the stone he absorbed: pauldrons, gauntlets, a breastplate and back hump, knee plates, and two extra stone arms
  * growing from his back that sway with his breathing. Drawn with the block atlas's deepslate / stone sprites, so the
  * plates read as the real ground he took in.
@@ -30,6 +31,10 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 	private static final ResourceLocation PLATE = ResourceLocation.withDefaultNamespace("block/cobbled_deepslate");
 	private static final ResourceLocation TRIM = ResourceLocation.withDefaultNamespace("block/polished_deepslate");
 	private static final ResourceLocation ARM = ResourceLocation.withDefaultNamespace("block/stone");
+	private static final ResourceLocation SPIKE = ResourceLocation.withDefaultNamespace("block/dripstone_block");
+	private static final ResourceLocation GLOVE = ResourceLocation.withDefaultNamespace("block/black_wool");
+	/** The vertex tint of the box being drawn (stone: almost white; the gloves: a dark plum). */
+	private static float tr = 0.92f, tg = 0.9f, tb = 0.9f;
 
 	public OverhaulFusionLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
@@ -38,13 +43,20 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 	@Override
 	public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
 			float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
-		if (player.isInvisible() || !Overhaul.is(player) || !Overhaul.fused(player)) {
+		if (player.isInvisible() || !Overhaul.is(player)) {
 			return;
 		}
 		var atlas = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS);
+		if (!Overhaul.fused(player)) {
+			if (Overhaul.gloved(player)) {
+				gloves(pose, buffers, light, player, atlas.apply(GLOVE));
+			}
+			return;
+		}
 		TextureAtlasSprite plate = atlas.apply(PLATE);
 		TextureAtlasSprite trim = atlas.apply(TRIM);
 		TextureAtlasSprite arm = atlas.apply(ARM);
+		TextureAtlasSprite spike = atlas.apply(SPIKE);
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
 		PlayerModel<AbstractClientPlayer> m = getParentModel();
 		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
@@ -55,11 +67,18 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 			box(pose, vc, plate, light, -3.9f, -2.9f, -2.9f, aw - 2.1f, 3.2f, 2.9f);
 			box(pose, vc, trim, light, -4.3f, -2.4f, -1.6f, -3.6f, 1.8f, 1.6f);
 			box(pose, vc, plate, light, -3.7f, 5.2f, -2.7f, aw - 2.3f, 10.6f, 2.7f);
+			// spike limbs: stone thorns jut from the gauntlet and the shoulder
+			spike(pose, vc, spike, light, -3.8f, 7.5f, 0f, -1.5f, 0.15f, 3.2f);
+			spike(pose, vc, spike, light, -3.6f, 9.6f, -1.2f, -1.4f, 0.4f, 2.4f);
+			spike(pose, vc, spike, light, -2.5f, -3f, 0f, -0.4f, -1.4f, 2.6f);
 		});
 		part(pose, m.leftArm, () -> {
 			box(pose, vc, plate, light, -aw + 2.1f, -2.9f, -2.9f, 3.9f, 3.2f, 2.9f);
 			box(pose, vc, trim, light, 3.6f, -2.4f, -1.6f, 4.3f, 1.8f, 1.6f);
 			box(pose, vc, plate, light, -aw + 2.3f, 5.2f, -2.7f, 3.7f, 10.6f, 2.7f);
+			spike(pose, vc, spike, light, 3.8f, 7.5f, 0f, 1.5f, 0.15f, 3.2f);
+			spike(pose, vc, spike, light, 3.6f, 9.6f, -1.2f, 1.4f, 0.4f, 2.4f);
+			spike(pose, vc, spike, light, 2.5f, -3f, 0f, 0.4f, -1.4f, 2.6f);
 		});
 		part(pose, m.body, () -> {
 			// breastplate, its ridge, the back hump
@@ -68,14 +87,18 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 			box(pose, vc, plate, light, -3.6f, -0.2f, 2.8f, 3.6f, 6.0f, 4.4f);
 			// two extra stone arms from the back, swaying with his breath
 			float sway = Mth.sin(ageInTicks * 0.09f) * 0.12f;
-			extraArm(pose, vc, arm, plate, light, -1f, sway);
-			extraArm(pose, vc, arm, plate, light, 1f, -sway);
+			extraArm(pose, vc, arm, plate, spike, light, -1f, sway);
+			extraArm(pose, vc, arm, plate, spike, light, 1f, -sway);
+			// a ridge of thorns down the back hump
+			spike(pose, vc, spike, light, 0f, 1.2f, 4.2f, 0f, -0.5f, 1.6f);
+			spike(pose, vc, spike, light, 0f, 3.6f, 4.2f, 0f, -0.3f, 1.4f);
 		});
 		part(pose, m.rightLeg, () -> box(pose, vc, plate, light, -2.6f, 3.2f, -2.8f, 2.6f, 7.0f, 2.4f));
 		part(pose, m.leftLeg, () -> box(pose, vc, plate, light, -2.6f, 3.2f, -2.8f, 2.6f, 7.0f, 2.4f));
 	}
 
-	private static void extraArm(PoseStack pose, VertexConsumer vc, TextureAtlasSprite arm, TextureAtlasSprite plate, int light, float side, float sway) {
+	private static void extraArm(PoseStack pose, VertexConsumer vc, TextureAtlasSprite arm, TextureAtlasSprite plate, TextureAtlasSprite spike, int light,
+			float side, float sway) {
 		pose.pushPose();
 		pose.translate(side * 3.4f / 16f, 1.5f / 16f, 3.8f / 16f);
 		pose.mulPose(Axis.ZP.rotation(side * (0.75f + sway)));
@@ -86,7 +109,52 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 		pose.mulPose(Axis.XP.rotation(0.9f));
 		box(pose, vc, arm, light, -1.4f, 0f, -1.4f, 1.4f, 6.0f, 1.4f);
 		box(pose, vc, plate, light, -1.9f, 5.4f, -1.9f, 1.9f, 8.4f, 1.9f);
+		// the fist is a spiked club
+		spike(pose, vc, spike, light, side * 1.9f, 7f, 0f, side * 1.5f, 0.3f, 2.2f);
+		spike(pose, vc, spike, light, 0f, 8.4f, 0f, 0f, 1.5f, 2.4f);
 		pose.popPose();
+	}
+
+	/**
+	 * A stone thorn from (x, y, z) pointing along (dx, dy, dz) (model px; y grows downward), about {@code |d|} px long:
+	 * three stacked boxes narrowing to a point.
+	 */
+	private static void spike(PoseStack pose, VertexConsumer vc, TextureAtlasSprite s, int light, float x, float y, float z, float dx, float dy, float dz) {
+		float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+		float l = Math.max(1.5f, len) * 1.2f;
+		pose.pushPose();
+		pose.translate(x / 16f, y / 16f, z / 16f);
+		// turn local -Y onto the direction
+		pose.mulPose(new org.joml.Quaternionf().rotationTo(new org.joml.Vector3f(0f, -1f, 0f), new org.joml.Vector3f(dx, dy, dz).normalize()));
+		box(pose, vc, s, light, -0.9f, -l * 0.4f, -0.9f, 0.9f, 0.4f, 0.9f);
+		box(pose, vc, s, light, -0.55f, -l * 0.75f, -0.55f, 0.55f, -l * 0.4f + 0.1f, 0.55f);
+		box(pose, vc, s, light, -0.25f, -l, -0.25f, 0.25f, -l * 0.75f + 0.1f, 0.25f);
+		pose.popPose();
+	}
+
+	/** v0.16.7 revamp: the gloves, drawn over both forearms and hands while they are on (a dark plum). */
+	private void gloves(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, TextureAtlasSprite s) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS));
+		PlayerModel<AbstractClientPlayer> m = getParentModel();
+		boolean slim = player.getSkin().model() == PlayerSkin.Model.SLIM;
+		float aw = slim ? 3f : 4f;
+		tr = 0.42f;
+		tg = 0.34f;
+		tb = 0.48f;
+		try {
+			part(pose, m.rightArm, () -> {
+				box(pose, vc, s, light, -3.35f, 6.4f, -2.35f, aw - 2.65f, 10.35f, 2.35f);
+				box(pose, vc, s, light, -3.6f, 5.6f, -2.6f, aw - 2.4f, 6.6f, 2.6f);
+			});
+			part(pose, m.leftArm, () -> {
+				box(pose, vc, s, light, -aw + 2.65f, 6.4f, -2.35f, 3.35f, 10.35f, 2.35f);
+				box(pose, vc, s, light, -aw + 2.4f, 5.6f, -2.6f, 3.6f, 6.6f, 2.6f);
+			});
+		} finally {
+			tr = 0.92f;
+			tg = 0.9f;
+			tb = 0.9f;
+		}
 	}
 
 	private static void part(PoseStack pose, ModelPart part, Runnable draw) {
@@ -127,6 +195,6 @@ public class OverhaulFusionLayer extends RenderLayer<AbstractClientPlayer, Playe
 	}
 
 	private static void vertex(VertexConsumer vc, PoseStack.Pose p, float x, float y, float z, float u, float v, int light, float nx, float ny, float nz) {
-		vc.addVertex(p, x, y, z).setColor(0.92f, 0.9f, 0.9f, 1f).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
+		vc.addVertex(p, x, y, z).setColor(tr, tg, tb, 1f).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
 	}
 }

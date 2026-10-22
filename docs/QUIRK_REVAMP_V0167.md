@@ -6,6 +6,8 @@ decide the abilities".
 
 ## Rules for every Quirk
 - Every key R / G / X / Z / V / C has a **tap** move and a **Shift** move. H stays the power selector. N is not used.
+- **Slot rule (user, 2026-10-22; overrides the per-Quirk letters below where they differ):** X = the MOVEMENT ability, V = the
+  UTILITY / mode ability, and the rest (R, G, Z, C and their Shifts) are mainly attacks.
 - Each Quirk keeps its own meter (heat, focus, engine, shadow, dry eyes, sweat, nausea) and its Overload. They are
   re-tuned so the **signature sustained mechanic** below is the heart of the kit, not a row of one-shot moves.
 - Every move gets a proper keyframed player pose, plus VFX and SFX in the style of the One For All moves.
@@ -62,20 +64,24 @@ a mode ability", and "for engine using v to shift up and down gears makes more s
 - **Plus Ultra: Full Power (Shift+C):** for 15 s all fire moves are doubled; afterwards heat is pinned at max.
 
 ## Overhaul (Kai Chisaki): disassemble and reassemble by touch
-- **Focus** is the meter; every touch costs focus.
-- **Disassemble (R):** a touch that deals heavy damage, plus disassemble particles.
-- **Reassemble (Shift+R):** instantly heal yourself or an ally to full, once per 60 s.
-- **Ground Spikes (G):** touch the floor and the terrain erupts in a line of stone spikes toward the target. The spikes
-  are temporary blocks and clean themselves up.
-- **Spike Field (Shift+G):** spikes in a ring around you.
-- **Wall Burst (X):** raise a temporary stone wall.
-- **Disassemble Terrain (Shift+X):** break the floor out from under mobs, a pit that closes again later.
-- **Overhaul Strike (Z):** a dash and touch.
-- **Disarm (Shift+Z):** destroy a mob's held item or armour piece.
-- **Chronostasis Fusion (V):** a fused form. You grow, gain stone armour and spike limbs, and get extra reach for 20 s.
-- **Restore (Shift+V):** repairs blocks broken nearby.
-- **Gloves (C):** puts your gloves on or takes them off. Gloves on, touches don't trigger, so you can be in melee safely.
-  This is the Quirk's toggle; Shift+C cleans off contamination (vents focus).
+As built (v0.16.7). Slot rule: X = movement, V = mode / utility, the rest attacks.
+
+| Key | Tap | Shift |
+|---|---|---|
+| R | **Disassemble**: a bare-hand touch, 18 damage; a body it kills bursts on everything within 3.5 blocks (6). 14 Focus. | **Disarm**: touch what a mob holds (or, empty-handed, an armour piece) and it is destroyed; a player's is knocked from their grip instead. Not bosses. 20 Focus. |
+| G | **Ground Spikes**: palm to the floor, a jagged line of stone spikes erupts toward the target, 14 blocks: 10 and a toss. 18 Focus. | **Spike Field**: both palms down, two rings of spikes round you: 9 to all within 5 blocks. 28 Focus. |
+| X | **Terrain Surf** (movement): the ground breaks and reforms a step ahead and carries you the way you look for ~1.7 s, a ridge of earth rising in your wake, throwing aside what it runs over (5). X again: off. No fall damage. 14 Focus. | **Pillar Launch** (movement): a 3-block stone pillar shoots up under you and flings you high; no fall damage for 5 s. 12 Focus. |
+| Z | **Overhaul Strike**: a low dash, bare hand out: the first enemy touched takes 14 and is thrown. 16 Focus. | **Disassemble Terrain**: the floor breaks out from under up to 6 creatures near where you aim; each drops into its own 2-deep pit, a lid closes over it, and 4 s later the ground closes back up and pushes it out. Not bosses / big mobs. 30 Focus. |
+| C | **Wall Burst**: the ground ahead bursts into a 5x3 wall for 10 s, throwing back whatever stood there (5). 18 Focus. | **Gloves** (toggle; works while spent): on, no touch triggers (safe melee), every other key is locked and Focus refills twice as fast; off, the moves work and a bare-handed punch disassembles (+4 for 3 Focus). |
+| V | **Chronostasis Fusion** (mode): absorb the ground for 20 s: bigger (x1.5), stone-plated, spiked limbs (thorns on gauntlets, shoulders, back) and two extra spiked arms; +8 damage, +12 armour, +2.5 reach. V again: end. 45 Focus. | **Reassemble** (utility): you, or the ally you look at, to full health with debuffs gone, and **Restore**: every block an explosion broke within 12 blocks in the last 5 minutes rebuilds as a wave, its dropped debris drawn back in. Once a minute. 30 Focus. |
+
+- **Focus** (meter, starts full): every touch spends it; it refills 6/s a second after the last spend (12/s gloved).
+  Spent to nothing: 2.5 s with no moves but the gloves.
+- Every block goes through the Geokinesis temporary-block ledger (`GeoTerrain`): the terrain-damage config, build rights,
+  claims, never into a living thing, always put back on its own clock and on server stop. Restore's memory is
+  `OverhaulRestore` (recorded only while an Overhaul holder is in that level; block entities are never rebuilt).
+- Dropped from the first draft by the slot rule: Decontaminate (Shift+C) and a separate Restore key (folded into
+  Reassemble).
 
 ## Dark Shadow (Fumikage Tokoyami, Tsukuyomi): a living shadow companion
 - **The shadow:** Dark Shadow is a visible shadow-bird creature attached to your back, a GeckoLib or particle-built
@@ -96,24 +102,29 @@ a mode ability", and "for engine using v to shift up and down gears makes more s
 - **Shift+C:** light flare, which calms it (it needs a light source: a torch in hand or day).
 
 ## Erasure (Shota Aizawa, Eraser Head): the capture weapon plus the stare
-- **Erasure Stare (R, hold):** look at a powered player or a mob, and while held its powers, abilities and special
-  attacks (mob ranged attacks, Quirks, hero powers) are switched off.
-  - Your eyes dry out: the **Dry Eyes** meter fills.
-  - Blinking (letting go) resets the stare.
-  - At max, your eyes are forced shut and you can't use the stare until they recover. Eye drops (an item) refill.
-- **Capture Weapon:** the scarf.
-  - **G:** whip-grab a mob or player and bind them (rooted, tied).
-  - **Shift+G:** pull them to you.
-  - **X:** **Scarf Swing**, latch onto a block and swing like a grapple.
-  - **Shift+X:** **Scarf Pull**, yank yourself to the latched point.
-  - **Z:** **Bind and Spin**, swing a bound mob into others.
-  - **Shift+Z:** **Disarm Throw**, rip a held item away.
-- **Combat:**
-  - **V:** **Close Combat**, a fast martial-arts combo.
-  - **Shift+V:** **Counter**, a parry window.
-- **Goggles:**
-  - **C:** put the goggles on or off (hides where you're looking; the stare can't be dodged by mobs).
-  - **Shift+C:** **Eye Drops**, refill the meter from an item.
+As built (v0.16.7). Slot rule: X = movement, V = utility, the rest attacks.
+
+| Key | Tap | Shift |
+|---|---|---|
+| R | **Capture Bind**: the scarf whips round the target and ties it up: rooted 4 s (players: the softened crowd-control rule). Not bosses. | **Capture Pull**: yank the bound target (or the looked-at one) in to you, 3 damage. |
+| G | **Close Combat**: a four-strike combo -- jab, elbow, knee, spinning kick (3, 3, 4, 7), re-aimed each strike, the kick knocks back. | **Counter**: a 0.6 s parry stance; the next hit is caught (0 damage) and a close attacker takes 8 and is tied up 2 s. |
+| X | **Scarf Swing** (hold, movement): latch a block and swing like a grapple (Spider-Man's rope model); let go to fly on. | **Scarf Pull** (movement): yank yourself to the latched point -- up the swing line mid-swing, or to the block / creature you look at (4 on arrival at a creature). |
+| Z | **Bind and Spin**: the bound (or looked-at) target is swung round you twice on the scarf (1.5 s, radius 3), smashing everyone it passes (6 each), then flung the way you look (6). Your whole body turns with it. Not bosses. | **Disarm Throw**: the scarf rips the held item out of a mob's (or a PvP player's) hand and throws it back to your feet. |
+| C | **Scarf Whip**: a cracking lash, 10 blocks: 5 damage and a stagger. | **Goggles** (toggle): night vision, powered players / special mobs glow (only for you), the red eyes are hidden, the stare locks on (a held target can't dodge out of it inside 45 degrees) and your eyes dry 25% slower. |
+| V | **Erasure Stare** (hold, utility): the one you look at (24 blocks, narrow cone) has its powers switched off while you hold; letting go is the blink. Hair rises, eyes glow red. | **Eye Drops**: uses an Eye Drops item from your inventory: Dry Eyes to 0, shut eyes open. |
+
+- **Dry Eyes** (meter, 0 = fresh): fills 10/s while staring (7.5/s goggled), drains 12/s otherwise. At 100 the eyes are
+  **forced shut**: the stare ends and can't restart until they recover (at least 3 s and back to 30); every other move
+  still works. Screen: the lids close to a sliver, a red rim while staring. Old saves (the meter used to count down)
+  restart fresh.
+- **Eye Drops** item (`projecthero:eye_drops`): glass bottle + sugar + kelp = 2. Right-click works too (non-Erasure
+  players: clears Blindness / Darkness).
+- **What the stare switches off** (`PowerSuppression`): every power key and action payload, hero / Thor / Kryptonian /
+  Nova / Green Lantern / Max Steel flight (each stopped through its own stop on the first erased tick), wall-crawling
+  (Spider adhesion), mutation passives, the Quirk kit's tick; on mobs ranged / swell / spell / beam goals, spawned
+  projectiles and summons, creeper explosions, enderman / shulker teleports, bosses' special moves. Tech (Iron Man, the
+  Punisher) keeps working.
+- Dropped from the first draft by the slot rule: Erase Glare, Capture Hoist, Bind Slam and Double Bind.
 
 ## Explosion (Katsuki Bakugo, Ground Zero): nitroglycerin sweat
 Built version. User rule: X = movement, V = utility, and every other key is an attack.
