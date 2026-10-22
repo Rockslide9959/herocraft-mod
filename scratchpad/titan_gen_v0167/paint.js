@@ -207,8 +207,53 @@ function paintSkel(M, c, f, s, t, p, info) {
 	return [col, a];
 }
 
-// ---------------------------------------------------------------- muscle
+// ---------------------------------------------------------------- muscle (v0.16.7 user: the Cyborg flesh)
+// The muscle wears cyborg_flesh.png (the Cyborg's raw-flesh player skin, base layer) exactly as the skin layer wears the
+// user's skins: every texel takes the flesh pixel at its spot on the WHOLE part (the part's muscle box), cut cleanly
+// across the extra joint bones. The flesh leaves half the face clear (his human half); here that half is the mirror of
+// the flesh half, and the face gets a bare eye pair on the skins' eye row and a row of teeth either side of the jaw cut.
+const FLESH_PATH = process.env.FLESH || require('path').join(__dirname, '..', '..', 'src/main/resources/assets/projecthero/textures/entity/cyborg/cyborg_flesh.png');
+const SCLERA = [236, 230, 222], PUPIL = [40, 20, 20], TOOTH = [228, 218, 196], TOOTH_DK = [200, 186, 160], GUM = [92, 16, 22];
+let FLESH = null;
+function flesh() {
+	if (FLESH) return FLESH;
+	const im = require('./pngkit.js').decode(FLESH_PATH);
+	if (im.w !== 64 || im.h !== 64) throw new Error('cyborg_flesh.png: not 64x64');
+	const px = Buffer.from(im.px);
+	const get = (x, y) => { const o = (y * 64 + x) * 4; return [px[o], px[o + 1], px[o + 2], px[o + 3]]; };
+	const set = (x, y, c) => { const o = (y * 64 + x) * 4; px[o] = c[0]; px[o + 1] = c[1]; px[o + 2] = c[2]; px[o + 3] = 255; };
+	// head front is u 8..15, v 8..15: mirror the flesh half (u 12..15) over the clear half, then the face
+	for (let y = 8; y < 16; y++) for (let x = 8; x < 12; x++) if (get(x, y)[3] < 128) set(x, y, get(23 - x, y));
+	for (const [x, k] of [[9, 0], [10, 1], [13, 1], [14, 0]]) set(x, 12, k ? PUPIL : SCLERA); // the skins' eye row
+	for (let x = 8; x < 16; x++) for (const y of [13, 14]) set(x, y, x === 8 || x === 15 ? GUM : (x + y) % 2 ? TOOTH : TOOTH_DK);
+	// the teeth go round the corners of the mouth (head sides: right u 0..7, left u 16..23), the front three columns
+	for (const y of [13, 14]) for (let k = 0; k < 3; k++) { set(7 - k, y, (k + y) % 2 ? TOOTH : TOOTH_DK); set(16 + k, y, (k + y) % 2 ? TOOTH : TOOTH_DK); }
+	for (let i = 3; i < im.px.length; i += 4) if (px[i] < 255) px[i] = 255; // the muscle is opaque
+	FLESH = { w: 64, h: 64, px };
+	return FLESH;
+}
+
 function paintMuscle(M, c, f, s, t, p, info) {
+	const S = c.s;
+	const cut = S && ((f === 'down' && S.cutLo) || (f === 'up' && S.cutHi));
+	if (cut && ((f === 'down' && S.mouthLo) || (f === 'up' && S.mouthHi))) return [mouthPx(M, c, f, p), 255];
+	if (cut) { // a cut through the part: the flesh of the nearest side, a little shaded
+		const F = c.mfull;
+		const d = [['west', p[0] - F[0]], ['east', F[3] - p[0]], ['north', p[2] - F[2]], ['south', F[5] - p[2]]].sort((a, b) => a[1] - b[1]);
+		const px = skinPx(M, c.region, F, d[0][0], p, c.dims, flesh());
+		return [tint(px, 0.8), 255];
+	}
+	return [skinPx(M, c.region, c.mfull, f, p, c.dims, flesh()).slice(0, 3), 255];
+}
+
+/** The flesh colour at a rest point on a part (for stumps and flaps). */
+function fleshAt(M, part, f, p) {
+	const B = M.P.parts[part], i = 0.3, F = B.box;
+	return skinPx(M, B.base, [F[0] + i, F[1], F[2] + i, F[3] - i, F[4], F[5] - i], f, p, dimsOf(B.box), flesh()).slice(0, 3);
+}
+
+// ---------------------------------------------------------------- muscle (the old procedural painter, unused)
+function paintMuscleProcedural(M, c, f, s, t, p, info) {
 	const an = anatomy(M, c, f, p);
 	const n = fbm(p[0] * 0.9, p[1] * 0.9, p[2] * 0.9, 3);
 	const stripe = 0.5 + 0.5 * Math.sin((an.across / 0.42) * Math.PI * 2 + n * 5);
@@ -259,7 +304,7 @@ function paintFaceMuscle(M, c, f, p, col) {
 /** The skin pixel [r, g, b, a] showing at rest point p on face f of a part: full = the whole part's box (inflated for
  * the second layer), region = its [u, v] on the 64x64 skin. Standard player mapping: the right side (-X) first, then
  * front, left, back; top above the front, bottom beside it; the front's left column is the part's right (-X) edge. */
-function skinPx(M, region, full, f, p, dims) {
+function skinPx(M, region, full, f, p, dims, img) {
 	const [x0, y0, z0, x1, y1, z1] = full;
 	const [pw, ph, pd] = dims;
 	const fx = (p[0] - x0) / (x1 - x0), fy = (y1 - p[1]) / (y1 - y0), fz = (p[2] - z0) / (z1 - z0);
@@ -274,7 +319,7 @@ function skinPx(M, region, full, f, p, dims) {
 		case 'up': X = u + pd + cl(fx, pw); Y = v + cl(1 - fz, pd); break;
 		default: X = u + pd + pw + cl(fx, pw); Y = v + cl(fz, pd); break;
 	}
-	const o = (Y * 64 + X) * 4, px = M.skin.px;
+	const o = (Y * 64 + X) * 4, px = (img || M.skin).px;
 	return [px[o], px[o + 1], px[o + 2], px[o + 3]];
 }
 const dimsOf = b => [Math.round(b[3] - b[0]), Math.round(b[4] - b[1]), Math.round(b[5] - b[2])];
@@ -519,7 +564,7 @@ function paintFlap(M, c, f, s, t, p, info) {
 		const op = skinPx(M, O.outer, ob, 'south', [p[0], p[1], ob[5]], dimsOf(O.box));
 		if (op[3] >= 128) col = op.slice(0, 3);
 		void pal;
-	} else col = mix([226, 116, 120], [150, 34, 44], n * 0.8 + (inner ? 0.2 : 0));
+	} else col = tint(fleshAt(M, 'body', 'south', p), inner ? 0.82 : 1); // the muscle side: the Cyborg flesh
 	// torn inner edge (toward the hole)
 	const dIn = Math.abs(p[0]); // the hole is at x = 0
 	if (dIn < 0.25 + vnoise(p[1] * 4, 3, 1) * 0.35) return [col, 0];
@@ -537,15 +582,15 @@ function paintStump(M, c, f, s, t, p, info) {
 		if (d < 0.25) return [[150, 60, 50], 255];        // marrow
 		if (d < 0.62) return [mix(BONE, BONE_DARK, n * 0.6), 255];
 		if (d < 0.8) return [[70, 12, 18], 255];
-		return [mix(MUS, [226, 110, 112], n * 0.6), 255];
+		return [fleshAt(M, c.part, Math.abs(p[0] - cxm) > Math.abs(p[2] - czm) ? (p[0] < cxm ? 'west' : 'east') : (p[2] < czm ? 'north' : 'south'), p), 255];
 	}
 	const fromCut = p[1] - c.from[1];
 	const n = fbm(p[0] * 2, p[1] * 2, p[2] * 2, 3);
 	let col = skinPx(M, c.region, c.full, f, f === 'east' ? [c.full[3], p[1], p[2]] : f === 'west' ? [c.full[0], p[1], p[2]] : f === 'north' ? [p[0], p[1], c.full[2]] : f === 'south' ? [p[0], p[1], c.full[5]] : p, dimsOf(c.full)).slice(0, 3);
 	void pal;
 	const rag = vnoise(p[0] * 4 + p[2] * 4, 2, 5) * 0.7;
-	if (fromCut < 0.35 + rag) col = mix(MUS, [226, 110, 112], n * 0.5);
-	else if (fromCut < 0.55 + rag) col = mix(col, [170, 60, 60], 0.6);
+	if (fromCut < 0.35 + rag) col = fleshAt(M, c.part, f, p);
+	else if (fromCut < 0.55 + rag) col = mix(col, fleshAt(M, c.part, f, p), 0.6);
 	return [col, 255];
 }
 
