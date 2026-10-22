@@ -481,10 +481,13 @@ public final class HeroPackGuide {
 	private static final int CH_CARAPACE = 46; // v0.16.6
 	private static final int CH_PEGASUS = 47; // v0.16.6
 	private static final int CH_QUIRKS = 48; // v0.16.7: the Quirks overview
-	/** v0.16.7: one chapter per Quirk, in {@link com.projecthero.mod.quirk.Quirk#values()} order. */
+	/**
+	 * v0.16.7: one chapter per kit Quirk, in {@link com.projecthero.mod.quirk.Quirk#kitQuirks()} order (One For All, the eighth
+	 * Quirk, is standalone: its chapter is the All Might one, {@link #CH_ALL_MIGHT}, so these indices stay put).
+	 */
 	private static final int CH_QUIRK_BASE = 49;
 	/** v0.16.7: Viperion (after the Quirks, so their indices stay put). */
-	private static final int CH_VIPERION = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.values().length; // 56
+	private static final int CH_VIPERION = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.kitQuirks().length; // 56
 	private static final int CHAPTER_POWER_BASE = CH_VIPERION + 1; // 57
 
 	private static List<Chapter> build() {
@@ -1422,7 +1425,7 @@ public final class HeroPackGuide {
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.KAALKI)); // CH_PEGASUS
 		// v0.16.7: the Quirks -- the overview (CH_QUIRKS), then one chapter per Quirk (CH_QUIRK_BASE + ordinal)
 		out.add(quirksOverview());
-		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
+		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.kitQuirks()) {
 			out.add(quirk(q));
 		}
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.SASS)); // CH_VIPERION (v0.16.7)
@@ -1528,6 +1531,9 @@ public final class HeroPackGuide {
 
 	/** The Quirk's own chapter (v0.16.7; the "Your Power" screen can show it). */
 	public static Chapter quirkChapter(com.projecthero.mod.quirk.Quirk quirk) {
+		if (quirk.standalone) {
+			return chapters().get(CH_ALL_MIGHT); // v0.16.7: One For All's chapter is the All Might one
+		}
 		return chapters().get(CH_QUIRK_BASE + quirk.ordinal());
 	}
 
@@ -1636,10 +1642,11 @@ public final class HeroPackGuide {
 
 		List<IndexEntry> quirks = map.get(Category.QUIRKS);
 		link(quirks, "projecthero.guide.quirks", CH_QUIRKS);
-		link(quirks, "projecthero.guide.all_might", CH_ALL_MIGHT);
 		sub(quirks, "projecthero.guide.sub.quirks");
+		// v0.16.7: One For All is listed with the other Quirks (its chapter is the All Might one)
 		for (com.projecthero.mod.quirk.Quirk q : com.projecthero.mod.quirk.Quirk.values()) {
-			quirks.add(new IndexEntry(Component.translatable("projecthero.guide.quirk." + q.id), 2, CH_QUIRK_BASE + q.ordinal()));
+			quirks.add(new IndexEntry(Component.translatable("projecthero.guide.quirk." + q.id), 2,
+					q.standalone ? CH_ALL_MIGHT : CH_QUIRK_BASE + q.ordinal()));
 		}
 
 		List<IndexEntry> miraculous = map.get(Category.MIRACULOUS);
@@ -1893,14 +1900,14 @@ public final class HeroPackGuide {
 				String[] ids = kit.idsOf(slots[i]);
 				for (int j = 0; j < Math.min(2, ids.length); j++) {
 					net.minecraft.network.chat.MutableComponent row = Component.literal(" " + SLOT_LABELS[i][j] + "  ").withStyle(ChatFormatting.GOLD)
-							.append(Component.translatable("projecthero.quirk.ability." + ids[j]).withStyle(ChatFormatting.WHITE));
+							.append(Component.translatable(kit.abilityLangKey(ids[j])).withStyle(ChatFormatting.WHITE));
 					int cd = kit.maxCooldown(ids[j]);
 					if (cd > 0) {
 						row.append(Component.literal("  "))
 								.append(Component.translatable("projecthero.guide.quirks.cooldown", seconds(cd)).withStyle(ChatFormatting.DARK_GRAY));
 					}
 					lines.add(row);
-					para(lines, "projecthero.quirk.ability." + ids[j] + ".desc");
+					para(lines, kit.abilityLangKey(ids[j]) + ".desc");
 					rows++;
 				}
 			}

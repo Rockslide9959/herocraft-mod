@@ -41,11 +41,12 @@ import org.joml.Vector3f;
  * {@link #reconcile}, which only ever sets fixed-id transient attribute modifiers -- so pressing H any number of times cannot
  * stack anything.
  *
- * <h2>Output and Strain (v0.16.6)</h2>
- * User: "Lets try the new output limit". The 5-minute OFA timer is gone. One For All runs at an <b>Output</b> level -- 20%, 45%,
- * 100% -- that landed hits charge ({@link #onHitLanded}) and that drops a level after 8 s without a hit; higher Output means
- * harder ({@link #smashMultiplier}) and wider ({@link #sizeScale}) moves. The limit is <b>Strain</b>: time at 45% and especially
- * 100% builds it ({@link #tickOutputAndStrain}); at full Strain his arms give out ({@link #recoil}).
+ * <h2>Output, the safe limit and limb strain (v0.16.7)</h2>
+ * One For All runs at an <b>Output</b> percentage that landed hits charge ({@link #onHitLanded}) up to his <b>safe limit</b> and that
+ * eases down after 8 s without a hit; higher Output means harder ({@link #smashMultiplier}) and wider ({@link #sizeScale}) moves. At
+ * or under the limit everything is free. Plus Ultra and the United States of Smash push past it, and then each Smash strains the
+ * limb that threw it -- see {@link AllMightStrain} and {@code docs/OFA_STRAIN.md}. (v0.16.6's 20/45/100% levels, whole-body Strain
+ * bar and "arms give out" recoil are gone.)
  */
 public final class AllMight {
 	public static final String KEY = "all_might";
@@ -70,6 +71,7 @@ public final class AllMight {
 		PEAK_FALL.clear();
 		LAST_MESSAGE.clear();
 		LAST_PUNCH_CHARGE.clear();
+		AllMightStrain.clearSessionState();
 		AllMightAbilities.clearSessionState();
 		AllMightPassOn.clearSessionState();
 	}
@@ -106,25 +108,35 @@ public final class AllMight {
 		return s != null && s.hasPower && s.transformUntil > player.level().getGameTime();
 	}
 
-	/** v0.16.6: the Output level (0 = 20%, 1 = 45%, 2 = 100%); 0 outside the Power Form. */
-	public static int output(Player player) {
+	/** v0.16.7: Output, percent (0..100); 0 outside the Power Form. */
+	public static float outputPct(Player player) {
 		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
-		return s == null || !s.hasPower || !s.fullPower ? AllMightState.OUTPUT_20 : s.output;
+		return s == null || !s.hasPower || !s.fullPower ? 0f : s.outputPct;
 	}
 
+	/** Output rounded to a whole percent (HUD, messages). */
 	public static int outputPercent(Player player) {
-		return AllMightConfig.OUTPUT_PERCENT[output(player)];
+		return Math.round(outputPct(player));
 	}
 
-	public static float strain(Player player) {
-		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
-		return s == null ? 0f : s.strain;
+	/** v0.16.7: the safe limit, percent (see {@link AllMightStrain#limit}). */
+	public static float limit(Player player) {
+		return AllMightStrain.limit(player);
 	}
 
-	/** v0.16.6: his arms have given out -- every Smash is locked. */
-	public static boolean inRecoil(Player player) {
-		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
-		return s != null && s.hasPower && s.recoilUntil > player.level().getGameTime();
+	/** v0.16.7: Output is past the safe limit right now (Plus Ultra): Smashes strain their limbs. */
+	public static boolean overLimit(Player player) {
+		return isFullPower(player) && outputPct(player) > limit(player) + 0.01f;
+	}
+
+	/** The damage multiplier at an Output percentage. */
+	public static float multiplierAt(float outputPct) {
+		return AllMightConfig.OUTPUT_DAMAGE_BASE + AllMightConfig.OUTPUT_DAMAGE_PER_100 * Math.max(0f, outputPct) / 100f;
+	}
+
+	/** The shockwave size multiplier at an Output percentage. */
+	public static double sizeAt(float outputPct) {
+		return AllMightConfig.OUTPUT_SIZE_BASE + AllMightConfig.OUTPUT_SIZE_PER_100 * Math.max(0f, outputPct) / 100.0;
 	}
 
 	/** v0.16.6: holds a borrowed One For All (capped at 45%, double Strain, cannot pass it on). */
@@ -139,9 +151,9 @@ public final class AllMight {
 		return s != null && !s.hasPower && s.loanRole == AllMightState.LOAN_LENDER;
 	}
 
-	/** The highest Output this holder may reach: 100%, or 45% on a borrowed One For All. */
-	public static int outputCap(AllMightState s) {
-		return s.loanRole == AllMightState.LOAN_BORROWER ? AllMightConfig.BORROWED_OUTPUT_CAP : AllMightState.OUTPUT_100;
+	/** The highest Output this holder may reach (Plus Ultra): 100%, or 45% on a borrowed One For All. */
+	public static float outputCap(AllMightState s) {
+		return AllMightStrain.outputCap(s);
 	}
 
 	public static int cooldownRemaining(Player player, String abilityId) {
@@ -153,14 +165,14 @@ public final class AllMight {
 		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
 	}
 
-	/** Ability damage multiplier (v0.16.6): the Output level -- x1.0 at 20%, x1.25 at 45%, x1.6 at 100%. */
+	/** Ability damage multiplier at the current Output (v0.16.7: x1.08 at 20%, x1.8 at 100%; a Smash also takes its limb's factor). */
 	public static float smashMultiplier(ServerPlayer player) {
-		return AllMightConfig.OUTPUT_DAMAGE[output(player)];
+		return multiplierAt(outputPct(player));
 	}
 
-	/** v0.16.6: shockwave width / radius multiplier of the Output level (x1.0 / x1.2 / x1.4). */
+	/** Shockwave width / radius multiplier at the current Output (x1.04 at 20%, x1.4 at 100%). */
 	public static double sizeScale(ServerPlayer player) {
-		return AllMightConfig.OUTPUT_SIZE[output(player)];
+		return sizeAt(outputPct(player));
 	}
 
 	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
@@ -183,12 +195,12 @@ public final class AllMight {
 		}
 	}
 
-	// ---------------------------------------------------------------- v0.16.6: Output
+	// ---------------------------------------------------------------- v0.16.7: Output
 
 	/**
-	 * A hit landed (one call per Smash however many it struck, or per plain punch): resets the decay clock and charges toward the
-	 * next Output level -- {@code OUTPUT_HITS_TO_45} hits from 20%, {@code OUTPUT_HITS_TO_100} from 45%. Nothing charges in the
-	 * recoil, during Plus Ultra (it is already at 100%) or past a borrower's 45% cap.
+	 * A hit landed (one call per Smash however many it struck, or per plain punch): resets the decay clock and charges Output by
+	 * {@code OUTPUT_PER_SMASH_HIT} / {@code OUTPUT_PER_PUNCH} points, up to the safe limit (Plus Ultra: up to the cap). Output that is
+	 * already above the ceiling is left where it is.
 	 *
 	 * @param punch a plain melee punch (throttled to one charge per {@code OUTPUT_PUNCH_SPACING_TICKS})
 	 */
@@ -205,100 +217,45 @@ public final class AllMight {
 			}
 			LAST_PUNCH_CHARGE.put(player.getUUID(), now);
 		}
+		float ceiling = AllMightStrain.outputCeiling(s);
+		float add = punch ? AllMightConfig.OUTPUT_PER_PUNCH : AllMightConfig.OUTPUT_PER_SMASH_HIT;
 		AllMightState n = s.copy();
 		n.lastHitAt = now;
-		boolean levelled = false;
-		if (!s.plusUltra && s.recoilUntil <= now && s.output < outputCap(s)) {
-			int need = s.output == AllMightState.OUTPUT_20 ? AllMightConfig.OUTPUT_HITS_TO_45 : AllMightConfig.OUTPUT_HITS_TO_100;
-			n.outputProgress = s.outputProgress + 1.0f / Math.max(1, need);
-			if (n.outputProgress >= 0.999f) {
-				n.output = s.output + 1;
-				n.outputProgress = 0f;
-				levelled = true;
-			}
-		} else if (s.output >= outputCap(s)) {
-			n.outputProgress = 0f;
+		boolean reached = false;
+		if (s.outputPct < ceiling) {
+			n.outputPct = Math.min(ceiling, s.outputPct + add);
+			reached = n.outputPct >= ceiling - 1.0e-3f;
 		}
 		save(player, n);
-		if (levelled) {
-			outputFx(player, n.output, true);
+		if (reached) {
+			outputFx(player, n.outputPct, true);
 		}
 	}
 
-	/** Sets the Output level directly (Plus Ultra, tests, the recoil). Clamped to the holder's cap. */
-	public static void setOutput(ServerPlayer player, int level) {
+	/** Sets Output directly (tests, the harness), clamped to 0..the holder's cap; the decay clock restarts. */
+	public static void setOutput(ServerPlayer player, float pct) {
 		AllMightState s = state(player);
 		AllMightState n = s.copy();
-		n.output = Math.max(AllMightState.OUTPUT_20, Math.min(outputCap(s), level));
-		n.outputProgress = 0f;
+		n.outputPct = Math.max(0f, Math.min(outputCap(s), pct));
 		n.lastHitAt = player.level().getGameTime();
 		save(player, n);
 	}
 
-	/** Adds (or removes) Strain, scaled for a borrower; reaching the top triggers the recoil. */
-	public static void addStrain(ServerPlayer player, float amount) {
-		AllMightState s = state(player);
-		if (!s.hasPower) {
-			return;
-		}
-		float scaled = amount > 0f && s.loanRole == AllMightState.LOAN_BORROWER ? amount * AllMightConfig.BORROWED_STRAIN_MULTIPLIER : amount;
-		AllMightState n = s.copy();
-		n.strain = Math.max(0f, Math.min(AllMightConfig.STRAIN_MAX, s.strain + scaled));
-		save(player, n);
-		if (n.strain >= AllMightConfig.STRAIN_MAX - 1.0e-3f && s.recoilUntil <= player.level().getGameTime()) {
-			recoil(player);
-		}
-	}
-
-	/**
-	 * Full Strain: his arms give out. Forced back to 20%, Plus Ultra ends, every Smash is locked for {@code RECOIL_TICKS}, Weakness
-	 * II + Mining Fatigue for as long, and the client hangs his arms limp ({@code AllMightPose}). A borrower's loan ends early.
-	 */
-	public static void recoil(ServerPlayer player) {
-		AllMightState s = state(player);
-		if (!s.hasPower) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		AllMightAbilities.cancelCharge(player, false);
-		AllMightState n = s.copy();
-		n.output = AllMightState.OUTPUT_20;
-		n.outputProgress = 0f;
-		n.strain = AllMightConfig.STRAIN_MAX;
-		n.recoilUntil = now + AllMightConfig.RECOIL_TICKS;
-		n.animId = AllMightState.ANIM_NONE;
-		n.busyUntil = now;
-		if (s.plusUltra) {
-			n.plusUltra = false;
-			n.plusUltraUntil = 0L;
-			n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
-		}
-		save(player, n);
-		player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, AllMightConfig.RECOIL_TICKS, AllMightConfig.RECOIL_WEAKNESS_AMPLIFIER, false, true, true));
-		player.addEffect(new MobEffectInstance(MobEffects.DIG_SLOWDOWN, AllMightConfig.RECOIL_TICKS, AllMightConfig.RECOIL_FATIGUE_AMPLIFIER, false, true, true));
-		ServerLevel level = (ServerLevel) player.level();
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 1.2f, 0.5f);
-		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.2f, 0.6f);
-		steam(level, player, 12);
-		player.displayClientMessage(Component.translatable("message.projecthero.all_might.recoil").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
-		if (s.loanRole == AllMightState.LOAN_BORROWER) {
-			AllMightPassOn.endLoanFromBorrower(player, AllMightPassOn.EndReason.STRAIN);
-		}
-	}
-
-	private static void outputFx(ServerPlayer player, int level, boolean up) {
+	/** Output reached its ceiling (the limit, or 100% in Plus Ultra): a crackle and a line on the action bar. */
+	private static void outputFx(ServerPlayer player, float pct, boolean up) {
 		ServerLevel lvl = (ServerLevel) player.level();
 		Vec3 c = player.position().add(0, player.getBbHeight() * 0.55, 0);
+		boolean high = pct >= 90f;
 		if (up) {
 			lvl.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.8f,
-					level >= AllMightState.OUTPUT_100 ? 1.6f : 1.2f);
-			AllMightShockwave.burst(lvl, ParticleTypes.ELECTRIC_SPARK, c, level >= AllMightState.OUTPUT_100 ? 40 : 20, 0.6, 0.3);
+					high ? 1.6f : 1.2f);
+			AllMightShockwave.burst(lvl, ParticleTypes.ELECTRIC_SPARK, c, high ? 40 : 20, 0.6, 0.3);
 			AllMightShockwave.burst(lvl, new DustParticleOptions(new Vector3f(1.0f, 0.86f, 0.45f), 1.3f), c, 18, 0.6, 0.05);
 		} else {
 			lvl.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.5f, 1.5f);
 		}
-		player.displayClientMessage(Component.translatable("message.projecthero.all_might.output", AllMightConfig.OUTPUT_PERCENT[level])
-				.withStyle(level >= AllMightState.OUTPUT_100 ? ChatFormatting.GOLD : ChatFormatting.YELLOW, ChatFormatting.BOLD), true);
+		player.displayClientMessage(Component.translatable("message.projecthero.all_might.output", Math.round(pct))
+				.withStyle(high ? ChatFormatting.GOLD : ChatFormatting.YELLOW, ChatFormatting.BOLD), true);
 	}
 
 	// ---------------------------------------------------------------- grant / revoke
@@ -325,10 +282,17 @@ public final class AllMight {
 		return true;
 	}
 
-	/** A brand-new holder's state: Base Form, 20%, no Strain, H ready. */
+	/**
+	 * A new holder's state: Base Form, Output at the floor, healthy limbs, H ready. v0.16.7: the safe limit is kept from whatever
+	 * this player had before (losing One For All and getting it back does not untrain the body).
+	 */
 	static AllMightState fresh(ServerPlayer player) {
 		long now = player.level().getGameTime();
+		AllMightState old = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
 		AllMightState s = new AllMightState();
+		if (old != null) {
+			s.mastery = Math.max(AllMightConfig.MASTERY_START, old.mastery);
+		}
 		s.hasPower = true;
 		s.fullPower = false;
 		s.formChangedAt = now - AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS; // H works straight away
@@ -356,6 +320,7 @@ public final class AllMight {
 		PEAK_FALL.remove(player.getUUID());
 		AllMightState s = new AllMightState(); // hasPower=false, no loan
 		s.lendReadyAt = old.lendReadyAt;
+		s.mastery = old.mastery; // v0.16.7: the body remembers its limit (a borrower never trains it)
 		save(player, s);
 		reconcile(player);
 		if (returnCostume) {
@@ -363,19 +328,12 @@ public final class AllMight {
 		} else {
 			AllMightSuit.strip(player);
 		}
-		clearRecoilEffects(player, old);
+		AllMightStrain.forget(player.getUUID());
 		// v0.16.6: a borrower losing the power (time, death, logout, a new Primary power...) sends it home to the lender
 		if (old.loanRole == AllMightState.LOAN_BORROWER) {
 			AllMightPassOn.returnToLender(player, old);
 		} else if (old.loanRole == AllMightState.LOAN_LENDER) {
 			AllMightPassOn.clearLenderEffects(player);
-		}
-	}
-
-	private static void clearRecoilEffects(ServerPlayer player, AllMightState old) {
-		if (old.recoilUntil > player.level().getGameTime()) {
-			player.removeEffect(MobEffects.WEAKNESS);
-			player.removeEffect(MobEffects.DIG_SLOWDOWN);
 		}
 	}
 
@@ -477,13 +435,12 @@ public final class AllMight {
 		n.transformUntil = now + lock; // damage-proof while the body changes size
 		n.animId = toFull ? AllMightState.ANIM_TRANSFORM_UP : AllMightState.ANIM_TRANSFORM_DOWN;
 		n.animStart = now;
-		// v0.16.6: every change of form starts again at 20% Output
-		n.output = AllMightState.OUTPUT_20;
-		n.outputProgress = 0f;
+		// v0.16.7: every change of form starts Output again at the Full Cowl floor (never above the limit)
+		n.outputPct = Math.min(AllMightConfig.OUTPUT_FLOOR, AllMightStrain.limit(s));
+		n.lastHitAt = now;
 		if (!toFull && s.plusUltra) {
 			n.plusUltra = false;
 			n.plusUltraUntil = 0L;
-			n.strain = Math.max(s.strain, AllMightConfig.PLUS_ULTRA_AFTER_STRAIN);
 			n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
 		}
 		save(player, n);
@@ -512,7 +469,7 @@ public final class AllMight {
 		}
 	}
 
-	/** v0.16.6: steam venting off both arms (shoulder to fist) at 100% Output and under heavy Strain. */
+	/** v0.16.6: steam venting off both arms (shoulder to fist) at high Output (v0.16.7: and off a hurt arm). */
 	static void armSteam(ServerLevel level, ServerPlayer player, int count) {
 		double h = Math.max(1.8, player.getBbHeight());
 		Vec3 fwd = Vec3.directionFromRotation(0, player.yBodyRot);
@@ -581,10 +538,11 @@ public final class AllMight {
 		if (s.fullPower && s.plusUltra && now >= s.plusUltraUntil) {
 			endPlusUltra(player, s, now);
 		}
-		tickOutputAndStrain(player, now);
+		tickOutput(player, now);
+		AllMightStrain.tick(player, now);
 		s = state(player);
 		if (!s.hasPower) {
-			return; // a borrower's loan ended on full Strain
+			return; // a borrower's loan ended on a broken limb
 		}
 		tickPowerFormRegen(player, s);
 		AllMightAbilities.tick(player);
@@ -592,12 +550,12 @@ public final class AllMight {
 		tickAura(player, s, now);
 	}
 
-	/** v0.16.6: Plus Ultra is a fixed 22 s of 100%; when it runs out Strain is set to 75 and the cooldown starts. */
+	/** Plus Ultra is a fixed 22 s past the limit; when it runs out Output drops back to the limit and the cooldown starts. */
 	private static void endPlusUltra(ServerPlayer player, AllMightState s, long now) {
 		AllMightState n = s.copy();
 		n.plusUltra = false;
 		n.plusUltraUntil = 0L;
-		n.strain = Math.max(s.strain, AllMightConfig.PLUS_ULTRA_AFTER_STRAIN);
+		n.outputPct = Math.min(s.outputPct, AllMightStrain.limit(s)); // v0.16.7: back inside the safe limit
 		n.lastHitAt = now; // the 8 s decay clock starts now
 		n.abilityReadyAt.put(AllMightAbilities.PLUS_ULTRA, now + AllMightConfig.PLUS_ULTRA_COOLDOWN_TICKS);
 		save(player, n);
@@ -608,48 +566,31 @@ public final class AllMight {
 	}
 
 	/**
-	 * v0.16.6: the Output decay and the Strain meter. Output drops a level (progress reset) after {@code OUTPUT_DECAY_TICKS} without a
-	 * hit (never during Plus Ultra). Every {@code STRAIN_STEP_TICKS}: Strain builds at 45% / 100% (not during Plus Ultra), and
-	 * recovers at 20% or in the Base Form. Full Strain is the recoil.
+	 * v0.16.7: the Output decay. After {@code OUTPUT_DECAY_TICKS} without a hit Output eases down {@code OUTPUT_DECAY_PER_SECOND}
+	 * toward the floor (never during Plus Ultra); if the limit is lower than Output outside Plus Ultra (a borrower, a test) it is
+	 * pulled back under it at once.
 	 */
-	private static void tickOutputAndStrain(ServerPlayer player, long now) {
+	private static void tickOutput(ServerPlayer player, long now) {
 		AllMightState s = state(player);
-		if (s.fullPower && !s.plusUltra && now - s.lastHitAt >= AllMightConfig.OUTPUT_DECAY_TICKS
-				&& (s.output > AllMightState.OUTPUT_20 || s.outputProgress > 0f)) {
+		if (!s.fullPower || s.plusUltra || now % AllMightConfig.STRAIN_STEP_TICKS != 0L) {
+			return;
+		}
+		float ceiling = AllMightStrain.outputCeiling(s);
+		float floor = Math.min(AllMightConfig.OUTPUT_FLOOR, ceiling);
+		float next = s.outputPct;
+		if (next > ceiling) {
+			next = ceiling;
+		}
+		if (now - s.lastHitAt >= AllMightConfig.OUTPUT_DECAY_TICKS && next > floor) {
+			next = Math.max(floor, next - AllMightConfig.OUTPUT_DECAY_PER_SECOND * AllMightConfig.STRAIN_STEP_TICKS / 20.0f);
+		}
+		if (next < floor) {
+			next = floor;
+		}
+		if (Math.abs(next - s.outputPct) > 1.0e-4f) {
 			AllMightState n = s.copy();
-			boolean dropped = s.output > AllMightState.OUTPUT_20;
-			n.output = Math.max(AllMightState.OUTPUT_20, s.output - 1);
-			n.outputProgress = 0f;
-			n.lastHitAt = now; // the next level down gets its own 8 s
+			n.outputPct = next;
 			save(player, n);
-			if (dropped) {
-				outputFx(player, n.output, false);
-			}
-			s = n;
-		}
-		if (now % AllMightConfig.STRAIN_STEP_TICKS != 0L) {
-			return;
-		}
-		float perSecond;
-		if (s.fullPower && !s.plusUltra && s.output == AllMightState.OUTPUT_100) {
-			perSecond = AllMightConfig.STRAIN_PER_SECOND_100;
-		} else if (s.fullPower && !s.plusUltra && s.output == AllMightState.OUTPUT_45) {
-			perSecond = AllMightConfig.STRAIN_PER_SECOND_45;
-		} else if (s.plusUltra) {
-			perSecond = 0f;
-		} else {
-			perSecond = -(s.fullPower ? AllMightConfig.STRAIN_RECOVER_POWER_FORM : AllMightConfig.STRAIN_RECOVER_BASE_FORM);
-		}
-		if (perSecond == 0f || (perSecond < 0f && s.strain <= 0f)) {
-			return;
-		}
-		float step = perSecond * AllMightConfig.STRAIN_STEP_TICKS / 20.0f;
-		float before = s.strain;
-		addStrain(player, step);
-		float after = state(player).strain;
-		if (before < AllMightConfig.STRAIN_WARNING && after >= AllMightConfig.STRAIN_WARNING && after < AllMightConfig.STRAIN_MAX) {
-			player.displayClientMessage(Component.translatable("message.projecthero.all_might.strain_warning").withStyle(ChatFormatting.RED), true);
-			player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.8f, 1.4f);
 		}
 	}
 
@@ -755,16 +696,21 @@ public final class AllMight {
 		if (now - s.formChangedAt < AllMightConfig.GROWTH_TICKS && now % 2L == 0L) {
 			steam(level, player, 3);
 		}
-		// the recoil: his spent arms smoke
-		if (s.recoilUntil > now && now % 6L == 0L) {
-			armSteam(level, player, 1);
+		// v0.16.7: a broken limb smokes faintly while it mends
+		if (s.broken != 0 && now % 8L == 0L) {
+			for (AllMightState.Limb l : AllMightState.Limb.values()) {
+				if (s.isBroken(l)) {
+					Vec3 at = AllMightStrain.limbPos(player, l);
+					level.sendParticles(ParticleTypes.WHITE_SMOKE, at.x, at.y, at.z, AllMightShockwave.particles(1), 0.06, 0.1, 0.06, 0.01);
+				}
+			}
 		}
 		if (!s.fullPower) {
 			return;
 		}
-		// v0.16.6: 100% Output -- the arms vent steam and gold sparks crackle off him (the glow and the arcs are drawn on the model
-		// client-side by AllMightGlowLayer; these are the particles that go with it)
-		if (s.output == AllMightState.OUTPUT_100 && now % 3L == 0L) {
+		// high Output (and all of Plus Ultra) -- the arms vent steam and gold sparks crackle off his body (server particles; v0.16.7:
+		// the old glowing-arm overlay, AllMightGlowLayer, is gone)
+		if ((s.plusUltra || s.outputPct >= 90f) && now % 3L == 0L) {
 			armSteam(level, player, 1);
 			Vec3 c = player.position().add(0, player.getBbHeight() * 0.6, 0);
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, AllMightShockwave.particles(2), 0.45, player.getBbHeight() * 0.3, 0.45, 0.08);
@@ -773,8 +719,8 @@ public final class AllMight {
 						AllMightShockwave.particles(3), 0.45, player.getBbHeight() * 0.35, 0.45, 0.0);
 			}
 		}
-		// heavy Strain: he vents steam to show it
-		if (s.strain >= AllMightConfig.STRAIN_WARNING && now % 4L == 0L) {
+		// past the limit: he vents steam to show what it costs
+		if (s.outputPct > AllMightStrain.limit(s) + 0.01f && now % 4L == 0L) {
 			steam(level, player, 1);
 		}
 		if (now % 6L == 0L && player.getDeltaMovement().horizontalDistanceSqr() > 0.06) {
@@ -799,14 +745,12 @@ public final class AllMight {
 		n.chargeStart = 0L;
 		n.animId = AllMightState.ANIM_NONE;
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 120L);
-		// v0.16.6: a pre-0.16.6 save may still have the old OFA Plus Ultra running; Output starts again at 20%
+		// a save may still have Plus Ultra running; Output starts again at the floor. v0.16.7: a pre-0.16.7 save has no limb keys
+		// (healthy limbs) and no mastery key (the 20% starting limit) -- the old Strain / recoil keys are simply ignored
 		n.plusUltra = false;
 		n.plusUltraUntil = 0L;
-		n.output = AllMightState.OUTPUT_20;
-		n.outputProgress = 0f;
-		if (n.recoilUntil > now + AllMightConfig.RECOIL_TICKS || n.recoilUntil < now) {
-			n.recoilUntil = 0L;
-		}
+		n.outputPct = Math.min(AllMightConfig.OUTPUT_FLOOR, AllMightStrain.limit(n));
+		n.lastHitAt = now;
 		save(player, n);
 		reconcile(player);
 	}
@@ -823,10 +767,10 @@ public final class AllMight {
 		n.transformUntil = 0L;
 		n.noFallUntil = 0L;
 		n.animId = AllMightState.ANIM_NONE;
-		n.output = AllMightState.OUTPUT_20;
-		n.outputProgress = 0f;
-		n.strain = 0f;
-		n.recoilUntil = 0L;
+		n.outputPct = Math.min(AllMightConfig.OUTPUT_FLOOR, AllMightStrain.limit(n));
+		// v0.16.7: a fresh body -- the limbs are whole again (the safe limit stays)
+		java.util.Arrays.fill(n.limbs, 0f);
+		n.broken = 0;
 		n.abilityReadyAt.clear();
 		save(player, n);
 		reconcile(player);
@@ -839,6 +783,7 @@ public final class AllMight {
 	/** Death / logout / dimension change: drop everything transient (the power and the chosen form stay). */
 	public static void clearTransient(ServerPlayer player) {
 		AllMightAbilities.clear(player.getUUID());
+		AllMightStrain.forget(player.getUUID());
 		PEAK_FALL.remove(player.getUUID());
 		LAST_MESSAGE.remove(player.getUUID());
 		LAST_PUNCH_CHARGE.remove(player.getUUID());

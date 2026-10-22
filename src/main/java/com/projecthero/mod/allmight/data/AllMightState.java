@@ -1,6 +1,8 @@
 package com.projecthero.mod.allmight.data;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.mojang.serialization.Codec;
@@ -9,13 +11,14 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /**
  * The whole All Might / One For All power for one player in one attachment ({@code projecthero:all_might_state}):
- * persistent, {@code copyOnDeath} and synced to every client (other players render the form and the poses from it).
- * The server is authoritative; this is only ever mutated through {@code AllMight}.
+ * persistent, {@code copyOnDeath} and synced to every client (other players render the form, the poses and the injured
+ * limbs from it). The server is authoritative; this is only ever mutated through {@code AllMight} / {@code AllMightStrain}.
  *
- * <p>v0.16.6 (user: "Lets try the new output limit"): the 300-point OFA timer is gone -- the old {@code ofa} key in a save is
- * simply ignored by the codec (unknown keys are skipped), so an old save loads at 20% Output with no Strain. The new
- * Output / Strain / loan fields live in their own {@link #EXTRA} map codec (flattened into the same NBT compound) because a
- * {@code RecordCodecBuilder} group tops out at 16 fields.
+ * <p>v0.16.6: the 300-point OFA timer is gone (the old {@code ofa} key is ignored by the codec). v0.16.7 (user: "a better
+ * strain system"): the old whole-body {@code strain} / {@code recoil_until} and the 3-level {@code output} keys are ignored
+ * too -- an old save loads with Output at the floor, the starting safe limit ({@code mastery}, 20%) and healthy limbs. The
+ * newer fields live in their own map codecs ({@link #EXTRA}, {@link #STRAIN}) flattened into the same NBT compound,
+ * because a {@code RecordCodecBuilder} group tops out at 16 fields.
  */
 public final class AllMightState {
 	/** Animation ids (see {@code AllMightPose} on the client). */
@@ -39,11 +42,6 @@ public final class AllMightState {
 	/** v0.16.6: the Pass On "Eat this" offering (a hand held out). */
 	public static final int ANIM_PASS_ON = 15;
 
-	/** v0.16.6: Output levels (20% / 45% / 100%). */
-	public static final int OUTPUT_20 = 0;
-	public static final int OUTPUT_45 = 1;
-	public static final int OUTPUT_100 = 2;
-
 	/** v0.16.6: the player's side of a One For All loan. */
 	public static final int LOAN_NONE = 0;
 	/** Lent their One For All out: has no power for the loan, exhausted, gets it back when it ends. */
@@ -51,10 +49,25 @@ public final class AllMightState {
 	/** Holds a borrowed, capped One For All until the loan ends. */
 	public static final int LOAN_BORROWER = 2;
 
+	/** v0.16.7: the three limbs that take a Smash's strain (index into {@link #limbs}, bit in {@link #broken}). */
+	public enum Limb {
+		RIGHT_ARM("right_arm"), LEFT_ARM("left_arm"), LEGS("legs");
+
+		public final String id;
+
+		Limb(String id) {
+			this.id = id;
+		}
+
+		public int bit() {
+			return 1 << ordinal();
+		}
+	}
+
 	public boolean hasPower;
-	/** false = Base Form (a plain player), true = Power Form (H). */
+	/** false = Base Form (a plain player), true = Power Form / Full Cowl (H). */
 	public boolean fullPower;
-	/** Plus Ultra (C) is on: Output is forced to 100% and Strain does not build. */
+	/** Plus Ultra (C) is on: Output is pushed to 100% (past the limit). */
 	public boolean plusUltra;
 	/** Damage-proof while {@code gameTime < transformUntil}. */
 	public long transformUntil;
@@ -73,17 +86,17 @@ public final class AllMightState {
 	/** {@code abilityId} -> absolute game-time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
 
-	// ---------------------------------------------------------------- v0.16.6: Output / Strain
-	/** {@link #OUTPUT_20}, {@link #OUTPUT_45} or {@link #OUTPUT_100}. */
-	public int output;
-	/** 0..1 -- how far landed hits have charged toward the next Output level. */
-	public float outputProgress;
-	/** Game time a hit last landed (Output drops one level after {@code AllMightConfig.OUTPUT_DECAY_TICKS} without one). */
+	// ---------------------------------------------------------------- v0.16.7: Output / safe limit / limb strain
+	/** Output, percent (0..100): landed hits charge it up to the safe limit (Plus Ultra: past it). */
+	public float outputPct;
+	/** Game time a hit last landed (Output eases down after {@code AllMightConfig.OUTPUT_DECAY_TICKS} without one). */
 	public long lastHitAt;
-	/** 0..{@code AllMightConfig.STRAIN_MAX}. At full Strain his arms give out. */
-	public float strain;
-	/** The "broken arms" recoil: every Smash is locked until this game time. */
-	public long recoilUntil;
+	/** The safe limit, percent: how much Output his body can take. Rises slowly with use; kept even while the power is lost. */
+	public float mastery;
+	/** Strain per {@link Limb} (0..100). */
+	public final float[] limbs;
+	/** {@link Limb#bit()} set while that limb is broken (its Smashes are refused until it mends). */
+	public int broken;
 
 	// ---------------------------------------------------------------- v0.16.6: lending
 	/** {@link #LOAN_NONE} / {@link #LOAN_LENDER} / {@link #LOAN_BORROWER}. */
@@ -101,6 +114,19 @@ public final class AllMightState {
 		this.abilityReadyAt = new HashMap<>();
 		this.loanPartner = "";
 		this.loanPartnerName = "";
+		this.limbs = new float[Limb.values().length];
+		this.mastery = MASTERY_START;
+	}
+
+	/** Mirrors {@code AllMightConfig.MASTERY_START} (the data class must not depend on the config). */
+	public static final float MASTERY_START = 20.0f;
+
+	public float limb(Limb l) {
+		return limbs[l.ordinal()];
+	}
+
+	public boolean isBroken(Limb l) {
+		return (broken & l.bit()) != 0;
 	}
 
 	public AllMightState copy() {
@@ -118,11 +144,11 @@ public final class AllMightState {
 		n.chargeStart = chargeStart;
 		n.plusUltraUntil = plusUltraUntil;
 		n.abilityReadyAt.putAll(abilityReadyAt);
-		n.output = output;
-		n.outputProgress = outputProgress;
+		n.outputPct = outputPct;
 		n.lastHitAt = lastHitAt;
-		n.strain = strain;
-		n.recoilUntil = recoilUntil;
+		n.mastery = mastery;
+		System.arraycopy(limbs, 0, n.limbs, 0, limbs.length);
+		n.broken = broken;
 		n.loanRole = loanRole;
 		n.loanPartner = loanPartner;
 		n.loanPartnerName = loanPartnerName;
@@ -131,27 +157,39 @@ public final class AllMightState {
 		return n;
 	}
 
-	/** v0.16.6: the Output / Strain / loan fields, flattened into the same compound as the rest. */
-	private record Extra(int output, float outputProgress, long lastHitAt, float strain, long recoilUntil, int loanRole, String loanPartner,
-			String loanPartnerName, long loanUntil, long lendReadyAt) {
+	/** v0.16.6: the loan fields, flattened into the same compound as the rest. */
+	private record Extra(long lastHitAt, int loanRole, String loanPartner, String loanPartnerName, long loanUntil, long lendReadyAt) {
 		static Extra of(AllMightState s) {
-			return new Extra(s.output, s.outputProgress, s.lastHitAt, s.strain, s.recoilUntil, s.loanRole, s.loanPartner, s.loanPartnerName,
-					s.loanUntil, s.lendReadyAt);
+			return new Extra(s.lastHitAt, s.loanRole, s.loanPartner, s.loanPartnerName, s.loanUntil, s.lendReadyAt);
 		}
 	}
 
 	private static final MapCodec<Extra> EXTRA = RecordCodecBuilder.mapCodec(i -> i.group(
-			Codec.INT.optionalFieldOf("output", 0).forGetter(Extra::output),
-			Codec.FLOAT.optionalFieldOf("output_progress", 0f).forGetter(Extra::outputProgress),
 			Codec.LONG.optionalFieldOf("last_hit_at", 0L).forGetter(Extra::lastHitAt),
-			Codec.FLOAT.optionalFieldOf("strain", 0f).forGetter(Extra::strain),
-			Codec.LONG.optionalFieldOf("recoil_until", 0L).forGetter(Extra::recoilUntil),
 			Codec.INT.optionalFieldOf("loan_role", 0).forGetter(Extra::loanRole),
 			Codec.STRING.optionalFieldOf("loan_partner", "").forGetter(Extra::loanPartner),
 			Codec.STRING.optionalFieldOf("loan_partner_name", "").forGetter(Extra::loanPartnerName),
 			Codec.LONG.optionalFieldOf("loan_until", 0L).forGetter(Extra::loanUntil),
 			Codec.LONG.optionalFieldOf("lend_ready_at", 0L).forGetter(Extra::lendReadyAt)
 	).apply(i, Extra::new));
+
+	/** v0.16.7: Output, the safe limit and the limbs. */
+	private record Strain(float outputPct, float mastery, List<Float> limbs, int broken) {
+		static Strain of(AllMightState s) {
+			List<Float> l = new ArrayList<>();
+			for (float f : s.limbs) {
+				l.add(f);
+			}
+			return new Strain(s.outputPct, s.mastery, l, s.broken);
+		}
+	}
+
+	private static final MapCodec<Strain> STRAIN = RecordCodecBuilder.mapCodec(i -> i.group(
+			Codec.FLOAT.optionalFieldOf("output_pct", 0f).forGetter(Strain::outputPct),
+			Codec.FLOAT.optionalFieldOf("mastery", MASTERY_START).forGetter(Strain::mastery),
+			Codec.FLOAT.listOf().optionalFieldOf("limb_strain", List.of()).forGetter(Strain::limbs),
+			Codec.INT.optionalFieldOf("broken_limbs", 0).forGetter(Strain::broken)
+	).apply(i, Strain::new));
 
 	public static final Codec<AllMightState> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
@@ -168,9 +206,10 @@ public final class AllMightState {
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart),
 			Codec.LONG.optionalFieldOf("plus_ultra_until", 0L).forGetter(s -> s.plusUltraUntil),
-			EXTRA.forGetter(Extra::of)
+			EXTRA.forGetter(Extra::of),
+			STRAIN.forGetter(Strain::of)
 	).apply(i, (hasPower, fullPower, plusUltra, transformUntil, busyUntil, formChangedAt, lastCombatTick, noFallUntil, animId, animStart,
-			ready, chargeStart, plusUltraUntil, extra) -> {
+			ready, chargeStart, plusUltraUntil, extra, strain) -> {
 		AllMightState s = new AllMightState();
 		s.hasPower = hasPower;
 		s.fullPower = fullPower;
@@ -185,16 +224,18 @@ public final class AllMightState {
 		s.abilityReadyAt.putAll(ready);
 		s.chargeStart = chargeStart;
 		s.plusUltraUntil = plusUltraUntil;
-		s.output = Math.max(OUTPUT_20, Math.min(OUTPUT_100, extra.output()));
-		s.outputProgress = extra.outputProgress();
 		s.lastHitAt = extra.lastHitAt();
-		s.strain = extra.strain();
-		s.recoilUntil = extra.recoilUntil();
 		s.loanRole = extra.loanRole();
 		s.loanPartner = extra.loanPartner();
 		s.loanPartnerName = extra.loanPartnerName();
 		s.loanUntil = extra.loanUntil();
 		s.lendReadyAt = extra.lendReadyAt();
+		s.outputPct = Math.max(0f, Math.min(100f, strain.outputPct()));
+		s.mastery = Math.max(0f, Math.min(100f, strain.mastery()));
+		for (int k = 0; k < s.limbs.length && k < strain.limbs().size(); k++) {
+			s.limbs[k] = Math.max(0f, Math.min(100f, strain.limbs().get(k)));
+		}
+		s.broken = strain.broken() & 0b111;
 		return s;
 	}));
 }

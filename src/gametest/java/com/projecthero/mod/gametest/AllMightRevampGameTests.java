@@ -24,8 +24,8 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.6: the One For All revamp -- Output (20/45/100%) charged by hits and decaying, Strain and the recoil that locks the
- * Smashes, the five Shift moves' damage, Plus Ultra, Passing On (accept / refuse) and Lending (lender drawback, borrower cap,
+ * v0.16.6: the One For All revamp -- Output charged by hits and decaying (v0.16.7: up to the safe limit; the limb strain rules
+ * are OneForAllStrainGameTests), the five Shift moves' damage, Plus Ultra, Passing On (accept / refuse) and Lending (lender drawback, borrower cap,
  * return on time and on the borrower's death), and that One For All is never duplicated. Mock players are not ticked by the
  * server, so each test drives the ticks itself.
  */
@@ -50,9 +50,12 @@ public class AllMightRevampGameTests implements FabricGameTest {
 		return o;
 	}
 
+	/** The Power Form at the Output where the damage multiplier is exactly x1.0 (~11%, inside the 20% limit). */
 	private static void powerForm(ServerPlayer p) {
 		AllMightState s = AllMight.state(p).copy();
 		s.fullPower = true;
+		s.outputPct = (1f - AllMightConfig.OUTPUT_DAMAGE_BASE) / AllMightConfig.OUTPUT_DAMAGE_PER_100 * 100f;
+		s.lastHitAt = p.level().getGameTime();
 		p.setAttached(ModAttachments.ALL_MIGHT_STATE, s);
 		AllMight.reconcile(p);
 	}
@@ -86,83 +89,26 @@ public class AllMightRevampGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- Output
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void outputLevelsUpOnHitsAndDecays(GameTestHelper helper) {
+	public void outputChargesToTheLimitAndDecays(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
-		helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_20, "starts at 20%");
-		for (int i = 0; i < AllMightConfig.OUTPUT_HITS_TO_45; i++) {
-			AllMight.onHitLanded(p, false);
-		}
-		helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_45, "4 hits -> 45%, got " + AllMight.outputPercent(p));
-		helper.assertTrue(Math.abs(AllMight.smashMultiplier(p) - 1.25f) < 1e-4f && AllMight.sizeScale(p) > 1.1, "45% is +25% and wider");
+		AllMight.setOutput(p, AllMightConfig.OUTPUT_FLOOR);
 		AllMight.onHitLanded(p, false);
-		helper.assertTrue(AllMight.state(p).outputProgress > 0.1f, "progress toward 100% shows");
-		for (int i = 1; i < AllMightConfig.OUTPUT_HITS_TO_100; i++) {
+		helper.assertTrue(Math.abs(AllMight.outputPct(p) - (AllMightConfig.OUTPUT_FLOOR + AllMightConfig.OUTPUT_PER_SMASH_HIT)) < 1e-3f,
+				"a landed Smash charges +8, got " + AllMight.outputPct(p));
+		for (int i = 0; i < 10; i++) {
 			AllMight.onHitLanded(p, false);
 		}
-		helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_100, "6 more -> 100%");
-		helper.assertTrue(Math.abs(AllMight.smashMultiplier(p) - 1.6f) < 1e-4f, "100% is +60%");
-		// 8 s without a hit: one level down
+		helper.assertTrue(Math.abs(AllMight.outputPct(p) - AllMight.limit(p)) < 1e-3f, "capped at the 20% limit, got " + AllMight.outputPct(p));
+		helper.assertTrue(Math.abs(AllMight.smashMultiplier(p) - AllMight.multiplierAt(20f)) < 1e-4f && AllMight.sizeScale(p) > 1.0,
+				"20% hits harder and wider");
+		helper.assertTrue(Math.abs(AllMight.multiplierAt(100f) - 1.8f) < 1e-4f, "100% is x1.8");
+		// 8 s without a hit: it eases down
 		edit(p, s -> s.lastHitAt = p.level().getGameTime() - AllMightConfig.OUTPUT_DECAY_TICKS);
-		AllMight.tick(p);
-		helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_45, "decays one level after 8 s, got " + AllMight.outputPercent(p));
-		// a real Smash landing charges once
-		edit(p, s -> {
-			s.output = AllMightState.OUTPUT_20;
-			s.outputProgress = 0f;
-		});
-		Zombie z = dummy(helper, p, 3.0, 0f);
-		AbilityRouter.handleInput(p, 1, true); // Detroit
 		helper.onEachTick(() -> AllMight.tick(p));
-		helper.runAfterDelay(AllMightConfig.DETROIT_WINDUP + 4, () -> {
-			helper.assertTrue(z.getHealth() < 200f, "Detroit landed");
-			helper.assertTrue(Math.abs(AllMight.state(p).outputProgress - 1f / AllMightConfig.OUTPUT_HITS_TO_45) < 1e-3f,
-					"one Smash = one charge, progress " + AllMight.state(p).outputProgress);
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- Strain
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void strainBuildsAtHighOutputAndTheRecoilLocksSmashes(GameTestHelper helper) {
-		ServerPlayer p = hero(helper);
-		powerForm(p);
-		AllMight.setOutput(p, AllMightState.OUTPUT_100);
-		helper.onEachTick(() -> AllMight.tick(p));
-		helper.runAfterDelay(40, () -> {
-			// keep it at 100% (the decay clock), and check Strain grew at ~5/s
-			float st = AllMight.strain(p);
-			helper.assertTrue(st >= 5.0f && AllMight.output(p) == AllMightState.OUTPUT_100, "100% builds Strain, strain=" + st);
-			AllMight.addStrain(p, AllMightConfig.STRAIN_MAX);
-			helper.assertTrue(AllMight.inRecoil(p), "full Strain -> his arms give out");
-			helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_20, "forced back to 20%");
-			helper.assertTrue(p.hasEffect(MobEffects.WEAKNESS) && p.getEffect(MobEffects.WEAKNESS).getAmplifier() == 1, "Weakness II");
-			helper.assertTrue(p.hasEffect(MobEffects.DIG_SLOWDOWN), "Mining Fatigue");
-			AbilityRouter.handleInput(p, 1, true); // Detroit
-			AbilityRouter.handleInput(p, 2, true); // Texas
-			helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.DETROIT) == 0 && AllMight.cooldownRemaining(p, AllMightAbilities.TEXAS) == 0,
-					"Smashes are locked in the recoil");
-			AbilityRouter.handleInput(p, 6, true);
-			helper.assertFalse(AllMight.plusUltraActive(p), "so is Plus Ultra");
-			for (int i = 0; i < 10; i++) {
-				AllMight.onHitLanded(p, false);
-			}
-			helper.assertTrue(AllMight.output(p) == AllMightState.OUTPUT_20, "hits do not charge in the recoil");
-			AbilityRouter.handleInput(p, 3, true); // Leap is not a Smash
-			helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) > 0, "the Leap still works");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void strainRecoversAtTwentyPercentAndInTheBaseForm(GameTestHelper helper) {
-		ServerPlayer p = hero(helper);
-		edit(p, s -> s.strain = 50f);
-		helper.onEachTick(() -> AllMight.tick(p));
-		helper.runAfterDelay(41, () -> {
-			float st = AllMight.strain(p);
-			helper.assertTrue(st < 50f - 5f, "the Base Form recovers ~5/s, strain=" + st);
+		helper.runAfterDelay(25, () -> {
+			helper.assertTrue(AllMight.outputPct(p) < 20f - 4f && AllMight.outputPct(p) >= AllMightConfig.OUTPUT_FLOOR,
+					"decays toward the floor, got " + AllMight.outputPct(p));
 			helper.succeed();
 		});
 	}
@@ -173,7 +119,9 @@ public class AllMightRevampGameTests implements FabricGameTest {
 		powerForm(p);
 		helper.onEachTick(() -> AllMight.tick(p));
 		helper.runAfterDelay(60, () -> {
-			helper.assertTrue(AllMight.isFullPower(p) && AllMight.strain(p) == 0f, "20% in the Power Form costs nothing and builds no Strain");
+			AllMightState s = AllMight.state(p);
+			helper.assertTrue(AllMight.isFullPower(p) && s.limb(AllMightState.Limb.RIGHT_ARM) == 0f && s.limb(AllMightState.Limb.LEGS) == 0f,
+					"Full Cowl inside the limit is free");
 			helper.succeed();
 		});
 	}
@@ -263,22 +211,22 @@ public class AllMightRevampGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- Plus Ultra
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void plusUltraIsOneHundredPercentWithNoStrainThenSeventyFive(GameTestHelper helper) {
+	public void plusUltraGoesPastTheLimitThenDropsBack(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
-		edit(p, s -> s.strain = 10f);
 		AbilityRouter.handleInput(p, 6, true); // C
-		helper.assertTrue(AllMight.plusUltraActive(p) && AllMight.output(p) == AllMightState.OUTPUT_100, "straight to 100%");
+		helper.assertTrue(AllMight.plusUltraActive(p) && AllMight.outputPct(p) == 100f && AllMight.overLimit(p), "straight to 100%, past the limit");
 		helper.assertTrue(AllMight.state(p).plusUltraUntil - p.level().getGameTime() == AllMightConfig.PLUS_ULTRA_DURATION_TICKS, "22 s");
 		helper.onEachTick(() -> AllMight.tick(p));
 		helper.runAfterDelay(30, () -> {
-			helper.assertTrue(Math.abs(AllMight.strain(p) - 10f) < 1e-3f, "no Strain builds during Plus Ultra, strain=" + AllMight.strain(p));
+			helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.LEGS) > 0f, "Full Cowl past the limit strains every limb");
+			AbilityRouter.handleInput(p, 6, false);
 			AbilityRouter.handleInput(p, 6, true);
 			helper.assertTrue(AllMight.plusUltraActive(p), "cannot be switched off early");
 			edit(p, s -> s.plusUltraUntil = p.level().getGameTime());
 			AllMight.tick(p);
 			helper.assertFalse(AllMight.plusUltraActive(p), "ends by itself");
-			helper.assertTrue(AllMight.strain(p) >= AllMightConfig.PLUS_ULTRA_AFTER_STRAIN - 0.01f, "then Strain is set to 75");
+			helper.assertTrue(AllMight.outputPct(p) <= AllMight.limit(p) + 1e-3f, "Output drops back inside the limit");
 			helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.PLUS_ULTRA) > 40 * 20, "45 s cooldown");
 			helper.succeed();
 		});
@@ -341,11 +289,12 @@ public class AllMightRevampGameTests implements FabricGameTest {
 		for (int i = 0; i < 20; i++) {
 			AllMight.onHitLanded(borrower, false);
 		}
-		helper.assertTrue(AllMight.output(borrower) == AllMightState.OUTPUT_45, "capped at 45%, got " + AllMight.outputPercent(borrower));
-		AllMight.setOutput(borrower, AllMightState.OUTPUT_100);
-		helper.assertTrue(AllMight.output(borrower) == AllMightState.OUTPUT_45, "even when set directly");
-		AllMight.addStrain(borrower, 10f);
-		helper.assertTrue(Math.abs(AllMight.strain(borrower) - 20f) < 1e-3f, "Strain builds twice as fast");
+		helper.assertTrue(AllMight.limit(borrower) == AllMightConfig.BORROWED_LIMIT && AllMight.outputPct(borrower) == AllMightConfig.BORROWED_LIMIT,
+				"a fixed 15% limit, got " + AllMight.outputPercent(borrower));
+		AllMight.setOutput(borrower, 100f);
+		helper.assertTrue(AllMight.outputPct(borrower) == AllMightConfig.BORROWED_OUTPUT_CAP, "never past 45%, even when set directly");
+		com.projecthero.mod.allmight.AllMightStrain.addLimbStrain(borrower, AllMightState.Limb.LEFT_ARM, 10f);
+		helper.assertTrue(Math.abs(AllMight.state(borrower).limb(AllMightState.Limb.LEFT_ARM) - 20f) < 1e-3f, "limbs strain twice as fast");
 		ServerPlayer third = plain(helper, borrower, 2.0);
 		helper.assertFalse(AllMightPassOn.offer(borrower, third, AllMightPassOn.Kind.PASS_ON), "cannot pass on a borrowed power");
 		helper.assertFalse(AllMightPassOn.offer(borrower, third, AllMightPassOn.Kind.LEND), "nor re-lend it");
@@ -395,9 +344,9 @@ public class AllMightRevampGameTests implements FabricGameTest {
 		ServerPlayer lender = pair[0];
 		ServerPlayer borrower = pair[1];
 		helper.assertTrue(AllMight.hasPower(lender) ^ AllMight.hasPower(borrower), "exactly one of them holds it");
-		// full Strain ends a loan early
-		AllMight.addStrain(borrower, AllMightConfig.STRAIN_MAX);
-		helper.assertFalse(AllMight.hasPower(borrower), "the borrower's arms gave out: the loan is over");
+		// a broken limb ends a loan early (50 x 2 = 100)
+		com.projecthero.mod.allmight.AllMightStrain.addLimbStrain(borrower, AllMightState.Limb.RIGHT_ARM, 50f);
+		helper.assertFalse(AllMight.hasPower(borrower), "the borrower's arm broke: the loan is over");
 		helper.assertTrue(AllMight.hasPower(lender), "back with the lender");
 		// lend again later, then recall it (the lender sneak-right-clicks: the same path)
 		edit(lender, s -> s.lendReadyAt = 0L);

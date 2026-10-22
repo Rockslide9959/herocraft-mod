@@ -70,6 +70,17 @@ public final class AllMightShockwave {
 			this.burst = true;
 			return this;
 		}
+
+		/**
+		 * v0.16.7: the damage multiplier fixed when the Smash was thrown (its Output x its limb's factor, from
+		 * {@code AllMightStrain.cast}); NaN (landing impacts) uses the current Output.
+		 */
+		float mult = Float.NaN;
+
+		public Wave mult(float m) {
+			this.mult = m;
+			return this;
+		}
 	}
 
 	// ---------------------------------------------------------------- entities
@@ -182,7 +193,7 @@ public final class AllMightShockwave {
 			return false;
 		}
 		boolean boss = isBoss(target);
-		float dmg = wave.damage * AllMight.smashMultiplier(owner) * scale;
+		float dmg = wave.damage * (Float.isNaN(wave.mult) ? AllMight.smashMultiplier(owner) : wave.mult) * scale;
 		if (boss) {
 			dmg = Math.min(dmg, target.getMaxHealth() * AllMightConfig.BOSS_MAX_FRACTION_PER_HIT);
 		}

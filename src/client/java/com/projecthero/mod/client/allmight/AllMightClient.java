@@ -13,8 +13,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.6: All Might's client side beyond the HUD and the poses -- the Output glow layer on every player
- * ({@link AllMightGlowLayer}) and the Pass On / Lend screen that opens on sneak + right-click on another player with an
+ * v0.16.6: All Might's client side beyond the HUD and the poses -- v0.16.7: the injured-limb layer on every player
+ * ({@link AllMightInjuryLayer}; it replaced the arm glow) and the Pass On / Lend screen that opens on sneak + right-click on another player with an
  * empty hand ({@link AllMightOfferScreen}). The server half is {@code AllMightPassOn}.
  */
 public final class AllMightClient {
@@ -24,7 +24,7 @@ public final class AllMightClient {
 	public static void initialize() {
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
-				helper.register(new AllMightGlowLayer(playerRenderer));
+				helper.register(new AllMightInjuryLayer(playerRenderer));
 			}
 		});
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {

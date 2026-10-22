@@ -192,7 +192,7 @@ public final class IronManScan {
 			com.projecthero.mod.quirk.Quirk quirk = com.projecthero.mod.quirk.Quirks.quirk(other);
 			com.projecthero.mod.miraculous.Kwami kwami = com.projecthero.mod.miraculous.Miraculous.kwami(other);
 			if (quirk != null && identity.equals("projecthero.quirk." + quirk.id + ".hero")) {
-				identity = "projecthero.hero_tier.quirk_" + quirk.id;
+				identity = "projecthero.hero_tier." + quirk.heroKey(); // v0.16.7: One For All is "all_might"
 			} else if (kwami != null && identity.equals("projecthero.squad.identity." + kwami.heroKey)) {
 				identity = "projecthero.hero_tier." + kwami.heroKey;
 			}
@@ -227,7 +227,7 @@ public final class IronManScan {
 			for (AbilitySlot s : six) {
 				String[] ids = kit.idsOf(s);
 				if (ids.length > 0) {
-					out.add("projecthero.quirk.ability." + ids[0]);
+					out.add(kit.abilityLangKey(ids[0]));
 				}
 			}
 		} else if (kwami != null) {

@@ -16,4 +16,13 @@ public interface QuirkClientKit {
 	default boolean hidesSkinOverlay(Player player) {
 		return false;
 	}
+
+	/**
+	 * v0.16.7: the kit draws its own status block on the Quirk HUD instead of the generic one-line meter (One For All: Output, the
+	 * safe limit and the three limbs). Draw upward from {@code bottom} (exclusive), at most {@code width} wide, and return the top
+	 * y of what was drawn; -1 (the default) keeps the generic meter.
+	 */
+	default int drawStatus(net.minecraft.client.gui.GuiGraphics g, Player player, int x0, int bottom, int width) {
+		return -1;
+	}
 }

@@ -29,6 +29,8 @@ public final class QuirkMod {
 		com.projecthero.mod.quirk.erasure.ErasureMod.initialize();
 		com.projecthero.mod.quirk.explosion.ExplosionMod.initialize();
 		com.projecthero.mod.quirk.zerogravity.ZeroGravityMod.initialize();
+		// v0.16.7: One For All -- the eighth Quirk, an adapter over the All Might engine (which still initialises and ticks itself)
+		QuirkKits.register(Quirk.ONE_FOR_ALL, new com.projecthero.mod.allmight.OneForAllKit());
 
 		ServerPlayerEvents.JOIN.register(Quirks::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Quirks.onPlayerRespawn(newPlayer));
