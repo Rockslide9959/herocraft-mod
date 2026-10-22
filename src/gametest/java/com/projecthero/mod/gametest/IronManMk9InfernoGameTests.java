@@ -54,7 +54,7 @@ public class IronManMk9InfernoGameTests implements FabricGameTest {
 				"integrity / absorb between the Mk VIII Space and the Hulkbuster");
 		h.assertTrue(s.manualFlight() && s.flightNormalBps() == IronManSuits.MARK_VII.flightNormalBps()
 				&& s.flightSprintBps() == IronManSuits.MARK_VII.flightSprintBps(), "flies like the Mk VIII Space");
-		h.assertTrue(s.energyCapacity() == IronManEnergy.FULL, "keeps the no-energy shim");
+		h.assertTrue(s.energyCapacity() == 1700f && s.hasReactor(), "v0.16.7 (user): an Era II reactor (1700)");
 		h.assertTrue(s.fireImmune() && !s.hazardImmune(), "fire / lava proof (full suit), not the Space suit's freeze immunity");
 		// progression: the blueprint comes after the Mk VIII, the Hulkbuster after it
 		h.assertTrue("mark_vii".equals(IronManItems.prerequisiteSuit(MK9)) && MK9.equals(IronManItems.prerequisiteSuit("mark_8")),

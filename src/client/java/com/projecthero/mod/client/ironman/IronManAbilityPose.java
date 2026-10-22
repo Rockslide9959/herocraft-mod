@@ -247,6 +247,74 @@ public final class IronManAbilityPose {
 				set(m.leftArm, w, 0.2f, 0f, -1.2f);
 				com.projecthero.mod.client.HipBend.pitch(m, w, -0.15f);
 			}
+			// ---------------- v0.16.7 (user) Era II C rework: the new attacks
+			case IronManAbilityFx.COMIC_LASER -> {
+				// Mk VI Wrist Laser: the right arm locked straight out on the aim, the left hand clamped round the right
+				// wrist to steady it, shoulders squared, a small kick as it fires
+				float kick = t < 3 ? (3 - t) / 3f * 0.12f : 0f;
+				set(m.rightArm, w, aimX - kick, aimY - 0.08f, 0f);
+				set(m.leftArm, w, aimX + 0.25f, aimY + 0.62f, 0f);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, -0.22f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, 0.05f);
+			}
+			case IronManAbilityFx.COMIC_BLADE_DEPLOY -> {
+				// Mk VII Deploy Blades: both forearms snapped up in front, fists clenched (0-4), then flicked out and down to
+				// the sides as the blades slide out (4-10), head dipped
+				if (t < 4f) {
+					float k = Mth.clamp(t / 2f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, 0f, -1.55f), 0.45f, 0f);
+					set(m.leftArm, w, Mth.lerp(k, 0f, -1.55f), -0.45f, 0f);
+					m.head.xRot = Mth.lerp(w, m.head.xRot, 0.2f);
+				} else {
+					float k = Mth.clamp((t - 4f) / 3f, 0f, 1f);
+					float ease = k * k * (3f - 2f * k);
+					set(m.rightArm, w, Mth.lerp(ease, -1.55f, -0.35f), Mth.lerp(ease, 0.45f, 0f), Mth.lerp(ease, 0f, 0.55f));
+					set(m.leftArm, w, Mth.lerp(ease, -1.55f, -0.35f), Mth.lerp(ease, -0.45f, 0f), Mth.lerp(ease, 0f, -0.55f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.1f * ease);
+				}
+			}
+			case IronManAbilityFx.COMIC_BLADE_WHIRL -> {
+				// Mk VII Blade Whirl: a low lunge with both blades drawn back (0-4), then the body whipped round a full turn
+				// with both arms flung out level, blades leading (4-12), then settling
+				if (t < 4f) {
+					float k = Mth.clamp(t / 3f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, 0f, 0.6f), 0.3f, 0.35f);
+					set(m.leftArm, w, Mth.lerp(k, 0f, -1.3f), -0.4f, -0.1f);
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.35f * k);
+					set(m.rightLeg, w * k, 0.45f, 0f, 0.05f);
+					set(m.leftLeg, w * k, -0.55f, 0f, -0.05f);
+				} else {
+					// two scything slashes (the server's two hits at 5 and 10): arms flung out level, the torso and both
+					// blades swept hard one way then back the other (a sine twist, the arms leading the body)
+					float k = Mth.clamp((t - 4f) / 8f, 0f, 1f);
+					float twist = Mth.sin(k * Mth.TWO_PI - Mth.HALF_PI) * -0.75f;
+					m.body.yRot = Mth.lerp(w, m.body.yRot, twist);
+					set(m.rightArm, w, -0.2f, twist * 1.3f, 1.45f);
+					set(m.leftArm, w, -0.2f, twist * 1.3f, -1.45f);
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.18f * (1f - k));
+					set(m.rightLeg, w * (1f - k), 0.3f, 0f, 0.12f);
+					set(m.leftLeg, w * (1f - k), -0.3f, 0f, -0.12f);
+				}
+			}
+			case IronManAbilityFx.COMIC_SINGULARITY -> {
+				// Mk VIII Singularity: the right hand cupped high behind the shoulder holding the orb, the left arm pointing
+				// at the spot (0-3), then an overhand pitch through the aim with the body turning into it
+				float k = Mth.clamp((t - 3f) / 3f, 0f, 1f);
+				set(m.rightArm, w, Mth.lerp(k, -2.9f, aimX + 0.35f), Mth.lerp(k, 0.35f, aimY), Mth.lerp(k, 0.25f, 0f));
+				set(m.leftArm, w, Mth.lerp(k, aimX, 0.3f), Mth.lerp(k, aimY + 0.2f, 0f), Mth.lerp(k, 0f, -0.2f));
+				m.body.yRot = Mth.lerp(w, m.body.yRot, Mth.lerp(k, 0.45f, -0.3f));
+				com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(k, -0.1f, 0.2f));
+			}
+			case IronManAbilityFx.MK9_LASH -> {
+				// Mk IX Molten Lash: the right arm cocked high and back over the shoulder (0-4), then whipped down and
+				// across the body to the left, the body twisting with it, the left arm thrown back for balance
+				float k = Mth.clamp((t - 4f) / 2.5f, 0f, 1f);
+				float ease = 1f - (1f - k) * (1f - k);
+				set(m.rightArm, w, Mth.lerp(ease, -2.7f, -0.9f), Mth.lerp(ease, 0.6f, -0.9f), Mth.lerp(ease, 0.4f, 0.15f));
+				set(m.leftArm, w, Mth.lerp(ease, -0.6f, 0.5f), 0f, Mth.lerp(ease, -0.3f, -0.5f));
+				m.body.yRot = Mth.lerp(w, m.body.yRot, Mth.lerp(ease, 0.55f, -0.5f));
+				com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(ease, -0.1f, 0.18f));
+			}
 			// ---------------- v0.16.7 (user) Era II stage 3: the Mk IX Inferno
 			case IronManAbilityFx.MK9_FIRE_BLAST -> {
 				// right palm punched out on the aim with a hard recoil, the left hand pulled back to the hip

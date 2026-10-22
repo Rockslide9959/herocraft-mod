@@ -121,7 +121,7 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 			helper.assertTrue(w(t("hud.projecthero.ironman.status.integrity")) + 4 + w("100%") <= gw, "INTEGRITY label + % fit");
 			String abs = f("hud.projecthero.ironman.status.absorb", Math.round(suit.absorbShare() * 100f));
 			helper.assertTrue(w(Math.round(maxI) + "") + 5 + w(abs) <= gw, "INTEGRITY value + absorb fit for " + suit.id());
-			if (suit.eraOne()) {
+			if (suit.hasReactor()) { // v0.16.7 (user): Era I and Era II
 				helper.assertTrue(w(t("hud.projecthero.ironman.status.reactor")) + 4 + w("100%") <= gw, "REACTOR label + % fit");
 				for (String k : new String[] { "low_power", "brownout" }) {
 					helper.assertTrue(w(t("hud.projecthero.ironman.status." + k)) <= gw, k + " fits the gauge");

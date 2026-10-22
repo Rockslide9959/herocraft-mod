@@ -61,10 +61,35 @@ public final class IronManComicMoves {
 	private IronManComicMoves() {
 	}
 
-	/** Moves that still work on a disabled (0 integrity) suit: only the Hulkbuster's Replacement Pod. */
+	/**
+	 * Moves that still work on a disabled (0 integrity) suit: the Hulkbuster's Replacement Pod, and (v0.16.7 (user)) its C
+	 * key -- the hold is Sentry Mode, the way out of a wrecked suit; the tap (the brace) refuses on its own.
+	 */
 	static boolean worksWhileDisabled(IronManComicKit.Move m) {
-		return "mk8_replacement_pod".equals(m.id());
+		return "mk8_replacement_pod".equals(m.id()) || "mk8_hydraulic_brace".equals(m.id());
 	}
+
+	/**
+	 * v0.16.7 (user) Era II energy: moves the router never refuses for energy -- the Replacement Pod (the field repair, it
+	 * must work on a dead reactor too) and the Hulkbuster's C (its hold is Sentry Mode, free; its tap -- the brace -- checks
+	 * and pays its own {@link #BRACE_ENERGY}).
+	 */
+	static boolean skipsEnergyGate(IronManComicKit.Move m) {
+		return worksWhileDisabled(m) || "mk8_hydraulic_brace".equals(m.id()) || "mk6_energy_shield".equals(m.id());
+	}
+
+	/** v0.16.7 (user): the Silver Centurion's C -- tap = Energy Shield, held 1 s = Overload Burst (own cooldowns / energy). */
+	public static final int SHIELD_COOLDOWN_TICKS = 15 * 20;
+	public static final float SHIELD_ENERGY = 25f;
+	public static final int BURST_COOLDOWN_TICKS = 14 * 20;
+	public static final float BURST_ENERGY = 30f;
+	public static final float BURST_DAMAGE = 30f;
+
+	/** v0.16.7 (user): the Hulkbuster's C held this long (1 s) is Sentry Mode instead of the Hydraulic Brace. */
+	public static final int SENTRY_HOLD_TICKS = 20;
+	/** v0.16.7 (user): the Hydraulic Brace's own cooldown and energy (kept here: its C key also has to reach Sentry Mode). */
+	public static final int BRACE_COOLDOWN_TICKS = 25 * 20;
+	public static final float BRACE_ENERGY = 15f;
 
 	/** Dispatch one move edge. Returns true when it went off (start its cooldown). */
 	static boolean fire(ServerPlayer p, IronManSuit suit, IronManComicKit.Move m, boolean pressed) {
@@ -90,10 +115,17 @@ public final class IronManComicMoves {
 					yield false;
 				}
 				case "mk2_repulsor" -> {
+					if (pressed) {
+						// v0.16.7 (user) Era II: the shared repulsor slot keeps its own cooldowns -- the router checked the
+						// energy on the press, the shot pays it here
+						com.projecthero.mod.ironman.ability.era1.IronManEraOne.payAmount(p, suit, IronManComicKit.energyCost(m.id()));
+					}
 					IronManAbilities.repulsorSlot(p, suit, pressed);
 					yield false;
 				}
 				case "mk2_tractor_beam" -> tractor(p, pressed, d);
+				case "mk8_hydraulic_brace" -> braceOrSentry(p, suit, pressed); // v0.16.7 (user): the Hulkbuster's C
+				case "mk6_energy_shield" -> shieldOrBurst(p, suit, pressed); // v0.16.7 (user): the Silver Centurion's C
 				default -> false;
 			};
 		}
@@ -140,6 +172,7 @@ public final class IronManComicMoves {
 				yield true;
 			}
 			case "mk2_jarvis_scan" -> jarvisScan(p, suit);
+			case "mk2_wrist_laser" -> wristLaser(p, d); // v0.16.7 (user)
 			// ---------------- Mark 3
 			case "mk3_rapid_repulsors" -> rapidRepulsors(p, d, 3);
 			case "mk3_dash" -> IronManDash.start(p, d, 0f, 0);
@@ -187,6 +220,8 @@ public final class IronManComicMoves {
 			case "mk6_unibeam_overcharge" -> overcharge(p, d);
 			case "mk6_energy_shield" -> energyShield(p, MK6_SHIELD_FACTOR);
 			case "mk6_overload_burst" -> burst360(p, 8.0, d, 2.0, false);
+			case "mk6_deploy_blades" -> IronManCenturionBlades.toggle(p); // v0.16.7 (user)
+			case "mk6_blade_whirl" -> IronManCenturionBlades.whirl(p, d); // v0.16.7 (user)
 			// ---------------- Mark 7 SPACE
 			case "mk7_vacuum_missiles" -> vacuumMissiles(p, d);
 			case "mk7_orbital_strike" -> orbitalStrike(p, d);
@@ -196,6 +231,7 @@ public final class IronManComicMoves {
 			case "mk7_solar_flare" -> burst360(p, 10.0, d, 1.4, true);
 			case "mk7_gravity_tether" -> tether(p, d);
 			case "mk7_zero_g_field" -> zeroG(p);
+			case "mk7_singularity" -> singularity(p, d); // v0.16.7 (user)
 			// ---------------- Mark 8 HULKBUSTER
 			case "mk8_punch_combo" -> punchCombo(p, d);
 			case "mk8_rocket_fist" -> rocketFist(p, d);
@@ -205,7 +241,7 @@ public final class IronManComicMoves {
 			case "mk8_grab_throw" -> grab(p, HoldKind.GRAB_THROW, d);
 			case "mk8_mega_beam" -> megaBeam(p);
 			case "mk8_missile_swarm" -> missileVolley(p, 10, d, 1, 56.0, HB_MISSILES_FIRST, IronManAbilityFx.HB_MISSILE_SWARM, HB_MISSILES_TICKS);
-			case "mk8_hydraulic_brace" -> brace(p);
+			case "mk8_palm_cannon" -> palmCannon(p, d); // v0.16.7 (user)
 			case "mk8_replacement_pod" -> replacementPod(p, suit);
 			default -> false;
 		};
@@ -533,6 +569,33 @@ public final class IronManComicMoves {
 			IronManComicFx.pose(p, IronManAbilityFx.COMIC_THROW, 10);
 			IronManComicFx.sound(p, IronManSounds.REPULSOR_CHARGED_BLAST, 0.9f, 0.9f);
 		}
+		return true;
+	}
+
+	/** Wrist Laser: the comic gauntlet cutting laser -- 18 + 2 s fire to up to 3 targets in a 32-block line. */
+	public static final double WRIST_LASER_RANGE = 32.0;
+	public static final int WRIST_LASER_TARGETS = 3;
+
+	private static boolean wristLaser(ServerPlayer p, float damage) {
+		ServerLevel level = IronManComicFx.level(p);
+		Vec3 from = IronManComicFx.palm(p);
+		Vec3 dir = IronManTargeting.aim(p, from, p.getLookAngle(), WRIST_LASER_RANGE).normalize();
+		List<LivingEntity> hits = IronManComicFx.beam(p, from, dir, WRIST_LASER_RANGE, 0.45, true, IronManComicFx.BEAM_WRIST_LASER, 0f, 0.0);
+		int n = 0;
+		for (LivingEntity e : hits) {
+			if (n++ >= WRIST_LASER_TARGETS) {
+				break;
+			}
+			IronManComicFx.burn(p, e, damage, 40);
+			Vec3 c = IronManComicFx.centre(e);
+			level.sendParticles(ParticleTypes.SMALL_FLAME, c.x, c.y, c.z, 8, 0.15, 0.2, 0.15, 0.03);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 6, 0.1, 0.1, 0.1, 0.2);
+		}
+		Vec3 end = from.add(dir.scale(IronManComicFx.wallDistance(p, from, dir, WRIST_LASER_RANGE)));
+		level.sendParticles(new DustParticleOptions(new org.joml.Vector3f(1f, 0.15f, 0.1f), 1.2f), end.x, end.y, end.z, 10, 0.1, 0.1, 0.1, 0.0);
+		IronManComicFx.pose(p, IronManAbilityFx.COMIC_LASER, 14);
+		IronManComicFx.sound(p, IronManSounds.REPULSOR_BLAST, 0.7f, 1.7f);
+		IronManComicFx.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 2.0f);
 		return true;
 	}
 
@@ -1104,6 +1167,55 @@ public final class IronManComicMoves {
 		return true;
 	}
 
+	/**
+	 * v0.16.7 (user): the Silver Centurion's C. The press marks the time; the release decides -- under
+	 * {@link #SENTRY_HOLD_TICKS} = Energy Shield, longer = Overload Burst. Each keeps its own cooldown and energy, so one
+	 * cooling down never blocks the other. True when either went off.
+	 */
+	private static boolean shieldOrBurst(ServerPlayer p, IronManSuit suit, boolean pressed) {
+		Rt r = IronManComicState.rt(p);
+		long now = p.level().getGameTime();
+		if (pressed) {
+			r.cPressAt = now;
+			r.cHeld = true;
+			return false;
+		}
+		long at = r.cPressAt;
+		boolean held = r.cHeld;
+		r.cHeld = false;
+		r.cPressAt = 0L; // (a game-time 0 press is real -- the flag says whether C is down)
+		if (!held) {
+			return false;
+		}
+		boolean burst = now - at >= SENTRY_HOLD_TICKS;
+		String key = burst ? "mk6_overload_burst" : "mk6_energy_shield";
+		if (!com.projecthero.mod.ironman.TonyStark.abilityReady(p, suit.id(), key)) {
+			p.displayClientMessage(Component.translatable("message.projecthero.ironman.on_cooldown",
+					String.format(java.util.Locale.ROOT, "%.1f",
+							com.projecthero.mod.ironman.TonyStark.abilityCooldownRemaining(p, suit.id(), key) / 20.0f)), true);
+			return false;
+		}
+		float cost = burst ? BURST_ENERGY : SHIELD_ENERGY;
+		if (!com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPayAmount(p, suit, cost)) {
+			return false;
+		}
+		if (burst) {
+			burst360(p, 8.0, BURST_DAMAGE, 2.0, false);
+		} else {
+			energyShield(p, MK6_SHIELD_FACTOR);
+		}
+		com.projecthero.mod.ironman.TonyStark.triggerCooldown(p, suit.id(), key, burst ? BURST_COOLDOWN_TICKS : SHIELD_COOLDOWN_TICKS);
+		com.projecthero.mod.ironman.ability.era1.IronManEraOne.payAmount(p, suit, cost);
+		return true;
+	}
+
+	/** Gametests: the Silver Centurion's C as a tap ({@code holdTicks} < 20) or a hold. */
+	public static boolean centurionCForTests(ServerPlayer p, IronManSuit suit, int holdTicks) {
+		IronManComicState.rt(p).cPressAt = p.level().getGameTime() - holdTicks;
+		IronManComicState.rt(p).cHeld = true;
+		return shieldOrBurst(p, suit, false);
+	}
+
 	/** A 360-degree burst around the wearer (Overload Burst; Solar Flare also sets fire and blinds). */
 	private static boolean burst360(ServerPlayer p, double radius, float damage, double knock, boolean solar) {
 		ServerLevel level = IronManComicFx.level(p);
@@ -1287,6 +1399,58 @@ public final class IronManComicMoves {
 		r.holdAnchor = t.position().add(0, 3.0, 0);
 		IronManComicFx.pose(p, IronManAbilityFx.COMIC_MAGNET, 12);
 		IronManComicFx.sound(p, SoundEvents.BEACON_POWER_SELECT, 1.0f, 0.6f);
+		return true;
+	}
+
+	/**
+	 * Singularity: a gravity grenade pitched up to 24 blocks. It lands, drags every enemy within
+	 * {@link #SINGULARITY_PULL_RADIUS} into its centre for 1.5 s, then implodes for the move's damage in 4.5 blocks.
+	 */
+	public static final double SINGULARITY_RANGE = 24.0;
+	public static final double SINGULARITY_PULL_RADIUS = 7.0;
+	public static final int SINGULARITY_LAND = 6;
+	public static final int SINGULARITY_IMPLODE = 38;
+
+	private static boolean singularity(ServerPlayer p, float damage) {
+		Vec3 from = IronManComicFx.palm(p);
+		Vec3 at = IronManComicFx.aimPoint(p, SINGULARITY_RANGE);
+		IronManComicFx.pose(p, IronManAbilityFx.COMIC_SINGULARITY, 14);
+		IronManComicFx.sound(p, SoundEvents.ENDER_EYE_LAUNCH, 1.0f, 0.6f);
+		// the orb's flight: a dark streak along the throw
+		for (int i = 1; i <= SINGULARITY_LAND; i++) {
+			final double f0 = (i - 1) / (double) SINGULARITY_LAND;
+			final double f1 = i / (double) SINGULARITY_LAND;
+			IronManComicState.later(p, i, w -> IronManComicFx.line(IronManComicFx.level(w), from.lerp(at, f0).add(0, Math.sin(f0 * Math.PI) * 1.5, 0),
+					from.lerp(at, f1).add(0, Math.sin(f1 * Math.PI) * 1.5, 0), ParticleTypes.REVERSE_PORTAL, 4.0));
+		}
+		IronManComicState.later(p, SINGULARITY_LAND, w -> IronManComicFx.soundAt(IronManComicFx.level(w), at, SoundEvents.BEACON_ACTIVATE, 1.2f, 0.4f));
+		// the pull: every 2 ticks, enemies dragged in, a shrinking ring and a dark core
+		for (int t = SINGULARITY_LAND + 2; t < SINGULARITY_IMPLODE; t += 2) {
+			final double k = (t - SINGULARITY_LAND) / (double) (SINGULARITY_IMPLODE - SINGULARITY_LAND);
+			IronManComicState.later(p, t, w -> {
+				ServerLevel level = IronManComicFx.level(w);
+				for (LivingEntity e : IronManComicFx.around(w, at, SINGULARITY_PULL_RADIUS)) {
+					if (!com.projecthero.mod.kryptonian.KryptonianCombat.isBoss(e)) {
+						IronManComicFx.pull(e, at, 0.35);
+					}
+				}
+				IronManComicFx.ring(level, at, SINGULARITY_PULL_RADIUS * (1.0 - k) + 0.6, ParticleTypes.REVERSE_PORTAL, 24);
+				level.sendParticles(ParticleTypes.SQUID_INK, at.x, at.y + 0.3, at.z, 3, 0.15, 0.15, 0.15, 0.0);
+				level.sendParticles(ParticleTypes.PORTAL, at.x, at.y + 0.3, at.z, 10, 1.2, 1.2, 1.2, -0.6);
+			});
+		}
+		IronManComicState.later(p, SINGULARITY_IMPLODE, w -> {
+			ServerLevel level = IronManComicFx.level(w);
+			for (LivingEntity e : IronManComicFx.around(w, at, 4.5)) {
+				IronManComicFx.hit(w, e, damage);
+				IronManComicFx.shove(e, at, 0.4, 0.6);
+			}
+			level.sendParticles(ParticleTypes.FLASH, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);
+			level.sendParticles(ParticleTypes.SONIC_BOOM, at.x, at.y + 0.5, at.z, 1, 0, 0, 0, 0);
+			level.sendParticles(ParticleTypes.END_ROD, at.x, at.y + 0.3, at.z, 30, 0.2, 0.2, 0.2, 0.35);
+			IronManComicFx.soundAt(level, at, SoundEvents.GENERIC_EXPLODE, 1.0f, 0.5f);
+			IronManComicFx.soundAt(level, at, SoundEvents.BEACON_DEACTIVATE, 1.2f, 0.5f);
+		});
 		return true;
 	}
 
@@ -1496,6 +1660,110 @@ public final class IronManComicMoves {
 			IronManAbilities.broadcastBeam(p, from, from.add(dir.scale(IronManComicFx.wallDistance(p, from, dir, 44.0))),
 					IronManComicFx.BEAM_MEGA);
 		}
+	}
+
+	/** Palm Cannon: both palms, one heavy blast each (the move's damage) + a 3-block splash of 10 where each lands. */
+	public static final int HB_CANNON_FIRE = 16;
+	public static final int HB_CANNON_TICKS = 34;
+	public static final double HB_CANNON_RANGE = 40.0;
+
+	private static boolean palmCannon(ServerPlayer p, float damage) {
+		IronManComicFx.pose(p, IronManAbilityFx.HB_PALM_CANNON, HB_CANNON_TICKS);
+		IronManComicFx.sound(p, IronManSounds.REPULSOR_CHARGE, 1.4f, 0.5f);
+		for (int i = 4; i < HB_CANNON_FIRE; i += 3) {
+			IronManComicState.later(p, i, w -> {
+				for (int side = 0; side < 2; side++) {
+					Vec3 c = cannonPalm(w, side);
+					IronManComicFx.level(w).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 3, 0.1, 0.1, 0.1, 0.08);
+				}
+			});
+		}
+		IronManComicState.later(p, HB_CANNON_FIRE, w -> {
+			if (!hulkbusterOn(w)) {
+				return;
+			}
+			ServerLevel level = IronManComicFx.level(w);
+			for (int side = 0; side < 2; side++) {
+				Vec3 from = cannonPalm(w, side);
+				Vec3 dir = IronManTargeting.aim(w, from, w.getLookAngle(), HB_CANNON_RANGE).normalize();
+				List<LivingEntity> hits = IronManComicFx.beam(w, from, dir, HB_CANNON_RANGE, 1.0, false, IronManComicFx.BEAM_PALM_CANNON, damage, 1.6);
+				Vec3 end = hits.isEmpty() ? from.add(dir.scale(IronManComicFx.wallDistance(w, from, dir, HB_CANNON_RANGE)))
+						: IronManComicFx.centre(hits.get(0));
+				for (LivingEntity e : IronManComicFx.around(w, end, 3.0)) {
+					if (!hits.contains(e)) {
+						IronManComicFx.hit(w, e, 10f);
+						IronManComicFx.shove(e, end, 0.8, 0.3);
+					}
+				}
+				level.sendParticles(ParticleTypes.EXPLOSION, end.x, end.y, end.z, 2, 0.4, 0.4, 0.4, 0.0);
+				level.sendParticles(ParticleTypes.END_ROD, end.x, end.y, end.z, 14, 0.2, 0.2, 0.2, 0.2);
+			}
+			IronManComicFx.sound(w, IronManSounds.REPULSOR_CHARGED_BLAST, 1.6f, 0.55f);
+			IronManComicFx.sound(w, SoundEvents.GENERIC_EXPLODE.value(), 0.8f, 0.9f);
+			// the recoil shoves the giant suit back a little
+			Vec3 back = w.getLookAngle().multiply(1, 0, 1).normalize().scale(-0.35);
+			w.setDeltaMovement(w.getDeltaMovement().add(back));
+			w.hurtMarked = true;
+		});
+		return true;
+	}
+
+	/** Where one of the Hulkbuster's palms is while it holds the cannon pose: out in front at chest height. */
+	private static Vec3 cannonPalm(ServerPlayer w, int side) {
+		Vec3 look = w.getLookAngle();
+		Vec3 right = IronManAbilities.rightOf(w, look);
+		double s = w.getScale();
+		return w.getEyePosition().add(0, -0.55 * s, 0).add(look.scale(1.1 * s)).add(right.scale((side == 0 ? 0.42 : -0.42) * s));
+	}
+
+	/**
+	 * v0.16.7 (user): the Hulkbuster's C. The press only marks the time; the release decides -- held under
+	 * {@link #SENTRY_HOLD_TICKS} = the Hydraulic Brace (its own 25 s cooldown and 15 energy), held longer = Sentry Mode
+	 * (step out of the suit, free -- it works on a dead reactor too). Returns true only for the brace.
+	 */
+	private static boolean braceOrSentry(ServerPlayer p, IronManSuit suit, boolean pressed) {
+		Rt r = IronManComicState.rt(p);
+		long now = p.level().getGameTime();
+		if (pressed) {
+			r.cPressAt = now;
+			r.cHeld = true;
+			return false;
+		}
+		long at = r.cPressAt;
+		boolean held = r.cHeld;
+		r.cHeld = false;
+		r.cPressAt = 0L; // (a game-time 0 press is real -- the flag says whether C is down)
+		if (!held) {
+			return false;
+		}
+		if (now - at >= SENTRY_HOLD_TICKS) {
+			com.projecthero.mod.ironman.entity.IronManSentryEntity.deploy(p);
+			return false;
+		}
+		if (com.projecthero.mod.ironman.IronManIntegrity.disabled(p, suit.id())) {
+			p.displayClientMessage(Component.translatable("message.projecthero.ironman.suit_disabled").withStyle(ChatFormatting.RED), true);
+			return false;
+		}
+		if (!com.projecthero.mod.ironman.TonyStark.abilityReady(p, suit.id(), "mk8_hydraulic_brace")) {
+			p.displayClientMessage(Component.translatable("message.projecthero.ironman.on_cooldown",
+					String.format(java.util.Locale.ROOT, "%.1f",
+							com.projecthero.mod.ironman.TonyStark.abilityCooldownRemaining(p, suit.id(), "mk8_hydraulic_brace") / 20.0f)), true);
+			return false;
+		}
+		if (IronManEnergy.brownedOut(p, suit.id()) || !com.projecthero.mod.ironman.ability.era1.IronManEraOne.canPayAmount(p, suit, BRACE_ENERGY)) {
+			return false;
+		}
+		brace(p);
+		com.projecthero.mod.ironman.TonyStark.triggerCooldown(p, suit.id(), "mk8_hydraulic_brace", BRACE_COOLDOWN_TICKS);
+		com.projecthero.mod.ironman.ability.era1.IronManEraOne.payAmount(p, suit, BRACE_ENERGY);
+		return true;
+	}
+
+	/** Gametests: the Hulkbuster's C as a tap ({@code holdTicks} < 20) or a hold. */
+	public static boolean hulkbusterCForTests(ServerPlayer p, IronManSuit suit, int holdTicks) {
+		IronManComicState.rt(p).cPressAt = p.level().getGameTime() - holdTicks;
+		IronManComicState.rt(p).cHeld = true;
+		return braceOrSentry(p, suit, false);
 	}
 
 	private static boolean brace(ServerPlayer p) {

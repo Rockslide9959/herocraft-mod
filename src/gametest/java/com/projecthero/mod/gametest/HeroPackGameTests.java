@@ -1770,7 +1770,9 @@ public class HeroPackGameTests implements FabricGameTest {
 		// v0.16.1: no suit energy -- a platform only repairs, a flat 5 integrity/s
 		for (var suit : new com.projecthero.mod.ironman.suit.IronManSuit[] { m1, m2, m7 }) {
 			// v0.16.7: an Era I suit (the Mk I) charges +50/s on a platform in a Stark Gantry's range
-			float energy = suit.eraOne() ? com.projecthero.mod.ironman.IronManEnergy.GANTRY_CHARGE_PER_SECOND : 0f;
+			// v0.16.7 (user): an Era II suit (Mk VI, Mk VIII) charges +25/s on any rack
+			float energy = suit.eraOne() ? com.projecthero.mod.ironman.IronManEnergy.GANTRY_CHARGE_PER_SECOND
+					: suit.hasReactor() ? com.projecthero.mod.ironman.IronManEnergy.ERA_TWO_PLATFORM_CHARGE_PER_SECOND : 0f;
 			helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.platformEnergyPerSecond(suit) == energy
 					&& com.projecthero.mod.ironman.IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
 					"platform charge / 5/s integrity repair for " + suit.id());

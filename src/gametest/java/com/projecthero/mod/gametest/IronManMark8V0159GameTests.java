@@ -111,7 +111,9 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 		for (int slot = 1; slot <= 5; slot++) {
 			h.assertTrue(comic[slot - 1].equals(m8.abilityInSlot(slot)), "slot " + slot + " is " + comic[slot - 1] + ", got " + m8.abilityInSlot(slot));
 		}
-		h.assertTrue(com.projecthero.mod.ironman.ability.IronManMark8.SENTRY.equals(m8.abilityInSlot(6)), "C is Sentry Mode");
+		// v0.16.7 (user): C is a kit key -- tap = Hydraulic Brace, hold 1 s = Sentry Mode
+		h.assertTrue(com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C.equals(m8.abilityInSlot(6)),
+				"C is the kit's C key (Brace / hold: Sentry Mode)");
 		h.assertTrue(m8.summonType() == SummonType.FLYING_SET && m8.suitUpType() == SuitUpType.MECHANICAL_REMOTE,
 				"called pieces fly in -- no pod");
 		h.assertTrue(IronManItems.armor(M8, ArmorItem.Type.CHESTPLATE) != null

@@ -58,6 +58,15 @@ public final class IronManAbilityFx {
 	public static final int COMIC_POUND = 90;
 	/** Arms out to the sides, chest thrust out (lamp flash, floodlight, solar flare, overload burst, sonar pulse). */
 	public static final int COMIC_FLARE = 91;
+	// v0.16.7 (user) Era II C rework: the new attacks' poses
+	/** Right arm locked out on the aim, the left hand clamped round the right wrist to steady it (Mk VI Wrist Laser). */
+	public static final int COMIC_LASER = 92;
+	/** A low lunge, then a full body spin with both arms flung out level, the blades leading (Mk VII Blade Whirl). */
+	public static final int COMIC_BLADE_WHIRL = 93;
+	/** The right hand cupped high over the shoulder, then an overhand pitch, the left arm pointing (Mk VIII Singularity). */
+	public static final int COMIC_SINGULARITY = 94;
+	/** Both forearms snapped up in front, fists clenched, then flicked out to the sides as the blades slide out (Mk VII). */
+	public static final int COMIC_BLADE_DEPLOY = 95;
 	// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's own poses (client IronManAbilityPose / IronManAbilityVisuals)
 	/** Right palm thrust out with a hard recoil, the left hand braced back (Fire Blast). */
 	public static final int MK9_FIRE_BLAST = 120;
@@ -75,6 +84,8 @@ public final class IronManAbilityFx {
 	public static final int MK9_HEAT_DUMP_BASE_TICKS = 14;
 	/** Arms spread low, palms down, drawing the heat in (Thermal Siphon). */
 	public static final int MK9_SIPHON = 125;
+	/** v0.16.7 (user): the right arm cocked high behind, then whipped across the body (Molten Lash). */
+	public static final int MK9_LASH = 126;
 	// v0.16.1: the Hulkbuster body's clips (client IronManHulkbusterAnimatable plays them while the full Mark 8 is worn);
 	// numbered 100+ (the body never uses the humanoid poses)
 	public static final int HB_PUNCH = 100;
@@ -88,6 +99,8 @@ public final class IronManAbilityFx {
 	public static final int HB_MISSILE_SWARM = 108;
 	public static final int HB_HYDRAULIC_BRACE = 109;
 	public static final int HB_REPLACEMENT_POD = 110;
+	/** v0.16.7 (user): both huge palms thrust out together, then the recoil (Palm Cannon). */
+	public static final int HB_PALM_CANNON = 111;
 
 	/** v0.16.1: the Hulkbuster body clip name for a HB_* pose id, or null. */
 	public static String hulkbusterClip(int anim) {
@@ -103,6 +116,7 @@ public final class IronManAbilityFx {
 			case HB_MISSILE_SWARM -> "missile_swarm";
 			case HB_HYDRAULIC_BRACE -> "hydraulic_brace";
 			case HB_REPLACEMENT_POD -> "replacement_pod";
+			case HB_PALM_CANNON -> "palm_cannon";
 			default -> null;
 		};
 	}

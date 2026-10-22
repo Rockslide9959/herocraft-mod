@@ -84,6 +84,9 @@ public final class IronManComicState {
 		String channel;
 		long channelStart;
 		long channelUntil;
+		/** v0.16.7 (user): when the Hulkbuster's C went down (tap = Hydraulic Brace, hold = Sentry Mode); 0 = not held. */
+		long cPressAt;
+		boolean cHeld;
 	}
 
 	private static final Map<UUID, Rt> RT = new HashMap<>();

@@ -161,7 +161,8 @@ public final class IronManSuitCompare {
 				if (kit != null) {
 					out.add(kit.key(slot).tap().nameKey());
 					// v0.16.7: an Era I C key has no Shift move (Shift+C is the emergency eject)
-					out.add(kit.key(slot).shift() != null ? kit.key(slot).shift().nameKey() : "hud.projecthero.ironman.era1.eject_move");
+					out.add(kit.key(slot).shift() != null ? kit.key(slot).shift().nameKey()
+							: suit.eraOne() ? "hud.projecthero.ironman.era1.eject_move" : "hud.projecthero.ironman.era2.fold_move");
 				}
 				continue;
 			}

@@ -152,7 +152,8 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 			for (int slot = 1; slot <= 5; slot++) {
 				h.assertTrue(comic[slot - 1].equals(s.abilityInSlot(slot)), id + " slot " + slot + " is the comic kit");
 			}
-			h.assertTrue(IronManAbilities.SUIT_TOGGLE.equals(s.abilityInSlot(6)), id + ": C store");
+			h.assertTrue(com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C.equals(s.abilityInSlot(6)),
+					id + ": C is a kit key (v0.16.7 (user): a utility moved off V; Shift+C folds)");
 			h.assertTrue(s.fullBodyShield(), id + ": the 360-degree shield");
 		}
 		h.succeed();
@@ -166,7 +167,8 @@ public class IronManMk67V0154GameTests implements FabricGameTest {
 			ServerPlayer p = suited(h, id);
 			IronManEnergy.setIntegrity(p, id, 99_999f);
 			h.assertTrue(IronManEnergy.integrity(p, id) == IronManEnergy.maxIntegrity(id), id + " integrity caps");
-			h.assertTrue(IronManEnergy.energy(p, id) == IronManEnergy.FULL, id + " the inert energy shim reads full");
+			h.assertTrue(IronManEnergy.energy(p, id) == IronManEnergy.capacity(id) && IronManEnergy.capacity(id) < IronManEnergy.FULL * 3f
+					&& IronManEnergy.real(id), id + " v0.16.7 (user): a real Era II reactor, full until used");
 			IronManEnergy.setIntegrity(p, id, 100f);
 			IronManSuit suit = IronManSuits.byId(id);
 			// in combat: no repair

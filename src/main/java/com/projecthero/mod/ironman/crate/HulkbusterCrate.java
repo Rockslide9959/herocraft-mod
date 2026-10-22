@@ -132,9 +132,16 @@ public final class HulkbusterCrate {
 	static void toOrbit(ServerLevel level, ServerPlayer owner, List<ItemStack> pieces, float integrity, Vec3 at) {
 		NonNullList<ItemStack> slots = NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		boolean any = false;
+		// v0.16.7 (user) Era II: the reactor charge travels with the pieces (the lowest piece's, as the integrity)
+		float energy = IronManEnergy.capacity(SUIT_ID);
+		for (ItemStack s : pieces) {
+			if (s.getItem() instanceof ArmorItem && !s.isEmpty()) {
+				energy = Math.min(energy, IronManEnergy.stackEnergy(s, SUIT_ID));
+			}
+		}
 		for (ItemStack s : pieces) {
 			if (s.getItem() instanceof ArmorItem a && !s.isEmpty()) {
-				IronManEnergy.stampStack(s, 0f, integrity);
+				IronManEnergy.stampStack(s, energy, integrity);
 				slots.set(SuitcaseContents.slotOf(a.getType()), s);
 				any = true;
 			}
@@ -156,7 +163,7 @@ public final class HulkbusterCrate {
 			target = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
 		}
 		SuitcaseContents.write(target, slots);
-		IronManEnergy.stampStack(target, 0f, integrity);
+		IronManEnergy.stampStack(target, energy, integrity);
 		if (owner != null) {
 			if (fresh) {
 				IronManSuitUpManager.placeSuitcase(owner, target);

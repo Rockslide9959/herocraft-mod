@@ -283,8 +283,9 @@ public class DirectionalFlightGameTests implements FabricGameTest {
 		player.setOnGround(false); // v0.16.1: no suit energy -- flight never drains anything
 
 		IronManFlight.tick(player);
-		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6") == com.projecthero.mod.ironman.IronManEnergy.FULL
-				&& com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_6") == 250f, "hovering costs nothing");
+		// v0.16.7 (user) Era II: the reactor pays the flight drain in the suit ticker (IronManEnergy.tickRecharge), not here
+		helper.assertTrue(com.projecthero.mod.ironman.IronManEnergy.energy(player, "mark_6") == com.projecthero.mod.ironman.IronManEnergy.capacity("mark_6")
+				&& com.projecthero.mod.ironman.IronManEnergy.integrity(player, "mark_6") == 250f, "a flight tick alone costs nothing");
 		helper.assertTrue(IronManFlight.isFlying(player), "still flying after a tick in the air");
 
 		player.setSprinting(true);

@@ -117,25 +117,27 @@ public class IronManMk9KitGameTests implements FabricGameTest {
 	// ------------------------------------------------------------------ the kit
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void theInfernoHasAFiveKeyKitLikeItsEraTwoSiblings(GameTestHelper h) {
+	public void theInfernoHasASixKeyKitLikeItsEraTwoSiblings(GameTestHelper h) {
 		IronManComicKit.Kit kit = IronManComicKit.kit(MK9);
-		h.assertTrue(kit != null && kit.keys().size() == 5, "a five-key (R G X Z V) kit, as the Mk VI / VII / VIII / Hulkbuster");
+		// v0.16.7 (user): R G X Z V + C (Thermal Siphon moved to C, the new Molten Lash on Shift+V)
+		h.assertTrue(kit != null && kit.keys().size() == 6, "a six-key (R G X Z V C) kit, as the Mk VI / VII / VIII / Hulkbuster");
 		String[][] ids = { { "mk9_fire_blast", "mk9_inferno_stream" }, { "mk9_magma_fist", "mk9_eruption" },
-				{ "mk9_afterburner", "mk9_lava_geyser" }, { "mk9_magma_bomb", "mk9_firestorm" }, { "mk9_heat_dump", "mk9_thermal_siphon" } };
+				{ "mk9_afterburner", "mk9_lava_geyser" }, { "mk9_magma_bomb", "mk9_firestorm" }, { "mk9_heat_dump", "mk9_molten_lash" } };
 		for (int slot = 1; slot <= 5; slot++) {
 			for (int s = 0; s < 2; s++) {
 				IronManComicKit.Move m = IronManComicKit.move(MK9, slot, s == 1);
 				h.assertTrue(m != null && m.id().equals(ids[slot - 1][s]), "slot " + slot + (s == 1 ? " Shift" : " tap") + " = " + ids[slot - 1][s]);
 				h.assertTrue(m.cooldownTicks() > 0, m.id() + " has a cooldown");
-				h.assertTrue(IronManComicKit.energyCost(m.id()) == 0f && IronManComicKit.energyPerSecond(m.id()) == 0f,
-						m.id() + " costs no energy (Era II keeps the no-energy shim)");
+				h.assertTrue(IronManComicKit.energyCost(m.id()) > 0f || IronManComicKit.energyPerSecond(m.id()) > 0f,
+						m.id() + " costs energy (v0.16.7 (user): Era II has a reactor)");
 				h.assertTrue(IronManComicKit.isKitSlot(mk9().abilityInSlot(slot)), "slot " + slot + " routes to the comic kit");
 				t(m.nameKey()); // the HUD name exists
 			}
 		}
 		h.assertTrue(IronManComicKit.byId("mk9_inferno_stream").input() == IronManComicKit.Input.HOLD, "the stream is held");
-		h.assertTrue(IronManAbilities.SUIT_TOGGLE.equals(mk9().abilityInSlot(6)), "C stays the suit toggle (fold hint; Shift+C folds)");
-		h.assertTrue(IronManEnergy.capacity(MK9) == IronManEnergy.FULL, "no reactor");
+		h.assertTrue(IronManComicKit.SLOT_C.equals(mk9().abilityInSlot(6)) && "mk9_thermal_siphon".equals(kit.key(6).tap().id())
+				&& kit.key(6).shift() == null, "C = Thermal Siphon (Shift+C is still the fold)");
+		h.assertTrue(IronManEnergy.capacity(MK9) == 1700f, "an Era II reactor");
 		// on the Era II scale: between the Mk VIII Space and the Hulkbuster
 		h.assertTrue(IronManComicKit.byId("mk9_fire_blast").damage() >= IronManComicKit.byId("mk7_repulsor").damage()
 				&& IronManComicKit.byId("mk9_fire_blast").damage() < IronManComicKit.byId("mk8_punch_combo").damage(), "R on the Era II scale");
@@ -292,7 +294,7 @@ public class IronManMk9KitGameTests implements FabricGameTest {
 		h.getLevel().setBlockAndUpdate(base.offset(-2, 0, 3), Blocks.FIRE.defaultBlockState());
 		h.getLevel().setBlockAndUpdate(base.offset(0, -1, 4), Blocks.LAVA.defaultBlockState());
 		IronManEnergy.setIntegrity(p, MK9, 1000f);
-		h.assertTrue(IronManComicRouter.fireForTests(p, mk9(), 5, true), "Thermal Siphon fires");
+		h.assertTrue(IronManComicRouter.fireForTests(p, mk9(), 6, false), "Thermal Siphon fires (C)");
 		float heat = IronManMark9.heat(p);
 		h.assertTrue(heat >= 3 * IronManMark9.SIPHON_HEAT_PER_SOURCE - 1e-3f, "at least three sources drawn: " + heat);
 		h.assertTrue(!h.getLevel().getBlockState(base.offset(3, 0, 2)).is(Blocks.FIRE)
@@ -303,7 +305,7 @@ public class IronManMk9KitGameTests implements FabricGameTest {
 		// nothing hot: refused, no cooldown
 		TonyStark.triggerCooldown(p, MK9, "mk9_thermal_siphon", 0);
 		h.getLevel().setBlockAndUpdate(base.offset(0, -1, 4), Blocks.STONE.defaultBlockState());
-		h.assertFalse(IronManComicRouter.fireForTests(p, mk9(), 5, true), "nothing hot nearby: refused");
+		h.assertFalse(IronManComicRouter.fireForTests(p, mk9(), 6, false), "nothing hot nearby: refused");
 		leave(h, p);
 		h.succeed();
 	}
@@ -318,6 +320,9 @@ public class IronManMk9KitGameTests implements FabricGameTest {
 		}
 		for (IronManComicKit.Key key : IronManComicKit.kit(MK9).keys()) {
 			for (IronManComicKit.Move m : new IronManComicKit.Move[] { key.tap(), key.shift() }) {
+				if (m == null) {
+					continue; // v0.16.7 (user): C has no Shift move (Shift+C folds)
+				}
 				h.assertTrue(IronManUiLayout.approxWidth(t(m.nameKey())) <= widest, m.id() + " is no wider than the existing Era II names");
 			}
 		}

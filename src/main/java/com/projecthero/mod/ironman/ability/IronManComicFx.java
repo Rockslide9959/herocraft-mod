@@ -47,6 +47,10 @@ final class IronManComicFx {
 	static final int BEAM_MEGA = 11;
 	/** v0.16.7 (user) Era II stage 3: the Mk IX Inferno's Fire Blast -- an orange-red plasma bolt. */
 	static final int BEAM_FIRE = 12;
+	/** v0.16.7 (user) Era II C rework: the Mk VI's Wrist Laser -- a thin, hot red cutting beam. */
+	static final int BEAM_WRIST_LASER = 13;
+	/** v0.16.7 (user): the Hulkbuster's Palm Cannon -- two fat white-gold palm blasts. */
+	static final int BEAM_PALM_CANNON = 15;
 
 	private IronManComicFx() {
 	}

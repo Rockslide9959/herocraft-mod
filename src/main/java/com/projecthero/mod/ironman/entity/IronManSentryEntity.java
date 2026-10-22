@@ -265,6 +265,12 @@ public class IronManSentryEntity extends Entity {
 	private UUID ownerId;
 	private String suitId = "";
 	private float energy;
+	/**
+	 * v0.16.7 (user) Era II: the suit's REAL reactor charge while it stands as a sentry (the sentry's own {@link #energy}
+	 * stays the always-full v0.16.1 value its modes run on). Stamped back onto the pieces / the wearer when they leave it;
+	 * -1 = unknown (an old save): read as full.
+	 */
+	private float reactor = -1f;
 	private float integrity;
 	private BlockPos lightPos;
 
@@ -386,6 +392,7 @@ public class IronManSentryEntity extends Entity {
 			s.setStack(i, pieces[i]);
 		}
 		s.setEnergy(energy);
+		s.reactor = energy;
 		s.setIntegrity(integrity);
 		s.setMode(rememberedMode(pieces[1]));
 		float yaw = player.getYRot();
@@ -428,6 +435,7 @@ public class IronManSentryEntity extends Entity {
 			}
 		}
 		s.setEnergy(energy);
+		s.reactor = energy;
 		s.setIntegrity(integrity);
 		s.setMode(REGULAR);
 		s.setOpen(false);
@@ -512,6 +520,13 @@ public class IronManSentryEntity extends Entity {
 			}
 		}
 		s.setEnergy(IronManEnergy.FULL);
+		float charge = IronManEnergy.capacity(suitId);
+		for (ItemStack piece : pieces) {
+			if (piece.getItem() instanceof ArmorItem) {
+				charge = Math.min(charge, IronManEnergy.stackEnergy(piece, suitId));
+			}
+		}
+		s.reactor = charge; // v0.16.7 (user): the crate brought the suit down with its charge
 		s.setIntegrity(integrity);
 		s.setMode(REGULAR);
 		s.setOpen(false);
@@ -612,6 +627,11 @@ public class IronManSentryEntity extends Entity {
 			n += stack(i).isEmpty() ? 0 : 1;
 		}
 		return n;
+	}
+
+	/** v0.16.7 (user): the suit's real reactor charge (full when unknown / a suit without a reactor). */
+	public float reactorCharge() {
+		return reactor < 0f ? IronManEnergy.capacity(suitId()) : reactor;
 	}
 
 	public float energy() {
@@ -1919,7 +1939,7 @@ public class IronManSentryEntity extends Entity {
 		for (int i = 0; i < 4; i++) {
 			out[i] = stacks[i];
 			if (!out[i].isEmpty()) {
-				IronManEnergy.stampStack(out[i], energy, integrity);
+				IronManEnergy.stampStack(out[i], reactorCharge(), integrity);
 			}
 			if (keepLook) {
 				stacks[i] = ItemStack.EMPTY;
@@ -1940,7 +1960,7 @@ public class IronManSentryEntity extends Entity {
 			return;
 		}
 		String sid = suitId();
-		float e = energy;
+		float e = reactorCharge(); // v0.16.7 (user): the real reactor charge, not the sentry's always-full value
 		float i = integrity;
 		int mode = prevMode >= 0 ? prevMode : mode(); // v0.15.15: an auto-defend remembers the mode it came from
 		STEPPING.remove(owner.getUUID());
@@ -2312,6 +2332,7 @@ public class IronManSentryEntity extends Entity {
 			setStack(i, tag.contains(key) ? ItemStack.parseOptional(registryAccess(), tag.getCompound(key)) : ItemStack.EMPTY);
 		}
 		setEnergy(tag.getFloat("Energy"));
+		reactor = tag.contains("Reactor") ? tag.getFloat("Reactor") : -1f; // v0.16.7 (user)
 		setIntegrity(tag.contains("Integrity") ? tag.getFloat("Integrity") : IronManEnergy.maxIntegrity(suitId()));
 		setMode(tag.getInt("Mode"));
 		setOpen(tag.getBoolean("Open"));
@@ -2338,6 +2359,9 @@ public class IronManSentryEntity extends Entity {
 			}
 		}
 		tag.putFloat("Energy", energy);
+		if (reactor >= 0f) {
+			tag.putFloat("Reactor", reactor); // v0.16.7 (user) Era II
+		}
 		tag.putFloat("Integrity", integrity);
 		tag.putInt("Mode", prevMode >= 0 ? prevMode : mode()); // v0.15.15: an auto-defend saves the mode it came from
 		tag.putBoolean("Open", isOpen());

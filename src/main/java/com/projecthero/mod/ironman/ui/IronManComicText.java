@@ -49,8 +49,8 @@ public final class IronManComicText {
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.armour"), armour(suit)));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.integrity"), fmt(suit.maxIntegrity())));
 		out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.absorb"), Math.round(suit.absorbShare() * 100f) + "%"));
-		if (suit.eraOne()) {
-			// v0.16.7 (user) Era I: the reactor is back -- capacity and regen
+		if (suit.hasReactor()) {
+			// v0.16.7 (user) Era I / Era II: the reactor is back -- capacity and regen
 			out.add(new Row(Component.translatable("screen.projecthero.ironman_comic.energy"), Component.translatable(
 					"screen.projecthero.ironman_comic.energy_value", fmt(suit.energyCapacity()), fmt(suit.energyRegenPerSecond())).getString()));
 		}
@@ -97,7 +97,9 @@ public final class IronManComicText {
 		IronManComicKit.Key c = kit.key(6);
 		if (c != null && c.tap() != null) {
 			String key = keys != null && keys.length >= 6 ? keys[5] : "6";
-			out.add(Component.translatable("screen.projecthero.ironman_comic.move_line_c", key, move(c.tap())));
+			// v0.16.7 (user) Era II: Shift+C (hold) folds the suit into its portable form instead of the eject
+			out.add(Component.translatable(suit.eraOne() ? "screen.projecthero.ironman_comic.move_line_c"
+					: "screen.projecthero.ironman_comic.move_line_c_fold", key, move(c.tap())));
 		}
 		return out;
 	}

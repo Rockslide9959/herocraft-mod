@@ -56,7 +56,7 @@ public class IronManBackpackFormGameTests implements FabricGameTest {
 			slots.set(bit, new ItemStack(IronManItems.armor(form.suitId(), TYPES[bit])));
 		}
 		SuitcaseContents.write(c, slots);
-		IronManEnergy.stampStack(c, 0f, integrity);
+		IronManEnergy.stampStack(c, IronManEnergy.capacity(form.suitId()), integrity); // v0.16.7 (user): a full Era II reactor
 		return c;
 	}
 
@@ -233,10 +233,12 @@ public class IronManBackpackFormGameTests implements FabricGameTest {
 		p.getInventory().items.set(10, pack(MK8, 500f));
 		wear(p, MK7.suitId());
 		h.assertFalse(PortableDeploy.deploy(p, MK8.suitId()), "not while another suit is worn");
-		// plain C on the worn Mk VII keeps its old store -- it never packs it into a backpack
+		// plain C on the worn Mk VII is a kit move now (v0.16.7 (user): tap = Energy Shield, hold = Overload Burst) -- never the fold
 		p.getInventory().items.set(10, ItemStack.EMPTY);
 		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		IronManAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
 		h.assertFalse(PortableDeploy.running(p), "plain C is not the fold");
+		h.assertTrue(IronManArmor.wearingFullSuit(p, MK7.suitId()), "and the suit stays on");
 		run(p);
 		h.assertTrue(count(p, IronManItems.CENTURION_BACKPACK) == 0, "and makes no pack");
 		ServerPlayer q = player(h);

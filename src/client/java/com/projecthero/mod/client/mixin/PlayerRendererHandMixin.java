@@ -78,6 +78,9 @@ public abstract class PlayerRendererHandMixin {
 		// v0.15.4: the Colantotte Bracelets on the bare first-person wrist (hidden under an Iron Man gauntlet)
 		com.projecthero.mod.client.ironman.ColantotteBraceletsLayer.renderFirstPerson(pose, buffers, light, player, arm,
 				arm == ((PlayerRenderer) (Object) this).getModel().rightArm);
+		// v0.16.7 (user): the Mk VII Silver Centurion's blade on the first-person arm
+		com.projecthero.mod.client.ironman.CenturionBladeLayer.renderFirstPerson(pose, buffers, light, player, arm,
+				arm == ((PlayerRenderer) (Object) this).getModel().rightArm, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
 		if (!(chest.getItem() instanceof SuperheroArmorItem piece)) {
 			return;

@@ -101,8 +101,9 @@ public class IronManSentryV01515GameTests implements FabricGameTest {
 		return be;
 	}
 
+	/** The sentry's own (always-full v0.16.1) energy value; v0.16.7 (user): the suit's real reactor rides separately. */
 	private static float cap() {
-		return IronManEnergy.capacity(SUIT);
+		return IronManEnergy.FULL;
 	}
 
 	// ------------------------------------------------------------------ step out / step in

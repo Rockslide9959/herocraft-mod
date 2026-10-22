@@ -198,6 +198,18 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 			}
 			return;
 		}
+		if (suit.hasReactor()) {
+			// v0.16.7 (user) Era II: any rack repairs (as before) and charges the reactor +25/s -- +50/s next to a Stark Gantry
+			float energy = suitEnergy();
+			float cap = suit.energyCapacity();
+			float rate = gantryInRange() ? IronManEnergy.GANTRY_CHARGE_PER_SECOND : IronManEnergy.ERA_TWO_PLATFORM_CHARGE_PER_SECOND;
+			float newEnergy = Math.min(cap, energy + rate / 20f);
+			float newInteg = Math.min(maxInteg, Math.max(integ, integ + REGEN_INTEGRITY_PER_SECOND / 20f));
+			if (newEnergy != energy || newInteg != integ) {
+				stampAllPieces(newEnergy, newInteg);
+			}
+			return;
+		}
 		if (integ >= maxInteg) {
 			return;
 		}
