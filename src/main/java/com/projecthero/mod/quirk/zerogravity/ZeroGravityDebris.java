@@ -370,7 +370,8 @@ public final class ZeroGravityDebris {
 	 * a block and a half below the ceiling over that point (never lower than 3 blocks up).
 	 */
 	private static Vec3 cloudTarget(ServerPlayer p) {
-		Vec3 aim = AbilityHelpers.aimPoint(p, ZeroGravityConfig.CLOUD_AIM_RANGE);
+		// (backed off the surface she aims at, so a wall she looks at does not count as a ceiling)
+		Vec3 aim = AbilityHelpers.aimPoint(p, ZeroGravityConfig.CLOUD_AIM_RANGE).subtract(p.getLookAngle().scale(0.6));
 		double base = p.getY() + 1.0;
 		Vec3 from = new Vec3(aim.x, base, aim.z);
 		Vec3 to = new Vec3(aim.x, p.getY() + ZeroGravityConfig.CLOUD_HEIGHT + 1.5, aim.z);

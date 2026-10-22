@@ -114,7 +114,7 @@ public final class ZeroGravityClient implements QuirkClientKit {
 						level.addParticle(FIELD_PINK, c.x + Math.cos(a) * rr, c.y + h, c.z + Math.sin(a) * rr, 0, 0, 0);
 					}
 					if (rnd.nextInt(2) == 0) {
-						level.addParticle(ParticleTypes.END_ROD, c.x + (rnd.nextDouble() - 0.5) * r * 1.4, c.y + rnd.nextDouble() * 2.5,
+						level.addParticle(FIELD_PINK, c.x + (rnd.nextDouble() - 0.5) * r * 1.4, c.y + rnd.nextDouble() * 2.5,
 								c.z + (rnd.nextDouble() - 0.5) * r * 1.4, 0, 0.03, 0);
 					}
 				}
