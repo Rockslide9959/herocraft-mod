@@ -209,6 +209,11 @@ public final class OverhaulPose {
 		float[][] f = s == null || s.animId < Overhaul.ANIM_BASE || s.animId > Overhaul.ANIM_LAST ? null : frames(s.animId);
 		if (f != null) {
 			float tick = player.level().getGameTime() - s.animStart + partial;
+			if (s.animId == Overhaul.ANIM_SURF && tick > 20f && Overhaul.running(player, Overhaul.V_SURF)) {
+				// v0.16.7 (user): the surf runs as long as X is held -- rock gently in the riding stance (frames 20..31)
+				float x = (tick - 20f) % 22f;
+				tick = 20f + (x < 11f ? x : 22f - x);
+			}
 			float[] p = sample(f, tick);
 			if (p != null) {
 				float end = f[f.length - 1][0];

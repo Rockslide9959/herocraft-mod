@@ -74,8 +74,8 @@ public final class OverhaulMoves {
 		boolean strikeHit;
 		/** Every temporary block he placed (gametests / debugging). */
 		final List<BlockPos> placed = new ArrayList<>();
-		/** Terrain Surf: who its wave already threw aside. */
-		final Set<Integer> surfHit = new HashSet<>();
+		/** Terrain Surf: when its wave last threw each creature aside (entity id -> game time). */
+		final Map<Integer, Long> surfHit = new java.util.HashMap<>();
 		/** No fall damage until (Terrain Surf / Pillar Launch). */
 		long safeFallUntil;
 	}
@@ -91,6 +91,8 @@ public final class OverhaulMoves {
 	private static final ResourceLocation REACH_ID = PowerToggles.id("quirk_overhaul_fusion_reach");
 	private static final ResourceLocation BLOCK_REACH_ID = PowerToggles.id("quirk_overhaul_fusion_block_reach");
 	private static final ResourceLocation SPEED_ID = PowerToggles.id("quirk_overhaul_fusion_speed");
+	/** v0.16.7 (user): Terrain Surf's 2-block step assist on Attributes.STEP_HEIGHT (transient; off when the surf ends). */
+	public static final ResourceLocation SURF_STEP_ID = PowerToggles.id("quirk_overhaul_surf_step");
 
 	private OverhaulMoves() {
 	}
@@ -886,13 +888,22 @@ public final class OverhaulMoves {
 
 	// ================================================================ X: Terrain Surf / Shift+X: Pillar Launch (movement)
 
+	/** Synced {@link Overhaul#V_SURF} while the wave runs: it runs for as long as X is held, so it has no end time. */
+	public static final long SURF_HELD = Long.MAX_VALUE;
+
+	/** Server: the wave is running. */
+	public static boolean surfing(ServerPlayer p) {
+		return Quirks.state(p).val(Overhaul.V_SURF) != 0L;
+	}
+
 	/**
 	 * The ground under him comes apart and reforms a step ahead, over and over: a wave of earth carries him along the way
-	 * he looks for {@link OverhaulConfig#SURF_TICKS} (X again: off), throwing aside what it runs over. Returns true when
-	 * it started (false: refused, or it was running and has stopped).
+	 * he looks for as long as X is held (v0.16.7, user) -- letting go, X again, water, or Focus running dry
+	 * ({@link OverhaulConfig#SURF_DRAIN_PER_TICK}) ends it -- stepping him up 2-block rises and throwing aside what it runs
+	 * over. Returns true when it started (false: refused, or it was running and has stopped).
 	 */
 	public static boolean surf(ServerPlayer p) {
-		if (Quirks.state(p).val(Overhaul.V_SURF) != 0L) {
+		if (surfing(p)) {
 			endSurf(p);
 			return false;
 		}
@@ -906,39 +917,60 @@ public final class OverhaulMoves {
 		spend(p, OverhaulConfig.SURF_COST);
 		Session s = session(p);
 		s.surfHit.clear();
-		s.safeFallUntil = now(p) + OverhaulConfig.SURF_TICKS + OverhaulConfig.SURF_SAFE_TICKS;
-		Quirks.setVal(p, Overhaul.V_SURF, now(p) + OverhaulConfig.SURF_TICKS);
+		s.safeFallUntil = Long.MAX_VALUE; // set to SURF_SAFE_TICKS after the end by endSurf
+		Quirks.setVal(p, Overhaul.V_SURF, SURF_HELD);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SURF_STEP_ID, OverhaulConfig.SURF_STEP_HEIGHT - 0.6,
+				AttributeModifier.Operation.ADD_VALUE);
 		palmToGround(p, under);
 		touchSound(p);
 		sound(p, SoundEvents.ROOTED_DIRT_BREAK, 1.0f, 0.6f);
-		done(p, OverhaulConfig.SURF, OverhaulConfig.SURF_COOLDOWN, Overhaul.ANIM_SURF);
+		Quirks.setAnim(p, Overhaul.ANIM_SURF);
 		return true;
 	}
 
-	static void endSurf(ServerPlayer p) {
-		if (Quirks.state(p).val(Overhaul.V_SURF) == 0L) {
+	/** Off the wave: the step assist goes, a short no-fall window stays, and the (short) cooldown starts now. */
+	public static void endSurf(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SURF_STEP_ID);
+		if (!surfing(p)) {
 			return;
 		}
 		Quirks.setVal(p, Overhaul.V_SURF, 0L);
+		Session s = SESSIONS.get(p.getUUID());
+		if (s != null) {
+			s.safeFallUntil = now(p) + OverhaulConfig.SURF_SAFE_TICKS;
+		}
 		Vec3 v = p.getDeltaMovement();
 		AbilityHelpers.launchSelf(p, new Vec3(v.x * 0.4, Math.max(v.y, 0.0), v.z * 0.4));
-		Quirks.setAnim(p, com.projecthero.mod.quirk.data.QuirkState.ANIM_NONE);
+		Quirks.setCooldown(p, OverhaulConfig.SURF, OverhaulConfig.SURF_COOLDOWN);
+		if (Quirks.state(p).animId == Overhaul.ANIM_SURF) {
+			Quirks.setAnim(p, com.projecthero.mod.quirk.data.QuirkState.ANIM_NONE);
+		}
 	}
 
 	private static void tickSurf(ServerPlayer p, Session s) {
-		long until = Quirks.state(p).val(Overhaul.V_SURF);
-		if (until == 0L) {
+		if (!surfing(p)) {
 			return;
 		}
-		if (now(p) >= until || p.isInWater() || p.isPassenger()) {
+		if (p.isInWater() || p.isPassenger() || !p.isAlive() || Overhaul.gloved(p)) {
 			endSurf(p);
 			return;
 		}
+		// the ride costs Focus as it goes; dry, his focus breaks (the lockout) and he drops off the wave
+		spend(p, OverhaulConfig.SURF_DRAIN_PER_TICK);
+		if (Quirks.meter(p) < 1f) {
+			endSurf(p);
+			return;
+		}
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SURF_STEP_ID, OverhaulConfig.SURF_STEP_HEIGHT - 0.6,
+				AttributeModifier.Operation.ADD_VALUE);
 		ServerLevel level = p.serverLevel();
 		Vec3 dir = flatLook(p);
 		BlockPos cell = groundUnder(p);
-		// ride the ground: forward, hugging the terrain (a step up or down at a time)
-		double vy = cell == null ? -0.25 : Mth.clamp((cell.getY() + 0.15 - p.getY()) * 0.5, -0.35, 0.55);
+		// ride the ground: forward, hugging the terrain. On the level he is pressed gently down onto it -- a downward move
+		// that lands keeps him "on the ground", which is what lets the 2-block step assist carry him up a rise in the
+		// same move (vanilla only steps up from the ground)
+		double dy = cell == null ? -0.5 : cell.getY() - p.getY();
+		double vy = cell == null ? -0.25 : dy > 0.05 ? Mth.clamp(dy * 0.5, 0.1, 0.55) : Mth.clamp(dy * 0.5, -0.35, -0.08);
 		AbilityHelpers.launchSelf(p, new Vec3(dir.x * OverhaulConfig.SURF_SPEED, vy, dir.z * OverhaulConfig.SURF_SPEED));
 		p.resetFallDistance();
 		if (cell != null) {
@@ -955,8 +987,8 @@ public final class OverhaulMoves {
 			}
 		}
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(0.8, 0.2, 0.8).move(dir.scale(0.8)),
-				e -> OverhaulCombat.isTarget(p, e) && !s.surfHit.contains(e.getId()))) {
-			s.surfHit.add(e.getId());
+				e -> OverhaulCombat.isTarget(p, e) && now(p) - s.surfHit.getOrDefault(e.getId(), -1000L) >= OverhaulConfig.SURF_REHIT_TICKS)) {
+			s.surfHit.put(e.getId(), now(p));
 			Vec3 side = new Vec3(-dir.z, 0, dir.x);
 			Vec3 from = e.position().subtract(side.scale(Math.signum(side.dot(e.position().subtract(p.position())) + 1.0e-3)));
 			OverhaulCombat.strike(p, e, from, OverhaulCombat.scaled(p, OverhaulConfig.SURF_DAMAGE), 0.9, 0.45);
@@ -1051,6 +1083,12 @@ public final class OverhaulMoves {
 
 	// ================================================================ the tick / lifecycle
 
+	/** Focus refilled a tick: 12 a second, x2 with the gloves on, x0.5 in the Fusion form. */
+	public static float focusRegenPerTick(boolean gloved, boolean fused) {
+		return OverhaulConfig.FOCUS_REGEN_PER_TICK * (gloved ? OverhaulConfig.GLOVES_REGEN_MULT : 1f)
+				* (fused ? OverhaulConfig.FUSION_REGEN_MULT : 1f);
+	}
+
 	static void tick(ServerPlayer p) {
 		long now = now(p);
 		com.projecthero.mod.quirk.data.QuirkState st = Quirks.state(p);
@@ -1072,9 +1110,10 @@ public final class OverhaulMoves {
 				p.serverLevel().sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.DEEPSLATE.defaultBlockState()),
 						c.x, c.y, c.z, 2, 0.4, 0.6, 0.4, 0.0);
 			}
-		} else if (now - s.lastSpend >= OverhaulConfig.FOCUS_REGEN_DELAY || now < s.lastSpend) {
-			float regen = OverhaulConfig.FOCUS_REGEN_PER_TICK * (st.val(Overhaul.V_GLOVES) != 0L ? OverhaulConfig.GLOVES_REGEN_MULT : 1f);
-			Quirks.addMeter(p, regen);
+		}
+		// v0.16.7 (user): a steady refill like the elemental mutations' meters (none while the surf drains it)
+		if (st.val(Overhaul.V_SURF) == 0L && (now - s.lastSpend >= OverhaulConfig.FOCUS_REGEN_DELAY || now < s.lastSpend)) {
+			Quirks.addMeter(p, focusRegenPerTick(st.val(Overhaul.V_GLOVES) != 0L, fused));
 		}
 		tickScale(p, fused);
 		tickStrike(p, s);
@@ -1110,6 +1149,7 @@ public final class OverhaulMoves {
 		if (Quirks.state(p).val(Overhaul.V_SURF) != 0L) {
 			Quirks.setVal(p, Overhaul.V_SURF, 0L);
 		}
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SURF_STEP_ID);
 		if (Quirks.state(p).val(Overhaul.V_FUSION) != 0L) {
 			endFusion(p);
 		}
