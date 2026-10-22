@@ -153,7 +153,7 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 		if (glow > 0.01f) {
 			renderHeat(pose, buffers, frame, glow, b);
 		}
-		renderPlates(pose, buffers, light, form, frame);
+		renderPlates(pose, buffers, light, form, frame, IronManPortableClient.viewedFromInside(player));
 	}
 
 	/** The case's matrix in the anchor frame: from the hand (live) to the floor in front, then shrinking away. */
@@ -376,7 +376,8 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 	 * Charcoal plates (now and then a bronze one) fly up out of the glowing case to wherever the suit is building (boots
 	 * first, up to the helmet) -- a pure function of the frame, so the fold has them dive back into the case.
 	 */
-	private static void renderPlates(PoseStack pose, MultiBufferSource buffers, int light, PortableForm form, float frame) {
+	private static void renderPlates(PoseStack pose, MultiBufferSource buffers, int light, PortableForm form, float frame,
+			boolean inside) {
 		int first = form.pieceOnAt(3);
 		int last = form.beats().sealAt() - 6;
 		if (frame < first || frame > last + CHIP_FLIGHT) {
@@ -399,7 +400,10 @@ final class Mk9HeatCaseProp implements IronManPortableClient.PortableProp {
 			float e = t * t * (3f - 2f * t);
 			float x = Mth.lerp(e, sx, ex), z = Mth.lerp(e, sz, ez);
 			float y = Mth.lerp(e, sy, ey) + 0.3f * (float) Math.sin(Math.PI * t);
-			float s = 0.06f * (1f - 0.55f * t) + 0.02f * r1;
+			float s = (0.06f * (1f - 0.55f * t) + 0.02f * r1) * IronManPortableClient.nearEyeScale(inside, x, y, z);
+			if (s <= 0.001f) {
+				continue; // v0.16.7 (user): first person -- a plate at your own eyes is not drawn over the screen
+			}
 			boolean bronze = (i % 4) == 2;
 			// fresh out of the heat: glowing at first, cooling to charcoal on the way
 			float hot = Mth.clamp(1f - t * 2.2f, 0f, 1f);

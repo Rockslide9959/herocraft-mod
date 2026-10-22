@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " R ",
+    "PMP",
+    "PNP"
+  ],
+  "key": {
+    "R": {
+      "item": "minecraft:blaze_rod"
+    },
+    "P": {
+      "item": "projecthero:titanium_gold_plate"
+    },
+    "M": {
+      "item": "minecraft:magma_cream"
+    },
+    "N": {
+      "item": "minecraft:netherite_scrap"
+    }
+  },
+  "result": {
+    "id": "projecthero:mark_9_heat_case",
+    "count": 1,
+    "components": {
+      "minecraft:container": []
+    }
+  }
+}

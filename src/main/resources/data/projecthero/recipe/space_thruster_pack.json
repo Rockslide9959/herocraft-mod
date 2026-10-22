@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "LTL",
+    "MPM",
+    "PSP"
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:leather"
+    },
+    "T": {
+      "item": "projecthero:thermal_shielding"
+    },
+    "M": {
+      "item": "projecthero:micro_thruster"
+    },
+    "P": {
+      "item": "projecthero:titanium_gold_plate"
+    },
+    "S": {
+      "item": "projecthero:servo_motor"
+    }
+  },
+  "result": {
+    "id": "projecthero:space_thruster_pack",
+    "count": 1,
+    "components": {
+      "minecraft:container": []
+    }
+  }
+}

@@ -108,7 +108,7 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 			MarkVSuitcaseRenderer.openness = 0f;
 		}
 		pose.popPose();
-		renderChips(pose, buffers, light, form, frame);
+		renderChips(pose, buffers, light, form, frame, IronManPortableClient.viewedFromInside(player));
 	}
 
 	// ---------------- the plates in flight ----------------
@@ -124,7 +124,8 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 	 * Small red / gold plates fly up out of the open tray to wherever the suit is building right now (boots first, up to
 	 * the helmet) -- a pure function of the frame, so the fold (frames backwards) has them fly back down into the case.
 	 */
-	private static void renderChips(PoseStack pose, MultiBufferSource buffers, int light, PortableForm form, float frame) {
+	private static void renderChips(PoseStack pose, MultiBufferSource buffers, int light, PortableForm form, float frame,
+			boolean inside) {
 		int first = form.pieceOnAt(3);
 		int last = form.beats().sealAt() - 4;
 		if (frame < first || frame > last + CHIP_FLIGHT) {
@@ -148,7 +149,10 @@ final class Mk6BriefcaseProp implements IronManPortableClient.PortableProp {
 			float e = t * t * (3f - 2f * t);
 			float x = Mth.lerp(e, sx, ex), z = Mth.lerp(e, sz, ez);
 			float y = Mth.lerp(e, sy, ey) + 0.35f * (float) Math.sin(Math.PI * t);
-			float s = 0.06f * (1f - 0.55f * t) + 0.02f * r1;
+			float s = (0.06f * (1f - 0.55f * t) + 0.02f * r1) * IronManPortableClient.nearEyeScale(inside, x, y, z);
+			if (s <= 0.001f) {
+				continue; // v0.16.7 (user): first person -- a chip at your own eyes is not drawn over the screen
+			}
 			boolean gold = (i % 3) == 1;
 			pose.pushPose();
 			pose.translate(x, y, z);

@@ -881,8 +881,14 @@ public final class IronManSuitUpManager {
 		IronManSuitFx.faceplateMoved(player);
 		IronManSounds.play(player, IronManSounds.FACEPLATE_SEAL, 0.9f, 1.0f);
 		IronManSounds.play(player, IronManSounds.POWER_UP, 0.7f, 1.0f);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.6, player.getZ(),
-				8, 0.2, 0.1, 0.2, 0.05);
+		// v0.16.7 (user) Era II fold polish: the seal sparks are for everyone ELSE -- at eye height they burst as big white
+		// crosses right over the wearer's own first-person view
+		for (ServerPlayer viewer : level.players()) {
+			if (viewer != player) {
+				level.sendParticles(viewer, ParticleTypes.ELECTRIC_SPARK, false, player.getX(), player.getY() + 1.6, player.getZ(),
+						8, 0.2, 0.1, 0.2, 0.05);
+			}
+		}
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.suit_online",
 				Component.translatable("projecthero.ironman.suit." + suitId + ".name")).withStyle(ChatFormatting.AQUA), true);
 	}

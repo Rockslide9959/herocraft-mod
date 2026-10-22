@@ -44,6 +44,8 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
 public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 	public static final Set<String> MARKS = Set.of("mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8", "mark_9"); // v0.16.7: + Mk IX
 	private static final Map<String, ResourceLocation> GLOWMASKS = new HashMap<>();
+	/** v0.16.7 (user): marks whose eyes / reactor / palms glow orange (their flash passes stay orange, see render). */
+	private static final Set<String> ORANGE_GLOW = Set.of("mark_9");
 
 	public IronManSuitGlowLayer(GeoRenderer<SuperheroArmorItem> renderer) {
 		super(renderer);
@@ -104,10 +106,13 @@ public class IronManSuitGlowLayer extends GeoRenderLayer<SuperheroArmorItem> {
 		IronManAssemblyClient.glowPass = true;
 		// v0.16.1: an Iron Legion suit Ultron has hijacked glows Ultron red
 		int tint = com.projecthero.mod.client.ultron.contagion.HijackedMarkRenderer.legion ? 0xFFFF2414 : 0xFFFFFFFF;
+		// v0.16.7 (user) Era II fold polish: the Mk IX's lights are ORANGE. The flash passes are additive, so stacking its
+		// orange mask three more times saturated it to yellow-white -- its extra passes add red / a little green only.
+		int flashTint = ORANGE_GLOW.contains(item.armorSetId()) && tint == 0xFFFFFFFF ? 0xFFFF5000 : tint;
 		try {
 			for (int i = 0; i < passes; i++) {
 				getRenderer().reRender(bakedModel, poseStack, bufferSource, animatable, glow, bufferSource.getBuffer(glow),
-						partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, tint);
+						partialTick, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, i == 0 ? tint : flashTint);
 			}
 		} finally {
 			IronManAssemblyClient.glowPass = false;

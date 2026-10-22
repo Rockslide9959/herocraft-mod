@@ -112,6 +112,7 @@ public final class IronManHud {
 		}
 		// v0.16.7 (user) Era I: the Shift+C emergency eject bar -- drawn first, so it shows on a wrecked (dark-visor) suit too
 		ejectBar(g, font, player, suit, now);
+		IronManFoldHoldBar.render(g, font, player, suit, now, delta.getGameTimeDeltaPartialTick(false)); // v0.16.7 (user) Era II: the Shift+C fold hold
 		if (com.projecthero.mod.ironman.gantry.StarkGantryFloorBlockEntity.visorDark(player)) {
 			// v0.15.15, explicit user request: on a Stark Gantry the HUD goes off the moment the arms lift the faceplate
 			// away (and comes on once it is fitted) -- the display lives in the faceplate, not the helmet

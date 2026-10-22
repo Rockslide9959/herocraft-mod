@@ -60,6 +60,7 @@ public class HulkbusterUplinkItem extends Item {
 			tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.fresh").withStyle(ChatFormatting.AQUA));
 		} else if (SuitcaseContents.isEmpty(stack)) {
 			tooltip.add(Component.translatable("item.projecthero.hulkbuster_uplink.deployed").withStyle(ChatFormatting.GOLD));
+			tooltip.add(Component.translatable("item.projecthero.portable.empty").withStyle(ChatFormatting.GRAY)); // v0.16.7 (user)
 		} else {
 			int pct = Math.round(100f * IronManEnergy.stackIntegrity(stack, HulkbusterCrate.SUIT_ID)
 					/ Math.max(1f, IronManEnergy.maxIntegrity(HulkbusterCrate.SUIT_ID)));

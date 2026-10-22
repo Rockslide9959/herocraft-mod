@@ -137,6 +137,45 @@ public final class IronManPortableClient {
 		return form != null && form.rest() == PortableForm.Place.HAND;
 	}
 
+	/**
+	 * v0.16.7 (user) Era II fold polish, FIRST person: should the vanilla held item be hidden from the main hand? A
+	 * hand-carried form's case stays in your hand until it is let go at {@code dropFrom} (the floor prop takes over from
+	 * there); a fold hides the hand throughout (the slot does not hold the case until the fold's last tick, when it is
+	 * raised into the hand like any newly held item).
+	 */
+	public static boolean firstPersonHidesHeld(Player player, float partialTick) {
+		if (!ownsRightHand(player)) {
+			return false;
+		}
+		IronManSuitFx fx = IronManSuitFx.of(player);
+		if (!PortableForms.deployPose(fx.poseKind())) {
+			return true;
+		}
+		PortableForm form = form(player);
+		float f = frame(player, partialTick);
+		return Float.isNaN(f) || f > form.beats().dropFrom();
+	}
+
+	/** v0.16.7 (user) fold polish: is {@code player} the one whose eyes this frame is drawn from (first person)? */
+	public static boolean viewedFromInside(Player player) {
+		Minecraft mc = Minecraft.getInstance();
+		return player == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
+	}
+
+	/**
+	 * v0.16.7 (user) fold polish: the scale of a flying plate at anchor-local ({@code x}, {@code y}, {@code z}) -- 1, or, seen
+	 * from inside the wearer's own eyes, shrinking to nothing as it nears them. The plates fly to the build height, and at
+	 * the helmet that is the camera: they used to fill the screen as big dark blocks in first person.
+	 */
+	public static float nearEyeScale(boolean inside, float x, float y, float z) {
+		if (!inside) {
+			return 1f;
+		}
+		float dy = y - 1.62f;
+		float d = (float) Math.sqrt(x * x + dy * dy + z * z);
+		return Mth.clamp((d - 0.35f) / 0.4f, 0f, 1f);
+	}
+
 	/** The texture of {@code player}'s piece in {@code slot} during a portable sequence, or null outside one. */
 	public static ResourceLocation texture(Player player, String setId, EquipmentSlot slot, ResourceLocation base,
 			float partialTick) {

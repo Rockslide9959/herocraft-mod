@@ -110,6 +110,9 @@ public class MarkVSuitcaseItem extends Item implements GeoItem {
 		if (!SuitcaseContents.isLegacyEmpty(stack)) {
 			tooltip.add(Component.translatable("item.projecthero.mark_v_suitcase.contents",
 					SuitcaseContents.nonEmpty(stack).size()).withStyle(ChatFormatting.GRAY));
+			if (SuitcaseContents.isEmpty(stack)) { // v0.16.7 (user): a crafted / emptied case -- how to fill it
+				tooltip.add(Component.translatable("item.projecthero.portable.empty").withStyle(ChatFormatting.GRAY));
+			}
 		}
 		tooltip.add(Component.translatable("item.projecthero.ironman.requires_tony_stark").withStyle(ChatFormatting.DARK_AQUA));
 	}

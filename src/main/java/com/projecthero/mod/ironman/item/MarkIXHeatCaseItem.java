@@ -73,6 +73,9 @@ public class MarkIXHeatCaseItem extends Item {
 		if (!SuitcaseContents.isLegacyEmpty(stack)) {
 			tooltip.add(Component.translatable("item.projecthero.mark_9_heat_case.contents",
 					SuitcaseContents.nonEmpty(stack).size()).withStyle(ChatFormatting.GRAY));
+			if (SuitcaseContents.isEmpty(stack)) { // v0.16.7 (user): a crafted / emptied case -- how to fill it
+				tooltip.add(Component.translatable("item.projecthero.portable.empty").withStyle(ChatFormatting.GRAY));
+			}
 		}
 		tooltip.add(Component.translatable("item.projecthero.mark_9_heat_case.lava").withStyle(ChatFormatting.GOLD));
 		tooltip.add(Component.translatable("item.projecthero.ironman.requires_tony_stark").withStyle(ChatFormatting.DARK_AQUA));
