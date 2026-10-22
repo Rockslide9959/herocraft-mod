@@ -10,9 +10,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7: Blast Rush flight for the local player -- the mod's shared directional-flight model
+ * v0.16.7: Explosion Propulsion (X, held) for the local player -- the mod's shared directional-flight model
  * ({@link DirectionalFlightModel}, the one Iron Man / Nova / Kryptonian fly) with Bakugo's own numbers, driven from the
- * client like every flight in the mod while the synced Rush flag is on:
+ * client like every flight in the mod while the synced Propulsion flag is on:
  * <ul>
  *   <li><b>W / S</b> blast along / against the full 3D look (look up to climb), <b>A / D</b> slide sideways,
  *       <b>Space / Sneak</b> rise / sink;</li>
@@ -23,10 +23,10 @@ import net.minecraft.world.phys.Vec3;
  * tick from its own record of last tick's velocity, and vanilla moves him by it. A wall or the floor kills that
  * component of the record.
  */
-public final class ExplosionRushClient {
+public final class ExplosionPropulsionClient {
 	private static Vec3 velocity;
 
-	private ExplosionRushClient() {
+	private ExplosionPropulsionClient() {
 	}
 
 	public static void reset() {
@@ -34,12 +34,12 @@ public final class ExplosionRushClient {
 	}
 
 	private static boolean engaged(LocalPlayer p) {
-		return Explosion.rushing(p) && !p.isPassenger() && !p.isSpectator() && !p.getAbilities().flying && !p.isFallFlying();
+		return Explosion.propelling(p) && !p.isPassenger() && !p.isSpectator() && !p.getAbilities().flying && !p.isFallFlying();
 	}
 
 	public static Tune tune(boolean sprint) {
-		return new Tune(sprint ? ExplosionConfig.RUSH_SPRINT_SPEED : ExplosionConfig.RUSH_SPEED, ExplosionConfig.RUSH_VERTICAL,
-				ExplosionConfig.RUSH_STRAFE, ExplosionConfig.RUSH_ACCELERATION, ExplosionConfig.RUSH_REVERSE, ExplosionConfig.RUSH_IDLE,
+		return new Tune(sprint ? ExplosionConfig.PROPEL_SPRINT_SPEED : ExplosionConfig.PROPEL_SPEED, ExplosionConfig.PROPEL_VERTICAL,
+				ExplosionConfig.PROPEL_STRAFE, ExplosionConfig.PROPEL_ACCELERATION, ExplosionConfig.PROPEL_REVERSE, ExplosionConfig.PROPEL_IDLE,
 				0.0, 0.0, false, DirectionalFlightModel.PUSH_CARRY_TICKS, true);
 	}
 
@@ -60,7 +60,7 @@ public final class ExplosionRushClient {
 		boolean steering = DirectionalFlightModel.steering(forward, strafe, vertical, tune);
 		Vec3 wanted = steering
 				? DirectionalFlightModel.wantedVelocity(p.getLookAngle(), p.getYRot(), forward, strafe, vertical, tune)
-				: new Vec3(0.0, -ExplosionConfig.RUSH_IDLE_SINK, 0.0);
+				: new Vec3(0.0, -ExplosionConfig.PROPEL_IDLE_SINK, 0.0);
 		// blasting along the floor lifts him off it
 		if (steering && p.onGround() && wanted.y < 0.25) {
 			wanted = new Vec3(wanted.x, 0.25, wanted.z);

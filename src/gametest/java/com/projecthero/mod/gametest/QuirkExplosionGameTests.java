@@ -139,7 +139,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		});
 	}
 
-	// ---------------------------------------------------------------- G
+	// ---------------------------------------------------------------- G: Explosive Punch
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void blastPunchHitsPointBlankForFourteenAndKnocksBack(GameTestHelper helper) {
@@ -154,19 +154,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void uppercutLaunchesTheTargetUp(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = bakugo(helper, 3.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 3.5, 2.0, 3.5, 100);
-		int n = ExplosionMoves.uppercut(p);
-		helper.assertTrue(n == 1, "one hit, got " + n);
-		helper.assertTrue(taken(z, 100) >= ExplosionConfig.UPPERCUT_DAMAGE * 0.75f, "about 12, took " + taken(z, 100));
-		helper.assertTrue(z.getDeltaMovement().y > 0.9, "launched up: " + z.getDeltaMovement());
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- X
+	// ---------------------------------------------------------------- V: utility
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void stunGrenadeBlindsAndDropsTargets(GameTestHelper helper) {
@@ -182,45 +170,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void smokeBlastHidesHimAndBlindsWhatIsInside(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
-		Zombie z = zombie(helper, 3.5, 2.0, 6.5, 100);
-		z.setTarget(p);
-		pump(helper, p);
-		ExplosionMoves.smokeBlast(p);
-		helper.assertTrue(Explosion.running(p, Explosion.V_SMOKE), "the smoke hangs");
-		helper.assertTrue(ExplosionMoves.inSmoke(p, z.position()), "the zombie is inside it");
-		helper.runAfterDelay(8, () -> {
-			helper.assertTrue(z.hasEffect(MobEffects.BLINDNESS), "blinded in the smoke");
-			helper.assertTrue(z.getTarget() == null, "it lost him");
-			helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "he is hidden in it");
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- Z
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void blastRushFliesWhileHeldAndEndsOnRelease(GameTestHelper helper) {
-		ServerPlayer p = bakugo(helper, 3.5, 4.0, 3.5);
-		pump(helper, p);
-		QuirkKits.of(Quirk.EXPLOSION).handle(p, AbilitySlot.SLOT_4, true, false);
-		helper.assertTrue(Explosion.rushing(p) && ExplosionMoves.rushing(p), "rushing");
-		helper.assertTrue(QuirkKits.of(Quirk.EXPLOSION).active(p, AbilitySlot.SLOT_4), "the HUD box is lit");
-		helper.runAfterDelay(10, () -> {
-			helper.assertTrue(ExplosionMoves.rushing(p), "still going while held");
-			helper.assertTrue(ExplosionMoves.strain(p) > 0f, "the arms strain while he rushes");
-			helper.assertTrue(ExplosionMoves.softLanding(p), "no fall damage while rushing");
-			QuirkKits.of(Quirk.EXPLOSION).handle(p, AbilitySlot.SLOT_4, false, false);
-			helper.assertTrue(!Explosion.rushing(p), "let go: it ends");
-			helper.assertTrue(!Quirks.ready(p, ExplosionConfig.BLAST_RUSH), "cooldown on release");
-			helper.assertTrue(ExplosionMoves.softLanding(p), "a soft landing after it");
-			helper.assertTrue(!p.getAbilities().mayfly, "the float permission is gone again");
-			helper.succeed();
-		});
-	}
+	// ---------------------------------------------------------------- X: movement
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void blastDashThrowsHimTheWayHeLooks(GameTestHelper helper) {
@@ -230,23 +180,27 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		Vec3 v = p.getDeltaMovement();
 		helper.assertTrue(v.z > 0.9, "launched forward (+Z): " + v);
 		helper.assertTrue(ExplosionMoves.softLanding(p), "no fall damage from it");
-		helper.assertTrue(!Quirks.ready(p, ExplosionConfig.BLAST_DASH), "cooldown");
+		helper.assertTrue(!Quirks.ready(p, ExplosionConfig.DASH), "cooldown");
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- V
+	// ---------------------------------------------------------------- C: Howitzer Impact
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void howitzerImpactSpinsAndDetonates(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void howitzerImpactRisesSpinsAndDetonates(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = bakugo(helper, 3.5, 2.0, 1.5);
+		p.setOnGround(true);
 		Quirks.setMeter(p, 100f);
 		Zombie z = zombie(helper, 3.5, 2.0, 5.5, 250);
 		helper.assertTrue(ExplosionMoves.howitzer(p), "it starts");
-		helper.assertTrue(Explosion.spinning(p), "spinning");
+		helper.assertTrue(Explosion.spinning(p) && ExplosionMoves.howitzerKind(p) == 1, "spinning");
+		helper.assertTrue(Explosion.val(p, Explosion.V_HOWITZER_DIVE) >= helper.getLevel().getGameTime() + ExplosionConfig.HOWITZER_RISE_TICKS,
+				"from the ground he rises first, then dives");
 		helper.assertTrue(Quirks.meter(p) <= 100f * (1f - ExplosionConfig.HOWITZER_SWEAT_FRACTION) + 0.5f, "most of his Sweat");
 		pump(helper, p);
-		helper.runAfterDelay(ExplosionConfig.HOWITZER_SPIN_TICKS + 4, () -> {
+		helper.runAfterDelay(2, () -> helper.assertTrue(p.getDeltaMovement().y > 0.3, "the rise blasts him up: " + p.getDeltaMovement()));
+		helper.runAfterDelay(ExplosionConfig.HOWITZER_RISE_TICKS + ExplosionConfig.HOWITZER_SPIN_TICKS + 4, () -> {
 			helper.assertTrue(!Explosion.spinning(p), "it detonated");
 			float t = taken(z, 250);
 			helper.assertTrue(t >= 20f, "a huge blast (30 x 1.4 at the centre), took " + t);
@@ -255,45 +209,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void howitzerAndMaxShotNeedSweat(GameTestHelper helper) {
-		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
-		Quirks.setMeter(p, 10f);
-		helper.assertTrue(!ExplosionMoves.howitzer(p), "refused dry");
-		helper.assertTrue(!ExplosionMoves.maxShot(p), "refused dry");
-		helper.assertTrue(Quirks.ready(p, ExplosionConfig.HOWITZER) && Quirks.ready(p, ExplosionConfig.MAX_SHOT), "no cooldown spent");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void maxShotChargesThenBlastsDownTheLine(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = bakugo(helper, 3.5, 2.0, 0.5);
-		Quirks.setMeter(p, 100f);
-		Zombie near = zombie(helper, 3.5, 2.0, 3.0, 200);
-		Zombie far = zombie(helper, 3.5, 2.0, 6.0, 200);
-		// a wall at the end of the area stops the cannon (it never reaches the neighbouring tests)
-		for (int x = 0; x <= 7; x++) {
-			for (int y = 2; y <= 5; y++) {
-				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 7)), Blocks.STONE.defaultBlockState(), 3);
-			}
-		}
-		helper.assertTrue(ExplosionMoves.maxShot(p), "charging");
-		helper.assertTrue(Quirks.meter(p) <= 0.01f, "all his Sweat");
-		helper.assertTrue(Explosion.charging(p), "the charge shows");
-		pump(helper, p);
-		helper.runAfterDelay(ExplosionConfig.MAX_SHOT_CHARGE + 3, () -> {
-			helper.assertTrue(!Explosion.charging(p), "fired");
-			for (Zombie z : new Zombie[] { near, far }) {
-				float t = taken(z, 200);
-				helper.assertTrue(t >= ExplosionConfig.MAX_SHOT_DAMAGE * 0.7f && t <= ExplosionConfig.MAX_SHOT_DAMAGE * 1.4f + 0.6f,
-						"each in the path hit once (26 x 1.4), took " + t);
-			}
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- C
+	// ---------------------------------------------------------------- Z: Cluster
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 30)
 	public void clusterHitsBothRingsOnce(GameTestHelper helper) {
@@ -310,22 +226,6 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 			}
 			helper.succeed();
 		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void explosiveCounterBlocksTheHitAndBlastsTheAttacker(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = bakugo(helper, 3.5, 2.0, 2.5);
-		Zombie z = zombie(helper, 3.5, 2.0, 4.0, 100);
-		ExplosionMoves.counter(p);
-		helper.assertTrue(ExplosionMoves.counterOpen(p), "the window is open");
-		boolean hurt = p.hurt(helper.getLevel().damageSources().mobAttack(z), 6f);
-		helper.assertTrue(!hurt && p.getHealth() >= p.getMaxHealth(), "the hit was blocked");
-		helper.assertTrue(taken(z, 100) >= ExplosionConfig.COUNTER_DAMAGE * 0.7f, "the attacker was blasted, took " + taken(z, 100));
-		helper.assertTrue(!ExplosionMoves.counterOpen(p), "one counter only");
-		p.invulnerableTime = 0;
-		helper.assertTrue(p.hurt(helper.getLevel().damageSources().mobAttack(z), 2f), "the next hit lands");
-		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- the rules
@@ -350,7 +250,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 			rule.set(false, level.getServer());
 			ExplosionMoves.blastPunch(p);
 			ExplosionMoves.apShot(p);
-			ExplosionMoves.fireMaxShot(p);
+			ExplosionMoves.fireGauntlet(p);
 			int dirt = 0;
 			for (int x = 2; x <= 5; x++) {
 				for (int y = 2; y <= 4; y++) {
@@ -382,7 +282,6 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		p.setXRot(80f);
 		ExplosionMoves.apShot(p);
 		ExplosionMoves.blastPunch(p);
-		ExplosionMoves.uppercut(p);
 		ExplosionMoves.stunGrenade(p);
 		ExplosionMoves.cluster(p);
 		ExplosionMoves.blastDash(p);
@@ -391,14 +290,14 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		Quirks.setMeter(p, 100f);
 		ExplosionMoves.howitzer(p);
 		helper.assertTrue(!p.hurt(helper.getLevel().damageSources().fall(), 8f), "no fall damage after his own launch");
-		helper.runAfterDelay(ExplosionConfig.HOWITZER_SPIN_TICKS + 6, () -> {
+		helper.runAfterDelay(ExplosionConfig.HOWITZER_RISE_TICKS + ExplosionConfig.HOWITZER_SPIN_TICKS + 6, () -> {
 			ExplosionMoves.setStrain(p, 0f);
 			Quirks.setMeter(p, 100f);
 			Quirks.edit(p, n -> {
 				n.abilityReadyAt.clear();
 				n.overloadUntil = 0L;
 			});
-			ExplosionMoves.fireMaxShot(p);
+			ExplosionMoves.fireGauntlet(p);
 			helper.assertTrue(!p.hurt(helper.getLevel().damageSources().explosion(p, p), 10f), "his own explosion can't hurt him");
 			helper.assertTrue(p.getHealth() >= p.getMaxHealth(), "full health after everything: " + p.getHealth());
 			helper.succeed();
@@ -409,18 +308,18 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 	public void fullArmStrainOverloadsHim(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
-		ExplosionMoves.startRush(p);
+		ExplosionMoves.startPropel(p);
 		ExplosionMoves.setStrain(p, 98f);
 		ExplosionMoves.apShot(p);
 		helper.assertTrue(Quirks.overloaded(p), "Arm Strain");
 		helper.assertTrue(Quirks.overloadLeft(p) >= ExplosionConfig.STRAIN_TICKS - 1, "for 5 s");
 		helper.assertTrue(p.hasEffect(MobEffects.WEAKNESS), "Weakness");
-		helper.assertTrue(!Explosion.rushing(p), "the Rush stopped");
+		helper.assertTrue(!Explosion.propelling(p), "the flight stopped");
 		helper.assertTrue(ExplosionMoves.strain(p) == 0f, "the strain reset");
 		Quirks.edit(p, n -> n.abilityReadyAt.clear());
 		float sweat = Quirks.meter(p);
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_2, true);
-		helper.assertTrue(Quirks.ready(p, ExplosionConfig.BLAST_PUNCH) && Quirks.meter(p) == sweat, "no moves while strained");
+		helper.assertTrue(Quirks.ready(p, ExplosionConfig.PUNCH) && Quirks.meter(p) == sweat, "no moves while strained");
 		helper.succeed();
 	}
 
@@ -459,4 +358,151 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- v0.16.7 revamp: the new moves
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xIsMovementVIsUtility(GameTestHelper helper) {
+		var kit = QuirkKits.of(Quirk.EXPLOSION);
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(ExplosionConfig.PROPULSION) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(ExplosionConfig.DASH),
+				"X: Propulsion / Explosion Dash");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(ExplosionConfig.STUN_GRENADE) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(ExplosionConfig.COOL_OFF),
+				"V: Stun Grenade / Cool Off");
+		helper.assertTrue(kit.usableWhileOverloaded(AbilitySlot.SLOT_5, true) && !kit.usableWhileOverloaded(AbilitySlot.SLOT_5, false),
+				"only Cool Off works while strained");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void propulsionFliesWhileHeldBurnsSweatAndEndsOnRelease(GameTestHelper helper) {
+		ServerPlayer p = bakugo(helper, 3.5, 4.0, 3.5);
+		Quirks.setMeter(p, 50f);
+		pump(helper, p);
+		QuirkKits.of(Quirk.EXPLOSION).handle(p, AbilitySlot.SLOT_3, true, false);
+		helper.assertTrue(Explosion.propelling(p) && ExplosionMoves.propelling(p), "flying");
+		helper.assertTrue(QuirkKits.of(Quirk.EXPLOSION).active(p, AbilitySlot.SLOT_3), "the HUD box is lit");
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(ExplosionMoves.propelling(p), "still going while held");
+			helper.assertTrue(Quirks.meter(p) < 50f - 2f, "it burns Sweat: " + Quirks.meter(p));
+			helper.assertTrue(ExplosionMoves.strain(p) > 0f, "the arms strain while he flies");
+			helper.assertTrue(ExplosionMoves.softLanding(p), "no fall damage while flying");
+			QuirkKits.of(Quirk.EXPLOSION).handle(p, AbilitySlot.SLOT_3, false, false);
+			helper.assertTrue(!Explosion.propelling(p), "let go: it ends");
+			helper.assertTrue(!Quirks.ready(p, ExplosionConfig.PROPULSION), "cooldown on release");
+			helper.assertTrue(ExplosionMoves.softLanding(p), "a soft landing after it");
+			helper.assertTrue(!p.getAbilities().mayfly, "the float permission is gone again");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void propulsionSputtersOutWhenDry(GameTestHelper helper) {
+		ServerPlayer p = bakugo(helper, 3.5, 4.0, 3.5);
+		Quirks.setMeter(p, 1f);
+		helper.assertTrue(!ExplosionMoves.startPropel(p), "too dry to take off");
+		Quirks.setMeter(p, 4f);
+		helper.assertTrue(ExplosionMoves.startPropel(p), "a little sweat: off he goes");
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(!ExplosionMoves.propelling(p), "out of sweat, the blasts sputter out");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void blastRushMarchesAChainOfBlastsDownTheLine(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 0.5);
+		Zombie near = zombie(helper, 3.5, 2.0, 2.5, 100);
+		Zombie far = zombie(helper, 3.5, 2.0, 7.0, 100);
+		Zombie side = zombie(helper, 7.5, 2.0, 2.5, 100);
+		pump(helper, p);
+		ExplosionMoves.blastRush(p);
+		helper.assertTrue(near.getHealth() < 100f, "the first blast lands at once");
+		helper.assertTrue(far.getHealth() == 100f, "the far one isn't reached yet");
+		helper.runAfterDelay(ExplosionConfig.BLAST_RUSH_COUNT * ExplosionConfig.BLAST_RUSH_INTERVAL + 2, () -> {
+			helper.assertTrue(ExplosionMoves.blastRushHit(p).contains(far.getId()), "the chain reached the far one");
+			helper.assertTrue(taken(near, 100) <= ExplosionConfig.BLAST_RUSH_DAMAGE * 1.4f + 0.6f, "each is hit once, took " + taken(near, 100));
+			helper.assertTrue(side.getHealth() == 100f, "4 blocks off the line is safe");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void howitzerClusterIsAQuickSmallerDive(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 1.5);
+		Quirks.setMeter(p, 10f);
+		helper.assertTrue(!ExplosionMoves.howitzerCluster(p), "needs 20 Sweat");
+		Quirks.setMeter(p, 60f);
+		Zombie z = zombie(helper, 3.5, 2.0, 4.5, 200);
+		helper.assertTrue(ExplosionMoves.howitzerCluster(p) && ExplosionMoves.howitzerKind(p) == 2, "it starts, no rise");
+		helper.assertTrue(Explosion.val(p, Explosion.V_HOWITZER_DIVE) <= helper.getLevel().getGameTime(), "it dives at once");
+		pump(helper, p);
+		helper.runAfterDelay(ExplosionConfig.HCLUSTER_SPIN_TICKS + 3, () -> {
+			helper.assertTrue(ExplosionMoves.howitzerKind(p) == 0, "it detonated");
+			float t = taken(z, 200);
+			helper.assertTrue(t >= 8f && t < ExplosionConfig.HOWITZER_DAMAGE * 1.4f, "a smaller blast, took " + t);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void howitzerAndGauntletNeedSweat(GameTestHelper helper) {
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
+		Quirks.setMeter(p, 25f);
+		helper.assertTrue(!ExplosionMoves.howitzer(p), "Howitzer refused under 30");
+		Quirks.setMeter(p, 45f);
+		helper.assertTrue(!ExplosionMoves.gauntlet(p), "Gauntlet refused under 50");
+		helper.assertTrue(Quirks.ready(p, ExplosionConfig.HOWITZER) && Quirks.ready(p, ExplosionConfig.GAUNTLET), "no cooldown spent");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void gauntletGrenadeFiresAllTheSweatDownTheLine(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 0.5);
+		Quirks.setMeter(p, 100f);
+		Zombie near = zombie(helper, 3.5, 2.0, 3.0, 200);
+		Zombie far = zombie(helper, 3.5, 2.0, 6.0, 200);
+		// a wall at the end of the area stops the cannon (it never reaches the neighbouring tests)
+		for (int x = 0; x <= 7; x++) {
+			for (int y = 2; y <= 5; y++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, 7)), Blocks.STONE.defaultBlockState(), 3);
+			}
+		}
+		helper.assertTrue(ExplosionMoves.gauntlet(p), "the pin is pulled");
+		helper.assertTrue(Quirks.meter(p) <= 0.01f, "all his Sweat");
+		helper.assertTrue(Explosion.charging(p), "the charge shows");
+		pump(helper, p);
+		helper.runAfterDelay(ExplosionConfig.GAUNTLET_CHARGE + 3, () -> {
+			helper.assertTrue(!Explosion.charging(p), "fired");
+			for (Zombie z : new Zombie[] { near, far }) {
+				float t = taken(z, 200);
+				helper.assertTrue(t >= ExplosionConfig.GAUNTLET_DAMAGE * 0.7f && t <= ExplosionConfig.GAUNTLET_DAMAGE * 1.4f + 0.6f,
+						"each in the path hit once (28 x 1.4), took " + t);
+			}
+			helper.assertTrue(p.getDeltaMovement().z < -0.5, "the recoil throws him back: " + p.getDeltaMovement());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void coolOffDriesSweatAndEasesStrainEvenWhileStrained(GameTestHelper helper) {
+		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
+		Quirks.setMeter(p, 70f);
+		ExplosionMoves.setStrain(p, 98f);
+		ExplosionMoves.apShot(p); // full strain
+		helper.assertTrue(Quirks.overloaded(p), "strained");
+		ExplosionMoves.setStrain(p, 80f);
+		float sweat = Quirks.meter(p);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		helper.assertTrue(Quirks.ready(p, ExplosionConfig.COOL_OFF), "a bare V press does nothing (not sneaking)");
+		p.setShiftKeyDown(true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		helper.assertTrue(!Quirks.ready(p, ExplosionConfig.COOL_OFF), "Shift+V works while strained");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - Math.max(0f, sweat - ExplosionConfig.COOL_SWEAT)) < 0.5f, "dried 40 Sweat");
+		helper.assertTrue(Math.abs(ExplosionMoves.strain(p) - 30f) < 0.5f, "eased 50 strain: " + ExplosionMoves.strain(p));
+		helper.succeed();
+	}
 }
