@@ -403,6 +403,12 @@ public final class AllMightAbilities {
 		if (now < s.busyUntil) {
 			return;
 		}
+		// v0.16.7 (as in v0.12.39): Plus Ultra spends a one-off slice of the One For All timer (200 s of 20:00), refused without it
+		AllMightConfig.Timer t = AllMightConfig.timer();
+		if (!AllMight.spendTimer(p, t.plusUltraCostSeconds, 1f)) {
+			return;
+		}
+		s = AllMight.state(p);
 		AllMightState n = s.copy();
 		n.outputPct = AllMight.outputCap(s);
 		n.lastHitAt = now;
@@ -429,6 +435,14 @@ public final class AllMightAbilities {
 		}
 		int charge = AllMightConfig.UNITED_STATES_CHARGE_TICKS;
 		int total = charge + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
+		// v0.16.7 (as in v0.12.39): the punch costs a slice of the One For All timer (400 s of 20:00) -- refused up front without it,
+		// paid only when it is cast
+		AllMightState gate = AllMight.state(p);
+		float cost = AllMightConfig.timer().unitedStatesCostSeconds;
+		if (gate.hasPower && gate.fullPower && AllMight.timeLeft(gate) + 1.0e-3f < cost) {
+			AllMight.say(p, "message.projecthero.all_might.low_ofa", ChatFormatting.RED, AllMight.clock(cost), AllMight.clock(AllMight.timeLeft(gate)));
+			return;
+		}
 		// v0.12.38: nothing is spent and no cooldown starts until the punch is actually cast (begin with cost 0 / cooldown 0).
 		// v0.16.7: a broken right arm cannot throw it at all
 		if (refusedByInjury(p, UNITED_STATES) || !begin(p, UNITED_STATES, 0f, 0, total, AllMightState.ANIM_UNITED_STATES)) {
@@ -503,6 +517,7 @@ public final class AllMightAbilities {
 		AllMightState st = AllMight.state(p).copy();
 		st.abilityReadyAt.put(UNITED_STATES, now + AllMightConfig.UNITED_STATES_COOLDOWN);
 		st.chargeStart = 0L;
+		AllMight.setTimeLeft(st, AllMight.timeLeft(st) - AllMightConfig.timer().unitedStatesCostSeconds); // v0.16.7: the timer slice
 		AllMight.save(p, st);
 		grantNoFall(p);
 		// v0.16.7: the ultimate always fires at 100% Output (a borrower: 45%) -- past the limit it tears at his right arm

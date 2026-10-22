@@ -23,6 +23,7 @@ import net.minecraft.world.entity.player.Player;
  * (the old separate All Might HUD only remains for a lender, who holds no power). Top to bottom:
  * <pre>
  *   Power Form [H]                    the form / PLUS ULTRA 18s / a broken limb and how far it has to mend (wrapped)
+ *   [==============-----]   18:42     v0.16.7: the One For All timer (20:00 of Power Form), green / amber low / red empty
  *   Output 45%            Limit 20%   Output (gold, red past the limit) and the safe limit
  *   [=====|######-----------]         the gauge: gold up to the limit, red past it; the white tick is the limit
  *   R arm     L arm     Legs          the three limbs: a bar each, green / yellow / orange / blinking red (broken)
@@ -38,6 +39,9 @@ public final class OneForAllClientKit implements QuirkClientKit {
 	private static final int BORDER = 0xFF4A4A4A;
 	private static final int TEXT = 0xFFE2E2E2;
 	private static final int HINT = 0xFF9A9A9A;
+	/** v0.16.7: the timer bar, as v0.12.39 drew it: green, amber when low. */
+	private static final int TIMER = 0xFF40E070;
+	private static final int TIMER_LOW = 0xFFD0A030;
 	private static final int[] TIER_COLOUR = { 0xFF7FD06A, 0xFFE8C040, 0xFFFF8A2A, 0xFFFF3A2A };
 
 	@Override
@@ -109,6 +113,9 @@ public final class OneForAllClientKit implements QuirkClientKit {
 		drawFit(g, mc, outText, x0, y, width - lw - 4, !s.fullPower ? HINT : over ? (blink ? RED : RED_LIGHT) : out >= 90f ? GOLD_WHITE : GOLD);
 		g.drawString(mc.font, limText, x0 + width - lw, y, TEXT, false);
 
+		// v0.16.7: the One For All timer -- m:ss on the right, a draining bar beside it (one 9-px row)
+		y = drawTimer(g, mc, s, x0, y - 2 - 9, width, blink);
+
 		// the status line (wrapped to the width, drawn upward)
 		Component status = status(s, now);
 		List<FormattedCharSequence> lines = mc.font.split(status, width);
@@ -130,6 +137,35 @@ public final class OneForAllClientKit implements QuirkClientKit {
 			}
 		}
 		return y - 2;
+	}
+
+	/**
+	 * The timer row at {@code y}: a 3-px bar that drains left to right-aligned m:ss. Green while plenty is left, amber below the
+	 * steam threshold, blinking red when it is too low to transform. Returns {@code y}.
+	 */
+	private static int drawTimer(GuiGraphics g, Minecraft mc, AllMightState s, int x0, int y, int width, boolean blink) {
+		AllMightConfig.Timer t = AllMightConfig.timer();
+		float max = s.ofaTimerMax > 0f ? s.ofaTimerMax : Math.max(1f, t.powerFormSeconds);
+		float left = s.ofaTimer < 0f ? max : Math.min(max, s.ofaTimer);
+		float frac = Mth.clamp(left / max, 0f, 1f);
+		int secs = (int) Math.floor(left + 1.0e-3f);
+		String clock = String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60);
+		boolean empty = left + 1.0e-3f < t.minimumToTransformSeconds;
+		boolean low = left < t.lowSteamSeconds;
+		int colour = empty ? (blink ? RED : RED_LIGHT) : low ? TIMER_LOW : TIMER;
+		int cw = mc.font.width("00:00");
+		int barW = width - cw - 4;
+		int by = y + 3;
+		g.fill(x0 - 1, by - 1, x0 + barW + 1, by + 4, BORDER);
+		g.fill(x0, by, x0 + barW, by + 3, BAR_BG);
+		int fill = Math.round(barW * frac);
+		if (fill > 0) {
+			g.fill(x0, by, x0 + fill, by + 3, colour);
+			g.fill(x0, by, x0 + fill, by + 1, 0x50FFFFFF);
+		}
+		int tw = mc.font.width(clock);
+		g.drawString(mc.font, clock, x0 + width - tw, y, s.fullPower || empty || low ? colour : TEXT, false);
+		return y;
 	}
 
 	private static String limitText(float limit) {

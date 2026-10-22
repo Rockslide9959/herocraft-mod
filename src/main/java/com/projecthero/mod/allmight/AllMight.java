@@ -47,6 +47,11 @@ import org.joml.Vector3f;
  * or under the limit everything is free. Plus Ultra and the United States of Smash push past it, and then each Smash strains the
  * limb that threw it -- see {@link AllMightStrain} and {@code docs/OFA_STRAIN.md}. (v0.16.6's 20/45/100% levels, whole-body Strain
  * bar and "arms give out" recoil are gone.)
+ *
+ * <h2>The One For All timer (v0.12.39, back in v0.16.7 at 20 minutes)</h2>
+ * Alongside the strain system: being in the Power Form drains a 20:00 timer 1 s a second, the Base Form refills it at 0.5 s a
+ * second, Plus Ultra and the United States of Smash spend a one-off slice, and at 0:00 he is forced back to the Base Form
+ * ({@link #exhaust}); H waits until 4 s have come back. Numbers: {@link AllMightConfig#timer()}.
  */
 public final class AllMight {
 	public static final String KEY = "all_might";
@@ -63,12 +68,15 @@ public final class AllMight {
 	private static final Map<UUID, Long> LAST_MESSAGE = new HashMap<>();
 	/** v0.16.6: game time a plain punch last charged Output (punch spam charges once per {@code OUTPUT_PUNCH_SPACING_TICKS}). */
 	private static final Map<UUID, Long> LAST_PUNCH_CHARGE = new HashMap<>();
+	/** v0.16.7: the game tick the One For All timer last stepped (so a second call in the same tick cannot drain it twice). */
+	private static final Map<UUID, Long> LAST_TIMER_STEP = new HashMap<>();
 
 	private AllMight() {
 	}
 
 	public static void clearSessionState() {
 		PEAK_FALL.clear();
+		LAST_TIMER_STEP.clear();
 		LAST_MESSAGE.clear();
 		LAST_PUNCH_CHARGE.clear();
 		AllMightStrain.clearSessionState();
@@ -193,6 +201,94 @@ public final class AllMight {
 			n.lastCombatTick = now;
 			save(player, n);
 		}
+	}
+
+	// ---------------------------------------------------------------- v0.16.7: the One For All timer (back, at 20 minutes)
+
+	/** The full timer, in seconds (config: 1200 = 20:00 of Power Form). */
+	public static float timerMax() {
+		return Math.max(1f, AllMightConfig.timer().powerFormSeconds);
+	}
+
+	/** Seconds of Power Form left (an old save / a new holder has a full timer), never above the full timer. */
+	public static float timeLeft(AllMightState s) {
+		float max = timerMax();
+		return s.ofaTimer < 0f ? max : Math.min(max, s.ofaTimer);
+	}
+
+	public static float timeLeft(ServerPlayer player) {
+		return timeLeft(state(player));
+	}
+
+	/** Sets the seconds left on {@code n} (clamped) and records the full timer for the HUD. */
+	static void setTimeLeft(AllMightState n, float seconds) {
+		n.ofaTimer = Math.max(0f, Math.min(timerMax(), seconds));
+		n.ofaTimerMax = timerMax();
+	}
+
+	/** Sets the timer directly (tests, the harness). */
+	public static void setTimer(ServerPlayer player, float seconds) {
+		AllMightState n = state(player).copy();
+		setTimeLeft(n, seconds);
+		save(player, n);
+	}
+
+	/** Spends {@code cost} seconds of the timer if there is that much left (+ {@code margin}); false (nothing spent) otherwise. */
+	static boolean spendTimer(ServerPlayer player, float cost, float margin) {
+		AllMightState s = state(player);
+		float left = timeLeft(s);
+		if (left + 1.0e-3f < cost + margin) {
+			say(player, "message.projecthero.all_might.low_ofa", ChatFormatting.RED, clock(cost), clock(left));
+			return false;
+		}
+		AllMightState n = s.copy();
+		setTimeLeft(n, left - cost);
+		save(player, n);
+		return true;
+	}
+
+	/** m:ss, rounded down (as the HUD shows it). */
+	public static String clock(float seconds) {
+		int secs = (int) Math.floor(Math.max(0f, seconds) + 1.0e-3f);
+		return String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60);
+	}
+
+	/**
+	 * v0.12.39, back in v0.16.7 at 20 minutes: once a second the Power Form drains the timer and the Base Form refills it. At 0:00 he
+	 * is forced back to the Base Form ({@link #exhaust}). Returns true if that happened this tick.
+	 */
+	private static boolean tickTimer(ServerPlayer player, long now) {
+		AllMightState s = state(player);
+		float left = timeLeft(s);
+		AllMightConfig.Timer t = AllMightConfig.timer();
+		Long last = LAST_TIMER_STEP.get(player.getUUID());
+		if (now % 20L == 0L && (last == null || last != now)) {
+			LAST_TIMER_STEP.put(player.getUUID(), now); // once per game tick, however often tick() is called in it
+			float next = s.fullPower ? Math.max(0f, left - t.drainPerSecond) : Math.min(timerMax(), left + t.rechargePerSecond);
+			if (Math.abs(next - left) > 1.0e-4f || s.ofaTimer < 0f) {
+				AllMightState n = s.copy();
+				setTimeLeft(n, next);
+				save(player, n);
+			}
+			left = next;
+		}
+		if (s.fullPower && left <= 0f) {
+			exhaust(player);
+			return true;
+		}
+		return false;
+	}
+
+	/** The One For All timer ran out: back to the Base Form (the old v0.12.39 message and hiss). */
+	static void exhaust(ServerPlayer player) {
+		AllMightState s = state(player);
+		if (!s.hasPower || !s.fullPower) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		changeForm(player, false);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.2f, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.all_might.exhausted").withStyle(ChatFormatting.RED), true);
 	}
 
 	// ---------------------------------------------------------------- v0.16.7: Output
@@ -414,6 +510,12 @@ public final class AllMight {
 		if (now - s.formChangedAt < AllMightConfig.FORM_TOGGLE_DEBOUNCE_TICKS || now < s.transformUntil) {
 			return;
 		}
+		float need = AllMightConfig.timer().minimumToTransformSeconds;
+		if (!s.fullPower && timeLeft(s) + 1.0e-3f < need) {
+			// v0.16.7: the timer ran out -- the Power Form waits until the Base Form has refilled a little
+			say(player, "message.projecthero.all_might.low_ofa", ChatFormatting.RED, clock(need), clock(timeLeft(s)));
+			return;
+		}
 		changeForm(player, !s.fullPower);
 	}
 
@@ -537,6 +639,9 @@ public final class AllMight {
 		}
 		if (s.fullPower && s.plusUltra && now >= s.plusUltraUntil) {
 			endPlusUltra(player, s, now);
+		}
+		if (tickTimer(player, now)) {
+			return; // v0.16.7: the One For All timer ran out -- back to the Base Form
 		}
 		tickOutput(player, now);
 		AllMightStrain.tick(player, now);
@@ -723,6 +828,10 @@ public final class AllMight {
 		if (s.outputPct > AllMightStrain.limit(s) + 0.01f && now % 4L == 0L) {
 			steam(level, player, 1);
 		}
+		// v0.16.7 (as in v0.12.39): running out of One For All -- he vents steam to show it
+		if (timeLeft(s) < AllMightConfig.timer().lowSteamSeconds && now % 3L == 0L) {
+			steam(level, player, 2);
+		}
 		if (now % 6L == 0L && player.getDeltaMovement().horizontalDistanceSqr() > 0.06) {
 			Vec3 f = player.position().add(0, 0.6, 0);
 			level.sendParticles(ParticleTypes.CLOUD, f.x, f.y, f.z, AllMightShockwave.particles(1), 0.2, 0.3, 0.2, 0.01);
@@ -771,6 +880,7 @@ public final class AllMight {
 		// v0.16.7: a fresh body -- the limbs are whole again (the safe limit stays)
 		java.util.Arrays.fill(n.limbs, 0f);
 		n.broken = 0;
+		setTimeLeft(n, timerMax()); // v0.16.7 (as in v0.12.39): a respawn refills the One For All timer
 		n.abilityReadyAt.clear();
 		save(player, n);
 		reconcile(player);
@@ -787,6 +897,7 @@ public final class AllMight {
 		PEAK_FALL.remove(player.getUUID());
 		LAST_MESSAGE.remove(player.getUUID());
 		LAST_PUNCH_CHARGE.remove(player.getUUID());
+		LAST_TIMER_STEP.remove(player.getUUID());
 		AllMightState s = player.getAttachedOrElse(ModAttachments.ALL_MIGHT_STATE, null);
 		if (s != null && s.hasPower) {
 			AllMightState n = s.copy();

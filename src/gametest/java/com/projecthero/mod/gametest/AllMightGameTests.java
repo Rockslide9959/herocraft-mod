@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Server-side coverage for All Might / One For All (v0.12.34): the grant, the two forms and their stats (no stacking),
- * the cooldown gates (v0.16.6: no OFA timer -- Output / Strain are in AllMightRevampGameTests), Detroit and United States of Smash landing on real mobs at their impact
+ * the cooldown gates (Output / Strain are in AllMightRevampGameTests, the v0.16.7 One For All timer in OneForAllStrainGameTests), Detroit and United States of Smash landing on real mobs at their impact
  * frame, Full Cowl not stacking, the damage factors, persistence and revoke. Mock players are not reliably ticked by the
  * server, so each test drives {@link AllMight#tick} itself, exactly as the server tick would.
  */

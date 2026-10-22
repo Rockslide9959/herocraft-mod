@@ -353,6 +353,9 @@ public final class AllMightPassOn {
 		b.loanPartner = lender.getUUID().toString();
 		b.loanPartnerName = lender.getGameProfile().getName();
 		b.loanUntil = g.loanUntil;
+		// v0.16.7: the One For All timer applies to a borrower too, and the loan carries what the lender had left (you cannot lend
+		// more than you have). The lender's own timer is frozen while they have no power and is theirs again when it comes back.
+		AllMight.setTimeLeft(b, AllMight.timeLeft(g));
 		AllMight.save(borrower, b);
 		AllMight.reconcile(borrower);
 		AllMight.acquiredFx(borrower);

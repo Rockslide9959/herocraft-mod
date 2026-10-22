@@ -154,6 +154,22 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.16.7: the One For All timer is back at 20 minutes -- an unversioned (five-minute) file is moved up, a v1 choice stays. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aStaleOneForAllTimerGetsTwentyMinutes(GameTestHelper helper) {
+		Path p = write("one_for_all", "{\"timer\":{\"powerFormSeconds\":300.0,\"rechargePerSecond\":0.5,\"plusUltraCostSeconds\":50.0}}");
+		com.projecthero.mod.allmight.AllMightConfig.TimerFile c = com.projecthero.mod.allmight.AllMightConfig.SPEC.load(p);
+		helper.assertTrue(c.timer.powerFormSeconds == 1200f && c.timer.plusUltraCostSeconds == 200f && c.timer.unitedStatesCostSeconds == 400f,
+				"20:00, with the costs scaled to match");
+		helper.assertTrue(reread(p).get("configVersion").getAsInt() == com.projecthero.mod.allmight.AllMightConfig.SPEC.currentVersion()
+				&& num(reread(p), "timer.powerFormSeconds") == 1200.0, "the file was rewritten and stamped");
+		write("one_for_all", "{\"configVersion\":1,\"timer\":{\"powerFormSeconds\":900.0}}");
+		helper.assertTrue(com.projecthero.mod.allmight.AllMightConfig.SPEC.load(p).timer.powerFormSeconds == 900f, "a server's own length stays");
+		helper.assertTrue(com.projecthero.mod.allmight.AllMightConfig.timer().powerFormSeconds == 1200f, "the live config is 20 minutes");
+		cleanUp(p);
+		helper.succeed();
+	}
+
 	/** Titan Shifter: an unversioned (v0.12.31) file runs every step. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void aStaleTitanShifterConfigRunsEveryStep(GameTestHelper helper) {
@@ -272,7 +288,8 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyConfigIsVersionedAndStamped(GameTestHelper helper) {
 		List<VersionedConfig<?>> all = List.of(HeroConfig.SPEC, EventConfig.SPEC, TitanConfig.SPEC, TitanShifterConfig.SPEC,
-				HulkConfig.SPEC, BehemothConfig.SPEC, HordeConfig.SPEC, DarkseidConfig.SPEC, com.projecthero.mod.city.CityConfig.SPEC);
+				HulkConfig.SPEC, BehemothConfig.SPEC, HordeConfig.SPEC, DarkseidConfig.SPEC, com.projecthero.mod.city.CityConfig.SPEC,
+				com.projecthero.mod.allmight.AllMightConfig.SPEC);
 		for (VersionedConfig<?> spec : all) {
 			helper.assertTrue(spec.currentVersion() >= 1, spec.fileName() + " has a version");
 			helper.assertFalse(spec.balanceKeys().isEmpty(), spec.fileName() + " declares its balance-owned keys");
