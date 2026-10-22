@@ -82,6 +82,7 @@ public final class IronManPortableClient {
 
 	public static void initialize() {
 		registerProp(PortableForms.MK6_BRIEFCASE.propId(), new Mk6BriefcaseProp());
+		registerProp(PortableForms.MK9_HEAT_CASE.propId(), new Mk9HeatCaseProp()); // v0.16.7 (user) Era II: Mk IX heat case
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new BodyLayer(playerRenderer));

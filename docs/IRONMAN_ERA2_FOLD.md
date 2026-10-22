@@ -23,6 +23,8 @@ built by registering a form and writing its prop renderer.
 | client | `client/ironman/Mk6BriefcaseProp.java` | The briefcase prop: carried, dropped, flipped open, the flying plates, then shut and vanishing. |
 | client | `client/ironman/IronManGantryBuild.java` | The `PortableTiming` scheme (`S_PORTABLE_CLIMB` / `S_PORTABLE_DROP`). |
 | tests | `gametest/IronManPortableFormGameTests.java` | Six server tests. |
+| client | `client/ironman/Mk9HeatCaseProp.java` | The Mk IX heat case prop (see below). |
+| tests | `gametest/IronManMk9HeatCaseGameTests.java` | Six Mk IX tests, lava included. |
 
 ## A form = `PortableForm`
 
@@ -120,9 +122,29 @@ new PortableForm(
      `PortableDeploy.findPacked` / `takeFromPacked` (a block source).
 5. **Gametests.** Copy `IronManPortableFormGameTests` and swap the form.
 
+## Mk IX heat case (`MK9_HEAT_CASE`, built)
+
+| | |
+|---|---|
+| Item | `mark_9_heat_case` "Mk IX Heat Case" (`MarkIXHeatCaseItem`, fire resistant). A plain JSON cube model (`models/item/mark_9_heat_case.json`, texture `textures/item/mark_9_heat_case.png`, swatch cells) -- the same cubes the prop draws, offset by `Mk9HeatCaseProp.JSON_OFFSET`. |
+| Getting it | Like the Mk VI briefcase: right-click any loose Mk IX piece with all four in your inventory (`IronManArmorItem.packLoose`, the case takes the most worn piece's integrity), or fold a worn Mk IX. Also in the creative tab (a never-used case stands for a fresh suit, as the Mk VI's does). |
+| Clock | 84 ticks (4.2 s). Set down 6..18, leaves open 18..28, boots 26, legs, arms + chest, helmet, faceplate 60..67, seal 70, shut 72, gone 84. |
+| Prop | `Mk9HeatCaseProp`. The body pass draws the held item and records its live matrix every frame. The world pass takes the case out of the hand from that exact matrix (no jump), lowers it in front, tips it onto its back with the vents up, and swings both leaves over their outer top edges (246 degrees) to rest as braced legs. The interior glows (full-bright tray + red-hot plate slots), heat shimmer sheets and embers rise, and charcoal plates fly from the glow to the build height. On a fold it is all the same frames backwards, ending with the case flying back into the hand. In first person (no body pass) it starts from a fixed spot beside the right hand. Set down into lava, it floats on the surface. |
+
+**The lava rule (fire-immune suits, `IronManSuit.fireImmune()`).**
+* **Deploy:** the wearer is damage-immune for the whole deploy (`IronManDamage.suitUpImmune`), and wears the full suit
+  (fire-proof) when it ends.
+* **Fold:** every piece stays in its slot until the fold's last tick, so the full-set immunity
+  (`IronManDamage.fireProof`) holds the whole way.
+* **After:** if a sequence ends with the wearer in fire / lava / on a magma block / burning and **not** in the full suit
+  (a fold, or a deploy from a case that was missing a piece), `PortableDeploy.heatGrace` puts the flames out and gives
+  `HEAT_GRACE_TICKS` (200 = 10 s) of Fire Resistance, with an action-bar line, which is time enough to climb out.
+* The case itself never burns (fire resistant item, like the Mk IX pieces).
+
 ## Not done yet / known limits
 
 * In **first person**, the wearer's own view still shows the vanilla held case while it deploys. The floor prop and
   the plates do show in first person. Only the third-person held item is hidden.
 * There is no HUD fill for the 0.5 s Shift+C hold (the Era I eject has one in the C box).
-* The forms for the Mk VII, Mk VIII, Mk IX and Hulkbuster are not built yet.
+* The Mk IX heat case is built (above). The forms for the Mk VII, Mk VIII and Hulkbuster are being built separately.
+* The Mk IX's heat shimmer is drawn as faint glowing sheets (no screen-space distortion).
