@@ -291,6 +291,7 @@ public final class StarkGantry {
 		if (exclude != null) {
 			out.removeIf(e -> e.suitId().equals(exclude));
 		}
+		out.removeIf(e -> !fits(e.suitId())); // v0.16.7 (user): never the Hulkbuster
 		out.sort(Comparator.comparingInt((StarkGantryMenuPayload.Entry e) -> -markOf(e.suitId()))
 				.thenComparingInt(StarkGantryMenuPayload.Entry::distance));
 		return out;
@@ -382,10 +383,25 @@ public final class StarkGantry {
 
 	// ---------------- H on the floor ----------------
 
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: "you cant suitup with it in the gantry". The Hulkbuster I (mark_8) is a 3-block body,
+	 * not a fitted suit: it never goes on or comes off on a Stark Gantry. Its ways in and out are its Sentry Mode climb, its
+	 * drop crate (the Uplink) and the Suit Platform's Uplink tab.
+	 */
+	public static final String HULKBUSTER = "mark_8";
+
+	/** v0.16.7 (user): can the gantry's arms fit / remove {@code suitId}? (Everything but the Hulkbuster.) */
+	public static boolean fits(String suitId) {
+		return suitId != null && !HULKBUSTER.equals(suitId);
+	}
+
 	/** Why the player can't use the gantry right now (an action-bar message key), or null if they can. */
 	private static String blocker(ServerPlayer player, BlockPos centre) {
 		if (!TonyStark.hasPower(player)) {
 			return "message.projecthero.gantry.not_stark";
+		}
+		if (HULKBUSTER.equals(IronManArmor.wornSuitId(player))) {
+			return "message.projecthero.gantry.hulkbuster_worn"; // v0.16.7 (user)
 		}
 		if (centre == null) {
 			return tileUnder(player) == null ? "message.projecthero.gantry.not_on_floor" : "message.projecthero.gantry.incomplete";
@@ -458,6 +474,9 @@ public final class StarkGantry {
 				}
 			}
 		}
+		if (why == null && !fits(fromPack ? packSuit : platform.storedSuitId())) {
+			why = "message.projecthero.gantry.hulkbuster"; // v0.16.7 (user): no gantry suit-up into the Hulkbuster
+		}
 		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {
 			tell(player, why == null ? "message.projecthero.gantry.incomplete" : why, ChatFormatting.GOLD);
 			return false;
@@ -505,6 +524,8 @@ public final class StarkGantry {
 				why = fromPack ? "message.projecthero.gantry.pack_gone" : "message.projecthero.gantry.suit_gone";
 			} else if (next.equals(worn)) {
 				why = "message.projecthero.gantry.swap_same";
+			} else if (!fits(next)) {
+				why = "message.projecthero.gantry.hulkbuster"; // v0.16.7 (user)
 			}
 		}
 		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {
@@ -535,6 +556,9 @@ public final class StarkGantry {
 				? com.projecthero.mod.ironman.item.SuitCrateItem.suitId(crate) : null;
 		if (why == null && (suitId == null || IronManSuits.byId(suitId) == null)) {
 			why = "message.projecthero.ironman.era1.crate_empty";
+		}
+		if (why == null && !fits(suitId)) {
+			why = "message.projecthero.gantry.hulkbuster"; // v0.16.7 (user)
 		}
 		ServerLevel level = player.serverLevel();
 		if (why != null || !(level.getBlockEntity(centre) instanceof StarkGantryFloorBlockEntity be)) {

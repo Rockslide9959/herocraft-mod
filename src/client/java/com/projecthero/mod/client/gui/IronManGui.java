@@ -253,6 +253,11 @@ public final class IronManGui {
 	 * {@code yawDeg}. Scissored to the box. Never throws: a renderer failure just leaves the box empty.
 	 */
 	public static void suitPreview(GuiGraphics g, int x0, int y0, int x1, int y1, ItemStack[] pieces, float yawDeg) {
+		if (com.projecthero.mod.client.ironman.HulkbusterDisplay.isHulkbuster(pieces)) {
+			// v0.16.7 (user): the Hulkbuster is shown as its own body, never as player armour
+			com.projecthero.mod.client.ironman.HulkbusterDisplay.preview(g, x0, y0, x1, y1, yawDeg);
+			return;
+		}
 		ArmorStand s = stand();
 		if (s == null) {
 			return;

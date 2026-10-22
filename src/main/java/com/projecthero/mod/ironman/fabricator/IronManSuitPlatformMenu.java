@@ -190,8 +190,38 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		return packForm() != null;
 	}
 
+	/** v0.16.7 (user): menu button id of the side "Uplink" tab (only while the whole Hulkbuster is racked). */
+	public static final int UPLINK_BUTTON = 7;
+
+	/** v0.16.7 (user): is the whole Hulkbuster racked here, so the Uplink tab is offered? */
+	public boolean offersUplink() {
+		IronManSuitPlatformBlockEntity be = liveBE();
+		if (be != null) {
+			return be.holdsHulkbuster();
+		}
+		for (int i = 0; i < 4; i++) {
+			if (!(getSlot(i).getItem().getItem() instanceof IronManArmorItem a)
+					|| !com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(a.suitId())) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	@Override
 	public boolean clickMenuButton(Player player, int id) {
+		if (player instanceof ServerPlayer sp && id == UPLINK_BUTTON) {
+			// v0.16.7 (user): the racked Hulkbuster goes into its Uplink, ready to call down in its drop crate
+			boolean packed = access.evaluate((level, pos) -> level.getBlockEntity(pos) instanceof IronManSuitPlatformBlockEntity be
+					&& be.packUplink(sp), false);
+			if (packed) {
+				com.projecthero.mod.ironman.IronManSounds.play(sp, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 0.9f);
+			} else {
+				sp.displayClientMessage(net.minecraft.network.chat.Component.translatable("message.projecthero.suit_platform.uplink_cant")
+						.withStyle(net.minecraft.ChatFormatting.GOLD), true);
+			}
+			return packed;
+		}
 		if (player instanceof ServerPlayer sp && id == SUITCASE_BUTTON) {
 			// v0.15.6: fold the racked suit back into its packed form and hand it over (v0.16.7: any Era II form)
 			com.projecthero.mod.ironman.suit.PortableForm form = packForm();
@@ -235,6 +265,13 @@ public class IronManSuitPlatformMenu extends AbstractContainerMenu {
 		} else if (IronManSuitPlatformBlockEntity.platformForm(stack) != null) {
 			// v0.14.30: shift-clicking the Mark 5 Suitcase unfolds it onto the rack (v0.16.7: any Era II packed item)
 			if (container instanceof IronManSuitPlatformBlockEntity be && be.storeSuitcase(player, stack)) {
+				slot.setChanged();
+			}
+			return ItemStack.EMPTY;
+		} else if (stack.is(com.projecthero.mod.ironman.item.IronManItems.HULKBUSTER_UPLINK)) {
+			// v0.16.7 (user): shift-clicking a loaded Uplink racks the Hulkbuster (the Uplink stays, emptied)
+			if (container instanceof IronManSuitPlatformBlockEntity be && be.getLevel() != null && !be.getLevel().isClientSide()) {
+				IronManSuitPlatformBlock.rackUplink(be.getLevel(), be.getBlockPos(), be, player, stack);
 				slot.setChanged();
 			}
 			return ItemStack.EMPTY;

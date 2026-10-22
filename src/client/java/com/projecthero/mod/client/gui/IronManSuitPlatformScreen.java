@@ -80,6 +80,12 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		};
 		suitcase.visible = menu.offersSuitcase();
 		addRenderableWidget(suitcase);
+		// v0.16.7 (user): the same spot hands a racked Hulkbuster over as its Uplink (call it down in its drop crate)
+		uplink = new IronManGui.StarkButton(leftPos + imageWidth + 2, topPos + 98, UPLINK_W, 15,
+				Component.translatable("screen.projecthero.suit_platform.uplink"),
+				() -> click(IronManSuitPlatformMenu.UPLINK_BUTTON));
+		uplink.visible = menu.offersUplink();
+		addRenderableWidget(uplink);
 	}
 
 	/** v0.16.7 (user): size of the pack tab (two wrapped lines: "Pack into" / "Thruster Pack"). */
@@ -93,6 +99,11 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 				? Component.translatable("screen.projecthero.suit_platform.suitcase")
 				: Component.translatable("screen.projecthero.suit_platform.form." + form.suitId()));
 	}
+	/** v0.16.7 (user): the side tab that packs the racked Hulkbuster into its Uplink. */
+	private IronManGui.StarkButton uplink;
+	/** v0.16.7: width of the Uplink tab (where the Bracelets tab was). */
+	public static final int UPLINK_W = 60;
+
 
 	private void click(int id) {
 		if (minecraft != null && minecraft.gameMode != null) {
@@ -184,7 +195,9 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		}
 		// v0.15.4: the Stark Gantry hint, word-wrapped into the old button strip (y 97..115)
 		// v0.16.7: an Era I suit says whether a Gantry is in range (it is only repaired / fast-charged then)
-		String hintKey = !eraOne ? "screen.projecthero.suit_platform.gantry_hint"
+		// v0.16.7 (user): the Hulkbuster never goes on at a Gantry -- the hint points at its Uplink tab instead
+		String hintKey = suit != null && suit.hulkbuster() ? "screen.projecthero.suit_platform.hulkbuster_hint"
+				: !eraOne ? "screen.projecthero.suit_platform.gantry_hint"
 				: gantry ? "screen.projecthero.suit_platform.gantry_ok" : "screen.projecthero.suit_platform.no_gantry";
 		int gy = 97;
 		for (var line : font.split(Component.translatable(hintKey), MW)) {
@@ -230,8 +243,15 @@ public class IronManSuitPlatformScreen extends AbstractContainerScreen<IronManSu
 		if (suitcase != null) {
 			suitcase.visible = menu.offersSuitcase(); // v0.16.7: only while an Era II suit with a carried form is racked
 		}
+		if (uplink != null) {
+			uplink.visible = menu.offersUplink(); // v0.16.7 (user): only while the whole Hulkbuster is racked
+		}
 		super.render(g, mouseX, mouseY, partialTick);
 		this.renderTooltip(g, mouseX, mouseY);
+		if (uplink != null && uplink.visible && uplink.isHovered()) {
+			g.renderTooltip(font, font.split(Component.translatable("screen.projecthero.suit_platform.uplink_tip"), 160),
+					mouseX, mouseY);
+		}
 		var form = menu.packForm();
 		if (suitcase != null && suitcase.visible && suitcase.isHovered() && form != null) {
 			IronManSuit s = IronManSuits.byId(form.suitId());

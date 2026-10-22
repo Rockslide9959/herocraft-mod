@@ -14,6 +14,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.darkseid.BeamDraw;
+import com.projecthero.mod.client.ironman.HulkbusterLocators;
 import com.projecthero.mod.client.ironman.IronManFlightPose;
 import com.projecthero.mod.client.ironman.IronManFlightPose.Kind;
 import com.projecthero.mod.client.ironman.IronManThrusterParticleClient;
@@ -99,9 +100,17 @@ public final class IronManFlightFxClient {
 	private static final int BOOT_GLOW = 0xFFE6C4;
 	private static final int MK1_JET = 0xFF7020;
 
-	/** Up to 4 nozzles: 0/1 = right / left boot, 2/3 = right / left palm. */
-	private static final Vector3f[] POS = { new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f() };
-	private static final Vector3f[] DIR = { new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f() };
+	/**
+	 * Up to 6 nozzles: 0/1 = right / left boot, 2/3 = right / left palm, 4 = the Hulkbuster's back thrusters (v0.16.7
+	 * (user): drawn as VFX at the body's own locators now that its fx cubes are gone -- {@link HulkbusterLocators}).
+	 */
+	private static final Vector3f[] POS = { new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f() };
+	private static final Vector3f[] DIR = { new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f(), new Vector3f() };
+
+	/** v0.16.7 (user): a nozzle that always runs full (boots, the Hulkbuster's back pack), not a palm. */
+	private static boolean fullJet(int i) {
+		return i < 2 || i >= 4;
+	}
 	private static final float[] LIMBS = new float[12];
 
 	private static final Map<UUID, IronManThrusterSoundInstance[]> SOUNDS = new HashMap<>();
@@ -140,6 +149,7 @@ public final class IronManFlightFxClient {
 	public static void clientTick(Minecraft client) {
 		ClientLevel level = client.level;
 		IronManFlightPose.tick(level);
+		HulkbusterLocators.tick(client); // v0.16.7 (user)
 		if (level == null || client.player == null) {
 			SOUNDS.clear();
 			SHOCKS.clear();
@@ -208,6 +218,20 @@ public final class IronManFlightFxClient {
 
 	/** Fills {@link #POS} (relative to the feet) / {@link #DIR} for this flier's nozzles; returns how many (2 or 4). */
 	private static int nozzles(Player player, IronManFlightPose.Anim a, float partial) {
+		// v0.16.7 (user): a Hulkbuster jets from its own body's boots, palms and back pack, wherever its clip has them
+		if ("mark_8".equals(a.suitId)) {
+			HulkbusterLocators.Frame hb = HulkbusterLocators.fresh(player);
+			if (hb != null) {
+				int[] order = { HulkbusterLocators.BOOT_R, HulkbusterLocators.BOOT_L, HulkbusterLocators.PALM_R, HulkbusterLocators.PALM_L,
+						HulkbusterLocators.BACK };
+				for (int i = 0; i < order.length; i++) {
+					Vec3 p = hb.pos[order[i]];
+					POS[i].set((float) p.x, (float) p.y, (float) p.z);
+					DIR[i].set(hb.dir[order[i]]);
+				}
+				return 5;
+			}
+		}
 		Kind kind = a.flying ? a.kind : a.shownKind;
 		IronManFlightPose.targets(a, partial, player.tickCount + partial, LIMBS);
 		float yaw = Mth.rotLerp(partial, player.yBodyRotO, player.yBodyRot);
@@ -271,7 +295,7 @@ public final class IronManFlightFxClient {
 		// reads as one continuous jet instead of dotted beads
 		int steps = Mth.clamp(Mth.ceil(a.speed / 0.4), 1, 4);
 		for (int i = 0; i < count; i++) {
-			boolean boot = i < 2;
+			boolean boot = fullJet(i);
 			if (fp && !boot) {
 				continue; // your own palms are right under the camera in first person
 			}
@@ -480,7 +504,7 @@ public final class IronManFlightFxClient {
 		for (int i = 0; i < count; i++) {
 			Vector3f p = POS[i];
 			Vector3f d = DIR[i];
-			boolean boot = i < 2;
+			boolean boot = fullJet(i);
 			double x = player.getX() + p.x();
 			double y = player.getY() + p.y();
 			double z = player.getZ() + p.z();
@@ -752,7 +776,7 @@ public final class IronManFlightFxClient {
 		float trail = IronManFlightLook.trailLength(a.speed) * s;
 		Vec3 back = vel.lengthSqr() > 1.0e-4 ? vel.normalize().scale(-1.0) : null;
 		for (int i = 0; i < count; i++) {
-			boolean boot = i < 2;
+			boolean boot = fullJet(i);
 			if (fp && !boot) {
 				continue;
 			}

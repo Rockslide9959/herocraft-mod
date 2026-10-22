@@ -44,7 +44,8 @@ public class IronManComicV0161GameTests implements FabricGameTest {
 			ArmorItem.Type.BOOTS };
 	// v0.16.7 (user) Era I: the Gantry Age order and its integrity / absorb table (the Mk VI Suitcase follows the Mk V)
 	private static final String[] ORDER = { "mark_1", "mark_1_v2", "mark_iii", "mark_4", "mark_v", "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" }; // v0.16.7: + the Era II Mk IX Inferno
-	private static final float[] SHARES = { 0.30f, 0.32f, 0.38f, 0.40f, 0.15f, 0.30f, 0.45f, 0.50f, 0.55f, 0.60f };
+	// v0.16.7 (user): the Hulkbuster takes every hit itself (HulkbusterShield) -- 100%, was 60%
+	private static final float[] SHARES = { 0.30f, 0.32f, 0.38f, 0.40f, 0.15f, 0.30f, 0.45f, 0.50f, 0.55f, 1.0f };
 	private static final float[] INTEGRITY = { 700, 850, 1400, 1600, 500, 1000, 2200, 2600, 3200, 4500 };
 
 	private static ServerPlayer tony(GameTestHelper h) {

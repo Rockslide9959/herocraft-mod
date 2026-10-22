@@ -165,6 +165,12 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 			}
 			return ItemInteractionResult.sidedSuccess(level.isClientSide());
 		}
+		if (stack.is(IronManItems.HULKBUSTER_UPLINK)) { // v0.16.7 (user): a loaded Uplink racks the Hulkbuster
+			if (!level.isClientSide()) {
+				rackUplink(level, pos, be, player, stack);
+			}
+			return ItemInteractionResult.sidedSuccess(level.isClientSide());
+		}
 		if (stack.getItem() instanceof com.projecthero.mod.ironman.item.SuitCrateItem) { // v0.16.7: racks a crated Era I suit
 			if (!level.isClientSide() && player instanceof ServerPlayer sp) {
 				com.projecthero.mod.ironman.item.SuitCrateItem.rackOn(sp, be, stack);
@@ -179,6 +185,17 @@ public class IronManSuitPlatformBlock extends BaseEntityBlock {
 		}
 		// v0.14.27: the platform has no reserve any more -- Reactor Cores are no longer fed to it
 		return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+	}
+
+	/** v0.16.7 (user): rack the Hulkbuster out of its Uplink, with feedback either way. Public for the screen's shift-click. */
+	public static void rackUplink(Level level, BlockPos pos, IronManSuitPlatformBlockEntity be, Player player, ItemStack uplink) {
+		if (be.storeUplink(player, uplink)) {
+			((ServerLevel) level).playSound(null, pos, SoundEvents.NETHERITE_BLOCK_PLACE, SoundSource.BLOCKS, 0.9f, 0.7f);
+			com.projecthero.mod.ironman.IronManSounds.play(player, com.projecthero.mod.ironman.IronManSounds.SERVO, 0.8f, 0.8f);
+			player.displayClientMessage(Component.translatable("message.projecthero.suit_platform.uplink_racked").withStyle(ChatFormatting.AQUA), true);
+		} else {
+			player.displayClientMessage(Component.translatable("message.projecthero.suit_platform.uplink_refused").withStyle(ChatFormatting.RED), true);
+		}
 	}
 
 	/** v0.14.30: unfold a Mark 5 Suitcase into its armour on this platform, with feedback either way. */

@@ -281,7 +281,7 @@ public final class IronManSuits {
 	public static final IronManSuit MARK_8 = register(comicKit(IronManSuit.Builder.of("mark_8"), com.projecthero.mod.ironman.ability.IronManComicKit.SLOT_C)
 			.tech(3, 8)
 			.maxIntegrity(4500f)
-			.absorb(0.60f)
+			.absorb(1.0f) // v0.16.7 (user): the suit takes every hit, not its pilot (HulkbusterShield) -- was 60%
 			.energy(2500f, 0f) // v0.16.7 (user) Era II reactor
 			.energyRegen(2.5f)
 			.waterBreathing()

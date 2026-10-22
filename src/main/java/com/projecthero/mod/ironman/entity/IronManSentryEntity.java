@@ -131,6 +131,17 @@ public class IronManSentryEntity extends Entity {
 	public static final int STEP_IN = 3;
 	/** Standing in it while it closes. */
 	public static final int STEP_WRAP = 4;
+	/** v0.16.7 (user): climbing up and out of a Hulkbuster's open back ({@link HulkbusterClimb#out}), riding the suit. */
+	public static final int STEP_CLIMB_OUT = 5;
+	/** v0.16.7 (user): climbing up into a Hulkbuster's open back ({@link HulkbusterClimb#in}), riding the suit. */
+	public static final int STEP_CLIMB_IN = 6;
+
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: a wrecked Hulkbuster (its integrity ran out while worn and it threw its pilot out,
+	 * {@link #wreck}) stays down this long -- no stepping in -- before it reboots, standing, at 0 integrity (the Replacement
+	 * Pod or a Suit Platform repairs it, as before).
+	 */
+	public static final int WRECK_COOLDOWN_TICKS = 60 * 20;
 
 	/**
 	 * Owners being walked into / closed into their suit right now: nothing hurts them meanwhile (as during a suit-up).
@@ -258,6 +269,10 @@ public class IronManSentryEntity extends Entity {
 	private static final EntityDataAccessor<Byte> STEP_KIND = SynchedEntityData.defineId(IronManSentryEntity.class, EntityDataSerializers.BYTE);
 	/** v0.15.15: in Defensive because its owner got hurt (it goes back to its old mode once the fight is over). */
 	private static final EntityDataAccessor<Boolean> AUTO = SynchedEntityData.defineId(IronManSentryEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.16.7 (user): the tick of the Hulkbuster climb out / in ({@link #STEP_CLIMB_OUT}, {@link #STEP_CLIMB_IN}). */
+	private static final EntityDataAccessor<Integer> STEP_TICK = SynchedEntityData.defineId(IronManSentryEntity.class, EntityDataSerializers.INT);
+	/** v0.16.7 (user): a wrecked Hulkbuster, down on one knee and smoking until it reboots ({@link #wreck}). */
+	private static final EntityDataAccessor<Boolean> WRECKED = SynchedEntityData.defineId(IronManSentryEntity.class, EntityDataSerializers.BOOLEAN);
 	@SuppressWarnings("unchecked")
 	private static final EntityDataAccessor<ItemStack>[] STACK_DATA = new EntityDataAccessor[] { HEAD, CHEST, LEGS, FEET };
 
@@ -309,6 +324,10 @@ public class IronManSentryEntity extends Entity {
 	private double homeSpeed;
 	/** v0.16.7 (user) Era II: standing in a Hulkbuster drop crate (plain right-click steps in, no auto-defend). */
 	private boolean crated;
+	/** v0.16.7 (user): game time a wrecked Hulkbuster reboots at (0 = not wrecked); saved as ticks left. */
+	private long wreckUntil;
+	/** v0.16.7 (user): the climb-in is done -- the rider gets off INSIDE the suit (not at the drop spot behind it). */
+	private boolean climbedIn;
 
 	// client-only interpolation (a plain Entity's lerpTo is a hard setPos: no motion between ticks, no walk cycle)
 	private int lerpSteps;
@@ -751,6 +770,40 @@ public class IronManSentryEntity extends Entity {
 		builder.define(STEPPER, -1);
 		builder.define(STEP_KIND, (byte) STEP_NONE);
 		builder.define(AUTO, false);
+		builder.define(STEP_TICK, 0);
+		builder.define(WRECKED, false);
+	}
+
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: a never-added, client-side stand-in drawn as {@code suitId}'s body -- the Suit
+	 * Platform rack and the screens' previews draw the Hulkbuster this way (its real body, not the old player armour).
+	 */
+	public static IronManSentryEntity displayModel(Level level, String suitId) {
+		IronManSentryEntity s = new IronManSentryEntity(IronManEntityTypes.SENTRY, level);
+		s.suitId = suitId;
+		s.setOnGround(true);
+		s.setIntegrity(IronManEnergy.maxIntegrity(suitId));
+		return s;
+	}
+
+	/** v0.16.7 (user): is this the Hulkbuster (its climb-out / climb-in, its wreck)? */
+	public boolean hulkbuster() {
+		return com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(suitId());
+	}
+
+	/** v0.16.7 (user): the synced tick of the Hulkbuster climb out / in (see {@link #stepKind}). */
+	public int climbTick() {
+		return getEntityData().get(STEP_TICK);
+	}
+
+	/** v0.16.7 (user): a wrecked Hulkbuster still in its reboot cooldown. */
+	public boolean wrecked() {
+		return getEntityData().get(WRECKED);
+	}
+
+	/** v0.16.7 (user) (server): ticks until a wrecked Hulkbuster reboots, 0 when it is not wrecked. */
+	public int wreckTicksLeft() {
+		return wreckUntil <= 0L ? 0 : (int) Math.max(0L, wreckUntil - level().getGameTime());
 	}
 
 	/** v0.15.15: entity id of the player being walked out of / into this suit, or -1. */
@@ -823,6 +876,11 @@ public class IronManSentryEntity extends Entity {
 		if (phase != PHASE_IDLE || isRemoved()) {
 			return false;
 		}
+		if (wreckUntil > 0L) { // v0.16.7 (user): a wrecked Hulkbuster is down until it reboots
+			owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_wreck.rebooting",
+					(wreckTicksLeft() + 19) / 20).withStyle(ChatFormatting.RED), true);
+			return false;
+		}
 		if ((sneak || crated) && isOpen()) { // v0.16.7 (user): in its drop crate a plain right-click steps in too
 			if (!canWrap(owner) || owner.distanceTo(this) > STEP_REACH) {
 				owner.displayClientMessage(Component.translatable("message.projecthero.ironman.sentry.cant_enter")
@@ -887,8 +945,17 @@ public class IronManSentryEntity extends Entity {
 			getEntityData().set(FIRING, false);
 		}
 		ServerPlayer owner = owner(level);
+		if (wreckUntil > 0L) {
+			tickWreck(level, owner);
+		}
 		switch (phase) {
-			case PHASE_EJECT -> tickEject(level, owner);
+			case PHASE_EJECT -> {
+				if (hulkbuster()) {
+					tickClimbOut(level, owner); // v0.16.7 (user): out of the BACK, climbing
+				} else {
+					tickEject(level, owner);
+				}
+			}
 			case PHASE_STEP_IN -> tickStepping(level, owner);
 			case PHASE_WRAP -> tickWrap(level, owner);
 			case PHASE_RESCUE -> tickRescue(level, owner);
@@ -967,18 +1034,242 @@ public class IronManSentryEntity extends Entity {
 			setStepper(null, STEP_NONE);
 		}
 		if (phaseTicks >= EJECT_CLOSE_TICK) {
-			setStepper(null, STEP_NONE);
-			stepReleased = false;
-			setOpen(false);
-			IronManSounds.play(this, IronManSounds.CLAMP, 0.8f, 1.1f);
-			rescueArmed = owner != null && owner.getHealth() > RESCUE_HEALTH;
-			if (homeDock != null) {
-				setPhase(PHASE_HOME); // send-home: closed, now it flies itself to its platform
-				homeSpeed = 0.0;
-				homeSkyward = false;
-				clearLight();
+			closeAfterEject(owner);
+		}
+	}
+
+	/** The owner is out: the back closes, then it stands (or flies itself home on a send-home). */
+	private void closeAfterEject(ServerPlayer owner) {
+		setStepper(null, STEP_NONE);
+		stepReleased = false;
+		climbEnd = -1;
+		setOpen(false);
+		IronManSounds.play(this, IronManSounds.CLAMP, 0.8f, 1.1f);
+		rescueArmed = owner != null && owner.getHealth() > RESCUE_HEALTH;
+		if (homeDock != null) {
+			setPhase(PHASE_HOME); // send-home: closed, now it flies itself to its platform
+			homeSpeed = 0.0;
+			homeSkyward = false;
+			clearLight();
+		} else {
+			setPhase(PHASE_IDLE);
+		}
+	}
+
+	// ------------------------------------------------------------------ v0.16.7 (user): the Hulkbuster climb
+
+	/** The climb-out finished (or was cut short) on this phase tick; -1 = still climbing. */
+	private int climbEnd = -1;
+	/** The back closes this many ticks after the pilot is down. */
+	public static final int CLIMB_CLOSE_DELAY = 8;
+	/** v0.16.7 (user): the phase tick a Hulkbuster climb-out (pilot still inside at deploy) has closed its back by. */
+	public static final int CLIMB_OUT_CLOSE_TICK = HulkbusterClimb.OUT_TICKS + 1 + CLIMB_CLOSE_DELAY;
+
+	/**
+	 * v0.16.7 (user): "the player needs to come out from the back of the suit ... add an animation of the player climbing
+	 * out the suit since its so big". The back swings open and the owner -- riding the suit, carried along
+	 * {@link HulkbusterClimb#out} -- reaches up for the rim, pulls up and over it, crawls out along the open plate, hops
+	 * off and drops to the ground {@link HulkbusterClimb#DROP_BACK} behind it, facing away; then the back closes. Their
+	 * limbs are keyed to the same synced tick on every client ({@code HulkbusterClimbPose}). Unhurtable meanwhile; Sneak
+	 * lets go early (they land at the drop spot).
+	 */
+	private void tickClimbOut(ServerLevel level, ServerPlayer owner) {
+		walk(Vec3.ZERO);
+		int climb = phaseTicks - 1;
+		if (climb == 0 && owner != null && owner.getVehicle() != this && owner.distanceTo(this) < 1.2) {
+			climbedIn = false;
+			owner.stopRiding();
+			getEntityData().set(STEP_TICK, 0);
+			setStepper(owner, STEP_CLIMB_OUT);
+			owner.setYRot(getYRot() + 180f); // looking out of the back (the ride's teleport carries it to the client)
+			owner.setYHeadRot(getYRot() + 180f);
+			if (owner.startRiding(this, true)) {
+				STEPPING.add(owner.getUUID());
 			} else {
-				setPhase(PHASE_IDLE);
+				setStepper(null, STEP_NONE);
+			}
+		}
+		boolean riding = owner != null && owner.getVehicle() == this;
+		if (climbEnd < 0) {
+			if (riding && climb < HulkbusterClimb.OUT_TICKS) {
+				getEntityData().set(STEP_TICK, climb);
+				climbSound(level, owner, climb, true);
+				return;
+			}
+			if (riding) {
+				owner.stopRiding(); // -> getDismountLocationForPassenger: the drop spot behind the suit
+			}
+			if (owner != null) {
+				STEPPING.remove(owner.getUUID());
+				if (riding || stepperId() == owner.getId()) {
+					// facing away from the suit, the way they climbed out
+					owner.teleportTo(level, owner.getX(), owner.getY(), owner.getZ(), getYRot() + 180f, owner.getXRot());
+					owner.setDeltaMovement(Vec3.ZERO);
+				}
+			}
+			setStepper(null, STEP_NONE);
+			climbEnd = phaseTicks;
+		}
+		if (phaseTicks >= climbEnd + CLIMB_CLOSE_DELAY) {
+			closeAfterEject(owner);
+		}
+	}
+
+	/** The climb's foley, on its beats. */
+	private void climbSound(ServerLevel level, ServerPlayer owner, int tick, boolean out) {
+		net.minecraft.sounds.SoundEvent s = null;
+		float vol = 0.35f;
+		float pitch = 0.9f + level.random.nextFloat() * 0.15f;
+		if (out) {
+			if (tick == 9 || tick == 15) {
+				s = SoundEvents.ARMOR_EQUIP_IRON.value(); // hands on the rim
+			} else if (tick == 21) {
+				s = SoundEvents.ARMOR_EQUIP_NETHERITE.value(); // hauling over it
+			} else if (tick == 27 || tick == 31) {
+				s = SoundEvents.NETHERITE_BLOCK_STEP; // knees on the plate
+			} else if (tick == HulkbusterClimb.OUT_LAND) {
+				s = SoundEvents.PLAYER_SMALL_FALL;
+				vol = 0.6f;
+			}
+		} else {
+			if (tick == HulkbusterClimb.IN_ON_PLATE || tick == 16) {
+				s = SoundEvents.NETHERITE_BLOCK_STEP;
+			} else if (tick == 20) {
+				s = SoundEvents.ARMOR_EQUIP_IRON.value();
+			} else if (tick == 28) {
+				s = SoundEvents.ARMOR_EQUIP_NETHERITE.value();
+			}
+		}
+		if (s != null) {
+			level.playSound(null, owner.getX(), owner.getY(), owner.getZ(), s, SoundSource.PLAYERS, vol, pitch);
+		}
+	}
+
+	/** v0.16.7 (user): carry the climbing pilot along the climb path (both sides run this off the synced tick). */
+	@Override
+	protected void positionRider(Entity passenger, Entity.MoveFunction move) {
+		int kind = stepKind();
+		if (passenger.getId() == stepperId() && (kind == STEP_CLIMB_OUT || kind == STEP_CLIMB_IN || kind == STEP_WRAP)) {
+			net.minecraft.world.phys.Vec2 at = kind == STEP_CLIMB_OUT ? HulkbusterClimb.out(climbTick())
+					: kind == STEP_CLIMB_IN ? HulkbusterClimb.in(climbTick()) : new net.minecraft.world.phys.Vec2(0f, HulkbusterClimb.INSIDE_Y);
+			Vec3 fwd = forward();
+			move.accept(passenger, getX() - fwd.x * at.x, getY() + at.y, getZ() - fwd.z * at.x);
+			return;
+		}
+		super.positionRider(passenger, move);
+	}
+
+	/** v0.16.7 (user): a climb-out (or a climb-in let go of early) lands on the ground behind; a finished climb-in inside. */
+	@Override
+	public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
+		if (climbedIn) {
+			return position();
+		}
+		Vec3 fwd = forward();
+		var box = passenger.getDimensions(net.minecraft.world.entity.Pose.STANDING);
+		for (double k : new double[] { 1.0, 0.8, 0.6 }) {
+			Vec3 at = position().subtract(fwd.scale(HulkbusterClimb.DROP_BACK * k));
+			for (double up : new double[] { 0.0, 0.5, 1.0 }) {
+				Vec3 p = at.add(0, up, 0);
+				if (level().noCollision(passenger, box.makeBoundingBox(p))) {
+					return p;
+				}
+			}
+		}
+		return super.getDismountLocationForPassenger(passenger);
+	}
+
+	// ------------------------------------------------------------------ v0.16.7 (user): the wreck
+
+	/**
+	 * v0.16.7 (user) Hulkbuster fixes: "instead of the player taking damage the hulkbuster takes the damage almost like a
+	 * titan shifter". Its integrity ran out while worn: the back blows open and the pilot is thrown out of it, and the
+	 * suit is left where it stood as a wrecked Sentry -- 0 integrity, down on one knee, smoking and sparking -- that can't
+	 * be stepped into for {@link #WRECK_COOLDOWN_TICKS}. Then it reboots and stands (still at 0: the Replacement Pod or a
+	 * Suit Platform repairs it, the existing rules). Returns the wreck, or null if {@code player} isn't in the full suit.
+	 */
+	public static IronManSentryEntity wreck(ServerPlayer player) {
+		String suitId = IronManArmor.wornSuitId(player);
+		IronManSuit suit = suitId == null ? null : IronManSuits.byId(suitId);
+		if (suit == null || !suit.hulkbuster() || !IronManArmor.wearingFullSuit(player, suitId)) {
+			return null;
+		}
+		ServerLevel level = player.serverLevel();
+		if (IronManFlight.isFlying(player)) {
+			IronManFlight.setFlying(player, false);
+		}
+		if (player.isPassenger()) {
+			player.stopRiding();
+		}
+		float energy = IronManEnergy.energy(player, suitId);
+		IronManSentryEntity s = new IronManSentryEntity(IronManEntityTypes.SENTRY, level);
+		s.ownerId = player.getUUID();
+		s.getEntityData().set(OWNER, Optional.of(player.getUUID()));
+		s.suitId = suitId;
+		for (int i = 0; i < 4; i++) {
+			ItemStack piece = player.getItemBySlot(SLOTS[i]).copy();
+			IronManEnergy.stampStack(piece, energy, 0f);
+			player.setItemSlot(SLOTS[i], ItemStack.EMPTY);
+			s.setStack(i, piece);
+		}
+		s.setEnergy(energy);
+		s.setIntegrity(0f);
+		s.setMode(REGULAR);
+		float yaw = player.getYRot();
+		s.moveTo(player.getX(), player.getY(), player.getZ(), yaw, 0f);
+		s.setYHeadRot(yaw);
+		s.setDeltaMovement(player.getDeltaMovement().multiply(0.3, 0.5, 0.3));
+		s.setOpen(true);
+		s.wreckUntil = level.getGameTime() + WRECK_COOLDOWN_TICKS;
+		s.getEntityData().set(WRECKED, true);
+		level.addFreshEntity(s);
+		IronManEnergy.setIntegrity(player, suitId, 0f);
+		TonyStark.setActiveSuit(player, "");
+		player.inventoryMenu.broadcastChanges();
+		// thrown out of the back
+		Vec3 back = s.forward().scale(-1.0);
+		var dims = player.getDimensions(net.minecraft.world.entity.Pose.STANDING);
+		Vec3 out = s.position().add(back.scale(0.8)).add(0, 1.2, 0);
+		if (!level.noCollision(player, dims.makeBoundingBox(out))) {
+			out = s.position().add(back.scale(0.8));
+			if (!level.noCollision(player, dims.makeBoundingBox(out))) {
+				out = s.position();
+			}
+		}
+		player.teleportTo(level, out.x, out.y, out.z, player.getYRot(), player.getXRot());
+		player.setDeltaMovement(back.scale(0.5).add(0, 0.38, 0));
+		player.hurtMarked = true;
+		player.resetFallDistance();
+		Vec3 hatch = s.position().add(back.scale(0.4)).add(0, 1.6, 0);
+		level.sendParticles(ParticleTypes.EXPLOSION, hatch.x, hatch.y, hatch.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, hatch.x, hatch.y, hatch.z, 30, 0.4, 0.5, 0.4, 0.04);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, hatch.x, hatch.y, hatch.z, 40, 0.5, 0.6, 0.5, 0.25);
+		level.playSound(null, s.getX(), s.getY(), s.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 1.0f, 0.75f);
+		level.playSound(null, s.getX(), s.getY(), s.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.7f, 0.5f);
+		IronManSounds.play(s, IronManSounds.POWER_FAIL, 1.0f, 0.7f);
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_wreck.wrecked", WRECK_COOLDOWN_TICKS / 20)
+				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+		return s;
+	}
+
+	/** The wreck smokes and sparks until it reboots. */
+	private void tickWreck(ServerLevel level, ServerPlayer owner) {
+		Vec3 back = forward().scale(-0.35);
+		if (tickCount % 3 == 0) {
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, getX() + back.x, getY() + 1.7, getZ() + back.z, 1, 0.2, 0.2, 0.2, 0.01);
+			level.sendParticles(ParticleTypes.SMOKE, getX(), getY() + 1.2, getZ(), 2, 0.4, 0.5, 0.4, 0.01);
+		}
+		if (random.nextInt(14) == 0) {
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 1.0 + random.nextDouble(), getZ(), 8, 0.4, 0.3, 0.4, 0.2);
+			level.playSound(null, getX(), getY() + 1.2, getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.NEUTRAL, 0.2f, 1.8f);
+		}
+		if (level.getGameTime() >= wreckUntil) {
+			wreckUntil = 0L;
+			getEntityData().set(WRECKED, false);
+			IronManSounds.play(this, IronManSounds.POWER_UP, 0.8f, 0.7f);
+			if (owner != null) {
+				owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_wreck.rebooted")
+						.withStyle(ChatFormatting.GOLD), true);
 			}
 		}
 	}
@@ -1141,7 +1432,7 @@ public class IronManSentryEntity extends Entity {
 
 	/** The spot behind the open back the owner walks into the suit from. */
 	public Vec3 behindSpot() {
-		return position().add(forward().scale(-STEP_BEHIND));
+		return position().add(forward().scale(hulkbuster() ? -HulkbusterClimb.DROP_BACK : -STEP_BEHIND)); // v0.16.7: the climb's spot
 	}
 
 	private void tickStepping(ServerLevel level, ServerPlayer owner) {
@@ -1162,6 +1453,16 @@ public class IronManSentryEntity extends Entity {
 				// turned to the suit's facing on the spot (a hair's move at most), arms coming out
 				owner.teleportTo(level, behind.x, behind.y, behind.z, getYRot(), 10f);
 				owner.setDeltaMovement(Vec3.ZERO);
+				if (hulkbuster()) {
+					// v0.16.7 (user): up onto the open back plate and in over the rim (HulkbusterClimb#in), riding the suit
+					climbedIn = false;
+					getEntityData().set(STEP_TICK, 0);
+					setStepper(owner, STEP_CLIMB_IN);
+					if (!owner.startRiding(this, true)) {
+						setStepper(owner, STEP_IN);
+					}
+					return;
+				}
 				setStepper(owner, STEP_IN);
 				return;
 			}
@@ -1192,6 +1493,20 @@ public class IronManSentryEntity extends Entity {
 			}
 			return;
 		}
+		if (stepKind() == STEP_CLIMB_IN) {
+			int climb = phaseTicks - stepStageAt;
+			if (owner.getVehicle() != this) {
+				abandonStep(owner); // let go (Sneak): they land behind it again, the suit stays open
+				return;
+			}
+			getEntityData().set(STEP_TICK, Math.min(climb, HulkbusterClimb.IN_TICKS));
+			climbSound(level, owner, climb, false);
+			if (climb >= HulkbusterClimb.IN_TICKS) {
+				climbedIn = true;
+				beginWrap(owner);
+			}
+			return;
+		}
 		// into the open back, facing the suit's way
 		float t0 = Math.min(1f, (phaseTicks - stepStageAt) / (float) STEP_TICKS);
 		float t1 = Math.min(1f, (phaseTicks + 1 - stepStageAt) / (float) STEP_TICKS);
@@ -1209,6 +1524,10 @@ public class IronManSentryEntity extends Entity {
 
 	/** The step-in / close-in can't finish (owner gone, died, put something else on): the suit just stays open. */
 	private void abandonStep(ServerPlayer owner) {
+		climbedIn = false;
+		if (owner != null && owner.getVehicle() == this) {
+			owner.stopRiding(); // v0.16.7: off the Hulkbuster's climb, back down behind it
+		}
 		if (owner != null) {
 			STEPPING.remove(owner.getUUID());
 		} else if (ownerId != null) {
@@ -1239,6 +1558,9 @@ public class IronManSentryEntity extends Entity {
 	}
 
 	private void pin(ServerPlayer owner) {
+		if (owner.getVehicle() == this) {
+			return; // v0.16.7: a Hulkbuster pilot is held inside by the ride (positionRider) until the suit is on
+		}
 		Vec3 here = position();
 		if (owner.position().distanceToSqr(here) > 0.0025 || Math.abs(Mth.wrapDegrees(owner.getYRot() - getYRot())) > 1f) {
 			owner.teleportTo((ServerLevel) level(), here.x, here.y, here.z, getYRot(), owner.getXRot());
@@ -1963,6 +2285,13 @@ public class IronManSentryEntity extends Entity {
 		float e = reactorCharge(); // v0.16.7 (user): the real reactor charge, not the sentry's always-full value
 		float i = integrity;
 		int mode = prevMode >= 0 ? prevMode : mode(); // v0.15.15: an auto-defend remembers the mode it came from
+		if (owner.getVehicle() == this) {
+			climbedIn = true;
+			owner.stopRiding(); // v0.16.7: off the ride, standing right where the suit stands
+			owner.teleportTo((ServerLevel) level(), getX(), getY(), getZ(), getYRot(), owner.getXRot());
+			owner.setDeltaMovement(Vec3.ZERO);
+		}
+		climbedIn = false;
 		STEPPING.remove(owner.getUUID());
 		setStepper(null, STEP_NONE);
 		ItemStack[] pieces = takeAll(true);
@@ -2045,8 +2374,11 @@ public class IronManSentryEntity extends Entity {
 		if (!level().isClientSide() && reason.shouldDestroy()) {
 			clearLight();
 		}
-		if (!level().isClientSide() && ownerId != null && (phase == PHASE_STEP_IN || phase == PHASE_WRAP)) {
-			STEPPING.remove(ownerId);
+		if (!level().isClientSide() && ownerId != null && (phase == PHASE_STEP_IN || phase == PHASE_WRAP || phase == PHASE_EJECT)) {
+			STEPPING.remove(ownerId); // v0.16.7: + a Hulkbuster climb-out
+		}
+		if (!level().isClientSide()) {
+			ejectPassengers(); // v0.16.7: a climbing pilot is a passenger
 		}
 		super.remove(reason);
 	}
@@ -2337,6 +2669,9 @@ public class IronManSentryEntity extends Entity {
 		setMode(tag.getInt("Mode"));
 		setOpen(tag.getBoolean("Open"));
 		crated = tag.getBoolean("Crated");
+		int wreckLeft = tag.getInt("WreckTicks"); // v0.16.7 (user)
+		wreckUntil = wreckLeft > 0 ? level().getGameTime() + wreckLeft : 0L;
+		getEntityData().set(WRECKED, wreckLeft > 0);
 		lightPos = tag.contains("Light") ? BlockPos.of(tag.getLong("Light")) : null;
 		setPhase(PHASE_IDLE);
 		if (tag.contains("HomeDock")) {
@@ -2366,6 +2701,9 @@ public class IronManSentryEntity extends Entity {
 		tag.putInt("Mode", prevMode >= 0 ? prevMode : mode()); // v0.15.15: an auto-defend saves the mode it came from
 		tag.putBoolean("Open", isOpen());
 		tag.putBoolean("Crated", crated);
+		if (wreckUntil > 0L) {
+			tag.putInt("WreckTicks", Math.max(1, wreckTicksLeft())); // v0.16.7 (user)
+		}
 		if (homeDock != null) {
 			tag.putLong("HomeDock", homeDock.asLong());
 		}

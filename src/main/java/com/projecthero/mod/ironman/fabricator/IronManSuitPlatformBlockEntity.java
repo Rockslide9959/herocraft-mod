@@ -468,6 +468,86 @@ public class IronManSuitPlatformBlockEntity extends BlockEntity
 		return true;
 	}
 
+	// ---------------- v0.16.7 (user): the Hulkbuster's Uplink ----------------
+	//
+	// "you can get the uplink from the suit platform and then you can use that the call the armour". The Hulkbuster I
+	// can't go on at a Stark Gantry, so the rack hands it over as its Uplink (the four stacks, integrity kept) and takes an
+	// Uplink back onto the rack. The Uplink's own rules are unchanged: a loaded one calls the drop crate, an emptied one
+	// stays in the pack meanwhile.
+
+	/** v0.16.7 (user): is the whole Hulkbuster racked here (the Uplink tab is offered)? */
+	public boolean holdsHulkbuster() {
+		return com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID.equals(storedSuitId()) && isFull();
+	}
+
+	/**
+	 * v0.16.7 (user): the racked Hulkbuster goes into {@code player}'s emptied Uplink (else a new one, into the pack) -- "back
+	 * in orbit", ready to be called down. False (nothing moves) unless the whole suit is racked here and the player may
+	 * use this platform.
+	 */
+	public boolean packUplink(ServerPlayer player) {
+		if (!holdsHulkbuster() || owner != null && !owner.equals(player.getUUID()) || !(level instanceof ServerLevel sl)) {
+			return false;
+		}
+		float integrity = suitIntegrity();
+		java.util.List<ItemStack> out = new java.util.ArrayList<>();
+		for (int i = 0; i < SIZE; i++) {
+			out.add(pieces.get(i));
+			pieces.set(i, ItemStack.EMPTY);
+		}
+		afterContentsChanged();
+		com.projecthero.mod.ironman.crate.HulkbusterCrate.toOrbit(sl, player, out, integrity,
+				net.minecraft.world.phys.Vec3.atCenterOf(worldPosition));
+		return true;
+	}
+
+	/**
+	 * v0.16.7 (user): a loaded Hulkbuster Uplink handed to the platform (right-click the pad with it, or shift-click it in the
+	 * screen) racks the suit -- its four stacks onto the rack, the Uplink kept, emptied. A never-used (fresh) Uplink racks a
+	 * new suit at full integrity. All-or-nothing; false if the Uplink is empty or the rack can't take the Hulkbuster.
+	 */
+	public boolean storeUplink(Player player, ItemStack uplink) {
+		if (!uplink.is(com.projecthero.mod.ironman.item.IronManItems.HULKBUSTER_UPLINK) || locked()
+				|| !matchesStoredSuit(com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID)) {
+			return false;
+		}
+		String sid = com.projecthero.mod.ironman.crate.HulkbusterCrate.SUIT_ID;
+		java.util.List<ItemStack> contents = new java.util.ArrayList<>();
+		float integrity;
+		if (com.projecthero.mod.ironman.item.SuitcaseContents.isLegacyEmpty(uplink)) {
+			for (ArmorItem.Type t : new ArmorItem.Type[] { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE, ArmorItem.Type.LEGGINGS,
+					ArmorItem.Type.BOOTS }) {
+				contents.add(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.armor(sid, t)));
+			}
+			integrity = IronManEnergy.maxIntegrity(sid);
+		} else {
+			contents.addAll(com.projecthero.mod.ironman.item.SuitcaseContents.nonEmpty(uplink));
+			integrity = IronManEnergy.stackIntegrity(uplink, sid);
+		}
+		if (contents.isEmpty()) {
+			return false;
+		}
+		for (ItemStack piece : contents) {
+			if (!(piece.getItem() instanceof IronManArmorItem a) || slotOf(a.getType()) < 0 || !pieces.get(slotOf(a.getType())).isEmpty()) {
+				return false;
+			}
+		}
+		for (ItemStack piece : contents) {
+			ItemStack s = piece.copyWithCount(1);
+			IronManEnergy.stampStack(s, IronManEnergy.FULL, integrity);
+			pieces.set(slotOf(((IronManArmorItem) s.getItem()).getType()), s);
+		}
+		if (owner == null) {
+			owner = player.getUUID();
+		}
+		// the Uplink stays in the pack, emptied (never mistaken for a fresh one): the suit is on the rack now
+		com.projecthero.mod.ironman.item.SuitcaseContents.write(uplink,
+				NonNullList.withSize(com.projecthero.mod.ironman.item.SuitcaseContents.SLOTS, ItemStack.EMPTY));
+		player.getInventory().setChanged();
+		afterContentsChanged();
+		return true;
+	}
+
 	/** v0.15.9: the unfold onto the rack lasts exactly as long as the Suitcase tab's fold, of which it is the reverse. */
 	public static final int UNPACK_TICKS = IronManSuitPlatformBlockEntity.PACK_TICKS;
 

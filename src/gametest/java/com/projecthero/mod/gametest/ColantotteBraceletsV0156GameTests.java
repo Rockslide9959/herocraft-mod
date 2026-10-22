@@ -223,7 +223,7 @@ public class ColantotteBraceletsV0156GameTests implements FabricGameTest {
 		for (String k : new String[] { "item.projecthero.colantotte_bracelets.tooltip2", "item.projecthero.colantotte_bracelets.tooltip3" }) {
 			h.assertTrue(IronManUiLayout.approxWidth(t(k)) <= 220, "short tooltip: " + k);
 		}
-		h.assertTrue(t("projecthero.guide.iron_man.bracelets.body").contains("ONLY the Mark 7")
+		h.assertTrue(t("projecthero.guide.iron_man.bracelets.body").contains("ONLY the Mk VIII")
 				&& t("projecthero.guide.iron_man.bracelets.body").contains("uses the bracelets up"), "the guide explains the rules");
 		h.succeed();
 	}
