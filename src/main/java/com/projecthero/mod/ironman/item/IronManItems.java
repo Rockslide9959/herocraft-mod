@@ -94,6 +94,11 @@ public final class IronManItems {
 			new Item.Properties().rarity(Rarity.EPIC).component(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)));
 	public static final Item MARK_V_SUITCASE = register("mark_v_suitcase", new MarkVSuitcaseItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+	// v0.16.7 (user) Era II stage 2: the Mk VII / Mk VIII packed forms, worn on the back while carried (PortableForms)
+	public static final Item CENTURION_BACKPACK = register("centurion_backpack", new IronManPackItem(
+			new Item.Properties().stacksTo(1).rarity(Rarity.RARE), "mark_6"));
+	public static final Item SPACE_THRUSTER_PACK = register("space_thruster_pack", new IronManPackItem(
+			new Item.Properties().stacksTo(1).rarity(Rarity.RARE), "mark_vii"));
 	/** v0.16.7 (user) Era I: what the Shift+C emergency eject packs an Era I suit into (opens only in a Stark Gantry). */
 	/**
 	 * v0.16.7 (user): the item of the Suit Crate BLOCK (placing it puts the crate down, contents and all). Registered in
@@ -276,6 +281,8 @@ public final class IronManItems {
 		output.accept(com.projecthero.mod.ironman.sorter.StarkSorter.STATION_ITEM); // v0.14.16
 		output.accept(REACTOR_CORE);
 		output.accept(MARK_V_SUITCASE);
+		output.accept(CENTURION_BACKPACK); // v0.16.7 (user) Era II stage 2
+		output.accept(SPACE_THRUSTER_PACK);
 		output.accept(SUIT_CRATE); // v0.16.7
 		output.accept(STARK_GLASSES); // v0.15.1
 		output.accept(COLANTOTTE_BRACELETS); // v0.15.4

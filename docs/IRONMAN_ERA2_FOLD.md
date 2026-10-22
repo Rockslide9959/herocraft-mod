@@ -125,4 +125,41 @@ new PortableForm(
 * In **first person**, the wearer's own view still shows the vanilla held case while it deploys. The floor prop and
   the plates do show in first person. Only the third-person held item is hidden.
 * There is no HUD fill for the 0.5 s Shift+C hold (the Era I eject has one in the C box).
-* The forms for the Mk VII, Mk VIII, Mk IX and Hulkbuster are not built yet.
+* The forms for the Mk IX and Hulkbuster are not built yet (see the backpacks below for the Mk VII / Mk VIII).
+
+## The backpacks: Mk VII Silver Centurion + Mk VIII Space
+
+| | Mk VII (`mark_6`) | Mk VIII (`mark_vii`) |
+|---|---|---|
+| Form | `PortableForms.MK7_BACKPACK` | `PortableForms.MK8_THRUSTER_PACK` |
+| Item | `centurion_backpack` (`IronManPackItem`) | `space_thruster_pack` |
+| Look | silver core, red top / silver bottom shell plates, blue strip | white core and shell over twin O2 tanks with gold caps |
+
+* **Where the packed pack lives:** in the inventory, any slot. While it is carried it is worn on the back. The server
+  mirrors the carried pack's suit id into the synced, non-persistent `ModAttachments.IRON_MAN_BACK_PACK` every tick
+  (`PortableDeploy.backTick`), and every viewer's `IronManPortableClient.BodyLayer` draws the closed pack from it.
+  The pack is pushed out over a worn vanilla chestplate and never drawn over an Iron Man suit. The held item is never
+  drawn in the hand (`ItemInHandLayerSuitcaseMixin`). Why not the chest slot: the chestplate is the *first* piece a
+  backpack puts on, so a pack in that slot would have to be moved out mid-deploy into an inventory that may be full.
+  It would also collide with elytras and chestplates. Other players cannot see inventories, hence the attachment.
+* **Fold placement:** `PortableDeploy.placePack` puts the pack in the first free main-inventory slot, then a free
+  hotbar slot other than the selected one, then the selected slot, then drops it at the feet. It never goes into
+  the hand.
+* **Controls:** C (no suit on) or right-click deploys it. Hold Shift+C while wearing the suit folds it back. **Plain
+  C while wearing the suit keeps the suit's old store** (Suit Platform / pod / bracelets). The pack is an extra way to
+  carry the suit, so the hint-only C applies to non-BACK forms only (`IronManAbilities` SUIT_TOGGLE).
+* **Timetable (76 ticks, `packStages()` / `packPose()`):** the shell blooms over frames 2-12. Then the chest
+  (`TORSO_TOP` 12), the arms (sleeves, sliding upper arms, gauntlets) and the legs (`THIGH_BOTTOM` slides down,
+  `PANTS`). Then the boots, the helmet over the top and the faceplate drops (seal at 64). The emptied pack folds flat
+  into the back from 64. Direction is `DROP`. Pose: brace, arms wide while the chest and arms wrap, arms down and
+  eyes down for the legs, chin up for the helmet, a nod, then settle.
+* **Prop:** `client/ironman/BackpackProp` (one class, per-suit `Style`). Everything is drawn on the body; there is no
+  world pass. The straps slide back over the shoulders into the pack, and the four shell plates swing out on their
+  outer hinges and splay like petals. Plates stream out of the open core, round the side the target is on, and land
+  where the build is at that moment. Their targets come from the form's stage windows, placed through the posed
+  `ModelPart`s, so they follow the arms out. The model is a 64x16 swatch atlas, `textures/entity/iron_man_pack.png`.
+* **Mk VIII O2 tanks:** `IRON_MAN_PACK_TANKS` (persistent and synced) is set when a thruster-pack deploy starts. It is
+  cleared by `backTick` once the Mk VIII chestplate is off outside a sequence. The prop slides the tanks in flush
+  during the final fold-flat, and `BackpackProp.renderWornTanks` keeps drawing them at that exact spot afterwards.
+  A Mk VIII put on any other way (pod / bracelets / platform) has no tanks.
+* **Tests:** `gametest/IronManBackpackFormGameTests.java` (6).

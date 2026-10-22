@@ -82,6 +82,9 @@ public final class IronManPortableClient {
 
 	public static void initialize() {
 		registerProp(PortableForms.MK6_BRIEFCASE.propId(), new Mk6BriefcaseProp());
+		// v0.16.7 (user) Era II stage 2: the Mk VII / Mk VIII backpacks (one shared prop, per-suit style)
+		registerProp(PortableForms.MK7_BACKPACK.propId(), new BackpackProp(BackpackProp.MK7));
+		registerProp(PortableForms.MK8_THRUSTER_PACK.propId(), new BackpackProp(BackpackProp.MK8));
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new BodyLayer(playerRenderer));
@@ -225,13 +228,43 @@ public final class IronManPortableClient {
 		@Override
 		public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing,
 				float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+			if (player.isInvisible()) {
+				return;
+			}
 			PortableForm form = form(player);
-			if (form == null || player.isInvisible()) {
+			if (form == null) {
+				renderBack(pose, buffers, light, player);
 				return;
 			}
 			PortableProp prop = PROPS.get(form.propId());
 			if (prop != null) {
 				prop.renderBody(pose, buffers, light, player, getParentModel(), form, frame(player, partialTick));
+			}
+		}
+
+		/**
+		 * v0.16.7 (user) Era II stage 2, outside a sequence: a carried backpack is worn on the back (the synced
+		 * {@code IRON_MAN_BACK_PACK}; pushed out over a worn chestplate, never drawn over an Iron Man suit), and a Mk VIII
+		 * deployed out of its thruster pack keeps its O2 tanks ({@code IRON_MAN_PACK_TANKS}).
+		 */
+		private void renderBack(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player) {
+			PlayerModel<AbstractClientPlayer> model = getParentModel();
+			if (player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_PACK_TANKS, false)
+					&& BackpackProp.wearsMk8Chest(player)) {
+				BackpackProp.renderWornTanks(pose, buffers, light, model);
+				return;
+			}
+			String carried = player.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.IRON_MAN_BACK_PACK, "");
+			if (carried.isEmpty()) {
+				return;
+			}
+			var chest = player.getItemBySlot(EquipmentSlot.CHEST);
+			if (chest.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem) {
+				return;
+			}
+			PortableForm packed = PortableForms.byId(carried);
+			if (packed != null && PROPS.get(packed.propId()) instanceof BackpackProp bp) {
+				bp.renderPacked(pose, buffers, light, model, chest.isEmpty() ? 0f : 1.1f);
 			}
 		}
 	}

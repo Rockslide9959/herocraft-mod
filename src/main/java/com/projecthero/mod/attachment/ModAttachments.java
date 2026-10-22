@@ -1066,6 +1066,26 @@ public final class ModAttachments {
 			ProjectHeroMod.id("hulk_mind_return"),
 			builder -> builder.persistent(com.projecthero.mod.hulk.data.HulkMindReturn.CODEC));
 
+	/**
+	 * v0.16.7 (user) Iron Man Era II stage 2: the suit id of the packed backpack this player carries (the Mk VII / Mk VIII
+	 * packs are worn on the back while they are in the inventory), "" for none. Recomputed by the server every tick
+	 * ({@code PortableDeploy.backTick}) -- not persistent; synced to everyone so every viewer draws the pack.
+	 */
+	public static final AttachmentType<String> IRON_MAN_BACK_PACK = AttachmentRegistry.create(
+			ProjectHeroMod.id("iron_man_back_pack"),
+			builder -> builder.initializer(() -> "")
+					.syncWith(ByteBufCodecs.STRING_UTF8, AttachmentSyncPredicate.all()));
+
+	/**
+	 * v0.16.7 (user) Era II stage 2: the Mk VIII was deployed out of its thruster pack, so its O2 tanks stay on its back
+	 * (set when the deploy starts, cleared once the Mk VIII chestplate is off). Persistent (a relog keeps the tanks) and
+	 * synced to everyone.
+	 */
+	public static final AttachmentType<Boolean> IRON_MAN_PACK_TANKS = AttachmentRegistry.create(
+			ProjectHeroMod.id("iron_man_pack_tanks"),
+			builder -> builder.initializer(() -> false).persistent(Codec.BOOL)
+					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
+
 	private ModAttachments() {
 	}
 

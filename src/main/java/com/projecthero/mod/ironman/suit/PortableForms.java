@@ -74,6 +74,79 @@ public final class PortableForms {
 					poseKey(58, 0f, 0f, 0.3f, 0f, 0f, -0.3f, 0f, 0.08f, 0f, -0.08f, -0.15f, 0f),
 					poseKey(72, 0f, 0f, 0.1f, 0f, 0f, -0.1f, 0f, 0.04f, 0f, -0.04f, 0f, 0f) }));
 
+	// ---------------- v0.16.7 (user) Era II stage 2: the Mk VII + Mk VIII backpacks ----------------
+
+	/**
+	 * The backpacks' shared stage table: chest first (the plates wrap round from the pack), the upper arms slide out of
+	 * the shoulders and the gauntlets follow down to the wrists, then the legs slide down, the boots, the helmet over the
+	 * top and the faceplate drops last. {@link PortableForm.Direction#DROP}: every texel stage builds top-down.
+	 */
+	private static int[][] packStages() {
+		return PortableForm.stages(PortableForm.noStages(),
+				TORSO_TOP, 12, 18, TORSO_BOTTOM, 16, 23,
+				JACKET, 17, 32,
+				R_SLEEVE, 19, 33, L_SLEEVE, 20, 34,
+				R_ARM, 21, 28, L_ARM, 22, 29,
+				R_GAUNTLET, 26, 34, L_GAUNTLET, 27, 35,
+				THIGH_TOP, 34, 39, THIGH_BOTTOM, 37, 44,
+				PANTS, 38, 52,
+				R_BOOT, 46, 53, L_BOOT, 47, 54,
+				HELMET, 52, 60, FACEPLATE, 58, 64);
+	}
+
+	/**
+	 * The backpacks' body pose: a brace as the shell blooms, the arms swing out wide while the plates wrap the chest and
+	 * the arms, come down while the legs are covered (feet apart, eyes down), chin up for the helmet, a small nod as the
+	 * faceplate locks, then settle.
+	 */
+	private static float[][] packPose() {
+		return new float[][] {
+				poseKey(0, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0f, 0f, 0f, 0f, 0f, 0f),
+				// the shell blooms: shoulders roll back, chin dips
+				poseKey(7, 0.3f, 0f, 0.22f, 0.3f, 0f, -0.22f, 0f, 0.03f, 0f, -0.03f, 0.28f, 0f),
+				// the plates wrap the chest and the arms: arms out wide
+				poseKey(16, 0.05f, 0f, 0.95f, 0.05f, 0f, -0.95f, 0f, 0.07f, 0f, -0.07f, 0.05f, 0f),
+				poseKey(24, -0.05f, 0f, 1.2f, -0.05f, 0f, -1.2f, 0f, 0.09f, 0f, -0.09f, -0.05f, 0f),
+				poseKey(32, -0.08f, 0f, 1.15f, -0.08f, 0f, -1.15f, 0f, 0.1f, 0f, -0.1f, 0.12f, 0f),
+				// the legs: arms come down, feet apart, looking down at them
+				poseKey(40, 0f, 0f, 0.5f, 0f, 0f, -0.5f, 0f, 0.16f, 0f, -0.16f, 0.4f, 0f),
+				poseKey(50, 0f, 0f, 0.38f, 0f, 0f, -0.38f, 0f, 0.14f, 0f, -0.14f, 0.32f, 0f),
+				// the helmet: chin up
+				poseKey(58, 0f, 0f, 0.26f, 0f, 0f, -0.26f, 0f, 0.09f, 0f, -0.09f, -0.22f, 0f),
+				// the faceplate locks: a small nod, then settle
+				poseKey(65, 0f, 0f, 0.16f, 0f, 0f, -0.16f, 0f, 0.05f, 0f, -0.05f, 0.1f, 0f),
+				poseKey(70, 0f, 0f, 0.1f, 0f, 0f, -0.1f, 0f, 0.04f, 0f, -0.04f, -0.03f, 0f),
+				poseKey(76, 0f, 0f, 0.08f, 0f, 0f, -0.08f, 0f, 0.03f, 0f, -0.03f, 0f, 0f) };
+	}
+
+	/**
+	 * The Mk VII Silver Centurion (mark_6): a silver / red backpack worn on the back. Deploy (C): its four shell plates
+	 * bloom open, plates stream out of it and wrap round the body -- chest and arms first, the legs slide down, the
+	 * helmet, the faceplate drops -- and the emptied pack folds flat into the suit's back (3.8 s). Fold (hold Shift+C):
+	 * the same frames backwards, ending with the pack on your back.
+	 */
+	public static final PortableForm MK7_BACKPACK = register(new PortableForm("mark_6",
+			() -> IronManItems.CENTURION_BACKPACK, PortableForm.Place.BACK, PortableForm.Place.BACK,
+			new PortableForm.Beats(2, 10, 12, 64, 64, 76), packStages(), PortableForm.Direction.DROP, "mk7_backpack",
+			packPose()));
+
+	/**
+	 * The Mk VIII Space (mark_vii): a white thruster pack with twin O2 tanks and gold caps. Deploy: the shell opens, the
+	 * plates wrap forward round the body, the gold visor seals -- and the O2 tanks stay on, settling flush onto the suit's
+	 * back as part of it ({@code ModAttachments.IRON_MAN_PACK_TANKS}). Fold: packs back down to the tanks + shell.
+	 */
+	public static final PortableForm MK8_THRUSTER_PACK = register(new PortableForm("mark_vii",
+			() -> IronManItems.SPACE_THRUSTER_PACK, PortableForm.Place.BACK, PortableForm.Place.BACK,
+			new PortableForm.Beats(2, 10, 12, 64, 64, 76), packStages(), PortableForm.Direction.DROP, "mk8_thruster_pack",
+			packPose()));
+
+	/** Does {@code form}'s pack leave part of itself on the suit (the Mk VIII's O2 tanks)? */
+	public static boolean keepsTanks(PortableForm form) {
+		return form == MK8_THRUSTER_PACK;
+	}
+
+	// ---------------- end of the backpacks ----------------
+
 	private PortableForms() {
 	}
 

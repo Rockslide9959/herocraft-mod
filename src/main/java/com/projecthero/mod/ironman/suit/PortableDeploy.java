@@ -270,6 +270,9 @@ public final class PortableDeploy {
 		s.transitionTotal = form.beats().total();
 		s.transitionTicks = s.transitionTotal;
 		IronManSuitPlatformBlockEntity.setFrozen(player, true);
+		if (up && PortableForms.keepsTanks(form)) {
+			player.setAttached(ModAttachments.IRON_MAN_PACK_TANKS, true); // the Mk VIII's O2 tanks stay on the suit
+		}
 		// no piece clocks (a stale one must not draw a piece with another style's windows) -- just the pose clock
 		IronManSuitFx fx = IronManSuitFx.of(player);
 		// a fold's clock runs END_HOLD past the end, so a viewer keeps drawing the pieces gone (and the case in the hand)
@@ -441,10 +444,75 @@ public final class PortableDeploy {
 		ItemStack packed = new ItemStack(form.packedItem().get());
 		SuitcaseContents.write(packed, slots);
 		IronManEnergy.stampStack(packed, energy, integrity);
-		IronManSuitUpManager.placeSuitcase(player, packed);
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.folded_to_case",
+		if (form.rest() == PortableForm.Place.BACK) {
+			placePack(player, packed); // v0.16.7 (user): a backpack goes on the back (the inventory), not into the hand
+		} else {
+			IronManSuitUpManager.placeSuitcase(player, packed);
+		}
+		player.displayClientMessage(Component.translatable(form.rest() == PortableForm.Place.BACK
+				? "message.projecthero.ironman.folded_to_pack" : "message.projecthero.ironman.folded_to_case",
 				Component.translatable(IronManSuits.byId(suitId).nameKey())).withStyle(ChatFormatting.AQUA), true);
 		return packed;
+	}
+
+	// ======================================================================== backpacks (v0.16.7 user, Era II stage 2)
+
+	/**
+	 * Where a freshly folded backpack goes: the first free main-inventory slot (it is "on your back", not in your hand),
+	 * else a free hotbar slot other than the selected one, else the selected slot, else at the feet. Returns the inventory
+	 * index, or -1 if it was dropped.
+	 */
+	public static int placePack(ServerPlayer player, ItemStack pack) {
+		var inv = player.getInventory();
+		int idx = -1;
+		for (int i = 9; i < inv.items.size() && idx < 0; i++) {
+			if (inv.items.get(i).isEmpty()) {
+				idx = i;
+			}
+		}
+		for (int i = 0; i < 9 && idx < 0; i++) {
+			if (i != inv.selected && inv.items.get(i).isEmpty()) {
+				idx = i;
+			}
+		}
+		if (idx < 0 && inv.selected >= 0 && inv.selected < 9 && inv.items.get(inv.selected).isEmpty()) {
+			idx = inv.selected;
+		}
+		if (idx < 0) {
+			player.drop(pack, false);
+			return -1;
+		}
+		inv.items.set(idx, pack);
+		return idx;
+	}
+
+	/** The suit id of the backpack form {@code player} carries (and so wears on the back), or "" for none. */
+	public static String carriedPack(ServerPlayer player) {
+		var inv = player.getInventory();
+		for (int i = 0; i < inv.items.size(); i++) {
+			PortableForm form = PortableForms.byStack(inv.items.get(i));
+			if (form != null && form.rest() == PortableForm.Place.BACK && deployable(inv.items.get(i))) {
+				return form.suitId();
+			}
+		}
+		PortableForm off = PortableForms.byStack(player.getOffhandItem());
+		return off != null && off.rest() == PortableForm.Place.BACK && deployable(player.getOffhandItem()) ? off.suitId() : "";
+	}
+
+	/**
+	 * Per player tick ({@code IronManSuitTicker}): mirror the carried backpack into the synced
+	 * {@link ModAttachments#IRON_MAN_BACK_PACK} (every viewer draws it on the back), and drop the Mk VIII's O2 tanks
+	 * ({@link ModAttachments#IRON_MAN_PACK_TANKS}) once its chestplate is off outside a sequence. Writes only on a change.
+	 */
+	public static void backTick(ServerPlayer player) {
+		String pack = carriedPack(player);
+		if (!pack.equals(player.getAttachedOrElse(ModAttachments.IRON_MAN_BACK_PACK, ""))) {
+			player.setAttached(ModAttachments.IRON_MAN_BACK_PACK, pack);
+		}
+		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_PACK_TANKS, false) && !running(player)
+				&& !IronManArmor.isPieceWorn(player, EquipmentSlot.CHEST, PortableForms.MK8_THRUSTER_PACK.suitId())) {
+			player.setAttached(ModAttachments.IRON_MAN_PACK_TANKS, false);
+		}
 	}
 
 	/** Death mid-sequence: just stop -- worn pieces drop as armour, the half-empty packed item as an item. */
