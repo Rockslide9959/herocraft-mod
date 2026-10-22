@@ -408,6 +408,24 @@ function animations(M) {
 		[0.95, R({ ra: [-90, 0, 20], la: [-90, 0, -20], rf: -20, lf: -20, b: [2, 0, 0] })],
 		[1.2, R({})],
 	]);
+	if (beast) {
+		// v0.16.7 (user): Pitcher's Fastball (Shift+R, replaced the Backhand; Beast file only) -- scoops a handful of ground
+		// with the right hand (t8), crushes it in both fists (t12-15), rears into a pitcher's leg kick (t18) and whips it
+		// overarm (released at t22), then follows through low across the body
+		const crush = { b: [12, 0, 0], h: [-6, 0, 0], ra: [-72, -24, -34], rf: -104, la: [-64, 24, 32], lf: -104, rl: [-12, 0, 0], ll: [-10, 0, 0], rs: 18, ls: 16 };
+		clip('fastball', 1.6, false, [
+			[0, R({})],
+			[T(8), R({ b: [46, 14, 0], h: [-26, -8, 0], ra: [-46, 0, 18], rf: -8, la: [-24, 0, -12], lf: -24, rl: [-54, 0, 0], rs: 84, rt: -26, ll: [-36, 0, 0], ls: 66, lt: -24 }), { ground: 'all', hands: ['right'] }],
+			[T(12), R(crush)],
+			[T(14), R(Object.assign({}, crush, { b: [14, 0, 0], ra: [-76, -28, -36], rf: -114, la: [-68, 28, 34], lf: -114 }))],
+			[T(15), R(Object.assign({}, crush, { b: [12, -6, 0] }))],
+			[T(18), R({ b: [-16, -40, 0], h: [-8, 34, 0], ra: [-168, -12, 22], rf: -84, la: [-84, 30, -30], lf: -26, ll: [-84, 0, 0], ls: 92, lt: -10, rl: [-8, 0, 0], rs: 12 })],
+			[T(20), R({ b: [-8, -30, 0], h: [-6, 28, 0], ra: [-176, -6, 18], rf: -70, la: [-60, 20, -24], lf: -30, ll: [-56, 0, 0], ls: 40, rl: [4, 0, 0], rs: 18 })],
+			[T(22), R({ b: [26, 28, 0], h: [8, -20, 0], ra: [-84, 0, -10], rf: -4, la: [24, 0, -22], lf: -40, ll: [-42, 0, 0], ls: 22, rl: [22, 0, 0], rs: 38 }), { ease: 'easeInQuad' }],
+			[1.3, R({ b: [36, 36, 0], h: [12, -22, 0], ra: [24, 0, -34], rf: -22, la: [26, 0, -ARM], lf: -30, ll: [-38, 0, 0], ls: 26, rl: [26, 0, 0], rs: 48 })],
+			[1.6, R({})],
+		]);
+	}
 	// held while FLAG_HOLDING_BOULDER: the right arm carries the rock at the shoulder (layers over walk / run)
 	A['animation.titan.boulder_hold'] = write(M, 1, true, [[0, { ra: [-150, -10, 16], rf: -70 }], [0.5, { ra: [-154, -10, 16], rf: -74 }], [1, { ra: [-150, -10, 16], rf: -70 }]], { ground: false });
 	// held while FLAG_NAPE_GUARD: the hand stays over the nape
