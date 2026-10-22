@@ -146,6 +146,21 @@ public final class PortableForms {
 	}
 
 	// ---------------- end of the backpacks ----------------
+	// ---- v0.16.7 (user) Era II: Hulkbuster I drop crate ----
+	/**
+	 * The Hulkbuster I (mark_8): an orbital drop crate. It does NOT use the framework's clock / texel build (the Hulkbuster
+	 * is a 3-block GeckoLib body, not armour drawn on the player): {@code PortableDeploy.deploy} / {@code fold} hand a
+	 * BLOCK form to {@link com.projecthero.mod.ironman.crate.HulkbusterCrate}, and the crate entity
+	 * ({@code HulkbusterCrateEntity}) runs its own synced clock. Registering it gives the Hulkbuster the shared controls
+	 * (C calls, hold Shift+C folds) and the Uplink's lookup. Beats are nominal (drop 28, open 60).
+	 */
+	public static final PortableForm HULKBUSTER_CRATE = register(new PortableForm("mark_8", () -> IronManItems.HULKBUSTER_UPLINK,
+			PortableForm.Place.BLOCK, PortableForm.Place.BLOCK,
+			new PortableForm.Beats(0, 28, 60, 60, 60, 60),
+			PortableForm.noStages(),
+			PortableForm.Direction.CLIMB, "hb_crate",
+			new float[0][]));
+	// ---- end Hulkbuster I drop crate ----
 
 	private PortableForms() {
 	}

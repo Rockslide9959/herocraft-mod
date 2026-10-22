@@ -87,7 +87,8 @@ public final class PortableDeploy {
 	/** Is a portable deploy / fold running for {@code player}? */
 	public static boolean running(ServerPlayer player) {
 		TonyStarkState s = TonyStark.state(player);
-		return s.transitionPortable && !s.transitionSuit.isEmpty();
+		return s.transitionPortable && !s.transitionSuit.isEmpty()
+				|| com.projecthero.mod.ironman.crate.HulkbusterCrate.folding(player); // v0.16.7 (user): the Hulkbuster crate fold
 	}
 
 	/** Is {@code player} holding Shift+C toward a fold right now? */
@@ -104,6 +105,10 @@ public final class PortableDeploy {
 	public static boolean deployFromC(ServerPlayer player) {
 		if (!TonyStark.hasPower(player) || IronManArmor.wearingAnyIronMan(player) || IronManSuitUpManager.inTransition(player)) {
 			return false;
+		}
+		// v0.16.7 (user): the Hulkbuster crate is down with the suit still in it -- C sends it back up
+		if (com.projecthero.mod.ironman.crate.HulkbusterCrate.recall(player)) {
+			return true;
 		}
 		var inv = player.getInventory();
 		PortableForm form = deployable(inv.getSelected()) ? PortableForms.byStack(inv.getSelected()) : null;
@@ -155,6 +160,9 @@ public final class PortableDeploy {
 			player.displayClientMessage(Component.translatable("message.projecthero.ironman.portable_take_off_first")
 					.withStyle(ChatFormatting.GRAY), true);
 			return false;
+		}
+		if (form.rest() == PortableForm.Place.BLOCK) {
+			return com.projecthero.mod.ironman.crate.HulkbusterCrate.call(player); // v0.16.7 (user): the drop crate (its block-like source)
 		}
 		int idx = findPacked(player, form);
 		if (idx < 0) {
@@ -237,6 +245,9 @@ public final class PortableDeploy {
 		PortableForm form = PortableForms.byId(suitId);
 		if (form == null || IronManSuitUpManager.inTransition(player)) {
 			return false;
+		}
+		if (form.rest() == PortableForm.Place.BLOCK) {
+			return com.projecthero.mod.ironman.crate.HulkbusterCrate.fold(player); // v0.16.7 (user): the crate comes down round you
 		}
 		int mask = wornMask(player, suitId);
 		if (mask == 0) {

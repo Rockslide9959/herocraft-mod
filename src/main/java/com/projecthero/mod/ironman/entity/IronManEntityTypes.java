@@ -67,6 +67,16 @@ public final class IronManEntityTypes {
 					.updateInterval(1)
 					.build("suit_crate_fold"));
 
+	/** v0.16.7 (user) Era II: the Hulkbuster I's orbital drop crate (drops, opens, closes and lifts off on its own clock). */
+	public static final EntityType<com.projecthero.mod.ironman.crate.HulkbusterCrateEntity> HULKBUSTER_CRATE = register("hulkbuster_crate",
+			EntityType.Builder.<com.projecthero.mod.ironman.crate.HulkbusterCrateEntity>of(
+					com.projecthero.mod.ironman.crate.HulkbusterCrateEntity::new, MobCategory.MISC)
+					.sized(2.25f, 3.45f)
+					.fireImmune()
+					.clientTrackingRange(16)
+					.updateInterval(1)
+					.build("hulkbuster_crate"));
+
 	private IronManEntityTypes() {
 	}
 

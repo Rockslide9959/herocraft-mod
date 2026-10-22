@@ -120,6 +120,25 @@ new PortableForm(
      `PortableDeploy.findPacked` / `takeFromPacked` (a block source).
 5. **Gametests.** Copy `IronManPortableFormGameTests` and swap the form.
 
+## Hulkbuster I drop crate (`PortableForms.HULKBUSTER_CRATE`, Place.BLOCK)
+
+The Hulkbuster is a 3-block GeckoLib body, so it does not use the clock / texel build. `PortableDeploy.deploy` and
+`fold` hand a BLOCK form to `ironman/crate/HulkbusterCrate`; the crate is an entity (`HulkbusterCrateEntity`) with its
+own synced clock (phase + start tick), drawn by `client/ironman/HulkbusterCrateRenderer` (pure pose functions on the
+entity: `wallOpen`, `lidOpen`, `height`, `floor`, `squash`).
+
+* **Where the suit lives:** in orbit = inside the **Hulkbuster Uplink** item (`SuitcaseContents`, integrity stamped). While
+  the suit is down the uplink stays in the inventory, emptied; the next fold refills it. A never-used uplink is a fresh suit.
+* **C:** the crate drops where you look (5-40 blocks out; open sky over the centre and corners, room for it, `mayBuild` /
+  `mayInteract` / world border), lands (dust, shake, scorched ring), walls fall flat, lid flips; the Hulkbuster stands in
+  it as a real Sentry (`IronManSentryEntity.standInCrate`, `crated`) with its back open toward the crate's open front.
+  C again (suit still in it): it shuts and lifts back off.
+* **Step in:** walk into its open back or right-click it: the Sentry step-in. Once you are clear of the walls, the empty
+  crate closes and lifts off.
+* **Hold Shift+C:** the crate comes down round you open (walls splayed like petals, no floor), settles, you step out
+  backwards (the Sentry eject) and aside to a corner, it closes and lifts; at the top the suit goes into your uplink.
+* Static state: `HulkbusterCrate.FOLDING` (cleared in `ServerStateReset`). Tests: `IronManHulkbusterCrateGameTests`.
+
 ## Not done yet / known limits
 
 * In **first person**, the wearer's own view still shows the vanilla held case while it deploys. The floor prop and
@@ -163,3 +182,5 @@ new PortableForm(
   during the final fold-flat, and `BackpackProp.renderWornTanks` keeps drawing them at that exact spot afterwards.
   A Mk VIII put on any other way (pod / bracelets / platform) has no tanks.
 * **Tests:** `gametest/IronManBackpackFormGameTests.java` (6).
+
+* The forms for the Mk VII, Mk VIII and Mk IX are not built yet.

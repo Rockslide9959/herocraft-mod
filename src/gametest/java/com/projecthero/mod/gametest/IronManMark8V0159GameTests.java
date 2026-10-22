@@ -125,16 +125,16 @@ public class IronManMark8V0159GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void markEightBlueprintFollowsTheMarkSeven(GameTestHelper h) {
 		h.assertTrue(IronManItems.MARK_ORDER.get(IronManItems.MARK_ORDER.size() - 1).equals(M8), "the Mark 8 ends the track");
-		h.assertTrue(M7.equals(IronManItems.prerequisiteSuit(M8)), "its prerequisite is the Mark 7");
+		h.assertTrue("mark_9".equals(IronManItems.prerequisiteSuit(M8)), "its prerequisite is the Mk IX Inferno (v0.16.7 Era II order)");
 		h.assertTrue(IronManItems.blueprintFor(M8) == IronManItems.MARK_8_BLUEPRINT, "a Blank Blueprint stamps into the Mark 8 Blueprint");
 		h.assertTrue(IronManItems.MARK_8_BLUEPRINT instanceof BlueprintItem bp && M8.equals(bp.suitId()), "which names the Mark 8");
 		h.assertTrue(IronManSuits.MARK_8.requiredBlueprint() == IronManItems.MARK_8_BLUEPRINT, "the suit knows its blueprint");
 
 		ServerPlayer p = tony(h, new BlockPos(2, 1, 2));
 		String prereq = IronManItems.prerequisiteSuit(M8);
-		h.assertFalse(TonyStark.hasFabricatedFullSuit(p, prereq), "locked until the Mark 7 is built");
-		TonyStark.markBuilt(p, IronManSuits.MARK_VII);
-		h.assertTrue(TonyStark.hasFabricatedFullSuit(p, prereq), "unlocked once the whole Mark 7 is built");
+		h.assertFalse(TonyStark.hasFabricatedFullSuit(p, prereq), "locked until the Mk IX is built");
+		TonyStark.markBuilt(p, IronManSuits.MARK_9);
+		h.assertTrue(TonyStark.hasFabricatedFullSuit(p, prereq), "unlocked once the whole Mk IX is built");
 		leave(h, p);
 		h.succeed();
 	}
