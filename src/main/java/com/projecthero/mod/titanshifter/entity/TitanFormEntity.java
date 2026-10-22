@@ -153,7 +153,6 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 	private boolean defeatStarted;
 	private long lastHurtAnimAt;
 	private long lastHurtAt = -1000;
-	private double stride;
 	private boolean rightFoot;
 	private int ownerMissingTicks;
 	private long lastTrampleAt;
@@ -875,7 +874,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			tickRun(owner);
 			tickHeld(sl);
 			tickLeap(sl, now);
-			tickFootsteps(sl);
+			// v0.16.7: walking footsteps are played by every client in step with the clips (TitanFootstepsClient)
 			tickTrample(sl, now);
 		}
 		tickSteam(sl, now);
@@ -997,23 +996,6 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 			if (owner != null) {
 				TitanCombat.leapLanding(this, owner);
 			}
-		}
-	}
-
-	private void tickFootsteps(ServerLevel sl) {
-		if (!TitanShifterConfig.effects().footsteps || !onGround() || isInWaterOrBubble()) {
-			return;
-		}
-		double dx = getX() - xo;
-		double dz = getZ() - zo;
-		double moved = Math.sqrt(dx * dx + dz * dz);
-		if (moved < 0.02) {
-			return;
-		}
-		stride += moved;
-		if (stride >= TitanShifterConfig.effects().strideBlocks) {
-			stride = 0.0;
-			footstep(sl, 1.0f, true);
 		}
 	}
 
@@ -1235,7 +1217,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	@Override
 	protected void playStepSound(BlockPos pos, BlockState state) {
-		// heavy footsteps are event-driven (see tickFootsteps), not per-vanilla-stride
+		// heavy footsteps are played client-side in step with the clips (TitanFootstepsClient), not per-vanilla-stride
 	}
 
 	@Override

@@ -72,6 +72,11 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 		model.getBone("head").ifPresent(bone -> bone.setHidden(firstPersonRider));
 
 		mainPass = true;
+		// v0.16.7: lock the footstep clock to the clip GeckoLib is actually playing
+		var manager = animatable.getAnimatableInstanceCache().getManagerForId(animatable.getId());
+		var main = manager == null ? null : manager.getAnimationControllers().get("main");
+		var current = main == null ? null : main.getCurrentAnimation();
+		TitanFootstepsClient.observe(animatable, current == null ? null : current.animation().name());
 		tx = TitanTexels.get(animatable.titanType().modelName());
 		fx = TitanFx.state(animatable);
 		TitanFx.fxTick(animatable);

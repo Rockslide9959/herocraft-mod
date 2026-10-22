@@ -133,8 +133,9 @@ function animations(M) {
 	]);
 
 	// ---------------- walk / run
-	if (!beast) {
-		const lean = armored ? 6 : 4, sw = armored ? 22 : female ? 28 : 26, asw = armored ? 16 : female ? 22 : 20;
+	{ // v0.16.7 (user skins): every Titan walks on its feet now -- the Beast's player-length arms no longer reach the
+		// ground, so its knuckle-walk became a heavy hunched walk (the rig's slight hunch plus a deeper lean, big arm swing)
+		const lean = armored ? 6 : beast ? 9 : 4, sw = armored ? 22 : female ? 28 : beast ? 24 : 26, asw = armored ? 16 : female ? 22 : beast ? 28 : 20;
 		const step = (s) => ({ // s = +1: right leg forward
 			b: [lean, 5 * s, 0], h: [-lean * 0.5, -4 * s, 0],
 			rl: [-sw * s, 0, 0], rs: s > 0 ? 6 : 26, ll: [sw * s, 0, 0], ls: s > 0 ? 26 : 6,
@@ -147,7 +148,7 @@ function animations(M) {
 			ra: [0, 0, ARM], la: [0, 0, -ARM], rf: -16, lf: -16,
 		});
 		clip('walk', 1.2, true, [[0, step(1)], [0.3, pass(-1)], [0.6, step(-1)], [0.9, pass(1)], [1.2, step(1)]]);
-		const rl = armored ? 18 : 14, fl = armored ? 0.35 : female ? 1.0 : 0.8;
+		const rl = armored ? 18 : beast ? 20 : 14, fl = armored ? 0.35 : female ? 1.0 : beast ? 0.6 : 0.8;
 		const rstep = (s) => ({
 			b: [rl, 7 * s, 0], h: [-rl * 0.55, -5 * s, 0],
 			rl: [-46 * s, 0, 0], rs: s > 0 ? 14 : 64, ll: [36 * s, 0, 0], ls: s > 0 ? 64 : 14, rt: s > 0 ? -12 : 20, lt: s > 0 ? 20 : -12,
@@ -159,20 +160,6 @@ function animations(M) {
 			ra: [0, 0, ARM + 4], la: [0, 0, -ARM - 4], rf: -64, lf: -64,
 		});
 		clip('run', 0.8, true, [[0, rstep(1)], [0.2, rfly(-1), { lift: fl }], [0.4, rstep(-1)], [0.6, rfly(1), { lift: fl }], [0.8, rstep(1)]]);
-	} else {
-		// the Beast knuckle-walks: deep forward pitch, long arms planting the knuckles like an ape
-		const kw = (s) => ({
-			b: [26, 6 * s, 0], h: [-24, -4 * s, 0],
-			rl: [-22 * s, 0, 0], rs: s > 0 ? 10 : 30, ll: [22 * s, 0, 0], ls: s > 0 ? 30 : 10,
-			ra: [-26 - 18 * s, 0, 6], la: [-26 + 18 * s, 0, -6], rf: -10, lf: -10,
-		});
-		clip('walk', 1.4, true, [[0, kw(1), { hands: ['left'] }], [0.35, kw(0), {}], [0.7, kw(-1), { hands: ['right'] }], [1.05, kw(0), {}], [1.4, kw(1), { hands: ['left'] }]]);
-		const gal = (s) => ({
-			b: [34, 0, 0], h: [-30, 0, 0],
-			rl: [s > 0 ? -40 : 30, 0, 0], rs: s > 0 ? 20 : 60, ll: [s > 0 ? -34 : 36, 0, 0], ls: s > 0 ? 26 : 56,
-			ra: [s > 0 ? 10 : -70, 0, 8], la: [s > 0 ? 4 : -76, 0, -8], rf: s > 0 ? -50 : -12, lf: s > 0 ? -56 : -12,
-		});
-		clip('run', 0.9, true, [[0, gal(1)], [0.22, gal(1), { lift: 0.9 }], [0.45, gal(-1), { hands: ['right', 'left'] }], [0.67, gal(-1), { lift: 0.5 }], [0.9, gal(1)]]);
 	}
 
 	// ---------------- strikes
@@ -401,7 +388,7 @@ function animations(M) {
 	]);
 	clip('rock_scatter', 1.1, false, [ // Beast: rakes the ground and flings the rubble (contact t12)
 		[0, R({})],
-		[0.35, R({ ra: [-20, 0, 10], rf: -10, la: [-20, 0, -10], lf: -10, b: [44, 0, 0], h: [-20, 0, 0], rl: [-30, 0, 0], ll: [-30, 0, 0], rs: 50, ls: 50 }), { hands: ['right', 'left'] }],
+		[0.35, R({ ra: [-34, 0, 10], rf: -14, la: [-34, 0, -10], lf: -14, b: [46, 0, 0], h: [-24, 0, 0], rl: [-62, 0, 0], ll: [-62, 0, 0], rs: 96, ls: 96, rt: -30, lt: -30 }), { ground: 'all' }],
 		[T(12), R({ ra: [-150, 0, 20], rf: -20, la: [-150, 0, -20], lf: -20, b: [-6, 0, 0], h: [-16, 0, 0], rl: [-6, 0, 0], ll: [-6, 0, 0], rs: 10, ls: 10 }), { ease: 'easeInQuad' }],
 		[0.8, R({ ra: [-100, 0, 30], la: [-100, 0, -30], rf: -30, lf: -30, b: [4, 0, 0] })],
 		[1.1, R({})],
