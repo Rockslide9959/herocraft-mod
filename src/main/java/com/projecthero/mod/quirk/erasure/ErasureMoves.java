@@ -561,8 +561,9 @@ public final class ErasureMoves {
 			PowerSuppression.suppress(e, ErasureConfig.SUPPRESS_TICKS);
 			ids.add(e.getId());
 			if (p.tickCount % 4 == 0) {
-				Vec3 c = e.position().add(0, e.getBbHeight() * 0.9, 0);
-				level.sendParticles(RED, c.x, c.y, c.z, 3, 0.25, 0.15, 0.25, 0.0);
+				// above the head, never in front of the eyes (an erased player would see red blobs)
+				Vec3 c = e.position().add(0, e.getBbHeight() + 0.45, 0);
+				level.sendParticles(RED, c.x, c.y, c.z, 2, 0.2, 0.08, 0.2, 0.0);
 			}
 		}
 		long lock = targets.isEmpty() ? 0L : targets.get(0).getId() + 1L;

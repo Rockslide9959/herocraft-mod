@@ -524,7 +524,7 @@ public final class OverhaulMoves {
 		}
 		BlockPos floor = feet.below(OverhaulConfig.PIT_DEPTH + 1);
 		BlockState feetState = level.getBlockState(feet);
-		boolean ok = t.onGround() && (feetState.isAir() || feetState.canBeReplaced()) && feetState.getFluidState().isEmpty()
+		boolean ok = (t.onGround() || t.getY() - feet.getY() < 0.25) && (feetState.isAir() || feetState.canBeReplaced()) && feetState.getFluidState().isEmpty()
 				&& level.getBlockState(floor).isFaceSturdy(level, floor, Direction.UP) && GeoTerrain.canEdit(p, level, feet);
 		for (BlockPos h : hole) {
 			ok &= GeoTerrain.canEdit(p, level, h) && GeoTerrain.diggable(level, h) && !GeoTerrain.isTemp(level, h);
@@ -984,7 +984,7 @@ public final class OverhaulMoves {
 		sound(p, SoundEvents.PISTON_EXTEND, 1.0f, 0.5f);
 		for (int h = 0; h < OverhaulConfig.PILLAR_HEIGHT; h++) {
 			final int row = h;
-			later(p, 1 + h, () -> {
+			later(p, 3 + h, () -> { // he has risen clear of the cell by then (server-side position lags a tick or two)
 				BlockPos at = base.above(row);
 				OverhaulTerrain.burstAt(level, at, mat, 8);
 				if (row == 0 || level.getBlockState(at.below()).isSolid()) {
