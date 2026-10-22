@@ -163,11 +163,11 @@ function paintSkel(M, c, f, s, t, p, info) {
 		if (f === 'north') {
 			const P = M.P, H = P.head, hw = (H[3] - H[0]) / 2;
 			const X = p[0] / hw, Y = (p[1] - H[1]) / (H[4] - H[1]);
-			const eyeD = Math.hypot((Math.abs(X) - 0.42) / 0.26, (Y - 0.6) / 0.12);
+			const eyeD = Math.hypot((Math.abs(X) - 0.42) / 0.26, (Y - 0.47) / 0.12);
 			if (eyeD < 1) { col = mix([30, 22, 20], [70, 56, 46], eyeD); }
-			const nose = Math.abs(X) < 0.16 - (Y - 0.36) * 0.4 && Y > 0.36 && Y < 0.5;
+			const nose = Math.abs(X) < 0.16 - (Y - 0.3) * 0.4 && Y > 0.3 && Y < 0.4;
 			if (nose) col = [40, 30, 26];
-			if (Y < 0.34) { // upper teeth
+			if (Y < 0.3) { // upper teeth
 				const tk = (p[0] + 5) / 0.45;
 				col = Math.abs(X) < 0.66 ? (tk - Math.floor(tk) < 0.18 ? [120, 104, 86] : [238, 232, 214]) : col;
 			}
@@ -233,9 +233,9 @@ function paintFaceMuscle(M, c, f, p, col) {
 			const gum = Math.abs(p[1] - jy) > 0.5;
 			return gap ? [70, 22, 24] : gum ? [196, 92, 96] : [240, 234, 216];
 		}
-		const eyeD = Math.hypot((Math.abs(X) - 0.42) / 0.22, (Y - 0.6) / 0.1);
+		const eyeD = Math.hypot((Math.abs(X) - 0.42) / 0.22, (Y - 0.47) / 0.1);
 		if (eyeD < 1) {
-			const iris = Math.hypot((Math.abs(X) - 0.42) / 0.09, (Y - 0.6) / 0.075);
+			const iris = Math.hypot((Math.abs(X) - 0.42) / 0.09, (Y - 0.47) / 0.075);
 			const pal = PAL[M.id];
 			return iris < 0.55 ? [20, 18, 16] : iris < 1 ? pal.eye : [236, 228, 220];
 		}
@@ -255,7 +255,76 @@ function paintFaceMuscle(M, c, f, p, col) {
 	return col;
 }
 
-// ---------------------------------------------------------------- skin
+// ---------------------------------------------------------------- skin (the user's player skin)
+/** The skin pixel [r, g, b, a] showing at rest point p on face f of a part: full = the whole part's box (inflated for
+ * the second layer), region = its [u, v] on the 64x64 skin. Standard player mapping: the right side (-X) first, then
+ * front, left, back; top above the front, bottom beside it; the front's left column is the part's right (-X) edge. */
+function skinPx(M, region, full, f, p, dims) {
+	const [x0, y0, z0, x1, y1, z1] = full;
+	const [pw, ph, pd] = dims;
+	const fx = (p[0] - x0) / (x1 - x0), fy = (y1 - p[1]) / (y1 - y0), fz = (p[2] - z0) / (z1 - z0);
+	const cl = (v, n) => Math.max(0, Math.min(n - 1, Math.floor(v * n)));
+	const [u, v] = region;
+	let X, Y;
+	switch (f) {
+		case 'north': X = u + pd + cl(fx, pw); Y = v + pd + cl(fy, ph); break;
+		case 'south': X = u + 2 * pd + pw + cl(1 - fx, pw); Y = v + pd + cl(fy, ph); break;
+		case 'west': X = u + cl(1 - fz, pd); Y = v + pd + cl(fy, ph); break;
+		case 'east': X = u + pd + pw + cl(fz, pd); Y = v + pd + cl(fy, ph); break;
+		case 'up': X = u + pd + cl(fx, pw); Y = v + cl(1 - fz, pd); break;
+		default: X = u + pd + pw + cl(fx, pw); Y = v + cl(fz, pd); break;
+	}
+	const o = (Y * 64 + X) * 4, px = M.skin.px;
+	return [px[o], px[o + 1], px[o + 2], px[o + 3]];
+}
+const dimsOf = b => [Math.round(b[3] - b[0]), Math.round(b[4] - b[1]), Math.round(b[5] - b[2])];
+
+/** A cut face (a joint the skin is sliced across) shows the skin of the nearest side, a little shaded. */
+function cutPx(M, c, p) {
+	const F = c.full;
+	const d = [['west', p[0] - F[0]], ['east', F[3] - p[0]], ['north', p[2] - F[2]], ['south', F[5] - p[2]]].sort((a, b) => a[1] - b[1]);
+	const q = p.slice();
+	if (d[0][0] === 'west') q[0] = F[0]; else if (d[0][0] === 'east') q[0] = F[3]; else if (d[0][0] === 'north') q[2] = F[2]; else q[2] = F[5];
+	return skinPx(M, c.region, F, d[0][0], q, c.dims);
+}
+
+function mouthPx(M, c, f, p) {
+	const H = M.P.head, rz = (p[2] - H[2]) / (H[5] - H[2]);
+	const n = fbm(p[0] * 2, p[1] * 2, p[2] * 2, 2);
+	if (rz < 0.1) { const tk = (p[0] + 7) / 0.9; return tk - Math.floor(tk) < 0.16 ? [120, 104, 86] : [236, 230, 212]; }
+	return c.tag === 'jaw' ? mix([150, 52, 60], [110, 30, 40], rz * 0.7 + n * 0.3) : mix([92, 24, 30], [64, 14, 20], n);
+}
+
+function paintSkinLayer(M, c, f, s, t, p, info) {
+	const S = c.s, outer = !!c.outer;
+	const cut = (f === 'down' && S.cutLo) || (f === 'up' && S.cutHi);
+	if (cut) {
+		const same = f === 'down' ? S.sameLo : S.sameHi;
+		if (outer || same) return [[0, 0, 0], 0];
+		if ((f === 'down' && S.mouthLo) || (f === 'up' && S.mouthHi)) return [mouthPx(M, c, f, p), 255];
+		const px = cutPx(M, c, p);
+		return [tint(px, 0.78), 255];
+	}
+	if (outer && f === 'down' && c.tag === 'foot') return [[0, 0, 0], 0]; // flush with the sole: no second-layer sole
+	const px = skinPx(M, c.region, c.full, f, p, c.dims);
+	if (outer) return px[3] < 128 ? [[0, 0, 0], 0] : [px, 255, null];
+	let glow = null;
+	if (M.P.glow && c.part === 'head' && f === 'north' && M.P.glow(px[0], px[1], px[2])) glow = [px[0], px[1], px[2]];
+	return [px, 255, glow]; // the base layer is opaque, as in vanilla
+}
+
+/** Representative skin colours of the type (body front, base layer): for stumps, flaps and dust. */
+function skinPal(M) {
+	if (M._pal) return M._pal;
+	const px = M.skin.px, cols = [];
+	for (let y = 20; y < 32; y++) for (let x = 20; x < 28; x++) { const o = (y * 64 + x) * 4; cols.push([px[o], px[o + 1], px[o + 2]]); }
+	cols.sort((a, b) => (a[0] + a[1] + a[2]) - (b[0] + b[1] + b[2]));
+	const med = cols[cols.length >> 1];
+	M._pal = { skin: med, skinDark: tint(med, 0.62) };
+	return M._pal;
+}
+
+// ---------------------------------------------------------------- skin (the old procedural painter, unused)
 function skinBase(M, c, f, p, info) {
 	const pal = PAL[M.id];
 	const n = fbm(p[0] * 0.6 + 3, p[1] * 0.6, p[2] * 0.6, 4);
@@ -444,7 +513,12 @@ function paintFlap(M, c, f, s, t, p, info) {
 	const n = fbm(p[0] * 2, p[1] * 2, p[2] * 2, 3);
 	let col;
 	if (f === 'south') {
-		col = M.id === 'titan_beast' ? furColour(M, c, f, p, pal, 0) : M.id === 'titan_armored' ? mix(pal.skinDark, pal.skin, n) : mix(pal.skin, pal.skinDark, 0.2 + n * 0.3);
+		const B = M.P.parts.body;
+		col = skinPx(M, B.base, B.box, 'south', [p[0], p[1], B.box[5]], dimsOf(B.box)).slice(0, 3);
+		const O = M.P.parts.body, e = O.infl, ob = [O.box[0] - e, O.box[1] - e, O.box[2] - e, O.box[3] + e, O.box[4] + e, O.box[5] + e];
+		const op = skinPx(M, O.outer, ob, 'south', [p[0], p[1], ob[5]], dimsOf(O.box));
+		if (op[3] >= 128) col = op.slice(0, 3);
+		void pal;
 	} else col = mix([226, 116, 120], [150, 34, 44], n * 0.8 + (inner ? 0.2 : 0));
 	// torn inner edge (toward the hole)
 	const dIn = Math.abs(p[0]); // the hole is at x = 0
@@ -467,7 +541,8 @@ function paintStump(M, c, f, s, t, p, info) {
 	}
 	const fromCut = p[1] - c.from[1];
 	const n = fbm(p[0] * 2, p[1] * 2, p[2] * 2, 3);
-	let col = M.id === 'titan_beast' ? furColour(M, c, f, p, pal, 0) : M.id === 'titan_armored' ? mix(pal.skinDark, pal.skin, n) : mix(pal.skin, pal.skinDark, 0.15 + n * 0.3);
+	let col = skinPx(M, c.region, c.full, f, f === 'east' ? [c.full[3], p[1], p[2]] : f === 'west' ? [c.full[0], p[1], p[2]] : f === 'north' ? [p[0], p[1], c.full[2]] : f === 'south' ? [p[0], p[1], c.full[5]] : p, dimsOf(c.full)).slice(0, 3);
+	void pal;
 	const rag = vnoise(p[0] * 4 + p[2] * 4, 2, 5) * 0.7;
 	if (fromCut < 0.35 + rag) col = mix(MUS, [226, 110, 112], n * 0.5);
 	else if (fromCut < 0.55 + rag) col = mix(col, [170, 60, 60], 0.6);
@@ -499,7 +574,7 @@ function shade(M) {
 		switch (c.mat) {
 			case 'skel': return paintSkel(M, c, f, s, t, p, info);
 			case 'mus': return paintMuscle(M, c, f, s, t, p, info);
-			case 'skin': return paintSkin(M, c, f, s, t, p, info);
+			case 'skin': case 'outer': return paintSkinLayer(M, c, f, s, t, p, info);
 			case 'hair': return paintHair(M, c, f, s, t, p, info);
 			case 'fur': return paintFur(M, c, f, s, t, p, info);
 			case 'plate': return paintPlate(M, c, f, s, t, p, info);
@@ -529,7 +604,8 @@ function hardened(M, layerOf) {
 		if ((x + y * 2) % 9 === 0) { r += 34; g += 26; b += 18; }
 		if ((x * 2 - y + 1024) % 13 === 0) { r -= 30; g -= 24; b -= 12; }
 		const nn = (hash3(x, y, 3) - 0.5) * 12;
-		out[j] = clamp(r + nn); out[j + 1] = clamp(g + nn); out[j + 2] = clamp(b + nn);
+		const k = 0.62; // how far toward the crystal
+		out[j] = clamp(out[j] * (1 - k) + (r + nn) * k); out[j + 1] = clamp(out[j + 1] * (1 - k) + (g + nn) * k); out[j + 2] = clamp(out[j + 2] * (1 - k) + (b + nn) * k);
 	}
 	return out;
 }
@@ -538,18 +614,19 @@ function hardened(M, layerOf) {
 function corpse(M, info) {
 	const out = Buffer.from(M.tex);
 	const P = M.P;
-	const ny = P.neckY - 1.15, rx = 1.55, ry = 1.75;
+	const ny = P.neckY - 1.35, rx = 1.6, ry = 1.75;
 	for (let i = 0; i < M.TW * M.TH; i++) {
 		const j = i * 4;
 		const ti = info[i];
 		if (!ti || out[j + 3] === 0) continue;
 		const c = ti.c;
 		if (ti.f !== 'south' && !(ti.f === 'up' && c.tag === 'chest')) continue;
-		if (!['chest', 'neck', 'ruff', 'back'].includes(c.tag) && c.mat !== 'hair') continue;
+		if (c.tag !== 'chest') continue;
 		const p = ti.p;
 		const d = Math.hypot(p[0] / rx, (p[1] - ny) / ry) + (vnoise(p[0] * 3, p[1] * 3, 9) - 0.5) * 0.25;
 		if (d > 1.25) continue;
-		if (c.mat === 'skin' || c.mat === 'fur' || c.mat === 'hair' || c.mat === 'plate') {
+		if (c.mat === 'skin' || c.mat === 'outer') {
+			if (c.mat === 'outer') { if (d < 1.12) out[j + 3] = 0; continue; }
 			if (d < 1.0) out[j + 3] = 0;
 			else { out[j] = 176; out[j + 1] = 74; out[j + 2] = 76; } // a raw rim round the hole
 		} else if (c.mat === 'mus') {
@@ -563,4 +640,4 @@ function corpse(M, info) {
 	return out;
 }
 
-module.exports = { shade, hardened, corpse, PAL };
+module.exports = { shade, hardened, corpse, PAL, skinPal, skinPx };

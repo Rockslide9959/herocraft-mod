@@ -50,7 +50,7 @@ function run(models, dir) {
 		items: ids.map((id, i) => Object.assign(item(models[id]), { pos: [(i - 1.5) * 9, 0, 0] })),
 	}], { panelH: 1000, minW: 2000 });
 	// 2. clips
-	const clips = (process.env.CLIPS || 'idle:0,idle:1.6,walk:0,walk:0.3,run:0,run:0.2,punch:0.3,kick:0.35,heavy_punch:0.45,smash:1.0,stomp:0.3,leap:0.3,landing:0.15,roar:0.6,regeneration:1.0,hardening:0.6,grab:0.25,bite:0.35,throw:0.35,throw:0.6,charge:0,scream:0.8,roundhouse:0.4,nape_guard:0.5,death:3.0,corpse_kneel:1.15,corpse_kneel:3.0').split(',');
+	const clips = (process.env.CLIPS || 'idle:0,idle:1.6,walk:0,walk:0.3,run:0,run:0.2,punch:0.3,kick:0.35,heavy_punch:0.45,smash:1.0,stomp:0.3,leap:0.3,landing:0.15,roar:0.6,regeneration:1.0,hardening:0.6,grab:0.25,bite:0.35,boulder_throw:0.6,shoulder_charge:0.4,scream:0.8,roundhouse:0.4,nape_guard:0.5,death:3.0,corpse_kneel:1.15,corpse_kneel:3.0').split(',');
 	for (const id of ids) {
 		const M = models[id];
 		const pn = clips.map(s => { const [a, t] = s.split(':'); return { label: `${a} ${t}`, items: [item(M, { anim: a, t: +t, hide: a === 'corpse_kneel' ? (c => c.stump) : FORM_HIDE, tex: a === 'corpse_kneel' ? M.corpseTex : null })], cam: { yaw: +(process.env.YAW || 35), pitch: 6 } }; });

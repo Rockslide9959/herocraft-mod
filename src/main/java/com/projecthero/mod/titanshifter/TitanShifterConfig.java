@@ -156,6 +156,7 @@ public final class TitanShifterConfig {
 
 	public static final class Effects {
 		public boolean footsteps = true;
+		/** Unused since v0.16.7 (the footsteps follow the walk / run clips); kept so old config files still load. */
 		public double strideBlocks = 5.5;
 		public boolean cameraShake = true;
 		public double shakeRadius = 40.0;

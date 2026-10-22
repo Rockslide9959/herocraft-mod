@@ -89,7 +89,7 @@ function times(M, info, corpseTex) {
 			const p = info[i].p, dn = dist[i] / dmax;
 			const n = fbm(p[0] * 0.45 + layer * 9, p[1] * 0.45, p[2] * 0.45, 3);
 			const n2 = fbm(p[0] * 0.3 + 31, p[1] * 0.3 + layer * 5, p[2] * 0.3, 4);
-			const hair = ['hair', 'fur', 'plate', 'knuckle'].includes(info[i].c.mat) ? 0.12 : 0;
+			const hair = info[i].c.outer ? 0.12 : 0; // the skin's second layer forms last
 			const bkey = layer === 0 ? dn + (n - 0.5) * 0.08 : layer === 1 ? dn * 0.8 + (n - 0.5) * 0.45 : dn * 0.55 + (n - 0.5) * 0.6 + hair;
 			bl.push({ i, key: bkey });
 			const top = 1 - p[1] / 32;
