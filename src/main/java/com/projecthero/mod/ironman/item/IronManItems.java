@@ -102,6 +102,9 @@ public final class IronManItems {
 	/** v0.16.7 (user) Era II: the beacon the Hulkbuster I waits "in orbit" in (holds its four stacks); C calls the drop crate. */
 	public static final Item HULKBUSTER_UPLINK = register("hulkbuster_uplink", new HulkbusterUplinkItem(
 			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
+	// ---- v0.16.7 (user) Era II stage 2: Mk IX heat case (PortableForms.MK9_HEAT_CASE); never burns
+	public static final Item MARK_9_HEAT_CASE = register("mark_9_heat_case", new MarkIXHeatCaseItem(
+			new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
 	/** v0.16.7 (user) Era I: what the Shift+C emergency eject packs an Era I suit into (opens only in a Stark Gantry). */
 	/**
 	 * v0.16.7 (user): the item of the Suit Crate BLOCK (placing it puts the crate down, contents and all). Registered in
@@ -287,6 +290,7 @@ public final class IronManItems {
 		output.accept(CENTURION_BACKPACK); // v0.16.7 (user) Era II stage 2
 		output.accept(SPACE_THRUSTER_PACK);
 		output.accept(HULKBUSTER_UPLINK); // v0.16.7 (user) Era II
+		output.accept(MARK_9_HEAT_CASE); // v0.16.7 (user) Era II: the Mk IX heat case
 		output.accept(SUIT_CRATE); // v0.16.7
 		output.accept(STARK_GLASSES); // v0.15.1
 		output.accept(COLANTOTTE_BRACELETS); // v0.15.4

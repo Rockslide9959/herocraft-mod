@@ -85,6 +85,7 @@ public final class IronManPortableClient {
 		// v0.16.7 (user) Era II stage 2: the Mk VII / Mk VIII backpacks (one shared prop, per-suit style)
 		registerProp(PortableForms.MK7_BACKPACK.propId(), new BackpackProp(BackpackProp.MK7));
 		registerProp(PortableForms.MK8_THRUSTER_PACK.propId(), new BackpackProp(BackpackProp.MK8));
+		registerProp(PortableForms.MK9_HEAT_CASE.propId(), new Mk9HeatCaseProp()); // v0.16.7 (user) Era II: Mk IX heat case
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new BodyLayer(playerRenderer));

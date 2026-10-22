@@ -392,9 +392,44 @@ public final class PortableDeploy {
 			IronManSounds.play(player, IronManSounds.SUIT_STORED, 0.8f, IronManSounds.markPitch(suitId));
 		}
 		end(player, s, up);
+		heatGrace(player, suitId); // v0.16.7 (user) Era II: the Mk IX heat case in fire / lava
 		if (!up && !IronManArmor.wearingAnyIronMan(player)) {
 			TonyStark.setActiveSuit(player, ""); // AFTER the transition is cleared (setActiveSuit copies the state)
 		}
+	}
+
+	/** Fire Resistance a fire-immune suit's sequence leaves behind when it ends with the wearer in the heat (10 s). */
+	public static final int HEAT_GRACE_TICKS = 200;
+
+	/**
+	 * v0.16.7 (user) Era II, the Mk IX heat case's lava rule. During a deploy nothing can hurt the wearer (it is a
+	 * suit-up, {@code IronManDamage#suitUpImmune}); during a fold every piece stays in its slot until the last tick, so the
+	 * full-set fire / lava immunity ({@code IronManDamage#fireProof}) holds the whole way. What is left is the moment
+	 * after: a fold (or a deploy out of a case missing a piece) that ends with the wearer standing in fire or lava and no
+	 * longer in the full suit -- the case's heat shroud then gives {@value #HEAT_GRACE_TICKS} ticks of Fire Resistance
+	 * and puts the flames out, time enough to climb out. Only for {@link IronManSuit#fireImmune()} suits.
+	 */
+	static void heatGrace(ServerPlayer player, String suitId) {
+		IronManSuit suit = IronManSuits.byId(suitId);
+		if (suit == null || !suit.fireImmune() || IronManArmor.wearingFullSuit(player, suitId) || !inHeat(player)) {
+			return;
+		}
+		player.clearFire();
+		player.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE,
+				HEAT_GRACE_TICKS, 0, false, true, true));
+		player.displayClientMessage(Component.translatable("message.projecthero.ironman.heat_case_shroud")
+				.withStyle(ChatFormatting.GOLD), true);
+	}
+
+	/** Is {@code player} burning, or touching fire, lava or a magma block (block states, so it works on mock players)? */
+	public static boolean inHeat(ServerPlayer player) {
+		if (player.isOnFire() || player.isInLava()) {
+			return true;
+		}
+		return player.level().getBlockStates(player.getBoundingBox().inflate(0.0, 0.1, 0.0).move(0.0, -0.05, 0.0))
+				.anyMatch(st -> st.is(net.minecraft.tags.BlockTags.FIRE) || st.is(net.minecraft.world.level.block.Blocks.LAVA)
+						|| st.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)
+						|| st.getFluidState().is(net.minecraft.tags.FluidTags.LAVA));
 	}
 
 	/** Clears the transition, the movement lock and the pose clock. */

@@ -75,6 +75,14 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId) && level.isClientSide() && hasAllLooseMarkV(player)) {
 			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
 		}
+		// v0.16.7 (user) Era II: the Mk IX packs into its heat case the same way the Mk VI packs into its briefcase
+		if ("mark_9".equals(suitId) && player instanceof ServerPlayer sp
+				&& packLoose(sp, suitId, IronManItems.MARK_9_HEAT_CASE, "message.projecthero.ironman.mk9_packed")) {
+			return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
+		}
+		if ("mark_9".equals(suitId) && level.isClientSide() && hasAllLoose(player, suitId)) {
+			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
+		}
 		// v0.14.30, explicit user request: no right-click equipping -- Iron Man armour goes on with C or a suit deploy
 		if (player instanceof ServerPlayer sp) {
 			sp.displayClientMessage(Component.translatable(com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId)
@@ -115,6 +123,51 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		com.projecthero.mod.ironman.suit.IronManSuitUpManager.placeSuitcase(player, caseStack);
 		inv.setChanged();
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk5_packed").withStyle(ChatFormatting.AQUA), true);
+		return true;
+	}
+
+	/** v0.16.7 (user) Era II: are all four loose pieces of {@code suit} in the main inventory? */
+	static boolean hasAllLoose(Player player, String suit) {
+		boolean[] have = new boolean[4];
+		for (ItemStack s : player.getInventory().items) {
+			if (s.getItem() instanceof IronManArmorItem a && suit.equals(a.suitId)) {
+				have[SuitcaseContents.slotOf(a.getType())] = true;
+			}
+		}
+		return have[0] && have[1] && have[2] && have[3];
+	}
+
+	/**
+	 * v0.16.7 (user) Era II: {@link #packLooseMarkV} for any suit with a packed item -- one of each loose piece of
+	 * {@code suit} leaves the inventory for a fresh {@code packedItem} (hand, hotbar, inventory, else at your feet). False
+	 * (no change) unless all four are there.
+	 */
+	public static boolean packLoose(ServerPlayer player, String suit, net.minecraft.world.item.Item packedItem, String message) {
+		if (!hasAllLoose(player, suit)) {
+			return false;
+		}
+		var inv = player.getInventory();
+		net.minecraft.core.NonNullList<ItemStack> slots = net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
+		for (int i = 0; i < inv.items.size(); i++) {
+			ItemStack s = inv.items.get(i);
+			if (s.getItem() instanceof IronManArmorItem a && suit.equals(a.suitId)) {
+				int idx = SuitcaseContents.slotOf(a.getType());
+				if (slots.get(idx).isEmpty()) {
+					slots.set(idx, s.split(1));
+				}
+			}
+		}
+		ItemStack packed = new ItemStack(packedItem);
+		SuitcaseContents.write(packed, slots);
+		// the case carries the suit's integrity: the most worn piece's (the deploy loads it from the case)
+		float integrity = Float.MAX_VALUE;
+		for (ItemStack piece : slots) {
+			integrity = Math.min(integrity, com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(piece, suit));
+		}
+		com.projecthero.mod.ironman.IronManEnergy.stampStack(packed, 0f, integrity);
+		com.projecthero.mod.ironman.suit.IronManSuitUpManager.placeSuitcase(player, packed);
+		inv.setChanged();
+		player.displayClientMessage(Component.translatable(message).withStyle(ChatFormatting.AQUA), true);
 		return true;
 	}
 

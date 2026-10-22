@@ -161,6 +161,48 @@ public final class PortableForms {
 			PortableForm.Direction.CLIMB, "hb_crate",
 			new float[0][]));
 	// ---- end Hulkbuster I drop crate ----
+	// ---- v0.16.7 (user) Era II stage 2: the Mk IX heat case (append-only: keep this block after MK6_BRIEFCASE) ----
+	/**
+	 * The Mk IX Inferno (mark_9): a squat charcoal heat-proof case carried in the hand. Deploy: it is set down in front
+	 * of you, both leaves swing open sideways on a glow of heat, the black plate climbs on boots first and the orange eyes
+	 * ignite last; 4.2 s. The fold is the same frames backwards, ending with the case in your hand. Works in fire and
+	 * lava: the pieces stay in their slots (full-set immunity) until the fold's last tick, a deploy is damage-immune, and
+	 * {@link PortableDeploy#heatGrace} covers the moment after (see {@code docs/IRONMAN_ERA2_FOLD.md}).
+	 */
+	public static final PortableForm MK9_HEAT_CASE = register(new PortableForm("mark_9", () -> IronManItems.MARK_9_HEAT_CASE,
+			PortableForm.Place.HAND, PortableForm.Place.FLOOR,
+			new PortableForm.Beats(6, 18, 28, 70, 72, 84),
+			PortableForm.stages(PortableForm.noStages(),
+					R_BOOT, 26, 34, L_BOOT, 27, 35,
+					PANTS, 30, 46,
+					THIGH_TOP, 32, 38, THIGH_BOTTOM, 36, 42,
+					R_GAUNTLET, 40, 45, L_GAUNTLET, 40, 45,
+					TORSO_TOP, 42, 47, TORSO_BOTTOM, 46, 52,
+					R_ARM, 44, 52, L_ARM, 44, 52,
+					JACKET, 48, 60, R_SLEEVE, 46, 58, L_SLEEVE, 46, 58,
+					HELMET, 56, 64, FACEPLATE, 60, 67),
+			PortableForm.Direction.CLIMB, "mk9_heat_case",
+			new float[][] {
+					// carrying the case at the side
+					poseKey(0, 0f, 0f, 0.05f, 0f, 0f, -0.05f, 0f, 0f, 0f, 0f, 0.15f, 0f),
+					// lowering it forward, eyes on it
+					poseKey(6, -0.5f, 0f, 0.06f, 0.08f, 0f, -0.08f, 0f, 0.02f, 0f, -0.02f, 0.55f, 0f),
+					// set down: the hand follows through, then comes back
+					poseKey(12, -0.38f, 0f, 0.14f, 0.05f, 0f, -0.14f, 0f, 0.05f, 0f, -0.05f, 0.65f, 0f),
+					poseKey(20, -0.05f, 0f, 0.25f, 0f, 0f, -0.25f, 0f, 0.08f, 0f, -0.08f, 0.6f, 0f),
+					// the leaves swing open on the heat: the left forearm up against the glow, head turned a little
+					poseKey(28, -0.15f, 0f, 0.42f, -1.05f, 0.35f, -0.22f, 0f, 0.13f, 0f, -0.13f, 0.38f, 0.18f),
+					// boots and legs: feet apart, watching the plates climb
+					poseKey(38, -0.05f, 0f, 0.42f, -0.1f, 0f, -0.42f, 0f, 0.14f, 0f, -0.14f, 0.45f, 0f),
+					// arms + chest: arms out as the plates climb them
+					poseKey(48, -0.1f, 0f, 0.85f, -0.1f, 0f, -0.85f, 0f, 0.14f, 0f, -0.14f, 0.18f, 0f),
+					poseKey(58, 0.05f, 0f, 1.0f, 0.05f, 0f, -1.0f, 0f, 0.14f, 0f, -0.14f, -0.1f, 0f),
+					// helmet + eyes: chin up, fists down
+					poseKey(68, 0f, 0f, 0.28f, 0f, 0f, -0.28f, 0f, 0.09f, 0f, -0.09f, -0.2f, 0f),
+					// the settle
+					poseKey(76, 0f, 0f, 0.1f, 0f, 0f, -0.1f, 0f, 0.05f, 0f, -0.05f, -0.03f, 0f),
+					poseKey(84, 0f, 0f, 0.08f, 0f, 0f, -0.08f, 0f, 0.04f, 0f, -0.04f, 0f, 0f) }));
+	// ---- end Mk IX heat case ----
 
 	private PortableForms() {
 	}
