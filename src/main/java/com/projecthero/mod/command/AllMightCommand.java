@@ -19,7 +19,7 @@ public final class AllMightCommand {
 			c.getSource().sendFailure(Component.literal(name + " already has One For All"));
 			return 0;
 		}
-		c.getSource().sendSuccess(() -> Component.literal("Granted All Might to " + name), true);
+		c.getSource().sendSuccess(() -> Component.literal("Granted One For All to " + name), true);
 		return 1;
 	}
 }

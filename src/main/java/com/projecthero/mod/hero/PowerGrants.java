@@ -181,7 +181,7 @@ public final class PowerGrants {
 			}
 			case "all_might" -> {
 				boolean ok = com.projecthero.mod.allmight.AllMight.grant(target);
-				return new Result(ok, Component.literal(ok ? "Granted All Might to " + name : name + " already has One For All"));
+				return new Result(ok, Component.literal(ok ? "Granted One For All to " + name : name + " already has One For All"));
 			}
 			case "hulk" -> {
 				boolean ok = com.projecthero.mod.hulk.Hulk.grant(target);
