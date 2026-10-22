@@ -34,10 +34,17 @@ import net.minecraft.world.phys.Vec3;
  * change goes through {@link #setPhase}, which refuses transitions {@link TitanPhase#canGoTo} does not allow.
  *
  * <pre>
- *   Titan Serum -> {@link #grant}  (unlock; never transforms unless the config says so)
- *   Titan Shift key -> {@link #requestToggle}: HUMAN -> TRANSFORMING -> TITAN, or TITAN -> REVERTING -> HUMAN
+ *   Titan Serum -> the Titan picker -> {@link #choose}  (unlock + pick Attack / Armoured / Female / Beast; a later serum re-picks)
+ *   Titan Shift key -> {@link #requestToggle}: HUMAN -> TRANSFORMING -> TITAN, or TITAN -> REVERTING (3 s of steam) -> HUMAN
  *   Titan HP 0 -> {@link #onTitanDefeated}: TITAN -> DEFEATED -> RECOVERING -> HUMAN
+ *   a heavy nape hit -> {@link #cutOut}: TITAN -> RECOVERING (ejected at once)
  * </pre>
+ *
+ * <h2>Steam (v0.16.7, was "Titan Energy")</h2>
+ * A normal shift needs the full bar. Leaving the Titan refunds the Steam it had x its remaining HP fraction (a quick
+ * exit at full HP costs nothing); only a defeat or a cut-out empties it -- and those also drop the shifter to 4 hearts
+ * and lock shifting for 60 s. Out of combat the Titan heals ~2 HP/s by burning Steam; the human form heals from its own
+ * small pool (shown on the HUD), never from the bar.
  *
  * Everything is server-authoritative: the client sends key requests only, and the Titan itself is a real
  * entity the shifter rides (see {@link TitanFormEntity}).
@@ -45,14 +52,20 @@ import net.minecraft.world.phys.Vec3;
 public final class TitanShifter {
 	public static final String KEY = "titan_shifter";
 
-	/** Per-player throttle for action-bar feedback so a held key cannot spam. */
-	private static final Map<UUID, Long> LAST_MESSAGE = new HashMap<>();
+	/** v0.16.7: the human regen pool's spent amount (x100) and the Crystal Cocoon's end, kept in abilityReadyAt under these keys. */
+	public static final String POOL_KEY = "~pool_spent";
+	public static final String COCOON_KEY = "~cocoon";
+
+	/** Per-player, per-message throttle for action-bar feedback so a held key cannot spam (one per key per second). */
+	private static final Map<UUID, Map<String, Long>> LAST_MESSAGE = new HashMap<>();
 	/** Shifters whose Sprint key is currently held (sent by the client: a rider never reports sprinting on its own). */
 	private static final java.util.Set<UUID> SPRINT_HELD = new java.util.HashSet<>();
 	/** v0.12.39: shifters holding H for an emergency shift -> game time the hold began. */
 	private static final Map<UUID, Long> EMERGENCY_HOLD = new HashMap<>();
 	/** v0.14.16: the game tick each shifter's bar last refilled on -- a player ticked twice in one tick refills once. */
 	private static final Map<UUID, Long> LAST_REFILL = new HashMap<>();
+	/** v0.16.7: players who drank a Titan Serum and have the picker open -> game time the offer runs out. */
+	private static final Map<UUID, Long> PENDING_PICK = new HashMap<>();
 
 	private TitanShifter() {
 	}
@@ -62,6 +75,7 @@ public final class TitanShifter {
 		SPRINT_HELD.clear();
 		EMERGENCY_HOLD.clear();
 		LAST_REFILL.clear();
+		PENDING_PICK.clear();
 	}
 
 	public static void setSprintHeld(ServerPlayer player, boolean held) {
@@ -86,7 +100,7 @@ public final class TitanShifter {
 		player.setAttached(ModAttachments.TITAN_SHIFTER_STATE, state);
 	}
 
-	/** Safe on the client too (the attachment is synced to the owner). */
+	/** Safe on the client too (the attachment is synced). */
 	public static boolean isShifter(Player player) {
 		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
 		return s != null && s.unlocked;
@@ -99,6 +113,12 @@ public final class TitanShifter {
 
 	public static boolean inTitan(Player player) {
 		return phase(player) == TitanPhase.TITAN;
+	}
+
+	/** v0.16.7: the Titan this shifter becomes (both sides). */
+	public static TitanType selectedType(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		return s == null ? TitanType.GENERIC_TITAN : TitanType.byId(s.typeId);
 	}
 
 	/** The form the player is currently riding as their own Titan (either side), or null. */
@@ -129,14 +149,15 @@ public final class TitanShifter {
 		save(player, s);
 	}
 
-	/** Rate-limited action-bar message (one per key per second per player). */
+	/** Rate-limited action-bar message: each message key at most once a second per player (v0.16.7: per key, as intended). */
 	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
 		long now = player.level().getGameTime();
-		Long last = LAST_MESSAGE.get(player.getUUID());
-		if (last != null && now - last < 20) {
+		Map<String, Long> mine = LAST_MESSAGE.computeIfAbsent(player.getUUID(), k -> new HashMap<>());
+		Long last = mine.get(key);
+		if (last != null && now - last < 20 && now >= last) {
 			return;
 		}
-		LAST_MESSAGE.put(player.getUUID(), now);
+		mine.put(key, now);
 		player.displayClientMessage(Component.translatable(key, args).withStyle(colour), true);
 	}
 
@@ -152,10 +173,66 @@ public final class TitanShifter {
 		save(player, s);
 	}
 
-	// ---------------- unlock ----------------
+	// ---------------- Steam ----------------
 
-	/** Titan Serum / command: unlock Titan Shifting. Returns false if already unlocked. */
+	/** Steam (0..max) as the HUD and the transformation gate see it. */
+	public static float energy(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		return s == null ? 0f : s.energy;
+	}
+
+	/** v0.16.7: spends {@code amount} Steam if the bar has it. */
+	public static boolean spendSteam(ServerPlayer player, float amount) {
+		TitanShifterState s = state(player);
+		if (s.energy + 1.0e-3f < amount) {
+			return false;
+		}
+		TitanShifterState n = s.copy();
+		n.energy = Math.max(0f, s.energy - amount);
+		save(player, n);
+		return true;
+	}
+
+	/** v0.16.7: the human form's own healing pool (0..humanPoolMax), shown on the HUD. Safe on the client. */
+	public static float humanPool(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		double max = TitanShifterConfig.energy().humanPoolMax;
+		if (s == null) {
+			return (float) max;
+		}
+		Long spent = s.abilityReadyAt.get(POOL_KEY);
+		return (float) Math.max(0.0, max - (spent == null ? 0.0 : spent / 100.0));
+	}
+
+	private static void setHumanPool(TitanShifterState s, double pool) {
+		double max = TitanShifterConfig.energy().humanPoolMax;
+		long spent = Math.round(Math.max(0.0, max - Math.min(max, pool)) * 100.0);
+		if (spent <= 0L) {
+			s.abilityReadyAt.remove(POOL_KEY);
+		} else {
+			s.abilityReadyAt.put(POOL_KEY, spent);
+		}
+	}
+
+	/** v0.16.7: inside the Crystal Cocoon (Shift+X in human form) -- untouchable and healing. Safe on the client. */
+	public static boolean cocooned(Player player) {
+		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
+		if (s == null) {
+			return false;
+		}
+		Long until = s.abilityReadyAt.get(COCOON_KEY);
+		return until != null && until > player.level().getGameTime();
+	}
+
+	// ---------------- unlock / the Titan picker ----------------
+
+	/** Titan Serum / command: unlock Titan Shifting as the Attack Titan. Returns false if already unlocked. */
 	public static boolean grant(ServerPlayer player) {
+		return grant(player, TitanType.GENERIC_TITAN);
+	}
+
+	/** v0.16.7: unlock Titan Shifting as {@code type}. Returns false if already unlocked (or refused). */
+	public static boolean grant(ServerPlayer player, TitanType type) {
 		if (state(player).unlocked) {
 			return false;
 		}
@@ -166,10 +243,11 @@ public final class TitanShifter {
 		HeroTiers.claimPrimary(player, KEY);
 		TitanShifterState s = state(player).copy();
 		s.unlocked = true;
+		s.typeId = type.id;
 		s.phase = TitanPhase.HUMAN.name();
 		s.cooldownUntil = 0L;
 		s.abilityReadyAt.clear();
-		s.energy = (float) TitanShifterConfig.energy().max; // a fresh shifter starts with a full Titan Energy bar
+		s.energy = (float) TitanShifterConfig.energy().max; // a fresh shifter starts with a full bar of Steam
 		s.emergencyUntil = 0L;
 		s.emergencyPenalty = false;
 		save(player, s);
@@ -184,12 +262,90 @@ public final class TitanShifter {
 		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y, c.z, 20, 0.5, 0.9, 0.5, 0.05);
 		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.unlocked")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.chosen",
+				Component.translatable(type.nameKey())).withStyle(ChatFormatting.GOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.unlocked_hint")
 				.withStyle(ChatFormatting.YELLOW), false);
 		if (TitanShifterConfig.transformation().serumTransformsImmediately) {
 			transform(player);
 		}
 		return true;
+	}
+
+	/**
+	 * v0.16.7: a Titan Serum was drunk -- the picker opens on the client. The serum is only used up when a Titan is picked.
+	 * Returns false (with feedback) when the shifter cannot re-pick right now (inside a Titan).
+	 */
+	public static boolean offerPick(ServerPlayer player) {
+		TitanShifterState s = state(player);
+		if (s.unlocked && s.phase() != TitanPhase.HUMAN) {
+			say(player, "message.projecthero.titan_shifter.pick_not_now", ChatFormatting.GRAY);
+			return false;
+		}
+		PENDING_PICK.put(player.getUUID(), player.level().getGameTime() + 20L * 120L);
+		net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+				new com.projecthero.mod.network.TitanPickerPayload(s.unlocked ? TitanType.byId(s.typeId).ordinal() : -1));
+		return true;
+	}
+
+	/** True while the picker the player was offered is still valid (for tests and the network handler). */
+	public static boolean pickPending(ServerPlayer player) {
+		Long until = PENDING_PICK.get(player.getUUID());
+		return until != null && player.level().getGameTime() <= until;
+	}
+
+	/**
+	 * v0.16.7: the picker's answer. A new shifter is unlocked as {@code type}; an existing one (in human form) re-forges into
+	 * it. Either way one Titan Serum is used up (from the hands first, then the inventory; never in creative).
+	 */
+	public static boolean choose(ServerPlayer player, TitanType type) {
+		if (!pickPending(player)) {
+			return false;
+		}
+		net.minecraft.world.item.ItemStack serum = findSerum(player);
+		if (serum.isEmpty() && !player.getAbilities().instabuild) {
+			PENDING_PICK.remove(player.getUUID());
+			return false;
+		}
+		TitanShifterState s = state(player);
+		boolean ok;
+		if (!s.unlocked) {
+			ok = grant(player, type);
+		} else if (s.phase() == TitanPhase.HUMAN) {
+			TitanShifterState n = s.copy();
+			n.typeId = type.id;
+			save(player, n);
+			ServerLevel level = (ServerLevel) player.level();
+			level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
+			level.sendParticles(YELLOW_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 40, 0.5, 0.9, 0.5, 0.2);
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.reforged",
+					Component.translatable(type.nameKey())).withStyle(ChatFormatting.GOLD), false);
+			ok = true;
+		} else {
+			say(player, "message.projecthero.titan_shifter.pick_not_now", ChatFormatting.GRAY);
+			ok = false;
+		}
+		PENDING_PICK.remove(player.getUUID());
+		if (ok && !serum.isEmpty() && !player.getAbilities().instabuild) {
+			serum.shrink(1);
+		}
+		return ok;
+	}
+
+	private static net.minecraft.world.item.ItemStack findSerum(ServerPlayer player) {
+		var item = com.projecthero.mod.titanshifter.item.TitanShifterItems.TITAN_SERUM;
+		for (var hand : net.minecraft.world.InteractionHand.values()) {
+			if (player.getItemInHand(hand).is(item)) {
+				return player.getItemInHand(hand);
+			}
+		}
+		var inv = player.getInventory();
+		for (int i = 0; i < inv.getContainerSize(); i++) {
+			if (inv.getItem(i).is(item)) {
+				return inv.getItem(i);
+			}
+		}
+		return net.minecraft.world.item.ItemStack.EMPTY;
 	}
 
 	/** Admin / power suppressor: remove the power and any active Titan. */
@@ -211,13 +367,7 @@ public final class TitanShifter {
 
 	// ---------------- transformation ----------------
 
-	/** Titan Energy (0..max) as the HUD and the transformation gate see it. */
-	public static float energy(Player player) {
-		TitanShifterState s = player.getAttachedOrElse(ModAttachments.TITAN_SHIFTER_STATE, null);
-		return s == null ? 0f : s.energy;
-	}
-
-	/** Energy needed to transform: 90% of the bar by default. */
+	/** Steam needed to transform: the whole bar by default. */
 	public static float energyNeeded() {
 		var e = TitanShifterConfig.energy();
 		return (float) (e.max * e.transformMinFraction);
@@ -231,6 +381,12 @@ public final class TitanShifter {
 		}
 		switch (s.phase()) {
 			case HUMAN -> {
+				long now = player.level().getGameTime();
+				if (now < s.cooldownUntil) {
+					say(player, "message.projecthero.titan_shifter.cooldown", ChatFormatting.RED,
+							String.format(java.util.Locale.ROOT, "%.0f", (s.cooldownUntil - now) / 20.0));
+					return;
+				}
 				// v0.12.39: a full bar shifts at once; between the emergency minimum and a full bar, HOLD H for an emergency shift
 				if (s.energy + 1.0e-3f >= energyNeeded() || !emergencyAllowed(s)) {
 					if (s.energy + 1.0e-3f < energyNeeded() && s.emergencyPenalty) {
@@ -248,7 +404,7 @@ public final class TitanShifter {
 		}
 	}
 
-	/** True if the energy bar alone would allow an emergency shift (at least the configured fraction, and no penalty from the last one). */
+	/** True if the bar alone would allow an emergency shift (at least the configured fraction, and no penalty from the last one). */
 	public static boolean emergencyAllowed(TitanShifterState s) {
 		return !s.emergencyPenalty && s.energy + 1.0e-3f >= TitanShifterConfig.energy().max * TitanShifterConfig.emergency().minFraction;
 	}
@@ -268,7 +424,7 @@ public final class TitanShifter {
 				SoundSource.PLAYERS, 1.2f, 1.7f);
 	}
 
-	/** v0.12.43: N (base form) switches the passive healing off / on. Off = no Regeneration II and no Titan Energy drain. */
+	/** v0.12.43: Shift+N (base form) switches the passive healing off / on. Off = no Regeneration II and no pool spent. */
 	public static void toggleRegen(ServerPlayer player) {
 		TitanShifterState s = state(player);
 		if (!s.unlocked || s.phase() != TitanPhase.HUMAN) {
@@ -294,8 +450,15 @@ public final class TitanShifter {
 		if (start == null) {
 			return;
 		}
+		if (player.containerMenu != player.inventoryMenu) {
+			// v0.16.7: opening a chest / furnace mid-hold breaks the concentration -- and now says so
+			EMERGENCY_HOLD.remove(player.getUUID());
+			player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.emergency_screen")
+					.withStyle(ChatFormatting.GRAY), true);
+			return;
+		}
 		if (!emergencyAllowed(s) || s.phase() != TitanPhase.HUMAN || !player.isAlive() || player.isSpectator()
-				|| player.isPassenger() || player.containerMenu != player.inventoryMenu) {
+				|| player.isPassenger()) {
 			EMERGENCY_HOLD.remove(player.getUUID());
 			return;
 		}
@@ -329,8 +492,15 @@ public final class TitanShifter {
 		return transform(player, false);
 	}
 
-	/** {@code emergency}: the pale Emergency Titan -- needs only the emergency minimum of the bar, but a form that is smaller, weaker and time-limited. */
 	public static boolean transform(ServerPlayer player, boolean emergency) {
+		return transform(player, emergency, TitanShifterConfig.transformation().transformTicks);
+	}
+
+	/**
+	 * {@code emergency}: the pale Emergency Titan -- needs only the emergency minimum of the bar, but a form that is smaller
+	 * (~60% of the type's height), weaker and time-limited. {@code ticks}: how long the transformation takes (Bite Shift is fast).
+	 */
+	public static boolean transform(ServerPlayer player, boolean emergency, int ticks) {
 		TitanShifterState s = state(player);
 		if (!s.unlocked) {
 			return false;
@@ -367,7 +537,7 @@ public final class TitanShifter {
 			say(player, "message.projecthero.titan_shifter.no_room", ChatFormatting.RED);
 			return false;
 		}
-		form.setFormState(TitanFormEntity.FORM_TRANSFORMING);
+		form.setFormState(TitanFormEntity.FORM_TRANSFORMING, ticks);
 		if (!level.addFreshEntity(form)) {
 			form.discard();
 			return false;
@@ -386,10 +556,11 @@ public final class TitanShifter {
 		next.regenUntil = 0L;
 		next.hardenUntil = 0L;
 		next.emergencyUntil = emergency ? now + TitanShifterConfig.emergency().durationTicks : 0L;
+		next.abilityReadyAt.remove(COCOON_KEY);
 		save(player, next);
-		setPhase(player, TitanPhase.TRANSFORMING, now + TitanShifterConfig.transformation().transformTicks);
+		setPhase(player, TitanPhase.TRANSFORMING, now + ticks);
 
-		transformFx(level, player, form);
+		transformFx(level, player, form, ticks);
 		return true;
 	}
 
@@ -439,12 +610,12 @@ public final class TitanShifter {
 	}
 
 	/** v0.13.11: the transformation's electricity is yellow (the bolt itself is drawn yellow by the client). */
-	private static final net.minecraft.core.particles.DustParticleOptions YELLOW_SPARK =
+	static final net.minecraft.core.particles.DustParticleOptions YELLOW_SPARK =
 			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.86f, 0.12f), 1.0f);
 	private static final net.minecraft.core.particles.DustParticleOptions YELLOW_GLOW =
 			new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(1.0f, 0.95f, 0.55f), 1.8f);
 
-	private static void lightning(ServerLevel level, Vec3 at) {
+	static void lightning(ServerLevel level, Vec3 at) {
 		// v0.13.11: the shifter's own bolt type, which the client draws yellow
 		LightningBolt bolt = TitanShifterEntities.TITAN_LIGHTNING.create(level);
 		if (bolt != null) {
@@ -454,7 +625,7 @@ public final class TitanShifter {
 		}
 	}
 
-	private static void transformFx(ServerLevel level, ServerPlayer player, TitanFormEntity form) {
+	private static void transformFx(ServerLevel level, ServerPlayer player, TitanFormEntity form, int ticks) {
 		Vec3 p = form.position();
 		lightning(level, p);
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 3.0f, 0.5f);
@@ -470,47 +641,80 @@ public final class TitanShifter {
 		for (LivingEntity e : AbilityHelpers.living(level, p, 6.0, x -> x != player && x != form)) {
 			AbilityHelpers.knockbackFrom(e, p, 1.2);
 		}
-		TitanCombat.shake(level, p, 1.1f, TitanShifterConfig.transformation().transformTicks);
+		TitanCombat.shake(level, p, 1.1f, ticks);
 		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.transforming")
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), true);
 	}
 
 	// ---------------- reversion ----------------
 
-	/** Manual reversion: the Titan steams away over {@code revertTicks}, then the shifter is human again. */
+	/**
+	 * Manual reversion (v0.16.7: the REVERTING phase is back): the Titan stops dead and steams for {@code revertTicks}
+	 * (~3 s) while the shifter climbs out of the nape; then the shifter pops out and the body is left as a corpse.
+	 */
 	public static void revert(ServerPlayer player) {
 		TitanShifterState s = state(player);
 		TitanFormEntity form = formOf(player);
 		if (s.phase() != TitanPhase.TITAN || form == null) {
 			return;
 		}
-		// v0.12.36: no shrinking -- the shifter climbs out of the neck and the Titan's body stays behind to dissolve
 		form.setHardened(false);
+		form.endCharge();
+		form.releaseHeld();
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 p = form.position();
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 2.5f, 0.5f);
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 3.0f, 0.5f);
 		TitanCombat.shake(level, p, 0.5f, 20);
-		finishRevert(player, form);
+		int ticks = Math.max(1, TitanShifterConfig.transformation().revertTicks);
+		// the HP mirror the refund is worked out from
+		TitanShifterState n = s.copy();
+		n.titanHealth = form.getHealth();
+		n.titanMaxHealth = form.getMaxHealth();
+		save(player, n);
+		setPhase(player, TitanPhase.REVERTING, level.getGameTime() + ticks);
+		form.setFormState(TitanFormEntity.FORM_REVERTING, ticks);
+		form.steamBurst(level, 10);
+		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.reverting")
+				.withStyle(ChatFormatting.GRAY), true);
+	}
+
+	/** While REVERTING: steam pours off the whole body and out of the nape as the shifter climbs out. */
+	private static void tickReverting(ServerPlayer player, TitanFormEntity form) {
+		if (player.tickCount % 3 != 0) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 p = form.position();
+		double h = form.getBbHeight();
+		double w = form.getBbWidth();
+		Vec3 back = Vec3.directionFromRotation(0.0f, form.getYRot()).scale(-1.0);
+		Vec3 nape = p.add(0.0, h * 0.8, 0.0).add(back.scale(w * 0.2));
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, p.x, p.y + h * 0.5, p.z, 6, w * 0.4, h * 0.35, w * 0.4, 0.03);
+		level.sendParticles(ParticleTypes.CLOUD, nape.x, nape.y, nape.z, 4, 0.4, 0.3, 0.4, 0.05);
+		form.steamBurst(level, 2);
+		if (player.tickCount % 12 == 0) {
+			level.playSound(null, nape.x, nape.y, nape.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 1.6f, 0.6f);
+		}
 	}
 
 	private static void finishRevert(ServerPlayer player, TitanFormEntity form) {
+		float frac = form.getMaxHealth() > 0f ? form.getHealth() / form.getMaxHealth() : 0f;
+		exitThroughNape(player, form, TitanCorpseEntity.CAUSE_REVERT);
+		TitanShifterState s = state(player);
+		float refund = TitanShifterConfig.energy().refundByHealth ? s.energy * Math.max(0f, Math.min(1f, frac)) : 0f;
+		finishToHuman(player, TitanPhase.HUMAN, 0, refund, false);
+	}
+
+	/** The shifter pops out of the back of the neck, drifting down under Slow Falling; the body stays behind as a corpse. */
+	private static void exitThroughNape(ServerPlayer player, TitanFormEntity form, int cause) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 p = form.position();
 		float yaw = form.getYRot();
 		double height = form.getBbHeight();
 		double width = form.getBbWidth();
-		TitanType type = form.titanType();
-		boolean emergency = form.isEmergency();
 		release(player, form, false);
-		// the abandoned body: it slumps where it stood and dissolves over a minute
-		TitanCorpseEntity corpse = TitanShifterEntities.TITAN_CORPSE.create(level);
-		if (corpse != null) {
-			corpse.bind(type, emergency);
-			corpse.moveTo(p.x, p.y, p.z, yaw, 0.0f);
-			level.addFreshEntity(corpse);
-		}
-		// out through the nape of the neck, popped up and back, drifting down under Slow Falling
+		spawnCorpse(level, form, p, yaw, cause);
 		Vec3 back = Vec3.directionFromRotation(0.0f, yaw).scale(-1.0);
 		Vec3 neck = p.add(0.0, height * 0.82, 0.0).add(back.scale(width * 0.2));
 		player.teleportTo(level, neck.x, neck.y, neck.z, yaw, 0.0f);
@@ -521,10 +725,19 @@ public final class TitanShifter {
 		steamPoof(level, p.add(0.0, height * 0.55, 0.0), (float) height * 0.5f);
 		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.ENDER_DRAGON_FLAP, SoundSource.PLAYERS, 2.0f, 0.5f);
 		level.playSound(null, neck.x, neck.y, neck.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.4f, 0.6f);
-		finishToHuman(player, TitanPhase.HUMAN, 0);
 	}
 
-	// ---------------- defeat ----------------
+	private static void spawnCorpse(ServerLevel level, TitanFormEntity form, Vec3 p, float yaw, int cause) {
+		TitanCorpseEntity corpse = TitanShifterEntities.TITAN_CORPSE.create(level);
+		if (corpse != null) {
+			corpse.bind(form.titanType(), form.isEmergency());
+			corpse.setCause(cause);
+			corpse.moveTo(p.x, p.y, p.z, yaw, 0.0f);
+			level.addFreshEntity(corpse);
+		}
+	}
+
+	// ---------------- defeat / cut out ----------------
 
 	/** Called by the Titan when its health hits zero. */
 	public static void onTitanDefeated(ServerPlayer player, TitanFormEntity form) {
@@ -537,6 +750,7 @@ public final class TitanShifter {
 		setPhase(player, TitanPhase.DEFEATED, now + TitanShifterConfig.transformation().defeatTicks);
 		form.setFormState(TitanFormEntity.FORM_DEFEATED);
 		form.setHardened(false);
+		form.endCharge();
 		Vec3 p = form.position();
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.ENDER_DRAGON_DEATH, SoundSource.PLAYERS, 2.5f, 0.55f);
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 3.0f, 0.4f);
@@ -549,12 +763,43 @@ public final class TitanShifter {
 	private static void finishDefeat(ServerPlayer player, TitanFormEntity form) {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 p = form.position();
+		float yaw = form.getYRot();
 		release(player, form);
+		spawnCorpse(level, form, p, yaw, TitanCorpseEntity.CAUSE_DEFEAT);
 		steamPoof(level, p, form.getBbHeight());
 		var t = TitanShifterConfig.transformation();
-		finishToHuman(player, TitanPhase.RECOVERING, t.recoveryTicks);
+		finishToHuman(player, TitanPhase.RECOVERING, t.recoveryTicks, 0f, true);
 		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, t.recoveryTicks, 2, false, true, true));
 		player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, t.recoveryTicks, 1, false, true, true));
+	}
+
+	/**
+	 * v0.16.7 (user): a heavy nape hit (or any nape hit under 20% HP) cuts the shifter out of the Titan at once: they are
+	 * thrown out of the back of the neck, the body is left behind, Steam empties, they drop to 4 hearts and cannot shift
+	 * for 60 s.
+	 */
+	public static void cutOut(ServerPlayer player, TitanFormEntity form) {
+		TitanShifterState s = state(player);
+		if (s.phase() != TitanPhase.TITAN || formOf(player) != form) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 p = form.position();
+		double h = form.getBbHeight();
+		Vec3 back = Vec3.directionFromRotation(0.0f, form.getYRot()).scale(-1.0);
+		Vec3 nape = p.add(0.0, h * 0.8, 0.0).add(back.scale(form.getBbWidth() * 0.25));
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, nape.x, nape.y, nape.z, 40, 0.6, 0.6, 0.6, 0.08);
+		level.sendParticles(ParticleTypes.CRIT, nape.x, nape.y, nape.z, 40, 0.6, 0.6, 0.6, 0.4);
+		level.playSound(null, nape.x, nape.y, nape.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 3.0f, 0.5f);
+		level.playSound(null, nape.x, nape.y, nape.z, SoundEvents.ENDER_DRAGON_HURT, SoundSource.PLAYERS, 3.0f, 0.5f);
+		TitanCombat.shake(level, p, 0.8f, 20);
+		exitThroughNape(player, form, TitanCorpseEntity.CAUSE_CUT_OUT);
+		var t = TitanShifterConfig.transformation();
+		finishToHuman(player, TitanPhase.RECOVERING, t.recoveryTicks, 0f, true);
+		player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, t.recoveryTicks, 2, false, true, true));
+		player.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, t.recoveryTicks, 1, false, true, true));
+		player.displayClientMessage(Component.translatable("message.projecthero.titan_shifter.cut_out")
+				.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), true);
 	}
 
 	// ---------------- shared ending ----------------
@@ -579,20 +824,30 @@ public final class TitanShifter {
 		}
 	}
 
-	private static void finishToHuman(ServerPlayer player, TitanPhase next, int recoveryTicks) {
+	/**
+	 * Back to a human. {@code steamAfter}: the bar left (the HP refund after a reversion, 0 after a defeat / cut-out).
+	 * {@code penalty}: a defeat or cut-out -- 4 hearts and a 60 s shifting lock.
+	 */
+	private static void finishToHuman(ServerPlayer player, TitanPhase next, int recoveryTicks, float steamAfter, boolean penalty) {
 		long now = player.level().getGameTime();
 		TitanShifterState s = state(player).copy();
 		TitanPhase cur = s.phase();
 		s.phase = (cur.canGoTo(next) ? next : TitanPhase.HUMAN).name();
 		s.phaseStartedAt = now;
 		s.phaseUntil = now + recoveryTicks;
-		s.cooldownUntil = now + TitanShifterConfig.transformation().cooldownTicks;
+		s.cooldownUntil = now + (penalty ? TitanShifterConfig.nape().lockoutTicks : TitanShifterConfig.transformation().cooldownTicks);
 		s.regenUntil = 0L;
 		s.hardenUntil = 0L;
 		s.titanHealth = 0f;
-		s.energy = 0f; // leaving the Titan always drains the bar; it refills at 1% a second
+		s.energy = Math.max(0f, Math.min((float) TitanShifterConfig.energy().max, steamAfter));
 		s.endEmergency(); // an Emergency Titan ending starts the slow-refill / no-passive-regen penalty
 		save(player, s);
+		if (penalty) {
+			float cap = (float) TitanShifterConfig.nape().penaltyHealth;
+			if (player.getHealth() > cap) {
+				player.setHealth(cap);
+			}
+		}
 	}
 
 	private static void steamPoof(ServerLevel level, Vec3 p, float height) {
@@ -604,7 +859,8 @@ public final class TitanShifter {
 	/**
 	 * Cleanly ends whatever Titan state the player is in, immediately: the form is removed, the shifter is
 	 * put on the ground where the Titan stood, and the state returns to HUMAN. Used for logout, death,
-	 * dimension change, admin commands and any inconsistent state.
+	 * dimension change, admin commands and any inconsistent state. v0.16.7: Steam is refunded by the Titan's HP,
+	 * as for an ordinary reversion.
 	 *
 	 * @param withCooldown whether the normal transformation cooldown applies afterwards
 	 */
@@ -614,22 +870,27 @@ public final class TitanShifter {
 			return;
 		}
 		TitanFormEntity form = formOf(player);
+		float frac = s.titanMaxHealth > 0f ? s.titanHealth / s.titanMaxHealth : 0f;
 		if (form != null) {
+			frac = form.getMaxHealth() > 0f ? form.getHealth() / form.getMaxHealth() : 0f;
 			release(player, form);
 		} else {
 			// a stray form (e.g. the owner changed dimension) is removed by its own watchdog
 			player.fallDistance = 0.0f;
 		}
+		boolean inside = s.phase().insideForm();
 		long now = player.level().getGameTime();
 		TitanShifterState n = state(player).copy();
 		n.phase = TitanPhase.HUMAN.name();
 		n.phaseStartedAt = now;
 		n.phaseUntil = now;
-		n.cooldownUntil = withCooldown ? now + TitanShifterConfig.transformation().cooldownTicks : 0L;
+		n.cooldownUntil = withCooldown ? Math.max(s.cooldownUntil, now + TitanShifterConfig.transformation().cooldownTicks) : 0L;
 		n.regenUntil = 0L;
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
-		n.energy = 0f;
+		if (inside) {
+			n.energy = TitanShifterConfig.energy().refundByHealth ? s.energy * Math.max(0f, Math.min(1f, frac)) : 0f;
+		}
 		n.endEmergency();
 		save(player, n);
 	}
@@ -645,7 +906,8 @@ public final class TitanShifter {
 		if (phase == TitanPhase.HUMAN) {
 			tickEnergy(player, s);
 			tickBaseFormRegen(player);
-			tickEmergencyHold(player, s);
+			tickEmergencyHold(player, state(player));
+			TitanHumanKit.tick(player);
 			return;
 		}
 		EMERGENCY_HOLD.remove(player.getUUID());
@@ -673,6 +935,8 @@ public final class TitanShifter {
 			case REVERTING -> {
 				if (now >= s.phaseUntil) {
 					finishRevert(player, form);
+				} else {
+					tickReverting(player, form);
 				}
 			}
 			case DEFEATED -> {
@@ -722,6 +986,8 @@ public final class TitanShifter {
 						form.getBbWidth() * 0.5, form.getBbHeight() * 0.35, form.getBbWidth() * 0.5, 0.0);
 				form.steamBurst(level, 2);
 			}
+		} else if (now % 20L == 0L) {
+			tickTitanPassiveRegen(player, form);
 		}
 		if (now < form.biteRegenUntil) {
 			form.heal((float) (a.biteRegenPerSecond / 20.0));
@@ -740,14 +1006,44 @@ public final class TitanShifter {
 					SoundSource.PLAYERS, 2.0f, 0.5f);
 		}
 		if (player.tickCount % 10 == 0) {
+			TitanShifterState cur = state(player);
 			float hp = form.getHealth();
 			float max = form.getMaxHealth();
-			if (Math.abs(hp - s.titanHealth) >= 1.0f || Math.abs(max - s.titanMaxHealth) >= 1.0f) {
-				TitanShifterState n = s.copy();
+			if (Math.abs(hp - cur.titanHealth) >= 1.0f || Math.abs(max - cur.titanMaxHealth) >= 1.0f) {
+				TitanShifterState n = cur.copy();
 				n.titanHealth = hp;
 				n.titanMaxHealth = max;
 				save(player, n);
 			}
+		}
+	}
+
+	/** v0.16.7 (user): out of combat the Titan knits itself back together, ~2 HP a second, burning Steam (once a second). */
+	private static void tickTitanPassiveRegen(ServerPlayer player, TitanFormEntity form) {
+		var e = TitanShifterConfig.energy();
+		if (e.titanRegenPerSecond <= 0.0 || form.getHealth() >= form.getMaxHealth() || !form.outOfCombat(e.outOfCombatTicks)) {
+			return;
+		}
+		Long last = LAST_REFILL.put(player.getUUID(), player.level().getGameTime());
+		if (last != null && last == player.level().getGameTime()) {
+			return; // ticked twice this tick
+		}
+		float heal = (float) Math.min(e.titanRegenPerSecond, form.getMaxHealth() - form.getHealth());
+		float cost = (float) (heal * e.titanRegenSteamPerHp);
+		TitanShifterState s = state(player);
+		if (s.energy <= 0f) {
+			return;
+		}
+		if (s.energy < cost) {
+			heal *= s.energy / Math.max(1.0e-4f, cost);
+			cost = s.energy;
+		}
+		form.heal(heal);
+		TitanShifterState n = s.copy();
+		n.energy = Math.max(0f, s.energy - cost);
+		save(player, n);
+		if (form.tickCount % 40 == 0 && player.level() instanceof ServerLevel sl) {
+			form.steamBurst(sl, 1);
 		}
 	}
 
@@ -763,7 +1059,10 @@ public final class TitanShifter {
 		}
 	}
 
-	/** Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely. */
+	/**
+	 * Outside the Titan the bar refills: {@code regenPerSecond} (1%) every second, in whole steps so it syncs rarely.
+	 * v0.16.7: the human healing pool refills here too while it is not being spent.
+	 */
 	private static void tickEnergy(ServerPlayer player, TitanShifterState s) {
 		var e = TitanShifterConfig.energy();
 		if (s.emergencyPenalty && s.energy >= e.max) {
@@ -773,26 +1072,34 @@ public final class TitanShifter {
 			return;
 		}
 		long now = player.level().getGameTime();
-		if (now % 20L != 0L || s.energy >= e.max) {
+		if (now % 20L != 0L) {
 			return;
 		}
 		Long last = LAST_REFILL.put(player.getUUID(), now);
 		if (last != null && last == now) {
 			return; // already refilled this tick (the player was ticked twice)
 		}
-		if (baseRegenActive(player, s)) {
-			return; // healing through the base-form regeneration: the bar drains instead of refilling
+		boolean healing = baseRegenActive(player, s);
+		float pool = humanPool(player);
+		boolean steamFull = s.energy >= e.max;
+		boolean poolFull = pool >= e.humanPoolMax;
+		if (steamFull && (poolFull || healing)) {
+			return;
 		}
 		TitanShifterState n = s.copy();
-		double gain = s.emergencyPenalty ? e.regenPerSecond / Math.max(1.0, TitanShifterConfig.emergency().regenSlowdown) : e.regenPerSecond;
-		n.energy = (float) Math.min(e.max, s.energy + gain);
+		if (!steamFull) {
+			double gain = s.emergencyPenalty ? e.regenPerSecond / Math.max(1.0, TitanShifterConfig.emergency().regenSlowdown) : e.regenPerSecond;
+			n.energy = (float) Math.min(e.max, s.energy + gain);
+		}
+		if (!healing && !poolFull) {
+			setHumanPool(n, pool + e.humanPoolRefillPerSecond);
+		}
 		save(player, n);
 	}
 
 	/**
 	 * v0.12.34 -- the passive regeneration belongs to the shifter's BASE (human) form only: a short, hidden Regeneration
-	 * effect kept topped up while the phase is HUMAN. Inside the Titan the Titan has no passive regeneration at all
-	 * (only the C ability heals it), and the effect is simply not renewed, so it lapses within two seconds of shifting.
+	 * effect kept topped up while the phase is HUMAN. v0.16.7: it spends the human form's own pool, never Steam.
 	 */
 	private static void tickBaseFormRegen(ServerPlayer player) {
 		var e = TitanShifterConfig.energy();
@@ -801,10 +1108,9 @@ public final class TitanShifter {
 		if (amp < 0 || !baseRegenActive(player, s)) {
 			return; // the effect already on the player just lapses; nothing renews it
 		}
-		// v0.12.35: the regeneration is not free -- while it is healing it drains Titan Energy (in 10-tick steps)
 		if (player.level().getGameTime() % 10L == 0L) {
 			TitanShifterState n = s.copy();
-			n.energy = (float) Math.max(0.0, s.energy - e.baseFormRegenDrainPerSecond / 2.0);
+			setHumanPool(n, humanPool(player) - e.humanPoolDrainPerSecond / 2.0);
 			save(player, n);
 		}
 		MobEffectInstance cur = player.getEffect(MobEffects.REGENERATION);
@@ -813,12 +1119,12 @@ public final class TitanShifter {
 		}
 	}
 
-	/** True while the base-form regeneration should run: a hurt human shifter with some Titan Energy left to spend on it. */
+	/** True while the base-form regeneration should run: a hurt human shifter with some of the healing pool left. */
 	public static boolean baseRegenActive(Player player, TitanShifterState s) {
 		var e = TitanShifterConfig.energy();
 		// v0.12.39: after an Emergency Titan there is no passive regeneration until the bar is back to half
 		boolean penalised = s.emergencyPenalty && s.energy < e.max * TitanShifterConfig.emergency().passiveRegenMinFraction;
-		return e.baseFormRegenAmplifier >= 0 && s.energy > 0f && !penalised && !s.regenOff
+		return e.baseFormRegenAmplifier >= 0 && humanPool(player) > 0f && !penalised && !s.regenOff
 				&& s.phase() == TitanPhase.HUMAN && player.getHealth() < player.getMaxHealth();
 	}
 
@@ -835,16 +1141,21 @@ public final class TitanShifter {
 		}
 		long now = player.level().getGameTime();
 		TitanShifterState n = s.copy();
+		if (s.phase().insideForm() && s.titanMaxHealth > 0f) {
+			// v0.16.7: refunded by the Titan's last HP, as for a reversion
+			n.energy = s.energy * Math.max(0f, Math.min(1f, s.titanHealth / s.titanMaxHealth));
+		}
 		n.phase = TitanPhase.HUMAN.name();
 		n.phaseUntil = now;
 		n.regenUntil = 0L;
 		n.hardenUntil = 0L;
 		n.titanHealth = 0f;
-		n.energy = 0f;
 		n.endEmergency();
 		// game time is per-world: keep a sane cooldown that cannot exceed the configured one
-		n.cooldownUntil = Math.min(n.cooldownUntil, now + TitanShifterConfig.transformation().cooldownTicks);
-		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + 20L * 60L * 5L);
+		n.cooldownUntil = Math.min(n.cooldownUntil, now + Math.max(TitanShifterConfig.transformation().cooldownTicks,
+				TitanShifterConfig.nape().lockoutTicks));
+		n.abilityReadyAt.remove(COCOON_KEY);
+		n.abilityReadyAt.entrySet().removeIf(e -> !e.getKey().startsWith("~") && e.getValue() > now + 20L * 60L * 5L);
 		save(player, n);
 	}
 
@@ -882,6 +1193,7 @@ public final class TitanShifter {
 	public static void clearTransient(ServerPlayer player) {
 		LAST_MESSAGE.remove(player.getUUID());
 		EMERGENCY_HOLD.remove(player.getUUID());
+		PENDING_PICK.remove(player.getUUID());
 		forceEnd(player, true);
 	}
 

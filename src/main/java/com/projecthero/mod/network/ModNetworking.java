@@ -64,6 +64,7 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playS2C().register(WolverineSensePayload.TYPE, WolverineSensePayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(WolverineExecutionTargetPayload.TYPE, WolverineExecutionTargetPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TitanRoarSensePayload.TYPE, TitanRoarSensePayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TitanPickerPayload.TYPE, TitanPickerPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderClimbGrabPayload.TYPE, SpiderClimbGrabPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebStrandPayload.TYPE, SpiderWebStrandPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SpiderWebAlarmPayload.TYPE, SpiderWebAlarmPayload.CODEC); // v0.16.1
@@ -233,6 +234,10 @@ public final class ModNetworking {
 				case SPRINT_OFF -> com.projecthero.mod.titanshifter.TitanShifter.setSprintHeld(p, false);
 				case EMERGENCY_RELEASE -> com.projecthero.mod.titanshifter.TitanShifter.cancelEmergencyHold(p);
 				case TOGGLE_REGEN -> com.projecthero.mod.titanshifter.TitanShifter.toggleRegen(p);
+				case PICK_ATTACK -> com.projecthero.mod.titanshifter.TitanShifter.choose(p, com.projecthero.mod.titanshifter.TitanType.GENERIC_TITAN);
+				case PICK_ARMORED -> com.projecthero.mod.titanshifter.TitanShifter.choose(p, com.projecthero.mod.titanshifter.TitanType.ARMORED_TITAN);
+				case PICK_FEMALE -> com.projecthero.mod.titanshifter.TitanShifter.choose(p, com.projecthero.mod.titanshifter.TitanType.FEMALE_TITAN);
+				case PICK_BEAST -> com.projecthero.mod.titanshifter.TitanShifter.choose(p, com.projecthero.mod.titanshifter.TitanType.BEAST_TITAN);
 			}
 		});
 

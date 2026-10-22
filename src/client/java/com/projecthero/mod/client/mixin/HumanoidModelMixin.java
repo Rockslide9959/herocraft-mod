@@ -364,6 +364,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.16.7 (user, Titan revamp): a Titan Shifter's Partial Shifting poses (Titan Arm, Crystal Blade, Steam Burst, Cocoon ...). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$titanShifterPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.titanshifter.TitanShifterPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.5: Blue Beetle's poses (blaster arm, cannon, blade swings, grip, shield, flight, the bonding). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$blueBeetlePose(LivingEntity entity, float limbSwing, float limbSwingAmount,

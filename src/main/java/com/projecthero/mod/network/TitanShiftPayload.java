@@ -26,7 +26,12 @@ public record TitanShiftPayload(Action action) implements CustomPacketPayload {
 		/** H was released -- cancels an emergency-shift hold that has not finished. */
 		EMERGENCY_RELEASE,
 		/** N in the base form: switch the passive regeneration off / on. */
-		TOGGLE_REGEN
+		TOGGLE_REGEN,
+		/** v0.16.7: the Titan picker's answer (after drinking a Titan Serum). */
+		PICK_ATTACK,
+		PICK_ARMORED,
+		PICK_FEMALE,
+		PICK_BEAST
 	}
 
 	public static final CustomPacketPayload.Type<TitanShiftPayload> TYPE =

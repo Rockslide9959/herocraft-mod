@@ -87,7 +87,8 @@ public final class TitanCombat {
 	/** Base damage scaled for the target: players softer, bosses capped to a fraction of their health per hit. */
 	public static float scaled(TitanFormEntity form, LivingEntity target, float base) {
 		var d = TitanShifterConfig.damage();
-		float dmg = base * form.titanType().damageScale * form.strengthFactor();
+		// v0.16.7: x Rage (Attack Titan) / crystal fists (Female Titan); the boss cap below still applies on top
+		float dmg = base * form.titanType().damageScale * form.strengthFactor() * form.outgoingDamageFactor();
 		dmg *= (float) (target instanceof Player ? d.playerFactor : d.mobFactor);
 		if (isBoss(target)) {
 			dmg = Math.min(dmg, (float) (target.getMaxHealth() * d.bossMaxFractionPerHit));
@@ -109,6 +110,7 @@ public final class TitanCombat {
 		if (!landed && !AbilityHelpers.hurtLands(owner, target, dmg)) {
 			return false;
 		}
+		form.markAttacked();
 		if (knock > 0.0 && !isBoss(target)) {
 			AbilityHelpers.knockbackFrom(target, origin, knock);
 			if (lift > 0.0) {

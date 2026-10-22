@@ -26,6 +26,10 @@ public final class TitanShifterDamage {
 				}
 				return source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
 			}
+			// v0.16.7 (user): inside the Crystal Cocoon nothing gets through (the void and /kill still do)
+			if (entity instanceof ServerPlayer p && TitanShifter.cocooned(p) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+				return false;
+			}
 			return true;
 		});
 	}

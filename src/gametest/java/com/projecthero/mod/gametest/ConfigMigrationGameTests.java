@@ -161,13 +161,17 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 				+ "\"energy\":{\"transformMinFraction\":0.9,\"baseFormRegenAmplifier\":2},\"abilities\":{\"roarRadius\":12.0},"
 				+ "\"effects\":{\"footsteps\":false},\"controls\":{\"transformKey\":\"J\"}}");
 		TitanShifterConfig c = TitanShifterConfig.SPEC.load(p);
-		helper.assertTrue(Math.abs(c.stats.widthBlocks - 3.67) < 1e-9 && c.transformation.cooldownTicks == 0, "v2 values");
+		// (v2 reset the width to that release's 3.67; v5 resets it again, to today's 5.0 -- checked below)
+		helper.assertTrue(c.transformation.cooldownTicks == 0, "v2 values");
 		helper.assertTrue(c.energy.transformMinFraction == 1.0, "v3 value");
 		helper.assertTrue(c.energy.baseFormRegenAmplifier == 1 && c.abilities.roarRadius == 32.0, "v4 values");
 		helper.assertTrue(c.stats.maxHealth == 650.0 && !c.effects.footsteps, "everything else is kept");
 		JsonObject f = reread(p);
 		helper.assertTrue(f.get("controls") == null, "a section the mod no longer has is dropped from the file");
-		helper.assertTrue(f.get("configVersion").getAsInt() == 4 && num(f, "abilities.roarRadius") == 32.0, "the file was rewritten");
+		// v0.16.7: v5 -- the 15-block Attack Titan and the 3 s REVERTING steam
+		helper.assertTrue(c.stats.heightBlocks == 15.0 && c.stats.widthBlocks == 5.0 && c.transformation.revertTicks == 60, "v5 values");
+		helper.assertTrue(c.nape != null && c.limbs != null && c.human != null, "the new sections are filled in");
+		helper.assertTrue(f.get("configVersion").getAsInt() == 5 && num(f, "abilities.roarRadius") == 32.0, "the file was rewritten");
 		cleanUp(p);
 		helper.succeed();
 	}

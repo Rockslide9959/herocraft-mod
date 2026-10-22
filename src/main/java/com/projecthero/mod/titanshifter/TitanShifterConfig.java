@@ -31,12 +31,18 @@ public final class TitanShifterConfig {
 	public World world = new World();
 	public Energy energy = new Energy();
 	public Emergency emergency = new Emergency();
+	/** v0.16.7 (user, Titan revamp): the nape weak point, defeat / cut-out penalty. */
+	public Nape nape = new Nape();
+	/** v0.16.7 (user, Titan revamp): severed limbs. */
+	public Limbs limbs = new Limbs();
+	/** v0.16.7 (user, Titan revamp): Partial Shifting -- the human-form kit. */
+	public Human human = new Human();
 
 	public static final class Stats {
-		/** Titan hit-box height in blocks -- a regular player, scaled up to 11 blocks tall (v0.12.32). */
-		public double heightBlocks = 11.0;
-		/** A player's 0.6 x 1.8 hit-box scaled by 11 / 1.8 = 6.11 keeps its proportions: 0.6 * 6.11 = 3.67. */
-		public double widthBlocks = 3.67;
+		/** The Attack Titan's hit-box height in blocks. v0.16.7 (user): 15 (was 11 since v0.12.32). */
+		public double heightBlocks = 15.0;
+		/** A player's 0.6 x 1.8 hit-box scaled to 15 blocks keeps its proportions: 0.6 * 15 / 1.8 = 5.0. */
+		public double widthBlocks = 5.0;
 		public double maxHealth = 500.0;
 		public double armor = 25.0;
 		public double armorToughness = 8.0;
@@ -121,7 +127,8 @@ public final class TitanShifterConfig {
 
 	public static final class Transformation {
 		public int transformTicks = 60;
-		public int revertTicks = 40;
+		/** v0.16.7: the REVERTING phase -- the Titan steams for ~3 s while the shifter climbs out of the nape. */
+		public int revertTicks = 60;
 		public int defeatTicks = 60;
 		public int recoveryTicks = 100;
 		/** v0.12.36: the abandoned Titan body dissolves over this long (1 minute) and steams every corpseSteamTicks (3 s). */
@@ -174,6 +181,20 @@ public final class TitanShifterConfig {
 		public int baseFormRegenAmplifier = 1;
 		/** v0.12.35: while that Regeneration is actually healing (hurt, energy left) it drains this much Titan Energy a second and the bar does not refill. */
 		public double baseFormRegenDrainPerSecond = 1.5;
+		/**
+		 * v0.16.7 (user): the human-form healing no longer touches Steam -- it spends its own small pool (0..humanPoolMax,
+		 * shown on the HUD) at humanPoolDrainPerSecond while healing, and the pool refills humanPoolRefillPerSecond otherwise.
+		 */
+		public double humanPoolMax = 100.0;
+		public double humanPoolDrainPerSecond = 5.0;
+		public double humanPoolRefillPerSecond = 1.0;
+		/** v0.16.7 (user): out of combat (no hit taken or dealt for outOfCombatTicks) the Titan heals this many HP a second, burning Steam. */
+		public double titanRegenPerSecond = 2.0;
+		/** Steam burned per HP the passive Titan regeneration heals (500 HP back = 50% of the bar). */
+		public double titanRegenSteamPerHp = 0.1;
+		public int outOfCombatTicks = 100;
+		/** v0.16.7 (user): leaving the Titan refunds Steam = the Steam it had x the Titan's remaining HP fraction. */
+		public boolean refundByHealth = true;
 	}
 
 	/** v0.12.39: the Emergency Titan -- hold H for a few seconds with at least minFraction of the bar to become a pale, weaker Titan. */
@@ -184,14 +205,69 @@ public final class TitanShifterConfig {
 		public int holdTicks = 100;
 		/** The form lasts at most this long (2 minutes, counted from the moment the shift starts). */
 		public int durationTicks = 2400;
-		/** Emergency Titan hit-box height in blocks (the full Titan is 11). */
-		public double heightBlocks = 7.0;
+		/** v0.16.7 (user): the Emergency Titan is this fraction of the selected Titan type's height (was a flat 7 blocks). */
+		public double heightFraction = 0.6;
 		/** 40% weaker in everything: health, armour, toughness, speed and every hit it lands. */
 		public double strengthFactor = 0.6;
 		/** After the form ends Titan Energy refills this many times slower until the bar is full again. */
 		public double regenSlowdown = 3.0;
 		/** After the form ends the base-form passive regeneration stays off until the bar is back to this fraction. */
 		public double passiveRegenMinFraction = 0.5;
+	}
+
+	/** v0.16.7 (user): hits on the back of the neck. */
+	public static final class Nape {
+		/** A hit landing on the nape (from behind, at or above the shoulders) deals this many times its damage. */
+		public double multiplier = 3.0;
+		/** The hit counts as being at or above the shoulders from this fraction of the Titan's height. */
+		public double shoulderFraction = 0.72;
+		/** A nape hit taking at least this fraction of max HP is "heavy" and cuts the shifter out. */
+		public double heavyHitFraction = 0.10;
+		/** Any nape hit that leaves the Titan under this fraction of max HP cuts the shifter out. */
+		public double cutOutHealthFraction = 0.20;
+		/** Defeat or a cut-out drops the shifter to this much health (4 hearts)... */
+		public double penaltyHealth = 8.0;
+		/** ...and locks shifting for this long (60 s). */
+		public int lockoutTicks = 1200;
+		/** The HUD warns when a hostile is behind the Titan within this many blocks. */
+		public double warningRange = 24.0;
+	}
+
+	/** v0.16.7 (user): severed limbs. */
+	public static final class Limbs {
+		/** One hit on an arm / leg taking at least this fraction of max HP severs it. */
+		public double severHitFraction = 0.12;
+		/** An explosion taking at least this fraction of max HP severs the limb nearest the blast. */
+		public double severExplosionFraction = 0.06;
+		/** A severed limb regrows after this long while the Titan has Steam left (steam pours from the stump). */
+		public int regrowTicks = 160;
+		/** Steam spent regrowing one limb. */
+		public double regrowSteamCost = 5.0;
+		/** Speed with one leg missing (the Titan kneels and drags itself); both legs missing = no walking. */
+		public double oneLegSpeedFactor = 0.35;
+	}
+
+	/** v0.16.7 (user): Partial Shifting -- R Titan Arm, Shift+R Crystal Blade, G Steam Burst, Shift+G Bite Shift, X Crystal Wall, Shift+X Crystal Cocoon. */
+	public static final class Human {
+		public double titanArmDamage = 16.0;
+		public double titanArmReach = 6.0;
+		public int titanArmCooldown = 60;
+		public double titanArmSteam = 4.0;
+		public double bladeDamage = 12.0;
+		public double bladeReach = 3.5;
+		public int bladeCooldown = 30;
+		public double bladeSteam = 2.0;
+		public double steamBurstDamage = 4.0;
+		public double steamBurstRadius = 5.0;
+		public int steamBurstCooldown = 120;
+		public double steamBurstSteam = 3.0;
+		/** Bite Shift (needs the full bar): the transformation takes this long instead of the usual 3 s. */
+		public int biteShiftTicks = 12;
+		public int wallCooldown = 400;
+		public double wallSteam = 8.0;
+		public int cocoonTicks = 100;
+		public int cocoonCooldown = 900;
+		public double cocoonSteam = 15.0;
 	}
 
 	public static TitanShifterConfig get() {
@@ -234,6 +310,18 @@ public final class TitanShifterConfig {
 		return instance.emergency;
 	}
 
+	public static Nape nape() {
+		return instance.nape;
+	}
+
+	public static Limbs limbs() {
+		return instance.limbs;
+	}
+
+	public static Human human() {
+		return instance.human;
+	}
+
 	private TitanShifterConfig() {
 	}
 
@@ -243,7 +331,7 @@ public final class TitanShifterConfig {
 	 */
 	public static final VersionedConfig<TitanShifterConfig> SPEC = VersionedConfig
 			.builder(TitanShifterConfig.class, "projecthero_titan_shifter.json", TitanShifterConfig::new)
-			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency",
+			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency", "nape", "limbs", "human",
 					"transformation.transformTicks", "transformation.revertTicks", "transformation.defeatTicks",
 					"transformation.recoveryTicks", "transformation.cooldownTicks")
 			.introduce(1, "v0.12.31 first file")
@@ -253,6 +341,9 @@ public final class TitanShifterConfig {
 			.reset(3, "v0.12.34 a transformation needs the full bar", "energy.transformMinFraction")
 			// v0.12.35: Regeneration II with an energy drain, a much wider roar
 			.reset(4, "v0.12.35 Regeneration II and the 32-block roar", "energy.baseFormRegenAmplifier", "abilities.roarRadius")
+			// v0.16.7 (user): the Titan revamp -- the Attack Titan is 15 blocks (5 wide); the new sections fill in on their own
+			.reset(5, "v0.16.7 Titan revamp: the 15-block Attack Titan", "stats.heightBlocks", "stats.widthBlocks",
+					"transformation.revertTicks")
 			.build();
 
 	public static void load() {
