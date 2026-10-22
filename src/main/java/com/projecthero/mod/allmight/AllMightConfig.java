@@ -1,18 +1,68 @@
 package com.projecthero.mod.allmight;
 
+import com.projecthero.mod.config.VersionedConfig;
+
 /**
  * Every All Might / One For All tunable in one place (v0.12.33) -- resource, abilities, forms, Full Cowl,
  * landing impacts and visuals. Nothing else in the package hard-codes a balance number. All times are game ticks
  * (20 per second); all distances are blocks.
  *
  * <p>v0.16.6: the OFA timer is replaced by Output; v0.16.7: the Strain bar by the safe limit and limb strain; there are five new Shift Smashes, Symbol of Peace,
- * and passing on / lending One For All -- all of their numbers are below as well.
+ * and passing on / lending One For All -- all of their numbers are below as well. v0.16.7 (user): the One For All TIMER is back,
+ * at 20 minutes -- its numbers are the one part that lives in a file, {@code config/projecthero_one_for_all.json} ({@link #timer()}),
+ * so a stale file picks up a new default through {@link VersionedConfig}.
  */
 public final class AllMightConfig {
 	private AllMightConfig() {
 	}
 
 	private static final int S = 20;
+
+	// ---------------------------------------------------------------- v0.16.7: the One For All timer (a JSON file)
+	// User (v0.16.7): "give one for all the old timer system again but raise the time limit to 20 minutes". The v0.12.39 rules
+	// with every number scaled x4 (the old timer was 300 s): being in the Power Form drains it 1 s a second; only the Base Form
+	// refills it, at half that (a full refill takes twice the timer: 40 min, was 10); Plus Ultra (1/6 of it) and the United States
+	// of Smash (1/3) spend a one-off amount; at 0:00 he is forced back to the Base Form and H is refused until 4 s have come back.
+	public static final VersionedConfig<TimerFile> SPEC = VersionedConfig.builder(TimerFile.class, "projecthero_one_for_all.json", TimerFile::new)
+			.balance("timer")
+			// a file from before the timer came back (no configVersion: the v0.12.39 five-minute numbers) gets today's 20 minutes
+			.reset(1, "v0.16.7 the One For All timer is back -- 20 minutes of Power Form (was 5)", "timer")
+			.build();
+
+	private static TimerFile file = new TimerFile();
+
+	/** The file's root: {@code configVersion} and the {@code timer} section. */
+	public static final class TimerFile {
+		public Integer configVersion;
+		public Timer timer = new Timer();
+	}
+
+	/** The timer, in seconds of Power Form. */
+	public static final class Timer {
+		/** A full timer: 1200 s = 20:00 of Power Form (v0.12.39: 300). */
+		public float powerFormSeconds = 1200.0f;
+		/** Being in the Power Form drains this many seconds of it every second. */
+		public float drainPerSecond = 1.0f;
+		/** Only the Base Form refills it: this many seconds every second (v0.12.39: 1 every 2 s) -- 0:00 to 20:00 takes 40 minutes. */
+		public float rechargePerSecond = 0.5f;
+		/** H into the Power Form is refused below this (v0.12.39: 1 point of 300, i.e. 1/300 of the timer). */
+		public float minimumToTransformSeconds = 4.0f;
+		/** Plus Ultra (C) spends this once when pressed, and is refused without it (v0.12.39: 50 of 300). */
+		public float plusUltraCostSeconds = 200.0f;
+		/** The United States of Smash spends this when the punch is cast, and the hold is refused without it (v0.12.39: 100 of 300). */
+		public float unitedStatesCostSeconds = 400.0f;
+		/** Below this he vents steam: he is running out (v0.12.39: 30 of 300). */
+		public float lowSteamSeconds = 120.0f;
+	}
+
+	public static Timer timer() {
+		return file.timer;
+	}
+
+	/** Reads (migrating) {@code config/projecthero_one_for_all.json}; called at start-up. */
+	public static void load() {
+		file = SPEC.load();
+	}
 
 	// ---------------------------------------------------------------- v0.16.7: Output, the safe limit and limb strain
 	// User (v0.16.7): "come up with a better strain system for one for all". The design is docs/OFA_STRAIN.md. Output is a

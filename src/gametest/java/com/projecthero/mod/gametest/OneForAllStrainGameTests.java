@@ -260,4 +260,98 @@ public class OneForAllStrainGameTests implements FabricGameTest {
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.DETROIT) > 0, "Detroit in the Power Form");
 		helper.succeed();
 	}
+
+	// ---------------------------------------------------------------- v0.16.7: the One For All timer (back, at 20 minutes)
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theTimerIsTwentyMinutes(GameTestHelper helper) {
+		helper.assertTrue(AllMightConfig.timer().powerFormSeconds == 1200f && AllMight.timerMax() == 1200f, "20:00 of Power Form");
+		helper.assertTrue(AllMightConfig.timer().drainPerSecond == 1f && AllMightConfig.timer().rechargePerSecond == 0.5f,
+				"drains 1 s a second, refills 0.5 s a second (a full refill takes 40 min)");
+		ServerPlayer p = hero(helper);
+		helper.assertTrue(AllMight.timeLeft(p) == 1200f, "a new holder has a full timer");
+		// the save: a new key, missing = full (old saves); a value round-trips
+		AllMightState s = AllMight.state(p).copy();
+		s.ofaTimer = 321.5f;
+		var json = AllMightState.CODEC.encodeStart(com.mojang.serialization.JsonOps.INSTANCE, s).getOrThrow();
+		helper.assertTrue(AllMightState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, json).getOrThrow().ofaTimer == 321.5f, "saved");
+		com.google.gson.JsonObject old = new com.google.gson.JsonObject();
+		old.addProperty("has_power", true);
+		old.addProperty("ofa", 0.0f); // the pre-0.16.6 key stays ignored
+		AllMightState loaded = AllMightState.CODEC.parse(com.mojang.serialization.JsonOps.INSTANCE, old).getOrThrow();
+		helper.assertTrue(AllMight.timeLeft(loaded) == 1200f, "an existing save loads with a full timer");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theTimerDrainsInThePowerFormAndRefillsInTheBaseForm(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p, 10f);
+		helper.onEachTick(() -> AllMight.tick(p));
+		helper.runAfterDelay(50, () -> {
+			float used = 1200f - AllMight.timeLeft(p);
+			helper.assertTrue(used >= 2f && used <= 3f, "1 s a second in the Power Form, used " + used);
+			AllMightState s = AllMight.state(p).copy();
+			s.fullPower = false;
+			p.setAttached(ModAttachments.ALL_MIGHT_STATE, s);
+			AllMight.reconcile(p);
+			AllMight.setTimer(p, 600f);
+		});
+		helper.runAfterDelay(100, () -> {
+			float gained = AllMight.timeLeft(p) - 600f;
+			helper.assertTrue(gained >= 1f && gained <= 1.5f, "0.5 s a second in the Base Form, gained " + gained);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void atZeroHeIsForcedBackToTheBaseForm(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p, 10f);
+		AllMight.setTimer(p, 0f);
+		AllMight.tick(p);
+		helper.assertFalse(AllMight.isFullPower(p), "0:00 -- back to the Base Form");
+		// H is refused until 4 s have come back
+		AllMightState s = AllMight.state(p).copy();
+		s.formChangedAt = p.level().getGameTime() - 100L;
+		s.transformUntil = 0L;
+		p.setAttached(ModAttachments.ALL_MIGHT_STATE, s);
+		AllMight.setTimer(p, 3f);
+		AllMight.toggleForm(p);
+		helper.assertFalse(AllMight.isFullPower(p), "3 s is not enough to transform");
+		AllMight.setTimer(p, AllMightConfig.timer().minimumToTransformSeconds);
+		AllMight.toggleForm(p);
+		helper.assertTrue(AllMight.isFullPower(p), "4 s is");
+		// a respawn refills it
+		AllMight.setTimer(p, 10f);
+		AllMight.onPlayerRespawn(p);
+		helper.assertTrue(AllMight.timeLeft(p) == 1200f, "respawn refills the timer");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void plusUltraAndTheUnitedStatesOfSmashSpendTheTimer(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		powerForm(p, 10f);
+		AllMight.setTimer(p, 150f);
+		press(p, 6, false); // C: Plus Ultra needs 200 s (+1)
+		helper.assertFalse(AllMight.plusUltraActive(p), "refused without 3:20 left");
+		helper.assertTrue(AllMight.timeLeft(p) == 150f, "nothing spent");
+		AllMight.setTimer(p, 1200f);
+		press(p, 6, false);
+		helper.assertTrue(AllMight.plusUltraActive(p) && AllMight.timeLeft(p) == 1000f, "Plus Ultra spends 200 s, left " + AllMight.timeLeft(p));
+		// the United States of Smash: refused up front with less than 400 s
+		AllMightState s = AllMight.state(p).copy();
+		s.busyUntil = 0L;
+		p.setAttached(ModAttachments.ALL_MIGHT_STATE, s);
+		AllMight.setTimer(p, 300f);
+		AbilityRouter.handleInput(p, 4, true);
+		helper.assertTrue(AllMight.state(p).chargeStart == 0L, "no hold with less than 6:40 left");
+		AbilityRouter.handleInput(p, 4, false);
+		AllMight.setTimer(p, 1200f);
+		AbilityRouter.handleInput(p, 4, true);
+		helper.assertTrue(AllMight.state(p).chargeStart > 0L && AllMight.timeLeft(p) == 1200f, "the hold starts; nothing is paid until the cast");
+		AbilityRouter.handleInput(p, 4, false);
+		helper.succeed();
+	}
 }

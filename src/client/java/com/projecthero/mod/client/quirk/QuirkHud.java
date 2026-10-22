@@ -89,6 +89,11 @@ public final class QuirkHud {
 		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - MARGIN - BOX;
+		// v0.16.7: on a narrow window the keys would sit on the right end of the hotbar (and the food bar above it) -- lift the
+		// whole HUD clear of both
+		if (x0 < g.guiWidth() / 2 + 91 + 2) {
+			y0 = g.guiHeight() - 41 - BOX;
+		}
 
 		// v0.16.7: a kit's own status block (One For All) in place of the meter row
 		QuirkClientKit clientKit = QuirkClient.kitFor(q);

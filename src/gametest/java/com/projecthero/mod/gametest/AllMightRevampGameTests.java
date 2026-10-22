@@ -114,7 +114,7 @@ public class AllMightRevampGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void thePowerFormHasNoTimer(GameTestHelper helper) {
+	public void fullCowlInsideTheLimitIsFree(GameTestHelper helper) {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
 		helper.onEachTick(() -> AllMight.tick(p));

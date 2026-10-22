@@ -66,6 +66,7 @@ public class ProjectHeroMod implements ModInitializer {
 		// v0.12.31: Titan Shifter balance config (read before its entity type is built -- it sets the hit-box).
 		com.projecthero.mod.titanshifter.TitanShifterConfig.load();
 		com.projecthero.mod.hulk.HulkConfig.load();
+		com.projecthero.mod.allmight.AllMightConfig.load(); // v0.16.7: the One For All timer (20 minutes)
 		com.projecthero.mod.behemoth.BehemothConfig.load();
 		com.projecthero.mod.horde.HordeConfig.load(); // v0.14.20: horde boss health
 		com.projecthero.mod.carnage.CarnageConfig.load(); // v0.14.25: Carnage spawn + health

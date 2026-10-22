@@ -1048,6 +1048,9 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.all_might.progression");
 			para(lines, "projecthero.guide.all_might.step.vestige");
 			blank(lines);
+			head(lines, "projecthero.guide.all_might.timer"); // v0.16.7: the timer is back (20 minutes)
+			para(lines, "projecthero.guide.all_might.timer.body");
+			blank(lines);
 			head(lines, "projecthero.guide.all_might.ofa");
 			para(lines, "projecthero.guide.all_might.ofa.body");
 			blank(lines);

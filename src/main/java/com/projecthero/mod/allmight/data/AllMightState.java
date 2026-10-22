@@ -14,7 +14,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * persistent, {@code copyOnDeath} and synced to every client (other players render the form, the poses and the injured
  * limbs from it). The server is authoritative; this is only ever mutated through {@code AllMight} / {@code AllMightStrain}.
  *
- * <p>v0.16.6: the 300-point OFA timer is gone (the old {@code ofa} key is ignored by the codec). v0.16.7 (user: "a better
+ * <p>v0.16.6: the 300-point OFA timer was removed (the old {@code ofa} key is ignored by the codec); v0.16.7 (user) brings it back
+ * at 20 minutes under a new key, {@code ofa_timer} (seconds left; missing = full). v0.16.7 (user: "a better
  * strain system"): the old whole-body {@code strain} / {@code recoil_until} and the 3-level {@code output} keys are ignored
  * too -- an old save loads with Output at the floor, the starting safe limit ({@code mastery}, 20%) and healthy limbs. The
  * newer fields live in their own map codecs ({@link #EXTRA}, {@link #STRAIN}) flattened into the same NBT compound,
@@ -110,6 +111,12 @@ public final class AllMightState {
 	/** A lender may not lend again before this game time. */
 	public long lendReadyAt;
 
+	// ---------------------------------------------------------------- v0.16.7: the One For All timer (back, at 20 minutes)
+	/** Seconds of Power Form left; below 0 (an old save, a new holder) means a full timer. Read it through {@code AllMight.timeLeft}. */
+	public float ofaTimer = -1f;
+	/** The full timer when the server last wrote {@link #ofaTimer} (synced, so the HUD bar is right whatever the client's config says); 0 = unknown. */
+	public float ofaTimerMax;
+
 	public AllMightState() {
 		this.abilityReadyAt = new HashMap<>();
 		this.loanPartner = "";
@@ -154,13 +161,16 @@ public final class AllMightState {
 		n.loanPartnerName = loanPartnerName;
 		n.loanUntil = loanUntil;
 		n.lendReadyAt = lendReadyAt;
+		n.ofaTimer = ofaTimer;
+		n.ofaTimerMax = ofaTimerMax;
 		return n;
 	}
 
 	/** v0.16.6: the loan fields, flattened into the same compound as the rest. */
-	private record Extra(long lastHitAt, int loanRole, String loanPartner, String loanPartnerName, long loanUntil, long lendReadyAt) {
+	private record Extra(long lastHitAt, int loanRole, String loanPartner, String loanPartnerName, long loanUntil, long lendReadyAt,
+			float ofaTimer, float ofaTimerMax) {
 		static Extra of(AllMightState s) {
-			return new Extra(s.lastHitAt, s.loanRole, s.loanPartner, s.loanPartnerName, s.loanUntil, s.lendReadyAt);
+			return new Extra(s.lastHitAt, s.loanRole, s.loanPartner, s.loanPartnerName, s.loanUntil, s.lendReadyAt, s.ofaTimer, s.ofaTimerMax);
 		}
 	}
 
@@ -170,7 +180,10 @@ public final class AllMightState {
 			Codec.STRING.optionalFieldOf("loan_partner", "").forGetter(Extra::loanPartner),
 			Codec.STRING.optionalFieldOf("loan_partner_name", "").forGetter(Extra::loanPartnerName),
 			Codec.LONG.optionalFieldOf("loan_until", 0L).forGetter(Extra::loanUntil),
-			Codec.LONG.optionalFieldOf("lend_ready_at", 0L).forGetter(Extra::lendReadyAt)
+			Codec.LONG.optionalFieldOf("lend_ready_at", 0L).forGetter(Extra::lendReadyAt),
+			// v0.16.7: a new key (the pre-0.16.6 "ofa" stays ignored) -- a save without it loads with a full timer
+			Codec.FLOAT.optionalFieldOf("ofa_timer", -1f).forGetter(Extra::ofaTimer),
+			Codec.FLOAT.optionalFieldOf("ofa_timer_max", 0f).forGetter(Extra::ofaTimerMax)
 	).apply(i, Extra::new));
 
 	/** v0.16.7: Output, the safe limit and the limbs. */
@@ -230,6 +243,8 @@ public final class AllMightState {
 		s.loanPartnerName = extra.loanPartnerName();
 		s.loanUntil = extra.loanUntil();
 		s.lendReadyAt = extra.lendReadyAt();
+		s.ofaTimer = extra.ofaTimer();
+		s.ofaTimerMax = Math.max(0f, extra.ofaTimerMax());
 		s.outputPct = Math.max(0f, Math.min(100f, strain.outputPct()));
 		s.mastery = Math.max(0f, Math.min(100f, strain.mastery()));
 		for (int k = 0; k < s.limbs.length && k < strain.limbs().size(); k++) {

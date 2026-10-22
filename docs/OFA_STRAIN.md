@@ -9,6 +9,41 @@ Code: `allmight/AllMightStrain.java` (the rules), `AllMight.java` (Output), `All
 `client/allmight/AllMightInjuryLayer.java` + `AllMightPose.applyInjuries` (the look),
 `client/allmight/OneForAllClientKit.java` (the HUD block). Tests: `OneForAllStrainGameTests`.
 
+## The One For All timer (back in v0.16.7, 20 minutes)
+
+User: "give one for all the old timer system again but raise the time limit to 20 minutes this time". The v0.12.39
+timer (removed in v0.16.6) is back, **alongside** everything below -- the timer is how long you can stay in the Power
+Form, the safe limit is how hard you can hit in it. Every old number is scaled x4 (the old timer was 300 s):
+
+| | v0.12.39 | v0.16.7 |
+| --- | --- | --- |
+| Full timer | 300 s (5:00) | **1200 s (20:00)** |
+| Drain in the Power Form | 1 s / s | 1 s / s |
+| Refill (Base Form only) | 1 every 2 s | **0.5 s / s** -- 0:00 to full takes **40 min** (was 10): twice the timer, as before |
+| Plus Ultra (C), paid on press | 50 (1/6) | **200 s (3:20)**, refused below 201 s |
+| United States of Smash, paid on cast | 100 (1/3) | **400 s (6:40)**, the hold is refused below 400 s |
+| H refused below | 1 | **4 s** |
+| Steam vents below | 30 | **120 s** |
+
+* Drains once a second while `fullPower` is set (the Power Form / Full Cowl, Plus Ultra included -- Plus Ultra's extra
+  is its one-off cost, as before). The Smashes and the Leap cost nothing from it.
+* **At 0:00**: forced back to the Base Form with the old hiss and the red action-bar line "You are out of One For All --
+  back to your Base Form!"; H then says "Not enough One For All: 0:04 needed, you have 0:01." until it has 4 s again.
+* A respawn refills it (as in v0.12.39); a new holder (grant, serum, Pass On) starts full.
+* Save data: `AllMightState.ofaTimer` (key `ofa_timer`, seconds left; missing = full, so existing saves start full;
+  the pre-0.16.6 `ofa` key stays ignored) and `ofa_timer_max` (the full timer, synced for the HUD bar).
+* Config: `config/projecthero_one_for_all.json` (`AllMightConfig.SPEC` / `timer()`, a `VersionedConfig`): the `timer`
+  section is balance-owned, and v1 resets it, so a file written before the timer came back moves up to 20 minutes while
+  a v1 file keeps a server's own choice.
+* **Borrowed One For All**: the timer applies to a borrower too. The loan carries whatever the lender had left (you
+  cannot lend more than you have); it drains and refills like anyone's and running it out forces the borrower back to
+  the Base Form (it does not end the loan). The lender's own timer is frozen while they have no power and is theirs
+  again, untouched, when it comes back.
+* Code: `AllMight.tickTimer / exhaust / timeLeft / spendTimer`, the costs in `AllMightAbilities.plusUltra /
+  unitedStatesPress / fireUnitedStates`, the loan in `AllMightPassOn.lend`. Tests: `OneForAllStrainGameTests`
+  (`theTimer*`, `atZero*`, `plusUltraAndTheUnitedStatesOfSmashSpendTheTimer`), `ConfigMigrationGameTests`
+  (`aStaleOneForAllTimerGetsTwentyMinutes`).
+
 ## The idea
 
 Like the anime: One For All is free as long as you use only what your body can take. Use more and the arm (or legs)
@@ -92,16 +127,21 @@ fixed when the Smash is thrown, so a Smash is not weakened by its own strain.
 ## Borrowed One For All (Lend)
 
 A fixed **15%** limit, Output never past **45%** (even in Plus Ultra), limb strain **x2**, no mastery gain. A
-broken limb ends the loan early (it goes back to the lender).
+broken limb ends the loan early (it goes back to the lender). The loan carries the lender's remaining One For All
+timer (see the timer section).
 
 ## HUD (the Quirk HUD, bottom-right)
 
     One For All
     Power Form [H]                      (or PLUS ULTRA 18s / "Right arm broken: 87, usable at 50", wrapped)
+    [===============-----]     18:42    the One For All timer: green, amber under 2:00, blinking red under 0:04
     Output 45%              Limit 20%   (gold; blinking red past the limit)
     [=====|##########------]            gold to the limit, red past it; the white tick is the limit
     R arm     L arm     Legs            a bar each: green / yellow / orange / blinking red (broken)
     [R][G][Z][X][C][V]                  dimmed in the Base Form; a red x on a key whose limb is broken
+
+On a narrow window (where the keys would sit on the right end of the hotbar) the whole Quirk HUD lifts above the
+hotbar and the food bar.
 
 ## One For All in the Quirk framework
 
