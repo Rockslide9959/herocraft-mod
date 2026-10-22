@@ -33,7 +33,7 @@ what the move puts into the heat sink.
 
 ### Passives
 
-* **Lava swimming:** with the full suit on (fire / lava immune since stage 1), you swim through lava at about 8 blocks/s
+* **Lava swimming:** with the full suit on (fire / lava immune since stage 1), you swim through lava at up to about 8 blocks/s (in-client: 6 blocks in the first second from a standstill; vanilla is under 1)
   in the look direction (Space up, Shift down), with a client-side lava visor (lava fog pushed out to 24 blocks).
 * Fire / lava immunity, the orange jet and flight are stage 1 and unchanged.
 
@@ -49,7 +49,7 @@ what the move puts into the heat sink.
 | Lava Geyser | `COMIC_LAUNCH` | flame column below, large smoke, blaze shoot |
 | Magma Bomb | `MK9_LOB`: underarm lob | lava drip trail on the arc, pool of flame / lava particles |
 | Firestorm | `MISSILES` | red-tinted missiles + flame bursts |
-| Heat Dump | `MK9_HEAT_DUMP`: crouch in, then arms and chest flung open | two expanding orange / red shock rings + a vertical vent column (client), server flame nova + explosion emitter, big fire whoosh |
+| Heat Dump | `MK9_HEAT_DUMP`: crouch in, then arms and chest flung open | two expanding orange / red shock rings + a vertical vent column (client), server flame nova + one explosion flash, big fire whoosh |
 | Thermal Siphon | `MK9_SIPHON`: arms spread low, palms down, drawing in | flame particles streaming from every source into the chest |
 
 ## Existing Era II kits (unchanged, for reference)
