@@ -1936,7 +1936,7 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.quirks.suit");
 			para(lines, "projecthero.guide.quirks.suit.short");
 			com.projecthero.mod.quirk.item.QuirkSuits.Suit suit = com.projecthero.mod.quirk.item.QuirkSuits.Suit.of(q);
-			for (net.minecraft.world.item.ArmorItem.Type t : com.projecthero.mod.quirk.item.QuirkSuits.TYPES) {
+			for (net.minecraft.world.item.ArmorItem.Type t : suit.pieces()) { // v0.16.7: Ingenium has no helmet
 				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
 						.append(com.projecthero.mod.quirk.item.QuirkSuits.piece(q, t).getDescription().copy().withStyle(ChatFormatting.WHITE)));
 			}
@@ -1944,6 +1944,9 @@ public final class HeroPackGuide {
 					suit.main.getDescription(), suit.accent.getDescription()).withStyle(ChatFormatting.LIGHT_PURPLE));
 			if (q == com.projecthero.mod.quirk.Quirk.DARK_SHADOW) {
 				para(lines, "projecthero.guide.quirk.dark_shadow.bird");
+			}
+			if (q == com.projecthero.mod.quirk.Quirk.ENGINE) {
+				para(lines, "projecthero.guide.quirk.engine.suit");
 			}
 			blank(lines);
 			head(lines, "projecthero.guide.quirks.erased");

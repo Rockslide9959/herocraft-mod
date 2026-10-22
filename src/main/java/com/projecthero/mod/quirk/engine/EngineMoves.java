@@ -39,26 +39,33 @@ import net.minecraft.world.phys.Vec3;
  * short dash moves", then "give it 1 dash ability and the rest should be attacks and a mode ability", "for engine using v
  * to shift up and down gears makes more sense"): Engine is built around RUNNING and KICKING.
  * <ul>
- *   <li><b>The mode -- the gearbox</b> (V up, Shift+V down, gears 0..3): a sustained sprint speed that builds with
- *       <b>momentum</b> while he runs, heats the engines faster the higher the gear, slides on sharp turns and bowls mobs
- *       over at Gear 2+. V at Gear 3 engages <b>Recipro Burst</b> (double speed); V again in Burst is <b>Recipro Extend</b>
- *       (faster, longer -- and the engines stall when it ends).</li>
- *   <li><b>The one dash</b>: X, Recipro Dash.</li>
+ *   <li><b>The gearbox</b> (V up, Shift+V down, gears 0..3): a sustained sprint -- v0.16.7 (user) 20 / 30 / 40 blocks a
+ *       second flat out -- that builds with <b>momentum</b> while he runs, heats the engines faster the higher the gear,
+ *       slides on sharp turns and bowls mobs over at Gear 2+. V at Gear 3 just says "Max gear".</li>
+ *   <li><b>The mode -- Recipro Turbo</b> (C; v0.16.7 user, replacing Recipro Burst / Extend): 30 s at double the gear's
+ *       speed (80 b/s at Gear 3), no heat at all, every hit +50%, the calf engines blazing blue; then the engines stall for
+ *       a full minute (no gears, no moves, a slow walk, steam and sputtering). C again ends it early.</li>
+ *   <li><b>The one dash</b>: X, Recipro Dash -- in Turbo it is the <b>Turbo Strike</b> (the old ultimate's straight-line
+ *       rush through everything in the path).</li>
  *   <li><b>Everything else is a kick</b>: Recipro Kick (speed-scaled), Spin Kick, Kick Barrage, Recipro Extend Kick, Rising
- *       Kick, Axe Kick, Sweep Kick, the Recipro Turbo strike (the ultimate, which maxes the heat) and the finishing combo.</li>
+ *       Kick, Axe Kick, Sweep Kick and the finishing combo.</li>
  * </ul>
- * Heat cools on its own while he walks or stands (fastest at Gear 0); at 100 he stalls. Every public move is called by
- * {@link EngineKit#handle} once its cooldown is ready, and by the gametests directly.
+ * Heat cools on its own while he walks or stands (fastest at Gear 0); at 100 he stalls. Wearing the Ingenium suit it
+ * builds half as fast. Every public move is called by {@link EngineKit#handle} once its cooldown is ready, and by the
+ * gametests directly.
  *
- * <p>Movement: the run itself is an attribute modifier (synced to the player's own client, which simulates the run -- the
- * server only authorises it; the client adds the drift of a sliding turn, {@code EngineRunClient}); the dash and the
- * Turbo strike are {@link AbilityHelpers#launchSelf} impulses. The server measures his speed from his position
+ * <p>Movement: the run itself is an ADD_MULTIPLIED_BASE movement-speed modifier like Super Speed's (synced to the player's
+ * own client, which simulates the run -- the server only authorises it; the client adds the drift of a sliding turn and
+ * carries the run through jumps, {@code EngineRunClient}); the dash and the Turbo Strike are
+ * {@link AbilityHelpers#launchSelf} impulses. The server measures his speed from his position
  * each tick. The sessions are static, keyed by player, hold entity ids never entities, and are dropped by
  * {@link #forget} / {@link #clearSessionState} (chained from {@code ServerStateReset} through {@code QuirkKits}).
  */
 public final class EngineMoves {
 	public static final ResourceLocation GEAR_ID = PowerToggles.id("quirk_engine_gear_speed");
 	public static final ResourceLocation STEP_ID = PowerToggles.id("quirk_engine_step");
+	/** Recipro Turbo's +50% on his plain melee too (the moves get it in {@link EngineCombat#strike}). */
+	public static final ResourceLocation TURBO_DAMAGE_ID = PowerToggles.id("quirk_engine_turbo_damage");
 	/** The pre-revamp always-on Speed I (taken off if a player still has it). */
 	public static final ResourceLocation LEGACY_PASSIVE_ID = PowerToggles.id("quirk_engine_passive_speed");
 
@@ -75,19 +82,19 @@ public final class EngineMoves {
 		double speed;
 		long lastSlide = -100L;
 		final Map<Integer, Long> bowled = new HashMap<>();
-		// Recipro: it was running last tick (Extend's natural end stalls the engines)
-		boolean burstOn;
-		boolean extendOn;
-		// the straight-line moves (Recipro Dash, the Turbo strike): start, from, direction, length
+		// Recipro Turbo was running last tick (its end stalls the engines)
+		boolean turboOn;
+		long nextSputter;
+		// the straight-line moves (Recipro Dash, the Turbo Strike): start, from, direction, length
 		long dashAt = -1L;
 		Vec3 dashFrom = Vec3.ZERO;
 		Vec3 dashDir = Vec3.ZERO;
 		double dashLength;
-		long turboAt = -1L;
-		Vec3 turboFrom = Vec3.ZERO;
-		Vec3 turboDir = Vec3.ZERO;
-		double turboLength;
-		final Set<Integer> turboHit = new HashSet<>();
+		long strikeAt = -1L;
+		Vec3 strikeFrom = Vec3.ZERO;
+		Vec3 strikeDir = Vec3.ZERO;
+		double strikeLength;
+		final Set<Integer> strikeHit = new HashSet<>();
 		// the timed kicks
 		long axeAt = -1L;
 		long barrageAt = -1L;
@@ -181,14 +188,20 @@ public final class EngineMoves {
 		s.lastDir = flatLook(p);
 	}
 
-	/** The movement-speed bonus of a gear at a momentum, with Recipro ({@code mult} 1 = none). */
-	public static double speedBonus(int gear, float momentum, double mult) {
+	/** The run's flat-ground sprint speed (blocks a second) in a gear at a momentum, with Recipro Turbo ({@code mult} 1 = none). */
+	public static double runBps(int gear, float momentum, double mult) {
 		int g = Mth.clamp(gear, 0, EngineConfig.MAX_GEAR);
-		double base = EngineConfig.GEAR_SPEED[g] * (EngineConfig.MOMENTUM_FLOOR + (1.0 - EngineConfig.MOMENTUM_FLOOR) * Mth.clamp(momentum, 0f, 1f));
-		if (mult > 1.0) {
-			return (1.0 + base) * mult - 1.0;
-		}
-		return base;
+		double built = EngineConfig.MOMENTUM_FLOOR + (1.0 - EngineConfig.MOMENTUM_FLOOR) * Mth.clamp(momentum, 0f, 1f);
+		return EngineConfig.GEAR_TOP_BPS[g] * built * Math.max(1.0, mult);
+	}
+
+	/**
+	 * The movement-speed bonus (ADD_MULTIPLIED_BASE, like Super Speed's modes) that sprints at {@link #runBps}: vanilla
+	 * sprinting is 0.1 x 1.3 x 43.17 = 5.6 b/s, so the bonus is {@code bps / 5.6 - 1} (Gear 3 flat out: 40 b/s = +6.13).
+	 * Never below normal.
+	 */
+	public static double speedBonus(int gear, float momentum, double mult) {
+		return Math.max(0.0, runBps(gear, momentum, mult) / EngineConfig.VANILLA_SPRINT_BPS - 1.0);
 	}
 
 	/** Recipro Kick's damage at a speed (blocks a second). */
@@ -196,8 +209,19 @@ public final class EngineMoves {
 		return (float) Math.min(EngineConfig.KICK_DAMAGE_MAX, EngineConfig.KICK_DAMAGE + EngineConfig.KICK_DAMAGE_PER_SPEED * Math.max(0.0, bps));
 	}
 
-	/** Adds heat; at 100 the engines stall. */
+	/**
+	 * Adds heat; at 100 the engines stall. In Recipro Turbo heat doesn't build at all; in the Ingenium suit it builds
+	 * {@link EngineConfig#SUIT_HEAT_MULT} as fast.
+	 */
 	public static void heat(ServerPlayer p, float amount) {
+		if (amount > 0f) {
+			if (running(p, Engine.V_TURBO)) {
+				return;
+			}
+			if (Engine.suitWorn(p)) {
+				amount *= EngineConfig.SUIT_HEAT_MULT;
+			}
+		}
 		if (Quirks.addMeter(p, amount) >= 100f && !Quirks.overloaded(p)) {
 			stall(p, EngineConfig.STALL_TICKS);
 		}
@@ -205,7 +229,7 @@ public final class EngineMoves {
 
 	/** Stall: Slowness III, no moves, back to gear 0 (everything running stops). */
 	public static void stall(ServerPlayer p, int ticks) {
-		Quirks.overload(p, ticks); // -> stopAll: gear 0, Recipro off, modifiers off
+		Quirks.overload(p, ticks); // -> stopAll: gear 0, Turbo off, modifiers off
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, ticks, EngineConfig.STALL_SLOW_AMPLIFIER, false, true, true));
 		Quirks.say(p, "message.projecthero.quirk.overloaded.engine", ChatFormatting.RED);
 		Quirks.setAnim(p, Engine.ANIM_STALL);
@@ -215,6 +239,26 @@ public final class EngineMoves {
 		ServerLevel level = p.serverLevel();
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.4, p.getZ(), 14, 0.3, 0.2, 0.3, 0.02);
 		steam(level, p, 8);
+		session(p).nextSputter = now(p) + 10;
+	}
+
+	/** A stalled engine coughing: a sputter of steam and a choked, uneven engine noise. */
+	private static void sputter(ServerPlayer p, Session s, long now) {
+		var r = p.getRandom();
+		s.nextSputter = now + EngineConfig.SPUTTER_EVERY / 2 + r.nextInt(EngineConfig.SPUTTER_EVERY);
+		ServerLevel level = p.serverLevel();
+		steam(level, p, 4 + r.nextInt(4));
+		int coughs = 1 + r.nextInt(3);
+		for (int i = 0; i < coughs; i++) {
+			sound(p, SoundEvents.PISTON_CONTRACT, 0.35f, 0.45f + r.nextFloat() * 0.25f);
+		}
+		sound(p, SoundEvents.FIRE_EXTINGUISH, 0.4f, 0.7f + r.nextFloat() * 0.5f);
+		if (r.nextInt(3) == 0) {
+			// a backfire: a pop and a puff of black smoke out of one calf
+			Vec3 c = EngineCombat.calf(p, r.nextBoolean() ? 1 : -1);
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 3, 0.05, 0.05, 0.05, 0.02);
+			sound(p, SoundEvents.FIREWORK_ROCKET_BLAST, 0.35f, 0.5f + r.nextFloat() * 0.2f);
+		}
 	}
 
 	// ================================================================ tick: the gearbox, the meter, running moves
@@ -226,7 +270,7 @@ public final class EngineMoves {
 		if (!s.legacyChecked) {
 			s.legacyChecked = true;
 			if (st.vals.containsKey(Engine.LEGACY_GEAR) || st.vals.containsKey(Engine.LEGACY_KICK) || st.vals.containsKey(Engine.LEGACY_CARRY)
-					|| st.vals.containsKey(Engine.LEGACY_STEAM)) {
+					|| st.vals.containsKey(Engine.LEGACY_STEAM) || st.vals.containsKey(Engine.LEGACY_BURST) || st.vals.containsKey(Engine.LEGACY_EXTEND)) {
 				long carried = st.val(Engine.LEGACY_CARRY);
 				if (carried != 0L && p.level().getEntity((int) carried) instanceof LivingEntity le && le.getVehicle() == p) {
 					le.stopRiding(); // the old Rescue Carry: set it down
@@ -237,6 +281,8 @@ public final class EngineMoves {
 					n.vals.remove(Engine.LEGACY_KICK);
 					n.vals.remove(Engine.LEGACY_CARRY);
 					n.vals.remove(Engine.LEGACY_STEAM);
+					n.vals.remove(Engine.LEGACY_BURST);
+					n.vals.remove(Engine.LEGACY_EXTEND);
 				});
 			}
 			s.gear = (int) Mth.clamp(st.val(Engine.V_GEAR_NO), 0L, EngineConfig.MAX_GEAR);
@@ -265,30 +311,27 @@ public final class EngineMoves {
 		s.lastPos = pos;
 		boolean moving = s.speed > 0.08;
 
-		boolean burst = st.val(Engine.V_BURST) > now;
-		boolean extend = st.val(Engine.V_EXTEND) > now;
 		boolean turbo = st.val(Engine.V_TURBO) > now;
-		// --- Recipro Extend always ends in the stall (as in the anime); Burst just ends
-		if (s.extendOn && !extend && !stalled) {
-			s.extendOn = false;
-			Quirks.setVal(p, Engine.V_EXTEND, 0L);
-			stall(p, EngineConfig.EXTEND_STALL_TICKS);
+		// --- Recipro Turbo always ends in the minute-long stall (as in the anime)
+		if (s.turboOn && !turbo && !stalled) {
+			s.turboOn = false;
+			turboEnds(p);
 			stalled = true;
 		}
-		s.extendOn = extend;
-		if (s.burstOn && !burst) {
-			s.burstOn = false;
-			Quirks.setVal(p, Engine.V_BURST, 0L);
-			sound(p, SoundEvents.FIRE_EXTINGUISH, 0.6f, 1.3f);
+		s.turboOn = turbo;
+		if (turbo) {
+			PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID, EngineConfig.TURBO_DAMAGE_MULT - 1.0,
+					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID);
 		}
-		s.burstOn = burst;
-		boolean recipro = burst || extend;
+		boolean recipro = turbo;
 
 		// --- momentum
 		if (stalled || s.gear <= 0) {
 			s.momentum = 0f;
 		} else if (moving) {
-			float rate = EngineConfig.MOMENTUM_BUILD[s.gear] * (recipro ? EngineConfig.RECIPRO_BUILD_MULT : 1f);
+			float rate = EngineConfig.MOMENTUM_BUILD[s.gear] * (recipro ? EngineConfig.TURBO_BUILD_MULT : 1f);
 			if (p.isSprinting() || recipro) {
 				s.momentum = Math.min(1f, s.momentum + rate);
 			} else if (s.momentum < EngineConfig.MOMENTUM_WALK_CAP) {
@@ -303,7 +346,9 @@ public final class EngineMoves {
 		// --- sliding turns: the run swings round sharply at speed
 		if (!stalled && s.gear > 0 && raw > 0.25 && p.onGround() && s.momentum >= EngineConfig.SLIDE_MIN_MOMENTUM && s.lastDir.lengthSqr() > 0.5) {
 			double cos = Mth.clamp(s.lastDir.dot(dir), -1.0, 1.0);
-			if (Math.toDegrees(Math.acos(cos)) >= EngineConfig.SLIDE_ANGLE && now - s.lastSlide > 6) {
+			// the client holds the turn to its grip a tick, so a turn right at the grip IS the slide (high gears never reach 28)
+			double slideAt = Math.min(EngineConfig.SLIDE_ANGLE, EngineConfig.grip(s.gear, s.momentum, recipro) * 0.85);
+			if (Math.toDegrees(Math.acos(cos)) >= slideAt && now - s.lastSlide > 6) {
 				slide(p, s, dir, now);
 			}
 		}
@@ -313,19 +358,19 @@ public final class EngineMoves {
 		if (stalled) {
 			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID);
 		} else {
-			double mult = extend ? EngineConfig.EXTEND_MULT : burst ? EngineConfig.BURST_MULT : 1.0;
+			double mult = turbo ? EngineConfig.TURBO_MULT : 1.0;
 			double bonus = speedBonus(s.gear, s.momentum, mult);
 			bonus = Math.round(bonus / EngineConfig.SPEED_STEP) * EngineConfig.SPEED_STEP;
 			if (bonus > 0.0) {
-				PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+				PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 			} else {
 				PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID);
 			}
 		}
 
-		// --- bowling mobs over
+		// --- bowling mobs over (swept along this tick's whole path: at 80 b/s he covers 4 blocks a tick)
 		if (!stalled && (s.gear >= EngineConfig.BOWL_MIN_GEAR || recipro) && s.momentum >= EngineConfig.BOWL_MIN_MOMENTUM && s.speed > 0.35) {
-			bowl(p, s, dir, now);
+			bowl(p, s, dir, raw, now);
 		}
 
 		// --- the meter
@@ -336,12 +381,7 @@ public final class EngineMoves {
 			perSecond = 0f;
 		} else if (s.gear > 0) {
 			// sprinting in gear heats the engines; walking or standing in gear cools them slowly (passive cooling)
-			perSecond = moving && (p.isSprinting() || recipro) ? EngineConfig.GEAR_HEAT_PER_SECOND[s.gear] : -EngineConfig.IDLE_COOL_PER_SECOND;
-			if (extend) {
-				perSecond = Math.max(0f, perSecond) + EngineConfig.EXTEND_HEAT_PER_SECOND;
-			} else if (burst) {
-				perSecond = Math.max(0f, perSecond) + EngineConfig.BURST_HEAT_PER_SECOND;
-			}
+			perSecond = moving && p.isSprinting() ? EngineConfig.GEAR_HEAT_PER_SECOND[s.gear] : -EngineConfig.IDLE_COOL_PER_SECOND;
 		} else {
 			perSecond = -EngineConfig.COOL_PER_SECOND;
 		}
@@ -358,8 +398,8 @@ public final class EngineMoves {
 		if (s.dashAt >= 0L) {
 			dashStep(p, s, now - s.dashAt);
 		}
-		if (s.turboAt >= 0L) {
-			turboStep(p, s, now - s.turboAt);
+		if (s.strikeAt >= 0L) {
+			strikeStep(p, s, now - s.strikeAt);
 		}
 		if (s.axeAt >= 0L && now - s.axeAt >= EngineConfig.AXE_DELAY) {
 			s.axeAt = -1L;
@@ -374,8 +414,16 @@ public final class EngineMoves {
 		if (s.extendKickAt >= 0L) {
 			extendKickStep(p, s, now - s.extendKickAt);
 		}
-		if (stalled && p.tickCount % 3 == 0) {
-			steam(p.serverLevel(), p, 2);
+		if (stalled) {
+			if (p.tickCount % 3 == 0) {
+				steam(p.serverLevel(), p, 2);
+			}
+			if (now >= s.nextSputter || s.nextSputter - now > 100) {
+				sputter(p, s, now);
+			}
+		} else if (turbo && p.tickCount % 2 == 0) {
+			// the calf engines blaze: blue fire licking off both calves (the run's own trails are drawn client side)
+			EngineCombat.exhaust(p.serverLevel(), p, 1, 2);
 		}
 
 		// --- mirror the gearbox to the client (HUD, FX, sound, poses)
@@ -412,9 +460,9 @@ public final class EngineMoves {
 		sound(p, SoundEvents.SAND_BREAK, 0.8f, 0.7f);
 	}
 
-	private static void bowl(ServerPlayer p, Session s, Vec3 dir, long now) {
-		AABB box = p.getBoundingBox().expandTowards(dir.scale(0.9)).inflate(0.25, 0.0, 0.25);
-		float dmg = (float) (EngineConfig.BOWL_DAMAGE + EngineConfig.BOWL_DAMAGE_PER_SPEED * s.speed * 20.0);
+	private static void bowl(ServerPlayer p, Session s, Vec3 dir, double travelled, long now) {
+		AABB box = p.getBoundingBox().expandTowards(dir.scale(0.9)).expandTowards(dir.scale(-Math.min(4.5, travelled))).inflate(0.25, 0.0, 0.25);
+		float dmg = (float) Math.min(EngineConfig.BOWL_DAMAGE_MAX, EngineConfig.BOWL_DAMAGE + EngineConfig.BOWL_DAMAGE_PER_SPEED * bps(s));
 		boolean any = false;
 		for (LivingEntity e : p.serverLevel().getEntitiesOfClass(LivingEntity.class, box, e -> e != p && e.isAlive() && HeroTargets.isHostile(p, e))) {
 			if (e.getVehicle() == p) {
@@ -440,34 +488,19 @@ public final class EngineMoves {
 	}
 
 
-	// ================================================================ V: Gear Up / Shift+V: Gear Down (the mode; Recipro inside it)
+	// ================================================================ V: Gear Up / Shift+V: Gear Down (the gearbox)
 
 	/**
-	 * V: into the next gear (the run keeps its speed; momentum builds the rest). At Gear 3 it engages Recipro Burst; in
-	 * Burst, Recipro Extend. Returns the new gear, or -1 if nothing changed.
+	 * V: into the next gear (the run keeps its speed; momentum builds the rest). At Gear 3 nothing more happens -- "Max
+	 * gear" (v0.16.7: Recipro Burst / Extend are gone; Recipro Turbo, C, is the overdrive now). Returns the new gear, or -1
+	 * if nothing changed.
 	 */
 	public static int shiftUp(ServerPlayer p) {
 		Session s = session(p);
 		Quirks.setCooldown(p, EngineConfig.SHIFT_UP, EngineConfig.SHIFT_COOLDOWN);
 		if (s.gear >= EngineConfig.MAX_GEAR) {
-			if (running(p, Engine.V_EXTEND)) {
-				Quirks.say(p, "message.projecthero.quirk.engine.top_gear", ChatFormatting.AQUA);
-				return -1;
-			}
-			if (running(p, Engine.V_BURST)) {
-				if (!Quirks.ready(p, EngineConfig.EXTEND)) {
-					Quirks.say(p, "message.projecthero.quirk.engine.recipro_cooling", ChatFormatting.AQUA, (Quirks.cooldownRemaining(p, EngineConfig.EXTEND) + 19) / 20);
-					return -1;
-				}
-				extend(p);
-				return s.gear;
-			}
-			if (!Quirks.ready(p, EngineConfig.BURST)) {
-				Quirks.say(p, "message.projecthero.quirk.engine.recipro_cooling", ChatFormatting.AQUA, (Quirks.cooldownRemaining(p, EngineConfig.BURST) + 19) / 20);
-				return -1;
-			}
-			burst(p);
-			return s.gear;
+			Quirks.say(p, "message.projecthero.quirk.engine.top_gear", ChatFormatting.AQUA);
+			return -1;
 		}
 		changeGear(p, s, s.gear + 1);
 		heat(p, EngineConfig.SHIFT_UP_HEAT);
@@ -478,22 +511,13 @@ public final class EngineMoves {
 	}
 
 	/**
-	 * Shift+V: Recipro running -- it ends (Burst cleanly, Extend into its stall); otherwise down a gear (engine braking keeps
-	 * most of the momentum). Returns the new gear, or -1 if nothing changed.
+	 * Shift+V: down a gear (engine braking keeps most of the momentum). In Recipro Turbo it can't drop below Gear 1.
+	 * Returns the new gear, or -1 if nothing changed.
 	 */
 	public static int shiftDown(ServerPlayer p) {
 		Session s = session(p);
 		Quirks.setCooldown(p, EngineConfig.SHIFT_DOWN, EngineConfig.SHIFT_COOLDOWN);
-		if (running(p, Engine.V_EXTEND)) {
-			Quirks.setVal(p, Engine.V_EXTEND, now(p)); // ends next tick -- and still stalls
-			return s.gear;
-		}
-		if (running(p, Engine.V_BURST)) {
-			Quirks.setVal(p, Engine.V_BURST, now(p));
-			Quirks.setAnim(p, Engine.ANIM_SHIFT_DOWN);
-			return s.gear;
-		}
-		if (s.gear <= 0) {
+		if (s.gear <= (running(p, Engine.V_TURBO) ? 1 : 0)) {
 			return -1;
 		}
 		changeGear(p, s, s.gear - 1);
@@ -506,12 +530,12 @@ public final class EngineMoves {
 
 	/** Changes gear keeping the run's speed: the momentum is re-scaled so this gear's speed matches the last one's. */
 	private static void changeGear(ServerPlayer p, Session s, int gear) {
-		double was = speedBonus(s.gear, s.momentum, 1.0);
+		double was = runBps(s.gear, s.momentum, 1.0);
 		s.gear = Mth.clamp(gear, 0, EngineConfig.MAX_GEAR);
 		if (s.gear == 0) {
 			s.momentum = 0f;
 		} else {
-			double top = EngineConfig.GEAR_SPEED[s.gear];
+			double top = EngineConfig.GEAR_TOP_BPS[s.gear];
 			double f = (was / top - EngineConfig.MOMENTUM_FLOOR) / (1.0 - EngineConfig.MOMENTUM_FLOOR);
 			s.momentum = (float) Mth.clamp(f, 0.0, 1.0);
 		}
@@ -524,43 +548,48 @@ public final class EngineMoves {
 		changeGear(p, session(p), gear);
 	}
 
-	/** Recipro Burst: ten seconds at double the gear's speed. */
-	public static boolean burst(ServerPlayer p) {
+	// ================================================================ C: Recipro Turbo (the mode)
+
+	/**
+	 * C: Recipro Turbo -- 30 s at double the gear's speed (into Gear 1 first if he's in neutral), heat frozen, every hit
+	 * +50%. C again while it runs ends it early. Either way the engines then stall for a minute. Returns true if Turbo is
+	 * now running.
+	 */
+	public static boolean turbo(ServerPlayer p) {
 		Session s = session(p);
+		if (running(p, Engine.V_TURBO)) {
+			Quirks.setVal(p, Engine.V_TURBO, now(p)); // ends next tick -- into the stall
+			return false;
+		}
 		if (s.gear == 0) {
 			changeGear(p, s, 1);
 		}
-		Quirks.setVal(p, Engine.V_BURST, now(p) + EngineConfig.BURST_TICKS);
-		s.burstOn = true;
-		Quirks.setAnim(p, Engine.ANIM_BURST);
-		Quirks.setCooldown(p, EngineConfig.BURST, EngineConfig.BURST_COOLDOWN);
-		heat(p, EngineConfig.BURST_HEAT);
-		rev(p, 3f);
-		sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 0.7f);
-		reciproFlare(p, 14);
+		s.dashAt = -1L;
+		Quirks.setVal(p, Engine.V_TURBO, now(p) + EngineConfig.TURBO_TICKS);
+		s.turboOn = true;
+		Quirks.setAnim(p, Engine.ANIM_TURBO_ON);
+		Quirks.setCooldown(p, EngineConfig.TURBO, EngineConfig.TURBO_COOLDOWN);
+		Quirks.say(p, "message.projecthero.quirk.engine.turbo", ChatFormatting.AQUA);
+		ServerLevel level = p.serverLevel();
+		Vec3 c = p.position().add(0, 0.9, 0);
+		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y - 0.5, c.z, 1, 0, 0, 0, 0);
+		reciproFlare(p, 26);
+		rev(p, 5f);
+		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.2f, 0.6f);
+		sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 0.5f);
+		sound(p, SoundEvents.BEACON_POWER_SELECT, 0.8f, 1.6f);
 		return true;
 	}
 
-	/** Recipro Extend: fifteen seconds at 2.6x the gear -- then the engines stall for 6 s (Slowness III), whatever happens. */
-	public static boolean extend(ServerPlayer p) {
-		Session s = session(p);
-		if (s.gear == 0) {
-			changeGear(p, s, 1);
-		}
-		if (running(p, Engine.V_BURST)) {
-			Quirks.setVal(p, Engine.V_BURST, 0L);
-		}
-		s.burstOn = false;
-		Quirks.setVal(p, Engine.V_EXTEND, now(p) + EngineConfig.EXTEND_TICKS);
-		s.extendOn = true;
-		Quirks.setAnim(p, Engine.ANIM_EXTEND);
-		Quirks.setCooldown(p, EngineConfig.EXTEND, EngineConfig.EXTEND_COOLDOWN);
-		heat(p, EngineConfig.EXTEND_HEAT);
-		rev(p, 4f);
-		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.0f, 0.6f);
-		sound(p, SoundEvents.FIREWORK_ROCKET_LAUNCH, 1.0f, 0.5f);
-		reciproFlare(p, 22);
-		return true;
+	/** Recipro Turbo is over: the engines seize for a full minute (no gears, no moves, a slow walk, steam, sputtering). */
+	private static void turboEnds(ServerPlayer p) {
+		Quirks.setVal(p, Engine.V_TURBO, 0L);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID);
+		ServerLevel level = p.serverLevel();
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.3, p.getZ(), 20, 0.5, 0.15, 0.5, 0.06);
+		sound(p, SoundEvents.FIRE_EXTINGUISH, 1.0f, 0.5f);
+		stall(p, EngineConfig.TURBO_STALL_TICKS);
 	}
 
 	/** The blue Recipro flames bursting out of the calves. */
@@ -608,14 +637,22 @@ public final class EngineMoves {
 		return n;
 	}
 
+	/** His speed for the speed-scaled damage, blocks a second (capped: {@link EngineConfig#DAMAGE_BPS_CAP}). */
 	private static double bps(Session s) {
-		return s.speed * 20.0;
+		return Math.min(EngineConfig.DAMAGE_BPS_CAP, s.speed * 20.0);
 	}
 
 	// ================================================================ X: Recipro Dash (the one dash) / Shift+X: Rising Kick
 
-	/** One burst dash along the look, farther in higher gears. No damage (it's the dash), it just bumps mobs aside. */
+	/**
+	 * One burst dash along the look, farther in higher gears. No damage (it's the dash), it just bumps mobs aside. In
+	 * Recipro Turbo it is the Turbo Strike instead ({@link #strike}).
+	 */
 	public static void dash(ServerPlayer p) {
+		if (running(p, Engine.V_TURBO)) {
+			strike(p);
+			return;
+		}
 		Session s = session(p);
 		Vec3 dir = flatLook(p);
 		s.dashAt = now(p);
@@ -924,21 +961,21 @@ public final class EngineMoves {
 		return n;
 	}
 
-	// ================================================================ C: Recipro Turbo / Shift+C: Ingenium Finisher
+	// ================================================================ X in Recipro Turbo: the Turbo Strike / Shift+C: Ingenium Finisher
 
-	/** The ultimate: a blinding straight-line strike along the look; everything in the path is struck. Then the engines are at 100. */
-	public static void turbo(ServerPlayer p) {
+	/** X in Turbo: a blinding straight-line rush along the look; everything in the path is struck (+50%, it's Turbo). */
+	public static void strike(ServerPlayer p) {
 		Session s = session(p);
 		s.dashAt = -1L;
 		Vec3 dir = flatLook(p);
-		s.turboAt = now(p);
-		s.turboFrom = p.position();
-		s.turboDir = dir;
-		s.turboLength = clearPath(p, dir, EngineConfig.TURBO_DISTANCE);
-		s.turboHit.clear();
-		Quirks.setVal(p, Engine.V_TURBO, now(p) + EngineConfig.TURBO_TICKS + 3);
-		Quirks.setAnim(p, Engine.ANIM_TURBO);
-		Quirks.setCooldown(p, EngineConfig.TURBO, EngineConfig.TURBO_COOLDOWN);
+		s.strikeAt = now(p);
+		s.strikeFrom = p.position();
+		s.strikeDir = dir;
+		s.strikeLength = clearPath(p, dir, EngineConfig.STRIKE_DISTANCE);
+		s.strikeHit.clear();
+		Quirks.setVal(p, Engine.V_STRIKE, now(p) + EngineConfig.STRIKE_TICKS + 3);
+		Quirks.setAnim(p, Engine.ANIM_STRIKE);
+		Quirks.setCooldown(p, EngineConfig.DASH, EngineConfig.STRIKE_COOLDOWN);
 		ServerLevel level = p.serverLevel();
 		Vec3 c = p.position().add(0, 0.9, 0);
 		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0.1, 0.1, 0.1, 0);
@@ -948,44 +985,43 @@ public final class EngineMoves {
 		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.4f, 1.5f);
 		sound(p, SoundEvents.TRIDENT_RIPTIDE_3.value(), 1.2f, 1.2f);
 		sound(p, SoundEvents.GENERIC_EXPLODE.value(), 0.6f, 1.8f);
-		turboStep(p, s, 0L);
+		strikeStep(p, s, 0L);
 	}
 
-	private static void turboStep(ServerPlayer p, Session s, long k) {
-		double step = EngineConfig.TURBO_DISTANCE / EngineConfig.TURBO_TICKS;
-		double a = Math.min(s.turboLength, Math.max(0.0, (k - 1) * step));
-		double b = Math.min(s.turboLength, (k + 1) * step);
-		Vec3 from = s.turboFrom.add(s.turboDir.scale(a));
-		Vec3 to = s.turboFrom.add(s.turboDir.scale(b));
-		EngineCombat.alongPath(p, from, to, EngineConfig.TURBO_WIDTH, EngineConfig.TURBO_DAMAGE, EngineConfig.TURBO_KNOCKBACK, EngineConfig.TURBO_LIFT,
-				s.turboHit, EngineCombat::isTarget);
+	private static void strikeStep(ServerPlayer p, Session s, long k) {
+		double step = EngineConfig.STRIKE_DISTANCE / EngineConfig.STRIKE_TICKS;
+		double a = Math.min(s.strikeLength, Math.max(0.0, (k - 1) * step));
+		double b = Math.min(s.strikeLength, (k + 1) * step);
+		Vec3 from = s.strikeFrom.add(s.strikeDir.scale(a));
+		Vec3 to = s.strikeFrom.add(s.strikeDir.scale(b));
+		EngineCombat.alongPath(p, from, to, EngineConfig.STRIKE_WIDTH, EngineConfig.STRIKE_DAMAGE, EngineConfig.STRIKE_KNOCKBACK, EngineConfig.STRIKE_LIFT,
+				s.strikeHit, EngineCombat::isTarget);
 		ServerLevel level = p.serverLevel();
 		// the afterimage: a white-blue streak down the path
 		for (double d = a; d <= b; d += 0.6) {
-			Vec3 at = s.turboFrom.add(s.turboDir.scale(d)).add(0, 0.9, 0);
+			Vec3 at = s.strikeFrom.add(s.strikeDir.scale(d)).add(0, 0.9, 0);
 			level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 1, 0.15, 0.4, 0.15, 0.0);
 			level.sendParticles(EngineCombat.EXHAUST_WHITE, at.x, at.y - 0.4, at.z, 2, 0.15, 0.3, 0.15, 0.0);
 			level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, at.x, at.y - 0.6, at.z, 1, 0.1, 0.05, 0.1, 0.01);
 		}
-		if (k < EngineConfig.TURBO_TICKS && k * step < s.turboLength) {
-			AbilityHelpers.launchSelf(p, new Vec3(s.turboDir.x * step, Math.min(0.0, p.getDeltaMovement().y), s.turboDir.z * step));
+		if (k < EngineConfig.STRIKE_TICKS && k * step < s.strikeLength) {
+			AbilityHelpers.launchSelf(p, new Vec3(s.strikeDir.x * step, Math.min(0.0, p.getDeltaMovement().y), s.strikeDir.z * step));
 			p.resetFallDistance();
 		} else {
-			// the strike ends: brake hard, the engines red-line and stall
-			AbilityHelpers.launchSelf(p, new Vec3(s.turboDir.x * 0.2, Math.min(0.0, p.getDeltaMovement().y), s.turboDir.z * 0.2));
-			s.turboAt = -1L;
+			// the strike ends: he keeps a fast run-on (Turbo is still running)
+			AbilityHelpers.launchSelf(p, new Vec3(s.strikeDir.x * 0.8, Math.min(0.0, p.getDeltaMovement().y), s.strikeDir.z * 0.8));
+			s.strikeAt = -1L;
 			Vec3 c = p.position().add(0, 0.9, 0);
 			level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 			level.sendParticles(ParticleTypes.CLOUD, c.x, c.y - 0.8, c.z, 16, 0.6, 0.1, 0.6, 0.08);
-			Quirks.setVal(p, Engine.V_TURBO, 0L);
-			heat(p, 100f);
+			Quirks.setVal(p, Engine.V_STRIKE, 0L);
 		}
 	}
 
-	/** Test hook: everything the running (or last) Turbo has hit. */
-	public static Set<Integer> turboHit(ServerPlayer p) {
+	/** Test hook: everything the running (or last) Turbo Strike has hit. */
+	public static Set<Integer> strikeHit(ServerPlayer p) {
 		Session s = SESSIONS.get(p.getUUID());
-		return s == null ? Set.of() : Set.copyOf(s.turboHit);
+		return s == null ? Set.of() : Set.copyOf(s.strikeHit);
 	}
 
 	/** The finishing combo: a Recipro Kick, a spin kick, then an afterburner kick that launches the target far. */
@@ -1034,11 +1070,8 @@ public final class EngineMoves {
 	}
 
 	static void steam(ServerLevel level, ServerPlayer p, int count) {
-		float yaw = p.yBodyRot * ((float) Math.PI / 180f);
-		Vec3 fwd = new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
-		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
 		for (int side = -1; side <= 1; side += 2) {
-			Vec3 at = p.position().add(right.scale(side * 0.13)).add(fwd.scale(-0.2)).add(0, 0.35, 0);
+			Vec3 at = EngineCombat.calf(p, side);
 			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, Math.max(1, count / 2), 0.08, 0.1, 0.08, 0.03);
 			level.sendParticles(ParticleTypes.WHITE_SMOKE, at.x, at.y + 0.2, at.z, count, 0.15, 0.2, 0.15, 0.02);
 		}
@@ -1060,17 +1093,16 @@ public final class EngineMoves {
 			s.gear = 0;
 			s.momentum = 0f;
 			s.momentumSynced = -1;
-			s.burstOn = false;
-			s.extendOn = false;
+			s.turboOn = false;
 			s.dashAt = -1L;
-			s.turboAt = -1L;
+			s.strikeAt = -1L;
 			s.axeAt = -1L;
 			s.barrageAt = -1L;
 			s.finisherAt = -1L;
 			s.extendKickAt = -1L;
 		}
 		QuirkState st = Quirks.state(p);
-		String[] keys = { Engine.V_BURST, Engine.V_EXTEND, Engine.V_TURBO, Engine.V_DASH, Engine.V_EXTEND_KICK, Engine.V_BARRAGE, Engine.V_FINISHER,
+		String[] keys = { Engine.V_TURBO, Engine.V_STRIKE, Engine.V_DASH, Engine.V_EXTEND_KICK, Engine.V_BARRAGE, Engine.V_FINISHER,
 				Engine.V_GEAR_NO, Engine.V_MOMENTUM };
 		boolean any = false;
 		for (String k : keys) {
@@ -1086,6 +1118,7 @@ public final class EngineMoves {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, LEGACY_PASSIVE_ID);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, STEP_ID);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID);
 	}
 
 	/** The holder still has Engine (stopAll leaves the power; revoke clears everything). */

@@ -2,7 +2,8 @@ package com.projecthero.mod.quirk.engine;
 
 /**
  * v0.16.7 (revamp): every Engine (Tenya Iida / Ingenium) number. Ticks unless named otherwise; heat is the 0..100 meter.
- * Speeds are movement-speed multipliers on top of normal (the same scale as the Speed effect: Speed I = +0.2).
+ * Run speeds are blocks a second sprinting on flat ground ({@link #GEAR_TOP_BPS}); {@code EngineMoves.speedBonus} turns
+ * them into the movement-speed modifier.
  *
  * <p>These are code constants, not a config file, so there is nothing on disk to migrate: a world that ran the old kit
  * just reads the new numbers. Old save data (the pre-revamp gear timer and kick keys) is dropped by
@@ -13,13 +14,10 @@ public final class EngineConfig {
 	}
 
 	// ---------------------------------------------------------------- ability ids (kept ids keep their cooldown saves)
-	// V / Shift+V: the mode -- the gearbox; Recipro Burst / Extend live inside it (V at top gear)
+	// V / Shift+V: the gearbox (v0.16.7 user: Recipro Burst / Extend on V at Gear 3 are gone -- Recipro Turbo, C, replaced them)
 	public static final String SHIFT_UP = "quirk_engine_shift_up";
 	public static final String SHIFT_DOWN = "quirk_engine_shift_down";
-	/** Not keys of their own: V at Gear 3 engages them (their cooldowns are kept under these ids). */
-	public static final String BURST = "quirk_engine_recipro_burst";
-	public static final String EXTEND = "quirk_engine_recipro_extend";
-	// X: the one dash
+	// X: the one dash (in Recipro Turbo it is the Turbo Strike)
 	public static final String DASH = "quirk_engine_recipro_dash";
 	// every other key is a kick attack
 	public static final String KICK = "quirk_engine_recipro_kick";
@@ -45,22 +43,32 @@ public final class EngineConfig {
 
 	// ---------------------------------------------------------------- the mode: the gearbox (V / Shift+V)
 	public static final int MAX_GEAR = 3;
-	/** Top speed of each gear with the run fully built (0, Speed III, Speed V, Speed VII). */
-	public static final double[] GEAR_SPEED = { 0.0, 0.6, 1.0, 1.4 };
+	/**
+	 * v0.16.7 (user): each gear's top speed sprinting with the run fully built, blocks a second -- Gear 1 = 20, Gear 2 = 30,
+	 * Gear 3 = 40 (Recipro Turbo doubles it). Driven the way Super Speed is: a big ADD_MULTIPLIED_BASE movement-speed
+	 * modifier (vanilla's Speed effect tops out far below this) plus the client's run handling ({@code EngineRunClient}).
+	 */
+	public static final double[] GEAR_TOP_BPS = { 0.0, 20.0, 30.0, 40.0 };
+	/** Vanilla sprinting on flat ground, blocks a second (0.1 x 1.3 x 43.17, see {@code SuperSpeedHandlers.BLOCKS_PER_SECOND_PER_SPEED}). */
+	public static final double VANILLA_SPRINT_BPS = 0.1 * 1.3 * (0.98 / (1.0 - 0.6 * 0.91) * 20.0);
 	/** A fresh gear starts at this fraction of its top speed; momentum builds the rest. */
 	public static final double MOMENTUM_FLOOR = 0.4;
-	/** Momentum gained a tick while sprinting forward in each gear (higher gears take longer to wind up: 1.25 s, 1.9 s, 2.5 s). */
-	public static final float[] MOMENTUM_BUILD = { 0f, 0.04f, 0.026f, 0.02f };
+	/** Momentum gained a tick while sprinting forward in each gear (0 -> top in 0.85 s, 1.1 s, 1.4 s: it should feel fast). */
+	public static final float[] MOMENTUM_BUILD = { 0f, 0.06f, 0.045f, 0.035f };
 	/** Walking (not sprinting) only builds up to this much. */
 	public static final float MOMENTUM_WALK_CAP = 0.55f;
 	/** Momentum lost a tick when he stops (nearly still). */
 	public static final float MOMENTUM_BLEED = 0.08f;
-	/** Recipro builds momentum this many times faster. */
-	public static final float RECIPRO_BUILD_MULT = 3f;
+	/** Recipro Turbo builds momentum this many times faster. */
+	public static final float TURBO_BUILD_MULT = 3f;
 	/** Shifting down keeps this fraction of the momentum (the engine braking). */
 	public static final float DOWNSHIFT_KEEP = 0.85f;
 	/** The speed modifier is updated in steps this fine (a few attribute syncs a second, not one a tick). */
-	public static final double SPEED_STEP = 0.02;
+	public static final double SPEED_STEP = 0.05;
+	/** Client: in the air the run eases back up toward its take-off speed (so a jump doesn't kill a 40 b/s run). */
+	public static final double AIR_CARRY = 0.5;
+	/** ...up to this many blocks a tick (Turbo at Gear 3 is 4). */
+	public static final double AIR_CARRY_MAX = 4.5;
 	public static final int SHIFT_COOLDOWN = 5;
 	public static final float SHIFT_UP_HEAT = 2f;
 
@@ -77,6 +85,10 @@ public final class EngineConfig {
 	/** At 100 heat: Stall -- Slowness III, no moves, back to gear 0. */
 	public static final int STALL_TICKS = 120;
 	public static final int STALL_SLOW_AMPLIFIER = 2;
+	/** v0.16.7 (user): wearing the Ingenium suit (chestplate, leggings, boots) the engines heat 50% slower. */
+	public static final float SUIT_HEAT_MULT = 0.5f;
+	/** A stalled engine coughs (steam, a sputter) every this many ticks, give or take. */
+	public static final int SPUTTER_EVERY = 14;
 
 	// ---------------------------------------------------------------- sliding turns / bowling over
 	/** A turn of the run this sharp (degrees in a tick) at this much momentum is a slide. */
@@ -84,8 +96,20 @@ public final class EngineConfig {
 	public static final float SLIDE_MIN_MOMENTUM = 0.35f;
 	/** A slide costs this fraction of the momentum. */
 	public static final float SLIDE_MOMENTUM_LOSS = 0.25f;
-	/** Client: how far the run can turn in a tick at full momentum in each gear (degrees); lower = more drift. */
-	public static final float[] GRIP_DEGREES = { 180f, 26f, 17f, 11f };
+	/**
+	 * Client: how far the run can turn in a tick at full momentum in each gear (degrees); lower = more drift. v0.16.7:
+	 * re-tuned for 20 / 30 / 40 b/s (was 26 / 17 / 11 for ~13 b/s) -- at Gear 3 flat out the tightest turn is ~6 blocks
+	 * across, in Turbo (x {@link #TURBO_GRIP}) ~16; at lower momentum it grips more ({@link #grip}).
+	 */
+	public static final float[] GRIP_DEGREES = { 180f, 32f, 25f, 19f };
+	public static final float TURBO_GRIP = 0.8f;
+
+	/** The grip (degrees a tick) of the run in a gear at a momentum, Turbo or not. */
+	public static float grip(int gear, float momentum, boolean turbo) {
+		int g = Math.max(0, Math.min(MAX_GEAR, gear));
+		float m = Math.max(0f, Math.min(1f, momentum));
+		return GRIP_DEGREES[g] * (1.6f - 0.6f * m) * (turbo ? TURBO_GRIP : 1f);
+	}
 	/** Running into a mob at gear 2+ with this much momentum bowls it over. */
 	public static final int BOWL_MIN_GEAR = 2;
 	public static final float BOWL_MIN_MOMENTUM = 0.45f;
@@ -97,22 +121,21 @@ public final class EngineConfig {
 	/** The same mob isn't bowled again for this long. */
 	public static final int BOWL_REHIT = 15;
 	public static final float BOWL_MOMENTUM_LOSS = 0.08f;
+	public static final float BOWL_DAMAGE_MAX = 20f;
+	/** Speed-scaled damage counts his speed only up to this (blocks a second): a Gear 3 run already hits as hard as it gets. */
+	public static final double DAMAGE_BPS_CAP = 40.0;
 
-
-	// ---------------------------------------------------------------- Recipro (inside the mode: V at Gear 3)
-	/** V at Gear 3: Recipro Burst -- 10 s at double the gear's speed. Shift+V ends it (no stall). */
-	public static final double BURST_MULT = 2.0;
-	public static final int BURST_TICKS = 200;
-	public static final float BURST_HEAT = 10f;
-	public static final float BURST_HEAT_PER_SECOND = 3f;
-	public static final int BURST_COOLDOWN = 400;
-	/** V again during Burst: Recipro Extend -- 15 s at 2.6x; when it ends (Shift+V ends it early) the engines stall 6 s (Slowness III). */
-	public static final double EXTEND_MULT = 2.6;
-	public static final int EXTEND_TICKS = 300;
-	public static final float EXTEND_HEAT = 12f;
-	public static final float EXTEND_HEAT_PER_SECOND = 2f;
-	public static final int EXTEND_STALL_TICKS = 120;
-	public static final int EXTEND_COOLDOWN = 900;
+	// ---------------------------------------------------------------- C: Recipro Turbo -- the mode (v0.16.7 user)
+	/**
+	 * C: 30 s at double the gear's speed (Gear 3 = 80 b/s), heat frozen (no build, no stall), every hit +50%. C again ends
+	 * it early. When it ends the engines stall for a full minute: no gears, no moves, a slow walk, steam and sputtering.
+	 */
+	public static final int TURBO_TICKS = 600;
+	public static final double TURBO_MULT = 2.0;
+	public static final float TURBO_DAMAGE_MULT = 1.5f;
+	public static final int TURBO_STALL_TICKS = 1200;
+	/** From the moment it's engaged: the 30 s run + the 60 s stall + 30 s more. */
+	public static final int TURBO_COOLDOWN = 2400;
 
 	// ---------------------------------------------------------------- X: Recipro Dash (the one dash)
 	/** A single burst dash along the look (flat): this far + this much per gear, over this many ticks. */
@@ -196,16 +219,19 @@ public final class EngineConfig {
 	public static final float SWEEP_HEAT = 5f;
 	public static final int SWEEP_COOLDOWN = 70;
 
-	// ---------------------------------------------------------------- C: Recipro Turbo / Shift+C: Ingenium Finisher
-	/** The ultimate: a blinding straight-line strike along the look (flat), this far over this many ticks; everything in the path struck. */
-	public static final double TURBO_DISTANCE = 28.0;
-	public static final int TURBO_TICKS = 7;
-	public static final double TURBO_WIDTH = 1.6;
-	public static final float TURBO_DAMAGE = 18f;
-	public static final double TURBO_KNOCKBACK = 1.4;
-	public static final double TURBO_LIFT = 0.4;
-	/** Afterwards the engines are at 100: the stall follows. */
-	public static final int TURBO_COOLDOWN = 600;
+	// ---------------------------------------------------------------- X in Recipro Turbo: the Turbo Strike / Shift+C: Ingenium Finisher
+	/**
+	 * X while Recipro Turbo runs: the old ultimate strike rides on the dash -- a blinding straight-line rush along the look
+	 * (flat), this far over this many ticks, everything in the path struck (x{@link #TURBO_DAMAGE_MULT} like every Turbo hit).
+	 */
+	public static final double STRIKE_DISTANCE = 28.0;
+	public static final int STRIKE_TICKS = 7;
+	public static final double STRIKE_WIDTH = 1.6;
+	public static final float STRIKE_DAMAGE = 18f;
+	public static final double STRIKE_KNOCKBACK = 1.4;
+	public static final double STRIKE_LIFT = 0.4;
+	/** The dash key's cooldown after a Turbo Strike. */
+	public static final int STRIKE_COOLDOWN = 100;
 
 	/** The finishing combo: a Recipro Kick, a spin kick, then an afterburner launch (at these ticks). */
 	public static final int FINISHER_SPIN_AT = 7;

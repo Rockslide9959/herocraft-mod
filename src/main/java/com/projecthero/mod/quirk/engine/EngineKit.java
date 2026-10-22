@@ -12,17 +12,19 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.16.7 (revamp): Engine's six keys (Tenya Iida / Ingenium). User rules: one dash, the rest attacks plus the mode; X is
- * the movement key and V the utility (the gears).
+ * the movement key and V the utility (the gears). v0.16.7 (user): Recipro Burst / Extend (V at Gear 3) are gone and Recipro
+ * Turbo is the MODE -- it stays on C (V / Shift+V are the gearbox), and the old Turbo strike now rides on X while Turbo
+ * runs, so no key lost an attack.
  * <pre>
- *   V  Gear Up (mode; at Gear 3: Recipro Burst, again: Extend)   Shift+V  Gear Down (ends Recipro)
- *   X  Recipro Dash (the one dash)                               Shift+X  Rising Kick
+ *   V  Gear Up (Gear 3: "Max gear")                             Shift+V  Gear Down
+ *   X  Recipro Dash (in Turbo: the Turbo Strike)                 Shift+X  Rising Kick
  *   R  Recipro Kick (speed-scaled)                               Shift+R  Spin Kick
  *   G  Kick Barrage                                              Shift+G  Recipro Extend Kick (charged)
  *   Z  Axe Kick                                                  Shift+Z  Sweep Kick
- *   C  Recipro Turbo (ultimate, maxes heat)                      Shift+C  Ingenium Finisher (combo)
+ *   C  Recipro Turbo (mode: 30 s 2x speed, +50% hits; C ends)    Shift+C  Ingenium Finisher (combo)
  * </pre>
- * Passives: a one-block step; heat cools on its own while walking / standing (fastest at Gear 0). The moves live in
- * {@link EngineMoves}; every number is in {@link EngineConfig}.
+ * Passives: a one-block step; heat cools on its own while walking / standing (fastest at Gear 0); the Ingenium suit halves
+ * the heat build. The moves live in {@link EngineMoves}; every number is in {@link EngineConfig}.
  */
 public final class EngineKit implements QuirkKit {
 	@Override
@@ -35,7 +37,9 @@ public final class EngineKit implements QuirkKit {
 			return;
 		}
 		String id = ids[shift ? 1 : 0];
-		if (!Quirks.ready(player, id)) {
+		// C while Recipro Turbo runs ends it (its own cooldown runs from the moment it was engaged)
+		boolean endTurbo = id.equals(EngineConfig.TURBO) && Engine.running(player, Engine.V_TURBO);
+		if (!endTurbo && !Quirks.ready(player, id)) {
 			return;
 		}
 		switch (id) {
@@ -84,12 +88,21 @@ public final class EngineKit implements QuirkKit {
 		}
 		long now = player.level().getGameTime();
 		return switch (slot) {
-			case SLOT_5 -> s.val(Engine.V_GEAR_NO) > 0L || s.val(Engine.V_BURST) > now || s.val(Engine.V_EXTEND) > now;
-			case SLOT_3 -> s.val(Engine.V_DASH) > now;
+			case SLOT_5 -> s.val(Engine.V_GEAR_NO) > 0L;
+			case SLOT_3 -> s.val(Engine.V_DASH) > now || s.val(Engine.V_STRIKE) > now;
 			case SLOT_2 -> s.val(Engine.V_BARRAGE) > now || s.val(Engine.V_EXTEND_KICK) > now;
 			case SLOT_6 -> s.val(Engine.V_TURBO) > now || s.val(Engine.V_FINISHER) > now;
 			default -> false;
 		};
+	}
+
+	/** While Recipro Turbo runs its key reads ready (lit): pressing it ends Turbo. */
+	@Override
+	public int cooldownLeft(Player player, String abilityId) {
+		if (abilityId.equals(EngineConfig.TURBO) && Engine.running(player, Engine.V_TURBO)) {
+			return 0;
+		}
+		return Quirks.cooldownRemaining(player, abilityId);
 	}
 
 	@Override
@@ -109,8 +122,6 @@ public final class EngineKit implements QuirkKit {
 	public int maxCooldown(String abilityId) {
 		return switch (abilityId) {
 			case EngineConfig.SHIFT_UP, EngineConfig.SHIFT_DOWN -> EngineConfig.SHIFT_COOLDOWN;
-			case EngineConfig.BURST -> EngineConfig.BURST_COOLDOWN;
-			case EngineConfig.EXTEND -> EngineConfig.EXTEND_COOLDOWN;
 			case EngineConfig.DASH -> EngineConfig.DASH_COOLDOWN;
 			case EngineConfig.RISING -> EngineConfig.RISING_COOLDOWN;
 			case EngineConfig.KICK -> EngineConfig.KICK_COOLDOWN;

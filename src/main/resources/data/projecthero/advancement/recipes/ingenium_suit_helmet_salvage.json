@@ -1,14 +1,13 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_accent": {
+    "has_retired_helmet": {
       "trigger": "minecraft:inventory_changed",
       "conditions": {
         "items": [
           {
             "items": [
-              "minecraft:quartz",
-              "minecraft:blue_dye"
+              "projecthero:ingenium_suit_helmet"
             ]
           }
         ]
@@ -17,19 +16,19 @@
     "has_the_recipe": {
       "trigger": "minecraft:recipe_unlocked",
       "conditions": {
-        "recipe": "projecthero:ingenium_suit_helmet"
+        "recipe": "projecthero:ingenium_suit_helmet_salvage"
       }
     }
   },
   "requirements": [
     [
-      "has_accent",
+      "has_retired_helmet",
       "has_the_recipe"
     ]
   ],
   "rewards": {
     "recipes": [
-      "projecthero:ingenium_suit_helmet"
+      "projecthero:ingenium_suit_helmet_salvage"
     ]
   }
 }

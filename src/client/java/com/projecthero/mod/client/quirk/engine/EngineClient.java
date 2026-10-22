@@ -8,6 +8,9 @@ import com.projecthero.mod.quirk.engine.Engine;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -20,7 +23,8 @@ import net.minecraft.world.entity.player.Player;
  * v0.16.7 (revamp): the Engine Quirk's client side -- the poses ({@link EnginePose}), the exhaust trails ({@link EngineFx}),
  * the engines' sound ({@link EngineSound}), the sliding turns ({@link EngineRunClient}) and its own HUD block:
  * <pre>
- *   RECIPRO 7s                       (while Recipro Burst / Extend runs; blue)
+ *   RECIPRO TURBO 27s                (while Recipro Turbo runs; blue, with a time-left hairline)
+ *   STALLED 48s                      (while the engines are stalled; red)
  *   Gear [1][2][3]      13.4 b/s     the gear lit cell by cell, momentum as a hairline under the cells, his speed
  *   Heat [=======-----]  58          the engine heat (blue, turning orange then red as it climbs)
  * </pre>
@@ -41,13 +45,24 @@ public final class EngineClient implements QuirkClientKit {
 
 	public static void initialize() {
 		QuirkClient.register(Quirk.ENGINE, new EngineClient());
+		// v0.16.7 (user): the calf engines on every Engine holder (after the Quirk suit layer, so over it), and in first person
+		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
+			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
+				helper.register(new EngineCalvesLayer(playerRenderer));
+			}
+		});
+		WorldRenderEvents.AFTER_ENTITIES.register(EngineFirstPersonLegs::render);
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			EngineRunClient.endTick(mc);
 			EngineFx.tick(mc);
+			if (mc.level != null) {
+				EngineCalves.prune(mc.level.getGameTime());
+			}
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			EngineSound.reset();
 			EngineRunClient.reset();
+			EngineCalves.reset();
 		});
 	}
 
@@ -95,7 +110,7 @@ public final class EngineClient implements QuirkClientKit {
 		// ---- gear cells, momentum hairline, speed
 		int gear = Engine.gear(player);
 		float mom = Engine.momentum(player);
-		boolean recipro = Engine.recipro(player);
+		boolean recipro = Engine.turbo(player);
 		g.drawString(font, Component.translatable("hud.projecthero.quirk.engine.gear"), x0, y + 1, stalled ? HINT : NAME, false);
 		int cellW = 11, gap = 2;
 		int cx = barX;
@@ -120,15 +135,20 @@ public final class EngineClient implements QuirkClientKit {
 		}
 		y -= 12;
 
-		// ---- Recipro
-		long burst = Engine.val(player, Engine.V_BURST) - now;
-		long extend = Engine.val(player, Engine.V_EXTEND) - now;
-		if (extend > 0 || burst > 0) {
-			long left = Math.max(extend, burst);
-			Component line = Component.translatable(extend > 0 ? "hud.projecthero.quirk.engine.extend" : "hud.projecthero.quirk.engine.recipro",
-					(left + 19) / 20);
-			int col = left < 60 && (now / 4) % 2 == 0 ? 0xFFFFFFFF : BLUE_LIGHT;
+		// ---- Recipro Turbo / the stall
+		int turbo = Engine.turboLeft(player);
+		if (turbo > 0 && !stalled) {
+			Component line = Component.translatable("hud.projecthero.quirk.engine.turbo", (turbo + 19) / 20);
+			int col = turbo < 60 && (now / 4) % 2 == 0 ? 0xFFFFFFFF : BLUE_LIGHT;
 			drawFit(g, mc, line, x0, y, width, col);
+			// the time left as a hairline under it
+			int w = Math.round(width * Math.min(1f, turbo / (float) com.projecthero.mod.quirk.engine.EngineConfig.TURBO_TICKS));
+			g.fill(x0, y + 9, x0 + w, y + 10, BLUE);
+			y -= 12;
+		} else if (stalled) {
+			int left = Quirks.overloadLeft(player);
+			Component line = Component.translatable("hud.projecthero.quirk.engine.stalled", (left + 19) / 20);
+			drawFit(g, mc, line, x0, y, width, (now / 10) % 2 == 0 ? RED : 0xFFB0B0B0);
 			y -= 11;
 		}
 		return y + 11;

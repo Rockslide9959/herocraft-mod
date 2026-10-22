@@ -17,35 +17,70 @@ decide the abilities".
 Built version. Two later user rules override the first draft: "give it 1 dash ability and the rest should be attacks and
 a mode ability", and "for engine using v to shift up and down gears makes more sense" (X = movement, V = utility).
 
+Second pass (user, later in v0.16.7): real gear speeds, Recipro Turbo as the mode, calf engines on the body, the
+helmetless Ingenium suit. Recipro Burst / Extend (V at Gear 3) are gone.
+
 | Key | Tap | Shift |
 |---|---|---|
-| **V** (the mode) | **Gear Up** (0 to 3). At Gear 3: **Recipro Burst**. In Burst: **Recipro Extend** | **Gear Down**. In Recipro it ends it (Extend still stalls) |
-| **X** (the one dash) | **Recipro Dash**: 7 blocks, +2 per gear, no damage | **Rising Kick**: a flip kick, 10 + 0.4 per b/s, launches the target up |
+| **V** (utility: the gearbox) | **Gear Up** (0 to 3). At Gear 3 it only says "Max gear" | **Gear Down** (engine braking keeps 85% of the momentum) |
+| **X** (the one dash) | **Recipro Dash**: 7 blocks, +2 per gear, no damage. **In Recipro Turbo: the Turbo Strike**, a 28-block straight-line rush, 18 (+50% = 27) to everything in the path | **Rising Kick**: a flip kick, 10 + 0.4 per b/s, launches the target up |
 | **R** | **Recipro Kick**: 5 + 0.55 per b/s of speed (max 28) | **Spin Kick**: 360°, 7 + 0.3 per b/s, radius 3.5 |
 | **G** | **Kick Barrage**: 6 kicks, 3.5 + 0.15 per b/s each | **Recipro Extend Kick**: a 0.5 s charge, then 14 + 0.5 per b/s (max 32) |
 | **Z** | **Axe Kick**: the heel lands 6 ticks later, 12; slams down, Slowness II | **Sweep Kick**: a low spinning sweep in front, 7; trips (lift, Slowness II) |
-| **C** | **Recipro Turbo** (ultimate): a 28-block straight-line strike, 18 to everything in the path; heat goes to 100, so you stall | **Ingenium Finisher**: kick 6, spin kick 7, then an afterburner launch kick 12 + 0.5 per b/s |
+| **C** (the mode) | **Recipro Turbo**: 30 s at 2x the gear, no heat, +50% damage; C again ends it. Then a 1-minute stall | **Ingenium Finisher**: kick 6, spin kick 7, then an afterburner launch kick 12 + 0.5 per b/s |
 
-- **The gears (the mode).**
-  - Top speed per gear: +60% / +100% / +140% (Speed III / V / VII).
-  - A new gear starts at 40% of its top speed. **Momentum** builds the rest while you sprint: 1.25 s in Gear 1, 1.9 s in
-    Gear 2, 2.5 s in Gear 3. Shifting keeps your current speed.
-  - Recipro Burst is 10 s at 2x the gear. Recipro Extend is 15 s at 2.6x the gear, then a **6 s stall** (Slowness III).
-  - Sprinting in gear heats the engines: 1 / 2.5 / 5 per second. Recipro adds 3 (Burst) or 2 (Extend) per second.
+Why Turbo is on C: V and Shift+V are both the gearbox, so the mode keeps C (where the ultimate was). The old Turbo strike
+was not dropped: it rides on X while Turbo runs (the Turbo Strike, 5 s cooldown), so no key lost an attack.
+
+- **The gears.**
+  - Top sprint speed per gear (user): **20 / 30 / 40 blocks a second**. Driven like Super Speed: an ADD_MULTIPLIED_BASE
+    movement-speed modifier (`bps / 5.61 - 1`, Gear 3 = +6.13), simulated by the player's own client. Vanilla's Speed
+    effect can't get near this. Measured in a real client: 19.9 / 30.0 / 40.1 b/s, Turbo at Gear 3 80.0 b/s.
+  - A new gear starts at 40% of its top speed. **Momentum** builds the rest while you sprint: 0.85 s in Gear 1, 1.1 s in
+    Gear 2, 1.4 s in Gear 3 (3x faster in Turbo). Measured from a standstill: 95% of top in 1.1 / 1.3 / 1.55 s, Turbo
+    0.7 s. Shifting keeps your current speed. Walking (not sprinting) caps momentum at 55%.
+  - **The run through jumps**: in the air the client eases the speed back toward the take-off speed (as Super Speed does),
+    so a jump doesn't kill a 40 b/s run.
+  - Sprinting in gear heats the engines: 1 / 2.5 / 5 per second. **The Ingenium suit** (all three pieces) halves every
+    heat gain.
   - **Cooling is passive**: 6/s in neutral, 2.5/s walking or standing in gear, 8/s while stalled, and double in water.
   - At 100 heat you stall: 6 s of Slowness III, no moves, back to neutral.
-  - **Sliding turns**: in gear with momentum, the client limits how fast the run can turn (26° / 17° / 11° a tick, less
-    in Recipro), so it drifts. The server adds skid sparks and sound, and the slide costs 25% momentum.
-  - **Bowling**: at Gear 2+ (or in Recipro) with 45% momentum, running into a hostile mob hits it for 3 + 0.35 per b/s,
-    knocks it back and lifts it.
+  - **Sliding turns**: in gear with momentum, the client limits how fast the run can turn: 32° / 25° / 19° a tick at full
+    momentum (x1.6 when the run is fresh, x0.8 in Turbo) -- re-tuned for the new speeds, so even 80 b/s steers (the
+    tightest turn at Gear 3 flat out is about 6 blocks across). The server counts a turn at the grip as the slide: skid
+    sparks and sound, and 25% of the momentum.
+  - **Bowling**: at Gear 2+ (or in Turbo) with 45% momentum, running into a hostile mob hits it for 3 + 0.35 per b/s (max
+    20), knocks it back and lifts it. The hit box sweeps the whole tick's path (4 blocks a tick in Turbo).
+  - Speed-scaled damage counts the speed only up to 40 b/s.
+- **Recipro Turbo (C, the mode).** 30 s at double the current gear (Gear 3 = 80 b/s; from neutral it shifts into Gear 1
+  first; Shift+V can't drop below Gear 1 while it runs). Heat is frozen: nothing adds heat and nothing can stall you.
+  Every Engine hit is x1.5 and plain melee gets +50% too. When it ends (or C again ends it) the engines **stall for a full
+  minute**: Slowness III, no gears, no moves, steam out of the calf nozzles and a sputtering engine (coughs, hisses, the
+  odd backfire). Cooldown 2 min from engaging (the run + the stall + 30 s).
 - **Passives**: one-block step assist and passive cooling. Wall Run, Engine Jump, Rescue Carry and Radiator Vent were
   dropped.
+- **The calf engines** (user, from the anime reference): everyone holding Engine (Erased too: they are part of the body)
+  has three round exhaust nozzles on the outer side of each calf -- dark grey tubes flaring to a lighter collar and a
+  bright rim, a dark hollow inside, swept back and protruding past trousers, a Quirk suit and armour. Drawn as real
+  geometry in the leg's frame by a player render layer (`EngineCalvesLayer` / `EngineCalves`), so they follow every
+  stride and pose, for every viewer. In first person the legs are drawn below the view
+  (`EngineFirstPersonLegs`: no torso, head or arms, the hands untouched, set back like the full-body view) so you see
+  them and the engines when you look down.
+  - The hollows glow blue as the engines work; in Turbo they blaze (a white-blue core, an additive halo, a flickering
+    flame tongue) and the body wears a blue swirling speed aura. Stalled, they smoulder orange.
+  - Every frame the nozzles' world positions are recorded, so the exhaust trails, steam and flames come out of them.
 - **Visuals and sound**:
-  - Calf exhaust trails grow with gear and momentum. Recipro adds blue flames, Turbo adds a white streak.
+  - Calf exhaust trails grow with gear and momentum and lay a solid line along the path at speed. Turbo: blue flames out
+    of every nozzle and blue speed streaks. Stalled: steam and sputtering smoke.
   - A looping engine rumble and whine rise in pitch with the gear, momentum and speed.
-  - Every move has a keyframed pose. Spin, Sweep and the Finisher spin the whole body; the Rising Kick is a back flip.
-- **HUD**: the Recipro timer, three gear cells with a momentum hairline, speed in b/s, and the heat bar (blue, then
-  orange, then red).
+  - Every move has a keyframed pose. Turbo has the sprinter's set and launch; the Turbo Strike is a flying kick. Spin,
+    Sweep and the Finisher spin the whole body; the Rising Kick is a back flip.
+- **HUD**: RECIPRO TURBO with seconds left and a time hairline (or STALLED with seconds left), three gear cells with a
+  momentum hairline, speed in b/s, and the heat bar (blue, then orange, then red).
+- **The Ingenium suit** (user: the helmet "doesnt work well"): chestplate, leggings and boots only. Protection 7 / 6 / 2
+  (the old four-piece total of 15) with 1 toughness a piece; the full three-piece set halves Engine heat. The old
+  `ingenium_suit_helmet` stays registered so saves keep it, but it is retired: no recipe, not in the creative tab, no
+  protection, never drawn, not part of the set, and it crafts back into 2 iron ingots.
 
 ## Hellflame (Enji Todoroki, Endeavor): fire, held back by body heat
 - **Body heat** is the meter. Big moves raise it; at 100 you overheat, losing fire moves and taking damage until you cool.
