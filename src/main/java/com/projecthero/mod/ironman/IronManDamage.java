@@ -124,6 +124,7 @@ public final class IronManDamage {
 		// v0.16.7 (user) Era II: the Mk IX Inferno -- fire and lava do nothing, with the whole suit on
 		if (fireProof(player, suit, source)) {
 			player.clearFire();
+			com.projecthero.mod.ironman.ability.IronManMark9.onFireShrugged(player, source, amount); // v0.16.7: the heat sink
 			return false;
 		}
 		// v0.16.1: the comic Energy Shields / Hydraulic Brace (a share of the hit is stopped outright)

@@ -58,6 +58,23 @@ public final class IronManAbilityFx {
 	public static final int COMIC_POUND = 90;
 	/** Arms out to the sides, chest thrust out (lamp flash, floodlight, solar flare, overload burst, sonar pulse). */
 	public static final int COMIC_FLARE = 91;
+	// v0.16.7 (user) Era II stage 3: the Mk IX Inferno's own poses (client IronManAbilityPose / IronManAbilityVisuals)
+	/** Right palm thrust out with a hard recoil, the left hand braced back (Fire Blast). */
+	public static final int MK9_FIRE_BLAST = 120;
+	/** A wind-up, then a rising straight with a body twist; a burst of heat at the fist (Magma Fist). */
+	public static final int MK9_MAGMA_FIST = 121;
+	/** Both fists raised overhead, then slammed into the ground, hunched (Eruption); an expanding ground ring. */
+	public static final int MK9_ERUPTION = 122;
+	/** An underarm lob (Magma Bomb). */
+	public static final int MK9_LOB = 123;
+	/**
+	 * Crouch in, then the arms and chest flung open (Heat Dump); expanding nova rings. The nova radius rides in the pose
+	 * length: {@code ticks = MK9_HEAT_DUMP_BASE_TICKS + round(radius)}.
+	 */
+	public static final int MK9_HEAT_DUMP = 124;
+	public static final int MK9_HEAT_DUMP_BASE_TICKS = 14;
+	/** Arms spread low, palms down, drawing the heat in (Thermal Siphon). */
+	public static final int MK9_SIPHON = 125;
 	// v0.16.1: the Hulkbuster body's clips (client IronManHulkbusterAnimatable plays them while the full Mark 8 is worn);
 	// numbered 100+ (the body never uses the humanoid poses)
 	public static final int HB_PUNCH = 100;

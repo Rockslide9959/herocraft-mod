@@ -1087,6 +1087,15 @@ public final class ModAttachments {
 			builder -> builder.initializer(() -> false).persistent(Codec.BOOL)
 					.syncWith(ByteBufCodecs.BOOL, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.16.7 (user) Era II stage 3: the Mk IX Inferno's heat sink (0-100) -- mirrored from {@code IronManMark9} (which
+	 * owns the value) for the wearer's HUD. Not persistent; synced to the wearer only.
+	 */
+	public static final AttachmentType<Float> IRON_MAN_HEAT_SINK = AttachmentRegistry.create(
+			ProjectHeroMod.id("iron_man_heat_sink"),
+			builder -> builder.initializer(() -> 0f)
+					.syncWith(ByteBufCodecs.FLOAT, AttachmentSyncPredicate.targetOnly()));
+
 	private ModAttachments() {
 	}
 

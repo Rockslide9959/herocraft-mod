@@ -82,6 +82,7 @@ public class ProjectHeroMod implements ModInitializer {
 		ModAttachments.initialize();
 		ModItems.initialize();
 		IronManItems.initialize();
+		com.projecthero.mod.ironman.ability.IronManMark9.initialize(); // v0.16.7 Era II: the Mk IX Inferno heat sink / bombs tick
 		com.projecthero.mod.ironman.ability.era1.IronManEraOne.initialize(); // v0.16.7 Era I: the moves' ticks + hooks register at startup
 		com.projecthero.mod.ironman.IronManThrusterParticles.register(); // v0.16.7 (user): repulsor thrust / air-jet puffs
 		IronManBlocks.initialize();

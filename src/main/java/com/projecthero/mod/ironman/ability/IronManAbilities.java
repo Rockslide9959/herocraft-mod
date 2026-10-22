@@ -135,6 +135,9 @@ public final class IronManAbilities {
 	public static final double MARK_1_FLAMETHROWER_REACH = 10.0;
 
 	public static double flamethrowerReach(IronManSuit suit) {
+		if (suit != null && IronManMark9.SUIT.equals(suit.id())) {
+			return IronManMark9.STREAM_RANGE; // v0.16.7 (user) Era II: the Mk IX Inferno Stream (the drawn tongues match it)
+		}
 		return suit != null && "mark_1".equals(suit.id()) ? MARK_1_FLAMETHROWER_REACH : FLAMETHROWER_REACH;
 	}
 	private static final float FLAMETHROWER_DAMAGE = 2.5f;

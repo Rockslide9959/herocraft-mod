@@ -80,6 +80,7 @@ public final class IronManAbilityVisuals {
 			case 5 -> 3; // v0.15.4 Mark 7 held red laser (re-sent every 2 ticks)
 			case 8, 11 -> 3; // v0.16.1 tractor / mega-beam (re-sent while held)
 			case 6, 10 -> 5; // v0.16.1 pulse bolt / stealth shot
+			case 12 -> 7; // v0.16.7 Mk IX Fire Blast
 			default -> 6;
 		};
 	}
@@ -130,6 +131,11 @@ public final class IronManAbilityVisuals {
 					case IronManAbilityFx.PUNCH -> punch(vc, glow, last, p, pt, age, cam);
 					case IronManAbilityFx.SONIC_CLAP -> sonicClap(vc, glow, last, p, pt, age, cam);
 					case IronManAbilityFx.DASH -> dash(vc, glow, last, p, pt, now, cam);
+					// v0.16.7 (user) Era II stage 3: the Mk IX Inferno
+					case IronManAbilityFx.MK9_HEAT_DUMP -> heatDump(vc, glow, last, p, pt, age, play.ticks(), cam);
+					case IronManAbilityFx.MK9_ERUPTION -> eruption(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.MK9_MAGMA_FIST -> magmaFist(vc, glow, last, p, pt, age, cam);
+					case IronManAbilityFx.MK9_SIPHON -> siphon(vc, glow, last, p, pt, age, cam);
 					default -> {
 					}
 				}
@@ -201,6 +207,10 @@ public final class IronManAbilityVisuals {
 				colour = 0xCDEBFF;
 				fade = 1f;
 			}
+			case 12 -> { // v0.16.7 (user) Mk IX Fire Blast -- a fat orange-red plasma bolt
+				width = 0.36f;
+				colour = 0xFF5A14;
+			}
 			default -> {
 				width = 0.2f;
 				colour = 0x9FE8FF;
@@ -209,7 +219,7 @@ public final class IronManAbilityVisuals {
 		// the beam thins as it fades
 		float w = width * (0.5f + 0.5f * fade);
 		// v0.15.4: the red laser keeps a hot-red core (not white) so it reads unmistakably red
-		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : b.kind() == 5 ? 0xFF8A8A : 0xFFFFFF, fade);
+		BeamDraw.beam(vc, glow, pose, b.a(), b.b(), cam, w, glow ? colour : b.kind() == 5 ? 0xFF8A8A : b.kind() == 12 ? 0xFFE08A : 0xFFFFFF, fade);
 		// a flare ring at the palm / chest
 		if (b.kind() != 3 && b.kind() != 4) {
 			ring(vc, glow, pose, b.a(), b.b().subtract(b.a()).normalize(), width * (1.2f + (1f - fade) * 1.5f), glow ? colour : 0xFFFFFF,
@@ -347,6 +357,85 @@ public final class IronManAbilityVisuals {
 		for (int i = 1; i <= 3; i++) {
 			ring(vc, glow, pose, centre.subtract(dir.scale(i * 0.9)), dir, 0.9f - i * 0.2f, glow ? 0x7FD8FF : 0xFFFFFF,
 					0.5f - i * 0.12f, cam, 18);
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.16.7 (user) Era II stage 3: the Mk IX Inferno
+
+	private static final int MK9_HOT = 0xFF5A14;
+	private static final int MK9_GOLD = 0xFFC040;
+
+	/**
+	 * Heat Dump: once the arms fly open (age 4), three fire rings roll out flat from the chest to the nova radius (it rides
+	 * in the pose length: ticks - {@link IronManAbilityFx#MK9_HEAT_DUMP_BASE_TICKS}), a shock ring on the ground, two tilted
+	 * rings round the body and a vent column straight up.
+	 */
+	private static void heatDump(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, int ticks, Vec3 cam) {
+		if (age < 4f) {
+			// the build-up: a tight hot ring pulsing round the chest
+			Vec3 chest = p.getPosition(pt).add(0, p.getBbHeight() * 0.6, 0);
+			float k = age / 4f;
+			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.9f - k * 0.4f, glow ? MK9_HOT : 0xFFE08A, 0.4f + k * 0.5f, cam, 20);
+			return;
+		}
+		float radius = Mth.clamp(ticks - IronManAbilityFx.MK9_HEAT_DUMP_BASE_TICKS, 4, 12);
+		Vec3 base = p.getPosition(pt);
+		Vec3 chest = base.add(0, p.getBbHeight() * 0.6, 0);
+		for (int i = 0; i < 3; i++) {
+			float k = Mth.clamp((age - 4f - i * 1.5f) / 7f, 0f, 1f);
+			if (k <= 0f || k >= 1f) {
+				continue;
+			}
+			float fade = 1f - k;
+			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.4f + radius * k, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, fade, cam, 48);
+		}
+		float g = Mth.clamp((age - 4f) / 6f, 0f, 1f);
+		if (g < 1f) {
+			ring(vc, glow, pose, base.add(0, 0.1, 0), new Vec3(0, 1, 0), 0.5f + radius * 0.8f * g, glow ? MK9_HOT : 0xFFFFFF, (1f - g) * 0.8f, cam, 40);
+			ring(vc, glow, pose, chest, new Vec3(1, 0.6, 0), 1.0f + 2.2f * g, glow ? MK9_GOLD : 0xFFFFFF, (1f - g) * 0.7f, cam, 28);
+			ring(vc, glow, pose, chest, new Vec3(-0.5, 0.6, 1), 1.0f + 2.2f * g, glow ? MK9_HOT : 0xFFFFFF, (1f - g) * 0.7f, cam, 28);
+			// the vent column, shooting up and thinning
+			Vec3 top = chest.add(0, 1.0 + 4.0 * g, 0);
+			BeamDraw.segment(vc, pose, chest, top, cam, glow ? 0.45f * (1f - g) + 0.1f : 0.15f * (1f - g) + 0.03f, glow ? 0.05f : 0.02f,
+					glow ? MK9_HOT : 0xFFE08A, (1f - g) * 0.8f, 0f);
+		}
+	}
+
+	/** Eruption: once the fists land (age 6), a molten ring rolls out over the ground to 5 blocks, a second one behind it. */
+	private static void eruption(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		if (age < 6f) {
+			return;
+		}
+		Vec3 base = p.getPosition(pt).add(0, 0.12, 0);
+		for (int i = 0; i < 2; i++) {
+			float k = Mth.clamp((age - 6f - i * 2f) / 8f, 0f, 1f);
+			if (k <= 0f || k >= 1f) {
+				continue;
+			}
+			ring(vc, glow, pose, base, new Vec3(0, 1, 0), 0.5f + 4.5f * k, glow ? (i == 0 ? MK9_HOT : MK9_GOLD) : 0xFFE8A0, 1f - k, cam, 44);
+		}
+	}
+
+	/** Magma Fist: a hot shock ring off the fist once the punch lands (age 3). */
+	private static void magmaFist(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		if (age < 3f) {
+			return;
+		}
+		float k = Mth.clamp((age - 3f) / 6f, 0f, 1f);
+		Vec3 look = p.getViewVector(pt);
+		Vec3 fist = p.getEyePosition(pt).add(look.scale(1.3)).add(0, -0.4, 0);
+		float fade = 1f - k;
+		ring(vc, glow, pose, fist.add(look.scale(k * 0.8)), look, 0.2f + k * 1.6f, glow ? MK9_HOT : 0xFFE08A, fade, cam, 24);
+		ring(vc, glow, pose, fist.add(look.scale(k * 0.4)), look, 0.1f + k * 0.9f, glow ? MK9_GOLD : 0xFFFFFF, fade * 0.7f, cam, 20);
+	}
+
+	/** Thermal Siphon: rings shrinking into the chest over and over -- heat being drawn in. */
+	private static void siphon(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Player p, float pt, float age, Vec3 cam) {
+		Vec3 chest = p.getPosition(pt).add(0, p.getBbHeight() * 0.6, 0);
+		for (int i = 0; i < 3; i++) {
+			float k = ((age + i * 2.7f) % 8f) / 8f;
+			float alpha = Mth.sin(k * Mth.PI) * 0.8f;
+			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.3f + (1f - k) * 3.0f, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, alpha, cam, 32);
 		}
 	}
 

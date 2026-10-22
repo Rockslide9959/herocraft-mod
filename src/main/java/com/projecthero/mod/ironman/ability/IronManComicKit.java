@@ -197,6 +197,15 @@ public final class IronManComicKit {
 				key(tap("mk7_solar_beam", s(10), 30f, Items.SUNFLOWER), tap("mk7_solar_flare", s(16), 22f, Items.BLAZE_POWDER)),
 				key(tap("mk7_gravity_tether", s(12), 6f, Items.LEAD), tap("mk7_zero_g_field", s(20), 0f, Items.PHANTOM_MEMBRANE)));
 
+		// v0.16.7 (user) Era II stage 3 -- MK IX INFERNO: the Nether suit (docs/IRONMAN_ERA2_KITS.md). Same form and scale as
+		// its Era II siblings, no energy; every move feeds or vents the heat sink (IronManMark9). Lava swimming is passive.
+		kit("mark_9",
+				key(tap("mk9_fire_blast", s(0.6), 21f, Items.FIRE_CHARGE), hold("mk9_inferno_stream", s(4), 9f, Items.BLAZE_POWDER)),
+				key(tap("mk9_magma_fist", s(1.5), 26f, Items.MAGMA_BLOCK), tap("mk9_eruption", s(12), 30f, Items.MAGMA_CREAM)),
+				key(tap("mk9_afterburner", s(7), 24f, Items.FIREWORK_ROCKET), tap("mk9_lava_geyser", s(8), 16f, Items.LAVA_BUCKET)),
+				key(tap("mk9_magma_bomb", s(10), 24f, Items.MAGMA_CREAM), tap("mk9_firestorm", s(18), 16f, Items.TARGET)),
+				key(tap("mk9_heat_dump", s(6), 46f, Items.BLAZE_ROD), tap("mk9_thermal_siphon", s(10), 6f, Items.SOUL_CAMPFIRE)));
+
 		// MARK 8 HULKBUSTER: giant fists, slams, grabs, the chest mega-beam and the brace / replacement pod.
 		kit("mark_8",
 				key(tap("mk8_punch_combo", s(2), 26f, Items.IRON_BLOCK), tap("mk8_rocket_fist", s(8), 45f, Items.FIREWORK_ROCKET)),

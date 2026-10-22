@@ -247,6 +247,79 @@ public final class IronManAbilityPose {
 				set(m.leftArm, w, 0.2f, 0f, -1.2f);
 				com.projecthero.mod.client.HipBend.pitch(m, w, -0.15f);
 			}
+			// ---------------- v0.16.7 (user) Era II stage 3: the Mk IX Inferno
+			case IronManAbilityFx.MK9_FIRE_BLAST -> {
+				// right palm punched out on the aim with a hard recoil, the left hand pulled back to the hip
+				float kick = t < 4 ? (4 - t) / 4f * 0.5f : 0f;
+				set(m.rightArm, w, aimX - kick, aimY - 0.05f, 0f);
+				set(m.leftArm, w, 0.55f, 0f, -0.25f);
+				m.body.yRot = Mth.lerp(w, m.body.yRot, -0.15f + kick * 0.2f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -kick * 0.2f);
+			}
+			case IronManAbilityFx.MK9_MAGMA_FIST -> {
+				if (t < 3f) {
+					// wound back low, body turned, the left forearm up as a guard
+					set(m.rightArm, w, 0.85f, 0.4f, 0.2f);
+					set(m.leftArm, w, -1.2f, -0.3f, 0f);
+					m.body.yRot = Mth.lerp(w, m.body.yRot, 0.45f);
+				} else {
+					// a rising straight through the target, the body whipped round
+					float k = Mth.clamp((t - 3f) / 2f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, 0.85f, aimX - 0.25f), Mth.lerp(k, 0.4f, aimY - 0.1f), Mth.lerp(k, 0.2f, 0f));
+					set(m.leftArm, w, Mth.lerp(k, -1.2f, 0.4f), Mth.lerp(k, -0.3f, 0f), Mth.lerp(k, 0f, -0.2f));
+					m.body.yRot = Mth.lerp(w, m.body.yRot, Mth.lerp(k, 0.45f, -0.35f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.12f * k);
+				}
+			}
+			case IronManAbilityFx.MK9_ERUPTION -> {
+				if (t < 5f) {
+					// both fists raised high overhead, chin up
+					float k = Mth.clamp(t / 3f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, 0f, -3.0f), 0f, 0.25f);
+					set(m.leftArm, w, Mth.lerp(k, 0f, -3.0f), 0f, -0.25f);
+					m.head.xRot = Mth.lerp(w, m.head.xRot, -0.3f);
+				} else {
+					// hammered down into the ground, hunched over, knees bent
+					float k = Mth.clamp((t - 5f) / 2f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, -3.0f, -0.45f), 0f, Mth.lerp(k, 0.25f, 0.1f));
+					set(m.leftArm, w, Mth.lerp(k, -3.0f, -0.45f), 0f, Mth.lerp(k, -0.25f, -0.1f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.45f * k);
+					m.head.xRot = Mth.lerp(w * k, m.head.xRot, 0.4f);
+					set(m.rightLeg, w * k, -0.35f, 0f, 0.08f);
+					set(m.leftLeg, w * k, 0.25f, 0f, -0.08f);
+				}
+			}
+			case IronManAbilityFx.MK9_LOB -> {
+				// an underarm lob: the right arm swung back low, then up and through
+				float k = Mth.clamp((t - 3f) / 3f, 0f, 1f);
+				set(m.rightArm, w, Mth.lerp(k, 0.9f, -1.9f), Mth.lerp(k, 0f, aimY), 0.15f);
+				set(m.leftArm, w, -0.45f, 0f, -0.3f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(k, 0.2f, -0.05f));
+			}
+			case IronManAbilityFx.MK9_HEAT_DUMP -> {
+				if (t < 4f) {
+					// curled in: forearms crossed over the chest, hunched, head down -- the heat building
+					set(m.rightArm, w, -1.4f, 0.6f, 0f);
+					set(m.leftArm, w, -1.4f, -0.6f, 0f);
+					com.projecthero.mod.client.HipBend.pitch(m, w, 0.3f);
+					m.head.xRot = Mth.lerp(w, m.head.xRot, 0.3f);
+				} else {
+					// thrown open: arms flung wide and back, chest out, head back -- the vent
+					float k = Mth.clamp((t - 4f) / 2f, 0f, 1f);
+					set(m.rightArm, w, Mth.lerp(k, -1.4f, 0.35f), Mth.lerp(k, 0.6f, 0f), Mth.lerp(k, 0f, 1.55f));
+					set(m.leftArm, w, Mth.lerp(k, -1.4f, 0.35f), Mth.lerp(k, -0.6f, 0f), Mth.lerp(k, 0f, -1.55f));
+					com.projecthero.mod.client.HipBend.pitch(m, w, Mth.lerp(k, 0.3f, -0.25f));
+					m.head.xRot = Mth.lerp(w, m.head.xRot, Mth.lerp(k, 0.3f, -0.35f));
+				}
+			}
+			case IronManAbilityFx.MK9_SIPHON -> {
+				// arms spread low, palms down, a faint tremble -- drawing the heat out of everything round you
+				float tremble = Mth.sin(ageInTicks * 1.9f) * 0.03f;
+				set(m.rightArm, w, -0.45f + tremble, 0f, 0.95f);
+				set(m.leftArm, w, -0.45f - tremble, 0f, -0.95f);
+				com.projecthero.mod.client.HipBend.pitch(m, w, -0.1f);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, -0.2f);
+			}
 			default -> {
 			}
 		}
