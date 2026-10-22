@@ -32,13 +32,13 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
  */
 public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 	/**
-	 * Dust pixels per tick at the All particle setting (Decreased 40%, Minimal 10%). v0.16.7 (user, Titan fixes): half the
-	 * pixels (30 -> 15) at 30% of their old size, so the dust no longer hides the dissolve itself -- you see the skin, then
+	 * Dust pixels per tick at the All particle setting (Decreased 40%, Minimal 10%). v0.16.7 (user, Titan fixes): the same
+	 * number of pixels at 30% of their old size, so the dust no longer hides the dissolve itself -- you see the skin, then
 	 * the flesh, then the bone coming away pixel by pixel. Shared by the severed-limb chunks.
 	 */
-	public static float DUST_PER_TICK = 15.0f; // not final: a debug / comparison capture may set the old 30
+	public static final float DUST_PER_TICK = 30.0f;
 	/** The dust pixels' size: {@code DUST_SIZE * (1 + random)} blocks (was 0.07). */
-	public static float DUST_SIZE = 0.021f; // (old: 0.07)
+	public static final float DUST_SIZE = 0.021f;
 
 	private boolean mainPass;
 	private TitanTexels tx;

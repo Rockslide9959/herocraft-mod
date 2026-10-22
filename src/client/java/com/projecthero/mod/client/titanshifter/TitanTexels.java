@@ -333,8 +333,8 @@ public final class TitanTexels {
 			for (int b = 0; b < vents.length; b++) {
 				java.util.List<Integer> l = perBone.get(b);
 				if (!l.isEmpty()) {
-					// at most 5 a bone, spread through the list
-					int m = Math.min(5, l.size());
+					// at most 3 a bone, spread through the list
+					int m = Math.min(3, l.size());
 					vents[b] = new int[m];
 					for (int i = 0; i < m; i++) {
 						vents[b][i] = l.get(i * l.size() / m);

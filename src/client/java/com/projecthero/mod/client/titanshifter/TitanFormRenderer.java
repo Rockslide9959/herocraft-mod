@@ -297,7 +297,7 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 		// v0.16.7 (user, Titan fixes): the Emergency Titan's unformed skin patches vent steam (from 70% through the build on)
 		if (em != null && fx.fxTick && (!building || buildP > 0.7f) && em.vents[idx] != null) {
 			for (int v : em.vents[idx]) {
-				if (r.nextFloat() < 0.3f * TitanFx.budget() + 0.05f) {
+				if (r.nextFloat() < 0.12f * TitanFx.budget() + 0.03f) {
 					Vec3 at = TitanFx.world(pose, tx.px[v], tx.py[v], tx.pz[v]);
 					level.addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.04, 0.06 + r.nextDouble() * 0.06,
 							(r.nextDouble() - 0.5) * 0.04);
