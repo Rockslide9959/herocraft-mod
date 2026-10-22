@@ -109,7 +109,8 @@ public final class QuirkHud {
 		// the overload line
 		int hudTop = ty;
 		if (overloaded) {
-			Component note = Component.translatable("hud.projecthero.quirk.overloaded", (Quirks.overloadLeft(mc.player) + 19) / 20);
+			Component kitLine = clientKit == null ? null : clientKit.overloadLine(mc.player); // v0.16.7: e.g. Dark Shadow's Berserk
+			Component note = kitLine != null ? kitLine : Component.translatable("hud.projecthero.quirk.overloaded", (Quirks.overloadLeft(mc.player) + 19) / 20);
 			List<FormattedCharSequence> lines = mc.font.split(note, totalW);
 			int ny = ty - 2 - lines.size() * 9;
 			hudTop = ny;

@@ -25,4 +25,12 @@ public interface QuirkClientKit {
 	default int drawStatus(net.minecraft.client.gui.GuiGraphics g, Player player, int x0, int bottom, int width) {
 		return -1;
 	}
+
+	/**
+	 * v0.16.7: the overload line the HUD shows instead of "OVERLOADED 6s" (Dark Shadow's Berserk lasts until light, not a
+	 * number of seconds); null (the default) keeps the generic line. It is wrapped to the HUD's width.
+	 */
+	default net.minecraft.network.chat.Component overloadLine(Player player) {
+		return null;
+	}
 }
