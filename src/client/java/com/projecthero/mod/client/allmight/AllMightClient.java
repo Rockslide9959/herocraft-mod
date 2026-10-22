@@ -3,18 +3,15 @@ package com.projecthero.mod.client.allmight;
 import com.projecthero.mod.allmight.data.AllMightState;
 import com.projecthero.mod.attachment.ModAttachments;
 
-import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.6: All Might's client side beyond the HUD and the poses -- v0.16.7: the injured-limb layer on every player
- * ({@link AllMightInjuryLayer}; it replaced the arm glow) and the Pass On / Lend screen that opens on sneak + right-click on another player with an
+ * v0.16.6: All Might's client side beyond the HUD and the poses -- the Pass On / Lend screen that opens on sneak + right-click on another player with an
  * empty hand ({@link AllMightOfferScreen}). The server half is {@code AllMightPassOn}.
  */
 public final class AllMightClient {
@@ -22,11 +19,6 @@ public final class AllMightClient {
 	}
 
 	public static void initialize() {
-		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
-			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
-				helper.register(new AllMightInjuryLayer(playerRenderer));
-			}
-		});
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hit) -> {
 			if (!world.isClientSide || hand != InteractionHand.MAIN_HAND || !(entity instanceof Player target) || !player.isShiftKeyDown()
 					|| !player.getMainHandItem().isEmpty() || player != Minecraft.getInstance().player) {

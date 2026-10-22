@@ -122,7 +122,6 @@ public final class AllMightDamage {
 			return;
 		}
 		AllMight.markCombat(attacker);
-		AllMight.onHitLanded(attacker, true); // v0.16.6: punches charge Output too (throttled)
 		boolean boss = AllMightShockwave.isBoss(target);
 		if (!boss) {
 			double kb = attacker.isSprinting() ? AllMightConfig.SPRINT_PUNCH_KNOCKBACK : AllMightConfig.PUNCH_KNOCKBACK;

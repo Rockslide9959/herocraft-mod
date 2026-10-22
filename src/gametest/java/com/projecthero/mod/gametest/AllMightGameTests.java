@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Server-side coverage for All Might / One For All (v0.12.34): the grant, the two forms and their stats (no stacking),
- * the cooldown gates (Output / Strain are in AllMightRevampGameTests, the v0.16.7 One For All timer in OneForAllStrainGameTests), Detroit and United States of Smash landing on real mobs at their impact
+ * the cooldown gates (the v0.16.7 One For All timer is in OneForAllTimerGameTests), Detroit and United States of Smash landing on real mobs at their impact
  * frame, Full Cowl not stacking, the damage factors, persistence and revoke. Mock players are not reliably ticked by the
  * server, so each test drives {@link AllMight#tick} itself, exactly as the server tick would.
  */
@@ -106,7 +106,7 @@ public class AllMightGameTests implements FabricGameTest {
 		helper.assertTrue(AllMight.grant(p), "first grant works");
 		helper.assertFalse(AllMight.grant(p), "second grant refused");
 		helper.assertTrue(AllMight.hasPower(p) && HeroTiers.holdsHero(p, AllMight.KEY), "a registered Hero-Tier Primary power");
-		helper.assertTrue(AllMight.limit(p) == 20f && AllMight.state(p).broken == 0 && AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "v0.16.7: a 20% safe limit and healthy limbs");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax(), "v0.16.7: a full One For All timer");
 		helper.assertFalse(AllMight.isFullPower(p), "starts in the Base Form");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - 1.0) < 1e-6, "Base Form melee is a plain 1");
 		helper.assertTrue(Math.abs(p.getMaxHealth() - 20.0) < 1e-6, "Base Form has 20 max health");
@@ -179,8 +179,10 @@ public class AllMightGameTests implements FabricGameTest {
 		pump(helper, p);
 		Zombie z = zombieAhead(helper, p, 3.0);
 		float before = z.getHealth();
+		float hp = p.getHealth();
 		AbilityRouter.handleInput(p, 1, true); // R = Detroit Smash
-		helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "Detroit Smash inside the limit costs nothing (v0.16.7: no limb strain)");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax() && p.getHealth() == hp,
+				"Detroit Smash costs nothing (no timer, no health), timer " + AllMight.timeLeft(p) + ", hp " + hp + " -> " + p.getHealth());
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.DETROIT) > 0, "on cooldown");
 		helper.assertTrue(z.getHealth() == before, "nothing lands before the wind-up ends");
 		helper.runAfterDelay(AllMightConfig.DETROIT_WINDUP + 4, () -> {
@@ -197,7 +199,7 @@ public class AllMightGameTests implements FabricGameTest {
 		Zombie z = zombieAhead(helper, p, 5.0);
 		z.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE, 1000, 0, false, false));
 		AbilityRouter.handleInput(p, 4, true); // Z held
-		helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "nothing is spent while charging (v0.12.38)");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax(), "nothing is spent while charging (v0.12.38)");
 		helper.assertTrue(AllMight.state(p).chargeStart > 0L, "the synced charge start drives the HUD bar");
 		helper.assertTrue(z.isAlive() && z.getHealth() == z.getMaxHealth(), "the charge is not an instant hit");
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS - 10, () -> {
@@ -207,8 +209,9 @@ public class AllMightGameTests implements FabricGameTest {
 		});
 		helper.runAfterDelay(AllMightConfig.UNITED_STATES_CHARGE_TICKS + 6, () -> {
 			helper.assertTrue(z.getHealth() < z.getMaxHealth() || !z.isAlive(), "75 damage lands when the charge completes");
-			float arm = AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM);
-			helper.assertTrue(arm > 80.0f, "v0.16.7: 100% past a 20% limit tears at the right arm (1.5 x 80 x 0.75 = 90), arm=" + arm);
+			float left = AllMight.timeLeft(p);
+			helper.assertTrue(left <= AllMight.timerMax() - AllMightConfig.timer().unitedStatesCostSeconds,
+					"v0.16.7: casting it takes 6:40 off the One For All timer, left " + left);
 			helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) > 60 * 20, "the 75 s cooldown starts once it is cast");
 			helper.succeed();
 		});
@@ -219,9 +222,9 @@ public class AllMightGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
 		AbilityRouter.handleInput(p, 4, true);
-		helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "nothing spent while charging");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax(), "nothing spent while charging");
 		AbilityRouter.handleInput(p, 4, false);
-		helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "still nothing after an early release");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax(), "still nothing after an early release");
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.UNITED_STATES) == 0, "no cooldown for a cancelled charge");
 		helper.succeed();
 	}
@@ -232,31 +235,28 @@ public class AllMightGameTests implements FabricGameTest {
 		AllMightState s = AllMight.state(p).copy();
 		s.fullPower = true;
 		s.plusUltra = true;
-		s.outputPct = 45f;
-		s.mastery = 33.5f;
-		s.limbs[AllMightState.Limb.LEFT_ARM.ordinal()] = 42f;
-		s.broken = AllMightState.Limb.LEGS.bit();
+		s.ofaTimer = 432f;
 		s.loanRole = AllMightState.LOAN_LENDER;
 		s.loanPartner = "abc";
 		s.lendReadyAt = 77L;
 		s.abilityReadyAt.put(AllMightAbilities.TEXAS, 999L);
 		var json = AllMightState.CODEC.encodeStart(JsonOps.INSTANCE, s).getOrThrow();
 		AllMightState back = AllMightState.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow();
-		helper.assertTrue(back.hasPower && back.fullPower && back.plusUltra && back.outputPct == 45f && back.mastery == 33.5f
-				&& back.limb(AllMightState.Limb.LEFT_ARM) == 42f && back.isBroken(AllMightState.Limb.LEGS) && !back.isBroken(AllMightState.Limb.LEFT_ARM)
+		helper.assertTrue(back.hasPower && back.fullPower && back.plusUltra && back.ofaTimer == 432f
 				&& back.loanRole == AllMightState.LOAN_LENDER && "abc".equals(back.loanPartner) && back.lendReadyAt == 77L && back.abilityReadyAt.get(AllMightAbilities.TEXAS) == 999L,
-				"power, form, Output, limit, limbs, loan and cooldowns persist");
-		// migration: a pre-0.16.6 save (the 300-point "ofa" key) or a 0.16.6 one (3-level "output", whole-body "strain", "recoil_until")
-		// loads cleanly: Output 0, the 20% starting limit, healthy limbs
+				"power, form, timer, loan and cooldowns persist");
+		// migration: a pre-0.16.6 save (the 300-point "ofa" key), a 0.16.6 one (3-level "output", whole-body "strain", "recoil_until")
+		// or an early-0.16.7 one (Output / limit / limbs) loads cleanly with a full timer
 		com.google.gson.JsonObject old = new com.google.gson.JsonObject();
 		old.addProperty("has_power", true);
 		old.addProperty("ofa", 123.0f);
 		old.addProperty("output", 2);
 		old.addProperty("strain", 88.0f);
 		old.addProperty("recoil_until", 12345L);
+		old.addProperty("mastery", 55f);
+		old.addProperty("broken_limbs", 7);
 		AllMightState migrated = AllMightState.CODEC.parse(JsonOps.INSTANCE, old).getOrThrow();
-		helper.assertTrue(migrated.hasPower && migrated.outputPct == 0f && migrated.mastery == 20f && migrated.broken == 0
-				&& migrated.limb(AllMightState.Limb.RIGHT_ARM) == 0f, "the old OFA / Strain / recoil keys are ignored");
+		helper.assertTrue(migrated.hasPower && AllMight.timeLeft(migrated) == AllMight.timerMax(), "the old OFA / Strain / Output / limb keys are ignored");
 		powerForm(p);
 		AllMight.revoke(p);
 		helper.assertFalse(AllMight.hasPower(p), "revoked");
@@ -270,7 +270,7 @@ public class AllMightGameTests implements FabricGameTest {
 		ServerPlayer p = hero(helper);
 		powerForm(p);
 		AbilityRouter.handleInput(p, 3, true); // X = Leap
-		helper.assertTrue(AllMight.state(p).limb(AllMightState.Limb.RIGHT_ARM) == 0f && AllMight.state(p).limb(AllMightState.Limb.LEFT_ARM) == 0f, "the Leap is free");
+		helper.assertTrue(AllMight.timeLeft(p) == AllMight.timerMax(), "the Leap is free");
 		helper.assertTrue(AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) > 0 && AllMight.cooldownRemaining(p, AllMightAbilities.LEAP) <= 30, "1.5 s cooldown");
 		helper.assertTrue(p.getDeltaMovement().y > 0.5 && p.getDeltaMovement().z > 1.5, "launched along the look direction, v=" + p.getDeltaMovement());
 		helper.succeed();

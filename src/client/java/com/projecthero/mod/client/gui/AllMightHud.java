@@ -10,8 +10,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
- * The All Might HUD (bottom-right). v0.16.7: One For All is a Quirk now -- a holder's HUD (Output, the safe limit, the limbs, the
- * six keys) is the Quirk HUD ({@code QuirkHud} + {@code OneForAllClientKit}). This only remains for a <b>lender</b>, who holds
+ * The All Might HUD (bottom-right). v0.16.7: One For All is a Quirk now -- a holder's HUD (the One For All timer, the
+ * form, the six keys) is the Quirk HUD ({@code QuirkHud} + {@code OneForAllClientKit}). This only remains for a <b>lender</b>, who holds
  * no power while their One For All is out on loan:
  * <pre>
  *   One For All

@@ -11,18 +11,17 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.16.7 (user: "add it to the quirk framework"): One For All's {@link QuirkKit}, registered for
- * {@link com.projecthero.mod.quirk.Quirk#ONE_FOR_ALL} by {@code QuirkMod}. A thin adapter: the moves, the forms, Output and the
- * limb strain stay in the All Might engine ({@link AllMightAbilityManager}, {@link AllMight}, {@link AllMightStrain}), which also
- * runs its own tick. The Quirk core routes the keys here (debounced, refused while Erased); the Quirk HUD reads the ids,
+ * {@link com.projecthero.mod.quirk.Quirk#ONE_FOR_ALL} by {@code QuirkMod}. A thin adapter: the moves, the forms and the One For All
+ * timer stay in the All Might engine ({@link AllMightAbilityManager}, {@link AllMight}), which also runs its own tick. The Quirk core routes the keys here (debounced, refused while Erased); the Quirk HUD reads the ids,
  * cooldowns and locks from here.
  *
  * <pre>
- *   R  Detroit Smash (right arm)          Shift  New Hampshire Smash (legs)
- *   G  Texas Smash (left arm)             Shift  Delaware Smash (left arm)
- *   X  Leap (no limb)                     Shift  Manchester Smash (legs)
- *   Z  United States of Smash, hold (right arm)   Shift  Oklahoma Smash (legs)
- *   V  Carolina Smash (both arms)         Shift  Missouri Smash (right arm)
- *   C  Plus Ultra (past the limit)        Shift  St. Louis Smash (legs)
+ *   R  Detroit Smash                      Shift  New Hampshire Smash
+ *   G  Texas Smash                        Shift  Delaware Smash
+ *   X  Leap                               Shift  Manchester Smash
+ *   Z  United States of Smash (hold)      Shift  Oklahoma Smash
+ *   V  Carolina Smash                     Shift  Missouri Smash
+ *   C  Plus Ultra (costs timer)           Shift  St. Louis Smash
  *   H  Base Form / Power Form             N      the costume locker
  * </pre>
  */
@@ -62,14 +61,10 @@ public final class OneForAllKit implements QuirkKit {
 		return AllMight.cooldownRemaining(player, abilityId);
 	}
 
-	/** Locked in the Base Form (no moves), and while the move's limb is broken. */
+	/** Locked in the Base Form (no moves). */
 	@Override
 	public boolean keyLocked(Player player, AbilitySlot slot, boolean shift) {
-		if (!AllMight.isFullPower(player)) {
-			return true;
-		}
-		String[] ids = idsOf(slot);
-		return ids.length > 0 && AllMightStrain.lockedByInjury(player, ids[Math.min(ids.length - 1, shift ? 1 : 0)]);
+		return !AllMight.isFullPower(player);
 	}
 
 	@Override

@@ -7,10 +7,11 @@ import com.projecthero.mod.config.VersionedConfig;
  * landing impacts and visuals. Nothing else in the package hard-codes a balance number. All times are game ticks
  * (20 per second); all distances are blocks.
  *
- * <p>v0.16.6: the OFA timer is replaced by Output; v0.16.7: the Strain bar by the safe limit and limb strain; there are five new Shift Smashes, Symbol of Peace,
- * and passing on / lending One For All -- all of their numbers are below as well. v0.16.7 (user): the One For All TIMER is back,
- * at 20 minutes -- its numbers are the one part that lives in a file, {@code config/projecthero_one_for_all.json} ({@link #timer()}),
- * so a stale file picks up a new default through {@link VersionedConfig}.
+ * <p>v0.16.6 added five Shift Smashes, Symbol of Peace and passing on / lending One For All -- all of their numbers are below as
+ * well. v0.16.7 (user): the One For All TIMER is back, at 20 minutes, and (user: "remove strain and output, it should just be the
+ * 20 minute timer like how it was before") it is the only limit again -- the Output / safe-limit / limb-strain numbers are gone.
+ * The timer's numbers are the one part that lives in a file, {@code config/projecthero_one_for_all.json} ({@link #timer()}), so a
+ * stale file picks up a new default through {@link VersionedConfig}.
  */
 public final class AllMightConfig {
 	private AllMightConfig() {
@@ -64,71 +65,6 @@ public final class AllMightConfig {
 		file = SPEC.load();
 	}
 
-	// ---------------------------------------------------------------- v0.16.7: Output, the safe limit and limb strain
-	// User (v0.16.7): "come up with a better strain system for one for all". The design is docs/OFA_STRAIN.md. Output is a
-	// percentage that landed hits charge up to your SAFE LIMIT (mastery); at or under the limit One For All (Full Cowl, every
-	// Smash) is free. Plus Ultra (C) and the United States of Smash push Output PAST the limit, and every Smash thrown past it
-	// strains the limb that threw it (right arm, left arm, legs). Strained limbs bruise and weaken; at 100 the limb breaks.
-	/** Output never idles below this in the Power Form (the Full Cowl floor), percent. */
-	public static final float OUTPUT_FLOOR = 5.0f;
-	/** Output a landed Smash adds (once per Smash, however many it hits), and a plain punch (throttled), percentage points. */
-	public static final float OUTPUT_PER_SMASH_HIT = 8.0f;
-	public static final float OUTPUT_PER_PUNCH = 3.0f;
-	/** Two punches closer together than this charge only once (no spam-clicking). */
-	public static final int OUTPUT_PUNCH_SPACING_TICKS = 6;
-	/** After this long without landing a hit, Output eases back down toward the floor at {@link #OUTPUT_DECAY_PER_SECOND}. */
-	public static final int OUTPUT_DECAY_TICKS = 8 * S;
-	public static final float OUTPUT_DECAY_PER_SECOND = 5.0f;
-	/** Damage multiplier at Output o (0..100): {@code OUTPUT_DAMAGE_BASE + OUTPUT_DAMAGE_PER_100 * o / 100} -- x0.95 at 5%, x1.08 at 20%, x1.8 at 100%. */
-	public static final float OUTPUT_DAMAGE_BASE = 0.9f;
-	public static final float OUTPUT_DAMAGE_PER_100 = 0.9f;
-	/** Shockwave width / radius multiplier at Output o: x1.04 at 20%, x1.15 at 45%, x1.4 at 100%. */
-	public static final double OUTPUT_SIZE_BASE = 0.95;
-	public static final double OUTPUT_SIZE_PER_100 = 0.45;
-	/** The United States of Smash always fires at this Output (100%: past almost anyone's limit). */
-	public static final float UNITED_STATES_OUTPUT = 100.0f;
-
-	/** The safe limit (mastery) a new holder starts with, and its ceiling, percent. */
-	public static final float MASTERY_START = 20.0f;
-	public static final float MASTERY_MAX = 100.0f;
-	/** Mastery every Smash thrown in the Power Form adds, plus the extra when it was thrown past the limit (the body adapts). */
-	public static final float MASTERY_PER_SMASH = 0.15f;
-	public static final float MASTERY_PER_OVER_SMASH = 0.35f;
-	/** "Your body can take N% now" is said every time the limit crosses a multiple of this. */
-	public static final float MASTERY_MILESTONE = 5.0f;
-
-	/** Strain a Smash adds to its limb per percentage point of Output past the limit, times the move's weight (AllMightStrain.weightOf). */
-	public static final float OVER_STRAIN_PER_POINT = 0.75f;
-	/** HP an over-limit Smash costs him: the strain it added divided by this (never below 1 HP left). */
-	public static final float OVER_STRAIN_HP_DIVISOR = 12.0f;
-	/** Full Cowl past the limit (Plus Ultra) strains every limb this much a second at a full 100-point overshoot. */
-	public static final float COWL_OVER_STRAIN_PER_SECOND = 0.8f;
-	/** Limb strain tiers: Strained from 40 (x0.85 on that limb's Smashes), Hurt from 70 (x0.65), Broken at 100 (refused). */
-	public static final float LIMB_STRAINED = 40.0f;
-	public static final float LIMB_HURT = 70.0f;
-	public static final float LIMB_BROKEN = 100.0f;
-	public static final float LIMB_STRAINED_FACTOR = 0.85f;
-	public static final float LIMB_HURT_FACTOR = 0.65f;
-	/** A broken limb is usable again once it has healed down to this. */
-	public static final float LIMB_MENDED = 50.0f;
-	/** Healing per limb per second: the Base Form, Full Cowl at or under the limit (nothing heals past it); a broken limb heals at x0.6. */
-	public static final float HEAL_BASE_FORM = 1.0f;
-	public static final float HEAL_POWER_FORM = 0.5f;
-	public static final float HEAL_BROKEN_FACTOR = 0.6f;
-	/** Recovery: Regeneration adds this per second per level; sleeping in a bed this per second; food this per hunger point eaten. */
-	public static final float HEAL_REGENERATION_PER_LEVEL = 1.5f;
-	public static final float HEAL_SLEEPING = 20.0f;
-	public static final float HEAL_PER_FOOD_POINT = 2.5f;
-	/** Strain and healing are applied in steps this many ticks apart (one synced write per step, not one per tick). */
-	public static final int STRAIN_STEP_TICKS = 5;
-	/** A borrowed One For All: a fixed 15% limit, Output never past 45% (even in Plus Ultra), and limb strain builds twice as fast. */
-	public static final float BORROWED_LIMIT = 15.0f;
-	public static final float BORROWED_OUTPUT_CAP = 45.0f;
-	public static final float BORROWED_STRAIN_MULTIPLIER = 2.0f;
-	/** The broken-limb drawbacks while it mends: a broken arm Weakness I (both arms: II), broken legs Slowness I. */
-	public static final int BROKEN_ARM_WEAKNESS_AMPLIFIER = 0;
-	public static final int BROKEN_LEGS_SLOWNESS_AMPLIFIER = 0;
-
 	// ---------------------------------------------------------------- v0.16.6: Symbol of Peace (passive)
 	/** Squadmates within this many blocks of him take {@link #SYMBOL_OF_PEACE_REDUCTION} less damage while he is in the Power Form. */
 	public static final double SYMBOL_OF_PEACE_RADIUS = 16.0;
@@ -177,14 +113,16 @@ public final class AllMightConfig {
 	public static final int FORM_TOGGLE_DEBOUNCE_TICKS = 8;
 
 	// ---------------------------------------------------------------- Plus Ultra (C)
-	/** v0.16.7: C pushes Output straight to 100% (past the limit) for a fixed 22 s; every Smash thrown in it strains its limb. */
+	/** v0.12.39 (back in v0.16.7): C spends a slice of the timer ({@link Timer#plusUltraCostSeconds}) and then lasts a fixed 22 s. */
 	public static final int PLUS_ULTRA_DURATION_TICKS = 22 * S;
-	/** Cooldown that starts when Plus Ultra ends (v0.16.6: 45 s, was 20 -- it is free now, no OFA to pay). */
-	public static final int PLUS_ULTRA_COOLDOWN_TICKS = 45 * S;
+	/** Cooldown that starts when Plus Ultra ends (the v0.12.39 20 s again now that it costs timer; v0.16.6-0.16.7 had 45 s while it was free). */
+	public static final int PLUS_ULTRA_COOLDOWN_TICKS = 20 * S;
+	/** Every Smash hits this much harder while Plus Ultra runs (v0.12.39); outside it they land their full designed damage (x1). */
+	public static final float PLUS_ULTRA_MULTIPLIER = 1.30f;
 
 	// ---------------------------------------------------------------- Smashes
-	// v0.16.6: nothing costs anything -- the Output level scales every move and Strain is the limit. The *_COST constants are
-	// kept at 0 for the HUD's old "can afford" check.
+	// The moves cost nothing on their own -- being in the Power Form drains the timer (Plus Ultra and the United States of Smash
+	// also spend a slice of it). The *_COST constants are kept at 0 for the HUD's old "can afford" check.
 	// Detroit Smash (R): a devastating close-range punch
 	public static final int DETROIT_COST = 0;
 	public static final int DETROIT_COOLDOWN = 3 * S;
@@ -236,7 +174,7 @@ public final class AllMightConfig {
 	public static final double NEW_HAMPSHIRE_KNOCKBACK = 2.6;
 
 	// United States of Smash (Z, hold 5 s): the ultimate
-	public static final int UNITED_STATES_COST = 0; // v0.16.7: always fires at 100% Output -- past the limit it strains the right arm
+	public static final int UNITED_STATES_COST = 0; // it spends Timer#unitedStatesCostSeconds when cast
 	public static final int UNITED_STATES_COOLDOWN = 75 * S; // starts only once the punch has been cast
 	/** Hold Z this long: the aura grows and the wind builds; the punch lands the moment the charge completes. */
 	public static final int UNITED_STATES_CHARGE_TICKS = 5 * S;
@@ -279,7 +217,7 @@ public final class AllMightConfig {
 	public static final double DELAWARE_RANGE = 30.0;
 	/** Blocks a bullet travels per tick (30 blocks in 5 ticks). */
 	public static final double DELAWARE_SPEED = 6.0;
-	/** How close to the bullet's path a body must be to be hit (scaled by Output). */
+	/** How close to the bullet's path a body must be to be hit. */
 	public static final double DELAWARE_HIT_RADIUS = 0.7;
 	public static final double DELAWARE_KNOCKBACK = 3.4;
 	public static final double DELAWARE_LIFT = 0.45;

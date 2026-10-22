@@ -22,8 +22,7 @@ import net.minecraft.world.entity.player.Player;
  * interpolated with a smoothstep and faded in/out over the first/last ticks.
  *
  * <p>v0.16.6: the five Shift moves; Oklahoma and St. Louis also spin the whole body ({@link #spinDegrees}) and Manchester flips it
- * head over heels ({@link #flipDegrees}) -- both applied in {@code PlayerRenderer.setupRotations} by {@code AllMightSpinMixin}. In
- * v0.16.7 broken and hurt limbs show in the pose ({@link #applyInjuries}).
+ * head over heels ({@link #flipDegrees}) -- both applied in {@code PlayerRenderer.setupRotations} by {@code AllMightSpinMixin}.
  */
 public final class AllMightPose {
 	private static final float[][] DETROIT = {
@@ -209,77 +208,6 @@ public final class AllMightPose {
 				m.hat.copyFrom(m.head);
 			}
 		}
-		if (!posed) {
-			applyInjuries(player, m, s);
-		}
-	}
-
-	/**
-	 * v0.16.7: injuries show in the body (between moves; a move's own pose wins while it plays):
-	 * <ul>
-	 * <li>a <b>broken arm</b> hangs dead straight, tucked to his side, and barely sways; if the other arm is whole it cradles the
-	 * broken one across his stomach (unless it is swinging);</li>
-	 * <li>a <b>hurt arm</b> (70+) swings only a third as far;</li>
-	 * <li><b>broken legs</b>: a heavy limp -- the right leg stays stiff, the left takes short steps, the head bobs down as the bad
-	 * leg takes the weight and stays bowed; <b>hurt legs</b> limp lightly.</li>
-	 * </ul>
-	 * Replaces v0.16.6's whole-body recoil (both arms limp).
-	 */
-	static void applyInjuries(Player player, HumanoidModel<?> m, AllMightState s) {
-		boolean rightBroken = s.isBroken(AllMightState.Limb.RIGHT_ARM);
-		boolean leftBroken = s.isBroken(AllMightState.Limb.LEFT_ARM);
-		int legs = com.projecthero.mod.allmight.AllMightStrain.tier(s, AllMightState.Limb.LEGS);
-		float pt = partial();
-		float walkPos = player.walkAnimation.position(pt);
-		float walkSpeed = Math.min(1f, player.walkAnimation.speed(pt));
-		float sway = Mth.sin(walkPos * 0.6662f) * 0.1f * walkSpeed;
-		boolean swinging = m.attackTime > 0f;
-		// hurt arms swing less
-		if (!rightBroken && com.projecthero.mod.allmight.AllMightStrain.tier(s, AllMightState.Limb.RIGHT_ARM) == 2 && !swinging) {
-			m.rightArm.xRot *= 0.35f;
-		}
-		if (!leftBroken && com.projecthero.mod.allmight.AllMightStrain.tier(s, AllMightState.Limb.LEFT_ARM) == 2 && !swinging) {
-			m.leftArm.xRot *= 0.35f;
-		}
-		if (rightBroken) {
-			m.rightArm.xRot = 0.08f + sway * 0.4f;
-			m.rightArm.yRot = 0f;
-			m.rightArm.zRot = 0.04f;
-			if (!leftBroken && !swinging) { // the good hand holds the broken forearm against his stomach
-				m.leftArm.xRot = -0.6f;
-				m.leftArm.yRot = 0.85f;
-				m.leftArm.zRot = 0.05f;
-			}
-		}
-		if (leftBroken) {
-			m.leftArm.xRot = 0.08f - sway * 0.4f;
-			m.leftArm.yRot = 0f;
-			m.leftArm.zRot = -0.04f;
-			if (!rightBroken && !swinging) {
-				m.rightArm.xRot = -0.6f;
-				m.rightArm.yRot = -0.85f;
-				m.rightArm.zRot = -0.05f;
-			}
-		}
-		if (rightBroken && leftBroken) {
-			// both arms gone: the shoulders slump forward, the head bows
-			com.projecthero.mod.client.HipBend.pitch(m, 1f, m.body.xRot + 0.18f);
-			m.head.xRot = m.head.xRot + 0.25f;
-		}
-		if (legs >= 2 && !player.isPassenger() && !player.isFallFlying()) {
-			float heavy = legs == 3 ? 1f : 0.45f;
-			float step = Mth.sin(walkPos * 0.6662f);
-			// the bad (right) leg stays stiff, the good one takes short steps
-			m.rightLeg.xRot = Mth.lerp(heavy, m.rightLeg.xRot, step * 0.25f * walkSpeed);
-			m.leftLeg.xRot = Mth.lerp(heavy, m.leftLeg.xRot, m.leftLeg.xRot * 0.6f);
-			// the head bobs down each time the bad leg takes the weight (xRot only: vanilla never resets head.zRot, so a roll there
-			// would accumulate frame on frame)
-			m.head.xRot = m.head.xRot + Math.max(0f, step) * 0.18f * heavy * walkSpeed;
-			if (legs == 3) {
-				m.head.xRot = m.head.xRot + 0.12f;
-			}
-		}
-		m.hat.copyFrom(m.head);
 	}
 
 	// ---------------------------------------------------------------- whole-body turns (AllMightSpinMixin)
