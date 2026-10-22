@@ -42,6 +42,20 @@ public abstract class PlayerRendererHulkbusterMixin {
 	}
 
 	/**
+	 * v0.16.7 (user) "you dont really see the player while the suits building itself": the Hulkbuster's inner frame closes
+	 * round the pilot ({@code HulkbusterBuildClient#frameTextures}); as it locks shut the pilot is drawn tucked a little
+	 * narrower so no elbow or faceplate pokes through it (the frame is the Hulkbuster's own torso, a touch shallower than a
+	 * player's head). Never invisible: before the frame is up they are drawn as normal.
+	 */
+	@Inject(method = "scale(Lnet/minecraft/client/player/AbstractClientPlayer;Lcom/mojang/blaze3d/vertex/PoseStack;F)V", at = @At("TAIL"))
+	private void projecthero$tuckPilot(AbstractClientPlayer player, PoseStack poseStack, float partialTick, CallbackInfo ci) {
+		float k = com.projecthero.mod.client.ironman.HulkbusterBuildClient.pilotTuck(player, partialTick);
+		if (k > 0f) {
+			poseStack.scale(1f - 0.3f * k, 1f - 0.05f * k, 1f - 0.34f * k);
+		}
+	}
+
+	/**
 	 * v0.16.7 (user) Veronica: the mid-air build -- the player (in whatever suit they wear) is drawn as normal and the
 	 * Hulkbuster's arrived / flying pieces round them.
 	 */

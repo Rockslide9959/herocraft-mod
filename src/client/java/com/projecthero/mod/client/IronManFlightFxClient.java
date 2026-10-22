@@ -701,8 +701,9 @@ public final class IronManFlightFxClient {
 			double ang = (Math.PI * 2 * i) / n + r.nextDouble() * 0.2;
 			double cx = Math.cos(ang);
 			double cz = Math.sin(ang);
-			level.addParticle(ParticleTypes.POOF, feet.x + cx * 0.4, feet.y + 0.08, feet.z + cz * 0.4,
-					cx * (0.12 + 0.18 * scale), 0.01, cz * (0.12 + 0.18 * scale));
+			// a low ring of dust rolling out along the ground (white smoke stays small and low, unlike the slam's poofs)
+			level.addParticle(ParticleTypes.WHITE_SMOKE, feet.x + cx * 0.4, feet.y + 0.05, feet.z + cz * 0.4,
+					cx * (0.08 + 0.1 * scale), 0.0, cz * (0.08 + 0.1 * scale));
 			if (debris && i % 2 == 0) {
 				level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK, ground), feet.x + cx * 0.5, feet.y + 0.1,
 						feet.z + cz * 0.5, cx * 0.15, 0.12 + r.nextDouble() * 0.1, cz * 0.15);

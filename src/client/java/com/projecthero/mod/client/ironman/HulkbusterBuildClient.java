@@ -211,13 +211,14 @@ public final class HulkbusterBuildClient {
 		var r = level.random;
 		boolean self = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
 		float up = Math.min(1f, (age - FRAME_START) / FRAME_TICKS); // the steam rises with the frame
-		int n = self ? 1 : 3;
+		// thin jets of steam venting at the seams as it climbs (light: the frame must stay readable through it)
+		int n = self ? (r.nextBoolean() ? 1 : 0) : 2;
 		for (int k = 0; k < n; k++) {
 			double a = r.nextDouble() * Math.PI * 2;
-			double rad = 0.75 + r.nextDouble() * 0.2;
+			double rad = 0.62 + r.nextDouble() * 0.12;
 			double y = p.getY() + 0.2 + r.nextDouble() * (0.4 + 2.4 * up);
-			level.addParticle(net.minecraft.core.particles.ParticleTypes.CLOUD, p.getX() + Math.cos(a) * rad, y, p.getZ() + Math.sin(a) * rad,
-					Math.cos(a) * 0.06, 0.02 + r.nextDouble() * 0.03, Math.sin(a) * 0.06);
+			level.addParticle(net.minecraft.core.particles.ParticleTypes.WHITE_SMOKE, p.getX() + Math.cos(a) * rad, y,
+					p.getZ() + Math.sin(a) * rad, Math.cos(a) * 0.05, 0.015 + r.nextDouble() * 0.02, Math.sin(a) * 0.05);
 		}
 		if (r.nextInt(3) == 0 && !self) {
 			double a = r.nextDouble() * Math.PI * 2;
@@ -290,6 +291,22 @@ public final class HulkbusterBuildClient {
 			return null;
 		}
 		return innerFrame(s, Math.min(t, (int) s.end() + 1));
+	}
+
+	/**
+	 * v0.16.7 (user): 0..1, how far the pilot is tucked into the inner frame (drawn a little narrower as the struts climb
+	 * round them, so nothing of them pokes through the Hulkbuster's shallower torso). 0 before the frame and once worn.
+	 */
+	public static float pilotTuck(Player p, float partial) {
+		if (p == null || IronManHulkbusterAnimatable.active(p)) {
+			return 0f;
+		}
+		HulkbusterPodEntity pod = HulkbusterVeronicaClient.buildPod(p);
+		if (pod == null) {
+			return 0f;
+		}
+		float k = Math.max(0f, Math.min(1f, (pod.age(partial) - FRAME_START - 1f) / 6f));
+		return k * k * (3f - 2f * k);
 	}
 
 	/** The inner frame at build tick {@code t} of {@code s}: {base, glow}. */
