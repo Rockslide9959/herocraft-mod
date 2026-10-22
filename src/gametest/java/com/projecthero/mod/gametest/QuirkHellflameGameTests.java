@@ -2,6 +2,8 @@ package com.projecthero.mod.gametest;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.hero.power.p05.GeoTerrain;
 import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.QuirkAbilityManager;
 import com.projecthero.mod.quirk.QuirkKit;
@@ -21,23 +23,26 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 the Hellflame Quirk (Endeavor): one test per move -- the server effect and its number -- plus Heat venting,
- * Overheat (the keys refused, Shift+C Vent still works and ends it), the Cloak's fire-proofing / retaliation, the boss
- * cap and squad safety. Mock players are not ticked by the server, so tests that run over time drive the Quirk tick
- * themselves ({@link #pump}).
+ * v0.16.7 Hellflame revamp (Endeavor, {@code docs/QUIRK_REVAMP_V0167.md}): Body Heat is the heart of the kit, so most tests are
+ * about its limits -- the sustained moves (Fire Jet Flight, Prominence Burn) heat every tick and end at Overheat, Overheat locks
+ * the fire moves and burns him until it drains (only V Cool Down works), Plus Ultra builds no Heat and doubles damage, then the
+ * burnout pins the Heat at 100 and locks even Cool Down. Plus one test per attack, the fire-placement rules, squad safety and the
+ * boss cap. Mock players are not ticked by the server, so tests that run over time drive the Quirk tick themselves ({@link #pump}).
  */
 public class QuirkHellflameGameTests implements FabricGameTest {
 	private static final float EPS = 0.6f;
@@ -93,6 +98,8 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		T m = type.create(helper.getLevel());
 		Vec3 at = helper.absoluteVec(new Vec3(x, y, z));
 		m.moveTo(at.x, at.y, at.z, 180.0f, 0.0f);
+		m.setYHeadRot(180f);
+		m.yBodyRot = 180f;
 		m.setNoAi(true);
 		m.setPersistenceRequired();
 		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(health);
@@ -120,284 +127,356 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- the kit
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void hellflameKitRegistered(GameTestHelper helper) {
+	public void hellflameKitFollowsTheSlotRules(GameTestHelper helper) {
 		QuirkKit kit = QuirkKits.of(Quirk.HELLFLAME);
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_1).length == 2 && kit.idsOf(AbilitySlot.SLOT_6)[1].equals(HellflameConfig.VENT), "12 moves");
 		for (AbilitySlot s : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
 				AbilitySlot.SLOT_6 }) {
+			helper.assertTrue(kit.idsOf(s).length == 2, "a tap and a Shift move on " + s);
 			for (String id : kit.idsOf(s)) {
 				helper.assertTrue(id.startsWith("quirk_hellflame_") && kit.maxCooldown(id) > 0, "id and cooldown of " + id);
 			}
 		}
-		helper.assertTrue(kit.usableWhileOverloaded(AbilitySlot.SLOT_6, true), "Shift+C works while overheated");
-		helper.assertFalse(kit.usableWhileOverloaded(AbilitySlot.SLOT_6, false), "the Cloak does not");
+		// X is the movement key, V the utility key
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(HellflameConfig.FLIGHT) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(HellflameConfig.JET),
+				"X = Fire Jet Flight / Jet Burn");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(HellflameConfig.COOL) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(HellflameConfig.PLUS),
+				"V = Cool Down / Plus Ultra");
+		helper.assertTrue(kit.usableWhileOverloaded(AbilitySlot.SLOT_5, false), "Cool Down works while overheated");
+		helper.assertFalse(kit.usableWhileOverloaded(AbilitySlot.SLOT_5, true), "Plus Ultra does not");
 		helper.assertFalse(kit.usableWhileOverloaded(AbilitySlot.SLOT_1, false), "Hell Spider does not");
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- R
+	// ---------------------------------------------------------------- Body Heat limits
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void heatBuildsWithFireAndVentsWhenHeStops(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
+		HellflameMoves.hellSpider(p);
+		near(helper, Quirks.meter(p), HellflameConfig.SPIDER_HEAT, "Hell Spider's Heat");
+		HellflameMoves.coolForTest(p);
+		float before = Quirks.meter(p);
+		pump(helper, p);
+		helper.runAfterDelay(41, () -> {
+			float vented = before - Quirks.meter(p);
+			near(helper, vented, HellflameConfig.heat().ventPerSecond * 2f, "2 s of venting");
+			helper.succeed();
+		});
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void hellSpiderSlicesALineForNine(GameTestHelper helper) {
+	public void overheatLocksFireMovesButCoolDownEndsIt(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
-		Zombie z = zombie(helper, 4.5, 6.5, 100);
-		int n = HellflameMoves.hellSpider(p);
-		helper.assertTrue(n == 1, "one target sliced, " + n);
-		near(helper, taken(z, 100), HellflameConfig.SPIDER_DAMAGE, "Hell Spider damage (once, however many threads)");
-		helper.assertTrue(z.getRemainingFireTicks() > 0, "set alight");
-		near(helper, Quirks.meter(p), HellflameConfig.SPIDER_HEAT, "Heat");
-		helper.assertFalse(Quirks.ready(p, HellflameConfig.SPIDER), "cooldown set");
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
+		Quirks.setMeter(p, 95f);
+		HellflameMoves.heat(p, 10f);
+		helper.assertTrue(Quirks.overloaded(p) && Quirks.meter(p) >= 99.9f, "overheated at 100");
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		helper.assertTrue(Quirks.ready(p, HellflameConfig.SPIDER), "R was refused (no Hell Spider, no cooldown)");
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		helper.assertFalse(Quirks.overloaded(p), "V Cool Down ended the Overheat");
+		helper.assertTrue(Quirks.meter(p) <= 0.01f, "and dumped the Heat");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void spiderNetRootsAndBurns(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
-		Zombie z = zombie(helper, 4.5, 6.5, 100);
-		int n = HellflameMoves.spiderNet(p);
-		helper.assertTrue(n == 1 && HellflameMoves.netted(p).contains(z.getId()), "the zombie is caught in the web, " + n);
-		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "rooted");
-		near(helper, Quirks.meter(p), HellflameConfig.NET_HEAT, "Heat");
-		pump(helper, p);
-		helper.runAfterDelay(35, () -> {
-			helper.assertTrue(taken(z, 100) >= HellflameConfig.NET_BURN_DAMAGE * 3 - EPS, "it burns while rooted, took " + taken(z, 100));
-			helper.assertTrue(Math.abs(z.getDeltaMovement().x) < 1.0e-3 && Math.abs(z.getDeltaMovement().z) < 1.0e-3, "it can't move");
-		});
-		helper.runAfterDelay(HellflameConfig.NET_ROOT_TICKS + 5, () -> {
-			helper.assertTrue(HellflameMoves.netted(p).isEmpty(), "the web is gone after 3 s");
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- G
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void jetBurnHitsTheConeOnly(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 3.5);
-		Zombie front = zombie(helper, 4.5, 6.5, 100);
-		Zombie back = zombie(helper, 4.5, 0.5, 100);
-		int n = HellflameMoves.jetBurn(p);
-		helper.assertTrue(n == 1, "one in the cone, " + n);
-		near(helper, taken(front, 100), HellflameConfig.JET_DAMAGE, "Jet Burn damage");
-		helper.assertTrue(front.getRemainingFireTicks() > 0, "set alight");
-		near(helper, taken(back, 100), 0f, "the one behind is untouched");
-		near(helper, Quirks.meter(p), HellflameConfig.JET_HEAT, "Heat");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void hellflameBeamBurnsAndHeatsFast(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
-		Zombie z = zombie(helper, 4.5, 6.5, 100);
-		helper.assertTrue(HellflameMoves.startBeam(p) && Hellflame.beaming(p), "the beam is on (synced)");
-		int n = HellflameMoves.beamTickForTest(p);
-		helper.assertTrue(n == 1, "the beam hit, " + n);
-		near(helper, taken(z, 100), HellflameConfig.BEAM_DAMAGE, "one beam hit");
-		near(helper, Quirks.meter(p), HellflameConfig.BEAM_HEAT_PER_TICK, "Heat per beam tick");
-		HellflameMoves.endBeam(p);
-		helper.assertFalse(Hellflame.beaming(p), "released: off");
-		helper.assertFalse(Quirks.ready(p, HellflameConfig.BEAM), "cooldown starts on release");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- X
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void flameBoostFliesAndHeats(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 4.5);
-		helper.assertTrue(HellflameMoves.startBoost(p) && Hellflame.boosting(p), "the jets are lit (synced)");
-		helper.assertTrue(p.getAbilities().mayfly && !p.getAbilities().flying, "may float, not creative-flying");
-		pump(helper, p);
-		helper.runAfterDelay(20, () -> {
-			float h = Quirks.meter(p);
-			helper.assertTrue(Math.abs(h - 20 * HellflameConfig.BOOST_HEAT_PER_TICK) <= 1.0f, "5 Heat a second, got " + h);
-			HellflameMoves.endBoost(p);
-			helper.assertFalse(Hellflame.boosting(p), "released: off");
-			helper.assertFalse(p.getAbilities().mayfly, "float tolerance handed back");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void burstDodgeThrowsBackAndScorches(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 4.5);
-		Zombie z = zombie(helper, 5.5, 4.5, 100);
-		Vec3 v = HellflameMoves.burstDodge(p);
-		helper.assertTrue(v.z < -0.3 && v.y > 0.0, "standing still: thrown backwards, " + v);
-		near(helper, taken(z, 100), HellflameConfig.DODGE_DAMAGE, "the blast scorches what is next to him");
-		near(helper, Quirks.meter(p), HellflameConfig.DODGE_HEAT, "Heat");
-		helper.succeed();
-	}
-
-	// ---------------------------------------------------------------- Z
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void flashfireFistPunchesForEighteen(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 2.5);
-		Zombie z = zombie(helper, 4.5, 4.0, 100);
-		HellflameMoves.flashfire(p, false);
-		near(helper, taken(z, 100), HellflameConfig.FIST_DAMAGE, "Flashfire Fist damage");
-		helper.assertTrue(z.getRemainingFireTicks() > 0, "set alight");
-		helper.assertFalse(HellflameMoves.dashing(p), "the punch ends the dash");
-		near(helper, Quirks.meter(p), HellflameConfig.FIST_HEAT, "Heat");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void flashfireUppercutLaunches(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 2.5);
-		Zombie z = zombie(helper, 4.5, 4.0, 100);
-		HellflameMoves.flashfire(p, true);
-		near(helper, taken(z, 100), HellflameConfig.UPPERCUT_DAMAGE, "Uppercut damage");
-		helper.assertTrue(z.getDeltaMovement().y > 1.0, "launched up, " + z.getDeltaMovement());
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void flashfireDashCarriesHimForward(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
-		HellflameMoves.flashfire(p, false);
-		helper.assertTrue(HellflameMoves.dashing(p) && Hellflame.dashing(p), "nothing in reach: the dash runs");
-		helper.assertTrue(p.getDeltaMovement().z > HellflameConfig.FIST_DASH_SPEED - 0.1, "rocketing forward, " + p.getDeltaMovement());
-		pump(helper, p);
-		helper.runAfterDelay(HellflameConfig.FIST_DASH_TICKS + 2, () -> {
-			helper.assertFalse(HellflameMoves.dashing(p), "the dash ends");
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- V
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void prominenceBurnScalesWithCharge(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 4.5);
-		Zombie close = zombie(helper, 4.5, 6.5, 100);
-		Zombie far = zombie(helper, 4.5, 0.0, 100);
-		int n = HellflameMoves.prominence(p, 0f);
-		helper.assertTrue(n == 1, "no charge: 3 blocks, only the close one, " + n);
-		near(helper, taken(close, 100), HellflameConfig.PROMINENCE_DAMAGE, "no-charge damage");
-		near(helper, taken(far, 100), 0f, "the far one is outside");
-		near(helper, Quirks.meter(p), HellflameConfig.PROMINENCE_HEAT, "no-charge Heat");
-		Quirks.setMeter(p, 0f);
-		n = HellflameMoves.prominence(p, 1f);
-		helper.assertTrue(n == 2, "full charge: 7 blocks, both, " + n);
-		near(helper, taken(far, 100), HellflameConfig.PROMINENCE_DAMAGE + HellflameConfig.PROMINENCE_DAMAGE_EXTRA, "full-charge damage");
-		near(helper, Quirks.meter(p), HellflameConfig.PROMINENCE_HEAT + HellflameConfig.PROMINENCE_HEAT_EXTRA, "full-charge Heat");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void prominenceChargesWhileHeld(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 4.5);
-		helper.assertTrue(HellflameMoves.startCharge(p) && Hellflame.charging(p), "charging (synced)");
-		pump(helper, p);
-		helper.runAfterDelay(30, () -> {
-			float c = HellflameMoves.chargeNow(p);
-			helper.assertTrue(c > 0.4f && c < 0.6f, "half charged after 1.5 s, " + c);
-			helper.assertTrue(HellflameMoves.releaseProminence(p) >= 0, "released");
-			helper.assertFalse(Hellflame.charging(p), "the charge is spent");
-			helper.assertFalse(Quirks.ready(p, HellflameConfig.PROMINENCE), "cooldown set");
-			helper.succeed();
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void hellflameSunRainsFireballs(GameTestHelper helper) {
+	public void overheatBurnsHimAndDrainsTheHeat(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
-		Zombie z = zombie(helper, 4.5, 6.5, 100);
-		HellflameMoves.hellflameSun(p);
-		helper.assertTrue(Hellflame.sunUp(p), "the sun is up (synced)");
-		near(helper, Quirks.meter(p), HellflameConfig.SUN_HEAT, "Heat");
+		HellflameMoves.overheat(p);
+		float hp = p.getHealth();
+		pump(helper, p);
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(p.getHealth() < hp - 1.5f, "he burns from the inside, " + hp + " -> " + p.getHealth());
+			HellflameConfig.Heat h = HellflameConfig.heat();
+			float expected = 100f - (100f - h.overheatRecoverTo) / h.overheatTicks * 45f;
+			helper.assertTrue(Math.abs(Quirks.meter(p) - expected) < 3f, "the Heat drains toward 40, got " + Quirks.meter(p));
+			helper.assertTrue(Quirks.overloaded(p), "still overheated");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void ordinaryFireDoesNotHurtHimUnlessOverheated(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
+		float hp = p.getHealth();
+		p.hurt(p.damageSources().onFire(), 4f);
+		helper.assertTrue(p.getHealth() == hp, "fire-proof while cool");
+		HellflameMoves.overheat(p);
+		p.invulnerableTime = 0;
+		p.hurt(p.damageSources().onFire(), 4f);
+		helper.assertTrue(p.getHealth() < hp, "overheated, the fire hurts");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- X: Fire Jet Flight (hold) / Shift+X: Jet Burn
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void fireJetFlightHeatsWhileHeldAndEndsOnRelease(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		helper.assertTrue(HellflameMoves.flying(p) && Hellflame.flying(p), "X lit the jets");
+		helper.assertTrue(p.getAbilities().mayfly, "kept from the fly kick");
 		pump(helper, p);
 		helper.runAfterDelay(40, () -> {
-			helper.assertTrue(taken(z, 100) >= 2 * HellflameConfig.SUN_DAMAGE - EPS, "fireballs fell on it, took " + taken(z, 100));
+			float h = Quirks.meter(p);
+			float min = HellflameConfig.heat().flightHoverPerSecond * 1.6f;
+			helper.assertTrue(h >= min, "flight heats him every tick, got " + h);
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+			helper.assertFalse(HellflameMoves.flying(p), "releasing X ends the flight");
+			helper.assertFalse(p.getAbilities().mayfly, "mayfly handed back");
 			helper.succeed();
 		});
 	}
 
-	// ---------------------------------------------------------------- C
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void flameCloakFireproofsAndBurnsAttackers(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void flightOverheatsAndDropsHimSoftly(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 3.5);
-		Zombie z = zombie(helper, 4.5, 5.0, 100);
-		QuirkKit kit = QuirkKits.of(Quirk.HELLFLAME);
-		helper.assertTrue(kit.modifyIncomingDamage(p, p.damageSources().inFire(), 5f) == 5f, "no Cloak: fire hurts");
-		helper.assertTrue(HellflameMoves.toggleCloak(p) && Hellflame.cloaked(p), "Cloak on (synced)");
-		helper.assertTrue(kit.modifyIncomingDamage(p, p.damageSources().inFire(), 5f) == 0f, "fire-proof");
-		helper.assertTrue(kit.modifyIncomingDamage(p, p.damageSources().lava(), 5f) == 0f, "lava-proof");
-		float melee = kit.modifyIncomingDamage(p, p.damageSources().mobAttack(z), 4f);
-		helper.assertTrue(melee == 4f && z.getRemainingFireTicks() > 0, "the attacker burns (the hit is not reduced)");
-		z.clearFire();
-		HellflameMoves.cloakMelee(p, z);
-		helper.assertTrue(z.getRemainingFireTicks() > 0, "a punch sets it alight");
-		helper.assertFalse(HellflameMoves.toggleCloak(p) || Hellflame.cloaked(p), "Cloak off");
-		helper.succeed();
+		ServerPlayer p = endeavor(helper, 4.5, 4.0, 1.5);
+		Quirks.setMeter(p, 99f);
+		HellflameMoves.toggleFlight(p);
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(Quirks.overloaded(p), "the flight overheated him");
+			helper.assertFalse(HellflameMoves.flying(p), "and the jets cut out");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void ventDumpsHeatInABurst(GameTestHelper helper) {
+	public void jetBurnDashesIntoABurningPunch(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 3.5);
-		Zombie z = zombie(helper, 4.5, 6.5, 100);
-		Quirks.setMeter(p, 80f);
-		int n = HellflameMoves.vent(p);
-		helper.assertTrue(n == 1, "it hit, " + n);
-		near(helper, taken(z, 100), HellflameConfig.VENT_BASE_DAMAGE + HellflameConfig.VENT_DAMAGE_PER_HEAT * 80f, "damage scales with Heat");
-		near(helper, Quirks.meter(p), 0f, "all Heat dumped");
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 2.5);
+		Zombie z = zombie(helper, 4.5, 3.5, 100);
+		HellflameMoves.jetBurn(p);
+		near(helper, taken(z, 100), HellflameConfig.JET_DAMAGE, "Jet Burn");
+		helper.assertTrue(z.getRemainingFireTicks() > 0, "set alight");
+		near(helper, Quirks.meter(p), HellflameConfig.JET_HEAT, "+12 Heat");
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- Heat / Overheat
+	// ---------------------------------------------------------------- R: Hell Spider / Shift+R: Mesh
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void hellSpiderStringsSweepAcrossTheAim(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie ahead = zombie(helper, 4.5, 6.5, 100);
+		// 17 degrees to his right: only the sweep reaches it
+		Vec3 side = Vec3.directionFromRotation(0f, 17f).scale(5.5);
+		Zombie off = zombie(helper, 4.5 + side.x, 1.0 + side.z, 100);
+		int n = HellflameMoves.hellSpider(p);
+		helper.assertTrue(n == 2, "both cut, got " + n);
+		near(helper, taken(ahead, 100), HellflameConfig.SPIDER_DAMAGE, "the string ahead (once, however many cross it)");
+		near(helper, taken(off, 100), HellflameConfig.SPIDER_DAMAGE, "the swept string");
+		helper.assertTrue(Hellflame.val(p, Hellflame.V_SPIDER) != 0L && Hellflame.vec(p, Hellflame.VEC_SPIDER) != null, "the strings are synced");
+		helper.succeed();
+	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void heatVentsFourASecond(GameTestHelper helper) {
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 4.5);
-		Quirks.setMeter(p, 50f);
-		HellflameMoves.coolForTest(p);
+	public void meshTrapsAndBurns(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 6.5, 100);
+		int n = HellflameMoves.mesh(p);
+		helper.assertTrue(n == 1 && HellflameMoves.meshed(p).contains(z.getId()), "the zombie is trapped");
 		pump(helper, p);
-		helper.runAfterDelay(20, () -> {
-			float h = Quirks.meter(p);
-			helper.assertTrue(Math.abs(h - (50f - 20 * HellflameConfig.HEAT_VENT_PER_TICK)) <= 0.8f, "4 Heat a second, got " + h);
+		helper.runAfterDelay(25, () -> {
+			helper.assertTrue(taken(z, 100) >= HellflameConfig.MESH_BURN_DAMAGE * 2f - EPS, "it keeps burning, took " + taken(z, 100));
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- C: Fire Wall / Shift+C: Flame Cloak
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void fireWallStopsArrowsAndBurnsWhatCrosses(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 4.0, 100);
+		HellflameMoves.fireWall(p);
+		helper.assertTrue(HellflameMoves.wallUp(p), "the wall is up");
+		Arrow arrow = new Arrow(EntityType.ARROW, helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 3.2, 7.0));
+		arrow.moveTo(at.x, at.y, at.z);
+		arrow.setDeltaMovement(0, 0, -0.8);
+		helper.getLevel().addFreshEntity(arrow);
+		pump(helper, p);
+		helper.runAfterDelay(15, () -> {
+			helper.assertTrue(arrow.isRemoved(), "the arrow burned up in the wall");
+			helper.assertTrue(taken(z, 100) >= HellflameConfig.WALL_DAMAGE - EPS && z.getRemainingFireTicks() > 0, "the zombie in it burns");
 			helper.succeed();
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void overheatLocksFireButVentStillWorks(GameTestHelper helper) {
+	public void fireWallLightsNoFireWithMobGriefingOff(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 3.5);
-		HellflameMoves.toggleCloak(p);
-		Quirks.setMeter(p, 95f);
-		HellflameMoves.jetBurn(p);
-		helper.assertTrue(Quirks.overloaded(p) && Hellflame.overheated(p), "100 Heat: Overheat");
-		helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && p.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 1, "Slowness II");
-		helper.assertFalse(Hellflame.cloaked(p), "the Cloak goes out");
-		// the keys: a fire move is refused, Shift+C Vent goes through
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		helper.assertTrue(Quirks.ready(p, HellflameConfig.SPIDER), "Hell Spider refused while overheated");
-		p.setShiftKeyDown(true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
-		p.setShiftKeyDown(false);
-		helper.assertFalse(Quirks.ready(p, HellflameConfig.VENT), "Vent went off");
-		helper.assertFalse(Quirks.overloaded(p), "and ended the Overheat");
-		near(helper, Quirks.meter(p), 0f, "Heat 0");
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		GameRules.BooleanValue rule = helper.getLevel().getGameRules().getRule(GameRules.RULE_MOBGRIEFING);
+		boolean was = rule.get();
+		try {
+			rule.set(false, helper.getLevel().getServer());
+			helper.assertTrue(HellflameMoves.fireWall(p) == 0, "no fire blocks with mobGriefing off");
+			for (int x = 0; x <= 7; x++) {
+				for (int z = 0; z <= 7; z++) {
+					helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(x, 2, z));
+				}
+			}
+			rule.set(true, helper.getLevel().getServer());
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			int fires = HellflameMoves.fireWall(p);
+			if (AbilityHelpers.canGrief()) {
+				helper.assertTrue(fires > 0, "with terrain damage on, the wall lights real (temporary) fire");
+				int found = 0;
+				for (int x = 0; x <= 7; x++) {
+					for (int z = 0; z <= 7; z++) {
+						BlockPos bp = helper.absolutePos(new BlockPos(x, 2, z));
+						BlockState st = helper.getLevel().getBlockState(bp);
+						if (st.is(Blocks.FIRE)) {
+							helper.assertTrue(GeoTerrain.isTemp(helper.getLevel(), bp), "every fire is on the restore ledger");
+							found++;
+						}
+					}
+				}
+				helper.assertTrue(found >= 1 && found <= fires, "the fires are where they were counted, " + found + " of " + fires);
+			} else {
+				helper.assertTrue(fires == 0, "terrain damage off: no fire");
+			}
+		} finally {
+			rule.set(was, helper.getLevel().getServer());
+		}
 		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void flameCloakBurnsWhatIsClose(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 2.5);
+		Zombie z = zombie(helper, 4.5, 4.0, 100);
+		helper.assertTrue(HellflameMoves.toggleCloak(p), "the Cloak is on");
+		int n = HellflameMoves.cloakPulseForTest(p);
+		helper.assertTrue(n == 1, "the aura burned the zombie");
+		near(helper, taken(z, 100), HellflameConfig.CLOAK_AURA_DAMAGE, "aura damage");
+		helper.assertTrue(Quirks.meter(p) > 0f, "the Cloak heats him");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- Z: Barrage / Shift+Z: Pillar
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void barrageThrowsEightJabs(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 3.0, 200);
+		HellflameMoves.barrage(p);
+		pump(helper, p);
+		helper.runAfterDelay(HellflameConfig.BARRAGE_JABS * HellflameConfig.BARRAGE_INTERVAL + 4, () -> {
+			helper.assertTrue(HellflameMoves.barrageLeft(p) == 0, "every jab thrown");
+			helper.assertTrue(taken(z, 200) >= HellflameConfig.BARRAGE_DAMAGE * 6f - EPS, "most jabs landed, took " + taken(z, 200));
+			near(helper, Quirks.meter(p), HellflameConfig.BARRAGE_HEAT_PER_JAB * HellflameConfig.BARRAGE_JABS, "+2 Heat a jab");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void firePillarEruptsUnderTheTarget(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 6.0, 100);
+		Vec3 at = HellflameMoves.firePillar(p);
+		helper.assertTrue(Math.hypot(at.x - z.getX(), at.z - z.getZ()) < 0.6, "under the target");
+		helper.assertTrue(taken(z, 100) == 0f, "nothing yet: the ground only glows");
+		helper.assertTrue(HellflameMoves.eruptForTest(p) == 1, "the pillar hit it");
+		near(helper, taken(z, 100), HellflameConfig.PILLAR_DAMAGE, "Fire Pillar");
+		helper.assertTrue(z.getDeltaMovement().y > 0.5, "and launched it");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- G: Prominence Burn (hold) / Shift+G: Vanishing Fist
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void prominenceBeamBurnsAlongItsLength(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
+		Zombie z = zombie(helper, 4.5, 7.0, 100);
+		helper.assertTrue(HellflameMoves.startProminence(p), "the charge starts");
+		helper.assertTrue(HellflameMoves.charging(p) && !HellflameMoves.beaming(p), "charging, not firing yet");
+		HellflameMoves.fireBeamForTest(p);
+		helper.assertTrue(HellflameMoves.beaming(p), "the beam fires");
+		int n = HellflameMoves.beamTickForTest(p);
+		helper.assertTrue(n == 1, "it burned the zombie");
+		near(helper, taken(z, 100), HellflameConfig.PROMINENCE_DAMAGE, "a beam beat");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
+	public void prominenceBurnRampsHeatUntilItOverheats(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 0.5);
+		HellflameMoves.startProminence(p);
+		pump(helper, p);
+		helper.runAfterDelay(HellflameConfig.PROMINENCE_CHARGE_TICKS + 20, () -> {
+			helper.assertTrue(HellflameMoves.beaming(p), "still firing while held");
+			float h = Quirks.meter(p);
+			helper.assertTrue(h > 20f, "the beam heats fast, got " + h);
+		});
+		helper.runAfterDelay(HellflameConfig.PROMINENCE_CHARGE_TICKS + 75, () -> {
+			helper.assertTrue(Quirks.overloaded(p), "held long enough, it overheats him");
+			helper.assertFalse(HellflameMoves.beaming(p), "and the beam gives out");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void vanishingFistLeavesADecoyAndStrikesFromBehind(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 5.0, 100);
+		Vec3 start = p.position();
+		helper.assertTrue(HellflameMoves.vanishingFist(p) == z, "aimed at the zombie");
+		helper.assertTrue(Hellflame.decoyUp(p), "the flame decoy burns where he stood");
+		helper.assertTrue(p.getZ() > z.getZ() + 0.5, "he is behind it now, z " + p.getZ() + " vs " + z.getZ());
+		helper.assertTrue(p.position().distanceTo(start) > 3.0, "he moved");
+		HellflameMoves.vanishStrikeForTest(p);
+		near(helper, taken(z, 100), HellflameConfig.VANISH_DAMAGE, "the strike");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- V: Cool Down / Shift+V: Plus Ultra
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void plusUltraDoublesDamageBuildsNoHeatThenBurnsOut(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie z = zombie(helper, 4.5, 6.0, 100);
+		helper.assertTrue(HellflameMoves.plusUltraStart(p) && Hellflame.plusUltra(p), "full power");
+		HellflameMoves.hellSpider(p);
+		near(helper, taken(z, 100), HellflameConfig.SPIDER_DAMAGE * HellflameConfig.PLUS_DAMAGE_MULT, "doubled");
+		helper.assertTrue(Quirks.meter(p) == 0f, "no Heat builds");
+		HellflameMoves.endPlusForTest(p);
+		helper.assertTrue(Quirks.overloaded(p) && HellflameMoves.burntOut(p) && Hellflame.burntOut(p), "burnt out");
+		helper.assertTrue(Quirks.meter(p) >= 99.9f, "Heat pinned at max");
+		helper.assertTrue(HellflameMoves.coolDown(p) == -1 && Quirks.overloaded(p), "Cool Down is refused while burnt out");
+		helper.assertTrue(QuirkKits.of(Quirk.HELLFLAME).keyLocked(p, AbilitySlot.SLOT_5, false), "the HUD shows the keys locked");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void burnoutKeepsTheHeatPinned(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		HellflameMoves.plusUltraStart(p);
+		HellflameMoves.endPlusForTest(p);
+		pump(helper, p);
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(Quirks.meter(p) >= 99.9f, "still pinned at 100 after 1.5 s, got " + Quirks.meter(p));
+			helper.succeed();
+		});
 	}
 
 	// ---------------------------------------------------------------- safety
@@ -413,10 +492,11 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		squads.addMember(squad, mate.getUUID());
 		try {
 			float before = mate.getHealth();
-			Quirks.setMeter(p, 100f);
-			HellflameMoves.vent(p);
-			HellflameMoves.prominence(p, 1f);
-			HellflameMoves.jetBurn(p);
+			Quirks.setMeter(p, 60f);
+			HellflameMoves.coolDown(p);
+			HellflameMoves.hellSpider(p);
+			HellflameMoves.toggleCloak(p);
+			HellflameMoves.cloakPulseForTest(p);
 			helper.assertTrue(mate.getHealth() == before && mate.getRemainingFireTicks() <= 0, "the squadmate is untouched");
 			helper.assertTrue(taken(z, 100) > 0f, "the zombie was hit");
 		} finally {
@@ -428,16 +508,19 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void bossesAreCappedAndNotThrown(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = endeavor(helper, 4.5, 2.0, 2.5);
-		Zombie boss = zombie(helper, 4.5, 4.0, 300);
-		HellflameMoves.flashfire(p, true);
+		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.0);
+		Zombie boss = zombie(helper, 4.5, 6.0, 300);
+		HellflameMoves.firePillar(p);
+		HellflameMoves.eruptForTest(p);
 		float t = taken(boss, 300);
-		helper.assertTrue(t > 0f && t <= HellflameConfig.UPPERCUT_DAMAGE + EPS, "a normal hit under the cap, " + t);
+		helper.assertTrue(t > 0f && t <= HellflameConfig.PILLAR_DAMAGE + EPS, "a normal hit under the cap, " + t);
 		helper.assertTrue(boss.getDeltaMovement().y < 0.5, "a boss is not launched, " + boss.getDeltaMovement());
 		boss.invulnerableTime = 0;
-		HellflameMoves.prominence(p, 1f);
+		HellflameMoves.plusUltraStart(p);
+		Quirks.setMeter(p, 100f);
+		HellflameMoves.coolDown(p);
 		float t2 = taken(boss, 300) - t;
-		near(helper, t2, 300 * HellflameConfig.BOSS_MAX_FRACTION_PER_HIT, "capped at 10% max health");
+		near(helper, t2, 300 * HellflameConfig.BOSS_MAX_FRACTION_PER_HIT, "a Plus Ultra Cool Down (44) is capped at 10% max health");
 		helper.succeed();
 	}
 }

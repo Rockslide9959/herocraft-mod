@@ -1,161 +1,238 @@
 package com.projecthero.mod.quirk.hellflame;
 
+import com.projecthero.mod.config.VersionedConfig;
+
 /**
- * v0.16.7: every Hellflame (Endeavor) number. Ticks unless the name says otherwise; Heat is the Quirk meter (0..100).
+ * v0.16.7: every Hellflame (Endeavor) number. Ticks unless the name says otherwise; Body Heat is the Quirk meter (0..100).
+ *
+ * <p>v0.16.7 revamp ({@code docs/QUIRK_REVAMP_V0167.md}): the kit is built round BODY HEAT -- the sustained moves (Fire Jet
+ * Flight, the Flame Cloak, Prominence Burn) heat him every tick, and at 100 he overheats. The Body Heat numbers live in a
+ * file, {@code config/projecthero_quirk_hellflame.json} ({@link #heat()}), so a server can tune how long Endeavor can keep
+ * burning; a file written before the revamp is migrated by the {@link VersionedConfig}. Everything else is a constant here.
  */
 public final class HellflameConfig {
 	private HellflameConfig() {
 	}
 
 	// ---------------------------------------------------------------- the ability ids
-	public static final String SPIDER = "quirk_hellflame_hell_spider";
-	public static final String NET = "quirk_hellflame_hell_spider_net";
+	/** Shift+X: Flashfire Fist: Jet Burn (the id is the old Jet Burn's, so saved cooldowns line up). */
 	public static final String JET = "quirk_hellflame_jet_burn";
-	public static final String BEAM = "quirk_hellflame_hellflame_beam";
-	public static final String BOOST = "quirk_hellflame_flame_boost";
-	public static final String DODGE = "quirk_hellflame_burst_dodge";
-	public static final String FIST = "quirk_hellflame_flashfire_fist";
-	public static final String UPPERCUT = "quirk_hellflame_flashfire_uppercut";
-	public static final String PROMINENCE = "quirk_hellflame_prominence_burn";
-	public static final String SUN = "quirk_hellflame_hellflame_sun";
+	/** X (hold): Fire Jet Flight -- the movement key. */
+	public static final String FLIGHT = "quirk_hellflame_fire_jet_flight";
+	/** R: Hell Spider. */
+	public static final String SPIDER = "quirk_hellflame_hell_spider";
+	/** Shift+R: Hell Spider: Mesh. */
+	public static final String MESH = "quirk_hellflame_hell_spider_net";
+	/** C: Fire Wall. */
+	public static final String WALL = "quirk_hellflame_fire_wall";
+	/** Shift+C: Flame Cloak (toggle). */
 	public static final String CLOAK = "quirk_hellflame_flame_cloak";
-	public static final String VENT = "quirk_hellflame_vent";
+	/** Z: Hellflame Barrage. */
+	public static final String BARRAGE = "quirk_hellflame_hellflame_barrage";
+	/** Shift+Z: Fire Pillar. */
+	public static final String PILLAR = "quirk_hellflame_fire_pillar";
+	/** G (hold): Flashfire Fist: Prominence Burn. */
+	public static final String PROMINENCE = "quirk_hellflame_prominence_burn";
+	/** Shift+G: Vanishing Fist. */
+	public static final String VANISH = "quirk_hellflame_vanishing_fist";
+	/** V: Cool Down (works while overheated) -- the utility key. */
+	public static final String COOL = "quirk_hellflame_cool_down";
+	/** Shift+V: Plus Ultra: Full Power. */
+	public static final String PLUS = "quirk_hellflame_plus_ultra";
+
+	// ---------------------------------------------------------------- the file: Body Heat
+	public static final VersionedConfig<HeatFile> SPEC = VersionedConfig.builder(HeatFile.class, "projecthero_quirk_hellflame.json", HeatFile::new)
+			.balance("heat")
+			// v0.16.7 revamp: Body Heat is the heart of the kit (sustained flight / cloak / beam heat, Overheat until cooled,
+			// the Plus Ultra burnout). A file from before has none of these tuned: today's numbers.
+			.reset(1, "v0.16.7 Quirk revamp -- Body Heat drives Fire Jet Flight, Prominence Burn and Plus Ultra", "heat")
+			.build();
+
+	private static HeatFile file = new HeatFile();
+
+	/** The file's root. */
+	public static final class HeatFile {
+		public Integer configVersion;
+		public Heat heat = new Heat();
+	}
+
+	/** Body Heat, per second unless the name says ticks. */
+	public static final class Heat {
+		/** Heat lost a second once no fire has burned for {@link #ventDelayTicks}. */
+		public float ventPerSecond = 4.0f;
+		public int ventDelayTicks = 30;
+		/** In water or rain he cools this many times faster. */
+		public float wetMultiplier = 2.5f;
+		/** Overheat (100 Heat): no fire moves for this long while the Heat drains to {@link #overheatRecoverTo}. */
+		public int overheatTicks = 120;
+		public float overheatRecoverTo = 40.0f;
+		/** Burning up from the inside while overheated (or burnt out): damage a second. */
+		public float overheatDamagePerSecond = 1.0f;
+		/** Fire Jet Flight: Heat a second hovering / flying / sprint-flying. */
+		public float flightHoverPerSecond = 2.4f;
+		public float flightPerSecond = 3.6f;
+		public float flightSprintPerSecond = 5.0f;
+		/** Flame Cloak: Heat a second while it burns. */
+		public float cloakPerSecond = 2.4f;
+		/** Prominence Burn: Heat a second while the beam fires (from 0, about 3 s to Overheat). */
+		public float prominencePerSecond = 32.0f;
+		/** Plus Ultra: the full-power window, then the burnout (Heat pinned at 100, no moves). */
+		public int plusUltraSeconds = 15;
+		public int burnoutSeconds = 10;
+	}
+
+	public static Heat heat() {
+		return file.heat;
+	}
+
+	/** Reads (migrating) {@code config/projecthero_quirk_hellflame.json}; called from {@code HellflameMod.initialize}. */
+	public static void load() {
+		file = SPEC.load();
+	}
 
 	// ---------------------------------------------------------------- shared
 	/** Bosses (this much max health, or {@code TitanCombat.isBoss}) take at most this fraction of their max health a hit, and no knockback. */
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.10f;
+	/** Above this Heat the HUD warns (the bar turns red-hot). */
+	public static final float HEAT_WARN = 75f;
 
-	// ---------------------------------------------------------------- Heat / Overheat
-	/** Heat vents this much a tick (4 / s) once no fire move has run for {@link #VENT_DELAY}. */
-	public static final float HEAT_VENT_PER_TICK = 0.2f;
-	public static final int VENT_DELAY = 30;
-	/** In water or rain the Heat vents this many times faster. */
-	public static final float HEAT_VENT_WET_MULT = 2.5f;
-	/** Overheat at 100 Heat: this long, Slowness II, a short self-burn, no fire moves (Shift+C still works). */
-	public static final int OVERHEAT_TICKS = 160;
-	public static final int OVERHEAT_SELF_BURN_SECONDS = 2;
-	/** While overheated the Heat drains this much a tick (100 -> ~36 over the 8 s). */
-	public static final float OVERHEAT_VENT_PER_TICK = 0.4f;
+	// ---------------------------------------------------------------- Plus Ultra multipliers
+	/** Damage of every fire move during Plus Ultra. */
+	public static final float PLUS_DAMAGE_MULT = 2.0f;
+	/** Size (radius, length, width) of every fire move during Plus Ultra. */
+	public static final double PLUS_SIZE_MULT = 1.4;
+	/** Cooldowns during Plus Ultra are multiplied by this. */
+	public static final float PLUS_COOLDOWN_MULT = 0.5f;
+	public static final int PLUS_COOLDOWN = 2400;
 
-	// ---------------------------------------------------------------- R: Hell Spider / Shift+R: Hell Spider Net
-	public static final double SPIDER_RANGE = 16.0;
+	// ---------------------------------------------------------------- X (hold): Fire Jet Flight / Shift+X: Jet Burn
+	/** Dash speed, blocks a tick, for {@link #JET_DASH_TICKS} (about 12 blocks). */
+	public static final double JET_DASH_SPEED = 1.7;
+	public static final int JET_DASH_TICKS = 7;
+	/** Whatever is this close to the fist during the dash is punched (and the dash ends). */
+	public static final double JET_REACH = 1.9;
+	public static final float JET_DAMAGE = 16f;
+	public static final double JET_KNOCKBACK = 1.8;
+	public static final int JET_BURN_SECONDS = 5;
+	public static final float JET_HEAT = 12f;
+	public static final int JET_COOLDOWN = 50;
+
+	/** Flight cruise, blocks a tick (15 b/s); Sprint makes it {@link #FLIGHT_SPRINT_SPEED}. */
+	public static final double FLIGHT_SPEED = 0.75;
+	public static final double FLIGHT_SPRINT_SPEED = 1.2;
+	public static final double FLIGHT_VERTICAL = 0.45;
+	/** Fraction of the gap to the wanted velocity closed a tick. */
+	public static final double FLIGHT_ACCEL = 0.22;
+	public static final int FLIGHT_COOLDOWN = 20;
+
+	// ---------------------------------------------------------------- R: Hell Spider / Shift+R: Mesh
+	public static final double SPIDER_RANGE = 18.0;
 	public static final int SPIDER_THREADS = 5;
-	/** Degrees between neighbouring threads. */
-	public static final double SPIDER_SPREAD_DEGREES = 7.0;
-	/** A target this close to a thread is sliced (once, however many threads cross it). */
-	public static final double SPIDER_THREAD_RADIUS = 0.8;
+	/** Degrees between neighbouring strings. */
+	public static final double SPIDER_SPREAD_DEGREES = 6.0;
+	/** The fan sweeps this many degrees to each side (right to left, the flick of the fingers). */
+	public static final double SPIDER_SWEEP_DEGREES = 22.0;
+	public static final int SPIDER_SWEEP_STEPS = 5;
+	/** The strings are drawn this long (the sweep runs over the first {@link #SPIDER_SWEEP_TICKS}). */
+	public static final int SPIDER_DRAW_TICKS = 12;
+	public static final int SPIDER_SWEEP_TICKS = 4;
+	/** A target this close to a string is cut (once, however many strings cross it). */
+	public static final double SPIDER_THREAD_RADIUS = 0.6;
 	public static final float SPIDER_DAMAGE = 9f;
 	public static final int SPIDER_BURN_SECONDS = 4;
-	public static final float SPIDER_HEAT = 12f;
-	public static final int SPIDER_COOLDOWN = 40;
+	public static final float SPIDER_HEAT = 10f;
+	public static final int SPIDER_COOLDOWN = 30;
 
-	public static final double NET_RANGE = 24.0;
-	public static final double NET_RADIUS = 3.5;
-	public static final int NET_ROOT_TICKS = 60;
-	/** Burn damage every {@link #NET_BURN_INTERVAL} while rooted. */
-	public static final float NET_BURN_DAMAGE = 2.5f;
-	public static final int NET_BURN_INTERVAL = 10;
-	public static final float NET_HEAT = 20f;
-	public static final int NET_COOLDOWN = 240;
+	public static final double MESH_RANGE = 24.0;
+	public static final double MESH_RADIUS = 3.5;
+	public static final int MESH_TICKS = 60;
+	/** Burn damage every {@link #MESH_BURN_INTERVAL} while trapped. */
+	public static final float MESH_BURN_DAMAGE = 2.5f;
+	public static final int MESH_BURN_INTERVAL = 10;
+	public static final float MESH_HEAT = 18f;
+	public static final int MESH_COOLDOWN = 240;
 
-	// ---------------------------------------------------------------- G: Jet Burn / Shift+G: Hellflame Beam (hold)
-	public static final double JET_RANGE = 7.0;
-	/** Half-angle of the cone, degrees. */
-	public static final double JET_HALF_ANGLE = 30.0;
-	public static final float JET_DAMAGE = 10f;
-	public static final double JET_KNOCKBACK = 0.7;
-	public static final int JET_BURN_SECONDS = 5;
-	public static final float JET_HEAT = 10f;
-	public static final int JET_COOLDOWN = 30;
+	// ---------------------------------------------------------------- C: Fire Wall / Shift+C: Flame Cloak
+	/** Half the wall's length (7 blocks long), its height, how far in front of him it rises. */
+	public static final double WALL_HALF_LENGTH = 3.5;
+	public static final double WALL_HEIGHT = 3.0;
+	public static final double WALL_DISTANCE = 3.0;
+	public static final double WALL_THICKNESS = 0.9;
+	public static final int WALL_TICKS = 120;
+	public static final float WALL_DAMAGE = 3f;
+	public static final int WALL_HIT_INTERVAL = 10;
+	public static final int WALL_BURN_SECONDS = 5;
+	public static final float WALL_HEAT = 15f;
+	public static final int WALL_COOLDOWN = 200;
 
-	public static final double BEAM_RANGE = 32.0;
-	public static final double BEAM_RADIUS = 0.9;
-	/** Damage every {@link #BEAM_HIT_INTERVAL} ticks to everything on the beam (15 / s). */
-	public static final float BEAM_DAMAGE = 3f;
-	public static final int BEAM_HIT_INTERVAL = 4;
-	public static final float BEAM_HEAT_PER_TICK = 1.2f;
-	/** The beam gives out on its own after this long (or at Overheat). */
-	public static final int BEAM_MAX_TICKS = 100;
-	public static final int BEAM_COOLDOWN = 120;
-
-	// ---------------------------------------------------------------- X: Flame Boost (hold) / Shift+X: Burst Dodge
-	/** Flight cruise, blocks a tick (14 b/s); Sprint makes it {@link #BOOST_SPRINT_SPEED}. */
-	public static final double BOOST_SPEED = 0.7;
-	public static final double BOOST_SPRINT_SPEED = 1.15;
-	public static final double BOOST_VERTICAL = 0.45;
-	/** Fraction of the gap to the wanted velocity closed a tick. */
-	public static final double BOOST_ACCEL = 0.22;
-	public static final float BOOST_HEAT_PER_TICK = 0.25f;
-	public static final int BOOST_COOLDOWN = 20;
-
-	public static final double DODGE_DISTANCE = 8.0;
-	public static final double DODGE_RADIUS = 2.5;
-	public static final float DODGE_DAMAGE = 5f;
-	public static final float DODGE_HEAT = 8f;
-	public static final int DODGE_COOLDOWN = 60;
-
-	// ---------------------------------------------------------------- Z: Flashfire Fist / Shift+Z: Flashfire Uppercut
-	/** Dash speed, blocks a tick, for {@link #FIST_DASH_TICKS} (about 10 blocks). */
-	public static final double FIST_DASH_SPEED = 1.7;
-	public static final int FIST_DASH_TICKS = 7;
-	/** Whatever is this close to the fist during the dash is punched (and the dash ends). */
-	public static final double FIST_REACH = 1.9;
-	public static final float FIST_DAMAGE = 18f;
-	public static final double FIST_KNOCKBACK = 1.8;
-	public static final int FIST_BURN_SECONDS = 5;
-	public static final float FIST_HEAT = 15f;
-	public static final int FIST_COOLDOWN = 120;
-	public static final float UPPERCUT_DAMAGE = 15f;
-	/** The uppercut throws the target up this fast (blocks a tick: ~8 blocks high). */
-	public static final double UPPERCUT_LIFT = 1.35;
-	public static final float UPPERCUT_HEAT = 15f;
-	public static final int UPPERCUT_COOLDOWN = 140;
-
-	// ---------------------------------------------------------------- V: Prominence Burn (hold) / Shift+V: Hellflame Sun
-	/** Full charge after this long; still held this much longer and it fires by itself. */
-	public static final int PROMINENCE_CHARGE_TICKS = 60;
-	public static final int PROMINENCE_AUTO_FIRE_EXTRA = 40;
-	/** Radius / damage / Heat at no charge, plus the extra at full charge. */
-	public static final double PROMINENCE_RADIUS = 3.0;
-	public static final double PROMINENCE_RADIUS_EXTRA = 4.0;
-	public static final float PROMINENCE_DAMAGE = 10f;
-	public static final float PROMINENCE_DAMAGE_EXTRA = 22f;
-	public static final float PROMINENCE_HEAT = 20f;
-	public static final float PROMINENCE_HEAT_EXTRA = 40f;
-	public static final double PROMINENCE_HEIGHT = 9.0;
-	public static final double PROMINENCE_LIFT = 0.9;
-	public static final int PROMINENCE_BURN_SECONDS = 6;
-	public static final int PROMINENCE_COOLDOWN = 300;
-
-	public static final int SUN_TICKS = 120;
-	/** The sun hangs this far above his head and follows him. */
-	public static final double SUN_HEIGHT = 5.0;
-	public static final double SUN_RANGE = 14.0;
-	/** A fireball every this many ticks at the nearest threat (aimed at one not yet hit hardest first). */
-	public static final int SUN_INTERVAL = 8;
-	/** How long a fireball falls. */
-	public static final int SUN_FALL_TICKS = 8;
-	public static final float SUN_DAMAGE = 6f;
-	public static final double SUN_SPLASH = 1.6;
-	public static final int SUN_BURN_SECONDS = 3;
-	public static final float SUN_HEAT = 35f;
-	public static final int SUN_COOLDOWN = 800;
-
-	// ---------------------------------------------------------------- C: Flame Cloak (toggle) / Shift+C: Vent
-	public static final float CLOAK_HEAT_PER_TICK = 0.1f;
-	public static final int CLOAK_IGNITE_SECONDS = 4;
-	/** An attacker within this distance is set alight. */
-	public static final double CLOAK_RETALIATE_RANGE = 5.0;
+	/** The Cloak's aura: everything this close burns. */
+	public static final double CLOAK_RADIUS = 2.6;
+	public static final float CLOAK_AURA_DAMAGE = 2f;
+	public static final int CLOAK_AURA_INTERVAL = 10;
+	public static final int CLOAK_IGNITE_SECONDS = 3;
 	public static final int CLOAK_COOLDOWN = 20;
 
-	public static final float VENT_BASE_DAMAGE = 4f;
-	/** Extra damage per Heat point dumped (100 Heat: 4 + 22 = 26). */
-	public static final float VENT_DAMAGE_PER_HEAT = 0.22f;
-	public static final double VENT_BASE_RADIUS = 3.0;
-	/** Extra radius per Heat point (100 Heat: 3 + 5 = 8 blocks). */
-	public static final double VENT_RADIUS_PER_HEAT = 0.05;
-	public static final double VENT_KNOCKBACK = 1.2;
-	public static final int VENT_BURN_SECONDS = 4;
-	public static final int VENT_COOLDOWN = 400;
+	// ---------------------------------------------------------------- Z: Hellflame Barrage / Shift+Z: Fire Pillar
+	public static final int BARRAGE_JABS = 8;
+	public static final int BARRAGE_INTERVAL = 4;
+	public static final double BARRAGE_RANGE = 5.5;
+	public static final double BARRAGE_HALF_ANGLE = 22.0;
+	public static final float BARRAGE_DAMAGE = 3.5f;
+	public static final int BARRAGE_BURN_SECONDS = 2;
+	public static final double BARRAGE_PUSH = 0.25;
+	public static final float BARRAGE_HEAT_PER_JAB = 2f;
+	public static final int BARRAGE_COOLDOWN = 100;
+
+	public static final double PILLAR_RANGE = 24.0;
+	/** The ground glows this long before the pillar erupts. */
+	public static final int PILLAR_WARN_TICKS = 14;
+	/** The column keeps burning this long after the eruption. */
+	public static final int PILLAR_BURN_TICKS = 24;
+	public static final double PILLAR_RADIUS = 2.0;
+	public static final double PILLAR_HEIGHT = 9.0;
+	public static final float PILLAR_DAMAGE = 14f;
+	public static final float PILLAR_LINGER_DAMAGE = 2f;
+	public static final double PILLAR_LIFT = 1.1;
+	public static final int PILLAR_BURN_SECONDS = 6;
+	public static final float PILLAR_HEAT = 18f;
+	public static final int PILLAR_COOLDOWN = 180;
+
+	// ---------------------------------------------------------------- G: Prominence Burn (hold) / Shift+G: Vanishing Fist
+	/** The fist is drawn back and flame gathers this long before the beam fires. */
+	public static final int PROMINENCE_CHARGE_TICKS = 12;
+	/** A tap still fires this long. */
+	public static final int PROMINENCE_MIN_TICKS = 10;
+	/** The beam gives out on its own after this long (or at Overheat). */
+	public static final int PROMINENCE_MAX_TICKS = 160;
+	public static final double PROMINENCE_RANGE = 48.0;
+	/** The hit width (the visible beam is wider at its flaming edge). */
+	public static final double PROMINENCE_RADIUS = 1.6;
+	public static final float PROMINENCE_DAMAGE = 7f;
+	public static final int PROMINENCE_HIT_INTERVAL = 5;
+	public static final double PROMINENCE_PUSH = 0.35;
+	public static final int PROMINENCE_BURN_SECONDS = 6;
+	public static final int PROMINENCE_COOLDOWN = 240;
+
+	public static final double VANISH_RANGE = 16.0;
+	/** The flame decoy burns where he stood this long. */
+	public static final int VANISH_DECOY_TICKS = 40;
+	/** He reappears behind the target and strikes this many ticks later. */
+	public static final int VANISH_STRIKE_DELAY = 3;
+	public static final float VANISH_DAMAGE = 16f;
+	public static final double VANISH_KNOCKBACK = 1.4;
+	public static final int VANISH_BURN_SECONDS = 5;
+	public static final float VANISH_HEAT = 20f;
+	public static final int VANISH_COOLDOWN = 200;
+
+	// ---------------------------------------------------------------- V: Cool Down / Shift+V: Plus Ultra
+	public static final float COOL_BASE_DAMAGE = 4f;
+	/** Extra damage per Heat point dumped (100 Heat: 4 + 18 = 22). */
+	public static final float COOL_DAMAGE_PER_HEAT = 0.18f;
+	public static final double COOL_BASE_RADIUS = 3.0;
+	/** Extra radius per Heat point (100 Heat: 3 + 4 = 7 blocks). */
+	public static final double COOL_RADIUS_PER_HEAT = 0.04;
+	public static final double COOL_KNOCKBACK = 1.0;
+	public static final int COOL_BURN_SECONDS = 3;
+	public static final int COOL_COOLDOWN = 300;
 }
