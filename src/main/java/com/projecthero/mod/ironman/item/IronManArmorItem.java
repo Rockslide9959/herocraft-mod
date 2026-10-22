@@ -69,19 +69,15 @@ public class IronManArmorItem extends SuperheroArmorItem {
 	 */
 	@Override
 	public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level level, Player player, net.minecraft.world.InteractionHand hand) {
-		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId) && player instanceof ServerPlayer sp && packLooseMarkV(sp)) {
-			return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
-		}
-		if (com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(suitId) && level.isClientSide() && hasAllLooseMarkV(player)) {
-			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
-		}
-		// v0.16.7 (user) Era II: the Mk IX packs into its heat case the same way the Mk VI packs into its briefcase
-		if ("mark_9".equals(suitId) && player instanceof ServerPlayer sp
-				&& packLoose(sp, suitId, IronManItems.MARK_9_HEAT_CASE, "message.projecthero.ironman.mk9_packed")) {
-			return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
-		}
-		if ("mark_9".equals(suitId) && level.isClientSide() && hasAllLoose(player, suitId)) {
-			return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
+		// v0.16.7 (user) Era II fold polish: EVERY suit with a portable form packs this way -- the Mk VI into its briefcase,
+		// the Mk VII / Mk VIII into their packs, the Mk IX into its heat case, the Hulkbuster into its Uplink
+		if (com.projecthero.mod.ironman.suit.PortableForms.byId(suitId) != null) {
+			if (player instanceof ServerPlayer sp && packLoose(sp, suitId)) {
+				return net.minecraft.world.InteractionResultHolder.sidedSuccess(player.getItemInHand(hand), false);
+			}
+			if (level.isClientSide() && hasAllLoose(player, suitId)) {
+				return net.minecraft.world.InteractionResultHolder.success(player.getItemInHand(hand));
+			}
 		}
 		// v0.14.30, explicit user request: no right-click equipping -- Iron Man armour goes on with C or a suit deploy
 		if (player instanceof ServerPlayer sp) {
@@ -92,38 +88,52 @@ public class IronManArmorItem extends SuperheroArmorItem {
 		return net.minecraft.world.InteractionResultHolder.fail(player.getItemInHand(hand));
 	}
 
-	private static boolean hasAllLooseMarkV(Player player) {
-		boolean[] have = new boolean[4];
-		for (ItemStack s : player.getInventory().items) {
-			if (s.getItem() instanceof IronManArmorItem a && com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(a.suitId)) {
-				have[SuitcaseContents.slotOf(a.getType())] = true;
-			}
-		}
-		return have[0] && have[1] && have[2] && have[3];
+	/**
+	 * Moves one of each loose briefcase-suit (Mk VI) piece out of the inventory into its case. Returns false (no change)
+	 * unless all four are there. v0.16.7 (user): the shared {@link #packLoose(ServerPlayer, String)}.
+	 */
+	public static boolean packLooseMarkV(ServerPlayer player) {
+		return packLoose(player, com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT);
 	}
 
-	/** Moves one of each loose Mark 5 piece out of the inventory into a new case. Returns false (no change) unless all four are there. */
-	public static boolean packLooseMarkV(ServerPlayer player) {
-		if (!hasAllLooseMarkV(player)) {
+	/**
+	 * v0.16.7 (user) Era II fold polish: right-click a loose piece of any suit with a portable form, with all four in your
+	 * inventory, to pack them into that form's packed item (the action-bar line names it). False (no change) unless the
+	 * suit has a form and all four pieces are there.
+	 */
+	public static boolean packLoose(ServerPlayer player, String suit) {
+		com.projecthero.mod.ironman.suit.PortableForm form = com.projecthero.mod.ironman.suit.PortableForms.byId(suit);
+		if (form == null) {
 			return false;
 		}
+		String message = switch (form.rest()) {
+			case BACK -> "message.projecthero.ironman.pack_packed";
+			case BLOCK -> "message.projecthero.ironman.uplink_packed";
+			default -> "message.projecthero.ironman.case_packed";
+		};
+		return packLoose(player, suit, form.packedItem().get(), message);
+	}
+
+	/**
+	 * v0.16.7 (user) Era II fold polish: an EMPTIED packed item of {@code packedItem} in the inventory (one crafted empty,
+	 * or an Uplink whose suit is down) to fill first, so packing never strands an empty one -- the selected slot first.
+	 * Index, or -1.
+	 */
+	static int emptiedPacked(Player player, net.minecraft.world.item.Item packedItem) {
 		var inv = player.getInventory();
-		net.minecraft.core.NonNullList<ItemStack> slots = net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
-		for (int i = 0; i < inv.items.size(); i++) {
-			ItemStack s = inv.items.get(i);
-			if (s.getItem() instanceof IronManArmorItem a && com.projecthero.mod.ironman.suit.IronManSuitUpManager.BRIEFCASE_SUIT.equals(a.suitId)) {
-				int idx = SuitcaseContents.slotOf(a.getType());
-				if (slots.get(idx).isEmpty()) {
-					slots.set(idx, s.split(1));
-				}
+		if (inv.selected >= 0 && inv.selected < 9) {
+			ItemStack sel = inv.items.get(inv.selected);
+			if (sel.is(packedItem) && !SuitcaseContents.isLegacyEmpty(sel) && SuitcaseContents.isEmpty(sel)) {
+				return inv.selected;
 			}
 		}
-		ItemStack caseStack = new ItemStack(IronManItems.MARK_V_SUITCASE);
-		SuitcaseContents.write(caseStack, slots);
-		com.projecthero.mod.ironman.suit.IronManSuitUpManager.placeSuitcase(player, caseStack);
-		inv.setChanged();
-		player.displayClientMessage(Component.translatable("message.projecthero.ironman.mk5_packed").withStyle(ChatFormatting.AQUA), true);
-		return true;
+		for (int i = 0; i < inv.items.size(); i++) {
+			ItemStack st = inv.items.get(i);
+			if (st.is(packedItem) && !SuitcaseContents.isLegacyEmpty(st) && SuitcaseContents.isEmpty(st)) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	/** v0.16.7 (user) Era II: are all four loose pieces of {@code suit} in the main inventory? */
@@ -140,13 +150,15 @@ public class IronManArmorItem extends SuperheroArmorItem {
 	/**
 	 * v0.16.7 (user) Era II: {@link #packLooseMarkV} for any suit with a packed item -- one of each loose piece of
 	 * {@code suit} leaves the inventory for a fresh {@code packedItem} (hand, hotbar, inventory, else at your feet). False
-	 * (no change) unless all four are there.
+	 * (no change) unless all four are there. v0.16.7 (user) fold polish: an emptied {@code packedItem} already carried is
+	 * filled instead of making a new one, and a backpack goes on the back (never into the hand, {@code placePack}).
 	 */
 	public static boolean packLoose(ServerPlayer player, String suit, net.minecraft.world.item.Item packedItem, String message) {
 		if (!hasAllLoose(player, suit)) {
 			return false;
 		}
 		var inv = player.getInventory();
+		int emptied = emptiedPacked(player, packedItem);
 		net.minecraft.core.NonNullList<ItemStack> slots = net.minecraft.core.NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
 		for (int i = 0; i < inv.items.size(); i++) {
 			ItemStack s = inv.items.get(i);
@@ -157,7 +169,7 @@ public class IronManArmorItem extends SuperheroArmorItem {
 				}
 			}
 		}
-		ItemStack packed = new ItemStack(packedItem);
+		ItemStack packed = emptied >= 0 ? inv.items.get(emptied) : new ItemStack(packedItem);
 		SuitcaseContents.write(packed, slots);
 		// the case carries the suit's integrity: the most worn piece's (the deploy loads it from the case)
 		float integrity = Float.MAX_VALUE;
@@ -165,9 +177,16 @@ public class IronManArmorItem extends SuperheroArmorItem {
 			integrity = Math.min(integrity, com.projecthero.mod.ironman.IronManEnergy.stackIntegrity(piece, suit));
 		}
 		com.projecthero.mod.ironman.IronManEnergy.stampStack(packed, 0f, integrity);
-		com.projecthero.mod.ironman.suit.IronManSuitUpManager.placeSuitcase(player, packed);
+		if (emptied < 0) {
+			com.projecthero.mod.ironman.suit.PortableForm form = com.projecthero.mod.ironman.suit.PortableForms.byItem(packedItem);
+			if (form != null && form.rest() == com.projecthero.mod.ironman.suit.PortableForm.Place.BACK) {
+				com.projecthero.mod.ironman.suit.PortableDeploy.placePack(player, packed);
+			} else {
+				com.projecthero.mod.ironman.suit.IronManSuitUpManager.placeSuitcase(player, packed);
+			}
+		}
 		inv.setChanged();
-		player.displayClientMessage(Component.translatable(message).withStyle(ChatFormatting.AQUA), true);
+		player.displayClientMessage(Component.translatable(message, packed.getHoverName()).withStyle(ChatFormatting.AQUA), true);
 		return true;
 	}
 

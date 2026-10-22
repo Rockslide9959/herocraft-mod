@@ -129,6 +129,7 @@
 		"PlayerRendererHulkMixin",
 		"PlayerRendererHulkbusterMixin",
 		"ItemInHandRendererHulkbusterMixin",
+		"ItemInHandRendererPortableMixin",
 		"PlayerRendererMixin",
 		"PlayerRendererManualSuitUpMixin",
 		"PlayerRendererTitanMixin",

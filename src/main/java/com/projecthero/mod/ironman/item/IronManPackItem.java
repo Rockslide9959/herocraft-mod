@@ -68,6 +68,9 @@ public class IronManPackItem extends Item {
 		if (!SuitcaseContents.isLegacyEmpty(stack)) {
 			tooltip.add(Component.translatable("item.projecthero.iron_man_pack.contents",
 					SuitcaseContents.nonEmpty(stack).size()).withStyle(ChatFormatting.GRAY));
+			if (SuitcaseContents.isEmpty(stack)) { // v0.16.7 (user): a crafted / emptied pack -- how to fill it
+				tooltip.add(Component.translatable("item.projecthero.portable.empty").withStyle(ChatFormatting.GRAY));
+			}
 			float max = IronManEnergy.maxIntegrity(suitId);
 			if (max > 0f) {
 				tooltip.add(Component.translatable("item.projecthero.iron_man_pack.integrity",

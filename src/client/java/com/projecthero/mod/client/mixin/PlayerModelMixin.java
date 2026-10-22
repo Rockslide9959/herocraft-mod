@@ -109,6 +109,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 		// v0.15.11, explicit user request: an open Iron Man faceplate only bares the FACE -- the rest of the helmet shell is
 		// still on, so only the front face of the skin's hat layer shows (its top / sides / back used to poke through)
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem && IronManFaceplate.isOpen(player)
+				&& !com.projecthero.mod.client.ironman.IronManPortableClient.active(player) // v0.16.7 (user): shut in a fold / deploy
 				&& model.hat.visible) {
 			com.projecthero.mod.client.render.FrontFaceOnlyPart.set(model.hat, true);
 		}
@@ -138,7 +139,8 @@ public abstract class PlayerModelMixin<T extends LivingEntity> {
 	 */
 	private static boolean helmetRetracted(Player player) {
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem
-				&& IronManFaceplate.isOpen(player)) {
+				&& IronManFaceplate.isOpen(player)
+				&& !com.projecthero.mod.client.ironman.IronManPortableClient.active(player)) { // v0.16.7 (user) Era II fold polish
 			return true;
 		}
 		if (player.getItemBySlot(EquipmentSlot.HEAD).getItem()

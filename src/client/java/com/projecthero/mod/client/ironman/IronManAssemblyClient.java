@@ -46,6 +46,8 @@ public final class IronManAssemblyClient {
 	private static final Map<Integer, float[]> LIFT = new HashMap<>();
 	private static final Map<Integer, Long> EYE_FLASH_AT = new HashMap<>();
 	private static final Map<Integer, Long> LAST_CLICK = new HashMap<>();
+	/** v0.16.7 (user) Era II: the pose start of the portable deploy whose seal already flashed the eyes, per player. */
+	private static final Map<Integer, Long> PORTABLE_SEALED = new HashMap<>();
 	private static final Set<String> SNAPPED = new HashSet<>();
 	private static final int FLASH_TICKS = 5;
 
@@ -61,6 +63,7 @@ public final class IronManAssemblyClient {
 			LIFT.clear();
 			EYE_FLASH_AT.clear();
 			LAST_CLICK.clear();
+			PORTABLE_SEALED.clear();
 			SNAPPED.clear();
 			IronManSuitReveal.clear();
 			IronManGantryBuild.clear();
@@ -73,7 +76,22 @@ public final class IronManAssemblyClient {
 		Set<Integer> seen = new HashSet<>();
 		for (Player p : mc.level.players()) {
 			IronManSuitReveal.observe(p);
-			boolean open = p.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem && IronManFaceplate.isOpen(p);
+			// v0.16.7 (user) Era II fold polish: during a portable deploy / fold the faceplate never swings -- it builds on
+			// (and comes off) texel by texel in its CLOSED place like the rest of the helmet; the synced "open" flag the
+			// server raises for the sequence must not lift it (it showed as a thin sheet / a dark plate over the brow).
+			// The eyes flash once as the deploy seals instead of when the (unused) lift would have dropped.
+			com.projecthero.mod.ironman.suit.PortableForm pf = IronManPortableClient.form(p);
+			if (pf != null) {
+				LIFT.remove(p.getId());
+				IronManSuitFx pfx = IronManSuitFx.of(p);
+				if (com.projecthero.mod.ironman.suit.PortableForms.deployPose(pfx.poseKind())
+						&& IronManPortableClient.frame(p, 0f) >= pf.beats().sealAt()
+						&& !Long.valueOf(pfx.poseStart()).equals(PORTABLE_SEALED.put(p.getId(), pfx.poseStart()))) {
+					EYE_FLASH_AT.put(p.getId(), mc.level.getGameTime());
+				}
+				continue;
+			}
+			boolean open =p.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof IronManArmorItem && IronManFaceplate.isOpen(p);
 			float[] s = LIFT.get(p.getId());
 			if (s == null) {
 				if (!open) {

@@ -160,12 +160,40 @@ entity: `wallOpen`, `lidOpen`, `height`, `floor`, `squash`).
   `HEAT_GRACE_TICKS` (200 = 10 s) of Fire Resistance, with an action-bar line, which is time enough to climb out.
 * The case itself never burns (fire resistant item, like the Mk IX pieces).
 
+## Fold polish (v0.16.7 user, stage 2)
+
+* **Faceplate.** In a portable deploy / fold the faceplate never swings: it builds on (and comes off) texel by texel
+  in its CLOSED place, like the rest of the helmet. The server still raises `IRON_MAN_FACEPLATE_OPEN` for the
+  sequence (the seal beat), but `IronManAssemblyClient.tick` drops the client lift while
+  `IronManPortableClient.form(p)` is set, and `PlayerModelMixin` ignores the flag then (no front-only hat layer / hair
+  poking through). The eyes flash once when a deploy passes `sealAt`. The seal sparks
+  (`IronManSuitUpManager.faceplateClose`) go to everyone but the wearer (they burst over the first-person view).
+* **Mk IX lights are orange.** The glow pass (`RenderType.eyes`) is ADDITIVE over the lit base texel, so the old bright
+  orange base + orange mask summed to yellow-white. `mark_9.png` now has deep orange glow texels (185,58,6) and
+  `mark_9_glowmask.png` a red-heavy orange (225,72,0): orange by day and by night. `IronManSuitGlowLayer` tints the
+  extra flash passes red / orange for `ORANGE_GLOW` marks so a flash does not saturate to yellow.
+* **Packing loose pieces.** Right-click any loose piece of a suit with a form, with all four in the inventory
+  (`IronManArmorItem.packLoose(player, suitId)`): Mk VI briefcase, Mk VII / Mk VIII packs (placed with `placePack`,
+  never the hand), Mk IX heat case, Hulkbuster Uplink. An emptied packed item already carried is filled first.
+* **Recipes** (crafting table, all give an EMPTY item -- `minecraft:container: []` -- so a crafted one never conjures a
+  suit): `mark_v_suitcase` (gold ingot, 4 titanium-gold plate, servo, leather), `centurion_backpack` (2 leather, 5
+  plate, flight stabiliser, servo), `space_thruster_pack` (2 leather, thermal shielding, 2 micro-thrusters, 3 plate,
+  servo), `mark_9_heat_case` (blaze rod, 4 plate, magma cream, netherite scrap), `hulkbuster_uplink` (targeting module,
+  2 Stark circuits, eye of ender, 3 plate). Tooltip: "Empty: right-click a loose piece...".
+* **First person.** `ItemInHandRendererPortableMixin` swaps a carried pack's sprite for a bare hand, and hides the held
+  case once a hand-carried form lets go of it (`firstPersonHidesHeld`: after `dropFrom` on a deploy, the whole fold).
+  Flying plates / chips shrink away near the wearer's own eyes (`nearEyeScale`).
+* **HUD.** `client/gui/IronManFoldHoldBar` (one call from `IronManHud.render`): beside the C box of the left key
+  column, the packed item's icon, "FOLD INTO <item>" wrapped, and a Gauge filling over `FOLD_HOLD_TICKS`; gold when
+  full; hidden once the fold starts. It stops short of the hotbar on short screens. Tests:
+  `gametest/IronManFoldPolishGameTests.java` (3).
+
 ## Not done yet / known limits
 
-* In **first person**, the wearer's own view still shows the vanilla held case while it deploys. The floor prop and
-  the plates do show in first person. Only the third-person held item is hidden.
-* There is no HUD fill for the 0.5 s Shift+C hold (the Era I eject has one in the C box).
-* The forms for the Mk IX and Hulkbuster are not built yet (see the backpacks below for the Mk VII / Mk VIII).
+* The carried Mk VII / Mk VIII pack is not drawn on your back in first person (only the held sprite is hidden).
+* With the first-person body view, a Mk VI / Mk IX deploy's first `dropFrom` frames (0.2-0.3 s) show no case at all in
+  your own view (the body view hides the held item; the floor prop starts at `dropFrom`).
+* The fold-hold bar mirrors the server's timing on the client; it does not read the server's hold.
 
 ## The backpacks: Mk VII Silver Centurion + Mk VIII Space
 
