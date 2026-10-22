@@ -69,7 +69,7 @@ public final class IronManSuits {
 			.absorb(0.32f)
 			.energy(800f, 0f)
 			.energyRegen(1.5f)
-			.noAutoFeed()
+			// v0.16.7 (user): auto-feeds you -- every suit but the Mk I does
 			.flight(1.0f, 0.07f)
 			.flightSpeeds(12.0, 18.0)
 			.maxFlightSpeed(18.0)
@@ -94,7 +94,7 @@ public final class IronManSuits {
 			.absorb(0.30f)
 			.energy(1400f, 0f) // v0.16.7 (user) Era II: an Arc Reactor Mk2 -- the Era I energy rules (IronManEraOne.hasReactor)
 			.energyRegen(2.5f)
-			.noAutoFeed()
+			// v0.16.7 (user): auto-feeds you -- every suit but the Mk I does
 			.targeting()
 			.waterBreathing()
 			.flight(1.0f, 0.08f)

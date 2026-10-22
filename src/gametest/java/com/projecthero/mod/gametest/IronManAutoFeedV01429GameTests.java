@@ -90,6 +90,8 @@ public class IronManAutoFeedV01429GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyAutoFeedSuitFeedsThroughTheTicker(GameTestHelper h) {
 		for (var suit : IronManSuits.all()) {
+			// v0.16.7 (user): every suit but the Mk I feeds you
+			h.assertTrue(suit.autoFeed() == !"mark_1".equals(suit.id()), suit.id() + " autoFeed=" + suit.autoFeed());
 			ServerPlayer p = suited(h, suit.id());
 			p.getInventory().add(new ItemStack(Items.BREAD, 3));
 			p.getFoodData().setFoodLevel(4);

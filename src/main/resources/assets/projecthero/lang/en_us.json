@@ -5583,7 +5583,7 @@
   "projecthero.guide.iron_man.spec_sheet": "Suit Specifications",
   "projecthero.guide.iron_man.spec_sheet.body": "Press I while wearing any Iron Man piece for the suit's spec sheet: energy, integrity and repair rates, flight, weapon damage, every ability and the helmet systems.",
   "projecthero.guide.iron_man.auto_feed": "Nutrient Feed",
-  "projecthero.guide.iron_man.auto_feed.body": "Every suit from the Mk III up feeds you from your inventory when you are hungry enough not to waste it -- any safe food, modded food included, and bowls and bottles come back. It never touches raw meat or fish, food with side effects (rotten flesh, spider eyes, pufferfish), chorus fruit, suspicious stew or golden apples. The Mk I and the Mk VI Suitcase don't feed you.",
+  "projecthero.guide.iron_man.auto_feed.body": "Every suit except the Mk I feeds you from your inventory when you are hungry enough not to waste it -- any safe food, modded food included, and bowls and bottles come back. It never touches raw meat or fish, food with side effects (rotten flesh, spider eyes, pufferfish), chorus fruit, suspicious stew or golden apples. The Mk I and the Mk VI Suitcase don't feed you.",
   "projecthero.guide.iron_man.furnaces": "Stark Furnace, Smelter and Smoker",
   "projecthero.guide.iron_man.furnaces.body": "Upgrade a furnace, blast furnace or smoker with iron, gold and redstone around it. The Stark Furnace cooks one item every 2.5 seconds; the Stark Smelter (ores and metal gear) and the Stark Smoker (food) one every second.",
   "projecthero.guide.iron_man.mark_1": "Mk I Cave-Forged",
