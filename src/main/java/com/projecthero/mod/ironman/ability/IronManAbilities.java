@@ -279,7 +279,10 @@ public final class IronManAbilities {
 				if (pressed) {
 					// "changes 15": the Mark 5 folds into its suitcase item instead of storing four pieces in the
 					// inventory. v0.14.29: on plain C too (was sneak + C only) -- it never stores as loose pieces.
-					if (com.projecthero.mod.ironman.suit.PortableForms.byId(suit.id()) != null) {
+					// v0.16.7 (user) Era II stage 2: a BACKPACK form (Mk VII / Mk VIII) is an extra way to carry the suit -- plain C
+					// keeps its old store (pod / bracelets / Suit Platform), only hold Shift+C folds it into the pack
+					com.projecthero.mod.ironman.suit.PortableForm pf = com.projecthero.mod.ironman.suit.PortableForms.byId(suit.id());
+					if (pf != null && pf.rest() != com.projecthero.mod.ironman.suit.PortableForm.Place.BACK) {
 						// v0.16.7 (user) Era II: C deploys, HOLD Shift+C folds (IronManAbilityManager) -- plain C just says so
 						player.displayClientMessage(Component.translatable("message.projecthero.ironman.portable_fold_hint")
 								.withStyle(net.minecraft.ChatFormatting.GRAY), true);

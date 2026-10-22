@@ -36,6 +36,11 @@ public abstract class ItemInHandLayerSuitcaseMixin {
 				&& com.projecthero.mod.client.ironman.IronManPortableClient.ownsRightHand(player)) {
 			ci.cancel();
 		}
+		// v0.16.7 (user) Era II stage 2: a Mk VII / Mk VIII backpack is worn on the back while carried
+		// (IronManPortableClient), so it is never also drawn in the hand
+		if (stack.getItem() instanceof com.projecthero.mod.ironman.item.IronManPackItem) {
+			ci.cancel();
+		}
 		// v0.15.11: while a suit is put on by hand the hands hold the hammer / wrench / the piece being fitted
 		// (IronManManualSuitUpLayer), never whatever was in them
 		if (entity instanceof Player player && com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.active(player)) {
