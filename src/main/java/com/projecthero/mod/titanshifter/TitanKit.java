@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.titanshifter.entity.TitanFormEntity;
+import com.projecthero.mod.titanshifter.entity.TitanRockEntity;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -66,7 +67,7 @@ public final class TitanKit {
 			case SWEEP_KICK -> sweepKick(player);
 			case CRYSTAL_FISTS -> crystalFists(player);
 			case SCREAM -> scream(player);
-			case BACKHAND -> backhand(player);
+			case FASTBALL -> fastball(player);
 			case ROCK_SCATTER -> rockScatter(player);
 			case BOULDER_THROW -> boulderThrow(player);
 			case BOULDER_VOLLEY -> boulderVolley(player);
@@ -513,55 +514,204 @@ public final class TitanKit {
 
 	// ---------------- Beast Titan ----------------
 
-	/** Shift+R: a long-armed backhand that clears both sides of the Beast. */
-	public static void backhand(ServerPlayer player) {
-		TitanFormEntity form = start(player, TitanMove.BACKHAND, 1, 0);
+	/** Pitcher's Fastball: stones in the spray. */
+	public static final int FASTBALL_STONES = 14;
+	/** Pitcher's Fastball: at most this many stones of one pitch hurt one target. */
+	public static final int FASTBALL_PER_TARGET = 3;
+	/** Pitcher's Fastball: stone speed (blocks a tick) and how long one flies (ticks) -- about 80 blocks. */
+	public static final double FASTBALL_SPEED = 3.1;
+	public static final int FASTBALL_LIFE = 28;
+	/** Rock Scatter: chunks flung, reach of the cone (blocks), cos of its half-angle. */
+	public static final int SCATTER_CHUNKS = 18;
+	public static final double SCATTER_RANGE = 12.0;
+	public static final double SCATTER_CONE = 0.7;
+
+	private static Vec3 flatDir(ServerPlayer player) {
+		Vec3 look = player.getLookAngle();
+		Vec3 d = new Vec3(look.x, 0, look.z);
+		return d.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : d.normalize();
+	}
+
+	/** Turns {@code d} about the vertical by {@code deg}. */
+	private static Vec3 yaw(Vec3 d, double deg) {
+		double r = Math.toRadians(deg), c = Math.cos(r), s = Math.sin(r);
+		return new Vec3(d.x * c - d.z * s, d.y, d.x * s + d.z * c);
+	}
+
+	/** The velocity that carries a rock from {@code from} onto {@code to} in {@code ticks} under {@code g} (scaled up for the chunks' 0.985 drag). */
+	private static Vec3 lob(Vec3 from, Vec3 to, double ticks, double g) {
+		double k = 0.985, f = ticks * (1.0 - k) / (1.0 - Math.pow(k, ticks));
+		return to.subtract(from).scale(1.0 / ticks).add(0, g * ticks * 0.5, 0).scale(f);
+	}
+
+	/**
+	 * Shift+R: Pitcher's Fastball (replaced the Backhand) -- the Beast's signature from the anime. It scoops a handful of
+	 * ground (t8), crushes it to gravel in its fist (t12-15), rears into a pitcher's leg kick and fires the lot overarm at
+	 * the crosshair on t22: {@link #FASTBALL_STONES} fast stones in a tight shotgun spread, 9 each (at most
+	 * {@link #FASTBALL_PER_TARGET} on one target), about 80 blocks of range. 8 s.
+	 */
+	public static void fastball(ServerPlayer player) {
+		TitanFormEntity form = start(player, TitanMove.FASTBALL, 1, 0);
 		if (form == null) {
 			return;
 		}
 		ServerLevel level = TitanAbilities.level(form);
-		sound(form, SoundEvents.PLAYER_ATTACK_SWEEP, 2.8f, 0.3f);
-		form.schedule(TitanMove.BACKHAND.impactTick, () -> {
+		int t = TitanMove.FASTBALL.impactTick;
+		form.lockFor(t + 6);
+		form.schedule(8, () -> {
+			if (TitanAbilities.stillGood(form)) {
+				TitanBoulders.pickUp(form, true, 3);
+			}
+		});
+		for (int c : new int[] { 12, 14 }) {
+			form.schedule(c, () -> {
+				if (!TitanAbilities.stillGood(form)) {
+					return;
+				}
+				// the fist grinds the stones to gravel: a crunch and grit spilling out
+				Vec3 fist = form.position().add(fwd(form).scale(form.getBbWidth() * 0.45)).add(0, form.getBbHeight() * 0.52, 0);
+				BlockState ground = TitanBoulders.groundState(form);
+				TitanBoulders.fx(level, new BlockParticleOption(ParticleTypes.FALLING_DUST, ground), fist.x, fist.y, fist.z, 10, 0.4, 0.2, 0.4, 0.0);
+				TitanBoulders.fx(level, new BlockParticleOption(ParticleTypes.BLOCK, ground), fist.x, fist.y, fist.z, 14, 0.3, 0.2, 0.3, 0.05);
+				level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.GRAVEL_BREAK, SoundSource.HOSTILE, 2.5f, 0.45f);
+				level.playSound(null, fist.x, fist.y, fist.z, SoundEvents.STONE_BREAK, SoundSource.HOSTILE, 2.0f, 0.35f + c * 0.01f);
+			});
+		}
+		form.schedule(18, () -> {
+			if (TitanAbilities.stillGood(form)) {
+				sound(form, SoundEvents.RAVAGER_STEP, 2.5f, 0.6f); // the leg kick
+			}
+		});
+		form.schedule(t, () -> {
+			form.setHoldingRocks(false);
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			Vec3 c = form.position().add(0, form.getBbHeight() * 0.45, 0);
-			int n = TitanCombat.hitRadius(form, player, c, form.getBbWidth() * 0.5 + 7.0, (float) TitanMove.BACKHAND.damage(), 2.6, 0.5);
-			level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 8, 4.0, 0.5, 4.0, 0.0);
-			TitanAbilities.meleeFx(level, TitanAbilities.defaultFxSpot(form), 1.2f, n);
+			pitch(form, player);
 		});
 	}
 
-	/** Shift+G: scoops up the ground and flings it -- a 12-block cone of shrapnel in front. */
+	/** The pitch itself (also the gametests): the stones leave the hand at the crosshair. Returns how many flew. */
+	public static int pitch(TitanFormEntity form, ServerPlayer player) {
+		ServerLevel level = TitanAbilities.level(form);
+		Vec3 from = TitanBoulders.releasePos(form);
+		Vec3 aim = throwAim(form, player);
+		Vec3 dir = aim.subtract(from);
+		dir = dir.lengthSqr() < 1.0e-4 ? player.getLookAngle() : dir.normalize();
+		BlockState ground = TitanBoulders.groundState(form);
+		var rnd = level.random;
+		TitanRockEntity.Volley volley = new TitanRockEntity.Volley(FASTBALL_PER_TARGET);
+		Vec3 up = new Vec3(0, 1, 0);
+		Vec3 side = dir.cross(up).lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : dir.cross(up).normalize();
+		Vec3 vert = side.cross(dir).normalize();
+		int n = 0;
+		for (int i = 0; i < FASTBALL_STONES; i++) {
+			// a tight cone: about 4-5 degrees either way, a touch more sideways than up and down
+			double a = rnd.nextGaussian() * 0.07, b = rnd.nextGaussian() * 0.045;
+			Vec3 d = dir.add(side.scale(a)).add(vert.scale(b)).normalize();
+			double speed = FASTBALL_SPEED * (0.92 + rnd.nextDouble() * 0.16);
+			float s = 0.5f + rnd.nextFloat() * 0.5f;
+			Vec3 at = from.add(side.scale((rnd.nextDouble() - 0.5) * 0.8)).add(vert.scale((rnd.nextDouble() - 0.5) * 0.8));
+			TitanRockEntity r = TitanRockEntity.create(level, TitanRockEntity.KIND_CHUNK, TitanBoulders.debrisState(ground, rnd), s, at,
+					d.scale(speed), 0.012f).fast().thrownBy(player, form, (float) TitanMove.FASTBALL.damage(), 0.35, volley)
+					.maxAge(FASTBALL_LIFE);
+			if (TitanBoulders.spawn(level, r)) {
+				n++;
+			}
+		}
+		TitanBoulders.fx(level, ParticleTypes.CLOUD, from.x, from.y, from.z, 6, 0.4, 0.4, 0.4, 0.05);
+		TitanBoulders.fx(level, new BlockParticleOption(ParticleTypes.BLOCK, ground), from.x, from.y, from.z, 16, 0.4, 0.4, 0.4, 0.2);
+		level.playSound(null, from.x, from.y, from.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 3.0f, 0.35f);
+		level.playSound(null, from.x, from.y, from.z, SoundEvents.ARROW_SHOOT, SoundSource.HOSTILE, 3.0f, 0.4f);
+		level.playSound(null, from.x, from.y, from.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.HOSTILE, 1.2f, 1.6f);
+		TitanCombat.shake(level, from, 0.25f, 6);
+		return n;
+	}
+
+	/**
+	 * Shift+G: Rock Scatter -- the Beast rakes both hands through the ground (t7, a few real blocks torn up when the
+	 * terrain rules allow it) and flings the rubble forward as its arms come up (t10-12): {@link #SCATTER_CHUNKS} real
+	 * chunks of the ground, cobble and dirt, big and small, tumbling over a 12-block cone. Each hits what it touches --
+	 * 18, once per target (a chunk is aimed at each mob in the cone) -- and crumbles. 8 s.
+	 */
 	public static void rockScatter(ServerPlayer player) {
 		TitanFormEntity form = start(player, TitanMove.ROCK_SCATTER, 1, 0);
 		if (form == null) {
 			return;
 		}
 		ServerLevel level = TitanAbilities.level(form);
-		BlockState ground = TitanBoulders.groundState(form);
-		sound(form, SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR, 2.0f, 0.5f);
-		form.schedule(TitanMove.ROCK_SCATTER.impactTick, () -> {
+		sound(form, SoundEvents.RAVAGER_ROAR, 1.2f, 0.7f);
+		form.schedule(7, () -> {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			Vec3 look = player.getLookAngle();
-			Vec3 dir = new Vec3(look.x, Math.max(-0.3, Math.min(0.3, look.y)), look.z).normalize();
-			Vec3 from = form.position().add(0, form.getBbHeight() * 0.5, 0).add(dir.scale(form.getBbWidth() * 0.5));
-			double range = 12.0;
-			for (LivingEntity e : TitanCombat.targetsAround(level, from, range, form, player)) {
-				Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(from);
-				if (to.lengthSqr() < 1.0e-4 || to.normalize().dot(dir) > 0.7) {
-					TitanCombat.hit(form, player, e, (float) TitanMove.ROCK_SCATTER.damage(), 1.2, 0.3, from);
+			Vec3 spot = form.position().add(flatDir(player).scale(form.getBbWidth() * 0.55));
+			TitanBoulders.ripFx(level, spot, TitanBoulders.groundState(form), 2.0f);
+			TitanBoulders.ripGround(level, form, spot, 2.5, 8);
+			TitanCombat.shake(level, spot, 0.3f, 6);
+		});
+		TitanRockEntity.Volley volley = new TitanRockEntity.Volley(1);
+		int t = TitanMove.ROCK_SCATTER.impactTick;
+		for (int k = 0; k < 3; k++) {
+			int wave = k;
+			form.schedule(t - 2 + k, () -> {
+				if (TitanAbilities.stillGood(form)) {
+					scatterWave(form, player, volley, wave);
+				}
+			});
+		}
+	}
+
+	/** One of the three waves of Rock Scatter's rubble (wave 0 is low, from the hands rising past the knees). */
+	public static int scatterWave(TitanFormEntity form, ServerPlayer player, TitanRockEntity.Volley volley, int wave) {
+		ServerLevel level = TitanAbilities.level(form);
+		var rnd = level.random;
+		Vec3 dir = flatDir(player);
+		Vec3 feet = form.position();
+		Vec3 from = feet.add(dir.scale(form.getBbWidth() * (0.55 - wave * 0.08))).add(0, form.getBbHeight() * (0.22 + wave * 0.2), 0);
+		BlockState ground = TitanBoulders.groundState(form);
+		int per = SCATTER_CHUNKS / 3;
+		int n = 0;
+		if (wave == 1) {
+			// one chunk aimed at each mob in the cone, so everything in it gets hit
+			for (LivingEntity e : TitanCombat.targetsAround(level, feet, SCATTER_RANGE + form.getBbWidth() * 0.5, form, player)) {
+				Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0);
+				Vec3 flat = new Vec3(to.x - feet.x, 0, to.z - feet.z);
+				if (flat.lengthSqr() > 1.0e-4 && flat.normalize().dot(dir) < SCATTER_CONE) {
+					continue;
+				}
+				double ticks = 5 + to.distanceTo(from) * 0.35;
+				TitanRockEntity r = TitanRockEntity.create(level, TitanRockEntity.KIND_CHUNK, TitanBoulders.debrisState(ground, rnd),
+						0.9f + rnd.nextFloat() * 0.6f, from, lob(from, to, ticks, 0.06), 0.06f)
+						.thrownBy(player, form, (float) TitanMove.ROCK_SCATTER.damage(), 1.2, volley).maxAge(50);
+				if (TitanBoulders.spawn(level, r)) {
+					n++;
 				}
 			}
-			for (int i = 0; i < 6; i++) {
-				Vec3 p = from.add(dir.scale(2.0 * (i + 1)));
-				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground), p.x, p.y, p.z, 20, 0.6 + i * 0.4, 0.5 + i * 0.2,
-						0.6 + i * 0.4, 0.3);
+		}
+		for (int i = 0; i < per; i++) {
+			// a random spot on the ground in the cone, 3-13 blocks out; low waves land near, high waves far
+			double ang = (rnd.nextDouble() * 2 - 1) * 42.0;
+			double d = 3.0 + rnd.nextDouble() * (SCATTER_RANGE - 3.0) * (0.55 + wave * 0.25) + form.getBbWidth() * 0.4;
+			Vec3 to = feet.add(yaw(dir, ang).scale(d)).add(0, 0.3, 0);
+			double ticks = 9 + d * 0.5 + rnd.nextDouble() * 3;
+			float s = 0.7f + rnd.nextFloat() * rnd.nextFloat() * 1.4f + (i == 0 ? 0.6f : 0.0f);
+			Vec3 at = from.add(yaw(dir, 90).scale((rnd.nextDouble() - 0.5) * form.getBbWidth() * 0.7));
+			TitanRockEntity r = TitanRockEntity.create(level, TitanRockEntity.KIND_CHUNK, TitanBoulders.debrisState(ground, rnd), s, at,
+					lob(at, to, ticks, 0.06), 0.06f).thrownBy(player, form, (float) TitanMove.ROCK_SCATTER.damage(), 1.2, volley).maxAge(50);
+			if (TitanBoulders.spawn(level, r)) {
+				n++;
 			}
-			level.playSound(null, from.x, from.y, from.z, SoundEvents.STONE_BREAK, SoundSource.HOSTILE, 3.0f, 0.5f);
-		});
+		}
+		TitanBoulders.fx(level, new BlockParticleOption(ParticleTypes.BLOCK, ground), from.x, from.y, from.z, 24, form.getBbWidth() * 0.3, 0.5,
+				form.getBbWidth() * 0.3, 0.25);
+		TitanBoulders.fx(level, ParticleTypes.CAMPFIRE_COSY_SMOKE, from.x, from.y, from.z, 3, form.getBbWidth() * 0.3, 0.4, form.getBbWidth() * 0.3,
+				0.02);
+		level.playSound(null, from.x, from.y, from.z, SoundEvents.GRAVEL_BREAK, SoundSource.HOSTILE, 3.0f, 0.5f + wave * 0.1f);
+		if (wave == 0) {
+			level.playSound(null, from.x, from.y, from.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 3.0f, 0.4f);
+		}
+		return n;
 	}
 
 	/** Where a throw lands: the crosshair's mob / block, or 40 blocks down the look. */
@@ -571,8 +721,9 @@ public final class TitanKit {
 	}
 
 	/**
-	 * Shift+X (signature): the Boulder Throw -- the Beast rips a boulder out of the ground (it appears in its right hand
-	 * at tick 6) and pitches it at the crosshair on tick 16: 45 in 4 blocks, shrapnel for half out to 8.
+	 * Shift+X (signature): the Boulder Throw -- the Beast rips a boulder out of the ground (it is in its right hand from
+	 * tick 6) and pitches it at the crosshair on tick 16: a cluster of stone blocks tumbling in an arc that bursts where it
+	 * lands -- 45 in 4 blocks, shrapnel for half out to 8, a ring of dust and real debris.
 	 */
 	public static void boulderThrow(ServerPlayer player) {
 		TitanFormEntity form = start(player, TitanMove.BOULDER_THROW, 1, 0);
@@ -582,29 +733,46 @@ public final class TitanKit {
 		form.lockFor(TitanMove.BOULDER_THROW.impactTick + 4);
 		form.schedule(6, () -> {
 			if (TitanAbilities.stillGood(form)) {
-				TitanBoulders.pickUp(form, player, 3.0f, (float) TitanMove.BOULDER_THROW.damage(), 4.0,
-						TitanMove.BOULDER_THROW.impactTick - 6, throwAim(form, player), 1.8);
+				TitanBoulders.pickUp(form, false, 6);
 			}
+		});
+		form.schedule(TitanMove.BOULDER_THROW.impactTick, () -> {
+			if (!TitanAbilities.stillGood(form)) {
+				form.setHoldingBoulder(false);
+				return;
+			}
+			TitanBoulders.throwBoulder(form, player, 4.0f, (float) TitanMove.BOULDER_THROW.damage(), 4.0, throwAim(form, player), 1.8,
+					TitanBoulders.releasePos(form), true);
 		});
 	}
 
-	/** Shift+Z: a volley of three smaller rocks fanned round the crosshair (20 each in 2.5 blocks, plus shrapnel). */
+	/** Shift+Z: a volley of three smaller boulders fanned round the crosshair (20 each in 2.5 blocks, plus shrapnel). */
 	public static void boulderVolley(ServerPlayer player) {
 		TitanFormEntity form = start(player, TitanMove.BOULDER_VOLLEY, 1, 0);
 		if (form == null) {
 			return;
 		}
-		form.lockFor(TitanMove.BOULDER_VOLLEY.impactTick + 4);
+		form.lockFor(TitanMove.BOULDER_VOLLEY.impactTick + 8);
 		form.schedule(4, () -> {
-			if (!TitanAbilities.stillGood(form)) {
-				return;
-			}
-			Vec3 aim = throwAim(form, player);
-			Vec3 side = Vec3.directionFromRotation(0, form.getYRot() + 90.0f);
-			for (int i = -1; i <= 1; i++) {
-				TitanBoulders.pickUp(form, player, 1.5f, (float) TitanMove.BOULDER_VOLLEY.damage(), 2.5,
-						TitanMove.BOULDER_VOLLEY.impactTick - 4 + (i + 1) * 2, aim.add(side.scale(i * 4.0)), 2.0);
+			if (TitanAbilities.stillGood(form)) {
+				TitanBoulders.pickUp(form, true, 4);
 			}
 		});
+		for (int i = -1; i <= 1; i++) {
+			int k = i;
+			form.schedule(TitanMove.BOULDER_VOLLEY.impactTick + (i + 1) * 2, () -> {
+				if (!TitanAbilities.stillGood(form)) {
+					form.setHoldingRocks(false);
+					return;
+				}
+				Vec3 aim = throwAim(form, player);
+				Vec3 side = Vec3.directionFromRotation(0, form.getYRot() + 90.0f);
+				// underarm from both hands: the outer rocks leave from either side
+				Vec3 from = TitanBoulders.releasePos(form).add(side.scale(-form.getBbWidth() * 0.22 + k * form.getBbWidth() * 0.22))
+						.add(0, -form.getBbHeight() * 0.06, 0);
+				TitanBoulders.throwBoulder(form, player, 2.2f, (float) TitanMove.BOULDER_VOLLEY.damage(), 2.5, aim.add(side.scale(k * 4.0)), 2.0,
+						from, k == 1);
+			});
+		}
 	}
 }

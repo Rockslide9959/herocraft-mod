@@ -19,7 +19,7 @@ import java.util.List;
  * Female     Jab combo / Round-   Axe Kick / Sweep Kick  Leap / CRYSTAL FISTS  Stomp / Scream       Roar / Nape   Regen / Hardening
  *            house
  * Beast      Swipe combo /        Heavy Smash / Rock     Leap / BOULDER THROW  Stomp / Boulder      Roar / Nape   Regen / Hardening
- *            Backhand             Scatter                                      Volley
+ *            Pitcher's Fastball   Scatter                                      Volley
  * Human      Titan Arm / Crystal  Steam Burst / Bite     Crystal Wall /        -                    -             -
  *            Blade                Shift                  Crystal Cocoon
  * </pre>
@@ -52,7 +52,8 @@ public enum TitanMove {
 	CRYSTAL_FISTS("crystal_fists", "crystal_fists", 600, 0, 6),
 	SCREAM("scream", "scream", 500, 0, 12),
 	// ---- Beast Titan ----
-	BACKHAND("backhand", "backhand", 60, 30, 8),
+	// v0.16.7 (user): Pitcher's Fastball replaced the Backhand on Shift+R -- 9 a stone, at most 3 stones on one target
+	FASTBALL("fastball", "fastball", 160, 9, 22),
 	ROCK_SCATTER("rock_scatter", "rock_scatter", 160, 18, 12),
 	BOULDER_THROW("boulder_throw", "boulder_throw", 200, 45, 16),
 	BOULDER_VOLLEY("boulder_volley", "boulder_volley", 280, 20, 14),
@@ -84,7 +85,7 @@ public enum TitanMove {
 	/** Every clip this revamp added to the Titan action controller (each Titan type's animation file must define them). */
 	public static final List<String> NEW_ANIMS = List.of("punch_left", "stumble", "nape_guard", "uppercut", "rage", "dropkick",
 			"elbow", "ground_pound", "shoulder_charge", "brace", "roundhouse", "axe_kick", "sweep_kick", "crystal_fists", "scream",
-			"backhand", "rock_scatter", "boulder_throw", "boulder_volley");
+			"fastball", "rock_scatter", "boulder_throw", "boulder_volley");
 
 	public String nameKey() {
 		return "projecthero.titan_shifter.ability." + id;
@@ -145,7 +146,7 @@ public enum TitanMove {
 			case 1 -> shift ? switch (type) {
 				case ARMORED_TITAN -> ELBOW;
 				case FEMALE_TITAN -> ROUNDHOUSE;
-				case BEAST_TITAN -> BACKHAND;
+				case BEAST_TITAN -> FASTBALL;
 				default -> KICK;
 			} : PUNCH;
 			case 2 -> switch (type) {

@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
  * selected on the power wheel. Every key has a tap and a Shift move; the table is {@link TitanMove#of}:
  *
  * <pre>
- *   R (1)  combo (Punch / Jab / Swipe)          Shift: Kick / Elbow / Roundhouse / Backhand
+ *   R (1)  combo (Punch / Jab / Swipe)          Shift: Kick / Elbow / Roundhouse / Pitcher's Fastball
  *   G (2)  Heavy Smash / Axe Kick                Shift: Uppercut / Ground Pound / Sweep Kick / Rock Scatter
  *   X (3)  Titan Leap                            Shift: the SIGNATURE -- Rage / Shoulder Charge / Crystal Fists / Boulder Throw
  *   Z (4)  Titan Stomp                           Shift: Dropkick / Brace / Scream / Boulder Volley
