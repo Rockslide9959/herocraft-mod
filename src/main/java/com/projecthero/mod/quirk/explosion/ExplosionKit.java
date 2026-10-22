@@ -12,14 +12,14 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.7: Explosion's six keys (Katsuki Bakugo / Ground Zero).
+ * v0.16.7 (revamp): Explosion's six keys (Katsuki Bakugo / Ground Zero). User rule: X is movement, V utility, the rest attack.
  * <pre>
- *   R  AP Shot             Shift+R  AP Shot Auto-Cannon
- *   G  Blast Punch         Shift+G  Explosion Uppercut
- *   X  Stun Grenade        Shift+X  Smoke Blast
- *   Z  Blast Rush (hold)   Shift+Z  Blast Dash
- *   V  Howitzer Impact     Shift+V  Max Shot
- *   C  Cluster             Shift+C  Explosive Counter
+ *   X  Explosion Propulsion (hold)   Shift+X  Explosion Dash
+ *   V  Stun Grenade                  Shift+V  Cool Off (works while strained)
+ *   R  AP Shot                       Shift+R  AP Shot: Auto-Cannon
+ *   G  Explosive Punch               Shift+G  Blast Rush
+ *   Z  Cluster                       Shift+Z  Howitzer Impact: Cluster
+ *   C  Howitzer Impact               Shift+C  Gauntlet Grenade
  * </pre>
  * The moves live in {@link ExplosionMoves}; every number is in {@link ExplosionConfig}.
  */
@@ -27,9 +27,9 @@ public final class ExplosionKit implements QuirkKit {
 	@Override
 	public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
 		if (!pressed) {
-			// Blast Rush is held: letting Z go ends it (whatever Shift says now)
-			if (slot == AbilitySlot.SLOT_4) {
-				ExplosionMoves.endRush(player);
+			// Propulsion is held: letting X go ends it (whatever Shift says now)
+			if (slot == AbilitySlot.SLOT_3) {
+				ExplosionMoves.endPropel(player);
 			}
 			return;
 		}
@@ -42,18 +42,18 @@ public final class ExplosionKit implements QuirkKit {
 			return;
 		}
 		switch (id) {
+			case ExplosionConfig.PROPULSION -> ExplosionMoves.startPropel(player);
+			case ExplosionConfig.DASH -> ExplosionMoves.blastDash(player);
+			case ExplosionConfig.STUN_GRENADE -> ExplosionMoves.stunGrenade(player);
+			case ExplosionConfig.COOL_OFF -> ExplosionMoves.coolOff(player);
 			case ExplosionConfig.AP_SHOT -> ExplosionMoves.apShot(player);
 			case ExplosionConfig.AUTO_CANNON -> ExplosionMoves.autoCannon(player);
-			case ExplosionConfig.BLAST_PUNCH -> ExplosionMoves.blastPunch(player);
-			case ExplosionConfig.UPPERCUT -> ExplosionMoves.uppercut(player);
-			case ExplosionConfig.STUN_GRENADE -> ExplosionMoves.stunGrenade(player);
-			case ExplosionConfig.SMOKE_BLAST -> ExplosionMoves.smokeBlast(player);
-			case ExplosionConfig.BLAST_RUSH -> ExplosionMoves.startRush(player);
-			case ExplosionConfig.BLAST_DASH -> ExplosionMoves.blastDash(player);
-			case ExplosionConfig.HOWITZER -> ExplosionMoves.howitzer(player);
-			case ExplosionConfig.MAX_SHOT -> ExplosionMoves.maxShot(player);
+			case ExplosionConfig.PUNCH -> ExplosionMoves.blastPunch(player);
+			case ExplosionConfig.BLAST_RUSH -> ExplosionMoves.blastRush(player);
 			case ExplosionConfig.CLUSTER -> ExplosionMoves.cluster(player);
-			case ExplosionConfig.COUNTER -> ExplosionMoves.counter(player);
+			case ExplosionConfig.HOWITZER_CLUSTER -> ExplosionMoves.howitzerCluster(player);
+			case ExplosionConfig.HOWITZER -> ExplosionMoves.howitzer(player);
+			case ExplosionConfig.GAUNTLET -> ExplosionMoves.gauntlet(player);
 			default -> {
 			}
 		}
@@ -72,6 +72,12 @@ public final class ExplosionKit implements QuirkKit {
 	@Override
 	public float modifyIncomingDamage(ServerPlayer player, DamageSource source, float amount) {
 		return Explosion.is(player) && ExplosionMoves.cancelsDamage(player, source) ? 0f : amount;
+	}
+
+	/** Cool Off dries the sweat even with strained arms. */
+	@Override
+	public boolean usableWhileOverloaded(AbilitySlot slot, boolean shift) {
+		return slot == AbilitySlot.SLOT_5 && shift;
 	}
 
 	@Override
@@ -93,10 +99,11 @@ public final class ExplosionKit implements QuirkKit {
 		long now = player.level().getGameTime();
 		return switch (slot) {
 			case SLOT_1 -> s.val(Explosion.V_AUTO) > now;
-			case SLOT_3 -> s.val(Explosion.V_SMOKE) > now;
-			case SLOT_4 -> s.val(Explosion.V_RUSH) != 0L;
-			case SLOT_5 -> s.val(Explosion.V_HOWITZER) > now || s.val(Explosion.V_MAX_SHOT) > now;
-			case SLOT_6 -> s.val(Explosion.V_COUNTER) > now;
+			case SLOT_2 -> s.val(Explosion.V_BLAST_RUSH) > now;
+			case SLOT_3 -> s.val(Explosion.V_PROPEL) != 0L;
+			case SLOT_4 -> s.val(Explosion.V_HOWITZER) > now && s.val(Explosion.V_HOWITZER_KIND) == 2L;
+			case SLOT_5 -> s.val(Explosion.V_COOL) > now;
+			case SLOT_6 -> (s.val(Explosion.V_HOWITZER) > now && s.val(Explosion.V_HOWITZER_KIND) == 1L) || s.val(Explosion.V_GAUNTLET) > now;
 			default -> false;
 		};
 	}
@@ -105,11 +112,11 @@ public final class ExplosionKit implements QuirkKit {
 	public String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
 			case SLOT_1 -> new String[] { ExplosionConfig.AP_SHOT, ExplosionConfig.AUTO_CANNON };
-			case SLOT_2 -> new String[] { ExplosionConfig.BLAST_PUNCH, ExplosionConfig.UPPERCUT };
-			case SLOT_3 -> new String[] { ExplosionConfig.STUN_GRENADE, ExplosionConfig.SMOKE_BLAST };
-			case SLOT_4 -> new String[] { ExplosionConfig.BLAST_RUSH, ExplosionConfig.BLAST_DASH };
-			case SLOT_5 -> new String[] { ExplosionConfig.HOWITZER, ExplosionConfig.MAX_SHOT };
-			case SLOT_6 -> new String[] { ExplosionConfig.CLUSTER, ExplosionConfig.COUNTER };
+			case SLOT_2 -> new String[] { ExplosionConfig.PUNCH, ExplosionConfig.BLAST_RUSH };
+			case SLOT_3 -> new String[] { ExplosionConfig.PROPULSION, ExplosionConfig.DASH };
+			case SLOT_4 -> new String[] { ExplosionConfig.CLUSTER, ExplosionConfig.HOWITZER_CLUSTER };
+			case SLOT_5 -> new String[] { ExplosionConfig.STUN_GRENADE, ExplosionConfig.COOL_OFF };
+			case SLOT_6 -> new String[] { ExplosionConfig.HOWITZER, ExplosionConfig.GAUNTLET };
 			default -> new String[0];
 		};
 	}
@@ -117,18 +124,18 @@ public final class ExplosionKit implements QuirkKit {
 	@Override
 	public int maxCooldown(String abilityId) {
 		return switch (abilityId) {
+			case ExplosionConfig.PROPULSION -> ExplosionConfig.PROPEL_COOLDOWN;
+			case ExplosionConfig.DASH -> ExplosionConfig.DASH_COOLDOWN;
+			case ExplosionConfig.STUN_GRENADE -> ExplosionConfig.STUN_COOLDOWN;
+			case ExplosionConfig.COOL_OFF -> ExplosionConfig.COOL_COOLDOWN;
 			case ExplosionConfig.AP_SHOT -> ExplosionConfig.AP_COOLDOWN;
 			case ExplosionConfig.AUTO_CANNON -> ExplosionConfig.AUTO_COOLDOWN;
-			case ExplosionConfig.BLAST_PUNCH -> ExplosionConfig.PUNCH_COOLDOWN;
-			case ExplosionConfig.UPPERCUT -> ExplosionConfig.UPPERCUT_COOLDOWN;
-			case ExplosionConfig.STUN_GRENADE -> ExplosionConfig.STUN_COOLDOWN;
-			case ExplosionConfig.SMOKE_BLAST -> ExplosionConfig.SMOKE_COOLDOWN;
-			case ExplosionConfig.BLAST_RUSH -> ExplosionConfig.RUSH_COOLDOWN;
-			case ExplosionConfig.BLAST_DASH -> ExplosionConfig.DASH_COOLDOWN;
-			case ExplosionConfig.HOWITZER -> ExplosionConfig.HOWITZER_COOLDOWN;
-			case ExplosionConfig.MAX_SHOT -> ExplosionConfig.MAX_SHOT_COOLDOWN;
+			case ExplosionConfig.PUNCH -> ExplosionConfig.PUNCH_COOLDOWN;
+			case ExplosionConfig.BLAST_RUSH -> ExplosionConfig.BLAST_RUSH_COOLDOWN;
 			case ExplosionConfig.CLUSTER -> ExplosionConfig.CLUSTER_COOLDOWN;
-			case ExplosionConfig.COUNTER -> ExplosionConfig.COUNTER_COOLDOWN;
+			case ExplosionConfig.HOWITZER_CLUSTER -> ExplosionConfig.HCLUSTER_COOLDOWN;
+			case ExplosionConfig.HOWITZER -> ExplosionConfig.HOWITZER_COOLDOWN;
+			case ExplosionConfig.GAUNTLET -> ExplosionConfig.GAUNTLET_COOLDOWN;
 			default -> 0;
 		};
 	}

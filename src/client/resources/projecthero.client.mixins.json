@@ -22,6 +22,7 @@
 		"MinecraftHulkMindMusicMixin",
 		"GantryFovMixin",
 		"QuirkEngineFovMixin",
+		"QuirkBodyTurnMixin",
 		"IronManRemovalParticleMixin",
 		"FirstPersonBodyLevelMixin",
 		"FirstPersonBodyHeadMixin",
