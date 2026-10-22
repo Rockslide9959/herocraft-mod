@@ -297,7 +297,10 @@ public final class IronManHud {
 		statusBlock(g, font, player, state, suit, now, minimalHud, integrity, maxIntegrity, offline);
 
 		// ---- the target scanner (Mark II+, visor closed): v0.16.7 (user) holographic reticle + threat card
-		if (!minimalHud && visorClosed && !MoveListOverlay.held()) { // the Left-Alt move list takes the space while held
+		boolean hbBlind = com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id())
+				&& com.projecthero.mod.ironman.HulkbusterParts.broken(com.projecthero.mod.ironman.HulkbusterParts.of(player)[0]);
+		// v0.16.7 (user): a Hulkbuster with its head broken has no targeting HUD
+		if (!minimalHud && visorClosed && !hbBlind && !MoveListOverlay.held()) { // the Left-Alt move list takes the space while held
 			com.projecthero.mod.client.ironman.IronManTargetScanner.renderPanel(g, font, player, suit, delta.getGameTimeDeltaPartialTick(false));
 		}
 
@@ -441,7 +444,12 @@ public final class IronManHud {
 		float dcx = px + IronManUiLayout.STATUS_DIAL / 2f;
 		float dcy = rowTop + dialH / 2f;
 		dial(g, dcx, dcy, iFrac, iFill, reactor ? eFrac : -1f, eFill, line, lineDim);
-		silhouette(g, Math.round(dcx) - 5, Math.round(dcy) - 10, iFrac, now, retro);
+		if (com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suit.id())) {
+			// v0.16.7 (user) Veronica: the Hulkbuster's six parts, each coloured by its own health (broken = red, crossed)
+			hulkbusterSilhouette(g, Math.round(dcx) - 6, Math.round(dcy) - 11, com.projecthero.mod.ironman.HulkbusterParts.of(player), now);
+		} else {
+			silhouette(g, Math.round(dcx) - 5, Math.round(dcy) - 10, iFrac, now, retro);
+		}
 
 		// the gauges
 		int gx = px + IronManUiLayout.STATUS_DIAL + 6;
@@ -571,6 +579,48 @@ public final class IronManHud {
 		// the eye slit and the arc reactor
 		g.fill(x + 4, y + 2, x + 6, y + 3, retro ? IronManGui.AMBER : 0xFFFFFFFF);
 		g.fill(x + 4, y + 7, x + 6, y + 9, retro ? IronManGui.AMBER : 0xFFE6FBFF);
+	}
+
+	/**
+	 * v0.16.7 (user) Hulkbuster Veronica: a 12 x 22 px wireframe of the Hulkbuster -- head, torso, both arms, both legs --
+	 * each part filled by its own health (holo blue whole, orange damaged, red badly), a broken part dark red with a
+	 * blinking red cross.
+	 */
+	private static void hulkbusterSilhouette(GuiGraphics g, int x, int y, float[] eff, long now) {
+		// {x, y, w, h} per part, in HulkbusterParts order (the suit faces you: its left arm is on screen right)
+		int[][] box = {
+				{ 4, 0, 4, 4 },    // head
+				{ 3, 5, 6, 8 },    // torso
+				{ 10, 5, 2, 8 },   // left arm
+				{ 0, 5, 2, 8 },    // right arm
+				{ 6, 14, 2, 8 },   // left leg
+				{ 4, 14, 2, 8 } }; // right leg
+		boolean blink = (now % 16) < 9;
+		for (int i = 0; i < box.length; i++) {
+			int[] b = box[i];
+			float hp = 1f - eff[i];
+			boolean broken = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[i]);
+			int c = broken ? 0xFF701010 : hp > 0.66f ? HOLO : hp > 0.33f ? IronManGui.ORANGE : IronManGui.RED;
+			g.fill(x + b[0], y + b[1], x + b[0] + b[2], y + b[1] + b[3], IronManGui.alpha(c, broken ? 0.9f : 0.45f));
+			g.renderOutline(x + b[0], y + b[1], b[2], b[3], IronManGui.alpha(broken ? (blink ? IronManGui.RED : 0xFFFF9090) : c, 0.95f));
+			if (broken && blink) {
+				// a small red cross over the part
+				int cx = x + b[0] + b[2] / 2, cy = y + b[1] + b[3] / 2;
+				for (int k = -1; k <= 1; k++) {
+					g.fill(cx + k, cy + k, cx + k + 1, cy + k + 1, 0xFFFF3030);
+					g.fill(cx + k, cy - k, cx + k + 1, cy - k + 1, 0xFFFF3030);
+				}
+			}
+		}
+		// the eye slit and the reactor (dark when that part is gone)
+		boolean head = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[0]);
+		boolean torso = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[1]);
+		if (!head) {
+			g.fill(x + 5, y + 2, x + 7, y + 3, 0xFFFFFFFF);
+		}
+		if (!torso) {
+			g.fill(x + 5, y + 7, x + 7, y + 9, 0xFFE6FBFF);
+		}
 	}
 
 	private static String pctText(float frac) {
@@ -922,6 +972,16 @@ public final class IronManHud {
 			g.drawString(font, s, r.x() + (r.w() - font.width(s)) / 2, r.y() + 7, 0xFFFFFFFF, true);
 		} else if (offline) {
 			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0x90200000);
+		}
+		// v0.16.7 (user) Veronica: a move a broken Hulkbuster part has taken offline -- greyed, with a red cross
+		if (com.projecthero.mod.ironman.HulkbusterParts.SUIT_ID.equals(suitId) && com.projecthero.mod.ironman.HulkbusterParts
+				.blockedBy(shown.id(), com.projecthero.mod.ironman.HulkbusterParts.of(player)) != null) {
+			g.fill(r.x() + 1, r.y() + 1, r.right() - 1, r.bottom() - 1, 0xB0303030);
+			int cx = r.x() + r.w() / 2, cy = r.y() + 11, s = 6;
+			for (int k = -s; k <= s; k++) {
+				g.fill(cx + k, cy + k, cx + k + 2, cy + k + 2, 0xFFFF3A3A);
+				g.fill(cx + k, cy - k - 1, cx + k + 2, cy - k + 1, 0xFFFF3A3A);
+			}
 		}
 		// the other variant's cooldown: a thin bar along the top edge (red while it cools down)
 		if (otherLeft > 0) {

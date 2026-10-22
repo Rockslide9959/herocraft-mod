@@ -38,6 +38,9 @@ public final class IronManHulkbusterAnimatable implements GeoReplacedEntity {
 	private static final RawAnimation WALK = RawAnimation.begin().thenLoop(P + "walk");
 	private static final RawAnimation RUN = RawAnimation.begin().thenLoop(P + "run");
 	private static final RawAnimation HOVER = RawAnimation.begin().thenLoop(P + "jet_hover");
+	/** v0.16.7 (user) Veronica: a broken leg drags (the left / right one). */
+	static final RawAnimation LIMP_L = RawAnimation.begin().thenLoop(P + "limp_l");
+	static final RawAnimation LIMP_R = RawAnimation.begin().thenLoop(P + "limp_r");
 	private static final RawAnimation JUMP = RawAnimation.begin().thenPlayAndHold(P + "jump");
 	private static final RawAnimation LAND = RawAnimation.begin().thenPlay(P + "land");
 	/** The land clip's length after its 4-tick transition (16 in the timing table). */
@@ -117,9 +120,23 @@ public final class IronManHulkbusterAnimatable implements GeoReplacedEntity {
 			return state.setAndContinue(JUMP);
 		}
 		if (state.getLimbSwingAmount() > 0.05f) {
+			RawAnimation limp = limp(HulkbusterVeronicaClient.damageOf(player));
+			if (limp != null) {
+				return state.setAndContinue(limp);
+			}
 			return state.setAndContinue(player.isSprinting() ? RUN : WALK);
 		}
 		return state.setAndContinue(IDLE);
+	}
+
+	/** v0.16.7 (user): the limp for a broken leg (the worse one when both are gone), or null. */
+	static RawAnimation limp(float[] eff) {
+		if (eff == null) {
+			return null;
+		}
+		boolean l = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[com.projecthero.mod.ironman.HulkbusterParts.LLEG]);
+		boolean r = com.projecthero.mod.ironman.HulkbusterParts.broken(eff[com.projecthero.mod.ironman.HulkbusterParts.RLEG]);
+		return l ? LIMP_L : r ? LIMP_R : null;
 	}
 
 	@Override

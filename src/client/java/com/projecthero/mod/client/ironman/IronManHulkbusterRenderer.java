@@ -17,13 +17,31 @@ import software.bernie.geckolib.renderer.layer.AutoGlowingGeoLayer;
  * the body is modelled at its true size (v0.16.7: a Steve player model x1.5, 3 blocks at model scale 1), so that scale is divided back out here.
  * The glowmask (eyes, reactor, palms, thrusters) is drawn full-bright by the auto-glow layer.
  */
-public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer, IronManHulkbusterAnimatable> {
+public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer, IronManHulkbusterAnimatable>
+		implements HulkbusterPartRender.View {
 	private static IronManHulkbusterRenderer instance;
 
 	public IronManHulkbusterRenderer(EntityRendererProvider.Context context) {
 		super(context, new IronManHulkbusterModel<>(), IronManHulkbusterAnimatable.INSTANCE);
 		this.shadowRadius = 1.0f;
 		addRenderLayer(new AutoGlowingGeoLayer<>(this));
+		addRenderLayer(new HulkbusterPartRender.Layer<>(this, this)); // v0.16.7 (user): each part at its own damage
+	}
+
+	/** v0.16.7 (user) Veronica: this frame's per-part tiers / the parts there at all (the mid-air build). */
+	private int[] partTiers;
+	private int visibleParts = HulkbusterPartRender.ALL;
+	/** v0.16.7 (user): parts the next draw must leave out (the first-person build view hides the head / torso). */
+	public static int hideNext;
+
+	@Override
+	public int[] partTiers() {
+		return partTiers;
+	}
+
+	@Override
+	public int visibleParts() {
+		return visibleParts;
 	}
 
 	public static void rebuild(EntityRendererProvider.Context context) {
@@ -62,6 +80,22 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 			for (software.bernie.geckolib.cache.object.GeoBone bone : model.topLevelBones()) {
 				showAll(bone);
 			}
+			// v0.16.7 (user) Veronica: broken / damaged parts are drawn by the part layer; a build shows what has arrived
+			partTiers = null;
+			visibleParts = HulkbusterPartRender.ALL;
+			if (currentEntity != null) {
+				if (IronManHulkbusterAnimatable.active(currentEntity)) {
+					partTiers = HulkbusterPartRender.tiers(com.projecthero.mod.ironman.HulkbusterParts.of(currentEntity));
+				} else {
+					HulkbusterVeronicaClient.BuildPose b = HulkbusterVeronicaClient.buildPose(currentEntity, partialTick);
+					visibleParts = b == null ? HulkbusterPartRender.ALL : b.visible;
+				}
+			}
+			visibleParts &= ~hideNext;
+			hideNext = 0;
+			if (partTiers != null || visibleParts != HulkbusterPartRender.ALL) {
+				HulkbusterPartRender.show(model, HulkbusterPartRender.baseMask(partTiers == null ? new int[6] : partTiers, visibleParts));
+			}
 		}
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
 	}
@@ -76,6 +110,10 @@ public class IronManHulkbusterRenderer extends GeoReplacedEntityRenderer<Abstrac
 			int slot = HulkbusterLocators.slotOf(bone);
 			if (slot >= 0) {
 				HulkbusterLocators.capture(currentEntity, slot, bone, poseStack, origin, frameTick);
+			}
+			int part = HulkbusterLocators.partSlotOf(bone);
+			if (part >= 0) {
+				HulkbusterLocators.capturePart(currentEntity, part, bone, poseStack, origin);
 			}
 		}
 		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight,

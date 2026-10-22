@@ -22,11 +22,49 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * v0.16.1: a Mark 8 standing in Sentry Mode is drawn as the Hulkbuster body (not the armour on a stand): back panels open
  * = {@code sentry_idle}, closing = {@code sentry_close}, otherwise flying / walking / idle like the worn body.
  */
-public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<IronManSentryEntity, IronManHulkbusterSentryRenderer.Body> {
+public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<IronManSentryEntity, IronManHulkbusterSentryRenderer.Body>
+		implements HulkbusterPartRender.View {
 	public IronManHulkbusterSentryRenderer(EntityRendererProvider.Context context) {
 		super(context, new IronManHulkbusterModel<>(), Body.INSTANCE);
 		this.shadowRadius = 1.0f;
 		addRenderLayer(new AutoGlowingGeoLayer<>(this));
+		addRenderLayer(new HulkbusterPartRender.Layer<>(this, this)); // v0.16.7 (user): each part at its own damage
+	}
+
+	private int[] partTiers;
+	private final org.joml.Matrix4f origin = new org.joml.Matrix4f();
+
+	@Override
+	public int[] partTiers() {
+		return partTiers;
+	}
+
+	@Override
+	public int visibleParts() {
+		return HulkbusterPartRender.ALL;
+	}
+
+	@Override
+	public void render(IronManSentryEntity entity, float entityYaw, float partialTick, com.mojang.blaze3d.vertex.PoseStack poseStack,
+			net.minecraft.client.renderer.MultiBufferSource bufferSource, int packedLight) {
+		origin.set(poseStack.last().pose());
+		super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
+	}
+
+	/** v0.16.7 (user) Veronica: where each part is (the Replacement Pod's plates fly there, sparks / smoke). */
+	@Override
+	public void renderRecursively(com.mojang.blaze3d.vertex.PoseStack poseStack, Body animatable,
+			software.bernie.geckolib.cache.object.GeoBone bone, net.minecraft.client.renderer.RenderType renderType,
+			net.minecraft.client.renderer.MultiBufferSource bufferSource, com.mojang.blaze3d.vertex.VertexConsumer buffer, boolean isReRender,
+			float partialTick, int packedLight, int packedOverlay, int colour) {
+		if (!isReRender && currentEntity != null) {
+			int part = HulkbusterLocators.partSlotOf(bone);
+			if (part >= 0) {
+				HulkbusterLocators.capturePart(currentEntity, part, bone, poseStack, origin);
+			}
+		}
+		super.renderRecursively(poseStack, animatable, bone, renderType, bufferSource, buffer, isReRender, partialTick, packedLight,
+				packedOverlay, colour);
 	}
 
 	@Override
@@ -36,6 +74,11 @@ public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<I
 		if (!isReRender) {
 			for (software.bernie.geckolib.cache.object.GeoBone bone : model.topLevelBones()) {
 				IronManHulkbusterRenderer.showAll(bone);
+			}
+			float[] eff = currentEntity == null ? null : HulkbusterVeronicaClient.damageOf(currentEntity);
+			partTiers = eff == null ? null : HulkbusterPartRender.tiers(eff);
+			if (partTiers != null) {
+				HulkbusterPartRender.show(model, HulkbusterPartRender.baseMask(partTiers, HulkbusterPartRender.ALL));
 			}
 		}
 		super.preRender(poseStack, animatable, model, bufferSource, buffer, isReRender, partialTick, packedLight, packedOverlay, colour);
@@ -93,7 +136,8 @@ public class IronManHulkbusterSentryRenderer extends GeoReplacedEntityRenderer<I
 				return state.setAndContinue(HOVER);
 			}
 			if (s.getDeltaMovement().horizontalDistanceSqr() > 0.0004) {
-				return state.setAndContinue(WALK);
+				RawAnimation limp = IronManHulkbusterAnimatable.limp(HulkbusterVeronicaClient.damageOf(s));
+				return state.setAndContinue(limp != null ? limp : WALK);
 			}
 			return state.setAndContinue(IDLE);
 		}
