@@ -1,5 +1,6 @@
 package com.projecthero.mod.client.quirk.hellflame;
 
+import com.projecthero.mod.client.HipBend;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.hellflame.Hellflame;
@@ -11,54 +12,150 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.16.7: Endeavor's poses on the vanilla humanoid model, set at the end of {@code setupAnim}, from the synced
- * {@code animId / animStart} (ids 20..39) and his running moves, so every viewer sees the same. Negative {@code xRot}
- * swings a limb forward / up; positive {@code zRot} lifts the right arm out to the side (the left mirrors).
- * <ul>
- *   <li><b>held</b>: the beam (right arm locked along the look, the left gripping the forearm), the jets (arms angled
- *       down and back like rudders, legs together, leaning into the flight), the Prominence charge (a low, flexed
- *       crouch), the Flashfire dash (the fist driven forward);</li>
- *   <li><b>Hell Spider</b>: the open hand swept across; <b>Spider Net</b>: both hands thrown forward then apart;
- *       <b>Jet Burn</b>: a palm thrust; <b>Burst Dodge</b>: arms flung back; <b>Uppercut</b>: the fist from the hip to
- *       the sky; <b>Prominence Burn</b>: arms flung wide and up; <b>Sun</b>: the right arm raised; <b>Cloak</b>: a flex;
- *       <b>Vent</b>: arms out level, head back; <b>Overheat</b>: bent over, hands on knees.</li>
- * </ul>
+ * v0.16.7 revamp: Endeavor's poses on the vanilla humanoid model, set at the end of {@code setupAnim}.
+ *
+ * <p><b>Keyframed moves</b> (the One For All format): each is a list of frames {@code {tick, rightArmX, rightArmY, rightArmZ,
+ * leftArmX, leftArmY, leftArmZ, bodyX, bodyY, rightLegX, leftLegX, headX}} in radians, smoothstep-interpolated, faded in over
+ * 2 ticks and out over the last 3, driven by the synced {@code animId / animStart} so every viewer sees the same. Negative
+ * arm X swings a limb forward / up; a positive right-arm Z lifts it out to his side; a negative right-arm Y swings it out to
+ * his right. The torso bends from the hips ({@link HipBend}).
+ *
+ * <p><b>Held poses</b> from his running moves: the jets of Fire Jet Flight (arms angled down and back like rudders, legs
+ * together, leaning into the flight; a hover keeps him upright, palms down), the Prominence charge (the right fist drawn
+ * back at the hip, the left arm out sighting along the target, a braced stance, shaking as it fills), the beam (the right
+ * arm locked along the look, the left hand gripping the forearm, legs braced wide) and the Jet Burn dash.
  */
 public final class HellflamePose {
+	private static final float[][] JET = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, 0.75f, 0.1f, 0.3f, -0.9f, 0.3f, -0.15f, 0.12f, 0.55f, 0.3f, -0.35f, 0 },
+			{ 5, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, -0.45f, 0.05f },
+			{ 10, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, -0.45f, 0.05f },
+			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] FLIGHT = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, 0.45f, 0, 0.45f, 0.45f, 0, -0.45f, 0.35f, 0, -0.55f, -0.55f, 0.15f },
+			{ 6, 0.6f, 0, 0.6f, 0.6f, 0, -0.6f, -0.12f, 0, 0.12f, 0.12f, -0.25f },
+			{ 10, 0.4f, 0, 0.4f, 0.4f, 0, -0.4f, 0, 0, 0, 0, 0 } };
+	private static final float[][] SPIDER = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 3, -1.45f, -0.85f, 0.15f, -0.35f, 0, -0.3f, 0.05f, -0.35f, 0.15f, -0.15f, 0 },
+			{ 6, -1.5f, 0.65f, 0, -0.35f, 0, -0.3f, 0.08f, 0.38f, 0.15f, -0.15f, 0 },
+			{ 11, -1.45f, 0.7f, 0, -0.35f, 0, -0.3f, 0.08f, 0.4f, 0.15f, -0.15f, 0 },
+			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] MESH = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -1.55f, 0.18f, 0, -1.55f, -0.18f, 0, 0.1f, 0, 0.2f, -0.2f, 0.05f },
+			{ 8, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, -0.2f, 0.1f },
+			{ 13, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, -0.2f, 0.1f },
+			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] WALL = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, -1.3f, 0.95f, 0, -0.4f, 0, -0.3f, 0.12f, 0.45f, -0.2f, 0.2f, 0.1f },
+			{ 8, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, -0.35f, 0.15f },
+			{ 13, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, -0.35f, 0.15f },
+			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] CLOAK = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 5, -0.4f, 0.3f, 0.95f, -0.4f, -0.3f, -0.95f, 0.12f, 0, 0.1f, -0.1f, -0.2f },
+			{ 11, -0.45f, 0.3f, 1.05f, -0.45f, -0.3f, -1.05f, 0.15f, 0, 0.1f, -0.1f, -0.25f },
+			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] PILLAR = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 5, 0.35f, 0, 0.35f, -0.4f, 0, -0.4f, 0.4f, 0.2f, -0.3f, 0.3f, 0.25f },
+			{ 9, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, -0.2f, -0.45f },
+			{ 14, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, -0.2f, -0.45f },
+			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] VANISH = {
+			{ 0, 0.5f, 0, 0.45f, -1.0f, 0.45f, 0, 0.35f, 0.65f, 0.4f, -0.4f, 0.1f },
+			{ 3, 0.6f, 0, 0.5f, -1.05f, 0.45f, 0, 0.38f, 0.7f, 0.45f, -0.45f, 0.1f },
+			{ 5, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, -0.3f, 0 },
+			{ 10, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, -0.3f, 0 },
+			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] COOL = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 4, 0, 0, 1.45f, 0, 0, -1.45f, -0.15f, 0, 0.1f, -0.1f, -0.6f },
+			{ 16, -0.1f, 0, 1.4f, -0.1f, 0, -1.4f, -0.18f, 0, 0.1f, -0.1f, -0.65f },
+			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	private static final float[][] PLUS = {
+			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+			{ 6, 0.35f, 0.2f, 0.5f, 0.35f, -0.2f, -0.5f, 0.4f, 0, -0.25f, 0.25f, 0.3f },
+			{ 10, -0.45f, 0, 1.95f, -0.45f, 0, -1.95f, -0.22f, 0, 0.25f, -0.25f, -0.6f },
+			{ 24, -0.5f, 0, 2.0f, -0.5f, 0, -2.0f, -0.25f, 0, 0.25f, -0.25f, -0.65f },
+			{ 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+	/** Eight jabs, alternating fists, every 4 ticks (built in the static block). */
+	private static final float[][] BARRAGE;
+
+	static {
+		int jabs = 8;
+		float[][] f = new float[2 + jabs * 2 + 1][];
+		f[0] = new float[] { 0, -0.9f, 0, 0, -0.9f, 0, 0, 0.1f, 0, 0.25f, -0.25f, 0 };
+		int k = 1;
+		f[k++] = new float[] { 1, -0.9f, 0.2f, 0, -0.9f, -0.2f, 0, 0.15f, 0, 0.3f, -0.3f, 0 };
+		for (int j = 0; j < jabs; j++) {
+			boolean right = j % 2 == 0;
+			float t = 1 + j * 4;
+			// out: the jabbing arm straight along the look, the body turned into it
+			f[k++] = new float[] { t + 1.5f, right ? -1.62f : -0.75f, right ? -0.05f : 0.25f, 0, right ? -0.75f : -1.62f, right ? -0.25f : 0.05f, 0,
+					0.18f, right ? -0.3f : 0.3f, 0.3f, -0.3f, 0 };
+			// back to the guard
+			f[k++] = new float[] { t + 3.5f, -0.95f, 0.2f, 0, -0.95f, -0.2f, 0, 0.15f, 0, 0.3f, -0.3f, 0 };
+		}
+		f[k] = new float[] { 1 + jabs * 4 + 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		BARRAGE = f;
+	}
+
 	private HellflamePose() {
 	}
 
-	public static int length(int animId) {
+	static float[][] frames(int animId) {
 		return switch (animId) {
-			case Hellflame.ANIM_SPIDER -> 12;
-			case Hellflame.ANIM_NET -> 16;
-			case Hellflame.ANIM_JET -> 10;
-			case Hellflame.ANIM_BEAM -> 6;
-			case Hellflame.ANIM_BOOST -> 8;
-			case Hellflame.ANIM_DODGE -> 12;
-			case Hellflame.ANIM_FIST -> 14;
-			case Hellflame.ANIM_UPPERCUT -> 14;
-			case Hellflame.ANIM_CHARGE -> 6;
-			case Hellflame.ANIM_PROMINENCE -> 22;
-			case Hellflame.ANIM_SUN -> 20;
-			case Hellflame.ANIM_CLOAK -> 14;
-			case Hellflame.ANIM_VENT -> 20;
-			case Hellflame.ANIM_OVERHEAT -> 40;
-			default -> 0;
+			case Hellflame.ANIM_JET -> JET;
+			case Hellflame.ANIM_FLIGHT -> FLIGHT;
+			case Hellflame.ANIM_SPIDER -> SPIDER;
+			case Hellflame.ANIM_MESH -> MESH;
+			case Hellflame.ANIM_WALL -> WALL;
+			case Hellflame.ANIM_CLOAK -> CLOAK;
+			case Hellflame.ANIM_BARRAGE -> BARRAGE;
+			case Hellflame.ANIM_PILLAR -> PILLAR;
+			case Hellflame.ANIM_VANISH -> VANISH;
+			case Hellflame.ANIM_COOL -> COOL;
+			case Hellflame.ANIM_PLUS -> PLUS;
+			default -> null;
 		};
 	}
 
-	/** The playing pose and how far into it ({@code [animId, age]}), or null. */
-	public static float[] playing(Player player, float partial) {
-		QuirkState s = Quirks.peek(player);
-		if (s == null || s.animId < 20 || s.animId > 39 || player.level() == null) {
+	/** The pose's length in ticks (0: none). */
+	public static int length(int animId) {
+		if (animId == Hellflame.ANIM_OVERHEAT) {
+			return 40;
+		}
+		float[][] f = frames(animId);
+		return f == null ? 0 : (int) f[f.length - 1][0];
+	}
+
+	/** Pose values at {@code tick} (fractional) of {@code f}, or null past the end. */
+	static float[] sample(float[][] f, float tick) {
+		if (tick < 0f || tick > f[f.length - 1][0]) {
 			return null;
 		}
-		float age = player.level().getGameTime() - s.animStart + partial;
-		if (age < 0f || age >= length(s.animId)) {
-			return null;
+		if (tick <= f[0][0]) {
+			return f[0];
 		}
-		return new float[] { s.animId, age };
+		for (int i = 1; i < f.length; i++) {
+			if (tick <= f[i][0]) {
+				float[] a = f[i - 1];
+				float[] b = f[i];
+				float t = (tick - a[0]) / Math.max(1e-4f, b[0] - a[0]);
+				t = t * t * (3f - 2f * t);
+				float[] out = new float[12];
+				for (int k = 1; k < 12; k++) {
+					out[k] = Mth.lerp(t, a[k], b[k]);
+				}
+				return out;
+			}
+		}
+		return null;
 	}
 
 	public static void apply(Player player, HumanoidModel<?> model) {
@@ -68,176 +165,116 @@ public final class HellflamePose {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float ageTicks = player.tickCount + partial;
 		ModelPart r = model.rightArm, l = model.leftArm;
+		QuirkState s = Quirks.peek(player);
+		boolean keyframed = false;
+		float animAge = 0f;
+		int animId = s == null ? 0 : s.animId;
+		if (s != null && animId >= 20 && animId <= 39 && player.level() != null) {
+			animAge = player.level().getGameTime() - s.animStart + partial;
+			keyframed = animAge >= 0f && animAge < length(animId);
+		}
 
-		// the jets: arms down and back, legs together, leaning into the way he flies
-		if (Hellflame.boosting(player) && !player.onGround()) {
+		// ---- held poses
+		if (Hellflame.flying(player) && !player.onGround()) {
 			float speed = (float) Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
 			float lean = Mth.clamp(speed * 1.4f, 0f, 1.0f);
-			model.body.xRot = Mth.lerp(0.8f, model.body.xRot, 0.15f + 0.5f * lean);
-			pose(r, 1f, 0.35f + 0.4f * lean, 0f, 0.35f);
-			pose(l, 1f, 0.35f + 0.4f * lean, 0f, -0.35f);
 			float sw = Mth.sin(ageTicks * 0.3f) * 0.05f;
+			HipBend.pitch(model, 0.8f, 0.12f + 0.5f * lean);
+			// hovering: palms angled down at his sides; flying: swept back like rudders
+			pose(r, 1f, 0.25f + 0.5f * lean + sw, 0f, 0.45f - 0.1f * lean);
+			pose(l, 1f, 0.25f + 0.5f * lean - sw, 0f, -0.45f + 0.1f * lean);
 			model.rightLeg.xRot = 0.1f + 0.35f * lean + sw;
 			model.leftLeg.xRot = 0.05f + 0.35f * lean - sw;
 			model.rightLeg.yRot = 0f;
 			model.leftLeg.yRot = 0f;
-			model.rightLeg.z += 2.5f * lean;
-			model.leftLeg.z += 2.5f * lean;
-			model.rightLeg.y -= 1.0f * lean;
-			model.leftLeg.y -= 1.0f * lean;
+			model.rightLeg.zRot = 0.05f * (1f - lean);
+			model.leftLeg.zRot = -0.05f * (1f - lean);
 			model.head.xRot = Mth.lerp(lean * 0.6f, model.head.xRot, -0.6f);
 		}
-		// the Prominence charge: a low, flexed crouch, fists balled at the sides
 		if (Hellflame.charging(player)) {
 			float c = Hellflame.charge(player, partial);
-			float shake = c >= 1f ? Mth.sin(ageTicks * 2.6f) * 0.04f : 0f;
-			model.body.xRot = Mth.lerp(0.8f, model.body.xRot, 0.25f);
-			pose(r, 1f, -0.5f + shake, 0.2f, 0.75f + 0.15f * c);
-			pose(l, 1f, -0.5f - shake, -0.2f, -0.75f - 0.15f * c);
-			model.rightLeg.xRot = -0.3f;
-			model.leftLeg.xRot = -0.3f;
-			model.rightLeg.zRot = 0.18f;
-			model.leftLeg.zRot = -0.18f;
-			model.rightLeg.z += 1.5f;
-			model.leftLeg.z += 1.5f;
-			model.head.xRot = Mth.lerp(0.5f, model.head.xRot, 0.15f);
+			float shake = c > 0.6f ? Mth.sin(ageTicks * 2.6f) * 0.05f * c : 0f;
+			HipBend.pitch(model, 0.8f, 0.18f);
+			model.body.yRot = Mth.lerp(0.8f, model.body.yRot, 0.55f * c + 0.15f);
+			// the right fist drawn back at the hip, the left arm out sighting along the target
+			pose(r, 1f, 0.75f + 0.25f * c + shake, 0.25f, 0.35f);
+			pose(l, 1f, -1.45f + model.head.xRot, model.head.yRot + 0.25f, 0f);
+			model.rightLeg.xRot = 0.45f;
+			model.leftLeg.xRot = -0.45f;
+			model.head.xRot = Mth.lerp(0.4f, model.head.xRot, model.head.xRot + 0.05f);
 		}
-		// the beam: right arm locked along the look, the left hand gripping the forearm
 		if (Hellflame.beaming(player)) {
-			pose(r, 1f, -1.5708f + model.head.xRot, model.head.yRot, 0f);
-			pose(l, 1f, -1.35f + model.head.xRot, model.head.yRot + 0.65f, 0f);
-			model.body.yRot = Mth.lerp(0.5f, model.body.yRot, -0.15f);
+			float kick = Mth.sin(ageTicks * 1.7f) * 0.025f;
+			HipBend.pitch(model, 0.8f, 0.14f);
+			pose(r, 1f, -1.5708f + model.head.xRot + kick, model.head.yRot, 0f);
+			pose(l, 1f, -1.3f + model.head.xRot - kick, model.head.yRot + 0.7f, 0f);
+			model.body.yRot = Mth.lerp(0.6f, model.body.yRot, -0.2f);
+			model.rightLeg.xRot = 0.5f;
+			model.leftLeg.xRot = -0.5f;
+			model.rightLeg.zRot = 0.08f;
+			model.leftLeg.zRot = -0.08f;
 		}
-		// the Flashfire dash: the fist driven forward, the body behind it
-		if (Hellflame.dashing(player)) {
+		if (Hellflame.dashing(player) && !keyframed) {
 			pose(r, 1f, -1.6f + model.head.xRot, -0.1f, 0f);
 			pose(l, 1f, 0.6f, 0f, -0.25f);
-			model.body.xRot = Mth.lerp(0.8f, model.body.xRot, 0.3f);
+			HipBend.pitch(model, 0.8f, 0.3f);
 			model.body.yRot = -0.25f;
 			model.rightLeg.xRot = 0.6f;
 			model.leftLeg.xRot = -0.4f;
 		}
 
-		float[] p = playing(player, partial);
-		if (p == null) {
+		if (!keyframed) {
 			model.hat.copyFrom(model.head);
 			return;
 		}
-		int id = (int) p[0];
-		float age = p[1];
-		int len = length(id);
-		float w = Math.min(1f, age / 2f) * Math.min(1f, (len - age) / 3f);
-		switch (id) {
-			case Hellflame.ANIM_SPIDER -> {
-				// the open hand swept across: from the left shoulder out to the right
-				float t = ease(Mth.clamp((age - 1f) / 5f, 0f, 1f));
-				pose(r, w, -1.5f + model.head.xRot * 0.5f, Mth.lerp(t, 0.7f, -0.6f), 0f);
-				pose(l, w, -0.4f, 0f, -0.3f);
-				model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, 0.35f, -0.3f));
-			}
-			case Hellflame.ANIM_NET -> {
-				// both hands thrown forward, then spread wide (the web opens)
-				float t = ease(Mth.clamp((age - 4f) / 5f, 0f, 1f));
-				pose(r, w, -1.5f, Mth.lerp(t, 0.15f, -0.7f), 0f);
-				pose(l, w, -1.5f, Mth.lerp(t, -0.15f, 0.7f), 0f);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, 0.1f);
-			}
-			case Hellflame.ANIM_JET -> {
-				// a palm thrust, the other hand back for balance
-				float t = ease(Mth.clamp(age / 3f, 0f, 1f));
-				pose(r, w, Mth.lerp(t, -0.8f, -1.6f) + model.head.xRot, -0.05f, 0f);
-				pose(l, w, 0.5f, 0f, -0.3f);
-				model.body.yRot = Mth.lerp(w, model.body.yRot, -0.3f * t);
-			}
-			case Hellflame.ANIM_BEAM -> pose(r, w, -1.2f, 0f, 0f);
-			case Hellflame.ANIM_BOOST -> {
-				// the lift-off: knees bent, arms driving down
-				float t = Mth.clamp(age / 4f, 0f, 1f);
-				pose(r, w, 0.3f, 0f, 0.5f * t);
-				pose(l, w, 0.3f, 0f, -0.5f * t);
-				model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, -0.4f * (1f - t));
-				model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, -0.4f * (1f - t));
-			}
-			case Hellflame.ANIM_DODGE -> {
-				// thrown by the blast: arms flung back, legs trailing
-				pose(r, w, 0.9f, 0f, 0.6f);
-				pose(l, w, 0.9f, 0f, -0.6f);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, -0.25f);
-				model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, -0.5f);
-				model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, 0.3f);
-			}
-			case Hellflame.ANIM_FIST -> {
-				// wound back, then the straight right
-				float t = ease(Mth.clamp((age - 1f) / 3f, 0f, 1f));
-				pose(r, w, Mth.lerp(t, 0.6f, -1.65f) + model.head.xRot * t, -0.1f, Mth.lerp(t, 0.3f, 0f));
-				pose(l, w, Mth.lerp(t, -0.9f, 0.5f), 0.2f, -0.2f);
-				model.body.yRot = Mth.lerp(w, model.body.yRot, Mth.lerp(t, 0.5f, -0.35f));
-			}
-			case Hellflame.ANIM_UPPERCUT -> {
-				// low at the hip, then up to the sky
-				float t = ease(Mth.clamp((age - 2f) / 4f, 0f, 1f));
-				pose(r, w, Mth.lerp(t, 0.5f, -2.9f), 0f, Mth.lerp(t, 0.25f, 0.05f));
-				pose(l, w, -0.5f, 0f, -0.35f);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, Mth.lerp(t, 0.35f, -0.15f));
-				model.head.xRot = Mth.lerp(w, model.head.xRot, Mth.lerp(t, 0.2f, -0.45f));
-			}
-			case Hellflame.ANIM_PROMINENCE -> {
-				// the release: arms flung wide and up, head back
-				float t = ease(Mth.clamp(age / 4f, 0f, 1f));
-				pose(r, w, Mth.lerp(t, -0.4f, -0.2f), 0f, Mth.lerp(t, 0.5f, 2.1f));
-				pose(l, w, Mth.lerp(t, -0.4f, -0.2f), 0f, Mth.lerp(t, -0.5f, -2.1f));
-				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.55f * t);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, -0.12f * t);
-				model.rightLeg.zRot = 0.2f * w;
-				model.leftLeg.zRot = -0.2f * w;
-			}
-			case Hellflame.ANIM_SUN -> {
-				// the right arm thrust up at the sky, palm open
-				float t = ease(Mth.clamp(age / 5f, 0f, 1f));
-				pose(r, w, -2.9f * t, 0f, 0.15f);
-				pose(l, w, -0.3f, 0f, -0.4f);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.5f);
-			}
-			case Hellflame.ANIM_CLOAK -> {
-				// a flex: the flames roar up
-				float t = Mth.sin(Mth.clamp(age / 10f, 0f, 1f) * (float) Math.PI);
-				pose(r, w, -0.35f, 0.3f, 0.6f + 0.3f * t);
-				pose(l, w, -0.35f, -0.3f, -0.6f - 0.3f * t);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, 0.1f * t);
-			}
-			case Hellflame.ANIM_VENT -> {
-				// arms out level, chest open, head thrown back
-				float t = ease(Mth.clamp(age / 3f, 0f, 1f));
-				pose(r, w, 0f, 0f, 1.45f * t);
-				pose(l, w, 0f, 0f, -1.45f * t);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.6f * t);
-				model.body.xRot = Mth.lerp(w, model.body.xRot, -0.15f * t);
-			}
-			case Hellflame.ANIM_OVERHEAT -> {
-				// spent: bent over, hands on the knees, breathing hard
-				float breath = Mth.sin(age * 0.5f) * 0.04f;
-				model.body.xRot = Mth.lerp(w, model.body.xRot, 0.55f + breath);
-				pose(r, w, -0.85f, 0f, 0.1f);
-				pose(l, w, -0.85f, 0f, -0.1f);
-				model.head.xRot = Mth.lerp(w, model.head.xRot, -0.2f);
-				if (!player.isCrouching()) {
-					// the vanilla crouch's offsets, so the bent body stays joined up
-					model.rightLeg.z += 4.0f * w;
-					model.leftLeg.z += 4.0f * w;
-					model.head.y += 4.2f * w;
-					model.body.y += 3.2f * w;
-					model.rightArm.y += 3.2f * w;
-					model.leftArm.y += 3.2f * w;
-				}
-			}
-			default -> {
-			}
+		int len = length(animId);
+		float w = Math.max(0f, Math.min(1f, Math.min(animAge / 2f, (len - animAge) / 3f)));
+		if (animId == Hellflame.ANIM_VANISH) {
+			w = Math.max(0f, Math.min(1f, (len - animAge) / 3f)); // he appears already coiled: no fade in
+		}
+		if (animId == Hellflame.ANIM_OVERHEAT) {
+			overheat(player, model, w, animAge);
+			model.hat.copyFrom(model.head);
+			return;
+		}
+		float[] p = sample(frames(animId), animAge);
+		if (p != null) {
+			// the aimed moves follow the look up and down
+			float aim = switch (animId) {
+				case Hellflame.ANIM_JET, Hellflame.ANIM_SPIDER, Hellflame.ANIM_MESH, Hellflame.ANIM_BARRAGE, Hellflame.ANIM_VANISH -> model.head.xRot * 0.6f;
+				default -> 0f;
+			};
+			r.xRot = Mth.lerp(w, r.xRot, p[1] + (p[1] < -1.0f ? aim : 0f));
+			r.yRot = Mth.lerp(w, r.yRot, p[2]);
+			r.zRot = Mth.lerp(w, r.zRot, p[3]);
+			l.xRot = Mth.lerp(w, l.xRot, p[4] + (p[4] < -1.0f ? aim : 0f));
+			l.yRot = Mth.lerp(w, l.yRot, p[5]);
+			l.zRot = Mth.lerp(w, l.zRot, p[6]);
+			HipBend.pitch(model, w, p[7]);
+			model.body.yRot = Mth.lerp(w, model.body.yRot, p[8]);
+			model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, p[9]);
+			model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, p[10]);
+			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[11]);
 		}
 		model.hat.copyFrom(model.head);
 	}
 
-	private static float ease(float t) {
-		return t * t * (3f - 2f * t);
+	/** Spent: bent over, hands on the knees, breathing hard. */
+	private static void overheat(Player player, HumanoidModel<?> model, float w, float age) {
+		float breath = Mth.sin(age * 0.5f) * 0.04f;
+		model.body.xRot = Mth.lerp(w, model.body.xRot, 0.55f + breath);
+		pose(model.rightArm, w, -0.85f, 0f, 0.1f);
+		pose(model.leftArm, w, -0.85f, 0f, -0.1f);
+		model.head.xRot = Mth.lerp(w, model.head.xRot, -0.2f);
+		if (!player.isCrouching()) {
+			// the vanilla crouch's offsets, so the bent body stays joined up
+			model.rightLeg.z += 4.0f * w;
+			model.leftLeg.z += 4.0f * w;
+			model.head.y += 4.2f * w;
+			model.body.y += 3.2f * w;
+			model.rightArm.y += 3.2f * w;
+			model.leftArm.y += 3.2f * w;
+		}
 	}
 
 	private static void pose(ModelPart part, float w, float x, float y, float z) {

@@ -49,19 +49,24 @@ a mode ability", and "for engine using v to shift up and down gears makes more s
 
 ## Hellflame (Enji Todoroki, Endeavor): fire, held back by body heat
 - **Body heat** is the meter. Big moves raise it; at 100 you overheat, losing fire moves and taking damage until you cool.
-- **Fire jets:**
-  - **R** is **Flashfire Fist: Jet Burn**, a fire-boosted punch dash.
-  - **Shift+R** is **Fire Jet Flight**, a sustained flame-propelled hover/flight.
-- **Hell Spider (G):** five thin cutting fire strings sweep out from the fingers.
-- **Hell Spider: Mesh (Shift+G):** a fire-string net that traps and burns.
-- **Flashfire Fist: Prominence Burn (V):** a huge sustained fire beam that ramps body heat fast.
-- **Vanishing Fist (Shift+V):** a flame decoy, then a blink-strike from behind.
-- **Fire Wall (X):** a wall of fire.
-- **Flame Cloak (Shift+X):** a burning aura that damages anything nearby.
+- Slot rule (user, later in v0.16.7, for every Quirk): **X = movement**, **V = utility / mode**, R / G / Z / C = attacks.
+- **Hell Spider (R):** five thin cutting fire strings sweep out from the fingers.
+- **Hell Spider: Mesh (Shift+R):** a fire-string net that traps and burns.
+- **Flashfire Fist: Prominence Burn (G, hold):** a huge sustained fire beam that ramps body heat fast.
+- **Vanishing Fist (Shift+G):** a flame decoy, then a blink-strike from behind.
+- **Fire Jet Flight (X, hold):** a sustained flame-propelled hover/flight (the movement key).
+- **Flashfire Fist: Jet Burn (Shift+X):** a fire-boosted punch dash (works in flight).
 - **Hellflame Barrage (Z):** rapid fire jabs.
 - **Fire Pillar (Shift+Z):** a pillar of fire under a target.
-- **Cool down (C):** vent body heat.
-- **Plus Ultra: Full Power (Shift+C):** for 15 s all fire moves are doubled; afterwards heat is pinned at max.
+- **Cool down (V):** vent body heat (works while overheated; the utility key).
+- **Plus Ultra: Full Power (Shift+V):** for 15 s all fire moves are doubled; afterwards heat is pinned at max.
+- **Fire Wall (C):** a wall of fire.
+- **Flame Cloak (Shift+C):** a burning aura that damages anything nearby.
+- As built: Body Heat numbers live in `config/projecthero_quirk_hellflame.json` (VersionedConfig v1). Overheat drains to 40
+  over 6 s while he burns (1/s; fire damage, so Fire Resistance helps); ordinary fire never hurts him otherwise (lava does).
+  Plus Ultra = double damage, 1.4x size, half cooldowns, no Heat; burnout = 10 s pinned at 100 with every key locked
+  (even Cool Down). Fire blocks (Fire Wall, Pillar ring, beam impact) are temporary (GeoTerrain ledger), need the
+  terrain-damage config + `mobGriefing`, sit on solid ground and are never lit within 2 blocks of anything flammable.
 
 ## Overhaul (Kai Chisaki): disassemble and reassemble by touch
 As built (v0.16.7). Slot rule: X = movement, V = mode / utility, the rest attacks.
@@ -165,19 +170,22 @@ Built version. User rule: X = movement, V = utility, and every other key is an a
 
 ## Zero Gravity (Ochaco Uraraka, Uravity): touch to float, release to drop
 - **Nausea** is the meter. Floating your own body and heavy loads fill it fast; at the top you're sick (Nausea, no moves).
-- **Zero Gravity Touch (R):** touch a mob, an item or a block, and it floats.
-- **Release (Shift+R):** fingertips together; everything you floated drops, taking fall damage from the height.
-- **Float Self (G):** toggle. You drift and glide with low gravity, filling nausea.
-- **Gunhead Martial Arts (Shift+G):** a grapple-throw combo.
-- **Meteor Shower (X):** float a field of rubble, ripped-up blocks, then Release rains it on a target area. Her
-  Sports Festival finisher.
-- **Debris Shield (Shift+X):** orbiting floated blocks that block projectiles.
-- **Comet Toss (Z):** throw a floated thing hard.
-- **Zero Gravity Slam (Shift+Z):** float a mob up and release it at height.
-- **Catch (V):** float anyone falling nearby (rescue), preventing fall damage.
-- **Zero Gravity Field (Shift+V):** a short area where everything floats.
-- **Settle (C):** vent nausea slowly while grounded.
-- **Shift+C:** release everything at once safely, with no fall damage.
+- Slot rule (user, later in v0.16.7, for every Quirk): **X = movement**, **V = utility**, R / G / Z / C = attacks. Touch /
+  Release read best as the utility pair (they set up and finish every other move), so they moved to V.
+- **Meteor Shower (R):** float a field of rubble, ripped-up blocks, into a cloud overhead; Release (Shift+V, or R again)
+  rains it on the area she aims at. Her Sports Festival finisher.
+- **Debris Shield (Shift+R):** orbiting floated blocks that block projectiles.
+- **Comet Toss (G):** throw a floated thing hard.
+- **Zero Gravity Slam (Shift+G):** float a mob up and release it at height.
+- **Float Self (X):** toggle. You drift and glide with low gravity, filling nausea (the movement key).
+- **Zero-G Leap (Shift+X):** a huge, nearly weightless leap; no fall damage.
+- **Gunhead Martial Arts (Z):** a grapple-throw combo.
+- **Zero Gravity Field (Shift+Z):** a short area where everything floats.
+- **Zero Gravity Touch (V):** touch a mob, an item or a block, and it floats (the utility key).
+- **Release (Shift+V):** fingertips together; everything you floated drops, taking fall damage from the height.
+- **Catch (C):** float anyone falling nearby (rescue), preventing fall damage.
+- **Settle (Shift+C):** release everything at once safely, with no fall damage, then vent nausea while grounded. Works while
+  sick. (The doc's separate "Shift+C safe release" and "Settle" are one move: twelve slots, thirteen ideas.)
 
 ## Build notes
 - Keep each Quirk's package, id, serum and saves. Migrate old configs through the VersionedConfig.

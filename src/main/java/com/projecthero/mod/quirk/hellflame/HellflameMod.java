@@ -18,6 +18,7 @@ public final class HellflameMod {
 	}
 
 	public static void initialize() {
+		HellflameConfig.load(); // v0.16.7 revamp: config/projecthero_quirk_hellflame.json (Body Heat)
 		HellflameParticles.register();
 		QuirkKits.register(Quirk.HELLFLAME, new HellflameKit());
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {

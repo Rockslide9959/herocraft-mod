@@ -21,6 +21,7 @@ public final class ZeroGravityMod {
 	}
 
 	public static void initialize() {
+		ZeroGravityConfig.load(); // v0.16.7 revamp: config/projecthero_quirk_zero_gravity.json (Nausea)
 		QuirkKits.register(Quirk.ZERO_GRAVITY, new ZeroGravityKit());
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			ZeroGravityFloat.cleanup(entity);
