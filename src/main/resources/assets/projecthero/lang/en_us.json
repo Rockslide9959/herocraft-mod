@@ -2377,6 +2377,7 @@
   "projecthero.guide.iron_man.comic.mk6_blade_whirl": "lunge, then two spinning blade slashes round you (16 each, 4.5 blocks); deploys the blades if they are in",
   "projecthero.guide.iron_man.comic.mk7_singularity": "pitch a gravity grenade: it drags enemies within 7 blocks into its core, then implodes for 22",
   "projecthero.guide.iron_man.comic.mk9_molten_lash": "crack a whip of molten alloy across the front: 22 + fire in a 7-block arc, enemies yanked toward you",
+  "projecthero.guide.iron_man.comic.mk8_replacement_pod": "a pod flies in (3 s) and hovers 10 blocks up; replacement plates fly down and weld onto each damaged part (8 s) until the suit is whole. Sneak + right-click a wrecked Hulkbuster to call it there",
   "projecthero.guide.iron_man.comic.mk8_palm_cannon": "both palms fire one heavy blast each (22, + a 3-block splash of 10)",
   "projecthero.guide.iron_man.comic.mk8_hydraulic_brace": "tap: brace (70% less damage, 5 s); hold 1 s: Sentry Mode (step out of the suit)",
   "projecthero.guide.iron_man.comic.mk6_energy_shield": "tap: Energy Shield (80% less damage, 6 s); hold 1 s: Overload Burst (30 in 8 blocks)",

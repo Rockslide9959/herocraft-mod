@@ -129,6 +129,9 @@ The Hulkbuster is a 3-block GeckoLib body, so it does not use the clock / texel 
 own synced clock (phase + start tick), drawn by `client/ironman/HulkbusterCrateRenderer` (pure pose functions on the
 entity: `wallOpen`, `lidOpen`, `height`, `floor`, `squash`).
 
+* **v0.16.7 (user) Veronica overhaul:** the Uplink is now SINGLE USE and the suit flies home to its Suit Platform after
+  a fold / recall; per-part damage, the Replacement Pod, the inner suit and the mid-air build -- see
+  `HULKBUSTER_V0167.md`. The two bullets below describe the earlier behaviour.
 * **Where the suit lives:** in orbit = inside the **Hulkbuster Uplink** item (`SuitcaseContents`, integrity stamped). While
   the suit is down the uplink stays in the inventory, emptied; the next fold refills it. A never-used uplink is a fresh suit.
 * **C:** the crate drops where you look (5-40 blocks out; open sky over the centre and corners, room for it, `mayBuild` /

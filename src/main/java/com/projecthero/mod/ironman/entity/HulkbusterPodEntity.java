@@ -313,7 +313,8 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 		Vec3 call = target.position();
 		Vec3 anchor = call.add(0, HOVER_UP, 0);
 		double a = owner.getRandom().nextDouble() * Math.PI * 2;
-		Vec3 from = anchor.add(Math.cos(a) * 18, SKY_UP, Math.sin(a) * 18);
+		// mostly straight down out of the sky (a short slant: it stays over chunks that tick)
+		Vec3 from = anchor.add(Math.cos(a) * 4, SKY_UP, Math.sin(a) * 4);
 		pod.entityData.set(MODE, (byte) MODE_REPAIR);
 		pod.entityData.set(TARGET, target.getId());
 		pod.entityData.set(ANCHOR, new Vector3f((float) anchor.x, (float) anchor.y, (float) anchor.z));
@@ -349,7 +350,7 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 		Vec3 back = Vec3.directionFromRotation(0f, yaw).scale(-BUILD_BACK);
 		Vec3 hold = p.position();
 		Vec3 anchor = hold.add(back).add(0, BUILD_UP, 0);
-		Vec3 from = anchor.add(back.scale(6)).add(0, SKY_UP, 0);
+		Vec3 from = anchor.add(back.scale(1.5)).add(0, SKY_UP, 0);
 		pod.entityData.set(MODE, (byte) MODE_BUILD);
 		pod.entityData.set(TARGET, p.getId());
 		pod.entityData.set(ANCHOR, new Vector3f((float) anchor.x, (float) anchor.y, (float) anchor.z));
@@ -568,6 +569,9 @@ public class HulkbusterPodEntity extends Entity implements GeoEntity {
 		}
 		// anywhere on the server (a portal mid-build finishes it where they went; a logout finishes it first, completeFor)
 		ServerPlayer p = ownerId == null ? null : level.getServer().getPlayerList().getPlayer(ownerId);
+		if (p == null) {
+			p = owner(level);
+		}
 		if (p != null && p.isAlive() && p.level() != level) {
 			finishBuild(level, p);
 			return;
