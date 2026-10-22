@@ -158,6 +158,7 @@
       "com.projecthero.mod.gametest.CryokinesisV0165GameTests",
       "com.projecthero.mod.gametest.GeokinesisV0165GameTests",
       "com.projecthero.mod.gametest.AllMightRevampGameTests",
+      "com.projecthero.mod.gametest.OneForAllStrainGameTests",
       "com.projecthero.mod.gametest.WindV0165GameTests",
       "com.projecthero.mod.gametest.LaserBeamVisibilityGameTests",
       "com.projecthero.mod.gametest.SuperStrengthV0145GameTests",

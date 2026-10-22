@@ -99,7 +99,7 @@ public final class PowerInfoScreen extends Screen {
 		// v0.16.7: a Quirk holder -- the Quirk, its meter and its 12 moves (R / G / X / Z / V / C and the Shift versions)
 		com.projecthero.mod.quirk.Quirk quirk = Minecraft.getInstance().player == null ? null
 				: com.projecthero.mod.quirk.Quirks.quirk(Minecraft.getInstance().player);
-		if (quirk != null) {
+		if (quirk != null && !quirk.standalone) { // v0.16.7: One For All shows its own (All Might) chapter below
 			quirkBody(quirk, wrapW);
 			return;
 		}

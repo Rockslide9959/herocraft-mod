@@ -32,6 +32,10 @@ import net.minecraft.util.Mth;
  * </pre>
  * Hold Left-Alt for the move names ({@link MoveListOverlay}: plain and Shift per key). Also, for EVERY player (any
  * power): the big red ERASED banner while the local player is Erased ({@link PowerSuppression#isSuppressed}).
+ *
+ * <p>v0.16.7: a kit may draw its own status block instead of the meter row ({@link QuirkClientKit#drawStatus}: One For All's
+ * Output / limit gauge and limbs), and the keys read the kit's own cooldowns, locks and move names
+ * ({@link QuirkKit#cooldownLeft}, {@link QuirkKit#keyLocked}, {@link QuirkKit#abilityLangKey}); a locked key is crossed out.
  */
 public final class QuirkHud {
 	private static final int BOX = 20;
@@ -86,7 +90,34 @@ public final class QuirkHud {
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int y0 = g.guiHeight() - MARGIN - BOX;
 
-		// the meter: label, bar, value
+		// v0.16.7: a kit's own status block (One For All) in place of the meter row
+		QuirkClientKit clientKit = QuirkClient.kitFor(q);
+		int custom = clientKit == null ? -1 : clientKit.drawStatus(g, mc.player, x0, y0 - 3, totalW);
+		int ty;
+		if (custom >= 0) {
+			ty = custom - 11;
+		} else {
+			ty = drawMeter(g, mc, q, x0, y0, totalW, overloaded, erased, now);
+		}
+		g.drawString(mc.font, Quirks.quirkName(q), x0, ty, erased ? HINT : NAME, false);
+
+		// the overload line
+		int hudTop = ty;
+		if (overloaded) {
+			Component note = Component.translatable("hud.projecthero.quirk.overloaded", (Quirks.overloadLeft(mc.player) + 19) / 20);
+			List<FormattedCharSequence> lines = mc.font.split(note, totalW);
+			int ny = ty - 2 - lines.size() * 9;
+			hudTop = ny;
+			for (FormattedCharSequence line : lines) {
+				g.drawString(mc.font, line, x0, ny, OVERLOAD, false);
+				ny += 9;
+			}
+		}
+		drawKeys(g, mc, q, kit, x0, y0, totalW, hudTop, overloaded, erased, shift);
+	}
+
+	/** The generic meter row (label, bar, value) above the keys; returns the y of the Quirk's name line. */
+	private static int drawMeter(GuiGraphics g, Minecraft mc, Quirk q, int x0, int y0, int totalW, boolean overloaded, boolean erased, long now) {
 		float meter = Mth.clamp(Quirks.clientMeter(mc.player), 0f, 100f);
 		int by = y0 - 4 - BAR_H;
 		Component label = Component.translatable("projecthero.quirk.meter." + q.meterId);
@@ -112,24 +143,12 @@ public final class QuirkHud {
 			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
 		}
 		g.drawString(mc.font, value, x0 + totalW - mc.font.width(value), by - 2, erased ? HINT : NAME, false);
+		return by - 13;
+	}
 
-		// the Quirk's name
-		int ty = by - 13;
-		g.drawString(mc.font, Quirks.quirkName(q), x0, ty, erased ? HINT : NAME, false);
-
-		// the overload line
-		int hudTop = ty;
-		if (overloaded) {
-			Component note = Component.translatable("hud.projecthero.quirk.overloaded", (Quirks.overloadLeft(mc.player) + 19) / 20);
-			List<FormattedCharSequence> lines = mc.font.split(note, totalW);
-			int ny = ty - 2 - lines.size() * 9;
-			hudTop = ny;
-			for (FormattedCharSequence line : lines) {
-				g.drawString(mc.font, line, x0, ny, OVERLOAD, false);
-				ny += 9;
-			}
-		}
-
+	/** The Left-Alt move list and the six keys. */
+	private static void drawKeys(GuiGraphics g, Minecraft mc, Quirk q, QuirkKit kit, int x0, int y0, int totalW, int hudTop, boolean overloaded,
+			boolean erased, boolean shift) {
 		// Left-Alt: the shared move list (plain and Shift per key), stacked above the whole HUD
 		if (MoveListOverlay.held()) {
 			List<MoveListOverlay.Row> rows = new ArrayList<>();
@@ -139,8 +158,8 @@ public final class QuirkHud {
 					continue;
 				}
 				rows.add(MoveListOverlay.Row.of(keyLabel(slot),
-						Component.translatable("projecthero.quirk.ability." + ids[0]),
-						ids.length > 1 ? Component.translatable("projecthero.quirk.ability." + ids[1]) : null));
+						Component.translatable(kit.abilityLangKey(ids[0])),
+						ids.length > 1 ? Component.translatable(kit.abilityLangKey(ids[1])) : null));
 			}
 			if (!rows.isEmpty()) {
 				MoveListOverlay.draw(g, x0 + totalW, hudTop, rows);
@@ -153,9 +172,10 @@ public final class QuirkHud {
 			int x = x0 + i * (BOX + GAP);
 			String[] ids = kit.idsOf(slot);
 			String id = ids.length == 0 ? null : ids[Math.min(ids.length - 1, shift ? 1 : 0)];
-			int cd = id == null ? 0 : Quirks.cooldownRemaining(mc.player, id);
+			int cd = id == null ? 0 : kit.cooldownLeft(mc.player, id);
 			int max = id == null ? 1 : Math.max(1, kit.maxCooldown(id));
-			boolean usable = !erased && id != null && (!overloaded || kit.usableWhileOverloaded(slot, shift));
+			boolean locked = id != null && kit.keyLocked(mc.player, slot, shift);
+			boolean usable = !erased && id != null && !locked && (!overloaded || kit.usableWhileOverloaded(slot, shift));
 			boolean active = !erased && kit.active(mc.player, slot);
 			g.fill(x, y0, x + BOX, y0 + BOX, usable ? BOX_BG : BOX_BG_DIM);
 			g.renderOutline(x, y0, BOX, BOX, active ? (q.meterColour | 0xFF000000) : BORDER);
@@ -168,6 +188,10 @@ public final class QuirkHud {
 				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			}
+			if (locked && !erased && cd <= 0 && isInjuryLock(mc.player, q)) {
+				// v0.16.7: a broken limb -- a red cross over the key
+				g.drawCenteredString(mc.font, "x", x + BOX / 2, y0 + BOX / 2 - 4, OVERLOAD);
 			}
 			if (erased) {
 				// a red slash through every key
@@ -210,6 +234,11 @@ public final class QuirkHud {
 			g.drawCenteredString(mc.font, line, w / 2, sy, 0xFFF0B0B0);
 			sy += 10;
 		}
+	}
+
+	/** The lock is an injury, not just the Base Form (only One For All locks keys). */
+	private static boolean isInjuryLock(net.minecraft.world.entity.player.Player player, Quirk q) {
+		return q == Quirk.ONE_FOR_ALL && com.projecthero.mod.allmight.AllMight.isFullPower(player);
 	}
 
 	private static String keyLabel(AbilitySlot slot) {

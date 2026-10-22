@@ -75,16 +75,24 @@ public final class Quirks {
 		save(player, n);
 	}
 
-	/** Client-safe: holds any Quirk. */
+	/** Client-safe: holds any Quirk (v0.16.7: One For All counts -- read from its own All Might state). */
 	public static boolean hasPower(Player player) {
-		QuirkState s = peek(player);
-		return s != null && s.hasPower && Quirk.byId(s.quirk) != null;
+		return quirk(player) != null;
 	}
 
-	/** Client-safe: which Quirk (null without the power). */
+	/**
+	 * Client-safe: which Quirk (null without the power). The seven kit Quirks live in {@link QuirkState}; v0.16.7: One For All is
+	 * held when the All Might state says so (so every existing holder, old saves included, is a Quirk holder with no migration).
+	 */
 	public static @Nullable Quirk quirk(Player player) {
 		QuirkState s = peek(player);
-		return s == null || !s.hasPower ? null : Quirk.byId(s.quirk);
+		if (s != null && s.hasPower) {
+			Quirk q = Quirk.byId(s.quirk);
+			if (q != null && !q.standalone) {
+				return q;
+			}
+		}
+		return com.projecthero.mod.allmight.AllMight.hasPower(player) ? Quirk.ONE_FOR_ALL : null;
 	}
 
 	/** Client-safe: holds this particular Quirk. */
@@ -236,6 +244,10 @@ public final class Quirks {
 
 	/** A serum / the calling / the command. False if refused (already holds this Quirk, UniquePowers). */
 	public static boolean grant(ServerPlayer player, Quirk quirk) {
+		if (quirk.standalone) {
+			// v0.16.7: One For All -- the All Might grant (Base Form, H to power up; claims the Primary slot itself)
+			return com.projecthero.mod.allmight.AllMight.grant(player);
+		}
 		QuirkState s = state(player);
 		if (s.hasPower && quirk.id.equals(s.quirk)) {
 			return false;
@@ -259,6 +271,10 @@ public final class Quirks {
 	}
 
 	public static void revoke(ServerPlayer player) {
+		if (com.projecthero.mod.allmight.AllMight.hasPower(player) && !(peek(player) != null && peek(player).hasPower)) {
+			com.projecthero.mod.allmight.AllMight.revoke(player); // v0.16.7: One For All
+			return;
+		}
 		QuirkState s = state(player);
 		if (s.hasPower) {
 			QuirkKits.of(Quirk.byId(s.quirk)).stopAll(player);

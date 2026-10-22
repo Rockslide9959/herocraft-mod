@@ -130,10 +130,40 @@ public final class AllMightAbilities {
 		return begin(p, id, cooldown, lockTicks, anim, true);
 	}
 
+	/** Returned by {@link #beginSmash} when the move did not start. */
+	private static final float REFUSED = -1f;
+
 	/**
-	 * v0.16.6: nothing costs anything any more ({@code cost} is ignored); a {@code smash} is refused while his arms have given out
-	 * (the recoil). The Leap is the only move that is not a Smash.
+	 * v0.16.7: the gate for a Smash. Refused (with a message) while the limb that throws it is broken; otherwise {@link #begin}, then
+	 * {@link AllMightStrain#cast} -- the mastery gain and the strain past the limit -- and returns the damage multiplier the move
+	 * lands with (Output x its limb's factor), or {@link #REFUSED}.
 	 */
+	private static float beginSmash(ServerPlayer p, String id, int cooldown, int lockTicks, int anim) {
+		if (refusedByInjury(p, id)) {
+			return REFUSED;
+		}
+		if (!begin(p, id, cooldown, lockTicks, anim, true)) {
+			return REFUSED;
+		}
+		return AllMightStrain.cast(p, id, AllMight.outputPct(p));
+	}
+
+	/** v0.16.7: the move's limb is broken -- say which and how far it has to mend. */
+	private static boolean refusedByInjury(ServerPlayer p, String id) {
+		AllMightState s = AllMight.state(p);
+		if (!s.hasPower || !s.fullPower) {
+			return false;
+		}
+		AllMightState.Limb limb = AllMightStrain.brokenLimbFor(s, id);
+		if (limb == null) {
+			return false;
+		}
+		AllMight.say(p, "message.projecthero.all_might.limb_refused." + limb.id, ChatFormatting.RED,
+				Math.round(s.limb(limb)), Math.round(AllMightConfig.LIMB_MENDED));
+		return true;
+	}
+
+	/** v0.16.6: nothing costs anything any more ({@code cost} is ignored). v0.16.7: the injury check lives in {@link #beginSmash}. */
 	private static boolean begin(ServerPlayer p, String id, int cooldown, int lockTicks, int anim, boolean smash) {
 		AllMightState s = AllMight.state(p);
 		if (!s.hasPower || !s.fullPower || !p.isAlive() || p.isSpectator()) {
@@ -142,11 +172,6 @@ public final class AllMightAbilities {
 		long now = p.level().getGameTime();
 		if (now < s.busyUntil || now < s.transformUntil) {
 			return false; // mid-wind-up / mid-transformation: silently ignored so a held key cannot stack abilities
-		}
-		if (smash && s.recoilUntil > now) {
-			AllMight.say(p, "message.projecthero.all_might.arms_out", ChatFormatting.RED,
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil((s.recoilUntil - now) / 20.0)));
-			return false;
 		}
 		Long ready = s.abilityReadyAt.get(id);
 		if (ready != null && now < ready) {
@@ -202,8 +227,8 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- R -- Detroit Smash
 
 	public static void detroit(ServerPlayer p) {
-		if (!begin(p, DETROIT, AllMightConfig.DETROIT_COST, AllMightConfig.DETROIT_COOLDOWN,
-				AllMightConfig.DETROIT_WINDUP + 6, AllMightState.ANIM_DETROIT)) {
+		float mult = beginSmash(p, DETROIT, AllMightConfig.DETROIT_COOLDOWN, AllMightConfig.DETROIT_WINDUP + 6, AllMightState.ANIM_DETROIT);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.0f, 0.7f);
@@ -216,7 +241,7 @@ public final class AllMightAbilities {
 			Vec3 origin = p.position();
 			Vec3 look = p.getLookAngle();
 			Vec3 fist = origin.add(0, 1.3, 0).add(flatLook(p).scale(2.4));
-			var wave = new AllMightShockwave.Wave(AllMightConfig.DETROIT_DAMAGE, AllMightConfig.DETROIT_KNOCKBACK, AllMightConfig.DETROIT_LIFT);
+			var wave = new AllMightShockwave.Wave(AllMightConfig.DETROIT_DAMAGE, AllMightConfig.DETROIT_KNOCKBACK, AllMightConfig.DETROIT_LIFT).mult(mult);
 			double size = AllMight.sizeScale(p);
 			int hits = AllMightShockwave.sweep(p, origin, look, 0.0, AllMightConfig.DETROIT_RANGE, AllMightConfig.DETROIT_WIDTH * size,
 					AllMightConfig.DETROIT_HEIGHT * size, wave);
@@ -236,8 +261,8 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- G -- Texas Smash
 
 	public static void texas(ServerPlayer p) {
-		if (!begin(p, TEXAS, AllMightConfig.TEXAS_COST, AllMightConfig.TEXAS_COOLDOWN,
-				AllMightConfig.TEXAS_WINDUP + 8, AllMightState.ANIM_TEXAS)) {
+		float mult = beginSmash(p, TEXAS, AllMightConfig.TEXAS_COOLDOWN, AllMightConfig.TEXAS_WINDUP + 8, AllMightState.ANIM_TEXAS);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.2f, 0.5f);
@@ -249,7 +274,7 @@ public final class AllMightAbilities {
 			p.swing(InteractionHand.MAIN_HAND, true);
 			Vec3 origin = p.position();
 			Vec3 look = p.getLookAngle();
-			var wave = new AllMightShockwave.Wave(AllMightConfig.TEXAS_DAMAGE, AllMightConfig.TEXAS_KNOCKBACK, AllMightConfig.TEXAS_LIFT);
+			var wave = new AllMightShockwave.Wave(AllMightConfig.TEXAS_DAMAGE, AllMightConfig.TEXAS_KNOCKBACK, AllMightConfig.TEXAS_LIFT).mult(mult);
 			level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.2f, 1.2f);
 			level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_STRONG, SoundSource.PLAYERS, 1.4f, 0.5f);
 			int steps = (int) Math.ceil(AllMightConfig.TEXAS_RANGE / AllMightConfig.TEXAS_WAVE_SPEED);
@@ -287,8 +312,9 @@ public final class AllMightAbilities {
 
 	public static void carolina(ServerPlayer p) {
 		int dashTicks = (int) Math.ceil(AllMightConfig.CAROLINA_DISTANCE / AllMightConfig.CAROLINA_SPEED);
-		if (!begin(p, CAROLINA, AllMightConfig.CAROLINA_COST, AllMightConfig.CAROLINA_COOLDOWN,
-				AllMightConfig.CAROLINA_WINDUP + dashTicks + 4, AllMightState.ANIM_CAROLINA)) {
+		float mult = beginSmash(p, CAROLINA, AllMightConfig.CAROLINA_COOLDOWN, AllMightConfig.CAROLINA_WINDUP + dashTicks + 4,
+				AllMightState.ANIM_CAROLINA);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.0f, 1.2f);
@@ -301,7 +327,7 @@ public final class AllMightAbilities {
 			long now = p.level().getGameTime();
 			grantNoFall(p);
 			MOVES.put(p.getUUID(), new Move(Kind.DASH, dir, now, now + dashTicks,
-					new AllMightShockwave.Wave(AllMightConfig.CAROLINA_DAMAGE, AllMightConfig.CAROLINA_KNOCKBACK, 0.3)));
+					new AllMightShockwave.Wave(AllMightConfig.CAROLINA_DAMAGE, AllMightConfig.CAROLINA_KNOCKBACK, 0.3).mult(mult)));
 			ServerLevel level = (ServerLevel) p.level();
 			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.9f, 1.6f);
 			AllMightShockwave.burst(level, ParticleTypes.CLOUD, p.position().add(0, 0.2, 0), 12, 0.5, 0.15);
@@ -311,8 +337,9 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- X -- New Hampshire Smash
 
 	public static void newHampshire(ServerPlayer p) {
-		if (!begin(p, NEW_HAMPSHIRE, AllMightConfig.NEW_HAMPSHIRE_COST, AllMightConfig.NEW_HAMPSHIRE_COOLDOWN,
-				AllMightConfig.NEW_HAMPSHIRE_WINDUP + 6, AllMightState.ANIM_NEW_HAMPSHIRE)) {
+		float mult = beginSmash(p, NEW_HAMPSHIRE, AllMightConfig.NEW_HAMPSHIRE_COOLDOWN, AllMightConfig.NEW_HAMPSHIRE_WINDUP + 6,
+				AllMightState.ANIM_NEW_HAMPSHIRE);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.1f, 0.6f);
@@ -327,14 +354,14 @@ public final class AllMightAbilities {
 			grantNoFall(p);
 			long now = level.getGameTime();
 			MOVES.put(p.getUUID(), new Move(Kind.AIR, flatLook(p), now, now + 120,
-					new AllMightShockwave.Wave(AllMightConfig.NEW_HAMPSHIRE_DAMAGE, AllMightConfig.NEW_HAMPSHIRE_KNOCKBACK, 0.5)));
+					new AllMightShockwave.Wave(AllMightConfig.NEW_HAMPSHIRE_DAMAGE, AllMightConfig.NEW_HAMPSHIRE_KNOCKBACK, 0.5).mult(mult)));
 			level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.0f, 1.1f);
 			AllMightShockwave.burst(level, ParticleTypes.EXPLOSION, p.position(), 1, 0.1, 0.0);
 			AllMightShockwave.ring(level, ParticleTypes.CLOUD, p.position().add(0, 0.2, 0), 2.0, 20);
 			// v0.12.44: a wide, tall forward air-pressure blast (own hit set, so the landing still hits everyone)
 			Vec3 look = p.getLookAngle();
 			Vec3 origin = p.position();
-			var blast = new AllMightShockwave.Wave(AllMightConfig.NEW_HAMPSHIRE_DAMAGE, AllMightConfig.NEW_HAMPSHIRE_KNOCKBACK, 0.5);
+			var blast = new AllMightShockwave.Wave(AllMightConfig.NEW_HAMPSHIRE_DAMAGE, AllMightConfig.NEW_HAMPSHIRE_KNOCKBACK, 0.5).mult(mult);
 			int steps = (int) Math.ceil(AllMightConfig.NEW_HAMPSHIRE_RANGE / 4.0);
 			for (int i = 0; i < steps; i++) {
 				final int step = i;
@@ -356,8 +383,9 @@ public final class AllMightAbilities {
 	// ---------------------------------------------------------------- C -- Plus Ultra
 
 	/**
-	 * C: Plus Ultra (v0.16.6) -- straight to 100% Output (a borrower: their 45% cap) for a fixed 22 s; Strain does not build while it
-	 * lasts, and is set to 75 when it ends. It cannot be switched off early; the 45 s cooldown starts when it ends. Locked in the recoil.
+	 * C: Plus Ultra -- v0.16.7: Output straight to 100% (a borrower: their 45% cap), PAST the safe limit, for a fixed 22 s: every Smash
+	 * thrown in it strains its limb, and Full Cowl itself strains every limb slowly. It cannot be switched off early; the 45 s cooldown
+	 * starts when it ends (Output drops back to the limit).
 	 */
 	public static void plusUltra(ServerPlayer p) {
 		AllMightState s = AllMight.state(p);
@@ -366,11 +394,6 @@ public final class AllMightAbilities {
 		}
 		long now = p.level().getGameTime();
 		ServerLevel level = (ServerLevel) p.level();
-		if (s.recoilUntil > now) {
-			AllMight.say(p, "message.projecthero.all_might.arms_out", ChatFormatting.RED,
-					String.format(java.util.Locale.ROOT, "%.0f", Math.ceil((s.recoilUntil - now) / 20.0)));
-			return;
-		}
 		Long ready = s.abilityReadyAt.get(PLUS_ULTRA);
 		if (ready != null && now < ready) {
 			AllMight.say(p, "message.projecthero.all_might.cooldown", ChatFormatting.RED,
@@ -381,8 +404,7 @@ public final class AllMightAbilities {
 			return;
 		}
 		AllMightState n = s.copy();
-		n.output = AllMight.outputCap(s);
-		n.outputProgress = 0f;
+		n.outputPct = AllMight.outputCap(s);
 		n.lastHitAt = now;
 		n.plusUltra = true;
 		n.plusUltraUntil = now + AllMightConfig.PLUS_ULTRA_DURATION_TICKS;
@@ -407,8 +429,9 @@ public final class AllMightAbilities {
 		}
 		int charge = AllMightConfig.UNITED_STATES_CHARGE_TICKS;
 		int total = charge + AllMightConfig.UNITED_STATES_SECONDARY_EXPAND_TICKS + 8;
-		// v0.12.38: nothing is spent and no cooldown starts until the punch is actually cast (begin with cost 0 / cooldown 0)
-		if (!begin(p, UNITED_STATES, 0f, 0, total, AllMightState.ANIM_UNITED_STATES)) {
+		// v0.12.38: nothing is spent and no cooldown starts until the punch is actually cast (begin with cost 0 / cooldown 0).
+		// v0.16.7: a broken right arm cannot throw it at all
+		if (refusedByInjury(p, UNITED_STATES) || !begin(p, UNITED_STATES, 0f, 0, total, AllMightState.ANIM_UNITED_STATES)) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) p.level();
@@ -482,6 +505,10 @@ public final class AllMightAbilities {
 		st.chargeStart = 0L;
 		AllMight.save(p, st);
 		grantNoFall(p);
+		// v0.16.7: the ultimate always fires at 100% Output (a borrower: 45%) -- past the limit it tears at his right arm
+		float ussOutput = Math.min(AllMightConfig.UNITED_STATES_OUTPUT, AllMight.outputCap(AllMight.state(p)));
+		float mult = AllMightStrain.cast(p, UNITED_STATES, ussOutput);
+		double ussSize = AllMight.sizeAt(ussOutput);
 		p.swing(InteractionHand.MAIN_HAND, true);
 		Vec3 origin = p.position();
 		Vec3 flat = flatLook(p);
@@ -498,7 +525,7 @@ public final class AllMightAbilities {
 				AllMightConfig.UNITED_STATES_BLOCK_HARDNESS);
 		// an AoE: one full-damage shockwave expanding from where he stood to the full range, hitting everything once
 		var wave = new AllMightShockwave.Wave(AllMightConfig.UNITED_STATES_DAMAGE, AllMightConfig.UNITED_STATES_KNOCKBACK,
-				AllMightConfig.UNITED_STATES_LIFT);
+				AllMightConfig.UNITED_STATES_LIFT).mult(mult);
 		// v0.12.44 phase 1: a 25-block forward cone (5 blocks a tick), widening as it goes; phase 2 below is the 35-block wave.
 		// Both share one hit set, so nothing takes the 75 damage twice.
 		Vec3 look = p.getLookAngle();
@@ -512,7 +539,7 @@ public final class AllMightAbilities {
 				}
 				double from = step * 5.0;
 				double to = Math.min(primary, from + 5.5);
-				double width = AllMight.sizeScale(p) * (AllMightConfig.UNITED_STATES_WIDTH
+				double width = ussSize * (AllMightConfig.UNITED_STATES_WIDTH
 						+ (AllMightConfig.UNITED_STATES_END_WIDTH - AllMightConfig.UNITED_STATES_WIDTH) * Math.min(1.0, to / primary));
 				AllMightShockwave.sweep(p, origin, look, from, to, width, AllMightConfig.UNITED_STATES_HEIGHT, wave);
 				Vec3 seg = origin.add(0, 1.3, 0).add(flat.scale(from + 2.5));
@@ -542,8 +569,6 @@ public final class AllMightAbilities {
 				}
 			});
 		}
-		// v0.16.6: the ultimate always tears at him -- +30 Strain (x2 on a borrowed One For All); the waves above still finish
-		AllMight.addStrain(p, AllMightConfig.STRAIN_UNITED_STATES);
 	}
 
 	// ---------------------------------------------------------------- X -- Leap
@@ -552,7 +577,7 @@ public final class AllMightAbilities {
 		// v0.13.5: Plus Ultra removes Leap's cooldown entirely -- it's the whole point of the buff
 		// window, spamming mobility/repositioning without waiting it out.
 		boolean plusUltra = AllMight.state(p).plusUltra;
-		// v0.16.6: the Leap is not a Smash -- it still works while his arms have given out
+		// the Leap is not a Smash: no limb strain, and it still works on broken limbs
 		if (!begin(p, LEAP, plusUltra ? 0 : AllMightConfig.LEAP_COOLDOWN, 8, AllMightState.ANIM_LEAP, false)) {
 			return;
 		}
@@ -574,28 +599,29 @@ public final class AllMightAbilities {
 	/** A flick of the fingers, three times: three compressed-air bullets, each 10 damage with big knockback, out to 30 blocks. */
 	public static void delaware(ServerPlayer p) {
 		int last = AllMightConfig.DELAWARE_WINDUP + (AllMightConfig.DELAWARE_BULLETS - 1) * AllMightConfig.DELAWARE_FLICK_GAP;
-		if (!begin(p, DELAWARE, 0f, AllMightConfig.DELAWARE_COOLDOWN, last + 4, AllMightState.ANIM_DELAWARE)) {
+		float mult = beginSmash(p, DELAWARE, AllMightConfig.DELAWARE_COOLDOWN, last + 4, AllMightState.ANIM_DELAWARE);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 0.7f, 1.7f);
 		for (int b = 0; b < AllMightConfig.DELAWARE_BULLETS; b++) {
 			schedule(p, AllMightConfig.DELAWARE_WINDUP + b * AllMightConfig.DELAWARE_FLICK_GAP, () -> {
 				if (alive(p)) {
-					airBullet(p);
+					airBullet(p, mult);
 				}
 			});
 		}
 	}
 
 	/** One compressed-air bullet: flies {@code DELAWARE_SPEED} blocks a tick along his aim and bursts on the first body or block. */
-	private static void airBullet(ServerPlayer p) {
+	private static void airBullet(ServerPlayer p, float mult) {
 		ServerLevel level = (ServerLevel) p.level();
 		Vec3 dir = p.getLookAngle().normalize();
 		Vec3 right = new Vec3(-dir.z, 0, dir.x);
 		right = right.lengthSqr() < 1.0e-4 ? Vec3.ZERO : right.normalize();
 		double h = p.getBbHeight() / 1.8;
 		Vec3 start = p.getEyePosition().add(right.scale(0.35 * h)).add(0, -0.3 * h, 0).add(dir.scale(0.9 * h));
-		var wave = new AllMightShockwave.Wave(AllMightConfig.DELAWARE_DAMAGE, AllMightConfig.DELAWARE_KNOCKBACK, AllMightConfig.DELAWARE_LIFT).burst();
+		var wave = new AllMightShockwave.Wave(AllMightConfig.DELAWARE_DAMAGE, AllMightConfig.DELAWARE_KNOCKBACK, AllMightConfig.DELAWARE_LIFT).burst().mult(mult);
 		double radius = AllMightConfig.DELAWARE_HIT_RADIUS * AllMight.sizeScale(p);
 		level.playSound(null, start.x, start.y, start.z, SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 0.9f, 1.9f);
 		level.playSound(null, start.x, start.y, start.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 0.6f, 1.8f);
@@ -641,8 +667,9 @@ public final class AllMightAbilities {
 
 	/** A flip into the air and an axe kick straight down: a 6-block crater shockwave for 22. Mid-air he flips and dives at once. */
 	public static void manchester(ServerPlayer p) {
-		if (!begin(p, MANCHESTER, 0f, AllMightConfig.MANCHESTER_COOLDOWN, AllMightConfig.MANCHESTER_WINDUP + AllMightConfig.MANCHESTER_FLIP_TICKS + 6,
-				AllMightState.ANIM_MANCHESTER)) {
+		float mult = beginSmash(p, MANCHESTER, AllMightConfig.MANCHESTER_COOLDOWN,
+				AllMightConfig.MANCHESTER_WINDUP + AllMightConfig.MANCHESTER_FLIP_TICKS + 6, AllMightState.ANIM_MANCHESTER);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.0f, 0.9f);
@@ -664,7 +691,7 @@ public final class AllMightAbilities {
 			grantNoFall(p);
 			long now = level.getGameTime();
 			Move m = new Move(Kind.SLAM, fwd, now, now + AllMightConfig.MANCHESTER_FLIP_TICKS + 80,
-					new AllMightShockwave.Wave(AllMightConfig.MANCHESTER_DAMAGE, AllMightConfig.MANCHESTER_KNOCKBACK, AllMightConfig.MANCHESTER_LIFT));
+					new AllMightShockwave.Wave(AllMightConfig.MANCHESTER_DAMAGE, AllMightConfig.MANCHESTER_KNOCKBACK, AllMightConfig.MANCHESTER_LIFT).mult(mult));
 			m.diveAt = AllMightConfig.MANCHESTER_FLIP_TICKS;
 			MOVES.put(p.getUUID(), m);
 		});
@@ -694,12 +721,13 @@ public final class AllMightAbilities {
 
 	/** He spins in place: a 360-degree tornado of air 7 blocks round him, 16 damage, flinging everything outward. */
 	public static void oklahoma(ServerPlayer p) {
-		if (!begin(p, OKLAHOMA, 0f, AllMightConfig.OKLAHOMA_COOLDOWN, AllMightConfig.OKLAHOMA_WINDUP + AllMightConfig.OKLAHOMA_SPIN_TICKS + 2,
-				AllMightState.ANIM_OKLAHOMA)) {
+		float mult = beginSmash(p, OKLAHOMA, AllMightConfig.OKLAHOMA_COOLDOWN,
+				AllMightConfig.OKLAHOMA_WINDUP + AllMightConfig.OKLAHOMA_SPIN_TICKS + 2, AllMightState.ANIM_OKLAHOMA);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.2f, 0.6f);
-		var wave = new AllMightShockwave.Wave(AllMightConfig.OKLAHOMA_DAMAGE, AllMightConfig.OKLAHOMA_KNOCKBACK, AllMightConfig.OKLAHOMA_LIFT);
+		var wave = new AllMightShockwave.Wave(AllMightConfig.OKLAHOMA_DAMAGE, AllMightConfig.OKLAHOMA_KNOCKBACK, AllMightConfig.OKLAHOMA_LIFT).mult(mult);
 		double radius = AllMightConfig.OKLAHOMA_RADIUS * AllMight.sizeScale(p);
 		int spin = AllMightConfig.OKLAHOMA_SPIN_TICKS;
 		for (int t = 0; t <= spin; t += 2) {
@@ -752,7 +780,8 @@ public final class AllMightAbilities {
 
 	/** A dashing chop: he lunges and cuts a 12-block line of air, 20 damage; a boss it cuts is staggered. */
 	public static void missouri(ServerPlayer p) {
-		if (!begin(p, MISSOURI, 0f, AllMightConfig.MISSOURI_COOLDOWN, AllMightConfig.MISSOURI_WINDUP + 8, AllMightState.ANIM_MISSOURI)) {
+		float mult = beginSmash(p, MISSOURI, AllMightConfig.MISSOURI_COOLDOWN, AllMightConfig.MISSOURI_WINDUP + 8, AllMightState.ANIM_MISSOURI);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.0f, 1.3f);
@@ -766,7 +795,7 @@ public final class AllMightAbilities {
 			AbilityHelpers.launchSelf(p, new Vec3(dir.x * AllMightConfig.MISSOURI_DASH_SPEED, p.onGround() ? 0.08 : p.getDeltaMovement().y,
 					dir.z * AllMightConfig.MISSOURI_DASH_SPEED));
 			grantNoFall(p);
-			var wave = new AllMightShockwave.Wave(AllMightConfig.MISSOURI_DAMAGE, AllMightConfig.MISSOURI_KNOCKBACK, 0.3).then(e -> {
+			var wave = new AllMightShockwave.Wave(AllMightConfig.MISSOURI_DAMAGE, AllMightConfig.MISSOURI_KNOCKBACK, 0.3).mult(mult).then(e -> {
 				if (AllMightShockwave.isBoss(e)) {
 					e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, AllMightConfig.MISSOURI_STAGGER_TICKS, 5, false, true));
 					e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, AllMightConfig.MISSOURI_STAGGER_TICKS, 0, false, true));
@@ -810,7 +839,8 @@ public final class AllMightAbilities {
 
 	/** A spinning kick that throws a horizontal crescent of air 20 blocks, 18 damage to everything it passes. */
 	public static void stLouis(ServerPlayer p) {
-		if (!begin(p, ST_LOUIS, 0f, AllMightConfig.ST_LOUIS_COOLDOWN, AllMightConfig.ST_LOUIS_WINDUP + 10, AllMightState.ANIM_ST_LOUIS)) {
+		float mult = beginSmash(p, ST_LOUIS, AllMightConfig.ST_LOUIS_COOLDOWN, AllMightConfig.ST_LOUIS_WINDUP + 10, AllMightState.ANIM_ST_LOUIS);
+		if (mult < 0f) {
 			return;
 		}
 		AbilityHelpers.sound(p, SoundEvents.WIND_CHARGE_THROW, 1.1f, 1.0f);
@@ -822,7 +852,7 @@ public final class AllMightAbilities {
 			Vec3 origin = p.position();
 			Vec3 dir = flatLook(p);
 			double size = AllMight.sizeScale(p);
-			var wave = new AllMightShockwave.Wave(AllMightConfig.ST_LOUIS_DAMAGE, AllMightConfig.ST_LOUIS_KNOCKBACK, AllMightConfig.ST_LOUIS_LIFT);
+			var wave = new AllMightShockwave.Wave(AllMightConfig.ST_LOUIS_DAMAGE, AllMightConfig.ST_LOUIS_KNOCKBACK, AllMightConfig.ST_LOUIS_LIFT).mult(mult);
 			level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.PLAYERS, 1.5f, 0.5f);
 			level.playSound(null, origin.x, origin.y, origin.z, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), SoundSource.PLAYERS, 1.2f, 0.8f);
 			int steps = (int) Math.ceil(AllMightConfig.ST_LOUIS_RANGE / AllMightConfig.ST_LOUIS_SPEED);

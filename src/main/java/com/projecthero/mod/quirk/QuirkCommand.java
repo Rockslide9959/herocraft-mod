@@ -74,8 +74,19 @@ public final class QuirkCommand {
 		if (p == null) {
 			return 0;
 		}
-		QuirkState s = Quirks.state(p);
 		Quirk q = Quirks.quirk(p);
+		if (q != null && q.standalone) {
+			// v0.16.7: One For All -- Output, the safe limit and the three limbs
+			var am = com.projecthero.mod.allmight.AllMight.state(p);
+			StringBuilder t = new StringBuilder(q.quirkName + " (" + q.heroName + ") output " + com.projecthero.mod.allmight.AllMight.outputPercent(p)
+					+ "%, limit " + String.format(java.util.Locale.ROOT, "%.1f", com.projecthero.mod.allmight.AllMightStrain.limit(am)) + "%");
+			for (var l : com.projecthero.mod.allmight.data.AllMightState.Limb.values()) {
+				t.append(", ").append(l.id).append(' ').append(Math.round(am.limb(l))).append(am.isBroken(l) ? " BROKEN" : "");
+			}
+			c.getSource().sendSuccess(() -> Component.literal(t.toString()), false);
+			return 1;
+		}
+		QuirkState s = Quirks.state(p);
 		String text = q.quirkName + " (" + q.heroName + ") meter " + Math.round(Quirks.meter(p))
 				+ (Quirks.overloaded(p) ? ", overloaded " + Quirks.overloadLeft(p) / 20 + " s" : "")
 				+ (PowerSuppression.isSuppressed(p) ? ", ERASED " + PowerSuppression.remaining(p) / 20 + " s" : "");

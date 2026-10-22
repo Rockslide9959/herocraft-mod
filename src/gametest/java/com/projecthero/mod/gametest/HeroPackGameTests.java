@@ -307,7 +307,12 @@ public class HeroPackGameTests implements FabricGameTest {
 			helper.assertTrue(seen[i] == 1, "chapter '" + chapters.get(i).title().getString() + "' is in " + seen[i] + " categories (want 1)");
 		}
 		// the Quirk chapters: one per Quirk, filed under Quirks, with the shared sections, all translated
-		for (var q : com.projecthero.mod.quirk.Quirk.values()) {
+		// v0.16.7: One For All is a Quirk whose chapter is the All Might one, filed under Quirks
+		var ofa = com.projecthero.mod.hero.guide.HeroPackGuide.quirkChapter(com.projecthero.mod.quirk.Quirk.ONE_FOR_ALL);
+		helper.assertTrue(ofa == com.projecthero.mod.hero.guide.HeroPackGuide.allMightChapter(), "One For All's chapter is All Might's");
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.categoryOf(chapters.indexOf(ofa))
+				== com.projecthero.mod.hero.guide.HeroPackGuide.Category.QUIRKS, "One For All is filed under Quirks");
+		for (var q : com.projecthero.mod.quirk.Quirk.kitQuirks()) {
 			var ch = com.projecthero.mod.hero.guide.HeroPackGuide.quirkChapter(q);
 			int at = chapters.indexOf(ch);
 			helper.assertTrue(at == 49 + q.ordinal(), q + " chapter at " + at);

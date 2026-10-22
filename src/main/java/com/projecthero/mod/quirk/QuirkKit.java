@@ -61,4 +61,21 @@ public interface QuirkKit {
 
 	/** Full cooldown of a move, ticks (the HUD's cooldown fill). */
 	int maxCooldown(String abilityId);
+
+	// ---------------------------------------------------------------- v0.16.7: for a standalone Quirk (One For All)
+
+	/** CLIENT-SAFE: ticks until a move is ready. Default: the shared {@code QuirkState} cooldowns. */
+	default int cooldownLeft(net.minecraft.world.entity.player.Player player, String abilityId) {
+		return Quirks.cooldownRemaining(player, abilityId);
+	}
+
+	/** CLIENT-SAFE: this key can't be used right now for a kit-specific reason (One For All: Base Form, a broken limb). */
+	default boolean keyLocked(net.minecraft.world.entity.player.Player player, AbilitySlot slot, boolean shift) {
+		return false;
+	}
+
+	/** The lang key of a move's name ({@code <key>.desc} is its description). */
+	default String abilityLangKey(String abilityId) {
+		return "projecthero.quirk.ability." + abilityId;
+	}
 }

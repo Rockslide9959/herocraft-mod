@@ -159,9 +159,10 @@ public final class AbilityRouter {
 			return;
 		}
 
-		// All Might (v0.12.33) takes the slots on the same terms: has the power and has not selected a mutation.
+		// All Might (v0.12.33) takes the slots on the same terms: has the power and has not selected a mutation. v0.16.7: One For All
+		// is a Quirk -- at its old priority its keys go through the Quirk core (debounce, Erased) to its kit (OneForAllKit)
 		if (com.projecthero.mod.allmight.AllMightAbilityManager.hasContext(player)) {
-			com.projecthero.mod.allmight.AllMightAbilityManager.handle(player, slot, pressed);
+			com.projecthero.mod.quirk.QuirkAbilityManager.handle(player, slot, pressed);
 			return;
 		}
 

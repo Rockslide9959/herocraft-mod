@@ -42,10 +42,17 @@ public final class QuirkClient {
 		com.projecthero.mod.client.quirk.erasure.ErasureClient.initialize();
 		com.projecthero.mod.client.quirk.explosion.ExplosionClient.initialize();
 		com.projecthero.mod.client.quirk.zerogravity.ZeroGravityClient.initialize();
+		// v0.16.7: One For All's HUD block (its poses, injury layer and Pass On screen are AllMightClient's)
+		register(Quirk.ONE_FOR_ALL, new com.projecthero.mod.client.allmight.OneForAllClientKit());
 	}
 
 	public static void register(Quirk quirk, QuirkClientKit kit) {
 		KITS.put(quirk, kit);
+	}
+
+	/** The client kit of a Quirk (null: none registered). */
+	public static QuirkClientKit kitFor(Quirk quirk) {
+		return quirk == null ? null : KITS.get(quirk);
 	}
 
 	private static QuirkClientKit kitOf(Player player) {

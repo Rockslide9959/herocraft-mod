@@ -335,10 +335,7 @@ public final class AllMightPassOn {
 		g.fullPower = false;
 		g.plusUltra = false;
 		g.plusUltraUntil = 0L;
-		g.output = AllMightState.OUTPUT_20;
-		g.outputProgress = 0f;
-		g.strain = 0f;
-		g.recoilUntil = 0L;
+		g.outputPct = 0f; // v0.16.7: the lender's safe limit and limbs stay as they were, for when it comes back
 		g.animId = AllMightState.ANIM_NONE;
 		g.busyUntil = 0L;
 		g.transformUntil = 0L;
