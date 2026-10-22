@@ -83,6 +83,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.16.7 (user): held by the Hulkbuster's build pod mid-air -- standing, not sat. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("HEAD"))
+	private void projecthero$hulkbusterPodStand(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity.getVehicle() instanceof com.projecthero.mod.ironman.entity.HulkbusterPodEntity) {
+			((HumanoidModel<?>) (Object) this).riding = false;
+		}
+	}
+
 	/**
 	 * v0.16.1: while Wolverine's claws are out every swing is one of his claw moves ({@code WolverineClawPose}), which
 	 * own the arms outright -- vanilla's punch swing (and its body twist) must not layer on top.

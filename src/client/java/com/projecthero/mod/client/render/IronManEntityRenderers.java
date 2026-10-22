@@ -20,6 +20,9 @@ public final class IronManEntityRenderers {
 		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_FIST, com.projecthero.mod.client.ironman.HulkbusterFistRenderer::new);
 		// v0.16.7 (user) Era II: the Hulkbuster I drop crate
 		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_CRATE, com.projecthero.mod.client.ironman.HulkbusterCrateRenderer::new);
+		// v0.16.7 (user) Veronica: the Hulkbuster's Replacement Pod / mid-air build pod, its plates, part damage FX
+		EntityRendererRegistry.register(IronManEntityTypes.HULKBUSTER_POD, com.projecthero.mod.client.ironman.HulkbusterPodRenderer::new);
+		com.projecthero.mod.client.ironman.HulkbusterVeronicaClient.initialize();
 		// v0.15.11: the hammer / wrench / carried piece of a hand-built suit-up
 		com.projecthero.mod.client.ironman.IronManManualSuitUpLayer.initialize();
 	}

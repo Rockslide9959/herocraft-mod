@@ -96,6 +96,7 @@ public final class ServerStateReset {
 		com.projecthero.mod.ironman.suit.PortableDeploy.clearSessionState(); // v0.16.7 (user) Era II: Shift+C fold holds
 		com.projecthero.mod.ironman.crate.HulkbusterCrate.clearSessionState(); // v0.16.7 (user) Era II: Hulkbuster crate folds
 		com.projecthero.mod.ironman.HulkbusterShield.clearSessionState(); // v0.16.7 (user): Hulkbuster hit i-frames
+		com.projecthero.mod.ironman.entity.HulkbusterPodEntity.clearSessionState(); // v0.16.7 (user): Hulkbuster mid-air builds
 		com.projecthero.mod.ironman.gantry.StarkGantry.clearSessionState(); // v0.15.4: where each suit last came from
 		com.projecthero.mod.ironman.drone.IronManDrones.clearSessionState(); // v0.14.29 agent E: Remote Pilot links
 		com.projecthero.mod.ironman.entity.IronManSentryEntity.clearSessionState(); // v0.15.9: Sentry Mode step-in immunity

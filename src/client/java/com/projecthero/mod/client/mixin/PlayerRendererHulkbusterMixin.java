@@ -40,4 +40,21 @@ public abstract class PlayerRendererHulkbusterMixin {
 			renderer.renderBody(player, entityYaw, partialTicks, poseStack, buffer, packedLight);
 		}
 	}
+
+	/**
+	 * v0.16.7 (user) Veronica: the mid-air build -- the player (in whatever suit they wear) is drawn as normal and the
+	 * Hulkbuster's arrived / flying pieces round them.
+	 */
+	@Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+			at = @At("RETURN"))
+	private void projecthero$renderHulkbusterBuild(AbstractClientPlayer player, float entityYaw, float partialTicks,
+			PoseStack poseStack, MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
+		IronManHulkbusterRenderer renderer = IronManHulkbusterRenderer.get();
+		if (renderer == null || player.isInvisible() || IronManHulkbusterAnimatable.active(player)
+				|| com.projecthero.mod.client.ironman.HulkbusterVeronicaClient.buildPose(player, partialTicks) == null) {
+			return;
+		}
+		var pod = com.projecthero.mod.client.ironman.HulkbusterVeronicaClient.buildPod(player);
+		renderer.renderBody(player, pod == null ? entityYaw : pod.buildYaw(), partialTicks, poseStack, buffer, packedLight);
+	}
 }

@@ -193,6 +193,7 @@
       "com.projecthero.mod.gametest.IronManBackpackFormGameTests",
       "com.projecthero.mod.gametest.IronManHulkbusterCrateGameTests",
       "com.projecthero.mod.gametest.IronManHulkbusterFixesGameTests",
+      "com.projecthero.mod.gametest.IronManHulkbusterVeronicaGameTests",
       "com.projecthero.mod.gametest.IronManMk9HeatCaseGameTests",
       "com.projecthero.mod.gametest.IronManFoldPolishGameTests",
       "com.projecthero.mod.gametest.IronManPlatformPackGameTests",

@@ -197,6 +197,21 @@ public final class IronManBattleDamage {
 		return damagedTexture(piece.armorSetId(), tier, texture);
 	}
 
+	/**
+	 * v0.16.7 (user) Hulkbuster Veronica overhaul: the Hulkbuster BODY texture ({@code textures/armor/hulkbuster_body.png},
+	 * a 64x64 player-model skin) damaged to {@code tier} -- {@code glow} for its damaged glowmask. Null for tier 0 or when
+	 * it can't be built. {@code HulkbusterPartRender} draws each part of the body with its own tier.
+	 */
+	public static @Nullable ResourceLocation hulkbusterBody(int tier, boolean glow) {
+		if (tier <= 0) {
+			return null;
+		}
+		tier = Math.min(IronManDamageTiers.MAX_TIER, tier);
+		Entry e = CACHE.computeIfAbsent("hulkbuster_body", k -> new Entry(k, IronManHulkbusterModel.TEXTURE));
+		ensureTier(e, tier);
+		return glow ? e.glowOn[tier] : e.base[tier];
+	}
+
 	/** First-person gauntlets: the worn suit's damaged texture for {@code setId}. */
 	public static ResourceLocation firstPersonTexture(Player player, String setId, ResourceLocation texture) {
 		String suit = wornSuit(player);

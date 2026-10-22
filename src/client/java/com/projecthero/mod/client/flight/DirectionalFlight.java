@@ -173,7 +173,9 @@ public final class DirectionalFlight {
 					suit.flightCruiseFor(sprint && suit.sprintFlight()), sprint && suit.sprintFlight(), supersonic, // v0.15.11: exact per-mark speeds
 					boost ? com.projecthero.mod.ironman.ability.IronManFlares.BOOST_SPEED_MULTIPLIER // v0.15.4: no Mark 6 surge
 							// v0.16.7 Era I (user): the Mk III Flight Boost, x1.8 for 3 s
-							: com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.flightBoostMultiplier(ts, suit.id(), player.level().getGameTime()));
+							: com.projecthero.mod.ironman.ability.era1.EraOneMk3Moves.flightBoostMultiplier(ts, suit.id(), player.level().getGameTime())
+									// v0.16.7 (user) Veronica: a broken Hulkbuster leg's boot jet -- x0.7, x0.45 with both
+									* com.projecthero.mod.ironman.HulkbusterParts.flightFactor(player));
 		}
 		if (player.getAttachedOrElse(ModAttachments.REPULSOR_BOOTS_FLYING, false)) {
 			return DirectionalFlightModel.repulsorBoots(false); // v0.14.26: boots only -- no sprint flight

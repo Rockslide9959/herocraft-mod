@@ -25,6 +25,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  */
 public final class IronManHulkbusterFirstPerson {
 	private static final Arms ARMS = new Arms();
+	/** v0.16.7 (user): "they're slimmer than the old ones" -- the first-person gauntlets drawn this much bigger. */
+	public static final float FIST_SCALE = 1.4f;
 	private static Renderer renderer;
 
 	private IronManHulkbusterFirstPerson() {
@@ -49,16 +51,21 @@ public final class IronManHulkbusterFirstPerson {
 			punch = Math.max(punch, 0.35f * Mth.sin(t * 0.35f) * Mth.sin(t * 0.35f));
 		}
 		float bob = Mth.sin((player.tickCount + partialTick) * 0.12f) * 0.012f;
+		// v0.16.7 (user): the gauntlets are big and heavy again -- FIST_SCALE, pushed out into the bottom corners
+		float[] eff = com.projecthero.mod.ironman.HulkbusterParts.of(player);
+		renderer.rightTier = HulkbusterPartRender.tiers(eff)[com.projecthero.mod.ironman.HulkbusterParts.RARM];
+		renderer.leftTier = HulkbusterPartRender.tiers(eff)[com.projecthero.mod.ironman.HulkbusterParts.LARM];
 		if (!fistAway) {
-			drawArm(poseStack, buffer, packedLight, partialTick, true, 1.0f, -1.0f + bob, -2.0f - punch * 0.7f, punch);
+			drawArm(poseStack, buffer, packedLight, partialTick, true, 1.18f, -1.12f + bob, -2.0f - punch * 0.75f, punch);
 		}
-		drawArm(poseStack, buffer, packedLight, partialTick, false, -1.0f, -1.05f - bob, -2.05f, 0f);
+		drawArm(poseStack, buffer, packedLight, partialTick, false, -1.18f, -1.17f - bob, -2.05f, 0f);
 	}
 
 	private static void drawArm(PoseStack poseStack, MultiBufferSource buffer, int light, float partialTick, boolean right, float x, float y,
 			float z, float punch) {
 		poseStack.pushPose();
 		poseStack.translate(x, y, z);
+		poseStack.scale(FIST_SCALE, FIST_SCALE, FIST_SCALE);
 		// the forearm points into the screen, tipped slightly in toward the centre, the fist leading
 		poseStack.mulPose(Axis.YP.rotationDegrees(right ? 8f : -8f));
 		poseStack.mulPose(Axis.XP.rotationDegrees(-8f - punch * 10f));
@@ -91,6 +98,16 @@ public final class IronManHulkbusterFirstPerson {
 
 	static final class Renderer extends GeoObjectRenderer<Arms> {
 		boolean side;
+		/** v0.16.7 (user) Veronica: each arm's damage tier (a broken arm shows its wrecked plating). */
+		int rightTier;
+		int leftTier;
+
+		@Override
+		public net.minecraft.client.renderer.RenderType getRenderType(Arms animatable, net.minecraft.resources.ResourceLocation texture,
+				MultiBufferSource bufferSource, float partialTick) {
+			net.minecraft.resources.ResourceLocation damaged = IronManBattleDamage.hulkbusterBody(side ? rightTier : leftTier, false);
+			return super.getRenderType(animatable, damaged != null ? damaged : texture, bufferSource, partialTick);
+		}
 
 		Renderer() {
 			super(new IronManHulkbusterModel<>());

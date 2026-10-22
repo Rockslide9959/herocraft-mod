@@ -1504,7 +1504,12 @@ public final class IronManComicMoves {
 			final int step = i + 1;
 			IronManComicState.later(p, HB_PUNCH_HITS[i], w -> {
 				if (hulkbusterOn(w)) {
-					punchStrike(w, step, damage);
+					// v0.16.7 (user): a broken arm's blows are dead swings (1 + 3 are the right fist, 2 the left)
+					if (com.projecthero.mod.ironman.HulkbusterParts.armWorks(w, step != 2)) {
+						punchStrike(w, step, damage);
+					} else {
+						deadFist(w, step != 2);
+					}
 				}
 			});
 		}
@@ -1545,7 +1550,8 @@ public final class IronManComicMoves {
 			if (!hulkbusterOn(w)) {
 				return;
 			}
-			Vec3 from = IronManComicFx.palm(w);
+			// v0.16.7 (user): the right fist flies unless that arm is broken -- then the left one does
+			Vec3 from = com.projecthero.mod.ironman.HulkbusterParts.armWorks(w, true) ? IronManComicFx.palm(w) : cannonPalm(w, 1);
 			Vec3 dir = IronManTargeting.aim(w, from, w.getLookAngle(), 48);
 			com.projecthero.mod.ironman.entity.HulkbusterFistEntity.launch(w, from, dir, damage, HB_ROCKET_RETURN - HB_ROCKET_LAUNCH);
 			IronManComicFx.sound(w, IronManSounds.ROCKET_LAUNCH, 1.3f, 0.7f);
@@ -1651,7 +1657,8 @@ public final class IronManComicMoves {
 			return; // the chest plates are still opening (the clip's wind-up)
 		}
 		Vec3 from = IronManComicFx.chest(p);
-		Vec3 dir = IronManTargeting.aim(p, from, p.getLookAngle(), 44);
+		// v0.16.7 (user): with the head broken there is no targeting -- the beam wanders
+		Vec3 dir = com.projecthero.mod.ironman.HulkbusterParts.beamWobble(p, IronManTargeting.aim(p, from, p.getLookAngle(), 44));
 		if ((now - r.channelStart) % HB_BEAM_PULSE == 0) {
 			IronManComicKit.Move m = IronManComicKit.byId("mk8_mega_beam");
 			IronManComicFx.beam(p, from, dir, 44.0, 2.2, true, IronManComicFx.BEAM_MEGA, m == null ? 18f : m.damage(), 0.8);
@@ -1684,6 +1691,10 @@ public final class IronManComicMoves {
 			}
 			ServerLevel level = IronManComicFx.level(w);
 			for (int side = 0; side < 2; side++) {
+				if (!com.projecthero.mod.ironman.HulkbusterParts.armWorks(w, side == 0)) {
+					deadFist(w, side == 0); // v0.16.7 (user): a broken arm's palm only sparks
+					continue;
+				}
 				Vec3 from = cannonPalm(w, side);
 				Vec3 dir = IronManTargeting.aim(w, from, w.getLookAngle(), HB_CANNON_RANGE).normalize();
 				List<LivingEntity> hits = IronManComicFx.beam(w, from, dir, HB_CANNON_RANGE, 1.0, false, IronManComicFx.BEAM_PALM_CANNON, damage, 1.6);
@@ -1706,6 +1717,15 @@ public final class IronManComicMoves {
 			w.hurtMarked = true;
 		});
 		return true;
+	}
+
+	/** v0.16.7 (user): a broken arm's blow / blast -- sparks and a grinding clank at that hand, nothing else. */
+	static void deadFist(ServerPlayer w, boolean right) {
+		Vec3 c = cannonPalm(w, right ? 0 : 1);
+		ServerLevel level = IronManComicFx.level(w);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.15, 0.15, 0.15, 0.15);
+		level.sendParticles(ParticleTypes.SMOKE, c.x, c.y, c.z, 4, 0.1, 0.1, 0.1, 0.02);
+		IronManComicFx.soundAt(level, c, SoundEvents.CHAIN_BREAK, 0.7f, 0.6f);
 	}
 
 	/** Where one of the Hulkbuster's palms is while it holds the cannon pose: out in front at chest height. */
@@ -1775,40 +1795,16 @@ public final class IronManComicMoves {
 		return true;
 	}
 
+	/**
+	 * v0.16.7 (user) Veronica overhaul: the Replacement Pod is a real pod now ({@code HulkbusterPodEntity}) -- it flies in
+	 * over 3 s to hover 10 blocks above where it was called, then replacement plates fly to each damaged part one at a time
+	 * and weld on over 8 s (parts and integrity restored as they land), then it leaves. The pilot keeps moving.
+	 */
 	private static boolean replacementPod(ServerPlayer p, IronManSuit suit) {
-		float cur = IronManEnergy.integrity(p, suit.id());
-		if (cur >= suit.maxIntegrity()) {
-			p.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.pod_not_needed"), true);
+		if (com.projecthero.mod.ironman.entity.HulkbusterPodEntity.callRepair(p, p) == null) {
 			return false;
 		}
 		IronManComicFx.pose(p, IronManAbilityFx.HB_REPLACEMENT_POD, HB_POD_TICKS);
-		IronManSounds.play(p, IronManSounds.TARGET_LOCK, 1.0f, 0.6f);
-		p.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.pod_inbound"), true);
-		String suitId = suit.id();
-		for (int i = 0; i < POD_DELAY_TICKS / 2; i++) {
-			final int n = i;
-			IronManComicState.later(p, 1 + i * 2, w -> {
-				// the pod's streak coming down out of the sky onto the suit
-				double y = w.getY() + 2.0 * (POD_DELAY_TICKS / 2 - n) + 3.0;
-				IronManComicFx.level(w).sendParticles(ParticleTypes.FLAME, w.getX(), y, w.getZ(), 6, 0.3, 0.6, 0.3, 0.02);
-				IronManComicFx.level(w).sendParticles(ParticleTypes.LARGE_SMOKE, w.getX(), y + 1.5, w.getZ(), 3, 0.3, 0.8, 0.3, 0.02);
-			});
-		}
-		IronManComicState.later(p, POD_DELAY_TICKS, w -> {
-			if (!suitId.equals(IronManArmor.wornSuitId(w))) {
-				return;
-			}
-			IronManSuit s = com.projecthero.mod.ironman.suit.IronManSuits.byId(suitId);
-			float max = s == null ? IronManEnergy.maxIntegrity(suitId) : s.maxIntegrity();
-			IronManEnergy.setIntegrity(w, suitId, Math.min(max, IronManEnergy.integrity(w, suitId) + max * POD_REPAIR_FRACTION));
-			ServerLevel level = IronManComicFx.level(w);
-			level.sendParticles(ParticleTypes.EXPLOSION, w.getX(), w.getY() + 1, w.getZ(), 2, 0.4, 0.4, 0.4, 0);
-			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, w.getX(), w.getY() + 1, w.getZ(), 40, 0.6, 1.0, 0.6, 0.2);
-			IronManComicFx.soundAt(level, w.position(), IronManSounds.POD_LAND, 1.2f, 1.0f);
-			IronManSounds.play(w, IronManSounds.POWER_UP, 1.0f, 1.0f);
-			w.displayClientMessage(Component.translatable("message.projecthero.ironman.comic.pod_repaired",
-					Math.round(POD_REPAIR_FRACTION * 100)).withStyle(ChatFormatting.GREEN), true);
-		});
 		return true;
 	}
 

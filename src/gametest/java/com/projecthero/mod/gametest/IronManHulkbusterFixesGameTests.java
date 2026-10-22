@@ -147,7 +147,8 @@ public class IronManHulkbusterFixesGameTests implements FabricGameTest {
 		double along = p.position().subtract(s.position()).dot(fwd);
 		h.assertTrue(along < -0.5, "thrown out of the BACK (" + along + ")");
 		h.assertTrue(p.getDeltaMovement().dot(fwd) < -0.2 && p.getDeltaMovement().y > 0.1, "flung back and up (" + p.getDeltaMovement() + ")");
-		h.assertFalse(s.use(p, true), "no stepping back into a wreck before it reboots");
+		// (v0.16.7 Veronica: sneak + right-click on a wreck calls its Replacement Pod instead -- IronManHulkbusterVeronicaGameTests)
+		h.assertFalse(s.use(p, false), "no stepping back into a wreck before it reboots");
 		h.assertTrue(s.phase() == IronManSentryEntity.PHASE_IDLE, "nothing started");
 		// the cooldown survives a save / load
 		CompoundTag tag = new CompoundTag();
@@ -202,12 +203,14 @@ public class IronManHulkbusterFixesGameTests implements FabricGameTest {
 		h.assertTrue(!uplink.isEmpty() && SuitcaseContents.nonEmpty(uplink).size() == 4, "an Uplink holding all four pieces");
 		h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(uplink, SUIT) - 3100f) < 1f, "with its integrity");
 		h.assertFalse(be.packUplink(p), "nothing left to pack");
-		// and back onto the rack: the Uplink stays, emptied (it can't call the crate while the suit is racked)
+		// and back onto the rack: v0.16.7 (user) Veronica -- the single-use Uplink is used up doing it
 		h.assertTrue(be.storeUplink(p, uplink), "an Uplink handed to the platform racks the Hulkbuster");
 		h.assertTrue(be.isFull() && SUIT.equals(be.storedSuitId()), "all four pieces on the rack");
 		h.assertTrue(Math.abs(be.suitIntegrity() - 3100f) < 1f, "integrity kept (" + be.suitIntegrity() + ")");
-		h.assertTrue(SuitcaseContents.isEmpty(uplink) && !SuitcaseContents.isLegacyEmpty(uplink), "the Uplink is emptied, not fresh");
-		h.assertFalse(be.storeUplink(p, uplink), "an emptied Uplink racks nothing");
+		h.assertTrue(uplink.isEmpty(), "the Uplink is used up");
+		ItemStack spent = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		SuitcaseContents.write(spent, NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY));
+		h.assertFalse(be.storeUplink(p, spent), "a spent (emptied) Uplink racks nothing");
 		// a never-used Uplink racks a fresh suit
 		IronManSuitPlatformBlockEntity other = platform(h, p, new BlockPos(5, 2, 5), null, 0f);
 		ItemStack fresh = new ItemStack(IronManItems.HULKBUSTER_UPLINK);

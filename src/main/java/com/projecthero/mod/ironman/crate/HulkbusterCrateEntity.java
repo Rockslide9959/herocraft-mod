@@ -328,6 +328,81 @@ public class HulkbusterCrateEntity extends Entity {
 		return x * x * (3f - 2f * x);
 	}
 
+	// ======================================================================== v0.16.7 (user): walls settle on the ground
+
+	/** The most a wall may open: 1 = flat; less where a hill stops it, up to {@link #MAX_WALL_OPEN} down a slope. */
+	public static final float MAX_WALL_OPEN = 4f / 3f;
+	private final float[] wallLimit = { -1f, -1f, -1f };
+	private long wallLimitAt = Long.MIN_VALUE;
+
+	/**
+	 * v0.16.7 (user): "the drop crate's walls fall flat even on uneven terrain and clip into hills". How far wall
+	 * {@code wall} (0 front, 1 left, 2 right) can fall before it meets the ground -- the open fraction (1 = flat on level
+	 * ground) at which the swept wall first touches a solid block: less than 1 against a rise, more (it tips on down the
+	 * slope, up to {@link #MAX_WALL_OPEN} = 120 degrees) where the ground falls away. Sampled along the wall's length and
+	 * width, refined by bisection; cached for 2 s (both sides; the renderer multiplies {@link #wallOpen} by it).
+	 */
+	public float wallLimit(int wall) {
+		long now = level().getGameTime();
+		if (now - wallLimitAt > 40L || wallLimit[wall] < 0f) {
+			wallLimitAt = now;
+			for (int w = 0; w < 3; w++) {
+				wallLimit[w] = computeWallLimit(w);
+			}
+		}
+		return wallLimit[wall];
+	}
+
+	private float computeWallLimit(int wall) {
+		float step = 1f / 30f; // 3 degrees
+		float safe = 0f;
+		for (float f = step; f <= MAX_WALL_OPEN + 1.0e-4f; f += step) {
+			if (wallHits(wall, f)) {
+				// bisect between the last clear angle and this one
+				float lo = safe, hi = f;
+				for (int i = 0; i < 5; i++) {
+					float mid = (lo + hi) * 0.5f;
+					if (wallHits(wall, mid)) {
+						hi = mid;
+					} else {
+						lo = mid;
+					}
+				}
+				return Math.max(0.08f, lo);
+			}
+			safe = f;
+		}
+		return MAX_WALL_OPEN;
+	}
+
+	/** Does wall {@code wall}, opened to fraction {@code f} (of 90 degrees), touch a solid block? */
+	private boolean wallHits(int wall, float f) {
+		double th = Math.toRadians(90.0 * f);
+		double sin = Math.sin(th), cos = Math.cos(th);
+		// out = the way it falls, across = along its hinge (local x, z)
+		double ox = wall == 0 ? 0 : wall == 1 ? -1 : 1, oz = wall == 0 ? -1 : 0;
+		double ax = wall == 0 ? 1 : 0, az = wall == 0 ? 0 : 1;
+		double hx = ox * HALF, hz = oz * HALF;
+		for (double s = 0.35; s <= WALL_H + 1.0e-3; s += 0.3) {
+			double out = s * sin, up = s * cos + 0.06; // the wall's outer face, a hair proud of it
+			for (double c : new double[] { -HALF + 0.2, 0.0, HALF - 0.2 }) {
+				double lx = hx + ox * out + ax * c, lz = hz + oz * out + az * c;
+				Vec3 p = world(lx, lz).add(0, up, 0);
+				BlockPos bp = BlockPos.containing(p);
+				var shape = level().getBlockState(bp).getCollisionShape(level(), bp);
+				if (shape.isEmpty()) {
+					continue;
+				}
+				for (AABB box : shape.toAabbs()) {
+					if (box.move(bp).contains(p)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	// ======================================================================== frame helpers
 
 	/** Local (x right-ish, z forward) of a world point, in the crate's frame. */
@@ -363,7 +438,7 @@ public class HulkbusterCrateEntity extends Entity {
 
 	/** Is {@code p} walking into the Hulkbuster's open back (just behind it, between it and the front wall)? */
 	private boolean walkingIn(ServerPlayer p) {
-		if (p.level() != level() || Math.abs(p.getY() - getY()) > 0.8 || IronManArmor.wearingAnyIronMan(p)) {
+		if (p.level() != level() || Math.abs(p.getY() - getY()) > 0.8 || com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(p)) {
 			return false;
 		}
 		double[] l = local(p.position());

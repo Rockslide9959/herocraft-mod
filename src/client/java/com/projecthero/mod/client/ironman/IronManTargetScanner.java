@@ -314,6 +314,11 @@ public final class IronManTargetScanner {
 		if (target == null || mc.player == null || context.consumers() == null || context.matrixStack() == null) {
 			return;
 		}
+		// v0.16.7 (user) Veronica: a Hulkbuster with its head broken has no targeting
+		if (com.projecthero.mod.ironman.HulkbusterParts.broken(com.projecthero.mod.ironman.HulkbusterParts.of(mc.player)[
+				com.projecthero.mod.ironman.HulkbusterParts.HEAD])) {
+			return;
+		}
 		boolean locked = reticleLocked || (lockTarget() == target);
 		int rgb = reticleColour & 0xFFFFFF;
 		float pt = context.tickCounter().getGameTimeDeltaPartialTick(false);

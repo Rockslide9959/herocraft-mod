@@ -640,6 +640,42 @@ public class IronManSentryEntity extends Entity {
 		getEntityData().set(STACK_DATA[i], stacks[i].copy());
 	}
 
+	/** v0.16.7 (user): the Hulkbuster's per-part damage on its chestplate changed (the Replacement Pod) -- resync it. */
+	public void setChestParts(float[] raw) {
+		if (stacks[1].isEmpty()) {
+			return;
+		}
+		ItemStack c = stacks[1].copy();
+		com.projecthero.mod.ironman.HulkbusterParts.write(c, raw);
+		setStack(1, c);
+	}
+
+	/**
+	 * v0.16.7 (user): the owner calls the Hulkbuster's Replacement Pod to this suit (sharing the worn move's 180 s cooldown).
+	 * Public for the gametests.
+	 */
+	public boolean callPod(ServerPlayer owner) {
+		String key = "mk8_replacement_pod";
+		if (!TonyStark.abilityReady(owner, suitId(), key)) {
+			owner.displayClientMessage(Component.translatable("message.projecthero.ironman.on_cooldown",
+					String.format(java.util.Locale.ROOT, "%.1f", TonyStark.abilityCooldownRemaining(owner, suitId(), key) / 20.0f)), true);
+			return false;
+		}
+		if (HulkbusterPodEntity.callRepair(owner, this) == null) {
+			return false;
+		}
+		com.projecthero.mod.ironman.ability.IronManComicKit.Move m = com.projecthero.mod.ironman.ability.IronManComicKit.byId(key);
+		TonyStark.triggerCooldown(owner, suitId(), key, m == null ? 180 * 20 : m.cooldownTicks());
+		return true;
+	}
+
+	/** v0.16.7 (user): a wrecked Hulkbuster repaired by its Replacement Pod reboots at once. */
+	public void rebootNow() {
+		if (wreckUntil > 0L) {
+			wreckUntil = level().getGameTime();
+		}
+	}
+
 	public int pieceCount() {
 		int n = 0;
 		for (int i = 0; i < 4; i++) {
@@ -875,6 +911,10 @@ public class IronManSentryEntity extends Entity {
 	public boolean use(ServerPlayer owner, boolean sneak) {
 		if (phase != PHASE_IDLE || isRemoved()) {
 			return false;
+		}
+		if (hulkbuster() && sneak && wreckUntil > 0L) {
+			// v0.16.7 (user) Veronica: sneak + right-click a wrecked Hulkbuster to call its Replacement Pod to it
+			return callPod(owner);
 		}
 		if (wreckUntil > 0L) { // v0.16.7 (user): a wrecked Hulkbuster is down until it reboots
 			owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_wreck.rebooting",
@@ -1540,8 +1580,10 @@ public class IronManSentryEntity extends Entity {
 
 	/** Can the suit close around {@code p} right now? (Tony Stark, no other Iron Man armour on, no suit-up running.) */
 	public boolean canWrap(ServerPlayer p) {
+		// v0.16.7 (user): a Hulkbuster closes round another worn suit too (it is kept as the inner suit, HulkbusterInnerSuit)
+		boolean free = hulkbuster() ? !com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(p) : !IronManArmor.wearingAnyIronMan(p);
 		return p != null && p.isAlive() && p.level() == level() && TonyStark.hasPower(p)
-				&& !IronManArmor.wearingAnyIronMan(p) && !IronManSuitUpManager.inTransition(p);
+				&& free && !IronManSuitUpManager.inTransition(p);
 	}
 
 	private void beginWrap(ServerPlayer owner) {
@@ -2294,6 +2336,9 @@ public class IronManSentryEntity extends Entity {
 		climbedIn = false;
 		STEPPING.remove(owner.getUUID());
 		setStepper(null, STEP_NONE);
+		if (hulkbuster()) {
+			com.projecthero.mod.ironman.HulkbusterInnerSuit.stash(owner); // v0.16.7 (user): whatever they wear goes on underneath
+		}
 		ItemStack[] pieces = takeAll(true);
 		if (!pieces[1].isEmpty()) {
 			CustomData.update(DataComponents.CUSTOM_DATA, pieces[1], tag -> tag.putInt(MODE_TAG, mode));

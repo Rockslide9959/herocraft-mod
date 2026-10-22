@@ -48,7 +48,8 @@ public class HulkbusterCrateRenderer extends EntityRenderer<HulkbusterCrateEntit
 		float h = HulkbusterCrateEntity.height(phase, age, e.dropHeight());
 		float[] wall = new float[3];
 		for (int w = 0; w < 3; w++) {
-			wall[w] = HulkbusterCrateEntity.wallOpen(w, phase, age);
+			// v0.16.7 (user): each wall stops where it meets the ground (or tips on down a slope)
+			wall[w] = HulkbusterCrateEntity.wallOpen(w, phase, age) * e.wallLimit(w);
 		}
 		float lid = HulkbusterCrateEntity.lidOpen(phase, age);
 		float floor = HulkbusterCrateEntity.floor(phase, age);

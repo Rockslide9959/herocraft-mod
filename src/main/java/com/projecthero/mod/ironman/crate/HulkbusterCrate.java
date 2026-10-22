@@ -14,6 +14,7 @@ import com.projecthero.mod.ironman.entity.IronManEntityTypes;
 import com.projecthero.mod.ironman.fabricator.IronManSuitPlatformBlockEntity;
 import com.projecthero.mod.ironman.item.IronManItems;
 import com.projecthero.mod.ironman.item.SuitcaseContents;
+import com.projecthero.mod.ironman.suit.IronManPlatformReturn;
 import com.projecthero.mod.ironman.suit.IronManSuitUpManager;
 
 import net.minecraft.ChatFormatting;
@@ -126,13 +127,91 @@ public final class HulkbusterCrate {
 	}
 
 	/**
-	 * The suit is back in orbit: its four stacks go into {@code owner}'s emptied uplink (else a new one, placed like a
-	 * folded briefcase); with no owner online the uplink drops where the crate stood.
+	 * v0.16.7 (user) Veronica overhaul -- the Uplink is ONE USE ("it gets used up once you call in the armour and thats
+	 * it"). The suit no longer goes back into an Uplink: at the top of the lift (a fold, a recall, a crate cleared away) the
+	 * crate flies it <b>home to its Suit Platform</b> -- the one whose Uplink tab minted the Uplink (each piece carries that
+	 * platform, {@link IronManPlatformReturn#tagHome}), else the owner's nearest platform with room in that dimension --
+	 * where it is racked again (loading the chunk if it must, {@link IronManPlatformReturn#depositNow}; an unloadable one
+	 * queues it, {@code StarkSuitReturnQueue}). Take a fresh Uplink from that platform's Uplink tab to call it again. With no
+	 * platform anywhere the four pieces come back to the owner loose (right-click one with all four to pack a new Uplink);
+	 * with nobody online they drop where the crate stood. Never lost.
 	 */
 	public static void toOrbit(ServerLevel level, ServerPlayer owner, List<ItemStack> pieces, float integrity, Vec3 at) {
+		toOrbit(level, owner, owner == null ? null : owner.getUUID(), pieces, integrity, at);
+	}
+
+	/** As {@link #toOrbit(ServerLevel, ServerPlayer, List, float, Vec3)} for an owner known only by id (may be offline). */
+	public static void toOrbit(ServerLevel level, ServerPlayer owner, UUID ownerId, List<ItemStack> pieces, float integrity, Vec3 at) {
+		List<ItemStack> stacks = new java.util.ArrayList<>();
+		// the reactor charge travels with the pieces (the lowest piece's)
+		float energy = IronManEnergy.capacity(SUIT_ID);
+		for (ItemStack s : pieces) {
+			if (s.getItem() instanceof ArmorItem && !s.isEmpty()) {
+				energy = Math.min(energy, IronManEnergy.stackEnergy(s, SUIT_ID));
+			}
+		}
+		net.minecraft.core.GlobalPos home = null;
+		for (ItemStack s : pieces) {
+			if (s.getItem() instanceof ArmorItem && !s.isEmpty()) {
+				IronManEnergy.stampStack(s, energy, integrity);
+				if (home == null) {
+					home = IronManPlatformReturn.homeOf(s).orElse(null);
+				}
+				stacks.add(s);
+			}
+		}
+		if (stacks.isEmpty()) {
+			return;
+		}
+		if (home == null && ownerId != null) {
+			home = com.projecthero.mod.ironman.data.StarkPlatformRegistry.get(level).nearestDockFor(ownerId, level.dimension(), SUIT_ID,
+					BlockPos.containing(at)).map(com.projecthero.mod.ironman.data.StarkPlatformRegistry.Entry::pos).orElse(null);
+		}
+		if (home != null && ownerId != null) {
+			if (IronManPlatformReturn.depositNow(level.getServer(), ownerId, home, stacks)) {
+				if (owner != null) {
+					BlockPos p = home.pos();
+					owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.home", p.getX(), p.getY(), p.getZ())
+							.withStyle(ChatFormatting.AQUA), true);
+				}
+				return;
+			}
+			int mask = 0;
+			for (ItemStack s : stacks) {
+				mask |= 1 << SuitcaseContents.slotOf(((ArmorItem) s.getItem()).getType());
+			}
+			ServerLevel homeLevel = level.getServer().getLevel(home.dimension());
+			if (homeLevel != null) {
+				com.projecthero.mod.ironman.data.StarkSuitReturnQueue.get(homeLevel).enqueue(ownerId, home, SUIT_ID, mask, energy, integrity,
+						stacks);
+				if (owner != null) {
+					owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.home_queued")
+							.withStyle(ChatFormatting.AQUA), true);
+				}
+				return;
+			}
+		}
+		// no platform to go home to: the pieces come back loose (never an Uplink -- that is the platform's job)
+		for (ItemStack s : stacks) {
+			if (owner != null) {
+				IronManSuitUpManager.giveBack(owner, s);
+			} else {
+				level.addFreshEntity(new ItemEntity(level, at.x, at.y + 0.5, at.z, s));
+			}
+		}
+		if (owner != null) {
+			owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.no_platform")
+					.withStyle(ChatFormatting.GOLD), true);
+		}
+	}
+
+	/**
+	 * v0.16.7 (user): a new, loaded, single-use Uplink holding {@code pieces} (stamped with their charge and
+	 * {@code integrity}, each remembering {@code platform} -- where a fold sends the suit home), given to {@code player}
+	 * like a folded briefcase. The Suit Platform's Uplink tab.
+	 */
+	public static ItemStack mintUplink(ServerPlayer player, List<ItemStack> pieces, float integrity, ServerLevel level, BlockPos platform) {
 		NonNullList<ItemStack> slots = NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY);
-		boolean any = false;
-		// v0.16.7 (user) Era II: the reactor charge travels with the pieces (the lowest piece's, as the integrity)
 		float energy = IronManEnergy.capacity(SUIT_ID);
 		for (ItemStack s : pieces) {
 			if (s.getItem() instanceof ArmorItem && !s.isEmpty()) {
@@ -142,39 +221,18 @@ public final class HulkbusterCrate {
 		for (ItemStack s : pieces) {
 			if (s.getItem() instanceof ArmorItem a && !s.isEmpty()) {
 				IronManEnergy.stampStack(s, energy, integrity);
-				slots.set(SuitcaseContents.slotOf(a.getType()), s);
-				any = true;
-			}
-		}
-		if (!any) {
-			return;
-		}
-		ItemStack target = null;
-		if (owner != null) {
-			for (ItemStack st : owner.getInventory().items) {
-				if (st.is(IronManItems.HULKBUSTER_UPLINK) && !SuitcaseContents.isLegacyEmpty(st) && SuitcaseContents.isEmpty(st)) {
-					target = st;
-					break;
+				if (platform != null) {
+					IronManPlatformReturn.tagHome(s, level, platform);
 				}
+				slots.set(SuitcaseContents.slotOf(a.getType()), s);
 			}
 		}
-		boolean fresh = target == null;
-		if (fresh) {
-			target = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
-		}
-		SuitcaseContents.write(target, slots);
-		IronManEnergy.stampStack(target, energy, integrity);
-		if (owner != null) {
-			if (fresh) {
-				IronManSuitUpManager.placeSuitcase(owner, target);
-			}
-			owner.getInventory().setChanged();
-			owner.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.in_orbit")
-					.withStyle(ChatFormatting.AQUA), true);
-		} else {
-			ItemEntity drop = new ItemEntity(level, at.x, at.y + 0.5, at.z, target);
-			level.addFreshEntity(drop);
-		}
+		ItemStack up = new ItemStack(IronManItems.HULKBUSTER_UPLINK);
+		SuitcaseContents.write(up, slots);
+		IronManEnergy.stampStack(up, energy, integrity);
+		IronManSuitUpManager.placeSuitcase(player, up);
+		player.getInventory().setChanged();
+		return up;
 	}
 
 	// ======================================================================== C: call / recall
@@ -197,7 +255,9 @@ public final class HulkbusterCrate {
 
 	/** C: call the crate down where {@code player} is looking. False (with a reason where useful) if it cannot come. */
 	public static boolean call(ServerPlayer player) {
-		if (!TonyStark.hasPower(player) || IronManArmor.wearingAnyIronMan(player) || IronManSuitUpManager.inTransition(player)) {
+		// v0.16.7 (user): it may be called over another worn suit (the Hulkbuster goes on over it), never over itself
+		if (!TonyStark.hasPower(player) || com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(player)
+				|| IronManSuitUpManager.inTransition(player)) {
 			return false;
 		}
 		if (findLoaded(player) < 0) {
@@ -248,9 +308,8 @@ public final class HulkbusterCrate {
 		if (pieces.isEmpty()) {
 			return false;
 		}
-		// the uplink stays, emptied (never mistaken for a fresh one): the suit is in the crate now
-		SuitcaseContents.write(uplink, NonNullList.withSize(SuitcaseContents.SLOTS, ItemStack.EMPTY));
-		player.getInventory().setChanged();
+		// v0.16.7 (user): ONE USE -- the Uplink is used up calling the suit (the suit goes home to its platform afterwards)
+		consume(player, idx);
 		Vec3 d = ground.subtract(player.position());
 		float yaw = (float) (Math.toDegrees(Math.atan2(d.z, d.x)) - 90.0);
 		float h = Math.max(12f, Math.min(DROP_HEIGHT, level.getMaxBuildHeight() - (float) ground.y - 6f));
@@ -259,6 +318,66 @@ public final class HulkbusterCrate {
 		player.displayClientMessage(Component.translatable("message.projecthero.ironman.hb_crate.inbound")
 				.withStyle(ChatFormatting.AQUA), true);
 		return true;
+	}
+
+	/**
+	 * v0.16.7 (user) Veronica: the Uplink used in the air -- no crate: a pod comes in above and behind {@code player} and the
+	 * Hulkbuster builds itself round them ({@code HulkbusterPodEntity#callBuild}), over whatever they wear. Spends the Uplink.
+	 */
+	public static boolean buildInAir(ServerPlayer player) {
+		if (!TonyStark.hasPower(player) || com.projecthero.mod.ironman.HulkbusterInnerSuit.wearingHulkbusterPiece(player)
+				|| IronManSuitUpManager.inTransition(player) || crateOf(player) != null) {
+			return false;
+		}
+		int idx = findLoaded(player);
+		if (idx < 0) {
+			if (carriesUplink(player)) {
+				refuse(player, "not_in_orbit");
+			}
+			return false;
+		}
+		float[] integrity = new float[1];
+		List<ItemStack> pieces = unpack(player, idx, integrity);
+		for (ItemStack s : pieces) {
+			IronManEnergy.stampStack(s, IronManEnergy.stackEnergy(s, SUIT_ID), integrity[0]);
+		}
+		if (pieces.isEmpty() || com.projecthero.mod.ironman.entity.HulkbusterPodEntity.callBuild(player, pieces) == null) {
+			return false;
+		}
+		consume(player, idx);
+		return true;
+	}
+
+	/** v0.16.7 (user): the single-use Uplink in slot {@code idx} is spent (gone from the inventory). */
+	static void consume(ServerPlayer player, int idx) {
+		ItemStack st = player.getInventory().items.get(idx);
+		st.shrink(1);
+		if (st.isEmpty()) {
+			player.getInventory().items.set(idx, ItemStack.EMPTY);
+		}
+		player.getInventory().setChanged();
+		player.inventoryMenu.broadcastChanges();
+	}
+
+	/** v0.16.7 (user): the four stacks (a fresh Uplink stands for a new suit) and the integrity of the Uplink at {@code idx}. */
+	static List<ItemStack> unpack(ServerPlayer player, int idx, float[] integrityOut) {
+		ItemStack uplink = player.getInventory().items.get(idx);
+		float integrity = IronManEnergy.stackIntegrity(uplink, SUIT_ID);
+		NonNullList<ItemStack> slots = SuitcaseContents.read(uplink);
+		if (SuitcaseContents.isLegacyEmpty(uplink)) {
+			for (int bit = 0; bit < 4; bit++) {
+				slots.set(bit, new ItemStack(IronManItems.armor(SUIT_ID, IronManSuitUpManager.typeOf(SLOTS[bit]))));
+			}
+			integrity = IronManEnergy.maxIntegrity(SUIT_ID);
+		}
+		List<ItemStack> pieces = new java.util.ArrayList<>();
+		for (ItemStack s : slots) {
+			if (!s.isEmpty()) {
+				pieces.add(s);
+			}
+		}
+		integrityOut[0] = integrity;
+		return pieces;
 	}
 
 	/** Where the look ray meets the ground, pushed out to {@link #MIN_RANGE}; null if it meets nothing in range. */

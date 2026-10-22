@@ -124,9 +124,8 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 		ServerPlayer p = tony(h, new BlockPos(0, 2, 0));
 		p.getInventory().items.set(0, new ItemStack(IronManItems.HULKBUSTER_UPLINK)); // fresh: a whole new suit
 		h.assertTrue(HulkbusterCrate.callTo(p, centre(h)), "the call is accepted");
-		ItemStack up = p.getInventory().items.get(0);
-		h.assertTrue(up.is(IronManItems.HULKBUSTER_UPLINK) && !SuitcaseContents.isLegacyEmpty(up) && SuitcaseContents.isEmpty(up),
-				"the Uplink stays, emptied: the suit is in the crate");
+		// v0.16.7 (user) Veronica: single use -- the Uplink is used up
+		h.assertTrue(p.getInventory().items.get(0).isEmpty(), "the Uplink is used up calling the suit");
 		HulkbusterCrateEntity c = crate(h, p);
 		h.assertTrue(c != null && c.phase() == HulkbusterCrateEntity.P_DROP && c.carrying(), "the crate is dropping with the suit");
 		h.assertFalse(HulkbusterCrate.callTo(p, centre(h).add(1, 0, 0)), "only one crate at a time");
@@ -137,12 +136,16 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 			h.assertTrue(s != null && s.isOpen() && s.crated() && s.pieceCount() == 4 && SUIT.equals(s.suitId()),
 					"the Hulkbuster stands in it, back open");
 			h.assertTrue(s.position().distanceTo(cc.position()) < 0.3, "at the crate's centre");
-			// C again: it shuts and goes back up, and the suit is back in the Uplink
+			// C again: it shuts and goes back up -- with no Suit Platform to fly home to, the pieces come back loose
 			h.assertTrue(HulkbusterCrate.recall(p), "C recalls it");
 			h.succeedWhen(() -> {
 				h.assertTrue(crate(h, p) == null, "the crate has lifted off");
-				ItemStack back = p.getInventory().items.get(0);
-				h.assertTrue(SuitcaseContents.nonEmpty(back).size() == 4, "the suit is back in the same Uplink");
+				int loose = 0, uplinks = 0;
+				for (ItemStack st : p.getInventory().items) {
+					loose += st.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a && SUIT.equals(a.suitId()) ? 1 : 0;
+					uplinks += st.is(IronManItems.HULKBUSTER_UPLINK) ? 1 : 0;
+				}
+				h.assertTrue(loose == 4 && uplinks == 0, "the four pieces back loose, no new Uplink (" + loose + ", " + uplinks + ")");
 				cleanup(h, p);
 			});
 		});
@@ -216,15 +219,17 @@ public class IronManHulkbusterCrateGameTests implements FabricGameTest {
 				.thenExecute(() -> h.assertFalse(PortableDeploy.running(p), "free again once out"))
 				.thenWaitUntil(() -> h.assertTrue(crate(h, p) == null, "it shut and lifted off"))
 				.thenExecute(() -> {
+					// v0.16.7 (user) Veronica: no Uplink is refilled -- with no platform the pieces come back loose
 					ItemStack u = p.getInventory().items.get(5);
-					h.assertTrue(u.is(IronManItems.HULKBUSTER_UPLINK) && SuitcaseContents.nonEmpty(u).size() == 4,
-							"the suit is back in orbit: the emptied Uplink holds all four pieces (" + p.getInventory().items + ")");
-					h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(u, SUIT) - 1234f) < 1f, "with its integrity");
-					int uplinks = 0;
+					h.assertTrue(u.is(IronManItems.HULKBUSTER_UPLINK) && SuitcaseContents.isEmpty(u), "the old spent Uplink stays spent");
+					int loose = 0;
 					for (ItemStack s : p.getInventory().items) {
-						uplinks += s.is(IronManItems.HULKBUSTER_UPLINK) ? 1 : 0;
+						if (s.getItem() instanceof com.projecthero.mod.ironman.item.IronManArmorItem a && SUIT.equals(a.suitId())) {
+							loose++;
+							h.assertTrue(Math.abs(IronManEnergy.stackIntegrity(s, SUIT) - 1234f) < 1f, "with its integrity");
+						}
 					}
-					h.assertTrue(uplinks == 1, "refilled, not duplicated");
+					h.assertTrue(loose == 4, "all four pieces (" + p.getInventory().items + ")");
 					h.assertTrue(h.getLevel().getEntities(IronManEntityTypes.SENTRY, new AABB(p.position(), p.position()).inflate(20),
 							s -> p.getUUID().equals(s.ownerId())).isEmpty(), "no suit left standing");
 					cleanup(h, p);

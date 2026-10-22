@@ -104,15 +104,74 @@ public final class HulkbusterLocators {
 		return f;
 	}
 
+	// ---------------- v0.16.7 (user) Veronica: where each of the six parts is (the pod's plates fly there, sparks / smoke)
+
+	private static final Map<Integer, Vec3[]> PARTS = new HashMap<>();
+	private static final Map<Integer, Long> PARTS_TICK = new HashMap<>();
+
+	/** The part {@code bone} marks (-1 = none): the head, the chest, each elbow, each knee. */
+	public static int partSlotOf(GeoBone bone) {
+		return switch (bone.getName()) {
+			case "head" -> com.projecthero.mod.ironman.HulkbusterParts.HEAD;
+			case "chest" -> com.projecthero.mod.ironman.HulkbusterParts.TORSO;
+			case "forearm_l" -> com.projecthero.mod.ironman.HulkbusterParts.LARM;
+			case "forearm_r" -> com.projecthero.mod.ironman.HulkbusterParts.RARM;
+			case "shin_l" -> com.projecthero.mod.ironman.HulkbusterParts.LLEG;
+			case "shin_r" -> com.projecthero.mod.ironman.HulkbusterParts.RLEG;
+			default -> -1;
+		};
+	}
+
+	/** Record part {@code part} for {@code entity} (same frames as {@link #capture}). */
+	public static void capturePart(Entity entity, int part, GeoBone bone, PoseStack poseStack, Matrix4f origin) {
+		if (entity == null || entity.level() == null) {
+			return;
+		}
+		poseStack.pushPose();
+		RenderUtil.translateMatrixToBone(poseStack, bone);
+		RenderUtil.translateToPivotPoint(poseStack, bone);
+		RenderUtil.rotateMatrixAroundBone(poseStack, bone);
+		RenderUtil.scaleMatrixForBone(poseStack, bone);
+		Matrix4f local = new Matrix4f(origin).invert().mul(poseStack.last().pose());
+		poseStack.popPose();
+		Vector3f p = new Vector3f();
+		// a little way into the limb / plate from the joint, and out to the front of the chest / head
+		float down = part == com.projecthero.mod.ironman.HulkbusterParts.HEAD ? -4f
+				: part == com.projecthero.mod.ironman.HulkbusterParts.TORSO ? -4f : 2f;
+		local.transformPosition(0f, -down / 16f, part <= com.projecthero.mod.ironman.HulkbusterParts.TORSO ? -4f / 16f : 0f, p);
+		Vec3[] arr = PARTS.computeIfAbsent(entity.getId(), k -> new Vec3[com.projecthero.mod.ironman.HulkbusterParts.COUNT]);
+		arr[part] = new Vec3(p.x, p.y, p.z);
+		PARTS_TICK.put(entity.getId(), entity.level().getGameTime());
+	}
+
+	/** The fresh offset (from the entity's feet, world axes) of {@code part} on {@code entity}, or null. */
+	public static Vec3 part(Entity entity, int part) {
+		Long t = entity == null ? null : PARTS_TICK.get(entity.getId());
+		if (t == null || Math.abs(entity.level().getGameTime() - t) > FRESH_TICKS) {
+			return null;
+		}
+		Vec3[] arr = PARTS.get(entity.getId());
+		return arr == null ? null : arr[part];
+	}
+
 	/** Forget stale records (once a second from the client tick) and everything when the world is gone. */
 	public static void tick(Minecraft client) {
 		if (client.level == null) {
 			FRAMES.clear();
+			PARTS.clear();
+			PARTS_TICK.clear();
 			return;
 		}
 		long now = client.level.getGameTime();
 		if (now % 20L == 0L) {
 			FRAMES.values().removeIf(f -> Math.abs(now - f.tick) > 40L);
+			PARTS_TICK.entrySet().removeIf(e -> {
+				boolean stale = Math.abs(now - e.getValue()) > 40L;
+				if (stale) {
+					PARTS.remove(e.getKey());
+				}
+				return stale;
+			});
 		}
 	}
 }

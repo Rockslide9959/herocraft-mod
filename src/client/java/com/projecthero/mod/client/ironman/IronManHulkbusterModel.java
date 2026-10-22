@@ -55,5 +55,23 @@ public class IronManHulkbusterModel<T extends GeoAnimatable> extends GeoModel<T>
 			}
 			flinch.setRotX(0.22f * jolt);
 		});
+		// v0.16.7 (user) Veronica: the mid-air build -- pieces in flight from the pod onto the body
+		if (state.getData(DataTickets.ENTITY) instanceof net.minecraft.world.entity.player.Player player) {
+			HulkbusterVeronicaClient.BuildPose build = HulkbusterVeronicaClient.buildPose(player, state.getPartialTick());
+			if (build != null) {
+				for (int part = 0; part < com.projecthero.mod.ironman.HulkbusterParts.COUNT; part++) {
+					final float[] pos = build.pos[part];
+					final float[] rot = build.rot[part];
+					getBone(HulkbusterPartRender.rootBone(part)).ifPresent(b -> {
+						b.setPosX(pos[0]);
+						b.setPosY(pos[1]);
+						b.setPosZ(pos[2]);
+						b.setRotX(b.getRotX() + rot[0]);
+						b.setRotY(b.getRotY() + rot[1]);
+						b.setRotZ(b.getRotZ() + rot[2]);
+					});
+				}
+			}
+		}
 	}
 }
