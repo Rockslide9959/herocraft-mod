@@ -98,7 +98,8 @@ public class HulkbusterPodRenderer extends GeoEntityRenderer<HulkbusterPodEntity
 			if (selfFp && part <= HulkbusterParts.TORSO && age >= land) {
 				continue; // don't paste a plate over your own eyes
 			}
-			Vec3 dest = HulkbusterVeronicaClient.partWorld(target, part, partial);
+			Vec3 dest = HulkbusterVeronicaClient.plateSpot(target, part, partial);
+			Vec3 out = HulkbusterVeronicaClient.outward(target, part, partial);
 			Vec3 at;
 			float tumble;
 			float scale = 1f;
@@ -116,9 +117,8 @@ public class HulkbusterPodRenderer extends GeoEntityRenderer<HulkbusterPodEntity
 			}
 			poseStack.pushPose();
 			poseStack.translate(at.x - origin.x, at.y - origin.y, at.z - origin.z);
-			// face the part's outside: turned to the target's facing, then tumbling in flight
-			float yaw = target instanceof net.minecraft.world.entity.LivingEntity le ? Mth.rotLerp(partial, le.yBodyRotO, le.yBodyRot)
-					: target.getViewYRot(partial);
+			// lying flat on the part's outside (facing out of it), tumbling while in flight
+			float yaw = (float) Math.toDegrees(Math.atan2(-out.x, out.z));
 			poseStack.mulPose(Axis.YP.rotationDegrees(-yaw));
 			poseStack.mulPose(Axis.XP.rotationDegrees(tumble));
 			poseStack.mulPose(Axis.ZP.rotationDegrees(tumble * 0.6f));
@@ -130,7 +130,7 @@ public class HulkbusterPodRenderer extends GeoEntityRenderer<HulkbusterPodEntity
 
 	/** A 0.6 x 0.45 x 0.08 plate, the chest plating of the Hulkbuster skin on its faces and gold on its edges. */
 	private static void plate(PoseStack poseStack, VertexConsumer vc, int light, int j) {
-		float hx = 0.3f, hy = 0.225f, hz = 0.04f;
+		float hx = 0.36f, hy = 0.28f, hz = 0.05f;
 		// skin UVs (64x64): the body front (20..28, 20..32) for the faces, a gold strip of the arms for the edges
 		float u0 = 20f / 64f, u1 = 28f / 64f, v0 = (20f + (j % 3)) / 64f, v1 = (26f + (j % 3)) / 64f;
 		float eu0 = 44f / 64f, eu1 = 47f / 64f, ev0 = 20f / 64f, ev1 = 21f / 64f;

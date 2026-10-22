@@ -45,6 +45,25 @@ public final class HulkbusterVeronicaClient {
 		return HulkbusterPodEntity.partPos(target, part).subtract(target.position()).add(base);
 	}
 
+	/** The way out of {@code part}'s surface (horizontal): the chest / head face forward, limbs face out to their side. */
+	public static Vec3 outward(Entity target, int part, float partial) {
+		float yaw = target instanceof net.minecraft.world.entity.LivingEntity le ? Mth.rotLerp(partial, le.yBodyRotO, le.yBodyRot)
+				: target.getViewYRot(partial);
+		Vec3 facing = Vec3.directionFromRotation(0f, yaw);
+		if (part == HulkbusterParts.HEAD || part == HulkbusterParts.TORSO) {
+			return facing;
+		}
+		Vec3 dest = partWorld(target, part, partial);
+		Vec3 out = dest.subtract(target.getPosition(partial)).multiply(1, 0, 1);
+		return out.lengthSqr() < 0.04 ? facing : out.normalize();
+	}
+
+	/** Where a replacement plate lies while it is welded on: on the OUTSIDE of the part's plating. */
+	public static Vec3 plateSpot(Entity target, int part, float partial) {
+		double push = part == HulkbusterParts.TORSO ? 0.62 : part == HulkbusterParts.HEAD ? 0.5 : 0.48;
+		return partWorld(target, part, partial).add(outward(target, part, partial).scale(push));
+	}
+
 	/** The effective part damage of a body being drawn: a worn suit or a Sentry. */
 	public static float[] damageOf(Entity e) {
 		if (e instanceof Player p) {
@@ -165,7 +184,7 @@ public final class HulkbusterVeronicaClient {
 					continue;
 				}
 				// in first person, not from your own head (it would fill the view)
-				if (e == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson() && i <= HulkbusterParts.TORSO) {
+				if (e == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson() && i < HulkbusterParts.LLEG) {
 					continue;
 				}
 				Vec3 at = partWorld(e, i, 1f);
@@ -190,9 +209,11 @@ public final class HulkbusterVeronicaClient {
 		Vec3 at = pod.podAt(age);
 		// thrusters under it while it flies in / hovers / leaves
 		if (age < pod.departAt() + HulkbusterPodEntity.DEPART_TICKS) {
-			for (int n = 0; n < 2; n++) {
-				level.addParticle(ParticleTypes.FLAME, at.x + r.nextGaussian() * 0.15, at.y + 0.1, at.z + r.nextGaussian() * 0.15, 0,
-						-0.12 - r.nextFloat() * 0.1, 0);
+			// a short thruster flicker under it (not a column: it hovers)
+			boolean moving = age < pod.arriveTicks() || age > pod.departAt();
+			if (moving || pod.tickCount % 2 == 0) {
+				level.addParticle(ParticleTypes.FLAME, at.x + r.nextGaussian() * 0.12, at.y + 0.05, at.z + r.nextGaussian() * 0.12, 0,
+						moving ? -0.08 : -0.03, 0);
 			}
 			if (age < pod.arriveTicks() || age > pod.departAt()) {
 				level.addParticle(ParticleTypes.LARGE_SMOKE, at.x, at.y + 0.2, at.z, 0, -0.02, 0);
@@ -210,7 +231,7 @@ public final class HulkbusterVeronicaClient {
 			if (w <= 0f || w >= 1f) {
 				continue;
 			}
-			Vec3 p = partWorld(target, pod.plateTarget(j), 1f);
+			Vec3 p = plateSpot(target, pod.plateTarget(j), 1f);
 			for (int n = 0; n < 3; n++) {
 				level.addParticle(ParticleTypes.ELECTRIC_SPARK, p.x + r.nextGaussian() * 0.12, p.y + r.nextGaussian() * 0.12,
 						p.z + r.nextGaussian() * 0.12, r.nextGaussian() * 0.15, 0.08 + r.nextFloat() * 0.12, r.nextGaussian() * 0.15);
