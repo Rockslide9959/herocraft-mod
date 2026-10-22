@@ -353,9 +353,11 @@ public final class IronManAbilityVisuals {
 		Vec3 motion = p.getDeltaMovement();
 		Vec3 dir = motion.lengthSqr() < 1.0e-4 ? p.getViewVector(pt) : motion.normalize();
 		float pulse = 0.6f + 0.4f * Mth.sin(now * 1.3f);
-		ring(vc, glow, pose, centre, dir, 1.2f + 0.2f * pulse, glow ? 0x7FD8FF : 0xFFFFFF, 0.7f, cam, 24);
+		// v0.16.7 (user) Era II: the Mk IX Inferno's Afterburner rings burn orange
+		int c = com.projecthero.mod.ironman.ability.IronManMark9.SUIT.equals(com.projecthero.mod.ironman.IronManArmor.wornSuitId(p)) ? MK9_HOT : 0x7FD8FF;
+		ring(vc, glow, pose, centre, dir, 1.2f + 0.2f * pulse, glow ? c : 0xFFFFFF, 0.7f, cam, 24);
 		for (int i = 1; i <= 3; i++) {
-			ring(vc, glow, pose, centre.subtract(dir.scale(i * 0.9)), dir, 0.9f - i * 0.2f, glow ? 0x7FD8FF : 0xFFFFFF,
+			ring(vc, glow, pose, centre.subtract(dir.scale(i * 0.9)), dir, 0.9f - i * 0.2f, glow ? c : 0xFFFFFF,
 					0.5f - i * 0.12f, cam, 18);
 		}
 	}
@@ -364,6 +366,34 @@ public final class IronManAbilityVisuals {
 
 	private static final int MK9_HOT = 0xFF5A14;
 	private static final int MK9_GOLD = 0xFFC040;
+
+	/**
+	 * A Mk IX ring: the shared {@link #ring} drawn thin (in-client check: the shared ring's width grows with its radius, so a
+	 * 12-block nova became a block-wide slab across the ground) -- a hot glow band at most {@code 0.3} wide, a thin core.
+	 */
+	private static void heatRing(VertexConsumer vc, boolean glow, PoseStack.Pose pose, Vec3 centre, Vec3 normal, float radius, int colour,
+			float alpha, Vec3 cam, int n) {
+		if (alpha <= 0.01f || radius <= 0.01f) {
+			return;
+		}
+		Vec3 nrm = normal.normalize();
+		Vec3 a = nrm.cross(new Vec3(0, 1, 0));
+		if (a.lengthSqr() < 1.0e-6) {
+			a = nrm.cross(new Vec3(1, 0, 0));
+		}
+		a = a.normalize();
+		Vec3 b = nrm.cross(a).normalize();
+		float w = glow ? Math.min(0.3f, Math.max(0.05f, radius * 0.06f)) : Math.min(0.06f, Math.max(0.015f, radius * 0.02f));
+		Vec3 prev = null;
+		for (int i = 0; i <= n; i++) {
+			double t = i * Math.PI * 2 / n;
+			Vec3 pt = centre.add(a.scale(Math.cos(t) * radius)).add(b.scale(Math.sin(t) * radius));
+			if (prev != null) {
+				BeamDraw.segment(vc, pose, prev, pt, cam, w, w, colour, alpha, alpha);
+			}
+			prev = pt;
+		}
+	}
 
 	/**
 	 * Heat Dump: once the arms fly open (age 4), three fire rings roll out flat from the chest to the nova radius (it rides
@@ -387,11 +417,11 @@ public final class IronManAbilityVisuals {
 				continue;
 			}
 			float fade = 1f - k;
-			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.4f + radius * k, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, fade, cam, 48);
+			heatRing(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.4f + radius * k, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, fade, cam, 64);
 		}
 		float g = Mth.clamp((age - 4f) / 6f, 0f, 1f);
 		if (g < 1f) {
-			ring(vc, glow, pose, base.add(0, 0.1, 0), new Vec3(0, 1, 0), 0.5f + radius * 0.8f * g, glow ? MK9_HOT : 0xFFFFFF, (1f - g) * 0.8f, cam, 40);
+			heatRing(vc, glow, pose, base.add(0, 0.1, 0), new Vec3(0, 1, 0), 0.5f + radius * 0.8f * g, glow ? MK9_HOT : 0xFFFFFF, (1f - g) * 0.8f, cam, 56);
 			ring(vc, glow, pose, chest, new Vec3(1, 0.6, 0), 1.0f + 2.2f * g, glow ? MK9_GOLD : 0xFFFFFF, (1f - g) * 0.7f, cam, 28);
 			ring(vc, glow, pose, chest, new Vec3(-0.5, 0.6, 1), 1.0f + 2.2f * g, glow ? MK9_HOT : 0xFFFFFF, (1f - g) * 0.7f, cam, 28);
 			// the vent column, shooting up and thinning
@@ -412,7 +442,7 @@ public final class IronManAbilityVisuals {
 			if (k <= 0f || k >= 1f) {
 				continue;
 			}
-			ring(vc, glow, pose, base, new Vec3(0, 1, 0), 0.5f + 4.5f * k, glow ? (i == 0 ? MK9_HOT : MK9_GOLD) : 0xFFE8A0, 1f - k, cam, 44);
+			heatRing(vc, glow, pose, base, new Vec3(0, 1, 0), 0.5f + 4.5f * k, glow ? (i == 0 ? MK9_HOT : MK9_GOLD) : 0xFFE8A0, 1f - k, cam, 48);
 		}
 	}
 
@@ -435,7 +465,7 @@ public final class IronManAbilityVisuals {
 		for (int i = 0; i < 3; i++) {
 			float k = ((age + i * 2.7f) % 8f) / 8f;
 			float alpha = Mth.sin(k * Mth.PI) * 0.8f;
-			ring(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.3f + (1f - k) * 3.0f, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, alpha, cam, 32);
+			heatRing(vc, glow, pose, chest, new Vec3(0, 1, 0), 0.3f + (1f - k) * 3.0f, glow ? (i == 1 ? MK9_GOLD : MK9_HOT) : 0xFFE8A0, alpha, cam, 32);
 		}
 	}
 

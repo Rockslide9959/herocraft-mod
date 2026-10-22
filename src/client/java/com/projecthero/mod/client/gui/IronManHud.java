@@ -183,7 +183,7 @@ public final class IronManHud {
 			if (com.projecthero.mod.ironman.ability.IronManMark9.SUIT.equals(suitId)) {
 				float sink = com.projecthero.mod.ironman.ability.IronManMark9.syncedHeat(player);
 				float sinkFrac = IronManUiLayout.clamp01(sink / com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX);
-				String sinkValue = IronManUiLayout.pct(sinkFrac);
+				String sinkValue = Math.round(sink) + "%"; // whole points: the sink is a 0-100 gauge
 				if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HEAT_MAX - 0.5f) {
 					sinkValue += " " + Component.translatable("hud.projecthero.ironman.heat_sink.full").getString();
 				} else if (sink >= com.projecthero.mod.ironman.ability.IronManMark9.HOT) {

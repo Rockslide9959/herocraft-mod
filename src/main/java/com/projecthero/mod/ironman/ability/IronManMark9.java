@@ -431,7 +431,7 @@ public final class IronManMark9 {
 			}
 			IronManComicFx.groundRing(level, c, 2.5, 14);
 			level.sendParticles(ParticleTypes.LAVA, c.x, c.y + 0.2, c.z, 30, 2.0, 0.2, 2.0, 0.0);
-			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.5, c.z, 20, 2.0, 0.4, 2.0, 0.02);
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.5, c.z, 6, 2.0, 0.4, 2.0, 0.02);
 			IronManComicFx.soundAt(level, c, SoundEvents.GENERIC_EXPLODE, 1.0f, 0.7f);
 			IronManComicFx.soundAt(level, c, SoundEvents.LAVA_POP, 1.2f, 0.6f);
 			IronManComicFx.soundAt(level, c, SoundEvents.BLAZE_SHOOT, 1.0f, 0.5f);
@@ -475,7 +475,7 @@ public final class IronManMark9 {
 			level.sendParticles(ParticleTypes.FLAME, base.x, base.y + i * 0.5, base.z, 6, 0.25, 0.1, 0.25, 0.03);
 		}
 		level.sendParticles(ParticleTypes.LAVA, base.x, base.y, base.z, 14, 0.8, 0.1, 0.8, 0.0);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, base.x, base.y, base.z, 16, 1.0, 0.2, 1.0, 0.03);
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, base.x, base.y, base.z, 6, 1.0, 0.2, 1.0, 0.03);
 		IronManComicFx.pose(p, IronManAbilityFx.COMIC_LAUNCH, 10);
 		IronManComicFx.sound(p, IronManSounds.FLIGHT_BURST, 1.0f, 0.8f);
 		IronManComicFx.soundAt(level, base, SoundEvents.BLAZE_SHOOT, 1.0f, 0.6f);
@@ -558,8 +558,10 @@ public final class IronManMark9 {
 				IronManComicFx.ring(level, c, r, r % 2 < 1 ? ParticleTypes.FLAME : ParticleTypes.SMALL_FLAME, (int) (8 + r * 5));
 			}
 			level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, (int) (10 + vented / 4), radius * 0.3, 0.5, radius * 0.3, 0.0);
-			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.5, c.z, 24, 0.6, 1.2, 0.6, 0.06);
-			level.sendParticles(vented >= 80f ? ParticleTypes.EXPLOSION_EMITTER : ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+			// (in-client check: an explosion emitter's puffs swamped the nova rings -- one flash, a little smoke)
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 1.0, c.z, 6, 0.4, 0.8, 0.4, 0.04);
+			level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+			level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, (int) (20 + vented / 2), 0.3, 0.3, 0.3, 0.25 + radius * 0.02);
 			IronManComicFx.soundAt(level, c, SoundEvents.GENERIC_EXPLODE, 1.2f, 0.75f);
 			IronManComicFx.soundAt(level, c, SoundEvents.BLAZE_SHOOT, 1.2f, 0.5f);
 			IronManComicFx.soundAt(level, c, SoundEvents.FIRECHARGE_USE, 1.0f, 0.5f);
