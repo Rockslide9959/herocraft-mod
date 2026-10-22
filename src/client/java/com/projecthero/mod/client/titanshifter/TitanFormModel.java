@@ -28,12 +28,17 @@ public class TitanFormModel extends GeoModel<TitanFormEntity> {
 		TitanTexels tx = TitanTexels.get(type.modelName());
 		float build = TitanFx.buildProgress(e, partial);
 		if (build >= 0.0f && build < 0.999f && tx != null) {
-			return TitanSkinFrames.build(e, tx, type.texture(), pale, build);
+			// v0.16.7 (user, Titan fixes): the Emergency Titan has its own rushed, unstable build
+			return pale ? TitanSkinFrames.emergency(e, tx, type.texture(), build) : TitanSkinFrames.build(e, tx, type.texture(), pale, build);
 		}
 		TitanFx.observeLimbs(e);
 		float[] regrow = TitanFx.regrowProgress(e, partial);
 		if (TitanFx.anyRegrowing(regrow) && tx != null) {
 			return TitanSkinFrames.regrow(e, tx, tex, pale, regrow);
+		}
+		if (pale && !e.isHardened() && tx != null) {
+			// ...and stays that way: the skin never finished forming, raw flesh shows through the patches
+			return TitanSkinFrames.emergency(e, tx, type.texture(), 1.0f);
 		}
 		if (TitanSkinFrames.has(e)) {
 			TitanSkinFrames.drop(e);

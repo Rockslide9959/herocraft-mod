@@ -380,16 +380,16 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 
 	/** v0.16.7: every hit this Titan lands is multiplied by this (Rage up to +50%, crystal fists +50%). */
 	public float outgoingDamageFactor() {
-		float f = 1.0f + 0.5f * rage();
+		float f = 1.0f + (float) com.projecthero.mod.titanshifter.TitanShifterConfig.attackTitan().rageDamageBonus * rage();
 		if (isCrystal()) {
-			f *= 1.5f;
+			f *= 1.0f + (float) com.projecthero.mod.titanshifter.TitanShifterConfig.femaleTitan().crystalDamageBonus;
 		}
 		return f;
 	}
 
 	/** v0.16.7: Rage also speeds the R combo up -- its recharge shrinks by up to 40%. */
 	public double attackSpeedFactor() {
-		return 1.0 - 0.4 * rage();
+		return 1.0 - com.projecthero.mod.titanshifter.TitanShifterConfig.attackTitan().rageComboSpeedup * rage();
 	}
 
 	public void markAttacked() {
@@ -415,6 +415,19 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		};
 	}
 
+	/** v0.16.7 (user, Titan fixes): the middle of a whole limb (the severed chunk starts there). */
+	public Vec3 limbCentre(int limb) {
+		Vec3 right = Vec3.directionFromRotation(0, getYRot() + 90.0f);
+		double w = getBbWidth();
+		double h = getBbHeight();
+		return switch (limb) {
+			case LIMB_R_ARM -> position().add(right.scale(w * 0.62)).add(0, h * 0.5, 0);
+			case LIMB_L_ARM -> position().add(right.scale(-w * 0.62)).add(0, h * 0.5, 0);
+			case LIMB_R_LEG -> position().add(right.scale(w * 0.2)).add(0, h * 0.2, 0);
+			default -> position().add(right.scale(-w * 0.2)).add(0, h * 0.2, 0);
+		};
+	}
+
 	/** v0.16.7: cuts a limb off (server). Returns false if it was already gone. */
 	public boolean sever(int limb) {
 		if (!hasLimb(limb) || !(level() instanceof ServerLevel sl)) {
@@ -435,6 +448,8 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		sl.playSound(null, at.x, at.y, at.z, SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.HOSTILE, 3.0f, 0.4f);
 		sl.playSound(null, at.x, at.y, at.z, SoundEvents.SLIME_SQUISH, SoundSource.HOSTILE, 3.0f, 0.5f);
 		sl.playSound(null, at.x, at.y, at.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.HOSTILE, 2.5f, 0.6f);
+		// v0.16.7 (user, Titan fixes): the limb itself is flung off, lands, steams and dissolves
+		TitanLimbChunkEntity.fling(this, limb, limbCentre(limb));
 		if (limb == LIMB_R_LEG || limb == LIMB_L_LEG) {
 			play("stumble");
 			footstep(sl, 1.6f, false);
@@ -1111,7 +1126,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		// v0.16.7: the Armoured Titan's crystal plates are always on; its Brace takes three quarters more off
 		dealt *= 1.0f - (float) titanType().plateReduction();
 		if (hasMoveFlag(FLAG_BRACING)) {
-			dealt *= 0.25f;
+			dealt *= (float) TitanShifterConfig.armoredTitan().braceDamageFactor;
 		}
 		// v0.16.7 (user): the nape -- a hit from behind at or above the shoulders deals 3x (unless a hand guards it)
 		Vec3 at = hitPoint(source);
@@ -1302,7 +1317,7 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		}
 		// v0.16.7: the 4.5 s transformation clip is stretched to the shift's length (60 ticks, 12 for a Bite Shift)
 		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate).setAnimationSpeedHandler(
-				f -> f.formState() == FORM_TRANSFORMING ? 90.0 / Math.max(1, f.formStateTicks())
+				f -> f.formState() == FORM_TRANSFORMING ? transformClipSpeed(f)
 						: f.formState() == FORM_REVERTING ? 60.0 / Math.max(1, f.formStateTicks()) : 1.0));
 		// the raised right arm while a mob is in the hand (only that bone is keyed, so it layers over walk / run)
 		controllers.add(new AnimationController<>(this, "carry", 6, state -> isHolding() && formState() == FORM_NORMAL
@@ -1310,6 +1325,19 @@ public class TitanFormEntity extends LivingEntity implements GeoEntity {
 		// v0.16.7 (user, Titan revamp): held poses for the timed move states (upper body only, so they layer over walk / run)
 		controllers.add(new AnimationController<>(this, "flags", 5, this::flagPredicate));
 		controllers.add(action);
+	}
+
+	/**
+	 * The transformation clip's speed: stretched to the shift's length; v0.16.7 (user, Titan fixes) the Emergency Titan's
+	 * runs on a jerky stall-and-lurch clock ({@link com.projecthero.mod.titanshifter.TitanEmergencyBuild#jerkyWarp}).
+	 */
+	private static double transformClipSpeed(TitanFormEntity f) {
+		double base = 90.0 / Math.max(1, f.formStateTicks());
+		if (!f.isEmergency()) {
+			return base;
+		}
+		int e = Math.max(1, f.tickCount - f.stateChangedTick);
+		return base * com.projecthero.mod.titanshifter.TitanEmergencyBuild.jerkyWarp(e, f.getId()) / e;
 	}
 
 	private static final RawAnimation CHARGE_LOOP = RawAnimation.begin().thenLoop(ANIM + "shoulder_charge_loop");

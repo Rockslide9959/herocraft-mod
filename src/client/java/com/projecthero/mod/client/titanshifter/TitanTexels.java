@@ -52,6 +52,18 @@ public final class TitanTexels {
 	public final float[] dissolveSorted;
 	/** Per limb bit (index 0..3): the earliest build time of its texels, so a regrowing limb starts from its own first bone. */
 	public final float[] limbBuildMin = new float[4];
+	/**
+	 * v0.16.7 (user, Titan fixes) -- per limb slot, for the severed-limb chunk: its texels in dissolve order (and their
+	 * times), the first / last of those times (the chunk maps its own 0..1 onto them: skin, flesh, bone), and the limb's
+	 * rest-pose centre and size (model px).
+	 */
+	public final int[][] limbByDissolve = new int[4][];
+	public final float[][] limbDissolveSorted = new float[4][];
+	public final float[] limbDissolveMin = new float[4];
+	public final float[] limbDissolveMax = new float[4];
+	public final float[][] limbCentre = new float[4][3];
+	public final float[][] limbSize = new float[4][3];
+	private Emergency emergency;
 
 	private static final Map<String, TitanTexels> CACHE = new HashMap<>();
 
@@ -214,10 +226,131 @@ public final class TitanTexels {
 			}
 			sort(t.build, t.byBuild, t.buildSorted);
 			sort(t.dissolve, t.byDissolve, t.dissolveSorted);
+			t.bakeLimbs();
 			return t;
 		} finally {
 			times.close();
 		}
+	}
+
+	private void bakeLimbs() {
+		for (int slot = 0; slot < 4; slot++) {
+			int bit = 1 << slot;
+			IntArrayListLite ids = new IntArrayListLite();
+			float[] lo = { Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE }, hi = { -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE };
+			for (int k : byDissolve) {
+				if (limb[k] == bit) {
+					ids.add(k);
+					lo[0] = Math.min(lo[0], px[k]);
+					lo[1] = Math.min(lo[1], py[k]);
+					lo[2] = Math.min(lo[2], pz[k]);
+					hi[0] = Math.max(hi[0], px[k]);
+					hi[1] = Math.max(hi[1], py[k]);
+					hi[2] = Math.max(hi[2], pz[k]);
+				}
+			}
+			int[] order = ids.toArray();
+			float[] times = new float[order.length];
+			for (int i = 0; i < order.length; i++) {
+				times[i] = dissolve[order[i]];
+			}
+			limbByDissolve[slot] = order;
+			limbDissolveSorted[slot] = times;
+			limbDissolveMin[slot] = order.length == 0 ? 0.0f : times[0];
+			limbDissolveMax[slot] = order.length == 0 ? 1.0f : times[order.length - 1];
+			for (int a = 0; a < 3; a++) {
+				limbCentre[slot][a] = order.length == 0 ? 0.0f : (lo[a] + hi[a]) * 0.5f;
+				limbSize[slot][a] = order.length == 0 ? 1.0f : hi[a] - lo[a];
+			}
+		}
+	}
+
+	/** A tiny growable int list (no fastutil dependency at load). */
+	private static final class IntArrayListLite {
+		int[] a = new int[256];
+		int n;
+
+		void add(int v) {
+			if (n == a.length) {
+				a = Arrays.copyOf(a, n * 2);
+			}
+			a[n++] = v;
+		}
+
+		int[] toArray() {
+			return Arrays.copyOf(a, n);
+		}
+	}
+
+	/**
+	 * v0.16.7 (user, Titan fixes) -- the Emergency Titan's rushed build, per texel ({@link
+	 * com.projecthero.mod.titanshifter.TitanEmergencyBuild}): when each texel first appears, its flicker region and
+	 * jitter, the texels in appearance order (for the spark / steam windows), and the steam vents in the skin patches
+	 * that never form (a few per bone).
+	 */
+	public static final class Emergency {
+		public final float[] appear;
+		public final float[] region;
+		public final float[] jitter;
+		public final int[] byAppear;
+		public final float[] appearSorted;
+		/** Per bone: texel ids at the heart of an unformed skin patch (steam vents), or null. */
+		public final int[][] vents;
+		/** The fraction of the skin that forms. */
+		public final float skinCoverage;
+
+		Emergency(TitanTexels t) {
+			int n = t.count;
+			appear = new float[n];
+			region = new float[n];
+			jitter = new float[n];
+			byAppear = new int[n];
+			appearSorted = new float[n];
+			java.util.List<java.util.List<Integer>> perBone = new java.util.ArrayList<>();
+			for (int b = 0; b < t.boneNames.length; b++) {
+				perBone.add(new java.util.ArrayList<>());
+			}
+			int skin = 0, formed = 0;
+			for (int k = 0; k < n; k++) {
+				float[] nz = com.projecthero.mod.titanshifter.TitanEmergencyBuild.noise(t.px[k], t.py[k], t.pz[k]);
+				float j = hash(t.index[k] * 17 + 3);
+				int layer = t.layer[k];
+				float rank = com.projecthero.mod.titanshifter.TitanEmergencyBuild.rank(layer, t.build[k]);
+				appear[k] = com.projecthero.mod.titanshifter.TitanEmergencyBuild.appear(layer, rank, nz[0], nz[1], j);
+				region[k] = nz[2];
+				jitter[k] = j;
+				if (layer == 2) {
+					skin++;
+					if (appear[k] < 1.5f) {
+						formed++;
+					} else if (nz[1] < com.projecthero.mod.titanshifter.TitanEmergencyBuild.PATCH_THRESHOLD - 0.05f && hash(t.index[k] * 5 + 1) < 0.02f) {
+						perBone.get(t.bone[k]).add(k); // deep inside a patch: a vent
+					}
+				}
+			}
+			sort(appear, byAppear, appearSorted);
+			vents = new int[t.boneNames.length][];
+			for (int b = 0; b < vents.length; b++) {
+				java.util.List<Integer> l = perBone.get(b);
+				if (!l.isEmpty()) {
+					// at most 5 a bone, spread through the list
+					int m = Math.min(5, l.size());
+					vents[b] = new int[m];
+					for (int i = 0; i < m; i++) {
+						vents[b][i] = l.get(i * l.size() / m);
+					}
+				}
+			}
+			skinCoverage = skin == 0 ? 1.0f : formed / (float) skin;
+		}
+	}
+
+	/** The Emergency Titan's build data (baked on first use). */
+	public Emergency emergency() {
+		if (emergency == null) {
+			emergency = new Emergency(this);
+		}
+		return emergency;
 	}
 
 	private static void sort(float[] key, int[] order, float[] sorted) {

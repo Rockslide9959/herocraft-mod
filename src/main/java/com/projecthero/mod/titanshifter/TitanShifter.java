@@ -493,7 +493,9 @@ public final class TitanShifter {
 	}
 
 	public static boolean transform(ServerPlayer player, boolean emergency) {
-		return transform(player, emergency, TitanShifterConfig.transformation().transformTicks);
+		// v0.16.7 (user, Titan fixes): the Emergency Titan's rushed build is shorter (2 s against 3 s)
+		return transform(player, emergency, emergency ? Math.max(10, TitanShifterConfig.emergency().transformTicks)
+				: TitanShifterConfig.transformation().transformTicks);
 	}
 
 	/**
@@ -929,6 +931,8 @@ public final class TitanShifter {
 			case TRANSFORMING -> {
 				if (now >= s.phaseUntil) {
 					finishTransform(player, form);
+				} else if (form.isEmergency()) {
+					tickEmergencyBuild(player, form, now);
 				}
 			}
 			case TITAN -> tickTitan(player, s, form, now);
@@ -953,10 +957,51 @@ public final class TitanShifter {
 		}
 	}
 
+	/**
+	 * v0.16.7 (user, Titan fixes): the Emergency Titan's rushed build is wracked by heavier, erratic lightning -- bolts at
+	 * uneven intervals round the body (now on one side, now the other, sometimes two at once), crackling sparks off random
+	 * points of the frame and the odd extra shudder.
+	 */
+	private static void tickEmergencyBuild(ServerPlayer player, TitanFormEntity form, long now) {
+		ServerLevel level = (ServerLevel) player.level();
+		var r = level.random;
+		double w = form.getBbWidth(), h = form.getBbHeight();
+		float p = form.formStateProgress(0.0f);
+		// bolts: bursty -- ~1 in 4 ticks early, thinning as the body settles
+		if (r.nextFloat() < 0.32f * (1.0f - 0.55f * p)) {
+			int n = r.nextFloat() < 0.3f ? 2 : 1;
+			for (int i = 0; i < n; i++) {
+				double a = r.nextDouble() * Math.PI * 2.0, d = w * (0.3 + r.nextDouble() * 0.9);
+				lightning(level, form.position().add(Math.cos(a) * d, 0.0, Math.sin(a) * d));
+			}
+			level.playSound(null, form.getX(), form.getY() + h * 0.5, form.getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS,
+					1.6f, 0.7f + r.nextFloat() * 0.6f);
+		}
+		if (now % 2 == 0) {
+			Vec3 at = form.position().add((r.nextDouble() - 0.5) * w, r.nextDouble() * h, (r.nextDouble() - 0.5) * w);
+			level.sendParticles(YELLOW_SPARK, at.x, at.y, at.z, 8 + r.nextInt(10), w * 0.12, h * 0.08, w * 0.12, 0.35);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 6, w * 0.1, h * 0.06, w * 0.1, 0.4);
+		}
+		if (r.nextFloat() < 0.08f) {
+			TitanCombat.shake(level, form.position(), 0.5f, 5);
+			level.playSound(null, form.getX(), form.getY(), form.getZ(), SoundEvents.WARDEN_HEARTBEAT, SoundSource.PLAYERS, 2.0f, 0.6f);
+		}
+	}
+
 	private static void finishTransform(ServerPlayer player, TitanFormEntity form) {
 		ServerLevel level = (ServerLevel) player.level();
 		setPhase(player, TitanPhase.TITAN, 0L);
 		form.setFormState(TitanFormEntity.FORM_NORMAL);
+		if (form.isEmergency()) {
+			// v0.16.7 (user, Titan fixes): the rushed body staggers as it takes its own weight, then finds its feet
+			form.play("stumble");
+			form.footstep(level, 1.4f, false);
+			form.schedule(9, () -> {
+				if (form.isAlive()) {
+					form.footstep(level, 1.1f, true);
+				}
+			});
+		}
 		Vec3 p = form.position();
 		lightning(level, p);
 		level.playSound(null, p.x, p.y, p.z, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 3.5f, 0.6f);

@@ -31,8 +31,14 @@ import software.bernie.geckolib.renderer.GeoEntityRenderer;
  * their own colour on one steady wind per corpse, lifting a little and fading as they drift away.
  */
 public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
-	/** Dust pixels per tick at the All particle setting (Decreased 40%, Minimal 10%). */
-	private static final float DUST_PER_TICK = 30.0f;
+	/**
+	 * Dust pixels per tick at the All particle setting (Decreased 40%, Minimal 10%). v0.16.7 (user, Titan fixes): half the
+	 * pixels (30 -> 15) at 30% of their old size, so the dust no longer hides the dissolve itself -- you see the skin, then
+	 * the flesh, then the bone coming away pixel by pixel. Shared by the severed-limb chunks.
+	 */
+	public static float DUST_PER_TICK = 15.0f; // not final: a debug / comparison capture may set the old 30
+	/** The dust pixels' size: {@code DUST_SIZE * (1 + random)} blocks (was 0.07). */
+	public static float DUST_SIZE = 0.021f; // (old: 0.07)
 
 	private boolean mainPass;
 	private TitanTexels tx;
@@ -136,7 +142,7 @@ public class TitanCorpseRenderer extends GeoEntityRenderer<TitanCorpseEntity> {
 				double vx = out.x / len * push + windX * 0.04, vz = out.z / len * push + windZ * 0.04;
 				double vy = 0.015 + r.nextDouble() * 0.03;
 				float cr = (abgr & 0xFF) / 255.0f, cg = (abgr >> 8 & 0xFF) / 255.0f, cb = (abgr >> 16 & 0xFF) / 255.0f;
-				float size = 0.07f + r.nextFloat() * 0.07f;
+				float size = DUST_SIZE + r.nextFloat() * DUST_SIZE;
 				mc.particleEngine.add(new TitanDustParticle(level, at.x, at.y, at.z, vx, vy, vz, cr, cg, cb, windX, windZ, size,
 						45 + r.nextInt(45)));
 			}

@@ -122,7 +122,7 @@ public final class TitanKit {
 		if (form == null) {
 			return;
 		}
-		form.startNapeGuard(80);
+		form.startNapeGuard(TitanShifterConfig.sharedMoves().napeGuardTicks);
 		sound(form, SoundEvents.ARMOR_EQUIP_IRON, 2.5f, 0.5f);
 		Vec3 back = fwd(form).scale(-form.getBbWidth() * 0.25);
 		Vec3 nape = form.position().add(back).add(0, form.getBbHeight() * 0.82, 0);
@@ -143,9 +143,10 @@ public final class TitanKit {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			Vec3 tip = TitanCombat.aimedFistTip(form, player, form.getBbWidth() * 0.5 + 8.0);
-			int n = TitanCombat.hitAimedFist(form, player, tip, 5.0, form.getBbWidth() * 0.55,
-					(float) TitanMove.UPPERCUT.damage(), 0.8, 1.4);
+			var c = TitanShifterConfig.attackTitan();
+			Vec3 tip = TitanCombat.aimedFistTip(form, player, form.getBbWidth() * 0.5 + c.uppercutReach);
+			int n = TitanCombat.hitAimedFist(form, player, tip, c.uppercutRadius, form.getBbWidth() * 0.55,
+					(float) TitanMove.UPPERCUT.damage(), c.uppercutKnockback, c.uppercutLift);
 			TitanAbilities.meleeFx(level, tip, 1.3f, n);
 		});
 	}
@@ -162,7 +163,7 @@ public final class TitanKit {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			form.startRage(200);
+			form.startRage(TitanShifterConfig.attackTitan().rageTicks);
 			Vec3 c = form.position().add(0, form.getBbHeight() * 0.85, 0);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.RAVAGER_ROAR, SoundSource.HOSTILE, 4.0f, 0.5f);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.WARDEN_ANGRY, SoundSource.HOSTILE, 3.0f, 0.6f);
@@ -183,7 +184,9 @@ public final class TitanKit {
 			return;
 		}
 		ServerLevel level = TitanAbilities.level(form);
-		form.lockFor(TitanMove.DROPKICK.impactTick + 18);
+		var dk = TitanShifterConfig.attackTitan();
+		int flight = Math.max(1, dk.dropkickHitTicks);
+		form.lockFor(TitanMove.DROPKICK.impactTick + flight + 5);
 		sound(form, SoundEvents.RAVAGER_ROAR, 2.0f, 0.7f);
 		Set<Integer> hit = new HashSet<>();
 		form.schedule(TitanMove.DROPKICK.impactTick, () -> {
@@ -191,19 +194,19 @@ public final class TitanKit {
 				return;
 			}
 			Vec3 f = fwd(form);
-			form.setDeltaMovement(f.x * 2.0, 0.45, f.z * 2.0);
+			form.setDeltaMovement(f.x * dk.dropkickSpeed, dk.dropkickLift, f.z * dk.dropkickSpeed);
 			form.hasImpulse = true;
 			form.hurtMarked = true;
 			TitanCombat.ring(level, form.position(), 2.5, ParticleTypes.POOF, 16);
 		});
-		for (int t = TitanMove.DROPKICK.impactTick + 1; t < TitanMove.DROPKICK.impactTick + 14; t++) {
+		for (int t = TitanMove.DROPKICK.impactTick + 1; t <= TitanMove.DROPKICK.impactTick + flight; t++) {
 			form.schedule(t, () -> {
 				if (!TitanAbilities.stillGood(form)) {
 					return;
 				}
 				AABB box = TitanCombat.fistBox(form, 4.0, form.getBbWidth() * 0.7);
 				for (LivingEntity e : TitanCombat.targetsIn(level, box, form, player)) {
-					if (hit.add(e.getId()) && TitanCombat.hit(form, player, e, (float) TitanMove.DROPKICK.damage(), 2.6, 0.5, form.position())) {
+					if (hit.add(e.getId()) && TitanCombat.hit(form, player, e, (float) TitanMove.DROPKICK.damage(), dk.dropkickKnockback, 0.5, form.position())) {
 						TitanAbilities.meleeFx(level, e.position().add(0, e.getBbHeight() * 0.5, 0), 1.2f, 1);
 					}
 				}
@@ -225,8 +228,9 @@ public final class TitanKit {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			int n = TitanCombat.hitBox(form, player, TitanCombat.fistBox(form, 3.0, form.getBbWidth() * 0.6),
-					(float) TitanMove.ELBOW.damage(), 2.4, 0.4, form.position());
+			var c = TitanShifterConfig.armoredTitan();
+			int n = TitanCombat.hitBox(form, player, TitanCombat.fistBox(form, c.elbowReach, form.getBbWidth() * 0.6),
+					(float) TitanMove.ELBOW.damage(), c.elbowKnockback, 0.4, form.position());
 			TitanAbilities.meleeFx(level, TitanAbilities.defaultFxSpot(form), 1.3f, n);
 			sound(form, SoundEvents.ANVIL_LAND, 1.2f, 0.5f);
 		});
@@ -249,8 +253,9 @@ public final class TitanKit {
 			}
 			form.lockFor(10);
 			Vec3 c = form.position().add(fwd(form).scale(form.getBbWidth() * 0.5 + 2.0));
-			double r = 7.0;
-			TitanCombat.hitRadius(form, player, c, r, (float) TitanMove.GROUND_POUND.damage(), 2.8, 0.8);
+			var cfg = TitanShifterConfig.armoredTitan();
+			double r = cfg.groundPoundRadius;
+			TitanCombat.hitRadius(form, player, c, r, (float) TitanMove.GROUND_POUND.damage(), cfg.groundPoundKnockback, 0.8);
 			TitanCombat.impactFx(level, c, r * 1.2, 1.8f);
 			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.5, c.z, 1, 0, 0, 0, 0);
 			TitanCombat.impactBlocks(level, c, r);
@@ -272,8 +277,6 @@ public final class TitanKit {
 		return h >= 0.0f && h <= 3.0f;
 	}
 
-	private static final int CHARGE_TICKS = 30;
-	private static final int CHARGE_BLOCK_CAP = 160;
 
 	/**
 	 * Shift+X (signature): the Shoulder Charge -- 1.5 s of shoulder-first sprint (0.9 blocks a tick) that hits everything in
@@ -287,6 +290,9 @@ public final class TitanKit {
 		}
 		ServerLevel level = TitanAbilities.level(form);
 		int t0 = TitanMove.SHOULDER_CHARGE.impactTick;
+		var sc = TitanShifterConfig.armoredTitan();
+		final int CHARGE_TICKS = Math.max(1, sc.shoulderChargeTicks);
+		final int CHARGE_BLOCK_CAP = Math.max(0, sc.shoulderChargeBlockCap);
 		form.lockFor(t0 + CHARGE_TICKS + 4);
 		sound(form, SoundEvents.RAVAGER_ROAR, 2.5f, 0.45f);
 		Set<Integer> hit = new HashSet<>();
@@ -304,13 +310,13 @@ public final class TitanKit {
 				}
 				Vec3 f = fwd(form);
 				Vec3 v = form.getDeltaMovement();
-				form.setDeltaMovement(f.x * 0.9, v.y, f.z * 0.9);
+				form.setDeltaMovement(f.x * sc.shoulderChargeSpeed, v.y, f.z * sc.shoulderChargeSpeed);
 				form.hasImpulse = true;
 				form.hurtMarked = true;
 				AABB front = TitanCombat.fistBox(form, 2.5, form.getBbWidth() * 0.55);
 				for (LivingEntity e : TitanCombat.targetsIn(level, front, form, player)) {
 					if (hit.add(e.getId())) {
-						TitanCombat.hit(form, player, e, (float) TitanMove.SHOULDER_CHARGE.damage(), 3.2, 0.6, form.position());
+						TitanCombat.hit(form, player, e, (float) TitanMove.SHOULDER_CHARGE.damage(), sc.shoulderChargeKnockback, 0.6, form.position());
 						sound(form, SoundEvents.ANVIL_LAND, 1.5f, 0.4f);
 					}
 				}
@@ -368,12 +374,13 @@ public final class TitanKit {
 			return;
 		}
 		ServerLevel level = TitanAbilities.level(form);
-		form.startBrace(60);
+		var bc = TitanShifterConfig.armoredTitan();
+		form.startBrace(bc.braceTicks);
 		sound(form, SoundEvents.ANVIL_PLACE, 2.0f, 0.4f);
 		sound(form, SoundEvents.AMETHYST_BLOCK_RESONATE, 3.0f, 0.5f);
 		Vec3 c = form.position().add(0, form.getBbHeight() * 0.5, 0);
 		level.sendParticles(CRYSTAL, c.x, c.y, c.z, 50, form.getBbWidth() * 0.6, form.getBbHeight() * 0.4, form.getBbWidth() * 0.6, 0.05);
-		for (LivingEntity e : TitanCombat.hostilesInCylinder(level, form, 24.0, player)) {
+		for (LivingEntity e : TitanCombat.hostilesInCylinder(level, form, bc.braceTauntRadius, player)) {
 			if (e instanceof Mob mob) {
 				mob.setTarget(form);
 			}
@@ -395,7 +402,9 @@ public final class TitanKit {
 				return;
 			}
 			Vec3 c = form.position().add(fwd(form).scale(form.getBbWidth() * 0.5 + 1.5)).add(0, form.getBbHeight() * 0.45, 0);
-			int n = TitanCombat.hitRadius(form, player, c, form.getBbWidth() * 0.5 + 4.0, (float) TitanMove.ROUNDHOUSE.damage(), 2.4, 0.4);
+			var cfg = TitanShifterConfig.femaleTitan();
+			int n = TitanCombat.hitRadius(form, player, c, form.getBbWidth() * 0.5 + cfg.roundhouseRadius, (float) TitanMove.ROUNDHOUSE.damage(),
+					cfg.roundhouseKnockback, 0.4);
 			level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 5, 2.5, 0.5, 2.5, 0.0);
 			TitanAbilities.meleeFx(level, c, 1.2f, n);
 		});
@@ -415,9 +424,10 @@ public final class TitanKit {
 			}
 			form.lockFor(6);
 			Vec3 at = TitanAbilities.smashPoint(form, player);
-			TitanCombat.hitRadius(form, player, at, 3.0, (float) TitanMove.AXE_KICK.damage(), 2.0, 0.3);
-			TitanCombat.impactFx(level, at, 3.5, 1.2f);
-			TitanCombat.impactBlocks(level, at, 3.0);
+			double r = TitanShifterConfig.femaleTitan().axeKickRadius;
+			TitanCombat.hitRadius(form, player, at, r, (float) TitanMove.AXE_KICK.damage(), 2.0, 0.3);
+			TitanCombat.impactFx(level, at, r + 0.5, 1.2f);
+			TitanCombat.impactBlocks(level, at, r);
 			TitanCombat.shake(level, at, 0.7f, 10);
 		});
 	}
@@ -434,14 +444,15 @@ public final class TitanKit {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			double r = form.getBbWidth() * 0.5 + 6.0;
+			var cfg = TitanShifterConfig.femaleTitan();
+			double r = form.getBbWidth() * 0.5 + cfg.sweepKickRadius;
 			Vec3 c = form.position();
 			for (LivingEntity e : TitanCombat.targetsAround(level, c, r, form, player)) {
 				if (e.getY() > form.getY() + form.getBbHeight() * 0.35) {
 					continue; // low: it passes under anything up high
 				}
 				if (TitanCombat.hit(form, player, e, (float) TitanMove.SWEEP_KICK.damage(), 1.6, 0.35, c)) {
-					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, 60, 2);
+					AbilityHelpers.applyControl(e, MobEffects.MOVEMENT_SLOWDOWN, cfg.sweepKickSlowTicks, 2);
 				}
 			}
 			TitanCombat.ring(level, c, r * 0.8, ParticleTypes.SWEEP_ATTACK, 14);
@@ -464,7 +475,7 @@ public final class TitanKit {
 			if (!TitanAbilities.stillGood(form)) {
 				return;
 			}
-			form.startCrystal(240);
+			form.startCrystal(TitanShifterConfig.femaleTitan().crystalFistsTicks);
 			Vec3 c = form.position().add(0, form.getBbHeight() * 0.4, 0);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.HOSTILE, 3.0f, 0.7f);
 			level.playSound(null, c.x, c.y, c.z, SoundEvents.AMETHYST_CLUSTER_PLACE, SoundSource.HOSTILE, 3.0f, 0.5f);
@@ -493,7 +504,8 @@ public final class TitanKit {
 				TitanCombat.ring(level, form.position().add(0, i * 1.5, 0), 6.0 * i, ParticleTypes.SONIC_BOOM, 6 * i);
 			}
 			Vec3 c = form.position();
-			for (LivingEntity e : TitanCombat.hostilesInCylinder(level, form, 48.0, player)) {
+			var cfg = TitanShifterConfig.femaleTitan();
+			for (LivingEntity e : TitanCombat.hostilesInCylinder(level, form, cfg.screamRadius, player)) {
 				if (e instanceof Mob mob) {
 					mob.setTarget(form);
 					mob.getNavigation().moveTo(c.x, c.y, c.z, 1.3);
@@ -503,7 +515,7 @@ public final class TitanKit {
 				}
 				Vec3 to = c.subtract(e.position());
 				double d = to.horizontalDistance();
-				if (d > 4.0 && d < 24.0) {
+				if (d > 4.0 && d < cfg.screamPullRange) {
 					Vec3 pull = new Vec3(to.x, 0, to.z).normalize().scale(Math.min(1.6, 0.4 + d * 0.06));
 					AbilityHelpers.push(e, pull.add(0, 0.35, 0));
 				}
@@ -514,17 +526,27 @@ public final class TitanKit {
 
 	// ---------------- Beast Titan ----------------
 
+	// v0.16.7 (user, Titan fixes): the Beast's numbers live in TitanShifterConfig.beastTitan() (these read it live)
+
 	/** Pitcher's Fastball: stones in the spray. */
-	public static final int FASTBALL_STONES = 14;
+	public static int fastballStones() {
+		return Math.max(1, TitanShifterConfig.beastTitan().fastballStones);
+	}
+
 	/** Pitcher's Fastball: at most this many stones of one pitch hurt one target. */
-	public static final int FASTBALL_PER_TARGET = 3;
-	/** Pitcher's Fastball: stone speed (blocks a tick) and how long one flies (ticks) -- about 80 blocks. */
-	public static final double FASTBALL_SPEED = 3.1;
-	public static final int FASTBALL_LIFE = 28;
-	/** Rock Scatter: chunks flung, reach of the cone (blocks), cos of its half-angle. */
-	public static final int SCATTER_CHUNKS = 18;
-	public static final double SCATTER_RANGE = 12.0;
-	public static final double SCATTER_CONE = 0.7;
+	public static int fastballPerTarget() {
+		return Math.max(1, TitanShifterConfig.beastTitan().fastballPerTarget);
+	}
+
+	/** Pitcher's Fastball: how long one stone flies (ticks). */
+	public static int fastballLife() {
+		return Math.max(1, TitanShifterConfig.beastTitan().fastballLife);
+	}
+
+	/** Rock Scatter: chunks flung. */
+	public static int scatterChunks() {
+		return Math.max(3, TitanShifterConfig.beastTitan().scatterChunks);
+	}
 
 	private static Vec3 flatDir(ServerPlayer player) {
 		Vec3 look = player.getLookAngle();
@@ -547,8 +569,8 @@ public final class TitanKit {
 	/**
 	 * Shift+R: Pitcher's Fastball (replaced the Backhand) -- the Beast's signature from the anime. It scoops a handful of
 	 * ground (t8), crushes it to gravel in its fist (t12-15), rears into a pitcher's leg kick and fires the lot overarm at
-	 * the crosshair on t22: {@link #FASTBALL_STONES} fast stones in a tight shotgun spread, 9 each (at most
-	 * {@link #FASTBALL_PER_TARGET} on one target), about 80 blocks of range. 8 s.
+	 * the crosshair on t22: {@link #fastballStones()} fast stones in a tight shotgun spread, 9 each (at most
+	 * {@link #fastballPerTarget()} on one target), about 80 blocks of range. 8 s.
 	 */
 	public static void fastball(ServerPlayer player) {
 		TitanFormEntity form = start(player, TitanMove.FASTBALL, 1, 0);
@@ -600,21 +622,23 @@ public final class TitanKit {
 		dir = dir.lengthSqr() < 1.0e-4 ? player.getLookAngle() : dir.normalize();
 		BlockState ground = TitanBoulders.groundState(form);
 		var rnd = level.random;
-		TitanRockEntity.Volley volley = new TitanRockEntity.Volley(FASTBALL_PER_TARGET);
+		TitanRockEntity.Volley volley = new TitanRockEntity.Volley(fastballPerTarget());
 		Vec3 up = new Vec3(0, 1, 0);
 		Vec3 side = dir.cross(up).lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : dir.cross(up).normalize();
 		Vec3 vert = side.cross(dir).normalize();
 		int n = 0;
-		for (int i = 0; i < FASTBALL_STONES; i++) {
+		int stones = fastballStones();
+		double speed0 = TitanShifterConfig.beastTitan().fastballSpeed;
+		for (int i = 0; i < stones; i++) {
 			// a tight cone: about 4-5 degrees either way, a touch more sideways than up and down
 			double a = rnd.nextGaussian() * 0.07, b = rnd.nextGaussian() * 0.045;
 			Vec3 d = dir.add(side.scale(a)).add(vert.scale(b)).normalize();
-			double speed = FASTBALL_SPEED * (0.92 + rnd.nextDouble() * 0.16);
+			double speed = speed0 * (0.92 + rnd.nextDouble() * 0.16);
 			float s = 0.5f + rnd.nextFloat() * 0.5f;
 			Vec3 at = from.add(side.scale((rnd.nextDouble() - 0.5) * 0.8)).add(vert.scale((rnd.nextDouble() - 0.5) * 0.8));
 			TitanRockEntity r = TitanRockEntity.create(level, TitanRockEntity.KIND_CHUNK, TitanBoulders.debrisState(ground, rnd), s, at,
 					d.scale(speed), 0.012f).fast().thrownBy(player, form, (float) TitanMove.FASTBALL.damage(), 0.35, volley)
-					.maxAge(FASTBALL_LIFE);
+					.maxAge(fastballLife());
 			if (TitanBoulders.spawn(level, r)) {
 				n++;
 			}
@@ -630,7 +654,7 @@ public final class TitanKit {
 
 	/**
 	 * Shift+G: Rock Scatter -- the Beast rakes both hands through the ground (t7, a few real blocks torn up when the
-	 * terrain rules allow it) and flings the rubble forward as its arms come up (t10-12): {@link #SCATTER_CHUNKS} real
+	 * terrain rules allow it) and flings the rubble forward as its arms come up (t10-12): {@link #scatterChunks()} real
 	 * chunks of the ground, cobble and dirt, big and small, tumbling over a 12-block cone. Each hits what it touches --
 	 * 18, once per target (a chunk is aimed at each mob in the cone) -- and crumbles. 8 s.
 	 */
@@ -670,7 +694,9 @@ public final class TitanKit {
 		Vec3 feet = form.position();
 		Vec3 from = feet.add(dir.scale(form.getBbWidth() * (0.55 - wave * 0.08))).add(0, form.getBbHeight() * (0.22 + wave * 0.2), 0);
 		BlockState ground = TitanBoulders.groundState(form);
-		int per = SCATTER_CHUNKS / 3;
+		var bc = TitanShifterConfig.beastTitan();
+		final double SCATTER_RANGE = bc.scatterRange, SCATTER_CONE = bc.scatterCone;
+		int per = scatterChunks() / 3;
 		int n = 0;
 		if (wave == 1) {
 			// one chunk aimed at each mob in the cone, so everything in it gets hit
@@ -741,7 +767,8 @@ public final class TitanKit {
 				form.setHoldingBoulder(false);
 				return;
 			}
-			TitanBoulders.throwBoulder(form, player, 4.0f, (float) TitanMove.BOULDER_THROW.damage(), 4.0, throwAim(form, player), 1.8,
+			TitanBoulders.throwBoulder(form, player, 4.0f, (float) TitanMove.BOULDER_THROW.damage(), TitanShifterConfig.beastTitan().boulderThrowRadius,
+					throwAim(form, player), 1.8,
 					TitanBoulders.releasePos(form), true);
 		});
 	}
@@ -770,7 +797,8 @@ public final class TitanKit {
 				// underarm from both hands: the outer rocks leave from either side
 				Vec3 from = TitanBoulders.releasePos(form).add(side.scale(-form.getBbWidth() * 0.22 + k * form.getBbWidth() * 0.22))
 						.add(0, -form.getBbHeight() * 0.06, 0);
-				TitanBoulders.throwBoulder(form, player, 2.2f, (float) TitanMove.BOULDER_VOLLEY.damage(), 2.5, aim.add(side.scale(k * 4.0)), 2.0,
+				TitanBoulders.throwBoulder(form, player, 2.2f, (float) TitanMove.BOULDER_VOLLEY.damage(), TitanShifterConfig.beastTitan().boulderVolleyRadius,
+						aim.add(side.scale(k * 4.0)), 2.0,
 						from, k == 1);
 			});
 		}

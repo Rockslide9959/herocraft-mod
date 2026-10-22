@@ -102,7 +102,7 @@ public class BeastTitanRocksGameTests implements FabricGameTest {
 			helper.assertTrue(TitanShifter.cooldownRemaining(p, TitanMove.ROCK_SCATTER.id) > 0, "Rock Scatter is on cooldown");
 			helper.runAfterDelay(TitanMove.ROCK_SCATTER.impactTick + 1, () -> {
 				List<TitanRockEntity> flying = rocks(helper, form);
-				helper.assertTrue(flying.size() >= TitanKit.SCATTER_CHUNKS * 2 / 3, "a spray of real debris chunks: " + flying.size());
+				helper.assertTrue(flying.size() >= TitanKit.scatterChunks() * 2 / 3, "a spray of real debris chunks: " + flying.size());
 				helper.assertTrue(flying.stream().noneMatch(TitanRockEntity::isBoulder), "chunks, not boulders");
 				helper.assertTrue(flying.stream().map(TitanRockEntity::scale).distinct().count() > 3, "of different sizes");
 				helper.assertTrue(flying.stream().allMatch(r -> r.damage() > 0f), "every chunk can hit");
@@ -195,16 +195,16 @@ public class BeastTitanRocksGameTests implements FabricGameTest {
 			helper.runAfterDelay(TitanMove.FASTBALL.impactTick + 1, () -> {
 				helper.assertFalse(form.hasMoveFlag(TitanFormEntity.FLAG_HOLDING_ROCKS), "pitched: the hand is empty");
 				List<TitanRockEntity> stones = rocks(helper, form);
-				helper.assertTrue(stones.size() >= TitanKit.FASTBALL_STONES - 4, "a shotgun of stones: " + stones.size());
+				helper.assertTrue(stones.size() >= TitanKit.fastballStones() - 4, "a shotgun of stones: " + stones.size());
 				helper.assertTrue(stones.stream().allMatch(r -> r.getDeltaMovement().length() > 2.0), "fast");
 			});
 			helper.runAfterDelay(TitanMove.FASTBALL.impactTick + 12, () -> {
 				float dealt = before - g.getHealth();
 				float one = TitanCombat.scaled(form, g, (float) TitanMove.FASTBALL.damage());
 				helper.assertTrue(dealt > 0.0f, "the stones hit the golem");
-				helper.assertTrue(dealt <= one * TitanKit.FASTBALL_PER_TARGET + 0.5f, "at most three stones count: " + dealt + " vs " + one);
+				helper.assertTrue(dealt <= one * TitanKit.fastballPerTarget() + 0.5f, "at most three stones count: " + dealt + " vs " + one);
 			});
-			helper.runAfterDelay(TitanMove.FASTBALL.impactTick + TitanKit.FASTBALL_LIFE + 5, () -> {
+			helper.runAfterDelay(TitanMove.FASTBALL.impactTick + TitanKit.fastballLife() + 5, () -> {
 				helper.assertTrue(rocks(helper, form).isEmpty(), "every stone is gone " + describe(helper, form));
 				helper.succeed();
 			});
@@ -255,15 +255,15 @@ public class BeastTitanRocksGameTests implements FabricGameTest {
 		ServerLevel level = helper.getLevel();
 		Vec3 at = helper.absoluteVec(new Vec3(1.5, 4.0, 1.5));
 		int spawned = 0;
-		for (int i = 0; i < TitanBoulders.CAP + 20; i++) {
+		for (int i = 0; i < TitanBoulders.cap() + 20; i++) {
 			TitanRockEntity r = TitanRockEntity.create(level, TitanRockEntity.KIND_CHUNK, Blocks.STONE.defaultBlockState(), 0.4f, at,
 					Vec3.ZERO, 0.0f).maxAge(5);
 			if (TitanBoulders.spawn(level, r)) {
 				spawned++;
 			}
 		}
-		helper.assertTrue(TitanBoulders.liveCount() <= TitanBoulders.CAP, "never more than the cap: " + TitanBoulders.liveCount());
-		helper.assertTrue(spawned <= TitanBoulders.CAP, "the extra cosmetic chunks were skipped: " + spawned);
+		helper.assertTrue(TitanBoulders.liveCount() <= TitanBoulders.cap(), "never more than the cap: " + TitanBoulders.liveCount());
+		helper.assertTrue(spawned <= TitanBoulders.cap(), "the extra cosmetic chunks were skipped: " + spawned);
 		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(level.getEntitiesOfClass(TitanRockEntity.class, new AABB(at, at).inflate(4.0)).isEmpty(), "all aged out");
 			helper.succeed();

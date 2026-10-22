@@ -108,8 +108,37 @@ public enum TitanMove {
 			case STEAM_BURST -> h.steamBurstCooldown;
 			case CRYSTAL_WALL -> h.wallCooldown;
 			case CRYSTAL_COCOON -> h.cocoonCooldown;
+			// v0.16.7 (user, Titan fixes): the revamp's moves read their sections too
+			case KICK -> TitanShifterConfig.sharedMoves().kickCooldown;
+			case NAPE_GUARD -> TitanShifterConfig.sharedMoves().napeGuardCooldown;
+			case UPPERCUT -> TitanShifterConfig.attackTitan().uppercutCooldown;
+			case RAGE -> TitanShifterConfig.attackTitan().rageCooldown;
+			case DROPKICK -> TitanShifterConfig.attackTitan().dropkickCooldown;
+			case ELBOW -> TitanShifterConfig.armoredTitan().elbowCooldown;
+			case GROUND_POUND -> TitanShifterConfig.armoredTitan().groundPoundCooldown;
+			case SHOULDER_CHARGE -> TitanShifterConfig.armoredTitan().shoulderChargeCooldown;
+			case BRACE -> TitanShifterConfig.armoredTitan().braceCooldown;
+			case ROUNDHOUSE -> TitanShifterConfig.femaleTitan().roundhouseCooldown;
+			case AXE_KICK -> TitanShifterConfig.femaleTitan().axeKickCooldown;
+			case SWEEP_KICK -> TitanShifterConfig.femaleTitan().sweepKickCooldown;
+			case CRYSTAL_FISTS -> TitanShifterConfig.femaleTitan().crystalFistsCooldown;
+			case SCREAM -> TitanShifterConfig.femaleTitan().screamCooldown;
+			case FASTBALL -> TitanShifterConfig.beastTitan().fastballCooldown;
+			case ROCK_SCATTER -> TitanShifterConfig.beastTitan().rockScatterCooldown;
+			case BOULDER_THROW -> TitanShifterConfig.beastTitan().boulderThrowCooldown;
+			case BOULDER_VOLLEY -> TitanShifterConfig.beastTitan().boulderVolleyCooldown;
 			default -> cooldown;
 		};
+	}
+
+	/** The built-in default recharge (what the config ships with); -1 for the moves that always read the config. */
+	public int defaultCooldown() {
+		return cooldown;
+	}
+
+	/** The built-in default damage; -1 for the moves that always read the config. */
+	public double defaultDamage() {
+		return damage;
 	}
 
 	/** The headline damage (before the type's damage scale, Rage and the target rules). */
@@ -125,6 +154,18 @@ public enum TitanMove {
 			case TITAN_ARM -> h.titanArmDamage;
 			case CRYSTAL_BLADE -> h.bladeDamage;
 			case STEAM_BURST -> h.steamBurstDamage;
+			case UPPERCUT -> TitanShifterConfig.attackTitan().uppercutDamage;
+			case DROPKICK -> TitanShifterConfig.attackTitan().dropkickDamage;
+			case ELBOW -> TitanShifterConfig.armoredTitan().elbowDamage;
+			case GROUND_POUND -> TitanShifterConfig.armoredTitan().groundPoundDamage;
+			case SHOULDER_CHARGE -> TitanShifterConfig.armoredTitan().shoulderChargeDamage;
+			case ROUNDHOUSE -> TitanShifterConfig.femaleTitan().roundhouseDamage;
+			case AXE_KICK -> TitanShifterConfig.femaleTitan().axeKickDamage;
+			case SWEEP_KICK -> TitanShifterConfig.femaleTitan().sweepKickDamage;
+			case FASTBALL -> TitanShifterConfig.beastTitan().fastballDamage;
+			case ROCK_SCATTER -> TitanShifterConfig.beastTitan().rockScatterDamage;
+			case BOULDER_THROW -> TitanShifterConfig.beastTitan().boulderThrowDamage;
+			case BOULDER_VOLLEY -> TitanShifterConfig.beastTitan().boulderVolleyDamage;
 			default -> damage;
 		};
 	}

@@ -29,7 +29,7 @@ import net.minecraft.world.phys.Vec3;
  *   Shift+R  Crystal Blade   a hardened crystal blade along the forearm slashes in front (12)
  *   G        Steam Burst     a scalding cloud bursts off the body (4 and a strong knockback, 5 blocks)
  *   Shift+G  Bite Shift      bite the hand -- an instant (0.6 s) shift, needs the full bar
- *   X        Crystal Wall    a 4x4 wall of crystal two blocks ahead (25 s; the mod's conjured-terrain rules)
+ *   X        Crystal Wall    a 4x4 wall of crystal two blocks ahead (25 s; entities, so it needs no terrain permission)
  *   Shift+X  Crystal Cocoon  encased for 5 s: untouchable, rooted, healing fast
  * </pre>
  */
@@ -48,6 +48,7 @@ public final class TitanHumanKit {
 
 	public static void clearSessionState() {
 		TASKS.clear();
+		com.projecthero.mod.titanshifter.entity.TitanCrystalWallEntity.clearSessionState();
 	}
 
 	private static void later(ServerPlayer player, int ticks, Runnable run) {
@@ -219,21 +220,24 @@ public final class TitanHumanKit {
 		}
 	}
 
-	/** X: Crystal Wall -- conjured crystal (the mod's conjured-structure rules: terrain damage must be on; mined it drops nothing). */
+	/**
+	 * X: Crystal Wall. v0.16.7 (user, Titan fixes): four solid crystal columns ({@link
+	 * com.projecthero.mod.titanshifter.entity.TitanCrystalWallEntity}) instead of conjured blocks, so it works whatever the
+	 * server's ability-terrain setting: it blocks movement and projectiles, never places or replaces a block, and is gone
+	 * after {@code human.wallTicks} (25 s) or when the next wall goes up.
+	 */
 	public static void crystalWall(ServerPlayer player) {
 		var h = TitanShifterConfig.human();
-		if (!com.projecthero.mod.hero.HeroConfig.get().abilityTerrainDamage) {
-			TitanShifter.say(player, "message.projecthero.titan_shifter.wall_off", ChatFormatting.GRAY);
-			return;
+		ServerLevel level = (ServerLevel) player.level();
+		if (com.projecthero.mod.titanshifter.entity.TitanCrystalWallEntity.spots(level, player).isEmpty()) {
+			TitanShifter.say(player, "message.projecthero.titan_shifter.wall_blocked", ChatFormatting.GRAY);
+			return; // checked first, so a wall with no room costs nothing
 		}
 		if (!start(player, TitanMove.CRYSTAL_WALL, h.wallSteam)) {
 			return;
 		}
-		ServerLevel level = (ServerLevel) player.level();
-		if (!com.projecthero.mod.hero.power.ConjuredStructures.wall(player, level, Blocks.AMETHYST_BLOCK.defaultBlockState())) {
-			TitanShifter.say(player, "message.projecthero.titan_shifter.wall_blocked", ChatFormatting.GRAY);
-			return;
-		}
+		com.projecthero.mod.titanshifter.entity.TitanCrystalWallEntity.raise(player,
+				com.projecthero.mod.titanshifter.entity.TitanCrystalWallEntity.defaultLife());
 		Vec3 front = player.position().add(Vec3.atLowerCornerOf(player.getDirection().getNormal()).scale(2.0)).add(0, 1.5, 0);
 		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, Blocks.AMETHYST_BLOCK.defaultBlockState()), front.x, front.y, front.z,
 				60, 1.5, 1.2, 1.5, 0.1);

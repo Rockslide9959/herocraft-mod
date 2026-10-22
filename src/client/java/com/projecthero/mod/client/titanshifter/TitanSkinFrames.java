@@ -22,7 +22,7 @@ import net.minecraft.world.entity.Entity;
  * a cursor along the sorted texels instead of being rebuilt. Frames nobody drew for two seconds are released.
  */
 public final class TitanSkinFrames {
-	private static final int MODE_BUILD = 1, MODE_DISSOLVE = 2, MODE_REGROW = 3;
+	private static final int MODE_BUILD = 1, MODE_DISSOLVE = 2, MODE_REGROW = 3, MODE_EMERGENCY = 4;
 	private static final Map<String, NativeImage> SOURCES = new HashMap<>();
 	private static final Map<Integer, Frame> FRAMES = new HashMap<>();
 	private static long lastSweep;
@@ -149,6 +149,47 @@ public final class TitanSkinFrames {
 			f.tex.upload();
 		}
 		return f.id;
+	}
+
+	/**
+	 * v0.16.7 (user, Titan fixes): the Emergency Titan's frame at build progress {@code p} (1 = the finished, unstable
+	 * body): its own timetable ({@link TitanTexels.Emergency}) with the skeleton flickering, the flesh blotchy and the
+	 * skin washed pale but never complete -- the patches that never form show the flesh under them, half raw, half pale.
+	 * Flicker makes the frame non-monotonic, so it is redrawn whole whenever the (quantised) progress moves.
+	 */
+	public static ResourceLocation emergency(Entity e, TitanTexels tx, ResourceLocation src, float p) {
+		NativeImage pale = source(src, true);
+		NativeImage raw = source(src, false);
+		if (pale == null || raw == null || tx == null) {
+			return src;
+		}
+		TitanTexels.Emergency em = tx.emergency();
+		p = Math.min(1.0f, (float) Math.floor(p * 240.0f) / 240.0f);
+		long sig = (long) (p * 240.0f);
+		Frame f = frame(e, pale, MODE_EMERGENCY, src + "|em");
+		if (f.sig != sig) {
+			f.img.fillRect(0, 0, f.img.getWidth(), f.img.getHeight(), 0);
+			for (int k = 0; k < tx.count; k++) {
+				int layer = tx.layer[k];
+				if (!com.projecthero.mod.titanshifter.TitanEmergencyBuild.visible(layer, em.appear[k], em.region[k], em.jitter[k], p)) {
+					continue;
+				}
+				int idx = tx.index[k];
+				int x = idx % tx.w, y = idx / tx.w;
+				f.img.setPixelRGBA(x, y, layer == 1 ? mix(raw.getPixelRGBA(x, y), pale.getPixelRGBA(x, y)) : pale.getPixelRGBA(x, y));
+			}
+			f.sig = sig;
+			f.tex.upload();
+		}
+		return f.id;
+	}
+
+	/** Half-way between two ABGR colours (alpha of the first). */
+	private static int mix(int a, int b) {
+		int r = ((a & 0xFF) + (b & 0xFF)) / 2;
+		int g = ((a >> 8 & 0xFF) + (b >> 8 & 0xFF)) / 2;
+		int bl = ((a >> 16 & 0xFF) + (b >> 16 & 0xFF)) / 2;
+		return (a & 0xFF000000) | bl << 16 | g << 8 | r;
 	}
 
 	private static Frame frame(Entity e, NativeImage source, int mode, String srcKey) {

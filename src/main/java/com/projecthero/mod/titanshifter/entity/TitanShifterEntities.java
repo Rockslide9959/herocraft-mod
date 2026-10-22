@@ -59,6 +59,28 @@ public final class TitanShifterEntities {
 					.noSummon()
 					.build("titan_rock"));
 
+	/** v0.16.7 (user, Titan fixes): a severed limb, flung off and dissolving ({@link TitanLimbChunkEntity}). */
+	public static final EntityType<TitanLimbChunkEntity> TITAN_LIMB_CHUNK = register("titan_limb_chunk",
+			EntityType.Builder.<TitanLimbChunkEntity>of(TitanLimbChunkEntity::new, MobCategory.MISC)
+					.sized(2.0f, 2.0f)
+					.clientTrackingRange(12)
+					.updateInterval(2)
+					.noSave()
+					.noSummon()
+					.fireImmune()
+					.build("titan_limb_chunk"));
+
+	/** v0.16.7 (user, Titan fixes): one column of the human-form Crystal Wall ({@link TitanCrystalWallEntity}). */
+	public static final EntityType<TitanCrystalWallEntity> TITAN_CRYSTAL_WALL = register("titan_crystal_wall",
+			EntityType.Builder.<TitanCrystalWallEntity>of(TitanCrystalWallEntity::new, MobCategory.MISC)
+					.sized(1.0f, (float) TitanCrystalWallEntity.HEIGHT)
+					.clientTrackingRange(10)
+					.updateInterval(20)
+					.noSave()
+					.noSummon()
+					.fireImmune()
+					.build("titan_crystal_wall"));
+
 	private TitanShifterEntities() {
 	}
 

@@ -46,6 +46,9 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 	private int severed;
 	private boolean building;
 	private boolean rage;
+	/** v0.16.7 (user, Titan fixes): the Emergency Titan's rushed build data (null for a normal Titan). */
+	private TitanTexels.Emergency em;
+	private float buildP;
 
 	public TitanFormRenderer(EntityRendererProvider.Context context) {
 		super(context, new TitanFormModel());
@@ -85,16 +88,43 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 		regrow = TitanFx.regrowProgress(animatable, partialTick);
 		float p = TitanFx.buildProgress(animatable, partialTick);
 		building = p >= 0.0f && p < 1.0f;
+		buildP = p;
+		em = animatable.isEmergency() && tx != null ? tx.emergency() : null;
+		if (building && em != null) {
+			shudder(poseStack, animatable, p, partialTick);
+		}
 		if (building && tx != null && !mc.isPaused()) {
 			float last = fx.lastBuild < 0.0f || fx.lastBuild > p ? Math.max(0.0f, p - 0.01f) : fx.lastBuild;
-			// ~4 particles a tick at All
 			float ticks = (p - last) * Math.max(1, animatable.formStateTicks());
-			fx.window.prepare(tx, tx.byBuild, tx.buildSorted, last, p, Math.round(4.0f * ticks * TitanFx.budget() + 0.5f));
+			if (em != null) {
+				// the rushed build throws more: ~7 a tick, in its own (flickering, blotchy) order
+				fx.window.prepare(tx, em.byAppear, em.appearSorted, last, p, Math.round(7.0f * ticks * TitanFx.budget() + 0.5f));
+			} else {
+				// ~4 particles a tick at All
+				fx.window.prepare(tx, tx.byBuild, tx.buildSorted, last, p, Math.round(4.0f * ticks * TitanFx.budget() + 0.5f));
+			}
 			fx.lastBuild = p;
 		} else {
 			fx.window.clear();
 			fx.lastBuild = -1.0f;
 		}
+	}
+
+	/**
+	 * v0.16.7 (user, Titan fixes): the Emergency Titan shudders while it forms -- a constant tremor and, every few ticks, a
+	 * violent jolt as the body convulses (strongest early, settling as the build ends).
+	 */
+	private static void shudder(PoseStack poseStack, TitanFormEntity e, float p, float partialTick) {
+		int t = e.tickCount;
+		float calm = 1.0f - 0.7f * p;
+		float tremor = 0.035f * calm;
+		float jx = (com.projecthero.mod.titanshifter.TitanEmergencyBuild.hash01(t * 3 + e.getId()) - 0.5f) * 2.0f;
+		float jz = (com.projecthero.mod.titanshifter.TitanEmergencyBuild.hash01(t * 7 + 11 + e.getId()) - 0.5f) * 2.0f;
+		float jolt = com.projecthero.mod.titanshifter.TitanEmergencyBuild.hash01((t / 3) * 13 + e.getId()) < 0.3f ? 1.0f : 0.0f;
+		float roll = (com.projecthero.mod.titanshifter.TitanEmergencyBuild.hash01((t / 3) * 29 + 5 + e.getId()) - 0.5f) * 7.0f * jolt * calm;
+		poseStack.translate(jx * tremor, 0.0f, jz * tremor);
+		poseStack.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(roll + jx * 0.6f * calm));
+		poseStack.mulPose(com.mojang.math.Axis.XP.rotationDegrees(jz * 0.6f * calm + jolt * calm * 2.5f));
 	}
 
 	/** v0.16.7: Rage flushes the whole body red. */
@@ -240,7 +270,19 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 			for (int k = 0; k < list.size(); k++) {
 				int t = list.getInt(k);
 				Vec3 at = TitanFx.world(pose, tx.px[t], tx.py[t], tx.pz[t]);
-				if (tx.layer[t] == 0) {
+				if (em != null && tx.layer[t] == 0) {
+					// the rushed skeleton: arcs jumping off each bone, faster and wilder
+					for (int s = 0; s < 2; s++) {
+						level.addParticle(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.7, (r.nextDouble() - 0.3) * 0.5,
+								(r.nextDouble() - 0.5) * 0.7);
+					}
+					if (r.nextInt(2) == 0) {
+						level.addParticle(SPARK, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.1, 0.08, (r.nextDouble() - 0.5) * 0.1);
+					}
+				} else if (em != null && tx.layer[t] == 1 && r.nextInt(3) == 0) {
+					// raw flesh hisses as it lands
+					level.addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.06, 0.07 + r.nextDouble() * 0.05, (r.nextDouble() - 0.5) * 0.06);
+				} else if (tx.layer[t] == 0) {
 					// lightning crawling over each new bone
 					level.addParticle(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.3, r.nextDouble() * 0.2, (r.nextDouble() - 0.5) * 0.3);
 					if (r.nextInt(3) == 0) {
@@ -249,6 +291,19 @@ public class TitanFormRenderer extends GeoEntityRenderer<TitanFormEntity> {
 				} else if (r.nextInt(tx.layer[t] == 1 ? 2 : 4) == 0) {
 					// the flesh steams as it forms
 					level.addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.04, 0.05 + r.nextDouble() * 0.05, (r.nextDouble() - 0.5) * 0.04);
+				}
+			}
+		}
+		// v0.16.7 (user, Titan fixes): the Emergency Titan's unformed skin patches vent steam (from 70% through the build on)
+		if (em != null && fx.fxTick && (!building || buildP > 0.7f) && em.vents[idx] != null) {
+			for (int v : em.vents[idx]) {
+				if (r.nextFloat() < 0.3f * TitanFx.budget() + 0.05f) {
+					Vec3 at = TitanFx.world(pose, tx.px[v], tx.py[v], tx.pz[v]);
+					level.addParticle(ParticleTypes.CLOUD, at.x, at.y, at.z, (r.nextDouble() - 0.5) * 0.04, 0.06 + r.nextDouble() * 0.06,
+							(r.nextDouble() - 0.5) * 0.04);
+					if (r.nextInt(6) == 0) {
+						level.addParticle(ParticleTypes.CAMPFIRE_COSY_SMOKE, at.x, at.y, at.z, 0.0, 0.03, 0.0);
+					}
 				}
 			}
 		}

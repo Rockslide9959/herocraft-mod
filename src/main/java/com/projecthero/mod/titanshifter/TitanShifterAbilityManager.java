@@ -31,6 +31,7 @@ public final class TitanShifterAbilityManager {
 		TitanShifter.clearSessionState();
 		TitanAbilities.clearSessionState();
 		TitanBoulders.clearSessionState();
+		com.projecthero.mod.titanshifter.entity.TitanLimbChunkEntity.clearSessionState(); // v0.16.7 (user, Titan fixes)
 		TitanHumanKit.clearSessionState();
 	}
 

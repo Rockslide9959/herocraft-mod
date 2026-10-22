@@ -187,7 +187,30 @@ public class ConfigMigrationGameTests implements FabricGameTest {
 		// v0.16.7: v5 -- the 15-block Attack Titan and the 3 s REVERTING steam
 		helper.assertTrue(c.stats.heightBlocks == 15.0 && c.stats.widthBlocks == 5.0 && c.transformation.revertTicks == 60, "v5 values");
 		helper.assertTrue(c.nape != null && c.limbs != null && c.human != null, "the new sections are filled in");
-		helper.assertTrue(f.get("configVersion").getAsInt() == 5 && num(f, "abilities.roarRadius") == 32.0, "the file was rewritten");
+		helper.assertTrue(f.get("configVersion").getAsInt() == 6 && num(f, "abilities.roarRadius") == 32.0, "the file was rewritten");
+		// v0.16.7 (user, Titan fixes): v6 -- the move sections are written out with today's numbers
+		helper.assertTrue(c.attackTitan.uppercutDamage == 38.0 && c.beastTitan.fastballStones == 14 && c.armoredTitan.shoulderChargeTicks == 30
+				&& c.femaleTitan.screamRadius == 48.0 && c.sharedMoves.napeGuardTicks == 80 && c.emergency.transformTicks == 40, "v6 sections");
+		helper.assertTrue(num(f, "beastTitan.fastballSpeed") == 3.1 && num(f, "attackTitan.rageTicks") == 200.0, "and on disk");
+		cleanUp(p);
+		helper.succeed();
+	}
+
+	/** v0.16.7 (user, Titan fixes): a v5 file picks up the move sections; a v6 file keeps a server's own tuning. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aVersionFiveTitanShifterFileGetsTheMoveSections(GameTestHelper helper) {
+		Path p = write("titan_shifter", "{\"configVersion\":5,\"stats\":{\"maxHealth\":700.0},\"emergency\":{\"transformTicks\":60},"
+				+ "\"beastTitan\":{\"fastballStones\":40},\"limbs\":{\"maxChunks\":50}}");
+		TitanShifterConfig c = TitanShifterConfig.SPEC.load(p);
+		helper.assertTrue(c.stats.maxHealth == 700.0, "the server's own health is kept");
+		helper.assertTrue(c.beastTitan.fastballStones == 14 && c.emergency.transformTicks == 40 && c.limbs.maxChunks == 8,
+				"v6 resets the new numbers to today's");
+		helper.assertTrue(c.armoredTitan != null && c.armoredTitan.groundPoundRadius == 7.0 && c.human.wallTicks == 500, "missing ones filled in");
+		helper.assertTrue(reread(p).get("configVersion").getAsInt() == 6, "stamped v6");
+		write("titan_shifter", "{\"configVersion\":6,\"beastTitan\":{\"fastballStones\":20},\"attackTitan\":{\"rageTicks\":300}}");
+		TitanShifterConfig tuned = TitanShifterConfig.SPEC.load(p);
+		helper.assertTrue(tuned.beastTitan.fastballStones == 20 && tuned.attackTitan.rageTicks == 300 && tuned.attackTitan.uppercutDamage == 38.0,
+				"a v6 server's tuning stays, gaps are filled");
 		cleanUp(p);
 		helper.succeed();
 	}

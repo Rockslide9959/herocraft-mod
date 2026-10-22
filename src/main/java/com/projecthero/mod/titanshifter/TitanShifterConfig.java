@@ -37,6 +37,16 @@ public final class TitanShifterConfig {
 	public Limbs limbs = new Limbs();
 	/** v0.16.7 (user, Titan revamp): Partial Shifting -- the human-form kit. */
 	public Human human = new Human();
+	/**
+	 * v0.16.7 (user, Titan fixes): the revamp's move numbers, one section per Titan type (plus the moves every Titan
+	 * shares). The impact ticks are not here: each is the contact frame of its GeckoLib clip and moving it would make the
+	 * hit land out of step with the animation.
+	 */
+	public SharedMoves sharedMoves = new SharedMoves();
+	public AttackTitan attackTitan = new AttackTitan();
+	public ArmoredTitan armoredTitan = new ArmoredTitan();
+	public FemaleTitan femaleTitan = new FemaleTitan();
+	public BeastTitan beastTitan = new BeastTitan();
 
 	public static final class Stats {
 		/** The Attack Titan's hit-box height in blocks. v0.16.7 (user): 15 (was 11 since v0.12.32). */
@@ -215,6 +225,8 @@ public final class TitanShifterConfig {
 		public double regenSlowdown = 3.0;
 		/** After the form ends the base-form passive regeneration stays off until the bar is back to this fraction. */
 		public double passiveRegenMinFraction = 0.5;
+		/** v0.16.7 (user, Titan fixes): the rushed, unstable emergency build takes this long (the normal one: transformation.transformTicks). */
+		public int transformTicks = 40;
 	}
 
 	/** v0.16.7 (user): hits on the back of the neck. */
@@ -247,6 +259,10 @@ public final class TitanShifterConfig {
 		public double regrowSteamCost = 5.0;
 		/** Speed with one leg missing (the Titan kneels and drags itself); both legs missing = no walking. */
 		public double oneLegSpeedFactor = 0.35;
+		/** v0.16.7 (user, Titan fixes): a severed limb is flung off as a chunk that steams and dissolves over this long (18 s)... */
+		public int chunkTicks = 360;
+		/** ...and at most this many lie about at once (the oldest goes first). */
+		public int maxChunks = 8;
 	}
 
 	/** v0.16.7 (user): Partial Shifting -- R Titan Arm, Shift+R Crystal Blade, G Steam Burst, Shift+G Bite Shift, X Crystal Wall, Shift+X Crystal Cocoon. */
@@ -270,6 +286,117 @@ public final class TitanShifterConfig {
 		public int cocoonTicks = 100;
 		public int cocoonCooldown = 900;
 		public double cocoonSteam = 15.0;
+		/** v0.16.7 (user, Titan fixes): the Crystal Wall stands this long (it is entities, never placed blocks). */
+		public int wallTicks = 500;
+	}
+
+	/** v0.16.7 (user, Titan fixes): Shift+R Kick (damage: {@link Damage#kick}) and Shift+V Nape Guard, on every Titan. */
+	public static final class SharedMoves {
+		public int kickCooldown = 40;
+		public int napeGuardCooldown = 400;
+		/** The hand stays over the nape this long (4 s). */
+		public int napeGuardTicks = 80;
+	}
+
+	/** v0.16.7 (user, Titan fixes): the Attack Titan's moves. */
+	public static final class AttackTitan {
+		public int uppercutCooldown = 120;
+		public double uppercutDamage = 38.0;
+		/** Reach past the front of the body, and the radius round the fist. */
+		public double uppercutReach = 8.0;
+		public double uppercutRadius = 5.0;
+		public double uppercutKnockback = 0.8;
+		public double uppercutLift = 1.4;
+		public int rageCooldown = 600;
+		/** Rage stays full this long (10 s). */
+		public int rageTicks = 200;
+		/** At full Rage every hit deals this much more (0.5 = +50%) and the R combo recharges this much faster (0.4 = 40%). */
+		public double rageDamageBonus = 0.5;
+		public double rageComboSpeedup = 0.4;
+		public int dropkickCooldown = 180;
+		public double dropkickDamage = 32.0;
+		/** Launch speed (blocks a tick) and lift, and how many ticks of the flight hit things. */
+		public double dropkickSpeed = 2.0;
+		public double dropkickLift = 0.45;
+		public int dropkickHitTicks = 13;
+		public double dropkickKnockback = 2.6;
+	}
+
+	/** v0.16.7 (user, Titan fixes): the Armoured Titan's moves. */
+	public static final class ArmoredTitan {
+		public int elbowCooldown = 60;
+		public double elbowDamage = 30.0;
+		public double elbowReach = 3.0;
+		public double elbowKnockback = 2.4;
+		public int groundPoundCooldown = 240;
+		public double groundPoundDamage = 55.0;
+		public double groundPoundRadius = 7.0;
+		public double groundPoundKnockback = 2.8;
+		public int shoulderChargeCooldown = 240;
+		public double shoulderChargeDamage = 40.0;
+		/** The charge lasts this long (1.5 s) at this speed (blocks a tick). */
+		public int shoulderChargeTicks = 30;
+		public double shoulderChargeSpeed = 0.9;
+		public double shoulderChargeKnockback = 3.2;
+		/** At most this many blocks ploughed through by one charge (only with terrain damage and mobGriefing on). */
+		public int shoulderChargeBlockCap = 160;
+		public int braceCooldown = 300;
+		/** Rooted behind the plates this long (3 s), taking this fraction of all damage. */
+		public int braceTicks = 60;
+		public double braceDamageFactor = 0.25;
+		/** Hostiles within this many blocks turn on the bracing Titan. */
+		public double braceTauntRadius = 24.0;
+	}
+
+	/** v0.16.7 (user, Titan fixes): the Female Titan's moves. */
+	public static final class FemaleTitan {
+		public int roundhouseCooldown = 50;
+		public double roundhouseDamage = 34.0;
+		public double roundhouseRadius = 4.0;
+		public double roundhouseKnockback = 2.4;
+		public int axeKickCooldown = 140;
+		public double axeKickDamage = 42.0;
+		public double axeKickRadius = 3.0;
+		public int sweepKickCooldown = 160;
+		public double sweepKickDamage = 24.0;
+		public double sweepKickRadius = 6.0;
+		/** Slowness III on what the sweep hits, this long. */
+		public int sweepKickSlowTicks = 60;
+		public int crystalFistsCooldown = 600;
+		/** Crystal fists and shins last this long (12 s); every hit deals this much more (0.5 = +50%). */
+		public int crystalFistsTicks = 240;
+		public double crystalDamageBonus = 0.5;
+		public int screamCooldown = 500;
+		/** Every hostile within this many blocks turns on the Titan; those between 4 blocks and screamPullRange are dragged in. */
+		public double screamRadius = 48.0;
+		public double screamPullRange = 24.0;
+	}
+
+	/** v0.16.7 (user, Titan fixes): the Beast Titan's moves and its flying rocks. */
+	public static final class BeastTitan {
+		public int fastballCooldown = 160;
+		/** Pitcher's Fastball: damage a stone, stones in the spray, at most this many of one pitch on one target. */
+		public double fastballDamage = 9.0;
+		public int fastballStones = 14;
+		public int fastballPerTarget = 3;
+		/** Stone speed (blocks a tick) and life (ticks) -- about 80 blocks. */
+		public double fastballSpeed = 3.1;
+		public int fastballLife = 28;
+		public int rockScatterCooldown = 160;
+		public double rockScatterDamage = 18.0;
+		/** Rock Scatter: chunks flung, reach of the cone (blocks), cos of its half-angle. */
+		public int scatterChunks = 18;
+		public double scatterRange = 12.0;
+		public double scatterCone = 0.7;
+		public int boulderThrowCooldown = 200;
+		/** Full damage within boulderThrowRadius of the impact, half (shrapnel) out to twice that. */
+		public double boulderThrowDamage = 45.0;
+		public double boulderThrowRadius = 4.0;
+		public int boulderVolleyCooldown = 280;
+		public double boulderVolleyDamage = 20.0;
+		public double boulderVolleyRadius = 2.5;
+		/** The most rocks in flight at once (every Beast together); a damaging rock always flies. */
+		public int maxRocksInFlight = 180;
 	}
 
 	public static TitanShifterConfig get() {
@@ -324,6 +451,26 @@ public final class TitanShifterConfig {
 		return instance.human;
 	}
 
+	public static SharedMoves sharedMoves() {
+		return instance.sharedMoves;
+	}
+
+	public static AttackTitan attackTitan() {
+		return instance.attackTitan;
+	}
+
+	public static ArmoredTitan armoredTitan() {
+		return instance.armoredTitan;
+	}
+
+	public static FemaleTitan femaleTitan() {
+		return instance.femaleTitan;
+	}
+
+	public static BeastTitan beastTitan() {
+		return instance.beastTitan;
+	}
+
 	private TitanShifterConfig() {
 	}
 
@@ -334,6 +481,8 @@ public final class TitanShifterConfig {
 	public static final VersionedConfig<TitanShifterConfig> SPEC = VersionedConfig
 			.builder(TitanShifterConfig.class, "projecthero_titan_shifter.json", TitanShifterConfig::new)
 			.balance("stats", "damage", "abilities", "resistances", "energy", "emergency", "nape", "limbs", "human",
+					"sharedMoves", "attackTitan", "armoredTitan", "femaleTitan", "beastTitan",
+					"sharedMoves", "attackTitan", "armoredTitan", "femaleTitan", "beastTitan",
 					"transformation.transformTicks", "transformation.revertTicks", "transformation.defeatTicks",
 					"transformation.recoveryTicks", "transformation.cooldownTicks")
 			.introduce(1, "v0.12.31 first file")
@@ -346,6 +495,11 @@ public final class TitanShifterConfig {
 			// v0.16.7 (user): the Titan revamp -- the Attack Titan is 15 blocks (5 wide); the new sections fill in on their own
 			.reset(5, "v0.16.7 Titan revamp: the 15-block Attack Titan", "stats.heightBlocks", "stats.widthBlocks",
 					"transformation.revertTicks")
+			// v0.16.7 (user, Titan fixes): the new moves' numbers left the code for a section per Titan type; a file written
+			// before that gets today's values for all of them (and the Emergency Titan's own faster build, the limb chunks,
+			// the Crystal Wall's length)
+			.reset(6, "v0.16.7 Titan move numbers in the config", "sharedMoves", "attackTitan", "armoredTitan", "femaleTitan",
+					"beastTitan", "emergency.transformTicks", "limbs.chunkTicks", "limbs.maxChunks", "human.wallTicks")
 			.build();
 
 	public static void load() {

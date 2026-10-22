@@ -21,6 +21,11 @@ public final class ModEntityRenderers {
 		// v0.16.7 (user): the Beast Titan's boulders and debris
 		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_ROCK,
 				com.projecthero.mod.client.titanshifter.TitanRockRenderer::new);
+		// v0.16.7 (user, Titan fixes): severed limbs, and the Crystal Wall's columns
+		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_LIMB_CHUNK,
+				com.projecthero.mod.client.titanshifter.TitanLimbChunkRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.titanshifter.entity.TitanShifterEntities.TITAN_CRYSTAL_WALL,
+				com.projecthero.mod.client.titanshifter.TitanCrystalWallRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.hulk.entity.HulkEntities.BOULDER,
 				com.projecthero.mod.client.hulk.HulkBoulderRenderer::new);
 		// v0.16.4: the Gamma origin -- the Hulk in the mind's mirror, and the body left kneeling in the world

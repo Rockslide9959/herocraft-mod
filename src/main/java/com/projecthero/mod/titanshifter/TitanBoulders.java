@@ -35,13 +35,15 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Ripping the ground up removes a few real blocks only when the terrain-damage config and the mobGriefing gamerule
  * both allow it ({@link TitanKit#chargeMayBreak}); otherwise the rocks are conjured and the ground stays. At most
- * {@link #CAP} rocks fly at once server-wide (cosmetic debris is skipped past it); they are never saved.
+ * {@link #cap()} rocks fly at once server-wide (cosmetic debris is skipped past it); they are never saved.
  */
 public final class TitanBoulders {
 	/** Legacy (v0.16.7 dev builds): the old block-display boulders; any still loaded is removed. */
 	public static final String TAG = "projecthero_titan_boulder";
-	/** The most rocks in flight at once (every Beast together). */
-	public static final int CAP = 180;
+	/** The most rocks in flight at once (every Beast together; v0.16.7 Titan fixes: beastTitan.maxRocksInFlight in the config). */
+	public static int cap() {
+		return Math.max(1, TitanShifterConfig.beastTitan().maxRocksInFlight);
+	}
 	public static final float BOULDER_GRAVITY = 0.05f;
 
 	private static final List<TitanRockEntity> LIVE = new ArrayList<>();
@@ -90,9 +92,9 @@ public final class TitanBoulders {
 		return LIVE.size();
 	}
 
-	/** Adds {@code r} to the world unless {@link #CAP} rocks already fly (a damaging rock always flies). */
+	/** Adds {@code r} to the world unless {@link #cap()} rocks already fly (a damaging rock always flies). */
 	public static boolean spawn(ServerLevel level, TitanRockEntity r) {
-		if (liveCount() >= CAP && r.damage() <= 0.0f && !r.isBoulder()) {
+		if (liveCount() >= cap() && r.damage() <= 0.0f && !r.isBoulder()) {
 			return false;
 		}
 		if (!level.addFreshEntity(r)) {
