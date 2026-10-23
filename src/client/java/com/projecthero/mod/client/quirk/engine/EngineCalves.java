@@ -28,7 +28,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.7 (user, with Iida's calves as the reference): the <b>calf engines</b> -- on everyone who holds the Engine Quirk,
- * three round exhaust nozzles stick out of the BACK of each calf (v0.16.7 user: not the sides), a little toward the outer edge, like the anime: dark grey metal tubes flaring to a
+ * SIX round exhaust nozzles stick out of the BACK of each calf (v0.16.7 user: not the sides; six a calf) -- two columns of three, one each side of the calf muscle, like the anime: dark grey metal tubes flaring to a
  * lighter collar and a bright rim, with a dark hollow centre, swept back a little and slightly protruding (far enough to
  * stand out over trousers, a Quirk suit or armour). Drawn as real geometry in the leg's own frame, so they follow every
  * stride, kick and pose.
@@ -42,18 +42,22 @@ import net.minecraft.world.phys.Vec3;
  * Drawn by {@link EngineCalvesLayer} for every viewer and, in first person, by {@link EngineFirstPersonLegs}.
  */
 public final class EngineCalves {
-	/** Right-leg nozzle centres in leg-local model pixels {y down the leg, z toward the back}; the left leg mirrors x. */
-	private static final float[][] AT = { { 4.9f, 1.3f }, { 7.1f, 1.3f }, { 9.3f, 1.3f } };
+	/** Right-leg nozzles in leg-local model pixels {y down the leg, z toward the back, column: +1 outer / -1 inner}; the left
+	 *  leg mirrors x. Two columns of three on the back of the calf. */
+	private static final float[][] AT = { { 4.9f, 1.3f, 1f }, { 7.1f, 1.3f, 1f }, { 9.3f, 1.3f, 1f },
+			{ 5.3f, 1.3f, -1f }, { 7.5f, 1.3f, -1f }, { 9.7f, 1.3f, -1f } };
+	/** Nozzles per leg. */
+	public static final int PER_LEG = 6;
 	/** Sideways offset of the column from the leg's centre line, toward the outer edge (the back face is z = 2; the tube
 	 *  starts just inside it, so it reads as set into the calf). */
-	private static final float BASE_X = 0.85f;
-	private static final float LENGTH = 2.35f;
+	private static final float BASE_X = 1.08f;
+	private static final float LENGTH = 2.0f;
 	/** Where the lighter collar starts (fraction of the length). */
 	private static final float COLLAR = 0.6f;
-	private static final float R_BASE = 0.86f;
-	private static final float R_COLLAR = 0.96f;
-	private static final float R_TIP = 1.08f;
-	private static final float R_IN = 0.7f;
+	private static final float R_BASE = 0.64f; // v0.16.7: six a calf -- a little slimmer than three were
+	private static final float R_COLLAR = 0.72f;
+	private static final float R_TIP = 0.8f;
+	private static final float R_IN = 0.52f;
 	private static final float DEPTH = 0.85f;
 	private static final int SEG = 16;
 	/** The right leg's nozzle axis (leg-local): straight out of the back of the calf, a touch outward and down. */
@@ -65,7 +69,7 @@ public final class EngineCalves {
 	private static final int INNER = 0xFF1A1B1E;
 	private static final int HOLE = 0xFF060607;
 
-	/** One captured frame: the six nozzle mouths in world space, their blow directions, when. */
+	/** One captured frame: the twelve nozzle mouths in world space (right leg 0..5, left 6..11), their blow directions, when. */
 	public record Nozzles(Vec3[] at, Vec3[] dir, long tick) {
 	}
 
@@ -84,7 +88,7 @@ public final class EngineCalves {
 		CAPTURED.values().removeIf(n -> now - n.tick() > 40 || n.tick() > now + 5);
 	}
 
-	/** This player's six nozzle mouths (right leg 0..2, left 3..5), if they were drawn within the last few ticks. */
+	/** This player's twelve nozzle mouths (right leg 0..5, left 6..11), if they were drawn within the last few ticks. */
 	public static @Nullable Nozzles nozzles(Player p) {
 		Nozzles n = CAPTURED.get(p.getId());
 		if (n == null || p.level() == null) {
@@ -131,8 +135,8 @@ public final class EngineCalves {
 		boolean stalled = Engine.stalled(player);
 		boolean turbo = Engine.turbo(player);
 		float t = player.tickCount + partial;
-		Vec3[] at = new Vec3[6];
-		Vec3[] dir = new Vec3[6];
+		Vec3[] at = new Vec3[2 * PER_LEG];
+		Vec3[] dir = new Vec3[2 * PER_LEG];
 		boolean captured = toWorld != null;
 		for (int leg = 0; leg < 2; leg++) {
 			ModelPart part = leg == 0 ? model.rightLeg : model.leftLeg;
@@ -147,9 +151,9 @@ public final class EngineCalves {
 			PoseStack.Pose last = pose.last();
 			// fetched per leg: the glow below switches the (immediate) buffer source to another render type
 			VertexConsumer solid = buffers.getBuffer(RenderType.entityCutoutNoCull(white()));
-			Vector3f axis = new Vector3f(side < 0 ? AXIS_R.x : -AXIS_R.x, AXIS_R.y, AXIS_R.z);
 			for (int i = 0; i < AT.length; i++) {
-				Vector3f base = new Vector3f(side * BASE_X, AT[i][0], AT[i][1]);
+				Vector3f base = new Vector3f(side * colX(AT[i][2]), AT[i][0], AT[i][1]);
+				Vector3f axis = axis(side, AT[i][2]);
 				nozzle(solid, last, base, axis, light, g, stalled, t + i * 3.7f + leg * 11f);
 				if (toWorld != null) {
 					Vector3f mouth = new Vector3f(axis).mul(LENGTH + 0.4f).add(base);
@@ -159,15 +163,16 @@ public final class EngineCalves {
 					Vector4f w2 = new Vector4f(mouth.x + axis.x, mouth.y + axis.y, mouth.z + axis.z, 1f);
 					last.pose().transform(w2);
 					new Matrix4f(toWorld).transform(w2);
-					at[leg * 3 + i] = new Vec3(w.x, w.y, w.z);
+					at[leg * PER_LEG + i] = new Vec3(w.x, w.y, w.z);
 					Vec3 d = new Vec3(w2.x - w.x, w2.y - w.y, w2.z - w.z);
-					dir[leg * 3 + i] = d.lengthSqr() < 1.0e-8 ? Vec3.ZERO : d.normalize();
+					dir[leg * PER_LEG + i] = d.lengthSqr() < 1.0e-8 ? Vec3.ZERO : d.normalize();
 				}
 			}
 			if (g > 0.25f) {
 				VertexConsumer add = buffers.getBuffer(RenderType.lightning());
 				for (int i = 0; i < AT.length; i++) {
-					Vector3f base = new Vector3f(side * BASE_X, AT[i][0], AT[i][1]);
+					Vector3f base = new Vector3f(side * colX(AT[i][2]), AT[i][0], AT[i][1]);
+					Vector3f axis = axis(side, AT[i][2]);
 					halo(add, last.pose(), base, axis, g, turbo, t + i * 2.3f + leg * 5f);
 				}
 			}
@@ -187,6 +192,17 @@ public final class EngineCalves {
 				CAPTURED.put(player.getId(), new Nozzles(at, dir, player.level().getGameTime()));
 			}
 		}
+	}
+
+	/** A column's sideways offset from the leg centre (+ outer, - inner): the inner one sits further in, clear of the other leg. */
+	private static float colX(float column) {
+		return column > 0 ? BASE_X : -0.62f;
+	}
+
+	/** A nozzle's axis: straight out of the back of the calf, splayed a touch toward its own side of the calf, a touch down. */
+	private static Vector3f axis(float side, float column) {
+		// the outer column splays outward; the inner one points straight back so the two legs' inner columns never meet
+		return new Vector3f(column > 0 ? side * -AXIS_R.x : side * 0.04f, AXIS_R.y, AXIS_R.z).normalize();
 	}
 
 	/** One nozzle: the dark tube, the lighter collar, the bright rim, the dark hollow (glowing as the engines work). */

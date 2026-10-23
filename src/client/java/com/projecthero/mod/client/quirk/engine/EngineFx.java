@@ -40,7 +40,7 @@ public final class EngineFx {
 			if (Engine.stalled(p)) {
 				// steam: soft white puffs drifting up out of the nozzles, a darker sputter now and then
 				if (p.tickCount % 2 == 0) {
-					int k = r.nextInt(6);
+					int k = r.nextInt(2 * EngineCalves.PER_LEG);
 					Vec3 at = mouth(p, n, k);
 					Vec3 d = blow(p, n, k);
 					add(level, ParticleTypes.CLOUD, at, d.scale(0.03).add(0, 0.02, 0));
@@ -49,7 +49,7 @@ public final class EngineFx {
 					}
 				}
 				if (r.nextInt(14) == 0) {
-					int k = r.nextInt(6);
+					int k = r.nextInt(2 * EngineCalves.PER_LEG);
 					add(level, ParticleTypes.LARGE_SMOKE, mouth(p, n, k), blow(p, n, k).scale(0.05).add(0, 0.02, 0));
 				}
 				continue;
@@ -81,7 +81,7 @@ public final class EngineFx {
 			}
 			for (int side = 0; side < 2; side++) {
 				for (int i = 0; i < count; i++) {
-					int k = side * 3 + r.nextInt(3);
+					int k = side * EngineCalves.PER_LEG + r.nextInt(EngineCalves.PER_LEG);
 					Vec3 at = mouth(p, n, k);
 					Vec3 out = blow(p, n, k).scale(speed < 0.06 ? 0.03 : 0.035 + 0.015 * drive);
 					double jx = (r.nextDouble() - 0.5) * 0.04;
@@ -98,13 +98,13 @@ public final class EngineFx {
 					}
 				}
 				if (r.nextInt(drive >= 3f ? 3 : drive >= 2f ? 6 : 12) == 0) {
-					int k = side * 3 + r.nextInt(3);
+					int k = side * EngineCalves.PER_LEG + r.nextInt(EngineCalves.PER_LEG);
 					add(level, ParticleTypes.SMOKE, mouth(p, n, k).add(blow(p, n, k).scale(0.15)), new Vec3(0, 0.02, 0).add(trail.scale(0.3)));
 				}
 			}
 			if (turbo) {
 				// every nozzle blazes at once, and blue speed streaks peel off the body
-				for (int k = 0; k < 6; k++) {
+				for (int k = 0; k < 2 * EngineCalves.PER_LEG; k++) {
 					if (r.nextInt(speed < 0.06 ? 4 : 2) == 0) {
 						// a short lick of blue fire out of the mouth, curling up
 						add(level, ParticleTypes.SOUL_FIRE_FLAME, mouth(p, n, k), blow(p, n, k).scale(0.035).add(0, 0.012, 0).add(trail));
@@ -124,12 +124,12 @@ public final class EngineFx {
 		level.addParticle(o, at.x, at.y, at.z, v.x, v.y, v.z);
 	}
 
-	/** Nozzle {@code k}'s mouth (0..2 his right calf, 3..5 his left), from the drawn model or estimated. */
+	/** Nozzle {@code k}'s mouth (0..5 his right calf, 6..11 his left), from the drawn model or estimated. */
 	private static Vec3 mouth(Player p, EngineCalves.Nozzles n, int k) {
 		if (n != null && n.at()[k] != null) {
 			return n.at()[k];
 		}
-		int side = k < 3 ? -1 : 1;
+		int side = k < EngineCalves.PER_LEG ? -1 : 1;
 		return pipe(p, side, 0f).add(0, -0.11 * (k % 3 - 1), 0);
 	}
 
@@ -138,7 +138,7 @@ public final class EngineFx {
 		if (n != null && n.dir()[k] != null && n.dir()[k].lengthSqr() > 0.5) {
 			return n.dir()[k];
 		}
-		return pipeNormal(p, k < 3 ? -1 : 1);
+		return pipeNormal(p, k < EngineCalves.PER_LEG ? -1 : 1);
 	}
 
 	/** The swing of one leg ({@code side} -1 = his right, +1 = his left) as vanilla animates it (positive = backward). */
