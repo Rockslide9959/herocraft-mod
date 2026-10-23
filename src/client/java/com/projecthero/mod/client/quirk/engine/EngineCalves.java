@@ -28,7 +28,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.16.7 (user, with Iida's calves as the reference): the <b>calf engines</b> -- on everyone who holds the Engine Quirk,
- * three round exhaust nozzles stick out of the outer side of each calf, like the anime: dark grey metal tubes flaring to a
+ * three round exhaust nozzles stick out of the BACK of each calf (v0.16.7 user: not the sides), a little toward the outer edge, like the anime: dark grey metal tubes flaring to a
  * lighter collar and a bright rim, with a dark hollow centre, swept back a little and slightly protruding (far enough to
  * stand out over trousers, a Quirk suit or armour). Drawn as real geometry in the leg's own frame, so they follow every
  * stride, kick and pose.
@@ -43,9 +43,10 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class EngineCalves {
 	/** Right-leg nozzle centres in leg-local model pixels {y down the leg, z toward the back}; the left leg mirrors x. */
-	private static final float[][] AT = { { 4.9f, 0.1f }, { 7.1f, 0.5f }, { 9.3f, 0.9f } };
-	/** The tube starts this far in from the leg's outer face (x = 2), so it reads as set into the calf. */
-	private static final float BASE_X = 1.4f;
+	private static final float[][] AT = { { 4.9f, 1.3f }, { 7.1f, 1.3f }, { 9.3f, 1.3f } };
+	/** Sideways offset of the column from the leg's centre line, toward the outer edge (the back face is z = 2; the tube
+	 *  starts just inside it, so it reads as set into the calf). */
+	private static final float BASE_X = 0.85f;
 	private static final float LENGTH = 2.35f;
 	/** Where the lighter collar starts (fraction of the length). */
 	private static final float COLLAR = 0.6f;
@@ -55,8 +56,8 @@ public final class EngineCalves {
 	private static final float R_IN = 0.7f;
 	private static final float DEPTH = 0.85f;
 	private static final int SEG = 16;
-	/** The right leg's nozzle axis (leg-local): out of the calf, swept back, a touch down. */
-	private static final Vector3f AXIS_R = new Vector3f(-1f, 0.1f, 0.78f).normalize();
+	/** The right leg's nozzle axis (leg-local): straight out of the back of the calf, a touch outward and down. */
+	private static final Vector3f AXIS_R = new Vector3f(-0.28f, 0.1f, 1f).normalize();
 
 	private static final int TUBE = 0xFF3D4047;
 	private static final int TUBE_COLLAR = 0xFF6E747D;
