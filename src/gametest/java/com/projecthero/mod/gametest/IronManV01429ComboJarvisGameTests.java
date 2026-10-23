@@ -115,11 +115,11 @@ public class IronManV01429ComboJarvisGameTests implements FabricGameTest {
 		ServerPlayer p = suited(h, "mark_6");
 		JarvisDialogue.clearFor(p);
 		JarvisDialogue.tick(p);
-		// v0.16.1: no suit energy -- the energy lines can never fire on a later suit (v0.16.7: the Era I suits have energy
-		// again, so this checks the Mk VII Silver Centurion); the hull line still does
+		// v0.16.7: every Era II suit has a reactor again, so the low-energy line is back; the hull line still cuts in after
 		IronManEnergy.setEnergy(p, "mark_6", IronManEnergy.capacity("mark_6") * 0.2f);
 		JarvisDialogue.tick(p);
-		h.assertFalse("energy_25".equals(JarvisDialogue.lastLine(p)), "no energy line any more");
+		h.assertTrue("energy_25".equals(JarvisDialogue.lastLine(p)), "energy under 25% speaks (got "
+				+ JarvisDialogue.lastLine(p) + ")");
 		IronManEnergy.setIntegrity(p, "mark_6", IronManEnergy.maxIntegrity("mark_6") * 0.3f);
 		JarvisDialogue.tick(p);
 		h.assertTrue("integrity_35".equals(JarvisDialogue.lastLine(p)), "integrity under 35% speaks (got "
