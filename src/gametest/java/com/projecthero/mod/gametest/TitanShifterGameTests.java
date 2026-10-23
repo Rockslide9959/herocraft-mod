@@ -199,7 +199,11 @@ public class TitanShifterGameTests implements FabricGameTest {
 			form.hurt(helper.getLevel().damageSources().generic(), 100000.0f);
 			helper.assertTrue(TitanShifter.phase(p) == TitanPhase.DEFEATED, "DEFEATED, was " + TitanShifter.phase(p));
 			helper.assertTrue(p.getHealth() == playerHp, "the player's own health was not touched yet");
-			helper.runAfterDelay(TitanShifterConfig.transformation().defeatTicks + 10, () -> {
+			// no natural regen lifting the shifter back over 4 hearts while we wait (slow CI runners)
+			p.getFoodData().setFoodLevel(6);
+			p.getFoodData().setSaturation(0f);
+			// poll instead of a fixed delay: a busy CI server can land the hand-off a few ticks late
+			helper.succeedWhen(() -> {
 				helper.assertTrue(TitanShifter.phase(p) == TitanPhase.RECOVERING, "RECOVERING, was " + TitanShifter.phase(p));
 				helper.assertTrue(p.getVehicle() == null && form.isRemoved(), "ejected, Titan gone");
 				// v0.16.7: a defeat empties Steam, drops the shifter to 4 hearts and locks shifting for 60 s
@@ -208,7 +212,6 @@ public class TitanShifterGameTests implements FabricGameTest {
 				helper.assertTrue(TitanShifter.transformCooldownRemaining(p) > 20 * 50, "shifting locked for about 60 s, "
 						+ TitanShifter.transformCooldownRemaining(p));
 				helper.assertFalse(TitanShifter.transform(p), "no immediate re-transformation");
-				helper.succeed();
 			});
 		});
 	}
