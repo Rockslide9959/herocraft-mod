@@ -85,7 +85,7 @@ public class IronManV01427Mark12GameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void integrityAbsorbsTheMarksShareOfAHit(GameTestHelper h) {
 		String[] ids = { "mark_1", "mark_1_v2", "mark_2", "mark_iii", "mark_4", "mark_v", "mark_6", "mark_vii", "mark_8" };
-		float[] shares = { 0.30f, 0.32f, 0.30f, 0.38f, 0.40f, 0.15f, 0.45f, 0.50f, 0.60f }; // v0.16.7: the Era I table
+		float[] shares = { 0.30f, 0.32f, 0.30f, 0.38f, 0.40f, 0.15f, 0.45f, 0.50f, 1.0f }; // v0.16.7: the Era I table; the Hulkbuster takes every hit
 		for (int i = 0; i < ids.length; i++) {
 			IronManSuit suit = IronManSuits.byId(ids[i]);
 			h.assertTrue(Math.abs(suit.absorbShare() - shares[i]) < 1e-4f, ids[i] + " absorbs " + shares[i] + ", got " + suit.absorbShare());

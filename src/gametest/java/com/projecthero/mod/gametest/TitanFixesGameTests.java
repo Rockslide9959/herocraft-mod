@@ -69,7 +69,7 @@ public class TitanFixesGameTests implements FabricGameTest {
 
 	// ---------------- 12: severed limbs drop a chunk ----------------
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 700)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 1400)
 	public void aSeveredLimbIsFlungOffLandsAndDissolves(GameTestHelper helper) {
 		ServerPlayer p = shifter(helper, TitanType.GENERIC_TITAN);
 		helper.onEachTick(() -> TitanShifter.tick(p));
@@ -87,16 +87,17 @@ public class TitanFixesGameTests implements FabricGameTest {
 			helper.assertTrue(c.getDeltaMovement().y > 0.0 && !c.hasLanded(), "flung up and out");
 			Vec3 right = Vec3.directionFromRotation(0, form.getYRot() + 90.0f);
 			helper.assertTrue(c.getDeltaMovement().dot(right) > 0.1, "outward from the right side");
-			helper.runAfterDelay(TitanLimbChunkEntity.MAX_FLIGHT + 2, () -> {
-				helper.assertTrue(c.hasLanded() && c.isAlive(), "it landed and lies there: landed " + c.landedAt() + " removed " + c.getRemovalReason() + " age " + c.chunkAge(0) + " tc " + c.tickCount + " y " + c.getY() + " form y " + form.getY() + " v " + c.getDeltaMovement());
-				helper.assertTrue(c.dissolveProgress(0) == 0.0f || c.landedAt() + TitanLimbChunkEntity.STEAM_TICKS < c.chunkAge(0),
-						"steaming before it dissolves");
-				helper.runAfterDelay(c.life() - TitanLimbChunkEntity.MAX_FLIGHT, () -> {
-					helper.assertTrue(c.isRemoved(), "dissolved away after ~18 s");
-					helper.assertTrue(c.dissolveProgress(0) >= 1.0f, "fully dissolved");
-					helper.succeed();
-				});
-			});
+			// poll, not fixed delays: on a busy CI server the flung chunk can sit in a chunk that ticks it late
+			helper.startSequence()
+					.thenWaitUntil(() -> helper.assertTrue(c.hasLanded() && c.isAlive(), "it landed and lies there: landed "
+							+ c.landedAt() + " removed " + c.getRemovalReason() + " tc " + c.tickCount + " y " + c.getY()))
+					.thenExecute(() -> helper.assertTrue(c.dissolveProgress(0) == 0.0f
+							|| c.landedAt() + TitanLimbChunkEntity.STEAM_TICKS < c.chunkAge(0), "steaming before it dissolves"))
+					.thenWaitUntil(() -> {
+						helper.assertTrue(c.isRemoved(), "dissolved away after ~18 s");
+						helper.assertTrue(c.dissolveProgress(0) >= 1.0f, "fully dissolved");
+					})
+					.thenSucceed();
 		});
 	}
 

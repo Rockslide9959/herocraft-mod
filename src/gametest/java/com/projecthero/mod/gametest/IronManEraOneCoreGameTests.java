@@ -155,8 +155,8 @@ public class IronManEraOneCoreGameTests implements FabricGameTest {
 				&& IronManSuits.MARK_V.manualFlight(), "the Mk III, Mk IV and Mk V fly; the Mk I / Mk II do not");
 		h.assertTrue(IronManSuits.MARK_4.hydro() && IronManSuits.MARK_4.waterBreathing() && IronManSuits.MARK_V.stealth(), "Hydro / Stealth");
 		for (String later : new String[] { "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" }) { // v0.16.7: + Mk IX
-			h.assertTrue(!IronManEraOne.isEraOne(later) && IronManSuits.byId(later).energyCapacity() == IronManEnergy.FULL,
-					later + " keeps the no-energy shim");
+			h.assertTrue(!IronManEraOne.isEraOne(later) && IronManEraOne.isEraTwo(later) && IronManSuits.byId(later).hasReactor(),
+					later + " is Era II with its own reactor (v0.16.7)");
 		}
 		String[] later = { "mark_2", "mark_6", "mark_vii", "mark_9", "mark_8" };
 		String[] laterNames = { "Mk VI Suitcase", "Mk VII Silver Centurion", "Mk VIII Space", "Mk IX Inferno", "Hulkbuster I Bruiser" };

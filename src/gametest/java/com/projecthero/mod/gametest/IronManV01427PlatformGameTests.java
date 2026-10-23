@@ -91,8 +91,10 @@ public class IronManV01427PlatformGameTests implements FabricGameTest {
 			}
 			// v0.16.1: no suit energy -- the platform only repairs, 5 integrity/s
 			helper.assertTrue(Math.abs(be.suitIntegrity() - 5f) < 0.05f, suitId + ": 1 s on the rack = +5 integrity, got " + be.suitIntegrity());
-			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == 0f && IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
-					suitId + ": the platform charges nothing and repairs 5/s");
+			// v0.16.7: Era II suits have a reactor again -- any platform charges them 25/s
+			helper.assertTrue(IronManEnergy.platformEnergyPerSecond(suit) == IronManEnergy.ERA_TWO_PLATFORM_CHARGE_PER_SECOND
+					&& IronManEnergy.platformIntegrityPerSecond(suit) == 5f,
+					suitId + ": the platform charges 25/s and repairs 5/s");
 		}
 		helper.assertTrue(platform(helper, new BlockPos(5, 2, 1)).data.getCount() == 3,
 				"the platform menu no longer syncs a reserve value");
