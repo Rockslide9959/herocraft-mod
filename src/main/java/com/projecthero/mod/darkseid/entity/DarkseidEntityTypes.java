@@ -52,6 +52,16 @@ public final class DarkseidEntityTypes {
 					.updateInterval(20)
 					.build("boom_tube"));
 
+	/** v0.17.1: a real, walk-through Boom Tube (Cyborg's menu, the Mother Box). */
+	public static final EntityType<BoomTubePortalEntity> BOOM_TUBE_PORTAL = register("boom_tube_portal",
+			EntityType.Builder.<BoomTubePortalEntity>of(BoomTubePortalEntity::new, MobCategory.MISC)
+					.sized(0.5f, 0.5f)
+					.fireImmune()
+					.noSave()
+					.clientTrackingRange(10)
+					.updateInterval(20)
+					.build("boom_tube_portal"));
+
 	public static final EntityType<OmegaBeamEntity> OMEGA_BEAM = register("omega_beam",
 			EntityType.Builder.<OmegaBeamEntity>of(OmegaBeamEntity::new, MobCategory.MISC)
 					.sized(0.5f, 0.5f)

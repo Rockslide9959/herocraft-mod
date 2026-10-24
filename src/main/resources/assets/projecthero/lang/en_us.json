@@ -4561,7 +4561,7 @@
   "item.projecthero.omega_shard": "Omega Shard",
   "item.projecthero.omega_shard.hint": "A splinter of crystallised Omega energy. Used in advanced crafting.",
   "item.projecthero.mother_box": "Mother Box",
-  "item.projecthero.mother_box.hint": "Sneak + use to attune it to this spot; use it to open a Boom Tube home.",
+  "item.projecthero.mother_box.hint": "Sneak + use to attune it to this spot; use it to tear open a Boom Tube home, then walk through it.",
   "item.projecthero.mother_box.anchor": "Attuned to %s, %s, %s (%s)",
   "item.projecthero.omega_relic": "Darkseid's Omega Relic",
   "item.projecthero.omega_relic.hint": "Use: fire a pair of homing Omega Beams at what you are looking at.",
@@ -7308,7 +7308,7 @@
   "projecthero.cyborg.ability.circuit_link.desc": "Reach into the redstone you aim at, up to 32 blocks away. Levers flip, buttons press, doors, trapdoors and gates (iron too) open or shut, bells ring. Anything else gets full redstone power: pistons push, dispensers fire, lamps light, TNT primes, rails and dust carry it on. Tap for a 1.5s pulse, hold V to keep it powered (1 Power Core a second). 2 Power Core.",
   "projecthero.cyborg.ability.scan.desc": "For 10s, creatures within 32 blocks glow cyan and ores show through walls (only you see them), and the creature you aim at shows its health and armour. 15s cooldown.",
   "projecthero.cyborg.ability.boom_tube": "Boom Tube",
-  "projecthero.cyborg.ability.boom_tube.desc": "Opens the Boom Tube menu, like the Bifrost: type coordinates to go there in this world, or save up to 3 waypoints and travel to them from any dimension. Squadmates within 6 blocks come too. 10 Power Core, 60s cooldown.",
+  "projecthero.cyborg.ability.boom_tube.desc": "Opens the Boom Tube menu, like the Bifrost: type coordinates in this world, or save up to 3 waypoints and travel to them from any dimension. A real Boom Tube then tears open in front of you with a BOOM and stays open for 10 seconds: walk through it (your squad, or anything else, can follow you in; only players cross between worlds). Its far end opens where you come out. 10 Power Core, 60s cooldown.",
   "projecthero.cyborg.ability.defense_matrix": "Defense Matrix",
   "projecthero.cyborg.ability.defense_matrix.desc": "Hold C: a blue energy shield in front of you soaks up to 100 damage from the front. Let go and it drops (3s cooldown); run it dry and it breaks (15s cooldown).",
   "projecthero.cyborg.ability.self_repair": "Self-Repair",
@@ -7740,7 +7740,7 @@
   "projecthero.quirk.ability.quirk_engine_shift_down": "Gear Down",
   "projecthero.quirk.ability.quirk_engine_shift_down.desc": "Shift down a gear. Engine braking keeps most of your speed.",
   "projecthero.quirk.ability.quirk_engine_recipro_dash": "Recipro Dash",
-  "projecthero.quirk.ability.quirk_engine_recipro_dash.desc": "One burst dash the way you are moving (hold W/A/S/D to aim it -- forward when no key is held): 7 blocks, +2 a gear. In Recipro Turbo: the Turbo Strike, a 28-block rush that hits everything in the path.",
+  "projecthero.quirk.ability.quirk_engine_recipro_dash.desc": "One burst dash exactly where you are aiming (look up to dash up, down to dive): 7 blocks, +2 a gear. In Recipro Turbo: the Turbo Strike, a 28-block rush that hits everything in the path.",
   "projecthero.quirk.ability.quirk_engine_rising_kick": "Rising Kick",
   "projecthero.quirk.ability.quirk_engine_rising_kick.desc": "A flip kick that launches the target straight up: 10, more at speed.",
   "projecthero.quirk.ability.quirk_engine_recipro_kick": "Recipro Kick",
@@ -8023,5 +8023,9 @@
   "projecthero.guide.green_lantern.ranks.4": "12,000 XP. x1.35 damage, x1.30 Ring Charge, costs x0.85; Ring Flight drains 25% less.",
   "projecthero.guide.green_lantern.ranks.5": "25,000 XP. x1.50 damage, x1.40 Ring Charge, costs x0.80; the Oath lasts 50% longer and every construct turns golden-green.",
   "projecthero.guide.green_lantern.entry_tap": " (tap)",
-  "projecthero.guide.green_lantern.entry_hold": " (hold)"
+  "projecthero.guide.green_lantern.entry_hold": " (hold)",
+  "entity.projecthero.boom_tube_portal": "Boom Tube",
+  "entity.projecthero.bifrost_beam": "Bifrost",
+  "entity.projecthero.bifrost_mark": "Bifrost Runes",
+  "message.projecthero.cyborg.boom.opened": "Boom Tube open -- step through (10 s)"
 }

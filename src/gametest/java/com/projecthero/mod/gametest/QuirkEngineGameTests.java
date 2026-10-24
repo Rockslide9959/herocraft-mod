@@ -408,23 +408,17 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** v0.17.1 (user): the dash goes the way WASD points -- D (right) at yaw 0 sends him along -X; no keys = forward. */
+	/** v0.17.1 (user): the dash goes exactly where he aims -- turned to -X and looking up, he dashes along -X and upward. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void reciproDashFollowsTheHeldKeys(GameTestHelper helper) {
+	public void reciproDashFollowsTheAim(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = engine(helper, 6.5, 2.0, 4.5);
-		com.projecthero.mod.hero.PressInput.move = com.projecthero.mod.hero.PressInput.RIGHT;
-		try {
-			EngineMoves.dash(p);
-		} finally {
-			com.projecthero.mod.hero.PressInput.move = 0;
-		}
+		p.setYRot(90f); // facing -X
+		p.setXRot(-30f); // looking up
+		EngineMoves.dash(p);
 		Vec3 v = p.getDeltaMovement();
-		helper.assertTrue(v.x < -1.0 && Math.abs(v.z) < 0.2, "D dashes to his right (-X at yaw 0): " + v);
-		Vec3 back = com.projecthero.mod.hero.PressInput.flatDirection(p, com.projecthero.mod.hero.PressInput.BACK, Vec3.ZERO);
-		helper.assertTrue(back.z < -0.99, "S points behind him: " + back);
-		Vec3 none = com.projecthero.mod.hero.PressInput.flatDirection(p, 0, new Vec3(0, 0, 1));
-		helper.assertTrue(none.z > 0.99, "no keys falls back to forward");
+		helper.assertTrue(v.x < -1.0 && Math.abs(v.z) < 0.2, "it follows the yaw (-X): " + v);
+		helper.assertTrue(v.y > 0.3, "and the pitch (up): " + v);
 		helper.succeed();
 	}
 

@@ -121,6 +121,8 @@ public final class CyborgConfig {
 	public static final double BOOM_SQUAD_RADIUS = 6.0;
 	public static final float BOOM_COST = 10f;
 	public static final int BOOM_COOLDOWN = 1200;
+	/** v0.17.1: how long a Boom Tube stays open to walk through (10 s). */
+	public static final int BOOM_OPEN_TICKS = 200;
 
 	// ---------------------------------------------------------------- C: Defense Matrix / Shift+C: Self-Repair
 	/** v0.16.5 (user): held on C, it soaks 100 damage from the front; let go and it drops, run it dry and it breaks. */

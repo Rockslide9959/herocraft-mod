@@ -234,6 +234,10 @@ public final class Bifrost {
 			carried++;
 		}
 
+		// v0.17.1: the bridge itself -- a rainbow beam crashing down where they land, lingering where they left, and a rune
+		// circle burned into the ground at both ends
+		bridge(level, from, false);
+		bridge(level, to, true);
 		level.playSound(null, to.x, to.y, to.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);
 		level.playSound(null, to.x, to.y, to.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 0.6f, 1.1f);
 		level.playSound(null, to.x, to.y, to.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.PLAYERS, 0.5f, 1.2f);
@@ -342,6 +346,31 @@ public final class Bifrost {
 				&& level.getFluidState(pos).isEmpty()
 				&& !state.is(BlockTags.FIRE) && !state.is(Blocks.POWDER_SNOW) && !state.is(Blocks.SWEET_BERRY_BUSH)
 				&& !state.is(Blocks.COBWEB);
+	}
+
+	/** v0.17.1: a Bifrost beam and a rune mark at one end ({@code arrival}: the crash-down, a shockwave and sparks). */
+	private static void bridge(ServerLevel level, Vec3 feet, boolean arrival) {
+		BifrostEntities.Beam beam = new BifrostEntities.Beam(BifrostEntities.BEAM, level);
+		beam.setPos(feet.x, feet.y, feet.z);
+		beam.setArrival(arrival);
+		level.addFreshEntity(beam);
+		for (BifrostEntities.Mark old : level.getEntitiesOfClass(BifrostEntities.Mark.class, new net.minecraft.world.phys.AABB(feet, feet).inflate(1.5))) {
+			old.discard(); // a fresh circle over an old one replaces it
+		}
+		BifrostEntities.Mark mark = new BifrostEntities.Mark(BifrostEntities.MARK, level);
+		mark.setPos(feet.x, feet.y + 0.02, feet.z);
+		mark.setYRot(level.random.nextFloat() * 360f);
+		level.addFreshEntity(mark);
+		if (arrival) {
+			for (int i = 0; i < 36; i++) {
+				double a = i * Math.PI / 18;
+				Vector3f c = RAINBOW[i % RAINBOW.length];
+				level.sendParticles(new DustParticleOptions(c, 2.2f), feet.x + Math.cos(a) * 1.5, feet.y + 0.15, feet.z + Math.sin(a) * 1.5, 2,
+						Math.cos(a) * 0.6, 0.02, Math.sin(a) * 0.6, 0.0);
+			}
+			level.sendParticles(ParticleTypes.EXPLOSION, feet.x, feet.y + 0.3, feet.z, 2, 0.6, 0.1, 0.6, 0.0);
+			level.sendParticles(ParticleTypes.END_ROD, feet.x, feet.y + 0.5, feet.z, 30, 1.2, 0.3, 1.2, 0.12);
+		}
 	}
 
 	/** The rainbow bridge: a tall column of dust cycling red to violet, with a white sparkle core. */

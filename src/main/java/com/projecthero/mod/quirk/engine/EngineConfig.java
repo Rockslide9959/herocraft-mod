@@ -139,8 +139,8 @@ public final class EngineConfig {
 
 	// ---------------------------------------------------------------- X: Recipro Dash (the one dash)
 	/**
-	 * A single burst dash, flat: this far + this much per gear, over this many ticks. v0.17.1 (user): it goes the way the WASD
-	 * keys point (forward when none are held).
+	 * A single burst dash: this far + this much per gear, over this many ticks. v0.17.1 (user): it goes exactly where he aims
+	 * (look up to dash up, down to dive).
 	 */
 	public static final double DASH_DISTANCE = 7.0;
 	public static final double DASH_PER_GEAR = 2.0;

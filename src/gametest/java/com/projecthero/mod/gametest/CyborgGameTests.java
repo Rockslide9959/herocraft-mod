@@ -306,13 +306,27 @@ public class CyborgGameTests implements FabricGameTest {
 		p.teleportTo(p.getX() + 4, p.getY(), p.getZ() + 4);
 		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 0) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.OK,
 				"travelled");
-		helper.assertTrue(p.position().distanceTo(saved) < 1.5, "the Boom Tube took him to the waypoint, at " + p.position());
+		// v0.17.1: a real Boom Tube -- an entrance opens in front of him and an exit at the waypoint; he walks through
+		java.util.List<com.projecthero.mod.darkseid.entity.BoomTubePortalEntity> tubes = helper.getLevel().getEntitiesOfClass(
+				com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.class, p.getBoundingBox().inflate(16));
+		helper.assertTrue(tubes.size() == 2, "both ends of the Boom Tube are open, got " + tubes.size());
+		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity in = tubes.stream()
+				.filter(com.projecthero.mod.darkseid.entity.BoomTubePortalEntity::entrance).findFirst().orElseThrow();
 		helper.assertTrue(Cyborg.cooldownRemaining(p, CyborgAbilities.BOOM) > 0, "60 s cooldown");
 		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 0) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.COOLDOWN,
 				"not again straight away");
 		helper.assertTrue(com.projecthero.mod.cyborg.CyborgBoomTube.travelToWaypoint(p, 1) == com.projecthero.mod.cyborg.CyborgBoomTube.Result.EMPTY_WAYPOINT,
 				"an empty slot goes nowhere");
-		helper.succeed();
+		helper.runAfterDelay(com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.OPEN_TICKS + 2, () -> {
+			p.teleportTo(in.getX(), in.getY() - 0.9, in.getZ());
+			p.xo = p.getX();
+			p.yo = p.getY();
+			p.zo = p.getZ();
+		});
+		helper.runAfterDelay(com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.OPEN_TICKS + 8, () -> {
+			helper.assertTrue(p.position().distanceTo(saved) < 1.5, "stepping into the tube took him to the waypoint, at " + p.position());
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

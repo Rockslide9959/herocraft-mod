@@ -40,18 +40,13 @@ public class BoomTubeRenderer extends EntityRenderer<BoomTubeEntity> {
 			case EXIT, ENTRANCE -> 0xE8F0FF;
 			default -> 0xD0E8FF;
 		};
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(TEXTURE));
+		// v0.17.1: drawn as a real Boom Tube (the comic look shared with the walk-through portals), its mouth always turned
+		// to the viewer so the tunnel falls away behind it
 		poseStack.pushPose();
 		poseStack.translate(0.0f, 0.25f, 0.0f);
 		poseStack.mulPose(entityRenderDispatcher.cameraOrientation());
-		poseStack.pushPose();
-		poseStack.mulPose(Axis.ZP.rotationDegrees(age * 9.0f));
-		disc(vc, poseStack, size * 0.5f, tint, 0.95f);
-		poseStack.popPose();
-		poseStack.pushPose();
-		poseStack.mulPose(Axis.ZP.rotationDegrees(-age * 14.0f));
-		disc(vc, poseStack, size * 0.36f, 0xFFFFFF, 1.0f);
-		poseStack.popPose();
+		poseStack.mulPose(Axis.YP.rotationDegrees(180f));
+		BoomTubePortalRenderer.draw(poseStack, buffers, size * 0.5f, age, Math.min(1f, open * 1.2f), tube.getId());
 		poseStack.popPose();
 		super.render(tube, yaw, partialTick, poseStack, buffers, light);
 	}

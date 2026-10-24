@@ -19,7 +19,7 @@ import net.minecraft.world.entity.player.Player;
  * runs, so no key lost an attack.
  * <pre>
  *   V  Gear Up (Gear 3: "Max gear")                             Shift+V  Gear Down
- *   X  Recipro Dash, WASD-aimed (in Turbo: the Turbo Strike)                 Shift+X  Rising Kick
+ *   X  Recipro Dash, along the aim (in Turbo: the Turbo Strike)                 Shift+X  Rising Kick
  *   R  Recipro Kick (speed-scaled)                               Shift+R  Spin Kick
  *   G  Kick Barrage                                              Shift+G  Recipro Extend Kick (charged)
  *   Z  Axe Kick                                                  Shift+Z  Sweep Kick

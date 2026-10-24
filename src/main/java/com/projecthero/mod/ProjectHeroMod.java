@@ -222,6 +222,7 @@ public class ProjectHeroMod implements ModInitializer {
 		});
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternArsenal.initialize();
+		com.projecthero.mod.stormbreaker.BifrostEntities.initialize(); // v0.17.1
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
 		com.projecthero.mod.titanshifter.TitanBoulders.initialize(); // v0.16.7: the Beast Titan's boulders

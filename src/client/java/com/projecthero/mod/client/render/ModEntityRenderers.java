@@ -91,6 +91,12 @@ public final class ModEntityRenderers {
 				com.projecthero.mod.client.darkseid.MotherBoxRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.BOOM_TUBE,
 				com.projecthero.mod.client.darkseid.BoomTubeRenderer::new);
+		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.BOOM_TUBE_PORTAL,
+				com.projecthero.mod.client.darkseid.BoomTubePortalRenderer::new); // v0.17.1
+		EntityRendererRegistry.register(com.projecthero.mod.stormbreaker.BifrostEntities.BEAM,
+				com.projecthero.mod.client.thor.BifrostBeamRenderer::new); // v0.17.1
+		EntityRendererRegistry.register(com.projecthero.mod.stormbreaker.BifrostEntities.MARK,
+				com.projecthero.mod.client.thor.BifrostMarkRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.OMEGA_BEAM,
 				com.projecthero.mod.client.darkseid.EnergyTrailRenderer::new);
 		EntityRendererRegistry.register(com.projecthero.mod.darkseid.entity.DarkseidEntityTypes.PARADEMON_BOLT,

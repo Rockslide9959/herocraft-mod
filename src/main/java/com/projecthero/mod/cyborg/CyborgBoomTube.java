@@ -157,34 +157,11 @@ public final class CyborgBoomTube {
 		Cyborg.spendCore(p, CyborgConfig.BOOM_COST);
 		CyborgAbilities.cooldown(p, CyborgAbilities.BOOM, CyborgConfig.BOOM_COOLDOWN);
 		Cyborg.setAnim(p, CyborgState.ANIM_BOOM_TUBE);
-		ServerLevel from = p.serverLevel();
-		Vec3 start = p.position();
+		// v0.17.1 (user): a real Boom Tube -- it tears open in front of him and stays open for CyborgConfig.BOOM_OPEN_TICKS;
+		// he (and anyone else: squadmates, mobs within this world) walks through. Its far end opens at the landing.
 		Vec3 to = Vec3.atBottomCenterOf(landing);
-		List<ServerPlayer> riders = new ArrayList<>();
-		for (ServerPlayer o : from.players()) {
-			if (o != p && o.isAlive() && !o.isSpectator() && !o.isShiftKeyDown() && o.distanceToSqr(p) <= CyborgConfig.BOOM_SQUAD_RADIUS
-					* CyborgConfig.BOOM_SQUAD_RADIUS && Squads.areAllies(p, o)) {
-				riders.add(o);
-			}
-		}
-		BoomTubeEntity.open(from, start.add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
-		BoomTubeEntity.open(dest, to.add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
-		from.playSound(null, start.x, start.y, start.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.4f, 0.6f);
-		send(p, dest, to);
-		int i = 1;
-		for (ServerPlayer r : riders) {
-			// a little ring round him, each on their own safe spot if there is one close by
-			double a = i * 1.3;
-			int ax = Mth.floor(to.x + Math.cos(a) * 1.2);
-			int az = Mth.floor(to.z + Math.sin(a) * 1.2);
-			BlockPos own = inBounds(dest, ax, landing.getY(), az) ? Bifrost.findSafeLanding(dest, ax, landing.getY(), az) : null;
-			Vec3 spot = own != null && Math.abs(own.getY() - landing.getY()) <= 3 ? Vec3.atBottomCenterOf(own) : to;
-			send(r, dest, spot);
-			r.displayClientMessage(Component.translatable("message.projecthero.cyborg.boom.carried", p.getDisplayName())
-					.withStyle(ChatFormatting.AQUA), true);
-			i++;
-		}
-		dest.playSound(null, to.x, to.y, to.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 1.2f, 0.6f);
+		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.openPair(p, dest, to, p.getYRot(), CyborgConfig.BOOM_OPEN_TICKS);
+		p.displayClientMessage(Component.translatable("message.projecthero.cyborg.boom.opened").withStyle(ChatFormatting.AQUA), true);
 		return Result.OK;
 	}
 

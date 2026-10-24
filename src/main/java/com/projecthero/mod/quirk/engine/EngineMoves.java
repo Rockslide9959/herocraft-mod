@@ -645,7 +645,7 @@ public final class EngineMoves {
 	// ================================================================ X: Recipro Dash (the one dash) / Shift+X: Rising Kick
 
 	/**
-	 * One burst dash, farther in higher gears -- v0.17.1 (user): the way the held WASD keys point (forward when none are). No damage (it's the dash), it just bumps mobs aside. In
+	 * One burst dash, farther in higher gears -- v0.17.1 (user): exactly where he is aiming, up and down included. No damage (it's the dash), it just bumps mobs aside. In
 	 * Recipro Turbo it is the Turbo Strike instead ({@link #strike}).
 	 */
 	public static void dash(ServerPlayer p) {
@@ -654,7 +654,7 @@ public final class EngineMoves {
 			return;
 		}
 		Session s = session(p);
-		Vec3 dir = com.projecthero.mod.hero.PressInput.flatDirection(p, com.projecthero.mod.hero.PressInput.move, flatLook(p));
+		Vec3 dir = p.getLookAngle().normalize(); // v0.17.1 (user): where he aims, not just forward
 		s.dashAt = now(p);
 		s.dashFrom = p.position();
 		s.dashDir = dir;
@@ -684,7 +684,7 @@ public final class EngineMoves {
 		double step = dashDistance(s.gear) / EngineConfig.DASH_TICKS;
 		ServerLevel level = p.serverLevel();
 		if (k < EngineConfig.DASH_TICKS && k * step < s.dashLength) {
-			AbilityHelpers.launchSelf(p, new Vec3(s.dashDir.x * step, Math.min(0.0, p.getDeltaMovement().y), s.dashDir.z * step));
+			AbilityHelpers.launchSelf(p, s.dashDir.scale(step)); // the whole burst follows the aim, vertical included
 			p.resetFallDistance();
 			EngineCombat.exhaust(level, p, 5, 4);
 			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.3, 0.02, 0.3, 0.02);
@@ -700,7 +700,7 @@ public final class EngineMoves {
 		} else {
 			// the dash ends: brake so he keeps a run-on, not a skate
 			Vec3 keep = s.dashDir.scale(0.25 + 0.1 * s.gear);
-			AbilityHelpers.launchSelf(p, new Vec3(keep.x, Math.min(0.0, p.getDeltaMovement().y), keep.z));
+			AbilityHelpers.launchSelf(p, new Vec3(keep.x, Math.min(keep.y, 0.3), keep.z));
 			s.dashAt = -1L;
 		}
 	}

@@ -77,10 +77,8 @@ public class MotherBoxItem extends Item {
 			return InteractionResultHolder.fail(held);
 		}
 		Vec3 to = new Vec3(tag.getDouble("AnchorX"), tag.getDouble("AnchorY"), tag.getDouble("AnchorZ"));
-		BoomTubeEntity.open(server, sp.position().add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
-		sp.teleportTo(dest, to.x, to.y, to.z, sp.getYRot(), sp.getXRot());
-		sp.fallDistance = 0.0f;
-		BoomTubeEntity.open(dest, to.add(0, 1, 0), BoomTubeEntity.Kind.MELEE, 2.6f, 30, null);
+		// v0.17.1 (user): a real Boom Tube opens in front of you (10 s) -- walk through it to the anchor
+		com.projecthero.mod.darkseid.entity.BoomTubePortalEntity.openPair(sp, dest, to, sp.getYRot(), 200);
 		sp.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
 		return InteractionResultHolder.consume(held);
 	}
