@@ -619,7 +619,9 @@ public final class GreenLanternArsenal {
 	private static Vec3 dragonPerch(ServerPlayer p) {
 		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
 		Vec3 right = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
-		return p.position().add(right.scale(2.4)).add(0, 2.6, 0);
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		// up and ahead on the right shoulder, where the Lantern (and their camera) can see it
+		return p.position().add(right.scale(2.0)).add(fwd.scale(1.5)).add(0, 2.8, 0);
 	}
 
 	private static void tickDragon(HardLightConstructEntity e, ServerPlayer owner) {

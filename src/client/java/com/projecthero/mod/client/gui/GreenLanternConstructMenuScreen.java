@@ -50,7 +50,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	private static final int SECTION_GAP = 14;
 	private static final int SPAWN_HOLD_MS = 500;
 
-	private static final int PANEL_BG = 0xE0081A0E;
+	private static final int PANEL_BG = 0xF4081A0E;
 	private static final int PANEL_EDGE = 0xFF35F075;
 	private static final int CELL_BG = 0xA0103A1C;
 	private static final int CELL_HOVER = 0xE02A8A4A;

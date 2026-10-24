@@ -66,14 +66,14 @@ final class HardLightArsenalRenderer {
 		float len = (float) aim(e, pose, e.end(), partial);
 		float k = age < 4f ? age / 4f : age < 8f ? 1f : Math.max(0f, 1f - (age - 8f) / 6f);
 		float reach = Math.max(0.4f, len * k);
-		int coils = 14;
+		int coils = Math.max(8, (int) (reach * 3.2f)); // a tight spring, not loose dashes
 		for (int i = 0; i < coils; i++) {
 			float z = (i + 0.5f) * reach / coils;
 			float x = (i % 2 == 0 ? 0.14f : -0.14f);
 			pose.pushPose();
 			pose.translate(0f, 0f, z);
 			pose.mulPose(Axis.YP.rotationDegrees(i % 2 == 0 ? 35f : -35f));
-			p(vc, pose, x * 0.3f, 0f, 0f, 0.16f, 0.025f, 0.025f, alpha);
+			p(vc, pose, x * 0.3f, 0f, 0f, 0.17f, 0.03f, 0.03f + reach / coils * 0.5f, alpha);
 			pose.popPose();
 		}
 		pose.translate(0f, 0f, reach + 0.35f);
@@ -374,7 +374,7 @@ final class HardLightArsenalRenderer {
 
 	private static void dragon(HardLightConstructEntity e, VertexConsumer vc, PoseStack pose, float age, float alpha, float partial) {
 		orient(e, pose, partial);
-		float grow = Math.min(1f, age / 6f);
+		float grow = 0.6f * Math.min(1f, age / 6f); // a companion, not a boss
 		pose.scale(grow, grow, grow);
 		// the tail and body: segments that ripple behind the head
 		for (int i = 0; i < 10; i++) {
@@ -453,14 +453,14 @@ final class HardLightArsenalRenderer {
 		}
 		pose.translate(0f, 3.4f * grow, 0f);
 		pose.mulPose(Axis.YP.rotationDegrees(age * 2f));
-		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.5f, 0.15f, 0.15f, alpha);
-		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.15f, 0.5f, 0.15f, alpha);
+		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.35f, 0.1f, 0.06f, alpha);
+		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.1f, 0.35f, 0.06f, alpha);
 		for (int i = 0; i < 6; i++) {
 			float t = ((age * 0.05f + i / 6f) % 1f);
 			float rr = r * 0.6f * (i % 3 + 1) / 3f;
 			double a = i * 1.1 + age * 0.03;
-			HardLightDraw.glow(vc, pose, (float) (Math.cos(a) * rr), -3.4f + t * 3f, (float) (Math.sin(a) * rr), 0.04f, 0.08f, 0.04f,
-					alpha * (1f - t));
+			HardLightDraw.glow(vc, pose, (float) (Math.cos(a) * rr), -3.4f + t * 3f, (float) (Math.sin(a) * rr), 0.015f, 0.03f, 0.015f,
+					alpha * (1f - t) * 0.7f);
 		}
 	}
 
