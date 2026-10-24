@@ -141,7 +141,7 @@ public final class GreenLanternOath {
 				: GreenLanternConfig.OATH_MODE_DURATION_TICKS;
 		player.setAttached(ModAttachments.GREEN_LANTERN_OATH_UNTIL, now + duration);
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_OATH); // v0.14.3: ring to the sky
-		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, GreenLanternConfig.OATH_DAMAGE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL); // v0.17.1: +50% (was +100%)
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.oath_mode.activated")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		ServerLevel level = player.serverLevel();

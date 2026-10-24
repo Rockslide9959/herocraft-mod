@@ -59,13 +59,13 @@ public final class GreenLanternConfig {
 
 	// ---------------- Ring Bolt (R) / Continuous Beam (Shift+R) ----------------
 
-	public static final float BOLT_DAMAGE = 18f; // v0.14.3: was 13
+	public static final float BOLT_DAMAGE = 12f; // v0.17.1 balance: -30% (was 18) -- v0.14.3: was 13
 	public static final float BOLT_COST = 10f;
 	public static final int BOLT_COOLDOWN_TICKS = 7; // 0.35s
 	public static final double BOLT_RANGE = 40.0;
 	public static final double BOLT_KNOCKBACK = 0.4;
 
-	public static final float BEAM_DAMAGE_PER_TICK = 5f; // v0.14.3: every 6 ticks = ~17 dps (was 4 every 10 = 8 dps)
+	public static final float BEAM_DAMAGE_PER_TICK = 3.5f; // v0.17.1 balance: -30% (was 5) -- v0.14.3: every 6 ticks = ~17 dps (was 4 every 10 = 8 dps)
 	public static final int BEAM_TICK_INTERVAL = 6;
 	public static final float BEAM_COST_PER_TICK = 5f; // every BEAM_TICK_INTERVAL ticks = 10/sec
 	public static final double BEAM_RANGE = 32.0;
@@ -81,7 +81,7 @@ public final class GreenLanternConfig {
 	// ---------------- Blast Wave (Shift+R, v0.15.15) ----------------
 
 	/** A ring of hard light that rolls outward over a forward cone and throws everything in it back. */
-	public static final float BLAST_WAVE_DAMAGE = 18f;
+	public static final float BLAST_WAVE_DAMAGE = 13f; // v0.17.1 balance: -30% (was 18)
 	public static final float BLAST_WAVE_COST = 150f;
 	public static final int BLAST_WAVE_COOLDOWN_TICKS = 7 * 20;
 	public static final double BLAST_WAVE_RANGE = 8.0;
@@ -96,7 +96,7 @@ public final class GreenLanternConfig {
 
 	// ---------------- Construct Fist (G) / War Hammer Slam (Shift+G) ----------------
 
-	public static final float FIST_DAMAGE = 24f; // v0.14.3: was 16
+	public static final float FIST_DAMAGE = 16f; // v0.17.1 balance: -30% (was 24) -- v0.14.3: was 16
 	public static final float FIST_COST = 30f;
 	public static final int FIST_COOLDOWN_TICKS = 30; // v0.14.3: 1.5s (was 2s)
 	public static final double FIST_RANGE = 20.0; // v0.14.3: the fist now flies (was a 12-block hit-scan)
@@ -107,8 +107,8 @@ public final class GreenLanternConfig {
 	public static final double FIST_KNOCKBACK = 4.0;
 
 	/** v0.11.4: flattened to one flat number -- the center/outer split was removed. */
-	public static final float HAMMER_CENTER_DAMAGE = 26f; // v0.14.3: was 17
-	public static final float HAMMER_OUTER_DAMAGE = 26f;
+	public static final float HAMMER_CENTER_DAMAGE = 18f; // v0.17.1 balance: -30% (was 26) -- v0.14.3: was 17
+	public static final float HAMMER_OUTER_DAMAGE = 18f; // v0.17.1 balance: -30% (was 26)
 	public static final float HAMMER_COST = 40f;
 	public static final int HAMMER_COOLDOWN_TICKS = 80; // v0.14.3: 4s (was 5s)
 	/** v0.14.3: the hammer model swings down over this many ticks; the blow lands at the end. */
@@ -164,7 +164,10 @@ public final class GreenLanternConfig {
 	public static final int OATH_MODE_COOLDOWN_TICKS = 80 * 20; // 80s, applied once the mode ends
 	/** Flat drain for simply being in the mode, on top of every ability/construct/upkeep cost doubling. */
 	public static final float OATH_MODE_UPKEEP_PER_SEC = 10f;
+	/** The Oath doubles every Ring Charge cost (GreenLanternEnergy#spend). */
 	public static final float OATH_MODE_MULTIPLIER = 2f;
+	/** v0.17.1 balance: the Oath adds +50% ring damage and melee (was double), added to the rank and Surge bonuses. */
+	public static final float OATH_DAMAGE_BONUS = 0.5f;
 
 	// ---------------- Directional Shield (Z) / Protective Dome (Shift+Z) ----------------
 
@@ -235,7 +238,7 @@ public final class GreenLanternConfig {
 	 *  instance) to toggle the blade itself on, which is what actually costs anything. */
 	public static final float ENERGY_BLADE_COST = 0f;
 	public static final float ENERGY_BLADE_UPKEEP_PER_SEC = 2f; // only drains while toggled on
-	public static final float ENERGY_BLADE_DAMAGE = 13f; // v0.14.3: was 9
+	public static final float ENERGY_BLADE_DAMAGE = 9f; // v0.17.1 balance: -30% (was 13) -- v0.14.3: was 9
 	public static final double ENERGY_BLADE_REACH = 2.8;
 
 	public static final float CAGE_COST = 20f;
@@ -252,7 +255,7 @@ public final class GreenLanternConfig {
 
 	public static final float TURRET_COST = 20f;
 	public static final float TURRET_UPKEEP_PER_SEC = 1f;
-	public static final float TURRET_DAMAGE = 9f; // v0.17.1: was 7 (v0.14.3: was 4)
+	public static final float TURRET_DAMAGE = 6.5f; // v0.17.1 balance: -30% (was 9) -- v0.17.1: was 7 (v0.14.3: was 4)
 	public static final int TURRET_FIRE_INTERVAL_TICKS = 10; // 2 shots/sec
 	public static final double TURRET_TARGET_RADIUS = 20.0;
 	public static final int TURRET_MAX_DURATION_TICKS = 12 * 20;
@@ -264,7 +267,7 @@ public final class GreenLanternConfig {
 	public static final double TURRET_HOVER_HEIGHT = 1.25;
 
 	public static final float RAM_COST = 20f;
-	public static final float RAM_DAMAGE = 20f; // v0.14.3: was 12
+	public static final float RAM_DAMAGE = 14f; // v0.17.1 balance: -30% (was 20) -- v0.14.3: was 12
 	public static final double RAM_DISTANCE = 16.0;
 	/** v0.13.21: the ram head now actually travels out to {@link #RAM_DISTANCE} (blocks per tick) instead of an instant hit-scan. */
 	public static final double RAM_SPEED_PER_TICK = 2.5;
@@ -370,7 +373,7 @@ public final class GreenLanternConfig {
 	// ---------------- v0.14.3: new attacks + construct attacks ----------------
 
 	/** Shift+X (hold) -- Emerald Gatling: a spinning hard-light minigun on the ring fist. */
-	public static final float GATLING_DAMAGE = 6f; // v0.17.1: was 5
+	public static final float GATLING_DAMAGE = 4f; // v0.17.1 balance: -30% (was 6) -- v0.17.1: was 5
 	public static final int GATLING_SPINUP_TICKS = 8;
 	public static final int GATLING_INTERVAL_TICKS = 2; // 10 shots/sec once spun up
 	public static final float GATLING_COST_PER_SHOT = 2f;
@@ -389,7 +392,7 @@ public final class GreenLanternConfig {
 	/** Ring Charge per shot (full or not). */
 	public static final float SNIPER_SHOT_COST = 25f;
 	/** A fully charged bolt; the Oath multiplier applies on top. */
-	public static final float SNIPER_DAMAGE = 22f;
+	public static final float SNIPER_DAMAGE = 16f; // v0.17.1 balance: -30% (was 22)
 	/** An uncharged (tapped) shot does this fraction of {@link #SNIPER_DAMAGE}, rising to all of it over the charge. */
 	public static final float SNIPER_MIN_CHARGE_FRACTION = 0.35f;
 	public static final int SNIPER_FULL_CHARGE_TICKS = 15; // 0.75 s
@@ -403,7 +406,7 @@ public final class GreenLanternConfig {
 
 	/** Shift+C -- Missile Barrage: homing hard-light missiles at everything hostile in front of you. */
 	public static final int MISSILE_COUNT = 6;
-	public static final float MISSILE_DAMAGE = 12f;
+	public static final float MISSILE_DAMAGE = 8f; // v0.17.1 balance: -30% (was 12)
 	public static final double MISSILE_BLAST_RADIUS = 2.5;
 	public static final float MISSILE_COST = 60f;
 	public static final int MISSILE_COOLDOWN_TICKS = 8 * 20;
@@ -414,17 +417,17 @@ public final class GreenLanternConfig {
 	/** H -- Giant Hand: grab what you aim at in a huge hard-light hand, crush it, H again to hurl it. */
 	public static final double HAND_RANGE = 28.0;
 	public static final float HAND_COST = 50f;
-	public static final float HAND_SQUEEZE_DAMAGE = 6f; // every HAND_SQUEEZE_INTERVAL_TICKS
+	public static final float HAND_SQUEEZE_DAMAGE = 4f; // v0.17.1 balance: -30% (was 6) -- every HAND_SQUEEZE_INTERVAL_TICKS
 	public static final int HAND_SQUEEZE_INTERVAL_TICKS = 10;
 	public static final int HAND_MAX_HOLD_TICKS = 6 * 20;
-	public static final float HAND_THROW_DAMAGE = 22f;
+	public static final float HAND_THROW_DAMAGE = 15f; // v0.17.1 balance: -30% (was 22)
 	public static final double HAND_THROW_SPEED = 2.4;
 	public static final double HAND_HOLD_DISTANCE = 4.5;
 	public static final int HAND_COOLDOWN_TICKS = 10 * 20;
 
 	/** Construct: Buzzsaw -- a thrown spinning saw that ricochets between enemies, then comes back. */
 	public static final float BUZZSAW_COST = 35f;
-	public static final float BUZZSAW_DAMAGE = 14f;
+	public static final float BUZZSAW_DAMAGE = 10f; // v0.17.1 balance: -30% (was 14)
 	public static final int BUZZSAW_BOUNCES = 5;
 	public static final double BUZZSAW_RANGE = 30.0;
 	public static final double BUZZSAW_BOUNCE_RANGE = 12.0;
@@ -433,8 +436,8 @@ public final class GreenLanternConfig {
 
 	/** Construct: Anvil Drop -- a giant hard-light anvil falls on the aimed spot. */
 	public static final float ANVIL_COST = 60f;
-	public static final float ANVIL_CENTER_DAMAGE = 34f;
-	public static final float ANVIL_OUTER_DAMAGE = 18f;
+	public static final float ANVIL_CENTER_DAMAGE = 24f; // v0.17.1 balance: -30% (was 34)
+	public static final float ANVIL_OUTER_DAMAGE = 13f; // v0.17.1 balance: -30% (was 18)
 	public static final double ANVIL_RADIUS = 4.5;
 	public static final double ANVIL_DROP_HEIGHT = 14.0;
 	public static final double ANVIL_RANGE = 40.0;
@@ -444,7 +447,7 @@ public final class GreenLanternConfig {
 	public static final float CHAINS_COST = 70f;
 	public static final double CHAINS_RADIUS = 10.0;
 	public static final int CHAINS_DURATION_TICKS = 5 * 20;
-	public static final float CHAINS_DAMAGE = 3f; // every 10 ticks (v0.17.1: was 2)
+	public static final float CHAINS_DAMAGE = 2f; // v0.17.1 balance: -30% (was 3) -- every 10 ticks (v0.17.1: was 2)
 	public static final int CHAINS_COOLDOWN_TICKS = 18 * 20;
 	/** v0.15.15: the chains no longer time out (user: no construct time limits) -- holding each one costs this instead. */
 	public static final float CHAINS_UPKEEP_PER_SEC = 4f;
@@ -460,7 +463,7 @@ public final class GreenLanternConfig {
 	public static final float WARRIOR_COST = 120f;
 	public static final float WARRIOR_UPKEEP_PER_SEC = 3f;
 	public static final int WARRIOR_DURATION_TICKS = 30 * 20;
-	public static final float WARRIOR_DAMAGE = 15f; // v0.17.1: was 12
+	public static final float WARRIOR_DAMAGE = 11f; // v0.17.1 balance: -30% (was 15) -- v0.17.1: was 12
 	public static final double WARRIOR_HUNT_RANGE = 20.0;
 	public static final double WARRIOR_SPEED_PER_TICK = 0.55;
 	public static final int WARRIOR_COOLDOWN_TICKS = 40 * 20;
@@ -472,50 +475,50 @@ public final class GreenLanternConfig {
 
 	/** Boxing Glove: a spring-loaded glove punches straight out, hitting everything in the line. */
 	public static final float GLOVE_COST = 45f;
-	public static final float GLOVE_DAMAGE = 20f;
+	public static final float GLOVE_DAMAGE = 14f; // v0.17.1 balance: -30% (was 20)
 	public static final double GLOVE_REACH = 12.0;
 	/** Fly Swatter: slams down on the targeted spot. */
 	public static final float SWATTER_COST = 60f;
-	public static final float SWATTER_DAMAGE = 28f;
+	public static final float SWATTER_DAMAGE = 20f; // v0.17.1 balance: -30% (was 28)
 	public static final double SWATTER_RADIUS = 4.0;
 	public static final double SWATTER_RANGE = 32.0;
 	public static final int SWATTER_STUN_TICKS = 20;
 	/** Catapult: lobs a hard-light boulder at the aim point. */
 	public static final float CATAPULT_COST = 65f;
-	public static final float CATAPULT_DAMAGE = 30f;
+	public static final float CATAPULT_DAMAGE = 21f; // v0.17.1 balance: -30% (was 30)
 	public static final double CATAPULT_RADIUS = 3.0;
 	public static final double CATAPULT_RANGE = 40.0;
 	/** Emerald Tentacles: grab everything round you, hold, then slam. */
 	public static final float TENTACLES_COST = 80f;
-	public static final float TENTACLES_DAMAGE = 18f;
+	public static final float TENTACLES_DAMAGE = 13f; // v0.17.1 balance: -30% (was 18)
 	public static final double TENTACLES_RADIUS = 6.0;
 	public static final int TENTACLES_HOLD_TICKS = 40;
 	/** Wrecking Ball: swings round you for 2 s. */
 	public static final float WRECKING_COST = 55f;
-	public static final float WRECKING_DAMAGE = 16f;
+	public static final float WRECKING_DAMAGE = 11f; // v0.17.1 balance: -30% (was 16)
 	public static final double WRECKING_RADIUS = 4.5;
 	public static final int WRECKING_TICKS = 40;
 	/** Emerald Cannon (hold to charge): 15..40 damage by charge, pierces 3. */
 	public static final float CANNON_COST_MIN = 50f;
 	public static final float CANNON_COST_MAX = 90f;
-	public static final float CANNON_DAMAGE_MIN = 15f;
-	public static final float CANNON_DAMAGE_MAX = 40f;
+	public static final float CANNON_DAMAGE_MIN = 11f; // v0.17.1 balance: -30% (was 15)
+	public static final float CANNON_DAMAGE_MAX = 28f; // v0.17.1 balance: -30% (was 40)
 	public static final int CANNON_FULL_CHARGE_TICKS = 40;
 	public static final int CANNON_PIERCE = 3;
 	public static final double CANNON_RANGE = 48.0;
 	/** Emerald Bow (hold to draw): a fan of arrows. */
 	public static final float BOW_COST = 35f;
-	public static final float BOW_ARROW_DAMAGE = 8f;
+	public static final float BOW_ARROW_DAMAGE = 5.5f; // v0.17.1 balance: -30% (was 8)
 	public static final int BOW_ARROWS = 5;
 	public static final int BOW_DRAW_TICKS = 15;
 	/** Bulldozer: drives forward shoving everything ahead. */
 	public static final float DOZER_COST = 60f;
-	public static final float DOZER_DAMAGE = 12f;
+	public static final float DOZER_DAMAGE = 8.5f; // v0.17.1 balance: -30% (was 12)
 	public static final double DOZER_DISTANCE = 15.0;
 	public static final double DOZER_SPEED_PER_TICK = 0.6;
 	/** Bear Trap: roots and bites the first mob to step in. */
 	public static final float TRAP_COST = 30f;
-	public static final float TRAP_DAMAGE = 16f;
+	public static final float TRAP_DAMAGE = 11f; // v0.17.1 balance: -30% (was 16)
 	public static final int TRAP_ROOT_TICKS = 80;
 	public static final int TRAP_MAX_LIVE = 3;
 	public static final double TRAP_RANGE = 16.0;
@@ -528,20 +531,20 @@ public final class GreenLanternConfig {
 	/** Fighter Jet: circles the target area firing bolts. */
 	public static final float JET_COST = 100f;
 	public static final float JET_UPKEEP_PER_SEC = 4f;
-	public static final float JET_DAMAGE = 6f;
+	public static final float JET_DAMAGE = 4f; // v0.17.1 balance: -30% (was 6)
 	public static final int JET_TICKS = 10 * 20;
 	public static final double JET_RADIUS = 8.0;
 	/** Emerald Dragon: flies beside you breathing light at your foes. */
 	public static final float DRAGON_COST = 120f;
 	public static final float DRAGON_UPKEEP_PER_SEC = 5f;
-	public static final float DRAGON_DAMAGE = 4f; // every 10 ticks, in the breath cone
+	public static final float DRAGON_DAMAGE = 3f; // v0.17.1 balance: -30% (was 4) -- every 10 ticks, in the breath cone
 	public static final int DRAGON_TICKS = 15 * 20;
 	public static final double DRAGON_RANGE = 14.0;
 	/** Emerald Mace: a heavy melee buff (toggle, like the Energy Blade). */
 	public static final float MACE_COST = 0f;
 	public static final float MACE_UPKEEP_PER_SEC = 2f;
-	public static final float MACE_DAMAGE = 18f;
-	public static final float MACE_SHOCKWAVE_DAMAGE = 6f;
+	public static final float MACE_DAMAGE = 13f; // v0.17.1 balance: -30% (was 18)
+	public static final float MACE_SHOCKWAVE_DAMAGE = 4f; // v0.17.1 balance: -30% (was 6)
 	public static final double MACE_SHOCKWAVE_RADIUS = 2.5;
 	/** Med Bay: Regeneration II for you and your squad inside it. */
 	public static final float MEDBAY_COST = 90f;
@@ -553,7 +556,7 @@ public final class GreenLanternConfig {
 
 	/** Willpower XP needed for ranks 1..5. */
 	public static final long[] RANK_XP = { 0L, 1500L, 5000L, 12000L, 25000L };
-	public static final float[] RANK_DAMAGE = { 1.00f, 1.10f, 1.20f, 1.35f, 1.50f };
+	public static final float[] RANK_DAMAGE = { 1.00f, 1.06f, 1.12f, 1.19f, 1.25f }; // v0.17.1 balance: up to +25% (was +50%), added, not multiplied
 	public static final float[] RANK_MAX_CHARGE = { 1.00f, 1.10f, 1.20f, 1.30f, 1.40f };
 	public static final float[] RANK_COST = { 1.00f, 0.95f, 0.90f, 0.85f, 0.80f };
 	public static final long XP_PER_KILL = 50L;

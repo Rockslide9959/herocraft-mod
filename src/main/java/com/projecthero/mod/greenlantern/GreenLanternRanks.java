@@ -92,9 +92,13 @@ public final class GreenLanternRanks {
 		return 1f;
 	}
 
-	/** Every ring damage number goes through this: the Oath, the rank and the Willpower Surge. */
+	/**
+	 * Every ring damage number goes through this: the Oath, the rank and the Willpower Surge. v0.17.1 balance: their bonuses
+	 * ADD (1 + 0.5 Oath + up to 0.25 rank +- 0.15 Surge -- at most x1.9) instead of multiplying (which reached x3.45).
+	 */
 	public static float power(ServerPlayer player) {
-		return GreenLanternOath.multiplier(player) * damageMult(rank(player)) * surge(player);
+		float oath = GreenLanternOath.isActive(player) ? GreenLanternConfig.OATH_DAMAGE_BONUS : 0f;
+		return 1f + oath + (damageMult(rank(player)) - 1f) + (surge(player) - 1f);
 	}
 
 	/** Rank 5: every construct is drawn golden-green. */

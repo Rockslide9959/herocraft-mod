@@ -83,3 +83,8 @@ New constructs are added to the end of the saved list, so existing worlds keep t
 - The guidebook GL pages are rewritten around the Construct Menu, with one entry per construct and a page for Lantern Ranks.
 - The HUD key boxes show whatever construct is bound to each key, with its icon and cooldown.
 - The ring tooltip shows your rank.
+
+## 6. Balance pass (user, after testing)
+
+- **Every Green Lantern damage number is cut by 30%** (old and new constructs alike). For example: Ring Bolt 18→12, Construct Fist 24→16, War Hammer 26→18, Missiles 12→8 each, Gatling 6→4 a bolt, Anvil 34→24, Sniper 22→16, Catapult 30→21, Fly Swatter 28→20. Ring Charge costs are unchanged.
+- **The bonuses add up instead of multiplying:** the Oath adds +50% damage and +50% melee (was double), Lantern Rank adds up to +25% (was ×1.5), and Willpower Surge is ±15%. The best case is now ×1.9 instead of ×3.45. The Oath still doubles every Ring Charge cost.

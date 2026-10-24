@@ -535,18 +535,18 @@ public class GreenLanternGameTests implements FabricGameTest {
 		GreenLanternCombat.ringBolt(player);
 		helper.assertTrue(GreenLantern.state(player).ringCharge == before - GreenLanternConfig.BOLT_COST,
 				"Ring Bolt should spend the v0.11.4 cost of " + GreenLanternConfig.BOLT_COST);
-		helper.assertTrue(GreenLanternConfig.BOLT_DAMAGE == 18f, "Ring Bolt damage should now be 18 (v0.14.3)");
+		helper.assertTrue(GreenLanternConfig.BOLT_DAMAGE == 12f, "Ring Bolt damage should now be 12 (v0.17.1 balance)");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void constructFistAndWarHammerUseTheV0114Numbers(GameTestHelper helper) {
 		// v0.14.3 buff
-		helper.assertTrue(GreenLanternConfig.FIST_DAMAGE == 24f, "Construct Fist damage should now be 24");
+		helper.assertTrue(GreenLanternConfig.FIST_DAMAGE == 16f, "Construct Fist damage should now be 16 (v0.17.1 balance)");
 		helper.assertTrue(GreenLanternConfig.FIST_COST == 30f, "Construct Fist cost should now be 30");
 		helper.assertTrue(GreenLanternConfig.FIST_COOLDOWN_TICKS == 30, "Construct Fist cooldown should now be 1.5s (30 ticks)");
-		helper.assertTrue(GreenLanternConfig.HAMMER_CENTER_DAMAGE == 26f && GreenLanternConfig.HAMMER_OUTER_DAMAGE == 26f,
-				"War Hammer Slam damage should now be a flat 26");
+		helper.assertTrue(GreenLanternConfig.HAMMER_CENTER_DAMAGE == 18f && GreenLanternConfig.HAMMER_OUTER_DAMAGE == 18f,
+				"War Hammer Slam damage should now be a flat 18 (v0.17.1 balance)");
 		helper.assertTrue(GreenLanternConfig.HAMMER_COST == 40f, "War Hammer Slam cost should now be 40");
 		helper.assertTrue(GreenLanternConfig.HAMMER_COOLDOWN_TICKS == 80, "War Hammer Slam cooldown should now be 4s (80 ticks)");
 		helper.succeed();
@@ -599,8 +599,8 @@ public class GreenLanternGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void continuousBeamDrainsTenEnergyPerSecondForEightDps(GameTestHelper helper) {
 		// v0.14.3 buff: 5 damage every 6 ticks (~17 DPS), same 5 charge per damage tick
-		helper.assertTrue(GreenLanternConfig.BEAM_DAMAGE_PER_TICK == 5f && GreenLanternConfig.BEAM_TICK_INTERVAL == 6,
-				"Continuous Beam should now deal 5 damage every 6 ticks");
+		helper.assertTrue(GreenLanternConfig.BEAM_DAMAGE_PER_TICK == 3.5f && GreenLanternConfig.BEAM_TICK_INTERVAL == 6,
+				"Continuous Beam should now deal 3.5 damage every 6 ticks (v0.17.1 balance)");
 		float drainPerSecond = GreenLanternConfig.BEAM_COST_PER_TICK * (20f / GreenLanternConfig.BEAM_TICK_INTERVAL);
 		helper.assertTrue(Math.abs(drainPerSecond - 16.67f) < 0.05f, "Continuous Beam should drain ~16.7 energy/sec, computed " + drainPerSecond);
 		helper.succeed();

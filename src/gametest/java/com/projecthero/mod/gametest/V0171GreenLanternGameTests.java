@@ -119,7 +119,7 @@ public class V0171GreenLanternGameTests implements FabricGameTest {
 		GreenLanternRanks.setRank(p, 5);
 		helper.assertTrue(GreenLanternRanks.rank(p) == 5, "rank set");
 		helper.assertTrue(Math.abs(GreenLanternRanks.maxCharge(p) - GreenLanternConfig.MAX_RING_CHARGE * 1.4f) < 1f, "x1.4 pool");
-		helper.assertTrue(Math.abs(GreenLanternRanks.power(p) - 1.5f) < 0.001f, "x1.5 damage at half charge");
+		helper.assertTrue(Math.abs(GreenLanternRanks.power(p) - 1.25f) < 0.001f, "+25% damage at half charge (v0.17.1 balance)");
 		float before = GreenLanternEnergy.get(p);
 		GreenLanternEnergy.spend(p, 100f);
 		helper.assertTrue(Math.abs(before - GreenLanternEnergy.get(p) - 80f) < 0.01f, "costs x0.8");
