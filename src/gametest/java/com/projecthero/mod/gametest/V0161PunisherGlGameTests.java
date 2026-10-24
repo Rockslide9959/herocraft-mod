@@ -114,7 +114,7 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void sniperFormsAndPutsAwayFromTheWheel(GameTestHelper helper) {
-		ServerPlayer player = lantern(helper, 2000f);
+		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		helper.assertTrue(ConstructType.SNIPER_RIFLE.category() == ConstructType.Category.ATTACK, "the rifle is an Attack construct");
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		helper.assertTrue(GreenLanternSniper.isOut(player), "C forms the rifle");
@@ -133,7 +133,7 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true) // the shot goes straight up, out of the test's cage
 	public void sniperShotCostsChargeAndHitsAtLongRange(GameTestHelper helper) {
-		ServerPlayer player = lantern(helper, 2000f);
+		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		IronGolem golem = target(helper, player, 100.0);
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		float before = charge(player);
@@ -154,7 +154,7 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
 	public void aTappedShotHitsForLess(GameTestHelper helper) {
-		ServerPlayer player = lantern(helper, 2000f);
+		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		IronGolem golem = target(helper, player, 40.0);
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		float hp = golem.getHealth();
@@ -168,7 +168,7 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
 	public void sniperRefusedWithoutCharge(GameTestHelper helper) {
-		ServerPlayer player = lantern(helper, 2000f);
+		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		IronGolem golem = target(helper, player, 30.0);
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		helper.assertTrue(GreenLanternSniper.isOut(player), "the rifle forms");
@@ -187,7 +187,7 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true, timeoutTicks = 100)
 	public void chargeAndReleaseFiresThroughTheInputPath(GameTestHelper helper) {
-		ServerPlayer player = lantern(helper, 2000f);
+		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		IronGolem golem = target(helper, player, 60.0);
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		GreenLanternSniper.chargeStart(player);

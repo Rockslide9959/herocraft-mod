@@ -295,7 +295,8 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		ServerPlayer p = mock(helper);
 		ItemStack jewel = MiraculousBoxItem.open(p);
 		helper.assertTrue(jewel.is(MiraculousItems.LADYBUG_EARRINGS) || jewel.is(MiraculousItems.CAT_RING) || jewel.is(MiraculousItems.FOX_NECKLACE)
-				|| jewel.is(MiraculousItems.TURTLE_BRACELET) || jewel.is(MiraculousItems.HORSESHOE_GLASSES), "one of the five box jewels: " + jewel);
+				|| jewel.is(MiraculousItems.TURTLE_BRACELET) || jewel.is(MiraculousItems.HORSESHOE_GLASSES)
+				|| jewel.is(MiraculousItems.SNAKE_BRACELET), "one of the box jewels (v0.17.1: the Snake Bracelet is in the box too): " + jewel);
 		for (int i = 0; i < 24; i++) {
 			helper.assertFalse(MiraculousBoxItem.open(p).is(MiraculousItems.BUTTERFLY_BROOCH), "the Brooch is never in the box");
 		}
