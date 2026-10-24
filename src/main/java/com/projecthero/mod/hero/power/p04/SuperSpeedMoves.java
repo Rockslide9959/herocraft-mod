@@ -837,6 +837,7 @@ public final class SuperSpeedMoves {
 		}
 		Vec3 end = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : AbilityHelpers.aimPoint(p, LIGHTNING_RANGE);
 		zigzag(level, eye.add(p.getLookAngle().scale(0.6)), end);
+		arc(p, 0, null, target, end);
 		AbilityHelpers.sound(p, SoundEvents.LIGHTNING_BOLT_IMPACT, 1.2f, 1.6f);
 		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THUNDER.value(), 0.6f, 1.8f);
 		BatchA.play(p, key(), "dash_forward", 10);
@@ -865,9 +866,28 @@ public final class SuperSpeedMoves {
 			}
 			Vec3 to = next.position().add(0, next.getBbHeight() * 0.5, 0);
 			zigzag(level, from, to);
+			arc(p, i + 1, chained.get(chained.size() - 1), next, to);
 			punchThrough(p, next, LIGHTNING_CHAIN_DAMAGE * m);
 			chained.add(next);
 			from = to;
+		}
+	}
+
+	/**
+	 * The bolt itself: one crackling arc segment drawn by Thor's arc renderer (from {@code from}, or the speedster's hand
+	 * when null, to {@code to}), sent to the speedster and everyone tracking them. Slots 100+ keep clear of Thor's.
+	 */
+	private static void arc(ServerPlayer p, int slot, Entity from, LivingEntity to, Vec3 point) {
+		Vec3 at = to != null ? to.position() : point;
+		com.projecthero.mod.network.ThorLightningArcPayload payload = new com.projecthero.mod.network.ThorLightningArcPayload(
+				p.getId(), 100 + slot, from == null ? -1 : from.getId(), to == null ? -1 : to.getId(), at.x, at.y, at.z, 8, 10);
+		if (ServerPlayNetworking.canSend(p, com.projecthero.mod.network.ThorLightningArcPayload.TYPE)) {
+			ServerPlayNetworking.send(p, payload);
+		}
+		for (ServerPlayer viewer : PlayerLookup.tracking(p)) {
+			if (viewer != p && ServerPlayNetworking.canSend(viewer, com.projecthero.mod.network.ThorLightningArcPayload.TYPE)) {
+				ServerPlayNetworking.send(viewer, payload);
+			}
 		}
 	}
 
