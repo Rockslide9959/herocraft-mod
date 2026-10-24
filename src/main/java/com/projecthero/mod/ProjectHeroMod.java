@@ -207,6 +207,21 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.punisher.ability.PunisherWeaponAbilities.initialize(); // v0.15.18: after Punisher -- wraps its firearm hooks
 		com.projecthero.mod.punisher.PunisherDamage.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternDamage.initialize();
+		// v0.17.1 Lantern Ranks: Willpower XP from damage and kills
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, taken, blocked) -> {
+			net.minecraft.server.level.ServerPlayer lantern = com.projecthero.mod.greenlantern.GreenLanternRanks.creditFor(source);
+			if (lantern != null && entity != lantern) {
+				com.projecthero.mod.greenlantern.GreenLanternRanks.onDamageDealt(lantern, taken);
+			}
+		});
+		net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+			net.minecraft.server.level.ServerPlayer lantern = com.projecthero.mod.greenlantern.GreenLanternRanks.creditFor(source);
+			if (lantern != null && entity != lantern) {
+				com.projecthero.mod.greenlantern.GreenLanternRanks.onKill(lantern, entity);
+			}
+		});
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.initialize();
+		com.projecthero.mod.greenlantern.GreenLanternArsenal.initialize();
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();
 		com.projecthero.mod.titanshifter.TitanBoulders.initialize(); // v0.16.7: the Beast Titan's boulders

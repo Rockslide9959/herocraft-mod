@@ -59,6 +59,8 @@ public final class GreenLanternAbilityManager {
 		LAST_CHARGE_CHECK.clear();
 		RING_REMOVE.clear();
 		GreenLanternConstructAttacks.clearSessionState();
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.clearSessionState();
+		GreenLanternArsenal.clearSessionState();
 	}
 
 	public static void onCleanup(UUID playerId) {
@@ -67,6 +69,7 @@ public final class GreenLanternAbilityManager {
 		LAST_CHARGE_CHECK.remove(playerId);
 		RING_REMOVE.remove(playerId);
 		GreenLanternCombat.onCleanup(playerId);
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.onCleanup(playerId);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -100,60 +103,13 @@ public final class GreenLanternAbilityManager {
 					}
 				}
 			}
-			case SLOT_2 -> {
-				if (pressed) {
-					if (player.isShiftKeyDown()) {
-						GreenLanternCombat.warHammerSlam(player);
-					} else {
-						GreenLanternCombat.constructFist(player);
-					}
-				}
-			}
-			case SLOT_3 -> {
-				if (pressed) {
-					// v0.14.3: Shift+X (hold) spins up the Emerald Gatling; plain X still recites the Oath
-					if (player.isShiftKeyDown()) {
-						GreenLanternConstructAttacks.gatlingStart(player);
-					} else {
-						GreenLanternOath.onPress(player);
-					}
-				} else {
-					GreenLanternConstructAttacks.gatlingStop(player, true);
-					GreenLanternOath.onRelease(player);
-				}
-			}
-			case SLOT_4 -> {
-				if (pressed) {
-					if (player.isShiftKeyDown()) {
-						// v0.11.2: Shift+Z dismisses an already-up dome instead of trying (and failing) to
-						// deploy a second one -- lets the player drop it on their own timing rather than
-						// only ever losing it to a break or the max-duration timeout.
-						if (GreenLanternShield.isActive(player) && GreenLanternShield.isDome(player)) {
-							GreenLanternShield.dismissDomeVoluntarily(player);
-						} else {
-							GreenLanternShield.deployDome(player);
-							if (GreenLanternShield.isActive(player) && GreenLanternShield.isDome(player)) {
-								GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_DOME);
-							}
-						}
-					} else {
-						GreenLanternShield.startShield(player);
-					}
-				} else {
-					GreenLanternShield.stopShield(player);
-				}
-			}
-			case SLOT_5 -> {
-				if (pressed) {
-					if (player.isShiftKeyDown()) {
-						GreenLanternScan.scan(player);
-						GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_SCAN);
-					} else {
-						// v0.15.15: V is the Giant Hand now (it was on H); the suit moved to H
-						giantHand(player);
-					}
-				}
-			}
+			// v0.17.1 revamp: G / X / Z / V fire whatever the Construct Menu put on them (and Shift + each); the defaults
+			// are the old fixed keys (G Fist / Shift+G Hammer, X Oath / Shift+X Gatling, Z Shield / Shift+Z Dome,
+			// V Giant Hand / Shift+V Ring Scan) -- see GreenLanternBinding#defaultFor
+			case SLOT_2 -> com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'G', player.isShiftKeyDown(), pressed);
+			case SLOT_3 -> com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'X', player.isShiftKeyDown(), pressed);
+			case SLOT_4 -> com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'Z', player.isShiftKeyDown(), pressed);
+			case SLOT_5 -> com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'V', player.isShiftKeyDown(), pressed);
 			case SLOT_6 -> handleAbilitySix(player, pressed);
 		}
 	}
@@ -277,21 +233,25 @@ public final class GreenLanternAbilityManager {
 	private static void handleAbilitySix(ServerPlayer player, boolean pressed) {
 		if (pressed) {
 			if (player.isShiftKeyDown()) {
-				// v0.14.3: Shift+C is the Missile Barrage now -- dismissing constructs (and setting a tethered
-				// creature down) moved to N, see #clearConstructs.
-				GreenLanternConstructAttacks.missileBarrage(player);
+				// v0.17.1: Shift+C fires its Construct Menu binding (default: the Missile Barrage, v0.14.3) -- it may be a
+				// hold entry, so it goes through the key path that tracks the release
+				com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'C', true, true);
 				return;
 			}
 			ABILITY6_PRESSED.put(player.getUUID(), player.level().getGameTime());
 			return;
 		}
+		// a Shift+C hold entry lets go with the key
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.key(player, 'C', false, false);
 		Long since = ABILITY6_PRESSED.remove(player.getUUID());
 		if (since == null) {
 			return;
 		}
 		long held = player.level().getGameTime() - since;
 		if (held < GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
-			GreenLanternConstructs.deploy(player, GreenLantern.state(player).selectedConstructType());
+			// v0.17.1: a tap fires plain C's binding (default: Quick Deploy -- the selected construct, as before);
+			// holding C opens the Construct Menu client-side
+			com.projecthero.mod.greenlantern.bind.GreenLanternBindings.tapC(player);
 		}
 	}
 
@@ -356,6 +316,8 @@ public final class GreenLanternAbilityManager {
 			GreenLanternCombat.beamTick(player);
 		}
 		GreenLanternConstructAttacks.gatlingTick(player);
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.tick(player); // v0.17.1
+		GreenLanternArsenal.tick(player);
 		tickRingRemove(player);
 		GreenLanternShield.tickShieldUpkeep(player);
 		GreenLanternShield.tickDomeUpkeep(player);
@@ -365,6 +327,9 @@ public final class GreenLanternAbilityManager {
 		if (GreenLanternFlight.isFlying(player)) {
 			boolean boosting = player.isShiftKeyDown() && player.isSprinting();
 			float drain = GreenLanternFlight.tick(player, boosting);
+			if (GreenLanternRanks.rank(player) >= 4) {
+				drain *= 1f - GreenLanternConfig.RANK4_FLIGHT_DRAIN_CUT; // v0.17.1: Honor Guard flies cheaper
+			}
 			if (!GreenLanternEnergy.drainTick(player, drain)) {
 				emergencyDescend(player);
 			}

@@ -55,15 +55,24 @@ public final class GreenLanternState {
 	 */
 	public boolean bodyGlow = true;
 	public boolean flightTrail = true;
+	/**
+	 * v0.17.1 Construct Menu: key id ({@code GreenLanternBinding.KEYS}, e.g. "G", "SG") -> entry id. A key missing from
+	 * the map uses its default; an empty string means the player cleared it. Reset = clear the map.
+	 */
+	public final Map<String, String> bindings;
+	/** v0.17.1 Lantern Ranks: lifetime Willpower XP (kept on death and ring removal). */
+	public long willpowerXp;
 
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
-				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0, true, true);
+				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0, true, true, new HashMap<>(), 0L);
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
 			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt, int suitStyle,
-			boolean bodyGlow, boolean flightTrail) {
+			boolean bodyGlow, boolean flightTrail, Map<String, String> bindings, long willpowerXp) {
+		this.bindings = new HashMap<>(bindings);
+		this.willpowerXp = willpowerXp;
 		this.bodyGlow = bodyGlow;
 		this.flightTrail = flightTrail;
 		this.hasPower = hasPower;
@@ -78,7 +87,7 @@ public final class GreenLanternState {
 
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
-				selectedConstruct, abilityReadyAt, suitStyle, bodyGlow, flightTrail);
+				selectedConstruct, abilityReadyAt, suitStyle, bodyGlow, flightTrail, bindings, willpowerXp);
 	}
 
 	public ConstructType selectedConstructType() {
@@ -97,6 +106,9 @@ public final class GreenLanternState {
 					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
 			Codec.INT.optionalFieldOf("suit_style", 0).forGetter(s -> s.suitStyle),
 			Codec.BOOL.optionalFieldOf("body_glow", true).forGetter(s -> s.bodyGlow),
-			Codec.BOOL.optionalFieldOf("flight_trail", true).forGetter(s -> s.flightTrail)
+			Codec.BOOL.optionalFieldOf("flight_trail", true).forGetter(s -> s.flightTrail),
+			Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("bindings", new HashMap<>())
+					.forGetter(s -> new HashMap<>(s.bindings)),
+			Codec.LONG.optionalFieldOf("willpower_xp", 0L).forGetter(s -> s.willpowerXp)
 	).apply(instance, GreenLanternState::new));
 }

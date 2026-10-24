@@ -134,7 +134,7 @@ public final class GreenLanternSniper {
 		CHARGING.remove(player.getUUID());
 
 		float frac = chargeFraction(chargeTicks);
-		float damage = damageFor(chargeTicks) * GreenLanternOath.multiplier(player);
+		float damage = damageFor(chargeTicks) * GreenLanternRanks.power(player);
 		ServerLevel level = player.serverLevel();
 		Vec3 eye = player.getEyePosition();
 		Vec3 dir = player.getLookAngle();

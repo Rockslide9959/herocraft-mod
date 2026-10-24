@@ -98,7 +98,7 @@ public final class GreenLanternCombat {
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_BOLT);
 		level.sendParticles(GREEN_DUST, endPoint.x, endPoint.y, endPoint.z, 6, 0.15, 0.15, 0.15, 0.05);
 		if (target != null) {
-			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE * GreenLanternOath.multiplier(player));
+			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE * GreenLanternRanks.power(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.BOLT_KNOCKBACK);
 		}
 		AbilityHelpers.sound(player, SoundEvents.GUARDIAN_ATTACK, 0.5f, 1.8f);
@@ -125,7 +125,7 @@ public final class GreenLanternCombat {
 		}
 		GreenLanternBattery.onAbilityUsed(player);
 		GreenLantern.triggerCooldown(player, BLAST_CD, GreenLanternConfig.BLAST_WAVE_COOLDOWN_TICKS);
-		GreenLanternConstructAttacks.blastWave(player, GreenLanternConfig.BLAST_WAVE_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternConstructAttacks.blastWave(player, GreenLanternConfig.BLAST_WAVE_DAMAGE * GreenLanternRanks.power(player));
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_BLAST);
 	}
 
@@ -176,7 +176,7 @@ public final class GreenLanternCombat {
 			GreenLanternBattery.onAbilityUsed(player);
 			LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BEAM_RANGE);
 			if (target != null) {
-				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK * GreenLanternOath.multiplier(player));
+				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK * GreenLanternRanks.power(player));
 			}
 			// A periodic zap on the same cadence as the damage tick -- not a true seamless loop, but
 			// enough to read as a sustained energy weapon rather than silent channelling.
@@ -212,7 +212,7 @@ public final class GreenLanternCombat {
 
 		// v0.14.3: a giant hard-light fist flies from the ring and smashes the first thing in its path (was an
 		// instant hit-scan with a particle cube)
-		GreenLanternConstructAttacks.launchFist(player, GreenLanternConfig.FIST_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternConstructAttacks.launchFist(player, GreenLanternConfig.FIST_DAMAGE * GreenLanternRanks.power(player));
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_FIST);
 		AbilityHelpers.sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.7f);
 	}
@@ -230,7 +230,7 @@ public final class GreenLanternCombat {
 
 		// v0.14.3: a giant war hammer forms over your head and comes down on the ground ahead; the blow lands when it
 		// hits (GreenLanternConstructAttacks#tickHammer) instead of the instant the key was pressed
-		GreenLanternConstructAttacks.swingHammer(player, GreenLanternConfig.HAMMER_CENTER_DAMAGE * GreenLanternOath.multiplier(player));
+		GreenLanternConstructAttacks.swingHammer(player, GreenLanternConfig.HAMMER_CENTER_DAMAGE * GreenLanternRanks.power(player));
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_HAMMER);
 	}
 }

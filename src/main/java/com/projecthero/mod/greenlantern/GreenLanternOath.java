@@ -135,7 +135,11 @@ public final class GreenLanternOath {
 
 	private static void activate(ServerPlayer player, long now) {
 		player.setAttached(ModAttachments.GREEN_LANTERN_OATH_RECITING_SINCE, 0L);
-		player.setAttached(ModAttachments.GREEN_LANTERN_OATH_UNTIL, now + GreenLanternConfig.OATH_MODE_DURATION_TICKS);
+		// v0.17.1: Corps Legend (Lantern Rank 5) holds the Oath 50% longer
+		int duration = GreenLanternRanks.rank(player) >= GreenLanternRanks.MAX_RANK
+				? Math.round(GreenLanternConfig.OATH_MODE_DURATION_TICKS * GreenLanternConfig.RANK5_OATH_DURATION_MULT)
+				: GreenLanternConfig.OATH_MODE_DURATION_TICKS;
+		player.setAttached(ModAttachments.GREEN_LANTERN_OATH_UNTIL, now + duration);
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_OATH); // v0.14.3: ring to the sky
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.oath_mode.activated")

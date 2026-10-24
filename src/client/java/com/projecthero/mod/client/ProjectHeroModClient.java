@@ -551,6 +551,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 					ClientPlayNetworking.send(new AbilityInputPayload(i + 1, false));
 				}
 			}
+			// v0.17.1: and a Green Lantern H binding
+			if (glHKey != null) {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternMenuPayload(
+						com.projecthero.mod.network.GreenLanternMenuPayload.KEY_H, glHKey, "", false));
+				glHKey = null;
+			}
 			// v0.13.22: same for a mutation's H / N utility channel
 			if (utility7Held) {
 				utility7Held = false;
@@ -675,7 +681,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (!glWheelOpenedThisHold
 				&& glConstructHeldTicks >= com.projecthero.mod.greenlantern.GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
 			glWheelOpenedThisHold = true;
-			client.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructWheelScreen());
+			client.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructMenuScreen()); // v0.17.1: the Construct Menu
 		}
 	}
 
@@ -792,8 +798,26 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		}
 	}
 
+	/** v0.17.1: the Green Lantern H binding whose press was sent ("H" / "SH"), so its release can follow; null = none. */
+	private static String glHKey;
+
+	/** v0.17.1: does the Lantern have something on H (or Shift+H)? */
+	private static boolean greenLanternHBound(LocalPlayer player, boolean shift) {
+		com.projecthero.mod.greenlantern.data.GreenLanternState s =
+				player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+		return com.projecthero.mod.greenlantern.bind.GreenLanternBinding.resolve(s, shift ? "SH" : "H") != null;
+	}
+
 	private static void handlePowerSelect(Minecraft client) {
 		boolean down = ModKeyBindings.POWER_SELECT.isDown();
+		if (!down && glHKey != null) {
+			// v0.17.1: a Green Lantern H binding lets go (a held Shield / Beam / Gatling on H)
+			if (client.getConnection() != null) {
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternMenuPayload(
+						com.projecthero.mod.network.GreenLanternMenuPayload.KEY_H, glHKey, "", false));
+			}
+			glHKey = null;
+		}
 		if (handleUtilityEdge(client, down, powerSelectWasDown, 7)) {
 			powerSelectWasDown = down;
 			return;
@@ -898,10 +922,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// in which case Shift+H is the armour.
 				ClientPlayNetworking.send(new com.projecthero.mod.network.ThorActionPayload(
 						com.projecthero.mod.network.ThorActionPayload.Action.TOGGLE_ARMOUR));
-			} else if (client.player != null && !Screen.hasShiftDown() && greenLanternHasWheelContext(client.player)) {
-				// v0.15.15: H as Green Lantern -- Suit Up / Suit Down (the Giant Hand moved to V; Shift+H still opens the power wheel).
-				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternActionPayload(
-						com.projecthero.mod.network.GreenLanternActionPayload.Action.SUIT_TOGGLE));
+			} else if (client.player != null && greenLanternHasWheelContext(client.player)
+					&& greenLanternHBound(client.player, Screen.hasShiftDown())) {
+				// v0.17.1: H / Shift+H as Green Lantern fire their Construct Menu bindings (default H = Suit Up / Down, as in
+				// v0.15.15). Shift+H with nothing bound falls through to the power wheel.
+				glHKey = Screen.hasShiftDown() ? "SH" : "H";
+				ClientPlayNetworking.send(new com.projecthero.mod.network.GreenLanternMenuPayload(
+						com.projecthero.mod.network.GreenLanternMenuPayload.KEY_H, glHKey, "", true));
 			} else if (!Screen.hasShiftDown() && mutationHasUtility(client, 7)) {
 				// v0.13.22: a mutation with H / N abilities -- plain H is its Utility 1; Shift+H opens the power wheel.
 				pressUtility(7);

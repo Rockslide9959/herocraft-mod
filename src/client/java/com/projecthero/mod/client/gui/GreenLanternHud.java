@@ -91,7 +91,7 @@ public final class GreenLanternHud {
 		Minecraft mc = Minecraft.getInstance();
 		Player player = mc.player;
 		if (player == null || mc.options.hideGui || mc.level == null
-				|| mc.screen instanceof GreenLanternConstructWheelScreen) {
+				|| mc.screen instanceof GreenLanternConstructWheelScreen || mc.screen instanceof GreenLanternConstructMenuScreen) {
 			return;
 		}
 		GreenLanternState s = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
@@ -161,6 +161,14 @@ public final class GreenLanternHud {
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active || flash ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, KEY_LABELS[i], x + 2, y0 + 2, KEY, false);
+			// v0.17.1: G / X / Z / V / C show the icon of whatever the Construct Menu bound to them
+			if (i > 0) {
+				com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Entry bound =
+						com.projecthero.mod.greenlantern.bind.GreenLanternBinding.resolve(s, KEY_LABELS[i]);
+				if (bound != null) {
+					GreenLanternConstructMenuScreen.icon(g, bound, x + BOX - 14, y0 + BOX - 16, 12);
+				}
+			}
 
 			if (i == 2 && oathActive) {
 				// empowered: a green (not the ordinary dark cooldown) overlay counting down, so it reads as a buff
@@ -185,7 +193,8 @@ public final class GreenLanternHud {
 		}
 
 		// ---- Ring Charge below the keys: a thin 3 px bar, no border, pulsing faster the lower it gets
-		float frac = Mth.clamp(s.ringCharge, 0f, GreenLanternConfig.MAX_RING_CHARGE) / GreenLanternConfig.MAX_RING_CHARGE;
+		float maxCharge = com.projecthero.mod.greenlantern.GreenLanternRanks.maxCharge(player); // v0.17.1: grows with rank
+		float frac = Mth.clamp(s.ringCharge, 0f, maxCharge) / maxCharge;
 		int severity = com.projecthero.mod.greenlantern.GreenLanternEnergy.severityTier(frac);
 		boolean low = severity > 0;
 		int pulsePeriod = Math.max(3, 16 - severity * 2);
@@ -195,7 +204,7 @@ public final class GreenLanternHud {
 		if (!pulseOff) {
 			g.fill(x0, barY, x0 + Math.round(totalW * frac), barY + 3, low ? LOW : GREEN);
 		}
-		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / GreenLanternConfig.MAX_RING_CHARGE));
+		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / maxCharge));
 		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 4, 0xFFFFDD33);
 		g.drawString(mc.font, Math.round(frac * 100.0f) + "%", x0, barY + 5, low ? LOW : 0xFFA8E6B8, true);
 

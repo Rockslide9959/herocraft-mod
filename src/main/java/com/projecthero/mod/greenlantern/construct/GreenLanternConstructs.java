@@ -1287,7 +1287,7 @@ public final class GreenLanternConstructs {
 		if (hit != null) {
 			Vec3 impact = hit.position().add(0, hit.getBbHeight() * 0.5, 0);
 			wireCube(level, impact.subtract(ram.dir.scale(0.6)), 0.45, GREEN_DUST);
-			AbilityHelpers.hurt(owner, hit, GreenLanternConfig.RAM_DAMAGE * GreenLanternOath.multiplier(owner));
+			AbilityHelpers.hurt(owner, hit, GreenLanternConfig.RAM_DAMAGE * com.projecthero.mod.greenlantern.GreenLanternRanks.power(owner));
 			AbilityHelpers.knockbackFrom(hit, impact.subtract(ram.dir.scale(2.0)), 2.0);
 			level.sendParticles(SPARK, impact.x, impact.y, impact.z, 30, 0.4, 0.4, 0.4, 0.15);
 			level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.IRON_GOLEM_ATTACK, SoundSource.PLAYERS, 1.0f, 0.8f);
@@ -1828,7 +1828,7 @@ public final class GreenLanternConstructs {
 		AbilityHelpers.line(c.level, muzzle, aim, GREEN_DUST, 3.0);
 		c.level.sendParticles(SPARK, muzzle.x, muzzle.y, muzzle.z, 4, 0.12, 0.12, 0.12, 0.03);
 		c.level.sendParticles(SPARK, aim.x, aim.y, aim.z, 6, 0.2, 0.2, 0.2, 0.05);
-		AbilityHelpers.hurt(owner, target, GreenLanternConfig.TURRET_DAMAGE * GreenLanternOath.multiplier(owner));
+		AbilityHelpers.hurt(owner, target, GreenLanternConfig.TURRET_DAMAGE * com.projecthero.mod.greenlantern.GreenLanternRanks.power(owner));
 		c.level.playSound(null, muzzle.x, muzzle.y, muzzle.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.35f, 2.0f);
 	}
 

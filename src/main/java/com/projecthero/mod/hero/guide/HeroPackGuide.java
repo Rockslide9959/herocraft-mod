@@ -838,8 +838,34 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.green_lantern.ability." + key + ".desc");
 			}
 			blank(lines);
+			// v0.17.1 revamp: the Construct Menu, Lantern Ranks and every construct the ring can make
+			head(lines, "projecthero.guide.green_lantern.menu");
+			para(lines, "projecthero.guide.green_lantern.menu.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.ranks");
+			para(lines, "projecthero.guide.green_lantern.ranks.body");
+			for (int r = 1; r <= com.projecthero.mod.greenlantern.GreenLanternRanks.MAX_RANK; r++) {
+				lines.add(Component.literal(" " + r + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable(com.projecthero.mod.greenlantern.GreenLanternRanks.nameKey(r)).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.guide.green_lantern.ranks." + r);
+			}
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.constructs");
 			para(lines, "projecthero.guide.green_lantern.constructs.body");
+			for (com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Section sec
+					: com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Section.values()) {
+				lines.add(Component.translatable(sec.translationKey()).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
+				for (com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Entry e
+						: com.projecthero.mod.greenlantern.bind.GreenLanternBinding.all()) {
+					if (e.section() != sec) {
+						continue;
+					}
+					lines.add(Component.literal(" ").append(Component.translatable(e.nameKey()).withStyle(ChatFormatting.WHITE))
+							.append(Component.translatable(e.hold() ? "projecthero.guide.green_lantern.entry_hold" : "projecthero.guide.green_lantern.entry_tap")
+									.withStyle(ChatFormatting.DARK_GRAY)));
+					para(lines, e.descKey());
+				}
+			}
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
 			para(lines, "projecthero.guide.green_lantern.sniper.body");

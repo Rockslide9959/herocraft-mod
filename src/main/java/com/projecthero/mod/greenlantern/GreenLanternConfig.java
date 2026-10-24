@@ -252,7 +252,7 @@ public final class GreenLanternConfig {
 
 	public static final float TURRET_COST = 20f;
 	public static final float TURRET_UPKEEP_PER_SEC = 1f;
-	public static final float TURRET_DAMAGE = 7f; // v0.14.3: was 4
+	public static final float TURRET_DAMAGE = 9f; // v0.17.1: was 7 (v0.14.3: was 4)
 	public static final int TURRET_FIRE_INTERVAL_TICKS = 10; // 2 shots/sec
 	public static final double TURRET_TARGET_RADIUS = 20.0;
 	public static final int TURRET_MAX_DURATION_TICKS = 12 * 20;
@@ -370,7 +370,7 @@ public final class GreenLanternConfig {
 	// ---------------- v0.14.3: new attacks + construct attacks ----------------
 
 	/** Shift+X (hold) -- Emerald Gatling: a spinning hard-light minigun on the ring fist. */
-	public static final float GATLING_DAMAGE = 5f;
+	public static final float GATLING_DAMAGE = 6f; // v0.17.1: was 5
 	public static final int GATLING_SPINUP_TICKS = 8;
 	public static final int GATLING_INTERVAL_TICKS = 2; // 10 shots/sec once spun up
 	public static final float GATLING_COST_PER_SHOT = 2f;
@@ -444,7 +444,7 @@ public final class GreenLanternConfig {
 	public static final float CHAINS_COST = 70f;
 	public static final double CHAINS_RADIUS = 10.0;
 	public static final int CHAINS_DURATION_TICKS = 5 * 20;
-	public static final float CHAINS_DAMAGE = 2f; // every 10 ticks
+	public static final float CHAINS_DAMAGE = 3f; // every 10 ticks (v0.17.1: was 2)
 	public static final int CHAINS_COOLDOWN_TICKS = 18 * 20;
 	/** v0.15.15: the chains no longer time out (user: no construct time limits) -- holding each one costs this instead. */
 	public static final float CHAINS_UPKEEP_PER_SEC = 4f;
@@ -460,13 +460,115 @@ public final class GreenLanternConfig {
 	public static final float WARRIOR_COST = 120f;
 	public static final float WARRIOR_UPKEEP_PER_SEC = 3f;
 	public static final int WARRIOR_DURATION_TICKS = 30 * 20;
-	public static final float WARRIOR_DAMAGE = 12f;
+	public static final float WARRIOR_DAMAGE = 15f; // v0.17.1: was 12
 	public static final double WARRIOR_HUNT_RANGE = 20.0;
 	public static final double WARRIOR_SPEED_PER_TICK = 0.55;
 	public static final int WARRIOR_COOLDOWN_TICKS = 40 * 20;
 
 	/** N: Shift + hold N this long to take the ring off. */
 	public static final int RING_REMOVE_HOLD_TICKS = 5 * 20;
+
+	// ---------------- v0.17.1: the new constructs (GreenLanternArsenal) ----------------
+
+	/** Boxing Glove: a spring-loaded glove punches straight out, hitting everything in the line. */
+	public static final float GLOVE_COST = 45f;
+	public static final float GLOVE_DAMAGE = 20f;
+	public static final double GLOVE_REACH = 12.0;
+	/** Fly Swatter: slams down on the targeted spot. */
+	public static final float SWATTER_COST = 60f;
+	public static final float SWATTER_DAMAGE = 28f;
+	public static final double SWATTER_RADIUS = 4.0;
+	public static final double SWATTER_RANGE = 32.0;
+	public static final int SWATTER_STUN_TICKS = 20;
+	/** Catapult: lobs a hard-light boulder at the aim point. */
+	public static final float CATAPULT_COST = 65f;
+	public static final float CATAPULT_DAMAGE = 30f;
+	public static final double CATAPULT_RADIUS = 3.0;
+	public static final double CATAPULT_RANGE = 40.0;
+	/** Emerald Tentacles: grab everything round you, hold, then slam. */
+	public static final float TENTACLES_COST = 80f;
+	public static final float TENTACLES_DAMAGE = 18f;
+	public static final double TENTACLES_RADIUS = 6.0;
+	public static final int TENTACLES_HOLD_TICKS = 40;
+	/** Wrecking Ball: swings round you for 2 s. */
+	public static final float WRECKING_COST = 55f;
+	public static final float WRECKING_DAMAGE = 16f;
+	public static final double WRECKING_RADIUS = 4.5;
+	public static final int WRECKING_TICKS = 40;
+	/** Emerald Cannon (hold to charge): 15..40 damage by charge, pierces 3. */
+	public static final float CANNON_COST_MIN = 50f;
+	public static final float CANNON_COST_MAX = 90f;
+	public static final float CANNON_DAMAGE_MIN = 15f;
+	public static final float CANNON_DAMAGE_MAX = 40f;
+	public static final int CANNON_FULL_CHARGE_TICKS = 40;
+	public static final int CANNON_PIERCE = 3;
+	public static final double CANNON_RANGE = 48.0;
+	/** Emerald Bow (hold to draw): a fan of arrows. */
+	public static final float BOW_COST = 35f;
+	public static final float BOW_ARROW_DAMAGE = 8f;
+	public static final int BOW_ARROWS = 5;
+	public static final int BOW_DRAW_TICKS = 15;
+	/** Bulldozer: drives forward shoving everything ahead. */
+	public static final float DOZER_COST = 60f;
+	public static final float DOZER_DAMAGE = 12f;
+	public static final double DOZER_DISTANCE = 15.0;
+	public static final double DOZER_SPEED_PER_TICK = 0.6;
+	/** Bear Trap: roots and bites the first mob to step in. */
+	public static final float TRAP_COST = 30f;
+	public static final float TRAP_DAMAGE = 16f;
+	public static final int TRAP_ROOT_TICKS = 80;
+	public static final int TRAP_MAX_LIVE = 3;
+	public static final double TRAP_RANGE = 16.0;
+	/** Mirror Shield (hold): reflects projectiles back at the shooter. */
+	public static final float MIRROR_COST = 30f;
+	public static final float MIRROR_UPKEEP_PER_SEC = 6f;
+	/** Grappling Claw: pull yourself to a block, or (Shift) a mob to you. */
+	public static final float CLAW_COST = 20f;
+	public static final double CLAW_RANGE = 32.0;
+	/** Fighter Jet: circles the target area firing bolts. */
+	public static final float JET_COST = 100f;
+	public static final float JET_UPKEEP_PER_SEC = 4f;
+	public static final float JET_DAMAGE = 6f;
+	public static final int JET_TICKS = 10 * 20;
+	public static final double JET_RADIUS = 8.0;
+	/** Emerald Dragon: flies beside you breathing light at your foes. */
+	public static final float DRAGON_COST = 120f;
+	public static final float DRAGON_UPKEEP_PER_SEC = 5f;
+	public static final float DRAGON_DAMAGE = 4f; // every 10 ticks, in the breath cone
+	public static final int DRAGON_TICKS = 15 * 20;
+	public static final double DRAGON_RANGE = 14.0;
+	/** Emerald Mace: a heavy melee buff (toggle, like the Energy Blade). */
+	public static final float MACE_COST = 0f;
+	public static final float MACE_UPKEEP_PER_SEC = 2f;
+	public static final float MACE_DAMAGE = 18f;
+	public static final float MACE_SHOCKWAVE_DAMAGE = 6f;
+	public static final double MACE_SHOCKWAVE_RADIUS = 2.5;
+	/** Med Bay: Regeneration II for you and your squad inside it. */
+	public static final float MEDBAY_COST = 90f;
+	public static final float MEDBAY_UPKEEP_PER_SEC = 5f;
+	public static final double MEDBAY_RADIUS = 5.0;
+	public static final int MEDBAY_TICKS = 12 * 20;
+
+	// ---------------- v0.17.1: Lantern Ranks (GreenLanternRanks) ----------------
+
+	/** Willpower XP needed for ranks 1..5. */
+	public static final long[] RANK_XP = { 0L, 1500L, 5000L, 12000L, 25000L };
+	public static final float[] RANK_DAMAGE = { 1.00f, 1.10f, 1.20f, 1.35f, 1.50f };
+	public static final float[] RANK_MAX_CHARGE = { 1.00f, 1.10f, 1.20f, 1.30f, 1.40f };
+	public static final float[] RANK_COST = { 1.00f, 0.95f, 0.90f, 0.85f, 0.80f };
+	public static final long XP_PER_KILL = 50L;
+	public static final long XP_PER_BOSS_KILL = 200L;
+	/** Willpower Surge: above / below these charge fractions constructs hit harder / softer. */
+	public static final float SURGE_HIGH = 0.80f;
+	public static final float SURGE_LOW = 0.20f;
+	public static final float SURGE_BONUS = 0.15f;
+	/** Rank 3+: the Directional Shield's upkeep is cut by this much. Rank 4+: Ring Flight drains this much less. */
+	public static final float RANK3_SHIELD_DRAIN_CUT = 0.15f;
+	public static final float RANK4_FLIGHT_DRAIN_CUT = 0.25f;
+	/** Rank 5: the Oath lasts this much longer. */
+	public static final float RANK5_OATH_DURATION_MULT = 1.5f;
+	/** Construct Menu: a hold entry spawned once from the menu runs this long before it lets go. */
+	public static final int MENU_SPAWN_HOLD_TICKS = 40;
 
 	// ---------------- Automatic Air Tank (v0.11.10) ----------------
 

@@ -106,6 +106,7 @@ public final class GreenLanternConstructAttacks {
 
 	/** N / death: every lasting hard-light entity this player owns dissolves. */
 	public static void dismissAll(UUID owner) {
+		GreenLanternArsenal.dismissAll(owner); // v0.17.1
 		List<HardLightConstructEntity> list = LIVE.remove(owner);
 		if (list == null) {
 			return;
@@ -160,7 +161,7 @@ public final class GreenLanternConstructAttacks {
 	}
 
 	private static float power(ServerPlayer owner) {
-		return GreenLanternOath.multiplier(owner);
+		return GreenLanternRanks.power(owner); // v0.17.1: Oath x Lantern Rank x Willpower Surge
 	}
 
 	private static void hit(ServerPlayer owner, LivingEntity target, float damage) {
@@ -702,6 +703,10 @@ public final class GreenLanternConstructAttacks {
 
 	/** Deploys one of the v0.14.3 entity constructs. Returns false if {@code type} is not one of them. */
 	public static boolean deploy(ServerPlayer player, ConstructType type) {
+		if (type.kind() == ConstructType.Kind.ARSENAL) {
+			GreenLanternArsenal.deploy(player, type); // v0.17.1: the revamp's new constructs
+			return true;
+		}
 		if (type.kind() != ConstructType.Kind.ATTACK && type.kind() != ConstructType.Kind.SUMMON) {
 			return false;
 		}
@@ -1195,7 +1200,8 @@ public final class GreenLanternConstructAttacks {
 			case LAUNCH_PAD -> tickPad(e, owner);
 			case WARRIOR -> tickWarrior(e, owner);
 			case WAVE -> tickBlastWave(e, owner);
-			default -> {
+			default -> GreenLanternArsenal.tickEntity(e, owner); // v0.17.1: the revamp's new constructs
+			case BOLT, SNIPER_BOLT, BUBBLE -> {
 			}
 		}
 	}

@@ -34,7 +34,7 @@ public final class GreenLanternEnergy {
 	}
 
 	public static float getChargePercent(ServerPlayer player) {
-		return get(player) / GreenLanternConfig.MAX_RING_CHARGE;
+		return get(player) / GreenLanternRanks.maxCharge(player);
 	}
 
 	/** Charge available for abilities/constructs/flight -- excludes the emergency reserve. */
@@ -55,7 +55,8 @@ public final class GreenLanternEnergy {
 	 * doubled by the mode (its own flat upkeep drain).
 	 */
 	public static boolean spend(ServerPlayer player, float amount) {
-		return spendRaw(player, amount * GreenLanternOath.multiplier(player));
+		// v0.17.1: Lantern Ranks cut every cost (x0.80 at Corps Legend)
+		return spendRaw(player, amount * GreenLanternOath.multiplier(player) * GreenLanternRanks.costMult(GreenLanternRanks.rank(player)));
 	}
 
 	/** Like {@link #spend}, but never doubled by the Oath empowerment mode. */
@@ -101,7 +102,7 @@ public final class GreenLanternEnergy {
 			return;
 		}
 		GreenLanternState c = GreenLantern.state(player).copy();
-		c.ringCharge = Math.min(GreenLanternConfig.MAX_RING_CHARGE, c.ringCharge + amount);
+		c.ringCharge = Math.min(GreenLanternRanks.maxCharge(player), c.ringCharge + amount);
 		GreenLantern.save(player, c);
 	}
 
@@ -110,11 +111,11 @@ public final class GreenLanternEnergy {
 			return;
 		}
 		GreenLanternState s = GreenLantern.state(player);
-		if (s.ringCharge >= GreenLanternConfig.MAX_RING_CHARGE) {
+		if (s.ringCharge >= GreenLanternRanks.maxCharge(player)) {
 			return;
 		}
 		GreenLanternState c = s.copy();
-		c.ringCharge = Math.min(GreenLanternConfig.MAX_RING_CHARGE, c.ringCharge + amount);
+		c.ringCharge = Math.min(GreenLanternRanks.maxCharge(player), c.ringCharge + amount);
 		GreenLantern.save(player, c);
 	}
 
@@ -146,8 +147,8 @@ public final class GreenLanternEnergy {
 	 * trying to schedule a multi-tick blink itself.
 	 */
 	public static void triggerLowChargeFeedback(ServerPlayer player, float before, float after) {
-		float pctBefore = before / GreenLanternConfig.MAX_RING_CHARGE;
-		float pctAfter = after / GreenLanternConfig.MAX_RING_CHARGE;
+		float pctBefore = before / GreenLanternRanks.maxCharge(player);
+		float pctAfter = after / GreenLanternRanks.maxCharge(player);
 		int severity = -1;
 		float crossed = 0f;
 		float[] thresholds = GreenLanternConfig.LOW_CHARGE_WARN_THRESHOLDS;

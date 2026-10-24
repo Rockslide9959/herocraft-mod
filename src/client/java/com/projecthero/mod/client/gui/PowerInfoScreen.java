@@ -108,6 +108,11 @@ public final class PowerInfoScreen extends Screen {
 		if (heroChapter != null) {
 			this.heading = net.minecraft.network.chat.Component.empty().append(heroChapter.title())
 					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
+			// v0.17.1: a Green Lantern sees their Lantern Rank, its XP bar and their Construct Menu keys first
+			if (Minecraft.getInstance().player != null
+					&& com.projecthero.mod.greenlantern.GreenLantern.hasPower(Minecraft.getInstance().player)) {
+				greenLanternRank(wrapW);
+			}
 			for (Component line : heroChapter.lines()) {
 				wrap(line, wrapW);
 			}
@@ -149,6 +154,55 @@ public final class PowerInfoScreen extends Screen {
 		for (Component line : com.projecthero.mod.hero.guide.HeroPackGuide.powerChapter(power, -1).lines()) {
 			wrap(line, wrapW);
 		}
+	}
+
+	/** v0.17.1: the Lantern Rank block -- rank, an XP bar, what the next rank brings, the live multipliers and the keys. */
+	private void greenLanternRank(int wrapW) {
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		com.projecthero.mod.greenlantern.data.GreenLanternState s =
+				p.getAttachedOrElse(com.projecthero.mod.attachment.ModAttachments.GREEN_LANTERN_STATE, null);
+		if (s == null) {
+			return;
+		}
+		int rank = com.projecthero.mod.greenlantern.GreenLanternRanks.rankFor(s.willpowerXp);
+		boolean max = rank >= com.projecthero.mod.greenlantern.GreenLanternRanks.MAX_RANK;
+		wrap(Component.translatable("screen.projecthero.power_info.gl.rank", rank,
+				Component.translatable(com.projecthero.mod.greenlantern.GreenLanternRanks.nameKey(rank)))
+				.withStyle(max ? ChatFormatting.GOLD : ChatFormatting.GREEN, ChatFormatting.BOLD), wrapW);
+		long lo = com.projecthero.mod.greenlantern.GreenLanternConfig.RANK_XP[rank - 1];
+		long hi = max ? lo : com.projecthero.mod.greenlantern.GreenLanternConfig.RANK_XP[rank];
+		float frac = max ? 1f : Math.min(1f, (s.willpowerXp - lo) / (float) Math.max(1L, hi - lo));
+		int cells = 20;
+		int full = Math.round(cells * frac);
+		Component bar = Component.literal("█".repeat(full)).withStyle(max ? ChatFormatting.GOLD : ChatFormatting.GREEN)
+				.append(Component.literal("█".repeat(cells - full)).withStyle(ChatFormatting.DARK_GRAY));
+		wrap(Component.literal(" ").append(bar), wrapW);
+		wrap(max ? Component.translatable("screen.projecthero.power_info.gl.xp_max", s.willpowerXp).withStyle(ChatFormatting.GRAY)
+				: Component.translatable("screen.projecthero.power_info.gl.xp", s.willpowerXp, hi,
+						Component.translatable(com.projecthero.mod.greenlantern.GreenLanternRanks.nameKey(rank + 1)))
+						.withStyle(ChatFormatting.GRAY), wrapW);
+		wrap(Component.translatable("screen.projecthero.power_info.gl.mults",
+				Math.round(com.projecthero.mod.greenlantern.GreenLanternRanks.damageMult(rank) * 100),
+				Math.round(com.projecthero.mod.greenlantern.GreenLanternRanks.maxChargeMult(rank) * 100),
+				Math.round(com.projecthero.mod.greenlantern.GreenLanternRanks.costMult(rank) * 100)).withStyle(ChatFormatting.AQUA), wrapW);
+		if (!max) {
+			wrap(Component.translatable("screen.projecthero.power_info.gl.next." + (rank + 1)).withStyle(ChatFormatting.DARK_GREEN), wrapW);
+		}
+		wrap(Component.translatable("screen.projecthero.power_info.gl.how").withStyle(ChatFormatting.DARK_GRAY), wrapW);
+		body.add(FormattedCharSequence.EMPTY);
+		wrap(Component.translatable("screen.projecthero.power_info.gl.keys").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), wrapW);
+		for (String key : com.projecthero.mod.greenlantern.bind.GreenLanternBinding.KEYS) {
+			com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Entry e =
+					com.projecthero.mod.greenlantern.bind.GreenLanternBinding.resolve(s, key);
+			wrap(Component.empty()
+					.append(Component.literal(" [").withStyle(ChatFormatting.DARK_GRAY))
+					.append(Component.literal(com.projecthero.mod.greenlantern.bind.GreenLanternBinding.label(key)).withStyle(ChatFormatting.GOLD))
+					.append(Component.literal("] ").withStyle(ChatFormatting.DARK_GRAY))
+					.append(e == null ? Component.translatable("screen.projecthero.power_info.gl.empty").withStyle(ChatFormatting.DARK_GRAY)
+							: Component.translatable(e.nameKey()).withStyle(ChatFormatting.WHITE)), wrapW);
+		}
+		wrap(Component.translatable("screen.projecthero.power_info.gl.menu_hint").withStyle(ChatFormatting.DARK_GRAY), wrapW);
+		body.add(FormattedCharSequence.EMPTY);
 	}
 
 	/** v0.16.7: the Quirk page, built straight from the kit ({@code QuirkKits.of(q).idsOf(slot)}) and lang. */

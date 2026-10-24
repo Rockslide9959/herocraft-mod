@@ -104,7 +104,7 @@ public final class GreenLanternBattery {
 		if (!holdsBattery(player)) {
 			return false;
 		}
-		if (GreenLanternEnergy.get(player) >= GreenLanternConfig.MAX_RING_CHARGE) {
+		if (GreenLanternEnergy.get(player) >= GreenLanternRanks.maxCharge(player)) {
 			player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.battery_full"), true);
 			return true;
 		}
@@ -235,7 +235,7 @@ public final class GreenLanternBattery {
 		if (elapsed >= CHARGE_TICKS) {
 			CHARGES.remove(player.getUUID());
 			end(player);
-			GreenLanternEnergy.addCharge(player, GreenLanternConfig.MAX_RING_CHARGE);
+			GreenLanternEnergy.addCharge(player, GreenLanternRanks.maxCharge(player));
 			GreenLanternVisuals.anim(player, GreenLanternFx.ANIM_CHARGED);
 			level.playSound(null, player.getX(), player.getY(), player.getZ(),
 					SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.3f);

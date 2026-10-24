@@ -157,7 +157,9 @@ public final class GreenLanternShield {
 		if (!isActive(player) || isDome(player)) {
 			return;
 		}
-		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f)) {
+		// v0.17.1: Lantern Rank 3+ (Veteran) takes 15% less shield drain
+		float rankCut = GreenLanternRanks.rank(player) >= 3 ? 1f - GreenLanternConfig.RANK3_SHIELD_DRAIN_CUT : 1f;
+		if (!GreenLanternEnergy.drainTick(player, GreenLanternConfig.BUBBLE_SHIELD_DRAIN_PER_SEC / 20f * rankCut)) {
 			endBarrier(player, false);
 			GreenLantern.triggerCooldown(player, SHIELD_COOLDOWN, GreenLanternConfig.SHIELD_BREAK_COOLDOWN_TICKS);
 			ForceBubble.drop(player, ForceBubble.Style.GREEN_LANTERN);

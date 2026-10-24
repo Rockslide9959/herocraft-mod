@@ -155,6 +155,7 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.GreenLanternAirTank.clearFor(player);
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.onCleanup(player); // v0.14.3
+		com.projecthero.mod.greenlantern.GreenLanternArsenal.onCleanup(player); // v0.17.1
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(player);
 		GreenLanternState s = state(player);

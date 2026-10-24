@@ -18,6 +18,19 @@ public final class HardLightDraw {
 	public static final int PALE = 0xA8FFC0;
 	public static final int DEEP = 0x13A044;
 	public static final int WHITE = 0xFFFFFF;
+	/** v0.17.1: a Corps Legend's (Lantern Rank 5) golden-green. */
+	public static final int GOLD_GREEN = 0xC8E83A;
+	public static final int GOLD_PALE = 0xF6FFB8;
+	/** v0.17.1: set by the renderer while it draws a Corps Legend's construct -- the greens turn golden. */
+	public static boolean golden;
+
+	/** {@code rgb} as the current tint draws it (green -> golden-green while {@link #golden}). */
+	public static int tint(int rgb) {
+		if (!golden) {
+			return rgb;
+		}
+		return rgb == GREEN ? GOLD_GREEN : rgb == PALE ? GOLD_PALE : rgb == DEEP ? 0x8AA012 : rgb;
+	}
 
 	private HardLightDraw() {
 	}
@@ -35,9 +48,9 @@ public final class HardLightDraw {
 			float alpha) {
 		pose.pushPose();
 		pose.translate(x, y, z);
-		TurboDraw.box(vc, pose.last(), hx, hy, hz, rgb, 0.62f * alpha);
+		TurboDraw.box(vc, pose.last(), hx, hy, hz, tint(rgb), 0.62f * alpha);
 		float rim = Math.min(0.045f, 0.18f * Math.min(hx, Math.min(hy, hz))) + 0.012f;
-		TurboDraw.box(vc, pose.last(), hx + rim, hy + rim, hz + rim, PALE, 0.2f * alpha);
+		TurboDraw.box(vc, pose.last(), hx + rim, hy + rim, hz + rim, tint(PALE), 0.2f * alpha);
 		pose.popPose();
 	}
 
@@ -46,7 +59,7 @@ public final class HardLightDraw {
 		pose.pushPose();
 		pose.translate(x, y, z);
 		TurboDraw.box(vc, pose.last(), hx, hy, hz, 0xE8FFEE, 0.9f * alpha);
-		TurboDraw.box(vc, pose.last(), hx * 1.8f + 0.02f, hy * 1.8f + 0.02f, hz * 1.8f + 0.02f, GREEN, 0.25f * alpha);
+		TurboDraw.box(vc, pose.last(), hx * 1.8f + 0.02f, hy * 1.8f + 0.02f, hz * 1.8f + 0.02f, tint(GREEN), 0.25f * alpha);
 		pose.popPose();
 	}
 
@@ -57,9 +70,9 @@ public final class HardLightDraw {
 		pose.mulPose(Axis.ZP.rotationDegrees(age * 25f));
 		float half = len / 2f;
 		TurboDraw.box(vc, pose.last(), w * 0.35f, w * 0.35f, half, 0xF0FFF4, alpha);
-		TurboDraw.box(vc, pose.last(), w * 0.7f, w * 0.7f, half, GREEN, 0.6f * alpha);
+		TurboDraw.box(vc, pose.last(), w * 0.7f, w * 0.7f, half, tint(GREEN), 0.6f * alpha);
 		pose.mulPose(Axis.ZP.rotationDegrees(45f));
-		TurboDraw.box(vc, pose.last(), w, w, half, GREEN, 0.22f * alpha);
+		TurboDraw.box(vc, pose.last(), w, w, half, tint(GREEN), 0.22f * alpha);
 		pose.popPose();
 	}
 

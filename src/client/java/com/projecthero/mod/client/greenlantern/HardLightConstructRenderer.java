@@ -47,6 +47,7 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 		if (alpha <= 0.01f) {
 			return;
 		}
+		HardLightDraw.golden = e.golden(); // v0.17.1: a Corps Legend's constructs are golden-green
 		pose.pushPose();
 		switch (e.shape()) {
 			case BOLT -> bolt(e, vc, pose, age, alpha, partial);
@@ -63,8 +64,10 @@ public class HardLightConstructRenderer extends EntityRenderer<HardLightConstruc
 			case BUBBLE -> bubble(e, vc, pose, age, alpha, partial);
 			case WAVE -> wave(e, buffers, pose, age, alpha, partial);
 			case SNIPER_BOLT -> sniperBolt(e, buffers, pose, age, partial); // v0.16.1
+			default -> HardLightArsenalRenderer.render(e, vc, pose, age, alpha, partial); // v0.17.1: the revamp's new constructs
 		}
 		pose.popPose();
+		HardLightDraw.golden = false;
 	}
 
 	// ---------------------------------------------------------------- Shift+R: the Blast Wave (v0.15.15)

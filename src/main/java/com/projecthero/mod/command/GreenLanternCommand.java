@@ -37,10 +37,16 @@ public final class GreenLanternCommand {
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> power(c, EntityArgument.getPlayer(c, "player"), false)))))
 				.then(Commands.literal("energy")
-						.then(Commands.argument("amount", FloatArgumentType.floatArg(0f, GreenLanternConfig.MAX_RING_CHARGE))
+						.then(Commands.argument("amount", FloatArgumentType.floatArg(0f, GreenLanternConfig.MAX_RING_CHARGE * 2f))
 								.executes(c -> energy(c, self(c)))
 								.then(Commands.argument("player", EntityArgument.player())
 										.executes(c -> energy(c, EntityArgument.getPlayer(c, "player"))))))
+				// v0.17.1: Lantern Ranks for testing
+				.then(Commands.literal("rank")
+						.then(Commands.argument("rank", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 5))
+								.executes(c -> rank(c, self(c)))
+								.then(Commands.argument("player", EntityArgument.player())
+										.executes(c -> rank(c, EntityArgument.getPlayer(c, "player"))))))
 				.then(Commands.literal("dismiss").executes(c -> dismiss(c, self(c))))
 				.then(Commands.literal("status").executes(c -> status(c, self(c))));
 	}
@@ -66,10 +72,17 @@ public final class GreenLanternCommand {
 	private static int energy(CommandContext<CommandSourceStack> c, ServerPlayer target) {
 		float amount = FloatArgumentType.getFloat(c, "amount");
 		GreenLanternState s = GreenLantern.state(target).copy();
-		s.ringCharge = Math.max(0f, Math.min(GreenLanternConfig.MAX_RING_CHARGE, amount));
+		s.ringCharge = Math.max(0f, Math.min(com.projecthero.mod.greenlantern.GreenLanternRanks.maxCharge(target), amount));
 		GreenLantern.save(target, s);
 		c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
 				"Ring Charge set to %.0f", GreenLantern.state(target).ringCharge)), true);
+		return 1;
+	}
+
+	private static int rank(CommandContext<CommandSourceStack> c, ServerPlayer target) {
+		int r = com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(c, "rank");
+		com.projecthero.mod.greenlantern.GreenLanternRanks.setRank(target, r);
+		c.getSource().sendSuccess(() -> Component.literal(target.getGameProfile().getName() + " is now Lantern Rank " + r), true);
 		return 1;
 	}
 
@@ -84,8 +97,9 @@ public final class GreenLanternCommand {
 		GreenLanternState s = GreenLantern.state(target);
 		// v0.11.7: no more generic construct-slot cap to report against -- just the raw active weight.
 		c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
-				"Green Lantern: %s | charge %.0f/%.0f | suited %s | constructs %d",
-				s.hasPower, s.ringCharge, GreenLanternConfig.MAX_RING_CHARGE, s.suited,
+				"Green Lantern: %s | charge %.0f/%.0f | suited %s | rank %d (%d XP) | constructs %d",
+				s.hasPower, s.ringCharge, com.projecthero.mod.greenlantern.GreenLanternRanks.maxCharge(target), s.suited,
+				com.projecthero.mod.greenlantern.GreenLanternRanks.rankFor(s.willpowerXp), s.willpowerXp,
 				GreenLanternConstructs.activeWeight(target.getUUID()))), false);
 		return 1;
 	}

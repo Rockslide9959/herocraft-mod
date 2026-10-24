@@ -59,7 +59,24 @@ public enum ConstructType {
 	// v0.16.1: a hard-light sniper rifle held in the ring hand -- right-click scopes, attack fires a charged bolt
 	// (GreenLanternSniper). Appended so saved selections keep their ordinals.
 	SNIPER_RIFLE(Kind.HELD_WEAPON, GreenLanternConfig.SNIPER_FORM_COST, GreenLanternConfig.SNIPER_UPKEEP_PER_SEC, 0f, 0,
-			GreenLanternConfig.SNIPER_SLOT_WEIGHT);
+			GreenLanternConfig.SNIPER_SLOT_WEIGHT),
+	// v0.17.1 revamp: fifteen new constructs, all run by GreenLanternArsenal. Appended so saved selections keep their
+	// ordinals. Emerald Cannon, Emerald Bow and Mirror Shield are HOLD constructs (press / release).
+	BOXING_GLOVE(Kind.ARSENAL, GreenLanternConfig.GLOVE_COST, 0f, 0f, 0, 0),
+	FLY_SWATTER(Kind.ARSENAL, GreenLanternConfig.SWATTER_COST, 0f, 0f, 0, 0),
+	CATAPULT(Kind.ARSENAL, GreenLanternConfig.CATAPULT_COST, 0f, 0f, 0, 0),
+	EMERALD_TENTACLES(Kind.ARSENAL, GreenLanternConfig.TENTACLES_COST, 0f, 0f, 0, 0),
+	WRECKING_BALL(Kind.ARSENAL, GreenLanternConfig.WRECKING_COST, 0f, 0f, 0, 0),
+	EMERALD_CANNON(Kind.ARSENAL, GreenLanternConfig.CANNON_COST_MIN, 0f, 0f, 0, 0),
+	EMERALD_BOW(Kind.ARSENAL, GreenLanternConfig.BOW_COST, 0f, 0f, 0, 0),
+	BULLDOZER(Kind.ARSENAL, GreenLanternConfig.DOZER_COST, 0f, 0f, 0, 0),
+	BEAR_TRAP(Kind.ARSENAL, GreenLanternConfig.TRAP_COST, 0f, 0f, 0, 0),
+	MIRROR_SHIELD(Kind.ARSENAL, GreenLanternConfig.MIRROR_COST, GreenLanternConfig.MIRROR_UPKEEP_PER_SEC, 0f, 0, 0),
+	GRAPPLING_CLAW(Kind.ARSENAL, GreenLanternConfig.CLAW_COST, 0f, 0f, 0, 0),
+	FIGHTER_JET(Kind.ARSENAL, GreenLanternConfig.JET_COST, GreenLanternConfig.JET_UPKEEP_PER_SEC, 0f, 0, 0),
+	EMERALD_DRAGON(Kind.ARSENAL, GreenLanternConfig.DRAGON_COST, GreenLanternConfig.DRAGON_UPKEEP_PER_SEC, 0f, 0, 0),
+	EMERALD_MACE(Kind.ARSENAL, GreenLanternConfig.MACE_COST, GreenLanternConfig.MACE_UPKEEP_PER_SEC, 0f, 0, 0),
+	MED_BAY(Kind.ARSENAL, GreenLanternConfig.MEDBAY_COST, GreenLanternConfig.MEDBAY_UPKEEP_PER_SEC, 0f, 0, 0);
 
 	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
 	public enum Category {
@@ -78,7 +95,14 @@ public enum ConstructType {
 		/** v0.14.3: a lasting hard-light entity (Launch Pad, Emerald Warrior). */
 		SUMMON,
 		/** v0.16.1: a weapon held in the ring hand that takes over attack / use while it is out (the Sniper Rifle). */
-		HELD_WEAPON
+		HELD_WEAPON,
+		/** v0.17.1: the revamp's new constructs, spawned / ticked / dismissed by {@code GreenLanternArsenal}. */
+		ARSENAL
+	}
+
+	/** v0.17.1: a construct you hold the key for (charge / draw / keep up) instead of tapping. */
+	public boolean isHold() {
+		return this == EMERALD_CANNON || this == EMERALD_BOW || this == MIRROR_SHIELD;
 	}
 
 	private final Kind kind;
@@ -130,9 +154,12 @@ public enum ConstructType {
 	/** v0.14.3: which arc of the construct wheel this sits in. */
 	public Category category() {
 		return switch (this) {
-			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR, SNIPER_RIFLE -> Category.ATTACK;
-			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER -> Category.DEFENSE;
-			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD -> Category.MOBILITY;
+			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR, SNIPER_RIFLE,
+					BOXING_GLOVE, FLY_SWATTER, CATAPULT, EMERALD_TENTACLES, WRECKING_BALL, EMERALD_CANNON, EMERALD_BOW,
+					BULLDOZER, FIGHTER_JET, EMERALD_DRAGON, EMERALD_MACE -> Category.ATTACK;
+			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER, BEAR_TRAP, MIRROR_SHIELD,
+					MED_BAY -> Category.DEFENSE;
+			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD, GRAPPLING_CLAW -> Category.MOBILITY;
 			default -> Category.UTILITY;
 		};
 	}

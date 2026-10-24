@@ -41,7 +41,10 @@ public class HardLightConstructEntity extends Entity {
 		 * v0.16.1: the Sniper Rifle's bolt -- drawn from the muzzle (the entity) to the impact point ({@code end}): a
 		 * white-hot head racing down a thick tracer, then an expanding flash where it struck (scale = charge, 0.35-1).
 		 */
-		SNIPER_BOLT;
+		SNIPER_BOLT,
+		/** v0.17.1 revamp (GreenLanternArsenal): the fifteen new constructs and their pieces. */
+		GLOVE, SWATTER, CATAPULT, BOULDER, TENTACLE, WRECKING_BALL, CANNON, CANNON_SHOT, BOW, ARROW, BULLDOZER, BEAR_TRAP,
+		MIRROR, CLAW, JET, DRAGON, MACE, MED_BAY;
 
 		public static Shape byId(int id) {
 			Shape[] all = values();
@@ -61,6 +64,9 @@ public class HardLightConstructEntity extends Entity {
 			SynchedEntityData.defineId(HardLightConstructEntity.class, EntityDataSerializers.INT);
 	private static final EntityDataAccessor<Integer> ACTION =
 			SynchedEntityData.defineId(HardLightConstructEntity.class, EntityDataSerializers.INT);
+	/** v0.17.1: drawn golden-green (the owner is a Corps Legend, Lantern Rank 5). */
+	private static final EntityDataAccessor<Boolean> GOLDEN =
+			SynchedEntityData.defineId(HardLightConstructEntity.class, EntityDataSerializers.BOOLEAN);
 
 	// ---- server-only state, read and written by GreenLanternConstructAttacks ----
 	public UUID owner;
@@ -90,6 +96,10 @@ public class HardLightConstructEntity extends Entity {
 		e.entityData.set(SCALE, scale);
 		e.entityData.set(LIFE, life);
 		e.setEnd(pos);
+		net.minecraft.server.level.ServerPlayer p = level.getServer().getPlayerList().getPlayer(owner);
+		if (p != null) {
+			e.entityData.set(GOLDEN, com.projecthero.mod.greenlantern.GreenLanternRanks.golden(p));
+		}
 		return e;
 	}
 
@@ -101,6 +111,7 @@ public class HardLightConstructEntity extends Entity {
 		builder.define(TARGET, -1);
 		builder.define(LIFE, 0);
 		builder.define(ACTION, -100);
+		builder.define(GOLDEN, false);
 	}
 
 	public Shape shape() {
@@ -118,6 +129,10 @@ public class HardLightConstructEntity extends Entity {
 
 	public void setEnd(Vec3 end) {
 		this.entityData.set(END, new Vector3f((float) end.x, (float) end.y, (float) end.z));
+	}
+
+	public boolean golden() {
+		return this.entityData.get(GOLDEN);
 	}
 
 	public int targetId() {
