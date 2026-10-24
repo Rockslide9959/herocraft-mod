@@ -55,15 +55,34 @@ public final class LadybugRender {
 	private static PlayerModel<LivingEntity> slim;
 	private static ResourceLocation[] framesWide;
 	private static ResourceLocation[] framesSlim;
+	/** v0.17.1: the long sequence's frames -- the same suit, revealed from the boots up. */
+	private static ResourceLocation[] framesWideUp;
+	private static ResourceLocation[] framesSlimUp;
 	private static float[] orders;
 
 	private LadybugRender() {
 	}
 
 	/** {@code cover}: 0..1, every texel with {@link #order} at or below it is suit. {@code fresh}: a change is running. */
-	public record Anim(float cover, boolean fresh) {
-		static final Anim NONE = new Anim(0f, false);
-		static final Anim FULL = new Anim(1f, false);
+	/** {@code up} (v0.17.1, the long sequence): the reveal runs from the boots up instead of down from the earrings. */
+	public record Anim(float cover, boolean fresh, boolean up) {
+		static final Anim NONE = new Anim(0f, false, false);
+		static final Anim FULL = new Anim(1f, false, false);
+
+		Anim(float cover, boolean fresh) {
+			this(cover, fresh, false);
+		}
+
+		/** Is texel ({@code u}, {@code v}) still the wearer's own (not suit yet)? */
+		public boolean uncovered(int u, int v) {
+			return orderFor(u, v, up) > cover;
+		}
+	}
+
+	/** {@link #order}, or (boots up) its reverse; 2 = unused either way. */
+	public static float orderFor(int u, int v, boolean up) {
+		float o = order(u, v);
+		return !up || o >= 1.5f ? o : 0.999f - o;
 	}
 
 	public static PlayerModel<LivingEntity> model(boolean slimArms) {
@@ -94,6 +113,12 @@ public final class LadybugRender {
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		if (age < 0f && age > -40f) {
 			age = 0f;
+		}
+		if (s.transformed && s.animId == com.projecthero.mod.miraculous.ladybug.LadybugSequence.ANIM && s.formChangeAt > 0L
+				&& age >= 0f && age < com.projecthero.mod.miraculous.ladybug.LadybugSequence.TOTAL) {
+			// v0.17.1: the long sequence -- the suit forms from the boots up in the spin, the mask with the swipe
+			float c = com.projecthero.mod.miraculous.ladybug.LadybugSequence.cover(age);
+			return c >= 0.999f ? Anim.FULL : new Anim(c, true, true);
 		}
 		if (s.transformed) {
 			float total = MiraculousConfig.TRANSFORM_TICKS;
@@ -181,7 +206,7 @@ public final class LadybugRender {
 		}
 		boolean sl = slim(player);
 		PlayerModel<LivingEntity> m = posed(parent, sl);
-		ResourceLocation tex = a.cover() >= 0.999f ? skin(sl) : frame(sl, a.cover());
+		ResourceLocation tex = a.cover() >= 0.999f ? skin(sl) : frame(sl, a.cover(), a.up());
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 	}
 
@@ -195,7 +220,7 @@ public final class LadybugRender {
 		sleeve.copyFrom(arm);
 		a.visible = true;
 		sleeve.visible = true;
-		ResourceLocation tex = progress >= 0.999f ? skin(sl) : frame(sl, progress);
+		ResourceLocation tex = progress >= 0.999f ? skin(sl) : frame(sl, progress, anim(player, 0f).up());
 		a.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
 		sleeve.render(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY);
 	}
@@ -206,12 +231,16 @@ public final class LadybugRender {
 		return slimArms ? SKIN_SLIM : SKIN_WIDE;
 	}
 
-	private static ResourceLocation frame(boolean slimArms, float cover) {
+	private static ResourceLocation frame(boolean slimArms, float cover, boolean up) {
 		if (framesWide == null) {
-			framesWide = build(SKIN_WIDE, "wide");
-			framesSlim = build(SKIN_SLIM, "slim");
+			framesWide = build(SKIN_WIDE, "wide", false);
+			framesSlim = build(SKIN_SLIM, "slim", false);
 		}
-		ResourceLocation[] frames = slimArms ? framesSlim : framesWide;
+		if (up && framesWideUp == null) {
+			framesWideUp = build(SKIN_WIDE, "wide_up", true);
+			framesSlimUp = build(SKIN_SLIM, "slim_up", true);
+		}
+		ResourceLocation[] frames = up ? (slimArms ? framesSlimUp : framesWideUp) : (slimArms ? framesSlim : framesWide);
 		if (frames.length == 0) {
 			return skin(slimArms);
 		}
@@ -219,7 +248,7 @@ public final class LadybugRender {
 	}
 
 	/** Frame {@code k}: every texel with {@link #order} at most {@code k / FRAMES}; the newest flash pale pink. */
-	private static ResourceLocation[] build(ResourceLocation skinTex, String tag) {
+	private static ResourceLocation[] build(ResourceLocation skinTex, String tag, boolean up) {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> res = mc.getResourceManager().getResource(skinTex);
 		if (res.isEmpty()) {
@@ -241,7 +270,7 @@ public final class LadybugRender {
 			for (int y = 0; y < size; y++) {
 				for (int x = 0; x < size; x++) {
 					int px = src.getPixelRGBA(x, y);
-					float o = order(x / scale, y / scale);
+					float o = orderFor(x / scale, y / scale, up);
 					if (o > line || k == 0) {
 						img.setPixelRGBA(x, y, 0);
 					} else if (k < FRAMES && line - o < 0.05f && ((px >>> 24) & 0xFF) > 0) {

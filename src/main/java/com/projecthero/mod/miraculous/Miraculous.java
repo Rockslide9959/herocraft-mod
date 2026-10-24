@@ -213,7 +213,13 @@ public final class Miraculous {
 		if (!s.hasPower || !s.transformed || !player.isAlive() || player.isSpectator()) {
 			return false;
 		}
-		return player.level().getGameTime() - s.formChangeAt >= MiraculousConfig.TRANSFORM_TICKS;
+		return player.level().getGameTime() - s.formChangeAt >= formTicks(s);
+	}
+
+	/** v0.17.1: how long the transformation that is playing runs (the long Ladybug sequence, or the quick one). */
+	public static int formTicks(MiraculousState s) {
+		return s.animId == com.projecthero.mod.miraculous.ladybug.LadybugSequence.ANIM ? com.projecthero.mod.miraculous.ladybug.LadybugSequence.TOTAL
+				: MiraculousConfig.TRANSFORM_TICKS;
 	}
 
 	/** Action-bar message, rate limited. */
@@ -495,7 +501,7 @@ public final class Miraculous {
 	/** Too soon after the last change. */
 	private static boolean settling(ServerPlayer player, MiraculousState s) {
 		long since = player.level().getGameTime() - s.formChangeAt;
-		return s.formChangeAt > 0L && since >= 0L && since < (s.transformed ? MiraculousConfig.TRANSFORM_TICKS : MiraculousConfig.TOGGLE_COOLDOWN);
+		return s.formChangeAt > 0L && since >= 0L && since < (s.transformed ? formTicks(s) : MiraculousConfig.TOGGLE_COOLDOWN);
 	}
 
 	/**
@@ -515,7 +521,13 @@ public final class Miraculous {
 		if (settling(player, s)) {
 			return true;
 		}
-		if (spoken == MiraculousPhrases.Spoken.TRANSFORM && !s.transformed) {
+		if (spoken == MiraculousPhrases.Spoken.TRANSFORM_LONG && !s.transformed) {
+			// v0.17.1 (user): the full phrase -- the long, show-style sequence
+			transform(player);
+			if (state(player).transformed) {
+				com.projecthero.mod.miraculous.ladybug.LadybugSequence.start(player);
+			}
+		} else if (spoken == MiraculousPhrases.Spoken.TRANSFORM && !s.transformed) {
 			transform(player);
 		} else if (spoken == MiraculousPhrases.Spoken.DETRANSFORM && s.transformed) {
 			detransform(player, false);
@@ -661,7 +673,10 @@ public final class Miraculous {
 		}
 		if (s.transformed) {
 			long age = now - s.formChangeAt;
-			if (age == MiraculousConfig.SWIRL_SOUND_TICK) {
+			boolean longSeq = com.projecthero.mod.miraculous.ladybug.LadybugSequence.running(s, age);
+			if (longSeq) {
+				com.projecthero.mod.miraculous.ladybug.LadybugSequence.tick(player, s, age); // v0.17.1
+			} else 			if (age == MiraculousConfig.SWIRL_SOUND_TICK) {
 				sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.6f);
 			} else if (age == MiraculousConfig.FLASH_TICK) {
 				sound(player, SoundEvents.PLAYER_LEVELUP, 0.6f, 1.6f);

@@ -31,6 +31,10 @@ public final class MiraculousDamage {
 		if (source.is(DamageTypes.GENERIC_KILL) || source.is(DamageTypes.FELL_OUT_OF_WORLD) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return true;
 		}
+		// v0.17.1: nothing touches her while the long transformation plays
+		if (com.projecthero.mod.miraculous.ladybug.LadybugSequence.running(player)) {
+			return false;
+		}
 		if (source.is(DamageTypeTags.IS_FALL)) {
 			// v0.16.7 (user): a landing after a movement move (dash, vault, leap, swing...) is free; any other fall hurts half
 			if (Miraculous.hasSafeLanding(player)) {

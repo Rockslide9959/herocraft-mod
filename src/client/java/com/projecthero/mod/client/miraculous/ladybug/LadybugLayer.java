@@ -44,7 +44,7 @@ public class LadybugLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 		if (anim.cover() < 0.999f) {
 			// the jacket / sleeves / trousers go texel by texel as the suit covers them
 			float cover = anim.cover();
-			OverlayStrips.render(pose, buffers, light, player, parent, (u, v) -> LadybugRender.order(u, v) > cover, false);
+			OverlayStrips.render(pose, buffers, light, player, parent, anim::uncovered, false); // v0.17.1: either direction
 		}
 		// v0.16.6 (user): the wearer's hat layer (hair, hats, glasses) stays -- the core hides every overlay part while a
 		// suit shows, so it is drawn again here, from the wearer's own skin

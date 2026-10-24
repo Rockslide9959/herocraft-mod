@@ -17,7 +17,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public final class MiraculousPhrases {
 	public enum Spoken {
-		TRANSFORM, DETRANSFORM
+		TRANSFORM, DETRANSFORM,
+		/** v0.17.1 (user): the full phrase with the Kwami's name (only Ladybug has a long sequence so far). */
+		TRANSFORM_LONG
 	}
 
 	private MiraculousPhrases() {
@@ -88,6 +90,10 @@ public final class MiraculousPhrases {
 		String on = normalize(transformPhrase(k));
 		// v0.16.7 (user): the Kwami's name is optional ("Spots on!" works as well as "Tikki, spots on!")
 		String prefix = k.id + " ";
+		// v0.17.1 (user): "Tikki, spots on!" in full plays the long sequence; "Spots on!" alone is the quick one
+		if (m.equals(on) && k == Kwami.TIKKI) {
+			return Spoken.TRANSFORM_LONG;
+		}
 		if (m.equals(on) || (on.startsWith(prefix) && m.equals(on.substring(prefix.length())))) {
 			return Spoken.TRANSFORM;
 		}

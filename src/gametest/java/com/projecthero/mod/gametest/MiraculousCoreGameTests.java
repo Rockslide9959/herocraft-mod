@@ -424,4 +424,24 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		}
 		helper.succeed();
 	}
+
+	/** v0.17.1 (user): "Tikki, spots on!" in full plays the long sequence; "Spots on!" alone stays the quick one. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void tikkiSpotsOnPlaysTheLongSequence(GameTestHelper helper) {
+		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "Tikki, spots on!") == MiraculousPhrases.Spoken.TRANSFORM_LONG, "the full phrase");
+		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "Spots on!") == MiraculousPhrases.Spoken.TRANSFORM, "the short phrase");
+		helper.assertTrue(MiraculousPhrases.match(Kwami.PLAGG, "Plagg, claws out!") == MiraculousPhrases.Spoken.TRANSFORM,
+				"only Ladybug has a long sequence so far");
+		ServerPlayer p = mock(helper);
+		Miraculous.grant(p, Kwami.TIKKI);
+		fed(p);
+		helper.assertTrue(Miraculous.onChat(p, "Tikki, spots on!") && Miraculous.transformedAs(p, Kwami.TIKKI), "she transforms");
+		MiraculousState s = Miraculous.state(p);
+		helper.assertTrue(s.animId == com.projecthero.mod.miraculous.ladybug.LadybugSequence.ANIM, "as the long sequence");
+		helper.assertFalse(Miraculous.canAct(p), "no powers while it plays");
+		helper.assertTrue(com.projecthero.mod.miraculous.ladybug.LadybugSequence.running(p), "it is running");
+		helper.assertFalse(p.hurt(p.damageSources().generic(), 5f), "and nothing can hurt her");
+		helper.assertTrue(Miraculous.formTicks(s) == com.projecthero.mod.miraculous.ladybug.LadybugSequence.TOTAL, "8.5 s long");
+		helper.succeed();
+	}
 }
