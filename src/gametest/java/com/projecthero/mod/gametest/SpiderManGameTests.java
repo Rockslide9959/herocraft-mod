@@ -377,8 +377,8 @@ public class SpiderManGameTests implements FabricGameTest {
 		double max = com.projecthero.mod.spider.SpiderManConfig.moves().swingMaxSpeed;
 		helper.assertTrue(out.length() <= max + 1.0e-6,
 				"the rope model must clamp swing speed, got " + out.length());
-		// v0.16.1: faster swinging -- the cap is well above the old 3.2, and the clamp lands on it
-		helper.assertTrue(max >= 4.4 && out.length() > 3.2 * 1.35, "swings now reach about +40% over the old top speed");
+		// v0.17.1 (user): 25% slower than v0.16.1's 4.6 cap (no air drag made that too fast), and the clamp lands on it
+		helper.assertTrue(Math.abs(max - 4.6 * 0.75) < 1.0e-6 && out.length() > max - 0.01, "swings top out 25% below the old 4.6, got " + out.length());
 		helper.succeed();
 	}
 
