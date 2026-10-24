@@ -595,13 +595,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				if (slotWasDown[i] || pressedThisTick) {
 					continue;
 				}
-				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown()));
+				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown(), moveBits(client)));
 				pressedThisTick = true;
 			}
 
 			boolean down = key.isDown();
 			if (down && !slotWasDown[i] && !pressedThisTick) {
-				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown()));
+				ClientPlayNetworking.send(new AbilityInputPayload(slot, true, client.options.keyShift.isDown(), moveBits(client)));
 			}
 			// v0.16.4: a tap that went down and up between two ticks sends its release too (it used to leave the server holding)
 			if (!down && (slotWasDown[i] || pressedThisTick)) {
@@ -609,6 +609,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			}
 			slotWasDown[i] = down;
 		}
+	}
+
+	/** v0.17.1: the WASD keys held right now, sent with each ability press (directional dashes). */
+	private static int moveBits(Minecraft client) {
+		return com.projecthero.mod.hero.PressInput.bits(client.options.keyUp.isDown(), client.options.keyDown.isDown(),
+				client.options.keyLeft.isDown(), client.options.keyRight.isDown());
 	}
 
 	/**

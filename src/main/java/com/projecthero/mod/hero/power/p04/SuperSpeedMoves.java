@@ -95,6 +95,24 @@ public final class SuperSpeedMoves {
 	public static final int SWEEP_UNREACHABLE_TICKS = 5 * 20;
 	/** v0.14.16: failsafe -- however many are left, a sweep ends (and brings you home) after this many ticks. */
 	public static final int SWEEP_MAX_TICKS = 60 * 20;
+	/** v0.17.1 Shift+Z Lightning Throw: a 1 s charge, then a bolt (48 blocks) for 24 that arcs to 3 more within 6 for 12. */
+	public static final String LIGHTNING_READY = "lightning_ready";
+	public static final String LIGHTNING_LEFT = "lightning_left";
+	public static final int LIGHTNING_CD = 12 * 20;
+	public static final int LIGHTNING_CHARGE_TICKS = 20;
+	public static final double LIGHTNING_RANGE = 48.0;
+	public static final float LIGHTNING_DAMAGE = 24.0f;
+	public static final int LIGHTNING_CHAINS = 3;
+	public static final double LIGHTNING_CHAIN_RADIUS = 6.0;
+	public static final float LIGHTNING_CHAIN_DAMAGE = 12.0f;
+
+	/** v0.17.1 Shift+V Afterimage Decoys: three images that hold every foe's attention for 6 s. */
+	public static final String DECOY_READY = "decoy_ready";
+	public static final int DECOY_CD = 20 * 20;
+	public static final int DECOY_COUNT = 3;
+	public static final int DECOY_TICKS = 6 * 20;
+	public static final double DECOY_LURE_RANGE = 16.0;
+
 	/** v0.14.16: how many of the nearest targets one hop tries before waiting for the next hop. */
 	private static final int SWEEP_TRIES_PER_HOP = 8;
 
@@ -762,12 +780,169 @@ public final class SuperSpeedMoves {
 		}
 	}
 
+	// ---- Shift+Z: Lightning Throw (v0.17.1) -------------------------------------------------------------
+
+	public static boolean lightningCharging(ServerPlayer p) {
+		return res(p, LIGHTNING_LEFT) > 0.5f;
+	}
+
+	/** Shift+Z: run in place for a second, building Speed Force lightning in your hand; it throws itself when full. */
+	public static void startLightning(ServerPlayer p) {
+		if (lightningCharging(p)) {
+			return;
+		}
+		if (!shiftReady(p, LIGHTNING_READY)) {
+			cooldownMessage(p, "lightning_throw", shiftRemaining(p, LIGHTNING_READY));
+			return;
+		}
+		set(p, LIGHTNING_LEFT, LIGHTNING_CHARGE_TICKS);
+		startShiftCooldown(p, LIGHTNING_READY, LIGHTNING_CD);
+		MutationVisuals.play(p, SuperSpeedHandlers.ANIM_TS_CHARGE);
+		AbilityHelpers.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.8f, 1.8f);
+	}
+
+	/** One tick of the charge: sparks spiral up your body, then the bolt goes. */
+	public static void lightningTick(ServerPlayer p) {
+		int left = Math.round(res(p, LIGHTNING_LEFT));
+		if (left <= 0) {
+			return;
+		}
+		if (!p.isAlive()) {
+			set(p, LIGHTNING_LEFT, 0);
+			return;
+		}
+		left--;
+		set(p, LIGHTNING_LEFT, left);
+		ServerLevel level = p.serverLevel();
+		double a = left * 0.9;
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX() + Math.cos(a) * 0.7, p.getY() + 0.2 + (LIGHTNING_CHARGE_TICKS - left) * 0.08,
+				p.getZ() + Math.sin(a) * 0.7, 3, 0.05, 0.05, 0.05, 0.02);
+		if (left % 5 == 0) {
+			AbilityHelpers.sound(p, SoundEvents.ELYTRA_FLYING, 0.25f, 2.0f);
+		}
+		if (left == 0) {
+			throwLightning(p);
+		}
+	}
+
+	/** The throw: a bolt along the look that strikes the first foe for 24 and arcs on to up to 3 more nearby for 12. */
+	public static void throwLightning(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		MutationVisuals.stopIf(p, SuperSpeedHandlers.ANIM_TS_CHARGE);
+		float m = mult(p);
+		Vec3 eye = p.getEyePosition();
+		LivingEntity target = AbilityHelpers.raycastEntity(p, LIGHTNING_RANGE);
+		if (target != null && !validFoe(p, target)) {
+			target = null;
+		}
+		Vec3 end = target != null ? target.position().add(0, target.getBbHeight() * 0.5, 0) : AbilityHelpers.aimPoint(p, LIGHTNING_RANGE);
+		zigzag(level, eye.add(p.getLookAngle().scale(0.6)), end);
+		AbilityHelpers.sound(p, SoundEvents.LIGHTNING_BOLT_IMPACT, 1.2f, 1.6f);
+		AbilityHelpers.sound(p, SoundEvents.TRIDENT_THUNDER.value(), 0.6f, 1.8f);
+		BatchA.play(p, key(), "dash_forward", 10);
+		if (target == null) {
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 20, 0.4, 0.4, 0.4, 0.15);
+			return;
+		}
+		punchThrough(p, target, LIGHTNING_DAMAGE * m);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 30, 0.4, 0.6, 0.4, 0.2);
+		level.sendParticles(ParticleTypes.FLASH, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+		Vec3 from = end;
+		List<LivingEntity> chained = new ArrayList<>();
+		chained.add(target);
+		for (int i = 0; i < LIGHTNING_CHAINS; i++) {
+			LivingEntity next = null;
+			double best = LIGHTNING_CHAIN_RADIUS * LIGHTNING_CHAIN_RADIUS;
+			for (LivingEntity e : AbilityHelpers.living(level, from, LIGHTNING_CHAIN_RADIUS, e -> validFoe(p, e) && !chained.contains(e))) {
+				double d = e.distanceToSqr(from);
+				if (d < best) {
+					best = d;
+					next = e;
+				}
+			}
+			if (next == null) {
+				break;
+			}
+			Vec3 to = next.position().add(0, next.getBbHeight() * 0.5, 0);
+			zigzag(level, from, to);
+			punchThrough(p, next, LIGHTNING_CHAIN_DAMAGE * m);
+			chained.add(next);
+			from = to;
+		}
+	}
+
+	/** A jagged bolt of sparks from {@code a} to {@code b}. */
+	private static void zigzag(ServerLevel level, Vec3 a, Vec3 b) {
+		Vec3 d = b.subtract(a);
+		int steps = Math.max(2, (int) (d.length() * 3));
+		Vec3 prev = a;
+		for (int i = 1; i <= steps; i++) {
+			Vec3 pt = a.add(d.scale(i / (double) steps));
+			if (i < steps) {
+				pt = pt.add((level.random.nextDouble() - 0.5) * 0.5, (level.random.nextDouble() - 0.5) * 0.5, (level.random.nextDouble() - 0.5) * 0.5);
+			}
+			AbilityHelpers.line(level, prev, pt, ParticleTypes.ELECTRIC_SPARK, 3);
+			prev = pt;
+		}
+		AbilityHelpers.line(level, a, b, new DustParticleOptions(new org.joml.Vector3f(1.0f, 0.85f, 0.25f), 1.0f), 2);
+	}
+
+	// ---- Shift+V: Afterimage Decoys (v0.17.1) -----------------------------------------------------------
+
+	/** Shift+V: three afterimages of you stay behind; every foe after you goes for them instead for 6 s. */
+	public static void decoys(ServerPlayer p) {
+		if (!shiftReady(p, DECOY_READY)) {
+			cooldownMessage(p, "afterimage_decoys", shiftRemaining(p, DECOY_READY));
+			return;
+		}
+		ServerLevel level = p.serverLevel();
+		Vec3 fwd = BatchA.flatLook(p);
+		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
+		int spawned = 0;
+		for (int i = 0; i < DECOY_COUNT; i++) {
+			double ang = (i - (DECOY_COUNT - 1) / 2.0) * 1.1;
+			Vec3 at = p.position().add(right.scale(Math.sin(ang) * 2.2)).add(fwd.scale(Math.cos(ang) * 1.5 - 0.5));
+			com.projecthero.mod.hero.revamp.d.MirrorImageEntity img = com.projecthero.mod.hero.revamp.d.BatchDContent.MIRROR_IMAGE.create(level);
+			if (img == null) {
+				continue;
+			}
+			if (!level.noCollision(img, img.getType().getDimensions().makeBoundingBox(at))) {
+				at = p.position();
+			}
+			img.moveTo(at.x, at.y, at.z, p.getYRot(), 0.0f);
+			img.setYHeadRot(p.getYHeadRot());
+			img.copyFrom(p);
+			img.makeSpeedster(DECOY_TICKS);
+			level.addFreshEntity(img);
+			streak(p, SpeedStreakPayload.KIND_STREAK, p.position(), at, color(p), 10);
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y + 1.0, at.z, 12, 0.3, 0.6, 0.3, 0.05);
+			spawned++;
+		}
+		if (spawned == 0) {
+			return;
+		}
+		startShiftCooldown(p, DECOY_READY, DECOY_CD);
+		// mobs already on you switch to the images straight away
+		for (Mob mob : level.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(DECOY_LURE_RANGE), m -> m.getTarget() == p)) {
+			List<com.projecthero.mod.hero.revamp.d.MirrorImageEntity> images = level.getEntitiesOfClass(
+					com.projecthero.mod.hero.revamp.d.MirrorImageEntity.class, p.getBoundingBox().inflate(4.0),
+					img -> img.isSpeedster() && img.ownerId().map(p.getUUID()::equals).orElse(false));
+			if (!images.isEmpty()) {
+				mob.setTarget(images.get(level.random.nextInt(images.size())));
+			}
+		}
+		BatchA.play(p, key(), "dash_forward", 10);
+		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.0f, 1.6f);
+		AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.9f);
+	}
+
 	// ---- upkeep ----------------------------------------------------------------------------------------
 
 	/** Per-tick hook for all of the above (called from the power's passive tick). */
 	public static void tick(ServerPlayer p) {
 		vortexTick(p);
 		sweepTick(p);
+		lightningTick(p);
 	}
 
 	/** Power lost: stop whatever is running (a sweep still brings you home). */
@@ -779,6 +954,10 @@ public final class SuperSpeedMoves {
 		if (vortexActive(p)) {
 			set(p, VORTEX_LEFT, 0);
 			MutationVisuals.stopIf(p, "p04.vortex");
+		}
+		if (lightningCharging(p)) {
+			set(p, LIGHTNING_LEFT, 0);
+			MutationVisuals.stopIf(p, SuperSpeedHandlers.ANIM_TS_CHARGE);
 		}
 	}
 

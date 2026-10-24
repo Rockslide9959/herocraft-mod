@@ -645,7 +645,7 @@ public final class EngineMoves {
 	// ================================================================ X: Recipro Dash (the one dash) / Shift+X: Rising Kick
 
 	/**
-	 * One burst dash along the look, farther in higher gears. No damage (it's the dash), it just bumps mobs aside. In
+	 * One burst dash, farther in higher gears -- v0.17.1 (user): the way the held WASD keys point (forward when none are). No damage (it's the dash), it just bumps mobs aside. In
 	 * Recipro Turbo it is the Turbo Strike instead ({@link #strike}).
 	 */
 	public static void dash(ServerPlayer p) {
@@ -654,7 +654,7 @@ public final class EngineMoves {
 			return;
 		}
 		Session s = session(p);
-		Vec3 dir = flatLook(p);
+		Vec3 dir = com.projecthero.mod.hero.PressInput.flatDirection(p, com.projecthero.mod.hero.PressInput.move, flatLook(p));
 		s.dashAt = now(p);
 		s.dashFrom = p.position();
 		s.dashDir = dir;

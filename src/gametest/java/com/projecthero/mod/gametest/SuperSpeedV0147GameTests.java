@@ -372,4 +372,45 @@ public class SuperSpeedV0147GameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(cd - expected) <= 1, "150 s cooldown starts at the end (" + cd + " / " + expected + ")");
 		helper.succeed();
 	}
+
+	// ---- v0.17.1: Shift+Z Lightning Throw / Shift+V Afterimage Decoys -----------------------------------
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "speed_v0171_lightning")
+	public void lightningThrowHitsAndArcs(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		Zombie first = zombie(helper, 2.5, 4.5);
+		Zombie second = zombie(helper, 4.5, 4.5);
+		shiftPress(p, 4); // Shift+Z
+		helper.assertTrue(SuperSpeedMoves.lightningCharging(p), "the charge builds");
+		helper.assertFalse(SuperSpeedTimeSlow.isCasting(p) || SuperSpeedHandlers.timeSlowCharging(p), "and Time Slow is left alone");
+		for (int i = 0; i < SuperSpeedMoves.LIGHTNING_CHARGE_TICKS; i++) {
+			SuperSpeedMoves.lightningTick(p);
+		}
+		helper.assertFalse(SuperSpeedMoves.lightningCharging(p), "thrown after 1 s");
+		helper.assertTrue(Math.abs((100f - first.getHealth()) - SuperSpeedMoves.LIGHTNING_DAMAGE) < 0.01f,
+				"24 to the one in the crosshair, dealt " + (100f - first.getHealth()));
+		helper.assertTrue(Math.abs((100f - second.getHealth()) - SuperSpeedMoves.LIGHTNING_CHAIN_DAMAGE) < 0.01f,
+				"12 to the one it arcs to, dealt " + (100f - second.getHealth()));
+		helper.assertTrue(res(p, SuperSpeedMoves.LIGHTNING_READY) > helper.getLevel().getGameTime() + 200, "12 s cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, batch = "speed_v0171_decoys")
+	public void afterimageDecoysPullAggro(GameTestHelper helper) {
+		ServerPlayer p = hero(helper);
+		Zombie z = zombie(helper, 2.5, 5.5);
+		z.setTarget(p);
+		shiftPress(p, 5); // Shift+V
+		java.util.List<com.projecthero.mod.hero.revamp.d.MirrorImageEntity> images = helper.getLevel().getEntitiesOfClass(
+				com.projecthero.mod.hero.revamp.d.MirrorImageEntity.class, p.getBoundingBox().inflate(8.0),
+				com.projecthero.mod.hero.revamp.d.MirrorImageEntity::isSpeedster);
+		helper.assertTrue(images.size() == SuperSpeedMoves.DECOY_COUNT, "three afterimages, got " + images.size());
+		helper.assertTrue(z.getTarget() instanceof com.projecthero.mod.hero.revamp.d.MirrorImageEntity, "the zombie goes for one");
+		helper.assertFalse(SuperSpeedHandlers.overdrive(p), "Shift+V is not Overdrive");
+		images.get(0).hurt(helper.getLevel().damageSources().mobAttack(z), 5f);
+		helper.assertTrue(images.get(0).isAlive(), "a hit passes through the blur");
+		helper.assertTrue(res(p, SuperSpeedMoves.DECOY_READY) > helper.getLevel().getGameTime() + 300, "20 s cooldown");
+		images.forEach(net.minecraft.world.entity.Entity::discard);
+		helper.succeed();
+	}
 }

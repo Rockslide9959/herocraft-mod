@@ -8,6 +8,8 @@ import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -17,13 +19,13 @@ import net.minecraft.world.entity.player.Player;
  * runs, so no key lost an attack.
  * <pre>
  *   V  Gear Up (Gear 3: "Max gear")                             Shift+V  Gear Down
- *   X  Recipro Dash (in Turbo: the Turbo Strike)                 Shift+X  Rising Kick
+ *   X  Recipro Dash, WASD-aimed (in Turbo: the Turbo Strike)                 Shift+X  Rising Kick
  *   R  Recipro Kick (speed-scaled)                               Shift+R  Spin Kick
  *   G  Kick Barrage                                              Shift+G  Recipro Extend Kick (charged)
  *   Z  Axe Kick                                                  Shift+Z  Sweep Kick
  *   C  Recipro Turbo (mode: 30 s 2x speed, +50% hits; C ends)    Shift+C  Ingenium Finisher (combo)
  * </pre>
- * Passives: a one-block step; heat cools on its own while walking / standing (fastest at Gear 0); the Ingenium suit halves
+ * Passives: a one-block step; 60% less fall damage in Gear 1+ (v0.17.1); heat cools on its own while walking / standing (fastest at Gear 0); the Ingenium suit halves
  * the heat build. The moves live in {@link EngineMoves}; every number is in {@link EngineConfig}.
  */
 public final class EngineKit implements QuirkKit {
@@ -58,6 +60,15 @@ public final class EngineKit implements QuirkKit {
 			default -> {
 			}
 		}
+	}
+
+	/** v0.17.1 (user): 60% less fall damage while a gear is engaged. */
+	@Override
+	public float modifyIncomingDamage(ServerPlayer player, DamageSource source, float amount) {
+		if (source.is(DamageTypeTags.IS_FALL) && Engine.gear(player) > 0) {
+			return amount * EngineConfig.FALL_DAMAGE_MULT_IN_GEAR;
+		}
+		return amount;
 	}
 
 	@Override

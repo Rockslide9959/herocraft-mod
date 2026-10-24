@@ -408,6 +408,42 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): the dash goes the way WASD points -- D (right) at yaw 0 sends him along -X; no keys = forward. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void reciproDashFollowsTheHeldKeys(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 6.5, 2.0, 4.5);
+		com.projecthero.mod.hero.PressInput.move = com.projecthero.mod.hero.PressInput.RIGHT;
+		try {
+			EngineMoves.dash(p);
+		} finally {
+			com.projecthero.mod.hero.PressInput.move = 0;
+		}
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(v.x < -1.0 && Math.abs(v.z) < 0.2, "D dashes to his right (-X at yaw 0): " + v);
+		Vec3 back = com.projecthero.mod.hero.PressInput.flatDirection(p, com.projecthero.mod.hero.PressInput.BACK, Vec3.ZERO);
+		helper.assertTrue(back.z < -0.99, "S points behind him: " + back);
+		Vec3 none = com.projecthero.mod.hero.PressInput.flatDirection(p, 0, new Vec3(0, 0, 1));
+		helper.assertTrue(none.z > 0.99, "no keys falls back to forward");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): 60% less fall damage while a gear is engaged; full damage in neutral. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void gearsCutFallDamageBySixtyPercent(GameTestHelper helper) {
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		p.hurt(p.damageSources().fall(), 10f);
+		float neutral = 20f - p.getHealth();
+		p.setHealth(20f);
+		p.invulnerableTime = 0;
+		EngineMoves.setGear(p, 1);
+		p.hurt(p.damageSources().fall(), 10f);
+		float geared = 20f - p.getHealth();
+		helper.assertTrue(Math.abs(neutral - 10f) < EPS, "neutral takes it all: " + neutral);
+		helper.assertTrue(Math.abs(geared - 4f) < EPS, "Gear 1 takes 40%: " + geared);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void risingKickLaunchesTheTargetUp(GameTestHelper helper) {
 		floor(helper);

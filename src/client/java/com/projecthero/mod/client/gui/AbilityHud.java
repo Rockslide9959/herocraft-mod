@@ -159,9 +159,17 @@ public final class AbilityHud {
 			}
 			// v0.14.7: Super Speed's Shift+R / Shift+G / Shift+X (Mach Punch, Speed Vortex, Speed Sweep) keep absolute
 			// ready-at times in their own resources -- the R / G / X box shows the longer of the two waits.
-			if (power.key().equals("power_04_super_speed")
-					&& (slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_3)) {
-				String extra = slot == AbilitySlot.SLOT_1 ? "mach_ready" : slot == AbilitySlot.SLOT_2 ? "vortex_ready" : "sweep_ready";
+			// v0.17.1: so do Shift+Z Lightning Throw (Z box) and Shift+V Afterimage Decoys (V box).
+			String speedExtra = !power.key().equals("power_04_super_speed") ? null : switch (slot) {
+				case SLOT_1 -> "mach_ready";
+				case SLOT_2 -> "vortex_ready";
+				case SLOT_3 -> "sweep_ready";
+				case SLOT_4 -> "lightning_ready";
+				case SLOT_5 -> "decoy_ready";
+				default -> null;
+			};
+			if (speedExtra != null) {
+				String extra = speedExtra;
 				float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + extra, 0.0f);
 				int alt = (int) Math.max(0L, (long) readyAtAlt - gameTime);
 				if (alt > cdRemain) {

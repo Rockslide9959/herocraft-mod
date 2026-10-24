@@ -138,12 +138,18 @@ public final class EngineConfig {
 	public static final int TURBO_COOLDOWN = 2400;
 
 	// ---------------------------------------------------------------- X: Recipro Dash (the one dash)
-	/** A single burst dash along the look (flat): this far + this much per gear, over this many ticks. */
+	/**
+	 * A single burst dash, flat: this far + this much per gear, over this many ticks. v0.17.1 (user): it goes the way the WASD
+	 * keys point (forward when none are held).
+	 */
 	public static final double DASH_DISTANCE = 7.0;
 	public static final double DASH_PER_GEAR = 2.0;
 	public static final int DASH_TICKS = 5;
 	public static final float DASH_HEAT = 5f;
 	public static final int DASH_COOLDOWN = 40;
+
+	/** v0.17.1 (user): fall damage is cut by 60% while a gear is engaged (Gear 1+). */
+	public static final float FALL_DAMAGE_MULT_IN_GEAR = 0.4f;
 
 	// ---------------------------------------------------------------- Shift+X: Rising Kick
 	/** An engine uppercut kick that launches the target straight up. */

@@ -52,6 +52,13 @@ public class MirrorImageEntity extends PathfinderMob {
 			SynchedEntityData.defineId(MirrorImageEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
 	private int life;
+	/**
+	 * v0.17.1: a Super Speed afterimage decoy (Shift+V) instead of a Mirror Image -- it lives {@link #maxLife} ticks,
+	 * shrugs off hits (only a spark) instead of shattering, and pulls every foe in range onto itself. Never saved: the
+	 * image is persistence-free bookkeeping like the rest of this entity.
+	 */
+	private boolean speedster;
+	private int maxLife = LIFETIME;
 
 	public MirrorImageEntity(EntityType<? extends PathfinderMob> type, Level level) {
 		super(type, level);
@@ -127,7 +134,7 @@ public class MirrorImageEntity extends PathfinderMob {
 		}
 		life++;
 		ServerPlayer owner = owner();
-		if (life > LIFETIME || owner == null || !owner.isAlive() || owner.level() != level()) {
+		if (life > maxLife || owner == null || !owner.isAlive() || owner.level() != level()) {
 			shatter(null);
 			return;
 		}
@@ -135,11 +142,21 @@ public class MirrorImageEntity extends PathfinderMob {
 			lure(owner);
 		}
 		if (life % 5 == 0 && level() instanceof ServerLevel sl) {
-			sl.sendParticles(BatchDFx.LIGHT, getX(), getY() + 1.0, getZ(), 2, 0.3, 0.5, 0.3, 0.0);
+			sl.sendParticles(speedster ? ParticleTypes.ELECTRIC_SPARK : BatchDFx.LIGHT, getX(), getY() + 1.0, getZ(), 2, 0.3, 0.5, 0.3, 0.0);
 		}
-		if (life > LIFETIME - 30 && life % 4 == 0 && level() instanceof ServerLevel sl) {
+		if (!speedster && life > LIFETIME - 30 && life % 4 == 0 && level() instanceof ServerLevel sl) {
 			sl.sendParticles(ParticleTypes.END_ROD, getX(), getY() + 1.0, getZ(), 3, 0.3, 0.6, 0.3, 0.01);
 		}
+	}
+
+	/** v0.17.1: make this a Super Speed afterimage decoy that lasts {@code ticks}. */
+	public void makeSpeedster(int ticks) {
+		speedster = true;
+		maxLife = ticks;
+	}
+
+	public boolean isSpeedster() {
+		return speedster;
 	}
 
 	/** Hostile mobs that are after the caster (or idle and close) turn on this image instead, most of the time. */
@@ -149,7 +166,8 @@ public class MirrorImageEntity extends PathfinderMob {
 			LivingEntity target = mob.getTarget();
 			boolean afterOwner = target == owner;
 			boolean idleNear = target == null && mob.distanceToSqr(this) < 10.0 * 10.0;
-			if ((afterOwner || idleNear) && random.nextFloat() < 0.65f) {
+			// a speedster's afterimage is irresistible: every foe after him (or near it) goes for it, every time
+			if (speedster ? (afterOwner || idleNear || !(target instanceof MirrorImageEntity)) : (afterOwner || idleNear) && random.nextFloat() < 0.65f) {
 				mob.setTarget(this);
 			}
 		}
@@ -162,6 +180,13 @@ public class MirrorImageEntity extends PathfinderMob {
 		}
 		if (isInvulnerableTo(source)) {
 			return false;
+		}
+		if (speedster) {
+			// the blow passes through a blur: a spark, and the image keeps them busy until it fades
+			if (level() instanceof ServerLevel sl) {
+				sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, getX(), getY() + 1.0, getZ(), 8, 0.3, 0.5, 0.3, 0.1);
+			}
+			return true;
 		}
 		shatter(source.getEntity() instanceof LivingEntity le ? le : null);
 		return true;

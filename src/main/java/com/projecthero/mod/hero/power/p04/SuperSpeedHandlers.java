@@ -435,7 +435,7 @@ public final class SuperSpeedHandlers {
 	public static void advanceClocks(ServerPlayer p, int ticks) {
 		long now = p.level().getGameTime();
 		for (String name : new String[] { OVERDRIVE_UNTIL, SuperSpeedMoves.MACH_READY, SuperSpeedMoves.VORTEX_READY,
-				SuperSpeedMoves.SWEEP_READY }) {
+				SuperSpeedMoves.SWEEP_READY, SuperSpeedMoves.LIGHTNING_READY, SuperSpeedMoves.DECOY_READY }) {
 			float v = res(p, name);
 			if (v > now) {
 				set(p, name, Math.max(now, v - ticks));
@@ -695,6 +695,18 @@ public final class SuperSpeedHandlers {
 						String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(res(p, EXHAUST) / 20.0))), true);
 			}
 			return true;
+		}
+		// v0.17.1: Shift+Z Lightning Throw and Shift+V Afterimage Decoys -- their own cooldowns, never gated on Time Slow /
+		// Overdrive (Shift+V works in the middle of an Overdrive too). Not while a Time Slow charge or cast holds Z.
+		if (pressed && p.isShiftKeyDown()) {
+			if (slot == AbilitySlot.SLOT_4 && !timeSlowCharging(p) && !SuperSpeedTimeSlow.isCasting(p)) {
+				SuperSpeedMoves.startLightning(p);
+				return true;
+			}
+			if (slot == AbilitySlot.SLOT_5) {
+				SuperSpeedMoves.decoys(p);
+				return true;
+			}
 		}
 		// v0.14.16: V while Overdrive runs -- a fresh press (V let go since it started) ends it early; the key repeat of
 		// the starting press is swallowed

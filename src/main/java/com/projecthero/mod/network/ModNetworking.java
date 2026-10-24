@@ -135,7 +135,13 @@ public final class ModNetworking {
 			if (payload.pressed() && payload.shift() && !context.player().isShiftKeyDown()) {
 				context.player().setShiftKeyDown(true);
 			}
-			AbilityRouter.handleInput(context.player(), payload.slot(), payload.pressed());
+			// v0.17.1: the WASD keys held at the press, readable while it is handled (Engine's directional dash)
+			com.projecthero.mod.hero.PressInput.move = payload.pressed() ? payload.move() : 0;
+			try {
+				AbilityRouter.handleInput(context.player(), payload.slot(), payload.pressed());
+			} finally {
+				com.projecthero.mod.hero.PressInput.move = 0;
+			}
 		});
 
 		// Iron Man double-tap-jump gestures: repulsor flight toggle, and suit summon.

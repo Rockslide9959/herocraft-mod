@@ -19,10 +19,17 @@ import net.minecraft.resources.ResourceLocation;
  *
  * <p>v0.16.4: {@code shift} is the client's Sneak key at the press. Shift and the ability key pressed together could reach
  * the server key-first, before its sneak state caught up -- a Punisher's Shift+Z Warzone came out as a plain Z grenade.
+ *
+ * <p>v0.17.1: {@code move} is the WASD keys held at the press ({@link com.projecthero.mod.hero.PressInput} bits), so a
+ * dash can go the way you are walking (Engine's Recipro Dash).
  */
-public record AbilityInputPayload(int slot, boolean pressed, boolean shift) implements CustomPacketPayload {
+public record AbilityInputPayload(int slot, boolean pressed, boolean shift, int move) implements CustomPacketPayload {
 	public AbilityInputPayload(int slot, boolean pressed) {
-		this(slot, pressed, false);
+		this(slot, pressed, false, 0);
+	}
+
+	public AbilityInputPayload(int slot, boolean pressed, boolean shift) {
+		this(slot, pressed, shift, 0);
 	}
 
 	public static final CustomPacketPayload.Type<AbilityInputPayload> TYPE =
@@ -32,6 +39,7 @@ public record AbilityInputPayload(int slot, boolean pressed, boolean shift) impl
 			ByteBufCodecs.VAR_INT, AbilityInputPayload::slot,
 			ByteBufCodecs.BOOL, AbilityInputPayload::pressed,
 			ByteBufCodecs.BOOL, AbilityInputPayload::shift,
+			ByteBufCodecs.VAR_INT, AbilityInputPayload::move,
 			AbilityInputPayload::new);
 
 	@Override

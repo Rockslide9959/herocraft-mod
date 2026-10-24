@@ -76,9 +76,9 @@ public final class SpiderManConfig {
 		public float deflectReturnChance = 0.4f;
 		// ---- v0.16.1 (later): faster web swinging (config v3). Per-tick velocities in blocks / tick. ----
 		/** Forward key push while swinging (was 0.100). */
-		public double swingForwardAccel = 0.13;
+		public double swingForwardAccel = 0.0975; // v0.17.1 (user): 25% slower swinging (was 0.13)
 		/** Push along the arc through its bottom, strongest with the anchor overhead (was 0.042). */
-		public double swingBottomPush = 0.068;
+		public double swingBottomPush = 0.051; // v0.17.1: was 0.068
 		/** Extra pull down while falling on a taut line -- the gravity pump into the bottom of the arc (was 0). */
 		public double swingGravityPump = 0.03;
 		/** Nudge toward the facing direction (was 0.022). */
@@ -86,14 +86,14 @@ public final class SpiderManConfig {
 		/** Rope snap-back per block of overshoot -- how quickly a fresh line goes taut (was 0.14). */
 		public double swingTension = 0.2;
 		/** Terminal swing speed (was 3.2). */
-		public double swingMaxSpeed = 4.6;
+		public double swingMaxSpeed = 3.45; // v0.17.1: 25% lower (was 4.6) -- with air momentum he kept all of it
 		/** Velocity multiplier on letting go in the air (was 1.0 -- untouched). */
-		public double swingReleaseBoost = 1.15;
+		public double swingReleaseBoost = 1.05; // v0.17.1: was 1.15
 		/** Lift added on letting go in the air (was 0). */
 		public double swingReleaseLift = 0.12;
 		/** A new line fired within this many ticks of letting go chains: it adds swingChainBoost along the travel (was none). */
 		public int swingChainWindowTicks = 20;
-		public double swingChainBoost = 0.35;
+		public double swingChainBoost = 0.26; // v0.17.1: was 0.35
 		// ---- v0.16.4 (user): air momentum + aerial control (config v11). See SpiderAirControl. ----
 		/** After a swing release / zip / glide he keeps his horizontal speed in the air (no air drag) until he lands. */
 		public boolean airMomentum = true;
@@ -222,6 +222,9 @@ public final class SpiderManConfig {
 			.introduce(10, "v0.16.4 cocoon struggle minigame")
 			// v0.16.4 (user): no air drag after a swing + WASD aerial control (new keys only -- they take their defaults)
 			.introduce(11, "v0.16.4 air momentum and aerial control")
+			// v0.17.1 (user): web swinging 25% slower -- with no air drag since v0.16.4 the faster swing was too fast
+			.reset(12, "v0.17.1 web swinging 25% slower", "moves.swingForwardAccel", "moves.swingBottomPush", "moves.swingMaxSpeed",
+					"moves.swingReleaseBoost", "moves.swingChainBoost")
 			.build();
 
 	public static void load() {
