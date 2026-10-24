@@ -118,12 +118,12 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 		helper.assertTrue(ConstructType.SNIPER_RIFLE.category() == ConstructType.Category.ATTACK, "the rifle is an Attack construct");
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		helper.assertTrue(GreenLanternSniper.isOut(player), "C forms the rifle");
-		helper.assertTrue(charge(player) == 2000f - GreenLanternConfig.SNIPER_FORM_COST, "forming it costs its form cost");
+		helper.assertTrue(charge(player) == 5000f - GreenLanternConfig.SNIPER_FORM_COST, "forming it costs its form cost");
 		int mask = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0);
 		helper.assertTrue((mask & GreenLanternConstructs.HAND_SNIPER) != 0, "every client is told to draw the rifle");
 		GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
 		helper.assertFalse(GreenLanternSniper.isOut(player), "C again puts it away");
-		helper.assertTrue(charge(player) == 2000f - GreenLanternConfig.SNIPER_FORM_COST, "putting it away is free");
+		helper.assertTrue(charge(player) == 5000f - GreenLanternConfig.SNIPER_FORM_COST, "putting it away is free");
 		mask = player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_HAND_CONSTRUCTS, 0);
 		helper.assertTrue((mask & GreenLanternConstructs.HAND_SNIPER) == 0, "the rifle is no longer drawn");
 		helper.assertFalse(GreenLanternSniper.fire(player, GreenLanternConfig.SNIPER_FULL_CHARGE_TICKS),
