@@ -382,6 +382,11 @@ public final class Falcon {
 	// ---------------------------------------------------------------- tick
 
 	/** Every tick, for every player: the gear check (cheap), then the power itself. */
+	/** Test hook: let the next {@link #tick} in this same game tick run (it runs once a tick otherwise). */
+	public static void forgetTick(ServerPlayer player) {
+		LAST_TICK.remove(player.getUUID());
+	}
+
 	public static void tick(ServerPlayer player) {
 		FalconState s = player.getAttachedOrElse(ModAttachments.FALCON_STATE, null);
 		boolean full = player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).is(FalconItems.WING_PACK) && FalconItems.fullSet(player);

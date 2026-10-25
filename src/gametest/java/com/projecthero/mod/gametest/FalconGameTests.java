@@ -56,6 +56,7 @@ public class FalconGameTests implements FabricGameTest {
 	private static ServerPlayer falcon(GameTestHelper helper, double x, double y, double z) {
 		ServerPlayer p = mock(helper, x, y, z);
 		FalconItems.equipFullSet(p);
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		p.setOnGround(true);
 		return p;
@@ -64,6 +65,7 @@ public class FalconGameTests implements FabricGameTest {
 	private static void pump(GameTestHelper helper, ServerPlayer p) {
 		helper.onEachTick(() -> {
 			p.tickCount++;
+			Falcon.forgetTick(p);
 			Falcon.tick(p);
 		});
 	}
@@ -100,17 +102,21 @@ public class FalconGameTests implements FabricGameTest {
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(FalconItems.WING_PACK));
 		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FalconItems.GOGGLES));
 		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(FalconItems.LEGGINGS));
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertFalse(Falcon.hasPower(p), "three pieces are not enough");
 		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(FalconItems.BOOTS));
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(Falcon.hasPower(p), "the full set makes him the Falcon");
 		helper.assertTrue(HeroTiers.heroCount(p) == 1 && HeroTiers.holdsHero(p, "falcon"), "one Primary: the Falcon");
 		helper.assertTrue(Falcon.thrust(p) == FalconConfig.THRUST_MAX, "starts with full Thrust");
 		p.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertFalse(Falcon.hasPower(p), "a boot off: no longer the Falcon");
 		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(FalconItems.BOOTS));
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(Falcon.hasPower(p), "back on: the Falcon again");
 		helper.succeed();
@@ -122,11 +128,14 @@ public class FalconGameTests implements FabricGameTest {
 		helper.assertTrue(Falcon.hasPower(p), "geared");
 		Kryptonian.grant(p);
 		helper.assertTrue(Kryptonian.hasPower(p) && !Falcon.hasPower(p), "the Kryptonian replaced the Falcon");
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(!Falcon.hasPower(p) && Kryptonian.hasPower(p), "the worn gear does not fight the new power for the slot");
 		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FalconItems.GOGGLES));
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(Falcon.hasPower(p) && !Kryptonian.hasPower(p), "re-geared: the Falcon replaces the Kryptonian");
 		helper.succeed();
@@ -141,6 +150,7 @@ public class FalconGameTests implements FabricGameTest {
 		helper.assertTrue(p.getInventory().contains(new ItemStack(Items.DIAMOND_CHESTPLATE)), "the old chestplate went into the inventory");
 		PowerGrants.revokeHeroTier(p, "falcon");
 		helper.assertFalse(Falcon.hasPower(p), "revoked");
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertFalse(Falcon.hasPower(p), "and it stays revoked while the gear is still on");
 		helper.succeed();
@@ -155,6 +165,7 @@ public class FalconGameTests implements FabricGameTest {
 		p.hurt(p.damageSources().flyIntoWall(), 6f);
 		helper.assertTrue(p.getHealth() == hp, "no wall damage geared");
 		p.setItemSlot(EquipmentSlot.FEET, ItemStack.EMPTY);
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		p.invulnerableTime = 0;
 		p.hurt(p.damageSources().fall(), 4f);
@@ -283,6 +294,7 @@ public class FalconGameTests implements FabricGameTest {
 		FalconAbilities.tick(p);
 		helper.assertTrue(FalconAbilities.redwingOf(p) != null, "Redwing rides along");
 		p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+		Falcon.forgetTick(p);
 		Falcon.tick(p);
 		helper.assertTrue(FalconAbilities.redwingOf(p) == null && !Falcon.goggles(p), "gear off: Redwing gone, goggles off");
 		helper.succeed();
