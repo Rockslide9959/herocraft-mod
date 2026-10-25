@@ -192,7 +192,8 @@ public class SilverSurferGameTests implements FabricGameTest {
 		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.0, 100);
 		double z0 = p.getZ();
 		SilverSurferAbilities.dash(p);
-		helper.assertTrue(p.getZ() - z0 > 10.0, "blinked forward, moved " + (p.getZ() - z0));
+		// the gametest cage is 8 blocks across: the 30-block dash stops at its barrier wall, past the zombie
+		helper.assertTrue(p.getZ() - z0 > 4.0, "blinked forward through the zombie, moved " + (p.getZ() - z0));
 		helper.assertTrue(Math.abs((100f - z.getHealth()) - SilverSurferConfig.DASH_DAMAGE) < EPS, "9 to what it passed");
 		helper.assertTrue(Math.abs(SilverSurfer.cosmic(p) - (SilverSurferConfig.COSMIC_MAX - SilverSurferConfig.DASH_COST)) < 0.01, "15 spent");
 		helper.succeed();
