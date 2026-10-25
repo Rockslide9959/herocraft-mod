@@ -921,6 +921,15 @@ public final class ModAttachments {
 							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.cyborg.data.CyborgState.CODEC),
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.1: the Falcon (Sam Wilson) -- the power (from the worn gear), Thrust, flight, goggles, move timers and effects. */
+	public static final AttachmentType<com.projecthero.mod.falcon.data.FalconState> FALCON_STATE =
+			AttachmentRegistry.create(ProjectHeroMod.id("falcon_state"),
+					builder -> builder.persistent(com.projecthero.mod.falcon.data.FalconState.CODEC)
+							.copyOnDeath()
+							.initializer(com.projecthero.mod.falcon.data.FalconState::new)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.falcon.data.FalconState.CODEC),
+									AttachmentSyncPredicate.all()));
+
 	/**
 	 * v0.16.5: Cyborg's three Boom Tube waypoints (the Shift+V menu, which works like the Bifrost's). Persistent and kept
 	 * through death; sent with {@code CyborgBoomScreenPayload} when the menu opens or changes.

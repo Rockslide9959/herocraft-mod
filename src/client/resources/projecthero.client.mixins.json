@@ -82,6 +82,8 @@
 		"ViperionHeatGlowMixin",
 		"ViperionHeatColorMixin",
 		"CyborgFirstPersonArmMixin",
+		"FalconFirstPersonArmMixin",
+		"FalconFovMixin",
 		"BlueBeetleFirstPersonArmMixin",
 		"CatNoirFirstPersonArmMixin",
 		"CatNoirItemInHandMixin",

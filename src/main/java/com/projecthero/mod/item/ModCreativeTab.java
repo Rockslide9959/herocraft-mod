@@ -111,6 +111,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.ghostrider.item.GhostRiderItems.addToCreativeTab(output);
 				// v0.16.5 Blue Beetle: the Scarab
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
+				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit
+				com.projecthero.mod.falcon.item.FalconItems.addToCreativeTab(output);
 				// v0.16.6 the Miraculous: the Miraculous Box, the three jewels, Camembert and macarons
 				com.projecthero.mod.miraculous.item.MiraculousItems.addToCreativeTab(output);
 				// v0.16.7 the Quirks: the seven Quirk Serums and the Quirk Trigger

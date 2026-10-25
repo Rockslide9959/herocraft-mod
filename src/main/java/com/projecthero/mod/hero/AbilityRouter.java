@@ -197,6 +197,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.cyborg.CyborgAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.1: the Falcon, on the same terms
+		if (com.projecthero.mod.falcon.FalconAbilityManager.hasContext(player)) {
+			com.projecthero.mod.falcon.FalconAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.16.6: a Miraculous holder (Ladybug / Cat Noir / Rena Rouge), on the same terms
 		if (com.projecthero.mod.miraculous.MiraculousAbilityManager.hasContext(player)) {
 			com.projecthero.mod.miraculous.MiraculousAbilityManager.handle(player, slot, pressed);
@@ -337,6 +342,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.quirk.Quirks.tick(player);
 		// v0.16.5: Cyborg -- the Power Core, passives, the running moves, hacked machines
 		com.projecthero.mod.cyborg.Cyborg.tick(player);
+		// v0.17.1: the Falcon -- the gear check (grants / removes the power), Thrust, the glide, the running moves, Redwing
+		com.projecthero.mod.falcon.Falcon.tick(player);
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
 		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit

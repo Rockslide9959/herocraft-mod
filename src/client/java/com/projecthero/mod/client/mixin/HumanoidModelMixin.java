@@ -373,6 +373,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		}
 	}
 
+	/** v0.17.1: the Falcon's poses (wrist guns, wing shield, carry, hero landing and the short moves). */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$falconPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player) {
+			com.projecthero.mod.client.falcon.FalconPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
+
 	/** v0.16.7 (user, Titan revamp): a Titan Shifter's Partial Shifting poses (Titan Arm, Crystal Blade, Steam Burst, Cocoon ...). */
 	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
 	private void projecthero$titanShifterPose(LivingEntity entity, float limbSwing, float limbSwingAmount,

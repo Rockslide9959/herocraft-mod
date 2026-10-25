@@ -26,6 +26,8 @@ public abstract class GhostRiderMarkColorMixin {
 			cir.setReturnValue(GhostRiderMarkClient.RED);
 		} else if (com.projecthero.mod.client.cyborg.CyborgScanClient.scanned(self)) {
 			cir.setReturnValue(com.projecthero.mod.client.cyborg.CyborgScanClient.CYAN); // v0.16.5: Cyborg's Scan
+		} else if (com.projecthero.mod.client.falcon.FalconClient.marked(self)) {
+			cir.setReturnValue(com.projecthero.mod.client.falcon.FalconClient.RED); // v0.17.1: the Falcon's Tactical Goggles
 		}
 	}
 }

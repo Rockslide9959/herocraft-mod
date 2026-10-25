@@ -43,7 +43,9 @@ public abstract class HumanoidArmorLayerMixin {
 				// v0.16.6: and the Miraculous suits
 				|| com.projecthero.mod.client.miraculous.MiraculousClient.hidesSkinOverlay(player)
 				|| com.projecthero.mod.client.cyborg.CyborgRender.hidesSkinOverlay(player)
-				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player))) {
+				|| com.projecthero.mod.client.bluebeetle.BlueBeetleRender.hidesSkinOverlay(player)
+				// v0.17.1: and the Falcon's suit (the full gear set is drawn as the suit, not as armour)
+				|| com.projecthero.mod.client.falcon.FalconRender.hidesSkinOverlay(player))) {
 			ci.cancel();
 		}
 	}

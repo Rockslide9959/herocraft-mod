@@ -1,0 +1,286 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.falcon.Falcon;
+import com.projecthero.mod.falcon.FalconAbilities;
+import com.projecthero.mod.falcon.data.FalconState;
+import com.projecthero.mod.falcon.item.FalconItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Falcon screenshots. Enabled by run/falcon.flag. */
+public final class FalconHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+
+	private FalconHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("falcon.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(FalconHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "falcon-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "falcon_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void cam(int t, CameraType type) {
+		at(t, () -> Minecraft.getInstance().options.setCameraType(type));
+	}
+
+	private static void husks(ServerPlayer p, int n, double dist) {
+		ServerLevel level = p.serverLevel();
+		for (int i = 0; i < n; i++) {
+			Husk h = EntityType.HUSK.create(level);
+			double a = (i - (n - 1) / 2.0) * 0.3;
+			h.moveTo(origin.x + Math.sin(a) * dist, origin.y, origin.z + Math.cos(a) * dist, 180f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+			h.setHealth(400);
+			h.setPersistenceRequired();
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void clear(ServerPlayer p, float pitch) {
+		p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(60)).forEach(net.minecraft.world.entity.Entity::discard);
+		Falcon.stopFlying(p);
+		p.connection.teleport(origin.x, origin.y, origin.z, 0f, pitch);
+		Falcon.setThrust(p, 100f);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FalconHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 10f);
+				FalconItems.equipFullSet(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+			});
+			t0 = inWorldTicks + 100; // let the title and chat lines fade first
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		// the suit, front and back (wings folded)
+		at(0, () -> mc.options.hideGui = true);
+		at(62, () -> mc.options.hideGui = false);
+		at(77, () -> mc.options.hideGui = true);
+		at(270, () -> mc.options.hideGui = false);
+		at(279, () -> mc.options.hideGui = true);
+		at(345, () -> mc.options.hideGui = false);
+		at(0, () -> mc.options.fov().set(55));
+		shot(30, "front_standing");
+		cam(32, CameraType.THIRD_PERSON_BACK);
+		at(33, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, 30f, 15f)));
+		shot(40, "back_standing");
+		// the Wing Shield, from the front
+		cam(42, CameraType.THIRD_PERSON_FRONT);
+		at(43, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+			FalconAbilities.raiseShield(p);
+		}));
+		shot(52, "shield");
+		at(54, () -> server(mc, FalconAbilities::lowerShield));
+		// the goggles, first person over a line of husks (one behind a wall would need blocks; the outline shows anyway)
+		cam(60, CameraType.FIRST_PERSON);
+		at(61, () -> server(mc, p -> {
+			clear(p, 2f);
+			husks(p, 3, 14.0);
+			FalconAbilities.gogglesPress(p);
+		}));
+		shot(75, "goggles_hud");
+		// the wrist guns from behind-left
+		cam(78, CameraType.THIRD_PERSON_BACK);
+		at(80, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y, origin.z, 0f, 2f);
+			FalconAbilities.startGuns(p);
+		}));
+		shot(88, "guns");
+		at(100, () -> server(mc, FalconAbilities::stopGuns));
+		// the missiles
+		at(110, () -> server(mc, p -> {
+			clear(p, 0f);
+			husks(p, 3, 18.0);
+			FalconAbilities.missiles(p);
+		}));
+		at(111, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, -50f, 8f)));
+		shot(118, "missiles");
+		shot(124, "missiles_b");
+		// Redwing strike
+		at(140, () -> server(mc, p -> {
+			clear(p, 3f);
+			husks(p, 1, 10.0);
+			FalconAbilities.redwingStrike(p);
+		}));
+		at(141, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, -60f, 10f)));
+		shot(156, "redwing");
+		shot(166, "redwing_b");
+		// Redwing bombing run
+		at(190, () -> server(mc, p -> {
+			clear(p, 20f);
+			husks(p, 3, 12.0);
+			FalconAbilities.redwingBombingRun(p);
+		}));
+		at(191, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, -55f, 15f)));
+		shot(218, "bombing");
+		shot(226, "bombing_b");
+		// flight: take off high up, glide, boost
+		at(250, () -> server(mc, p -> {
+			clear(p, 15f);
+			p.connection.teleport(origin.x, origin.y + 40, origin.z, 0f, 15f);
+		}));
+		at(253, () -> server(mc, Falcon::takeOff));
+		shot(266, "glide");
+		at(268, () -> server(mc, p -> {
+			FalconState n = Falcon.state(p).copy();
+			n.boosting = true;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.FALCON_STATE, n);
+		}));
+		shot(278, "boost");
+		cam(280, CameraType.THIRD_PERSON_FRONT);
+		shot(286, "glide_front");
+		cam(288, CameraType.THIRD_PERSON_BACK);
+		for (int k = 0; k < 10; k++) {
+			at(290 + k, () -> {
+				if (mc.player != null) {
+					mc.player.setYRot(mc.player.getYRot() + 5f);
+				}
+			});
+		}
+		shot(297, "bank");
+		// the dive bomb onto husks
+		at(310, () -> server(mc, p -> {
+			clear(p, 60f);
+			husks(p, 3, 4.0);
+			p.connection.teleport(origin.x, origin.y + 22, origin.z, 0f, 60f);
+		}));
+		cam(311, CameraType.THIRD_PERSON_BACK);
+		at(316, () -> server(mc, FalconAbilities::diveBomb));
+		shot(320, "dive");
+		shot(325, "dive_b");
+		shot(329, "dive_c");
+		shot(334, "dive_d");
+		// the I menu and the Shift HUD
+		at(350, () -> server(mc, p -> clear(p, 10f)));
+		at(352, () -> mc.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen()));
+		shot(362, "imenu");
+		at(364, () -> mc.setScreen(null));
+		at(366, () -> com.projecthero.mod.client.falcon.FalconHud.forceShift = true);
+		shot(372, "hud_shift");
+		at(390, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FALCON_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

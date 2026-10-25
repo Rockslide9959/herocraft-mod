@@ -151,6 +151,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.calling.SpawnCallings.initialize();
 		// v0.16.5: Cyborg -- damage rules, payloads, lifecycle hooks (the Mother Box grants it)
 		com.projecthero.mod.cyborg.CyborgMod.initialize();
+		// v0.17.1: the Falcon -- the craftable gear, Redwing, damage rules, flight payload, lifecycle hooks
+		com.projecthero.mod.falcon.FalconMod.initialize();
 		// v0.16.5: Blue Beetle -- the Scarab (+ pyramid loot), drones, damage rules, payload, lifecycle hooks
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.initialize();
 		// v0.16.5: the Mannequin (player-shaped armour stand) and the ten-suit Wardrobe
