@@ -1,0 +1,305 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.silversurfer.SilverSurfer;
+import com.projecthero.mod.silversurfer.SilverSurferAbilities;
+import com.projecthero.mod.silversurfer.SilverSurferFlight;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Silver Surfer screenshots. Enabled by run/surfer.flag. */
+public final class SurferHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static boolean holdForward;
+	private static boolean holdSprint;
+	public static Vec3 camOffset;
+	public static Vec3 camLook;
+
+	private static void orbit(int t, Vec3 offset, Vec3 look) {
+		at(t, () -> {
+			camOffset = offset;
+			camLook = look;
+		});
+	}
+
+	private SurferHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("surfer.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SurferHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "surfer-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "surfer_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void cam(int t, CameraType type) {
+		at(t, () -> Minecraft.getInstance().options.setCameraType(type));
+	}
+
+	private static void husks(ServerPlayer p, int n, double dist, double side) {
+		ServerLevel level = p.serverLevel();
+		for (int i = 0; i < n; i++) {
+			Husk h = EntityType.HUSK.create(level);
+			double a = (i - (n - 1) / 2.0) * 0.45;
+			h.moveTo(origin.x + Math.sin(a) * dist + side, origin.y, origin.z + Math.cos(a) * dist, 180f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200);
+			h.setHealth(200);
+			h.setPersistenceRequired();
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void reset(ServerPlayer p, float yaw, float pitch) {
+		SilverSurferFlight.stop(p, false);
+		SilverSurferAbilities.clear(p);
+		p.serverLevel().getEntitiesOfClass(com.projecthero.mod.silversurfer.ThrownSurfboardEntity.class, p.getBoundingBox().inflate(80))
+				.forEach(net.minecraft.world.entity.Entity::discard);
+		p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(60)).forEach(net.minecraft.world.entity.Entity::discard);
+		p.connection.teleport(origin.x, origin.y, origin.z, yaw, pitch);
+		var n = SilverSurfer.state(p).copy();
+		n.abilityReadyAt.clear();
+		p.setAttached(com.projecthero.mod.silversurfer.SilverSurferAttachments.STATE, n);
+		SilverSurfer.setCosmic(p, 100f);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SurferHarness::createWorld);
+			}
+			return;
+		}
+		mc.options.keyUp.setDown(holdForward);
+		mc.options.keySprint.setDown(holdSprint);
+		if (holdSprint) {
+			mc.player.setSprinting(true);
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 10f);
+				p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+						new net.minecraft.world.item.ItemStack(com.projecthero.mod.galactus.item.GalactusItems.SURFBOARD));
+				p.getMainHandItem().use(level, p, net.minecraft.world.InteractionHand.MAIN_HAND);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				System.out.println("[HARNESS] granted: " + SilverSurfer.hasPower(p));
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0 && inWorldTicks - t0 > 10) {
+			mc.gui.getChat().clearMessages(false);
+			mc.gui.clear();
+			mc.getToasts().clear();
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		// the grant flash, then the model standing
+		shot(4, "bond");
+		at(60, () -> server(mc, p -> reset(p, 0f, 0f)));
+		orbit(62, new Vec3(-2.2, 1.6, 2.6), new Vec3(0, 1.1, 0));
+		shot(75, "stand_front");
+		at(78, () -> camOffset = null);
+		cam(78, CameraType.THIRD_PERSON_BACK);
+		shot(85, "stand_back_hud");
+		at(90, () -> mc.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen()));
+		shot(100, "imenu");
+		at(102, () -> mc.setScreen(null));
+		// surfing, hovering, seen from the side and a little above
+		at(106, () -> server(mc, p -> {
+			reset(p, 0f, 0f);
+			p.connection.teleport(origin.x, origin.y + 6, origin.z, 0f, 0f);
+			SilverSurferFlight.start(p);
+		}));
+		orbit(107, new Vec3(-3.4, 2.4, 1.2), new Vec3(0, 0.6, 0));
+		shot(122, "surf_idle");
+		// cruise, sprint, Light-Speed: side camera riding along
+		at(124, () -> holdForward = true);
+		orbit(124, new Vec3(-4.5, 1.6, 0.5), new Vec3(0, 0.8, 0));
+		shot(146, "surf_cruise");
+		at(148, () -> holdSprint = true);
+		shot(166, "surf_sprint");
+		at(168, () -> server(mc, p -> SilverSurferAbilities.lightSpeed(p)));
+		orbit(168, new Vec3(-5.0, 1.4, 3.0), new Vec3(0, 0.8, -1.5));
+		shot(170, "lightspeed_boom");
+		shot(180, "lightspeed");
+		at(196, () -> {
+			holdForward = false;
+			holdSprint = false;
+		});
+		// the beam: side camera
+		at(212, () -> server(mc, p -> {
+			reset(p, 0f, 0f);
+			husks(p, 1, 7.0, 0.0);
+		}));
+		orbit(212, new Vec3(-5.5, 2.2, 3.5), new Vec3(0, 1.2, 3.5));
+		at(218, () -> server(mc, p -> SilverSurferAbilities.pressBlast(p)));
+		shot(238, "beam");
+		at(240, () -> server(mc, p -> SilverSurferAbilities.releaseBlast(p)));
+		// board strike: thrown down a line of husks
+		at(250, () -> server(mc, p -> {
+			reset(p, 0f, 5f);
+			husks(p, 3, 9.0, 0.0);
+		}));
+		orbit(250, new Vec3(-6.0, 3.0, 3.0), new Vec3(0, 1.0, 5.0));
+		at(256, () -> server(mc, p -> SilverSurferAbilities.boardStrike(p)));
+		shot(260, "board_strike");
+		shot(265, "board_strike_b");
+		// transmutation
+		at(290, () -> server(mc, p -> {
+			reset(p, 0f, 5f);
+			husks(p, 1, 4.0, 0.0);
+		}));
+		orbit(290, new Vec3(-4.0, 2.0, 1.0), new Vec3(0, 1.0, 2.5));
+		at(296, () -> server(mc, p -> SilverSurferAbilities.transmute(p)));
+		shot(306, "transmute");
+		// barrier: from the front-side
+		at(320, () -> server(mc, p -> reset(p, 0f, 0f)));
+		orbit(320, new Vec3(-2.5, 1.8, 4.0), new Vec3(0, 1.2, 0.8));
+		at(324, () -> server(mc, p -> SilverSurferAbilities.raiseBarrier(p)));
+		shot(334, "barrier");
+		at(336, () -> server(mc, p -> SilverSurferAbilities.lowerBarrier(p)));
+		// nova: high and wide
+		at(345, () -> server(mc, p -> {
+			reset(p, 0f, 0f);
+			husks(p, 5, 6.0, 0.0);
+		}));
+		orbit(345, new Vec3(-7.0, 7.0, -5.0), new Vec3(0, 0.5, 2.0));
+		at(352, () -> server(mc, p -> SilverSurferAbilities.nova(p)));
+		shot(356, "nova");
+		shot(360, "nova_b");
+		// meteor storm
+		at(380, () -> server(mc, p -> {
+			reset(p, 0f, 25f);
+			husks(p, 3, 14.0, 0.0);
+		}));
+		orbit(380, new Vec3(-9.0, 6.0, 2.0), new Vec3(0, 1.0, 10.0));
+		at(386, () -> server(mc, p -> SilverSurferAbilities.meteorStorm(p)));
+		shot(404, "meteor");
+		shot(414, "meteor_b");
+		// awareness
+		at(440, () -> {
+			camOffset = null;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+		});
+		at(440, () -> server(mc, p -> {
+			reset(p, 0f, 10f);
+			p.serverLevel().setBlock(p.blockPosition().offset(0, 0, 6), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+			p.serverLevel().setBlock(p.blockPosition().offset(0, 1, 6), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+			husks(p, 3, 12.0, 0.0);
+			SilverSurferAbilities.toggleAwareness(p);
+		}));
+		shot(452, "awareness");
+		at(470, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SS_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

@@ -69,6 +69,7 @@
 		"SuperSpeedEatMixin",
 		"SuperSpeedLeavesMixin",
 		"SuperSpeedPhaseCollideMixin",
+		"SilverSurferPhaseCollideMixin",
 		"SuperSpeedPhasePoseMixin",
 		"ViperionDashPoseMixin",
 		"SuperSpeedTimeSlowMixin",

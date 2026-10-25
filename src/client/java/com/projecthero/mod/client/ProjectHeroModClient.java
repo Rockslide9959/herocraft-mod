@@ -140,6 +140,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
 		// v0.17.1: the Falcon -- the suit and Wing Pack layer, Redwing, the HUD, the wingsuit flight, the goggles
 		com.projecthero.mod.client.falcon.FalconClient.initialize();
+		// v0.17.1: the Silver Surfer -- the skin / board layer, HUD, beam / barrier / streak, statues, Cosmic Awareness
+		com.projecthero.mod.client.silversurfer.SilverSurferClient.initialize();
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
@@ -1275,6 +1277,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.kryptonian.network.KryptonianActionPayload(
 					com.projecthero.mod.kryptonian.network.KryptonianActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.17.1: the Silver Surfer -- double-tap jump in the air calls the board up under his feet / drops it (server re-validates).
+		if (!player.onGround() && com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			ClientPlayNetworking.send(new com.projecthero.mod.silversurfer.network.SilverSurferActionPayload(
+					com.projecthero.mod.silversurfer.network.SilverSurferActionPayload.Action.TOGGLE_SURF));
 			return;
 		}
 

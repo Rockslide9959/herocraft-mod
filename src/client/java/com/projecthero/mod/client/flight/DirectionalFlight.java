@@ -150,6 +150,10 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.nova.Nova.isFlying(player)) {
 			return DirectionalFlightModel.nova(sprint);
 		}
+		// v0.17.1: the Silver Surfer's board -- 60 b/s, 110 sprinting, 150 at Light-Speed
+		if (com.projecthero.mod.silversurfer.SilverSurfer.surfing(player)) {
+			return com.projecthero.mod.silversurfer.SilverSurferFlight.tune(sprint, com.projecthero.mod.silversurfer.SilverSurfer.lightSpeed(player));
+		}
 		// v0.16.5: Cyborg's Jet Flight (double-tap jump) -- 18 b/s, 33 sprinting
 		if (com.projecthero.mod.cyborg.Cyborg.flying(player)) {
 			return DirectionalFlightModel.cyborg(flyingSpeed, sprint);

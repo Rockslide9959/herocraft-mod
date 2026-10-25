@@ -263,7 +263,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		// + one per ENABLED power (v0.14.8: disabled powers have no chapter)
 		// v0.16.7: + Viperion (56), after the Quirks
 		// v0.17.1: + the Falcon (57), after Viperion
-		helper.assertTrue(chapters.size() == 58 + Powers.enabled().size(),
+		helper.assertTrue(chapters.size() == 59 + Powers.enabled().size(), // v0.17.1: + Falcon, + Silver Surfer
 				"guide should have a chapter per power plus framing chapters, got " + chapters.size());
 		for (var ch : chapters) {
 			helper.assertFalse(ch.lines().isEmpty(), "chapter '" + ch.title().getString() + "' has no content");
