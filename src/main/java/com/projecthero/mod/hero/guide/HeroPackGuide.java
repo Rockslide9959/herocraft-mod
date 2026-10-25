@@ -135,6 +135,37 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
+	/** The Falcon (v0.17.1). */
+	public static Chapter falconChapter() {
+		return chapters().get(CH_FALCON);
+	}
+
+	/** v0.17.1: the Falcon -- the gear, Thrust, the wingsuit flight and the twelve moves. */
+	private static Chapter falcon() {
+		return chapter("projecthero.guide.falcon", lines -> {
+			lines.add(Component.translatable("projecthero.guide.falcon.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.falcon.body");
+			blank(lines);
+			for (String section : new String[]{"gear", "thrust", "flight", "passives"}) {
+				head(lines, "projecthero.guide.falcon." + section);
+				para(lines, "projecthero.guide.falcon." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.falcon.controls");
+			for (String[] row : new String[][] { { "Space x2", "flight" }, { "Space", "wing_flap" }, { "R", "wrist_guns" },
+					{ "Shift+R", "micro_missiles" }, { "G", "wing_slash" }, { "Shift+G", "wing_shield" }, { "X", "afterburner" },
+					{ "Shift+X", "barrel_roll" }, { "Z", "redwing_strike" }, { "Shift+Z", "redwing_bombing_run" }, { "V", "tactical_goggles" },
+					{ "Shift+V", "lift_and_carry" }, { "C", "dive_bomb" }, { "Shift+C", "talon_drop" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.falcon.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.falcon.ability." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.falcon.commands");
+			para(lines, "projecthero.guide.falcon.commands.body");
+		});
+	}
+
 	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth / Carapace / Pegasus, by the Kwami. */
 	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
 		return chapters().get(switch (kwami) {
@@ -488,7 +519,9 @@ public final class HeroPackGuide {
 	private static final int CH_QUIRK_BASE = 49;
 	/** v0.16.7: Viperion (after the Quirks, so their indices stay put). */
 	private static final int CH_VIPERION = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.kitQuirks().length; // 56
-	private static final int CHAPTER_POWER_BASE = CH_VIPERION + 1; // 57
+	/** v0.17.1: the Falcon (after Viperion, so every earlier index stays put). */
+	private static final int CH_FALCON = CH_VIPERION + 1; // 57
+	private static final int CHAPTER_POWER_BASE = CH_FALCON + 1; // 58
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1472,6 +1505,7 @@ public final class HeroPackGuide {
 			out.add(quirk(q));
 		}
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.SASS)); // CH_VIPERION (v0.16.7)
+		out.add(falcon()); // CH_FALCON (v0.17.1)
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1611,6 +1645,7 @@ public final class HeroPackGuide {
 		icon(CH_GREEN_LANTERN, "power_ring");
 		icon(CH_KRYPTONIAN, "kryptonian_crystal");
 		icon(CH_CYBORG, "basic_circuit");
+		icon(CH_FALCON, "falcon_wing_pack"); // v0.17.1
 		icon(CH_BLUE_BEETLE, "scarab");
 		icon(CH_ALL_MIGHT, "one_for_all_vestige");
 		icon(CH_QUIRKS, "quirk_serum_random");
@@ -1670,6 +1705,7 @@ public final class HeroPackGuide {
 		link(marvel, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 		link(marvel, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		link(marvel, "projecthero.guide.nova", CH_NOVA);
+		link(marvel, "projecthero.guide.falcon", CH_FALCON); // v0.17.1
 
 		List<IndexEntry> dc = map.get(Category.DC);
 		link(dc, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);

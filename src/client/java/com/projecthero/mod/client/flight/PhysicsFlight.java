@@ -92,6 +92,13 @@ public final class PhysicsFlight {
 
 	/** The roll the camera should show this frame, or 0 (setting off, front view, or not the local player's view). */
 	public static float cameraRoll() {
+		// v0.17.1: the Falcon's wingsuit banks the camera into its turns (its own flight, not a Physics Flight)
+		if (FlightSettings.cameraRoll()) {
+			float falcon = com.projecthero.mod.client.falcon.FalconFlightClient.cameraRoll();
+			if (falcon != 0f) {
+				return falcon;
+			}
+		}
 		Minecraft mc = Minecraft.getInstance();
 		if (roll == 0f || !FlightSettings.cameraRoll() || mc.player == null || mc.getCameraEntity() != mc.player
 				|| mc.options.getCameraType() == CameraType.THIRD_PERSON_FRONT) {

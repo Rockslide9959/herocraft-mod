@@ -138,6 +138,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.quirk.QuirkClient.initialize();
 		// v0.16.5: Cyborg -- the plates layer, HUD, cannon beam / Defense Matrix, Scan outlines
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
+		// v0.17.1: the Falcon -- the suit and Wing Pack layer, Redwing, the HUD, the wingsuit flight, the goggles
+		com.projecthero.mod.client.falcon.FalconClient.initialize();
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
@@ -1281,6 +1283,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			ClientPlayNetworking.send(new com.projecthero.mod.cyborg.network.CyborgActionPayload(
 					com.projecthero.mod.cyborg.network.CyborgActionPayload.Action.TOGGLE_FLIGHT));
+			return;
+		}
+
+		// v0.17.1: the Falcon -- double-tap jump (on the ground or in the air) snaps the wings open and takes off (server re-validates).
+		if (com.projecthero.mod.client.falcon.FalconFlightClient.wantsTakeOff(player)) {
+			ticksSinceJumpPress = Integer.MAX_VALUE;
+			com.projecthero.mod.client.falcon.FalconFlightClient.takeOff();
 			return;
 		}
 

@@ -19,7 +19,9 @@ public abstract class GhostRiderMarkGlowMixin {
 	@Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
 	private void projecthero$ghostRiderMark(Entity entity, CallbackInfoReturnable<Boolean> cir) {
 		// v0.16.5: and Cyborg's Scan (cyan, the scanner alone)
-		if (GhostRiderMarkClient.marked(entity) || com.projecthero.mod.client.cyborg.CyborgScanClient.scanned(entity)) {
+		// v0.17.1: and the Falcon's Tactical Goggles (red, the wearer alone)
+		if (GhostRiderMarkClient.marked(entity) || com.projecthero.mod.client.cyborg.CyborgScanClient.scanned(entity)
+				|| com.projecthero.mod.client.falcon.FalconClient.marked(entity)) {
 			cir.setReturnValue(true);
 		}
 	}

@@ -22,6 +22,7 @@ public final class PowerGrants {
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
 			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
+			"falcon", // v0.17.1
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion",
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
@@ -207,6 +208,16 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.cyborg.Cyborg.grant(target);
 				return new Result(ok, Component.literal(ok ? "Fused " + name + " with a Mother Box (Cyborg)" : name + " is already Cyborg"));
 			}
+			case "falcon" -> {
+				// v0.17.1: the power is the gear -- it goes on (whatever was worn goes into the inventory) and the set grants it
+				if (com.projecthero.mod.falcon.Falcon.hasPower(target)) {
+					return Result.fail(name + " is already the Falcon");
+				}
+				com.projecthero.mod.falcon.item.FalconItems.equipFullSet(target);
+				com.projecthero.mod.falcon.Falcon.clearBlock(target);
+				boolean ok = com.projecthero.mod.falcon.Falcon.grant(target);
+				return new Result(ok, Component.literal(ok ? "Suited " + name + " up in the Falcon gear (Falcon)" : name + " could not become the Falcon"));
+			}
 			case "ghost_rider" -> {
 				boolean ok = com.projecthero.mod.ghostrider.GhostRider.grant(target);
 				return new Result(ok, Component.literal(ok ? "Bound " + name + " to the Spirit of Vengeance (Ghost Rider)" : name + " already carries the Spirit of Vengeance"));
@@ -256,6 +267,7 @@ public final class PowerGrants {
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
+			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion" -> {
 				if (HeroTiers.holdsHero(target, hero)) {
