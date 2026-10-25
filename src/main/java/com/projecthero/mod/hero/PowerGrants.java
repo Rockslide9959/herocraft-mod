@@ -21,7 +21,7 @@ public final class PowerGrants {
 	/** Every Hero-Tier key a grant accepts: the {@link HeroTiers#HERO_KEYS} Primary heroes plus the Symbiote. */
 	public static final List<String> HERO_TIER_KEYS = List.of(
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
-			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
+			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle", "silver_surfer",
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion",
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
@@ -203,6 +203,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.bluebeetle.BlueBeetle.grant(target);
 				return new Result(ok, Component.literal(ok ? "Bonded " + name + " with the Scarab (Blue Beetle)" : name + " already carries the Scarab"));
 			}
+			case "silver_surfer" -> {
+				boolean ok = com.projecthero.mod.silversurfer.SilverSurfer.grant(target);
+				return new Result(ok, Component.literal(ok ? "Gave " + name + " the Power Cosmic (Silver Surfer)" : name + " already wields the Power Cosmic"));
+			}
 			case "cyborg" -> {
 				boolean ok = com.projecthero.mod.cyborg.Cyborg.grant(target);
 				return new Result(ok, Component.literal(ok ? "Fused " + name + " with a Mother Box (Cyborg)" : name + " is already Cyborg"));
@@ -255,6 +259,7 @@ public final class PowerGrants {
 			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.revoke(target);
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
+			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);
 			case "ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion" -> {

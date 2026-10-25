@@ -214,7 +214,7 @@ public final class GalactusRenderers {
 	public static final ResourceLocation SURFER_SKIN = ProjectHeroMod.id("textures/entity/galactus/silver_surfer.png");
 	public static final ResourceLocation SURFER_GLOW = ProjectHeroMod.id("textures/entity/galactus/silver_surfer_glowmask.png");
 	/** The board's thickness (blocks): he stands this high on it. */
-	static final float BOARD_TOP = 0.25f;
+	public static final float BOARD_TOP = 0.25f;
 
 	/**
 	 * User decision (v0.16.1): the Herald is the standard <b>player rig</b> (wide arms -- his skin is a Steve-shape skin; head,
@@ -300,8 +300,8 @@ public final class GalactusRenderers {
 	}
 
 	/** The board's GeckoLib animatable (one shared client-side instance: every board idles the same way). */
-	static final class BoardAnimatable implements software.bernie.geckolib.animatable.GeoAnimatable {
-		static final BoardAnimatable INSTANCE = new BoardAnimatable();
+	public static final class BoardAnimatable implements software.bernie.geckolib.animatable.GeoAnimatable {
+		public static final BoardAnimatable INSTANCE = new BoardAnimatable();
 		private final software.bernie.geckolib.animatable.instance.AnimatableInstanceCache cache = software.bernie.geckolib.util.GeckoLibUtil
 				.createInstanceCache(this);
 
@@ -323,8 +323,8 @@ public final class GalactusRenderers {
 		}
 	}
 
-	static final class BoardObjectRenderer extends software.bernie.geckolib.renderer.GeoObjectRenderer<BoardAnimatable> {
-		BoardObjectRenderer() {
+	public static final class BoardObjectRenderer extends software.bernie.geckolib.renderer.GeoObjectRenderer<BoardAnimatable> {
+		public BoardObjectRenderer() {
 			super(new Fixed<>(com.projecthero.mod.galactus.GalactusAnims.BOARD));
 			addRenderLayer(new AutoGlowingGeoLayer<>(this));
 			addRenderLayer(new FrostHaloLayer<>(this, 0.55f)); // additive bloom + the halo shells around the glowing parts

@@ -224,6 +224,7 @@
       "com.projecthero.mod.gametest.GhostRiderGameTests",
       "com.projecthero.mod.gametest.GhostRiderReworkGameTests",
       "com.projecthero.mod.gametest.CyborgGameTests",
+      "com.projecthero.mod.gametest.SilverSurferGameTests",
       "com.projecthero.mod.gametest.BlueBeetleGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",
       "com.projecthero.mod.gametest.FrostGiantGameTests",

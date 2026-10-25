@@ -135,6 +135,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_CYBORG);
 	}
 
+	/** v0.17.1: the Silver Surfer. */
+	public static Chapter silverSurferChapter() {
+		return chapters().get(CH_SILVER_SURFER);
+	}
+
 	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth / Carapace / Pegasus, by the Kwami. */
 	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
 		return chapters().get(switch (kwami) {
@@ -488,7 +493,9 @@ public final class HeroPackGuide {
 	private static final int CH_QUIRK_BASE = 49;
 	/** v0.16.7: Viperion (after the Quirks, so their indices stay put). */
 	private static final int CH_VIPERION = CH_QUIRK_BASE + com.projecthero.mod.quirk.Quirk.kitQuirks().length; // 56
-	private static final int CHAPTER_POWER_BASE = CH_VIPERION + 1; // 57
+	/** v0.17.1: the Silver Surfer (after Viperion, so every earlier index stays put). */
+	private static final int CH_SILVER_SURFER = CH_VIPERION + 1; // 57
+	private static final int CHAPTER_POWER_BASE = CH_SILVER_SURFER + 1; // 58
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1472,6 +1479,26 @@ public final class HeroPackGuide {
 			out.add(quirk(q));
 		}
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.SASS)); // CH_VIPERION (v0.16.7)
+		// v0.17.1: the Silver Surfer (CH_SILVER_SURFER)
+		out.add(chapter("projecthero.guide.silver_surfer", lines -> {
+			lines.add(Component.translatable("projecthero.guide.silver_surfer.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.silver_surfer.body");
+			blank(lines);
+			for (String section : new String[]{"origin", "cosmic", "board", "passives"}) {
+				head(lines, "projecthero.guide.silver_surfer." + section);
+				para(lines, "projecthero.guide.silver_surfer." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.silver_surfer.controls");
+			for (String[] row : new String[][] { { "Space x2", "surf" }, { "R", "cosmic_blast" }, { "Shift+R", "cosmic_barrage" },
+					{ "G", "board_strike" }, { "Shift+G", "transmutation" }, { "X", "cosmic_dash" }, { "Shift+X", "light_speed" },
+					{ "Z", "cosmic_barrier" }, { "Shift+Z", "molecular_phase" }, { "V", "cosmic_awareness" }, { "Shift+V", "healing_touch" },
+					{ "C", "cosmic_nova" }, { "Shift+C", "meteor_storm" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.silver_surfer.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.silver_surfer.ability." + row[1] + ".desc");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1621,6 +1648,7 @@ public final class HeroPackGuide {
 		icon(CH_CARAPACE, "turtle_bracelet");
 		icon(CH_PEGASUS, "horseshoe_glasses");
 		icon(CH_VIPERION, "snake_bracelet");
+		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
 		icon(CH_TITAN_SHIFTER, "titan_serum");
 		icon(CH_ZOMBIE_RAID, "zombie_horde");
@@ -1670,6 +1698,7 @@ public final class HeroPackGuide {
 		link(marvel, "projecthero.guide.moon_knight", CH_MOON_KNIGHT);
 		link(marvel, "projecthero.guide.ghost_rider", CH_GHOST_RIDER);
 		link(marvel, "projecthero.guide.nova", CH_NOVA);
+		link(marvel, "projecthero.guide.silver_surfer", CH_SILVER_SURFER); // v0.17.1
 
 		List<IndexEntry> dc = map.get(Category.DC);
 		link(dc, "projecthero.guide.green_lantern", CH_GREEN_LANTERN);

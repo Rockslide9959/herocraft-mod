@@ -9,6 +9,7 @@ import com.projecthero.mod.galactus.entity.SurferBoardEntity;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -20,8 +21,11 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 /**
- * v0.16.1: <b>the Silver Surfer's Board</b>, stored. Right-click: the board appears under you and you are riding it
- * ({@link SurferBoardEntity}); sneak + right-click the board to put it back in your pack.
+ * v0.16.1: <b>the Silver Surfer's Board</b>, stored. v0.17.1: right-click floods the Power Cosmic into you -- the board
+ * bonds to you (it is used up) and you become the Silver Surfer ({@code silversurfer.SilverSurfer#grant}, one Primary
+ * power). Already the Surfer: right-click calls the board up under your feet (board flight) and the item stays. If the
+ * power is someone else's (the unique-powers rule) it is still the v0.16.1 rideable board: it appears under you and you
+ * ride it ({@link SurferBoardEntity}); sneak + right-click the board to put it back in your pack.
  */
 public class SurfboardItem extends Item {
 	public SurfboardItem(Properties properties) {
@@ -34,7 +38,19 @@ public class SurfboardItem extends Item {
 		if (player.isPassenger()) {
 			return InteractionResultHolder.fail(stack);
 		}
-		if (level instanceof ServerLevel server) {
+		if (level instanceof ServerLevel server && player instanceof ServerPlayer sp) {
+			if (com.projecthero.mod.silversurfer.SilverSurfer.hasPower(sp)) {
+				// already the Surfer: the board flies up under his feet
+				com.projecthero.mod.silversurfer.SilverSurferFlight.start(sp);
+				return InteractionResultHolder.success(stack);
+			}
+			if (com.projecthero.mod.silversurfer.SilverSurfer.grant(sp)) {
+				if (!player.getAbilities().instabuild) {
+					stack.shrink(1);
+				}
+				return InteractionResultHolder.success(stack);
+			}
+			// the Power Cosmic is someone else's: just a rideable board
 			SurferBoardEntity board = GalactusEntityTypes.SURFER_BOARD.create(server);
 			if (board == null) {
 				return InteractionResultHolder.fail(stack);

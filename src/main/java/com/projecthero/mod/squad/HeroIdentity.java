@@ -66,6 +66,9 @@ public final class HeroIdentity {
 		if (com.projecthero.mod.ghostrider.GhostRider.hasPower(player)) {
 			return "projecthero.squad.identity.ghost_rider";
 		}
+		if (com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player)) {
+			return "projecthero.squad.identity.silver_surfer";
+		}
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(player)) {
 			return "projecthero.squad.identity.cyborg";
 		}
