@@ -168,13 +168,11 @@ public final class AbilityHud {
 				case SLOT_5 -> "decoy_ready";
 				default -> null;
 			};
+			// v0.17.1 (user): the Shift move's wait is no longer folded into the box -- it gets its own bar (drawn below)
+			int speedShiftLeft = 0;
 			if (speedExtra != null) {
-				String extra = speedExtra;
-				float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + extra, 0.0f);
-				int alt = (int) Math.max(0L, (long) readyAtAlt - gameTime);
-				if (alt > cdRemain) {
-					cdRemain = alt;
-				}
+				float readyAtAlt = state.resources.getOrDefault("power_04_super_speed/" + speedExtra, 0.0f);
+				speedShiftLeft = (int) Math.max(0L, (long) readyAtAlt - gameTime);
 			}
 
 			graphics.fill(x, y0, x + BOX, y0 + BOX, boxBg);
@@ -194,6 +192,23 @@ public final class AbilityHud {
 				graphics.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, COLOR_COOLDOWN);
 				String secs = String.format(java.util.Locale.ROOT, "%.0f", Math.ceil(cdRemain / 20.0f));
 				graphics.drawCenteredString(client.font, secs, x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			}
+			// v0.17.1 (user): Super Speed's Shift moves -- a thin bar along the bottom of the box that refills as the Shift
+			// move cools down (bright once ready), with its seconds in the corner while it waits
+			if (speedExtra != null) {
+				int full = speedShiftCooldown(speedExtra);
+				float ready = full <= 0 ? 1f : 1f - Math.min(1f, speedShiftLeft / (float) full);
+				graphics.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0101010);
+				graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
+						ready >= 1f ? 0xFFFFE04A : 0xFF9C7A1E);
+				if (speedShiftLeft > 0) {
+					String s = String.valueOf((speedShiftLeft + 19) / 20);
+					graphics.pose().pushPose();
+					graphics.pose().translate(x + BOX - 1 - client.font.width(s) * 0.5f, y0 + 2, 0);
+					graphics.pose().scale(0.5f, 0.5f, 1f);
+					graphics.drawString(client.font, s, 0, 0, 0xFFFFE04A, true);
+					graphics.pose().popPose();
+				}
 			}
 
 		}
@@ -297,6 +312,19 @@ public final class AbilityHud {
 	private static final long[] HOLD_DOWN_SINCE = { -1, -1, -1, -1, -1, -1, -1, -1 };
 
 	/** 0..1 of the way to a key's hold move (0 = not held / no hold move / a Shift press). */
+	/** v0.17.1: the full length of a Super Speed Shift move's cooldown (the HUD bar's scale). */
+	private static int speedShiftCooldown(String readyKey) {
+		int base = switch (readyKey) {
+			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.MACH_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.MACH_CD;
+			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.VORTEX_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.VORTEX_CD;
+			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.SWEEP_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.SWEEP_CD;
+			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.LIGHTNING_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.LIGHTNING_CD;
+			case com.projecthero.mod.hero.power.p04.SuperSpeedMoves.DECOY_READY -> com.projecthero.mod.hero.power.p04.SuperSpeedMoves.DECOY_CD;
+			default -> 0;
+		};
+		return com.projecthero.mod.hero.HeroConfig.get().scaledCooldown(base);
+	}
+
 	private static float holdProgress(int i, String powerKey, String abilityId, long gameTime) {
 		if (i >= HOLD_DOWN_SINCE.length || i >= com.projecthero.mod.client.ModKeyBindings.ABILITY_SLOTS.length) {
 			return 0f;
