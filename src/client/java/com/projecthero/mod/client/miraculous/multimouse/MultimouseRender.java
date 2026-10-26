@@ -45,7 +45,9 @@ import net.minecraft.world.entity.player.Player;
  * so it clears her legs.
  *
  * <p><b>The transformation</b> ({@link #cover}): the suit spreads texel by texel from the Mouse Pendant at the collar,
- * its edge a band of pink light, over {@code Multimouse.transformTicks} (the hook a longer sequence plugs into).
+ * its edge a band of pink light, over {@code Multimouse.transformTicks}; the long transformation
+ * ({@code MultimouseSequenceClient}) runs it at its own pace, raises the hood on its own beat and times the ears, the
+ * belt and the tail itself.
  */
 public final class MultimouseRender {
 	public static final ResourceLocation SUIT_WIDE = ProjectHeroMod.id("textures/entity/miraculous/multimouse/suit_wide.png");
@@ -107,6 +109,11 @@ public final class MultimouseRender {
 		MiraculousState s = Miraculous.peek(player);
 		if (s == null || !s.hasPower || !Kwami.MULLO.id.equals(s.kwami) || player.level() == null) {
 			return 0f;
+		}
+		// v0.17.1: the long transformation runs the change at its own pace (MultimouseSequence)
+		float seq = com.projecthero.mod.client.miraculous.MiraculousSequenceClient.suitCover(player, s, partial);
+		if (seq >= 0f) {
+			return seq;
 		}
 		float total = Multimouse.transformTicks(s);
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
@@ -236,8 +243,13 @@ public final class MultimouseRender {
 
 	// ---------------------------------------------------------------- drawing the suit
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private static PlayerModel<LivingEntity> posed(PlayerModel<LivingEntity> m, HumanoidModel<?> parent, boolean baseParts) {
+		return posed(m, parent, baseParts, 1f);
+	}
+
+	/** {@code hood} below 1: the hood (and the mask under it) not up yet -- folded back down her neck, rising over her head. */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static PlayerModel<LivingEntity> posed(PlayerModel<LivingEntity> m, HumanoidModel<?> parent, boolean baseParts, float hood) {
 		((HumanoidModel) parent).copyPropertiesTo(m);
 		m.jacket.copyFrom(m.body);
 		m.leftSleeve.copyFrom(m.leftArm);
@@ -257,16 +269,27 @@ public final class MultimouseRender {
 		m.leftSleeve.visible = !baseParts;
 		m.rightPants.visible = !baseParts;
 		m.leftPants.visible = !baseParts;
+		if (hood < 1f) {
+			m.head.visible = baseParts && hood > 0.85f;
+			m.hat.visible = !baseParts && hood > 0f;
+			m.hat.xRot = m.head.xRot - 2.1f * (1f - hood);
+		}
 		return m;
 	}
 
 	public static void renderSuit(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slim, float cover, int overlay) {
+		renderSuit(pose, buffers, light, parent, slim, cover, overlay, 1f);
+	}
+
+	/** {@code hood} 0..1: how far up the hood is (the long transformation's beat; 1 = on). */
+	public static void renderSuit(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> parent, boolean slim, float cover, int overlay,
+			float hood) {
 		if (cover <= 0f) {
 			return;
 		}
 		ResourceLocation tex = texture(slim, cover);
-		posed(base(slim), parent, true).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, 0xFFFFFFFF);
-		posed(over(slim), parent, false).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, 0xFFFFFFFF);
+		posed(base(slim), parent, true, hood).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, 0xFFFFFFFF);
+		posed(over(slim), parent, false, hood).renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, overlay, 0xFFFFFFFF);
 	}
 
 	/** First person: the suit sleeve over the bare arm vanilla just drew. */
@@ -296,45 +319,60 @@ public final class MultimouseRender {
 		if (cover < 0.35f) {
 			return;
 		}
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
 		float grow = Mth.clamp((cover - 0.35f) / 0.5f, 0f, 1f);
-		// ---- the ears (on the hood)
-		pose.pushPose();
-		m.head.translateAndRotate(pose);
-		pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
-		for (int s = -1; s <= 1; s += 2) {
+		renderExtras(pose, buffers, light, m, ageInTicks, swing, limbSwing, grow, grow, true, grow, 0f);
+	}
+
+	/**
+	 * The extras with each part timed on its own (the long transformation): {@code ears} the ears' size (a pop can
+	 * overshoot 1), {@code belt} whether the rope is wound round her waist, {@code tail} the tail's length, {@code kick} an
+	 * extra swing of the tail (radians) as it flicks out.
+	 */
+	public static void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, HumanoidModel<?> m, float ageInTicks, float swing,
+			float limbSwing, float grow, float ears, boolean belt, float tail, float kick) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(com.projecthero.mod.client.maxsteel.TurboDraw.WHITE));
+		if (ears > 0f) {
+			// ---- the ears (on the hood)
 			pose.pushPose();
-			pose.translate(s * 3.0f, -8.2f, 0.4f);
-			// a little twitch now and then
-			float twitch = (Mth.sin(ageInTicks * 0.11f + s) > 0.97f) ? 6f : 0f;
-			pose.mulPose(Axis.ZP.rotationDegrees(s * (20f + twitch)));
-			pose.mulPose(Axis.XP.rotationDegrees(-8f));
-			pose.scale(grow, grow, grow);
-			float cy = -3.2f; // the disc's centre, above the pivot (35.4 - 32.2)
-			float r = 3.4f, th = 0.45f;
-			for (float[] d : DISC) {
-				box(vc, pose, 0f, cy, 0f, r * d[0], r * d[1], th, GREY_L, light);
+			m.head.translateAndRotate(pose);
+			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+			for (int s = -1; s <= 1; s += 2) {
+				pose.pushPose();
+				pose.translate(s * 3.0f, -8.2f, 0.4f);
+				// a little twitch now and then
+				float twitch = (Mth.sin(ageInTicks * 0.11f + s) > 0.97f) ? 6f : 0f;
+				pose.mulPose(Axis.ZP.rotationDegrees(s * (20f + twitch)));
+				pose.mulPose(Axis.XP.rotationDegrees(-8f));
+				pose.scale(ears, ears, ears);
+				float cy = -3.2f; // the disc's centre, above the pivot (35.4 - 32.2)
+				float r = 3.4f, th = 0.45f;
+				for (float[] d : DISC) {
+					box(vc, pose, 0f, cy, 0f, r * d[0], r * d[1], th, GREY_L, light);
+				}
+				// the rolled rim, a shade lighter, just behind the face
+				for (float[] d : DISC) {
+					box(vc, pose, 0f, cy, 0.05f, r * d[0] + 0.12f, r * d[1] + 0.12f, th * 0.6f, GREY_H, light);
+				}
+				// the darker back (seen from behind)
+				for (float[] d : DISC) {
+					box(vc, pose, 0f, cy, 0.3f, r * d[0] - 0.4f, r * d[1] - 0.4f, 0.2f, GREY, light);
+				}
+				// pink inside: a darker edge, a lighter middle, on the front face
+				float ri = 2.3f;
+				for (float[] d : DISC) {
+					box(vc, pose, 0f, cy + 0.15f, -th - 0.03f, ri * d[0], ri * d[1], 0.06f, PINK, light);
+				}
+				for (float[] d : DISC) {
+					box(vc, pose, 0f, cy + 0.15f, -th - 0.1f, (ri - 0.45f) * d[0], (ri - 0.45f) * d[1], 0.05f, INNER, light);
+				}
+				box(vc, pose, -s * 0.7f, cy - 0.6f, -th - 0.16f, 0.35f, 0.35f, 0.02f, INNER_L, light);
+				pose.popPose();
 			}
-			// the rolled rim, a shade lighter, just behind the face
-			for (float[] d : DISC) {
-				box(vc, pose, 0f, cy, 0.05f, r * d[0] + 0.12f, r * d[1] + 0.12f, th * 0.6f, GREY_H, light);
-			}
-			// the darker back (seen from behind)
-			for (float[] d : DISC) {
-				box(vc, pose, 0f, cy, 0.3f, r * d[0] - 0.4f, r * d[1] - 0.4f, 0.2f, GREY, light);
-			}
-			// pink inside: a darker edge, a lighter middle, on the front face
-			float ri = 2.3f;
-			for (float[] d : DISC) {
-				box(vc, pose, 0f, cy + 0.15f, -th - 0.03f, ri * d[0], ri * d[1], 0.06f, PINK, light);
-			}
-			for (float[] d : DISC) {
-				box(vc, pose, 0f, cy + 0.15f, -th - 0.1f, (ri - 0.45f) * d[0], (ri - 0.45f) * d[1], 0.05f, INNER, light);
-			}
-			box(vc, pose, -s * 0.7f, cy - 0.6f, -th - 0.16f, 0.35f, 0.35f, 0.02f, INNER_L, light);
 			pose.popPose();
 		}
-		pose.popPose();
+		if (!belt) {
+			return;
+		}
 
 		// ---- the rope belt, the hip handle, the tail
 		pose.pushPose();
@@ -361,24 +399,28 @@ public final class MultimouseRender {
 		segment(vc, pose, -3.1f, 10.1f, -2.75f, -3.15f, 11.1f, -2.7f, 0.21f, PINK_L, light);
 		handle(vc, pose, -3.15f, 11.3f, -2.7f, light);
 		// the tail: its own bone at the knot, swaying, flaring back with her speed
-		pose.pushPose();
-		pose.translate(0f, 8.5f, 2.9f);
-		float sway = Mth.sin(ageInTicks * 0.09f) * 0.07f + Mth.sin(limbSwing * 0.6662f) * 0.12f * swing;
-		pose.mulPose(Axis.XP.rotation(0.12f + 0.75f * Mth.clamp(swing, 0f, 1f)));
-		pose.mulPose(Axis.ZP.rotation(sway));
-		pose.scale(grow, grow, grow);
-		float[][] pts = { { 0f, 15.5f, 2.9f }, { 0.1f, 13.6f, 3.9f }, { 0.4f, 10.8f, 4.7f }, { 0.9f, 7.6f, 5.1f }, { 1.4f, 4.9f, 4.9f }, { 1.7f, 3.3f, 4.4f } };
-		for (int i = 0; i + 1 < pts.length; i++) {
-			float[] a = pts[i], b = pts[i + 1];
-			segment(vc, pose, a[0], 15.5f - a[1], a[2] - 2.9f, b[0], 15.5f - b[1], b[2] - 2.9f, 0.31f, i % 2 == 0 ? PINK : PINK_L, light);
+		if (tail > 0f) {
+			pose.pushPose();
+			pose.translate(0f, 8.5f, 2.9f);
+			float sway = Mth.sin(ageInTicks * 0.09f) * 0.07f + Mth.sin(limbSwing * 0.6662f) * 0.12f * swing;
+			pose.mulPose(Axis.XP.rotation(0.12f + 0.75f * Mth.clamp(swing, 0f, 1f)));
+			pose.mulPose(Axis.ZP.rotation(sway + kick));
+			pose.mulPose(Axis.XP.rotation(-0.6f * kick));
+			pose.scale(grow, tail, grow);
+			float[][] pts = { { 0f, 15.5f, 2.9f }, { 0.1f, 13.6f, 3.9f }, { 0.4f, 10.8f, 4.7f }, { 0.9f, 7.6f, 5.1f }, { 1.4f, 4.9f, 4.9f },
+					{ 1.7f, 3.3f, 4.4f } };
+			for (int i = 0; i + 1 < pts.length; i++) {
+				float[] a = pts[i], b = pts[i + 1];
+				segment(vc, pose, a[0], 15.5f - a[1], a[2] - 2.9f, b[0], 15.5f - b[1], b[2] - 2.9f, 0.31f, i % 2 == 0 ? PINK : PINK_L, light);
+			}
+			float[] end = pts[pts.length - 1];
+			float ex = end[0], ey = 15.5f - end[1], ez = end[2] - 2.9f;
+			box(vc, pose, ex, ey + 0.35f, ez, 0.55f, 0.28f, 0.55f, PINK_H, light);
+			box(vc, pose, ex, ey + 1.95f, ez, 0.43f, 1.35f, 0.43f, PINK, light);
+			box(vc, pose, ex - 0.3f, ey + 1.95f, ez - 0.44f, 0.08f, 1.2f, 0.02f, PINK_H, light);
+			box(vc, pose, ex, ey + 3.5f, ez, 0.58f, 0.3f, 0.58f, PINK_L, light);
+			pose.popPose();
 		}
-		float[] end = pts[pts.length - 1];
-		float ex = end[0], ey = 15.5f - end[1], ez = end[2] - 2.9f;
-		box(vc, pose, ex, ey + 0.35f, ez, 0.55f, 0.28f, 0.55f, PINK_H, light);
-		box(vc, pose, ex, ey + 1.95f, ez, 0.43f, 1.35f, 0.43f, PINK, light);
-		box(vc, pose, ex - 0.3f, ey + 1.95f, ez - 0.44f, 0.08f, 1.2f, 0.02f, PINK_H, light);
-		box(vc, pose, ex, ey + 3.5f, ez, 0.58f, 0.3f, 0.58f, PINK_L, light);
-		pose.popPose();
 		pose.popPose();
 	}
 

@@ -31,11 +31,22 @@ public class MultimouseLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 			return;
 		}
 		boolean slim = MultimouseRender.slim(player);
-		MultimouseRender.renderSuit(pose, buffers, light, getParentModel(), slim, cover, OverlayTexture.NO_OVERLAY);
+		// v0.17.1: the long transformation raises the hood on its own beat (1 = on, outside it)
+		float hood = MultimouseSequenceClient.hood(player, partialTick);
+		MultimouseRender.renderSuit(pose, buffers, light, getParentModel(), slim, cover, OverlayTexture.NO_OVERLAY, hood);
 		if (cover < 0.999f) {
-			// the wearer's own second layer (hair included: the hood replaces it) goes texel by texel with the light
-			OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> MultimouseRender.order(u, v) > cover, true);
+			// the wearer's own second layer (hair included: the hood replaces it) goes texel by texel with the light --
+			// in the long one her hair stays until the hood comes up over it
+			OverlayStrips.render(pose, buffers, light, player, getParentModel(),
+					(u, v) -> MultimouseRender.order(u, v) > cover || (hood < 0.5f && v < 16), true);
 		}
-		MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), cover, ageInTicks, Mth.clamp(limbSwingAmount, 0f, 1f), limbSwing);
+		float swing = Mth.clamp(limbSwingAmount, 0f, 1f);
+		float[] seq = MultimouseSequenceClient.extras(player, partialTick);
+		if (seq != null) {
+			// the ears pop on their beat, the rope is off her belt while she skips it, the tail flicks out as it winds back
+			MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), ageInTicks, swing, limbSwing, 1f, seq[0], seq[1] > 0f, seq[2], seq[3]);
+		} else {
+			MultimouseRender.renderExtras(pose, buffers, light, getParentModel(), cover, ageInTicks, swing, limbSwing);
+		}
 	}
 }

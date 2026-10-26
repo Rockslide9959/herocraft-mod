@@ -165,6 +165,39 @@ public class MiraculousSequenceGameTests implements FabricGameTest {
 		shortPhrase(helper, Kwami.SASS);
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void mulloMultiplyPlaysTheLongSequence(GameTestHelper helper) {
+		fullPhrase(helper, Kwami.MULLO);
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void multiplyAloneIsTheQuickOne(GameTestHelper helper) {
+		shortPhrase(helper, Kwami.MULLO);
+	}
+
+	/** Multimouse's own beats: the suit steps on with each copy that merges, the hood rises after it, never back off. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void multimouseSuitFormsAsTheCopiesMerge(GameTestHelper helper) {
+		MiraculousSequence.Timeline tl = MiraculousSequence.of(Kwami.MULLO);
+		helper.assertTrue(tl == com.projecthero.mod.miraculous.multimouse.MultimouseSequence.TIMELINE && Math.abs(tl.total() - 170) <= 10,
+				"about Ladybug's length");
+		int merge = com.projecthero.mod.miraculous.multimouse.MultimouseSequence.MERGE;
+		int mergeEnd = com.projecthero.mod.miraculous.multimouse.MultimouseSequence.MERGE_END;
+		int hood = com.projecthero.mod.miraculous.multimouse.MultimouseSequence.HOOD;
+		helper.assertTrue(tl.cover(merge - 1) == 0f && tl.cover(mergeEnd) > 0.8f && tl.cover(mergeEnd) < tl.cover(tl.total()),
+				"the suit forms as the copies merge, the rest after");
+		helper.assertTrue(com.projecthero.mod.miraculous.multimouse.MultimouseSequence.hood(hood - 1) == 0f
+				&& com.projecthero.mod.miraculous.multimouse.MultimouseSequence.hood(tl.total()) == 1f, "the hood rises on its beat");
+		float last = 0f;
+		for (int t = 0; t <= tl.total(); t++) {
+			float c = tl.cover(t);
+			helper.assertTrue(c >= last - 1.0e-4f, "the suit only ever goes on (tick " + t + ")");
+			last = c;
+		}
+		helper.assertTrue(last >= 0.999f, "all of it at the end");
+		helper.succeed();
+	}
+
 	/** Ladybug's is unchanged on the shared frame: the same length, ANIM id and reveal. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void ladybugsSequenceIsUnchanged(GameTestHelper helper) {

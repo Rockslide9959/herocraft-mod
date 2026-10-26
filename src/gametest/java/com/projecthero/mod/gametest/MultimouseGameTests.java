@@ -404,12 +404,12 @@ public class MultimouseGameTests implements FabricGameTest {
 		helper.assertTrue(PowerGrants.grantHero(p, "multimouse").ok() && Miraculous.holds(p, Kwami.MULLO) && HeroTiers.holdsHero(p, "multimouse"),
 				"the command grants Multimouse");
 		helper.assertTrue("Multimouse".equals(MiraculousPhrases.heroName(Kwami.MULLO)), "the hero's name");
-		helper.assertTrue(MiraculousPhrases.match(Kwami.MULLO, "mullo multiply") == MiraculousPhrases.Spoken.TRANSFORM
+		helper.assertTrue(MiraculousPhrases.match(Kwami.MULLO, "mullo multiply") == MiraculousPhrases.Spoken.TRANSFORM_LONG /* v0.17.1: the long one */
 				&& MiraculousPhrases.match(Kwami.MULLO, "Multiply!") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.MULLO, "DIVIDE") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.MULLO, "Mullo, divide!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.assertTrue(Miraculous.onChat(p, "Mullo, multiply!") && Miraculous.transformedAs(p, Kwami.MULLO), "Multimouse");
-		Miraculous.edit(p, n -> n.formChangeAt -= 100L);
+		Miraculous.edit(p, n -> n.formChangeAt -= 200L); // v0.17.1: past the long transformation the full phrase plays
 		helper.assertTrue(Miraculous.onChat(p, "Divide!") && !Miraculous.transformed(p) && Miraculous.hungry(p), "back, and Mullo is hungry");
 		helper.assertTrue(Miraculous.foodOf(Kwami.MULLO) == MiraculousItems.CHEESE_WEDGE, "the Cheese Wedge");
 		ItemStack cheese = new ItemStack(MiraculousItems.CHEESE_WEDGE, 4);
