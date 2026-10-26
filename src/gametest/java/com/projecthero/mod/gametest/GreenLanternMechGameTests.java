@@ -149,9 +149,14 @@ public class GreenLanternMechGameTests implements FabricGameTest {
 		p.getAbilities().invulnerable = false;
 		p.invulnerableTime = 0;
 		m.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().generic(), 10f);
+		// the difficulty is global and other tests change it: pin Normal, then hit the pilot the way play does -- a mob's blow
+		helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
+		Husk h = husk(helper, 4.0, 6.0);
+		float mechHp = m.getHealth();
+		p.hurt(helper.getLevel().damageSources().mobAttack(h), 10f);
+		h.discard();
 		helper.assertTrue(p.getHealth() >= hp, "the pilot took nothing");
-		helper.assertTrue(m.getHealth() < m.getMaxHealth(), "the mech took the hit");
+		helper.assertTrue(m.getHealth() < mechHp, "the mech took the hit (" + mechHp + " -> " + m.getHealth() + ")");
 		helper.succeed();
 	}
 

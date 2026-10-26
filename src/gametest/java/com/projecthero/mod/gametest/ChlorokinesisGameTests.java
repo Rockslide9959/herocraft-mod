@@ -194,12 +194,14 @@ public class ChlorokinesisGameTests implements FabricGameTest {
 		for (BlockPos pos : BlockPos.betweenClosed(head.offset(-1, 1, -1), head.offset(1, 1, 1))) {
 			helper.getLevel().setBlock(pos, Blocks.STONE.defaultBlockState(), 2);
 		}
-		float covered = PlantManipulationHandlers.regenPerSecond(p);
-		helper.assertTrue(covered <= open, "under a roof (" + covered + "/s) is slower than the open sky (" + open + "/s)");
-		helper.assertTrue(Math.abs(covered - PlantManipulationHandlers.REGEN_DARK) < 0.01f
-				|| Math.abs(covered - PlantManipulationHandlers.REGEN_DARK * PlantManipulationHandlers.LUSH_FACTOR) < 0.01f,
-				"dark and covered = the slowest rate, got " + covered);
-		helper.succeed();
+		// the sky light under the new roof is recomputed over the next ticks (the light engine runs between them)
+		helper.succeedWhen(() -> {
+			float covered = PlantManipulationHandlers.regenPerSecond(p);
+			helper.assertTrue(covered < open, "under a roof (" + covered + "/s) is slower than the open sky (" + open + "/s)");
+			helper.assertTrue(Math.abs(covered - PlantManipulationHandlers.REGEN_DARK) < 0.01f
+					|| Math.abs(covered - PlantManipulationHandlers.REGEN_DARK * PlantManipulationHandlers.LUSH_FACTOR) < 0.01f,
+					"dark and covered = the slowest rate, got " + covered);
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
