@@ -923,6 +923,8 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
 			para(lines, "projecthero.guide.green_lantern.sniper.body");
+			head(lines, "projecthero.guide.green_lantern.vehicles"); // v0.17.1: Carry Platform -> Car -> Jet
+			para(lines, "projecthero.guide.green_lantern.vehicles.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.battery");
 			para(lines, "projecthero.guide.green_lantern.battery.body");

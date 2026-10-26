@@ -753,3 +753,55 @@ next to the Tool Kit; every cost goes through `GreenLanternEnergy#spend` (reserv
   selected slot for that one call (`GreenLanternSurvival#mine`).
 - Entities: `Shape.ITEM_NET` and `Shape.TUNNELLER`, drawn by `HardLightSurvivalRenderer`.
 - Gametests: `GreenLanternSurvivalGameTests`.
+## v0.17.1 -- Carry Platform -> Car -> Jet
+
+Explicit user request: the Carry Platform switches into a car or a jet.
+
+- **Input**: pressing the Carry Platform's key again while it stands (any bound key, Quick Deploy on C, or a menu
+  spawn -- all reach `GreenLanternConstructs#deploy`) now cycles **Platform -> Car -> Jet -> Platform**
+  (`construct/GreenLanternVehicles#cycle`) instead of toggling follow / park. Follow / park moved to the owner's
+  **Sneak + right-click on a platform cell** (the `UseBlockCallback` that seats riders; a plain right-click still seats).
+  A Shift+key variant was rejected: Shift selects a different binding slot in the Construct Menu model, so it could
+  never reach the same entry. Everyone aboard is carried into the new form's seats, the owner first (so they drive);
+  a reshaped platform starts parked. No room for the new form = the charge is refunded and the platform comes back.
+- **Costs** (`GreenLanternConfig.VEHICLE_*`, next to `CARRY_PLATFORM_*`): Platform 20 + 1/s, Car 40 + 2/s, Jet 60 + 3/s
+  -- `GreenLanternVehicles#upkeepPerSec` is what `tickUpkeep` charges for the Carry Platform now. All through
+  `GreenLanternEnergy.spend`, so the Oath doubles and ranks cut them.
+- **State**: still ONE `Construct` (`CARRY_PLATFORM`); `Construct#vehicleForm` + `Construct#vehicle` hold the form and
+  the entity. In Car / Jet form it has no cells; `tickKind` hands it to `GreenLanternVehicles#tick` (false once the
+  vehicle is destroyed / unloaded / gone, which ends the construct), `end()` and the logout path call `#onEnd` (riders
+  out, a burst of green sparks + amethyst break, discard). Statics (`LIVE`, `FIRING`, `BOOST_READY`) are cleared from
+  `GreenLanternConstructs#clearSessionState` and per player from `GreenLanternAbilityManager#onCleanup`.
+- **Entities** (`entity/HardLightVehicleEntity` base, `HardLightCarEntity`, `HardLightJetEntity`; types
+  `hard_light_car` 2.2x1.25, `hard_light_jet` 2.6x1.3): Mobs, `noSave`, never change dimension, and one that no live
+  construct owns (`HardLightVehicleEntity.tracked` -> `GreenLanternVehicles.LIVE`) discards itself. Client-simulated
+  like a boat / horse: the controlling passenger's client runs `simulate` from `travel` and the vanilla vehicle-move
+  packet carries it; the server only simulates a parked vehicle. The velocity is kept in `vel`, not the delta movement
+  (the client damps a non-AI mob's delta movement by 0.98 a tick). Riders' view yaw follows the car's turn
+  (`positionRider`, boat-style). HP: Car 120, Jet 90; immune to fall / in-wall / drowning / cramming and to its own
+  riders' and owner's hits; it flares when hit and crackles below a third.
+- **Getting out**: Shift is the Shift+R modifier in these vehicles, so `PlayerMixin#wantsToStopRiding` asks
+  `HardLightVehicleEntity#passengerWantsOut`: Shift held `VEHICLE_DISMOUNT_HOLD_TICKS` (10) with no Shift+R in that hold.
+  Dismounting leaves it parked (a car stops, a jet sinks gently). Riders of a vehicle that dissolves in mid-air get
+  6 s of Slow Falling (a ringless passenger would otherwise fall); Lanterns already take no fall damage with charge.
+- **Car**: 4 seats (driver front-left). W accelerates `VEHICLE_CAR_ACCEL_BPS2` (14) to `VEHICLE_CAR_TOP_BPS` (50), S
+  brakes (45) then reverses (12 b/s), A/D steer with eased input (rate falls from 5 to 1.8 deg/tick with speed, 0 at a
+  stand), step height 1.1, floats on water. **Shift+R**: horn (two notes) + x3 acceleration for 1.5 s, 15 charge, 3 s
+  cooldown (`GreenLanternVehicles#ringKey`, called first in `GreenLanternAbilityManager`'s SLOT_1). Plain R is still the
+  Ring Bolt.
+- **Jet**: pilot + 1. The nose swings toward the pilot's view at 6 deg/tick (banking into turns, A/D add a little yaw);
+  W throttles at 22 b/s per s to 90, S brakes. Below `VEHICLE_JET_STALL_BPS` (18) it loses lift: the nose drops and it
+  sinks at up to 5 b/s; on the ground it taxis level and lifts off past stall speed. `noGravity` (own lift model, and a
+  floating vehicle must not trip the server's anti-fly kick). **R (hold)**: twin wingtip cannons, a pair every 4 ticks
+  converging on the pilot's crosshair (64 blocks), 4 damage a bolt x `GreenLanternRanks.power` via
+  `AbilityHelpers.hurtBurst`, 3 charge a pair, drawn as `boltStreak`s. **Shift+R**: afterburner, x3 thrust for 2 s,
+  20 charge, 4 s cooldown.
+- **Look** (`client/greenlantern/HardLightVehicleRenderer`, code-built `HardLightDraw` boxes like every GL construct
+  model; golden at Corps Legend): an open-top sports car (wedge nose + splitter, striped hood with the emblem, raked
+  windscreen, four bucket seats, roll hoops, rear wing, rolling + steering wheels, head / tail lights) and a fighter
+  (pointed nose, tandem bubble canopy, intakes, swept wings with tip cannons, tailplanes, twin canted fins with the
+  emblem, an exhaust that lengthens with speed and the afterburner). Both are swept into being nose-to-tail over
+  `VEHICLE_BUILD_TICKS` (20) behind a bright plane of light, with a spark line from the ring.
+- Gametests: `GreenLanternVehicleGameTests` (the cycle + costs, riders carried over, N removes it / never saved, a
+  destroyed car ends the construct, the Shift-hold dismount rule vs Shift+R, Jet cannons damage + cost + R hold, a
+  stalled jet sinks gently).

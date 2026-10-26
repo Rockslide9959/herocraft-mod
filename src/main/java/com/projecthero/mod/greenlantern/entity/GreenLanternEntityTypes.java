@@ -27,11 +27,25 @@ public final class GreenLanternEntityTypes {
 					.fireImmune()
 					.build());
 
+	/** v0.17.1: the Carry Platform's Car and Jet forms -- rideable, client-simulated, never saved. */
+	public static final EntityType<HardLightCarEntity> HARD_LIGHT_CAR = register("hard_light_car",
+			EntityType.Builder.<HardLightCarEntity>of(HardLightCarEntity::new, MobCategory.MISC)
+					.sized(2.2f, 1.25f).eyeHeight(0.9f).fireImmune().noSave().noSummon().clientTrackingRange(10)
+					.updateInterval(1).build("hard_light_car"));
+	public static final EntityType<HardLightJetEntity> HARD_LIGHT_JET = register("hard_light_jet",
+			EntityType.Builder.<HardLightJetEntity>of(HardLightJetEntity::new, MobCategory.MISC)
+					.sized(2.6f, 1.3f).eyeHeight(0.9f).fireImmune().noSave().noSummon().clientTrackingRange(12)
+					.updateInterval(1).build("hard_light_jet"));
+
 	private GreenLanternEntityTypes() {
 	}
 
 	public static void initialize() {
 		// Referencing this class loads it and registers the types.
+		net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(HARD_LIGHT_CAR,
+				HardLightCarEntity.createAttributes()); // v0.17.1
+		net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(HARD_LIGHT_JET,
+				HardLightJetEntity.createAttributes());
 	}
 
 	private static <T extends net.minecraft.world.entity.Entity> EntityType<T> register(String path, EntityType<T> type) {

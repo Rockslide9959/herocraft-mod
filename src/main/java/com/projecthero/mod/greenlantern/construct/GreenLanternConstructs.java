@@ -121,7 +121,7 @@ public final class GreenLanternConstructs {
 	/** Lantern-Corps green, matching every other hard-light effect's dust colour in this power. */
 	private static final ParticleOptions GREEN_DUST = new DustParticleOptions(new Vector3f(0.208f, 0.941f, 0.459f), 1.5f);
 	/** v0.13.21: the small, paler spark every construct cell is built / dissolved with. */
-	private static final ParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.55f, 1.0f, 0.62f), 0.9f);
+	static final ParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.55f, 1.0f, 0.62f), 0.9f);
 	/** v0.13.21: thinner dust for tether lines and the bubble's shell. */
 	private static final ParticleOptions FINE_DUST = new DustParticleOptions(new Vector3f(0.30f, 0.98f, 0.52f), 0.8f);
 
@@ -180,6 +180,13 @@ public final class GreenLanternConstructs {
 			if (c == null || c.type != ConstructType.CARRY_PLATFORM) {
 				return InteractionResult.PASS;
 			}
+			// v0.17.1: the key now cycles Platform -> Car -> Jet, so follow / park moved to the owner's Shift + right-click
+			if (sp.isShiftKeyDown() && sp.getUUID().equals(c.owner)) {
+				toggleConstruct(sp, c);
+				sp.displayClientMessage(Component.translatable(c.toggledOn
+						? "message.projecthero.green_lantern.vehicle.follow" : "message.projecthero.green_lantern.vehicle.park"), true);
+				return InteractionResult.SUCCESS;
+			}
 			for (int i = 0; i < c.cells.size(); i++) {
 				if (c.cells.get(i).pos().equals(pos)) {
 					trySeat(sp, c, i);
@@ -208,6 +215,7 @@ public final class GreenLanternConstructs {
 		LIVE_DISPLAYS.clear();
 		PENDING_DISCARD.clear();
 		RAM_ACTIVE.clear();
+		GreenLanternVehicles.clearSessionState(); // v0.17.1
 	}
 
 	public static List<Construct> of(UUID owner) {
@@ -268,7 +276,7 @@ public final class GreenLanternConstructs {
 	 * is unconditional (it is still occupying world blocks either way). v0.13.21: also re-syncs
 	 * {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}, so every client draws the blade / drill on the hand.
 	 */
-	private static void toggleConstruct(ServerPlayer player, Construct c) {
+	static void toggleConstruct(ServerPlayer player, Construct c) {
 		c.toggledOn = !c.toggledOn;
 		if (c.type == ConstructType.ENERGY_BLADE) {
 			if (c.toggledOn) {
@@ -353,6 +361,14 @@ public final class GreenLanternConstructs {
 				dismissOne(out, false);
 				player.serverLevel().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_DEACTIVATE,
 						SoundSource.PLAYERS, 0.5f, 1.6f);
+				return;
+			}
+		}
+		// v0.17.1: the Carry Platform's key again cycles it Platform -> Car -> Jet -> Platform (GreenLanternVehicles)
+		if (type == ConstructType.CARRY_PLATFORM) {
+			Construct existing = firstOfType(player.getUUID(), type);
+			if (existing != null) {
+				GreenLanternVehicles.cycle(player, existing);
 				return;
 			}
 		}
@@ -657,7 +673,7 @@ public final class GreenLanternConstructs {
 	}
 
 	/** The nine world positions of a 3x3 footprint centred on {@code center}, in a fixed, stable order. */
-	private static List<BlockPos> carryPlatformCells(BlockPos center) {
+	static List<BlockPos> carryPlatformCells(BlockPos center) {
 		List<BlockPos> cells = new ArrayList<>(9);
 		for (int dx = -1; dx <= 1; dx++) {
 			for (int dz = -1; dz <= 1; dz++) {
@@ -670,7 +686,7 @@ public final class GreenLanternConstructs {
 	// ---------------- Carry Platform (v0.11.5: follows its owner and can carry passengers) ----------------
 
 	/** One invisible, unkillable seat per cell -- a rider on one follows it automatically as it moves. */
-	private static void spawnCarryPlatformSeats(Construct c) {
+	static void spawnCarryPlatformSeats(Construct c) {
 		for (Construct.Cell cell : c.cells) {
 			ArmorStand stand = newCarrySeat(c.level, cell.pos());
 			c.level.addFreshEntity(stand);
@@ -698,7 +714,7 @@ public final class GreenLanternConstructs {
 		return stand;
 	}
 
-	private static void removeCarrySeats(Construct c) {
+	static void removeCarrySeats(Construct c) {
 		for (int id : c.seatEntityIds) {
 			net.minecraft.world.entity.Entity seat = c.level.getEntity(id);
 			if (seat != null) {
@@ -1350,7 +1366,7 @@ public final class GreenLanternConstructs {
 		return GreenLanternBlocks.HARD_LIGHT.defaultBlockState();
 	}
 
-	private static BlockState carryPlatformBlockState() {
+	static BlockState carryPlatformBlockState() {
 		return GreenLanternBlocks.HARD_LIGHT.defaultBlockState().setValue(HardLightBlock.BRIGHT, true);
 	}
 
@@ -1358,7 +1374,7 @@ public final class GreenLanternConstructs {
 	 * Queues {@code pos} as one of the construct's cells if it may be built there. v0.13.21: never inside ANY player,
 	 * the caster included (the caster used to be exempt, so a Wall aimed at your own feet could entomb you).
 	 */
-	private static void add(Construct c, BlockPos pos, BlockState state) {
+	static void add(Construct c, BlockPos pos, BlockState state) {
 		BlockState current = c.level.getBlockState(pos);
 		if (!current.canBeReplaced() && !current.isAir()) {
 			return;
@@ -1396,7 +1412,7 @@ public final class GreenLanternConstructs {
 	 * a player stepped into it mid-build) is skipped rather than overwritten. Every placed cell is indexed in
 	 * {@link #CELL_INDEX} before it goes into the world, so its orphan check always finds it.
 	 */
-	private static void placeCells(Construct c, int count, boolean sparkle) {
+	static void placeCells(Construct c, int count, boolean sparkle) {
 		int end = Math.min(c.cells.size(), c.built + count);
 		Map<BlockPos, Construct> index = CELL_INDEX.computeIfAbsent(c.level.dimension(), k -> new ConcurrentHashMap<>());
 		for (int i = c.built; i < end; i++) {
@@ -1418,7 +1434,7 @@ public final class GreenLanternConstructs {
 		c.built = end;
 	}
 
-	private static void restore(Construct c) {
+	static void restore(Construct c) {
 		Map<BlockPos, Construct> index = CELL_INDEX.get(c.level.dimension());
 		for (Construct.Cell cell : c.cells) {
 			if (index != null) {
@@ -1549,6 +1565,7 @@ public final class GreenLanternConstructs {
 		}
 		if (c.type == ConstructType.CARRY_PLATFORM) {
 			removeCarrySeats(c);
+			GreenLanternVehicles.onEnd(c); // v0.17.1: a Car / Jet dissolves with it
 		}
 		if (c.type.kind() == ConstructType.Kind.HELD_WEAPON) {
 			MinecraftServer server = c.level.getServer();
@@ -1641,6 +1658,7 @@ public final class GreenLanternConstructs {
 					removeDisplays(c);
 					if (c.type == ConstructType.CARRY_PLATFORM) {
 						removeCarrySeats(c);
+						GreenLanternVehicles.onEnd(c); // v0.17.1
 					}
 					if (c.type.kind() == ConstructType.Kind.RING_LIGHT) {
 						GreenLanternRingLight.stop(c.owner, server, null);
@@ -1720,7 +1738,8 @@ public final class GreenLanternConstructs {
 		if ((c.type == ConstructType.MINING_DRILL || c.type == ConstructType.ENERGY_BLADE) && !c.toggledOn) {
 			return true;
 		}
-		float upkeepPerSec = c.type.upkeepPerSec();
+		// v0.17.1: the Carry Platform pays its current form's upkeep (Platform / Car / Jet)
+		float upkeepPerSec = c.type == ConstructType.CARRY_PLATFORM ? GreenLanternVehicles.upkeepPerSec(c) : c.type.upkeepPerSec();
 		if (upkeepPerSec <= 0f) {
 			return true;
 		}
@@ -1743,6 +1762,9 @@ public final class GreenLanternConstructs {
 			}
 			case PLATFORM_BLOCKS -> {
 				if (c.type == ConstructType.CARRY_PLATFORM) {
+					if (c.vehicleForm != GreenLanternVehicles.FORM_PLATFORM) {
+						return GreenLanternVehicles.tick(owner, c); // v0.17.1: a Car / Jet -- false once it is destroyed
+					}
 					tickCarryPlatform(owner, c);
 				}
 			}
