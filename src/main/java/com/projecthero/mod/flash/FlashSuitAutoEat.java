@@ -30,7 +30,7 @@ public final class FlashSuitAutoEat {
 	}
 
 	public static void tick(ServerPlayer p) {
-		if (p.tickCount % EVERY != 0 || p.isCreative() || p.isSpectator() || p.isUsingItem() || !p.isAlive()) {
+		if (p.tickCount % EVERY != 0 || p.gameMode.getGameModeForPlayer() == net.minecraft.world.level.GameType.CREATIVE || p.isSpectator() || p.isUsingItem() || !p.isAlive()) {
 			return;
 		}
 		int food = p.getFoodData().getFoodLevel();
