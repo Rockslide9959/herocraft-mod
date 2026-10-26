@@ -267,6 +267,86 @@ public final class SpeedForceConfig {
 	/** The old Surge's cooldown (no move uses it now; older saves' keys are cleaned by the join check). */
 	public static final int SURGE_COOLDOWN = 90 * 20;
 
+	// ---------------------------------------------------------------- v0.17.1 run assists (passive / the Shift+N menu)
+
+	/** Auto-Slowdown (menu, default on): from this momentum the run eases off before a drop or lava / fire ahead. */
+	public static final float AUTO_SLOW_MOMENTUM = 0.30f;
+	/** A drop deeper than Ground-Stick's 5-block reach counts as a cliff: no ground within this many blocks below the run. */
+	public static final int AUTO_SLOW_DROP = 6;
+	/** How far ahead it looks: this many ticks of the current run (plus a few blocks), never past the max, blocks. */
+	public static final double AUTO_SLOW_LOOKAHEAD_TICKS = 5.0;
+	public static final double AUTO_SLOW_MAX_LOOK = 64.0;
+	/** It aims to be slow enough this many blocks short of the danger ... */
+	public static final double AUTO_SLOW_MARGIN = 2.5;
+	/** ... at a speed (blocks a tick) of (distance left - margin) / this. */
+	public static final double AUTO_SLOW_BRAKE = 1.5;
+	/** Never eased below this (blocks a tick: 6 b/s -- a jog you can stop from) nor by more than half in one tick. */
+	public static final double AUTO_SLOW_MIN_BPT = 0.3;
+	public static final double AUTO_SLOW_STEP_KEEP = 0.5;
+
+	/** Turn assist: from this momentum a sharp turn bends the run round instead of costing momentum. */
+	public static final float TURN_ASSIST_MOMENTUM = 0.25f;
+	/** The run's direction swings toward where you steer at most this many degrees a tick (a 90-degree turn: 3 ticks). */
+	public static final double TURN_ASSIST_DEG_PER_TICK = 30.0;
+	/** A turn sharper than this (a reversal) is not bent: it still costs, but only up to {@link #TURN_ASSIST_HARD_LOSS}. */
+	public static final double TURN_ASSIST_HARD_ANGLE = 135.0;
+	public static final double TURN_ASSIST_HARD_LOSS = 0.04;
+	/** The run keeps this much of its speed through a bent turn each tick. */
+	public static final double TURN_ASSIST_KEEP = 0.97;
+
+	/** The Shift+N speed cap slider: steps of 10% of full momentum, 10% to 100% (100% = no cap). */
+	public static final int SPEED_CAP_STEPS = 10;
+
+	/** Lightning charge-up: running in Speed Mode builds static -- this much (of {@link #STATIC_MAX}) a block run. */
+	public static final double STATIC_PER_BLOCK = 0.2;
+	public static final float STATIC_MAX = 100f;
+	/** Standing still it bleeds away (a point a second after this long idle). */
+	public static final int STATIC_IDLE_TICKS = 3 * 20;
+	public static final double STATIC_IDLE_DECAY_PER_TICK = 0.05;
+	/** The next melee hit with at least this much releases it as chain lightning. */
+	public static final float STATIC_MIN_RELEASE = 10f;
+	/** The discharge: 3 at the least charge to 12 at a full one (then x the momentum scaling), to the struck foe ... */
+	public static final float STATIC_DAMAGE_MIN = 3f;
+	public static final float STATIC_DAMAGE_MAX = 12f;
+	/** ... then hopping on to up to this many more foes, each within this many blocks of the last, at this much of it. */
+	public static final int STATIC_CHAIN_TARGETS = 3;
+	public static final double STATIC_CHAIN_RADIUS = 8.0;
+	public static final float STATIC_CHAIN_FALLOFF = 0.75f;
+
+	/** Flash Time vision: hostiles within this range show where they are heading, this many (world) ticks ahead. */
+	public static final double FLASH_VISION_RANGE = 32.0;
+	public static final int FLASH_VISION_TICKS = 30;
+	/** Faint: this alpha (0..1). */
+	public static final float FLASH_VISION_ALPHA = 0.35f;
+
+	/** Speed farming: running through fully grown crops harvests and replants them, this many blocks either side of the run. */
+	public static final int FARM_REACH = 1;
+	/** At most this many crops a tick. */
+	public static final int FARM_MAX_PER_TICK = 48;
+
+	/** Speed mining (menu, default on): an ore mined in Speed Mode takes up to this many connected same ores with it. */
+	public static final int VEIN_MAX = 16;
+
+	/** Danger sense: from this momentum, hostiles ahead along the run within this range are outlined for you alone ... */
+	public static final float DANGER_MOMENTUM = 0.25f;
+	public static final double DANGER_RANGE = 48.0;
+	/** ... "ahead": within this cone either side of the run (cosine: about 35 degrees) ... */
+	public static final double DANGER_CONE = 0.82;
+	/** ... for this long after they are seen there. */
+	public static final int DANGER_MARK_TICKS = 30;
+	public static final int DANGER_COLOUR = 0xFF5A3C;
+
+	/** The momentum the speed cap lets {@code momentum} build to (a Surge / launch included; the Speed Force itself not). */
+	public static float capped(double momentum, float capFraction) {
+		return (float) Math.max(0.0, Math.min(momentum, capFraction));
+	}
+
+	/** The static discharge's first-hit damage for {@code charge} (0..{@link #STATIC_MAX}), before the momentum scaling. */
+	public static float staticDamage(float charge) {
+		float f = Math.max(0f, Math.min(1f, charge / STATIC_MAX));
+		return STATIC_DAMAGE_MIN + (STATIC_DAMAGE_MAX - STATIC_DAMAGE_MIN) * f;
+	}
+
 	// ---------------------------------------------------------------- the speed curve
 
 	/** The flat-ground sprint speed (blocks a second) at {@code momentum}, with or without the full Flash Suit. */

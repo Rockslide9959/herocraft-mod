@@ -76,6 +76,18 @@ public final class SpeedForceState {
 	 * 0..{@code SpeedForceConfig.DRAINED_TICKS}. Saved (it lasts through a logout).
 	 */
 	public int drained;
+	/**
+	 * v0.17.1 (user, the Shift+N menu): Auto-Slowdown -- the run eases off before a big drop or lava / fire ahead. Saved
+	 * inverted (bit 3 set = off), so every older save reads as on.
+	 */
+	public boolean autoSlow = true;
+	/** v0.17.1 (user, the Shift+N menu): Speed Mode vein mining (an ore takes the connected same ores with it). Bit 4 set = off. */
+	public boolean veinMine = true;
+	/**
+	 * v0.17.1 (user, the Shift+N menu): the top speed -- momentum never builds past {@code speedCap / 10}, 1..10 (10 = no
+	 * cap). Saved as {@code 10 - speedCap} in bits 12-15 (so 0, every older save, is no cap).
+	 */
+	public int speedCap = 10;
 
 	public SpeedForceState() {
 		this(false, 0f, 0f, 0L, 0, 0, false, 0, 0, 0, 0L, 0, 0L, new HashMap<>(), false, 0L);
@@ -103,20 +115,31 @@ public final class SpeedForceState {
 	}
 
 	/**
-	 * Speed Mode, Ground-Stick, the hold pose, the colour (bits 8-15) and the drain (bits 16-31) in one saved int (the codec is
-	 * at its 16 fields).
+	 * Speed Mode, Ground-Stick, the hold pose, Auto-Slowdown off (bit 3), vein mining off (bit 4), the colour (bits 8-11: ten
+	 * colours fit in four), the speed cap (bits 12-15, {@code 10 - speedCap}) and the drain (bits 16-31) in one saved int (the
+	 * codec is at its 16 fields). Bits 5-7 are still free.
 	 */
 	int flags() {
-		return (speedMode ? 1 : 0) | (groundStick ? 2 : 0) | (holdAnim ? 4 : 0) | ((colour & 0xFF) << 8) | ((Math.max(0, Math.min(0xFFFF, drained)) & 0xFFFF) << 16);
+		int cap = 10 - Math.max(1, Math.min(10, speedCap));
+		return (speedMode ? 1 : 0) | (groundStick ? 2 : 0) | (holdAnim ? 4 : 0) | (autoSlow ? 0 : 8) | (veinMine ? 0 : 16)
+				| ((colour & 0x0F) << 8) | ((cap & 0x0F) << 12) | ((Math.max(0, Math.min(0xFFFF, drained)) & 0xFFFF) << 16);
 	}
 
 	private SpeedForceState withFlags(int flags) {
 		this.speedMode = (flags & 1) != 0;
 		this.groundStick = (flags & 2) != 0;
 		this.holdAnim = (flags & 4) != 0;
-		this.colour = (flags >> 8) & 0xFF;
+		this.autoSlow = (flags & 8) == 0;
+		this.veinMine = (flags & 16) == 0;
+		this.colour = (flags >> 8) & 0x0F;
+		this.speedCap = Math.max(1, 10 - ((flags >> 12) & 0x0F));
 		this.drained = (flags >>> 16) & 0xFFFF;
 		return this;
+	}
+
+	/** v0.17.1: the speed cap as a fraction of full momentum (0.1..1). */
+	public float capFraction() {
+		return Math.max(1, Math.min(10, speedCap)) / 10f;
 	}
 
 	public SpeedForceState copy() {
