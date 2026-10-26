@@ -38,6 +38,8 @@ public final class GreenLanternBinding {
 	/** Which icon atlas an entry's icon is in. */
 	public static final int ATLAS_CONSTRUCTS = 0;
 	public static final int ATLAS_ENTRIES = 1;
+	/** v0.17.1: the Hard-Light Mech has an icon file of its own (textures/gui/green_lantern/mech_icon.png, cell 0). */
+	public static final int ATLAS_MECH = 2;
 
 	/**
 	 * One menu entry. {@code type} is the construct it deploys (null for the ring's own moves); {@code hold} = the key is
@@ -87,8 +89,12 @@ public final class GreenLanternBinding {
 		for (ConstructType t : ConstructType.values()) {
 			boolean arsenal = t.kind() == ConstructType.Kind.ARSENAL;
 			int cell = arsenal ? 16 + (t.ordinal() - ConstructType.BOXING_GLOVE.ordinal()) : t.ordinal();
-			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(),
-					arsenal ? ATLAS_ENTRIES : ATLAS_CONSTRUCTS, cell, t));
+			int atlas = arsenal ? ATLAS_ENTRIES : ATLAS_CONSTRUCTS;
+			if (t == ConstructType.HARD_LIGHT_MECH) {
+				atlas = ATLAS_MECH;
+				cell = 0;
+			}
+			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(), atlas, cell, t));
 		}
 		list.add(new Entry(OATH, Section.RING, true, ATLAS_ENTRIES, 3, null));
 		list.add(new Entry(SUIT, Section.RING, false, ATLAS_ENTRIES, 4, null));

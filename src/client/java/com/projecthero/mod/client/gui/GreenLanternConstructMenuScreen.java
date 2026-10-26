@@ -43,6 +43,7 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class GreenLanternConstructMenuScreen extends Screen {
 	public static final ResourceLocation ENTRY_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/entries.png");
+	public static final ResourceLocation MECH_ICON = ProjectHeroMod.id("textures/gui/green_lantern/mech_icon.png");
 
 	private static final int CELL = 24;
 	private static final int ICON = 16;
@@ -284,6 +285,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	public static void icon(GuiGraphics g, Entry e, int x, int y, int size) {
 		if (e.atlas() == GreenLanternBinding.ATLAS_CONSTRUCTS) {
 			GreenLanternHud.icon(g, e.cell(), x, y, size);
+		} else if (e.atlas() == GreenLanternBinding.ATLAS_MECH) { // v0.17.1: the Hard-Light Mech
+			RenderSystem.enableBlend();
+			g.blit(MECH_ICON, x, y, size, size, 0f, 0f, 16, 16, 16, 16);
+			RenderSystem.disableBlend();
 		} else {
 			RenderSystem.enableBlend();
 			g.blit(ENTRY_ICONS, x, y, size, size, (e.cell() % 8) * 16f, (e.cell() / 8) * 16f, 16, 16, 128, 64);

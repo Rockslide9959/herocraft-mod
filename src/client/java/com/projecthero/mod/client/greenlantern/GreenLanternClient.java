@@ -16,6 +16,7 @@ public final class GreenLanternClient {
 		GreenLanternDomeRenderer.initialize(); // v0.15.1: hard-light dome model
 		GreenLanternFlightFx.initialize(); // v0.15.15: flight aura + sprint-flight trail
 		GreenLanternOathSubtitle.initialize(); // v0.15.15: the Oath as a centred subtitle (was the action bar)
+		com.projecthero.mod.client.greenlantern.mech.GreenLanternMechClient.initialize(); // v0.17.1: the Hard-Light Mech
 		PowerBatteryHeldRenderer.initialize(); // v0.15.15: the battery hanging from the hand, swaying; the charge glow
 		// v0.16.1: the Sniper Rifle construct's attack / use input (its scope overlay is registered in ProjectHeroModClient,
 		// before the HUDs, so the Green Lantern HUD draws on top of the scope instead of under its dark surround)

@@ -97,7 +97,8 @@
 		"ErasureShulkerMixin",
 		"ErasureServerLevelSpawnMixin",
 		"OverhaulExplosionMixin",
-		"SecondChanceSpawnMixin"
+		"SecondChanceSpawnMixin",
+		"GreenLanternMechSeatMixin"
 	],
 	"client": [],
 	"server": [],

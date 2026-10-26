@@ -61,6 +61,7 @@ public final class GreenLanternAbilityManager {
 		GreenLanternConstructAttacks.clearSessionState();
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.clearSessionState();
 		GreenLanternArsenal.clearSessionState();
+		com.projecthero.mod.greenlantern.mech.GreenLanternMech.clearSessionState(); // v0.17.1
 	}
 
 	public static void onCleanup(UUID playerId) {
@@ -84,6 +85,10 @@ public final class GreenLanternAbilityManager {
 		// The ring's powers work whether or not the suit is on -- only the suit's own armour/Emergency
 		// Catch passives (GreenLanternDamage) require actually wearing it. Charge cost and cooldowns
 		// remain the real gate on every ability below; nothing here becomes free by being unsuited.
+		// v0.17.1: inside the Hard-Light Mech every key drives the mech instead
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMech.handleKey(player, slot, pressed)) {
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				// v0.15.15: tap R = Ring Bolt, hold R = Continuous Beam (it was Shift+R), Shift+R = Blast Wave
@@ -120,7 +125,7 @@ public final class GreenLanternAbilityManager {
 	 * {@code GreenLanternActionPayload} network handler instead.
 	 */
 	public static void toggleFlight(ServerPlayer player) {
-		if (!hasContext(player)) {
+		if (!hasContext(player) || com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(player)) {
 			return;
 		}
 		if (GreenLanternFlight.isFlying(player)) {
@@ -168,6 +173,11 @@ public final class GreenLanternAbilityManager {
 	 */
 	public static void clearConstructs(ServerPlayer player) {
 		if (!hasContext(player)) {
+			return;
+		}
+		// v0.17.1: N inside the Hard-Light Mech leaves it (it dissolves and sets you down)
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(player)) {
+			com.projecthero.mod.greenlantern.mech.GreenLanternMech.exit(player);
 			return;
 		}
 		if (GreenLanternConstructs.releaseRescueHeldSafely(player)) {
