@@ -47,6 +47,7 @@ public final class RevampBatchE {
 		CrushingDensityEffect.initialize();
 		ShrunkenEffect.initialize();
 		PlantEntities.initialize();
+		com.projecthero.mod.hero.power.p22.ChloroParticles.register(); // v0.17.1 Chlorokinesis revamp
 
 		registerVisuals();
 		registerMeters();
@@ -75,8 +76,8 @@ public final class RevampBatchE {
 		MutationVisuals.registerFlag("p18.crush", DensityManipulationHandlers::crushArmed);
 
 		// 22 -- the bark-and-leaf skin of Nature's Blessing, the Overgrowth root-gather
-		MutationVisuals.registerFlag("p22.blessing", PlantManipulationHandlers::blessingOn);
-		MutationVisuals.registerFlag("p22.overgrowth", PlantManipulationHandlers::overgrowthCharging);
+		// (v0.17.1 revamp: the Verdant Form skin, the Overgrowth gather and the Leaf Glide canopy)
+		PlantManipulationHandlers.registerVisuals();
 
 		// 27 -- nothing extra: the body itself changes size (1 s ease) and the moves carry their own poses
 		MutationVisuals.registerFlag("p27.carry", SizeHandlers::carrying);
@@ -99,11 +100,8 @@ public final class RevampBatchE {
 		MutationMeters.register(new Spec(P18, "crush_armed", Kind.TIMER, Style.HAIRLINE, "Crushing Touch", DensityManipulationHandlers.CRUSH_ARM_TICKS,
 				0xFFFF8A2A, false, false));
 		// 22
-		MutationMeters.register(new Spec(P22, "ult_charge", Kind.BUILD, Style.SLAB, "Overgrowth", 100, 0xFF5FCB4A, false, true));
-		MutationMeters.register(new Spec(P22, "sentry_ticks", Kind.TIMER, Style.HAIRLINE, "Thorn Sentry",
-				com.projecthero.mod.hero.power.p22.ThornSentryEntity.LIFETIME, 0xFF8FD16A, false, false));
-		MutationMeters.register(new Spec(P22, "spore_ticks", Kind.TIMER, Style.HAIRLINE, "Spore Cloud", PlantManipulationHandlers.SPORE_TICKS,
-				0xFFB6C96A, false, false));
+		// (v0.17.1 revamp: the always-on Chlorophyll Hairline, the Overgrowth gather, the move timers, the Shift strips)
+		PlantManipulationHandlers.registerMeters();
 		// 27
 		MutationMeters.register(new Spec(P27, "giant_form", Kind.RESERVE, Style.METER, "Size Strain", SizeHandlers.MAX_STRAIN, 0xFF9C6BFF,
 				true, false));

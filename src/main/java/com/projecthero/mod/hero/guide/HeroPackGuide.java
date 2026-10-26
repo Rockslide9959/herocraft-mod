@@ -2131,6 +2131,21 @@ public final class HeroPackGuide {
 						.append(Component.translatable(a.nameKey()).withStyle(ChatFormatting.WHITE)));
 				para(lines, a.descKey());
 			}
+			if (com.projecthero.mod.hero.power.p22.PlantManipulationHandlers.KEY.equals(power.key())) {
+				// v0.17.1 Chlorokinesis revamp: the hold move, the meter, the survival kit
+				blank(lines);
+				head(lines, "projecthero.guide.chlorokinesis.holds");
+				Ability g = power.ability(AbilitySlot.SLOT_2);
+				lines.add(Component.literal(" Hold G  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable(g.nameKey() + ".hold").withStyle(ChatFormatting.WHITE)));
+				para(lines, g.nameKey() + ".hold.desc");
+				blank(lines);
+				head(lines, "projecthero.guide.chlorokinesis.meter");
+				para(lines, "projecthero.guide.chlorokinesis.meter.body");
+				blank(lines);
+				head(lines, "projecthero.guide.chlorokinesis.survival");
+				para(lines, "projecthero.guide.chlorokinesis.survival.body");
+			}
 			blank(lines);
 			head(lines, "projecthero.guide.power.passives");
 			for (String pk : power.passiveKeys()) {
