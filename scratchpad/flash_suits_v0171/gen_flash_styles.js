@@ -54,6 +54,10 @@ function build(id, opts) {
 	if (opts.noHair) {
 		for (let y = 0; y < 8; y++) for (let x = 40; x < 48; x++) px.fill(0, at(x, y), at(x, y) + 4);
 		for (let y = 8; y < 11; y++) for (let x = 32; x < 64; x++) px.fill(0, at(x, y), at(x, y) + 4);
+		// v0.17.1 (user: "theres still some orange hair ... remove it so that the top of the players head sticks out"): the
+		// base cowl opens at the top too -- its top face and the top row of every side go, so the wearer's own head shows
+		for (let y = 0; y < 8; y++) for (let x = 8; x < 16; x++) px.fill(0, at(x, y), at(x, y) + 4);
+		for (let x = 0; x < 32; x++) px.fill(0, at(x, 8), at(x, 8) + 4);
 	}
 	fs.writeFileSync(path.join(OUT, 'flash_' + id + '.png'), tools.encode(64, 64, px));
 	console.log(id, 'face texels cut', cut, 'gaps filled', filled);
