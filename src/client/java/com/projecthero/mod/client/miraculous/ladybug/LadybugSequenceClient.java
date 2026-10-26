@@ -2,13 +2,10 @@ package com.projecthero.mod.client.miraculous.ladybug;
 
 import org.joml.Vector3f;
 
-import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.client.miraculous.MiraculousSequenceClient;
 import com.projecthero.mod.miraculous.data.MiraculousState;
 import com.projecthero.mod.miraculous.ladybug.LadybugSequence;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.HumanoidModel;
-import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -19,14 +16,15 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1: the client half of Ladybug's long transformation ({@link LadybugSequence}) -- every client plays it from the
- * synced {@code formChangeAt}:
+ * synced {@code formChangeAt}, on the shared frame ({@link MiraculousSequenceClient}, which turns her, hides the HUD,
+ * eases the pose out and flies the camera):
  * <ul>
- *   <li>{@link #applyPose} -- hands to the earrings, arms flung out for the twirl, the swipe across the eyes, the yo-yo
+ *   <li>{@link #pose} -- hands to the earrings, arms flung out for the twirl, the swipe across the eyes, the yo-yo
  *   arm, the hero pose;</li>
- *   <li>{@link #tick} -- the body turns through the twirl, and the light show: Tikki's dive, the earrings' flash, the red
- *   ribbon with its black spots climbing her as the suit forms, the sparkle of the mask, the spinning yo-yo, the burst of
- *   pink and spots behind the hero pose;</li>
- *   <li>{@link #camera} -- the cinematic camera path for the holder (read by {@code LadybugSequenceCameraMixin}).</li>
+ *   <li>{@link #fx} -- the light show: Tikki's dive, the earrings' flash, the red ribbon with its black spots climbing
+ *   her as the suit forms, the sparkle of the mask, the spinning yo-yo, the burst of pink and spots behind the hero
+ *   pose;</li>
+ *   <li>{@link #CAM} -- the cinematic camera path for the holder.</li>
  * </ul>
  */
 public final class LadybugSequenceClient {
@@ -43,42 +41,32 @@ public final class LadybugSequenceClient {
 	private static final float[] SWIPE_B = { 0.1f, -1.75f, -0.55f, -0.3f, -0.75f, 0f, 0.06f, 0f, -0.06f, 0f };
 	private static final float[] YOYO = { 0f, -1.45f, 0.95f, -0.35f, -0.55f, -0.15f, 0.1f, 0.15f, -0.1f, 0.05f };
 	private static final float[] HERO = { -0.2f, -2.95f, 0.22f, -0.35f, -0.95f, -0.3f, 0.18f, 0.25f, -0.15f, -0.05f };
-	private static final int EASE_OUT = 12;
-	/** The HUD was hidden for the holder's sequence (and whether it was hidden before). */
-	private static boolean hidHud;
-	private static boolean hudWasHidden;
+
+	public static final MiraculousSequenceClient.Scene SCENE = new MiraculousSequenceClient.Scene() {
+		@Override
+		public float[] pose(Player p, MiraculousState s, float t) {
+			return LadybugSequenceClient.pose(t);
+		}
+
+		@Override
+		public void fx(ClientLevel level, Player p, MiraculousState s, int t, float yaw) {
+			LadybugSequenceClient.fx(level, p, s, t, yaw);
+		}
+
+		@Override
+		public float[][] cam() {
+			return CAM;
+		}
+	};
 
 	private LadybugSequenceClient() {
 	}
 
-	private static float age(Player p, MiraculousState s, float partial) {
-		return (float) (p.level().getGameTime() - s.formChangeAt) + partial;
-	}
-
-	private static boolean playing(MiraculousState s, float t) {
-		return s != null && s.transformed && s.animId == LadybugSequence.ANIM && t >= 0f && t < LadybugSequence.TOTAL + EASE_OUT;
-	}
-
-	private static float startYaw(MiraculousState s) {
-		return Float.intBitsToFloat((int) s.val(LadybugSequence.V_YAW));
-	}
-
-	/** The way she faces at {@code t}: where she began, turned through the twirl. */
-	public static float yaw(MiraculousState s, float t) {
-		return startYaw(s) + LadybugSequence.spin(Math.min(t, LadybugSequence.TOTAL));
-	}
-
 	// ---------------------------------------------------------------- the pose
 
-	/** From {@code MiraculousClient.applyPose}, after the shared pose (it wins while the long sequence plays). */
-	public static void applyPose(Player player, HumanoidModel<?> model) {
-		MiraculousState s = Miraculous.peek(player);
-		float t = s == null ? -1f : age(player, s, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
-		if (!playing(s, t)) {
-			return;
-		}
+	/** Her pose at {@code t} (the frame eases it back out past the end). */
+	static float[] pose(float t) {
 		float[] pose;
-		float w = 1f;
 		if (t < LadybugSequence.EARRINGS - 4) {
 			pose = blend(STAND, EARS, smooth(t / (LadybugSequence.EARRINGS - 4f)));
 		} else if (t < LadybugSequence.SPIN) {
@@ -100,78 +88,21 @@ public final class LadybugSequenceClient {
 			pose[2] += 0.12f * Mth.cos(t * 1.6f);
 		} else if (t < LadybugSequence.POSE + 6) {
 			pose = blend(YOYO, HERO, smooth((t - LadybugSequence.POSE) / 6f));
-		} else if (t < LadybugSequence.TOTAL) {
-			pose = HERO;
 		} else {
 			pose = HERO;
-			w = 1f - smooth((t - LadybugSequence.TOTAL) / EASE_OUT);
 		}
-		set(model.head, pose[0], 0f, w, true);
-		set(model.rightArm, pose[1], pose[2], w, false);
-		set(model.leftArm, pose[3], pose[4], w, false);
-		set(model.rightLeg, pose[5], pose[6], w, false);
-		set(model.leftLeg, pose[7], pose[8], w, false);
-		model.body.xRot = Mth.lerp(w, model.body.xRot, pose[9]);
-		model.head.yRot = Mth.lerp(w, model.head.yRot, 0f);
-		model.hat.copyFrom(model.head);
-	}
-
-	private static void set(ModelPart part, float x, float z, float w, boolean head) {
-		part.xRot = Mth.lerp(w, part.xRot, x);
-		if (!head) {
-			part.zRot = Mth.lerp(w, part.zRot, z);
-			part.yRot = Mth.lerp(w, part.yRot, 0f);
-		}
+		return pose;
 	}
 
 	private static float[] blend(float[] a, float[] b, float f) {
-		float[] o = new float[a.length];
-		for (int i = 0; i < a.length; i++) {
-			o[i] = Mth.lerp(f, a[i], b[i]);
-		}
-		return o;
+		return MiraculousSequenceClient.blend(a, b, f);
 	}
 
 	private static float smooth(float x) {
 		return LadybugSequence.smooth(x);
 	}
 
-	// ---------------------------------------------------------------- the turn and the light show
-
-	/** Every client tick (END): turn every player in the sequence, and draw its light. */
-	public static void tick(Minecraft mc) {
-		ClientLevel level = mc.level;
-		if (level == null || mc.player == null || mc.isPaused()) {
-			return;
-		}
-		// the holder watches it like a scene: no HUD and no hand in the way, given back the moment it ends
-		boolean mine = camera(mc.player, 0f) != null;
-		if (mine && !hidHud) {
-			hudWasHidden = mc.options.hideGui;
-			mc.options.hideGui = true;
-			hidHud = true;
-		} else if (!mine && hidHud) {
-			mc.options.hideGui = hudWasHidden;
-			hidHud = false;
-		}
-		for (Player p : level.players()) {
-			MiraculousState s = Miraculous.peek(p);
-			if (s == null || !s.transformed || s.animId != LadybugSequence.ANIM || p.distanceToSqr(mc.player) > 64 * 64) {
-				continue;
-			}
-			float t = age(p, s, 0f);
-			if (t < 0f || t >= LadybugSequence.TOTAL) {
-				continue;
-			}
-			float now = yaw(s, t);
-			float before = yaw(s, Math.max(0f, t - 1f));
-			p.yBodyRotO = before;
-			p.yBodyRot = now;
-			p.yHeadRotO = before;
-			p.yHeadRot = now;
-			fx(level, p, s, (int) t, now);
-		}
-	}
+	// ---------------------------------------------------------------- the light show
 
 	private static void fx(ClientLevel level, Player p, MiraculousState s, int t, float yaw) {
 		RandomSource rnd = level.random;
@@ -276,43 +207,4 @@ public final class LadybugSequenceClient {
 			{ 152, 4.6f, 350, 0.55f, 1.25f },
 			{ 170, 4.9f, 360, 0.55f, 1.3f },
 	};
-
-	/** Where the holder's camera is at {@code t}, and where it looks: {pos x, y, z, yaw, pitch}; null when not playing. */
-	public static double[] camera(Player p, float partial) {
-		MiraculousState s = Miraculous.peek(p);
-		if (s == null) {
-			return null;
-		}
-		float t = age(p, s, partial);
-		if (!(s.transformed && s.animId == LadybugSequence.ANIM && t >= 0f && t < LadybugSequence.TOTAL)) {
-			return null;
-		}
-		int i = 0;
-		while (i < CAM.length - 2 && t > CAM[i + 1][0]) {
-			i++;
-		}
-		float[] a = CAM[i];
-		float[] b = CAM[i + 1];
-		float f = smooth((t - a[0]) / (b[0] - a[0]));
-		float dist = Mth.lerp(f, a[1], b[1]);
-		float ang = Mth.lerp(f, a[2], b[2]);
-		float camH = Mth.lerp(f, a[3], b[3]);
-		float lookH = Mth.lerp(f, a[4], b[4]);
-		double cx = Double.longBitsToDouble(s.val(LadybugSequence.V_X));
-		double cy = Double.longBitsToDouble(s.val(LadybugSequence.V_Y)) + LadybugSequence.lift(t);
-		double cz = Double.longBitsToDouble(s.val(LadybugSequence.V_Z));
-		float yaw0 = startYaw(s) * Mth.DEG_TO_RAD;
-		// "in front of her" is along her starting facing; the angle walks the camera round her
-		double around = yaw0 + ang * Mth.DEG_TO_RAD;
-		double px = cx - Math.sin(around) * dist;
-		double pz = cz + Math.cos(around) * dist;
-		double py = cy + camH;
-		double dx = cx - px;
-		double dy = cy + lookH - py;
-		double dz = cz - pz;
-		double horiz = Math.sqrt(dx * dx + dz * dz);
-		float camYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-		float camPitch = (float) -Math.toDegrees(Math.atan2(dy, horiz));
-		return new double[] { px, py, pz, camYaw, camPitch };
-	}
 }

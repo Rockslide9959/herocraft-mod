@@ -37,7 +37,8 @@ public class PegasusLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<
 			// the wearer's whole second layer -- hair too: the mane hood replaces it -- goes texel by texel with the light
 			OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> PegasusRender.order(u, v) > cover, true);
 		}
-		if (cover > 0.6f && Pegasus.is(player)) {
+		if (cover > 0.6f && Pegasus.is(player) && !PegasusSequenceClient.renderShoe(pose, buffers, light, getParentModel(), player, partialTick, slim)) {
+			// (v0.17.1: the long transformation shows it on its own beats)
 			PegasusRender.renderShoe(pose, buffers, light, getParentModel(), PegasusClient.shoeAt(player, partialTick), slim);
 		}
 	}

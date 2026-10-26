@@ -168,7 +168,7 @@ public final class ButterflyFx {
 		}
 	}
 
-	private static void one(PoseStack pose, VertexConsumer vc, Minecraft mc, Vec3 cam, Vec3 at, float yaw, float pitch, float beat, float scale,
+	static void one(PoseStack pose, VertexConsumer vc, Minecraft mc, Vec3 cam, Vec3 at, float yaw, float pitch, float beat, float scale,
 			int argb) {
 		int l = LevelRenderer.getLightColor(mc.level, BlockPos.containing(at));
 		// the swarm has a faint glow of its own (it reads in the dark)

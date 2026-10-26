@@ -39,7 +39,7 @@ public class ViperionLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 			// the wearer's jacket / sleeves / trousers go texel by texel with the light (the hat -- their hair -- stays)
 			OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> ViperionRender.order(u, v) > cover, false);
 		}
-		if (cover > 0.6f && Viperion.is(player)) {
+		if (cover > 0.6f && Viperion.is(player) && ViperionSequenceClient.lyreShown(player, partialTick)) {
 			renderLyre(pose, buffers, light, player, getParentModel(), ageInTicks, partialTick);
 		}
 	}

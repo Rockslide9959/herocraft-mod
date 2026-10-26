@@ -83,6 +83,11 @@ public final class CatNoirRender {
 		if (s == null || !s.hasPower || !Kwami.PLAGG.id.equals(s.kwami) || player.level() == null) {
 			return 0f;
 		}
+		// v0.17.1: the long transformation runs the change at its own pace (CatNoirSequence)
+		float seq = com.projecthero.mod.client.miraculous.MiraculousSequenceClient.suitCover(player, s, partial);
+		if (seq >= 0f) {
+			return seq;
+		}
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		float total = MiraculousConfig.TRANSFORM_TICKS;
 		if (s.transformed) {
@@ -344,6 +349,10 @@ public final class CatNoirRender {
 	}
 
 	public static Baton baton(Player player, float partial) {
+		Baton seq = CatNoirSequenceClient.baton(player, partial); // v0.17.1: extended and twirled in the long transformation
+		if (seq != null) {
+			return seq;
+		}
 		if (!CatNoir.active(player) || cover(player, partial) < 0.999f || CatNoir.thrownId(player) >= 0) {
 			return new Baton(BatonAt.NONE, 0f);
 		}

@@ -126,7 +126,7 @@
 		"MoonKnightPickerMouseMixin",
 		"PunisherLockOnMouseMixin",
 		"PunisherKickCameraMixin",
-		"LadybugSequenceCameraMixin",
+		"MiraculousSequenceCameraMixin",
 		"MoonKnightTruncheonSpinMixin",
 		"AllMightSpinMixin",
 		"ErasureSpinMixin",
