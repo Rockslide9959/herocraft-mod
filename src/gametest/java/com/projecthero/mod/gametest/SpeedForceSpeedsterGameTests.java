@@ -391,6 +391,40 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.1 (user): the full Flash Suit feeds a hungry speedster -- the best fit, never a food with a side effect. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theFlashSuitFeedsAHungrySpeedster(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FlashSuit.HELMET));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(FlashSuit.CHESTPLATE));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(FlashSuit.LEGGINGS));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(FlashSuit.BOOTS));
+		p.getInventory().clearContent();
+		p.getInventory().add(new ItemStack(Items.ROTTEN_FLESH, 4));
+		p.getInventory().add(new ItemStack(Items.BREAD, 4));
+		p.getFoodData().setFoodLevel(10);
+		p.tickCount = 40;
+		com.projecthero.mod.flash.FlashSuitAutoEat.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 15, "ate one bread (+5), got " + p.getFoodData().getFoodLevel());
+		helper.assertTrue(p.getInventory().countItem(Items.BREAD) == 3 && p.getInventory().countItem(Items.ROTTEN_FLESH) == 4,
+				"bread, never the rotten flesh");
+		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+		p.tickCount = 80;
+		com.projecthero.mod.flash.FlashSuitAutoEat.tick(p);
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 15, "no suit, no feeding");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): in Speed Mode the Speed Force Speedster runs through leaves (still solid from above). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void speedModeRunsThroughLeaves(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		helper.assertTrue(com.projecthero.mod.hero.power.p04.SpeedLeaves.active(p), "Speed Mode: leaves let you through");
+		SpeedForceAbilities.toggleSpeedMode(p);
+		helper.assertFalse(com.projecthero.mod.hero.power.p04.SpeedLeaves.active(p), "Speed Mode off: leaves are solid");
+		helper.succeed();
+	}
+
 	/** v0.17.1 (user): Ground-Stick pulls never cost fall damage; real drops still hurt. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void groundStickPullsTakeNoFallDamage(GameTestHelper helper) {

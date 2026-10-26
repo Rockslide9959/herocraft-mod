@@ -71,6 +71,18 @@ public final class SpeedForceClient {
 	private record Ring(Vec3 at, long start, int life, float radius) {
 	}
 
+	/**
+	 * v0.17.1 (user: "make it kinda linger ... stick to the player and the blocks so that it looks more like a trail ... last
+	 * twice as long"): one bolt from a point on the runner's body (kept as an offset, so it rides along with them) to the
+	 * block surface it struck (fixed in the world), crackling for {@code life} ticks as it stretches out behind.
+	 */
+	private record GroundArc(int playerId, Vec3 bodyOffset, Vec3 hit, long start, int life, double seed, float strength, int colour) {
+	}
+
+	/** Ticks a ground arc lasts (was a re-pick every ~3: now twice as long, and each one stays put). */
+	private static final int GROUND_ARC_LIFE = 8;
+	private static final List<GroundArc> GROUND_ARCS = new ArrayList<>();
+
 	private static final Map<UUID, Deque<Snapshot>> TRAILS = new HashMap<>();
 	private static final Map<UUID, double[]> LAST_RECORDED = new HashMap<>();
 	private static final List<Bolt> BOLTS = new ArrayList<>();
@@ -95,6 +107,7 @@ public final class SpeedForceClient {
 		LAST_RECORDED.clear();
 		BOLTS.clear();
 		RINGS.clear();
+		GROUND_ARCS.clear();
 	}
 
 	// ---------------------------------------------------------------- the trail
@@ -145,6 +158,7 @@ public final class SpeedForceClient {
 				q.addLast(new Snapshot(now, TRAIL_LIFE, TRAIL_ALPHA, x, y, z, p.yBodyRotO, p.yHeadRotO, p.xRotO, l, limbSpeed, weight, bolts, false));
 			}
 			LAST_RECORDED.put(p.getUUID(), new double[] { p.xo, p.yo, p.zo, limb });
+			spawnGroundArcs(p, now);
 		}
 		for (Iterator<Map.Entry<UUID, Deque<Snapshot>>> it = TRAILS.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<UUID, Deque<Snapshot>> e = it.next();
@@ -155,6 +169,7 @@ public final class SpeedForceClient {
 			}
 		}
 		BOLTS.removeIf(b -> now - b.start() > b.life());
+		GROUND_ARCS.removeIf(a -> now - a.start() > a.life() || !(mc.level.getEntity(a.playerId()) instanceof Player));
 		RINGS.removeIf(r -> now - r.start() > r.life());
 	}
 
@@ -242,7 +257,6 @@ public final class SpeedForceClient {
 				continue;
 			}
 			bodyLightning(acp, cam, partial, now, arcs, arcAlpha, arcWidth);
-			groundArcs(acp, cam, partial, now, arcs, arcAlpha, arcWidth);
 			int bodyCol = com.projecthero.mod.speedforce.SpeedForceColours.of(acp);
 			while (arcColour.size() < arcs.size()) {
 				arcColour.add(bodyCol);
@@ -332,6 +346,37 @@ public final class SpeedForceClient {
 		}
 
 		// the Lightning Throw / awakening bolts
+		// the lingering arcs to the blocks round the runners
+		for (GroundArc g : GROUND_ARCS) {
+			if (!(mc.level.getEntity(g.playerId()) instanceof Player owner)) {
+				continue;
+			}
+			float age = (now - g.start()) + partial;
+			float fade = 1.0f - age / g.life();
+			if (fade <= 0f || age < 0f) {
+				continue;
+			}
+			Vec3 from = owner.getPosition(partial).add(g.bodyOffset());
+			if (owner == mc.player && firstPerson && from.distanceToSqr(cam) < 1.0) {
+				from = from.add(owner.getLookAngle().scale(0.6)); // never a bolt straight through your own eyes
+			}
+			double frame = Math.floor((now + partial) * 10.0);
+			int nodes = (int) Math.max(4, Math.min(16, from.distanceTo(g.hit()) * 2.0));
+			arcs.add(ThorDraw.jagged(from.subtract(cam), g.hit().subtract(cam), nodes, 0.2 + 0.1 * g.strength(), g.seed() + frame * 0.37));
+			arcAlpha.add(Math.min(1f, fade * 1.5f) * (0.8f + 0.2f * g.strength()));
+			arcWidth.add(0.6f + 0.4f * g.strength());
+			arcColour.add(g.colour());
+			// a little fork where it bit
+			if (ThorDraw.hash(g.seed() + 8) > 0.45) {
+				Vec3 tip = g.hit().add((ThorDraw.hash(g.seed() + frame + 9) - 0.5) * 0.9, 0.05 + ThorDraw.hash(g.seed() + frame + 10) * 0.3,
+						(ThorDraw.hash(g.seed() + frame + 11) - 0.5) * 0.9);
+				arcs.add(ThorDraw.jagged(g.hit().subtract(cam), tip.subtract(cam), 3, 0.12, g.seed() + frame + 12));
+				arcAlpha.add(fade * 0.7f);
+				arcWidth.add(0.4f);
+				arcColour.add(g.colour());
+			}
+		}
+
 		for (Bolt b : BOLTS) {
 			float age = (now - b.start()) + partial;
 			if (age < 0f) {
@@ -391,25 +436,23 @@ public final class SpeedForceClient {
 	 * blocks and strikes the first solid block surface it meets, re-picked several times a second. More, longer and
 	 * further-reaching as the momentum climbs; a few stray ones standing still.
 	 */
-	private static void groundArcs(AbstractClientPlayer p, Vec3 cam, float partial, long now, List<Vec3[]> arcs, List<Float> alpha,
-			List<Float> width) {
+	private static void spawnGroundArcs(AbstractClientPlayer p, long now) {
 		float m = SpeedForceSpeedster.momentum(p);
 		if (m <= GROUND_ARC_MOMENTUM && !SpeedForceSpeedster.surging(p)) {
 			return;
 		}
-		Vec3 at = p.getPosition(partial);
-		Vec3 heading = at.subtract(p.xo, p.yo, p.zo);
-		boolean moving = heading.lengthSqr() > 0.01;
+		Vec3 at = p.position();
+		boolean moving = at.subtract(p.xo, p.yo, p.zo).lengthSqr() > 0.01;
 		float strength = Math.min(1f, (m - GROUND_ARC_MOMENTUM) / 0.6f);
-		int count = (moving ? 1 : 0) + Math.round(strength * 4f);
+		// new arcs a tick: about one in three ticks at 10%, one or two a tick at full speed
+		double want = (moving ? 0.35 : 0.1) + strength * 1.4;
+		int count = (int) want + (ThorDraw.hash(now * 1.7 + p.getId()) < want - (int) want ? 1 : 0);
 		double reach = 2.0 + strength * 3.0;
-		double frame = Math.floor((now + partial) * 6.0);
+		int colour = com.projecthero.mod.speedforce.SpeedForceColours.of(p);
 		for (int k = 0; k < count; k++) {
-			double seed = frame * 7.1 + k * 19.3 + p.getId() * 0.71 + 500.0;
-			if (ThorDraw.hash(seed) < (moving ? 0.3 : 0.7)) {
-				continue;
-			}
-			Vec3 from = at.add((ThorDraw.hash(seed + 1) - 0.5) * 0.5, 0.3 + ThorDraw.hash(seed + 2) * 1.2, (ThorDraw.hash(seed + 3) - 0.5) * 0.5);
+			double seed = now * 7.1 + k * 19.3 + p.getId() * 0.71 + 500.0;
+			Vec3 off = new Vec3((ThorDraw.hash(seed + 1) - 0.5) * 0.5, 0.3 + ThorDraw.hash(seed + 2) * 1.2, (ThorDraw.hash(seed + 3) - 0.5) * 0.5);
+			Vec3 from = at.add(off);
 			// mostly down and out (the ground round the feet), now and then sideways into a wall
 			double a = ThorDraw.hash(seed + 4) * Math.PI * 2.0;
 			double out = reach * (0.5 + ThorDraw.hash(seed + 5) * 0.5);
@@ -421,20 +464,8 @@ public final class SpeedForceClient {
 				continue;
 			}
 			Vec3 to = hit.getLocation();
-			int nodes = (int) Math.max(4, Math.min(10, from.distanceTo(to) * 2.2));
-			Vec3[] path = ThorDraw.jagged(from.subtract(cam), to.subtract(cam), nodes, 0.22 + 0.1 * strength, seed);
-			arcs.add(path);
-			alpha.add(0.8f + 0.2f * strength);
-			width.add(0.6f + 0.4f * strength);
-			// a little fork where it strikes
-			if (ThorDraw.hash(seed + 8) > 0.5) {
-				Vec3 tip = to.add((ThorDraw.hash(seed + 9) - 0.5) * 0.9, 0.05 + ThorDraw.hash(seed + 10) * 0.3, (ThorDraw.hash(seed + 11) - 0.5) * 0.9);
-				arcs.add(ThorDraw.jagged(to.subtract(cam), tip.subtract(cam), 3, 0.12, seed + 12));
-				alpha.add(0.7f);
-				width.add(0.4f);
-			}
-			// sparks at the strike, now and then
-			if (ThorDraw.hash(seed + 13) > 0.85) {
+			GROUND_ARCS.add(new GroundArc(p.getId(), off, to, now, GROUND_ARC_LIFE + (int) (ThorDraw.hash(seed + 8) * 3), seed, strength, colour));
+			if (ThorDraw.hash(seed + 13) > 0.6) {
 				p.level().addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, to.x, to.y + 0.05, to.z,
 						(ThorDraw.hash(seed + 14) - 0.5) * 0.2, 0.1, (ThorDraw.hash(seed + 15) - 0.5) * 0.2);
 			}

@@ -13,7 +13,8 @@ import net.minecraft.world.phys.shapes.EntityCollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 
 /**
- * v0.14.21: a speedster in Speed Mode or Overdrive runs straight through leaves, so forests stop snagging the run.
+ * v0.14.21: a speedster in Speed Mode or Overdrive runs straight through leaves, so forests stop snagging the run (v0.17.1:
+ * the Speed Force Speedster in Speed Mode too).
  *
  * <p>Leaves stay solid from ABOVE: a leaf block only lets the player through when their feet are below its top face
  * (the same "is the entity above this shape" test vanilla uses for scaffolding / powder snow). So you can still land
@@ -32,6 +33,10 @@ public final class SpeedLeaves {
 	public static boolean active(Entity entity) {
 		if (!(entity instanceof Player player) || player.isSpectator()) {
 			return false;
+		}
+		// v0.17.1 (user): the Speed Force Speedster runs through leaves too, in Speed Mode
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.speedActive(player)) {
+			return true;
 		}
 		ExperimentalState st = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null || !st.ownedPowers.contains(SuperSpeedHandlers.KEY)) {

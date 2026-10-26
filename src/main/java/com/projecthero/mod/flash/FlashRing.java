@@ -306,6 +306,7 @@ public final class FlashRing {
 
 	public static void tick(ServerPlayer player) {
 		FlashSuit.tick(player);
+		FlashSuitAutoEat.tick(player); // v0.17.1 (user): the suit feeds a speedster
 		FlashFx fx = fx(player);
 		if (fx.dir() != FlashFx.NONE) {
 			long age = player.level().getGameTime() - fx.start();

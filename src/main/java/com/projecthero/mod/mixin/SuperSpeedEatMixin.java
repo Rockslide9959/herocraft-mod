@@ -29,6 +29,15 @@ public abstract class SuperSpeedEatMixin {
 		if (!((Object) this instanceof Player player) || this.useItemRemaining <= 1 || !player.isUsingItem()) {
 			return;
 		}
+		// v0.17.1 (user): the Speed Force Speedster in Speed Mode eats and drinks THREE times as fast -- two extra steps a
+		// tick on top of vanilla's one, never taking the counter to zero itself
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.speedActive(player)) {
+			UseAnim fast = stack.getUseAnimation();
+			if (fast == UseAnim.EAT || fast == UseAnim.DRINK) {
+				this.useItemRemaining = Math.max(1, this.useItemRemaining - 2);
+			}
+			return;
+		}
 		if ((player.tickCount & 1) != 0 || !(SuperSpeedHandlers.owns(player)
 				|| com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player))) { // v0.17.1: the Speed Force Speedster too
 			return;
