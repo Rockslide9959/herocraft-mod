@@ -31,7 +31,9 @@ public class PlantManipulationBoss extends BossPowerController {
 	private static final int SWING = 2;
 	private static final int SPORES = 3;
 	private static final int OVERGROWTH = 4;
-	private static final List<String> IDS = List.of("thorn_shot", "vine_grab", "vine_swing", "spore_cloud", "overgrowth");
+	// v0.17.1: the Chlorokinesis revamp renamed the player kit -- the boss's moves map onto its keys: Thorn Volley (R),
+	// Root Snare (G, whose Shift is the Spore Cloud -- here under Bloom Burst's slot, it heals the boss), Vine Grapple (X)
+	private static final List<String> IDS = List.of("thorn_volley", "root_snare", "vine_grapple", "bloom_burst", "overgrowth");
 
 	private static final ParticleOptions SPORE = BatchCFx.dust(0x8CBF40, 1.6f);
 

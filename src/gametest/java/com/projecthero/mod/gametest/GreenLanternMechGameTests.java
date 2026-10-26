@@ -143,6 +143,12 @@ public class GreenLanternMechGameTests implements FabricGameTest {
 		float hp = p.getHealth();
 		// not a mob attack: Player#hurt zeroes difficulty-scaled damage (mob attacks) on Peaceful -- the gametest server's
 		// difficulty -- and returns before any ALLOW_DAMAGE listener runs; a non-scaling source reaches the redirect
+		// mock players can come up creative (invulnerable: Player#hurt returns before ALLOW_DAMAGE), and a hit a moment ago
+		// leaves either side in its hurt cooldown -- pin all of that so the redirect is what is measured
+		p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+		p.getAbilities().invulnerable = false;
+		p.invulnerableTime = 0;
+		m.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().generic(), 10f);
 		helper.assertTrue(p.getHealth() >= hp, "the pilot took nothing");
 		helper.assertTrue(m.getHealth() < m.getMaxHealth(), "the mech took the hit");

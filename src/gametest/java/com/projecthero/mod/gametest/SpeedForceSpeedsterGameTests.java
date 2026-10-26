@@ -313,7 +313,8 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		SpeedForceSpeedster.stepRun(p, new Vec3(8.0, 0, 0));
 		SpeedForceSpeedster.stepRun(p, new Vec3(-8.0, 0, 0));
 		float turned = SpeedForceSpeedster.momentum(p);
-		helper.assertTrue(turned < 0.95f && turned > 0.85f, "a U-turn costs ~10%, got " + turned);
+		// v0.17.1 (user-approved turn assist): a full reversal costs at most 4% now (it was ~10%)
+		helper.assertTrue(turned < 0.995f && turned > 0.94f, "a U-turn costs a little (at most ~4%), got " + turned);
 		helper.succeed();
 	}
 
