@@ -37,6 +37,10 @@ public final class MiraculousItems {
 	public static Item HORSESHOE_GLASSES;
 	/** v0.16.7: Viperion's jewel (in the Miraculous Box). */
 	public static Item SNAKE_BRACELET;
+	/** v0.17.1: Multimouse's jewel (in the Miraculous Box). */
+	public static Item MOUSE_PENDANT;
+	/** v0.17.1: Mullo's favourite food (shapeless: milk bucket + sugar makes 4, the bucket comes back); players can eat it too. */
+	public static Item CHEESE_WEDGE;
 	public static Item CAMEMBERT;
 	public static Item MACARON;
 
@@ -58,6 +62,9 @@ public final class MiraculousItems {
 		TURTLE_BRACELET = register("turtle_bracelet", new KwamiJewelItem(Kwami.WAYZZ, jewel()));
 		HORSESHOE_GLASSES = register("horseshoe_glasses", new KwamiJewelItem(Kwami.KAALKI, jewel()));
 		SNAKE_BRACELET = register("snake_bracelet", new KwamiJewelItem(Kwami.SASS, jewel()));
+		MOUSE_PENDANT = register("mouse_pendant", new KwamiJewelItem(Kwami.MULLO, jewel()));
+		CHEESE_WEDGE = register("cheese_wedge", new Item(new Item.Properties()
+				.food(new FoodProperties.Builder().nutrition(3).saturationModifier(0.5f).fast().build())));
 		CAMEMBERT = register("camembert", new Item(new Item.Properties()
 				.food(new FoodProperties.Builder().nutrition(5).saturationModifier(0.6f).build())));
 		MACARON = register("macaron", new Item(new Item.Properties()
@@ -105,6 +112,7 @@ public final class MiraculousItems {
 			case WAYZZ -> TURTLE_BRACELET;
 			case KAALKI -> HORSESHOE_GLASSES;
 			case SASS -> SNAKE_BRACELET;
+			case MULLO -> MOUSE_PENDANT;
 		};
 	}
 
@@ -117,7 +125,9 @@ public final class MiraculousItems {
 		output.accept(TURTLE_BRACELET);
 		output.accept(HORSESHOE_GLASSES);
 		output.accept(SNAKE_BRACELET);
+		output.accept(MOUSE_PENDANT);
 		output.accept(CAMEMBERT);
 		output.accept(MACARON);
+		output.accept(CHEESE_WEDGE);
 	}
 }

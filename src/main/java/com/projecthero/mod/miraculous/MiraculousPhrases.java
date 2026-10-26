@@ -35,6 +35,7 @@ public final class MiraculousPhrases {
 			case WAYZZ -> "Carapace";
 			case KAALKI -> "Pegasus";
 			case SASS -> "Viperion";
+			case MULLO -> "Multimouse"; // v0.17.1
 		};
 	}
 
@@ -48,6 +49,7 @@ public final class MiraculousPhrases {
 			case WAYZZ -> "Wayzz, shell on!";
 			case KAALKI -> "Kaalki, full gallop!";
 			case SASS -> "Sass, scales slither!";
+			case MULLO -> "Mullo, multiply!";
 		};
 	}
 
@@ -61,6 +63,7 @@ public final class MiraculousPhrases {
 			case WAYZZ -> "Shell off!";
 			case KAALKI -> "Dismount!";
 			case SASS -> "Scales rest!";
+			case MULLO -> "Divide!";
 		};
 	}
 

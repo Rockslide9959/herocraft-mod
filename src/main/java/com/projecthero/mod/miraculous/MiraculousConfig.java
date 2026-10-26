@@ -50,7 +50,8 @@ public final class MiraculousConfig {
 			"hawk_moth_swarm_flight", "hawk_moth_swarm_dash",
 			"carapace_shield_surf", "carapace_shell_roll", "carapace_shield_slam", "carapace_tidal_swim",
 			"pegasus_gallop_trample", "pegasus_portal_hop", "pegasus_sky_gallop",
-			"viperion_serpent_dash", "viperion_coil_leap");
+			"viperion_serpent_dash", "viperion_coil_leap",
+			"multimouse_rope_swing");
 	/** A safe landing that never left the ground is dropped after this long. */
 	public static final int SAFE_LANDING_GROUND_TICKS = 400;
 	/** v0.16.6 (user): this many pieces of any other food stand in for the favourite. */

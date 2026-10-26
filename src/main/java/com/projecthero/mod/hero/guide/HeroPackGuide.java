@@ -181,6 +181,7 @@ public final class HeroPackGuide {
 			case WAYZZ -> CH_CARAPACE;
 			case KAALKI -> CH_PEGASUS;
 			case SASS -> CH_VIPERION;
+			case MULLO -> CH_MULTIMOUSE;
 		});
 	}
 
@@ -202,6 +203,8 @@ public final class HeroPackGuide {
 			// v0.16.7: Viperion adds his special's own section (Second Chance) after the passives
 			String[] sections = kwami == com.projecthero.mod.miraculous.Kwami.SASS
 					? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "second_chance"}
+					: kwami == com.projecthero.mod.miraculous.Kwami.MULLO // v0.17.1: Multimouse adds her own passives + Multitude
+							? new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives", "mouse", "multitude"}
 					: new String[]{"box", "jewel", "kwami", "transform", "countdown", "food", "passives"};
 			// v0.16.7: Rena Rouge adds the Mirage wheel and one section per illusion
 			if (kwami == com.projecthero.mod.miraculous.Kwami.TRIXX) {
@@ -527,7 +530,9 @@ public final class HeroPackGuide {
 	/** v0.17.1: the Falcon and the Silver Surfer (after Viperion, so every earlier index stays put). */
 	private static final int CH_FALCON = CH_VIPERION + 1; // 57
 	private static final int CH_SILVER_SURFER = CH_FALCON + 1; // 58
-	private static final int CHAPTER_POWER_BASE = CH_SILVER_SURFER + 1; // 59
+	/** v0.17.1: Multimouse (after the Silver Surfer, so every earlier index stays put). */
+	private static final int CH_MULTIMOUSE = CH_SILVER_SURFER + 1; // 59
+	private static final int CHAPTER_POWER_BASE = CH_MULTIMOUSE + 1; // 60
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1532,7 +1537,7 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.silver_surfer.ability." + row[1] + ".desc");
 			}
 		}));
-
+		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.MULLO)); // CH_MULTIMOUSE (v0.17.1)
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -1682,6 +1687,7 @@ public final class HeroPackGuide {
 		icon(CH_CARAPACE, "turtle_bracelet");
 		icon(CH_PEGASUS, "horseshoe_glasses");
 		icon(CH_VIPERION, "snake_bracelet");
+		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
 		icon(CH_TITAN_SHIFTER, "titan_serum");
@@ -1764,6 +1770,7 @@ public final class HeroPackGuide {
 		link(miraculous, "projecthero.guide.carapace", CH_CARAPACE);
 		link(miraculous, "projecthero.guide.pegasus", CH_PEGASUS);
 		link(miraculous, "projecthero.guide.viperion", CH_VIPERION);
+		link(miraculous, "projecthero.guide.multimouse", CH_MULTIMOUSE); // v0.17.1
 
 		List<IndexEntry> other = map.get(Category.OTHER);
 		sub(other, "projecthero.guide.sub.other_heroes");

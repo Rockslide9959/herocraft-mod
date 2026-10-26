@@ -153,7 +153,7 @@ public class MiraculousTurtleHorseGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void carapaceAndPegasusHaveTheirOwnGuideChapters(GameTestHelper helper) {
 		var chapters = HeroPackGuide.chapters();
-		helper.assertTrue(chapters.size() == 59 + com.projecthero.mod.hero.Powers.enabled().size(), "59 framing chapters (v0.16.7: + the Quirks, + Viperion; v0.17.1: + Falcon, + Silver Surfer) + the powers, got " + chapters.size());
+		helper.assertTrue(chapters.size() == 60 + com.projecthero.mod.hero.Powers.enabled().size(), "60 framing chapters (v0.16.7: + the Quirks, + Viperion; v0.17.1: + Falcon, + Silver Surfer, + Multimouse) + the powers, got " + chapters.size());
 		String[] want = { "projecthero.guide.carapace", "projecthero.guide.pegasus" };
 		Kwami[] ks = { Kwami.WAYZZ, Kwami.KAALKI };
 		for (int i = 0; i < 2; i++) {

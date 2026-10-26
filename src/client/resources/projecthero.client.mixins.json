@@ -81,6 +81,8 @@
 		"ViperionItemInHandLayerMixin",
 		"ViperionHeatGlowMixin",
 		"ViperionHeatColorMixin",
+		"MultimouseFirstPersonArmMixin",
+		"MultimouseArmorMixin",
 		"CyborgFirstPersonArmMixin",
 		"FalconFirstPersonArmMixin",
 		"FalconFovMixin",

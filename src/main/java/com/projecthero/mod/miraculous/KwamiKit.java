@@ -36,6 +36,14 @@ public interface KwamiKit {
 		return amount;
 	}
 
+	/**
+	 * v0.17.1: an ordinary fall's damage while transformed (no safe landing armed): the core's half by default; a kit may
+	 * soften it more (Multimouse: a quarter, and never a killing fall).
+	 */
+	default float modifyFallDamage(ServerPlayer player, float amount) {
+		return amount * MiraculousConfig.FALL_DAMAGE_FACTOR;
+	}
+
 	/** Drop every static per-session collection (ServerStateReset). */
 	default void clearSessionState() {
 	}

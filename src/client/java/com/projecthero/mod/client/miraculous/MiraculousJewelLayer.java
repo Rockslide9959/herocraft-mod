@@ -70,6 +70,12 @@ public class MiraculousJewelLayer extends RenderLayer<AbstractClientPlayer, Play
 			// v0.16.7: the Snake Bracelet round the RIGHT wrist (first person: ViperionFirstPersonArmMixin)
 			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionRender.renderBracelet(pose, buffers, light, m.rightArm,
 					com.projecthero.mod.client.miraculous.viperion.ViperionRender.slim(player), on);
+			// v0.17.1: the Mouse Pendant at the collar -- transformed, the suit's own painted pendant takes its place
+			case MULLO -> {
+				if (com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.cover(player, partialTick) < 0.5f) {
+					com.projecthero.mod.client.miraculous.multimouse.MultimouseRender.renderPendant(pose, buffers, light, m.body);
+				}
+			}
 			case KAALKI -> {
 				// v0.16.7 (user): transformed, Pegasus wears the suit's goggles (painted on the suit skin) -- the glasses go once
 				// the reveal has passed the face and come back as it leaves it
