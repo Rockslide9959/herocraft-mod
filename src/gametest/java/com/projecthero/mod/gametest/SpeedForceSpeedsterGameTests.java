@@ -348,6 +348,43 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): V is the Speed Force Barrier now -- arrows are batted out, mobs pushed out, no damage. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBarrierDeflectsArrowsAndPushesMobsOut(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 3.5, 2.0, 3.5);
+		Zombie z = zombie(helper, 5.0, 2.0, 3.5, 100);
+		Vec3 from = helper.absoluteVec(new Vec3(3.5, 3.0, 6.0));
+		net.minecraft.world.entity.projectile.Arrow arrow = new net.minecraft.world.entity.projectile.Arrow(EntityType.ARROW, helper.getLevel());
+		arrow.moveTo(from.x, from.y, from.z);
+		arrow.setDeltaMovement(0, 0, -1.5); // straight at the runner
+		helper.getLevel().addFreshEntity(arrow);
+		helper.assertTrue(SpeedForceAbilities.speedForceBarrier(p), "the Barrier goes up (15 Speed Force)");
+		helper.assertTrue(SpeedForceAbilities.barrierUp(p), "and is up");
+		p.tickCount++;
+		SpeedForceSpeedster.tick(p);
+		helper.assertTrue(arrow.getDeltaMovement().z > 0.3, "the arrow is knocked back out: " + arrow.getDeltaMovement());
+		helper.assertTrue(z.getDeltaMovement().x > 0.3, "the zombie is pushed out of the ring: " + z.getDeltaMovement());
+		helper.assertTrue(z.getHealth() >= 100f - 1.0e-3f, "no damage");
+		helper.assertTrue(SpeedForceAbilities.speedForceBarrier(p), "V again drops it");
+		helper.assertFalse(SpeedForceAbilities.barrierUp(p), "it is down");
+		helper.assertFalse(SpeedForceAbilities.speedForceBarrier(p), "and on cooldown");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): Rescue Run moved from V to N; V is the Barrier. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void nIsRescueRunAndVIsTheBarrier(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 1.5);
+		Zombie z = zombie(helper, 2.5, 2.0, 3.5, 100);
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceAbilityManager.idsOf(com.projecthero.mod.hero.AbilitySlot.SLOT_5)[0]
+				.equals(SpeedForceAbilities.BARRIER), "V's move is the Barrier");
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, true);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, false);
+		helper.assertTrue(SpeedForceSpeedster.state(p).carryId == z.getId(), "N picks the zombie up (Rescue Run)");
+		helper.assertFalse(SpeedForceAbilities.barrierUp(p), "N raised no barrier");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void rewindGoesBackFiveSeconds(GameTestHelper helper) {
 		ServerPlayer p = flash(helper, 1.5, 2.0, 1.5);

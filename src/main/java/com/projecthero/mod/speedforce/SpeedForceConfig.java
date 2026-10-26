@@ -136,7 +136,13 @@ public final class SpeedForceConfig {
 	public static final float REMNANT_COST = 30f;
 	public static final int REMNANT_COOLDOWN = 30 * 20;
 
-	// ---------------------------------------------------------------- V / Shift+V
+	// ---------------------------------------------------------------- V / Shift+V (N: Rescue Run)
+
+	/** v0.17.1 (user): V -- Speed Force Barrier, a wall of wind run round you: deflects projectiles, pushes mobs out. */
+	public static final float BARRIER_COST = 15f;
+	public static final int BARRIER_TICKS = 8 * 20;
+	public static final double BARRIER_RADIUS = 3.5;
+	public static final int BARRIER_COOLDOWN = 20 * 20;
 
 	public static final double RESCUE_RANGE = 6.0;
 	public static final int RESCUE_COOLDOWN = 10;

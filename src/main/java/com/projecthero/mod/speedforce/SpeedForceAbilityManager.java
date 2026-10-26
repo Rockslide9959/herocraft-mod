@@ -19,10 +19,11 @@ import net.minecraft.server.level.ServerPlayer;
  *   G (2)  Lightning Throw            Shift+G  Speed Tornado
  *   X (3)  Speed Force Step           Shift+X  Phase (hold)
  *   Z (4)  Flash Time                 Shift+Z  Time Remnant
- *   V (5)  Rescue Run                 Shift+V  Speed Heal
+ *   V (5)  Speed Force Barrier       Shift+V  Speed Heal
+ *   N (8)  Rescue Run (v0.17.1, user: moved from V)
  *   C (6)  Speed Force Surge (mode)   Shift+C  Rewind
  * </pre>
- * H and N do nothing here (Shift+N is kept free for both speedsters).
+ * H does nothing here; Shift+N is Ground-Stick (client-side, both speedsters).
  */
 public final class SpeedForceAbilityManager {
 	static final int REPEAT_WINDOW = 25;
@@ -114,6 +115,11 @@ public final class SpeedForceAbilityManager {
 				if (shift) {
 					SpeedForceAbilities.speedHeal(player);
 				} else {
+					SpeedForceAbilities.speedForceBarrier(player);
+				}
+			}
+			case SLOT_8 -> {
+				if (!shift) {
 					SpeedForceAbilities.rescueRun(player);
 				}
 			}
@@ -135,7 +141,8 @@ public final class SpeedForceAbilityManager {
 			case SLOT_2 -> new String[] { SpeedForceAbilities.THROW, SpeedForceAbilities.TORNADO };
 			case SLOT_3 -> new String[] { SpeedForceAbilities.STEP, SpeedForceAbilities.PHASE };
 			case SLOT_4 -> new String[] { SpeedForceAbilities.FLASH, SpeedForceAbilities.REMNANT };
-			case SLOT_5 -> new String[] { SpeedForceAbilities.RESCUE, SpeedForceAbilities.HEAL };
+			case SLOT_5 -> new String[] { SpeedForceAbilities.BARRIER, SpeedForceAbilities.HEAL };
+			case SLOT_8 -> new String[] { SpeedForceAbilities.RESCUE };
 			case SLOT_6 -> new String[] { SpeedForceAbilities.SURGE, SpeedForceAbilities.REWIND };
 			default -> new String[0];
 		};
@@ -152,6 +159,7 @@ public final class SpeedForceAbilityManager {
 			case SpeedForceAbilities.FLASH -> SpeedForceConfig.FLASH_TIME_COOLDOWN;
 			case SpeedForceAbilities.REMNANT -> SpeedForceConfig.REMNANT_COOLDOWN;
 			case SpeedForceAbilities.RESCUE -> SpeedForceConfig.RESCUE_COOLDOWN;
+			case SpeedForceAbilities.BARRIER -> SpeedForceConfig.BARRIER_COOLDOWN;
 			case SpeedForceAbilities.HEAL -> SpeedForceConfig.HEAL_COOLDOWN;
 			case SpeedForceAbilities.SURGE -> SpeedForceConfig.SURGE_COOLDOWN;
 			case SpeedForceAbilities.REWIND -> SpeedForceConfig.REWIND_COOLDOWN;

@@ -1552,8 +1552,8 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.speed_force_speedster.controls");
 			for (String[] row : new String[][] { { "R", "speed_punches" }, { "Shift+R", "infinite_mass_punch" }, { "G", "lightning_throw" },
 					{ "Shift+G", "speed_tornado" }, { "X", "speed_force_step" }, { "Shift+X", "phase" }, { "Z", "flash_time" },
-					{ "Shift+Z", "time_remnant" }, { "V", "rescue_run" }, { "Shift+V", "speed_heal" }, { "C", "speed_force_surge" },
-					{ "Shift+C", "rewind" } }) {
+					{ "Shift+Z", "time_remnant" }, { "V", "speed_force_barrier" }, { "Shift+V", "speed_heal" }, { "C", "speed_force_surge" },
+					{ "Shift+C", "rewind" }, { "N", "rescue_run" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.speed_force_speedster.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.speed_force_speedster.ability." + row[1] + ".desc");

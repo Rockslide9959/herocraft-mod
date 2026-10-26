@@ -61,6 +61,11 @@ public final class AbilityRouter {
 				}
 				return;
 			}
+			// v0.17.1 (user): N is the Speed Force Speedster's Rescue Run
+			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.speedforce.SpeedForceAbilityManager.hasContext(player)) {
+				com.projecthero.mod.speedforce.SpeedForceAbilityManager.handle(player, slot, pressed);
+				return;
+			}
 			dispatchExperimental(player, slot, pressed);
 			return;
 		}

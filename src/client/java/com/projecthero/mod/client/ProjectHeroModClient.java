@@ -1074,6 +1074,14 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			maxSteelTransformWasDown = down;
 			return;
 		}
+		// v0.17.1 (user): N is the Speed Force Speedster's Rescue Run (press and release go to the server)
+		if (client.player != null && com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(client.player) && !mutationSelected(client)) {
+			if (down != maxSteelTransformWasDown && (client.screen == null || !down)) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, down));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		if (handleUtilityEdge(client, down, maxSteelTransformWasDown, 8)) {
 			maxSteelTransformWasDown = down;
 			return;

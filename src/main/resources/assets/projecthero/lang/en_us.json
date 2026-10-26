@@ -8207,7 +8207,7 @@
   "projecthero.speed_force_speedster.ability.time_remnant": "Time Remnant",
   "projecthero.speed_force_speedster.ability.time_remnant.desc": "A copy of you from a second ago runs out of the Speed Force where you were and fights for 8 s: it zips to the nearest foe every half second and hits it for 5, and pulls the enemies after you onto itself. 30 Speed Force, 30 s.",
   "projecthero.speed_force_speedster.ability.rescue_run": "Rescue Run",
-  "projecthero.speed_force_speedster.ability.rescue_run.desc": "Grab the ally or mob in front of you (6 blocks) and carry it at full speed; V again sets it down in front of you. What you carry takes no fall or suffocation damage (and for 3 s after) and can't hurt you.",
+  "projecthero.speed_force_speedster.ability.rescue_run.desc": "Grab the ally or mob in front of you (6 blocks) and carry it at full speed; N again sets it down in front of you. What you carry takes no fall or suffocation damage (and for 3 s after) and can't hurt you.",
   "projecthero.speed_force_speedster.ability.speed_heal": "Speed Heal",
   "projecthero.speed_force_speedster.ability.speed_heal.desc": "Burn the Speed Force to heal fast: 10 health at once, Regeneration III for 4 s, every harmful effect and fire gone. 35 Speed Force, 25 s.",
   "projecthero.speed_force_speedster.ability.speed_force_surge": "Speed Force Surge",
@@ -8245,5 +8245,7 @@
   "hud.projecthero.speed_force.remnant": "Remnant",
   "hud.projecthero.speed_force.top": "Top %s b/s",
   "hud.projecthero.speed_force.suit": "Suit +50%",
-  "hud.projecthero.speed_force.no_suit": "No suit"
+  "hud.projecthero.speed_force.no_suit": "No suit",
+  "projecthero.speed_force_speedster.ability.speed_force_barrier": "Speed Force Barrier",
+  "projecthero.speed_force_speedster.ability.speed_force_barrier.desc": "Run a wall of wind round yourself for 8 s (3.5 blocks out). Arrows, fireballs and every other projectile coming in are knocked back out, and mobs are pushed out of the ring (bosses are only slowed). It does no damage. Press V again to drop it early. Costs 15 Speed Force; 20 s cooldown from when it drops."
 }

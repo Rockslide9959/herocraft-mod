@@ -52,7 +52,7 @@ public final class SpeedForceHud {
 	private static final int SHIFT_READY = 0xFFC89A2A;
 	private static final int SHIFT_CD = 0xFF38301A;
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 };
+			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5, AbilitySlot.SLOT_8 };
 
 	private static float speed;
 	private static float top;
@@ -264,12 +264,13 @@ public final class SpeedForceHud {
 			String[] ids = SpeedForceAbilityManager.idsOf(slot);
 			int cd = SpeedForceSpeedster.cooldownRemaining(p, ids[0]);
 			int max = Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[0]));
-			int scd = SpeedForceSpeedster.cooldownRemaining(p, ids[1]);
-			int smax = Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[1]));
+			boolean hasShift = ids.length > 1; // N (Rescue Run) has no Shift move: Shift+N is Ground-Stick
+			int scd = hasShift ? SpeedForceSpeedster.cooldownRemaining(p, ids[1]) : 0;
+			int smax = hasShift ? Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[1])) : 1;
 			boolean active = (slot == AbilitySlot.SLOT_2 && (s.throwLeft > 0 || s.tornadoLeft > 0))
 					|| (slot == AbilitySlot.SLOT_3 && s.phasing)
 					|| (slot == AbilitySlot.SLOT_4 && (s.flashLeft > 0 || s.remnantUntil > now))
-					|| (slot == AbilitySlot.SLOT_5 && s.carryId != 0)
+					|| (slot == AbilitySlot.SLOT_8 && s.carryId != 0)
 					|| (slot == AbilitySlot.SLOT_6 && s.surgeUntil > now);
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
@@ -280,6 +281,9 @@ public final class SpeedForceHud {
 				g.fill(x + 1, y0 + BOX - 1 - hh, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 			}
+			if (!hasShift) {
+				continue;
+			}
 			int sy = y0 + BOX + 1;
 			g.fill(x, sy, x + BOX, sy + SHIFT_H, SHIFT_CD);
 			float ready = scd <= 0 ? 1f : 1f - Math.min(1f, scd / (float) smax);
@@ -288,6 +292,10 @@ public final class SpeedForceHud {
 	}
 
 	private static String keyLabel(AbilitySlot slot) {
+		if (slot == AbilitySlot.SLOT_8) {
+			String n = ModKeyBindings.MAX_STEEL_TRANSFORM.getTranslatedKeyMessage().getString();
+			return n.length() > 2 ? n.substring(0, 2) : n;
+		}
 		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
 		return text.length() > 2 ? text.substring(0, 2) : text;
 	}

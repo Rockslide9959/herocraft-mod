@@ -27,6 +27,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -48,11 +49,14 @@ public final class SpeedForceAbilities {
 	public static final String HEAL = "speed_heal";
 	public static final String SURGE = "speed_force_surge";
 	public static final String REWIND = "rewind";
+	public static final String BARRIER = "speed_force_barrier";
 
 	/** Runner -> the Time Remnant's entity id. */
 	private static final Map<UUID, Integer> REMNANTS = new ConcurrentHashMap<>();
 	/** Set down from a Rescue Run -> game time the fall / suffocation protection ends. */
 	static final Map<UUID, Long> RESCUE_GRACE = new ConcurrentHashMap<>();
+	/** Runner -> game time the Speed Force Barrier drops. */
+	private static final Map<UUID, Long> BARRIERS = new ConcurrentHashMap<>();
 
 	private SpeedForceAbilities() {
 	}
@@ -60,6 +64,7 @@ public final class SpeedForceAbilities {
 	static void clearSessionState() {
 		REMNANTS.clear();
 		RESCUE_GRACE.clear();
+		BARRIERS.clear();
 	}
 
 	// ---------------------------------------------------------------- shared
@@ -715,10 +720,105 @@ public final class SpeedForceAbilities {
 		return true;
 	}
 
+	// ---------------------------------------------------------------- V: Speed Force Barrier
+
+	/**
+	 * v0.17.1 (user: "give the V keybind another ability"): run a wall of wind round yourself for 8 s. Arrows, fireballs
+	 * and every other projectile that comes within 3.5 blocks is knocked away, and mobs are pushed back out (bosses only
+	 * slowed). No damage -- Speed Tornado is the one that hurts. Press V again to drop it early; the cooldown starts when
+	 * it drops.
+	 */
+	public static boolean speedForceBarrier(ServerPlayer p) {
+		if (BARRIERS.containsKey(p.getUUID())) {
+			dropBarrier(p);
+			return true;
+		}
+		if (!gate(p, BARRIER) || !pay(p, SpeedForceConfig.BARRIER_COST)) {
+			return false;
+		}
+		BARRIERS.put(p.getUUID(), p.level().getGameTime() + SpeedForceConfig.BARRIER_TICKS);
+		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), 1.0f, 1.4f);
+		SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.5f, 1.8f);
+		return true;
+	}
+
+	public static boolean barrierUp(Player p) {
+		return BARRIERS.containsKey(p.getUUID());
+	}
+
+	private static void dropBarrier(ServerPlayer p) {
+		if (BARRIERS.remove(p.getUUID()) != null) {
+			cooldown(p, BARRIER, SpeedForceConfig.BARRIER_COOLDOWN);
+			SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_DEFLECT, 0.8f, 1.2f);
+		}
+	}
+
+	private static void barrierTick(ServerPlayer p, long now) {
+		Long until = BARRIERS.get(p.getUUID());
+		if (until == null) {
+			return;
+		}
+		if (now >= until || p.isDeadOrDying() || SpeedForceSpeedster.phasing(p)) {
+			dropBarrier(p);
+			return;
+		}
+		ServerLevel level = level(p);
+		Vec3 c = p.position();
+		double r = SpeedForceConfig.BARRIER_RADIUS;
+		AABB box = new AABB(c.x - r - 2, c.y - 1, c.z - r - 2, c.x + r + 2, c.y + 4, c.z + r + 2);
+		// projectiles: anything not ours coming in is batted back out
+		for (net.minecraft.world.entity.projectile.Projectile pr : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+				box, e -> e.getOwner() != p)) {
+			Vec3 out = new Vec3(pr.getX() - c.x, 0, pr.getZ() - c.z);
+			if (out.lengthSqr() > (r + 1.5) * (r + 1.5)) {
+				continue;
+			}
+			out = out.lengthSqr() < 1.0e-4 ? flatLook(p) : out.normalize();
+			double speed = Math.max(0.6, pr.getDeltaMovement().length());
+			pr.setDeltaMovement(out.scale(speed).add(0, 0.25, 0));
+			pr.hurtMarked = true;
+			if (pr instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile hp) {
+				hp.accelerationPower = 0.1;
+			}
+			level.sendParticles(SpeedForceSpeedster.GOLD, pr.getX(), pr.getY(), pr.getZ(), 4, 0.1, 0.1, 0.1, 0.0);
+			if (now % 4 == 0) {
+				SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_DEFLECT, 0.6f, 1.6f);
+			}
+		}
+		// mobs: pushed back out of the ring
+		for (LivingEntity e : SpeedForceCombat.within(p, c.add(0, 1, 0), r)) {
+			Vec3 out = new Vec3(e.getX() - c.x, 0, e.getZ() - c.z);
+			out = out.lengthSqr() < 1.0e-4 ? flatLook(p) : out.normalize();
+			if (SpeedForceCombat.isBoss(e)) {
+				e.setDeltaMovement(e.getDeltaMovement().scale(0.5));
+			} else {
+				e.setDeltaMovement(out.scale(0.7).add(0, 0.15, 0));
+			}
+			e.hurtMarked = true;
+		}
+		// the wall itself: three bands of wind and gold streaks spinning round
+		double t = now * 0.9;
+		for (int band = 0; band < 3; band++) {
+			for (int k = 0; k < 6; k++) {
+				double a = t + k * Math.PI / 3 + band * 0.5;
+				level.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * r, c.y + 0.3 + band * 0.8, c.z + Math.sin(a) * r, 1, 0.02, 0.05, 0.02, 0.0);
+			}
+		}
+		if (now % 2 == 0) {
+			Vec3 from = c.add(Math.cos(t) * r, 0.2 + (now % 6) * 0.35, Math.sin(t) * r);
+			Vec3 to = c.add(Math.cos(t + 1.2) * r, 0.2 + (now % 6) * 0.35, Math.sin(t + 1.2) * r);
+			SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, to);
+		}
+		if (now % 14 == 0) {
+			SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.25f, 1.9f);
+		}
+	}
+
 	// ---------------------------------------------------------------- upkeep
 
 	static void tick(ServerPlayer p, long now) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
+		barrierTick(p, now);
 		throwTick(p, s);
 		tornadoTick(p, SpeedForceSpeedster.state(p));
 		phaseTick(p, SpeedForceSpeedster.state(p));
@@ -765,6 +865,7 @@ public final class SpeedForceAbilities {
 			SpeedForceSpeedster.save(p, n);
 		}
 		killRemnant(p);
+		BARRIERS.remove(p.getUUID());
 		SuperSpeedTimeSlow.end(p, false);
 	}
 }
