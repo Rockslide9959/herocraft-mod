@@ -447,6 +447,25 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): a speedster's sprint costs an ordinary sprint's hunger however fast they run. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sprintingAtSpeedCostsOrdinaryHunger(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		p.setSprinting(true);
+		p.setOnGround(true);
+		float before = p.getFoodData().getExhaustionLevel();
+		p.checkMovementStatistics(10.0, 0.0, 0.0); // 10 blocks in a tick: 200 b/s
+		float fast = p.getFoodData().getExhaustionLevel() - before;
+		helper.assertTrue(fast > 0f && fast < 0.05f, "200 b/s costs about a normal sprint tick (0.028), not 1.0: got " + fast);
+		SpeedForceAbilities.toggleSpeedMode(p);
+		p.setSprinting(true);
+		before = p.getFoodData().getExhaustionLevel();
+		p.checkMovementStatistics(10.0, 0.0, 0.0);
+		float normal = p.getFoodData().getExhaustionLevel() - before;
+		helper.assertTrue(normal > 0.9f, "Speed Mode off: the vanilla charge, got " + normal);
+		helper.succeed();
+	}
+
 	/** v0.17.1 (user): in Speed Mode the Speed Force Speedster runs through leaves (still solid from above). */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void speedModeRunsThroughLeaves(GameTestHelper helper) {
