@@ -49,6 +49,12 @@ function build(id, opts) {
 	for (let y = 16; y < 32; y++) for (let x = 56; x < 64; x++) px.fill(0, at(x, y), at(x, y) + 4);
 	const filled = tools.fillSuitGaps(img, false);
 	if (opts.eyes) opts.eyes(px, at);
+	// v0.17.1 (user: "for the wally west suit, remove the hair on top of his head"): the hat layer's hair -- its whole top
+	// face and the top three rows of every side (the cowl's lower flares stay)
+	if (opts.noHair) {
+		for (let y = 0; y < 8; y++) for (let x = 40; x < 48; x++) px.fill(0, at(x, y), at(x, y) + 4);
+		for (let y = 8; y < 11; y++) for (let x = 32; x < 64; x++) px.fill(0, at(x, y), at(x, y) + 4);
+	}
 	fs.writeFileSync(path.join(OUT, 'flash_' + id + '.png'), tools.encode(64, 64, px));
 	console.log(id, 'face texels cut', cut, 'gaps filled', filled);
 	return img;
@@ -76,7 +82,7 @@ const out = {
 	zoom: build('zoom', { eyes: zoomEyes }),
 	reverse_flash: build('reverse_flash', { grin: true }),
 	classic: build('classic', {}),
-	scarlet: build('scarlet', { slim: true }),
+	scarlet: build('scarlet', { slim: true, noHair: true }), // Wally West
 };
 
 if (process.env.PREVIEW) {

@@ -200,15 +200,21 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 			SpeedForceSpeedster.stepRun(p, Vec3.ZERO);
 		}
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.01f, "standing 1.6 s: momentum gone, got " + SpeedForceSpeedster.momentum(p));
-		// walking: bleeds away slowly
+		// v0.17.1 (user): off Ctrl past 30% the speed holds (a cruise) -- below it, walking bleeds it away slowly
 		SpeedForceSpeedster.resetRun(p);
-		SpeedForceSpeedster.setMomentum(p, 1f);
+		SpeedForceSpeedster.setMomentum(p, 0.8f);
 		p.setSprinting(false);
+		for (int i = 0; i < 40; i++) {
+			SpeedForceSpeedster.stepRun(p, new Vec3(3.0, 0, 0));
+		}
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.momentum(p) - 0.8f) < 0.01f, "cruising off Ctrl at 80%: held, got " + SpeedForceSpeedster.momentum(p));
+		SpeedForceSpeedster.resetRun(p);
+		SpeedForceSpeedster.setMomentum(p, 0.25f);
 		for (int i = 0; i < 40; i++) {
 			SpeedForceSpeedster.stepRun(p, new Vec3(0.45, 0, 0));
 		}
 		float walked = SpeedForceSpeedster.momentum(p);
-		helper.assertTrue(walked < 0.85f && walked > 0.75f, "2 s of walking costs ~20%, got " + walked);
+		helper.assertTrue(walked < 0.10f && walked > 0.0f, "under 30%, 2 s of walking costs ~20%, got " + walked);
 		// a stall with nothing in front (a lag spike): not a wall
 		SpeedForceSpeedster.resetRun(p);
 		SpeedForceSpeedster.setMomentum(p, 1f);
@@ -290,6 +296,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(SpeedForceConfig.sprintBps(0.25, true) - 60.0) < 0.1 && Math.abs(SpeedForceConfig.sprintBps(0.6, true) - 120.0) < 0.1,
 				"the suit curve: 60 at 25%, 120 at 60%");
 		p.setSprinting(false);
+		SpeedForceSpeedster.setMomentum(p, 0.1f); // under the 30% cruise
 		SpeedForceSpeedster.resetRun(p);
 		p.tickCount++;
 		SpeedForceSpeedster.tick(p);
@@ -750,7 +757,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "the timer");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speed * 0.5) < 1.0e-4, "50% slower");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - damage * 0.5) < 1.0e-4, "50% weaker fists");
-		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 0.5f) < 1.0e-6, "50% weaker moves");
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - SpeedForceConfig.DAMAGE_BONUS * 0.5f) < 1.0e-6, "50% weaker moves (x1.5 halved)");
 		SpeedForceAbilities.rapidAssault(p);
 		float dealt = 100f - z.getHealth();
 		helper.assertTrue(dealt >= 14.5f && dealt <= 15.5f, "Rapid Assault x1.5, halved: 15, got " + dealt);

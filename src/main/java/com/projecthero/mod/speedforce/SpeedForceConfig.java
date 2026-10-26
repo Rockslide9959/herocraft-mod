@@ -14,6 +14,10 @@ public final class SpeedForceConfig {
 	public static final double TOP_SPEED_BPS = 250.0;
 	/** v0.17.1 (user): every Speed Force Speedster blow is 50% stronger than the plain Speedster's (no Overdrive to double it). */
 	public static final float DAMAGE_BONUS = 1.5f;
+	/** v0.17.1 (user): momentum builds only while sprinting; from this much, letting go of Ctrl holds the speed. */
+	public static final float CRUISE_MOMENTUM = 0.30f;
+	/** v0.17.1 (user): Speed Mode breaks blocks 75% faster. */
+	public static final double SPEED_MODE_MINING = 0.75;
 	/** The Flash Suit makes the Speed Force Speedster this much faster (user: 50%); without it full momentum is 250 / 1.5. */
 	public static final double SUIT_SPEED_MULTIPLIER = 1.5;
 	/**
