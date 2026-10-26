@@ -1549,16 +1549,22 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.speed_force_speedster.tier").withStyle(ChatFormatting.GOLD));
 			para(lines, "projecthero.guide.speed_force_speedster.body");
 			blank(lines);
-			for (String section : new String[]{"awakening", "tachyon", "momentum", "suit", "meter", "passives"}) {
+			// v0.17.1: + the Speed Force (the dimension) and the drain after it
+			for (String section : new String[]{"awakening", "tachyon", "momentum", "suit", "meter", "passives", "realm", "drain"}) {
 				head(lines, "projecthero.guide.speed_force_speedster." + section);
 				para(lines, "projecthero.guide.speed_force_speedster." + section + ".body");
 				blank(lines);
 			}
+			// v0.17.1 (user): every key is tap / Shift / HOLD -- the plain Speedster's moves on tap and Shift, the Speed Force's held
 			head(lines, "projecthero.guide.speed_force_speedster.controls");
-			for (String[] row : new String[][] { { "R", "speed_punches" }, { "Shift+R", "infinite_mass_punch" }, { "G", "lightning_throw" },
-					{ "Shift+G", "speed_tornado" }, { "X", "speed_force_step" }, { "Shift+X", "phase" }, { "Z", "flash_time" },
-					{ "Shift+Z", "time_remnant" }, { "V", "speed_force_barrier" }, { "Hold V", "speed_heal" }, { "Shift+V", "rewind" }, { "C", "speed_mode" },
-					{ "Hold Shift+C", "speed_launch" }, { "N", "rescue_run" }, { "Shift+N", "speed_force_menu" } }) {
+			para(lines, "projecthero.guide.speed_force_speedster.controls.body");
+			for (String[] row : new String[][] { { "R", "rapid_assault" }, { "Shift+R", "mach_punch" }, { "Hold R", "infinite_mass_punch" },
+					{ "G", "blitz" }, { "Shift+G", "speed_tornado" }, { "Hold G", "lightning_throw" },
+					{ "X", "momentum_dash" }, { "Shift+X", "speed_sweep" }, { "Hold X", "tornado_arms" },
+					{ "Hold Z", "flash_time" }, { "Hold Z at max", "speed_force_portal" }, { "Shift+Z", "time_remnant" },
+					{ "V", "afterimage_decoys" }, { "Shift+V", "speed_heal" }, { "Hold V", "rewind" },
+					{ "C", "speed_mode" }, { "Hold Shift+C", "phase" }, { "Hold C", "speed_launch" },
+					{ "N", "rescue_run" }, { "Shift+N", "speed_force_menu" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
 						.append(Component.translatable("projecthero.speed_force_speedster.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.speed_force_speedster.ability." + row[1] + ".desc");

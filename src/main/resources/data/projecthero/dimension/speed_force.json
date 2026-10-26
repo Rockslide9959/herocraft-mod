@@ -1,0 +1,13 @@
+{
+  "type": "projecthero:speed_force",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "projecthero:speed_force",
+      "layers": [],
+      "lakes": false,
+      "features": false,
+      "structure_overrides": []
+    }
+  }
+}

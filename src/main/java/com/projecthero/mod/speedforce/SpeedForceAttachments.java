@@ -18,6 +18,11 @@ public final class SpeedForceAttachments {
 					.initializer(SpeedForceState::new)
 					.syncWith(ByteBufCodecs.fromCodec(SpeedForceState.CODEC), AttachmentSyncPredicate.all()));
 
+	/** v0.17.1: a trip through the Speed Force dimension while it lasts (persistent, server-only). */
+	public static final AttachmentType<com.projecthero.mod.speedforce.data.SpeedForceTrip> TRIP = AttachmentRegistry.create(
+			ProjectHeroMod.id("speed_force_trip"),
+			builder -> builder.persistent(com.projecthero.mod.speedforce.data.SpeedForceTrip.CODEC));
+
 	private SpeedForceAttachments() {
 	}
 

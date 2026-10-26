@@ -29,9 +29,12 @@ public final class SpeedForceConfig {
 	public static final int SONIC_HOLD_TICKS = 6;
 	public static final double SONIC_RADIUS = 6.0;
 	public static final float SONIC_DAMAGE = 2.0f;
-	/** Step assist in Speed Mode: 4 blocks as standard (user), up to 5 at full momentum (hills at 250 b/s); off, vanilla. */
-	public static final double STEP_SPEED_MODE = 4.0;
-	public static final double STEP_BASE = 1.0;
+	/**
+	 * Step assist in Speed Mode -- v0.17.1 (user: "increase speed force speedsters step assist please while in speed mode"): 6
+	 * blocks as standard, rising past 50% momentum to 8 at full momentum (max(6, 4 + 4 x momentum)); off, vanilla.
+	 */
+	public static final double STEP_SPEED_MODE = 6.0;
+	public static final double STEP_BASE = 4.0;
 	public static final double STEP_PER_MOMENTUM = 4.0;
 
 	// ---------------------------------------------------------------- momentum
@@ -82,26 +85,36 @@ public final class SpeedForceConfig {
 	public static final float BOSS_HEALTH_THRESHOLD = 300f;
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.08f;
 
-	// ---------------------------------------------------------------- R / Shift+R
+	// ---------------------------------------------------------------- R: Rapid Assault / Shift+R Mach Punch / hold R Infinite Mass Punch
 
-	public static final int PUNCHES = 3;
-	public static final float PUNCH_MIN = 4f;
-	public static final float PUNCH_MAX = 10f;
-	public static final double PUNCH_RADIUS = 3.0;
-	public static final int PUNCH_COOLDOWN = 20;
+	/** v0.17.1 (user): tap / Shift / HOLD -- a key held this long (0.6 s, as the mutations' HoldTap) is its hold move. */
+	public static final int HOLD_TICKS = 12;
+
+	/** Rapid Assault -- the plain Speedster's numbers (4 punches of 5), its 1.5 s cooldown. */
+	public static final int RAPID_COOLDOWN = 30;
+	/** Mach Punch -- the plain move (a flat 20, a shockwave of 6), its 8 s cooldown. */
+	public static final int MACH_COOLDOWN = 8 * 20;
 
 	public static final float MASS_MIN = 10f;
 	public static final float MASS_MOMENTUM = 60f;
-	public static final double MASS_REACH = 5.0;
+	/** v0.17.1 (user): on release the punch locks onto the nearest foe within this many blocks (the crosshair cone first). */
+	public static final double MASS_TRACK_RANGE = 8.0;
+	/** The cone that counts as "under the crosshair" for the lock (cosine of the half-angle: about 35 degrees). */
+	public static final double MASS_TRACK_CONE = 0.82;
 	public static final double MASS_SHOCK_RADIUS = 4.0;
 	public static final float MASS_SHOCK_MIN = 4f;
 	public static final float MASS_SHOCK_MOMENTUM = 10f;
 	public static final float MASS_COST = 15f;
 	public static final int MASS_COOLDOWN = 10 * 20;
 
-	// ---------------------------------------------------------------- G / Shift+G
+	// ---------------------------------------------------------------- G: Blitz / Shift+G Speed Vortex / hold G Lightning Throw
 
-	public static final int THROW_WINDUP = 8;
+	/** Blitz -- the plain move (zip to the foe under the crosshair, 20 and a shockwave of 10), its 4 s cooldown. */
+	public static final int BLITZ_COOLDOWN = 80;
+
+	/** Hold G: the charge is full after this long held (past the hold itself); the bolt does up to +50% with it. */
+	public static final int THROW_CHARGE_TICKS = 20;
+	public static final float THROW_CHARGE_BONUS = 0.5f;
 	public static final double THROW_RANGE = 48.0;
 	public static final float THROW_MIN = 8f;
 	public static final float THROW_MOMENTUM = 12f;
@@ -110,6 +123,7 @@ public final class SpeedForceConfig {
 	public static final float THROW_COST = 10f;
 	public static final int THROW_COOLDOWN = 3 * 20;
 
+	/** Shift+G Speed Vortex (the momentum-scaled Speed Tornado). */
 	public static final int TORNADO_TICKS = 4 * 20;
 	public static final double TORNADO_RADIUS = 7.0;
 	public static final float TORNADO_TICK_MIN = 2f;
@@ -119,23 +133,51 @@ public final class SpeedForceConfig {
 	public static final float TORNADO_COST = 25f;
 	public static final int TORNADO_COOLDOWN = 16 * 20;
 
-	// ---------------------------------------------------------------- X / Shift+X
+	// ---------------------------------------------------------------- X: Momentum Dash / Shift+X Speed Sweep / hold X Tornado Arms
 
-	public static final double STEP_LAUNCH = 2.0;
-	public static final double STEP_MOMENTUM_GAIN = 0.15;
-	public static final float STEP_COST = 5f;
-	public static final int STEP_COOLDOWN = 2 * 20;
+	/** Momentum Dash: the plain dash along the full look, and (like the old Speed Force Step) +15% momentum. */
+	public static final double DASH_LAUNCH = 1.7;
+	public static final double DASH_MOMENTUM_GAIN = 0.15;
+	public static final float DASH_COST = 5f;
+	public static final int DASH_COOLDOWN = 34;
+	/** Speed Sweep -- the plain move (every foe within 50 blocks, 15 each, then home), its 10 s cooldown. */
+	public static final int SWEEP_COOLDOWN = 10 * 20;
+
+	/** v0.17.1 (user) hold X Tornado Arms: a cone of wind 10 blocks long in front, about 30 degrees either side. */
+	public static final double ARMS_RANGE = 10.0;
+	public static final double ARMS_CONE = 0.86;
+	/** What the wind does a tick to a mob in it: pushed back along the cone, lifted. */
+	public static final double ARMS_PUSH = 0.75;
+	public static final double ARMS_LIFT = 0.18;
+	public static final float ARMS_COST_PER_SECOND = 8f;
+	public static final float ARMS_MIN = 4f;
+	public static final int ARMS_COOLDOWN = 2 * 20;
+
+	// ---------------------------------------------------------------- Shift+C: Phase (held)
 
 	public static final float PHASE_MIN = 5f;
 	public static final float PHASE_COST_PER_SECOND = 5f;
 	public static final int PHASE_COOLDOWN = 2 * 20;
 
-	// ---------------------------------------------------------------- Z / Shift+Z
+	// ---------------------------------------------------------------- Z: hold Flash Time (+ the Speed Force portal) / Shift+Z Time Remnant
 
-	public static final int FLASH_TIME_BASE = 4 * 20;
-	public static final int FLASH_TIME_MOMENTUM = 16 * 20;
-	public static final float FLASH_TIME_COST = 40f;
-	public static final int FLASH_TIME_COOLDOWN = 90 * 20;
+	/** v0.17.1 (user: "a held down ability that drains speed force while active"): Speed Force a second while Z is held. */
+	public static final float FLASH_COST_PER_SECOND = 8f;
+	/** Needed to start it. */
+	public static final float FLASH_MIN = 5f;
+	/** The cooldown after letting go. */
+	public static final int FLASH_TIME_COOLDOWN = 3 * 20;
+	/** The slow's own ceiling (Z is let go long before; a full meter runs out at 12.5 s). */
+	public static final int FLASH_TIME_MAX = 60 * 20;
+
+	/** v0.17.1 (user): Z held at 100% momentum for 5 s opens the Speed Force (caster ticks -- Flash Time runs meanwhile). */
+	public static final int PORTAL_TICKS = 5 * 20;
+	/** "Running at max": horizontally at least this fraction of the top speed (the momentum itself is frozen in Flash Time). */
+	public static final double PORTAL_RUN_FRACTION = 0.4;
+	/** The portal forms this far in front, and grows to this radius. */
+	public static final double PORTAL_DISTANCE = 4.0;
+	public static final double PORTAL_RADIUS = 1.8;
+	public static final int PORTAL_COOLDOWN = 3 * 60 * 20;
 
 	public static final int REMNANT_TICKS = 8 * 20;
 	public static final int REMNANT_LOOKBACK = 20;
@@ -145,13 +187,10 @@ public final class SpeedForceConfig {
 	public static final float REMNANT_COST = 30f;
 	public static final int REMNANT_COOLDOWN = 30 * 20;
 
-	// ---------------------------------------------------------------- V / Shift+V (N: Rescue Run)
+	// ---------------------------------------------------------------- V: Afterimage Decoys / Shift+V Speed Heal / hold V Rewind (N: Rescue Run)
 
-	/** v0.17.1 (user): V -- Speed Force Barrier, a wall of wind run round you: deflects projectiles, pushes mobs out. */
-	public static final float BARRIER_COST = 15f;
-	public static final int BARRIER_TICKS = 8 * 20;
-	public static final double BARRIER_RADIUS = 3.5;
-	public static final int BARRIER_COOLDOWN = 20 * 20;
+	/** Afterimage Decoys -- the plain move (three images that hold every foe's attention for 6 s), its 20 s cooldown. */
+	public static final int DECOY_COOLDOWN = 20 * 20;
 
 	public static final double RESCUE_RANGE = 6.0;
 	public static final int RESCUE_COOLDOWN = 10;
@@ -162,23 +201,37 @@ public final class SpeedForceConfig {
 	public static final int HEAL_REGEN_TICKS = 4 * 20;
 	public static final int HEAL_COOLDOWN = 25 * 20;
 
-	// ---------------------------------------------------------------- C / Shift+C
+	public static final int REWIND_TICKS = 5 * 20;
+	public static final float REWIND_COST = 60f;
+	public static final int REWIND_COOLDOWN = 60 * 20;
 
-	/** v0.17.1 (user): hold Shift+C -- 3 s in the charge stance, then let go to run at full speed at once. */
+	// ---------------------------------------------------------------- C: Speed Mode / Shift+C Phase / hold C the charge
+
+	/** v0.17.1 (user): hold C -- 3 s in the charge stance, then let go to run at full speed at once. */
 	public static final int CHARGE_TICKS = 3 * 20;
 	/** After the launch the momentum is held at 100% this long (time to get running). */
 	public static final int LAUNCH_HOLD_TICKS = 2 * 20;
 	public static final int LAUNCH_COOLDOWN = 10 * 20;
-	/** v0.17.1 (user): Speed Heal is a hold of V (a tap is the Barrier); held this long. */
-	public static final int HEAL_HOLD_TICKS = 10;
 
-	public static final int SURGE_TICKS = 15 * 20;
-	public static final float SURGE_COST = 50f;
+	// ---------------------------------------------------------------- the Speed Force (the dimension)
+
+	/** v0.17.1 (user design): one block run inside carries you this many across the real world. */
+	public static final double REALM_TRAVEL_SCALE = 100.0;
+	/** ... up to this far. */
+	public static final double REALM_TRAVEL_MAX = 30000.0;
+	/** Thrown out after this long inside. */
+	public static final int REALM_MAX_TICKS = 60 * 20;
+	/** Sneak held this long inside: out. */
+	public static final int REALM_SNEAK_TICKS = 20;
+	/** The exit portal sits this far up the road (the travel cap: 300 x 100 = 30,000). */
+	public static final int REALM_EXIT_DISTANCE = 300;
+	/** v0.17.1 (user): out of the Speed Force -- 2 minutes with no Speed Force gain, 50% slower and 50% weaker. */
+	public static final int DRAINED_TICKS = 2 * 60 * 20;
+	public static final double DRAINED_SPEED = -0.5;
+	public static final double DRAINED_DAMAGE = -0.5;
+
+	/** The old Surge's cooldown (no move uses it now; older saves' keys are cleaned by the join check). */
 	public static final int SURGE_COOLDOWN = 90 * 20;
-
-	public static final int REWIND_TICKS = 5 * 20;
-	public static final float REWIND_COST = 60f;
-	public static final int REWIND_COOLDOWN = 60 * 20;
 
 	// ---------------------------------------------------------------- the speed curve
 
