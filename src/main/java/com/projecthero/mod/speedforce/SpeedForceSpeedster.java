@@ -160,9 +160,16 @@ public final class SpeedForceSpeedster {
 		return s == null || !s.hasPower ? 0 : s.drained;
 	}
 
-	/** What the drain leaves of the Speed Force Speedster's blows: 0.5 while drained, 1 otherwise (anyone else: 1). */
+	/**
+	 * The Speed Force Speedster's blows: x1.5 (v0.17.1, user: "50% stronger than the regular speedsters damage since they
+	 * dont have a overdrive mode to double their damage"), halved while drained after the Speed Force. Anyone else: 1.
+	 */
 	public static float damageScale(Player player) {
-		return drained(player) > 0 ? (float) (1.0 + SpeedForceConfig.DRAINED_DAMAGE) : 1.0f;
+		if (!hasPower(player)) {
+			return 1.0f;
+		}
+		float drain = drained(player) > 0 ? (float) (1.0 + SpeedForceConfig.DRAINED_DAMAGE) : 1.0f;
+		return SpeedForceConfig.DAMAGE_BONUS * drain;
 	}
 
 	/** v0.17.1: starts (or restarts) the 2-minute drain. */

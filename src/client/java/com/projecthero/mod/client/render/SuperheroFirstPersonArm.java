@@ -123,6 +123,15 @@ public final class SuperheroFirstPersonArm {
 					net.minecraft.client.Minecraft.getInstance().player, texture,
 					net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		}
+		// v0.17.1 (user: "I changed my suit to the zoom suit and i still have the regular flash arm suit in first person"):
+		// the Flash sleeve wears the chestplate's own style, like the third-person suit
+		if (com.projecthero.mod.flash.FlashSuit.SET_ID.equals(armorSetId) && net.minecraft.client.Minecraft.getInstance().player != null) {
+			net.minecraft.world.item.ItemStack chest = net.minecraft.client.Minecraft.getInstance().player
+					.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST);
+			if (chest.getItem() instanceof com.projecthero.mod.flash.item.FlashSuitItem) {
+				texture = com.projecthero.mod.flash.FlashSuitStyle.of(chest).texture();
+			}
+		}
 		// v0.15.15: the Symbiote sleeve spreads on (and off) with the rest of the suit, pixel by pixel from the chest
 		texture = com.projecthero.mod.client.symbiote.SymbioteSpread.firstPerson(armorSetId, texture);
 		arm.render(pose, buffers.getBuffer(RenderType.armorCutoutNoCull(texture)), light, OverlayTexture.NO_OVERLAY);

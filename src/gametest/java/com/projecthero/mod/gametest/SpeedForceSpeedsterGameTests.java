@@ -312,7 +312,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(z.getHealth() >= 100f - 1.0e-3f, "nothing on the press: a tap fires on the release");
 		com.projecthero.mod.speedforce.SpeedForceAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float dealt = 100f - z.getHealth();
-		helper.assertTrue(dealt >= 19.5f && dealt <= 20.5f, "four blows of 5, got " + dealt);
+		helper.assertTrue(dealt >= 29.5f && dealt <= 30.5f, "four blows of 5, x1.5 for the Speed Force: 30, got " + dealt);
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.RAPID) > 0, "on its own cooldown");
 		helper.assertFalse(SpeedForceAbilities.massWindingUp(p), "a tap never winds up the Mass Punch");
 		helper.succeed();
@@ -325,7 +325,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		SpeedForceSpeedster.setMomentum(p, 1f);
 		helper.assertTrue(SpeedForceAbilities.infiniteMassPunch(p), "the punch lands");
 		float dealt = 200f - z.getHealth();
-		helper.assertTrue(dealt >= 69.5f && dealt <= 70.5f, "10 + 60 at full momentum, got " + dealt);
+		helper.assertTrue(dealt >= 104.5f && dealt <= 105.5f, "(10 + 60) x1.5 at full momentum, got " + dealt);
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.001f, "it spent all the momentum");
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.MASS) > 0, "on cooldown");
 		// a boss takes at most 8% of its health a hit
@@ -346,8 +346,8 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		Zombie a = zombie(helper, 2.5, 2.0, 5.5, 100);
 		Zombie b = zombie(helper, 5.5, 2.0, 5.5, 100);
 		helper.assertTrue(SpeedForceAbilities.fireBolt(p) == a, "the bolt strikes the zombie under the crosshair");
-		helper.assertTrue(Math.abs((100f - a.getHealth()) - SpeedForceConfig.THROW_MIN) < 0.5f, "8 at no momentum");
-		helper.assertTrue(Math.abs((100f - b.getHealth()) - SpeedForceConfig.THROW_MIN * 0.5f) < 0.5f, "and it arcs on for half");
+		helper.assertTrue(Math.abs((100f - a.getHealth()) - SpeedForceConfig.THROW_MIN * SpeedForceConfig.DAMAGE_BONUS) < 0.5f, "8 x1.5 at no momentum");
+		helper.assertTrue(Math.abs((100f - b.getHealth()) - SpeedForceConfig.THROW_MIN * SpeedForceConfig.DAMAGE_BONUS * 0.5f) < 0.5f, "and it arcs on for half");
 		helper.succeed();
 	}
 
@@ -580,7 +580,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		SpeedForceSpeedster.setMomentum(p, 1f);
 		press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float dealt = 200f - far.getHealth();
-		helper.assertTrue(dealt >= 69.5f && dealt <= 70.5f, "it locked on 6 blocks off and landed 10 + 60, got " + dealt);
+		helper.assertTrue(dealt >= 104.5f && dealt <= 105.5f, "it locked on 6 blocks off and landed (10 + 60) x1.5, got " + dealt);
 		helper.assertTrue(p.position().distanceTo(far.position()) < 2.5, "it zipped the runner up against it: " + p.position().distanceTo(far.position()));
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.001f, "and spent the run");
 		helper.assertFalse(SpeedForceAbilities.massWindingUp(p), "the wind-up is over");
@@ -753,7 +753,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 0.5f) < 1.0e-6, "50% weaker moves");
 		SpeedForceAbilities.rapidAssault(p);
 		float dealt = 100f - z.getHealth();
-		helper.assertTrue(dealt >= 9.5f && dealt <= 10.5f, "Rapid Assault at half: 10, got " + dealt);
+		helper.assertTrue(dealt >= 14.5f && dealt <= 15.5f, "Rapid Assault x1.5, halved: 15, got " + dealt);
 		SpeedForceSpeedster.spendMeter(p, SpeedForceSpeedster.meter(p) - 50f);
 		SpeedForceSpeedster.addMeter(p, 20f);
 		helper.assertTrue(Math.abs(SpeedForceSpeedster.meter(p) - 50f) < 0.01f, "no Speed Force gain");

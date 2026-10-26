@@ -12,6 +12,8 @@ public final class SpeedForceConfig {
 
 	/** Full momentum in the full Flash Suit -- the fastest runner in the mod (user: 250). */
 	public static final double TOP_SPEED_BPS = 250.0;
+	/** v0.17.1 (user): every Speed Force Speedster blow is 50% stronger than the plain Speedster's (no Overdrive to double it). */
+	public static final float DAMAGE_BONUS = 1.5f;
 	/** The Flash Suit makes the Speed Force Speedster this much faster (user: 50%); without it full momentum is 250 / 1.5. */
 	public static final double SUIT_SPEED_MULTIPLIER = 1.5;
 	/**
