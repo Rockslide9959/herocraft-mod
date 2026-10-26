@@ -395,11 +395,11 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theFlashSuitFeedsAHungrySpeedster(GameTestHelper helper) {
 		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		p.getInventory().clearContent(); // before the suit goes on: this clears the armour slots too
 		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FlashSuit.HELMET));
 		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(FlashSuit.CHESTPLATE));
 		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(FlashSuit.LEGGINGS));
 		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(FlashSuit.BOOTS));
-		p.getInventory().clearContent();
 		p.getInventory().add(new ItemStack(Items.ROTTEN_FLESH, 4));
 		p.getInventory().add(new ItemStack(Items.BREAD, 4));
 		p.getFoodData().setFoodLevel(10);
