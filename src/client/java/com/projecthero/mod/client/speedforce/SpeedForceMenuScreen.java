@@ -1,6 +1,7 @@
 package com.projecthero.mod.client.speedforce;
 
 import com.projecthero.mod.client.speed.SpeedsterGroundStick;
+import com.projecthero.mod.flash.FlashSuitStyle;
 import com.projecthero.mod.speedforce.SpeedForceColours;
 import com.projecthero.mod.speedforce.SpeedForceSpeedster;
 import com.projecthero.mod.speedforce.data.SpeedForceState;
@@ -22,11 +23,15 @@ public final class SpeedForceMenuScreen extends Screen {
 	private static final int SWATCH = 22;
 	private static final int SWATCH_GAP = 4;
 	private static final int PANEL_W = 5 * SWATCH + 4 * SWATCH_GAP + 40;
-	private static final int PANEL_H = 150;
+	private static final int PANEL_H = 204;
+	/** v0.17.1: the Suit row's top (label) -- five Flash Suit style tiles under it. */
+	private static final int SUIT_ROW = 130;
 
 	private Button stickButton;
 	private boolean stick;
 	private int colour;
+	/** The Flash Suit style shown as chosen; -1 when the player has no Flash Suit (worn, in the worn ring, or held). */
+	private int suitStyle = -1;
 
 	public SpeedForceMenuScreen() {
 		super(Component.translatable("screen.projecthero.speed_force_menu.title"));
@@ -56,6 +61,14 @@ public final class SpeedForceMenuScreen extends Screen {
 			int row = i / 5;
 			addRenderableWidget(new Swatch(sx + col * (SWATCH + SWATCH_GAP), sy + row * (SWATCH + SWATCH_GAP), i));
 		}
+		// v0.17.1 (user): the Flash Suit's look -- one tile per style, showing that suit's cowl
+		FlashSuitStyle now = minecraft.player == null ? null : FlashSuitStyle.current(minecraft.player);
+		suitStyle = now == null ? -1 : now.ordinal();
+		FlashSuitStyle[] styles = FlashSuitStyle.values();
+		for (int i = 0; i < styles.length; i++) {
+			SuitTile tile = addRenderableWidget(new SuitTile(sx + i * (SWATCH + SWATCH_GAP), top + SUIT_ROW + 14, styles[i]));
+			tile.active = now != null;
+		}
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(left + PANEL_W / 2 - 40, top + PANEL_H - 26, 80, 20).build());
 	}
@@ -78,6 +91,10 @@ public final class SpeedForceMenuScreen extends Screen {
 		g.drawCenteredString(font, title, width / 2, top + 8, 0xFFFFD23A);
 		g.drawString(font, Component.translatable("screen.projecthero.speed_force_menu.colour",
 				Component.translatable("screen.projecthero.speed_force_menu.colour." + SpeedForceColours.id(colour))), left + 20, top + 60, 0xFFFFFFFF, true);
+		g.drawString(font, suitStyle < 0
+				? Component.translatable("screen.projecthero.speed_force_menu.suit.none")
+				: Component.translatable("screen.projecthero.speed_force_menu.suit", FlashSuitStyle.byOrdinal(suitStyle).displayName()),
+				left + 20, top + SUIT_ROW, suitStyle < 0 ? 0xFF909090 : 0xFFFFFFFF, true);
 	}
 
 	@Override
@@ -93,6 +110,49 @@ public final class SpeedForceMenuScreen extends Screen {
 	@Override
 	public boolean isPauseScreen() {
 		return false;
+	}
+
+	/** v0.17.1: one Flash Suit style -- its cowl (head front + second layer) drawn big, outlined white when chosen. */
+	private final class SuitTile extends AbstractButton {
+		private final FlashSuitStyle style;
+
+		SuitTile(int x, int y, FlashSuitStyle style) {
+			super(x, y, SWATCH, SWATCH, style.displayName());
+			this.style = style;
+			setTooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.suit.tip", style.displayName())));
+		}
+
+		@Override
+		public void onPress() {
+			suitStyle = style.ordinal();
+			net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(
+					new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(stick, -1, style.ordinal()));
+		}
+
+		@Override
+		protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partial) {
+			int x = getX();
+			int y = getY();
+			boolean chosen = suitStyle == style.ordinal();
+			g.fill(x, y, x + width, y + height, 0xFF000000 | 0x241010);
+			// the cowl's face: base (8,8) then the second layer (40,8), 8x8 texels each, at 2x
+			g.blit(style.texture(), x + 3, y + 3, 16, 16, 8f, 8f, 8, 8, 64, 64);
+			com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+			g.blit(style.texture(), x + 3, y + 3, 16, 16, 40f, 8f, 8, 8, 64, 64);
+			com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+			if (!active) {
+				g.fill(x, y, x + width, y + height, 0xA0000000);
+			}
+			g.renderOutline(x - 1, y - 1, width + 2, height + 2, chosen ? 0xFFFFFFFF : isHovered() && active ? 0xFFB0B0B0 : 0xFF303030);
+			if (chosen) {
+				g.renderOutline(x - 2, y - 2, width + 4, height + 4, 0xFFFFFFFF);
+			}
+		}
+
+		@Override
+		protected void updateWidgetNarration(NarrationElementOutput out) {
+			defaultButtonNarrationText(out);
+		}
 	}
 
 	/** One colour: a little lightning-coloured tile, outlined white when chosen. */

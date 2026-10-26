@@ -47,5 +47,8 @@ public class FlashSuitItem extends SuperheroArmorItem {
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.flash_suit.tooltip").withStyle(ChatFormatting.GOLD));
 		tooltip.add(Component.translatable("item.projecthero.flash_suit.tooltip2").withStyle(ChatFormatting.GRAY));
+		// v0.17.1 (user): which look this piece wears
+		tooltip.add(Component.translatable("item.projecthero.flash_suit.style",
+				com.projecthero.mod.flash.FlashSuitStyle.of(stack).displayName()).withStyle(ChatFormatting.YELLOW));
 	}
 }

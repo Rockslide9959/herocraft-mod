@@ -136,6 +136,18 @@ public final class ModDataComponents {
 					.networkSynchronized(ByteBufCodecs.FLOAT.apply(ByteBufCodecs.list(8)))
 					.build());
 
+	/**
+	 * v0.17.1 (user: "add all these flash suits"): which look a Flash Suit piece wears -- a
+	 * {@link com.projecthero.mod.flash.FlashSuitStyle} id, kept on each piece so it travels with the armour, into and out
+	 * of the Flash Ring (whose CONTAINER holds the pieces). Absent (or unknown) = the original suit. Synced, so every viewer
+	 * draws the same look.
+	 */
+	public static final DataComponentType<String> FLASH_SUIT_STYLE = register("flash_suit_style",
+			DataComponentType.<String>builder()
+					.persistent(Codec.STRING)
+					.networkSynchronized(ByteBufCodecs.STRING_UTF8)
+					.build());
+
 	private ModDataComponents() {
 	}
 

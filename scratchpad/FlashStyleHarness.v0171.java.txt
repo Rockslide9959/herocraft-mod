@@ -1,0 +1,219 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.flash.FlashSuit;
+import com.projecthero.mod.flash.FlashSuitStyle;
+import com.projecthero.mod.speedforce.SpeedForceSpeedster;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.1 Flash Suit style screenshots -- each of the five styles front and back, then the
+ * Speed Force menu's Suit row. Enabled by run/speedforce.flag. Saved as scratchpad/FlashStyleHarness.v0171.java.txt.
+ */
+public final class SpeedForceHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	public static Vec3 camOffset;
+	public static Vec3 camLook;
+
+	private SpeedForceHarness() {
+	}
+
+	private static void orbit(int t, Vec3 offset, Vec3 look) {
+		at(t, () -> {
+			camOffset = offset;
+			camLook = look;
+		});
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("speedforce.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "sf-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "flashstyle_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name + " style=" + FlashSuitStyle.current(mc.player));
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SpeedForceHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.fovEffectScale().set(0.0);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 99999, 4, false, false));
+				SpeedForceSpeedster.grant(p);
+				var n = SpeedForceSpeedster.state(p).copy();
+				n.speedMode = false; // no Speed Mode glow / trail in the suit shots
+				p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.STATE, n);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0 && inWorldTicks - t0 > 10) {
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void suit(ServerPlayer p) {
+		p.setItemSlot(EquipmentSlot.HEAD, new ItemStack(FlashSuit.HELMET));
+		p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(FlashSuit.CHESTPLATE));
+		p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(FlashSuit.LEGGINGS));
+		p.setItemSlot(EquipmentSlot.FEET, new ItemStack(FlashSuit.BOOTS));
+	}
+
+	private static void script(Minecraft mc) {
+		at(4, () -> server(mc, p -> {
+			suit(p);
+			p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+		}));
+		int t = 80; // after the awakening's particles have gone
+		for (FlashSuitStyle style : FlashSuitStyle.values()) {
+			final FlashSuitStyle s = style;
+			at(t, () -> server(mc, p -> {
+				FlashSuitStyle.select(p, s, ItemStack.EMPTY);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+			}));
+			// the player faces +z (yaw 0): the front camera sits on +z
+			orbit(t, new Vec3(0.0, 1.25, 2.6), new Vec3(0, 1.0, 0));
+			shot(t + 12, style.id() + "_front");
+			orbit(t + 14, new Vec3(0.0, 1.25, -2.6), new Vec3(0, 1.0, 0));
+			shot(t + 24, style.id() + "_back");
+			t += 30;
+		}
+		// the Shift+N menu with its Suit row (Zoom picked), and Shift + right-click on the ring in hand
+		at(t, () -> server(mc, p -> {
+			FlashSuitStyle.select(p, FlashSuitStyle.ZOOM, ItemStack.EMPTY);
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(FlashSuit.RING));
+		}));
+		at(t + 6, () -> {
+			camOffset = null;
+			mc.options.hideGui = false;
+			com.projecthero.mod.client.speedforce.SpeedForceMenuScreen.open();
+		});
+		shot(t + 16, "menu");
+		at(t + 18, () -> {
+			mc.setScreen(null);
+			server(mc, p -> FlashSuitStyle.cycle(p, p.getMainHandItem()));
+		});
+		orbit(t + 18, new Vec3(1.6, 1.4, 2.4), new Vec3(0, 1.0, 0));
+		shot(t + 22, "cycle_actionbar");
+		at(t + 30, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FS_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
