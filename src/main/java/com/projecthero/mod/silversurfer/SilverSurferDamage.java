@@ -70,9 +70,15 @@ public final class SilverSurferDamage {
 			}
 			return false;
 		}
+		// v0.17.1 (user): the Power Cosmic turns aside 90% of every hit that still reaches him (re-issued below; a hit
+		// inside his hit-invulnerability window is dropped, as vanilla would, so the re-issue never bypasses it)
+		if (player.invulnerableTime > 10) {
+			return false;
+		}
+		float taken = amount * SilverSurferConfig.DAMAGE_TAKEN;
 		if (SilverSurfer.barrierUp(player) && fromFront(player, source)) {
 			SilverSurferState s = SilverSurfer.state(player);
-			float soak = Math.min(s.barrierHp, amount);
+			float soak = Math.min(s.barrierHp, taken);
 			SilverSurferState n = s.copy();
 			n.barrierHp = s.barrierHp - soak;
 			if (n.barrierHp <= 0.01f) {
@@ -86,13 +92,14 @@ public final class SilverSurferDamage {
 			level.sendParticles(ParticleTypes.END_ROD, at.x, at.y - 0.3, at.z, 10, 0.5, 0.5, 0.5, 0.06);
 			level.playSound(null, at.x, at.y, at.z, n.barrierHp <= 0f ? SoundEvents.SHIELD_BREAK : SoundEvents.AMETHYST_BLOCK_HIT,
 					SoundSource.PLAYERS, 1.0f, 1.6f);
-			float rest = amount - soak;
+			float rest = taken - soak;
 			if (rest > 0.05f) {
 				reissue(player, source, rest);
 			}
 			return false;
 		}
-		return true;
+		reissue(player, source, taken);
+		return false;
 	}
 
 	/** Did the hit come from in front of him? */

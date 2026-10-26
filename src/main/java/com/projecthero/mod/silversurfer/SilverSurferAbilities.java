@@ -514,10 +514,12 @@ public final class SilverSurferAbilities {
 				SilverSurferCombat.strike(p, e, start, SilverSurferConfig.DASH_DAMAGE, 0.8, 0.25);
 			}
 		}
+		// v0.17.1: up to 150 blocks now -- the streak thins out on long dashes (about 400 particles at most)
+		double per = Math.min(2.5, 120.0 / Math.max(1.0, dist));
 		for (double y : new double[] { 0.3, 1.0, 1.6 }) {
-			AbilityHelpers.line(level, start.add(0, y, 0), end.add(0, y, 0), SilverSurfer.SILVER, 2.5);
+			AbilityHelpers.line(level, start.add(0, y, 0), end.add(0, y, 0), SilverSurfer.SILVER, per);
 		}
-		AbilityHelpers.line(level, start.add(0, 1.0, 0), end.add(0, 1.0, 0), ParticleTypes.END_ROD, 1.0);
+		AbilityHelpers.line(level, start.add(0, 1.0, 0), end.add(0, 1.0, 0), ParticleTypes.END_ROD, Math.min(1.0, 40.0 / Math.max(1.0, dist)));
 		p.connection.teleport(end.x, end.y, end.z, p.getYRot(), p.getXRot());
 		p.resetFallDistance();
 		level.playSound(null, start.x, start.y, start.z, SoundEvents.ENDERMAN_TELEPORT, SoundSource.PLAYERS, 0.8f, 1.8f);
@@ -603,11 +605,11 @@ public final class SilverSurferAbilities {
 
 	// ================================================================ Shift+Z: Molecular Phase
 
+	/** v0.17.1 (user): a HOLD -- phased while Shift+Z is held (up to PHASE_TICKS), draining Power Cosmic; the cooldown starts when it ends. */
 	public static void phase(ServerPlayer p) {
 		if (SilverSurfer.phasing(p) || !begin(p, PHASE, SilverSurferConfig.PHASE_COST)) {
 			return;
 		}
-		cooldown(p, PHASE, SilverSurferConfig.PHASE_COOLDOWN);
 		SilverSurferState n = SilverSurfer.state(p).copy();
 		n.phaseUntil = p.level().getGameTime() + SilverSurferConfig.PHASE_TICKS;
 		SilverSurfer.save(p, n);
@@ -615,15 +617,26 @@ public final class SilverSurferAbilities {
 		sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.0f, 1.4f);
 	}
 
+	/** v0.17.1: Shift+Z let go -- the phase ends (and its cooldown starts) on the next tick. */
+	public static void endPhase(ServerPlayer p) {
+		SilverSurferState s = SilverSurfer.state(p);
+		if (s.phaseUntil > p.level().getGameTime()) {
+			SilverSurferState n = s.copy();
+			n.phaseUntil = p.level().getGameTime();
+			SilverSurfer.save(p, n);
+		}
+	}
+
 	private static void tickPhase(ServerPlayer p, long now) {
 		SilverSurferState s = SilverSurfer.state(p);
 		if (s.phaseUntil == 0L) {
 			return;
 		}
-		if (s.phaseUntil <= now) {
+		if (s.phaseUntil <= now || (now % 5 == 0 && !SilverSurfer.spendCosmic(p, SilverSurferConfig.PHASE_COST_PER_SECOND / 4f))) {
 			SilverSurferState n = s.copy();
 			n.phaseUntil = 0L;
 			SilverSurfer.save(p, n);
+			cooldown(p, PHASE, SilverSurferConfig.PHASE_COOLDOWN);
 			com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.settleOutsideBlocks(p);
 			sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 0.8f, 0.9f);
 			return;

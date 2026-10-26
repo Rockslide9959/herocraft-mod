@@ -31,14 +31,14 @@ public final class SilverSurferConfig {
 	public static final double FLIGHT_IDLE = 0.22;
 
 	// ---------------------------------------------------------------- R: Power Cosmic Blast (tap bolt / hold beam)
-	public static final float BOLT_DAMAGE = 7f;
+	public static final float BOLT_DAMAGE = 15f; // v0.17.1 (user): was 7f
 	public static final float BOLT_COST = 4f;
 	public static final int BOLT_COOLDOWN = 12;
 	public static final double BOLT_SPEED = 3.0;
 	public static final double BOLT_RANGE = 48.0;
 	/** Holding R this long turns the tap into the channelled beam. */
 	public static final int BEAM_HOLD_TICKS = 8;
-	public static final float BEAM_DAMAGE = 3f;
+	public static final float BEAM_DAMAGE = 5f; // v0.17.1 (user): was 3f
 	public static final int BEAM_INTERVAL = 5;
 	public static final float BEAM_COST_PER_SECOND = 8f;
 	public static final int BEAM_MAX_TICKS = 100;
@@ -47,7 +47,7 @@ public final class SilverSurferConfig {
 
 	// ---------------------------------------------------------------- Shift+R: Cosmic Barrage
 	public static final int BARRAGE_ORBS = 8;
-	public static final float BARRAGE_DAMAGE = 4f;
+	public static final float BARRAGE_DAMAGE = 12f; // v0.17.1 (user): was 4f
 	public static final float BARRAGE_COST = 25f;
 	public static final int BARRAGE_COOLDOWN = 200;
 	public static final double BARRAGE_RANGE = 32.0;
@@ -55,7 +55,7 @@ public final class SilverSurferConfig {
 	public static final int BARRAGE_LIFE = 80;
 
 	// ---------------------------------------------------------------- G: Board Strike
-	public static final float BOARD_DAMAGE = 10f;
+	public static final float BOARD_DAMAGE = 20f; // v0.17.1 (user): was 10f
 	public static final int BOARD_CHAIN = 5;
 	public static final double BOARD_CHAIN_RANGE = 9.0;
 	public static final double BOARD_RANGE = 24.0;
@@ -64,12 +64,12 @@ public final class SilverSurferConfig {
 	public static final float BOARD_COST = 15f;
 	public static final int BOARD_COOLDOWN = 120;
 	/** In flight: the ram charge. */
-	public static final float RAM_DAMAGE = 16f;
+	public static final float RAM_DAMAGE = 20f; // v0.17.1 (user): was 16f
 	public static final int RAM_TICKS = 10;
 	public static final double RAM_SPEED = 3.5;
 
 	// ---------------------------------------------------------------- Shift+G: Transmutation
-	public static final int STATUE_TICKS = 100;
+	public static final int STATUE_TICKS = 240; // v0.17.1 (user): was 100
 	/** Players (when hard crowd control on players is allowed) are only held half as long. */
 	public static final int STATUE_PLAYER_TICKS = 50;
 	public static final float SHATTER_BONUS = 16f;
@@ -79,7 +79,7 @@ public final class SilverSurferConfig {
 	public static final int TRANSMUTE_COOLDOWN = 360;
 
 	// ---------------------------------------------------------------- X: Cosmic Dash
-	public static final double DASH_DISTANCE = 30.0;
+	public static final double DASH_DISTANCE = 150.0; // v0.17.1 (user): was 30.0
 	public static final float DASH_DAMAGE = 9f;
 	public static final float DASH_COST = 15f;
 	public static final int DASH_COOLDOWN = 80;
@@ -103,7 +103,9 @@ public final class SilverSurferConfig {
 	public static final double REFLECT_RANGE = 3.5;
 
 	// ---------------------------------------------------------------- Shift+Z: Molecular Phase
-	public static final int PHASE_TICKS = 80;
+	public static final int PHASE_TICKS = 300; // v0.17.1 (user): a HOLD now -- at most 15 s held (was a fixed 4 s)
+	/** v0.17.1: holding the phase drains this much Power Cosmic a second (on top of PHASE_COST to start it). */
+	public static final float PHASE_COST_PER_SECOND = 4f;
 	public static final float PHASE_COST = 30f;
 	public static final int PHASE_COOLDOWN = 320;
 
@@ -124,7 +126,7 @@ public final class SilverSurferConfig {
 	public static final int NOVA_COOLDOWN = 500;
 	public static final int METEOR_TICKS = 100;
 	public static final int METEOR_INTERVAL = 4;
-	public static final float METEOR_DAMAGE = 5f;
+	public static final float METEOR_DAMAGE = 20f; // v0.17.1 (user): was 5f
 	public static final double METEOR_RADIUS = 2.5;
 	public static final double METEOR_SPREAD = 6.0;
 	public static final double METEOR_RANGE = 48.0;
@@ -138,4 +140,10 @@ public final class SilverSurferConfig {
 
 	/** Regeneration I is kept topped up to at least this many ticks. */
 	public static final int REGEN_REFRESH = 60;
+	/** v0.17.1 (user): Regeneration II (amplifier 1; was I). */
+	public static final int REGEN_AMPLIFIER = 1;
+	/** v0.17.1 (user): he takes 90% less damage from everything that still reaches him. */
+	public static final float DAMAGE_TAKEN = 0.10f;
+	/** v0.17.1 (user): +10 melee. */
+	public static final double MELEE_BONUS = 10.0;
 }

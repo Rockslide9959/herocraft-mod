@@ -102,6 +102,7 @@ public final class SilverSurferAbilityManager {
 			case SLOT_4 -> {
 				if (!pressed) {
 					SilverSurferAbilities.lowerBarrier(player); // the barrier is held on Z
+					SilverSurferAbilities.endPhase(player); // v0.17.1: and the phase on Shift+Z
 				} else if (shift) {
 					SilverSurferAbilities.phase(player);
 				} else {

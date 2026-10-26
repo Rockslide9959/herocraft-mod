@@ -165,7 +165,7 @@ public class SilverSurferGameTests implements FabricGameTest {
 		helper.assertTrue(SilverSurfer.cooldownRemaining(p, SilverSurferAbilities.BLAST) > 0, "on cooldown");
 		helper.runAfterDelay(6, () -> {
 			float taken = 100f - z.getHealth();
-			helper.assertTrue(Math.abs(taken - SilverSurferConfig.BOLT_DAMAGE) < EPS, "7, took " + taken);
+			helper.assertTrue(Math.abs(taken - SilverSurferConfig.BOLT_DAMAGE) < EPS, "15, took " + taken);
 			helper.succeed();
 		});
 	}
@@ -255,7 +255,7 @@ public class SilverSurferGameTests implements FabricGameTest {
 		p.hurt(p.damageSources().inWall(), 4f);
 		helper.assertTrue(p.getHealth() == hp, "no drowning or suffocation");
 		SilverSurfer.tick(p);
-		helper.assertTrue(p.hasEffect(MobEffects.REGENERATION), "Regeneration I");
+		helper.assertTrue(p.hasEffect(MobEffects.REGENERATION), "Regeneration II"); // v0.17.1
 		helper.succeed();
 	}
 
@@ -292,6 +292,26 @@ public class SilverSurferGameTests implements FabricGameTest {
 		SilverSurferFlight.start(p);
 		SilverSurfer.revoke(p);
 		helper.assertTrue(!SilverSurfer.hasPower(p) && !p.getAbilities().mayfly, "power and lent flight gone");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): 90% less damage, no armour, +10 melee, Regeneration II. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void powerCosmicArmourRules(GameTestHelper helper) {
+		ServerPlayer p = surfer(helper, 3.5, 2.0, 3.5);
+		p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+		SilverSurfer.tick(p);
+		helper.assertTrue(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty(), "no armour on the Surfer");
+		helper.assertTrue(p.getInventory().contains(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE)),
+				"it went back into the inventory");
+		helper.assertTrue(p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) >= 1.0 + SilverSurferConfig.MELEE_BONUS - 0.01,
+				"+10 melee");
+		net.minecraft.world.effect.MobEffectInstance regen = p.getEffect(MobEffects.REGENERATION);
+		helper.assertTrue(regen != null && regen.getAmplifier() == 1, "Regeneration II");
+		p.setHealth(20f);
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().generic(), 10f);
+		helper.assertTrue(Math.abs((20f - p.getHealth()) - 1f) < 0.05f, "a 10-damage hit takes 1, took " + (20f - p.getHealth()));
 		helper.succeed();
 	}
 }

@@ -226,11 +226,30 @@ public final class SilverSurfer {
 		player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false, false));
 	}
 
+	private static final net.minecraft.resources.ResourceLocation MELEE_ID = com.projecthero.mod.ProjectHeroMod.id("silver_surfer_melee");
+
+	/** v0.17.1 (user): the Surfer can't wear armour -- anything put on goes back into the inventory (or drops if it is full). */
+	static void stripArmour(ServerPlayer player) {
+		for (net.minecraft.world.entity.EquipmentSlot slot : new net.minecraft.world.entity.EquipmentSlot[] { net.minecraft.world.entity.EquipmentSlot.HEAD,
+				net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET }) {
+			net.minecraft.world.item.ItemStack worn = player.getItemBySlot(slot);
+			if (worn.isEmpty()) {
+				continue;
+			}
+			player.setItemSlot(slot, net.minecraft.world.item.ItemStack.EMPTY);
+			if (!player.getInventory().add(worn)) {
+				player.drop(worn, false);
+			}
+			say(player, "message.projecthero.silver_surfer.no_armour", ChatFormatting.AQUA);
+		}
+	}
+
 	public static void revoke(ServerPlayer player) {
 		SilverSurferAbilities.clear(player);
 		SilverSurferFlight.stop(player, false);
 		save(player, new SilverSurferState());
 		player.removeEffect(MobEffects.REGENERATION);
+		com.projecthero.mod.hero.power.PowerToggles.clearModifier(player, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, MELEE_ID);
 		forget(player.getUUID());
 	}
 
@@ -292,7 +311,7 @@ public final class SilverSurfer {
 		}
 	}
 
-	/** Breathes anywhere, never burns, never hungers, Regeneration I. */
+	/** Breathes anywhere, never burns, never hungers, Regeneration II (v0.17.1, user; was I). */
 	private static void tickPassives(ServerPlayer player) {
 		if (player.getAirSupply() < player.getMaxAirSupply()) {
 			player.setAirSupply(player.getMaxAirSupply());
@@ -303,9 +322,14 @@ public final class SilverSurfer {
 		if (player.getFoodData().getExhaustionLevel() > 0f) {
 			player.getFoodData().setExhaustion(0f);
 		}
+		// v0.17.1 (user): +10 melee, and no armour -- the Power Cosmic is his armour (worn pieces go back to the inventory)
+		com.projecthero.mod.hero.power.PowerToggles.modifier(player, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, MELEE_ID,
+				SilverSurferConfig.MELEE_BONUS, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE);
+		stripArmour(player);
 		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
-		if (regen == null || (regen.getAmplifier() == 0 && regen.getDuration() < SilverSurferConfig.REGEN_REFRESH)) {
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SilverSurferConfig.REGEN_REFRESH * 2, 0, true, false, true));
+		if (regen == null || regen.getAmplifier() < SilverSurferConfig.REGEN_AMPLIFIER
+				|| (regen.getAmplifier() == SilverSurferConfig.REGEN_AMPLIFIER && regen.getDuration() < SilverSurferConfig.REGEN_REFRESH)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SilverSurferConfig.REGEN_REFRESH * 2, SilverSurferConfig.REGEN_AMPLIFIER, true, false, true));
 		}
 	}
 
