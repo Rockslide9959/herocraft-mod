@@ -9,15 +9,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Client to server Falcon flight requests that are not ability slots (v0.17.1): the jump double-tap (take off), Space while
- * gliding (a wing flap), and Sprint held / let go while gliding (the jet boost, which burns Thrust on the server).
+ * Client to server Falcon flight requests that are not ability slots (v0.17.1): the jump double-tap (take off / drop out).
+ * The jet burn is X held (an ability slot), so it needs no payload of its own.
  */
 public record FalconActionPayload(Action action) implements CustomPacketPayload {
 	public enum Action {
-		TAKE_OFF,
-		FLAP,
-		BOOST_ON,
-		BOOST_OFF
+		TOGGLE_FLIGHT
 	}
 
 	public static final CustomPacketPayload.Type<FalconActionPayload> TYPE =

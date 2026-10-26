@@ -211,6 +211,11 @@ public class RedwingEntity extends Entity {
 		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.3, at.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 6, 0.6, 0.2, 0.6, 0.02);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.7f, 1.4f);
+		bombBlast(p, at);
+	}
+
+	/** One micro-bomb going off at {@code at}: {@link FalconConfig#BOMB_DAMAGE} to everything in the blast. Public for the gametests. */
+	public static void bombBlast(ServerPlayer p, Vec3 at) {
 		for (LivingEntity e : FalconCombat.within(p, at.add(0, 0.5, 0), FalconConfig.BOMB_RADIUS, e -> FalconCombat.isTarget(p, e))) {
 			FalconCombat.strike(p, e, at, FalconConfig.BOMB_DAMAGE, 0.5, 0.25);
 		}

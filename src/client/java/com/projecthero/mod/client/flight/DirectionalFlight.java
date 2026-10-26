@@ -150,6 +150,10 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.nova.Nova.isFlying(player)) {
 			return DirectionalFlightModel.nova(sprint);
 		}
+		// v0.17.1: the Falcon's jet flight -- 19 b/s, 35 sprinting, 40 along the look while X burns the jets
+		if (com.projecthero.mod.falcon.Falcon.flying(player)) {
+			return com.projecthero.mod.falcon.FalconFlight.tune(sprint, com.projecthero.mod.falcon.Falcon.boosting(player));
+		}
 		// v0.17.1: the Silver Surfer's board -- 60 b/s, 110 sprinting, 150 at Light-Speed
 		if (com.projecthero.mod.silversurfer.SilverSurfer.surfing(player)) {
 			return com.projecthero.mod.silversurfer.SilverSurferFlight.tune(sprint, com.projecthero.mod.silversurfer.SilverSurfer.lightSpeed(player));

@@ -38,7 +38,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R (1)  Wrist Guns (hold)       Shift+R  Micro-Missile Volley
  *   G (2)  Wing Slash              Shift+G  Wing Shield (hold; release = bash)
- *   X (3)  Afterburner             Shift+X  Barrel Roll
+ *   X (3)  Afterburner (tap) / jet burn (hold)   Shift+X  Barrel Roll
  *   Z (4)  Redwing Strike          Shift+Z  Redwing Bombing Run
  *   V (5)  Tactical Goggles        Shift+V  Lift &amp; Carry
  *   C (6)  Dive Bomb               Shift+C  Talon Drop
@@ -58,9 +58,9 @@ public final class FalconAbilities {
 	public static final String CARRY = "lift_and_carry";
 	public static final String DIVE = "dive_bomb";
 	public static final String TALON = "talon_drop";
-	/** Not a key: the wing flap (Space while gliding) and the flight itself, for cooldowns / costs / the guide. */
-	public static final String FLAP = "wing_flap";
+	/** Not a key: the flight itself and the jet burn (X held), for the guide. */
 	public static final String FLIGHT = "flight";
+	public static final String JETS = "jet_burn";
 
 	private static final class Guns {
 		final long start;
@@ -231,14 +231,19 @@ public final class FalconAbilities {
 
 	// ================================================================ R: Wrist Guns (hold)
 
+	/** Hold R: the wrist launchers fire, 5 rounds a second, while there are rounds left (100, refilling 3 a second). */
 	public static void startGuns(ServerPlayer p) {
 		if (GUN_SESSIONS.containsKey(p.getUUID()) || !begin(p, GUNS, 0f)) {
+			return;
+		}
+		if (Falcon.state(p).ammo + 1.0e-3f < FalconConfig.AMMO_PER_SHOT) {
+			dry(p);
 			return;
 		}
 		long now = p.level().getGameTime();
 		GUN_SESSIONS.put(p.getUUID(), new Guns(now));
 		FalconState n = Falcon.state(p).copy();
-		n.firingUntil = now + FalconConfig.GUN_MAX_TICKS;
+		n.firingUntil = now + FalconConfig.GUN_INTERVAL + 2;
 		n.animId = FalconState.ANIM_GUNS;
 		n.animStart = now;
 		Falcon.save(p, n);
@@ -254,32 +259,60 @@ public final class FalconAbilities {
 		Falcon.save(p, n);
 	}
 
+	/** Out of rounds: the dry click and a note. */
+	private static void dry(ServerPlayer p) {
+		sound(p, com.projecthero.mod.firearm.GunSounds.DRY, 0.8f, 1.3f);
+		Falcon.say(p, "message.projecthero.falcon.no_ammo", ChatFormatting.RED);
+	}
+
 	private static void tickGuns(ServerPlayer p, Guns g, long now) {
-		if (now - g.start >= FalconConfig.GUN_MAX_TICKS) {
-			stopGuns(p);
+		if (now < g.nextShot) {
 			return;
 		}
-		if (now < g.nextShot) {
+		if (!Falcon.spendAmmo(p, FalconConfig.AMMO_PER_SHOT)) {
+			stopGuns(p);
+			dry(p);
 			return;
 		}
 		g.nextShot = now + FalconConfig.GUN_INTERVAL;
 		int side = (g.shot++ & 1) == 0 ? 1 : -1;
+		FalconState n = Falcon.state(p).copy();
+		n.firingUntil = now + FalconConfig.GUN_INTERVAL + 2;
+		Falcon.save(p, n);
+		fireRound(p, side);
+	}
+
+	/**
+	 * One round from the {@code side} wrist (+1 right, -1 left): the assault rifle's report, smoke, sparks and casing, a
+	 * tracer, and its impacts (block chips / a wet hit) -- {@link FalconConfig#GUN_DAMAGE} on whatever it strikes. Public
+	 * for the gametests.
+	 */
+	public static void fireRound(ServerPlayer p, int side) {
 		Vec3 from = wrist(p, side);
-		// a little spray: each round off the look by up to ~2 degrees
+		// a little spray: each round off the look by up to ~1.5 degrees
 		Vec3 look = p.getLookAngle();
-		Vec3 dir = look.add((p.getRandom().nextDouble() - 0.5) * 0.06, (p.getRandom().nextDouble() - 0.5) * 0.06,
-				(p.getRandom().nextDouble() - 0.5) * 0.06).normalize();
+		Vec3 dir = look.add((p.getRandom().nextDouble() - 0.5) * 0.05, (p.getRandom().nextDouble() - 0.5) * 0.05,
+				(p.getRandom().nextDouble() - 0.5) * 0.05).normalize();
 		LivingEntity[] hit = new LivingEntity[1];
-		Vec3 end = FalconCombat.ray(p, p.getEyePosition(), dir, FalconConfig.GUN_RANGE, 0.3, e -> FalconCombat.isTarget(p, e), hit);
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = FalconCombat.ray(p, eye, dir, FalconConfig.GUN_RANGE, 0.25, e -> FalconCombat.isTarget(p, e), hit);
 		ServerLevel level = level(p);
-		AbilityHelpers.line(level, from, end, ParticleTypes.CRIT, 1.2);
-		level.sendParticles(ParticleTypes.FLAME, from.x, from.y, from.z, 1, 0.02, 0.02, 0.02, 0.0);
-		level.playSound(null, from.x, from.y, from.z, SoundEvents.CROSSBOW_SHOOT, SoundSource.PLAYERS, 0.5f, 1.8f + p.getRandom().nextFloat() * 0.2f);
+		com.projecthero.mod.firearm.FirearmData rifle = com.projecthero.mod.firearm.Firearms.get(com.projecthero.mod.firearm.Firearms.RIFLE);
+		com.projecthero.mod.firearm.GunFx.shot(level, p, 1, com.projecthero.mod.firearm.GunSounds.RIFLE_FIRE,
+				rifle == null ? 1.0f : rifle.fireVolume * 0.8f, 1.12f, from, dir, SoundSource.PLAYERS);
 		if (hit[0] != null) {
 			FalconCombat.strike(p, hit[0], p.position(), FalconConfig.GUN_DAMAGE, 0.05, 0.0);
-		} else {
-			level.sendParticles(ParticleTypes.SMOKE, end.x, end.y, end.z, 2, 0.05, 0.05, 0.05, 0.01);
+			com.projecthero.mod.firearm.GunFx.impactFlesh(level, end, hit[0]);
+			com.projecthero.mod.firearm.GunFx.tracer(level, p.getId(), 1, from, end, 2);
+			return;
 		}
+		BlockHitResult bhr = level.clip(new ClipContext(eye, eye.add(dir.scale(FalconConfig.GUN_RANGE)), ClipContext.Block.COLLIDER,
+				ClipContext.Fluid.NONE, p));
+		boolean struck = bhr.getType() != HitResult.Type.MISS;
+		if (struck) {
+			com.projecthero.mod.firearm.GunFx.impactBlock(level, bhr.getLocation(), bhr.getBlockPos());
+		}
+		com.projecthero.mod.firearm.GunFx.tracer(level, p.getId(), 1, from, end, struck ? 1 : 0);
 	}
 
 	// ================================================================ Shift+R: Micro-Missile Volley
@@ -337,11 +370,12 @@ public final class FalconAbilities {
 			BlockHitResult bhr = level.clip(new ClipContext(m.pos, next, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 			boolean boom = bhr.getType() != HitResult.Type.MISS || now - m.born > FalconConfig.MISSILE_LIFE;
 			Vec3 at = bhr.getType() != HitResult.Type.MISS ? bhr.getLocation() : next;
+			LivingEntity struck = null;
 			if (!boom) {
 				for (LivingEntity e : FalconCombat.within(p, next, 1.0, e -> FalconCombat.isTarget(p, e))) {
 					boom = true;
 					at = next;
-					FalconCombat.strike(p, e, m.pos, FalconConfig.MISSILE_DAMAGE, 0.3, 0.1);
+					struck = e;
 					break;
 				}
 			}
@@ -350,19 +384,32 @@ public final class FalconAbilities {
 			level.sendParticles(Falcon.RED, next.x, next.y, next.z, 1, 0.0, 0.0, 0.0, 0.0);
 			m.pos = next;
 			if (boom) {
-				final Vec3 c = at;
-				for (LivingEntity e : FalconCombat.within(p, c, FalconConfig.MISSILE_BLAST, e -> FalconCombat.isTarget(p, e))) {
-					FalconCombat.strike(p, e, c, FalconConfig.MISSILE_SPLASH, 0.4, 0.15);
-				}
-				level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-				level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 3, 0.3, 0.3, 0.3, 0.0);
-				level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.5f);
+				missileBlast(p, at, struck, m.pos);
 				it.remove();
 			}
 		}
 		if (live.isEmpty()) {
 			VOLLEYS.remove(p.getUUID());
 		}
+	}
+
+	/**
+	 * A missile goes off at {@code c}: {@link FalconConfig#MISSILE_DAMAGE} to the one it struck ({@code struck}, may be null),
+	 * {@link FalconConfig#MISSILE_SPLASH} to everyone else in the blast. Public for the gametests.
+	 */
+	public static void missileBlast(ServerPlayer p, Vec3 c, LivingEntity struck, Vec3 from) {
+		ServerLevel level = level(p);
+		if (struck != null) {
+			FalconCombat.strike(p, struck, from, FalconConfig.MISSILE_DAMAGE, 0.3, 0.1);
+		}
+		for (LivingEntity e : FalconCombat.within(p, c, FalconConfig.MISSILE_BLAST, e -> FalconCombat.isTarget(p, e))) {
+			if (e != struck) {
+				FalconCombat.strike(p, e, c, FalconConfig.MISSILE_SPLASH, 0.4, 0.15);
+			}
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 3, 0.3, 0.3, 0.3, 0.0);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.5f);
 	}
 
 	// ================================================================ G: Wing Slash
@@ -385,7 +432,7 @@ public final class FalconAbilities {
 			AbilityHelpers.launchSelf(p, dir.scale(FalconConfig.DIVE_SLASH_SPEED));
 			return;
 		}
-		// on the ground: the steel wings sweep a 120 degree arc in front
+		// on the ground: the right wing sweeps round from his back in a 120 degree arc in front (the client animates it)
 		Vec3 eye = p.getEyePosition();
 		Vec3 flat = new Vec3(p.getLookAngle().x, 0, p.getLookAngle().z);
 		flat = flat.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : flat.normalize();
@@ -399,11 +446,10 @@ public final class FalconAbilities {
 			FalconCombat.strike(p, e, p.position(), FalconConfig.SLASH_DAMAGE, 0.9, 0.2);
 		}
 		ServerLevel level = level(p);
-		for (int i = -6; i <= 6; i++) {
+		for (int i = -6; i <= 6; i += 2) {
 			double a = Math.atan2(f.z, f.x) + i * (Math.PI / 3) / 6;
-			Vec3 pt = p.position().add(Math.cos(a) * 2.6, 1.1, Math.sin(a) * 2.6);
+			Vec3 pt = p.position().add(Math.cos(a) * 2.8, 1.1, Math.sin(a) * 2.8);
 			level.sendParticles(ParticleTypes.SWEEP_ATTACK, pt.x, pt.y, pt.z, 1, 0, 0, 0, 0);
-			level.sendParticles(Falcon.WHITE, pt.x, pt.y, pt.z, 1, 0.05, 0.05, 0.05, 0);
 		}
 		level.sendParticles(ParticleTypes.CRIT, eye.x, eye.y - 0.3, eye.z, 6, 0.6, 0.2, 0.6, 0.2);
 	}

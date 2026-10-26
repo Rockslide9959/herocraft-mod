@@ -9,8 +9,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 /**
  * v0.17.1: the whole Falcon power for one player in one attachment ({@code projecthero:falcon_state}): persistent,
  * {@code copyOnDeath} and synced to every client (others see the wings spread, the jets burn and the poses; the owner's HUD
- * needs Thrust, the cooldowns, the goggles). Only {@code Falcon} and its move classes change it, always through a
- * {@link #copy()}.
+ * needs Thrust, the Wrist Gun rounds, the cooldowns, the goggles). Only {@code Falcon} and its move classes change it,
+ * always through a {@link #copy()}.
  */
 public final class FalconState {
 	public static final int ANIM_NONE = 0;
@@ -33,9 +33,9 @@ public final class FalconState {
 	public boolean blocked;
 	/** 0..{@code FalconConfig.THRUST_MAX}. */
 	public float thrust;
-	/** The wings are out: gliding (the vanilla glide, kept alive while this is set). */
+	/** The wings are out: flying (the shared directional flight; vanilla {@code mayfly} / {@code flying} kept on while set). */
 	public boolean flying;
-	/** The jets are burning (Sprint held while gliding). */
+	/** The jets are burning (X held while flying: 40 b/s along the look, burning Thrust). */
 	public boolean boosting;
 	/** Tactical Goggles on (V). */
 	public boolean goggles;
@@ -54,14 +54,16 @@ public final class FalconState {
 	public long firingUntil;
 	/** The Redwing drone's entity id (-1 = none). */
 	public int redwingId;
+	/** Wrist Gun rounds, 0..{@code FalconConfig.AMMO_MAX}. */
+	public float ammo;
 
 	public FalconState() {
-		this(false, false, 0f, false, false, false, 0, 0L, new HashMap<>(), 0L, 0f, 0L, -1, 0L, -1);
+		this(false, false, 0f, false, false, false, 0, 0L, new HashMap<>(), 0L, 0f, 0L, -1, 0L, -1, 100f);
 	}
 
 	public FalconState(boolean hasPower, boolean blocked, float thrust, boolean flying, boolean boosting, boolean goggles, int animId,
 			long animStart, Map<String, Long> abilityReadyAt, long shieldUntil, float shieldHp, long rollUntil, int carryId, long firingUntil,
-			int redwingId) {
+			int redwingId, float ammo) {
 		this.hasPower = hasPower;
 		this.blocked = blocked;
 		this.thrust = thrust;
@@ -77,11 +79,12 @@ public final class FalconState {
 		this.carryId = carryId;
 		this.firingUntil = firingUntil;
 		this.redwingId = redwingId;
+		this.ammo = ammo;
 	}
 
 	public FalconState copy() {
 		return new FalconState(hasPower, blocked, thrust, flying, boosting, goggles, animId, animStart, abilityReadyAt, shieldUntil, shieldHp,
-				rollUntil, carryId, firingUntil, redwingId);
+				rollUntil, carryId, firingUntil, redwingId, ammo);
 	}
 
 	public static final Codec<FalconState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -100,6 +103,7 @@ public final class FalconState {
 			Codec.LONG.optionalFieldOf("roll_until", 0L).forGetter(s -> s.rollUntil),
 			Codec.INT.optionalFieldOf("carry_id", -1).forGetter(s -> s.carryId),
 			Codec.LONG.optionalFieldOf("firing_until", 0L).forGetter(s -> s.firingUntil),
-			Codec.INT.optionalFieldOf("redwing_id", -1).forGetter(s -> s.redwingId)
+			Codec.INT.optionalFieldOf("redwing_id", -1).forGetter(s -> s.redwingId),
+			Codec.FLOAT.optionalFieldOf("ammo", 100f).forGetter(s -> s.ammo)
 	).apply(i, FalconState::new));
 }

@@ -56,6 +56,7 @@ public final class GunTracers {
 		Vec3 from = new Vec3(p.fx(), p.fy(), p.fz());
 		Vec3 to = new Vec3(p.tx(), p.ty(), p.tz());
 		LIVE.add(new Tracer(from, to, p.kind(), p.hit(), now(), from.distanceTo(to)));
+		com.projecthero.mod.client.falcon.FalconClient.onTracer(p.shooter(), from); // v0.17.1: the Falcon's wrist-gun muzzle flash
 	}
 
 	private static void render(WorldRenderContext ctx) {

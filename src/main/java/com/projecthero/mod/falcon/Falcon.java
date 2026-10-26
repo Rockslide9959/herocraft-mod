@@ -42,10 +42,9 @@ import org.joml.Vector3f;
  * goes back on ({@link FalconState#blocked}), so it never fights the new power for the slot.
  *
  * <h2>Flight</h2>
- * A physics wingsuit on the vanilla glide (the elytra flight, enabled by {@code EntityElytraEvents.CUSTOM} while
- * {@link FalconState#flying}): double-tap jump takes off, diving builds speed, pulling up trades it for height, and the
- * client adds the jet boost (Sprint, burns Thrust), the wing flap (Space), the ground skim and the camera bank. Touching
- * down ends it -- a fast landing is a hero landing.
+ * The mod-wide directional flight ({@link FalconFlight}, the Kryptonian's handling): double-tap jump takes off or drops out,
+ * 19 b/s cruising, 35 sprinting, and holding X burns the jets for 40 b/s (14 Thrust a second). The client banks the camera
+ * into turns; touching down ends it -- a fast landing is a hero landing.
  */
 public final class Falcon {
 	public static final String KEY = "falcon";
@@ -62,8 +61,6 @@ public final class Falcon {
 	private static final Map<UUID, Vec3> LAST_POS = new ConcurrentHashMap<>();
 	/** The fastest the player moved over the last two ticks, blocks a tick (for the hero landing / Dive Bomb). */
 	private static final Map<UUID, Double> RECENT_SPEED = new ConcurrentHashMap<>();
-	/** Game time of the last take-off (the first few ticks may still touch the ground). */
-	private static final Map<UUID, Long> TAKE_OFF_AT = new ConcurrentHashMap<>();
 
 	private Falcon() {
 	}
@@ -73,7 +70,7 @@ public final class Falcon {
 		LAST_TICK.clear();
 		LAST_POS.clear();
 		RECENT_SPEED.clear();
-		TAKE_OFF_AT.clear();
+		FalconFlight.clearSessionState();
 		FalconAbilities.clearSessionState();
 		FalconAbilityManager.clearSessionState();
 	}
@@ -222,6 +219,7 @@ public final class Falcon {
 	 * until a piece comes off and goes back on.
 	 */
 	public static void revoke(ServerPlayer player) {
+		FalconFlight.stop(player);
 		FalconAbilities.clear(player);
 		FalconAbilities.removeRedwing(player);
 		FalconState old = state(player);
@@ -229,9 +227,6 @@ public final class Falcon {
 		n.blocked = FalconItems.fullSet(player);
 		n.abilityReadyAt.putAll(old.abilityReadyAt);
 		save(player, n);
-		if (player.isFallFlying() && old.flying) {
-			player.stopFallFlying();
-		}
 		reconcile(player);
 		forget(player.getUUID());
 	}
@@ -251,7 +246,7 @@ public final class Falcon {
 		LAST_TICK.remove(id);
 		LAST_POS.remove(id);
 		RECENT_SPEED.remove(id);
-		TAKE_OFF_AT.remove(id);
+		FalconFlight.forget(id);
 		FalconAbilityManager.forget(id);
 	}
 
@@ -277,106 +272,49 @@ public final class Falcon {
 		save(player, n);
 	}
 
-	// ---------------------------------------------------------------- flight
+	// ---------------------------------------------------------------- flight (FalconFlight)
 
-	/** Double-tap jump: the wings snap open with a jet burst (from the ground, a jet kick up first). */
+	/** Wings out, jets lit (double-tap jump, the Afterburner leap, the top of a Talon Drop). */
 	public static void takeOff(ServerPlayer player) {
-		FalconState s = state(player);
-		if (!s.hasPower || s.flying || !player.isAlive() || player.isPassenger() || player.isInWater() || player.getAbilities().flying) {
-			return;
-		}
-		long now = player.level().getGameTime();
-		FalconState n = s.copy();
-		n.flying = true;
-		n.animId = FalconState.ANIM_TAKEOFF;
-		n.animStart = now;
-		save(player, n);
-		TAKE_OFF_AT.put(player.getUUID(), now);
-		if (player.onGround()) {
-			Vec3 look = player.getLookAngle();
-			AbilityHelpers.launchSelf(player, new Vec3(look.x * 0.35, FalconConfig.TAKEOFF_LIFT, look.z * 0.35));
-		} else {
-			player.startFallFlying();
-		}
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position();
-		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.2, c.z, 14, 0.5, 0.1, 0.5, 0.06);
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y + 0.8, c.z, 8, 0.2, 0.2, 0.2, 0.02);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.PHANTOM_FLAP, SoundSource.PLAYERS, 1.2f, 0.7f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 1.0f, 0.8f);
+		FalconFlight.start(player);
 	}
 
-	/** Space while gliding: a wing flap (the climb itself is applied by the client, which moves the player). */
-	public static void flap(ServerPlayer player) {
-		FalconState s = state(player);
-		if (!s.hasPower || !s.flying) {
-			return;
-		}
-		if (cooldownRemaining(player, FalconAbilities.FLAP) > 0 || !spendThrust(player, FalconConfig.FLAP_COST)) {
-			return;
-		}
-		FalconState n = state(player).copy();
-		n.abilityReadyAt.put(FalconAbilities.FLAP, player.level().getGameTime() + FalconConfig.FLAP_COOLDOWN);
-		save(player, n);
-		ServerLevel level = (ServerLevel) player.level();
-		Vec3 c = player.position().add(0, 0.9, 0);
-		level.sendParticles(WHITE, c.x, c.y, c.z, 10, 0.9, 0.15, 0.9, 0.0);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.PHANTOM_FLAP, SoundSource.PLAYERS, 1.0f, 1.1f);
+	/** The double-tap jump: take off, or drop out of the flight. */
+	public static void toggleFlight(ServerPlayer player) {
+		FalconFlight.toggle(player);
 	}
 
+	/** X held / let go: the jet burn. */
 	public static void setBoost(ServerPlayer player, boolean on) {
-		FalconState s = state(player);
-		boolean want = on && s.hasPower && s.flying && s.thrust > 0.5f;
-		if (s.boosting == want) {
-			return;
-		}
-		FalconState n = s.copy();
-		n.boosting = want;
-		save(player, n);
-		if (want) {
-			Vec3 c = player.position();
-			player.level().playSound(null, c.x, c.y, c.z, SoundEvents.FIREWORK_ROCKET_LAUNCH, SoundSource.PLAYERS, 0.8f, 0.6f);
-		}
+		FalconFlight.setBoost(player, on);
 	}
 
 	/** Folds the wings away (landed, in water, a command). */
 	public static void stopFlying(ServerPlayer player) {
-		FalconState s = state(player);
-		if (!s.flying) {
-			return;
-		}
-		FalconState n = s.copy();
-		n.flying = false;
-		n.boosting = false;
-		save(player, n);
-		if (player.isFallFlying()) {
-			player.stopFallFlying();
-		}
+		FalconFlight.stop(player);
 	}
 
-	private static void land(ServerPlayer player, double speed) {
-		stopFlying(player);
-		player.resetFallDistance();
-		if (speed < FalconConfig.HERO_LANDING_SPEED) {
-			return;
+	public static float ammo(Player player) {
+		FalconState s = peek(player);
+		return s == null ? 0f : s.ammo;
+	}
+
+	/** Spends Wrist Gun rounds; false (nothing spent) if there are not enough. */
+	public static boolean spendAmmo(ServerPlayer player, float rounds) {
+		FalconState s = state(player);
+		if (s.ammo + 1.0e-3f < rounds) {
+			return false;
 		}
-		setAnim(player, FalconState.ANIM_LAND);
-		ServerLevel level = (ServerLevel) player.level();
-		BlockPos below = player.blockPosition().below();
-		BlockState ground = level.getBlockState(below);
-		Vec3 c = player.position();
-		if (!ground.isAir()) {
-			BlockParticleOption dust = new BlockParticleOption(ParticleTypes.BLOCK, ground);
-			for (int i = 0; i < 28; i++) {
-				double a = i * Math.PI * 2 / 28;
-				for (double r = 1.0; r <= 2.8; r += 0.9) {
-					level.sendParticles(dust, c.x + Math.cos(a) * r, c.y + 0.1, c.z + Math.sin(a) * r, 1, 0.05, 0.02, 0.05, 0.12);
-				}
-			}
-		}
-		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.1, c.z, 16, 1.2, 0.05, 1.2, 0.05);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.35f, 0.6f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_SMALL_FALL, SoundSource.PLAYERS, 1.0f, 0.6f);
+		FalconState n = s.copy();
+		n.ammo = Math.max(0f, Math.min(FalconConfig.AMMO_MAX, s.ammo) - rounds);
+		save(player, n);
+		return true;
+	}
+
+	public static void setAmmo(ServerPlayer player, float value) {
+		FalconState n = state(player).copy();
+		n.ammo = Math.max(0f, Math.min(FalconConfig.AMMO_MAX, value));
+		save(player, n);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -422,10 +360,11 @@ public final class Falcon {
 		if (player.tickCount % 10 == 0 || player.isSprinting() != hasSprintModifier(player)) {
 			reconcile(player);
 		}
-		tickFlight(player, now);
+		FalconFlight.tick(player, now);
 		if (now % 5 == 0) {
-			tickThrust(player);
+			tickThrust(player, now);
 		}
+		FalconAbilityManager.tick(player);
 		FalconAbilities.tick(player);
 	}
 
@@ -445,45 +384,8 @@ public final class Falcon {
 		RECENT_SPEED.put(player.getUUID(), Math.max(speed, before == null ? 0.0 : before * 0.5));
 	}
 
-	private static void tickFlight(ServerPlayer player, long now) {
-		FalconState s = state(player);
-		if (!s.flying) {
-			return;
-		}
-		player.resetFallDistance();
-		if (player.isInWater() || player.isPassenger() || player.getAbilities().flying || !player.isAlive()) {
-			stopFlying(player);
-			return;
-		}
-		Long at = TAKE_OFF_AT.get(player.getUUID());
-		long age = at == null ? 100L : now - at;
-		if (player.onGround() && age > 4) {
-			land(player, recentSpeed(player));
-			return;
-		}
-		if (!player.isFallFlying() && !player.onGround() && age >= 2) {
-			player.startFallFlying();
-		}
-		// the jets: flame and smoke from the pack while boosting; contrails at speed
-		ServerLevel level = (ServerLevel) player.level();
-		if (s.boosting && now % 2 == 0) {
-			Vec3 back = player.position().add(0, 0.9, 0).subtract(player.getLookAngle().scale(0.6));
-			level.sendParticles(ParticleTypes.FLAME, back.x, back.y, back.z, 2, 0.08, 0.08, 0.08, 0.01);
-			level.sendParticles(ParticleTypes.SMOKE, back.x, back.y, back.z, 1, 0.1, 0.1, 0.1, 0.01);
-		}
-		if (recentSpeed(player) > 1.2 && now % 3 == 0) {
-			Vec3 c = player.position().add(0, 0.9, 0);
-			Vec3 look = player.getLookAngle();
-			Vec3 side = look.cross(new Vec3(0, 1, 0));
-			side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
-			for (int k = -1; k <= 1; k += 2) {
-				Vec3 tip = c.add(side.scale(1.3 * k)).subtract(look.scale(0.4));
-				level.sendParticles(ParticleTypes.CLOUD, tip.x, tip.y, tip.z, 1, 0.0, 0.0, 0.0, 0.0);
-			}
-		}
-	}
-
-	private static void tickThrust(ServerPlayer player) {
+	/** Every 5 ticks: Thrust burns while the jets do (and the burn stops when it runs out), else refills; rounds refill when not firing. */
+	private static void tickThrust(ServerPlayer player, long now) {
 		FalconState s = state(player);
 		float cur = Float.isNaN(s.thrust) ? 0f : s.thrust;
 		float next = cur;
@@ -495,15 +397,18 @@ public final class Falcon {
 				boosting = false;
 			}
 		} else if (s.flying) {
-			next = cur + FalconConfig.THRUST_REGEN_GLIDE / 4f;
+			next = cur + FalconConfig.THRUST_REGEN_FLYING / 4f;
 		} else if (player.onGround()) {
 			next = cur + FalconConfig.THRUST_REGEN_GROUND / 4f;
 		}
 		next = Math.max(0f, Math.min(FalconConfig.THRUST_MAX, next));
-		if (next != s.thrust || boosting != s.boosting) {
+		float ammo = Float.isNaN(s.ammo) ? 0f : s.ammo;
+		float nextAmmo = s.firingUntil > now ? ammo : Math.min(FalconConfig.AMMO_MAX, ammo + FalconConfig.AMMO_REGEN_PER_SECOND / 4f);
+		if (next != s.thrust || boosting != s.boosting || nextAmmo != s.ammo) {
 			FalconState n = s.copy();
 			n.thrust = next;
 			n.boosting = boosting;
+			n.ammo = nextAmmo;
 			save(player, n);
 		}
 	}
@@ -517,7 +422,6 @@ public final class Falcon {
 		}
 		long now = player.level().getGameTime();
 		FalconState n = s.copy();
-		n.flying = false;
 		n.boosting = false;
 		n.shieldUntil = 0L;
 		n.rollUntil = 0L;
@@ -527,7 +431,11 @@ public final class Falcon {
 		n.animId = FalconState.ANIM_NONE;
 		n.thrust = Float.isNaN(n.thrust) ? 0f : Math.max(0f, Math.min(FalconConfig.THRUST_MAX, n.thrust));
 		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + FalconConfig.BOMB_COOLDOWN + 20L);
+		n.ammo = Float.isNaN(n.ammo) ? 0f : Math.max(0f, Math.min(FalconConfig.AMMO_MAX, n.ammo));
 		save(player, n);
+		if (n.flying) {
+			FalconFlight.resume(player);
+		}
 		reconcile(player);
 	}
 
@@ -544,6 +452,7 @@ public final class Falcon {
 
 	/** Death / logout / dimension change: drop everything transient (the power follows the gear). */
 	public static void clearTransient(ServerPlayer player) {
+		FalconFlight.stop(player);
 		FalconAbilities.clear(player);
 		FalconAbilities.removeRedwing(player);
 		forget(player.getUUID());

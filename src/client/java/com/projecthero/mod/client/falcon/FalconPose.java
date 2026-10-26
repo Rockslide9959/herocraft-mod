@@ -18,7 +18,9 @@ import net.minecraft.world.entity.player.Player;
  *   <li><b>Wing Shield</b>: forearms crossed in front (the wings wrap round them).</li>
  *   <li><b>Lift &amp; Carry / Talon Drop</b>: both hands reaching down to the one held.</li>
  *   <li><b>Hero landing</b>: down on one knee, a fist to the ground.</li>
- *   <li>Short keyframes for the slash, bash, missiles, afterburner, Redwing and take-off.</li>
+ *   <li><b>Wing Slash</b>: the right arm leads the right wing's swing round from his back across the front.</li>
+ *   <li>Flying: arms a little out from the sides under the wings.</li>
+ *   <li>Short keyframes for the bash, missiles, afterburner, Redwing and take-off.</li>
  * </ul>
  */
 public final class FalconPose {
@@ -33,7 +35,7 @@ public final class FalconPose {
 		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		long now = player.level().getGameTime();
 		float age = now - s.animStart + partial;
-		boolean gliding = player.isFallFlying();
+		boolean gliding = Falcon.flying(player) && !player.onGround();
 
 		if (s.firingUntil > now) {
 			// the wrist launchers along the look, alternating recoil
@@ -57,6 +59,13 @@ public final class FalconPose {
 			pose(model.leftArm, gliding ? -0.2f : -0.35f, 0f, -0.25f);
 			return;
 		}
+		// flying: arms a little out from the sides under the spread wings (any move keyframe below overrides it)
+		if (gliding) {
+			model.rightArm.zRot = 0.32f;
+			model.leftArm.zRot = -0.32f;
+			model.rightArm.xRot = 0.15f;
+			model.leftArm.xRot = 0.15f;
+		}
 		switch (s.animId) {
 			case FalconState.ANIM_LAND -> {
 				if (age >= 0f && age < FalconConfig.LAND_POSE_TICKS && !gliding) {
@@ -65,12 +74,19 @@ public final class FalconPose {
 				}
 			}
 			case FalconState.ANIM_SLASH -> {
-				if (age >= 0f && age < 10f) {
-					// the wings sweep: arms flung out and round
-					float t = age / 10f;
-					float sweep = Mth.sin(t * (float) Math.PI);
-					pose(model.rightArm, -1.4f * sweep, 0.9f - 1.8f * t, 0.6f * sweep);
-					pose(model.leftArm, -1.4f * sweep, -0.9f + 1.8f * t, -0.6f * sweep);
+				float t = FalconGeometry.slashProgress(age);
+				if (t >= 0f) {
+					// the right arm leads the right wing round: out to the side, then across the front, synced to its yaw
+					float yaw = FalconGeometry.slashYaw(t);
+					float out = t <= 1f ? 1f : 1f - (t - 1f) / 0.55f;
+					float raise = Math.min(1f, t * 5f) * out;
+					float armYaw = Mth.clamp(90f - yaw, -50f, 100f) * Mth.DEG_TO_RAD;
+					model.rightArm.xRot = Mth.lerp(raise, model.rightArm.xRot, -1.45f);
+					model.rightArm.yRot = Mth.lerp(raise, model.rightArm.yRot, armYaw);
+					model.rightArm.zRot = Mth.lerp(raise, model.rightArm.zRot, 0f);
+					// the left arm swings back for balance
+					model.leftArm.xRot = Mth.lerp(raise, model.leftArm.xRot, 0.35f);
+					model.leftArm.zRot = Mth.lerp(raise, model.leftArm.zRot, -0.45f);
 				}
 			}
 			case FalconState.ANIM_BASH -> {

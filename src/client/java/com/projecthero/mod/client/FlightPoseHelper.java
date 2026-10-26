@@ -124,7 +124,9 @@ public final class FlightPoseHelper {
 				// v0.16.5: Cyborg's Jet Flight leans in too
 				|| com.projecthero.mod.cyborg.Cyborg.flying(player)
 				// v0.16.5 (user): Blue Beetle leans forward flying, lies flat sprint-flying, arms and legs down
-				|| com.projecthero.mod.bluebeetle.BlueBeetle.flying(player);
+				|| com.projecthero.mod.bluebeetle.BlueBeetle.flying(player)
+				// v0.17.1: the Falcon's jet flight (flat out while the jets burn)
+				|| com.projecthero.mod.falcon.Falcon.flying(player);
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
 		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),
@@ -209,6 +211,11 @@ public final class FlightPoseHelper {
 	 * interpolated across the partial tick.
 	 */
 	public static float roll(Player player, float partialTick) {
+		// v0.17.1: the Falcon banks into his turns (every client works it out from the flier's own yaw)
+		float falcon = com.projecthero.mod.client.falcon.FalconFlightClient.bodyRoll(player, partialTick);
+		if (falcon != 0.0f) {
+			return falcon;
+		}
 		if (player == net.minecraft.client.Minecraft.getInstance().player) {
 			return com.projecthero.mod.client.flight.PhysicsFlight.roll();
 		}
@@ -242,7 +249,8 @@ public final class FlightPoseHelper {
 		}
 		// Reuses the entity's own sprint flag (the same walking-vs-sprinting distinction ground
 		// movement uses, and one that's synced for remote players) rather than a second speed cutoff.
-		return player.isSprinting() ? Tier.FAST : Tier.SLOW;
+		// v0.17.1: the Falcon's jet burn drives him flat out whether or not he sprints
+		return player.isSprinting() || com.projecthero.mod.falcon.Falcon.boosting(player) ? Tier.FAST : Tier.SLOW;
 	}
 
 	public static float leanDegrees(Tier tier) {

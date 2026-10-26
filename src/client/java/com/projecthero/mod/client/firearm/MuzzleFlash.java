@@ -45,11 +45,24 @@ public final class MuzzleFlash {
 			case RIFLE -> 1.1f;
 			default -> 0.85f;
 		};
+		pose.pushPose();
+		pose.translate(m[0] / 16f, m[1] / 16f, m[2] / 16f);
+		drawBare(pose, buffers, size, flash, seed);
+		pose.popPose();
+	}
+
+	/**
+	 * v0.17.1: the flash itself at the pose's origin, firing along its -Z, {@code size} the gun's flash size (rifle 1.1) --
+	 * for muzzles that are not one of the four guns' item models (the Falcon's wrist launchers).
+	 */
+	public static void drawBare(PoseStack pose, MultiBufferSource buffers, float size, float flash, int seed) {
+		if (flash <= 0.001f) {
+			return;
+		}
 		float len = size * (0.55f + 0.25f * hash(seed, 1)) * (0.6f + 0.4f * flash);
 		float a = flash;
 		VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
 		pose.pushPose();
-		pose.translate(m[0] / 16f, m[1] / 16f, m[2] / 16f);
 		pose.mulPose(Axis.ZP.rotationDegrees(hash(seed, 2) * 360f));
 		Matrix4f mat = pose.last().pose();
 		// forward cone: 4 petals in planes through the bore

@@ -4,7 +4,6 @@ import com.projecthero.mod.falcon.entity.FalconEntityTypes;
 import com.projecthero.mod.falcon.item.FalconItems;
 import com.projecthero.mod.falcon.network.FalconActionPayload;
 
-import net.fabricmc.fabric.api.entity.event.v1.EntityElytraEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -13,11 +12,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.1: one entry point for the whole Falcon power, called once from {@code ProjectHeroMod.onInitialize}: the gear, the
- * Redwing entity, the damage rules, the flight payload, the glide (a custom elytra while the wings are out) and the
+ * Redwing entity, the damage rules, the flight payload (the jump double-tap) and the
  * lifecycle hooks. The per-player tick runs from {@code AbilityRouter.serverTick}; static state is dropped by
  * {@code ServerStateReset} through {@link #clearSessionState}.
  */
@@ -36,14 +34,9 @@ public final class FalconMod {
 				return;
 			}
 			switch (payload.action()) {
-				case TAKE_OFF -> Falcon.takeOff(p);
-				case FLAP -> Falcon.flap(p);
-				case BOOST_ON -> Falcon.setBoost(p, true);
-				case BOOST_OFF -> Falcon.setBoost(p, false);
+				case TOGGLE_FLIGHT -> Falcon.toggleFlight(p);
 			}
 		});
-		// the wings are a custom elytra while they are out (both sides read the synced state)
-		EntityElytraEvents.CUSTOM.register((entity, tickElytra) -> entity instanceof Player pl && Falcon.flying(pl) && !pl.getAbilities().flying);
 		ServerPlayerEvents.JOIN.register(Falcon::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> Falcon.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
