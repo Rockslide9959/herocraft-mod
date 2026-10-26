@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.hero.power.p04.SuperSpeedMoves;
 
 import net.minecraft.server.level.ServerPlayer;
 
@@ -14,35 +15,51 @@ import net.minecraft.server.level.ServerPlayer;
  * Bridges the universal ability slots to the Speed Force Speedster (v0.17.1). {@link com.projecthero.mod.hero.AbilityRouter}
  * hands them the slots when {@link #hasContext} is true -- has the power and no mutation selected. Shift is read server-side.
  *
+ * <p>v0.17.1 (user, approved): every key is TAP / SHIFT / HOLD. The tap and Shift moves are the plain Speedster's (borrowed);
+ * the hold moves are the Speed Force's own. A tap fires on the RELEASE (as the mutations' {@code HoldTap}); a key still held
+ * {@link SpeedForceConfig#HOLD_TICKS} after it went down starts its hold move, and letting go finishes it. A Shift move fires
+ * on the press.
+ *
  * <pre>
- *   R (1)  Speed Punches              Shift+R  Infinite Mass Punch
- *   G (2)  Lightning Throw            Shift+G  Speed Tornado
- *   X (3)  Speed Force Step           Shift+X  Phase (hold)
- *   Z (4)  Flash Time                 Shift+Z  Time Remnant
- *   V (5)  Speed Force Barrier (tap)  hold V  Speed Heal     Shift+V  Rewind (v0.17.1, user: from Shift+C)
- *   N (8)  Rescue Run (v0.17.1, user: moved from V)
- *   C (6)  Speed Mode on / off        hold Shift+C  the 3 s charge, let go to launch at full speed (v0.17.1, user)
+ *   R (1)  Rapid Assault       Shift+R  Mach Punch          hold R  Infinite Mass Punch (wind up, let go: it locks on)
+ *   G (2)  Blitz               Shift+G  Speed Vortex        hold G  Lightning Throw (charge, let go: throw)
+ *   X (3)  Momentum Dash       Shift+X  Speed Sweep         hold X  Tornado Arms
+ *   Z (4)  --                  Shift+Z  Time Remnant        hold Z  Flash Time (from the press; at max momentum for 5 s:
+ *                                                                   the Speed Force portal)
+ *   V (5)  Afterimage Decoys   Shift+V  Speed Heal          hold V  Rewind
+ *   C (6)  Speed Mode on / off Shift+C  Phase (held)        hold C  the 3 s charge, let go to launch at full speed
+ *   N (8)  Rescue Run (Shift+N is the Speedster menu, client-side)
  * </pre>
- * H does nothing here; Shift+N is Ground-Stick (client-side, both speedsters).
+ * H does nothing here.
  */
 public final class SpeedForceAbilityManager {
-	static final int REPEAT_WINDOW = 25;
+	/** A key that is down: whether Shift was, the tick count it went down at, and what has happened since. */
+	private static final class Key {
+		final boolean shift;
+		final int downAt;
+		/** The hold move has started (the release finishes it). */
+		boolean held;
+		/** The press already did everything (a Shift move, Z, N, ending a sweep): the release only ends what is held. */
+		boolean done;
 
-	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
-	/** V held (no Shift): the game time it went down; Long.MIN_VALUE once the hold has fired Speed Heal. */
-	private static final Map<UUID, Long> V_DOWN = new ConcurrentHashMap<>();
+		Key(boolean shift, int downAt) {
+			this.shift = shift;
+			this.downAt = downAt;
+		}
+	}
+
+	/** player -> slot ordinal -> the key while it is down. The OS key repeat (more "pressed" packets) is ignored. */
+	private static final Map<UUID, Map<Integer, Key>> DOWN = new ConcurrentHashMap<>();
 
 	private SpeedForceAbilityManager() {
 	}
 
 	static void clearSessionState() {
-		LAST_PRESS.clear();
-		V_DOWN.clear();
+		DOWN.clear();
 	}
 
 	static void forget(UUID id) {
-		LAST_PRESS.remove(id);
-		V_DOWN.remove(id);
+		DOWN.remove(id);
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -53,139 +70,193 @@ public final class SpeedForceAbilityManager {
 		return st == null || st.activePower.isEmpty();
 	}
 
-	private static boolean freshPress(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		long[] last = LAST_PRESS.computeIfAbsent(player.getUUID(), k -> {
-			long[] a = new long[AbilitySlot.values().length];
-			java.util.Arrays.fill(a, -1L);
-			return a;
-		});
-		int i = slot.ordinal();
-		if (!pressed) {
-			last[i] = -1L;
-			return true;
-		}
-		long now = player.level().getGameTime();
-		boolean repeat = last[i] >= 0L && now - last[i] <= REPEAT_WINDOW && now >= last[i];
-		last[i] = now;
-		return !repeat;
+	/** Whether {@code slot}'s key is down for {@code player} right now (the HUD's hold fill reads the client side). */
+	public static boolean isDown(ServerPlayer player, AbilitySlot slot) {
+		Map<Integer, Key> mine = DOWN.get(player.getUUID());
+		return mine != null && mine.containsKey(slot.ordinal());
 	}
 
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
-		// R refires as fast as its cooldown allows
-		if (slot != AbilitySlot.SLOT_1 && !freshPress(player, slot, pressed)) {
-			return;
-		}
-		// while phasing every key is swallowed; letting go of X ends it
-		if (SpeedForceSpeedster.phasing(player)) {
-			if (slot == AbilitySlot.SLOT_3 && !pressed) {
-				SpeedForceAbilities.endPhase(player);
+		Map<Integer, Key> mine = DOWN.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>());
+		int i = slot.ordinal();
+		if (pressed) {
+			if (mine.containsKey(i)) {
+				return; // the key repeat
 			}
-			return;
-		}
-		if (!pressed) {
-			// v0.17.1 (user): releases matter for V (tap = Barrier) and Shift+C (let go = launch)
-			if (slot == AbilitySlot.SLOT_5) {
-				Long down = V_DOWN.remove(player.getUUID());
-				if (down != null && down != Long.MIN_VALUE) {
-					SpeedForceAbilities.speedForceBarrier(player);
+			boolean shift = player.isShiftKeyDown();
+			Key k = new Key(shift, player.tickCount);
+			mine.put(i, k);
+			// while phasing every key is swallowed (letting go of C ends it)
+			if (SpeedForceSpeedster.phasing(player)) {
+				k.done = true;
+				return;
+			}
+			if (shift) {
+				k.done = true;
+				shiftMove(player, slot);
+				return;
+			}
+			switch (slot) {
+				case SLOT_4 -> {
+					k.done = true;
+					SpeedForceAbilities.startFlashTime(player); // Z is all hold: Flash Time runs from the press
 				}
-			} else if (slot == AbilitySlot.SLOT_6) {
-				SpeedForceAbilities.releaseCharge(player);
-			}
-			return;
-		}
-		boolean shift = player.isShiftKeyDown();
-		switch (slot) {
-			case SLOT_1 -> {
-				if (shift) {
-					SpeedForceAbilities.infiniteMassPunch(player);
-				} else {
-					SpeedForceAbilities.speedPunches(player);
-				}
-			}
-			case SLOT_2 -> {
-				if (shift) {
-					SpeedForceAbilities.speedTornado(player);
-				} else {
-					SpeedForceAbilities.lightningThrow(player);
-				}
-			}
-			case SLOT_3 -> {
-				if (shift) {
-					SpeedForceAbilities.startPhase(player);
-				} else {
-					SpeedForceAbilities.speedForceStep(player);
-				}
-			}
-			case SLOT_4 -> {
-				if (shift) {
-					SpeedForceAbilities.timeRemnant(player);
-				} else {
-					SpeedForceAbilities.flashTime(player);
-				}
-			}
-			case SLOT_5 -> {
-				if (shift) {
-					SpeedForceAbilities.rewind(player);
-				} else {
-					V_DOWN.put(player.getUUID(), player.level().getGameTime()); // tap or hold: decided on release / in tick
-				}
-			}
-			case SLOT_8 -> {
-				if (!shift) {
+				case SLOT_8 -> {
+					k.done = true;
 					SpeedForceAbilities.rescueRun(player);
 				}
-			}
-			case SLOT_6 -> {
-				if (shift) {
-					SpeedForceAbilities.startCharge(player);
-				} else {
-					SpeedForceAbilities.toggleSpeedMode(player);
+				case SLOT_3 -> {
+					if (SuperSpeedMoves.sweeping(player)) {
+						k.done = true;
+						SuperSpeedMoves.endSweep(player); // a fresh X press calls a running sweep off
+					}
+				}
+				default -> {
 				}
 			}
+			return;
+		}
+		Key k = mine.remove(i);
+		if (k == null) {
+			// a release with no press seen (a relog, a screen): end whatever such a key could be holding
+			endHolds(player, slot);
+			return;
+		}
+		if (slot == AbilitySlot.SLOT_6 && SpeedForceSpeedster.phasing(player)) {
+			SpeedForceAbilities.endPhase(player);
+			return;
+		}
+		if (slot == AbilitySlot.SLOT_4) {
+			SpeedForceAbilities.endFlashTime(player);
+			return;
+		}
+		if (k.done) {
+			return;
+		}
+		if (k.held) {
+			releaseHold(player, slot);
+		} else {
+			tap(player, slot);
+		}
+	}
+
+	private static void shiftMove(ServerPlayer player, AbilitySlot slot) {
+		switch (slot) {
+			case SLOT_1 -> SpeedForceAbilities.machPunch(player);
+			case SLOT_2 -> SpeedForceAbilities.speedTornado(player);
+			case SLOT_3 -> SpeedForceAbilities.speedSweep(player);
+			case SLOT_4 -> SpeedForceAbilities.timeRemnant(player);
+			case SLOT_5 -> SpeedForceAbilities.speedHeal(player);
+			case SLOT_6 -> SpeedForceAbilities.startPhase(player);
 			default -> {
 			}
 		}
 	}
 
-	/** Hold V past {@link SpeedForceConfig#HEAL_HOLD_TICKS}: Speed Heal fires (and the release no longer raises the Barrier). */
-	static void tick(ServerPlayer player, long now) {
-		Long down = V_DOWN.get(player.getUUID());
-		if (down != null && down != Long.MIN_VALUE && now - down >= SpeedForceConfig.HEAL_HOLD_TICKS) {
-			V_DOWN.put(player.getUUID(), Long.MIN_VALUE);
-			SpeedForceAbilities.speedHeal(player);
+	private static void tap(ServerPlayer player, AbilitySlot slot) {
+		switch (slot) {
+			case SLOT_1 -> SpeedForceAbilities.rapidAssault(player);
+			case SLOT_2 -> SpeedForceAbilities.blitz(player);
+			case SLOT_3 -> SpeedForceAbilities.momentumDash(player);
+			case SLOT_5 -> SpeedForceAbilities.decoys(player);
+			case SLOT_6 -> SpeedForceAbilities.toggleSpeedMode(player);
+			default -> {
+			}
 		}
 	}
 
+	private static void startHold(ServerPlayer player, AbilitySlot slot) {
+		switch (slot) {
+			case SLOT_1 -> SpeedForceAbilities.startMassWindup(player);
+			case SLOT_2 -> SpeedForceAbilities.startThrowCharge(player);
+			case SLOT_3 -> SpeedForceAbilities.startTornadoArms(player);
+			case SLOT_5 -> SpeedForceAbilities.rewind(player);
+			case SLOT_6 -> SpeedForceAbilities.startCharge(player);
+			default -> {
+			}
+		}
+	}
+
+	private static void releaseHold(ServerPlayer player, AbilitySlot slot) {
+		switch (slot) {
+			case SLOT_1 -> SpeedForceAbilities.releaseMass(player);
+			case SLOT_2 -> SpeedForceAbilities.releaseThrow(player);
+			case SLOT_3 -> SpeedForceAbilities.endTornadoArms(player);
+			case SLOT_6 -> SpeedForceAbilities.releaseCharge(player);
+			default -> {
+			}
+		}
+	}
+
+	/** A stray release: finish anything the key could be holding (never fires a tap). */
+	private static void endHolds(ServerPlayer player, AbilitySlot slot) {
+		switch (slot) {
+			case SLOT_4 -> SpeedForceAbilities.endFlashTime(player);
+			case SLOT_6 -> {
+				SpeedForceAbilities.endPhase(player);
+				SpeedForceAbilities.releaseCharge(player);
+			}
+			default -> releaseHold(player, slot);
+		}
+	}
+
+	/** Every tick: a key held {@link SpeedForceConfig#HOLD_TICKS} (on the runner's own clock) starts its hold move. */
+	static void tick(ServerPlayer player, long now) {
+		Map<Integer, Key> mine = DOWN.get(player.getUUID());
+		if (mine == null || mine.isEmpty()) {
+			return;
+		}
+		for (Map.Entry<Integer, Key> e : mine.entrySet()) {
+			Key k = e.getValue();
+			if (k.done || k.held || k.shift) {
+				continue;
+			}
+			int age = player.tickCount - k.downAt;
+			if (age < 0) {
+				k.done = true; // the tick count reset (a respawn): drop it
+				continue;
+			}
+			if (age >= SpeedForceConfig.HOLD_TICKS) {
+				k.held = true;
+				startHold(player, AbilitySlot.values()[e.getKey()]);
+			}
+		}
+	}
+
+	/** The key's three moves, {tap, Shift, hold} (Z: Flash Time on the press and the hold, its portal as the third). */
 	public static String[] idsOf(AbilitySlot slot) {
 		return switch (slot) {
-			case SLOT_1 -> new String[] { SpeedForceAbilities.PUNCHES, SpeedForceAbilities.MASS };
-			case SLOT_2 -> new String[] { SpeedForceAbilities.THROW, SpeedForceAbilities.TORNADO };
-			case SLOT_3 -> new String[] { SpeedForceAbilities.STEP, SpeedForceAbilities.PHASE };
-			case SLOT_4 -> new String[] { SpeedForceAbilities.FLASH, SpeedForceAbilities.REMNANT };
-			case SLOT_5 -> new String[] { SpeedForceAbilities.BARRIER, SpeedForceAbilities.REWIND, SpeedForceAbilities.HEAL };
+			case SLOT_1 -> new String[] { SpeedForceAbilities.RAPID, SpeedForceAbilities.MACH, SpeedForceAbilities.MASS };
+			case SLOT_2 -> new String[] { SpeedForceAbilities.BLITZ, SpeedForceAbilities.TORNADO, SpeedForceAbilities.THROW };
+			case SLOT_3 -> new String[] { SpeedForceAbilities.DASH, SpeedForceAbilities.SWEEP, SpeedForceAbilities.ARMS };
+			case SLOT_4 -> new String[] { SpeedForceAbilities.FLASH, SpeedForceAbilities.REMNANT, SpeedForceAbilities.PORTAL };
+			case SLOT_5 -> new String[] { SpeedForceAbilities.DECOYS, SpeedForceAbilities.HEAL, SpeedForceAbilities.REWIND };
+			case SLOT_6 -> new String[] { SpeedForceAbilities.SPEED_MODE, SpeedForceAbilities.PHASE, SpeedForceAbilities.LAUNCH };
 			case SLOT_8 -> new String[] { SpeedForceAbilities.RESCUE };
-			case SLOT_6 -> new String[] { SpeedForceAbilities.SPEED_MODE, SpeedForceAbilities.LAUNCH };
 			default -> new String[0];
 		};
 	}
 
 	public static int maxCooldown(String id) {
 		return switch (id) {
-			case SpeedForceAbilities.PUNCHES -> SpeedForceConfig.PUNCH_COOLDOWN;
+			case SpeedForceAbilities.RAPID -> SpeedForceConfig.RAPID_COOLDOWN;
+			case SpeedForceAbilities.MACH -> SpeedForceConfig.MACH_COOLDOWN;
 			case SpeedForceAbilities.MASS -> SpeedForceConfig.MASS_COOLDOWN;
-			case SpeedForceAbilities.THROW -> SpeedForceConfig.THROW_COOLDOWN;
+			case SpeedForceAbilities.BLITZ -> SpeedForceConfig.BLITZ_COOLDOWN;
 			case SpeedForceAbilities.TORNADO -> SpeedForceConfig.TORNADO_COOLDOWN;
-			case SpeedForceAbilities.STEP -> SpeedForceConfig.STEP_COOLDOWN;
-			case SpeedForceAbilities.PHASE -> SpeedForceConfig.PHASE_COOLDOWN;
+			case SpeedForceAbilities.THROW -> SpeedForceConfig.THROW_COOLDOWN;
+			case SpeedForceAbilities.DASH -> SpeedForceConfig.DASH_COOLDOWN;
+			case SpeedForceAbilities.SWEEP -> SpeedForceConfig.SWEEP_COOLDOWN;
+			case SpeedForceAbilities.ARMS -> SpeedForceConfig.ARMS_COOLDOWN;
 			case SpeedForceAbilities.FLASH -> SpeedForceConfig.FLASH_TIME_COOLDOWN;
 			case SpeedForceAbilities.REMNANT -> SpeedForceConfig.REMNANT_COOLDOWN;
-			case SpeedForceAbilities.RESCUE -> SpeedForceConfig.RESCUE_COOLDOWN;
-			case SpeedForceAbilities.BARRIER -> SpeedForceConfig.BARRIER_COOLDOWN;
-			case SpeedForceAbilities.LAUNCH -> SpeedForceConfig.LAUNCH_COOLDOWN;
+			case SpeedForceAbilities.PORTAL -> SpeedForceConfig.PORTAL_COOLDOWN;
+			case SpeedForceAbilities.DECOYS -> SpeedForceConfig.DECOY_COOLDOWN;
 			case SpeedForceAbilities.HEAL -> SpeedForceConfig.HEAL_COOLDOWN;
-			case SpeedForceAbilities.SURGE -> SpeedForceConfig.SURGE_COOLDOWN;
 			case SpeedForceAbilities.REWIND -> SpeedForceConfig.REWIND_COOLDOWN;
+			case SpeedForceAbilities.PHASE -> SpeedForceConfig.PHASE_COOLDOWN;
+			case SpeedForceAbilities.LAUNCH -> SpeedForceConfig.LAUNCH_COOLDOWN;
+			case SpeedForceAbilities.RESCUE -> SpeedForceConfig.RESCUE_COOLDOWN;
 			default -> 0;
 		};
 	}

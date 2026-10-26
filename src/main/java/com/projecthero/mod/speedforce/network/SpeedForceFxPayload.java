@@ -19,6 +19,17 @@ public record SpeedForceFxPayload(int playerId, int kind, double fx, double fy, 
 	public static final int STREAK = 2;
 	public static final int AWAKEN = 3;
 	public static final int SURGE = 4;
+	/**
+	 * v0.17.1 (user) the Speed Force portal forming in front of the runner: centred at (fx, fy, fz), tx = how far it has
+	 * formed (0..1), ty = the yaw it faces. Sent every tick of the charge; a client lets it collapse if they stop coming.
+	 */
+	public static final int PORTAL = 5;
+	/** The charge broke off: the portal collapses at (fx, fy, fz). */
+	public static final int PORTAL_COLLAPSE = 6;
+	/** The portal took them: a burst of lightning at (fx, fy, fz). */
+	public static final int PORTAL_ENTER = 7;
+	/** Out of the Speed Force: a bolt from (tx, ty, tz) down to where they land (fx, fy, fz). */
+	public static final int REALM_EXIT = 8;
 
 	public static final CustomPacketPayload.Type<SpeedForceFxPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "speed_force_fx"));

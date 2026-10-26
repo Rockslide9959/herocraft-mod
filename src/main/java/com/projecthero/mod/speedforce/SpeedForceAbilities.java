@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.HeroConfig;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.hero.power.p04.SuperSpeedMoves;
 import com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow;
 import com.projecthero.mod.hero.revamp.d.BatchDContent;
@@ -16,11 +17,15 @@ import com.projecthero.mod.speedforce.data.SpeedForceState;
 import com.projecthero.mod.speedforce.network.SpeedForceFxPayload;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -28,37 +33,58 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import org.joml.Vector3f;
+
 /**
- * v0.17.1: the Speed Force Speedster's twelve moves (see {@link SpeedForceAbilityManager} for the keys). The ordinary
- * moves cost little or nothing; the big ones spend the Speed Force, and the momentum cash-ins (Infinite Mass Punch) spend
- * the whole run for one huge hit. Numbers in {@link SpeedForceConfig}.
+ * v0.17.1: the Speed Force Speedster's moves (see {@link SpeedForceAbilityManager} for the keys: tap / Shift / hold). The
+ * plain Speedster's moves are borrowed on tap and Shift (Rapid Assault, Mach Punch, Blitz, Momentum Dash, Speed Sweep,
+ * Afterimage Decoys -- their code lives in {@code SuperSpeedMoves} / {@code SuperSpeedHandlers}, on this power's own
+ * cooldowns); the Speed Force moves are the holds. Numbers in {@link SpeedForceConfig}.
  */
 public final class SpeedForceAbilities {
-	public static final String PUNCHES = "speed_punches";
+	// R
+	public static final String RAPID = "rapid_assault";
+	public static final String MACH = "mach_punch";
 	public static final String MASS = "infinite_mass_punch";
+	// G
+	public static final String BLITZ = "blitz";
+	public static final String TORNADO = "speed_tornado"; // Shift+G Speed Vortex
 	public static final String THROW = "lightning_throw";
-	public static final String TORNADO = "speed_tornado";
-	public static final String STEP = "speed_force_step";
-	public static final String PHASE = "phase";
+	// X
+	public static final String DASH = "momentum_dash";
+	public static final String SWEEP = "speed_sweep";
+	public static final String ARMS = "tornado_arms";
+	// Z
 	public static final String FLASH = "flash_time";
 	public static final String REMNANT = "time_remnant";
-	public static final String RESCUE = "rescue_run";
+	public static final String PORTAL = "speed_force_portal";
+	// V
+	public static final String DECOYS = "afterimage_decoys";
 	public static final String HEAL = "speed_heal";
-	public static final String SURGE = "speed_force_surge";
 	public static final String REWIND = "rewind";
-	public static final String BARRIER = "speed_force_barrier";
+	// C
 	public static final String SPEED_MODE = "speed_mode";
+	public static final String PHASE = "phase";
 	public static final String LAUNCH = "speed_launch";
+	// N
+	public static final String RESCUE = "rescue_run";
 
 	/** Runner -> the Time Remnant's entity id. */
 	private static final Map<UUID, Integer> REMNANTS = new ConcurrentHashMap<>();
 	/** Set down from a Rescue Run -> game time the fall / suffocation protection ends. */
 	static final Map<UUID, Long> RESCUE_GRACE = new ConcurrentHashMap<>();
-	/** Runner -> game time the Speed Force Barrier drops. */
-	private static final Map<UUID, Long> BARRIERS = new ConcurrentHashMap<>();
+	/** Hold R: the runner's tick count when the wind-up began. */
+	private static final Map<UUID, Integer> MASS_WINDUP = new ConcurrentHashMap<>();
+	/** Hold G: the runner's tick count when the charge began. */
+	private static final Map<UUID, Integer> THROW_CHARGE = new ConcurrentHashMap<>();
+
+	/** A hold move nobody let go of (a lost release packet) gives up after this long. */
+	private static final int HOLD_FAILSAFE = 10 * 20;
 
 	private SpeedForceAbilities() {
 	}
@@ -66,7 +92,8 @@ public final class SpeedForceAbilities {
 	static void clearSessionState() {
 		REMNANTS.clear();
 		RESCUE_GRACE.clear();
-		BARRIERS.clear();
+		MASS_WINDUP.clear();
+		THROW_CHARGE.clear();
 	}
 
 	// ---------------------------------------------------------------- shared
@@ -75,7 +102,7 @@ public final class SpeedForceAbilities {
 		return SpeedForceSpeedster.cooldownRemaining(p, id) <= 0;
 	}
 
-	static void cooldown(ServerPlayer p, String id, int ticks) {
+	public static void cooldown(ServerPlayer p, String id, int ticks) {
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
 		n.abilityReadyAt.put(id, p.level().getGameTime() + HeroConfig.get().scaledCooldown(ticks));
 		SpeedForceSpeedster.save(p, n);
@@ -99,9 +126,21 @@ public final class SpeedForceAbilities {
 		if (SpeedForceSpeedster.spendMeter(p, cost)) {
 			return true;
 		}
-		SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.low_meter", ChatFormatting.GOLD,
-				String.format(java.util.Locale.ROOT, "%.0f", cost));
+		lowMeter(p, cost);
 		return false;
+	}
+
+	private static boolean has(ServerPlayer p, float need) {
+		if (SpeedForceSpeedster.state(p).meter + 1.0e-3f >= need) {
+			return true;
+		}
+		lowMeter(p, need);
+		return false;
+	}
+
+	private static void lowMeter(ServerPlayer p, float need) {
+		SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.low_meter", ChatFormatting.GOLD,
+				String.format(java.util.Locale.ROOT, "%.0f", need));
 	}
 
 	private static float m(ServerPlayer p) {
@@ -122,41 +161,127 @@ public final class SpeedForceAbilities {
 		return f.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : f.normalize();
 	}
 
-	// ---------------------------------------------------------------- R: Speed Punches / Shift+R: Infinite Mass Punch
+	/** The runner's lightning colour as a dust particle (tone 1, the bolt's body). */
+	static DustParticleOptions dust(ServerPlayer p, float size) {
+		int rgb = SpeedForceColours.tone(SpeedForceColours.of(p), 1);
+		return new DustParticleOptions(new Vector3f(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f), size);
+	}
 
-	/** Three blows on everything right in front, 4 to 10 each with the momentum. */
-	public static int speedPunches(ServerPlayer p) {
-		if (!gate(p, PUNCHES)) {
+	/** A hold move's pose: held until {@link #clearHoldAnim} (the key let go). */
+	private static void setHoldAnim(ServerPlayer p, int anim) {
+		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		n.animId = anim;
+		n.animStart = p.level().getGameTime();
+		n.holdAnim = true;
+		SpeedForceSpeedster.save(p, n);
+	}
+
+	private static void clearHoldAnim(ServerPlayer p, int anim) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.holdAnim && s.animId == anim) {
+			SpeedForceState n = s.copy();
+			n.animId = SpeedForceState.ANIM_NONE;
+			n.holdAnim = false;
+			SpeedForceSpeedster.save(p, n);
+		}
+	}
+
+	private static boolean holding(Player p, int anim) {
+		SpeedForceState s = SpeedForceSpeedster.peek(p);
+		return s != null && s.hasPower && s.holdAnim && s.animId == anim;
+	}
+
+	// ---------------------------------------------------------------- R: Rapid Assault / Shift+R Mach Punch / hold R Infinite Mass Punch
+
+	/** Tap R: the plain Speedster's Rapid Assault -- four punches of 5 on everything in front, each landing in full. */
+	public static int rapidAssault(ServerPlayer p) {
+		if (!gate(p, RAPID)) {
 			return 0;
 		}
-		float dmg = SpeedForceConfig.PUNCH_MIN + (SpeedForceConfig.PUNCH_MAX - SpeedForceConfig.PUNCH_MIN) * m(p);
-		Vec3 at = p.getEyePosition().add(flatLook(p).scale(1.5)).subtract(0, 0.4, 0);
-		int struck = 0;
-		for (LivingEntity e : SpeedForceCombat.within(p, at, SpeedForceConfig.PUNCH_RADIUS)) {
-			boolean any = false;
-			for (int i = 0; i < SpeedForceConfig.PUNCHES; i++) {
-				any |= SpeedForceCombat.strike(p, e, p.position(), dmg, i == SpeedForceConfig.PUNCHES - 1 ? 0.35 : 0.0, 0.0);
-			}
-			if (any) {
-				struck++;
-			}
-		}
+		int struck = SuperSpeedHandlers.rapidAssaultCore(p);
 		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_PUNCHES);
-		SpeedForceSpeedster.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
-		if (struck > 0) {
-			SpeedForceSpeedster.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 2.0f);
-		}
-		cooldown(p, PUNCHES, SpeedForceConfig.PUNCH_COOLDOWN);
+		cooldown(p, RAPID, SpeedForceConfig.RAPID_COOLDOWN);
 		return struck;
 	}
 
-	/** Every bit of momentum into one punch: 10 + up to 60, a huge knockback and a shockwave. Spends the run. */
+	/** Shift+R: the plain Speedster's Mach Punch (a flat 20 and a shockwave), the knockback growing with the momentum. */
+	public static boolean machPunch(ServerPlayer p) {
+		if (!gate(p, MACH)) {
+			return false;
+		}
+		SuperSpeedMoves.machPunchCore(p, m(p));
+		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_MASS);
+		cooldown(p, MACH, SpeedForceConfig.MACH_COOLDOWN);
+		return true;
+	}
+
+	/** Hold R: wind the punch up (the fist cocked back, lightning gathering in it); let go to throw it. */
+	public static boolean startMassWindup(ServerPlayer p) {
+		if (MASS_WINDUP.containsKey(p.getUUID()) || !gate(p, MASS) || !has(p, SpeedForceConfig.MASS_COST)) {
+			return false;
+		}
+		MASS_WINDUP.put(p.getUUID(), p.tickCount);
+		setHoldAnim(p, SpeedForceState.ANIM_MASS_WINDUP);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.4f);
+		return true;
+	}
+
+	public static boolean massWindingUp(Player p) {
+		return MASS_WINDUP.containsKey(p.getUUID());
+	}
+
+	/** R let go after the wind-up: the punch locks on and goes. */
+	public static boolean releaseMass(ServerPlayer p) {
+		if (MASS_WINDUP.remove(p.getUUID()) == null) {
+			return false;
+		}
+		clearHoldAnim(p, SpeedForceState.ANIM_MASS_WINDUP);
+		return infiniteMassPunch(p);
+	}
+
+	/**
+	 * v0.17.1 (user: "make the infinite mass punch auto track to the nearest enemy so that its easier to land if running at fast
+	 * speeds"): who the punch locks onto -- the nearest foe within {@link SpeedForceConfig#MASS_TRACK_RANGE} that is under the
+	 * crosshair (the look cone) and in sight, else the nearest one in sight at all. Null if nothing is in range.
+	 */
+	public static LivingEntity massTarget(ServerPlayer p) {
+		double range = SpeedForceConfig.MASS_TRACK_RANGE;
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		LivingEntity inCone = null;
+		double coneD = Double.MAX_VALUE;
+		LivingEntity any = null;
+		double anyD = Double.MAX_VALUE;
+		for (LivingEntity e : SpeedForceCombat.within(p, p.position().add(0, 1.0, 0), range + 1.0)) {
+			Vec3 c = center(e);
+			double d = c.distanceToSqr(eye);
+			if (d > (range + 0.5) * (range + 0.5) || !p.hasLineOfSight(e)) {
+				continue;
+			}
+			Vec3 to = c.subtract(eye);
+			double cos = to.lengthSqr() < 1.0e-6 ? 1.0 : to.normalize().dot(look);
+			if (cos >= SpeedForceConfig.MASS_TRACK_CONE && d < coneD) {
+				coneD = d;
+				inCone = e;
+			}
+			if (d < anyD) {
+				anyD = d;
+				any = e;
+			}
+		}
+		return inCone != null ? inCone : any;
+	}
+
+	/**
+	 * Every bit of momentum into one punch: it locks onto {@link #massTarget}, zips you up against it and lands 10 + up to 60
+	 * (the boss cap holds), a huge knockback and a shockwave round it. Spends the run.
+	 */
 	public static boolean infiniteMassPunch(ServerPlayer p) {
 		if (!gate(p, MASS)) {
 			return false;
 		}
-		LivingEntity target = SuperSpeedMoves.aimTarget(p, SpeedForceConfig.MASS_REACH);
-		if (target == null || !SpeedForceCombat.isTarget(p, target)) {
+		LivingEntity target = massTarget(p);
+		if (target == null) {
 			SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.no_target", ChatFormatting.GRAY);
 			return false;
 		}
@@ -164,6 +289,21 @@ public final class SpeedForceAbilities {
 			return false;
 		}
 		float mom = m(p);
+		// the zip: right up against it, facing it (a free spot beside it; where you stand if there is none)
+		Vec3 from = p.position();
+		Vec3 spot = SuperSpeedMoves.strikeSpot(p, target, from);
+		if (spot != null && spot.distanceToSqr(from) > 1.0) {
+			Vec3 c = center(target);
+			double dx = c.x - spot.x;
+			double dz = c.z - spot.z;
+			float yaw = (float) (Mth.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
+			SpeedForceSpeedster.graceMotion(p, 3);
+			p.teleportTo(level(p), spot.x, spot.y, spot.z, yaw, p.getXRot());
+			p.setYHeadRot(yaw);
+			p.resetFallDistance();
+			p.hurtMarked = true;
+			SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, spot);
+		}
 		float dmg = SpeedForceConfig.MASS_MIN + SpeedForceConfig.MASS_MOMENTUM * mom;
 		Vec3 c = center(target);
 		SpeedForceCombat.strike(p, target, p.position(), dmg, 1.0 + 4.0 * mom, 0.4 + 0.6 * mom);
@@ -176,7 +316,7 @@ public final class SpeedForceAbilities {
 		ServerLevel level = level(p);
 		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 2, 0.4, 0.4, 0.4, 0);
-		level.sendParticles(SpeedForceSpeedster.GOLD_BIG, c.x, c.y, c.z, 30, 0.6, 0.6, 0.6, 0.0);
+		level.sendParticles(dust(p, 2.2f), c.x, c.y, c.z, 30, 0.6, 0.6, 0.6, 0.0);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 40, 0.6, 0.6, 0.6, 0.5);
 		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.BOOM, c, c);
 		SpeedForceSpeedster.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 1.2f, 1.2f);
@@ -187,44 +327,108 @@ public final class SpeedForceAbilities {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- G: Lightning Throw / Shift+G: Speed Tornado
+	private static void massTick(ServerPlayer p) {
+		Integer start = MASS_WINDUP.get(p.getUUID());
+		if (start == null) {
+			return;
+		}
+		int age = p.tickCount - start;
+		if (age > HOLD_FAILSAFE || age < 0) {
+			releaseMass(p);
+			return;
+		}
+		if (age % 2 == 0) {
+			// lightning gathering in the cocked fist (behind the right shoulder)
+			Vec3 f = flatLook(p);
+			Vec3 right = new Vec3(-f.z, 0, f.x);
+			Vec3 fist = p.position().add(0, 1.3, 0).add(right.scale(0.45)).subtract(f.scale(0.45));
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, fist.x, fist.y, fist.z, 2 + Math.min(6, age / 6), 0.12, 0.12, 0.12, 0.05);
+			level(p).sendParticles(dust(p, 1.0f), fist.x, fist.y, fist.z, 1, 0.1, 0.1, 0.1, 0.0);
+		}
+		if (age % 10 == 0) {
+			SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.2f, 1.9f);
+		}
+	}
 
-	/** Wind up (a beat of crackling run-up), then hurl a bolt of Speed Force lightning: 8 to 20, chaining to two more. */
-	public static boolean lightningThrow(ServerPlayer p) {
-		if (SpeedForceSpeedster.state(p).throwLeft > 0 || !gate(p, THROW) || !pay(p, SpeedForceConfig.THROW_COST)) {
+	// ---------------------------------------------------------------- G: Blitz / Shift+G Speed Vortex / hold G Lightning Throw
+
+	/** Tap G: the plain Speedster's Blitz -- zip to the foe under the crosshair (24 blocks) and hit it for 20, a shockwave round it. */
+	public static boolean blitz(ServerPlayer p) {
+		if (!gate(p, BLITZ)) {
 			return false;
 		}
-		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
-		n.throwLeft = SpeedForceConfig.THROW_WINDUP;
-		n.animId = SpeedForceState.ANIM_THROW;
-		n.animStart = p.level().getGameTime();
-		SpeedForceSpeedster.save(p, n);
-		cooldown(p, THROW, SpeedForceConfig.THROW_COOLDOWN);
+		SpeedForceSpeedster.graceMotion(p, 3);
+		if (!SuperSpeedMoves.blitzCore(p)) {
+			return false;
+		}
+		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_BLITZ);
+		cooldown(p, BLITZ, SpeedForceConfig.BLITZ_COOLDOWN);
+		return true;
+	}
+
+	/** Hold G: lightning builds in the raised hand while held; let go to throw it (the longer the charge, the harder). */
+	public static boolean startThrowCharge(ServerPlayer p) {
+		if (THROW_CHARGE.containsKey(p.getUUID()) || !gate(p, THROW) || !has(p, SpeedForceConfig.THROW_COST)) {
+			return false;
+		}
+		THROW_CHARGE.put(p.getUUID(), p.tickCount);
+		setHoldAnim(p, SpeedForceState.ANIM_THROW_CHARGE);
 		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.9f);
 		return true;
 	}
 
-	private static void throwTick(ServerPlayer p, SpeedForceState s) {
-		if (s.throwLeft <= 0) {
+	/** G let go: the bolt goes, +up to 50% with the charge. */
+	public static boolean releaseThrow(ServerPlayer p) {
+		Integer start = THROW_CHARGE.remove(p.getUUID());
+		if (start == null) {
+			return false;
+		}
+		clearHoldAnim(p, SpeedForceState.ANIM_THROW_CHARGE);
+		if (!pay(p, SpeedForceConfig.THROW_COST)) {
+			return false;
+		}
+		float charge = Mth.clamp((p.tickCount - start) / (float) SpeedForceConfig.THROW_CHARGE_TICKS, 0f, 1f);
+		fireBolt(p, charge);
+		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		n.animId = SpeedForceState.ANIM_THROW;
+		n.animStart = p.level().getGameTime() - 7; // straight into the release of the throw
+		SpeedForceSpeedster.save(p, n);
+		cooldown(p, THROW, SpeedForceConfig.THROW_COOLDOWN);
+		return true;
+	}
+
+	private static void throwTick(ServerPlayer p) {
+		Integer start = THROW_CHARGE.get(p.getUUID());
+		if (start == null) {
 			return;
 		}
-		SpeedForceState n = s.copy();
-		n.throwLeft = s.throwLeft - 1;
-		SpeedForceSpeedster.save(p, n);
-		ServerLevel level = level(p);
-		double a = s.throwLeft * 1.1;
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX() + Math.cos(a) * 0.6, p.getY() + 0.3 + (SpeedForceConfig.THROW_WINDUP - s.throwLeft) * 0.18,
-				p.getZ() + Math.sin(a) * 0.6, 3, 0.05, 0.05, 0.05, 0.02);
-		if (n.throwLeft == 0) {
-			fireBolt(p);
+		int age = p.tickCount - start;
+		if (age > HOLD_FAILSAFE || age < 0) {
+			releaseThrow(p);
+			return;
+		}
+		float t = Math.min(1f, age / (float) SpeedForceConfig.THROW_CHARGE_TICKS);
+		double a = age * 1.1;
+		Vec3 f = flatLook(p);
+		Vec3 right = new Vec3(-f.z, 0, f.x);
+		Vec3 hand = p.position().add(0, 2.0, 0).add(right.scale(0.35));
+		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, hand.x + Math.cos(a) * 0.3, hand.y + Math.sin(a * 0.7) * 0.2, hand.z + Math.sin(a) * 0.3,
+				2 + Math.round(t * 4), 0.05, 0.05, 0.05, 0.02);
+		if (age == SpeedForceConfig.THROW_CHARGE_TICKS) {
+			SpeedForceSpeedster.sound(p, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.6f, 1.8f);
 		}
 	}
 
-	/** The bolt itself (public for the gametests). */
+	/** The bolt itself at no charge (public for the gametests). */
 	public static LivingEntity fireBolt(ServerPlayer p) {
+		return fireBolt(p, 0f);
+	}
+
+	/** A bolt of Speed Force lightning (in the runner's colour): 8 to 20 with the momentum, x(1 + 0.5 x charge), chaining on. */
+	public static LivingEntity fireBolt(ServerPlayer p, float charge) {
 		ServerLevel level = level(p);
 		float mom = m(p);
-		float dmg = SpeedForceConfig.THROW_MIN + SpeedForceConfig.THROW_MOMENTUM * mom;
+		float dmg = (SpeedForceConfig.THROW_MIN + SpeedForceConfig.THROW_MOMENTUM * mom) * (1f + SpeedForceConfig.THROW_CHARGE_BONUS * charge);
 		LivingEntity target = SuperSpeedMoves.aimTarget(p, SpeedForceConfig.THROW_RANGE);
 		if (target != null && !SpeedForceCombat.isTarget(p, target)) {
 			target = null;
@@ -257,7 +461,7 @@ public final class SpeedForceAbilities {
 		return target;
 	}
 
-	/** Run tight circles: a cyclone that drags everything within 7 blocks round and up, then flings it out. */
+	/** Shift+G Speed Vortex: run tight circles -- a cyclone that drags everything within 7 blocks round and up, then flings it out. */
 	public static boolean speedTornado(ServerPlayer p) {
 		if (SpeedForceSpeedster.state(p).tornadoLeft > 0 || !gate(p, TORNADO) || !pay(p, SpeedForceConfig.TORNADO_COST)) {
 			return false;
@@ -266,6 +470,7 @@ public final class SpeedForceAbilities {
 		n.tornadoLeft = SpeedForceConfig.TORNADO_TICKS;
 		n.animId = SpeedForceState.ANIM_TORNADO;
 		n.animStart = p.level().getGameTime();
+		n.holdAnim = false;
 		SpeedForceSpeedster.save(p, n);
 		cooldown(p, TORNADO, SpeedForceConfig.TORNADO_COOLDOWN);
 		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_SHOOT, 1.0f, 0.6f);
@@ -280,7 +485,7 @@ public final class SpeedForceAbilities {
 		int left = s.tornadoLeft - 1;
 		SpeedForceState n = s.copy();
 		n.tornadoLeft = left;
-		if (left == 0) {
+		if (left == 0 && n.animId == SpeedForceState.ANIM_TORNADO) {
 			n.animId = SpeedForceState.ANIM_NONE;
 		}
 		SpeedForceSpeedster.save(p, n);
@@ -318,7 +523,7 @@ public final class SpeedForceAbilities {
 				Vec3 from = c.add(Math.cos(t) * r, 0, Math.sin(t) * r);
 				Vec3 to = c.add(Math.cos(t + 1.4) * r, 0, Math.sin(t + 1.4) * r);
 				SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, to);
-				level.sendParticles(SpeedForceSpeedster.GOLD, from.x, from.y + 1.0, from.z, 3, 0.1, 0.4, 0.1, 0.0);
+				level.sendParticles(dust(p, 1.2f), from.x, from.y + 1.0, from.z, 3, 0.1, 0.4, 0.1, 0.0);
 			}
 			if (left % 12 == 0) {
 				SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.25f, 1.9f);
@@ -337,128 +542,322 @@ public final class SpeedForceAbilities {
 		SpeedForceSpeedster.sound(p, SoundEvents.GENERIC_EXPLODE.value(), 1.0f, 1.3f);
 	}
 
-	// ---------------------------------------------------------------- X: Speed Force Step / Shift+X: Phase
+	// ---------------------------------------------------------------- X: Momentum Dash / Shift+X Speed Sweep / hold X Tornado Arms
 
-	/** A short burst along the aim that ADDS momentum (+15%) -- for getting a run started. */
-	public static boolean speedForceStep(ServerPlayer p) {
-		if (!gate(p, STEP) || !pay(p, SpeedForceConfig.STEP_COST)) {
+	/** Tap X: the plain Speedster's Momentum Dash along the full look -- and +15% momentum, to get a run going. */
+	public static boolean momentumDash(ServerPlayer p) {
+		if (!gate(p, DASH) || !pay(p, SpeedForceConfig.DASH_COST)) {
 			return false;
 		}
 		Vec3 look = p.getLookAngle().normalize();
-		Vec3 v = look.scale(SpeedForceConfig.STEP_LAUNCH);
-		if (p.onGround() && v.y < 0.25) {
-			v = new Vec3(v.x, 0.25, v.z);
-		}
+		Vec3 v = SuperSpeedHandlers.dashVelocity(look, p.onGround(), SpeedForceConfig.DASH_LAUNCH);
 		Vec3 from = p.position();
 		SpeedForceSpeedster.graceMotion(p, 4);
 		AbilityHelpers.launchSelf(p, v);
-		SpeedForceSpeedster.setMomentum(p, (float) (m(p) + SpeedForceConfig.STEP_MOMENTUM_GAIN));
+		SpeedForceSpeedster.setMomentum(p, (float) (m(p) + SpeedForceConfig.DASH_MOMENTUM_GAIN));
 		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, from.add(look.scale(4.0)));
 		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, from.x, from.y + 1.0, from.z, 14, 0.3, 0.6, 0.3, 0.15);
 		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_STEP);
 		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.8f);
-		cooldown(p, STEP, SpeedForceConfig.STEP_COOLDOWN);
+		cooldown(p, DASH, SpeedForceConfig.DASH_COOLDOWN);
 		return true;
 	}
 
-	/** Hold Shift+X: vibrate through walls on your own level (no damage taken, none dealt, no other move). */
-	public static boolean startPhase(ServerPlayer p) {
-		SpeedForceState s = SpeedForceSpeedster.state(p);
-		if (s.phasing || !gate(p, PHASE)) {
+	/** Shift+X: the plain Speedster's Speed Sweep -- blink through every foe within 50 blocks (15 each), then home. */
+	public static boolean speedSweep(ServerPlayer p) {
+		if (SuperSpeedMoves.sweeping(p)) {
+			SuperSpeedMoves.endSweep(p);
 			return false;
 		}
-		if (s.meter < SpeedForceConfig.PHASE_MIN) {
-			SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.low_meter", ChatFormatting.GOLD,
-					String.format(java.util.Locale.ROOT, "%.0f", SpeedForceConfig.PHASE_MIN));
+		if (!gate(p, SWEEP)) {
 			return false;
 		}
-		SpeedForceState n = s.copy();
-		n.phasing = true;
-		SpeedForceSpeedster.save(p, n);
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
-		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_ACTIVATE, 0.6f, 2.0f);
+		SpeedForceSpeedster.graceMotion(p, 3);
+		if (!SuperSpeedMoves.beginSweep(p)) {
+			return false;
+		}
+		cooldown(p, SWEEP, SpeedForceConfig.SWEEP_COOLDOWN);
 		return true;
 	}
 
-	public static void endPhase(ServerPlayer p) {
-		SpeedForceState s = SpeedForceSpeedster.state(p);
-		if (!s.phasing) {
-			return;
+	/** Hold X: the arms spin into a whirlwind in front (Speed Force a second) -- see {@link #armsTick}. */
+	public static boolean startTornadoArms(ServerPlayer p) {
+		if (tornadoArms(p) || !gate(p, ARMS) || !has(p, SpeedForceConfig.ARMS_MIN)) {
+			return false;
 		}
-		SpeedForceState n = s.copy();
-		n.phasing = false;
-		SpeedForceSpeedster.save(p, n);
-		com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.settleOutsideBlocks(p);
-		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
-		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 2.0f);
-		cooldown(p, PHASE, SpeedForceConfig.PHASE_COOLDOWN);
+		setHoldAnim(p, SpeedForceState.ANIM_ARMS);
+		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), 1.0f, 0.8f);
+		SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.6f, 1.5f);
+		return true;
 	}
 
-	private static void phaseTick(ServerPlayer p, SpeedForceState s) {
-		if (!s.phasing) {
+	/** X let go (or the Speed Force ran out): the wind drops. */
+	public static void endTornadoArms(ServerPlayer p) {
+		if (!tornadoArms(p)) {
 			return;
 		}
-		if (!p.isAlive()) {
-			endPhase(p);
-			return;
-		}
-		if (p.tickCount % 5 == 0 && !SpeedForceSpeedster.spendMeter(p, SpeedForceConfig.PHASE_COST_PER_SECOND / 4f)) {
-			endPhase(p);
-			return;
-		}
-		if (p.tickCount % 3 == 0) {
-			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 3, 0.3, 0.6, 0.3, 0.05);
-		}
+		clearHoldAnim(p, SpeedForceState.ANIM_ARMS);
+		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_DEFLECT, 0.7f, 1.0f);
+		cooldown(p, ARMS, SpeedForceConfig.ARMS_COOLDOWN);
 	}
 
-	// ---------------------------------------------------------------- Z: Flash Time / Shift+Z: Time Remnant
+	/** Whether Tornado Arms is running (client-safe: the pose and the wind are drawn from it). */
+	public static boolean tornadoArms(Player p) {
+		return holding(p, SpeedForceState.ANIM_ARMS);
+	}
+
+	/** Whether {@code at} is inside the Tornado Arms cone of {@code p} (eye-level apex, along the look). */
+	static boolean inArmsCone(ServerPlayer p, Vec3 at) {
+		Vec3 apex = p.getEyePosition().subtract(0, 0.5, 0);
+		Vec3 to = at.subtract(apex);
+		double d = to.length();
+		if (d < 0.3) {
+			return true;
+		}
+		return d <= SpeedForceConfig.ARMS_RANGE && to.scale(1.0 / d).dot(p.getLookAngle()) >= SpeedForceConfig.ARMS_CONE;
+	}
 
 	/**
-	 * Time slows to a crawl for everyone but you (the game-wide tick-rate slow the plain Speedster's Time Slow uses), for
-	 * 4 s plus up to 16 s more with the momentum, on your own clock. Z again ends it. 40 Speed Force; the cooldown starts at
-	 * the end. No charge-up and no exhaustion afterwards -- the Speed Force carries you.
+	 * v0.17.1 (user): "The Flash spins his arms into a whirlwind in front of him" -- one tick of it: everything in the cone
+	 * (10 blocks long) is pushed back and lifted (bosses only slowed), every projectile in it is blown away, fire in it goes
+	 * out (burning blocks and burning creatures); wind and gusts down the cone. Costs Speed Force a second.
 	 */
-	public static boolean flashTime(ServerPlayer p) {
-		if (SuperSpeedTimeSlow.isCasting(p)) {
-			SuperSpeedTimeSlow.end(p, true);
-			return false;
+	public static void armsTick(ServerPlayer p) {
+		if (!tornadoArms(p)) {
+			return;
 		}
-		if (!gate(p, FLASH)) {
+		if (!p.isAlive() || (p.tickCount % 5 == 0 && !SpeedForceSpeedster.spendMeter(p, SpeedForceConfig.ARMS_COST_PER_SECOND / 4f))) {
+			if (p.isAlive()) {
+				lowMeter(p, SpeedForceConfig.ARMS_MIN);
+			}
+			endTornadoArms(p);
+			return;
+		}
+		ServerLevel level = level(p);
+		Vec3 look = p.getLookAngle();
+		Vec3 apex = p.getEyePosition().subtract(0, 0.5, 0);
+		double r = SpeedForceConfig.ARMS_RANGE;
+		AABB box = new AABB(apex, apex).inflate(r + 1.0);
+		for (LivingEntity e : SpeedForceCombat.within(p, apex, r + 1.0)) {
+			if (!inArmsCone(p, center(e))) {
+				continue;
+			}
+			if (SpeedForceCombat.isBoss(e)) {
+				e.setDeltaMovement(e.getDeltaMovement().scale(0.5));
+			} else {
+				Vec3 away = center(e).subtract(apex);
+				Vec3 push = (away.lengthSqr() < 1.0e-4 ? look : away.normalize()).add(look).normalize();
+				e.setDeltaMovement(push.x * SpeedForceConfig.ARMS_PUSH, Math.max(e.getDeltaMovement().y, SpeedForceConfig.ARMS_LIFT), push.z * SpeedForceConfig.ARMS_PUSH);
+				e.resetFallDistance();
+			}
+			e.hurtMarked = true;
+			if (e.isOnFire()) {
+				e.clearFire();
+			}
+		}
+		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, box, e -> e.getOwner() != p)) {
+			if (!inArmsCone(p, pr.position())) {
+				continue;
+			}
+			double speed = Math.max(0.8, pr.getDeltaMovement().length());
+			pr.setDeltaMovement(look.scale(speed).add(0, 0.3, 0));
+			pr.hurtMarked = true;
+			if (pr instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile hp) {
+				hp.accelerationPower = 0.1;
+			}
+			level.sendParticles(ParticleTypes.CLOUD, pr.getX(), pr.getY(), pr.getZ(), 3, 0.1, 0.1, 0.1, 0.05);
+		}
+		// fire in the cone is blown out (every few ticks: a box of block checks)
+		if (p.tickCount % 4 == 0) {
+			BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
+			int ir = (int) Math.ceil(r);
+			BlockPos c = BlockPos.containing(apex);
+			for (int dx = -ir; dx <= ir; dx++) {
+				for (int dy = -3; dy <= 3; dy++) {
+					for (int dz = -ir; dz <= ir; dz++) {
+						mp.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+						if (level.getBlockState(mp).is(BlockTags.FIRE) && inArmsCone(p, Vec3.atCenterOf(mp))) {
+							level.setBlockAndUpdate(mp, Blocks.AIR.defaultBlockState());
+							level.sendParticles(ParticleTypes.SMOKE, mp.getX() + 0.5, mp.getY() + 0.3, mp.getZ() + 0.5, 4, 0.2, 0.1, 0.2, 0.02);
+						}
+					}
+				}
+			}
+		}
+		// the wind itself: gusts and spinning cloud down the cone
+		double t = p.tickCount * 0.9;
+		Vec3 side = new Vec3(-look.z, 0, look.x);
+		if (side.lengthSqr() < 1.0e-4) {
+			side = new Vec3(1, 0, 0);
+		}
+		side = side.normalize();
+		Vec3 up = side.cross(look).normalize();
+		for (int k = 0; k < 6; k++) {
+			double s = 1.0 + (k + (p.tickCount % 3) / 3.0) * (r - 1.0) / 6.0;
+			double rad = 0.3 + s * 0.28;
+			double a = t + k * 1.1;
+			Vec3 at = apex.add(look.scale(s)).add(side.scale(Math.cos(a) * rad)).add(up.scale(Math.sin(a) * rad));
+			level.sendParticles(ParticleTypes.CLOUD, at.x, at.y, at.z, 0, look.x * 0.6, look.y * 0.6, look.z * 0.6, 1.0);
+		}
+		if (p.tickCount % 3 == 0) {
+			Vec3 at = apex.add(look.scale(2.5 + (p.tickCount % 9) * 0.6));
+			level.sendParticles(ParticleTypes.GUST, at.x, at.y, at.z, 1, 0.3, 0.3, 0.3, 0.0);
+		}
+		if (p.tickCount % 10 == 0) {
+			SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.35f, 1.8f);
+		}
+	}
+
+	// ---------------------------------------------------------------- Z: hold Flash Time (and the portal) / Shift+Z Time Remnant
+
+	/** Whether Z is holding Flash Time right now (client-safe). */
+	public static boolean flashHeld(Player p) {
+		SpeedForceState s = SpeedForceSpeedster.peek(p);
+		return s != null && s.hasPower && s.flashLeft > 0;
+	}
+
+	/**
+	 * v0.17.1 (user: "make flash time a held down ability that drains speed force while active"): Z down -- time slows to a
+	 * crawl for everything but you (the game-wide slow the plain Speedster's Time Slow uses) for as long as Z is held,
+	 * draining {@link SpeedForceConfig#FLASH_COST_PER_SECOND} Speed Force a second on your own clock. Ends on release or when
+	 * the meter is empty.
+	 */
+	public static boolean startFlashTime(ServerPlayer p) {
+		if (SuperSpeedTimeSlow.isCasting(p) || !gate(p, FLASH)) {
 			return false;
 		}
 		if (SuperSpeedTimeSlow.anyActive()) {
 			p.displayClientMessage(Component.translatable("message.projecthero.speed.time_taken"), true);
 			return false;
 		}
-		if (!pay(p, SpeedForceConfig.FLASH_TIME_COST)) {
+		if (!has(p, SpeedForceConfig.FLASH_MIN)) {
 			return false;
 		}
-		int ticks = SpeedForceConfig.FLASH_TIME_BASE + Math.round(SpeedForceConfig.FLASH_TIME_MOMENTUM * m(p));
-		SuperSpeedTimeSlow.start(p, ticks);
+		SuperSpeedTimeSlow.start(p, SpeedForceConfig.FLASH_TIME_MAX);
 		if (!SuperSpeedTimeSlow.isCasting(p)) {
-			SpeedForceSpeedster.addMeter(p, SpeedForceConfig.FLASH_TIME_COST);
 			return false;
 		}
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
-		n.flashLeft = ticks;
-		n.flashTotal = ticks;
+		n.flashLeft = 1;
+		n.flashTotal = 0;
 		SpeedForceSpeedster.save(p, n);
 		ServerLevel level = level(p);
 		level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0, 0, 0, 0);
-		level.sendParticles(SpeedForceSpeedster.GOLD_BIG, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.6, 0.8, 0.6, 0.0);
+		level.sendParticles(dust(p, 2.2f), p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.6, 0.8, 0.6, 0.0);
 		return true;
 	}
 
-	/** Flash Time is over (from {@code SuperSpeedTimeSlow}): the cooldown starts now. */
+	/** Z let go (or the meter is empty): time runs again; any portal still forming collapses. */
+	public static void endFlashTime(ServerPlayer p) {
+		collapsePortal(p);
+		if (SuperSpeedTimeSlow.isCasting(p)) {
+			SuperSpeedTimeSlow.end(p, true); // -> onFlashTimeEnded
+		} else if (flashHeld(p)) {
+			onFlashTimeEnded(p);
+		}
+	}
+
+	/** Flash Time is over (from {@code SuperSpeedTimeSlow}, or the release): the short cooldown starts now. */
 	public static void onFlashTimeEnded(ServerPlayer p) {
 		if (!SpeedForceSpeedster.hasPower(p)) {
 			return;
 		}
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		boolean was = n.flashLeft > 0;
 		n.flashLeft = 0;
 		n.flashTotal = 0;
-		n.abilityReadyAt.put(FLASH, p.level().getGameTime() + HeroConfig.get().scaledCooldown(SpeedForceConfig.FLASH_TIME_COOLDOWN));
+		if (was) {
+			n.abilityReadyAt.put(FLASH, p.level().getGameTime() + HeroConfig.get().scaledCooldown(SpeedForceConfig.FLASH_TIME_COOLDOWN));
+		}
 		SpeedForceSpeedster.save(p, n);
+	}
+
+	/** The portal's charge so far, in caster ticks (0 = none forming). */
+	public static int portalCharge(Player p) {
+		SpeedForceState s = SpeedForceSpeedster.peek(p);
+		return s == null || !s.hasPower || s.flashLeft <= 0 ? 0 : s.flashTotal;
+	}
+
+	/** Where the portal forms: in front of the runner along the run, at chest height. */
+	static Vec3 portalCentre(ServerPlayer p) {
+		return p.position().add(flatLook(p).scale(SpeedForceConfig.PORTAL_DISTANCE)).add(0, 1.2, 0);
+	}
+
+	private static void collapsePortal(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.flashTotal <= 0) {
+			return;
+		}
+		SpeedForceState n = s.copy();
+		n.flashTotal = 0;
+		SpeedForceSpeedster.save(p, n);
+		Vec3 c = portalCentre(p);
+		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.PORTAL_COLLAPSE, c, c);
+		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 20, 0.6, 0.6, 0.6, 0.2);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.8f, 1.6f);
+		SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.portal_collapsed", ChatFormatting.GRAY);
+	}
+
+	/**
+	 * One caster tick of a held Flash Time: the drain, and -- v0.17.1 (user: "holding z for 5 seconds while running at max
+	 * momentum open up the speed force ... the portal should start forming in front of them before finally allowing them in")
+	 * -- the Speed Force portal: running flat out at 100% momentum (or locked there by the charge), the portal grows in front
+	 * of you over 5 s, a ring of your lightning widening, arcs crackling off it and sparks drawn in; at 5 s it takes you in.
+	 * Slowing below max, stopping or letting go collapses it.
+	 */
+	private static void flashTick(ServerPlayer p) {
+		if (!flashHeld(p)) {
+			return;
+		}
+		if (!SuperSpeedTimeSlow.isCasting(p) || !p.isAlive()) {
+			endFlashTime(p);
+			return;
+		}
+		if (p.tickCount % 5 == 0 && !SpeedForceSpeedster.spendMeter(p, SpeedForceConfig.FLASH_COST_PER_SECOND / 4f)) {
+			lowMeter(p, SpeedForceConfig.FLASH_MIN);
+			endFlashTime(p);
+			return;
+		}
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		boolean canOpen = SpeedForceSpeedster.atMaxRun(p) && ready(p, PORTAL) && s.drained <= 0 && !SpeedForceRealm.inside(p);
+		if (!canOpen) {
+			collapsePortal(p);
+			return;
+		}
+		int charge = s.flashTotal + 1;
+		SpeedForceState n = s.copy();
+		n.flashTotal = charge;
+		SpeedForceSpeedster.save(p, n);
+		float t = Math.min(1f, charge / (float) SpeedForceConfig.PORTAL_TICKS);
+		Vec3 c = portalCentre(p);
+		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.PORTAL, c, new Vec3(t, p.getYRot(), 0));
+		// sparks and the runner's lightning drawn in to it
+		ServerLevel level = level(p);
+		double radius = 0.3 + SpeedForceConfig.PORTAL_RADIUS * t;
+		Vec3 f = flatLook(p);
+		Vec3 side = new Vec3(-f.z, 0, f.x);
+		for (int k = 0; k < 2 + Math.round(t * 4); k++) {
+			double a = level.random.nextDouble() * Math.PI * 2;
+			double out = radius + 1.5 + level.random.nextDouble() * 2.0;
+			Vec3 at = c.add(side.scale(Math.cos(a) * out)).add(0, Math.sin(a) * out, 0);
+			Vec3 in = c.subtract(at).normalize();
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 0, in.x, in.y, in.z, 0.45);
+		}
+		if (charge % 10 == 0) {
+			SpeedForceSpeedster.sound(p, SoundEvents.BEACON_AMBIENT, 0.6f + 0.6f * t, 0.6f + 1.2f * t);
+		}
+		if (charge % 25 == 0) {
+			SpeedForceSpeedster.sound(p, SoundEvents.LIGHTNING_BOLT_IMPACT, 0.4f + 0.4f * t, 1.6f);
+		}
+		if (charge >= SpeedForceConfig.PORTAL_TICKS) {
+			SpeedForceSpeedster.fx(p, SpeedForceFxPayload.PORTAL_ENTER, c, c);
+			level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0.2, 0.2, 0.2, 0);
+			SpeedForceSpeedster.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 1.4f);
+			SpeedForceState m = SpeedForceSpeedster.state(p).copy();
+			m.flashTotal = 0;
+			SpeedForceSpeedster.save(p, m);
+			SpeedForceRealm.enter(p);
+		}
 	}
 
 	/** A copy of you from a second ago runs out of the Speed Force and fights beside you for 8 s. */
@@ -491,7 +890,7 @@ public final class SpeedForceAbilities {
 		SpeedForceSpeedster.save(p, n);
 		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, p.position(), at);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y + 1.0, at.z, 20, 0.3, 0.6, 0.3, 0.1);
-		level.sendParticles(SpeedForceSpeedster.GOLD_BIG, at.x, at.y + 1.0, at.z, 12, 0.3, 0.6, 0.3, 0.0);
+		level.sendParticles(dust(p, 2.2f), at.x, at.y + 1.0, at.z, 12, 0.3, 0.6, 0.3, 0.0);
 		SpeedForceSpeedster.sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.0f, 1.5f);
 		cooldown(p, REMNANT, SpeedForceConfig.REMNANT_COOLDOWN);
 		return img;
@@ -551,9 +950,78 @@ public final class SpeedForceAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- V: Rescue Run / Shift+V: Speed Heal
+	// ---------------------------------------------------------------- V: Afterimage Decoys / Shift+V Speed Heal / hold V Rewind
 
-	/** Grab the ally or mob in front of you and carry it at full speed; V again sets it down. */
+	/** Tap V: the plain Speedster's Afterimage Decoys -- three images every foe after you goes for instead, for 6 s. */
+	public static boolean decoys(ServerPlayer p) {
+		if (!gate(p, DECOYS)) {
+			return false;
+		}
+		if (!SuperSpeedMoves.decoysCore(p)) {
+			return false;
+		}
+		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_STEP);
+		cooldown(p, DECOYS, SpeedForceConfig.DECOY_COOLDOWN);
+		return true;
+	}
+
+	/** Shift+V: burn Speed Force to heal fast -- 10 health at once, Regeneration III for 4 s, every harmful effect gone. */
+	public static boolean speedHeal(ServerPlayer p) {
+		if (!gate(p, HEAL) || !pay(p, SpeedForceConfig.HEAL_COST)) {
+			return false;
+		}
+		p.heal(SpeedForceConfig.HEAL_AMOUNT);
+		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SpeedForceConfig.HEAL_REGEN_TICKS, 2, false, true, true));
+		for (MobEffectInstance effect : List.copyOf(p.getActiveEffects())) {
+			if (effect.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
+				p.removeEffect(effect.getEffect());
+			}
+		}
+		p.clearFire();
+		ServerLevel level = level(p);
+		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.4, 0.6, 0.4, 0.0);
+		level.sendParticles(dust(p, 1.2f), p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.8, 0.4, 0.0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.4, 0.8, 0.4, 0.2);
+		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_HEAL);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.8f, 1.8f);
+		cooldown(p, HEAL, SpeedForceConfig.HEAL_COOLDOWN);
+		return true;
+	}
+
+	/** Hold V: snap back to where you stood 5 s ago, with the health you had then (never less than now). 60 Speed Force. */
+	public static boolean rewind(ServerPlayer p) {
+		if (!gate(p, REWIND)) {
+			return false;
+		}
+		SpeedForceSpeedster.Snap then = SpeedForceSpeedster.history(p, SpeedForceConfig.REWIND_TICKS);
+		if (then == null) {
+			return false;
+		}
+		if (!pay(p, SpeedForceConfig.REWIND_COST)) {
+			return false;
+		}
+		Vec3 from = p.position();
+		SpeedForceSpeedster.graceMotion(p, 3);
+		p.teleportTo(p.serverLevel(), then.pos().x, then.pos().y, then.pos().z, then.yRot(), then.xRot());
+		p.setDeltaMovement(Vec3.ZERO);
+		p.resetFallDistance();
+		p.hurtMarked = true;
+		if (then.health() > p.getHealth()) {
+			p.setHealth(Math.min(p.getMaxHealth(), then.health()));
+		}
+		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, then.pos());
+		ServerLevel level = level(p);
+		level.sendParticles(ParticleTypes.REVERSE_PORTAL, from.x, from.y + 1.0, from.z, 30, 0.3, 0.6, 0.3, 0.05);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, then.pos().x, then.pos().y + 1.0, then.pos().z, 30, 0.3, 0.6, 0.3, 0.15);
+		SpeedForceSpeedster.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.8f, 1.6f);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.8f, 1.9f);
+		cooldown(p, REWIND, SpeedForceConfig.REWIND_COOLDOWN);
+		return true;
+	}
+
+	// ---------------------------------------------------------------- N: Rescue Run
+
+	/** Grab the ally or mob in front of you and carry it at full speed; N again sets it down. */
 	public static boolean rescueRun(ServerPlayer p) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.carryId != 0) {
@@ -582,6 +1050,7 @@ public final class SpeedForceAbilities {
 		n.carryId = target.getId();
 		n.animId = SpeedForceState.ANIM_GRAB;
 		n.animStart = p.level().getGameTime();
+		n.holdAnim = false;
 		SpeedForceSpeedster.save(p, n);
 		SpeedForceSpeedster.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 1.2f);
 		cooldown(p, RESCUE, SpeedForceConfig.RESCUE_COOLDOWN);
@@ -642,183 +1111,9 @@ public final class SpeedForceAbilities {
 		}
 	}
 
-	/** Burn Speed Force to heal fast: 10 health at once, Regeneration III for 4 s, every harmful effect gone. */
-	public static boolean speedHeal(ServerPlayer p) {
-		if (!gate(p, HEAL) || !pay(p, SpeedForceConfig.HEAL_COST)) {
-			return false;
-		}
-		p.heal(SpeedForceConfig.HEAL_AMOUNT);
-		p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SpeedForceConfig.HEAL_REGEN_TICKS, 2, false, true, true));
-		for (MobEffectInstance effect : List.copyOf(p.getActiveEffects())) {
-			if (effect.getEffect().value().getCategory() == MobEffectCategory.HARMFUL) {
-				p.removeEffect(effect.getEffect());
-			}
-		}
-		p.clearFire();
-		ServerLevel level = level(p);
-		level.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.4, 0.6, 0.4, 0.0);
-		level.sendParticles(SpeedForceSpeedster.GOLD, p.getX(), p.getY() + 1.0, p.getZ(), 30, 0.4, 0.8, 0.4, 0.0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.4, 0.8, 0.4, 0.2);
-		SpeedForceSpeedster.setAnim(p, SpeedForceState.ANIM_HEAL);
-		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.8f, 1.8f);
-		cooldown(p, HEAL, SpeedForceConfig.HEAL_COOLDOWN);
-		return true;
-	}
+	// ---------------------------------------------------------------- C: Speed Mode / Shift+C Phase (held) / hold C the charge
 
-	// ---------------------------------------------------------------- C: Speed Force Surge / Shift+C: Rewind
-
-	/** Lock the momentum at 100% for 15 s with blinding lightning off the body. 50 Speed Force. */
-	public static boolean surge(ServerPlayer p) {
-		if (SpeedForceSpeedster.surging(p) || !gate(p, SURGE) || !pay(p, SpeedForceConfig.SURGE_COST)) {
-			return false;
-		}
-		long now = p.level().getGameTime();
-		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
-		n.surgeUntil = now + SpeedForceConfig.SURGE_TICKS;
-		n.momentum = 1f;
-		n.animId = SpeedForceState.ANIM_SURGE;
-		n.animStart = now;
-		n.abilityReadyAt.put(SURGE, now + HeroConfig.get().scaledCooldown(SpeedForceConfig.SURGE_COOLDOWN));
-		SpeedForceSpeedster.save(p, n);
-		ServerLevel level = level(p);
-		Vec3 c = p.position().add(0, 1.0, 0);
-		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 60, 0.6, 1.0, 0.6, 0.5);
-		level.sendParticles(SpeedForceSpeedster.GOLD_BIG, c.x, c.y, c.z, 40, 0.6, 1.0, 0.6, 0.0);
-		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.SURGE, c, c);
-		SpeedForceSpeedster.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.8f, 1.6f);
-		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_ACTIVATE, 1.0f, 1.8f);
-		return true;
-	}
-
-	/** Snap back to where you stood 5 s ago, with the health you had then (never less than now). 60 Speed Force. */
-	public static boolean rewind(ServerPlayer p) {
-		if (!gate(p, REWIND)) {
-			return false;
-		}
-		SpeedForceSpeedster.Snap then = SpeedForceSpeedster.history(p, SpeedForceConfig.REWIND_TICKS);
-		if (then == null) {
-			return false;
-		}
-		if (!pay(p, SpeedForceConfig.REWIND_COST)) {
-			return false;
-		}
-		Vec3 from = p.position();
-		SpeedForceSpeedster.graceMotion(p, 3);
-		p.teleportTo(p.serverLevel(), then.pos().x, then.pos().y, then.pos().z, then.yRot(), then.xRot());
-		p.setDeltaMovement(Vec3.ZERO);
-		p.resetFallDistance();
-		p.hurtMarked = true;
-		if (then.health() > p.getHealth()) {
-			p.setHealth(Math.min(p.getMaxHealth(), then.health()));
-		}
-		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, then.pos());
-		ServerLevel level = level(p);
-		level.sendParticles(ParticleTypes.REVERSE_PORTAL, from.x, from.y + 1.0, from.z, 30, 0.3, 0.6, 0.3, 0.05);
-		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, then.pos().x, then.pos().y + 1.0, then.pos().z, 30, 0.3, 0.6, 0.3, 0.15);
-		SpeedForceSpeedster.sound(p, SoundEvents.ENDERMAN_TELEPORT, 0.8f, 1.6f);
-		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.8f, 1.9f);
-		cooldown(p, REWIND, SpeedForceConfig.REWIND_COOLDOWN);
-		return true;
-	}
-
-	// ---------------------------------------------------------------- V: Speed Force Barrier
-
-	/**
-	 * v0.17.1 (user: "give the V keybind another ability"): run a wall of wind round yourself for 8 s. Arrows, fireballs
-	 * and every other projectile that comes within 3.5 blocks is knocked away, and mobs are pushed back out (bosses only
-	 * slowed). No damage -- Speed Tornado is the one that hurts. Press V again to drop it early; the cooldown starts when
-	 * it drops.
-	 */
-	public static boolean speedForceBarrier(ServerPlayer p) {
-		if (BARRIERS.containsKey(p.getUUID())) {
-			dropBarrier(p);
-			return true;
-		}
-		if (!gate(p, BARRIER) || !pay(p, SpeedForceConfig.BARRIER_COST)) {
-			return false;
-		}
-		BARRIERS.put(p.getUUID(), p.level().getGameTime() + SpeedForceConfig.BARRIER_TICKS);
-		SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_WIND_CHARGE_BURST.value(), 1.0f, 1.4f);
-		SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.5f, 1.8f);
-		return true;
-	}
-
-	public static boolean barrierUp(Player p) {
-		return BARRIERS.containsKey(p.getUUID());
-	}
-
-	private static void dropBarrier(ServerPlayer p) {
-		if (BARRIERS.remove(p.getUUID()) != null) {
-			cooldown(p, BARRIER, SpeedForceConfig.BARRIER_COOLDOWN);
-			SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_DEFLECT, 0.8f, 1.2f);
-		}
-	}
-
-	private static void barrierTick(ServerPlayer p, long now) {
-		Long until = BARRIERS.get(p.getUUID());
-		if (until == null) {
-			return;
-		}
-		if (now >= until || p.isDeadOrDying() || SpeedForceSpeedster.phasing(p)) {
-			dropBarrier(p);
-			return;
-		}
-		ServerLevel level = level(p);
-		Vec3 c = p.position();
-		double r = SpeedForceConfig.BARRIER_RADIUS;
-		AABB box = new AABB(c.x - r - 2, c.y - 1, c.z - r - 2, c.x + r + 2, c.y + 4, c.z + r + 2);
-		// projectiles: anything not ours coming in is batted back out
-		for (net.minecraft.world.entity.projectile.Projectile pr : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
-				box, e -> e.getOwner() != p)) {
-			Vec3 out = new Vec3(pr.getX() - c.x, 0, pr.getZ() - c.z);
-			if (out.lengthSqr() > (r + 1.5) * (r + 1.5)) {
-				continue;
-			}
-			out = out.lengthSqr() < 1.0e-4 ? flatLook(p) : out.normalize();
-			double speed = Math.max(0.6, pr.getDeltaMovement().length());
-			pr.setDeltaMovement(out.scale(speed).add(0, 0.25, 0));
-			pr.hurtMarked = true;
-			if (pr instanceof net.minecraft.world.entity.projectile.AbstractHurtingProjectile hp) {
-				hp.accelerationPower = 0.1;
-			}
-			level.sendParticles(SpeedForceSpeedster.GOLD, pr.getX(), pr.getY(), pr.getZ(), 4, 0.1, 0.1, 0.1, 0.0);
-			if (now % 4 == 0) {
-				SpeedForceSpeedster.sound(p, SoundEvents.BREEZE_DEFLECT, 0.6f, 1.6f);
-			}
-		}
-		// mobs: pushed back out of the ring
-		for (LivingEntity e : SpeedForceCombat.within(p, c.add(0, 1, 0), r)) {
-			Vec3 out = new Vec3(e.getX() - c.x, 0, e.getZ() - c.z);
-			out = out.lengthSqr() < 1.0e-4 ? flatLook(p) : out.normalize();
-			if (SpeedForceCombat.isBoss(e)) {
-				e.setDeltaMovement(e.getDeltaMovement().scale(0.5));
-			} else {
-				e.setDeltaMovement(out.scale(0.7).add(0, 0.15, 0));
-			}
-			e.hurtMarked = true;
-		}
-		// the wall itself: three bands of wind and gold streaks spinning round
-		double t = now * 0.9;
-		for (int band = 0; band < 3; band++) {
-			for (int k = 0; k < 6; k++) {
-				double a = t + k * Math.PI / 3 + band * 0.5;
-				level.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * r, c.y + 0.3 + band * 0.8, c.z + Math.sin(a) * r, 1, 0.02, 0.05, 0.02, 0.0);
-			}
-		}
-		if (now % 2 == 0) {
-			Vec3 from = c.add(Math.cos(t) * r, 0.2 + (now % 6) * 0.35, Math.sin(t) * r);
-			Vec3 to = c.add(Math.cos(t + 1.2) * r, 0.2 + (now % 6) * 0.35, Math.sin(t + 1.2) * r);
-			SpeedForceSpeedster.fx(p, SpeedForceFxPayload.STREAK, from, to);
-		}
-		if (now % 14 == 0) {
-			SpeedForceSpeedster.sound(p, SoundEvents.ELYTRA_FLYING, 0.25f, 1.9f);
-		}
-	}
-
-	// ---------------------------------------------------------------- C: Speed Mode / hold Shift+C: the charged launch
-
-	/** v0.17.1 (user: "there needs to be a way to turn it on and off"): C turns Speed Mode on (20 b/s base) or off. */
+	/** v0.17.1 (user: "there needs to be a way to turn it on and off"): tap C turns Speed Mode on (20 b/s base) or off. */
 	public static boolean toggleSpeedMode(ServerPlayer p) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.chargeStart != 0L) {
@@ -843,7 +1138,56 @@ public final class SpeedForceAbilities {
 		return true;
 	}
 
-	/** Hold Shift+C: drop into the charge stance (rooted, the Speed Force building round you for 3 s). */
+	/** Hold Shift+C: vibrate through walls on your own level (no damage taken, none dealt, no other move). */
+	public static boolean startPhase(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.phasing || !gate(p, PHASE)) {
+			return false;
+		}
+		if (s.meter < SpeedForceConfig.PHASE_MIN) {
+			lowMeter(p, SpeedForceConfig.PHASE_MIN);
+			return false;
+		}
+		SpeedForceState n = s.copy();
+		n.phasing = true;
+		SpeedForceSpeedster.save(p, n);
+		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_ACTIVATE, 0.6f, 2.0f);
+		return true;
+	}
+
+	public static void endPhase(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (!s.phasing) {
+			return;
+		}
+		SpeedForceState n = s.copy();
+		n.phasing = false;
+		SpeedForceSpeedster.save(p, n);
+		SuperSpeedHandlers.settleOutsideBlocks(p);
+		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.6f, 2.0f);
+		cooldown(p, PHASE, SpeedForceConfig.PHASE_COOLDOWN);
+	}
+
+	private static void phaseTick(ServerPlayer p, SpeedForceState s) {
+		if (!s.phasing) {
+			return;
+		}
+		if (!p.isAlive()) {
+			endPhase(p);
+			return;
+		}
+		if (p.tickCount % 5 == 0 && !SpeedForceSpeedster.spendMeter(p, SpeedForceConfig.PHASE_COST_PER_SECOND / 4f)) {
+			endPhase(p);
+			return;
+		}
+		if (p.tickCount % 3 == 0) {
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 3, 0.3, 0.6, 0.3, 0.05);
+		}
+	}
+
+	/** Hold C: drop into the charge stance (rooted, the Speed Force building round you for 3 s). */
 	public static boolean startCharge(ServerPlayer p) {
 		if (SpeedForceSpeedster.state(p).chargeStart != 0L || !gate(p, LAUNCH)) {
 			return false;
@@ -852,12 +1196,13 @@ public final class SpeedForceAbilities {
 		n.chargeStart = p.level().getGameTime();
 		n.animId = SpeedForceState.ANIM_CHARGE;
 		n.animStart = n.chargeStart;
+		n.holdAnim = false;
 		SpeedForceSpeedster.save(p, n);
 		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.6f);
 		return true;
 	}
 
-	/** Shift+C let go: after the full 3 s, Speed Mode on at full momentum at once; earlier, the charge fizzles. */
+	/** C let go: after the full 3 s, Speed Mode on at full momentum at once; earlier, the charge fizzles. */
 	public static boolean releaseCharge(ServerPlayer p) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.chargeStart == 0L) {
@@ -893,7 +1238,7 @@ public final class SpeedForceAbilities {
 		return true;
 	}
 
-	/** While charging: held in place, gold lightning gathering, a chime when it is ready. */
+	/** While charging: held in place, lightning gathering, a chime when it is ready. */
 	private static void chargeTick(ServerPlayer p, long now) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.chargeStart == 0L) {
@@ -914,7 +1259,7 @@ public final class SpeedForceAbilities {
 		float t = Math.min(1f, age / (float) SpeedForceConfig.CHARGE_TICKS);
 		double a = age * 0.7;
 		double r = 1.4 - 0.8 * t;
-		level.sendParticles(SpeedForceSpeedster.GOLD, p.getX() + Math.cos(a) * r, p.getY() + 0.2 + (age % 10) * 0.15, p.getZ() + Math.sin(a) * r,
+		level.sendParticles(dust(p, 1.2f), p.getX() + Math.cos(a) * r, p.getY() + 0.2 + (age % 10) * 0.15, p.getZ() + Math.sin(a) * r,
 				1 + (int) (t * 3), 0.05, 0.05, 0.05, 0.0);
 		if (age % 3 == 0) {
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.8, p.getZ(), 2 + (int) (t * 6), 0.35, 0.5, 0.35, 0.05 + t * 0.1);
@@ -931,35 +1276,28 @@ public final class SpeedForceAbilities {
 	// ---------------------------------------------------------------- upkeep
 
 	static void tick(ServerPlayer p, long now) {
-		SpeedForceState s = SpeedForceSpeedster.state(p);
-		barrierTick(p, now);
 		chargeTick(p, now);
 		SpeedForceAbilityManager.tick(p, now);
-		throwTick(p, s);
+		massTick(p);
+		throwTick(p);
+		armsTick(p);
+		flashTick(p);
+		if (!SuperSpeedHandlers.owns(p)) {
+			SuperSpeedMoves.sweepTick(p); // the borrowed Speed Sweep (a plain Speedster's own tick runs it otherwise)
+		}
 		tornadoTick(p, SpeedForceSpeedster.state(p));
 		phaseTick(p, SpeedForceSpeedster.state(p));
 		carryTick(p, SpeedForceSpeedster.state(p));
 		remnantTick(p, SpeedForceSpeedster.state(p), now);
-		s = SpeedForceSpeedster.state(p);
-		// Flash Time's ticks left on the HUD (the caster's own clock)
-		if (s.flashTotal > 0 && p.tickCount % 5 == 0) {
-			int left = SuperSpeedTimeSlow.isCasting(p) ? SuperSpeedTimeSlow.ticksLeft() : 0;
-			if (left != s.flashLeft) {
-				SpeedForceState n = s.copy();
-				n.flashLeft = left;
-				if (left == 0) {
-					n.flashTotal = 0;
-				}
-				SpeedForceSpeedster.save(p, n);
-			}
-		}
+		SpeedForceState s = SpeedForceSpeedster.state(p);
 		if (s.surgeUntil != 0L && s.surgeUntil <= now) {
 			SpeedForceState n = s.copy();
 			n.surgeUntil = 0L;
 			SpeedForceSpeedster.save(p, n);
 		}
-		if (s.animId != SpeedForceState.ANIM_NONE && s.animId != SpeedForceState.ANIM_TORNADO && now - s.animStart > 30) {
-			SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		s = SpeedForceSpeedster.state(p);
+		if (s.animId != SpeedForceState.ANIM_NONE && !s.holdAnim && s.animId != SpeedForceState.ANIM_TORNADO && now - s.animStart > 30) {
+			SpeedForceState n = s.copy();
 			n.animId = SpeedForceState.ANIM_NONE;
 			SpeedForceSpeedster.save(p, n);
 		}
@@ -975,13 +1313,31 @@ public final class SpeedForceAbilities {
 			Entity e = p.level().getEntity(s.carryId);
 			release(p, e instanceof LivingEntity le ? le : null);
 		}
-		if (s.phasing) {
+		if (s.phasing || s.holdAnim || s.flashLeft > 0) {
 			SpeedForceState n = SpeedForceSpeedster.state(p).copy();
 			n.phasing = false;
+			n.holdAnim = false;
+			n.animId = SpeedForceState.ANIM_NONE;
+			n.flashTotal = 0;
 			SpeedForceSpeedster.save(p, n);
 		}
+		MASS_WINDUP.remove(p.getUUID());
+		THROW_CHARGE.remove(p.getUUID());
 		killRemnant(p);
-		BARRIERS.remove(p.getUUID());
-		SuperSpeedTimeSlow.end(p, false);
+		if (!SuperSpeedHandlers.owns(p)) {
+			SuperSpeedMoves.endSweep(p);
+		}
+		SuperSpeedTimeSlow.end(p, false); // -> onFlashTimeEnded
+		SpeedForceState n = SpeedForceSpeedster.state(p);
+		if (n.flashLeft > 0) {
+			SpeedForceState c = n.copy();
+			c.flashLeft = 0;
+			SpeedForceSpeedster.save(p, c);
+		}
+	}
+
+	static void forget(UUID id) {
+		MASS_WINDUP.remove(id);
+		THROW_CHARGE.remove(id);
 	}
 }

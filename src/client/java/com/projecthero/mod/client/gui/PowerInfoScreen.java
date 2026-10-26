@@ -113,6 +113,11 @@ public final class PowerInfoScreen extends Screen {
 					&& com.projecthero.mod.greenlantern.GreenLantern.hasPower(Minecraft.getInstance().player)) {
 				greenLanternRank(wrapW);
 			}
+			// v0.17.1 (user): a Speed Force Speedster sees the drain after the Speed Force (and the portal's cooldown) first
+			if (Minecraft.getInstance().player != null
+					&& com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(Minecraft.getInstance().player)) {
+				speedForceStatus(wrapW);
+			}
 			for (Component line : heroChapter.lines()) {
 				wrap(line, wrapW);
 			}
@@ -154,6 +159,31 @@ public final class PowerInfoScreen extends Screen {
 		for (Component line : com.projecthero.mod.hero.guide.HeroPackGuide.powerChapter(power, -1).lines()) {
 			wrap(line, wrapW);
 		}
+	}
+
+	/**
+	 * v0.17.1: the Speed Force Speedster's status -- the drain after leaving the Speed Force (a text bar and the time left, what
+	 * it does) and when the Speed Force portal opens again.
+	 */
+	private void speedForceStatus(int wrapW) {
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		int drained = com.projecthero.mod.speedforce.SpeedForceSpeedster.drained(p);
+		if (drained > 0) {
+			int total = com.projecthero.mod.speedforce.SpeedForceConfig.DRAINED_TICKS;
+			int cells = 20;
+			int filled = Math.round(cells * Math.min(1f, drained / (float) total));
+			int secs = (drained + 19) / 20;
+			wrap(Component.translatable("screen.projecthero.power_info.speed_force.drained").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), wrapW);
+			wrap(Component.literal("[" + "|".repeat(filled)).withStyle(ChatFormatting.RED)
+					.append(Component.literal("|".repeat(cells - filled) + "] ").withStyle(ChatFormatting.DARK_GRAY))
+					.append(Component.literal(String.format(java.util.Locale.ROOT, "%d:%02d", secs / 60, secs % 60)).withStyle(ChatFormatting.WHITE)), wrapW);
+			wrap(Component.translatable("screen.projecthero.power_info.speed_force.drained.body").withStyle(ChatFormatting.GRAY), wrapW);
+		}
+		int portal = com.projecthero.mod.speedforce.SpeedForceSpeedster.cooldownRemaining(p, com.projecthero.mod.speedforce.SpeedForceAbilities.PORTAL);
+		wrap((portal > 0
+				? Component.translatable("screen.projecthero.power_info.speed_force.portal_wait", (portal + 19) / 20)
+				: Component.translatable("screen.projecthero.power_info.speed_force.portal_ready")).withStyle(ChatFormatting.GOLD), wrapW);
+		body.add(FormattedCharSequence.EMPTY);
 	}
 
 	/** v0.17.1: the Lantern Rank block -- rank, an XP bar, what the next rank brings, the live multipliers and the keys. */

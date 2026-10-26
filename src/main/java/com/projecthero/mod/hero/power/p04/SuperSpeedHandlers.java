@@ -376,8 +376,17 @@ public final class SuperSpeedHandlers {
 
 	/** Four punches of 5 on everything in front of you; every blow lands in full, even on a player or a mob just hit. */
 	public static void rapidAssault(AbilityContext ctx) {
-		ServerPlayer p = ctx.player();
-		float m = overdriveMult(p);
+		rapidAssaultCore(ctx.player());
+		ctx.triggerCooldown();
+	}
+
+	/**
+	 * v0.17.1: the flurry itself, no cooldown (the Speed Force Speedster's tap R borrows it -- half strength while drained
+	 * after the Speed Force). Returns how many it hit.
+	 */
+	public static int rapidAssaultCore(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		float m = overdriveMult(p) * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p);
 		int struck = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.getEyePosition().add(p.getLookAngle().scale(1.5)), 3.5)) {
 			if (!SuperSpeedMoves.validFoe(p, e)) {
@@ -386,19 +395,21 @@ public final class SuperSpeedHandlers {
 			for (int i = 0; i < PUNCHES; i++) {
 				SuperSpeedMoves.punchThrough(p, e, PUNCH_DAMAGE * m);
 			}
-			AbilityHelpers.knockbackFrom(e, p.position(), 0.35 * m);
-			ctx.level().sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+			AbilityHelpers.knockbackFrom(e, p.position(), 0.35 * overdriveMult(p));
+			level.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
 					PUNCHES * 3, 0.35, 0.35, 0.35, 0.3);
-			ctx.level().sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(),
 					PUNCHES, 0.3, 0.3, 0.3, 0.2);
 			struck++;
 		}
-		BatchA.play(p, KEY, "p04.flurry", 12);
+		if (owns(p)) {
+			BatchA.play(p, KEY, "p04.flurry", 12);
+		}
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 1.8f);
 		if (struck > 0) {
 			AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.8f, 2.0f);
 		}
-		ctx.triggerCooldown();
+		return struck;
 	}
 
 	private static void cooldownMessage(AbilityContext ctx) {

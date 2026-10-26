@@ -257,12 +257,27 @@ public final class SuperSpeedMoves {
 		return com.projecthero.mod.combat.HeroTargets.canHarm(p, e);
 	}
 
+	/**
+	 * Overdrive doubles the moves; v0.17.1: the Speed Force Speedster borrows Rapid Assault, Mach Punch, Blitz and Speed
+	 * Sweep, at half strength while drained after the Speed Force ({@code SpeedForceSpeedster#damageScale}).
+	 */
 	private static float mult(ServerPlayer p) {
-		return SuperSpeedHandlers.overdrive(p) ? 2.0f : 1.0f;
+		return (SuperSpeedHandlers.overdrive(p) ? 2.0f : 1.0f) * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p);
 	}
 
 	public static int color(ServerPlayer p) {
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(p)) {
+			// v0.17.1: a Speed Force Speedster's borrowed moves streak in their own lightning colour
+			return com.projecthero.mod.speedforce.SpeedForceColours.tone(com.projecthero.mod.speedforce.SpeedForceColours.of(p), 1);
+		}
 		return SuperSpeedHandlers.overdrive(p) ? RED : YELLOW;
+	}
+
+	/** v0.17.1: the mutation's pose for a move -- only for a plain Speedster (a Speed Force Speedster has its own poses). */
+	private static void anim(ServerPlayer p, String anim) {
+		if (SuperSpeedHandlers.owns(p)) {
+			BatchA.play(p, key(), anim);
+		}
 	}
 
 	private static boolean shiftReady(ServerPlayer p, String name) {
@@ -415,16 +430,23 @@ public final class SuperSpeedMoves {
 			cooldownMessage(p, "blitz", ctx.cooldownRemaining());
 			return;
 		}
+		if (blitzCore(p)) {
+			ctx.triggerCooldown();
+		}
+	}
+
+	/** v0.17.1: the Blitz itself, no cooldown (the Speed Force Speedster's tap G borrows it). False if nothing to hit. */
+	public static boolean blitzCore(ServerPlayer p) {
 		LivingEntity target = aimTarget(p, BLITZ_RANGE);
 		if (target == null) {
 			noTarget(p);
-			return;
+			return false;
 		}
 		Vec3 from = p.position();
 		Vec3 spot = strikeSpot(p, target, from);
 		if (spot == null) {
 			noTarget(p);
-			return;
+			return false;
 		}
 		ServerLevel level = p.serverLevel();
 		soundAt(level, from, SoundEvents.BREEZE_SHOOT, 0.9f, 1.7f);
@@ -440,8 +462,8 @@ public final class SuperSpeedMoves {
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.3, 0.4, 0.3, 0.25);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 0.9f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.35f, 1.9f);
-		BatchA.play(p, key(), "p04.blitz");
-		ctx.triggerCooldown();
+		anim(p, "p04.blitz");
+		return true;
 	}
 
 	/** v0.14.13: the impact of a Blitz hits every other foe round the target (squad, pets and the speedster are spared). */
@@ -475,8 +497,16 @@ public final class SuperSpeedMoves {
 			return;
 		}
 		double speed = SuperSpeedHandlers.recentSpeed(p);
-		float frac = (float) Mth.clamp(speed / MACH_FULL_SPEED, 0.0, 1.0);
-		float damage = machDamage(speed);
+		machPunchCore(p, (float) Mth.clamp(speed / MACH_FULL_SPEED, 0.0, 1.0));
+		startShiftCooldown(p, MACH_READY, MACH_CD);
+	}
+
+	/**
+	 * v0.17.1: the Mach Punch itself, no cooldown (the Speed Force Speedster's Shift+R borrows it; {@code frac} is how fast
+	 * the runner is going, 0..1 -- the knockback and the ring grow with it). The foe in front within 5 blocks, or the air.
+	 */
+	public static void machPunchCore(ServerPlayer p, float frac) {
+		float damage = (MACH_MIN + (MACH_MAX - MACH_MIN) * frac) * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p);
 		ServerLevel level = p.serverLevel();
 		Vec3 look = p.getLookAngle();
 		LivingEntity target = aimTarget(p, 5.0);
@@ -493,7 +523,7 @@ public final class SuperSpeedMoves {
 			if (e == target) {
 				continue;
 			}
-			punchThrough(p, e, MACH_SHOCKWAVE);
+			punchThrough(p, e, MACH_SHOCKWAVE * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p));
 			AbilityHelpers.knockbackFrom(e, impact, 1.2 + frac);
 		}
 		level.sendParticles(ParticleTypes.SONIC_BOOM, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
@@ -504,8 +534,7 @@ public final class SuperSpeedMoves {
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.9f, 1.7f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.8f, 1.4f);
 		AbilityHelpers.sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
-		BatchA.play(p, key(), "p04.mach_punch");
-		startShiftCooldown(p, MACH_READY, MACH_CD);
+		anim(p, "p04.mach_punch");
 	}
 
 	// ---- Shift+G: Speed Vortex -----------------------------------------------------------------------
@@ -624,20 +653,41 @@ public final class SuperSpeedMoves {
 			cooldownMessage(p, "speed_sweep", shiftRemaining(p, SWEEP_READY));
 			return;
 		}
+		if (beginSweep(p)) {
+			startShiftCooldown(p, SWEEP_READY, SWEEP_CD);
+		}
+	}
+
+	/**
+	 * v0.17.1: starts a Speed Sweep, no cooldown (the Speed Force Speedster's Shift+X borrows it; its ticks come from
+	 * {@link #sweepTick}). False if nothing is in range or one is already running.
+	 */
+	public static boolean beginSweep(ServerPlayer p) {
+		if (SWEEPS.containsKey(p.getUUID())) {
+			return false;
+		}
 		List<Integer> found = new ArrayList<>();
 		for (LivingEntity e : AbilityHelpers.living(p.serverLevel(), p.position(), SWEEP_RANGE, e -> sweepTarget(p, e))) {
 			found.add(e.getId());
 		}
 		if (found.isEmpty()) {
 			noTarget(p);
-			return;
+			return false;
 		}
 		SWEEPS.put(p.getUUID(), new Sweep(p.level().dimension(), p.position(), p.getYRot(), p.getXRot(),
 				new SweepTargets(found)));
-		startShiftCooldown(p, SWEEP_READY, SWEEP_CD);
-		BatchA.play(p, key(), "p04.sweep");
+		anim(p, "p04.sweep");
 		AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 1.0f, 1.4f);
 		sweepTick(p);
+		return true;
+	}
+
+	/** v0.17.1: calls a running sweep off and brings the speedster home (a fresh press, or the power going). */
+	public static void endSweep(ServerPlayer p) {
+		Sweep s = SWEEPS.get(p.getUUID());
+		if (s != null) {
+			finishSweep(p, s);
+		}
 	}
 
 	/** v0.14.16: X was let go -- from now on a fresh press ends a running sweep. */
@@ -915,6 +965,13 @@ public final class SuperSpeedMoves {
 			cooldownMessage(p, "afterimage_decoys", shiftRemaining(p, DECOY_READY));
 			return;
 		}
+		if (decoysCore(p)) {
+			startShiftCooldown(p, DECOY_READY, DECOY_CD);
+		}
+	}
+
+	/** v0.17.1: the decoys themselves, no cooldown (the Speed Force Speedster's tap V borrows them). False if none appeared. */
+	public static boolean decoysCore(ServerPlayer p) {
 		ServerLevel level = p.serverLevel();
 		Vec3 fwd = BatchA.flatLook(p);
 		Vec3 right = new Vec3(-fwd.z, 0, fwd.x);
@@ -939,9 +996,8 @@ public final class SuperSpeedMoves {
 			spawned++;
 		}
 		if (spawned == 0) {
-			return;
+			return false;
 		}
-		startShiftCooldown(p, DECOY_READY, DECOY_CD);
 		// mobs already on you switch to the images straight away
 		for (Mob mob : level.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(DECOY_LURE_RANGE), m -> m.getTarget() == p)) {
 			List<com.projecthero.mod.hero.revamp.d.MirrorImageEntity> images = level.getEntitiesOfClass(
@@ -951,9 +1007,10 @@ public final class SuperSpeedMoves {
 				mob.setTarget(images.get(level.random.nextInt(images.size())));
 			}
 		}
-		BatchA.play(p, key(), "dash_forward", 10);
+		anim(p, "dash_forward");
 		AbilityHelpers.sound(p, SoundEvents.ILLUSIONER_MIRROR_MOVE, 1.0f, 1.6f);
 		AbilityHelpers.sound(p, SoundEvents.BREEZE_SHOOT, 0.6f, 1.9f);
+		return true;
 	}
 
 	// ---- upkeep ----------------------------------------------------------------------------------------

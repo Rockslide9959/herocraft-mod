@@ -37,6 +37,7 @@ public final class SpeedForceCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		damage *= SpeedForceSpeedster.damageScale(owner); // v0.17.1 (user): half strength while drained after the Speed Force
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * SpeedForceConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1.0f, dmg))) {
 			return false;

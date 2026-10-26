@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1: what makes 250 blocks a second actually run smoothly on the ground for the Speed Force Speedster (local
  * player only; the server accepts the positions -- see {@code SpeedForceMoveCheckMixin}). The speed itself is the
- * MOVEMENT_SPEED attribute the server sets from the momentum, and the step assist grows with it (up to 5 blocks); here:
+ * MOVEMENT_SPEED attribute the server sets from the momentum, and the step assist grows with it (6 blocks, up to 8); here:
  * <ul>
  *   <li><b>ground hugging</b>: running off a dip or down a slope at 12 blocks a tick would launch you 30 blocks through
  *       the air -- a runner who was on the ground and didn't jump is set back down on the ground below (up to a couple of
@@ -43,7 +43,7 @@ public abstract class SpeedForceLocalPlayerMixin {
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$speedForceMovement(CallbackInfo ci) {
 		LocalPlayer self = (LocalPlayer) (Object) this;
-		// v0.17.1 (user): the Shift+C charge stance holds you in place
+		// v0.17.1 (user): the hold-C charge stance holds you in place
 		if (SpeedForceSpeedster.chargeStart(self) != 0L) {
 			Vec3 cv = self.getDeltaMovement();
 			self.setDeltaMovement(0.0, Math.min(0.0, cv.y), 0.0);

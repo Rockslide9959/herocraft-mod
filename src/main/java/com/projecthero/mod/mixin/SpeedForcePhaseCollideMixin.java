@@ -13,7 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.1 Speed Force Speedster Shift+X Phase: like the plain Speedster's, horizontal movement ignores blocks while vertical
+ * v0.17.1 Speed Force Speedster Phase (hold Shift+C since v0.17.1 round 2): like the plain Speedster's, horizontal movement ignores blocks while vertical
  * collision is kept -- through walls on your own level, never down through floors. Runs on both sides (the owner's client
  * simulates, the server replays the same move and so accepts it).
  */

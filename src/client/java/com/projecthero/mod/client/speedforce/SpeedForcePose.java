@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.17.1: the Speed Force Speedster's body poses. v0.17.1 (user, round 3): the run is the plain Speedster's sprint
  * ({@code SpeedRunPose.pose}, the ice-skate stride removed), kicking in from 25% momentum (an ordinary run below that) and
- * driven harder as the momentum climbs; plus the move poses, the Shift+C charge stance and the carry. The after-images keep
+ * driven harder as the momentum climbs; plus the move poses, the hold-C charge stance and the carry. The after-images keep
  * the pose they were left in ({@link #overrideWeight}).
  */
 public final class SpeedForcePose {
@@ -101,6 +101,9 @@ public final class SpeedForcePose {
 		if (s == null || s.animId == SpeedForceState.ANIM_NONE) {
 			return false;
 		}
+		if (s.holdAnim) {
+			return true; // a hold move's pose lasts while the key is held
+		}
 		long since = p.level().getGameTime() - s.animStart;
 		return s.animId == SpeedForceState.ANIM_TORNADO ? s.tornadoLeft > 0 : since >= 0 && since < moveLength(s.animId);
 	}
@@ -115,6 +118,7 @@ public final class SpeedForcePose {
 			case SpeedForceState.ANIM_SURGE -> 18;
 			case SpeedForceState.ANIM_AWAKEN -> 40;
 			case SpeedForceState.ANIM_GRAB -> 8;
+			case SpeedForceState.ANIM_BLITZ -> 10;
 			default -> 0;
 		};
 	}
@@ -150,7 +154,7 @@ public final class SpeedForcePose {
 	}
 
 	/**
-	 * v0.17.1 (user): hold Shift+C -- a sprinter's crouched starting stance, one foot back, leaning in, fists low, the
+	 * v0.17.1 (user): hold C -- a sprinter's crouched starting stance, one foot back, leaning in, fists low, the
 	 * body shaking harder as the 3 s charge fills.
 	 */
 	private static void chargeStance(Player player, HumanoidModel<?> m) {
@@ -205,6 +209,47 @@ public final class SpeedForcePose {
 		m.leftArm.yRot = 0f;
 		m.rightArm.zRot = 0.25f;
 		m.leftArm.zRot = -0.25f;
+	}
+
+	/** Hold R: the fist cocked right back behind the shoulder, the body coiled, shaking a little the longer it is held. */
+	private static void massWindup(Player player, HumanoidModel<?> m, float partial) {
+		float a = player.tickCount + partial;
+		float shake = Mth.sin(a * 2.9f) * 0.03f;
+		m.rightArm.xRot = 0.95f + shake;
+		m.rightArm.yRot = 0.55f;
+		m.rightArm.zRot = 0.35f;
+		m.leftArm.xRot = -1.1f;
+		m.leftArm.yRot = 0.35f;
+		m.body.yRot = 0.55f + shake;
+		m.rightLeg.xRot = 0.35f;
+		m.leftLeg.xRot = -0.45f;
+	}
+
+	/** Hold G: the right hand raised high and back, the lightning gathering in it, the left arm out for aim. */
+	private static void throwCharge(Player player, HumanoidModel<?> m, float partial) {
+		float a = player.tickCount + partial;
+		m.rightArm.xRot = -2.85f + Mth.sin(a * 1.7f) * 0.04f;
+		m.rightArm.zRot = 0.35f;
+		m.leftArm.xRot = -1.35f;
+		m.leftArm.yRot = 0.25f;
+		m.body.yRot = 0.4f;
+	}
+
+	/**
+	 * v0.17.1 (user) hold X Tornado Arms: both arms out in front, windmilling round the shoulders so fast they blur (half a
+	 * turn apart), the body leaning into the wind it throws.
+	 */
+	private static void tornadoArms(Player player, HumanoidModel<?> m, float partial) {
+		float a = (player.tickCount + partial) * 1.9f;
+		m.rightArm.xRot = -1.57f + Mth.cos(a) * 1.15f;
+		m.rightArm.zRot = Mth.sin(a) * 0.55f - 0.1f;
+		m.leftArm.xRot = -1.57f + Mth.cos(a + (float) Math.PI) * 1.15f;
+		m.leftArm.zRot = Mth.sin(a + (float) Math.PI) * 0.55f + 0.1f;
+		m.rightArm.yRot = 0f;
+		m.leftArm.yRot = 0f;
+		m.body.xRot = 0.18f;
+		m.rightLeg.xRot = -0.25f;
+		m.leftLeg.xRot = 0.35f;
 	}
 
 	/** The move poses: short keyed shapes over the move's first ticks. */
@@ -270,6 +315,17 @@ public final class SpeedForcePose {
 				m.hat.copyFrom(m.head);
 			}
 			case SpeedForceState.ANIM_GRAB -> carryArms(m);
+			case SpeedForceState.ANIM_BLITZ -> {
+				// one big straight right, the body turned into it
+				float k = Mth.clamp(t / 2f, 0f, 1f);
+				m.rightArm.xRot = Mth.lerp(k, 0.6f, -1.65f);
+				m.rightArm.yRot = -0.1f;
+				m.leftArm.xRot = 0.6f;
+				m.body.yRot = Mth.lerp(k, 0.4f, -0.45f);
+			}
+			case SpeedForceState.ANIM_MASS_WINDUP -> massWindup(player, m, partial);
+			case SpeedForceState.ANIM_THROW_CHARGE -> throwCharge(player, m, partial);
+			case SpeedForceState.ANIM_ARMS -> tornadoArms(player, m, partial);
 			default -> {
 			}
 		}

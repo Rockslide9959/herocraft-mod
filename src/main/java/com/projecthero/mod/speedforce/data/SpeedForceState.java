@@ -24,6 +24,11 @@ public final class SpeedForceState {
 	public static final int ANIM_AWAKEN = 8;
 	public static final int ANIM_GRAB = 9;
 	public static final int ANIM_CHARGE = 10;
+	/** v0.17.1 (user) the hold moves: their poses last while the key is held ({@link #holdAnim}). */
+	public static final int ANIM_MASS_WINDUP = 11;
+	public static final int ANIM_THROW_CHARGE = 12;
+	public static final int ANIM_ARMS = 13;
+	public static final int ANIM_BLITZ = 14;
 
 	public boolean hasPower;
 	/** 0..1. */
@@ -32,7 +37,10 @@ public final class SpeedForceState {
 	public float meter;
 	/** C: Speed Force Surge runs until this game time (momentum locked at 100%). */
 	public long surgeUntil;
-	/** Z: Flash Time's ticks left on the caster's own clock (HUD mirror), and how long it was. */
+	/**
+	 * Z: v0.17.1 (user) Flash Time is held -- flashLeft is 1 while Z holds it (0 otherwise); flashTotal is the Speed Force
+	 * portal's charge, in caster ticks (0..{@code SpeedForceConfig.PORTAL_TICKS}; 0 = not forming).
+	 */
 	public int flashLeft;
 	public int flashTotal;
 	/** Shift+X held. */
@@ -57,6 +65,13 @@ public final class SpeedForceState {
 	public boolean groundStick;
 	/** v0.17.1 (user, the Shift+N menu): the lightning colour, an index into {@code SpeedForceColours} (0 = gold). */
 	public int colour;
+	/** v0.17.1: the anim is a hold move's pose -- it lasts until the key is let go (then animId goes back to NONE). */
+	public boolean holdAnim;
+	/**
+	 * v0.17.1 (user): ticks left of the drain after leaving the Speed Force (no Speed Force gain, 50% slower, 50% weaker),
+	 * 0..{@code SpeedForceConfig.DRAINED_TICKS}. Saved (it lasts through a logout).
+	 */
+	public int drained;
 
 	public SpeedForceState() {
 		this(false, 0f, 0f, 0L, 0, 0, false, 0, 0, 0, 0L, 0, 0L, new HashMap<>(), false, 0L);
@@ -83,15 +98,20 @@ public final class SpeedForceState {
 		this.chargeStart = chargeStart;
 	}
 
-	/** Speed Mode, Ground-Stick and the colour in one saved int (the codec is at its 16 fields). */
+	/**
+	 * Speed Mode, Ground-Stick, the hold pose, the colour (bits 8-15) and the drain (bits 16-31) in one saved int (the codec is
+	 * at its 16 fields).
+	 */
 	int flags() {
-		return (speedMode ? 1 : 0) | (groundStick ? 2 : 0) | ((colour & 0xFF) << 8);
+		return (speedMode ? 1 : 0) | (groundStick ? 2 : 0) | (holdAnim ? 4 : 0) | ((colour & 0xFF) << 8) | ((Math.max(0, Math.min(0xFFFF, drained)) & 0xFFFF) << 16);
 	}
 
 	private SpeedForceState withFlags(int flags) {
 		this.speedMode = (flags & 1) != 0;
 		this.groundStick = (flags & 2) != 0;
+		this.holdAnim = (flags & 4) != 0;
 		this.colour = (flags >> 8) & 0xFF;
+		this.drained = (flags >>> 16) & 0xFFFF;
 		return this;
 	}
 

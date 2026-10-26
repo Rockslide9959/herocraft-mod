@@ -34,6 +34,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -53,7 +54,7 @@ import net.minecraft.world.phys.Vec3;
 public final class SpeedForceClient {
 	/** v0.17.1 (user: "make the lightning trail longer"): copies last 1.5 s (was 0.8 s). */
 	private static final int TRAIL_LIFE = 30;
-	/** v0.17.1 (user): the trail and its lightning show from 5% momentum; arcs to nearby blocks above 10%. */
+	/** v0.17.1 (user): the trail's lightning shows from 5% momentum (the copies themselves at any); arcs to nearby blocks above 10%. */
 	private static final float TRAIL_MOMENTUM = 0.05f;
 	private static final float GROUND_ARC_MOMENTUM = 0.10f;
 	private static final float TRAIL_ALPHA = 0.38f;
@@ -108,6 +109,7 @@ public final class SpeedForceClient {
 		BOLTS.clear();
 		RINGS.clear();
 		GROUND_ARCS.clear();
+		PORTALS.clear();
 	}
 
 	// ---------------------------------------------------------------- the trail
@@ -132,13 +134,12 @@ public final class SpeedForceClient {
 				LAST_RECORDED.remove(p.getUUID());
 				continue;
 			}
+			// v0.17.1 (user: "the afterimage trail should still show up if player is using their speed mode, i still want some
+			// visual indicator"): the see-through copies whenever Speed Mode is on and they are moving, at ANY momentum; the
+			// lightning strung between them from 5% (and the arcs to the ground from 10%)
 			float momentum = SpeedForceSpeedster.momentum(p);
-			if (momentum < TRAIL_MOMENTUM && !SpeedForceSpeedster.surging(p)) {
-				LAST_RECORDED.remove(p.getUUID());
-				continue;
-			}
 			float weight = SpeedForcePose.weight(p, 0f);
-			boolean bolts = true;
+			boolean bolts = momentum >= TRAIL_MOMENTUM || SpeedForceSpeedster.surging(p);
 			Deque<Snapshot> q = TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>());
 			// a copy where the player WAS last tick (never ahead of the interpolated body), and at speed copies in between
 			double[] last = LAST_RECORDED.get(p.getUUID());
@@ -225,8 +226,181 @@ public final class SpeedForceClient {
 					q.addLast(new Snapshot(now, life, 0.42f, at.x, at.y, at.z, yaw, yaw, 0f, limb + i * 1.1f, 1.0f, 1.0f, false, true));
 				}
 			}
+			case SpeedForceFxPayload.PORTAL, SpeedForceFxPayload.PORTAL_COLLAPSE -> {
+				// drawn from the runner's synced charge instead (see render): the slowed world flushes packets in bursts
+			}
+			case SpeedForceFxPayload.PORTAL_ENTER -> {
+				PORTALS.remove(msg.playerId());
+				RINGS.add(new Ring(from.subtract(0, 1.1, 0), now, 14, 6f));
+				for (int k = 0; k < 10; k++) {
+					double a = k * Math.PI / 5;
+					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 3.5, Math.sin(a) * 3.0, Math.sin(a * 1.7) * 2.0), now, 10, k * 5.1 + now, col));
+				}
+			}
+			case SpeedForceFxPayload.REALM_EXIT -> {
+				for (int k = 0; k < 3; k++) {
+					BOLTS.add(new Bolt(to.add((k - 1) * 1.2, 0, (k % 2) * 0.8), from, now + k * 2, 14, k * 17.3 + now, col));
+				}
+				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 18, 7f));
+			}
 			default -> {
 			}
+		}
+	}
+
+	// ---------------------------------------------------------------- the Speed Force portal, Tornado Arms, the realm's sky
+
+	/**
+	 * A portal forming in front of a runner: drawn from their synced charge ({@code SpeedForceAbilities#portalCharge}) at their
+	 * own interpolated position (Flash Time's slowed world sends its packets in bursts, so nothing sent per tick would keep up);
+	 * once the charge is gone it collapses over {@link #PORTAL_COLLAPSE_MS} from where it last was.
+	 */
+	private record Portal(float progress, long updatedMs) {
+	}
+
+	private static final Map<Integer, Portal> PORTALS = new HashMap<>();
+	private static final long PORTAL_COLLAPSE_MS = 350L;
+
+	/**
+	 * v0.17.1 (user: "as the player charges up this power the portal should start forming in front of them"): a swirling
+	 * lightning ring in the plane facing the run -- it widens with {@code progress}, its colour's lightning racing round it,
+	 * spiral arms winding in to the middle and arcs crackling off the rim. {@code shrink} 1 = whole, 0 = gone.
+	 */
+	private static void drawPortal(Vec3 centre, float progress, float yaw, int colour, double time, float shrink, Vec3 cam,
+			List<Vec3[]> arcs, List<Float> alpha, List<Float> width, List<Integer> colours) {
+		float t = Mth.clamp(progress, 0f, 1f);
+		double r = (0.25 + com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_RADIUS * t) * shrink;
+		if (r < 0.05) {
+			return;
+		}
+		double yr = Math.toRadians(yaw);
+		Vec3 side = new Vec3(Math.cos(yr), 0, Math.sin(yr)); // across the run
+		Vec3 up = new Vec3(0, 1, 0);
+		int segs = 20;
+		double spin = time * (0.25 + 0.35 * t);
+		double frame = Math.floor(time * 3.0);
+		Vec3 prev = null;
+		Vec3 first = null;
+		for (int i = 0; i <= segs; i++) {
+			double a = spin + i * Math.PI * 2 / segs;
+			Vec3 pt = centre.add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
+			if (prev != null) {
+				arcs.add(ThorDraw.jagged(prev.subtract(cam), pt.subtract(cam), 3, 0.08 + 0.1 * t, frame * 1.3 + i * 7.7));
+				alpha.add((0.55f + 0.45f * t) * shrink);
+				width.add(0.9f + 1.1f * t);
+				colours.add(colour);
+			} else {
+				first = pt;
+			}
+			prev = pt;
+		}
+		// the swirl: arms winding in to the middle
+		int armsN = 3 + Math.round(t * 2);
+		for (int k = 0; k < armsN; k++) {
+			Vec3[] path = new Vec3[9];
+			for (int j = 0; j < path.length; j++) {
+				double f = j / (double) (path.length - 1);
+				double a = -spin * 1.6 + k * Math.PI * 2 / armsN + f * 2.4;
+				double rr = r * (1.0 - f * 0.92);
+				path[j] = centre.add(side.scale(Math.cos(a) * rr)).add(up.scale(Math.sin(a) * rr)).subtract(cam);
+			}
+			arcs.add(path);
+			alpha.add((0.3f + 0.5f * t) * shrink);
+			width.add(0.5f + 0.6f * t);
+			colours.add(colour);
+		}
+		// crackling arcs off the rim
+		int cracks = 1 + Math.round(t * 5);
+		for (int k = 0; k < cracks; k++) {
+			double seed = frame * 4.1 + k * 13.7 + yaw;
+			if (ThorDraw.hash(seed) < 0.35) {
+				continue;
+			}
+			double a = ThorDraw.hash(seed + 1) * Math.PI * 2;
+			Vec3 rim = centre.add(side.scale(Math.cos(a) * r)).add(up.scale(Math.sin(a) * r));
+			Vec3 out = rim.add(side.scale(Math.cos(a) * (0.4 + t))).add(up.scale(Math.sin(a) * (0.4 + t)))
+					.add((ThorDraw.hash(seed + 2) - 0.5) * 0.8, (ThorDraw.hash(seed + 3) - 0.5) * 0.8, (ThorDraw.hash(seed + 4) - 0.5) * 0.8);
+			arcs.add(ThorDraw.jagged(rim.subtract(cam), out.subtract(cam), 4, 0.15, seed));
+			alpha.add(0.8f * shrink);
+			width.add(0.6f);
+			colours.add(colour);
+		}
+	}
+
+	/** The pale wind of Tornado Arms: spiralling strands down the cone in front, a few streaks of lightning in them. */
+	private static void drawArmsWind(Player p, float partial, double time, Vec3 cam, List<Vec3[]> wind, List<Float> windAlpha,
+			List<Vec3[]> arcs, List<Float> alpha, List<Float> width, List<Integer> colours) {
+		Vec3 look = p.getViewVector(partial);
+		Vec3 apex = p.getEyePosition(partial).subtract(0, 0.5, 0).add(look.scale(0.9));
+		Vec3 side = new Vec3(-look.z, 0, look.x);
+		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 up = side.cross(look).normalize();
+		double len = com.projecthero.mod.speedforce.SpeedForceConfig.ARMS_RANGE;
+		for (int k = 0; k < 5; k++) {
+			Vec3[] path = new Vec3[16];
+			for (int j = 0; j < path.length; j++) {
+				double f = j / (double) (path.length - 1);
+				double s = 0.4 + f * (len - 0.4);
+				double rad = 0.25 + s * 0.3;
+				double a = time * 1.9 - f * 6.0 + k * Math.PI * 2 / 5;
+				path[j] = apex.add(look.scale(s)).add(side.scale(Math.cos(a) * rad)).add(up.scale(Math.sin(a) * rad)).subtract(cam);
+			}
+			wind.add(path);
+			windAlpha.add(0.22f);
+		}
+		int colour = com.projecthero.mod.speedforce.SpeedForceColours.of(p);
+		double frame = Math.floor(time * 4.0);
+		for (int k = 0; k < 2; k++) {
+			double seed = frame * 3.3 + k * 9.1 + p.getId();
+			double s0 = 1.0 + ThorDraw.hash(seed) * (len - 3.0);
+			double a = ThorDraw.hash(seed + 1) * Math.PI * 2;
+			double rad = 0.25 + s0 * 0.3;
+			Vec3 a0 = apex.add(look.scale(s0)).add(side.scale(Math.cos(a) * rad)).add(up.scale(Math.sin(a) * rad));
+			Vec3 a1 = apex.add(look.scale(s0 + 2.0)).add(side.scale(Math.cos(a + 1.2) * (rad + 0.6))).add(up.scale(Math.sin(a + 1.2) * (rad + 0.6)));
+			arcs.add(ThorDraw.jagged(a0.subtract(cam), a1.subtract(cam), 5, 0.2, seed));
+			alpha.add(0.7f);
+			width.add(0.6f);
+			colours.add(colour);
+		}
+	}
+
+	/**
+	 * v0.17.1: the Speed Force's sky -- a dark void with streams of lightning in the runner's colour racing past far off
+	 * (along the road, the way you run), and great bolts flashing across it now and then. Anchored to the camera, so it
+	 * reads as sky.
+	 */
+	private static void drawRealmSky(Vec3 cam, double time, int colour, List<Vec3[]> arcs, List<Float> alpha, List<Float> width,
+			List<Integer> colours) {
+		for (int k = 0; k < 18; k++) {
+			double seed = k * 37.17 + 3.0;
+			double ang = ThorDraw.hash(seed) * Math.PI * 2;
+			double dist = 70 + ThorDraw.hash(seed + 1) * 60;
+			double h = -25 + ThorDraw.hash(seed + 2) * 85;
+			double speed = 18 + ThorDraw.hash(seed + 3) * 30;
+			double length = 40 + ThorDraw.hash(seed + 4) * 60;
+			double span = 320;
+			// flowing back along the road (-X) and wrapping round
+			double x = (((-time * speed / 20.0 + ThorDraw.hash(seed + 5) * span) % span) + span) % span - span / 2;
+			Vec3 a = new Vec3(x, h, Math.sin(ang) * dist);
+			Vec3 b = a.add(length, (ThorDraw.hash(seed + 6) - 0.5) * 12, (ThorDraw.hash(seed + 7) - 0.5) * 12);
+			double frame = Math.floor(time * 2.0);
+			arcs.add(ThorDraw.jagged(a, b, 14, 2.2, seed + frame * 0.71));
+			alpha.add(0.45f + 0.35f * (float) ThorDraw.hash(seed + 8));
+			width.add(7f + 6f * (float) ThorDraw.hash(seed + 9));
+			colours.add(colour);
+		}
+		// a big bolt across the sky now and then (a few frames each)
+		long slot = (long) Math.floor(time / 9.0);
+		double seed = slot * 11.3;
+		double phase = time - slot * 9.0;
+		if (phase < 5.0 && ThorDraw.hash(seed) > 0.25) {
+			double ang = ThorDraw.hash(seed + 1) * Math.PI * 2;
+			Vec3 a = new Vec3(Math.cos(ang) * 90, 50 + ThorDraw.hash(seed + 2) * 30, Math.sin(ang) * 90);
+			Vec3 b = new Vec3(Math.cos(ang + 0.9) * 90, -10 + ThorDraw.hash(seed + 3) * 20, Math.sin(ang + 0.9) * 90);
+			arcs.add(ThorDraw.jagged(a, b, 18, 4.0, seed + Math.floor(time * 3.0)));
+			alpha.add((float) (1.0 - phase / 5.0));
+			width.add(14f);
+			colours.add(colour);
 		}
 	}
 
@@ -260,6 +434,51 @@ public final class SpeedForceClient {
 			int bodyCol = com.projecthero.mod.speedforce.SpeedForceColours.of(acp);
 			while (arcColour.size() < arcs.size()) {
 				arcColour.add(bodyCol);
+			}
+		}
+
+		// v0.17.1: Tornado Arms' wind, the Speed Force portals, and (inside) the Speed Force's sky and its exit portal
+		double time = System.currentTimeMillis() / 50.0;
+		List<Vec3[]> wind = new ArrayList<>();
+		List<Float> windAlpha = new ArrayList<>();
+		for (AbstractClientPlayer acp : mc.level.players()) {
+			if (!acp.isSpectator() && com.projecthero.mod.speedforce.SpeedForceAbilities.tornadoArms(acp)) {
+				drawArmsWind(acp, partial, time, cam, wind, windAlpha, arcs, arcAlpha, arcWidth, arcColour);
+			}
+		}
+		long ms = System.currentTimeMillis();
+		for (AbstractClientPlayer acp : mc.level.players()) {
+			int charge = com.projecthero.mod.speedforce.SpeedForceAbilities.portalCharge(acp);
+			Portal pt = PORTALS.get(acp.getId());
+			float shrink = 1f;
+			if (charge > 0) {
+				pt = new Portal(Math.min(1f, charge / (float) com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_TICKS), ms);
+				PORTALS.put(acp.getId(), pt);
+			} else if (pt != null) {
+				shrink = 1f - (ms - pt.updatedMs()) / (float) PORTAL_COLLAPSE_MS;
+				if (shrink <= 0f) {
+					PORTALS.remove(acp.getId());
+					continue;
+				}
+			} else {
+				continue;
+			}
+			float yaw = acp.getViewYRot(partial);
+			double yr = Math.toRadians(yaw);
+			Vec3 at = acp.getPosition(partial).add(-Math.sin(yr) * com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_DISTANCE, 1.2,
+					Math.cos(yr) * com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_DISTANCE);
+			drawPortal(at, pt.progress(), yaw, com.projecthero.mod.speedforce.SpeedForceColours.of(acp), time, shrink, cam, arcs, arcAlpha, arcWidth, arcColour);
+		}
+		PORTALS.keySet().removeIf(id -> !(mc.level.getEntity(id) instanceof Player));
+		if (mc.level.dimension() == com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION && mc.player != null) {
+			int col = com.projecthero.mod.speedforce.SpeedForceColours.of(mc.player);
+			drawRealmSky(cam, time, col, arcs, arcAlpha, arcWidth, arcColour);
+			int lane = com.projecthero.mod.speedforce.SpeedForceRealm.laneOf(mc.player.getZ());
+			Vec3 exit = new Vec3(com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_X + 0.5, com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_RING_Y,
+					com.projecthero.mod.speedforce.SpeedForceRealm.laneZ(lane) + 0.5);
+			if (exit.distanceToSqr(cam) < 512.0 * 512.0) {
+				drawPortal(exit, 1f, -90f, col, time, (float) (com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_RING_RADIUS - 0.4)
+						/ (0.25f + (float) com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_RADIUS), cam, arcs, arcAlpha, arcWidth, arcColour);
 			}
 		}
 
@@ -416,6 +635,10 @@ public final class SpeedForceClient {
 			Vec3 c = ring.at().subtract(cam);
 			ThorDraw.ring(vc, last, c, r0 * 0.75f, r0 + 0.6f, 0xFFE8A0, 0.8f * (1f - t), 48);
 			ThorDraw.ring(vc, last, c.add(0, 0.6, 0), r0 * 0.85f, r0 + 0.3f, 0xFFFFFF, 0.5f * (1f - t), 48);
+		}
+		for (int i = 0; i < wind.size(); i++) {
+			ThorDraw.ribbon(vc, last, wind.get(i), 0.09f, 0xDCE8F4, windAlpha.get(i));
+			ThorDraw.ribbon(vc, last, wind.get(i), 0.03f, 0xFFFFFF, windAlpha.get(i) * 1.6f);
 		}
 		for (int i = 0; i < arcs.size(); i++) {
 			Vec3[] path = arcs.get(i);

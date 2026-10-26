@@ -68,6 +68,9 @@ public final class SpeedForceSpeedster {
 	private static final ResourceLocation STEP_ID = ProjectHeroMod.id("speed_force_step");
 	private static final ResourceLocation ATTACK_SPEED_ID = ProjectHeroMod.id("speed_force_attack_speed");
 	private static final ResourceLocation SWIM_ID = ProjectHeroMod.id("speed_force_swim");
+	/** v0.17.1 (user): drained after the Speed Force -- 50% slower, 50% weaker. */
+	private static final ResourceLocation DRAINED_SPEED_ID = ProjectHeroMod.id("speed_force_drained_speed");
+	private static final ResourceLocation DRAINED_DAMAGE_ID = ProjectHeroMod.id("speed_force_drained_damage");
 
 	/** Vanilla flat-ground blocks a second per point of MOVEMENT_SPEED (see {@code SuperSpeedHandlers#BLOCKS_PER_SECOND_PER_SPEED}). */
 	public static final double BLOCKS_PER_SECOND_PER_SPEED = 0.98 / (1.0 - 0.6 * 0.91) * 20.0;
@@ -87,6 +90,8 @@ public final class SpeedForceSpeedster {
 		/** Ticks to ignore the speed readings (a zip / teleport just happened). */
 		int grace;
 		long copperReady;
+		/** v0.17.1: the game time the drain last counted down. */
+		long drainTick = -1L;
 	}
 
 	/** Where a runner was, a tick at a time (Rewind, the Time Remnant). */
@@ -110,6 +115,7 @@ public final class SpeedForceSpeedster {
 		SpeedForceAbilityManager.clearSessionState();
 		SpeedForceUpgrade.clearSessionState();
 		SpeedForceDamage.clearSessionState();
+		SpeedForceRealm.clearSessionState(); // v0.17.1: the Speed Force trips
 	}
 
 	// ---------------------------------------------------------------- state
@@ -142,10 +148,85 @@ public final class SpeedForceSpeedster {
 		return s != null && s.hasPower && s.speedMode;
 	}
 
-	/** Shift+C held: the charge stance started at this game time, or 0 (client-safe). */
+	/** Hold C: the charge stance started at this game time, or 0 (client-safe). */
 	public static long chargeStart(Player player) {
 		SpeedForceState s = peek(player);
 		return s == null || !s.hasPower ? 0L : s.chargeStart;
+	}
+
+	/** v0.17.1 (user): ticks left of the drain after leaving the Speed Force (client-safe; 0 = none). */
+	public static int drained(Player player) {
+		SpeedForceState s = peek(player);
+		return s == null || !s.hasPower ? 0 : s.drained;
+	}
+
+	/** What the drain leaves of the Speed Force Speedster's blows: 0.5 while drained, 1 otherwise (anyone else: 1). */
+	public static float damageScale(Player player) {
+		return drained(player) > 0 ? (float) (1.0 + SpeedForceConfig.DRAINED_DAMAGE) : 1.0f;
+	}
+
+	/** v0.17.1: starts (or restarts) the 2-minute drain. */
+	public static void drain(ServerPlayer player, int ticks) {
+		SpeedForceState n = state(player).copy();
+		n.drained = Math.max(0, Math.min(0xFFFF, ticks));
+		save(player, n);
+		applyDrain(player);
+	}
+
+	/** The drain's attribute half: -50% movement speed, -50% attack damage while it lasts. */
+	static void applyDrain(ServerPlayer player) {
+		if (state(player).drained > 0) {
+			PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, DRAINED_SPEED_ID, SpeedForceConfig.DRAINED_SPEED,
+					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, DRAINED_DAMAGE_ID, SpeedForceConfig.DRAINED_DAMAGE,
+					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, DRAINED_SPEED_ID);
+			PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, DRAINED_DAMAGE_ID);
+		}
+	}
+
+	/** One tick of the drain (the game's clock: it never outlasts its 2 minutes). Counted 10 at a time to keep syncs rare. */
+	private static void tickDrain(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		long now = player.level().getGameTime();
+		Motion mo = MOTION.computeIfAbsent(player.getUUID(), k -> new Motion());
+		if (s.drained > 0 && now % 10 == 0 && mo.drainTick != now) {
+			mo.drainTick = now; // once per game tick (Flash Time's extra caster ticks share one)
+			SpeedForceState n = s.copy();
+			n.drained = Math.max(0, s.drained - 10);
+			save(player, n);
+			if (n.drained == 0) {
+				player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.drain_over")
+						.withStyle(ChatFormatting.GOLD), true);
+			}
+		}
+		applyDrain(player);
+	}
+
+	/**
+	 * v0.17.1: "running at max" for the Speed Force portal -- in Speed Mode at 100% momentum (or locked there) and still
+	 * running flat out: sprinting (the client drops the sprint the moment the runner lets go, slows to a walk or hits a wall).
+	 * Flash Time freezes the momentum, and the slowed world sends no new chunks, so a runner held at the edge of the loaded
+	 * world by {@code SpeedForceLocalPlayerMixin} still counts as running while Flash Time holds; outside it the smoothed
+	 * horizontal speed must be at least {@link SpeedForceConfig#PORTAL_RUN_FRACTION} of the top speed too.
+	 */
+	public static boolean atMaxRun(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		if (!s.speedMode || !(s.momentum >= 0.999f || surging(player))) {
+			return false;
+		}
+		Motion mo = MOTION.get(player.getUUID());
+		double bps = mo == null ? 0.0 : mo.hEma * 20.0;
+		if (!player.isSprinting()) {
+			// too hungry to sprint (vanilla drops the sprint at 6 food -- at these speeds that comes in seconds): still running
+			// counts, as long as they really are moving
+			return SuperSpeedTimeSlow.isCasting(player) && player.getFoodData().getFoodLevel() <= 6 && bps >= SpeedForceConfig.WALK_BPS * 0.4;
+		}
+		if (SuperSpeedTimeSlow.isCasting(player)) {
+			return true;
+		}
+		return bps >= SpeedForceConfig.PORTAL_RUN_FRACTION * SpeedForceConfig.topBps(suited(player));
 	}
 
 	public static float meter(Player player) {
@@ -159,7 +240,7 @@ public final class SpeedForceSpeedster {
 		return s != null && s.hasPower && s.surgeUntil > player.level().getGameTime();
 	}
 
-	/** Shift+X Phase is held (client-safe: the collision mixin reads it on both sides). */
+	/** Shift+C Phase is held (client-safe: the collision mixin reads it on both sides). */
 	public static boolean phasing(Player player) {
 		SpeedForceState s = peek(player);
 		return s != null && s.hasPower && s.phasing;
@@ -230,6 +311,9 @@ public final class SpeedForceSpeedster {
 
 	public static void addMeter(ServerPlayer player, float amount) {
 		SpeedForceState s = state(player);
+		if (amount > 0f && s.drained > 0) {
+			return; // v0.17.1 (user): drained after the Speed Force -- no Speed Force gain
+		}
 		float v = Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, s.meter + amount));
 		if (v != s.meter) {
 			SpeedForceState n = s.copy();
@@ -266,6 +350,8 @@ public final class SpeedForceSpeedster {
 		s.meter = SpeedForceConfig.METER_MAX;
 		s.momentum = 0.25f;
 		s.speedMode = true; // the awakening comes mid-Overdrive: you come out of it running
+		// v0.17.1 (user: "when they first get the power they get a random colour"); Shift+N changes it
+		s.colour = player.getRandom().nextInt(SpeedForceColours.COUNT);
 		s.animId = SpeedForceState.ANIM_AWAKEN;
 		s.animStart = now;
 		save(player, s);
@@ -317,6 +403,8 @@ public final class SpeedForceSpeedster {
 	}
 
 	private static void clearModifiers(ServerPlayer player) {
+		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, DRAINED_SPEED_ID);
+		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, DRAINED_DAMAGE_ID);
 		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 		PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
 		PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM_ID);
@@ -329,6 +417,7 @@ public final class SpeedForceSpeedster {
 		MOTION.remove(id);
 		HISTORY.remove(id);
 		SpeedForceAbilityManager.forget(id);
+		SpeedForceAbilities.forget(id);
 	}
 
 	static boolean canAct(ServerPlayer player) {
@@ -375,8 +464,10 @@ public final class SpeedForceSpeedster {
 		tickMotion(player);
 		tickPassives(player);
 		applySpeed(player);
+		tickDrain(player);
 		recordHistory(player);
 		SpeedForceAbilities.tick(player, player.level().getGameTime());
+		SpeedForceRealm.tick(player); // v0.17.1: inside the Speed Force
 	}
 
 	/** Flash Time: the runner's own clocks run at their pace while the world's crawls (one tick pulled in per extra tick). */
@@ -522,6 +613,9 @@ public final class SpeedForceSpeedster {
 		while (mo.distance >= SpeedForceConfig.BLOCKS_PER_POINT) {
 			mo.distance -= SpeedForceConfig.BLOCKS_PER_POINT;
 			meterGain += 1f;
+		}
+		if (s.drained > 0) {
+			meterGain = 0f; // v0.17.1 (user): drained after the Speed Force
 		}
 		float meter = Math.min(SpeedForceConfig.METER_MAX, s.meter + meterGain);
 		if ((float) m != s.momentum || meter != s.meter) {
@@ -689,8 +783,12 @@ public final class SpeedForceSpeedster {
 		resetTransient(n);
 		n.meter = Float.isNaN(n.meter) ? 0f : Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, n.meter));
 		n.momentum = 0f;
-		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + SpeedForceConfig.SURGE_COOLDOWN + 20L);
+		long longest = Math.max(SpeedForceConfig.SURGE_COOLDOWN, SpeedForceConfig.PORTAL_COOLDOWN);
+		long bound = Math.max(longest, com.projecthero.mod.hero.HeroConfig.get().scaledCooldown((int) longest));
+		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + bound + 20L);
 		save(player, n);
+		applyDrain(player);
+		SpeedForceRealm.onJoin(player); // v0.17.1: logged out inside the Speed Force -- out, where the run had taken them
 	}
 
 	public static void onPlayerRespawn(ServerPlayer player) {
@@ -718,6 +816,7 @@ public final class SpeedForceSpeedster {
 		n.remnantUntil = 0L;
 		n.chargeStart = 0L;
 		n.animId = SpeedForceState.ANIM_NONE;
+		n.holdAnim = false;
 	}
 
 	/** Death / logout / dimension change: drop everything transient (the power and the Speed Force stay). */
