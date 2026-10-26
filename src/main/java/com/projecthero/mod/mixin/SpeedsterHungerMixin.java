@@ -3,9 +3,7 @@ package com.projecthero.mod.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.speedforce.SpeedForceSpeedster;
@@ -27,23 +25,9 @@ public abstract class SpeedsterHungerMixin {
 	@Unique
 	private static final double PLAIN_SPRINT_PER_TICK = 0.28;
 
-	/** The horizontal distance being charged for right now (inside checkMovementStatistics), or -1. */
-	@Unique
-	private double projecthero$movedNow = -1.0;
-
-	@Inject(method = "checkMovementStatistics", at = @At("HEAD"))
-	private void projecthero$movedStart(double dx, double dy, double dz, CallbackInfo ci) {
-		projecthero$movedNow = Math.sqrt(dx * dx + dz * dz);
-	}
-
-	@Inject(method = "checkMovementStatistics", at = @At("RETURN"))
-	private void projecthero$movedEnd(double dx, double dy, double dz, CallbackInfo ci) {
-		projecthero$movedNow = -1.0;
-	}
-
 	@ModifyVariable(method = "causeFoodExhaustion", at = @At("HEAD"), argsOnly = true)
 	private float projecthero$speedsterSprintHunger(float exhaustion) {
-		double moved = projecthero$movedNow;
+		double moved = com.projecthero.mod.speedforce.SpeedsterHunger.movedNow;
 		if (exhaustion <= 0f || moved <= PLAIN_SPRINT_PER_TICK || !((Object) this instanceof ServerPlayer sp)) {
 			return exhaustion;
 		}

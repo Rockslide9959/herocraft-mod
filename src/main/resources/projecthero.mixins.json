@@ -4,6 +4,7 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"SpeedsterHungerMixin",
+		"SpeedsterHungerMoveMixin",
 		"SuggestModIdsByPathMixin",
 		"ServerLevelGunkMixin",
 		"MiraculousIdentityMixin",
