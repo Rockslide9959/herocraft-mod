@@ -23,14 +23,16 @@ for (const s of [-1, 1]) {
 	M.cbox(b, [tip[0], tip[1] - 0.6, 0], [0.4, 0.5, 0.36], 'tip', { seed: 411 });
 }
 // the wings: thin planes behind the shoulders, cut to rounded wing shapes by the texture's alpha
+// (user: "nooroos wings are in his body"): the upper pair sits behind the HEAD (its back is at z 4.0), the lower pair
+// clear of the body
 const WINGS = [];
 for (const s of [-1, 1]) {
 	const n = s < 0 ? 'r' : 'l';
-	const up = M.bone(`wing_${n}`, 'body', [s * 0.8, 5.4, 1.8], [0, s * 14, -s * 16]);
-	M.box(up, s * 0.5, 4.4, 1.85, s * 9.8, 12.8, 2.05, 'wing', { seed: 420 });
+	const up = M.bone(`wing_${n}`, 'body', [s * 0.8, 5.4, 4.4], [0, s * 14, -s * 16]);
+	M.box(up, s * 0.5, 4.4, 4.45, s * 9.8, 12.8, 4.65, 'wing', { seed: 420 });
 	WINGS.push({ s, cx: s * 5.4, cy: 8.8, rx: 4.3, ry: 3.9, root: [s * 0.8, 5.4], lo: false });
-	const lo = M.bone(`wing_low_${n}`, 'body', [s * 0.8, 4.0, 1.8], [0, s * 16, s * 22]);
-	M.box(lo, s * 0.5, 0.2, 1.8, s * 6.4, 4.9, 2.0, 'wing_lo', { seed: 430 });
+	const lo = M.bone(`wing_low_${n}`, 'body', [s * 0.8, 4.0, 2.2], [0, s * 16, s * 22]);
+	M.box(lo, s * 0.5, 0.2, 2.25, s * 6.4, 4.9, 2.45, 'wing_lo', { seed: 430 });
 	WINGS.push({ s, cx: s * 3.6, cy: 2.6, rx: 2.8, ry: 2.2, root: [s * 0.8, 4.0], lo: true });
 }
 
