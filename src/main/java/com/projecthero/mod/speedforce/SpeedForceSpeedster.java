@@ -109,6 +109,7 @@ public final class SpeedForceSpeedster {
 
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
+		MOVE_HOLD.clear();
 		LAST_TICK.clear();
 		MOTION.clear();
 		HISTORY.clear();
@@ -358,6 +359,31 @@ public final class SpeedForceSpeedster {
 	}
 
 	// ---------------------------------------------------------------- momentum + the meter
+
+	/** v0.17.1: player -> the tick count until which a move holds their momentum. */
+	private static final Map<UUID, Integer> MOVE_HOLD = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** A move key was used: the momentum holds while it plays out (and while any move key is held). */
+	public static void markMove(ServerPlayer player) {
+		MOVE_HOLD.put(player.getUUID(), player.tickCount + SpeedForceConfig.MOVE_MOMENTUM_HOLD_TICKS);
+	}
+
+	/** A move is being used right now (a key held, or one used in the last 2 s). */
+	public static boolean inMove(ServerPlayer player) {
+		if (SpeedForceAbilityManager.anyDown(player)) {
+			markMove(player);
+			return true;
+		}
+		Integer until = MOVE_HOLD.get(player.getUUID());
+		if (until == null) {
+			return false;
+		}
+		if (player.tickCount > until || until - player.tickCount > SpeedForceConfig.MOVE_MOMENTUM_HOLD_TICKS) {
+			MOVE_HOLD.remove(player.getUUID());
+			return false;
+		}
+		return true;
+	}
 
 	public static void setMomentum(ServerPlayer player, float value) {
 		SpeedForceState s = state(player);
@@ -658,8 +684,12 @@ public final class SpeedForceSpeedster {
 		long gameTime = player.level().getGameTime();
 		boolean surge = s.surgeUntil > gameTime;
 		// v0.17.1 (user): a Z portal charge holds the momentum at 100% while it forms
+		// v0.17.1 (user: "when the player builds up momentum and uses an ability such as speed sweep we can lose momentum"):
+		// a move in use (and a moment after it) holds the momentum -- the moves throw the runner about and stop them dead,
+		// which read as standing still or a wall
+		boolean moving = inMove(player);
 		boolean frozen = surge || SuperSpeedTimeSlow.isCasting(player) || s.phasing || s.tornadoLeft > 0
-				|| s.flashLeft == SpeedForceState.Z_PORTAL;
+				|| s.flashLeft == SpeedForceState.Z_PORTAL || moving;
 		double m = s.momentum;
 
 		// a wall: flat out one tick, (almost) nothing the next two -- a released key only slows by half a tick -- AND a
@@ -668,7 +698,7 @@ public final class SpeedForceSpeedster {
 				&& !player.isPassenger() && !player.getAbilities().flying && mo.dir != null && blockedAhead(player, mo.dir);
 		mo.raw2 = mo.raw1;
 		mo.raw1 = raw;
-		if (slam && !surge) {
+		if (slam && !surge && !moving) {
 			m *= SpeedForceConfig.WALL_KEEP;
 			slamFx(player);
 		} else if (!frozen) {
@@ -677,7 +707,8 @@ public final class SpeedForceSpeedster {
 				m -= SpeedForceConfig.STOP_DECAY_PER_TICK;
 			} else if (!SpeedsterPrefs.pushing(player) && !wallRun) {
 				// v0.17.1 (user): momentum only BUILDS while Ctrl is held -- physically, so Toggle Sprint doesn't count; let
-				// go past 30% and you cruise at that speed (it holds), below it it bleeds away as before
+				// go and you cruise at that speed (it holds) -- at any momentum (user: "player should even be able to stop it
+				// at 5%"), so only stopping loses it
 				if (m < SpeedForceConfig.CRUISE_MOMENTUM) {
 					m -= SpeedForceConfig.WALK_DECAY_PER_TICK;
 				}
@@ -845,7 +876,7 @@ public final class SpeedForceSpeedster {
 		PowerToggles.modifier(player, Attributes.BLOCK_BREAK_SPEED, MINE_ID, SpeedForceConfig.SPEED_MODE_MINING, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		boolean sprint = player.isSprinting();
 		boolean pushing = SpeedsterPrefs.pushing(player);
-		// v0.17.1 (user): past 30% momentum, letting go of Ctrl keeps the speed (a cruise); below it you drop to the 20 b/s jog
+		// v0.17.1 (user): letting go of Ctrl keeps the speed (a cruise), at any momentum
 		// -- with Toggle Sprint on too (still "sprinting" with the key up; bonusFor divides the vanilla sprint 1.3x back out)
 		boolean cruise = !pushing && s.momentum >= SpeedForceConfig.CRUISE_MOMENTUM;
 		double bps = pushing || cruise ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;

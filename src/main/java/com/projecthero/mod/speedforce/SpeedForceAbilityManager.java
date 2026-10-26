@@ -71,6 +71,12 @@ public final class SpeedForceAbilityManager {
 	}
 
 	/** Whether {@code slot}'s key is down for {@code player} right now (the HUD's hold fill reads the client side). */
+	/** v0.17.1: any move key held right now. */
+	public static boolean anyDown(ServerPlayer player) {
+		Map<Integer, Key> mine = DOWN.get(player.getUUID());
+		return mine != null && !mine.isEmpty();
+	}
+
 	public static boolean isDown(ServerPlayer player, AbilitySlot slot) {
 		Map<Integer, Key> mine = DOWN.get(player.getUUID());
 		return mine != null && mine.containsKey(slot.ordinal());
@@ -83,6 +89,7 @@ public final class SpeedForceAbilityManager {
 			return; // v0.17.1 (user): the Speed Force taken by the Black Flash -- every key is dead until it returns
 		}
 		if (pressed) {
+			SpeedForceSpeedster.markMove(player); // v0.17.1 (user): moves never cost momentum
 			if (mine.containsKey(i)) {
 				return; // the key repeat
 			}

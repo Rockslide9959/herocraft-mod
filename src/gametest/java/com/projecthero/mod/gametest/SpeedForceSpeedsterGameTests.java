@@ -190,6 +190,25 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): using a move holds the momentum -- the stop at the end of a sweep is no wall and no standstill. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void movesNeverCostMomentum(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		SpeedForceSpeedster.setMomentum(p, 0.7f);
+		p.setSprinting(true);
+		SpeedForceSpeedster.markMove(p);
+		// thrown about at full tilt, then stopped dead with a wall in front -- and standing a second
+		helper.setBlock(new BlockPos(3, 2, 2), Blocks.STONE);
+		helper.setBlock(new BlockPos(3, 3, 2), Blocks.STONE);
+		SpeedForceSpeedster.stepRun(p, new Vec3(8.0, 0, 0));
+		SpeedForceSpeedster.stepRun(p, new Vec3(8.0, 0, 0));
+		for (int i = 0; i < 20; i++) {
+			SpeedForceSpeedster.stepRun(p, Vec3.ZERO);
+		}
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.momentum(p) - 0.7f) < 0.01f, "a move in play: 70% kept, got " + SpeedForceSpeedster.momentum(p));
+		helper.succeed();
+	}
+
 	/** v0.17.1 (user): with Toggle Sprint on the player stays sprinting with Ctrl up -- momentum still only builds on Ctrl. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void toggleSprintWithCtrlUpCruisesInsteadOfBuilding(GameTestHelper helper) {
@@ -221,7 +240,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 			SpeedForceSpeedster.stepRun(p, Vec3.ZERO);
 		}
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.01f, "standing 1.6 s: momentum gone, got " + SpeedForceSpeedster.momentum(p));
-		// v0.17.1 (user): off Ctrl past 30% the speed holds (a cruise) -- below it, walking bleeds it away slowly
+		// v0.17.1 (user): off Ctrl the speed holds (a cruise), at any momentum
 		SpeedForceSpeedster.resetRun(p);
 		SpeedForceSpeedster.setMomentum(p, 0.8f);
 		p.setSprinting(false);
@@ -235,7 +254,8 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 			SpeedForceSpeedster.stepRun(p, new Vec3(0.45, 0, 0));
 		}
 		float walked = SpeedForceSpeedster.momentum(p);
-		helper.assertTrue(walked < 0.10f && walked > 0.0f, "under 30%, 2 s of walking costs ~20%, got " + walked);
+		// v0.17.1 (user: "player should even be able to stop it at 5%"): the cruise holds at any momentum now
+		helper.assertTrue(Math.abs(walked - 0.25f) < 0.01f, "off Ctrl at 25%: held too, got " + walked);
 		// a stall with nothing in front (a lag spike): not a wall
 		SpeedForceSpeedster.resetRun(p);
 		SpeedForceSpeedster.setMomentum(p, 1f);
