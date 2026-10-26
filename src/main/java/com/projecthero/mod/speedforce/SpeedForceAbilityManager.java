@@ -27,7 +27,8 @@ import net.minecraft.server.level.ServerPlayer;
  *   Z (4)  --                  Shift+Z  Time Remnant        hold Z  below 100% momentum: Flash Time (from the press);
  *                                                                   pressed AT 100%: the Speed Force portal ONLY (5 s held)
  *   V (5)  Afterimage Decoys   Shift+V  Speed Heal          hold V  Rewind
- *   C (6)  Speed Mode on / off Shift+C  Phase (held)        hold C  the 3 s charge, let go to launch at full speed
+ *   C (6)  Speed Mode on / off Shift+C  Phase (held)        hold C  running: Momentum Lock (held while C is);
+ *                                                                   standing still: the 3 s charge (rooted), let go to launch
  *   N (8)  Rescue Run (Shift+N is the Speedster menu, client-side)
  * </pre>
  * H does nothing here.
@@ -181,7 +182,15 @@ public final class SpeedForceAbilityManager {
 			case SLOT_2 -> SpeedForceAbilities.startThrowCharge(player);
 			case SLOT_3 -> SpeedForceAbilities.startTornadoArms(player);
 			case SLOT_5 -> SpeedForceAbilities.rewind(player);
-			case SLOT_6 -> SpeedForceAbilities.startCharge(player);
+			case SLOT_6 -> {
+				// v0.17.1 (user: "make the momentum [lock] holding C, player should only be able to do speed force charge while
+				// standing still"): one key, two holds -- on the move it pins the momentum, standing still it charges
+				if (SpeedForceSpeedster.groundSpeedBps(player) > SpeedForceConfig.CHARGE_STILL_BPS) {
+					SpeedForceSpeedster.lockMomentum(player);
+				} else {
+					SpeedForceAbilities.startCharge(player);
+				}
+			}
 			default -> {
 			}
 		}
@@ -192,7 +201,10 @@ public final class SpeedForceAbilityManager {
 			case SLOT_1 -> SpeedForceAbilities.releaseMass(player);
 			case SLOT_2 -> SpeedForceAbilities.releaseThrow(player);
 			case SLOT_3 -> SpeedForceAbilities.endTornadoArms(player);
-			case SLOT_6 -> SpeedForceAbilities.releaseCharge(player);
+			case SLOT_6 -> {
+				SpeedForceSpeedster.unlockMomentum(player);
+				SpeedForceAbilities.releaseCharge(player);
+			}
 			default -> {
 			}
 		}
@@ -204,6 +216,7 @@ public final class SpeedForceAbilityManager {
 			case SLOT_4 -> SpeedForceAbilities.endFlashTime(player);
 			case SLOT_6 -> {
 				SpeedForceAbilities.endPhase(player);
+				SpeedForceSpeedster.unlockMomentum(player);
 				SpeedForceAbilities.releaseCharge(player);
 			}
 			default -> releaseHold(player, slot);

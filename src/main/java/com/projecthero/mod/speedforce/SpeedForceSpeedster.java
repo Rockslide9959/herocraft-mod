@@ -110,6 +110,7 @@ public final class SpeedForceSpeedster {
 	public static void clearSessionState() {
 		LAST_MESSAGE.clear();
 		MOVE_HOLD.clear();
+		LOCKED.clear();
 		LAST_TICK.clear();
 		MOTION.clear();
 		HISTORY.clear();
@@ -362,6 +363,32 @@ public final class SpeedForceSpeedster {
 
 	/** v0.17.1: player -> the tick count until which a move holds their momentum. */
 	private static final Map<UUID, Integer> MOVE_HOLD = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** v0.17.1 (user): runners holding C on the move -- their momentum is pinned (no build, no loss) until they let go. */
+	private static final java.util.Set<UUID> LOCKED = ConcurrentHashMap.newKeySet();
+
+	public static void lockMomentum(ServerPlayer player) {
+		if (!speedActive(player) || !LOCKED.add(player.getUUID())) {
+			return;
+		}
+		say(player, "message.projecthero.speed_force_speedster.momentum_locked", ChatFormatting.AQUA,
+				Math.round(state(player).momentum * 100f));
+		sound(player, SoundEvents.BEACON_POWER_SELECT, 0.4f, 2.0f);
+	}
+
+	public static void unlockMomentum(ServerPlayer player) {
+		LOCKED.remove(player.getUUID());
+	}
+
+	public static boolean momentumLocked(ServerPlayer player) {
+		return LOCKED.contains(player.getUUID());
+	}
+
+	/** The smoothed horizontal speed, blocks a second (0 before the first run step). */
+	public static double groundSpeedBps(ServerPlayer player) {
+		Motion mo = MOTION.get(player.getUUID());
+		return mo == null ? 0.0 : mo.hEma * 20.0;
+	}
 
 	/** A move key was used: the momentum holds while it plays out (and while any move key is held). */
 	public static void markMove(ServerPlayer player) {
@@ -687,7 +714,7 @@ public final class SpeedForceSpeedster {
 		// v0.17.1 (user: "when the player builds up momentum and uses an ability such as speed sweep we can lose momentum"):
 		// a move in use (and a moment after it) holds the momentum -- the moves throw the runner about and stop them dead,
 		// which read as standing still or a wall
-		boolean moving = inMove(player);
+		boolean moving = inMove(player) || momentumLocked(player);
 		boolean frozen = surge || SuperSpeedTimeSlow.isCasting(player) || s.phasing || s.tornadoLeft > 0
 				|| s.flashLeft == SpeedForceState.Z_PORTAL || moving;
 		double m = s.momentum;
@@ -878,7 +905,8 @@ public final class SpeedForceSpeedster {
 		boolean pushing = SpeedsterPrefs.pushing(player);
 		// v0.17.1 (user): letting go of Ctrl keeps the speed (a cruise), at any momentum
 		// -- with Toggle Sprint on too (still "sprinting" with the key up; bonusFor divides the vanilla sprint 1.3x back out)
-		boolean cruise = !pushing && s.momentum >= SpeedForceConfig.CRUISE_MOMENTUM;
+		// (with no momentum at all it is the 20 b/s Speed Mode walk)
+		boolean cruise = !pushing && s.momentum > Math.max(SpeedForceConfig.CRUISE_MOMENTUM, 0.005f);
 		double bps = pushing || cruise ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;
 		bps = Math.round(bps * 2.0) / 2.0; // half-block steps: the attribute (and its sync) changes rarely
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, bonusFor(bps, sprint), AttributeModifier.Operation.ADD_MULTIPLIED_BASE);

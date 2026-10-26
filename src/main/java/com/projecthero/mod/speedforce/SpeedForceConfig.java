@@ -23,6 +23,8 @@ public final class SpeedForceConfig {
 	 * (user: "30% shouldnt be the minimum ... player should even be able to stop it at 5%"): it holds at any momentum.
 	 */
 	public static final float CRUISE_MOMENTUM = 0.0f;
+	/** v0.17.1 (user): hold C slower than this (blocks a second) is the charge, faster the Momentum Lock. */
+	public static final double CHARGE_STILL_BPS = 2.0;
 	/** v0.17.1 (user): a move used holds the momentum this long after (ticks), so moves never cost the run. */
 	public static final int MOVE_MOMENTUM_HOLD_TICKS = 40;
 	/**

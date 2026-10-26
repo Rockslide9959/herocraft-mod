@@ -8453,5 +8453,6 @@
   "message.projecthero.black_flash.flash_time_sub": "The Black Flash moves in his own time",
   "message.projecthero.speed_force_speedster.power_lost": "The Black Flash took the Speed Force from you. It returns in %s minutes.",
   "message.projecthero.speed_force_speedster.power_lost_left": "No Speed Force: %s min left",
-  "message.projecthero.speed_force_speedster.power_back": "The Speed Force is back."
+  "message.projecthero.speed_force_speedster.power_back": "The Speed Force is back.",
+  "message.projecthero.speed_force_speedster.momentum_locked": "Momentum locked at %s%% -- let go of C to release it"
 }

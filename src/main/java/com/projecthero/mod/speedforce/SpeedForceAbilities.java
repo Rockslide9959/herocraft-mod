@@ -1264,6 +1264,10 @@ public final class SpeedForceAbilities {
 		if (SpeedForceSpeedster.state(p).chargeStart != 0L || !gate(p, LAUNCH)) {
 			return false;
 		}
+		// v0.17.1 (user): only standing still (on the move, hold C is the Momentum Lock)
+		if (SpeedForceSpeedster.groundSpeedBps(p) > SpeedForceConfig.CHARGE_STILL_BPS) {
+			return false;
+		}
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
 		n.chargeStart = p.level().getGameTime();
 		n.animId = SpeedForceState.ANIM_CHARGE;
