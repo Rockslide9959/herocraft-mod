@@ -366,10 +366,81 @@ public final class GreenLanternConfig {
 	/** v0.11.10: 24, up from 8 -- explicit user request ("track the players aim much quicker"). */
 	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 24.0;
 
+	// v0.17.1: the Carry Platform's key cycles it Platform -> Car -> Jet -> Platform (GreenLanternVehicles). Each form
+	// costs its own charge to shape and its own upkeep while it stands (the platform keeps CARRY_PLATFORM_* above).
+	public static final float VEHICLE_CAR_COST = 40f;
+	public static final float VEHICLE_CAR_UPKEEP_PER_SEC = 2f;
+	public static final float VEHICLE_CAR_HP = 120f;
+	public static final double VEHICLE_CAR_TOP_BPS = 50.0;
+	/** Blocks/second gained per second of throttle (0 to 50 in about 3.5 s). */
+	public static final double VEHICLE_CAR_ACCEL_BPS2 = 14.0;
+	public static final double VEHICLE_CAR_BRAKE_BPS2 = 45.0;
+	public static final double VEHICLE_CAR_REVERSE_BPS = 12.0;
+	public static final double VEHICLE_CAR_STEP = 1.1;
+	public static final int VEHICLE_CAR_SEATS = 4;
+	/** Shift+R while driving: horn + a surge of acceleration (x3) for this long. */
+	public static final float VEHICLE_CAR_BOOST_COST = 15f;
+	public static final int VEHICLE_CAR_BOOST_TICKS = 30;
+	public static final int VEHICLE_CAR_BOOST_COOLDOWN_TICKS = 60;
+
+	public static final float VEHICLE_JET_COST = 60f;
+	public static final float VEHICLE_JET_UPKEEP_PER_SEC = 3f;
+	public static final float VEHICLE_JET_HP = 90f;
+	public static final double VEHICLE_JET_TOP_BPS = 90.0;
+	public static final double VEHICLE_JET_ACCEL_BPS2 = 22.0;
+	/** Below this airspeed the jet stalls and sinks (at most VEHICLE_JET_SINK_BPS). */
+	public static final double VEHICLE_JET_STALL_BPS = 18.0;
+	public static final double VEHICLE_JET_SINK_BPS = 5.0;
+	/** Degrees a tick the nose swings toward where the pilot looks. */
+	public static final float VEHICLE_JET_TURN_DEG = 6f;
+	public static final int VEHICLE_JET_SEATS = 2;
+	/** R while piloting (hold): twin wing cannons, one pair of bolts every interval. v0.17.1 balance numbers (-30%). */
+	public static final float VEHICLE_JET_CANNON_DAMAGE = 4f;
+	public static final int VEHICLE_JET_CANNON_INTERVAL_TICKS = 4;
+	public static final float VEHICLE_JET_CANNON_COST = 3f;
+	public static final double VEHICLE_JET_CANNON_RANGE = 64.0;
+	/** Shift+R while piloting: afterburner (x3 thrust) for this long. */
+	public static final float VEHICLE_JET_BOOST_COST = 20f;
+	public static final int VEHICLE_JET_BOOST_TICKS = 40;
+	public static final int VEHICLE_JET_BOOST_COOLDOWN_TICKS = 80;
+	/** Car and Jet shape themselves out of the ring over this long (the build-in sweep). */
+	public static final int VEHICLE_BUILD_TICKS = 20;
+	/** Shift held this long (with no Shift+R in between) gets you out of a car or jet -- Shift alone is Shift+R's modifier. */
+	public static final int VEHICLE_DISMOUNT_HOLD_TICKS = 10;
+
 	/** v0.11.4: Hard-Light Tool Kit -- a diamond pickaxe/axe/shovel, dismiss-only (dropping any one ends it). */
 	public static final float TOOL_KIT_COST = 60f;
 	public static final float TOOL_KIT_UPKEEP_PER_SEC = 3f;
 	public static final int TOOL_KIT_SLOT_WEIGHT = 2;
+
+	// ---------------- v0.17.1: survival constructs (GreenLanternSurvival) ----------------
+
+	/** Hard-Light Chest: 27 slots, one at a time, stands where you aim (6 blocks) until N / dry / broken; spills its items. */
+	public static final float CHEST_COST = 40f;
+	public static final float CHEST_UPKEEP_PER_SEC = 1f;
+	public static final double CHEST_RANGE = 6.0;
+	/** Punches that break it (any player's; its contents drop). */
+	public static final int CHEST_HITS = 5;
+	/** How far away a viewer can keep it open. */
+	public static final double CHEST_REACH = 8.0;
+	/** Hard-Light Scaffold Tower: a climbable column (Space up, sneak down) with a 3x3 deck on top. */
+	public static final float SCAFFOLD_COST = 30f;
+	public static final float SCAFFOLD_UPKEEP_PER_SEC = 1.5f;
+	public static final int SCAFFOLD_HEIGHT = 24;
+	public static final double SCAFFOLD_RANGE = 24.0;
+	/** Blocks of column built each tick (24 blocks in under a second). */
+	public static final int SCAFFOLD_BUILD_PER_TICK = 3;
+	/** Item Net: sweeps out over a radius and reels every dropped item and XP orb in to you, then dissolves. */
+	public static final float NET_COST = 25f;
+	public static final double NET_RADIUS = 12.0;
+	public static final int NET_TICKS = 60;
+	public static final int NET_COOLDOWN_TICKS = 10 * 20;
+	/** Hard-Light Tunneller: bores a 3x3 tunnel up to 16 blocks along your aim; mined blocks drop as items. */
+	public static final float TUNNEL_COST = 10f;
+	public static final float TUNNEL_COST_PER_BLOCK = 1.5f;
+	public static final int TUNNEL_LENGTH = 16;
+	/** Ticks per one-block slice of the bore (16 slices = 2.4 s). */
+	public static final int TUNNEL_TICKS_PER_SLICE = 3;
 
 	// ---------------- v0.14.3: new attacks + construct attacks ----------------
 
@@ -573,6 +644,58 @@ public final class GreenLanternConfig {
 	public static final float RANK5_OATH_DURATION_MULT = 1.5f;
 	/** Construct Menu: a hold entry spawned once from the menu runs this long before it lets go. */
 	public static final int MENU_SPAWN_HOLD_TICKS = 40;
+
+	// ---------------- v0.17.1 Construct Combos (GreenLanternCombos) ----------------
+
+	/** A combo's opener only counts if the finisher lands on the same target within this many ticks (3 s). */
+	public static final int COMBO_WINDOW_TICKS = 60;
+	/** Willpower XP for landing a combo (on top of the damage XP). */
+	public static final long COMBO_XP_BONUS = 25L;
+	/** Crush (Chain Snare -> Anvil Drop): the snared target takes this times the anvil, and a shockwave rolls out. */
+	public static final float CRUSH_DAMAGE_MULT = 2.0f;
+	public static final double CRUSH_SHOCKWAVE_RADIUS = 4.5;
+	public static final float CRUSH_SHOCKWAVE_DAMAGE = 8f;
+	/** Slingshot (Giant Hand -> Construct Fist): the held target is let go and launched. */
+	public static final float SLINGSHOT_DAMAGE_MULT = 1.5f;
+	public static final double SLINGSHOT_LAUNCH_SPEED = 2.6;
+	/** Overcharge (three Ring Bolts -> Continuous Beam): the first beam tick on the target hits this many times harder. */
+	public static final int OVERCHARGE_BOLTS = 3;
+	public static final float OVERCHARGE_BEAM_MULT = 5.0f;
+	/** Detonation (pushed by your Protective Dome -> Blast Wave): double damage and a hard-light burst round the target. */
+	public static final float DETONATION_DAMAGE_MULT = 2.0f;
+	public static final double DETONATION_RADIUS = 3.0;
+	public static final float DETONATION_SPLASH_DAMAGE = 6f;
+	/** Shatter (Buzzsaw -> War Hammer): the target's armour is broken (armour and toughness to 0) for this long. */
+	public static final float SHATTER_DAMAGE_MULT = 1.25f;
+	public static final int SHATTER_TICKS = 8 * 20;
+	/** Pin (Battering Ram -> one of your Hard-Light Walls): a rammed target that hits your wall within this window is pinned. */
+	public static final int PIN_WINDOW_TICKS = 30;
+	public static final float PIN_DAMAGE = 10f;
+	public static final int PIN_STUN_TICKS = 40;
+	/** Bullseye (Bear Trap -> Sniper Rifle): a trapped target takes this times the shot. */
+	public static final float BULLSEYE_DAMAGE_MULT = 2.0f;
+	/** Home Run (Fly Swatter -> Boxing Glove): the swatted target is knocked sky-high. */
+	public static final float HOME_RUN_DAMAGE_MULT = 1.5f;
+	public static final double HOME_RUN_LAUNCH_SPEED = 2.2;
+
+	// ---------------- v0.17.1 Construct durability shown in-world (GreenLanternConstructHealth) ----------------
+
+	/** Under this fraction of its HP a construct shows cracks; under the second it flickers and stutters. */
+	public static final float DURABILITY_CRACK_BELOW = 0.5f;
+	public static final float DURABILITY_FLICKER_BELOW = 0.2f;
+	/** How often (ticks) a damaged block construct re-sends its health to nearby players (cracks also need refreshing). */
+	public static final int DURABILITY_RESEND_TICKS = 40;
+
+	// ---------------- v0.17.1 Ring AI voice (GreenLanternRingVoice) ----------------
+
+	/** Minimum gap between two non-urgent lines to the same Lantern. */
+	public static final int RING_VOICE_GAP_TICKS = 80;
+	/** The ring looks for hostiles this far out; this many at once is "hostile life forms detected". */
+	public static final double RING_VOICE_HOSTILE_RADIUS = 16.0;
+	public static final int RING_VOICE_HOSTILE_COUNT = 3;
+	/** Ring charge fractions the ring calls out ("at 25%", "critical"). */
+	public static final float RING_VOICE_LOW = 0.25f;
+	public static final float RING_VOICE_CRITICAL = 0.10f;
 
 	// ---------------- Automatic Air Tank (v0.11.10) ----------------
 

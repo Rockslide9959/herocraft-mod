@@ -100,6 +100,35 @@ public final class SpeedForceClient {
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSprintKey::tick); // v0.17.1 (user): Ctrl held, Toggle Sprint or not
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSenses::tick); // v0.17.1 (user): danger sense, Flash Time vision
 		SpeedForceBuildClient.initialize(); // v0.17.1 (user): Speed Build's held right-click
+		// v0.17.1: in the full Flash Suit the visor HUD replaces SpeedForceHud -- the static charge, the speed cap and the
+		// danger sense go on it too
+		com.projecthero.mod.client.flash.FlashSuitHud.addTimerSource((p, list) -> {
+			Integer charge = p.getAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.STATIC_CHARGE);
+			if (charge != null && charge > 0 && SpeedForceSpeedster.speedActive(p)) {
+				int col = com.projecthero.mod.speedforce.SpeedForceColours.of(p);
+				boolean ready = charge >= com.projecthero.mod.speedforce.SpeedForceConfig.STATIC_MIN_RELEASE;
+				list.add(new com.projecthero.mod.client.flash.FlashSuitHud.Timer(
+						net.minecraft.network.chat.Component.translatable("hud.projecthero.speed_force.static"),
+						charge / com.projecthero.mod.speedforce.SpeedForceConfig.STATIC_MAX,
+						net.minecraft.network.chat.Component.literal(String.valueOf(charge)),
+						ready ? 0xFF000000 | com.projecthero.mod.speedforce.SpeedForceColours.tone(col, 2) : 0xFF9A8F8A));
+			}
+		});
+		com.projecthero.mod.client.flash.FlashSuitHud.addChipSource((p, list) -> {
+			com.projecthero.mod.speedforce.data.SpeedForceState s = SpeedForceSpeedster.peek(p);
+			if (s == null || !SpeedForceSpeedster.speedActive(p)) {
+				return;
+			}
+			if (s.speedCap < com.projecthero.mod.speedforce.SpeedForceConfig.SPEED_CAP_STEPS) {
+				list.add(new com.projecthero.mod.client.flash.FlashSuitHud.Chip(net.minecraft.network.chat.Component.translatable(
+						"hud.projecthero.speed_force.cap", s.speedCap * 10), 0xFFFFD23A));
+			}
+			int danger = SpeedForceSenses.markedCount();
+			if (danger > 0) {
+				list.add(new com.projecthero.mod.client.flash.FlashSuitHud.Chip(net.minecraft.network.chat.Component.translatable(
+						"hud.projecthero.speed_force.danger", danger), 0xFF000000 | com.projecthero.mod.speedforce.SpeedForceConfig.DANGER_COLOUR));
+			}
+		});
 		WorldRenderEvents.AFTER_ENTITIES.register(SpeedForceClient::render);
 		ClientPlayNetworking.registerGlobalReceiver(SpeedForceFxPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> accept(payload)));

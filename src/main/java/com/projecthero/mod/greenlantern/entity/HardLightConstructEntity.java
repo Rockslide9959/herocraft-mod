@@ -44,7 +44,9 @@ public class HardLightConstructEntity extends Entity {
 		SNIPER_BOLT,
 		/** v0.17.1 revamp (GreenLanternArsenal): the fifteen new constructs and their pieces. */
 		GLOVE, SWATTER, CATAPULT, BOULDER, TENTACLE, WRECKING_BALL, CANNON, CANNON_SHOT, BOW, ARROW, BULLDOZER, BEAR_TRAP,
-		MIRROR, CLAW, JET, DRAGON, MACE, MED_BAY;
+		MIRROR, CLAW, JET, DRAGON, MACE, MED_BAY,
+		/** v0.17.1 survival constructs (GreenLanternSurvival): the Item Net (scale = radius) and the Tunneller's drill head. */
+		ITEM_NET, TUNNELLER;
 
 		public static Shape byId(int id) {
 			Shape[] all = values();

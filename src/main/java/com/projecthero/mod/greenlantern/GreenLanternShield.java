@@ -264,6 +264,9 @@ public final class GreenLanternShield {
 				continue;
 			}
 			AbilityHelpers.knockbackFrom(e, center, GreenLanternConfig.DOME_PUSH_SPEED);
+			if (owner.tickCount % 10 == 0) {
+				GreenLanternCombos.mark(owner, e, GreenLanternCombos.Move.DOME); // v0.17.1: pushed out = Detonation open
+			}
 		}
 	}
 

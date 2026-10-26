@@ -100,6 +100,11 @@ public final class SpeedForceSenses {
 		return s != null && s.flashLeft == SpeedForceState.Z_FLASH_TIME;
 	}
 
+	/** How many hostiles the danger sense is marking right now (the visor's chip). */
+	public static int markedCount() {
+		return MARKED.size();
+	}
+
 	/** Danger sense: should {@code e} be outlined for the local runner? */
 	public static boolean marked(Entity e) {
 		Long until = MARKED.get(e.getId());

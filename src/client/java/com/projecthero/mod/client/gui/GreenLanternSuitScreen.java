@@ -53,6 +53,9 @@ public final class GreenLanternSuitScreen extends Screen {
 	private Button removeButton;
 	private Button glowButton;
 	private Button trailButton;
+	/** v0.17.1: mutes / unmutes the Power Ring's voice (client-side, saved). */
+	private Button voiceButton;
+	private boolean shortLabels;
 	/**
 	 * v0.15.20: the toggle row's height -- {@link #TOGGLE_ROW}, or 0 in the compact layout (a short GUI, e.g. a small
 	 * window: the card blurbs and intro go and the two switches share the Remove Ring row) so nothing runs off the bottom.
@@ -122,12 +125,14 @@ public final class GreenLanternSuitScreen extends Screen {
 		}
 		removeArmedUntil = 0;
 		int by = top() + panelH - BUTTON_ROW + 2;
-		int bw = compact ? (panelW - 2 * PAD - 2 * GAP) / 3 : Math.min(150, panelW - 2 * PAD);
+		// v0.17.1: a third switch (Ring Voice) -- compact shares one row four ways
+		int bw = compact ? (panelW - 2 * PAD - 3 * GAP) / 4 : Math.min(150, panelW - 2 * PAD);
 		removeButton = addRenderableWidget(Button.builder(removeLabel(), b -> removeRing())
 				.bounds(left() + PAD, by, bw, 18).build());
 		removeButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.remove_ring.tip")));
 		// v0.15.20: two equal switches side by side above it (or beside it, compact)
-		int tw = compact ? bw : Math.min(120, (panelW - 2 * PAD - GAP) / 2);
+		int tw = compact ? bw : Math.min(120, (panelW - 2 * PAD - 2 * GAP) / 3);
+		shortLabels = tw < 100; // three switches in a narrow panel: "Glow: ON" etc.
 		int ty = compact ? by : top() + panelH - BUTTON_ROW - TOGGLE_ROW + 2;
 		int tx = compact ? left() + PAD + bw + GAP : left() + PAD;
 		glowButton = addRenderableWidget(Button.builder(toggleLabel("body_glow", glowOn()), b -> ClientPlayNetworking.send(
@@ -138,6 +143,13 @@ public final class GreenLanternSuitScreen extends Screen {
 				new GreenLanternActionPayload(GreenLanternActionPayload.Action.TOGGLE_FLIGHT_TRAIL)))
 				.bounds(tx + tw + GAP, ty, tw, 18).build());
 		trailButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.flight_trail.tip")));
+		voiceButton = addRenderableWidget(Button.builder(toggleLabel("ring_voice",
+				com.projecthero.mod.client.greenlantern.GreenLanternRingVoiceClient.enabled()), b -> {
+					boolean on = !com.projecthero.mod.client.greenlantern.GreenLanternRingVoiceClient.enabled();
+					com.projecthero.mod.client.greenlantern.GreenLanternRingVoiceClient.setEnabled(on);
+					b.setMessage(toggleLabel("ring_voice", on));
+				}).bounds(tx + 2 * (tw + GAP), ty, tw, 18).build());
+		voiceButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.ring_voice.tip")));
 	}
 
 	/** Card and panel heights for {@code descLines} blurb lines, shrinking the doll until the panel fits (or scale 1). */
@@ -170,7 +182,7 @@ public final class GreenLanternSuitScreen extends Screen {
 
 	/** "Body Glow: ON" (green) / "Body Glow: OFF" (grey); "Glow: ON" in the compact layout. */
 	private Component toggleLabel(String key, boolean on) {
-		return Component.translatable("screen.projecthero.green_lantern_suit." + key + (compact ? ".short" : ""),
+		return Component.translatable("screen.projecthero.green_lantern_suit." + key + (compact || shortLabels ? ".short" : ""),
 				Component.translatable(on ? "options.on" : "options.off")
 						.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY));
 	}

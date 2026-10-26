@@ -369,7 +369,10 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		p.tickCount++;
 		SpeedForceSpeedster.tick(p);
 		double cruise = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
-		helper.assertTrue(Math.abs(cruise - SpeedForceConfig.sprintBps(0.1, true)) < 0.75, "cruising at 10%: " + SpeedForceConfig.sprintBps(0.1, true) + " b/s, got " + cruise);
+		// (a mock player stands still, so the tick's stop-decay already took a little: compare with what is left)
+		double want = SpeedForceConfig.sprintBps(SpeedForceSpeedster.momentum(p), true);
+		helper.assertTrue(SpeedForceSpeedster.momentum(p) > 0.005f && Math.abs(cruise - want) < 0.75 && cruise > SpeedForceConfig.WALK_BPS + 5.0,
+				"cruising off Ctrl: " + want + " b/s, got " + cruise);
 		helper.succeed();
 	}
 

@@ -73,6 +73,12 @@ public final class Construct {
 	/** Whether the last-3-seconds expiry chime has already played. */
 	public boolean expiryWarned;
 
+	// ---- v0.17.1: Carry Platform -> Car -> Jet ----
+	/** CARRY_PLATFORM: which form it is in ({@code GreenLanternVehicles#FORM_PLATFORM / FORM_CAR / FORM_JET}). */
+	public int vehicleForm;
+	/** CARRY_PLATFORM as a Car or Jet: the hard-light vehicle entity (never saved -- it goes with the construct). */
+	public net.minecraft.world.entity.Entity vehicle;
+
 	private static int nextInstanceId = 1;
 
 	public Construct(UUID owner, ConstructType type, ServerLevel level, Vec3 anchor, long now) {

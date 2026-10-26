@@ -98,6 +98,10 @@ public final class GreenLanternHud {
 		if (s == null || !s.hasPower) {
 			return;
 		}
+		// v0.17.1: inside the Hard-Light Mech its own HUD (GreenLanternMechHud) takes over
+		if (com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(player)) {
+			return;
+		}
 		// The keys belong to Green Lantern only while no mutation is selected (GreenLanternAbilityManager.hasContext) --
 		// mirror that here, or a bonded Lantern with a mutation active gets these boxes drawn on top of AbilityHud's.
 		com.projecthero.mod.hero.data.ExperimentalState experimental =

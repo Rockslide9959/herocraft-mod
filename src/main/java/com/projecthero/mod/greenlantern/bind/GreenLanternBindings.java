@@ -87,6 +87,10 @@ public final class GreenLanternBindings {
 
 	/** A bindable key went down or up. {@code shift} only matters on the press. */
 	public static void key(ServerPlayer p, char base, boolean shift, boolean pressed) {
+		// v0.17.1: inside the Hard-Light Mech the keys drive the mech (H does nothing)
+		if (pressed && com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(p)) {
+			return;
+		}
 		Map<Character, Entry> held = HELD.computeIfAbsent(p.getUUID(), k -> new ConcurrentHashMap<>());
 		if (!pressed) {
 			Entry e = held.remove(base);

@@ -33,6 +33,7 @@
 		"PlayerAttackComboMixin",
 		"LootTableDisabledPowerMixin",
 		"LivingEntityClimbMixin",
+		"HardLightScaffoldClimbMixin",
 		"CatNoirClimbMixin",
 		"LivingEntityEatMixin",
 		"LivingEntityEffectMixin",
@@ -97,7 +98,8 @@
 		"ErasureShulkerMixin",
 		"ErasureServerLevelSpawnMixin",
 		"OverhaulExplosionMixin",
-		"SecondChanceSpawnMixin"
+		"SecondChanceSpawnMixin",
+		"GreenLanternMechSeatMixin"
 	],
 	"client": [],
 	"server": [],

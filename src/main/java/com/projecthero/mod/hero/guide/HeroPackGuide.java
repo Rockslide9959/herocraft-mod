@@ -918,11 +918,38 @@ public final class HeroPackGuide {
 				}
 			}
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.survival"); // v0.17.1: chest, scaffold tower, item net, tunneller
+			para(lines, "projecthero.guide.green_lantern.survival.body");
+			head(lines, "projecthero.guide.green_lantern.mech"); // v0.17.1: the Hard-Light Mech
+			para(lines, "projecthero.guide.green_lantern.mech.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
 			para(lines, "projecthero.guide.green_lantern.sniper.body");
+			head(lines, "projecthero.guide.green_lantern.vehicles"); // v0.17.1: Carry Platform -> Car -> Jet
+			para(lines, "projecthero.guide.green_lantern.vehicles.body");
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.battery");
 			para(lines, "projecthero.guide.green_lantern.battery.body");
+			// v0.17.1: Construct Combos, construct durability, the ring's voice
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.combos");
+			para(lines, "projecthero.guide.green_lantern.combos.body");
+			for (com.projecthero.mod.greenlantern.GreenLanternCombos.Combo c : com.projecthero.mod.greenlantern.GreenLanternCombos.Combo.values()) {
+				Component opener = Component.translatable("projecthero.guide.green_lantern.combos.move." + c.opener.name().toLowerCase(java.util.Locale.ROOT));
+				Component finisher = c.finisher == null ? Component.translatable("projecthero.guide.green_lantern.combos.pin_wall")
+						: Component.translatable("projecthero.guide.green_lantern.combos.move." + c.finisher.name().toLowerCase(java.util.Locale.ROOT));
+				lines.add(Component.literal(" ").append(Component.translatable(c.nameKey()).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+						.append(Component.literal("  "))
+						.append(Component.translatable("projecthero.guide.green_lantern.combos.entry", opener, finisher)
+								.withStyle(ChatFormatting.WHITE)));
+				para(lines, c.descKey());
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.durability");
+			para(lines, "projecthero.guide.green_lantern.durability.body");
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.ring_voice");
+			para(lines, "projecthero.guide.green_lantern.ring_voice.body");
 		}));
 
 		// The Symbiote -- not a Hero Class of its own like the other four: any player can bond with it,

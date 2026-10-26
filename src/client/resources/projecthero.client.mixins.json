@@ -3,6 +3,7 @@
 	"package": "com.projecthero.mod.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"BossHealthOverlayAccessor",
 		"NovaFirstPersonParticleMixin",
 		"PyroFlameSkinMixin",
 		"SpiderFirstPersonHandsMixin",
@@ -185,7 +186,10 @@
 		"RenaRougeCamouflageMixin",
 		"RenaRougeHeldItemMixin",
 		"RenaRougeArmorMixin",
-		"ErasureGogglesGlowMixin"
+		"ErasureGogglesGlowMixin",
+		"GreenLanternMechCameraMixin",
+		"GreenLanternMechHandsMixin",
+		"GreenLanternMechGuiMixin"
 	],
 	"client": [],
 	"server": [],

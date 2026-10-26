@@ -725,3 +725,152 @@ A new wheel construct (`ConstructType.SNIPER_RIFLE`, appended so saved selection
   upper-left of the lens.
 - Gametests: `V0161PunisherGlGameTests` (forms / puts away, long-range hit + cost + cooldown, tapped shot weaker,
   refused without charge, charge-and-release input path; shots go straight up with `skyAccess = true`).
+
+## v0.17.1 -- survival constructs (chest, scaffold tower, item net, tunneller)
+
+Four new `ConstructType`s with their own `Kind.SURVIVAL`, appended after `MED_BAY`, run by
+`greenlantern/GreenLanternSurvival` (dispatched from `GreenLanternConstructAttacks#deploy`; ticked, dismissed and cleared
+through `GreenLanternArsenal`). All in the Construct Menu's Building & Utility section, icons in
+`textures/gui/green_lantern/survival.png` (`GreenLanternBinding.ATLAS_SURVIVAL`). Numbers in `GreenLanternConfig`
+next to the Tool Kit; every cost goes through `GreenLanternEnergy#spend` (reserve, rank discount, Oath x2).
+
+| Construct | Cost | Upkeep | Notes |
+|-----------|------|--------|-------|
+| Hard-Light Chest | 40 | 1 / s | 27 slots, one at a time, where you aim (6 blocks). Owner + squad (`Squads.areAllies`) open it. Ends on N, an empty ring, 5 punches, the block being replaced, logout / death / dimension change: the items ALWAYS drop (at the chest; at the owner if the chest's chunk is unloaded). |
+| Scaffold Tower | 30 | 1.5 / s | Aimed at the ground (24 range): a column up to 24 high + a 3x3 deck. Press again to let it go. |
+| Item Net | 25 | -- | 12-block sweep, 3 s, pulls items + XP orbs and touches them into the inventory. 10 s cooldown (`construct_item_net`). |
+| Tunneller | 10 + 1.5 / block | -- | 3x3 x 16 along the aim snapped to the nearest axis, one slice per 3 ticks; stops at bedrock / hard light / an empty ring. |
+
+- Blocks (`block/GreenLanternSurvivalBlocks`): `hard_light_scaffold` (`platform` property: false = column with the vanilla
+  scaffolding collision -- solid only from above and not while sneaking; true = solid deck) and `hard_light_chest`
+  (horizontal facing). Unbreakable, no item / loot, push-proof, self-removing orphans (`GreenLanternSurvival#isTrackedCell`).
+  The column is in `#minecraft:climbable`; `HardLightScaffoldClimbMixin` makes sneaking sink through it instead of
+  clinging (vanilla only exempts `Blocks.SCAFFOLDING`).
+- The chest's items live in `GreenLanternSurvival.Chest#items` (a `SimpleContainer`, opened as a vanilla 9x3
+  `ChestMenu`), not a block entity: anyone viewing is closed out before the contents drop.
+- The tunneller breaks every block with `ServerPlayerGameMode#destroyBlock` -- the Mining Drill's path, so Fabric break
+  events, claim mods, spawn protection and adventure mode apply -- with an unbreakable diamond pickaxe swapped into the
+  selected slot for that one call (`GreenLanternSurvival#mine`).
+- Entities: `Shape.ITEM_NET` and `Shape.TUNNELLER`, drawn by `HardLightSurvivalRenderer`.
+- Gametests: `GreenLanternSurvivalGameTests`.
+## v0.17.1 -- Carry Platform -> Car -> Jet
+
+Explicit user request: the Carry Platform switches into a car or a jet.
+
+- **Input**: pressing the Carry Platform's key again while it stands (any bound key, Quick Deploy on C, or a menu
+  spawn -- all reach `GreenLanternConstructs#deploy`) now cycles **Platform -> Car -> Jet -> Platform**
+  (`construct/GreenLanternVehicles#cycle`) instead of toggling follow / park. Follow / park moved to the owner's
+  **Sneak + right-click on a platform cell** (the `UseBlockCallback` that seats riders; a plain right-click still seats).
+  A Shift+key variant was rejected: Shift selects a different binding slot in the Construct Menu model, so it could
+  never reach the same entry. Everyone aboard is carried into the new form's seats, the owner first (so they drive);
+  a reshaped platform starts parked. No room for the new form = the charge is refunded and the platform comes back.
+- **Costs** (`GreenLanternConfig.VEHICLE_*`, next to `CARRY_PLATFORM_*`): Platform 20 + 1/s, Car 40 + 2/s, Jet 60 + 3/s
+  -- `GreenLanternVehicles#upkeepPerSec` is what `tickUpkeep` charges for the Carry Platform now. All through
+  `GreenLanternEnergy.spend`, so the Oath doubles and ranks cut them.
+- **State**: still ONE `Construct` (`CARRY_PLATFORM`); `Construct#vehicleForm` + `Construct#vehicle` hold the form and
+  the entity. In Car / Jet form it has no cells; `tickKind` hands it to `GreenLanternVehicles#tick` (false once the
+  vehicle is destroyed / unloaded / gone, which ends the construct), `end()` and the logout path call `#onEnd` (riders
+  out, a burst of green sparks + amethyst break, discard). Statics (`LIVE`, `FIRING`, `BOOST_READY`) are cleared from
+  `GreenLanternConstructs#clearSessionState` and per player from `GreenLanternAbilityManager#onCleanup`.
+- **Entities** (`entity/HardLightVehicleEntity` base, `HardLightCarEntity`, `HardLightJetEntity`; types
+  `hard_light_car` 2.2x1.25, `hard_light_jet` 2.6x1.3): Mobs, `noSave`, never change dimension, and one that no live
+  construct owns (`HardLightVehicleEntity.tracked` -> `GreenLanternVehicles.LIVE`) discards itself. Client-simulated
+  like a boat / horse: the controlling passenger's client runs `simulate` from `travel` and the vanilla vehicle-move
+  packet carries it; the server only simulates a parked vehicle. The velocity is kept in `vel`, not the delta movement
+  (the client damps a non-AI mob's delta movement by 0.98 a tick). Riders' view yaw follows the car's turn
+  (`positionRider`, boat-style). HP: Car 120, Jet 90; immune to fall / in-wall / drowning / cramming and to its own
+  riders' and owner's hits; it flares when hit and crackles below a third.
+- **Getting out**: Shift is the Shift+R modifier in these vehicles, so `PlayerMixin#wantsToStopRiding` asks
+  `HardLightVehicleEntity#passengerWantsOut`: Shift held `VEHICLE_DISMOUNT_HOLD_TICKS` (10) with no Shift+R in that hold.
+  Dismounting leaves it parked (a car stops, a jet sinks gently). Riders of a vehicle that dissolves in mid-air get
+  6 s of Slow Falling (a ringless passenger would otherwise fall); Lanterns already take no fall damage with charge.
+- **Car**: 4 seats (driver front-left). W accelerates `VEHICLE_CAR_ACCEL_BPS2` (14) to `VEHICLE_CAR_TOP_BPS` (50), S
+  brakes (45) then reverses (12 b/s), A/D steer with eased input (rate falls from 5 to 1.8 deg/tick with speed, 0 at a
+  stand), step height 1.1, floats on water. **Shift+R**: horn (two notes) + x3 acceleration for 1.5 s, 15 charge, 3 s
+  cooldown (`GreenLanternVehicles#ringKey`, called first in `GreenLanternAbilityManager`'s SLOT_1). Plain R is still the
+  Ring Bolt.
+- **Jet**: pilot + 1. The nose swings toward the pilot's view at 6 deg/tick (banking into turns, A/D add a little yaw);
+  W throttles at 22 b/s per s to 90, S brakes. Below `VEHICLE_JET_STALL_BPS` (18) it loses lift: the nose drops and it
+  sinks at up to 5 b/s; on the ground it taxis level and lifts off past stall speed. `noGravity` (own lift model, and a
+  floating vehicle must not trip the server's anti-fly kick). **R (hold)**: twin wingtip cannons, a pair every 4 ticks
+  converging on the pilot's crosshair (64 blocks), 4 damage a bolt x `GreenLanternRanks.power` via
+  `AbilityHelpers.hurtBurst`, 3 charge a pair, drawn as `boltStreak`s. **Shift+R**: afterburner, x3 thrust for 2 s,
+  20 charge, 4 s cooldown.
+- **Look** (`client/greenlantern/HardLightVehicleRenderer`, code-built `HardLightDraw` boxes like every GL construct
+  model; golden at Corps Legend): an open-top sports car (wedge nose + splitter, striped hood with the emblem, raked
+  windscreen, four bucket seats, roll hoops, rear wing, rolling + steering wheels, head / tail lights) and a fighter
+  (pointed nose, tandem bubble canopy, intakes, swept wings with tip cannons, tailplanes, twin canted fins with the
+  emblem, an exhaust that lengthens with speed and the afterburner). Both are swept into being nose-to-tail over
+  `VEHICLE_BUILD_TICKS` (20) behind a bright plane of light, with a spark line from the ring.
+- Gametests: `GreenLanternVehicleGameTests` (the cycle + costs, riders carried over, N removes it / never saved, a
+  destroyed car ends the construct, the Shift-hold dismount rule vs Shift+R, Jet cannons damage + cost + R hold, a
+  stalled jet sinks gently).
+## v0.17.1 -- Construct Combos, durability shown in-world, the ring's voice
+
+- **Combos** (`GreenLanternCombos`): hit sites call `strike(owner, target, Move)` (a finisher: returns that hit's damage
+  multiplier) or `mark(...)` (an opener; held / ticking constructs re-mark every pulse). Marks are per attacker -> target,
+  expire after `COMBO_WINDOW_TICKS` (3 s), cleared on server stop and with the Lantern's transient state. Table: Crush
+  (Chain Snare -> Anvil, x2 + shockwave), Slingshot (Giant Hand -> Fist, x1.5, hand lets go, launch), Overcharge (3 Ring
+  Bolts -> Beam, x5 pulse), Detonation (Dome push -> Blast Wave, x2 + burst), Shatter (Buzzsaw -> War Hammer, x1.25,
+  armour + toughness 0 for 8 s via transient modifiers), Pin (Battering Ram -> the rammed target touching one of your
+  Hard-Light Walls within 1.5 s, +10 + 2 s stun; `#tick`), Bullseye (Bear Trap -> Sniper, x2), Home Run (Fly Swatter ->
+  Boxing Glove, x1.5 + sky-high). Each: burst + chord at the target, +25 Willpower XP, a `GreenLanternCuePayload` (COMBO)
+  -> `client/greenlantern/GreenLanternComboPopup` (name in bold green above the crosshair + one wrapped effect line).
+  Numbers in `GreenLanternConfig`'s "Construct Combos" block.
+- **Durability** (`construct/GreenLanternConstructHealth`): only the Z bubble, the dome, the Wall and the Cage have HP.
+  Wall / Cage: under 50% every cell gets vanilla's crack overlay (`destroyBlockProgress`, one breaker id per cell,
+  re-sent every 2 s); the HP fraction goes to players within 96 blocks (`GreenLanternConstructHealthPayload`) and
+  `GreenLanternConstructHealthClient` draws a darker-green skin on the construct's outer faces (thicker / murkier as HP
+  falls, flickering with drop-outs under 20%). The dome (`GreenLanternDomeRenderer`) and the bubble
+  (`ForceBubbleRenderer`, GL style only) dim, darken toward deep green, crack under 50% and stutter under 20%.
+- **Ring voice** (`GreenLanternRingVoice`, JARVIS's delivery style): lines by edge (charge 25% / 10%, Willpower Surge,
+  3+ hostiles in 16 blocks, a barrier under 20%) or event (greeting on bond, Oath accepted, rank achieved, recharge
+  recommended on a low-charge refusal, a wall / cage under 20%, combo callout). Per-line cooldowns + an 80-tick gap
+  (urgent lines skip the gap). Client: `GreenLanternRingVoiceClient` -- typed-out green box in the top-left corner
+  with a soft chime; muted by the Ring Voice switch in the Shift+N suits screen (`config/projecthero_ring_voice.json`).
+- Gametests: `GreenLanternCombosGameTests`.
+## v0.17.1 -- the Hard-Light Mech (ultimate construct)
+
+User: "build it, build it well, give it a really cool looking mech model". A Construct Menu entry
+(`ConstructType.HARD_LIGHT_MECH`, appended, `Kind.ARSENAL` -> `GreenLanternArsenal#deploy` -> `mech/GreenLanternMech#deploy`;
+Attack section, its own icon file `textures/gui/green_lantern/mech_icon.png` via `GreenLanternBinding.ATLAS_MECH`).
+
+- **Forming**: 1500 Ring Charge (through `GreenLanternEnergy.spend`: the Oath doubles it, the rank cuts it), then 15 a second.
+  Needs a clear 3.2 x 6.5 space and not riding anything. A `mech/HardLightMechEntity` (a `Mob` + GeckoLib, never saved)
+  spawns on the player and they ride it; it ASSEMBLES for 2 s (the `assemble` clip: core first, then every plate snaps out of
+  it with an overshoot, light streaming from the ring hand), then is ACTIVE. Pressing the entry again from inside = N.
+- **Piloting**: the pilot is the controlling passenger, so their client simulates the mech like a horse (vanilla vehicle-move
+  packet, server checks). ~10 blocks a second (`WALK_SPEED` 0.23), 2-block step, Space = thruster jump (client side, in
+  `tickRidden`). Sneak does not dismount (`mixin/GreenLanternMechSeatMixin`).
+- **Keys** (`GreenLanternAbilityManager#handle` hands every slot to `GreenLanternMech#handleKey` while piloting; H is ignored
+  in `GreenLanternBindings#key`; N = `clearConstructs` -> `GreenLanternMech#exit`; the client does not open the Construct
+  Menu on a held C or the suit screen on Shift+N while piloting; double-jump flight is refused):
+
+| Key | Move | Numbers (before Oath / rank / Surge) |
+|---|---|---|
+| R | punch combo, alternating fists, hold to keep swinging | 20, cd 0.5 s, 8 charge, big knockback |
+| Shift+R | Rocket Fist: a FIST construct (phase 1 = moved by the mech) flies 24 blocks, pierces, returns | 30, cd 6 s, 60 |
+| G | Ground Slam: shockwave ring to 9 blocks over 0.5 s | 28, cd 8 s, 80 |
+| X | Thruster Dash: a velocity sent to the pilot's client, rams for 0.5 s | 14, cd 2.5 s, 30 |
+| Z (hold) | Chest Lantern Beam, 48 blocks | 8 every 5 ticks, 50 charge/s |
+| V (hold) | Hard-Light Shield wall: projectiles bounce back (owner -> pilot), frontal hits x0.2, half speed | 40 + 20/s |
+| C | Missile Pods: 12 homing MISSILE constructs from the shoulder pods | 9 each, cd 10 s, 120 |
+
+- **Integrity**: 300 HP (+10% a Lantern Rank), armour 8, no knockback, immune to fall / suffocation / drowning. Every hit on
+  the pilot is moved onto the mech (`ServerLivingEntityEvents.ALLOW_DAMAGE`, void / kill excepted). At 0 it shatters, the
+  pilot is set down where it stood, 60 s before another; leaving with N = 1 s dissolve, 10 s cooldown. An empty ring
+  dissolves it. Death / logout / dimension change / ring loss remove it at once (`GreenLantern#clearTransient`). Static state
+  (`GreenLanternMech.MECHS`) is cleared through `GreenLanternAbilityManager#clearSessionState`.
+- **Look**: `geo/green_lantern_mech.geo.json` + `textures/entity/green_lantern/mech.png` (translucent plates, alpha 150, bright
+  edges, dark inner frame, glass canopy alpha 64 so the seated pilot shows) + `mech_glow.png` (additive `eyes` pass) +
+  `animations/green_lantern_mech.animation.json` (idle, walk, punch_r / punch_l, rocket_fist, ground_slam, beam, shield, dash,
+  missiles, jump, assemble, dissolve), all generated by `scratchpad/gl_mech_v0171/gen_gl_mech.js` (preview sheets in
+  `docs/screenshots/v0171/gl_mech_sheet.png` / `gl_mech_poses*.png`). `client/greenlantern/mech/HardLightMechRenderer` draws it
+  full-bright translucent, golden at rank 5, plus the beam, the shield's honeycomb wall and the slam ring with `HardLightDraw`.
+  First person hides the torso / head / backpack (you look out of the cockpit, arms and fists in view) and the player's hands
+  (`GreenLanternMechHandsMixin`). Third person pulls back 6.5 blocks (`GreenLanternMechCameraMixin`, which also shakes the
+  camera with every footfall / landing / slam from `GreenLanternMechClient`).
+- **HUD** (`GreenLanternMechHud`, the GL HUD steps aside): title + state, INTEGRITY bar, six boxes R G X Z V C (never H / N)
+  with cooldowns and a Rocket Fist bar on R, the Ring Charge bar; Alt lists the moves; first person adds cockpit brackets.
+  The vanilla mount hearts and the "Press Shift to Dismount" hint are dropped (`GreenLanternMechGuiMixin`).
+- Gametests: `GreenLanternMechGameTests`.

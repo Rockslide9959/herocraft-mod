@@ -61,6 +61,9 @@ public final class GreenLanternAbilityManager {
 		GreenLanternConstructAttacks.clearSessionState();
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.clearSessionState();
 		GreenLanternArsenal.clearSessionState();
+		GreenLanternCombos.clearSessionState(); // v0.17.1
+		GreenLanternRingVoice.clearSessionState(); // v0.17.1
+		com.projecthero.mod.greenlantern.mech.GreenLanternMech.clearSessionState(); // v0.17.1
 	}
 
 	public static void onCleanup(UUID playerId) {
@@ -70,6 +73,9 @@ public final class GreenLanternAbilityManager {
 		RING_REMOVE.remove(playerId);
 		GreenLanternCombat.onCleanup(playerId);
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.onCleanup(playerId);
+		com.projecthero.mod.greenlantern.construct.GreenLanternVehicles.onCleanup(playerId); // v0.17.1
+		GreenLanternCombos.onCleanup(playerId); // v0.17.1
+		GreenLanternRingVoice.onCleanup(playerId); // v0.17.1
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -84,8 +90,16 @@ public final class GreenLanternAbilityManager {
 		// The ring's powers work whether or not the suit is on -- only the suit's own armour/Emergency
 		// Catch passives (GreenLanternDamage) require actually wearing it. Charge cost and cooldowns
 		// remain the real gate on every ability below; nothing here becomes free by being unsuited.
+		// v0.17.1: inside the Hard-Light Mech every key drives the mech instead
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMech.handleKey(player, slot, pressed)) {
+			return;
+		}
 		switch (slot) {
 			case SLOT_1 -> {
+				// v0.17.1: driving a hard-light Car / Jet, R is the wing cannons (Jet) and Shift+R the horn / afterburner
+				if (com.projecthero.mod.greenlantern.construct.GreenLanternVehicles.ringKey(player, pressed)) {
+					return;
+				}
 				// v0.15.15: tap R = Ring Bolt, hold R = Continuous Beam (it was Shift+R), Shift+R = Blast Wave
 				if (pressed) {
 					if (player.isShiftKeyDown()) {
@@ -120,7 +134,7 @@ public final class GreenLanternAbilityManager {
 	 * {@code GreenLanternActionPayload} network handler instead.
 	 */
 	public static void toggleFlight(ServerPlayer player) {
-		if (!hasContext(player)) {
+		if (!hasContext(player) || com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(player)) {
 			return;
 		}
 		if (GreenLanternFlight.isFlying(player)) {
@@ -168,6 +182,11 @@ public final class GreenLanternAbilityManager {
 	 */
 	public static void clearConstructs(ServerPlayer player) {
 		if (!hasContext(player)) {
+			return;
+		}
+		// v0.17.1: N inside the Hard-Light Mech leaves it (it dissolves and sets you down)
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(player)) {
+			com.projecthero.mod.greenlantern.mech.GreenLanternMech.exit(player);
 			return;
 		}
 		if (GreenLanternConstructs.releaseRescueHeldSafely(player)) {
@@ -290,6 +309,7 @@ public final class GreenLanternAbilityManager {
 					GreenLanternConfig.RING_RESISTANCE_AMPLIFIER, true, false, false));
 		}
 		GreenLanternOath.tick(player);
+		GreenLanternRingVoice.tick(player); // v0.17.1: the ring's voice watches charge / surge / hostiles / barriers
 		GreenLanternSuit.tick(player);
 		GreenLanternBattery.tick(player);
 		GreenLanternAirTank.tick(player);

@@ -84,10 +84,12 @@ public final class GreenLanternArsenal {
 	public static void clearSessionState() {
 		LIVE.clear();
 		HOLDS.clear();
+		GreenLanternSurvival.clearSessionState(); // v0.17.1 survival constructs
 	}
 
 	/** The mace's shockwave rides on a real melee swing (left click), never on the ring's own hits. */
 	public static void initialize() {
+		GreenLanternSurvival.initialize(); // v0.17.1 survival constructs (chest, scaffold tower, item net, tunneller)
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, target, hitResult) -> {
 			if (!world.isClientSide() && player instanceof ServerPlayer sp && target instanceof LivingEntity living
 					&& GreenLantern.hasPower(sp)) {
@@ -99,6 +101,7 @@ public final class GreenLanternArsenal {
 
 	/** N / death / logout: everything this player has out dissolves. */
 	public static void dismissAll(UUID owner) {
+		GreenLanternSurvival.dismissAll(owner); // v0.17.1: a Hard-Light Chest spills its items
 		Hold h = HOLDS.remove(owner);
 		if (h != null && h.model() != null) {
 			h.model().discard();
@@ -168,6 +171,7 @@ public final class GreenLanternArsenal {
 			case EMERALD_DRAGON -> dragon(p);
 			case EMERALD_MACE -> mace(p);
 			case MED_BAY -> medBay(p);
+			case HARD_LIGHT_MECH -> com.projecthero.mod.greenlantern.mech.GreenLanternMech.deploy(p); // v0.17.1
 			default -> {
 			}
 		}
@@ -189,8 +193,11 @@ public final class GreenLanternArsenal {
 		level.addFreshEntity(e);
 		float dmg = GreenLanternConfig.GLOVE_DAMAGE * GreenLanternRanks.power(p);
 		for (LivingEntity t : alongLine(level, p, eye, end, 1.2)) {
-			hit(p, t, dmg);
-			push(t, look.scale(1.6).add(0, 0.35, 0));
+			float homeRun = GreenLanternCombos.strike(p, t, GreenLanternCombos.Move.GLOVE); // v0.17.1: Home Run (swatted)
+			hit(p, t, dmg * homeRun);
+			if (homeRun <= 1f) {
+				push(t, look.scale(1.6).add(0, 0.35, 0));
+			}
 		}
 		constructFx(p);
 		sound(level, end, SoundEvents.PISTON_EXTEND, 1.0f, 0.8f);
@@ -225,6 +232,7 @@ public final class GreenLanternArsenal {
 		ServerLevel level = (ServerLevel) e.level();
 		Vec3 c = e.position();
 		for (LivingEntity t : AbilityHelpers.living(level, c.add(0, 0.5, 0), GreenLanternConfig.SWATTER_RADIUS, x -> canHit(owner, x))) {
+			GreenLanternCombos.mark(owner, t, GreenLanternCombos.Move.SWATTER); // v0.17.1: opens Home Run
 			hit(owner, t, e.damage);
 			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.SWATTER_STUN_TICKS, 9);
 			t.setDeltaMovement(t.getDeltaMovement().multiply(0.2, 0, 0.2).add(0, -0.4, 0));
@@ -490,6 +498,7 @@ public final class GreenLanternArsenal {
 				e.setTargetId(t.getId());
 				e.nextHitTick = e.tickCount + GreenLanternConfig.TRAP_ROOT_TICKS;
 				e.markAction();
+				GreenLanternCombos.mark(owner, t, GreenLanternCombos.Move.BEAR_TRAP); // v0.17.1: opens Bullseye
 				hit(owner, t, e.damage);
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.TRAP_ROOT_TICKS, 9);
 				level.sendParticles(SPARK, c.x, c.y + 0.3, c.z, 18, 0.3, 0.2, 0.3, 0.15);
@@ -507,6 +516,9 @@ public final class GreenLanternArsenal {
 		}
 		foe.teleportTo(c.x, c.y, c.z);
 		foe.setDeltaMovement(Vec3.ZERO);
+		if (e.tickCount % 10 == 0) {
+			GreenLanternCombos.mark(owner, foe, GreenLanternCombos.Move.BEAR_TRAP); // v0.17.1: rooted = Bullseye open
+		}
 	}
 
 	// ---- Grappling Claw
@@ -938,6 +950,7 @@ public final class GreenLanternArsenal {
 
 	/** Per player per tick: upkeeps, and the mace's attribute guard. */
 	public static void tick(ServerPlayer p) {
+		GreenLanternSurvival.tick(p); // v0.17.1 survival constructs' upkeep
 		Hold h = HOLDS.get(p.getUUID());
 		if (h != null && h.type() == ConstructType.MIRROR_SHIELD
 				&& !GreenLanternEnergy.drainTick(p, GreenLanternConfig.MIRROR_UPKEEP_PER_SEC / 20f)) {
@@ -981,8 +994,7 @@ public final class GreenLanternArsenal {
 			case MED_BAY -> tickMedBay(e, owner);
 			case ARROW -> tickArrow(e, owner);
 			case CANNON, BOW, MIRROR -> tickHeldModel(e, owner);
-			default -> {
-			}
+			default -> GreenLanternSurvival.tickEntity(e, owner); // v0.17.1 survival constructs
 		}
 	}
 

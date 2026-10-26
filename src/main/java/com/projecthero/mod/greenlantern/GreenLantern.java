@@ -74,6 +74,7 @@ public final class GreenLantern {
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.welcome")
 				.withStyle(ChatFormatting.DARK_GREEN), false);
+		GreenLanternRingVoice.say(player, GreenLanternRingVoice.Line.GREETING); // v0.17.1: the ring greets its bearer
 		return true;
 	}
 
@@ -156,6 +157,7 @@ public final class GreenLantern {
 		com.projecthero.mod.greenlantern.GreenLanternAbilityManager.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.onCleanup(player); // v0.14.3
 		com.projecthero.mod.greenlantern.GreenLanternArsenal.onCleanup(player); // v0.17.1
+		com.projecthero.mod.greenlantern.mech.GreenLanternMech.onCleanup(player); // v0.17.1: the Hard-Light Mech
 		com.projecthero.mod.greenlantern.GreenLanternEnergy.onCleanup(player.getUUID());
 		com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.strip(player);
 		GreenLanternState s = state(player);
