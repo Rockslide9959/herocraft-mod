@@ -48,6 +48,14 @@ public final class SpeedsterPrefs {
 	}
 
 	public static void apply(ServerPlayer p, SpeedsterPrefsPayload msg) {
+		if (msg.suitStyle() >= 0) {
+			// v0.17.1 (user): the Shift+N menu's Suit row -- restyle the Flash Suit (worn, or in the worn / held ring)
+			if (com.projecthero.mod.flash.FlashSuit.mayWear(p)) {
+				com.projecthero.mod.flash.FlashSuitStyle.select(p, com.projecthero.mod.flash.FlashSuitStyle.byOrdinal(msg.suitStyle()),
+						p.getMainHandItem().is(com.projecthero.mod.flash.FlashSuit.RING) ? p.getMainHandItem() : p.getOffhandItem());
+			}
+			return; // a style pick carries no other change
+		}
 		if (SpeedForceSpeedster.hasPower(p)) {
 			SpeedForceState n = SpeedForceSpeedster.state(p).copy();
 			n.groundStick = msg.groundStick();

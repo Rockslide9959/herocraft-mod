@@ -66,6 +66,11 @@ public class SuperheroArmorModel extends GeoModel<SuperheroArmorItem> {
 				return com.projecthero.mod.ProjectHeroMod.id("textures/armor/wolverine_damaged_" + stage + ".png");
 			}
 		}
+		// v0.17.1 (user: "add all these flash suits"): each Flash Suit piece wears the style stamped on its own stack
+		if (animatable instanceof com.projecthero.mod.flash.item.FlashSuitItem
+				&& renderer instanceof software.bernie.geckolib.renderer.GeoArmorRenderer<?> armor && armor.getCurrentStack() != null) {
+			return com.projecthero.mod.flash.FlashSuitStyle.of(armor.getCurrentStack()).texture();
+		}
 		return getTextureResource(animatable);
 	}
 

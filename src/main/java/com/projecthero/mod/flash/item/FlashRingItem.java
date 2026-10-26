@@ -38,6 +38,14 @@ public class FlashRingItem extends Item implements net.minecraft.world.item.Equi
 			}
 			return InteractionResultHolder.fail(stack);
 		}
+		if (player.isSecondaryUseActive()) {
+			// v0.17.1 (user): Shift + right-click cycles the suit's style -- the suit you wear, the one in the ring you
+			// wear, or the one in this ring
+			if (!level.isClientSide()) {
+				com.projecthero.mod.flash.FlashSuitStyle.cycle((ServerPlayer) player, stack);
+			}
+			return InteractionResultHolder.sidedSuccess(stack, level.isClientSide());
+		}
 		if (level.isClientSide()) {
 			return InteractionResultHolder.success(stack);
 		}
@@ -63,7 +71,12 @@ public class FlashRingItem extends Item implements net.minecraft.world.item.Equi
 		tooltip.add(n > 0
 				? Component.translatable("item.projecthero.flash_ring.holds", n).withStyle(ChatFormatting.GOLD)
 				: Component.translatable("item.projecthero.flash_ring.empty").withStyle(ChatFormatting.GRAY));
+		com.projecthero.mod.flash.FlashSuitStyle style = com.projecthero.mod.flash.FlashSuitStyle.ofRing(stack);
+		if (style != null) {
+			tooltip.add(Component.translatable("item.projecthero.flash_suit.style", style.displayName()).withStyle(ChatFormatting.YELLOW));
+		}
 		tooltip.add(Component.translatable("item.projecthero.flash_ring.tooltip").withStyle(ChatFormatting.GRAY));
+		tooltip.add(Component.translatable("item.projecthero.flash_ring.style_tip").withStyle(ChatFormatting.DARK_GRAY));
 	}
 
 	@Override

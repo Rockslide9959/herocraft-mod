@@ -4,6 +4,7 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.flash.FlashFx;
 import com.projecthero.mod.flash.FlashRing;
 import com.projecthero.mod.flash.FlashSuit;
+import com.projecthero.mod.flash.FlashSuitStyle;
 import com.projecthero.mod.flash.item.FlashRingItem;
 import com.projecthero.mod.hero.ExperimentalPowers;
 import com.projecthero.mod.hero.Power;
@@ -143,5 +144,86 @@ public class FlashSuitGameTests implements FabricGameTest {
 			helper.assertTrue(dropped, "and drops with the suit in it");
 			helper.succeed();
 		});
+	}
+
+	// ---------------------------------------------------------------- v0.17.1: suit styles
+
+	private static boolean allWorn(ServerPlayer p, FlashSuitStyle style) {
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			ItemStack s = p.getItemBySlot(slot);
+			if (!FlashSuit.isSuit(s) || FlashSuitStyle.of(s) != style) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aFlashSuitStyleIsSavedOnThePiece(GameTestHelper helper) {
+		ItemStack piece = new ItemStack(FlashSuit.CHESTPLATE);
+		helper.assertTrue(FlashSuitStyle.of(piece) == FlashSuitStyle.ORIGINAL, "a crafted piece is the original suit");
+		FlashSuitStyle.apply(piece, FlashSuitStyle.ZOOM);
+		var reg = helper.getLevel().registryAccess();
+		ItemStack back = ItemStack.parseOptional(reg, (net.minecraft.nbt.CompoundTag) piece.save(reg));
+		helper.assertTrue(FlashSuitStyle.of(back) == FlashSuitStyle.ZOOM, "the style survives save / load");
+		FlashSuitStyle.apply(back, FlashSuitStyle.ORIGINAL);
+		helper.assertTrue(ItemStack.isSameItemSameComponents(back, new ItemStack(FlashSuit.CHESTPLATE)),
+				"set back to the original it stacks with a crafted piece");
+		helper.assertTrue(FlashSuitStyle.byOrdinal(42) == FlashSuitStyle.ORIGINAL && FlashSuitStyle.byId("nope") == FlashSuitStyle.ORIGINAL,
+				"unknown styles fall back to the original");
+		for (FlashSuitStyle s : FlashSuitStyle.values()) {
+			helper.assertTrue(FlashSuitStyle.byId(s.id()) == s && FlashSuitStyle.byOrdinal(s.ordinal()) == s, "round trip " + s.id());
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void theStyleSurvivesTheRing(GameTestHelper helper) {
+		ServerPlayer p = player(helper, true);
+		suitUp(p);
+		helper.assertTrue(FlashSuitStyle.select(p, FlashSuitStyle.REVERSE_FLASH, ItemStack.EMPTY), "the worn suit is restyled");
+		helper.assertTrue(allWorn(p, FlashSuitStyle.REVERSE_FLASH), "every worn piece");
+		FlashRing.toggle(p);
+		helper.runAfterDelay(FlashRing.SUIT_DOWN_TICKS + 1, () -> {
+			FlashRing.tick(p);
+			helper.assertTrue(FlashRingItem.pieces(FlashRing.storedRing(p)) == 4, "precondition: packed");
+			helper.assertTrue(FlashSuitStyle.ofRing(FlashRing.storedRing(p)) == FlashSuitStyle.REVERSE_FLASH, "packed with its style");
+			helper.assertTrue(FlashSuitStyle.current(p) == FlashSuitStyle.REVERSE_FLASH, "the player's suit style reads the ring");
+			// the menu's path, while the suit is in the ring
+			com.projecthero.mod.speedforce.SpeedsterPrefs.apply(p,
+					new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(false, -1, FlashSuitStyle.CLASSIC.ordinal()));
+			helper.assertTrue(FlashSuitStyle.ofRing(FlashRing.storedRing(p)) == FlashSuitStyle.CLASSIC, "restyled inside the ring");
+			FlashRing.toggle(p);
+			helper.assertTrue(allWorn(p, FlashSuitStyle.CLASSIC), "it comes back out in that style");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shiftRightClickOnTheRingCyclesTheStyle(GameTestHelper helper) {
+		ServerPlayer p = player(helper, true);
+		suitUp(p);
+		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(FlashSuit.RING));
+		p.setShiftKeyDown(true);
+		FlashSuitStyle expect = FlashSuitStyle.ORIGINAL;
+		for (int i = 0; i < FlashSuitStyle.values().length; i++) {
+			expect = expect.next();
+			p.getMainHandItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND);
+			helper.assertTrue(allWorn(p, expect), "click " + (i + 1) + ": the worn suit is " + expect.id());
+		}
+		helper.assertTrue(expect == FlashSuitStyle.ORIGINAL, "it wraps round to the original");
+		helper.assertTrue(p.getMainHandItem().is(FlashSuit.RING), "the ring stays in the hand (it is not put on)");
+		// a ring in hand holding the suit, nothing worn: its own suit cycles
+		for (EquipmentSlot slot : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			p.setItemSlot(slot, ItemStack.EMPTY);
+		}
+		ItemStack held = new ItemStack(FlashSuit.RING);
+		held.set(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.fromItems(
+				java.util.List.of(new ItemStack(FlashSuit.HELMET), new ItemStack(FlashSuit.BOOTS))));
+		p.setItemInHand(InteractionHand.MAIN_HAND, held);
+		p.getMainHandItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND);
+		helper.assertTrue(FlashSuitStyle.ofRing(p.getMainHandItem()) == FlashSuitStyle.ZOOM, "the held ring's suit moves on");
+		helper.assertTrue(p.getItemBySlot(EquipmentSlot.CHEST).isEmpty(), "and the ring is not put on");
+		helper.succeed();
 	}
 }
