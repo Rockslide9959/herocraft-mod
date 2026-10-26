@@ -228,6 +228,7 @@ public class ProjectHeroMod implements ModInitializer {
 		});
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.initialize();
 		com.projecthero.mod.greenlantern.GreenLanternArsenal.initialize();
+		com.projecthero.mod.greenlantern.mech.GreenLanternMech.initialize(); // v0.17.1: the Hard-Light Mech
 		com.projecthero.mod.stormbreaker.BifrostEntities.initialize(); // v0.17.1
 		com.projecthero.mod.wolverine.Wolverine.initialize();
 		com.projecthero.mod.titanshifter.TitanShifterDamage.initialize();

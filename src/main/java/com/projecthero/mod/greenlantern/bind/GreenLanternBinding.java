@@ -40,6 +40,8 @@ public final class GreenLanternBinding {
 	public static final int ATLAS_ENTRIES = 1;
 	/** v0.17.1: the survival constructs' own icon strip (textures/gui/green_lantern/survival.png, 4 x 16 px). */
 	public static final int ATLAS_SURVIVAL = 2;
+	/** v0.17.1: the Hard-Light Mech has an icon file of its own (textures/gui/green_lantern/mech_icon.png, cell 0). */
+	public static final int ATLAS_MECH = 3;
 
 	/**
 	 * One menu entry. {@code type} is the construct it deploys (null for the ring's own moves); {@code hold} = the key is
@@ -93,6 +95,9 @@ public final class GreenLanternBinding {
 			if (t.kind() == ConstructType.Kind.SURVIVAL) { // v0.17.1: their own strip
 				atlas = ATLAS_SURVIVAL;
 				cell = t.ordinal() - ConstructType.HARD_LIGHT_CHEST.ordinal();
+			} else if (t == ConstructType.HARD_LIGHT_MECH) {
+				atlas = ATLAS_MECH;
+				cell = 0;
 			}
 			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(), atlas, cell, t));
 		}

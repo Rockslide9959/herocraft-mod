@@ -55,6 +55,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	public static final ResourceLocation ENTRY_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/entries.png");
 	/** v0.17.1: the survival constructs' icons (chest, scaffold tower, item net, tunneller). */
 	public static final ResourceLocation SURVIVAL_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/survival.png");
+	public static final ResourceLocation MECH_ICON = ProjectHeroMod.id("textures/gui/green_lantern/mech_icon.png");
 
 	/** The menu's tabs. A construct goes in its {@link ConstructType#category()}'s tab; ring moves by their section. */
 	public enum Tab {
@@ -1008,6 +1009,9 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		} else if (e.atlas() == GreenLanternBinding.ATLAS_SURVIVAL) {
 			RenderSystem.enableBlend();
 			g.blit(SURVIVAL_ICONS, x, y, size, size, e.cell() * 16f, 0f, 16, 16, 64, 16);
+		} else if (e.atlas() == GreenLanternBinding.ATLAS_MECH) { // v0.17.1: the Hard-Light Mech
+			RenderSystem.enableBlend();
+			g.blit(MECH_ICON, x, y, size, size, 0f, 0f, 16, 16, 16, 16);
 			RenderSystem.disableBlend();
 		} else {
 			RenderSystem.enableBlend();

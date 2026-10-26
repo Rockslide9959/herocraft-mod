@@ -171,6 +171,7 @@ public final class GreenLanternArsenal {
 			case EMERALD_DRAGON -> dragon(p);
 			case EMERALD_MACE -> mace(p);
 			case MED_BAY -> medBay(p);
+			case HARD_LIGHT_MECH -> com.projecthero.mod.greenlantern.mech.GreenLanternMech.deploy(p); // v0.17.1
 			default -> {
 			}
 		}

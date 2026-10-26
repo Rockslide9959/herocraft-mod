@@ -678,7 +678,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	 */
 	private static void handleGreenLanternConstructWheelHold(Minecraft client) {
 		boolean eligible = client.screen == null && !Screen.hasShiftDown()
-				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player);
+				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player)
+				&& !com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(client.player); // v0.17.1: C = Missile Pods in the mech
 		if (!eligible) {
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;
@@ -1160,7 +1161,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		} else if (down && !maxSteelTransformWasDown && client.player != null && greenLanternHasWheelContext(client.player)) {
 			// v0.15.15: Green Lantern -- N dismisses every construct; Shift+N opens the suit screen (suit styles + Remove Ring,
 			// which replaced Shift + hold N).
-			if (Screen.hasShiftDown()) {
+			// v0.17.1: in the Hard-Light Mech, N (with or without Shift) leaves it -- the server turns this into the exit
+			if (Screen.hasShiftDown() && !com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(client.player)) {
 				if (client.screen == null) {
 					client.setScreen(new com.projecthero.mod.client.gui.GreenLanternSuitScreen());
 				}

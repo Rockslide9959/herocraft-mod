@@ -184,7 +184,10 @@
 		"RenaRougeCamouflageMixin",
 		"RenaRougeHeldItemMixin",
 		"RenaRougeArmorMixin",
-		"ErasureGogglesGlowMixin"
+		"ErasureGogglesGlowMixin",
+		"GreenLanternMechCameraMixin",
+		"GreenLanternMechHandsMixin",
+		"GreenLanternMechGuiMixin"
 	],
 	"client": [],
 	"server": [],

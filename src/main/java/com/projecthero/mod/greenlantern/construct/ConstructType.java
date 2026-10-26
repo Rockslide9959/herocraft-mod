@@ -81,7 +81,11 @@ public enum ConstructType {
 	HARD_LIGHT_CHEST(Kind.SURVIVAL, GreenLanternConfig.CHEST_COST, GreenLanternConfig.CHEST_UPKEEP_PER_SEC, 0f, 0, 0),
 	SCAFFOLD_TOWER(Kind.SURVIVAL, GreenLanternConfig.SCAFFOLD_COST, GreenLanternConfig.SCAFFOLD_UPKEEP_PER_SEC, 0f, 0, 0),
 	ITEM_NET(Kind.SURVIVAL, GreenLanternConfig.NET_COST, 0f, 0f, 0, 0),
-	TUNNELLER(Kind.SURVIVAL, GreenLanternConfig.TUNNEL_COST, 0f, 0f, 0, 0);
+	TUNNELLER(Kind.SURVIVAL, GreenLanternConfig.TUNNEL_COST, 0f, 0f, 0, 0),
+	// v0.17.1: the Hard-Light Mech -- the ultimate construct, a mech you pilot from its chest cockpit (GreenLanternMech).
+	// Appended so saved selections keep their ordinals.
+	HARD_LIGHT_MECH(Kind.ARSENAL, com.projecthero.mod.greenlantern.mech.GreenLanternMechConfig.FORM_COST,
+			com.projecthero.mod.greenlantern.mech.GreenLanternMechConfig.UPKEEP_PER_SEC, 0f, 0, 0);
 
 	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
 	public enum Category {
@@ -163,7 +167,7 @@ public enum ConstructType {
 		return switch (this) {
 			case BATTERING_RAM, SENTRY_TURRET, ENERGY_BLADE, BUZZSAW, ANVIL_DROP, EMERALD_WARRIOR, SNIPER_RIFLE,
 					BOXING_GLOVE, FLY_SWATTER, CATAPULT, EMERALD_TENTACLES, WRECKING_BALL, EMERALD_CANNON, EMERALD_BOW,
-					BULLDOZER, FIGHTER_JET, EMERALD_DRAGON, EMERALD_MACE -> Category.ATTACK;
+					BULLDOZER, FIGHTER_JET, EMERALD_DRAGON, EMERALD_MACE, HARD_LIGHT_MECH -> Category.ATTACK;
 			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER, BEAR_TRAP, MIRROR_SHIELD,
 					MED_BAY -> Category.DEFENSE;
 			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD, GRAPPLING_CLAW -> Category.MOBILITY;
