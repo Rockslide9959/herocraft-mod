@@ -70,6 +70,7 @@ public final class GreenLanternAbilityManager {
 		RING_REMOVE.remove(playerId);
 		GreenLanternCombat.onCleanup(playerId);
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.onCleanup(playerId);
+		com.projecthero.mod.greenlantern.construct.GreenLanternVehicles.onCleanup(playerId); // v0.17.1
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -86,6 +87,10 @@ public final class GreenLanternAbilityManager {
 		// remain the real gate on every ability below; nothing here becomes free by being unsuited.
 		switch (slot) {
 			case SLOT_1 -> {
+				// v0.17.1: driving a hard-light Car / Jet, R is the wing cannons (Jet) and Shift+R the horn / afterburner
+				if (com.projecthero.mod.greenlantern.construct.GreenLanternVehicles.ringKey(player, pressed)) {
+					return;
+				}
 				// v0.15.15: tap R = Ring Bolt, hold R = Continuous Beam (it was Shift+R), Shift+R = Blast Wave
 				if (pressed) {
 					if (player.isShiftKeyDown()) {

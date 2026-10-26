@@ -366,6 +366,48 @@ public final class GreenLanternConfig {
 	/** v0.11.10: 24, up from 8 -- explicit user request ("track the players aim much quicker"). */
 	public static final double CARRY_PLATFORM_SPEED_CAP_BPS = 24.0;
 
+	// v0.17.1: the Carry Platform's key cycles it Platform -> Car -> Jet -> Platform (GreenLanternVehicles). Each form
+	// costs its own charge to shape and its own upkeep while it stands (the platform keeps CARRY_PLATFORM_* above).
+	public static final float VEHICLE_CAR_COST = 40f;
+	public static final float VEHICLE_CAR_UPKEEP_PER_SEC = 2f;
+	public static final float VEHICLE_CAR_HP = 120f;
+	public static final double VEHICLE_CAR_TOP_BPS = 50.0;
+	/** Blocks/second gained per second of throttle (0 to 50 in about 3.5 s). */
+	public static final double VEHICLE_CAR_ACCEL_BPS2 = 14.0;
+	public static final double VEHICLE_CAR_BRAKE_BPS2 = 45.0;
+	public static final double VEHICLE_CAR_REVERSE_BPS = 12.0;
+	public static final double VEHICLE_CAR_STEP = 1.1;
+	public static final int VEHICLE_CAR_SEATS = 4;
+	/** Shift+R while driving: horn + a surge of acceleration (x3) for this long. */
+	public static final float VEHICLE_CAR_BOOST_COST = 15f;
+	public static final int VEHICLE_CAR_BOOST_TICKS = 30;
+	public static final int VEHICLE_CAR_BOOST_COOLDOWN_TICKS = 60;
+
+	public static final float VEHICLE_JET_COST = 60f;
+	public static final float VEHICLE_JET_UPKEEP_PER_SEC = 3f;
+	public static final float VEHICLE_JET_HP = 90f;
+	public static final double VEHICLE_JET_TOP_BPS = 90.0;
+	public static final double VEHICLE_JET_ACCEL_BPS2 = 22.0;
+	/** Below this airspeed the jet stalls and sinks (at most VEHICLE_JET_SINK_BPS). */
+	public static final double VEHICLE_JET_STALL_BPS = 18.0;
+	public static final double VEHICLE_JET_SINK_BPS = 5.0;
+	/** Degrees a tick the nose swings toward where the pilot looks. */
+	public static final float VEHICLE_JET_TURN_DEG = 6f;
+	public static final int VEHICLE_JET_SEATS = 2;
+	/** R while piloting (hold): twin wing cannons, one pair of bolts every interval. v0.17.1 balance numbers (-30%). */
+	public static final float VEHICLE_JET_CANNON_DAMAGE = 4f;
+	public static final int VEHICLE_JET_CANNON_INTERVAL_TICKS = 4;
+	public static final float VEHICLE_JET_CANNON_COST = 3f;
+	public static final double VEHICLE_JET_CANNON_RANGE = 64.0;
+	/** Shift+R while piloting: afterburner (x3 thrust) for this long. */
+	public static final float VEHICLE_JET_BOOST_COST = 20f;
+	public static final int VEHICLE_JET_BOOST_TICKS = 40;
+	public static final int VEHICLE_JET_BOOST_COOLDOWN_TICKS = 80;
+	/** Car and Jet shape themselves out of the ring over this long (the build-in sweep). */
+	public static final int VEHICLE_BUILD_TICKS = 20;
+	/** Shift held this long (with no Shift+R in between) gets you out of a car or jet -- Shift alone is Shift+R's modifier. */
+	public static final int VEHICLE_DISMOUNT_HOLD_TICKS = 10;
+
 	/** v0.11.4: Hard-Light Tool Kit -- a diamond pickaxe/axe/shovel, dismiss-only (dropping any one ends it). */
 	public static final float TOOL_KIT_COST = 60f;
 	public static final float TOOL_KIT_UPKEEP_PER_SEC = 3f;

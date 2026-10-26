@@ -42,6 +42,10 @@ public abstract class PlayerMixin {
 		if (self.getVehicle() instanceof com.projecthero.mod.ghostrider.entity.HellCycleEntity) {
 			cir.setReturnValue(false);
 		}
+		// v0.17.1: in a Green Lantern Car / Jet, Shift is the Shift+R modifier -- hold it half a second to get out
+		if (self.getVehicle() instanceof com.projecthero.mod.greenlantern.entity.HardLightVehicleEntity v) {
+			cir.setReturnValue(v.passengerWantsOut(self));
+		}
 	}
 
 	/**
