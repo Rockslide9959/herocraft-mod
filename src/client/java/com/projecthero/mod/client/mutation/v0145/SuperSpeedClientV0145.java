@@ -61,6 +61,8 @@ public final class SuperSpeedClientV0145 {
 	private static final int TRAIL_LIFE = 20;
 	private static final int YELLOW = 0xFFD83A;
 	private static final int RED = 0xFF3030;
+	/** v0.17.1 (user): the copies are the player as they are, just see-through -- no yellow (Speed Mode) or red (Overdrive) tint. */
+	private static final int PLAIN = 0xFFFFFF;
 
 	/**
 	 * One after-image. {@code fixed} copies (streaks, the decoy) are drawn wherever they are; trail copies only once
@@ -246,7 +248,7 @@ public final class SuperSpeedClientV0145 {
 			// player is interpolated between xo and x, so a copy at x would pop up just ahead of them
 			TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>()).addLast(new Snapshot(now, TRAIL_LIFE, 0.4f,
 					p.xo, p.yo, p.zo, p.yBodyRotO, p.yHeadRotO, p.xRotO, p.walkAnimation.position(0f),
-					p.walkAnimation.speed(0f), p.isCrouching(), red ? RED : YELLOW, SpeedRunPose.weight(p, 0f), red, false));
+					p.walkAnimation.speed(0f), p.isCrouching(), PLAIN, SpeedRunPose.weight(p, 0f), red, false));
 		}
 		for (Iterator<Map.Entry<UUID, Deque<Snapshot>>> it = TRAILS.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<UUID, Deque<Snapshot>> e = it.next();
@@ -278,7 +280,7 @@ public final class SuperSpeedClientV0145 {
 			// copies nearer the start fade first, so the zip reads as a blur racing toward its end
 			int life = Math.max(3, Math.round(msg.life() * (0.45f + 0.55f * (float) t)));
 			q.addLast(new Snapshot(now, life, 0.45f, at.x, at.y, at.z, msg.yaw(), msg.yaw(), 0f, limb + i * 1.1f, 1.0f,
-					false, msg.rgb(), 1.0f, red, true));
+					false, PLAIN, 1.0f, red, true));
 		}
 	}
 
@@ -315,6 +317,24 @@ public final class SuperSpeedClientV0145 {
 			Vec3 heading = at.subtract(acp.xo, acp.yo, acp.zo);
 			Snapshot prevRed = null;
 			int redIndex = 0;
+			// v0.17.1 (user): in Overdrive lightning crackles off the speedster's body itself -- short jagged bolts from the
+			// torso and limbs out into the air, re-shaped several times a tick (not on your own first-person view)
+			if (SpeedRunPose.overdrive(acp) && heading.lengthSqr() > 0.01 && !(own && firstPerson)) {
+				double frame = Math.floor((now + partial) * 4.0);
+				for (int k = 0; k < 4; k++) {
+					double seed = frame * 5.3 + k * 31.7 + acp.getId() * 0.37;
+					if (ThorDraw.hash(seed) < 0.25) {
+						continue;
+					}
+					Vec3 from = at.add((ThorDraw.hash(seed + 1) - 0.5) * 0.5, 0.3 + ThorDraw.hash(seed + 2) * 1.4,
+							(ThorDraw.hash(seed + 3) - 0.5) * 0.5);
+					Vec3 back = heading.normalize().scale(-(0.5 + ThorDraw.hash(seed + 4) * 1.2));
+					Vec3 to = from.add(back).add((ThorDraw.hash(seed + 5) - 0.5) * 1.2, (ThorDraw.hash(seed + 6) - 0.5) * 0.9,
+							(ThorDraw.hash(seed + 7) - 0.5) * 1.2);
+					arcs.add(ThorDraw.jagged(from.subtract(cam), to.subtract(cam), 5, 0.16, seed));
+					arcAlpha.add(0.95f);
+				}
+			}
 			for (Snapshot s : e.getValue()) {
 				if (!s.fixed()) {
 					// only copies the player has left BEHIND: at least 0.6 blocks back, never ahead along their movement
@@ -346,8 +366,17 @@ public final class SuperSpeedClientV0145 {
 							}
 							Vec3 a = new Vec3(prevRed.x(), prevRed.y() + 0.25 + ThorDraw.hash(seed + 1) * 1.45, prevRed.z()).subtract(cam);
 							Vec3 b = new Vec3(s.x(), s.y() + 0.25 + ThorDraw.hash(seed + 2) * 1.45, s.z()).subtract(cam);
-							arcs.add(ThorDraw.jagged(a, b, 5, 0.22, seed));
+							Vec3[] main = ThorDraw.jagged(a, b, 8, 0.26, seed);
+							arcs.add(main);
 							arcAlpha.add(Math.min(1.0f, fade * 1.3f));
+							// v0.17.1: a fork splits off partway along and licks outward
+							if (ThorDraw.hash(seed + 5) > 0.35) {
+								Vec3 root = main[2 + (int) (ThorDraw.hash(seed + 6) * 4)];
+								Vec3 tip = root.add((ThorDraw.hash(seed + 7) - 0.5) * 1.4, (ThorDraw.hash(seed + 8) - 0.3) * 1.0,
+										(ThorDraw.hash(seed + 9) - 0.5) * 1.4);
+								arcs.add(ThorDraw.jagged(root, tip, 4, 0.16, seed + 11));
+								arcAlpha.add(Math.min(1.0f, fade * 0.9f));
+							}
 						}
 					}
 					prevRed = s;
@@ -394,9 +423,11 @@ public final class SuperSpeedClientV0145 {
 			for (int i = 0; i < arcs.size(); i++) {
 				Vec3[] path = arcs.get(i);
 				float a = arcAlpha.get(i);
-				ThorDraw.ribbon(vc, last, path, 0.15f, 0xFF9A1A, 0.3f * a);
-				ThorDraw.ribbon(vc, last, path, 0.06f, 0xFFD84A, 0.65f * a);
-				ThorDraw.ribbon(vc, last, path, 0.022f, 0xFFFBEA, 0.95f * a);
+				// v0.17.1: a wider soft glow, a golden body and a white-hot core
+				ThorDraw.ribbon(vc, last, path, 0.26f, 0xFF7A10, 0.16f * a);
+				ThorDraw.ribbon(vc, last, path, 0.12f, 0xFFB02A, 0.38f * a);
+				ThorDraw.ribbon(vc, last, path, 0.05f, 0xFFE070, 0.75f * a);
+				ThorDraw.ribbon(vc, last, path, 0.018f, 0xFFFFFF, 1.0f * a);
 			}
 		}
 	}
