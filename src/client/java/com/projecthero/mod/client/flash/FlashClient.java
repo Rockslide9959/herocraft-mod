@@ -15,6 +15,7 @@ public final class FlashClient {
 	}
 
 	public static void initialize() {
+		FlashSuitHud.initialize(); // v0.17.1: the Flash Suit speed readout
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((entityType, entityRenderer, helper, context) -> {
 			if (entityRenderer instanceof PlayerRenderer playerRenderer) {
 				helper.register(new FlashRingLayer(playerRenderer));

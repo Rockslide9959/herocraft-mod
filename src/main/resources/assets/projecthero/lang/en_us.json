@@ -8153,5 +8153,19 @@
   "projecthero.guide.silver_surfer.passives": "Passives",
   "projecthero.guide.silver_surfer.passives.body": "The Power Cosmic turns aside 90% of every other hit. No fall, fire, lava, drowning or suffocation damage, +10 melee damage, no hunger drain, Regeneration II, and you breathe anywhere. You cannot wear armour: anything you put on goes back into your inventory.",
   "projecthero.guide.silver_surfer.controls": "Moves",
-  "message.projecthero.silver_surfer.no_armour": "The Power Cosmic is your armour -- you cannot wear any"
+  "message.projecthero.silver_surfer.no_armour": "The Power Cosmic is your armour -- you cannot wear any",
+  "hud.projecthero.flash.title": "THE FLASH",
+  "hud.projecthero.flash.bps": "blocks/s",
+  "hud.projecthero.flash.mph": "%s mph",
+  "hud.projecthero.flash.top": "Top speed: %s b/s",
+  "hud.projecthero.flash.overdrive": "Overdrive",
+  "hud.projecthero.flash.time_slow": "Time Slow",
+  "hud.projecthero.flash.charging": "Charging",
+  "hud.projecthero.flash.exhausted": "Exhausted",
+  "hud.projecthero.flash.mode.walk": "WALKING",
+  "hud.projecthero.flash.mode.speed": "SPEED MODE",
+  "hud.projecthero.flash.mode.overdrive": "OVERDRIVE",
+  "hud.projecthero.flash.mode.phasing": "PHASING",
+  "hud.projecthero.flash.mode.time_slow": "TIME SLOW",
+  "hud.projecthero.flash.mode.exhausted": "EXHAUSTED"
 }
