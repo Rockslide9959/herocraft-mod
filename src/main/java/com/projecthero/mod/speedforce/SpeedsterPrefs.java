@@ -9,6 +9,7 @@ import com.projecthero.mod.hero.data.ExperimentalState;
 import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
 import com.projecthero.mod.speedforce.data.SpeedForceState;
 import com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload;
+import com.projecthero.mod.speedforce.network.SprintKeyPayload;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -30,6 +31,12 @@ public final class SpeedsterPrefs {
 
 	/** Plain Speedsters (the Super Speed mutation) with Ground-Stick on. The Speed Force Speedster's lives in its state. */
 	private static final Set<UUID> PLAIN_STICK = ConcurrentHashMap.newKeySet();
+	/**
+	 * v0.17.1 (user: "i have sprint toggle on, so when i press ctrl it works but when i let go it still increases"): players
+	 * whose client says the sprint key is NOT physically held. Absent = held (a client that never reported -- and the
+	 * gametests' mock players -- fall back to {@code isSprinting()} alone).
+	 */
+	private static final Set<UUID> SPRINT_RELEASED = ConcurrentHashMap.newKeySet();
 
 	private SpeedsterPrefs() {
 	}
@@ -38,13 +45,33 @@ public final class SpeedsterPrefs {
 		PayloadTypeRegistry.playC2S().register(SpeedsterPrefsPayload.TYPE, SpeedsterPrefsPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(SpeedsterPrefsPayload.TYPE,
 				(payload, context) -> context.server().execute(() -> apply(context.player(), payload)));
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> PLAIN_STICK.remove(handler.getPlayer().getUUID()));
+		PayloadTypeRegistry.playC2S().register(SprintKeyPayload.TYPE, SprintKeyPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(SprintKeyPayload.TYPE,
+				(payload, context) -> context.server().execute(() -> setSprintHeld(context.player(), payload.held())));
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			PLAIN_STICK.remove(handler.getPlayer().getUUID());
+			SPRINT_RELEASED.remove(handler.getPlayer().getUUID());
+		});
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !(entity instanceof ServerPlayer p
 				&& source.is(DamageTypeTags.IS_FALL) && groundStick(p) && p.fallDistance <= STICK_SAFE_FALL));
 	}
 
 	public static void clearSessionState() {
 		PLAIN_STICK.clear();
+		SPRINT_RELEASED.clear();
+	}
+
+	public static void setSprintHeld(ServerPlayer p, boolean held) {
+		if (held) {
+			SPRINT_RELEASED.remove(p.getUUID());
+		} else {
+			SPRINT_RELEASED.add(p.getUUID());
+		}
+	}
+
+	/** Sprinting AND holding the sprint key: what builds the Speed Force Speedster's momentum, Toggle Sprint or not. */
+	public static boolean pushing(ServerPlayer p) {
+		return p.isSprinting() && !SPRINT_RELEASED.contains(p.getUUID());
 	}
 
 	public static void apply(ServerPlayer p, SpeedsterPrefsPayload msg) {

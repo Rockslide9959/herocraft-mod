@@ -611,9 +611,9 @@ public final class SpeedForceSpeedster {
 			double expected = SpeedForceConfig.sprintBps(m, suit) / 20.0;
 			if (mo.ema < 0.15 && !wallRun) {
 				m -= SpeedForceConfig.STOP_DECAY_PER_TICK;
-			} else if (!player.isSprinting() && !wallRun) {
-				// v0.17.1 (user): momentum only BUILDS while sprinting (Ctrl); let go past 30% and you cruise at that speed
-				// (it holds), below it it bleeds away as before
+			} else if (!SpeedsterPrefs.pushing(player) && !wallRun) {
+				// v0.17.1 (user): momentum only BUILDS while Ctrl is held -- physically, so Toggle Sprint doesn't count; let
+				// go past 30% and you cruise at that speed (it holds), below it it bleeds away as before
 				if (m < SpeedForceConfig.CRUISE_MOMENTUM) {
 					m -= SpeedForceConfig.WALK_DECAY_PER_TICK;
 				}
@@ -780,9 +780,11 @@ public final class SpeedForceSpeedster {
 		// v0.17.1 (user): Speed Mode breaks blocks 75% faster
 		PowerToggles.modifier(player, Attributes.BLOCK_BREAK_SPEED, MINE_ID, SpeedForceConfig.SPEED_MODE_MINING, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		boolean sprint = player.isSprinting();
+		boolean pushing = SpeedsterPrefs.pushing(player);
 		// v0.17.1 (user): past 30% momentum, letting go of Ctrl keeps the speed (a cruise); below it you drop to the 20 b/s jog
-		boolean cruise = !sprint && s.momentum >= SpeedForceConfig.CRUISE_MOMENTUM;
-		double bps = sprint || cruise ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;
+		// -- with Toggle Sprint on too (still "sprinting" with the key up; bonusFor divides the vanilla sprint 1.3x back out)
+		boolean cruise = !pushing && s.momentum >= SpeedForceConfig.CRUISE_MOMENTUM;
+		double bps = pushing || cruise ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;
 		bps = Math.round(bps * 2.0) / 2.0; // half-block steps: the attribute (and its sync) changes rarely
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, bonusFor(bps, sprint), AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		double step = Math.max(SpeedForceConfig.STEP_SPEED_MODE,

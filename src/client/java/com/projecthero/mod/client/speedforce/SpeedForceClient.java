@@ -97,6 +97,7 @@ public final class SpeedForceClient {
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceHud::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForcePose::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceClient::tick);
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSprintKey::tick); // v0.17.1 (user): Ctrl held, Toggle Sprint or not
 		WorldRenderEvents.AFTER_ENTITIES.register(SpeedForceClient::render);
 		ClientPlayNetworking.registerGlobalReceiver(SpeedForceFxPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> accept(payload)));

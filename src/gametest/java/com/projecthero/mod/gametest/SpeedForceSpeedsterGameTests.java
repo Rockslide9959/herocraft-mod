@@ -190,6 +190,27 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): with Toggle Sprint on the player stays sprinting with Ctrl up -- momentum still only builds on Ctrl. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void toggleSprintWithCtrlUpCruisesInsteadOfBuilding(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		SpeedForceSpeedster.setMomentum(p, 0.5f);
+		p.setSprinting(true);
+		com.projecthero.mod.speedforce.SpeedsterPrefs.setSprintHeld(p, false);
+		double expected = SpeedForceConfig.sprintBps(0.5f, false) / 20.0;
+		for (int i = 0; i < 40; i++) {
+			SpeedForceSpeedster.stepRun(p, new Vec3(expected, 0, 0));
+		}
+		float m = SpeedForceSpeedster.momentum(p);
+		helper.assertTrue(Math.abs(m - 0.5f) < 0.01f, "toggled sprint, Ctrl up: cruising at 50%, not building, got " + m);
+		com.projecthero.mod.speedforce.SpeedsterPrefs.setSprintHeld(p, true);
+		for (int i = 0; i < 40; i++) {
+			SpeedForceSpeedster.stepRun(p, new Vec3(expected, 0, 0));
+		}
+		helper.assertTrue(SpeedForceSpeedster.momentum(p) > m + 0.01f, "Ctrl down again: building, got " + SpeedForceSpeedster.momentum(p));
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void momentumIsLostStoppingWalkingAndAtWalls(GameTestHelper helper) {
 		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
