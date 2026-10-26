@@ -23,6 +23,7 @@ public final class PowerGrants {
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter",
 			"all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
 			"falcon", "silver_surfer", // v0.17.1
+			"speed_force_speedster", // v0.17.1
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion",
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
@@ -57,7 +58,8 @@ public final class PowerGrants {
 	}
 
 	/** v0.17.1: heroes no random serum gives -- Falcon's gear is crafted, the Silver Surfer comes from his board. */
-	public static final java.util.Set<String> NOT_FROM_SERUMS = java.util.Set.of("falcon", "silver_surfer");
+	public static final java.util.Set<String> NOT_FROM_SERUMS = java.util.Set.of("falcon", "silver_surfer",
+			"speed_force_speedster"); // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
 
 	/** Hero-Tier keys the player does not hold yet. */
 	public static List<String> missingHeroTiers(ServerPlayer player) {
@@ -207,6 +209,10 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.bluebeetle.BlueBeetle.grant(target);
 				return new Result(ok, Component.literal(ok ? "Bonded " + name + " with the Scarab (Blue Beetle)" : name + " already carries the Scarab"));
 			}
+			case "speed_force_speedster" -> {
+				boolean ok = com.projecthero.mod.speedforce.SpeedForceSpeedster.grant(target);
+				return new Result(ok, Component.literal(ok ? "The Speed Force took " + name + " (Speed Force Speedster)" : name + " already runs with the Speed Force"));
+			}
 			case "silver_surfer" -> {
 				boolean ok = com.projecthero.mod.silversurfer.SilverSurfer.grant(target);
 				return new Result(ok, Component.literal(ok ? "Gave " + name + " the Power Cosmic (Silver Surfer)" : name + " already wields the Power Cosmic"));
@@ -274,6 +280,7 @@ public final class PowerGrants {
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.revoke(target);
+			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);

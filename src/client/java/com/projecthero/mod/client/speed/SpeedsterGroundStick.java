@@ -48,6 +48,7 @@ public final class SpeedsterGroundStick {
 
 	static {
 		SPEEDSTERS.add(SpeedsterGroundStick::plainSpeedster);
+		SPEEDSTERS.add(com.projecthero.mod.speedforce.SpeedForceSpeedster::hasPower);
 	}
 
 	private SpeedsterGroundStick() {

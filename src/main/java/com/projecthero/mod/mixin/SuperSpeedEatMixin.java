@@ -29,7 +29,8 @@ public abstract class SuperSpeedEatMixin {
 		if (!((Object) this instanceof Player player) || this.useItemRemaining <= 1 || !player.isUsingItem()) {
 			return;
 		}
-		if ((player.tickCount & 1) != 0 || !SuperSpeedHandlers.owns(player)) {
+		if ((player.tickCount & 1) != 0 || !(SuperSpeedHandlers.owns(player)
+				|| com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player))) { // v0.17.1: the Speed Force Speedster too
 			return;
 		}
 		UseAnim anim = stack.getUseAnimation();

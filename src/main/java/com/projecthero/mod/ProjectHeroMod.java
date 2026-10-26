@@ -155,6 +155,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.falcon.FalconMod.initialize();
 		// v0.17.1: the Silver Surfer -- the attachment, the thrown board, damage rules, payloads, lifecycle (the board grants it)
 		com.projecthero.mod.silversurfer.SilverSurferMod.initialize();
+		// v0.17.1: the Speed Force Speedster -- the attachment, the Tachyon Device, damage rules, the fx payload, lifecycle
+		com.projecthero.mod.speedforce.SpeedForceMod.initialize();
 		// v0.16.5: Blue Beetle -- the Scarab (+ pyramid loot), drones, damage rules, payload, lifecycle hooks
 		com.projecthero.mod.bluebeetle.BlueBeetleMod.initialize();
 		// v0.16.5: the Mannequin (player-shaped armour stand) and the ten-suit Wardrobe

@@ -207,6 +207,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.silversurfer.SilverSurferAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.1: the Speed Force Speedster, on the same terms
+		if (com.projecthero.mod.speedforce.SpeedForceAbilityManager.hasContext(player)) {
+			com.projecthero.mod.speedforce.SpeedForceAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 		// v0.16.6: a Miraculous holder (Ladybug / Cat Noir / Rena Rouge), on the same terms
 		if (com.projecthero.mod.miraculous.MiraculousAbilityManager.hasContext(player)) {
 			com.projecthero.mod.miraculous.MiraculousAbilityManager.handle(player, slot, pressed);
@@ -351,6 +356,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.falcon.Falcon.tick(player);
 		// v0.17.1: the Silver Surfer -- the Power Cosmic, passives, the board, the running moves
 		com.projecthero.mod.silversurfer.SilverSurfer.tick(player);
+		// v0.17.1: the Speed Force Speedster -- momentum, the Speed Force, passives, the running moves (and the awakening watch)
+		com.projecthero.mod.speedforce.SpeedForceSpeedster.tick(player);
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
 		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit

@@ -90,6 +90,9 @@
 		"SilverSurferGlowMixin",
 		"SilverSurferGlowColorMixin",
 		"SilverSurferPhaseClientMixin",
+		"SpeedForceClientMixin",
+		"SpeedForceFovMixin",
+		"SpeedForceLocalPlayerMixin",
 		"SilverSurferScreenEffectMixin",
 
 		"BlueBeetleFirstPersonArmMixin",
