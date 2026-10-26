@@ -17,6 +17,12 @@ repositories {
 		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
 		content { includeGroupByRegex('software\\.bernie.*') }
 	}
+	// v0.17.1: JEI (compile-only -- the Stark Fabricator's recipes in JEI; the mod runs fine without JEI)
+	maven {
+		name = 'BlameJared'
+		url = 'https://maven.blamejared.com'
+		content { includeGroup('mezz.jei') }
+	}
 	maven {
 		name = 'Modrinth'
 		url = 'https://api.modrinth.com/maven'
@@ -101,6 +107,10 @@ dependencies {
 
 	// GeckoLib -- animation engine backing the shared superhero armour model (docs/ARMOR_MODELS.md).
 	modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+
+	// v0.17.1: JEI's API, compile-only (the plugin is a jei_mod_plugin entrypoint JEI loads only when it is installed)
+	modCompileOnly "mezz.jei:jei-${project.minecraft_version}-common-api:${project.jei_version}"
+	modCompileOnly "mezz.jei:jei-${project.minecraft_version}-fabric-api:${project.jei_version}"
 
 	// The gametest module isn't bundled inside the umbrella fabric-api jar above (unlike most of its
 	// other submodules), so it needs its own explicit dependency -- fabricApi.module() resolves the

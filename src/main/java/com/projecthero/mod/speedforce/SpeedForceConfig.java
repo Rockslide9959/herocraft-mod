@@ -24,7 +24,9 @@ public final class SpeedForceConfig {
 	public static final double WALK_BPS = 20.0;
 	/** Passing this speed fires the sonic boom ring (re-armed below {@link #SONIC_REARM_BPS}). */
 	public static final double SONIC_BOOM_BPS = 100.0;
-	public static final double SONIC_REARM_BPS = 80.0;
+	public static final double SONIC_REARM_BPS = 60.0;
+	/** Ticks the run must stay past {@link #SONIC_BOOM_BPS} before the boom (a slope pull is one or two ticks). */
+	public static final int SONIC_HOLD_TICKS = 6;
 	public static final double SONIC_RADIUS = 6.0;
 	public static final float SONIC_DAMAGE = 2.0f;
 	/** Step assist in Speed Mode: 4 blocks as standard (user), up to 5 at full momentum (hills at 250 b/s); off, vanilla. */

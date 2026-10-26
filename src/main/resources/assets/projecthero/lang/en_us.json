@@ -8257,7 +8257,7 @@
   "projecthero.miraculous.ability.multimouse_skipping_trip": "Skipping Trip",
   "projecthero.miraculous.ability.multimouse_skipping_trip.desc": "A low sweep along the ground in a 6-block arc in front of you: 6 damage, and everything hit is tripped (knocked down, slowed hard and unable to attack for 2 s). Bosses are only slowed. 8 s cooldown.",
   "projecthero.miraculous.ability.multimouse_rope_swing": "Rope Swing",
-  "projecthero.miraculous.ability.multimouse_rope_swing.desc": "The rope hooks the block you aim at, up to 30 blocks away, and swings you to it. No fall damage on the landing. 3 s cooldown.",
+  "projecthero.miraculous.ability.multimouse_rope_swing.desc": "The rope hooks the block you aim at, up to 50 blocks away, and swings you to it. No fall damage on the landing. 3 s cooldown.",
   "projecthero.miraculous.ability.multimouse_scurry": "Scurry",
   "projecthero.miraculous.ability.multimouse_scurry.desc": "Shrink to mouse size (a third of your height) for up to 20 s: 40% faster, you fit through 1-block gaps and mobs often miss you. Press again to grow back (only where there is room). 5 s cooldown afterwards.",
   "projecthero.miraculous.ability.multimouse_mouse_swarm": "Mouse Swarm",
@@ -8267,7 +8267,7 @@
   "projecthero.miraculous.ability.multimouse_mouse_hearing": "Mouse Hearing",
   "projecthero.miraculous.ability.multimouse_mouse_hearing.desc": "Toggle: every creature within 32 blocks shows through walls as rings of sound pulsing with its footsteps, only for you. Press again to stop.",
   "projecthero.miraculous.ability.multimouse_gnaw": "Gnaw",
-  "projecthero.miraculous.ability.multimouse_gnaw.desc": "Chew straight through the blocks in front of you: a 1x2 hole up to 3 deep, through any block, stone included (look straight down or up to chew a shaft). Never bedrock, barriers, chests or anything unbreakable; not in protected areas. The blocks drop. 4 s cooldown.",
+  "projecthero.miraculous.ability.multimouse_gnaw.desc": "Chew straight through the blocks in front of you: a 1x2 hole up to 3 deep, through any block, stone included (look straight down or up to chew a shaft). Never bedrock, barriers, chests or anything unbreakable; not in protected areas. The blocks drop. 1 s cooldown.",
   "projecthero.miraculous.ability.multimouse_rope_bind": "Rope Bind",
   "projecthero.miraculous.ability.multimouse_rope_bind.desc": "Throw the rope at the creature you aim at (up to 14 blocks) and tie it up: rooted and unable to attack for 4 s. Bosses are only slowed. 12 s cooldown.",
   "projecthero.miraculous.ability.multimouse_mouse_trap": "Mouse Trap",
@@ -8350,5 +8350,9 @@
   "screen.projecthero.speed_force_menu.colour.purple": "Purple",
   "screen.projecthero.speed_force_menu.colour.pink": "Pink",
   "screen.projecthero.speed_force_menu.colour.white": "White",
-  "screen.projecthero.speed_force_menu.colour.black": "Black"
+  "screen.projecthero.speed_force_menu.colour.black": "Black",
+  "jei.projecthero.stark_fabricator": "Stark Fabricator",
+  "jei.projecthero.stark_fabricator.energy": "Energy %s",
+  "jei.projecthero.stark_fabricator.time": "%s s",
+  "jei.projecthero.stark_fabricator.tech": "Needs tech level %s + its blueprint"
 }

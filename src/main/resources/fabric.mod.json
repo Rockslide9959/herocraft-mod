@@ -17,6 +17,9 @@
 		],
 		"client": [
 			"com.projecthero.mod.client.ProjectHeroModClient"
+		],
+		"jei_mod_plugin": [
+			"com.projecthero.mod.client.compat.jei.ProjectHeroJeiPlugin"
 		]
 	},
 	"depends": {

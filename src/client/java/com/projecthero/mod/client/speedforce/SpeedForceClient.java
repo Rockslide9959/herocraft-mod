@@ -44,16 +44,21 @@ import net.minecraft.world.phys.Vec3;
  *   <li>after-images: plain see-through copies of the runner (no tint), left every tick while running -- with extra copies
  *       in between at speed, so a 250 b/s run still reads as a continuous blur -- each in the skate pose it was left in;</li>
  *   <li>gold Speed Force lightning crackling off the body all the time, growing with the momentum (and blinding in a
- *       Surge), plus bolts strung between the after-images once the momentum passes 30%;</li>
+ *       Surge), bolts strung between the after-images from 5% momentum, and (above 10%) arcs leaping from the body to
+ *       the blocks around (v0.17.1, user);</li>
  *   <li>{@link SpeedForceFxPayload}: the Lightning Throw's gold bolts, the sonic boom ring, after-image streaks (Step,
  *       Rewind, the Remnant, the Tornado), the awakening's column of lightning and the Surge's flash.</li>
  * </ul>
  */
 public final class SpeedForceClient {
-	private static final int TRAIL_LIFE = 16;
+	/** v0.17.1 (user: "make the lightning trail longer"): copies last 1.5 s (was 0.8 s). */
+	private static final int TRAIL_LIFE = 30;
+	/** v0.17.1 (user): the trail and its lightning show from 5% momentum; arcs to nearby blocks above 10%. */
+	private static final float TRAIL_MOMENTUM = 0.05f;
+	private static final float GROUND_ARC_MOMENTUM = 0.10f;
 	private static final float TRAIL_ALPHA = 0.38f;
 	private static final double FILL_SPACING = 1.6;
-	private static final int MAX_FILL = 6;
+	private static final int MAX_FILL = 10;
 	private static final int PLAIN = 0xFFFFFF;
 
 	private record Snapshot(long time, int life, float alpha, double x, double y, double z, float bodyYaw, float headYaw, float pitch,
@@ -115,8 +120,12 @@ public final class SpeedForceClient {
 				continue;
 			}
 			float momentum = SpeedForceSpeedster.momentum(p);
+			if (momentum < TRAIL_MOMENTUM && !SpeedForceSpeedster.surging(p)) {
+				LAST_RECORDED.remove(p.getUUID());
+				continue;
+			}
 			float weight = SpeedForcePose.weight(p, 0f);
-			boolean bolts = momentum >= 0.3f || SpeedForceSpeedster.surging(p);
+			boolean bolts = true;
 			Deque<Snapshot> q = TRAILS.computeIfAbsent(p.getUUID(), k -> new ArrayDeque<>());
 			// a copy where the player WAS last tick (never ahead of the interpolated body), and at speed copies in between
 			double[] last = LAST_RECORDED.get(p.getUUID());
@@ -233,6 +242,7 @@ public final class SpeedForceClient {
 				continue;
 			}
 			bodyLightning(acp, cam, partial, now, arcs, arcAlpha, arcWidth);
+			groundArcs(acp, cam, partial, now, arcs, arcAlpha, arcWidth);
 			int bodyCol = com.projecthero.mod.speedforce.SpeedForceColours.of(acp);
 			while (arcColour.size() < arcs.size()) {
 				arcColour.add(bodyCol);
@@ -372,6 +382,62 @@ public final class SpeedForceClient {
 			ThorDraw.ribbon(vc, last, path, 0.11f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 1), 0.4f * a);
 			ThorDraw.ribbon(vc, last, path, 0.045f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 2), 0.8f * a);
 			ThorDraw.ribbon(vc, last, path, 0.016f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 3), 1.0f * a);
+		}
+	}
+
+	/**
+	 * v0.17.1 (user: "make the lightning arc off the player and onto nearby blocks when running at above 10% momentum"):
+	 * bolts leap from the runner's body to the ground and walls around them -- each aims at a random spot within a few
+	 * blocks and strikes the first solid block surface it meets, re-picked several times a second. More, longer and
+	 * further-reaching as the momentum climbs; a few stray ones standing still.
+	 */
+	private static void groundArcs(AbstractClientPlayer p, Vec3 cam, float partial, long now, List<Vec3[]> arcs, List<Float> alpha,
+			List<Float> width) {
+		float m = SpeedForceSpeedster.momentum(p);
+		if (m <= GROUND_ARC_MOMENTUM && !SpeedForceSpeedster.surging(p)) {
+			return;
+		}
+		Vec3 at = p.getPosition(partial);
+		Vec3 heading = at.subtract(p.xo, p.yo, p.zo);
+		boolean moving = heading.lengthSqr() > 0.01;
+		float strength = Math.min(1f, (m - GROUND_ARC_MOMENTUM) / 0.6f);
+		int count = (moving ? 1 : 0) + Math.round(strength * 4f);
+		double reach = 2.0 + strength * 3.0;
+		double frame = Math.floor((now + partial) * 6.0);
+		for (int k = 0; k < count; k++) {
+			double seed = frame * 7.1 + k * 19.3 + p.getId() * 0.71 + 500.0;
+			if (ThorDraw.hash(seed) < (moving ? 0.3 : 0.7)) {
+				continue;
+			}
+			Vec3 from = at.add((ThorDraw.hash(seed + 1) - 0.5) * 0.5, 0.3 + ThorDraw.hash(seed + 2) * 1.2, (ThorDraw.hash(seed + 3) - 0.5) * 0.5);
+			// mostly down and out (the ground round the feet), now and then sideways into a wall
+			double a = ThorDraw.hash(seed + 4) * Math.PI * 2.0;
+			double out = reach * (0.5 + ThorDraw.hash(seed + 5) * 0.5);
+			double down = ThorDraw.hash(seed + 6) < 0.8 ? -(1.5 + ThorDraw.hash(seed + 7) * 2.0) : (ThorDraw.hash(seed + 7) - 0.3) * 1.5;
+			Vec3 aim = from.add(Math.cos(a) * out, down, Math.sin(a) * out);
+			net.minecraft.world.phys.BlockHitResult hit = p.level().clip(new net.minecraft.world.level.ClipContext(from, aim,
+					net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, p));
+			if (hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+				continue;
+			}
+			Vec3 to = hit.getLocation();
+			int nodes = (int) Math.max(4, Math.min(10, from.distanceTo(to) * 2.2));
+			Vec3[] path = ThorDraw.jagged(from.subtract(cam), to.subtract(cam), nodes, 0.22 + 0.1 * strength, seed);
+			arcs.add(path);
+			alpha.add(0.8f + 0.2f * strength);
+			width.add(0.6f + 0.4f * strength);
+			// a little fork where it strikes
+			if (ThorDraw.hash(seed + 8) > 0.5) {
+				Vec3 tip = to.add((ThorDraw.hash(seed + 9) - 0.5) * 0.9, 0.05 + ThorDraw.hash(seed + 10) * 0.3, (ThorDraw.hash(seed + 11) - 0.5) * 0.9);
+				arcs.add(ThorDraw.jagged(to.subtract(cam), tip.subtract(cam), 3, 0.12, seed + 12));
+				alpha.add(0.7f);
+				width.add(0.4f);
+			}
+			// sparks at the strike, now and then
+			if (ThorDraw.hash(seed + 13) > 0.85) {
+				p.level().addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, to.x, to.y + 0.05, to.z,
+						(ThorDraw.hash(seed + 14) - 0.5) * 0.2, 0.1, (ThorDraw.hash(seed + 15) - 0.5) * 0.2);
+			}
 		}
 	}
 

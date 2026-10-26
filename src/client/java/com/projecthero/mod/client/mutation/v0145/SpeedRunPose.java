@@ -154,11 +154,25 @@ public final class SpeedRunPose {
 			}
 			w = weight(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		}
+		pose(m, limbSwing, w, !Float.isNaN(overrideWeight) ? (overrideOverdrive ? 1f : 0.6f) : (overdrive(player) ? 1f : 0.6f));
+	}
+
+	/**
+	 * v0.17.1 (user: "make the regular super speed running animation better"): the sprint itself, shared by both speedsters
+	 * (the Speed Force Speedster drives it from its momentum). {@code w} blends it in (0..1); {@code drive} (0..1) is how
+	 * hard they are running -- the lean deepens, the arms pump harder and higher, the knees drive higher, and the shoulders
+	 * and hips counter-rotate with every stride, with a little roll, so it reads as a flat-out sprint rather than a jog.
+	 */
+	public static void pose(HumanoidModel<?> m, float limbSwing, float w, float drive) {
 		if (w <= 0.001f) {
 			return;
 		}
 		w = w * w * (3f - 2f * w);
-		float lean = LEAN * w;
+		drive = Mth.clamp(drive, 0f, 1f);
+		float lean = (LEAN + 0.16f * drive) * w;
+		float armSwing = ARM_SWING + 0.35f * drive;
+		float legForward = LEG_FORWARD + 0.3f * drive;
+		float legBack = LEG_BACK + 0.15f * drive;
 		float phase = limbSwing * 0.6662f * CADENCE;
 		float c = Mth.cos(phase);
 		float s = Mth.sin(phase);
@@ -171,9 +185,13 @@ public final class SpeedRunPose {
 		m.body.xRot = lean;
 		m.body.y = neckY;
 		m.body.z = neckZ;
-		m.body.yRot = Mth.lerp(w, m.body.yRot, s * 0.12f);
+		// shoulders twist against the hips with the arms, plus a touch of roll onto the planted foot
+		m.body.yRot = Mth.lerp(w, m.body.yRot, s * (0.12f + 0.08f * drive));
+		m.body.zRot = Mth.lerp(w, m.body.zRot, c * 0.04f * drive);
 		m.head.y = neckY;
 		m.head.z = neckZ;
+		// the head stays level and steady (eyes forward) -- it only counters the twist a little
+		m.head.yRot -= s * 0.06f * w;
 		m.hat.copyFrom(m.head);
 
 		// shoulders 2 px down the leaning torso
@@ -181,26 +199,32 @@ public final class SpeedRunPose {
 		m.leftArm.y = m.rightArm.y;
 		m.rightArm.z = neckZ + 2.0f * Mth.sin(lean);
 		m.leftArm.z = m.rightArm.z;
-		// arms pump opposite the legs (right arm forward while the right leg is back); negative X = forward / up
-		m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, -c * ARM_SWING - ARM_FORWARD);
-		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, c * ARM_SWING - ARM_FORWARD);
-		// on the forward drive the hand comes in toward the centre line, like a bent elbow
-		m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -Math.max(0f, c) * 0.25f);
-		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, Math.max(0f, -c) * 0.25f);
-		m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.08f);
-		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.08f);
+		// arms pump opposite the legs (right arm forward while the right leg is back); negative X = forward / up --
+		// the forward drive goes higher than the back swing, like a bent elbow punching up to the chin
+		float rArm = -c * armSwing - ARM_FORWARD;
+		float lArm = c * armSwing - ARM_FORWARD;
+		rArm = rArm < 0f ? rArm * (1.0f + 0.15f * drive) : rArm * 0.8f;
+		lArm = lArm < 0f ? lArm * (1.0f + 0.15f * drive) : lArm * 0.8f;
+		m.rightArm.xRot = Mth.lerp(w, m.rightArm.xRot, rArm);
+		m.leftArm.xRot = Mth.lerp(w, m.leftArm.xRot, lArm);
+		// on the forward drive the hand comes in toward the centre line; on the back swing it opens a little
+		m.rightArm.yRot = Mth.lerp(w, m.rightArm.yRot, -Math.max(0f, c) * (0.25f + 0.15f * drive) + Math.max(0f, -c) * 0.08f);
+		m.leftArm.yRot = Mth.lerp(w, m.leftArm.yRot, Math.max(0f, -c) * (0.25f + 0.15f * drive) - Math.max(0f, c) * 0.08f);
+		m.rightArm.zRot = Mth.lerp(w, m.rightArm.zRot, 0.08f + 0.05f * drive);
+		m.leftArm.zRot = Mth.lerp(w, m.leftArm.zRot, -0.08f - 0.05f * drive);
 
 		// legs from the (unmoved) hips: long strides, the knee driven further forward than the push-off goes back
-		float right = c > 0f ? c * LEG_BACK : c * LEG_FORWARD;
-		float left = c > 0f ? -c * LEG_FORWARD : -c * LEG_BACK;
+		float right = c > 0f ? c * legBack : c * legForward;
+		float left = c > 0f ? -c * legForward : -c * legBack;
 		m.rightLeg.y = 12.0f + bob;
 		m.leftLeg.y = 12.0f + bob;
 		m.rightLeg.z = 0.0f;
 		m.leftLeg.z = 0.0f;
 		m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, right);
 		m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, left);
-		m.rightLeg.yRot = Mth.lerp(w, m.rightLeg.yRot, 0.0f);
-		m.leftLeg.yRot = Mth.lerp(w, m.leftLeg.yRot, 0.0f);
+		// the hips turn opposite the shoulders
+		m.rightLeg.yRot = Mth.lerp(w, m.rightLeg.yRot, -s * 0.05f * drive);
+		m.leftLeg.yRot = Mth.lerp(w, m.leftLeg.yRot, -s * 0.05f * drive);
 		m.rightLeg.zRot = Mth.lerp(w, m.rightLeg.zRot, 0.0f);
 		m.leftLeg.zRot = Mth.lerp(w, m.leftLeg.zRot, 0.0f);
 	}

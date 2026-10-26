@@ -81,6 +81,9 @@ public final class SpeedForceSpeedster {
 		Vec3 dir;
 		double distance;
 		boolean sonicArmed = true;
+		/** v0.17.1: the HORIZONTAL speed, smoothed (the sound barrier reads only this) and how long it has stayed past 100. */
+		double hEma;
+		int sonicTicks;
 		/** Ticks to ignore the speed readings (a zip / teleport just happened). */
 		int grace;
 		long copperReady;
@@ -534,9 +537,13 @@ public final class SpeedForceSpeedster {
 			addMeter(player, SpeedForceConfig.COPPER_GAIN);
 			((ServerLevel) player.level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, now.x, now.y + 0.3, now.z, 20, 0.4, 0.2, 0.4, 0.2);
 		}
-		// breaking the sound barrier
-		double bps = mo.ema * 20.0;
-		if (mo.sonicArmed && bps >= SpeedForceConfig.SONIC_BOOM_BPS) {
+		// breaking the sound barrier -- v0.17.1 (user): read from the smoothed HORIZONTAL speed held past 100 b/s for a few
+		// ticks, so a Ground-Stick pull down a slope (a big vertical step in one tick) never sets it off; re-armed only well
+		// under it
+		mo.hEma = mo.hEma * 0.7 + horiz * 0.3;
+		double bps = mo.hEma * 20.0;
+		mo.sonicTicks = bps >= SpeedForceConfig.SONIC_BOOM_BPS ? mo.sonicTicks + 1 : 0;
+		if (mo.sonicArmed && mo.sonicTicks >= SpeedForceConfig.SONIC_HOLD_TICKS) {
 			mo.sonicArmed = false;
 			sonicBoom(player);
 		} else if (!mo.sonicArmed && bps < SpeedForceConfig.SONIC_REARM_BPS) {

@@ -72,9 +72,9 @@ public final class MultimouseConfig {
 	public static final int TRIP_COOLDOWN = 160;
 
 	// ---------------------------------------------------------------- X: Rope Swing / Shift+X: Scurry
-	public static final double SWING_RANGE = 30.0;
+	public static final double SWING_RANGE = 50.0; // v0.17.1 (user): 50 blocks
 	/** The longest a swing pulls (it ends sooner once she is there). */
-	public static final int SWING_TICKS = 40;
+	public static final int SWING_TICKS = 55; // time to cover the longer 50-block reach
 	/** Top speed along the rope (blocks a tick) and how hard the rope pulls each tick. */
 	public static final double SWING_SPEED = 1.5;
 	public static final double SWING_PULL = 0.28;
@@ -126,7 +126,7 @@ public final class MultimouseConfig {
 	public static final int HEARING_COOLDOWN = 20;
 	/** v0.17.1 (user): a 1x2 hole up to 3 deep through ANY breakable block, stone included (never bedrock, barriers or other unbreakables). */
 	public static final int GNAW_DEPTH = 3;
-	public static final int GNAW_COOLDOWN = 80;
+	public static final int GNAW_COOLDOWN = 20; // v0.17.1 (user): 1 s
 
 	// ---------------------------------------------------------------- C: Rope Bind / Shift+C: Mouse Trap
 	public static final double BIND_RANGE = 14.0;
