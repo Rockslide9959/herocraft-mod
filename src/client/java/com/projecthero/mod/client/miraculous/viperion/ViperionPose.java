@@ -64,6 +64,10 @@ public final class ViperionPose {
 
 	/** Whether the Lyre is in his hand now (else it is on his back). */
 	public static boolean inHand(Player player, float partial) {
+		Boolean seq = ViperionSequenceClient.lyreInHand(player, partial); // v0.17.1: formed in his hand in the long transformation
+		if (seq != null) {
+			return seq;
+		}
 		if (Viperion.shielding(player) || Viperion.running(player, Viperion.V_CONSTRICT) || Viperion.running(player, Viperion.V_COMBO)) {
 			return true;
 		}

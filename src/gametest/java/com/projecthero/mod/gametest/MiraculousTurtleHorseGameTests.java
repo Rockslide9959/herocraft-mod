@@ -91,10 +91,11 @@ public class MiraculousTurtleHorseGameTests implements FabricGameTest {
 		helper.assertTrue(Miraculous.onChat(q, "kaalki dismount"), "the detransform phrase with the name");
 		helper.assertTrue(!Miraculous.transformed(q) && Miraculous.hungry(q), "changed back, Kaalki hungry");
 
-		helper.assertTrue(MiraculousPhrases.match(Kwami.WAYZZ, "WAYZZ SHELL ON") == MiraculousPhrases.Spoken.TRANSFORM
+		helper.assertTrue(MiraculousPhrases.match(Kwami.WAYZZ, "WAYZZ SHELL ON") == MiraculousPhrases.Spoken.TRANSFORM_LONG /* v0.17.1: the full phrase is the long one */
 				&& MiraculousPhrases.match(Kwami.WAYZZ, "wayzz, shell off") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.WAYZZ, "shell on") == MiraculousPhrases.Spoken.TRANSFORM /* v0.16.7: the name is optional now */
-				&& MiraculousPhrases.match(Kwami.KAALKI, "Kaalki full gallop") == MiraculousPhrases.Spoken.TRANSFORM
+				&& MiraculousPhrases.match(Kwami.KAALKI, "Kaalki full gallop") == MiraculousPhrases.Spoken.TRANSFORM_LONG
+				&& MiraculousPhrases.match(Kwami.KAALKI, "full gallop") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.KAALKI, "DISMOUNT!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.assertTrue("Carapace".equals(MiraculousPhrases.heroName(Kwami.WAYZZ)) && "Pegasus".equals(MiraculousPhrases.heroName(Kwami.KAALKI)), "hero names");
 		helper.succeed();

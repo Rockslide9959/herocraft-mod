@@ -31,7 +31,8 @@ public class HawkMothLayer extends RenderLayer<AbstractClientPlayer, PlayerModel
 		}
 		// the wearer's second layer (hat included, v0.16.6: the mask now sits right on the face, so hair would poke through it)
 		// only until the wave reaches it
-		OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> HawkMothSuitRender.order(u, v) > cover);
+		boolean rise = HawkMothSequenceClient.rising(player); // v0.17.1: the long transformation's rising wave
+		OverlayStrips.render(pose, buffers, light, player, getParentModel(), (u, v) -> HawkMothSuitRender.order(u, v, rise) > cover);
 		HawkMothSuitRender.render(pose, buffers, light, player, getParentModel(), cover);
 		if (HawkMothPose.caneShown(player, partialTick)) {
 			CaneRender.render(pose, buffers, light, getParentModel(), player, partialTick);

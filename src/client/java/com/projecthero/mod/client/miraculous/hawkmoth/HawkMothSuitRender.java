@@ -62,6 +62,10 @@ public final class HawkMothSuitRender {
 	private static ResourceLocation[] wideFrames;
 	private static ResourceLocation[] slimFrames;
 	private static float[] orders;
+	/** v0.17.1: the long transformation's order -- the wave RISES from his boots to the neck, then the mask (HawkMothSequence). */
+	private static ResourceLocation[] wideRiseFrames;
+	private static ResourceLocation[] slimRiseFrames;
+	private static float[] riseOrders;
 
 	private HawkMothSuitRender() {
 	}
@@ -100,6 +104,11 @@ public final class HawkMothSuitRender {
 		if (s == null || !s.hasPower || !Kwami.NOOROO.id.equals(s.kwami) || player.level() == null) {
 			return 0f;
 		}
+		// v0.17.1: the long transformation runs the change at its own pace (the kit's *Sequence)
+		float seq = com.projecthero.mod.client.miraculous.MiraculousSequenceClient.suitCover(player, s, partial);
+		if (seq >= 0f) {
+			return seq;
+		}
 		float total = MiraculousConfig.TRANSFORM_TICKS;
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		if (age < 0f && age > -40f) {
@@ -135,7 +144,28 @@ public final class HawkMothSuitRender {
 		return u < 0 || v < 0 || u >= 64 || v >= 64 ? 2f : orders[v * 64 + u];
 	}
 
+	/** v0.17.1: {@link #order}, or the long transformation's rising one ({@code rise}). */
+	public static float order(int u, int v, boolean rise) {
+		if (!rise) {
+			return order(u, v);
+		}
+		if (riseOrders == null) {
+			float[] o = new float[64 * 64];
+			for (int y = 0; y < 64; y++) {
+				for (int x = 0; x < 64; x++) {
+					o[y * 64 + x] = computeOrder(x, y, true);
+				}
+			}
+			riseOrders = o;
+		}
+		return u < 0 || v < 0 || u >= 64 || v >= 64 ? 2f : riseOrders[v * 64 + u];
+	}
+
 	private static float computeOrder(int u, int v) {
+		return computeOrder(u, v, false);
+	}
+
+	private static float computeOrder(int u, int v, boolean rise) {
 		if (v < 16 && u >= 32) {
 			u -= 32; // hat -> head
 		} else if (v >= 32 && v < 48) {
@@ -154,7 +184,8 @@ public final class HawkMothSuitRender {
 			// the mask closes from the neck up, last
 			return Math.min(0.99f, BODY_END + (1f - BODY_END) * (0.85f * (8f - Math.min(8f, h)) / 8f + 0.12f * n));
 		}
-		float dist = Math.abs(h - BROOCH) / (32f - BROOCH);
+		// v0.17.1: rising, from the boots (model height 32) up to the neck (8)
+		float dist = rise ? Math.max(0f, 32f - h) / 24f : Math.abs(h - BROOCH) / (32f - BROOCH);
 		return Math.min(BODY_END - 0.01f, BODY_END * 0.92f * dist + 0.06f * n);
 	}
 
@@ -185,7 +216,7 @@ public final class HawkMothSuitRender {
 			float cover) {
 		boolean slimArms = isSlim(player);
 		PlayerModel<LivingEntity> m = posed(parent, slimArms);
-		ResourceLocation tex = cover >= 0.999f ? (slimArms ? SLIM : WIDE) : frame(slimArms, cover);
+		ResourceLocation tex = cover >= 0.999f ? (slimArms ? SLIM : WIDE) : frame(slimArms, cover, HawkMothSequenceClient.rising(player));
 		m.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(tex)), light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
 	}
 
@@ -207,8 +238,24 @@ public final class HawkMothSuitRender {
 	// ---------------------------------------------------------------- the frames of the change
 
 	private static ResourceLocation frame(boolean slimArms, float cover) {
+		return frame(slimArms, cover, false);
+	}
+
+	private static ResourceLocation frame(boolean slimArms, float cover, boolean rise) {
+		if (rise) {
+			if (slimArms ? slimRiseFrames == null : wideRiseFrames == null) {
+				ResourceLocation[] f = buildFrames(slimArms ? SLIM : WIDE, slimArms ? "slim_rise" : "wide_rise", true);
+				if (slimArms) {
+					slimRiseFrames = f;
+				} else {
+					wideRiseFrames = f;
+				}
+			}
+			ResourceLocation[] f = slimArms ? slimRiseFrames : wideRiseFrames;
+			return f.length == 0 ? (slimArms ? SLIM : WIDE) : f[Math.max(0, Math.min(FRAMES, Math.round(cover * FRAMES)))];
+		}
 		if (slimArms ? slimFrames == null : wideFrames == null) {
-			ResourceLocation[] f = buildFrames(slimArms ? SLIM : WIDE, slimArms ? "slim" : "wide");
+			ResourceLocation[] f = buildFrames(slimArms ? SLIM : WIDE, slimArms ? "slim" : "wide", false);
 			if (slimArms) {
 				slimFrames = f;
 			} else {
@@ -223,7 +270,7 @@ public final class HawkMothSuitRender {
 	}
 
 	/** Frame {@code k} shows every texel whose {@link #order} is at most {@code k / FRAMES}; the newest ones glow violet. */
-	private static ResourceLocation[] buildFrames(ResourceLocation skin, String tag) {
+	private static ResourceLocation[] buildFrames(ResourceLocation skin, String tag, boolean rise) {
 		Minecraft mc = Minecraft.getInstance();
 		Optional<Resource> res = mc.getResourceManager().getResource(skin);
 		if (res.isEmpty()) {
@@ -245,7 +292,7 @@ public final class HawkMothSuitRender {
 			for (int y = 0; y < size; y++) {
 				for (int x = 0; x < size; x++) {
 					int px = src.getPixelRGBA(x, y);
-					float o = order(x / scale, y / scale);
+					float o = order(x / scale, y / scale, rise);
 					if (o > line || k == 0) {
 						img.setPixelRGBA(x, y, 0);
 					} else if (k < FRAMES && line - o < 0.07f && ((px >>> 24) & 0xFF) > 0) {

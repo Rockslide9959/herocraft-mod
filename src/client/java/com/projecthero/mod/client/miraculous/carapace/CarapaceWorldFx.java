@@ -102,7 +102,7 @@ public final class CarapaceWorldFx {
 	}
 
 	/** A sphere (or the slice of it from latitude {@code from} to {@code to}, in -1..1 of the half-turn) of hexagon light. */
-	private static void sphere(VertexConsumer vc, PoseStack.Pose last, Vec3 c, float r, float from, float to, float alpha, float scroll) {
+	static void sphere(VertexConsumer vc, PoseStack.Pose last, Vec3 c, float r, float from, float to, float alpha, float scroll) {
 		int lon = Math.max(16, Math.min(48, Math.round(r * 6f)));
 		int lat = Math.max(8, Math.min(24, Math.round(r * 3f)));
 		float circ = (float) (Math.PI * 2 * r);

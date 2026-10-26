@@ -47,7 +47,8 @@ public final class MiraculousClient {
 		EntityRendererRegistry.register(com.projecthero.mod.miraculous.entity.MiraculousEntityTypes.KWAMI, KwamiRenderer::new);
 		HudRenderCallback.EVENT.register(MiraculousHud::render);
 		ClientTickEvents.END_CLIENT_TICK.register(MiraculousFx::tick);
-		ClientTickEvents.END_CLIENT_TICK.register(com.projecthero.mod.client.miraculous.ladybug.LadybugSequenceClient::tick); // v0.17.1
+		ClientTickEvents.END_CLIENT_TICK.register(MiraculousSequenceClient::tick); // v0.17.1: every hero's long transformation
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(MiraculousSequenceClient::renderWorld);
 		com.projecthero.mod.miraculous.item.MiraculousBoxItem.rendererFactory = consumer -> consumer.accept(new software.bernie.geckolib.animatable.client.GeoRenderProvider() {
 			private KwamiRenderer.BoxRenderer renderer;
 
@@ -92,8 +93,8 @@ public final class MiraculousClient {
 		if (kit != null) {
 			kit.applyPose(player, model);
 		}
-		// v0.17.1: Ladybug's long transformation wins over everything while it plays
-		com.projecthero.mod.client.miraculous.ladybug.LadybugSequenceClient.applyPose(player, model);
+		// v0.17.1: a long transformation wins over everything while it plays
+		MiraculousSequenceClient.applyPose(player, model);
 	}
 
 	/** From PlayerModelMixin / HumanoidArmorLayerMixin. */

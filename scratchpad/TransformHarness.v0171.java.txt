@@ -1,0 +1,205 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.miraculous.Kwami;
+import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.miraculous.MiraculousPhrases;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.1 long-transformation screenshots for the six non-Ladybug Miraculous. Enabled by
+ * run/transform.flag; optional run/transform.only (a Kwami id) runs just that hero. Each hero: grant, fed, say the full
+ * phrase, shots through the holder's own cinematic camera, change back.
+ */
+public final class TransformHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static final int BLOCK = 240;
+
+	private TransformHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("transform.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(TransformHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "transform-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "transform_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(TransformHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 10f);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+			});
+			t0 = inWorldTicks + 80;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void hero(Minecraft mc, int base, Kwami k, int... shots) {
+		String name = k.heroKey;
+		at(base, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y, origin.z, 0f, 10f);
+			Miraculous.grant(p, k);
+			Miraculous.edit(p, n -> {
+				n.hungry = false;
+				n.kwamiHidden = false;
+				n.formChangeAt = 0L;
+			});
+		}));
+		at(base + 30, () -> server(mc, p -> {
+			Miraculous.edit(p, n -> {
+				n.hungry = false;
+				n.formChangeAt = 0L;
+			});
+			System.out.println("[HARNESS] " + name + " says " + MiraculousPhrases.transformPhrase(k) + " -> "
+					+ Miraculous.onChat(p, MiraculousPhrases.transformPhrase(k)) + " anim " + Miraculous.state(p).animId);
+		}));
+		for (int i = 0; i < shots.length; i++) {
+			shot(base + 30 + shots[i], name + "_" + (i + 1) + "_t" + shots[i]);
+		}
+		at(base + 30 + 195, () -> server(mc, p -> Miraculous.onChat(p, MiraculousPhrases.detransformPhrase(k))));
+	}
+
+	private static void script(Minecraft mc) {
+		String only = null;
+		try {
+			if (Files.exists(Path.of("transform.only"))) {
+				only = Files.readString(Path.of("transform.only")).trim();
+			}
+		} catch (java.io.IOException e) {
+			only = null;
+		}
+		int base = 0;
+		Object[][] plan = {
+				{ Kwami.PLAGG, new int[] { 24, 64, 104, 136, 160 } },
+				{ Kwami.TRIXX, new int[] { 20, 60, 106, 130, 160 } },
+				{ Kwami.NOOROO, new int[] { 22, 56, 82, 132, 164 } },
+				{ Kwami.WAYZZ, new int[] { 40, 80, 124, 150 } },
+				{ Kwami.KAALKI, new int[] { 32, 62, 104, 132, 160 } },
+				{ Kwami.SASS, new int[] { 40, 72, 100, 138, 154 } },
+		};
+		for (Object[] row : plan) {
+			Kwami k = (Kwami) row[0];
+			if (only != null && !only.equals(k.id)) {
+				continue;
+			}
+			hero(mc, base, k, (int[]) row[1]);
+			base += BLOCK;
+		}
+		int end = base + 10;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("TRANSFORM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

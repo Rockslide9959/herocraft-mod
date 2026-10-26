@@ -125,11 +125,12 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 		helper.assertTrue(p.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION) == null, "and the Regeneration");
 		helper.assertTrue(Miraculous.hungry(p), "every detransformation leaves the Kwami hungry");
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "SPOTS OFF") == MiraculousPhrases.Spoken.DETRANSFORM
-				&& MiraculousPhrases.match(Kwami.PLAGG, "plagg claws out") == MiraculousPhrases.Spoken.TRANSFORM
+				&& MiraculousPhrases.match(Kwami.PLAGG, "plagg claws out") == MiraculousPhrases.Spoken.TRANSFORM_LONG // v0.17.1: every hero's full phrase is the long one
 				&& MiraculousPhrases.match(Kwami.PLAGG, "claws out") == MiraculousPhrases.Spoken.TRANSFORM // v0.16.7: the name is optional
 				&& MiraculousPhrases.match(Kwami.TIKKI, "Spots on!") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.TIKKI, "claws out") == null
-				&& MiraculousPhrases.match(Kwami.NOOROO, "Nooroo, DARK wings rise!") == MiraculousPhrases.Spoken.TRANSFORM
+				&& MiraculousPhrases.match(Kwami.NOOROO, "Nooroo, DARK wings rise!") == MiraculousPhrases.Spoken.TRANSFORM_LONG
+				&& MiraculousPhrases.match(Kwami.NOOROO, "dark wings rise") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.NOOROO, "nooroo dark wings fall") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.succeed();
 	}
@@ -430,8 +431,9 @@ public class MiraculousCoreGameTests implements FabricGameTest {
 	public void tikkiSpotsOnPlaysTheLongSequence(GameTestHelper helper) {
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "Tikki, spots on!") == MiraculousPhrases.Spoken.TRANSFORM_LONG, "the full phrase");
 		helper.assertTrue(MiraculousPhrases.match(Kwami.TIKKI, "Spots on!") == MiraculousPhrases.Spoken.TRANSFORM, "the short phrase");
-		helper.assertTrue(MiraculousPhrases.match(Kwami.PLAGG, "Plagg, claws out!") == MiraculousPhrases.Spoken.TRANSFORM,
-				"only Ladybug has a long sequence so far");
+		helper.assertTrue(MiraculousPhrases.match(Kwami.PLAGG, "Plagg, claws out!") == MiraculousPhrases.Spoken.TRANSFORM_LONG
+				&& MiraculousPhrases.match(Kwami.PLAGG, "Claws out!") == MiraculousPhrases.Spoken.TRANSFORM,
+				"v0.17.1: every hero has one now (MiraculousSequenceGameTests)");
 		ServerPlayer p = mock(helper);
 		Miraculous.grant(p, Kwami.TIKKI);
 		fed(p);

@@ -99,6 +99,11 @@ public final class ViperionRender {
 		if (s == null || !s.hasPower || !Kwami.SASS.id.equals(s.kwami) || player.level() == null) {
 			return 0f;
 		}
+		// v0.17.1: the long transformation runs the change at its own pace (the kit's *Sequence)
+		float seq = com.projecthero.mod.client.miraculous.MiraculousSequenceClient.suitCover(player, s, partial);
+		if (seq >= 0f) {
+			return seq;
+		}
 		float total = MiraculousConfig.TRANSFORM_TICKS;
 		float age = player.level().getGameTime() - s.formChangeAt + partial;
 		if (age < 0f && age > -40f) {

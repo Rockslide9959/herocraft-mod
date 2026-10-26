@@ -216,10 +216,9 @@ public final class Miraculous {
 		return player.level().getGameTime() - s.formChangeAt >= formTicks(s);
 	}
 
-	/** v0.17.1: how long the transformation that is playing runs (the long Ladybug sequence, or the quick one). */
+	/** v0.17.1: how long the transformation that is playing runs (the hero's long sequence, or the quick one). */
 	public static int formTicks(MiraculousState s) {
-		return s.animId == com.projecthero.mod.miraculous.ladybug.LadybugSequence.ANIM ? com.projecthero.mod.miraculous.ladybug.LadybugSequence.TOTAL
-				: MiraculousConfig.TRANSFORM_TICKS;
+		return MiraculousSequence.formTicks(s);
 	}
 
 	/** Action-bar message, rate limited. */
@@ -525,7 +524,7 @@ public final class Miraculous {
 			// v0.17.1 (user): the full phrase -- the long, show-style sequence
 			transform(player);
 			if (state(player).transformed) {
-				com.projecthero.mod.miraculous.ladybug.LadybugSequence.start(player);
+				MiraculousSequence.start(player);
 			}
 		} else if (spoken == MiraculousPhrases.Spoken.TRANSFORM && !s.transformed) {
 			transform(player);
@@ -673,9 +672,9 @@ public final class Miraculous {
 		}
 		if (s.transformed) {
 			long age = now - s.formChangeAt;
-			boolean longSeq = com.projecthero.mod.miraculous.ladybug.LadybugSequence.running(s, age);
+			boolean longSeq = MiraculousSequence.running(s, age);
 			if (longSeq) {
-				com.projecthero.mod.miraculous.ladybug.LadybugSequence.tick(player, s, age); // v0.17.1
+				MiraculousSequence.tick(player, s, age); // v0.17.1: every hero's long transformation
 			} else 			if (age == MiraculousConfig.SWIRL_SOUND_TICK) {
 				sound(player, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.6f);
 			} else if (age == MiraculousConfig.FLASH_TICK) {

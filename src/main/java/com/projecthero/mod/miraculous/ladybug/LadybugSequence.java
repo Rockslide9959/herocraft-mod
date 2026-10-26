@@ -2,6 +2,7 @@ package com.projecthero.mod.miraculous.ladybug;
 
 import com.projecthero.mod.miraculous.Kwami;
 import com.projecthero.mod.miraculous.Miraculous;
+import com.projecthero.mod.miraculous.MiraculousSequence;
 import com.projecthero.mod.miraculous.data.MiraculousState;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -22,12 +23,14 @@ import net.minecraft.world.entity.player.Player;
  *   <li>{@link #POSE} -- the hero pose, in front of a burst of pink light and black spots, and she settles back down.</li>
  * </ol>
  * The whole time she hangs a block off the ground, can't be hurt and can't use a power; a cinematic camera
- * ({@code LadybugSequenceCameraMixin}) flies round her for the holder. The timeline below is CLIENT-SAFE (the client plays
- * the suit, the pose, the camera and the light show from {@code formChangeAt}); {@link #start} / {@link #tick} are server.
+ * ({@code MiraculousSequenceCameraMixin}) flies round her for the holder. The timeline below is CLIENT-SAFE (the client
+ * plays the suit, the pose, the camera and the light show from {@code formChangeAt}); {@link #start} / {@link #tick} are
+ * server. v0.17.1: the first of the long transformations -- it now runs on the shared frame ({@link MiraculousSequence},
+ * {@link #TIMELINE}) the other heroes' were built on, unchanged.
  */
 public final class LadybugSequence {
-	/** The long transformation's anim id (a shared one -- the core times it). */
-	public static final int ANIM = 5;
+	/** The long transformation's anim id (the shared one -- {@link MiraculousSequence}; the core times it). */
+	public static final int ANIM = MiraculousSequence.ANIM;
 	public static final int TOTAL = 170;
 
 	public static final int EARRINGS = 14;
@@ -39,17 +42,50 @@ public final class LadybugSequence {
 	public static final int POSE = 146;
 
 	/** Synced: the yaw she faced and the height she stood at when it began (the camera and the spin start from them). */
-	public static final String V_YAW = "lb_seq_yaw";
-	public static final String V_Y = "lb_seq_y";
-	public static final String V_X = "lb_seq_x";
-	public static final String V_Z = "lb_seq_z";
+	public static final String V_YAW = MiraculousSequence.V_YAW;
+	public static final String V_Y = MiraculousSequence.V_Y;
+	public static final String V_X = MiraculousSequence.V_X;
+	public static final String V_Z = MiraculousSequence.V_Z;
+
+	/** Her beats on the shared frame. */
+	public static final MiraculousSequence.Timeline TIMELINE = new MiraculousSequence.Timeline() {
+		@Override
+		public int total() {
+			return TOTAL;
+		}
+
+		@Override
+		public double lift(float t) {
+			return LadybugSequence.lift(t);
+		}
+
+		@Override
+		public float spin(float t) {
+			return LadybugSequence.spin(t);
+		}
+
+		@Override
+		public float cover(float t) {
+			return LadybugSequence.cover(t);
+		}
+
+		@Override
+		public void start(ServerPlayer p) {
+			p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.4f, 1.3f);
+		}
+
+		@Override
+		public void beats(ServerPlayer p, MiraculousState s, long age) {
+			LadybugSequence.beats(p, age);
+		}
+	};
 
 	private LadybugSequence() {
 	}
 
 	/** True while a holder's long transformation is playing ({@code age} = ticks since it began). */
 	public static boolean running(MiraculousState s, long age) {
-		return s != null && s.transformed && s.animId == ANIM && age >= 0 && age < TOTAL;
+		return s != null && s.transformed && s.animId == ANIM && age >= 0 && age < TOTAL && Kwami.TIKKI.id.equals(s.kwami);
 	}
 
 	public static boolean running(Player p) {
@@ -91,23 +127,14 @@ public final class LadybugSequence {
 	}
 
 	public static float smooth(float x) {
-		x = Mth.clamp(x, 0f, 1f);
-		return x * x * (3f - 2f * x);
+		return MiraculousSequence.smooth(x);
 	}
 
 	// ---------------------------------------------------------------- server
 
 	/** Starts it (called in place of the quick transformation's look; the core has already set transformed / formChangeAt). */
 	public static void start(ServerPlayer p) {
-		Miraculous.edit(p, n -> {
-			n.animId = ANIM;
-			n.vals.put(V_YAW, (long) Float.floatToIntBits(p.getYRot()));
-			n.vals.put(V_X, Double.doubleToLongBits(p.getX()));
-			n.vals.put(V_Y, Double.doubleToLongBits(p.getY()));
-			n.vals.put(V_Z, Double.doubleToLongBits(p.getZ()));
-		});
-		p.setDeltaMovement(0, 0, 0);
-		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 1.4f, 1.3f);
+		MiraculousSequence.start(p);
 	}
 
 	/** Every tick while it plays: hold her in the air where she began, and the music of the beats. */
@@ -115,12 +142,10 @@ public final class LadybugSequence {
 		if (s.kwami == null || Kwami.byId(s.kwami) != Kwami.TIKKI) {
 			return;
 		}
-		double x = Double.longBitsToDouble(s.val(V_X));
-		double y = Double.longBitsToDouble(s.val(V_Y)) + lift(age);
-		double z = Double.longBitsToDouble(s.val(V_Z));
-		p.connection.teleport(x, y, z, p.getYRot(), p.getXRot());
-		p.setDeltaMovement(0, 0, 0);
-		p.resetFallDistance();
+		MiraculousSequence.tick(p, s, age);
+	}
+
+	private static void beats(ServerPlayer p, long age) {
 		if (age == EARRINGS) {
 			sound(p, SoundEvents.AMETHYST_BLOCK_RESONATE, 1.2f, 1.6f);
 			sound(p, SoundEvents.NOTE_BLOCK_CHIME.value(), 1.0f, 1.8f);

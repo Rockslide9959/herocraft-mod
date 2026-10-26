@@ -64,6 +64,10 @@ public final class RenaRougeClient implements KwamiClientKit {
 
 	/** Where the Flute is on {@code player} now: thrown (none), at her lips, in her hand for a move, else on her back. */
 	public static RenaRougeRender.FluteAt fluteAt(Player player, float partial) {
+		RenaRougeRender.FluteAt seq = RenaRougeSequenceClient.fluteAt(player, partial); // v0.17.1: spun and caught in the long transformation
+		if (seq != null) {
+			return seq;
+		}
 		if (RenaRouge.fluteOut(player)) {
 			return RenaRougeRender.FluteAt.NONE;
 		}

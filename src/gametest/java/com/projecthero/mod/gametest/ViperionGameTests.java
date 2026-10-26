@@ -616,12 +616,12 @@ public class ViperionGameTests implements FabricGameTest {
 		helper.assertTrue(PowerGrants.grantHero(p, "viperion").ok() && Miraculous.holds(p, Kwami.SASS) && HeroTiers.holdsHero(p, "viperion"),
 				"the command grants Viperion");
 		helper.assertTrue("Viperion".equals(MiraculousPhrases.heroName(Kwami.SASS)), "the hero's name");
-		helper.assertTrue(MiraculousPhrases.match(Kwami.SASS, "sass scales slither") == MiraculousPhrases.Spoken.TRANSFORM
+		helper.assertTrue(MiraculousPhrases.match(Kwami.SASS, "sass scales slither") == MiraculousPhrases.Spoken.TRANSFORM_LONG /* v0.17.1: the long one */
 				&& MiraculousPhrases.match(Kwami.SASS, "Scales slither!") == MiraculousPhrases.Spoken.TRANSFORM
 				&& MiraculousPhrases.match(Kwami.SASS, "SCALES REST") == MiraculousPhrases.Spoken.DETRANSFORM
 				&& MiraculousPhrases.match(Kwami.SASS, "Sass, scales rest!") == MiraculousPhrases.Spoken.DETRANSFORM, "the phrase table");
 		helper.assertTrue(Miraculous.onChat(p, "Sass, scales slither!") && Miraculous.transformedAs(p, Kwami.SASS), "Viperion");
-		Miraculous.edit(p, n -> n.formChangeAt -= 100L);
+		Miraculous.edit(p, n -> n.formChangeAt -= 200L); // v0.17.1: past the long transformation the full phrase plays
 		helper.assertTrue(Miraculous.onChat(p, "Scales rest!") && !Miraculous.transformed(p) && Miraculous.hungry(p), "back, and Sass is hungry");
 		helper.assertTrue(Miraculous.foodOf(Kwami.SASS) == Items.EGG, "eggs");
 		ItemStack eggs = new ItemStack(Items.EGG, 4);

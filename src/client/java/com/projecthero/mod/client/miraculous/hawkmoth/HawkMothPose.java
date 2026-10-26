@@ -86,6 +86,10 @@ public final class HawkMothPose {
 		if (HawkMothSuitRender.progress(player, partial) < 0.6f) {
 			return false;
 		}
+		Boolean seq = HawkMothSequenceClient.caneShown(player, partial); // v0.17.1: it materialises on its beat
+		if (seq != null) {
+			return seq;
+		}
 		float rise = age(player, s, HawkMothKit.ANIM_RISE, partial);
 		return rise < 0f || rise >= HawkMothConfig.RISE_CUP_TICKS + 8;
 	}
