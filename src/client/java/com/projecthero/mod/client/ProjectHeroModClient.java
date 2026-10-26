@@ -146,6 +146,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe
 		com.projecthero.mod.client.flash.FlashClient.initialize(); // v0.14.11
+		com.projecthero.mod.client.speed.SpeedsterGroundStick.initialize(); // v0.17.1
 		com.projecthero.mod.client.fpbody.FirstPersonBodySequences.initialize(); // v0.15.15: watch every suit-up in first person
 		com.projecthero.mod.client.horde.HordeClient.initialize(); // v0.14.12
 		com.projecthero.mod.client.syndicate.SyndicateRenderer.initialize(); // v0.14.25: Syndicate Bust crooks + the Kingpin
@@ -1062,6 +1063,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
+		// v0.17.1 (user): Shift+N toggles Ground-Stick for a speedster (before N's own utility move can take it)
+		if (client.player != null && Screen.hasShiftDown()
+				&& com.projecthero.mod.client.speed.SpeedsterGroundStick.isSpeedster(client.player)) {
+			if (down && !maxSteelTransformWasDown) {
+				com.projecthero.mod.client.speed.SpeedsterGroundStick.toggle(client.player);
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		if (handleUtilityEdge(client, down, maxSteelTransformWasDown, 8)) {
 			maxSteelTransformWasDown = down;
 			return;

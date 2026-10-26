@@ -460,7 +460,7 @@
   "projecthero.power.power_04_super_speed.serum": "Hypermetabolic Serum",
   "projecthero.power.power_04_super_speed.trigger": "Drink the serum, then activate Charged Copper Plates or an Overloaded Redstone Coil (or get struck by lightning).",
   "projecthero.power.power_04_super_speed.ability.speed_carry": "Speed Carry",
-  "projecthero.power.power_04_super_speed.ability.speed_carry.desc": "N: snatch up the creature or player you are looking at and carry it up on your shoulders as you run, for as long as you like. It is a carry, not an attack: whatever you carry takes no fall damage and can't suffocate in walls, and it can't hurt you. Press N again to set it down in front of you — it stays safe from fall damage for 3 more seconds. You also let go if you die or become exhausted after a Time Slow. No cooldown.",
+  "projecthero.power.power_04_super_speed.ability.speed_carry.desc": "N: snatch up the creature or player you are looking at and carry it up on your shoulders as you run, for as long as you like. It is a carry, not an attack: whatever you carry takes no fall damage and can't suffocate in walls, and it can't hurt you. Press N again to set it down in front of you — it stays safe from fall damage for 3 more seconds. You also let go if you die or become exhausted after a Time Slow. No cooldown. Shift+N instead toggles Ground-Stick: running fast, you stay glued to the ground down hills and slopes, keeping all your speed, as long as the ground is within 5 blocks below (bigger drops you fall off as normal). Jumping turns it off until you land.",
   "projecthero.power.power_04_super_speed.ability.rapid_assault": "Rapid Assault",
   "projecthero.power.power_04_super_speed.ability.rapid_assault.desc": "R: a blur of blows on everything in front of you — 4 punches of 5 damage each (20 in all; twice as hard in Overdrive). Every punch lands in full, even on players and mobs that were just hit. 1.5s cooldown. Shift+R: Mach Punch — one punch with all your momentum behind it: 20 damage, a huge knockback, and a shockwave that hits everything within 4.5 blocks of the impact for 6 and throws it back. 8s cooldown (shown on the R box).",
   "projecthero.power.power_04_super_speed.ability.momentum_dash": "Momentum Dash",
@@ -8167,5 +8167,8 @@
   "hud.projecthero.flash.mode.overdrive": "OVERDRIVE",
   "hud.projecthero.flash.mode.phasing": "PHASING",
   "hud.projecthero.flash.mode.time_slow": "TIME SLOW",
-  "hud.projecthero.flash.mode.exhausted": "EXHAUSTED"
+  "hud.projecthero.flash.mode.exhausted": "EXHAUSTED",
+  "message.projecthero.speed.ground_stick_on": "Ground-Stick ON: you stay on the ground down slopes (drops over 5 blocks still fall)",
+  "message.projecthero.speed.ground_stick_off": "Ground-Stick OFF",
+  "hud.projecthero.flash.ground_stick": "STICK"
 }

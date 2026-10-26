@@ -170,6 +170,10 @@ public final class FlashSuitHud {
 		// the rows: top speed, then whatever is running
 		int ry = gy + 9;
 		g.drawString(mc.font, Component.translatable("hud.projecthero.flash.top", String.format(Locale.ROOT, "%.0f", top)), gx, ry, DIM, false);
+		if (com.projecthero.mod.client.speed.SpeedsterGroundStick.enabled()) {
+			Component stick = Component.translatable("hud.projecthero.flash.ground_stick");
+			g.drawString(mc.font, stick, gx + gw - mc.font.width(stick), ry, GOLD, false);
+		}
 		ry += 9;
 		if (overdrive) {
 			bar(g, mc, gx, ry, gw, Component.translatable("hud.projecthero.flash.overdrive"), res(s, SuperSpeedHandlers.OVERDRIVE_LEFT) / (30f * 20f),
