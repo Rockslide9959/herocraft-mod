@@ -43,6 +43,11 @@ public final class BlackFlash {
 	public static void initialize() {
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p) {
+				// v0.17.1 (user): killed by the Black Flash (or his Time Remnant) -- the Speed Force is taken from them for
+				// 20 minutes, and he goes
+				if (source.getEntity() instanceof BlackFlashEntity && SpeedForceSpeedster.hasPower(p)) {
+					SpeedForceSpeedster.losePower(p, SpeedForceConfig.POWER_LOSS_TICKS);
+				}
 				end(p, "won");
 			}
 		});

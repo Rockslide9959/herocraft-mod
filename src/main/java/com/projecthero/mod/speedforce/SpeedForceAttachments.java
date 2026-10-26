@@ -34,6 +34,16 @@ public final class SpeedForceAttachments {
 					.initializer(() -> com.projecthero.mod.speedforce.data.SpeedForceMemories.EMPTY)
 					.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.speedforce.data.SpeedForceMemories.CODEC), AttachmentSyncPredicate.targetOnly()));
 
+	/**
+	 * v0.17.1 (user: "if the black flash kills the player they lose their powers for 20 minutes"): ticks left without the
+	 * Speed Force (absent = none). Persistent, kept on death (it starts AT a death), synced to all (clients hide the run,
+	 * the HUD and the keys while it lasts). Counted down while the player is online.
+	 */
+	public static final AttachmentType<Integer> POWER_LOST = AttachmentRegistry.create(ProjectHeroMod.id("speed_force_power_lost"),
+			builder -> builder.persistent(com.mojang.serialization.Codec.INT)
+					.copyOnDeath()
+					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
+
 	private SpeedForceAttachments() {
 	}
 

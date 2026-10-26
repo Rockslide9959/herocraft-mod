@@ -73,8 +73,10 @@ public final class SpeedForceConfig {
 	public static final double NO_FALL_MOMENTUM = 0.25;
 	/** Non-Flash armour burns above this momentum (10 durability a second, like Overdrive). */
 	public static final double ARMOUR_BURN_MOMENTUM = 0.60;
-	/** Wall running needs a little momentum. */
-	public static final double WALL_RUN_MOMENTUM = 0.10;
+	/** v0.17.1 (user: "run up walls even at 0% momentum while in speed mode"): no momentum needed (was 10%). */
+	public static final double WALL_RUN_MOMENTUM = 0.0;
+	/** v0.17.1 (user: "if the black flash kills the player they lose their powers for 20 minutes"). */
+	public static final int POWER_LOSS_TICKS = 20 * 60 * 20;
 
 	// ---------------------------------------------------------------- the Speed Force meter
 

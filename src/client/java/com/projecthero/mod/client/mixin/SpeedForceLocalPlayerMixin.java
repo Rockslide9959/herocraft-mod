@@ -39,24 +39,6 @@ public abstract class SpeedForceLocalPlayerMixin {
 	private boolean projecthero$sfWallRunning;
 	@Unique
 	private double projecthero$sfGroundSpeed;
-	/** v0.17.1: the skid -- its speed now (blocks a tick, 0 = none), the run's last speed and heading. */
-	@Unique
-	private double projecthero$sfSkid;
-	@Unique
-	private double projecthero$sfLastHoriz;
-	@Unique
-	private Vec3 projecthero$sfLastDir;
-	/** A skid from 10 blocks a second up; each tick it keeps 80% (70% holding S) less a little, done under 3 b/s. */
-	@Unique
-	private static final double SKID_MIN = 0.5;
-	@Unique
-	private static final double SKID_KEEP = 0.8;
-	@Unique
-	private static final double SKID_KEEP_BRAKING = 0.7;
-	@Unique
-	private static final double SKID_DECEL = 0.04;
-	@Unique
-	private static final double SKID_END = 0.15;
 
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$speedForceMovement(CallbackInfo ci) {
@@ -71,8 +53,6 @@ public abstract class SpeedForceLocalPlayerMixin {
 			projecthero$sfWasOnGround = self.onGround();
 			projecthero$sfWallRunning = false;
 			projecthero$sfGroundSpeed = 0.0;
-			projecthero$sfSkid = 0.0;
-			projecthero$sfLastHoriz = 0.0;
 			return;
 		}
 		float m = SpeedForceSpeedster.momentum(self);
@@ -100,33 +80,6 @@ public abstract class SpeedForceLocalPlayerMixin {
 
 		Vec3 v = self.getDeltaMovement();
 		double horiz = Math.sqrt(v.x * v.x + v.z * v.z);
-
-		// v0.17.1 (user: "player shouldnt be able to immediately stop if they are moving really fast, they should skid their
-		// feet into the ground a bit first and then come to a stop"): let go of W at speed and, instead of vanilla's
-		// friction killing the run in four ticks, you skid on along the line you were running, slowing hard (harder
-		// holding S); W again takes the run back, a wall or a drop ends it. The pose and the dust are SpeedForcePose's.
-		boolean driving = self.zza > 0.0f;
-		if (projecthero$sfSkid <= 0.0 && !driving && self.onGround() && projecthero$sfLastHoriz > SKID_MIN && projecthero$sfLastDir != null) {
-			projecthero$sfSkid = projecthero$sfLastHoriz;
-		}
-		if (projecthero$sfSkid > 0.0) {
-			if (driving || self.horizontalCollision || self.isInWater() || (!self.onGround() && v.y < -0.5)) {
-				projecthero$sfSkid = 0.0;
-			} else {
-				projecthero$sfSkid = projecthero$sfSkid * (self.zza < 0.0f ? SKID_KEEP_BRAKING : SKID_KEEP) - SKID_DECEL;
-				if (projecthero$sfSkid < SKID_END) {
-					projecthero$sfSkid = 0.0;
-				} else {
-					self.setDeltaMovement(projecthero$sfLastDir.x * projecthero$sfSkid, v.y, projecthero$sfLastDir.z * projecthero$sfSkid);
-					v = self.getDeltaMovement();
-					horiz = projecthero$sfSkid;
-				}
-			}
-		}
-		if (horiz > 0.05 && projecthero$sfSkid <= 0.0) {
-			projecthero$sfLastDir = new Vec3(v.x / horiz, 0, v.z / horiz);
-		}
-		projecthero$sfLastHoriz = projecthero$sfSkid > 0.0 ? 0.0 : horiz; // a skid never re-starts itself
 		boolean steering = self.zza != 0.0f || self.xxa != 0.0f;
 
 		// water running (the same surface finding as the plain Speedster's)

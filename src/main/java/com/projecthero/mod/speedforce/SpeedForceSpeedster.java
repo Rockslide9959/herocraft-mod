@@ -137,7 +137,67 @@ public final class SpeedForceSpeedster {
 
 	public static boolean hasPower(Player player) {
 		SpeedForceState s = peek(player);
-		return s != null && s.hasPower;
+		return s != null && s.hasPower && powerLost(player) <= 0;
+	}
+
+	/** v0.17.1 (user): ticks left without the Speed Force after the Black Flash killed them (client-safe; 0 = none). */
+	public static int powerLost(Player player) {
+		Integer t = player.getAttached(SpeedForceAttachments.POWER_LOST);
+		return t == null ? 0 : t;
+	}
+
+	/**
+	 * v0.17.1 (user: "if the black flash kills the player they lose their powers for 20 minutes"): the Speed Force goes
+	 * quiet -- no Speed Mode, no momentum, no moves, no passives -- for {@code ticks} (the power itself is kept).
+	 */
+	public static void losePower(ServerPlayer player, int ticks) {
+		if (SuperSpeedTimeSlow.isCasting(player)) {
+			SuperSpeedTimeSlow.end(player, false);
+		}
+		SpeedForceState n = state(player).copy();
+		n.speedMode = false;
+		n.momentum = 0f;
+		n.chargeStart = 0L;
+		n.phasing = false;
+		n.flashLeft = 0;
+		n.tornadoLeft = 0;
+		n.throwLeft = 0;
+		n.carryId = 0;
+		n.animId = SpeedForceState.ANIM_NONE;
+		n.holdAnim = false;
+		n.drained = 0;
+		save(player, n);
+		clearModifiers(player);
+		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, DRAINED_SPEED_ID);
+		PowerToggles.clearModifier(player, Attributes.ATTACK_DAMAGE, DRAINED_DAMAGE_ID);
+		player.setAttached(SpeedForceAttachments.POWER_LOST, Math.max(1, ticks));
+		player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.power_lost", ticks / 1200)
+				.withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD), false);
+	}
+
+	/** One tick without the Speed Force: counted a second at a time (rare syncs), a reminder now and then, then it returns. */
+	private static void tickPowerLost(ServerPlayer player) {
+		if (player.tickCount % 20 != 0) {
+			return;
+		}
+		int left = powerLost(player) - 20;
+		if (left <= 0) {
+			player.removeAttached(SpeedForceAttachments.POWER_LOST);
+			player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.power_back")
+					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+			return;
+		}
+		player.setAttached(SpeedForceAttachments.POWER_LOST, left);
+		clearModifiers(player);
+		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
+		if (regen != null && regen.isAmbient() && !regen.isVisible()) {
+			player.removeEffect(MobEffects.REGENERATION); // the Speed Force's own healing goes with it
+		}
+		if (left % (60 * 20) < 20) {
+			int min = (left + 1199) / 1200;
+			player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.power_lost_left", min)
+					.withStyle(ChatFormatting.DARK_RED), true);
+		}
 	}
 
 	public static float momentum(Player player) {
@@ -478,6 +538,10 @@ public final class SpeedForceSpeedster {
 		SpeedForceState s = peek(player);
 		if (s == null || !s.hasPower) {
 			SpeedForceUpgrade.tickCandidate(player);
+			return;
+		}
+		if (powerLost(player) > 0) {
+			tickPowerLost(player);
 			return;
 		}
 		// once per player tick -- the tick count (not the game time), so Flash Time's extra caster ticks run too

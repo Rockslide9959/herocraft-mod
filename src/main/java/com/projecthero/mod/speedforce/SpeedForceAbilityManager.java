@@ -79,6 +79,9 @@ public final class SpeedForceAbilityManager {
 	public static void handle(ServerPlayer player, AbilitySlot slot, boolean pressed) {
 		Map<Integer, Key> mine = DOWN.computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>());
 		int i = slot.ordinal();
+		if (pressed && !SpeedForceSpeedster.hasPower(player)) {
+			return; // v0.17.1 (user): the Speed Force taken by the Black Flash -- every key is dead until it returns
+		}
 		if (pressed) {
 			if (mine.containsKey(i)) {
 				return; // the key repeat

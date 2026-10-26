@@ -1234,6 +1234,27 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): killed by the Black Flash -- no Speed Force for 20 minutes, and he goes. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aBlackFlashKillTakesThePowerForTwentyMinutes(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 1.5, 2.0, 1.5);
+		var bf = blackFlash(helper, p);
+		// (mock players count as creative, so the blow is a kill that ignores that -- with him as the killer)
+		p.hurt(helper.getLevel().damageSources().source(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL, bf), Float.MAX_VALUE);
+		helper.assertTrue(!p.isAlive(), "the Black Flash killed them");
+		helper.assertTrue(SpeedForceSpeedster.powerLost(p) == SpeedForceConfig.POWER_LOSS_TICKS, "20 minutes without the Speed Force, got " + SpeedForceSpeedster.powerLost(p));
+		helper.assertFalse(SpeedForceSpeedster.hasPower(p), "no power while it lasts");
+		helper.assertTrue(SpeedForceSpeedster.peek(p).hasPower, "the power itself is kept");
+		helper.assertTrue(bf.isRemoved(), "and he is gone");
+		// it runs out: the Speed Force is back
+		ServerPlayer q = flash(helper, 5.5, 2.0, 5.5);
+		q.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.POWER_LOST, 20);
+		helper.assertFalse(SpeedForceSpeedster.hasPower(q), "lost");
+		ticks(q, 21);
+		helper.assertTrue(SpeedForceSpeedster.powerLost(q) == 0 && SpeedForceSpeedster.hasPower(q), "back after it counts down");
+		helper.succeed();
+	}
+
 	/** He goes if his runner dies or logs out, or after 5 minutes with nothing to fight; he is never saved. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theBlackFlashsDespawnRules(GameTestHelper helper) {
