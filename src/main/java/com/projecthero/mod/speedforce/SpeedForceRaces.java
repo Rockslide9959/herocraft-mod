@@ -151,7 +151,7 @@ public final class SpeedForceRaces {
 		while (run.samples.size() * (long) SpeedForceConfig.RACE_SAMPLE_TICKS <= t) {
 			run.samples.add(now);
 		}
-		moveGhost(level, run, t);
+		moveGhost(p, level, run, t);
 		if (crosses(prev, now, finish) && t > 0) {
 			finish(p, level, race, run, (int) t, now);
 		} else if (!SpeedForceSpeedster.speedActive(p) || t > SpeedForceConfig.RACE_MAX_TICKS || SuperSpeedTimeSlow.isCasting(p)) {
@@ -200,7 +200,7 @@ public final class SpeedForceRaces {
 		SpeedForceSpeedster.sound(p, SoundEvents.NOTE_BLOCK_BELL.value(), 1.0f, 2.0f);
 	}
 
-	private static void moveGhost(ServerLevel level, Run run, long t) {
+	private static void moveGhost(ServerPlayer p, ServerLevel level, Run run, long t) {
 		if (run.ghostId < 0 || !(level.getEntity(run.ghostId) instanceof SpeedForceEchoEntity e)) {
 			return;
 		}
@@ -219,6 +219,8 @@ public final class SpeedForceRaces {
 		float yaw = b.distanceToSqr(a) > 1.0e-4 ? (float) Math.toDegrees(Math.atan2(-(b.x - a.x), b.z - a.z)) : e.getYRot();
 		e.moveTo(at.x, at.y, at.z, yaw, 0f);
 		e.setYHeadRot(yaw);
+		// the racer sees it exactly where it is, every tick (the tracker alone left it behind at these speeds)
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(e));
 	}
 
 	private static void finish(ServerPlayer p, ServerLevel level, SpeedForceRace race, Run run, int ticks, Vec3 now) {

@@ -24,11 +24,11 @@ import net.minecraft.network.chat.Component;
 public final class SpeedForceMenuScreen extends Screen {
 	private static final int SWATCH = 22;
 	private static final int SWATCH_GAP = 4;
-	private static final int LEFT_W = 5 * SWATCH + 4 * SWATCH_GAP + 40;
+	private static final int LEFT_W = 5 * SWATCH + 4 * SWATCH_GAP + 20; // v0.17.1: 10 either side (three columns fit an 854-wide window)
 	/** v0.17.1: the memories column, right of the settings. */
-	private static final int MEM_W = 170;
+	private static final int MEM_W = 150;
 	/** v0.17.1 (user): the run column -- Auto-Slowdown, vein mining, the top speed, the race's best times. */
-	private static final int RUN_W = 140;
+	private static final int RUN_W = 120;
 	private static final int PANEL_W = LEFT_W + MEM_W + RUN_W;
 	private static final int ROW_H = 16;
 	private static final int PANEL_H = 220;
@@ -69,9 +69,9 @@ public final class SpeedForceMenuScreen extends Screen {
 			stick = !stick;
 			send(-1);
 			b.setMessage(stickLabel());
-		}).bounds(left + 20, top + 26, LEFT_W - 40, 20)
+		}).bounds(left + 10, top + 26, LEFT_W - 20, 20)
 				.tooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.ground_stick.tip"))).build());
-		int sx = left + 20;
+		int sx = left + 10;
 		int sy = top + 74;
 		for (int i = 0; i < SpeedForceColours.COUNT; i++) {
 			int col = i % 5;
@@ -201,11 +201,11 @@ public final class SpeedForceMenuScreen extends Screen {
 		int top = (height - PANEL_H) / 2;
 		g.drawCenteredString(font, title, width / 2, top + 8, 0xFFFFD23A);
 		g.drawString(font, Component.translatable("screen.projecthero.speed_force_menu.colour",
-				Component.translatable("screen.projecthero.speed_force_menu.colour." + SpeedForceColours.id(colour))), left + 20, top + 60, 0xFFFFFFFF, true);
+				Component.translatable("screen.projecthero.speed_force_menu.colour." + SpeedForceColours.id(colour))), left + 10, top + 60, 0xFFFFFFFF, true);
 		g.drawString(font, suitStyle < 0
 				? Component.translatable("screen.projecthero.speed_force_menu.suit.none")
 				: Component.translatable("screen.projecthero.speed_force_menu.suit", FlashSuitStyle.byOrdinal(suitStyle).displayName()),
-				left + 20, top + SUIT_ROW, suitStyle < 0 ? 0xFF909090 : 0xFFFFFFFF, true);
+				left + 10, top + SUIT_ROW, suitStyle < 0 ? 0xFF909090 : 0xFFFFFFFF, true);
 		// v0.17.1: the memories column
 		int mx = left + LEFT_W;
 		g.drawString(font, Component.translatable("screen.projecthero.speed_force_menu.memories",

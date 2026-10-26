@@ -1,0 +1,289 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import com.projecthero.mod.speedforce.SpeedForceAttachments;
+import com.projecthero.mod.speedforce.SpeedForcePerks;
+import com.projecthero.mod.speedforce.SpeedForceSpeedster;
+import com.projecthero.mod.speedforce.data.SpeedForceMemories;
+import com.projecthero.mod.speedforce.data.SpeedForceRace;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Speed Force run assists screenshots. Enabled by run/speedforce.flag. */
+public final class SpeedForceHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static boolean holdForward;
+	private static boolean holdSprint;
+	private static float lockMomentum = -1f;
+	private static float lockCharge = -1f;
+	public static Vec3 camOffset;
+	public static Vec3 camLook;
+
+	private SpeedForceHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("speedforce.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "sf-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "sfa_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name + " pos=" + mc.player.position() + " m=" + SpeedForceSpeedster.momentum(mc.player));
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(SpeedForceHarness::createWorld);
+			}
+			return;
+		}
+		mc.options.keyUp.setDown(holdForward);
+		mc.options.keySprint.setDown(holdSprint);
+		if (holdSprint) {
+			mc.player.setSprinting(true);
+		}
+		if (lockMomentum >= 0f || lockCharge >= 0f) {
+			float lm = lockMomentum;
+			float lc = lockCharge;
+			server(mc, p -> {
+				if (lm >= 0f) {
+					SpeedForceSpeedster.setMomentum(p, lm);
+				}
+				if (lc >= 0f) {
+					SpeedForcePerks.setCharge(p, lc);
+				}
+				p.getFoodData().setFoodLevel(20);
+			});
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			mc.options.fovEffectScale().set(0.0);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 5f);
+				p.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 99999, 0, false, false));
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0 && inWorldTicks - t0 > 10) {
+			mc.gui.getChat().clearMessages(false);
+			mc.gui.clear();
+			mc.getToasts().clear();
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void husks(ServerPlayer p, Vec3 base, int n, double dist) {
+		ServerLevel level = p.serverLevel();
+		for (int i = 0; i < n; i++) {
+			Husk h = EntityType.HUSK.create(level);
+			double a = (i - (n - 1) / 2.0) * 0.18;
+			h.moveTo(base.x + Math.sin(a) * (dist + i * 5), base.y, base.z + Math.cos(a) * (dist + i * 5), 180f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200);
+			h.setHealth(200);
+			h.setPersistenceRequired();
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		at(4, () -> server(mc, p -> {
+			SpeedForceSpeedster.grant(p);
+			var n = SpeedForceSpeedster.state(p).copy();
+			n.speedMode = true;
+			n.animId = 0;
+			n.colour = 0;
+			n.speedCap = 8;
+			n.veinMine = true;
+			n.autoSlow = true;
+			n.meter = 100f;
+			p.setAttached(SpeedForceAttachments.STATE, n);
+			String ow = p.level().dimension().location().toString();
+			var m = SpeedForceMemories.EMPTY
+					.remember(new SpeedForceMemories.Place(ow, origin.x + 40, origin.y, origin.z + 12, 0f,
+							Optional.of(BlockPos.containing(origin.x + 41, origin.y, origin.z + 12))))
+					.remember(new SpeedForceMemories.Place(ow, origin.x - 220, origin.y, origin.z + 90, 0f))
+					.remember(new SpeedForceMemories.Place("minecraft:the_nether", 12, 70, -40, 0f));
+			p.setAttached(SpeedForceAttachments.MEMORIES, m);
+			BlockPos start = BlockPos.containing(origin.x, origin.y, origin.z + 6);
+			BlockPos finish = start.offset(0, 0, 160);
+			p.setAttached(SpeedForceAttachments.RACE, SpeedForceRace.startAt(ow, start).withFinish(finish)
+					.withTime(118).withTime(131).withTime(152));
+			List<Vec3> track = new ArrayList<>();
+			Vec3 s = Vec3.atBottomCenterOf(start);
+			for (int i = 0; i < 60; i++) {
+				track.add(s.add(Math.sin(i * 0.12) * 1.5, 0, i * 7.0));
+			}
+			p.setAttached(SpeedForceAttachments.RACE_GHOST, new SpeedForceRace.Ghost(track));
+		}));
+		lockChargeAt(6, 64f);
+		// 1. the menu
+		at(14, () -> mc.setScreen(new com.projecthero.mod.client.speedforce.SpeedForceMenuScreen()));
+		shot(26, "menu_v2");
+		at(30, () -> mc.setScreen(null));
+		// 2. the static pip (first person, the HUD's bar stack)
+		at(32, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+		shot(40, "static_pip");
+		// 3. danger sense: hostiles ahead, momentum held at 50%
+		at(44, () -> {
+			lockMomentum = 0.5f;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			server(mc, p -> husks(p, origin, 4, 22.0));
+		});
+		at(44, () -> {
+			camOffset = new Vec3(1.5, 2.6, -4.5);
+			camLook = new Vec3(0, 1.2, 20);
+		});
+		shot(60, "danger_sense");
+		// 4. the race ghost: run through the start, the ghost of the best run ahead
+		at(66, () -> {
+			lockCharge = -1f;
+			lockMomentum = 0.2f;
+			server(mc, p -> p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(80))
+					.forEach(net.minecraft.world.entity.Entity::discard));
+			camOffset = new Vec3(4.5, 2.2, 7.0);
+			camLook = new Vec3(0, 1.0, -2.0);
+			holdForward = true;
+			holdSprint = true;
+		});
+		for (int tt : new int[] { 73, 75 }) {
+			at(tt, () -> server(mc, p -> {
+				int id = com.projecthero.mod.speedforce.SpeedForceRaces.ghostOf(p);
+				var e = id < 0 ? null : p.serverLevel().getEntity(id);
+				var ce = id < 0 ? null : mc.level.getEntity(id);
+				System.out.println("[HARNESS] ghost id=" + id + " server=" + (e == null ? null : e.position()) + " client=" + (ce == null ? null : ce.position())
+						+ " player=" + p.position() + " cam=" + mc.gameRenderer.getMainCamera().getPosition());
+			}));
+		}
+		at(71, () -> server(mc, p -> {
+			int id = com.projecthero.mod.speedforce.SpeedForceRaces.ghostOf(p);
+			var e = id < 0 ? null : p.serverLevel().getEntity(id);
+			System.out.println("[HARNESS] ghost id=" + id + " e=" + (e == null ? null : e.position()) + " racing=" + com.projecthero.mod.speedforce.SpeedForceRaces.racing(p)
+					+ " clientSees=" + (mc.level.getEntity(id) != null));
+		}));
+		shot(72, "race_ghost");
+		shot(76, "race_ghost_b");
+		at(90, () -> {
+			holdForward = false;
+			holdSprint = false;
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void lockChargeAt(int t, float c) {
+		at(t, () -> lockCharge = c);
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SFA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
