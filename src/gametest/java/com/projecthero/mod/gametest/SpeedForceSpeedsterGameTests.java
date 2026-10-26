@@ -1216,9 +1216,11 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		var bf = blackFlash(helper, p);
 		bf.setNoAi(true);
 		bf.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
-		double before = bf.distanceTo(p);
+		// flat distances: his run sets him onto the ground, so his height may change
+		java.util.function.DoubleSupplier flatDist = () -> Math.sqrt(Math.pow(bf.getX() - p.getX(), 2) + Math.pow(bf.getZ() - p.getZ(), 2));
+		double before = flatDist.getAsDouble();
 		helper.assertTrue(bf.runStepForTest(p), "a standing runner: he runs at them");
-		double after = bf.distanceTo(p);
+		double after = flatDist.getAsDouble();
 		helper.assertTrue(before - after >= 1.4, "30 blocks a second at least, closed " + (before - after));
 		// a runner going 5 blocks a tick: he steps further than that (here, all the way to 2 blocks short)
 		bf.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
