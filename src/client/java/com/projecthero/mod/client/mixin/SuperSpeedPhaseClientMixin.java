@@ -17,7 +17,8 @@ import net.minecraft.client.player.LocalPlayer;
 public abstract class SuperSpeedPhaseClientMixin {
 	@Inject(method = "moveTowardsClosestSpace", at = @At("HEAD"), cancellable = true)
 	private void projecthero$speedPhaseNoShove(double x, double z, CallbackInfo ci) {
-		if (SuperSpeedHandlers.phasing((LocalPlayer) (Object) this)) {
+		if (SuperSpeedHandlers.phasing((LocalPlayer) (Object) this)
+				|| com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing((LocalPlayer) (Object) this)) { // v0.17.1: no shove out of the wall
 			ci.cancel();
 		}
 	}

@@ -37,9 +37,9 @@ import net.minecraft.server.packs.resources.Resource;
  */
 public final class GreenLanternSuitBuild {
 	/** Frames over the whole build: finer than the 30-tick suit-up's 20 tps, so the edge moves every frame-ish. */
-	public static final int STEPS = 72;
+	public static final int STEPS = 120; // v0.17.1: the 3 s build gets more frames
 	/** Width of the glowing forming edge, as a fraction of the whole build. */
-	private static final float EDGE = 0.085f;
+	private static final float EDGE = 0.05f; // v0.17.1: a thin crawling edge, like Cat Noir's (was 0.085)
 	/** White-hot front and Lantern-green trail (ARGB). */
 	private static final int FRONT_ARGB = 0xFFEAFFEF;
 	private static final int TRAIL_ARGB = 0xFF4DFF85;

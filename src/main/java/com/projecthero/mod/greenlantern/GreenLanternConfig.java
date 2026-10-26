@@ -41,7 +41,8 @@ public final class GreenLanternConfig {
 	// ---------------- suit ----------------
 
 	/** v0.13.21: 1.5s, up from 0.8 -- long enough to actually watch the suit sweep on one pixel row at a time. */
-	public static final int SUIT_UP_TICKS = 30;
+	/** v0.17.1 (user: "make the suit slowly build on from the ring similar to the cat noir suitup"): 3 s, was 1.5. */
+	public static final int SUIT_UP_TICKS = 60;
 	/** v0.11.5: cut from 100 -- summoning the suit is now a cheap gesture, not a real charge investment. */
 	public static final float SUIT_UP_COST = 10f;
 	/** v0.11.5: 1 charge every 5 seconds while worn -- the suit is no longer free to keep on. */

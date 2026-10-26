@@ -55,7 +55,7 @@ public final class SpeedForceHud {
 	private static final int SHIFT_READY = 0xFFC89A2A;
 	private static final int SHIFT_CD = 0xFF38301A;
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
-			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5, AbilitySlot.SLOT_8 };
+			AbilitySlot.SLOT_6, AbilitySlot.SLOT_5 }; // v0.17.1 (user): H and N never get a box on an ability HUD
 
 	private static float speed;
 	private static float top;
@@ -285,6 +285,8 @@ public final class SpeedForceHud {
 							ids.length > 1 ? Component.translatable("projecthero.speed_force_speedster.ability." + ids[1]) : null));
 				}
 			}
+			rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of(com.projecthero.mod.client.gui.MoveListOverlay.key(AbilitySlot.SLOT_8),
+					Component.translatable("projecthero.speed_force_speedster.ability." + com.projecthero.mod.speedforce.SpeedForceAbilities.RESCUE), null));
 			rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of("Hold " + com.projecthero.mod.client.gui.MoveListOverlay.key(AbilitySlot.SLOT_5),
 					Component.translatable("projecthero.speed_force_speedster.ability." + com.projecthero.mod.speedforce.SpeedForceAbilities.HEAL), null));
 			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, fx1, fy0 - 2, rows);

@@ -19,7 +19,7 @@ public abstract class SuperSpeedPhasePoseMixin {
 	@Inject(method = "updatePlayerPose", at = @At("HEAD"), cancellable = true)
 	private void projecthero$speedPhaseStands(CallbackInfo ci) {
 		Player self = (Player) (Object) this;
-		if (SuperSpeedHandlers.phasing(self)) {
+		if (SuperSpeedHandlers.phasing(self) || com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing(self)) { // v0.17.1: the Speed Force Speedster too
 			if (self.getPose() != Pose.STANDING) {
 				self.setPose(Pose.STANDING);
 			}

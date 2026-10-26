@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public abstract class SuperSpeedScreenEffectMixin {
 	@Inject(method = "getViewBlockingState", at = @At("HEAD"), cancellable = true)
 	private static void projecthero$speedPhaseClearView(Player player, CallbackInfoReturnable<BlockState> cir) {
-		if (SuperSpeedHandlers.phasing(player)) {
+		if (SuperSpeedHandlers.phasing(player) || com.projecthero.mod.speedforce.SpeedForceSpeedster.phasing(player)) { // v0.17.1
 			cir.setReturnValue(null);
 		}
 	}

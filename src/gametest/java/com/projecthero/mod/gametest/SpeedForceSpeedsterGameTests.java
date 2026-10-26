@@ -405,7 +405,9 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		p.getFoodData().setFoodLevel(10);
 		p.tickCount = 40;
 		com.projecthero.mod.flash.FlashSuitAutoEat.tick(p);
-		helper.assertTrue(p.getFoodData().getFoodLevel() == 15, "ate one bread (+5), got " + p.getFoodData().getFoodLevel());
+		helper.assertTrue(p.getFoodData().getFoodLevel() == 15, "ate one bread (+5), got " + p.getFoodData().getFoodLevel() + " full=" + FlashSuit.wearsFull(p) + " sf=" + SpeedForceSpeedster.hasPower(p)
+				+ " creative=" + p.isCreative() + " using=" + p.isUsingItem() + " alive=" + p.isAlive() + " tc=" + p.tickCount + " bread=" + p.getInventory().countItem(Items.BREAD)
+				+ " head=" + p.getItemBySlot(EquipmentSlot.HEAD));
 		helper.assertTrue(p.getInventory().countItem(Items.BREAD) == 3 && p.getInventory().countItem(Items.ROTTEN_FLESH) == 4,
 				"bread, never the rotten flesh");
 		p.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
