@@ -574,6 +574,58 @@ public final class GreenLanternConfig {
 	/** Construct Menu: a hold entry spawned once from the menu runs this long before it lets go. */
 	public static final int MENU_SPAWN_HOLD_TICKS = 40;
 
+	// ---------------- v0.17.1 Construct Combos (GreenLanternCombos) ----------------
+
+	/** A combo's opener only counts if the finisher lands on the same target within this many ticks (3 s). */
+	public static final int COMBO_WINDOW_TICKS = 60;
+	/** Willpower XP for landing a combo (on top of the damage XP). */
+	public static final long COMBO_XP_BONUS = 25L;
+	/** Crush (Chain Snare -> Anvil Drop): the snared target takes this times the anvil, and a shockwave rolls out. */
+	public static final float CRUSH_DAMAGE_MULT = 2.0f;
+	public static final double CRUSH_SHOCKWAVE_RADIUS = 4.5;
+	public static final float CRUSH_SHOCKWAVE_DAMAGE = 8f;
+	/** Slingshot (Giant Hand -> Construct Fist): the held target is let go and launched. */
+	public static final float SLINGSHOT_DAMAGE_MULT = 1.5f;
+	public static final double SLINGSHOT_LAUNCH_SPEED = 2.6;
+	/** Overcharge (three Ring Bolts -> Continuous Beam): the first beam tick on the target hits this many times harder. */
+	public static final int OVERCHARGE_BOLTS = 3;
+	public static final float OVERCHARGE_BEAM_MULT = 5.0f;
+	/** Detonation (pushed by your Protective Dome -> Blast Wave): double damage and a hard-light burst round the target. */
+	public static final float DETONATION_DAMAGE_MULT = 2.0f;
+	public static final double DETONATION_RADIUS = 3.0;
+	public static final float DETONATION_SPLASH_DAMAGE = 6f;
+	/** Shatter (Buzzsaw -> War Hammer): the target's armour is broken (armour and toughness to 0) for this long. */
+	public static final float SHATTER_DAMAGE_MULT = 1.25f;
+	public static final int SHATTER_TICKS = 8 * 20;
+	/** Pin (Battering Ram -> one of your Hard-Light Walls): a rammed target that hits your wall within this window is pinned. */
+	public static final int PIN_WINDOW_TICKS = 30;
+	public static final float PIN_DAMAGE = 10f;
+	public static final int PIN_STUN_TICKS = 40;
+	/** Bullseye (Bear Trap -> Sniper Rifle): a trapped target takes this times the shot. */
+	public static final float BULLSEYE_DAMAGE_MULT = 2.0f;
+	/** Home Run (Fly Swatter -> Boxing Glove): the swatted target is knocked sky-high. */
+	public static final float HOME_RUN_DAMAGE_MULT = 1.5f;
+	public static final double HOME_RUN_LAUNCH_SPEED = 2.2;
+
+	// ---------------- v0.17.1 Construct durability shown in-world (GreenLanternConstructHealth) ----------------
+
+	/** Under this fraction of its HP a construct shows cracks; under the second it flickers and stutters. */
+	public static final float DURABILITY_CRACK_BELOW = 0.5f;
+	public static final float DURABILITY_FLICKER_BELOW = 0.2f;
+	/** How often (ticks) a damaged block construct re-sends its health to nearby players (cracks also need refreshing). */
+	public static final int DURABILITY_RESEND_TICKS = 40;
+
+	// ---------------- v0.17.1 Ring AI voice (GreenLanternRingVoice) ----------------
+
+	/** Minimum gap between two non-urgent lines to the same Lantern. */
+	public static final int RING_VOICE_GAP_TICKS = 80;
+	/** The ring looks for hostiles this far out; this many at once is "hostile life forms detected". */
+	public static final double RING_VOICE_HOSTILE_RADIUS = 16.0;
+	public static final int RING_VOICE_HOSTILE_COUNT = 3;
+	/** Ring charge fractions the ring calls out ("at 25%", "critical"). */
+	public static final float RING_VOICE_LOW = 0.25f;
+	public static final float RING_VOICE_CRITICAL = 0.10f;
+
 	// ---------------- Automatic Air Tank (v0.11.10) ----------------
 
 	/** Charge/sec drained while the automatic underwater air tank is active. */

@@ -70,19 +70,80 @@ public final class GreenLanternDomeRenderer {
 				continue;
 			}
 			float health = Mth.clamp(hp / GreenLanternConfig.DOME_HP, 0f, 1f);
-			// low HP: the light stutters
-			float flicker = health > 0.3f ? 1f : 0.55f + 0.45f * Mth.abs(Mth.sin(age * (1.6f - health)));
+			// v0.17.1 durability shown in-world: the glow dims and slides from bright green toward a dark green as the
+			// dome takes damage, cracks open under 50%, and under 20% the light stutters (uneven flicker + drop-outs)
+			float flicker = 1f;
+			if (health < GreenLanternConfig.DURABILITY_FLICKER_BELOW) {
+				flicker = 0.5f + 0.5f * Mth.abs(Mth.sin(age * 1.7f) * Mth.sin(age * 0.61f + 1.3f));
+				if (((int) (age * 0.5f)) % 7 == 0) {
+					flicker *= 0.25f;
+				}
+			}
+			float dim = 0.45f + 0.55f * health;
 			Vec3 c = player.getPosition(partial).add(0, 1.0, 0);
 			pose.pushPose();
 			pose.translate(c.x - cam.x, c.y - cam.y, c.z - cam.z);
 			pose.mulPose(Axis.YP.rotationDegrees(age * 0.6f));
 			PoseStack.Pose p = pose.last();
-			shell(vc, p, radius, 0x35F075, 0.15f * flicker);
-			shell(vc, p, radius * 1.015f, 0xA8FFC0, 0.07f * flicker);
-			ribs(vc, p, radius * 1.005f, 0x6CFF9A, 0.42f * flicker, age);
+			shell(vc, p, radius, damaged(0x35F075, health), 0.15f * flicker * dim);
+			shell(vc, p, radius * 1.015f, damaged(0xA8FFC0, health), 0.07f * flicker * dim);
+			ribs(vc, p, radius * 1.005f, damaged(0x6CFF9A, health), 0.42f * flicker * dim, age);
+			if (health < GreenLanternConfig.DURABILITY_CRACK_BELOW) {
+				int cracks = 4 + Math.round((1f - health / GreenLanternConfig.DURABILITY_CRACK_BELOW) * 10f);
+				for (int k = 0; k < cracks; k++) {
+					crack(vc, p, radius * 1.008f, k, damaged(0xD8FFE4, health), 0.55f * flicker);
+				}
+			}
 			pose.popPose();
 		}
 		SEEN.keySet().retainAll(live);
+	}
+
+	/** v0.17.1: a colour pulled from its bright self toward a deep, dark green as the dome's HP falls. */
+	static int damaged(int rgb, float health) {
+		float t = (1f - Mth.clamp(health, 0f, 1f)) * 0.8f;
+		int dark = 0x0B4A1E;
+		int r = Math.round(Mth.lerp(t, (rgb >> 16) & 0xFF, (dark >> 16) & 0xFF));
+		int g = Math.round(Mth.lerp(t, (rgb >> 8) & 0xFF, (dark >> 8) & 0xFF));
+		int b = Math.round(Mth.lerp(t, rgb & 0xFF, dark & 0xFF));
+		return (r << 16) | (g << 8) | b;
+	}
+
+	/** v0.17.1: one jagged crack across the shell (a fixed pattern per index, so cracks stay put as the dome turns). */
+	private static void crack(VertexConsumer vc, PoseStack.Pose p, float radius, int n, int rgb, float alpha) {
+		double theta = -Math.PI / 2 + Math.PI * (0.15 + 0.7 * frac(n * 0.6180339 + 0.21));
+		double phi = Math.PI * 2 * frac(n * 0.7548777 + 0.37);
+		double w = 0.012;
+		for (int s = 0; s < 8; s++) {
+			double t1 = Mth.clamp(theta + (frac((n * 7 + s) * 0.41421356) - 0.5) * 0.22, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
+			double p1 = phi + 0.07 + (frac((n * 5 + s) * 0.3247) - 0.5) * 0.18;
+			// a thin quad from (theta, phi) to (t1, p1), widened sideways on the sphere
+			double dt = t1 - theta;
+			double dp = (p1 - phi) * Math.cos((theta + t1) * 0.5);
+			double len = Math.max(1.0e-4, Math.sqrt(dt * dt + dp * dp));
+			double ot = -dp / len * w;
+			double op = dt / len * w / Math.max(0.15, Math.cos((theta + t1) * 0.5));
+			quadPts(vc, p, rgb, alpha, radius, theta + ot, phi + op, t1 + ot, p1 + op, t1 - ot, p1 - op, theta - ot, phi - op);
+			theta = t1;
+			phi = p1;
+		}
+	}
+
+	private static double frac(double v) {
+		return v - Math.floor(v);
+	}
+
+	private static void quadPts(VertexConsumer vc, PoseStack.Pose p, int rgb, float alpha, float radius, double ta, double pa,
+			double tb, double pb, double tc, double pc, double td, double pd) {
+		int r = (rgb >> 16) & 0xFF;
+		int g = (rgb >> 8) & 0xFF;
+		int b = rgb & 0xFF;
+		int a = Mth.clamp((int) (alpha * 255f), 0, 255);
+		float[] va = unit(ta, pa), vb = unit(tb, pb), vcc = unit(tc, pc), vd = unit(td, pd);
+		vertex(vc, p, va, radius, 0, 0, r, g, b, a, va[0], va[1], va[2]);
+		vertex(vc, p, vb, radius, 0, 1, r, g, b, a, va[0], va[1], va[2]);
+		vertex(vc, p, vcc, radius, 1, 1, r, g, b, a, va[0], va[1], va[2]);
+		vertex(vc, p, vd, radius, 1, 0, r, g, b, a, va[0], va[1], va[2]);
 	}
 
 	/** A smooth globe of quads (seen from inside too -- the render type draws both faces). */

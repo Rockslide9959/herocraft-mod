@@ -189,8 +189,11 @@ public final class GreenLanternArsenal {
 		level.addFreshEntity(e);
 		float dmg = GreenLanternConfig.GLOVE_DAMAGE * GreenLanternRanks.power(p);
 		for (LivingEntity t : alongLine(level, p, eye, end, 1.2)) {
-			hit(p, t, dmg);
-			push(t, look.scale(1.6).add(0, 0.35, 0));
+			float homeRun = GreenLanternCombos.strike(p, t, GreenLanternCombos.Move.GLOVE); // v0.17.1: Home Run (swatted)
+			hit(p, t, dmg * homeRun);
+			if (homeRun <= 1f) {
+				push(t, look.scale(1.6).add(0, 0.35, 0));
+			}
 		}
 		constructFx(p);
 		sound(level, end, SoundEvents.PISTON_EXTEND, 1.0f, 0.8f);
@@ -225,6 +228,7 @@ public final class GreenLanternArsenal {
 		ServerLevel level = (ServerLevel) e.level();
 		Vec3 c = e.position();
 		for (LivingEntity t : AbilityHelpers.living(level, c.add(0, 0.5, 0), GreenLanternConfig.SWATTER_RADIUS, x -> canHit(owner, x))) {
+			GreenLanternCombos.mark(owner, t, GreenLanternCombos.Move.SWATTER); // v0.17.1: opens Home Run
 			hit(owner, t, e.damage);
 			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.SWATTER_STUN_TICKS, 9);
 			t.setDeltaMovement(t.getDeltaMovement().multiply(0.2, 0, 0.2).add(0, -0.4, 0));
@@ -490,6 +494,7 @@ public final class GreenLanternArsenal {
 				e.setTargetId(t.getId());
 				e.nextHitTick = e.tickCount + GreenLanternConfig.TRAP_ROOT_TICKS;
 				e.markAction();
+				GreenLanternCombos.mark(owner, t, GreenLanternCombos.Move.BEAR_TRAP); // v0.17.1: opens Bullseye
 				hit(owner, t, e.damage);
 				AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.TRAP_ROOT_TICKS, 9);
 				level.sendParticles(SPARK, c.x, c.y + 0.3, c.z, 18, 0.3, 0.2, 0.3, 0.15);
@@ -507,6 +512,9 @@ public final class GreenLanternArsenal {
 		}
 		foe.teleportTo(c.x, c.y, c.z);
 		foe.setDeltaMovement(Vec3.ZERO);
+		if (e.tickCount % 10 == 0) {
+			GreenLanternCombos.mark(owner, foe, GreenLanternCombos.Move.BEAR_TRAP); // v0.17.1: rooted = Bullseye open
+		}
 	}
 
 	// ---- Grappling Claw

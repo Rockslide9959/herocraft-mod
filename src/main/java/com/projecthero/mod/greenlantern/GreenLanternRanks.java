@@ -150,6 +150,7 @@ public final class GreenLanternRanks {
 				SoundSource.PLAYERS, 1.0f, 0.8f);
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BEACON_POWER_SELECT,
 				SoundSource.PLAYERS, 1.0f, 1.4f);
+		GreenLanternRingVoice.say(player, GreenLanternRingVoice.Line.RANK, nameKey(rank)); // v0.17.1: "Rank achieved: ..."
 	}
 
 	/**

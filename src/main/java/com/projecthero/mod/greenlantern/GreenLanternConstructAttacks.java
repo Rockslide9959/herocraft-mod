@@ -300,8 +300,10 @@ public final class GreenLanternConstructAttacks {
 	private static void fistImpact(HardLightConstructEntity e, ServerPlayer owner, Vec3 at, LivingEntity direct) {
 		ServerLevel level = (ServerLevel) e.level();
 		if (direct != null) {
-			hit(owner, direct, e.damage);
-			if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(direct)) {
+			// v0.17.1: Slingshot (Giant Hand -> Fist) -- the combo also lets go of the target and launches it
+			float combo = GreenLanternCombos.strike(owner, direct, GreenLanternCombos.Move.FIST);
+			hit(owner, direct, e.damage * combo);
+			if (combo == 1f && !com.projecthero.mod.titanshifter.TitanCombat.isBoss(direct)) {
 				AbilityHelpers.knockbackFrom(direct, owner.position(), GreenLanternConfig.FIST_KNOCKBACK);
 				AbilityHelpers.push(direct, new Vec3(0, 0.35, 0));
 			}
@@ -347,7 +349,7 @@ public final class GreenLanternConstructAttacks {
 		ServerLevel level = (ServerLevel) e.level();
 		Vec3 center = e.position();
 		for (LivingEntity t : AbilityHelpers.living(level, center, GreenLanternConfig.HAMMER_RADIUS, x -> canHit(owner, x))) {
-			hit(owner, t, e.damage);
+			hit(owner, t, e.damage * GreenLanternCombos.strike(owner, t, GreenLanternCombos.Move.HAMMER)); // v0.17.1: Shatter
 			boolean boss = t.getMaxHealth() >= GreenLanternConfig.HAMMER_BOSS_MAX_HEALTH_THRESHOLD;
 			AbilityHelpers.knockbackFrom(t, center, boss ? 0.25 : 1.0);
 			if (!boss) {
@@ -573,6 +575,7 @@ public final class GreenLanternConstructAttacks {
 		e.face(player.getLookAngle());
 		level.addFreshEntity(e);
 		HANDS.put(player.getUUID(), e);
+		GreenLanternCombos.mark(player, target, GreenLanternCombos.Move.GIANT_HAND); // v0.17.1: opens Slingshot
 		GreenLanternVisuals.anim(player, GreenLanternFx.ANIM_GRAB);
 		GreenLanternVisuals.channel(player, GreenLanternFx.CH_HAND, true);
 		AbilityHelpers.line(level, hand(player), e.position(), SPARK, 1.5);
@@ -648,6 +651,9 @@ public final class GreenLanternConstructAttacks {
 		if (target instanceof Mob mob) {
 			mob.getNavigation().stop();
 		}
+		if (e.tickCount % 10 == 0) {
+			GreenLanternCombos.mark(owner, target, GreenLanternCombos.Move.GIANT_HAND); // v0.17.1: held = Slingshot open
+		}
 		if (e.tickCount > 0 && e.tickCount % GreenLanternConfig.HAND_SQUEEZE_INTERVAL_TICKS == 0) {
 			target.invulnerableTime = 0;
 			AbilityHelpers.hurt(owner, target, GreenLanternConfig.HAND_SQUEEZE_DAMAGE * power(owner));
@@ -665,6 +671,14 @@ public final class GreenLanternConstructAttacks {
 			return o;
 		}
 		return null;
+	}
+
+	/** v0.17.1 (Slingshot combo): if the Giant Hand is holding {@code target}, it lets go (no throw, no cooldown). */
+	public static void letGoOf(ServerPlayer owner, LivingEntity target) {
+		HardLightConstructEntity h = HANDS.get(owner.getUUID());
+		if (h != null && !h.isRemoved() && h.phase == 0 && h.homingId == target.getId()) {
+			releaseHand(owner, h);
+		}
 	}
 
 	private static void releaseHand(ServerPlayer owner, HardLightConstructEntity e) {
@@ -826,6 +840,7 @@ public final class GreenLanternConstructAttacks {
 		}
 		if (struck != null) {
 			e.hit.add(struck.getId());
+			GreenLanternCombos.mark(owner, struck, GreenLanternCombos.Move.BUZZSAW); // v0.17.1: opens Shatter
 			hit(owner, struck, e.damage);
 			AbilityHelpers.knockbackFrom(struck, pos, 0.5);
 			Vec3 at = struck.position().add(0, struck.getBbHeight() * 0.5, 0);
@@ -892,7 +907,8 @@ public final class GreenLanternConstructAttacks {
 		float mult = e.damage;
 		for (LivingEntity t : AbilityHelpers.living(level, end.add(0, 0.5, 0), GreenLanternConfig.ANVIL_RADIUS, x -> canHit(owner, x))) {
 			double d = Math.sqrt(AbilityHelpers.distanceSqToBox(t, end));
-			hit(owner, t, (d <= 1.8 ? GreenLanternConfig.ANVIL_CENTER_DAMAGE : GreenLanternConfig.ANVIL_OUTER_DAMAGE) * mult);
+			float crush = GreenLanternCombos.strike(owner, t, GreenLanternCombos.Move.ANVIL); // v0.17.1: Crush (snared)
+			hit(owner, t, (d <= 1.8 ? GreenLanternConfig.ANVIL_CENTER_DAMAGE : GreenLanternConfig.ANVIL_OUTER_DAMAGE) * mult * crush);
 			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 60, 3);
 			if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(t)) {
 				AbilityHelpers.knockbackFrom(t, end, 0.8);
@@ -923,6 +939,7 @@ public final class GreenLanternConstructAttacks {
 			e.origin = t.position();
 			level.addFreshEntity(e);
 			track(player, e);
+			GreenLanternCombos.mark(player, t, GreenLanternCombos.Move.CHAINS); // v0.17.1: opens Crush
 			AbilityHelpers.line(level, player.position().add(0, 0.2, 0), t.position().add(0, 0.2, 0), SPARK, 1.0);
 			play(level, t.position(), SoundEvents.CHAIN_PLACE, 1.0f, 0.7f);
 		}
@@ -950,6 +967,7 @@ public final class GreenLanternConstructAttacks {
 			mob.getNavigation().stop();
 		}
 		if (e.tickCount % 10 == 0) {
+			GreenLanternCombos.mark(owner, target, GreenLanternCombos.Move.CHAINS); // v0.17.1: snared = Crush open
 			AbilityHelpers.applyControl(target, MobEffects.MOVEMENT_SLOWDOWN, 12, 6);
 			target.invulnerableTime = 0;
 			AbilityHelpers.hurt(owner, target, GreenLanternConfig.CHAINS_DAMAGE * power(owner));
@@ -1139,7 +1157,7 @@ public final class GreenLanternConstructAttacks {
 			}
 			e.hit.add(t.getId());
 			t.invulnerableTime = 0;
-			hit(owner, t, e.damage);
+			hit(owner, t, e.damage * GreenLanternCombos.strike(owner, t, GreenLanternCombos.Move.BLAST_WAVE)); // v0.17.1: Detonation
 			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, GreenLanternConfig.BLAST_WAVE_SLOW_TICKS,
 					GreenLanternConfig.BLAST_WAVE_SLOW_AMPLIFIER);
 			if (!com.projecthero.mod.titanshifter.TitanCombat.isBoss(t)) {

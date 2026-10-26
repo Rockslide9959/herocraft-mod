@@ -57,12 +57,28 @@ public final class ForceBubbleRenderer {
 			return;
 		}
 		integrity = Mth.clamp(integrity, 0f, 1f);
-		if (integrity < 0.34f) {
-			alpha *= 0.8f + 0.2f * Mth.sin(time * 1.7f); // failing: it flickers
+		int hot;
+		int cracks;
+		if (style == ForceBubble.Style.GREEN_LANTERN) {
+			// v0.17.1 (GL durability shown in-world): hard light stays green -- it dims and darkens as it takes damage,
+			// cracks open under 50% and under 20% the light stutters (uneven flicker with drop-outs)
+			if (integrity < 0.2f) {
+				alpha *= 0.45f + 0.55f * Mth.abs(Mth.sin(time * 1.7f) * Mth.sin(time * 0.61f + 1.3f));
+				if (((int) (time * 0.5f)) % 7 == 0) {
+					alpha *= 0.3f;
+				}
+			}
+			alpha *= 0.45f + 0.55f * integrity;
+			hot = integrity >= 1f ? style.hotRgb() : darkGreen(style.hotRgb(), integrity);
+			cracks = integrity >= 0.5f ? 0 : 3 + Math.round((1f - integrity / 0.5f) * 9f);
+		} else {
+			if (integrity < 0.34f) {
+				alpha *= 0.8f + 0.2f * Mth.sin(time * 1.7f); // failing: it flickers
+			}
+			alpha *= 0.55f + 0.45f * integrity;
+			hot = integrity >= 1f ? style.hotRgb() : tint(style.hotRgb(), integrity);
+			cracks = integrity > 0.67f ? 0 : integrity > 0.34f ? 5 : 11;
 		}
-		alpha *= 0.55f + 0.45f * integrity;
-		int hot = integrity >= 1f ? style.hotRgb() : tint(style.hotRgb(), integrity);
-		int cracks = integrity > 0.67f ? 0 : integrity > 0.34f ? 5 : 11;
 		double r = style.radius();
 		float k = firstPerson ? 0.6f : 1f;
 		poseStack.pushPose();
@@ -128,6 +144,16 @@ public final class ForceBubbleRenderer {
 	private static int tint(int rgb, float integrity) {
 		float t = Mth.clamp((0.67f - integrity) / 0.67f, 0f, 1f); // 0 at 2/3, 1 at empty
 		int target = integrity > 0.34f ? 0xFFC040 : 0xFF3A2A;
+		int r = Math.round(Mth.lerp(t, (rgb >> 16) & 0xFF, (target >> 16) & 0xFF));
+		int g = Math.round(Mth.lerp(t, (rgb >> 8) & 0xFF, (target >> 8) & 0xFF));
+		int b = Math.round(Mth.lerp(t, rgb & 0xFF, target & 0xFF));
+		return (r << 16) | (g << 8) | b;
+	}
+
+	/** v0.17.1: Green Lantern's bubble -- bright green sliding toward a deep, dark green as it fails. */
+	private static int darkGreen(int rgb, float integrity) {
+		float t = (1f - integrity) * 0.8f;
+		int target = 0x0B4A1E;
 		int r = Math.round(Mth.lerp(t, (rgb >> 16) & 0xFF, (target >> 16) & 0xFF));
 		int g = Math.round(Mth.lerp(t, (rgb >> 8) & 0xFF, (target >> 8) & 0xFF));
 		int b = Math.round(Mth.lerp(t, rgb & 0xFF, target & 0xFF));

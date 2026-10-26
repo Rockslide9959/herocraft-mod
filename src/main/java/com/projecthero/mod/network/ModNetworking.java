@@ -83,6 +83,8 @@ public final class ModNetworking {
 		PayloadTypeRegistry.playC2S().register(GreenLanternActionPayload.TYPE, GreenLanternActionPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(GreenLanternSniperPayload.TYPE, GreenLanternSniperPayload.CODEC); // v0.16.1
 		PayloadTypeRegistry.playS2C().register(GreenLanternRingScanPayload.TYPE, GreenLanternRingScanPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(GreenLanternCuePayload.TYPE, GreenLanternCuePayload.CODEC); // v0.17.1 combos + ring voice
+		PayloadTypeRegistry.playS2C().register(GreenLanternConstructHealthPayload.TYPE, GreenLanternConstructHealthPayload.CODEC); // v0.17.1
 		PayloadTypeRegistry.playS2C().register(GreenLanternTrialPromptPayload.TYPE, GreenLanternTrialPromptPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(SymbioteBondGamePayload.TYPE, SymbioteBondGamePayload.CODEC);
 		// Moon Knight Phase 7: the Khonshu ritual's fade to white (cosmetic).

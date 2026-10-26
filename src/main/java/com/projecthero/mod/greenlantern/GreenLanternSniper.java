@@ -145,6 +145,7 @@ public final class GreenLanternSniper {
 		if (target != null) {
 			end = target.getBoundingBox().inflate(0.15).clip(eye, end)
 					.orElse(target.position().add(0, target.getBbHeight() * 0.6, 0));
+			damage *= GreenLanternCombos.strike(player, target, GreenLanternCombos.Move.SNIPER); // v0.17.1: Bullseye (trapped)
 			AbilityHelpers.hurtBurst(player, target, damage); // a one-shot hit: lands through a recent hit's i-frames
 			double kb = GreenLanternConfig.SNIPER_KNOCKBACK * frac;
 			if (kb > 0.0) {

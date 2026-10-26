@@ -98,6 +98,7 @@ public final class GreenLanternCombat {
 		GreenLanternVisuals.anim(player, com.projecthero.mod.greenlantern.data.GreenLanternFx.ANIM_BOLT);
 		level.sendParticles(GREEN_DUST, endPoint.x, endPoint.y, endPoint.z, 6, 0.15, 0.15, 0.15, 0.05);
 		if (target != null) {
+			GreenLanternCombos.mark(player, target, GreenLanternCombos.Move.RING_BOLT); // v0.17.1: three open Overcharge
 			AbilityHelpers.hurt(player, target, GreenLanternConfig.BOLT_DAMAGE * GreenLanternRanks.power(player));
 			AbilityHelpers.knockbackFrom(target, player.position(), GreenLanternConfig.BOLT_KNOCKBACK);
 		}
@@ -176,7 +177,11 @@ public final class GreenLanternCombat {
 			GreenLanternBattery.onAbilityUsed(player);
 			LivingEntity target = AbilityHelpers.raycastEntity(player, GreenLanternConfig.BEAM_RANGE);
 			if (target != null) {
-				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK * GreenLanternRanks.power(player));
+				float overcharge = GreenLanternCombos.strike(player, target, GreenLanternCombos.Move.BEAM); // v0.17.1
+				if (overcharge > 1f) {
+					target.invulnerableTime = 0;
+				}
+				AbilityHelpers.hurt(player, target, GreenLanternConfig.BEAM_DAMAGE_PER_TICK * GreenLanternRanks.power(player) * overcharge);
 			}
 			// A periodic zap on the same cadence as the damage tick -- not a true seamless loop, but
 			// enough to read as a sustained energy weapon rather than silent channelling.
