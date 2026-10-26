@@ -31,11 +31,32 @@ public final class PlantEntities {
 					.noSummon()
 					.build("thorn"));
 
+	/** v0.17.1: the code-drawn plant effects (vines, roots, spores, blooms, the Overgrowth wave, the Root Sense ring). */
+	public static final EntityType<ChloroFxEntity> FX = register("chloro_fx",
+			EntityType.Builder.<ChloroFxEntity>of(ChloroFxEntity::new, MobCategory.MISC)
+					.sized(0.4f, 0.4f)
+					.clientTrackingRange(10)
+					.updateInterval(1)
+					.noSave()
+					.noSummon()
+					.fireImmune()
+					.build("chloro_fx"));
+
+	/** v0.17.1 Shift+Z: the walking tree ally. */
+	public static final EntityType<TreantEntity> TREANT = register("treant",
+			EntityType.Builder.<TreantEntity>of(TreantEntity::new, MobCategory.MISC)
+					.sized(0.85f, 2.45f)
+					.clientTrackingRange(10)
+					.noSave()
+					.noSummon()
+					.build("treant"));
+
 	private PlantEntities() {
 	}
 
-	/** Class-load hook (registration happens in the static initialisers). */
+	/** Class-load hook (registration happens in the static initialisers); v0.17.1 also the Treant's attributes. */
 	public static void initialize() {
+		net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry.register(TREANT, TreantEntity.createAttributes());
 	}
 
 	private static <T extends Entity> EntityType<T> register(String path, EntityType<T> type) {

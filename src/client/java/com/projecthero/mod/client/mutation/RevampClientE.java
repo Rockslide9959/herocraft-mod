@@ -55,6 +55,7 @@ public final class RevampClientE {
 		registerPoses();
 		registerOverlays();
 		ElasticityClient.init(); // v0.16.5: 17 Elasticity rework
+		com.projecthero.mod.client.mutation.chloro.ChloroClient.init(); // v0.17.1: 22 Chlorokinesis revamp
 		EntityRendererRegistry.register(PlantEntities.THORN_SENTRY, BatchERenderers.ThornSentryRenderer::new);
 		EntityRendererRegistry.register(PlantEntities.THORN, BatchERenderers.ThornRenderer::new);
 		ClientTickEvents.END_CLIENT_TICK.register(RevampClientE::clientTick);
@@ -165,13 +166,7 @@ public final class RevampClientE {
 		});
 		MutationOverlays.register("p18.crush", RevampClientE::crushFist);
 
-		// ---- 22 ----
-		MutationOverlays.register("p22.blessing", ctx -> MutationRender.shell(ctx, BARK, MutationRender.Shell.THIN, 0xFFFFFFFF, false));
-		MutationOverlays.register("p22.overgrowth", ctx -> {
-			MutationRender.eyes(ctx, MutationRender.argb(255, 120, 255, 90));
-			int a = (int) (80 + 120 * MutationRender.pulse(ctx, 20));
-			MutationRender.shell(ctx, BARK, MutationRender.Shell.THIN, MutationRender.argb(a, 255, 255, 255), false);
-		});
+		// ---- 22: since the v0.17.1 revamp all in chloro.ChloroClient ----
 	}
 
 	private static boolean slim(MutationOverlays.Context ctx) {

@@ -761,7 +761,7 @@ public class HeroPackGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void plantThornShotPoisons(GameTestHelper helper) {
 		ServerPlayer player = survivalMockPlayer(helper);
 		Power plant = power("power_22_plant_manipulation_chlorokinesis");
@@ -769,11 +769,15 @@ public class HeroPackGameTests implements FabricGameTest {
 		ExperimentalPowers.setActive(player, plant);
 		net.minecraft.world.entity.monster.Zombie z = zombieInFront(helper, player, 4);
 
-		AbilityRouter.handleInput(player, 1, true); // R = thorn_shot
+		// v0.17.1: R = Thorn Volley -- three real thorns, so the hit lands a few ticks later
+		AbilityRouter.handleInput(player, 1, true);
+		AbilityRouter.handleInput(player, 1, false);
 
-		helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.POISON) || z.getHealth() < z.getMaxHealth(),
-				"Thorn Shot should hit and poison the target");
-		helper.succeed();
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(z.hasEffect(net.minecraft.world.effect.MobEffects.POISON) || z.getHealth() < z.getMaxHealth(),
+					"Thorn Volley should hit and poison the target");
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

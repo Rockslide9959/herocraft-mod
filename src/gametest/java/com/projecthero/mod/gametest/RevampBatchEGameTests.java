@@ -41,8 +41,9 @@ import net.minecraft.world.phys.Vec3;
 
 /** v0.13.22 mutation revamp, batch E: regression coverage for the reworked kits (16, 17, 18, 22, 27). */
 public class RevampBatchEGameTests implements FabricGameTest {
-	// v0.16.5: Elasticity was reworked to six keys (ElasticityV0165GameTests)
-	private static final String[] KEYS = { RevampBatchE.P16, RevampBatchE.P18, RevampBatchE.P22, RevampBatchE.P27 };
+	// v0.16.5: Elasticity was reworked to six keys (ElasticityV0165GameTests); v0.17.1: so was Chlorokinesis
+	// (ChlorokinesisGameTests)
+	private static final String[] KEYS = { RevampBatchE.P16, RevampBatchE.P18, RevampBatchE.P27 };
 
 	private static ServerPlayer player(GameTestHelper helper) {
 		ServerPlayer player = helper.makeMockServerPlayerInLevel();
@@ -275,10 +276,11 @@ public class RevampBatchEGameTests implements FabricGameTest {
 		Husk husk = helper.spawn(EntityType.HUSK, new BlockPos(2, 2, 6));
 		Cow cow = helper.spawn(EntityType.COW, new BlockPos(6, 2, 2));
 
-		AbilityRouter.handleInput(player, 7, true); // H = Thorn Sentry
+		// v0.17.1: the Thorn Sentry is G's hold move now (ChlorokinesisGameTests drives the hold); plant it directly here
+		PlantManipulationHandlers.plantSentry(player);
 		var sentries = helper.getLevel().getEntities(PlantEntities.THORN_SENTRY, e -> player.getUUID().equals(e.ownerId()));
 		helper.assertTrue(sentries.size() == 1, "one sentry should be planted, found " + sentries.size());
-		helper.assertTrue(onCooldown(player, plant, AbilitySlot.SLOT_7), "planting starts the cooldown");
+		helper.assertTrue(plant.ability(AbilitySlot.SLOT_7) == null, "no H key any more (H is the power wheel)");
 		helper.assertTrue(ThornSentryEntity.isHostileTo(husk, player), "hostiles are targets");
 		helper.assertFalse(ThornSentryEntity.isHostileTo(cow, player), "passive animals are not");
 		helper.assertFalse(ThornSentryEntity.isHostileTo(player, player), "the owner never is");
@@ -304,7 +306,10 @@ public class RevampBatchEGameTests implements FabricGameTest {
 		var husk = mobInFront(helper, player, EntityType.VINDICATOR, 2); // not undead: undead shrug off poison
 		player.setHealth(10.0f);
 
-		AbilityRouter.handleInput(player, 8, true); // N = Spore Cloud
+		player.setShiftKeyDown(true);
+		AbilityRouter.handleInput(player, 2, true); // v0.17.1: Shift+G = Spore Cloud (was N)
+		AbilityRouter.handleInput(player, 2, false);
+		player.setShiftKeyDown(false);
 		helper.assertTrue(ExperimentalPowers.getResource(player, plant, "spore_ticks") > 0.5f, "the cloud should be running");
 		PlantManipulationHandlers.pulseSpores(player, player.position().add(0, 0.5, 1.0));
 
@@ -321,7 +326,8 @@ public class RevampBatchEGameTests implements FabricGameTest {
 		grantActive(player, RevampBatchE.P22);
 		helper.assertFalse(PlantManipulationHandlers.blessingOn(player), "off by default");
 		AbilityRouter.handleInput(player, 6, true);
-		helper.assertTrue(PlantManipulationHandlers.blessingOn(player), "C turns on the bark-and-leaf skin");
+		AbilityRouter.handleInput(player, 6, false);
+		helper.assertTrue(PlantManipulationHandlers.blessingOn(player), "C (Verdant Form) turns on the bark-and-leaf skin");
 		helper.succeed();
 	}
 

@@ -133,6 +133,11 @@ public final class AbilityHud {
 		// Power name above the row (and above any Hairline bars).
 		int nameY = y0 - 10 - aboveH;
 		Component powerName = Component.translatable(power.nameKey());
+		// v0.17.1: a long name ("Plant Manipulation / Chlorokinesis") never runs off the right edge of the screen
+		int nameRoom = screenW - x0 - 2;
+		if (client.font.width(powerName) > nameRoom) {
+			powerName = Component.literal(client.font.plainSubstrByWidth(powerName.getString(), nameRoom - client.font.width("...")) + "...");
+		}
 		graphics.drawString(client.font, powerName, x0, nameY, mono ? MONO_NAME : 0xFFD8D8F0);
 		AbilityHudExtras.Decor decor = AbilityHudExtras.decor(power.key());
 		if (decor != null) {
@@ -150,7 +155,8 @@ public final class AbilityHud {
 			Ability ability = power.ability(slot);
 			int x = x0 + i * (BOX + GAP) + (slot.isUtility() ? UTILITY_GAP : 0);
 
-			boolean toggled = ability.activation() == AbilityActivation.TOGGLE
+			// v0.17.1: a HOLD key may light its box too, while its own toggle mode runs (Chlorokinesis' Verdant Form / Glide)
+			boolean toggled = (ability.activation() == AbilityActivation.TOGGLE || ability.activation() == AbilityActivation.HOLD)
 					&& state.activeToggles.contains(power.key() + "/" + ability.id());
 			Long readyAt = state.abilityReadyAt.get(power.key() + "/" + ability.id());
 			int cdRemain = readyAt == null ? 0 : (int) Math.max(0L, readyAt - gameTime);
@@ -214,6 +220,24 @@ public final class AbilityHud {
 					graphics.pose().translate(x + BOX - 1 - client.font.width(s) * 0.5f, y0 + 2, 0);
 					graphics.pose().scale(0.5f, 0.5f, 1f);
 					graphics.drawString(client.font, s, 0, 0, 0xFFFFE04A, true);
+					graphics.pose().popPose();
+				}
+			}
+			// v0.17.1: the same Shift strip for any power that registers one (ShiftStrips: a countdown in ticks + its full)
+			String strip = speedExtra == null ? com.projecthero.mod.hero.visual.ShiftStrips.get(power.key(), slot) : null;
+			if (strip != null) {
+				int left = Math.round(state.resources.getOrDefault(power.key() + "/" + strip, 0.0f));
+				float full = state.resources.getOrDefault(power.key() + "/" + strip + "_full", 0.0f);
+				float ready = full <= 0.5f ? 1f : 1f - Math.min(1f, left / full);
+				graphics.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0101010);
+				graphics.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1,
+						ready >= 1f ? 0xFF8CF06A : 0xFF3E7A2A);
+				if (left > 0) {
+					String s = String.valueOf((left + 19) / 20);
+					graphics.pose().pushPose();
+					graphics.pose().translate(x + BOX - 1 - client.font.width(s) * 0.5f, y0 + 2, 0);
+					graphics.pose().scale(0.5f, 0.5f, 1f);
+					graphics.drawString(client.font, s, 0, 0, 0xFF8CF06A, true);
 					graphics.pose().popPose();
 				}
 			}

@@ -241,7 +241,8 @@
       "com.projecthero.mod.gametest.GalactusV0164GameTests",
       "com.projecthero.mod.gametest.SupervillainModelGameTests",
       "com.projecthero.mod.gametest.RaidModelGameTests",
-      "com.projecthero.mod.gametest.GreenLanternMechGameTests"
+      "com.projecthero.mod.gametest.GreenLanternMechGameTests",
+      "com.projecthero.mod.gametest.ChlorokinesisGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

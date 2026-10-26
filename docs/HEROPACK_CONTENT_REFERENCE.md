@@ -1087,18 +1087,28 @@ Amplify kinetic force into pressure waves, repulsion and charged impacts.
 ### 22. Plant Manipulation / Chlorokinesis  
 **ID:** `projecthero:power_22_plant_manipulation_chlorokinesis` · **Category:** Nature
 
-Control vines, roots and rapid growth for crowd control, movement, protection and regeneration.
+**v0.17.1 revamp.** The full design is in `docs/CHLOROKINESIS_REVAMP_0171.md`. It's a green-thumb nature
+controller that runs on a **Chlorophyll** meter (0-100) the sun refills. There are six keys, each with a Shift move,
+and no H / N keys. Hold G for the Thorn Sentry.
 
-| Slot | Key | Ability | Effect |
+| Slot | Key | Tap | Shift |
 |---|---|---|---|
-| 1 | R | Thorn Shot | Fire sharp plant projectiles. |
-| 2 | G | Vine Grab | Grow vines that restrain and pull a target. |
-| 3 | X | Vine Swing | Attach a temporary vine line to suitable blocks and swing. |
-| 4 | Z | Overgrowth | Explosive plant growth across a large area, trapping and damaging enemies. |
-| 5 | V | Living Wall | Grow a temporary root/vine barrier. |
-| 6 | C | Nature’s Blessing | Toggle enhanced regeneration and energy recovery near healthy vegetation. |
+| 1 | R | Thorn Volley: 3 thorns, 5 each + Poison I | Vine Lash: 12 dmg and yanks the target to you |
+| 2 | G | Root Snare: 6 dmg, pinned 4 s at 2/s | Spore Cloud: poison, blind, slow and lull enemies; heals allies (hold G: Thorn Sentry) |
+| 3 | X | Vine Grapple: reels you to a block, or a creature to you | Leaf Glide: an elytra-style leaf canopy (toggle) |
+| 4 | Z | Overgrowth: 30 dmg in 12 blocks, roots everything, ripens crops and saplings | Treant: a walking tree ally for 45 s (80 HP) |
+| 5 | V | Bloom Burst: a ring of flowers that heals, cleanses and fruits | Living Architecture: vine ladder / root bridge / grow shelter / bramble wall |
+| 6 | C | Verdant Form: bark armour, thorns, photosynthesis (toggle) | Root Sense: counts crops and ores within 24, with sap trails to them |
 
-**Passives:** Bone meal interactions are more efficient; Minor regeneration in lush areas
+**Passives:**
+
+- **Green Thumb:** right-click with an empty hand to harvest-and-replant, bone-meal, copy flowers or feed and tame
+  animals; Sneak-click dirt to turn it to grass, or stone to turn it to moss.
+- **Tree Feller:** Sneak while breaking a log to fell the whole tree; it replants itself.
+- **Fruit:** fruit refills Chlorophyll.
+- **Growth Aura.**
+- **Living ground:** +20% damage, no fall damage and lush regeneration.
+- Attacks swing through grass.
 
 **Serum:** Chlorokinetic Serum  
 **Mutation trigger:** Drink beneath open sky while surrounded by natural plant blocks, flowers or saplings.

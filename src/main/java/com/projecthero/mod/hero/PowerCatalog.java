@@ -520,16 +520,17 @@ final class PowerCatalog {
 	private static Power plantManipulation() {
 		String k = "power_22_plant_manipulation_chlorokinesis";
 		return Power.Builder.of(Powers.id(k), PowerCategory.NATURE)
-				// v0.13.22 revamp (batch E): -15% cooldowns, + H Thorn Sentry / N Spore Cloud
-				.ability(ab(k, "thorn_shot", SLOT_1, INSTANT, 34))
-				.ability(ab(k, "vine_grab", SLOT_2, INSTANT, 119))
-				.ability(ab(k, "vine_swing", SLOT_3, INSTANT, 17))
-				.ability(ab(k, "overgrowth", SLOT_4, CHARGE, 51 * S))
-				.ability(ab(k, "living_wall", SLOT_5, INSTANT, 136))
-				.ability(ab(k, "natures_blessing", SLOT_6, TOGGLE, 0))
-				.ability(ab(k, "thorn_sentry", AbilitySlot.SLOT_7, INSTANT, 25 * S))
-				.ability(ab(k, "spore_cloud", AbilitySlot.SLOT_8, INSTANT, 16 * S))
-				.passives(pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"), pk(k, "passive.swing_through_grass"))
+				// v0.17.1 revamp (docs/CHLOROKINESIS_REVAMP_0171.md): six keys (no H / N), each with a Shift move, on a
+				// Chlorophyll meter the sun fills. All HOLD so the handlers own tap / Shift; the cooldowns below are the TAP
+				// moves' (the HUD box) -- each Shift move keeps its own (the HUD's Shift strip). Hold G = Thorn Sentry.
+				.ability(ab(k, "thorn_volley", SLOT_1, HOLD, 10))
+				.ability(ab(k, "root_snare", SLOT_2, HOLD, 6 * S))
+				.ability(ab(k, "vine_grapple", SLOT_3, HOLD, 15))
+				.ability(ab(k, "overgrowth", SLOT_4, HOLD, 40 * S))
+				.ability(ab(k, "bloom_burst", SLOT_5, HOLD, 14 * S))
+				.ability(ab(k, "verdant_form", SLOT_6, HOLD, 0))
+				.passives(pk(k, "passive.chlorophyll"), pk(k, "passive.green_thumb"), pk(k, "passive.tree_feller"), pk(k, "passive.living_ground"),
+						pk(k, "passive.bonemeal"), pk(k, "passive.lush_regen"), pk(k, "passive.swing_through_grass"))
 				.serum(SerumRecipe.of("minecraft:regeneration", pk(k, "serum"),
 						"minecraft:moss_block", "minecraft:vine", "minecraft:bone_meal"))
 				.trigger(MutationTrigger.of(Kind.PLANT_SURROUNDINGS, pk(k, "trigger"), null))
