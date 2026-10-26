@@ -144,6 +144,7 @@ public final class GreenLanternOath {
 		PowerToggles.modifier(player, Attributes.ATTACK_DAMAGE, MELEE_ID, GreenLanternConfig.OATH_DAMAGE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL); // v0.17.1: +50% (was +100%)
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.oath_mode.activated")
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
+		GreenLanternRingVoice.say(player, GreenLanternRingVoice.Line.OATH); // v0.17.1: "Oath accepted."
 		ServerLevel level = player.serverLevel();
 		level.playSound(null, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.0f);

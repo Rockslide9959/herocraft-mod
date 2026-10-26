@@ -61,6 +61,8 @@ public final class GreenLanternAbilityManager {
 		GreenLanternConstructAttacks.clearSessionState();
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.clearSessionState();
 		GreenLanternArsenal.clearSessionState();
+		GreenLanternCombos.clearSessionState(); // v0.17.1
+		GreenLanternRingVoice.clearSessionState(); // v0.17.1
 	}
 
 	public static void onCleanup(UUID playerId) {
@@ -71,6 +73,8 @@ public final class GreenLanternAbilityManager {
 		GreenLanternCombat.onCleanup(playerId);
 		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.onCleanup(playerId);
 		com.projecthero.mod.greenlantern.construct.GreenLanternVehicles.onCleanup(playerId); // v0.17.1
+		GreenLanternCombos.onCleanup(playerId); // v0.17.1
+		GreenLanternRingVoice.onCleanup(playerId); // v0.17.1
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -295,6 +299,7 @@ public final class GreenLanternAbilityManager {
 					GreenLanternConfig.RING_RESISTANCE_AMPLIFIER, true, false, false));
 		}
 		GreenLanternOath.tick(player);
+		GreenLanternRingVoice.tick(player); // v0.17.1: the ring's voice watches charge / surge / hostiles / barriers
 		GreenLanternSuit.tick(player);
 		GreenLanternBattery.tick(player);
 		GreenLanternAirTank.tick(player);

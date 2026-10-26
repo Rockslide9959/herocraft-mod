@@ -74,6 +74,7 @@ public final class GreenLantern {
 				.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), false);
 		player.displayClientMessage(Component.translatable("message.projecthero.green_lantern.welcome")
 				.withStyle(ChatFormatting.DARK_GREEN), false);
+		GreenLanternRingVoice.say(player, GreenLanternRingVoice.Line.GREETING); // v0.17.1: the ring greets its bearer
 		return true;
 	}
 

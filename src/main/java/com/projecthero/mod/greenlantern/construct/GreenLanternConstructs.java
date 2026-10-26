@@ -216,6 +216,7 @@ public final class GreenLanternConstructs {
 		PENDING_DISCARD.clear();
 		RAM_ACTIVE.clear();
 		GreenLanternVehicles.clearSessionState(); // v0.17.1
+		GreenLanternConstructHealth.clearSessionState(); // v0.17.1: durability shown in-world
 	}
 
 	public static List<Construct> of(UUID owner) {
@@ -234,6 +235,27 @@ public final class GreenLanternConstructs {
 	public static boolean isTrackedCell(ServerLevel level, BlockPos pos) {
 		Map<BlockPos, Construct> cells = CELL_INDEX.get(level.dimension());
 		return cells != null && cells.containsKey(pos);
+	}
+
+	/**
+	 * v0.17.1 (Construct Combos, Pin): the owner of the Hard-Light Wall whose block is at {@code pos}, or null if no live
+	 * wall owns that block.
+	 */
+	public static UUID wallOwnerAt(Level level, BlockPos pos) {
+		Construct c = cellOwner(level, pos);
+		return c != null && c.type == ConstructType.HARD_LIGHT_WALL ? c.owner : null;
+	}
+
+	/** v0.17.1: the live construct that owns the hard-light block at {@code pos}, or null (tests, durability). */
+	public static Construct constructAt(Level level, BlockPos pos) {
+		return cellOwner(level, pos);
+	}
+
+	/** v0.17.1: chip {@code amount} HP off a Wall / Cage, as a punch does (tests and future damage sources). */
+	public static void damageConstruct(Construct c, float amount, ServerPlayer attacker) {
+		if (c.type.maxHp() > 0f) {
+			damage(c, amount, attacker);
+		}
 	}
 
 	private static Construct cellOwner(Level level, BlockPos pos) {
@@ -1306,6 +1328,7 @@ public final class GreenLanternConstructs {
 			wireCube(level, impact.subtract(ram.dir.scale(0.6)), 0.45, GREEN_DUST);
 			AbilityHelpers.hurt(owner, hit, GreenLanternConfig.RAM_DAMAGE * com.projecthero.mod.greenlantern.GreenLanternRanks.power(owner));
 			AbilityHelpers.knockbackFrom(hit, impact.subtract(ram.dir.scale(2.0)), 2.0);
+			com.projecthero.mod.greenlantern.GreenLanternCombos.rammed(owner, hit); // v0.17.1: Pin if it hits your wall
 			level.sendParticles(SPARK, impact.x, impact.y, impact.z, 30, 0.4, 0.4, 0.4, 0.15);
 			level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.IRON_GOLEM_ATTACK, SoundSource.PLAYERS, 1.0f, 0.8f);
 			return true;
@@ -1529,9 +1552,12 @@ public final class GreenLanternConstructs {
 	}
 
 	private static void damage(Construct c, float amount, ServerPlayer attacker) {
+		float before = c.hp;
 		c.hp -= amount;
 		if (c.hp <= 0f) {
 			dismissOne(c, true);
+		} else {
+			GreenLanternConstructHealth.onDamaged(c, before); // v0.17.1: dims, cracks under 50%, flickers under 20%
 		}
 	}
 
@@ -1555,6 +1581,7 @@ public final class GreenLanternConstructs {
 	/** Everything a construct owns goes away: its blocks, displays, seats, granted tools and buffs -- in a scatter of light. */
 	private static void end(Construct c) {
 		emitDissolve(c);
+		GreenLanternConstructHealth.onEnded(c); // v0.17.1: its cracks / tint go with it
 		restore(c);
 		removeDisplays(c);
 		if (c.type.kind() == ConstructType.Kind.MELEE_BUFF) {
@@ -1644,6 +1671,8 @@ public final class GreenLanternConstructs {
 			}
 		}
 		tickRams(server);
+		com.projecthero.mod.greenlantern.GreenLanternCombos.tick(server); // v0.17.1: Pin checks, Shatter expiry
+		GreenLanternConstructHealth.tick(server); // v0.17.1: keep damaged constructs' cracks / tint fresh
 		long now = server.overworld().getGameTime();
 		if (now % 20 == 0) {
 			com.projecthero.mod.greenlantern.GreenLanternConstructAttacks.pruneLive(server);

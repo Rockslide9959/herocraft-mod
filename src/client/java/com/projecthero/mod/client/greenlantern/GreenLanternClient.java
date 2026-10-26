@@ -22,6 +22,8 @@ public final class GreenLanternClient {
 				com.projecthero.mod.greenlantern.entity.GreenLanternEntityTypes.HARD_LIGHT_CAR, HardLightVehicleRenderer::new);
 		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
 				com.projecthero.mod.greenlantern.entity.GreenLanternEntityTypes.HARD_LIGHT_JET, HardLightVehicleRenderer::new);
+		GreenLanternRingVoiceClient.initialize(); // v0.17.1: the ring's voice + the Construct Combo popup
+		GreenLanternConstructHealthClient.initialize(); // v0.17.1: damaged hard-light blocks dim, darken and flicker
 		// v0.16.1: the Sniper Rifle construct's attack / use input (its scope overlay is registered in ProjectHeroModClient,
 		// before the HUDs, so the Green Lantern HUD draws on top of the scope instead of under its dark surround)
 		net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(GreenLanternSniperClient::clientTick);

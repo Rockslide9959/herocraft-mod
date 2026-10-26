@@ -178,5 +178,8 @@ public final class GreenLanternEnergy {
 
 	public static void feedback(ServerPlayer player, String reasonKey) {
 		player.displayClientMessage(Component.translatable(reasonKey), true);
+		if ("message.projecthero.ability.low_charge".equals(reasonKey)) {
+			GreenLanternRingVoice.say(player, GreenLanternRingVoice.Line.RECHARGE); // v0.17.1: "Recharge recommended."
+		}
 	}
 }

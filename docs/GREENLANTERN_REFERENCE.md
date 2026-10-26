@@ -805,3 +805,27 @@ Explicit user request: the Carry Platform switches into a car or a jet.
 - Gametests: `GreenLanternVehicleGameTests` (the cycle + costs, riders carried over, N removes it / never saved, a
   destroyed car ends the construct, the Shift-hold dismount rule vs Shift+R, Jet cannons damage + cost + R hold, a
   stalled jet sinks gently).
+## v0.17.1 -- Construct Combos, durability shown in-world, the ring's voice
+
+- **Combos** (`GreenLanternCombos`): hit sites call `strike(owner, target, Move)` (a finisher: returns that hit's damage
+  multiplier) or `mark(...)` (an opener; held / ticking constructs re-mark every pulse). Marks are per attacker -> target,
+  expire after `COMBO_WINDOW_TICKS` (3 s), cleared on server stop and with the Lantern's transient state. Table: Crush
+  (Chain Snare -> Anvil, x2 + shockwave), Slingshot (Giant Hand -> Fist, x1.5, hand lets go, launch), Overcharge (3 Ring
+  Bolts -> Beam, x5 pulse), Detonation (Dome push -> Blast Wave, x2 + burst), Shatter (Buzzsaw -> War Hammer, x1.25,
+  armour + toughness 0 for 8 s via transient modifiers), Pin (Battering Ram -> the rammed target touching one of your
+  Hard-Light Walls within 1.5 s, +10 + 2 s stun; `#tick`), Bullseye (Bear Trap -> Sniper, x2), Home Run (Fly Swatter ->
+  Boxing Glove, x1.5 + sky-high). Each: burst + chord at the target, +25 Willpower XP, a `GreenLanternCuePayload` (COMBO)
+  -> `client/greenlantern/GreenLanternComboPopup` (name in bold green above the crosshair + one wrapped effect line).
+  Numbers in `GreenLanternConfig`'s "Construct Combos" block.
+- **Durability** (`construct/GreenLanternConstructHealth`): only the Z bubble, the dome, the Wall and the Cage have HP.
+  Wall / Cage: under 50% every cell gets vanilla's crack overlay (`destroyBlockProgress`, one breaker id per cell,
+  re-sent every 2 s); the HP fraction goes to players within 96 blocks (`GreenLanternConstructHealthPayload`) and
+  `GreenLanternConstructHealthClient` draws a darker-green skin on the construct's outer faces (thicker / murkier as HP
+  falls, flickering with drop-outs under 20%). The dome (`GreenLanternDomeRenderer`) and the bubble
+  (`ForceBubbleRenderer`, GL style only) dim, darken toward deep green, crack under 50% and stutter under 20%.
+- **Ring voice** (`GreenLanternRingVoice`, JARVIS's delivery style): lines by edge (charge 25% / 10%, Willpower Surge,
+  3+ hostiles in 16 blocks, a barrier under 20%) or event (greeting on bond, Oath accepted, rank achieved, recharge
+  recommended on a low-charge refusal, a wall / cage under 20%, combo callout). Per-line cooldowns + an 80-tick gap
+  (urgent lines skip the gap). Client: `GreenLanternRingVoiceClient` -- typed-out green box in the top-left corner
+  with a soft chime; muted by the Ring Voice switch in the Shift+N suits screen (`config/projecthero_ring_voice.json`).
+- Gametests: `GreenLanternCombosGameTests`.
