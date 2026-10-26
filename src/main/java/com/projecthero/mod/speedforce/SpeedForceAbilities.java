@@ -708,19 +708,74 @@ public final class SpeedForceAbilities {
 		}
 	}
 
-	// ---------------------------------------------------------------- Z: hold Flash Time (and the portal) / Shift+Z Time Remnant
+	// ---------------------------------------------------------------- Z: hold Flash Time OR the Speed Force portal / Shift+Z Time Remnant
 
-	/** Whether Z is holding Flash Time right now (client-safe). */
+	/** Whether Z is holding Flash Time right now (client-safe). Not while Z is charging the portal instead. */
 	public static boolean flashHeld(Player p) {
 		SpeedForceState s = SpeedForceSpeedster.peek(p);
-		return s != null && s.hasPower && s.flashLeft > 0;
+		return s != null && s.hasPower && s.flashLeft == SpeedForceState.Z_FLASH_TIME;
+	}
+
+	/** v0.17.1 (user): whether Z is charging the Speed Force portal right now -- no Flash Time with it (client-safe). */
+	public static boolean portalCharging(Player p) {
+		SpeedForceState s = SpeedForceSpeedster.peek(p);
+		return s != null && s.hasPower && s.flashLeft == SpeedForceState.Z_PORTAL;
 	}
 
 	/**
-	 * v0.17.1 (user: "make flash time a held down ability that drains speed force while active"): Z down -- time slows to a
-	 * crawl for everything but you (the game-wide slow the plain Speedster's Time Slow uses) for as long as Z is held,
-	 * draining {@link SpeedForceConfig#FLASH_COST_PER_SECOND} Speed Force a second on your own clock. Ends on release or when
-	 * the meter is empty.
+	 * v0.17.1 (user: "make the speed force ability trigger when the player holds z at 100% momentum ... right now flash time
+	 * and the speed force ability clash"): what a Z press starts is decided ONCE, on the press --
+	 * <ul>
+	 *   <li>in Speed Mode at 100% momentum (or locked there by the hold-C charge), running, with the portal ready: Z charges
+	 *       the Speed Force portal ONLY -- no world slow, no Flash Time drain, no Flash Time cooldown ({@link #startPortal});</li>
+	 *   <li>anything else (below 100%, or the portal not available -- on its cooldown, drained, already inside): Flash Time,
+	 *       which never turns into the portal mid-hold.</li>
+	 * </ul>
+	 */
+	public static boolean pressZ(ServerPlayer p) {
+		if (!SpeedForceSpeedster.canAct(p) || SuperSpeedTimeSlow.isCasting(p) || flashHeld(p) || portalCharging(p)) {
+			return false;
+		}
+		if (portalEligible(p)) {
+			if (portalAvailable(p)) {
+				return startPortal(p);
+			}
+			int cd = SpeedForceSpeedster.cooldownRemaining(p, PORTAL);
+			if (cd > 0) {
+				SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.portal_cooldown", ChatFormatting.GRAY,
+						String.format(java.util.Locale.ROOT, "%.0f", cd / 20.0f));
+			}
+		}
+		return startFlashTime(p);
+	}
+
+	/** At max for the portal: in Speed Mode, at 100% momentum (or held there by a Surge / the launch). */
+	static boolean portalEligible(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		return s.speedMode && (s.momentum >= 0.999f || SpeedForceSpeedster.surging(p));
+	}
+
+	/** The portal itself may open: off its cooldown, not drained, not already in the Speed Force. */
+	static boolean portalAvailable(ServerPlayer p) {
+		return ready(p, PORTAL) && SpeedForceSpeedster.state(p).drained <= 0 && !SpeedForceRealm.inside(p);
+	}
+
+	/** Z down at 100%: the portal starts forming in front of you (5 s held opens it). No Flash Time. */
+	public static boolean startPortal(ServerPlayer p) {
+		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		n.flashLeft = SpeedForceState.Z_PORTAL;
+		n.flashTotal = 0;
+		SpeedForceSpeedster.save(p, n);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.7f, 1.5f);
+		level(p).sendParticles(dust(p, 2.2f), p.getX(), p.getY() + 1.0, p.getZ(), 20, 0.6, 0.8, 0.6, 0.0);
+		return true;
+	}
+
+	/**
+	 * v0.17.1 (user: "make flash time a held down ability that drains speed force while active"): Z down below 100% -- time
+	 * slows to a crawl for everything but you (the game-wide slow the plain Speedster's Time Slow uses) for as long as Z is
+	 * held, draining {@link SpeedForceConfig#FLASH_COST_PER_SECOND} Speed Force a second on your own clock. Ends on release
+	 * or when the meter is empty. Never opens the portal.
 	 */
 	public static boolean startFlashTime(ServerPlayer p) {
 		if (SuperSpeedTimeSlow.isCasting(p) || !gate(p, FLASH)) {
@@ -738,7 +793,7 @@ public final class SpeedForceAbilities {
 			return false;
 		}
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
-		n.flashLeft = 1;
+		n.flashLeft = SpeedForceState.Z_FLASH_TIME;
 		n.flashTotal = 0;
 		SpeedForceSpeedster.save(p, n);
 		ServerLevel level = level(p);
@@ -747,9 +802,12 @@ public final class SpeedForceAbilities {
 		return true;
 	}
 
-	/** Z let go (or the meter is empty): time runs again; any portal still forming collapses. */
+	/** Z let go (or the meter is empty): time runs again, or the portal still forming collapses. */
 	public static void endFlashTime(ServerPlayer p) {
-		collapsePortal(p);
+		if (portalCharging(p)) {
+			collapsePortal(p, true);
+			return;
+		}
 		if (SuperSpeedTimeSlow.isCasting(p)) {
 			SuperSpeedTimeSlow.end(p, true); // -> onFlashTimeEnded
 		} else if (flashHeld(p)) {
@@ -763,19 +821,19 @@ public final class SpeedForceAbilities {
 			return;
 		}
 		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
-		boolean was = n.flashLeft > 0;
+		if (n.flashLeft != SpeedForceState.Z_FLASH_TIME) {
+			return; // a portal charge is not Flash Time: no cooldown, nothing to end
+		}
 		n.flashLeft = 0;
 		n.flashTotal = 0;
-		if (was) {
-			n.abilityReadyAt.put(FLASH, p.level().getGameTime() + HeroConfig.get().scaledCooldown(SpeedForceConfig.FLASH_TIME_COOLDOWN));
-		}
+		n.abilityReadyAt.put(FLASH, p.level().getGameTime() + HeroConfig.get().scaledCooldown(SpeedForceConfig.FLASH_TIME_COOLDOWN));
 		SpeedForceSpeedster.save(p, n);
 	}
 
-	/** The portal's charge so far, in caster ticks (0 = none forming). */
+	/** The portal's charge so far, in ticks (0 = none forming). */
 	public static int portalCharge(Player p) {
 		SpeedForceState s = SpeedForceSpeedster.peek(p);
-		return s == null || !s.hasPower || s.flashLeft <= 0 ? 0 : s.flashTotal;
+		return s == null || !s.hasPower || s.flashLeft != SpeedForceState.Z_PORTAL ? 0 : s.flashTotal;
 	}
 
 	/** Where the portal forms: in front of the runner along the run, at chest height. */
@@ -783,28 +841,30 @@ public final class SpeedForceAbilities {
 		return p.position().add(flatLook(p).scale(SpeedForceConfig.PORTAL_DISTANCE)).add(0, 1.2, 0);
 	}
 
-	private static void collapsePortal(ServerPlayer p) {
+	/** The charge broke off (let go early, slowed, stopped): the portal collapses; Z does nothing more until it is pressed again. */
+	private static void collapsePortal(ServerPlayer p, boolean said) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
-		if (s.flashTotal <= 0) {
+		if (s.flashLeft != SpeedForceState.Z_PORTAL) {
 			return;
 		}
+		boolean formed = s.flashTotal > 0;
 		SpeedForceState n = s.copy();
+		n.flashLeft = 0;
 		n.flashTotal = 0;
 		SpeedForceSpeedster.save(p, n);
+		if (!formed) {
+			return;
+		}
 		Vec3 c = portalCentre(p);
 		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.PORTAL_COLLAPSE, c, c);
 		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 20, 0.6, 0.6, 0.6, 0.2);
 		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.8f, 1.6f);
-		SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.portal_collapsed", ChatFormatting.GRAY);
+		if (said) {
+			SpeedForceSpeedster.say(p, "message.projecthero.speed_force_speedster.portal_collapsed", ChatFormatting.GRAY);
+		}
 	}
 
-	/**
-	 * One caster tick of a held Flash Time: the drain, and -- v0.17.1 (user: "holding z for 5 seconds while running at max
-	 * momentum open up the speed force ... the portal should start forming in front of them before finally allowing them in")
-	 * -- the Speed Force portal: running flat out at 100% momentum (or locked there by the charge), the portal grows in front
-	 * of you over 5 s, a ring of your lightning widening, arcs crackling off it and sparks drawn in; at 5 s it takes you in.
-	 * Slowing below max, stopping or letting go collapses it.
-	 */
+	/** One tick of a held Flash Time: the drain (the portal is never charged from here). */
 	private static void flashTick(ServerPlayer p) {
 		if (!flashHeld(p)) {
 			return;
@@ -816,14 +876,25 @@ public final class SpeedForceAbilities {
 		if (p.tickCount % 5 == 0 && !SpeedForceSpeedster.spendMeter(p, SpeedForceConfig.FLASH_COST_PER_SECOND / 4f)) {
 			lowMeter(p, SpeedForceConfig.FLASH_MIN);
 			endFlashTime(p);
+		}
+	}
+
+	/**
+	 * One tick of a portal charge -- v0.17.1 (user: "holding z for 5 seconds while running at max momentum open up the speed
+	 * force ... the portal should start forming in front of them before finally allowing them in"): still running flat out
+	 * ({@code SpeedForceSpeedster#atMaxRun}; the momentum is held at 100% while it forms), the portal grows in front of you
+	 * over 5 s, a ring of your lightning widening, arcs crackling off it and sparks drawn in; at 5 s it takes you in.
+	 * Stopping, slowing to a walk or letting go collapses it. Costs no Speed Force.
+	 */
+	private static void portalTick(ServerPlayer p) {
+		if (!portalCharging(p)) {
+			return;
+		}
+		if (!p.isAlive() || !portalAvailable(p) || !SpeedForceSpeedster.atMaxRun(p)) {
+			collapsePortal(p, p.isAlive());
 			return;
 		}
 		SpeedForceState s = SpeedForceSpeedster.state(p);
-		boolean canOpen = SpeedForceSpeedster.atMaxRun(p) && ready(p, PORTAL) && s.drained <= 0 && !SpeedForceRealm.inside(p);
-		if (!canOpen) {
-			collapsePortal(p);
-			return;
-		}
 		int charge = s.flashTotal + 1;
 		SpeedForceState n = s.copy();
 		n.flashTotal = charge;
@@ -854,6 +925,7 @@ public final class SpeedForceAbilities {
 			level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0.2, 0.2, 0.2, 0);
 			SpeedForceSpeedster.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 1.4f);
 			SpeedForceState m = SpeedForceSpeedster.state(p).copy();
+			m.flashLeft = 0;
 			m.flashTotal = 0;
 			SpeedForceSpeedster.save(p, m);
 			SpeedForceRealm.enter(p);
@@ -1282,6 +1354,7 @@ public final class SpeedForceAbilities {
 		throwTick(p);
 		armsTick(p);
 		flashTick(p);
+		portalTick(p); // v0.17.1 (user): Z at 100% charges the portal instead of Flash Time
 		if (!SuperSpeedHandlers.owns(p)) {
 			SuperSpeedMoves.sweepTick(p); // the borrowed Speed Sweep (a plain Speedster's own tick runs it otherwise)
 		}

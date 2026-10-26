@@ -23,6 +23,9 @@ import net.minecraft.world.item.Rarity;
  */
 public final class SpeedForceMod {
 	public static Item TACHYON_DEVICE;
+	/** v0.17.1: the Black Flash's drop, and the device it upgrades. */
+	public static Item SPEED_FORCE_SHARD;
+	public static Item SPEED_FORCE_TACHYON_DEVICE;
 
 	private SpeedForceMod() {
 	}
@@ -31,6 +34,14 @@ public final class SpeedForceMod {
 		SpeedForceAttachments.init();
 		TACHYON_DEVICE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("tachyon_device"),
 				new TachyonDeviceItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
+		SPEED_FORCE_SHARD = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("speed_force_shard"),
+				new SpeedForceShardItem(new Item.Properties().stacksTo(16).rarity(Rarity.EPIC).fireResistant()));
+		SPEED_FORCE_TACHYON_DEVICE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("speed_force_tachyon_device"),
+				new SpeedForceTachyonDeviceItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
+		com.projecthero.mod.speedforce.entity.SpeedForceEntityTypes.initialize(); // v0.17.1: the memory road, the Black Flash
+		BlackFlashConfig.load();
+		BlackFlash.initialize();
+		SpeedForceMemory.initialize(); // v0.17.1: the Shift+N menu's memory buttons
 		SpeedForceDamage.initialize();
 		PayloadTypeRegistry.playS2C().register(SpeedForceFxPayload.TYPE, SpeedForceFxPayload.CODEC);
 		SpeedsterPrefs.initialize(); // v0.17.1: Ground-Stick + the lightning colour
@@ -54,7 +65,7 @@ public final class SpeedForceMod {
 	}
 
 	public static void clearSessionState() {
-		SpeedForceSpeedster.clearSessionState();
+		SpeedForceSpeedster.clearSessionState(); // (and the memory road + the Black Flash fights through it)
 		SpeedsterPrefs.clearSessionState();
 	}
 }

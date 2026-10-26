@@ -12,8 +12,12 @@ public final class SpeedForceConfig {
 
 	/** Full momentum in the full Flash Suit -- the fastest runner in the mod (user: 250). */
 	public static final double TOP_SPEED_BPS = 250.0;
-	/** v0.17.1 (user): every Speed Force Speedster blow is 50% stronger than the plain Speedster's (no Overdrive to double it). */
-	public static final float DAMAGE_BONUS = 1.5f;
+	/**
+	 * v0.17.1 (user): every Speed Force Speedster blow scales with the momentum -- x1.0 at 0%, rising in a straight line to x2.0
+	 * at 100% (see {@link #damageMultiplier}); the drain halves it, the boss cap still holds.
+	 */
+	public static final float DAMAGE_AT_REST = 1.0f;
+	public static final float DAMAGE_AT_FULL = 2.0f;
 	/** v0.17.1 (user): momentum builds only while sprinting; from this much, letting go of Ctrl holds the speed. */
 	public static final float CRUISE_MOMENTUM = 0.30f;
 	/** v0.17.1 (user): Speed Mode breaks blocks 75% faster. */
@@ -221,16 +225,35 @@ public final class SpeedForceConfig {
 
 	// ---------------------------------------------------------------- the Speed Force (the dimension)
 
-	/** v0.17.1 (user design): one block run inside carries you this many across the real world. */
-	public static final double REALM_TRAVEL_SCALE = 100.0;
-	/** ... up to this far. */
-	public static final double REALM_TRAVEL_MAX = 30000.0;
-	/** Thrown out after this long inside. */
-	public static final int REALM_MAX_TICKS = 60 * 20;
-	/** Sneak held this long inside: out. */
+	/** Sneak held this long inside: out, back where they went in. */
 	public static final int REALM_SNEAK_TICKS = 20;
-	/** The exit portal sits this far up the road (the travel cap: 300 x 100 = 30,000). */
-	public static final int REALM_EXIT_DISTANCE = 300;
+	/** v0.17.1 (user, Speed Force Memories): the memory road -- this long, its doorways in pairs this far apart from here. */
+	public static final int REALM_ROAD_LENGTH = 150;
+	public static final int REALM_DOOR_FIRST_X = 26;
+	public static final int REALM_DOOR_SPACING = 20;
+	/** The branch from the road's edge out to a doorway, blocks. */
+	public static final int REALM_SPUR_LENGTH = 7;
+	/** Doorways: the bed / spawn, the last death, the last 5 exits, the 5 marked places. */
+	public static final int MEMORY_MARKED_MAX = 5;
+	public static final int MEMORY_EXITS_MAX = 5;
+	/** A new exit this close (same dimension) to an older one replaces it rather than filling a second doorway. */
+	public static final double MEMORY_EXIT_MERGE = 16.0;
+	/** Echoes: the runner's recent runs, a position every this many ticks, kept for a minute; up to 4 replayed. */
+	public static final int ECHO_SAMPLE_TICKS = 5;
+	public static final int ECHO_KEEP_TICKS = 60 * 20;
+	public static final int ECHO_MAX = 4;
+	/** Running through an echo gives back this much Speed Force, once per echo. */
+	public static final float ECHO_REFUND = 5f;
+	/** v0.17.1 (user): stay longer than this inside and the Black Flash comes for you. */
+	public static final int BLACK_FLASH_AFTER_TICKS = 30 * 20;
+	/** His charge down the road before the punch, ticks. */
+	public static final int BLACK_FLASH_CHARGE_TICKS = 40;
+	/** ... starting this far up the road. */
+	public static final double BLACK_FLASH_CHARGE_DISTANCE = 48.0;
+	/** v0.17.1 (user): the drain after a short hop back to the last exit point (the rest: the full 2 minutes). */
+	public static final int DRAINED_SHORT_TICKS = 30 * 20;
+	/** v0.17.1: the Speed Force Tachyon Device (the Black Flash's shard + a Tachyon Device): +10 meter while held. */
+	public static final float SHARD_DEVICE_METER_BONUS = 10f;
 	/** v0.17.1 (user): out of the Speed Force -- 2 minutes with no Speed Force gain, 50% slower and 50% weaker. */
 	public static final int DRAINED_TICKS = 2 * 60 * 20;
 	public static final double DRAINED_SPEED = -0.5;
@@ -253,6 +276,12 @@ public final class SpeedForceConfig {
 			}
 		}
 		return TOP_SPEED_BPS * frac / (suit ? 1.0 : SUIT_SPEED_MULTIPLIER);
+	}
+
+	/** The blows' multiplier at {@code momentum} (0..1): 1.0 at rest, 2.0 flat out, linear in between. */
+	public static float damageMultiplier(double momentum) {
+		double m = Math.max(0.0, Math.min(1.0, momentum));
+		return (float) (DAMAGE_AT_REST + (DAMAGE_AT_FULL - DAMAGE_AT_REST) * m);
 	}
 
 	/** Top speed (full momentum): 250 in the full suit, 167 without. */

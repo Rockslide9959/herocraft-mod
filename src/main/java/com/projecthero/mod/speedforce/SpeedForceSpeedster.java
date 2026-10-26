@@ -116,7 +116,9 @@ public final class SpeedForceSpeedster {
 		SpeedForceAbilityManager.clearSessionState();
 		SpeedForceUpgrade.clearSessionState();
 		SpeedForceDamage.clearSessionState();
-		SpeedForceRealm.clearSessionState(); // v0.17.1: the Speed Force trips
+		SpeedForceRealm.clearSessionState(); // v0.17.1: the Speed Force trips (the memory road's doorways and echoes)
+		SpeedForceMemory.clearSessionState(); // v0.17.1: the echoes' recorded runs
+		BlackFlash.clearSessionState(); // v0.17.1: the Black Flash fights
 	}
 
 	// ---------------------------------------------------------------- state
@@ -162,15 +164,15 @@ public final class SpeedForceSpeedster {
 	}
 
 	/**
-	 * The Speed Force Speedster's blows: x1.5 (v0.17.1, user: "50% stronger than the regular speedsters damage since they
-	 * dont have a overdrive mode to double their damage"), halved while drained after the Speed Force. Anyone else: 1.
+	 * The Speed Force Speedster's blows: v0.17.1 (user) they scale with the momentum -- x1.0 at 0%, x2.0 at 100%, linear
+	 * ({@link SpeedForceConfig#damageMultiplier}) -- halved while drained after the Speed Force. Anyone else: 1.
 	 */
 	public static float damageScale(Player player) {
 		if (!hasPower(player)) {
 			return 1.0f;
 		}
 		float drain = drained(player) > 0 ? (float) (1.0 + SpeedForceConfig.DRAINED_DAMAGE) : 1.0f;
-		return SpeedForceConfig.DAMAGE_BONUS * drain;
+		return SpeedForceConfig.damageMultiplier(momentum(player)) * drain;
 	}
 
 	/** v0.17.1: starts (or restarts) the 2-minute drain. */
@@ -229,10 +231,12 @@ public final class SpeedForceSpeedster {
 		if (!player.isSprinting()) {
 			// too hungry to sprint (vanilla drops the sprint at 6 food -- at these speeds that comes in seconds): still running
 			// counts, as long as they really are moving
-			return SuperSpeedTimeSlow.isCasting(player) && player.getFoodData().getFoodLevel() <= 6 && bps >= SpeedForceConfig.WALK_BPS * 0.4;
+			return player.getFoodData().getFoodLevel() <= 6 && bps >= SpeedForceConfig.WALK_BPS * 0.4;
 		}
-		if (SuperSpeedTimeSlow.isCasting(player)) {
-			return true;
+		// v0.17.1 (user): while Z charges the portal the momentum is held at 100% (runStep) and the client may ease the run
+		// down while the chunks ahead load (SpeedForceLocalPlayerMixin): still sprinting and moving counts
+		if (SuperSpeedTimeSlow.isCasting(player) || SpeedForceAbilities.portalCharging(player)) {
+			return bps >= SpeedForceConfig.WALK_BPS * 0.4;
 		}
 		return bps >= SpeedForceConfig.PORTAL_RUN_FRACTION * SpeedForceConfig.topBps(suited(player));
 	}
@@ -240,6 +244,16 @@ public final class SpeedForceSpeedster {
 	public static float meter(Player player) {
 		SpeedForceState s = peek(player);
 		return s == null ? 0f : s.meter;
+	}
+
+	/**
+	 * v0.17.1: the meter's ceiling -- {@link SpeedForceConfig#METER_MAX}, +{@link SpeedForceConfig#SHARD_DEVICE_METER_BONUS}
+	 * while a Speed Force Tachyon Device is held in either hand (client-safe).
+	 */
+	public static float meterMax(Player player) {
+		boolean held = SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE != null
+				&& (player.getMainHandItem().is(SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE) || player.getOffhandItem().is(SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE));
+		return SpeedForceConfig.METER_MAX + (held ? SpeedForceConfig.SHARD_DEVICE_METER_BONUS : 0f);
 	}
 
 	/** C: Speed Force Surge is running (client-safe). */
@@ -312,7 +326,7 @@ public final class SpeedForceSpeedster {
 			return false;
 		}
 		SpeedForceState n = s.copy();
-		n.meter = Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, s.meter) - cost);
+		n.meter = Math.max(0f, Math.min(meterMax(player), s.meter) - cost);
 		save(player, n);
 		return true;
 	}
@@ -322,7 +336,7 @@ public final class SpeedForceSpeedster {
 		if (amount > 0f && s.drained > 0) {
 			return; // v0.17.1 (user): drained after the Speed Force -- no Speed Force gain
 		}
-		float v = Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, s.meter + amount));
+		float v = Math.max(0f, Math.min(meterMax(player), s.meter + amount));
 		if (v != s.meter) {
 			SpeedForceState n = s.copy();
 			n.meter = v;
@@ -425,6 +439,7 @@ public final class SpeedForceSpeedster {
 		LAST_TICK.remove(id);
 		MOTION.remove(id);
 		HISTORY.remove(id);
+		SpeedForceMemory.forgetPlayer(id);
 		SpeedForceAbilityManager.forget(id);
 		SpeedForceAbilities.forget(id);
 	}
@@ -477,6 +492,7 @@ public final class SpeedForceSpeedster {
 		recordHistory(player);
 		SpeedForceAbilities.tick(player, player.level().getGameTime());
 		SpeedForceRealm.tick(player); // v0.17.1: inside the Speed Force
+		SpeedForceMemory.record(player); // v0.17.1: the runs the echoes replay
 	}
 
 	/** Flash Time: the runner's own clocks run at their pace while the world's crawls (one tick pulled in per extra tick). */
@@ -577,7 +593,9 @@ public final class SpeedForceSpeedster {
 		boolean wallRun = wallRunning(player, s.momentum);
 		long gameTime = player.level().getGameTime();
 		boolean surge = s.surgeUntil > gameTime;
-		boolean frozen = surge || SuperSpeedTimeSlow.isCasting(player) || s.phasing || s.tornadoLeft > 0;
+		// v0.17.1 (user): a Z portal charge holds the momentum at 100% while it forms
+		boolean frozen = surge || SuperSpeedTimeSlow.isCasting(player) || s.phasing || s.tornadoLeft > 0
+				|| s.flashLeft == SpeedForceState.Z_PORTAL;
 		double m = s.momentum;
 
 		// a wall: flat out one tick, (almost) nothing the next two -- a released key only slows by half a tick -- AND a
@@ -630,7 +648,7 @@ public final class SpeedForceSpeedster {
 		if (s.drained > 0) {
 			meterGain = 0f; // v0.17.1 (user): drained after the Speed Force
 		}
-		float meter = Math.min(SpeedForceConfig.METER_MAX, s.meter + meterGain);
+		float meter = Math.min(meterMax(player), s.meter + meterGain);
 		if ((float) m != s.momentum || meter != s.meter) {
 			SpeedForceState n = s.copy();
 			n.momentum = (float) m;
@@ -715,6 +733,13 @@ public final class SpeedForceSpeedster {
 	private static void tickPassives(ServerPlayer player) {
 		// v0.17.1 (user): Speed Mode brings the plain Speedster's passives -- Regeneration III (II otherwise), +30% swimming
 		boolean speed = state(player).speedMode;
+		// v0.17.1: the Speed Force Tachyon Device put away -- the meter back under its ordinary ceiling
+		float cap = meterMax(player);
+		if (state(player).meter > cap) {
+			SpeedForceState c = state(player).copy();
+			c.meter = cap;
+			save(player, c);
+		}
 		int amp = speed ? SpeedForceConfig.SPEED_MODE_REGEN_AMPLIFIER : SpeedForceConfig.REGEN_AMPLIFIER;
 		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
 		if (regen != null && regen.getAmplifier() > amp && regen.isAmbient() && !speed) {
@@ -799,7 +824,7 @@ public final class SpeedForceSpeedster {
 		long now = player.level().getGameTime();
 		SpeedForceState n = s.copy();
 		resetTransient(n);
-		n.meter = Float.isNaN(n.meter) ? 0f : Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, n.meter));
+		n.meter = Float.isNaN(n.meter) ? 0f : Math.max(0f, Math.min(meterMax(player), n.meter));
 		n.momentum = 0f;
 		long longest = Math.max(SpeedForceConfig.SURGE_COOLDOWN, SpeedForceConfig.PORTAL_COOLDOWN);
 		long bound = Math.max(longest, com.projecthero.mod.hero.HeroConfig.get().scaledCooldown((int) longest));

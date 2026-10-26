@@ -319,7 +319,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(z.getHealth() >= 100f - 1.0e-3f, "nothing on the press: a tap fires on the release");
 		com.projecthero.mod.speedforce.SpeedForceAbilityManager.handle(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float dealt = 100f - z.getHealth();
-		helper.assertTrue(dealt >= 29.5f && dealt <= 30.5f, "four blows of 5, x1.5 for the Speed Force: 30, got " + dealt);
+		helper.assertTrue(dealt >= 19.5f && dealt <= 20.5f, "four blows of 5, x1.0 at 0% momentum: 20, got " + dealt);
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.RAPID) > 0, "on its own cooldown");
 		helper.assertFalse(SpeedForceAbilities.massWindingUp(p), "a tap never winds up the Mass Punch");
 		helper.succeed();
@@ -332,7 +332,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		SpeedForceSpeedster.setMomentum(p, 1f);
 		helper.assertTrue(SpeedForceAbilities.infiniteMassPunch(p), "the punch lands");
 		float dealt = 200f - z.getHealth();
-		helper.assertTrue(dealt >= 104.5f && dealt <= 105.5f, "(10 + 60) x1.5 at full momentum, got " + dealt);
+		helper.assertTrue(dealt >= 139.5f && dealt <= 140.5f, "(10 + 60) x2.0 at full momentum, got " + dealt);
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.001f, "it spent all the momentum");
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.MASS) > 0, "on cooldown");
 		// a boss takes at most 8% of its health a hit
@@ -353,8 +353,8 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		Zombie a = zombie(helper, 2.5, 2.0, 5.5, 100);
 		Zombie b = zombie(helper, 5.5, 2.0, 5.5, 100);
 		helper.assertTrue(SpeedForceAbilities.fireBolt(p) == a, "the bolt strikes the zombie under the crosshair");
-		helper.assertTrue(Math.abs((100f - a.getHealth()) - SpeedForceConfig.THROW_MIN * SpeedForceConfig.DAMAGE_BONUS) < 0.5f, "8 x1.5 at no momentum");
-		helper.assertTrue(Math.abs((100f - b.getHealth()) - SpeedForceConfig.THROW_MIN * SpeedForceConfig.DAMAGE_BONUS * 0.5f) < 0.5f, "and it arcs on for half");
+		helper.assertTrue(Math.abs((100f - a.getHealth()) - SpeedForceConfig.THROW_MIN) < 0.5f, "8 x1.0 at no momentum");
+		helper.assertTrue(Math.abs((100f - b.getHealth()) - SpeedForceConfig.THROW_MIN * 0.5f) < 0.5f, "and it arcs on for half");
 		helper.succeed();
 	}
 
@@ -587,7 +587,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		SpeedForceSpeedster.setMomentum(p, 1f);
 		press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_1, false);
 		float dealt = 200f - far.getHealth();
-		helper.assertTrue(dealt >= 104.5f && dealt <= 105.5f, "it locked on 6 blocks off and landed (10 + 60) x1.5, got " + dealt);
+		helper.assertTrue(dealt >= 139.5f && dealt <= 140.5f, "it locked on 6 blocks off and landed (10 + 60) x2.0, got " + dealt);
 		helper.assertTrue(p.position().distanceTo(far.position()) < 2.5, "it zipped the runner up against it: " + p.position().distanceTo(far.position()));
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.001f, "and spent the run");
 		helper.assertFalse(SpeedForceAbilities.massWindingUp(p), "the wind-up is over");
@@ -640,8 +640,10 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * v0.17.1 (user: "holding z for 5 seconds while running at max momentum open up the speed force ... the portal should start
-	 * forming in front of them"): the charge grows only at max momentum; stopping collapses it; 5 s in, it takes them.
+	 * v0.17.1 (user: "make the speed force ability trigger when the player holds z at 100% momentum ... right now flash time and
+	 * the speed force ability clash"): Z is decided on the press. Below 100% it is Flash Time and never starts the portal
+	 * mid-hold; pressed AT 100% it is the portal ONLY (no slow, no drain, no Flash Time cooldown) -- 5 s held opens it,
+	 * stopping collapses it.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void thePortalChargesAtFullMomentumAndCollapsesWhenStopping(GameTestHelper helper) {
@@ -654,24 +656,51 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		ServerLevel realm = helper.getLevel().getServer().getLevel(com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION);
 		try {
 			p.setSprinting(true);
+			// below 100%: Flash Time, and it never turns into the portal -- not even once the momentum reaches 100%
 			SpeedForceSpeedster.setMomentum(p, 0.5f);
 			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
-			for (int i = 0; i < 10; i++) {
+			helper.assertTrue(SpeedForceAbilities.flashHeld(p) && com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p), "50%: Flash Time");
+			SpeedForceSpeedster.setMomentum(p, 1f);
+			for (int i = 0; i < 20; i++) {
 				runTick(p);
 			}
-			helper.assertTrue(SpeedForceAbilities.portalCharge(p) == 0, "50% momentum: Flash Time, but no portal");
+			helper.assertTrue(SpeedForceAbilities.portalCharge(p) == 0 && !SpeedForceAbilities.portalCharging(p), "Flash Time never charges the portal mid-hold");
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false);
+			helper.assertFalse(com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p), "let go: Flash Time over");
+			// AT 100%: the portal only
+			SpeedForceSpeedster.peek(p).abilityReadyAt.clear();
 			SpeedForceSpeedster.setMomentum(p, 1f);
+			float meter = SpeedForceSpeedster.meter(p);
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
+			helper.assertTrue(SpeedForceAbilities.portalCharging(p), "100%: Z charges the portal");
+			helper.assertFalse(SpeedForceAbilities.flashHeld(p) || com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p),
+					"and no Flash Time with it (no world slow)");
 			for (int i = 0; i < 40; i++) {
 				runTick(p);
 			}
 			int charged = SpeedForceAbilities.portalCharge(p);
-			helper.assertTrue(charged >= 30 && charged < SpeedForceConfig.PORTAL_TICKS, "at 100% it forms, got " + charged);
-			// stopping (the momentum is frozen in Flash Time -- the sprint itself is read: letting go ends it)
+			helper.assertTrue(charged >= 30 && charged < SpeedForceConfig.PORTAL_TICKS, "it forms, got " + charged);
+			helper.assertTrue(SpeedForceSpeedster.meter(p) >= meter - 1.0e-3f, "no Flash Time drain");
+			helper.assertTrue(SpeedForceSpeedster.momentum(p) >= 0.999f, "the momentum held while it forms");
+			// stopping (the sprint drops) collapses it
 			p.setSprinting(false);
 			ticks(p, 1);
-			helper.assertTrue(SpeedForceAbilities.portalCharge(p) == 0, "stopped: it collapses");
-			helper.assertTrue(com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p), "Flash Time itself goes on while Z is held");
+			helper.assertTrue(SpeedForceAbilities.portalCharge(p) == 0 && !SpeedForceAbilities.portalCharging(p), "stopped: it collapses");
+			helper.assertFalse(com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p), "still no Flash Time");
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false);
+			helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.FLASH) == 0, "no Flash Time cooldown from a portal charge");
+			// letting go early collapses it too
 			p.setSprinting(true);
+			SpeedForceSpeedster.setMomentum(p, 1f);
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
+			for (int i = 0; i < 10; i++) {
+				runTick(p);
+			}
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false);
+			helper.assertTrue(SpeedForceAbilities.portalCharge(p) == 0 && !SpeedForceAbilities.portalCharging(p), "let go early: collapsed");
+			// held the full 5 s: it takes them in
+			SpeedForceSpeedster.setMomentum(p, 1f);
+			press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, true);
 			for (int i = 0; i < SpeedForceConfig.PORTAL_TICKS + 10 && !com.projecthero.mod.speedforce.SpeedForceRealm.inside(p); i++) {
 				runTick(p);
 			}
@@ -680,7 +709,6 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 				return;
 			}
 			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.inside(p), "5 s of it: the portal took them in");
-			helper.assertFalse(com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.isCasting(p), "Flash Time ended on the way in");
 			com.projecthero.mod.speedforce.SpeedForceRealm.exit(p);
 		} finally {
 			com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow.end(p, false);
@@ -688,27 +716,10 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	/** The travel mapping: the road's length is the way they faced, its width their right; x100, capped at 30,000. */
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void speedForceTravelMapsTheRoadOntoTheWorld(GameTestHelper helper) {
-		Vec3 south = com.projecthero.mod.speedforce.SpeedForceRealm.travelOffset(0f, 10, 0);
-		helper.assertTrue(south.distanceTo(new Vec3(0, 0, 1000)) < 1.0e-6, "facing south, 10 blocks up the road: 1,000 south, got " + south);
-		Vec3 east = com.projecthero.mod.speedforce.SpeedForceRealm.travelOffset(-90f, 10, 0);
-		helper.assertTrue(east.distanceTo(new Vec3(1000, 0, 0)) < 1.0e-6, "facing east: 1,000 east, got " + east);
-		Vec3 right = com.projecthero.mod.speedforce.SpeedForceRealm.travelOffset(0f, 0, 3);
-		helper.assertTrue(right.distanceTo(new Vec3(-300, 0, 0)) < 1.0e-6, "the road's right (facing south: west) x100, got " + right);
-		Vec3 back = com.projecthero.mod.speedforce.SpeedForceRealm.travelOffset(180f, -2, 0);
-		helper.assertTrue(back.distanceTo(new Vec3(0, 0, 200)) < 1.0e-6, "running back down the road goes the other way, got " + back);
-		Vec3 cap = com.projecthero.mod.speedforce.SpeedForceRealm.travelOffset(37f, 5000, 0);
-		helper.assertTrue(Math.abs(cap.length() - SpeedForceConfig.REALM_TRAVEL_MAX) < 1.0e-6, "capped at 30,000, got " + cap.length());
-		helper.assertTrue(SpeedForceConfig.REALM_EXIT_DISTANCE * SpeedForceConfig.REALM_TRAVEL_SCALE == SpeedForceConfig.REALM_TRAVEL_MAX,
-				"the exit portal at the road's end is the full 30,000");
-		helper.succeed();
-	}
-
 	/** In: full health, a full meter, cooldowns reset, 100%; out: where the run took them, drained. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void intoTheSpeedForceAndOutWhereTheRunTookThem(GameTestHelper helper) {
+	public void intoTheSpeedForceAndOutWhereTheyWentIn(GameTestHelper helper) {
+		helper.setBlock(new BlockPos(2, 1, 2), Blocks.STONE); // a floor to come back out on
 		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
 		ServerLevel realm = helper.getLevel().getServer().getLevel(com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION);
 		if (realm == null) {
@@ -730,13 +741,13 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.REWIND) == 0, "every cooldown reset");
 		ticks(p, 2);
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) >= 0.999f, "momentum held at 100%");
-		// 5 blocks up the road (facing south when they went in): 500 blocks south
+		// v0.17.1 (user): no more travel mapping -- held Sneak is "back where you went in"
 		Vec3 up = p.position().add(5.0, 0, 0);
 		p.teleportTo(realm, up.x, up.y, up.z, p.getYRot(), p.getXRot());
 		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.exit(p), "out");
 		helper.assertTrue(p.level() == home, "back in the dimension they came from");
 		Vec3 off = p.position().subtract(start);
-		helper.assertTrue(Math.abs(off.z - 500.0) < 30.0 && Math.abs(off.x) < 30.0, "500 blocks south of where they went in, got " + off);
+		helper.assertTrue(off.horizontalDistance() < 6.0, "back where they went in, got " + off);
 		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "drained for 2 minutes");
 		helper.assertTrue(SpeedForceSpeedster.cooldownRemaining(p, SpeedForceAbilities.PORTAL) > 0, "the portal on its cooldown");
 		helper.assertTrue(p.getAttachedOrElse(com.projecthero.mod.speedforce.SpeedForceAttachments.TRIP, null) == null, "the trip is over");
@@ -757,10 +768,10 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "the timer");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - speed * 0.5) < 1.0e-4, "50% slower");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_DAMAGE) - damage * 0.5) < 1.0e-4, "50% weaker fists");
-		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - SpeedForceConfig.DAMAGE_BONUS * 0.5f) < 1.0e-6, "50% weaker moves (x1.5 halved)");
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 0.5f) < 1.0e-6, "50% weaker moves (x1.0 at 0% momentum, halved)");
 		SpeedForceAbilities.rapidAssault(p);
 		float dealt = 100f - z.getHealth();
-		helper.assertTrue(dealt >= 14.5f && dealt <= 15.5f, "Rapid Assault x1.5, halved: 15, got " + dealt);
+		helper.assertTrue(dealt >= 9.5f && dealt <= 10.5f, "Rapid Assault x1.0, halved: 10, got " + dealt);
 		SpeedForceSpeedster.spendMeter(p, SpeedForceSpeedster.meter(p) - 50f);
 		SpeedForceSpeedster.addMeter(p, 20f);
 		helper.assertTrue(Math.abs(SpeedForceSpeedster.meter(p) - 50f) < 0.01f, "no Speed Force gain");
@@ -870,6 +881,336 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(p.getHealth() < before, "slow, a fall hurts");
 		PowerGrants.revokeHeroTier(p, SpeedForceSpeedster.KEY);
 		helper.assertFalse(SpeedForceSpeedster.hasPower(p), "revoked");
+		helper.succeed();
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 round 2: momentum damage, Speed Force Memories, the Black Flash
+
+	/** v0.17.1 (user): every blow x1.0 at 0% momentum, rising in a straight line to x2.0 at 100%; the drain halves it. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void damageScalesWithMomentum(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 1.5);
+		SpeedForceSpeedster.setMomentum(p, 0f);
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 1.0f) < 1.0e-5, "0%: x1.0, got " + SpeedForceSpeedster.damageScale(p));
+		SpeedForceSpeedster.setMomentum(p, 0.5f);
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 1.5f) < 1.0e-5, "50%: x1.5, got " + SpeedForceSpeedster.damageScale(p));
+		SpeedForceSpeedster.setMomentum(p, 1f);
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 2.0f) < 1.0e-5, "100%: x2.0, got " + SpeedForceSpeedster.damageScale(p));
+		// a real blow at 50%: the Lightning Throw, (8 + 12 x 0.5) x1.5 = 21
+		Zombie z = zombie(helper, 2.5, 2.0, 5.5, 100);
+		SpeedForceSpeedster.setMomentum(p, 0.5f);
+		helper.assertTrue(SpeedForceAbilities.fireBolt(p) == z, "the bolt lands");
+		float dealt = 100f - z.getHealth();
+		helper.assertTrue(Math.abs(dealt - 21f) < 0.5f, "(8 + 6) x1.5 at 50%: 21, got " + dealt);
+		// drained: halved -- x1.0 at full momentum
+		SpeedForceSpeedster.setMomentum(p, 1f);
+		SpeedForceSpeedster.drain(p, SpeedForceConfig.DRAINED_TICKS);
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.damageScale(p) - 1.0f) < 1.0e-5, "drained at 100%: x2.0 halved, got " + SpeedForceSpeedster.damageScale(p));
+		SpeedForceSpeedster.drain(p, 0);
+		// the boss cap still holds at x2: a 500-health boss takes at most 40 from the Mass Punch
+		Zombie boss = zombie(helper, 2.5, 2.0, 3.5, 500);
+		z.discard();
+		SpeedForceSpeedster.peek(p).abilityReadyAt.clear();
+		SpeedForceSpeedster.setMomentum(p, 1f);
+		SpeedForceAbilities.infiniteMassPunch(p);
+		float bossDealt = 500f - boss.getHealth();
+		helper.assertTrue(bossDealt > 0f && bossDealt <= 40.5f, "a boss is capped at 8% (40), got " + bossDealt);
+		helper.succeed();
+	}
+
+	private static com.projecthero.mod.speedforce.data.SpeedForceMemories.Place place(String dim, double x, double y, double z) {
+		return new com.projecthero.mod.speedforce.data.SpeedForceMemories.Place(dim, x, y, z, 0f);
+	}
+
+	/** v0.17.1 (user): "Remember this place" saves the spot and its dimension; a sixth replaces the oldest; one can be forgotten; saved. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void rememberingForgettingAndSavingPlaces(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 1.5);
+		p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.MEMORIES, com.projecthero.mod.speedforce.data.SpeedForceMemories.EMPTY);
+		Vec3 base = p.position();
+		for (int i = 0; i < 6; i++) {
+			p.moveTo(base.x + i, base.y, base.z);
+			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.remember(p), "remembered #" + (i + 1));
+		}
+		var m = com.projecthero.mod.speedforce.SpeedForceMemory.of(p);
+		helper.assertTrue(m.marked().size() == 5, "five kept, got " + m.marked().size());
+		helper.assertTrue(Math.abs(m.marked().get(0).x() - (base.x + 1)) < 1.0e-6, "the sixth replaced the oldest");
+		helper.assertTrue(Math.abs(m.marked().get(4).x() - (base.x + 5)) < 1.0e-6, "the newest last");
+		helper.assertTrue(m.marked().get(0).dimension().equals(p.level().dimension().location().toString()), "with its dimension");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.forget(p, 0), "forgot one");
+		m = com.projecthero.mod.speedforce.SpeedForceMemory.of(p);
+		helper.assertTrue(m.marked().size() == 4 && Math.abs(m.marked().get(0).x() - (base.x + 2)) < 1.0e-6, "the one asked for is gone");
+		helper.assertFalse(com.projecthero.mod.speedforce.SpeedForceMemory.forget(p, 7), "no such place");
+		// the exit history: newest first, five kept, a near one replaces the old
+		var e = m;
+		for (int i = 0; i < 7; i++) {
+			e = e.withExit(place("minecraft:overworld", i * 100.0, 64, 0), SpeedForceConfig.MEMORY_EXIT_MERGE);
+		}
+		helper.assertTrue(e.exits().size() == 5 && Math.abs(e.exits().get(0).x() - 600.0) < 1.0e-6, "five exits, newest first");
+		e = e.withExit(place("minecraft:overworld", 605.0, 64, 0), SpeedForceConfig.MEMORY_EXIT_MERGE);
+		helper.assertTrue(e.exits().size() == 5 && Math.abs(e.exits().get(1).x() - 500.0) < 1.0e-6, "a near exit replaced the old one");
+		// it all survives a logout (persistent codec)
+		var saved = com.projecthero.mod.speedforce.data.SpeedForceMemories.CODEC.encodeStart(com.mojang.serialization.JavaOps.INSTANCE, e).getOrThrow();
+		var back = com.projecthero.mod.speedforce.data.SpeedForceMemories.CODEC.parse(com.mojang.serialization.JavaOps.INSTANCE, saved).getOrThrow();
+		helper.assertTrue(back.equals(e), "saved and loaded intact");
+		helper.succeed();
+	}
+
+	/** The doorways: home (bed or spawn), the last death, the exits, the marked places -- a dimension that is gone is skipped. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theMemoryRoadsDoorways(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 1.5);
+		var m = com.projecthero.mod.speedforce.data.SpeedForceMemories.EMPTY
+				.withExit(place("minecraft:overworld", 100, 64, 100), 16)
+				.withExit(place("projecthero:no_such_dimension", 0, 64, 0), 16)
+				.remember(place("minecraft:overworld", -50, 70, 20))
+				.remember(place("projecthero:also_gone", 5, 70, 5));
+		p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.MEMORIES, m);
+		var doors = com.projecthero.mod.speedforce.SpeedForceMemory.doors(p);
+		long homes = doors.stream().filter(d -> d.kind() == com.projecthero.mod.speedforce.SpeedForceMemory.HOME).count();
+		long exits = doors.stream().filter(d -> d.kind() == com.projecthero.mod.speedforce.SpeedForceMemory.EXIT).count();
+		long marked = doors.stream().filter(d -> d.kind() == com.projecthero.mod.speedforce.SpeedForceMemory.MARKED).count();
+		helper.assertTrue(homes == 1, "one home doorway (the bed or the world spawn)");
+		helper.assertTrue(exits == 1 && marked == 1, "the dimension-less exit and marked place are skipped: " + exits + " / " + marked);
+		helper.assertTrue(doors.stream().allMatch(d -> d.label() != null && !d.label().getString().isEmpty()), "every doorway has a label");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): the drain after a trip -- 2 min cross-dimension or to a marked place, 30 s for the hop to the last exit. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theDrainDependsOnTheTrip(GameTestHelper helper) {
+		String ow = "minecraft:overworld";
+		String nether = "minecraft:the_nether";
+		int full = SpeedForceConfig.DRAINED_TICKS;
+		int shortHop = SpeedForceConfig.DRAINED_SHORT_TICKS;
+		helper.assertTrue(full == 2 * 60 * 20 && shortHop == 30 * 20, "2 minutes and 30 s");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.drainTicksFor(com.projecthero.mod.speedforce.SpeedForceMemory.EXIT, 0, ow, ow) == shortHop,
+				"the last exit, same dimension: 30 s");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.drainTicksFor(com.projecthero.mod.speedforce.SpeedForceMemory.EXIT, 0, ow, nether) == full,
+				"the last exit in another dimension: 2 min");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.drainTicksFor(com.projecthero.mod.speedforce.SpeedForceMemory.MARKED, 0, ow, ow) == full,
+				"a marked place: 2 min");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.drainTicksFor(com.projecthero.mod.speedforce.SpeedForceMemory.EXIT, 2, ow, ow) == full,
+				"an older exit: 2 min");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceMemory.drainTicksFor(com.projecthero.mod.speedforce.SpeedForceMemory.HOME, 0, nether, ow) == full,
+				"home from the Nether: 2 min");
+		helper.succeed();
+	}
+
+	/** A trip as if they had gone in at {@code from} (the doorway / punch-out code needs no Speed Force dimension for this). */
+	private static void fakeTrip(ServerPlayer p, Vec3 from) {
+		p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.TRIP, new com.projecthero.mod.speedforce.data.SpeedForceTrip(
+				p.level().dimension().location().toString(), from.x, from.y, from.z, 0f, 0.5, 65, 0.5, 0, 0));
+	}
+
+	/** Running through a doorway brings them out at that place on a safe spot (and to the Nether, if this server has it). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void aDoorwayTripLandsAtThePlace(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 1.5);
+		ServerLevel home = helper.getLevel();
+		helper.setBlock(new BlockPos(6, 1, 6), Blocks.STONE);
+		Vec3 spot = helper.absoluteVec(new Vec3(6.5, 2.0, 6.5));
+		String ow = home.dimension().location().toString();
+		fakeTrip(p, p.position());
+		var door = new com.projecthero.mod.speedforce.SpeedForceMemory.Door(com.projecthero.mod.speedforce.SpeedForceMemory.MARKED, 0,
+				place(ow, spot.x, spot.y, spot.z), net.minecraft.network.chat.Component.literal("test"));
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.takeDoor(p, door), "through the doorway");
+		helper.assertTrue(p.level() == home && p.position().distanceTo(spot) < 1.5, "out at the marked place, got " + p.position() + " want " + spot);
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "a marked place: drained 2 minutes");
+		helper.assertTrue(p.getAttachedOrElse(com.projecthero.mod.speedforce.SpeedForceAttachments.TRIP, null) == null, "the trip is over");
+		var exits = com.projecthero.mod.speedforce.SpeedForceMemory.of(p).exits();
+		helper.assertTrue(!exits.isEmpty() && exits.get(0).near(place(ow, p.getX(), p.getY(), p.getZ()), 0.5), "the landing is the newest exit");
+		// the short hop back to the last exit: 30 s
+		SpeedForceSpeedster.drain(p, 0);
+		p.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
+		fakeTrip(p, p.position());
+		var last = new com.projecthero.mod.speedforce.SpeedForceMemory.Door(com.projecthero.mod.speedforce.SpeedForceMemory.EXIT, 0, exits.get(0),
+				net.minecraft.network.chat.Component.literal("last"));
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.takeDoor(p, last), "through the last-exit doorway");
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_SHORT_TICKS, "the hop back: 30 s, got " + SpeedForceSpeedster.drained(p));
+		// cross-dimension: the Nether (if this GameTest server has it)
+		ServerLevel nether = home.getServer().getLevel(net.minecraft.world.level.Level.NETHER);
+		if (nether != null) {
+			SpeedForceSpeedster.drain(p, 0);
+			fakeTrip(p, p.position());
+			var there = new com.projecthero.mod.speedforce.SpeedForceMemory.Door(com.projecthero.mod.speedforce.SpeedForceMemory.EXIT, 0,
+					place("minecraft:the_nether", 0.5, 64, 0.5), net.minecraft.network.chat.Component.literal("nether"));
+			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.takeDoor(p, there), "through to the Nether");
+			helper.assertTrue(p.level() == nether, "in the Nether");
+			helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "another dimension: 2 minutes");
+			p.teleportTo(home, spot.x, spot.y, spot.z, 0f, 0f);
+		}
+		SpeedForceSpeedster.drain(p, 0);
+		helper.succeed();
+	}
+
+	/** Inside the Speed Force (when this server has the dimension): the doorways and echoes are built, and a doorway works. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void insideTheRoadBranchesIntoDoorways(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		ServerLevel realm = helper.getLevel().getServer().getLevel(com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION);
+		if (realm == null) {
+			helper.succeed(); // no datapack dimensions on this GameTest server
+			return;
+		}
+		ServerLevel home = helper.getLevel();
+		helper.setBlock(new BlockPos(5, 1, 5), Blocks.STONE);
+		Vec3 spot = helper.absoluteVec(new Vec3(5.5, 2.0, 5.5));
+		p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.MEMORIES,
+				com.projecthero.mod.speedforce.data.SpeedForceMemories.EMPTY.remember(place(home.dimension().location().toString(), spot.x, spot.y, spot.z)));
+		for (int i = 0; i < 12; i++) {
+			com.projecthero.mod.speedforce.SpeedForceMemory.recordForTest(p, p.position().add(i * 8.0, 0, i * 0.5), i * 5);
+		}
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.enter(p), "in");
+		var doors = com.projecthero.mod.speedforce.SpeedForceRealm.doorsOf(p);
+		helper.assertTrue(doors.size() >= 2, "home + the marked place at least, got " + doors.size());
+		helper.assertFalse(com.projecthero.mod.speedforce.SpeedForceRealm.echoesOf(p).isEmpty(), "echoes on the road");
+		int slot = -1;
+		for (int i = 0; i < doors.size(); i++) {
+			if (doors.get(i).kind() == com.projecthero.mod.speedforce.SpeedForceMemory.MARKED) {
+				slot = i;
+			}
+		}
+		helper.assertTrue(slot >= 0, "the marked place has a doorway");
+		int lane = com.projecthero.mod.speedforce.SpeedForceRealm.laneOf(p.getZ());
+		p.teleportTo(realm, com.projecthero.mod.speedforce.SpeedForceRealm.doorX(slot) + 0.5, com.projecthero.mod.speedforce.SpeedForceRealm.ROAD_Y + 1,
+				com.projecthero.mod.speedforce.SpeedForceRealm.doorZ(lane, slot) + 0.5, 0f, 0f);
+		ticks(p, 1);
+		helper.assertTrue(p.level() == home && p.position().distanceTo(spot) < 1.5, "out at the marked place, got " + p.position());
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): past 30 s inside, the Black Flash punches them out -- to where they went in, him following. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 300)
+	public void theBlackFlashPunchesThemOutAfterThirtySeconds(GameTestHelper helper) {
+		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
+		helper.setBlock(new BlockPos(2, 1, 2), Blocks.STONE);
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		ServerLevel home = helper.getLevel();
+		Vec3 start = p.position();
+		ServerLevel realm = home.getServer().getLevel(com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION);
+		if (realm != null) {
+			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.enter(p), "in");
+			var trip = p.getAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.TRIP);
+			p.setAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.TRIP, trip.withTicks(SpeedForceConfig.BLACK_FLASH_AFTER_TICKS));
+			ticks(p, 1);
+			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.inside(p), "still in as he appears");
+			helper.assertFalse(realm.getEntitiesOfClass(com.projecthero.mod.speedforce.entity.BlackFlashEntity.class, p.getBoundingBox().inflate(80)).isEmpty(),
+					"the Black Flash down the road");
+			p.setShiftKeyDown(true);
+			ticks(p, SpeedForceConfig.REALM_SNEAK_TICKS + 2);
+			p.setShiftKeyDown(false);
+			for (int i = 0; i < SpeedForceConfig.BLACK_FLASH_CHARGE_TICKS + 5 && com.projecthero.mod.speedforce.SpeedForceRealm.inside(p); i++) {
+				ticks(p, 1);
+			}
+		} else {
+			fakeTrip(p, start); // no datapack dimensions on this GameTest server: the punch-out itself
+			helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.punchOut(p), "punched out");
+		}
+		helper.assertTrue(p.level() == home && p.position().subtract(start).horizontalDistance() < 3.0, "out where they went in, got " + p.position());
+		var bf = com.projecthero.mod.speedforce.BlackFlash.fightOf(p);
+		helper.assertTrue(bf != null && bf.level() == home, "and he followed them out");
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == 0, "no drain while he fights");
+		bf.discard();
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "he left without being beaten: the full drain");
+		SpeedForceSpeedster.drain(p, 0);
+		helper.succeed();
+	}
+
+	private static com.projecthero.mod.speedforce.entity.BlackFlashEntity blackFlash(GameTestHelper helper, ServerPlayer p) {
+		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
+		var bf = com.projecthero.mod.speedforce.BlackFlash.spawnFor(p, helper.getLevel(), helper.absoluteVec(new Vec3(5.5, 2.0, 5.5)));
+		bf.setNoAi(true); // the tests drive him
+		return bf;
+	}
+
+	/** 600 health, the BLACK FLASH bar, the threat table, his immunities, one per runner. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBlackFlashIsABoss(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 1.5, 2.0, 1.5);
+		var bf = blackFlash(helper, p);
+		helper.assertTrue(Math.abs(bf.getMaxHealth() - com.projecthero.mod.speedforce.BlackFlashConfig.get().boss.health) < 1.0e-3
+				&& Math.abs(com.projecthero.mod.speedforce.BlackFlashConfig.get().boss.health - 600.0) < 1.0e-6, "600 health (config)");
+		helper.assertTrue(bf.bossEvent().getName().getString().equals("BLACK FLASH") || bf.bossEvent().getName().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents,
+				"the BLACK FLASH bar");
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceCombat.isBoss(bf), "a boss to every power (8% cap a hit)");
+		helper.assertTrue(com.projecthero.mod.speedforce.BlackFlash.spawnFor(p, helper.getLevel(), bf.position()) == bf, "only one per runner");
+		// the threat table: whoever hurts him most takes his attention
+		ServerPlayer q = mock(helper, 7.5, 2.0, 7.5);
+		bf.setTarget(p);
+		bf.hurt(helper.getLevel().damageSources().playerAttack(q), 30f);
+		helper.assertTrue(bf.threat().threatOf(q) > 0f, "the hit went on the table");
+		bf.threat().applyNow();
+		helper.assertTrue(bf.getTarget() == q, "he turned on the one hurting him");
+		// immune to knockback, falls, suffocation, lightning
+		float hp = bf.getHealth();
+		helper.assertFalse(bf.hurt(helper.getLevel().damageSources().fall(), 50f), "no fall damage");
+		helper.assertFalse(bf.hurt(helper.getLevel().damageSources().inWall(), 50f), "no suffocation");
+		helper.assertFalse(bf.hurt(helper.getLevel().damageSources().source(net.minecraft.world.damagesource.DamageTypes.LIGHTNING_BOLT), 50f), "no lightning");
+		bf.setDeltaMovement(Vec3.ZERO);
+		bf.knockback(5.0, 1.0, 0.0);
+		helper.assertTrue(bf.getDeltaMovement().lengthSqr() < 1.0e-6 && Math.abs(bf.getHealth() - hp) < 1.0e-3, "no knockback, no damage");
+		// his hits on a player are capped at 80% of their max health
+		p.setHealth(p.getMaxHealth());
+		bf.strike(p, 500.0, 0, 0);
+		helper.assertTrue(p.isAlive() && p.getHealth() >= p.getMaxHealth() * 0.2f - 0.5f, "capped: never a one-shot, left " + p.getHealth());
+		bf.discard();
+		SpeedForceSpeedster.drain(p, 0);
+		helper.succeed();
+	}
+
+	/** Beaten: no drain at all, and a Speed Force Shard. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void beatingTheBlackFlashSkipsTheDrainAndDropsTheShard(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 1.5, 2.0, 1.5);
+		fakeTrip(p, p.position());
+		helper.assertTrue(com.projecthero.mod.speedforce.SpeedForceRealm.punchOut(p), "punched out");
+		var bf = com.projecthero.mod.speedforce.BlackFlash.fightOf(p);
+		helper.assertTrue(bf != null, "the fight is on");
+		bf.setNoAi(true);
+		Vec3 at = bf.position();
+		bf.hurt(helper.getLevel().damageSources().playerAttack(p), 1f);
+		bf.kill();
+		helper.assertTrue(bf.defeated(), "beaten");
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == 0, "no drain");
+		helper.assertTrue(com.projecthero.mod.speedforce.BlackFlash.fightOf(p) == null, "the fight is over");
+		boolean shard = !helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, new net.minecraft.world.phys.AABB(at, at).inflate(4),
+				e -> e.getItem().is(SpeedForceMod.SPEED_FORCE_SHARD)).isEmpty();
+		helper.assertTrue(shard, "he dropped a Speed Force Shard");
+		// the shard's use: with a Tachyon Device, the Speed Force Tachyon Device (+10 meter held)
+		p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE));
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.meterMax(p) - 110f) < 1.0e-3, "110 Speed Force while held");
+		SpeedForceSpeedster.addMeter(p, 50f);
+		helper.assertTrue(SpeedForceSpeedster.meter(p) > 100.5f, "the meter fills past 100");
+		p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+		ticks(p, 1);
+		helper.assertTrue(SpeedForceSpeedster.meter(p) <= 100.001f, "put away: back under 100");
+		helper.succeed();
+	}
+
+	/** He goes if his runner dies or logs out, or after 5 minutes with nothing to fight; he is never saved. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBlackFlashsDespawnRules(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 1.5, 2.0, 1.5);
+		var bf = blackFlash(helper, p);
+		helper.assertFalse(bf.shouldBeSaved(), "never saved into the chunk");
+		helper.assertFalse(bf.getType().canSerialize(), "his type is not saved at all");
+		helper.assertTrue(com.projecthero.mod.speedforce.BlackFlash.tickRules(bf, helper.getLevel()), "a live fight goes on");
+		bf.ageNoTargetForTest(com.projecthero.mod.speedforce.BlackFlashConfig.get().boss.noTargetDespawnTicks);
+		helper.assertFalse(com.projecthero.mod.speedforce.BlackFlash.tickRules(bf, helper.getLevel()), "5 minutes with nothing to fight");
+		helper.assertTrue(bf.isRemoved(), "gone");
+		helper.assertTrue(SpeedForceSpeedster.drained(p) == SpeedForceConfig.DRAINED_TICKS, "and the drain lands");
+		SpeedForceSpeedster.drain(p, 0);
+		// a logout
+		var bf2 = blackFlash(helper, p);
+		com.projecthero.mod.speedforce.BlackFlash.onLogout(p);
+		helper.assertTrue(bf2.isRemoved() && com.projecthero.mod.speedforce.BlackFlash.fightOf(p) == null, "logged out: gone");
+		SpeedForceSpeedster.drain(p, 0);
+		// the runner dies
+		var bf3 = blackFlash(helper, p);
+		p.hurt(helper.getLevel().damageSources().genericKill(), Float.MAX_VALUE);
+		helper.assertTrue(!p.isAlive(), "the runner died");
+		helper.assertTrue(bf3.isRemoved(), "died: he is gone");
 		helper.succeed();
 	}
 }

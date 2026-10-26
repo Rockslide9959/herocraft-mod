@@ -69,7 +69,7 @@ public final class SpeedForceClient {
 	private record Bolt(Vec3 from, Vec3 to, long start, int life, double seed, int colour) {
 	}
 
-	private record Ring(Vec3 at, long start, int life, float radius) {
+	private record Ring(Vec3 at, long start, int life, float radius, boolean dark) {
 	}
 
 	/**
@@ -101,6 +101,13 @@ public final class SpeedForceClient {
 		ClientPlayNetworking.registerGlobalReceiver(SpeedForceFxPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> accept(payload)));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
+		// v0.17.1: the memory road's doorways and echoes, and the Black Flash
+		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+				com.projecthero.mod.speedforce.entity.SpeedForceEntityTypes.DOORWAY, SpeedForceDoorwayRenderer::new);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+				com.projecthero.mod.speedforce.entity.SpeedForceEntityTypes.ECHO, SpeedForceEchoRenderer::new);
+		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(
+				com.projecthero.mod.speedforce.entity.SpeedForceEntityTypes.BLACK_FLASH, BlackFlashRenderer::new);
 	}
 
 	private static void reset() {
@@ -110,6 +117,7 @@ public final class SpeedForceClient {
 		RINGS.clear();
 		GROUND_ARCS.clear();
 		PORTALS.clear();
+		BlackFlashRenderer.reset();
 	}
 
 	// ---------------------------------------------------------------- the trail
@@ -188,15 +196,42 @@ public final class SpeedForceClient {
 		Vec3 to = new Vec3(msg.tx(), msg.ty(), msg.tz());
 		// v0.17.1 (user): the runner's chosen lightning colour
 		int col = mc.level.getEntity(msg.playerId()) instanceof Player owner ? com.projecthero.mod.speedforce.SpeedForceColours.of(owner) : 0;
+		int black = BLACK_FLASH_COLOUR;
 		switch (msg.kind()) {
+			case SpeedForceFxPayload.BF_BOLT -> {
+				for (int k = 0; k < 2; k++) {
+					BOLTS.add(new Bolt(from, to, now, 8 + k * 3, now * 1.3 + k * 11.7 + from.z, black));
+				}
+			}
+			case SpeedForceFxPayload.BF_RING -> RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 14, (float) Math.max(2.0, msg.tx()), true));
+			case SpeedForceFxPayload.BF_PUNCH -> {
+				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 20, 9f, true));
+				RINGS.add(new Ring(from.subtract(0, 0.5, 0), now + 3, 16, 6f, true));
+				for (int k = 0; k < 12; k++) {
+					double a = k * Math.PI / 6;
+					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 4.5, Math.sin(a * 1.3) * 2.5, Math.sin(a) * 4.5), now + (k % 3), 14, k * 7.7 + now, black));
+				}
+				BOLTS.add(new Bolt(to.add(0, 20, 0), to, now, 12, now * 0.7, black));
+			}
+			case SpeedForceFxPayload.BF_DISSOLVE -> {
+				for (int k = 0; k < 6; k++) {
+					double a = k * Math.PI / 3 + now * 0.3;
+					BOLTS.add(new Bolt(from.add(Math.cos(a) * 0.4, (k % 3) * 0.4 - 0.4, Math.sin(a) * 0.4),
+							to.add(Math.cos(a) * 1.5, k * 0.5, Math.sin(a) * 1.5), now + k, 14, k * 13.1 + now, black));
+				}
+			}
+			case SpeedForceFxPayload.BF_STREAK -> {
+				BOLTS.add(new Bolt(from.add(0, 1.0, 0), to.add(0, 1.0, 0), now, 8, now * 1.9 + from.x, black));
+				BOLTS.add(new Bolt(from.add(0, 0.4, 0), to.add(0, 1.5, 0), now, 6, now * 2.3 + from.z, black));
+			}
 			case SpeedForceFxPayload.BOLT -> {
 				for (int k = 0; k < 2; k++) {
 					BOLTS.add(new Bolt(from, to, now, 8 + k * 2, now * 1.7 + k * 13.1 + from.x, col));
 				}
 			}
-			case SpeedForceFxPayload.BOOM -> RINGS.add(new Ring(from, now, 12, 7f));
+			case SpeedForceFxPayload.BOOM -> RINGS.add(new Ring(from, now, 12, 7f, false));
 			case SpeedForceFxPayload.SURGE -> {
-				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 14, 5f));
+				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 14, 5f, false));
 				for (int k = 0; k < 8; k++) {
 					double a = k * Math.PI / 4;
 					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 2.5, (k % 3 - 1) * 0.8, Math.sin(a) * 2.5), now, 10, k * 7.3 + now, col));
@@ -207,7 +242,7 @@ public final class SpeedForceClient {
 					Vec3 top = to.add((k - 1.5) * 1.5, 0, (k % 2 - 0.5) * 2.0);
 					BOLTS.add(new Bolt(top, from, now + k * 3, 12, k * 31.7 + now, col));
 				}
-				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 20, 6f));
+				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 20, 6f, false));
 			}
 			case SpeedForceFxPayload.STREAK -> {
 				if (!(mc.level.getEntity(msg.playerId()) instanceof AbstractClientPlayer p)) {
@@ -231,7 +266,7 @@ public final class SpeedForceClient {
 			}
 			case SpeedForceFxPayload.PORTAL_ENTER -> {
 				PORTALS.remove(msg.playerId());
-				RINGS.add(new Ring(from.subtract(0, 1.1, 0), now, 14, 6f));
+				RINGS.add(new Ring(from.subtract(0, 1.1, 0), now, 14, 6f, false));
 				for (int k = 0; k < 10; k++) {
 					double a = k * Math.PI / 5;
 					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 3.5, Math.sin(a) * 3.0, Math.sin(a * 1.7) * 2.0), now, 10, k * 5.1 + now, col));
@@ -241,7 +276,7 @@ public final class SpeedForceClient {
 				for (int k = 0; k < 3; k++) {
 					BOLTS.add(new Bolt(to.add((k - 1) * 1.2, 0, (k % 2) * 0.8), from, now + k * 2, 14, k * 17.3 + now, col));
 				}
-				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 18, 7f));
+				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 18, 7f, false));
 			}
 			default -> {
 			}
@@ -473,14 +508,37 @@ public final class SpeedForceClient {
 		if (mc.level.dimension() == com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION && mc.player != null) {
 			int col = com.projecthero.mod.speedforce.SpeedForceColours.of(mc.player);
 			drawRealmSky(cam, time, col, arcs, arcAlpha, arcWidth, arcColour);
-			int lane = com.projecthero.mod.speedforce.SpeedForceRealm.laneOf(mc.player.getZ());
-			Vec3 exit = new Vec3(com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_X + 0.5, com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_RING_Y,
-					com.projecthero.mod.speedforce.SpeedForceRealm.laneZ(lane) + 0.5);
-			if (exit.distanceToSqr(cam) < 512.0 * 512.0) {
-				drawPortal(exit, 1f, -90f, col, time, (float) (com.projecthero.mod.speedforce.SpeedForceRealm.EXIT_RING_RADIUS - 0.4)
-						/ (0.25f + (float) com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_RADIUS), cam, arcs, arcAlpha, arcWidth, arcColour);
+				// v0.17.1 (user, Speed Force Memories): a swirl of lightning in every doorway's opening, tinted by what it is
+				float doorScale = (float) (com.projecthero.mod.speedforce.SpeedForceRealm.DOOR_RADIUS
+						/ (0.25 + com.projecthero.mod.speedforce.SpeedForceConfig.PORTAL_RADIUS));
+				for (com.projecthero.mod.speedforce.entity.SpeedForceDoorwayEntity door : mc.level.getEntitiesOfClass(
+						com.projecthero.mod.speedforce.entity.SpeedForceDoorwayEntity.class, new net.minecraft.world.phys.AABB(cam, cam).inflate(160))) {
+					Vec3 c = new Vec3(door.getX(), com.projecthero.mod.speedforce.SpeedForceRealm.DOOR_CENTRE_Y, door.getZ());
+					drawPortal(c, 1f, 0f, doorColour(door.kind(), col), time + door.getId() * 7.0, doorScale, cam, arcs, arcAlpha, arcWidth, arcColour);
+				}
+				// the echoes: a faint crackle of the runner's lightning about each (gone once caught)
+				double frame = Math.floor(time / 3.0);
+				for (com.projecthero.mod.speedforce.entity.SpeedForceEchoEntity echo : mc.level.getEntitiesOfClass(
+						com.projecthero.mod.speedforce.entity.SpeedForceEchoEntity.class, new net.minecraft.world.phys.AABB(cam, cam).inflate(96))) {
+					if (echo.spent()) {
+						continue;
+					}
+					Vec3 at = echo.getPosition(partial);
+					for (int k = 0; k < 3; k++) {
+						double seed = frame * 3.1 + k * 17.3 + echo.getId();
+						Vec3 a = at.add((ThorDraw.hash(seed) - 0.5) * 0.6, 0.3 + ThorDraw.hash(seed + 1) * 1.4, (ThorDraw.hash(seed + 2) - 0.5) * 0.6);
+						Vec3 b = a.add((ThorDraw.hash(seed + 3) - 0.5) * 1.6, (ThorDraw.hash(seed + 4) - 0.5) * 1.0, (ThorDraw.hash(seed + 5) - 0.5) * 1.6);
+						arcs.add(ThorDraw.jagged(a.subtract(cam), b.subtract(cam), 4, 0.12, seed));
+						arcAlpha.add(0.55f);
+						arcWidth.add(0.5f);
+						arcColour.add(col);
+					}
+				}
 			}
-		}
+			for (com.projecthero.mod.speedforce.entity.BlackFlashEntity bf : mc.level.getEntitiesOfClass(
+					com.projecthero.mod.speedforce.entity.BlackFlashEntity.class, new net.minecraft.world.phys.AABB(cam, cam).inflate(96))) {
+				blackFlashLightning(bf, cam, partial, now, arcs, arcAlpha, arcWidth, arcColour);
+			}
 
 		for (Map.Entry<UUID, Deque<Snapshot>> e : TRAILS.entrySet()) {
 			Player player = mc.level.getPlayerByUUID(e.getKey());
@@ -633,8 +691,8 @@ public final class SpeedForceClient {
 			}
 			float r0 = 0.5f + ring.radius() * t;
 			Vec3 c = ring.at().subtract(cam);
-			ThorDraw.ring(vc, last, c, r0 * 0.75f, r0 + 0.6f, 0xFFE8A0, 0.8f * (1f - t), 48);
-			ThorDraw.ring(vc, last, c.add(0, 0.6, 0), r0 * 0.85f, r0 + 0.3f, 0xFFFFFF, 0.5f * (1f - t), 48);
+			ThorDraw.ring(vc, last, c, r0 * 0.75f, r0 + 0.6f, ring.dark() ? 0x0A0A10 : 0xFFE8A0, 0.8f * (1f - t), 48);
+			ThorDraw.ring(vc, last, c.add(0, 0.6, 0), r0 * 0.85f, r0 + 0.3f, ring.dark() ? 0xD01818 : 0xFFFFFF, 0.5f * (1f - t), 48);
 		}
 		for (int i = 0; i < wind.size(); i++) {
 			ThorDraw.ribbon(vc, last, wind.get(i), 0.09f, 0xDCE8F4, windAlpha.get(i));
@@ -692,6 +750,56 @@ public final class SpeedForceClient {
 				p.level().addParticle(net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK, to.x, to.y + 0.05, to.z,
 						(ThorDraw.hash(seed + 14) - 0.5) * 0.2, 0.1, (ThorDraw.hash(seed + 15) - 0.5) * 0.2);
 			}
+		}
+	}
+
+	/** The Black Flash's lightning: the "black" colour (dark bolts, a red core). */
+	private static final int BLACK_FLASH_COLOUR = 9;
+
+	/** A doorway's swirl: the bed / spawn green, the last death red, the exits the runner's own colour, marked places light blue. */
+	private static int doorColour(int kind, int own) {
+		return switch (kind) {
+			case com.projecthero.mod.speedforce.SpeedForceMemory.HOME -> 3;
+			case com.projecthero.mod.speedforce.SpeedForceMemory.DEATH -> 1;
+			case com.projecthero.mod.speedforce.SpeedForceMemory.MARKED -> 4;
+			default -> own;
+		};
+	}
+
+	/**
+	 * v0.17.1: black-and-red lightning crackling off the Black Flash all the time (more of it mid-move, a storm while he
+	 * dissolves), trailing back off him as he runs.
+	 */
+	private static void blackFlashLightning(com.projecthero.mod.speedforce.entity.BlackFlashEntity bf, Vec3 cam, float partial, long now,
+			List<Vec3[]> arcs, List<Float> alpha, List<Float> width, List<Integer> colours) {
+		boolean dying = bf.deathTime > 0;
+		boolean busy = bf.action() != com.projecthero.mod.speedforce.entity.BlackFlashEntity.ACTION_NONE;
+		Vec3 at = bf.getPosition(partial);
+		Vec3 heading = at.subtract(bf.xo, bf.yo, bf.zo);
+		boolean moving = heading.lengthSqr() > 0.01;
+		int count = dying ? 12 : busy ? 7 : 4;
+		double length = dying ? 2.2 : busy ? 1.4 : 1.0;
+		double frame = Math.floor((now + partial) * 4.0);
+		float fade = dying ? Math.max(0f, 1f - bf.deathTime / 50f) : bf.isRemnant() ? 0.6f : 1f;
+		for (int k = 0; k < count; k++) {
+			double seed = frame * 5.3 + k * 31.7 + bf.getId() * 0.37;
+			if (ThorDraw.hash(seed) < 0.25) {
+				continue;
+			}
+			Vec3 from = at.add((ThorDraw.hash(seed + 1) - 0.5) * 0.6, 0.2 + ThorDraw.hash(seed + 2) * 1.6, (ThorDraw.hash(seed + 3) - 0.5) * 0.6);
+			Vec3 dir;
+			if (dying) {
+				dir = new Vec3((ThorDraw.hash(seed + 5) - 0.5) * 1.2, 0.6 + ThorDraw.hash(seed + 6) * 1.6, (ThorDraw.hash(seed + 7) - 0.5) * 1.2).scale(length);
+			} else if (moving) {
+				dir = heading.normalize().scale(-(0.5 + ThorDraw.hash(seed + 4)) * length * 1.6)
+						.add((ThorDraw.hash(seed + 5) - 0.5) * length, (ThorDraw.hash(seed + 6) - 0.5) * length * 0.8, (ThorDraw.hash(seed + 7) - 0.5) * length);
+			} else {
+				dir = new Vec3(ThorDraw.hash(seed + 5) - 0.5, ThorDraw.hash(seed + 6) - 0.45, ThorDraw.hash(seed + 7) - 0.5).normalize().scale(length);
+			}
+			arcs.add(ThorDraw.jagged(from.subtract(cam), from.add(dir).subtract(cam), 5, 0.18, seed));
+			alpha.add(fade);
+			width.add(dying ? 1.2f : 0.9f);
+			colours.add(BLACK_FLASH_COLOUR);
 		}
 	}
 

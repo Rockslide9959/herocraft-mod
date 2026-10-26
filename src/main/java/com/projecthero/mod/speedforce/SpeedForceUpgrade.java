@@ -50,7 +50,10 @@ public final class SpeedForceUpgrade {
 
 	public static boolean holdsTachyon(ServerPlayer p) {
 		return p.getItemInHand(InteractionHand.MAIN_HAND).is(SpeedForceMod.TACHYON_DEVICE)
-				|| p.getItemInHand(InteractionHand.OFF_HAND).is(SpeedForceMod.TACHYON_DEVICE);
+				|| p.getItemInHand(InteractionHand.OFF_HAND).is(SpeedForceMod.TACHYON_DEVICE)
+				// v0.17.1: the Speed Force Tachyon Device is a Tachyon Device too
+				|| (SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE != null && (p.getItemInHand(InteractionHand.MAIN_HAND).is(SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE)
+						|| p.getItemInHand(InteractionHand.OFF_HAND).is(SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE)));
 	}
 
 	/** What (if anything) still stands between {@code p} and the Speed Force. */

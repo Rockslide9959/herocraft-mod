@@ -29,6 +29,9 @@ public final class SpeedForceState {
 	public static final int ANIM_THROW_CHARGE = 12;
 	public static final int ANIM_ARMS = 13;
 	public static final int ANIM_BLITZ = 14;
+	/** v0.17.1 (user) what a held Z is doing ({@link #flashLeft}): Flash Time, or (pressed at 100% momentum) the portal charge. */
+	public static final int Z_FLASH_TIME = 1;
+	public static final int Z_PORTAL = 2;
 
 	public boolean hasPower;
 	/** 0..1. */
@@ -38,8 +41,9 @@ public final class SpeedForceState {
 	/** C: Speed Force Surge runs until this game time (momentum locked at 100%). */
 	public long surgeUntil;
 	/**
-	 * Z: v0.17.1 (user) Flash Time is held -- flashLeft is 1 while Z holds it (0 otherwise); flashTotal is the Speed Force
-	 * portal's charge, in caster ticks (0..{@code SpeedForceConfig.PORTAL_TICKS}; 0 = not forming).
+	 * Z: v0.17.1 (user) what a held Z is doing -- flashLeft is {@link #Z_FLASH_TIME} for Flash Time, {@link #Z_PORTAL} for the
+	 * Speed Force portal charge (Z pressed at 100% momentum: no Flash Time with it), 0 otherwise; flashTotal is the portal's
+	 * charge in ticks (0..{@code SpeedForceConfig.PORTAL_TICKS}).
 	 */
 	public int flashLeft;
 	public int flashTotal;
