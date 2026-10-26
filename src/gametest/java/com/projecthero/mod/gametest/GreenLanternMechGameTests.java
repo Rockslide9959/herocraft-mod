@@ -153,8 +153,12 @@ public class GreenLanternMechGameTests implements FabricGameTest {
 		helper.getLevel().getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL, true);
 		Husk h = husk(helper, 4.0, 6.0);
 		float mechHp = m.getHealth();
-		p.hurt(helper.getLevel().damageSources().mobAttack(h), 10f);
+		// fire the damage event itself: a mock player never ticks, so vanilla's spawn invulnerability (and the other early
+		// returns in Player#hurt) can swallow the blow before any listener runs -- what is under test is the redirect
+		boolean allowed = net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.ALLOW_DAMAGE.invoker()
+				.allowDamage(p, helper.getLevel().damageSources().mobAttack(h), 10f);
 		h.discard();
+		helper.assertFalse(allowed, "the blow never reaches the pilot");
 		helper.assertTrue(p.getHealth() >= hp, "the pilot took nothing");
 		helper.assertTrue(m.getHealth() < mechHp, "the mech took the hit (" + mechHp + " -> " + m.getHealth() + ")");
 		helper.succeed();
