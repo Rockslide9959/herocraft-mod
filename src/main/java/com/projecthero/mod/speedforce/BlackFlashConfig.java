@@ -10,6 +10,7 @@ public final class BlackFlashConfig {
 	public static final VersionedConfig<BlackFlashConfig> SPEC = VersionedConfig.builder(BlackFlashConfig.class, "projecthero_black_flash.json", BlackFlashConfig::new)
 			.balance("boss", "moves")
 			.introduce(1, "v0.17.1 the Black Flash")
+			.reset(2, "v0.17.1 (user: \"make the black flash deal more damage\"): every move +50%", "moves")
 			.build();
 
 	private static BlackFlashConfig instance = new BlackFlashConfig();
@@ -35,20 +36,21 @@ public final class BlackFlashConfig {
 		public int xpReward = 500;
 	}
 
+	/** v0.17.1 (user): every hit 50% harder than first built (config v2). */
 	public static final class Moves {
-		public double punch = 6.0;
-		public double blitz = 10.0;
-		public double blitzShock = 5.0;
-		public double rapidPerHit = 2.5;
-		public double mach = 14.0;
-		public double machShock = 5.0;
-		public double lightning = 10.0;
-		public double vortexTick = 2.0;
-		public double vortexFinal = 6.0;
-		public double armsTick = 1.0;
-		public double sweepPerHit = 6.0;
-		public double massPunch = 28.0;
-		public double massShock = 8.0;
+		public double punch = 9.0;
+		public double blitz = 15.0;
+		public double blitzShock = 7.5;
+		public double rapidPerHit = 3.75;
+		public double mach = 21.0;
+		public double machShock = 7.5;
+		public double lightning = 15.0;
+		public double vortexTick = 3.0;
+		public double vortexFinal = 9.0;
+		public double armsTick = 1.5;
+		public double sweepPerHit = 9.0;
+		public double massPunch = 42.0;
+		public double massShock = 12.0;
 		/** The Time Remnant he splits off: its health and how long it lasts (ticks); it hits at this fraction of his damage. */
 		public double remnantHealth = 60.0;
 		public int remnantTicks = 200;

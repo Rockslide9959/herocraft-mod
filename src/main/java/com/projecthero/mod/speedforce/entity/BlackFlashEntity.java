@@ -97,6 +97,9 @@ public class BlackFlashEntity extends Monster {
 	/** The runner he came for. */
 	private UUID hunted;
 	private int noTargetTicks;
+	/** v0.17.1: ticks his runner has been in another dimension; the way his run is heading (the chunk ahead is loaded). */
+	private int otherLevelTicks;
+	private Vec3 runDir;
 	private int lastHurtTick = -10_000;
 	private boolean defeated;
 	private boolean phase2Announced;
@@ -378,10 +381,28 @@ public class BlackFlashEntity extends Monster {
 		if (switched != null && move != Move.NONE) {
 			// a new target from the table: the move in flight finishes on whom it was aimed at
 		}
+		// v0.17.1 (user: "he should be able to track the player down even if you manage to escape him ... make it so that he
+		// loads in his own chunks"): wherever he runs, the world around him (and ahead of him) stays loaded and ticking
+		keepLoaded(server);
+		ServerPlayer h = hunted == null ? null : server.getServer().getPlayerList().getPlayer(hunted);
+		if (h != null && h.level() != server) {
+			// gone to another dimension: after a moment he follows through the Speed Force -- not into the Speed Force
+			// itself (he waits at the way out)
+			if (h.level().dimension() != com.projecthero.mod.speedforce.SpeedForceRealm.DIMENSION && ++otherLevelTicks >= FOLLOW_DIMENSION_TICKS
+					&& h.level() instanceof ServerLevel there) {
+				otherLevelTicks = 0;
+				Vec3 behind = h.position().subtract(h.getLookAngle().multiply(1, 0, 1).normalize().scale(24.0));
+				int y = there.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(behind.x), (int) Math.floor(behind.z));
+				BlackFlash.spawnFor(h, there, new Vec3(behind.x, Math.max(y, there.getMinBuildHeight() + 1), behind.z));
+			}
+			noTargetTicks = 0; // he is waiting for them, not idle
+			return;
+		}
+		otherLevelTicks = 0;
 		LivingEntity target = getTarget();
 		if (target == null || !target.isAlive()) {
-			ServerPlayer h = hunted == null ? null : server.getServer().getPlayerList().getPlayer(hunted);
-			if (h != null && h.level() == server && h.isAlive() && distanceToSqr(h) < 64 * 64 && BossTargets.isVictim(this, h)) {
+			// v0.17.1 (user): no range limit -- he always knows where his runner is
+			if (h != null && h.isAlive() && BossTargets.isVictim(this, h)) {
 				setTarget(h);
 				target = h;
 			}
@@ -500,12 +521,110 @@ public class BlackFlashEntity extends Monster {
 			meleeCd = 14;
 			return;
 		}
-		if (dist > 14 && zipCd <= 0) {
+		if (dist > 14 && dist < 48 && zipCd <= 0) {
 			zipTo(level, target, 3.0);
 			zipCd = 40;
 			return;
 		}
+		// v0.17.1 (user: "make it so that he is as fast as you so even if you try running away he should be able to keep up
+		// with you and chase you down"): far off, or after a runner, he RUNS -- faster than they are going
+		double targetSpeed = Math.sqrt(Mth.square(target.getX() - target.xo) + Mth.square(target.getZ() - target.zo));
+		if (dist > 6 || targetSpeed > 0.5) {
+			if (speedsterRun(level, target, dist, targetSpeed)) {
+				return;
+			}
+		}
 		getNavigation().moveTo(target, 1.7);
+	}
+
+	/** Ticks with his runner in another dimension before he follows them there. */
+	private static final int FOLLOW_DIMENSION_TICKS = 10 * 20;
+	/** His run: never slower than this (blocks a tick, 30 b/s), and this much faster than whoever he chases. */
+	private static final double RUN_MIN_PER_TICK = 1.5;
+	private static final double RUN_CATCH_UP = 1.2;
+	/** Far behind (out of sight): he closes in harder still. */
+	private static final double RUN_FAR = 96.0;
+	private static final net.minecraft.server.level.TicketType<net.minecraft.world.level.ChunkPos> CHASE_TICKET =
+			net.minecraft.server.level.TicketType.create("projecthero_black_flash", java.util.Comparator.comparingLong(net.minecraft.world.level.ChunkPos::toLong), 40);
+
+	/** One step of his run at {@code t} (gametests). */
+	public boolean runStepForTest(LivingEntity t) {
+		double speed = Math.sqrt(Mth.square(t.getX() - t.xo) + Mth.square(t.getZ() - t.zo));
+		return level() instanceof ServerLevel sl && speedsterRun(sl, t, distanceTo(t), speed);
+	}
+
+	/** Keeps his own chunk entity-ticking (and loads the one ahead of his run), wherever he is. */
+	private void keepLoaded(ServerLevel level) {
+		if (tickCount % 10 != 0) {
+			return;
+		}
+		net.minecraft.world.level.ChunkPos here = chunkPosition();
+		level.getChunkSource().addRegionTicket(CHASE_TICKET, here, 2, here);
+		if (runDir != null) {
+			Vec3 ahead = position().add(runDir.scale(32.0));
+			net.minecraft.world.level.ChunkPos next = new net.minecraft.world.level.ChunkPos(net.minecraft.core.BlockPos.containing(ahead));
+			if (!next.equals(here)) {
+				level.getChunkSource().addRegionTicket(CHASE_TICKET, next, 2, next);
+			}
+		}
+	}
+
+	/**
+	 * One step of his run straight at {@code target}: faster than they are moving, over the ground (onto the top of
+	 * whatever is in the way), to 2 blocks short of them. Only into chunks that are loaded -- his ticket loads the next one
+	 * while he waits. False if he can't run this tick.
+	 */
+	private boolean speedsterRun(ServerLevel level, LivingEntity target, double dist, double targetSpeed) {
+		Vec3 to = new Vec3(target.getX() - getX(), 0, target.getZ() - getZ());
+		double flat = to.length();
+		if (flat < 1.0e-3) {
+			return false;
+		}
+		Vec3 dir = to.scale(1.0 / flat);
+		runDir = dir;
+		double step = Math.max(RUN_MIN_PER_TICK, targetSpeed * RUN_CATCH_UP + 0.4);
+		if (dist > RUN_FAR) {
+			step = Math.max(step, targetSpeed * 1.5 + 4.0);
+		}
+		step = Math.min(step, flat - 2.0);
+		if (step <= 0.2) {
+			return false;
+		}
+		Vec3 from = position();
+		double nx = getX() + dir.x * step;
+		double nz = getZ() + dir.z * step;
+		net.minecraft.core.BlockPos col = net.minecraft.core.BlockPos.containing(nx, getY(), nz);
+		if (!level.hasChunkAt(col)) {
+			getNavigation().stop();
+			return true; // waiting for the ground ahead to load
+		}
+		// the ground at the new spot: close to his height if there is a floor there (caves, under trees), else the surface
+		double ny = Double.NaN;
+		for (int up = 3; up >= -6; up--) {
+			Vec3 at = new Vec3(nx, Math.floor(getY()) + up, nz);
+			net.minecraft.world.phys.AABB box = getDimensions(getPose()).makeBoundingBox(at);
+			if (level.noCollision(this, box) && !level.noCollision(this, box.move(0, -0.5, 0))) {
+				ny = at.y;
+				break;
+			}
+		}
+		if (Double.isNaN(ny)) {
+			ny = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, col.getX(), col.getZ());
+			// a target up a cliff, on a roof or flying: run to beneath them, they come down eventually
+		}
+		getNavigation().stop();
+		setPos(nx, ny, nz); // setPos (not moveTo) keeps xo, so his legs run
+		setDeltaMovement(Vec3.ZERO);
+		resetFallDistance();
+		float yaw = (float) Math.toDegrees(Math.atan2(-dir.x, dir.z));
+		setYRot(yaw);
+		setYHeadRot(yaw);
+		yBodyRot = yaw;
+		if (step > 2.0 && tickCount % 2 == 0) {
+			BlackFlash.fx(this, SpeedForceFxPayload.BF_STREAK, from, position());
+		}
+		level.sendParticles(RED, getX(), getY() + 1.0, getZ(), 2, 0.3, 0.5, 0.3, 0.0);
+		return true;
 	}
 
 	private void start(Move m, LivingEntity target) {

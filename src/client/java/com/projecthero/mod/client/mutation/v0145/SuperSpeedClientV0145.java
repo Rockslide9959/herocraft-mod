@@ -166,6 +166,10 @@ public final class SuperSpeedClientV0145 {
 		}
 		Minecraft mc = Minecraft.getInstance();
 		Player me = mc.player;
+		// v0.17.1 (user): the Black Flash keeps the caster's pace in Flash Time (the server ticks him with them)
+		if (e instanceof com.projecthero.mod.speedforce.entity.BlackFlashEntity) {
+			return false;
+		}
 		return me == null || (e != me && e != me.getVehicle() && !e.hasPassenger(me) && e.getVehicle() != me);
 	}
 

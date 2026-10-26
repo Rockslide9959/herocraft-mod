@@ -17,7 +17,7 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.1: the Speed Force Speedster's body poses. v0.17.1 (user, round 3): the run is the plain Speedster's sprint
- * ({@code SpeedRunPose.pose}, the ice-skate stride removed), kicking in from 25% momentum (an ordinary run below that) and
+ * ({@code SpeedRunPose.pose}, the ice-skate stride removed), kicking in from 10% momentum (an ordinary run below that) and
  * driven harder as the momentum climbs; plus the move poses, the hold-C charge stance and the carry. The after-images keep
  * the pose they were left in ({@link #overrideWeight}).
  */
@@ -47,15 +47,16 @@ public final class SpeedForcePose {
 
 	/**
 	 * v0.17.1 (user: "remove the ice skating animation ... make it kick in at 25% momentum, before that player moves like
-	 * normal"): how much of the speedster sprint the momentum is worth -- none below 25%, all of it by 35%.
+	 * normal"; later "make the running animation happen when the player reaches 10% momentum"): how much of the speedster
+	 * sprint the momentum is worth -- none below 10%, all of it by 20%.
 	 */
 	public static float momentumBlend(float momentum) {
-		return Mth.clamp((momentum - 0.25f) / 0.10f, 0f, 1f);
+		return Mth.clamp((momentum - 0.10f) / 0.10f, 0f, 1f);
 	}
 
 	/** The plain Speedster's sprint ({@code SpeedRunPose.pose}), run harder the more momentum there is. */
 	private static void sprint(Player player, HumanoidModel<?> m, float limbSwing, float w) {
-		float drive = 0.45f + 0.55f * Mth.clamp((SpeedForceSpeedster.momentum(player) - 0.25f) / 0.75f, 0f, 1f);
+		float drive = 0.45f + 0.55f * Mth.clamp((SpeedForceSpeedster.momentum(player) - 0.10f) / 0.90f, 0f, 1f);
 		com.projecthero.mod.client.mutation.v0145.SpeedRunPose.pose(m, limbSwing, w, drive);
 	}
 

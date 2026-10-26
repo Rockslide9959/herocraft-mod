@@ -260,6 +260,9 @@ public final class SuperSpeedTimeSlow {
 		}
 		tickLootPickupDelays(p, sl);
 		sl.tickNonPassenger(p);
+		// v0.17.1 (user: "if you activate flash time you both move at the same speed still, he is a speedster"): the Black
+		// Flash hunting the caster lives through the slowed world at the caster's pace
+		com.projecthero.mod.speedforce.BlackFlash.extraTick(p, sl);
 		com.projecthero.mod.ProjectHeroMod.tickPlayerSystems(p);
 		if (!isCasting(p)) {
 			return;

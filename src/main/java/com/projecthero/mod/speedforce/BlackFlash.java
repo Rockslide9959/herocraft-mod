@@ -63,6 +63,33 @@ public final class BlackFlash {
 		return bf;
 	}
 
+	/**
+	 * v0.17.1 (user): one of the Flash Time caster's extra ticks -- the Black Flash hunting them gets it too, so the slowed
+	 * world doesn't slow him (he is a speedster).
+	 */
+	public static void extraTick(ServerPlayer caster, ServerLevel level) {
+		BlackFlashEntity bf = fightOf(caster);
+		if (bf == null || bf.level() != level || bf.isRemoved()) {
+			return;
+		}
+		level.tickNonPassenger(bf);
+		if (bf.isRemoved()) {
+			return;
+		}
+		// the world's own entity sync only runs on the slowed ticks: send where he is (and his move's state) now
+		net.minecraft.network.protocol.Packet<?> pos = new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(bf);
+		net.minecraft.network.protocol.Packet<?> head = new net.minecraft.network.protocol.game.ClientboundRotateHeadPacket(bf,
+				(byte) net.minecraft.util.Mth.floor(bf.getYHeadRot() * 256.0f / 360.0f));
+		java.util.List<net.minecraft.network.syncher.SynchedEntityData.DataValue<?>> dirty = bf.getEntityData().packDirty();
+		for (ServerPlayer viewer : net.fabricmc.fabric.api.networking.v1.PlayerLookup.tracking(bf)) {
+			viewer.connection.send(pos);
+			viewer.connection.send(head);
+			if (dirty != null) {
+				viewer.connection.send(new net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket(bf.getId(), dirty));
+			}
+		}
+	}
+
 	/** Every fight running (tests). */
 	public static int fights() {
 		FIGHTS.values().removeIf(bf -> bf.isRemoved());

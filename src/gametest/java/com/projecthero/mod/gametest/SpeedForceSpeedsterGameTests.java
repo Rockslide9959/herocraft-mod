@@ -1209,6 +1209,29 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): he runs at least as fast as his runner -- faster, so he closes in -- and stops just short of them. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theBlackFlashOutrunsHisRunner(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 6.5, 2.0, 6.5);
+		var bf = blackFlash(helper, p);
+		bf.setNoAi(true);
+		bf.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
+		double before = bf.distanceTo(p);
+		helper.assertTrue(bf.runStepForTest(p), "a standing runner: he runs at them");
+		double after = bf.distanceTo(p);
+		helper.assertTrue(before - after >= 1.4, "30 blocks a second at least, closed " + (before - after));
+		// a runner going 5 blocks a tick: he steps further than that (here, all the way to 2 blocks short)
+		bf.moveTo(helper.absoluteVec(new Vec3(1.5, 2.0, 1.5)));
+		p.xo = p.getX() - 5.0;
+		p.zo = p.getZ();
+		bf.runStepForTest(p);
+		double flat = Math.sqrt(Math.pow(bf.getX() - p.getX(), 2) + Math.pow(bf.getZ() - p.getZ(), 2));
+		helper.assertTrue(flat < 2.2 && flat > 1.8, "caught up to 2 blocks short, at " + flat);
+		bf.discard();
+		SpeedForceSpeedster.drain(p, 0);
+		helper.succeed();
+	}
+
 	/** He goes if his runner dies or logs out, or after 5 minutes with nothing to fight; he is never saved. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theBlackFlashsDespawnRules(GameTestHelper helper) {
