@@ -3,8 +3,13 @@ package com.projecthero.mod.gametest;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.falcon.Falcon;
 import com.projecthero.mod.falcon.FalconAbilities;
+import com.projecthero.mod.falcon.FalconAbilityManager;
 import com.projecthero.mod.falcon.FalconConfig;
+import com.projecthero.mod.falcon.FalconFlight;
 import com.projecthero.mod.falcon.data.FalconState;
+import com.projecthero.mod.falcon.entity.RedwingEntity;
+import com.projecthero.mod.flight.DirectionalFlightModel;
+import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.falcon.item.FalconItems;
 import com.projecthero.mod.hero.HeroTiers;
 import com.projecthero.mod.hero.PowerGrants;
@@ -212,15 +217,123 @@ public class FalconGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void wingSlashHitsTheArcForNine(GameTestHelper helper) {
+	public void wingSlashHitsTheArcForFifteen(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = falcon(helper, 3.5, 2.0, 1.5);
 		Zombie front = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 4.0, 100);
 		Zombie behind = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 0.0, 100);
 		FalconAbilities.slash(p);
-		helper.assertTrue(Math.abs((100f - front.getHealth()) - FalconConfig.SLASH_DAMAGE) < EPS, "9 in front, took " + (100f - front.getHealth()));
+		helper.assertTrue(FalconConfig.SLASH_DAMAGE == 15f && FalconConfig.DIVE_SLASH_DAMAGE == 15f, "the Wing Slash hits for 15");
+		helper.assertTrue(Math.abs((100f - front.getHealth()) - FalconConfig.SLASH_DAMAGE) < EPS, "15 in front, took " + (100f - front.getHealth()));
 		helper.assertTrue(behind.getHealth() == 100f, "behind him: untouched");
 		helper.assertTrue(Falcon.cooldownRemaining(p, FalconAbilities.SLASH) == FalconConfig.SLASH_COOLDOWN, "2.5s cooldown");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void flightSpeedsAreTheUsersNumbers(GameTestHelper helper) {
+		helper.assertTrue(Math.abs(FalconFlight.tune(false, false).speed() * 20.0 - 19.0) < 1.0e-6, "19 b/s cruising");
+		helper.assertTrue(Math.abs(FalconFlight.tune(true, false).speed() * 20.0 - 35.0) < 1.0e-6, "35 b/s sprinting");
+		DirectionalFlightModel.Tune jets = FalconFlight.tune(false, true);
+		helper.assertTrue(Math.abs(jets.forcedForward() * 20.0 - 40.0) < 1.0e-6, "40 b/s with the jets burning");
+		// the jet burn drives along the look with no keys held
+		Vec3 look = new Vec3(0, 0, 1);
+		Vec3 wanted = DirectionalFlightModel.wantedVelocity(look, 0f, 0f, 0f, 0, jets);
+		helper.assertTrue(Math.abs(wanted.length() * 20.0 - 40.0) < 1.0e-6 && wanted.z > 0, "hold X: 40 b/s along the look, got " + wanted.length() * 20.0);
+		helper.assertTrue(DirectionalFlightModel.steering(0f, 0f, 0, jets), "the jets steer by themselves");
+		helper.assertTrue(DirectionalFlightModel.wantedVelocity(look, 0f, 0f, 0f, 0, FalconFlight.tune(false, false)).lengthSqr() == 0.0,
+				"no keys, no jets: a dead hover");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void doubleTapTogglesTheDirectionalFlight(GameTestHelper helper) {
+		ServerPlayer p = falcon(helper, 2.5, 2.0, 2.5);
+		Falcon.toggleFlight(p);
+		helper.assertTrue(Falcon.state(p).flying, "double-tap: flying");
+		helper.assertTrue(p.getAbilities().mayfly && p.getAbilities().flying, "on the shared flight (vanilla mayfly / flying), not a glide");
+		helper.assertFalse(p.isFallFlying(), "no elytra glide any more");
+		Falcon.toggleFlight(p);
+		helper.assertFalse(Falcon.state(p).flying, "double-tap again: dropped out");
+		helper.assertFalse(p.getAbilities().mayfly || p.getAbilities().flying, "and the flight flags are gone");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void holdXBurnsTheJetsTapIsTheAfterburner(GameTestHelper helper) {
+		ServerPlayer p = falcon(helper, 2.5, 6.0, 2.5);
+		Falcon.toggleFlight(p);
+		p.setOnGround(false);
+		pump(helper, p);
+		FalconAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		helper.runAfterDelay(FalconConfig.BOOST_HOLD_TICKS + 3, () -> {
+			helper.assertTrue(Falcon.state(p).boosting && FalconAbilityManager.holdingJets(p), "X held: the jets burn");
+			helper.assertTrue(Falcon.cooldownRemaining(p, FalconAbilities.AFTERBURNER) == 0, "a hold is not the Afterburner");
+			float before = Falcon.thrust(p);
+			helper.runAfterDelay(20, () -> {
+				helper.assertTrue(Falcon.thrust(p) < before - FalconConfig.BOOST_COST_PER_SECOND + 5f, "the burn costs Thrust, " + before + " -> " + Falcon.thrust(p));
+				FalconAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+				helper.assertFalse(Falcon.state(p).boosting, "let go: the burn stops");
+				Falcon.setThrust(p, FalconConfig.THRUST_MAX);
+				// a tap: down and up at once
+				FalconAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+				FalconAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+				helper.assertTrue(Falcon.cooldownRemaining(p, FalconAbilities.AFTERBURNER) == FalconConfig.AFTERBURNER_COOLDOWN, "a tap is the Afterburner");
+				helper.assertFalse(Falcon.state(p).boosting, "and no burn");
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void wristGunsHitForSevenAndSpendARound(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = falcon(helper, 3.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.0, 100);
+		helper.assertTrue(Falcon.state(p).ammo == FalconConfig.AMMO_MAX && FalconConfig.AMMO_MAX == 100f, "100 rounds");
+		FalconAbilities.startGuns(p);
+		FalconAbilities.tick(p);
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - FalconConfig.GUN_DAMAGE) < EPS && FalconConfig.GUN_DAMAGE == 7f,
+				"7 a round, took " + (100f - z.getHealth()));
+		helper.assertTrue(Math.abs(Falcon.state(p).ammo - (FalconConfig.AMMO_MAX - 1f)) < 0.01f, "one round spent, " + Falcon.state(p).ammo + " left");
+		helper.assertTrue(FalconConfig.GUN_INTERVAL == 4, "5 rounds a second");
+		FalconAbilities.stopGuns(p);
+		Falcon.setAmmo(p, 0f);
+		FalconState clear = Falcon.state(p).copy();
+		clear.abilityReadyAt.remove(FalconAbilities.GUNS);
+		p.setAttached(ModAttachments.FALCON_STATE, clear);
+		FalconAbilities.startGuns(p);
+		helper.assertFalse(FalconAbilities.running(p, FalconAbilities.GUNS), "dry: the guns won't fire");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void ammoRefillsThreeASecondWhenNotFiring(GameTestHelper helper) {
+		ServerPlayer p = falcon(helper, 2.5, 2.0, 2.5);
+		Falcon.setAmmo(p, 50f);
+		pump(helper, p);
+		helper.runAfterDelay(20, () -> {
+			float a = Falcon.state(p).ammo;
+			helper.assertTrue(a > 52.2f && a < 54.1f, "about +3 in a second, now " + a);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void missileHitsForTenRedwingLasersFiveBombsTen(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = falcon(helper, 1.5, 2.0, 1.5);
+		Zombie struck = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 100);
+		Zombie near = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 5.5, 100);
+		FalconAbilities.missileBlast(p, struck.position().add(0, 1, 0), struck, p.position());
+		helper.assertTrue(Math.abs((100f - struck.getHealth()) - 10f) < EPS && FalconConfig.MISSILE_DAMAGE == 10f,
+				"10 to the one it struck (no splash on top), took " + (100f - struck.getHealth()));
+		helper.assertTrue(Math.abs((100f - near.getHealth()) - FalconConfig.MISSILE_SPLASH) < EPS, "the blast for everyone else");
+		helper.assertTrue(FalconConfig.LASER_DAMAGE == 5f, "Redwing's lasers: 5 a bolt");
+		Zombie bombed = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 1.5, 100);
+		RedwingEntity.bombBlast(p, bombed.position());
+		helper.assertTrue(Math.abs((100f - bombed.getHealth()) - 10f) < EPS && FalconConfig.BOMB_DAMAGE == 10f,
+				"a bomb: 10, took " + (100f - bombed.getHealth()));
 		helper.succeed();
 	}
 

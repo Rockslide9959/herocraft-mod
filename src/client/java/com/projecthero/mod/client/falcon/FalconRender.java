@@ -108,6 +108,12 @@ public final class FalconRender {
 		sleeve.visible = true;
 		a.render(pose, buffers.getBuffer(RenderType.entityTranslucent(skin(sl))), light, OverlayTexture.NO_OVERLAY);
 		sleeve.render(pose, buffers.getBuffer(RenderType.entityTranslucent(skin(sl))), light, OverlayTexture.NO_OVERLAY);
+		// the wrist launcher on it, flashing as it fires
+		pose.pushPose();
+		arm.translateAndRotate(pose);
+		float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		FalconGeometry.wristLauncher(pose, buffers, light, right, sl, FalconClient.flash(player, right, partial), FalconClient.flashSeed(player));
+		pose.popPose();
 	}
 
 	// ---------------------------------------------------------------- the wings
@@ -124,7 +130,9 @@ public final class FalconRender {
 		}
 		w[2] = (float) (nowNanos / 1.0e6 % 1.0e7);
 		float targetSpread = spread || wrap ? 1f : 0f;
-		w[0] = Mth.clamp(w[0] + (targetSpread - w[0]) * Math.min(1f, dt * 9f), 0f, 1f);
+		// v0.17.1 second pass: a steady unfold / fold over WING_UNFOLD_TICKS (the geometry staggers it joint by joint)
+		float step = dt * 20f / com.projecthero.mod.falcon.FalconConfig.WING_UNFOLD_TICKS;
+		w[0] = targetSpread > w[0] ? Math.min(targetSpread, w[0] + step) : Math.max(targetSpread, w[0] - step);
 		w[1] = Mth.clamp(w[1] + ((wrap ? 1f : 0f) - w[1]) * Math.min(1f, dt * 12f), 0f, 1f);
 		return new float[] { w[0], w[1] };
 	}

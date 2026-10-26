@@ -1,0 +1,408 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.falcon.Falcon;
+import com.projecthero.mod.falcon.FalconAbilities;
+import com.projecthero.mod.falcon.data.FalconState;
+import com.projecthero.mod.falcon.item.FalconItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.1 Falcon second-pass screenshots. Enabled by run/falcon.flag. A client-only camera
+ * entity orbits the player at fixed offsets in the player's own frame (forward / right / up), so any angle can be shot.
+ */
+public final class FalconHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ArmorStand camera;
+	/** forward, right, up offsets of the camera from the player's chest (player frame), or null for the normal camera. */
+	private static double[] view;
+	private static final String PREFIX = "falcon2_";
+	/** A shot taken at render time, the first frame its condition holds. */
+	private static final java.util.List<Object[]> PENDING = new java.util.ArrayList<>();
+
+	private FalconHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("falcon.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(FalconHarness::tick);
+		// keep the orbit camera glued to the interpolated player every frame
+		WorldRenderEvents.START.register(ctx -> place(Minecraft.getInstance(), ctx.tickCounter().getGameTimeDeltaPartialTick(false)));
+		WorldRenderEvents.LAST.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			java.util.Iterator<Object[]> it = PENDING.iterator();
+			while (it.hasNext()) {
+				Object[] o = it.next();
+				if (((java.util.function.BooleanSupplier) o[1]).getAsBoolean()) {
+					it.remove();
+					Screenshot.grab(mc.gameDirectory, PREFIX + o[0] + ".png", mc.getMainRenderTarget(), m -> {
+					});
+					System.out.println("[HARNESS] shot (render) " + o[0]);
+					break;
+				}
+			}
+		});
+		// the level never draws the local player unless it is the camera: draw it ourselves for the orbit camera
+		WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (view == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			Player p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = Mth.lerp(pt, p.yo, p.getY()) - cam.y, z = Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(), disp.getPackedLightCoords(p, pt));
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "falcon-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, PREFIX + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	/** From tick t, the next frame where {@code cond} holds. */
+	private static void shotWhen(int t, String name, java.util.function.BooleanSupplier cond) {
+		at(t, () -> PENDING.add(new Object[] { name, cond }));
+	}
+
+	private static float slashAge() {
+		Minecraft mc = Minecraft.getInstance();
+		FalconState s = mc.player == null ? null : Falcon.peek(mc.player);
+		if (s == null || s.animId != FalconState.ANIM_SLASH) {
+			return -1f;
+		}
+		return mc.level.getGameTime() - s.animStart + mc.getTimer().getGameTimeDeltaPartialTick(false);
+	}
+
+	private static boolean flashing() {
+		Minecraft mc = Minecraft.getInstance();
+		return mc.player != null && (com.projecthero.mod.client.falcon.FalconClient.flash(mc.player, true, mc.getTimer().getGameTimeDeltaPartialTick(false)) > 0.4f
+				|| com.projecthero.mod.client.falcon.FalconClient.flash(mc.player, false, mc.getTimer().getGameTimeDeltaPartialTick(false)) > 0.4f);
+	}
+
+	private static void cam(int t, CameraType type) {
+		at(t, () -> Minecraft.getInstance().options.setCameraType(type));
+	}
+
+	/** From tick t, the orbit camera at (forward, right, up) blocks from the player's chest. */
+	private static void orbit(int t, double f, double r, double u) {
+		at(t, () -> {
+			view = new double[] { f, r, u };
+			Minecraft mc = Minecraft.getInstance();
+			if (camera == null || camera.level() != mc.level) {
+				camera = new ArmorStand(EntityType.ARMOR_STAND, mc.level);
+				camera.setInvisible(true);
+			}
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.setCameraEntity(camera);
+			place(mc, 1f);
+		});
+	}
+
+	private static void normalView(int t, CameraType type) {
+		at(t, () -> {
+			view = null;
+			Minecraft mc = Minecraft.getInstance();
+			mc.setCameraEntity(mc.player);
+			mc.options.setCameraType(type);
+		});
+	}
+
+	private static void place(Minecraft mc, float partial) {
+		if (view == null || camera == null || mc.player == null) {
+			return;
+		}
+		Player p = mc.player;
+		Vec3 prev = new Vec3(p.xo, p.yo, p.zo);
+		Vec3 cur = p.position();
+		Vec3 at = prev.lerp(cur, partial).add(0, 1.1, 0);
+		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		Vec3 right = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
+		Vec3 eye = at.add(fwd.scale(view[0])).add(right.scale(view[1])).add(0, view[2], 0);
+		Vec3 to = at.subtract(eye);
+		float camYaw = (float) (Mth.atan2(to.z, to.x) * Mth.RAD_TO_DEG) - 90f;
+		float camPitch = (float) (-Mth.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)) * Mth.RAD_TO_DEG);
+		double eyeH = camera.getEyeHeight();
+		camera.setPos(eye.x, eye.y - eyeH, eye.z);
+		camera.xo = camera.xOld = eye.x;
+		camera.yo = camera.yOld = eye.y - eyeH;
+		camera.zo = camera.zOld = eye.z;
+		camera.setYRot(camYaw);
+		camera.setXRot(camPitch);
+		camera.yRotO = camYaw;
+		camera.xRotO = camPitch;
+		camera.setYHeadRot(camYaw);
+		camera.yHeadRotO = camYaw;
+	}
+
+	private static void husks(ServerPlayer p, int n, double dist) {
+		ServerLevel level = p.serverLevel();
+		for (int i = 0; i < n; i++) {
+			Husk h = EntityType.HUSK.create(level);
+			double a = (i - (n - 1) / 2.0) * 0.3;
+			h.moveTo(origin.x + Math.sin(a) * dist, origin.y, origin.z + Math.cos(a) * dist, 180f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+			h.setHealth(400);
+			h.setPersistenceRequired();
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void clear(ServerPlayer p, float pitch) {
+		p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(80)).forEach(net.minecraft.world.entity.Entity::discard);
+		Falcon.setBoost(p, false);
+		Falcon.stopFlying(p);
+		p.connection.teleport(origin.x, origin.y, origin.z, 0f, pitch);
+		Falcon.setThrust(p, 100f);
+		Falcon.setAmmo(p, 100f);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(FalconHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				FalconItems.equipFullSet(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+			});
+			t0 = inWorldTicks + 100; // let the title and chat lines fade first
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		// --- folded, on the ground
+		orbit(0, 3.0, 1.3, 0.3);
+		shot(8, "folded_front");
+		orbit(10, -3.0, 1.6, 0.7);
+		shot(18, "folded_back");
+		orbit(20, 0.2, 3.2, 0.2);
+		shot(28, "folded_side");
+		orbit(30, -2.2, -2.2, 1.6);
+		shot(38, "folded_back_high");
+		// --- take off up high: the unfold, then the full span hovering
+		at(40, () -> server(mc, p -> {
+			clear(p, 0f);
+			p.connection.teleport(origin.x, origin.y + 30, origin.z, 0f, 0f);
+		}));
+		orbit(41, -4.5, 1.2, 1.4);
+		at(46, () -> server(mc, Falcon::takeOff));
+		shot(49, "unfold_a");
+		shot(52, "unfold_b");
+		shot(56, "unfold_c");
+		shot(66, "spread_back");
+		orbit(68, 5.5, 0.6, 0.6);
+		shot(76, "spread_front");
+		orbit(78, 0.4, 5.0, 1.8);
+		shot(86, "spread_side");
+		orbit(88, 2.0, 1.5, -4.0);
+		shot(96, "spread_below");
+		orbit(98, -1.8, 0.8, 5.5);
+		shot(106, "spread_top");
+		orbit(108, -3.4, 3.4, 2.4);
+		shot(116, "spread_threequarter");
+		// --- the jets: X held drives him along the look at 40 b/s
+		at(118, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y + 45, origin.z, 0f, 8f);
+			FalconState n = Falcon.state(p).copy();
+			n.boosting = true;
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.FALCON_STATE, n);
+		}));
+		orbit(119, -4.5, 2.0, 2.0);
+		shot(132, "boost_back");
+		orbit(134, 0.5, 5.0, 0.8);
+		shot(142, "boost_side");
+		// a hard turn while boosting: the bank
+		for (int k = 0; k < 12; k++) {
+			at(144 + k, () -> {
+				if (mc.player != null) {
+					mc.player.setYRot(mc.player.getYRot() + 4f);
+				}
+			});
+		}
+		normalView(144, CameraType.THIRD_PERSON_BACK);
+		shot(153, "bank");
+		at(160, () -> server(mc, p -> Falcon.setBoost(p, false)));
+		// --- the Wing Slash on the ground
+		at(165, () -> server(mc, p -> {
+			clear(p, 0f);
+			husks(p, 2, 3.0);
+		}));
+		orbit(168, 4.0, 1.2, 1.6);
+		at(176, () -> server(mc, FalconAbilities::slash));
+		shotWhen(176, "slash_a", () -> slashAge() > 1.5f && slashAge() < 3f);
+		shotWhen(176, "slash_b", () -> slashAge() > 3.5f && slashAge() < 5f);
+		shotWhen(176, "slash_c", () -> slashAge() > 5.5f && slashAge() < 7f);
+		shotWhen(176, "slash_d", () -> slashAge() > 8f && slashAge() < 10f);
+		orbit(192, 2.0, -4.0, 2.4);
+		at(196, () -> server(mc, p -> {
+			FalconState n = Falcon.state(p).copy();
+			n.abilityReadyAt.remove(FalconAbilities.SLASH);
+			p.setAttached(com.projecthero.mod.attachment.ModAttachments.FALCON_STATE, n);
+			FalconAbilities.slash(p);
+		}));
+		shotWhen(196, "slash_e", () -> slashAge() > 3.5f && slashAge() < 5f);
+		shotWhen(196, "slash_f", () -> slashAge() > 6f && slashAge() < 8f);
+		// --- the wrist guns into a line of husks
+		at(210, () -> server(mc, p -> {
+			clear(p, 2f);
+			husks(p, 3, 12.0);
+		}));
+		orbit(212, 2.4, -2.4, 0.5);
+		at(216, () -> server(mc, FalconAbilities::startGuns));
+		for (int k = 0; k < 4; k++) {
+			shotWhen(218 + k * 6, "guns_" + k, FalconHarness::flashing);
+		}
+		orbit(244, -3.0, 1.4, 0.8);
+		shotWhen(246, "guns_back", FalconHarness::flashing);
+		at(252, () -> server(mc, FalconAbilities::stopGuns));
+		// the HUD with the ammo bar (some spent), first person
+		normalView(254, CameraType.FIRST_PERSON);
+		at(255, () -> mc.options.hideGui = false);
+		at(256, () -> server(mc, p -> {
+			Falcon.setAmmo(p, 62f);
+			Falcon.setThrust(p, 74f);
+		}));
+		shot(262, "hud");
+		// flying HUD with the jets burning
+		at(264, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y + 40, origin.z, 0f, 5f);
+			Falcon.takeOff(p);
+		}));
+		at(268, () -> server(mc, p -> Falcon.setBoost(p, true)));
+		shot(280, "hud_jets");
+		at(282, () -> server(mc, p -> Falcon.setBoost(p, false)));
+		at(283, () -> mc.options.hideGui = true);
+		// --- the Wing Shield from the front
+		at(286, () -> server(mc, p -> {
+			clear(p, 0f);
+			FalconAbilities.raiseShield(p);
+		}));
+		orbit(287, 3.5, 1.4, 0.8);
+		shot(298, "shield");
+		orbit(300, 0.6, 3.6, 1.0);
+		shot(306, "shield_side");
+		at(308, () -> server(mc, FalconAbilities::lowerShield));
+		at(330, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("FALCON2_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

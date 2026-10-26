@@ -25,8 +25,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1: the Falcon HUD (bottom-right), in the framed mono style of the reworked powers (like {@code QuirkHud}):
  * <pre>
- *   Falcon                      34 b/s     the title, and the speed while flying (STALL in red when too slow)
+ *   Falcon                      34 b/s     the title, and the speed while flying (JETS while X burns them)
  *   Thrust [=========-----] 63             the meter (red; pulses while the jets burn)
+ *   Ammo   [=============-] 88             the Wrist Gun rounds (brass; red and flashing when nearly dry)
  *   [R] [G] [Z] [X] [C] [V]                the six keys: the plain move's cooldown, or the Shift move's while sneaking
  *                                          (a small bar under the box marks the Shift view); lit while that key's move runs
  * </pre>
@@ -49,6 +50,8 @@ public final class FalconHud {
 	private static final int BAR_BG = 0xC0141414;
 	private static final int THRUST = 0xFFE8283C;
 	private static final int THRUST_BOOST = 0xFFFF9A3A;
+	private static final int AMMO = 0xFFE8B23A;
+	private static final int AMMO_LOW = 0xFFFF4040;
 
 	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5), as on the other Hero-Tier HUDs. */
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3,
@@ -82,40 +85,28 @@ public final class FalconHud {
 			y0 = g.guiHeight() - 41 - BOX; // clear of the hotbar and food bar on a narrow window
 		}
 
-		// the Thrust meter
+		// the two meters, Ammo under Thrust, their bars lined up
+		Component thrustLabel = Component.translatable("hud.projecthero.falcon.thrust");
+		Component ammoLabel = Component.translatable("hud.projecthero.falcon.ammo");
+		int labelW = Math.max(mc.font.width(thrustLabel), mc.font.width(ammoLabel));
+		int ammoY = y0 - 4 - BAR_H;
+		int thrustY = ammoY - 10;
 		float thrust = Mth.clamp(s.thrust, 0f, FalconConfig.THRUST_MAX);
-		int by = y0 - 4 - BAR_H;
-		Component label = Component.translatable("hud.projecthero.falcon.thrust");
-		int labelW = mc.font.width(label);
-		String value = String.valueOf(Math.round(thrust));
-		int valueW = mc.font.width("100");
-		int barX = x0 + labelW + 4;
-		int barW = Math.max(20, totalW - labelW - 4 - valueW - 3);
-		int colour = s.boosting && s.flying ? ((now / 3) % 2 == 0 ? THRUST_BOOST : THRUST) : THRUST;
-		g.drawString(mc.font, label, x0, by - 2, NAME, false);
-		g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, BORDER);
-		g.fill(barX, by, barX + barW, by + BAR_H, BAR_BG);
-		int fill = Math.round(barW * thrust / FalconConfig.THRUST_MAX);
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + BAR_H, colour);
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
-		g.drawString(mc.font, value, x0 + totalW - mc.font.width(value), by - 2, NAME, false);
+		int thrustColour = s.boosting && s.flying ? ((now / 3) % 2 == 0 ? THRUST_BOOST : THRUST) : THRUST;
+		meter(g, mc, x0, thrustY, totalW, labelW, thrustLabel, thrust / FalconConfig.THRUST_MAX, Math.round(thrust), thrustColour);
+		float ammo = Mth.clamp(s.ammo, 0f, FalconConfig.AMMO_MAX);
+		int ammoColour = ammo < FalconConfig.AMMO_MAX * 0.2f ? ((now / 4) % 2 == 0 ? AMMO_LOW : AMMO) : AMMO;
+		meter(g, mc, x0, ammoY, totalW, labelW, ammoLabel, ammo / FalconConfig.AMMO_MAX, (int) Math.floor(ammo), ammoColour);
+		int by = thrustY;
 
-		// the title line, with the speed / stall readout while flying
+		// the title line, with the speed readout while flying (JETS while they burn)
 		int ty = by - 13;
 		g.drawString(mc.font, Component.translatable("hud.projecthero.falcon.title"), x0, ty, NAME, false);
 		if (s.flying) {
-			Component right;
-			int rc;
-			if (FalconFlightClient.stalling()) {
-				right = Component.translatable("hud.projecthero.falcon.stall");
-				rc = (now / 4) % 2 == 0 ? 0xFFFF4040 : 0xFFFFB0B0;
-			} else {
-				right = Component.translatable(FalconFlightClient.skimming() ? "hud.projecthero.falcon.speed_skim" : "hud.projecthero.falcon.speed",
-						(int) Math.round(FalconFlightClient.speedBps()));
-				rc = FalconFlightClient.skimming() ? 0xFF8FE8FF : HINT;
-			}
+			boolean jets = s.boosting;
+			Component right = Component.translatable(jets ? "hud.projecthero.falcon.speed_jets" : "hud.projecthero.falcon.speed",
+					(int) Math.round(FalconFlightClient.speedBps()));
+			int rc = jets ? ((now / 3) % 2 == 0 ? THRUST_BOOST : 0xFFFFD08A) : HINT;
 			g.drawString(mc.font, right, x0 + totalW - mc.font.width(right), ty, rc, false);
 		}
 
@@ -147,11 +138,11 @@ public final class FalconHud {
 			int cd = Falcon.cooldownRemaining(mc.player, id);
 			int max = Math.max(1, FalconAbilityManager.maxCooldown(id));
 			float cost = FalconAbilityManager.cost(id);
-			boolean usable = s.thrust + 1.0e-3f >= cost;
+			boolean usable = s.thrust + 1.0e-3f >= cost && (!id.equals(com.projecthero.mod.falcon.FalconAbilities.GUNS) || s.ammo >= FalconConfig.AMMO_PER_SHOT);
 			boolean active = switch (slot) {
 				case SLOT_1 -> s.firingUntil > now;
 				case SLOT_2 -> Falcon.shieldUp(mc.player);
-				case SLOT_3 -> s.rollUntil > now || (s.animId == FalconState.ANIM_AFTERBURNER && now - s.animStart < 10);
+				case SLOT_3 -> s.rollUntil > now || s.boosting || (s.animId == FalconState.ANIM_AFTERBURNER && now - s.animStart < 10);
 				case SLOT_4 -> redwingBusy;
 				case SLOT_5 -> s.goggles || s.carryId != -1;
 				case SLOT_6 -> s.animId == FalconState.ANIM_DIVE && now - s.animStart < FalconConfig.DIVE_MAX_TICKS && s.flying;
@@ -174,6 +165,23 @@ public final class FalconHud {
 		if (s.goggles) {
 			gogglesReadout(g, mc);
 		}
+	}
+
+	/** One labelled meter: {@code label}, the bar (filled to {@code frac}), the number on the right. */
+	private static void meter(GuiGraphics g, Minecraft mc, int x0, int by, int totalW, int labelW, Component label, float frac, int number, int colour) {
+		String value = String.valueOf(number);
+		int valueW = mc.font.width("100");
+		int barX = x0 + labelW + 4;
+		int barW = Math.max(20, totalW - labelW - 4 - valueW - 3);
+		g.drawString(mc.font, label, x0, by - 2, NAME, false);
+		g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, BORDER);
+		g.fill(barX, by, barX + barW, by + BAR_H, BAR_BG);
+		int fill = Math.round(barW * Mth.clamp(frac, 0f, 1f));
+		if (fill > 0) {
+			g.fill(barX, by, barX + fill, by + BAR_H, colour);
+			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
+		}
+		g.drawString(mc.font, value, x0 + totalW - mc.font.width(value), by - 2, NAME, false);
 	}
 
 	/** The Tactical Goggles: the creature nearest the crosshair (within ~4 degrees, 60 blocks): name, health, distance. */

@@ -1296,7 +1296,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			return;
 		}
 
-		// v0.17.1: the Falcon -- double-tap jump (on the ground or in the air) snaps the wings open and takes off (server re-validates).
+		// v0.17.1: the Falcon -- double-tap jump (on the ground or in the air) snaps the wings open and takes off, or drops out
+		// of the flight (server re-validates).
 		if (com.projecthero.mod.client.falcon.FalconFlightClient.wantsTakeOff(player)) {
 			ticksSinceJumpPress = Integer.MAX_VALUE;
 			com.projecthero.mod.client.falcon.FalconFlightClient.takeOff();

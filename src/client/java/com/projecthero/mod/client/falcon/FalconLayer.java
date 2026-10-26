@@ -2,6 +2,7 @@ package com.projecthero.mod.client.falcon;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.projecthero.mod.falcon.Falcon;
+import com.projecthero.mod.falcon.data.FalconState;
 
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -14,9 +15,10 @@ import net.minecraft.world.entity.player.PlayerModelPart;
 
 /**
  * v0.17.1: the Falcon on every player wearing the full set (every viewer: the worn armour is synced) -- the suit
- * ({@link FalconRender}) over the wearer's own skin with their hat layer (hair, hats) kept and the goggles over it, and the
- * EXO-7 Wing Pack on the back ({@link FalconGeometry}): wings folded down the back on the ground, spread in flight, wrapped
- * round in front for the Wing Shield, the jets lit while boosting.
+ * ({@link FalconRender}) over the wearer's own skin with their hat layer (hair, hats) kept and the goggles over it, the
+ * wrist launchers on both forearms (flashing as they fire), and the EXO-7 Wing Pack on the back ({@link FalconGeometry}):
+ * wings folded down the pack's sides on the ground, spread to their full span in flight, wrapped round in front for the
+ * Wing Shield, the right one swinging round in front for the Wing Slash, the jets lit while they burn.
  */
 public class FalconLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	public FalconLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
@@ -40,13 +42,30 @@ public class FalconLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<A
 			parent.hat.visible = was;
 		}
 		FalconRender.render(pose, buffers, light, player, parent);
+		// the wrist launchers
+		boolean slim = FalconRender.slim(player);
+		int seed = FalconClient.flashSeed(player);
+		pose.pushPose();
+		parent.rightArm.translateAndRotate(pose);
+		FalconGeometry.wristLauncher(pose, buffers, light, true, slim, FalconClient.flash(player, true, partialTick), seed);
+		pose.popPose();
+		pose.pushPose();
+		parent.leftArm.translateAndRotate(pose);
+		FalconGeometry.wristLauncher(pose, buffers, light, false, slim, FalconClient.flash(player, false, partialTick), seed);
+		pose.popPose();
 		// the Wing Pack
 		float[] w = FalconRender.wings(player);
-		float jets = Falcon.boosting(player) ? 1f : 0f;
-		float flap = FalconFlightClient.flap(player, partialTick);
+		FalconState s = Falcon.peek(player);
+		boolean flying = Falcon.flying(player);
+		float jets = Falcon.boosting(player) ? 1f : flying && player.isSprinting() ? 0.35f : 0f;
+		float slash = -1f;
+		if (s != null && s.animId == FalconState.ANIM_SLASH && player.level() != null) {
+			slash = FalconGeometry.slashProgress(player.level().getGameTime() - s.animStart + partialTick);
+		}
+		float flex = flying ? w[0] : 0f;
 		pose.pushPose();
 		parent.body.translateAndRotate(pose);
-		FalconGeometry.wingPack(pose, buffers, light, w[0], w[1], flap, jets, ageInTicks);
+		FalconGeometry.wingPack(pose, buffers, light, w[0], w[1], jets, slash, flex, ageInTicks);
 		pose.popPose();
 	}
 }

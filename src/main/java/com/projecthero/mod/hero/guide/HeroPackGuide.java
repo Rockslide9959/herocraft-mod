@@ -152,8 +152,8 @@ public final class HeroPackGuide {
 				blank(lines);
 			}
 			head(lines, "projecthero.guide.falcon.controls");
-			for (String[] row : new String[][] { { "Space x2", "flight" }, { "Space", "wing_flap" }, { "R", "wrist_guns" },
-					{ "Shift+R", "micro_missiles" }, { "G", "wing_slash" }, { "Shift+G", "wing_shield" }, { "X", "afterburner" },
+			for (String[] row : new String[][] { { "Space x2", "flight" }, { "Hold X", "jet_burn" }, { "R", "wrist_guns" },
+					{ "Shift+R", "micro_missiles" }, { "G", "wing_slash" }, { "Shift+G", "wing_shield" }, { "Tap X", "afterburner" },
 					{ "Shift+X", "barrel_roll" }, { "Z", "redwing_strike" }, { "Shift+Z", "redwing_bombing_run" }, { "V", "tactical_goggles" },
 					{ "Shift+V", "lift_and_carry" }, { "C", "dive_bomb" }, { "Shift+C", "talon_drop" } }) {
 				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)

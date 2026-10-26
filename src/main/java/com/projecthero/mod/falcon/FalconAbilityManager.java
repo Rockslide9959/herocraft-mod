@@ -17,27 +17,59 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (1)  Wrist Guns (hold)     Shift+R  Micro-Missile Volley
  *   G (2)  Wing Slash            Shift+G  Wing Shield (hold)
- *   X (3)  Afterburner           Shift+X  Barrel Roll
+ *   X (3)  Afterburner (tap)     Shift+X  Barrel Roll
+ *          jet burn (hold)
  *   Z (4)  Redwing Strike        Shift+Z  Redwing Bombing Run
  *   V (5)  Tactical Goggles      Shift+V  Lift &amp; Carry
  *   C (6)  Dive Bomb             Shift+C  Talon Drop
  * </pre>
- * Double-tap jump is the take-off (its own payload); H and N do nothing.
+ * Double-tap jump takes off / drops out (its own payload); H and N do nothing. X is tap-vs-hold here: released within
+ * {@link FalconConfig#BOOST_HOLD_TICKS} ticks it is the Afterburner, held it burns the jets (40 b/s) until let go.
  */
 public final class FalconAbilityManager {
 	static final int REPEAT_WINDOW = 25;
 
 	private static final Map<UUID, long[]> LAST_PRESS = new ConcurrentHashMap<>();
+	/** X: {game time it went down, 1 once it became the jet burn (a hold)}; a release before that is the Afterburner tap. */
+	private static final Map<UUID, long[]> X_DOWN = new ConcurrentHashMap<>();
 
 	private FalconAbilityManager() {
 	}
 
 	static void clearSessionState() {
 		LAST_PRESS.clear();
+		X_DOWN.clear();
 	}
 
 	static void forget(UUID id) {
 		LAST_PRESS.remove(id);
+		X_DOWN.remove(id);
+	}
+
+	/**
+	 * Every tick (from {@link Falcon#tick}): X held {@link FalconConfig#BOOST_HOLD_TICKS} becomes the jet burn -- in the air it
+	 * burns at once; on the ground it takes off first.
+	 */
+	static void tick(ServerPlayer player) {
+		long[] x = X_DOWN.get(player.getUUID());
+		if (x == null || x[1] != 0L || player.level().getGameTime() - x[0] < FalconConfig.BOOST_HOLD_TICKS) {
+			return;
+		}
+		x[1] = 1L;
+		if (!Falcon.state(player).flying) {
+			Falcon.takeOff(player);
+		}
+		if (Falcon.thrust(player) <= 0.5f) {
+			Falcon.say(player, "message.projecthero.falcon.low_thrust", net.minecraft.ChatFormatting.RED, 1, 0);
+			return;
+		}
+		Falcon.setBoost(player, true);
+	}
+
+	/** True while X is down and has become the jet burn (for the gametests / HUD). */
+	public static boolean holdingJets(ServerPlayer player) {
+		long[] x = X_DOWN.get(player.getUUID());
+		return x != null && x[1] != 0L;
 	}
 
 	public static boolean hasContext(ServerPlayer player) {
@@ -92,9 +124,18 @@ public final class FalconAbilityManager {
 			case SLOT_3 -> {
 				if (pressed) {
 					if (shift) {
+						X_DOWN.remove(player.getUUID());
 						FalconAbilities.barrelRoll(player);
 					} else {
+						// tap = Afterburner on the release, hold = the jet burn (tick)
+						X_DOWN.put(player.getUUID(), new long[] { player.level().getGameTime(), 0L });
+					}
+				} else {
+					long[] x = X_DOWN.remove(player.getUUID());
+					if (x != null && x[1] == 0L) {
 						FalconAbilities.afterburner(player);
+					} else if (x != null) {
+						Falcon.setBoost(player, false);
 					}
 				}
 			}
@@ -156,7 +197,6 @@ public final class FalconAbilityManager {
 			case FalconAbilities.CARRY -> FalconConfig.CARRY_COOLDOWN;
 			case FalconAbilities.DIVE -> FalconConfig.DIVE_COOLDOWN;
 			case FalconAbilities.TALON -> FalconConfig.TALON_COOLDOWN;
-			case FalconAbilities.FLAP -> FalconConfig.FLAP_COOLDOWN;
 			default -> 0;
 		};
 	}
@@ -170,7 +210,6 @@ public final class FalconAbilityManager {
 			case FalconAbilities.BOMBING -> FalconConfig.BOMB_COST;
 			case FalconAbilities.DIVE -> FalconConfig.DIVE_COST;
 			case FalconAbilities.TALON -> FalconConfig.TALON_COST;
-			case FalconAbilities.FLAP -> FalconConfig.FLAP_COST;
 			default -> 0f;
 		};
 	}
