@@ -199,7 +199,9 @@ public class GreenLanternVehicleGameTests implements FabricGameTest {
 		GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
 		GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
 		HardLightJetEntity jet = (HardLightJetEntity) carry(p).vehicle;
-		jet.moveTo(jet.getX(), jet.getY() + 8.0, jet.getZ(), jet.getYRot(), 0f);
+		// 3.5 up, well inside the test cage: 8 up put it at / in the cage's barrier ceiling, where it could not move at all
+		// (CI: "dropped 0.0 in 61 ticks"). In a real world a parked / abandoned jet sinks at 5 b/s (checked in a client run).
+		jet.moveTo(jet.getX(), jet.getY() + 3.5, jet.getZ(), jet.getYRot(), 0f);
 		// CI places tests at far positions whose chunks may not tick entities (the v0.16.5 frozen-chunk lesson): the jet's
 		// own physics only runs when it ticks, so measure against ITS tick count, not the test's clock, and skip a frozen spot
 		if (!helper.getLevel().isPositionEntityTicking(jet.blockPosition())) {
@@ -212,7 +214,7 @@ public class GreenLanternVehicleGameTests implements FabricGameTest {
 		double sink = GreenLanternConfig.VEHICLE_JET_SINK_BPS / 20.0;
 		helper.succeedWhen(() -> {
 			int dt = jet.tickCount - t0;
-			helper.assertTrue(dt >= 10, "waiting for 10 jet ticks (" + dt + ")");
+			helper.assertTrue(dt >= 8, "waiting for 8 jet ticks (" + dt + ")");
 			double drop = y0 - jet.getY();
 			// the first tick it still thinks it is grounded (taxi: 0.05 down), then up to 0.25 a tick
 			helper.assertTrue(drop > 0.15 * (dt - 1) && drop <= sink * dt + 0.1,
