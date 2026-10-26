@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "platform=false": {
+      "model": "projecthero:block/hard_light_scaffold"
+    },
+    "platform=true": {
+      "model": "projecthero:block/hard_light"
+    }
+  }
+}

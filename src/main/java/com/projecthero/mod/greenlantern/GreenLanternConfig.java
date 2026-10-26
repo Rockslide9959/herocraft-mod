@@ -371,6 +371,35 @@ public final class GreenLanternConfig {
 	public static final float TOOL_KIT_UPKEEP_PER_SEC = 3f;
 	public static final int TOOL_KIT_SLOT_WEIGHT = 2;
 
+	// ---------------- v0.17.1: survival constructs (GreenLanternSurvival) ----------------
+
+	/** Hard-Light Chest: 27 slots, one at a time, stands where you aim (6 blocks) until N / dry / broken; spills its items. */
+	public static final float CHEST_COST = 40f;
+	public static final float CHEST_UPKEEP_PER_SEC = 1f;
+	public static final double CHEST_RANGE = 6.0;
+	/** Punches that break it (any player's; its contents drop). */
+	public static final int CHEST_HITS = 5;
+	/** How far away a viewer can keep it open. */
+	public static final double CHEST_REACH = 8.0;
+	/** Hard-Light Scaffold Tower: a climbable column (Space up, sneak down) with a 3x3 deck on top. */
+	public static final float SCAFFOLD_COST = 30f;
+	public static final float SCAFFOLD_UPKEEP_PER_SEC = 1.5f;
+	public static final int SCAFFOLD_HEIGHT = 24;
+	public static final double SCAFFOLD_RANGE = 24.0;
+	/** Blocks of column built each tick (24 blocks in under a second). */
+	public static final int SCAFFOLD_BUILD_PER_TICK = 3;
+	/** Item Net: sweeps out over a radius and reels every dropped item and XP orb in to you, then dissolves. */
+	public static final float NET_COST = 25f;
+	public static final double NET_RADIUS = 12.0;
+	public static final int NET_TICKS = 60;
+	public static final int NET_COOLDOWN_TICKS = 10 * 20;
+	/** Hard-Light Tunneller: bores a 3x3 tunnel up to 16 blocks along your aim; mined blocks drop as items. */
+	public static final float TUNNEL_COST = 10f;
+	public static final float TUNNEL_COST_PER_BLOCK = 1.5f;
+	public static final int TUNNEL_LENGTH = 16;
+	/** Ticks per one-block slice of the bore (16 slices = 2.4 s). */
+	public static final int TUNNEL_TICKS_PER_SLICE = 3;
+
 	// ---------------- v0.14.3: new attacks + construct attacks ----------------
 
 	/** Shift+X (hold) -- Emerald Gatling: a spinning hard-light minigun on the ring fist. */

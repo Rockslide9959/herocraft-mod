@@ -918,6 +918,9 @@ public final class HeroPackGuide {
 				}
 			}
 			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.survival"); // v0.17.1: chest, scaffold tower, item net, tunneller
+			para(lines, "projecthero.guide.green_lantern.survival.body");
+			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.sniper"); // v0.16.1
 			para(lines, "projecthero.guide.green_lantern.sniper.body");
 			blank(lines);

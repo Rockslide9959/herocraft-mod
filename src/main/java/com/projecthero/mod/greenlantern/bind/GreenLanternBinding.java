@@ -38,6 +38,8 @@ public final class GreenLanternBinding {
 	/** Which icon atlas an entry's icon is in. */
 	public static final int ATLAS_CONSTRUCTS = 0;
 	public static final int ATLAS_ENTRIES = 1;
+	/** v0.17.1: the survival constructs' own icon strip (textures/gui/green_lantern/survival.png, 4 x 16 px). */
+	public static final int ATLAS_SURVIVAL = 2;
 
 	/**
 	 * One menu entry. {@code type} is the construct it deploys (null for the ring's own moves); {@code hold} = the key is
@@ -87,8 +89,12 @@ public final class GreenLanternBinding {
 		for (ConstructType t : ConstructType.values()) {
 			boolean arsenal = t.kind() == ConstructType.Kind.ARSENAL;
 			int cell = arsenal ? 16 + (t.ordinal() - ConstructType.BOXING_GLOVE.ordinal()) : t.ordinal();
-			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(),
-					arsenal ? ATLAS_ENTRIES : ATLAS_CONSTRUCTS, cell, t));
+			int atlas = arsenal ? ATLAS_ENTRIES : ATLAS_CONSTRUCTS;
+			if (t.kind() == ConstructType.Kind.SURVIVAL) { // v0.17.1: their own strip
+				atlas = ATLAS_SURVIVAL;
+				cell = t.ordinal() - ConstructType.HARD_LIGHT_CHEST.ordinal();
+			}
+			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(), atlas, cell, t));
 		}
 		list.add(new Entry(OATH, Section.RING, true, ATLAS_ENTRIES, 3, null));
 		list.add(new Entry(SUIT, Section.RING, false, ATLAS_ENTRIES, 4, null));
@@ -119,7 +125,7 @@ public final class GreenLanternBinding {
 		return switch (t) {
 			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, ATMOSPHERE_BUBBLE, BEAR_TRAP, MIRROR_SHIELD -> Section.DEFENCE;
 			case PLATFORM, BRIDGE, STAIR_RAMP, MINING_DRILL, LANTERN_LIGHT, HARD_LIGHT_TOOLS, RESCUE_TETHER, CARRY_PLATFORM,
-					LAUNCH_PAD, GRAPPLING_CLAW -> Section.BUILDING;
+					LAUNCH_PAD, GRAPPLING_CLAW, HARD_LIGHT_CHEST, SCAFFOLD_TOWER, ITEM_NET, TUNNELLER -> Section.BUILDING;
 			case SENTRY_TURRET, EMERALD_WARRIOR, FIGHTER_JET, EMERALD_DRAGON, MED_BAY -> Section.SUMMON;
 			default -> Section.ATTACK;
 		};

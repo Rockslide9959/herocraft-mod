@@ -84,10 +84,12 @@ public final class GreenLanternArsenal {
 	public static void clearSessionState() {
 		LIVE.clear();
 		HOLDS.clear();
+		GreenLanternSurvival.clearSessionState(); // v0.17.1 survival constructs
 	}
 
 	/** The mace's shockwave rides on a real melee swing (left click), never on the ring's own hits. */
 	public static void initialize() {
+		GreenLanternSurvival.initialize(); // v0.17.1 survival constructs (chest, scaffold tower, item net, tunneller)
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, world, hand, target, hitResult) -> {
 			if (!world.isClientSide() && player instanceof ServerPlayer sp && target instanceof LivingEntity living
 					&& GreenLantern.hasPower(sp)) {
@@ -99,6 +101,7 @@ public final class GreenLanternArsenal {
 
 	/** N / death / logout: everything this player has out dissolves. */
 	public static void dismissAll(UUID owner) {
+		GreenLanternSurvival.dismissAll(owner); // v0.17.1: a Hard-Light Chest spills its items
 		Hold h = HOLDS.remove(owner);
 		if (h != null && h.model() != null) {
 			h.model().discard();
@@ -938,6 +941,7 @@ public final class GreenLanternArsenal {
 
 	/** Per player per tick: upkeeps, and the mace's attribute guard. */
 	public static void tick(ServerPlayer p) {
+		GreenLanternSurvival.tick(p); // v0.17.1 survival constructs' upkeep
 		Hold h = HOLDS.get(p.getUUID());
 		if (h != null && h.type() == ConstructType.MIRROR_SHIELD
 				&& !GreenLanternEnergy.drainTick(p, GreenLanternConfig.MIRROR_UPKEEP_PER_SEC / 20f)) {
@@ -981,8 +985,7 @@ public final class GreenLanternArsenal {
 			case MED_BAY -> tickMedBay(e, owner);
 			case ARROW -> tickArrow(e, owner);
 			case CANNON, BOW, MIRROR -> tickHeldModel(e, owner);
-			default -> {
-			}
+			default -> GreenLanternSurvival.tickEntity(e, owner); // v0.17.1 survival constructs
 		}
 	}
 

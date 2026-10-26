@@ -725,3 +725,31 @@ A new wheel construct (`ConstructType.SNIPER_RIFLE`, appended so saved selection
   upper-left of the lens.
 - Gametests: `V0161PunisherGlGameTests` (forms / puts away, long-range hit + cost + cooldown, tapped shot weaker,
   refused without charge, charge-and-release input path; shots go straight up with `skyAccess = true`).
+
+## v0.17.1 -- survival constructs (chest, scaffold tower, item net, tunneller)
+
+Four new `ConstructType`s with their own `Kind.SURVIVAL`, appended after `MED_BAY`, run by
+`greenlantern/GreenLanternSurvival` (dispatched from `GreenLanternConstructAttacks#deploy`; ticked, dismissed and cleared
+through `GreenLanternArsenal`). All in the Construct Menu's Building & Utility section, icons in
+`textures/gui/green_lantern/survival.png` (`GreenLanternBinding.ATLAS_SURVIVAL`). Numbers in `GreenLanternConfig`
+next to the Tool Kit; every cost goes through `GreenLanternEnergy#spend` (reserve, rank discount, Oath x2).
+
+| Construct | Cost | Upkeep | Notes |
+|-----------|------|--------|-------|
+| Hard-Light Chest | 40 | 1 / s | 27 slots, one at a time, where you aim (6 blocks). Owner + squad (`Squads.areAllies`) open it. Ends on N, an empty ring, 5 punches, the block being replaced, logout / death / dimension change: the items ALWAYS drop (at the chest; at the owner if the chest's chunk is unloaded). |
+| Scaffold Tower | 30 | 1.5 / s | Aimed at the ground (24 range): a column up to 24 high + a 3x3 deck. Press again to let it go. |
+| Item Net | 25 | -- | 12-block sweep, 3 s, pulls items + XP orbs and touches them into the inventory. 10 s cooldown (`construct_item_net`). |
+| Tunneller | 10 + 1.5 / block | -- | 3x3 x 16 along the aim snapped to the nearest axis, one slice per 3 ticks; stops at bedrock / hard light / an empty ring. |
+
+- Blocks (`block/GreenLanternSurvivalBlocks`): `hard_light_scaffold` (`platform` property: false = column with the vanilla
+  scaffolding collision -- solid only from above and not while sneaking; true = solid deck) and `hard_light_chest`
+  (horizontal facing). Unbreakable, no item / loot, push-proof, self-removing orphans (`GreenLanternSurvival#isTrackedCell`).
+  The column is in `#minecraft:climbable`; `HardLightScaffoldClimbMixin` makes sneaking sink through it instead of
+  clinging (vanilla only exempts `Blocks.SCAFFOLDING`).
+- The chest's items live in `GreenLanternSurvival.Chest#items` (a `SimpleContainer`, opened as a vanilla 9x3
+  `ChestMenu`), not a block entity: anyone viewing is closed out before the contents drop.
+- The tunneller breaks every block with `ServerPlayerGameMode#destroyBlock` -- the Mining Drill's path, so Fabric break
+  events, claim mods, spawn protection and adventure mode apply -- with an unbreakable diamond pickaxe swapped into the
+  selected slot for that one call (`GreenLanternSurvival#mine`).
+- Entities: `Shape.ITEM_NET` and `Shape.TUNNELLER`, drawn by `HardLightSurvivalRenderer`.
+- Gametests: `GreenLanternSurvivalGameTests`.

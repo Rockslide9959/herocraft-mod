@@ -76,7 +76,12 @@ public enum ConstructType {
 	FIGHTER_JET(Kind.ARSENAL, GreenLanternConfig.JET_COST, GreenLanternConfig.JET_UPKEEP_PER_SEC, 0f, 0, 0),
 	EMERALD_DRAGON(Kind.ARSENAL, GreenLanternConfig.DRAGON_COST, GreenLanternConfig.DRAGON_UPKEEP_PER_SEC, 0f, 0, 0),
 	EMERALD_MACE(Kind.ARSENAL, GreenLanternConfig.MACE_COST, GreenLanternConfig.MACE_UPKEEP_PER_SEC, 0f, 0, 0),
-	MED_BAY(Kind.ARSENAL, GreenLanternConfig.MEDBAY_COST, GreenLanternConfig.MEDBAY_UPKEEP_PER_SEC, 0f, 0, 0);
+	MED_BAY(Kind.ARSENAL, GreenLanternConfig.MEDBAY_COST, GreenLanternConfig.MEDBAY_UPKEEP_PER_SEC, 0f, 0, 0),
+	// v0.17.1: survival constructs, run by GreenLanternSurvival. Appended so saved selections keep their ordinals.
+	HARD_LIGHT_CHEST(Kind.SURVIVAL, GreenLanternConfig.CHEST_COST, GreenLanternConfig.CHEST_UPKEEP_PER_SEC, 0f, 0, 0),
+	SCAFFOLD_TOWER(Kind.SURVIVAL, GreenLanternConfig.SCAFFOLD_COST, GreenLanternConfig.SCAFFOLD_UPKEEP_PER_SEC, 0f, 0, 0),
+	ITEM_NET(Kind.SURVIVAL, GreenLanternConfig.NET_COST, 0f, 0f, 0, 0),
+	TUNNELLER(Kind.SURVIVAL, GreenLanternConfig.TUNNEL_COST, 0f, 0f, 0, 0);
 
 	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
 	public enum Category {
@@ -97,7 +102,9 @@ public enum ConstructType {
 		/** v0.16.1: a weapon held in the ring hand that takes over attack / use while it is out (the Sniper Rifle). */
 		HELD_WEAPON,
 		/** v0.17.1: the revamp's new constructs, spawned / ticked / dismissed by {@code GreenLanternArsenal}. */
-		ARSENAL
+		ARSENAL,
+		/** v0.17.1: the survival constructs (chest, scaffold tower, item net, tunneller), run by {@code GreenLanternSurvival}. */
+		SURVIVAL
 	}
 
 	/** v0.17.1: a construct you hold the key for (charge / draw / keep up) instead of tapping. */

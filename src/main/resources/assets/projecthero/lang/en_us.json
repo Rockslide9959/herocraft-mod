@@ -8453,5 +8453,19 @@
   "message.projecthero.black_flash.flash_time_sub": "The Black Flash moves in his own time",
   "message.projecthero.speed_force_speedster.power_lost": "The Black Flash took the Speed Force from you. It returns in %s minutes.",
   "message.projecthero.speed_force_speedster.power_lost_left": "No Speed Force: %s min left",
-  "message.projecthero.speed_force_speedster.power_back": "The Speed Force is back."
+  "message.projecthero.speed_force_speedster.power_back": "The Speed Force is back.",
+  "block.projecthero.hard_light_scaffold": "Hard-Light Scaffold",
+  "block.projecthero.hard_light_chest": "Hard-Light Chest",
+  "container.projecthero.hard_light_chest": "Hard-Light Chest",
+  "message.projecthero.green_lantern.chest_not_yours": "That chest of light isn't yours (only its Lantern and their squad can open it).",
+  "projecthero.green_lantern.construct.hard_light_chest": "Hard-Light Chest",
+  "projecthero.green_lantern.construct.hard_light_chest.desc": "A glowing 27-slot chest where you aim. Only you and your squad can open it. When it ends (N, an empty ring, or 5 punches) everything in it drops on the ground. One at a time.",
+  "projecthero.green_lantern.construct.scaffold_tower": "Scaffold Tower",
+  "projecthero.green_lantern.construct.scaffold_tower.desc": "Aim at the ground: a climbable column of light up to 24 blocks high with a 3x3 deck on top. Hold Space to climb, sneak to sink down. Press again to let it go.",
+  "projecthero.green_lantern.construct.item_net": "Item Net",
+  "projecthero.green_lantern.construct.item_net.desc": "A net of light sweeps 12 blocks round you and reels every dropped item and XP orb in to you over 3 seconds, then dissolves. 10s cooldown.",
+  "projecthero.green_lantern.construct.tunneller": "Hard-Light Tunneller",
+  "projecthero.green_lantern.construct.tunneller.desc": "A giant drill-headed pickaxe bores a 3x3 tunnel up to 16 blocks straight along your aim in under 3 seconds. Mined blocks drop as items. 1.5 charge per block; it stops at anything unbreakable.",
+  "projecthero.guide.green_lantern.survival": "Survival Constructs",
+  "projecthero.guide.green_lantern.survival.body": "Four constructs in Building & Utility are made for surviving rather than fighting. The Hard-Light Chest (40 charge, 1 a second) is a glowing chest that holds 27 stacks while it stands. Only you and your squadmates can open it, and nothing in it is ever lost: dismiss it with N, run the ring dry or punch it 5 times and everything spills onto the ground. The Scaffold Tower (30 charge, 1.5 a second) rises from wherever you aim at the ground: up to 24 blocks of climbable light with a 3x3 deck on top. Hold Space inside it to climb and sneak to sink down, like vanilla scaffolding, and press it again to let it go. The Item Net (25 charge, 10s cooldown) sweeps 12 blocks round you and reels every dropped item and XP orb in to you. The Hard-Light Tunneller (10 charge, then 1.5 a block) bores a 3x3 tunnel up to 16 blocks along your aim, snapped to the nearest straight line, and drops what it mines as items. It breaks blocks the same way the Mining Drill does, so claims and spawn protection still stop it, and it halts at bedrock or anything else unbreakable."
 }

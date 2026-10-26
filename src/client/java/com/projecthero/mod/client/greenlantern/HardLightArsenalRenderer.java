@@ -39,8 +39,7 @@ final class HardLightArsenalRenderer {
 			case DRAGON -> dragon(e, vc, pose, age, alpha, partial);
 			case MACE -> mace(e, vc, pose, age, alpha, partial);
 			case MED_BAY -> medBay(vc, pose, age, alpha);
-			default -> {
-			}
+			default -> HardLightSurvivalRenderer.render(e, vc, pose, age, alpha, partial); // v0.17.1 survival constructs
 		}
 	}
 
