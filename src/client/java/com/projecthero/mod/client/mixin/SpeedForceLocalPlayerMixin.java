@@ -4,6 +4,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.projecthero.mod.speedforce.SpeedForceConfig;
@@ -39,6 +40,120 @@ public abstract class SpeedForceLocalPlayerMixin {
 	private boolean projecthero$sfWallRunning;
 	@Unique
 	private double projecthero$sfGroundSpeed;
+
+	/** v0.17.1: last tick's run (horizontal unit direction and blocks a tick) for the turn assist / Auto-Slowdown. */
+	@Unique
+	private Vec3 projecthero$sfMoveDir;
+	@Unique
+	private double projecthero$sfMoveSpeed;
+
+	/**
+	 * v0.17.1 (user): the run itself, as it moves -- the <b>turn assist</b> (at speed a sharp turn bends round, the run's
+	 * direction swinging toward where you steer at most {@link SpeedForceConfig#TURN_ASSIST_DEG_PER_TICK} a tick with its
+	 * speed kept, so the server never reads a hard turn) and <b>Auto-Slowdown</b> (the Shift+N toggle: the run eases off
+	 * before a drop deeper than Ground-Stick's reach, or lava / fire, ahead). Only the player's own walking move
+	 * ({@code travel} passes the motion itself), never a piston's push.
+	 */
+	@ModifyVariable(method = "move", at = @At("HEAD"), argsOnly = true)
+	private Vec3 projecthero$speedForceSteer(Vec3 pos) {
+		LocalPlayer self = (LocalPlayer) (Object) this;
+		if (pos != self.getDeltaMovement() || !SpeedForceSpeedster.speedActive(self) || self.getAbilities().flying || self.isPassenger()
+				|| self.isFallFlying() || self.isSpectator() || SpeedForceSpeedster.phasing(self)) {
+			if (pos == self.getDeltaMovement()) {
+				projecthero$sfMoveDir = null;
+			}
+			return pos;
+		}
+		float m = SpeedForceSpeedster.momentum(self);
+		double sp = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+		if (sp < 1.0e-4) {
+			projecthero$sfMoveDir = null;
+			return pos;
+		}
+		Vec3 dir = new Vec3(pos.x / sp, 0, pos.z / sp);
+		Vec3 out = pos;
+		// the turn assist
+		Vec3 last = projecthero$sfMoveDir;
+		if (last != null && m >= SpeedForceConfig.TURN_ASSIST_MOMENTUM && projecthero$sfMoveSpeed > 0.8 && !self.horizontalCollision) {
+			double cos = Math.max(-1.0, Math.min(1.0, last.dot(dir)));
+			double angle = Math.toDegrees(Math.acos(cos));
+			if (angle > SpeedForceConfig.TURN_ASSIST_DEG_PER_TICK && angle < SpeedForceConfig.TURN_ASSIST_HARD_ANGLE) {
+				double turn = Math.toRadians(SpeedForceConfig.TURN_ASSIST_DEG_PER_TICK) * Math.signum(last.x * dir.z - last.z * dir.x);
+				double c = Math.cos(turn);
+				double s = Math.sin(turn);
+				dir = new Vec3(last.x * c - last.z * s, 0, last.x * s + last.z * c);
+				sp = Math.max(sp, projecthero$sfMoveSpeed * SpeedForceConfig.TURN_ASSIST_KEEP);
+				out = new Vec3(dir.x * sp, pos.y, dir.z * sp);
+			}
+		}
+		// Auto-Slowdown
+		com.projecthero.mod.speedforce.data.SpeedForceState st = SpeedForceSpeedster.peek(self);
+		if (st != null && st.autoSlow && m >= SpeedForceConfig.AUTO_SLOW_MOMENTUM && self.onGround() && sp > SpeedForceConfig.AUTO_SLOW_MIN_BPT
+				&& com.projecthero.mod.client.speedforce.SpeedForceBuildClient.floorY(self) == Integer.MIN_VALUE) {
+			double look = Math.min(SpeedForceConfig.AUTO_SLOW_MAX_LOOK, sp * SpeedForceConfig.AUTO_SLOW_LOOKAHEAD_TICKS + 4.0);
+			double danger = projecthero$sfDangerAhead(self, dir, look);
+			if (danger >= 0.0) {
+				double allowed = Math.max(SpeedForceConfig.AUTO_SLOW_MIN_BPT, (danger - SpeedForceConfig.AUTO_SLOW_MARGIN) / SpeedForceConfig.AUTO_SLOW_BRAKE);
+				allowed = Math.max(allowed, Math.min(sp, projecthero$sfMoveSpeed) * SpeedForceConfig.AUTO_SLOW_STEP_KEEP);
+				if (sp > allowed) {
+					sp = allowed;
+					out = new Vec3(dir.x * sp, out.y, dir.z * sp);
+				}
+			}
+		}
+		projecthero$sfMoveDir = dir;
+		projecthero$sfMoveSpeed = sp;
+		if (out != pos) {
+			self.setDeltaMovement(out);
+			return self.getDeltaMovement();
+		}
+		return pos;
+	}
+
+	/**
+	 * How far ahead along {@code dir} the first danger is -- no ground within {@link SpeedForceConfig#AUTO_SLOW_DROP} blocks
+	 * below the run (a cliff, a ravine), or lava / fire -- or -1 for none (or the world not loaded that far). The ground is
+	 * followed sample by sample, so a hillside going down is not a cliff; water counts as ground (it is run across).
+	 */
+	@Unique
+	private static double projecthero$sfDangerAhead(LocalPlayer self, Vec3 dir, double look) {
+		net.minecraft.world.level.Level level = self.level();
+		double refY = self.getY();
+		for (double d = 1.0; d <= look; d += 1.0) {
+			double x = self.getX() + dir.x * d;
+			double z = self.getZ() + dir.z * d;
+			if (projecthero$sfMissing(self, x, z)) {
+				return -1.0;
+			}
+			int top = net.minecraft.util.Mth.floor(refY) + 3;
+			int bottom = net.minecraft.util.Mth.floor(refY) - SpeedForceConfig.AUTO_SLOW_DROP;
+			boolean ground = false;
+			BlockPos.MutableBlockPos bp = new BlockPos.MutableBlockPos();
+			for (int y = top; y >= bottom; y--) {
+				bp.set(net.minecraft.util.Mth.floor(x), y, net.minecraft.util.Mth.floor(z));
+				net.minecraft.world.level.block.state.BlockState bs = level.getBlockState(bp);
+				FluidState fl = bs.getFluidState();
+				if (fl.is(FluidTags.LAVA) || bs.is(net.minecraft.tags.BlockTags.FIRE)) {
+					return d;
+				}
+				if (fl.is(FluidTags.WATER)) {
+					refY = y + 1.0;
+					ground = true;
+					break;
+				}
+				net.minecraft.world.phys.shapes.VoxelShape shape = bs.getCollisionShape(level, bp);
+				if (!shape.isEmpty()) {
+					refY = y + shape.max(net.minecraft.core.Direction.Axis.Y);
+					ground = true;
+					break;
+				}
+			}
+			if (!ground) {
+				return d;
+			}
+		}
+		return -1.0;
+	}
 
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$speedForceMovement(CallbackInfo ci) {
@@ -103,6 +218,15 @@ public abstract class SpeedForceLocalPlayerMixin {
 			if (self.getY() < surfaceY) {
 				self.setPos(self.getX(), surfaceY, self.getZ());
 			}
+			self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
+			self.setOnGround(true);
+			self.resetFallDistance();
+			v = self.getDeltaMovement();
+		}
+		// v0.17.1 (user) Speed Build: the bridge being laid holds the runner at its level until its blocks arrive
+		int floor = com.projecthero.mod.client.speedforce.SpeedForceBuildClient.floorY(self);
+		if (!onWater && floor != Integer.MIN_VALUE && self.getY() < floor && self.getY() > floor - 2.5) {
+			self.setPos(self.getX(), floor, self.getZ());
 			self.setDeltaMovement(v.x, Math.max(0.0, v.y), v.z);
 			self.setOnGround(true);
 			self.resetFallDistance();

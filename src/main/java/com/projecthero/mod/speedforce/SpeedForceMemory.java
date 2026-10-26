@@ -71,6 +71,8 @@ public final class SpeedForceMemory {
 				remember(p);
 			} else if (payload.action() == SpeedForceMemoryPayload.FORGET) {
 				forget(p, payload.index());
+			} else if (payload.action() == SpeedForceMemoryPayload.SEND) {
+				SpeedForceWorks.courier(p, payload.index()); // v0.17.1 (user): the Auto-Courier
 			}
 		}));
 	}
@@ -105,7 +107,13 @@ public final class SpeedForceMemory {
 			return false;
 		}
 		SpeedForceMemories before = of(p);
-		SpeedForceMemories after = before.remember(here(p));
+		// v0.17.1 (user, the Auto-Courier): marking a place while looking at a chest records it as the drop-off
+		Place spot = here(p);
+		BlockPos chest = SpeedForceWorks.lookedAtContainer(p);
+		if (chest != null) {
+			spot = new Place(spot.dimension(), spot.x(), spot.y(), spot.z(), spot.yaw(), Optional.of(chest));
+		}
+		SpeedForceMemories after = before.remember(spot);
 		save(p, after);
 		boolean replaced = before.marked().size() >= SpeedForceMemories.MARKED_MAX;
 		p.displayClientMessage(Component.translatable(replaced ? "message.projecthero.speed_force_speedster.memory_saved_replaced"

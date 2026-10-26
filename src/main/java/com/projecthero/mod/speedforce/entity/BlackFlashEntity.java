@@ -149,6 +149,23 @@ public class BlackFlashEntity extends Monster {
 		this.hunted = huntedPlayer;
 	}
 
+	/**
+	 * v0.17.1 (user, the Black Flash Lure): summoned on purpose -- +50% health, richer loot, and a win costs his runner only
+	 * the ordinary drain (no 20-minute loss of the Speed Force).
+	 */
+	private boolean lured;
+
+	public void makeLured() {
+		this.lured = true;
+		double hp = getAttribute(Attributes.MAX_HEALTH).getBaseValue() * com.projecthero.mod.speedforce.SpeedForceConfig.LURE_HEALTH_MULTIPLIER;
+		getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);
+		setHealth((float) hp);
+	}
+
+	public boolean isLured() {
+		return lured;
+	}
+
 	/** A Time Remnant of {@code owner}: weak, short-lived, no bar, no drops. */
 	public void configureRemnant(BlackFlashEntity owner) {
 		BlackFlashConfig.Moves m = BlackFlashConfig.get().moves;
@@ -159,6 +176,7 @@ public class BlackFlashEntity extends Monster {
 		this.remnantLife = m.remnantTicks;
 		this.remnantOwner = owner.getUUID();
 		this.hunted = owner.hunted;
+		this.lured = owner.lured;
 		this.xpReward = 0;
 		setTarget(owner.getTarget());
 	}
@@ -1282,6 +1300,11 @@ public class BlackFlashEntity extends Monster {
 		super.dropCustomDeathLoot(level, source, recentlyHit);
 		if (!isRemnant() && SpeedForceMod.SPEED_FORCE_SHARD != null) {
 			spawnAtLocation(new ItemStack(SpeedForceMod.SPEED_FORCE_SHARD));
+			if (lured) {
+				// v0.17.1 (user): a lured fight pays better -- more shards and a netherite ingot
+				spawnAtLocation(new ItemStack(SpeedForceMod.SPEED_FORCE_SHARD, Math.max(0, com.projecthero.mod.speedforce.SpeedForceConfig.LURE_SHARDS - 1)));
+				spawnAtLocation(new ItemStack(net.minecraft.world.item.Items.NETHERITE_INGOT));
+			}
 		}
 	}
 

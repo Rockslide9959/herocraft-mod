@@ -98,6 +98,8 @@ public final class SpeedForceClient {
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForcePose::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSprintKey::tick); // v0.17.1 (user): Ctrl held, Toggle Sprint or not
+		ClientTickEvents.END_CLIENT_TICK.register(SpeedForceSenses::tick); // v0.17.1 (user): danger sense, Flash Time vision
+		SpeedForceBuildClient.initialize(); // v0.17.1 (user): Speed Build's held right-click
 		WorldRenderEvents.AFTER_ENTITIES.register(SpeedForceClient::render);
 		ClientPlayNetworking.registerGlobalReceiver(SpeedForceFxPayload.TYPE,
 				(payload, context) -> context.client().execute(() -> accept(payload)));
@@ -119,6 +121,7 @@ public final class SpeedForceClient {
 		GROUND_ARCS.clear();
 		PORTALS.clear();
 		BlackFlashRenderer.reset();
+		SpeedForceSenses.reset();
 	}
 
 	// ---------------------------------------------------------------- the trail
@@ -684,6 +687,7 @@ public final class SpeedForceClient {
 
 		VertexConsumer vc = ThorDraw.buffer(buffers);
 		PoseStack.Pose last = pose.last();
+		SpeedForceSenses.renderPaths(vc, last, cam, partial); // v0.17.1 (user): Flash Time vision
 		for (Ring ring : RINGS) {
 			float age = (now - ring.start()) + partial;
 			float t = age / ring.life();

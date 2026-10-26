@@ -328,6 +328,19 @@ public final class SpeedForceHud {
 					seconds(s.drained), RED, pal);
 			by -= 9;
 		}
+		// v0.17.1 (user): the static charge -- only while there is some (the next melee hit lets it go as chain lightning)
+		Integer charge = p.getAttached(com.projecthero.mod.speedforce.SpeedForceAttachments.STATIC_CHARGE);
+		if (charge != null && charge > 0 && s.speedMode) {
+			float c = charge / SpeedForceConfig.STATIC_MAX;
+			boolean ready = charge >= SpeedForceConfig.STATIC_MIN_RELEASE;
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.static"), c,
+					Component.literal(String.format(Locale.ROOT, "%d", charge)), ready ? pal.light() : DIM, pal);
+			if (ready && (now / 4) % 2 == 0) {
+				// a spark beside the bar: charged, the next hit lets it go
+				g.fill(x0 - 4, by + 2, x0 - 2, by + 6, WHITE);
+			}
+			by -= 9;
+		}
 		if (s.speedMode || s.meter < SpeedForceSpeedster.meterMax(p)) {
 			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.meter"), s.meter / SpeedForceSpeedster.meterMax(p),
 					Component.literal(String.format(Locale.ROOT, "%.0f", s.meter)), s.drained > 0 ? DIM : pal.light(), pal);

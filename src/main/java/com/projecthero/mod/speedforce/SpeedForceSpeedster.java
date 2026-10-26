@@ -93,6 +93,10 @@ public final class SpeedForceSpeedster {
 		long copperReady;
 		/** v0.17.1: the game time the drain last counted down. */
 		long drainTick = -1L;
+		/** v0.17.1 (user): the static charge-up (0..STATIC_MAX), ticks without running, and the value last synced. */
+		double charge;
+		int idle;
+		int syncedCharge = -1;
 	}
 
 	/** Where a runner was, a tick at a time (Rewind, the Time Remnant). */
@@ -121,6 +125,7 @@ public final class SpeedForceSpeedster {
 		SpeedForceRealm.clearSessionState(); // v0.17.1: the Speed Force trips (the memory road's doorways and echoes)
 		SpeedForceMemory.clearSessionState(); // v0.17.1: the echoes' recorded runs
 		BlackFlash.clearSessionState(); // v0.17.1: the Black Flash fights
+		SpeedForcePerks.clearSessionState(); // v0.17.1: the run's passives, Speed Build, Speed Smelt, the races
 	}
 
 	// ---------------------------------------------------------------- state
@@ -415,6 +420,9 @@ public final class SpeedForceSpeedster {
 	public static void setMomentum(ServerPlayer player, float value) {
 		SpeedForceState s = state(player);
 		float v = Math.max(0f, Math.min(1f, value));
+		if (s.speedCap < SpeedForceConfig.SPEED_CAP_STEPS && !SpeedForceRealm.inside(player)) {
+			v = Math.min(v, s.capFraction()); // v0.17.1 (user): the speed cap
+		}
 		if (v != s.momentum) {
 			SpeedForceState n = s.copy();
 			n.momentum = v;
@@ -610,6 +618,7 @@ public final class SpeedForceSpeedster {
 		SpeedForceAbilities.tick(player, player.level().getGameTime());
 		SpeedForceRealm.tick(player); // v0.17.1: inside the Speed Force
 		SpeedForceMemory.record(player); // v0.17.1: the runs the echoes replay
+		SpeedForcePerks.tick(player); // v0.17.1: Speed Build, Speed Smelt, the race
 	}
 
 	/** Flash Time: the runner's own clocks run at their pace while the world's crawls (one tick pulled in per extra tick). */
@@ -667,6 +676,7 @@ public final class SpeedForceSpeedster {
 			mo.ema = 0.0;
 			mo.raw1 = 0.0;
 			mo.raw2 = 0.0;
+			SpeedForcePerks.dropCharge(player, mo); // v0.17.1: the static goes with Speed Mode
 			if (cur.momentum != 0f) {
 				SpeedForceState n = cur.copy();
 				n.momentum = 0f;
@@ -747,13 +757,24 @@ public final class SpeedForceSpeedster {
 				Vec3 dir = new Vec3(d.x, 0, d.z).normalize();
 				double cos = Math.max(-1.0, Math.min(1.0, dir.dot(mo.dir)));
 				double angle = Math.toDegrees(Math.acos(cos));
-				if (angle > 45.0) {
+				if (m >= SpeedForceConfig.TURN_ASSIST_MOMENTUM) {
+					// v0.17.1 (user) turn assist: at speed the client bends a sharp turn round over a few ticks
+					// (SpeedForceLocalPlayerMixin) -- free; only a reversal past 135 degrees still costs, and little
+					if (angle > SpeedForceConfig.TURN_ASSIST_HARD_ANGLE) {
+						m -= SpeedForceConfig.TURN_ASSIST_HARD_LOSS * (angle - SpeedForceConfig.TURN_ASSIST_HARD_ANGLE)
+								/ (180.0 - SpeedForceConfig.TURN_ASSIST_HARD_ANGLE);
+					}
+				} else if (angle > 45.0) {
 					m -= SpeedForceConfig.TURN_LOSS_MAX * (angle - 45.0) / 135.0;
 				}
 			}
 		}
 		if (surge) {
 			m = 1.0;
+		}
+		// v0.17.1 (user, the Shift+N menu): the speed cap -- momentum never builds past it (the Speed Force itself excepted)
+		if (s.speedCap < SpeedForceConfig.SPEED_CAP_STEPS && !SpeedForceRealm.inside(player)) {
+			m = SpeedForceConfig.capped(m, s.capFraction());
 		}
 		if (horiz > 0.5) {
 			mo.dir = new Vec3(d.x, 0, d.z).normalize();
@@ -778,6 +799,8 @@ public final class SpeedForceSpeedster {
 			save(player, n);
 		}
 
+		// v0.17.1 (user): the run's passives -- static charge, speed farming, race timing
+		SpeedForcePerks.onRun(player, mo, last, now, raw);
 		// Charged Copper Plates run over: a jolt of Speed Force
 		if (raw > 0.05 && gameTime >= mo.copperReady && SpeedForceUpgrade.crossesPlate(player, last, now)) {
 			mo.copperReady = gameTime + SpeedForceConfig.COPPER_COOLDOWN;
@@ -990,6 +1013,7 @@ public final class SpeedForceSpeedster {
 	/** Death / logout / dimension change: drop everything transient (the power and the Speed Force stay). */
 	public static void clearTransient(ServerPlayer player) {
 		SpeedForceAbilities.clear(player);
+		player.removeAttached(SpeedForceAttachments.STATIC_CHARGE);
 		forget(player.getUUID());
 		SpeedForceState s = peek(player);
 		if (s != null && s.hasPower) {

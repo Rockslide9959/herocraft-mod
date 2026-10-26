@@ -26,6 +26,8 @@ public final class SpeedForceMod {
 	/** v0.17.1: the Black Flash's drop, and the device it upgrades. */
 	public static Item SPEED_FORCE_SHARD;
 	public static Item SPEED_FORCE_TACHYON_DEVICE;
+	/** v0.17.1 (user): calls the Black Flash on purpose. */
+	public static Item BLACK_FLASH_LURE;
 
 	private SpeedForceMod() {
 	}
@@ -38,6 +40,8 @@ public final class SpeedForceMod {
 				new SpeedForceShardItem(new Item.Properties().stacksTo(16).rarity(Rarity.EPIC).fireResistant()));
 		SPEED_FORCE_TACHYON_DEVICE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("speed_force_tachyon_device"),
 				new SpeedForceTachyonDeviceItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
+		BLACK_FLASH_LURE = Registry.register(BuiltInRegistries.ITEM, ProjectHeroMod.id("black_flash_lure"),
+				new BlackFlashLureItem(new Item.Properties().stacksTo(16).rarity(Rarity.EPIC).fireResistant()));
 		com.projecthero.mod.speedforce.entity.SpeedForceEntityTypes.initialize(); // v0.17.1: the memory road, the Black Flash
 		BlackFlashConfig.load();
 		BlackFlash.initialize();
@@ -45,6 +49,7 @@ public final class SpeedForceMod {
 		SpeedForceDamage.initialize();
 		PayloadTypeRegistry.playS2C().register(SpeedForceFxPayload.TYPE, SpeedForceFxPayload.CODEC);
 		SpeedsterPrefs.initialize(); // v0.17.1: Ground-Stick + the lightning colour
+		SpeedForcePerks.initialize(); // v0.17.1: the static charge, speed farming / mining, Speed Build / Smelt, Courier, races
 		ServerPlayerEvents.JOIN.register(SpeedForceSpeedster::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> SpeedForceSpeedster.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

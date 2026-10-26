@@ -23,10 +23,23 @@ public class SpeedForceShardItem extends Item {
 		return true;
 	}
 
+	/** v0.17.1 (user, race ghosts): used on a block -- a race start, then the finish; sneaking clears the course. */
+	@Override
+	public net.minecraft.world.InteractionResult useOn(net.minecraft.world.item.context.UseOnContext ctx) {
+		if (ctx.getPlayer() == null || !SpeedForceSpeedster.hasPower(ctx.getPlayer())) {
+			return net.minecraft.world.InteractionResult.PASS;
+		}
+		if (ctx.getPlayer() instanceof net.minecraft.server.level.ServerPlayer sp) {
+			SpeedForceRaces.useShard(sp, ctx.getClickedPos());
+		}
+		return net.minecraft.world.InteractionResult.sidedSuccess(ctx.getLevel().isClientSide());
+	}
+
 	@Override
 	public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
 		tooltip.add(Component.translatable("item.projecthero.speed_force_shard.hint").withStyle(ChatFormatting.GOLD));
 		tooltip.add(Component.translatable("item.projecthero.speed_force_shard.hint2").withStyle(ChatFormatting.GRAY));
+		tooltip.add(Component.translatable("item.projecthero.speed_force_shard.race").withStyle(ChatFormatting.AQUA));
 		tooltip.add(Component.translatable("item.projecthero.speed_force_shard.hint3").withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
 	}
 }

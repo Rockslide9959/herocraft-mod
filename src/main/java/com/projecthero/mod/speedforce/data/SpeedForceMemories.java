@@ -19,15 +19,23 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * Immutable: every change returns a new value (re-saved through {@code setAttached}).
  */
 public record SpeedForceMemories(List<Place> marked, List<Place> exits) {
-	/** One remembered spot: the dimension's id, the feet position and the way they faced. */
-	public record Place(String dimension, double x, double y, double z, float yaw) {
+	/**
+	 * One remembered spot: the dimension's id, the feet position and the way they faced -- and (v0.17.1, the Auto-Courier) the
+	 * chest they were looking at when they marked it, if any: the menu's Send delivers there.
+	 */
+	public record Place(String dimension, double x, double y, double z, float yaw, java.util.Optional<net.minecraft.core.BlockPos> chest) {
 		public static final Codec<Place> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.STRING.fieldOf("dimension").forGetter(Place::dimension),
 				Codec.DOUBLE.fieldOf("x").forGetter(Place::x),
 				Codec.DOUBLE.fieldOf("y").forGetter(Place::y),
 				Codec.DOUBLE.fieldOf("z").forGetter(Place::z),
-				Codec.FLOAT.optionalFieldOf("yaw", 0f).forGetter(Place::yaw)
+				Codec.FLOAT.optionalFieldOf("yaw", 0f).forGetter(Place::yaw),
+				net.minecraft.core.BlockPos.CODEC.optionalFieldOf("chest").forGetter(Place::chest)
 		).apply(i, Place::new));
+
+		public Place(String dimension, double x, double y, double z, float yaw) {
+			this(dimension, x, y, z, yaw, java.util.Optional.empty());
+		}
 
 		public boolean near(Place o, double range) {
 			if (!dimension.equals(o.dimension)) {

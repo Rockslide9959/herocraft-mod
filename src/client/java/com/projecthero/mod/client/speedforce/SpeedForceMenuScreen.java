@@ -27,7 +27,9 @@ public final class SpeedForceMenuScreen extends Screen {
 	private static final int LEFT_W = 5 * SWATCH + 4 * SWATCH_GAP + 40;
 	/** v0.17.1: the memories column, right of the settings. */
 	private static final int MEM_W = 170;
-	private static final int PANEL_W = LEFT_W + MEM_W;
+	/** v0.17.1 (user): the run column -- Auto-Slowdown, vein mining, the top speed, the race's best times. */
+	private static final int RUN_W = 140;
+	private static final int PANEL_W = LEFT_W + MEM_W + RUN_W;
 	private static final int ROW_H = 16;
 	private static final int PANEL_H = 220;
 	/** v0.17.1: the Suit row's top (label) -- five Flash Suit style tiles under it. */
@@ -36,6 +38,10 @@ public final class SpeedForceMenuScreen extends Screen {
 	private Button stickButton;
 	private boolean stick;
 	private int colour;
+	/** v0.17.1 (user): the run column's settings as shown. */
+	private boolean autoSlow = true;
+	private boolean vein = true;
+	private int cap = 10;
 	/** The Flash Suit style shown as chosen; -1 when the player has no Flash Suit (worn, in the worn ring, or held). */
 	private int suitStyle = -1;
 	/** The memories the buttons were built from (rebuilt when the synced copy changes). */
@@ -54,6 +60,9 @@ public final class SpeedForceMenuScreen extends Screen {
 		SpeedForceState s = minecraft.player == null ? null : SpeedForceSpeedster.peek(minecraft.player);
 		stick = s != null && s.groundStick;
 		colour = s == null ? 0 : SpeedForceColours.clamp(s.colour);
+		autoSlow = s == null || s.autoSlow;
+		vein = s == null || s.veinMine;
+		cap = s == null ? 10 : Math.max(1, Math.min(10, s.speedCap));
 		int left = (width - PANEL_W) / 2;
 		int top = (height - PANEL_H) / 2;
 		stickButton = addRenderableWidget(Button.builder(stickLabel(), b -> {
@@ -88,7 +97,30 @@ public final class SpeedForceMenuScreen extends Screen {
 			addRenderableWidget(Button.builder(Component.literal("x"), b -> memory(com.projecthero.mod.speedforce.network.SpeedForceMemoryPayload.FORGET, index))
 					.bounds(mx + MEM_W - 28, top + 64 + i * ROW_H, 14, 14)
 					.tooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.forget.tip"))).build());
+			// v0.17.1 (user): the Auto-Courier -- the stack in hand, run there
+			var place = shown.marked().get(i);
+			addRenderableWidget(Button.builder(Component.literal("»"), b -> memory(com.projecthero.mod.speedforce.network.SpeedForceMemoryPayload.SEND, index))
+					.bounds(mx + MEM_W - 44, top + 64 + i * ROW_H, 14, 14)
+					.tooltip(Tooltip.create(Component.translatable(place.chest().isPresent() ? "screen.projecthero.speed_force_menu.send.tip_chest"
+							: "screen.projecthero.speed_force_menu.send.tip", Math.round(com.projecthero.mod.speedforce.SpeedForceConfig.COURIER_COST)))).build());
 		}
+		// v0.17.1 (user): the run column
+		int rx = left + LEFT_W + MEM_W;
+		addRenderableWidget(Button.builder(autoSlowLabel(), b -> {
+			autoSlow = !autoSlow;
+			sendAssists();
+			b.setMessage(autoSlowLabel());
+		}).bounds(rx, top + 38, RUN_W - 12, 20)
+				.tooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.auto_slow.tip"))).build());
+		addRenderableWidget(Button.builder(veinLabel(), b -> {
+			vein = !vein;
+			sendAssists();
+			b.setMessage(veinLabel());
+		}).bounds(rx, top + 62, RUN_W - 12, 20)
+				.tooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.vein.tip",
+						com.projecthero.mod.speedforce.SpeedForceConfig.VEIN_MAX))).build());
+		CapSlider slider = addRenderableWidget(new CapSlider(rx, top + 86, RUN_W - 12, 20));
+		slider.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.speed_force_menu.cap.tip")));
 		addRenderableWidget(Button.builder(Component.translatable("gui.done"), b -> onClose())
 				.bounds(left + PANEL_W / 2 - 40, top + PANEL_H - 26, 80, 20).build());
 	}
@@ -111,6 +143,44 @@ public final class SpeedForceMenuScreen extends Screen {
 		super.tick();
 		if (!memories().equals(shown)) {
 			rebuildWidgets(); // the server saved (or forgot) one: the list follows
+		}
+	}
+
+	private Component autoSlowLabel() {
+		return Component.translatable(autoSlow ? "screen.projecthero.speed_force_menu.auto_slow.on" : "screen.projecthero.speed_force_menu.auto_slow.off");
+	}
+
+	private Component veinLabel() {
+		return Component.translatable(vein ? "screen.projecthero.speed_force_menu.vein.on" : "screen.projecthero.speed_force_menu.vein.off");
+	}
+
+	private void sendAssists() {
+		if (minecraft.player != null) {
+			net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(
+					stick, -1, -1, com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload.assists(autoSlow, vein, cap)));
+		}
+	}
+
+	/** v0.17.1 (user): the top speed, 10% to 100% of the momentum in 10% steps (100% = no cap). */
+	private final class CapSlider extends net.minecraft.client.gui.components.AbstractSliderButton {
+		CapSlider(int x, int y, int w, int h) {
+			super(x, y, w, h, Component.empty(), (cap - 1) / 9.0);
+			updateMessage();
+		}
+
+		@Override
+		protected void updateMessage() {
+			setMessage(cap >= 10 ? Component.translatable("screen.projecthero.speed_force_menu.cap.none")
+					: Component.translatable("screen.projecthero.speed_force_menu.cap", cap * 10));
+		}
+
+		@Override
+		protected void applyValue() {
+			int v = 1 + (int) Math.round(value * 9.0);
+			if (v != cap) {
+				cap = v;
+				sendAssists();
+			}
 		}
 	}
 
@@ -142,12 +212,13 @@ public final class SpeedForceMenuScreen extends Screen {
 				shown.marked().size(), com.projecthero.mod.speedforce.data.SpeedForceMemories.MARKED_MAX), mx, top + 26, 0xFFFFD23A, true);
 		for (int i = 0; i < shown.marked().size(); i++) {
 			var place = shown.marked().get(i);
-			Component row = Component.literal((i + 1) + ". ").append(com.projecthero.mod.speedforce.SpeedForceMemory.describe(place));
-			// small (0.8x) so the whole place fits beside its Forget button
+			Component row = Component.literal((i + 1) + ". " + (place.chest().isPresent() ? "▣ " : ""))
+					.append(com.projecthero.mod.speedforce.SpeedForceMemory.describe(place));
+			// small (0.8x) so the whole place fits beside its Send and Forget buttons (a chest marked there: the box sign)
 			g.pose().pushPose();
 			g.pose().translate(mx, top + 68 + i * ROW_H, 0);
 			g.pose().scale(0.8f, 0.8f, 1f);
-			g.drawString(font, font.plainSubstrByWidth(row.getString(), (int) ((MEM_W - 32) / 0.8f)), 0, 0, 0xFF8FE8FF, true);
+			g.drawString(font, font.plainSubstrByWidth(row.getString(), (int) ((MEM_W - 48) / 0.8f)), 0, 0, 0xFF8FE8FF, true);
 			g.pose().popPose();
 		}
 		if (shown.marked().isEmpty()) {
@@ -166,6 +237,47 @@ public final class SpeedForceMenuScreen extends Screen {
 			ly += 10;
 		}
 		g.pose().popPose();
+		renderRunColumn(g, left + LEFT_W + MEM_W, top);
+	}
+
+	/** v0.17.1 (user): the run column's title, and the race course with its best times. */
+	private void renderRunColumn(GuiGraphics g, int rx, int top) {
+		g.drawString(font, Component.translatable("screen.projecthero.speed_force_menu.run"), rx, top + 26, 0xFFFFD23A, true);
+		g.drawString(font, Component.translatable("screen.projecthero.speed_force_menu.race"), rx, top + 114, 0xFFFFD23A, true);
+		var p = minecraft.player;
+		com.projecthero.mod.speedforce.data.SpeedForceRace race = p == null ? com.projecthero.mod.speedforce.data.SpeedForceRace.EMPTY
+				: p.getAttachedOrElse(com.projecthero.mod.speedforce.SpeedForceAttachments.RACE, com.projecthero.mod.speedforce.data.SpeedForceRace.EMPTY);
+		int wrap = (int) ((RUN_W - 12) / 0.8f);
+		g.pose().pushPose();
+		g.pose().translate(rx, top + 126, 0);
+		g.pose().scale(0.8f, 0.8f, 1f);
+		int ly = 0;
+		int maxY = (int) ((PANEL_H - 34 - 126) / 0.8f);
+		if (!race.ready() || race.best().isEmpty()) {
+			String key = race.start().isEmpty() ? "screen.projecthero.speed_force_menu.race.none"
+					: race.finish().isEmpty() ? "screen.projecthero.speed_force_menu.race.no_finish" : "screen.projecthero.speed_force_menu.race.no_times";
+			for (var line : font.split(Component.translatable(key), wrap)) {
+				if (ly > maxY) {
+					break;
+				}
+				g.drawString(font, line, 0, ly, 0xFFB0A090, true);
+				ly += 10;
+			}
+		} else {
+			for (int i = 0; i < race.best().size() && ly <= maxY; i++) {
+				String t = (i + 1) + ". " + com.projecthero.mod.speedforce.SpeedForceRaces.format(race.best().get(i));
+				g.drawString(font, t, 0, ly, i == 0 ? 0xFFFFE070 : 0xFF8FE8FF, true);
+				ly += 10;
+			}
+			for (var line : font.split(Component.translatable("screen.projecthero.speed_force_menu.race.ghost"), wrap)) {
+				if (ly > maxY) {
+					break;
+				}
+				g.drawString(font, line, 0, ly + 2, 0xFFB0A090, true);
+				ly += 10;
+			}
+		}
+		g.pose().popPose();
 	}
 
 	@Override
@@ -176,7 +288,8 @@ public final class SpeedForceMenuScreen extends Screen {
 		g.fill(left, top, left + PANEL_W, top + PANEL_H, 0xE0140808);
 		g.renderOutline(left, top, PANEL_W, PANEL_H, 0xFFB01E1E);
 		g.fill(left + 1, top + 1, left + PANEL_W - 1, top + 20, 0xC0601010);
-		g.fill(left + LEFT_W - 8, top + 24, left + LEFT_W - 7, top + PANEL_H - 30, 0x80B01E1E); // between the two columns
+		g.fill(left + LEFT_W - 8, top + 24, left + LEFT_W - 7, top + PANEL_H - 30, 0x80B01E1E); // between the columns
+		g.fill(left + LEFT_W + MEM_W - 8, top + 24, left + LEFT_W + MEM_W - 7, top + PANEL_H - 30, 0x80B01E1E);
 	}
 
 	@Override

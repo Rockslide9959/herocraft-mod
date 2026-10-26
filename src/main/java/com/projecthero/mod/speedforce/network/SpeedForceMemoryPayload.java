@@ -14,6 +14,8 @@ import net.minecraft.resources.ResourceLocation;
 public record SpeedForceMemoryPayload(int action, int index) implements CustomPacketPayload {
 	public static final int REMEMBER = 0;
 	public static final int FORGET = 1;
+	/** v0.17.1 (user, the Auto-Courier): send the main-hand stack to marked place {@code index}. */
+	public static final int SEND = 2;
 
 	public static final CustomPacketPayload.Type<SpeedForceMemoryPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "speed_force_memory"));

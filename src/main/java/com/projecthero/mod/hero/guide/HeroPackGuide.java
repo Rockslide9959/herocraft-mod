@@ -1550,7 +1550,7 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.speed_force_speedster.body");
 			blank(lines);
 			// v0.17.1: + the Speed Force (the dimension) and the drain after it
-			for (String section : new String[]{"awakening", "tachyon", "momentum", "suit", "meter", "passives", "realm", "drain", "blackflash"}) { // v0.17.1: + the Black Flash
+			for (String section : new String[]{"awakening", "tachyon", "momentum", "suit", "meter", "passives", "assists", "works", "realm", "drain", "blackflash", "lure", "races"}) { // v0.17.1: + the Black Flash, the run assists, speed work, the lure, race ghosts
 				head(lines, "projecthero.guide.speed_force_speedster." + section);
 				para(lines, "projecthero.guide.speed_force_speedster." + section + ".body");
 				blank(lines);

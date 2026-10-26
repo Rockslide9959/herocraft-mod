@@ -23,6 +23,8 @@ public class SpeedForceEchoEntity extends Entity {
 			EntityDataSerializers.OPTIONAL_UUID);
 	/** Set once the runner has run through it (it fades out). */
 	private static final EntityDataAccessor<Boolean> DATA_SPENT = SynchedEntityData.defineId(SpeedForceEchoEntity.class, EntityDataSerializers.BOOLEAN);
+	/** v0.17.1 (user, race ghosts): a race ghost is drawn in this lightning tint (0xRRGGBB); -1 = an ordinary pale echo. */
+	private static final EntityDataAccessor<Integer> DATA_TINT = SynchedEntityData.defineId(SpeedForceEchoEntity.class, EntityDataSerializers.INT);
 
 	public SpeedForceEchoEntity(EntityType<? extends SpeedForceEchoEntity> type, Level level) {
 		super(type, level);
@@ -35,6 +37,7 @@ public class SpeedForceEchoEntity extends Entity {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		builder.define(DATA_OWNER, Optional.empty());
 		builder.define(DATA_SPENT, false);
+		builder.define(DATA_TINT, -1);
 	}
 
 	public void setOwner(UUID owner) {
@@ -47,6 +50,14 @@ public class SpeedForceEchoEntity extends Entity {
 
 	public boolean spent() {
 		return entityData.get(DATA_SPENT);
+	}
+
+	public int tint() {
+		return entityData.get(DATA_TINT);
+	}
+
+	public void setTint(int rgb) {
+		entityData.set(DATA_TINT, rgb);
 	}
 
 	public void setSpent(boolean spent) {

@@ -45,8 +45,8 @@ public final class BlackFlash {
 			if (entity instanceof ServerPlayer p) {
 				// v0.17.1 (user): killed by the Black Flash (or his Time Remnant) -- the Speed Force is taken from them for
 				// 20 minutes, and he goes
-				if (source.getEntity() instanceof BlackFlashEntity && SpeedForceSpeedster.hasPower(p)) {
-					SpeedForceSpeedster.losePower(p, SpeedForceConfig.POWER_LOSS_TICKS);
+				if (source.getEntity() instanceof BlackFlashEntity bf && SpeedForceSpeedster.hasPower(p)) {
+					onKilledBy(p, bf);
 				}
 				end(p, "won");
 			}
@@ -56,6 +56,43 @@ public final class BlackFlash {
 
 	public static void clearSessionState() {
 		FIGHTS.clear();
+	}
+
+	/**
+	 * He won: the Speed Force taken for 20 minutes -- v0.17.1 (user, the Black Flash Lure) unless the runner lured him on
+	 * purpose, which costs only the ordinary drain. Public for the gametests.
+	 */
+	public static void onKilledBy(ServerPlayer p, BlackFlashEntity bf) {
+		if (bf.isLured()) {
+			SpeedForceSpeedster.drain(p, SpeedForceConfig.DRAINED_TICKS);
+			p.displayClientMessage(Component.translatable("message.projecthero.black_flash.lure_lost").withStyle(ChatFormatting.RED), false);
+			return;
+		}
+		SpeedForceSpeedster.losePower(p, SpeedForceConfig.POWER_LOSS_TICKS);
+	}
+
+	/**
+	 * v0.17.1 (user): the Black Flash Lure -- he comes for {@code player} on purpose, {@link SpeedForceConfig#LURE_DISTANCE}
+	 * blocks ahead: +50% health, better loot, and no 20-minute loss if he wins. Null if he could not come (one is already
+	 * hunting them, or inside the Speed Force).
+	 */
+	public static BlackFlashEntity lure(ServerPlayer player) {
+		if (fightOf(player) != null || SpeedForceRealm.inside(player)) {
+			return null;
+		}
+		ServerLevel level = player.serverLevel();
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		flat = flat.lengthSqr() < 1.0e-6 ? new Vec3(0, 0, 1) : flat.normalize();
+		Vec3 ahead = player.position().add(flat.scale(SpeedForceConfig.LURE_DISTANCE));
+		net.minecraft.core.BlockPos top = level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+				net.minecraft.core.BlockPos.containing(ahead));
+		double y = Math.abs(top.getY() - player.getY()) < 24 ? top.getY() : player.getY();
+		BlackFlashEntity bf = spawnFor(player, level, new Vec3(ahead.x, y, ahead.z));
+		if (bf != null) {
+			bf.makeLured();
+		}
+		return bf;
 	}
 
 	/** The Black Flash hunting {@code player} right now, or null. */

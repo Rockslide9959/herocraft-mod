@@ -77,9 +77,14 @@ public class SpeedForceEchoRenderer extends EntityRenderer<SpeedForceEchoEntity>
 		// a run's lean: the body forward, the arms pumping
 		model.body.xRot = 0.25f * limbSpeed;
 		model.jacket.copyFrom(model.body);
+		// v0.17.1 (user, race ghosts): a race ghost glows in its runner's lightning colour, a touch more solid
+		int tint = e.tint();
+		if (tint >= 0) {
+			alpha = e.spent() ? 0.12f : 0.4f + 0.06f * Mth.sin(time * 0.5f);
+		}
 		int a = Math.round(alpha * 255f);
 		model.renderToBuffer(pose, buffers.getBuffer(RenderType.entityTranslucent(skin.texture())), LightTexture.FULL_BRIGHT,
-				OverlayTexture.NO_OVERLAY, (a << 24) | 0xFFF0C8);
+				OverlayTexture.NO_OVERLAY, (a << 24) | (tint >= 0 ? tint & 0xFFFFFF : 0xFFF0C8));
 		pose.popPose();
 		super.render(e, yaw, pt, pose, buffers, light);
 	}

@@ -44,6 +44,26 @@ public final class SpeedForceAttachments {
 					.copyOnDeath()
 					.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.all()));
 
+	/**
+	 * v0.17.1 (user, lightning charge-up): the static the run has built, 0..{@code STATIC_MAX} (absent = none). Not saved
+	 * (it is the run's), synced to the owner only (the HUD's pip).
+	 */
+	public static final AttachmentType<Integer> STATIC_CHARGE = AttachmentRegistry.create(ProjectHeroMod.id("speed_force_static"),
+			builder -> builder.syncWith(ByteBufCodecs.VAR_INT, AttachmentSyncPredicate.targetOnly()));
+
+	/** v0.17.1 (user, race ghosts): the race course and its best times. Persistent, kept on death, synced to the owner. */
+	public static final AttachmentType<com.projecthero.mod.speedforce.data.SpeedForceRace> RACE = AttachmentRegistry.create(
+			ProjectHeroMod.id("speed_force_race"),
+			builder -> builder.persistent(com.projecthero.mod.speedforce.data.SpeedForceRace.CODEC)
+					.copyOnDeath()
+					.initializer(() -> com.projecthero.mod.speedforce.data.SpeedForceRace.EMPTY)
+					.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.speedforce.data.SpeedForceRace.CODEC), AttachmentSyncPredicate.targetOnly()));
+
+	/** v0.17.1: the best race run's track, for its ghost. Persistent, kept on death, server-only. */
+	public static final AttachmentType<com.projecthero.mod.speedforce.data.SpeedForceRace.Ghost> RACE_GHOST = AttachmentRegistry.create(
+			ProjectHeroMod.id("speed_force_race_ghost"),
+			builder -> builder.persistent(com.projecthero.mod.speedforce.data.SpeedForceRace.Ghost.CODEC).copyOnDeath());
+
 	private SpeedForceAttachments() {
 	}
 

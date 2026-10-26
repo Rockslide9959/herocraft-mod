@@ -343,6 +343,43 @@ public final class SpeedForceConfig {
 	public static final int DANGER_MARK_TICKS = 30;
 	public static final int DANGER_COLOUR = 0xFF5A3C;
 
+	// ---------------------------------------------------------------- v0.17.1 Speed Build / Smelt / Courier / races / the lure
+
+	/** Speed Build: blocks in the off hand + hold right-click while running at least this fast (b/s) lays them. */
+	public static final double BUILD_MIN_BPS = 8.0;
+	/** At most this many blocks laid a tick; the wall (sneak) is this high, this many blocks out to the side. */
+	public static final int BUILD_MAX_PER_TICK = 32;
+	public static final int BUILD_WALL_HEIGHT = 2;
+	public static final double BUILD_WALL_SIDE = 1.5;
+
+	/** Speed Smelt: an empty main hand on a furnace in Speed Mode smelts its whole input stack in this long, for this much. */
+	public static final int SMELT_TICKS = 40;
+	public static final float SMELT_COST = 10f;
+	/** The furnace must stay within this many blocks while it works. */
+	public static final double SMELT_REACH = 8.0;
+
+	/** Auto-Courier: the menu's Send runs the main-hand stack to a marked place for this much Speed Force (and this cooldown). */
+	public static final float COURIER_COST = 15f;
+	public static final int COURIER_COOLDOWN = 2 * 20;
+	/** Marking a place while looking at a chest (or barrel...) within this reach records it as the place's drop-off. */
+	public static final double COURIER_CHEST_REACH = 6.0;
+
+	/** Race ghosts: a gate is crossed passing within this many blocks of it (and this many up or down). */
+	public static final double RACE_GATE_RADIUS = 2.5;
+	public static final double RACE_GATE_HEIGHT = 3.0;
+	/** The finish at least this far (blocks) from the start; a run longer than this (ticks) is dropped. */
+	public static final double RACE_MIN_LENGTH = 16.0;
+	public static final int RACE_MAX_TICKS = 5 * 60 * 20;
+	/** The run is sampled (and the ghost replayed) a position every this many game ticks. */
+	public static final int RACE_SAMPLE_TICKS = 2;
+
+	/** The Black Flash Lure: used at (at least) this momentum, he comes this far ahead, with this much more health. */
+	public static final float LURE_MOMENTUM = 0.999f;
+	public static final double LURE_DISTANCE = 24.0;
+	public static final double LURE_HEALTH_MULTIPLIER = 1.5;
+	/** ... and drops this many shards in all (the ordinary fight: 1), plus a netherite ingot. */
+	public static final int LURE_SHARDS = 3;
+
 	/** The momentum the speed cap lets {@code momentum} build to (a Surge / launch included; the Speed Force itself not). */
 	public static float capped(double momentum, float capFraction) {
 		return (float) Math.max(0.0, Math.min(momentum, capFraction));

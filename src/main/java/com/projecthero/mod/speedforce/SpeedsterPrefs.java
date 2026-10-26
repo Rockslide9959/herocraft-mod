@@ -89,6 +89,15 @@ public final class SpeedsterPrefs {
 			if (msg.colour() >= 0) {
 				n.colour = SpeedForceColours.clamp(msg.colour());
 			}
+			if (msg.assists() >= 0) {
+				// v0.17.1 (user): the menu's run assists -- Auto-Slowdown, vein mining, the speed cap
+				n.autoSlow = (msg.assists() & 1) != 0;
+				n.veinMine = (msg.assists() & 2) != 0;
+				n.speedCap = Math.max(1, Math.min(SpeedForceConfig.SPEED_CAP_STEPS, (msg.assists() >> 4) & 0x0F));
+				if (n.momentum > n.capFraction() && !SpeedForceRealm.inside(p)) {
+					n.momentum = n.capFraction();
+				}
+			}
 			SpeedForceSpeedster.save(p, n);
 			return;
 		}
