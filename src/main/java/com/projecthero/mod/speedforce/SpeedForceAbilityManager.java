@@ -24,8 +24,8 @@ import net.minecraft.server.level.ServerPlayer;
  *   R (1)  Rapid Assault       Shift+R  Mach Punch          hold R  Infinite Mass Punch (wind up, let go: it locks on)
  *   G (2)  Blitz               Shift+G  Speed Vortex        hold G  Lightning Throw (charge, let go: throw)
  *   X (3)  Momentum Dash       Shift+X  Speed Sweep         hold X  Tornado Arms
- *   Z (4)  --                  Shift+Z  Time Remnant        hold Z  Flash Time (from the press; at max momentum for 5 s:
- *                                                                   the Speed Force portal)
+ *   Z (4)  --                  Shift+Z  Time Remnant        hold Z  below 100% momentum: Flash Time (from the press);
+ *                                                                   pressed AT 100%: the Speed Force portal ONLY (5 s held)
  *   V (5)  Afterimage Decoys   Shift+V  Speed Heal          hold V  Rewind
  *   C (6)  Speed Mode on / off Shift+C  Phase (held)        hold C  the 3 s charge, let go to launch at full speed
  *   N (8)  Rescue Run (Shift+N is the Speedster menu, client-side)
@@ -99,7 +99,7 @@ public final class SpeedForceAbilityManager {
 			switch (slot) {
 				case SLOT_4 -> {
 					k.done = true;
-					SpeedForceAbilities.startFlashTime(player); // Z is all hold: Flash Time runs from the press
+					SpeedForceAbilities.pressZ(player); // Z is all hold: at 100% the portal charge, else Flash Time, from the press
 				}
 				case SLOT_8 -> {
 					k.done = true;

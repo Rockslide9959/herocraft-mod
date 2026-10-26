@@ -148,8 +148,8 @@ public final class SpeedForceHud {
 	private static void renderPanel(GuiGraphics g, Minecraft mc, Player p, SpeedForceState s, long now, Palette pal) {
 		boolean suit = SpeedForceSpeedster.suited(p);
 		float topBps = (float) SpeedForceConfig.topBps(suit);
-		boolean flash = s.flashLeft > 0;
-		boolean portal = s.flashLeft > 0 && s.flashTotal > 0;
+		boolean flash = s.flashLeft == SpeedForceState.Z_FLASH_TIME;
+		boolean portal = s.flashLeft == SpeedForceState.Z_PORTAL; // v0.17.1 (user): Z at 100% -- the portal charge, never Flash Time
 		boolean remnant = s.remnantUntil > now;
 		boolean drained = s.drained > 0;
 
@@ -157,6 +157,9 @@ public final class SpeedForceHud {
 		int modeColour;
 		if (SpeedForceRealm.inside(p)) {
 			mode = Component.translatable("hud.projecthero.speed_force.mode.realm");
+			modeColour = pal.light();
+		} else if (portal) {
+			mode = Component.translatable("hud.projecthero.speed_force.mode.portal");
 			modeColour = pal.light();
 		} else if (flash) {
 			mode = Component.translatable("hud.projecthero.speed_force.mode.flash_time");
@@ -249,12 +252,12 @@ public final class SpeedForceHud {
 		g.drawString(mc.font, meter, x + w - 5 - mc.font.width(meter), ry, pal.light(), false);
 		int ey = ry + 10;
 		g.fill(gx, ey, gx + gw, ey + 3, pal.deep());
-		g.fill(gx, ey, gx + Math.round(gw * Mth.clamp(s.meter / SpeedForceConfig.METER_MAX, 0f, 1f)), ey + 3, drained ? DIM : pal.light());
+		g.fill(gx, ey, gx + Math.round(gw * Mth.clamp(s.meter / SpeedForceSpeedster.meterMax(p), 0f, 1f)), ey + 3, drained ? DIM : pal.light());
 
 		// what is running
 		ry = ey + 6;
 		if (flash) {
-			bar(g, mc, gx, ry, gw, Component.translatable("hud.projecthero.speed_force.flash_time"), s.meter / SpeedForceConfig.METER_MAX,
+			bar(g, mc, gx, ry, gw, Component.translatable("hud.projecthero.speed_force.flash_time"), s.meter / SpeedForceSpeedster.meterMax(p),
 					Component.translatable("hud.projecthero.speed_force.per_second", String.format(Locale.ROOT, "%.0f", SpeedForceConfig.FLASH_COST_PER_SECOND)),
 					FLASH_BLUE, pal);
 			ry += 9;
@@ -284,7 +287,8 @@ public final class SpeedForceHud {
 		boolean realm = SpeedForceRealm.inside(p);
 		Component mode = Component.translatable(realm ? "hud.projecthero.speed_force.mode.realm"
 				: s.chargeStart != 0L ? "hud.projecthero.speed_force.mode.charging"
-				: s.flashLeft > 0 ? "hud.projecthero.speed_force.mode.flash_time"
+				: s.flashLeft == SpeedForceState.Z_PORTAL ? "hud.projecthero.speed_force.mode.portal"
+				: s.flashLeft == SpeedForceState.Z_FLASH_TIME ? "hud.projecthero.speed_force.mode.flash_time"
 				: s.phasing ? "hud.projecthero.speed_force.mode.phasing"
 				: s.drained > 0 ? "hud.projecthero.speed_force.mode.drained"
 				: s.speedMode ? "hud.projecthero.speed_force.mode.speed" : "hud.projecthero.speed_force.mode.walk");
@@ -302,14 +306,14 @@ public final class SpeedForceHud {
 					c >= 1f ? WHITE : pal.accent(), pal);
 			by -= 9;
 		}
-		if (s.flashLeft > 0 && s.flashTotal > 0) {
+		if (s.flashLeft == SpeedForceState.Z_PORTAL) {
 			float c = Math.min(1f, s.flashTotal / (float) SpeedForceConfig.PORTAL_TICKS);
 			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.portal"), c,
 					Component.literal(String.format(Locale.ROOT, "%.0f%%", c * 100f)), pal.light(), pal);
 			by -= 9;
 		}
-		if (s.flashLeft > 0) {
-			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.flash_time"), s.meter / SpeedForceConfig.METER_MAX,
+		if (s.flashLeft == SpeedForceState.Z_FLASH_TIME) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.flash_time"), s.meter / SpeedForceSpeedster.meterMax(p),
 					Component.translatable("hud.projecthero.speed_force.per_second", String.format(Locale.ROOT, "%.0f", SpeedForceConfig.FLASH_COST_PER_SECOND)),
 					FLASH_BLUE, pal);
 			by -= 9;
@@ -324,8 +328,8 @@ public final class SpeedForceHud {
 					seconds(s.drained), RED, pal);
 			by -= 9;
 		}
-		if (s.speedMode || s.meter < SpeedForceConfig.METER_MAX) {
-			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.meter"), s.meter / SpeedForceConfig.METER_MAX,
+		if (s.speedMode || s.meter < SpeedForceSpeedster.meterMax(p)) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.meter"), s.meter / SpeedForceSpeedster.meterMax(p),
 					Component.literal(String.format(Locale.ROOT, "%.0f", s.meter)), s.drained > 0 ? DIM : pal.light(), pal);
 			by -= 9;
 		}
@@ -378,7 +382,7 @@ public final class SpeedForceHud {
 				int smax = Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[k]));
 				float ready = scd <= 0 ? 1f : 1f - Math.min(1f, scd / (float) smax);
 				int on = k == 1 ? pal.accent() : pal.light();
-				if (slot == AbilitySlot.SLOT_4 && k == 2 && s.flashLeft > 0 && s.flashTotal > 0) {
+				if (slot == AbilitySlot.SLOT_4 && k == 2 && s.flashLeft == SpeedForceState.Z_PORTAL) {
 					ready = Math.min(1f, s.flashTotal / (float) SpeedForceConfig.PORTAL_TICKS);
 					on = WHITE;
 				}

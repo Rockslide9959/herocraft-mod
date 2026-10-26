@@ -23,6 +23,17 @@ public final class SpeedForceAttachments {
 			ProjectHeroMod.id("speed_force_trip"),
 			builder -> builder.persistent(com.projecthero.mod.speedforce.data.SpeedForceTrip.CODEC));
 
+	/**
+	 * v0.17.1 (user, Speed Force Memories): the marked places and the exit history -- persistent (they survive a logout),
+	 * kept on death, synced to the owner only (the Shift+N menu lists the marked places).
+	 */
+	public static final AttachmentType<com.projecthero.mod.speedforce.data.SpeedForceMemories> MEMORIES = AttachmentRegistry.create(
+			ProjectHeroMod.id("speed_force_memories"),
+			builder -> builder.persistent(com.projecthero.mod.speedforce.data.SpeedForceMemories.CODEC)
+					.copyOnDeath()
+					.initializer(() -> com.projecthero.mod.speedforce.data.SpeedForceMemories.EMPTY)
+					.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.speedforce.data.SpeedForceMemories.CODEC), AttachmentSyncPredicate.targetOnly()));
+
 	private SpeedForceAttachments() {
 	}
 

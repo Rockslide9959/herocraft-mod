@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "projecthero:tachyon_device"
+    },
+    {
+      "item": "projecthero:speed_force_shard"
+    }
+  ],
+  "result": {
+    "id": "projecthero:speed_force_tachyon_device",
+    "count": 1
+  }
+}

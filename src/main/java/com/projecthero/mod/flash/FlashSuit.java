@@ -105,6 +105,8 @@ public final class FlashSuit {
 		output.accept(BOOTS);
 		if (com.projecthero.mod.speedforce.SpeedForceMod.TACHYON_DEVICE != null) {
 			output.accept(com.projecthero.mod.speedforce.SpeedForceMod.TACHYON_DEVICE); // v0.17.1
+			output.accept(com.projecthero.mod.speedforce.SpeedForceMod.SPEED_FORCE_TACHYON_DEVICE);
+			output.accept(com.projecthero.mod.speedforce.SpeedForceMod.SPEED_FORCE_SHARD);
 		}
 	}
 

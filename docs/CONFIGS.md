@@ -73,6 +73,7 @@ values and version.
 | `projecthero_crime.json` | `crime/CrimeConfig` | 2 | 1 introduce (v0.16.2 street crime; `trigger` is the server's, every other section is balance), 2 introduce rewards iron/food keys (v0.16.4) | No. New keys only, defaults fill in. |
 | `projecthero_city.json` | `city/CityConfig` | 1 | 1 introduce (v0.16.2 City part B: repair, cops, doctor, firefighter, bank, Daily Bulletin; `repair` and `bank` are the server's, `cops` / `doctor` / `firefighter` / `bulletin` are balance; `repairDelayTicks` is clamped to 1200-72000 on load) | No. New in v0.16.2 and versioned from the start. |
 | `projecthero_quirk_dark_shadow.json` | `quirk/darkshadow/DarkShadowConfig` | 1 | 1 introduce (v0.16.7 Dark Shadow revamp: the old numbers were code constants with no file; `light`, `meter`, `berserk` and `moves` are all balance; loaded by `DarkShadowMod.initialize`) | No. New in v0.16.7 and versioned from the start. |
+| `projecthero_black_flash.json` | `speedforce/BlackFlashConfig` | 1 | 1 introduce (v0.17.1 the Black Flash: `boss` -- 600 health, armour, speed, regeneration, the 5-minute no-target despawn, the 80% player damage cap, XP -- and `moves`, every move's damage plus the Time Remnant and Flash Time; both balance; loaded by `SpeedForceMod.initialize`) | No. New in v0.17.1 and versioned from the start. |
 
 The audit compared the `public ... = <default>` lines in `git log -p` of each config class against its migration
 steps. The Oathbreaker has no config file: its numbers are code constants, so they can't go stale.

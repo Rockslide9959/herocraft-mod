@@ -30,6 +30,16 @@ public record SpeedForceFxPayload(int playerId, int kind, double fx, double fy, 
 	public static final int PORTAL_ENTER = 7;
 	/** Out of the Speed Force: a bolt from (tx, ty, tz) down to where they land (fx, fy, fz). */
 	public static final int REALM_EXIT = 8;
+	/**
+	 * v0.17.1 the Black Flash (playerId is HIS entity id): a black-and-red bolt (fx..)->(tx..); a dark shockwave ring at fx..
+	 * of radius tx; the punch out of the Speed Force at fx..; his dissolve (bolts from fx.. up to tx..); a zip, a line of his
+	 * after-images from fx.. to tx...
+	 */
+	public static final int BF_BOLT = 9;
+	public static final int BF_RING = 10;
+	public static final int BF_PUNCH = 11;
+	public static final int BF_DISSOLVE = 12;
+	public static final int BF_STREAK = 13;
 
 	public static final CustomPacketPayload.Type<SpeedForceFxPayload> TYPE =
 			new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(ProjectHeroMod.MOD_ID, "speed_force_fx"));
