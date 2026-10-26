@@ -190,6 +190,46 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.1 (user): hold C on the move pins the momentum; standing still it is the charge instead. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void holdCOnTheMoveLocksTheMomentum(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		if (!SpeedForceSpeedster.speedActive(p)) {
+			SpeedForceAbilities.toggleSpeedMode(p);
+		}
+		SpeedForceSpeedster.setMomentum(p, 0.4f);
+		p.setSprinting(true);
+		SpeedForceSpeedster.lockMomentum(p);
+		helper.assertTrue(SpeedForceSpeedster.momentumLocked(p), "locked");
+		run(p, 60);
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.momentum(p) - 0.4f) < 0.01f, "holding Ctrl and running 3 s: pinned at 40%, got " + SpeedForceSpeedster.momentum(p));
+		SpeedForceSpeedster.unlockMomentum(p);
+		run(p, 20);
+		helper.assertTrue(SpeedForceSpeedster.momentum(p) > 0.41f, "let go of C: building again, got " + SpeedForceSpeedster.momentum(p));
+		// on the move the charge won't start
+		helper.assertFalse(SpeedForceAbilities.startCharge(p), "no charge while running");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): using a move holds the momentum -- the stop at the end of a sweep is no wall and no standstill. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void movesNeverCostMomentum(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		SpeedForceSpeedster.setMomentum(p, 0.7f);
+		p.setSprinting(true);
+		SpeedForceSpeedster.markMove(p);
+		// thrown about at full tilt, then stopped dead with a wall in front -- and standing a second
+		helper.setBlock(new BlockPos(3, 2, 2), Blocks.STONE);
+		helper.setBlock(new BlockPos(3, 3, 2), Blocks.STONE);
+		SpeedForceSpeedster.stepRun(p, new Vec3(8.0, 0, 0));
+		SpeedForceSpeedster.stepRun(p, new Vec3(8.0, 0, 0));
+		for (int i = 0; i < 20; i++) {
+			SpeedForceSpeedster.stepRun(p, Vec3.ZERO);
+		}
+		helper.assertTrue(Math.abs(SpeedForceSpeedster.momentum(p) - 0.7f) < 0.01f, "a move in play: 70% kept, got " + SpeedForceSpeedster.momentum(p));
+		helper.succeed();
+	}
+
 	/** v0.17.1 (user): with Toggle Sprint on the player stays sprinting with Ctrl up -- momentum still only builds on Ctrl. */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void toggleSprintWithCtrlUpCruisesInsteadOfBuilding(GameTestHelper helper) {
@@ -221,7 +261,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 			SpeedForceSpeedster.stepRun(p, Vec3.ZERO);
 		}
 		helper.assertTrue(SpeedForceSpeedster.momentum(p) < 0.01f, "standing 1.6 s: momentum gone, got " + SpeedForceSpeedster.momentum(p));
-		// v0.17.1 (user): off Ctrl past 30% the speed holds (a cruise) -- below it, walking bleeds it away slowly
+		// v0.17.1 (user): off Ctrl the speed holds (a cruise), at any momentum
 		SpeedForceSpeedster.resetRun(p);
 		SpeedForceSpeedster.setMomentum(p, 0.8f);
 		p.setSprinting(false);
@@ -235,7 +275,8 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 			SpeedForceSpeedster.stepRun(p, new Vec3(0.45, 0, 0));
 		}
 		float walked = SpeedForceSpeedster.momentum(p);
-		helper.assertTrue(walked < 0.10f && walked > 0.0f, "under 30%, 2 s of walking costs ~20%, got " + walked);
+		// v0.17.1 (user: "player should even be able to stop it at 5%"): the cruise holds at any momentum now
+		helper.assertTrue(Math.abs(walked - 0.25f) < 0.01f, "off Ctrl at 25%: held too, got " + walked);
 		// a stall with nothing in front (a lag spike): not a wall
 		SpeedForceSpeedster.resetRun(p);
 		SpeedForceSpeedster.setMomentum(p, 1f);
@@ -317,12 +358,18 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(SpeedForceConfig.sprintBps(0.25, true) - 60.0) < 0.1 && Math.abs(SpeedForceConfig.sprintBps(0.6, true) - 120.0) < 0.1,
 				"the suit curve: 60 at 25%, 120 at 60%");
 		p.setSprinting(false);
-		SpeedForceSpeedster.setMomentum(p, 0.1f); // under the 30% cruise
+		SpeedForceSpeedster.setMomentum(p, 0f); // no momentum: the Speed Mode walk
 		SpeedForceSpeedster.resetRun(p);
 		p.tickCount++;
 		SpeedForceSpeedster.tick(p);
 		double walk = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
 		helper.assertTrue(Math.abs(walk - SpeedForceConfig.WALK_BPS) < 0.5, "walking in Speed Mode is the 20 b/s base, got " + walk);
+		// v0.17.1 (user): off Ctrl the run cruises at any momentum -- 10% in the suit holds its 42 b/s
+		SpeedForceSpeedster.setMomentum(p, 0.1f);
+		p.tickCount++;
+		SpeedForceSpeedster.tick(p);
+		double cruise = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
+		helper.assertTrue(Math.abs(cruise - SpeedForceConfig.sprintBps(0.1, true)) < 0.75, "cruising at 10%: " + SpeedForceConfig.sprintBps(0.1, true) + " b/s, got " + cruise);
 		helper.succeed();
 	}
 

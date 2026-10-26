@@ -18,8 +18,15 @@ public final class SpeedForceConfig {
 	 */
 	public static final float DAMAGE_AT_REST = 1.0f;
 	public static final float DAMAGE_AT_FULL = 2.0f;
-	/** v0.17.1 (user): momentum builds only while sprinting; from this much, letting go of Ctrl holds the speed. */
-	public static final float CRUISE_MOMENTUM = 0.30f;
+	/**
+	 * v0.17.1 (user): momentum builds only while sprinting; from this much, letting go of Ctrl holds the speed -- 0 now
+	 * (user: "30% shouldnt be the minimum ... player should even be able to stop it at 5%"): it holds at any momentum.
+	 */
+	public static final float CRUISE_MOMENTUM = 0.0f;
+	/** v0.17.1 (user): hold C slower than this (blocks a second) is the charge, faster the Momentum Lock. */
+	public static final double CHARGE_STILL_BPS = 2.0;
+	/** v0.17.1 (user): a move used holds the momentum this long after (ticks), so moves never cost the run. */
+	public static final int MOVE_MOMENTUM_HOLD_TICKS = 40;
 	/**
 	 * v0.17.1 (user): Speed Mode breaks blocks 75% faster -- (user: "it doesnt feel like [it]"): +75% mining speed (1.75x)
 	 * only cut a block's time to 57%, so it is read as 75% less TIME: 4x the mining speed, a quarter of the time.
