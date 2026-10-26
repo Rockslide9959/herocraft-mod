@@ -1,0 +1,97 @@
+package com.projecthero.mod.speedforce.data;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+/**
+ * v0.17.1: the whole Speed Force Speedster for one player in one attachment ({@code projecthero:speed_force_state}):
+ * persistent, kept through death and synced to every client (others see the skate run, the lightning growing with the
+ * momentum and the phase; the owner's HUD needs the momentum, the Speed Force and the cooldowns). Only
+ * {@code SpeedForceSpeedster} and its move classes change it, always through a {@link #copy()}.
+ */
+public final class SpeedForceState {
+	public static final int ANIM_NONE = 0;
+	public static final int ANIM_PUNCHES = 1;
+	public static final int ANIM_MASS = 2;
+	public static final int ANIM_THROW = 3;
+	public static final int ANIM_TORNADO = 4;
+	public static final int ANIM_STEP = 5;
+	public static final int ANIM_HEAL = 6;
+	public static final int ANIM_SURGE = 7;
+	public static final int ANIM_AWAKEN = 8;
+	public static final int ANIM_GRAB = 9;
+
+	public boolean hasPower;
+	/** 0..1. */
+	public float momentum;
+	/** The Speed Force meter, 0..{@code SpeedForceConfig.METER_MAX}. */
+	public float meter;
+	/** C: Speed Force Surge runs until this game time (momentum locked at 100%). */
+	public long surgeUntil;
+	/** Z: Flash Time's ticks left on the caster's own clock (HUD mirror), and how long it was. */
+	public int flashLeft;
+	public int flashTotal;
+	/** Shift+X held. */
+	public boolean phasing;
+	/** V: the entity carried (0 = nothing). */
+	public int carryId;
+	/** Shift+G: the Speed Tornado's ticks left. */
+	public int tornadoLeft;
+	/** G: the Lightning Throw's wind-up ticks left. */
+	public int throwLeft;
+	/** Shift+Z: the Time Remnant fights until this game time. */
+	public long remnantUntil;
+	public int animId;
+	public long animStart;
+	/** {@code abilityId} -> absolute game time it is ready again. */
+	public final Map<String, Long> abilityReadyAt;
+
+	public SpeedForceState() {
+		this(false, 0f, 0f, 0L, 0, 0, false, 0, 0, 0, 0L, 0, 0L, new HashMap<>());
+	}
+
+	public SpeedForceState(boolean hasPower, float momentum, float meter, long surgeUntil, int flashLeft, int flashTotal,
+			boolean phasing, int carryId, int tornadoLeft, int throwLeft, long remnantUntil, int animId, long animStart,
+			Map<String, Long> abilityReadyAt) {
+		this.hasPower = hasPower;
+		this.momentum = momentum;
+		this.meter = meter;
+		this.surgeUntil = surgeUntil;
+		this.flashLeft = flashLeft;
+		this.flashTotal = flashTotal;
+		this.phasing = phasing;
+		this.carryId = carryId;
+		this.tornadoLeft = tornadoLeft;
+		this.throwLeft = throwLeft;
+		this.remnantUntil = remnantUntil;
+		this.animId = animId;
+		this.animStart = animStart;
+		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+	}
+
+	public SpeedForceState copy() {
+		return new SpeedForceState(hasPower, momentum, meter, surgeUntil, flashLeft, flashTotal, phasing, carryId, tornadoLeft,
+				throwLeft, remnantUntil, animId, animStart, abilityReadyAt);
+	}
+
+	public static final Codec<SpeedForceState> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
+			Codec.FLOAT.optionalFieldOf("momentum", 0f).forGetter(s -> s.momentum),
+			Codec.FLOAT.optionalFieldOf("meter", 0f).forGetter(s -> s.meter),
+			Codec.LONG.optionalFieldOf("surge_until", 0L).forGetter(s -> s.surgeUntil),
+			Codec.INT.optionalFieldOf("flash_left", 0).forGetter(s -> s.flashLeft),
+			Codec.INT.optionalFieldOf("flash_total", 0).forGetter(s -> s.flashTotal),
+			Codec.BOOL.optionalFieldOf("phasing", false).forGetter(s -> s.phasing),
+			Codec.INT.optionalFieldOf("carry_id", 0).forGetter(s -> s.carryId),
+			Codec.INT.optionalFieldOf("tornado_left", 0).forGetter(s -> s.tornadoLeft),
+			Codec.INT.optionalFieldOf("throw_left", 0).forGetter(s -> s.throwLeft),
+			Codec.LONG.optionalFieldOf("remnant_until", 0L).forGetter(s -> s.remnantUntil),
+			Codec.INT.optionalFieldOf("anim_id", 0).forGetter(s -> s.animId),
+			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
+			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
+	).apply(i, SpeedForceState::new));
+}

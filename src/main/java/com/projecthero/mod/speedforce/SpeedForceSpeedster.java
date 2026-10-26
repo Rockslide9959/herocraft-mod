@@ -1,0 +1,689 @@
+package com.projecthero.mod.speedforce;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.projecthero.mod.ProjectHeroMod;
+import com.projecthero.mod.flash.FlashSuit;
+import com.projecthero.mod.hero.HeroTiers;
+import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.power.p04.SuperSpeedTimeSlow;
+import com.projecthero.mod.speedforce.data.SpeedForceState;
+import com.projecthero.mod.speedforce.network.SpeedForceFxPayload;
+
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+import org.joml.Vector3f;
+
+/**
+ * The single server-side API for the <b>Speed Force Speedster</b> (the DC Flash), the v0.17.1 Hero-Tier upgrade of the
+ * plain Speedster (the Super Speed mutation, which stays exactly as it is). Nothing else touches {@link SpeedForceState};
+ * every change re-saves through {@link ServerPlayer#setAttached}. The moves live in {@link SpeedForceAbilities}, the
+ * awakening in {@link SpeedForceUpgrade}, the damage rules in {@link SpeedForceDamage}, the numbers in
+ * {@link SpeedForceConfig}.
+ *
+ * <h2>Momentum</h2>
+ * Slow off the line, then faster the longer the run stays unbroken: 0 to 100% (3 s to 25%, 10 s to 60%, 20 s to 100%).
+ * The sprint speed follows it ({@link SpeedForceConfig#sprintBps}): 17 to 167 blocks a second, and 25 to 250 in the full
+ * Flash Suit (+50%). Stopping loses it in 1.5 s, walking bleeds it away, sharp turns cost a little, hits a chunk and
+ * walls most of it. It is measured here, on the server, from where the client says the runner is.
+ *
+ * <h2>The Speed Force</h2>
+ * 0..100, one point for every 20 blocks run (and a surge from lightning or Charged Copper Plates); the moves spend it.
+ */
+public final class SpeedForceSpeedster {
+	public static final String KEY = "speed_force_speedster";
+
+	public static final DustParticleOptions GOLD = new DustParticleOptions(new Vector3f(1.0f, 0.78f, 0.18f), 1.2f);
+	public static final DustParticleOptions GOLD_BIG = new DustParticleOptions(new Vector3f(1.0f, 0.85f, 0.3f), 2.2f);
+	public static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(0.85f, 0.08f, 0.06f), 1.2f);
+
+	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("speed_force_speed");
+	private static final ResourceLocation STEP_ID = ProjectHeroMod.id("speed_force_step");
+	private static final ResourceLocation ATTACK_SPEED_ID = ProjectHeroMod.id("speed_force_attack_speed");
+
+	/** Vanilla flat-ground blocks a second per point of MOVEMENT_SPEED (see {@code SuperSpeedHandlers#BLOCKS_PER_SECOND_PER_SPEED}). */
+	public static final double BLOCKS_PER_SECOND_PER_SPEED = 0.98 / (1.0 - 0.6 * 0.91) * 20.0;
+
+	/** The run as the server sees it, per player. */
+	static final class Motion {
+		Vec3 last;
+		double raw1;
+		double raw2;
+		double ema;
+		Vec3 dir;
+		double distance;
+		boolean sonicArmed = true;
+		/** Ticks to ignore the speed readings (a zip / teleport just happened). */
+		int grace;
+		long copperReady;
+	}
+
+	/** Where a runner was, a tick at a time (Rewind, the Time Remnant). */
+	record Snap(Vec3 pos, float yRot, float xRot, float health) {
+	}
+
+	private static final Map<UUID, Long> LAST_MESSAGE = new ConcurrentHashMap<>();
+	private static final Map<UUID, Integer> LAST_TICK = new ConcurrentHashMap<>();
+	static final Map<UUID, Motion> MOTION = new ConcurrentHashMap<>();
+	static final Map<UUID, Deque<Snap>> HISTORY = new ConcurrentHashMap<>();
+
+	private SpeedForceSpeedster() {
+	}
+
+	public static void clearSessionState() {
+		LAST_MESSAGE.clear();
+		LAST_TICK.clear();
+		MOTION.clear();
+		HISTORY.clear();
+		SpeedForceAbilities.clearSessionState();
+		SpeedForceAbilityManager.clearSessionState();
+		SpeedForceUpgrade.clearSessionState();
+		SpeedForceDamage.clearSessionState();
+	}
+
+	// ---------------------------------------------------------------- state
+
+	public static SpeedForceState state(ServerPlayer player) {
+		return player.getAttachedOrCreate(SpeedForceAttachments.STATE);
+	}
+
+	static void save(ServerPlayer player, SpeedForceState state) {
+		player.setAttached(SpeedForceAttachments.STATE, state);
+	}
+
+	public static SpeedForceState peek(Player player) {
+		return player.getAttachedOrElse(SpeedForceAttachments.STATE, null);
+	}
+
+	public static boolean hasPower(Player player) {
+		SpeedForceState s = peek(player);
+		return s != null && s.hasPower;
+	}
+
+	public static float momentum(Player player) {
+		SpeedForceState s = peek(player);
+		return s == null || !s.hasPower ? 0f : s.momentum;
+	}
+
+	public static float meter(Player player) {
+		SpeedForceState s = peek(player);
+		return s == null ? 0f : s.meter;
+	}
+
+	/** C: Speed Force Surge is running (client-safe). */
+	public static boolean surging(Player player) {
+		SpeedForceState s = peek(player);
+		return s != null && s.hasPower && s.surgeUntil > player.level().getGameTime();
+	}
+
+	/** Shift+X Phase is held (client-safe: the collision mixin reads it on both sides). */
+	public static boolean phasing(Player player) {
+		SpeedForceState s = peek(player);
+		return s != null && s.hasPower && s.phasing;
+	}
+
+	public static int cooldownRemaining(Player player, String abilityId) {
+		SpeedForceState s = peek(player);
+		if (s == null) {
+			return 0;
+		}
+		Long ready = s.abilityReadyAt.get(abilityId);
+		return ready == null ? 0 : (int) Math.max(0L, ready - player.level().getGameTime());
+	}
+
+	/** Whether the full Flash Suit is on (+50% speed). */
+	public static boolean suited(Player player) {
+		return FlashSuit.wearsFull(player);
+	}
+
+	/** The sprint speed the runner's momentum is worth right now, blocks a second. */
+	public static double targetBps(Player player) {
+		return SpeedForceConfig.sprintBps(momentum(player), suited(player));
+	}
+
+	static void say(ServerPlayer player, String key, ChatFormatting colour, Object... args) {
+		long now = player.level().getGameTime();
+		Long last = LAST_MESSAGE.get(player.getUUID());
+		if (last != null && now - last < 10 && now >= last) {
+			return;
+		}
+		LAST_MESSAGE.put(player.getUUID(), now);
+		player.displayClientMessage(Component.translatable(key, args).withStyle(colour), true);
+	}
+
+	// ---------------------------------------------------------------- momentum + the meter
+
+	public static void setMomentum(ServerPlayer player, float value) {
+		SpeedForceState s = state(player);
+		float v = Math.max(0f, Math.min(1f, value));
+		if (v != s.momentum) {
+			SpeedForceState n = s.copy();
+			n.momentum = v;
+			save(player, n);
+		}
+	}
+
+	/** Takes {@code amount} (0..1) of momentum away -- not while a Surge holds it at 100%. */
+	public static void loseMomentum(ServerPlayer player, double amount) {
+		if (surging(player)) {
+			return;
+		}
+		setMomentum(player, (float) (state(player).momentum - amount));
+	}
+
+	public static boolean spendMeter(ServerPlayer player, float cost) {
+		if (cost <= 0f) {
+			return true;
+		}
+		SpeedForceState s = state(player);
+		if (s.meter + 1.0e-3f < cost) {
+			return false;
+		}
+		SpeedForceState n = s.copy();
+		n.meter = Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, s.meter) - cost);
+		save(player, n);
+		return true;
+	}
+
+	public static void addMeter(ServerPlayer player, float amount) {
+		SpeedForceState s = state(player);
+		float v = Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, s.meter + amount));
+		if (v != s.meter) {
+			SpeedForceState n = s.copy();
+			n.meter = v;
+			save(player, n);
+		}
+	}
+
+	/** A zip / teleport is about to move the runner: don't read it as running (or a wall). */
+	public static void graceMotion(ServerPlayer player, int ticks) {
+		Motion mo = MOTION.computeIfAbsent(player.getUUID(), k -> new Motion());
+		mo.grace = Math.max(mo.grace, ticks);
+		mo.last = null;
+	}
+
+	// ---------------------------------------------------------------- grant / revoke
+
+	/**
+	 * The awakening (or the command): the Speed Force takes the player. Claims the one Primary slot (which strips the Super
+	 * Speed mutation along with every other mutation), fills the Speed Force, and the lightning moment plays. False if
+	 * already a Speed Force Speedster or the power is taken (unique powers).
+	 */
+	public static boolean grant(ServerPlayer player) {
+		if (state(player).hasPower) {
+			return false;
+		}
+		if (com.projecthero.mod.hero.UniquePowers.refuse(player, KEY)) {
+			return false;
+		}
+		HeroTiers.claimPrimary(player, KEY);
+		long now = player.level().getGameTime();
+		SpeedForceState s = new SpeedForceState();
+		s.hasPower = true;
+		s.meter = SpeedForceConfig.METER_MAX;
+		s.momentum = 0.25f;
+		s.animId = SpeedForceState.ANIM_AWAKEN;
+		s.animStart = now;
+		save(player, s);
+		awakenFx(player);
+		player.connection.send(new ClientboundSetTitlesAnimationPacket(6, 70, 20));
+		player.connection.send(new ClientboundSetSubtitleTextPacket(
+				Component.translatable("message.projecthero.speed_force_speedster.subtitle").withStyle(ChatFormatting.YELLOW)));
+		player.connection.send(new ClientboundSetTitleTextPacket(
+				Component.translatable("message.projecthero.speed_force_speedster.title").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)));
+		player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.acquired")
+				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
+		player.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.acquired_hint")
+				.withStyle(ChatFormatting.GRAY), false);
+		return true;
+	}
+
+	/** The Speed Force takes him: a white flash, a column of gold lightning, thunder and a ring of sparks. */
+	private static void awakenFx(ServerPlayer player) {
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 c = player.position().add(0, 1.0, 0);
+		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 3, 0.2, 0.2, 0.2, 0);
+		level.sendParticles(GOLD_BIG, c.x, c.y, c.z, 80, 0.7, 1.3, 0.7, 0.0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 120, 0.8, 1.4, 0.8, 0.6);
+		for (int i = 0; i < 40; i++) {
+			level.sendParticles(GOLD, c.x, c.y + i * 0.6, c.z, 2, 0.2, 0.1, 0.2, 0.0);
+		}
+		for (int k = 0; k < 36; k++) {
+			double a = k * Math.PI * 2 / 36;
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x + Math.cos(a) * 2.5, player.getY() + 0.1, c.z + Math.sin(a) * 2.5, 2,
+					0.05, 0.05, 0.05, 0.1);
+		}
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 1.2f, 1.3f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 1.2f, 1.0f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.9f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 0.7f, 1.8f);
+		fx(player, SpeedForceFxPayload.AWAKEN, c, c.add(0, 30, 0));
+		player.addEffect(new MobEffectInstance(MobEffects.GLOWING, 40, 0, false, false, false));
+	}
+
+	public static void revoke(ServerPlayer player) {
+		SpeedForceAbilities.clear(player);
+		save(player, new SpeedForceState());
+		clearModifiers(player);
+		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
+		if (regen != null && regen.getAmplifier() == SpeedForceConfig.REGEN_AMPLIFIER && !regen.isVisible()) {
+			player.removeEffect(MobEffects.REGENERATION);
+		}
+		forget(player.getUUID());
+	}
+
+	private static void clearModifiers(ServerPlayer player) {
+		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
+		PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
+		PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
+	}
+
+	private static void forget(UUID id) {
+		LAST_MESSAGE.remove(id);
+		LAST_TICK.remove(id);
+		MOTION.remove(id);
+		HISTORY.remove(id);
+		SpeedForceAbilityManager.forget(id);
+	}
+
+	static boolean canAct(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		return s.hasPower && player.isAlive() && !player.isSpectator();
+	}
+
+	// ---------------------------------------------------------------- fx
+
+	/** Sends one Speed Force visual to the runner and everyone tracking them. */
+	public static void fx(ServerPlayer player, int kind, Vec3 from, Vec3 to) {
+		SpeedForceFxPayload payload = new SpeedForceFxPayload(player.getId(), kind, from.x, from.y, from.z, to.x, to.y, to.z);
+		if (ServerPlayNetworking.canSend(player, SpeedForceFxPayload.TYPE)) {
+			ServerPlayNetworking.send(player, payload);
+		}
+		for (ServerPlayer viewer : PlayerLookup.tracking(player)) {
+			if (viewer != player && ServerPlayNetworking.canSend(viewer, SpeedForceFxPayload.TYPE)) {
+				ServerPlayNetworking.send(viewer, payload);
+			}
+		}
+	}
+
+	static void setAnim(ServerPlayer player, int animId) {
+		SpeedForceState n = state(player).copy();
+		n.animId = animId;
+		n.animStart = player.level().getGameTime();
+		save(player, n);
+	}
+
+	// ---------------------------------------------------------------- tick
+
+	/** Every tick, for every player (from {@code AbilityRouter.serverTick}). */
+	public static void tick(ServerPlayer player) {
+		SpeedForceState s = peek(player);
+		if (s == null || !s.hasPower) {
+			SpeedForceUpgrade.tickCandidate(player);
+			return;
+		}
+		// once per player tick -- the tick count (not the game time), so Flash Time's extra caster ticks run too
+		Integer prev = LAST_TICK.put(player.getUUID(), player.tickCount);
+		if (prev != null && prev == player.tickCount) {
+			return;
+		}
+		tickMotion(player);
+		tickPassives(player);
+		applySpeed(player);
+		recordHistory(player);
+		SpeedForceAbilities.tick(player, player.level().getGameTime());
+	}
+
+	/** Flash Time: the runner's own clocks run at their pace while the world's crawls (one tick pulled in per extra tick). */
+	public static void advanceClocks(ServerPlayer player, int ticks) {
+		SpeedForceState s = peek(player);
+		if (s == null || !s.hasPower) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		SpeedForceState n = s.copy();
+		boolean changed = false;
+		for (Map.Entry<String, Long> e : n.abilityReadyAt.entrySet()) {
+			if (e.getValue() > now) {
+				e.setValue(Math.max(now, e.getValue() - ticks));
+				changed = true;
+			}
+		}
+		if (n.surgeUntil > now) {
+			n.surgeUntil = Math.max(now, n.surgeUntil - ticks);
+			changed = true;
+		}
+		if (n.remnantUntil > now) {
+			n.remnantUntil = Math.max(now, n.remnantUntil - ticks);
+			changed = true;
+		}
+		if (n.animStart != 0L) {
+			n.animStart -= ticks;
+			changed = true;
+		}
+		if (changed) {
+			save(player, n);
+		}
+	}
+
+	/**
+	 * The run as the server sees it: how far the runner moved since last tick (packets arrive unevenly, so a short average
+	 * too), and from that the momentum -- built while flat out, held while slowed by terrain, lost stopping / walking /
+	 * turning hard / hitting a wall -- the Speed Force from the distance, and the sonic boom.
+	 */
+	static void tickMotion(ServerPlayer player) {
+		Motion mo = MOTION.computeIfAbsent(player.getUUID(), k -> new Motion());
+		Vec3 now = player.position();
+		Vec3 last = mo.last;
+		mo.last = now;
+		if (mo.grace > 0) {
+			mo.grace--;
+			return;
+		}
+		if (last == null) {
+			return;
+		}
+		runStep(player, mo, last, now);
+	}
+
+	/**
+	 * Gametests: one tick of the run reading as if the runner had just moved by {@code delta} (mock players never move on
+	 * their own; the cage is 8 blocks wide).
+	 */
+	public static void stepRun(ServerPlayer player, Vec3 delta) {
+		Motion mo = MOTION.computeIfAbsent(player.getUUID(), k -> new Motion());
+		Vec3 now = player.position();
+		mo.last = now;
+		mo.grace = 0;
+		runStep(player, mo, now.subtract(delta), now);
+	}
+
+	/** Gametests: forget the run's readings (a fresh start). */
+	public static void resetRun(ServerPlayer player) {
+		MOTION.remove(player.getUUID());
+	}
+
+	private static void runStep(ServerPlayer player, Motion mo, Vec3 last, Vec3 now) {
+		Vec3 d = now.subtract(last);
+		double raw = d.length();
+		if (raw > 40.0) {
+			mo.raw1 = 0.0; // a teleport, not running (and the readings start over)
+			mo.raw2 = 0.0;
+			mo.ema = 0.0;
+			return;
+		}
+		double horiz = d.horizontalDistance();
+		mo.ema = mo.ema * 0.5 + raw * 0.5;
+		SpeedForceState s = state(player);
+		boolean suit = suited(player);
+		boolean wallRun = wallRunning(player, s.momentum);
+		long gameTime = player.level().getGameTime();
+		boolean surge = s.surgeUntil > gameTime;
+		boolean frozen = surge || SuperSpeedTimeSlow.isCasting(player) || s.phasing || s.tornadoLeft > 0;
+		double m = s.momentum;
+
+		// a wall: flat out one tick, (almost) nothing the next two -- a released key only slows by half a tick -- AND a
+		// solid block right in front along the run (a lag spike also reads as "stopped dead", but there is no wall)
+		boolean slam = mo.raw2 > 1.5 && mo.raw1 < 0.15 * mo.raw2 && raw < 0.15 * mo.raw2 && !wallRun && !s.phasing
+				&& !player.isPassenger() && !player.getAbilities().flying && mo.dir != null && blockedAhead(player, mo.dir);
+		mo.raw2 = mo.raw1;
+		mo.raw1 = raw;
+		if (slam && !surge) {
+			m *= SpeedForceConfig.WALL_KEEP;
+			slamFx(player);
+		} else if (!frozen) {
+			double expected = SpeedForceConfig.sprintBps(m, suit) / 20.0;
+			if (mo.ema < 0.15 && !wallRun) {
+				m -= SpeedForceConfig.STOP_DECAY_PER_TICK;
+			} else if (!player.isSprinting() && !wallRun) {
+				m -= SpeedForceConfig.WALK_DECAY_PER_TICK;
+			} else if (!wallRun && mo.ema >= expected * SpeedForceConfig.BUILD_SPEED_FRACTION) {
+				m += SpeedForceConfig.buildPerTick(m);
+			}
+			// a sharp turn costs a little
+			if (horiz > 0.5 && mo.dir != null) {
+				Vec3 dir = new Vec3(d.x, 0, d.z).normalize();
+				double cos = Math.max(-1.0, Math.min(1.0, dir.dot(mo.dir)));
+				double angle = Math.toDegrees(Math.acos(cos));
+				if (angle > 45.0) {
+					m -= SpeedForceConfig.TURN_LOSS_MAX * (angle - 45.0) / 135.0;
+				}
+			}
+		}
+		if (surge) {
+			m = 1.0;
+		}
+		if (horiz > 0.5) {
+			mo.dir = new Vec3(d.x, 0, d.z).normalize();
+		}
+		m = Math.max(0.0, Math.min(1.0, m));
+
+		// the Speed Force: one point every 20 blocks run
+		mo.distance += raw;
+		float meterGain = 0f;
+		while (mo.distance >= SpeedForceConfig.BLOCKS_PER_POINT) {
+			mo.distance -= SpeedForceConfig.BLOCKS_PER_POINT;
+			meterGain += 1f;
+		}
+		float meter = Math.min(SpeedForceConfig.METER_MAX, s.meter + meterGain);
+		if ((float) m != s.momentum || meter != s.meter) {
+			SpeedForceState n = s.copy();
+			n.momentum = (float) m;
+			n.meter = meter;
+			save(player, n);
+		}
+
+		// Charged Copper Plates run over: a jolt of Speed Force
+		if (raw > 0.05 && gameTime >= mo.copperReady && SpeedForceUpgrade.crossesPlate(player, last, now)) {
+			mo.copperReady = gameTime + SpeedForceConfig.COPPER_COOLDOWN;
+			addMeter(player, SpeedForceConfig.COPPER_GAIN);
+			((ServerLevel) player.level()).sendParticles(ParticleTypes.ELECTRIC_SPARK, now.x, now.y + 0.3, now.z, 20, 0.4, 0.2, 0.4, 0.2);
+		}
+		// breaking the sound barrier
+		double bps = mo.ema * 20.0;
+		if (mo.sonicArmed && bps >= SpeedForceConfig.SONIC_BOOM_BPS) {
+			mo.sonicArmed = false;
+			sonicBoom(player);
+		} else if (!mo.sonicArmed && bps < SpeedForceConfig.SONIC_REARM_BPS) {
+			mo.sonicArmed = true;
+		}
+		// sparks at the heels for everyone (the gold lightning off the body is drawn by mod clients)
+		if (raw > 0.4 && player.tickCount % 2 == 0 && player.level() instanceof ServerLevel sl) {
+			Vec3 back = horiz > 1.0e-3 ? new Vec3(d.x, 0, d.z).normalize().scale(-1.2) : Vec3.ZERO;
+			sl.sendParticles(ParticleTypes.ELECTRIC_SPARK, now.x + back.x, now.y + 0.2, now.z + back.z, 1 + (int) (m * 4), 0.25, 0.15, 0.25, 0.1);
+		}
+		// non-Flash armour can't take this speed: 10 durability a second per piece above 60% momentum
+		if (m >= SpeedForceConfig.ARMOUR_BURN_MOMENTUM && raw > 0.5 && player.tickCount % 20 == 0 && !player.getAbilities().instabuild) {
+			com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.wearArmour(player);
+		}
+	}
+
+	/** A solid block right in front of the runner along {@code dir}, at body height (a step the assist climbs doesn't count). */
+	static boolean blockedAhead(Player p, Vec3 dir) {
+		AABB probe = p.getBoundingBox().move(dir.scale(0.4)).deflate(0.02, 0.0, 0.02);
+		probe = new AABB(probe.minX, probe.minY + 0.6, probe.minZ, probe.maxX, probe.maxY - 0.05, probe.maxZ);
+		return !p.level().noCollision(p, probe);
+	}
+
+	/** Whether the runner is set up to run up a wall: some momentum, looking steeply up, a solid block right in front. */
+	public static boolean wallRunning(Player p, float momentum) {
+		if (momentum < SpeedForceConfig.WALL_RUN_MOMENTUM || p.getXRot() > -60.0f || p.isShiftKeyDown()
+				|| p.getAbilities().flying || p.isPassenger() || phasing(p)) {
+			return false;
+		}
+		Vec3 look = p.getLookAngle();
+		Vec3 f = new Vec3(look.x, 0, look.z);
+		if (f.lengthSqr() < 1.0e-6) {
+			return false;
+		}
+		AABB probe = p.getBoundingBox().move(f.normalize().scale(0.3)).deflate(0.02, 0.1, 0.02);
+		return !p.level().noCollision(p, probe);
+	}
+
+	private static void slamFx(ServerPlayer player) {
+		ServerLevel level = (ServerLevel) player.level();
+		level.sendParticles(ParticleTypes.EXPLOSION, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.2, 0.2, 0.2, 0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.4, 0.6, 0.4, 0.2);
+		level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.6f, 1.6f);
+		say(player, "message.projecthero.speed_force_speedster.wall", ChatFormatting.GOLD);
+	}
+
+	/** Passing 100 b/s: a ring of air blasts out and knocks back whatever stands near (2 damage). */
+	static void sonicBoom(ServerPlayer player) {
+		ServerLevel level = (ServerLevel) player.level();
+		Vec3 c = player.position().add(0, 1.0, 0);
+		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.CLOUD, c.x, player.getY() + 0.2, c.z, 30, 1.5, 0.1, 1.5, 0.25);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.WARDEN_SONIC_BOOM, SoundSource.PLAYERS, 1.0f, 1.4f);
+		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.8f, 1.8f);
+		fx(player, SpeedForceFxPayload.BOOM, c, c);
+		for (LivingEntity e : SpeedForceCombat.within(player, c, SpeedForceConfig.SONIC_RADIUS)) {
+			SpeedForceCombat.strike(player, e, c, SpeedForceConfig.SONIC_DAMAGE, 1.0, 0.25);
+		}
+	}
+
+	/** Regeneration II, never tires, no fall damage at speed ({@link SpeedForceDamage}). */
+	private static void tickPassives(ServerPlayer player) {
+		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
+		if (regen == null || regen.getAmplifier() < SpeedForceConfig.REGEN_AMPLIFIER
+				|| (regen.getAmplifier() == SpeedForceConfig.REGEN_AMPLIFIER && regen.getDuration() < SpeedForceConfig.REGEN_REFRESH)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SpeedForceConfig.REGEN_REFRESH * 2,
+					SpeedForceConfig.REGEN_AMPLIFIER, true, false, true));
+		}
+		if (wallRunning(player, state(player).momentum)) {
+			player.resetFallDistance();
+		}
+	}
+
+	/** The bonus (ADD_MULTIPLIED_BASE on a 0.1 base) that runs at {@code bps} on flat ground. */
+	public static double bonusFor(double bps, boolean sprinting) {
+		return bps / BLOCKS_PER_SECOND_PER_SPEED / (sprinting ? 1.3 : 1.0) / 0.1 - 1.0;
+	}
+
+	/** The single authority for the movement attributes: the sprint speed follows the momentum, the step assist too. */
+	static void applySpeed(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		boolean sprint = player.isSprinting();
+		double bps = sprint ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;
+		bps = Math.round(bps * 2.0) / 2.0; // half-block steps: the attribute (and its sync) changes rarely
+		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, bonusFor(bps, sprint), AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		double step = SpeedForceConfig.STEP_BASE + SpeedForceConfig.STEP_PER_MOMENTUM * Math.round(s.momentum * 10.0) / 10.0;
+		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, step - 0.6, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+	}
+
+	private static void recordHistory(ServerPlayer player) {
+		Deque<Snap> q = HISTORY.computeIfAbsent(player.getUUID(), k -> new ArrayDeque<>());
+		q.addLast(new Snap(player.position(), player.getYRot(), player.getXRot(), player.getHealth()));
+		while (q.size() > SpeedForceConfig.REWIND_TICKS + 1) {
+			q.removeFirst();
+		}
+	}
+
+	/** Where the runner stood {@code ticksAgo} ticks ago (the oldest kept if the history is shorter), or null. */
+	static Snap history(ServerPlayer player, int ticksAgo) {
+		Deque<Snap> q = HISTORY.get(player.getUUID());
+		if (q == null || q.isEmpty()) {
+			return null;
+		}
+		int skip = Math.max(0, q.size() - 1 - ticksAgo);
+		int i = 0;
+		for (Snap s : q) {
+			if (i++ == skip) {
+				return s;
+			}
+		}
+		return q.peekFirst();
+	}
+
+	// ---------------------------------------------------------------- lifecycle
+
+	public static void onPlayerJoin(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		long now = player.level().getGameTime();
+		SpeedForceState n = s.copy();
+		resetTransient(n);
+		n.meter = Float.isNaN(n.meter) ? 0f : Math.max(0f, Math.min(SpeedForceConfig.METER_MAX, n.meter));
+		n.momentum = 0f;
+		n.abilityReadyAt.entrySet().removeIf(e -> e.getValue() > now + SpeedForceConfig.SURGE_COOLDOWN + 20L);
+		save(player, n);
+	}
+
+	public static void onPlayerRespawn(ServerPlayer player) {
+		SpeedForceState s = state(player);
+		if (!s.hasPower) {
+			return;
+		}
+		SpeedForceState n = s.copy();
+		resetTransient(n);
+		n.momentum = 0f;
+		n.meter = Math.max(n.meter, SpeedForceConfig.METER_MAX * 0.5f);
+		n.abilityReadyAt.clear();
+		save(player, n);
+	}
+
+	private static void resetTransient(SpeedForceState n) {
+		n.surgeUntil = 0L;
+		n.flashLeft = 0;
+		n.flashTotal = 0;
+		n.phasing = false;
+		n.carryId = 0;
+		n.tornadoLeft = 0;
+		n.throwLeft = 0;
+		n.remnantUntil = 0L;
+		n.animId = SpeedForceState.ANIM_NONE;
+	}
+
+	/** Death / logout / dimension change: drop everything transient (the power and the Speed Force stay). */
+	public static void clearTransient(ServerPlayer player) {
+		SpeedForceAbilities.clear(player);
+		forget(player.getUUID());
+		SpeedForceState s = peek(player);
+		if (s != null && s.hasPower) {
+			SpeedForceState n = s.copy();
+			resetTransient(n);
+			n.momentum = 0f;
+			save(player, n);
+		}
+	}
+
+	/** Used by the HUD-less paths (gametests): flat-out run speed for this momentum, blocks a tick. */
+	public static double targetPerTick(Player player) {
+		return targetBps(player) / 20.0;
+	}
+
+	/** Small helper for the moves: a sound at the runner. */
+	static void sound(ServerPlayer player, net.minecraft.sounds.SoundEvent sound, float volume, float pitch) {
+		AbilityHelpers.sound(player, sound, volume, pitch);
+	}
+}

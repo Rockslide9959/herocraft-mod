@@ -171,6 +171,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_SILVER_SURFER);
 	}
 
+	/** v0.17.1: the Speed Force Speedster. */
+	public static Chapter speedForceChapter() {
+		return chapters().get(CH_SPEED_FORCE);
+	}
+
 	/** v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth / Carapace / Pegasus, by the Kwami. */
 	public static Chapter miraculousChapter(com.projecthero.mod.miraculous.Kwami kwami) {
 		return chapters().get(switch (kwami) {
@@ -527,7 +532,9 @@ public final class HeroPackGuide {
 	/** v0.17.1: the Falcon and the Silver Surfer (after Viperion, so every earlier index stays put). */
 	private static final int CH_FALCON = CH_VIPERION + 1; // 57
 	private static final int CH_SILVER_SURFER = CH_FALCON + 1; // 58
-	private static final int CHAPTER_POWER_BASE = CH_SILVER_SURFER + 1; // 59
+	/** v0.17.1: the Speed Force Speedster (after the Silver Surfer). */
+	private static final int CH_SPEED_FORCE = CH_SILVER_SURFER + 1; // 59
+	private static final int CHAPTER_POWER_BASE = CH_SPEED_FORCE + 1; // 60
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1532,6 +1539,26 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.silver_surfer.ability." + row[1] + ".desc");
 			}
 		}));
+		// v0.17.1: the Speed Force Speedster (CH_SPEED_FORCE)
+		out.add(chapter("projecthero.guide.speed_force_speedster", lines -> {
+			lines.add(Component.translatable("projecthero.guide.speed_force_speedster.tier").withStyle(ChatFormatting.GOLD));
+			para(lines, "projecthero.guide.speed_force_speedster.body");
+			blank(lines);
+			for (String section : new String[]{"awakening", "tachyon", "momentum", "suit", "meter", "passives"}) {
+				head(lines, "projecthero.guide.speed_force_speedster." + section);
+				para(lines, "projecthero.guide.speed_force_speedster." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.speed_force_speedster.controls");
+			for (String[] row : new String[][] { { "R", "speed_punches" }, { "Shift+R", "infinite_mass_punch" }, { "G", "lightning_throw" },
+					{ "Shift+G", "speed_tornado" }, { "X", "speed_force_step" }, { "Shift+X", "phase" }, { "Z", "flash_time" },
+					{ "Shift+Z", "time_remnant" }, { "V", "rescue_run" }, { "Shift+V", "speed_heal" }, { "C", "speed_force_surge" },
+					{ "Shift+C", "rewind" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.speed_force_speedster.ability." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.speed_force_speedster.ability." + row[1] + ".desc");
+			}
+		}));
 
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
@@ -1683,6 +1710,7 @@ public final class HeroPackGuide {
 		icon(CH_PEGASUS, "horseshoe_glasses");
 		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
+		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
 		icon(CH_TITAN_SHIFTER, "titan_serum");
 		icon(CH_ZOMBIE_RAID, "zombie_horde");
@@ -1740,6 +1768,7 @@ public final class HeroPackGuide {
 		link(dc, "projecthero.guide.kryptonian", CH_KRYPTONIAN);
 		link(dc, "projecthero.guide.cyborg", CH_CYBORG);
 		link(dc, "projecthero.guide.blue_beetle", CH_BLUE_BEETLE);
+		link(dc, "projecthero.guide.speed_force_speedster", CH_SPEED_FORCE); // v0.17.1
 		// Hero-Tier powers that are still generated power chapters (Super Speed / the Flash, v0.14.13)
 		for (int i = 0; i < Powers.enabled().size(); i++) {
 			if (Powers.isHeroTier(Powers.enabled().get(i))) {

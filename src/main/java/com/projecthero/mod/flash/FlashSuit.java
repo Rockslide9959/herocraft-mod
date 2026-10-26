@@ -103,12 +103,18 @@ public final class FlashSuit {
 		output.accept(CHESTPLATE);
 		output.accept(LEGGINGS);
 		output.accept(BOOTS);
+		if (com.projecthero.mod.speedforce.SpeedForceMod.TACHYON_DEVICE != null) {
+			output.accept(com.projecthero.mod.speedforce.SpeedForceMod.TACHYON_DEVICE); // v0.17.1
+		}
 	}
 
 	// ---------------------------------------------------------------- the rule
 
 	/** Whether {@code player} may wear the suit (and use the ring): a speedster. Client-safe (the state is synced to its owner). */
 	public static boolean mayWear(Player player) {
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player)) {
+			return true; // v0.17.1: the Speed Force Speedster (the suit makes them 50% faster -- SpeedForceConfig)
+		}
 		ExperimentalState s = player.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		return s != null && s.ownedPowers.contains(com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.KEY);
 	}

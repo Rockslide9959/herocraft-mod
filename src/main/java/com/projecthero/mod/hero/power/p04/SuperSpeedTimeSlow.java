@@ -96,7 +96,22 @@ public final class SuperSpeedTimeSlow {
 		return caster != null && e != null && caster.getUUID().equals(e.getUUID());
 	}
 
+	/** v0.17.1: the caster's ticks left (the Speed Force Speedster's Flash Time HUD reads it). */
+	public static int ticksLeft() {
+		return caster == null ? 0 : Math.max(0, left);
+	}
+
+	/** Whether {@code p} may hold the slow: the Super Speed mutation, or (v0.17.1) the Speed Force Speedster's Flash Time. */
+	private static boolean mayCast(ServerPlayer p) {
+		return SuperSpeedHandlers.owns(p) || com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(p);
+	}
+
 	public static void start(ServerPlayer p) {
+		start(p, DURATION_TICKS);
+	}
+
+	/** v0.17.1: a slow of {@code durationTicks} on the caster's clock (Flash Time scales it with the momentum). */
+	public static void start(ServerPlayer p, int durationTicks) {
 		MinecraftServer server = p.getServer();
 		if (server == null || isCasting(p)) {
 			return;
@@ -108,15 +123,17 @@ public final class SuperSpeedTimeSlow {
 		float rate = server.tickRateManager().tickrate();
 		savedRate = rate > SLOW_RATE ? rate : 20.0f;
 		caster = p;
-		left = DURATION_TICKS;
+		left = durationTicks;
 		casterTicks = 0;
 		extraThisTick = 0;
 		LAST_CASTER_HIT.clear();
 		nextPulse = System.nanoTime() + PULSE_NANOS;
 		server.tickRateManager().setTickRate(SLOW_RATE);
 		weSlowed = true;
-		BatchA.set(p, SuperSpeedHandlers.KEY, LEFT, DURATION_TICKS, 1e9f);
-		BatchA.play(p, SuperSpeedHandlers.KEY, "power_up", 16);
+		if (SuperSpeedHandlers.owns(p)) {
+			BatchA.set(p, SuperSpeedHandlers.KEY, LEFT, durationTicks, 1e9f);
+			BatchA.play(p, SuperSpeedHandlers.KEY, "power_up", 16);
+		}
 		AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 1.2f, 0.5f);
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_HEARTBEAT, 1.0f, 0.5f);
 		broadcast(server, new TimeSlowStatePayload(true, p.getUUID()));
@@ -138,8 +155,13 @@ public final class SuperSpeedTimeSlow {
 			restoreRate(server);
 			broadcast(server, TimeSlowStatePayload.off());
 		}
-		BatchA.set(p, SuperSpeedHandlers.KEY, LEFT, 0, 1e9f);
-		if (cooldown) {
+		// v0.17.1: the Speed Force Speedster's Flash Time keeps its own cooldown (and has no exhaustion -- the mutation's
+		// startExhaustion below does nothing for someone without it)
+		com.projecthero.mod.speedforce.SpeedForceAbilities.onFlashTimeEnded(p);
+		if (SuperSpeedHandlers.owns(p)) {
+			BatchA.set(p, SuperSpeedHandlers.KEY, LEFT, 0, 1e9f);
+		}
+		if (cooldown && SuperSpeedHandlers.owns(p)) {
 			Power power = Powers.byKey(SuperSpeedHandlers.KEY);
 			if (power != null && power.ability(AbilitySlot.SLOT_4) != null) {
 				ExperimentalPowers.triggerCooldown(p, power, power.ability(AbilitySlot.SLOT_4),
@@ -174,7 +196,7 @@ public final class SuperSpeedTimeSlow {
 	private static void casterTick() {
 		casterTicks++;
 		left--;
-		if (caster != null && left % 5 == 0) {
+		if (caster != null && left % 5 == 0 && SuperSpeedHandlers.owns(caster)) {
 			BatchA.set(caster, SuperSpeedHandlers.KEY, LEFT, Math.max(0, left), 1e9f);
 		}
 		if (left <= 0 && caster != null) {
@@ -189,7 +211,7 @@ public final class SuperSpeedTimeSlow {
 		if (caster == null) {
 			return;
 		}
-		if (caster.isRemoved() || !caster.isAlive() || !SuperSpeedHandlers.owns(caster) || caster.getServer() != server) {
+		if (caster.isRemoved() || !caster.isAlive() || !mayCast(caster) || caster.getServer() != server) {
 			finish(true);
 			return;
 		}
@@ -245,6 +267,7 @@ public final class SuperSpeedTimeSlow {
 		ExperimentalPowers.advanceCooldowns(p, 1);
 		MutationVisuals.advanceAnimation(p, 1);
 		SuperSpeedHandlers.advanceClocks(p, 1);
+		com.projecthero.mod.speedforce.SpeedForceSpeedster.advanceClocks(p, 1); // v0.17.1: Flash Time
 		casterTick();
 	}
 

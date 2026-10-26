@@ -70,6 +70,8 @@
 		"SuperSpeedLeavesMixin",
 		"SuperSpeedPhaseCollideMixin",
 		"SilverSurferPhaseCollideMixin",
+		"SpeedForcePhaseCollideMixin",
+		"SpeedForceMoveCheckMixin",
 		"SuperSpeedPhasePoseMixin",
 		"ViperionDashPoseMixin",
 		"SuperSpeedTimeSlowMixin",

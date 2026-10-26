@@ -409,6 +409,7 @@ public final class HeroCommand {
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.revoke(target);
+			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.revoke(target);
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.revoke(target);

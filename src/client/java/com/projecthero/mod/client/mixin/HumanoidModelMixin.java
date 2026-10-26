@@ -219,6 +219,8 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 			com.projecthero.mod.client.spider.SpiderDiveClient.applyPose(player, (HumanoidModel<?>) (Object) this);
 			// v0.14.7: the Super Speed run (Speed Mode / Overdrive) -- before the move poses, which win over it
 			com.projecthero.mod.client.mutation.v0145.SpeedRunPose.apply(player, (HumanoidModel<?>) (Object) this, limbSwing);
+			// v0.17.1: the Speed Force Speedster's skating run (and its move poses)
+			com.projecthero.mod.client.speedforce.SpeedForcePose.apply(player, (HumanoidModel<?>) (Object) this, limbSwing);
 			// v0.13.22: experimental mutation move animations
 			com.projecthero.mod.client.mutation.MutationPose.apply(player, (HumanoidModel<?>) (Object) this);
 			// v0.16.5: Elasticity -- the limbs really stretch, the balloon / canopy bodies, the coil
