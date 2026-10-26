@@ -63,6 +63,7 @@ public final class SpeedForcePose {
 	public static void tick(Minecraft mc) {
 		if (mc.level == null) {
 			WEIGHTS.clear();
+			SKIDS.clear();
 			return;
 		}
 		java.util.Set<UUID> present = new java.util.HashSet<>();
@@ -81,12 +82,80 @@ public final class SpeedForcePose {
 			w[0] = w[1];
 			w[1] = Mth.clamp(w[1] + (run ? BLEND_PER_TICK : -BLEND_PER_TICK), 0f, 1f);
 		}
+		tickSkids(mc, present);
 		for (Iterator<Map.Entry<UUID, float[]>> it = WEIGHTS.entrySet().iterator(); it.hasNext();) {
 			Map.Entry<UUID, float[]> e = it.next();
 			if (!present.contains(e.getKey()) || (e.getValue()[0] <= 0f && e.getValue()[1] <= 0f)) {
 				it.remove();
 			}
 		}
+	}
+
+	// ---------------------------------------------------------------- the skid
+
+	/** Per player: {previous horizontal speed, previous skid weight, skid weight}. */
+	private static final Map<UUID, float[]> SKIDS = new HashMap<>();
+
+	/**
+	 * v0.17.1 (user: "they should skid their feet into the ground a bit first and then come to a stop"): the stop itself is
+	 * SpeedForceLocalPlayerMixin's; here, for every Speed Force runner in view (it reads only their motion, so other
+	 * players' skids show too), a fast runner slowing hard on the ground gets the skid pose and kicks up the ground under
+	 * them.
+	 */
+	private static void tickSkids(Minecraft mc, java.util.Set<UUID> present) {
+		for (AbstractClientPlayer p : mc.level.players()) {
+			float[] s = SKIDS.computeIfAbsent(p.getUUID(), k -> new float[3]);
+			float cur = (float) Math.sqrt(Mth.square(p.getX() - p.xo) + Mth.square(p.getZ() - p.zo));
+			boolean skid = SpeedForceSpeedster.speedActive(p) && !p.isSpectator() && !p.isFallFlying() && !p.isPassenger()
+					&& !p.getAbilities().flying && s[0] > 0.45f && cur < s[0] * 0.95f && cur > 0.1f && p.onGround();
+			s[0] = cur;
+			s[1] = s[2];
+			s[2] = Mth.clamp(s[2] + (skid ? 0.5f : -0.25f), 0f, 1f);
+			if (skid) {
+				net.minecraft.core.BlockPos below = p.blockPosition().below();
+				net.minecraft.world.level.block.state.BlockState ground = mc.level.getBlockState(below);
+				if (!ground.isAir()) {
+					net.minecraft.core.particles.BlockParticleOption dust =
+							new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK, ground);
+					int n = 2 + Math.min(6, (int) (cur * 2.0f));
+					for (int i = 0; i < n; i++) {
+						mc.level.addParticle(dust, p.getX() + (mc.level.random.nextDouble() - 0.5) * 0.6, p.getY() + 0.05,
+								p.getZ() + (mc.level.random.nextDouble() - 0.5) * 0.6,
+								(p.getX() - p.xo) * 0.4, 0.15 + mc.level.random.nextDouble() * 0.15, (p.getZ() - p.zo) * 0.4);
+					}
+					if (p.tickCount % 2 == 0) {
+						mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 0, 0.03, 0);
+					}
+				}
+				if (s[1] <= 0f) {
+					mc.level.playLocalSound(p.getX(), p.getY(), p.getZ(), ground.getSoundType().getHitSound(),
+							net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.6f, false);
+				}
+			}
+		}
+		SKIDS.keySet().retainAll(present);
+	}
+
+	/** The skid pose's blend for {@code p}. */
+	public static float skidWeight(Player p, float partial) {
+		float[] s = SKIDS.get(p.getUUID());
+		return s == null ? 0f : Mth.lerp(partial, s[1], s[2]);
+	}
+
+	/** Heels dug in: the body thrown back, the lead leg braced out in front, the other bent under, arms out for balance. */
+	private static void skidPose(HumanoidModel<?> m, float k) {
+		m.body.xRot = Mth.lerp(k, m.body.xRot, -0.35f);
+		m.head.xRot = Mth.lerp(k, m.head.xRot, 0.25f);
+		m.rightLeg.xRot = Mth.lerp(k, m.rightLeg.xRot, -0.95f);
+		m.rightLeg.yRot = Mth.lerp(k, m.rightLeg.yRot, 0.0f);
+		m.rightLeg.zRot = Mth.lerp(k, m.rightLeg.zRot, 0.05f);
+		m.leftLeg.xRot = Mth.lerp(k, m.leftLeg.xRot, 0.45f);
+		m.leftLeg.yRot = Mth.lerp(k, m.leftLeg.yRot, 0.0f);
+		m.leftLeg.zRot = Mth.lerp(k, m.leftLeg.zRot, -0.05f);
+		m.rightArm.xRot = Mth.lerp(k, m.rightArm.xRot, -0.7f);
+		m.rightArm.zRot = Mth.lerp(k, m.rightArm.zRot, 0.9f);
+		m.leftArm.xRot = Mth.lerp(k, m.leftArm.xRot, -0.7f);
+		m.leftArm.zRot = Mth.lerp(k, m.leftArm.zRot, -0.9f);
 	}
 
 	/** The skate's blend for {@code p} at {@code partial}: running blend x momentum blend. */
@@ -152,6 +221,12 @@ public final class SpeedForcePose {
 			}
 		}
 		sprint(player, m, limbSwing, w);
+		if (Float.isNaN(overrideWeight)) {
+			float k = skidWeight(player, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
+			if (k > 0f) {
+				skidPose(m, k);
+			}
+		}
 	}
 
 	/**

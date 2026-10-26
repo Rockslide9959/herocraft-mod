@@ -82,10 +82,29 @@ function zoomEyes(px, at) {
 	console.log('zoom: blue texels recoloured grey', n);
 }
 
+// v0.17.1 (user: "make the eyes on the classic flash suit fully white instead of having the black pupils"): the dark
+// pupil texel beside each white lens (face row 12) goes white too
+function classicEyes(px, at) {
+	// decided on the untouched row first, so the black bridge between the eyes stays black
+	const white = x => { const j = at(x, 12); return px[j + 3] && px[j] > 240 && px[j + 1] > 240 && px[j + 2] > 240; };
+	const pupils = [];
+	for (let x = 8; x < 16; x++) {
+		const i = at(x, 12);
+		if (px[i + 3] && px[i] < 60 && px[i + 1] < 60 && px[i + 2] < 60 && (white(x - 1) || white(x + 1))) {
+			pupils.push(i);
+		}
+	}
+	for (const i of pupils) {
+		px[i] = 255; px[i + 1] = 255; px[i + 2] = 255;
+	}
+	const n = pupils.length;
+	console.log('classic: pupils whitened', n);
+}
+
 const out = {
 	zoom: build('zoom', { eyes: zoomEyes }),
 	reverse_flash: build('reverse_flash', { grin: true }),
-	classic: build('classic', {}),
+	classic: build('classic', { eyes: classicEyes }),
 	scarlet: build('scarlet', { slim: true, noHair: true }), // Wally West
 };
 
