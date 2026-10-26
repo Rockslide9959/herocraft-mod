@@ -140,9 +140,10 @@ public class GreenLanternMechGameTests implements FabricGameTest {
 	public void thePilotIsProtectedInside(GameTestHelper helper) {
 		ServerPlayer p = lantern(helper);
 		HardLightMechEntity m = pilotReady(helper, p);
-		Husk h = husk(helper, 4.0, 6.0);
 		float hp = p.getHealth();
-		p.hurt(helper.getLevel().damageSources().mobAttack(h), 10f);
+		// not a mob attack: Player#hurt zeroes difficulty-scaled damage (mob attacks) on Peaceful -- the gametest server's
+		// difficulty -- and returns before any ALLOW_DAMAGE listener runs; a non-scaling source reaches the redirect
+		p.hurt(helper.getLevel().damageSources().generic(), 10f);
 		helper.assertTrue(p.getHealth() >= hp, "the pilot took nothing");
 		helper.assertTrue(m.getHealth() < m.getMaxHealth(), "the mech took the hit");
 		helper.succeed();
