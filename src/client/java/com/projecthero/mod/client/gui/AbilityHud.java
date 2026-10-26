@@ -45,6 +45,12 @@ public final class AbilityHud {
 	private static final int COLOR_COOLDOWN = 0xB0000000;
 	private static final int COLOR_KEY = 0xFFB8C0E0;
 
+	/**
+	 * v0.17.1: the top of what this HUD drew last frame (the power name / header line over the key row), GUI pixels --
+	 * the Flash Suit visor keeps its speed dial above it.
+	 */
+	public static int lastTop = Integer.MAX_VALUE;
+
 	private AbilityHud() {
 	}
 
@@ -137,6 +143,7 @@ public final class AbilityHud {
 		if (header != null) {
 			header.draw(graphics, client, state, x0, nameY - 10);
 		}
+		lastTop = nameY - (header != null ? 12 : 2);
 
 		for (int i = 0; i < slots; i++) {
 			AbilitySlot slot = AbilitySlot.byNumber(i + 1);
