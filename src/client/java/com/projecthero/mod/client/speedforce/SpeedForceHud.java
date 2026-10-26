@@ -133,6 +133,9 @@ public final class SpeedForceHud {
 		if (mc.options.hideGui || mc.level == null || !shows(p)) {
 			return;
 		}
+		if (com.projecthero.mod.client.flash.FlashSuitHud.replacesSpeedForceHud(p)) {
+			return; // v0.17.1 (user): in the full Flash Suit the visor HUD is the one HUD (it draws these keys itself)
+		}
 		SpeedForceState s = SpeedForceSpeedster.peek(p);
 		if (s == null) {
 			return;
@@ -339,7 +342,34 @@ public final class SpeedForceHud {
 			by -= 9;
 		}
 		fy0 = Math.min(fy0, by + 9);
+		drawKeys(g, mc, p, s, now, pal, x0, y0, fx1, fy0 - 2, false);
+	}
 
+	/** v0.17.1: the six key boxes' row width. */
+	public static int keysWidth() {
+		return BOX * SLOTS.length + GAP * (SLOTS.length - 1);
+	}
+
+	/** v0.17.1: the six key boxes stacked as a column ({@link #drawKeys} with {@code column}), its height. */
+	public static int keysColumnHeight() {
+		return keysHeight() * SLOTS.length + GAP * (SLOTS.length - 1);
+	}
+
+	/** v0.17.1: the key boxes' height, the two cooldown strips included. */
+	public static int keysHeight() {
+		return BOX + 2 * (STRIP_H + 1);
+	}
+
+	/**
+	 * v0.17.1: the six key boxes (R G Z X C V -- never H or N) at {@code x0, y0}: the box fills with the tap move's
+	 * cooldown, the strips under it with the Shift move's and the hold move's; Left Alt lists the moves, right-aligned to
+	 * {@code listRight} with its bottom at {@code listBottom}. {@code column}: stacked top to bottom instead of a row (the
+	 * Flash Suit visor's right-edge column). Shared by this HUD and the Flash Suit visor.
+	 */
+	public static void drawKeys(GuiGraphics g, Minecraft mc, Player p, SpeedForceState s, long now, Palette pal, int x0, int y0,
+			int listRight, int listBottom, boolean column) {
+		int fx1 = listRight;
+		int fy0 = listBottom + 2;
 		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
 			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
 			for (AbilitySlot slot : SLOTS) {
@@ -358,7 +388,8 @@ public final class SpeedForceHud {
 		}
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
-			int x = x0 + i * (BOX + GAP);
+			int x = column ? x0 : x0 + i * (BOX + GAP);
+			int ky = column ? y0 + i * (keysHeight() + GAP) : y0;
 			String[] ids = SpeedForceAbilityManager.idsOf(slot);
 			int cd = SpeedForceSpeedster.cooldownRemaining(p, ids[0]);
 			int max = Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[0]));
@@ -367,17 +398,17 @@ public final class SpeedForceHud {
 					|| (slot == AbilitySlot.SLOT_3 && SpeedForceAbilities.tornadoArms(p))
 					|| (slot == AbilitySlot.SLOT_4 && (s.flashLeft > 0 || s.remnantUntil > now))
 					|| (slot == AbilitySlot.SLOT_6 && (s.speedMode || s.chargeStart != 0L || s.phasing));
-			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
-			g.renderOutline(x, y0, BOX, BOX, active ? pal.accent() : BORDER);
-			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
+			g.fill(x, ky, x + BOX, ky + BOX, BOX_BG);
+			g.renderOutline(x, ky, BOX, BOX, active ? pal.accent() : BORDER);
+			g.drawString(mc.font, keyLabel(slot), x + 2, ky + 2, KEY, false);
 			if (cd > 0) {
 				int hh = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
-				g.fill(x + 1, y0 + BOX - 1 - hh, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
-				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+				g.fill(x + 1, ky + BOX - 1 - hh, x + BOX - 1, ky + BOX - 1, COOLDOWN);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, ky + BOX / 2 - 4, 0xFFFFFFFF);
 			}
 			// the Shift move's strip, then the hold move's (Z's: the portal -- its charge while it forms)
 			for (int k = 1; k <= 2 && k < ids.length; k++) {
-				int sy = y0 + BOX + 1 + (k - 1) * (STRIP_H + 1);
+				int sy = ky + BOX + 1 + (k - 1) * (STRIP_H + 1);
 				int scd = SpeedForceSpeedster.cooldownRemaining(p, ids[k]);
 				int smax = Math.max(1, SpeedForceAbilityManager.maxCooldown(ids[k]));
 				float ready = scd <= 0 ? 1f : 1f - Math.min(1f, scd / (float) smax);

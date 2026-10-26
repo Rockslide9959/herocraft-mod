@@ -40,7 +40,7 @@ public final class SpeedForceSprintKey {
 		}
 	}
 
-	private static boolean physicallyDown(Minecraft mc) {
+	public static boolean physicallyDown(Minecraft mc) {
 		InputConstants.Key key = KeyBindingHelper.getBoundKeyOf(mc.options.keySprint);
 		long window = mc.getWindow().getWindow();
 		if (key.getType() == InputConstants.Type.MOUSE) {
