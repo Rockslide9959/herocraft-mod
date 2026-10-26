@@ -187,6 +187,13 @@ public class GreenLanternSurvivalGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void scaffoldTowerStandsClimbsAndLetsGo(GameTestHelper helper) {
 		ServerPlayer p = lantern(helper, 60f);
+		// the gametest framework roofs every test area with barriers (a few blocks over this floor) -- a tower stops
+		// under anything unbreakable, so open a shaft through the roof for the full 24 blocks
+		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(-1, 3, 0)), helper.absolutePos(new BlockPos(3, 28, 4)))) {
+			if (!helper.getLevel().getBlockState(pos).isAir()) {
+				helper.getLevel().setBlock(pos, Blocks.AIR.defaultBlockState(), 2);
+			}
+		}
 		GreenLanternConstructs.deploy(p, ConstructType.SCAFFOLD_TOWER);
 		GreenLanternSurvival.Tower tower = GreenLanternSurvival.tower(p.getUUID());
 		helper.assertTrue(tower != null, "a tower is going up");
