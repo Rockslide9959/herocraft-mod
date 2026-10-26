@@ -43,6 +43,8 @@ import org.lwjgl.glfw.GLFW;
  */
 public final class GreenLanternConstructMenuScreen extends Screen {
 	public static final ResourceLocation ENTRY_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/entries.png");
+	/** v0.17.1: the survival constructs' icons (chest, scaffold tower, item net, tunneller). */
+	public static final ResourceLocation SURVIVAL_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/survival.png");
 
 	private static final int CELL = 24;
 	private static final int ICON = 16;
@@ -284,6 +286,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	public static void icon(GuiGraphics g, Entry e, int x, int y, int size) {
 		if (e.atlas() == GreenLanternBinding.ATLAS_CONSTRUCTS) {
 			GreenLanternHud.icon(g, e.cell(), x, y, size);
+		} else if (e.atlas() == GreenLanternBinding.ATLAS_SURVIVAL) {
+			RenderSystem.enableBlend();
+			g.blit(SURVIVAL_ICONS, x, y, size, size, e.cell() * 16f, 0f, 16, 16, 64, 16);
+			RenderSystem.disableBlend();
 		} else {
 			RenderSystem.enableBlend();
 			g.blit(ENTRY_ICONS, x, y, size, size, (e.cell() % 8) * 16f, (e.cell() / 8) * 16f, 16, 16, 128, 64);

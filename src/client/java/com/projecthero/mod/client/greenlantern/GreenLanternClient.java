@@ -23,5 +23,8 @@ public final class GreenLanternClient {
 		// the hard-light construct blocks and the Power Battery's glass barrel are translucent
 		BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.translucent(), GreenLanternBlocks.HARD_LIGHT,
 				GreenLanternBlocks.HARD_LIGHT_STAIRS, GreenLanternBlocks.HARD_LIGHT_LAMP, GreenLanternBlocks.POWER_BATTERY);
+		BlockRenderLayerMap.INSTANCE.putBlocks(RenderType.translucent(), // v0.17.1: the survival constructs' chest and tower
+				com.projecthero.mod.greenlantern.block.GreenLanternSurvivalBlocks.HARD_LIGHT_SCAFFOLD,
+				com.projecthero.mod.greenlantern.block.GreenLanternSurvivalBlocks.HARD_LIGHT_CHEST);
 	}
 }
