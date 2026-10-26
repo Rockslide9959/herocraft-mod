@@ -63,7 +63,7 @@ public final class SpeedForcePose {
 	}
 
 	public static boolean running(Player p) {
-		if (!SpeedForceSpeedster.hasPower(p) || p.isSpectator() || p.isCrouching() || p.isSwimming() || p.isFallFlying()
+		if (!SpeedForceSpeedster.speedActive(p) || p.isSpectator() || p.isCrouching() || p.isSwimming() || p.isFallFlying()
 				|| p.isPassenger() || p.isUnderWater() || p.getAbilities().flying || SpeedForceSpeedster.phasing(p)) {
 			return false;
 		}
@@ -150,6 +150,10 @@ public final class SpeedForcePose {
 			if (!SpeedForceSpeedster.hasPower(player)) {
 				return;
 			}
+			if (SpeedForceSpeedster.chargeStart(player) != 0L) {
+				chargeStance(player, m);
+				return;
+			}
 			if (movePlaying(player)) {
 				applyMove(player, m);
 				return;
@@ -162,6 +166,35 @@ public final class SpeedForcePose {
 			}
 		}
 		skate(m, limbSwing, w);
+	}
+
+	/**
+	 * v0.17.1 (user): hold Shift+C -- a sprinter's crouched starting stance, one foot back, leaning in, fists low, the
+	 * body shaking harder as the 3 s charge fills.
+	 */
+	private static void chargeStance(Player player, HumanoidModel<?> m) {
+		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		float age = player.level().getGameTime() - SpeedForceSpeedster.chargeStart(player) + partial;
+		float fill = Mth.clamp(age / com.projecthero.mod.speedforce.SpeedForceConfig.CHARGE_TICKS, 0f, 1f);
+		float shake = Mth.sin(age * 2.7f) * 0.03f * fill;
+		m.body.xRot = 0.55f + shake;
+		m.body.y = 3.2f;
+		m.head.y = 4.2f;
+		m.head.xRot = -0.45f;
+		m.rightArm.y = 5.2f;
+		m.leftArm.y = 5.2f;
+		m.rightArm.xRot = 0.35f + shake;
+		m.leftArm.xRot = -0.9f - shake;
+		m.rightArm.zRot = 0.1f;
+		m.leftArm.zRot = -0.1f;
+		m.rightLeg.z = 4.0f;
+		m.leftLeg.z = 4.0f;
+		m.rightLeg.y = 12.2f;
+		m.leftLeg.y = 12.2f;
+		m.rightLeg.xRot = -0.95f;
+		m.leftLeg.xRot = 0.55f;
+		m.rightLeg.yRot = 0f;
+		m.leftLeg.yRot = 0f;
 	}
 
 	/** The skating stride at blend {@code w} (0 = vanilla, 1 = the full skate). */

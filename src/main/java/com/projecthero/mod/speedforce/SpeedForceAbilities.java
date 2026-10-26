@@ -50,6 +50,8 @@ public final class SpeedForceAbilities {
 	public static final String SURGE = "speed_force_surge";
 	public static final String REWIND = "rewind";
 	public static final String BARRIER = "speed_force_barrier";
+	public static final String SPEED_MODE = "speed_mode";
+	public static final String LAUNCH = "speed_launch";
 
 	/** Runner -> the Time Remnant's entity id. */
 	private static final Map<UUID, Integer> REMNANTS = new ConcurrentHashMap<>();
@@ -814,11 +816,125 @@ public final class SpeedForceAbilities {
 		}
 	}
 
+	// ---------------------------------------------------------------- C: Speed Mode / hold Shift+C: the charged launch
+
+	/** v0.17.1 (user: "there needs to be a way to turn it on and off"): C turns Speed Mode on (20 b/s base) or off. */
+	public static boolean toggleSpeedMode(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.chargeStart != 0L) {
+			return false;
+		}
+		SpeedForceState n = s.copy();
+		n.speedMode = !s.speedMode;
+		if (!n.speedMode) {
+			n.momentum = 0f;
+			n.surgeUntil = 0L;
+		}
+		SpeedForceSpeedster.save(p, n);
+		SpeedForceSpeedster.applySpeed(p);
+		if (n.speedMode) {
+			SpeedForceSpeedster.sound(p, SoundEvents.TRIDENT_THUNDER.value(), 0.4f, 2.0f);
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.3, 0.6, 0.3, 0.15);
+		} else {
+			SpeedForceSpeedster.sound(p, SoundEvents.BEACON_DEACTIVATE, 0.5f, 1.8f);
+		}
+		p.displayClientMessage(Component.translatable(n.speedMode ? "message.projecthero.speed_force_speedster.speed_on"
+				: "message.projecthero.speed_force_speedster.speed_off").withStyle(n.speedMode ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
+		return true;
+	}
+
+	/** Hold Shift+C: drop into the charge stance (rooted, the Speed Force building round you for 3 s). */
+	public static boolean startCharge(ServerPlayer p) {
+		if (SpeedForceSpeedster.state(p).chargeStart != 0L || !gate(p, LAUNCH)) {
+			return false;
+		}
+		SpeedForceState n = SpeedForceSpeedster.state(p).copy();
+		n.chargeStart = p.level().getGameTime();
+		n.animId = SpeedForceState.ANIM_CHARGE;
+		n.animStart = n.chargeStart;
+		SpeedForceSpeedster.save(p, n);
+		SpeedForceSpeedster.sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 1.6f);
+		return true;
+	}
+
+	/** Shift+C let go: after the full 3 s, Speed Mode on at full momentum at once; earlier, the charge fizzles. */
+	public static boolean releaseCharge(ServerPlayer p) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.chargeStart == 0L) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		boolean full = now - s.chargeStart >= SpeedForceConfig.CHARGE_TICKS;
+		SpeedForceState n = s.copy();
+		n.chargeStart = 0L;
+		n.animId = SpeedForceState.ANIM_NONE;
+		if (full) {
+			n.speedMode = true;
+			n.momentum = 1f;
+			n.surgeUntil = Math.max(s.surgeUntil, now + SpeedForceConfig.LAUNCH_HOLD_TICKS);
+		}
+		SpeedForceSpeedster.save(p, n);
+		if (!full) {
+			p.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.charge_cancelled")
+					.withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		SpeedForceSpeedster.applySpeed(p);
+		cooldown(p, LAUNCH, SpeedForceConfig.LAUNCH_COOLDOWN);
+		ServerLevel level = level(p);
+		Vec3 c = p.position();
+		level.sendParticles(ParticleTypes.FLASH, c.x, c.y + 1.0, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y + 0.5, c.z, 40, 0.6, 0.6, 0.6, 0.4);
+		level.sendParticles(ParticleTypes.CLOUD, c.x, c.y + 0.1, c.z, 24, 1.2, 0.05, 1.2, 0.2);
+		SpeedForceSpeedster.fx(p, SpeedForceFxPayload.BOOM, c.add(0, 1, 0), c.add(0, 1, 0));
+		SpeedForceSpeedster.sound(p, SoundEvents.LIGHTNING_BOLT_THUNDER, 0.7f, 1.6f);
+		SpeedForceSpeedster.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.5f, 1.8f);
+		p.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.launch").withStyle(ChatFormatting.GOLD), true);
+		return true;
+	}
+
+	/** While charging: held in place, gold lightning gathering, a chime when it is ready. */
+	private static void chargeTick(ServerPlayer p, long now) {
+		SpeedForceState s = SpeedForceSpeedster.state(p);
+		if (s.chargeStart == 0L) {
+			return;
+		}
+		if (p.isDeadOrDying() || s.phasing) {
+			SpeedForceState n = s.copy();
+			n.chargeStart = 0L;
+			n.animId = SpeedForceState.ANIM_NONE;
+			SpeedForceSpeedster.save(p, n);
+			return;
+		}
+		long age = now - s.chargeStart;
+		Vec3 v = p.getDeltaMovement();
+		p.setDeltaMovement(0, Math.min(0, v.y), 0);
+		p.hurtMarked = true;
+		ServerLevel level = level(p);
+		float t = Math.min(1f, age / (float) SpeedForceConfig.CHARGE_TICKS);
+		double a = age * 0.7;
+		double r = 1.4 - 0.8 * t;
+		level.sendParticles(SpeedForceSpeedster.GOLD, p.getX() + Math.cos(a) * r, p.getY() + 0.2 + (age % 10) * 0.15, p.getZ() + Math.sin(a) * r,
+				1 + (int) (t * 3), 0.05, 0.05, 0.05, 0.0);
+		if (age % 3 == 0) {
+			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.8, p.getZ(), 2 + (int) (t * 6), 0.35, 0.5, 0.35, 0.05 + t * 0.1);
+		}
+		if (age % 10 == 0 && age < SpeedForceConfig.CHARGE_TICKS) {
+			SpeedForceSpeedster.sound(p, SoundEvents.NOTE_BLOCK_BELL.value(), 0.35f, 0.8f + t);
+		}
+		if (age == SpeedForceConfig.CHARGE_TICKS) {
+			SpeedForceSpeedster.sound(p, SoundEvents.EXPERIENCE_ORB_PICKUP, 0.8f, 1.6f);
+			p.displayClientMessage(Component.translatable("message.projecthero.speed_force_speedster.charged").withStyle(ChatFormatting.GOLD), true);
+		}
+	}
+
 	// ---------------------------------------------------------------- upkeep
 
 	static void tick(ServerPlayer p, long now) {
 		SpeedForceState s = SpeedForceSpeedster.state(p);
 		barrierTick(p, now);
+		chargeTick(p, now);
+		SpeedForceAbilityManager.tick(p, now);
 		throwTick(p, s);
 		tornadoTick(p, SpeedForceSpeedster.state(p));
 		phaseTick(p, SpeedForceSpeedster.state(p));

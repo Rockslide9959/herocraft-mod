@@ -56,6 +56,12 @@ public final class SpeedsterGroundStick {
 
 	public static void initialize() {
 		ClientTickEvents.END_CLIENT_TICK.register(SpeedsterGroundStick::tick);
+		// the server only learns a plain Speedster's setting from us (it forgets on logout): tell it again on joining
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+			if (enabled) {
+				sender.sendPacket(new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(true, -1));
+			}
+		});
 	}
 
 	/** Lets another speedster power count (the Speed Force Speedster). */
@@ -80,13 +86,25 @@ public final class SpeedsterGroundStick {
 		return s != null && SuperSpeedHandlers.KEY.equals(s.activePower);
 	}
 
+	/** Ground-Stick is on for the local player: the Speed Force Speedster's is saved in its state (the Shift+N menu). */
 	public static boolean enabled() {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.player != null && com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(mc.player)) {
+			com.projecthero.mod.speedforce.data.SpeedForceState s = com.projecthero.mod.speedforce.SpeedForceSpeedster.peek(mc.player);
+			return s != null && s.groundStick;
+		}
 		return enabled;
+	}
+
+	/** The menu's toggle (and the plain Speedster's Shift+N): set it and tell the server (its fall-damage guard). */
+	public static void set(LocalPlayer p, boolean on, int colour) {
+		enabled = on;
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(on, colour));
 	}
 
 	/** Shift+N. */
 	public static void toggle(LocalPlayer p) {
-		enabled = !enabled;
+		set(p, !enabled, -1);
 		p.displayClientMessage(Component.translatable(enabled ? "message.projecthero.speed.ground_stick_on" : "message.projecthero.speed.ground_stick_off")
 				.withStyle(enabled ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
 	}
@@ -105,7 +123,7 @@ public final class SpeedsterGroundStick {
 		if (mc.options.keyJump.isDown()) {
 			jumped = true; // a jump on purpose: no pulling until they land
 		}
-		if (!enabled || jumped || airTicks > GRACE_TICKS || !isSpeedster(p)) {
+		if (!enabled() || jumped || airTicks > GRACE_TICKS || !isSpeedster(p)) {
 			return;
 		}
 		if (p.getAbilities().flying || p.isFallFlying() || p.isPassenger() || p.isInWater() || p.isInLava() || p.isSwimming()

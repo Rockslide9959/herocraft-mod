@@ -33,6 +33,7 @@ public final class SpeedForceMod {
 				new TachyonDeviceItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC).fireResistant()));
 		SpeedForceDamage.initialize();
 		PayloadTypeRegistry.playS2C().register(SpeedForceFxPayload.TYPE, SpeedForceFxPayload.CODEC);
+		SpeedsterPrefs.initialize(); // v0.17.1: Ground-Stick + the lightning colour
 		ServerPlayerEvents.JOIN.register(SpeedForceSpeedster::onPlayerJoin);
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> SpeedForceSpeedster.onPlayerRespawn(newPlayer));
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
@@ -54,5 +55,6 @@ public final class SpeedForceMod {
 
 	public static void clearSessionState() {
 		SpeedForceSpeedster.clearSessionState();
+		SpeedsterPrefs.clearSessionState();
 	}
 }

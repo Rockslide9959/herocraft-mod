@@ -1069,7 +1069,12 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (client.player != null && Screen.hasShiftDown()
 				&& com.projecthero.mod.client.speed.SpeedsterGroundStick.isSpeedster(client.player)) {
 			if (down && !maxSteelTransformWasDown) {
-				com.projecthero.mod.client.speed.SpeedsterGroundStick.toggle(client.player);
+				if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(client.player)) {
+					// v0.17.1 (user): the Speed Force Speedster's Shift+N is a menu -- Ground-Stick and the lightning colour
+					com.projecthero.mod.client.speedforce.SpeedForceMenuScreen.open();
+				} else {
+					com.projecthero.mod.client.speed.SpeedsterGroundStick.toggle(client.player);
+				}
 			}
 			maxSteelTransformWasDown = down;
 			return;

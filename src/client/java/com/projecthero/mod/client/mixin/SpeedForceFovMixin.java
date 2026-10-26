@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Player;
 public abstract class SpeedForceFovMixin {
 	@Inject(method = "getFieldOfViewModifier", at = @At("RETURN"), cancellable = true)
 	private void projecthero$capSpeedForceFov(CallbackInfoReturnable<Float> cir) {
-		if (cir.getReturnValue() > 1.3f && SpeedForceSpeedster.hasPower((Player) (Object) this)) {
+		if (cir.getReturnValue() > 1.3f && SpeedForceSpeedster.speedActive((Player) (Object) this)) {
 			cir.setReturnValue(1.3f); // FOV_CAP
 		}
 	}

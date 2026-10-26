@@ -67,6 +67,7 @@ public final class SpeedForceSpeedster {
 	private static final ResourceLocation SPEED_ID = ProjectHeroMod.id("speed_force_speed");
 	private static final ResourceLocation STEP_ID = ProjectHeroMod.id("speed_force_step");
 	private static final ResourceLocation ATTACK_SPEED_ID = ProjectHeroMod.id("speed_force_attack_speed");
+	private static final ResourceLocation SWIM_ID = ProjectHeroMod.id("speed_force_swim");
 
 	/** Vanilla flat-ground blocks a second per point of MOVEMENT_SPEED (see {@code SuperSpeedHandlers#BLOCKS_PER_SECOND_PER_SPEED}). */
 	public static final double BLOCKS_PER_SECOND_PER_SPEED = 0.98 / (1.0 - 0.6 * 0.91) * 20.0;
@@ -130,6 +131,18 @@ public final class SpeedForceSpeedster {
 	public static float momentum(Player player) {
 		SpeedForceState s = peek(player);
 		return s == null || !s.hasPower ? 0f : s.momentum;
+	}
+
+	/** v0.17.1 (user): C -- Speed Mode is on (client-safe). Off, no momentum, trail, lightning, skate or step assist. */
+	public static boolean speedActive(Player player) {
+		SpeedForceState s = peek(player);
+		return s != null && s.hasPower && s.speedMode;
+	}
+
+	/** Shift+C held: the charge stance started at this game time, or 0 (client-safe). */
+	public static long chargeStart(Player player) {
+		SpeedForceState s = peek(player);
+		return s == null || !s.hasPower ? 0L : s.chargeStart;
 	}
 
 	public static float meter(Player player) {
@@ -249,6 +262,7 @@ public final class SpeedForceSpeedster {
 		s.hasPower = true;
 		s.meter = SpeedForceConfig.METER_MAX;
 		s.momentum = 0.25f;
+		s.speedMode = true; // the awakening comes mid-Overdrive: you come out of it running
 		s.animId = SpeedForceState.ANIM_AWAKEN;
 		s.animStart = now;
 		save(player, s);
@@ -302,6 +316,7 @@ public final class SpeedForceSpeedster {
 	private static void clearModifiers(ServerPlayer player) {
 		PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
 		PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
+		PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM_ID);
 		PowerToggles.clearModifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
 	}
 
@@ -408,6 +423,19 @@ public final class SpeedForceSpeedster {
 			return;
 		}
 		if (last == null) {
+			return;
+		}
+		// v0.17.1 (user): Speed Mode off -- an ordinary runner: no momentum to build or keep, nothing drawn
+		SpeedForceState cur = state(player);
+		if (!cur.speedMode) {
+			mo.ema = 0.0;
+			mo.raw1 = 0.0;
+			mo.raw2 = 0.0;
+			if (cur.momentum != 0f) {
+				SpeedForceState n = cur.copy();
+				n.momentum = 0f;
+				save(player, n);
+			}
 			return;
 		}
 		runStep(player, mo, last, now);
@@ -534,7 +562,7 @@ public final class SpeedForceSpeedster {
 
 	/** Whether the runner is set up to run up a wall: some momentum, looking steeply up, a solid block right in front. */
 	public static boolean wallRunning(Player p, float momentum) {
-		if (momentum < SpeedForceConfig.WALL_RUN_MOMENTUM || p.getXRot() > -60.0f || p.isShiftKeyDown()
+		if (!speedActive(p) || momentum < SpeedForceConfig.WALL_RUN_MOMENTUM || p.getXRot() > -60.0f || p.isShiftKeyDown()
 				|| p.getAbilities().flying || p.isPassenger() || phasing(p)) {
 			return false;
 		}
@@ -571,11 +599,23 @@ public final class SpeedForceSpeedster {
 
 	/** Regeneration II, never tires, no fall damage at speed ({@link SpeedForceDamage}). */
 	private static void tickPassives(ServerPlayer player) {
+		// v0.17.1 (user): Speed Mode brings the plain Speedster's passives -- Regeneration III (II otherwise), +30% swimming
+		boolean speed = state(player).speedMode;
+		int amp = speed ? SpeedForceConfig.SPEED_MODE_REGEN_AMPLIFIER : SpeedForceConfig.REGEN_AMPLIFIER;
 		MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION);
-		if (regen == null || regen.getAmplifier() < SpeedForceConfig.REGEN_AMPLIFIER
-				|| (regen.getAmplifier() == SpeedForceConfig.REGEN_AMPLIFIER && regen.getDuration() < SpeedForceConfig.REGEN_REFRESH)) {
-			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SpeedForceConfig.REGEN_REFRESH * 2,
-					SpeedForceConfig.REGEN_AMPLIFIER, true, false, true));
+		if (regen != null && regen.getAmplifier() > amp && regen.isAmbient() && !speed) {
+			player.removeEffect(MobEffects.REGENERATION); // Speed Mode's III steps back down to II
+			regen = null;
+		}
+		if (regen == null || regen.getAmplifier() < amp
+				|| (regen.getAmplifier() == amp && regen.getDuration() < SpeedForceConfig.REGEN_REFRESH)) {
+			player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, SpeedForceConfig.REGEN_REFRESH * 2, amp, true, false, true));
+		}
+		if (speed) {
+			PowerToggles.modifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM_ID, SpeedForceConfig.SPEED_MODE_SWIM_EFFICIENCY,
+					AttributeModifier.Operation.ADD_VALUE);
+		} else {
+			PowerToggles.clearModifier(player, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM_ID);
 		}
 		if (wallRunning(player, state(player).momentum)) {
 			player.resetFallDistance();
@@ -590,13 +630,20 @@ public final class SpeedForceSpeedster {
 	/** The single authority for the movement attributes: the sprint speed follows the momentum, the step assist too. */
 	static void applySpeed(ServerPlayer player) {
 		SpeedForceState s = state(player);
+		PowerToggles.modifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		if (!s.speedMode) {
+			// v0.17.1 (user): Speed Mode off -- vanilla movement and step height
+			PowerToggles.clearModifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID);
+			PowerToggles.clearModifier(player, Attributes.STEP_HEIGHT, STEP_ID);
+			return;
+		}
 		boolean sprint = player.isSprinting();
 		double bps = sprint ? SpeedForceConfig.sprintBps(s.momentum, suited(player)) : SpeedForceConfig.WALK_BPS;
 		bps = Math.round(bps * 2.0) / 2.0; // half-block steps: the attribute (and its sync) changes rarely
 		PowerToggles.modifier(player, Attributes.MOVEMENT_SPEED, SPEED_ID, bonusFor(bps, sprint), AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-		double step = SpeedForceConfig.STEP_BASE + SpeedForceConfig.STEP_PER_MOMENTUM * Math.round(s.momentum * 10.0) / 10.0;
+		double step = Math.max(SpeedForceConfig.STEP_SPEED_MODE,
+				SpeedForceConfig.STEP_BASE + SpeedForceConfig.STEP_PER_MOMENTUM * Math.round(s.momentum * 10.0) / 10.0);
 		PowerToggles.modifier(player, Attributes.STEP_HEIGHT, STEP_ID, step - 0.6, AttributeModifier.Operation.ADD_VALUE);
-		PowerToggles.modifier(player, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 	}
 
 	private static void recordHistory(ServerPlayer player) {
@@ -647,6 +694,7 @@ public final class SpeedForceSpeedster {
 		SpeedForceState n = s.copy();
 		resetTransient(n);
 		n.momentum = 0f;
+		n.speedMode = false;
 		n.meter = Math.max(n.meter, SpeedForceConfig.METER_MAX * 0.5f);
 		n.abilityReadyAt.clear();
 		save(player, n);
@@ -661,6 +709,7 @@ public final class SpeedForceSpeedster {
 		n.tornadoLeft = 0;
 		n.throwLeft = 0;
 		n.remnantUntil = 0L;
+		n.chargeStart = 0L;
 		n.animId = SpeedForceState.ANIM_NONE;
 	}
 

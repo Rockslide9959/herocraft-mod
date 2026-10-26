@@ -20,7 +20,10 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.1: the Speed Force Speedster's HUD -- always on, suit or not (a sibling of the plain Speedster's {@code FlashSuitHud}).
+ * v0.17.1: the Speed Force Speedster's HUD. v0.17.1 (user: "make the regular HUD look the same as regular super speed but
+ * add the bars when they show up"): the six keys bottom-right like the plain Speedster's, titled with the mode, with thin
+ * bars stacked over them only while they matter (Momentum and the Speed Force in Speed Mode, the charge, a launch, Flash
+ * Time, the Remnant); the big speed panel top-left only in the full Flash Suit (as the plain Speedster's Flash Suit HUD).
  * <ul>
  *   <li>top-left: the velocity (blocks a second, big, with mph), the speed gauge up to the top speed (with the sound
  *       barrier marked and the run's top speed), the <b>Momentum</b> gauge, the <b>Speed Force</b> meter, the suit
@@ -102,7 +105,9 @@ public final class SpeedForceHud {
 			return;
 		}
 		long now = mc.level.getGameTime();
-		renderPanel(g, mc, p, s, now);
+		if (SpeedForceSpeedster.suited(p)) {
+			renderPanel(g, mc, p, s, now);
+		}
 		renderKeys(g, mc, p, s, now);
 	}
 
@@ -230,21 +235,45 @@ public final class SpeedForceHud {
 		int totalW = BOX * SLOTS.length + GAP * (SLOTS.length - 1);
 		int x0 = g.guiWidth() - MARGIN - 3 - totalW;
 		int y0 = g.guiHeight() - MARGIN - 3 - SHIFT_H - 1 - BOX;
-		Component title = Component.translatable("hud.projecthero.speed_force.title");
-		int fx0 = x0 - 3;
-		int fy0 = y0 - 14;
-		int fx1 = x0 + totalW + 3;
-		int fy1 = y0 + BOX + 1 + SHIFT_H + 3;
-		g.fill(fx0, fy0, fx1, fy1, 0x90050608);
-		g.renderOutline(fx0, fy0, fx1 - fx0, fy1 - fy0, 0xFF703020);
-		g.drawString(mc.font, title, x0, y0 - 11, 0xFFF8E8C8, false);
-		// the momentum as a hairline beside the title, so it reads even with the speed panel hidden by a screen
-		int mx0 = x0 + mc.font.width(title) + 6;
-		int mw = x0 + totalW - mx0;
-		if (mw > 8) {
-			g.fill(mx0, y0 - 7, mx0 + mw, y0 - 5, 0xFF2A1010);
-			g.fill(mx0, y0 - 7, mx0 + Math.round(mw * Mth.clamp(s.momentum, 0f, 1f)), y0 - 5, 0xFFFFB02A);
+		// the title, as the plain Speedster's: the power and the mode
+		Component mode = Component.translatable(s.chargeStart != 0L ? "hud.projecthero.speed_force.mode.charging"
+				: s.flashLeft > 0 ? "hud.projecthero.speed_force.mode.flash_time"
+				: s.phasing ? "hud.projecthero.speed_force.mode.phasing"
+				: s.speedMode ? "hud.projecthero.speed_force.mode.speed" : "hud.projecthero.speed_force.mode.walk");
+		Component title = Component.translatable("hud.projecthero.speed_force.title").append(" - ").append(mode);
+		int fx1 = x0 + totalW;
+		int fy0 = y0 - 12;
+		g.drawString(mc.font, title, x0, y0 - 10, s.speedMode || s.chargeStart != 0L ? 0xFFFFE6A0 : 0xFFFFFFFF, true);
+		// the bars, only while they matter, stacked up over the title
+		int by = y0 - 20;
+		if (s.chargeStart != 0L) {
+			float c = Math.min(1f, (now - s.chargeStart) / (float) SpeedForceConfig.CHARGE_TICKS);
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.charge"), c,
+					c >= 1f ? Component.translatable("hud.projecthero.speed_force.ready") : Component.literal(String.format(Locale.ROOT, "%.0f%%", c * 100f)),
+					c >= 1f ? WHITE : GOLD);
+			by -= 9;
 		}
+		if (s.flashLeft > 0) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.flash_time"), s.flashLeft / (float) Math.max(1, s.flashTotal),
+					Component.literal((s.flashLeft + 19) / 20 + "s"), 0xFF8FD8FF);
+			by -= 9;
+		}
+		if (s.remnantUntil > now) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.remnant"), (s.remnantUntil - now) / (float) SpeedForceConfig.REMNANT_TICKS,
+					Component.literal((s.remnantUntil - now + 19) / 20 + "s"), GOLD);
+			by -= 9;
+		}
+		if (s.speedMode || s.meter < SpeedForceConfig.METER_MAX) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.meter"), s.meter / SpeedForceConfig.METER_MAX,
+					Component.literal(String.format(Locale.ROOT, "%.0f", s.meter)), METER);
+			by -= 9;
+		}
+		if (s.speedMode) {
+			thin(g, mc, x0, by, totalW, Component.translatable("hud.projecthero.speed_force.momentum"), s.momentum,
+					Component.literal(String.format(Locale.ROOT, "%.0f%%", s.momentum * 100f)), s.surgeUntil > now ? WHITE : 0xFFFFB02A);
+			by -= 9;
+		}
+		fy0 = Math.min(fy0, by + 9);
 
 		if (com.projecthero.mod.client.gui.MoveListOverlay.held()) {
 			List<com.projecthero.mod.client.gui.MoveListOverlay.Row> rows = new ArrayList<>();
@@ -256,6 +285,8 @@ public final class SpeedForceHud {
 							ids.length > 1 ? Component.translatable("projecthero.speed_force_speedster.ability." + ids[1]) : null));
 				}
 			}
+			rows.add(com.projecthero.mod.client.gui.MoveListOverlay.Row.of("Hold " + com.projecthero.mod.client.gui.MoveListOverlay.key(AbilitySlot.SLOT_5),
+					Component.translatable("projecthero.speed_force_speedster.ability." + com.projecthero.mod.speedforce.SpeedForceAbilities.HEAL), null));
 			com.projecthero.mod.client.gui.MoveListOverlay.draw(g, fx1, fy0 - 2, rows);
 		}
 		for (int i = 0; i < SLOTS.length; i++) {
@@ -271,12 +302,12 @@ public final class SpeedForceHud {
 					|| (slot == AbilitySlot.SLOT_3 && s.phasing)
 					|| (slot == AbilitySlot.SLOT_4 && (s.flashLeft > 0 || s.remnantUntil > now))
 					|| (slot == AbilitySlot.SLOT_8 && s.carryId != 0)
-					|| (slot == AbilitySlot.SLOT_6 && s.surgeUntil > now);
+					|| (slot == AbilitySlot.SLOT_6 && (s.speedMode || s.chargeStart != 0L));
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
 			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, KEY, false);
 			// Flash Time's cooldown only starts when it ends; Surge's runs from the start
-			if (cd > 0 && !(slot == AbilitySlot.SLOT_6 && s.surgeUntil > now)) {
+			if (cd > 0) {
 				int hh = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
 				g.fill(x + 1, y0 + BOX - 1 - hh, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
 				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
@@ -298,6 +329,18 @@ public final class SpeedForceHud {
 		}
 		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
 		return text.length() > 2 ? text.substring(0, 2) : text;
+	}
+
+	/** A labelled hairline bar the width of the key row, its value at the right. */
+	private static void thin(GuiGraphics g, Minecraft mc, int x, int y, int w, Component label, float frac, Component value, int colour) {
+		g.drawString(mc.font, label, x, y, colour, true);
+		int bx = x + mc.font.width(label) + 4;
+		int bw = x + w - mc.font.width(value) - 4 - bx;
+		if (bw > 4) {
+			g.fill(bx, y + 3, bx + bw, y + 5, 0xC0201008);
+			g.fill(bx, y + 3, bx + Math.round(bw * Mth.clamp(frac, 0f, 1f)), y + 5, colour);
+		}
+		g.drawString(mc.font, value, x + w - mc.font.width(value), y, WHITE, true);
 	}
 
 	private static void bar(GuiGraphics g, Minecraft mc, int x, int y, int w, Component label, float frac, float ticksLeft, int colour) {

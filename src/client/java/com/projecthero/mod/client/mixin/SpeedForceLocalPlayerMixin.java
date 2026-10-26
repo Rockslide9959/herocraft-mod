@@ -43,7 +43,12 @@ public abstract class SpeedForceLocalPlayerMixin {
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$speedForceMovement(CallbackInfo ci) {
 		LocalPlayer self = (LocalPlayer) (Object) this;
-		if (!SpeedForceSpeedster.hasPower(self) || self.getAbilities().flying || self.isPassenger() || self.isFallFlying()
+		// v0.17.1 (user): the Shift+C charge stance holds you in place
+		if (SpeedForceSpeedster.chargeStart(self) != 0L) {
+			Vec3 cv = self.getDeltaMovement();
+			self.setDeltaMovement(0.0, Math.min(0.0, cv.y), 0.0);
+		}
+		if (!SpeedForceSpeedster.speedActive(self) || self.getAbilities().flying || self.isPassenger() || self.isFallFlying()
 				|| self.isSpectator() || SpeedForceSpeedster.phasing(self)) {
 			projecthero$sfWasOnGround = self.onGround();
 			projecthero$sfWallRunning = false;

@@ -293,7 +293,7 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		p.tickCount++;
 		SpeedForceSpeedster.tick(p);
 		double walk = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
-		helper.assertTrue(Math.abs(walk - SpeedForceConfig.WALK_BPS) < 0.5, "walking stays a 9 b/s jog, got " + walk);
+		helper.assertTrue(Math.abs(walk - SpeedForceConfig.WALK_BPS) < 0.5, "walking in Speed Mode is the 20 b/s base, got " + walk);
 		helper.succeed();
 	}
 
@@ -345,6 +345,67 @@ public class SpeedForceSpeedsterGameTests implements FabricGameTest {
 		helper.assertTrue(SpeedForceAbilities.fireBolt(p) == a, "the bolt strikes the zombie under the crosshair");
 		helper.assertTrue(Math.abs((100f - a.getHealth()) - SpeedForceConfig.THROW_MIN) < 0.5f, "8 at no momentum");
 		helper.assertTrue(Math.abs((100f - b.getHealth()) - SpeedForceConfig.THROW_MIN * 0.5f) < 0.5f, "and it arcs on for half");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): C turns Speed Mode on and off; off, no momentum, no speed, no step assist; on, 20 b/s and 4 blocks. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void cTogglesSpeedModeWithTheTwentyBaseAndFourBlockStep(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		helper.assertTrue(SpeedForceSpeedster.speedActive(p), "the awakening comes out running (Speed Mode on)");
+		p.setSprinting(true);
+		p.tickCount++;
+		SpeedForceSpeedster.tick(p);
+		double on = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
+		helper.assertTrue(Math.abs(on - 20.0) < 1.0, "Speed Mode starts at 20 b/s, got " + on);
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) >= 3.99, "a 4-block step assist, got " + p.getAttributeValue(Attributes.STEP_HEIGHT));
+		helper.assertTrue(SpeedForceAbilities.toggleSpeedMode(p), "C");
+		helper.assertFalse(SpeedForceSpeedster.speedActive(p), "Speed Mode off");
+		SpeedForceSpeedster.setMomentum(p, 0.7f);
+		p.tickCount++;
+		SpeedForceSpeedster.tick(p);
+		helper.assertTrue(SpeedForceSpeedster.momentum(p) == 0f, "no momentum with Speed Mode off");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 0.61, "vanilla step height");
+		double off = p.getAttributeValue(Attributes.MOVEMENT_SPEED) * SpeedForceSpeedster.BLOCKS_PER_SECOND_PER_SPEED;
+		helper.assertTrue(off < 7.0, "an ordinary run, got " + off);
+		helper.assertTrue(SpeedForceAbilities.toggleSpeedMode(p) && SpeedForceSpeedster.speedActive(p), "C again: back on");
+		helper.succeed();
+	}
+
+	/** v0.17.1 (user): hold Shift+C for 3 s, let go, and you are at full speed at once; let go early and it fizzles. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theShiftCChargeLaunchesAtFullSpeed(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		SpeedForceAbilities.toggleSpeedMode(p); // starting from Speed Mode off
+		helper.assertTrue(SpeedForceAbilities.startCharge(p), "into the charge stance");
+		helper.runAfterDelay(20, () -> {
+			helper.assertFalse(SpeedForceAbilities.releaseCharge(p), "let go after 1 s: it fizzles");
+			helper.assertFalse(SpeedForceSpeedster.speedActive(p), "still not running");
+			helper.assertTrue(SpeedForceAbilities.startCharge(p), "charge again");
+		});
+		helper.runAfterDelay(20 + SpeedForceConfig.CHARGE_TICKS + 2, () -> {
+			helper.assertTrue(SpeedForceAbilities.releaseCharge(p), "let go after the full 3 s: launch");
+			helper.assertTrue(SpeedForceSpeedster.speedActive(p) && SpeedForceSpeedster.momentum(p) >= 0.999f, "Speed Mode on at 100% at once");
+			helper.assertFalse(SpeedForceAbilities.startCharge(p), "on cooldown");
+			helper.succeed();
+		});
+	}
+
+	/** v0.17.1 (user): Ground-Stick pulls never cost fall damage; real drops still hurt. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void groundStickPullsTakeNoFallDamage(GameTestHelper helper) {
+		ServerPlayer p = flash(helper, 2.5, 2.0, 2.5);
+		SpeedForceSpeedster.setMomentum(p, 0f);
+		com.projecthero.mod.speedforce.SpeedsterPrefs.apply(p, new com.projecthero.mod.speedforce.network.SpeedsterPrefsPayload(true, 4));
+		helper.assertTrue(SpeedForceSpeedster.state(p).groundStick && SpeedForceSpeedster.state(p).colour == 4, "the menu's choices are saved");
+		p.fallDistance = 7f;
+		float hp = p.getHealth();
+		p.hurt(p.damageSources().fall(), 4f);
+		helper.assertTrue(p.getHealth() >= hp - 1.0e-3f, "a Ground-Stick pull: no fall damage");
+		p.invulnerableTime = 0;
+		p.fallDistance = 20f;
+		p.hurt(p.damageSources().fall(), 4f);
+		helper.assertTrue(p.getHealth() < hp, "a real drop still hurts");
 		helper.succeed();
 	}
 

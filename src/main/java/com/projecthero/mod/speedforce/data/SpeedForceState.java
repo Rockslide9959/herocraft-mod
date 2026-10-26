@@ -23,6 +23,7 @@ public final class SpeedForceState {
 	public static final int ANIM_SURGE = 7;
 	public static final int ANIM_AWAKEN = 8;
 	public static final int ANIM_GRAB = 9;
+	public static final int ANIM_CHARGE = 10;
 
 	public boolean hasPower;
 	/** 0..1. */
@@ -48,14 +49,22 @@ public final class SpeedForceState {
 	public long animStart;
 	/** {@code abilityId} -> absolute game time it is ready again. */
 	public final Map<String, Long> abilityReadyAt;
+	/** v0.17.1 (user): C -- Speed Mode on. Off, the speedster runs like anyone (no momentum, no trail, no lightning). */
+	public boolean speedMode;
+	/** v0.17.1 (user): Shift+C held -- the charge stance started at this game time (0 = not charging). */
+	public long chargeStart;
+	/** v0.17.1 (user, the Shift+N menu): Ground-Stick on. */
+	public boolean groundStick;
+	/** v0.17.1 (user, the Shift+N menu): the lightning colour, an index into {@code SpeedForceColours} (0 = gold). */
+	public int colour;
 
 	public SpeedForceState() {
-		this(false, 0f, 0f, 0L, 0, 0, false, 0, 0, 0, 0L, 0, 0L, new HashMap<>());
+		this(false, 0f, 0f, 0L, 0, 0, false, 0, 0, 0, 0L, 0, 0L, new HashMap<>(), false, 0L);
 	}
 
 	public SpeedForceState(boolean hasPower, float momentum, float meter, long surgeUntil, int flashLeft, int flashTotal,
 			boolean phasing, int carryId, int tornadoLeft, int throwLeft, long remnantUntil, int animId, long animStart,
-			Map<String, Long> abilityReadyAt) {
+			Map<String, Long> abilityReadyAt, boolean speedMode, long chargeStart) {
 		this.hasPower = hasPower;
 		this.momentum = momentum;
 		this.meter = meter;
@@ -70,11 +79,25 @@ public final class SpeedForceState {
 		this.animId = animId;
 		this.animStart = animStart;
 		this.abilityReadyAt = new HashMap<>(abilityReadyAt);
+		this.speedMode = speedMode;
+		this.chargeStart = chargeStart;
+	}
+
+	/** Speed Mode, Ground-Stick and the colour in one saved int (the codec is at its 16 fields). */
+	int flags() {
+		return (speedMode ? 1 : 0) | (groundStick ? 2 : 0) | ((colour & 0xFF) << 8);
+	}
+
+	private SpeedForceState withFlags(int flags) {
+		this.speedMode = (flags & 1) != 0;
+		this.groundStick = (flags & 2) != 0;
+		this.colour = (flags >> 8) & 0xFF;
+		return this;
 	}
 
 	public SpeedForceState copy() {
 		return new SpeedForceState(hasPower, momentum, meter, surgeUntil, flashLeft, flashTotal, phasing, carryId, tornadoLeft,
-				throwLeft, remnantUntil, animId, animStart, abilityReadyAt);
+				throwLeft, remnantUntil, animId, animStart, abilityReadyAt, speedMode, chargeStart).withFlags(flags());
 	}
 
 	public static final Codec<SpeedForceState> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -92,6 +115,9 @@ public final class SpeedForceState {
 			Codec.INT.optionalFieldOf("anim_id", 0).forGetter(s -> s.animId),
 			Codec.LONG.optionalFieldOf("anim_start", 0L).forGetter(s -> s.animStart),
 			Codec.unboundedMap(Codec.STRING, Codec.LONG).optionalFieldOf("ability_ready_at", Map.of())
-					.forGetter(s -> new HashMap<>(s.abilityReadyAt))
-	).apply(i, SpeedForceState::new));
+					.forGetter(s -> new HashMap<>(s.abilityReadyAt)),
+				Codec.INT.optionalFieldOf("flags", 0).forGetter(SpeedForceState::flags),
+				Codec.LONG.optionalFieldOf("charge_start", 0L).forGetter(s -> s.chargeStart)
+	).apply(i, (hp, mo, me, su, fl, ft, ph, ca, to, th, re, an, as, ready, flags, cs) ->
+			new SpeedForceState(hp, mo, me, su, fl, ft, ph, ca, to, th, re, an, as, ready, false, cs).withFlags(flags)));
 }

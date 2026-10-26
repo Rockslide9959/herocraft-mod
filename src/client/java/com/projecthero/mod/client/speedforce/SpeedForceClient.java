@@ -60,7 +60,7 @@ public final class SpeedForceClient {
 			float limbPos, float limbSpeed, float weight, boolean bolts, boolean fixed) {
 	}
 
-	private record Bolt(Vec3 from, Vec3 to, long start, int life, double seed) {
+	private record Bolt(Vec3 from, Vec3 to, long start, int life, double seed, int colour) {
 	}
 
 	private record Ring(Vec3 at, long start, int life, float radius) {
@@ -103,7 +103,7 @@ public final class SpeedForceClient {
 		java.util.Set<UUID> present = new java.util.HashSet<>();
 		for (AbstractClientPlayer p : mc.level.players()) {
 			present.add(p.getUUID());
-			if (!SpeedForceSpeedster.hasPower(p) || p.isSpectator() || p.isInvisible()) {
+			if (!SpeedForceSpeedster.speedActive(p) || p.isSpectator() || p.isInvisible()) {
 				LAST_RECORDED.remove(p.getUUID());
 				continue;
 			}
@@ -161,10 +161,12 @@ public final class SpeedForceClient {
 		long now = mc.level.getGameTime();
 		Vec3 from = new Vec3(msg.fx(), msg.fy(), msg.fz());
 		Vec3 to = new Vec3(msg.tx(), msg.ty(), msg.tz());
+		// v0.17.1 (user): the runner's chosen lightning colour
+		int col = mc.level.getEntity(msg.playerId()) instanceof Player owner ? com.projecthero.mod.speedforce.SpeedForceColours.of(owner) : 0;
 		switch (msg.kind()) {
 			case SpeedForceFxPayload.BOLT -> {
 				for (int k = 0; k < 2; k++) {
-					BOLTS.add(new Bolt(from, to, now, 8 + k * 2, now * 1.7 + k * 13.1 + from.x));
+					BOLTS.add(new Bolt(from, to, now, 8 + k * 2, now * 1.7 + k * 13.1 + from.x, col));
 				}
 			}
 			case SpeedForceFxPayload.BOOM -> RINGS.add(new Ring(from, now, 12, 7f));
@@ -172,13 +174,13 @@ public final class SpeedForceClient {
 				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 14, 5f));
 				for (int k = 0; k < 8; k++) {
 					double a = k * Math.PI / 4;
-					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 2.5, (k % 3 - 1) * 0.8, Math.sin(a) * 2.5), now, 10, k * 7.3 + now));
+					BOLTS.add(new Bolt(from, from.add(Math.cos(a) * 2.5, (k % 3 - 1) * 0.8, Math.sin(a) * 2.5), now, 10, k * 7.3 + now, col));
 				}
 			}
 			case SpeedForceFxPayload.AWAKEN -> {
 				for (int k = 0; k < 4; k++) {
 					Vec3 top = to.add((k - 1.5) * 1.5, 0, (k % 2 - 0.5) * 2.0);
-					BOLTS.add(new Bolt(top, from, now + k * 3, 12, k * 31.7 + now));
+					BOLTS.add(new Bolt(top, from, now + k * 3, 12, k * 31.7 + now, col));
 				}
 				RINGS.add(new Ring(from.subtract(0, 0.9, 0), now, 20, 6f));
 			}
@@ -220,9 +222,10 @@ public final class SpeedForceClient {
 		List<Vec3[]> arcs = new ArrayList<>();
 		List<Float> arcAlpha = new ArrayList<>();
 		List<Float> arcWidth = new ArrayList<>();
+		List<Integer> arcColour = new ArrayList<>();
 
 		for (AbstractClientPlayer acp : mc.level.players()) {
-			if (!SpeedForceSpeedster.hasPower(acp) || acp.isSpectator() || acp.isInvisible()) {
+			if (!SpeedForceSpeedster.speedActive(acp) || acp.isSpectator() || acp.isInvisible()) {
 				continue;
 			}
 			boolean own = acp == mc.player;
@@ -230,6 +233,10 @@ public final class SpeedForceClient {
 				continue;
 			}
 			bodyLightning(acp, cam, partial, now, arcs, arcAlpha, arcWidth);
+			int bodyCol = com.projecthero.mod.speedforce.SpeedForceColours.of(acp);
+			while (arcColour.size() < arcs.size()) {
+				arcColour.add(bodyCol);
+			}
 		}
 
 		for (Map.Entry<UUID, Deque<Snapshot>> e : TRAILS.entrySet()) {
@@ -276,6 +283,7 @@ public final class SpeedForceClient {
 							arcs.add(ThorDraw.jagged(a, b, 6, 0.24, seed));
 							arcAlpha.add(Math.min(1.0f, fade * 1.2f));
 							arcWidth.add(0.9f);
+							arcColour.add(com.projecthero.mod.speedforce.SpeedForceColours.of(acp));
 						}
 					}
 					prev = s;
@@ -329,6 +337,7 @@ public final class SpeedForceClient {
 			arcs.add(path);
 			arcAlpha.add(Math.min(1f, fade * 1.4f));
 			arcWidth.add(1.6f);
+			arcColour.add(b.colour());
 			if (ThorDraw.hash(b.seed() + frame) > 0.3) {
 				Vec3 root = path[path.length / 2];
 				Vec3 tip = root.add((ThorDraw.hash(b.seed() + frame + 1) - 0.5) * 2.0, (ThorDraw.hash(b.seed() + frame + 2) - 0.5) * 1.5,
@@ -336,6 +345,7 @@ public final class SpeedForceClient {
 				arcs.add(ThorDraw.jagged(root, tip, 4, 0.2, b.seed() + frame + 4));
 				arcAlpha.add(fade);
 				arcWidth.add(0.8f);
+				arcColour.add(b.colour());
 			}
 		}
 
@@ -357,10 +367,11 @@ public final class SpeedForceClient {
 			float a = arcAlpha.get(i);
 			float w = arcWidth.get(i);
 			// gold Speed Force lightning: a soft orange glow, a gold body and a white-hot core
-			ThorDraw.ribbon(vc, last, path, 0.24f * w, 0xFF7A10, 0.16f * a);
-			ThorDraw.ribbon(vc, last, path, 0.11f * w, 0xFFB02A, 0.4f * a);
-			ThorDraw.ribbon(vc, last, path, 0.045f * w, 0xFFE070, 0.8f * a);
-			ThorDraw.ribbon(vc, last, path, 0.016f * w, 0xFFFFFF, 1.0f * a);
+			int c = i < arcColour.size() ? arcColour.get(i) : 0;
+			ThorDraw.ribbon(vc, last, path, 0.24f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 0), 0.16f * a);
+			ThorDraw.ribbon(vc, last, path, 0.11f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 1), 0.4f * a);
+			ThorDraw.ribbon(vc, last, path, 0.045f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 2), 0.8f * a);
+			ThorDraw.ribbon(vc, last, path, 0.016f * w, com.projecthero.mod.speedforce.SpeedForceColours.tone(c, 3), 1.0f * a);
 		}
 	}
 

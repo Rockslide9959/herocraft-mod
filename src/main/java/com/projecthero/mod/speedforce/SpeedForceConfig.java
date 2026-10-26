@@ -14,17 +14,21 @@ public final class SpeedForceConfig {
 	public static final double TOP_SPEED_BPS = 250.0;
 	/** The Flash Suit makes the Speed Force Speedster this much faster (user: 50%); without it full momentum is 250 / 1.5. */
 	public static final double SUIT_SPEED_MULTIPLIER = 1.5;
-	/** The speed curve as fractions of the top speed at momentum 0, 25%, 60% and 100% (suit: 25 / 60 / 120 / 250 b/s). */
+	/**
+	 * The speed curve as fractions of the top speed at momentum 0, 25%, 60% and 100% (v0.17.1, user: Speed Mode starts at
+	 * 20 b/s -- no suit: 20 / 40 / 80 / 167 b/s; the suit: 30 / 60 / 120 / 250 b/s).
+	 */
 	public static final double[] CURVE_MOMENTUM = { 0.0, 0.25, 0.60, 1.00 };
-	public static final double[] CURVE_FRACTION = { 0.10, 0.24, 0.48, 1.00 };
-	/** Walking (not sprinting) is a controllable jog whatever the momentum. */
-	public static final double WALK_BPS = 9.0;
+	public static final double[] CURVE_FRACTION = { 0.12, 0.24, 0.48, 1.00 };
+	/** Walking (not sprinting) in Speed Mode: the 20 b/s base (user), whatever the momentum. */
+	public static final double WALK_BPS = 20.0;
 	/** Passing this speed fires the sonic boom ring (re-armed below {@link #SONIC_REARM_BPS}). */
 	public static final double SONIC_BOOM_BPS = 100.0;
 	public static final double SONIC_REARM_BPS = 80.0;
 	public static final double SONIC_RADIUS = 6.0;
 	public static final float SONIC_DAMAGE = 2.0f;
-	/** Step assist: 1 block standing, up to {@code 1 + STEP_PER_MOMENTUM} at full momentum (hills at 250 b/s). */
+	/** Step assist in Speed Mode: 4 blocks as standard (user), up to 5 at full momentum (hills at 250 b/s); off, vanilla. */
+	public static final double STEP_SPEED_MODE = 4.0;
 	public static final double STEP_BASE = 1.0;
 	public static final double STEP_PER_MOMENTUM = 4.0;
 
@@ -66,6 +70,9 @@ public final class SpeedForceConfig {
 	// ---------------------------------------------------------------- passives
 
 	public static final int REGEN_AMPLIFIER = 1;
+	/** v0.17.1 (user): in Speed Mode the plain Speedster's passives -- Regeneration III and +30% swimming. */
+	public static final int SPEED_MODE_REGEN_AMPLIFIER = 2;
+	public static final double SPEED_MODE_SWIM_EFFICIENCY = 0.10; // the plain Speedster's own value
 	public static final int REGEN_REFRESH = 60;
 
 	// ---------------------------------------------------------------- bosses
@@ -154,6 +161,14 @@ public final class SpeedForceConfig {
 	public static final int HEAL_COOLDOWN = 25 * 20;
 
 	// ---------------------------------------------------------------- C / Shift+C
+
+	/** v0.17.1 (user): hold Shift+C -- 3 s in the charge stance, then let go to run at full speed at once. */
+	public static final int CHARGE_TICKS = 3 * 20;
+	/** After the launch the momentum is held at 100% this long (time to get running). */
+	public static final int LAUNCH_HOLD_TICKS = 2 * 20;
+	public static final int LAUNCH_COOLDOWN = 10 * 20;
+	/** v0.17.1 (user): Speed Heal is a hold of V (a tap is the Barrier); held this long. */
+	public static final int HEAL_HOLD_TICKS = 10;
 
 	public static final int SURGE_TICKS = 15 * 20;
 	public static final float SURGE_COST = 50f;
