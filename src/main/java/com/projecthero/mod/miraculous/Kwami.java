@@ -21,7 +21,9 @@ public enum Kwami {
 	/** Pegasus (v0.16.6): the Horseshoe Glasses, the Horseshoe, sugar. */
 	KAALKI("kaalki", "pegasus", "glasses", 0xFFE6C276),
 	/** Viperion (v0.16.7): the Snake Bracelet, the Lyre, eggs. */
-	SASS("sass", "viperion", "snake_bracelet", 0xFF2FB7B0);
+	SASS("sass", "viperion", "snake_bracelet", 0xFF2FB7B0),
+	/** Multimouse (v0.17.1): the Mouse Pendant, the jump rope, the Cheese Wedge. */
+	MULLO("mullo", "multimouse", "mouse_pendant", 0xFFE0559E);
 
 	/** The Kwami's own id ({@code tikki}): the entity variant, the state's {@code kwami} field, lang keys. */
 	public final String id;

@@ -42,7 +42,7 @@ public final class MiraculousDamage {
 				player.resetFallDistance();
 				return false;
 			}
-			float half = amount * MiraculousConfig.FALL_DAMAGE_FACTOR;
+			float half = MiraculousKits.of(Miraculous.kwami(player)).modifyFallDamage(player, amount);
 			if (half > 0.01f) {
 				reissue(player, source, half);
 			}

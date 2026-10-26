@@ -71,6 +71,7 @@ public final class MiraculousSequence {
 			case WAYZZ -> com.projecthero.mod.miraculous.carapace.CarapaceSequence.TIMELINE;
 			case KAALKI -> com.projecthero.mod.miraculous.pegasus.PegasusSequence.TIMELINE;
 			case SASS -> com.projecthero.mod.miraculous.viperion.ViperionSequence.TIMELINE;
+			case MULLO -> null; // v0.17.1: Multimouse has the quick transformation for now
 		};
 	}
 

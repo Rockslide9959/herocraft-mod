@@ -244,6 +244,7 @@ public final class Miraculous {
 			case WAYZZ -> net.minecraft.world.item.Items.DRIED_KELP;
 			case KAALKI -> net.minecraft.world.item.Items.SUGAR;
 			case SASS -> net.minecraft.world.item.Items.EGG; // v0.16.7
+			case MULLO -> com.projecthero.mod.miraculous.item.MiraculousItems.CHEESE_WEDGE; // v0.17.1
 		};
 	}
 

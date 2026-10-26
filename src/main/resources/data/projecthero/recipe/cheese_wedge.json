@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:milk_bucket" },
+    { "item": "minecraft:sugar" }
+  ],
+  "result": {
+    "id": "projecthero:cheese_wedge",
+    "count": 4
+  }
+}

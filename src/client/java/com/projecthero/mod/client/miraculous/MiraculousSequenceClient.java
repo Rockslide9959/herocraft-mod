@@ -74,6 +74,7 @@ public final class MiraculousSequenceClient {
 			case WAYZZ -> com.projecthero.mod.client.miraculous.carapace.CarapaceSequenceClient.SCENE;
 			case KAALKI -> com.projecthero.mod.client.miraculous.pegasus.PegasusSequenceClient.SCENE;
 			case SASS -> com.projecthero.mod.client.miraculous.viperion.ViperionSequenceClient.SCENE;
+			case MULLO -> null; // v0.17.1: Multimouse has the quick transformation for now
 		};
 	}
 
