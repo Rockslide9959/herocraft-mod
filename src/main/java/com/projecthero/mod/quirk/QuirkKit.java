@@ -62,6 +62,36 @@ public interface QuirkKit {
 	/** Full cooldown of a move, ticks (the HUD's cooldown fill). */
 	int maxCooldown(String abilityId);
 
+	// ---------------------------------------------------------------- v0.17.1 framework: Plus Ultra, suit perk
+
+	/**
+	 * The Quirk's signature ultimate: Plus Ultra is full and C was held {@link #ultimateHoldTicks}. The gauge is already
+	 * spent and the banner / sting are already playing when this runs. Default: the framework placeholder (a flash, a ring,
+	 * the shout and a push, no damage) until the kit's own build overrides it. End it with the ultimate's drawback.
+	 */
+	default void ultimate(ServerPlayer player) {
+		PlusUltra.placeholderUltimate(player);
+	}
+
+	/** This Quirk has a Plus Ultra gauge and a hold-C ultimate (the seven kit Quirks). */
+	default boolean hasUltimate() {
+		return true;
+	}
+
+	/** How long C must be held at a full gauge (ticks). */
+	default int ultimateHoldTicks() {
+		return PlusUltra.HOLD_TICKS;
+	}
+
+	/** The ultimate's lang key (its name on the banner and in the guide; {@code .desc} is its one-line effect). */
+	default String ultimateLangKey(Quirk quirk) {
+		return "projecthero.quirk.ultimate." + quirk.id;
+	}
+
+	/** The holder put on ({@code fullSet}) or took off the Quirk's own full suit set: switch the set perk on / off. */
+	default void onSuitChanged(ServerPlayer player, boolean fullSet) {
+	}
+
 	// ---------------------------------------------------------------- v0.16.7: for a standalone Quirk (One For All)
 
 	/** CLIENT-SAFE: ticks until a move is ready. Default: the shared {@code QuirkState} cooldowns. */

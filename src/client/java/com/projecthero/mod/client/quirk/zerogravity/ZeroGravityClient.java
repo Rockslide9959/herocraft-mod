@@ -164,11 +164,7 @@ public final class ZeroGravityClient implements QuirkClientKit {
 		g.drawString(mc.font, label, x0, by - 2, NAME, false);
 		g.fill(barX - 1, by - 1, barX + barW + 1, by + barH + 1, BORDER);
 		g.fill(barX, by, barX + barW, by + barH, BAR_BG);
-		int fill = Math.round(barW * nausea / 100f);
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + barH, colour);
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
+		com.projecthero.mod.client.quirk.QuirkHud.bandedFill(g, player, com.projecthero.mod.quirk.Quirk.ZERO_GRAVITY, barX, by, barW, barH, nausea, colour); // v0.17.1 bands
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), by - 2, NAME, false);
 		int top = by - 2;
 

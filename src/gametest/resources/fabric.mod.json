@@ -138,6 +138,7 @@
       "com.projecthero.mod.gametest.MultimouseGameTests",
       "com.projecthero.mod.gametest.QuirkCoreGameTests",
       "com.projecthero.mod.gametest.QuirkHellflameGameTests",
+      "com.projecthero.mod.gametest.QuirkFrameworkGameTests",
       "com.projecthero.mod.gametest.QuirkOverhaulGameTests",
       "com.projecthero.mod.gametest.QuirkEngineGameTests",
       "com.projecthero.mod.gametest.QuirkDarkShadowGameTests",

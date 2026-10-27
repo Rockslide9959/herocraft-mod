@@ -217,7 +217,8 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.runAfterDelay(30, () -> {
 			float m = Quirks.meter(p);
-			helper.assertTrue(m > 44f, "rose in the pitch dark, " + m);
+			// v0.17.1 (user: darkness must not build too quick): the climb is paced (DarkShadowMeter.BUILD)
+			helper.assertTrue(m > 40.5f && m < 44f, "rose gently in the pitch dark, " + m);
 			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.LANTERN));
 			Quirks.setMeter(p, 40f);
 		});

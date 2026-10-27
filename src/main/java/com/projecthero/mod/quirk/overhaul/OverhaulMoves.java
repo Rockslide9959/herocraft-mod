@@ -170,7 +170,7 @@ public final class OverhaulMoves {
 
 	/** Spends Focus; spent to nothing, his focus breaks for a moment (no moves but Shift+C). */
 	static void spend(ServerPlayer p, float cost) {
-		float left = Quirks.addMeter(p, -cost);
+		float left = Quirks.addMeterPaced(p, -cost); // v0.17.1: paced (OverhaulMeter.BUILD = 1.0 today)
 		long now = now(p);
 		session(p).lastSpend = now;
 		if (left < 1f) {
@@ -1113,7 +1113,7 @@ public final class OverhaulMoves {
 		}
 		// v0.16.7 (user): a steady refill like the elemental mutations' meters (none while the surf drains it)
 		if (st.val(Overhaul.V_SURF) == 0L && (now - s.lastSpend >= OverhaulConfig.FOCUS_REGEN_DELAY || now < s.lastSpend)) {
-			Quirks.addMeter(p, focusRegenPerTick(st.val(Overhaul.V_GLOVES) != 0L, fused));
+			Quirks.addMeterPaced(p, focusRegenPerTick(st.val(Overhaul.V_GLOVES) != 0L, fused));
 		}
 		tickScale(p, fused);
 		tickStrike(p, s);

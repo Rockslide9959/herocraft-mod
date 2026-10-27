@@ -229,7 +229,7 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		run(helper, high, 0.4);
 		helper.runAfterDelay(40, () -> {
 			float a = Quirks.meter(low), b = Quirks.meter(high);
-			helper.assertTrue(b > a * 3f && b > 3.5f, "Gear 3 heats much faster: g1 " + a + ", g3 " + b);
+			helper.assertTrue(b > a * 3f && b > 3.5f * com.projecthero.mod.quirk.engine.EngineMeter.BUILD, "Gear 3 heats much faster (paced): g1 " + a + ", g3 " + b);
 			helper.succeed();
 		});
 	}
@@ -254,7 +254,7 @@ public class QuirkEngineGameTests implements FabricGameTest {
 	public void fullHeatStallsTheEngines(GameTestHelper helper) {
 		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
 		EngineMoves.setGear(p, 3);
-		Quirks.setMeter(p, 98f);
+		Quirks.setMeter(p, 99.5f); // v0.17.1: heat is paced (x EngineMeter.BUILD after the suit factor)
 		EngineMoves.heat(p, 5f);
 		helper.assertTrue(Quirks.overloaded(p), "100 heat stalls");
 		helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SLOWDOWN) && p.getEffect(MobEffects.MOVEMENT_SLOWDOWN).getAmplifier() == 2, "Slowness III");

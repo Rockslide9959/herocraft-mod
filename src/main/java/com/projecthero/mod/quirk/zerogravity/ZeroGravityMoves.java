@@ -122,7 +122,7 @@ public final class ZeroGravityMoves {
 	}
 
 	private static void sting(ServerPlayer p, float scale) {
-		Quirks.addMeter(p, ZeroGravityConfig.nausea().perFloat * scale);
+		Quirks.addMeterPaced(p, ZeroGravityConfig.nausea().perFloat * scale); // v0.17.1: x ZeroGravityMeter.BUILD
 	}
 
 	/** Any move but Settle ends a Settle in progress. */
@@ -753,7 +753,7 @@ public final class ZeroGravityMoves {
 			e.hurtMarked = true;
 			e.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, ZeroGravityConfig.CATCH_SLOW_FALL_TICKS, 0, false, true, true));
 			ZeroGravityCombat.touchFx(level, ZeroGravityCombat.center(e));
-			Quirks.addMeter(p, ZeroGravityConfig.CATCH_NAUSEA);
+			Quirks.addMeterPaced(p, ZeroGravityConfig.CATCH_NAUSEA);
 			n++;
 		}
 		Quirks.setAnim(p, ZeroGravity.ANIM_CATCH);
@@ -882,12 +882,12 @@ public final class ZeroGravityMoves {
 		Session s = session(p);
 		if (Quirks.overloaded(p)) {
 			s.streak = 0;
-			Quirks.addMeter(p, -cfg.decayPerSecond / 20f);
+			Quirks.addMeterPaced(p, -cfg.decayPerSecond / 20f);
 			return;
 		}
 		if (w <= 0.0) {
 			s.streak = 0;
-			float m = Quirks.addMeter(p, -cfg.decayPerSecond / 20f);
+			float m = Quirks.addMeterPaced(p, -cfg.decayPerSecond / 20f);
 			if (m < 50f) {
 				s.warned = false;
 			}
@@ -895,7 +895,7 @@ public final class ZeroGravityMoves {
 		}
 		s.streak++;
 		float bonus = 1f + cfg.timeBonusMax * Math.min(1f, s.streak / (float) Math.max(1, cfg.timeBonusTicks));
-		float m = Quirks.addMeter(p, (float) (cfg.perWeightPerSecond * w / 20.0 * bonus));
+		float m = Quirks.addMeterPaced(p, (float) (cfg.perWeightPerSecond * w / 20.0 * bonus)); // v0.17.1: paced
 		if (m >= 100f) {
 			sick(p);
 			return;

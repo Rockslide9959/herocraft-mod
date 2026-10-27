@@ -22,6 +22,8 @@ public final class QuirkMod {
 		com.projecthero.mod.quirk.item.QuirkItems.initialize();
 		// the kits' damage hook (Shadow Guard, cushioned landings...)
 		QuirkDamage.initialize();
+		// v0.17.1: the shared framework (fx, camera, sounds, meter bands, Plus Ultra, combos) -- before the kits
+		QuirkFramework.initialize();
 		com.projecthero.mod.quirk.hellflame.HellflameMod.initialize();
 		com.projecthero.mod.quirk.overhaul.OverhaulMod.initialize();
 		com.projecthero.mod.quirk.engine.EngineMod.initialize();

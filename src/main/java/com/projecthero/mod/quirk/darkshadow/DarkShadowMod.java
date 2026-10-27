@@ -24,6 +24,7 @@ public final class DarkShadowMod {
 	public static void initialize() {
 		DarkShadowConfig.load();
 		QuirkKits.register(Quirk.DARK_SHADOW, new DarkShadowKit());
+		DarkShadowMeter.register(); // v0.17.1 framework: Shadow bands + pacing
 		// v0.16.7 (user): N hides / calls out Dark Shadow (the client sends it only for a holder with no mutation selected)
 		PayloadTypeRegistry.playC2S().register(DarkShadowHidePayload.TYPE, DarkShadowHidePayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(DarkShadowHidePayload.TYPE, (payload, context) -> {

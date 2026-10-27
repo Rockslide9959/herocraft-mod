@@ -146,14 +146,20 @@ public class QuirkSuitGameTests implements FabricGameTest {
 			}
 		});
 		helper.runAfterDelay(40, () -> {
+			// v0.17.1: out of the suit x NO_SUIT_HEAT_MULT (0.6), in it x SUIT_HEAT_MULT (0.5), both then x EngineMeter.BUILD
+			float suitVsBare = com.projecthero.mod.quirk.engine.EngineConfig.SUIT_HEAT_MULT / com.projecthero.mod.quirk.engine.EngineConfig.NO_SUIT_HEAT_MULT;
+			float pace = com.projecthero.mod.quirk.engine.EngineMeter.BUILD;
 			float a = Quirks.meter(bare), b = Quirks.meter(suited);
-			helper.assertTrue(a > 4f && Math.abs(b - a * 0.5f) < a * 0.08f, "the suit heats half as fast: bare " + a + ", suited " + b);
-			// a kick's heat is halved too
+			helper.assertTrue(a > 4f * 0.6f * pace && Math.abs(b - a * suitVsBare) < a * 0.08f, "the suit heats slower: bare " + a + ", suited " + b);
+			// a kick's heat is cut the same way
 			Quirks.setMeter(bare, 0f);
 			Quirks.setMeter(suited, 0f);
 			com.projecthero.mod.quirk.engine.EngineMoves.heat(bare, 10f);
 			com.projecthero.mod.quirk.engine.EngineMoves.heat(suited, 10f);
-			helper.assertTrue(Math.abs(Quirks.meter(bare) - 10f) < 0.01f && Math.abs(Quirks.meter(suited) - 5f) < 0.01f, "10 heat is 5 in the suit");
+			float wantBare = 10f * com.projecthero.mod.quirk.engine.EngineConfig.NO_SUIT_HEAT_MULT * pace;
+			float wantSuit = 10f * com.projecthero.mod.quirk.engine.EngineConfig.SUIT_HEAT_MULT * pace;
+			helper.assertTrue(Math.abs(Quirks.meter(bare) - wantBare) < 0.01f && Math.abs(Quirks.meter(suited) - wantSuit) < 0.01f,
+					"10 heat: " + Quirks.meter(bare) + " bare, " + Quirks.meter(suited) + " in the suit");
 			helper.succeed();
 		});
 	}

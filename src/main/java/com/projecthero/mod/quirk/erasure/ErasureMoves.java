@@ -577,7 +577,7 @@ public final class ErasureMoves {
 		}
 		LAST_ERASED.put(p.getUUID(), List.copyOf(ids));
 		float dry = ErasureConfig.STARE_DRY * (s.val(ErasureConfig.V_GOGGLES) != 0L ? ErasureConfig.GOGGLES_DRY_MULT : 1f);
-		if (Quirks.addMeter(p, dry) >= 100f) {
+		if (Quirks.addMeterPaced(p, dry) >= 100f) { // v0.17.1: x ErasureMeter.BUILD
 			shutEyes(p);
 		}
 	}
@@ -1055,12 +1055,12 @@ public final class ErasureMoves {
 		if (erasing) {
 			tickErase(p, s);
 		} else if (s.val(ErasureConfig.V_SHUT) != 0L) {
-			float m = Quirks.addMeter(p, -ErasureConfig.SHUT_RECOVER);
+			float m = Quirks.addMeterPaced(p, -ErasureConfig.SHUT_RECOVER);
 			if (m <= ErasureConfig.SHUT_OPEN_AT && now(p) - s.val(ErasureConfig.V_SHUT_AT) >= ErasureConfig.SHUT_MIN_TICKS) {
 				openEyes(p);
 			}
 		} else {
-			Quirks.addMeter(p, -ErasureConfig.RECOVER);
+			Quirks.addMeterPaced(p, -ErasureConfig.RECOVER);
 		}
 		s = st(p);
 		tickLine(p, s);

@@ -220,7 +220,7 @@ public final class EngineMoves {
 			}
 			amount *= Engine.suitWorn(p) ? EngineConfig.SUIT_HEAT_MULT : EngineConfig.NO_SUIT_HEAT_MULT;
 		}
-		if (Quirks.addMeter(p, amount) >= 100f && !Quirks.overloaded(p)) {
+		if (Quirks.addMeterPaced(p, amount) >= 100f && !Quirks.overloaded(p)) { // v0.17.1: x EngineMeter.BUILD on top
 			stall(p, EngineConfig.STALL_TICKS);
 		}
 	}
@@ -389,7 +389,7 @@ public final class EngineMoves {
 		if (perSecond > 0f) {
 			heat(p, perSecond / 20f);
 		} else if (perSecond < 0f) {
-			Quirks.addMeter(p, perSecond / 20f);
+			Quirks.addMeterPaced(p, perSecond / 20f); // v0.17.1: cooling x EngineMeter.RECOVER
 		}
 
 		// --- running moves

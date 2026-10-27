@@ -1,5 +1,9 @@
 package com.projecthero.mod.client.quirk.erasure;
 
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.fc;
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.restC;
+
+import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
@@ -20,85 +24,85 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>Two layers: <b>held poses</b> read straight off the running state (the stare's hunch, the arm up the scarf line,
  * both hands hauling a bound creature, the Bind and Spin wind-up, the eyes-shut rub), then the <b>move keyframes</b>
- * ({@code {tick, rArmX, rArmY, rArmZ, lArmX, lArmY, lArmZ, bodyX, bodyY, rLegX, lLegX, headX, crouch}}, smoothstepped,
- * faded in / out). Bind and Spin and the Close Combat finisher also turn the whole body ({@link #spinDegrees},
+ * (v0.17.1: the shared {@link QuirkKeyframes} 16 columns -- full leg rotation -- plus the 17th {@code crouch} column,
+ * smoothstepped, faded in / out). Bind and Spin and the Close Combat finisher also turn the whole body ({@link #spinDegrees},
  * {@code ErasureSpinMixin}). The scarf is always thrown from the RIGHT hand; negative arm X swings forward / up.
  */
 public final class ErasurePose {
 	// Shift+R Capture Pull: whip out, then a two-handed yank back
 	private static final float[][] PULL = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 2, -2.6f, 0.4f, -0.2f, -0.3f, 0, -0.3f, -0.05f, 0.3f, 0.2f, -0.2f, 0, 0 },
-			{ 4, -1.55f, -0.05f, 0, -1.3f, 0.3f, 0, 0.12f, -0.2f, -0.3f, 0.3f, 0, 0.1f },
-			{ 7, 0.45f, -0.1f, 0.15f, 0.25f, 0.2f, -0.15f, -0.2f, 0.25f, 0.35f, -0.35f, -0.1f, 0.25f },
-			{ 10, 0.4f, -0.1f, 0.15f, 0.2f, 0.2f, -0.15f, -0.18f, 0.25f, 0.3f, -0.3f, -0.1f, 0.2f },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(2, -2.6f, 0.4f, -0.2f, -0.3f, 0, -0.3f, -0.05f, 0.3f, 0.2f, 0, 0, -0.2f, 0, 0, 0, 0),
+			fc(4, -1.55f, -0.05f, 0, -1.3f, 0.3f, 0, 0.12f, -0.2f, -0.3f, 0, 0, 0.3f, 0, 0, 0, 0.1f),
+			fc(7, 0.45f, -0.1f, 0.15f, 0.25f, 0.2f, -0.15f, -0.2f, 0.25f, 0.35f, 0, 0, -0.35f, 0, 0, -0.1f, 0.25f),
+			fc(10, 0.4f, -0.1f, 0.15f, 0.2f, 0.2f, -0.15f, -0.18f, 0.25f, 0.3f, 0, 0, -0.3f, 0, 0, -0.1f, 0.2f),
+			restC(14) };
 	// R Capture Bind: the scarf circled overhead, thrown, then both hands tug the wraps tight
 	private static final float[][] BIND = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -2.8f, 0.7f, -0.25f, -0.4f, 0, -0.35f, -0.08f, 0.35f, 0.15f, -0.15f, -0.1f, 0 },
-			{ 5, -1.6f, -0.1f, 0, -1.25f, 0.35f, 0, 0.15f, -0.25f, -0.35f, 0.35f, 0, 0.15f },
-			{ 9, -1.0f, -0.25f, 0, -1.05f, 0.45f, 0, 0.05f, 0, -0.15f, 0.15f, 0, 0.1f },
-			{ 11, -0.75f, -0.25f, 0, -0.8f, 0.45f, 0, -0.08f, 0, 0.1f, -0.1f, 0, 0.1f },
-			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(3, -2.8f, 0.7f, -0.25f, -0.4f, 0, -0.35f, -0.08f, 0.35f, 0.15f, 0, 0, -0.15f, 0, 0, -0.1f, 0),
+			fc(5, -1.6f, -0.1f, 0, -1.25f, 0.35f, 0, 0.15f, -0.25f, -0.35f, 0, 0, 0.35f, 0, 0, 0, 0.15f),
+			fc(9, -1.0f, -0.25f, 0, -1.05f, 0.45f, 0, 0.05f, 0, -0.15f, 0, 0, 0.15f, 0, 0, 0, 0.1f),
+			fc(11, -0.75f, -0.25f, 0, -0.8f, 0.45f, 0, -0.08f, 0, 0.1f, 0, 0, -0.1f, 0, 0, 0, 0.1f),
+			restC(16) };
 	// G Close Combat: jab, elbow, knee, then the spinning kick (the body turn is spinDegrees)
 	private static final float[][] COMBO = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 1, 0.3f, 0, 0, -0.9f, 0.3f, 0, 0.05f, 0.35f, 0.2f, -0.2f, 0, 0.2f },
-			{ 2, -1.62f, -0.1f, 0, 0.35f, 0.2f, -0.1f, 0.15f, -0.45f, -0.35f, 0.3f, 0, 0.2f },
-			{ 4, -0.9f, -0.3f, 0, -0.6f, 0.4f, 0, 0.1f, -0.1f, -0.2f, 0.2f, 0, 0.2f },
-			{ 6, -0.2f, 0, 0.2f, -1.45f, -0.95f, -0.35f, 0.15f, 0.55f, 0.2f, -0.35f, 0, 0.2f },
-			{ 8, -0.6f, -0.3f, 0, -0.9f, 0.2f, 0, 0.1f, 0.1f, 0, 0, 0, 0.1f },
-			{ 10, -1.1f, -0.2f, 0.2f, -1.1f, 0.2f, -0.2f, 0.35f, 0, -1.55f, 0.25f, 0.2f, 0 },
-			{ 12, -0.5f, 0, 0.5f, -0.5f, 0, -0.5f, 0.1f, 0, -0.3f, 0.2f, 0, 0.15f },
-			{ 15, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.5f, 0.35f, -0.1f, 0 },
-			{ 17, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.45f, 0.35f, -0.1f, 0 },
-			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(1, 0.3f, 0, 0, -0.9f, 0.3f, 0, 0.05f, 0.35f, 0.2f, 0, 0, -0.2f, 0, 0, 0, 0.2f),
+			fc(2, -1.62f, -0.1f, 0, 0.35f, 0.2f, -0.1f, 0.15f, -0.45f, -0.35f, 0, 0, 0.3f, 0, 0, 0, 0.2f),
+			fc(4, -0.9f, -0.3f, 0, -0.6f, 0.4f, 0, 0.1f, -0.1f, -0.2f, 0, 0, 0.2f, 0, 0, 0, 0.2f),
+			fc(6, -0.2f, 0, 0.2f, -1.45f, -0.95f, -0.35f, 0.15f, 0.55f, 0.2f, 0, 0, -0.35f, 0, 0, 0, 0.2f),
+			fc(8, -0.6f, -0.3f, 0, -0.9f, 0.2f, 0, 0.1f, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0.1f),
+			fc(10, -1.1f, -0.2f, 0.2f, -1.1f, 0.2f, -0.2f, 0.35f, 0, -1.55f, 0, 0, 0.25f, 0, 0, 0.2f, 0),
+			fc(12, -0.5f, 0, 0.5f, -0.5f, 0, -0.5f, 0.1f, 0, -0.3f, 0, 0, 0.2f, 0, 0, 0, 0.15f),
+			fc(15, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.5f, 0, 0, 0.35f, 0, 0, -0.1f, 0),
+			fc(17, -0.2f, 0, 1.15f, -0.2f, 0, -1.15f, -0.2f, 0, -1.45f, 0, 0, 0.35f, 0, 0, -0.1f, 0),
+			restC(22) };
 	// Shift+G Counter: forearms crossed in a low guard, weight back, held through the window
 	private static final float[][] COUNTER = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 2, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
-			{ 12, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
-			{ 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(2, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0, 0, 0.25f, 0, 0, 0.15f, 0.45f),
+			fc(12, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0, 0, 0.25f, 0, 0, 0.15f, 0.45f),
+			restC(15) };
 	// the riposte: guard opens into a palm strike, the scarf snapping out with the other hand
 	private static final float[][] COUNTER_HIT = {
-			{ 0, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0.25f, 0.15f, 0.45f },
-			{ 3, -1.65f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.2f, -0.55f, -0.5f, 0.4f, 0, 0.2f },
-			{ 8, -1.6f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.18f, -0.5f, -0.45f, 0.4f, 0, 0.2f },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			fc(0, -1.35f, -0.65f, 0, -1.35f, 0.65f, 0, 0.18f, 0, -0.35f, 0, 0, 0.25f, 0, 0, 0.15f, 0.45f),
+			fc(3, -1.65f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.2f, -0.55f, -0.5f, 0, 0, 0.4f, 0, 0, 0, 0.2f),
+			fc(8, -1.6f, -0.1f, 0, 0.5f, 0.2f, -0.4f, 0.18f, -0.5f, -0.45f, 0, 0, 0.4f, 0, 0, 0, 0.2f),
+			restC(14) };
 	// C Scarf Whip: overhead, then a snapping crack down along the look
 	private static final float[][] WHIP = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 2, -2.95f, 0.3f, -0.15f, -0.3f, 0, -0.25f, -0.1f, 0.3f, 0.15f, -0.15f, -0.1f, 0 },
-			{ 4, -1.25f, -0.25f, 0, -0.2f, 0, -0.25f, 0.2f, -0.35f, -0.3f, 0.3f, 0.05f, 0.1f },
-			{ 6, -1.1f, -0.3f, 0, -0.2f, 0, -0.25f, 0.18f, -0.35f, -0.3f, 0.3f, 0.05f, 0.1f },
-			{ 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(2, -2.95f, 0.3f, -0.15f, -0.3f, 0, -0.25f, -0.1f, 0.3f, 0.15f, 0, 0, -0.15f, 0, 0, -0.1f, 0),
+			fc(4, -1.25f, -0.25f, 0, -0.2f, 0, -0.25f, 0.2f, -0.35f, -0.3f, 0, 0, 0.3f, 0, 0, 0.05f, 0.1f),
+			fc(6, -1.1f, -0.3f, 0, -0.2f, 0, -0.25f, 0.18f, -0.35f, -0.3f, 0, 0, 0.3f, 0, 0, 0.05f, 0.1f),
+			restC(11) };
 	// Shift+Z Disarm Throw: whip at the hand, then rip it back over the shoulder
 	private static final float[][] DISARM = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -1.6f, -0.05f, 0, -0.3f, 0, -0.25f, 0.12f, -0.2f, -0.2f, 0.2f, 0, 0 },
-			{ 7, -2.4f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.15f, 0.45f, 0.25f, -0.25f, -0.15f, 0 },
-			{ 9, -2.3f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.12f, 0.4f, 0.2f, -0.2f, -0.15f, 0 },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(3, -1.6f, -0.05f, 0, -0.3f, 0, -0.25f, 0.12f, -0.2f, -0.2f, 0, 0, 0.2f, 0, 0, 0, 0),
+			fc(7, -2.4f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.15f, 0.45f, 0.25f, 0, 0, -0.25f, 0, 0, -0.15f, 0),
+			fc(9, -2.3f, 0.5f, 0.2f, -0.3f, 0, -0.25f, -0.12f, 0.4f, 0.2f, 0, 0, -0.2f, 0, 0, -0.15f, 0),
+			restC(14) };
 	// Shift+C Goggles: both hands up to the goggles
 	private static final float[][] GOGGLES = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -2.55f, -0.5f, 0, -2.55f, 0.5f, 0, 0, 0, 0, 0, 0.1f, 0 },
-			{ 6, -2.4f, -0.5f, 0, -2.4f, 0.5f, 0, 0, 0, 0, 0, 0.15f, 0 },
-			{ 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(3, -2.55f, -0.5f, 0, -2.55f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1f, 0),
+			fc(6, -2.4f, -0.5f, 0, -2.4f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.15f, 0),
+			restC(10) };
 	// Shift+V Eye Drops: head back, the bottle held over one eye, then the other
 	private static final float[][] DROPS = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
-			{ 9, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
-			{ 12, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
-			{ 17, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, -0.7f, 0 },
-			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(4, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
+			fc(9, -2.8f, -0.45f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
+			fc(12, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
+			fc(17, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
+			restC(22) };
 	// Shift+X Scarf Pull: both hands snap up the line as he is reeled in (the held line pose takes over)
 	private static final float[][] ZIP = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -2.6f, -0.2f, 0, -2.4f, 0.2f, 0, -0.1f, 0, -0.5f, 0.2f, -0.2f, 0 },
-			{ 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			restC(0),
+			fc(3, -2.6f, -0.2f, 0, -2.4f, 0.2f, 0, -0.1f, 0, -0.5f, 0, 0, 0.2f, 0, 0, -0.2f, 0),
+			restC(8) };
 
 	private ErasurePose() {
 	}
@@ -120,22 +124,7 @@ public final class ErasurePose {
 	}
 
 	static float[] sample(float[][] f, float tick) {
-		if (tick < 0f || tick > f[f.length - 1][0]) {
-			return null;
-		}
-		for (int i = 1; i < f.length; i++) {
-			if (tick <= f[i][0]) {
-				float[] a = f[i - 1], b = f[i];
-				float t = (tick - a[0]) / Math.max(1e-4f, b[0] - a[0]);
-				t = t * t * (3f - 2f * t);
-				float[] out = new float[13];
-				for (int k = 1; k < 13; k++) {
-					out[k] = Mth.lerp(t, a[k], b[k]);
-				}
-				return out;
-			}
-		}
-		return null;
+		return QuirkKeyframes.sample(f, tick);
 	}
 
 	private static void pose(ModelPart part, float w, float x, float y, float z) {
@@ -240,28 +229,14 @@ public final class ErasurePose {
 				pose(other, w, v[4], v[5], v[6]);
 				com.projecthero.mod.client.HipBend.pitch(m, w, v[7]);
 				m.body.yRot = Mth.lerp(w, m.body.yRot, v[8]);
-				m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, v[9]);
-				m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, v[10]);
-				m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + v[11]);
-				crouch(m, w * v[12]);
+				m.rightLeg.xRot = Mth.lerp(w, m.rightLeg.xRot, v[QuirkKeyframes.R_LEG_X]);
+				m.leftLeg.xRot = Mth.lerp(w, m.leftLeg.xRot, v[QuirkKeyframes.L_LEG_X]);
+				QuirkKeyframes.legTwist(m, v, w);
+				m.head.xRot = Mth.lerp(w, m.head.xRot, m.head.xRot + v[QuirkKeyframes.HEAD_X]);
+				QuirkKeyframes.crouch(m, w * v[QuirkKeyframes.CROUCH]);
 			}
 		}
 		m.hat.copyFrom(m.head);
-	}
-
-	/** A crouch: legs bent, body lowered (the model's sneak offsets, weighted). */
-	private static void crouch(HumanoidModel<?> model, float w) {
-		if (w <= 0.001f || model.crouching) {
-			return;
-		}
-		model.body.y += 3.2f * w;
-		model.head.y += 4.2f * w;
-		model.rightArm.y += 3.2f * w;
-		model.leftArm.y += 3.2f * w;
-		model.rightLeg.z += 4.0f * w;
-		model.leftLeg.z += 4.0f * w;
-		model.rightLeg.y += 0.2f * w;
-		model.leftLeg.y += 0.2f * w;
 	}
 
 	private static float eased(float x) {

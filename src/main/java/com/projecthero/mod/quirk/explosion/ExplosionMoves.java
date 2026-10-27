@@ -156,7 +156,8 @@ public final class ExplosionMoves {
 	public static void strain(ServerPlayer p, float amount) {
 		Session s = session(p);
 		s.lastBlast = now(p);
-		s.strain = Math.min(100f, s.strain + amount);
+		// v0.17.1 framework: paced (ExplosionMeter.BUILD) -- Arm Strain is Explosion's danger channel
+		s.strain = Math.min(100f, s.strain + com.projecthero.mod.quirk.meter.QuirkMeters.pace(p, amount));
 		if (s.strain >= 100f) {
 			strainOut(p);
 		}
@@ -268,7 +269,7 @@ public final class ExplosionMoves {
 		}
 		// ---- Arm Strain eases off
 		if (s.strain > 0f && now - s.lastBlast > ExplosionConfig.STRAIN_DECAY_DELAY) {
-			s.strain = Math.max(0f, s.strain - ExplosionConfig.STRAIN_DECAY);
+			s.strain = Math.max(0f, s.strain + com.projecthero.mod.quirk.meter.QuirkMeters.pace(p, -ExplosionConfig.STRAIN_DECAY));
 		}
 		if (now % 10 == 0) {
 			syncStrain(p, s, false);

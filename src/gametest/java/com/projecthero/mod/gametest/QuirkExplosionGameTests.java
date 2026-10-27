@@ -309,7 +309,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
 		ExplosionMoves.startPropel(p);
-		ExplosionMoves.setStrain(p, 98f);
+		ExplosionMoves.setStrain(p, 99.5f); // v0.17.1: blast strain is paced (ExplosionMeter.BUILD)
 		ExplosionMoves.apShot(p);
 		helper.assertTrue(Quirks.overloaded(p), "Arm Strain");
 		helper.assertTrue(Quirks.overloadLeft(p) >= ExplosionConfig.STRAIN_TICKS - 1, "for 5 s");
@@ -503,7 +503,7 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 	public void coolOffDriesSweatAndEasesStrainEvenWhileStrained(GameTestHelper helper) {
 		ServerPlayer p = bakugo(helper, 3.5, 2.0, 3.5);
 		Quirks.setMeter(p, 70f);
-		ExplosionMoves.setStrain(p, 98f);
+		ExplosionMoves.setStrain(p, 99.5f); // v0.17.1: blast strain is paced (ExplosionMeter.BUILD)
 		ExplosionMoves.apShot(p); // full strain
 		helper.assertTrue(Quirks.overloaded(p), "strained");
 		ExplosionMoves.setStrain(p, 80f);

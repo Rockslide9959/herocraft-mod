@@ -1,6 +1,10 @@
 package com.projecthero.mod.client.quirk.zerogravity;
 
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.f;
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.rest;
+
 import com.projecthero.mod.client.HipBend;
+import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravity;
@@ -14,8 +18,8 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.16.7 revamp: Uravity's poses on the vanilla humanoid model, set at the end of {@code setupAnim}.
  *
- * <p><b>Keyframed moves</b> (the One For All format): frames {@code {tick, rightArmX, rightArmY, rightArmZ, leftArmX, leftArmY,
- * leftArmZ, bodyX, bodyY, rightLegX, leftLegX, headX}} in radians, smoothstep-interpolated, faded in over 2 ticks and out over
+ * <p><b>Keyframed moves</b> (v0.17.1: the shared 16-column {@link QuirkKeyframes} format, full leg rotation) in radians,
+ * smoothstep-interpolated, faded in over 2 ticks and out over
  * the last 3, driven by the synced {@code animId / animStart} (140..159). Negative arm X swings a limb forward / up; a positive
  * right-arm Z lifts it out to the side; a positive right-arm Y swings it in across the chest. The torso bends from the hips.
  * <ul>
@@ -34,85 +38,85 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class ZeroGravityPose {
 	private static final float[][] TOUCH = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 1, -0.6f, 0.3f, 0, -0.3f, 0, -0.3f, 0.05f, 0.25f, 0.1f, -0.1f, 0 },
-			{ 3, -1.6f, -0.1f, 0, -0.35f, 0, -0.35f, 0.12f, -0.25f, 0.3f, -0.2f, 0 },
-			{ 6, -1.6f, -0.1f, 0, -0.35f, 0, -0.35f, 0.12f, -0.25f, 0.3f, -0.2f, 0 },
-			{ 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(1, -0.6f, 0.3f, 0, -0.3f, 0, -0.3f, 0.05f, 0.25f, 0.1f, 0, 0, -0.1f, 0, 0, 0),
+			f(3, -1.6f, -0.1f, 0, -0.35f, 0, -0.35f, 0.12f, -0.25f, 0.3f, 0, 0, -0.2f, 0, 0, 0),
+			f(6, -1.6f, -0.1f, 0, -0.35f, 0, -0.35f, 0.12f, -0.25f, 0.3f, 0, 0, -0.2f, 0, 0, 0),
+			rest(10) };
 	private static final float[][] RELEASE = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -0.8f, -0.2f, 0.2f, -0.8f, 0.2f, -0.2f, 0, 0, 0, 0, 0 },
-			{ 6, -1.25f, -0.62f, 0, -1.25f, 0.62f, 0, 0.05f, 0, 0, 0, 0.15f },
-			{ 13, -1.25f, -0.62f, 0, -1.25f, 0.62f, 0, 0.05f, 0, 0, 0, 0.15f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(3, -0.8f, -0.2f, 0.2f, -0.8f, 0.2f, -0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(6, -1.25f, -0.62f, 0, -1.25f, 0.62f, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
+			f(13, -1.25f, -0.62f, 0, -1.25f, 0.62f, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
+			rest(18) };
 	private static final float[][] RAIN = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -2.6f, 0, 0.3f, -2.6f, 0, -0.3f, -0.1f, 0, 0, 0, -0.4f },
-			{ 7, -2.75f, -0.4f, 0, -2.75f, 0.4f, 0, -0.12f, 0, 0, 0, -0.45f },
-			{ 11, -1.0f, 0, 0.6f, -1.0f, 0, -0.6f, 0.25f, 0, 0.2f, -0.2f, 0.1f },
-			{ 15, -1.0f, 0, 0.6f, -1.0f, 0, -0.6f, 0.25f, 0, 0.2f, -0.2f, 0.1f },
-			{ 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -2.6f, 0, 0.3f, -2.6f, 0, -0.3f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.4f),
+			f(7, -2.75f, -0.4f, 0, -2.75f, 0.4f, 0, -0.12f, 0, 0, 0, 0, 0, 0, 0, -0.45f),
+			f(11, -1.0f, 0, 0.6f, -1.0f, 0, -0.6f, 0.25f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.1f),
+			f(15, -1.0f, 0, 0.6f, -1.0f, 0, -0.6f, 0.25f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.1f),
+			rest(20) };
 	private static final float[][] SELF = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -1.0f, -0.7f, 0, -1.0f, 0.7f, 0, 0.05f, 0, 0, 0, 0.2f },
-			{ 8, -0.4f, 0, 0.8f, -0.4f, 0, -0.8f, 0, 0, -0.3f, 0.15f, -0.1f },
-			{ 12, -0.35f, 0, 0.75f, -0.35f, 0, -0.75f, 0, 0, -0.3f, 0.15f, 0 } };
+			rest(0),
+			f(4, -1.0f, -0.7f, 0, -1.0f, 0.7f, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
+			f(8, -0.4f, 0, 0.8f, -0.4f, 0, -0.8f, 0, 0, -0.3f, 0, 0, 0.15f, 0, 0, -0.1f),
+			f(12, -0.35f, 0, 0.75f, -0.35f, 0, -0.75f, 0, 0, -0.3f, 0, 0, 0.15f, 0, 0, 0) };
 	private static final float[][] LEAP = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, 0.6f, 0, 0.2f, 0.6f, 0, -0.2f, 0.35f, 0, -0.6f, -0.6f, 0.2f },
-			{ 6, -2.6f, 0, 0.3f, -2.6f, 0, -0.3f, -0.1f, 0, 0.2f, -0.2f, -0.3f },
-			{ 14, -2.4f, 0, 0.35f, -2.4f, 0, -0.35f, -0.05f, 0, -0.6f, 0.3f, -0.2f } };
+			rest(0),
+			f(3, 0.6f, 0, 0.2f, 0.6f, 0, -0.2f, 0.35f, 0, -0.6f, 0, 0, -0.6f, 0, 0, 0.2f),
+			f(6, -2.6f, 0, 0.3f, -2.6f, 0, -0.3f, -0.1f, 0, 0.2f, 0, 0, -0.2f, 0, 0, -0.3f),
+			f(14, -2.4f, 0, 0.35f, -2.4f, 0, -0.35f, -0.05f, 0, -0.6f, 0, 0, 0.3f, 0, 0, -0.2f) };
 	private static final float[][] SHOWER = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 6, -0.9f, 0, 0.15f, -0.9f, 0, -0.15f, 0.45f, 0, -0.3f, 0.3f, 0.3f },
-			{ 14, -2.0f, 0, 0.55f, -2.0f, 0, -0.55f, -0.1f, 0, 0, 0, -0.35f },
-			{ 24, -2.3f, 0, 0.5f, -2.3f, 0, -0.5f, -0.12f, 0, 0, 0, -0.45f },
-			{ 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(6, -0.9f, 0, 0.15f, -0.9f, 0, -0.15f, 0.45f, 0, -0.3f, 0, 0, 0.3f, 0, 0, 0.3f),
+			f(14, -2.0f, 0, 0.55f, -2.0f, 0, -0.55f, -0.1f, 0, 0, 0, 0, 0, 0, 0, -0.35f),
+			f(24, -2.3f, 0, 0.5f, -2.3f, 0, -0.5f, -0.12f, 0, 0, 0, 0, 0, 0, 0, -0.45f),
+			rest(30) };
 	private static final float[][] SHIELD = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -1.3f, 0.4f, 0.6f, -1.3f, -0.4f, -0.6f, 0.05f, 0, 0, 0, 0 },
-			{ 8, -0.9f, -0.3f, 0.95f, -0.9f, 0.3f, -0.95f, 0.05f, 0, 0, 0, -0.1f },
-			{ 12, -1.5f, 0, 0.5f, -1.5f, 0, -0.5f, 0.05f, 0, 0, 0, 0 },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -1.3f, 0.4f, 0.6f, -1.3f, -0.4f, -0.6f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(8, -0.9f, -0.3f, 0.95f, -0.9f, 0.3f, -0.95f, 0.05f, 0, 0, 0, 0, 0, 0, 0, -0.1f),
+			f(12, -1.5f, 0, 0.5f, -1.5f, 0, -0.5f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0),
+			rest(18) };
 	private static final float[][] COMET = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -2.6f, 0.2f, 0.4f, -0.9f, 0, -0.3f, -0.12f, 0.45f, -0.2f, 0.3f, -0.1f },
-			{ 7, -1.2f, -0.3f, 0, 0.3f, 0, -0.3f, 0.25f, -0.45f, 0.5f, -0.4f, 0.05f },
-			{ 10, -1.2f, -0.3f, 0, 0.3f, 0, -0.3f, 0.25f, -0.45f, 0.5f, -0.4f, 0.05f },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -2.6f, 0.2f, 0.4f, -0.9f, 0, -0.3f, -0.12f, 0.45f, -0.2f, 0, 0, 0.3f, 0, 0, -0.1f),
+			f(7, -1.2f, -0.3f, 0, 0.3f, 0, -0.3f, 0.25f, -0.45f, 0.5f, 0, 0, -0.4f, 0, 0, 0.05f),
+			f(10, -1.2f, -0.3f, 0, 0.3f, 0, -0.3f, 0.25f, -0.45f, 0.5f, 0, 0, -0.4f, 0, 0, 0.05f),
+			rest(14) };
 	private static final float[][] SLAM = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -1.55f, -0.1f, 0, -0.4f, 0, -0.3f, 0.1f, -0.2f, 0.2f, -0.2f, 0 },
-			{ 7, -2.9f, 0, 0.12f, -2.9f, 0, -0.12f, -0.12f, 0, 0, 0, -0.5f },
-			{ 12, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, -0.3f, 0.2f },
-			{ 15, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, -0.3f, 0.2f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(3, -1.55f, -0.1f, 0, -0.4f, 0, -0.3f, 0.1f, -0.2f, 0.2f, 0, 0, -0.2f, 0, 0, 0),
+			f(7, -2.9f, 0, 0.12f, -2.9f, 0, -0.12f, -0.12f, 0, 0, 0, 0, 0, 0, 0, -0.5f),
+			f(12, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.2f),
+			f(15, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.2f),
+			rest(18) };
 	private static final float[][] GUNHEAD = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 2, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, -0.3f, 0 },
-			{ 4, -1.0f, -0.3f, 0, -1.62f, 0.05f, 0, 0.15f, 0.3f, 0.3f, -0.3f, 0 },
-			{ 7, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, -0.3f, 0 },
-			{ 9, -1.62f, -0.05f, 0, -1.0f, 0.3f, 0, 0.15f, -0.35f, 0.3f, -0.3f, 0 },
-			{ 12, -1.5f, -0.2f, 0, -1.5f, 0.2f, 0, 0.2f, 0, 0.35f, -0.35f, 0.05f },
-			{ 15, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, -0.4f, 0.2f },
-			{ 18, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, -0.4f, 0.2f },
-			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(2, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
+			f(4, -1.0f, -0.3f, 0, -1.62f, 0.05f, 0, 0.15f, 0.3f, 0.3f, 0, 0, -0.3f, 0, 0, 0),
+			f(7, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
+			f(9, -1.62f, -0.05f, 0, -1.0f, 0.3f, 0, 0.15f, -0.35f, 0.3f, 0, 0, -0.3f, 0, 0, 0),
+			f(12, -1.5f, -0.2f, 0, -1.5f, 0.2f, 0, 0.2f, 0, 0.35f, 0, 0, -0.35f, 0, 0, 0.05f),
+			f(15, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, 0, 0, -0.4f, 0, 0, 0.2f),
+			f(18, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, 0, 0, -0.4f, 0, 0, 0.2f),
+			rest(22) };
 	private static final float[][] FIELD = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -1.5f, -0.1f, 0, -1.5f, 0.1f, 0, 0.12f, 0, 0.3f, -0.3f, 0 },
-			{ 8, -1.4f, -0.9f, 0.15f, -1.4f, 0.9f, -0.15f, 0.05f, 0, 0.3f, -0.3f, -0.1f },
-			{ 15, -1.4f, -0.9f, 0.15f, -1.4f, 0.9f, -0.15f, 0.05f, 0, 0.3f, -0.3f, -0.1f },
-			{ 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -1.5f, -0.1f, 0, -1.5f, 0.1f, 0, 0.12f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
+			f(8, -1.4f, -0.9f, 0.15f, -1.4f, 0.9f, -0.15f, 0.05f, 0, 0.3f, 0, 0, -0.3f, 0, 0, -0.1f),
+			f(15, -1.4f, -0.9f, 0.15f, -1.4f, 0.9f, -0.15f, 0.05f, 0, 0.3f, 0, 0, -0.3f, 0, 0, -0.1f),
+			rest(20) };
 	private static final float[][] CATCH = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -2.2f, -0.3f, 0.3f, -2.2f, 0.3f, -0.3f, -0.1f, 0, 0.2f, -0.2f, -0.4f },
-			{ 12, -2.1f, -0.3f, 0.35f, -2.1f, 0.3f, -0.35f, -0.1f, 0, 0.2f, -0.2f, -0.35f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -2.2f, -0.3f, 0.3f, -2.2f, 0.3f, -0.3f, -0.1f, 0, 0.2f, 0, 0, -0.2f, 0, 0, -0.4f),
+			f(12, -2.1f, -0.3f, 0.35f, -2.1f, 0.3f, -0.35f, -0.1f, 0, 0.2f, 0, 0, -0.2f, 0, 0, -0.35f),
+			rest(18) };
 	private static final float[][] SICK = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 6, -1.95f, 0.95f, 0, -0.8f, 0.6f, 0, 0.5f, 0, 0, 0, 0.35f },
-			{ 44, -1.95f, 0.95f, 0, -0.8f, 0.6f, 0, 0.55f, 0, 0, 0, 0.4f },
-			{ 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(6, -1.95f, 0.95f, 0, -0.8f, 0.6f, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0.35f),
+			f(44, -1.95f, 0.95f, 0, -0.8f, 0.6f, 0, 0.55f, 0, 0, 0, 0, 0, 0, 0, 0.4f),
+			rest(50) };
 
 	private ZeroGravityPose() {
 	}
@@ -142,23 +146,7 @@ public final class ZeroGravityPose {
 	}
 
 	static float[] sample(float[][] f, float tick) {
-		if (tick < 0f || tick > f[f.length - 1][0]) {
-			return null;
-		}
-		for (int i = 1; i < f.length; i++) {
-			if (tick <= f[i][0]) {
-				float[] a = f[i - 1];
-				float[] b = f[i];
-				float t = (tick - a[0]) / Math.max(1e-4f, b[0] - a[0]);
-				t = t * t * (3f - 2f * t);
-				float[] out = new float[12];
-				for (int k = 1; k < 12; k++) {
-					out[k] = Mth.lerp(t, a[k], b[k]);
-				}
-				return out;
-			}
-		}
-		return null;
+		return QuirkKeyframes.sample(f, tick);
 	}
 
 	public static void apply(Player player, HumanoidModel<?> model) {
@@ -244,9 +232,10 @@ public final class ZeroGravityPose {
 			l.zRot = Mth.lerp(w, l.zRot, p[6]);
 			HipBend.pitch(model, w, p[7]);
 			model.body.yRot = Mth.lerp(w, model.body.yRot, p[8]);
-			model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, p[9]);
-			model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, p[10]);
-			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[11]);
+			model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, p[QuirkKeyframes.R_LEG_X]);
+			model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, p[QuirkKeyframes.L_LEG_X]);
+			QuirkKeyframes.legTwist(model, p, w);
+			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[QuirkKeyframes.HEAD_X]);
 		}
 		model.hat.copyFrom(model.head);
 	}

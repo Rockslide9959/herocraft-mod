@@ -2402,6 +2402,84 @@
       }
     ]
   },
+  "quirk_whoosh": {
+    "subtitle": "subtitles.projecthero.quirk_whoosh",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/whoosh1"
+      },
+      {
+        "name": "projecthero:quirk/whoosh2"
+      }
+    ]
+  },
+  "quirk_impact": {
+    "subtitle": "subtitles.projecthero.quirk_impact",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/impact1"
+      },
+      {
+        "name": "projecthero:quirk/impact2"
+      }
+    ]
+  },
+  "quirk_impact_heavy": {
+    "subtitle": "subtitles.projecthero.quirk_impact_heavy",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/impact_heavy"
+      }
+    ]
+  },
+  "quirk_charge_up": {
+    "subtitle": "subtitles.projecthero.quirk_charge_up",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/charge_up"
+      }
+    ]
+  },
+  "quirk_charge_loop": {
+    "subtitle": "subtitles.projecthero.quirk_charge_loop",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/charge_loop"
+      }
+    ]
+  },
+  "quirk_ultimate_sting": {
+    "subtitle": "subtitles.projecthero.quirk_ultimate_sting",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/ultimate_sting"
+      }
+    ]
+  },
+  "quirk_meter_warning": {
+    "subtitle": "subtitles.projecthero.quirk_meter_warning",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/meter_warning"
+      }
+    ]
+  },
+  "quirk_combo": {
+    "subtitle": "subtitles.projecthero.quirk_combo",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/combo"
+      }
+    ]
+  },
+  "quirk_ultra_ready": {
+    "subtitle": "subtitles.projecthero.quirk_ultra_ready",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/ultra_ready"
+      }
+    ]
+  },
   "spider_thwip": {
     "subtitle": "subtitles.projecthero.spider_thwip",
     "sounds": [

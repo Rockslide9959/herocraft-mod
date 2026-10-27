@@ -124,7 +124,9 @@ public final class DarkShadowMoves {
 
 	private static void push(ServerPlayer p, float amount) {
 		int light = DarkShadowCombat.lightAt(p);
-		Quirks.setMeter(p, DarkShadowCombat.clampMeterInLight(light, Quirks.meter(p) + amount));
+		// v0.17.1: a move's push is paced like the climb (DarkShadowMeter.BUILD)
+		float paced = com.projecthero.mod.quirk.meter.QuirkMeters.pace(p, amount);
+		Quirks.setMeter(p, DarkShadowCombat.clampMeterInLight(light, Quirks.meter(p) + paced));
 	}
 
 	/** Dark Shadow reaches for {@code at}: the model stretches there (synced), the pose plays, an after-image streaks out. */
@@ -909,7 +911,7 @@ public final class DarkShadowMoves {
 		} else if (step > 0f && DarkShadow.ankh(p)) {
 			step *= mt().ankhRiseFactor;
 		}
-		m = Quirks.addMeter(p, step);
+		m = Quirks.addMeterPaced(p, step); // v0.17.1: the climb in the dark x DarkShadowMeter.BUILD
 		if (light >= lc.calmLight && m > 99f) {
 			Quirks.setMeter(p, 99f);
 			m = 99f;
