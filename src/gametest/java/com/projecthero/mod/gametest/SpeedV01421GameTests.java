@@ -109,8 +109,10 @@ public class SpeedV01421GameTests implements FabricGameTest {
 		}
 		helper.assertTrue(mutations.equals(java.util.Set.of("power_01_super_strength", "power_02_laser_vision", "power_03_flight",
 				"power_04_super_speed", "power_05_geokinesis", "power_08_pyrokinesis", "power_09_cryokinesis", "power_11_teleportation",
-				"power_12_super_regeneration", "power_17_elasticity", "power_24_wind_manipulation", "power_25_water_manipulation")),
-				"exactly the remade mutations (v0.16.5: + Teleportation, Elasticity, Flight, Geokinesis, Pyrokinesis, Cryokinesis, Wind, Water): " + mutations);
+				"power_12_super_regeneration", "power_17_elasticity", "power_22_plant_manipulation_chlorokinesis",
+				"power_24_wind_manipulation", "power_25_water_manipulation")),
+				"exactly the remade mutations (v0.16.5: + Teleportation, Elasticity, Flight, Geokinesis, Pyrokinesis, Cryokinesis, Wind, Water;"
+						+ " v0.17.1 user: + Plant): " + mutations);
 		helper.assertTrue(Powers.isEnabled(speed) && Powers.isMutation(speed) && !Powers.isHeroTier(speed), "Super Speed: enabled mutation");
 		for (Power p : Powers.all()) {
 			if (!mutations.contains(p.key())) {

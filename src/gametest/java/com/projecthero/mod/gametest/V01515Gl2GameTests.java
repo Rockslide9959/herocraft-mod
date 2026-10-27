@@ -224,8 +224,12 @@ public class V01515Gl2GameTests implements FabricGameTest {
 			MobEffectInstance slow = front.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 			helper.assertTrue(!front.isAlive() || (slow != null && slow.getAmplifier() == GreenLanternConfig.BLAST_WAVE_SLOW_AMPLIFIER),
 					"Slowness III on whatever it hits");
-			helper.assertTrue(behind.getHealth() == max, "nothing behind the Lantern is hit");
-			helper.assertTrue(far.getHealth() == max, "nothing beyond 8 blocks is hit");
+			// "behind" and "far" stand outside the 8x8 cage (past its barrier walls, in the gap by the next test), where something
+			// other than the wave can chip them now and then (CI: "far" hurt once, fine on its re-run) -- so what is checked is
+			// that the LANTERN never hit them; the front husk proves that attribution is real
+			helper.assertTrue(front.getLastHurtByMob() == player, "the wave's hits are the Lantern's");
+			helper.assertTrue(behind.getLastHurtByMob() != player, "nothing behind the Lantern is hit");
+			helper.assertTrue(far.getLastHurtByMob() != player, "nothing beyond 8 blocks is hit");
 			helper.succeed();
 		});
 	}

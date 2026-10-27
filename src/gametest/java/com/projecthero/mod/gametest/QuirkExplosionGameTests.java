@@ -808,7 +808,11 @@ public class QuirkExplosionGameTests implements FabricGameTest {
 		PlusUltra.fire(p);
 		helper.assertTrue(PlusUltra.firedCount(p) == 1 && PlusUltra.gauge(p) == 0f, "it fired and spent the gauge");
 		helper.assertTrue(ExplosionMoves.howitzerKind(p) == 2 && Explosion.ultimate(p), "Howitzer Impact: Cluster is running");
-		helper.assertTrue(ExplosionMoves.ultimateTargets(p).size() == 3, "it marked all three, " + ExplosionMoves.ultimateTargets(p));
+		// the marking reaches 20 blocks -- past this 8x8 cage into the neighbouring tests, so on CI a stray creature there could
+		// be marked as well (got [8, 9, 10, 3]): what matters is that all three of these are marked
+		var marked = ExplosionMoves.ultimateTargets(p);
+		helper.assertTrue(marked.containsAll(java.util.List.of(a.getId(), b.getId(), c.getId())) && marked.size() <= ExplosionConfig.ULT_TARGETS,
+				"it marked all three, " + marked);
 		helper.assertTrue(a.hasEffect(MobEffects.GLOWING), "the marks glow");
 		ExplosionMoves.finishUltimateForTest(p);
 		for (Zombie z : new Zombie[] { a, b, c }) {

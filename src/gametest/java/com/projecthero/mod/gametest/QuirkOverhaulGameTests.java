@@ -805,7 +805,9 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 			helper.assertTrue(opened, "the first wave took the ground apart");
 		});
 		helper.runAfterDelay(OverhaulConfig.ULT_TICKS + 2, () -> {
-			helper.assertTrue(Math.abs(taken(z) - 3 * OverhaulConfig.ULT_DAMAGE) < 3 * EPS, "three waves, 12 each: took " + taken(z));
+			// he is fused through it (design: "during it he is fused"), so each 12-damage wave lands x FUSION_DAMAGE_MULT
+			float wave = OverhaulConfig.ULT_DAMAGE * OverhaulConfig.FUSION_DAMAGE_MULT;
+			helper.assertTrue(Math.abs(taken(z) - 3 * wave) < 3 * EPS, "three waves, 12 each x" + OverhaulConfig.FUSION_DAMAGE_MULT + " fused: took " + taken(z));
 			helper.assertFalse(Overhaul.ultimate(p), "over");
 			helper.assertTrue(Quirks.meter(p) <= 1f, "every scrap of Matter went into it: " + Quirks.meter(p));
 			helper.assertTrue(Quirks.ready(p, OverhaulConfig.FUSION), "the ultimate's Fusion leaves no Fusion cooldown");

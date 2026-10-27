@@ -1389,6 +1389,7 @@ public final class ErasureMoves {
 		Vec3 pin = new Vec3(t.getX(), t.getY() + ErasureConfig.REEL_LIFT, t.getZ());
 		long at = now(p);
 		REELS.put(p.getUUID(), new Reel(t.getId(), at, pin));
+		hoist(t, pin.y); // strung up from the moment the reel starts (tickReel keeps it there), not a tick later
 		Quirks.edit(p, n -> {
 			n.vals.put(ErasureConfig.V_REEL, 1L);
 			n.vals.put(ErasureConfig.V_REEL_AT, at);

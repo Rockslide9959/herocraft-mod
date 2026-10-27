@@ -32,10 +32,43 @@ import net.minecraft.world.phys.Vec3;
  * what is under test is the ring's decision. The Lantern faces +Z at half charge; the cage floor is stone at y 1.
  */
 public class GreenLanternAutoProtectGameTests implements FabricGameTest {
+	/**
+	 * A survival player, not {@code helper.makeMockServerPlayerInLevel()}: vanilla's mock player overrides
+	 * {@code isCreative()} to always answer true whatever its game mode, and Ring Auto-Protection (rightly) never runs for a
+	 * creative player -- so every save looked dead. Like the mock it never ticks (no real connection); {@link #done} takes
+	 * it back off the player list.
+	 */
+	private static ServerPlayer survivalPlayer(GameTestHelper helper) {
+		net.minecraft.server.level.ServerLevel level = helper.getLevel();
+		net.minecraft.server.network.CommonListenerCookie cookie = net.minecraft.server.network.CommonListenerCookie.createInitial(
+				new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(), "test-lantern"), false);
+		ServerPlayer p = new ServerPlayer(level.getServer(), level, cookie.gameProfile(), cookie.clientInformation()) {
+			@Override
+			public boolean isSpectator() {
+				return false;
+			}
+
+			@Override
+			public boolean isCreative() {
+				return false;
+			}
+		};
+		net.minecraft.network.Connection connection = new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(connection);
+		level.getServer().getPlayerList().placeNewPlayer(connection, p, cookie);
+		p.setGameMode(GameType.SURVIVAL);
+		return p;
+	}
+
+	private static void done(GameTestHelper helper, ServerPlayer p) {
+		helper.getLevel().getServer().getPlayerList().remove(p);
+		helper.succeed();
+	}
+
 	@SuppressWarnings("removal")
 	private static ServerPlayer lantern(GameTestHelper helper) {
 		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
-		ServerPlayer player = helper.makeMockServerPlayerInLevel();
+		ServerPlayer player = survivalPlayer(helper);
 		player.setGameMode(GameType.SURVIVAL);
 		player.getAbilities().invulnerable = false;
 		for (BlockPos pos : BlockPos.betweenClosed(helper.absolutePos(new BlockPos(0, 1, 0)), helper.absolutePos(new BlockPos(7, 1, 7)))) {
@@ -94,7 +127,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 			float mid = GreenLanternEnergy.get(p);
 			helper.assertTrue(hit(p, src, 40f), "on cooldown, a second lethal hit is not saved");
 			helper.assertTrue(GreenLanternEnergy.get(p) == mid, "and nothing was spent");
-			helper.succeed();
+			done(helper, p);
 		});
 	}
 
@@ -106,7 +139,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) == null, "nothing fired");
 		helper.assertFalse(hit(p, src, 15f), "20 -> 5 HP would leave him under 3 hearts: saved");
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) == Save.DEATH, "the Death Save");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -120,7 +153,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) != Save.DEATH, "no Death Save");
 		helper.assertTrue(GreenLanternEnergy.get(p) == before, "nothing was spent");
 		helper.assertTrue(GreenLantern.cooldownRemaining(p, GreenLanternAutoProtect.DEATH_SAVE_COOLDOWN) == 0, "no cooldown either");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	// ---------------------------------------------------------------- Fall Cushion
@@ -131,7 +164,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		p.fallDistance = 20f;
 		helper.assertFalse(hit(p, helper.getLevel().damageSources().fall(), 17f), "fall damage is cancelled");
 		helper.assertTrue(p.fallDistance == 0f, "and the fall is forgotten");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -155,7 +188,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		float mid = GreenLanternEnergy.get(p);
 		GreenLanternAutoProtect.tick(p);
 		helper.assertTrue(GreenLanternEnergy.get(p) == mid, "a second pad straight away waits for the cooldown");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	// ---------------------------------------------------------------- Air Bubble / Heat Shell
@@ -168,7 +201,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) == Save.AIR, "by the Air Bubble");
 		helper.assertTrue(p.getAirSupply() == p.getMaxAirSupply(), "the air refilled");
 		helper.assertFalse(hit(p, helper.getLevel().damageSources().inWall(), 1f), "suffocating in a wall is stopped too");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -178,7 +211,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) == Save.HEAT, "by the Heat Shell");
 		helper.assertTrue(GreenLanternAutoProtect.fx(p).has(com.projecthero.mod.greenlantern.data.GreenLanternAutoProtectFx.HEAT),
 				"the shell is up (synced for the render)");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	// ---------------------------------------------------------------- Blind-Side Guard
@@ -195,7 +228,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(hit(p, helper.getLevel().damageSources().mobAttack(behind), 4f), "3 s cooldown: the next one lands");
 		front.discard();
 		behind.discard();
-		helper.succeed();
+		done(helper, p);
 	}
 
 	// ---------------------------------------------------------------- switches
@@ -218,7 +251,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		helper.assertTrue(hit(p, ds.mobAttack(behind), 4f), "Blind-Side Guard off: the blow lands at full");
 		helper.assertTrue(GreenLanternAutoProtect.lastSave(p) == null, "nothing fired at all");
 		behind.discard();
-		helper.succeed();
+		done(helper, p);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
@@ -233,7 +266,7 @@ public class GreenLanternAutoProtectGameTests implements FabricGameTest {
 		// and back on: the saves' own switches were never touched
 		GreenLanternAutoProtect.toggle(p, GreenLanternAutoProtect.MASTER);
 		helper.assertFalse(hit(p, ds.generic(), 40f), "master on again: the Death Save is back");
-		helper.succeed();
+		done(helper, p);
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)

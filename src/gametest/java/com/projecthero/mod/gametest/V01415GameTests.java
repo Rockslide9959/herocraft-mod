@@ -62,8 +62,11 @@ public class V01415GameTests implements FabricGameTest {
 	public void thorsArmourIsAFullDiamondSet(GameTestHelper helper) {
 		int defense = ThorArmorItems.CHESTPLATE.getDefense() + ThorArmorItems.LEGGINGS.getDefense() + ThorArmorItems.BOOTS.getDefense();
 		float toughness = ThorArmorItems.CHESTPLATE.getToughness() + ThorArmorItems.LEGGINGS.getToughness() + ThorArmorItems.BOOTS.getToughness();
-		helper.assertTrue(defense == 20, "20 armour like full diamond, got " + defense);
-		helper.assertTrue(Math.abs(toughness - 8.0f) < 1.0e-3, "8 toughness like full diamond, got " + toughness);
+		// v0.17.1 (user): iron level now -- 3 / 5 / 7 = a full iron set's 15 armour, no toughness, no knockback resistance
+		// (the method name is kept from v0.14.15 so CI history lines up; durability is still diamond)
+		helper.assertTrue(defense == 15, "15 armour like full iron, got " + defense);
+		helper.assertTrue(Math.abs(toughness) < 1.0e-3, "no toughness, got " + toughness);
+		helper.assertTrue(ThorArmorItems.CHESTPLATE.getMaterial().value().knockbackResistance() == 0.0f, "no knockback resistance");
 		helper.assertTrue(ThorArmorItems.CHESTPLATE.getDefaultInstance().getMaxDamage() == net.minecraft.world.item.Items.DIAMOND_CHESTPLATE
 				.getDefaultInstance().getMaxDamage(), "diamond durability");
 		helper.assertTrue(com.projecthero.mod.power.StormEnergy.ARMOUR_REGEN_MULTIPLIER == 1.5f, "v0.16.7: the armour regenerates Storm Energy 50% faster");

@@ -138,7 +138,10 @@ public class QuirkEngineGameTests implements FabricGameTest {
 			helper.assertTrue(two.length == 2, slot + " has a tap and a Shift move");
 			for (String id : two) {
 				helper.assertTrue(ids.add(id), id + " appears once");
-				helper.assertTrue(kit.maxCooldown(id) > 0, id + " has a cooldown");
+				if (id.equals(EngineConfig.SHIFT_UP) || id.equals(EngineConfig.SHIFT_DOWN)) // v0.17.1 (user): gear shifts have no cooldown
+					helper.assertTrue(kit.maxCooldown(id) == 0, id + " shifts with no cooldown");
+				else
+					helper.assertTrue(kit.maxCooldown(id) > 0, id + " has a cooldown");
 			}
 		}
 		helper.succeed();

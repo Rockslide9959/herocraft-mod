@@ -218,7 +218,17 @@ public class FrostGiantGameTests implements FabricGameTest {
 			}
 			helper.assertTrue(have + a.owed() == expected, "wave 4 brings its full mix: " + java.util.Arrays.toString(live) + " + " + a.owed()
 					+ " owed vs " + expected);
-			helper.assertTrue(live[FrostGiantAssault.BRUTE] == 1, "the Brute came first");
+			// The Brutes come first, in the wave's first batch of 3 arrivals (FrostGiantAssault.ARRIVALS_PER_TICK). How many Brutes
+			// the wave owes scales with the fighters in the arena -- and every survival-mode mock player another test left in the
+			// world nearby counts, so it is 1 alone but 3 after a busy batch (CI: [0, 0, 0, 3, 0] with 11 fighters). Measured
+			// against the real fighter count, so the order of the suite no longer matters.
+			int brutes = FrostGiantAssault.scaled(mix[FrostGiantAssault.BRUTE], f);
+			int firstBatch = Math.min(brutes, 3);
+			helper.assertTrue(live[FrostGiantAssault.BRUTE] == firstBatch, "the Brute came first: " + java.util.Arrays.toString(live) + ", "
+					+ brutes + " owed for " + f + " fighter(s)");
+			if (brutes >= 3) {
+				helper.assertTrue(have == live[FrostGiantAssault.BRUTE], "nothing but Brutes in the first batch: " + java.util.Arrays.toString(live));
+			}
 		} finally {
 			end(level, a);
 		}

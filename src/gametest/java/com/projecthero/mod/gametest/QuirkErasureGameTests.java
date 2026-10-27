@@ -91,7 +91,9 @@ public class QuirkErasureGameTests implements FabricGameTest {
 
 	private static void pump(GameTestHelper helper, ServerPlayer p) {
 		helper.onEachTick(() -> {
-			p.tickCount++;
+			// no p.tickCount++ here: the level already counts a mock player's ticks (ServerLevel#tickNonPassenger), and a second
+			// step made tickCount jump by 2 -- every "tickCount % 2 / % 20" check (float pickup, the Burning eyes) then never fired.
+			// The server's own Quirk tick (AbilityRouter) usually runs first; this one is deduped by Quirks then.
 			Quirks.tick(p);
 		});
 	}
@@ -719,11 +721,13 @@ public class QuirkErasureGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void undergroundTakedownErasesTheConeChainsAndStringsThemUp(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = eraser(helper, 4.5, 2.0, 0.5);
+		// everyone inside the 8x8 cage: the boss used to stand at z 9 and the one behind at z -3, past the test's barrier walls,
+		// where the cone's line-of-sight check (rightly) never sees them
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.5);
 		Zombie a = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.0, 100, false);
 		Zombie b = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 7.0, 100, false);
-		Zombie boss = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 9.0, 400, false);
-		Zombie behind = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, -3.0, 100, false);
+		Zombie boss = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.5, 400, false);
+		Zombie behind = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 0.4, 100, false);
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, b.position().add(-1.0, 1.0, 0));
 		int erased = ErasureUltimate.fire(p);
 		helper.assertTrue(erased >= 3, "the cone: " + erased);

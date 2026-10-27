@@ -91,7 +91,9 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 
 	private static void pump(GameTestHelper helper, ServerPlayer p) {
 		helper.onEachTick(() -> {
-			p.tickCount++;
+			// no p.tickCount++ here: the level already counts a mock player's ticks (ServerLevel#tickNonPassenger), and a second
+			// step made tickCount jump by 2 -- every "tickCount % 2 / % 20" check (float pickup, the Burning eyes) then never fired.
+			// The server's own Quirk tick (AbilityRouter) usually runs first; this one is deduped by Quirks then.
 			Quirks.tick(p);
 		});
 	}
@@ -201,7 +203,7 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true, timeoutTicks = 100) // no barrier roof: Release must see open sky
 	public void touchLiftsABlockAndItsHoleIsFilledWhenItLands(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = uravity(helper, 4.5, 2.0, 1.5);
@@ -220,7 +222,9 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		helper.assertTrue(ZeroGravityDebris.count(p, ZeroGravityDebris.HELD) == 1 && ZeroGravityDebris.displays(p).size() == 1, "it floats as a falling-block display");
 		pump(helper, p);
 		helper.runAfterDelay(10, () -> {
-			p.setXRot(-70f); // pointing at the open sky: no Crane spot, it simply drops
+			// straight up at the open sky: no Crane spot, it simply drops. (At -70 degrees under the cage's barrier roof the Crane
+			// found a cell under the roof, set the planks down there for good, and the hole was -- rightly -- never refilled.)
+			p.setXRot(-90f);
 			helper.assertTrue(ZeroGravityMoves.release(p) == 1, "Release drops it");
 			helper.runAfterDelay(40, () -> {
 				helper.assertTrue(ZeroGravityDebris.displays(p).isEmpty(), "it smashed and is gone");
@@ -713,6 +717,9 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 3.0));
 		cow.moveTo(at.x, at.y, at.z, 0f, 0f);
 		helper.getLevel().addFreshEntity(cow);
+		// she reaches for it: a cow 1.5 blocks away is all below her level gaze (its top is 0.2 under her eyes, its middle ~31
+		// degrees down -- outside the touch's 18-degree assist), so a straight-ahead touch rightly misses it
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, cow.position().add(0, cow.getBbHeight() * 0.5, 0));
 		helper.assertTrue(ZeroGravityMoves.touch(p) == cow, "the touch floats the cow");
 		helper.assertTrue(ZeroGravityFloat.herded(p, cow), "and it follows her");
 		pump(helper, p);

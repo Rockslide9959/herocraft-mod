@@ -347,10 +347,17 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 0f, 1f);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
 		pump(helper, p);
-		helper.runAfterDelay(1, () -> helper.assertTrue(DarkShadowMoves.fang(p), "a target"));
+		// v0.17.1 framework: every Dark Shadow hit also carries the Shadow band's multiplier -- at 0 Shadow that is Restrained
+		// (x0.6), which the bite count has to be measured against
+		float[] band = { 1f };
+		helper.runAfterDelay(1, () -> {
+			band[0] = com.projecthero.mod.quirk.meter.QuirkMeters.damageMult(p);
+			helper.assertTrue(DarkShadowMoves.fang(p), "a target");
+		});
 		helper.runAfterDelay(30, () -> {
 			float taken = 200f - z.getHealth();
-			helper.assertTrue(taken > mv().fangDamage * DarkShadowConfig.get().light.strengthMin * (mv().fangBites - 0.5f), "four bites, took " + taken);
+			helper.assertTrue(taken > mv().fangDamage * DarkShadowConfig.get().light.strengthMin * band[0] * (mv().fangBites - 0.5f),
+					"four bites, took " + taken + " (band x" + band[0] + ")");
 			helper.succeed();
 		});
 	}
@@ -672,10 +679,14 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 			helper.assertTrue(DarkShadow.marks(p).length >= 1, "listed");
 			Quirks.setMeter(p, 50f);
 			float hp = z.getHealth();
+			// the felt darkness is smoothed and synced in 0.04 steps, so a freshly built room can still read ~0.93 here (CI did:
+			// 14.86 = 8 x 1.615 x 1.15): what is under test is the mark's +15% on top of whatever strength it has right now
+			float strength = DarkShadowCombat.strength(p);
+			helper.assertTrue(strength > 1.5f, "strong in the dark room, " + strength);
 			DarkShadowMoves.strike(p);
 			float got = hp - z.getHealth();
-			float want = mv().strikeDamage * DarkShadowConfig.get().light.strengthMax * mv().markBonus;
-			helper.assertTrue(Math.abs(got - want) < EPS, "+15% on a mark, took " + got);
+			float want = mv().strikeDamage * strength * com.projecthero.mod.quirk.meter.QuirkMeters.damageMult(p) * mv().markBonus;
+			helper.assertTrue(Math.abs(got - want) < EPS, "+15% on a mark, took " + got + " want " + want);
 			helper.succeed();
 		});
 	}
