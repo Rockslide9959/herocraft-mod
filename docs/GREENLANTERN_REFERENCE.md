@@ -877,3 +877,44 @@ Attack section, its own icon file `textures/gui/green_lantern/mech_icon.png` via
   with cooldowns and a Rocket Fist bar on R, the Ring Charge bar; Alt lists the moves; first person adds cockpit brackets.
   The vanilla mount hearts and the "Press Shift to Dismount" hint are dropped (`GreenLanternMechGuiMixin`).
 - Gametests: `GreenLanternMechGameTests`.
+
+## v0.17.1 -- Ring Auto-Protection (the ring shields its bearer on its own)
+
+User-approved: no key, five automatic saves in `GreenLanternAutoProtect` (registered on `ALLOW_DAMAGE` from
+`GreenLanternDamage#initialize`, straight after GL's own handler, so the Z bubble / Dome soak first and the Death Save only
+sees what would really land). Runs for any bonded Lantern (`GreenLantern.hasPower`) -- an active mutation does not turn it
+off -- but not while piloting the Hard-Light Mech (the mech takes the hits), in creative or spectator. The void, `/kill` and
+anything `BYPASSES_INVULNERABILITY` always go through. Numbers: `GreenLanternConfig`'s "Ring Auto-Protection" block.
+
+| Save | Trigger | Effect | Cost / cooldown |
+|---|---|---|---|
+| Death Save | a hit that kills or leaves < 6 HP (after armour, Resistance, protection, absorption: `wouldDropBelow`) | hit cancelled; burst shell blocks every hit for 20 ticks | 300 flat (`spendRaw`, spendable pool only -- never fires on a short ring), 60 s (`abilityReadyAt["gl_auto_death_save"]`, synced) |
+| Fall Cushion | owns the v0.11.6 free fall immunity (charge > 0); plus a pad when falling past the safe fall distance within 2.5 blocks (+ speed) of solid ground | fall damage cancelled; pad flashes on the ground, fall braked to 0.3 b/t | pad: 20 + 2 per block fallen, 10 s (the immunity itself has no cost or cooldown); not while flying / elytra / in water |
+| Air Bubble | `DROWN` or `IN_WALL` damage | hit cancelled, air refilled, bubble over the head while still needed (+2 s) | 3 / s |
+| Heat Shell | `IS_FIRE` damage, or standing in lava / on fire | fire and lava damage x0.25 (cancel + reissue) | 2 / s while up (+1.5 s linger) |
+| Blind-Side Guard | melee (direct = attacker, a living entity) or projectile (direction = against its flight) from outside the 100 degree view cone (horizontal) | x0.6 (cancel + reissue), spark + chime at that side | 3 s |
+
+- **Design decision**: the Fall Cushion switch now gates the old free fall immunity (switching it off = you take falls); the
+  pad's 20 + 2/block is paid only when the pad flashes, so the v0.11.6 promise ("no fall damage while the ring has charge")
+  still holds with the switch on. The automatic Air Tank (v0.11.10) still keeps a swimming Lantern's air topped up from half
+  air, so underwater the Air Bubble is the backstop; it matters most for suffocation in walls.
+- **Death-save interplay**: the Death Save cancels the hit outright, so Hulk / Wolverine / Black Flash style saves (which act
+  on a hit that lands) never see it -- no double fire. It is GL-only, so it is fine for it to go first.
+- **Switches**: `GreenLanternState#autoProtectOff` (OFF bits, 0 = all on; codec field `auto_protect_off`, persisted and
+  synced). The Shift+N suit screen's AUTO-PROTECTION section: master + five, two rows of three, short labels when narrow, the
+  five grey out while the master is off; the heading shows "Death Save ready / in N s". Sent as
+  `GreenLanternActionPayload.Action.TOGGLE_AUTO_*` (appended) -> `GreenLanternAutoProtect#toggle`.
+- **Voice**: `GreenLanternRingVoice.Line` SHIELD_ENGAGED ("Lethal threat detected. Shield engaged.", urgent), CUSHION,
+  AIR_BUBBLE, HEAT_SHELL, BLIND_SIDE (45-60 s cooldowns + the 80-tick gap, so never spammy).
+- **Look**: synced `ModAttachments.GREEN_LANTERN_AUTO_PROTECT_FX` (`data/GreenLanternAutoProtectFx`: shell start, cushion start +
+  ground Y, BUBBLE / HEAT flags) -> `client/greenlantern/GreenLanternAutoProtectRenderer`: the Death Save pops the
+  `ForceBubbleRenderer` bubble out to 1.35 blocks behind a white flash in 3 ticks, holds, fades; the pad is a flat octagon of
+  `HardLightDraw` parts with a stud rim and the emblem, squashing under the landing; the Air Bubble is the Atmosphere Bubble
+  construct's two soft spheres round the head; the Heat Shell a faint orange-green sphere with an amber rim. The lasting
+  shells are skipped for the wearer in first person.
+- **HUD**: a thin 7 x 8 shield outline under the right end of the charge bar -- green with a bright spine when the Death Save
+  is ready, grey with "Ns" beside it while cooling down; hidden when the save or the master is off. Not a key box.
+- **State**: static maps (shell, cushion / blind cooldowns, bubble / heat linger, last save) cleared through
+  `GreenLanternAbilityManager#clearSessionState` (server stop) and `GreenLantern#clearTransient` (death, respawn, logout,
+  dimension change, ring removal), which also clears the fx attachment.
+- Gametests: `GreenLanternAutoProtectGameTests`. Screenshots: `docs/screenshots/v0171/gl_autoprotect_*.png`.

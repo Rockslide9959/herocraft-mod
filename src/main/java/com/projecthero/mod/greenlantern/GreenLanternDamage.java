@@ -24,6 +24,8 @@ public final class GreenLanternDamage {
 
 	public static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(GreenLanternDamage::onAllowDamage);
+		// v0.17.1: right after this one, so the Z bubble / Dome soak first and the Death Save sees what would really land
+		GreenLanternAutoProtect.initialize();
 	}
 
 	private static boolean onAllowDamage(LivingEntity entity, DamageSource source, float amount) {
@@ -45,8 +47,9 @@ public final class GreenLanternDamage {
 
 		// v0.11.6: explicit user request -- "player cant take fall damage as long as the ring has
 		// charge". Free, unconditional and not suit-gated (the ring's powers work unsuited too), unlike
-		// the old cost-and-cooldown-gated Emergency Catch this replaces.
-		if (source.is(DamageTypeTags.IS_FALL) && GreenLanternEnergy.get(player) > 0f) {
+		// the old cost-and-cooldown-gated Emergency Catch this replaces. v0.17.1: it belongs to Ring Auto-Protection's Fall
+		// Cushion switch now (on by default) -- switched off in the suit screen, the Lantern takes his falls again.
+		if (source.is(DamageTypeTags.IS_FALL) && GreenLanternEnergy.get(player) > 0f && GreenLanternAutoProtect.fallCushionOn(player)) {
 			player.resetFallDistance();
 			return false;
 		}

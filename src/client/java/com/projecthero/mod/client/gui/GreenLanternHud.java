@@ -211,6 +211,7 @@ public final class GreenLanternHud {
 		int reserveMark = x0 + Math.round(totalW * (GreenLanternConfig.EMERGENCY_RESERVE / maxCharge));
 		g.fill(reserveMark, barY - 1, reserveMark + 1, barY + 4, 0xFFFFDD33);
 		g.drawString(mc.font, Math.round(frac * 100.0f) + "%", x0, barY + 5, low ? LOW : 0xFFA8E6B8, true);
+		renderDeathSave(g, mc, player, s, right, barY + 5);
 
 		// ---- stacked above the title rows
 		labelY = renderRingRemoval(g, mc, fx, now, pt, x0, labelY, totalW);
@@ -219,6 +220,36 @@ public final class GreenLanternHud {
 		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
 		if (Screen.hasAltDown() || MoveListOverlay.held()) {
 			renderAltNames(g, x0 + totalW, labelY + LINE, s);
+		}
+	}
+
+	/**
+	 * v0.17.1 Ring Auto-Protection: the Death Save's state under the right end of the charge bar -- a thin shield outline,
+	 * bright green when it is ready, grey with the seconds left beside it while it cools down. Not a key box; hidden while
+	 * the Death Save (or the whole Auto-Protection) is switched off in the suit screen.
+	 */
+	private static void renderDeathSave(GuiGraphics g, Minecraft mc, Player player, GreenLanternState s, int right, int y) {
+		int off = s.autoProtectOff;
+		if ((off & com.projecthero.mod.greenlantern.GreenLanternAutoProtect.MASTER) != 0
+				|| (off & com.projecthero.mod.greenlantern.GreenLanternAutoProtect.DEATH_SAVE) != 0) {
+			return;
+		}
+		int cd = com.projecthero.mod.greenlantern.GreenLantern.cooldownRemaining(player,
+				com.projecthero.mod.greenlantern.GreenLanternAutoProtect.DEATH_SAVE_COOLDOWN);
+		int color = cd > 0 ? 0xFF7A8A80 : GREEN;
+		int x = right - 7;
+		// a 7 x 8 heater shield: flat top, straight sides, tapering to a point
+		g.fill(x, y, x + 7, y + 1, color);
+		g.fill(x, y, x + 1, y + 5, color);
+		g.fill(x + 6, y, x + 7, y + 5, color);
+		g.fill(x + 1, y + 5, x + 2, y + 7, color);
+		g.fill(x + 5, y + 5, x + 6, y + 7, color);
+		g.fill(x + 2, y + 7, x + 5, y + 8, color);
+		if (cd <= 0) {
+			g.fill(x + 3, y + 2, x + 4, y + 6, 0xFFB8FFD0); // a bright spine while it is ready
+		} else {
+			String secs = ((cd + 19) / 20) + "s";
+			g.drawString(mc.font, secs, x - 2 - mc.font.width(secs), y, 0xFFB0BEB4, true);
 		}
 	}
 

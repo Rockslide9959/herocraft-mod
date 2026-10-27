@@ -830,6 +830,13 @@ public final class ModAttachments {
 							.syncWith(com.projecthero.mod.greenlantern.data.GreenLanternFx.STREAM_CODEC,
 									AttachmentSyncPredicate.all()));
 
+	/** v0.17.1 Ring Auto-Protection: the Death Save shell, Fall Cushion pad, Air Bubble and Heat Shell, for every viewer. Never persisted. */
+	public static final AttachmentType<com.projecthero.mod.greenlantern.data.GreenLanternAutoProtectFx> GREEN_LANTERN_AUTO_PROTECT_FX =
+			AttachmentRegistry.create(ProjectHeroMod.id("green_lantern_auto_protect_fx"),
+					builder -> builder.initializer(() -> com.projecthero.mod.greenlantern.data.GreenLanternAutoProtectFx.EMPTY)
+							.syncWith(com.projecthero.mod.greenlantern.data.GreenLanternAutoProtectFx.STREAM_CODEC,
+									AttachmentSyncPredicate.all()));
+
 	/** v0.14.4: Thor move animations / channelled moves / the piece-by-piece armour clock, for every viewer. Never persisted. */
 	public static final AttachmentType<com.projecthero.mod.power.ThorFx> THOR_FX =
 			AttachmentRegistry.create(ProjectHeroMod.id("thor_fx"),

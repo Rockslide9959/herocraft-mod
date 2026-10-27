@@ -42,7 +42,13 @@ public final class GreenLanternRingVoice {
 		SURGE("surge", 60 * 20, false),
 		INTEGRITY("integrity", 20 * 20, true),
 		RANK("rank", 0, true),
-		COMBO("combo", 30 * 20, false);
+		COMBO("combo", 30 * 20, false),
+		/** v0.17.1 Ring Auto-Protection: one line per automatic save (GreenLanternAutoProtect). */
+		SHIELD_ENGAGED("shield_engaged", 20 * 20, true),
+		CUSHION("cushion", 60 * 20, false),
+		AIR_BUBBLE("air_bubble", 60 * 20, false),
+		HEAT_SHELL("heat_shell", 60 * 20, false),
+		BLIND_SIDE("blind_side", 45 * 20, false);
 
 		public final String id;
 		public final int cooldownTicks;

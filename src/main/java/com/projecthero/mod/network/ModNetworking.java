@@ -128,6 +128,10 @@ public final class ModNetworking {
 				// v0.15.20: the suit screen's glow / trail switches
 				case TOGGLE_BODY_GLOW -> com.projecthero.mod.greenlantern.GreenLanternSuit.toggleBodyGlow(context.player());
 				case TOGGLE_FLIGHT_TRAIL -> com.projecthero.mod.greenlantern.GreenLanternSuit.toggleFlightTrail(context.player());
+				// v0.17.1: the suit screen's Ring Auto-Protection switches
+				case TOGGLE_AUTO_PROTECT, TOGGLE_AUTO_DEATH_SAVE, TOGGLE_AUTO_FALL_CUSHION, TOGGLE_AUTO_AIR_BUBBLE, TOGGLE_AUTO_HEAT_SHELL,
+						TOGGLE_AUTO_BLIND_SIDE -> com.projecthero.mod.greenlantern.GreenLanternAutoProtect.toggle(context.player(),
+								com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCHES[payload.action().autoProtectSwitch()]);
 			}
 		});
 

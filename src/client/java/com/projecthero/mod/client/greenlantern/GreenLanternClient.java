@@ -14,6 +14,7 @@ public final class GreenLanternClient {
 	public static void initialize() {
 		GreenLanternShieldRenderer.initialize();
 		GreenLanternDomeRenderer.initialize(); // v0.15.1: hard-light dome model
+		GreenLanternAutoProtectRenderer.initialize(); // v0.17.1: Ring Auto-Protection's shells and the Fall Cushion pad
 		GreenLanternFlightFx.initialize(); // v0.15.15: flight aura + sprint-flight trail
 		GreenLanternOathSubtitle.initialize(); // v0.15.15: the Oath as a centred subtitle (was the action bar)
 		com.projecthero.mod.client.greenlantern.mech.GreenLanternMechClient.initialize(); // v0.17.1: the Hard-Light Mech

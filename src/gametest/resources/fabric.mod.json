@@ -112,6 +112,7 @@
       "com.projecthero.mod.gametest.GreenLanternSurvivalGameTests",
       "com.projecthero.mod.gametest.GreenLanternVehicleGameTests",
       "com.projecthero.mod.gametest.GreenLanternCombosGameTests",
+      "com.projecthero.mod.gametest.GreenLanternAutoProtectGameTests",
       "com.projecthero.mod.gametest.V0144GraveHulkGameTests",
       "com.projecthero.mod.gametest.WindHoldGameTests",
       "com.projecthero.mod.gametest.PrimaryPowerGameTests",

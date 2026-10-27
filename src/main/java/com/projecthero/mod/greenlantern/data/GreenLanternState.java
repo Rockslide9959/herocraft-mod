@@ -62,15 +62,21 @@ public final class GreenLanternState {
 	public final Map<String, String> bindings;
 	/** v0.17.1 Lantern Ranks: lifetime Willpower XP (kept on death and ring removal). */
 	public long willpowerXp;
+	/**
+	 * v0.17.1 Ring Auto-Protection: the suit screen's switches that are OFF, as bits ({@code GreenLanternAutoProtect.MASTER},
+	 * {@code DEATH_SAVE}, ...). 0 = everything on (the default), so an old save loads with every save switched on.
+	 */
+	public int autoProtectOff;
 
 	public GreenLanternState() {
 		this(false, GreenLanternConfig.MAX_RING_CHARGE, false, SUIT_IDLE, 0L,
-				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0, true, true, new HashMap<>(), 0L);
+				ConstructType.HARD_LIGHT_WALL.ordinal(), new HashMap<>(), 0, true, true, new HashMap<>(), 0L, 0);
 	}
 
 	public GreenLanternState(boolean hasPower, float ringCharge, boolean suited, int suitAnimDir,
 			long suitAnimStartTick, int selectedConstruct, Map<String, Long> abilityReadyAt, int suitStyle,
-			boolean bodyGlow, boolean flightTrail, Map<String, String> bindings, long willpowerXp) {
+			boolean bodyGlow, boolean flightTrail, Map<String, String> bindings, long willpowerXp, int autoProtectOff) {
+		this.autoProtectOff = autoProtectOff;
 		this.bindings = new HashMap<>(bindings);
 		this.willpowerXp = willpowerXp;
 		this.bodyGlow = bodyGlow;
@@ -87,7 +93,7 @@ public final class GreenLanternState {
 
 	public GreenLanternState copy() {
 		return new GreenLanternState(hasPower, ringCharge, suited, suitAnimDir, suitAnimStartTick,
-				selectedConstruct, abilityReadyAt, suitStyle, bodyGlow, flightTrail, bindings, willpowerXp);
+				selectedConstruct, abilityReadyAt, suitStyle, bodyGlow, flightTrail, bindings, willpowerXp, autoProtectOff);
 	}
 
 	public ConstructType selectedConstructType() {
@@ -109,6 +115,7 @@ public final class GreenLanternState {
 			Codec.BOOL.optionalFieldOf("flight_trail", true).forGetter(s -> s.flightTrail),
 			Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("bindings", new HashMap<>())
 					.forGetter(s -> new HashMap<>(s.bindings)),
-			Codec.LONG.optionalFieldOf("willpower_xp", 0L).forGetter(s -> s.willpowerXp)
+			Codec.LONG.optionalFieldOf("willpower_xp", 0L).forGetter(s -> s.willpowerXp),
+			Codec.INT.optionalFieldOf("auto_protect_off", 0).forGetter(s -> s.autoProtectOff)
 	).apply(instance, GreenLanternState::new));
 }

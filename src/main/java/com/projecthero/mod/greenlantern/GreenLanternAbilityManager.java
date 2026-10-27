@@ -64,6 +64,7 @@ public final class GreenLanternAbilityManager {
 		GreenLanternCombos.clearSessionState(); // v0.17.1
 		GreenLanternRingVoice.clearSessionState(); // v0.17.1
 		com.projecthero.mod.greenlantern.mech.GreenLanternMech.clearSessionState(); // v0.17.1
+		GreenLanternAutoProtect.clearSessionState(); // v0.17.1 Ring Auto-Protection
 	}
 
 	public static void onCleanup(UUID playerId) {
@@ -313,6 +314,7 @@ public final class GreenLanternAbilityManager {
 		GreenLanternSuit.tick(player);
 		GreenLanternBattery.tick(player);
 		GreenLanternAirTank.tick(player);
+		GreenLanternAutoProtect.tick(player); // v0.17.1: the Fall Cushion pad, the Air Bubble and the Heat Shell
 
 		if (GreenLantern.isSuited(player)) {
 			com.projecthero.mod.greenlantern.item.GreenLanternSuitArmor.reequipMissing(player);
