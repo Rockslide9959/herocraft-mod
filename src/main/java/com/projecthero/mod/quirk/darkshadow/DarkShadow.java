@@ -49,6 +49,27 @@ public final class DarkShadow {
 	public static final String V_FETCH_AT = "ds_fetch_at";
 	/** The Light Flare shines until. */
 	public static final String V_FLARE = "ds_flare";
+	// v0.17.1 revamp
+	/** Abyssal Rampage's three swings run until. */
+	public static final String V_RAMPAGE = "ds_rampage";
+	/** Shadow Lunge yanks you until; {@link #VEC_REACH} is where. */
+	public static final String V_LUNGE = "ds_lunge";
+	/** Shadow Toss: G is held past the grab and it carries the creature (1) / threw it (2). */
+	public static final String V_TOSS = "ds_toss";
+	/** Unleash (controlled Berserk, Shift+C) runs until. */
+	public static final String V_UNLEASH = "ds_unleash";
+	/** Abyssal Black Body (the ultimate) runs until. */
+	public static final String V_BLACKBODY = "ds_blackbody";
+	/** A claw dive in Black Body runs until. */
+	public static final String V_DIVE = "ds_dive";
+	/** After Black Body it stays hidden until (N won't call it out). */
+	public static final String V_HIDE_LOCK = "ds_hide_lock";
+	/** X is held (Black Fallen Angel's hold) since. */
+	public static final String V_HOLD_X = "ds_hold_x";
+	/** Shadow Scout's marks end at; {@link #V_MARK_PREFIX}0..7 are the marked creatures (id + 1). */
+	public static final String V_MARK_UNTIL = "ds_mark_until";
+	public static final String V_MARK_PREFIX = "ds_mk";
+	public static final int MAX_MARKS = 8;
 
 	// ---------------------------------------------------------------- poses / clips (animBase 80)
 	public static final int ANIM_STRIKE = 80;
@@ -70,6 +91,21 @@ public final class DarkShadow {
 	/** One of its own strikes while berserk. */
 	public static final int ANIM_FRENZY_HIT = 95;
 	public static final int ANIM_ANKH_DASH = 96;
+	// v0.17.1 revamp (the 80..99 block is full past 99: the rest sit at 180+, clear of every other Quirk's ids)
+	/** C: Abyssal Rampage -- Tokoyami braced, the shadow swinging over his head. */
+	public static final int ANIM_RAMPAGE = 97;
+	/** X tap: Shadow Lunge -- a point, and he is yanked after it. */
+	public static final int ANIM_LUNGE = 98;
+	/** Shadow Toss: the throw. */
+	public static final int ANIM_TOSS = 99;
+	/** The fall catch. */
+	public static final int ANIM_CATCH = 180;
+	/** Abyssal Black Body: the merge. */
+	public static final int ANIM_BLACKBODY = 181;
+	/** A claw dive in Black Body. */
+	public static final int ANIM_DIVE = 182;
+	/** Shift+C: Unleash -- the command that lets it loose. */
+	public static final int ANIM_UNLEASH = 183;
 
 	// ---------------------------------------------------------------- client-safe reads
 
@@ -108,6 +144,47 @@ public final class DarkShadow {
 
 	public static boolean recalled(Player p) {
 		return on(p, V_RECALL);
+	}
+
+	/** v0.17.1: Abyssal Black Body (the ultimate) is on. */
+	public static boolean blackBody(Player p) {
+		return running(p, V_BLACKBODY);
+	}
+
+	/** v0.17.1: the controlled Berserk (Unleash) -- it never turns on you or your squad. */
+	public static boolean unleashed(Player p) {
+		return running(p, V_UNLEASH) && berserk(p);
+	}
+
+	/** v0.17.1 (client-safe): {@code e} wears one of {@code p}'s Shadow Scout marks. */
+	public static boolean marked(Player p, net.minecraft.world.entity.Entity e) {
+		QuirkState s = Quirks.peek(p);
+		if (s == null || s.val(V_MARK_UNTIL) <= p.level().getGameTime()) {
+			return false;
+		}
+		for (int i = 0; i < MAX_MARKS; i++) {
+			if (s.val(V_MARK_PREFIX + i) == e.getId() + 1L) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** v0.17.1 (client-safe): the entity ids {@code p}'s marks are on (empty when none). */
+	public static int[] marks(Player p) {
+		QuirkState s = Quirks.peek(p);
+		if (s == null || s.val(V_MARK_UNTIL) <= p.level().getGameTime()) {
+			return new int[0];
+		}
+		int[] out = new int[MAX_MARKS];
+		int n = 0;
+		for (int i = 0; i < MAX_MARKS; i++) {
+			long v = s.val(V_MARK_PREFIX + i);
+			if (v > 0L) {
+				out[n++] = (int) (v - 1L);
+			}
+		}
+		return java.util.Arrays.copyOf(out, n);
 	}
 
 	/** Darkness 0 (bright) .. 1 (pitch dark), as synced. */

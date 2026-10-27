@@ -2,6 +2,7 @@ package com.projecthero.mod.client.quirk.engine;
 
 import com.projecthero.mod.client.quirk.QuirkClient;
 import com.projecthero.mod.client.quirk.QuirkClientKit;
+import com.projecthero.mod.client.quirk.QuirkFirstPersonPose;
 import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.engine.Engine;
@@ -52,9 +53,11 @@ public final class EngineClient implements QuirkClientKit {
 			}
 		});
 		WorldRenderEvents.AFTER_ENTITIES.register(EngineFirstPersonLegs::render);
+		WorldRenderEvents.AFTER_ENTITIES.register(EngineRibbons::render); // v0.17.1: the exhaust ribbons + the speed afterimage
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			EngineRunClient.endTick(mc);
 			EngineFx.tick(mc);
+			EngineRibbons.tick(mc);
 			if (mc.level != null) {
 				EngineCalves.prune(mc.level.getGameTime());
 			}
@@ -63,12 +66,100 @@ public final class EngineClient implements QuirkClientKit {
 			EngineSound.reset();
 			EngineRunClient.reset();
 			EngineCalves.reset();
+			EngineRibbons.reset();
 		});
+		registerFirstPerson();
+	}
+
+	/**
+	 * v0.17.1 first-person kicks: the arms' half of every kick (the legs themselves swing up into the view through
+	 * {@link EngineFirstPersonLegs}) -- the guard up and the counter-swing of a real kick, the arms thrown wide on the spins,
+	 * swept back on the dashes.
+	 */
+	private static void registerFirstPerson() {
+		Quirk q = Quirk.ENGINE;
+		float[] guard = { -30, 30, 20, 0.16f, 0.16f, -0.16f };
+		float[] counter = { 18, -18, -24, -0.1f, -0.08f, 0.06f };
+		// a straight kick: the guard up on the main hand, the off arm counter-swinging back
+		QuirkFirstPersonPose.Clip kick = QuirkFirstPersonPose.clip(
+				QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+				QuirkFirstPersonPose.f(2, guard[0], guard[1], guard[2], guard[3], guard[4], guard[5], -24, 26, 18, 0.12f, 0.12f, -0.12f),
+				QuirkFirstPersonPose.f(4, guard[0], guard[1], guard[2], guard[3], guard[4], guard[5], counter[0], counter[1], counter[2], counter[3],
+						counter[4], counter[5]),
+				QuirkFirstPersonPose.f(8, guard[0], guard[1], guard[2], guard[3], guard[4], guard[5], counter[0], counter[1], counter[2], counter[3],
+						counter[4], counter[5]),
+				QuirkFirstPersonPose.f(12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).twoHanded();
+		for (int id : new int[] { Engine.ANIM_KICK, Engine.ANIM_CHARGED, Engine.ANIM_EXTEND_KICK, Engine.ANIM_CHAIN }) {
+			QuirkFirstPersonPose.register(q, id, kick);
+		}
+		// the barrage: the guard held up the whole time, the hands bobbing with each kick
+		QuirkFirstPersonPose.register(q, Engine.ANIM_BARRAGE, QuirkFirstPersonPose.clip(
+				QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+				QuirkFirstPersonPose.f(2, -28, 28, 18, 0.16f, 0.16f, -0.16f, -28, 28, 18, 0.16f, 0.16f, -0.16f),
+				QuirkFirstPersonPose.f(8, -24, 26, 18, 0.16f, 0.12f, -0.14f, -30, 28, 18, 0.16f, 0.18f, -0.16f),
+				QuirkFirstPersonPose.f(14, -30, 28, 18, 0.16f, 0.18f, -0.16f, -24, 26, 18, 0.16f, 0.12f, -0.14f),
+				QuirkFirstPersonPose.f(24, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).twoHanded());
+		// spins / sweeps: both arms flung out wide
+		QuirkFirstPersonPose.Clip wide = QuirkFirstPersonPose.clip(
+				QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+				QuirkFirstPersonPose.f(3, -8, -46, -40, -0.22f, 0.08f, 0.06f, -8, -46, -40, -0.22f, 0.08f, 0.06f),
+				QuirkFirstPersonPose.f(10, -8, -46, -40, -0.22f, 0.08f, 0.06f, -8, -46, -40, -0.22f, 0.08f, 0.06f),
+				QuirkFirstPersonPose.f(14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).twoHanded();
+		for (int id : new int[] { Engine.ANIM_SPIN, Engine.ANIM_SWEEP, Engine.ANIM_FINISHER }) {
+			QuirkFirstPersonPose.register(q, id, wide);
+		}
+		// the axe kick / the rising kick: arms out for balance as the leg goes up
+		QuirkFirstPersonPose.Clip balance = QuirkFirstPersonPose.clip(
+				QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+				QuirkFirstPersonPose.f(4, -20, -36, -36, -0.16f, 0.12f, 0.02f, -20, -36, -36, -0.16f, 0.12f, 0.02f),
+				QuirkFirstPersonPose.f(8, 10, -20, -20, -0.06f, -0.1f, 0.02f, 10, -20, -20, -0.06f, -0.1f, 0.02f),
+				QuirkFirstPersonPose.f(14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).twoHanded();
+		for (int id : new int[] { Engine.ANIM_AXE, Engine.ANIM_RISING }) {
+			QuirkFirstPersonPose.register(q, id, balance);
+		}
+		// the dash / the Turbo Strike / the Burst launch / the mach kick: arms swept back out of the view, then driving
+		QuirkFirstPersonPose.Clip swept = QuirkFirstPersonPose.clip(
+				QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+				QuirkFirstPersonPose.f(2, 40, -20, -20, -0.08f, -0.3f, 0.1f, 40, -20, -20, -0.08f, -0.3f, 0.1f),
+				QuirkFirstPersonPose.f(8, 36, -18, -18, -0.08f, -0.28f, 0.1f, 36, -18, -18, -0.08f, -0.28f, 0.1f),
+				QuirkFirstPersonPose.f(12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)).twoHanded();
+		for (int id : new int[] { Engine.ANIM_DASH, Engine.ANIM_STRIKE, Engine.ANIM_BURST, Engine.ANIM_MACH, Engine.ANIM_TURBO_ON }) {
+			QuirkFirstPersonPose.register(q, id, swept);
+		}
+		// the ultimate launch and the mach kick show the whole body
+		QuirkFirstPersonPose.fullBody(q, Engine.ANIM_MACH);
 	}
 
 	@Override
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		EnginePose.apply(player, model);
+	}
+
+	/** R charging (the Charged Kick) / X held while running (the brake). */
+	@Override
+	public float holdCharge(Player player, com.projecthero.mod.hero.AbilitySlot slot) {
+		long now = player.level().getGameTime();
+		return switch (slot) {
+			case SLOT_1 -> {
+				long at = Engine.val(player, Engine.V_CHARGE);
+				yield at == 0L ? -1f : Math.min(1f, (now - at) / (float) com.projecthero.mod.quirk.engine.EngineConfig.CHARGE_FULL_TICKS);
+			}
+			case SLOT_3 -> {
+				if (Engine.braking(player)) {
+					yield 1f;
+				}
+				long at = Engine.val(player, Engine.V_BRAKE_AT);
+				yield at == 0L ? -1f : Math.min(1f, (now - at) / (float) com.projecthero.mod.quirk.engine.EngineConfig.BRAKE_HOLD_TICKS);
+			}
+			default -> -1f;
+		};
+	}
+
+	/** The Plus Ultra hold: the sprinter's crouch, coiled to the floor while the nozzles go white-hot. */
+	@Override
+	public boolean ultimateHoldPose(Player player, HumanoidModel<?> model, float charge) {
+		EnginePose.ultimateHold(model, charge, player.tickCount);
+		return true;
 	}
 
 	/** Heat colour: blue to 60, orange to 85, red above (blinking at 95+). */
@@ -132,9 +223,16 @@ public final class EngineClient implements QuirkClientKit {
 		}
 		y -= 12;
 
-		// ---- Recipro Turbo / the stall
+		// ---- Recipro Turbo / the Burst / the stall
 		int turbo = Engine.turboLeft(player);
-		if (turbo > 0 && !stalled) {
+		long burstLeft = Engine.val(player, Engine.V_BURST) - now;
+		if (burstLeft > 0 && !stalled) {
+			Component line = Component.translatable("hud.projecthero.quirk.engine.burst", (burstLeft + 19) / 20);
+			drawFit(g, mc, line, x0, y, width, (now / 3) % 2 == 0 ? 0xFFFFFFFF : BLUE_LIGHT);
+			int w = Math.round(width * Math.min(1f, burstLeft / (float) com.projecthero.mod.quirk.engine.EngineConfig.BURST_TICKS));
+			g.fill(x0, y + 9, x0 + w, y + 10, 0xFFFFFFFF);
+			y -= 12;
+		} else if (turbo > 0 && !stalled) {
 			Component line = Component.translatable("hud.projecthero.quirk.engine.turbo", (turbo + 19) / 20);
 			int col = turbo < 60 && (now / 4) % 2 == 0 ? 0xFFFFFFFF : BLUE_LIGHT;
 			drawFit(g, mc, line, x0, y, width, col);

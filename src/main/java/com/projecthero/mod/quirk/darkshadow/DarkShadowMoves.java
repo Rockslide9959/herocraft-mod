@@ -13,6 +13,10 @@ import org.jetbrains.annotations.Nullable;
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.fx.QuirkCamera;
+import com.projecthero.mod.quirk.fx.QuirkFx;
+import com.projecthero.mod.quirk.fx.QuirkParticles;
+import com.projecthero.mod.quirk.fx.QuirkSounds;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -81,7 +85,36 @@ public final class DarkShadowMoves {
 		Vec3 fetchTo = Vec3.ZERO;
 		final List<Integer> fetchItems = new ArrayList<>();
 		long berserkSince;
+		// v0.17.1 revamp
+		/** G is held (a grab past its pull becomes a carry: Shadow Toss). */
+		boolean gHeld;
+		boolean carrying;
+		long carryStart;
+		/** The thrown body (id), when it was thrown, and the bodies its landing splashed. */
+		int thrownId = -1;
+		long thrownAt;
+		/** X: pressed at (the tap is Shadow Lunge on release, the hold Black Fallen Angel). */
+		long xAt = -1L;
+		boolean xFired;
+		/** Shadow Lunge: where it yanks you and since when. */
+		Vec3 lungeTo = Vec3.ZERO;
+		long lungeAt = -1L;
+		/** Abyssal Rampage started at (its three swings land on the clip's contact ticks), and its combo bonus. */
+		long rampageAt = -1L;
+		float rampageMult = 1f;
+		/** Shadow Scout's marks: entity id -> until. */
+		final Map<Integer, Long> marks = new java.util.HashMap<>();
+		/** Abyssal Black Body's claw dive: direction, end and what it has already raked. */
+		Vec3 diveDir = Vec3.ZERO;
+		long diveUntil;
+		final Set<Integer> diveHit = new HashSet<>();
 	}
+
+	/** v0.17.1 Night owl: night vision while in Black Ankh (refreshed, ambient, never longer than this). */
+	static final int NIGHT_OWL_TICKS = 260;
+
+	/** v0.17.1: Abyssal Black Body's size (Attributes.SCALE, ADD_MULTIPLIED_BASE: x1.6). */
+	public static final ResourceLocation BLACKBODY_SCALE_ID = PowerToggles.id("quirk_dark_shadow_blackbody_scale");
 
 	private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
 
@@ -135,6 +168,8 @@ public final class DarkShadowMoves {
 		Quirks.setVal(p, DarkShadow.V_REACH_AT, now(p));
 		Quirks.setAnim(p, anim);
 		DarkShadowCombat.streak(p.serverLevel(), DarkShadowCombat.shadowPos(p), at);
+		// v0.17.1: the shadow's tendril snaking out to it (a toolkit ribbon every viewer sees)
+		QuirkFx.ribbon(p.serverLevel(), DarkShadowCombat.back(p), at).style(QuirkFx.RIBBON_SHADOW).colours(0x2A0E44, 0x0A0410).size(0.32f).life(9).spawn();
 	}
 
 	private static @Nullable LivingEntity byId(ServerPlayer p, int id) {
@@ -218,6 +253,7 @@ public final class DarkShadowMoves {
 		s.fangNext = now(p);
 		Quirks.setVal(p, DarkShadow.V_FANG, now(p) + (long) mv().fangBites * mv().fangInterval + 6);
 		Quirks.setCooldown(p, DarkShadowConfig.FANG, mv().fangCooldown);
+		com.projecthero.mod.quirk.QuirkCombos.used(p, DarkShadowConfig.FANG);
 		push(p, mt().fangPush);
 		reach(p, DarkShadowCombat.center(t), DarkShadow.ANIM_FANG);
 		AbilityHelpers.launchSelf(p, p.getDeltaMovement().add(flatLook(p).scale(0.45)).add(0, 0.12, 0));
@@ -303,6 +339,19 @@ public final class DarkShadowMoves {
 		if (age <= pull) {
 			float k = Math.min(1f, (age + 1f) / pull);
 			to = s.grabFrom.lerp(holdPoint(p, 0), k * k * (3f - 2f * k));
+		} else if (s.carrying || (s.gHeld && !s.slamming)) {
+			// v0.17.1 Shadow Toss: G still held -- it carries the creature overhead until G is let go (then it is thrown)
+			if (!s.carrying) {
+				s.carrying = true;
+				s.carryStart = now(p);
+				Quirks.setVal(p, DarkShadow.V_TOSS, 1L);
+				AbilityHelpers.sound(p, DarkShadowSounds.GROWL, 0.9f, 1.0f);
+			}
+			if (now(p) - s.carryStart > mv().tossMaxCarry) {
+				toss(p);
+				return;
+			}
+			to = holdPoint(p, -0.6 + 0.15 * Math.sin((now(p) - s.carryStart) * 0.25));
 		} else if (age < pull + slam) {
 			if (!s.slamming) {
 				s.slamming = true;
@@ -354,9 +403,99 @@ public final class DarkShadowMoves {
 	private static void endGrab(ServerPlayer p, Session s) {
 		s.grabTarget = -1;
 		s.slamming = false;
+		s.carrying = false;
 		if (DarkShadow.on(p, DarkShadow.V_GRAB)) {
 			Quirks.setVal(p, DarkShadow.V_GRAB, 0L);
 		}
+		if (DarkShadow.val(p, DarkShadow.V_TOSS) == 1L) {
+			Quirks.setVal(p, DarkShadow.V_TOSS, 0L);
+		}
+	}
+
+	/** G down: Shadow Grab (held on past the pull, it carries the creature: {@link #toss} on release). */
+	public static @Nullable LivingEntity gDown(ServerPlayer p) {
+		session(p).gHeld = true;
+		return grab(p);
+	}
+
+	/** G up: the Shield comes down; a carried creature is thrown. */
+	public static void gUp(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s != null) {
+			s.gHeld = false;
+			if (s.carrying) {
+				toss(p);
+			}
+		}
+		shieldOff(p);
+	}
+
+	/**
+	 * Shadow Toss: the carried creature is hurled along your aim; where it lands (or hits a wall, or after a moment's flight)
+	 * it takes {@link DarkShadowConfig.Moves#tossDamage} and the impact splashes what stands near. False if nothing was carried.
+	 */
+	public static boolean toss(ServerPlayer p) {
+		Session s = session(p);
+		LivingEntity t = byId(p, s.grabTarget);
+		if (!s.carrying || t == null) {
+			endGrab(p, s);
+			return false;
+		}
+		Vec3 look = p.getLookAngle();
+		Vec3 v = new Vec3(look.x, Math.max(-0.3, look.y) + 0.25, look.z).normalize().scale(mv().tossSpeed);
+		endGrab(p, s);
+		t.setDeltaMovement(v);
+		t.hurtMarked = true;
+		t.hasImpulse = true;
+		s.thrownId = t.getId();
+		s.thrownAt = now(p);
+		Quirks.setVal(p, DarkShadow.V_TOSS, 2L);
+		reach(p, DarkShadowCombat.center(t).add(v.scale(2)), DarkShadow.ANIM_TOSS);
+		push(p, mt().tossPush);
+		Quirks.setCooldown(p, DarkShadowConfig.GRAB, mv().grabCooldown);
+		AbilityHelpers.sound(p, DarkShadowSounds.WHOOSH, 1.2f, 0.8f);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_FLAP, 1.0f, 0.5f);
+		QuirkFx.trail(p.serverLevel(), t).style(QuirkFx.RIBBON_SHADOW).colours(0x1A0A2A, 0x07030C).size(0.5f).size2(8f).life(mv().tossFlightTicks + 6)
+				.vec(new Vec3(0, t.getBbHeight() * 0.5, 0)).spawn();
+		return true;
+	}
+
+	private static void tossStep(ServerPlayer p, Session s) {
+		if (s.thrownId < 0) {
+			return;
+		}
+		long age = now(p) - s.thrownAt;
+		Entity e = p.serverLevel().getEntity(s.thrownId);
+		if (!(e instanceof LivingEntity t) || !t.isAlive()) {
+			s.thrownId = -1;
+			Quirks.setVal(p, DarkShadow.V_TOSS, 0L);
+			return;
+		}
+		t.resetFallDistance();
+		boolean landed = age > 2 && (t.onGround() || t.horizontalCollision || t.verticalCollision);
+		if (!landed && age < mv().tossFlightTicks) {
+			return;
+		}
+		s.thrownId = -1;
+		Quirks.setVal(p, DarkShadow.V_TOSS, 0L);
+		ServerLevel level = p.serverLevel();
+		Vec3 at = t.position();
+		DarkShadowCombat.strike(p, t, at.subtract(t.getDeltaMovement()), mv().tossDamage * s(p), 0.3, 0.2);
+		for (LivingEntity o : AbilityHelpers.enemiesAround(p, at.add(0, 0.5, 0), mv().tossSplashRadius)) {
+			if (o != t) {
+				DarkShadowCombat.strike(p, o, at, mv().tossSplashDamage * s(p), 0.8, 0.35);
+			}
+		}
+		QuirkFx.decal(level, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_POOL).colour(0x0C0614).size(2.6f).life(160).spawn();
+		QuirkFx.ring(level, at.add(0, 0.1, 0)).colours(0x6A3CBF, 0x12081E).size((float) mv().tossSplashRadius + 1f).thickness(0.6f).life(12).ground()
+				.spawn();
+		for (int i = 0; i < 4; i++) {
+			QuirkFx.flipbook(level, at.add((level.random.nextDouble() - 0.5) * 2, 0.4 + level.random.nextDouble(), (level.random.nextDouble() - 0.5) * 2))
+					.style(QuirkFx.BOOK_INK).size(1.2f).life(14).spawn();
+		}
+		QuirkCamera.shakeAround(level, at, 14, 0.4f, 8);
+		QuirkSounds.play(level, at, QuirkSounds.IMPACT_HEAVY, 1.1f, 0.9f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_ATTACK_IMPACT, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.7f);
 	}
 
 	/** Shadow Shield goes up (held). */
@@ -387,6 +526,9 @@ public final class DarkShadowMoves {
 
 	/** The Shield on an incoming hit: it wraps all round, so every side counts; projectiles stop dead. */
 	static float incoming(ServerPlayer p, DamageSource source, float amount) {
+		if (tryCatch(p, source, amount)) {
+			return 0f; // v0.17.1: it caught the fall
+		}
 		if (!DarkShadow.shielding(p) || source.getEntity() == p) {
 			return amount;
 		}
@@ -603,9 +745,12 @@ public final class DarkShadowMoves {
 					e.addEffect(new MobEffectInstance(MobEffects.GLOWING, mv().scoutGlowTicks, 0, false, false), p);
 					Vec3 c = DarkShadowCombat.center(e);
 					level.sendParticles(ParticleTypes.SCULK_SOUL, c.x, c.y + 0.6, c.z, 2, 0.1, 0.1, 0.1, 0.02);
+					// v0.17.1: marked -- a violet eye glyph over it (client) and +15% from you for 10 s
+					s.marks.put(e.getId(), now(p) + mv().scoutGlowTicks);
 					n++;
 				}
 			}
+			syncMarks(p, s);
 			level.sendParticles(ParticleTypes.SCULK_CHARGE_POP, at.x, at.y, at.z, 20, 2.0, 1.0, 2.0, 0.02);
 			AbilityHelpers.sound(p, SoundEvents.SCULK_SHRIEKER_SHRIEK, 0.5f, 1.6f);
 			Quirks.say(p, "message.projecthero.dark_shadow.scouted", ChatFormatting.DARK_PURPLE, n);
@@ -633,9 +778,429 @@ public final class DarkShadowMoves {
 			}
 		}
 		DarkShadowCombat.feathers(level, c, 28, 0.25);
+		// v0.17.1: a dark shock ring and a burst of black feather flipbooks
+		QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0x9A6AEF, 0x10061A).size((float) radius).thickness(0.8f).life(14).ground().spawn();
+		QuirkFx.ring(level, c).colours(0x6A3CBF, 0x10061A).size((float) radius * 0.8f).thickness(0.4f).life(12).spawn();
+		for (int i = 0; i < 8; i++) {
+			double a = i * Math.PI / 4;
+			QuirkFx.flipbook(level, c.add(Math.cos(a) * radius * 0.5, 0.2 * (i % 3), Math.sin(a) * radius * 0.5)).style(QuirkFx.BOOK_INK).size(1.3f)
+					.life(14).spawn();
+		}
+		QuirkCamera.shake(p, 0.3f, 8);
+		AbilityHelpers.sound(p, DarkShadowSounds.ROAR, 0.7f, 1.3f);
 		AbilityHelpers.sound(p, SoundEvents.WARDEN_SONIC_BOOM, 0.6f, 1.5f);
 		AbilityHelpers.sound(p, SoundEvents.PHANTOM_DEATH, 1.0f, 0.5f);
 		return hit;
+	}
+
+	// ================================================================ v0.17.1 X: Shadow Lunge (tap) / Black Fallen Angel (hold)
+
+	/** X down (no Shift): the tap waits for the release; held past {@link DarkShadowConfig.Moves#holdTicks} it is the glide. */
+	static void xDown(ServerPlayer p) {
+		Session s = session(p);
+		s.xAt = now(p);
+		s.xFired = false;
+		Quirks.setVal(p, DarkShadow.V_HOLD_X, now(p));
+	}
+
+	/** X up: the tap fires Shadow Lunge; after a hold the wings fold. */
+	static void xUp(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null || s.xAt < 0L) {
+			return;
+		}
+		boolean fired = s.xFired;
+		s.xAt = -1L;
+		s.xFired = false;
+		Quirks.setVal(p, DarkShadow.V_HOLD_X, 0L);
+		if (fired) {
+			if (DarkShadow.abyssal(p) && !DarkShadow.blackBody(p)) {
+				abyssalOff(p);
+				Quirks.setCooldown(p, DarkShadowConfig.ABYSSAL, mv().abyssalCooldown);
+			}
+		} else if (Quirks.ready(p, DarkShadowConfig.LUNGE)) {
+			lunge(p);
+		}
+	}
+
+	private static void xHoldStep(ServerPlayer p, Session s) {
+		if (s.xAt < 0L || s.xFired || now(p) - s.xAt < mv().holdTicks) {
+			return;
+		}
+		s.xFired = true;
+		if (!DarkShadow.abyssal(p) && Quirks.ready(p, DarkShadowConfig.ABYSSAL)) {
+			toggleAbyssal(p);
+		}
+	}
+
+	/**
+	 * Shadow Lunge: it grabs a point {@link DarkShadowConfig.Moves#lungeRange} blocks ahead (where you look, short of a wall) and
+	 * yanks you there. False if there is no room.
+	 */
+	public static boolean lunge(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = eye.add(p.getLookAngle().scale(mv().lungeRange));
+		BlockHitResult hit = p.level().clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		Vec3 to = hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().add(Vec3.atLowerCornerOf(hit.getDirection().getNormal()).scale(0.7)) : end;
+		to = to.subtract(0, 1.0, 0); // where his feet go
+		if (to.distanceTo(p.position()) < 2.5) {
+			Quirks.say(p, "message.projecthero.dark_shadow.no_room", ChatFormatting.DARK_PURPLE);
+			return false;
+		}
+		Session s = session(p);
+		s.lungeTo = to;
+		s.lungeAt = now(p);
+		Quirks.setVal(p, DarkShadow.V_LUNGE, now(p) + mv().lungeTicks + 6);
+		reach(p, to.add(0, 1.0, 0), DarkShadow.ANIM_LUNGE);
+		Quirks.setCooldown(p, DarkShadowConfig.LUNGE, mv().lungeCooldown);
+		push(p, mt().lungePush);
+		AbilityHelpers.sound(p, DarkShadowSounds.WHOOSH, 1.0f, 1.1f);
+		AbilityHelpers.sound(p, SoundEvents.SCULK_CLICKING, 0.8f, 0.8f);
+		return true;
+	}
+
+	private static void lungeStep(ServerPlayer p, Session s) {
+		if (s.lungeAt < 0L) {
+			return;
+		}
+		long k = now(p) - s.lungeAt;
+		p.resetFallDistance();
+		if (k < 2) {
+			return; // its claws bite into the point first
+		}
+		Vec3 d = s.lungeTo.subtract(p.position());
+		if (d.length() < 1.1 || k > mv().lungeTicks + 6) {
+			AbilityHelpers.launchSelf(p, p.getDeltaMovement().scale(0.35).add(0, 0.1, 0));
+			s.lungeAt = -1L;
+			Quirks.setVal(p, DarkShadow.V_LUNGE, 0L);
+			return;
+		}
+		if (k == 2) {
+			QuirkFx.trail(p.serverLevel(), p).style(QuirkFx.RIBBON_SHADOW).colours(0x1A0A2A, 0x050208).size(0.55f).size2(7f).life(mv().lungeTicks + 8)
+					.vec(new Vec3(0, 1.0, 0)).spawn();
+			QuirkCamera.preset(p, QuirkCamera.Preset.DASH);
+		}
+		Vec3 v = d.normalize().scale(Math.min(2.2, Math.max(1.1, d.length() / 2.5))).add(0, 0.06, 0);
+		AbilityHelpers.launchSelf(p, v);
+		Quirks.setVec(p, DarkShadow.VEC_REACH, s.lungeTo.add(0, 1.0, 0));
+		p.serverLevel().sendParticles(QuirkParticles.SHADOW_MOTE, p.getX(), p.getY() + 1.0, p.getZ(), 4, 0.3, 0.5, 0.3, 0.01);
+	}
+
+	// ================================================================ v0.17.1 C: Abyssal Rampage
+
+	/** Abyssal Rampage: braced, he lets it swing three great claw arcs in front of him (7 / 7 / 11, 5 blocks). */
+	public static void rampage(ServerPlayer p) {
+		Session s = session(p);
+		s.rampageAt = now(p);
+		// v0.17.1 combo route "Ravening Feast": Dark Fang, then Abyssal Rampage within 2 s -- +30% on all three swings
+		s.rampageMult = com.projecthero.mod.quirk.QuirkCombos.mult(com.projecthero.mod.quirk.QuirkCombos.used(p, DarkShadowConfig.RAMPAGE));
+		Quirks.setVal(p, DarkShadow.V_RAMPAGE, now(p) + mv().rampageHit3 + 6);
+		Quirks.setVec(p, DarkShadow.VEC_REACH, p.position().add(flatLook(p).scale(1.2)).add(0, 1.2, 0));
+		Quirks.setVal(p, DarkShadow.V_REACH_AT, now(p));
+		Quirks.setAnim(p, DarkShadow.ANIM_RAMPAGE);
+		Quirks.setCooldown(p, DarkShadowConfig.RAMPAGE, mv().rampageCooldown);
+		push(p, mt().rampagePush);
+		AbilityHelpers.sound(p, DarkShadowSounds.GROWL, 1.1f, 0.8f);
+	}
+
+	/** The swing at the contact ticks: every target in front within reach. Returns how many each swing hit (tests: all three). */
+	private static void rampageStep(ServerPlayer p, Session s) {
+		if (s.rampageAt < 0L) {
+			return;
+		}
+		long k = now(p) - s.rampageAt;
+		int swing = k == mv().rampageHit1 ? 1 : k == mv().rampageHit2 ? 2 : k == mv().rampageHit3 ? 3 : 0;
+		if (swing > 0) {
+			rampageSwing(p, swing);
+		}
+		if (k > mv().rampageHit3 + 6) {
+			s.rampageAt = -1L;
+			Quirks.setVal(p, DarkShadow.V_RAMPAGE, 0L);
+		}
+	}
+
+	/** One of the three claw arcs (1, 2: the sweeps; 3: the overhead slam). Returns how many it hit. */
+	public static int rampageSwing(ServerPlayer p, int swing) {
+		ServerLevel level = p.serverLevel();
+		Session ss = SESSIONS.get(p.getUUID());
+		float dmg = (swing == 1 ? mv().rampageDamage1 : swing == 2 ? mv().rampageDamage2 : mv().rampageDamage3) * s(p) * (ss == null ? 1f : ss.rampageMult);
+		Vec3 f = flatLook(p);
+		Vec3 c = p.position().add(0, 1.0, 0);
+		double reach = mv().rampageReach;
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c.add(f.scale(reach * 0.5)), reach + 1.0)) {
+			Vec3 to = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
+			if (to.lengthSqr() > 0.09 && to.normalize().dot(f) < (swing == 3 ? 0.55 : 0.15)) {
+				continue;
+			}
+			if (Math.sqrt(AbilityHelpers.distanceSqToBox(e, c)) > reach) {
+				continue;
+			}
+			Vec3 side = new Vec3(-f.z, 0, f.x).scale(swing == 1 ? -1 : 1);
+			Vec3 from = swing == 3 ? e.position().add(0, 2, 0).subtract(f) : e.position().subtract(side.scale(2));
+			if (DarkShadowCombat.strike(p, e, from, dmg, swing == 3 ? 0.4 : 0.9, swing == 3 ? 0.1 : 0.3)) {
+				n++;
+			}
+		}
+		// the black crescent: five ribbon segments along the arc, and its violet edge
+		Vec3 right = new Vec3(-f.z, 0, f.x);
+		Vec3[] pts = new Vec3[6];
+		for (int i = 0; i < pts.length; i++) {
+			double u = i / (double) (pts.length - 1);
+			if (swing == 3) {
+				double a = Mth.lerp(u, -0.35, 1.45); // over the head and down in front
+				pts[i] = c.add(f.scale(1.0 + Math.sin(a) * 2.6)).add(0, Math.cos(a) * 2.6, 0);
+			} else {
+				double a = Mth.lerp(u, -1.25, 1.25) * (swing == 1 ? -1 : 1);
+				pts[i] = c.add(f.scale(Math.cos(a) * 3.2)).add(right.scale(Math.sin(a) * 3.2)).add(0, 0.6 - 0.5 * u, 0);
+			}
+		}
+		for (int i = 0; i < pts.length - 1; i++) {
+			QuirkFx.ribbon(level, pts[i], pts[i + 1]).style(QuirkFx.RIBBON_SHADOW).colours(0x12061E, 0x050208).size(0.7f - 0.08f * Math.abs(i - 2))
+					.life(9).spawn();
+		}
+		QuirkFx.ribbon(level, pts[0], pts[pts.length - 1]).style(QuirkFx.RIBBON_LIGHT).colours(0xB890FF, 0x5A2ACF).size(0.08f).life(7).spawn();
+		if (swing == 3) {
+			Vec3 at = p.position().add(f.scale(2.6));
+			QuirkFx.decal(level, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colour(0x120A18).size(2.2f).life(120).spawn();
+			QuirkFx.ring(level, at.add(0, 0.1, 0)).colours(0x8A5ADF, 0x12081E).size(3.5f).thickness(0.5f).life(12).ground().spawn();
+			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+			AbilityHelpers.sound(p, SoundEvents.WARDEN_ATTACK_IMPACT, 1.0f, 0.8f);
+		} else if (n > 0) {
+			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+		}
+		AbilityHelpers.sound(p, DarkShadowSounds.WHOOSH, 1.1f, swing == 3 ? 0.7f : 0.95f + 0.1f * swing);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_BITE, 0.7f, 0.6f);
+		return n;
+	}
+
+	// ================================================================ v0.17.1 Plus Ultra: Abyssal Black Body
+
+	/**
+	 * Abyssal Black Body: Dark Shadow fully merges with him -- a towering winged black-bird armour (x1.6, the Ankh upgraded,
+	 * glowing eyes) -- for {@link DarkShadowConfig.Moves#blackBodyTicks}: fast flight, every attack key a claw dive
+	 * ({@link #clawDive}), Shadow frozen at Ravenous (no Berserk). Afterwards it is spent: hidden for 5 s.
+	 */
+	public static void blackBody(ServerPlayer p) {
+		ServerLevel level = p.serverLevel();
+		if (DarkShadow.on(p, DarkShadow.V_BERSERK)) {
+			Quirks.setVal(p, DarkShadow.V_BERSERK, 0L);
+			Quirks.setVal(p, DarkShadow.V_UNLEASH, 0L);
+			Quirks.edit(p, n -> n.overloadUntil = 0L);
+		}
+		if (DarkShadow.recalled(p)) {
+			Quirks.setVal(p, DarkShadow.V_RECALL, 0L);
+		}
+		Session s = session(p);
+		endFang(p, s);
+		endGrab(p, s);
+		endFetch(p, s);
+		shieldOff(p);
+		Quirks.setVal(p, DarkShadow.V_BLACKBODY, now(p) + mv().blackBodyTicks);
+		Quirks.setVal(p, DarkShadow.V_HIDE_LOCK, 0L);
+		if (!DarkShadow.ankh(p)) {
+			ankhOn(p);
+		}
+		Quirks.setVal(p, DarkShadow.V_ABYSSAL, 1L);
+		Quirks.setMeter(p, mt().blackBodyMeter);
+		Quirks.setAnim(p, DarkShadow.ANIM_BLACKBODY);
+		AbilityHelpers.launchSelf(p, new Vec3(p.getDeltaMovement().x, 1.15, p.getDeltaMovement().z));
+		Vec3 c = p.position().add(0, 1.2, 0);
+		// the merge: a storm of black feathers, a dark shock ring, and two violet eye trails that follow him
+		for (int i = 0; i < 10; i++) {
+			double a = i * Math.PI / 5;
+			QuirkFx.flipbook(level, c.add(Math.cos(a) * 1.6, (i % 3) * 0.6 - 0.4, Math.sin(a) * 1.6)).style(QuirkFx.BOOK_INK).size(1.6f).life(18).spawn();
+		}
+		QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0xB890FF, 0x14081E).size(9f).thickness(1.0f).life(18).ground().spawn();
+		QuirkFx.ring(level, c).colours(0xD0B0FF, 0x3A1A6A).size(5f).thickness(0.5f).life(14).flags(QuirkFx.F_VERTICAL).vec(flatLook(p)).spawn();
+		for (int side = -1; side <= 1; side += 2) {
+			QuirkFx.trail(level, p).style(QuirkFx.RIBBON_LIGHT).colours(0xE0C8FF, 0x7A3CFF).size(0.1f).size2(9f).life(mv().blackBodyTicks)
+					.vec(new Vec3(side * 0.2, 2.5, 0.42)).spawn();
+		}
+		DarkShadowCombat.feathers(level, c, 40, 0.3);
+		QuirkSounds.play(level, c, DarkShadowSounds.ROAR, 1.6f, 0.75f);
+		AbilityHelpers.sound(p, SoundEvents.ENDER_DRAGON_FLAP, 1.2f, 0.7f);
+		QuirkCamera.preset(p, QuirkCamera.Preset.ULTIMATE);
+	}
+
+	private static void blackBodyTick(ServerPlayer p, Session s, long now) {
+		long until = DarkShadow.val(p, DarkShadow.V_BLACKBODY);
+		if (until == 0L) {
+			return;
+		}
+		if (now >= until) {
+			blackBodyEnd(p);
+			return;
+		}
+		Quirks.setMeter(p, mt().blackBodyMeter); // frozen at Ravenous: it can't go berserk
+		if (!DarkShadow.ankh(p)) {
+			ankhOn(p);
+		}
+		if (!DarkShadow.abyssal(p)) {
+			Quirks.setVal(p, DarkShadow.V_ABYSSAL, 1L);
+		}
+		p.resetFallDistance();
+		if (!p.isFallFlying() && !p.onGround() && !p.isInWater() && !p.getAbilities().flying) {
+			p.startFallFlying();
+		}
+		if (p.isFallFlying() && now % 2 == 0 && s.diveUntil <= now) {
+			// fast flight: the great wings drive along the look
+			Vec3 v = p.getDeltaMovement();
+			Vec3 nv = v.add(p.getLookAngle().scale(mv().blackBodyBoost * 2.0));
+			if (nv.length() > mv().blackBodyMaxSpeed) {
+				nv = nv.normalize().scale(Math.max(v.length(), mv().blackBodyMaxSpeed));
+			}
+			AbilityHelpers.addImpulse(p, nv.subtract(v));
+		}
+		if (now % 3 == 0) {
+			Vec3 b = DarkShadowCombat.back(p);
+			p.serverLevel().sendParticles(QuirkParticles.SHADOW_MOTE, b.x, b.y + 0.4, b.z, 4, 1.4, 0.5, 1.4, 0.01);
+			p.serverLevel().sendParticles(DarkShadowCombat.VIOLET, b.x, b.y + 0.4, b.z, 1, 1.2, 0.4, 1.2, 0.0);
+		}
+		if (now % 60 == 0) {
+			AbilityHelpers.sound(p, DarkShadowSounds.GROWL, 0.8f, 0.7f);
+		}
+	}
+
+	/** Black Body is spent: the armour falls away and Dark Shadow is hidden for 5 s (it comes back out on its own). */
+	static void blackBodyEnd(ServerPlayer p) {
+		if (DarkShadow.val(p, DarkShadow.V_BLACKBODY) == 0L) {
+			return;
+		}
+		Quirks.setVal(p, DarkShadow.V_BLACKBODY, 0L);
+		Quirks.setVal(p, DarkShadow.V_DIVE, 0L);
+		Session s = session(p);
+		s.diveUntil = 0L;
+		ServerLevel level = p.serverLevel();
+		DarkShadowCombat.smoke(level, p.position().add(0, 1.2, 0), 30, 1.0);
+		stopMoves(p);
+		Quirks.setVal(p, DarkShadow.V_RECALL, 1L);
+		Quirks.setAnim(p, DarkShadow.ANIM_RECALL);
+		Quirks.setVal(p, DarkShadow.V_HIDE_LOCK, now(p) + mv().blackBodyHiddenTicks);
+		Quirks.setMeter(p, Math.min(Quirks.meter(p), 30f));
+		if (!p.onGround()) {
+			p.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 80, 0, false, false, true));
+		}
+		Quirks.say(p, "message.projecthero.dark_shadow.spent", ChatFormatting.DARK_PURPLE);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_DEATH, 0.9f, 0.6f);
+	}
+
+	/** A claw dive in Black Body: along the look, raking everything it passes ({@link DarkShadowConfig.Moves#diveDamage} each). */
+	public static void clawDive(ServerPlayer p) {
+		Session s = session(p);
+		Vec3 dir = p.getLookAngle().normalize();
+		s.diveDir = dir;
+		s.diveUntil = now(p) + mv().diveTicks;
+		s.diveHit.clear();
+		Quirks.setVal(p, DarkShadow.V_DIVE, s.diveUntil);
+		Quirks.setAnim(p, DarkShadow.ANIM_DIVE);
+		Quirks.setCooldown(p, DarkShadowConfig.DIVE, mv().diveCooldown);
+		AbilityHelpers.launchSelf(p, dir.scale(mv().diveSpeed));
+		QuirkFx.trail(p.serverLevel(), p).style(QuirkFx.RIBBON_SHADOW).colours(0x1A0A2A, 0x050208).size(0.9f).size2(8f).life(mv().diveTicks + 10)
+				.vec(new Vec3(0, 1.4, 0)).spawn();
+		QuirkCamera.preset(p, QuirkCamera.Preset.DASH);
+		AbilityHelpers.sound(p, DarkShadowSounds.WHOOSH, 1.3f, 0.7f);
+		diveStep(p, s);
+	}
+
+	private static void diveStep(ServerPlayer p, Session s) {
+		if (s.diveUntil == 0L) {
+			return;
+		}
+		if (now(p) > s.diveUntil) {
+			s.diveUntil = 0L;
+			Quirks.setVal(p, DarkShadow.V_DIVE, 0L);
+			return;
+		}
+		AbilityHelpers.launchSelf(p, s.diveDir.scale(mv().diveSpeed));
+		p.resetFallDistance();
+		Vec3 c = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, mv().diveRadius + p.getBbWidth() * 0.5)) {
+			if (s.diveHit.add(e.getId()) && DarkShadowCombat.strike(p, e, c.subtract(s.diveDir), mv().diveDamage, 1.0, 0.3)) {
+				QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+			}
+		}
+	}
+
+	private static void tickBlackBodyScale(ServerPlayer p, boolean on) {
+		var inst = p.getAttribute(Attributes.SCALE);
+		if (inst == null) {
+			return;
+		}
+		AttributeModifier m = inst.getModifier(BLACKBODY_SCALE_ID);
+		double cur = m == null ? 0.0 : m.amount();
+		double target = on ? mv().blackBodyScale : 0.0;
+		if (Math.abs(cur - target) < 1.0e-4) {
+			return;
+		}
+		double next = cur < target ? Math.min(target, cur + 0.05) : Math.max(target, cur - 0.05);
+		next = Math.round(next * 1000.0) / 1000.0;
+		if (next > cur) {
+			double w = 0.6 * (1.0 + next), h = 1.8 * (1.0 + next);
+			AABB box = new AABB(p.getX() - w / 2, p.getY(), p.getZ() - w / 2, p.getX() + w / 2, p.getY() + h, p.getZ() + w / 2);
+			if (!p.level().noCollision(p, box)) {
+				return;
+			}
+		}
+		if (next <= 1.0e-4) {
+			PowerToggles.clearModifier(p, Attributes.SCALE, BLACKBODY_SCALE_ID);
+		} else {
+			PowerToggles.modifier(p, Attributes.SCALE, BLACKBODY_SCALE_ID, next, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		}
+	}
+
+	// ================================================================ v0.17.1 Shadow Scout marks / the fall catch
+
+	private static void syncMarks(ServerPlayer p, Session s) {
+		long now = now(p);
+		s.marks.values().removeIf(t -> t <= now);
+		long until = 0L;
+		int i = 0;
+		java.util.Map<String, Long> put = new java.util.HashMap<>();
+		for (Map.Entry<Integer, Long> e : s.marks.entrySet()) {
+			if (i >= DarkShadow.MAX_MARKS) {
+				break;
+			}
+			put.put(DarkShadow.V_MARK_PREFIX + i, e.getKey() + 1L);
+			until = Math.max(until, e.getValue());
+			i++;
+		}
+		final long u = until;
+		Quirks.edit(p, n -> {
+			for (int k = 0; k < DarkShadow.MAX_MARKS; k++) {
+				n.vals.remove(DarkShadow.V_MARK_PREFIX + k);
+			}
+			n.vals.putAll(put);
+			if (u > 0L) {
+				n.vals.put(DarkShadow.V_MARK_UNTIL, u);
+			} else {
+				n.vals.remove(DarkShadow.V_MARK_UNTIL);
+			}
+		});
+	}
+
+	/**
+	 * The fall catch: a fall of more than 6 blocks (over 3 damage) with Shadow above 30 -- it catches you (no fall damage);
+	 * once per 20 s. Returns true when it caught you.
+	 */
+	public static boolean tryCatch(ServerPlayer p, DamageSource source, float amount) {
+		if (!source.is(net.minecraft.tags.DamageTypeTags.IS_FALL) || amount < mv().catchMinDamage || Quirks.meter(p) <= mv().catchMinMeter
+				|| DarkShadow.recalled(p) || DarkShadow.berserk(p) || !Quirks.ready(p, DarkShadowConfig.CATCH)) {
+			return false;
+		}
+		Quirks.setCooldown(p, DarkShadowConfig.CATCH, mv().catchCooldown);
+		Quirks.setVec(p, DarkShadow.VEC_REACH, p.position());
+		Quirks.setVal(p, DarkShadow.V_REACH_AT, now(p));
+		Quirks.setAnim(p, DarkShadow.ANIM_CATCH);
+		ServerLevel level = p.serverLevel();
+		QuirkFx.decal(level, p.position().add(0, 0.05, 0)).style(QuirkFx.DECAL_POOL).colour(0x0C0614).size(2.2f).life(80).spawn();
+		QuirkFx.ring(level, p.position().add(0, 0.1, 0)).style(QuirkFx.RING_SOFT).colours(0x6A3CBF, 0x0C0614).size(2.8f).thickness(0.6f).life(14).ground()
+				.spawn();
+		level.sendParticles(QuirkParticles.SHADOW_MOTE, p.getX(), p.getY() + 0.4, p.getZ(), 20, 0.7, 0.2, 0.7, 0.02);
+		AbilityHelpers.sound(p, DarkShadowSounds.WHOOSH, 1.0f, 0.6f);
+		AbilityHelpers.sound(p, SoundEvents.PHANTOM_FLAP, 1.1f, 0.6f);
+		Quirks.say(p, "message.projecthero.dark_shadow.caught", ChatFormatting.DARK_PURPLE);
+		return true;
 	}
 
 	// ================================================================ V: Black Ankh / Recall
@@ -675,6 +1240,10 @@ public final class DarkShadowMoves {
 
 	static void ankhOff(ServerPlayer p) {
 		abyssalOff(p);
+		MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+		if (nv != null && nv.isAmbient() && nv.getDuration() <= NIGHT_OWL_TICKS) {
+			p.removeEffect(MobEffects.NIGHT_VISION); // Night owl ends with the armour
+		}
 		if (DarkShadow.ankh(p)) {
 			Quirks.setVal(p, DarkShadow.V_ANKH, 0L);
 		}
@@ -716,8 +1285,15 @@ public final class DarkShadowMoves {
 			return false;
 		}
 		if (DarkShadow.recalled(p)) {
+			if (DarkShadow.running(p, DarkShadow.V_HIDE_LOCK)) {
+				Quirks.say(p, "message.projecthero.dark_shadow.spent", ChatFormatting.DARK_PURPLE);
+				return false; // spent after Abyssal Black Body: it comes back out on its own
+			}
 			toggleRecall(p);
 			return true;
+		}
+		if (DarkShadow.blackBody(p)) {
+			return false; // it IS your body right now
 		}
 		if (DarkShadow.on(p, DarkShadow.V_BERSERK)) {
 			Quirks.say(p, "message.projecthero.dark_shadow.wont_hide", ChatFormatting.DARK_PURPLE);
@@ -732,14 +1308,21 @@ public final class DarkShadowMoves {
 
 	// ================================================================ C: Berserk on purpose / Light Flare
 
-	/** Lets it loose on purpose: only in darkness; then only light stops it. False if refused. */
+	/**
+	 * v0.17.1 Unleash (Shift+C): a CONTROLLED Berserk, only in darkness -- {@link DarkShadowConfig.Moves#unleashTicks} of it
+	 * that never hits you or your squad, then the meter drops to 40 (light still ends it early). False if refused.
+	 */
 	public static boolean unleash(ServerPlayer p) {
 		if (!DarkShadowCombat.inDarkness(p)) {
 			Quirks.say(p, "message.projecthero.dark_shadow.too_bright", ChatFormatting.DARK_PURPLE);
 			return false;
 		}
-		Quirks.setCooldown(p, DarkShadowConfig.BERSERK, mv().berserkCooldown);
+		Quirks.setCooldown(p, DarkShadowConfig.UNLEASH, mv().berserkCooldown);
 		goBerserk(p, 2);
+		Quirks.setVal(p, DarkShadow.V_UNLEASH, now(p) + mv().unleashTicks);
+		Quirks.setAnim(p, DarkShadow.ANIM_UNLEASH);
+		QuirkFx.ring(p.serverLevel(), p.position().add(0, 0.05, 0)).colours(0xFF4A60, 0x1A0612).size(7f).thickness(0.9f).life(16).ground().spawn();
+		QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
 		return true;
 	}
 
@@ -794,14 +1377,15 @@ public final class DarkShadowMoves {
 		Quirks.setAnim(p, DarkShadow.ANIM_BERSERK);
 		session(p).berserkSince = now(p);
 		Quirks.say(p, "message.projecthero.quirk.overloaded.dark_shadow", ChatFormatting.DARK_PURPLE);
-		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 1.3f, 0.5f);
-		AbilityHelpers.sound(p, SoundEvents.WARDEN_ROAR, 0.6f, 1.3f);
+		AbilityHelpers.sound(p, DarkShadowSounds.ROAR, 1.5f, 0.9f);
+		AbilityHelpers.sound(p, SoundEvents.RAVAGER_ROAR, 0.8f, 0.5f);
 		DarkShadowCombat.smoke(p.serverLevel(), p.position().add(0, 1.6, 0), 24, 1.4);
 	}
 
 	/** Light calmed it: Berserk ends, the meter settles, it shrinks with a whimper. */
 	public static void endBerserk(ServerPlayer p) {
 		Quirks.setVal(p, DarkShadow.V_BERSERK, 0L);
+		Quirks.setVal(p, DarkShadow.V_UNLEASH, 0L);
 		Quirks.edit(p, n -> n.overloadUntil = 0L);
 		Quirks.setMeter(p, Math.min(Quirks.meter(p), DarkShadowConfig.get().berserk.afterMeter));
 		Quirks.setAnim(p, DarkShadow.ANIM_CALM);
@@ -816,6 +1400,14 @@ public final class DarkShadowMoves {
 		long now = now(p);
 		if (light >= DarkShadowConfig.get().light.calmLight) {
 			endBerserk(p);
+			return;
+		}
+		// v0.17.1 Unleash: the controlled Berserk ends on its own, with the meter at 40
+		long unleash = DarkShadow.val(p, DarkShadow.V_UNLEASH);
+		boolean controlled = unleash != 0L;
+		if (controlled && now >= unleash) {
+			endBerserk(p);
+			Quirks.setMeter(p, mt().unleashAfter);
 			return;
 		}
 		if (!Quirks.overloaded(p)) {
@@ -843,7 +1435,7 @@ public final class DarkShadowMoves {
 			}
 		}
 		Session s = session(p);
-		if ((now - s.berserkSince) % b.selfInterval == b.selfInterval - 1) {
+		if (!controlled && (now - s.berserkSince) % b.selfInterval == b.selfInterval - 1) {
 			// it turns on its own user -- never below selfFloor HP
 			float dmg = Math.min(b.selfDamage, Math.max(0f, p.getHealth() - b.selfFloor));
 			if (dmg > 0.05f) {
@@ -854,7 +1446,7 @@ public final class DarkShadowMoves {
 			}
 		}
 		if (now % 50 == 0) {
-			AbilityHelpers.sound(p, SoundEvents.WARDEN_AGITATED, 1.0f, 0.8f); // the growl
+			AbilityHelpers.sound(p, DarkShadowSounds.GROWL, 1.2f, 0.7f); // the growl
 		}
 		if (now % 4 == 0) {
 			Vec3 c = DarkShadowCombat.shadowPos(p).add(0, 1.2, 0);
@@ -899,6 +1491,27 @@ public final class DarkShadowMoves {
 		}
 		syncDark(p, s, false);
 
+		// v0.17.1: spent after Abyssal Black Body -- it comes back out on its own when the lock runs out
+		long hideLock = DarkShadow.val(p, DarkShadow.V_HIDE_LOCK);
+		if (hideLock != 0L && now >= hideLock) {
+			Quirks.setVal(p, DarkShadow.V_HIDE_LOCK, 0L);
+			if (DarkShadow.recalled(p)) {
+				toggleRecall(p);
+			}
+		}
+		tickBlackBodyScale(p, DarkShadow.blackBody(p));
+		if (DarkShadow.ankh(p) && (now % 80 == 0 || !p.hasEffect(MobEffects.NIGHT_VISION))) {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, NIGHT_OWL_TICKS, 0, true, false, true)); // Night owl
+		}
+		if (!s.marks.isEmpty() && now % 20 == 0 && s.marks.values().stream().anyMatch(t -> t <= now)) {
+			syncMarks(p, s);
+		}
+		if (DarkShadow.val(p, DarkShadow.V_BLACKBODY) != 0L) {
+			blackBodyTick(p, s, now);
+			diveStep(p, s);
+			return;
+		}
+
 		if (DarkShadow.on(p, DarkShadow.V_BERSERK)) {
 			berserkTick(p, light);
 			return;
@@ -926,6 +1539,10 @@ public final class DarkShadowMoves {
 		dashStep(p, s);
 		fetchStep(p, s);
 		scoutStep(p, s);
+		xHoldStep(p, s);
+		lungeStep(p, s);
+		rampageStep(p, s);
+		tossStep(p, s);
 
 		long shield = DarkShadow.val(p, DarkShadow.V_SHIELD);
 		if (shield != 0L) {
@@ -960,6 +1577,12 @@ public final class DarkShadowMoves {
 			endGrab(p, s);
 			endFetch(p, s);
 			s.dashUntil = 0L;
+			s.lungeAt = -1L;
+			s.rampageAt = -1L;
+			s.diveUntil = 0L;
+			s.thrownId = -1;
+			s.xAt = -1L;
+			s.gHeld = false;
 			if (s.scoutStart != 0L) {
 				s.scoutStart = 0L;
 				Quirks.setVal(p, DarkShadow.V_SCOUT, 0L);
@@ -967,7 +1590,8 @@ public final class DarkShadowMoves {
 			}
 		}
 		ankhOff(p);
-		for (String k : new String[] { DarkShadow.V_SHIELD, DarkShadow.V_DASH, DarkShadow.V_FANG }) {
+		for (String k : new String[] { DarkShadow.V_SHIELD, DarkShadow.V_DASH, DarkShadow.V_FANG, DarkShadow.V_LUNGE, DarkShadow.V_RAMPAGE,
+				DarkShadow.V_TOSS, DarkShadow.V_DIVE, DarkShadow.V_HOLD_X }) {
 			if (DarkShadow.val(p, k) != 0L) {
 				Quirks.setVal(p, k, 0L);
 			}
@@ -977,5 +1601,10 @@ public final class DarkShadowMoves {
 	/** Everything ends (overload, revoke, death, Erased). Berserk keeps its flag (the overload is the Berserk). */
 	public static void stopAll(ServerPlayer p) {
 		stopMoves(p);
+		// v0.17.1: Abyssal Black Body never outlives a death / logout / dimension change (and its size comes straight off)
+		if (DarkShadow.val(p, DarkShadow.V_BLACKBODY) != 0L) {
+			Quirks.setVal(p, DarkShadow.V_BLACKBODY, 0L);
+		}
+		PowerToggles.clearModifier(p, Attributes.SCALE, BLACKBODY_SCALE_ID);
 	}
 }

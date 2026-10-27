@@ -133,6 +133,38 @@ public final class EnginePose {
 			f(EngineConfig.FINISHER_LAUNCH_AT + 4, 0.5f, 0, 0.65f, -1.0f, 0.2f, -0.45f, -0.35f, 0.2f, -2.3f, 0, 0.12f, 0.25f, 0, 0, 0.2f),
 			rest(EngineConfig.FINISHER_LAUNCH_AT + 9) };
 
+	// ---- v0.17.1 revamp
+	/** Hold R released: the Charged Kick -- out of the coiled chamber, a driving piston kick, the whole body behind it. */
+	static final float[][] CHARGED = {
+			f(0, -1.05f, -0.35f, 0.25f, 0.95f, 0, -0.55f, 0.55f, 0.4f, 1.15f, 0, 0.1f, -0.5f, 0, 0, -0.45f),
+			f(2, -1.25f, -0.35f, 0, 0.8f, 0.2f, -0.3f, -0.4f, 0.35f, -1.95f, -0.15f, 0.1f, 0.35f, 0, -0.05f, 0.2f),
+			f(7, -1.2f, -0.35f, 0, 0.75f, 0.2f, -0.3f, -0.35f, 0.3f, -1.85f, -0.15f, 0.1f, 0.35f, 0, -0.05f, 0.15f),
+			rest(12) };
+	/** Hold R (while it charges): coiled low, the kick leg drawn far back, guard up -- held until the release. */
+	static final float[] CHARGE_HOLD = f(0, -1.05f, -0.35f, 0.25f, 0.95f, 0, -0.55f, 0.55f, 0.4f, 1.15f, 0, 0.1f, -0.5f, 0, 0, -0.45f);
+	/** Hold X running: the Engine Brake -- leaning back hard on the lead leg, the back knee bent, arms out for the drift. */
+	static final float[] BRAKE_HOLD = f(0, -0.5f, 0, 1.0f, -0.2f, 0, -0.85f, -0.25f, 0.45f, -0.85f, 0, 0.2f, 0.45f, 0, -0.1f, 0.2f);
+	/** The ultimate's launch out of the sprinter's crouch. */
+	static final float[][] BURST = {
+			f(0, 1.05f, 0, 0.35f, 1.05f, 0, -0.35f, 0.9f, 0, -1.15f, 0, 0.05f, 0.65f, 0, -0.05f, -0.6f),
+			f(2, -1.6f, 0, 0.1f, 1.3f, 0, -0.1f, 0.65f, 0, 0.95f, 0, 0, -1.45f, 0, 0, -0.45f),
+			f(5, 1.15f, 0, 0.1f, -1.4f, 0, -0.1f, 0.6f, 0, -1.3f, 0, 0, 0.95f, 0, 0, -0.4f),
+			rest(10) };
+	/** One chained kick: a whipping roundhouse with the other leg each time (the animStart alternates the side). */
+	static final float[][] CHAIN = {
+			rest(0),
+			f(1, -0.9f, -0.3f, 0.2f, -0.4f, 0.3f, -0.6f, -0.25f, 0.55f, -1.7f, 0, 0.8f, 0.2f, 0, 0, 0.1f),
+			f(3, -0.8f, -0.3f, 0.2f, -0.4f, 0.3f, -0.6f, -0.25f, -0.2f, -1.6f, 0, -0.3f, 0.2f, 0, 0, 0.1f),
+			rest(EngineConfig.CHAIN_INTERVAL + 1) };
+	/** The mach kick: a flying side kick, the body laid out flat behind the leg. */
+	static final float[][] MACH = {
+			rest(0),
+			f(2, 1.1f, 0, 0.5f, 1.1f, 0, -0.5f, -0.45f, 0.3f, -2.1f, -0.1f, 0.15f, 0.5f, 0, -0.1f, 0.3f),
+			f(8, 1.05f, 0, 0.5f, 1.05f, 0, -0.5f, -0.4f, 0.3f, -2.0f, -0.1f, 0.15f, 0.5f, 0, -0.1f, 0.25f),
+			rest(14) };
+	/** The Plus Ultra hold: the sprinter's crouch, coiled to the floor, the calf engines going white. */
+	static final float[] ULT_HOLD = f(0, 1.0f, 0, 0.3f, 1.0f, 0, -0.3f, 0.85f, 0, -1.1f, 0, 0.05f, 0.6f, 0, -0.05f, -0.55f);
+
 	private static float[][] barrageFrames() {
 		int hits = EngineConfig.BARRAGE_HITS;
 		int iv = EngineConfig.BARRAGE_INTERVAL;
@@ -169,6 +201,10 @@ public final class EnginePose {
 			case Engine.ANIM_STRIKE -> STRIKE;
 			case Engine.ANIM_FINISHER -> FINISHER;
 			case Engine.ANIM_STALL -> STALL;
+			case Engine.ANIM_CHARGED -> CHARGED;
+			case Engine.ANIM_BURST -> BURST;
+			case Engine.ANIM_CHAIN -> CHAIN;
+			case Engine.ANIM_MACH -> MACH;
 			default -> null;
 		};
 	}
@@ -199,10 +235,31 @@ public final class EnginePose {
 		QuirkState s = Quirks.peek(player);
 		float age = age(player, s, partial);
 		float[][] fr = age < 0f ? null : frames(s.animId);
+		// v0.17.1 holds: the Charged Kick's coil (R held) and the Engine Brake's skid (X held) -- held for as long as the key is
+		long charge = Engine.val(player, Engine.V_CHARGE);
+		if (charge != 0L && player.level().getGameTime() - charge >= EngineConfig.CHARGE_MIN_TICKS) {
+			float k = Math.min(1f, (player.level().getGameTime() - charge + partial - EngineConfig.CHARGE_MIN_TICKS) / 4f);
+			float[] p = CHARGE_HOLD.clone();
+			p[QuirkKeyframes.R_LEG_X] += 0.04f * Mth.sin(player.tickCount * 1.3f); // the leg trembling on the spring
+			QuirkKeyframes.apply(model, p, k);
+			fr = null;
+		} else if (Engine.braking(player)) {
+			QuirkKeyframes.apply(model, BRAKE_HOLD, 1f);
+			fr = null;
+		}
 		if (fr != null) {
 			QuirkKeyframes.play(model, fr, age, 1f);
 		}
 		model.hat.copyFrom(model.head);
+	}
+
+	/** The Plus Ultra hold (the kit's own: the sprinter's crouch). */
+	static void ultimateHold(HumanoidModel<?> model, float charge, float t) {
+		float[] p = ULT_HOLD.clone();
+		float shake = Mth.sin(t * 2.8f) * 0.03f * (0.4f + charge);
+		p[QuirkKeyframes.R_LEG_X] += shake;
+		p[QuirkKeyframes.HEAD_X] += shake;
+		QuirkKeyframes.apply(model, p, Math.min(1f, 0.35f + charge));
 	}
 
 	/** The procedural run layer: gear lean and strides, skid, wall run, stall, carry. */
@@ -221,6 +278,22 @@ public final class EnginePose {
 		int gear = Engine.gear(player);
 		float mom = Engine.momentum(player);
 		float drive = Engine.drive(player);
+		if (Engine.val(player, Engine.V_WALL) != 0L && !player.onGround()) {
+			// v0.17.1 the wall kick: running straight up the wall, knees high, arms driving
+			float sw = Mth.sin(t * 1.4f);
+			HipBend.pitch(model, 1f, -0.25f);
+			model.head.xRot = Mth.lerp(0.7f, model.head.xRot, -0.5f);
+			pose(r, 1f, -0.9f * sw - 0.6f, 0f, 0.1f);
+			pose(l, 1f, 0.9f * sw - 0.6f, 0f, -0.1f);
+			model.rightLeg.xRot = -1.3f + 0.9f * sw;
+			model.leftLeg.xRot = -1.3f - 0.9f * sw;
+			return;
+		}
+		if (Engine.val(player, Engine.V_CARRY) != 0L) {
+			// Rescue Carry: both arms back, hooked under the one riding on his back
+			pose(r, 0.8f, 0.55f, 0f, 0.35f);
+			pose(l, 0.8f, 0.55f, 0f, -0.35f);
+		}
 		float speed = (float) Math.hypot(player.getX() - player.xo, player.getZ() - player.zo);
 		boolean grounded = player.onGround();
 		long slide = Engine.val(player, Engine.V_SLIDE);

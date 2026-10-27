@@ -197,7 +197,28 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 5.0);
 		float hp = z.getHealth();
 		PlusUltra.set(p, 100f);
-		PlusUltra.fire(p);
+		// v0.17.1 (the kit builds): Overhaul has its real ultimate now -- a kit that keeps the interface default stands in
+		com.projecthero.mod.quirk.QuirkKit real = com.projecthero.mod.quirk.QuirkKits.of(Quirk.OVERHAUL);
+		com.projecthero.mod.quirk.QuirkKits.register(Quirk.OVERHAUL, new com.projecthero.mod.quirk.QuirkKit() {
+			@Override
+			public void handle(ServerPlayer player, com.projecthero.mod.hero.AbilitySlot slot, boolean pressed, boolean shift) {
+			}
+
+			@Override
+			public String[] idsOf(com.projecthero.mod.hero.AbilitySlot slot) {
+				return real.idsOf(slot);
+			}
+
+			@Override
+			public int maxCooldown(String abilityId) {
+				return real.maxCooldown(abilityId);
+			}
+		});
+		try {
+			PlusUltra.fire(p);
+		} finally {
+			com.projecthero.mod.quirk.QuirkKits.register(Quirk.OVERHAUL, real);
+		}
 		helper.assertTrue(PlusUltra.gauge(p) == 0f, "spent");
 		helper.assertTrue(z.getHealth() == hp, "the placeholder deals no damage");
 		helper.assertTrue(z.getDeltaMovement().horizontalDistance() > 0.2, "but shoves what is near");

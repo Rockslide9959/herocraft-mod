@@ -248,6 +248,23 @@ toggle and its slot are gone.
 - During it he is fused (x1.5) and can't be knocked back.
 - *VFX:* a crack web decal out to 16 blocks, `SPIKE` waves, everything reforming in a white-teal ripple.
 
+**Built (v0.17.1, wave 3).** As above, with these calls (code: `quirk/overhaul`, numbers in `OverhaulConfig`):
+- Matter spends: Ground Spikes 12, Spike Field 20, Thorn Forest 40 (10 s cd), Wall Burst 16, Pillar 10, Ground Shift 6,
+  Terrain Surf 6 + 8/s, Reassemble 30, Fusion 45, Mend 20, mining 6. Gains: Disassemble +5, Disarm +4, Strike +3 on a touch,
+  Shrapnel +8, Disassemble Terrain +10, any kill +15 (the doc says "a Disassemble kill"; every Overhaul kill counts). No
+  lockout at 0: an unaffordable move just doesn't happen.
+- Because the disassembling moves now GAIN Matter, their cooldowns pace them instead: Disassemble 1 s (was 0.5 s),
+  Disassemble Terrain 5 s (was 1.5 s). Restore (hold V) is free with a 10 s cooldown.
+- The spikes are toolkit `SPIKE` meshes only (no blocks). Thorn Forest's "cover" pushes creatures out of its 7x7 and breaks
+  incoming projectiles for 4 s. The walls, pillar, pits, the surf's wake and the ground Total Disassembly lifts are real
+  temporary blocks through the Geokinesis ledger (terrain-damage config, build rights, claims, spawn protection, restored on
+  their clock and on server stop). Disassembly mining is permanent digging, so it checks build rights / adventure mode /
+  claims and spawn protection (`mayInteract`) but not the ability terrain-damage switch.
+- Holds: G past 7 ticks = Thorn Forest (release fires), X past 7 = Terrain Surf (release ends), V for 1 s = Restore. Shift+V
+  with a damaged item in the off hand is Mend instead of Fusion.
+- The drawback of Total Disassembly: Matter goes to 0. Suit perk: the full costume removes Poison. Combo route: "Buried
+  Alive" (Disassemble Terrain, then Ground Spikes, 2 s, x1.5).
+
 ### 3.3 Engine -- Tenya Iida, Ingenium
 
 **Identity:** engines in the calves. Speed, discipline and kicks; Recipro Burst trades a short overdrive for a stall.
@@ -294,6 +311,22 @@ This is the strongest Quirk and was tuned by the user very recently. **The kit s
 - Then a 30 s stall.
 - *VFX:* blue-white afterimage chain, `RING` per kick, a sonic-boom `RING` at the start.
 
+**Built (v0.17.1, wave 3).** Only additions; the user's tuning stays (gear shifts have no cooldown, heat x0.6 out of the
+suit / x0.5 in it, the framework's x0.30 / x1.4 pacing). Code: `quirk/engine`, numbers in `EngineConfig` (v0.17.1 block).
+- Hold R: the tap kick now fires on the release (a tap is still the Recipro Kick); held 5+ ticks it charges, full at 1 s:
+  x1.5 and a launch (4.5 heat).
+- Hold X while running (gear, 30%+ momentum): the tap dash waits for the release; held 5+ ticks it is the Engine Brake (the
+  run's speed halves, the momentum never bleeds below 85% of where it started, the client grip x0.45 so it drifts; scorch
+  streaks and sparks). Not running, X dashes at once as before.
+- Recipro Burst -- Extend: the Burst is 160 b/s at Gear 3 (Turbo's x2, doubled); the first kick key starts the chain (once a
+  Burst) -- he is simply at each next target within 10 blocks, 12 + 0.4 x (at least 40) b/s each, then the 35 mach kick.
+  Turbo running when it fires rolls into the Burst (the Burst's 30 s stall replaces Turbo's minute).
+- Bands: Cold -10% momentum gain; Redline +15% damage (all Engine hits) and red-orange exhaust ribbons.
+- Survival: water skim and the wall kick run in the client's run simulation (`EngineSurvival`), the server keeps the books;
+  Rescue Carry is Sneak + use (empty hand) on a squadmate, an owned pet or a villager; carrying an ally under 30% health feeds
+  Plus Ultra (a rescue, once a minute); a stall sets them down.
+- Combo route: "Sky Splitter" (Rising Kick, then Axe Kick, 2 s, x1.5).
+
 ### 3.4 Dark Shadow -- Fumikage Tokoyami, Tsukuyomi
 
 **Identity:** a living shadow bird that is timid in light and terrifying in darkness. The deeper the dark, the stronger and
@@ -334,6 +367,19 @@ the less controllable it is.
 - Shadow is frozen at Ravenous and can't go berserk while it lasts.
 - Afterwards: 5 s Hidden.
 - *VFX:* black feather storm, violet eye trails, a dive `RIBBON`.
+
+**Built (v0.17.1, wave 3).** As above (code: `quirk/darkshadow`; the config file `projecthero_quirk_dark_shadow.json` is
+version 2: its balance sections reset once to the new defaults). Calls made:
+- The bands multiply damage (x0.6 / x1.0 / x1.4) on top of the light strength, so daylight strength rose 0.4 -> 0.55 to keep
+  it usable. Dark Fang bites for 4 (was 3.5). Sunshine Ankh kept its built 10 within 4-8 (already above the doc's 6 within 6).
+- Holds: keep G held after a grab = Shadow Toss (it carries the body overhead; the release throws; the landing hits);
+  hold X 6+ ticks = Black Fallen Angel while held (a tap is Shadow Lunge, on the release).
+- N is the only Hide (the Shift+V Recall moved off: Shift+V is the Light Flare, which works while berserk or hidden).
+- Abyssal Black Body: every attack key is the claw dive (cd 0.7 s); the elytra glide gets a stronger push; afterwards it
+  stays hidden 5 s (N refuses) and comes back out by itself.
+- Weight: the creature's root rides a damped spring and leans into its motion; new GeckoLib clips `rampage`, `throw`, `catch`.
+- Suit perk: Tokoyami's full cloak makes the light count two levels darker. Combo route: "Ravening Feast" (Dark Fang, then
+  Abyssal Rampage, 2 s, x1.3).
 
 ### 3.5 Erasure -- Shota Aizawa, Eraser Head
 

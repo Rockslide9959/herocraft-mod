@@ -15,6 +15,10 @@ public final class DarkShadowMeter {
 	public static final float BUILD = 0.20f;
 	public static final float RECOVER = 1.0f;
 
+	/** v0.17.1 combo route "Ravening Feast": Dark Fang, then Abyssal Rampage within 2 s -- +30% on all three swings. */
+	public static final com.projecthero.mod.quirk.QuirkCombos.Route RAVENING_FEAST = com.projecthero.mod.quirk.QuirkCombos.route(Quirk.DARK_SHADOW,
+			"ravening_feast", DarkShadowConfig.FANG, DarkShadowConfig.RAMPAGE).window(40).bonus(1.3f).register();
+
 	private DarkShadowMeter() {
 	}
 
@@ -33,6 +37,10 @@ public final class DarkShadowMeter {
 							.move(c.meter.fetchPush, c.moves.fetchCooldown)
 							.move(c.meter.scoutPush, c.moves.scoutCooldown)
 							.move(c.meter.novaPush, c.moves.novaCooldown)
+							// v0.17.1 revamp
+							.move(c.meter.lungePush, c.moves.lungeCooldown)
+							.move(c.meter.rampagePush, c.moves.rampageCooldown)
+							.move(c.meter.tossPush, c.moves.grabCooldown)
 							.recovery(c.meter.brightFall * 20f, 0);
 				})
 				.register();

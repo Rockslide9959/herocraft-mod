@@ -77,6 +77,9 @@ public final class EngineFirstPersonLegs {
 		float limbSpeed = Math.min(1f, p.walkAnimation.speed(partial));
 		model.prepareMobModel(p, limbPos, limbSpeed, partial);
 		model.setupAnim(p, limbPos, limbSpeed, p.tickCount + partial, headYaw, pitch);
+		// v0.17.1: the kit's poses (the run, the kicks) on these legs too -- the shared pose hook skips the local player's
+		// first-person model, so without this a kick never reached the legs drawn here
+		EnginePose.apply(p, model);
 		model.head.visible = false;
 		model.hat.visible = false;
 		// no torso: right under the eyes, its top face fills the view whenever you look down (and the run's lean tips it in)
@@ -96,6 +99,16 @@ public final class EngineFirstPersonLegs {
 		Vec3 fwd = new Vec3(-Mth.sin(yr), 0, Mth.cos(yr));
 		double back = p.isCrouching() ? BACK_SNEAK : BACK_AHEAD + BACK_LOOK_DOWN * Mth.clamp(pitch / 90f, 0f, 1f);
 		Vec3 at = feet.subtract(fwd.scale(back)).add(0, p.isCrouching() ? -0.125 : 0.0, 0);
+		// v0.17.1 first-person kicks: while a kick plays, the legs are carried up and forward so the kicking leg swings up into
+		// the bottom of the view (it would stay under the camera otherwise) -- the higher the kick, the higher it comes
+		float lift = kickLift(p, model);
+		if (lift > 0f) {
+			// a chest-high kick rises into the lower view; an overhead one (the axe kick) is carried further out so the leg
+			// sweeps up across the view instead of filling it
+			float up = -Math.min(model.rightLeg.xRot, model.leftLeg.xRot);
+			double ahead = 0.6 + 0.8 * Math.max(0f, up - 1.7f);
+			at = at.add(fwd.scale(ahead * lift)).add(0, (up > 2.2f ? 0.1 : 0.42) * lift, 0);
+		}
 
 		PoseStack pose = ctx.matrixStack();
 		// the context's matrix -> world, for the exhaust's nozzle capture
@@ -122,5 +135,26 @@ public final class EngineFirstPersonLegs {
 		QuirkCostume.renderLegs(pose, ctx.consumers(), light, p, model);
 		EngineCalves.render(pose, ctx.consumers(), light, p, model, toWorld, partial);
 		pose.popPose();
+	}
+
+	/** The kick anims (whose raised leg is carried into the first-person view). */
+	private static boolean kickAnim(int id) {
+		return switch (id) {
+			case Engine.ANIM_KICK, Engine.ANIM_BARRAGE, Engine.ANIM_EXTEND_KICK, Engine.ANIM_RISING, Engine.ANIM_AXE, Engine.ANIM_STRIKE,
+					Engine.ANIM_FINISHER, Engine.ANIM_CHARGED, Engine.ANIM_CHAIN, Engine.ANIM_MACH, Engine.ANIM_SPIN, Engine.ANIM_SWEEP -> true;
+			default -> false;
+		};
+	}
+
+	/** 0..1: how far a playing kick raises the legs into view (from the posed legs: a chest-high kick is 1). */
+	static float kickLift(AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model) {
+		com.projecthero.mod.quirk.data.QuirkState s = com.projecthero.mod.quirk.Quirks.peek(p);
+		boolean charging = Engine.val(p, Engine.V_CHARGE) != 0L;
+		if (s == null || !charging && (!kickAnim(s.animId) || p.level().getGameTime() - s.animStart > 24)) {
+			return 0f;
+		}
+		float up = -Math.min(model.rightLeg.xRot, model.leftLeg.xRot);
+		float side = Math.max(Math.abs(model.rightLeg.zRot), Math.abs(model.leftLeg.zRot));
+		return Mth.clamp((Math.max(up, side * 1.2f) - 0.7f) / 0.9f, 0f, 1f);
 	}
 }

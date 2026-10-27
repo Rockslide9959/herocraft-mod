@@ -104,6 +104,27 @@ public final class EngineMoves {
 		long extendKickAt = -1L;
 		/** His speed when the charged kick started (it keeps the run's power). */
 		double extendKickSpeed;
+		// v0.17.1 revamp
+		/** Hold R: the Charged Kick charging since (-1: not). */
+		long chargeAt = -1L;
+		/** X went down while running at (-1: not); the brake is on; the momentum it keeps. */
+		long brakeAt = -1L;
+		boolean braking;
+		float brakeKeep;
+		/** Recipro Burst -- Extend ran last tick (its end stalls the engines). */
+		boolean burstOn;
+		/** Its kick chain: started, kicks landed, the targets already kicked, the last one. */
+		long chainAt = -1L;
+		boolean chainUsed;
+		int chainKicks;
+		final Set<Integer> chainHit = new HashSet<>();
+		int chainLast = -1;
+		/** The wall run: the height he started up the wall at (NaN: not on a wall). */
+		double wallStart = Double.NaN;
+		/** Rescue Carry: the last time carrying a badly hurt ally fed Plus Ultra. */
+		long carrySaveAt = -10000L;
+		/** The Axe Kick's combo bonus, taken at the press and spent when the heel lands. */
+		float axeMult = 1f;
 	}
 
 	private static final Map<UUID, Session> SESSIONS = new ConcurrentHashMap<>();
@@ -143,6 +164,7 @@ public final class EngineMoves {
 
 	/** The engines rev: a piston thump, a blast of exhaust and a rising whine, higher the higher {@code level} (0..3+). */
 	private static void rev(ServerPlayer p, float level) {
+		sound(p, EngineSounds.REV, 0.65f + level * 0.08f, EngineSounds.revPitch(level)); // v0.17.1: the engines' own snarl
 		sound(p, SoundEvents.PISTON_EXTEND, 0.7f, 0.6f + level * 0.25f);
 		sound(p, SoundEvents.FIREWORK_ROCKET_BLAST, 0.45f + level * 0.1f, 0.6f + level * 0.2f);
 		sound(p, SoundEvents.BLAZE_SHOOT, 0.3f, 1.4f + level * 0.15f);
@@ -215,7 +237,7 @@ public final class EngineMoves {
 	 */
 	public static void heat(ServerPlayer p, float amount) {
 		if (amount > 0f) {
-			if (running(p, Engine.V_TURBO)) {
+			if (running(p, Engine.V_TURBO) || running(p, Engine.V_BURST)) {
 				return;
 			}
 			amount *= Engine.suitWorn(p) ? EngineConfig.SUIT_HEAT_MULT : EngineConfig.NO_SUIT_HEAT_MULT;
@@ -317,19 +339,30 @@ public final class EngineMoves {
 			stalled = true;
 		}
 		s.turboOn = turbo;
+		// --- v0.17.1 Recipro Burst -- Extend ends in a 30 s stall
+		boolean burst = st.val(Engine.V_BURST) > now;
+		if (s.burstOn && !burst && !stalled) {
+			s.burstOn = false;
+			burstEnds(p);
+			stalled = true;
+		}
+		s.burstOn = burst && !stalled;
 		if (turbo) {
 			PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID, EngineConfig.TURBO_DAMAGE_MULT - 1.0,
 					AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		} else {
 			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID);
 		}
-		boolean recipro = turbo;
+		boolean recipro = turbo || s.burstOn;
 
 		// --- momentum
 		if (stalled || s.gear <= 0) {
 			s.momentum = 0f;
 		} else if (moving) {
 			float rate = EngineConfig.MOMENTUM_BUILD[s.gear] * (recipro ? EngineConfig.TURBO_BUILD_MULT : 1f);
+			if (Quirks.meter(p) < 30f) {
+				rate *= 0.9f; // v0.17.1 the Cold band: cold engines build momentum 10% slower
+			}
 			if (p.isSprinting() || recipro) {
 				s.momentum = Math.min(1f, s.momentum + rate);
 			} else if (s.momentum < EngineConfig.MOMENTUM_WALK_CAP) {
@@ -340,13 +373,17 @@ public final class EngineMoves {
 		} else if (p.onGround()) {
 			s.momentum = Math.max(0f, s.momentum - EngineConfig.MOMENTUM_BLEED);
 		}
+		// v0.17.1 Engine Brake: the skid never bleeds below 85% of what it started with
+		if (s.braking && !stalled) {
+			s.momentum = Math.max(s.momentum, s.brakeKeep);
+		}
 
 		// --- sliding turns: the run swings round sharply at speed
 		if (!stalled && s.gear > 0 && raw > 0.25 && p.onGround() && s.momentum >= EngineConfig.SLIDE_MIN_MOMENTUM && s.lastDir.lengthSqr() > 0.5) {
 			double cos = Mth.clamp(s.lastDir.dot(dir), -1.0, 1.0);
 			// the client holds the turn to its grip a tick, so a turn right at the grip IS the slide (high gears never reach 28)
 			double slideAt = Math.min(EngineConfig.SLIDE_ANGLE, EngineConfig.grip(s.gear, s.momentum, recipro) * 0.85);
-			if (Math.toDegrees(Math.acos(cos)) >= slideAt && now - s.lastSlide > 6) {
+			if (Math.toDegrees(Math.acos(cos)) >= slideAt && now - s.lastSlide > 6 && !s.braking) {
 				slide(p, s, dir, now);
 			}
 		}
@@ -356,8 +393,11 @@ public final class EngineMoves {
 		if (stalled) {
 			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID);
 		} else {
-			double mult = turbo ? EngineConfig.TURBO_MULT : 1.0;
+			double mult = s.burstOn ? EngineConfig.BURST_MULT : turbo ? EngineConfig.TURBO_MULT : 1.0;
 			double bonus = speedBonus(s.gear, s.momentum, mult);
+			if (s.braking) {
+				bonus = Math.max(0.0, (1.0 + bonus) * EngineConfig.BRAKE_SPEED - 1.0); // the skid: half the run's speed
+			}
 			bonus = Math.round(bonus / EngineConfig.SPEED_STEP) * EngineConfig.SPEED_STEP;
 			if (bonus > 0.0) {
 				PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, GEAR_ID, bonus, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
@@ -375,7 +415,7 @@ public final class EngineMoves {
 		float perSecond;
 		if (stalled) {
 			perSecond = -EngineConfig.STALL_COOL_PER_SECOND;
-		} else if (turbo) {
+		} else if (turbo || s.burstOn) {
 			perSecond = 0f;
 		} else if (s.gear > 0) {
 			// sprinting in gear heats the engines; walking or standing in gear cools them slowly (passive cooling)
@@ -412,6 +452,16 @@ public final class EngineMoves {
 		if (s.extendKickAt >= 0L) {
 			extendKickStep(p, s, now - s.extendKickAt);
 		}
+		// --- v0.17.1: the holds, the ultimate's chain, the survival tricks
+		if (!stalled) {
+			tickCharge(p, s, now);
+			tickBrake(p, s, now);
+			if (s.chainAt >= 0L) {
+				chainStep(p, s, now);
+			}
+			tickSkimAndWall(p, s, now);
+		}
+		tickCarry(p, s, now, stalled);
 		if (stalled) {
 			if (p.tickCount % 3 == 0) {
 				steam(p.serverLevel(), p, 2);
@@ -419,7 +469,7 @@ public final class EngineMoves {
 			if (now >= s.nextSputter || s.nextSputter - now > 100) {
 				sputter(p, s, now);
 			}
-		} else if (turbo && p.tickCount % 2 == 0) {
+		} else if ((turbo || s.burstOn) && p.tickCount % 2 == 0) {
 			// the calf engines blaze: blue fire licking off both calves (the run's own trails are drawn client side)
 			EngineCombat.exhaust(p.serverLevel(), p, 1, 2);
 		}
@@ -630,9 +680,34 @@ public final class EngineMoves {
 			}
 			if (EngineCombat.strike(p, e, p.position(), dmg, kb, lift)) {
 				n++;
+				kickRing(p, e);
 			}
 		}
+		if (n > 0) {
+			kickLanded(p, false);
+		}
 		return n;
+	}
+
+	/** v0.17.1: a connecting kick -- a shock ring standing at the target, facing the kick. */
+	static void kickRing(ServerPlayer p, LivingEntity e) {
+		Vec3 c = e.position().add(0, e.getBbHeight() * 0.55, 0);
+		boolean white = Engine.turbo(p) || Engine.burst(p);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(p.serverLevel(), c).colours(0xFFFFFF, white ? 0xD8F0FF : 0x5AA9FF).size(1.6f + e.getBbWidth())
+				.thickness(0.3f).life(8).flags(com.projecthero.mod.quirk.fx.QuirkFx.F_VERTICAL).vec(p.getLookAngle()).spawn();
+	}
+
+	/** v0.17.1: the camera on a connecting kick (a 2-tick hit-stop and a small FOV kick; the finisher a heavier punch). */
+	static void kickLanded(ServerPlayer p, boolean heavy) {
+		if (heavy) {
+			com.projecthero.mod.quirk.fx.QuirkCamera.preset(p, com.projecthero.mod.quirk.fx.QuirkCamera.Preset.FINISHER);
+		} else {
+			com.projecthero.mod.quirk.fx.QuirkCamera.hitStop(p, 2);
+			com.projecthero.mod.quirk.fx.QuirkCamera.shake(p, 0.14f, 4);
+			com.projecthero.mod.quirk.fx.QuirkCamera.fovPunch(p, 0.04f, 6);
+		}
+		com.projecthero.mod.quirk.fx.QuirkSounds.play(p.serverLevel(), p.position(), heavy ? com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT_HEAVY
+				: com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT, 0.9f, 1.0f + p.getRandom().nextFloat() * 0.15f);
 	}
 
 	/** His speed for the speed-scaled damage, blocks a second (capped: {@link EngineConfig#DAMAGE_BPS_CAP}). */
@@ -709,6 +784,7 @@ public final class EngineMoves {
 		LivingEntity t = EngineCombat.aimed(p, EngineConfig.RISING_REACH, 35.0, EngineCombat::isTarget);
 		Quirks.setAnim(p, Engine.ANIM_RISING);
 		Quirks.setCooldown(p, EngineConfig.RISING, EngineConfig.RISING_COOLDOWN);
+		com.projecthero.mod.quirk.QuirkCombos.used(p, EngineConfig.RISING);
 		heat(p, EngineConfig.RISING_HEAT);
 		AbilityHelpers.launchSelf(p, p.getDeltaMovement().multiply(0.5, 0, 0.5).add(0, EngineConfig.RISING_SELF_HOP, 0));
 		ServerLevel level = p.serverLevel();
@@ -731,6 +807,8 @@ public final class EngineMoves {
 		level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(EngineCombat.EXHAUST_WHITE, c.x, c.y, c.z, 10, 0.2, 0.6, 0.2, 0.0);
 		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.8f);
+		kickRing(p, t);
+		kickLanded(p, false);
 		return t;
 	}
 
@@ -787,8 +865,13 @@ public final class EngineMoves {
 			level.sendParticles(EngineCombat.EXHAUST, x, p.getY() + 0.5, z, 2, 0.1, 0.05, 0.1, 0.0);
 		}
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, p.getX(), p.getY() + 0.7, p.getZ(), 3, 0.8, 0.1, 0.8, 0);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, p.position().add(0, 0.5, 0)).colours(0xFFFFFF, 0x5AA9FF).size((float) EngineConfig.SPIN_RADIUS)
+				.thickness(0.35f).life(9).spawn();
 		rev(p, 1.5f);
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.8f);
+		if (n > 0) {
+			kickLanded(p, false);
+		}
 		return n;
 	}
 
@@ -880,6 +963,8 @@ public final class EngineMoves {
 	public static void axeKick(ServerPlayer p) {
 		Session s = session(p);
 		s.axeAt = now(p);
+		// v0.17.1 combo route "Sky Splitter": Rising Kick, then the Axe Kick brings it back down
+		s.axeMult = com.projecthero.mod.quirk.QuirkCombos.mult(com.projecthero.mod.quirk.QuirkCombos.used(p, EngineConfig.AXE));
 		Quirks.setAnim(p, Engine.ANIM_AXE);
 		Quirks.setCooldown(p, EngineConfig.AXE, EngineConfig.AXE_COOLDOWN);
 		heat(p, EngineConfig.AXE_HEAT);
@@ -891,7 +976,8 @@ public final class EngineMoves {
 	private static int axeLand(ServerPlayer p, Session s) {
 		LivingEntity t = EngineCombat.aimed(p, EngineConfig.AXE_REACH, 35.0, EngineCombat::isTarget);
 		Vec3 c = t != null ? t.position() : p.position().add(flatLook(p).scale(1.6));
-		float dmg = (float) (EngineConfig.AXE_DAMAGE + EngineConfig.AXE_DAMAGE_PER_SPEED * bps(s));
+		float dmg = (float) (EngineConfig.AXE_DAMAGE + EngineConfig.AXE_DAMAGE_PER_SPEED * bps(s)) * s.axeMult;
+		s.axeMult = 1f;
 		int n = 0;
 		for (LivingEntity e : AbilityHelpers.enemiesAround(p, c, EngineConfig.AXE_RADIUS + 1.0)) {
 			double d = Math.sqrt(AbilityHelpers.distanceSqToBox(e, c.add(0, 0.5, 0)));
@@ -914,6 +1000,13 @@ public final class EngineMoves {
 		level.sendParticles(EngineCombat.EXHAUST, c.x, c.y + 0.3, c.z, 8, 0.5, 0.2, 0.5, 0.0);
 		sound(p, SoundEvents.ANVIL_LAND, 0.5f, 0.7f);
 		sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.7f);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, c.add(0, 0.05, 0)).colours(0xFFFFFF, 0x5AA9FF).size((float) EngineConfig.AXE_RADIUS + 1.2f)
+				.thickness(0.5f).life(10).ground().spawn();
+		com.projecthero.mod.quirk.fx.QuirkFx.decal(level, c.add(0, 0.05, 0)).style(com.projecthero.mod.quirk.fx.QuirkFx.DECAL_CRACK).colour(0x1A1614)
+				.size(1.6f).life(120).spawn();
+		if (n > 0) {
+			kickLanded(p, false);
+		}
 		return n;
 	}
 
@@ -956,6 +1049,9 @@ public final class EngineMoves {
 		}
 		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.7f);
 		sound(p, SoundEvents.SAND_BREAK, 0.8f, 0.8f);
+		if (n > 0) {
+			kickLanded(p, false);
+		}
 		return n;
 	}
 
@@ -1063,6 +1159,8 @@ public final class EngineMoves {
 				level.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 				level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y, c.z, 12, 0.3, 0.3, 0.3, 0.08);
 				sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.0f, 0.7f);
+				kickRing(p, t);
+				kickLanded(p, true); // the Finisher's camera punch
 			}
 		}
 	}
@@ -1082,6 +1180,499 @@ public final class EngineMoves {
 		}
 	}
 
+	// ================================================================ v0.17.1 hold R: the Charged Kick
+
+	/** R down (no Shift): the charge starts -- the tap kick waits for the release. */
+	public static void chargeStart(ServerPlayer p) {
+		Session s = session(p);
+		s.chargeAt = now(p);
+		Quirks.setVal(p, Engine.V_CHARGE, now(p));
+		sound(p, SoundEvents.PISTON_EXTEND, 0.6f, 0.6f);
+	}
+
+	/** How far the charge is, 0..1 (0 = a tap). */
+	public static float charge(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null || s.chargeAt < 0L) {
+			return 0f;
+		}
+		long held = now(p) - s.chargeAt;
+		return held < EngineConfig.CHARGE_MIN_TICKS ? 0f : Math.min(1f, held / (float) EngineConfig.CHARGE_FULL_TICKS);
+	}
+
+	/** R up: a tap is the Recipro Kick; a hold the Charged Kick. Returns how many it hit (-1: nothing was charging). */
+	public static int chargeRelease(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null || s.chargeAt < 0L) {
+			return -1;
+		}
+		float f = charge(p);
+		s.chargeAt = -1L;
+		Quirks.setVal(p, Engine.V_CHARGE, 0L);
+		return f <= 0f ? kick(p) : chargedKick(p, f);
+	}
+
+	private static void tickCharge(ServerPlayer p, Session s, long now) {
+		if (s.chargeAt < 0L) {
+			return;
+		}
+		long held = now - s.chargeAt;
+		ServerLevel level = p.serverLevel();
+		if (held >= EngineConfig.CHARGE_MIN_TICKS) {
+			// the nozzle flare builds: more fire, then white-hot at full
+			EngineCombat.exhaust(level, p, 1 + (int) (held / 4), 2);
+			if (held == EngineConfig.CHARGE_FULL_TICKS) {
+				reciproFlare(p, 10);
+				sound(p, EngineSounds.REV, 1.0f, EngineSounds.revPitch(4));
+			} else if (held % 4 == 0) {
+				sound(p, SoundEvents.BLAZE_SHOOT, 0.25f, 1.0f + held * 0.04f);
+			}
+		}
+		if (held > 100) {
+			chargeRelease(p); // nobody holds a kick for 5 s
+		}
+	}
+
+	/**
+	 * The Charged Kick (hold R, up to 1 s): the Recipro Kick x{@link EngineConfig#CHARGE_DAMAGE_MULT} at full and a launch along
+	 * the kick. {@code f} is the charge, 0..1. Returns how many it hit.
+	 */
+	public static int chargedKick(ServerPlayer p, float f) {
+		Session s = session(p);
+		double bps = bps(s);
+		float mult = 1f + (EngineConfig.CHARGE_DAMAGE_MULT - 1f) * Mth.clamp(f, 0f, 1f);
+		float dmg = Math.min(EngineConfig.KICK_DAMAGE_MAX * EngineConfig.CHARGE_DAMAGE_MULT, kickDamage(bps) * mult);
+		Vec3 look = flatLook(p);
+		int n = 0;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(0, 0.8, 0).add(look.scale(1.4)), EngineConfig.KICK_REACH + 1.0)) {
+			Vec3 to = new Vec3(e.getX() - p.getX(), 0, e.getZ() - p.getZ());
+			if (to.lengthSqr() > 0.04 && to.normalize().dot(look) < 0.35
+					|| Math.sqrt(AbilityHelpers.distanceSqToBox(e, p.position().add(0, 0.8, 0))) > EngineConfig.KICK_REACH + 0.5) {
+				continue;
+			}
+			if (EngineCombat.strike(p, e, p.position(), dmg, 0.0, 0.0)) {
+				n++;
+				kickRing(p, e);
+				if (!EngineCombat.isBoss(e)) {
+					e.setDeltaMovement(look.scale(EngineConfig.CHARGE_LAUNCH * (0.4 + 0.6 * f)).add(0, EngineConfig.CHARGE_LIFT * (0.5 + 0.5 * f), 0));
+					e.hurtMarked = true;
+					e.hasImpulse = true;
+				}
+			}
+		}
+		Quirks.setAnim(p, Engine.ANIM_CHARGED);
+		Quirks.setCooldown(p, EngineConfig.KICK, EngineConfig.KICK_COOLDOWN);
+		heat(p, EngineConfig.CHARGE_HEAT);
+		ServerLevel level = p.serverLevel();
+		Vec3 at = p.position().add(0, 0.9, 0).add(look.scale(1.5));
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, at).colours(0xFFFFFF, 0x7AC0FF).size(2.4f + 1.2f * f).thickness(0.5f).life(10)
+				.flags(com.projecthero.mod.quirk.fx.QuirkFx.F_VERTICAL).vec(look).spawn();
+		reciproFlare(p, 6 + (int) (10 * f));
+		rev(p, 2f + 2f * f);
+		sound(p, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 0.9f, 0.9f);
+		if (n > 0) {
+			kickLanded(p, f >= 0.99f);
+		} else {
+			com.projecthero.mod.quirk.fx.QuirkCamera.fovPunch(p, 0.06f, 6);
+		}
+		return n;
+	}
+
+	// ================================================================ v0.17.1 hold X while running: the Engine Brake
+
+	/** He is "running" for the brake: in gear with momentum, moving. */
+	public static boolean runningForBrake(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s != null && s.gear > 0 && s.momentum >= EngineConfig.BRAKE_MIN_MOMENTUM && s.speed > 0.15;
+	}
+
+	/** X down (no Shift): while running the tap (the dash) waits for the release, the hold is the brake; otherwise the dash at once. */
+	public static void xDown(ServerPlayer p) {
+		if (runningForBrake(p)) {
+			Session s = session(p);
+			s.brakeAt = now(p);
+			Quirks.setVal(p, Engine.V_BRAKE_AT, now(p));
+			return;
+		}
+		if (Quirks.ready(p, EngineConfig.DASH)) {
+			dash(p);
+		}
+	}
+
+	/** X up: the brake lets go (keeping its momentum), or a tap that waited fires the dash. */
+	public static void xUp(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		if (s == null) {
+			return;
+		}
+		if (s.braking) {
+			brakeOff(p, s);
+			return;
+		}
+		if (s.brakeAt >= 0L) {
+			s.brakeAt = -1L;
+			Quirks.setVal(p, Engine.V_BRAKE_AT, 0L);
+			if (Quirks.ready(p, EngineConfig.DASH)) {
+				dash(p);
+			}
+		}
+	}
+
+	/** The brake on (tests / harness): a controlled skid keeping 85% of the momentum it starts with. */
+	public static void brakeOn(ServerPlayer p) {
+		Session s = session(p);
+		s.brakeAt = -1L;
+		s.braking = true;
+		s.brakeKeep = s.momentum * EngineConfig.BRAKE_KEEP;
+		Quirks.setVal(p, Engine.V_BRAKE_AT, 0L);
+		Quirks.setVal(p, Engine.V_BRAKE, 1L);
+		Quirks.setAnim(p, Engine.ANIM_BRAKE);
+		sound(p, SoundEvents.GRINDSTONE_USE, 0.7f, 1.4f);
+		sound(p, SoundEvents.PISTON_CONTRACT, 0.7f, 0.7f);
+	}
+
+	private static void brakeOff(ServerPlayer p, Session s) {
+		s.braking = false;
+		Quirks.setVal(p, Engine.V_BRAKE, 0L);
+		if (Quirks.state(p).animId == Engine.ANIM_BRAKE) {
+			Quirks.setAnim(p, QuirkState.ANIM_NONE);
+		}
+		rev(p, s.gear);
+	}
+
+	private static void tickBrake(ServerPlayer p, Session s, long now) {
+		if (s.brakeAt >= 0L && !s.braking && now - s.brakeAt >= EngineConfig.BRAKE_HOLD_TICKS) {
+			brakeOn(p);
+		}
+		if (!s.braking) {
+			return;
+		}
+		if (s.gear <= 0) {
+			brakeOff(p, s);
+			return;
+		}
+		ServerLevel level = p.serverLevel();
+		if (now % 2 == 0 && p.onGround()) {
+			// the skid: twin scorched streaks under the calves and a spray of sparks
+			for (int side = -1; side <= 1; side += 2) {
+				Vec3 c = EngineCombat.calf(p, side);
+				com.projecthero.mod.quirk.fx.QuirkFx.decal(level, new Vec3(c.x, p.getY() + 0.03, c.z)).style(com.projecthero.mod.quirk.fx.QuirkFx.DECAL_SCORCH)
+						.colour(0x14100E).size(0.45f).life(140).yaw(p.yBodyRot).spawn();
+			}
+			level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.3, 0.05, 0.3, 0.15);
+			level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.05, p.getZ(), 1, 0.2, 0.02, 0.2, 0.02);
+		}
+		if (now % 6 == 0) {
+			sound(p, SoundEvents.GRINDSTONE_USE, 0.45f, 1.6f + p.getRandom().nextFloat() * 0.2f);
+		}
+	}
+
+	/** Test hook: the brake is on. */
+	public static boolean braking(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s != null && s.braking;
+	}
+
+	// ================================================================ v0.17.1 Plus Ultra: Recipro Burst -- Extend
+
+	/**
+	 * Recipro Burst -- Extend (the 1 s rev is the framework's C hold): {@link EngineConfig#BURST_TICKS} at double the Turbo cap,
+	 * heat frozen, and the first kick key chains to the next target within {@link EngineConfig#CHAIN_RANGE} on its own (up to
+	 * {@link EngineConfig#CHAIN_KICKS}, then the mach kick); then the engines stall for 30 s.
+	 */
+	public static void burst(ServerPlayer p) {
+		Session s = session(p);
+		if (running(p, Engine.V_TURBO)) {
+			Quirks.setVal(p, Engine.V_TURBO, 0L); // Turbo rolls straight into the Burst (the Burst's own stall follows)
+			s.turboOn = false;
+			PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, TURBO_DAMAGE_ID);
+		}
+		changeGear(p, s, EngineConfig.MAX_GEAR);
+		s.momentum = 1f;
+		s.chainUsed = false;
+		s.chainAt = -1L;
+		s.burstOn = true;
+		Quirks.setVal(p, Engine.V_BURST, now(p) + EngineConfig.BURST_TICKS);
+		Quirks.setAnim(p, Engine.ANIM_BURST);
+		ServerLevel level = p.serverLevel();
+		Vec3 c = p.position().add(0, 0.9, 0);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, c).colours(0xFFFFFF, 0xA8D8FF).size(4.5f).thickness(0.6f).life(14)
+				.flags(com.projecthero.mod.quirk.fx.QuirkFx.F_VERTICAL).vec(flatLook(p)).spawn();
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0x5AA9FF).size(7f).thickness(0.8f).life(16).ground()
+				.spawn();
+		com.projecthero.mod.quirk.fx.QuirkFx.trail(level, p).style(com.projecthero.mod.quirk.fx.QuirkFx.RIBBON_LIGHT).colours(0xFFFFFF, 0x7AC0FF).size(0.55f)
+				.size2(10f).life(EngineConfig.BURST_TICKS).vec(new Vec3(0, 1.0, 0)).spawn();
+		level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+		reciproFlare(p, 30);
+		sound(p, EngineSounds.BURST, 1.6f, 1.0f);
+		rev(p, 6f);
+		com.projecthero.mod.quirk.fx.QuirkCamera.preset(p, com.projecthero.mod.quirk.fx.QuirkCamera.Preset.ULTIMATE);
+		Quirks.say(p, "message.projecthero.quirk.engine.burst", ChatFormatting.AQUA);
+	}
+
+	/** The Burst is over: 30 s of seized engines. */
+	private static void burstEnds(ServerPlayer p) {
+		Quirks.setVal(p, Engine.V_BURST, 0L);
+		Session s = session(p);
+		s.chainAt = -1L;
+		Quirks.setVal(p, Engine.V_CHAIN, 0L);
+		ServerLevel level = p.serverLevel();
+		level.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.3, p.getZ(), 24, 0.6, 0.15, 0.6, 0.06);
+		sound(p, SoundEvents.FIRE_EXTINGUISH, 1.0f, 0.5f);
+		stall(p, EngineConfig.BURST_STALL_TICKS);
+	}
+
+	/** A kick key in the Burst: the chain starts (once a Burst). False if there is nobody within reach. */
+	public static boolean chainStart(ServerPlayer p) {
+		Session s = session(p);
+		if (s.chainUsed || s.chainAt >= 0L) {
+			return false;
+		}
+		if (chainTarget(p, s) == null) {
+			Quirks.say(p, "message.projecthero.quirk.engine.no_target", ChatFormatting.GRAY);
+			return false;
+		}
+		s.chainUsed = true;
+		s.chainAt = now(p);
+		s.chainKicks = 0;
+		s.chainHit.clear();
+		s.chainLast = -1;
+		Quirks.setVal(p, Engine.V_CHAIN, now(p) + (long) (EngineConfig.CHAIN_KICKS + 1) * EngineConfig.CHAIN_INTERVAL + 4);
+		chainStep(p, s, now(p));
+		return true;
+	}
+
+	private static @Nullable LivingEntity chainTarget(ServerPlayer p, Session s) {
+		LivingEntity best = null;
+		double bestD = Double.MAX_VALUE;
+		for (LivingEntity e : AbilityHelpers.enemiesAround(p, p.position().add(0, 0.9, 0), EngineConfig.CHAIN_RANGE)) {
+			if (s.chainHit.contains(e.getId()) || !e.isAlive()) {
+				continue;
+			}
+			double d = e.distanceToSqr(p);
+			if (d < bestD) {
+				bestD = d;
+				best = e;
+			}
+		}
+		return best;
+	}
+
+	private static void chainStep(ServerPlayer p, Session s, long now) {
+		long k = now - s.chainAt;
+		if (k % EngineConfig.CHAIN_INTERVAL != 0) {
+			return;
+		}
+		ServerLevel level = p.serverLevel();
+		boolean mach = s.chainKicks >= EngineConfig.CHAIN_KICKS;
+		LivingEntity t = mach ? (s.chainLast >= 0 && level.getEntity(s.chainLast) instanceof LivingEntity le && le.isAlive() ? le : chainTarget(p, s))
+				: chainTarget(p, s);
+		if (t == null && !mach && s.chainLast >= 0 && level.getEntity(s.chainLast) instanceof LivingEntity le && le.isAlive()) {
+			t = le; // out of new targets: straight to the mach kick on the last one
+			mach = true;
+		}
+		if (t == null) {
+			endChain(p, s);
+			return;
+		}
+		// he is simply THERE: an afterimage streak from where he was, and he stands at the target's near side
+		Vec3 from = p.position();
+		Vec3 dir = t.position().subtract(from);
+		dir = dir.horizontalDistanceSqr() < 1.0e-4 ? flatLook(p) : new Vec3(dir.x, 0, dir.z).normalize();
+		Vec3 to = t.position().subtract(dir.scale(t.getBbWidth() * 0.5 + 0.9));
+		if (p.level().noCollision(p, p.getBoundingBox().move(to.subtract(from)))) {
+			p.teleportTo(to.x, to.y, to.z);
+			p.setYRot((float) (Mth.atan2(-dir.x, dir.z) * Mth.RAD_TO_DEG));
+		}
+		com.projecthero.mod.quirk.fx.QuirkFx.ribbon(level, from.add(0, 1.0, 0), to.add(0, 1.0, 0)).style(com.projecthero.mod.quirk.fx.QuirkFx.RIBBON_LIGHT)
+				.colours(0xFFFFFF, 0x7AC0FF).size(0.5f).life(8).spawn();
+		p.resetFallDistance();
+		double bps = Math.min(EngineConfig.DAMAGE_BPS_CAP, Math.max(bps(s), EngineConfig.GEAR_TOP_BPS[EngineConfig.MAX_GEAR]));
+		if (mach) {
+			// the mach kick: a sonic crack and the body launched far
+			if (EngineCombat.strike(p, t, from, EngineConfig.MACH_DAMAGE, 0.0, 0.0) && !EngineCombat.isBoss(t)) {
+				t.setDeltaMovement(dir.scale(EngineConfig.MACH_LAUNCH).add(0, 0.7, 0));
+				t.hurtMarked = true;
+				t.hasImpulse = true;
+			}
+			Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
+			com.projecthero.mod.quirk.fx.QuirkFx.ring(level, c).colours(0xFFFFFF, 0xA8D8FF).size(5f).thickness(0.7f).life(14)
+					.flags(com.projecthero.mod.quirk.fx.QuirkFx.F_VERTICAL).vec(dir).spawn();
+			level.sendParticles(ParticleTypes.SONIC_BOOM, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+			sound(p, EngineSounds.BURST, 1.2f, 1.3f);
+			Quirks.setAnim(p, Engine.ANIM_MACH);
+			kickLanded(p, true);
+			endChain(p, s);
+			return;
+		}
+		float dmg = (float) (EngineConfig.CHAIN_DAMAGE + EngineConfig.CHAIN_DAMAGE_PER_SPEED * bps);
+		if (EngineCombat.strike(p, t, from, dmg, 0.4, 0.25)) {
+			kickRing(p, t);
+			kickLanded(p, false);
+		}
+		s.chainHit.add(t.getId());
+		s.chainLast = t.getId();
+		s.chainKicks++;
+		Quirks.setAnim(p, Engine.ANIM_CHAIN);
+		EngineCombat.exhaust(level, p, 6, 4);
+		sound(p, SoundEvents.PLAYER_ATTACK_STRONG, 1.0f, 1.0f + 0.08f * s.chainKicks);
+		rev(p, 4f + s.chainKicks * 0.3f);
+	}
+
+	private static void endChain(ServerPlayer p, Session s) {
+		s.chainAt = -1L;
+		Quirks.setVal(p, Engine.V_CHAIN, 0L);
+	}
+
+	/** Test hook: the chain's kicks so far. */
+	public static int chainKicks(ServerPlayer p) {
+		Session s = SESSIONS.get(p.getUUID());
+		return s == null ? 0 : s.chainKicks;
+	}
+
+	// ================================================================ v0.17.1 survival: water skim, wall kick, Rescue Carry
+
+	private static void tickSkimAndWall(ServerPlayer p, Session s, long now) {
+		ServerLevel level = p.serverLevel();
+		// the client keeps him up; the server keeps the books (no fall damage, the spray every viewer sees)
+		boolean skim = EngineSurvival.canSkim(p) && !Double.isNaN(EngineSurvival.waterSurface(p))
+				&& Math.abs(p.getY() - EngineSurvival.waterSurface(p)) < 0.6;
+		if (skim) {
+			p.resetFallDistance();
+			if (Quirks.state(p).val(Engine.V_SKIM) == 0L) {
+				Quirks.setVal(p, Engine.V_SKIM, now);
+			}
+			if (now % 2 == 0) {
+				level.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.3, 0.02, 0.3, 0.1);
+				level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.STEAM, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.2, 0.05, 0.2, 0.02);
+			}
+		} else if (Quirks.state(p).val(Engine.V_SKIM) != 0L) {
+			Quirks.setVal(p, Engine.V_SKIM, 0L);
+		}
+		wallKick(p, p.horizontalCollision);
+	}
+
+	/**
+	 * The wall kick: sprinting into a wall in gear he runs up it (at most {@link EngineConfig#WALL_MAX_CLIMB} blocks). The
+	 * client moves him; this keeps the books and the dust (and lifts a mock player in the gametests). Returns the climb speed
+	 * applied, or -1.
+	 */
+	public static double wallKick(ServerPlayer p, boolean collided) {
+		Session s = session(p);
+		if (!collided || !EngineSurvival.canWallKick(p)) {
+			if (p.onGround() || !collided) {
+				if (!Double.isNaN(s.wallStart)) {
+					s.wallStart = Double.NaN;
+					Quirks.setVal(p, Engine.V_WALL, 0L);
+				}
+			}
+			return -1.0;
+		}
+		if (Double.isNaN(s.wallStart)) {
+			s.wallStart = p.getY();
+			Quirks.setVal(p, Engine.V_WALL, now(p));
+			sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.5f, 1.4f);
+		}
+		double lift = EngineSurvival.wallLift(p.getY() - s.wallStart);
+		if (lift < 0.0) {
+			return -1.0;
+		}
+		Vec3 v = p.getDeltaMovement();
+		p.setDeltaMovement(v.x, Math.max(v.y, lift), v.z);
+		p.resetFallDistance();
+		if (p.tickCount % 3 == 0) {
+			EngineCombat.exhaust(p.serverLevel(), p, 2, 3);
+			BlockParticleSpray.wall(p);
+		}
+		return lift;
+	}
+
+	/** An ally Rescue Carry may lift: a squadmate, an owned / friendly pet, a villager -- not a boss, nothing too wide. */
+	public static boolean carriable(ServerPlayer p, LivingEntity e) {
+		if (e == p || !e.isAlive() || EngineCombat.isBoss(e) || e.getBbWidth() > EngineConfig.CARRY_MAX_WIDTH || e.isPassenger() || e.isVehicle()) {
+			return false;
+		}
+		return com.projecthero.mod.squad.Squads.areAllies(p, e) || HeroTargets.isOwnedBy(e, p) || HeroTargets.isFriendlyPet(p, e)
+				|| e instanceof net.minecraft.world.entity.npc.AbstractVillager;
+	}
+
+	/**
+	 * Rescue Carry (Sneak + use on an ally): lifts them onto his back -- they ride while he runs. Sneak + use again (on anything)
+	 * sets them down. Returns true if someone is now carried.
+	 */
+	public static boolean carry(ServerPlayer p, LivingEntity e) {
+		if (carried(p) != null) {
+			setDown(p);
+			return false;
+		}
+		if (!carriable(p, e)) {
+			return false;
+		}
+		if (!e.startRiding(p, true)) {
+			return false;
+		}
+		syncPassengers(p);
+		Quirks.setVal(p, Engine.V_CARRY, e.getId() + 1L);
+		Session s = session(p);
+		if (e.getHealth() < e.getMaxHealth() * EngineConfig.CARRY_SAVE_HEALTH && now(p) - s.carrySaveAt >= EngineConfig.CARRY_SAVE_COOLDOWN) {
+			s.carrySaveAt = now(p);
+			com.projecthero.mod.quirk.PlusUltra.add(p, com.projecthero.mod.quirk.PlusUltra.ALLY_SAVE); // a rescue
+		}
+		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER.value(), 1.0f, 0.9f);
+		Quirks.say(p, "message.projecthero.quirk.engine.carry", ChatFormatting.AQUA, e.getDisplayName());
+		return true;
+	}
+
+	/** Who he is carrying, or null. */
+	public static @Nullable LivingEntity carried(ServerPlayer p) {
+		long id = Quirks.state(p).val(Engine.V_CARRY);
+		if (id == 0L) {
+			return null;
+		}
+		return p.level().getEntity((int) (id - 1L)) instanceof LivingEntity le && le.getVehicle() == p ? le : null;
+	}
+
+	/** Sets the carried ally down beside him. */
+	public static void setDown(ServerPlayer p) {
+		LivingEntity e = carried(p);
+		if (e != null) {
+			e.stopRiding();
+			Vec3 side = flatLook(p);
+			e.teleportTo(p.getX() - side.z * 0.8, p.getY(), p.getZ() + side.x * 0.8);
+			e.resetFallDistance();
+		}
+		if (Quirks.state(p).val(Engine.V_CARRY) != 0L) {
+			Quirks.setVal(p, Engine.V_CARRY, 0L);
+		}
+		syncPassengers(p);
+	}
+
+	private static void tickCarry(ServerPlayer p, Session s, long now, boolean stalled) {
+		long id = Quirks.state(p).val(Engine.V_CARRY);
+		if (id == 0L) {
+			return;
+		}
+		LivingEntity e = carried(p);
+		if (e == null || stalled && now % 20 == 0) {
+			setDown(p); // gone, or the engines seized: set down
+			return;
+		}
+		e.resetFallDistance();
+	}
+
+	/** The wall run's dust (a separate holder so the particle code reads plainly). */
+	private static final class BlockParticleSpray {
+		static void wall(ServerPlayer p) {
+			Vec3 f = flatLook(p);
+			net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(p.getX() + f.x * 0.7, p.getY() + 0.3, p.getZ() + f.z * 0.7);
+			var st = p.level().getBlockState(at);
+			if (!st.isAir()) {
+				p.serverLevel().sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, st), p.getX() + f.x * 0.4,
+						p.getY() + 0.2, p.getZ() + f.z * 0.4, 6, 0.2, 0.1, 0.2, 0.1);
+			}
+		}
+	}
+
 	// ================================================================ the end of everything
 
 	/** Every running move ends, the gearbox drops to 0, the attribute modifiers come off. */
@@ -1098,10 +1689,18 @@ public final class EngineMoves {
 			s.barrageAt = -1L;
 			s.finisherAt = -1L;
 			s.extendKickAt = -1L;
+			s.chargeAt = -1L;
+			s.brakeAt = -1L;
+			s.braking = false;
+			s.burstOn = false;
+			s.chainAt = -1L;
+			s.wallStart = Double.NaN;
 		}
+		setDown(p);
 		QuirkState st = Quirks.state(p);
 		String[] keys = { Engine.V_TURBO, Engine.V_STRIKE, Engine.V_DASH, Engine.V_EXTEND_KICK, Engine.V_BARRAGE, Engine.V_FINISHER,
-				Engine.V_GEAR_NO, Engine.V_MOMENTUM };
+				Engine.V_GEAR_NO, Engine.V_MOMENTUM, Engine.V_BURST, Engine.V_CHAIN, Engine.V_BRAKE, Engine.V_BRAKE_AT, Engine.V_CHARGE, Engine.V_WALL,
+				Engine.V_SKIM };
 		boolean any = false;
 		for (String k : keys) {
 			any |= st.val(k) != 0L;

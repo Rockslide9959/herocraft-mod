@@ -38,6 +38,23 @@ public final class Engine {
 	public static final String V_FINISHER = "engine_finisher";
 	/** The last sliding turn (game time), for the skid pose and sparks. */
 	public static final String V_SLIDE = "engine_slide";
+	// v0.17.1 revamp
+	/** R is held for the Charged Kick since (the nozzle flare builds; the HUD ring). */
+	public static final String V_CHARGE = "engine_charge";
+	/** X is held: the Engine Brake skid (1 while it runs). */
+	public static final String V_BRAKE = "engine_brake";
+	/** X went down while running at (the tap / hold decision; the HUD ring). */
+	public static final String V_BRAKE_AT = "engine_brake_at";
+	/** Recipro Burst -- Extend (the ultimate) runs until. */
+	public static final String V_BURST = "engine_burst_x";
+	/** The chained kicks of the ultimate run until. */
+	public static final String V_CHAIN = "engine_chain";
+	/** Rescue Carry: who rides on his back (id + 1). */
+	public static final String V_CARRY = "engine_rescue";
+	/** Running up a wall (the wall kick) since. */
+	public static final String V_WALL = "engine_wall";
+	/** Skimming across water since. */
+	public static final String V_SKIM = "engine_skim";
 
 	/** Pre-revamp keys: removed from a save the first time the kit ticks (a carried creature is set down). */
 	public static final String LEGACY_GEAR = "engine_gear";
@@ -65,6 +82,17 @@ public final class Engine {
 	public static final int ANIM_SWEEP = 72;
 	public static final int ANIM_STALL = 73;
 	public static final int ANIM_FINISHER = 74;
+	// v0.17.1 revamp
+	/** Hold R: the Charged Kick's release. */
+	public static final int ANIM_CHARGED = 75;
+	/** Hold X: the Engine Brake skid (held while it runs). */
+	public static final int ANIM_BRAKE = 76;
+	/** Recipro Burst -- Extend: the launch out of the sprinter's crouch. */
+	public static final int ANIM_BURST = 77;
+	/** One of the ultimate's chained kicks. */
+	public static final int ANIM_CHAIN = 78;
+	/** The ultimate's closing mach kick. */
+	public static final int ANIM_MACH = 79;
 
 	/** Holds Engine and it is not Erased. */
 	public static boolean is(Player p) {
@@ -113,6 +141,16 @@ public final class Engine {
 		return (int) Math.max(0L, val(p, V_TURBO) - p.level().getGameTime());
 	}
 
+	/** v0.17.1: Recipro Burst -- Extend (the ultimate) is running. */
+	public static boolean burst(Player p) {
+		return running(p, V_BURST) && !stalled(p);
+	}
+
+	/** v0.17.1: the Engine Brake skid is on. */
+	public static boolean braking(Player p) {
+		return val(p, V_BRAKE) != 0L && !stalled(p);
+	}
+
 	public static boolean stalled(Player p) {
 		return Quirks.holds(p, Quirk.ENGINE) && Quirks.overloaded(p);
 	}
@@ -128,6 +166,9 @@ public final class Engine {
 		float d = gear(p);
 		if (turbo(p)) {
 			d = Math.max(1f, d) + 2f;
+		}
+		if (burst(p)) {
+			d = Math.max(3f, d) + 3f;
 		}
 		if (running(p, V_DASH) || running(p, V_STRIKE)) {
 			d = Math.max(d, 3f) + 1f;

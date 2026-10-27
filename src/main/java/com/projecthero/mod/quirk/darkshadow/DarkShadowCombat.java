@@ -86,7 +86,11 @@ public final class DarkShadowCombat {
 		int raw = p.level().getMaxLocalRawBrightness(BlockPos.containing(shadowPos(p)));
 		int light = Math.max(raw, heldLight(p));
 		if (DarkShadow.running(p, DarkShadow.V_FLARE)) {
-			light = 15;
+			return 15;
+		}
+		// v0.17.1 suit perk: Tokoyami's cloak hides it from the light -- two levels darker than it really is
+		if (com.projecthero.mod.quirk.QuirkPerks.fullSet(p)) {
+			light = Math.max(0, light - 2);
 		}
 		return light;
 	}
@@ -132,9 +136,18 @@ public final class DarkShadowCombat {
 			return false;
 		}
 		boolean boss = isBoss(target);
+		// v0.17.1: the Shadow band (Restrained x0.6 .. Ravenous x1.4) and Shadow Scout's mark (+15% from you)
+		damage *= com.projecthero.mod.quirk.meter.QuirkMeters.damageMult(owner);
+		if (DarkShadow.marked(owner, target)) {
+			damage *= cfg().moves.markBonus;
+		}
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * cfg().berserk.bossMaxFractionPerHit) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1f, dmg))) {
 			return false;
+		}
+		// Ravenous: its hits feed you
+		if (!DarkShadow.berserk(owner) && com.projecthero.mod.quirk.meter.QuirkMeters.band(owner) == com.projecthero.mod.quirk.meter.QuirkBand.RED) {
+			owner.heal(1f);
 		}
 		if (!boss) {
 			if (knockback > 0.0) {
@@ -149,6 +162,8 @@ public final class DarkShadowCombat {
 		level.sendParticles(ParticleTypes.SWEEP_ATTACK, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(SHADOW, c.x, c.y, c.z, 10, 0.3, 0.4, 0.3, 0.0);
 		level.sendParticles(ParticleTypes.SQUID_INK, c.x, c.y, c.z, 4, 0.2, 0.25, 0.2, 0.03);
+		com.projecthero.mod.quirk.fx.QuirkFx.flipbook(level, c).style(com.projecthero.mod.quirk.fx.QuirkFx.BOOK_INK).size(0.9f + 0.4f * level.random.nextFloat())
+				.life(12).spawn();
 		return true;
 	}
 

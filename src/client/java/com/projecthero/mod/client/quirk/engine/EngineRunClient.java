@@ -2,6 +2,7 @@ package com.projecthero.mod.client.quirk.engine;
 
 import com.projecthero.mod.quirk.engine.Engine;
 import com.projecthero.mod.quirk.engine.EngineConfig;
+import com.projecthero.mod.quirk.engine.EngineSurvival;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -27,6 +28,8 @@ public final class EngineRunClient {
 	private static float speedBps;
 	/** Horizontal speed (blocks a tick) the last time he was on the ground in gear. */
 	private static double groundSpeed;
+	/** v0.17.1 the wall kick: the height he started up the wall at (NaN: not on a wall). */
+	private static double wallStart = Double.NaN;
 
 	private EngineRunClient() {
 	}
@@ -35,6 +38,7 @@ public final class EngineRunClient {
 		lastVel = Vec3.ZERO;
 		speedBps = 0f;
 		groundSpeed = 0.0;
+		wallStart = Double.NaN;
 	}
 
 	/** The local player's speed for the HUD, blocks a second. */
@@ -49,7 +53,31 @@ public final class EngineRunClient {
 		}
 		double raw = Math.hypot(p.getX() - p.xo, p.getZ() - p.zo) * 20.0;
 		speedBps = Mth.lerp(0.35f, speedBps, (float) raw);
-		if (!Engine.is(p) || p.isPassenger() || p.isSpectator() || p.getAbilities().flying || p.isInWater() || p.isFallFlying()) {
+		// v0.17.1 survival: fast enough at Gear 3, he runs across water...
+		boolean skimming = Engine.is(p) && EngineSurvival.skim(p);
+		// ...and sprinting into a wall in gear runs up it (up to 4 blocks)
+		if (Engine.is(p) && p.horizontalCollision && EngineSurvival.canWallKick(p)) {
+			if (Double.isNaN(wallStart)) {
+				wallStart = p.getY();
+			}
+			double lift = EngineSurvival.wallLift(p.getY() - wallStart);
+			if (lift > 0.0) {
+				Vec3 v0 = p.getDeltaMovement();
+				p.setDeltaMovement(v0.x, Math.max(v0.y, lift), v0.z);
+				p.resetFallDistance();
+			}
+		} else if (p.onGround() || !p.horizontalCollision) {
+			if (!Double.isNaN(wallStart) && !p.horizontalCollision && !p.onGround()) {
+				// off the top of the wall: a small hop forward over the lip
+				Vec3 v0 = p.getDeltaMovement();
+				if (v0.y > 0.2) {
+					Vec3 f = Vec3.directionFromRotation(0f, p.getYRot());
+					p.setDeltaMovement(v0.x + f.x * 0.25, 0.32, v0.z + f.z * 0.25);
+				}
+			}
+			wallStart = Double.NaN;
+		}
+		if (!Engine.is(p) || p.isPassenger() || p.isSpectator() || p.getAbilities().flying || (p.isInWater() && !skimming) || p.isFallFlying()) {
 			lastVel = Vec3.ZERO;
 			groundSpeed = 0.0;
 			return;
@@ -80,7 +108,10 @@ public final class EngineRunClient {
 			lastVel = flat;
 			return;
 		}
-		float grip = EngineConfig.grip(gear, mom, turbo);
+		float grip = EngineConfig.grip(gear, mom, turbo || Engine.burst(p));
+		if (Engine.braking(p)) {
+			grip *= EngineConfig.BRAKE_GRIP; // v0.17.1 the Engine Brake: the skid drifts the turn
+		}
 		double a0 = Math.atan2(lastVel.z, lastVel.x);
 		double a1 = Math.atan2(flat.z, flat.x);
 		double diff = Mth.wrapDegrees(Math.toDegrees(a1 - a0));
