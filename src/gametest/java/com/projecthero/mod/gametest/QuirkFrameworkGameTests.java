@@ -340,6 +340,17 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 		return -1;
 	}
 
+	/**
+	 * v0.17.1 (user, after playing: "as it is right now player basically will never reach max heat"): Engine, Explosion and
+	 * Hellflame were sped back up on purpose -- they must still take at least 25 s of steady heavy use; every other Quirk 45 s.
+	 */
+	private static int pacingFloorSeconds(Quirk q) {
+		return switch (q.id) {
+			case "engine", "explosion", "hellflame" -> 25;
+			default -> 45;
+		};
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void heavyUseNeverReachesTheRedZoneWithin45Seconds(GameTestHelper helper) {
 		StringBuilder report = new StringBuilder();
@@ -350,8 +361,9 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 			ServerPlayer p = holder(helper, q, x, 1.5);
 			x += 1.0;
 			s.channel.set(p, s.channelDirection == QuirkMeterSpec.Direction.BUILDS ? 0f : 100f);
-			int hit = heavyUse(p, s, 45 * 20);
-			report.append(q.id).append('=').append(hit < 0 ? ">45s" : (hit / 20f) + "s").append(' ');
+			int floor = pacingFloorSeconds(q);
+			int hit = heavyUse(p, s, floor * 20);
+			report.append(q.id).append('=').append(hit < 0 ? ">" + floor + "s" : (hit / 20f) + "s").append(' ');
 			helper.assertTrue(hit < 0, q.id + ": steady heavy use reached the danger zone after only " + (hit / 20f) + " s (" + report + ")");
 			// and it is not toothless: an hour of the same use does get there (or, for a refilling meter, never empties)
 			if (s.channelDirection == QuirkMeterSpec.Direction.BUILDS) {

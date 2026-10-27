@@ -17,7 +17,7 @@ import net.minecraft.server.level.ServerPlayer;
  * without a blast is unchanged (70 to 30 in about 7.7 s).
  */
 public final class ExplosionMeter {
-	public static final float BUILD = 0.28f;
+	public static final float BUILD = 0.38f; // v0.17.1 (user: "make strain generate a bit faster"): was 0.28
 	public static final float RECOVER = 1.0f;
 	/** The doc's starter route (2.7): Stun Grenade, then AP Shot within 1.2 s = a crit (x1.5). */
 	public static QuirkCombos.Route STUN_SHOT;

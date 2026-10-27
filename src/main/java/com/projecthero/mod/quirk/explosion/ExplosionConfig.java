@@ -61,8 +61,9 @@ public final class ExplosionConfig {
 	public static final int SOFT_LANDING_MAX = 200;
 
 	// ---------------------------------------------------------------- Sweat (the meter, 0..100: fuel, not paced)
-	/** v0.16.7 (user): the sweat builds on its own, 4 a second (0.2 a tick), on top of what moving / fighting adds. */
-	public static final float SWEAT_NATURAL = 0.2f;
+	/** v0.17.1 (user: "make sweat generate 2 per second"): the sweat builds on its own, 2 a second (0.1 a tick; was 4), on top of
+	 * what moving / fighting adds. */
+	public static final float SWEAT_NATURAL = 0.1f;
 	public static final float SWEAT_WALK = 0.08f;
 	public static final float SWEAT_SPRINT = 0.14f;
 	public static final float SWEAT_COMBAT = 0.08f;

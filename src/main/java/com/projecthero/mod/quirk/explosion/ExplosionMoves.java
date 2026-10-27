@@ -448,13 +448,7 @@ public final class ExplosionMoves {
 				level.sendParticles(QuirkParticles.STEAM, h.x, h.y, h.z, 2, 0.08, 0.15, 0.08, 0.02);
 			}
 		}
-		// the palm crackle tell: a soaked Bakugo's palms spark and pop
-		if (Quirks.meter(p) >= ExplosionConfig.SOAKED_FROM && now % 10 == 0 && !s.propel) {
-			ExplosionBlast.palm(level, palm(p, p.getRandom().nextBoolean(), 0.15, 0.75, 0.42), 3);
-			if (now % 40 == 0) {
-				QuirkSounds.play(level, p.position().add(0, 0.8, 0), ExplosionSounds.CRACKLE, 0.35f, 0.9f + p.getRandom().nextFloat() * 0.3f);
-			}
-		}
+		// v0.17.1 (user): no palm crackle / sound at high sweat any more
 	}
 
 	/** The full suit went on / came off: the gauntlets' bank (it empties when the gauntlets come off). */

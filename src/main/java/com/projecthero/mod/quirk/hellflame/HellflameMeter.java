@@ -16,7 +16,7 @@ import com.projecthero.mod.quirk.meter.QuirkMeterSpec;
  * unchanged (Inferno to Blaze in about 11.5 s).
  */
 public final class HellflameMeter {
-	public static final float BUILD = 0.12f;
+	public static final float BUILD = 0.18f; // v0.17.1 (user: "make the heat generate a bit faster"): was 0.12
 	public static final float RECOVER = 1.0f;
 	/** v0.17.1: Hell Spider: Mesh, then the Hellflame Pillar within 2 s (it erupts under the trapped) = x1.5. */
 	public static QuirkCombos.Route MESH_PILLAR;

@@ -75,7 +75,8 @@ public final class EngineConfig {
 
 	// ---------------------------------------------------------------- the meter (Engine heat, per second)
 	/** Sprinting in each gear (walking or standing in gear cools at IDLE_COOL; gear 0 cools fastest). */
-	public static final float[] GEAR_HEAT_PER_SECOND = { 0f, 1.0f, 2.5f, 5.0f };
+	/** v0.17.1 (user: "increase heat generation a little while running ... basically will never reach max heat"): x1.6 (was 1 / 2.5 / 5). */
+	public static final float[] GEAR_HEAT_PER_SECOND = { 0f, 1.6f, 4.0f, 8.0f };
 	/** In gear but walking or standing: the engines idle and cool slowly (passive cooling -- there is no vent key). */
 	public static final float IDLE_COOL_PER_SECOND = 2.5f;
 	/** Out of gear. */

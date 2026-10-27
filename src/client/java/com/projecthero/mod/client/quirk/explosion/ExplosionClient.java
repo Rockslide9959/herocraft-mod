@@ -110,9 +110,9 @@ public final class ExplosionClient implements QuirkClientKit {
 	 */
 	@Override
 	public boolean renderTell(PoseStack pose, MultiBufferSource buffers, int light, Player player, HumanoidModel<?> model, float partial) {
-		float sweat = Quirks.clientMeter(player);
 		float hold = PlusUltra.clientHold(player);
-		float k = hold >= 0f ? 1f : sweat >= ExplosionConfig.SOAKED_FROM ? 0.9f : sweat >= ExplosionConfig.PRIMED_FROM ? 0.35f : 0f;
+		// v0.17.1 (user): no palm sparks from high sweat -- only while the Plus Ultra C is held
+		float k = hold >= 0f ? 1f : 0f;
 		float strain = Explosion.strain(player);
 		if (k <= 0f && strain < ExplosionConfig.STRAIN_WARN) {
 			return true;

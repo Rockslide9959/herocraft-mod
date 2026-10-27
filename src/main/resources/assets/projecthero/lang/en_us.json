@@ -7235,7 +7235,7 @@
   "projecthero.guide.quirk.explosion": "Explosion (Ground Zero)",
   "projecthero.guide.quirk.explosion.tier": "Quirk (Primary power): Explosion, the Quirk of Katsuki Bakugo",
   "projecthero.guide.quirk.explosion.body": "Your sweat is like nitroglycerin: point-blank power, palm-blast flight and pure aggression. The more you sweat, the bigger the boom. R, G and X each have a hold move (keep the key down) on top of the tap and Shift moves. X is your movement key, V your utility key.",
-  "projecthero.guide.quirk.explosion.meter.body": "Sweat is your fuel. It builds on its own, 4 a second, faster while you fight and move and faster still where it is hot; water and rain wash it off. Dry (0-29): your blasts sputter at 0.6x. Primed (30-79): full power. Soaked (80+): 1.4x, and your palms crackle.",
+  "projecthero.guide.quirk.explosion.meter.body": "Sweat is your fuel. It builds on its own, 2 a second, faster while you fight and move and faster still where it is hot; water and rain wash it off. Dry (0-29): your blasts sputter at 0.6x. Primed (30-79): full power. Soaked (80+): 1.4x.",
   "projecthero.guide.quirk.explosion.overload": "Arm Strain",
   "projecthero.guide.quirk.explosion.overload.body": "Every blast strains your arms (the two arm icons on the HUD). It builds slowly and eases off two seconds after you stop. From 70 every blast is 15% stronger but costs half a heart. At 100 your arms are shot: 6 s of Weakness II and no blasts. Shift+V Cool Off eases it, even then.",
   "projecthero.guide.quirk.explosion.passive": "Good to know",
