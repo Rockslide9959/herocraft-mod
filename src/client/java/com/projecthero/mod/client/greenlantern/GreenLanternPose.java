@@ -153,6 +153,19 @@ public final class GreenLanternPose {
 			m.hat.copyFrom(m.head);
 			return;
 		}
+		if (fx.has(GreenLanternFx.CH_GATEWAY)) {
+			// v0.17.1: channelling a Hard-Light Gateway -- the ring fist raised high toward the door frame it is tracing,
+			// the free hand open at the side, a faint strain in the arm
+			float tremble = Mth.sin(age * 1.9f) * 0.02f;
+			if (player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT) {
+				set(m, 1f, -2.25f + tremble, -0.2f, 0.05f, -0.35f, 0.2f, -0.45f);
+			} else {
+				set(m, 1f, -0.35f, -0.2f, 0.45f, -2.25f + tremble, 0.2f, -0.05f);
+			}
+			m.head.xRot = Mth.lerp(0.6f, m.head.xRot, -0.15f);
+			m.hat.copyFrom(m.head);
+			return;
+		}
 		if (fx.has(GreenLanternFx.CH_GATLING)) {
 			float tremble = Mth.sin(age * 3.1f) * 0.03f;
 			aimRight(m, 1f, tremble);

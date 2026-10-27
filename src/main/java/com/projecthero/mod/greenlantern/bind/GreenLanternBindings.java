@@ -100,7 +100,22 @@ public final class GreenLanternBindings {
 			return;
 		}
 		Entry e = GreenLanternBinding.resolve(GreenLantern.state(p), GreenLanternBinding.key(base, shift));
+		if (e == null && shift) {
+			// v0.17.1: an empty Shift key under a Drone / Gateway key is that construct's second action
+			Entry plain = GreenLanternBinding.resolve(GreenLantern.state(p), GreenLanternBinding.key(base, false));
+			if (GreenLanternBinding.isPair(plain)) {
+				com.projecthero.mod.greenlantern.recon.GreenLanternRecon.press(p, plain.type(), true);
+			}
+			return;
+		}
 		if (e == null) {
+			return;
+		}
+		if (GreenLanternBinding.isPair(e)) {
+			// v0.17.1: the key = its main action, Shift + the key = its second one -- while both keys hold it (a Drone left
+			// on a Shift key alone does its main action there)
+			boolean second = shift && e.equals(GreenLanternBinding.resolve(GreenLantern.state(p), GreenLanternBinding.key(base, false)));
+			com.projecthero.mod.greenlantern.recon.GreenLanternRecon.press(p, e.type(), second);
 			return;
 		}
 		if (e.hold()) {
@@ -193,12 +208,16 @@ public final class GreenLanternBindings {
 		if (e == null || !GreenLanternBinding.KEYS.contains(key)) {
 			return;
 		}
-		if (!GreenLanternBinding.allowed(key, e)) {
-			p.displayClientMessage(Component.translatable("message.projecthero.green_lantern.menu.c_tap_only"), true);
+		String refused = GreenLanternBinding.refusalKey(key, e);
+		if (refused != null) {
+			p.displayClientMessage(Component.translatable(refused), true);
 			return;
 		}
 		GreenLanternState c = GreenLantern.state(p).copy();
 		c.bindings.put(key, e.id());
+		if (GreenLanternBinding.isPair(e)) {
+			c.bindings.put(GreenLanternBinding.twin(key), e.id()); // v0.17.1: the Drone / Gateway takes the Shift twin too
+		}
 		GreenLantern.save(p, c);
 	}
 

@@ -242,6 +242,7 @@
       "com.projecthero.mod.gametest.SupervillainModelGameTests",
       "com.projecthero.mod.gametest.RaidModelGameTests",
       "com.projecthero.mod.gametest.GreenLanternMechGameTests",
+      "com.projecthero.mod.gametest.GreenLanternReconGameTests",
       "com.projecthero.mod.gametest.ChlorokinesisGameTests"
     ]
   },

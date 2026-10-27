@@ -42,6 +42,8 @@ public final class GreenLanternBinding {
 	public static final int ATLAS_SURVIVAL = 2;
 	/** v0.17.1: the Hard-Light Mech has an icon file of its own (textures/gui/green_lantern/mech_icon.png, cell 0). */
 	public static final int ATLAS_MECH = 3;
+	/** v0.17.1: the Hard-Light Drone and Gateway icon strip (textures/gui/green_lantern/ring_tech.png, 2 x 16 px). */
+	public static final int ATLAS_RING_TECH = 4;
 
 	/**
 	 * One menu entry. {@code type} is the construct it deploys (null for the ring's own moves); {@code hold} = the key is
@@ -98,6 +100,9 @@ public final class GreenLanternBinding {
 			} else if (t == ConstructType.HARD_LIGHT_MECH) {
 				atlas = ATLAS_MECH;
 				cell = 0;
+			} else if (t.kind() == ConstructType.Kind.RING_TECH) { // v0.17.1: the drone and the gateway
+				atlas = ATLAS_RING_TECH;
+				cell = t.ordinal() - ConstructType.HARD_LIGHT_DRONE.ordinal();
 			}
 			list.add(new Entry("c_" + t.name().toLowerCase(Locale.ROOT), sectionOf(t), t.isHold(), atlas, cell, t));
 		}
@@ -130,7 +135,8 @@ public final class GreenLanternBinding {
 		return switch (t) {
 			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, ATMOSPHERE_BUBBLE, BEAR_TRAP, MIRROR_SHIELD -> Section.DEFENCE;
 			case PLATFORM, BRIDGE, STAIR_RAMP, MINING_DRILL, LANTERN_LIGHT, HARD_LIGHT_TOOLS, RESCUE_TETHER, CARRY_PLATFORM,
-					LAUNCH_PAD, GRAPPLING_CLAW, HARD_LIGHT_CHEST, SCAFFOLD_TOWER, ITEM_NET, TUNNELLER -> Section.BUILDING;
+					LAUNCH_PAD, GRAPPLING_CLAW, HARD_LIGHT_CHEST, SCAFFOLD_TOWER, ITEM_NET, TUNNELLER,
+					HARD_LIGHT_DRONE, HARD_LIGHT_GATEWAY -> Section.BUILDING;
 			case SENTRY_TURRET, EMERALD_WARRIOR, FIGHTER_JET, EMERALD_DRAGON, MED_BAY -> Section.SUMMON;
 			default -> Section.ATTACK;
 		};
@@ -172,9 +178,37 @@ public final class GreenLanternBinding {
 		return out;
 	}
 
-	/** Plain C opens the menu when held, so only tap entries may go on it. */
+	/**
+	 * Plain C opens the menu when held, so only tap entries may go on it. v0.17.1: the Hard-Light Drone and Gateway never go
+	 * on H or Shift+H.
+	 */
 	public static boolean allowed(String key, Entry e) {
-		return e != null && KEYS.contains(key) && !("C".equals(key) && e.hold());
+		return refusalKey(key, e) == null;
+	}
+
+	/** v0.17.1: why {@code e} can't go on {@code key} (a lang key for the menu's flash and the server's message), or null. */
+	public static String refusalKey(String key, Entry e) {
+		if (e == null || !KEYS.contains(key) || "C".equals(key) && e.hold()) {
+			return "message.projecthero.green_lantern.menu.c_tap_only";
+		}
+		if (isPair(e) && ("H".equals(key) || "SH".equals(key))) {
+			return "message.projecthero.green_lantern.menu.no_h";
+		}
+		return null;
+	}
+
+	/**
+	 * v0.17.1: a "pair" entry takes a key AND its Shift twin -- the key is its main action, Shift + the key its second one
+	 * (the Hard-Light Drone: deploy / dismiss and the scout run; the Hard-Light Gateway: the waypoint picker and the
+	 * Waypoints screen). Binding one to either key of a pair binds both.
+	 */
+	public static boolean isPair(Entry e) {
+		return e != null && e.type() != null && e.type().kind() == ConstructType.Kind.RING_TECH;
+	}
+
+	/** The other key of a G / Shift+G pair ("G" -> "SG", "SG" -> "G"). */
+	public static String twin(String key) {
+		return key.startsWith("S") ? key.substring(1) : "S" + key;
 	}
 
 	/** "SG" -> "Shift+G" (the badge / tooltip label). */

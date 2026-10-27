@@ -877,3 +877,74 @@ Attack section, its own icon file `textures/gui/green_lantern/mech_icon.png` via
   with cooldowns and a Rocket Fist bar on R, the Ring Charge bar; Alt lists the moves; first person adds cockpit brackets.
   The vanilla mount hearts and the "Press Shift to Dismount" hint are dropped (`GreenLanternMechGuiMixin`).
 - Gametests: `GreenLanternMechGameTests`.
+
+## v0.17.1 -- the Hard-Light Drone and the Hard-Light Gateway (ring waypoints)
+
+Two "ring tech" constructs (`ConstructType.HARD_LIGHT_DRONE` / `HARD_LIGHT_GATEWAY`, appended, `Kind.RING_TECH`), all in
+`greenlantern/recon/`: `GreenLanternRecon` (entity types, payloads, key router, per-player tick, clean-up),
+`GreenLanternDrone` + `HardLightDroneEntity`, `GreenLanternGateway` + `HardLightGatewayEntity`, `GreenLanternWaypoints`
+(the data) and `GreenLanternReconConfig` (every number). Menu tabs: Drone = Utility, Gateway = Mobility (section Building &
+Utility). HUD key-box icons: `textures/gui/green_lantern/ring_tech.png` (2 x 16 px, `GreenLanternBinding.ATLAS_RING_TECH`);
+menu icons `icons/c_hard_light_drone.png`, `icons/c_hard_light_gateway.png` (`scratchpad/gl_icons_v0171/drone_gateway_icons.js`
+in the main checkout).
+
+**Keys -- a key and its Shift twin.** Both are "pair" entries (`GreenLanternBinding#isPair`): binding one to G (or Shift+G)
+binds both G and Shift+G. The key is the main action, Shift + the key the second one (`GreenLanternBindings#key` passes
+`second` only while both keys hold it; an empty Shift key under a pair key falls through to its second action too). Neither
+can go on H or Shift+H (`GreenLanternBinding#refusalKey` -> `menu.no_h`). Menu "spawn once" = the main action.
+
+| | Drone | Gateway |
+|---|---|---|
+| Key | deploy (80) / dismiss (free); 2 a second while out | the waypoint picker; mid-channel: cancel; doors open: close them early |
+| Shift + key | scout run (deploys one first if none is out); again = come home | the Waypoints screen |
+
+**Drone** (`HardLightDroneEntity`, 0.7 x 0.5, never saved, server-driven, client lerp-smoothed). Follows over the right
+shoulder (`GreenLanternDrone#shoulder`, eased `flyTo`, blinks home past 28 blocks). Every 60 ticks it sweeps 32 blocks and
+sends `GreenLanternReconPayload.MARKS` to its Lantern alone -> `GreenLanternRingScanClient#acceptDrone` -> `EntityGlowMixin`
+outlines them red (a set of its own, so it never wipes a Ring Scan). Fetch: the nearest `ItemEntity` / `ExperienceOrb` within 8
+blocks of the bearer (never one the bearer threw in the last 2 min) -- it flies over it, carries it under a tractor beam and
+hands it over (`playerTouch`; a full inventory gets it set down at the feet). Zap: a `Mob` whose target is the bearer, within
+16, in sight, `HeroTargets.canHarm` -> 3 damage every 30 ticks. Scout run: to the crosshair block (64 max) pulled back 1.2 and
+up 2.5, hover 200 ticks circling, a sweep of 24 every 40 ticks, and on arrival `SCOUT_REPORT` (hostiles, containers
+(`Container` block entities but furnaces, in loaded chunks), other creatures) -> the Scout Report popup
+(`GreenLanternReconClient`). 40 HP (`hurt` -> `GreenLanternDrone#onHurt`; the owner and their squad can't hurt it); pickable,
+projectiles hit it. Ends on: key, N, an empty ring, being shot down, death / logout / world change.
+Model (`client/greenlantern/recon/HardLightDroneRenderer`): teardrop hull of stacked slices with a spine, keel and 45-degree
+shell, swept fins + stabiliser, flank seams, tail light, belly emitter; a lens with a bezel ring, dark glass, bright core and the
+Lantern emblem (white flash on a zap); two spinning rotor rings on pylons that tip with speed; a two-shell halo; a 14-sample
+light ribbon; zap streak + impact orb; tractor beam; a sweeping scan ring under it while it hovers; banks into turns; flickers
+under 30% HP.
+
+**Waypoints**: attachment `ModAttachments.GREEN_LANTERN_WAYPOINTS` (persistent, `copyOnDeath`, synced to the owner only):
+up to 5 `(name, dimension, x, y, z, yaw)`. Names are cleaned (`GreenLanternWaypoints#clean`, 24 chars). C2S
+`GreenLanternGatewayPayload` ADD / RENAME / DELETE / OPEN; S2C `GreenLanternReconPayload.OPEN_PICKER` / `OPEN_WAYPOINTS`
+(carries the cooldown seconds). Screens: `GreenLanternWaypointsScreen` (rows with coordinates + distance; other-world rows greyed
+with the reason; inline rename; "Mark here" with a name box) and `GreenLanternGatewayPickerScreen` (compact rows: distance +
+cost, or the reason it is greyed: other world / too close (< 8) / recharging; click or press 1-5; "Waypoints..." button). Both use
+`ReconUi` (the Construct Menu's panel look), every line wraps or is cut with an ellipsis.
+
+**Gateway** (`GreenLanternGateway#start`): refused (nothing spent, no cooldown) when busy, on cooldown, the waypoint is in another
+dimension (`gateway.other_dimension` -- cross-dimension is deliberately not allowed), under 8 blocks, the ring can't pay, or there
+is no room 2.6 ahead. Otherwise a `HardLightGatewayEntity` in state TRACE stands there facing the bearer, `GreenLanternFx.CH_GATEWAY`
+raises the ring arm (`GreenLanternPose`), a rising resonance hums every 10 ticks, and the HUD shows "Opening gateway" with a bar.
+`AFTER_DAMAGE` on the bearer -> `onDamaged` -> cancel (no cost, no cooldown). After 60 ticks `complete`: the far end is loaded
+(`getChunk`), a safe landing found (`PegasusTeleport.landing`, the Kaalki / Pegasus portal helpers), the cost paid (100 + 0.2 a
+block, 600 max, through `GreenLanternEnergy#spend`), the near door goes OPEN and its twin opens at the waypoint facing the way
+the Lantern faced when saving it, both closing after 200 ticks; 5-minute cooldown (`construct_gateway`); the ring voice says
+"Gateway open: <name>." (`GreenLanternRingVoice.Line.GATEWAY`). Each open door keeps its chunk with a `TicketType.PORTAL`
+ticket (refreshed every 100 ticks). Travel (`passThrough` / `travel`, like `PegasusPortalEntity`): a player crossing the door
+plane within the opening goes out 1.3 in front of the other door, lateral offset mirrored, yaw turned by
+`to.yaw - (from.yaw + 180)` and horizontal velocity with it; 30-tick re-entry guard. Only the owner and `Squads.areAllies`
+players; anyone else gets a "not yours" spark; mobs are never moved. N / death / logout cancel the channel and fold the doors.
+Door model (`HardLightGatewayRenderer`): stepped pillars with fluted faces and climbing rune dashes, capitals, a squared lintel,
+an arched crown with a keystone carrying the emblem, tympanum, threshold step, bright inner edge; the opening is three layered
+swirl planes at depths 0.04 / 0.28 / 0.55 (per-vertex spiral colour, alternating directions, deeper = darker and slower), a rim
+glow and 46 motes flowing in from round the frame and spiralling into the middle. TRACE draws the outline as two lines of light
+climbing from the threshold to the crown (ghost outline + drawing sparks, emblem at the end); OPEN unfolds a centre seam, then
+widens out; CLOSING folds back.
+
+Static state (`GreenLanternDrone.DRONES`, `GreenLanternGateway.CHANNELS / OPEN / PASSED / DENIED`) is cleared by
+`GreenLanternRecon#clearSessionState` (via `GreenLanternArsenal#clearSessionState` <- `GreenLanternAbilityManager` <-
+`ServerStateReset`) and per player by `GreenLanternRecon#dismissAll` (via `GreenLanternArsenal#dismissAll` on N, death, respawn,
+logout and world change).
+Gametests: `GreenLanternReconGameTests`. Screenshots: `docs/screenshots/v0171/gl_drone_*.png`, `gl_gateway_*.png`.

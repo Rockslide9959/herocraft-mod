@@ -168,7 +168,8 @@ public abstract class EntityGlowMixin {
 		if (self instanceof LivingEntity && com.projecthero.mod.greenlantern.GreenLantern.hasPower(viewer)) {
 			long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
 			if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isHostile(self.getId(), now)
-					|| com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
+					|| com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)
+					|| com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isDroneMarked(self.getId(), now)) { // v0.17.1
 				cir.setReturnValue(true);
 				return;
 			}
@@ -320,7 +321,8 @@ public abstract class EntityGlowMixin {
 			return;
 		}
 		long now = viewer.level() != null ? viewer.level().getGameTime() : 0L;
-		if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isHostile(self.getId(), now)) {
+		if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isHostile(self.getId(), now)
+				|| com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isDroneMarked(self.getId(), now)) { // v0.17.1 drone
 			cir.setReturnValue(0xFF3B3B);
 		} else if (com.projecthero.mod.client.greenlantern.GreenLanternRingScanClient.isPassive(self.getId(), now)) {
 			cir.setReturnValue(0x3BFF6B);

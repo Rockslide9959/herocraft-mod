@@ -42,7 +42,9 @@ public final class GreenLanternRingVoice {
 		SURGE("surge", 60 * 20, false),
 		INTEGRITY("integrity", 20 * 20, true),
 		RANK("rank", 0, true),
-		COMBO("combo", 30 * 20, false);
+		COMBO("combo", 30 * 20, false),
+		/** v0.17.1: a Hard-Light Gateway opened ("Gateway open: %s."), the waypoint's name as a literal argument. */
+		GATEWAY("gateway", 0, true);
 
 		public final String id;
 		public final int cooldownTicks;

@@ -56,6 +56,8 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	/** v0.17.1: the survival constructs' icons (chest, scaffold tower, item net, tunneller). */
 	public static final ResourceLocation SURVIVAL_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/survival.png");
 	public static final ResourceLocation MECH_ICON = ProjectHeroMod.id("textures/gui/green_lantern/mech_icon.png");
+	/** v0.17.1: the Hard-Light Drone (cell 0) and Gateway (cell 1). */
+	public static final ResourceLocation RING_TECH_ICONS = ProjectHeroMod.id("textures/gui/green_lantern/ring_tech.png");
 
 	/** The menu's tabs. A construct goes in its {@link ConstructType#category()}'s tab; ring moves by their section. */
 	public enum Tab {
@@ -1015,6 +1017,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			RenderSystem.enableBlend();
 			g.blit(MECH_ICON, x, y, size, size, 0f, 0f, 16, 16, 16, 16);
 			RenderSystem.disableBlend();
+		} else if (e.atlas() == GreenLanternBinding.ATLAS_RING_TECH) { // v0.17.1: the Hard-Light Drone and Gateway
+			RenderSystem.enableBlend();
+			g.blit(RING_TECH_ICONS, x, y, size, size, e.cell() * 16f, 0f, 16, 16, 32, 16);
+			RenderSystem.disableBlend();
 		} else {
 			RenderSystem.enableBlend();
 			g.blit(ENTRY_ICONS, x, y, size, size, (e.cell() % 8) * 16f, (e.cell() / 8) * 16f, 16, 16, 128, 64);
@@ -1155,7 +1161,7 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			return;
 		}
 		if (!GreenLanternBinding.allowed(key, e)) {
-			flash(Component.translatable("message.projecthero.green_lantern.menu.c_tap_only"), RED);
+			flash(Component.translatable(GreenLanternBinding.refusalKey(key, e)), RED);
 			sound(SoundEvents.NOTE_BLOCK_BASS.value(), 0.7f, 0.6f);
 			return;
 		}

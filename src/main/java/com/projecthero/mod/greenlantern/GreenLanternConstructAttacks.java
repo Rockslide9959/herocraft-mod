@@ -717,6 +717,11 @@ public final class GreenLanternConstructAttacks {
 
 	/** Deploys one of the v0.14.3 entity constructs. Returns false if {@code type} is not one of them. */
 	public static boolean deploy(ServerPlayer player, ConstructType type) {
+		if (type.kind() == ConstructType.Kind.RING_TECH) {
+			// v0.17.1: the Hard-Light Drone and Gateway (their Shift actions come through GreenLanternBindings#key)
+			com.projecthero.mod.greenlantern.recon.GreenLanternRecon.press(player, type, false);
+			return true;
+		}
 		if (type.kind() == ConstructType.Kind.SURVIVAL) {
 			GreenLanternSurvival.deploy(player, type); // v0.17.1: chest, scaffold tower, item net, tunneller
 			return true;
