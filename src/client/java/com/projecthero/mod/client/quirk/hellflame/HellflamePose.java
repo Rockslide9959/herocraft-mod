@@ -64,11 +64,12 @@ public final class HellflamePose {
 			f(5, -0.4f, 0.3f, 0.95f, -0.4f, -0.3f, -0.95f, 0.12f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.2f),
 			f(11, -0.45f, 0.3f, 1.05f, -0.45f, -0.3f, -1.05f, 0.15f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.25f),
 			rest(16) };
+	/** Shift+Z: Hellflame Pillar -- the fist raised high, then driven down into the ground as it glows. */
 	private static final float[][] PILLAR = {
 			rest(0),
-			f(5, 0.35f, 0, 0.35f, -0.4f, 0, -0.4f, 0.4f, 0.2f, -0.3f, 0, 0, 0.3f, 0, 0, 0.25f),
-			f(9, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, 0, 0, -0.2f, 0, 0, -0.45f),
-			f(14, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, 0, 0, -0.2f, 0, 0, -0.45f),
+			f(4, -2.8f, -0.1f, 0.1f, -0.4f, 0, -0.35f, -0.1f, 0.15f, -0.15f, 0, 0, 0.15f, 0, 0, -0.3f),
+			f(8, -0.7f, 0, 0.05f, -0.3f, 0, -0.45f, 0.75f, 0.1f, -0.75f, 0, 0.1f, 0.55f, 0, -0.05f, 0.35f),
+			f(14, -0.7f, 0, 0.05f, -0.3f, 0, -0.45f, 0.7f, 0.1f, -0.75f, 0, 0.1f, 0.55f, 0, -0.05f, 0.3f),
 			rest(18) };
 	private static final float[][] VANISH = {
 			f(0, 0.5f, 0, 0.45f, -1.0f, 0.45f, 0, 0.35f, 0.65f, 0.4f, 0, 0, -0.4f, 0, 0, 0.1f),
@@ -81,12 +82,46 @@ public final class HellflamePose {
 			f(4, 0, 0, 1.45f, 0, 0, -1.45f, -0.15f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.6f),
 			f(16, -0.1f, 0, 1.4f, -0.1f, 0, -1.4f, -0.18f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.65f),
 			rest(22) };
-	private static final float[][] PLUS = {
+	/** G: Flashfire Fist 1 -- a snapping right jab. */
+	private static final float[][] FIST_1 = {
 			rest(0),
-			f(6, 0.35f, 0.2f, 0.5f, 0.35f, -0.2f, -0.5f, 0.4f, 0, -0.25f, 0, 0, 0.25f, 0, 0, 0.3f),
-			f(10, -0.45f, 0, 1.95f, -0.45f, 0, -1.95f, -0.22f, 0, 0.25f, 0, 0, -0.25f, 0, 0, -0.6f),
-			f(24, -0.5f, 0, 2.0f, -0.5f, 0, -2.0f, -0.25f, 0, 0.25f, 0, 0, -0.25f, 0, 0, -0.65f),
-			rest(30) };
+			f(1, 0.25f, 0, 0.1f, -0.9f, 0.3f, 0, 0.05f, 0.25f, 0, 0, 0, 0, 0, 0, 0),
+			f(3, -1.62f, -0.05f, 0, -0.85f, 0.35f, 0, 0.1f, -0.35f, 0.15f, 0, 0, -0.2f, 0, 0, 0),
+			f(6, -1.55f, -0.05f, 0, -0.85f, 0.35f, 0, 0.1f, -0.3f, 0.15f, 0, 0, -0.2f, 0, 0, 0),
+			rest(10) };
+	/** G: Flashfire Fist 2 -- the left cross, the hips turned into it. */
+	private static final float[][] FIST_2 = {
+			rest(0),
+			f(1, -0.9f, -0.3f, 0, 0.25f, 0, -0.1f, 0.05f, -0.3f, 0, 0, 0, 0, 0, 0, 0),
+			f(3, -0.85f, -0.35f, 0, -1.62f, 0.05f, 0, 0.12f, 0.45f, -0.2f, 0, 0, 0.15f, 0, 0, 0),
+			f(6, -0.85f, -0.35f, 0, -1.55f, 0.05f, 0, 0.12f, 0.4f, -0.2f, 0, 0, 0.15f, 0, 0, 0),
+			rest(10) };
+	/** G: Flashfire Fist 3 -- coiled, then the jet-assisted straight: the whole body lunges behind the right fist. */
+	private static final float[][] FIST_3 = {
+			rest(0),
+			f(2, 0.6f, 0.3f, 0.2f, -1.0f, 0.4f, 0, 0.2f, 0.55f, -0.3f, 0, 0, 0.3f, 0, 0, 0.05f),
+			f(4, -1.68f, -0.1f, 0, 0.75f, 0, -0.3f, 0.42f, -0.6f, 0.75f, 0, 0, -0.6f, 0, 0, 0.1f),
+			f(9, -1.62f, -0.1f, 0, 0.7f, 0, -0.3f, 0.38f, -0.55f, 0.7f, 0, 0, -0.55f, 0, 0, 0.1f),
+			rest(14) };
+	/** X: Jet Burst -- palms thrown back and down, the body laid out flat along the thrust. */
+	private static final float[][] BURST = {
+			rest(0),
+			f(2, 1.25f, 0, 0.35f, 1.25f, 0, -0.35f, 0.55f, 0, 0.35f, 0, 0, -0.1f, 0, 0, -0.35f),
+			f(7, 1.2f, 0, 0.35f, 1.2f, 0, -0.35f, 0.5f, 0, 0.3f, 0, 0, -0.05f, 0, 0, -0.3f),
+			rest(11) };
+	/** C: Flame Wave -- both hands wound back to the right, then swept round to the left in one wide arc. */
+	private static final float[][] WAVE = {
+			rest(0),
+			f(3, -1.2f, -1.05f, 0.25f, -1.15f, -0.65f, 0.25f, 0.12f, 0.65f, 0.1f, 0, 0, -0.2f, 0, 0, 0),
+			f(6, -1.45f, 0.95f, 0, -1.35f, 1.25f, 0, 0.18f, -0.65f, -0.25f, 0, 0.1f, 0.25f, 0, 0, 0.05f),
+			f(12, -1.4f, 0.95f, 0, -1.3f, 1.2f, 0, 0.15f, -0.6f, -0.25f, 0, 0.1f, 0.25f, 0, 0, 0.05f),
+			rest(16) };
+	/** The Forge Hand: the right palm cupped over the left, heat in between. */
+	private static final float[][] FORGE = {
+			rest(0),
+			f(3, -1.0f, 0.55f, 0, -1.1f, -0.45f, 0, 0.12f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
+			f(10, -1.0f, 0.55f, 0, -1.1f, -0.45f, 0, 0.12f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
+			rest(14) };
 	/** Eight jabs, alternating fists, every 4 ticks (built in the static block). */
 	private static final float[][] BARRAGE;
 
@@ -124,7 +159,12 @@ public final class HellflamePose {
 			case Hellflame.ANIM_PILLAR -> PILLAR;
 			case Hellflame.ANIM_VANISH -> VANISH;
 			case Hellflame.ANIM_COOL -> COOL;
-			case Hellflame.ANIM_PLUS -> PLUS;
+			case Hellflame.ANIM_FIST_1 -> FIST_1;
+			case Hellflame.ANIM_FIST_2 -> FIST_2;
+			case Hellflame.ANIM_FIST_3 -> FIST_3;
+			case Hellflame.ANIM_BURST -> BURST;
+			case Hellflame.ANIM_WAVE -> WAVE;
+			case Hellflame.ANIM_FORGE -> FORGE;
 			default -> null;
 		};
 	}
@@ -208,6 +248,36 @@ public final class HellflamePose {
 			model.leftLeg.xRot = -0.4f;
 		}
 
+		if (Hellflame.prominence(player)) {
+			// v0.17.1 Prominence Burn: the ignition flings the arms out wide and up, head back, legs spread; the comet is a
+			// fist-first dive (both fists ahead, legs together; the body is pitched along the flight by bodyTurn)
+			float age = Hellflame.prominenceAge(player, partial);
+			boolean comet = age >= com.projecthero.mod.quirk.hellflame.HellflameConfig.PROM_IGNITE_TICKS;
+			float shake = Mth.sin(ageTicks * 3.1f) * 0.04f;
+			if (!comet) {
+				float k = Mth.clamp(age / 8f, 0f, 1f);
+				pose(r, k, -0.55f + shake, 0f, 2.05f);
+				pose(l, k, -0.55f - shake, 0f, -2.05f);
+				HipBend.pitch(model, k, -0.2f);
+				model.rightLeg.xRot = 0f;
+				model.leftLeg.xRot = 0f;
+				model.rightLeg.zRot = 0.3f * k;
+				model.leftLeg.zRot = -0.3f * k;
+				model.head.xRot = Mth.lerp(k, model.head.xRot, -0.6f);
+			} else {
+				pose(r, 1f, -3.05f + shake, -0.1f, 0.12f);
+				pose(l, 1f, -3.05f - shake, 0.1f, -0.12f);
+				model.rightLeg.xRot = 0.08f;
+				model.leftLeg.xRot = 0.08f;
+				model.rightLeg.zRot = 0.03f;
+				model.leftLeg.zRot = -0.03f;
+				model.head.xRot = -0.9f;
+			}
+			model.rightLeg.yRot = 0f;
+			model.leftLeg.yRot = 0f;
+			model.hat.copyFrom(model.head);
+			return;
+		}
 		if (!keyframed) {
 			model.hat.copyFrom(model.head);
 			return;
@@ -226,7 +296,8 @@ public final class HellflamePose {
 		if (p != null) {
 			// the aimed moves follow the look up and down
 			float aim = switch (animId) {
-				case Hellflame.ANIM_JET, Hellflame.ANIM_SPIDER, Hellflame.ANIM_MESH, Hellflame.ANIM_BARRAGE, Hellflame.ANIM_VANISH -> model.head.xRot * 0.6f;
+				case Hellflame.ANIM_JET, Hellflame.ANIM_SPIDER, Hellflame.ANIM_MESH, Hellflame.ANIM_BARRAGE, Hellflame.ANIM_VANISH, Hellflame.ANIM_FIST_1,
+						Hellflame.ANIM_FIST_2, Hellflame.ANIM_FIST_3, Hellflame.ANIM_WAVE -> model.head.xRot * 0.6f;
 				default -> 0f;
 			};
 			r.xRot = Mth.lerp(w, r.xRot, p[1] + (p[1] < -1.0f ? aim : 0f));
@@ -243,6 +314,22 @@ public final class HellflamePose {
 			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[QuirkKeyframes.HEAD_X]);
 		}
 		model.hat.copyFrom(model.head);
+	}
+
+	/**
+	 * v0.17.1 Prominence Burn's comet ({@code QuirkBodyTurnMixin}): pitched head-first along the flight (the look pitch + 90),
+	 * easing in over 3 ticks, with a slow roll; null otherwise.
+	 */
+	public static float[] bodyTurn(Player player, float partial) {
+		if (!Hellflame.prominence(player)) {
+			return null;
+		}
+		float age = Hellflame.prominenceAge(player, partial) - com.projecthero.mod.quirk.hellflame.HellflameConfig.PROM_IGNITE_TICKS;
+		if (age < 0f) {
+			return null;
+		}
+		float pitch = Mth.clamp(90f + player.getViewXRot(partial), 25f, 170f) * Math.min(1f, age / 3f);
+		return new float[] { 0f, pitch, age * 18f };
 	}
 
 	/** Spent: bent over, hands on the knees, breathing hard. */

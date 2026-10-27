@@ -1,0 +1,896 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkAbilityManager;
+import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.explosion.ExplosionMoves;
+import com.projecthero.mod.quirk.hellflame.HellflameMoves;
+import com.projecthero.mod.quirk.item.QuirkSuits;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Explosion + Hellflame screenshots. Enabled by run/quirkexhf.flag. */
+// TEMP-HARNESS
+public final class QuirkExHfHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer fake;
+	private static final List<Zombie> DUMMIES = new ArrayList<>();
+	private static final List<Vec3> HOMES = new ArrayList<>();
+	/** Dummies are put back where they stand every tick (knockback would scatter the shot). */
+	private static volatile boolean pin = true;
+	/** Only shoot these (comma list of name prefixes) when run/quirkexhf.only exists. */
+	private static String only;
+
+	private QuirkExHfHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("quirkexhf.flag"))) {
+			return;
+		}
+		try {
+			if (Files.exists(Path.of("quirkexhf.only"))) {
+				only = Files.readString(Path.of("quirkexhf.only")).trim();
+			}
+		} catch (Exception e) {
+			only = null;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(QuirkExHfHarness::tick);
+		// the server never moves a player (the client does): carry the fake by its velocity, with gravity
+		ServerTickEvents.END_SERVER_TICK.register(srv -> {
+			if (pin) {
+				for (int i = 0; i < DUMMIES.size() && i < HOMES.size(); i++) {
+					Zombie z = DUMMIES.get(i);
+					if (z.isAlive() && z.position().distanceToSqr(HOMES.get(i)) > 0.0025) {
+						z.teleportTo(HOMES.get(i).x, HOMES.get(i).y, HOMES.get(i).z);
+						z.setDeltaMovement(Vec3.ZERO);
+					}
+				}
+			}
+			if (fake != null && !fake.isRemoved()) {
+				Vec3 v = fake.getDeltaMovement();
+				fake.move(MoverType.SELF, v);
+				boolean held = fake.getAbilities().mayfly;
+				double vy = fake.onGround() && v.y < 0 ? 0 : held ? v.y * 0.6 : (v.y - 0.08) * 0.98;
+				fake.setDeltaMovement(v.x * 0.91, vy, v.z * 0.91);
+			}
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "quirkexhf-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				for (ServerPlayer sp : srv.getPlayerList().getPlayers()) {
+					if (sp != fake) {
+						try {
+							fn.accept(sp);
+						} catch (Throwable e) {
+							System.out.println("[HARNESS] error: " + e);
+							e.printStackTrace();
+						}
+						return;
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static boolean wanted(String name) {
+		if (only == null || only.isEmpty()) {
+			return true;
+		}
+		for (String s : only.split(",")) {
+			if (name.startsWith(s.trim())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void shot(int t, String name) {
+		if (!wanted(name)) {
+			return;
+		}
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			mc.gui.setOverlayMessage(net.minecraft.network.chat.Component.empty(), false);
+			mc.getToasts().clear();
+			Screenshot.grab(mc.gameDirectory, "exhf_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(QuirkExHfHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(13200L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_MOBGRIEFING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				for (int x = -16; x <= 16; x++) {
+					for (int z = -16; z <= 24; z++) {
+						level.setBlock(BlockPos.containing(origin.x + x, origin.y - 1, origin.z + z),
+								((x + z) & 1) == 0 ? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 3);
+					}
+				}
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("EXHF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, Quirk q) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		// the suit goes on BEFORE the player joins: a fake is never ticked, so a later change would never be sent
+		QuirkSuits.Suit suit0 = QuirkSuits.Suit.of(q);
+		for (ArmorItem.Type t : suit0.pieces()) {
+			f.setItemSlot(t.getSlot(), new ItemStack(QuirkSuits.piece(q, t)));
+		}
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(f, q));
+		return f;
+	}
+
+	/** A fresh fake hero at the origin facing +Z, with dummies set out in front. */
+	private static void stage(Minecraft mc, Quirk q, Vec3[] dummies) {
+		server(mc, p -> {
+			clear(p);
+			fake = fake(p, q == Quirk.EXPLOSION ? "Bakugo" : "Endeavor", origin, q);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			for (Vec3 d : dummies) {
+				Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+				Vec3 at = origin.add(d);
+				z.moveTo(at.x, at.y, at.z, 180f, 0f);
+				z.setYHeadRot(180f);
+				z.yBodyRot = 180f;
+				z.setNoAi(true);
+				z.setPersistenceRequired();
+				z.setSilent(true);
+				z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+				z.setHealth(1000f);
+				p.serverLevel().addFreshEntity(z);
+				DUMMIES.add(z);
+				HOMES.add(at);
+			}
+		});
+	}
+
+	private static void clear(ServerPlayer p) {
+		if (fake != null) {
+			Quirks.revoke(fake);
+			fake.connection.disconnect(net.minecraft.network.chat.Component.empty());
+			fake = null;
+		}
+		for (Zombie z : DUMMIES) {
+			z.discard();
+		}
+		DUMMIES.clear();
+		HOMES.clear();
+		for (var e : p.serverLevel().getEntities(EntityType.ITEM, e -> true)) {
+			e.discard();
+		}
+		for (var e : p.serverLevel().getEntities(com.projecthero.mod.quirk.fx.QuirkFx.TYPE, e -> true)) {
+			e.discard();
+		}
+	}
+
+	private static void fk(Minecraft mc, Consumer<ServerPlayer> fn) {
+		server(mc, p -> {
+			if (fake != null) {
+				fn.accept(fake);
+			}
+		});
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	/** The local player becomes the hero (first person, HUD on). */
+	private static void self(Minecraft mc, Quirk q, float yaw, float pitch, Vec3[] dummies, float meter) {
+		server(mc, p -> {
+			clear(p);
+			p.setGameMode(GameType.SURVIVAL);
+			p.getInventory().clearContent();
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, q));
+			for (ArmorItem.Type ty : QuirkSuits.Suit.of(q).pieces()) {
+				p.setItemSlot(ty.getSlot(), new ItemStack(QuirkSuits.piece(q, ty)));
+			}
+			Quirks.edit(p, n -> {
+				n.abilityReadyAt.clear();
+				n.overloadUntil = 0L;
+			});
+			Quirks.setMeter(p, meter);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, yaw, pitch);
+			for (Vec3 d : dummies) {
+				Zombie z = EntityType.ZOMBIE.create(p.serverLevel());
+				Vec3 at = origin.add(d);
+				z.moveTo(at.x, at.y, at.z, 180f, 0f);
+				z.setYHeadRot(180f);
+				z.yBodyRot = 180f;
+				z.setNoAi(true);
+				z.setPersistenceRequired();
+				z.setSilent(true);
+				z.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+				z.setHealth(1000f);
+				p.serverLevel().addFreshEntity(z);
+				DUMMIES.add(z);
+				HOMES.add(at);
+			}
+		});
+		gui(mc, true);
+	}
+
+	private static void back(Minecraft mc) {
+		server(mc, p -> {
+			Quirks.revoke(p);
+			p.setGameMode(GameType.CREATIVE);
+			p.getAbilities().flying = true;
+			p.onUpdateAbilities();
+		});
+		gui(mc, false);
+	}
+
+	private static final Vec3[] LINE = { new Vec3(0, 0, 6), new Vec3(-1.5, 0, 9) };
+
+	private static void calibrate(Minecraft mc) {
+		float[][] vals = { { 0, 0, 0, 0, 0 }, { -20, 0, 0, 0, 0 }, { 20, 15, 0.1f, 0.2f, -0.3f }, { 35, 15, 0.1f, 0.3f, -0.3f }, { 50, 15, 0.1f, 0.35f, -0.3f },
+				{ 35, 30, 0.2f, 0.3f, -0.4f }, { 35, 0, 0.25f, 0.25f, -0.2f }, { 60, 10, 0.15f, 0.45f, -0.2f } };
+		at(5, () -> self(mc, Quirk.EXPLOSION, 0f, 0f, new Vec3[0], 10f));
+		for (int i = 0; i < vals.length; i++) {
+			float[] v = vals[i];
+			int base = 20 + i * 12;
+			int k = i;
+			at(base, () -> {
+				com.projecthero.mod.client.quirk.QuirkFirstPersonPose.register(Quirk.EXPLOSION, com.projecthero.mod.quirk.explosion.Explosion.ANIM_MINE,
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.clip(
+								com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(0, v[0], v[1], 0, v[2], v[3], v[4], v[0], v[1], 0, v[2], v[3], v[4]),
+								com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(400, v[0], v[1], 0, v[2], v[3], v[4], v[0], v[1], 0, v[2], v[3], v[4]))
+								.twoHanded());
+				server(mc, p -> Quirks.setAnim(p, com.projecthero.mod.quirk.explosion.Explosion.ANIM_MINE));
+			});
+			shot(base + 8, "cal_" + k + "_p" + (int) v[0] + "_y" + (int) v[1]);
+		}
+		at(20 + vals.length * 12 + 5, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	/** Moves dummy {@code i} (and its pinned home) to origin + {@code rel}. */
+	private static void place(int i, Vec3 rel) {
+		if (i < DUMMIES.size()) {
+			Vec3 at = origin.add(rel);
+			HOMES.set(i, at);
+			DUMMIES.get(i).teleportTo(at.x, at.y, at.z);
+		}
+	}
+
+	/** Fills the floor back in and clears the air above it (the blasts dig craters). */
+	private static void resetArena(Minecraft mc) {
+		server(mc, p -> {
+			ServerLevel level = p.serverLevel();
+			for (int x = -16; x <= 16; x++) {
+				for (int z = -16; z <= 24; z++) {
+					for (int y = -4; y <= -1; y++) {
+						level.setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + z), y == -1 && ((x + z) & 1) == 0
+								? Blocks.SMOOTH_STONE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2);
+					}
+				}
+			}
+			for (var e : level.getEntities(EntityType.ITEM, e -> true)) {
+				e.discard();
+			}
+		});
+	}
+
+	private static void cam(Minecraft mc, Vec3 eye, Vec3 target) {
+		server(mc, p -> camera(p, origin.add(eye), origin.add(target)));
+	}
+
+	private static void burst(int from, int to, int step, String name) {
+		for (int k = from; k <= to; k += step) {
+			shot(k, name + "_" + String.format("%03d", k - from));
+		}
+	}
+
+	private static void ready(ServerPlayer f, float meter) {
+		Quirks.setMeter(f, meter);
+		Quirks.edit(f, n -> {
+			n.abilityReadyAt.clear();
+			n.overloadUntil = 0L;
+		});
+		if (Quirks.quirk(f) == Quirk.EXPLOSION) {
+			ExplosionMoves.setStrain(f, 0f);
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		if (only != null && only.startsWith("cal")) {
+			calibrate(mc);
+			return;
+		}
+		// the hero stands at the origin facing +Z; the side camera sits out on +X
+		Vec3 sideEye = new Vec3(6.5, 2.0, 3.0), sideAt = new Vec3(0, 1.4, 3.2);
+		Vec3 closeEye = new Vec3(3.6, 1.9, 1.3), closeAt = new Vec3(0, 1.35, 1.2);
+		int t = 10;
+
+		// ================================================================ EXPLOSION, third person
+		final int ex = t;
+		at(ex, () -> {
+			gui(mc, false);
+			pin = true;
+			stage(mc, Quirk.EXPLOSION, new Vec3[] { new Vec3(0, 0, 6), new Vec3(-0.8, 0, 9) });
+			cam(mc, sideEye, sideAt);
+		});
+		at(ex + 12, () -> fk(mc, f -> {
+			ready(f, 60f);
+			ExplosionMoves.apShot(f);
+		}));
+		burst(ex + 13, ex + 19, 2, "ex_ap_shot");
+		at(ex + 36, () -> fk(mc, ExplosionMoves::startPierce));
+		shot(ex + 60, "ex_pierce_charge");
+		at(ex + 66, () -> fk(mc, ExplosionMoves::firePierce));
+		burst(ex + 67, ex + 73, 2, "ex_pierce_fire");
+		at(ex + 90, () -> fk(mc, f -> {
+			ready(f, 60f);
+			ExplosionMoves.blastRush(f);
+		}));
+		burst(ex + 92, ex + 100, 2, "ex_blast_rush");
+		// close: Explosive Punch, Crush Grip, Uppercut
+		at(ex + 120, () -> {
+			place(0, new Vec3(0, 0, 2.2));
+			place(1, new Vec3(0, 0, 30));
+			cam(mc, closeEye, closeAt);
+		});
+		at(ex + 126, () -> fk(mc, f -> {
+			ready(f, 60f);
+			ExplosionMoves.blastPunch(f);
+		}));
+		burst(ex + 127, ex + 133, 2, "ex_punch");
+		at(ex + 150, () -> fk(mc, f -> {
+			ready(f, 60f);
+			pin = false;
+			ExplosionMoves.crushGrip(f);
+		}));
+		burst(ex + 152, ex + 174, 3, "ex_grip");
+		at(ex + 190, () -> {
+			pin = true;
+			place(0, new Vec3(0, 0, 2.0));
+		});
+		at(ex + 196, () -> fk(mc, f -> {
+			ready(f, 60f);
+			pin = false;
+			ExplosionMoves.uppercut(f);
+		}));
+		burst(ex + 197, ex + 205, 2, "ex_uppercut");
+		// Cluster + Stun from a high front three-quarter
+		at(ex + 230, () -> fk(mc, f -> {
+			pin = true;
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			place(0, new Vec3(2.6, 0, 2.0));
+			place(1, new Vec3(-2.4, 0, 2.6));
+			cam(mc, new Vec3(4.2, 4.2, 6.5), new Vec3(0, 0.8, 0.8));
+		}));
+		at(ex + 236, () -> fk(mc, f -> {
+			ready(f, 85f);
+			ExplosionMoves.cluster(f);
+		}));
+		burst(ex + 237, ex + 245, 2, "ex_cluster");
+		at(ex + 266, () -> cam(mc, new Vec3(2.6, 2.0, 5.2), new Vec3(0, 1.4, 0.6)));
+		at(ex + 270, () -> fk(mc, f -> {
+			ready(f, 60f);
+			ExplosionMoves.stunGrenade(f);
+		}));
+		burst(ex + 271, ex + 277, 2, "ex_stun");
+		// Gauntlet Grenade down a long line
+		at(ex + 300, () -> {
+			place(0, new Vec3(0, 0, 7));
+			place(1, new Vec3(-0.8, 0, 11));
+			cam(mc, new Vec3(8.0, 2.6, 4.5), new Vec3(0, 1.4, 5.0));
+		});
+		at(ex + 304, () -> fk(mc, f -> {
+			ready(f, 100f);
+			ExplosionMoves.gauntlet(f);
+		}));
+		shot(ex + 312, "ex_gauntlet_charge");
+		burst(ex + 318, ex + 330, 2, "ex_gauntlet_fire");
+		// Propulsion (side, in the air)
+		at(ex + 350, () -> fk(mc, f -> {
+			ready(f, 90f);
+			f.teleportTo(f.serverLevel(), origin.x, origin.y + 2.5, origin.z, 0f, -10f);
+			ExplosionMoves.startPropel(f);
+			f.setDeltaMovement(0, 0, 0);
+		}));
+		at(ex + 352, () -> cam(mc, new Vec3(4.5, 3.6, 0.5), new Vec3(0, 3.4, 0.4)));
+		for (int k = 0; k < 24; k++) {
+			at(ex + 353 + k, () -> fk(mc, f -> f.setDeltaMovement(0, 0.0, 0.04)));
+		}
+		burst(ex + 362, ex + 372, 5, "ex_propulsion");
+		at(ex + 378, () -> fk(mc, ExplosionMoves::endPropel));
+		// Howitzer Impact
+		at(ex + 400, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 25f);
+			place(0, new Vec3(0, 0, 8));
+			place(1, new Vec3(1.4, 0, 9.4));
+			cam(mc, new Vec3(10.0, 4.5, 3.5), new Vec3(0, 2.6, 4.5));
+		}));
+		at(ex + 404, () -> fk(mc, f -> {
+			ready(f, 100f);
+			f.setOnGround(true);
+			ExplosionMoves.howitzer(f);
+		}));
+		burst(ex + 406, ex + 448, 3, "ex_howitzer");
+		// the crater it left
+		at(ex + 452, () -> cam(mc, new Vec3(6.0, 6.5, -1.0), new Vec3(0, 0, 4.5)));
+		shot(ex + 458, "ex_howitzer_crater");
+		// the ultimate: Howitzer Impact -- Cluster
+		at(ex + 480, () -> {
+			resetArena(mc);
+			stage(mc, Quirk.EXPLOSION, new Vec3[] { new Vec3(-3, 0, 5), new Vec3(3, 0, 6.5), new Vec3(0, 0, 9), new Vec3(-1.5, 0, 3) });
+			cam(mc, new Vec3(10.5, 5.0, 0.5), new Vec3(0, 3.0, 4.5));
+		});
+		at(ex + 492, () -> fk(mc, f -> {
+			ready(f, 90f);
+			PlusUltra.set(f, 100f);
+			PlusUltra.fire(f);
+		}));
+		burst(ex + 494, ex + 620, 3, "ex_ultimate");
+		t = ex + 640;
+
+		// ================================================================ HELLFLAME, third person
+		final int hf = t;
+		at(hf - 4, () -> resetArena(mc));
+		at(hf, () -> {
+			pin = true;
+			stage(mc, Quirk.HELLFLAME, new Vec3[] { new Vec3(0, 0, 6), new Vec3(-1.5, 0, 9) });
+			cam(mc, new Vec3(4.6, 2.4, 0.6), new Vec3(0, 1.4, 4.0));
+		});
+		at(hf + 12, () -> fk(mc, f -> {
+			ready(f, 55f);
+			HellflameMoves.hellSpider(f);
+		}));
+		burst(hf + 13, hf + 19, 2, "hf_spider");
+		at(hf + 40, () -> fk(mc, HellflameMoves::mesh));
+		burst(hf + 44, hf + 56, 6, "hf_mesh");
+		// close: the Flashfire Fist chain, the Barrage
+		at(hf + 100, () -> {
+			place(0, new Vec3(0, 0, 2.4));
+			place(1, new Vec3(0, 0, 30));
+			cam(mc, closeEye, closeAt);
+		});
+		at(hf + 104, () -> fk(mc, f -> {
+			ready(f, 55f);
+			HellflameMoves.flashfireFist(f);
+		}));
+		shot(hf + 107, "hf_fist_1");
+		at(hf + 112, () -> fk(mc, f -> {
+			Quirks.edit(f, n -> n.abilityReadyAt.clear());
+			HellflameMoves.flashfireFist(f);
+		}));
+		shot(hf + 115, "hf_fist_2");
+		at(hf + 120, () -> fk(mc, f -> {
+			Quirks.edit(f, n -> n.abilityReadyAt.clear());
+			HellflameMoves.flashfireFist(f);
+		}));
+		burst(hf + 122, hf + 128, 2, "hf_fist_3");
+		at(hf + 150, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			HellflameMoves.barrage(f);
+		}));
+		burst(hf + 156, hf + 180, 6, "hf_barrage");
+		// Hellblast from the side
+		at(hf + 200, () -> {
+			place(0, new Vec3(0, 0, 9));
+			place(1, new Vec3(-1, 0, 14));
+			cam(mc, new Vec3(7.5, 2.4, 6.0), new Vec3(0, 1.4, 6.0));
+		});
+		at(hf + 204, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			HellflameMoves.startHellblast(f);
+		}));
+		shot(hf + 228, "hf_hellblast_charge");
+		at(hf + 230, () -> fk(mc, HellflameMoves::releaseHellblast));
+		burst(hf + 234, hf + 258, 6, "hf_hellblast_beam");
+		// Flame Wave from high up front-side
+		at(hf + 300, () -> {
+			place(0, new Vec3(2.6, 0, 6));
+			place(1, new Vec3(-2.6, 0, 6.5));
+			cam(mc, new Vec3(9.0, 6.5, -3.0), new Vec3(0, 1.0, 3.5));
+		});
+		at(hf + 304, () -> fk(mc, f -> {
+			ready(f, 60f);
+			HellflameMoves.flameWave(f);
+		}));
+		burst(hf + 305, hf + 313, 2, "hf_wave");
+		// the Pillar
+		at(hf + 340, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 18f);
+			place(0, new Vec3(0, 0, 6));
+			place(1, new Vec3(0, 0, 30));
+			cam(mc, new Vec3(8.0, 3.4, 2.5), new Vec3(0, 2.8, 4.5));
+		}));
+		at(hf + 344, () -> fk(mc, f -> {
+			ready(f, 60f);
+			HellflameMoves.firePillar(f);
+		}));
+		burst(hf + 350, hf + 380, 5, "hf_pillar");
+		// Fire Wall, then the Flame Cloak in front of it
+		at(hf + 400, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			ready(f, 60f);
+			HellflameMoves.fireWall(f);
+		}));
+		at(hf + 402, () -> cam(mc, new Vec3(4.0, 2.4, 9.5), new Vec3(0, 1.3, 1.8)));
+		burst(hf + 406, hf + 418, 6, "hf_wall");
+		at(hf + 420, () -> fk(mc, HellflameMoves::toggleCloak));
+		burst(hf + 430, hf + 442, 6, "hf_wall_cloak");
+		// Heat Vent
+		at(hf + 470, () -> fk(mc, f -> {
+			HellflameMoves.toggleCloak(f);
+			ready(f, 90f);
+		}));
+		at(hf + 472, () -> cam(mc, new Vec3(6.5, 3.6, 6.5), new Vec3(0, 1.0, 0)));
+		at(hf + 476, () -> fk(mc, HellflameMoves::coolDown));
+		burst(hf + 477, hf + 485, 2, "hf_vent");
+		// the flame beard (Blaze) close up
+		at(hf + 510, () -> fk(mc, f -> Quirks.setMeter(f, 65f)));
+		at(hf + 512, () -> cam(mc, new Vec3(0.8, 1.85, 1.6), new Vec3(0, 1.6, 0)));
+		burst(hf + 530, hf + 540, 5, "hf_beard");
+		// Jet Burn through a line
+		at(hf + 560, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z - 5, 0f, 0f);
+			place(0, new Vec3(0, 0, 1.0));
+			place(1, new Vec3(0.4, 0, 4.0));
+			cam(mc, new Vec3(7.0, 2.4, 0.0), new Vec3(0, 1.2, 0.0));
+		}));
+		at(hf + 564, () -> fk(mc, f -> {
+			ready(f, 60f);
+			HellflameMoves.jetBurn(f);
+		}));
+		burst(hf + 565, hf + 573, 2, "hf_jet_burn");
+		// Fire Jet Flight
+		at(hf + 590, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y + 2.5, origin.z, 0f, -5f);
+			HellflameMoves.toggleFlight(f);
+			f.setDeltaMovement(0, 0, 0);
+		}));
+		at(hf + 592, () -> cam(mc, new Vec3(4.5, 3.8, 1.0), new Vec3(0, 3.4, 0.3)));
+		for (int k = 0; k < 24; k++) {
+			at(hf + 593 + k, () -> fk(mc, f -> f.setDeltaMovement(0, 0.0, 0.05)));
+		}
+		burst(hf + 600, hf + 612, 6, "hf_flight");
+		at(hf + 618, () -> fk(mc, HellflameMoves::endFlight));
+		// the Forge Hand on the fake, close up
+		at(hf + 622, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 30f);
+			f.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.BEEF, 8));
+			f.serverLevel().getChunkSource().broadcast(f, new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(f.getId(),
+					java.util.List.of(com.mojang.datafixers.util.Pair.of(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new ItemStack(Items.BEEF, 8)))));
+			ready(f, 45f);
+		}));
+		at(hf + 623, () -> {
+			place(0, new Vec3(0, 0, 30));
+			place(1, new Vec3(3, 0, 30));
+		});
+		at(hf + 624, () -> cam(mc, new Vec3(1.6, 2.0, 2.2), new Vec3(0, 1.1, 0.3)));
+		at(hf + 630, () -> fk(mc, HellflameMoves::forge));
+		burst(hf + 631, hf + 637, 2, "hf_forge3p");
+		// the ultimate: Prominence Burn (a wall at z 15 stops the comet in frame)
+		at(hf + 640, () -> {
+			resetArena(mc);
+			stage(mc, Quirk.HELLFLAME, new Vec3[] { new Vec3(0, 0, 6), new Vec3(1.2, 0, 9), new Vec3(-1.2, 0, 11.5) });
+			server(mc, p -> {
+				for (int x = -6; x <= 6; x++) {
+					for (int y = 0; y <= 6; y++) {
+						p.serverLevel().setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 15), Blocks.STONE.defaultBlockState(), 3);
+					}
+				}
+			});
+			cam(mc, new Vec3(11.0, 4.0, 5.0), new Vec3(0, 2.0, 6.0));
+		});
+		at(hf + 650, () -> fk(mc, f -> {
+			f.teleportTo(f.serverLevel(), origin.x, origin.y, origin.z, 0f, 4f);
+			PlusUltra.set(f, 100f);
+			PlusUltra.fire(f);
+		}));
+		burst(hf + 652, hf + 720, 3, "hf_ultimate");
+		at(hf + 740, () -> server(mc, p -> {
+			for (int x = -6; x <= 6; x++) {
+				for (int y = 0; y <= 6; y++) {
+					p.serverLevel().setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 15), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}));
+		t = hf + 760;
+
+		// ================================================================ first person, HUD on
+		final int fp = t;
+		at(fp - 4, () -> resetArena(mc));
+		at(fp, () -> {
+			pin = true;
+			self(mc, Quirk.EXPLOSION, 0f, 4f, new Vec3[] { new Vec3(0, 0, 7) }, 60f);
+		});
+		at(fp + 14, () -> server(mc, ExplosionMoves::apShot));
+		burst(fp + 15, fp + 19, 2, "ex_fp_ap_shot");
+		at(fp + 40, () -> server(mc, ExplosionMoves::startPierce));
+		shot(fp + 62, "ex_fp_pierce_charge");
+		at(fp + 66, () -> server(mc, ExplosionMoves::firePierce));
+		burst(fp + 67, fp + 71, 2, "ex_fp_pierce_fire");
+		at(fp + 90, () -> server(mc, p -> {
+			ready(p, 60f);
+			ExplosionMoves.blastPunch(p);
+		}));
+		burst(fp + 91, fp + 95, 2, "ex_fp_punch");
+		at(fp + 120, () -> server(mc, p -> {
+			ready(p, 100f);
+			ExplosionMoves.gauntlet(p);
+		}));
+		shot(fp + 126, "ex_fp_gauntlet_pin");
+		burst(fp + 134, fp + 140, 2, "ex_fp_gauntlet_fire");
+		at(fp + 160, () -> server(mc, p -> {
+			ready(p, 60f);
+			ExplosionMoves.stunGrenade(p);
+		}));
+		burst(fp + 161, fp + 165, 2, "ex_fp_stun");
+		at(fp + 180, () -> server(mc, p -> {
+			ready(p, 60f);
+			ExplosionMoves.cluster(p);
+		}));
+		burst(fp + 181, fp + 185, 2, "ex_fp_cluster");
+		// the HUD in each band (Sweat Dry / Primed / Soaked; the arms)
+		at(fp + 200, () -> server(mc, p -> {
+			ready(p, 18f);
+			ExplosionMoves.setStrain(p, 20f);
+			PlusUltra.set(p, 30f);
+		}));
+		shot(fp + 206, "ex_hud_dry");
+		at(fp + 210, () -> server(mc, p -> {
+			Quirks.setMeter(p, 55f);
+			ExplosionMoves.setStrain(p, 55f);
+			PlusUltra.set(p, 64f);
+		}));
+		shot(fp + 216, "ex_hud_primed");
+		at(fp + 220, () -> server(mc, p -> {
+			Quirks.setMeter(p, 92f);
+			ExplosionMoves.setStrain(p, 82f);
+			ExplosionMoves.bankForTest(p, 30f);
+			PlusUltra.set(p, 100f);
+		}));
+		shot(fp + 226, "ex_hud_soaked");
+		// survival: blast mining a stone wall
+		at(fp + 240, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int x = -2; x <= 2; x++) {
+				for (int y = 0; y <= 3; y++) {
+					l.setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 2), Blocks.STONE.defaultBlockState(), 3);
+				}
+			}
+			for (Zombie z : DUMMIES) {
+				z.discard();
+			}
+			ready(p, 70f);
+			PlusUltra.set(p, 20f);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 18f);
+		}));
+		at(fp + 250, () -> server(mc, p -> ExplosionMoves.blastMine(p, BlockPos.containing(origin.x, origin.y + 1, origin.z + 2), net.minecraft.core.Direction.NORTH)));
+		burst(fp + 251, fp + 259, 2, "ex_mining");
+		at(fp + 280, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int x = -2; x <= 2; x++) {
+				for (int y = 0; y <= 3; y++) {
+					l.setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + 2), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+			for (var e : l.getEntities(EntityType.ITEM, e -> true)) {
+				e.discard();
+			}
+		}));
+		// --- Hellflame first person
+		final int fh = fp + 290;
+		at(fh - 4, () -> resetArena(mc));
+		at(fh, () -> self(mc, Quirk.HELLFLAME, 0f, 4f, new Vec3[] { new Vec3(0, 0, 4.6), new Vec3(1.5, 0, 9) }, 55f));
+		at(fh + 14, () -> server(mc, HellflameMoves::flashfireFist));
+		shot(fh + 17, "hf_fp_fist_1");
+		at(fh + 22, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			HellflameMoves.flashfireFist(p);
+		}));
+		shot(fh + 25, "hf_fp_fist_2");
+		at(fh + 30, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			HellflameMoves.flashfireFist(p);
+		}));
+		burst(fh + 32, fh + 36, 2, "hf_fp_fist_3");
+		at(fh + 56, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 4f);
+			HellflameMoves.hellSpider(p);
+		}));
+		burst(fh + 57, fh + 63, 2, "hf_fp_spider");
+		at(fh + 86, () -> server(mc, HellflameMoves::startHellblast));
+		shot(fh + 106, "hf_fp_hellblast_charge");
+		at(fh + 108, () -> server(mc, HellflameMoves::releaseHellblast));
+		burst(fh + 112, fh + 124, 6, "hf_fp_hellblast_beam");
+		at(fh + 160, () -> server(mc, p -> {
+			ready(p, 60f);
+			HellflameMoves.flameWave(p);
+		}));
+		burst(fh + 161, fh + 167, 2, "hf_fp_wave");
+		at(fh + 190, () -> server(mc, p -> {
+			ready(p, 60f);
+			HellflameMoves.barrage(p);
+		}));
+		burst(fh + 194, fh + 206, 4, "hf_fp_barrage");
+		// the HUD in each band: Kindle / Blaze / Inferno / Overheat
+		at(fh + 220, () -> server(mc, p -> {
+			HellflameMoves.coolForTest(p);
+			ready(p, 22f);
+			PlusUltra.set(p, 25f);
+		}));
+		shot(fh + 226, "hf_hud_kindle");
+		at(fh + 230, () -> server(mc, p -> {
+			Quirks.setMeter(p, 62f);
+			PlusUltra.set(p, 60f);
+		}));
+		shot(fh + 236, "hf_hud_blaze");
+		at(fh + 240, () -> server(mc, p -> {
+			Quirks.setMeter(p, 91f);
+			PlusUltra.set(p, 100f);
+		}));
+		shot(fh + 246, "hf_hud_inferno");
+		at(fh + 250, () -> server(mc, p -> {
+			Quirks.setMeter(p, 100f);
+			com.projecthero.mod.quirk.meter.QuirkMeters.pushPast(p);
+		}));
+		shot(fh + 256, "hf_hud_overheat");
+		// survival: the Forge Hand (raw beef in the off hand)
+		at(fh + 270, () -> server(mc, p -> {
+			Quirks.setVal(p, com.projecthero.mod.quirk.meter.QuirkMeters.V_BEYOND, 0L);
+			ready(p, 45f);
+			PlusUltra.set(p, 20f);
+			p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.BEEF, 8));
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 30f);
+		}));
+		at(fh + 280, () -> server(mc, HellflameMoves::forge));
+		burst(fh + 281, fh + 289, 2, "hf_forge");
+		// the first-person body during the ultimate
+		at(fh + 310, () -> server(mc, p -> {
+			p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 35f);
+			PlusUltra.set(p, 100f);
+			PlusUltra.fire(p);
+		}));
+		burst(fh + 316, fh + 346, 6, "hf_fp_ultimate");
+		at(fh + 380, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

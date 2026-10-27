@@ -83,6 +83,23 @@ was not dropped: it rides on X while Turbo runs (the Turbo Strike, 5 s cooldown)
   protection, never drawn, not part of the set, and it crafts back into 2 iron ingots.
 
 ## Hellflame (Enji Todoroki, Endeavor): fire, held back by body heat
+
+> **Superseded in v0.17.1** by the Quirks revamp (`docs/QUIRKS_REVAMP_PROPOSAL.md` 3.1, built on the framework in
+> `docs/QUIRK_FRAMEWORK_0171.md`). The layout now (a held key's tap fires on the release):
+>
+> | Key | Tap | Shift | Hold |
+> |---|---|---|---|
+> | R | Hell Spider (9, 14 blocks, scorch line) | Hell Spider: Mesh (4 s cage, 2.5 / 0.5 s; bosses only slowed) | -- |
+> | G | Flashfire Fist (6 / 6 / 10 chain) | Vanishing Fist (16) | Hellblast (charge 0.5-2 s, beam 1.5-3 s, 7 / 0.25 s) |
+> | X | Jet Burst (10-block dash) | Jet Burn (16 through a 14-block line) | Fire Jet Flight (18 b/s, sprint 26) |
+> | Z | Hellflame Barrage (8 x 3.5, last launches) | Hellflame Pillar (14 + 3 s at 2/s) | -- |
+> | C | Flame Wave (90-degree cone, 11 + burn) | Flame Cloak (12 s, 3/s aura, +2 armour) | Plus Ultra: Prominence Burn |
+> | V | Heat Vent (up to 60 Heat, works overheated) | Fire Wall (7x3, 8 s, drawn flame, no fire blocks) | -- |
+>
+> Bands Kindle / Blaze / Inferno x0.85 / 1.0 / 1.3 (Inferno burns 0.5/s, melts snow / ice); at 100 the Overheat push
+> (5 s, x1.5, 1 HP/s), then an 8 s burnout. Plus Ultra: Shift+V is gone; the ultimate is the framework's hold-C.
+> Survival: the Forge Hand (sneak + use, off-hand smelting, 4 Heat), Heat Vent boils water and puts allies out.
+> The notes below are the v0.16.7 build.
 - **Body heat** is the meter. Big moves raise it; at 100 you overheat, losing fire moves and taking damage until you cool.
 - Slot rule (user, later in v0.16.7, for every Quirk): **X = movement**, **V = utility / mode**, R / G / Z / C = attacks.
 - **Hell Spider (R):** five thin cutting fire strings sweep out from the fingers.
@@ -193,6 +210,25 @@ As built (v0.16.7). Slot rule: X = movement, V = utility, the rest attacks.
 - Dropped from the first draft by the slot rule: Erase Glare, Capture Hoist, Bind Slam and Double Bind.
 
 ## Explosion (Katsuki Bakugo, Ground Zero): nitroglycerin sweat
+
+> **Superseded in v0.17.1** by the Quirks revamp (`docs/QUIRKS_REVAMP_PROPOSAL.md` 3.6). The layout now (a held key's
+> tap fires on the release):
+>
+> | Key | Tap | Shift | Hold |
+> |---|---|---|---|
+> | R | AP Shot (10, 32 blocks) | AP Shot: Auto-Cannon (8 x 4) | AP Shot: Pierce (charge 1.5 s, 8-22, 48 blocks, pierces) |
+> | G | Explosive Punch (14) | Blast Rush (6 x 8) | Crush Grip (6 / 6 / 12, throw; bosses not grabbed) |
+> | X | Explosion Dash (WASD direction, 12 blocks) | Spin Dodge (5 blocks, 0.3 s i-frames, faces the attacker) | Explosion Propulsion |
+> | Z | Cluster (9) | Explosive Uppercut (12, launches both) | -- |
+> | C | Howitzer Impact (30, r6, 30 Sweat) | Gauntlet Grenade (28, 50 Sweat or the gauntlets' bank) | Plus Ultra: Howitzer Impact -- Cluster |
+> | V | Stun Grenade (8 blocks, 5 s) | Cool Off | -- |
+>
+> Sweat bands Dry / Primed / Soaked x0.6 / 1.0 / 1.4 (unpaced fuel); Arm Strain is the paced danger: from 70 +15% and
+> 0.5 HP a blast, at 100 the arms are shot for 6 s. The old Shift+Z (Howitzer Impact: Cluster) is the ultimate now.
+> Passives: palm crackle, the landing blast (8+ block fall, 10 Sweat), blast mining (sneak + punch, 3x3 soft stone).
+> Terrain: the blasts really break blocks (pocket / AP tunnel / crater / huge for the ultimate), player-caused and
+> permission-checked, obsidian and bedrock survive; toggle `terrain.blockDamage` in `config/projecthero_quirk_explosion.json`.
+> Routes: Stun Grenade -> AP Shot (x1.5), Uppercut -> AP Shot (x1.3). The notes below are the v0.16.7 build.
 Built version. User rule: X = movement, V = utility, and every other key is an attack.
 
 | Key | Tap | Shift |

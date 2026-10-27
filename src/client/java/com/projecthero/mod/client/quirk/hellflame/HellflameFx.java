@@ -1,5 +1,7 @@
 package com.projecthero.mod.client.quirk.hellflame;
 
+import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.fx.QuirkParticles;
 import com.projecthero.mod.quirk.hellflame.Hellflame;
 import com.projecthero.mod.quirk.hellflame.HellflameCombat;
 import com.projecthero.mod.quirk.hellflame.HellflameConfig;
@@ -46,8 +48,11 @@ public final class HellflameFx {
 			}
 			boolean firstPerson = p == mc.player && mc.options.getCameraType().isFirstPerson();
 			boolean visible = !p.isInvisible();
-			if (visible && (Hellflame.cloaked(p) || Hellflame.plusUltra(p))) {
-				cloak(level, rnd, p, firstPerson, Hellflame.plusUltra(p));
+			if (visible && (Hellflame.cloaked(p) || Hellflame.prominence(p))) {
+				cloak(level, rnd, p, firstPerson, Hellflame.prominence(p));
+			} else if (visible && !firstPerson && Quirks.clientMeter(p) >= HellflameConfig.HOT_HANDS_FROM) {
+				// v0.17.1 tell: the flame beard and brows from Blaze up
+				beard(level, rnd, p);
 			}
 			if (visible && Hellflame.flying(p)) {
 				jets(level, rnd, p, firstPerson);
@@ -72,7 +77,7 @@ public final class HellflameFx {
 			}
 			if (Hellflame.overheated(p) && !firstPerson && rnd.nextInt(2) == 0) {
 				boolean burnt = Hellflame.burntOut(p);
-				add(level, burnt ? ParticleTypes.CLOUD : ParticleTypes.SMOKE,
+				add(level, burnt ? QuirkParticles.STEAM : QuirkParticles.SMOKE_PUFF,
 						new Vec3(p.getX() + (rnd.nextDouble() - 0.5) * 0.6, p.getY() + 1.2 + rnd.nextDouble() * 0.6, p.getZ() + (rnd.nextDouble() - 0.5) * 0.6),
 						0, burnt ? 0.06 : 0.04, 0);
 			}
@@ -104,7 +109,7 @@ public final class HellflameFx {
 			for (int k = 0; k < boost; k++) {
 				if (rnd.nextInt(3) != 0) {
 					Vec3 at = sh.add((rnd.nextDouble() - 0.5) * 0.2, rnd.nextDouble() * 0.08, (rnd.nextDouble() - 0.5) * 0.2);
-					add(level, ParticleTypes.FLAME, at, out.x, 0.02 + rnd.nextDouble() * 0.03 * boost, out.z);
+					add(level, HellflameCombat.ORANGE, at, out.x, 0.02 + rnd.nextDouble() * 0.03 * boost, out.z);
 				}
 				if (rnd.nextInt(3) == 0) {
 					add(level, HellflameCombat.YELLOW, sh.add(out.scale(4)).add(0, 0.1, 0), out.x, 0.02, out.z);
@@ -118,13 +123,13 @@ public final class HellflameFx {
 		if (rnd.nextInt(2) == 0) {
 			int side = rnd.nextBoolean() ? 1 : -1;
 			Vec3 arm = p.position().add(0, 0.95 + crouch, 0).add(body[1].scale(side * 0.38));
-			add(level, ParticleTypes.SMALL_FLAME, arm.add((rnd.nextDouble() - 0.5) * 0.15, 0, (rnd.nextDouble() - 0.5) * 0.15), 0, 0.03, 0);
+			add(level, HellflameCombat.YELLOW, arm.add((rnd.nextDouble() - 0.5) * 0.15, 0, (rnd.nextDouble() - 0.5) * 0.15), 0, 0.03, 0);
 		}
 		// a ring of heat round his feet
 		if (rnd.nextInt(plus ? 1 : 3) == 0) {
 			double a = rnd.nextDouble() * Math.PI * 2.0;
-			double r = HellflameConfig.CLOAK_RADIUS * (plus ? HellflameConfig.PLUS_SIZE_MULT : 1.0) * (0.6 + rnd.nextDouble() * 0.4);
-			add(level, plus ? HellflameCombat.BIG_ORANGE : ParticleTypes.FLAME, p.position().add(Math.cos(a) * r, 0.1, Math.sin(a) * r), 0, 0.04, 0);
+			double r = HellflameConfig.CLOAK_RADIUS * (plus ? 1.6 : 1.0) * (0.6 + rnd.nextDouble() * 0.4);
+			add(level, plus ? HellflameCombat.BIG_ORANGE : HellflameCombat.ORANGE, p.position().add(Math.cos(a) * r, 0.1, Math.sin(a) * r), 0, 0.04, 0);
 		}
 		if (plus && !firstPerson) {
 			// Plus Ultra: the whole body roars, white-hot at the core
@@ -133,12 +138,17 @@ public final class HellflameFx {
 				add(level, i == 0 ? HellflameCombat.WHITE_HOT : HellflameCombat.ORANGE, at, 0, 0.06 + rnd.nextDouble() * 0.05, 0);
 			}
 			if (rnd.nextInt(3) == 0) {
-				add(level, ParticleTypes.LAVA, p.position().add(0, 1.0, 0), 0, 0, 0);
+				add(level, QuirkParticles.EMBER, p.position().add(0, 1.0, 0), 0, 0, 0);
 			}
 		}
 		if (firstPerson) {
 			return;
 		}
+		beard(level, rnd, p);
+	}
+
+	/** The flame beard along the jaw and chin and the flaming eyebrows (the Blaze tell; white-hot in Inferno). */
+	private static void beard(ClientLevel level, RandomSource rnd, Player p) {
 		// the flame beard along the jaw and chin, and the flaming eyebrows -- small, low flames that hug the face
 		Vec3[] head = frame(p, true);
 		Vec3 eye = p.getEyePosition();
@@ -146,7 +156,7 @@ public final class HellflameFx {
 			double s = (rnd.nextDouble() - 0.5) * 2.0; // -1 (right jaw) .. 1 (left jaw)
 			double fwd = 0.27 - 0.12 * s * s;
 			Vec3 at = eye.add(head[0].scale(fwd)).add(head[1].scale(-s * 0.26)).add(0, -0.1 - 0.04 * (1 - Math.abs(s)), 0);
-			add(level, ParticleTypes.SMALL_FLAME, at, head[0].x * 0.004, 0.004, head[0].z * 0.004);
+			add(level, HellflameCombat.YELLOW, at, head[0].x * 0.004, 0.004, head[0].z * 0.004);
 		}
 		if (rnd.nextInt(4) == 0) {
 			add(level, HellflameCombat.YELLOW, eye.add(head[0].scale(0.29)).add(0, -0.14, 0), 0, 0.004, 0);
@@ -154,7 +164,7 @@ public final class HellflameFx {
 		if (rnd.nextInt(2) == 0) {
 			int side = rnd.nextBoolean() ? 1 : -1;
 			Vec3 brow = eye.add(head[0].scale(0.27)).add(head[1].scale(side * (0.06 + rnd.nextDouble() * 0.1))).add(0, 0.19, 0);
-			add(level, ParticleTypes.SMALL_FLAME, brow, 0, 0.006, 0);
+			add(level, HellflameCombat.YELLOW, brow, 0, 0.006, 0);
 		}
 	}
 
@@ -167,7 +177,7 @@ public final class HellflameFx {
 		for (int side = -1; side <= 1; side += 2) {
 			Vec3 foot = p.position().add(body[1].scale(side * 0.12)).add(0, 0.05, 0);
 			for (int i = 0; i < 3; i++) {
-				add(level, ParticleTypes.FLAME, foot.add((rnd.nextDouble() - 0.5) * 0.12, 0, (rnd.nextDouble() - 0.5) * 0.12),
+				add(level, HellflameCombat.ORANGE, foot.add((rnd.nextDouble() - 0.5) * 0.12, 0, (rnd.nextDouble() - 0.5) * 0.12),
 						thrust.x + (rnd.nextDouble() - 0.5) * 0.06, thrust.y, thrust.z + (rnd.nextDouble() - 0.5) * 0.06);
 			}
 			add(level, HellflameCombat.WHITE_HOT, foot.add(0, -0.08, 0), thrust.x * 0.3, -0.1, thrust.z * 0.3);
@@ -175,19 +185,19 @@ public final class HellflameFx {
 				add(level, HellflameCombat.ORANGE, foot.add(0, -0.3, 0), thrust.x * 0.2, -0.05, thrust.z * 0.2);
 			}
 			if (rnd.nextInt(3) == 0) {
-				add(level, ParticleTypes.SMOKE, foot.add(0, -0.6, 0), 0, -0.03, 0);
+				add(level, QuirkParticles.SMOKE_PUFF, foot.add(0, -0.6, 0), 0, -0.03, 0);
 			}
 			// the palms: smaller stabiliser jets, angled down and back
 			if (!firstPerson || rnd.nextInt(3) == 0) {
 				Vec3 palm = p.position().add(0, 0.65 + (speed > 0.4 ? 0.25 : 0), 0).add(body[1].scale(side * 0.5)).add(body[0].scale(speed > 0.4 ? -0.25 : 0));
-				add(level, ParticleTypes.FLAME, palm, -v.x * 0.4 + body[1].x * side * 0.03, -0.2, -v.z * 0.4 + body[1].z * side * 0.03);
+				add(level, HellflameCombat.ORANGE, palm, -v.x * 0.4 + body[1].x * side * 0.03, -0.2, -v.z * 0.4 + body[1].z * side * 0.03);
 				if (rnd.nextInt(2) == 0) {
 					add(level, HellflameCombat.YELLOW, palm.add(0, -0.1, 0), 0, -0.08, 0);
 				}
 			}
 		}
 		if (rnd.nextInt(6) == 0) {
-			add(level, ParticleTypes.LAVA, p.position(), 0, 0, 0);
+			add(level, QuirkParticles.EMBER, p.position(), 0, 0, 0);
 		}
 	}
 
@@ -209,7 +219,7 @@ public final class HellflameFx {
 		for (int i = 0; i < n; i++) {
 			Vec3 at = fist.add((rnd.nextDouble() - 0.5) * 3.0, (rnd.nextDouble() - 0.5) * 2.4, (rnd.nextDouble() - 0.5) * 3.0);
 			Vec3 to = fist.subtract(at).scale(0.18);
-			add(level, i % 3 == 0 ? HellflameCombat.ORANGE : ParticleTypes.FLAME, at, to.x, to.y, to.z);
+			add(level, i % 3 == 0 ? HellflameCombat.ORANGE : HellflameCombat.ORANGE, at, to.x, to.y, to.z);
 		}
 		add(level, c > 0.7f ? HellflameCombat.WHITE_HOT : HellflameCombat.YELLOW, fist.add((rnd.nextDouble() - 0.5) * 0.2, (rnd.nextDouble() - 0.5) * 0.2,
 				(rnd.nextDouble() - 0.5) * 0.2), 0, 0.01, 0);
@@ -227,13 +237,13 @@ public final class HellflameFx {
 			double d = 1.0 + rnd.nextDouble() * 22.0;
 			Vec3 at = from.add(look.scale(d));
 			Vec3 jit = new Vec3(rnd.nextDouble() - 0.5, rnd.nextDouble() - 0.5, rnd.nextDouble() - 0.5).scale(1.6 * size);
-			add(level, i % 3 == 0 ? HellflameCombat.BIG_ORANGE : ParticleTypes.FLAME, at.add(jit), look.x * 0.3 + jit.x * 0.05, look.y * 0.3 + 0.03,
+			add(level, i % 3 == 0 ? HellflameCombat.BIG_ORANGE : HellflameCombat.ORANGE, at.add(jit), look.x * 0.3 + jit.x * 0.05, look.y * 0.3 + 0.03,
 					look.z * 0.3 + jit.z * 0.05);
 		}
 		// the recoil flare at the fist and the heat shimmer round his feet
 		add(level, HellflameCombat.WHITE_HOT, from, look.x * 0.1, look.y * 0.1, look.z * 0.1);
 		if (rnd.nextInt(5) == 0) {
-			add(level, ParticleTypes.SMOKE, p.position().add((rnd.nextDouble() - 0.5), 0.1, (rnd.nextDouble() - 0.5)), 0, 0.02, 0);
+			add(level, QuirkParticles.SMOKE_PUFF, p.position().add((rnd.nextDouble() - 0.5), 0.1, (rnd.nextDouble() - 0.5)), 0, 0.02, 0);
 		}
 	}
 
@@ -251,14 +261,14 @@ public final class HellflameFx {
 			Vec3 at = a.lerp(b, rnd.nextDouble()).add((rnd.nextDouble() - 0.5) * 0.4, rnd.nextDouble() * HellflameConfig.WALL_HEIGHT * 0.9, (rnd.nextDouble() - 0.5) * 0.4);
 			double h = (at.y - a.y) / HellflameConfig.WALL_HEIGHT;
 			ParticleOptions type = h < 0.25 ? HellflameCombat.WHITE_HOT : h < 0.5 ? HellflameCombat.YELLOW : rnd.nextBoolean() ? HellflameCombat.ORANGE
-					: ParticleTypes.FLAME;
+					: HellflameCombat.ORANGE;
 			add(level, type, at, 0, 0.05 + rnd.nextDouble() * 0.06, 0);
 		}
 		if (rnd.nextInt(2) == 0) {
 			add(level, HellflameCombat.BIG_ORANGE, a.lerp(b, rnd.nextDouble()).add(0, 0.6 + rnd.nextDouble() * 2.0, 0), 0, 0.06, 0);
 		}
 		if (rnd.nextInt(8) == 0) {
-			add(level, ParticleTypes.SMOKE, a.lerp(b, rnd.nextDouble()).add(0, HellflameConfig.WALL_HEIGHT, 0), 0, 0.05, 0);
+			add(level, QuirkParticles.SMOKE_PUFF, a.lerp(b, rnd.nextDouble()).add(0, HellflameConfig.WALL_HEIGHT, 0), 0, 0.05, 0);
 		}
 	}
 
@@ -274,12 +284,12 @@ public final class HellflameFx {
 			float t = 1f - (at - now) / (float) HellflameConfig.PILLAR_WARN_TICKS;
 			for (int i = 0; i < 6; i++) {
 				double a = rnd.nextDouble() * Math.PI * 2.0;
-				add(level, i % 2 == 0 ? HellflameCombat.ORANGE : ParticleTypes.SMALL_FLAME, c.add(Math.cos(a) * r, 0.05, Math.sin(a) * r), 0, 0.02, 0);
+				add(level, i % 2 == 0 ? HellflameCombat.ORANGE : HellflameCombat.YELLOW, c.add(Math.cos(a) * r, 0.05, Math.sin(a) * r), 0, 0.02, 0);
 			}
 			double rr = r * (1.0 - t);
 			add(level, HellflameCombat.YELLOW, c.add(Math.cos(now * 0.7) * rr, 0.05, Math.sin(now * 0.7) * rr), 0, 0.01, 0);
 			if (rnd.nextInt(3) == 0) {
-				add(level, ParticleTypes.LAVA, c, 0, 0, 0);
+				add(level, QuirkParticles.EMBER, c, 0, 0, 0);
 			}
 			return;
 		}
@@ -297,7 +307,7 @@ public final class HellflameFx {
 		}
 		for (int i = 0; i < 4; i++) {
 			double a = rnd.nextDouble() * Math.PI * 2.0;
-			add(level, ParticleTypes.FLAME, c.add(Math.cos(a) * r, 0.2, Math.sin(a) * r), Math.cos(a) * 0.08, 0.3, Math.sin(a) * 0.08);
+			add(level, HellflameCombat.ORANGE, c.add(Math.cos(a) * r, 0.2, Math.sin(a) * r), Math.cos(a) * 0.08, 0.3, Math.sin(a) * 0.08);
 		}
 	}
 
@@ -311,7 +321,7 @@ public final class HellflameFx {
 			double a = rnd.nextDouble() * Math.PI * 2.0;
 			double el = rnd.nextDouble() * Math.PI * 0.5;
 			Vec3 at = c.add(Math.cos(a) * Math.cos(el) * r, Math.sin(el) * r * 0.9, Math.sin(a) * Math.cos(el) * r);
-			add(level, rnd.nextBoolean() ? ParticleTypes.SMALL_FLAME : HellflameCombat.ORANGE, at, 0, -0.03, 0);
+			add(level, rnd.nextBoolean() ? HellflameCombat.YELLOW : HellflameCombat.ORANGE, at, 0, -0.03, 0);
 		}
 	}
 

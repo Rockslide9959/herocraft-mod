@@ -207,11 +207,11 @@ own out-of-action recovery (after its delay) gets from the danger threshold to s
 
 | Quirk | Heavy-use script | Build mult | Time to the danger zone, before -> after | Recovery mult | Danger -> safe at rest, before -> after |
 |---|---|---|---|---|---|
-| Hellflame (Heat, red 80) | sprint flight 5/s + Spider, Jet Burn, Barrage, Pillar, Vanish, Wall, Mesh | **x0.12** | 6 s -> **52 s** | x1.0 | 80 -> 40: 11.5 s (4/s vent after 1.5 s), unchanged |
+| Hellflame (Heat, red 80) | sprint flight 5/s + Spider, Jet Burn, Barrage, Pillar, Vanish, Wall, Mesh; kit build: + Flashfire Fist (x3), Jet Burst, Flame Wave, a full Hellblast (36), a whole Flame Cloak (28.8) | **x0.12** | 6 s -> **52 s** -> kit build **50 s** | x1.0 | 80 -> 40: 11.5 s (4/s vent after 1.5 s), unchanged |
 | Engine (Heat, red 80) | Gear 3 sprint + the nine kicks | **x0.30** on top of the suit factor (0.6 out of the suit, 0.5 in it) | 10 s (v0.16.7) / 16 s (with the v0.17.1 x0.6) -> **52 s** | **x1.4** | 80 -> 30 idling in gear: 20 s -> **14.3 s** (out of gear 8.3 -> 6.0 s) |
 | Dark Shadow (Shadow, red 75) | pitch dark (5/s) + Strike, Fang, Grab, Fetch, Scout, Nova | **x0.20** | 10 s -> **51 s** (no moves: 15 -> 75 s) | x1.0 | 75 -> 30 in light: 4.5 s, unchanged |
 | Erasure (Dry Eyes, red 90) | a held stare (10/s) | **x0.18** | 9 s -> **50 s** | x1.0 | 90 -> 50: 3.3 s, unchanged |
-| Explosion (Arm Strain, danger 70) | AP Shot, Punch, Dash, Cluster, Auto-Cannon, Blast Rush, Stun (Sweat unpaced) | **x0.28** | 12 s -> **50 s** | x1.0 | 70 -> 30: 7.7 s (7/s after 2 s), unchanged |
+| Explosion (Arm Strain, danger 70) | AP Shot, Punch, Dash, Cluster, Auto-Cannon, Blast Rush, Stun (Sweat unpaced); kit build: + Pierce, Crush Grip, Spin Dodge, Uppercut | **x0.28** | 12 s -> **50 s** -> kit build **50 s** (63.8 strain at 45 s) | x1.0 | 70 -> 30: 7.7 s (7/s after 2 s), unchanged |
 | Zero Gravity (Nausea, red 85) | herself + 3 mobs + 5 rubble afloat (ramping x2.5 over 30 s) + touches | **x0.20** (Uravity suit x0.75 more) | 14 s -> **52 s** | x1.0 | 85 -> 50: 4.4 s, unchanged |
 | Overhaul (Focus, SPENDS, danger <= 25) | the eight costed moves, 12/s refill between | x1.0 | never -> never | x1.0 | 25 -> 80: 4.8 s, unchanged |
 
@@ -281,3 +281,33 @@ The Quirks overview has three new sections (Meter bands, Plus Ultra, Combo route
 
 `docs/screenshots/v0171/quirk_framework_*.png` (harness: `scratchpad/QuirkFrameworkHarness.v0171.java.txt`, enabled by
 `run/quirkfw.flag`).
+
+## 13. Kit builds on the framework: Explosion and Hellflame (v0.17.1, wave 1)
+
+Built exactly to `docs/QUIRKS_REVAMP_PROPOSAL.md` 3.6 / 3.1; see each kit's `<Kit>Moves` javadoc for the full layout.
+
+- **Hold moves (a backwards-compatible extension of `QuirkKit#idsOf`)**: a kit may return a THIRD id, the key's HOLD
+  move. The guide lists it as "Hold <key>" and the "Your Power" screen as `screen.projecthero.power_info.quirk.hold`;
+  the HUD keeps showing [tap, Shift]. Kits with holds tell a tap from a hold themselves: a plain press waits, a release
+  within 6 ticks fires the TAP move on the release, a press held past 6 ticks starts the hold move from the kit's tick.
+  Shift moves still fire on the press. (Explosion: R / G / X; Hellflame: G / X.)
+- **Per-kit sounds** live in the kit's own package (`ExplosionSounds`, `HellflameSounds`: `quirk_explosion_*`,
+  `quirk_hellflame_*`, synthesised by `scratchpad/synth_quirk_explosion_hellflame_sounds.js`), not in `QuirkSounds`,
+  so the parallel kit builds don't collide on one file.
+- **Whole-body turns**: `QuirkBodyTurnMixin` also asks `HellflamePose.bodyTurn` (the Prominence Burn comet's dive).
+- **Explosion's WASD hint**: `ExplosionInputPayload` (C2S, sent only when the movement keys change) gives the server the
+  Dash's direction and the Spin Dodge's side.
+- **Ultimates**: Explosion = Howitzer Impact: Cluster (`ExplosionMoves.ultimate`), Hellflame = Prominence Burn
+  (`HellflameMoves.prominenceBurn`); both use the framework's `projecthero.quirk.ultimate.<id>` lang keys.
+- **Hellflame's Overheat** is the spec's `pushPast(100 ticks, 1 HP/s, 160)` with `onCrash(HellflameMoves::burnout)`;
+  Heat Vent ends a push without its crash. The Endeavor suit is `suitBuild(0.87)` (+15% headroom).
+- **Explosion terrain damage** (user, mid-build: "i want the explosion quirk to actually explode things and break blocks"):
+  `ExplosionTerrain` blows holes scaled by the move (CHIP / POCKET / an AP-Shot tunnel / CRATER / HUGE for the ultimate's
+  finish; the Stun Grenade none) through a player-caused path (`mayBuild`, `mayInteract`, `blockActionRestricted`, the
+  `PlayerBlockBreakEvents.BEFORE` guards, no block entities / wither-immune / unbreakable, a hardness cap per tier so
+  obsidian always survives); 30% of the broken blocks drop like TNT. Server toggle `config/projecthero_quirk_explosion.json`
+  `terrain.blockDamage` (default on), plus the mod-wide ability terrain switch. mobGriefing no longer gates it.
+- **Combo routes added**: Explosion `sky_shot` (Uppercut -> AP Shot, x1.3); Hellflame `mesh_pillar` (Mesh -> Pillar,
+  x1.5); the starter `stun_shot` is wired.
+- Screenshots: `docs/screenshots/v0171/quirk_explosion_*.png`, `quirk_hellflame_*.png` (harness:
+  `scratchpad/QuirkExHfHarness.v0171.java.txt`, enabled by `run/quirkexhf.flag`).

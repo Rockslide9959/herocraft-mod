@@ -68,7 +68,8 @@ public final class HellflameRender {
 				continue;
 			}
 			long spiderAt = Hellflame.val(p, Hellflame.V_SPIDER);
-			if ((spiderAt != 0L && now - spiderAt < HellflameConfig.SPIDER_DRAW_TICKS) || Hellflame.meshUp(p) || Hellflame.beaming(p)) {
+			if ((spiderAt != 0L && now - spiderAt < HellflameConfig.SPIDER_DRAW_TICKS) || Hellflame.meshUp(p) || Hellflame.beaming(p) || Hellflame.wallUp(p)
+					|| Hellflame.prominence(p)) {
 				who.add(p);
 			}
 		}
@@ -95,6 +96,15 @@ public final class HellflameRender {
 				if (Hellflame.beaming(p)) {
 					beam(vc, last, level, p, cam, now, partial, firstPerson);
 				}
+				if (Hellflame.wallUp(p)) {
+					wall(vc, last, p, cam, now, partial);
+				}
+			}
+		}
+		// v0.17.1: Prominence Burn's sun and corona (the framework's additive geometry, after the two ribbon passes)
+		for (Player p : who) {
+			if (Hellflame.prominence(p)) {
+				sun(pose, buffers, p, ctx.camera(), partial, p == mc.player && mc.options.getCameraType().isFirstPerson());
 			}
 		}
 		pose.popPose();
@@ -223,13 +233,17 @@ public final class HellflameRender {
 	private static void beam(VertexConsumer vc, PoseStack.Pose last, ClientLevel level, Player p, Vec3 cam, long now, float partial, boolean firstPerson) {
 		Vec3 from = hand(p, partial, firstPerson);
 		Vec3 look = p.getViewVector(partial);
-		Vec3 end = clip(level, p, from, from.add(look.scale(HellflameConfig.PROMINENCE_RANGE)));
+		Vec3 end = clip(level, p, from, from.add(look.scale(HellflameConfig.HELLBLAST_RANGE)));
 		double size = Hellflame.size(p);
 		float age = now - Hellflame.val(p, Hellflame.V_BEAM) + partial;
 		// it bursts out wide for a moment, then settles to its full width
 		float burst = 1f + 0.6f * Mth.clamp(1f - age / 6f, 0f, 1f);
 		float wob = 1f + 0.08f * Mth.sin(age * 2.3f);
-		float wFull = (float) (HellflameConfig.PROMINENCE_RADIUS * size) * burst * wob;
+		// v0.17.1: it thins out over its last 5 ticks
+		long until = Hellflame.val(p, Hellflame.V_BEAM_UNTIL);
+		float tail = until == 0L ? 1f : Mth.clamp((until - now - partial) / 5f, 0.15f, 1f);
+		wob *= tail;
+		float wFull = (float) (HellflameConfig.HELLBLAST_RADIUS * size) * burst * wob;
 		// in first person the beam starts a little ahead so it never fills the screen
 		Vec3 a = firstPerson ? from.add(look.scale(0.4)) : from;
 		double len = a.distanceTo(end);
@@ -257,6 +271,81 @@ public final class HellflameRender {
 				if (!glow) BeamDraw.segment(vc, last, from.subtract(ax2), from.add(ax2), cam, 0.2f, 0.2f, WHITE, 0.8f, 0.8f);
 			}
 		}
+	}
+
+	/**
+	 * v0.17.1 Fire Wall: flame sheets instead of fire blocks -- a row of flickering tongues along the wall's base, each a tapered
+	 * camera-facing ribbon (orange / red glow, a yellow-white core at the root), rising and falling with its own noise.
+	 */
+	private static void wall(VertexConsumer vc, PoseStack.Pose last, Player p, Vec3 cam, long now, float partial) {
+		Vec3 a = Hellflame.vec(p, Hellflame.VEC_WALL_A);
+		Vec3 b = Hellflame.vec(p, Hellflame.VEC_WALL_B);
+		if (a == null || b == null) {
+			return;
+		}
+		long at = Hellflame.val(p, Hellflame.V_WALL_AT);
+		long until = Hellflame.val(p, Hellflame.V_WALL);
+		float age = now - at + partial;
+		float rise = Mth.clamp(age / 6f, 0f, 1f);
+		rise = rise * rise * (3f - 2f * rise);
+		float fade = Mth.clamp((until - now - partial) / 12f, 0f, 1f);
+		double len = a.distanceTo(b);
+		int n = Math.max(4, (int) (len * 3.2));
+		long seed = p.getId() * 977L + at;
+		for (int i = 0; i <= n; i++) {
+			float t = i / (float) n;
+			float jit = (com.projecthero.mod.client.quirk.fx.QuirkFxDraw.hash(seed, i, 3) - 0.5f) * 0.25f;
+			Vec3 base = a.lerp(b, Mth.clamp(t + jit / (float) len, 0f, 1f)).add(0, 0.02, 0);
+			float nse = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.noise(seed, i, 0, age * 0.35f);
+			float h = (float) (HellflameConfig.WALL_HEIGHT * (0.55 + 0.5 * nse)) * rise * (0.5f + 0.5f * fade);
+			float sway = 0.18f * Mth.sin(age * 0.4f + i * 1.3f);
+			Vec3 top = base.add(sway, h, sway * 0.6f);
+			Vec3 mid = base.add(sway * 0.4f, h * 0.45f, sway * 0.25f);
+			float w = 0.42f + 0.18f * com.projecthero.mod.client.quirk.fx.QuirkFxDraw.hash(seed, i, 5);
+			if (glow) {
+				BeamDraw.segment(vc, last, base, mid, cam, w * 1.25f, w * 1.0f, RED, 0.45f * fade, 0.4f * fade);
+				BeamDraw.segment(vc, last, mid, top, cam, w * 1.0f, 0.02f, ORANGE, 0.5f * fade, 0f);
+			} else {
+				BeamDraw.segment(vc, last, base, mid, cam, w * 0.55f, w * 0.35f, YELLOW, 0.8f * fade, 0.55f * fade);
+				BeamDraw.segment(vc, last, base, base.add(0, h * 0.22f, 0), cam, w * 0.3f, w * 0.18f, WHITE, 0.9f * fade, 0.6f * fade);
+				BeamDraw.segment(vc, last, mid, top, cam, w * 0.35f, 0.01f, YELLOW, 0.5f * fade, 0f);
+			}
+		}
+	}
+
+	/**
+	 * v0.17.1 Prominence Burn: during the ignition he becomes a white-hot sun (a noise-wobbled core shell inside an orange
+	 * corona and a soft halo, swelling as it ignites); in the comet it stretches into a blazing head. In his own first-person
+	 * view only a thin corona shows, so the screen is not filled white.
+	 */
+	private static void sun(PoseStack pose, MultiBufferSource buffers, Player p, net.minecraft.client.Camera camera, float partial, boolean firstPerson) {
+		float age = Hellflame.prominenceAge(p, partial);
+		if (age < 0f) {
+			return;
+		}
+		float ign = Mth.clamp(age / HellflameConfig.PROM_IGNITE_TICKS, 0f, 1f);
+		boolean comet = age >= HellflameConfig.PROM_IGNITE_TICKS;
+		float r = (comet ? 1.9f : 0.6f + 1.3f * ign * ign) * (1f + 0.05f * Mth.sin(age * 1.7f));
+		Vec3 c = p.getPosition(partial).add(0, 1.0, 0);
+		pose.pushPose();
+		pose.translate(c.x, c.y, c.z);
+		PoseStack.Pose last = pose.last();
+		long seed = p.getId() * 131L;
+		var flat = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.WHITE);
+		if (!firstPerson) {
+			com.projecthero.mod.client.quirk.fx.QuirkFxDraw.shell(flat, last, r * 0.62f, 0.12f, seed, age * 0.25f, 0xFFF8E0, 0.85f);
+		}
+		com.projecthero.mod.client.quirk.fx.QuirkFxDraw.shell(flat, last, r * 0.95f, 0.22f, seed + 7, age * 0.35f, 0xFFB040, firstPerson ? 0.12f : 0.42f);
+		com.projecthero.mod.client.quirk.fx.QuirkFxDraw.shell(flat, last, r * 1.3f, 0.3f, seed + 13, age * 0.45f, 0xFF5A10, firstPerson ? 0.08f : 0.22f);
+		var glowTex = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.GLOW);
+		org.joml.Quaternionf rot = camera.rotation();
+		if (!firstPerson) {
+			com.projecthero.mod.client.quirk.fx.QuirkFxDraw.billboard(glowTex, last, rot, new org.joml.Vector3f(), r * 3.2f, age * 0.02f, 0, 1, 0xFF8A20,
+					0.55f, true, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.FULL_BRIGHT);
+			com.projecthero.mod.client.quirk.fx.QuirkFxDraw.billboard(glowTex, last, rot, new org.joml.Vector3f(), r * 1.6f, -age * 0.03f, 0, 1, 0xFFF0C0,
+					0.8f, true, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.FULL_BRIGHT);
+		}
+		pose.popPose();
 	}
 
 	private static Vec3 perpendicular(Vec3 dir, double angle) {

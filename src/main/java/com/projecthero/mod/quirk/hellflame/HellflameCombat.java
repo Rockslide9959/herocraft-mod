@@ -83,9 +83,8 @@ public final class HellflameCombat {
 		}
 		Vec3 c = target.position().add(0, target.getBbHeight() * 0.55, 0);
 		ServerLevel level = owner.serverLevel();
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 8, 0.25, 0.35, 0.25, 0.04);
+		level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.EMBER, c.x, c.y, c.z, 8, 0.25, 0.35, 0.25, 0.06);
 		level.sendParticles(ORANGE, c.x, c.y, c.z, 5, 0.3, 0.35, 0.3, 0.0);
-		level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, 1, 0.2, 0.2, 0.2, 0.0);
 		return true;
 	}
 
@@ -150,8 +149,7 @@ public final class HellflameCombat {
 		level.sendParticles(WHITE_HOT, c.x, c.y, c.z, Math.max(1, count / 3), spread * 0.4, spread * 0.4, spread * 0.4, 0.0);
 		level.sendParticles(YELLOW, c.x, c.y, c.z, Math.max(1, count / 2), spread * 0.7, spread * 0.7, spread * 0.7, 0.0);
 		level.sendParticles(ORANGE, c.x, c.y, c.z, count, spread, spread, spread, 0.0);
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, count, spread, spread, spread, 0.03);
-		level.sendParticles(ParticleTypes.SMALL_FLAME, c.x, c.y, c.z, Math.max(1, count / 2), spread, spread, spread, 0.02);
+		level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.EMBER, c.x, c.y, c.z, Math.max(1, count / 2), spread, spread, spread, 0.04);
 	}
 
 	/** A flame streak a-b, {@code perBlock} puffs a block. */
@@ -160,7 +158,7 @@ public final class HellflameCombat {
 		int steps = Math.max(1, (int) (length * perBlock));
 		for (int i = 0; i <= steps; i++) {
 			Vec3 p = a.lerp(b, (double) i / steps);
-			level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 1, 0.04, 0.04, 0.04, 0.005);
+			level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.EMBER, p.x, p.y, p.z, 1, 0.04, 0.04, 0.04, 0.005);
 			if (core && (i & 1) == 0) {
 				level.sendParticles(WHITE_HOT, p.x, p.y, p.z, 1, 0.02, 0.02, 0.02, 0.0);
 			} else if ((i % 3) == 0) {

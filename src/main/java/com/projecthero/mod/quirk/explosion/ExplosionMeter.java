@@ -12,14 +12,17 @@ import net.minecraft.server.level.ServerPlayer;
  * NOT paced (sweating is what powers him). The drawback is <b>Arm Strain</b>, so the pacing runs on that channel: every
  * blast's strain x{@link #BUILD}, its danger at 70 (the kit's smoking-arms warning), "recovered" at 30.
  *
- * <p>An attack every 2 s now reaches 70 strain after about 50 s (it was 12 s); the 7/s ease-off after 2 s without a blast is
- * unchanged (70 to 30 in about 7.7 s).
+ * <p>An attack every 2 s (v0.17.1 kit build: the eleven costed moves in rotation, the new Pierce / Crush Grip / Spin Dodge /
+ * Uppercut included) reaches 70 strain after about 49 s (it was 12 s before the framework); the 7/s ease-off after 2 s
+ * without a blast is unchanged (70 to 30 in about 7.7 s).
  */
 public final class ExplosionMeter {
 	public static final float BUILD = 0.28f;
 	public static final float RECOVER = 1.0f;
-	/** The doc's starter route (2.7): Stun Grenade, then AP Shot within 1.2 s = a crit. The kit build wires the moves. */
+	/** The doc's starter route (2.7): Stun Grenade, then AP Shot within 1.2 s = a crit (x1.5). */
 	public static QuirkCombos.Route STUN_SHOT;
+	/** v0.17.1: the Explosive Uppercut, then AP Shot within 1.5 s = the air follow-up (x1.3). */
+	public static QuirkCombos.Route SKY_SHOT;
 
 	/** Arm Strain as the pacing channel. */
 	static final QuirkMeterSpec.Channel STRAIN = new QuirkMeterSpec.Channel() {
@@ -49,6 +52,7 @@ public final class ExplosionMeter {
 	static void register() {
 		STUN_SHOT = QuirkCombos.route(Quirk.EXPLOSION, "stun_shot", ExplosionConfig.STUN_GRENADE, ExplosionConfig.AP_SHOT)
 				.window(24).bonus(1.5f).register();
+		SKY_SHOT = QuirkCombos.route(Quirk.EXPLOSION, "sky_shot", ExplosionConfig.UPPERCUT, ExplosionConfig.AP_SHOT).window(30).bonus(1.3f).register();
 		QuirkMeterSpec.builder(Quirk.EXPLOSION)
 				.bands(30f, 80f)
 				.names("dry", "primed", "soaked", "beyond")
@@ -65,6 +69,11 @@ public final class ExplosionMeter {
 						.move(ExplosionConfig.AUTO_STRAIN * ExplosionConfig.AUTO_SHOTS, ExplosionConfig.AUTO_COOLDOWN)
 						.move(ExplosionConfig.BLAST_RUSH_STRAIN, ExplosionConfig.BLAST_RUSH_COOLDOWN)
 						.move(ExplosionConfig.STUN_STRAIN, ExplosionConfig.STUN_COOLDOWN)
+						// v0.17.1 kit build: the new moves join the rotation
+						.move(ExplosionConfig.PIERCE_STRAIN, ExplosionConfig.PIERCE_COOLDOWN)
+						.move(ExplosionConfig.GRIP_STRAIN, ExplosionConfig.GRIP_COOLDOWN)
+						.move(ExplosionConfig.DODGE_STRAIN, ExplosionConfig.DODGE_COOLDOWN)
+						.move(ExplosionConfig.UPPERCUT_STRAIN, ExplosionConfig.UPPERCUT_COOLDOWN)
 						.recovery(ExplosionConfig.STRAIN_DECAY * 20f, ExplosionConfig.STRAIN_DECAY_DELAY))
 				.register();
 	}
