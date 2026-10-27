@@ -35,18 +35,18 @@ public final class ModArmorMaterials {
 
 	/**
 	 * v0.14.15: Thor's Armour's own material (it used to share {@link #THOR} with All Might / Moon Knight). The set has no
-	 * helmet, so its three pieces carry a whole diamond set between them: 4 / 7 / 9 (= 20 armour, ten armour icons, like
-	 * full diamond) and 8/3 toughness each (= 8 in all, like full diamond), no knockback resistance, diamond durability.
+	 * helmet, so its three pieces carry a whole iron set between them (v0.17.1 user: was diamond): 3 / 5 / 7 (= 15 armour, like
+	 * full iron) and no toughness, no knockback resistance, diamond durability.
 	 */
 	public static final Holder<ArmorMaterial> THOR_ARMOUR = registerWithLayer("thor_armour", "thor",
 			Map.of(
-					ArmorItem.Type.BOOTS, 4,
-					ArmorItem.Type.LEGGINGS, 7,
-					ArmorItem.Type.CHESTPLATE, 9,
+					ArmorItem.Type.BOOTS, 3, // v0.17.1 (user): iron level -- 3 / 5 / 7 = a full iron set's 15, no toughness
+					ArmorItem.Type.LEGGINGS, 5,
+					ArmorItem.Type.CHESTPLATE, 7,
 					ArmorItem.Type.HELMET, 3),
 			10,
 			SoundEvents.ARMOR_EQUIP_DIAMOND,
-			8.0f / 3.0f,
+			0.0f,
 			0.0f,
 			() -> Ingredient.of(Items.DIAMOND));
 
