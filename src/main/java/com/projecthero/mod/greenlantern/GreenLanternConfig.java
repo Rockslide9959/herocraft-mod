@@ -697,6 +697,32 @@ public final class GreenLanternConfig {
 	public static final float RING_VOICE_LOW = 0.25f;
 	public static final float RING_VOICE_CRITICAL = 0.10f;
 
+	// ---------------- v0.17.1 Ring Auto-Protection (GreenLanternAutoProtect) ----------------
+
+	/** Death Save: a hit that would leave the Lantern under this much health (3 hearts) -- or kill him -- is stopped. */
+	public static final float AUTO_DEATH_SAVE_BELOW_HP = 6f;
+	/** Death Save: Ring Charge it costs (flat -- the Oath does not double it), from the spendable pool only. */
+	public static final float AUTO_DEATH_SAVE_COST = 300f;
+	/** Death Save: how long the burst shell then stops every further hit (bar the void and /kill). */
+	public static final int AUTO_DEATH_SAVE_SHELL_TICKS = 20;
+	public static final int AUTO_DEATH_SAVE_COOLDOWN_TICKS = 60 * 20;
+	/** Fall Cushion: the pad flashes (and brakes the fall) this many blocks above the ground. */
+	public static final double AUTO_CUSHION_TRIGGER_BLOCKS = 2.5;
+	/** Fall Cushion: how long before the pad shows again (the fall damage itself is always cancelled while it is on). */
+	public static final int AUTO_CUSHION_COOLDOWN_TICKS = 10 * 20;
+	/** Air Bubble: Ring Charge a second while it is over the Lantern's head. */
+	public static final float AUTO_AIR_BUBBLE_PER_SEC = 3f;
+	/** Air Bubble: it stays up this long after the last drowning / suffocation hit it stopped (refreshed while needed). */
+	public static final int AUTO_AIR_BUBBLE_LINGER_TICKS = 40;
+	/** Heat Shell: the share of fire and lava damage it takes off, and its Ring Charge a second while up. */
+	public static final float AUTO_HEAT_SHELL_REDUCTION = 0.75f;
+	public static final float AUTO_HEAT_SHELL_PER_SEC = 2f;
+	public static final int AUTO_HEAT_SHELL_LINGER_TICKS = 30;
+	/** Blind-Side Guard: the Lantern's view cone (degrees, total), the share it takes off and its cooldown. */
+	public static final float AUTO_BLIND_CONE_DEGREES = 100f;
+	public static final float AUTO_BLIND_REDUCTION = 0.40f;
+	public static final int AUTO_BLIND_COOLDOWN_TICKS = 3 * 20;
+
 	// ---------------- Automatic Air Tank (v0.11.10) ----------------
 
 	/** Charge/sec drained while the automatic underwater air tank is active. */

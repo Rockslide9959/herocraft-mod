@@ -950,6 +950,13 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.ring_voice");
 			para(lines, "projecthero.guide.green_lantern.ring_voice.body");
+			// v0.17.1 Ring Auto-Protection
+			blank(lines);
+			head(lines, "projecthero.guide.green_lantern.auto_protect");
+			para(lines, "projecthero.guide.green_lantern.auto_protect.body");
+			for (String id : new String[] { "death_save", "fall_cushion", "air_bubble", "heat_shell", "blind_side" }) {
+				bullet(lines, "projecthero.guide.green_lantern.auto_protect." + id);
+			}
 		}));
 
 		// The Symbiote -- not a Hero Class of its own like the other four: any player can bond with it,

@@ -51,7 +51,32 @@ public record GreenLanternActionPayload(Action action) implements CustomPacketPa
 		SUIT_STYLE_ARMORED,
 		/** v0.15.20: the suit screen's Body Glow / Flight Trail switches (appended). */
 		TOGGLE_BODY_GLOW,
-		TOGGLE_FLIGHT_TRAIL;
+		TOGGLE_FLIGHT_TRAIL,
+		/** v0.17.1 Ring Auto-Protection: the suit screen's master switch and its five saves (appended, in that order). */
+		TOGGLE_AUTO_PROTECT,
+		TOGGLE_AUTO_DEATH_SAVE,
+		TOGGLE_AUTO_FALL_CUSHION,
+		TOGGLE_AUTO_AIR_BUBBLE,
+		TOGGLE_AUTO_HEAT_SHELL,
+		TOGGLE_AUTO_BLIND_SIDE;
+
+		/** One action per {@code GreenLanternAutoProtect.SWITCHES} entry, in that order. */
+		private static final Action[] AUTO_ACTIONS = { TOGGLE_AUTO_PROTECT, TOGGLE_AUTO_DEATH_SAVE, TOGGLE_AUTO_FALL_CUSHION,
+				TOGGLE_AUTO_AIR_BUBBLE, TOGGLE_AUTO_HEAT_SHELL, TOGGLE_AUTO_BLIND_SIDE };
+
+		/** The index into {@code GreenLanternAutoProtect.SWITCHES} this action flips, or -1. */
+		public int autoProtectSwitch() {
+			for (int i = 0; i < AUTO_ACTIONS.length; i++) {
+				if (AUTO_ACTIONS[i] == this) {
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		public static Action forAutoProtectSwitch(int index) {
+			return AUTO_ACTIONS[index];
+		}
 
 		/** One action per {@code GreenLanternSuitStyle}, in the suits' order. */
 		private static final Action[] STYLE_ACTIONS = { SUIT_STYLE_DEFAULT, SUIT_STYLE_CORPS, SUIT_STYLE_STEWART, SUIT_STYLE_CLASSIC,

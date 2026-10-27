@@ -55,6 +55,17 @@ public final class GreenLanternSuitScreen extends Screen {
 	private Button trailButton;
 	/** v0.17.1: mutes / unmutes the Power Ring's voice (client-side, saved). */
 	private Button voiceButton;
+	/**
+	 * v0.17.1 Ring Auto-Protection: the section above the switch row -- a heading (with the Death Save's cooldown on the
+	 * right) and two rows of three switches: the master, then the five saves ({@code GreenLanternAutoProtect.SWITCHES}).
+	 */
+	private static final int AUTO_ROW = 12 + 2 * 20;
+	/** Compact: the heading goes and the six switches share one row with one-word labels. */
+	private static final int AUTO_ROW_COMPACT = 22;
+	/** The section's height in this layout ({@link #AUTO_ROW} or {@link #AUTO_ROW_COMPACT}). */
+	private int autoRow = AUTO_ROW;
+	private final Button[] autoButtons = new Button[com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCHES.length];
+	private boolean autoShort;
 	private boolean shortLabels;
 	/**
 	 * v0.15.20: the toggle row's height -- {@link #TOGGLE_ROW}, or 0 in the compact layout (a short GUI, e.g. a small
@@ -114,12 +125,16 @@ public final class GreenLanternSuitScreen extends Screen {
 		// the doll is 16 x 32 skin pixels; shrink it until the whole panel fits the screen
 		compact = false;
 		toggleRow = TOGGLE_ROW;
+		autoRow = AUTO_ROW;
 		layout(rows, descLines);
 		if (panelH > this.height - 8) {
 			// v0.15.20: still too tall at the smallest doll -- drop the blurbs and the intro, share the button row
+			// (v0.17.1: and the footer; the Auto-Protection switches go to one row)
 			compact = true;
 			toggleRow = 0;
+			autoRow = AUTO_ROW_COMPACT;
 			intro = List.of();
+			footer = List.of();
 			descs.replaceAll(d -> List.of());
 			layout(rows, 0);
 		}
@@ -150,6 +165,61 @@ public final class GreenLanternSuitScreen extends Screen {
 					b.setMessage(toggleLabel("ring_voice", on));
 				}).bounds(tx + 2 * (tw + GAP), ty, tw, 18).build());
 		voiceButton.setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.ring_voice.tip")));
+
+		// v0.17.1 Ring Auto-Protection: two rows of three switches above the switch row (compact: one row of six)
+		int perRow = compact ? autoButtons.length : 3;
+		int aw = (panelW - 2 * PAD - (perRow - 1) * GAP) / perRow;
+		autoShort = false;
+		for (String id : com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCH_IDS) {
+			if (this.font.width(autoLabel(id, false, false)) + 8 > aw) {
+				autoShort = true;
+			}
+		}
+		int ay = autoTop() + (compact ? 2 : 12);
+		for (int i = 0; i < autoButtons.length; i++) {
+			final int index = i;
+			String id = com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCH_IDS[i];
+			autoButtons[i] = addRenderableWidget(Button.builder(autoLabel(id, autoOn(i), autoShort), b -> ClientPlayNetworking.send(
+					new GreenLanternActionPayload(GreenLanternActionPayload.Action.forAutoProtectSwitch(index))))
+					.bounds(left() + PAD + (i % perRow) * (aw + GAP), ay + (i / perRow) * 20, aw, 18).build());
+			autoButtons[i].setTooltip(Tooltip.create(Component.translatable("screen.projecthero.green_lantern_suit.auto." + id + ".tip")));
+		}
+		refreshAuto();
+	}
+
+	/** Top of the Auto-Protection section (its heading). */
+	private int autoTop() {
+		return top() + panelH - BUTTON_ROW - toggleRow - autoRow;
+	}
+
+	/** Whether switch {@code i} is on in the synced state (the master counts for itself only). */
+	private static boolean autoOn(int i) {
+		GreenLanternState s = state();
+		return s == null || (s.autoProtectOff & com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCHES[i]) == 0;
+	}
+
+	/** "Death Save: ON" (green) / "Death Save: OFF" (grey); "Death: ON" when the buttons are narrow; compact: "Death" in green / grey. */
+	private Component autoLabel(String id, boolean on, boolean shortLabel) {
+		if (compact) {
+			return Component.translatable("screen.projecthero.green_lantern_suit.auto." + id + ".tiny")
+					.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY);
+		}
+		return Component.translatable("screen.projecthero.green_lantern_suit.auto." + id + (shortLabel ? ".short" : ""),
+				Component.translatable(on ? "options.on" : "options.off").withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+	}
+
+	/** The labels follow the synced state; with the master off the five saves grey out (they keep their own setting). */
+	private void refreshAuto() {
+		boolean master = autoOn(0);
+		for (int i = 0; i < autoButtons.length; i++) {
+			if (autoButtons[i] == null) {
+				continue;
+			}
+			autoButtons[i].setMessage(autoLabel(com.projecthero.mod.greenlantern.GreenLanternAutoProtect.SWITCH_IDS[i], autoOn(i), autoShort));
+			if (i > 0) {
+				autoButtons[i].active = master;
+			}
+		}
 	}
 
 	/** Card and panel heights for {@code descLines} blurb lines, shrinking the doll until the panel fits (or scale 1). */
@@ -157,7 +227,8 @@ public final class GreenLanternSuitScreen extends Screen {
 		scale = 3;
 		while (true) {
 			cardH = 6 + 32 * scale + 6 + nameLines * 10 + descLines * 9 + 6;
-			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10 + toggleRow + BUTTON_ROW;
+			panelH = 28 + intro.size() * 10 + 6 + rows * cardH + (rows - 1) * GAP + 10 + footer.size() * 10 + autoRow + toggleRow
+					+ BUTTON_ROW;
 			if (panelH <= this.height - 8 || scale == 1) {
 				break;
 			}
@@ -258,6 +329,7 @@ public final class GreenLanternSuitScreen extends Screen {
 		if (trailButton != null) {
 			trailButton.setMessage(toggleLabel("flight_trail", s.flightTrail));
 		}
+		refreshAuto();
 	}
 
 	@Override
@@ -316,7 +388,25 @@ public final class GreenLanternSuitScreen extends Screen {
 				ty += 9;
 			}
 		}
-		int fy = t + panelH - BUTTON_ROW - toggleRow - 2 - footer.size() * 10;
+		// v0.17.1 Ring Auto-Protection heading, the Death Save's cooldown on the right (when it fits)
+		int ay = autoTop();
+		g.fill(l + PAD, ay - 3, l + panelW - PAD, ay - 2, GREEN_DIM);
+		Component head = Component.translatable("screen.projecthero.green_lantern_suit.auto.title");
+		if (!compact) {
+			g.drawString(this.font, head, l + PAD, ay + 1, GREEN, false);
+		}
+		if (player != null && !compact) {
+			int cd = com.projecthero.mod.greenlantern.GreenLantern.cooldownRemaining(player,
+					com.projecthero.mod.greenlantern.GreenLanternAutoProtect.DEATH_SAVE_COOLDOWN);
+			Component status = cd > 0
+					? Component.translatable("screen.projecthero.green_lantern_suit.auto.cooldown", (cd + 19) / 20)
+					: Component.translatable("screen.projecthero.green_lantern_suit.auto.ready");
+			int sw = this.font.width(status);
+			if (this.font.width(head) + 8 + sw <= panelW - 2 * PAD) {
+				g.drawString(this.font, status, l + panelW - PAD - sw, ay + 1, cd > 0 ? 0xFFFF8A6A : MUTED, false);
+			}
+		}
+		int fy = t + panelH - BUTTON_ROW - toggleRow - autoRow - 6 - footer.size() * 10;
 		for (FormattedCharSequence line : footer) {
 			g.drawString(this.font, line, l + PAD, fy, MUTED, false);
 			fy += 10;
