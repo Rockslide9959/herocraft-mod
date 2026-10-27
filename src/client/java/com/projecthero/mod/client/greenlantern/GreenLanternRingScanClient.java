@@ -53,5 +53,25 @@ public final class GreenLanternRingScanClient {
 		hostileIds = new IntOpenHashSet();
 		passiveIds = new IntOpenHashSet();
 		updatedAtTick = 0L;
+		droneIds = new IntOpenHashSet();
+		droneUntil = 0L;
+	}
+
+	// v0.17.1: the Hard-Light Drone's sweeps -- a set of their own (so a sweep never wipes a Ring Scan, or the other way
+	// round), outlined red like the scan's hostiles, until droneUntil
+	private static IntSet droneIds = new IntOpenHashSet();
+	private static long droneUntil;
+
+	public static void acceptDrone(int[] hostile, int ticks, long nowTick) {
+		IntOpenHashSet next = new IntOpenHashSet(hostile.length);
+		for (int id : hostile) {
+			next.add(id);
+		}
+		droneIds = next;
+		droneUntil = nowTick + ticks;
+	}
+
+	public static boolean isDroneMarked(int entityId, long nowTick) {
+		return nowTick <= droneUntil && droneIds.contains(entityId);
 	}
 }

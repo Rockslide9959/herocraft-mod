@@ -589,6 +589,7 @@ public final class GreenLanternConstructs {
 			case SENTRY_TURRET -> "construct_turret";
 			case HARD_LIGHT_WALL -> "construct_wall";
 			case ITEM_NET -> com.projecthero.mod.greenlantern.GreenLanternSurvival.NET_COOLDOWN_ID; // v0.17.1 (HUD only: the net checks its own)
+			case HARD_LIGHT_GATEWAY -> com.projecthero.mod.greenlantern.recon.GreenLanternReconConfig.GATEWAY_COOLDOWN_ID; // v0.17.1 (HUD only)
 			default -> null;
 		};
 	}

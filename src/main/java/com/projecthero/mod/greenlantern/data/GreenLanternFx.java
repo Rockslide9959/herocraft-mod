@@ -46,6 +46,8 @@ public record GreenLanternFx(int anim, long animStart, int channels, long ringRe
 	public static final int CH_CHARGE = 16;
 	/** v0.16.1: looking down the Sniper Rifle's scope (the rifle raised to the eye). */
 	public static final int CH_SNIPER_SCOPE = 32;
+	/** v0.17.1: channelling a Hard-Light Gateway -- the ring arm raised to the door frame it is tracing. */
+	public static final int CH_GATEWAY = 64;
 
 	public static final GreenLanternFx EMPTY = new GreenLanternFx(ANIM_NONE, 0L, 0, 0L, 0L);
 

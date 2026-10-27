@@ -48,7 +48,9 @@ public final class GreenLanternRingVoice {
 		CUSHION("cushion", 60 * 20, false),
 		AIR_BUBBLE("air_bubble", 60 * 20, false),
 		HEAT_SHELL("heat_shell", 60 * 20, false),
-		BLIND_SIDE("blind_side", 45 * 20, false);
+		BLIND_SIDE("blind_side", 45 * 20, false),
+		/** v0.17.1: a Hard-Light Gateway opened ("Gateway open: %s."), the waypoint's name as a literal argument. */
+		GATEWAY("gateway", 0, true);
 
 		public final String id;
 		public final int cooldownTicks;

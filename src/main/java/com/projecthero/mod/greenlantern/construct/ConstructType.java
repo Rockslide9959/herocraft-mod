@@ -85,7 +85,13 @@ public enum ConstructType {
 	// v0.17.1: the Hard-Light Mech -- the ultimate construct, a mech you pilot from its chest cockpit (GreenLanternMech).
 	// Appended so saved selections keep their ordinals.
 	HARD_LIGHT_MECH(Kind.ARSENAL, com.projecthero.mod.greenlantern.mech.GreenLanternMechConfig.FORM_COST,
-			com.projecthero.mod.greenlantern.mech.GreenLanternMechConfig.UPKEEP_PER_SEC, 0f, 0, 0);
+			com.projecthero.mod.greenlantern.mech.GreenLanternMechConfig.UPKEEP_PER_SEC, 0f, 0, 0),
+	// v0.17.1: the Hard-Light Drone (a recon / support drone at your shoulder) and the Hard-Light Gateway (door portals to
+	// the ring's waypoints), both run by greenlantern.recon. Appended so saved selections keep their ordinals.
+	HARD_LIGHT_DRONE(Kind.RING_TECH, com.projecthero.mod.greenlantern.recon.GreenLanternReconConfig.DRONE_COST,
+			com.projecthero.mod.greenlantern.recon.GreenLanternReconConfig.DRONE_UPKEEP_PER_SEC,
+			com.projecthero.mod.greenlantern.recon.GreenLanternReconConfig.DRONE_HP, 0, 0),
+	HARD_LIGHT_GATEWAY(Kind.RING_TECH, com.projecthero.mod.greenlantern.recon.GreenLanternReconConfig.GATEWAY_BASE_COST, 0f, 0f, 0, 0);
 
 	/** v0.14.3: the construct wheel groups constructs into these four arcs. */
 	public enum Category {
@@ -108,7 +114,9 @@ public enum ConstructType {
 		/** v0.17.1: the revamp's new constructs, spawned / ticked / dismissed by {@code GreenLanternArsenal}. */
 		ARSENAL,
 		/** v0.17.1: the survival constructs (chest, scaffold tower, item net, tunneller), run by {@code GreenLanternSurvival}. */
-		SURVIVAL
+		SURVIVAL,
+		/** v0.17.1: the Hard-Light Drone and the Hard-Light Gateway, run by {@code greenlantern.recon.GreenLanternRecon}. */
+		RING_TECH
 	}
 
 	/** v0.17.1: a construct you hold the key for (charge / draw / keep up) instead of tapping. */
@@ -170,7 +178,7 @@ public enum ConstructType {
 					BULLDOZER, FIGHTER_JET, EMERALD_DRAGON, EMERALD_MACE, HARD_LIGHT_MECH -> Category.ATTACK;
 			case HARD_LIGHT_WALL, CONTAINMENT_CAGE, CHAIN_SNARE, ATMOSPHERE_BUBBLE, RESCUE_TETHER, BEAR_TRAP, MIRROR_SHIELD,
 					MED_BAY -> Category.DEFENSE;
-			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD, GRAPPLING_CLAW -> Category.MOBILITY;
+			case PLATFORM, BRIDGE, STAIR_RAMP, CARRY_PLATFORM, LAUNCH_PAD, GRAPPLING_CLAW, HARD_LIGHT_GATEWAY -> Category.MOBILITY;
 			default -> Category.UTILITY;
 		};
 	}

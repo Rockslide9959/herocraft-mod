@@ -1,0 +1,353 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.GreenLanternRanks;
+import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+import com.projecthero.mod.greenlantern.recon.GreenLanternDrone;
+import com.projecthero.mod.greenlantern.recon.GreenLanternGateway;
+import com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints;
+import com.projecthero.mod.greenlantern.recon.HardLightDroneEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Hard-Light Drone + Gateway screenshots. Enabled by run/gldg.flag. */
+public final class GlDroneGatewayHarness {
+	public static volatile Vec3 camOffset;
+	public static volatile Vec3 camTarget = Vec3.ZERO;
+	public static volatile boolean camAbsolute;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static String only = "";
+
+	private GlDroneGatewayHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("gldg.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("gldg.flag")).trim();
+		} catch (Exception e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GlDroneGatewayHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "gldg-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void cam(int t, double ox, double oy, double oz, double tx, double ty, double tz) {
+		at(t, () -> {
+			camAbsolute = false;
+			camOffset = new Vec3(ox, oy, oz);
+			camTarget = new Vec3(tx, ty, tz);
+		});
+	}
+
+	private static Husk husk(ServerLevel level, Vec3 at, boolean ai) {
+		Husk h = EntityType.HUSK.create(level);
+		h.moveTo(at.x, at.y, at.z, 180f, 0f);
+		h.setNoAi(!ai);
+		h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(400);
+		h.setHealth(400);
+		h.setPersistenceRequired();
+		level.addFreshEntity(h);
+		return h;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GlDroneGatewayHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		if (inWorldTicks % 10 == 0) {
+			server(mc, p -> p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(80)).forEach(net.minecraft.world.entity.Entity::discard));
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(18000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 5f);
+				GreenLantern.bond(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				GreenLanternRanks.award(p, 6200);
+				GreenLanternState s = GreenLantern.state(p).copy();
+				s.suited = true;
+				GreenLantern.save(p, s);
+				// a little scenery: a stone path ahead, a ruined wall and two chests for the scout to find
+				BlockPos o = BlockPos.containing(origin);
+				for (int z = -3; z < 36; z++) {
+					for (int x = -1; x <= 1; x++) {
+						level.setBlock(o.offset(x, -1, z), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+					}
+				}
+				for (int x = -6; x <= -2; x++) {
+					for (int y = 0; y < 3 - Math.abs(x + 4) / 2; y++) {
+						level.setBlock(o.offset(x, y, 30), Blocks.MOSSY_COBBLESTONE.defaultBlockState(), 3);
+					}
+				}
+				level.setBlock(o.offset(4, 0, 28), Blocks.CHEST.defaultBlockState(), 3);
+				level.setBlock(o.offset(-3, 0, 33), Blocks.CHEST.defaultBlockState(), 3);
+				level.setBlock(o.offset(5, 0, 33), Blocks.BARREL.defaultBlockState(), 3);
+				// the waypoint's far end: a stone platform with a lantern post, 40 blocks east
+				BlockPos w = o.offset(40, 0, 4);
+				for (int x = -3; x <= 3; x++) {
+					for (int z = -3; z <= 5; z++) {
+						level.setBlock(w.offset(x, -1, z), Blocks.POLISHED_ANDESITE.defaultBlockState(), 3);
+					}
+				}
+				for (int y = 0; y < 3; y++) {
+					level.setBlock(w.offset(-3, y, 5), Blocks.STONE_BRICK_WALL.defaultBlockState(), 3);
+					level.setBlock(w.offset(3, y, 5), Blocks.STONE_BRICK_WALL.defaultBlockState(), 3);
+				}
+				level.setBlock(w.offset(-3, 3, 5), Blocks.LANTERN.defaultBlockState(), 3);
+				level.setBlock(w.offset(3, 3, 5), Blocks.LANTERN.defaultBlockState(), 3);
+				String dim = GreenLanternGateway.dimensionId(level);
+				p.setAttached(ModAttachments.GREEN_LANTERN_WAYPOINTS, new GreenLanternWaypoints(List.of(
+						new GreenLanternWaypoints.Waypoint("Watchtower", dim, w.getX() + 0.5, w.getY(), w.getZ() + 0.5, 180f),
+						new GreenLanternWaypoints.Waypoint("Home Base", dim, origin.x - 412, origin.y + 3, origin.z + 230, 90f),
+						new GreenLanternWaypoints.Waypoint("Diamond Mine", dim, origin.x + 96, origin.y - 40, origin.z - 640, 0f),
+						new GreenLanternWaypoints.Waypoint("Nether Fortress", "minecraft:the_nether", 120, 64, -80, 0f))));
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static boolean want(String part) {
+		return only.isEmpty() || only.contains(part);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 90;
+		if (want("drone")) {
+			// --- the drone, close up at the shoulder (shaped well before, so its sparkles have faded)
+			at(4, () -> server(mc, p -> {
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 5f);
+				GreenLanternConstructs.deploy(p, ConstructType.HARD_LIGHT_DRONE);
+			}));
+			cam(t + 1, -0.42, 2.12, 0.62, -0.8, 2.0, -0.35);
+			shot(t + 30, "gl_drone_closeup");
+			cam(t + 32, -1.75, 2.35, 0.55, -0.8, 2.0, -0.35);
+			shot(t + 36, "gl_drone_closeup_b");
+			// --- following: walk forward down the path, camera off to the side behind
+			at(t + 40, () -> mc.options.keyUp.setDown(true));
+			cam(t + 40, -3.6, 2.6, -3.2, -0.4, 1.6, 0.6);
+			shot(t + 58, "gl_drone_follow");
+			at(t + 60, () -> mc.options.keyUp.setDown(false));
+			// --- a fetch and a zap: drop loot, a husk that is after the Lantern
+			at(t + 70, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				Vec3 c = p.position();
+				for (int i = 0; i < 3; i++) {
+					ItemEntity it = new ItemEntity(level, c.x + 4 + i * 0.6, c.y + 0.2, c.z + 3 - i, new ItemStack(i == 0 ? Items.DIAMOND : Items.EMERALD, 3));
+					it.setDeltaMovement(Vec3.ZERO);
+					level.addFreshEntity(it);
+				}
+				Husk h = husk(level, c.add(-4, 0, 7), true);
+				h.setTarget(p);
+			}));
+			cam(t + 72, 3.6, 2.4, -1.2, 2.2, 0.9, 2.2);
+			for (int k = 0; k < 6; k++) {
+				shot(t + 84 + k * 3, "gl_drone_fetch_" + k);
+			}
+			shot(t + 108, "gl_drone_zap");
+			// --- the scout run: aim down the path at the ruins
+			at(t + 120, () -> server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(40)).forEach(net.minecraft.world.entity.Entity::discard);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 3.4f);
+				p.setYRot(0f);
+				p.setXRot(3.4f);
+				for (int i = 0; i < 4; i++) {
+					husk(level, origin.add(-4 + i * 2.5, 0, 28 + (i % 2) * 3), false);
+				}
+			}));
+			at(t + 124, () -> server(mc, p -> GreenLanternDrone.scout(p)));
+			at(t + 150, () -> {
+				camAbsolute = true;
+				camOffset = origin.add(4.2, 4.6, 20.6);
+				camTarget = origin.add(0, 2.0, 26.0);
+			});
+			shot(t + 190, "gl_drone_scout");
+			shot(t + 205, "gl_drone_scout_b");
+			at(t + 210, () -> {
+				camAbsolute = false;
+				camOffset = null;
+			});
+			at(t + 212, () -> server(mc, p -> GreenLanternDrone.dismiss(p.getUUID(), false)));
+			t += 230;
+		}
+		if (want("gate")) {
+			// --- the screens
+			at(t, () -> server(mc, p -> {
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 5f);
+				p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(60)).forEach(net.minecraft.world.entity.Entity::discard);
+			}));
+			at(t + 4, () -> mc.setScreen(new com.projecthero.mod.client.greenlantern.recon.GreenLanternGatewayPickerScreen(0)));
+			shot(t + 14, "gl_gateway_picker");
+			at(t + 16, () -> mc.setScreen(new com.projecthero.mod.client.greenlantern.recon.GreenLanternWaypointsScreen(0)));
+			shot(t + 26, "gl_gateway_waypoints");
+			at(t + 28, () -> mc.setScreen(null));
+			// --- the channel: the frame tracing itself, the ring arm raised
+			at(t + 34, () -> server(mc, p -> {
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 5f);
+				p.setYRot(0f);
+				GreenLanternGateway.start(p, 0);
+			}));
+			cam(t + 35, 3.2, 2.0, -1.6, 0.0, 1.6, 2.0);
+			shot(t + 34 + 32, "gl_gateway_channel");
+			shot(t + 34 + 52, "gl_gateway_channel_b");
+			// --- unfolding, then open (completion at +60)
+			shot(t + 34 + 62, "gl_gateway_unfold_a");
+			shot(t + 34 + 65, "gl_gateway_unfold");
+			shot(t + 34 + 68, "gl_gateway_unfold_c");
+			cam(t + 34 + 70, 2.6, 2.4, -2.2, 0.0, 1.6, 2.4);
+			shot(t + 34 + 84, "gl_gateway_open_near");
+			at(t + 34 + 86, () -> {
+				camAbsolute = true;
+				Vec3 w = origin.add(40.5, 0, 4.5);
+				camOffset = w.add(3.6, 2.6, -5.0);
+				camTarget = w.add(0, 1.4, 0.8);
+			});
+			shot(t + 34 + 98, "gl_gateway_open_far");
+			// --- through it
+			at(t + 34 + 100, () -> {
+				camAbsolute = false;
+				camOffset = null;
+			});
+			at(t + 34 + 104, () -> server(mc, p -> {
+				GreenLanternGateway.Doors d = GreenLanternGateway.doors(p.getUUID());
+				if (d != null) {
+					Vec3 in = d.near().position().add(d.near().normal().scale(0.8));
+					p.connection.teleport(in.x, in.y, in.z, 0f, 5f);
+				}
+			}));
+			at(t + 34 + 106, () -> mc.options.keyUp.setDown(true));
+			at(t + 34 + 112, () -> mc.options.keyUp.setDown(false));
+			shot(t + 34 + 122, "gl_gateway_arrive");
+			at(t + 34 + 124, () -> server(mc, p -> System.out.println("[HARNESS] after travel at " + p.position())));
+			t += 34 + 130;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GLDG_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

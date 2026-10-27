@@ -18,6 +18,7 @@ public final class GreenLanternClient {
 		GreenLanternFlightFx.initialize(); // v0.15.15: flight aura + sprint-flight trail
 		GreenLanternOathSubtitle.initialize(); // v0.15.15: the Oath as a centred subtitle (was the action bar)
 		com.projecthero.mod.client.greenlantern.mech.GreenLanternMechClient.initialize(); // v0.17.1: the Hard-Light Mech
+		com.projecthero.mod.client.greenlantern.recon.GreenLanternReconClient.initialize(); // v0.17.1: Hard-Light Drone + Gateway
 		PowerBatteryHeldRenderer.initialize(); // v0.15.15: the battery hanging from the hand, swaying; the charge glow
 		// v0.17.1: the Carry Platform's Car and Jet forms
 		net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry.register(

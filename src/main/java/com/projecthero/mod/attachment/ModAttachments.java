@@ -733,6 +733,19 @@ public final class ModAttachments {
 									AttachmentSyncPredicate.all()));
 
 	/**
+	 * v0.17.1: the Power Ring's named waypoints (up to five, each tied to the dimension it was saved in) for the Hard-Light
+	 * Gateway -- see {@link com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints}. Its own attachment so the big
+	 * {@link #GREEN_LANTERN_STATE} codec stays as it is. Persistent and {@code copyOnDeath()}; synced to its owner only.
+	 */
+	public static final AttachmentType<com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints> GREEN_LANTERN_WAYPOINTS =
+			AttachmentRegistry.create(ProjectHeroMod.id("green_lantern_waypoints"),
+					builder -> builder.persistent(com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints.CODEC)
+							.copyOnDeath()
+							.initializer(() -> com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints.EMPTY)
+							.syncWith(ByteBufCodecs.fromCodec(com.projecthero.mod.greenlantern.recon.GreenLanternWaypoints.CODEC),
+									AttachmentSyncPredicate.targetOnly()));
+
+	/**
 	 * Whether Ring Flight is currently engaged. Independent of every other flight flag, exactly like
 	 * {@link #MAX_STEEL_FLYING}. Not persisted (a relog drops you safely); synced to everyone so
 	 * thruster particles/pose read on other clients.
