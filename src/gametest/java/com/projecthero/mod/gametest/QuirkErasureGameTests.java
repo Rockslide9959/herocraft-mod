@@ -375,7 +375,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		helper.assertTrue(!PowerSuppression.isSuppressed(off), "the one off to the side is not (narrow cone)");
 		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(PowerSuppression.isSuppressed(z), "still erased while he stares");
-			helper.assertTrue(Quirks.meter(p) > 3f, "his eyes dry, " + Quirks.meter(p));
+			helper.assertTrue(Quirks.meter(p) > 0.5f, "his eyes dry (gently, v0.17.1 pacing), " + Quirks.meter(p));
 			helper.assertTrue(val(p, ErasureConfig.V_ERASE) == 1L && val(p, ErasureConfig.V_STARE_TARGET) == z.getId() + 1L, "the stare is synced");
 			ErasureMoves.eraseUp(p);
 			helper.runAfterDelay(ErasureConfig.SUPPRESS_TICKS + 2, () -> {
@@ -424,7 +424,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
 		look(p, z);
 		pump(helper, p);
-		Quirks.setMeter(p, 97f);
+		Quirks.setMeter(p, 99.5f); // v0.17.1: Dry Eyes build paced (ErasureMeter.BUILD)
 		helper.assertTrue(ErasureMoves.eraseDown(p), "stare");
 		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(ErasureMoves.eyesShut(p), "forced shut at 100");

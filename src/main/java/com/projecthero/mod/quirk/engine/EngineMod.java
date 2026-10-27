@@ -10,5 +10,6 @@ public final class EngineMod {
 
 	public static void initialize() {
 		QuirkKits.register(Quirk.ENGINE, new EngineKit());
+		EngineMeter.register(); // v0.17.1 framework: Engine Heat bands + pacing
 	}
 }

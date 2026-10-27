@@ -51,6 +51,7 @@ public final class Quirks {
 		WAS_SUPPRESSED.clear();
 		QuirkAbilityManager.clearSessionState();
 		QuirkKits.clearSessionState();
+		QuirkFramework.clearSessionState(); // v0.17.1: Plus Ultra, combos, meter bands, suit perks
 	}
 
 	// ---------------------------------------------------------------- state
@@ -181,6 +182,20 @@ public final class Quirks {
 		return v;
 	}
 
+	/**
+	 * v0.17.1 framework: a NATURAL change of the meter (what use builds a tick, the passive vent / cooling), paced by the
+	 * Quirk's {@link com.projecthero.mod.quirk.meter.QuirkMeterSpec} -- toward its danger x the spec's build multiplier,
+	 * away from it x its recovery multiplier (the user: "i dont want like heat or darkness ... to build up too quick").
+	 * Deliberate costs, vents and resets use {@link #addMeter} / {@link #setMeter} (raw). Returns the new value.
+	 */
+	public static float addMeterPaced(ServerPlayer player, float amount) {
+		com.projecthero.mod.quirk.meter.QuirkMeterSpec spec = com.projecthero.mod.quirk.meter.QuirkMeters.spec(quirk(player));
+		if (spec != null && spec.channelIsMeter) {
+			amount = com.projecthero.mod.quirk.meter.QuirkMeters.pace(spec, player, amount);
+		}
+		return addMeter(player, amount);
+	}
+
 	/** Client-safe: the synced meter (a few ticks behind the server). */
 	public static float clientMeter(Player player) {
 		QuirkState s = peek(player);
@@ -292,6 +307,7 @@ public final class Quirks {
 		WAS_SUPPRESSED.remove(id);
 		QuirkAbilityManager.forget(id);
 		QuirkKits.forget(id);
+		QuirkFramework.forget(id); // v0.17.1 (the Plus Ultra gauge itself is saved in the synced vals)
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -315,6 +331,10 @@ public final class Quirks {
 			}
 		} else {
 			kit.tick(player);
+			Quirk held = Quirk.byId(s.quirk);
+			if (held != null && !held.standalone) {
+				QuirkFramework.tick(player, held); // v0.17.1: bands / push past 100, Plus Ultra, suit perks
+			}
 		}
 		QuirkState after = state(player);
 		if (after.overloadUntil > 0L && now >= after.overloadUntil) {

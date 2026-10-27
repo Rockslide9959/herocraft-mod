@@ -21,6 +21,7 @@ public final class HellflameMod {
 		HellflameConfig.load(); // v0.16.7 revamp: config/projecthero_quirk_hellflame.json (Body Heat)
 		HellflameParticles.register();
 		QuirkKits.register(Quirk.HELLFLAME, new HellflameKit());
+		HellflameMeter.register(); // v0.17.1 framework: Body Heat bands + pacing
 		AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (!level.isClientSide() && player instanceof ServerPlayer sp && entity instanceof LivingEntity le && Hellflame.cloaked(sp)) {
 				HellflameMoves.cloakMelee(sp, le);

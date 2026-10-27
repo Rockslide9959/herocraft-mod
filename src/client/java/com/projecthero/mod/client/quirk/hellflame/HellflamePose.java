@@ -1,6 +1,10 @@
 package com.projecthero.mod.client.quirk.hellflame;
 
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.f;
+import static com.projecthero.mod.client.quirk.QuirkKeyframes.rest;
+
 import com.projecthero.mod.client.HipBend;
+import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.hellflame.Hellflame;
@@ -14,8 +18,8 @@ import net.minecraft.world.entity.player.Player;
 /**
  * v0.16.7 revamp: Endeavor's poses on the vanilla humanoid model, set at the end of {@code setupAnim}.
  *
- * <p><b>Keyframed moves</b> (the One For All format): each is a list of frames {@code {tick, rightArmX, rightArmY, rightArmZ,
- * leftArmX, leftArmY, leftArmZ, bodyX, bodyY, rightLegX, leftLegX, headX}} in radians, smoothstep-interpolated, faded in over
+ * <p><b>Keyframed moves</b> (v0.17.1: the shared 16-column {@link QuirkKeyframes} format, full leg rotation): each is a list
+ * of frames in radians, smoothstep-interpolated, faded in over
  * 2 ticks and out over the last 3, driven by the synced {@code animId / animStart} so every viewer sees the same. Negative
  * arm X swings a limb forward / up; a positive right-arm Z lifts it out to his side; a negative right-arm Y swings it out to
  * his right. The torso bends from the hips ({@link HipBend}).
@@ -27,81 +31,81 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class HellflamePose {
 	private static final float[][] JET = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, 0.75f, 0.1f, 0.3f, -0.9f, 0.3f, -0.15f, 0.12f, 0.55f, 0.3f, -0.35f, 0 },
-			{ 5, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, -0.45f, 0.05f },
-			{ 10, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, -0.45f, 0.05f },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(3, 0.75f, 0.1f, 0.3f, -0.9f, 0.3f, -0.15f, 0.12f, 0.55f, 0.3f, 0, 0, -0.35f, 0, 0, 0),
+			f(5, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, 0, 0, -0.45f, 0, 0, 0.05f),
+			f(10, -1.65f, -0.1f, 0, 0.55f, 0.2f, -0.25f, 0.32f, -0.45f, 0.6f, 0, 0, -0.45f, 0, 0, 0.05f),
+			rest(14) };
 	private static final float[][] FLIGHT = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, 0.45f, 0, 0.45f, 0.45f, 0, -0.45f, 0.35f, 0, -0.55f, -0.55f, 0.15f },
-			{ 6, 0.6f, 0, 0.6f, 0.6f, 0, -0.6f, -0.12f, 0, 0.12f, 0.12f, -0.25f },
-			{ 10, 0.4f, 0, 0.4f, 0.4f, 0, -0.4f, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(3, 0.45f, 0, 0.45f, 0.45f, 0, -0.45f, 0.35f, 0, -0.55f, 0, 0, -0.55f, 0, 0, 0.15f),
+			f(6, 0.6f, 0, 0.6f, 0.6f, 0, -0.6f, -0.12f, 0, 0.12f, 0, 0, 0.12f, 0, 0, -0.25f),
+			f(10, 0.4f, 0, 0.4f, 0.4f, 0, -0.4f, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
 	private static final float[][] SPIDER = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 3, -1.45f, -0.85f, 0.15f, -0.35f, 0, -0.3f, 0.05f, -0.35f, 0.15f, -0.15f, 0 },
-			{ 6, -1.5f, 0.65f, 0, -0.35f, 0, -0.3f, 0.08f, 0.38f, 0.15f, -0.15f, 0 },
-			{ 11, -1.45f, 0.7f, 0, -0.35f, 0, -0.3f, 0.08f, 0.4f, 0.15f, -0.15f, 0 },
-			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(3, -1.45f, -0.85f, 0.15f, -0.35f, 0, -0.3f, 0.05f, -0.35f, 0.15f, 0, 0, -0.15f, 0, 0, 0),
+			f(6, -1.5f, 0.65f, 0, -0.35f, 0, -0.3f, 0.08f, 0.38f, 0.15f, 0, 0, -0.15f, 0, 0, 0),
+			f(11, -1.45f, 0.7f, 0, -0.35f, 0, -0.3f, 0.08f, 0.4f, 0.15f, 0, 0, -0.15f, 0, 0, 0),
+			rest(16) };
 	private static final float[][] MESH = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -1.55f, 0.18f, 0, -1.55f, -0.18f, 0, 0.1f, 0, 0.2f, -0.2f, 0.05f },
-			{ 8, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, -0.2f, 0.1f },
-			{ 13, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, -0.2f, 0.1f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -1.55f, 0.18f, 0, -1.55f, -0.18f, 0, 0.1f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.05f),
+			f(8, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.1f),
+			f(13, -1.45f, -0.85f, 0.15f, -1.45f, 0.85f, -0.15f, 0.05f, 0, 0.2f, 0, 0, -0.2f, 0, 0, 0.1f),
+			rest(18) };
 	private static final float[][] WALL = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, -1.3f, 0.95f, 0, -0.4f, 0, -0.3f, 0.12f, 0.45f, -0.2f, 0.2f, 0.1f },
-			{ 8, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, -0.35f, 0.15f },
-			{ 13, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, -0.35f, 0.15f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, -1.3f, 0.95f, 0, -0.4f, 0, -0.3f, 0.12f, 0.45f, -0.2f, 0, 0, 0.2f, 0, 0, 0.1f),
+			f(8, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, 0, 0, -0.35f, 0, 0, 0.15f),
+			f(13, -1.4f, -1.0f, 0.35f, -0.5f, 0, -0.6f, 0.2f, -0.45f, 0.35f, 0, 0, -0.35f, 0, 0, 0.15f),
+			rest(18) };
 	private static final float[][] CLOAK = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 5, -0.4f, 0.3f, 0.95f, -0.4f, -0.3f, -0.95f, 0.12f, 0, 0.1f, -0.1f, -0.2f },
-			{ 11, -0.45f, 0.3f, 1.05f, -0.45f, -0.3f, -1.05f, 0.15f, 0, 0.1f, -0.1f, -0.25f },
-			{ 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(5, -0.4f, 0.3f, 0.95f, -0.4f, -0.3f, -0.95f, 0.12f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.2f),
+			f(11, -0.45f, 0.3f, 1.05f, -0.45f, -0.3f, -1.05f, 0.15f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.25f),
+			rest(16) };
 	private static final float[][] PILLAR = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 5, 0.35f, 0, 0.35f, -0.4f, 0, -0.4f, 0.4f, 0.2f, -0.3f, 0.3f, 0.25f },
-			{ 9, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, -0.2f, -0.45f },
-			{ 14, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, -0.2f, -0.45f },
-			{ 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(5, 0.35f, 0, 0.35f, -0.4f, 0, -0.4f, 0.4f, 0.2f, -0.3f, 0, 0, 0.3f, 0, 0, 0.25f),
+			f(9, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, 0, 0, -0.2f, 0, 0, -0.45f),
+			f(14, -2.9f, -0.1f, 0.1f, -0.3f, 0, -0.45f, -0.15f, -0.1f, 0.2f, 0, 0, -0.2f, 0, 0, -0.45f),
+			rest(18) };
 	private static final float[][] VANISH = {
-			{ 0, 0.5f, 0, 0.45f, -1.0f, 0.45f, 0, 0.35f, 0.65f, 0.4f, -0.4f, 0.1f },
-			{ 3, 0.6f, 0, 0.5f, -1.05f, 0.45f, 0, 0.38f, 0.7f, 0.45f, -0.45f, 0.1f },
-			{ 5, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, -0.3f, 0 },
-			{ 10, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, -0.3f, 0 },
-			{ 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			f(0, 0.5f, 0, 0.45f, -1.0f, 0.45f, 0, 0.35f, 0.65f, 0.4f, 0, 0, -0.4f, 0, 0, 0.1f),
+			f(3, 0.6f, 0, 0.5f, -1.05f, 0.45f, 0, 0.38f, 0.7f, 0.45f, 0, 0, -0.45f, 0, 0, 0.1f),
+			f(5, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, 0, 0, -0.3f, 0, 0, 0),
+			f(10, -1.55f, -0.65f, 0.3f, 0.4f, 0.2f, -0.2f, 0.22f, -0.55f, 0.5f, 0, 0, -0.3f, 0, 0, 0),
+			rest(14) };
 	private static final float[][] COOL = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 4, 0, 0, 1.45f, 0, 0, -1.45f, -0.15f, 0, 0.1f, -0.1f, -0.6f },
-			{ 16, -0.1f, 0, 1.4f, -0.1f, 0, -1.4f, -0.18f, 0, 0.1f, -0.1f, -0.65f },
-			{ 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(4, 0, 0, 1.45f, 0, 0, -1.45f, -0.15f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.6f),
+			f(16, -0.1f, 0, 1.4f, -0.1f, 0, -1.4f, -0.18f, 0, 0.1f, 0, 0, -0.1f, 0, 0, -0.65f),
+			rest(22) };
 	private static final float[][] PLUS = {
-			{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-			{ 6, 0.35f, 0.2f, 0.5f, 0.35f, -0.2f, -0.5f, 0.4f, 0, -0.25f, 0.25f, 0.3f },
-			{ 10, -0.45f, 0, 1.95f, -0.45f, 0, -1.95f, -0.22f, 0, 0.25f, -0.25f, -0.6f },
-			{ 24, -0.5f, 0, 2.0f, -0.5f, 0, -2.0f, -0.25f, 0, 0.25f, -0.25f, -0.65f },
-			{ 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } };
+			rest(0),
+			f(6, 0.35f, 0.2f, 0.5f, 0.35f, -0.2f, -0.5f, 0.4f, 0, -0.25f, 0, 0, 0.25f, 0, 0, 0.3f),
+			f(10, -0.45f, 0, 1.95f, -0.45f, 0, -1.95f, -0.22f, 0, 0.25f, 0, 0, -0.25f, 0, 0, -0.6f),
+			f(24, -0.5f, 0, 2.0f, -0.5f, 0, -2.0f, -0.25f, 0, 0.25f, 0, 0, -0.25f, 0, 0, -0.65f),
+			rest(30) };
 	/** Eight jabs, alternating fists, every 4 ticks (built in the static block). */
 	private static final float[][] BARRAGE;
 
 	static {
 		int jabs = 8;
 		float[][] f = new float[2 + jabs * 2 + 1][];
-		f[0] = new float[] { 0, -0.9f, 0, 0, -0.9f, 0, 0, 0.1f, 0, 0.25f, -0.25f, 0 };
+		f[0] = f(0, -0.9f, 0, 0, -0.9f, 0, 0, 0.1f, 0, 0.25f, 0, 0, -0.25f, 0, 0, 0);
 		int k = 1;
-		f[k++] = new float[] { 1, -0.9f, 0.2f, 0, -0.9f, -0.2f, 0, 0.15f, 0, 0.3f, -0.3f, 0 };
+		f[k++] = f(1, -0.9f, 0.2f, 0, -0.9f, -0.2f, 0, 0.15f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0);
 		for (int j = 0; j < jabs; j++) {
 			boolean right = j % 2 == 0;
 			float t = 1 + j * 4;
 			// out: the jabbing arm straight along the look, the body turned into it
-			f[k++] = new float[] { t + 1.5f, right ? -1.62f : -0.75f, right ? -0.05f : 0.25f, 0, right ? -0.75f : -1.62f, right ? -0.25f : 0.05f, 0,
-					0.18f, right ? -0.3f : 0.3f, 0.3f, -0.3f, 0 };
+			f[k++] = f(t + 1.5f, right ? -1.62f : -0.75f, right ? -0.05f : 0.25f, 0, right ? -0.75f : -1.62f, right ? -0.25f : 0.05f, 0,
+					0.18f, right ? -0.3f : 0.3f, 0.3f, 0, 0, -0.3f, 0, 0, 0);
 			// back to the guard
-			f[k++] = new float[] { t + 3.5f, -0.95f, 0.2f, 0, -0.95f, -0.2f, 0, 0.15f, 0, 0.3f, -0.3f, 0 };
+			f[k++] = f(t + 3.5f, -0.95f, 0.2f, 0, -0.95f, -0.2f, 0, 0.15f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0);
 		}
-		f[k] = new float[] { 1 + jabs * 4 + 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+		f[k] = rest(1 + jabs * 4 + 3);
 		BARRAGE = f;
 	}
 
@@ -134,28 +138,9 @@ public final class HellflamePose {
 		return f == null ? 0 : (int) f[f.length - 1][0];
 	}
 
-	/** Pose values at {@code tick} (fractional) of {@code f}, or null past the end. */
+	/** Pose values at {@code tick} (fractional) of {@code f}, or null past the end ({@link QuirkKeyframes}, 16 columns). */
 	static float[] sample(float[][] f, float tick) {
-		if (tick < 0f || tick > f[f.length - 1][0]) {
-			return null;
-		}
-		if (tick <= f[0][0]) {
-			return f[0];
-		}
-		for (int i = 1; i < f.length; i++) {
-			if (tick <= f[i][0]) {
-				float[] a = f[i - 1];
-				float[] b = f[i];
-				float t = (tick - a[0]) / Math.max(1e-4f, b[0] - a[0]);
-				t = t * t * (3f - 2f * t);
-				float[] out = new float[12];
-				for (int k = 1; k < 12; k++) {
-					out[k] = Mth.lerp(t, a[k], b[k]);
-				}
-				return out;
-			}
-		}
-		return null;
+		return QuirkKeyframes.sample(f, tick);
 	}
 
 	public static void apply(Player player, HumanoidModel<?> model) {
@@ -252,9 +237,10 @@ public final class HellflamePose {
 			l.zRot = Mth.lerp(w, l.zRot, p[6]);
 			HipBend.pitch(model, w, p[7]);
 			model.body.yRot = Mth.lerp(w, model.body.yRot, p[8]);
-			model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, p[9]);
-			model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, p[10]);
-			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[11]);
+			model.rightLeg.xRot = Mth.lerp(w, model.rightLeg.xRot, p[QuirkKeyframes.R_LEG_X]);
+			model.leftLeg.xRot = Mth.lerp(w, model.leftLeg.xRot, p[QuirkKeyframes.L_LEG_X]);
+			QuirkKeyframes.legTwist(model, p, w);
+			model.head.xRot = Mth.lerp(w, model.head.xRot, model.head.xRot + p[QuirkKeyframes.HEAD_X]);
 		}
 		model.hat.copyFrom(model.head);
 	}

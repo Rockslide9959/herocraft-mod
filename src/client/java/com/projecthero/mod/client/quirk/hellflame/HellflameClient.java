@@ -41,6 +41,15 @@ public final class HellflameClient implements QuirkClientKit {
 		HellflameRender.register();
 		ClientTickEvents.START_CLIENT_TICK.register(HellflameFlightClient::tick);
 		ClientTickEvents.END_CLIENT_TICK.register(HellflameFx::tick);
+		// v0.17.1 framework: the first first-person arm clip (the pattern for the kit builds) -- Hell Spider's flick: the
+		// right hand rises into view out to the side, fingers splayed, then sweeps across the screen right to left
+		com.projecthero.mod.client.quirk.QuirkFirstPersonPose.register(Quirk.HELLFLAME, com.projecthero.mod.quirk.hellflame.Hellflame.ANIM_SPIDER,
+				com.projecthero.mod.client.quirk.QuirkFirstPersonPose.clip(
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(3, -38, -24, -16, -0.04f, 0.34f, -0.12f, 0, 0, 0, 0, 0, 0),
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(6, -42, 34, 14, 0.24f, 0.36f, -0.2f, 0, 0, 0, 0, 0, 0),
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(11, -40, 36, 14, 0.24f, 0.35f, -0.2f, 0, 0, 0, 0, 0, 0),
+						com.projecthero.mod.client.quirk.QuirkFirstPersonPose.f(16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
 	}
 
 	@Override
@@ -84,13 +93,10 @@ public final class HellflameClient implements QuirkClientKit {
 		g.drawString(mc.font, label, x0, by - 2, NAME, false);
 		g.fill(barX - 1, by - 1, barX + barW + 1, by + barH + 1, BORDER);
 		g.fill(barX, by, barX + barW, by + barH, BAR_BG);
-		int fill = Math.round(barW * heat / 100f);
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + barH, colour | 0xFF000000);
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
-		int warnX = barX + Math.round(barW * HellflameConfig.HEAT_WARN / 100f);
-		g.fill(warnX, by - 1, warnX + 1, by + barH + 1, 0xA0FFFFFF);
+		// v0.17.1 framework: the shared banded fill (Kindle / Blaze / Inferno ticks, shimmer, red-zone pulse)
+		com.projecthero.mod.client.quirk.QuirkHud.drawBands(g, new com.projecthero.mod.client.quirk.QuirkHud.MeterView(barX, by, barW, barH, heat,
+				com.projecthero.mod.quirk.meter.QuirkMeters.clientBand(player), com.projecthero.mod.quirk.meter.QuirkMeters.spec(Quirk.HELLFLAME),
+				colour | 0xFF000000, now, over, false));
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), by - 2, NAME, false);
 		int top = by - 2;
 

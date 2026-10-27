@@ -1,0 +1,411 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkAbilityManager;
+import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.fx.QuirkFx;
+import com.projecthero.mod.quirk.meter.QuirkMeterSpec;
+import com.projecthero.mod.quirk.meter.QuirkMeters;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Quirk framework screenshots. Enabled by run/quirkfw.flag. */
+// TEMP-HARNESS
+public final class QuirkFrameworkHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer fake;
+	private static ArmorStand runner;
+
+	private QuirkFrameworkHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("quirkfw.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(QuirkFrameworkHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "quirkfw-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			mc.gui.setOverlayMessage(net.minecraft.network.chat.Component.empty(), false);
+			Screenshot.grab(mc.gameDirectory, "qf_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(QuirkFrameworkHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(13500L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				for (int x = -10; x <= 10; x++) {
+					for (int z = -10; z <= 10; z++) {
+						level.setBlock(net.minecraft.core.BlockPos.containing(origin.x + x, origin.y - 1, origin.z + z), Blocks.STONE.defaultBlockState(), 3);
+					}
+				}
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("QF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 180f, 0f);
+		f.setYHeadRot(180f);
+		f.yBodyRot = 180f;
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ---------------------------------------------------------------- 1. the toolkit effects
+		at(t, () -> server(mc, p -> camera(p, origin.add(0, 3.2, 9), origin.add(0, 1.2, 0))));
+		at(t + 10, () -> server(mc, p -> QuirkFx.blast(p.serverLevel(), origin.add(0, 1.2, 0)).colours(0xFFFFFF, 0xFF7A1A).size(3.2f).life(20).spawn()));
+		shot(t + 12, "blast_a");
+		shot(t + 15, "blast_b");
+		shot(t + 19, "blast_c");
+		shot(t + 25, "blast_d");
+		t += 40;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			QuirkFx.ring(l, origin.add(-3, 0.05, 0)).colours(0xFFFFFF, 0xFF8FC8).size(4f).thickness(0.6f).life(16).ground().spawn();
+			QuirkFx.ring(l, origin.add(3, 0.05, 0)).colours(0xE8F0FF, 0xC8D0DA).size(3f).thickness(0.7f).life(24).style(QuirkFx.RING_STEAM).ground()
+					.spawn();
+			QuirkFx.ring(l, origin.add(0, 2.2, 0)).colours(0xFFFFFF, 0x5AA9FF).size(2.4f).thickness(0.35f).life(14)
+					.flags(QuirkFx.F_VERTICAL).vec(new Vec3(0, 0, 1)).spawn();
+		}));
+		shot(t + 5, "rings_a");
+		shot(t + 9, "rings_b");
+		t += 30;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			QuirkFx.cone(l, origin.add(-4, 1.4, -1), new Vec3(1, 0.05, 0)).colours(0xFFF4C0, 0xFF4A10).size(1.6f).length(6f).life(16).spawn();
+			QuirkFx.cone(l, origin.add(-4, 2.8, -1), new Vec3(1, 0.1, 0)).colours(0xFFFFFF, 0x3FA8FF).size(0.22f).length(8f).life(20)
+					.style(QuirkFx.CONE_BEAM).spawn();
+			QuirkFx.cone(l, origin.add(-4, 0.3, 1.5), new Vec3(1, 0.15, 0)).colours(0x9A8E80, 0x5A524A).size(1.4f).length(5f).life(18)
+					.style(QuirkFx.CONE_DEBRIS).spawn();
+		}));
+		shot(t + 4, "cones_a");
+		shot(t + 8, "cones_b");
+		t += 30;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			QuirkFx.ribbon(l, origin.add(-4, 1.4, -1), origin.add(4, 2.4, -2)).colours(0xFFFFFF, 0xFF6A1A).size(0.45f).life(14).style(QuirkFx.RIBBON_FLAME)
+					.spawn();
+			QuirkFx.ribbon(l, origin.add(-4, 2.2, 0), origin.add(4, 1.4, 0)).colours(0x3A3A40, 0x2A2A30).size(0.18f).life(14).style(QuirkFx.RIBBON_CLOTH)
+					.spawn();
+			QuirkFx.ribbon(l, origin.add(-4, 0.8, 1), origin.add(4, 3.0, 1)).colours(0x1A0A2A, 0x3A1A5A).size(0.55f).life(16).style(QuirkFx.RIBBON_SHADOW)
+					.spawn();
+			runner = EntityType.ARMOR_STAND.create(l);
+			runner.moveTo(origin.x - 3, origin.y, origin.z + 2, 0f, 0f);
+			runner.setInvisible(true);
+			runner.setNoGravity(true);
+			l.addFreshEntity(runner);
+			QuirkFx.trail(l, runner).colours(0xFFFFFF, 0x5AA9FF).size(0.35f).size2(14f).life(60).vec(new Vec3(0, 1.0, 0)).style(QuirkFx.RIBBON_LIGHT).spawn();
+		}));
+		for (int k = 1; k <= 24; k++) {
+			int kk = k;
+			at(t + k, () -> server(mc, p -> {
+				if (runner != null) {
+					double a = kk * 0.22;
+					runner.teleportTo(origin.x - 3 + kk * 0.28, origin.y + 0.4 + Math.sin(a) * 0.6, origin.z + 2 + Math.cos(a) * 0.8);
+				}
+			}));
+		}
+		shot(t + 5, "ribbons_a");
+		shot(t + 10, "ribbons_b");
+		shot(t + 22, "ribbons_trail");
+		t += 40;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			if (runner != null) {
+				runner.discard();
+			}
+			for (int i = 0; i < 5; i++) {
+				QuirkFx.spike(l, origin.add(-3 + i * 1.3, 0, -1.5 + (i % 2) * 0.4), new Vec3((i - 2) * 0.12, 1, 0.1)).size(1.6f + 0.35f * i).size2(0.42f)
+						.block(Blocks.STONE.defaultBlockState()).life(60).spawn();
+			}
+			QuirkFx.shards(l, origin.add(-2.5, 1.2, 2)).block(Blocks.DIRT.defaultBlockState()).size(2.0f).count(28).life(40).spawn();
+			QuirkFx.shards(l, origin.add(2.5, 1.2, 2)).block(Blocks.DEEPSLATE.defaultBlockState()).size(2.0f).count(28).life(40).reassemble().spawn();
+		}));
+		shot(t + 4, "spikes_shards_a");
+		shot(t + 14, "spikes_shards_b");
+		shot(t + 30, "spikes_shards_c");
+		t += 70;
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			camera(p, origin.add(0, 5.5, 6.5), origin.add(0, 0.3, 0));
+			QuirkFx.decal(l, origin.add(-4.5, 0.05, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A120C).size(1.6f).life(200).spawn();
+			QuirkFx.decal(l, origin.add(-1.5, 0.05, 0)).style(QuirkFx.DECAL_CRACK).colour(0x161210).size(1.6f).life(200).spawn();
+			QuirkFx.decal(l, origin.add(1.5, 0.05, 0)).style(QuirkFx.DECAL_POOL).colour(0x0C0614).size(1.6f).life(200).spawn();
+			QuirkFx.decal(l, origin.add(4.5, 0.05, 0)).style(QuirkFx.DECAL_PRINT).colour(0xFF6FB4).size(1.2f).life(200).spawn();
+			QuirkFx.flipbook(l, origin.add(-3, 2.2, -2)).style(QuirkFx.BOOK_FIREBALL).size(1.3f).life(24).spawn();
+			QuirkFx.flipbook(l, origin.add(0, 2.2, -2)).style(QuirkFx.BOOK_SMOKE).colour(0x8A8480).size(1.3f).life(24).spawn();
+			QuirkFx.flipbook(l, origin.add(3, 2.2, -2)).style(QuirkFx.BOOK_INK).size(1.3f).life(24).spawn();
+		}));
+		shot(t + 8, "decals_flipbooks");
+		t += 40;
+
+		// ---------------------------------------------------------------- 2. third person: the Plus Ultra hold pose + the tell
+		at(t, () -> server(mc, p -> {
+			fake = fake(p, "Endeavor", origin.add(0, 0, 0));
+			com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(fake, Quirk.HELLFLAME));
+			camera(p, origin.add(1.8, 2.0, -3.6), origin.add(0, 1.0, 0));
+		}));
+		at(t + 8, () -> server(mc, p -> {
+			Quirks.setMeter(fake, 90f);
+			PlusUltra.set(fake, 100f);
+			QuirkAbilityManager.handle(fake, AbilitySlot.SLOT_6, true);
+		}));
+		shot(t + 18, "hold_pose_tell");
+		shot(t + 28, "ultimate_third_person");
+		t += 50;
+		at(t, () -> server(mc, p -> {
+			if (fake != null) {
+				Quirks.revoke(fake);
+				fake.connection.disconnect(net.minecraft.network.chat.Component.empty());
+				fake = null;
+			}
+		}));
+
+		// ---------------------------------------------------------------- 3. the HUD (the local player is Endeavor)
+		t += 10;
+		at(t, () -> {
+			server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + 4, 180f, 10f);
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.HELLFLAME));
+			});
+			gui(mc, true);
+		});
+		at(t + 10, () -> server(mc, p -> {
+			Quirks.setMeter(p, 24f);
+			PlusUltra.set(p, 28f);
+		}));
+		shot(t + 16, "hud_low");
+		at(t + 20, () -> server(mc, p -> {
+			Quirks.setMeter(p, 62f);
+			PlusUltra.set(p, 66f);
+		}));
+		shot(t + 26, "hud_sweet_a");
+		shot(t + 30, "hud_sweet_b");
+		at(t + 34, () -> server(mc, p -> {
+			Quirks.setMeter(p, 91f);
+			PlusUltra.set(p, 100f);
+		}));
+		shot(t + 40, "hud_red_full_a");
+		shot(t + 43, "hud_red_full_b");
+		at(t + 48, () -> server(mc, p -> QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true)));
+		shot(t + 58, "hud_hold_ring");
+		shot(t + 71, "hud_ultimate_banner");
+		at(t + 80, () -> server(mc, p -> QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false)));
+		// pushed past 100 (a push-capable test spec, put back after)
+		final QuirkMeterSpec[] real = new QuirkMeterSpec[1];
+		at(t + 90, () -> server(mc, p -> {
+			real[0] = QuirkMeters.spec(Quirk.HELLFLAME);
+			QuirkMeters.register(QuirkMeterSpec.builder(Quirk.HELLFLAME).bands(40f, 80f).names("kindle", "blaze", "inferno", "overheat")
+					.pushPast(200, 0f, 20).build());
+			Quirks.setMeter(p, 100f);
+			Quirks.edit(p, n -> n.overloadUntil = 0L);
+			QuirkMeters.pushPast(p);
+		}));
+		shot(t + 100, "hud_beyond");
+		at(t + 104, () -> server(mc, p -> {
+			QuirkMeters.endPushForTest(p);
+			if (real[0] != null) {
+				QuirkMeters.register(real[0]);
+			}
+		}));
+		at(t + 120, () -> {
+			server(mc, p -> {
+				QuirkMeters.endPushForTest(p);
+				if (real[0] != null) {
+					QuirkMeters.register(real[0]);
+				}
+			});
+			com.projecthero.mod.client.quirk.QuirkCuePopup.showCombo("projecthero.quirk.combo.explosion.stun_shot", 0xFFB020);
+		});
+		shot(t + 124, "hud_combo_popup");
+		at(t + 130, () -> server(mc, p -> {
+			com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.OVERHAUL));
+		}));
+		at(t + 136, () -> server(mc, p -> Quirks.setMeter(p, 14f)));
+		shot(t + 142, "hud_overhaul_starved");
+		at(t + 146, () -> server(mc, p -> {
+			com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.EXPLOSION));
+		}));
+		at(t + 150, () -> server(mc, p -> {
+			Quirks.setMeter(p, 86f);
+			PlusUltra.set(p, 45f);
+			com.projecthero.mod.quirk.QuirkCombos.used(p, com.projecthero.mod.quirk.explosion.ExplosionConfig.STUN_GRENADE);
+		}));
+		shot(t + 154, "hud_explosion_combo_window");
+		t += 170;
+
+		// ---------------------------------------------------------------- 4. a first-person arm clip (Hell Spider)
+		at(t, () -> {
+			gui(mc, true); // (F1 would hide the hands too)
+			server(mc, p -> {
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.HELLFLAME));
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + 4, 180f, 5f);
+			});
+		});
+		for (int rep = 0; rep < 2; rep++) {
+			int base = t + 10 + rep * 30;
+			String tag = rep == 0 ? "a" : "b";
+			at(base, () -> server(mc, p -> Quirks.setAnim(p, com.projecthero.mod.quirk.hellflame.Hellflame.ANIM_SPIDER)));
+			shot(base + 2, "fp_spider_" + tag + "1");
+			shot(base + 4, "fp_spider_" + tag + "2");
+			shot(base + 7, "fp_spider_" + tag + "3");
+			shot(base + 11, "fp_spider_" + tag + "4");
+		}
+		t += 80;
+		// the full-body first-person view while C is held at 100
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z + 4, 180f, 55f);
+			PlusUltra.set(p, 100f);
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		}));
+		shot(t + 10, "fp_hold_full_body");
+		t += 40;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

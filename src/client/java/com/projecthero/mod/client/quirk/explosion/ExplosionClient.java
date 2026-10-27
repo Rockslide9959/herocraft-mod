@@ -84,11 +84,8 @@ public final class ExplosionClient implements QuirkClientKit {
 		g.drawString(font, sweatLabel, x0, by - 2, NAME, false);
 		g.fill(barX - 1, by - 1, barX + barW + 1, by + 5, BORDER);
 		g.fill(barX, by, barX + barW, by + 4, BAR_BG);
-		int fill = Math.round(barW * sweat / 100f);
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + 4, sweat >= ExplosionConfig.GAUNTLET_MIN_SWEAT ? AMBER_LIGHT : AMBER);
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
+		com.projecthero.mod.client.quirk.QuirkHud.bandedFill(g, player, com.projecthero.mod.quirk.Quirk.EXPLOSION, barX, by, barW, 4, sweat,
+				sweat >= ExplosionConfig.GAUNTLET_MIN_SWEAT ? AMBER_LIGHT : AMBER); // v0.17.1 bands
 		// the thresholds: Howitzer Impact and the Gauntlet Grenade
 		for (float mark : new float[] { ExplosionConfig.HOWITZER_MIN_SWEAT, ExplosionConfig.GAUNTLET_MIN_SWEAT }) {
 			int mx = barX + Math.round(barW * mark / 100f);

@@ -95,11 +95,7 @@ public final class DarkShadowClient implements QuirkClientKit {
 		g.drawString(mc.font, label, x0, y - 2, erased ? HINT : NAME, false);
 		g.fill(barX - 1, y - 1, barX + barW + 1, y + barH + 1, BORDER);
 		g.fill(barX, y, barX + barW, y + barH, BAR_BG);
-		int fill = Math.round(barW * meter / 100f);
-		if (fill > 0) {
-			g.fill(barX, y, barX + fill, y + barH, colour);
-			g.fill(barX, y, barX + fill, y + 1, 0x60FFFFFF);
-		}
+		com.projecthero.mod.client.quirk.QuirkHud.bandedFill(g, player, com.projecthero.mod.quirk.Quirk.DARK_SHADOW, barX, y, barW, barH, meter, colour); // v0.17.1 bands
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), y - 2, erased ? HINT : NAME, false);
 		y -= 7;
 

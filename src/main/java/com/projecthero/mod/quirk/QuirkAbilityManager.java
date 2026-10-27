@@ -77,6 +77,10 @@ public final class QuirkAbilityManager {
 				return;
 			}
 		}
+		// v0.17.1 framework: at a full Plus Ultra gauge a held C fires the ultimate (a tap is still the kit's C move)
+		if (slot == AbilitySlot.SLOT_6 && !quirk.standalone && PlusUltra.interceptC(player, kit, pressed, shift)) {
+			return;
+		}
 		kit.handle(player, slot, pressed, shift);
 	}
 

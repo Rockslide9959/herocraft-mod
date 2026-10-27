@@ -185,7 +185,7 @@ public final class HellflameMoves {
 		if (plusUltra(p)) {
 			return Quirks.meter(p);
 		}
-		float h = Quirks.addMeter(p, amount);
+		float h = Quirks.addMeterPaced(p, amount); // v0.17.1: paced (HellflameMeter.BUILD)
 		if (h >= 100f && !Quirks.overloaded(p)) {
 			overheat(p);
 		}
@@ -1330,7 +1330,7 @@ public final class HellflameMoves {
 		vanishTick(p, s, now);
 		HellflameConfig.Heat h = HellflameConfig.heat();
 		if (!Quirks.overloaded(p) && now - s.lastFireAt > h.ventDelayTicks && Quirks.meter(p) > 0f) {
-			Quirks.addMeter(p, -h.ventPerSecond / 20f * (wet(p) ? h.wetMultiplier : 1f));
+			Quirks.addMeterPaced(p, -h.ventPerSecond / 20f * (wet(p) ? h.wetMultiplier : 1f));
 		}
 	}
 

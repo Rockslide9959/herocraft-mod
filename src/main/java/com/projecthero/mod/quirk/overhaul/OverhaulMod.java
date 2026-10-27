@@ -24,6 +24,7 @@ public final class OverhaulMod {
 
 	public static void initialize() {
 		QuirkKits.register(Quirk.OVERHAUL, new OverhaulKit());
+		OverhaulMeter.register(); // v0.17.1 framework: Focus bands + pacing
 		// v0.16.7 revamp: gloves off, a bare-handed punch disassembles a little too
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (!level.isClientSide() && player instanceof net.minecraft.server.level.ServerPlayer sp

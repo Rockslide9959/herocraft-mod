@@ -15,6 +15,7 @@ import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravity;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravityConfig;
+import com.projecthero.mod.quirk.zerogravity.ZeroGravityMeter;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravityDebris;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravityFloat;
 import com.projecthero.mod.quirk.zerogravity.ZeroGravityMoves;
@@ -252,7 +253,7 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		helper.assertTrue(p.isNoGravity() && ZeroGravity.selfFloating(p) && p.getAbilities().mayfly, "she floats");
 		pump(helper, p);
 		helper.runAfterDelay(40, () -> {
-			float expected = ZeroGravityConfig.nausea().perWeightPerSecond * ZeroGravityConfig.nausea().selfWeight * 2f;
+			float expected = ZeroGravityConfig.nausea().perWeightPerSecond * ZeroGravityConfig.nausea().selfWeight * 2f * ZeroGravityMeter.BUILD; // v0.17.1 pacing
 			helper.assertTrue(Quirks.meter(p) >= expected * 0.9f, "her own body fills Nausea, got " + Quirks.meter(p));
 			ready(p);
 			helper.assertFalse(ZeroGravityMoves.floatSelf(p), "off");
@@ -480,7 +481,7 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.runAfterDelay(40, () -> {
 			float m = Quirks.meter(p);
-			helper.assertTrue(m > 1.5f, "nausea rose: " + m);
+			helper.assertTrue(m > 1.5f * ZeroGravityMeter.BUILD, "nausea rose (paced): " + m);
 			ZeroGravityMoves.release(p);
 			helper.runAfterDelay(30, () -> {
 				helper.assertTrue(Quirks.meter(p) < m, "and falls again: " + Quirks.meter(p));

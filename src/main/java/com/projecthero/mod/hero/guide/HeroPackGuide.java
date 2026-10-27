@@ -2034,7 +2034,8 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.quirks.tier").withStyle(ChatFormatting.GREEN));
 			para(lines, "projecthero.guide.quirks.body");
 			blank(lines);
-			for (String s : new String[] { "get", "serums", "meter", "controls", "suit", "erasure" }) {
+			// v0.17.1 framework: the meter bands, Plus Ultra and combo routes
+			for (String s : new String[] { "get", "serums", "meter", "bands", "plus_ultra", "combos", "controls", "suit", "erasure" }) {
 				head(lines, "projecthero.guide.quirks." + s);
 				para(lines, "projecthero.guide.quirks." + s + ".body");
 				blank(lines);
@@ -2072,6 +2073,7 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.quirks.meter_of", Component.translatable("projecthero.quirk.meter." + q.meterId))
 					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
 			para(lines, k + ".meter.body");
+			quirkFramework(lines, q);
 			blank(lines);
 			head(lines, k + ".overload");
 			para(lines, k + ".overload.body");
@@ -2129,6 +2131,58 @@ public final class HeroPackGuide {
 			head(lines, "projecthero.guide.quirks.erased");
 			para(lines, q == com.projecthero.mod.quirk.Quirk.ERASURE ? "projecthero.guide.quirks.erased.self" : "projecthero.guide.quirks.erased.body");
 		});
+	}
+
+	/**
+	 * v0.17.1 framework: a kit Quirk's meter bands (from its registered {@code QuirkMeterSpec}), its Plus Ultra ultimate and
+	 * its combo routes ({@code QuirkCombos}), so the chapter follows the kit tables.
+	 */
+	private static void quirkFramework(List<Component> lines, com.projecthero.mod.quirk.Quirk q) {
+		com.projecthero.mod.quirk.meter.QuirkMeterSpec spec = com.projecthero.mod.quirk.meter.QuirkMeters.spec(q);
+		if (spec != null) {
+			String b = "projecthero.quirk.band." + q.id + ".";
+			int sweet = Math.round(spec.sweetFrom), red = Math.round(spec.redFrom);
+			lines.add(Component.translatable("projecthero.guide.quirks.bands_of").withStyle(ChatFormatting.GOLD));
+			lines.add(bandRow(b + spec.names[0], "0-" + (sweet - 1), spec.damage[0]));
+			lines.add(bandRow(b + spec.names[1], sweet + "-" + (red - 1), spec.damage[1]));
+			lines.add(bandRow(b + spec.names[2], red + "-100", spec.damage[2]));
+			if (spec.pushPast) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
+						.append(Component.translatable(b + spec.names[3]).withStyle(ChatFormatting.WHITE))
+						.append(Component.literal("  "))
+						.append(Component.translatable("projecthero.guide.quirks.band_beyond").withStyle(ChatFormatting.DARK_GRAY)));
+			}
+			para(lines, "projecthero.guide.quirk." + q.id + ".bands");
+		}
+		com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(q);
+		if (kit.hasUltimate()) {
+			lines.add(Component.translatable("projecthero.guide.quirks.ultimate_of",
+					Component.translatable(kit.ultimateLangKey(q)).withStyle(ChatFormatting.WHITE)).withStyle(ChatFormatting.GOLD));
+			para(lines, kit.ultimateLangKey(q) + ".desc");
+		}
+		java.util.List<com.projecthero.mod.quirk.QuirkCombos.Route> routes = com.projecthero.mod.quirk.QuirkCombos.routes(q);
+		if (!routes.isEmpty()) {
+			lines.add(Component.translatable("projecthero.guide.quirks.combos_of").withStyle(ChatFormatting.GOLD));
+			for (com.projecthero.mod.quirk.QuirkCombos.Route r : routes) {
+				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
+						.append(Component.translatable(r.nameKey()).withStyle(ChatFormatting.WHITE))
+						.append(Component.literal("  "))
+						.append(Component.translatable("projecthero.guide.quirks.combo_route", Component.translatable(kit.abilityLangKey(r.opener)),
+								Component.translatable(kit.abilityLangKey(r.finisher)), seconds(r.window)).withStyle(ChatFormatting.DARK_GRAY)));
+				para(lines, r.descKey());
+			}
+		}
+	}
+
+	private static Component bandRow(String nameKey, String range, float damage) {
+		// (the per-band damage multipliers are applied by each kit's own rework; the guide lists the bands themselves)
+		return Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
+				.append(Component.translatable(nameKey).withStyle(ChatFormatting.WHITE))
+				.append(Component.literal("  " + range).withStyle(ChatFormatting.DARK_GRAY));
+	}
+
+	private static String fmt(float v) {
+		return v == Math.round(v) ? String.valueOf(Math.round(v)) : String.valueOf(Math.round(v * 100f) / 100f);
 	}
 
 	/** Ticks as seconds, "12" or "1.5". */

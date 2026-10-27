@@ -99,11 +99,8 @@ public final class EngineClient implements QuirkClientKit {
 		g.drawString(font, heatLabel, x0, by - 2, NAME, false);
 		g.fill(barX - 1, by - 1, barX + barW + 1, by + 5, BORDER);
 		g.fill(barX, by, barX + barW, by + 4, BAR_BG);
-		int fill = Math.round(barW * heat / 100f);
-		if (fill > 0) {
-			g.fill(barX, by, barX + fill, by + 4, stalled && (now / 5) % 2 == 0 ? RED : heatColour(heat, now));
-			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
-		}
+		com.projecthero.mod.client.quirk.QuirkHud.bandedFill(g, player, com.projecthero.mod.quirk.Quirk.ENGINE, barX, by, barW, 4, heat,
+				stalled && (now / 5) % 2 == 0 ? RED : heatColour(heat, now)); // v0.17.1 bands
 		g.drawString(font, heatValue, x0 + width - font.width(heatValue), by - 2, NAME, false);
 		y = by - 13;
 

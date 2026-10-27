@@ -12,6 +12,7 @@ import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.hellflame.Hellflame;
 import com.projecthero.mod.quirk.hellflame.HellflameConfig;
+import com.projecthero.mod.quirk.hellflame.HellflameMeter;
 import com.projecthero.mod.quirk.hellflame.HellflameMoves;
 import com.projecthero.mod.squad.Squad;
 import com.projecthero.mod.squad.SquadManager;
@@ -154,8 +155,9 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
 		HellflameMoves.hellSpider(p);
-		near(helper, Quirks.meter(p), HellflameConfig.SPIDER_HEAT, "Hell Spider's Heat");
+		near(helper, Quirks.meter(p), HellflameConfig.SPIDER_HEAT * HellflameMeter.BUILD, "Hell Spider's Heat (v0.17.1: paced)");
 		HellflameMoves.coolForTest(p);
+		Quirks.setMeter(p, 50f); // v0.17.1: a paced Hell Spider adds ~1 Heat, too little to time 2 s of venting on
 		float before = Quirks.meter(p);
 		pump(helper, p);
 		helper.runAfterDelay(41, () -> {
@@ -169,7 +171,7 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 	public void overheatLocksFireMovesButCoolDownEndsIt(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = endeavor(helper, 4.5, 2.0, 1.5);
-		Quirks.setMeter(p, 95f);
+		Quirks.setMeter(p, 99.5f); // v0.17.1: heat is paced (x HellflameMeter.BUILD)
 		HellflameMoves.heat(p, 10f);
 		helper.assertTrue(Quirks.overloaded(p) && Quirks.meter(p) >= 99.9f, "overheated at 100");
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
@@ -224,7 +226,7 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.runAfterDelay(40, () -> {
 			float h = Quirks.meter(p);
-			float min = HellflameConfig.heat().flightHoverPerSecond * 1.6f;
+			float min = HellflameConfig.heat().flightHoverPerSecond * 1.6f * HellflameMeter.BUILD;
 			helper.assertTrue(h >= min, "flight heats him every tick, got " + h);
 			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
 			helper.assertFalse(HellflameMoves.flying(p), "releasing X ends the flight");
@@ -237,7 +239,7 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 	public void flightOverheatsAndDropsHimSoftly(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = endeavor(helper, 4.5, 4.0, 1.5);
-		Quirks.setMeter(p, 99f);
+		Quirks.setMeter(p, 99.85f); // v0.17.1: flight heat is paced, so start right at the edge
 		HellflameMoves.toggleFlight(p);
 		pump(helper, p);
 		helper.runAfterDelay(30, () -> {
@@ -255,7 +257,7 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		HellflameMoves.jetBurn(p);
 		near(helper, taken(z, 100), HellflameConfig.JET_DAMAGE, "Jet Burn");
 		helper.assertTrue(z.getRemainingFireTicks() > 0, "set alight");
-		near(helper, Quirks.meter(p), HellflameConfig.JET_HEAT, "+12 Heat");
+		near(helper, Quirks.meter(p), HellflameConfig.JET_HEAT * HellflameMeter.BUILD, "+12 Heat, paced");
 		helper.succeed();
 	}
 
@@ -401,7 +403,7 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		helper.runAfterDelay(HellflameConfig.BARRAGE_JABS * HellflameConfig.BARRAGE_INTERVAL + 4, () -> {
 			helper.assertTrue(HellflameMoves.barrageLeft(p) == 0, "every jab thrown");
 			helper.assertTrue(taken(z, 200) >= HellflameConfig.BARRAGE_DAMAGE * 6f - EPS, "most jabs landed, took " + taken(z, 200));
-			near(helper, Quirks.meter(p), HellflameConfig.BARRAGE_HEAT_PER_JAB * HellflameConfig.BARRAGE_JABS, "+2 Heat a jab");
+			near(helper, Quirks.meter(p), HellflameConfig.BARRAGE_HEAT_PER_JAB * HellflameConfig.BARRAGE_JABS * HellflameMeter.BUILD, "+2 Heat a jab, paced");
 			helper.succeed();
 		});
 	}
@@ -446,7 +448,9 @@ public class QuirkHellflameGameTests implements FabricGameTest {
 		helper.runAfterDelay(HellflameConfig.PROMINENCE_CHARGE_TICKS + 20, () -> {
 			helper.assertTrue(HellflameMoves.beaming(p), "still firing while held");
 			float h = Quirks.meter(p);
-			helper.assertTrue(h > 20f, "the beam heats fast, got " + h);
+			// v0.17.1 (user: heat must build gently): the beam still heats him, paced -- then take him to the edge
+			helper.assertTrue(h > 0.5f && h < 20f, "the beam heats him, gently, got " + h);
+			Quirks.setMeter(p, 99.5f);
 		});
 		helper.runAfterDelay(HellflameConfig.PROMINENCE_CHARGE_TICKS + 75, () -> {
 			helper.assertTrue(Quirks.overloaded(p), "held long enough, it overheats him");

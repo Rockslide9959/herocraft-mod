@@ -19,6 +19,7 @@ public final class ExplosionMod {
 
 	public static void initialize() {
 		QuirkKits.register(Quirk.EXPLOSION, new ExplosionKit());
+		ExplosionMeter.register(); // v0.17.1 framework: Sweat bands, Arm Strain pacing, the doc's starter combo route
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
 			if (entity instanceof ServerPlayer p && Explosion.is(p) && ExplosionMoves.cancelsDamage(p, source)) {
 				return false;
