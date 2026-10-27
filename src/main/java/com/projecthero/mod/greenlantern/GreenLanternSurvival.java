@@ -27,8 +27,10 @@ import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -71,7 +73,7 @@ import net.minecraft.world.phys.Vec3;
  *   deck on top. Upkeep while it stands; pressing it again lets it go.</li>
  *   <li><b>Item Net</b> -- a net of light sweeps out {@link GreenLanternConfig#NET_RADIUS} blocks and reels every dropped
  *   item and XP orb in to you over three seconds, then dissolves. One-shot cost + cooldown.</li>
- *   <li><b>Hard-Light Tunneller</b> -- a giant drill-headed pickaxe bores a 3x3 tunnel up to
+ *   <li><b>Hard-Light Tunneller</b> -- a hard-light drill car bores a 3x3 tunnel up to
  *   {@link GreenLanternConfig#TUNNEL_LENGTH} blocks along your aim (snapped to the nearest straight line). Every block goes
  *   through the same break path as the Mining Drill ({@code ServerPlayerGameMode#destroyBlock}, so protection mods,
  *   spawn protection and adventure mode all apply) with a hard-light diamond pickaxe, and drops as items. Costs Ring
@@ -636,6 +638,8 @@ public final class GreenLanternSurvival {
 		e.homingId = dir.get3DDataValue();
 		e.origin = at;
 		e.setEnd(at);
+		Vec3 back = at.subtract(Vec3.atLowerCornerOf(dir.getNormal())); // the car starts a block short of the first slice
+		e.setPos(back.x, back.y, back.z);
 		level.addFreshEntity(e);
 		keep(p, e);
 		constructFx(p);
@@ -684,14 +688,13 @@ public final class GreenLanternSurvival {
 		}
 		Direction dir = Direction.from3DDataValue(e.homingId);
 		BlockPos start = BlockPos.containing(e.origin);
-		// the drill head creeps forward between slices
-		float into = (e.tickCount % GreenLanternConfig.TUNNEL_TICKS_PER_SLICE) / (float) GreenLanternConfig.TUNNEL_TICKS_PER_SLICE;
-		Vec3 head = Vec3.atCenterOf(start.relative(dir, e.phase)).add(Vec3.atLowerCornerOf(dir.getNormal()).scale(into - 0.5));
-		e.setPos(head.x, head.y, head.z);
-		if (e.tickCount % 2 == 0) {
-			level.sendParticles(SPARK, head.x, head.y, head.z, 4, 0.8, 0.8, 0.8, 0.08);
-		}
+		Vec3 step = Vec3.atLowerCornerOf(dir.getNormal());
 		if (e.tickCount % GreenLanternConfig.TUNNEL_TICKS_PER_SLICE != 0) {
+			glide(e, start, step);
+			Vec3 tip = e.position().add(step.scale(1.3));
+			if (e.tickCount % 2 == 0) {
+				level.sendParticles(SPARK, tip.x, tip.y, tip.z, 2, 0.4, 0.4, 0.4, 0.06);
+			}
 			return;
 		}
 		List<BlockPos> blocks = slice(start, dir, e.phase);
@@ -714,15 +717,20 @@ public final class GreenLanternSurvival {
 				stopTunneller(e, level);
 				return;
 			}
+			BlockState was = level.getBlockState(pos);
 			if (mine(owner, pos)) {
 				GreenLanternEnergy.spend(owner, GreenLanternConfig.TUNNEL_COST_PER_BLOCK);
 				mined++;
+				// rock chips sprayed back off the drill face
+				Vec3 b = Vec3.atCenterOf(pos);
+				level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, was), b.x, b.y, b.z, 3, 0.3, 0.3, 0.3, 0.08);
 			}
 		}
 		e.phase++;
 		e.markAction();
+		glide(e, start, step);
 		Vec3 c = Vec3.atCenterOf(centre);
-		level.sendParticles(GREEN_DUST, c.x, c.y, c.z, 10, 0.9, 0.9, 0.9, 0.02);
+		level.sendParticles(GREEN_DUST, c.x, c.y, c.z, 5, 0.7, 0.7, 0.7, 0.02);
 		sound(level, c, mined > 0 ? SoundEvents.STONE_BREAK : SoundEvents.BEACON_AMBIENT, 0.9f, 0.7f);
 		if (e.phase % 2 == 0) {
 			sound(level, c, SoundEvents.BEACON_AMBIENT, 0.5f, 2.0f);
@@ -730,6 +738,16 @@ public final class GreenLanternSurvival {
 		if (e.phase >= GreenLanternConfig.TUNNEL_LENGTH) {
 			stopTunneller(e, level);
 		}
+	}
+
+	/**
+	 * The drill car glides a third of a block a tick, never back: its middle sits on the last slice it cut, eased on
+	 * toward the next one between cuts (so its drill head is always biting the face ahead).
+	 */
+	private static void glide(HardLightConstructEntity e, BlockPos start, Vec3 step) {
+		float frac = (e.tickCount % GreenLanternConfig.TUNNEL_TICKS_PER_SLICE) / (float) GreenLanternConfig.TUNNEL_TICKS_PER_SLICE;
+		Vec3 at = Vec3.atCenterOf(start).add(step.scale(e.phase + frac - 1.0));
+		e.setPos(at.x, at.y, at.z);
 	}
 
 	private static void stopTunneller(HardLightConstructEntity e, ServerLevel level) {

@@ -435,11 +435,11 @@ public final class GreenLanternConfig {
 	public static final double NET_RADIUS = 12.0;
 	public static final int NET_TICKS = 60;
 	public static final int NET_COOLDOWN_TICKS = 10 * 20;
-	/** Hard-Light Tunneller: bores a 3x3 tunnel up to 16 blocks along your aim; mined blocks drop as items. */
+	/** Hard-Light Tunneller: a drill car bores a 3x3 tunnel up to 48 blocks along your aim; mined blocks drop as items. */
 	public static final float TUNNEL_COST = 10f;
 	public static final float TUNNEL_COST_PER_BLOCK = 1.5f;
-	public static final int TUNNEL_LENGTH = 16;
-	/** Ticks per one-block slice of the bore (16 slices = 2.4 s). */
+	public static final int TUNNEL_LENGTH = 48;
+	/** Ticks per one-block slice of the bore (48 slices = 7.2 s). */
 	public static final int TUNNEL_TICKS_PER_SLICE = 3;
 
 	// ---------------- v0.14.3: new attacks + construct attacks ----------------
