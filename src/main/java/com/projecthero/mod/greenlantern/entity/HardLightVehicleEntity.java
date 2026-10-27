@@ -356,7 +356,11 @@ public abstract class HardLightVehicleEntity extends Mob {
 			if (at != null && tickCount - at >= 4) {
 				// after vanilla's "press Shift to dismount" line, which would be wrong here
 				boardedAt.remove(id);
-				sp.displayClientMessage(Component.translatable(controlsKey(getControllingPassenger() == sp)), true);
+				// v0.17.1 (user): the driver's controls are a permanent panel now (client HardLightVehicleHud); passengers
+				// still get the one-line note
+				if (getControllingPassenger() != sp) {
+					sp.displayClientMessage(Component.translatable(controlsKey(false)), true);
+				}
 			}
 		}
 		if (riders.isEmpty() && !shiftHeld.isEmpty()) {
