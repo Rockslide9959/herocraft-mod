@@ -250,9 +250,10 @@ public final class PowerInfoScreen extends Screen {
 		com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(quirk);
 		for (AbilitySlot slot : AbilitySlot.values()) {
 			String[] ids = kit.idsOf(slot);
-			for (int i = 0; i < ids.length && i < 2; i++) {
+			for (int i = 0; i < ids.length && i < 3; i++) { // v0.17.1: a third id is the key's HOLD move
 				Component key = i == 0 ? Component.keybind(slot.keyBindingTranslationKey())
-						: Component.translatable("screen.projecthero.power_info.quirk.shift", Component.keybind(slot.keyBindingTranslationKey()));
+						: Component.translatable(i == 1 ? "screen.projecthero.power_info.quirk.shift" : "screen.projecthero.power_info.quirk.hold",
+								Component.keybind(slot.keyBindingTranslationKey()));
 				wrap(Component.empty()
 						.append(Component.literal(" [").withStyle(ChatFormatting.DARK_GRAY))
 						.append(Component.empty().append(key).withStyle(ChatFormatting.GOLD))

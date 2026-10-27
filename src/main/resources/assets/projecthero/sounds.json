@@ -2682,5 +2682,101 @@
         "name": "projecthero:quirk/engine_burst"
       }
     ]
+  },
+  "quirk_explosion_crackle": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_crackle",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_crackle"
+      }
+    ]
+  },
+  "quirk_explosion_blast_small": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_blast_small",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_blast_small"
+      }
+    ]
+  },
+  "quirk_explosion_blast": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_blast",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_blast"
+      }
+    ]
+  },
+  "quirk_explosion_howitzer": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_howitzer",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_howitzer"
+      }
+    ]
+  },
+  "quirk_explosion_stun": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_stun",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_stun"
+      }
+    ]
+  },
+  "quirk_explosion_pierce": {
+    "subtitle": "subtitles.projecthero.quirk_explosion_pierce",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/explosion_pierce"
+      }
+    ]
+  },
+  "quirk_hellflame_roar": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_roar",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_roar"
+      }
+    ]
+  },
+  "quirk_hellflame_jet": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_jet",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_jet"
+      }
+    ]
+  },
+  "quirk_hellflame_vent": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_vent",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_vent"
+      }
+    ]
+  },
+  "quirk_hellflame_beam": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_beam",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_beam"
+      }
+    ]
+  },
+  "quirk_hellflame_comet": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_comet",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_comet"
+      }
+    ]
+  },
+  "quirk_hellflame_whip": {
+    "subtitle": "subtitles.projecthero.quirk_hellflame_whip",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/hellflame_whip"
+      }
+    ]
   }
 }

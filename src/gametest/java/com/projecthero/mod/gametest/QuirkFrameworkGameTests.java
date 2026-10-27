@@ -138,7 +138,7 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * Through the real key path with the real Hellflame kit (C = Fire Wall, Shift+C = Flame Cloak), so no global kit is
+	 * Through the real key path with the real Hellflame kit (C = Flame Wave, Shift+C = Flame Cloak), so no global kit is
 	 * swapped while other tests run: under 100 C is the wall; at 100 a tap is still the wall and spends nothing; Shift+C is
 	 * still the Cloak; a 1 s hold fires the ultimate once, spends the gauge and swallows the release.
 	 */
@@ -148,18 +148,18 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 		ServerPlayer a = holder(helper, Quirk.HELLFLAME, 1.5, 1.5);
 		ServerPlayer b = holder(helper, Quirk.HELLFLAME, 4.5, 1.5);
 		ServerPlayer c = holder(helper, Quirk.HELLFLAME, 6.5, 1.5);
-		// under 100: C is the Fire Wall
+		// under 100: C is the Flame Wave
 		PlusUltra.set(a, 99f);
 		QuirkAbilityManager.handle(a, AbilitySlot.SLOT_6, true);
 		QuirkAbilityManager.handle(a, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(!Quirks.ready(a, HellflameConfig.WALL) && !PlusUltra.holding(a), "under 100 C is the kit's C move");
+		helper.assertTrue(!Quirks.ready(a, HellflameConfig.WAVE) && !PlusUltra.holding(a), "under 100 C is the kit's C move");
 		// at 100: the press waits for the hold; a quick release is the normal C move and spends nothing
 		PlusUltra.set(b, 100f);
 		QuirkAbilityManager.handle(b, AbilitySlot.SLOT_6, true);
-		helper.assertTrue(PlusUltra.holding(b) && Quirks.ready(b, HellflameConfig.WALL), "at 100 the press starts the hold, the kit waits");
+		helper.assertTrue(PlusUltra.holding(b) && Quirks.ready(b, HellflameConfig.WAVE), "at 100 the press starts the hold, the kit waits");
 		helper.assertTrue(PlusUltra.clientHold(b) >= 0f, "the hold is synced (the C ring on the HUD)");
 		QuirkAbilityManager.handle(b, AbilitySlot.SLOT_6, false);
-		helper.assertTrue(!Quirks.ready(b, HellflameConfig.WALL) && !PlusUltra.holding(b), "a tap is the normal C move");
+		helper.assertTrue(!Quirks.ready(b, HellflameConfig.WAVE) && !PlusUltra.holding(b), "a tap is the normal C move");
 		helper.assertTrue(PlusUltra.gauge(b) == 100f && PlusUltra.firedCount(b) == 0, "and spends nothing");
 		// Shift+C at 100 is the kit's Shift+C
 		b.setShiftKeyDown(true);
@@ -174,9 +174,9 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 		helper.runAfterDelay(PlusUltra.HOLD_TICKS + 3, () -> {
 			helper.assertTrue(PlusUltra.firedCount(c) == 1, "held 1 s at 100: the ultimate fired once");
 			helper.assertTrue(PlusUltra.gauge(c) == 0f, "it spent the whole gauge");
-			helper.assertTrue(Quirks.ready(c, HellflameConfig.WALL), "the kit's C never fired");
+			helper.assertTrue(Quirks.ready(c, HellflameConfig.WAVE), "the kit's C never fired");
 			QuirkAbilityManager.handle(c, AbilitySlot.SLOT_6, false);
-			helper.assertTrue(Quirks.ready(c, HellflameConfig.WALL), "and the release was swallowed");
+			helper.assertTrue(Quirks.ready(c, HellflameConfig.WAVE), "and the release was swallowed");
 			helper.assertTrue(PlusUltra.sinceFired(c) < 10, "the fire time is synced (first-person body, banner)");
 			helper.succeed();
 		});

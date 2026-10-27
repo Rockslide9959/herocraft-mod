@@ -56,7 +56,12 @@ public interface QuirkKit {
 		return false;
 	}
 
-	/** The two moves on one key: [plain, shift] ability ids (HUD, guide, PowerInfoScreen, lang). */
+	/**
+	 * The moves on one key: [plain, shift] ability ids (HUD, guide, PowerInfoScreen, lang). v0.17.1 (backwards-compatible
+	 * extension): an optional THIRD id is the key's HOLD move -- the guide and the info screen list it as "Hold &lt;key&gt;"; the
+	 * HUD keeps showing [plain, shift]. The kit itself tells a tap from a hold (Explosion / Hellflame: the tap fires on a
+	 * release within 6 ticks).
+	 */
 	String[] idsOf(AbilitySlot slot);
 
 	/** Full cooldown of a move, ticks (the HUD's cooldown fill). */

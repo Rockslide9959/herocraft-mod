@@ -102,6 +102,48 @@ public final class ExplosionPose {
 			f(ExplosionConfig.STRAIN_TICKS - 5, 0.2f, 0, 0.08f, 0.2f, 0, -0.08f, 0.25f, 0, 0, 0, 0, 0, 0, 0, 0.35f),
 			rest(ExplosionConfig.STRAIN_TICKS) };
 
+	/** Hold R: AP Shot: Pierce -- the right palm locked out at the aim, the left hand clamped on the wrist, braced wide. */
+	static final float[][] PIERCE_CHARGE = {
+			rest(0),
+			f(3, -1.55f, -0.1f, 0, -1.35f, 0.6f, 0, 0.12f, -0.35f, -0.25f, 0.1f, 0.08f, 0.35f, -0.1f, -0.08f, 0),
+			f(ExplosionConfig.PIERCE_CHARGE_TICKS + 4, -1.55f, -0.1f, 0, -1.35f, 0.6f, 0, 0.12f, -0.35f, -0.25f, 0.1f, 0.08f, 0.35f, -0.1f, -0.08f, 0),
+			rest(ExplosionConfig.PIERCE_CHARGE_TICKS + 8) };
+	/** The Pierce fires: the arm kicks up with the recoil, the body rocked back, then settles. */
+	static final float[][] PIERCE = {
+			f(0, -1.55f, -0.1f, 0, -1.35f, 0.6f, 0, 0.12f, -0.35f, -0.25f, 0.1f, 0.08f, 0.35f, -0.1f, -0.08f, 0),
+			f(2, -2.2f, -0.1f, 0.1f, -1.7f, 0.5f, 0, -0.25f, -0.3f, -0.35f, 0.1f, 0.08f, 0.45f, -0.1f, -0.08f, -0.2f),
+			f(7, -1.7f, -0.1f, 0, -1.4f, 0.55f, 0, 0.0f, -0.3f, -0.25f, 0.1f, 0.08f, 0.35f, -0.1f, -0.08f, -0.05f),
+			rest(13) };
+	/** Hold G: Crush Grip -- the right hand thrust out at face height clamping the victim, the body squared up, then the throw. */
+	static final float[][] GRIP = {
+			rest(0),
+			f(3, -1.85f, -0.15f, 0, -0.5f, 0.2f, -0.3f, 0.12f, -0.25f, -0.3f, 0.05f, 0, 0.3f, 0, 0, 0.05f),
+			f(ExplosionConfig.GRIP_BEATS[0], -1.95f, -0.15f, 0.08f, -0.6f, 0.2f, -0.35f, 0.1f, -0.3f, -0.3f, 0.05f, 0, 0.3f, 0, 0, 0),
+			f(ExplosionConfig.GRIP_BEATS[1], -1.95f, -0.15f, -0.08f, -0.6f, 0.2f, -0.35f, 0.1f, -0.3f, -0.3f, 0.05f, 0, 0.3f, 0, 0, 0),
+			f(ExplosionConfig.GRIP_BEATS[2], -2.05f, -0.15f, 0.1f, -0.7f, 0.2f, -0.4f, 0.0f, -0.3f, -0.35f, 0.05f, 0, 0.35f, 0, 0, -0.05f),
+			f(ExplosionConfig.GRIP_THROW_AT - 1, -1.2f, 0.9f, 0.2f, -0.4f, 0.2f, -0.3f, 0.15f, 0.55f, 0.2f, 0, 0, -0.3f, 0, 0, 0),
+			f(ExplosionConfig.GRIP_THROW_AT + 3, -1.6f, -0.9f, 0.1f, 0.4f, 0.2f, -0.3f, 0.25f, -0.6f, -0.4f, 0, 0, 0.45f, 0, 0, 0.05f),
+			rest(ExplosionConfig.GRIP_THROW_AT + 8) };
+	/** Shift+X: Spin Dodge -- tucked, arms in, legs bent through the spin (the turn itself is {@link #bodyTurn}). */
+	static final float[][] DODGE = {
+			rest(0),
+			f(2, -0.9f, 0.4f, 0.2f, -0.9f, -0.4f, -0.2f, 0.35f, 0, -0.9f, 0.1f, 0.15f, -0.6f, -0.1f, -0.15f, 0.1f),
+			f(ExplosionConfig.DODGE_TICKS, -0.8f, 0.4f, 0.4f, -0.8f, -0.4f, -0.4f, 0.3f, 0, -0.7f, 0.1f, 0.1f, -0.5f, -0.1f, -0.1f, 0.05f),
+			rest(ExplosionConfig.DODGE_TICKS + 5) };
+	/** Shift+Z: Explosive Uppercut -- crouched and coiled, then the right fist drives straight up, the body following it. */
+	static final float[][] UPPERCUT = {
+			rest(0),
+			f(2, 0.5f, 0.2f, 0.3f, -0.6f, 0, -0.3f, 0.4f, 0.3f, -0.8f, 0, 0, 0.3f, 0, 0, 0.1f),
+			f(4, -3.0f, -0.2f, 0.1f, 0.5f, 0, -0.4f, -0.2f, -0.2f, 0.1f, 0, 0, 0.5f, 0, 0, -0.45f),
+			f(9, -2.9f, -0.2f, 0.1f, 0.5f, 0, -0.45f, -0.15f, -0.2f, 0.15f, 0, 0, 0.45f, 0, 0, -0.4f),
+			rest(14) };
+	/** Blast mining: a short punch down at the block, the blast in the palm. */
+	static final float[][] MINE = {
+			rest(0),
+			f(2, -1.1f, 0.1f, 0, -0.4f, 0, -0.2f, 0.2f, 0.25f, 0, 0, 0, 0, 0, 0, 0),
+			f(4, -0.9f, -0.15f, 0, -0.3f, 0, -0.2f, 0.35f, -0.3f, 0, 0, 0, 0, 0, 0, 0.1f),
+			rest(9) };
+
 	private ExplosionPose() {
 	}
 
@@ -133,6 +175,12 @@ public final class ExplosionPose {
 			case Explosion.ANIM_CLUSTER -> CLUSTER;
 			case Explosion.ANIM_GAUNTLET -> GAUNTLET;
 			case Explosion.ANIM_STRAIN -> STRAIN;
+			case Explosion.ANIM_PIERCE_CHARGE -> PIERCE_CHARGE;
+			case Explosion.ANIM_PIERCE -> PIERCE;
+			case Explosion.ANIM_GRIP -> GRIP;
+			case Explosion.ANIM_DODGE -> DODGE;
+			case Explosion.ANIM_UPPERCUT -> UPPERCUT;
+			case Explosion.ANIM_MINE -> MINE;
 			default -> null;
 		};
 	}
@@ -191,7 +239,14 @@ public final class ExplosionPose {
 				// aimed moves: the shooting arm follows the look pitch
 				float w = QuirkKeyframes.weight(age, QuirkKeyframes.length(fr));
 				switch (s.animId) {
-					case Explosion.ANIM_AP_SHOT, Explosion.ANIM_GAUNTLET -> r.xRot += aim * w;
+					case Explosion.ANIM_AP_SHOT, Explosion.ANIM_GAUNTLET, Explosion.ANIM_GRIP -> r.xRot += aim * w;
+					case Explosion.ANIM_PIERCE_CHARGE, Explosion.ANIM_PIERCE -> {
+						// the aim, plus the charge shaking the arms harder as it fills
+						float c = Math.max(0f, Explosion.pierceCharge(player, partial));
+						float shake = 0.05f * c * Mth.sin(t * 5.1f) * w;
+						r.xRot += aim * w + shake;
+						l.xRot += aim * w - shake;
+					}
 					case Explosion.ANIM_AUTO -> {
 						r.xRot += aim * w;
 						l.xRot += aim * w;
@@ -218,6 +273,15 @@ public final class ExplosionPose {
 	 * pitched head-first along his dive (the look) and corkscrewing about his long axis. Its Cluster: the dive only.
 	 */
 	public static float[] bodyTurn(Player player, float partial) {
+		if (Explosion.dodging(player)) {
+			// v0.17.1 Spin Dodge: one full turn about the vertical, toward the side he blasts to
+			QuirkState d = Quirks.peek(player);
+			float since = player.level().getGameTime() - d.animStart + partial;
+			float k = Mth.clamp(since / ExplosionConfig.DODGE_TICKS, 0f, 1f);
+			k = 1f - (1f - k) * (1f - k);
+			float side = d.val(Explosion.V_DODGE_SIDE) < 0 ? 1f : -1f;
+			return new float[] { side * 360f * k, 0f, 0f };
+		}
 		if (!Explosion.spinning(player)) {
 			return null;
 		}

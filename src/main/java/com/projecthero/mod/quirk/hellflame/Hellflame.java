@@ -10,9 +10,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7: Hellflame's synced keys (in {@code QuirkState.vals} / {@code vecs}) and pose ids, and the client-safe reads the
- * HUD, the poses, the flame FX and the world renderer (Hell Spider's strings, the Mesh, the Prominence beam) use.
- * Timers are absolute game times (0 = off); the held moves store the tick they started.
+ * v0.16.7, v0.17.1 (Quirks revamp): Hellflame's synced keys (in {@code QuirkState.vals} / {@code vecs}) and pose ids, and the
+ * client-safe reads the HUD, the poses, the flame FX and the world renderer (Hell Spider's strings, the Mesh, the Hellblast
+ * beam, the Fire Wall's sheets, Prominence Burn's sun) use. Timers are absolute game times (0 = off); the held moves store
+ * the tick they started.
  */
 public final class Hellflame {
 	private Hellflame() {
@@ -21,11 +22,13 @@ public final class Hellflame {
 	// ---------------------------------------------------------------- synced vals
 	/** Fire Jet Flight on: the tick it lit (0 = off). */
 	public static final String V_FLIGHT = "hf_flight";
-	/** Flame Cloak on (1). */
+	/** Flame Cloak: burns until this game time. */
 	public static final String V_CLOAK = "hf_cloak";
 	/** Jet Burn dash: runs until this game time. */
 	public static final String V_DASH = "hf_dash";
-	/** Hell Spider: the tick the strings were cast; {@link #VEC_SPIDER} holds the aim (yaw, pitch, 0) then. */
+	/** v0.17.1 Jet Burst: runs until this game time. */
+	public static final String V_BURST = "hf_burst";
+	/** Hell Spider: the tick the strings were cast; {@link #VEC_SPIDER} holds the aim (yaw, pitch, size) then. */
 	public static final String V_SPIDER = "hf_spider";
 	public static final String VEC_SPIDER = "hf_spider";
 	/** Hell Spider: Mesh: burns until this game time; {@link #V_MESH_AT} is when it was cast, {@link #VEC_MESH} its centre. */
@@ -34,24 +37,32 @@ public final class Hellflame {
 	public static final String VEC_MESH = "hf_mesh";
 	/** Fire Wall: burns until this game time, between {@link #VEC_WALL_A} and {@link #VEC_WALL_B} (its base). */
 	public static final String V_WALL = "hf_wall";
+	public static final String V_WALL_AT = "hf_wall_at";
 	public static final String VEC_WALL_A = "hf_wall_a";
 	public static final String VEC_WALL_B = "hf_wall_b";
 	/** Hellflame Barrage: runs until this game time. */
 	public static final String V_BARRAGE = "hf_barrage";
-	/** Fire Pillar: erupts at this game time at {@link #VEC_PILLAR} (the ground glows before). */
+	/** Hellflame Pillar: erupts at this game time at {@link #VEC_PILLAR} (the ground glows before). */
 	public static final String V_PILLAR = "hf_pillar";
 	public static final String VEC_PILLAR = "hf_pillar";
-	/** Prominence Burn: the tick the charge started / the tick the beam fired (0 = off). */
+	/** Hellblast: the tick the charge started / the tick the beam fired (0 = off); {@link #V_BEAM_UNTIL} when it ends. */
 	public static final String V_CHARGE = "hf_charge";
 	public static final String V_BEAM = "hf_beam";
+	public static final String V_BEAM_UNTIL = "hf_beam_until";
 	/** Vanishing Fist: the flame decoy burns until this game time at {@link #VEC_DECOY} (x, y, z) facing {@link #V_DECOY_YAW}. */
 	public static final String V_DECOY = "hf_decoy";
 	public static final String V_DECOY_YAW = "hf_decoy_yaw";
 	public static final String VEC_DECOY = "hf_decoy";
-	/** Plus Ultra: full power until this game time. */
-	public static final String V_PLUS = "hf_plus";
-	/** Burnt out after Plus Ultra: Heat pinned at 100 until this game time. */
+	/** v0.17.1 Flashfire Fist: the punch the chain is on (1..3) and when it was thrown. */
+	public static final String V_FIST = "hf_fist";
+	public static final String V_FIST_AT = "hf_fist_at";
+	/** v0.17.1 Prominence Burn (the ultimate): the tick it ignited (0 = off); the comet flies from ignition + 30. */
+	public static final String V_PROM = "hf_prom";
+	/** Burnt out after Prominence Burn: Heat pinned at 100 until this game time. */
 	public static final String V_BURNOUT = "hf_burnout";
+
+	/** Pre-v0.17.1 keys (Plus Ultra: Full Power on Shift+V): removed from a save on sight. */
+	public static final String[] LEGACY_VALS = { "hf_plus" };
 
 	// ---------------------------------------------------------------- poses (animBase 20: ids 20..39)
 	public static final int ANIM_JET = 20;
@@ -63,9 +74,18 @@ public final class Hellflame {
 	public static final int ANIM_BARRAGE = 26;
 	public static final int ANIM_PILLAR = 27;
 	public static final int ANIM_VANISH = 28;
+	public static final int ANIM_FIST_1 = 29;
 	public static final int ANIM_COOL = 30;
-	public static final int ANIM_PLUS = 31;
+	public static final int ANIM_FIST_2 = 31;
 	public static final int ANIM_OVERHEAT = 32;
+	public static final int ANIM_FIST_3 = 33;
+	public static final int ANIM_BURST = 34;
+	public static final int ANIM_WAVE = 35;
+	public static final int ANIM_HELLBLAST = 36;
+	public static final int ANIM_PROMINENCE = 37;
+	public static final int ANIM_FORGE = 38;
+	/** The Hellblast beam firing (the charge is {@link #ANIM_HELLBLAST}). */
+	public static final int ANIM_BEAM = 39;
 
 	// ---------------------------------------------------------------- client-safe reads
 
@@ -93,11 +113,15 @@ public final class Hellflame {
 	}
 
 	public static boolean cloaked(Player p) {
-		return is(p) && val(p, V_CLOAK) != 0L;
+		return until(p, V_CLOAK);
 	}
 
 	public static boolean dashing(Player p) {
 		return until(p, V_DASH);
+	}
+
+	public static boolean bursting(Player p) {
+		return until(p, V_BURST);
 	}
 
 	public static boolean barraging(Player p) {
@@ -112,13 +136,13 @@ public final class Hellflame {
 		return is(p) && val(p, V_BEAM) != 0L;
 	}
 
-	/** Prominence charge 0..1 (0 when not charging). */
+	/** Hellblast charge 0..1 of its maximum (0 when not charging). */
 	public static float charge(Player p, float partial) {
 		long at = val(p, V_CHARGE);
 		if (at == 0L || p.level() == null) {
 			return 0f;
 		}
-		float t = (p.level().getGameTime() - at + partial) / HellflameConfig.PROMINENCE_CHARGE_TICKS;
+		float t = (p.level().getGameTime() - at + partial) / HellflameConfig.HELLBLAST_MAX_CHARGE;
 		return Math.max(0f, Math.min(1f, t));
 	}
 
@@ -134,8 +158,15 @@ public final class Hellflame {
 		return until(p, V_DECOY);
 	}
 
-	public static boolean plusUltra(Player p) {
-		return until(p, V_PLUS);
+	/** The Prominence Burn ultimate is running (ignition or comet). */
+	public static boolean prominence(Player p) {
+		return is(p) && val(p, V_PROM) != 0L;
+	}
+
+	/** Ticks since the ultimate ignited (partial included), or -1. */
+	public static float prominenceAge(Player p, float partial) {
+		long at = val(p, V_PROM);
+		return at == 0L || p.level() == null ? -1f : p.level().getGameTime() - at + partial;
 	}
 
 	public static boolean burntOut(Player p) {
@@ -152,8 +183,8 @@ public final class Hellflame {
 		return Quirks.holds(p, Quirk.HELLFLAME) && Quirks.overloaded(p);
 	}
 
-	/** The size multiplier of his flames right now (Plus Ultra makes everything bigger). */
+	/** Flame size now (1; the ultimate's sun is bigger). Kept for the renderers. */
 	public static double size(Player p) {
-		return plusUltra(p) ? HellflameConfig.PLUS_SIZE_MULT : 1.0;
+		return 1.0;
 	}
 }

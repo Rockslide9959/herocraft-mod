@@ -2088,8 +2088,10 @@ public final class HeroPackGuide {
 			int rows = 0;
 			for (int i = 0; i < slots.length; i++) {
 				String[] ids = kit.idsOf(slots[i]);
-				for (int j = 0; j < Math.min(2, ids.length); j++) {
-					net.minecraft.network.chat.MutableComponent row = Component.literal(" " + SLOT_LABELS[i][j] + "  ").withStyle(ChatFormatting.GOLD)
+				// v0.17.1: a third id is the key's HOLD move (Explosion / Hellflame)
+				for (int j = 0; j < Math.min(3, ids.length); j++) {
+					String label = j < 2 ? SLOT_LABELS[i][j] : "Hold " + SLOT_LABELS[i][0];
+					net.minecraft.network.chat.MutableComponent row = Component.literal(" " + label + "  ").withStyle(ChatFormatting.GOLD)
 							.append(Component.translatable(kit.abilityLangKey(ids[j])).withStyle(ChatFormatting.WHITE));
 					int cd = kit.maxCooldown(ids[j]);
 					if (cd > 0) {

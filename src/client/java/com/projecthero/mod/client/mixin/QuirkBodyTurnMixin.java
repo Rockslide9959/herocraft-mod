@@ -29,6 +29,9 @@ public abstract class QuirkBodyTurnMixin {
 			t = com.projecthero.mod.client.quirk.explosion.ExplosionPose.bodyTurn(player, partialTicks);
 		}
 		if (t == null) {
+			t = com.projecthero.mod.client.quirk.hellflame.HellflamePose.bodyTurn(player, partialTicks); // v0.17.1: the Prominence Burn comet
+		}
+		if (t == null) {
 			return;
 		}
 		poseStack.translate(0.0f, 0.9f, 0.0f);
