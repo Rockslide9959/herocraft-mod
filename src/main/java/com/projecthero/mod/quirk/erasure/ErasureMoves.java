@@ -282,10 +282,6 @@ public final class ErasureMoves {
 		});
 	}
 
-	private static void scarfLine(ServerPlayer p, Vec3 a, Vec3 b) {
-		AbilityHelpers.line(p.serverLevel(), a, b, SCARF, 1.5);
-	}
-
 	/** The scarf's crack: the cloth whip and snap (v0.17.1: the kit's own sounds, a vanilla cloth layer under them). */
 	static void crack(ServerPlayer p, float pitch) {
 		sound(p, ErasureSounds.SCARF_WHIP, 0.9f, pitch);
@@ -303,7 +299,7 @@ public final class ErasureMoves {
 
 	/** v0.17.1: the cloth capture-scarf ribbon from his hand to {@code to} (the shared toolkit's cloth style). */
 	static void scarfRibbon(ServerPlayer p, Vec3 to, int life) {
-		QuirkFx.ribbon(p.serverLevel(), hand(p), to).style(QuirkFx.RIBBON_CLOTH).colours(0xE4E4E8, 0x8A8A92).size(0.16f).life(life).spawn();
+		QuirkFx.ribbon(p.serverLevel(), hand(p), to).style(QuirkFx.RIBBON_CLOTH).colours(0xF4F4F6, 0xB4B4BC).size(0.085f).life(life).spawn();
 	}
 
 	// ---------------------------------------------------------------- roots (binds)
@@ -956,7 +952,7 @@ public final class ErasureMoves {
 		p.resetFallDistance();
 		ServerLevel level = p.serverLevel();
 		QuirkFx.trail(level, p).colours(0xE8E8EC, 0x6A6A74).style(QuirkFx.RIBBON_CLOTH).size(0.12f).size2(10f).life(18)
-				.vec(new Vec3(0.3, 1.2, -0.1)).spawn();
+				.vec(new Vec3(0.3, 0.9, -0.1)).spawn();
 		QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0x9A9AA4).size(2.2f).thickness(0.3f).life(10).ground().spawn();
 		level.sendParticles(QuirkParticles.DUST_CHUNK, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.3, 0.05, 0.3, 0.05);
 		sound(p, com.projecthero.mod.quirk.fx.QuirkSounds.WHOOSH, 0.9f, 1.1f);
@@ -1625,13 +1621,16 @@ public final class ErasureMoves {
 				}
 			} else {
 				Vec3 v = e.getDeltaMovement();
-				double vy = hoistY == null ? Math.min(v.y, 0.0) : Mth.clamp((hoistY - e.getY()) * 0.35, -0.15, 0.3);
-				e.setDeltaMovement(0.0, vy, 0.0);
-				e.hurtMarked = hoistY != null || e.hurtMarked;
+				double y = e.getY();
 				if (hoistY != null) {
+					// strung up: raised by position (it works on any mob, AI or not), hanging still on the scarf
+					y += Mth.clamp((hoistY - y) * 0.35, -0.15, 0.3);
+					e.setDeltaMovement(0.0, 0.0, 0.0);
 					e.resetFallDistance();
+				} else {
+					e.setDeltaMovement(0.0, Math.min(v.y, 0.0), 0.0);
 				}
-				e.setPos(r.pin().x, e.getY(), r.pin().z);
+				e.setPos(r.pin().x, y, r.pin().z);
 				if (e instanceof Mob m) {
 					m.getNavigation().stop();
 				}

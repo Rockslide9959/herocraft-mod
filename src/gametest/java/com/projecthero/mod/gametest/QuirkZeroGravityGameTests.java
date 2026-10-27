@@ -792,6 +792,8 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		Zombie a = zombie(helper, 1.5, 2.0, 6.5, 100);
 		Zombie b = zombie(helper, 7.0, 2.0, 1.5, 100);
 		Zombie boss = zombie(helper, 6.5, 2.0, 6.5, 500);
+		a.setNoAi(false); // (a NoAI mob does not move at all: no float, no fall)
+		b.setNoAi(false);
 		int n = ZeroGravityUltimate.fire(p);
 		helper.assertTrue(n >= 3, "everything round her floats, " + n);
 		helper.assertTrue(floated(a) && floated(b), "the mobs float up");

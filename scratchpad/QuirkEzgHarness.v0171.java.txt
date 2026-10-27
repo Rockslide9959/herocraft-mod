@@ -1,0 +1,765 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.erasure.ErasureMoves;
+import com.projecthero.mod.quirk.erasure.ErasureSleepingBag;
+import com.projecthero.mod.quirk.erasure.ErasureUltimate;
+import com.projecthero.mod.quirk.item.QuirkSuits;
+import com.projecthero.mod.quirk.zerogravity.ZeroGravityFloat;
+import com.projecthero.mod.quirk.zerogravity.ZeroGravityMoves;
+import com.projecthero.mod.quirk.zerogravity.ZeroGravityUltimate;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.commands.arguments.EntityAnchorArgument;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Erasure + Zero Gravity screenshots. Enabled by run/quirkezg.flag. */
+// TEMP-HARNESS
+public final class QuirkEzgHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer fake;
+	private static final List<Mob> MOBS = new ArrayList<>();
+	private static String only;
+
+	private QuirkEzgHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("quirkezg.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("quirkezg.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(QuirkEzgHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(560_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "quirkezg-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				ServerPlayer local = srv.getPlayerList().getPlayers().stream().filter(sp -> sp != fake).findFirst().orElse(null);
+				if (local != null) {
+					try {
+						fn.accept(local);
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			mc.gui.setOverlayMessage(net.minecraft.network.chat.Component.empty(), false);
+			Screenshot.grab(mc.gameDirectory, "qezg_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(QuirkEzgHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(1000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.NORMAL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				for (int x = -14; x <= 14; x++) {
+					for (int z = -14; z <= 14; z++) {
+						for (int y = 1; y <= 3; y++) {
+							level.setBlock(BlockPos.containing(origin.x + x, origin.y - y, origin.z + z),
+									y == 1 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.DIRT.defaultBlockState(), 3);
+						}
+						for (int y = 0; y <= 6; y++) {
+							level.setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + z), Blocks.AIR.defaultBlockState(), 3);
+						}
+					}
+				}
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("QEZG_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.NORMAL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, 0f, 0f);
+		f.setYHeadRot(0f);
+		f.yBodyRot = 0f;
+		return f;
+	}
+
+	private static void face(ServerPlayer f, Vec3 target) {
+		f.lookAt(EntityAnchorArgument.Anchor.EYES, target);
+		f.setYHeadRot(f.getYRot());
+		f.yBodyRot = f.getYRot();
+		f.yBodyRotO = f.getYRot();
+		f.connection.teleport(f.getX(), f.getY(), f.getZ(), f.getYRot(), f.getXRot());
+	}
+
+	private static void suit(ServerPlayer f, Quirk q) {
+		for (ArmorItem.Type t : QuirkSuits.Suit.of(q).pieces()) {
+			f.setItemSlot(t.getSlot(), new ItemStack(QuirkSuits.piece(q, t)));
+		}
+	}
+
+	private static Mob mob(ServerLevel level, EntityType<? extends Mob> type, Vec3 at, float yaw) {
+		Mob m = type.create(level);
+		m.moveTo(at.x, at.y, at.z, yaw, 0f);
+		m.setYHeadRot(yaw);
+		m.yBodyRot = yaw;
+		m.setNoAi(false);
+		try {
+			for (String n : new String[] { "goalSelector", "targetSelector" }) {
+				java.lang.reflect.Field fl = Mob.class.getDeclaredField(n);
+				fl.setAccessible(true);
+				((net.minecraft.world.entity.ai.goal.GoalSelector) fl.get(m)).removeAllGoals(g -> true);
+			}
+		} catch (ReflectiveOperationException e) {
+			m.setNoAi(true);
+		}
+		m.setPersistenceRequired();
+		m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(120);
+		m.setHealth(120);
+		level.addFreshEntity(m);
+		MOBS.add(m);
+		return m;
+	}
+
+	private static void flatten(ServerLevel level) {
+		for (int x = -14; x <= 14; x++) {
+			for (int z = -14; z <= 14; z++) {
+				level.setBlock(BlockPos.containing(origin.x + x, origin.y - 1, origin.z + z), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+				for (int y = 0; y <= 4; y++) {
+					level.setBlock(BlockPos.containing(origin.x + x, origin.y + y, origin.z + z), Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}
+	}
+
+	private static void clearMobs() {
+		for (Mob m : MOBS) {
+			m.discard();
+		}
+		MOBS.clear();
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void third(Minecraft mc) {
+		mc.execute(() -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+	}
+
+	private static boolean want(String scene) {
+		return only == null || only.isEmpty() || only.contains(scene);
+	}
+
+	private static int t;
+
+	private static void script(Minecraft mc) {
+		t = 10;
+		if (want("er")) {
+			erasure(mc);
+		}
+		if (want("zg")) {
+			zeroGravity(mc);
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void reset(Minecraft mc, Quirk q, String name) {
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			if (fake != null) {
+				Quirks.revoke(fake);
+				fake.teleportTo(origin.x, origin.y, origin.z);
+			} else {
+				fake = fake(p, name, origin);
+			}
+			com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(fake, q));
+			suit(fake, q);
+			fake.teleportTo(fake.serverLevel(), origin.x, origin.y, origin.z, 0f, 0f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+		}));
+		t += 4;
+	}
+
+	// ================================================================ Erasure
+	private static void erasure(Minecraft mc) {
+		reset(mc, Quirk.ERASURE, "EraserHead");
+		// ---- C Scarf Whip
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(0.6, 0, 7.5), 180f);
+			face(fake, origin.add(0.6, 1.2, 7.5));
+			camera(p, origin.add(5.2, 2.3, -1.8), origin.add(0.3, 1.2, 3.4));
+		}));
+		at(t + 6, () -> server(mc, p -> ErasureMoves.whip(fake)));
+		shot(t + 8, "er_whip_a");
+		shot(t + 10, "er_whip_b");
+		t += 30;
+		// ---- Shift+C Multi-Bind
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(-2.6, 0, 6.5), 170f);
+			mob(l, EntityType.PILLAGER, origin.add(0.2, 0, 7.5), 180f);
+			mob(l, EntityType.VINDICATOR, origin.add(2.8, 0, 6.0), 200f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.2, 7.0));
+			camera(p, origin.add(-5.0, 3.2, 1.0), origin.add(0.3, 1.0, 5.0));
+		}));
+		at(t + 6, () -> server(mc, p -> ErasureMoves.multiBind(fake)));
+		shot(t + 10, "er_multibind_a");
+		shot(t + 20, "er_multibind_b");
+		t += 40;
+		// ---- R Capture Bind + hold R Reel Lock
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(fake);
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(0, 0, 5.0), 180f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.2, 5.0));
+			camera(p, origin.add(4.5, 1.9, 2.4), origin.add(0, 1.4, 3.0));
+		}));
+		at(t + 5, () -> server(mc, p -> ErasureMoves.bind(fake)));
+		at(t + 14, () -> server(mc, p -> ErasureMoves.reelStart(fake)));
+		shot(t + 12, "er_bind");
+		shot(t + 40, "er_reel");
+		at(t + 46, () -> server(mc, p -> ErasureMoves.reelStop(fake)));
+		t += 50;
+		// ---- V the stare (dusk light, red eyes, the glare ring)
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(fake);
+			p.serverLevel().setDayTime(13000L);
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.PILLAGER, origin.add(0, 0, 6.0), 180f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.5, 6.0));
+			camera(p, origin.add(0.9, 1.75, 1.9), origin.add(0, 1.65, 0));
+		}));
+		at(t + 4, () -> server(mc, p -> ErasureMoves.eraseDown(fake)));
+		shot(t + 10, "er_stare_face");
+		at(t + 12, () -> server(mc, p -> camera(p, origin.add(-2.4, 2.0, -2.0), origin.add(0, 1.4, 4.0))));
+		shot(t + 16, "er_stare_back");
+		at(t + 20, () -> server(mc, p -> {
+			ErasureMoves.eraseUp(fake);
+			p.serverLevel().setDayTime(1000L);
+		}));
+		t += 26;
+		// ---- Shift+X Evade Flip
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.6, 6.0));
+			camera(p, origin.add(5.0, 1.8, 0.0), origin.add(0, 1.5, 0));
+		}));
+		at(t + 4, () -> server(mc, p -> ErasureMoves.flip(fake)));
+		for (int k = 1; k <= 10; k++) {
+			int kk = k;
+			at(t + 4 + k, () -> server(mc, p -> fake.connection.teleport(origin.x, origin.y + Math.sin(kk / 10.0 * Math.PI) * 1.6,
+					origin.z - kk * 0.45, fake.getYRot(), fake.getXRot())));
+		}
+		shot(t + 8, "er_flip_a");
+		shot(t + 10, "er_flip_b");
+		t += 24;
+		// ---- Z Bind and Spin
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			fake.teleportTo(origin.x, origin.y, origin.z);
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(0, 0, 4.0), 180f);
+			mob(l, EntityType.VINDICATOR, origin.add(-3.0, 0, 0.2), 90f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.2, 4.0));
+			camera(p, origin.add(5.5, 3.8, -4.0), origin.add(0, 1.0, 0.5));
+		}));
+		at(t + 4, () -> server(mc, p -> {
+			ErasureMoves.bind(fake);
+			ErasureMoves.spin(fake);
+		}));
+		shot(t + 12, "er_spin_a");
+		shot(t + 20, "er_spin_b");
+		t += 44;
+		// ---- hold C: Underground Takedown
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(fake);
+			fake.teleportTo(origin.x, origin.y, origin.z - 4);
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(-2.5, 0, 1.0), 180f);
+			mob(l, EntityType.PILLAGER, origin.add(0.5, 0, 3.0), 180f);
+			mob(l, EntityType.VINDICATOR, origin.add(3.0, 0, 2.0), 200f);
+			mob(l, EntityType.PILLAGER, origin.add(-0.8, 0, 6.0), 170f);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(0, 1.3, 3.0));
+			camera(p, origin.add(-6.5, 3.6, -6.5), origin.add(0, 1.0, 0.0));
+		}));
+		at(t + 4, () -> server(mc, p -> {
+			PlusUltra.set(fake, 100f);
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).ultimate(fake);
+		}));
+		shot(t + 7, "er_takedown_cone");
+		shot(t + 25, "er_takedown_chain");
+		shot(t + 47, "er_takedown_hang_a");
+		shot(t + 52, "er_takedown_hang_b");
+		t += 70;
+		// ---- the Sleeping Bag (night)
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(fake);
+			p.serverLevel().setDayTime(18000L);
+			p.serverLevel().updateSkyBrightness();
+			fake.teleportTo(origin.x, origin.y, origin.z);
+			fake.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ErasureSleepingBag.SLEEPING_BAG));
+			p.serverLevel().getChunkSource().broadcast(fake, new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(fake.getId(),
+					java.util.List.of(com.mojang.datafixers.util.Pair.of(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(ErasureSleepingBag.SLEEPING_BAG)))));
+			fake.setOnGround(true);
+			fake.setGameMode(GameType.CREATIVE);
+			System.out.println("[HARNESS] sleep: " + ErasureSleepingBag.trySleep(fake));
+			camera(p, origin.add(2.2, 2.1, 1.6), origin.add(0, 0.2, 0));
+		}));
+		shot(t + 10, "er_sleeping_bag");
+		at(t + 14, () -> server(mc, p -> {
+			fake.stopSleeping();
+			fake.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			fake.setGameMode(GameType.SURVIVAL);
+			p.serverLevel().setDayTime(1000L);
+		}));
+		t += 20;
+		// ---- first person (the local player holds Erasure)
+		at(t, () -> {
+			gui(mc, true);
+			server(mc, p -> {
+				clearMobs();
+				if (fake != null) {
+					fake.teleportTo(origin.x + 20, origin.y, origin.z + 20);
+				}
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.ERASURE));
+				suit(p, Quirk.ERASURE);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 2f);
+				mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0.0, 0, 6.0), 180f);
+				mob(p.serverLevel(), EntityType.PILLAGER, origin.add(-2.6, 0, 7.0), 170f);
+				mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(2.8, 0, 6.5), 190f);
+				Quirks.setMeter(p, 62f);
+				PlusUltra.set(p, 72f);
+			});
+		});
+		at(t + 8, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ErasureMoves.whip(p);
+		}));
+		shot(t + 10, "er_fp_whip_a");
+		shot(t + 12, "er_fp_whip_b");
+		at(t + 24, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ErasureMoves.multiBind(p);
+		}));
+		shot(t + 28, "er_fp_multibind_a");
+		shot(t + 34, "er_fp_multibind_b");
+		at(t + 70, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(p);
+			Quirks.setMeter(p, 62f);
+			PlusUltra.set(p, 72f);
+			ErasureMoves.eraseDown(p);
+		}));
+		shot(t + 78, "er_fp_stare_hud_strained");
+		at(t + 80, () -> server(mc, p -> {
+			ErasureMoves.eraseUp(p);
+			Quirks.setMeter(p, 93f);
+			PlusUltra.set(p, 100f);
+		}));
+		shot(t + 86, "er_hud_burning_full");
+		at(t + 90, () -> server(mc, p -> {
+			Quirks.setMeter(p, 12f);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ErasureMoves.bind(p);
+		}));
+		at(t + 98, () -> server(mc, p -> ErasureMoves.reelStart(p)));
+		shot(t + 112, "er_fp_reel");
+		at(t + 116, () -> server(mc, p -> {
+			ErasureMoves.reelStop(p);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			PlusUltra.set(p, 100f);
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).ultimate(p);
+		}));
+		shot(t + 120, "er_fp_takedown_a");
+		shot(t + 132, "er_fp_takedown_b");
+		t += 170;
+		at(t, () -> {
+			gui(mc, false);
+			server(mc, p -> {
+				com.projecthero.mod.quirk.QuirkKits.of(Quirk.ERASURE).stopAll(p);
+				Quirks.revoke(p);
+				for (ArmorItem.Type ty : QuirkSuits.TYPES) {
+					p.setItemSlot(ty.getSlot(), ItemStack.EMPTY);
+				}
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				clearMobs();
+			});
+		});
+		t += 6;
+	}
+
+	// ================================================================ Zero Gravity
+	private static void zeroGravity(Minecraft mc) {
+		reset(mc, Quirk.ZERO_GRAVITY, "Uravity");
+		// ---- V touch: a mob, a block, an item -- the fingertip prints, the slow turn
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			ZeroGravityMoves.endAll(fake);
+			mob(l, EntityType.VINDICATOR, origin.add(0, 0, 2.6), 180f);
+			l.setBlock(BlockPos.containing(origin.add(1.8, 0, 2.0)), Blocks.OAK_PLANKS.defaultBlockState(), 3);
+			ItemEntity it = new ItemEntity(l, origin.x - 1.4, origin.y + 0.3, origin.z + 2.0, new ItemStack(Items.GOLDEN_APPLE));
+			it.setDeltaMovement(Vec3.ZERO);
+			l.addFreshEntity(it);
+			face(fake, origin.add(0, 1.3, 2.6));
+			camera(p, origin.add(-5.0, 3.6, 7.0), origin.add(0.2, 2.2, 1.8));
+		}));
+		at(t + 4, () -> server(mc, p -> {
+			ZeroGravityMoves.touch(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, Vec3.atCenterOf(BlockPos.containing(origin.add(1.8, 0, 2.0))));
+		}));
+		at(t + 8, () -> server(mc, p -> {
+			ZeroGravityMoves.touch(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			face(fake, origin.add(-1.4, 0.3, 2.0));
+		}));
+		at(t + 12, () -> server(mc, p -> ZeroGravityMoves.touch(fake)));
+		shot(t + 6, "zg_touch");
+		shot(t + 40, "zg_prints_a");
+		shot(t + 60, "zg_prints_b");
+		t += 64;
+		// ---- Release: the fingertips clap, everything drops
+		at(t, () -> server(mc, p -> {
+			face(fake, origin.add(0, 1.3, 4.0));
+			camera(p, origin.add(1.6, 1.8, 2.4), origin.add(0, 1.4, 0));
+			ZeroGravityMoves.release(fake);
+		}));
+		shot(t + 5, "zg_release");
+		t += 30;
+		// ---- C Meteor Shower: the cloud, then the rain
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			flatten(p.serverLevel());
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0, 0, 9.0), 180f);
+			mob(p.serverLevel(), EntityType.PILLAGER, origin.add(1.5, 0, 10.0), 180f);
+			face(fake, origin.add(0, 1.0, 9.0));
+			camera(p, origin.add(-8.0, 5.0, -4.0), origin.add(0, 6.0, 3.0));
+			ZeroGravityMoves.meteorShower(fake, null);
+		}));
+		shot(t + 10, "zg_meteor_rise");
+		shot(t + 45, "zg_meteor_cloud");
+		at(t + 50, () -> server(mc, p -> {
+			camera(p, origin.add(-6.0, 3.0, 2.0), origin.add(0.5, 1.0, 9.0));
+			ZeroGravityMoves.meteorShower(fake, null);
+		}));
+		shot(t + 58, "zg_meteor_rain_a");
+		shot(t + 64, "zg_meteor_rain_b");
+		t += 90;
+		// ---- Shift+C Gravity Bomb
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			fake.teleportTo(origin.x, origin.y, origin.z - 4);
+			mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0, 0, 7.0), 180f);
+			face(fake, origin.add(0, 0.2, 1.0));
+			camera(p, origin.add(-9.0, 4.0, -7.0), origin.add(0, 4.0, 0.0));
+			ZeroGravityMoves.gravityBomb(fake);
+		}));
+		shot(t + 14, "zg_bomb_lift");
+		shot(t + 34, "zg_bomb_overhead");
+		at(t + 40, () -> server(mc, p -> {
+			face(fake, origin.add(0, 0.5, 7.0));
+			ZeroGravityMoves.gravityBomb(fake);
+			camera(p, origin.add(-8.0, 3.0, 2.0), origin.add(0, 1.2, 6.0));
+		}));
+		shot(t + 47, "zg_bomb_drop");
+		shot(t + 52, "zg_bomb_impact_a");
+		shot(t + 56, "zg_bomb_impact_b");
+		t += 80;
+		// ---- Shift+Z Debris Shield, then Shift+R Debris Barrage
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			fake.teleportTo(origin.x, origin.y, origin.z);
+			mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0, 0, 8.0), 180f);
+			face(fake, origin.add(0, 1.2, 8.0));
+			camera(p, origin.add(4.0, 2.0, -3.0), origin.add(0, 1.2, 1.5));
+			ZeroGravityMoves.debrisShield(fake, null);
+		}));
+		shot(t + 16, "zg_shield");
+		at(t + 20, () -> server(mc, p -> ZeroGravityMoves.barrage(fake)));
+		shot(t + 22, "zg_barrage_a");
+		shot(t + 25, "zg_barrage_b");
+		t += 40;
+		// ---- G Gunhead Martial Arts
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0, 0, 2.0), 180f);
+			face(fake, origin.add(0, 1.2, 2.0));
+			camera(p, origin.add(3.6, 1.8, 1.0), origin.add(0, 1.2, 1.0));
+			ZeroGravityMoves.gunhead(fake);
+		}));
+		shot(t + 3, "zg_gunhead_palm");
+		shot(t + 9, "zg_gunhead_touch");
+		shot(t + 16, "zg_gunhead_throw");
+		t += 34;
+		// ---- Shift+X Weightless Push (posed mid-air)
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			fake.teleportTo(origin.x, origin.y + 2.0, origin.z);
+			face(fake, origin.add(0, 2.4, 8.0));
+			camera(p, origin.add(5.0, 3.0, 3.0), origin.add(0, 3.0, 1.5));
+			ZeroGravityMoves.push(fake);
+		}));
+		for (int k = 1; k <= 8; k++) {
+			int kk = k;
+			at(t + k, () -> server(mc, p -> fake.connection.teleport(origin.x, origin.y + 2.0 + kk * 0.05, origin.z + kk * 0.6, fake.getYRot(),
+					fake.getXRot())));
+		}
+		shot(t + 4, "zg_push");
+		t += 26;
+		// ---- survival: the Crane
+		at(t, () -> server(mc, p -> {
+			ZeroGravityMoves.endAll(fake);
+			flatten(p.serverLevel());
+			Quirks.edit(fake, n -> n.abilityReadyAt.clear());
+			fake.teleportTo(origin.x, origin.y, origin.z);
+			BlockPos bp = BlockPos.containing(origin.add(0, 0, 2.0));
+			p.serverLevel().setBlock(bp, Blocks.OAK_LOG.defaultBlockState(), 3);
+			face(fake, Vec3.atCenterOf(bp));
+			ZeroGravityMoves.touch(fake);
+			camera(p, origin.add(5.0, 3.0, 0.0), origin.add(0, 1.4, 3.0));
+		}));
+		at(t + 16, () -> server(mc, p -> {
+			face(fake, origin.add(-2.0, 0.0, 5.0));
+			ZeroGravityMoves.release(fake);
+		}));
+		shot(t + 12, "zg_crane_lifted");
+		shot(t + 20, "zg_crane_moving");
+		shot(t + 40, "zg_crane_placed");
+		t += 46;
+		// ---- hold C: Full Release
+		at(t, () -> server(mc, p -> {
+			clearMobs();
+			ZeroGravityMoves.endAll(fake);
+			flatten(p.serverLevel());
+			Quirks.setMeter(fake, 0f);
+			Quirks.edit(fake, n -> {
+				n.abilityReadyAt.clear();
+				n.overloadUntil = 0L;
+			});
+			fake.teleportTo(origin.x, origin.y, origin.z);
+			ServerLevel l = p.serverLevel();
+			mob(l, EntityType.VINDICATOR, origin.add(-3.0, 0, 4.0), 160f);
+			mob(l, EntityType.PILLAGER, origin.add(2.5, 0, 5.0), 200f);
+			mob(l, EntityType.VINDICATOR, origin.add(4.5, 0, 0.5), 250f);
+			mob(l, EntityType.PILLAGER, origin.add(-4.0, 0, -1.5), 100f);
+			face(fake, origin.add(0, 1.5, 6.0));
+			camera(p, origin.add(-13.0, 6.5, 14.0), origin.add(0, 4.0, 0.5));
+			PlusUltra.set(fake, 100f);
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ZERO_GRAVITY).ultimate(fake);
+		}));
+		shot(t + 4, "zg_full_release_burst");
+		shot(t + 40, "zg_full_release_float_a");
+		shot(t + 70, "zg_full_release_float_b");
+		shot(t + 83, "zg_full_release_clap");
+		shot(t + 88, "zg_full_release_crash");
+		t += 120;
+		// ---- first person (the local player holds Zero Gravity) + the Nausea HUD
+		at(t, () -> {
+			gui(mc, true);
+			server(mc, p -> {
+				clearMobs();
+				ZeroGravityMoves.endAll(fake);
+				flatten(p.serverLevel());
+				fake.teleportTo(origin.x + 20, origin.y, origin.z + 20);
+				p.setGameMode(GameType.SURVIVAL);
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.ZERO_GRAVITY));
+				suit(p, Quirk.ZERO_GRAVITY);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 8f);
+				mob(p.serverLevel(), EntityType.VINDICATOR, origin.add(0.3, 0, 2.6), 180f);
+				Quirks.setMeter(p, 20f);
+				PlusUltra.set(p, 40f);
+			});
+		});
+		at(t + 8, () -> server(mc, p -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ZeroGravityMoves.touch(p);
+		}));
+		shot(t + 12, "zg_fp_touch");
+		at(t + 30, () -> server(mc, p -> {
+			Quirks.setMeter(p, 64f);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ZeroGravityMoves.release(p);
+		}));
+		shot(t + 36, "zg_fp_release_hud_queasy");
+		at(t + 50, () -> server(mc, p -> {
+			Quirks.setMeter(p, 90f);
+			PlusUltra.set(p, 100f);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z - 3, 0f, -10f);
+			ZeroGravityMoves.gravityBomb(p);
+		}));
+		shot(t + 66, "zg_fp_bomb_hud_pushing");
+		at(t + 74, () -> server(mc, p -> ZeroGravityMoves.gravityBomb(p)));
+		shot(t + 79, "zg_fp_bomb_drop");
+		at(t + 100, () -> server(mc, p -> {
+			Quirks.setMeter(p, 30f);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			ZeroGravityMoves.catchStart(p);
+		}));
+		shot(t + 112, "zg_fp_catch");
+		at(t + 116, () -> server(mc, p -> {
+			ZeroGravityMoves.catchStop(p);
+			PlusUltra.set(p, 100f);
+			com.projecthero.mod.quirk.QuirkKits.of(Quirk.ZERO_GRAVITY).ultimate(p);
+		}));
+		shot(t + 160, "zg_fp_full_release");
+		t += 170;
+	}
+}

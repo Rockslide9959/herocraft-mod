@@ -11,7 +11,7 @@ import com.projecthero.mod.quirk.meter.QuirkMeterSpec;
  *
  * <p>Pacing (the user's rule: nothing builds up too quick): the stare (10/s raw) and Reel Lock (5/s raw while R is held) dry
  * the eyes x{@link #BUILD}. The heavy-use script -- a held stare the whole time plus a three-second Reel Lock every time Capture
- * Bind is ready -- reaches Burning after about 48 s (the framework's stare-only script: 50 s at x0.18; v0.16.7: 9 s).
+ * Bind is ready -- reaches Burning after about 49 s (the framework's stare-only script: 50 s at x0.18; v0.16.7: 9 s).
  * Blinking recovers at the full rate: Burning to Fresh in about 3.3 s.
  */
 public final class ErasureMeter {

@@ -78,7 +78,7 @@ public final class ZeroGravityPrints {
 					pose.mulPose(q);
 					pose.mulPose(Axis.XP.rotationDegrees(-90f));
 					pose.mulPose(Axis.YP.rotationDegrees((id * 47) % 360));
-					printFlat(pose, buffers, item ? 0.16f : 0.34f, pulse);
+					printFlat(pose, buffers, item ? 0.18f : 0.44f, pulse);
 				}
 				pose.popPose();
 			}

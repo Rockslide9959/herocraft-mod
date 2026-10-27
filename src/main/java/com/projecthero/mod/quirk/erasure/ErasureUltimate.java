@@ -111,7 +111,7 @@ public final class ErasureUltimate {
 		for (int i = 1; i <= 4; i++) {
 			double d = i * ErasureConfig.TD_RANGE / 4.5;
 			float r = (float) (Math.tan(Math.toRadians(ErasureConfig.TD_CONE_DEGREES)) * d);
-			QuirkFx.ring(level, eye.add(look.scale(d))).colours(0xFF4040, 0x900808).size(r).thickness(0.35f).life(10 + i * 2)
+			QuirkFx.ring(level, eye.add(look.scale(d))).colours(0xFF1414, 0xB00000).size(r).thickness(0.3f).life(10 + i * 2)
 					.flags(QuirkFx.F_VERTICAL).vec(look).spawn();
 		}
 		QuirkCamera.vignette(p, 0xC01010, 0.85f, 40);
@@ -199,11 +199,12 @@ public final class ErasureUltimate {
 		Vec3 to = ErasureMoves.mid(t).subtract(spot.add(0, p.getEyeHeight(), 0));
 		float yaw = (float) (Math.toDegrees(Math.atan2(to.z, to.x)) - 90.0);
 		float pitch = (float) -Math.toDegrees(Math.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)));
-		QuirkFx.ribbon(level, from.add(0, 1.1, 0), ErasureMoves.mid(t)).style(QuirkFx.RIBBON_CLOTH).colours(0xE4E4E8, 0x8A8A92).size(0.16f).life(8)
+		QuirkFx.ribbon(level, ErasureMoves.hand(p), ErasureMoves.mid(t)).style(QuirkFx.RIBBON_CLOTH).colours(0xF4F4F6, 0xB4B4BC).size(0.085f).life(8)
 				.spawn();
 		p.teleportTo(level, spot.x, spot.y, spot.z, yaw, pitch);
 		p.resetFallDistance();
-		QuirkFx.trail(level, p).colours(0xE8E8EC, 0x6A6A74).style(QuirkFx.RIBBON_CLOTH).size(0.12f).size2(6f).life(10).vec(new Vec3(0.3, 1.2, 0))
+		// (the cloth trail rides at his feet: at his chest it would fill his own first-person view)
+		QuirkFx.trail(level, p).colours(0xE8E8EC, 0x6A6A74).style(QuirkFx.RIBBON_CLOTH).size(0.08f).size2(6f).life(10).vec(new Vec3(0, 0.25, 0))
 				.spawn();
 		Quirks.setAnim(p, ErasureConfig.ANIM_TD_KICK);
 		t.invulnerableTime = 0;
@@ -234,7 +235,7 @@ public final class ErasureUltimate {
 			if (p.level().getEntity(id) instanceof LivingEntity t && t.isAlive() && !ErasureMoves.isBoss(t)) {
 				ErasureMoves.root(p, t, ErasureConfig.TD_HANG_TICKS + 2);
 				ErasureMoves.hoist(t, t.getY() + ErasureConfig.REEL_LIFT);
-				QuirkFx.ribbon(level, prev, ErasureMoves.mid(t)).style(QuirkFx.RIBBON_CLOTH).colours(0xE4E4E8, 0x8A8A92).size(0.14f).life(14).spawn();
+				QuirkFx.ribbon(level, prev, ErasureMoves.mid(t)).style(QuirkFx.RIBBON_CLOTH).colours(0xF4F4F6, 0xB4B4BC).size(0.08f).life(14).spawn();
 				prev = ErasureMoves.mid(t);
 			}
 		}

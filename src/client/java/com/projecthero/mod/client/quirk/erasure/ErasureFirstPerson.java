@@ -28,7 +28,7 @@ public final class ErasureFirstPerson {
 		Quirk q = Quirk.ERASURE;
 		// R Capture Bind: the scarf circled overhead, thrown, then both hands tug the wraps tight
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_BIND, clip(z(0),
-				f(3, -78, -10, -30, 0.02f, 0.55f, 0.2f, 0, 0, 0, 0, 0, 0),
+				f(3, -68, -8, -25, 0.02f, 0.42f, 0.12f, 0, 0, 0, 0, 0, 0),
 				f(5, -32, 18, -15, 0.12f, 0.2f, -0.45f, 0, 0, 0, 0, 0, 0),
 				f(9, -25, 25, 0, 0.18f, 0.15f, -0.2f, -22, 30, 0, 0.18f, 0.12f, -0.15f),
 				f(12, -15, 22, 0, 0.16f, 0.08f, 0.05f, -14, 28, 0, 0.16f, 0.06f, 0.08f), z(16)).twoHanded());
@@ -86,11 +86,11 @@ public final class ErasureFirstPerson {
 		// Shift+Z Disarm Throw: the whip at the hand, then the rip back over the shoulder
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_DISARM, clip(z(0),
 				f(3, -30, 15, -12, 0.12f, 0.18f, -0.42f, 0, 0, 0, 0, 0, 0),
-				f(7, -82, -15, -25, -0.02f, 0.58f, 0.3f, 0, 0, 0, 0, 0, 0),
-				f(9, -80, -15, -25, -0.02f, 0.56f, 0.28f, 0, 0, 0, 0, 0, 0), z(14)));
+				f(7, -68, -12, -22, 0.0f, 0.42f, 0.16f, 0, 0, 0, 0, 0, 0),
+				f(9, -66, -12, -22, 0.0f, 0.4f, 0.15f, 0, 0, 0, 0, 0, 0), z(14)));
 		// C Scarf Whip: overhead, then a snapping crack down along the look
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_WHIP, clip(z(0),
-				f(2, -88, -18, -30, -0.05f, 0.62f, 0.25f, 0, 0, 0, 0, 0, 0),
+				f(2, -70, -12, -25, 0.0f, 0.42f, 0.12f, 0, 0, 0, 0, 0, 0),
 				f(4, -18, 20, -10, 0.14f, 0.05f, -0.5f, 0, 0, 0, 0, 0, 0),
 				f(6, -14, 20, -8, 0.13f, 0.03f, -0.46f, 0, 0, 0, 0, 0, 0), z(11)));
 		// Shift+C Multi-Bind: wound across, then the wide fanning sweep, then both fists cinch the ties
@@ -101,8 +101,8 @@ public final class ErasureFirstPerson {
 				f(14, -18, 20, 0, 0.14f, 0.08f, 0.08f, -18, 28, 0, 0.16f, 0.08f, 0.08f), z(18)).twoHanded());
 		// Shift+V Goggles: both hands up to the goggles
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_GOGGLES, clip(z(0),
-				f(3, -78, 30, 0, 0.18f, 0.55f, 0.28f, -78, 30, 0, 0.18f, 0.55f, 0.28f),
-				f(6, -72, 30, 0, 0.18f, 0.5f, 0.25f, -72, 30, 0, 0.18f, 0.5f, 0.25f), z(10)).twoHanded());
+				f(3, -60, 34, 0, 0.24f, 0.36f, 0.06f, -60, 34, 0, 0.24f, 0.36f, 0.06f),
+				f(6, -56, 34, 0, 0.24f, 0.33f, 0.05f, -56, 34, 0, 0.24f, 0.33f, 0.05f), z(10)).twoHanded());
 		// Eye Drops (the item): the bottle held over one eye, then the other
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_DROPS, clip(z(0),
 				f(4, -80, 35, 0, 0.22f, 0.6f, 0.3f, 0, 0, 0, 0, 0, 0),
@@ -117,12 +117,12 @@ public final class ErasureFirstPerson {
 				f(16, -70, 30, 10, 0.24f, 0.48f, 0.25f, 0, 0, 0, 0, 0, 0), z(22)));
 		// hold V Erasure Stare: both hands at the chest holding the scarf ready (held while V is)
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_STARE, clip(z(0),
-				f(4, -22, 30, 10, 0.2f, 0.12f, 0.05f, -18, 34, 10, 0.2f, 0.1f, 0.06f),
-				f(600, -22, 30, 10, 0.2f, 0.12f, 0.05f, -18, 34, 10, 0.2f, 0.1f, 0.06f), z(604)).twoHanded());
+				f(4, -10, 26, 8, 0.22f, -0.04f, 0.1f, -8, 30, 8, 0.22f, -0.05f, 0.1f),
+				f(600, -10, 26, 8, 0.22f, -0.04f, 0.1f, -8, 30, 8, 0.22f, -0.05f, 0.1f), z(604)).twoHanded());
 		// Underground Takedown: the goggles snap down, then the right hand flicks the scarf out at the first one
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_TAKEDOWN, clip(z(0),
-				f(2, -78, 30, 0, 0.18f, 0.55f, 0.28f, -78, 30, 0, 0.18f, 0.55f, 0.28f),
-				f(4, -74, 30, 0, 0.18f, 0.52f, 0.26f, -74, 30, 0, 0.18f, 0.52f, 0.26f),
+				f(2, -60, 34, 0, 0.24f, 0.36f, 0.06f, -60, 34, 0, 0.24f, 0.36f, 0.06f),
+				f(4, -58, 34, 0, 0.24f, 0.34f, 0.05f, -58, 34, 0, 0.24f, 0.34f, 0.05f),
 				f(8, -30, 15, -12, 0.12f, 0.18f, -0.45f, -15, 30, 0, 0.12f, 0.05f, 0.1f), z(13)).twoHanded());
 		QuirkFirstPersonPose.register(q, ErasureConfig.ANIM_TD_KICK, clip(z(0),
 				f(2, 15, -30, -10, -0.15f, -0.1f, 0.1f, -30, 35, 0, 0.2f, 0.15f, -0.1f), z(7)).twoHanded());

@@ -35,6 +35,10 @@ public final class ErasureClient implements QuirkClientKit {
 			}
 		});
 		ErasureFirstPerson.register(); // v0.17.1 revamp: first-person arms
+		// v0.17.1: the Sleeping Bag in hand is not drawn while its sleeper lies in it (the bag round the body is SleepingBagLayer)
+		net.fabricmc.fabric.api.object.builder.v1.client.model.FabricModelPredicateProviderRegistry.register(
+				com.projecthero.mod.quirk.erasure.ErasureSleepingBag.SLEEPING_BAG, com.projecthero.mod.ProjectHeroMod.id("in_use"),
+				(stack, level, entity, seed) -> entity != null && entity.isSleeping() ? 1f : 0f);
 		WorldRenderEvents.AFTER_ENTITIES.register(ErasureWorld::render);
 		HudRenderCallback.EVENT.register(ErasureHud::render);
 		ClientTickEvents.START_CLIENT_TICK.register(ErasureSwingClient::tick);
@@ -49,6 +53,17 @@ public final class ErasureClient implements QuirkClientKit {
 	@Override
 	public void applyPose(Player player, HumanoidModel<?> model) {
 		ErasurePose.apply(player, model);
+	}
+
+	/** v0.17.1: the R box rings while Reel Lock holds (how much of its longest hold is used). */
+	@Override
+	public float holdCharge(Player player, com.projecthero.mod.hero.AbilitySlot slot) {
+		com.projecthero.mod.quirk.data.QuirkState s = com.projecthero.mod.quirk.Quirks.peek(player);
+		if (slot != com.projecthero.mod.hero.AbilitySlot.SLOT_1 || s == null || s.val(com.projecthero.mod.quirk.erasure.ErasureConfig.V_REEL) == 0L) {
+			return -1f;
+		}
+		float age = player.level().getGameTime() - s.val(com.projecthero.mod.quirk.erasure.ErasureConfig.V_REEL_AT);
+		return net.minecraft.util.Mth.clamp(age / com.projecthero.mod.quirk.erasure.ErasureConfig.REEL_MAX_TICKS, 0f, 1f);
 	}
 
 	/**

@@ -188,8 +188,8 @@ public final class ErasureWorld {
 		if (w.lengthSqr() < 1.0e-9) {
 			return;
 		}
-		w = w.normalize().scale(0.012);
-		float pulse = 0.35f + 0.15f * Mth.sin(t * 0.4f);
+		w = w.normalize().scale(0.02);
+		float pulse = 0.6f + 0.2f * Mth.sin(t * 0.4f);
 		VertexConsumer vc = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.RIBBON);
 		PoseStack.Pose last = pose.last();
 		int red = 0xFF2020;

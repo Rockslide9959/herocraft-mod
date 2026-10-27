@@ -41,9 +41,9 @@ public class SleepingBagLayer extends RenderLayer<AbstractClientPlayer, PlayerMo
 		PartDefinition root = mesh.getRoot();
 		PartDefinition b = root.addOrReplaceChild("bag", CubeListBuilder.create()
 				// the body of the bag: shoulders to past the feet, puffy
-				.texOffs(0, 0).addBox(-5.5f, -0.5f, -3.5f, 11, 26, 7, new CubeDeformation(0.4f))
+				.texOffs(0, 0).addBox(-8.5f, -0.5f, -4.0f, 17, 26, 8, new CubeDeformation(0.4f))
 				// the foot end, rounded off
-				.texOffs(0, 34).addBox(-4.5f, 25.5f, -3.0f, 9, 2, 6, new CubeDeformation(0.2f)), PartPose.ZERO);
+				.texOffs(0, 34).addBox(-7.0f, 25.5f, -3.5f, 14, 2, 7, new CubeDeformation(0.2f)), PartPose.ZERO);
 		// the hood: a padded roll round the back and sides of the head
 		b.addOrReplaceChild("hood", CubeListBuilder.create()
 				.texOffs(0, 44).addBox(-5.0f, -8.5f, 2.6f, 10, 9, 2, new CubeDeformation(0.3f))

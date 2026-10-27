@@ -295,7 +295,7 @@ public final class ZeroGravityMoves {
 		ServerLevel level = p.serverLevel();
 		Vec3 h = hand(p);
 		ZeroGravitySounds.play(level, h, ZeroGravitySounds.RELEASE, 1.0f, 1.0f);
-		QuirkFx.ring(level, h).colours(0xFFFFFF, 0xFF8FC8).size(1.4f).thickness(0.2f).life(8).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).spawn();
+		QuirkFx.ring(level, h).colours(0xFFFFFF, 0xFF8FC8).size(0.9f).thickness(0.16f).life(8).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).spawn();
 		QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0xFFE6F2, 0xFF8FC8).size(3.4f).thickness(0.35f).life(12).ground().spawn();
 		level.sendParticles(QuirkParticles.PINK_SPARKLE, h.x, h.y, h.z, 10, 0.2, 0.2, 0.2, 0.06);
 	}

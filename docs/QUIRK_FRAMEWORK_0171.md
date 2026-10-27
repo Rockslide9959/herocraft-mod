@@ -210,9 +210,9 @@ own out-of-action recovery (after its delay) gets from the danger threshold to s
 | Hellflame (Heat, red 80) | sprint flight 5/s + Spider, Jet Burn, Barrage, Pillar, Vanish, Wall, Mesh | **x0.12** | 6 s -> **52 s** | x1.0 | 80 -> 40: 11.5 s (4/s vent after 1.5 s), unchanged |
 | Engine (Heat, red 80) | Gear 3 sprint + the nine kicks | **x0.30** on top of the suit factor (0.6 out of the suit, 0.5 in it) | 10 s (v0.16.7) / 16 s (with the v0.17.1 x0.6) -> **52 s** | **x1.4** | 80 -> 30 idling in gear: 20 s -> **14.3 s** (out of gear 8.3 -> 6.0 s) |
 | Dark Shadow (Shadow, red 75) | pitch dark (5/s) + Strike, Fang, Grab, Fetch, Scout, Nova | **x0.20** | 10 s -> **51 s** (no moves: 15 -> 75 s) | x1.0 | 75 -> 30 in light: 4.5 s, unchanged |
-| Erasure (Dry Eyes, red 90) | a held stare (10/s) | **x0.18** | 9 s -> **50 s** | x1.0 | 90 -> 50: 3.3 s, unchanged |
+| Erasure (Dry Eyes, red 90) | a held stare (10/s); v0.17.1 Erasure build: + a 3 s Reel Lock (5/s) every time Capture Bind is ready | **x0.18**; Erasure build: **x0.15** | 9 s -> 50 s; Erasure build: **49 s** | x1.0 | 90 -> 50: 3.3 s, unchanged |
 | Explosion (Arm Strain, danger 70) | AP Shot, Punch, Dash, Cluster, Auto-Cannon, Blast Rush, Stun (Sweat unpaced) | **x0.28** | 12 s -> **50 s** | x1.0 | 70 -> 30: 7.7 s (7/s after 2 s), unchanged |
-| Zero Gravity (Nausea, red 85) | herself + 3 mobs + 5 rubble afloat (ramping x2.5 over 30 s) + touches | **x0.20** (Uravity suit x0.75 more) | 14 s -> **52 s** | x1.0 | 85 -> 50: 4.4 s, unchanged |
+| Zero Gravity (Nausea, red 85) | herself + 3 mobs + 5 rubble afloat (ramping x2.5 over 30 s) + touches; v0.17.1 ZG build: + Gravity Bomb (6), Weightless Push (1.5), the Gunhead throw (3) in the rotation | **x0.20** (Uravity suit x0.75 more) | 14 s -> **52 s**; ZG build: **51.5 s** | x1.0 | 85 -> 50: 4.4 s, unchanged |
 | Overhaul (Focus, SPENDS, danger <= 25) | the eight costed moves, 12/s refill between | x1.0 | never -> never | x1.0 | 25 -> 80: 4.8 s, unchanged |
 
 Engine is not double-cut: the user's x0.6 (out of the suit) stays as the kit's own factor and is part of the "before"
@@ -271,6 +271,21 @@ Static per-player state: `PlusUltra` (gauge cache, last combat, hit credit, hold
 `QuirkMod.clearSessionState` -> `QuirkFramework.clearSessionState`, and per player on revoke / death / logout / dimension
 change through `Quirks.forget` -> `QuirkFramework.forget`. The Plus Ultra gauge itself survives those (it is saved in the
 synced vals); revoke and respawn clear it with the rest of the Quirk state.
+
+## 10b. Kit-build extensions (v0.17.1 Erasure + Zero Gravity build, all backwards-compatible)
+
+- **`QuirkKit#holdIdOf(slot)`** (default null): a key's HOLD move beside its tap and Shift moves (Erasure: hold R Reel Lock, hold X
+  Scarf Swing; Zero Gravity: hold X Float Self, hold V Catch). The guide lists it as "Hold R" (`projecthero.guide.quirks.hold_key`).
+  The kit tells a tap from a hold itself (press / release timing: a press-time map per player, cleared in `forget` /
+  `clearSessionState`); C's hold at 100 stays the framework's.
+- **`quirk/QuirkThreat.add(boss, attacker, amount)`**: credits threat on a boss's shared `BossThreat` (or the Oathbreaker's
+  table) for moves that do no damage (a stare, a bind, a lift), looked up by the boss's public `threat()` method.
+- **`GeoTerrain.commit(level, pos)`**: drops a lifted cell from the ledger without refilling it (Zero Gravity's Crane sets a
+  touched block down elsewhere for good).
+- **Kit sounds** live in the kit's own package (`ErasureSounds`, `ZeroGravitySounds`, registered from the kit's init) so
+  parallel kit builds never edit `QuirkSounds`; the `sounds.json` entries are one appended block per kit.
+- **Whole-body turns** for Zero Gravity are its own mixin (`ZeroGravityBodyTurnMixin`), like `ErasureSpinMixin`, leaving the shared
+  `QuirkBodyTurnMixin` to the Engine / Explosion builds.
 
 ## 11. Guide
 

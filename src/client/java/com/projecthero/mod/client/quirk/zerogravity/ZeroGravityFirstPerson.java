@@ -88,10 +88,10 @@ public final class ZeroGravityFirstPerson {
 				f(15, -30, -30, -15, -0.12f, 0.18f, -0.3f, -30, -30, -15, -0.12f, 0.18f, -0.3f), z(20)).twoHanded());
 		// hold V Catch: both arms up, reaching for whoever falls (held while V is)
 		QuirkFirstPersonPose.register(q, ZeroGravity.ANIM_CATCH, clip(z(0),
-				f(4, -60, -8, 0, -0.02f, 0.45f, -0.1f, -60, -8, 0, -0.02f, 0.45f, -0.1f),
+				f(4, -56, -8, 0, -0.02f, 0.36f, -0.1f, -56, -8, 0, -0.02f, 0.36f, -0.1f),
 				f(40, -62, -10, 4, -0.03f, 0.47f, -0.1f, -58, -6, -4, -0.01f, 0.43f, -0.1f),
 				f(80, -58, -6, -4, -0.01f, 0.43f, -0.1f, -62, -10, 4, -0.03f, 0.47f, -0.1f),
-				f(600, -60, -8, 0, -0.02f, 0.45f, -0.1f, -60, -8, 0, -0.02f, 0.45f, -0.1f), z(604)).twoHanded());
+				f(600, -56, -8, 0, -0.02f, 0.36f, -0.1f, -56, -8, 0, -0.02f, 0.36f, -0.1f), z(604)).twoHanded());
 		// sick: a hand over her mouth
 		QuirkFirstPersonPose.register(q, ZeroGravity.ANIM_SICK, clip(z(0),
 				f(6, -55, 42, 10, 0.32f, 0.32f, 0.12f, 0, 0, 0, 0, 0, 0),
@@ -117,12 +117,12 @@ public final class ZeroGravityFirstPerson {
 				f(12, -36, 36, 16, 0.28f, 0.22f, -0.3f, -36, 36, 16, 0.28f, 0.22f, -0.3f), z(16)).twoHanded());
 		// Full Release: fingertips spread, arms wide and up as everything rises
 		QuirkFirstPersonPose.register(q, ZeroGravity.ANIM_FULL_RELEASE, clip(z(0),
-				f(5, -50, -45, -35, -0.3f, 0.35f, 0.05f, -50, -45, -35, -0.3f, 0.35f, 0.05f),
-				f(20, -68, -40, -30, -0.28f, 0.5f, 0.05f, -68, -40, -30, -0.28f, 0.5f, 0.05f),
-				f(80, -70, -40, -30, -0.28f, 0.52f, 0.05f, -70, -40, -30, -0.28f, 0.52f, 0.05f), z(84)).twoHanded());
+				f(5, -62, -18, -22, -0.1f, 0.42f, 0.05f, -62, -18, -22, -0.1f, 0.42f, 0.05f),
+				f(20, -74, -20, -20, -0.12f, 0.55f, 0.05f, -74, -20, -20, -0.12f, 0.55f, 0.05f),
+				f(80, -76, -20, -20, -0.12f, 0.56f, 0.05f, -76, -20, -20, -0.12f, 0.56f, 0.05f), z(84)).twoHanded());
 		// "Release!": the hands swing in and the fingertips meet before her chest
 		QuirkFirstPersonPose.register(q, ZeroGravity.ANIM_CLAP, clip(
-				f(0, -70, -40, -30, -0.28f, 0.52f, 0.05f, -70, -40, -30, -0.28f, 0.52f, 0.05f),
+				f(0, -76, -20, -20, -0.12f, 0.56f, 0.05f, -76, -20, -20, -0.12f, 0.56f, 0.05f),
 				f(3, -46, 40, 18, 0.32f, 0.32f, -0.15f, -46, 40, 18, 0.32f, 0.32f, -0.15f),
 				f(18, -45, 39, 18, 0.31f, 0.31f, -0.14f, -45, 39, 18, 0.31f, 0.31f, -0.14f), z(24)).twoHanded());
 		// Shift + hold V Settle: hands resting on her knees

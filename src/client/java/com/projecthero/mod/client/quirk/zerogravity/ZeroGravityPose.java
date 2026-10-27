@@ -188,7 +188,7 @@ public final class ZeroGravityPose {
 				float in = Mth.clamp(age / 2f, 0f, 1f), out = Mth.clamp((13f - age) / 4f, 0f, 1f);
 				float k = Math.min(in, out);
 				k = k * k * (3f - 2f * k);
-				return new float[] { 0f, 72f * k, 0f };
+				return new float[] { 0f, -72f * k, 0f }; // (negative: head first along the dash)
 			}
 		}
 		if (ZeroGravity.selfFloating(p) && !p.onGround()) {

@@ -344,6 +344,6 @@ public final class ErasurePose {
 		}
 		float age = p.level().getGameTime() - s.animStart + partial;
 		float k = (age - 1.5f) / 11f;
-		return k <= 0f || k >= 1f ? 0f : -360f * eased(k);
+		return k <= 0f || k >= 1f ? 0f : 360f * eased(k); // (positive about X here: the head goes back first -- a backflip)
 	}
 }
