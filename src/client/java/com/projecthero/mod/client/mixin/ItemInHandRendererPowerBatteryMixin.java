@@ -42,10 +42,7 @@ public abstract class ItemInHandRendererPowerBatteryMixin {
 			// charging: the off hand holds the battery out, the other (ring) hand is pressed against it
 			boolean batteryHand = hand == InteractionHand.OFF_HAND;
 			pose.pushPose();
-			PowerBatteryHeldRenderer.chargeArmPose(pose, side, batteryHand, player, partialTick);
-			if (batteryHand) {
-				PowerBatteryHeldRenderer.tiltAboutFist(pose, side, 0f, 0f);
-			}
+			PowerBatteryHeldRenderer.chargeArmPose(pose, side, batteryHand, player, partialTick); // turns the arm about its fist too
 			org.joml.Matrix4f start = new org.joml.Matrix4f(pose.last().pose());
 			renderPlayerArm(pose, buffers, light, 0f, 0f, side);
 			pose.popPose();
