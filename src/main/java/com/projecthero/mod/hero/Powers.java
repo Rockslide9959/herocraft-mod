@@ -39,6 +39,7 @@ public final class Powers {
 			"power_11_teleportation", // v0.16.5: reworked (Strain meter, six keys + Shift)
 			"power_12_super_regeneration",
 			"power_17_elasticity", // v0.16.5: reworked (Stretch meter, six keys + Shift)
+			"power_22_plant_manipulation_chlorokinesis", // v0.17.1: reworked (Chlorophyll meter, six keys + Shift)
 			"power_24_wind_manipulation", // v0.16.5: reworked (Gust meter, six keys + Shift)
 			"power_25_water_manipulation"); // v0.16.5: reworked (Water meter, six keys + Shift)
 
