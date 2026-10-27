@@ -58,6 +58,10 @@ public final class ZeroGravityFloat {
 		/** Rises this fast to {@link #homeY} (the Slam's lift); 0 = the gentle float. */
 		double riseSpeed;
 		int ticks;
+		/** v0.17.1 Herding: a floated animal follows her until this game time (0 = not herded), then is set down softly. */
+		long herdUntil;
+		/** v0.17.1: let down softly whenever it is let go (a herded animal). */
+		boolean soft;
 
 		Floated(Entity e, double weight, boolean ally, double rise) {
 			this.uuid = e.getUUID();
@@ -224,9 +228,29 @@ public final class ZeroGravityFloat {
 		if (e instanceof ServerPlayer tp) {
 			f.grantedMayfly = floatTolerance(tp, true);
 		}
+		// v0.17.1 Herding: livestock she floats follows her for 20 s (and is never dropped hard)
+		if (!area && e instanceof net.minecraft.world.entity.animal.Animal && !(e instanceof net.minecraft.world.entity.TamableAnimal t && t.isTame())) {
+			f.herdUntil = owner.level().getGameTime() + ZeroGravityConfig.HERD_TICKS;
+			f.soft = true;
+		}
 		session(owner).put(e.getId(), f);
 		FLOATED.put(e.getUUID(), owner.getUUID());
+		ZeroGravitySounds.play(owner.serverLevel(), e.position(), ZeroGravitySounds.FLOAT, 0.5f, 1.0f + owner.getRandom().nextFloat() * 0.2f);
 		return true;
+	}
+
+	/** v0.17.1 Herding: {@code e} follows her right now (tests). */
+	public static boolean herded(ServerPlayer owner, Entity e) {
+		Floated f = get(owner, e);
+		return f != null && f.herdUntil > owner.level().getGameTime();
+	}
+
+	/** Tests: the herd timer runs out now. */
+	public static void endHerdForTest(ServerPlayer owner, Entity e) {
+		Floated f = get(owner, e);
+		if (f != null) {
+			f.herdUntil = owner.level().getGameTime();
+		}
 	}
 
 	/** Gives {@code e} its gravity back (it falls: fall damage from the height; a touched squadmate lands softly). */
@@ -284,7 +308,7 @@ public final class ZeroGravityFloat {
 		if (e instanceof ItemEntity item) {
 			item.setPickUpDelay(10);
 		}
-		if ((f.ally || soft) && e instanceof LivingEntity le) {
+		if ((f.ally || soft || f.soft) && e instanceof LivingEntity le) {
 			le.resetFallDistance();
 			le.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, ZeroGravityConfig.ALLY_SLOW_FALL_TICKS, 0, false, false, true));
 		}
@@ -380,16 +404,31 @@ public final class ZeroGravityFloat {
 				continue;
 			}
 			if (e.level() != owner.level() || e.distanceToSqr(owner) > ZeroGravityConfig.FLOAT_LEASH * ZeroGravityConfig.FLOAT_LEASH
-					|| (e instanceof LivingEntity le && ZeroGravityCombat.isBoss(le)) || (f.releaseAt != 0L && now >= f.releaseAt)) {
+					|| (e instanceof LivingEntity le && ZeroGravityCombat.isBoss(le)) || (f.releaseAt != 0L && now >= f.releaseAt)
+					|| (f.herdUntil != 0L && now >= f.herdUntil)) {
 				it.remove();
-				restore(f, e, false);
+				restore(f, e, f.herdUntil != 0L);
 				continue;
 			}
 			if (!e.isNoGravity()) {
 				e.setNoGravity(true); // a command or another power gave it back: it is still hers
 			}
 			f.ticks++;
-			if (now >= f.flungUntil && !f.player) {
+			if (f.herdUntil != 0L && now >= f.flungUntil) {
+				// Herding: it drifts after her, a little behind and above the ground
+				Vec3 back = owner.getLookAngle().multiply(1, 0, 1);
+				back = back.lengthSqr() < 1.0e-4 ? Vec3.ZERO : back.normalize().scale(-ZeroGravityConfig.HERD_DISTANCE);
+				double fan = ((f.id % 5) - 2) * 0.9;
+				Vec3 side = new Vec3(-back.z, 0, back.x).normalize().scale(back.lengthSqr() < 1.0e-4 ? 0 : fan);
+				Vec3 goal = owner.position().add(back).add(side).add(0, 1.0, 0);
+				Vec3 d = goal.subtract(e.position());
+				Vec3 v = d.length() > 0.4 ? d.scale(0.12) : e.getDeltaMovement().scale(0.6);
+				if (v.length() > 0.45) {
+					v = v.normalize().scale(0.45);
+				}
+				e.setDeltaMovement(v);
+				e.hurtMarked = true;
+			} else if (now >= f.flungUntil && !f.player) {
 				Vec3 v = e.getDeltaMovement();
 				double gap = f.homeY - e.getY();
 				double vy;
@@ -406,6 +445,13 @@ public final class ZeroGravityFloat {
 			}
 			if (e instanceof LivingEntity le) {
 				le.resetFallDistance();
+				if (!f.player && now >= f.flungUntil) {
+					// v0.17.1: everything she floats turns slowly
+					float yaw = le.getYRot() + ZeroGravityConfig.FLOAT_SPIN_DEGREES;
+					le.setYRot(yaw);
+					le.yBodyRot = yaw;
+					le.setYHeadRot(yaw);
+				}
 			}
 			if (e instanceof Mob m) {
 				m.getNavigation().stop();

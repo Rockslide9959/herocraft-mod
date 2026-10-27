@@ -62,6 +62,15 @@ public interface QuirkKit {
 	/** Full cooldown of a move, ticks (the HUD's cooldown fill). */
 	int maxCooldown(String abilityId);
 
+	/**
+	 * v0.17.1 (Erasure / Zero Gravity builds, backwards-compatible): the move on this key's HOLD, when the key has one beside
+	 * its tap and Shift moves (Erasure's Reel Lock, Zero Gravity's Float Self...), or null. The guide lists it as "Hold R".
+	 * The kit itself tells a tap from a hold (press / release timing); C's hold at a full Plus Ultra gauge is the framework's.
+	 */
+	default String holdIdOf(AbilitySlot slot) {
+		return null;
+	}
+
 	// ---------------------------------------------------------------- v0.17.1 framework: Plus Ultra, suit perk
 
 	/**

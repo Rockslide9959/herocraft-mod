@@ -49,6 +49,17 @@ public final class ZeroGravity {
 	public static final int ANIM_CATCH = 150;
 	public static final int ANIM_SICK = 151;
 	public static final int ANIM_RAIN = 152;
+	/** v0.17.1 */
+	public static final int ANIM_BARRAGE = 153;
+	public static final int ANIM_PUSH = 154;
+	public static final int ANIM_BOMB = 155;
+	public static final int ANIM_BOMB_DROP = 156;
+	/** Full Release: fingertips spread (everything floats up), then the clap. */
+	public static final int ANIM_FULL_RELEASE = 157;
+	public static final int ANIM_CLAP = 158;
+	public static final int ANIM_SETTLE = 159;
+	/** v0.17.1 Full Release: the float phase runs until (then the clap). */
+	public static final String V_FULL = "zg_full_until";
 
 	/** A scoreboard tag on everything she floats (and on her own body while it floats): the safety net on chunk load. */
 	public static final String TAG_FLOAT = "projecthero_zg_float";

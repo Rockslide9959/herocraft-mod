@@ -2517,5 +2517,94 @@
         "name": "projecthero:spiderman/sense"
       }
     ]
+  },
+  "quirk_erasure_scarf_whip": {
+    "subtitle": "subtitles.projecthero.quirk_erasure_scarf_whip",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/erasure_scarf_whip1"
+      },
+      {
+        "name": "projecthero:quirk/erasure_scarf_whip2"
+      }
+    ]
+  },
+  "quirk_erasure_scarf_snap": {
+    "subtitle": "subtitles.projecthero.quirk_erasure_scarf_snap",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/erasure_scarf_snap1"
+      },
+      {
+        "name": "projecthero:quirk/erasure_scarf_snap2"
+      }
+    ]
+  },
+  "quirk_erasure_glare": {
+    "subtitle": "subtitles.projecthero.quirk_erasure_glare",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/erasure_glare"
+      }
+    ]
+  },
+  "quirk_erasure_bind": {
+    "subtitle": "subtitles.projecthero.quirk_erasure_bind",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/erasure_bind"
+      }
+    ]
+  },
+  "quirk_erasure_goggles": {
+    "subtitle": "subtitles.projecthero.quirk_erasure_goggles",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/erasure_goggles"
+      }
+    ]
+  },
+  "quirk_zerogravity_touch": {
+    "subtitle": "subtitles.projecthero.quirk_zerogravity_touch",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/zerogravity_touch1"
+      },
+      {
+        "name": "projecthero:quirk/zerogravity_touch2"
+      }
+    ]
+  },
+  "quirk_zerogravity_float": {
+    "subtitle": "subtitles.projecthero.quirk_zerogravity_float",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/zerogravity_float"
+      }
+    ]
+  },
+  "quirk_zerogravity_release": {
+    "subtitle": "subtitles.projecthero.quirk_zerogravity_release",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/zerogravity_release"
+      }
+    ]
+  },
+  "quirk_zerogravity_meteor": {
+    "subtitle": "subtitles.projecthero.quirk_zerogravity_meteor",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/zerogravity_meteor"
+      }
+    ]
+  },
+  "quirk_zerogravity_push": {
+    "subtitle": "subtitles.projecthero.quirk_zerogravity_push",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/zerogravity_push"
+      }
+    ]
   }
 }

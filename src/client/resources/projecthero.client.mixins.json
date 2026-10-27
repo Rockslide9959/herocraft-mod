@@ -141,6 +141,8 @@
 		"MoonKnightTruncheonSpinMixin",
 		"AllMightSpinMixin",
 		"ErasureSpinMixin",
+		"ZeroGravityBodyTurnMixin",
+		"ZeroGravityNauseaSwayMixin",
 		"PlayerModelMixin",
 		"ModelPartFrontFaceMixin",
 		"ModelPartCubeFrontFaceMixin",

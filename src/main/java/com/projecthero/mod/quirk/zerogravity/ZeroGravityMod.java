@@ -24,6 +24,8 @@ public final class ZeroGravityMod {
 		ZeroGravityConfig.load(); // v0.16.7 revamp: config/projecthero_quirk_zero_gravity.json (Nausea)
 		QuirkKits.register(Quirk.ZERO_GRAVITY, new ZeroGravityKit());
 		ZeroGravityMeter.register(); // v0.17.1 framework: Nausea bands + pacing + the Uravity suit perk
+		ZeroGravitySounds.initialize(); // v0.17.1 revamp: quirk_zerogravity_*
+		net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry.playS2C().register(ZeroGravityMarksPayload.TYPE, ZeroGravityMarksPayload.CODEC);
 		ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> {
 			ZeroGravityFloat.cleanup(entity);
 			ZeroGravityDebris.cleanup(entity);

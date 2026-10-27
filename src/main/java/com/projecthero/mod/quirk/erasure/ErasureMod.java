@@ -8,7 +8,8 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 
 /**
  * v0.16.7: the Erasure Quirk's server init -- the kit ({@link ErasureKit}) and the END_SERVER_TICK that holds its binds.
- * What Erasure does to mobs is {@link ErasureMobs} (with the {@code Erasure*Mixin}s).
+ * What Erasure does to mobs is {@link ErasureMobs} (with the {@code Erasure*Mixin}s); v0.17.1: Exposed / Underground
+ * ({@link ErasureExposed}), the kit's sounds ({@link ErasureSounds}) and Aizawa's Sleeping Bag ({@link ErasureSleepingBag}).
  */
 public final class ErasureMod {
 	private ErasureMod() {
@@ -16,8 +17,10 @@ public final class ErasureMod {
 
 	public static void initialize() {
 		QuirkKits.register(Quirk.ERASURE, new ErasureKit());
-		ErasureMeter.register(); // v0.17.1 framework: Dry Eyes bands + pacing
+		ErasureMeter.register(); // v0.17.1 framework: Dry Eyes bands + pacing + combo routes
 		ErasureItems.initialize(); // v0.16.7 revamp: the Eye Drops
+		ErasureSounds.initialize(); // v0.17.1 revamp: quirk_erasure_*
+		ErasureSleepingBag.initialize(); // v0.17.1 revamp: the Sleeping Bag
 		ServerTickEvents.END_SERVER_TICK.register(ErasureMoves::serverTick);
 		PayloadTypeRegistry.playS2C().register(ErasureGogglesPayload.TYPE, ErasureGogglesPayload.CODEC);
 	}

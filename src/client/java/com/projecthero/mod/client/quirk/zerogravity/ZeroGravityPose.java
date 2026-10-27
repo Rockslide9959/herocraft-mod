@@ -91,16 +91,58 @@ public final class ZeroGravityPose {
 			f(12, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.2f),
 			f(15, -0.25f, 0, 0.2f, -0.25f, 0, -0.2f, 0.42f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0.2f),
 			rest(18) };
+	// v0.17.1: Gunhead Martial Arts as a proper three-hit set -- the boxer's guard, a right palm strike (hit at 0), the left
+	// fingertips' touch (6), the grab and the arm-lock throw over her shoulder (12); the legs step through it
 	private static final float[][] GUNHEAD = {
 			rest(0),
-			f(2, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
-			f(4, -1.0f, -0.3f, 0, -1.62f, 0.05f, 0, 0.15f, 0.3f, 0.3f, 0, 0, -0.3f, 0, 0, 0),
-			f(7, -1.2f, -0.3f, 0, -1.2f, 0.3f, 0, 0.1f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
-			f(9, -1.62f, -0.05f, 0, -1.0f, 0.3f, 0, 0.15f, -0.35f, 0.3f, 0, 0, -0.3f, 0, 0, 0),
-			f(12, -1.5f, -0.2f, 0, -1.5f, 0.2f, 0, 0.2f, 0, 0.35f, 0, 0, -0.35f, 0, 0, 0.05f),
-			f(15, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, 0, 0, -0.4f, 0, 0, 0.2f),
-			f(18, -2.6f, 0.3f, 0, -2.4f, 0.5f, 0, 0.35f, 0.9f, 0.4f, 0, 0, -0.4f, 0, 0, 0.2f),
-			rest(22) };
+			f(1, -1.45f, -0.55f, 0, -1.25f, 0.6f, 0, 0.12f, -0.25f, -0.3f, 0, 0.05f, 0.35f, 0, -0.05f, 0.05f),
+			f(3, -1.62f, -0.08f, 0, -1.2f, 0.65f, 0, 0.22f, 0.4f, -0.55f, 0.2f, 0.05f, 0.4f, 0, -0.05f, 0.05f),
+			f(5, -1.35f, -0.5f, 0, -1.25f, 0.6f, 0, 0.12f, 0.1f, -0.3f, 0, 0.05f, 0.35f, 0, -0.05f, 0.05f),
+			f(8, -1.2f, -0.6f, 0, -1.68f, 0.12f, 0, 0.22f, -0.45f, 0.35f, 0, 0.05f, -0.5f, -0.2f, -0.05f, 0.05f),
+			f(11, -1.55f, -0.3f, 0, -1.5f, 0.35f, 0, 0.18f, -0.1f, -0.2f, 0, 0.05f, 0.2f, 0, -0.05f, 0.05f),
+			f(13, -2.5f, 0.25f, 0.2f, -2.2f, 0.5f, 0, -0.1f, 0.6f, -0.35f, 0, 0.1f, 0.35f, 0, -0.1f, -0.15f),
+			f(16, -0.5f, 0.35f, 0, -0.35f, 0.6f, 0, 0.55f, 1.05f, 0.5f, 0, 0.15f, -0.55f, 0, -0.1f, 0.25f),
+			f(19, -0.5f, 0.35f, 0, -0.35f, 0.6f, 0, 0.5f, 1.0f, 0.45f, 0, 0.15f, -0.5f, 0, -0.1f, 0.2f),
+			rest(24) };
+	// v0.17.1 Shift+R Debris Barrage: arms flung wide, then both palms driven forward along the aim
+	private static final float[][] BARRAGE = {
+			rest(0),
+			f(3, -2.0f, 0.3f, 1.05f, -2.0f, -0.3f, -1.05f, -0.12f, 0, -0.2f, 0, 0.1f, 0.25f, 0, -0.1f, -0.2f),
+			f(6, -1.62f, -0.28f, 0, -1.62f, 0.28f, 0, 0.22f, 0, -0.55f, 0, 0.05f, 0.45f, 0, -0.05f, 0.05f),
+			f(11, -1.6f, -0.26f, 0, -1.6f, 0.26f, 0, 0.2f, 0, -0.5f, 0, 0.05f, 0.4f, 0, -0.05f, 0.05f),
+			rest(15) };
+	// v0.17.1 Shift+X Weightless Push: the arms swept back like a swimmer's kick-off, legs trailing (the body dives: bodyTurn)
+	private static final float[][] PUSH = {
+			rest(0),
+			f(2, 0.75f, 0, 0.45f, 0.75f, 0, -0.45f, 0, 0, 0.45f, 0, 0.12f, 0.6f, 0, -0.12f, -0.6f),
+			f(9, 0.6f, 0, 0.5f, 0.6f, 0, -0.5f, 0, 0, 0.35f, 0, 0.15f, 0.5f, 0, -0.15f, -0.6f),
+			rest(13) };
+	// v0.17.1 Shift+C Gravity Bomb: a deep squat, both palms to the ground, then the arms heave the slab up overhead
+	private static final float[][] BOMB = {
+			rest(0),
+			fl(5, -0.75f, -0.2f, 0.1f, -0.75f, 0.2f, -0.1f, 0.6f, 0, -1.1f, 0, 0.15f, -1.1f, 0, -0.15f, 0.3f),
+			f(12, -2.9f, 0, 0.3f, -2.9f, 0, -0.3f, -0.15f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.45f),
+			f(26, -2.85f, 0, 0.32f, -2.85f, 0, -0.32f, -0.15f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.45f),
+			rest(30) };
+	// v0.17.1 the slab's drop: arms brought down hard and forward, fingertips together
+	private static final float[][] BOMB_DROP = {
+			f(0, -2.85f, 0, 0.32f, -2.85f, 0, -0.32f, -0.15f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.45f),
+			f(4, -1.1f, -0.55f, 0, -1.1f, 0.55f, 0, 0.4f, 0, -0.45f, 0, 0.1f, 0.4f, 0, -0.1f, 0.15f),
+			f(12, -1.15f, -0.55f, 0, -1.15f, 0.55f, 0, 0.35f, 0, -0.4f, 0, 0.1f, 0.35f, 0, -0.1f, 0.1f),
+			rest(16) };
+	// v0.17.1 Full Release: fingertips spread wide, arms up and out, head back as everything rises (held through the float)
+	private static final float[][] FULL_RELEASE = {
+			rest(0),
+			f(5, -1.7f, 0, 1.25f, -1.7f, 0, -1.25f, -0.1f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.3f),
+			f(20, -2.3f, 0, 1.05f, -2.3f, 0, -1.05f, -0.18f, 0, 0, 0, 0.22f, 0, 0, -0.22f, -0.45f),
+			f(80, -2.35f, 0, 1.0f, -2.35f, 0, -1.0f, -0.2f, 0, 0, 0, 0.22f, 0, 0, -0.22f, -0.5f),
+			rest(84) };
+	// v0.17.1 "Release!": the hands swing in and the fingertips of both meet before her chest (the clap)
+	private static final float[][] CLAP = {
+			f(0, -2.35f, 0, 1.0f, -2.35f, 0, -1.0f, -0.2f, 0, 0, 0, 0.22f, 0, 0, -0.22f, -0.5f),
+			f(3, -1.35f, -0.66f, 0, -1.35f, 0.66f, 0, 0.12f, 0, -0.1f, 0, 0.15f, 0.1f, 0, -0.15f, 0.1f),
+			f(18, -1.3f, -0.64f, 0, -1.3f, 0.64f, 0, 0.1f, 0, -0.1f, 0, 0.15f, 0.1f, 0, -0.15f, 0.1f),
+			rest(24) };
 	private static final float[][] FIELD = {
 			rest(0),
 			f(4, -1.5f, -0.1f, 0, -1.5f, 0.1f, 0, 0.12f, 0, 0.3f, 0, 0, -0.3f, 0, 0, 0),
@@ -121,6 +163,41 @@ public final class ZeroGravityPose {
 	private ZeroGravityPose() {
 	}
 
+	/** A frame with the crouch folded into the legs / body (the 16-column table has no crouch column). */
+	private static float[] fl(float tick, float rax, float ray, float raz, float lax, float lay, float laz, float bx, float by, float rlx, float rly,
+			float rlz, float llx, float lly, float llz, float hx) {
+		return f(tick, rax, ray, raz, lax, lay, laz, bx, by, rlx, rly, rlz, llx, lly, llz, hx);
+	}
+
+	/**
+	 * v0.17.1: degrees to turn her whole body {@code [yaw, pitch, roll]} ({@code ZeroGravityBodyTurnMixin}), or null: the
+	 * Weightless Push dives her flat along the dash; floating (Float Self) she drifts in a slow weightless tilt.
+	 */
+	public static float[] bodyTurn(Player p, float partial) {
+		if (!ZeroGravity.is(p) || p.level() == null) {
+			return null;
+		}
+		QuirkState s = Quirks.peek(p);
+		if (s == null) {
+			return null;
+		}
+		long now = p.level().getGameTime();
+		if (s.animId == ZeroGravity.ANIM_PUSH) {
+			float age = now - s.animStart + partial;
+			if (age >= 0f && age < 13f) {
+				float in = Mth.clamp(age / 2f, 0f, 1f), out = Mth.clamp((13f - age) / 4f, 0f, 1f);
+				float k = Math.min(in, out);
+				k = k * k * (3f - 2f * k);
+				return new float[] { 0f, 72f * k, 0f };
+			}
+		}
+		if (ZeroGravity.selfFloating(p) && !p.onGround()) {
+			float t = p.tickCount + partial;
+			return new float[] { 0f, 10f * Mth.sin(t * 0.045f) + 6f, 0f };
+		}
+		return null;
+	}
+
 	static float[][] frames(int animId) {
 		return switch (animId) {
 			case ZeroGravity.ANIM_TOUCH -> TOUCH;
@@ -136,6 +213,12 @@ public final class ZeroGravityPose {
 			case ZeroGravity.ANIM_FIELD -> FIELD;
 			case ZeroGravity.ANIM_CATCH -> CATCH;
 			case ZeroGravity.ANIM_SICK -> SICK;
+			case ZeroGravity.ANIM_BARRAGE -> BARRAGE;
+			case ZeroGravity.ANIM_PUSH -> PUSH;
+			case ZeroGravity.ANIM_BOMB -> BOMB;
+			case ZeroGravity.ANIM_BOMB_DROP -> BOMB_DROP;
+			case ZeroGravity.ANIM_FULL_RELEASE -> FULL_RELEASE;
+			case ZeroGravity.ANIM_CLAP -> CLAP;
 			default -> null;
 		};
 	}
@@ -164,6 +247,15 @@ public final class ZeroGravityPose {
 		if (s != null && animId >= 140 && animId <= 159 && player.level() != null) {
 			animAge = player.level().getGameTime() - s.animStart + partial;
 			keyframed = animAge >= 0f && animAge < length(animId);
+		}
+		// v0.17.1 Catch (hold V): both arms up, reaching, as long as it is held
+		if (animId == ZeroGravity.ANIM_CATCH && animAge >= 12f && s != null) {
+			float sway = Mth.sin(ageTicks * 0.12f) * 0.08f;
+			pose(r, 1f, -2.15f + sway, -0.3f, 0.35f);
+			pose(l, 1f, -2.15f - sway, 0.3f, -0.35f);
+			model.head.xRot = Mth.lerp(0.7f, model.head.xRot, -0.35f);
+			model.hat.copyFrom(model.head);
+			return;
 		}
 
 		// ---- held poses
@@ -212,6 +304,9 @@ public final class ZeroGravityPose {
 		}
 		int len = length(animId);
 		float w = Math.max(0f, Math.min(1f, Math.min(animAge / 2f, (len - animAge) / 3f)));
+		if (animId == ZeroGravity.ANIM_BOMB_DROP || animId == ZeroGravity.ANIM_CLAP) {
+			w = Math.max(0f, Math.min(1f, (len - animAge) / 4f)); // they start from the pose before (no fade in)
+		}
 		if (animId == ZeroGravity.ANIM_SELF || animId == ZeroGravity.ANIM_LEAP) {
 			w = Math.max(0f, Math.min(1f, animAge / 2f)); // they hand over to the held pose with no fade out
 		}
@@ -223,6 +318,15 @@ public final class ZeroGravityPose {
 			};
 			if (animId == ZeroGravity.ANIM_SICK) {
 				p[7] += Mth.sin(animAge * 0.5f) * 0.04f;
+			}
+			if (animId == ZeroGravity.ANIM_FULL_RELEASE) {
+				// fingertips trembling with the strain
+				float tr = Mth.sin(ageTicks * 2.3f) * 0.03f * Mth.clamp(animAge / 20f, 0f, 1f);
+				p[1] += tr;
+				p[4] -= tr;
+			}
+			if (animId == ZeroGravity.ANIM_BOMB && animAge > 3f && animAge < 9f) {
+				com.projecthero.mod.client.quirk.QuirkKeyframes.crouch(model, w * Mth.clamp(1f - Math.abs(animAge - 5.5f) / 3.5f, 0f, 1f));
 			}
 			r.xRot = Mth.lerp(w, r.xRot, p[1] + (p[1] < -1.0f && p[1] > -2.0f ? aim : 0f));
 			r.yRot = Mth.lerp(w, r.yRot, p[2]);

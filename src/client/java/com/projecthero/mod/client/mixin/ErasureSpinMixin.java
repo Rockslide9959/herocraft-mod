@@ -28,5 +28,12 @@ public abstract class ErasureSpinMixin {
 		if (spin != 0f) {
 			poseStack.mulPose(Axis.YP.rotationDegrees(spin));
 		}
+		// v0.17.1: the Evade Flip -- a backflip about the body's middle
+		float flip = ErasurePose.flipDegrees(player, partialTicks);
+		if (flip != 0f) {
+			poseStack.translate(0.0f, 0.9f, 0.0f);
+			poseStack.mulPose(Axis.XP.rotationDegrees(flip));
+			poseStack.translate(0.0f, -0.9f, 0.0f);
+		}
 	}
 }

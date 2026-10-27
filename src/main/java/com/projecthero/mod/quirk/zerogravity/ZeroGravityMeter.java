@@ -38,6 +38,10 @@ public final class ZeroGravityMeter {
 							.move(n.perFloat, ZeroGravityConfig.SHOWER_COOLDOWN)
 							.move(n.perFloat, ZeroGravityConfig.FIELD_COOLDOWN)
 							.move(ZeroGravityConfig.CATCH_NAUSEA, ZeroGravityConfig.CATCH_COOLDOWN)
+							// v0.17.1 revamp: the new moves that cost Nausea
+							.move(n.perFloat * ZeroGravityConfig.BOMB_STING, ZeroGravityConfig.BOMB_COOLDOWN)
+							.move(n.perFloat * ZeroGravityConfig.PUSH_STING, ZeroGravityConfig.PUSH_COOLDOWN)
+							.move(n.perFloat, ZeroGravityConfig.GUNHEAD_COOLDOWN) // the Gunhead throw floats it
 							.recovery(n.decayPerSecond, 0);
 				})
 				.register();

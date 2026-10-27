@@ -49,6 +49,13 @@ public final class ZeroGravityClient implements QuirkClientKit {
 		QuirkClient.register(Quirk.ZERO_GRAVITY, new ZeroGravityClient());
 		ClientTickEvents.START_CLIENT_TICK.register(ZeroGravityClient::glide);
 		ClientTickEvents.END_CLIENT_TICK.register(ZeroGravityClient::fx);
+		// v0.17.1 revamp: first-person arms, the fingertip prints, the Nausea screen
+		ZeroGravityFirstPerson.register();
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.registerGlobalReceiver(
+				com.projecthero.mod.quirk.zerogravity.ZeroGravityMarksPayload.TYPE, (payload, context) -> ZeroGravityHud.receive(payload.owner(), payload.ids()));
+		net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.AFTER_ENTITIES.register(ZeroGravityPrints::render);
+		net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(ZeroGravityHud::render);
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ZeroGravityHud.reset());
 	}
 
 	private static void glide(Minecraft mc) {
@@ -165,6 +172,19 @@ public final class ZeroGravityClient implements QuirkClientKit {
 		g.fill(barX - 1, by - 1, barX + barW + 1, by + barH + 1, BORDER);
 		g.fill(barX, by, barX + barW, by + barH, BAR_BG);
 		com.projecthero.mod.client.quirk.QuirkHud.bandedFill(g, player, com.projecthero.mod.quirk.Quirk.ZERO_GRAVITY, barX, by, barW, barH, nausea, colour); // v0.17.1 bands
+		// v0.17.1 revamp: the stomach wobble -- the fill's edge sloshes once she is Queasy, harder past 85
+		if (nausea >= 50f) {
+			float slosh = (nausea >= 85f || sick ? 2.2f : 1.1f);
+			int edgeX = barX + Math.round(barW * nausea / 100f);
+			for (int k = 0; k < 4; k++) {
+				int dy = Math.round(Mth.sin((now + mc.getTimer().getGameTimeDeltaPartialTick(false)) * 0.35f + k * 1.2f) * slosh);
+				int xx = edgeX - 3 - k * 4;
+				if (xx > barX) {
+					g.fill(xx, by - 1 + Math.min(0, dy), xx + 3, by, colour);
+					g.fill(xx, by + barH, xx + 3, by + barH + 1 + Math.max(0, dy), colour);
+				}
+			}
+		}
 		g.drawString(mc.font, value, x0 + width - mc.font.width(value), by - 2, NAME, false);
 		int top = by - 2;
 

@@ -2100,6 +2100,15 @@ public final class HeroPackGuide {
 					para(lines, kit.abilityLangKey(ids[j]) + ".desc");
 					rows++;
 				}
+				// v0.17.1: a key's hold move (Erasure's Reel Lock, Zero Gravity's Float Self...)
+				String hold = kit.holdIdOf(slots[i]);
+				if (hold != null) {
+					lines.add(Component.translatable("projecthero.guide.quirks.hold_key", SLOT_LABELS[i][0]).withStyle(ChatFormatting.GOLD)
+							.append(Component.literal("  "))
+							.append(Component.translatable(kit.abilityLangKey(hold)).withStyle(ChatFormatting.WHITE)));
+					para(lines, kit.abilityLangKey(hold) + ".desc");
+					rows++;
+				}
 			}
 			if (rows == 0) {
 				lines.add(Component.translatable("projecthero.guide.quirks.moves.none").withStyle(ChatFormatting.DARK_GRAY));

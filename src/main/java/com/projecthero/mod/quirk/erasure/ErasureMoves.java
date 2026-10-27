@@ -14,9 +14,18 @@ import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.combat.HeroTargets;
 import com.projecthero.mod.hero.PowerSuppression;
 import com.projecthero.mod.hero.power.AbilityHelpers;
+import com.projecthero.mod.quirk.PlusUltra;
 import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkCombos;
+import com.projecthero.mod.quirk.QuirkPerks;
+import com.projecthero.mod.quirk.QuirkThreat;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
+import com.projecthero.mod.quirk.fx.QuirkCamera;
+import com.projecthero.mod.quirk.fx.QuirkFx;
+import com.projecthero.mod.quirk.fx.QuirkParticles;
+import com.projecthero.mod.quirk.meter.QuirkBand;
+import com.projecthero.mod.quirk.meter.QuirkMeters;
 import com.projecthero.mod.squad.Squads;
 import com.projecthero.mod.titanshifter.TitanCombat;
 
@@ -31,6 +40,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -79,12 +89,42 @@ public final class ErasureMoves {
 	private ErasureMoves() {
 	}
 
+	/** v0.17.1 Reel Lock: who is reeling which creature (id) since when, and the pin it hangs from. */
+	private record Reel(int target, long since, Vec3 pin) {
+	}
+
+	private static final Map<UUID, Reel> REELS = new ConcurrentHashMap<>();
+	/** v0.17.1: rooted creatures strung up on the scarf (Reel Lock, the takedown's finish): entity id -> the height it hangs at. */
+	private static final Map<Integer, Double> HOIST = new ConcurrentHashMap<>();
+
+	/** Strings {@code e} up: while rooted it rises to (and hangs at) {@code y}. */
+	static void hoist(Entity e, double y) {
+		HOIST.put(e.getId(), y);
+	}
+
+	static void unhoist(Entity e) {
+		if (e != null && HOIST.remove(e.getId()) != null) {
+			e.resetFallDistance();
+		}
+	}
+
+	/** Strung up right now (tests). */
+	public static boolean hoisted(Entity e) {
+		return HOIST.containsKey(e.getId());
+	}
+	/** v0.17.1 Multi-Bind: the creatures (ids) each Eraser has tied up. */
+	private static final Map<UUID, List<Integer>> MULTI = new ConcurrentHashMap<>();
+
 	static void clearSessionState() {
 		ROOTS.clear();
 		LINE_BLOCK.clear();
 		LAST_ERASED.clear();
 		SPIN_HIT.clear();
 		SPIN_START.clear();
+		REELS.clear();
+		MULTI.clear();
+		HOIST.clear();
+		ErasureUltimate.clearSessionState();
 	}
 
 	static void forget(UUID id) {
@@ -92,6 +132,9 @@ public final class ErasureMoves {
 		LAST_ERASED.remove(id);
 		SPIN_HIT.remove(id);
 		SPIN_START.remove(id);
+		REELS.remove(id);
+		MULTI.remove(id);
+		ErasureUltimate.forget(id);
 		ROOTS.values().removeIf(r -> r.owner().equals(id));
 	}
 
@@ -145,6 +188,25 @@ public final class ErasureMoves {
 		}
 		UUID owner = HeroTargets.ownerOf(e);
 		return owner == null || !owner.equals(p.getUUID());
+	}
+
+	/**
+	 * v0.17.1: a hit with the capture SCARF (the whip, the pull, a swung body, a bind): an erased creature it lands on is
+	 * tied up for {@link ErasureConfig#ERASED_TIE_TICKS} as well (docs 3.5, "every scarf hit on an erased target ties it").
+	 */
+	static boolean scarfStrike(ServerPlayer p, LivingEntity t, Vec3 origin, float damage, double knockback, double lift) {
+		boolean hit = strike(p, t, origin, damage, knockback, lift);
+		if (hit && t.isAlive() && PowerSuppression.isSuppressed(t) && !isBoss(t) && !rooted(t)) {
+			root(p, t, ErasureConfig.ERASED_TIE_TICKS);
+			Vec3 c = mid(t);
+			QuirkFx.ring(p.serverLevel(), c).colours(0xD8D8DC, 0x5A5A62).size(1.4f).thickness(0.18f).life(8).spawn();
+		}
+		return hit;
+	}
+
+	/** The move's damage in the current Dry Eyes band (the spec's per-band multipliers). */
+	static float banded(ServerPlayer p, float damage) {
+		return damage * QuirkMeters.damageMult(p);
 	}
 
 	/** One hit: damage (boss-capped), knockback away from {@code origin}, lift. True if it landed. */
@@ -212,7 +274,7 @@ public final class ErasureMoves {
 	}
 
 	/** The scarf whipped out to {@code tip} (drawn out and back by every client). */
-	private static void whipTo(ServerPlayer p, Vec3 tip) {
+	static void whipTo(ServerPlayer p, Vec3 tip) {
 		long t = now(p);
 		Quirks.edit(p, n -> {
 			n.vals.put(ErasureConfig.V_LASH_AT, t);
@@ -224,10 +286,24 @@ public final class ErasureMoves {
 		AbilityHelpers.line(p.serverLevel(), a, b, SCARF, 1.5);
 	}
 
-	/** The scarf's crack: cloth snapping taut. */
-	private static void crack(ServerPlayer p, float pitch) {
-		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER, 1.0f, pitch);
-		sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 1.5f + (pitch - 1f) * 0.3f);
+	/** The scarf's crack: the cloth whip and snap (v0.17.1: the kit's own sounds, a vanilla cloth layer under them). */
+	static void crack(ServerPlayer p, float pitch) {
+		sound(p, ErasureSounds.SCARF_WHIP, 0.9f, pitch);
+		sound(p, SoundEvents.ARMOR_EQUIP_LEATHER, 0.45f, pitch);
+	}
+
+	/** v0.17.1: the scarf snapping taut round {@code at} -- the snap, a grey cloth ring and a puff of fibres. */
+	static void snapFx(ServerPlayer p, Vec3 at, float size) {
+		ServerLevel level = p.serverLevel();
+		ErasureSounds.play(level, at, ErasureSounds.SCARF_SNAP, 0.9f, 0.9f + p.getRandom().nextFloat() * 0.2f);
+		QuirkFx.ring(level, at).colours(0xF2F2F4, 0x6A6A72).size(size).thickness(0.22f).life(9).flags(QuirkFx.F_VERTICAL)
+				.vec(p.getLookAngle()).spawn();
+		level.sendParticles(SCARF, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
+	}
+
+	/** v0.17.1: the cloth capture-scarf ribbon from his hand to {@code to} (the shared toolkit's cloth style). */
+	static void scarfRibbon(ServerPlayer p, Vec3 to, int life) {
+		QuirkFx.ribbon(p.serverLevel(), hand(p), to).style(QuirkFx.RIBBON_CLOTH).colours(0xE4E4E8, 0x8A8A92).size(0.16f).life(life).spawn();
 	}
 
 	// ---------------------------------------------------------------- roots (binds)
@@ -284,12 +360,14 @@ public final class ErasureMoves {
 		if (isBoss(t)) {
 			Quirks.say(p, "message.projecthero.quirk.erasure.boss_immune", ChatFormatting.GRAY);
 			Quirks.setCooldown(p, ErasureConfig.BIND, ErasureConfig.MISS_COOLDOWN);
+			QuirkThreat.add(t, p, 4f); // the boss noticed who tried
 			return null;
 		}
 		if (!bindTarget(p, t, ErasureConfig.BIND_TICKS)) {
 			Quirks.setCooldown(p, ErasureConfig.BIND, ErasureConfig.MISS_COOLDOWN);
 			return null;
 		}
+		QuirkCombos.hit(p, t, ErasureConfig.BIND); // opens Strung Up (Bind -> Spin)
 		Quirks.setCooldown(p, ErasureConfig.BIND, ErasureConfig.BIND_COOLDOWN);
 		return t;
 	}
@@ -306,23 +384,31 @@ public final class ErasureMoves {
 			n.vals.put(ErasureConfig.V_BIND, t.getId() + 1L);
 			n.vals.put(ErasureConfig.V_BIND_UNTIL, until);
 		});
-		scarfLine(p, hand(p), mid(t));
+		scarfRibbon(p, mid(t), 8);
 		if (t instanceof Mob m) {
 			m.getNavigation().stop();
 		}
 		ServerLevel level = p.serverLevel();
-		level.sendParticles(SCARF, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 16, t.getBbWidth() * 0.6, t.getBbHeight() * 0.35,
+		level.sendParticles(SCARF, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 10, t.getBbWidth() * 0.6, t.getBbHeight() * 0.35,
 				t.getBbWidth() * 0.6, 0.0);
-		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.WOOL_PLACE, SoundSource.PLAYERS, 1.0f, 0.8f);
-		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.LEASH_KNOT_PLACE, SoundSource.PLAYERS, 1.0f, 0.9f);
+		ErasureSounds.play(level, mid(t), ErasureSounds.BIND, 1.0f, 1.0f);
+		QuirkFx.ring(level, t.position().add(0, t.getBbHeight() * 0.55, 0)).colours(0xF0F0F2, 0x70707A).size(t.getBbWidth() * 2.4f + 0.6f)
+				.thickness(0.2f).life(10).spawn();
+		level.playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.LEASH_KNOT_PLACE, SoundSource.PLAYERS, 0.7f, 0.9f);
 		return true;
 	}
 
-	/** Shift+R: the scarf yanks the bound creature (or the one he looks at) in to him: {@link ErasureConfig#LASH_DAMAGE}. */
+	/**
+	 * Shift+R: the scarf yanks the bound creature (or the one he looks at) in to him: {@link ErasureConfig#LASH_DAMAGE}
+	 * (v0.17.1: 6, and the yank leaves it in reach of a free follow-up). v0.17.1 <b>Pull to safety</b>: aimed at an ally
+	 * (a squadmate, his own pet) it does no harm and drags them to him -- out of lava, water or a fall.
+	 */
 	public static @Nullable LivingEntity pull(ServerPlayer p) {
 		LivingEntity t = boundTarget(p);
 		if (t == null) {
-			t = aimed(p, ErasureConfig.LASH_RANGE, 4.0);
+			LivingEntity ally = aimedAlly(p, ErasureConfig.LASH_RANGE);
+			LivingEntity foe = aimed(p, ErasureConfig.LASH_RANGE, 4.0);
+			t = ally != null && (foe == null || ally.distanceToSqr(p) <= foe.distanceToSqr(p)) ? ally : foe;
 		}
 		Quirks.setAnim(p, ErasureConfig.ANIM_PULL);
 		crack(p, 1.3f);
@@ -333,8 +419,15 @@ public final class ErasureMoves {
 		}
 		endBind(p);
 		whipTo(p, mid(t));
-		scarfLine(p, hand(p), mid(t));
-		if (strike(p, t, p.position(), ErasureConfig.LASH_DAMAGE, 0.0, 0.0) && !isBoss(t)) {
+		scarfRibbon(p, mid(t), 7);
+		snapFx(p, mid(t), 1.1f);
+		if (!isTarget(p, t)) {
+			rescue(p, t);
+			Quirks.setCooldown(p, ErasureConfig.LASH, ErasureConfig.LASH_COOLDOWN);
+			return t;
+		}
+		QuirkCombos.Route r = QuirkCombos.hit(p, t, ErasureConfig.LASH);
+		if (scarfStrike(p, t, p.position(), banded(p, ErasureConfig.LASH_DAMAGE) * QuirkCombos.mult(r), 0.0, 0.0) && !isBoss(t)) {
 			Vec3 to = p.position().subtract(t.position());
 			double d = to.length();
 			if (d > 1.8) {
@@ -342,9 +435,60 @@ public final class ErasureMoves {
 				t.setDeltaMovement(v);
 				t.hurtMarked = true;
 			}
+			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
 		}
 		Quirks.setCooldown(p, ErasureConfig.LASH, ErasureConfig.LASH_COOLDOWN);
 		return t;
+	}
+
+	/** v0.17.1: an ally he is looking at (a squadmate or his own pet) within {@code range}, or null. */
+	static @Nullable LivingEntity aimedAlly(ServerPlayer p, double range) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double bestDot = Math.cos(Math.toRadians(6.0));
+		LivingEntity best = null;
+		for (LivingEntity le : p.serverLevel().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(range),
+				e -> e != p && e.isAlive() && !e.isSpectator() && isAlly(p, e))) {
+			Vec3 to = mid(le).subtract(eye);
+			double d = to.length();
+			if (d < 0.5 || d > range) {
+				continue;
+			}
+			double dot = to.scale(1.0 / d).dot(look);
+			if (dot > bestDot && p.hasLineOfSight(le)) {
+				bestDot = dot;
+				best = le;
+			}
+		}
+		return best;
+	}
+
+	/** A squadmate or one of his own pets. */
+	static boolean isAlly(ServerPlayer p, LivingEntity e) {
+		if (e instanceof Player other) {
+			return Squads.areAllies(p, other);
+		}
+		UUID owner = HeroTargets.ownerOf(e);
+		return owner != null && owner.equals(p.getUUID());
+	}
+
+	/** Pull to safety: the ally is dragged to him, out of whatever it was in, and lands softly. */
+	static void rescue(ServerPlayer p, LivingEntity ally) {
+		boolean danger = ally.isInLava() || ally.isOnFire() || ally.isInWater() || ally.fallDistance > 3f
+				|| (!ally.onGround() && ally.getDeltaMovement().y < -0.5);
+		Vec3 to = p.position().add(0, 0.4, 0).subtract(ally.position());
+		double d = to.length();
+		Vec3 v = d < 0.1 ? Vec3.ZERO : to.normalize().scale(Math.min(1.6, 0.35 + d * 0.2)).add(0, 0.42, 0);
+		ally.resetFallDistance();
+		ally.setDeltaMovement(v);
+		ally.hurtMarked = true;
+		ally.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, ErasureConfig.ALLY_PULL_SLOW_FALL, 0, false, false, true));
+		if (ally.isInLava()) {
+			ally.clearFire();
+		}
+		if (danger) {
+			PlusUltra.add(p, PlusUltra.ALLY_SAVE);
+		}
 	}
 
 	/** The creature his scarf holds right now, or null. */
@@ -415,12 +559,20 @@ public final class ErasureMoves {
 		if (flat.length() > 1.6) {
 			AbilityHelpers.launchSelf(p, flat.normalize().scale(0.35).add(0, p.getDeltaMovement().y, 0));
 		}
-		float dmg = ErasureConfig.COMBO_DAMAGE[i];
+		float dmg = banded(p, ErasureConfig.COMBO_DAMAGE[i]);
 		if (strike(p, t, p.position(), dmg, last ? 1.1 : 0.15, last ? 0.35 : 0.0)) {
 			Vec3 c = mid(t);
-			p.serverLevel().sendParticles(last ? ParticleTypes.SWEEP_ATTACK : ParticleTypes.CRIT, c.x, c.y, c.z, last ? 1 : 4, 0.2, 0.2, 0.2, 0.1);
-			p.serverLevel().playSound(null, t.getX(), t.getY(), t.getZ(), last ? SoundEvents.PLAYER_ATTACK_KNOCKBACK : SoundEvents.PLAYER_ATTACK_STRONG,
-					SoundSource.PLAYERS, 1.0f, last ? 0.8f : 1.2f);
+			ServerLevel level = p.serverLevel();
+			level.sendParticles(last ? ParticleTypes.SWEEP_ATTACK : QuirkParticles.SPARK, c.x, c.y, c.z, last ? 1 : 5, 0.2, 0.2, 0.2, 0.15);
+			com.projecthero.mod.quirk.fx.QuirkSounds.play(level, c, last ? com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT_HEAVY
+					: com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT, 0.9f, last ? 0.9f : 1.0f + 0.1f * i);
+			if (last) {
+				QuirkFx.ring(level, c).colours(0xFFFFFF, 0xB8B8C0).size(2.2f).thickness(0.3f).life(8).flags(QuirkFx.F_VERTICAL)
+						.vec(c.subtract(p.getEyePosition()).normalize()).spawn();
+				QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+			} else {
+				QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+			}
 		}
 	}
 
@@ -444,6 +596,9 @@ public final class ErasureMoves {
 	 * down. Returns the damage he still takes.
 	 */
 	static float modifyIncomingDamage(ServerPlayer p, DamageSource source, float amount) {
+		if (flipping(p) && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return 0f; // v0.17.1 Evade Flip: dodged
+		}
 		if (!countering(p) || source.getEntity() == null) {
 			return amount;
 		}
@@ -453,15 +608,23 @@ public final class ErasureMoves {
 		Vec3 c = p.position().add(0, 1.2, 0);
 		level.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 14, 0.4, 0.4, 0.4, 0.3);
 		sound(p, SoundEvents.SHIELD_BLOCK, 1.0f, 1.2f);
+		QuirkFx.ring(level, c).colours(0xFFFFFF, 0xC8C8D0).size(1.8f).thickness(0.25f).life(7).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).spawn();
 		if (source.getEntity() instanceof LivingEntity attacker && attacker.distanceTo(p) <= ErasureConfig.COUNTER_REACH && attacker != p) {
-			strike(p, attacker, p.position(), ErasureConfig.COUNTER_DAMAGE, 0.4, -0.3);
+			scarfStrike(p, attacker, p.position(), banded(p, ErasureConfig.COUNTER_DAMAGE), 0.4, -0.3);
 			if (!isBoss(attacker)) {
 				bindTarget(p, attacker, ErasureConfig.COUNTER_BIND_TICKS);
 			}
 			whipTo(p, mid(attacker));
+			snapFx(p, mid(attacker), 1.2f);
+			QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
 			sound(p, SoundEvents.PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
 		}
 		return 0f;
+	}
+
+	/** v0.17.1: the Evade Flip's i-frames are running (every hit is dodged). */
+	public static boolean flipping(ServerPlayer p) {
+		return st(p).val(ErasureConfig.V_FLIP_UNTIL) > now(p);
 	}
 
 	// ================================================================ V: Erasure Stare (hold) / Shift+V: Eye Drops
@@ -484,8 +647,9 @@ public final class ErasureMoves {
 			n.vals.put(ErasureConfig.V_ERASE_AT, t);
 			n.vals.remove(ErasureConfig.V_STARE_TARGET);
 		});
-		sound(p, SoundEvents.BEACON_POWER_SELECT, 0.6f, 0.9f);
-		sound(p, SoundEvents.WARDEN_HEARTBEAT, 0.5f, 1.6f);
+		Quirks.setAnim(p, ErasureConfig.ANIM_STARE);
+		sound(p, ErasureSounds.GLARE, 0.7f, 1.0f);
+		sound(p, SoundEvents.WARDEN_HEARTBEAT, 0.35f, 1.6f);
 		tickErase(p, st(p));
 		return true;
 	}
@@ -502,6 +666,20 @@ public final class ErasureMoves {
 		});
 		LAST_ERASED.remove(p.getUUID());
 		Quirks.setCooldown(p, ErasureConfig.ERASE, ErasureConfig.ERASE_COOLDOWN);
+		if (st(p).animId == ErasureConfig.ANIM_STARE) {
+			Quirks.setAnim(p, QuirkState.ANIM_NONE);
+		}
+	}
+
+	/** v0.17.1: the stare's reach in the current band (Strained and past: 32 blocks). */
+	public static double stareRange(ServerPlayer p) {
+		QuirkBand b = QuirkMeters.band(p);
+		return b == QuirkBand.LOW ? ErasureConfig.ERASE_RANGE : ErasureConfig.ERASE_RANGE_STRAINED;
+	}
+
+	/** v0.17.1: the Goggles perk works -- the goggles are down, or the full Eraser Head suit makes it passive. */
+	public static boolean gogglesPerk(ServerPlayer p) {
+		return st(p).val(ErasureConfig.V_GOGGLES) != 0L || QuirkPerks.fullSet(p);
 	}
 
 	/**
@@ -513,22 +691,27 @@ public final class ErasureMoves {
 		QuirkState s = st(p);
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
-		double range = ErasureConfig.ERASE_RANGE;
-		if (s.val(ErasureConfig.V_GOGGLES) != 0L) {
-			LivingEntity locked = byVal(p, s, ErasureConfig.V_STARE_TARGET);
-			if (locked != null && erasable(p, locked) && p.hasLineOfSight(locked)) {
-				Vec3 to = mid(locked).subtract(eye);
+		double range = stareRange(p);
+		int want = QuirkMeters.band(p) == QuirkBand.RED ? ErasureConfig.BURNING_TARGETS : 1;
+		LivingEntity locked = null;
+		if (gogglesPerk(p)) {
+			LivingEntity l = byVal(p, s, ErasureConfig.V_STARE_TARGET);
+			if (l != null && erasable(p, l) && p.hasLineOfSight(l)) {
+				Vec3 to = mid(l).subtract(eye);
 				double d = to.length();
-				if (d <= range + locked.getBbWidth() && (d < 0.5 || to.scale(1.0 / d).dot(look) >= Math.cos(Math.toRadians(ErasureConfig.GOGGLES_LOCK_DEGREES)))) {
-					return List.of(locked);
+				if (d <= range + l.getBbWidth() && (d < 0.5 || to.scale(1.0 / d).dot(look) >= Math.cos(Math.toRadians(ErasureConfig.GOGGLES_LOCK_DEGREES)))) {
+					locked = l;
+					if (want == 1) {
+						return List.of(l);
+					}
 				}
 			}
 		}
-		double cos = Math.cos(Math.toRadians(ErasureConfig.ERASE_CONE_DEGREES));
-		LivingEntity best = null;
-		double bestDot = -2.0;
+		double cos = Math.cos(Math.toRadians(ErasureConfig.ERASE_CONE_DEGREES * (want > 1 ? 2.0 : 1.0)));
 		// the creature under the crosshair always counts (big bodies, the dragon's parts)
 		LivingEntity direct = AbilityHelpers.raycastEntity(p, range);
+		List<LivingEntity> found = new ArrayList<>();
+		List<Double> dots = new ArrayList<>();
 		for (LivingEntity e : p.serverLevel().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(range), e -> erasable(p, e))) {
 			Vec3 to = mid(e).subtract(eye);
 			double d = to.length();
@@ -539,15 +722,15 @@ public final class ErasureMoves {
 			if ((dot < cos && e != direct) || !p.hasLineOfSight(e)) {
 				continue;
 			}
-			if (e == direct) {
-				best = e;
-				bestDot = 2.0;
-			} else if (dot > bestDot) {
-				best = e;
-				bestDot = dot;
+			double score = e == locked ? 3.0 : e == direct ? 2.0 : dot;
+			int at = 0;
+			while (at < dots.size() && dots.get(at) >= score) {
+				at++;
 			}
+			found.add(at, e);
+			dots.add(at, score);
 		}
-		return best == null ? List.of() : List.of(best);
+		return found.size() <= want ? List.copyOf(found) : List.copyOf(found.subList(0, want));
 	}
 
 	private static void tickErase(ServerPlayer p, QuirkState s) {
@@ -569,16 +752,28 @@ public final class ErasureMoves {
 		long lock = targets.isEmpty() ? 0L : targets.get(0).getId() + 1L;
 		if (lock != s.val(ErasureConfig.V_STARE_TARGET)) {
 			if (lock != 0L) {
-				// caught: a sharp sting so the stare reads on both ends
-				level.playSound(null, targets.get(0).getX(), targets.get(0).getY(), targets.get(0).getZ(), SoundEvents.BEACON_DEACTIVATE,
-						SoundSource.PLAYERS, 0.6f, 1.6f);
+				// caught: the glare -- a hum and a red ring round the one he holds -- so the stare reads on both ends
+				LivingEntity c = targets.get(0);
+				ErasureSounds.play(level, mid(c), ErasureSounds.GLARE, 0.8f, 1.15f);
+				QuirkFx.ring(level, c.position().add(0, c.getBbHeight() + 0.3, 0)).colours(0xFF3030, 0x800808).size(1.2f).thickness(0.12f)
+						.life(10).spawn();
+				if (isBoss(c)) {
+					QuirkThreat.add(c, p, 6f); // the boss turns on whoever switched its powers off
+				}
 			}
 			Quirks.setVal(p, ErasureConfig.V_STARE_TARGET, lock);
 		}
 		LAST_ERASED.put(p.getUUID(), List.copyOf(ids));
-		float dry = ErasureConfig.STARE_DRY * (s.val(ErasureConfig.V_GOGGLES) != 0L ? ErasureConfig.GOGGLES_DRY_MULT : 1f);
+		float dry = ErasureConfig.STARE_DRY * (gogglesPerk(p) ? ErasureConfig.GOGGLES_DRY_MULT : 1f);
 		if (Quirks.addMeterPaced(p, dry) >= 100f) { // v0.17.1: x ErasureMeter.BUILD
 			shutEyes(p);
+		}
+	}
+
+	/** v0.17.1 Burning band (Dry Eyes 90+): staring burns him 0.5 HP a second (never the killing blow). */
+	private static void burn(ServerPlayer p) {
+		if (p.tickCount % 20 == 0 && QuirkMeters.band(p) == QuirkBand.RED && p.getHealth() > 1.5f) {
+			p.hurt(p.damageSources().magic(), ErasureConfig.BURNING_HP_PER_SECOND);
 		}
 	}
 
@@ -623,7 +818,10 @@ public final class ErasureMoves {
 		return off.is(ErasureItems.EYE_DROPS) ? off : ItemStack.EMPTY;
 	}
 
-	/** Shift+V: drops in from an Eye Drops item (used up): Dry Eyes back to 0, forced-shut eyes open. False without one. */
+	/**
+	 * Eye Drops from the inventory (used up): Dry Eyes back to 0, forced-shut eyes open. False without one. (v0.17.1: no
+	 * longer on a key -- the item is right-clicked; kept for anything that wants to spend one from the inventory.)
+	 */
 	public static boolean eyeDrops(ServerPlayer p) {
 		ItemStack drops = findDrops(p);
 		if (drops.isEmpty() && !p.getAbilities().instabuild) {
@@ -653,7 +851,7 @@ public final class ErasureMoves {
 
 	// ================================================================ X: Scarf Swing / Shift+X: Scarf Pull
 
-	/** X down: the scarf hooks a block and he swings (X again / let go: release). */
+	/** Hold X: the scarf hooks a block and he swings (let go / X again: release). */
 	public static boolean swingDown(ServerPlayer p) {
 		if (st(p).val(ErasureConfig.V_LINE) != 0L) {
 			detach(p, true);
@@ -690,7 +888,7 @@ public final class ErasureMoves {
 	}
 
 	/**
-	 * Shift+X: Scarf Pull -- he yanks himself to the latched point: mid-swing, up the line to its hook; otherwise the
+	 * X (tap): Scarf Pull -- he yanks himself to the latched point: mid-swing, up the line to its hook; otherwise the
 	 * scarf latches the block (or the creature) he looks at and reels him to it. Returns true if a pull started.
 	 */
 	public static boolean zip(ServerPlayer p) {
@@ -733,8 +931,36 @@ public final class ErasureMoves {
 		Quirks.setAnim(p, ErasureConfig.ANIM_ZIP);
 		Quirks.setCooldown(p, ErasureConfig.ZIP, ErasureConfig.ZIP_COOLDOWN);
 		floatTolerance(p, true);
-		sound(p, SoundEvents.FISHING_BOBBER_RETRIEVE, 1.0f, 0.8f);
+		sound(p, SoundEvents.FISHING_BOBBER_RETRIEVE, 0.7f, 0.8f);
 		crack(p, 1.2f);
+		scarfRibbon(p, h, 6);
+		QuirkCamera.preset(p, QuirkCamera.Preset.DASH);
+		return true;
+	}
+
+	/**
+	 * v0.17.1 Shift+X: <b>Evade Flip</b> -- a backflip about five blocks away from where he looks, with
+	 * {@link ErasureConfig#FLIP_IFRAMES} ticks of i-frames (every hit in them is dodged). The whole body flips
+	 * ({@code ErasureSpinMixin}).
+	 */
+	public static boolean flip(ServerPlayer p) {
+		detach(p, false);
+		Vec3 l = p.getLookAngle();
+		Vec3 back = new Vec3(-l.x, 0, -l.z);
+		back = back.lengthSqr() < 1.0e-4 ? Vec3.directionFromRotation(0f, p.getYRot() + 180f) : back.normalize();
+		AbilityHelpers.launchSelf(p, back.scale(ErasureConfig.FLIP_BACK).add(0, ErasureConfig.FLIP_UP, 0));
+		long t = now(p);
+		Quirks.setVal(p, ErasureConfig.V_FLIP_UNTIL, t + ErasureConfig.FLIP_IFRAMES);
+		Quirks.setAnim(p, ErasureConfig.ANIM_FLIP);
+		Quirks.setCooldown(p, ErasureConfig.FLIP, ErasureConfig.FLIP_COOLDOWN);
+		p.resetFallDistance();
+		ServerLevel level = p.serverLevel();
+		QuirkFx.trail(level, p).colours(0xE8E8EC, 0x6A6A74).style(QuirkFx.RIBBON_CLOTH).size(0.12f).size2(10f).life(18)
+				.vec(new Vec3(0.3, 1.2, -0.1)).spawn();
+		QuirkFx.ring(level, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0x9A9AA4).size(2.2f).thickness(0.3f).life(10).ground().spawn();
+		level.sendParticles(QuirkParticles.DUST_CHUNK, p.getX(), p.getY() + 0.1, p.getZ(), 6, 0.3, 0.05, 0.3, 0.05);
+		sound(p, com.projecthero.mod.quirk.fx.QuirkSounds.WHOOSH, 0.9f, 1.1f);
+		QuirkCamera.preset(p, QuirkCamera.Preset.DASH);
 		return true;
 	}
 
@@ -755,6 +981,9 @@ public final class ErasureMoves {
 		});
 		if (mode == 1L) {
 			Quirks.setCooldown(p, ErasureConfig.SWING, ErasureConfig.SWING_COOLDOWN);
+			if (s.animId == ErasureConfig.ANIM_SWING) {
+				Quirks.setAnim(p, QuirkState.ANIM_NONE); // the held first-person clip ends with the swing
+			}
 		}
 		p.resetFallDistance();
 		if (withSound) {
@@ -776,8 +1005,12 @@ public final class ErasureMoves {
 			}
 			double dist = Math.sqrt(AbilityHelpers.distanceSqToBox(t, p.position().add(0, p.getBbHeight() * 0.5, 0)));
 			if (dist < ErasureConfig.ZIP_ARRIVE - 1.0 || mid(t).distanceTo(p.getEyePosition()) < ErasureConfig.ZIP_ARRIVE) {
-				strike(p, t, p.position(), ErasureConfig.ZIP_KICK_DAMAGE, 0.6, 0.2);
-				sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.9f, 1.1f);
+				if (strike(p, t, p.position(), banded(p, ErasureConfig.ZIP_KICK_DAMAGE), 0.6, 0.2)) {
+					QuirkFx.ring(p.serverLevel(), mid(t)).colours(0xFFFFFF, 0xB8B8C0).size(1.8f).thickness(0.25f).life(8).flags(QuirkFx.F_VERTICAL)
+							.vec(p.getLookAngle()).spawn();
+					QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
+				}
+				com.projecthero.mod.quirk.fx.QuirkSounds.play(p.serverLevel(), mid(t), com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT, 1.0f, 0.9f);
 				detach(p, false);
 				return;
 			}
@@ -864,12 +1097,16 @@ public final class ErasureMoves {
 			n.vals.put(ErasureConfig.V_SPIN_AT, at);
 		});
 		SPIN_HIT.put(p.getUUID(), new HashSet<>(Set.of(target.getId())));
+		SPIN_ROUTE.put(p.getUUID(), QuirkCombos.mult(QuirkCombos.hit(p, target, ErasureConfig.SPIN))); // Strung Up
 		Quirks.setAnim(p, ErasureConfig.ANIM_SPIN);
 		Quirks.setCooldown(p, ErasureConfig.SPIN, ErasureConfig.SPIN_COOLDOWN);
-		scarfLine(p, hand(p), mid(target));
-		sound(p, SoundEvents.WOOL_PLACE, 1.0f, 0.7f);
+		scarfRibbon(p, mid(target), 8);
+		ErasureSounds.play(p.serverLevel(), mid(target), ErasureSounds.BIND, 0.9f, 0.8f);
 		return target;
 	}
+
+	/** Bind and Spin: the fling's combo multiplier (Strung Up), per Eraser. */
+	private static final Map<UUID, Float> SPIN_ROUTE = new ConcurrentHashMap<>();
 
 	/** Client-safe: the spin's angle (radians) at {@code age} ticks -- two eased turns. Starts toward the target's side. */
 	public static double spinAngle(float age) {
@@ -892,12 +1129,17 @@ public final class ErasureMoves {
 		if (age >= ErasureConfig.SPIN_TICKS) {
 			// let go: flung the way he looks
 			Vec3 look = p.getLookAngle();
-			Vec3 v = new Vec3(look.x, Math.max(0.25, look.y + 0.3), look.z).normalize().scale(ErasureConfig.SPIN_THROW_SPEED);
-			strike(p, t, p.position(), ErasureConfig.SPIN_THROW_DAMAGE, 0.0, 0.0);
+			float bonus = SPIN_ROUTE.getOrDefault(p.getUUID(), 1f);
+			Vec3 v = new Vec3(look.x, Math.max(0.25, look.y + 0.3), look.z).normalize().scale(ErasureConfig.SPIN_THROW_SPEED * (bonus > 1f ? 1.35 : 1.0));
+			scarfStrike(p, t, p.position(), banded(p, ErasureConfig.SPIN_THROW_DAMAGE) * bonus, 0.0, 0.0);
 			t.setDeltaMovement(v);
 			t.hurtMarked = true;
-			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 1.0f, 0.6f);
-			sound(p, SoundEvents.LEASH_KNOT_BREAK, 0.8f, 0.9f);
+			snapFx(p, mid(t), 1.6f);
+			QuirkFx.trail(level, t).colours(0xE8E8EC, 0x7A7A84).style(QuirkFx.RIBBON_CLOTH).size(0.2f).size2(8f).life(16).vec(new Vec3(0, 0.6, 0))
+					.spawn();
+			QuirkCamera.preset(p, bonus > 1f ? QuirkCamera.Preset.FINISHER : QuirkCamera.Preset.HEAVY_HIT);
+			sound(p, com.projecthero.mod.quirk.fx.QuirkSounds.WHOOSH, 1.0f, 0.7f);
+			sound(p, SoundEvents.LEASH_KNOT_BREAK, 0.6f, 0.9f);
 			endSpin(p);
 			return;
 		}
@@ -917,10 +1159,11 @@ public final class ErasureMoves {
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, t.getBoundingBox().inflate(0.6),
 				e -> e != p && e != t && isTarget(p, e) && !hit.contains(e.getId()))) {
 			hit.add(e.getId());
-			strike(p, e, t.position(), ErasureConfig.SPIN_HIT_DAMAGE, 1.0, 0.35);
+			scarfStrike(p, e, t.position(), banded(p, ErasureConfig.SPIN_HIT_DAMAGE), 1.0, 0.35);
 			strike(p, t, e.position(), 2f, 0.0, 0.0);
-			level.playSound(null, e.getX(), e.getY(), e.getZ(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, SoundSource.PLAYERS, 1.0f, 0.8f);
-			level.sendParticles(ParticleTypes.POOF, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 6, 0.2, 0.2, 0.2, 0.05);
+			com.projecthero.mod.quirk.fx.QuirkSounds.play(level, mid(e), com.projecthero.mod.quirk.fx.QuirkSounds.IMPACT, 1.0f, 0.85f);
+			level.sendParticles(QuirkParticles.DUST_CHUNK, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 6, 0.2, 0.2, 0.2, 0.08);
+			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
 		}
 		if (age % 6 == 0) {
 			sound(p, SoundEvents.PLAYER_ATTACK_SWEEP, 0.6f, 0.7f + age * 0.02f);
@@ -946,6 +1189,7 @@ public final class ErasureMoves {
 	private static void endSpin(ServerPlayer p) {
 		SPIN_HIT.remove(p.getUUID());
 		SPIN_START.remove(p.getUUID());
+		SPIN_ROUTE.remove(p.getUUID());
 		if (st(p).val(ErasureConfig.V_SPIN) == 0L) {
 			return;
 		}
@@ -989,7 +1233,8 @@ public final class ErasureMoves {
 		drop.setDeltaMovement(to.x * 0.1, Math.min(0.5, 0.15 + d * 0.03), to.z * 0.1);
 		drop.setPickUpDelay(10);
 		p.level().addFreshEntity(drop);
-		scarfLine(p, hand(p), from);
+		scarfRibbon(p, from, 8);
+		snapFx(p, from, 0.9f);
 		sound(p, SoundEvents.ITEM_PICKUP, 0.8f, 0.8f);
 		Quirks.setCooldown(p, ErasureConfig.DISARM, ErasureConfig.DISARM_COOLDOWN);
 		return taken;
@@ -997,37 +1242,241 @@ public final class ErasureMoves {
 
 	// ================================================================ C: Scarf Whip / Shift+C: Goggles
 
-	/** C: a cracking lash of the scarf at whoever he looks at: {@link ErasureConfig#WHIP_DAMAGE} and a stagger. */
+	/**
+	 * C: a cracking lash of the scarf at whoever he looks at, 10 blocks: {@link ErasureConfig#WHIP_DAMAGE} and a stagger. The
+	 * cloth snaps out as a ribbon and the crack rings round the tip.
+	 */
 	public static @Nullable LivingEntity whip(ServerPlayer p) {
 		LivingEntity t = aimed(p, ErasureConfig.WHIP_RANGE, 6.0);
 		Quirks.setAnim(p, ErasureConfig.ANIM_WHIP);
 		crack(p, 1.6f);
 		Quirks.setCooldown(p, ErasureConfig.WHIP, ErasureConfig.WHIP_COOLDOWN);
+		Vec3 tip = t == null ? lookEnd(p, ErasureConfig.WHIP_RANGE) : mid(t);
+		whipTo(p, tip);
+		scarfRibbon(p, tip, 7);
 		if (t == null) {
-			whipTo(p, lookEnd(p, ErasureConfig.WHIP_RANGE));
+			QuirkFx.ring(p.serverLevel(), tip).colours(0xFFFFFF, 0x8A8A92).size(0.9f).thickness(0.15f).life(6).flags(QuirkFx.F_VERTICAL)
+					.vec(p.getLookAngle()).spawn();
 			return null;
 		}
-		whipTo(p, mid(t));
-		if (strike(p, t, p.position(), ErasureConfig.WHIP_DAMAGE, 0.35, 0.1)) {
-			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, 20, 1);
-			p.serverLevel().playSound(null, t.getX(), t.getY(), t.getZ(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.PLAYERS, 0.8f, 1.4f);
+		if (scarfStrike(p, t, p.position(), banded(p, ErasureConfig.WHIP_DAMAGE), 0.35, 0.1)) {
+			AbilityHelpers.applyControl(t, MobEffects.MOVEMENT_SLOWDOWN, ErasureConfig.WHIP_STAGGER_TICKS, 2);
+			if (t instanceof Mob m && !isBoss(t)) {
+				m.getNavigation().stop(); // the stagger
+			}
+			snapFx(p, tip, 1.5f);
+			QuirkCombos.hit(p, t, ErasureConfig.WHIP); // opens Crack and Yank (Whip -> Capture Pull)
+			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
 		}
 		return t;
 	}
 
-	/** Shift+C: goggles down over the eyes (night vision; the client outlines powered players / special mobs; the stare locks on) or back up. */
+	/**
+	 * v0.17.1 Shift+C: <b>Multi-Bind</b> -- the scarf fans out across a cone and ties up to three creatures for 2.5 s (bosses
+	 * break free). Returns who it caught.
+	 */
+	public static List<LivingEntity> multiBind(ServerPlayer p) {
+		Vec3 eye = p.getEyePosition();
+		Vec3 look = p.getLookAngle();
+		double cos = Math.cos(Math.toRadians(ErasureConfig.MULTI_CONE_DEGREES));
+		List<LivingEntity> all = new ArrayList<>();
+		for (LivingEntity e : p.serverLevel().getEntitiesOfClass(LivingEntity.class, p.getBoundingBox().inflate(ErasureConfig.MULTI_RANGE),
+				e -> e != p && e.isAlive() && isTarget(p, e))) {
+			Vec3 to = mid(e).subtract(eye);
+			double d = to.length();
+			if (d > ErasureConfig.MULTI_RANGE || d < 0.3 || to.scale(1.0 / d).dot(look) < cos || !p.hasLineOfSight(e)) {
+				continue;
+			}
+			all.add(e);
+		}
+		all.sort((a, b) -> Double.compare(a.distanceToSqr(p), b.distanceToSqr(p)));
+		Quirks.setAnim(p, ErasureConfig.ANIM_MULTI);
+		crack(p, 1.1f);
+		endMulti(p);
+		List<LivingEntity> caught = new ArrayList<>();
+		ServerLevel level = p.serverLevel();
+		for (LivingEntity e : all) {
+			if (caught.size() >= ErasureConfig.MULTI_TARGETS) {
+				break;
+			}
+			scarfRibbon(p, mid(e), 9);
+			if (isBoss(e)) {
+				QuirkThreat.add(e, p, 4f);
+				continue;
+			}
+			if (root(p, e, ErasureConfig.MULTI_TICKS) > 0) {
+				caught.add(e);
+				if (e instanceof Mob m) {
+					m.getNavigation().stop();
+				}
+				ErasureSounds.play(level, mid(e), ErasureSounds.BIND, 0.8f, 1.1f);
+				QuirkFx.ring(level, mid(e)).colours(0xF0F0F2, 0x70707A).size(e.getBbWidth() * 2.4f + 0.6f).thickness(0.2f).life(10).spawn();
+			}
+		}
+		if (all.isEmpty()) {
+			for (int i = -1; i <= 1; i++) {
+				Vec3 dir = look.yRot((float) Math.toRadians(i * 22.0));
+				scarfRibbon(p, eye.add(dir.scale(ErasureConfig.MULTI_RANGE * 0.8)), 8);
+			}
+		}
+		long until = now(p) + ErasureConfig.MULTI_TICKS;
+		List<Integer> ids = new ArrayList<>();
+		for (LivingEntity e : caught) {
+			ids.add(e.getId());
+		}
+		if (!ids.isEmpty()) {
+			MULTI.put(p.getUUID(), ids);
+		}
+		Quirks.edit(p, n -> {
+			for (int i = 0; i < ErasureConfig.MULTI_TARGETS; i++) {
+				if (i < ids.size()) {
+					n.vals.put(ErasureConfig.V_MULTI_PREFIX + i, ids.get(i) + 1L);
+				} else {
+					n.vals.remove(ErasureConfig.V_MULTI_PREFIX + i);
+				}
+			}
+			if (ids.isEmpty()) {
+				n.vals.remove(ErasureConfig.V_MULTI_UNTIL);
+			} else {
+				n.vals.put(ErasureConfig.V_MULTI_UNTIL, until);
+			}
+		});
+		Quirks.setCooldown(p, ErasureConfig.MULTI, caught.isEmpty() ? ErasureConfig.MISS_COOLDOWN * 2 : ErasureConfig.MULTI_COOLDOWN);
+		if (!caught.isEmpty()) {
+			QuirkCamera.preset(p, QuirkCamera.Preset.LIGHT_HIT);
+		}
+		return caught;
+	}
+
+	/** Multi-Bind's ties come off (time's up, or he was stopped). */
+	static void endMulti(ServerPlayer p) {
+		List<Integer> ids = MULTI.remove(p.getUUID());
+		if (ids != null) {
+			for (int id : ids) {
+				Entity e = p.level().getEntity(id);
+				Root r = ROOTS.get(id);
+				if (e != null && r != null && r.owner().equals(p.getUUID())) {
+					unroot(e);
+				}
+			}
+		}
+		QuirkState s = st(p);
+		if (s.val(ErasureConfig.V_MULTI_UNTIL) != 0L) {
+			Quirks.edit(p, n -> {
+				for (int i = 0; i < ErasureConfig.MULTI_TARGETS; i++) {
+					n.vals.remove(ErasureConfig.V_MULTI_PREFIX + i);
+				}
+				n.vals.remove(ErasureConfig.V_MULTI_UNTIL);
+			});
+		}
+	}
+
+	/** Tests / HUD: Multi-Bind's creatures right now. */
+	public static List<Integer> multiBound(ServerPlayer p) {
+		return MULTI.getOrDefault(p.getUUID(), List.of());
+	}
+
+	// ================================================================ hold R: Reel Lock (v0.17.1)
+
+	/**
+	 * Hold R on a bound creature: it is strung up on the scarf -- hoisted {@link ErasureConfig#REEL_LIFT} and held there as long
+	 * as he holds, 2 damage a second, Dry Eyes +5 a second (paced). False without a bound creature.
+	 */
+	public static boolean reelStart(ServerPlayer p) {
+		if (REELS.containsKey(p.getUUID())) {
+			return true;
+		}
+		LivingEntity t = boundTarget(p);
+		if (t == null || isBoss(t) || !Quirks.ready(p, ErasureConfig.REEL)) {
+			return false;
+		}
+		Vec3 pin = new Vec3(t.getX(), t.getY() + ErasureConfig.REEL_LIFT, t.getZ());
+		long at = now(p);
+		REELS.put(p.getUUID(), new Reel(t.getId(), at, pin));
+		Quirks.edit(p, n -> {
+			n.vals.put(ErasureConfig.V_REEL, 1L);
+			n.vals.put(ErasureConfig.V_REEL_AT, at);
+		});
+		Quirks.setAnim(p, ErasureConfig.ANIM_REEL);
+		snapFx(p, mid(t), 1.2f);
+		ErasureSounds.play(p.serverLevel(), mid(t), ErasureSounds.BIND, 1.0f, 0.75f);
+		return true;
+	}
+
+	/** R let go: the reel ends (the creature drops back; the bind runs out on its own clock). */
+	public static void reelStop(ServerPlayer p) {
+		Reel r = REELS.remove(p.getUUID());
+		if (st(p).val(ErasureConfig.V_REEL) != 0L) {
+			Quirks.edit(p, n -> {
+				n.vals.remove(ErasureConfig.V_REEL);
+				n.vals.remove(ErasureConfig.V_REEL_AT);
+			});
+		}
+		if (r != null) {
+			Quirks.setCooldown(p, ErasureConfig.REEL, ErasureConfig.REEL_COOLDOWN);
+			if (st(p).animId == ErasureConfig.ANIM_REEL) {
+				Quirks.setAnim(p, QuirkState.ANIM_NONE);
+			}
+			unhoist(p.level().getEntity(r.target())); // let down, no fall damage
+		}
+	}
+
+	/** Reeling right now (tests / HUD). */
+	public static boolean reeling(ServerPlayer p) {
+		return REELS.containsKey(p.getUUID());
+	}
+
+	private static void tickReel(ServerPlayer p) {
+		Reel r = REELS.get(p.getUUID());
+		if (r == null) {
+			return;
+		}
+		long age = now(p) - r.since();
+		Entity e = p.level().getEntity(r.target());
+		if (!(e instanceof LivingEntity t) || !t.isAlive() || age > ErasureConfig.REEL_MAX_TICKS || t.distanceToSqr(p) > 24 * 24) {
+			reelStop(p);
+			return;
+		}
+		// the bind is kept alive while he reels
+		Root root = ROOTS.get(t.getId());
+		if (root == null || root.until() < now(p) + 4) {
+			root(p, t, 10);
+			Quirks.setVal(p, ErasureConfig.V_BIND_UNTIL, now(p) + 10);
+		}
+		// hoisted: rising into the pin, held there (the root's server tick moves it)
+		hoist(t, r.pin().y);
+		t.resetFallDistance();
+		if (age > 0 && age % ErasureConfig.REEL_DAMAGE_EVERY == 0) {
+			t.invulnerableTime = 0;
+			if (scarfStrike(p, t, t.position(), banded(p, ErasureConfig.REEL_DAMAGE), 0.0, 0.0)) {
+				ErasureSounds.play(p.serverLevel(), mid(t), ErasureSounds.SCARF_SNAP, 0.6f, 1.3f);
+			}
+		}
+		if (Quirks.addMeterPaced(p, ErasureConfig.REEL_DRY) >= 100f) { // v0.17.1: the eyes stay open on him
+			shutEyes(p);
+		}
+	}
+
+	/**
+	 * Shift+V (v0.17.1, from Shift+C): goggles down over the eyes (night vision; the client outlines powered players / special
+	 * mobs; the stare locks on and dries the eyes slower) or back up.
+	 */
 	public static boolean goggles(ServerPlayer p) {
 		boolean on = st(p).val(ErasureConfig.V_GOGGLES) == 0L;
-		Quirks.setVal(p, ErasureConfig.V_GOGGLES, on ? 1L : 0L);
+		setGoggles(p, on);
 		Quirks.setAnim(p, ErasureConfig.ANIM_GOGGLES);
 		Quirks.setCooldown(p, ErasureConfig.GOGGLES, ErasureConfig.GOGGLES_COOLDOWN);
+		return on;
+	}
+
+	static void setGoggles(ServerPlayer p, boolean on) {
+		Quirks.setVal(p, ErasureConfig.V_GOGGLES, on ? 1L : 0L);
 		if (on) {
 			nightVision(p);
 		} else {
 			clearNightVision(p);
 		}
-		sound(p, SoundEvents.ARMOR_EQUIP_IRON.value(), 0.6f, on ? 1.5f : 1.2f);
-		return on;
+		sound(p, ErasureSounds.GOGGLES, 0.8f, on ? 1.1f : 0.9f);
 	}
 
 	private static void nightVision(ServerPlayer p) {
@@ -1054,6 +1503,9 @@ public final class ErasureMoves {
 		boolean erasing = s.val(ErasureConfig.V_ERASE) != 0L;
 		if (erasing) {
 			tickErase(p, s);
+			burn(p);
+		} else if (REELS.containsKey(p.getUUID())) {
+			// reeling keeps the eyes open on him: no recovery (tickReel dries them)
 		} else if (s.val(ErasureConfig.V_SHUT) != 0L) {
 			float m = Quirks.addMeterPaced(p, -ErasureConfig.SHUT_RECOVER);
 			if (m <= ErasureConfig.SHUT_OPEN_AT && now(p) - s.val(ErasureConfig.V_SHUT_AT) >= ErasureConfig.SHUT_MIN_TICKS) {
@@ -1066,11 +1518,20 @@ public final class ErasureMoves {
 		tickLine(p, s);
 		tickSpin(p, st(p));
 		tickCombo(p, st(p));
+		tickReel(p);
+		ErasureUltimate.tick(p);
+		s = st(p);
+		if (s.val(ErasureConfig.V_MULTI_UNTIL) != 0L && s.val(ErasureConfig.V_MULTI_UNTIL) <= now(p)) {
+			endMulti(p);
+		}
+		if (s.val(ErasureConfig.V_FLIP_UNTIL) != 0L && s.val(ErasureConfig.V_FLIP_UNTIL) <= now(p) - ErasureConfig.FLIP_TICKS) {
+			Quirks.setVal(p, ErasureConfig.V_FLIP_UNTIL, 0L);
+		}
 		s = st(p);
 		if (s.val(ErasureConfig.V_COUNTER) != 0L && s.val(ErasureConfig.V_COUNTER) <= now(p)) {
 			Quirks.setVal(p, ErasureConfig.V_COUNTER, 0L);
 		}
-		if (s.val(ErasureConfig.V_BIND) != 0L && (s.val(ErasureConfig.V_BIND_UNTIL) < now(p) || boundTarget(p) == null)) {
+		if (s.val(ErasureConfig.V_BIND) != 0L && (s.val(ErasureConfig.V_BIND_UNTIL) < now(p) || boundTarget(p) == null) && !REELS.containsKey(p.getUUID())) {
 			endBind(p);
 		}
 		if (s.val(ErasureConfig.V_GOGGLES) != 0L) {
@@ -1115,8 +1576,11 @@ public final class ErasureMoves {
 		}
 		eraseUp(p);
 		detach(p, false);
+		reelStop(p);
 		endBind(p);
 		endSpin(p);
+		endMulti(p);
+		ErasureUltimate.stop(p);
 		if (st(p).val(ErasureConfig.V_COMBO_AT) != 0L || st(p).val(ErasureConfig.V_COUNTER) != 0L) {
 			Quirks.edit(p, n -> {
 				n.vals.remove(ErasureConfig.V_COMBO_AT);
@@ -1148,15 +1612,25 @@ public final class ErasureMoves {
 				if (e != null) {
 					release(e, r);
 				}
+				HOIST.remove(en.getKey());
 				return true;
 			}
+			Double hoistY = HOIST.get(en.getKey());
 			if (e instanceof ServerPlayer sp) {
 				if (sp.position().subtract(r.pin()).horizontalDistanceSqr() > 0.09) {
 					sp.connection.teleport(r.pin().x, sp.getY(), r.pin().z, sp.getYRot(), sp.getXRot());
 				}
+				if (hoistY != null) {
+					sp.resetFallDistance();
+				}
 			} else {
 				Vec3 v = e.getDeltaMovement();
-				e.setDeltaMovement(0.0, Math.min(v.y, 0.0), 0.0);
+				double vy = hoistY == null ? Math.min(v.y, 0.0) : Mth.clamp((hoistY - e.getY()) * 0.35, -0.15, 0.3);
+				e.setDeltaMovement(0.0, vy, 0.0);
+				e.hurtMarked = hoistY != null || e.hurtMarked;
+				if (hoistY != null) {
+					e.resetFallDistance();
+				}
 				e.setPos(r.pin().x, e.getY(), r.pin().z);
 				if (e instanceof Mob m) {
 					m.getNavigation().stop();

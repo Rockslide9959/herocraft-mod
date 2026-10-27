@@ -98,11 +98,42 @@ public final class ErasurePose {
 			fc(12, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
 			fc(17, -2.8f, -0.15f, 0, -0.5f, 0, -0.2f, -0.15f, 0, 0, 0, 0, 0, 0, 0, -0.7f, 0),
 			restC(22) };
-	// Shift+X Scarf Pull: both hands snap up the line as he is reeled in (the held line pose takes over)
+	// X Scarf Pull: both hands snap up the line as he is reeled in (the held line pose takes over)
 	private static final float[][] ZIP = {
 			restC(0),
 			fc(3, -2.6f, -0.2f, 0, -2.4f, 0.2f, 0, -0.1f, 0, -0.5f, 0, 0, 0.2f, 0, 0, -0.2f, 0),
 			restC(8) };
+	// v0.17.1 Shift+X Evade Flip: spring, tuck tight, open out and land (the whole body flips: flipDegrees)
+	private static final float[][] FLIP = {
+			restC(0),
+			fc(2, -2.7f, 0, 0.35f, -2.7f, 0, -0.35f, -0.15f, 0, -0.3f, 0, 0.1f, -0.2f, 0, -0.1f, -0.3f, 0.4f),
+			fc(5, -1.3f, -0.6f, 0, -1.3f, 0.6f, 0, 0.35f, 0, -1.9f, 0, 0.15f, -1.8f, 0, -0.15f, 0.4f, 0),
+			fc(9, -1.2f, -0.6f, 0, -1.2f, 0.6f, 0, 0.35f, 0, -1.85f, 0, 0.15f, -1.9f, 0, -0.15f, 0.4f, 0),
+			fc(12, -0.5f, 0, 1.0f, -0.5f, 0, -1.0f, 0.1f, 0, -0.45f, 0, 0.1f, -0.3f, 0, -0.1f, 0, 0.45f),
+			restC(16) };
+	// v0.17.1 Shift+C Multi-Bind: wound across the body, then the scarf fanned out in a wide sweep, then both hands cinch
+	private static final float[][] MULTI = {
+			restC(0),
+			fc(3, -1.65f, 0.95f, 0, -0.6f, 0.3f, -0.2f, 0.12f, 0.45f, -0.2f, 0, 0, 0.2f, 0, 0, 0, 0.15f),
+			fc(7, -1.55f, -0.9f, 0.35f, -0.3f, 0, -0.35f, 0.15f, -0.5f, 0.15f, 0, 0, -0.25f, 0, 0, 0, 0.25f),
+			fc(11, -1.2f, -0.3f, 0, -1.15f, 0.45f, 0, -0.12f, 0, -0.3f, 0, 0, 0.3f, 0, 0, 0, 0.2f),
+			fc(14, -1.15f, -0.3f, 0, -1.1f, 0.45f, 0, -0.12f, 0, -0.3f, 0, 0, 0.3f, 0, 0, 0, 0.2f),
+			restC(18) };
+	// v0.17.1 Underground Takedown: both hands snap the goggles down, then he drops into a low ready crouch, arm out
+	private static final float[][] TAKEDOWN = {
+			restC(0),
+			fc(2, -2.6f, -0.5f, 0, -2.6f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.05f, 0),
+			fc(4, -2.45f, -0.5f, 0, -2.45f, 0.5f, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0.15f, 0),
+			fc(8, -1.6f, 0.1f, 0, -0.9f, 0.4f, -0.2f, 0.3f, 0, -0.3f, 0, 0.1f, 0.4f, 0, -0.1f, -0.15f, 0.55f),
+			fc(10, -1.6f, 0.1f, 0, -0.9f, 0.4f, -0.2f, 0.3f, 0, -0.3f, 0, 0.1f, 0.4f, 0, -0.1f, -0.15f, 0.55f),
+			restC(13) };
+	// v0.17.1 the takedown's link: a flying kick off the scarf (chambered, snapped out, held as he lands)
+	private static final float[][] TD_KICK = {
+			restC(0),
+			fc(1, -0.6f, 0, 0.7f, -1.2f, 0.4f, -0.3f, -0.1f, 0.25f, -1.3f, 0, 0.1f, 0.25f, 0, -0.1f, 0, 0.25f),
+			fc(3, 0.45f, 0, 0.6f, -0.9f, 0.3f, -0.55f, -0.32f, 0.35f, -1.75f, 0.2f, 0.15f, 0.35f, 0, -0.1f, 0.1f, 0),
+			fc(5, 0.4f, 0, 0.6f, -0.9f, 0.3f, -0.55f, -0.3f, 0.35f, -1.7f, 0.2f, 0.15f, 0.35f, 0, -0.1f, 0.1f, 0),
+			restC(7) };
 
 	private ErasurePose() {
 	}
@@ -119,6 +150,10 @@ public final class ErasurePose {
 			case ErasureConfig.ANIM_GOGGLES -> GOGGLES;
 			case ErasureConfig.ANIM_DROPS -> DROPS;
 			case ErasureConfig.ANIM_ZIP -> ZIP;
+			case ErasureConfig.ANIM_FLIP -> FLIP;
+			case ErasureConfig.ANIM_MULTI -> MULTI;
+			case ErasureConfig.ANIM_TAKEDOWN -> TAKEDOWN;
+			case ErasureConfig.ANIM_TD_KICK -> TD_KICK;
 			default -> null;
 		};
 	}
@@ -205,6 +240,30 @@ public final class ErasurePose {
 			Vec3 at = held.getPosition(partial).add(0, held.getBbHeight() * 0.6, 0);
 			pointAt(p, arm, at, partial, 1f);
 			pose(other, 1f, arm.xRot + 0.35f, arm.yRot + 0.35f, 0f);
+			if (s.val(ErasureConfig.V_REEL) != 0L) {
+				// v0.17.1 Reel Lock: strung up -- leaning back hard, hauling hand over hand
+				float haul = Mth.sin(t * 0.45f);
+				arm.xRot -= 0.35f + 0.25f * haul;
+				other.xRot = arm.xRot + 0.55f - 0.5f * haul;
+				com.projecthero.mod.client.HipBend.pitch(m, 1f, -0.28f);
+				pose(m.rightLeg, 1f, -0.55f, 0f, 0.08f);
+				pose(m.leftLeg, 1f, 0.3f, 0f, -0.08f);
+			}
+		}
+		// ---- v0.17.1 Multi-Bind: the scarf in both fists, hauling on the fan of ties
+		if (s.val(ErasureConfig.V_MULTI_UNTIL) > now && line == 0L && held == null && s.animId != ErasureConfig.ANIM_MULTI) {
+			pose(arm, 1f, -1.1f, -0.25f, 0f);
+			pose(other, 1f, -1.0f, 0.4f, 0f);
+			com.projecthero.mod.client.HipBend.pitch(m, 1f, -0.12f);
+		}
+		// ---- v0.17.1 the takedown's finish: every one strung up, both arms hauling the lines tight
+		if (s.val(ErasureConfig.V_TD_HANG_UNTIL) > now && s.animId != ErasureConfig.ANIM_TD_KICK) {
+			float haul = Mth.sin(t * 0.4f);
+			pose(arm, 1f, -2.3f - 0.15f * haul, -0.25f, 0.2f);
+			pose(other, 1f, -1.9f + 0.15f * haul, 0.35f, -0.2f);
+			com.projecthero.mod.client.HipBend.pitch(m, 1f, -0.25f);
+			pose(m.rightLeg, 1f, -0.5f, 0f, 0.1f);
+			pose(m.leftLeg, 1f, 0.35f, 0f, -0.1f);
 		}
 		// ---- Bind and Spin: leaning back against the weight, both hands out on the scarf (the body turns with it)
 		if (s.val(ErasureConfig.V_SPIN) != 0L) {
@@ -266,6 +325,25 @@ public final class ErasurePose {
 			float k = (age - 12f) / 5f;
 			return k <= 0f || k >= 1f ? 0f : -360f * eased(k);
 		}
+		if (s.animId == ErasureConfig.ANIM_MULTI) {
+			// the fan: a quarter turn into the sweep and back
+			float age = now - s.animStart + partial;
+			return (float) (Math.sin(Math.PI * Mth.clamp((age - 2f) / 10f, 0f, 1f)) * -40.0);
+		}
 		return 0f;
+	}
+
+	/** v0.17.1: degrees of whole-body pitch -- the Evade Flip's backflip ({@code ErasureSpinMixin}). */
+	public static float flipDegrees(Player p, float partial) {
+		if (!Quirks.holds(p, Quirk.ERASURE)) {
+			return 0f;
+		}
+		QuirkState s = Quirks.peek(p);
+		if (s == null || s.animId != ErasureConfig.ANIM_FLIP) {
+			return 0f;
+		}
+		float age = p.level().getGameTime() - s.animStart + partial;
+		float k = (age - 1.5f) / 11f;
+		return k <= 0f || k >= 1f ? 0f : -360f * eased(k);
 	}
 }

@@ -228,6 +228,26 @@ public final class GeoTerrain {
 		}
 	}
 
+	/**
+	 * v0.17.1 (Zero Gravity's Crane): the block lifted from {@code pos} was set down somewhere else for good -- forget the
+	 * cell without putting anything back (the hole it left stays, like a moved block).
+	 */
+	public static void commit(ServerLevel level, BlockPos pos) {
+		List<Entry> list = ENTRIES.get(pos.asLong());
+		if (list == null) {
+			return;
+		}
+		if (list.removeIf(e -> e.level == level)) {
+			count = 0;
+			for (List<Entry> l : ENTRIES.values()) {
+				count += l.size();
+			}
+		}
+		if (list.isEmpty()) {
+			ENTRIES.remove(pos.asLong());
+		}
+	}
+
 	public static int pending() {
 		return count;
 	}

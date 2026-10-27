@@ -8,10 +8,18 @@ import com.projecthero.mod.quirk.Quirk;
 import com.projecthero.mod.quirk.QuirkKits;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
+import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.QuirkAbilityManager;
+import com.projecthero.mod.quirk.QuirkCombos;
 import com.projecthero.mod.quirk.erasure.ErasureConfig;
+import com.projecthero.mod.quirk.erasure.ErasureExposed;
 import com.projecthero.mod.quirk.erasure.ErasureItems;
+import com.projecthero.mod.quirk.erasure.ErasureKit;
+import com.projecthero.mod.quirk.erasure.ErasureMeter;
 import com.projecthero.mod.quirk.erasure.ErasureMobs;
 import com.projecthero.mod.quirk.erasure.ErasureMoves;
+import com.projecthero.mod.quirk.erasure.ErasureSleepingBag;
+import com.projecthero.mod.quirk.erasure.ErasureUltimate;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
@@ -137,10 +145,20 @@ public class QuirkErasureGameTests implements FabricGameTest {
 			}
 		}
 		helper.assertTrue(n == 12, "twelve");
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(ErasureConfig.SWING) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(ErasureConfig.ZIP),
-				"X: Scarf Swing / Scarf Pull (movement)");
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(ErasureConfig.ERASE) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(ErasureConfig.DROPS),
-				"V: the stare / Eye Drops (utility)");
+		// v0.17.1 revamp layout (docs/QUIRKS_REVAMP_PROPOSAL.md 3.5)
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(ErasureConfig.ZIP) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(ErasureConfig.FLIP),
+				"X: Scarf Pull / Evade Flip (movement)");
+		helper.assertTrue(ErasureConfig.SWING.equals(kit.holdIdOf(AbilitySlot.SLOT_3)), "hold X: Scarf Swing");
+		helper.assertTrue(ErasureConfig.REEL.equals(kit.holdIdOf(AbilitySlot.SLOT_1)), "hold R: Reel Lock");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(ErasureConfig.ERASE) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(ErasureConfig.GOGGLES),
+				"V: the stare / Goggles (utility)");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_6)[0].equals(ErasureConfig.WHIP) && kit.idsOf(AbilitySlot.SLOT_6)[1].equals(ErasureConfig.MULTI),
+				"C: Scarf Whip / Multi-Bind (hold C = the ultimate)");
+		for (AbilitySlot slot : AbilitySlot.values()) {
+			for (String id : kit.idsOf(slot)) {
+				helper.assertFalse(id.equals(ErasureConfig.DROPS), "Eye Drops left the keys");
+			}
+		}
 		helper.succeed();
 	}
 
@@ -169,7 +187,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void capturePullHitsForThreeAndYanksIn(GameTestHelper helper) {
+	public void capturePullHitsForSixAndYanksIn(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 100, true);
@@ -178,7 +196,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		LivingEntity hit = ErasureMoves.pull(p);
 		helper.assertTrue(hit == z, "the bound zombie is pulled");
 		helper.assertTrue(!ErasureMoves.rooted(z), "the bind lets go for the pull");
-		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.LASH_DAMAGE) < EPS, "3 damage, took " + (100f - z.getHealth()));
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.LASH_DAMAGE) < EPS, "6 damage, took " + (100f - z.getHealth()));
 		helper.assertTrue(z.getDeltaMovement().z < -0.3, "yanked toward him, v=" + z.getDeltaMovement());
 		helper.succeed();
 	}
@@ -227,7 +245,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		helper.assertTrue(kit.modifyIncomingDamage(p, hit, 5f) == 5f, "no window: the hit lands");
 		helper.assertTrue(ErasureMoves.counter(p), "parry stance");
 		helper.assertTrue(kit.modifyIncomingDamage(p, hit, 5f) == 0f, "the hit is caught");
-		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.COUNTER_DAMAGE) < EPS, "answered for 8, took " + (100f - z.getHealth()));
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.COUNTER_DAMAGE) < EPS, "answered for 10, took " + (100f - z.getHealth()));
 		helper.assertTrue(ErasureMoves.rooted(z), "and tied up");
 		helper.assertTrue(kit.modifyIncomingDamage(p, hit, 5f) == 5f, "one catch per window");
 		helper.succeed();
@@ -259,7 +277,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		p.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(helper.absolutePos(anchor)));
 		pump(helper, p);
 		helper.assertTrue(ErasureMoves.swingDown(p), "swinging");
-		helper.assertTrue(ErasureMoves.zip(p), "Shift+X mid-swing: up the line");
+		helper.assertTrue(ErasureMoves.zip(p), "Scarf Pull mid-swing: up the line");
 		helper.assertTrue(val(p, ErasureConfig.V_LINE) == 3L, "reeling to the block");
 		// the owning client moves him; here he arrives by hand
 		helper.runAfterDelay(3, () -> {
@@ -273,7 +291,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
-	public void scarfPullToACreatureKicksForFour(GameTestHelper helper) {
+	public void scarfPullToACreatureKicksForSix(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 100, false);
@@ -285,7 +303,7 @@ public class QuirkErasureGameTests implements FabricGameTest {
 			p.teleportTo(z.getX(), z.getY(), z.getZ() - 1.4);
 			helper.runAfterDelay(2, () -> {
 				helper.assertTrue(val(p, ErasureConfig.V_LINE) == 0L, "the pull ends on arrival");
-				helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.ZIP_KICK_DAMAGE) < EPS, "4 on arrival, took " + (100f - z.getHealth()));
+				helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.ZIP_KICK_DAMAGE) < EPS, "6 on arrival, took " + (100f - z.getHealth()));
 				helper.succeed();
 			});
 		});
@@ -332,13 +350,13 @@ public class QuirkErasureGameTests implements FabricGameTest {
 	// ---------------------------------------------------------------- C
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void scarfWhipHitsForFive(GameTestHelper helper) {
+	public void scarfWhipHitsForSeven(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 100, false);
 		look(p, z);
 		helper.assertTrue(ErasureMoves.whip(p) == z, "lashed");
-		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.WHIP_DAMAGE) < EPS, "5 damage, took " + (100f - z.getHealth()));
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.WHIP_DAMAGE) < EPS, "7 damage, took " + (100f - z.getHealth()));
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "staggered");
 		helper.succeed();
 	}
@@ -444,6 +462,20 @@ public class QuirkErasureGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void eyeDropsItemByHandOpensShutEyes(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Quirks.setMeter(p, 100f);
+		ErasureMoves.shutEyes(p);
+		ItemStack drops = new ItemStack(ErasureItems.EYE_DROPS, 2);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, drops);
+		ErasureItems.EYE_DROPS.use(helper.getLevel(), p, net.minecraft.world.InteractionHand.MAIN_HAND);
+		helper.assertTrue(Quirks.meter(p) < 0.01f && !ErasureMoves.eyesShut(p), "right-clicked: Dry Eyes 0, eyes open");
+		helper.assertTrue(p.getMainHandItem().getCount() == 1, "one used up");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
 	public void eyeDropsNeedTheItemAndOpenShutEyes(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
@@ -458,6 +490,321 @@ public class QuirkErasureGameTests implements FabricGameTest {
 		helper.assertFalse(ErasureMoves.eyesShut(p), "his eyes open");
 		helper.assertTrue(p.getInventory().countItem(ErasureItems.EYE_DROPS) == 1, "one used up");
 		helper.assertTrue(!Quirks.ready(p, ErasureConfig.DROPS), "cooldown set");
+		helper.succeed();
+	}
+
+	// ================================================================ v0.17.1 revamp
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void exposedTakesMoreDamageCannotSprintOrJumpHigher(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Zombie erased = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 5.0, 100, false);
+		Zombie plain = mob(helper, EntityType.ZOMBIE, 6.5, 2.0, 5.0, 100, false);
+		PowerSuppression.suppress(erased, 100);
+		helper.assertTrue(ErasureExposed.exposed(erased) && !ErasureExposed.exposed(plain), "erased = Exposed");
+		erased.hurt(helper.getLevel().damageSources().playerAttack(p), 10f);
+		plain.hurt(helper.getLevel().damageSources().playerAttack(p), 10f);
+		helper.assertTrue(Math.abs((100f - plain.getHealth()) - 10f) < EPS, "the plain one takes 10, took " + (100f - plain.getHealth()));
+		helper.assertTrue(Math.abs((100f - erased.getHealth()) - 10f * ErasureConfig.EXPOSED_DAMAGE_MULT) < EPS,
+				"the Exposed one takes +20%, took " + (100f - erased.getHealth()));
+		erased.setSprinting(true);
+		plain.setSprinting(true);
+		helper.assertTrue(!erased.isSprinting() && plain.isSprinting(), "no sprint while Exposed");
+		erased.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.JUMP, 200, 2));
+		plain.addEffect(new net.minecraft.world.effect.MobEffectInstance(MobEffects.JUMP, 200, 2));
+		helper.assertTrue(erased.getJumpBoostPower() == 0f && plain.getJumpBoostPower() > 0f, "no jump boost while Exposed");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void theStareLeavesItsTargetExposed(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.5, 100, false);
+		look(p, z);
+		helper.assertTrue(ErasureMoves.eraseDown(p), "the stare");
+		helper.assertTrue(ErasureExposed.exposed(z), "a plain zombie has no power to lose, but it is Exposed");
+		helper.assertTrue(ErasureMoves.whip(p) == z, "whipped");
+		helper.assertTrue(Math.abs((100f - z.getHealth()) - ErasureConfig.WHIP_DAMAGE * ErasureConfig.EXPOSED_DAMAGE_MULT) < EPS,
+				"7 x 1.2, took " + (100f - z.getHealth()));
+		helper.assertTrue(ErasureMoves.rooted(z), "and a scarf hit on an erased target ties it");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void reelLockStringsABoundTargetUpWhileHeld(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
+		double y0 = z.getY();
+		look(p, z);
+		pump(helper, p);
+		helper.assertFalse(ErasureMoves.reelStart(p), "nothing bound: no reel");
+		helper.assertTrue(ErasureMoves.bind(p) == z, "bound");
+		helper.assertTrue(ErasureMoves.reelStart(p) && ErasureMoves.reeling(p) && ErasureMoves.hoisted(z), "strung up");
+		helper.runAfterDelay(30, () -> {
+			helper.assertTrue(z.getY() > y0 + 0.6, "hoisted off the ground, +" + (z.getY() - y0));
+			helper.assertTrue(100f - z.getHealth() >= 2f * ErasureConfig.REEL_DAMAGE, "2 a second, took " + (100f - z.getHealth()));
+			helper.assertTrue(Quirks.meter(p) > 0.5f, "it dries his eyes, " + Quirks.meter(p));
+			helper.assertTrue(ErasureMoves.rooted(z), "the bind is kept alive while he reels");
+			ErasureMoves.reelStop(p);
+			helper.assertTrue(!ErasureMoves.reeling(p) && !ErasureMoves.hoisted(z), "let go: it comes down");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void holdingRBindsThenReels(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
+		look(p, z);
+		pump(helper, p);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		helper.assertTrue(ErasureMoves.boundTarget(p) == z, "R down: Capture Bind at once");
+		helper.runAfterDelay(ErasureKit.holdTicks(AbilitySlot.SLOT_1) + 3, () -> {
+			helper.assertTrue(ErasureMoves.reeling(p), "still held: Reel Lock");
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+			helper.assertFalse(ErasureMoves.reeling(p), "R up: the reel ends");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void tapXPullsHoldXSwings(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		BlockPos anchor = new BlockPos(4, 7, 5);
+		helper.getLevel().setBlock(helper.absolutePos(anchor), Blocks.STONE.defaultBlockState(), 3);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, Vec3.atCenterOf(helper.absolutePos(anchor)));
+		pump(helper, p);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		helper.runAfterDelay(1, () -> {
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+			helper.assertTrue(val(p, ErasureConfig.V_LINE) == 3L, "a tap: Scarf Pull to the block");
+			ErasureMoves.detach(p, false);
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, true);
+		});
+		helper.runAfterDelay(4 + ErasureConfig.SWING_HOLD_TICKS + 3, () -> {
+			helper.assertTrue(val(p, ErasureConfig.V_LINE) == 1L, "held: the Scarf Swing");
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_3, false);
+			helper.assertTrue(val(p, ErasureConfig.V_LINE) == 0L, "let go: released");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void evadeFlipDodgesWhileItsIFramesRun(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 4.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
+		var kit = QuirkKits.of(Quirk.ERASURE);
+		var hit = helper.getLevel().damageSources().mobAttack(z);
+		pump(helper, p);
+		helper.assertTrue(ErasureMoves.flip(p), "flip");
+		helper.assertTrue(p.getDeltaMovement().z < -0.5 && p.getDeltaMovement().y > 0.3, "back and up, away from where he looks: " + p.getDeltaMovement());
+		helper.assertTrue(kit.modifyIncomingDamage(p, hit, 6f) == 0f, "dodged");
+		helper.runAfterDelay(ErasureConfig.FLIP_IFRAMES + 2, () -> {
+			helper.assertTrue(kit.modifyIncomingDamage(p, hit, 6f) == 6f, "the i-frames are short");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void multiBindTiesUpToThreeInTheCone(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 0.5);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 3.0, 2.0, 5.0, 100, false);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 100, false);
+		Zombie c = mob(helper, EntityType.ZOMBIE, 6.0, 2.0, 6.0, 100, false);
+		Zombie d = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.5, 100, false);
+		Zombie boss = mob(helper, EntityType.ZOMBIE, 2.0, 2.0, 7.0, 400, false);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, b.position().add(0, 1.0, 0));
+		pump(helper, p);
+		List<LivingEntity> caught = ErasureMoves.multiBind(p);
+		helper.assertTrue(caught.size() == ErasureConfig.MULTI_TARGETS, "three tied up, got " + caught.size());
+		int rooted = (ErasureMoves.rooted(a) ? 1 : 0) + (ErasureMoves.rooted(b) ? 1 : 0) + (ErasureMoves.rooted(c) ? 1 : 0) + (ErasureMoves.rooted(d) ? 1 : 0);
+		helper.assertTrue(rooted == 3, "the nearest three, rooted " + rooted);
+		helper.assertFalse(ErasureMoves.rooted(boss), "a boss breaks free");
+		helper.assertTrue(QuirkKits.of(Quirk.ERASURE).active(p, AbilitySlot.SLOT_6), "the C box lights");
+		helper.runAfterDelay(ErasureConfig.MULTI_TICKS + 4, () -> {
+			helper.assertTrue(!ErasureMoves.rooted(a) && !ErasureMoves.rooted(b) && !ErasureMoves.rooted(c), "free after 2.5 s");
+			helper.assertTrue(ErasureMoves.multiBound(p).isEmpty() && val(p, ErasureConfig.V_MULTI_UNTIL) == 0L, "over");
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void dryEyesBandsChangeTheStare(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 4.0, 2.0, 6.5, 100, false);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 5.2, 2.0, 6.5, 100, false);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, a.position().add(0.6, 1.0, 0));
+		Quirks.setMeter(p, 10f);
+		helper.assertTrue(ErasureMoves.stareRange(p) == ErasureConfig.ERASE_RANGE, "Fresh: 24 blocks");
+		helper.assertTrue(ErasureMoves.stareTargets(p).size() == 1, "Fresh: one target");
+		Quirks.setMeter(p, 60f);
+		helper.assertTrue(ErasureMoves.stareRange(p) == ErasureConfig.ERASE_RANGE_STRAINED, "Strained: 32 blocks");
+		Quirks.setMeter(p, 92f);
+		helper.assertTrue(ErasureMoves.stareTargets(p).size() == ErasureConfig.BURNING_TARGETS, "Burning: two at once");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void burningEyesHurtWhileHeStares(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
+		look(p, z);
+		pump(helper, p);
+		Quirks.setMeter(p, 95f);
+		float hp = p.getHealth();
+		helper.assertTrue(ErasureMoves.eraseDown(p), "stare");
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(p.getHealth() < hp, "0.5 a second while Burning: " + hp + " -> " + p.getHealth());
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void bindThenSpinIsTheStrungUpCombo(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.0, 2.0, 4.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.0, 2.0, 6.5, 120, false);
+		look(p, z);
+		pump(helper, p);
+		helper.assertTrue(ErasureMoves.bind(p) == z && ErasureMoves.spin(p) == z, "bind, then spin the same one");
+		helper.assertTrue(QuirkCombos.last(p) == ErasureMeter.BIND_SPIN, "Strung Up landed");
+		helper.runAfterDelay(ErasureConfig.SPIN_TICKS + 3, () -> {
+			helper.assertTrue(120f - z.getHealth() >= ErasureConfig.SPIN_THROW_DAMAGE * 1.5f - EPS, "a 1.5x fling, took " + (120f - z.getHealth()));
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void whipThenPullIsCrackAndYank(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 100, false);
+		look(p, z);
+		helper.assertTrue(ErasureMoves.whip(p) == z, "whip");
+		float after = z.getHealth();
+		z.invulnerableTime = 0;
+		helper.assertTrue(ErasureMoves.pull(p) == z, "pull");
+		helper.assertTrue(QuirkCombos.last(p) == ErasureMeter.CRACK_YANK, "Crack and Yank landed");
+		helper.assertTrue(Math.abs((after - z.getHealth()) - ErasureConfig.LASH_DAMAGE * 1.4f) < EPS, "a 1.4x yank, took " + (after - z.getHealth()));
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void capturePullDragsAnAllyToSafety(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		net.minecraft.world.entity.animal.Wolf w = mob(helper, EntityType.WOLF, 4.5, 4.0, 6.0, 20, false);
+		w.tame(p);
+		w.fallDistance = 6f;
+		w.setDeltaMovement(0, -0.9, 0);
+		look(p, w);
+		float gauge = PlusUltra.gauge(p);
+		helper.assertTrue(ErasureMoves.pull(p) == w, "the pull takes his own wolf");
+		helper.assertTrue(w.getHealth() >= 20f - 0.01f, "no harm to an ally");
+		helper.assertTrue(w.getDeltaMovement().z < -0.3 && w.fallDistance == 0f && w.hasEffect(MobEffects.SLOW_FALLING), "dragged to him, landing soft");
+		helper.assertTrue(PlusUltra.gauge(p) >= gauge + PlusUltra.ALLY_SAVE - 0.01f, "a rescue fills Plus Ultra");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void undergroundTakedownErasesTheConeChainsAndStringsThemUp(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 0.5);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 3.5, 2.0, 5.0, 100, false);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 5.5, 2.0, 7.0, 100, false);
+		Zombie boss = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 9.0, 400, false);
+		Zombie behind = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, -3.0, 100, false);
+		p.lookAt(EntityAnchorArgument.Anchor.EYES, b.position().add(-1.0, 1.0, 0));
+		int erased = ErasureUltimate.fire(p);
+		helper.assertTrue(erased >= 3, "the cone: " + erased);
+		helper.assertTrue(PowerSuppression.isSuppressed(a) && PowerSuppression.isSuppressed(b) && PowerSuppression.isSuppressed(boss), "all erased");
+		helper.assertFalse(PowerSuppression.isSuppressed(behind), "not the one behind him");
+		helper.assertTrue(PowerSuppression.remaining(boss) <= ErasureConfig.TD_BOSS_ERASE_TICKS, "a boss for 4 s");
+		helper.assertTrue(val(p, ErasureConfig.V_GOGGLES) == 1L, "goggles snapped down");
+		helper.assertTrue(ErasureUltimate.chain(p).contains(a.getId()) && ErasureUltimate.chain(p).contains(b.getId()), "both in the chain");
+		ErasureUltimate.hopForTest(p);
+		ErasureUltimate.hopForTest(p);
+		helper.assertTrue(100f - a.getHealth() >= ErasureConfig.TD_KICK_DAMAGE * ErasureConfig.EXPOSED_DAMAGE_MULT - EPS, "kicked (Exposed), took "
+				+ (100f - a.getHealth()));
+		helper.assertTrue(ErasureMoves.rooted(a) && ErasureMoves.rooted(b), "and bound");
+		ErasureUltimate.completeForTest(p);
+		helper.assertFalse(ErasureMoves.rooted(boss), "a boss is never bound");
+		helper.assertTrue(!ErasureUltimate.running(p) && ErasureMoves.eyesShut(p) && Quirks.meter(p) >= 99.9f, "after it: his eyes are spent");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void plusUltraHoldFiresTheTakedown(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 0.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 6.0, 100, false);
+		look(p, z);
+		pump(helper, p);
+		PlusUltra.set(p, 100f);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		helper.runAfterDelay(PlusUltra.HOLD_TICKS + 3, () -> {
+			helper.assertTrue(ErasureUltimate.running(p) || ErasureMoves.eyesShut(p), "hold C at 100: Underground Takedown");
+			helper.assertTrue(PowerSuppression.isSuppressed(z), "the zombie was erased");
+			helper.assertTrue(PlusUltra.gauge(p) < 1f, "the gauge is spent");
+			QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void undergroundHalvesHowFarMobsSeeHimInTheDark(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		p.setShiftKeyDown(true);
+		p.setPose(net.minecraft.world.entity.Pose.CROUCHING);
+		double v = ErasureExposed.visibility(p, 1.0);
+		helper.assertTrue(v == (ErasureExposed.dark(p) ? ErasureConfig.UNDERGROUND_VISIBILITY : 1.0), "sneaking: half range only in the dark, " + v);
+		p.setShiftKeyDown(false);
+		p.setPose(net.minecraft.world.entity.Pose.STANDING);
+		helper.assertTrue(ErasureExposed.visibility(p, 1.0) == 1.0, "standing: no change");
+		ServerPlayer other = mock(helper, 2.5, 2.0, 1.0);
+		other.setShiftKeyDown(true);
+		other.setPose(net.minecraft.world.entity.Pose.CROUCHING);
+		helper.assertTrue(ErasureExposed.visibility(other, 1.0) == 1.0, "not an Eraser: no change");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void sleepingBagSleepsAnywhereKeepsTheSpawnAndRefreshesHisEyes(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = eraser(helper, 4.5, 2.0, 1.0);
+		p.setOnGround(true);
+		long time = helper.getLevel().getDayTime();
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(ErasureSleepingBag.SLEEPING_BAG));
+		p.setGameMode(GameType.CREATIVE); // (no monster check: another test's zombies may stand close)
+		helper.getLevel().setDayTime(6000L);
+		helper.getLevel().updateSkyBrightness();
+		helper.assertTrue("block.minecraft.bed.no_sleep".equals(ErasureSleepingBag.trySleep(p)), "not by day");
+		helper.getLevel().setDayTime(18000L);
+		helper.getLevel().updateSkyBrightness();
+		var spawn = p.getRespawnPosition();
+		Quirks.setMeter(p, 80f);
+		helper.assertTrue(ErasureSleepingBag.trySleep(p) == null, "at night: in the bag");
+		helper.assertTrue(p.isSleeping() && ErasureSleepingBag.inBag(p), "asleep in the Sleeping Bag");
+		helper.assertTrue(java.util.Objects.equals(spawn, p.getRespawnPosition()), "the spawn point never moved");
+		var air = helper.getLevel().getBlockState(p.blockPosition());
+		helper.assertTrue(net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents.ALLOW_BED.invoker().allowBed(p, p.blockPosition(), air, false)
+				== net.minecraft.world.InteractionResult.SUCCESS, "the bag counts as a bed while held");
+		p.stopSleeping();
+		helper.assertTrue(!p.isSleeping() && Quirks.meter(p) < 0.01f, "woke with Dry Eyes at 0");
+		helper.assertTrue(helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("sleeping_bag")).isPresent(), "it has a recipe");
+		helper.getLevel().setDayTime(time);
+		helper.getLevel().updateSkyBrightness();
 		helper.succeed();
 	}
 

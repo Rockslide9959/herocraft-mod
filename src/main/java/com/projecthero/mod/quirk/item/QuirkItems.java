@@ -87,6 +87,7 @@ public final class QuirkItems {
 		}
 		output.accept(QUIRK_TRIGGER);
 		output.accept(com.projecthero.mod.quirk.erasure.ErasureItems.EYE_DROPS); // v0.16.7 revamp: Erasure's Eye Drops
+		output.accept(com.projecthero.mod.quirk.erasure.ErasureSleepingBag.SLEEPING_BAG); // v0.17.1 revamp: Aizawa's Sleeping Bag
 		QuirkSuits.addToCreativeTab(output);
 	}
 }

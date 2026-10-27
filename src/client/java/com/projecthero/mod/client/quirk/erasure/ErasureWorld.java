@@ -132,6 +132,39 @@ public final class ErasureWorld {
 		if (spun != null) {
 			ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, spun, partial, 0.8f, t), 0.05f, t, 0.05f));
 		}
+		// ---- v0.17.1 Multi-Bind: a fan of ties from his hand, one to each creature it caught, coiled round each
+		if (s.val(ErasureConfig.V_MULTI_UNTIL) > now) {
+			for (int i = 0; i < ErasureConfig.MULTI_TARGETS; i++) {
+				Entity e = entity(mc, s, ErasureConfig.V_MULTI_PREFIX + i);
+				if (e != null) {
+					Vec3 m = mid(e, partial);
+					ribbon(mc, pose, buffers, cam, curve(hand, coils(mc, pose, buffers, cam, e, partial, 0.75f, t + i * 7), (float) Math.min(0.6,
+							hand.distanceTo(m) * 0.05), t + i * 3, 0.05f));
+				}
+			}
+		}
+		// ---- v0.17.1 Underground Takedown: the scarf links every one he has chained through (hand -> 1 -> 2 -> ...)
+		if (s.val(ErasureConfig.V_TD_AT) != 0L) {
+			long step = s.val(ErasureConfig.V_TD_STEP);
+			boolean hang = s.val(ErasureConfig.V_TD_HANG_UNTIL) > now;
+			Vec3 prev = hand;
+			for (int i = 0; i < ErasureConfig.TD_TARGETS && (i < step || hang); i++) {
+				Entity e = entity(mc, s, ErasureConfig.V_TD_PREFIX + i);
+				if (e == null) {
+					continue;
+				}
+				Vec3 c = coils(mc, pose, buffers, cam, e, partial, hang ? 1f : 0.6f, t + i * 5);
+				ribbon(mc, pose, buffers, cam, curve(prev, c, hang ? 0.05f : 0.35f, t + i * 2, hang ? 0.02f : 0.08f));
+				prev = mid(e, partial);
+			}
+		}
+		// ---- v0.17.1 the stare's sight line: a faint red line from his eyes to whoever it holds -- only HE sees it
+		if (p == mc.player && s.val(ErasureConfig.V_ERASE) != 0L) {
+			Entity held2 = entity(mc, s, ErasureConfig.V_STARE_TARGET);
+			if (held2 != null) {
+				sightLine(pose, buffers, cam, camera, p, mid(held2, partial), t);
+			}
+		}
 		// ---- the whip (out and back)
 		float age = now - s.val(ErasureConfig.V_LASH_AT) + partial;
 		Vec3 tip = Quirks.vec(s, ErasureConfig.P_LASH);
@@ -140,6 +173,31 @@ public final class ErasureWorld {
 			Vec3 end = hand.lerp(tip, Mth.clamp(out, 0f, 1f));
 			ribbon(mc, pose, buffers, cam, curve(hand, end, 0.15f * (1f - out), t, 0.12f * (1f - out)));
 		}
+	}
+
+	/** v0.17.1: the stare's faint red sight line (glowing, thin, pulsing), from just under the camera to {@code to}. */
+	private static void sightLine(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Camera camera, Player p, Vec3 to, float t) {
+		Vector3f look = camera.getLookVector(), up = camera.getUpVector();
+		Vec3 from = cam.add(look.x * 0.5, look.y * 0.5, look.z * 0.5).add(-up.x * 0.16, -up.y * 0.16, -up.z * 0.16);
+		Vec3 a = from.subtract(cam), b = to.subtract(cam);
+		Vec3 d = b.subtract(a);
+		if (d.lengthSqr() < 1.0e-4) {
+			return;
+		}
+		Vec3 w = d.cross(a.add(b).scale(0.5));
+		if (w.lengthSqr() < 1.0e-9) {
+			return;
+		}
+		w = w.normalize().scale(0.012);
+		float pulse = 0.35f + 0.15f * Mth.sin(t * 0.4f);
+		VertexConsumer vc = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.RIBBON);
+		PoseStack.Pose last = pose.last();
+		int red = 0xFF2020;
+		float[][] q = { { (float) (a.x - w.x), (float) (a.y - w.y), (float) (a.z - w.z), 0, 0 }, { (float) (b.x - w.x * 4), (float) (b.y - w.y * 4),
+				(float) (b.z - w.z * 4), 1, 0 }, { (float) (b.x + w.x * 4), (float) (b.y + w.y * 4), (float) (b.z + w.z * 4), 1, 1 },
+				{ (float) (a.x + w.x), (float) (a.y + w.y), (float) (a.z + w.z), 0, 1 } };
+		com.projecthero.mod.client.quirk.fx.QuirkFxDraw.gquad(vc, last, q, new int[] { red, red, red, red }, new float[] { pulse * 0.3f, pulse, pulse,
+				pulse * 0.3f });
 	}
 
 	/** Points along a line from {@code a} to {@code b} that sags {@code sag} and ripples {@code ripple}. */

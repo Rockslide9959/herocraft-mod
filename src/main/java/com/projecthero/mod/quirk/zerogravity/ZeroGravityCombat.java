@@ -93,18 +93,18 @@ public final class ZeroGravityCombat {
 		return best;
 	}
 
-	/** The five-finger touch: pink sparkles where her fingertips met it, and the soft "boop". */
+	/** The five-finger touch: pink sparkles and a soft ring where her fingertips met it, and the "pip" (v0.17.1). */
 	public static void touchFx(ServerLevel level, Vec3 at) {
-		level.sendParticles(PINK_BIG, at.x, at.y, at.z, 10, 0.25, 0.3, 0.25, 0.0);
-		level.sendParticles(PINK_PALE, at.x, at.y, at.z, 8, 0.4, 0.4, 0.4, 0.0);
-		level.sendParticles(ParticleTypes.END_ROD, at.x, at.y, at.z, 3, 0.2, 0.2, 0.2, 0.03);
-		level.sendParticles(ParticleTypes.WAX_OFF, at.x, at.y, at.z, 4, 0.3, 0.3, 0.3, 0.5);
+		level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.PINK_SPARKLE, at.x, at.y, at.z, 12, 0.25, 0.3, 0.25, 0.03);
+		level.sendParticles(PINK_PALE, at.x, at.y, at.z, 6, 0.4, 0.4, 0.4, 0.0);
+		com.projecthero.mod.quirk.fx.QuirkFx.ring(level, at).colours(0xFFFFFF, 0xFF8FC8).size(1.2f).thickness(0.14f).life(9).spawn();
 		boop(level, at, 1.0f);
 	}
 
+	/** The touch's "pip" (the kit's own sound, a faint vanilla chime under it). */
 	public static void boop(ServerLevel level, Vec3 at, float pitch) {
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.NOTE_BLOCK_PLING.value(), SoundSource.PLAYERS, 0.6f, 1.6f * pitch);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.9f, 1.5f * pitch);
+		level.playSound(null, at.x, at.y, at.z, ZeroGravitySounds.TOUCH, SoundSource.PLAYERS, 0.8f, pitch);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.PLAYERS, 0.35f, 1.5f * pitch);
 	}
 
 	/** A soft pastel trail under a floater. */
@@ -114,6 +114,7 @@ public final class ZeroGravityCombat {
 
 	public static void burst(ServerLevel level, Vec3 c, int count, double spread) {
 		level.sendParticles(PINK_BIG, c.x, c.y, c.z, count, spread, spread, spread, 0.0);
-		level.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, Math.max(1, count / 5), spread, spread, spread, 0.03);
+		level.sendParticles(com.projecthero.mod.quirk.fx.QuirkParticles.PINK_SPARKLE, c.x, c.y, c.z, Math.max(1, count / 2), spread, spread, spread,
+				0.03);
 	}
 }

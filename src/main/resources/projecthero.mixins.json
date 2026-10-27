@@ -97,6 +97,7 @@
 		"ErasureEnderManMixin",
 		"ErasureShulkerMixin",
 		"ErasureServerLevelSpawnMixin",
+		"ErasureExposedMixin",
 		"OverhaulExplosionMixin",
 		"SecondChanceSpawnMixin",
 		"GreenLanternMechSeatMixin"

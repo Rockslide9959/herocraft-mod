@@ -88,6 +88,13 @@ public final class ErasureHud {
 		if (s.val(ErasureConfig.V_GOGGLES) != 0L) {
 			g.fill(0, 0, w, h, 0x18E8C020);
 		}
+		// v0.17.1 Dry Eyes bands: Strained reddens the screen's edge, Burning more (and it throbs)
+		com.projecthero.mod.quirk.meter.QuirkBand band = com.projecthero.mod.quirk.meter.QuirkMeters.clientBand(p);
+		if (band == com.projecthero.mod.quirk.meter.QuirkBand.SWEET && s.val(ErasureConfig.V_ERASE) == 0L) {
+			vignette(g, w, h, 55, 0x901010);
+		} else if (band == com.projecthero.mod.quirk.meter.QuirkBand.RED && s.val(ErasureConfig.V_SHUT) == 0L) {
+			vignette(g, w, h, (int) (110 + 40 * Mth.sin(t * 0.3f)), 0xA00808);
+		}
 		// v0.16.7 revamp: eyes forced shut (Dry Eyes at 100): the lids close fast and stay nearly shut -- a sliver of
 		// sight -- until the eyes recover, then open
 		float pt = delta.getGameTimeDeltaPartialTick(false);
