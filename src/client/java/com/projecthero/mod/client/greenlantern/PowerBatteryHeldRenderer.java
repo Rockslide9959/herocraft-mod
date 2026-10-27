@@ -302,23 +302,53 @@ public final class PowerBatteryHeldRenderer {
 	 * holding the battery out in front; the ring hand comes across to press its fist to it. Eases in over 8 ticks.
 	 */
 	public static void chargeArmPose(PoseStack pose, HumanoidArm side, boolean batteryHand, Player player, float partial) {
-		float in = Mth.clamp((charge(player, partial) * GreenLanternBattery.CHARGE_TICKS) / 8f, 0f, 1f);
-		in = in * in * (3f - 2f * in);
+		float in = chargeEase(player, partial);
 		float f = side == HumanoidArm.RIGHT ? 1f : -1f;
 		if (batteryHand) {
-			pose.translate(-f * BAT_IN * in, BAT_UP * in, -BAT_FWD * in);
-			pose.mulPose(Axis.ZP.rotationDegrees(-f * BAT_ROLL * in));
+			// v0.17.1 playtest ("it looks kinda weird"): eases out of the plain holding pose (no jump on the first frame),
+			// to held out low and a little left of centre, the arm pushed forward so less of it shows
+			pose.translate(-f * Mth.lerp(in, HOLD_IN, BAT_IN), Mth.lerp(in, HOLD_UP, BAT_UP), -BAT_FWD * in);
+			aboutFist(pose, side, f * BAT_YAW * in, BAT_PITCH * in, f * Mth.lerp(in, FP_TILT, BAT_TILT));
 		} else {
-			float push = 0.02f * Mth.sin((player.tickCount + partial) * 0.4f); // pressing in, a little tremble
+			// the ring fist comes in from the side, knuckles to the lantern, pressed against it with a small tremble
+			float push = RING_PUSH * Mth.sin((player.tickCount + partial) * 0.9f) * Mth.sin((player.tickCount + partial) * 0.23f);
 			pose.translate(-f * (RING_IN + push) * in, RING_UP * in, -RING_FWD * in);
-			pose.mulPose(Axis.YP.rotationDegrees(f * RING_YAW * in));
-			pose.mulPose(Axis.ZP.rotationDegrees(-f * RING_ROLL * in));
+			aboutFist(pose, side, f * RING_YAW * in, RING_PITCH * in, -f * RING_ROLL * in);
 		}
 	}
 
-	/** First-person charge pose offsets (blocks / degrees), tuned on screenshots. */
-	public static float BAT_IN = 0.1f, BAT_UP = 0.58f, BAT_FWD = 0.1f, BAT_ROLL = 4f;
-	public static float RING_IN = 0.56f, RING_UP = 0.2f, RING_FWD = 0.12f, RING_YAW = 18f, RING_ROLL = 4f;
+	/** How far the first-person charge pose has eased in, 0..1 (smoothstep over the first 8 ticks of the charge). */
+	private static float chargeEase(Player player, float partial) {
+		float in = Mth.clamp((charge(player, partial) * GreenLanternBattery.CHARGE_TICKS) / 8f, 0f, 1f);
+		return in * in * (3f - 2f * in);
+	}
+
+	/** Turns the first-person arm chain about its own fist: yaw (Y), then pitch (X), then roll (Z), in degrees. */
+	private static void aboutFist(PoseStack pose, HumanoidArm side, float yaw, float pitch, float roll) {
+		Vector3f fist = firstPersonFist(pose, new Matrix4f(pose.last().pose()), 0f, 0f, side);
+		pose.translate(fist.x, fist.y, fist.z);
+		pose.mulPose(Axis.YP.rotationDegrees(yaw));
+		pose.mulPose(Axis.XP.rotationDegrees(pitch));
+		pose.mulPose(Axis.ZP.rotationDegrees(roll));
+		pose.translate(-fist.x, -fist.y, -fist.z);
+	}
+
+	/**
+	 * First-person charge pose (blocks / degrees), tuned on screenshots. The battery hand: in toward the middle, up,
+	 * forward, then turned about its fist (yaw, pitch, and the roll that replaces {@link #FP_TILT}). The ring hand: the
+	 * same offsets and turns, plus the push-in tremble's size. v0.17.1: the battery arm pushed out and turned so it comes
+	 * up foreshortened from below instead of a big diagonal slab; the ring fist comes in from the right, knuckles to the
+	 * lantern's side.
+	 */
+	public static float BAT_IN = 0.15f, BAT_UP = 0.4f, BAT_FWD = 0.5f, BAT_YAW = -30f, BAT_PITCH = 20f, BAT_TILT = 68f;
+	public static float RING_IN = 0.7f, RING_UP = 0.12f, RING_FWD = 0.45f, RING_YAW = 0f, RING_PITCH = 15f, RING_ROLL = -70f,
+			RING_PUSH = 0.012f;
+	/** First-person lantern size while charging. */
+	public static float CH_SCALE_1P = 0.48f;
+	/** First person while charging: the handle moved toward the inner edge of the fist, so the arm hides less of it. */
+	public static float CH_SIDE = 0.11f;
+	/** First person while charging: the lantern's turn about the vertical (degrees; mirrored for a left battery hand). */
+	public static float CH_YAW = 35f;
 	/** First person, just holding it: the arm lifted so the hanging lantern shows. */
 	public static float HOLD_UP = 0.55f, HOLD_IN = 0.3f;
 	/** Halo size multiplier (first person draws it tighter). */
@@ -352,7 +382,8 @@ public final class PowerBatteryHeldRenderer {
 			PoseStack pose, MultiBufferSource buffers, int light, boolean charging) {
 		pose.pushPose();
 		// the handle in the fist (the arm is rolled aside by tiltAboutFist so it doesn't hide the lantern)
-		pose.translate(fist.x + (side == HumanoidArm.RIGHT ? -FP_SIDE : FP_SIDE), fist.y + FP_UP, fist.z);
+		float side1p = FP_SIDE + (charging ? CH_SIDE * chargeEase(player, partial) : 0f);
+		pose.translate(fist.x + (side == HumanoidArm.RIGHT ? -side1p : side1p), fist.y + FP_UP, fist.z);
 		// hang toward the real ground: world-down in camera space tilts with the view pitch
 		pose.mulPose(Axis.XP.rotationDegrees(camPitch));
 		float ch = charge(player, partial);
@@ -362,9 +393,11 @@ public final class PowerBatteryHeldRenderer {
 		if (charging) {
 			swayP *= 0.2f;
 			swayR *= 0.2f;
+			// turned a little toward the ring hand, so it reads as a 3D lantern (and its handle bar lies along the grip)
+			pose.mulPose(Axis.YP.rotationDegrees((side == HumanoidArm.RIGHT ? CH_YAW : -CH_YAW) * chargeEase(player, partial)));
 		}
 		glowK = 0.5f; // right in front of the camera: a tighter glow, so the battery body stays readable
-		drawHanging(pose, buffers, light, stack, player, swayP, swayR, SCALE_1P, ch, fl, player.tickCount + partial);
+		drawHanging(pose, buffers, light, stack, player, swayP, swayR, charging ? CH_SCALE_1P : SCALE_1P, ch, fl, player.tickCount + partial);
 		glowK = 1f;
 		pose.popPose();
 	}
