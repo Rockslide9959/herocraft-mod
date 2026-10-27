@@ -218,7 +218,7 @@ public final class GreenLanternHud {
 		labelY = renderBarrier(g, mc, player, x0, labelY, totalW);
 		labelY = renderConstructCooldowns(g, mc, player, x0, labelY, totalW);
 		if (Screen.hasAltDown() || MoveListOverlay.held()) {
-			renderAltNames(g, x0 + totalW, labelY + LINE);
+			renderAltNames(g, x0 + totalW, labelY + LINE, s);
 		}
 	}
 
@@ -385,13 +385,33 @@ public final class GreenLanternHud {
 	 * Alt held (v0.16.6: the shared move list): every key's moves, the Shift move lifted out of each guide name
 	 * ("Construct Fist / Shift: War Hammer Slam") into its own column, stacked above the topmost HUD line.
 	 */
-	private static void renderAltNames(GuiGraphics g, int right, int top) {
+	private static void renderAltNames(GuiGraphics g, int right, int top, GreenLanternState s) {
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
 		for (int i = 0; i < KEYS; i++) {
-			rows.add(MoveListOverlay.inline(MoveListOverlay.key(i),
-					Component.translatable("projecthero.guide.green_lantern.ability." + KEY_NAMES[i])));
+			if (i == 0) {
+				// R is the ring itself (Ring Bolt / hold for the beam, Shift = Blast Wave) -- not bindable
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), entryName(com.projecthero.mod.greenlantern.bind.GreenLanternBinding.RING_BOLT,
+						"projecthero.guide.green_lantern.ability." + KEY_NAMES[0]),
+						entryName(com.projecthero.mod.greenlantern.bind.GreenLanternBinding.BLAST_WAVE, null)));
+				continue;
+			}
+			// v0.17.1 (user: "make it change based on the constructs and whatever is binded"): what the Construct Menu put on
+			// this key and its Shift version, not the old fixed defaults
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(i), boundName(s, KEY_LABELS[i]), boundName(s, "S" + KEY_LABELS[i]),
+					i == 5 ? Component.translatable("hud.projecthero.green_lantern.alt.hold_menu") : null));
 		}
 		MoveListOverlay.draw(g, right, top, rows);
+	}
+
+	private static Component boundName(GreenLanternState s, String key) {
+		com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Entry e =
+				s == null ? null : com.projecthero.mod.greenlantern.bind.GreenLanternBinding.resolve(s, key);
+		return e == null ? Component.translatable("screen.projecthero.power_info.gl.empty") : Component.translatable(e.nameKey());
+	}
+
+	private static Component entryName(String id, String fallback) {
+		com.projecthero.mod.greenlantern.bind.GreenLanternBinding.Entry e = com.projecthero.mod.greenlantern.bind.GreenLanternBinding.byId(id);
+		return e != null ? Component.translatable(e.nameKey()) : fallback == null ? null : Component.translatable(fallback);
 	}
 
 	private static int cooldownFor(Player player, int slot, GreenLanternState s) {

@@ -176,7 +176,9 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		if (openedAt == 0L) {
 			openedAt = Util.getMillis();
 			lastFrame = openedAt;
-			cReleased = !ModKeyBindings.ABILITY_6.isDown();
+			// the physical key: setScreen releases every KeyMapping before init, so isDown() always read false here and the
+			// held C's key repeat closed the menu, letting the hold reopen it (user: "it keeps playing the sound")
+			cReleased = !cPhysicallyDown();
 			sound(SoundEvents.BEACON_POWER_SELECT, 1.9f, 0.35f);
 		}
 		layout();
@@ -1232,6 +1234,31 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			return true;
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
+	}
+
+	@Override
+	public void removed() {
+		// closed with C (or anything else) while C is held: C stays dead until it is let go, so the held key's repeat can't
+		// fire the C construct or start a new hold the moment the menu shuts
+		if (cPhysicallyDown()) {
+			com.projecthero.mod.client.ProjectHeroModClient.awaitGreenLanternCRelease();
+		}
+		super.removed();
+	}
+
+	/** v0.17.1: the real state of the key bound to C (keyboard or mouse button), whatever screen is open. */
+	public static boolean cPhysicallyDown() {
+		com.mojang.blaze3d.platform.InputConstants.Key key =
+				net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(ModKeyBindings.ABILITY_6);
+		if (key == null || key.equals(com.mojang.blaze3d.platform.InputConstants.UNKNOWN)) {
+			return false;
+		}
+		long window = net.minecraft.client.Minecraft.getInstance().getWindow().getWindow();
+		if (key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.MOUSE) {
+			return GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
+		}
+		return key.getType() == com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM
+				&& com.mojang.blaze3d.platform.InputConstants.isKeyDown(window, key.getValue());
 	}
 
 	@Override

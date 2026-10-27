@@ -599,7 +599,7 @@ public final class GreenLanternConfig {
 	public static final float MIRROR_UPKEEP_PER_SEC = 6f;
 	/** Grappling Claw: pull yourself to a block, or (Shift) a mob to you. */
 	public static final float CLAW_COST = 20f;
-	public static final double CLAW_RANGE = 32.0;
+	public static final double CLAW_RANGE = 75.0; // v0.17.1 (user): was 32
 	/** Fighter Jet: circles the target area firing bolts. */
 	public static final float JET_COST = 100f;
 	public static final float JET_UPKEEP_PER_SEC = 4f;

@@ -38,6 +38,11 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	/** Green Lantern construct wheel: C (ability slot 6) held this many ticks so far, not shifted. */
 	private static int glConstructHeldTicks = 0;
 	private static boolean glWheelOpenedThisHold = false;
+	/**
+	 * v0.17.1 (user: "fix it so that i need to let go of C for another C input to be valid"): set when the hold opens the
+	 * Construct Menu; C does nothing -- no new hold, no tap (so no C construct), no press sent -- until the physical key is up.
+	 */
+	private static boolean glAwaitCRelease = false;
 	/** v0.14.3: Shift+N went down as a Green Lantern -- the release must tell the server to stop taking the ring off. */
 	private static boolean glRingRemoveHeld = false;
 
@@ -518,6 +523,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			squadMenuWasDown = false;
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;
+			glAwaitCRelease = false;
 			// Leaving a world must not carry the last server's squad roster into the next one.
 			com.projecthero.mod.client.squad.SquadClient.clear();
 			return;
@@ -599,6 +605,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				handleFirearmAbilityOne(key);
 				continue;
 			}
+			// v0.17.1: the C that opened the Construct Menu, still held -- its key repeat re-pressed C once the menu closed,
+			// which used the C construct (user: "the C construct gets used")
+			if (i == 5 && glAwaitCRelease) {
+				while (key.consumeClick()) {
+					// swallowed
+				}
+				slotWasDown[i] = false;
+				continue;
+			}
 
 			// PRESS edge: consumeClick() also catches a sub-tick tap that isDown() would miss.
 			boolean pressedThisTick = false;
@@ -676,8 +691,16 @@ public class ProjectHeroModClient implements ClientModInitializer {
 	 * existing "screen opened while a slot key was held" cleanup (this same method's caller) release
 	 * slot 6 on the client's own next tick, same as it would for any other ability key.
 	 */
+	/** v0.17.1: ignore C until its key is physically released (the Construct Menu calls this when it closes on a held C). */
+	public static void awaitGreenLanternCRelease() {
+		glAwaitCRelease = true;
+	}
+
 	private static void handleGreenLanternConstructWheelHold(Minecraft client) {
-		boolean eligible = client.screen == null && !Screen.hasShiftDown()
+		if (glAwaitCRelease && !com.projecthero.mod.client.gui.GreenLanternConstructMenuScreen.cPhysicallyDown()) {
+			glAwaitCRelease = false;
+		}
+		boolean eligible = client.screen == null && !glAwaitCRelease && !Screen.hasShiftDown()
 				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player)
 				&& !com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(client.player); // v0.17.1: C = Missile Pods in the mech
 		if (!eligible) {
@@ -689,6 +712,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (!glWheelOpenedThisHold
 				&& glConstructHeldTicks >= com.projecthero.mod.greenlantern.GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS) {
 			glWheelOpenedThisHold = true;
+			glAwaitCRelease = true;
 			client.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructMenuScreen()); // v0.17.1: the Construct Menu
 		}
 	}
