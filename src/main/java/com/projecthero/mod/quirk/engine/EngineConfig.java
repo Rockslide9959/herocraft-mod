@@ -69,7 +69,8 @@ public final class EngineConfig {
 	public static final double AIR_CARRY = 0.5;
 	/** ...up to this many blocks a tick (Turbo at Gear 3 is 4). */
 	public static final double AIR_CARRY_MAX = 4.5;
-	public static final int SHIFT_COOLDOWN = 5;
+	/** v0.17.1 (user: "remove the cooldown on gear switching"): none -- each V / Shift+V press shifts at once (was 5 ticks). */
+	public static final int SHIFT_COOLDOWN = 0;
 	public static final float SHIFT_UP_HEAT = 2f;
 
 	// ---------------------------------------------------------------- the meter (Engine heat, per second)
