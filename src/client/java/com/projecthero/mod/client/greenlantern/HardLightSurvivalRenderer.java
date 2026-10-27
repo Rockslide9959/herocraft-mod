@@ -10,7 +10,7 @@ import net.minecraft.util.Mth;
 
 /**
  * v0.17.1: the models of the survival constructs' moving parts ({@code GreenLanternSurvival}) -- the Item Net's sweep and
- * the Tunneller's drill-headed pickaxe -- in the same hard-light boxes as the rest. (The chest and the scaffold tower are
+ * the Tunneller's drill car ({@link HardLightTunnellerModel}) -- in the same hard-light boxes as the rest. (The chest and the scaffold tower are
  * blocks with their own models.) The pose arrives at the entity's position.
  */
 final class HardLightSurvivalRenderer {
@@ -20,7 +20,7 @@ final class HardLightSurvivalRenderer {
 	static void render(HardLightConstructEntity e, VertexConsumer vc, PoseStack pose, float age, float alpha, float partial) {
 		switch (e.shape()) {
 			case ITEM_NET -> net(e, vc, pose, age, alpha);
-			case TUNNELLER -> tunneller(e, vc, pose, age, alpha, partial);
+			case TUNNELLER -> HardLightTunnellerModel.render(e, vc, pose, age, alpha, partial); // the drill car
 			default -> {
 			}
 		}
@@ -72,46 +72,6 @@ final class HardLightSurvivalRenderer {
 			pose.mulPose(Axis.YP.rotationDegrees(i * 45f + 22.5f));
 			HardLightDraw.glow(vc, pose, r, 0.15f, 0f, 0.07f, 0.07f, 0.07f, alpha);
 			pose.popPose();
-		}
-	}
-
-	// ---- Tunneller: a giant pickaxe whose head spins into a drill, boring forward
-
-	private static void tunneller(HardLightConstructEntity e, VertexConsumer vc, PoseStack pose, float age, float alpha, float partial) {
-		pose.mulPose(Axis.YP.rotationDegrees(-e.getViewYRot(partial)));
-		pose.mulPose(Axis.XP.rotationDegrees(e.getViewXRot(partial)));
-		float grow = Math.min(1f, age / 4f);
-		pose.scale(grow, grow, grow);
-		// the haft trails back toward the Lantern
-		p(vc, pose, 0f, 0f, -2.2f, 0.11f, 0.11f, 1.5f, alpha);
-		p(vc, pose, 0f, 0f, -3.75f, 0.16f, 0.16f, 0.12f, alpha);
-		pose.pushPose();
-		pose.mulPose(Axis.ZP.rotationDegrees(age * 32f));
-		// the pick head: a crossbar with two forward-hooked points -- spun, it carves the full 3x3
-		p(vc, pose, 0f, 0f, -0.55f, 1.35f, 0.16f, 0.16f, alpha);
-		for (int s = -1; s <= 1; s += 2) {
-			pose.pushPose();
-			pose.translate(s * 1.3f, 0f, -0.3f);
-			pose.mulPose(Axis.YP.rotationDegrees(s * -35f));
-			p(vc, pose, 0f, 0f, 0.25f, 0.1f, 0.12f, 0.38f, alpha);
-			pose.popPose();
-		}
-		// the drill cone: stacked, twisting plates narrowing to a point
-		for (int i = 0; i < 6; i++) {
-			float h = 1.25f * (1f - i / 6.5f);
-			pose.pushPose();
-			pose.translate(0f, 0f, -0.25f + i * 0.2f);
-			pose.mulPose(Axis.ZP.rotationDegrees(i * 15f));
-			p(vc, pose, 0f, 0f, 0f, h, h * 0.22f, 0.08f, alpha * 0.85f);
-			p(vc, pose, 0f, 0f, 0f, h * 0.22f, h, 0.08f, alpha * 0.85f);
-			pose.popPose();
-		}
-		pose.popPose();
-		HardLightDraw.glow(vc, pose, 0f, 0f, 1.05f, 0.1f, 0.1f, 0.14f, alpha);
-		// a flash of light at the face each time a slice gives way
-		float k = (age - e.actionTick()) / 3f;
-		if (k >= 0f && k < 1f) {
-			HardLightDraw.glow(vc, pose, 0f, 0f, 0.6f, 1.5f * (0.6f + k * 0.4f), 1.5f * (0.6f + k * 0.4f), 0.03f, (1f - k) * alpha * 0.6f);
 		}
 	}
 }

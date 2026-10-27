@@ -739,7 +739,7 @@ next to the Tool Kit; every cost goes through `GreenLanternEnergy#spend` (reserv
 | Hard-Light Chest | 40 | 1 / s | 27 slots, one at a time, where you aim (6 blocks). Owner + squad (`Squads.areAllies`) open it. Ends on N, an empty ring, 5 punches, the block being replaced, logout / death / dimension change: the items ALWAYS drop (at the chest; at the owner if the chest's chunk is unloaded). |
 | Scaffold Tower | 30 | 1.5 / s | Aimed at the ground (24 range): a column up to 24 high + a 3x3 deck. Press again to let it go. |
 | Item Net | 25 | -- | 12-block sweep, 3 s, pulls items + XP orbs and touches them into the inventory. 10 s cooldown (`construct_item_net`). |
-| Tunneller | 10 + 1.5 / block | -- | 3x3 x 16 along the aim snapped to the nearest axis, one slice per 3 ticks; stops at bedrock / hard light / an empty ring. |
+| Tunneller | 10 + 1.5 / block | -- | 3x3 x 48 along the aim snapped to the nearest axis, one slice per 3 ticks (7.2 s for the full bore), drawn as a hard-light drill car gliding down the bore; stops at bedrock / hard light / an empty ring. |
 
 - Blocks (`block/GreenLanternSurvivalBlocks`): `hard_light_scaffold` (`platform` property: false = column with the vanilla
   scaffolding collision -- solid only from above and not while sneaking; true = solid deck) and `hard_light_chest`
@@ -751,7 +751,10 @@ next to the Tool Kit; every cost goes through `GreenLanternEnergy#spend` (reserv
 - The tunneller breaks every block with `ServerPlayerGameMode#destroyBlock` -- the Mining Drill's path, so Fabric break
   events, claim mods, spawn protection and adventure mode apply -- with an unbreakable diamond pickaxe swapped into the
   selected slot for that one call (`GreenLanternSurvival#mine`).
-- Entities: `Shape.ITEM_NET` and `Shape.TUNNELLER`, drawn by `HardLightSurvivalRenderer`.
+- Entities: `Shape.ITEM_NET` and `Shape.TUNNELLER`, drawn by `HardLightSurvivalRenderer` (the Tunneller's drill car is
+  `HardLightTunnellerModel`: tracked armoured body, canopy, stacks, a meshed 16-sided cone with three spiral flutes that
+  spins up while the block ahead is solid; the server glides the entity 1/3 block a tick with the car's middle on the
+  last slice cut, so the client lerp is smooth, and sprays block-crack particles of each block it mines).
 - Gametests: `GreenLanternSurvivalGameTests`.
 ## v0.17.1 -- Carry Platform -> Car -> Jet
 
