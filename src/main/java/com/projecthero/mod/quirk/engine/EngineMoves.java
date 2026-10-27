@@ -211,16 +211,14 @@ public final class EngineMoves {
 
 	/**
 	 * Adds heat; at 100 the engines stall. In Recipro Turbo heat doesn't build at all; in the Ingenium suit it builds
-	 * {@link EngineConfig#SUIT_HEAT_MULT} as fast.
+	 * {@link EngineConfig#SUIT_HEAT_MULT} as fast, out of it {@link EngineConfig#NO_SUIT_HEAT_MULT} (v0.17.1).
 	 */
 	public static void heat(ServerPlayer p, float amount) {
 		if (amount > 0f) {
 			if (running(p, Engine.V_TURBO)) {
 				return;
 			}
-			if (Engine.suitWorn(p)) {
-				amount *= EngineConfig.SUIT_HEAT_MULT;
-			}
+			amount *= Engine.suitWorn(p) ? EngineConfig.SUIT_HEAT_MULT : EngineConfig.NO_SUIT_HEAT_MULT;
 		}
 		if (Quirks.addMeter(p, amount) >= 100f && !Quirks.overloaded(p)) {
 			stall(p, EngineConfig.STALL_TICKS);

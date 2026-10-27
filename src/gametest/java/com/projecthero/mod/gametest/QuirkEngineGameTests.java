@@ -229,7 +229,7 @@ public class QuirkEngineGameTests implements FabricGameTest {
 		run(helper, high, 0.4);
 		helper.runAfterDelay(40, () -> {
 			float a = Quirks.meter(low), b = Quirks.meter(high);
-			helper.assertTrue(b > a * 3f && b > 6f, "Gear 3 heats much faster: g1 " + a + ", g3 " + b);
+			helper.assertTrue(b > a * 3f && b > 3.5f, "Gear 3 heats much faster: g1 " + a + ", g3 " + b);
 			helper.succeed();
 		});
 	}

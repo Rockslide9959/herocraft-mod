@@ -87,6 +87,8 @@ public final class EngineConfig {
 	public static final int STALL_SLOW_AMPLIFIER = 2;
 	/** v0.16.7 (user): wearing the Ingenium suit (chestplate, leggings, boots) the engines heat 50% slower. */
 	public static final float SUIT_HEAT_MULT = 0.5f;
+	/** v0.17.1 (user: "make the engine heat generate 40% slower without the suit"): out of the suit heat builds at 60%. */
+	public static final float NO_SUIT_HEAT_MULT = 0.6f;
 	/** A stalled engine coughs (steam, a sputter) every this many ticks, give or take. */
 	public static final int SPUTTER_EVERY = 14;
 
