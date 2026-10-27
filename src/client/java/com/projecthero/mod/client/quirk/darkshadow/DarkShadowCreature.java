@@ -88,6 +88,11 @@ public final class DarkShadowCreature {
 		float size = -1f;
 		float yaw = Float.NaN;
 		long lastFrameNanos;
+		/** v0.17.1 weight: the root follows its target on a damped spring (it lags, overshoots, settles)... */
+		net.minecraft.world.phys.Vec3 root;
+		net.minecraft.world.phys.Vec3 rootVel = net.minecraft.world.phys.Vec3.ZERO;
+		/** ...and leans into its own motion (radians, smoothed). */
+		float leanPitch, leanRoll;
 
 		Shape(String prefix) {
 			this.prefix = prefix;

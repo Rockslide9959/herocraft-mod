@@ -125,7 +125,7 @@ public final class EngineFx {
 	}
 
 	/** Nozzle {@code k}'s mouth (0..5 his right calf, 6..11 his left), from the drawn model or estimated. */
-	private static Vec3 mouth(Player p, EngineCalves.Nozzles n, int k) {
+	static Vec3 mouth(Player p, EngineCalves.Nozzles n, int k) {
 		if (n != null && n.at()[k] != null) {
 			return n.at()[k];
 		}
@@ -134,7 +134,7 @@ public final class EngineFx {
 	}
 
 	/** The way nozzle {@code k} blows. */
-	private static Vec3 blow(Player p, EngineCalves.Nozzles n, int k) {
+	static Vec3 blow(Player p, EngineCalves.Nozzles n, int k) {
 		if (n != null && n.dir()[k] != null && n.dir()[k].lengthSqr() > 0.5) {
 			return n.dir()[k];
 		}

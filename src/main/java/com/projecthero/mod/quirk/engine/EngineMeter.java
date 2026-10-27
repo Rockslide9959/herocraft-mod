@@ -17,6 +17,10 @@ public final class EngineMeter {
 	public static final float BUILD = 0.30f;
 	public static final float RECOVER = 1.4f;
 
+	/** v0.17.1 combo route "Sky Splitter": Rising Kick, then the Axe Kick within 2 s -- +50%. */
+	public static final com.projecthero.mod.quirk.QuirkCombos.Route SKY_SPLITTER = com.projecthero.mod.quirk.QuirkCombos.route(Quirk.ENGINE,
+			"sky_splitter", EngineConfig.RISING, EngineConfig.AXE).window(40).bonus(1.5f).register();
+
 	private EngineMeter() {
 	}
 
@@ -30,6 +34,7 @@ public final class EngineMeter {
 				.heavyUse(h -> h
 						.sustained(EngineConfig.GEAR_HEAT_PER_SECOND[3] * suit)
 						.move(EngineConfig.KICK_HEAT * suit, EngineConfig.KICK_COOLDOWN)
+						.move(EngineConfig.CHARGE_HEAT * suit, EngineConfig.KICK_COOLDOWN) // v0.17.1 hold R: the Charged Kick
 						.move(EngineConfig.DASH_HEAT * suit, EngineConfig.DASH_COOLDOWN)
 						.move(EngineConfig.SPIN_HEAT * suit, EngineConfig.SPIN_COOLDOWN)
 						.move(EngineConfig.SWEEP_HEAT * suit, EngineConfig.SWEEP_COOLDOWN)

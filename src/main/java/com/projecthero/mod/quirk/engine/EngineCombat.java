@@ -49,6 +49,7 @@ public final class EngineCombat {
 		if (Engine.turbo(owner)) {
 			damage *= EngineConfig.TURBO_DAMAGE_MULT; // v0.16.7: Recipro Turbo -- every hit +50%
 		}
+		damage *= com.projecthero.mod.quirk.meter.QuirkMeters.damageMult(owner); // v0.17.1: the Redline band, +15%
 		float dmg = boss ? Math.min(damage, target.getMaxHealth() * EngineConfig.BOSS_MAX_FRACTION_PER_HIT) : damage;
 		if (!AbilityHelpers.hurtBurst(owner, target, owner.level().damageSources().playerAttack(owner), Math.max(1f, dmg))) {
 			return false;

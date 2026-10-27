@@ -2110,6 +2110,12 @@ public final class HeroPackGuide {
 						.append(Component.translatable("projecthero.quirk.ability.quirk_dark_shadow_recall").withStyle(ChatFormatting.WHITE)));
 				para(lines, "projecthero.guide.quirk.dark_shadow.hide");
 			}
+			// v0.17.1 revamp: the kits whose keys also have HOLD moves list them (the table above is tap + Shift)
+			if (q == com.projecthero.mod.quirk.Quirk.OVERHAUL || q == com.projecthero.mod.quirk.Quirk.DARK_SHADOW
+					|| q == com.projecthero.mod.quirk.Quirk.ENGINE) {
+				head(lines, k + ".holds");
+				para(lines, k + ".holds.body");
+			}
 			blank(lines);
 			// v0.16.7 (user): the hero suit is craftable armour now (a Quirk never changes your look)
 			head(lines, "projecthero.guide.quirks.suit");

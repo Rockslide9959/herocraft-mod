@@ -254,4 +254,59 @@ public final class EngineConfig {
 	public static final double FINISHER_REACH = 4.0;
 	public static final float FINISHER_HEAT = 14f;
 	public static final int FINISHER_COOLDOWN = 240;
+
+	// ================================================================ v0.17.1 revamp (docs/QUIRKS_REVAMP_PROPOSAL.md 3.3): only additions
+	/** Hold R past this (ticks) and the tap kick becomes the Charged Kick... */
+	public static final int CHARGE_MIN_TICKS = 5;
+	/** ...full at this (1 s)... */
+	public static final int CHARGE_FULL_TICKS = 20;
+	/** ...for x1.5 damage at full... */
+	public static final float CHARGE_DAMAGE_MULT = 1.5f;
+	/** ...and a launch along the kick. */
+	public static final double CHARGE_LAUNCH = 1.5;
+	public static final double CHARGE_LIFT = 0.55;
+	public static final float CHARGE_HEAT = 4.5f;
+
+	/** Hold X while running past this (ticks): the Engine Brake instead of the dash. */
+	public static final int BRAKE_HOLD_TICKS = 5;
+	/** "Running" for the brake: this much momentum, in gear. */
+	public static final float BRAKE_MIN_MOMENTUM = 0.3f;
+	/** The skid keeps at least this share of the momentum it started with... */
+	public static final float BRAKE_KEEP = 0.85f;
+	/** ...while the run slows to this share of its speed... */
+	public static final double BRAKE_SPEED = 0.5;
+	/** ...and grips this much less (client: it drifts the turn). */
+	public static final float BRAKE_GRIP = 0.45f;
+
+	/** Water skim: at Gear 3 with this much momentum he runs across water. */
+	public static final float SKIM_MIN_MOMENTUM = 0.7f;
+	/** Wall kick: sprinting into a wall in gear with this much momentum runs up it... */
+	public static final float WALL_MIN_MOMENTUM = 0.3f;
+	/** ...at most this high... */
+	public static final double WALL_MAX_CLIMB = 4.0;
+	/** ...this fast (blocks a tick). */
+	public static final double WALL_CLIMB_SPEED = 0.42;
+
+	/** Rescue Carry: the carried ally gets this off a fall / is set down after a stall. Squadmates, owned pets and villagers. */
+	public static final double CARRY_MAX_WIDTH = 1.4;
+	/** Carrying a badly hurt ally (under this share of their health) feeds Plus Ultra (a save), once a minute. */
+	public static final float CARRY_SAVE_HEALTH = 0.3f;
+	public static final int CARRY_SAVE_COOLDOWN = 1200;
+
+	/** Plus Ultra -- Recipro Burst: Extend. 6 s... */
+	public static final int BURST_TICKS = 120;
+	/** ...at double the Turbo cap (Gear 3: 160 b/s flat out)... */
+	public static final double BURST_MULT = TURBO_MULT * 2.0;
+	/** ...every kick key chains up to this many kicks, one each this many ticks, to the next target within this... */
+	public static final int CHAIN_KICKS = 6;
+	public static final int CHAIN_INTERVAL = 4;
+	public static final double CHAIN_RANGE = 10.0;
+	/** ...each this + this a block-a-second (speed counts up to {@link #DAMAGE_BPS_CAP}) ... */
+	public static final float CHAIN_DAMAGE = 12f;
+	public static final float CHAIN_DAMAGE_PER_SPEED = 0.4f;
+	/** ...finishing with the mach kick. */
+	public static final float MACH_DAMAGE = 35f;
+	public static final double MACH_LAUNCH = 2.6;
+	/** Then the engines seize: 30 s. */
+	public static final int BURST_STALL_TICKS = 600;
 }

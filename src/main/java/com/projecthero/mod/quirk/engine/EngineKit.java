@@ -32,6 +32,12 @@ public final class EngineKit implements QuirkKit {
 	@Override
 	public void handle(ServerPlayer player, AbilitySlot slot, boolean pressed, boolean shift) {
 		if (!pressed) {
+			// v0.17.1 holds: R (the Charged Kick) and X (the Engine Brake) fire / end on the release
+			if (slot == AbilitySlot.SLOT_1) {
+				EngineMoves.chargeRelease(player);
+			} else if (slot == AbilitySlot.SLOT_3) {
+				EngineMoves.xUp(player);
+			}
 			return;
 		}
 		String[] ids = idsOf(slot);
@@ -39,6 +45,16 @@ public final class EngineKit implements QuirkKit {
 			return;
 		}
 		String id = ids[shift ? 1 : 0];
+		// v0.17.1 Recipro Burst -- Extend: a kick key starts the chain (once a Burst)
+		if (Engine.burst(player) && (slot == AbilitySlot.SLOT_1 || slot == AbilitySlot.SLOT_2 || slot == AbilitySlot.SLOT_4)) {
+			EngineMoves.chainStart(player);
+			return;
+		}
+		// X (no Shift): a tap is the dash -- while running it waits for the release, and held it is the Engine Brake
+		if (slot == AbilitySlot.SLOT_3 && !shift) {
+			EngineMoves.xDown(player);
+			return;
+		}
 		// C while Recipro Turbo runs ends it (its own cooldown runs from the moment it was engaged)
 		boolean endTurbo = id.equals(EngineConfig.TURBO) && Engine.running(player, Engine.V_TURBO);
 		if (!endTurbo && !Quirks.ready(player, id)) {
@@ -49,7 +65,7 @@ public final class EngineKit implements QuirkKit {
 			case EngineConfig.SHIFT_DOWN -> EngineMoves.shiftDown(player);
 			case EngineConfig.DASH -> EngineMoves.dash(player);
 			case EngineConfig.RISING -> EngineMoves.risingKick(player);
-			case EngineConfig.KICK -> EngineMoves.kick(player);
+			case EngineConfig.KICK -> EngineMoves.chargeStart(player); // the tap kick fires on the release (hold: the Charged Kick)
 			case EngineConfig.SPIN -> EngineMoves.spin(player);
 			case EngineConfig.BARRAGE -> EngineMoves.barrage(player);
 			case EngineConfig.EXTEND_KICK -> EngineMoves.extendKick(player);
@@ -76,6 +92,12 @@ public final class EngineKit implements QuirkKit {
 		EngineMoves.tick(player);
 	}
 
+	/** Plus Ultra: Recipro Burst -- Extend. */
+	@Override
+	public void ultimate(ServerPlayer player) {
+		EngineMoves.burst(player);
+	}
+
 	@Override
 	public void stopAll(ServerPlayer player) {
 		EngineMoves.stopAll(player);
@@ -100,9 +122,10 @@ public final class EngineKit implements QuirkKit {
 		long now = player.level().getGameTime();
 		return switch (slot) {
 			case SLOT_5 -> s.val(Engine.V_GEAR_NO) > 0L;
-			case SLOT_3 -> s.val(Engine.V_DASH) > now || s.val(Engine.V_STRIKE) > now;
+			case SLOT_3 -> s.val(Engine.V_DASH) > now || s.val(Engine.V_STRIKE) > now || s.val(Engine.V_BRAKE) != 0L;
 			case SLOT_2 -> s.val(Engine.V_BARRAGE) > now || s.val(Engine.V_EXTEND_KICK) > now;
-			case SLOT_6 -> s.val(Engine.V_TURBO) > now || s.val(Engine.V_FINISHER) > now;
+			case SLOT_6 -> s.val(Engine.V_TURBO) > now || s.val(Engine.V_FINISHER) > now || s.val(Engine.V_BURST) > now;
+			case SLOT_1 -> s.val(Engine.V_CHAIN) > now;
 			default -> false;
 		};
 	}

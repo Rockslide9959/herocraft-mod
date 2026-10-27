@@ -26,11 +26,21 @@ public final class DarkShadowConfig {
 	public static final String RECALL = "quirk_dark_shadow_recall";
 	public static final String BERSERK = "quirk_dark_shadow_berserk";
 	public static final String FLARE = "quirk_dark_shadow_calm";
+	/** v0.17.1 revamp: C is an attack now; Unleash (the controlled Berserk) keeps the old BERSERK id on Shift+C. */
+	public static final String RAMPAGE = "quirk_dark_shadow_abyssal_rampage";
+	public static final String LUNGE = "quirk_dark_shadow_lunge";
+	public static final String UNLEASH = BERSERK;
+	/** Abyssal Black Body's attack (R / G / Z / C while it lasts). */
+	public static final String DIVE = "quirk_dark_shadow_claw_dive";
+	/** The fall catch's cooldown key (a passive). */
+	public static final String CATCH = "quirk_dark_shadow_catch";
 
 	public static final VersionedConfig<DarkShadowConfig> SPEC = VersionedConfig
 			.builder(DarkShadowConfig.class, "projecthero_quirk_dark_shadow.json", DarkShadowConfig::new)
 			.balance("light", "meter", "berserk", "moves")
 			.introduce(1, "v0.16.7 Dark Shadow revamp -- the living shadow (light / darkness, Berserk until light, 12 new moves)")
+			.resetBalance(2, "v0.17.1 Dark Shadow revamp -- Abyssal Rampage, Shadow Lunge / Toss, Unleash, the fall catch, Abyssal Black Body; "
+					+ "Dark Fang bites for 4")
 			.build();
 
 	private static DarkShadowConfig instance = new DarkShadowConfig();
@@ -70,7 +80,8 @@ public final class DarkShadowConfig {
 		/** How fast the darkness it feels follows the real light, per tick (0..1). */
 		public float smoothing = 0.15f;
 		/** Damage multiplier at darkness 0 / 1. */
-		public float strengthMin = 0.4f;
+		/** v0.17.1: 0.55 (was 0.4) -- the Restrained band's x0.6 now stacks on it in daylight. */
+		public float strengthMin = 0.55f;
 		public float strengthMax = 1.7f;
 		/** The model's scale at darkness 0 / 1 (Berserk: {@link Berserk#size}); the client reads these from its own copy. */
 		public float sizeMin = 0.45f;
@@ -95,6 +106,14 @@ public final class DarkShadowConfig {
 		public float fetchPush = 3f;
 		public float novaPush = 10f;
 		public float shieldPushPerSecond = 1f;
+		// v0.17.1
+		public float lungePush = 3f;
+		public float rampagePush = 5f;
+		public float tossPush = 4f;
+		/** Abyssal Black Body holds the meter here (Ravenous; it can't go berserk). */
+		public float blackBodyMeter = 85f;
+		/** Unleash ends with the meter here. */
+		public float unleashAfter = 40f;
 	}
 
 	public static final class Berserk {
@@ -134,7 +153,7 @@ public final class DarkShadowConfig {
 		public double fangRangeMax = 8.0;
 		public int fangBites = 4;
 		public int fangInterval = 4;
-		public float fangDamage = 3.5f;
+		public float fangDamage = 4f;
 		public int fangCooldown = 80;
 		// G: Shadow Grab (lift + slam) / Shift+G: Shadow Shield (held)
 		public double grabRangeMin = 6.0;
@@ -195,5 +214,50 @@ public final class DarkShadowConfig {
 		/** The flare's light lasts this long (darkness 0, it shrinks). */
 		public int flareLightTicks = 60;
 		public float flareMeter = 15f;
+
+		// ---- v0.17.1 revamp
+		// X tap: Shadow Lunge (hold X: Black Fallen Angel, the Abyssal glide)
+		public int holdTicks = 6;
+		public double lungeRange = 10.0;
+		public int lungeTicks = 6;
+		public int lungeCooldown = 40;
+		// G held past the grab: Shadow Toss
+		public int tossMaxCarry = 100;
+		public double tossSpeed = 1.7;
+		public float tossDamage = 12f;
+		public double tossSplashRadius = 2.5;
+		public float tossSplashDamage = 5f;
+		/** The thrown body lands (or hits a wall) within this long, or is let go. */
+		public int tossFlightTicks = 30;
+		// C: Abyssal Rampage -- three sweeping claw arcs in front
+		public float rampageDamage1 = 7f;
+		public float rampageDamage2 = 7f;
+		public float rampageDamage3 = 11f;
+		public double rampageReach = 5.0;
+		/** The arcs' contact ticks (matching the creature's rampage clip). */
+		public int rampageHit1 = 3;
+		public int rampageHit2 = 8;
+		public int rampageHit3 = 13;
+		public int rampageCooldown = 60;
+		// Shift+C: Unleash -- 8 s of Berserk that never hits you or your squad, darkness only
+		public int unleashTicks = 160;
+		// Z: Shadow Scout's marks -- marked creatures take more from you
+		public float markBonus = 1.15f;
+		// the fall catch: a fall over 6 blocks (more than 3 damage) with Shadow above 30
+		public float catchMinDamage = 3.01f;
+		public float catchMinMeter = 30f;
+		public int catchCooldown = 400;
+		// Plus Ultra: Abyssal Black Body
+		public int blackBodyTicks = 240;
+		public double blackBodyScale = 0.6;
+		public double blackBodyBoost = 0.13;
+		public double blackBodyMaxSpeed = 2.4;
+		public float diveDamage = 14f;
+		public double diveSpeed = 2.2;
+		public int diveTicks = 8;
+		public double diveRadius = 2.2;
+		public int diveCooldown = 14;
+		/** Afterwards it is spent: hidden this long (N can't call it out). */
+		public int blackBodyHiddenTicks = 100;
 	}
 }

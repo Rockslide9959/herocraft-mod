@@ -41,9 +41,10 @@ public final class OverhaulCombat {
 		return e != owner && e.isAlive() && HeroTargets.canHarm(owner, e);
 	}
 
-	/** Fusion hits harder. */
+	/** Fusion hits harder; v0.17.1 Germophobe: the first move after a mob hit him, +20%. */
 	public static float scaled(ServerPlayer p, float base) {
-		return Overhaul.fused(p) ? base * OverhaulConfig.FUSION_DAMAGE_MULT : base;
+		float d = Overhaul.fused(p) ? base * OverhaulConfig.FUSION_DAMAGE_MULT : base;
+		return OverhaulMoves.germophobe(p) ? d * OverhaulConfig.GERMOPHOBE_MULT : d;
 	}
 
 	/** One hit: damage (boss-capped), knockback away from {@code origin} and {@code lift}. True if it landed. */
@@ -70,6 +71,14 @@ public final class OverhaulCombat {
 			}
 		}
 		disassembleFx(owner.serverLevel(), target, 1f);
+		if (!target.isAlive()) {
+			// v0.17.1: a body he kills bursts into shards, and its matter is his
+			OverhaulFx.burst(owner.serverLevel(), target, true);
+			com.projecthero.mod.quirk.fx.QuirkSounds.play(owner.serverLevel(), target.position(), OverhaulSounds.DISASSEMBLE, 1.1f, 0.8f);
+			com.projecthero.mod.quirk.Quirks.addMeter(owner, OverhaulConfig.MATTER_PER_KILL);
+		} else {
+			OverhaulFx.burst(owner.serverLevel(), target, false);
+		}
 		return true;
 	}
 

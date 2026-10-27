@@ -2517,5 +2517,81 @@
         "name": "projecthero:spiderman/sense"
       }
     ]
+  },
+  "quirk_overhaul_disassemble": {
+    "subtitle": "subtitles.projecthero.quirk_overhaul_disassemble",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/overhaul_disassemble1"
+      },
+      {
+        "name": "projecthero:quirk/overhaul_disassemble2"
+      }
+    ]
+  },
+  "quirk_overhaul_spike": {
+    "subtitle": "subtitles.projecthero.quirk_overhaul_spike",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/overhaul_spike1"
+      },
+      {
+        "name": "projecthero:quirk/overhaul_spike2"
+      }
+    ]
+  },
+  "quirk_overhaul_reassemble": {
+    "subtitle": "subtitles.projecthero.quirk_overhaul_reassemble",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/overhaul_reassemble"
+      }
+    ]
+  },
+  "quirk_dark_shadow_growl": {
+    "subtitle": "subtitles.projecthero.quirk_dark_shadow_growl",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/dark_shadow_growl1"
+      },
+      {
+        "name": "projecthero:quirk/dark_shadow_growl2"
+      }
+    ]
+  },
+  "quirk_dark_shadow_whoosh": {
+    "subtitle": "subtitles.projecthero.quirk_dark_shadow_whoosh",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/dark_shadow_whoosh1"
+      },
+      {
+        "name": "projecthero:quirk/dark_shadow_whoosh2"
+      }
+    ]
+  },
+  "quirk_dark_shadow_roar": {
+    "subtitle": "subtitles.projecthero.quirk_dark_shadow_roar",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/dark_shadow_roar"
+      }
+    ]
+  },
+  "quirk_engine_rev": {
+    "subtitle": "subtitles.projecthero.quirk_engine_rev",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/engine_rev"
+      }
+    ]
+  },
+  "quirk_engine_burst": {
+    "subtitle": "subtitles.projecthero.quirk_engine_burst",
+    "sounds": [
+      {
+        "name": "projecthero:quirk/engine_burst"
+      }
+    ]
   }
 }

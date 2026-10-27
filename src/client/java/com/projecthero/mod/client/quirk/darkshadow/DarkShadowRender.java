@@ -82,14 +82,16 @@ public final class DarkShadowRender {
 
 	/** How far it is carried out to the reach point (0..1) for the playing move. */
 	static float extension(Player p, QuirkState s, float partial) {
-		if (DarkShadow.on(p, DarkShadow.V_GRAB) || DarkShadow.running(p, DarkShadow.V_FANG) || DarkShadow.val(p, DarkShadow.V_FETCH) == 1L) {
+		if (DarkShadow.on(p, DarkShadow.V_GRAB) || DarkShadow.running(p, DarkShadow.V_FANG) || DarkShadow.val(p, DarkShadow.V_FETCH) == 1L
+				|| DarkShadow.running(p, DarkShadow.V_LUNGE)) {
 			return 1f;
 		}
 		float age = animAge(p, s, partial);
 		int len = switch (s.animId) {
 			case DarkShadow.ANIM_STRIKE -> 12;
 			case DarkShadow.ANIM_FRENZY_HIT -> 9;
-			case DarkShadow.ANIM_FETCH -> 12;
+			case DarkShadow.ANIM_FETCH, DarkShadow.ANIM_LUNGE -> 12;
+			case DarkShadow.ANIM_TOSS -> 10;
 			case DarkShadow.ANIM_FANG -> 20;
 			case DarkShadow.ANIM_GRAB, DarkShadow.ANIM_SLAM -> 10;
 			default -> 0;
@@ -125,6 +127,19 @@ public final class DarkShadowRender {
 		}
 		if (s.animId == DarkShadow.ANIM_SLAM && age < 11f) {
 			return "slam";
+		}
+		// v0.17.1 revamp
+		if (s.animId == DarkShadow.ANIM_RAMPAGE && age < 18f) {
+			return "rampage";
+		}
+		if (s.animId == DarkShadow.ANIM_TOSS && age < 10f) {
+			return "throw";
+		}
+		if (s.animId == DarkShadow.ANIM_CATCH && age < 16f) {
+			return "catch";
+		}
+		if (DarkShadow.running(p, DarkShadow.V_LUNGE)) {
+			return "fetch";
 		}
 		if (DarkShadow.on(p, DarkShadow.V_GRAB)) {
 			return "grab";
@@ -174,6 +189,7 @@ public final class DarkShadowRender {
 			}
 			boolean firstPerson = p == mc.getCameraEntity() && mc.options.getCameraType().isFirstPerson();
 			try {
+				renderMarks(ctx.matrixStack(), ctx.consumers(), p, cam, partial);
 				renderOne(ctx.matrixStack(), ctx.consumers(), p, s, partial, cam, firstPerson);
 			} catch (RuntimeException e) {
 				ProjectHeroMod.LOGGER.warn("[ProjectHero] Dark Shadow render failed", e);
@@ -223,7 +239,8 @@ public final class DarkShadowRender {
 		boolean ankh = DarkShadow.ankh(p);
 		float ext = extension(p, s, partial);
 		boolean scouting = DarkShadow.on(p, DarkShadow.V_SCOUT);
-		if (ankh && ext <= 0.02f && !scouting && !"nova".equals(clip)) {
+		if (ankh && ext <= 0.02f && !scouting && !"nova".equals(clip) && !"rampage".equals(clip) && !"catch".equals(clip)
+				|| DarkShadow.blackBody(p)) {
 			return; // it is the armour now
 		}
 		if (DarkShadow.recalled(p) && (s.animId != DarkShadow.ANIM_RECALL || age > 12f)) {
@@ -297,7 +314,21 @@ public final class DarkShadowRender {
 			root = back.subtract(fwd.scale(0.3)).add(left.scale(0.3));
 			wantYaw = headYaw + 35f * Mth.sin(t * 0.17f) + 15f * Mth.sin(t * 0.53f);
 		}
-		boolean show = !firstPerson || ext > 0.15f || scouting || berserk;
+		// v0.17.1: Abyssal Rampage -- it rears up over his head and swings down in front of him; the fall catch -- it spreads
+		// under him
+		boolean rampage = "rampage".equals(clip);
+		if (rampage) {
+			// it rears up over his head and looms out in front of him (further out in first person, so it is seen, not worn)
+			root = back.add(yawDir(headYaw).scale(firstPerson ? 2.3 : 1.15)).add(0, firstPerson ? 0.2 : -0.1, 0);
+			wantYaw = headYaw;
+			size = Math.max(size, 0.95f);
+		}
+		if ("catch".equals(clip)) {
+			root = pos.add(0, -0.4, 0).subtract(fwd.scale(0.2));
+			wantYaw = bodyYaw;
+			size = Math.max(size, 0.9f);
+		}
+		boolean show = !firstPerson || ext > 0.15f || scouting || berserk || rampage || "catch".equals(clip);
 		if (!show) {
 			return;
 		}
@@ -329,6 +360,14 @@ public final class DarkShadowRender {
 		double camDist = root.add(0, size, 0).distanceTo(cam);
 		sh.alpha = (int) (255 * Mth.clamp((camDist - 0.8) / (2.2 * Math.max(1f, size * 0.6f)), 0.35, 1.0));
 
+		// ---- v0.17.1 weight: the body follows where it should be on a damped spring (stiff while it lunges, loose at rest) and
+		// leans into its own motion, so it lags behind a turn, overshoots a reach and settles like something heavy
+		root = spring(sh, root, dt, ext > 0.05f || scouting || rampage ? 0.85f : 0.3f);
+		Vec3 lf = yawDir(sh.yaw), ll = leftOf(lf);
+		float wantPitch = (float) Mth.clamp(sh.rootVel.dot(lf) * 0.9, -0.45, 0.45);
+		float wantRoll = (float) Mth.clamp(-sh.rootVel.dot(ll) * 0.9, -0.35, 0.35);
+		sh.leanPitch += (wantPitch - sh.leanPitch) * Mth.clamp(0.2f * dt, 0f, 1f);
+		sh.leanRoll += (wantRoll - sh.leanRoll) * Mth.clamp(0.2f * dt, 0f, 1f);
 		// ---- the tendril from the back to its root when it is carried out
 		int light = light(p, root.add(0, 1.2 * size, 0));
 		if (root.distanceToSqr(back) > 0.3 * 0.3) {
@@ -338,6 +377,8 @@ public final class DarkShadowRender {
 		pose.pushPose();
 		pose.translate(root.x - cam.x, root.y - cam.y, root.z - cam.z);
 		pose.mulPose(Axis.YP.rotationDegrees(180f - sh.yaw));
+		pose.mulPose(Axis.XP.rotation(-sh.leanPitch + (rampage ? RAMPAGE_LEAN : 0f)));
+		pose.mulPose(Axis.ZP.rotation(sh.leanRoll));
 		pose.scale(size, size, size);
 		renderer.render(pose, sh, buffers, null, null, light, partial);
 		pose.popPose();
@@ -386,6 +427,55 @@ public final class DarkShadowRender {
 		}
 		p.level().addParticle(o, x, y, z, vx, vy, vz);
 	}
+
+	/**
+	 * A critically-ish damped spring from the shape's last root toward {@code target} ({@code stiff} 0..1 per tick); far jumps
+	 * (a teleport, a respawn) snap. Returns the new root; {@link DarkShadowCreature.Shape#rootVel} is its velocity a tick.
+	 */
+	private static Vec3 spring(DarkShadowCreature.Shape sh, Vec3 target, float dt, float stiff) {
+		if (sh.root == null || sh.root.distanceToSqr(target) > 12 * 12) {
+			sh.root = target;
+			sh.rootVel = Vec3.ZERO;
+			return target;
+		}
+		float step = Mth.clamp(dt, 0f, 2f);
+		Vec3 acc = target.subtract(sh.root).scale(stiff).subtract(sh.rootVel.scale(0.55 + 0.4 * stiff));
+		sh.rootVel = sh.rootVel.add(acc.scale(step * 0.6));
+		sh.root = sh.root.add(sh.rootVel.scale(step));
+		return sh.root;
+	}
+
+	/**
+	 * v0.17.1 Shadow Scout's marks: a violet eye glyph over every creature a Dark Shadow user has marked (for every viewer; the
+	 * marks are synced in the user's state), bobbing and slowly turning to the camera.
+	 */
+	static void renderMarks(PoseStack pose, MultiBufferSource buffers, Player owner, Vec3 cam, float partial) {
+		int[] ids = DarkShadow.marks(owner);
+		if (ids.length == 0) {
+			return;
+		}
+		float t = owner.level().getGameTime() + partial;
+		org.joml.Quaternionf q = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
+		for (int id : ids) {
+			Entity e = owner.level().getEntity(id);
+			if (!(e instanceof net.minecraft.world.entity.LivingEntity le) || !le.isAlive() || le.distanceToSqr(cam) > 64 * 64) {
+				continue;
+			}
+			Vec3 at = le.getPosition(partial).add(0, le.getBbHeight() + 0.55 + 0.08 * Mth.sin(t * 0.15f + id), 0);
+			pose.pushPose();
+			pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+			float pulse = 0.8f + 0.2f * Mth.sin(t * 0.3f + id);
+			VertexConsumer vc = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, EYE_GLYPH);
+			com.projecthero.mod.client.quirk.fx.QuirkFxDraw.billboard(vc, pose.last(), q, new org.joml.Vector3f(), 0.42f, 0f, 0f, 1f, 0xB07AFF,
+					0.9f * pulse, true, LightTexture.FULL_BRIGHT);
+			pose.popPose();
+		}
+	}
+
+	/** Abyssal Rampage: the body tipped forward over its target (radians). */
+	private static final float RAMPAGE_LEAN = 0.45f;
+
+	public static final ResourceLocation EYE_GLYPH =ProjectHeroMod.id("textures/entity/quirk/dark_shadow/eye_glyph.png");
 
 	private static int light(Player p, Vec3 at) {
 		int packed = LevelRenderer.getLightColor(p.level(), BlockPos.containing(at));

@@ -587,4 +587,174 @@ public class QuirkEngineGameTests implements FabricGameTest {
 			helper.succeed();
 		});
 	}
+
+	// ================================================================ v0.17.1 revamp: only additions (the user's tuning stays)
+
+	/** The user's v0.17.1 tuning is untouched: no gear-shift cooldown, 40% slower heat out of the suit. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theUsersTuningStays(GameTestHelper helper) {
+		helper.assertTrue(EngineConfig.SHIFT_COOLDOWN == 0, "gear shifts have no cooldown");
+		helper.assertTrue(EngineConfig.NO_SUIT_HEAT_MULT == 0.6f && EngineConfig.SUIT_HEAT_MULT == 0.5f, "the heat factors");
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		helper.assertTrue(EngineMoves.shiftUp(p) == 1 && EngineMoves.shiftUp(p) == 2 && EngineMoves.shiftUp(p) == 3, "three shifts back to back");
+		helper.assertTrue(Quirks.ready(p, EngineConfig.SHIFT_UP), "still ready");
+		helper.succeed();
+	}
+
+	/** Hold R: the Charged Kick -- x1.5 at a full second and a launch; a quick tap is still the Recipro Kick. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void holdRIsTheChargedKick(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 1.5);
+		Zombie tap = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 3.5, 100);
+		var kit = QuirkKits.of(Quirk.ENGINE);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_1, true, false);
+		helper.runAfterDelay(1, () -> {
+			kit.handle(p, AbilitySlot.SLOT_1, false, false); // a tap
+			helper.assertTrue(Math.abs(taken(tap, 100) - EngineMoves.kickDamage(0.0)) < EPS, "a tap is the Recipro Kick: 5, took " + taken(tap, 100));
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			tap.setHealth(100f);
+			kit.handle(p, AbilitySlot.SLOT_1, true, false); // held
+		});
+		helper.runAfterDelay(1 + EngineConfig.CHARGE_FULL_TICKS + 2, () -> {
+			helper.assertTrue(EngineMoves.charge(p) >= 0.99f, "fully charged");
+			kit.handle(p, AbilitySlot.SLOT_1, false, false);
+			float want = EngineMoves.kickDamage(0.0) * EngineConfig.CHARGE_DAMAGE_MULT;
+			helper.assertTrue(Math.abs(taken(tap, 100) - want) < EPS, "x1.5: " + want + ", took " + taken(tap, 100));
+			helper.assertTrue(tap.getDeltaMovement().z > 0.5, "launched along the kick: " + tap.getDeltaMovement());
+			helper.succeed();
+		});
+	}
+
+	/** Hold X while running: the Engine Brake -- a skid that keeps 85% of the momentum it started with (and slows the run). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void holdXRunningIsTheEngineBrake(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 0.5);
+		EngineMoves.setGear(p, 3);
+		EngineMoves.setMomentum(p, 1f);
+		EngineMoves.setSpeed(p, 30.0);
+		var kit = QuirkKits.of(Quirk.ENGINE);
+		helper.assertTrue(EngineMoves.runningForBrake(p), "running");
+		kit.handle(p, AbilitySlot.SLOT_3, true, false); // X down while running: waits (tap = dash, hold = brake)
+		helper.assertTrue(Quirks.ready(p, EngineConfig.DASH), "not the dash (yet)");
+		run(helper, p, 1.5); // still running flat out while X is held
+		helper.runAfterDelay(EngineConfig.BRAKE_HOLD_TICKS + 2, () -> {
+			helper.assertTrue(EngineMoves.braking(p) && Engine.braking(p), "the brake is on");
+			helper.assertTrue(EngineMoves.momentum(p) >= EngineConfig.BRAKE_KEEP - 0.01f, "85% of the momentum kept, " + EngineMoves.momentum(p));
+			double m = mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID);
+			helper.assertTrue(m < EngineMoves.speedBonus(3, EngineMoves.momentum(p), 1.0), "the skid slows the run, modifier " + m);
+			kit.handle(p, AbilitySlot.SLOT_3, false, false);
+			helper.assertFalse(EngineMoves.braking(p), "let go");
+			helper.assertTrue(Quirks.ready(p, EngineConfig.DASH), "a held X never fires the dash");
+			helper.succeed();
+		});
+	}
+
+	/** Survival: at Gear 3 with 70% momentum he runs across water (held on the surface, no fall). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void gearThreeSkimsAcrossWater(GameTestHelper helper) {
+		for (int x = 0; x <= 7; x++) {
+			for (int z = 0; z <= 7; z++) {
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 0, z)), Blocks.STONE.defaultBlockState(), 3);
+				helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, 1, z)), Blocks.WATER.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer p = engine(helper, 4.5, 1.6, 4.5);
+		p.setSprinting(true);
+		p.setDeltaMovement(new Vec3(0, -0.3, 1.2));
+		Quirks.setVal(p, Engine.V_GEAR_NO, 3L);
+		Quirks.setVal(p, Engine.V_MOMENTUM, 100L);
+		double surface = com.projecthero.mod.quirk.engine.EngineSurvival.waterSurface(p);
+		helper.assertTrue(!Double.isNaN(surface), "water under him");
+		helper.assertTrue(com.projecthero.mod.quirk.engine.EngineSurvival.skim(p), "fast enough: skimming");
+		helper.assertTrue(p.getY() >= surface, "held on the surface: y " + p.getY() + " surface " + surface);
+		helper.assertTrue(p.getDeltaMovement().y >= 0.0 && p.getDeltaMovement().z > 1.0, "the fall cancelled, the run kept: " + p.getDeltaMovement());
+		Quirks.setVal(p, Engine.V_MOMENTUM, 40L);
+		helper.assertFalse(com.projecthero.mod.quirk.engine.EngineSurvival.canSkim(p), "too slow: he sinks");
+		Quirks.setVal(p, Engine.V_MOMENTUM, 100L);
+		Quirks.setVal(p, Engine.V_GEAR_NO, 2L);
+		helper.assertFalse(com.projecthero.mod.quirk.engine.EngineSurvival.canSkim(p), "Gear 3 only");
+		helper.succeed();
+	}
+
+	/** Survival: sprinting into a wall in gear runs up it, at most 4 blocks. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void sprintingIntoAWallRunsUpIt(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		p.setSprinting(true);
+		p.setDeltaMovement(Vec3.ZERO);
+		Quirks.setVal(p, Engine.V_GEAR_NO, 1L);
+		Quirks.setVal(p, Engine.V_MOMENTUM, 60L);
+		helper.assertTrue(EngineMoves.wallKick(p, false) < 0.0, "no wall: nothing");
+		double lift = EngineMoves.wallKick(p, true);
+		helper.assertTrue(Math.abs(lift - EngineConfig.WALL_CLIMB_SPEED) < 1.0e-6 && p.getDeltaMovement().y >= lift - 1.0e-6, "runs up it: " + lift);
+		helper.assertTrue(Engine.val(p, Engine.V_WALL) != 0L, "the wall-run pose is synced");
+		p.teleportTo(p.getX(), p.getY() + EngineConfig.WALL_MAX_CLIMB + 0.1, p.getZ());
+		helper.assertTrue(EngineMoves.wallKick(p, true) < 0.0, "out of wall after 4 blocks");
+		Quirks.setVal(p, Engine.V_MOMENTUM, 10L);
+		helper.assertFalse(com.projecthero.mod.quirk.engine.EngineSurvival.canWallKick(p), "too slow to run up a wall");
+		helper.succeed();
+	}
+
+	/** Survival: Rescue Carry -- Sneak + use on an ally (a villager here) carries them on his back; again sets them down. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void rescueCarryLiftsAnAllyAndSetsThemDown(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 4.5);
+		var villager = EntityType.VILLAGER.create(helper.getLevel());
+		Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 5.5));
+		villager.moveTo(at.x, at.y, at.z, 0f, 0f);
+		villager.setNoAi(true);
+		helper.getLevel().addFreshEntity(villager);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 5.5, 20);
+		helper.assertFalse(EngineMoves.carry(p, z), "a zombie is no ally");
+		helper.assertTrue(EngineMoves.carry(p, villager), "lifted");
+		helper.assertTrue(villager.getVehicle() == p && EngineMoves.carried(p) == villager, "on his back");
+		EngineMoves.setDown(p);
+		helper.assertTrue(villager.getVehicle() == null && EngineMoves.carried(p) == null, "set down");
+		helper.succeed();
+	}
+
+	/**
+	 * Plus Ultra: Recipro Burst -- Extend. Heat frozen, the speed cap past Turbo, a kick key chains from target to target
+	 * (each 12 + speed) and ends in the mach kick; then a 30 s stall.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void reciproBurstExtendChainsKicksThenStalls(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = engine(helper, 4.5, 2.0, 1.5);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 2.5, 2.0, 4.5, 250);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 6.5, 2.0, 5.5, 250);
+		Zombie c = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.0, 250);
+		com.projecthero.mod.quirk.PlusUltra.set(p, 100f);
+		com.projecthero.mod.quirk.PlusUltra.fire(p);
+		helper.assertTrue(Engine.burst(p) && EngineMoves.gear(p) == 3, "the Burst runs, Gear 3");
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			double m = mod(p, Attributes.MOVEMENT_SPEED, EngineMoves.GEAR_ID);
+			helper.assertTrue(m > EngineMoves.speedBonus(3, 1f, EngineConfig.TURBO_MULT) + 0.5, "past the Turbo cap: " + m);
+			float h = Quirks.meter(p);
+			EngineMoves.heat(p, 20f);
+			helper.assertTrue(Quirks.meter(p) == h, "no heat in the Burst");
+			helper.assertTrue(QuirkKits.of(Quirk.ENGINE).active(p, AbilitySlot.SLOT_6), "the C box is lit");
+			QuirkKits.of(Quirk.ENGINE).handle(p, AbilitySlot.SLOT_1, true, false); // a kick key: the chain
+		});
+		helper.runAfterDelay(2 + (EngineConfig.CHAIN_KICKS + 2) * EngineConfig.CHAIN_INTERVAL, () -> {
+			for (Zombie z : new Zombie[] { a, b, c }) {
+				helper.assertTrue(taken(z, 250) >= EngineConfig.CHAIN_DAMAGE - EPS, "each target kicked: " + taken(z, 250));
+			}
+			float total = taken(a, 250) + taken(b, 250) + taken(c, 250);
+			helper.assertTrue(total >= 3 * EngineConfig.CHAIN_DAMAGE + EngineConfig.MACH_DAMAGE - 3, "three chained kicks and the mach kick: " + total);
+			// cut the Burst short: the 30 s stall follows
+			Quirks.setVal(p, Engine.V_BURST, helper.getLevel().getGameTime() + 1);
+		});
+		helper.runAfterDelay(2 + (EngineConfig.CHAIN_KICKS + 2) * EngineConfig.CHAIN_INTERVAL + 4, () -> {
+			helper.assertFalse(Engine.burst(p), "over");
+			helper.assertTrue(Engine.stalled(p) && Quirks.overloadLeft(p) > EngineConfig.BURST_STALL_TICKS - 20, "a 30 s stall: " + Quirks.overloadLeft(p));
+			helper.succeed();
+		});
+	}
 }

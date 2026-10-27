@@ -214,6 +214,13 @@ own out-of-action recovery (after its delay) gets from the danger threshold to s
 | Explosion (Arm Strain, danger 70) | AP Shot, Punch, Dash, Cluster, Auto-Cannon, Blast Rush, Stun (Sweat unpaced) | **x0.28** | 12 s -> **50 s** | x1.0 | 70 -> 30: 7.7 s (7/s after 2 s), unchanged |
 | Zero Gravity (Nausea, red 85) | herself + 3 mobs + 5 rubble afloat (ramping x2.5 over 30 s) + touches | **x0.20** (Uravity suit x0.75 more) | 14 s -> **52 s** | x1.0 | 85 -> 50: 4.4 s, unchanged |
 | Overhaul (Focus, SPENDS, danger <= 25) | the eight costed moves, 12/s refill between | x1.0 | never -> never | x1.0 | 25 -> 80: 4.8 s, unchanged |
+| Overhaul, wave 3 (**Matter**, SPENDS) | every Matter move in rotation (spends 6-45, gains -5 / -8 / -10), the 10/s stone refill between | x1.0 | never (lowest ~41) | x1.0 | 25 -> 80 on stone: 5.7 s |
+| Dark Shadow, wave 3 | + Shadow Lunge 3, Abyssal Rampage 5, Shadow Toss 4 | x0.20 | **51 s** (3 min: reaches it) | x1.0 | 4.5 s, unchanged |
+| Engine, wave 3 | + the Charged Kick (4.5 heat) | x0.30 | **54 s** (3 min: reaches it) | x1.4 | 14.3 s, unchanged |
+
+(The wave-3 rows were checked with `scratchpad/sim_quirk_kits3_pacing.js`, a copy of the gametest's loop; CI runs the real
+one. `QuirkFrameworkGameTests.theDefaultUltimateIsTheFrameworkPlaceholder` now stands a default-ultimate kit in for Overhaul,
+whose own ultimate is real.)
 
 Engine is not double-cut: the user's x0.6 (out of the suit) stays as the kit's own factor and is part of the "before"
 16 s; the framework's x0.30 is only the part still needed to reach the shared target (effective x0.18 of the v0.16.7 rate
@@ -262,7 +269,8 @@ Plus Ultra hold), `quirk_charge_loop` (seamless 2 s hum for long holds), `quirk_
 libvorbis: ffmpeg's built-in `vorbis` encoder is stereo-only and Minecraft needs mono for positional sound; the copy in
 `%LOCALAPPDATA%\Medal\recorder-*\ffmpeg7.exe` has it). A kit adds `quirk_<kit>_*` events the same way: a `QuirkSounds`
 constant, a `sounds.json` entry, a `subtitles.projecthero.*` lang line. Play with `QuirkSounds.play(level, pos, sound, vol,
-pitch)`.
+pitch)`. (Wave 3 kept its constants in its own packages -- `OverhaulSounds`, `DarkShadowSounds`, `EngineSounds`, registered
+from each kit's init -- so parallel kit builds never edit the same file; generator `scratchpad/synth_quirk_kits3_sounds.js`.)
 
 ## 10. State and resets
 

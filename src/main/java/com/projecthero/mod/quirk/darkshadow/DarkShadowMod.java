@@ -23,6 +23,7 @@ public final class DarkShadowMod {
 
 	public static void initialize() {
 		DarkShadowConfig.load();
+		DarkShadowSounds.initialize();
 		QuirkKits.register(Quirk.DARK_SHADOW, new DarkShadowKit());
 		DarkShadowMeter.register(); // v0.17.1 framework: Shadow bands + pacing
 		// v0.16.7 (user): N hides / calls out Dark Shadow (the client sends it only for a holder with no mutation selected)
@@ -39,6 +40,6 @@ public final class DarkShadowMod {
 			DarkShadowMoves.toggleHidden(p);
 		});
 		EntityElytraEvents.CUSTOM.register((entity, tickElytra) ->
-				entity instanceof Player pl && DarkShadow.abyssal(pl) && DarkShadow.is(pl) && !pl.getAbilities().flying);
+				entity instanceof Player pl && (DarkShadow.abyssal(pl) || DarkShadow.blackBody(pl)) && DarkShadow.is(pl) && !pl.getAbilities().flying);
 	}
 }

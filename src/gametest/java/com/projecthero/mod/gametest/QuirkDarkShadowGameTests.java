@@ -155,9 +155,18 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 			}
 		}
 		helper.assertTrue(ids.size() == 12, "12 distinct moves, " + ids.size());
-		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_3)[0].equals(DarkShadowConfig.ABYSSAL), "X is the movement move (Abyssal Black Ankh)");
-		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_5)[0].equals(DarkShadowConfig.ANKH), "V is the mode (Black Ankh)");
-		helper.assertTrue(kit().usableWhileOverloaded(AbilitySlot.SLOT_6, true), "the flare works while berserk");
+		// v0.17.1 revamp (docs/QUIRKS_REVAMP_PROPOSAL.md 3.4)
+		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_3)[0].equals(DarkShadowConfig.LUNGE) && kit().idsOf(AbilitySlot.SLOT_3)[1].equals(DarkShadowConfig.FETCH),
+				"X is movement: Shadow Lunge / Fetch (hold: Black Fallen Angel)");
+		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_5)[0].equals(DarkShadowConfig.ANKH) && kit().idsOf(AbilitySlot.SLOT_5)[1].equals(DarkShadowConfig.FLARE),
+				"V is the mode (Black Ankh) / Light Flare");
+		helper.assertTrue(kit().idsOf(AbilitySlot.SLOT_6)[0].equals(DarkShadowConfig.RAMPAGE) && kit().idsOf(AbilitySlot.SLOT_6)[1].equals(DarkShadowConfig.UNLEASH),
+				"C is an attack (Abyssal Rampage) / Unleash");
+		for (String id : ids) {
+			helper.assertFalse(id.equals(DarkShadowConfig.RECALL), "Hide stays on N, not a key slot");
+		}
+		helper.assertTrue(kit().usableWhileOverloaded(AbilitySlot.SLOT_5, true), "the flare works while berserk");
+		helper.assertFalse(kit().usableWhileOverloaded(AbilitySlot.SLOT_6, true), "Unleash does not");
 		helper.assertFalse(kit().usableWhileOverloaded(AbilitySlot.SLOT_1, false), "Strike does not");
 		helper.succeed();
 	}
@@ -286,12 +295,12 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
 		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.STRIKE), "Strike refused while berserk");
-		p.setShiftKeyDown(true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, false);
+		p.setShiftKeyDown(true); // v0.17.1: the flare moved to Shift+V
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
 		helper.assertTrue(DarkShadow.berserk(p), "no light source: the flare fails, still berserk");
 		p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.TORCH));
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_6, true);
+		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
 		helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "the flare ends Berserk");
 		helper.assertTrue(DarkShadow.running(p, DarkShadow.V_FLARE), "it shines");
 		helper.assertTrue(Quirks.meter(p) <= mv().flareMeter + 0.01f, "Shadow drops");
@@ -319,7 +328,7 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void shadowStrikeReachAndDamageFollowTheDark(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 0.2, 0f, 1f);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.2, 50f, 1f); // v0.17.1: Hunting (x1.0) keeps the number exact
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 7.4, 100);
 		LivingEntity hit = DarkShadowMoves.strike(p);
 		helper.assertTrue(hit == z, "7 blocks in the dark, hit " + hit);
@@ -449,7 +458,7 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void sunshineAnkhHitsAllAround(GameTestHelper helper) {
 		floor(helper);
-		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 0f, 1f);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f, 1f); // Hunting: x1.0
 		Zombie a = mob(helper, EntityType.ZOMBIE, 1.5, 2.0, 4.5, 100);
 		Zombie b = mob(helper, EntityType.ZOMBIE, 7.0, 2.0, 4.5, 100);
 		Zombie c = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 1.5, 100);
@@ -483,11 +492,8 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 	public void recallTucksItAway(GameTestHelper helper) {
 		darkRoom(helper);
 		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 99.9f, 1f);
-		p.setShiftKeyDown(true);
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, true); // Shift+V
-		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
+		helper.assertTrue(DarkShadowMoves.toggleHidden(p), "N hides it (v0.17.1: Shift+V is the Light Flare now)");
 		helper.assertTrue(DarkShadow.recalled(p), "recalled");
-		p.setShiftKeyDown(false);
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, true); // Z
 		QuirkAbilityManager.handle(p, AbilitySlot.SLOT_4, false);
 		helper.assertTrue(Quirks.ready(p, DarkShadowConfig.SCOUT), "no moves while recalled");
@@ -544,5 +550,228 @@ public class QuirkDarkShadowGameTests implements FabricGameTest {
 		helper.assertFalse(DarkShadowMoves.toggleHidden(p), "refused while berserk");
 		helper.assertFalse(DarkShadow.recalled(p), "still out");
 		helper.succeed();
+	}
+
+	// ================================================================ v0.17.1 revamp
+
+	/** The bands change the damage: Restrained x0.6, Hunting x1.0, Ravenous x1.4 (and its hits heal you). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shadowBandsScaleTheDamageAndRavenousHeals(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.2, 10f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.0, 200);
+		DarkShadowMoves.strike(p);
+		float restrained = 200f - z.getHealth();
+		helper.assertTrue(Math.abs(restrained - mv().strikeDamage * DarkShadowConfig.get().light.strengthMax * 0.6f) < EPS, "x0.6 Restrained: " + restrained);
+		Quirks.edit(p, n -> n.abilityReadyAt.clear());
+		Quirks.setMeter(p, 80f);
+		p.setHealth(10f);
+		float hp = z.getHealth();
+		DarkShadowMoves.strike(p);
+		float ravenous = hp - z.getHealth();
+		helper.assertTrue(Math.abs(ravenous - mv().strikeDamage * DarkShadowConfig.get().light.strengthMax * 1.4f) < EPS, "x1.4 Ravenous: " + ravenous);
+		helper.assertTrue(p.getHealth() > 10.5f, "Ravenous: its hit fed you, " + p.getHealth());
+		helper.succeed();
+	}
+
+	/** C: Abyssal Rampage -- three claw arcs in front (7 / 7 / 11 x strength), nothing behind. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void abyssalRampageSwingsThreeArcs(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 50f, 1f);
+		Zombie front = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
+		Zombie behind = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 0.5, 200);
+		DarkShadowMoves.rampage(p);
+		helper.assertTrue(Quirks.peek(p).animId == DarkShadow.ANIM_RAMPAGE && DarkShadow.running(p, DarkShadow.V_RAMPAGE), "it rears up");
+		helper.assertFalse(Quirks.ready(p, DarkShadowConfig.RAMPAGE), "cooldown");
+		// the three swings (the tick plays them on the clip's contact frames: rampageHit1 / 2 / 3)
+		for (int swing = 1; swing <= 3; swing++) {
+			helper.assertTrue(DarkShadowMoves.rampageSwing(p, swing) == 1, "swing " + swing + " hits the one in front");
+		}
+		float s = DarkShadowConfig.get().light.strengthMax;
+		float want = (mv().rampageDamage1 + mv().rampageDamage2 + mv().rampageDamage3) * s;
+		float got = 200f - front.getHealth();
+		helper.assertTrue(Math.abs(got - want) < 3 * EPS, "7 + 7 + 11 x 1.7, took " + got);
+		helper.assertTrue(behind.getHealth() == 200f, "nothing behind him");
+		helper.succeed();
+	}
+
+	/** Dark Fang then Abyssal Rampage within 2 s: the "Ravening Feast" route (+30%). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fangThenRampageIsARoute(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 1.5, 50f, 1f);
+		mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
+		helper.assertTrue(DarkShadowMoves.fang(p), "Dark Fang");
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.openWindow(p) == com.projecthero.mod.quirk.darkshadow.DarkShadowMeter.RAVENING_FEAST,
+				"the window opens");
+		DarkShadowMoves.rampage(p);
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.last(p) == com.projecthero.mod.quirk.darkshadow.DarkShadowMeter.RAVENING_FEAST, "landed");
+		helper.succeed();
+	}
+
+	/** Tap X: Shadow Lunge yanks you to a point ahead; hold X: the wings (Black Fallen Angel) while held. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void tapXLungesHoldXGlides(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 30f, 1f);
+		p.setOnGround(true);
+		p.setXRot(0f);
+		pump(helper, p);
+		kit().handle(p, AbilitySlot.SLOT_3, true, false);
+		helper.runAfterDelay(1, () -> {
+			kit().handle(p, AbilitySlot.SLOT_3, false, false); // a tap
+			helper.assertTrue(DarkShadow.running(p, DarkShadow.V_LUNGE), "Shadow Lunge");
+			helper.assertFalse(DarkShadow.abyssal(p), "not the wings");
+		});
+		helper.runAfterDelay(5, () -> helper.assertTrue(p.getDeltaMovement().z > 0.9, "yanked forward, " + p.getDeltaMovement()));
+		helper.runAfterDelay(14, () -> {
+			Quirks.edit(p, n -> n.abilityReadyAt.clear());
+			kit().handle(p, AbilitySlot.SLOT_3, true, false); // held this time
+		});
+		helper.runAfterDelay(14 + mv().holdTicks + 2, () -> {
+			helper.assertTrue(DarkShadow.abyssal(p) && DarkShadow.ankh(p), "held: the wings are out");
+			kit().handle(p, AbilitySlot.SLOT_3, false, false);
+			helper.assertFalse(DarkShadow.abyssal(p), "let go: folded");
+			helper.succeed();
+		});
+	}
+
+	/** Hold G past the grab: it carries the creature overhead; the release throws it (12 x strength on landing). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void holdGCarriesAndTossesTheGrabbed(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 50f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
+		pumpFrom(helper, p, 4);
+		helper.runAfterDelay(6, () -> kit().handle(p, AbilitySlot.SLOT_2, true, false)); // G down and held
+		helper.runAfterDelay(6 + mv().grabPullTicks + mv().grabSlamTicks + 4, () -> {
+			helper.assertTrue(DarkShadow.val(p, DarkShadow.V_TOSS) == 1L, "still held: it carries the body (no slam)");
+			helper.assertTrue(DarkShadow.on(p, DarkShadow.V_GRAB), "still gripped");
+			kit().handle(p, AbilitySlot.SLOT_2, false, false); // let go: the throw
+			helper.assertTrue(DarkShadow.val(p, DarkShadow.V_TOSS) == 2L, "thrown");
+		});
+		helper.runAfterDelay(6 + mv().grabPullTicks + mv().grabSlamTicks + 6 + mv().tossFlightTicks, () -> {
+			float taken = 200f - z.getHealth();
+			float want = (mv().grabDamage + mv().tossDamage) * DarkShadowConfig.get().light.strengthMax;
+			helper.assertTrue(taken > want - 2 * EPS, "the grab and the landing hurt, took " + taken + " want ~" + want);
+			helper.succeed();
+		});
+	}
+
+	/** Shadow Scout marks: a synced mark, and marked creatures take 15% more from you. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void scoutMarksTakeMoreDamage(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 50f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 200);
+		pumpFrom(helper, p, 4);
+		helper.runAfterDelay(6, () -> DarkShadowMoves.scout(p));
+		helper.runAfterDelay(6 + mv().scoutOutTicks + 3, () -> {
+			helper.assertTrue(DarkShadow.marked(p, z), "marked (the glyph's data is synced)");
+			helper.assertTrue(DarkShadow.marks(p).length >= 1, "listed");
+			Quirks.setMeter(p, 50f);
+			float hp = z.getHealth();
+			DarkShadowMoves.strike(p);
+			float got = hp - z.getHealth();
+			float want = mv().strikeDamage * DarkShadowConfig.get().light.strengthMax * mv().markBonus;
+			helper.assertTrue(Math.abs(got - want) < EPS, "+15% on a mark, took " + got);
+			helper.succeed();
+		});
+	}
+
+	/** Shift+C: Unleash -- a controlled Berserk in the dark that never hits its user, ending on its own at 40 Shadow. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 240)
+	public void unleashIsAControlledBerserk(GameTestHelper helper) {
+		darkRoom(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 2.5, 30f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 5.5, 300);
+		pumpFrom(helper, p, 6);
+		helper.runAfterDelay(6, () -> {
+			helper.assertTrue(DarkShadowMoves.unleash(p), "lets loose in the dark");
+			helper.assertTrue(DarkShadow.unleashed(p), "controlled");
+		});
+		helper.runAfterDelay(6 + mv().unleashTicks - 10, () -> {
+			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "it never turned on its user, " + p.getHealth());
+			helper.assertTrue(z.getHealth() < 300f, "it mauled the zombie");
+		});
+		helper.runAfterDelay(6 + mv().unleashTicks + 4, () -> {
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "over on its own after 8 s");
+			helper.assertTrue(Math.abs(Quirks.meter(p) - mt().unleashAfter) < 1f, "Shadow drops to 40, " + Quirks.meter(p));
+			helper.succeed();
+		});
+	}
+
+	/** Survival: the fall catch -- over 6 blocks with Shadow above 30, it catches you (once per 20 s). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shadowCatchesALongFall(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 50f, 1f);
+		var fall = helper.getLevel().damageSources().fall();
+		helper.assertTrue(kit().modifyIncomingDamage(p, fall, 2f) == 2f, "a short fall is not caught");
+		helper.assertTrue(kit().modifyIncomingDamage(p, fall, 9f) == 0f, "a long fall is caught");
+		helper.assertTrue(Quirks.peek(p).animId == DarkShadow.ANIM_CATCH, "it plays the catch");
+		helper.assertTrue(kit().modifyIncomingDamage(p, fall, 9f) == 9f, "once per 20 s");
+		Quirks.edit(p, n -> n.abilityReadyAt.clear());
+		Quirks.setMeter(p, 20f);
+		helper.assertTrue(kit().modifyIncomingDamage(p, fall, 9f) == 9f, "too little Shadow: no catch");
+		helper.succeed();
+	}
+
+	/** Night owl: night vision while in Black Ankh (and it goes with the armour). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void blackAnkhGivesNightVision(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 4.5, 20f, 1f);
+		DarkShadowMoves.toggleAnkh(p);
+		p.tickCount++;
+		Quirks.tick(p);
+		helper.assertTrue(p.hasEffect(MobEffects.NIGHT_VISION), "Night owl");
+		DarkShadowMoves.toggleAnkh(p);
+		helper.assertFalse(p.hasEffect(MobEffects.NIGHT_VISION), "gone with the armour");
+		helper.succeed();
+	}
+
+	/**
+	 * Plus Ultra: Abyssal Black Body -- the armour x1.6, Shadow held at Ravenous (no Berserk), every attack key a claw dive
+	 * (14 each, x1.4 Ravenous); afterwards it is spent and hidden for 5 s, then comes back on its own.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void abyssalBlackBodyThenSpentAndHidden(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = user(helper, 4.5, 2.0, 0.5, 99f, 1f);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.0, 2.0, 200);
+		com.projecthero.mod.quirk.PlusUltra.set(p, 100f);
+		com.projecthero.mod.quirk.PlusUltra.fire(p);
+		helper.assertTrue(DarkShadow.blackBody(p) && DarkShadow.ankh(p) && DarkShadow.abyssal(p), "merged: armour and wings");
+		pump(helper, p);
+		helper.runAfterDelay(20, () -> {
+			helper.assertTrue(Math.abs(Quirks.meter(p) - mt().blackBodyMeter) < 0.5f, "held at Ravenous, " + Quirks.meter(p));
+			helper.assertFalse(DarkShadow.on(p, DarkShadow.V_BERSERK), "it can't go berserk");
+			var m = p.getAttribute(Attributes.SCALE).getModifier(DarkShadowMoves.BLACKBODY_SCALE_ID);
+			helper.assertTrue(m != null && Math.abs(m.amount() - mv().blackBodyScale) < 1.0e-3, "towering, x1.6: " + m);
+			p.teleportTo(p.getX(), helper.absoluteVec(new Vec3(0, 2.0, 0)).y, helper.absoluteVec(new Vec3(0, 0, 0.5)).z);
+			p.setXRot(0f);
+			kit().handle(p, AbilitySlot.SLOT_1, true, false); // R: the claw dive
+			helper.assertTrue(DarkShadow.running(p, DarkShadow.V_DIVE), "diving");
+			float got = 200f - z.getHealth();
+			helper.assertTrue(Math.abs(got - mv().diveDamage * 1.4f) < EPS || z.getHealth() == 200f, "14 x 1.4 when it reaches it, " + got);
+			// shorten the rest of the form
+			Quirks.setVal(p, DarkShadow.V_BLACKBODY, helper.getLevel().getGameTime() + 3);
+		});
+		helper.runAfterDelay(26, () -> {
+			helper.assertFalse(DarkShadow.blackBody(p), "over");
+			helper.assertTrue(DarkShadow.recalled(p), "spent: hidden");
+			helper.assertFalse(DarkShadowMoves.toggleHidden(p), "N can't call it out yet");
+		});
+		helper.runAfterDelay(26 + mv().blackBodyHiddenTicks + 4, () -> {
+			helper.assertFalse(DarkShadow.recalled(p), "back out on its own");
+			helper.assertTrue(p.getAttribute(Attributes.SCALE).getModifier(DarkShadowMoves.BLACKBODY_SCALE_ID) == null, "its own size again");
+			helper.succeed();
+		});
+	}
+
+	private static DarkShadowConfig.Meter mt() {
+		return DarkShadowConfig.get().meter;
 	}
 }

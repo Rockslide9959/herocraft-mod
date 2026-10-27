@@ -1,18 +1,24 @@
 package com.projecthero.mod.quirk.overhaul;
 
 /**
- * v0.16.7 revamp (docs/QUIRK_REVAMP_V0167.md): every number of the Overhaul Quirk (Kai Chisaki). Ticks unless named
- * otherwise; damage in half-hearts (HP). Focus is the meter (0..100): every move spends it and it refills steadily, 12 a
- * second (twice as fast with the gloves on). v0.16.7 (user): spammable like the elemental mutations -- short cooldowns,
- * Focus is the limit; run it dry and the moves stop for 2 s.
- * The user's slot rule (2026-10-22): X = movement, V = utility / mode, the rest mainly attacks.
+ * v0.17.1 Overhaul revamp ({@code docs/QUIRKS_REVAMP_PROPOSAL.md} 3.2): every number of the Overhaul Quirk (Kai Chisaki).
+ * Ticks unless named otherwise; damage in half-hearts (HP).
+ *
+ * <p><b>Matter</b> is the meter (0..100, it replaced Focus): the disassembled matter he rebuilds with. It refills from the
+ * ground under his feet -- {@link #MATTER_GROUND_PER_SECOND} a second standing on stone or earth, {@link #MATTER_AIR_PER_SECOND}
+ * on wood or in the air -- and a Disassemble that kills gives {@link #MATTER_PER_KILL}. Spikes, walls and Fusion SPEND it;
+ * the disassembling moves (Disassemble, Shrapnel Burst, Disassemble Terrain) GAIN it. Bands: Starved 0-24 (constructs
+ * small), Stocked 25-79, Overflowing 80-100 (spikes and walls x1.5).
+ *
+ * <p>The gloves: on by default; every move tugs them off for {@link #BARE_TICKS} (8 s) and while they are off a bare-hand
+ * punch disassembles too. The old Gloves toggle and its slot are gone.
  * <pre>
- *   R  Disassemble            Shift+R  Disarm
- *   G  Ground Spikes          Shift+G  Spike Field
- *   X  Terrain Surf (hold)    Shift+X  Pillar Launch           (movement)
- *   Z  Overhaul Strike        Shift+Z  Disassemble Terrain (pits that close again)
- *   C  Wall Burst             Shift+C  Gloves (toggle; works while spent)
- *   V  Chronostasis Fusion    Shift+V  Reassemble (full heal + Restore broken ground, 45 s)   (mode / utility)
+ *   R  Disassemble (+5)           Shift+R  Disarm
+ *   G  Ground Spikes              Shift+G  Spike Field            hold G  Thorn Forest
+ *   X  Ground Shift               Shift+X  Pillar Launch          hold X  Terrain Surf     (movement)
+ *   Z  Overhaul Strike            Shift+Z  Disassemble Terrain (+10)
+ *   C  Shrapnel Burst (+8)        Shift+C  Wall Burst             hold C  Plus Ultra: Total Disassembly
+ *   V  Reassemble                 Shift+V  Chronostasis Fusion (Mend with a damaged item in the off hand)   hold V  Restore
  * </pre>
  * The Quirk numbers are static (no config file), like every Quirk's; nothing to migrate.
  */
@@ -32,23 +38,43 @@ public final class OverhaulConfig {
 	public static final String STRIKE = "quirk_overhaul_strike";
 	public static final String DISARM = "quirk_overhaul_disarm";
 	public static final String FUSION = "quirk_overhaul_fusion";
+	/** v0.17.1: no longer a key (the gloves come off on their own); the id stays for old saves' cooldowns. */
 	public static final String GLOVES = "quirk_overhaul_gloves";
 	public static final String SURF = "quirk_overhaul_surf";
 	public static final String PILLAR = "quirk_overhaul_pillar";
+	// v0.17.1 revamp
+	public static final String THORN = "quirk_overhaul_thorn_forest";
+	public static final String GROUND_SHIFT = "quirk_overhaul_ground_shift";
+	public static final String SHRAPNEL = "quirk_overhaul_shrapnel";
+	public static final String RESTORE = "quirk_overhaul_restore";
+	public static final String MEND = "quirk_overhaul_mend";
+	public static final String MINING = "quirk_overhaul_mining";
 
-	// ---------------------------------------------------------------- Focus
-	// v0.16.7 (user): spammable like the elemental mutations (Pyrokinesis' Heat: steady 10 a second, short cooldowns).
-	// Every move costs Focus, the cooldowns are short, and Focus is what limits a chain of moves.
-	/** Focus refilled a tick: 12 a second, steadily (none while surfing)... */
-	public static final float FOCUS_REGEN_PER_TICK = 0.6f;
-	/** ...this many times faster with the gloves on (24 a second)... */
-	public static final float GLOVES_REGEN_MULT = 2f;
-	/** ...this fraction of it in the Fusion form (6 a second)... */
+	// ---------------------------------------------------------------- Matter
+	/** Refilled a second standing on stone or earth (his feet draw it from the ground)... */
+	public static final float MATTER_GROUND_PER_SECOND = 10f;
+	/** ...on wood, anything else, or in the air. */
+	public static final float MATTER_AIR_PER_SECOND = 3f;
+	/** In the Fusion form it refills at this fraction. */
 	public static final float FUSION_REGEN_MULT = 0.5f;
-	/** ...starting this long after the last spend (a blink: the refill is steady, not paused). */
-	public static final int FOCUS_REGEN_DELAY = 4;
-	/** Spent to (almost) nothing: "your focus is spent" -- no moves (but Shift+C) for this long (2 s). */
-	public static final int FOCUS_SPENT_TICKS = 40;
+	/** The refill starts this long after the last spend. */
+	public static final int MATTER_REGEN_DELAY = 4;
+	/** A Disassemble (or any of his moves) that kills a body gives this much. */
+	public static final float MATTER_PER_KILL = 15f;
+	/** Construct size by band: Starved (below 25)... */
+	public static final float STARVED_SCALE = 0.7f;
+	/** ...Overflowing (80 and up). */
+	public static final float OVERFLOWING_SCALE = 1.5f;
+
+	// ---------------------------------------------------------------- the gloves (drawn on by default) / passives
+	/** A move tugs the gloves off for this long (8 s): bare-hand punches disassemble meanwhile. */
+	public static final int BARE_TICKS = 160;
+	/** A bare-handed melee hit with the gloves off disassembles a little too: extra damage (free). */
+	public static final float TOUCH_PASSIVE_DAMAGE = 4f;
+	/** Germophobe: after a mob hits him, his next move within this long hits harder... */
+	public static final int GERMOPHOBE_TICKS = 60;
+	/** ...by this much. */
+	public static final float GERMOPHOBE_MULT = 1.2f;
 
 	// ---------------------------------------------------------------- shared
 	/** Touch reach (Fusion adds {@link #FUSION_REACH_BONUS}). */
@@ -58,45 +84,68 @@ public final class OverhaulConfig {
 	/** Bosses take at most this fraction of their max health from one hit, and are never knocked about. */
 	public static final float BOSS_MAX_FRACTION_PER_HIT = 0.10f;
 
-	// ---------------------------------------------------------------- passive: the bare-hand touch (gloves off)
-	/** A bare-handed (empty main hand) melee hit with the gloves off disassembles a little too: extra damage... */
-	public static final float TOUCH_PASSIVE_DAMAGE = 4f;
-	/** ...for this much Focus (no Focus: a plain punch). */
-	public static final float TOUCH_PASSIVE_COST = 3f;
-
-	// ---------------------------------------------------------------- R: Disassemble / Shift+V: Reassemble
-	public static final float DISASSEMBLE_COST = 12f;
-	public static final int DISASSEMBLE_COOLDOWN = 10;
+	// ---------------------------------------------------------------- R: Disassemble / Shift+R: Disarm
+	/** Matter a Disassemble GAINS (the body it takes apart). */
+	public static final float DISASSEMBLE_GAIN = 5f;
+	/** v0.17.1: 1 s (it gains Matter now, so the cooldown is what paces it). */
+	public static final int DISASSEMBLE_COOLDOWN = 20;
 	public static final float DISASSEMBLE_DAMAGE = 18f;
 	public static final double DISASSEMBLE_KNOCKBACK = 0.6;
 	/** A body Disassemble kills bursts: shards to everything this close... */
 	public static final double DISASSEMBLE_BURST_RADIUS = 3.5;
 	public static final float DISASSEMBLE_BURST_DAMAGE = 6f;
+	/** The victim cracks (red lines) for this long before it bursts. */
+	public static final int DISASSEMBLE_CRACK_TICKS = 4;
 
-	public static final float REASSEMBLE_COST = 30f;
-	/** Once per 45 s (a big move keeps a real cooldown). */
-	public static final int REASSEMBLE_COOLDOWN = 900;
-	/** Reaches the ally he looks at this far; otherwise he reassembles himself. */
-	public static final double REASSEMBLE_RANGE = 6.0;
+	/** Disarm gains a little (the item it takes apart). */
+	public static final float DISARM_GAIN = 4f;
+	public static final int DISARM_COOLDOWN = 30;
+	public static final int DISARM_MISS_COOLDOWN = 8;
 
-	// ---------------------------------------------------------------- G: Ground Spikes / Shift+G: Spike Field
-	public static final float SPIKE_WAVE_COST = 14f;
+	// ---------------------------------------------------------------- G: Ground Spikes / Shift+G: Spike Field / hold G: Thorn Forest
+	public static final float SPIKE_WAVE_COST = 12f;
 	public static final int SPIKE_WAVE_COOLDOWN = 16;
 	public static final int SPIKE_WAVE_LENGTH = 14;
 	public static final float SPIKE_WAVE_DAMAGE = 10f;
 	/** How far either side of a spike a creature is still caught. */
 	public static final double SPIKE_HIT_RADIUS = 1.1;
 	public static final double SPIKE_LIFT = 0.65;
-	/** How long a spike stands. */
-	public static final int SPIKE_TTL = 100;
+	/** How long a spike mesh stands (rise, hold, sink). */
+	public static final int SPIKE_TTL = 40;
 
-	public static final float SPIKE_FIELD_COST = 22f;
+	public static final float SPIKE_FIELD_COST = 20f;
 	public static final int SPIKE_FIELD_COOLDOWN = 30;
 	public static final double SPIKE_FIELD_INNER = 2.5;
 	public static final double SPIKE_FIELD_OUTER = 4.5;
 	public static final float SPIKE_FIELD_DAMAGE = 9f;
 
-	// ---------------------------------------------------------------- C: Wall Burst / Shift+Z: Disassemble Terrain
+	/** Hold G this long (ticks) and the tap becomes the Thorn Forest aim. */
+	public static final int HOLD_TICKS = 7;
+	public static final float THORN_COST = 40f;
+	public static final int THORN_COOLDOWN = 200;
+	public static final double THORN_RANGE = 24.0;
+	/** A 7x7 forest: cells this far either side of the centre. */
+	public static final int THORN_HALF = 3;
+	public static final float THORN_HEIGHT = 6f;
+	public static final float THORN_DAMAGE = 16f;
+	public static final double THORN_LIFT = 0.85;
+	/** It stands this long as cover (what walks in is pushed out, arrows break on it). */
+	public static final int THORN_STAND_TICKS = 80;
+	/** Ticks between the forest's three waves (centre, middle ring, edge). */
+	public static final int THORN_WAVE_GAP = 4;
+	/** The aim held at most this long before it fires on its own. */
+	public static final int THORN_MAX_AIM = 100;
+
+	// ---------------------------------------------------------------- C: Shrapnel Burst / Shift+C: Wall Burst
+	public static final float SHRAPNEL_GAIN = 8f;
+	public static final int SHRAPNEL_COOLDOWN = 30;
+	public static final double SHRAPNEL_RANGE = 8.0;
+	/** The cone's half-angle (degrees). */
+	public static final double SHRAPNEL_HALF_ANGLE = 32.0;
+	/** "3 x 5": each shard 3, up to 5 shards on one body (point blank; 3 shards at mid range, 2 at the edge). */
+	public static final float SHRAPNEL_SHARD_DAMAGE = 3f;
+	public static final int SHRAPNEL_SHARDS = 5;
+
 	public static final float WALL_COST = 16f;
 	public static final int WALL_COOLDOWN = 24;
 	public static final int WALL_WIDTH = 5;
@@ -106,8 +155,20 @@ public final class OverhaulConfig {
 	/** Anything standing where the wall bursts up is shoved back and takes this. */
 	public static final float WALL_BURST_DAMAGE = 5f;
 
-	public static final float PIT_COST = 24f;
-	public static final int PIT_COOLDOWN = 30;
+	// ---------------------------------------------------------------- Z: Overhaul Strike / Shift+Z: Disassemble Terrain
+	/** v0.17.1: free (a touch); a touch that lands gains this. */
+	public static final float STRIKE_GAIN = 3f;
+	public static final int STRIKE_COOLDOWN = 14;
+	/** The dash: blocks a tick along the ground, for {@link #STRIKE_TICKS}. */
+	public static final double STRIKE_SPEED = 1.35;
+	public static final int STRIKE_TICKS = 7;
+	/** The first enemy his reaching hand touches on the way. */
+	public static final double STRIKE_HIT_RADIUS = 1.4;
+	public static final float STRIKE_DAMAGE = 14f;
+
+	public static final float PIT_GAIN = 10f;
+	/** v0.17.1: 5 s (it gains Matter now, so the cooldown paces six-mob pits). */
+	public static final int PIT_COOLDOWN = 100;
 	public static final double PIT_RANGE = 14.0;
 	/** Everything this close to where he aims drops in (a pit each)... */
 	public static final double PIT_AREA_RADIUS = 3.0;
@@ -121,21 +182,13 @@ public final class OverhaulConfig {
 	public static final double PIT_MAX_WIDTH = 1.0;
 	public static final double PIT_MAX_HEIGHT = 2.0;
 
-	// ---------------------------------------------------------------- Z: Overhaul Strike / Shift+R: Disarm
-	public static final float STRIKE_COST = 12f;
-	public static final int STRIKE_COOLDOWN = 14;
-	/** The dash: blocks a tick along the ground, for {@link #STRIKE_TICKS}. */
-	public static final double STRIKE_SPEED = 1.35;
-	public static final int STRIKE_TICKS = 7;
-	/** The first enemy his reaching hand touches on the way. */
-	public static final double STRIKE_HIT_RADIUS = 1.4;
-	public static final float STRIKE_DAMAGE = 14f;
+	// ---------------------------------------------------------------- V: Reassemble / Shift+V: Fusion (or Mend) / hold V: Restore
+	public static final float REASSEMBLE_COST = 30f;
+	/** Once per 45 s (a big move keeps a real cooldown). */
+	public static final int REASSEMBLE_COOLDOWN = 900;
+	/** Reaches the ally he looks at this far; otherwise he reassembles himself. */
+	public static final double REASSEMBLE_RANGE = 6.0;
 
-	public static final float DISARM_COST = 15f;
-	public static final int DISARM_COOLDOWN = 30;
-	public static final int DISARM_MISS_COOLDOWN = 8;
-
-	// ---------------------------------------------------------------- V: Chronostasis Fusion (Shift+V Reassemble: above)
 	public static final float FUSION_COST = 45f;
 	/** Starts when Fusion ends (30 s: a big move keeps a real cooldown). */
 	public static final int FUSION_COOLDOWN = 600;
@@ -152,7 +205,15 @@ public final class OverhaulConfig {
 	public static final double FUSION_SPEED = -0.1;
 	public static final double FUSION_ABSORB_RADIUS = 5.0;
 
-	// ---- Restore: part of Reassemble (Shift+V) since the slot rule -- it also puts back the broken ground around him
+	/** Mend: Shift+V with a damaged tool / armour piece in the off hand puts back this much durability... */
+	public static final int MEND_DURABILITY = 100;
+	/** ...for this much Matter. */
+	public static final float MEND_COST = 20f;
+	public static final int MEND_COOLDOWN = 20;
+
+	/** Restore: hold V this long. Free (it only puts back what explosions broke). */
+	public static final int RESTORE_HOLD_TICKS = 20;
+	public static final int RESTORE_COOLDOWN = 200;
 	/** Blocks broken (exploded) within this of him in the last {@link #RESTORE_MEMORY_TICKS} are rebuilt. */
 	public static final double RESTORE_RADIUS = 12.0;
 	public static final int RESTORE_MEMORY_TICKS = 6000;
@@ -163,12 +224,15 @@ public final class OverhaulConfig {
 	/** The ledger keeps at most this many broken blocks per level (oldest dropped first). */
 	public static final int RESTORE_LEDGER_CAP = 16384;
 
-	// ---------------------------------------------------------------- Shift+C: Gloves
-	public static final int GLOVES_COOLDOWN = 8;
+	// ---------------------------------------------------------------- X: Ground Shift / Shift+X: Pillar Launch / hold X: Terrain Surf
+	public static final float GROUND_SHIFT_COST = 6f;
+	public static final int GROUND_SHIFT_COOLDOWN = 16;
+	/** The floor carries him this far along his look... */
+	public static final double GROUND_SHIFT_DISTANCE = 8.0;
+	/** ...over this long. */
+	public static final int GROUND_SHIFT_TICKS = 8;
 
-	// ---------------------------------------------------------------- X: Terrain Surf / Shift+X: Pillar Launch
-	// v0.16.7 (user): held -- the wave runs while X is held and ends on release (or X again, water, or Focus running dry).
-	/** Focus to start the wave... */
+	/** Matter to start the wave... */
 	public static final float SURF_COST = 6f;
 	/** ...and drained a tick while he rides it (8 a second, no refill while surfing): about 12 s from full. */
 	public static final float SURF_DRAIN_PER_TICK = 0.4f;
@@ -194,4 +258,24 @@ public final class OverhaulConfig {
 	public static final double PILLAR_UP = 1.35;
 	public static final double PILLAR_FORWARD = 0.35;
 	public static final int PILLAR_SAFE_TICKS = 100;
+
+	// ---------------------------------------------------------------- survival: Disassembly mining
+	/** Sneak + a bare-hand punch on stone / earth: the 3x3 in that face comes apart into its drops, for this much Matter. */
+	public static final float MINING_COST = 6f;
+	public static final int MINING_COOLDOWN = 8;
+
+	// ---------------------------------------------------------------- Plus Ultra: Total Disassembly
+	public static final double ULT_RADIUS = 16.0;
+	/** The three waves start at these ticks after the palms land... */
+	public static final int[] ULT_WAVES = { 6, 24, 42 };
+	/** ...each rolls from the centre to the edge in this long. */
+	public static final int ULT_WAVE_TICKS = 14;
+	public static final float ULT_DAMAGE = 12f;
+	public static final double ULT_LIFT = 0.75;
+	/** How long the lifted ground stays apart before it reassembles behind the wave. */
+	public static final int ULT_REASSEMBLE_TICKS = 10;
+	/** He is fused (x1.5) and can't be knocked back this long. */
+	public static final int ULT_TICKS = 64;
+	/** The drawback: Matter is spent to this. */
+	public static final float ULT_MATTER_AFTER = 0f;
 }

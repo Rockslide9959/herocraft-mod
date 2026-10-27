@@ -4,25 +4,31 @@ import java.util.List;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.p05.GeoTerrain;
+import com.projecthero.mod.quirk.PlusUltra;
 import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkCombos;
 import com.projecthero.mod.quirk.QuirkKits;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
+import com.projecthero.mod.quirk.fx.QuirkFxEntity;
+import com.projecthero.mod.quirk.meter.QuirkMeterSpec;
+import com.projecthero.mod.quirk.meter.QuirkMeters;
 import com.projecthero.mod.quirk.overhaul.Overhaul;
 import com.projecthero.mod.quirk.overhaul.OverhaulConfig;
+import com.projecthero.mod.quirk.overhaul.OverhaulMeter;
 import com.projecthero.mod.quirk.overhaul.OverhaulMoves;
 import com.projecthero.mod.quirk.overhaul.OverhaulRestore;
-import com.projecthero.mod.squad.Squad;
-import com.projecthero.mod.squad.SquadManager;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
@@ -31,19 +37,22 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.16.7 Overhaul (Kai Chisaki), revamped: one test per move -- the server effect and its number -- plus the bare-hand and
- * Focus rules, every temporary block (spikes, wall, ramp, pit and lid, the burst block) put back exactly, and the boss
- * rules (capped damage, no knockback, never pitted). Mock players are not ticked by the server, so tests that run over
- * time drive the Quirk tick themselves ({@link #pump}). The ground is three layers of stone (y 0..2); he stands on it
- * at y 3, facing +Z.
+ * v0.17.1 Overhaul revamp (Kai Chisaki): the key layout (tap / Shift / hold), Matter (fed by the ground, spent by building,
+ * gained by disassembling, its bands sizing what he builds), the gloves coming off on their own, one test per move -- the
+ * server effect and its number -- the survival uses (Mend, Disassembly mining, Restore), Total Disassembly and every
+ * temporary block put back exactly (walls, pillar, pits, the surf's wake, the ground the ultimate lifts), and the boss rules.
+ * Mock players are not ticked by the server, so tests that run over time drive the Quirk tick themselves ({@link #pump}).
+ * The ground is three layers of stone (y 0..2); he stands on it at y 3, facing +Z.
  */
 public class QuirkOverhaulGameTests implements FabricGameTest {
 	private static final float EPS = 0.6f;
@@ -68,7 +77,7 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		return p;
 	}
 
-	/** Overhaul facing +Z, full Focus, every move ready. */
+	/** Overhaul facing +Z, full Matter, every move ready. */
 	private static ServerPlayer overhaul(GameTestHelper helper, double x, double z) {
 		return overhaul(helper, x, z, 0f);
 	}
@@ -88,6 +97,7 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 	private static void pump(GameTestHelper helper, ServerPlayer p) {
 		helper.onEachTick(() -> {
 			p.tickCount++;
+			p.setOnGround(true);
 			Quirks.tick(p);
 		});
 	}
@@ -124,21 +134,6 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		return helper.absolutePos(new BlockPos(x, y, z));
 	}
 
-	/** How many pointed-dripstone tips stand in the 8x8x8 test box. */
-	private static int tips(GameTestHelper helper) {
-		int n = 0;
-		for (int x = 0; x <= 7; x++) {
-			for (int y = 0; y <= 7; y++) {
-				for (int z = 0; z <= 7; z++) {
-					if (helper.getLevel().getBlockState(abs(helper, x, y, z)).is(Blocks.POINTED_DRIPSTONE)) {
-						n++;
-					}
-				}
-			}
-		}
-		return n;
-	}
-
 	/** Nothing temporary or out of place left above the stone ground (y 3..7 all air, y 0..2 all stone). */
 	private static void assertRestored(GameTestHelper helper) {
 		ServerLevel level = helper.getLevel();
@@ -158,138 +153,160 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		}
 	}
 
+	/** Toolkit effects spawned in the test box. */
+	private static int fx(GameTestHelper helper) {
+		return helper.getLevel().getEntitiesOfClass(QuirkFxEntity.class, new AABB(abs(helper, 0, 0, 0)).expandTowards(8, 8, 8).inflate(2)).size();
+	}
+
 	private static float taken(LivingEntity e) {
 		return e.getMaxHealth() - e.getHealth();
 	}
 
-	// ---------------------------------------------------------------- framework / the gloves / Focus
+	// ---------------------------------------------------------------- the kit / Matter / the gloves
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void overhaulKitFollowsTheSlotRule(GameTestHelper helper) {
+	public void overhaulKitFollowsTheDocsLayout(GameTestHelper helper) {
 		var kit = QuirkKits.of(Quirk.OVERHAUL);
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_1)[0].equals(OverhaulConfig.DISASSEMBLE), "R: Disassemble");
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(OverhaulConfig.SURF) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(OverhaulConfig.PILLAR),
-				"X: the movement pair");
-		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(OverhaulConfig.FUSION) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(OverhaulConfig.REASSEMBLE),
-				"V: the mode / utility pair");
-		for (AbilitySlot s : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
-				AbilitySlot.SLOT_6 }) {
-			String[] ids = kit.idsOf(s);
-			helper.assertTrue(ids.length == 2 && kit.maxCooldown(ids[0]) > 0 && kit.maxCooldown(ids[1]) > 0, "tap + Shift with cooldowns on " + s);
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_1)[0].equals(OverhaulConfig.DISASSEMBLE) && kit.idsOf(AbilitySlot.SLOT_1)[1].equals(OverhaulConfig.DISARM),
+				"R: Disassemble / Disarm");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_2)[0].equals(OverhaulConfig.SPIKE_WAVE) && kit.idsOf(AbilitySlot.SLOT_2)[1].equals(OverhaulConfig.SPIKE_FIELD),
+				"G: Ground Spikes / Spike Field (hold: Thorn Forest)");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_3)[0].equals(OverhaulConfig.GROUND_SHIFT) && kit.idsOf(AbilitySlot.SLOT_3)[1].equals(OverhaulConfig.PILLAR),
+				"X: the movement keys (hold: Terrain Surf)");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_4)[0].equals(OverhaulConfig.STRIKE) && kit.idsOf(AbilitySlot.SLOT_4)[1].equals(OverhaulConfig.PIT),
+				"Z: Overhaul Strike / Disassemble Terrain");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_5)[0].equals(OverhaulConfig.REASSEMBLE) && kit.idsOf(AbilitySlot.SLOT_5)[1].equals(OverhaulConfig.FUSION),
+				"V: Reassemble / Fusion (hold: Restore)");
+		helper.assertTrue(kit.idsOf(AbilitySlot.SLOT_6)[0].equals(OverhaulConfig.SHRAPNEL) && kit.idsOf(AbilitySlot.SLOT_6)[1].equals(OverhaulConfig.WALL),
+				"C: Shrapnel Burst / Wall Burst (hold at 100: the ultimate)");
+		for (AbilitySlot s : AbilitySlot.values()) {
+			for (String id : kit.idsOf(s)) {
+				helper.assertFalse(id.equals(OverhaulConfig.GLOVES), "the Gloves toggle and its slot are gone");
+				helper.assertTrue(kit.maxCooldown(id) > 0, "a cooldown on " + id);
+			}
 		}
+		helper.assertTrue(kit.hasUltimate() && kit.maxCooldown(OverhaulConfig.THORN) > 0 && kit.maxCooldown(OverhaulConfig.RESTORE) > 0, "the holds");
 		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void glovesHoldTheTouchBack(GameTestHelper helper) {
-		ground(helper);
-		ServerPlayer p = overhaul(helper, 4.5, 1.5);
-		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
-		helper.assertTrue(OverhaulMoves.gloves(p), "gloves on");
-		helper.assertTrue(Overhaul.gloved(p) && QuirkKits.of(Quirk.OVERHAUL).keyLocked(p, AbilitySlot.SLOT_1, false), "the touch keys lock");
-		helper.assertFalse(QuirkKits.of(Quirk.OVERHAUL).keyLocked(p, AbilitySlot.SLOT_6, true), "the gloves key never locks");
-		helper.assertFalse(OverhaulMoves.disassemble(p), "refused with the gloves on");
-		helper.assertTrue(Quirks.meter(p) == 100f && z.getHealth() == 100f, "nothing spent, nothing hit");
-		helper.assertFalse(OverhaulMoves.gloves(p), "gloves off");
-		Quirks.setMeter(p, OverhaulConfig.DISASSEMBLE_COST - 2f);
-		helper.assertFalse(OverhaulMoves.disassemble(p), "refused without the Focus");
-		Quirks.setMeter(p, OverhaulConfig.DISASSEMBLE_COST);
-		helper.assertTrue(OverhaulMoves.disassemble(p), "the last of his Focus is enough");
-		helper.assertTrue(Quirks.overloaded(p), "spent to nothing: his focus breaks");
-		helper.assertTrue(QuirkKits.of(Quirk.OVERHAUL).usableWhileOverloaded(AbilitySlot.SLOT_6, true), "the gloves still work while spent");
+	public void matterIsASpendsMeterWithTheDocsBands(GameTestHelper helper) {
+		QuirkMeterSpec s = QuirkMeters.spec(Quirk.OVERHAUL);
+		helper.assertTrue(s.direction == QuirkMeterSpec.Direction.SPENDS && s.sweetFrom == 25f && s.redFrom == 80f, "Starved 0-24, Stocked, Overflowing 80+");
+		helper.assertTrue(OverhaulMoves.constructScale(10f) == OverhaulConfig.STARVED_SCALE, "Starved: constructs small");
+		helper.assertTrue(OverhaulMoves.constructScale(50f) == 1f, "Stocked: normal");
+		helper.assertTrue(OverhaulMoves.constructScale(90f) == OverhaulConfig.OVERFLOWING_SCALE && OverhaulConfig.OVERFLOWING_SCALE == 1.5f,
+				"Overflowing: 1.5x");
+		helper.assertTrue(Math.abs(OverhaulMoves.matterRegenPerTick(true, false) * 20f - 10f) < 0.01f, "10 a second on stone or earth");
+		helper.assertTrue(Math.abs(OverhaulMoves.matterRegenPerTick(false, false) * 20f - 3f) < 0.01f, "3 on wood or in the air");
+		helper.assertTrue(OverhaulMoves.matterRegenPerTick(true, true) < OverhaulMoves.matterRegenPerTick(true, false), "slower fused");
 		helper.succeed();
 	}
 
-	/** v0.16.7 (user): a steady elemental-style refill -- 12 a second bare, 24 gloved, 6 fused. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void focusRegeneratesSteadilyTwiceAsFastGloved(GameTestHelper helper) {
+	/** Matter refills from the ground under his feet: fast on stone, slowly on planks. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void matterRefillsFromTheGround(GameTestHelper helper) {
 		ground(helper);
-		ServerPlayer bare = overhaul(helper, 1.5, 1.5);
-		ServerPlayer gloved = overhaul(helper, 6.5, 1.5);
-		OverhaulMoves.gloves(gloved);
-		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(false, false) * 20f - 12f) < 0.01f, "12 a second");
-		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(true, false) * 20f - 24f) < 0.01f, "24 a second gloved");
-		helper.assertTrue(Math.abs(OverhaulMoves.focusRegenPerTick(false, true) * 20f - 6f) < 0.01f, "6 a second fused");
-		Quirks.setMeter(bare, 20f);
-		Quirks.setMeter(gloved, 20f);
-		pump(helper, bare);
-		pump(helper, gloved);
+		for (int x = 5; x <= 7; x++) {
+			for (int z = 0; z <= 2; z++) {
+				helper.getLevel().setBlock(abs(helper, x, 2, z), Blocks.OAK_PLANKS.defaultBlockState(), 3);
+			}
+		}
+		ServerPlayer stone = overhaul(helper, 1.5, 1.5);
+		ServerPlayer wood = overhaul(helper, 6.5, 1.5);
+		Quirks.setMeter(stone, 20f);
+		Quirks.setMeter(wood, 20f);
+		pump(helper, stone);
+		pump(helper, wood);
 		helper.runAfterDelay(40, () -> {
-			float a = Quirks.meter(bare), b = Quirks.meter(gloved);
-			// two seconds: +24 bare, +48 gloved (a tick of slack either way)
-			helper.assertTrue(Math.abs(a - 44f) <= 1.5f, "12 a second: 20 -> " + a);
-			helper.assertTrue(Math.abs(b - 68f) <= 2.5f, "24 a second gloved: 20 -> " + b);
+			float a = Quirks.meter(stone), b = Quirks.meter(wood);
+			helper.assertTrue(Math.abs(a - 40f) <= 1.5f, "10 a second on stone: 20 -> " + a);
+			helper.assertTrue(Math.abs(b - 26f) <= 1.0f, "3 a second on wood: 20 -> " + b);
 			helper.succeed();
 		});
 	}
 
-	/** v0.16.7 (user): spammable -- every move costs Focus, the cooldowns are short, several casts in a row work. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void movesCostFocusAndChainOnShortCooldowns(GameTestHelper helper) {
-		var kit = QuirkKits.of(Quirk.OVERHAUL);
-		for (String id : new String[] { OverhaulConfig.DISASSEMBLE, OverhaulConfig.DISARM, OverhaulConfig.SPIKE_WAVE, OverhaulConfig.SPIKE_FIELD,
-				OverhaulConfig.SURF, OverhaulConfig.PILLAR, OverhaulConfig.STRIKE, OverhaulConfig.PIT, OverhaulConfig.WALL }) {
-			helper.assertTrue(kit.maxCooldown(id) >= 5 && kit.maxCooldown(id) <= 30, "a short cooldown (0.25-1.5 s) on " + id + ": " + kit.maxCooldown(id));
-		}
-		helper.assertTrue(kit.maxCooldown(OverhaulConfig.FUSION) >= 400 && kit.maxCooldown(OverhaulConfig.REASSEMBLE) >= 400,
-				"the big moves keep real cooldowns");
-		for (float cost : new float[] { OverhaulConfig.DISASSEMBLE_COST, OverhaulConfig.DISARM_COST, OverhaulConfig.SPIKE_WAVE_COST,
-				OverhaulConfig.SPIKE_FIELD_COST, OverhaulConfig.SURF_COST, OverhaulConfig.PILLAR_COST, OverhaulConfig.STRIKE_COST, OverhaulConfig.PIT_COST,
-				OverhaulConfig.WALL_COST, OverhaulConfig.FUSION_COST, OverhaulConfig.REASSEMBLE_COST }) {
-			helper.assertTrue(cost > 0f, "every move costs Focus");
-		}
+	/** Spikes / walls / Fusion SPEND Matter; the disassembling moves GAIN it; a kill gives +15. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void buildingSpendsAndDisassemblingGains(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
-		pump(helper, p);
-		// back to back in one tick: different moves never wait on each other
+		Quirks.setMeter(p, 50f);
 		helper.assertTrue(OverhaulMoves.disassemble(p), "Disassemble");
-		helper.assertTrue(OverhaulMoves.strike(p), "then straight into Overhaul Strike");
-		float after = 100f - OverhaulConfig.DISASSEMBLE_COST - OverhaulConfig.STRIKE_COST;
-		helper.assertTrue(Math.abs(Quirks.meter(p) - after) < 0.01f, "both paid in Focus: " + Quirks.meter(p));
-		helper.assertFalse(Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "a cooldown is set");
-		final int cd = OverhaulConfig.DISASSEMBLE_COOLDOWN + 1;
-		// the same move again as soon as its short cooldown is up, and again
-		helper.runAfterDelay(cd, () -> {
-			helper.assertTrue(Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "ready again after " + cd + " ticks");
-			helper.assertTrue(OverhaulMoves.disassemble(p), "Disassemble again");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (50f + OverhaulConfig.DISASSEMBLE_GAIN)) < 0.01f, "+5 Matter: " + Quirks.meter(p));
+		helper.assertTrue(OverhaulMoves.spikeWave(p), "Ground Spikes");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (55f - OverhaulConfig.SPIKE_WAVE_COST)) < 0.01f, "12 spent: " + Quirks.meter(p));
+		helper.assertTrue(OverhaulMoves.shrapnel(p) >= 1, "Shrapnel Burst hit");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (43f + OverhaulConfig.SHRAPNEL_GAIN)) < 0.01f, "+8 Matter: " + Quirks.meter(p));
+		helper.assertTrue(z.isAlive(), "(still standing)");
+		Quirks.setMeter(p, 10f);
+		helper.assertFalse(OverhaulMoves.wall(p), "a wall you can't afford doesn't happen");
+		helper.assertTrue(Quirks.meter(p) == 10f && !Quirks.overloaded(p), "nothing spent, no lockout");
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aKillGivesFifteenMatterAndBurstsIntoShards(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		Zombie a = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 10);
+		Zombie b = mob(helper, EntityType.ZOMBIE, 6.0, 5.0, 100);
+		Quirks.setMeter(p, 40f);
+		int fx0 = fx(helper);
+		helper.assertTrue(OverhaulMoves.disassemble(p), "the touch landed");
+		helper.assertFalse(a.isAlive(), "the body came apart");
+		helper.assertTrue(Math.abs(taken(b) - OverhaulConfig.DISASSEMBLE_BURST_DAMAGE) < EPS, "its pieces hit the neighbour for 6, " + taken(b));
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (40f + OverhaulConfig.DISASSEMBLE_GAIN + OverhaulConfig.MATTER_PER_KILL)) < 0.01f,
+				"+5 for the touch, +15 for the kill: " + Quirks.meter(p));
+		helper.assertTrue(fx(helper) > fx0 + 3, "the kill burst into shards (toolkit effects): " + (fx(helper) - fx0));
+		helper.succeed();
+	}
+
+	/** The gloves are on by default; a move tugs them off for 8 s and bare hands disassemble on a punch. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void theGlovesComeOffOnTheirOwn(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
+		helper.assertTrue(Overhaul.gloved(p), "gloves on to start");
+		try {
+			// a fully charged swing (mock players never tick their attack timer)
+			java.lang.reflect.Field f = LivingEntity.class.getDeclaredField("attackStrengthTicker");
+			f.setAccessible(true);
+			f.setInt(p, 100);
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException(e);
+		}
+		helper.assertFalse(QuirkKits.of(Quirk.OVERHAUL).keyLocked(p, AbilitySlot.SLOT_1, false), "nothing is locked by the gloves");
+		OverhaulMoves.bareTouch(p, z);
+		pump(helper, p);
+		helper.runAfterDelay(3, () -> {
+			helper.assertTrue(z.getHealth() == 100f, "gloved: a punch is just a punch");
+			helper.assertTrue(OverhaulMoves.disassemble(p), "a move works with the gloves on");
+			helper.assertFalse(Overhaul.gloved(p), "and tugged them off");
+			float hp = z.getHealth();
+			OverhaulMoves.bareTouch(p, z);
+			helper.runAfterDelay(3, () -> helper.assertTrue(hp - z.getHealth() > OverhaulConfig.TOUCH_PASSIVE_DAMAGE - EPS, "bare: +4 on the punch"));
 		});
-		helper.runAfterDelay(2 * cd, () -> {
-			helper.assertTrue(z.isAlive() && Quirks.ready(p, OverhaulConfig.DISASSEMBLE), "ready a third time");
-			helper.assertTrue(OverhaulMoves.disassemble(p), "and a third time");
-			float m = Quirks.meter(p);
-			// four moves (48 Focus) in ~1 s, refilling 12 a second in between: Focus, not cooldowns, is the limit
-			helper.assertTrue(m < 100f - 3 * OverhaulConfig.DISASSEMBLE_COST - OverhaulConfig.STRIKE_COST + 2 * cd * OverhaulConfig.FOCUS_REGEN_PER_TICK + 1f
-					&& m > 20f, "Focus went down as he chained them: " + m);
+		helper.runAfterDelay(OverhaulConfig.BARE_TICKS + 12, () -> {
+			helper.assertTrue(Overhaul.gloved(p), "back on after 8 s");
 			helper.succeed();
 		});
 	}
 
-	/** v0.16.7 (user): run dry and the moves stop for a short lockout (the gloves still work), then come back. */
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void runningFocusDryLocksTheMovesBriefly(GameTestHelper helper) {
+	/** Germophobe: after a mob hits him, his next move within 3 s hits 20% harder (then it is spent). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void germophobeHitsBackHarder(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
-		pump(helper, p);
-		Quirks.setMeter(p, OverhaulConfig.DISASSEMBLE_COST);
-		helper.assertTrue(OverhaulMoves.disassemble(p), "the last of his Focus");
-		helper.assertTrue(Quirks.overloaded(p), "dry: locked out");
-		float hp = z.getHealth();
-		Quirks.edit(p, n -> n.abilityReadyAt.clear());
-		com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-		helper.assertTrue(z.getHealth() == hp, "R does nothing while locked out");
-		com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		helper.runAfterDelay(OverhaulConfig.FOCUS_SPENT_TICKS - 5, () -> helper.assertTrue(Quirks.overloaded(p), "still locked just before 2 s"));
-		helper.runAfterDelay(OverhaulConfig.FOCUS_SPENT_TICKS + 2, () -> {
-			helper.assertFalse(Quirks.overloaded(p), "the lockout is short (2 s)");
-			float m = Quirks.meter(p);
-			helper.assertTrue(m >= OverhaulConfig.DISASSEMBLE_COST, "Focus came back during it: " + m);
-			Quirks.edit(p, n -> n.abilityReadyAt.clear());
-			com.projecthero.mod.quirk.QuirkAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
-			helper.assertTrue(z.getHealth() < hp, "R works again");
-			helper.succeed();
-		});
+		QuirkKits.of(Quirk.OVERHAUL).modifyIncomingDamage(p, helper.getLevel().damageSources().mobAttack(z), 3f);
+		helper.assertTrue(OverhaulMoves.germophobe(p), "touched: he wants it gone");
+		OverhaulMoves.disassemble(p);
+		helper.assertTrue(Math.abs(taken(z) - OverhaulConfig.DISASSEMBLE_DAMAGE * OverhaulConfig.GERMOPHOBE_MULT) < EPS, "18 x 1.2, took " + taken(z));
+		helper.assertFalse(OverhaulMoves.germophobe(p), "spent on that move");
+		helper.succeed();
 	}
 
 	// ---------------------------------------------------------------- R
@@ -299,22 +316,11 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
+		int fx0 = fx(helper);
 		helper.assertTrue(OverhaulMoves.disassemble(p), "the touch landed");
 		helper.assertTrue(Math.abs(taken(z) - OverhaulConfig.DISASSEMBLE_DAMAGE) < EPS, "18 damage, took " + taken(z));
-		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.DISASSEMBLE_COST)) < 0.01f, "Focus spent");
 		helper.assertTrue(Quirks.cooldownRemaining(p, OverhaulConfig.DISASSEMBLE) > 0, "cooldown set");
-		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE)
-	public void disassembleKillBurstsOnTheNeighbours(GameTestHelper helper) {
-		ground(helper);
-		ServerPlayer p = overhaul(helper, 4.5, 1.5);
-		Zombie a = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 10);
-		Zombie b = mob(helper, EntityType.ZOMBIE, 6.0, 5.0, 100);
-		helper.assertTrue(OverhaulMoves.disassemble(p), "the touch landed");
-		helper.assertFalse(a.isAlive(), "the body came apart");
-		helper.assertTrue(Math.abs(taken(b) - OverhaulConfig.DISASSEMBLE_BURST_DAMAGE) < EPS, "its pieces hit the neighbour for 6, " + taken(b));
+		helper.assertTrue(fx(helper) > fx0, "the body cracks (red ribbons) and bursts (shards)");
 		helper.succeed();
 	}
 
@@ -324,11 +330,12 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		ServerPlayer p = overhaul(helper, 4.5, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 100);
 		z.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
+		Quirks.setMeter(p, 50f);
 		ItemStack taken = OverhaulMoves.disarm(p);
 		helper.assertTrue(taken.is(Items.IRON_SWORD), "the sword came apart: " + taken);
 		helper.assertTrue(z.getMainHandItem().isEmpty(), "its hand is empty");
-		helper.assertTrue(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, z.getBoundingBox().inflate(4)).isEmpty(),
-				"nothing dropped: it is gone");
+		helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, z.getBoundingBox().inflate(4)).isEmpty(), "nothing dropped: it is gone");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (50f + OverhaulConfig.DISARM_GAIN)) < 0.01f, "it gains a little Matter");
 		Quirks.edit(p, n -> n.abilityReadyAt.clear());
 		taken = OverhaulMoves.disarm(p);
 		helper.assertTrue(taken.is(Items.CARVED_PUMPKIN), "empty-handed: a piece of its armour instead, " + taken);
@@ -337,51 +344,133 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- G
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void groundSpikesHitAndCleanUp(GameTestHelper helper) {
+	/** Ground Spikes are toolkit meshes (no blocks: nothing to put back), and they hit. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void groundSpikesAreJaggedMeshesThatHit(GameTestHelper helper) {
 		ground(helper);
-		ServerLevel level = helper.getLevel();
-		// a stone pillar at the far edge stops the line inside the test box
-		for (int y = 3; y <= 7; y++) {
-			for (int x = 0; x <= 7; x++) {
-				level.setBlock(abs(helper, x, y, 7), Blocks.STONE.defaultBlockState(), 3);
-			}
-		}
 		ServerPlayer p = overhaul(helper, 4.5, 0.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 4.5, 100);
 		pump(helper, p);
+		int fx0 = fx(helper);
 		helper.assertTrue(OverhaulMoves.spikeWave(p), "the spikes start");
 		helper.runAfterDelay(12, () -> {
 			helper.assertTrue(Math.abs(taken(z) - OverhaulConfig.SPIKE_WAVE_DAMAGE) < EPS, "a spike hit for 10, took " + taken(z));
-			helper.assertTrue(tips(helper) >= 3, "spikes stand, " + tips(helper));
-			helper.assertTrue(GeoTerrain.isTemp(level, abs(helper, 4, 3, 2)), "the spike at z 2 is temporary");
-		});
-		helper.runAfterDelay(OverhaulConfig.SPIKE_TTL + 25, () -> {
-			for (int y = 3; y <= 7; y++) {
-				for (int x = 0; x <= 7; x++) {
-					level.setBlock(abs(helper, x, y, 7), Blocks.AIR.defaultBlockState(), 3);
-				}
-			}
+			helper.assertTrue(fx(helper) >= fx0 + 4, "spike meshes rose: " + (fx(helper) - fx0));
+			helper.assertTrue(GeoTerrain.pending() == 0 || !GeoTerrain.isTemp(helper.getLevel(), abs(helper, 4, 3, 2)), "no blocks: meshes");
 			assertRestored(helper);
 			helper.succeed();
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void spikeFieldHitsAllAroundAndCleansUp(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void spikeFieldHitsAllAround(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.0, 4.0);
 		Zombie a = mob(helper, EntityType.ZOMBIE, 4.0, 1.5, 100);
 		Zombie b = mob(helper, EntityType.ZOMBIE, 6.5, 4.0, 100);
+		Quirks.setMeter(p, 60f); // Stocked: normal size
 		pump(helper, p);
 		helper.assertTrue(OverhaulMoves.spikeField(p), "the field starts");
 		helper.runAfterDelay(10, () -> {
 			helper.assertTrue(Math.abs(taken(a) - OverhaulConfig.SPIKE_FIELD_DAMAGE) < EPS && Math.abs(taken(b) - OverhaulConfig.SPIKE_FIELD_DAMAGE) < EPS,
 					"both hit for 9: " + taken(a) + ", " + taken(b));
-			helper.assertTrue(tips(helper) >= 6, "a ring of spikes, " + tips(helper));
 			helper.assertTrue(p.getHealth() == p.getMaxHealth(), "never himself");
+			helper.succeed();
 		});
-		helper.runAfterDelay(OverhaulConfig.SPIKE_TTL + 25, () -> {
+	}
+
+	/** Hold G: past the tap it becomes the Thorn Forest aim; the release raises it -- 16 an impale, cover for 4 s. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void holdGRaisesTheThornForest(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 0.5, 40f); // looking down the box at the ground
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 4.5, 100);
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_2, true, false); // G down
+		helper.runAfterDelay(OverhaulConfig.HOLD_TICKS + 3, () -> {
+			helper.assertTrue(Overhaul.thornAiming(p), "held past the tap: aiming the forest");
+			helper.assertTrue(z.getHealth() == 100f, "nothing yet");
+			kit.handle(p, AbilitySlot.SLOT_2, false, false); // G up: it rises
+			helper.assertFalse(Overhaul.thornAiming(p), "fired");
+			helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.THORN_COST)) < 1f, "40 Matter: " + Quirks.meter(p));
+		});
+		helper.runAfterDelay(OverhaulConfig.HOLD_TICKS + 3 + 2 * OverhaulConfig.THORN_WAVE_GAP + 3, () -> {
+			helper.assertTrue(Math.abs(taken(z) - OverhaulConfig.THORN_DAMAGE) < EPS, "impaled for 16, took " + taken(z));
+			helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "pinned");
+			helper.assertTrue(kit.maxCooldown(OverhaulConfig.THORN) == OverhaulConfig.THORN_COOLDOWN
+					&& Quirks.cooldownRemaining(p, OverhaulConfig.THORN) > 0, "a real cooldown");
+			assertRestored(helper);
+			helper.succeed();
+		});
+	}
+
+	/** A quick tap of G is still Ground Spikes (fired on the release). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void aTapOfGIsStillGroundSpikes(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 0.5);
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_2, true, false);
+		helper.runAfterDelay(2, () -> {
+			kit.handle(p, AbilitySlot.SLOT_2, false, false);
+			helper.assertFalse(Quirks.ready(p, OverhaulConfig.SPIKE_WAVE), "Ground Spikes fired on the release");
+			helper.assertTrue(Quirks.ready(p, OverhaulConfig.THORN), "not the forest");
+			helper.succeed();
+		});
+	}
+
+	// ---------------------------------------------------------------- C
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void shrapnelBurstIsFifteenPointBlankAndLessFurther(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 0.5);
+		Zombie near = mob(helper, EntityType.ZOMBIE, 4.5, 2.5, 100);
+		Zombie far = mob(helper, EntityType.ZOMBIE, 4.5, 7.4, 100);
+		helper.assertTrue(OverhaulMoves.shrapnel(p) == 2, "both in the cone");
+		helper.assertTrue(Math.abs(taken(near) - 15f) < EPS, "3 x 5 point blank, took " + taken(near));
+		helper.assertTrue(taken(far) > 2f && taken(far) < 15f - EPS, "fewer shards further out, took " + taken(far));
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void wallBurstRisesAndCrumblesBack(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		Quirks.setMeter(p, 60f); // Stocked: the 5x3 wall
+		pump(helper, p);
+		helper.assertTrue(OverhaulMoves.wall(p), "the wall starts");
+		helper.runAfterDelay(12, () -> {
+			for (int x = 2; x <= 6; x++) {
+				for (int y = 3; y <= 5; y++) {
+					helper.assertTrue(level.getBlockState(abs(helper, x, y, 3)).is(Blocks.STONE), "wall block at " + x + "," + y);
+				}
+			}
+		});
+		helper.runAfterDelay(OverhaulConfig.WALL_TTL + 15, () -> {
+			assertRestored(helper);
+			helper.succeed();
+		});
+	}
+
+	/** Overflowing builds 1.5x: the wall is 7 wide and 4 high. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
+	public void overflowingMatterBuildsBigger(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = overhaul(helper, 3.5, 1.5);
+		Quirks.setMeter(p, 100f);
+		pump(helper, p);
+		helper.assertTrue(OverhaulMoves.wall(p), "the wall starts");
+		helper.runAfterDelay(14, () -> {
+			helper.assertTrue(level.getBlockState(abs(helper, 0, 3, 3)).is(Blocks.STONE) && level.getBlockState(abs(helper, 6, 3, 3)).is(Blocks.STONE),
+					"7 wide");
+			helper.assertTrue(level.getBlockState(abs(helper, 3, 6, 3)).is(Blocks.STONE), "4 high");
+		});
+		helper.runAfterDelay(OverhaulConfig.WALL_TTL + 15, () -> {
 			assertRestored(helper);
 			helper.succeed();
 		});
@@ -405,43 +494,46 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 
 	// ---------------------------------------------------------------- X (movement)
 
-	/** v0.16.7 (user): the surf runs for as long as X is held (well past the old 1.7 s), drains Focus, ends on release. */
+	/** Tap X: Ground Shift -- the floor carries him 8 blocks along his look. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void groundShiftCarriesHimAlong(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.5, 1.5);
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_3, true, false);
+		helper.runAfterDelay(2, () -> {
+			kit.handle(p, AbilitySlot.SLOT_3, false, false); // a tap
+			helper.assertTrue(Overhaul.running(p, Overhaul.V_SHIFT), "the floor is carrying him");
+			helper.assertTrue(p.getDeltaMovement().z > 0.8, "along his look: " + p.getDeltaMovement());
+			helper.assertFalse(OverhaulMoves.surfing(p), "a tap is not the surf");
+			helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.GROUND_SHIFT_COST)) < 1.5f, "6 Matter");
+			helper.succeed();
+		});
+	}
+
+	/** Hold X: Terrain Surf runs for as long as X is held, drains Matter, ends on release. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void terrainSurfRunsWhileHeldAndEndsOnRelease(GameTestHelper helper) {
+	public void holdXSurfsUntilReleased(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 4.5);
 		var kit = QuirkKits.of(Quirk.OVERHAUL);
 		pump(helper, p);
 		kit.handle(p, AbilitySlot.SLOT_3, true, false); // X down
-		helper.assertTrue(OverhaulMoves.surfing(p), "on the wave");
-		helper.assertTrue(kit.active(p, AbilitySlot.SLOT_3), "the X box lights");
-		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.SURF_COST)) < 0.01f, "6 Focus to start");
-		helper.runAfterDelay(4, () -> {
-			Vec3 v = p.getDeltaMovement();
-			helper.assertTrue(v.z > OverhaulConfig.SURF_SPEED * 0.8, "carried forward: " + v);
-			helper.assertTrue(v.y < 0.0, "pressed onto the ground (so the step assist can lift him): " + v);
+		helper.assertFalse(OverhaulMoves.surfing(p), "not yet: it could still be a tap");
+		helper.runAfterDelay(OverhaulConfig.HOLD_TICKS + 2, () -> {
+			helper.assertTrue(OverhaulMoves.surfing(p), "held: on the wave");
+			helper.assertTrue(kit.active(p, AbilitySlot.SLOT_3), "the X box lights");
 			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
 			helper.assertTrue(fall == 0f, "no fall damage while surfing");
-			helper.assertTrue(GeoTerrain.pending() > 0, "a wake of earth rises behind him");
 		});
-		final int held = 70; // 3.5 s: twice the old fixed ride
+		final int held = 60;
 		helper.runAfterDelay(held, () -> {
-			helper.assertTrue(OverhaulMoves.surfing(p) && kit.active(p, AbilitySlot.SLOT_3), "still riding while X is held");
-			float m = Quirks.meter(p);
-			float expect = 100f - OverhaulConfig.SURF_COST - held * OverhaulConfig.SURF_DRAIN_PER_TICK;
-			helper.assertTrue(Math.abs(m - expect) <= 2 * OverhaulConfig.SURF_DRAIN_PER_TICK + 0.01f, "8 Focus a second, no refill: " + m + " vs " + expect);
+			helper.assertTrue(OverhaulMoves.surfing(p), "still riding while X is held");
+			helper.assertTrue(Quirks.meter(p) < 100f - OverhaulConfig.SURF_COST - 10f, "it drains Matter: " + Quirks.meter(p));
 			kit.handle(p, AbilitySlot.SLOT_3, false, false); // X up
 			helper.assertFalse(OverhaulMoves.surfing(p), "off the wave on release");
-			helper.assertFalse(kit.active(p, AbilitySlot.SLOT_3), "the X box goes dark");
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1.0e-3, "the step assist goes with it");
-			int cd = Quirks.cooldownRemaining(p, OverhaulConfig.SURF);
-			helper.assertTrue(cd > 0 && cd <= OverhaulConfig.SURF_COOLDOWN, "a short cooldown from the end: " + cd);
-			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
-			helper.assertTrue(fall == 0f, "still no fall damage just after");
-		});
-		helper.runAfterDelay(held + OverhaulConfig.SURF_SAFE_TICKS + 2, () -> {
-			float fall = kit.modifyIncomingDamage(p, helper.getLevel().damageSources().fall(), 6f);
-			helper.assertTrue(fall == 6f, "fall damage back once the safe window ends");
 		});
 		helper.runAfterDelay(held + OverhaulConfig.SURF_SAFE_TICKS + OverhaulConfig.SURF_WAKE_TTL + 15, () -> {
 			assertRestored(helper);
@@ -449,20 +541,15 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		});
 	}
 
-	/** v0.16.7 (user): held X can't ride forever -- Focus running dry throws him off and locks the moves briefly. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void terrainSurfEndsWhenFocusRunsDry(GameTestHelper helper) {
+	public void terrainSurfEndsWhenMatterRunsDry(GameTestHelper helper) {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 4.5);
-		var kit = QuirkKits.of(Quirk.OVERHAUL);
 		Quirks.setMeter(p, OverhaulConfig.SURF_COST + 4f);
 		pump(helper, p);
-		kit.handle(p, AbilitySlot.SLOT_3, true, false); // X down, and never let go
-		helper.assertTrue(OverhaulMoves.surfing(p), "on the wave");
-		// 4 Focus at 0.4 a tick: dry in about 8-10 ticks
+		helper.assertTrue(OverhaulMoves.surf(p), "on the wave");
 		helper.runAfterDelay(16, () -> {
-			helper.assertFalse(OverhaulMoves.surfing(p), "dry: off the wave though X is still held");
-			helper.assertTrue(Quirks.overloaded(p), "his focus is spent (the lockout)");
+			helper.assertFalse(OverhaulMoves.surfing(p), "dry: off the wave");
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - 0.6) < 1.0e-3, "no step assist left behind");
 		});
 		helper.runAfterDelay(16 + OverhaulConfig.SURF_WAKE_TTL + 15, () -> {
@@ -476,7 +563,6 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 	public void terrainSurfStepsUpTwoBlockRises(GameTestHelper helper) {
 		ground(helper);
 		ServerLevel level = helper.getLevel();
-		// a 2-block-high ledge from z 6 on, y 3..4 (its top at y 5)
 		for (int x = 2; x <= 7; x++) {
 			for (int z = 6; z <= 7; z++) {
 				level.setBlock(abs(helper, x, 3, z), Blocks.STONE.defaultBlockState(), 3);
@@ -486,7 +572,6 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		ServerPlayer p = overhaul(helper, 4.5, 4.5);
 		double y0 = p.getY();
 		Vec3 push = new Vec3(0, -0.08, OverhaulConfig.SURF_SPEED);
-		// walking: the ledge stops him
 		for (int i = 0; i < 4; i++) {
 			p.setOnGround(true);
 			p.move(net.minecraft.world.entity.MoverType.SELF, push);
@@ -495,8 +580,6 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		p.teleportTo(p.getX(), y0, helper.absoluteVec(new Vec3(4.5, 3, 4.5)).z);
 		p.setOnGround(true);
 		helper.assertTrue(OverhaulMoves.surf(p), "on the wave");
-		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - OverhaulConfig.SURF_STEP_HEIGHT) < 1.0e-3,
-				"2-block step assist: " + p.getAttributeValue(Attributes.STEP_HEIGHT));
 		for (int i = 0; i < 4; i++) {
 			p.setOnGround(true);
 			p.move(net.minecraft.world.entity.MoverType.SELF, push);
@@ -515,7 +598,6 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		pump(helper, p);
 		helper.assertTrue(OverhaulMoves.pillar(p), "the pillar rises");
 		helper.assertTrue(p.getDeltaMovement().y >= OverhaulConfig.PILLAR_UP - 0.01, "flung up: " + p.getDeltaMovement());
-		// he hangs in the air (mock players don't move), so the pillar rises under him unhindered
 		p.teleportTo(p.getX(), p.getY() + 5, p.getZ());
 		helper.runAfterDelay(6, () -> helper.assertTrue(level.getBlockState(abs(helper, 4, 3, 4)).is(Blocks.STONE), "the pillar's base"));
 		helper.runAfterDelay(OverhaulConfig.PILLAR_TTL + 15, () -> {
@@ -531,8 +613,10 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		ground(helper);
 		ServerPlayer p = overhaul(helper, 4.5, 1.5);
 		Zombie z = mob(helper, EntityType.ZOMBIE, 4.5, 2.8, 100);
+		Quirks.setMeter(p, 50f);
 		helper.assertTrue(OverhaulMoves.strike(p), "the dash starts");
 		helper.assertTrue(Math.abs(taken(z) - OverhaulConfig.STRIKE_DAMAGE) < EPS, "touched for 14, " + taken(z));
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (50f + OverhaulConfig.STRIKE_GAIN)) < 0.01f, "free, +3 on the touch");
 		helper.succeed();
 	}
 
@@ -544,11 +628,14 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		Zombie a = mob(helper, EntityType.ZOMBIE, 4.5, 5.5, 100);
 		Zombie b = mob(helper, EntityType.ZOMBIE, 2.5, 5.5, 100);
 		double y0 = a.getY();
+		Quirks.setMeter(p, 50f);
 		pump(helper, p);
 		List<LivingEntity> caught = OverhaulMoves.pit(p);
 		helper.assertTrue(caught.size() == 2, "both pitted, " + caught.size());
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (50f + OverhaulConfig.PIT_GAIN)) < 1f, "+10 Matter: " + Quirks.meter(p));
 		helper.assertTrue(Math.abs(a.getY() - (y0 - OverhaulConfig.PIT_DEPTH)) < 0.05, "it dropped two blocks: " + (y0 - a.getY()));
 		helper.assertTrue(Math.abs(taken(a) - OverhaulConfig.PIT_DAMAGE) < EPS, "6 damage, " + taken(a));
+		helper.assertTrue(QuirkCombos.openWindow(p) == OverhaulMeter.BURIED_ALIVE, "Buried Alive's window opens");
 		helper.runAfterDelay(8, () -> {
 			helper.assertTrue(level.getBlockState(abs(helper, 4, 3, 5)).is(Blocks.STONE), "the lid closed over it");
 			helper.assertTrue(a.isAlive() && !a.isInWall(), "trapped, not suffocating");
@@ -567,7 +654,7 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		Zombie boss = mob(helper, EntityType.ZOMBIE, 4.5, 3.5, 1000);
 		boss.setDeltaMovement(Vec3.ZERO);
 		helper.assertTrue(OverhaulMoves.pit(p).isEmpty(), "a boss is never pitted");
-		helper.assertTrue(Quirks.meter(p) == 100f, "nothing spent");
+		helper.assertTrue(Quirks.meter(p) == 100f, "nothing gained");
 		Quirks.setVal(p, Overhaul.V_FUSION, helper.getLevel().getGameTime() + 100); // fused: the hardest touch
 		helper.assertTrue(OverhaulMoves.disassemble(p), "the touch lands");
 		float cap = boss.getMaxHealth() * OverhaulConfig.BOSS_MAX_FRACTION_PER_HIT;
@@ -577,51 +664,93 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
-	// ---------------------------------------------------------------- C
+	// ---------------------------------------------------------------- V (+ survival)
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
-	public void wallBurstRisesAndCrumblesBack(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void reassembleHealsToFull(GameTestHelper helper) {
 		ground(helper);
-		ServerLevel level = helper.getLevel();
-		ServerPlayer p = overhaul(helper, 4.5, 1.5);
-		pump(helper, p);
-		helper.assertTrue(OverhaulMoves.wall(p), "the wall starts");
-		helper.runAfterDelay(12, () -> {
-			for (int x = 2; x <= 6; x++) {
-				for (int y = 3; y <= 5; y++) {
-					helper.assertTrue(level.getBlockState(abs(helper, x, y, 3)).is(Blocks.STONE), "wall block at " + x + "," + y);
-				}
-			}
-		});
-		helper.runAfterDelay(OverhaulConfig.WALL_TTL + 15, () -> {
-			assertRestored(helper);
-			helper.succeed();
-		});
-	}
-
-	// ---------------------------------------------------------------- V
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void reassembleHealsToFullAndRestoresTheGround(GameTestHelper helper) {
-		ground(helper);
-		ServerLevel level = helper.getLevel();
 		ServerPlayer p = overhaul(helper, 2.5, 2.5);
 		p.setHealth(5f);
 		p.addEffect(new MobEffectInstance(MobEffects.POISON, 200, 1));
 		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 200, 0));
-		// a block an explosion took (the ledger only records while an Overhaul holder is in the level)
-		BlockPos hole = abs(helper, 5, 3, 5);
-		OverhaulRestore.record(level, hole, Blocks.COBBLESTONE.defaultBlockState(), level.getGameTime());
-		pump(helper, p);
 		LivingEntity body = OverhaulMoves.reassemble(p);
 		helper.assertTrue(body == p, "himself (nobody else looked at)");
 		helper.assertTrue(p.getHealth() == p.getMaxHealth(), "whole");
 		helper.assertFalse(p.hasEffect(MobEffects.POISON), "the poison is gone");
 		helper.assertTrue(p.hasEffect(MobEffects.MOVEMENT_SPEED), "good effects stay");
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.REASSEMBLE_COST)) < 0.01f, "30 Matter");
 		helper.assertTrue(Quirks.cooldownRemaining(p, OverhaulConfig.REASSEMBLE) > OverhaulConfig.REASSEMBLE_COOLDOWN - 100, "a real cooldown (45 s)");
-		helper.runAfterDelay(OverhaulConfig.RESTORE_WAVE_TICKS + 10, () -> {
+		helper.succeed();
+	}
+
+	/** Hold V: Restore -- the blocks explosions broke rebuild as a wave. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void holdVRestoresTheBlastedGround(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = overhaul(helper, 2.5, 2.5);
+		BlockPos hole = abs(helper, 5, 3, 5);
+		OverhaulRestore.record(level, hole, Blocks.COBBLESTONE.defaultBlockState(), level.getGameTime());
+		var kit = QuirkKits.of(Quirk.OVERHAUL);
+		pump(helper, p);
+		kit.handle(p, AbilitySlot.SLOT_5, true, false); // V down, held
+		helper.runAfterDelay(OverhaulConfig.RESTORE_HOLD_TICKS + 2, () -> {
+			helper.assertFalse(Quirks.ready(p, OverhaulConfig.RESTORE), "held a second: Restore ran");
+			helper.assertTrue(Quirks.ready(p, OverhaulConfig.REASSEMBLE), "not Reassemble");
+			kit.handle(p, AbilitySlot.SLOT_5, false, false);
+			helper.assertTrue(Quirks.ready(p, OverhaulConfig.REASSEMBLE), "and the release doesn't fire the tap");
+		});
+		helper.runAfterDelay(OverhaulConfig.RESTORE_HOLD_TICKS + OverhaulConfig.RESTORE_WAVE_TICKS + 12, () -> {
 			helper.assertTrue(level.getBlockState(hole).is(Blocks.COBBLESTONE), "the broken block is back");
 			level.setBlock(hole, Blocks.AIR.defaultBlockState(), 3);
+			helper.succeed();
+		});
+	}
+
+	/** Survival: Mend -- Shift+V with a damaged tool in the off hand puts back 100 durability for 20 Matter. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void mendRepairsTheOffHandTool(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 2.5, 2.5);
+		ItemStack pick = new ItemStack(Items.IRON_PICKAXE);
+		pick.setDamageValue(180);
+		p.setItemInHand(InteractionHand.OFF_HAND, pick);
+		p.setShiftKeyDown(true);
+		QuirkKits.of(Quirk.OVERHAUL).handle(p, AbilitySlot.SLOT_5, true, true); // Shift+V
+		ItemStack after = p.getOffhandItem();
+		helper.assertTrue(after.getDamageValue() == 180 - OverhaulConfig.MEND_DURABILITY, "+100 durability: damage " + after.getDamageValue());
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.MEND_COST)) < 0.01f, "20 Matter");
+		helper.assertFalse(Overhaul.fused(p), "Mend, not Fusion");
+		Quirks.edit(p, n -> n.abilityReadyAt.clear());
+		after.setDamageValue(0);
+		helper.assertFalse(OverhaulMoves.mend(p), "nothing to mend on a whole tool");
+		helper.succeed();
+	}
+
+	/** Survival: Sneak + a bare-hand punch on stone takes a 3x3 of it apart into its drops. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void disassemblyMiningBreaksAThreeByThreeIntoDrops(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = overhaul(helper, 1.5, 1.5);
+		BlockPos hit = abs(helper, 4, 2, 4);
+		int n = OverhaulMoves.mine(p, hit, Direction.UP);
+		helper.assertTrue(n == 9, "a 3x3 came apart: " + n);
+		for (int x = 3; x <= 5; x++) {
+			for (int z = 3; z <= 5; z++) {
+				helper.assertTrue(level.getBlockState(abs(helper, x, 2, z)).isAir(), "gone at " + x + "," + z);
+			}
+		}
+		helper.assertTrue(level.getBlockState(abs(helper, 4, 1, 4)).is(Blocks.STONE), "only the face it was hit on");
+		int drops = level.getEntitiesOfClass(ItemEntity.class, new AABB(hit).inflate(3)).stream().mapToInt(e -> e.getItem().getCount()).sum();
+		helper.assertTrue(drops >= 9, "into its drops (cobblestone): " + drops);
+		helper.assertTrue(Math.abs(Quirks.meter(p) - (100f - OverhaulConfig.MINING_COST)) < 0.01f, "6 Matter");
+		// only where he may build
+		p.setGameMode(GameType.ADVENTURE);
+		Quirks.edit(p, s -> s.abilityReadyAt.clear());
+		helper.runAfterDelay(OverhaulConfig.MINING_COOLDOWN + 1, () -> {
+			helper.assertTrue(OverhaulMoves.mine(p, abs(helper, 1, 2, 5), Direction.UP) == 0, "no building rights (adventure): nothing breaks");
+			helper.assertTrue(level.getBlockState(abs(helper, 1, 2, 5)).is(Blocks.STONE), "untouched");
 			helper.succeed();
 		});
 	}
@@ -648,5 +777,56 @@ public class QuirkOverhaulGameTests implements FabricGameTest {
 			helper.assertTrue(p.getAttribute(Attributes.SCALE).getModifier(OverhaulMoves.SCALE_ID) == null, "back to his own size");
 			helper.succeed();
 		});
+	}
+
+	// ---------------------------------------------------------------- Plus Ultra: Total Disassembly
+
+	/**
+	 * Total Disassembly: three waves of spikes roll out (12 each and a toss), the ground they lift breaks apart and is put
+	 * back exactly behind them, he is fused and can't be knocked back while it runs, and it spends all his Matter.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void totalDisassemblyHitsThreeTimesAndReassemblesTheGround(GameTestHelper helper) {
+		ground(helper);
+		ServerLevel level = helper.getLevel();
+		ServerPlayer p = overhaul(helper, 4.0, 4.0);
+		Zombie z = mob(helper, EntityType.ZOMBIE, 4.0, 7.0, 100);
+		pump(helper, p);
+		OverhaulMoves.ultimate(p, 3.8); // kept inside the test's own 8x8 box
+		helper.assertTrue(Overhaul.ultimate(p) && Overhaul.fused(p), "fused for the ultimate");
+		helper.assertTrue(p.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) >= 1.0, "can't be knocked back");
+		helper.runAfterDelay(OverhaulConfig.ULT_WAVES[0] + OverhaulConfig.ULT_WAVE_TICKS / 2 + 2, () -> {
+			boolean opened = false;
+			for (int x = 0; x <= 7 && !opened; x++) {
+				for (int zz = 0; zz <= 7 && !opened; zz++) {
+					opened = GeoTerrain.isTemp(level, abs(helper, x, 2, zz));
+				}
+			}
+			helper.assertTrue(opened, "the first wave took the ground apart");
+		});
+		helper.runAfterDelay(OverhaulConfig.ULT_TICKS + 2, () -> {
+			helper.assertTrue(Math.abs(taken(z) - 3 * OverhaulConfig.ULT_DAMAGE) < 3 * EPS, "three waves, 12 each: took " + taken(z));
+			helper.assertFalse(Overhaul.ultimate(p), "over");
+			helper.assertTrue(Quirks.meter(p) <= 1f, "every scrap of Matter went into it: " + Quirks.meter(p));
+			helper.assertTrue(Quirks.ready(p, OverhaulConfig.FUSION), "the ultimate's Fusion leaves no Fusion cooldown");
+		});
+		helper.runAfterDelay(OverhaulConfig.ULT_TICKS + 30, () -> {
+			z.discard();
+			assertRestored(helper);
+			helper.succeed();
+		});
+	}
+
+	/** The ultimate through the framework: a full gauge, hold C -> Total Disassembly (not the placeholder). */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 40)
+	public void holdingCAtAFullGaugeFiresTotalDisassembly(GameTestHelper helper) {
+		ground(helper);
+		ServerPlayer p = overhaul(helper, 4.0, 4.0);
+		PlusUltra.set(p, 100f);
+		PlusUltra.fire(p);
+		helper.assertTrue(PlusUltra.gauge(p) == 0f && Overhaul.ultimate(p), "Total Disassembly runs");
+		QuirkKits.of(Quirk.OVERHAUL).stopAll(p);
+		helper.assertFalse(Overhaul.ultimate(p), "stopAll ends it");
+		helper.succeed();
 	}
 }

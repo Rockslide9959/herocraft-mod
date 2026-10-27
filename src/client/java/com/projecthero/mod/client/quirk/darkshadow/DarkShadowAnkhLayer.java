@@ -107,7 +107,34 @@ public class DarkShadowAnkhLayer extends RenderLayer<AbstractClientPlayer, Playe
 		part(pose, buffers, light, partialTick, sh, pm.head, Set.of("helmet"));
 		part(pose, buffers, light, partialTick, sh, pm.rightArm, Set.of("plume_r", "gauntlet_r"));
 		part(pose, buffers, light, partialTick, sh, pm.leftArm, Set.of("plume_l", "gauntlet_l"));
-		part(pose, buffers, light, partialTick, sh, pm.body, abyssal ? Set.of("back", "wings") : Set.of("back"));
+		boolean blackBody = DarkShadow.blackBody(player);
+		if (blackBody) {
+			// v0.17.1 Abyssal Black Body: the Ankh upgraded -- great wings, a ridge of shadow and violet fire in the eyes
+			pose.pushPose();
+			pm.body.translateAndRotate(pose);
+			pose.translate(0, 0.25f, 0.1f);
+			pose.scale(1.45f, 1.45f, 1.45f);
+			pose.translate(0, -0.25f, -0.1f);
+			pose.mulPose(Axis.ZP.rotationDegrees(180f));
+			DarkShadowCreature.ankhOnly = Set.of("back", "wings");
+			parts.render(pose, sh, buffers, null, null, light, partialTick);
+			pose.popPose();
+			pose.pushPose();
+			pm.head.translateAndRotate(pose);
+			pose.translate(0, -0.3f, -0.26f);
+			float pulse = 0.75f + 0.25f * net.minecraft.util.Mth.sin(ageInTicks * 0.6f);
+			var vc = com.projecthero.mod.client.quirk.fx.QuirkFxDraw.glow(buffers, com.projecthero.mod.client.quirk.fx.QuirkFxDraw.GLOW);
+			for (int side = -1; side <= 1; side += 2) {
+				pose.pushPose();
+				pose.translate(side * 0.11f, 0, 0);
+				com.projecthero.mod.client.quirk.fx.QuirkFxDraw.shell(vc, pose.last(), 0.07f + 0.02f * pulse, 0.2f, player.getId() * 7L + side, ageInTicks * 0.5f,
+						0xC8A0FF, 0.9f);
+				pose.popPose();
+			}
+			pose.popPose();
+		} else {
+			part(pose, buffers, light, partialTick, sh, pm.body, abyssal ? Set.of("back", "wings") : Set.of("back"));
+		}
 		DarkShadowCreature.ankhOnly = Set.of();
 
 		// ---- a dark feather trail while the wings carry you

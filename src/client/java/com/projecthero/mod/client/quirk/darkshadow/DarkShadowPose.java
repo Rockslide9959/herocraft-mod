@@ -139,6 +139,62 @@ public final class DarkShadowPose {
 			f(16, -1.7f, 0.7f, 0, 0.1284f, 0, -0.0784f, 0.1654f, 0, 0, 0, 0, 0, 0, 0, 0.4852f),
 			f(28, 0.1f, 0, 0.05f, 0.1f, 0, -0.05f, 0.12f, 0, 0, 0, 0, 0, 0, 0, 0.4f) };
 	static final int CALM_MASK = 0x81fe;
+	// ---- v0.17.1 revamp
+	/** ANIM_RAMPAGE: braced wide, the commanding right arm thrown up and swept with each of its three swings. */
+	static final float[][] RAMPAGE = {
+			f(0, -0.9f, 0.2f, 0.2f, 0.2f, 0, -0.25f, 0, 0, 0, 0, 0.12f, 0, 0, -0.12f, 0),
+			f(2, -2.7f, 0.5f, 0.35f, 0.35f, 0, -0.45f, -0.14f, 0.1f, -0.15f, 0, 0.22f, 0.25f, 0, -0.22f, -0.25f),
+			f(3.5f, -2.2f, -0.55f, 0.15f, 0.35f, 0, -0.45f, -0.06f, -0.2f, -0.15f, 0, 0.22f, 0.25f, 0, -0.22f, -0.15f),
+			f(6, -2.6f, -0.4f, 0.3f, 0.3f, 0, -0.4f, -0.12f, -0.15f, -0.15f, 0, 0.22f, 0.25f, 0, -0.22f, -0.25f),
+			f(8.5f, -2.2f, 0.6f, 0.15f, 0.3f, 0, -0.4f, -0.06f, 0.2f, -0.15f, 0, 0.22f, 0.25f, 0, -0.22f, -0.15f),
+			f(11, -2.95f, 0, 0.1f, -2.5f, 0, -0.15f, -0.2f, 0, -0.2f, 0, 0.24f, 0.3f, 0, -0.24f, -0.35f),
+			f(13.5f, -1.1f, 0, 0.15f, -0.9f, 0, -0.15f, 0.32f, 0, -0.35f, 0, 0.24f, 0.4f, 0, -0.24f, 0.25f),
+			f(18, -0.3f, 0, 0.1f, 0, 0, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int RAMPAGE_MASK = 0xfffe;
+	/** ANIM_LUNGE: a point at the spot, then yanked after it -- body pitched forward, arm still out, legs trailing. */
+	static final float[][] LUNGE = {
+			f(0, -0.8f, 0.3f, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(2, AIM, AIM, 0, 0.3f, 0, -0.2f, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(4, AIM, AIM, 0, 0.9f, 0, -0.4f, 0.55f, 0, 0.6f, 0, 0, -0.35f, 0, 0, -0.35f),
+			f(9, -1.6f, 0, 0, 0.8f, 0, -0.35f, 0.45f, 0, 0.5f, 0, 0, -0.3f, 0, 0, -0.3f),
+			f(12, -0.3f, 0, 0, 0.1f, 0, 0, 0.05f, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int LUNGE_MASK = 0xfffe;
+	/** ANIM_TOSS: the fist raised over his head flung forward as it hurls the body. */
+	static final float[][] TOSS = {
+			f(0, -2.8f, 0, 0.25f, -0.3f, 0, -0.2f, -0.2f, 0.25f, 0, 0, 0, 0, 0, 0, -0.2f),
+			f(3, -1.15f, -0.2f, 0, 0.35f, 0, -0.25f, 0.28f, -0.3f, 0, 0, 0, 0, 0, 0, 0.1f),
+			f(6, -1.0f, -0.2f, 0, 0.35f, 0, -0.25f, 0.2f, -0.25f, 0, 0, 0, 0, 0, 0, 0.05f),
+			f(10, -0.3f, 0, 0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int TOSS_MASK = 0x81fe;
+	/** ANIM_CATCH: landing in its arms -- crouched, arms out for balance. */
+	static final float[][] CATCH = {
+			f(0, -0.4f, 0, 1.1f, -0.4f, 0, -1.1f, 0.35f, 0, -0.6f, 0, 0.1f, -0.6f, 0, -0.1f, 0.2f),
+			f(5, -0.3f, 0, 0.9f, -0.3f, 0, -0.9f, 0.25f, 0, -0.4f, 0, 0.08f, -0.4f, 0, -0.08f, 0.1f),
+			f(16, 0, 0, 0.1f, 0, 0, -0.1f, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int CATCH_MASK = 0xfffe;
+	/** ANIM_BLACKBODY: it pours over him -- curled in, then arms flung wide and head thrown back as the wings open. */
+	static final float[][] BLACKBODY = {
+			f(0, -1.3f, -0.7f, 0, -1.3f, 0.7f, 0, 0.35f, 0, 0, 0, 0, 0, 0, 0, 0.45f),
+			f(5, -1.4f, -0.8f, 0, -1.4f, 0.8f, 0, 0.4f, 0, 0, 0, 0, 0, 0, 0, 0.5f),
+			f(9, -2.7f, 0, 1.25f, -2.7f, 0, -1.25f, -0.28f, 0, 0, 0, 0, 0, 0, 0, -0.6f),
+			f(18, -2.5f, 0, 1.15f, -2.5f, 0, -1.15f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.45f),
+			f(26, -0.3f, 0, 0.4f, -0.3f, 0, -0.4f, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int BLACKBODY_MASK = 0x81fe;
+	/** ANIM_DIVE: the claw dive -- talons thrown forward, then swept back past him. */
+	static final float[][] DIVE = {
+			f(0, -2.0f, -0.3f, 0, -2.0f, 0.3f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(3, -1.6f, 0.35f, 0, -1.6f, -0.35f, 0, 0.25f, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(6, 0.6f, 0, 0.5f, 0.6f, 0, -0.5f, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0),
+			f(12, 0.2f, 0, 0.9f, 0.2f, 0, -0.9f, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int DIVE_MASK = 0x7e;
+	/** ANIM_UNLEASH: arms crossed, gathering -- then thrown out, head back: "Let loose, Dark Shadow!" */
+	static final float[][] UNLEASH = {
+			f(0, -1.0f, -0.6f, 0, -1.0f, 0.6f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0.2f),
+			f(4, -1.45f, -0.85f, 0, -1.45f, 0.85f, 0, 0.32f, 0, -0.2f, 0, 0.1f, 0.2f, 0, -0.1f, 0.4f),
+			f(8, -2.3f, 0.1f, 1.05f, -2.3f, -0.1f, -1.05f, -0.22f, 0, -0.1f, 0, 0.18f, 0.1f, 0, -0.18f, -0.55f),
+			f(16, -2.1f, 0.1f, 0.95f, -2.1f, -0.1f, -0.95f, -0.15f, 0, -0.1f, 0, 0.18f, 0.1f, 0, -0.18f, -0.4f),
+			f(22, -0.3f, 0, 0.2f, -0.3f, 0, -0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0) };
+	static final int UNLEASH_MASK = 0xfffe;
 
 	private DarkShadowPose() {
 	}
@@ -165,6 +221,13 @@ public final class DarkShadowPose {
 			case DarkShadow.ANIM_SUMMON -> SUMMON;
 			case DarkShadow.ANIM_FLARE -> FLARE;
 			case DarkShadow.ANIM_CALM -> CALM;
+			case DarkShadow.ANIM_RAMPAGE -> RAMPAGE;
+			case DarkShadow.ANIM_LUNGE -> LUNGE;
+			case DarkShadow.ANIM_TOSS -> TOSS;
+			case DarkShadow.ANIM_CATCH -> CATCH;
+			case DarkShadow.ANIM_BLACKBODY -> BLACKBODY;
+			case DarkShadow.ANIM_DIVE -> DIVE;
+			case DarkShadow.ANIM_UNLEASH -> UNLEASH;
 			default -> null;
 		};
 	}
@@ -186,6 +249,13 @@ public final class DarkShadowPose {
 			case DarkShadow.ANIM_SUMMON -> SUMMON_MASK;
 			case DarkShadow.ANIM_FLARE -> FLARE_MASK;
 			case DarkShadow.ANIM_CALM -> CALM_MASK;
+			case DarkShadow.ANIM_RAMPAGE -> RAMPAGE_MASK;
+			case DarkShadow.ANIM_LUNGE -> LUNGE_MASK;
+			case DarkShadow.ANIM_TOSS -> TOSS_MASK;
+			case DarkShadow.ANIM_CATCH -> CATCH_MASK;
+			case DarkShadow.ANIM_BLACKBODY -> BLACKBODY_MASK;
+			case DarkShadow.ANIM_DIVE -> DIVE_MASK;
+			case DarkShadow.ANIM_UNLEASH -> UNLEASH_MASK;
 			default -> 0;
 		};
 	}
@@ -220,7 +290,14 @@ public final class DarkShadowPose {
 		}
 
 		// ---- held states
-		if (DarkShadow.berserk(player)) {
+		if (DarkShadow.unleashed(player)) {
+			// v0.17.1 Unleash: in control -- feet planted, the right arm thrust out directing the frenzy
+			float sway = 0.05f * Mth.sin(t * 0.4f);
+			pose(r, 0.9f, -1.65f + sway, -0.15f, 0.1f);
+			pose(l, 0.9f, -0.45f, 0.2f, -0.35f);
+			model.rightLeg.zRot = Mth.lerp(0.7f, model.rightLeg.zRot, 0.16f);
+			model.leftLeg.zRot = Mth.lerp(0.7f, model.leftLeg.zRot, -0.16f);
+		} else if (DarkShadow.berserk(player)) {
 			// losing control: hunched, clutching his head, shaking
 			float shake = 0.07f * Mth.sin(t * 1.9f);
 			model.body.xRot = Mth.lerp(0.8f, model.body.xRot, 0.38f);
@@ -249,6 +326,11 @@ public final class DarkShadowPose {
 			// gliding: arms swept back along the wings
 			pose(r, 1f, 0.2f, 0f, 1.15f + 0.05f * Mth.sin(t * 0.3f));
 			pose(l, 1f, 0.2f, 0f, -1.15f - 0.05f * Mth.sin(t * 0.3f));
+		}
+		if (DarkShadow.val(player, DarkShadow.V_TOSS) == 1L) {
+			// Shadow Toss: the fist held high as it carries the body overhead
+			pose(r, 1f, -2.7f + 0.05f * Mth.sin(t * 0.25f), -0.1f, 0.25f);
+			pose(l, 0.6f, -0.35f, 0.1f, -0.3f);
 		}
 		if (DarkShadow.val(player, DarkShadow.V_FETCH) == 1L) {
 			pose(r, 1f, aimX, aimY, 0f); // being carried along: the arm still out at the point
