@@ -233,7 +233,7 @@ public class FalconGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void flightSpeedsAreTheUsersNumbers(GameTestHelper helper) {
 		helper.assertTrue(Math.abs(FalconFlight.tune(false, false).speed() * 20.0 - 19.0) < 1.0e-6, "19 b/s cruising");
-		helper.assertTrue(Math.abs(FalconFlight.tune(true, false).speed() * 20.0 - 35.0) < 1.0e-6, "35 b/s sprinting");
+		helper.assertTrue(Math.abs(FalconFlight.tune(true, false).speed() * 20.0 - 30.0) < 1.0e-6, "30 b/s sprinting");
 		DirectionalFlightModel.Tune jets = FalconFlight.tune(false, true);
 		helper.assertTrue(Math.abs(jets.forcedForward() * 20.0 - 40.0) < 1.0e-6, "40 b/s with the jets burning");
 		// the jet burn drives along the look with no keys held

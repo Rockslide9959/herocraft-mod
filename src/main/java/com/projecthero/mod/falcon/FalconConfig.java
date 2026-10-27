@@ -22,8 +22,8 @@ public final class FalconConfig {
 	// ---------------------------------------------------------------- flight (the shared directional flight)
 	/** Cruise, blocks a tick (19 b/s). */
 	public static final double FLIGHT_SPEED = 19.0 / 20.0;
-	/** Sprint-flying, blocks a tick (35 b/s). */
-	public static final double FLIGHT_SPRINT_SPEED = 35.0 / 20.0;
+	/** Sprint-flying, blocks a tick (30 b/s; v0.17.1 user: was 35). */
+	public static final double FLIGHT_SPRINT_SPEED = 30.0 / 20.0;
 	/** Holding X: the jets drive him along the look at this speed, blocks a tick (40 b/s). */
 	public static final double FLIGHT_BOOST_SPEED = 40.0 / 20.0;
 	/** Space / Sneak straight up / down, blocks a tick (11 b/s). */
