@@ -152,6 +152,18 @@ public final class DarkShadowKit implements QuirkKit {
 		};
 	}
 
+	/** v0.17.1 (menus): keep G held after a grab = Shadow Toss, hold X = Black Fallen Angel (display ids; the kit times the hold). */
+	public static final String HOLD_TOSS = "quirk_dark_shadow_toss";
+
+	@Override
+	public String holdIdOf(AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_2 -> HOLD_TOSS;
+			case SLOT_3 -> DarkShadowConfig.ABYSSAL;
+			default -> null;
+		};
+	}
+
 	@Override
 	public int maxCooldown(String abilityId) {
 		DarkShadowConfig.Moves m = DarkShadowConfig.get().moves;

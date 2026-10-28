@@ -412,6 +412,84 @@ public class QuirkFrameworkGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- v0.17.1: the Quirk menus (guide chapter + "Your Power")
+
+	/**
+	 * v0.17.1 (user: "make them have more information ... include the quirk combos in the menus"): every kit Quirk has at
+	 * least one combo route; every route has its name and effect lang and is listed, with both moves, on its Quirk's own
+	 * Combos page in the guide; every chapter has its Meter / Plus Ultra / Moves / Combos pages (forced page breaks), names
+	 * its ultimate, lists every tap / Shift / hold move with lang, the band effects, passives, survival and the suit perk.
+	 * Also: the guide search finds a combo by name.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void everyQuirkChapterHasItsCombosAndFullMenus(GameTestHelper helper) {
+		var lang = net.minecraft.locale.Language.getInstance();
+		var chapters = com.projecthero.mod.hero.guide.HeroPackGuide.chapters();
+		for (Quirk q : Quirk.kitQuirks()) {
+			var kit = com.projecthero.mod.quirk.QuirkKits.of(q);
+			var ch = com.projecthero.mod.hero.guide.HeroPackGuide.quirkChapter(q);
+			StringBuilder all = new StringBuilder();
+			int breaks = 0;
+			int combosAt = -1;
+			int lastBreak = -1;
+			for (int i = 0; i < ch.lines().size(); i++) {
+				var line = ch.lines().get(i);
+				String text = line.getString();
+				helper.assertFalse(text.contains("projecthero.quirk.") || text.contains("projecthero.guide."), q + " has an untranslated line: " + text);
+				if (com.projecthero.mod.hero.guide.HeroPackGuide.isPageBreak(line)) {
+					breaks++;
+					lastBreak = i;
+				}
+				if (text.equals(lang.getOrDefault("projecthero.quirk.info.combos")) && combosAt < 0) {
+					combosAt = i;
+					helper.assertTrue(lastBreak == i - 1, q + ": the Combos section starts its own page");
+				}
+				all.append(text).append('\n');
+			}
+			helper.assertTrue(breaks >= 5, q + " has its own Meter / Plus Ultra / Moves / Combos pages, got " + breaks + " breaks");
+			helper.assertTrue(combosAt >= 0, q + " has a Combos page");
+			var routes = QuirkCombos.routes(q);
+			helper.assertFalse(routes.isEmpty(), q + " has at least one combo route");
+			for (QuirkCombos.Route r : routes) {
+				helper.assertTrue(lang.has(r.nameKey()) && lang.has(r.descKey()), r.nameKey() + " has its name and .desc");
+				String name = lang.getOrDefault(r.nameKey());
+				int at = all.indexOf(name);
+				helper.assertTrue(at >= 0, q + "'s chapter lists the route " + name);
+				helper.assertTrue(all.indexOf(lang.getOrDefault(r.descKey())) >= 0, q + "'s chapter has the route's effect");
+				helper.assertTrue(all.indexOf(lang.getOrDefault(kit.abilityLangKey(r.opener)), at) >= 0
+						&& all.indexOf(lang.getOrDefault(kit.abilityLangKey(r.finisher)), at) >= 0, name + " names its opener and finisher");
+				var hits = com.projecthero.mod.hero.guide.HeroPackGuide.search(name);
+				helper.assertTrue(hits.stream().anyMatch(h -> h.chapter() == chapters.indexOf(ch)), "the guide search finds " + name);
+				helper.assertTrue(r.window > 0 && r.bonus > 1f, name + " has a window and a bonus");
+			}
+			helper.assertTrue(kit.hasUltimate() && all.indexOf(lang.getOrDefault(kit.ultimateLangKey(q))) >= 0, q + " names its ultimate");
+			for (AbilitySlot slot : new AbilitySlot[] { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4,
+					AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 }) {
+				java.util.List<String> ids = new java.util.ArrayList<>(java.util.Arrays.asList(kit.idsOf(slot)));
+				String hold = com.projecthero.mod.quirk.QuirkInfo.holdOf(kit, slot);
+				if (hold != null && !ids.contains(hold)) {
+					ids.add(hold);
+				}
+				for (String id : ids) {
+					helper.assertTrue(lang.has(kit.abilityLangKey(id)) && lang.has(kit.abilityLangKey(id) + ".desc"), id + " has its name and .desc");
+					helper.assertTrue(all.indexOf(lang.getOrDefault(kit.abilityLangKey(id))) >= 0, q + "'s chapter lists " + id);
+				}
+			}
+			var spec = QuirkMeters.spec(q);
+			for (int b = 0; b < 3; b++) {
+				helper.assertTrue(lang.has("projecthero.quirk.band." + q.id + "." + spec.names[b] + ".desc"), q + " band " + spec.names[b] + " says what it does");
+			}
+			for (String key : new String[] { ".fills", ".passive.1", ".survival.1", ".suit_perk" }) {
+				helper.assertTrue(lang.has("projecthero.quirk." + q.id + key), q + " has " + key);
+				helper.assertTrue(all.indexOf(lang.getOrDefault("projecthero.quirk." + q.id + key)) >= 0, q + "'s chapter shows " + key);
+			}
+			// H is the power selector only and never a move key; N only for Dark Shadow's Hide
+			helper.assertFalse(all.toString().contains("[H]"), q + " lists no H move");
+			helper.assertTrue(all.toString().contains("[N]") == (q == Quirk.DARK_SHADOW), q + ": N only for Dark Shadow's Hide");
+		}
+		helper.succeed();
+	}
+
 	// ---------------------------------------------------------------- combo routes
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)

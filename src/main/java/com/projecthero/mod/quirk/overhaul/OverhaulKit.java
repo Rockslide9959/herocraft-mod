@@ -118,6 +118,17 @@ public final class OverhaulKit implements QuirkKit {
 		return OverhaulKitIds.of(slot);
 	}
 
+	/** v0.17.1 (menus): the hold moves, for the guide / "Your Power" / the Alt list -- the kit still tells tap from hold itself. */
+	@Override
+	public String holdIdOf(AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_2 -> OverhaulConfig.THORN;
+			case SLOT_3 -> OverhaulConfig.SURF;
+			case SLOT_5 -> OverhaulConfig.RESTORE;
+			default -> null;
+		};
+	}
+
 	@Override
 	public int maxCooldown(String abilityId) {
 		return switch (abilityId) {

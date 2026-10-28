@@ -430,6 +430,102 @@ public class QuirkZeroGravityGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	// ---------------------------------------------------------------- v0.17.1: the Gunhead Meteor combo route
+
+	/** Gunhead's three beats on {@code z}: the last is the throw that floats it and opens Gunhead Meteor. */
+	private static void gunheadThrow(GameTestHelper helper, ServerPlayer p, Zombie z) {
+		helper.assertTrue(ZeroGravityMoves.gunhead(p) == z, "Gunhead aimed at the zombie");
+		ZeroGravityMoves.gunheadStepForTest(p);
+		ZeroGravityMoves.gunheadStepForTest(p);
+		helper.assertTrue(ZeroGravityFloat.floatedBy(p, z), "the throw floats it");
+	}
+
+	/** Lets the lifted zombie go, sets it on the floor at {@code at} (no fall), and returns its health just before the slam lands. */
+	private static float landNow(GameTestHelper helper, ServerPlayer p, Zombie z, Vec3 at) {
+		ZeroGravityMoves.slamDropForTest(p);
+		Vec3 abs = helper.absoluteVec(at);
+		z.moveTo(abs.x, abs.y, abs.z);
+		z.setDeltaMovement(Vec3.ZERO);
+		z.fallDistance = 0f;
+		z.setOnGround(true);
+		z.invulnerableTime = 0;
+		return z.getHealth();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void gunheadMeteorSlamsTheSameTargetHarder(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 2.5);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.5, 100);
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.routes(Quirk.ZERO_GRAVITY).contains(ZeroGravityMeter.GUNHEAD_METEOR),
+				"Zero Gravity has its combo route");
+		gunheadThrow(helper, p, z);
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.openWindow(p) == ZeroGravityMeter.GUNHEAD_METEOR, "the throw opens Gunhead Meteor");
+		ready(p);
+		int before = com.projecthero.mod.quirk.QuirkCombos.count(p);
+		helper.assertTrue(ZeroGravityMoves.slam(p) == z, "the slam takes the same zombie");
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.last(p) == ZeroGravityMeter.GUNHEAD_METEOR
+				&& com.projecthero.mod.quirk.QuirkCombos.count(p) == before + 1, "Gunhead then Slam on the same target: Gunhead Meteor");
+		helper.assertTrue(Math.abs(ZeroGravityMoves.slamBonusForTest(p, z) - 1.5f) < 0.001f, "the slam carries the x1.5 bonus");
+		float hp = landNow(helper, p, z, new Vec3(4.5, 2.0, 4.5));
+		pump(helper, p);
+		helper.runAfterDelay(4, () -> {
+			float took = hp - z.getHealth();
+			helper.assertTrue(Math.abs(took - ZeroGravityConfig.SLAM_DAMAGE * 1.5f) <= EPS,
+					"the slam came down 1.5x harder: took " + took + ", want " + ZeroGravityConfig.SLAM_DAMAGE * 1.5f);
+			helper.assertTrue(ZeroGravityMoves.slamBonusForTest(p, z) == 1f, "the bonus is spent");
+			ZeroGravityMoves.endAll(p);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void gunheadMeteorNeedsTheSameTarget(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 2.5);
+		Zombie a = zombie(helper, 4.5, 2.0, 4.5, 100);
+		gunheadThrow(helper, p, a);
+		// the thrown one is moved well out of reach; a second zombie stands where it was
+		Vec3 away = helper.absoluteVec(new Vec3(0.5, 2.0, 0.5));
+		a.moveTo(away.x, away.y, away.z);
+		Zombie b = zombie(helper, 4.5, 2.0, 4.5, 100);
+		ready(p);
+		int before = com.projecthero.mod.quirk.QuirkCombos.count(p);
+		helper.assertTrue(ZeroGravityMoves.slam(p) == b, "the slam takes the other zombie");
+		helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.count(p) == before, "threw one, slammed another: no combo");
+		helper.assertTrue(ZeroGravityMoves.slamBonusForTest(p, b) == 1f, "no bonus on the other zombie");
+		float hp = landNow(helper, p, b, new Vec3(4.5, 2.0, 4.5));
+		pump(helper, p);
+		helper.runAfterDelay(4, () -> {
+			float took = hp - b.getHealth();
+			helper.assertTrue(Math.abs(took - ZeroGravityConfig.SLAM_DAMAGE) <= EPS, "a plain slam: took " + took);
+			ZeroGravityMoves.endAll(p);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void gunheadMeteorClosesAfterItsWindow(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = uravity(helper, 4.5, 2.0, 2.5);
+		Zombie z = zombie(helper, 4.5, 2.0, 4.5, 100);
+		gunheadThrow(helper, p, z);
+		int before = com.projecthero.mod.quirk.QuirkCombos.count(p);
+		helper.runAfterDelay(ZeroGravityMeter.GUNHEAD_METEOR.window + 6, () -> {
+			helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.openWindow(p) == null, "the window closed");
+			// back in front of her, still and in reach
+			Vec3 at = helper.absoluteVec(new Vec3(4.5, 2.0, 4.5));
+			z.moveTo(at.x, at.y, at.z);
+			z.setDeltaMovement(Vec3.ZERO);
+			ready(p);
+			helper.assertTrue(ZeroGravityMoves.slam(p) == z, "the slam takes the zombie");
+			helper.assertTrue(com.projecthero.mod.quirk.QuirkCombos.count(p) == before, "too late: no combo");
+			helper.assertTrue(ZeroGravityMoves.slamBonusForTest(p, z) == 1f, "no bonus");
+			ZeroGravityMoves.endAll(p);
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
 	public void zeroGravityFieldFloatsEverythingInsideThenDrops(GameTestHelper helper) {
 		floor(helper);

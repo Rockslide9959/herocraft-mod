@@ -1,0 +1,290 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.Quirks;
+import com.projecthero.mod.quirk.item.QuirkSuits;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ArmorItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Quirk menu screenshots. Enabled by run/quirkmenus.flag. */
+// TEMP-HARNESS
+public final class QuirkMenusHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+
+	private QuirkMenusHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("quirkmenus.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(QuirkMenusHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "quirkmenus-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "qm_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name + " screen=" + mc.screen);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks == 5) {
+				org.lwjgl.glfw.GLFW.glfwSetWindowSize(mc.getWindow().getWindow(), 1600, 900);
+				mc.options.guiScale().set(3);
+			}
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(QuirkMenusHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.resizeDisplay();
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				for (int x = -10; x <= 10; x++) {
+					for (int z = -10; z <= 10; z++) {
+						level.setBlock(net.minecraft.core.BlockPos.containing(origin.x + x, origin.y - 1, origin.z + z), Blocks.STONE.defaultBlockState(), 3);
+					}
+				}
+				p.teleportTo(level, origin.x, origin.y, origin.z, 0f, 10f);
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("QM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void suit(ServerPlayer p, Quirk q, int pieces) {
+		for (EquipmentSlot s : new EquipmentSlot[] { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+			p.setItemSlot(s, ItemStack.EMPTY);
+		}
+		if (q == null) {
+			return;
+		}
+		int n = 0;
+		for (ArmorItem.Type t : QuirkSuits.Suit.of(q).pieces()) {
+			if (n++ < pieces) {
+				p.setItemSlot(t.getSlot(), new ItemStack(QuirkSuits.piece(q, t)));
+			}
+		}
+	}
+
+	/** Grants {@code q}, sets its meter / gauge / suit, opens "Your Power", shoots the top and the Combos section. */
+	private static int powerScene(Minecraft mc, int t, Quirk q, float meter, float pu, int suitPieces, String name,
+			java.util.function.Consumer<ServerPlayer> extra, String... scrollShots) {
+		at(t, () -> {
+			mc.setScreen(null);
+			server(mc, p -> {
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, q));
+				suit(p, q, suitPieces);
+			});
+		});
+		at(t + 4, () -> server(mc, p -> {
+			Quirks.setMeter(p, meter);
+			PlusUltra.set(p, pu);
+			extra.accept(p);
+		}));
+		at(t + 14, () -> {
+			mc.setScreen(new com.projecthero.mod.client.gui.PowerInfoScreen());
+			System.out.println("[HARNESS] opened " + mc.screen);
+		});
+		shot(t + 22, name + "_top");
+		int at = t + 24;
+		for (String s : scrollShots) {
+			at(at, () -> {
+				if (mc.screen instanceof com.projecthero.mod.client.gui.PowerInfoScreen ps && !ps.scrollTo(s)) {
+					System.out.println("[HARNESS] no line " + s);
+				}
+			});
+			shot(at + 3, name + "_" + s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z]+", "_"));
+			at += 6;
+		}
+		return at + 4;
+	}
+
+	private static void guideAt(Minecraft mc, int t, Quirk q, String headingKey, String name) {
+		at(t, () -> {
+			var gs = new com.projecthero.mod.client.gui.HeroPackGuideScreen();
+			mc.setScreen(gs);
+			var ch = com.projecthero.mod.hero.guide.HeroPackGuide.quirkChapter(q);
+			int idx = com.projecthero.mod.hero.guide.HeroPackGuide.chapters().indexOf(ch);
+			String want = net.minecraft.locale.Language.getInstance().getOrDefault(headingKey).replace("%s", "").trim();
+			int line = 0;
+			for (int i = 0; i < ch.lines().size(); i++) {
+				if (ch.lines().get(i).getString().startsWith(want)) {
+					line = i;
+					break;
+				}
+			}
+			try {
+				var m = com.projecthero.mod.client.gui.HeroPackGuideScreen.class.getDeclaredMethod("openChapter", int.class, int.class);
+				m.setAccessible(true);
+				m.invoke(gs, idx, line);
+			} catch (ReflectiveOperationException e) {
+				System.out.println("[HARNESS] guide: " + e);
+			}
+		});
+		shot(t + 58, name);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		mc.options.hideGui = false;
+		t = powerScene(mc, t, Quirk.HELLFLAME, 86f, 100f, 0, "hellflame", p -> {
+		}, "Plus Ultra", "Controls", "Combo Routes", "Passives");
+		t = powerScene(mc, t, Quirk.EXPLOSION, 55f, 42f, 2, "explosion", p -> com.projecthero.mod.quirk.explosion.ExplosionMoves.setStrain(p, 76f),
+				"Meter:", "Combo Routes");
+		t = powerScene(mc, t, Quirk.ZERO_GRAVITY, 62f, 18f, 4, "zero_gravity", p -> {
+		}, "Combo Routes", "Costume Set Perk");
+		t = powerScene(mc, t, Quirk.ERASURE, 30f, 70f, 0, "erasure", p -> {
+		}, "Combo Routes");
+		t = powerScene(mc, t, Quirk.DARK_SHADOW, 50f, 5f, 0, "dark_shadow", p -> {
+		}, "Controls", "Hide Dark Shadow", "Combo Routes");
+		t = powerScene(mc, t, Quirk.OVERHAUL, 18f, 60f, 0, "overhaul", p -> {
+		}, "Meter:", "Combo Routes");
+		t = powerScene(mc, t, Quirk.ENGINE, 40f, 90f, 3, "engine", p -> {
+		}, "Combo Routes");
+		at(t, () -> mc.setScreen(null));
+		t += 4;
+		// the Guidebook: Combos pages, a Meter page, a Moves page
+		guideAt(mc, t, Quirk.EXPLOSION, "projecthero.quirk.info.combos", "guide_explosion_combos");
+		t += 64;
+		guideAt(mc, t, Quirk.ZERO_GRAVITY, "projecthero.quirk.info.combos", "guide_zero_gravity_combos");
+		t += 64;
+		guideAt(mc, t, Quirk.ERASURE, "projecthero.quirk.info.combos", "guide_erasure_combos");
+		t += 64;
+		guideAt(mc, t, Quirk.HELLFLAME, "projecthero.quirk.info.meter", "guide_hellflame_meter");
+		t += 64;
+		guideAt(mc, t, Quirk.DARK_SHADOW, "projecthero.quirk.info.controls", "guide_dark_shadow_controls");
+		t += 64;
+		// the Alt move list
+		at(t, () -> {
+			mc.setScreen(null);
+			com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = true;
+			server(mc, p -> {
+				com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.EXPLOSION));
+				suit(p, null, 0);
+				p.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 0f, 10f);
+			});
+		});
+		at(t + 4, () -> server(mc, p -> {
+			Quirks.setMeter(p, 55f);
+			PlusUltra.set(p, 100f);
+		}));
+		shot(t + 14, "alt_explosion");
+		at(t + 18, () -> server(mc, p -> com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.DARK_SHADOW))));
+		at(t + 22, () -> server(mc, p -> Quirks.setMeter(p, 40f)));
+		shot(t + 32, "alt_dark_shadow");
+		at(t + 36, () -> server(mc, p -> com.projecthero.mod.hero.UniquePowers.forced(() -> Quirks.grant(p, Quirk.ZERO_GRAVITY))));
+		shot(t + 48, "alt_zero_gravity");
+		t += 60;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
