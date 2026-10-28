@@ -151,7 +151,7 @@ public final class HeroLandingFx {
 		DustParticleOptions green = new DustParticleOptions(rgb(0x3CFF6A), 0.9f);
 		burst(level, green, feet, 16, 1.0, 2.2 + 1.2 * s, 0.25);
 		level.sendParticles(ParticleTypes.END_ROD, fist.x, fist.y + 0.2, fist.z, 4 + (int) (5 * s), 0.2, 0.15, 0.2, 0.08);
-		sound(level, feet, HeroLandingSounds.HARD_LIGHT, 0.9f, 1.0f + p.getRandom().nextFloat() * 0.06f);
+		sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.3f + 0.3f * s, 0.7f); // v0.17.1 (user): a plain boom, no ringing layer
 		QuirkCamera.vignette(p, 0x2AFF5A, 0.25f + 0.2f * s, 12);
 	}
 
@@ -164,9 +164,6 @@ public final class HeroLandingFx {
 		QuirkFx.shards(level, feet.add(0, 0.05, 0)).block(ground(p)).size(0.9f + 0.6f * s).count(5 + (int) (6 * s)).life(22).spawn();
 		QuirkCamera.shakeAround(level, feet, 18 + 10 * s, 0.3f + 0.55f * s, 10 + (int) (8 * s));
 		sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.35f + 0.35f * s, 0.6f);
-		if (kryptonian) {
-			sound(level, feet, HeroLandingSounds.COSMIC, 0.4f, 0.6f);
-		}
 	}
 
 	// ---------------------------------------------------------------- Thor
@@ -211,7 +208,7 @@ public final class HeroLandingFx {
 				.flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
 		burst(level, ParticleTypes.END_ROD, feet, 8, 0.8, 1.6 + s, 0.1);
 		burst(level, new DustParticleOptions(rgb(0xE8282E), 0.8f), feet, 10, 1.0, 2.2 + s, 0.22);
-		sound(level, feet, HeroLandingSounds.COSMIC, 0.9f, 1.15f);
+		sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.3f + 0.25f * s, 0.75f); // v0.17.1 (user): a plain boom, no ringing layer
 	}
 
 	// ---------------------------------------------------------------- Silver Surfer
@@ -223,7 +220,7 @@ public final class HeroLandingFx {
 		QuirkFx.ring(level, feet).colours(0xFFFFFF, 0xC8D8FF).size(6.0f + 3.0f * s).thickness(0.2f).life(24).ease(QuirkFx.Ease.OUT_QUAD).ground()
 				.spawn();
 		burst(level, ParticleTypes.END_ROD, feet, 8, 0.8, 1.8, 0.1);
-		sound(level, feet, HeroLandingSounds.COSMIC, 1.0f, 0.85f);
+		sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.25f + 0.25f * s, 0.8f); // v0.17.1 (user): a plain boom, no ringing layer
 		Vec3 f = forward(p);
 		p.setDeltaMovement(f.x * (0.35 + 0.2 * s), 0.0, f.z * (0.35 + 0.2 * s));
 		p.hurtMarked = true;
@@ -237,9 +234,6 @@ public final class HeroLandingFx {
 		Vec3 back = p.position().subtract(forward(p).scale(0.6));
 		level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, ground(p)), back.x, back.y + 0.1, back.z, 6, 0.3, 0.05, 0.3, 0.15);
 		level.sendParticles(ParticleTypes.END_ROD, back.x, back.y + 0.15, back.z, 1, 0.2, 0.02, 0.2, 0.02);
-		if (age == 2) {
-			sound(level, back, SoundEvents.GRINDSTONE_USE, 0.25f, 1.6f);
-		}
 	}
 
 	// ---------------------------------------------------------------- Max Steel
@@ -251,7 +245,7 @@ public final class HeroLandingFx {
 		QuirkFx.ring(level, feet).colours(0xBFF4FF, 0x1060FF).size(5.0f + 3.0f * s).thickness(0.25f).life(16).ground().spawn();
 		burst(level, new DustParticleOptions(rgb(0x1E90FF), 0.8f), feet, 14, 0.9, 2.2 + s, 0.22);
 		level.sendParticles(ParticleTypes.ELECTRIC_SPARK, feet.x, feet.y + 0.2, feet.z, 8, 0.6, 0.1, 0.6, 0.3);
-		sound(level, feet, HeroLandingSounds.HARD_LIGHT, 0.7f, 1.45f);
+		sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.3f + 0.25f * s, 0.75f); // v0.17.1 (user): a plain boom, no ringing layer
 	}
 
 	// ---------------------------------------------------------------- the element variants
@@ -278,8 +272,7 @@ public final class HeroLandingFx {
 			case ICE -> {
 				QuirkFx.decal(level, feet).style(QuirkFx.DECAL_CRACK).colour(0xC8F4FF).size(1.6f + 1.4f * s).life(160).yaw(yaw + 30f).spawn();
 				burst(level, ParticleTypes.SNOWFLAKE, feet, 22, 0.5, 2.0 + s, 0.15);
-				sound(level, feet, SoundEvents.GLASS_BREAK, 0.45f, 1.4f);
-				sound(level, feet, SoundEvents.PHANTOM_FLAP, 0.5f, 1.0f);
+				sound(level, feet, SoundEvents.POWDER_SNOW_BREAK, 0.9f, 0.9f); // v0.17.1 (user): no glassy tinkle
 			}
 			case WATER -> {
 				QuirkFx.ring(level, feet).style(QuirkFx.RING_STEAM).colour(0xCFEFFF).size(3.0f + 2.5f * s).thickness(0.4f).life(16).ground().spawn();
@@ -291,13 +284,12 @@ public final class HeroLandingFx {
 				burst(level, tint, feet, 20, 0.5, 2.0 + s, 0.3);
 				level.sendParticles(ParticleTypes.ELECTRIC_SPARK, feet.x, feet.y + 0.3, feet.z, 16, 0.5, 0.2, 0.5, 0.45);
 				sound(level, feet, SoundEvents.ANVIL_LAND, 0.25f, 0.7f);
-				sound(level, feet, HeroLandingSounds.HARD_LIGHT, 0.45f, 1.7f);
 			}
 			case WIND -> {
 				QuirkFx.ring(level, feet).style(QuirkFx.RING_STEAM).colour(0xF0F6FF).size(3.5f + 3.0f * s).thickness(0.35f).life(14).ground()
 						.spawn();
 				burst(level, ParticleTypes.CLOUD, feet, 16, 0.6, 1.6 + s, 0.15);
-				sound(level, feet, HeroLandingSounds.COSMIC, 0.55f, 0.75f);
+				sound(level, feet, SoundEvents.GENERIC_EXPLODE.value(), 0.2f, 0.85f); // v0.17.1 (user): a plain boom, no ringing layer
 			}
 			default -> burst(level, tint, feet, 18, 0.5, 2.0 + s, 0.3);
 		}
