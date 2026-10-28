@@ -53,6 +53,14 @@ public interface AlienClientKit {
 	default void tick(AbstractClientPlayer p) {
 	}
 
+	/**
+	 * v0.17.1 wave A (Ghostfreak): the body's opacity, 0..255. Below 255 the player body is drawn see-through (vanilla's
+	 * translucent entity type, {@code OmnitrixAlienTranslucentMixin}). Default opaque.
+	 */
+	default int bodyAlpha(AbstractClientPlayer p) {
+		return 255;
+	}
+
 	/** Where the Omnitrix badge sits: in body-bone pixels (x right, y down from the neck, z forward = negative). */
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };

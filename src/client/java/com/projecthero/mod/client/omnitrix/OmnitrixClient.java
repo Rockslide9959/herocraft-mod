@@ -54,6 +54,10 @@ public final class OmnitrixClient {
 		// the alien client kits -- ONE LINE PER KIT (the other eight add theirs here)
 		AlienClients.register(Aliens.HEATBLAST.id(), new HeatblastClient());
 		AlienClients.register(Aliens.FOUR_ARMS.id(), new FourArmsClient());
+		AlienClients.register(Aliens.XLR8.id(), new com.projecthero.mod.client.omnitrix.alien.Xlr8Client());
+		AlienClients.register(Aliens.DIAMONDHEAD.id(), new com.projecthero.mod.client.omnitrix.alien.DiamondheadClient());
+		AlienClients.register(Aliens.UPGRADE.id(), new com.projecthero.mod.client.omnitrix.alien.UpgradeClient());
+		AlienClients.register(Aliens.GHOSTFREAK.id(), new com.projecthero.mod.client.omnitrix.alien.GhostfreakClient());
 
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_METEOR, OmnitrixRenderers.Meteor::new);
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_POD, OmnitrixRenderers.Pod::new);

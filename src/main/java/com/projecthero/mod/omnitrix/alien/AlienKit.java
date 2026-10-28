@@ -153,6 +153,36 @@ public abstract class AlienKit {
 		return amount;
 	}
 
+	// ---------------------------------------------------------------- movement hooks (v0.17.1 wave A: XLR8, Ghostfreak)
+	// All default off. They are asked on BOTH sides (the owner's client simulates its own movement), so answer from synced
+	// state only ({@link #flag} / {@link #timer}). Mixins: OmnitrixAlienCollideMixin, OmnitrixAlienLivingMixin (main),
+	// OmnitrixAlienPhaseClientMixin (client).
+
+	/** Horizontal movement ignores blocks (vertical collision kept: through walls, never through floors). */
+	public boolean phasing(Player p) {
+		return false;
+	}
+
+	/** {@code fluid} holds the wearer up like ground (water running). */
+	public boolean standsOnFluid(Player p, net.minecraft.world.level.material.FluidState fluid) {
+		return false;
+	}
+
+	/** Pressing into a wall climbs it, like a ladder (wall running). */
+	public boolean climbs(Player p) {
+		return false;
+	}
+
+	/** The kit of the alien {@code p} is right now (client-safe: reads the synced state), or null for a human. */
+	@Nullable
+	public static AlienKit activeKit(Player p) {
+		if (p == null || !Omnitrix.hasPower(p)) {
+			return null;
+		}
+		OmnitrixState s = Omnitrix.state(p);
+		return s.transformed() ? Aliens.kit(s.active) : null;
+	}
+
 	// ---------------------------------------------------------------- helpers
 
 	/** {@code <alien>.<move>}: the cooldown key. */

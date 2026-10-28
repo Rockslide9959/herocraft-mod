@@ -363,14 +363,17 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.cycle(p, 1), "the scroll wheel turns the dial");
 		String second = Omnitrix.state(p).selected;
 		helper.assertTrue(!second.equals(first) && Aliens.playable(second), "to the next alien with a kit");
-		Omnitrix.cycle(p, 1);
-		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "coming-soon aliens are skipped (two playable: it wraps)");
+		for (int k = 1; k < Aliens.playable().size(); k++) { // v0.17.1 wave A: however many aliens have kits by now
+			Omnitrix.cycle(p, 1);
+		}
+		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "coming-soon aliens are skipped (a full turn of the playable ones wraps)");
 		Omnitrix.cycle(p, -1);
-		helper.assertTrue(Omnitrix.state(p).selected.equals(FourArmsKit.ID) || Omnitrix.state(p).selected.equals(second), "and turns back");
+		helper.assertTrue(!Omnitrix.state(p).selected.equals(first) && Aliens.playable(Omnitrix.state(p).selected), "and turns back");
+		String picked = Omnitrix.state(p).selected;
 		helper.assertTrue(Omnitrix.slap(p), "the click slaps the core down");
 		helper.runAfterDelay(Omnitrix.SLAP_TICKS + 2, () -> {
 			helper.assertTrue(Omnitrix.transformed(p) && !Omnitrix.selecting(p), "the slap transformed");
-			helper.assertTrue(Omnitrix.state(p).active.equals(second), "into the selected alien");
+			helper.assertTrue(Omnitrix.state(p).active.equals(picked), "into the selected alien");
 			helper.assertTrue(Omnitrix.timeLeft(p) > OmnitrixConfig.TRANSFORM_TICKS - 20, "for 3 minutes");
 			helper.succeed();
 		});
@@ -411,9 +414,13 @@ public class OmnitrixGameTests implements FabricGameTest {
 	public void theDialListsAllTenAndOnlyKitsArePlayable(GameTestHelper helper) {
 		helper.assertTrue(Aliens.all().size() == 10, "the original ten are on the dial");
 		helper.assertTrue(Aliens.playable(HeatblastKit.ID) && Aliens.playable(FourArmsKit.ID), "Heatblast and Four Arms are playable");
-		helper.assertFalse(Aliens.playable(Aliens.XLR8.id()), "XLR8 is coming soon");
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
-		helper.assertFalse(Omnitrix.select(p, Aliens.GREY_MATTER.id()), "a coming-soon alien cannot be picked");
+		// v0.17.1 wave A: more aliens get kits as they are built -- whichever is still without one stays "coming soon"
+		for (Aliens.Alien a : Aliens.all()) {
+			if (!Aliens.playable(a.id())) {
+				helper.assertFalse(Omnitrix.select(p, a.id()), "a coming-soon alien cannot be picked: " + a.id());
+			}
+		}
 		helper.assertTrue(Omnitrix.select(p, FourArmsKit.ID) && Omnitrix.state(p).selected.equals(FourArmsKit.ID), "Four Arms picked");
 		helper.assertTrue(Omnitrix.activate(p) && Omnitrix.state(p).selected.equals(FourArmsKit.ID), "the pick persists");
 		helper.succeed();

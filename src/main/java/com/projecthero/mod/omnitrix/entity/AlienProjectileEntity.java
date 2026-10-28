@@ -42,6 +42,8 @@ public class AlienProjectileEntity extends Projectile {
 	private static final EntityDataAccessor<Float> SIZE = SynchedEntityData.defineId(AlienProjectileEntity.class, EntityDataSerializers.FLOAT);
 
 	private static final Map<String, BiConsumer<AlienProjectileEntity, HitResult>> ON_HIT = new HashMap<>();
+	/** v0.17.1 wave A: kind -> the particle its flight trails on the client (registered once at init; never per player). */
+	private static final Map<String, net.minecraft.core.particles.ParticleOptions> TRAILS = new HashMap<>();
 
 	private float damage = 4f;
 	private boolean fireDamage;
@@ -71,6 +73,11 @@ public class AlienProjectileEntity extends Projectile {
 	/** Adds extra behaviour to every projectile of {@code kind} when it hits something (after the damage / blast). */
 	public static void onHit(String kind, BiConsumer<AlienProjectileEntity, HitResult> fn) {
 		ON_HIT.put(kind, fn);
+	}
+
+	/** v0.17.1 wave A: every projectile of {@code kind} trails {@code particle} on the client (Diamondhead's shards...). */
+	public static void trail(String kind, net.minecraft.core.particles.ParticleOptions particle) {
+		TRAILS.put(kind, particle);
 	}
 
 	public AlienProjectileEntity colour(int rgb) {
@@ -170,6 +177,12 @@ public class AlienProjectileEntity extends Projectile {
 			}
 			if (random.nextInt(3) == 0) {
 				level().addParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, getX(), getY(), getZ(), 0, 0.01, 0);
+			}
+		}
+		if (level().isClientSide()) {
+			net.minecraft.core.particles.ParticleOptions trail = TRAILS.get(kind());
+			if (trail != null) {
+				level().addParticle(trail, getX() - v.x * 0.5, getY() - v.y * 0.5, getZ() - v.z * 0.5, 0, 0, 0);
 			}
 		}
 		setPos(getX() + v.x, getY() + v.y, getZ() + v.z);

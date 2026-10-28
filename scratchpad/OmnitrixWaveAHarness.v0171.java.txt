@@ -1,0 +1,361 @@
+// Wiring (TEMP): copy to src/client/java/com/projecthero/mod/client/OmnitrixWaveAHarness.java, add "OmnitrixWaveAHarness.init(); // TEMP-HARNESS" after OmnitrixClient.initialize() in ProjectHeroModClient, touch run/omnitrix_wave_a.flag, set soundCategory_master:0.05 in run/options.txt, ./gradlew runClient. Shots land in run/screenshots/omnitrix_*.png.
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit;
+import com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit;
+import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit;
+import com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Omnitrix wave A screenshots. Enabled by run/omnitrix_wave_a.flag. */
+// TEMP-HARNESS
+public final class OmnitrixWaveAHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static final Map<String, ServerPlayer> FAKES = new HashMap<>();
+
+	private OmnitrixWaveAHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix_wave_a.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixWaveAHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		if (name.startsWith("fp_")) {
+			at(t - 1, () -> {
+				try {
+					var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+					m.setAccessible(true);
+					m.invoke(Minecraft.getInstance().particleEngine);
+				} catch (ReflectiveOperationException e) {
+					System.out.println("[HARNESS] " + e);
+				}
+			});
+		}
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		// the user: every test client at 5% sound
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixWaveAHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				for (ServerPlayer f : FAKES.values()) {
+					f.tickCount++;
+					Omnitrix.tick(f);
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OMXA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		FAKES.put(name, f);
+		return f;
+	}
+
+	private static void become(ServerPlayer ben, Vec3 stage, String alien) {
+		Omnitrix.revert(ben, Omnitrix.Reason.REVOKE);
+		ben.teleportTo(ben.serverLevel(), stage.x, stage.y, stage.z, 180f, 0f);
+		ben.setYHeadRot(180f);
+		ben.yBodyRot = 180f;
+		var n = Omnitrix.state(ben).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(ben, n);
+		Omnitrix.transform(ben);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T> T kit(String id) {
+		return (T) Aliens.kit(id);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ---------------------------------------------------------------- 1. the raised watch shows each new silhouette
+		at(t, () -> server(mc, p -> {
+			mc.execute(() -> mc.options.hideGui = false); // the first-person hand only renders with the GUI on
+			p.teleportTo(p.serverLevel(), origin.x - 12, origin.y, origin.z - 12, 200f, 10f);
+			UniquePowers.forced(() -> Omnitrix.grant(p));
+		}));
+		t += 110; // the title fades
+		String[] ids = { Xlr8Kit.ID, DiamondheadKit.ID, UpgradeKit.ID, GhostfreakKit.ID };
+		for (String id : ids) {
+			at(t, () -> server(mc, p -> {
+				Omnitrix.deactivate(p);
+				Omnitrix.select(p, id);
+				Omnitrix.activate(p);
+			}));
+			shot(t + 14, "fp_raised_" + id);
+			t += 24;
+		}
+		at(t, () -> server(mc, p -> {
+			Omnitrix.deactivate(p);
+			Omnitrix.revoke(p);
+			mc.execute(() -> mc.options.hideGui = true);
+			p.setGameMode(GameType.SPECTATOR); // the camera: never caught in a twister or a shove
+			p.getAbilities().flying = true;
+			p.getAbilities().mayfly = true;
+			p.onUpdateAbilities();
+		}));
+		t += 10;
+		// ---------------------------------------------------------------- 2. third person: each alien idle and two moves
+		Vec3 stage = origin.add(-24, 0, 0);
+		Vec3 front = stage.add(-1.5, 1.65, -2.7);
+		Vec3 look = stage.add(0, 1.05, 0);
+		at(t, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(80))) {
+				e.discard();
+			}
+			ServerPlayer ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+			camera(p, front, look);
+		}));
+		t += 20;
+		// XLR8
+		at(t, () -> server(mc, p -> become(FAKES.get("Ben"), stage, Xlr8Kit.ID)));
+		shot(t + 30, "xlr8_idle");
+		at(t + 34, () -> server(mc, p -> camera(p, stage.add(-4.2, 1.5, -1.0), stage.add(0, 1.0, -1.0))));
+		at(t + 36, () -> server(mc, p -> ((Xlr8Kit) kit(Xlr8Kit.ID)).blurDash(FAKES.get("Ben"))));
+		for (int k = 0; k < 6; k++) {
+			int kk = k;
+			at(t + 36 + k, () -> server(mc, p -> {
+				ServerPlayer ben = FAKES.get("Ben");
+				ben.teleportTo(ben.serverLevel(), stage.x, stage.y, stage.z + 2.5 - kk * 0.9, 180f, 0f);
+			}));
+		}
+		shot(t + 41, "xlr8_blur_dash");
+		at(t + 50, () -> server(mc, p -> {
+			FAKES.get("Ben").teleportTo(p.serverLevel(), stage.x, stage.y, stage.z, 180f, 0f);
+			camera(p, stage.add(-5.0, 3.2, -5.0), stage.add(0, 1.0, 0));
+		}));
+		at(t + 54, () -> server(mc, p -> ((Xlr8Kit) kit(Xlr8Kit.ID)).tornadoRun(FAKES.get("Ben"))));
+		shot(t + 70, "xlr8_tornado_run");
+		at(t + 74, () -> server(mc, p -> camera(p, front, look)));
+		at(t + 120, () -> server(mc, p -> ((Xlr8Kit) kit(Xlr8Kit.ID)).whirlwind(FAKES.get("Ben"))));
+		shot(t + 123, "xlr8_whirlwind");
+		t += 135;
+		// Diamondhead
+		at(t, () -> server(mc, p -> become(FAKES.get("Ben"), stage, DiamondheadKit.ID)));
+		shot(t + 30, "diamondhead_idle");
+		at(t + 32, () -> server(mc, p -> ((DiamondheadKit) kit(DiamondheadKit.ID)).bladeArm(FAKES.get("Ben"))));
+		at(t + 34, () -> server(mc, p -> camera(p, stage.add(-2.8, 1.6, -1.6), look)));
+		shot(t + 48, "diamondhead_blade_arm");
+		at(t + 52, () -> server(mc, p -> {
+			camera(p, stage.add(-6.5, 2.6, -4.5), stage.add(0, 0.6, -5.0));
+			ServerPlayer ben = FAKES.get("Ben");
+			((DiamondheadKit) kit(DiamondheadKit.ID)).bladeArm(ben);
+		}));
+		at(t + 55, () -> server(mc, p -> ((DiamondheadKit) kit(DiamondheadKit.ID)).spikeLine(FAKES.get("Ben"))));
+		shot(t + 63, "diamondhead_spike_line");
+		at(t + 70, () -> server(mc, p -> {
+			camera(p, stage.add(-4.5, 2.4, -6.5), stage.add(0, 1.0, -1.5));
+			((DiamondheadKit) kit(DiamondheadKit.ID)).wall(FAKES.get("Ben"));
+		}));
+		shot(t + 78, "diamondhead_crystal_wall");
+		at(t + 84, () -> server(mc, p -> {
+			for (var bp : net.minecraft.core.BlockPos.betweenClosed(net.minecraft.core.BlockPos.containing(stage).offset(-6, 0, -6),
+					net.minecraft.core.BlockPos.containing(stage).offset(6, 4, 6))) {
+				if (p.serverLevel().getBlockState(bp).is(com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks.CRYSTAL)) {
+					p.serverLevel().setBlock(bp, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}));
+		t += 90;
+		// Upgrade
+		at(t, () -> server(mc, p -> {
+			camera(p, front, look);
+			become(FAKES.get("Ben"), stage, UpgradeKit.ID);
+		}));
+		shot(t + 30, "upgrade_idle");
+		at(t + 34, () -> server(mc, p -> camera(p, stage.add(-4.5, 1.8, -2.5), stage.add(0, 1.4, -3.0))));
+		at(t + 36, () -> server(mc, p -> ((UpgradeKit) kit(UpgradeKit.ID)).fireChargedBeam(FAKES.get("Ben"))));
+		shot(t + 39, "upgrade_charged_beam");
+		at(t + 50, () -> server(mc, p -> camera(p, stage.add(-2.6, 1.6, -2.6), stage.add(0, 0.3, 0))));
+		at(t + 52, () -> server(mc, p -> ((UpgradeKit) kit(UpgradeKit.ID)).liquidSlide(FAKES.get("Ben"))));
+		shot(t + 62, "upgrade_liquid_slide");
+		t += 100;
+		// Ghostfreak
+		at(t, () -> server(mc, p -> {
+			camera(p, front, look);
+			become(FAKES.get("Ben"), stage, GhostfreakKit.ID);
+		}));
+		shot(t + 30, "ghostfreak_idle");
+		at(t + 31, () -> server(mc, p -> camera(p, stage.add(-2.8, 1.4, -0.6), stage.add(0, 0.9, 0))));
+		shot(t + 33, "ghostfreak_side");
+		at(t + 34, () -> server(mc, p -> camera(p, stage.add(-3.6, 1.8, -3.4), stage.add(0, 1.3, -1.5))));
+		at(t + 36, () -> server(mc, p -> ((GhostfreakKit) kit(GhostfreakKit.ID)).scream(FAKES.get("Ben"))));
+		shot(t + 41, "ghostfreak_scream");
+		at(t + 60, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			for (int k = 0; k < 3; k++) {
+				var pig = EntityType.PIG.create(l);
+				double a = k * 2.1;
+				pig.moveTo(stage.x + Math.cos(a) * 3.0, stage.y, stage.z + Math.sin(a) * 3.0, 0f, 0f);
+				pig.setNoAi(true);
+				l.addFreshEntity(pig);
+			}
+			camera(p, stage.add(-4.5, 3.0, -4.5), stage.add(0, 0.5, 0));
+		}));
+		at(t + 64, () -> server(mc, p -> ((GhostfreakKit) kit(GhostfreakKit.ID)).tendrils(FAKES.get("Ben"))));
+		shot(t + 75, "ghostfreak_shadow_tendrils");
+		at(t + 90, () -> server(mc, p -> {
+			camera(p, front, look);
+			((GhostfreakKit) kit(GhostfreakKit.ID)).phase(FAKES.get("Ben"));
+		}));
+		shot(t + 96, "ghostfreak_phase");
+		t += 110;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
