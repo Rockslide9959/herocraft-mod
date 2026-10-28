@@ -878,6 +878,68 @@ Attack section, its own icon file `textures/gui/green_lantern/mech_icon.png` via
   The vanilla mount hearts and the "Press Shift to Dismount" hint are dropped (`GreenLanternMechGuiMixin`).
 - Gametests: `GreenLanternMechGameTests`.
 
+## v0.17.1 -- Hard-Light Mech construct combos (Giga Drill, Hard-Light Katana)
+
+User: "combo moves with the mech construct ... using the drill construct while in the mech activates a giant drill attack
+like in gurren lagann and using energy blade while in the mech spawns in a giant katana for the mech to wield". Server:
+`mech/GreenLanternMechCombos` (all state on the `HardLightMechEntity` -- no static maps, nothing for the reset hook);
+keys: `mech/MechComboKeys` (client-safe); numbers: `GreenLanternMechConfig` (the "construct combos" block); sounds:
+`mech/GreenLanternMechSounds` (`gl_mech_*`, `sounds/green_lantern/mech_*.ogg`, synthesised mono by
+`scratchpad/synth_gl_mech_combo_sounds.js`).
+
+- **Trigger rule** (`MechComboKeys`): inside the mech a combo is **Shift + the key its construct is bound to outside**. The
+  construct's Construct Menu bindings are read in menu order (G, H, Z, X, C, V, then the Shift keys); the first that is not H
+  gives the base letter (bound to G or Shift+G -> Shift+G in the mech). Not bound, bound only to H / Shift+H, or the letter is
+  already taken by an earlier combo (`Combo` order: Giga Drill, then Katana) -> the combo's fallback (Giga Drill **Shift+G**,
+  Katana **Shift+X**), else the first free of Shift+G / X / Z / V / C. Never H; N stays climb-out; Shift+R stays the Rocket
+  Fist (the iaido while the katana is drawn). A Shift + key with no combo on it does that key's plain move, as before.
+  `GreenLanternMech#handleKey` asks `GreenLanternMechCombos#key` first.
+- **Giga Drill** (Mining Drill): hold the combo key -- the right forearm becomes a spiral hard-light drill (the fist is hidden,
+  `MechWeaponDraw#drill` on the forearm bone) that spins up over `DRILL_SPIN_TICKS` 40 (cost 120, then 40/s; the mech walks at
+  35%; the drill arm follows the camera pitch, `HardLightMechModel#setCustomAnimations`; a crosshair gauge in first person).
+  Let go (`DRILL_MIN_SPIN_TICKS` 6, else it fizzles: 2 s cooldown) -> `DRILL_CHARGE`: the mech charges 10..26 blocks (by
+  spin) along the aim (pitch clamped to +/-0.55) at 1.15 blocks/tick. The pilot's client moves the mech (its input is locked
+  and its body held on the line, `tickRidden`); the server sends the velocity every tick (`impulse`), keeps a bore cursor at
+  most `DRILL_LEAD` 5 ahead of the mech and cuts a round tunnel (radius 3.7 round the axis 3.25 up -- clears the 3.2 x 6.5
+  body) `DRILL_BORE_AHEAD` 4.5 in front of it. Boring = `canBore`: the server's ability-terrain switch, loaded / in-bounds /
+  inside the border, no block entities, not `WITHER_IMMUNE`, hardness 0..25 (no obsidian), no hard light, and the pilot's own
+  break rights (`mayBuild`, `mayInteract` = spawn protection, adventure mode, every `PlayerBlockBreakEvents.BEFORE` guard =
+  claims / GL constructs / conjured structures). 15% of bored blocks drop. A solid block it may not bore within 2.4 of the axis
+  ends the charge 2 blocks short of it. Enemies within 3.4 of the line take 11 x power x (0.6 + 0.4 spin) every 3 ticks (8 hits
+  each at most) and are carried along. The charge ends at the line's end, when the mech stalls, or after 50 ticks. A full spin
+  finishes in **GIGA DRILL BREAK** (`gigaBreak`): 70 x power to everything 5 round the 11 blocks ahead, knockback 3.2, a crater
+  of radius 4.6, the ghost drill + shockwave rings + flash (`MechComboRender`), screen shake, the popup. Cooldown 15 s; the drill
+  shrinks back over 1 s. While it spins / charges every other mech key waits.
+- **Hard-Light Katana** (Energy Blade): tap the combo key -- the 12-tick draw clip (the blade forms out of the tsuba); tap again
+  -- the 10-tick sheathe (the blade slides back into light). 60 to draw, 6/s upkeep (sheathes itself when the ring cannot pay),
+  sheathed at once on climb-out / dissolve / shatter (`stopChannels` -> `stopAll`) and when the Giga Drill starts. While drawn:
+
+| Key | Move | Damage (x power) | Cost | Cooldown |
+|---|---|---|---|---|
+| R (hold to chain) | 3-cut chain: kesa, rising reverse, wide horizontal (arc +/-70 / 70 / 100 deg, reach 7.2) | 24 / 24 / 38 | 10 / 10 / 16 | 9 / 9 / 16 t |
+| Shift+R | Iaido: a crescent (half-width 3.6) flies 32 blocks at 1.8/t through enemies (each hit once), cuts grass / flowers / saplings / vines / leaves (`cuttable`, break-permission checked), stopped by terrain | 34 | 90 | 5 s |
+| G | Spinning sweep: one full turn, everything within 7.5 | 30 | 70 | 6 s |
+
+  A cut that connects sets `HIT_AT`: the action clip's speed drops to 0.08 for 3 ticks (hit-stop) and nearby cameras shake.
+  Slash trails are sampled per frame from the blade's pose (`MechComboRender#trailSample`, world space, kept 3.2 ticks).
+- **Model** (`MechWeaponDraw`, code-built meshes, `entityTranslucentEmissive`): the katana (5.7 blocks of curved single-edged
+  blade, sori 0.30, shinogi ridge, iori-mune spine, wavy notare/gunome hamon on both flats and a boshi, kissaki with a yokote
+  line, a sheen band sweeping along it, a white cutting edge, a glow shell; habaki, seppa, a lobed oval tsuba with the Lantern
+  emblem cut through it, a diamond-wrapped tsuka with menuki, fuchi and kashira); the drill (a cone with three spiral flutes
+  over 2.3 turns, an armoured collar with glowing teeth); the crescent. The renderer catches the right fist / forearm bone poses
+  as GeckoLib draws them, so both follow every clip.
+- **Clips** (`scratchpad/gl_mech_v0171/anims.js`, keyframed poses; check them with `preview_combos.js`): katana_idle /
+  katana_walk (main loops while it is out), katana_draw, katana_sheath, katana_slash_1..3, katana_iaido, katana_spin (a full
+  root turn), drill_spin / drill_charge (main loops), drill_break.
+- **HUD**: keys holding a combo get a corner tag; Shift flips the boxes to the Shift layer (drill / katana icons + their
+  cooldowns, Rocket Fist or iaido on R, the rest dimmed); with the katana drawn R / G show its cuts and the R bar tracks the
+  iaido; the state reads DRILL n% / DRILLING / KATANA; the Alt list adds the Shift+R move and both combos with their keys.
+- **Popup / XP**: the Construct Combo popup (`GreenLanternCuePayload.COMBO`, `projecthero.green_lantern.combo.mech_*`) on
+  release / draw / GIGA DRILL BREAK; Willpower XP 25 for a connecting charge or the first connecting katana move per draw, 60
+  for a GIGA DRILL BREAK that hits. Damage is a player attack, so boss threat tables credit the pilot.
+- Gametests: `GreenLanternMechComboGameTests`. Screenshots: `docs/screenshots/v0171/gl_mech_combo_*.png` (harness kept as
+  `scratchpad/MechComboHarness.v0171.java.txt`).
+
 ## v0.17.1 -- Ring Auto-Protection (the ring shields its bearer on its own)
 
 User-approved: no key, five automatic saves in `GreenLanternAutoProtect` (registered on `ALLOW_DAMAGE` from

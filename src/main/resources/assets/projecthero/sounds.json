@@ -2778,5 +2778,77 @@
         "name": "projecthero:quirk/hellflame_whip"
       }
     ]
+  },
+  "gl_mech_drill_spin": {
+    "subtitle": "subtitles.projecthero.gl_mech_drill_spin",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_drill_spin"
+      }
+    ]
+  },
+  "gl_mech_drill_charge": {
+    "subtitle": "subtitles.projecthero.gl_mech_drill_charge",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_drill_charge"
+      }
+    ]
+  },
+  "gl_mech_drill_grind": {
+    "subtitle": "subtitles.projecthero.gl_mech_drill_grind",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_drill_grind"
+      }
+    ]
+  },
+  "gl_mech_giga_break": {
+    "subtitle": "subtitles.projecthero.gl_mech_giga_break",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_giga_break"
+      }
+    ]
+  },
+  "gl_mech_katana_draw": {
+    "subtitle": "subtitles.projecthero.gl_mech_katana_draw",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_katana_draw"
+      }
+    ]
+  },
+  "gl_mech_katana_sheath": {
+    "subtitle": "subtitles.projecthero.gl_mech_katana_sheath",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_katana_sheath"
+      }
+    ]
+  },
+  "gl_mech_katana_swish": {
+    "subtitle": "subtitles.projecthero.gl_mech_katana_swish",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_katana_swish"
+      }
+    ]
+  },
+  "gl_mech_katana_hit": {
+    "subtitle": "subtitles.projecthero.gl_mech_katana_hit",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_katana_hit"
+      }
+    ]
+  },
+  "gl_mech_katana_iaido": {
+    "subtitle": "subtitles.projecthero.gl_mech_katana_iaido",
+    "sounds": [
+      {
+        "name": "projecthero:green_lantern/mech_katana_iaido"
+      }
+    ]
   }
 }

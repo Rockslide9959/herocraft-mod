@@ -103,6 +103,7 @@ public final class GreenLanternMech {
 	public static void initialize() {
 		FabricDefaultAttributeRegistry.register(TYPE, HardLightMechEntity.createAttributes());
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(GreenLanternMech::onPilotHurt);
+		GreenLanternMechSounds.initialize(); // v0.17.1 construct combos
 	}
 
 	public static void clearSessionState() {
@@ -259,6 +260,7 @@ public final class GreenLanternMech {
 			m.rocketFist = null;
 		}
 		m.setFlag(HardLightMechEntity.FLAG_ROCKET_OUT, false);
+		GreenLanternMechCombos.stopAll(m); // v0.17.1: the katana is sheathed, a drill stops
 	}
 
 	// ================================================================ the pilot's keys
@@ -275,10 +277,29 @@ public final class GreenLanternMech {
 			}
 			return true;
 		}
+		// v0.17.1 construct combos: Shift + a combo key (MechComboKeys), and the release of the drill's spin key
+		if (GreenLanternMechCombos.key(m, p, slot, pressed)) {
+			return true;
+		}
+		if (pressed && GreenLanternMechCombos.drillBusy(m)) {
+			return true; // the drill arm is busy: everything else waits for the charge
+		}
+		boolean katana = m.katanaDrawn();
+		boolean katanaMoving = m.katanaOut() && !katana; // drawing / sheathing: the hand is busy
 		switch (slot) {
 			case SLOT_1 -> {
 				if (pressed) {
-					if (p.isShiftKeyDown()) {
+					if (katanaMoving) {
+						return true;
+					}
+					if (katana) { // v0.17.1: the katana's R (three-cut chain) and Shift+R (iaido draw-cut)
+						if (p.isShiftKeyDown()) {
+							GreenLanternMechCombos.iaido(m, p);
+						} else {
+							m.slashHeld = true;
+							GreenLanternMechCombos.slash(m, p);
+						}
+					} else if (p.isShiftKeyDown()) {
 						rocketFist(m, p);
 					} else {
 						m.punchHeld = true;
@@ -286,11 +307,16 @@ public final class GreenLanternMech {
 					}
 				} else {
 					m.punchHeld = false;
+					m.slashHeld = false;
 				}
 			}
 			case SLOT_2 -> {
-				if (pressed) {
-					groundSlam(m, p);
+				if (pressed && !katanaMoving) {
+					if (katana) {
+						GreenLanternMechCombos.spin(m, p); // v0.17.1: the katana's spinning sweep
+					} else {
+						groundSlam(m, p);
+					}
 				}
 			}
 			case SLOT_3 -> {
@@ -323,7 +349,10 @@ public final class GreenLanternMech {
 
 	private static void stopHolds(HardLightMechEntity m, AbilitySlot slot) {
 		switch (slot) {
-			case SLOT_1 -> m.punchHeld = false;
+			case SLOT_1 -> {
+				m.punchHeld = false;
+				m.slashHeld = false;
+			}
 			case SLOT_4 -> m.setFlag(HardLightMechEntity.FLAG_BEAM, false);
 			case SLOT_5 -> m.setFlag(HardLightMechEntity.FLAG_SHIELD, false);
 			default -> {
@@ -714,6 +743,7 @@ public final class GreenLanternMech {
 		tickDash(m, p);
 		tickBeam(m, p);
 		tickShield(m, p);
+		GreenLanternMechCombos.tick(m, p); // v0.17.1 construct combos
 		// the pilot is protected: no fire, no air loss
 		if (p.isOnFire()) {
 			p.clearFire();
@@ -777,7 +807,7 @@ public final class GreenLanternMech {
 
 	// ================================================================ helpers
 
-	private static boolean pay(ServerPlayer p, float cost) {
+	static boolean pay(ServerPlayer p, float cost) {
 		if (GreenLanternEnergy.spend(p, cost)) {
 			return true;
 		}
@@ -786,24 +816,24 @@ public final class GreenLanternMech {
 	}
 
 	/** The GL target rules, never the mech itself. */
-	private static boolean canHit(ServerPlayer p, HardLightMechEntity m, LivingEntity e) {
+	static boolean canHit(ServerPlayer p, HardLightMechEntity m, LivingEntity e) {
 		return e != m && e != p && HeroTargets.canHarm(p, e);
 	}
 
-	private static void push(LivingEntity t, Vec3 v) {
+	static void push(LivingEntity t, Vec3 v) {
 		if (com.projecthero.mod.titanshifter.TitanCombat.isBoss(t)) {
 			v = v.scale(0.2);
 		}
 		AbilityHelpers.push(t, v);
 	}
 
-	private static Vec3 flat(Vec3 v) {
+	static Vec3 flat(Vec3 v) {
 		Vec3 f = new Vec3(v.x, 0, v.z);
 		return f.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : f.normalize();
 	}
 
 	/** The pilot's aim, pitch included but kept off the straight up / down. */
-	private static Vec3 aimDir(ServerPlayer p) {
+	static Vec3 aimDir(ServerPlayer p) {
 		Vec3 l = p.getLookAngle();
 		return new Vec3(l.x, Mth.clamp(l.y, -0.7, 0.7), l.z).normalize();
 	}
@@ -844,7 +874,7 @@ public final class GreenLanternMech {
 		return bh.getType() == HitResult.Type.MISS ? aim : bh.getLocation();
 	}
 
-	private static List<LivingEntity> along(ServerLevel level, ServerPlayer p, HardLightMechEntity m, Vec3 from, Vec3 to, double radius) {
+	static List<LivingEntity> along(ServerLevel level, ServerPlayer p, HardLightMechEntity m, Vec3 from, Vec3 to, double radius) {
 		Vec3 d = to.subtract(from);
 		double len = d.length();
 		List<LivingEntity> out = new ArrayList<>();
@@ -863,7 +893,7 @@ public final class GreenLanternMech {
 		return out;
 	}
 
-	private static void sound(ServerLevel level, Vec3 at, SoundEvent s, float vol, float pitch) {
+	static void sound(ServerLevel level, Vec3 at, SoundEvent s, float vol, float pitch) {
 		level.playSound(null, at.x, at.y, at.z, s, SoundSource.PLAYERS, vol, pitch);
 	}
 }

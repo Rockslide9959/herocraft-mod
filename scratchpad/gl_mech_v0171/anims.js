@@ -271,6 +271,209 @@ clipDef('dissolve', 1.0, 'hold', t => {
 	return o;
 }, 0.02);
 
+// ================================================================ v0.17.1 construct combos: Giga Drill + Hard-Light Katana
+// Keyframed pose clips: each key is a full pose (the stance with the key's bones overridden, absolute rotations /
+// positions), eased between keys. The katana sits in fist_r along the fist's -Z (forward when the arm hangs), edge
+// down; fist_r is the wrist that sets the blade's angle. The drill replaces the right fist (the renderer hides it) and
+// points down the forearm (-Y), so arm_r -90 aims it straight ahead; the model adds the pilot's aim pitch on top.
+const BONES = ['root', 'pelvis', 'torso', 'head', 'thrusters', 'shoulder_r', 'shoulder_l', 'pod_r', 'pod_l', 'arm_r', 'arm_l',
+	'forearm_r', 'forearm_l', 'fist_r', 'fist_l', 'leg_r', 'leg_l', 'shin_r', 'shin_l', 'foot_r', 'foot_l'];
+function fullPose(stance, over) {
+	const P = {};
+	for (const b of BONES) P[b] = { rot: (stance[b] || [0, 0, 0]).slice(), pos: [0, 0, 0] };
+	for (const [b, v] of Object.entries(over || {})) {
+		if (Array.isArray(v)) P[b].rot = v.slice();
+		else { if (v.rot) P[b].rot = v.rot.slice(); if (v.pos) P[b].pos = v.pos.slice(); }
+	}
+	return P;
+}
+function kclip(stance, keyList, extra) {
+	const ks = keyList.map(([t, over]) => [t, fullPose(stance, over)]);
+	return t => {
+		let a = ks[0], b = ks[0];
+		for (let i = 0; i < ks.length - 1; i++) if (t >= ks[i][0]) { a = ks[i]; b = ks[i + 1]; }
+		if (t >= ks[ks.length - 1][0]) a = b = ks[ks.length - 1];
+		const k = a === b ? 0 : ease((t - a[0]) / Math.max(1e-6, b[0] - a[0]));
+		const o = {};
+		for (const bn of BONES) {
+			const rot = lerp3(a[1][bn].rot, b[1][bn].rot, k), pos = lerp3(a[1][bn].pos, b[1][bn].pos, k);
+			o[bn] = { rot };
+			if (pos.some(v => Math.abs(v) > 1e-4)) o[bn].pos = pos;
+		}
+		if (extra) extra(o, t);
+		return o;
+	};
+}
+
+// the katana stance (chudan-ish): right fist forward at the hip line, blade angled up and forward, left arm on guard,
+// feet apart with the left foot forward
+const KSTANCE = Object.assign({}, STANCE, {
+	pelvis: [0, -8, 0], torso: [6, 12, 0], head: [-6, -10, 0],
+	arm_r: [-42, 0, -14], forearm_r: [-38, 0, 0], fist_r: [36, 0, 0],
+	arm_l: [-34, 0, -4], forearm_l: [-62, 0, 0],
+	leg_r: [-2, 0, 6], leg_l: [-22, 0, -6], shin_r: [16, 0, 0], shin_l: [22, 0, 0], foot_r: [-12, 0, 0], foot_l: [0, 0, 0],
+});
+const kbase = () => { const o = {}; for (const [b, r] of Object.entries(KSTANCE)) o[b] = { rot: r.slice() }; return o; };
+// the hand at the left hip, blade back along the hip (where the draw starts and the sheathe ends)
+const HIP = { arm_r: [-22, 0, -40], forearm_r: [-78, 0, 0], fist_r: [-70, 0, 0], torso: [8, -22, 0], head: [-4, 12, 0] };
+
+clipDef('katana_idle', 3.2, true, t => {
+	const w = TAU * t / 3.2;
+	const o = kbase();
+	add(o, 'root', null, [0, -0.6 + 0.35 * Math.sin(w), 0]);
+	add(o, 'torso', [1.4 * Math.sin(w), 0, 0]);
+	add(o, 'head', [-1.2 * Math.sin(w + 0.6), 2 * Math.sin(w * 0.5), 0]);
+	add(o, 'arm_r', [1.2 * Math.sin(w + 0.4), 0, 0]);
+	add(o, 'fist_r', [-1.5 * Math.sin(w + 1.2), 0, 0]);
+	add(o, 'arm_l', [1.2 * Math.sin(w + 0.4), 0, 0]);
+	add(o, 'shin_r', [1.2 * Math.sin(w), 0, 0]); add(o, 'shin_l', [1.2 * Math.sin(w), 0, 0]);
+	return o;
+});
+
+clipDef('katana_walk', 0.6, true, t => {
+	const w = TAU * t / 0.6;
+	const o = kbase();
+	const sw = Math.sin(w), cw = Math.cos(w);
+	const leg = (n, ph) => {
+		const s = Math.sin(w + ph), c = Math.cos(w + ph);
+		const lift = Math.max(0, c);
+		o[`leg_${n}`] = { rot: [-24 * s, 0, n === 'r' ? 3 : -3] };
+		o[`shin_${n}`] = { rot: [10 + 36 * lift * lift, 0, 0] };
+		o[`foot_${n}`] = { rot: [24 * s - 18 * lift * lift, 0, 0] };
+	};
+	leg('r', 0); leg('l', Math.PI);
+	add(o, 'root', null, [0, -2.0 * Math.abs(cw) + 0.2, 0]);
+	o.pelvis = { rot: [0, 6 * sw - 4, 2 * cw] };
+	add(o, 'torso', [0, -6 * sw, 0]);
+	add(o, 'arm_r', [3 * Math.abs(cw), 0, 0]);
+	add(o, 'fist_r', [-3 * Math.abs(cw), 0, 0]);
+	add(o, 'arm_l', [-10 * sw, 0, 0]);
+	return o;
+}, 0.025);
+
+// draw (0.6 s = the 12-tick KATANA_DRAW_TICKS): reach across to the left hip, pull the blade out in a rising sweep, settle
+clipDef('katana_draw', 0.6, false, kclip(STANCE, [
+	[0, {}],
+	[0.16, Object.assign({}, HIP, { leg_l: [-14, 0, -4], shin_l: [18, 0, 0], leg_r: [-8, 0, 4], shin_r: [14, 0, 0] })],
+	[0.38, { arm_r: [-118, 0, 30], forearm_r: [-12, 0, 0], fist_r: [-4, 0, 0], torso: [-4, 26, 0], head: [-8, -8, 0], arm_l: [-20, 0, -18], forearm_l: [-40, 0, 0] }],
+	[0.6, KSTANCE],
+]), 0.02);
+
+// sheathe (0.5 s): a flick of the blade out to the side (chiburi), then back to the hip -- the renderer slides it into light
+clipDef('katana_sheath', 0.5, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.14, { arm_r: [-40, 0, 46], forearm_r: [-18, 0, 0], fist_r: [10, 0, 0], torso: [4, 20, 0] }],
+	[0.36, Object.assign({}, HIP)],
+	[0.5, STANCE],
+]), 0.02);
+
+// R 1 (0.45 s, the edge lands at 0.2): kesa -- from high over the left shoulder down across to the low right
+clipDef('katana_slash_1', 0.45, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.1, { arm_r: [-168, 0, 30], forearm_r: [-10, 0, 0], fist_r: [28, 0, 0], torso: [-6, -26, 0], head: [-6, 14, 0], pelvis: [0, -12, 0] }],
+	[0.24, { arm_r: [-34, 0, 40], forearm_r: [-8, 0, 0], fist_r: [22, 0, 0], torso: [16, 30, 0], head: [-10, -18, 0], pelvis: [0, 10, 0],
+		root: { rot: [0, 0, 0], pos: [0, -2.5, -3] }, leg_l: [-32, 0, -6], shin_l: [34, 0, 0], leg_r: [8, 0, 6], shin_r: [18, 0, 0] }],
+	[0.3, { arm_r: [-30, 0, 44], forearm_r: [-6, 0, 0], fist_r: [26, 0, 0], torso: [17, 32, 0], head: [-10, -18, 0], pelvis: [0, 10, 0],
+		root: { rot: [0, 0, 0], pos: [0, -2.5, -3] }, leg_l: [-32, 0, -6], shin_l: [34, 0, 0], leg_r: [8, 0, 6], shin_r: [18, 0, 0] }],
+	[0.45, {}],
+]), 0.02);
+
+// R 2 (0.45 s, lands at 0.2): the rising reverse cut -- low right up across to high left
+clipDef('katana_slash_2', 0.45, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.1, { arm_r: [-18, 0, 44], forearm_r: [-10, 0, 0], fist_r: [44, 0, 0], torso: [12, 28, 0], head: [-8, -14, 0], pelvis: [0, 8, 0] }],
+	[0.24, { arm_r: [-150, 0, 34], forearm_r: [-20, 0, 0], fist_r: [-30, 0, 0], torso: [-10, -30, 0], head: [-2, 16, 0], pelvis: [0, -12, 0],
+		root: { rot: [0, 0, 0], pos: [0, 0.5, -2] }, leg_r: [-26, 0, 6], shin_r: [28, 0, 0] }],
+	[0.3, { arm_r: [-154, 0, 36], forearm_r: [-22, 0, 0], fist_r: [-32, 0, 0], torso: [-10, -31, 0], head: [-2, 16, 0], pelvis: [0, -12, 0],
+		root: { rot: [0, 0, 0], pos: [0, 0.5, -2] }, leg_r: [-26, 0, 6], shin_r: [28, 0, 0] }],
+	[0.45, {}],
+]), 0.02);
+
+// R 3 (0.7 s, lands at 0.3): the wide horizontal finisher -- the blade turned flat (wrist Y), wound far back right,
+// swept right across the front to the left with a deep step-in
+clipDef('katana_slash_3', 0.7, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.16, { arm_r: [-8, 0, 86], forearm_r: [0, 0, 0], fist_r: [72, 0, 0], torso: [2, -40, 0], head: [-4, 26, 0], pelvis: [0, -14, 0],
+		arm_l: [-50, 0, -30], forearm_l: [-50, 0, 0], root: { rot: [0, 0, 0], pos: [0, -1.5, 1] } }],
+	[0.3, { arm_r: [-14, 0, 86], forearm_r: [0, 0, 0], fist_r: [-64, 0, 0], torso: [12, 44, 0], head: [-6, -26, 0], pelvis: [0, 16, 0],
+		arm_l: [10, 0, -24], forearm_l: [-30, 0, 0], root: { rot: [0, 0, 0], pos: [0, -4, -5] },
+		leg_l: [-40, 0, -8], shin_l: [44, 0, 0], foot_l: [-4, 0, 0], leg_r: [20, 0, 6], shin_r: [24, 0, 0] }],
+	[0.42, { arm_r: [-14, 0, 86], forearm_r: [0, 0, 0], fist_r: [-70, 0, 0], torso: [12, 46, 0], head: [-6, -26, 0], pelvis: [0, 16, 0],
+		arm_l: [10, 0, -24], forearm_l: [-30, 0, 0], root: { rot: [0, 0, 0], pos: [0, -4, -5] },
+		leg_l: [-40, 0, -8], shin_l: [44, 0, 0], foot_l: [-4, 0, 0], leg_r: [20, 0, 6], shin_r: [24, 0, 0] }],
+	[0.7, {}],
+]), 0.02);
+
+// Shift+R (0.8 s, the crescent leaves at 0.3): iaido -- crouch, hand to the hip, an explosive flat draw out to the right,
+// hold the follow-through (zanshin), back to the stance
+clipDef('katana_iaido', 0.8, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.14, Object.assign({}, HIP, { root: { rot: [0, 0, 0], pos: [0, -5, 0] }, leg_l: [-34, 0, -6], shin_l: [52, 0, 0], foot_l: [-16, 0, 0],
+		leg_r: [6, 0, 6], shin_r: [40, 0, 0], foot_r: [-30, 0, 0] })],
+	[0.28, { arm_r: [-12, 0, 86], forearm_r: [0, 0, 0], fist_r: [34, 0, 0], torso: [8, 30, 0], head: [-6, -12, 0], pelvis: [0, 12, 0],
+		arm_l: [12, 0, -30], forearm_l: [-20, 0, 0], root: { rot: [0, 0, 0], pos: [0, -4, -6] },
+		leg_l: [-44, 0, -8], shin_l: [46, 0, 0], foot_l: [-2, 0, 0], leg_r: [26, 0, 6], shin_r: [22, 0, 0], foot_r: [-12, 0, 0] }],
+	[0.56, { arm_r: [-12, 0, 87], forearm_r: [0, 0, 0], fist_r: [36, 0, 0], torso: [9, 31, 0], head: [-6, -12, 0], pelvis: [0, 12, 0],
+		arm_l: [12, 0, -30], forearm_l: [-20, 0, 0], root: { rot: [0, 0, 0], pos: [0, -4, -6] },
+		leg_l: [-44, 0, -8], shin_l: [46, 0, 0], foot_l: [-2, 0, 0], leg_r: [26, 0, 6], shin_r: [22, 0, 0], foot_r: [-12, 0, 0] }],
+	[0.8, {}],
+]), 0.02);
+
+// G (0.9 s, the sweep lands at 0.35): the whole mech spins once on the spot, the blade held straight out to the right
+clipDef('katana_spin', 0.9, false, kclip(KSTANCE, [
+	[0, {}],
+	[0.1, { arm_r: [-14, 0, 84], forearm_r: [0, 0, 0], fist_r: [6, 0, 0], torso: [6, -24, 0], arm_l: [-40, 0, -40], forearm_l: [-70, 0, 0],
+		root: { rot: [0, 30, 0], pos: [0, -3, 0] }, leg_l: [-22, 0, -14], leg_r: [-4, 0, 14], shin_l: [26, 0, 0], shin_r: [26, 0, 0] }],
+	[0.5, { arm_r: [-12, 0, 86], forearm_r: [0, 0, 0], fist_r: [6, 0, 0], torso: [6, 10, 0], arm_l: [-40, 0, -40], forearm_l: [-70, 0, 0],
+		root: { rot: [0, -330, 0], pos: [0, -3, 0] }, leg_l: [-22, 0, -14], leg_r: [-4, 0, 14], shin_l: [26, 0, 0], shin_r: [26, 0, 0] }],
+	[0.62, { arm_r: [-20, 0, 70], forearm_r: [-10, 0, 0], fist_r: [10, 0, 0], torso: [6, 8, 0], arm_l: [-40, 0, -30], forearm_l: [-70, 0, 0],
+		root: { rot: [0, -360, 0], pos: [0, -2, 0] }, leg_l: [-22, 0, -10], leg_r: [-4, 0, 10], shin_l: [22, 0, 0], shin_r: [22, 0, 0] }],
+	[0.9, { root: { rot: [0, -360, 0], pos: [0, 0, 0] } }],
+]), 0.02);
+
+// ---- Giga Drill: spin-up (loop, braced, the drill arm straight out), the charge (loop, a hard forward lean behind the
+// drill), and the GIGA DRILL BREAK thrust (an action clip over the charge pose)
+const DRILL_SPIN = Object.assign({}, STANCE, {
+	pelvis: [0, 10, 0], torso: [6, 18, 0], head: [-8, -16, 0],
+	arm_r: [-90, 0, 6], forearm_r: [0, 0, 0], fist_r: [0, 0, 0],
+	arm_l: [14, 0, -26], forearm_l: [-46, 0, 0],
+	leg_r: [-26, 0, 6], leg_l: [20, 0, -8], shin_r: [30, 0, 0], shin_l: [16, 0, 0], foot_r: [-4, 0, 0], foot_l: [-34, 0, 0],
+});
+clipDef('drill_spin', 0.4, true, t => {
+	const o = {};
+	for (const [b, r] of Object.entries(DRILL_SPIN)) o[b] = { rot: r.slice() };
+	const tr = Math.sin(TAU * t / 0.4 * 3);
+	add(o, 'arm_r', [0.8 * tr, 0, 0.8 * tr]);
+	add(o, 'torso', [0.5 * tr, 0, 0]);
+	add(o, 'root', null, [0.25 * tr, -2 + 0.2 * tr, 0]);
+	return o;
+}, 0.02);
+const DRILL_CHARGE = Object.assign({}, STANCE, {
+	pelvis: [24, 8, 0], torso: [12, 14, 0], head: [-34, -10, 0],
+	arm_r: [-126, 0, 4], forearm_r: [0, 0, 0], fist_r: [0, 0, 0],
+	arm_l: [46, 0, -18], forearm_l: [-30, 0, 0],
+	leg_r: [-54, 0, 4], shin_r: [62, 0, 0], foot_r: [-14, 0, 0],
+	leg_l: [26, 0, -4], shin_l: [22, 0, 0], foot_l: [10, 0, 0], thrusters: [-34, 0, 0],
+});
+clipDef('drill_charge', 0.3, true, t => {
+	const o = {};
+	for (const [b, r] of Object.entries(DRILL_CHARGE)) o[b] = { rot: r.slice() };
+	const tr = Math.sin(TAU * t / 0.3 * 2);
+	add(o, 'root', null, [0, -4 + 0.6 * tr, -2]);
+	add(o, 'arm_r', [0.6 * tr, 0, 0]);
+	add(o, 'head', [0.8 * tr, 0, 0]);
+	return o;
+}, 0.02);
+clipDef('drill_break', 0.9, false, kclip(DRILL_CHARGE, [
+	[0, { root: { rot: [0, 0, 0], pos: [0, -4, -2] } }],
+	[0.08, { arm_r: [-112, 0, 4], torso: [6, 8, 0], root: { rot: [0, 0, 0], pos: [0, -3, 2] } }],
+	[0.18, { arm_r: [-130, 0, 2], torso: [18, 22, 0], pelvis: [30, 10, 0], root: { rot: [0, 0, 0], pos: [0, -6, -8] },
+		leg_r: [-66, 0, 4], shin_r: [70, 0, 0], leg_l: [34, 0, -4], shin_l: [14, 0, 0] }],
+	[0.55, { arm_r: [-130, 0, 2], torso: [18, 22, 0], pelvis: [30, 10, 0], root: { rot: [0, 0, 0], pos: [0, -6, -8] },
+		leg_r: [-66, 0, 4], shin_r: [70, 0, 0], leg_l: [34, 0, -4], shin_l: [14, 0, 0] }],
+	[0.9, Object.assign({}, STANCE, { pelvis: [0, 0, 0], thrusters: [0, 0, 0] })],
+]), 0.02);
+
 function sample(name, t) { return CLIPS[name].fn(Math.min(t, CLIPS[name].len)); }
 
 function build() {

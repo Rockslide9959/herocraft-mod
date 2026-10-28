@@ -110,6 +110,23 @@ public final class GreenLanternMechClient {
 			lastSlamSeen = slam;
 			addShake(mc.player, m.position(), 3.0f, 32.0);
 		}
+		// v0.17.1 construct combos: GIGA DRILL BREAK's quake, a katana cut connecting, the drill's rumble for its pilot
+		long now = m.level().getGameTime();
+		if (m.breakAt() != m.clientLastBreakSeen && now - m.breakAt() < 4) {
+			m.clientLastBreakSeen = m.breakAt();
+			addShake(mc.player, m.breakPos(), 3.5f, 56.0);
+		}
+		if (m.hitAt() != m.clientLastHitSeen && now - m.hitAt() < 3) {
+			m.clientLastHitSeen = m.hitAt();
+			addShake(mc.player, m.position(), 1.3f, 24.0);
+		}
+		if (m.hasPassenger(mc.player)) {
+			if (m.drillState() == HardLightMechEntity.DRILL_CHARGE) {
+				shake = Math.max(shake, 0.55f);
+			} else if (m.drillState() == HardLightMechEntity.DRILL_SPIN) {
+				shake = Math.max(shake, 0.06f + 0.22f * m.drillPower());
+			}
+		}
 		// thruster flames while it is rising (the jump) -- drawn by every client
 		if (m.isActive() && dy > 0.2) {
 			for (int s = -1; s <= 1; s += 2) {

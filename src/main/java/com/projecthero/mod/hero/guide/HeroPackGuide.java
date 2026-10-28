@@ -922,6 +922,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.green_lantern.survival.body");
 			head(lines, "projecthero.guide.green_lantern.mech"); // v0.17.1: the Hard-Light Mech
 			para(lines, "projecthero.guide.green_lantern.mech.body");
+			head(lines, "projecthero.guide.green_lantern.mech_combos"); // v0.17.1: Giga Drill + Hard-Light Katana
+			para(lines, "projecthero.guide.green_lantern.mech_combos.body");
 			head(lines, "projecthero.guide.green_lantern.drone"); // v0.17.1: the Hard-Light Drone
 			para(lines, "projecthero.guide.green_lantern.drone.body");
 			head(lines, "projecthero.guide.green_lantern.gateway"); // v0.17.1: the Hard-Light Gateway + ring waypoints

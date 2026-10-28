@@ -5,6 +5,7 @@ import com.projecthero.mod.client.gui.MoveListOverlay;
 import com.projecthero.mod.greenlantern.GreenLanternRanks;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 import com.projecthero.mod.greenlantern.mech.HardLightMechEntity;
+import com.projecthero.mod.greenlantern.mech.MechComboKeys;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
@@ -19,6 +20,11 @@ import net.minecraft.util.Mth;
  * right): the mech's name and state, its INTEGRITY bar, the six mech-move keys (R G X Z V C -- never H or N) with their
  * cooldowns, a small bar along the R box for the Shift+R Rocket Fist, and the Ring Charge bar. Alt lists the moves. In
  * first person, thin cockpit brackets frame the view.
+ *
+ * <p>v0.17.1 construct combos: the keys a combo sits on ({@link MechComboKeys}) carry a small corner tag; holding Shift
+ * flips the boxes to the Shift layer -- the Giga Drill and the Katana icons on their keys (with their cooldowns), the
+ * Rocket Fist (or the katana's iaido) on R, the rest dimmed. With the katana drawn R and G show its cuts. In first
+ * person a spin gauge rings the crosshair while the drill spins up.
  */
 public final class GreenLanternMechHud {
 	private static final int BOX = 24;
@@ -30,6 +36,8 @@ public final class GreenLanternMechHud {
 	/** The cooldown slot each box shades from (-1: a hold move, no cooldown). */
 	private static final int[] CD = { HardLightMechEntity.CD_PUNCH, HardLightMechEntity.CD_SLAM, HardLightMechEntity.CD_DASH, -1, -1,
 			HardLightMechEntity.CD_MISSILES };
+	// glyph ids past the six moves
+	private static final int G_SLASH = 6, G_SPIN = 7, G_IAIDO = 8, G_DRILL = 9, G_KATANA = 10, G_ROCKET = 11;
 
 	private static final int GREEN = 0xFF35F075;
 	private static final int PALE = 0xFFCFF8D4;
@@ -55,6 +63,11 @@ public final class GreenLanternMechHud {
 		if (mc.options.getCameraType().isFirstPerson()) {
 			cockpitFrame(g, m);
 		}
+		drillGauge(g, m, mc);
+		GreenLanternState s = mc.player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
+		char[] combo = MechComboKeys.keys(s);
+		boolean shift = Screen.hasShiftDown();
+		boolean katana = m.katanaDrawn();
 		int totalW = KEYS.length * BOX + (KEYS.length - 1) * GAP;
 		int x0 = g.guiWidth() - MARGIN - totalW;
 		int right = x0 + totalW;
@@ -67,8 +80,12 @@ public final class GreenLanternMechHud {
 		Component state = switch (m.state()) {
 			case HardLightMechEntity.STATE_ASSEMBLING -> Component.translatable("hud.projecthero.green_lantern.mech.assembling").withStyle(ChatFormatting.YELLOW);
 			case HardLightMechEntity.STATE_DISSOLVING -> Component.translatable("hud.projecthero.green_lantern.mech.dissolving").withStyle(ChatFormatting.GRAY);
-			default -> m.hasFlag(HardLightMechEntity.FLAG_BEAM) ? Component.translatable("hud.projecthero.green_lantern.mech.beam").withStyle(ChatFormatting.AQUA)
+			default -> m.drillState() == HardLightMechEntity.DRILL_SPIN
+					? Component.translatable("hud.projecthero.green_lantern.mech.drill_spin", Math.round(m.drillPower() * 100f)).withStyle(ChatFormatting.AQUA)
+					: m.drillState() == HardLightMechEntity.DRILL_CHARGE ? Component.translatable("hud.projecthero.green_lantern.mech.drill_charge").withStyle(ChatFormatting.AQUA)
+					: m.hasFlag(HardLightMechEntity.FLAG_BEAM) ? Component.translatable("hud.projecthero.green_lantern.mech.beam").withStyle(ChatFormatting.AQUA)
 					: m.hasFlag(HardLightMechEntity.FLAG_SHIELD) ? Component.translatable("hud.projecthero.green_lantern.mech.shield").withStyle(ChatFormatting.AQUA)
+					: m.katanaOut() ? Component.translatable("hud.projecthero.green_lantern.mech.katana").withStyle(ChatFormatting.AQUA)
 					: null;
 		};
 		if (state != null && mc.font.width(title) + 6 + mc.font.width(state) <= totalW) {
@@ -90,13 +107,47 @@ public final class GreenLanternMechHud {
 		// ---- the keys
 		for (int i = 0; i < KEYS.length; i++) {
 			int x = x0 + i * (BOX + GAP);
+			char base = KEYS[i].charAt(0);
+			MechComboKeys.Combo here = comboAt(combo, base);
+			int glyph = i;
+			int cdSlot = CD[i];
 			boolean active = (i == 3 && m.hasFlag(HardLightMechEntity.FLAG_BEAM)) || (i == 4 && m.hasFlag(HardLightMechEntity.FLAG_SHIELD))
 					|| (i == 0 && m.hasFlag(HardLightMechEntity.FLAG_ROCKET_OUT));
+			boolean dim = false;
+			if (shift) {
+				if (i == 0) {
+					glyph = katana ? G_IAIDO : G_ROCKET;
+					cdSlot = katana ? HardLightMechEntity.CD_IAIDO : HardLightMechEntity.CD_ROCKET;
+				} else if (here == MechComboKeys.Combo.GIGA_DRILL) {
+					glyph = G_DRILL;
+					cdSlot = HardLightMechEntity.CD_DRILL;
+					active = m.drillState() == HardLightMechEntity.DRILL_SPIN || m.drillState() == HardLightMechEntity.DRILL_CHARGE;
+				} else if (here == MechComboKeys.Combo.KATANA) {
+					glyph = G_KATANA;
+					cdSlot = HardLightMechEntity.CD_KATANA;
+					active = m.katanaOut();
+				} else {
+					dim = true; // nothing on the Shift layer here (it does the plain move)
+				}
+			} else if (katana && i == 0) {
+				glyph = G_SLASH;
+				cdSlot = HardLightMechEntity.CD_SLASH;
+			} else if (katana && i == 1) {
+				glyph = G_SPIN;
+				cdSlot = HardLightMechEntity.CD_SPIN;
+			}
 			g.fill(x, y0, x + BOX, y0 + BOX, BOX_BG);
 			g.renderOutline(x, y0, BOX, BOX, active ? BORDER_ACTIVE : BORDER);
-			g.drawString(mc.font, KEYS[i], x + 2, y0 + 2, PALE, false);
-			glyph(g, i, x + BOX - 13, y0 + BOX - 13, active || !m.isActive() ? GREEN : 0xFF8FE8A8);
-			int cd = CD[i] >= 0 ? m.cooldownLeft(CD[i]) : 0;
+			String label = shift && !dim ? "⇧" + KEYS[i] : KEYS[i];
+			g.drawString(mc.font, KEYS[i], x + 2, y0 + 2, dim ? 0xFF4E7A58 : PALE, false);
+			if (shift && !dim) {
+				g.fill(x + 2, y0 + 11, x + 7, y0 + 12, PALE); // a little underline: the Shift layer
+			}
+			glyph(g, glyph, x + BOX - 13, y0 + BOX - 13, dim ? 0xFF2E5A3A : active || !m.isActive() ? GREEN : 0xFF8FE8A8);
+			if (!shift && here != null) {
+				comboTag(g, here, x + BOX - 7, y0 + 1);
+			}
+			int cd = cdSlot >= 0 ? m.cooldownLeft(cdSlot) : 0;
 			if (!m.isActive()) {
 				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x80000000);
 			} else if (cd > 0) {
@@ -105,16 +156,20 @@ public final class GreenLanternMechHud {
 					g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
 				}
 			}
-			if (i == 0) { // the Shift+R Rocket Fist, a small bar along the bottom of R
-				int rc = m.cooldownLeft(HardLightMechEntity.CD_ROCKET);
-				float ready = 1f - rc / (float) HardLightMechEntity.CD_LENGTHS[HardLightMechEntity.CD_ROCKET];
+			if (i == 0 && !shift) { // the Shift+R move (Rocket Fist, or the iaido with the katana drawn), a small bar along R
+				int slot = katana ? HardLightMechEntity.CD_IAIDO : HardLightMechEntity.CD_ROCKET;
+				int rc = m.cooldownLeft(slot);
+				float ready = 1f - rc / (float) HardLightMechEntity.CD_LENGTHS[slot];
 				g.fill(x + 1, y0 + BOX - 3, x + BOX - 1, y0 + BOX - 1, 0xC0062010);
 				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * ready), y0 + BOX - 1, ready >= 1f ? 0xFF5CFF8E : 0xFF1E8A44);
+			}
+			if (here == MechComboKeys.Combo.GIGA_DRILL && m.drillState() == HardLightMechEntity.DRILL_SPIN) {
+				float k = m.drillPower();
+				g.fill(x + 1, y0 + BOX - 3, x + 1 + Math.round((BOX - 2) * k), y0 + BOX - 1, k >= 1f ? 0xFFFFFFFF : 0xFF5CFF8E);
 			}
 		}
 
 		// ---- Ring Charge
-		GreenLanternState s = mc.player.getAttachedOrElse(ModAttachments.GREEN_LANTERN_STATE, null);
 		if (s != null) {
 			float maxCharge = GreenLanternRanks.maxCharge(mc.player);
 			float cf = Mth.clamp(s.ringCharge, 0f, maxCharge) / maxCharge;
@@ -126,20 +181,62 @@ public final class GreenLanternMechHud {
 		}
 
 		if (Screen.hasAltDown() || MoveListOverlay.held()) {
-			int y = topY - LINE - 2;
-			for (int i = NAMES.length; i >= 0; i--) {
-				String key = i == NAMES.length ? "rocket_fist" : NAMES[i];
-				String label = i == NAMES.length ? "Shift+R" : KEYS[i];
-				Component line = Component.literal(label + "  ").withStyle(ChatFormatting.GREEN)
-						.append(Component.translatable("hud.projecthero.green_lantern.mech.move." + key).withStyle(ChatFormatting.WHITE));
-				g.drawString(mc.font, line, right - mc.font.width(line), y, 0xFFFFFFFF, true);
-				y -= LINE;
-			}
+			moveList(g, mc, m, combo, katana, right, topY - LINE - 2);
 		}
 	}
 
-	/** A tiny drawn symbol per move (no icon atlas needed): fist, slam, dash chevron, beam, shield, missiles. */
+	private static MechComboKeys.Combo comboAt(char[] combo, char base) {
+		for (MechComboKeys.Combo c : MechComboKeys.Combo.values()) {
+			if (combo[c.ordinal()] == base) {
+				return c;
+			}
+		}
+		return null;
+	}
+
+	/** The Alt list, bottom up: the six keys (the katana's cuts on R / G while it is out), Shift+R, then the combos. */
+	private static void moveList(GuiGraphics g, Minecraft mc, HardLightMechEntity m, char[] combo, boolean katana, int right, int y) {
+		java.util.List<Component> lines = new java.util.ArrayList<>();
+		for (int i = 0; i < NAMES.length; i++) {
+			String key = katana && i == 0 ? "katana_slash" : katana && i == 1 ? "katana_spin" : NAMES[i];
+			lines.add(line(KEYS[i], Component.translatable("hud.projecthero.green_lantern.mech.move." + key)));
+		}
+		lines.add(line("Shift+R", Component.translatable("hud.projecthero.green_lantern.mech.move." + (katana ? "katana_iaido" : "rocket_fist"))));
+		for (MechComboKeys.Combo c : MechComboKeys.Combo.values()) {
+			char k = combo[c.ordinal()];
+			if (k != 0) {
+				lines.add(line("Shift+" + k, Component.translatable("hud.projecthero.green_lantern.mech.move." + c.id())));
+			}
+		}
+		for (int i = lines.size() - 1; i >= 0; i--) {
+			Component l = lines.get(i);
+			g.drawString(mc.font, l, right - mc.font.width(l), y, 0xFFFFFFFF, true);
+			y -= LINE;
+		}
+	}
+
+	private static Component line(String key, Component name) {
+		return Component.literal(key + "  ").withStyle(ChatFormatting.GREEN).append(name.copy().withStyle(ChatFormatting.WHITE));
+	}
+
+	/** The little corner tag on a key that holds a combo on its Shift layer (a drill point / a blade). */
+	private static void comboTag(GuiGraphics g, MechComboKeys.Combo c, int x, int y) {
+		int col = 0xFFE8FFEE;
+		if (c == MechComboKeys.Combo.GIGA_DRILL) {
+			g.fill(x, y + 1, x + 5, y + 2, col);
+			g.fill(x + 1, y + 2, x + 4, y + 3, col);
+			g.fill(x + 2, y + 3, x + 3, y + 5, col);
+		} else {
+			for (int k = 0; k < 5; k++) {
+				g.fill(x + k, y + 4 - k, x + k + 1, y + 5 - k, col);
+			}
+			g.fill(x, y + 3, x + 2, y + 4, 0xFF35F075);
+		}
+	}
+
+	/** A tiny drawn symbol per move (no icon atlas needed). */
 	private static void glyph(GuiGraphics g, int i, int x, int y, int c) {
+		int hi = 0xFFFFFFFF;
 		switch (i) {
 			case 0 -> { // fist
 				g.fill(x + 2, y + 3, x + 10, y + 9, c);
@@ -169,13 +266,74 @@ public final class GreenLanternMechHud {
 				g.renderOutline(x + 1, y + 1, 10, 10, c);
 				g.fill(x + 3, y + 3, x + 9, y + 9, (c & 0x00FFFFFF) | 0x60000000);
 			}
-			default -> { // missiles: three rising darts
+			case 5 -> { // missiles: three rising darts
 				for (int k = 0; k < 3; k++) {
 					g.fill(x + 1 + k * 4, y + 3 - (k % 2), x + 3 + k * 4, y + 10 - (k % 2), c);
-					g.fill(x + 1 + k * 4, y + 1 - (k % 2), x + 3 + k * 4, y + 2 - (k % 2), 0xFFFFFFFF);
+					g.fill(x + 1 + k * 4, y + 1 - (k % 2), x + 3 + k * 4, y + 2 - (k % 2), hi);
 				}
 			}
+			case G_SLASH -> { // a curved cut: an arc of steps with a bright edge
+				for (int k = 0; k < 10; k++) {
+					int yy = y + 1 + k + (k > 5 ? (k - 5) / 2 : 0) - (k > 5 ? k - 5 : 0);
+					g.fill(x + 1 + k, yy, x + 3 + k, yy + 2, k > 6 ? hi : c);
+				}
+			}
+			case G_SPIN -> { // a ring with an arrowhead
+				g.renderOutline(x + 1, y + 1, 10, 10, c);
+				g.fill(x + 9, y, x + 12, y + 1, hi);
+				g.fill(x + 10, y + 1, x + 12, y + 3, hi);
+				g.fill(x + 5, y + 5, x + 7, y + 7, c);
+			}
+			case G_IAIDO -> { // the crescent
+				for (int k = 0; k < 12; k++) {
+					int dy = (int) Math.round(Math.abs(k - 5.5) * Math.abs(k - 5.5) / 6.0);
+					g.fill(x + k, y + 3 + dy, x + k + 1, y + 6 + dy - (Math.abs(k - 5.5) > 4 ? 2 : 0), k > 2 && k < 9 ? hi : c);
+				}
+			}
+			case G_DRILL -> { // the spiral cone, point right
+				for (int k = 0; k < 11; k++) {
+					int h = Math.max(0, 5 - k / 2);
+					g.fill(x + k, y + 6 - h, x + k + 1, y + 6 + h, c);
+					if (k % 3 == 0) {
+						g.fill(x + k, y + 6 - h, x + k + 1, y + 6 - h + 2, hi);
+					}
+				}
+				g.fill(x + 11, y + 5, x + 12, y + 7, hi);
+			}
+			case G_KATANA -> { // a diagonal blade with its guard and grip
+				for (int k = 0; k < 8; k++) {
+					g.fill(x + 3 + k, y + 8 - k, x + 5 + k, y + 9 - k, k > 5 ? hi : c);
+				}
+				g.fill(x + 1, y + 7, x + 5, y + 8, hi); // tsuba
+				g.fill(x + 2, y + 6, x + 4, y + 10, hi);
+				g.fill(x, y + 10, x + 2, y + 12, c); // tsuka
+			}
+			default -> { // rocket fist: a fist with a flame tail
+				g.fill(x + 5, y + 3, x + 12, y + 9, c);
+				g.fill(x + 1, y + 5, x + 5, y + 7, hi);
+				g.fill(x, y + 4, x + 2, y + 8, c);
+			}
 		}
+	}
+
+	/** First person, while the Giga Drill spins up: a gauge of light round the crosshair (white when it is full). */
+	private static void drillGauge(GuiGraphics g, HardLightMechEntity m, Minecraft mc) {
+		if (m.drillState() != HardLightMechEntity.DRILL_SPIN) {
+			return;
+		}
+		int cx = g.guiWidth() / 2, cy = g.guiHeight() / 2;
+		float k = m.drillPower();
+		int n = 24, lit = Math.round(n * k);
+		boolean full = k >= 1f;
+		for (int i = 0; i < n; i++) {
+			double a = -Math.PI / 2 + i * Math.PI * 2 / n;
+			int x = cx + (int) Math.round(Math.cos(a) * 16), y = cy + (int) Math.round(Math.sin(a) * 16);
+			int c = i < lit ? (full && (mc.level.getGameTime() / 3) % 2 == 0 ? 0xFFFFFFFF : 0xFF5CFF8E) : 0x60206030;
+			g.fill(x - 1, y - 1, x + 2, y + 2, c);
+		}
+		Component t = Component.translatable(full ? "hud.projecthero.green_lantern.mech.drill_release" : "hud.projecthero.green_lantern.mech.drill_spin",
+				Math.round(k * 100f)).withStyle(ChatFormatting.BOLD);
+		g.drawCenteredString(mc.font, t, cx, cy + 24, full ? 0xFFFFFFFF : 0xFF8FE8A8);
 	}
 
 	/** First person: thin hard-light brackets in the corners, like looking out of the cockpit glass. */

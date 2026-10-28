@@ -64,14 +64,30 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 	public void render(HardLightMechEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		Minecraft mc = Minecraft.getInstance();
 		hideCockpit = mc.options.getCameraType().isFirstPerson() && mc.getCameraEntity() != null && e.hasPassenger(mc.getCameraEntity());
+		// v0.17.1 construct combos: the drill replaces the right fist; the bones' poses are caught for the weapons
+		hideFist = MechComboRender.drillScale(e, partial) > 0.3f;
+		haveFist = haveForearm = false;
 		super.render(e, yaw, partial, pose, buffers, LightTexture.FULL_BRIGHT);
 		hideCockpit = false;
+		hideFist = false;
 		HardLightDraw.golden = e.golden();
 		try {
 			renderFx(e, partial, pose, buffers);
+			MechComboRender.render(e, partial, pose, buffers, haveFist ? fistPose : null, haveForearm ? forearmPose : null);
 		} finally {
 			HardLightDraw.golden = false;
 		}
+	}
+
+	private boolean hideFist;
+	private boolean haveFist;
+	private boolean haveForearm;
+	private final PoseStack.Pose fistPose = new PoseStack().last();
+	private final PoseStack.Pose forearmPose = new PoseStack().last();
+
+	private static void copy(PoseStack.Pose from, PoseStack.Pose to) {
+		to.pose().set(from.pose());
+		to.normal().set(from.normal());
 	}
 
 	/** 0..1 how solid the mech is: it builds up while assembling and fades out while dissolving. */
@@ -95,7 +111,18 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 
 	@Override
 	public void renderCubesOfBone(PoseStack poseStack, GeoBone bone, VertexConsumer buffer, int packedLight, int packedOverlay, int colour) {
-		if (hideCockpit && COCKPIT_BONES.contains(bone.getName())) {
+		String name = bone.getName();
+		if ("fist_r".equals(name)) {
+			copy(poseStack.last(), fistPose);
+			haveFist = true;
+			if (hideFist) {
+				return;
+			}
+		} else if ("forearm_r".equals(name)) {
+			copy(poseStack.last(), forearmPose);
+			haveForearm = true;
+		}
+		if (hideCockpit && COCKPIT_BONES.contains(name)) {
 			return;
 		}
 		super.renderCubesOfBone(poseStack, bone, buffer, packedLight, packedOverlay, colour);

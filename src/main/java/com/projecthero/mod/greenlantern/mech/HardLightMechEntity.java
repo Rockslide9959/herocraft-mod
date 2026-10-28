@@ -71,8 +71,19 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 
 	/** Move cooldown slots, synced as absolute ready-at game times (the HUD shades the boxes from these). */
 	public static final int CD_PUNCH = 0, CD_ROCKET = 1, CD_SLAM = 2, CD_DASH = 3, CD_MISSILES = 4;
+	/** v0.17.1 mech construct combos: the Giga Drill, the katana toggle and the katana's three moves. */
+	public static final int CD_DRILL = 5, CD_KATANA = 6, CD_SLASH = 7, CD_IAIDO = 8, CD_SPIN = 9;
 	public static final int[] CD_LENGTHS = { GreenLanternMechConfig.PUNCH_COOLDOWN_TICKS, GreenLanternMechConfig.ROCKET_COOLDOWN_TICKS,
-			GreenLanternMechConfig.SLAM_COOLDOWN_TICKS, GreenLanternMechConfig.DASH_COOLDOWN_TICKS, GreenLanternMechConfig.MISSILE_COOLDOWN_TICKS };
+			GreenLanternMechConfig.SLAM_COOLDOWN_TICKS, GreenLanternMechConfig.DASH_COOLDOWN_TICKS, GreenLanternMechConfig.MISSILE_COOLDOWN_TICKS,
+			GreenLanternMechConfig.DRILL_COOLDOWN_TICKS, GreenLanternMechConfig.KATANA_TOGGLE_COOLDOWN_TICKS,
+			GreenLanternMechConfig.SLASH_COOLDOWN_TICKS[2], GreenLanternMechConfig.IAIDO_COOLDOWN_TICKS, GreenLanternMechConfig.SPIN_COOLDOWN_TICKS };
+
+	/** v0.17.1 Giga Drill (Mining Drill combo) states, synced. */
+	public static final int DRILL_NONE = 0, DRILL_SPIN = 1, DRILL_CHARGE = 2, DRILL_RECOVER = 3;
+	/** v0.17.1 Hard-Light Katana (Energy Blade combo) states, synced. */
+	public static final int KATANA_NONE = 0, KATANA_DRAWING = 1, KATANA_DRAWN = 2, KATANA_SHEATHING = 3;
+	/** {@link #slashKind()}: the three chain cuts, then the spin sweep and the iaido draw-cut. */
+	public static final int SLASH_1 = 0, SLASH_2 = 1, SLASH_3 = 2, SLASH_SPIN = 3, SLASH_IAIDO = 4;
 
 	private static final EntityDataAccessor<Optional<UUID>> OWNER =
 			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.OPTIONAL_UUID);
@@ -87,12 +98,43 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	private static final EntityDataAccessor<Long> SLAM_AT =
 			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
 	@SuppressWarnings("unchecked")
-	private static final EntityDataAccessor<Long>[] READY = new EntityDataAccessor[] {
-			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG),
-			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG),
-			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG),
-			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG),
-			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG) };
+	private static final EntityDataAccessor<Long>[] READY = new EntityDataAccessor[CD_LENGTHS.length];
+	static {
+		for (int i = 0; i < READY.length; i++) {
+			READY[i] = SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+		}
+	}
+	// ---- v0.17.1 construct combos (synced so every client draws the drill / katana / wave / finisher)
+	private static final EntityDataAccessor<Integer> DRILL =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Long> DRILL_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Float> DRILL_POWER =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.FLOAT);
+	private static final EntityDataAccessor<Vector3f> DRILL_DIR =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Long> BREAK_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Vector3f> BREAK_POS =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Integer> KATANA =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Long> KATANA_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Long> SLASH_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Integer> SLASH_KIND =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Long> HIT_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Long> WAVE_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Vector3f> WAVE_FROM =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Vector3f> WAVE_DIR =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Float> WAVE_LEN =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.FLOAT);
 
 	public static final String ANIM = "animation.green_lantern_mech.";
 	private static final RawAnimation IDLE = RawAnimation.begin().thenLoop(ANIM + "idle");
@@ -101,7 +143,14 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	private static final RawAnimation SHIELD = RawAnimation.begin().thenLoop(ANIM + "shield");
 	private static final RawAnimation ASSEMBLE = RawAnimation.begin().thenPlayAndHold(ANIM + "assemble");
 	private static final RawAnimation DISSOLVE = RawAnimation.begin().thenPlayAndHold(ANIM + "dissolve");
-	public static final String[] ACTIONS = { "punch_r", "punch_l", "rocket_fist", "ground_slam", "dash", "missiles", "jump" };
+	public static final String[] ACTIONS = { "punch_r", "punch_l", "rocket_fist", "ground_slam", "dash", "missiles", "jump",
+			// v0.17.1 construct combos
+			"drill_break", "katana_draw", "katana_sheath", "katana_slash_1", "katana_slash_2", "katana_slash_3", "katana_iaido",
+			"katana_spin" };
+	private static final RawAnimation DRILL_SPIN_LOOP = RawAnimation.begin().thenLoop(ANIM + "drill_spin");
+	private static final RawAnimation DRILL_CHARGE_LOOP = RawAnimation.begin().thenLoop(ANIM + "drill_charge");
+	private static final RawAnimation KATANA_IDLE = RawAnimation.begin().thenLoop(ANIM + "katana_idle");
+	private static final RawAnimation KATANA_WALK = RawAnimation.begin().thenLoop(ANIM + "katana_walk");
 
 	private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
@@ -127,6 +176,33 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	public int rocketAge;
 	public final java.util.Set<Integer> rocketHit = new java.util.HashSet<>();
 
+	// ---- v0.17.1 construct combos, server state (see GreenLanternMechCombos)
+	/** The mech key that started the Giga Drill's spin (its release lets the drill go). */
+	public com.projecthero.mod.hero.AbilitySlot drillSlot;
+	public int drillHeld;
+	public Vec3 drillStart = Vec3.ZERO;
+	public Vec3 drillAim = new Vec3(0, 0, 1);
+	public double drillProgress;
+	public double drillBored;
+	public double drillEnd;
+	public int drillCharge;
+	public int drillStall;
+	public double drillLastAlong;
+	/** Blocks the drill has bored (tests read it). */
+	public int drillBroken;
+	public boolean drillHitAny;
+	public final java.util.Map<Integer, Integer> drillHits = new java.util.HashMap<>();
+	public final java.util.Set<Long> drillDone = new java.util.HashSet<>();
+	/** R is held with the katana out: keep cutting whenever the next cut is ready. */
+	public boolean slashHeld;
+	public int slashStep = -1;
+	public long lastSlashAt = -1000L;
+	public boolean katanaHitAny;
+	/** The iaido crescent in flight (the server's simulation of what WAVE_* shows). */
+	public boolean waveActive;
+	public double waveTravel;
+	public final java.util.Set<Integer> waveHit = new java.util.HashSet<>();
+
 	// ---- client state
 	/** Client: smoothed ground speed in blocks / tick (the walk clip's speed and the footsteps come from it). */
 	public float clientSpeed;
@@ -134,6 +210,10 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	public int clientFoot;
 	public boolean clientWasOnGround = true;
 	public double clientFallVel;
+	/** v0.17.1 client: the katana's recent edge positions (world space: base xyz, tip xyz, time) for the slash trail. */
+	public final java.util.ArrayDeque<double[]> clientTrail = new java.util.ArrayDeque<>();
+	public long clientLastBreakSeen = Long.MIN_VALUE;
+	public long clientLastHitSeen = Long.MIN_VALUE;
 
 	public HardLightMechEntity(EntityType<? extends HardLightMechEntity> type, Level level) {
 		super(type, level);
@@ -163,6 +243,21 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		for (EntityDataAccessor<Long> r : READY) {
 			builder.define(r, 0L);
 		}
+		builder.define(DRILL, DRILL_NONE);
+		builder.define(DRILL_AT, 0L);
+		builder.define(DRILL_POWER, 0f);
+		builder.define(DRILL_DIR, new Vector3f(0, 0, 1));
+		builder.define(BREAK_AT, -1000L);
+		builder.define(BREAK_POS, new Vector3f());
+		builder.define(KATANA, KATANA_NONE);
+		builder.define(KATANA_AT, 0L);
+		builder.define(SLASH_AT, -1000L);
+		builder.define(SLASH_KIND, 0);
+		builder.define(HIT_AT, -1000L);
+		builder.define(WAVE_AT, -1000L);
+		builder.define(WAVE_FROM, new Vector3f());
+		builder.define(WAVE_DIR, new Vector3f(0, 0, 1));
+		builder.define(WAVE_LEN, 0f);
 	}
 
 	// ---------------------------------------------------------------- state
@@ -263,6 +358,130 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		this.entityData.set(READY[slot], level().getGameTime() + ticks);
 	}
 
+	// ---------------------------------------------------------------- v0.17.1 construct combos (synced state)
+
+	private static Vec3 vec(Vector3f v) {
+		return new Vec3(v.x(), v.y(), v.z());
+	}
+
+	private static Vector3f vec(Vec3 v) {
+		return new Vector3f((float) v.x, (float) v.y, (float) v.z);
+	}
+
+	public int drillState() {
+		return this.entityData.get(DRILL);
+	}
+
+	public void setDrillState(int s) {
+		this.entityData.set(DRILL, s);
+		this.entityData.set(DRILL_AT, level().getGameTime());
+	}
+
+	/** Ticks since the drill state last changed (both sides read the shared game clock). */
+	public long drillStateTicks() {
+		return level().getGameTime() - this.entityData.get(DRILL_AT);
+	}
+
+	/** 0..1: how far the drill was spun up when it was let go (the charge and its finisher read this). */
+	public float drillPower() {
+		return this.entityData.get(DRILL_POWER);
+	}
+
+	public void setDrillPower(float k) {
+		this.entityData.set(DRILL_POWER, k);
+	}
+
+	public Vec3 drillDir() {
+		return vec(this.entityData.get(DRILL_DIR));
+	}
+
+	public void setDrillDir(Vec3 d) {
+		this.entityData.set(DRILL_DIR, vec(d));
+	}
+
+	public long breakAt() {
+		return this.entityData.get(BREAK_AT);
+	}
+
+	public Vec3 breakPos() {
+		return vec(this.entityData.get(BREAK_POS));
+	}
+
+	public void markBreak(Vec3 at) {
+		this.entityData.set(BREAK_POS, vec(at));
+		this.entityData.set(BREAK_AT, level().getGameTime());
+	}
+
+	public int katanaState() {
+		return this.entityData.get(KATANA);
+	}
+
+	public void setKatanaState(int s) {
+		this.entityData.set(KATANA, s);
+		this.entityData.set(KATANA_AT, level().getGameTime());
+	}
+
+	public long katanaStateTicks() {
+		return level().getGameTime() - this.entityData.get(KATANA_AT);
+	}
+
+	/** The katana is in the mech's hand (being drawn, drawn or being sheathed). */
+	public boolean katanaOut() {
+		return katanaState() != KATANA_NONE;
+	}
+
+	public boolean katanaDrawn() {
+		return katanaState() == KATANA_DRAWN;
+	}
+
+	public long slashAt() {
+		return this.entityData.get(SLASH_AT);
+	}
+
+	public int slashKind() {
+		return this.entityData.get(SLASH_KIND);
+	}
+
+	public void markSlash(int kind) {
+		this.entityData.set(SLASH_KIND, kind);
+		this.entityData.set(SLASH_AT, level().getGameTime());
+	}
+
+	public long hitAt() {
+		return this.entityData.get(HIT_AT);
+	}
+
+	public void markHit() {
+		this.entityData.set(HIT_AT, level().getGameTime());
+	}
+
+	public long waveAt() {
+		return this.entityData.get(WAVE_AT);
+	}
+
+	public Vec3 waveFrom() {
+		return vec(this.entityData.get(WAVE_FROM));
+	}
+
+	public Vec3 waveDir() {
+		return vec(this.entityData.get(WAVE_DIR));
+	}
+
+	public float waveLen() {
+		return this.entityData.get(WAVE_LEN);
+	}
+
+	public void launchWave(Vec3 from, Vec3 dir, float len) {
+		this.entityData.set(WAVE_FROM, vec(from));
+		this.entityData.set(WAVE_DIR, vec(dir));
+		this.entityData.set(WAVE_LEN, len);
+		this.entityData.set(WAVE_AT, level().getGameTime());
+	}
+
+	public void setWaveLen(float len) {
+		this.entityData.set(WAVE_LEN, len);
+	}
+
 	public void play(String anim) {
 		triggerAnim("action", anim);
 	}
@@ -320,8 +539,8 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 
 	@Override
 	protected Vec3 getRiddenInput(Player player, Vec3 travelVector) {
-		if (!isActive()) {
-			return Vec3.ZERO;
+		if (!isActive() || drillState() == DRILL_CHARGE) {
+			return Vec3.ZERO; // v0.17.1: the Giga Drill's charge steers itself
 		}
 		float forward = player.zza;
 		if (forward < 0f) {
@@ -339,13 +558,22 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		if (hasFlag(FLAG_BEAM)) {
 			speed *= GreenLanternMechConfig.BEAM_SPEED;
 		}
+		if (drillState() == DRILL_SPIN) {
+			speed *= GreenLanternMechConfig.DRILL_SPIN_SPEED;
+		}
 		return speed;
 	}
 
 	@Override
 	protected void tickRidden(Player player, Vec3 input) {
 		super.tickRidden(player, input);
-		setRot(player.getYRot(), 0f);
+		if (drillState() == DRILL_CHARGE) {
+			// v0.17.1: the Giga Drill charges along the aim it was let go with -- the body stays on that line
+			Vec3 d = drillDir();
+			setRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)), 0f);
+		} else {
+			setRot(player.getYRot(), 0f);
+		}
 		yRotO = yBodyRot = yHeadRot = getYRot();
 		// Space: the pilot's client simulates the mech, so the jump happens there (thruster burst; the server sees it rise)
 		if (level().isClientSide && isActive() && onGround() && ((LivingEntityAccessor) player).projecthero$isJumping()) {
@@ -528,7 +756,9 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
 		controllers.add(new AnimationController<>(this, "main", 4, this::mainPredicate)
 				.setAnimationSpeedHandler(m -> m.isWalking() ? Math.max(0.6, Math.min(1.6, m.clientSpeed / 0.5)) : 1.0));
-		AnimationController<HardLightMechEntity> action = new AnimationController<>(this, "action", 2, state -> PlayState.STOP);
+		AnimationController<HardLightMechEntity> action = new AnimationController<HardLightMechEntity>(this, "action", 2, state -> PlayState.STOP)
+				// v0.17.1: hit-stop -- a katana cut that connects freezes the swing for a beat
+				.setAnimationSpeedHandler(m -> m.inHitStop() ? 0.08 : 1.0);
 		for (String a : ACTIONS) {
 			action.triggerableAnim(a, RawAnimation.begin().thenPlay(ANIM + a));
 		}
@@ -536,7 +766,14 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	}
 
 	public boolean isWalking() {
-		return isActive() && clientSpeed > 0.04f && !hasFlag(FLAG_BEAM) && !hasFlag(FLAG_SHIELD);
+		return isActive() && clientSpeed > 0.04f && !hasFlag(FLAG_BEAM) && !hasFlag(FLAG_SHIELD) && drillState() != DRILL_CHARGE;
+	}
+
+	/** Client: a katana cut connected a moment ago (the swing holds still for {@link GreenLanternMechConfig#HIT_STOP_TICKS}). */
+	public boolean inHitStop() {
+		long since = level().getGameTime() - hitAt();
+		// two ticks late: the clip reaches the client (and blends in) about that much after the server swung it
+		return since >= 2 && since < 2 + GreenLanternMechConfig.HIT_STOP_TICKS;
 	}
 
 	private PlayState mainPredicate(AnimationState<HardLightMechEntity> state) {
@@ -548,11 +785,22 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 			default:
 				break;
 		}
+		// v0.17.1 construct combos
+		int drill = drillState();
+		if (drill == DRILL_CHARGE) {
+			return state.setAndContinue(DRILL_CHARGE_LOOP);
+		}
+		if (drill == DRILL_SPIN) {
+			return state.setAndContinue(DRILL_SPIN_LOOP);
+		}
 		if (hasFlag(FLAG_BEAM)) {
 			return state.setAndContinue(BEAM);
 		}
 		if (hasFlag(FLAG_SHIELD)) {
 			return state.setAndContinue(SHIELD);
+		}
+		if (katanaOut()) {
+			return state.setAndContinue(isWalking() ? KATANA_WALK : KATANA_IDLE);
 		}
 		return state.setAndContinue(isWalking() ? WALK : IDLE);
 	}
