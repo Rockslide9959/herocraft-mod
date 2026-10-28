@@ -136,6 +136,11 @@ public final class QuirkFirstPersonPose {
 
 	/** What the local player's first-person arms should do this frame, or null (vanilla). */
 	public static Sample current(Player p, float partial) {
+		// v0.17.1: a superhero landing's planted fist (any power, not only Quirks)
+		Sample landing = com.projecthero.mod.client.flight.HeroLandingClient.firstPerson(p, partial);
+		if (landing != null) {
+			return landing;
+		}
 		Quirk q = Quirks.quirk(p);
 		if (q == null || q.standalone) {
 			return null;

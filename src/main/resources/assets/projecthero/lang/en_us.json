@@ -9670,5 +9670,12 @@
   "subtitles.projecthero.grey_matter_leap": "Grey Matter leaps",
   "subtitles.projecthero.grey_matter_repair": "Gadgets whirr",
   "subtitles.projecthero.grey_matter_think": "Grey Matter thinks",
-  "_comment_omnitrix_aliens_b_end": ""
+  "_comment_omnitrix_aliens_b_end": "",
+  "subtitles.projecthero.hero_landing_impact": "Superhero landing",
+  "subtitles.projecthero.hero_landing_hardlight": "Hard light flares",
+  "subtitles.projecthero.hero_landing_thunder": "Thunder cracks",
+  "subtitles.projecthero.hero_landing_cosmic": "Cosmic whoosh",
+  "projecthero.guide.flight.hero_landing": "Superhero landing: come down fast out of a hero flight (a dive, or dropping faster than about 11 blocks a second) and you land like a hero -- down on one knee in a shockwave, with a crack in the ground (only for show, no block breaks), dust, debris and a shake. A hero landing never takes fall damage. Each hero lands their own way: Green Lantern punches the ring into the ground, Thor brings the hammer down in lightning, the Silver Surfer skids in on his board, Nova flares gold and red, Max Steel bursts Turbo blue, and the jet, wing and element flights each have their own. A gentle touchdown just lands. Walk or jump to get up early.",
+  "projecthero.guide.green_lantern.flight.landing": "Superhero landing: dive into the ground out of Ring Flight and you come down in a three-point landing with the ring fist punched into the ground. The ring flares, a green hard-light shockwave rolls out and the Lantern emblem glows in the crack under your fist. No fall damage.",
+  "projecthero.guide.thor.flight.landing": "Hammer-first landing: come down fast out of flight (or off a long drop) and the hammer strikes the ground ahead of you in a ring of crackling lightning. The bolt is only for show: it never burns or hurts anything."
 }

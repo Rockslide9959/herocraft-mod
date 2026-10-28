@@ -287,12 +287,15 @@ public final class FlightPoseHelper {
 		float boots = com.projecthero.mod.client.ironman.IronManFlightPose.bootsLean(player, partialTick);
 		float base = (anim == null ? 0.0f : Mth.lerp(partialTick, anim.leanPrev, anim.lean)) + boots;
 		// v0.16.5 Flight rework: a Dive Bomb lies head-first along the dive, a dash / punch along its line
-		return com.projecthero.mod.client.mutation.FlightClient.adjustLean(player, base, partialTick);
+		// v0.17.1: a superhero landing straightens the body out of the dive at once (its pose takes over)
+		return com.projecthero.mod.client.mutation.FlightClient.adjustLean(player, base, partialTick)
+				* com.projecthero.mod.client.flight.HeroLandingClient.flightPoseFactor(player, partialTick);
 	}
 
 	/** Smoothed 0..1 blend from the vanilla arm animation into the raised/extended hammer pose. */
 	public static float armRaise(Player player, float partialTick) {
 		PoseAnim anim = ANIMS.get(player.getUUID());
-		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.raisePrev, anim.raise);
+		return anim == null ? 0.0f : Mth.lerp(partialTick, anim.raisePrev, anim.raise)
+				* com.projecthero.mod.client.flight.HeroLandingClient.flightPoseFactor(player, partialTick);
 	}
 }

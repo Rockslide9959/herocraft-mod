@@ -485,4 +485,16 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.yRot = -0.75f;
 		this.leftLeg.zRot = -0.1f;
 	}
+
+	/**
+	 * v0.17.1: the shared superhero landing ({@code client.flight.HeroLandingPose}) -- declared last so it wins over the
+	 * flight pose it blends in from and every power's own idle / move pose while it holds.
+	 */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$heroLandingPose(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player player && !player.isPassenger()) {
+			com.projecthero.mod.client.flight.HeroLandingPose.apply(player, (HumanoidModel<?>) (Object) this);
+		}
+	}
 }

@@ -1,0 +1,43 @@
+package com.projecthero.mod.client.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import com.projecthero.mod.client.LandingHarness;
+
+import net.minecraft.client.Camera;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): the orbit camera, in the player's own frame, while the player stays the camera entity. */
+@Mixin(Camera.class)
+public abstract class LandingHarnessCameraMixin {
+	@Shadow
+	protected abstract void setPosition(Vec3 pos);
+
+	@Shadow
+	protected abstract void setRotation(float yRot, float xRot);
+
+	@Inject(method = "setup", at = @At("TAIL"))
+	private void projecthero$landingOrbit(BlockGetter level, Entity entity, boolean detached, boolean reverse, float partialTick, CallbackInfo ci) {
+		double[] v = LandingHarness.view;
+		if (!detached || v == null) {
+			return;
+		}
+		Vec3 at = entity.getPosition(partialTick).add(0, 1.1, 0);
+		float yaw = entity.getYRot() * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		Vec3 right = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
+		Vec3 pos = at.add(fwd.scale(v[0])).add(right.scale(v[1])).add(0, v[2], 0);
+		Vec3 d = at.add(0, -0.45, 0).subtract(pos);
+		float cy = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+		float cp = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+		setRotation(cy, cp);
+		setPosition(pos);
+	}
+}

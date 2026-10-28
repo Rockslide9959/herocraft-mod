@@ -1,0 +1,414 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.flight.HeroLandingClient;
+import com.projecthero.mod.flight.landing.HeroLanding;
+import com.projecthero.mod.flight.landing.HeroLandingStyle;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.1 Hero Landing screenshots. Enabled by run/landing.flag. A client-only camera entity
+ * orbits the player at fixed offsets in the player's own frame (forward / right / up).
+ */
+public final class LandingHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ArmorStand camera;
+	public static double[] view;
+	private static final String PREFIX = "landing_";
+	private static final java.util.List<Object[]> PENDING = new java.util.ArrayList<>();
+	private static int diveTicks;
+
+	private LandingHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("landing.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(LandingHarness::tick);
+		WorldRenderEvents.START.register(ctx -> place(Minecraft.getInstance(), ctx.tickCounter().getGameTimeDeltaPartialTick(false)));
+		WorldRenderEvents.LAST.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			java.util.Iterator<Object[]> it = PENDING.iterator();
+			while (it.hasNext()) {
+				Object[] o = it.next();
+				if (((java.util.function.BooleanSupplier) o[1]).getAsBoolean()) {
+					it.remove();
+					Screenshot.grab(mc.gameDirectory, PREFIX + o[0] + ".png", mc.getMainRenderTarget(), m -> {
+					});
+					System.out.println("[HARNESS] shot (render) " + o[0] + " age=" + age());
+					break;
+				}
+			}
+		});
+		WorldRenderEvents.AFTER_ENTITIES.register(ctx -> {
+			Minecraft mc = Minecraft.getInstance();
+			if (true || view == null || mc.player == null || ctx.consumers() == null) {
+				return;
+			}
+			float pt = ctx.tickCounter().getGameTimeDeltaPartialTick(false);
+			Player p = mc.player;
+			Vec3 cam = ctx.camera().getPosition();
+			double x = Mth.lerp(pt, p.xo, p.getX()) - cam.x, y = Mth.lerp(pt, p.yo, p.getY()) - cam.y, z = Mth.lerp(pt, p.zo, p.getZ()) - cam.z;
+			var disp = mc.getEntityRenderDispatcher();
+			disp.render(p, x, y, z, Mth.lerp(pt, p.yRotO, p.getYRot()), pt, ctx.matrixStack(), ctx.consumers(), disp.getPackedLightCoords(p, pt));
+		});
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "landing-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static float age() {
+		Minecraft mc = Minecraft.getInstance();
+		HeroLandingClient.State s = mc.player == null ? null : HeroLandingClient.get(mc.player);
+		return s == null ? -1f : s.age(mc.getTimer().getGameTimeDeltaPartialTick(false));
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shotWhen(int t, String name, java.util.function.BooleanSupplier cond) {
+		at(t, () -> PENDING.add(new Object[] { name, cond }));
+	}
+
+	private static void shotAge(int t, String name, float lo, float hi) {
+		final int deadline = t + 60;
+		shotWhen(t, name, () -> {
+			if (inWorldTicks - t0 > deadline) {
+				return false;
+			}
+			float a = age();
+			return a >= lo && a <= hi;
+		});
+	}
+
+	private static void orbit(int t, double f, double r, double u) {
+		at(t, () -> {
+			view = new double[] { f, r, u };
+			Minecraft mc = Minecraft.getInstance();
+			mc.setCameraEntity(mc.player);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
+	}
+
+	private static void normalView(int t, CameraType type) {
+		at(t, () -> {
+			view = null;
+			Minecraft mc = Minecraft.getInstance();
+			mc.setCameraEntity(mc.player);
+			mc.options.setCameraType(type);
+		});
+	}
+
+	private static void place(Minecraft mc, float partial) {
+		if (view == null || camera == null || mc.player == null) {
+			return;
+		}
+		Player p = mc.player;
+		Vec3 at = new Vec3(p.xo, p.yo, p.zo).lerp(p.position(), partial).add(0, 1.1, 0);
+		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
+		Vec3 fwd = new Vec3(-Mth.sin(yaw), 0, Mth.cos(yaw));
+		Vec3 right = new Vec3(-Mth.cos(yaw), 0, -Mth.sin(yaw));
+		Vec3 eye = at.add(fwd.scale(view[0])).add(right.scale(view[1])).add(0, view[2], 0);
+		Vec3 aim = at.add(0, -0.45, 0);
+		Vec3 to = aim.subtract(eye);
+		float camYaw = (float) (Mth.atan2(to.z, to.x) * Mth.RAD_TO_DEG) - 90f;
+		float camPitch = (float) (-Mth.atan2(to.y, Math.sqrt(to.x * to.x + to.z * to.z)) * Mth.RAD_TO_DEG);
+		double eyeH = camera.getEyeHeight();
+		camera.setPos(eye.x, eye.y - eyeH, eye.z);
+		camera.xo = camera.xOld = eye.x;
+		camera.yo = camera.yOld = eye.y - eyeH;
+		camera.zo = camera.zOld = eye.z;
+		camera.setYRot(camYaw);
+		camera.setXRot(camPitch);
+		camera.yRotO = camYaw;
+		camera.xRotO = camPitch;
+		camera.setYHeadRot(camYaw);
+		camera.yHeadRotO = camYaw;
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		mc.options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.05);
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(LandingHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (diveTicks > 0 && mc.player != null) {
+			diveTicks--;
+			boolean down = !mc.player.onGround() && diveTicks > 0;
+			mc.options.keyUp.setDown(down);
+			mc.options.keySprint.setDown(down);
+			if (down) {
+				mc.player.setXRot(72f);
+				mc.player.setYRot(0f);
+				if (diveTicks % 3 == 0) {
+					System.out.println("[HARNESS] dive y=" + String.format("%.2f", mc.player.getY()) + " vy=" + String.format("%.2f", mc.player.getDeltaMovement().y));
+				}
+			} else {
+				mc.player.setXRot(15f);
+				diveTicks = 0;
+			}
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(60);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+			});
+			t0 = inWorldTicks + 80;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static double spotX;
+
+	private static void home(ServerPlayer p, double up) {
+		p.connection.teleport(origin.x + spotX, origin.y + up, origin.z, 0f, 15f);
+	}
+
+	private static void nextSpot(int t) {
+		// wipe the last hero's decals / rings instead of moving (moving the player confused the orbit camera)
+		at(t, () -> server(Minecraft.getInstance(), p -> p.serverLevel().getEntitiesOfClass(com.projecthero.mod.quirk.fx.QuirkFxEntity.class,
+				p.getBoundingBox().inflate(60)).forEach(net.minecraft.world.entity.Entity::discard)));
+	}
+
+	private static void trigger(Minecraft mc, int t, HeroLandingStyle style) {
+		at(t, () -> server(mc, p -> {
+			home(p, 0);
+			p.setDeltaMovement(Vec3.ZERO);
+		}));
+		at(t + 3, () -> server(mc, p -> HeroLanding.trigger(p, style, 0.95f)));
+	}
+
+	private static void script(Minecraft mc) {
+		int c = 0;
+		// ---------------- Green Lantern: a real dive out of Ring Flight
+		at(c, () -> server(mc, p -> {
+			com.projecthero.mod.greenlantern.GreenLantern.bond(p);
+			var s = com.projecthero.mod.greenlantern.GreenLantern.state(p).copy();
+			s.suitStyle = 0;
+			s.ringCharge = com.projecthero.mod.greenlantern.GreenLanternConfig.MAX_RING_CHARGE;
+			com.projecthero.mod.greenlantern.GreenLantern.save(p, s);
+			p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			System.out.println("[HARNESS] GL bonded");
+		}));
+		at(c + 5, () -> server(mc, com.projecthero.mod.greenlantern.GreenLanternSuit::toggle));
+		c += 80;
+		for (int rep = 0; rep < 2; rep++) {
+			final int r = rep;
+			at(c, () -> server(mc, p -> {
+				var s = com.projecthero.mod.greenlantern.GreenLantern.state(p).copy();
+				s.ringCharge = com.projecthero.mod.greenlantern.GreenLanternConfig.MAX_RING_CHARGE;
+				com.projecthero.mod.greenlantern.GreenLantern.save(p, s);
+				home(p, 16);
+			}));
+			at(c + 3, () -> server(mc, p -> {
+				if (!com.projecthero.mod.greenlantern.GreenLanternFlight.isFlying(p)) {
+					com.projecthero.mod.greenlantern.GreenLanternAbilityManager.toggleFlight(p);
+				}
+				System.out.println("[HARNESS] GL flying " + com.projecthero.mod.greenlantern.GreenLanternFlight.isFlying(p));
+			}));
+			if (r == 0) {
+				orbit(c + 1, 3.0, 2.6, -0.55);
+				shotAge(c + 10, "gl_impact", 1.0f, 2.4f);
+				shotAge(c + 10, "gl_hold", 8f, 10f);
+			} else {
+				orbit(c + 1, 3.2, -1.4, -0.35);
+				shotAge(c + 10, "gl_front", 6f, 9f);
+				shotAge(c + 10, "gl_rise", 21f, 22.5f);
+				orbit(c + 46, 1.6, 0.9, 3.0);
+				shotWhen(c + 50, "gl_emblem", () -> true);
+			}
+			at(c + 12, () -> diveTicks = 40);
+			at(c + 40, () -> {
+				HeroLandingClient.State st = mc.player == null ? null : HeroLandingClient.get(mc.player);
+				System.out.println("[HARNESS] GL dive landed: " + (st != null ? st.style : "NONE"));
+			});
+			c += 65;
+		}
+		// first person, bare-handed
+		normalView(c, CameraType.FIRST_PERSON);
+		trigger(mc, c, HeroLandingStyle.GREEN_LANTERN);
+		shotAge(c + 4, "firstperson", 3f, 4.5f);
+		c += 40;
+		// ---------------- Kryptonian
+		at(c, () -> server(mc, p -> {
+			com.projecthero.mod.kryptonian.Kryptonian.grant(p);
+			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(com.projecthero.mod.kryptonian.SupermanSuit.CHESTPLATE));
+			p.setItemSlot(EquipmentSlot.LEGS, new ItemStack(com.projecthero.mod.kryptonian.SupermanSuit.LEGGINGS));
+			p.setItemSlot(EquipmentSlot.FEET, new ItemStack(com.projecthero.mod.kryptonian.SupermanSuit.BOOTS));
+			System.out.println("[HARNESS] krypto " + com.projecthero.mod.kryptonian.Kryptonian.hasPower(p));
+		}));
+		orbit(c + 20, 3.0, 2.6, -0.55);
+		nextSpot(c + 1);
+		trigger(mc, c + 25, HeroLandingStyle.KRYPTONIAN);
+		shotAge(c + 28, "kryptonian_impact", 1.5f, 2.8f);
+		shotAge(c + 28, "kryptonian", 8f, 10f);
+		c += 70;
+		// ---------------- Thor
+		at(c, () -> server(mc, p -> {
+			for (EquipmentSlot sl : new EquipmentSlot[] { EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET }) {
+				p.setItemSlot(sl, ItemStack.EMPTY);
+			}
+			com.projecthero.mod.worthiness.Worthiness.setScore(p, com.projecthero.mod.worthiness.Worthiness.TEST_WORTHY_SCORE);
+			p.getInventory().selected = 0;
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(com.projecthero.mod.item.ModItems.MJOLNIR));
+			com.projecthero.mod.power.ThorPowers.bindOnAscend(p, p.getMainHandItem());
+			System.out.println("[HARNESS] thor " + com.projecthero.mod.power.ThorPassives.hasPowerOfThor(p));
+		}));
+		at(c + 6, () -> server(mc, com.projecthero.mod.thorarmor.ThorArmor::toggle));
+		orbit(c + 40, 3.0, -2.3, -0.3);
+		nextSpot(c + 1);
+		trigger(mc, c + 45, HeroLandingStyle.THOR);
+		shotAge(c + 48, "thor_impact", 1.2f, 2.4f);
+		shotAge(c + 48, "thor", 6f, 9f);
+		c += 90;
+		// ---------------- Nova
+		at(c, () -> server(mc, p -> {
+			p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			com.projecthero.mod.nova.Nova.grant(p);
+			com.projecthero.mod.nova.Nova.suitUp(p);
+			System.out.println("[HARNESS] nova " + com.projecthero.mod.nova.Nova.suited(p));
+		}));
+		orbit(c + 40, 3.0, 2.6, -0.55);
+		nextSpot(c + 1);
+		trigger(mc, c + 45, HeroLandingStyle.NOVA);
+		shotAge(c + 48, "nova_impact", 1.2f, 2.6f);
+		shotAge(c + 48, "nova", 7f, 9f);
+		c += 90;
+		// ---------------- Silver Surfer
+		at(c, () -> server(mc, p -> {
+			p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(com.projecthero.mod.galactus.item.GalactusItems.SURFBOARD));
+			p.getMainHandItem().use(p.serverLevel(), p, InteractionHand.MAIN_HAND);
+			System.out.println("[HARNESS] surfer " + com.projecthero.mod.silversurfer.SilverSurfer.hasPower(p));
+		}));
+		orbit(c + 40, 3.2, 2.8, -0.45);
+		nextSpot(c + 1);
+		trigger(mc, c + 45, HeroLandingStyle.SILVER_SURFER);
+		shotAge(c + 48, "surfer_impact", 1.5f, 3f);
+		shotAge(c + 48, "surfer", 9f, 12f);
+		shotAge(c + 48, "surfer_stepoff", 26f, 28f);
+		for (int k = 0; k < 30; k += 4) {
+			at(c + 48 + k, () -> System.out.println("[HARNESS] surfer pos " + mc.player.position() + " age " + age() + " surfing "
+					+ com.projecthero.mod.silversurfer.SilverSurfer.surfing(mc.player) + " invis " + mc.player.isInvisible()));
+		}
+		c += 90;
+		// ---------------- Max Steel
+		at(c, () -> server(mc, p -> {
+			p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+			com.projecthero.mod.maxsteel.MaxSteel.bond(p);
+			com.projecthero.mod.maxsteel.MaxSteelTransform.beginSuitUp(p, false);
+			System.out.println("[HARNESS] max steel " + com.projecthero.mod.maxsteel.MaxSteel.hasPower(p));
+		}));
+		orbit(c + 70, 3.0, 2.6, -0.55);
+		nextSpot(c + 1);
+		trigger(mc, c + 75, HeroLandingStyle.MAX_STEEL);
+		shotAge(c + 78, "maxsteel_impact", 1.2f, 2.6f);
+		shotAge(c + 78, "maxsteel", 7f, 9f);
+		c += 110;
+		final int end = c;
+		at(end, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("LANDING_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}

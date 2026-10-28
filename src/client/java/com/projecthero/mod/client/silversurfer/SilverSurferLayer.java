@@ -53,6 +53,15 @@ public class SilverSurferLayer extends RenderLayer<AbstractClientPlayer, PlayerM
 				LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, sheen);
 		if (SilverSurfer.surfing(player)) {
 			renderBoard(pose, buffers, light, partialTick);
+		} else {
+			// v0.17.1: the hero landing -- crouched on the board through the skid, then he steps off it
+			float back = com.projecthero.mod.client.flight.HeroLandingClient.boardOffset(player);
+			if (back >= 0f) {
+				pose.pushPose();
+				pose.translate(0.0, 0.0, back); // model space: +z is behind him
+				renderBoard(pose, buffers, light, partialTick);
+				pose.popPose();
+			}
 		}
 	}
 
