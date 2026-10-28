@@ -257,6 +257,11 @@ public final class RipjawsClient implements AlienClientKit {
 		}
 	}
 
+	@Override
+	public int hudHeight() {
+		return 20; // the label and the bar over the name line
+	}
+
 	/** The hydration meter: a blue bar over the keys, orange under 25%, flashing red when he is choking. */
 	@Override
 	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, float partial) {

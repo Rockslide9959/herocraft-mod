@@ -214,6 +214,22 @@ gen_omnitrix_aliens_b_textures.js` (skins + extras), `synth_omnitrix_aliens_b_so
 (their own contiguous lang block at the END of `en_us.json` and sounds block at the end of `sounds.json`, kept apart from
 `gen_omnitrix_lang.js`'s block). Tests: `OmnitrixAliens2GameTests`. Harness: `scratchpad/OmnitrixAliens2Harness.v0171.java.txt`.
 
+## Info pages: the Left-Alt list, the I screen, the guide
+
+* **Left-Alt** (`OmnitrixHud.moveRows`, drawn with the shared `MoveListOverlay` above the dial / key boxes). Human: V (raise /
+  lower, the recharge left), Scroll and Click while the watch is up, the selected alien. Alien: every kit key's tap / Shift / hold
+  move from `moves()` on the live bindings, the Attack / Use / Sneak moves (grouped by the first word of `vanillaKey`), V = turn
+  back with the time left. Never H / N. A kit whose `AlienClientKit.hud` draws over the name says how tall in `hudHeight()`.
+* **`omnitrix/OmnitrixInfo`** builds every line of reference text (client-safe; the caller wraps): `status` (live), `controls`,
+  `rules` (from `OmnitrixConfig`), `containment`, `roster` (all ten: role, the five tap moves, the core stats) and `alienPage`
+  (role + the guide line, the body from `AlienStats`, passives, weaknesses, every move per key with cooldown and description).
+  The I screen (`PowerInfoScreen.omnitrixBody`, rebuilt every 10 ticks) shows the alien's page while transformed, the watch +
+  roster as a human; the guide chapter calls the same builder with `OmnitrixInfo.LETTERS`.
+* Lang: `scratchpad/gen_omnitrix_info_lang.js` -- one block right after the main Omnitrix block (`_comment_omnitrix_info_*`):
+  the labels, and per alien `projecthero.omnitrix.info.<id>.role`, `.passive.<n>`, `.weakness.<n>`. A new alien needs those
+  three; its moves' names and `.desc` already come from step 3 above. Test: `OmnitrixInfoGameTests`. Harness:
+  `scratchpad/OmnitrixInfoHarness.v0171.java.txt`; shots `docs/screenshots/v0171/omnitrix_info_*.png`.
+
 ## State and resets
 
 Static per-player state: `Omnitrix` (the "rejects" throttle), `OmnitrixAbilityManager` (keys down), `HeatblastKit`

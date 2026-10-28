@@ -1,0 +1,235 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.PowerInfoScreen;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.1 Omnitrix Alt list + I screen screenshots. Enabled by run/omnitrix_info.flag. To use:
+ * copy to src/client/java/com/projecthero/mod/client/OmnitrixInfoHarness.java, call OmnitrixInfoHarness.init() first thing
+ * in ProjectHeroModClient.onInitializeClient, set soundCategory_master:0.05 in run/options.txt, ./gradlew runClient.
+ * Shots land in run/screenshots/omnitrix_info_*.png.
+ */
+// TEMP-HARNESS
+public final class OmnitrixInfoHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+
+	private OmnitrixInfoHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix_info.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixInfoHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-info-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_info_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		// the user: every test client at 5% sound
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixInfoHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				p.teleportTo(level, p.getX(), p.getY(), p.getZ(), 200f, 5f);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OMXI_" + System.currentTimeMillis() % 100000, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void become(Minecraft mc, String alien) {
+		server(mc, p -> {
+			if (Omnitrix.transformed(p)) {
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			}
+			var n = Omnitrix.state(p).copy();
+			n.rechargeUntil = 0;
+			n.selecting = false;
+			n.selected = alien;
+			Omnitrix.save(p, n);
+			Omnitrix.transform(p);
+		});
+	}
+
+	private static void info(Minecraft mc, String scrollTo) {
+		PowerInfoScreen s = new PowerInfoScreen();
+		mc.setScreen(s);
+		if (scrollTo != null && !s.scrollTo(scrollTo)) {
+			System.out.println("[HARNESS] scrollTo miss: " + scrollTo);
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> UniquePowers.forced(() -> Omnitrix.grant(p))));
+		t += 120; // the title fades
+		// ---------------------------------------------------------------- the human: the watch raised, the Alt list
+		at(t, () -> server(mc, p -> p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true))));
+		at(t + 2, () -> server(mc, Omnitrix::activate));
+		at(t + 4, () -> server(mc, p -> Omnitrix.cycle(p, 1)));
+		at(t + 20, () -> MoveListOverlay.forceHeld = true);
+		shot(t + 24, "alt_human_raised");
+		at(t + 26, () -> server(mc, Omnitrix::deactivate));
+		shot(t + 40, "alt_human_lowered");
+		at(t + 42, () -> MoveListOverlay.forceHeld = false);
+		// ---------------------------------------------------------------- the human: the I screen (overview + roster)
+		at(t + 45, () -> info(mc, null));
+		shot(t + 50, "i_human_top");
+		at(t + 52, () -> {
+			if (mc.screen instanceof PowerInfoScreen s) {
+				s.scrollTo("The aliens");
+			}
+		});
+		shot(t + 56, "i_human_roster");
+		at(t + 58, () -> {
+			if (mc.screen instanceof PowerInfoScreen s) {
+				s.scrollTo("Stinkfly");
+			}
+		});
+		shot(t + 62, "i_human_roster_b");
+		at(t + 64, () -> mc.setScreen(null));
+		t += 70;
+		// ---------------------------------------------------------------- three aliens
+		for (String alien : new String[] { "heatblast", "ripjaws", "grey_matter", "four_arms" }) {
+			final String a = alien;
+			at(t, () -> become(mc, a));
+			at(t + 30, () -> MoveListOverlay.forceHeld = true);
+			shot(t + 34, "alt_" + a);
+			at(t + 36, () -> MoveListOverlay.forceHeld = false);
+			at(t + 38, () -> info(mc, null));
+			shot(t + 43, "i_" + a + "_top");
+			at(t + 45, () -> {
+				if (mc.screen instanceof PowerInfoScreen s) {
+					s.scrollTo("Tap a key for its move");
+					s.keyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_UP, 0, 0);
+				}
+			});
+			shot(t + 49, "i_" + a + "_moves");
+			at(t + 51, () -> {
+				if (mc.screen instanceof PowerInfoScreen s) {
+					s.scrollTo("Attack / use");
+				}
+			});
+			shot(t + 55, "i_" + a + "_moves_b");
+			at(t + 57, () -> mc.setScreen(null));
+			t += 62;
+		}
+		at(t + 5, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
