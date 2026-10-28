@@ -33,8 +33,9 @@ public class QuirkSuitItem extends ArmorItem {
 			return;
 		}
 		tooltip.add(Component.translatable("item.projecthero.quirk_suit.tooltip").withStyle(ChatFormatting.GRAY));
-		if (suit == QuirkSuits.Suit.INGENIUM) {
-			tooltip.add(Component.translatable("item.projecthero.ingenium_suit.set_bonus").withStyle(ChatFormatting.AQUA));
-		}
+		// v0.17.1 (menus): every suit names its Quirk and its full-set perk (the perk only works for that Quirk's holder)
+		tooltip.add(Component.translatable("item.projecthero.quirk_suit.set_of", com.projecthero.mod.quirk.Quirks.quirkName(suit.quirk),
+				suit.pieces().length).withStyle(ChatFormatting.DARK_AQUA));
+		tooltip.add(Component.translatable("projecthero.quirk." + suit.quirk.id + ".suit_perk").withStyle(ChatFormatting.AQUA));
 	}
 }

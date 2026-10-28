@@ -71,6 +71,7 @@ public final class PowerInfoScreen extends Screen {
 	private void buildBody() {
 		body.clear();
 		scroll = 0;
+		liveQuirk = false;
 
 		int wrapW = this.right - this.left;
 
@@ -235,33 +236,57 @@ public final class PowerInfoScreen extends Screen {
 		body.add(FormattedCharSequence.EMPTY);
 	}
 
-	/** v0.16.7: the Quirk page, built straight from the kit ({@code QuirkKits.of(q).idsOf(slot)}) and lang. */
+	/**
+	 * v0.16.7: the Quirk page. v0.17.1 (user: "update the menus for the quirks ... more information ... include the quirk
+	 * combos"): the same sections as the Guidebook chapter ({@link com.projecthero.mod.quirk.QuirkInfo}, built from the live
+	 * kit, meter spec, Plus Ultra and combo data), plus the player's own state: alerts (Erased / overloaded / pushing past
+	 * 100), the meter's value, band and what it does, Arm Strain, the Plus Ultra gauge and whether the full suit is on. Keys
+	 * are the player's live bindings. Rebuilt every half second while open (the scroll position is kept).
+	 */
 	private void quirkBody(com.projecthero.mod.quirk.Quirk quirk, int wrapW) {
+		this.liveQuirk = true;
 		this.heading = Component.empty().append(com.projecthero.mod.quirk.Quirks.quirkName(quirk))
 				.append(Component.literal(" - ")).append(com.projecthero.mod.quirk.Quirks.heroName(quirk))
 				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
-		wrap(Component.translatable("projecthero.quirk." + quirk.id + ".intro").withStyle(ChatFormatting.GRAY), wrapW);
-		wrap(Component.translatable("screen.projecthero.power_info.quirk.meter",
-				Component.translatable("projecthero.quirk.meter." + quirk.meterId).withColor(quirk.meterColour & 0xFFFFFF))
-				.withStyle(ChatFormatting.GRAY), wrapW);
-		wrap(Component.translatable("screen.projecthero.power_info.quirk.costume").withStyle(ChatFormatting.DARK_GRAY), wrapW);
-		body.add(FormattedCharSequence.EMPTY);
-		wrap(Component.translatable("screen.projecthero.power_info.controls").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), wrapW);
-		com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(quirk);
-		for (AbilitySlot slot : AbilitySlot.values()) {
-			String[] ids = kit.idsOf(slot);
-			for (int i = 0; i < ids.length && i < 3; i++) { // v0.17.1: a third id is the key's HOLD move
-				Component key = i == 0 ? Component.keybind(slot.keyBindingTranslationKey())
-						: Component.translatable(i == 1 ? "screen.projecthero.power_info.quirk.shift" : "screen.projecthero.power_info.quirk.hold",
-								Component.keybind(slot.keyBindingTranslationKey()));
-				wrap(Component.empty()
-						.append(Component.literal(" [").withStyle(ChatFormatting.DARK_GRAY))
-						.append(Component.empty().append(key).withStyle(ChatFormatting.GOLD))
-						.append(Component.literal("] ").withStyle(ChatFormatting.DARK_GRAY))
-						.append(Component.translatable("projecthero.quirk.ability." + ids[i]).withStyle(ChatFormatting.WHITE)), wrapW);
-				wrap(Component.literal("    ").append(Component.translatable("projecthero.quirk.ability." + ids[i] + ".desc"))
-						.withStyle(ChatFormatting.GRAY), wrapW);
-			}
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		java.util.function.Function<AbilitySlot, Component> keys = s -> Component.keybind(s.keyBindingTranslationKey());
+		List<Component> lines = new ArrayList<>();
+		com.projecthero.mod.quirk.QuirkInfo.header(lines, quirk);
+		com.projecthero.mod.quirk.QuirkInfo.alerts(lines, quirk, p);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.meter(lines, quirk, p);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.plusUltra(lines, quirk, p, keys);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.controls(lines, quirk, keys,
+				Component.keybind(com.projecthero.mod.client.ModKeyBindings.MAX_STEEL_TRANSFORM.getName()));
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.combos(lines, quirk, keys);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.passives(lines, quirk);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.survival(lines, quirk);
+		lines.add(Component.empty());
+		com.projecthero.mod.quirk.QuirkInfo.suitPerk(lines, quirk, p);
+		lines.add(Component.empty());
+		lines.add(Component.translatable("screen.projecthero.power_info.quirk.guide_hint").withStyle(ChatFormatting.DARK_GRAY));
+		for (Component line : lines) {
+			wrap(line, wrapW);
+		}
+	}
+
+	/** Set while the page is a Quirk's: {@link #tick} rebuilds it every 10 ticks for the live values. */
+	private boolean liveQuirk;
+	private int liveTicks;
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (liveQuirk && ++liveTicks % 10 == 0) {
+			int keep = scroll;
+			buildBody();
+			int max = Math.max(0, body.size() * LINE_H - (bottom - top - 12));
+			scroll = Math.min(keep, max);
 		}
 	}
 
@@ -405,11 +430,50 @@ public final class PowerInfoScreen extends Screen {
 		}
 	}
 
+	private int maxScroll() {
+		return Math.max(0, body.size() * LINE_H - (bottom - top - 12) + 4);
+	}
+
 	@Override
 	public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-		int max = Math.max(0, body.size() * LINE_H - (bottom - top));
-		scroll = Math.max(0, Math.min(max, scroll - (int) (dy * 20)));
+		scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) (dy * 20)));
 		return true;
+	}
+
+	/** v0.17.1: arrow keys / Page Up / Page Down / Home / End scroll the page too. */
+	@Override
+	public boolean keyPressed(int key, int scan, int mods) {
+		int step = switch (key) {
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN -> LINE_H * 2;
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_UP -> -LINE_H * 2;
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_DOWN -> bottom - top - 24;
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_PAGE_UP -> -(bottom - top - 24);
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_END -> Integer.MAX_VALUE / 2;
+			case org.lwjgl.glfw.GLFW.GLFW_KEY_HOME -> Integer.MIN_VALUE / 2;
+			default -> 0;
+		};
+		if (step != 0) {
+			scroll = Math.max(0, Math.min(maxScroll(), scroll + step));
+			return true;
+		}
+		return super.keyPressed(key, scan, mods);
+	}
+
+	/** Harness / tests: scroll to the first line containing {@code text} (case-insensitive); false if none. */
+	public boolean scrollTo(String text) {
+		String want = text.toLowerCase(java.util.Locale.ROOT);
+		for (int i = 0; i < body.size(); i++) {
+			StringBuilder sb = new StringBuilder();
+			body.get(i).accept((idx, style, cp) -> {
+				sb.appendCodePoint(cp);
+				return true;
+			});
+			if (sb.toString().toLowerCase(java.util.Locale.ROOT).contains(want)) {
+				scroll = Math.max(0, Math.min(maxScroll(), i * LINE_H));
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
@@ -429,6 +493,16 @@ public final class PowerInfoScreen extends Screen {
 			y += LINE_H;
 		}
 		g.disableScissor();
+		// v0.17.1: a scrollbar when the page is longer than the panel
+		int max = maxScroll();
+		if (max > 0) {
+			int trackTop = top + 12;
+			int trackH = bottom - trackTop;
+			int thumbH = Math.max(12, trackH * trackH / (trackH + max));
+			int thumbY = trackTop + (int) ((trackH - thumbH) * (scroll / (float) max));
+			g.fill(right + 4, trackTop, right + 6, bottom, 0x40FFFFFF);
+			g.fill(right + 4, thumbY, right + 6, thumbY + thumbH, 0xC0FFD25A);
+		}
 	}
 
 	@Override

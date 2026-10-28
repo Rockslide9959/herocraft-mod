@@ -152,6 +152,19 @@ public final class EngineKit implements QuirkKit {
 		};
 	}
 
+	/** v0.17.1 (menus): hold R = the Charged Kick, hold X while running = the Engine Brake (display ids; the kit times the hold). */
+	public static final String HOLD_CHARGED_KICK = "quirk_engine_charged_kick";
+	public static final String HOLD_BRAKE = "quirk_engine_brake";
+
+	@Override
+	public String holdIdOf(AbilitySlot slot) {
+		return switch (slot) {
+			case SLOT_1 -> HOLD_CHARGED_KICK;
+			case SLOT_3 -> HOLD_BRAKE;
+			default -> null;
+		};
+	}
+
 	@Override
 	public int maxCooldown(String abilityId) {
 		return switch (abilityId) {

@@ -11,6 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.projecthero.mod.hero.power.AbilityHelpers;
 import com.projecthero.mod.quirk.PlusUltra;
+import com.projecthero.mod.quirk.QuirkCombos;
 import com.projecthero.mod.quirk.Quirks;
 import com.projecthero.mod.quirk.data.QuirkState;
 import com.projecthero.mod.quirk.fx.QuirkCamera;
@@ -70,6 +71,8 @@ public final class ZeroGravityMoves {
 		final List<Watched> lifts = new ArrayList<>();
 		final List<Watched> slams = new ArrayList<>();
 		final List<Watched> comets = new ArrayList<>();
+		/** v0.17.1: entity id -> the Slam's combo bonus (Gunhead Meteor), applied when it lands. */
+		final Map<Integer, Float> slamBonus = new java.util.HashMap<>();
 		int gunTarget = -1;
 		int gunStage;
 		long gunNext;
@@ -518,13 +521,28 @@ public final class ZeroGravityMoves {
 		}
 		ZeroGravityCombat.strike(p, e, p.position(), ZeroGravityConfig.TOUCH_DAMAGE, 0.0, 0.0);
 		ZeroGravityFloat.liftTo(p, e, ZeroGravityConfig.SLAM_HEIGHT, ZeroGravityConfig.SLAM_RISE_SPEED);
-		session(p).lifts.add(new Watched(e.getId(), now(p)));
+		Session ss = session(p);
+		ss.lifts.add(new Watched(e.getId(), now(p)));
+		// v0.17.1: Gunhead Meteor (Gunhead's throw, then the Slam on the same creature) -- the slam comes down harder
+		QuirkCombos.Route route = QuirkCombos.hit(p, e, ZeroGravityConfig.SLAM);
+		if (route != null) {
+			ss.slamBonus.put(e.getId(), QuirkCombos.mult(route));
+		} else {
+			ss.slamBonus.remove(e.getId());
+		}
 		ZeroGravityCombat.touchFx(p.serverLevel(), ZeroGravityCombat.center(e));
 		sound(p, SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.9f, 1.3f);
 		sting(p, 1f);
 		Quirks.setCooldown(p, ZeroGravityConfig.SLAM, ZeroGravityConfig.SLAM_COOLDOWN);
 		syncCount(p);
 		return e;
+	}
+
+	/** Test hook: the combo bonus waiting on {@code e}'s slam (1 when none). */
+	public static float slamBonusForTest(ServerPlayer p, net.minecraft.world.entity.Entity e) {
+		Session s = SESSIONS.get(p.getUUID());
+		Float b = s == null ? null : s.slamBonus.get(e.getId());
+		return b == null ? 1f : b;
 	}
 
 	/** Test hook: the lift is done now (let go and slam). */
@@ -567,6 +585,7 @@ public final class ZeroGravityMoves {
 			Watched sl = it.next();
 			if (!(level.getEntity(sl.id()) instanceof LivingEntity e) || !e.isAlive() || now - sl.from() > ZeroGravityConfig.SLAM_WATCH_TICKS) {
 				it.remove();
+				s.slamBonus.remove(sl.id());
 				continue;
 			}
 			long age = now - sl.from();
@@ -583,7 +602,8 @@ public final class ZeroGravityMoves {
 			it.remove();
 			Vec3 c = e.position();
 			e.invulnerableTime = 0;
-			float mult = QuirkMeters.damageMult(p);
+			Float bonus = s.slamBonus.remove(e.getId()); // v0.17.1: Gunhead Meteor
+			float mult = QuirkMeters.damageMult(p) * (bonus == null ? 1f : bonus);
 			ZeroGravityCombat.strike(p, e, c, ZeroGravityConfig.SLAM_DAMAGE * mult, 0.0, 0.0);
 			for (LivingEntity o : AbilityHelpers.enemiesAround(p, c, ZeroGravityConfig.SLAM_SPLASH_RADIUS)) {
 				if (o != e && ZeroGravityCombat.isTarget(p, o)) {
@@ -831,6 +851,7 @@ public final class ZeroGravityMoves {
 			e.hurtMarked = true;
 			if (floating) {
 				ZeroGravityFloat.markFlung(p, e, 20);
+				QuirkCombos.hit(p, e, ZeroGravityConfig.GUNHEAD); // v0.17.1: opens Gunhead Meteor (-> Zero Gravity Slam)
 			}
 			lvl.sendParticles(ParticleTypes.SWEEP_ATTACK, hc.x, hc.y, hc.z, 1, 0, 0, 0, 0);
 			QuirkFx.ring(lvl, hc).colours(0xFFFFFF, 0xFF8FC8).size(2.0f).thickness(0.3f).life(9).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).spawn();
@@ -1059,6 +1080,7 @@ public final class ZeroGravityMoves {
 		Session s = session(p);
 		s.lifts.clear();
 		s.slams.clear();
+		s.slamBonus.clear();
 		s.comets.clear();
 		s.fieldUntil = 0L;
 		s.settleUntil = now(p) + ZeroGravityConfig.SETTLE_TICKS;
@@ -1269,6 +1291,7 @@ public final class ZeroGravityMoves {
 		if (s != null) {
 			s.lifts.clear();
 			s.slams.clear();
+			s.slamBonus.clear();
 			s.comets.clear();
 			s.gunTarget = -1;
 			s.leaping = false;

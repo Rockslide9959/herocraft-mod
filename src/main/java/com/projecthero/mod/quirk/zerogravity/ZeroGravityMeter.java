@@ -1,6 +1,7 @@
 package com.projecthero.mod.quirk.zerogravity;
 
 import com.projecthero.mod.quirk.Quirk;
+import com.projecthero.mod.quirk.QuirkCombos;
 import com.projecthero.mod.quirk.meter.QuirkMeterSpec;
 
 /**
@@ -19,10 +20,18 @@ public final class ZeroGravityMeter {
 	/** The heavy-use profile's floated weight: herself, three zombie-sized mobs and five rubble blocks. */
 	public static final float HEAVY_WEIGHT = 1.5f + 3f + 5 * 0.4f;
 
+	/**
+	 * v0.17.1 (user: every Quirk gets a combo): "Gunhead Meteor" -- Gunhead Martial Arts' throw (it leaves the target
+	 * floating), then Zero Gravity Slam on that SAME creature within 1.5 s: the slam comes down x1.5 (its hit and its splash).
+	 */
+	public static QuirkCombos.Route GUNHEAD_METEOR;
+
 	private ZeroGravityMeter() {
 	}
 
 	static void register() {
+		GUNHEAD_METEOR = QuirkCombos.route(Quirk.ZERO_GRAVITY, "gunhead_meteor", ZeroGravityConfig.GUNHEAD, ZeroGravityConfig.SLAM)
+				.window(30).bonus(1.5f).sameTarget().register();
 		QuirkMeterSpec.builder(Quirk.ZERO_GRAVITY)
 				.bands(50f, 85f)
 				.names("steady", "queasy", "pushing", "sick")

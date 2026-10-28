@@ -304,6 +304,27 @@ synced vals); revoke and respawn clear it with the rest of the Quirk state.
 The Quirks overview has three new sections (Meter bands, Plus Ultra, Combo routes); every Quirk chapter lists its bands
 (from the spec), its Plus Ultra ultimate and its combo routes.
 
+**v0.17.1 menus pass** (user: "update the menus for the quirks ... more information ... include the quirk combos"): one
+builder, `quirk/QuirkInfo.java`, writes every kit Quirk's reference text from live data -- the `QuirkMeterSpec` (bands with
+range, damage and effect, push past 100, crash, pacing, a separate danger channel such as Arm Strain), `PlusUltra`'s
+numbers and the kit's ultimate, the kit's tap / Shift / hold ids (`idsOf` third id or `holdIdOf`) with `maxCooldown`, the
+`QuirkCombos` routes (opener -> finisher with their keys, window, bonus, same-target), and lang
+(`projecthero.quirk.info.*`; per Quirk `.fills`, `.passive.<n>`, `.survival.<n>`, `.suit_perk`,
+`projecthero.quirk.band.<q>.<band>.desc`). Used by:
+- the Guidebook chapter (`HeroPackGuide.quirk`), now split into pages with `HeroPackGuide.pageBreak()` (an empty line the
+  book's layout ends a page on): intro + how to get it / Meter / Plus Ultra / Controls / **Combos** / passives, survival,
+  suit perk, suit pieces, Erased rule;
+- the "Your Power" screen (`PowerInfoScreen.quirkBody`), which adds the player's state (alerts, the meter value as a
+  band-coloured bar with the band's effect, Arm Strain, the Plus Ultra gauge, how many suit pieces are on), uses the live
+  key bindings, refreshes every half second, scrolls with the wheel / arrows / Page keys and shows a scrollbar;
+- the Alt move list (`QuirkHud`): the hold move per key, "N: Hide Dark Shadow", "Hold C (100 PU): <ultimate>" and one
+  compact row per combo route.
+Overhaul, Dark Shadow and Engine now report their hold moves through `holdIdOf` (display only; the kits still time the
+holds themselves). Every suit piece's tooltip names its Quirk and its set perk. Zero Gravity got its route, **Gunhead
+Meteor** (Gunhead's throw, then Zero Gravity Slam on the same target within 1.5 s, x1.5), so every kit Quirk has one.
+Screenshots: `docs/screenshots/v0171/quirk_menus_*.png` (harness `scratchpad/QuirkMenusHarness.v0171.java.txt`, enabled by
+`run/quirkmenus.flag`).
+
 ## 12. Screenshots
 
 `docs/screenshots/v0171/quirk_framework_*.png` (harness: `scratchpad/QuirkFrameworkHarness.v0171.java.txt`, enabled by

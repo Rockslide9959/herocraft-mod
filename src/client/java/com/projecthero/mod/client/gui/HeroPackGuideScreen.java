@@ -280,6 +280,13 @@ public final class HeroPackGuideScreen extends Screen {
 				break;
 			}
 			int end = Math.min(rows.size(), r + perPage);
+			// v0.17.1: a forced page break (HeroPackGuide.pageBreak) ends the page early -- the Quirk chapters' own pages
+			for (int b = r + 1; b < end; b++) {
+				if (HeroPackGuide.isPageBreak(lines.get(rowLine.get(b)))) {
+					end = b;
+					break;
+				}
+			}
 			// don't leave a section heading (or a key row) alone at the foot of a page
 			if (end < rows.size() && end - r > 3) {
 				int last = end - 1;

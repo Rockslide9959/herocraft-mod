@@ -2053,15 +2053,16 @@ public final class HeroPackGuide {
 	}
 
 	/**
-	 * v0.16.7: one Quirk's chapter, built like the Miraculous ones: overview, how to get it (with its serum's name),
-	 * its meter and overload, its quirk-specific rules, the 12-move table from the registered kit ({@code
-	 * QuirkKits.of(q).idsOf(SLOT_1..SLOT_6)}, names and descriptions from {@code projecthero.quirk.ability.<id>}), the
-	 * craftable suit (its four pieces and recipe) and the Erased rule.
+	 * v0.16.7: one Quirk's chapter. v0.17.1 (user: "make them have more information ... include the quirk combos"): built
+	 * from {@link com.projecthero.mod.quirk.QuirkInfo} -- the same live kit data and lang as the "Your Power" screen -- and
+	 * laid out on its own pages ({@link #pageBreak}): the Quirk and how to get it; the meter (every band's range, damage and
+	 * effect, push past 100, pacing, the overload); Plus Ultra and the ultimate; every key's tap / Shift / hold move with its
+	 * cooldown; the COMBOS page; then passives, survival, the costume set perk, the suit's pieces and the Erased rule.
 	 */
 	private static Chapter quirk(com.projecthero.mod.quirk.Quirk q) {
 		String k = "projecthero.guide.quirk." + q.id;
 		return chapter(k, lines -> {
-			lines.add(Component.translatable(k + ".tier").withStyle(s -> s.withColor(q.meterColour & 0xFFFFFF)));
+			com.projecthero.mod.quirk.QuirkInfo.header(lines, q);
 			para(lines, k + ".body");
 			blank(lines);
 			head(lines, "projecthero.guide.quirks.get");
@@ -2069,64 +2070,20 @@ public final class HeroPackGuide {
 			lines.add(Component.translatable("projecthero.guide.quirks.serum",
 					Component.translatableWithFallback("item.projecthero.quirk_serum_" + q.id, "Quirk Serum (" + q.quirkName + ")"))
 					.withStyle(ChatFormatting.LIGHT_PURPLE));
+			lines.add(pageBreak());
+			com.projecthero.mod.quirk.QuirkInfo.meter(lines, q, null);
+			lines.add(pageBreak());
+			com.projecthero.mod.quirk.QuirkInfo.plusUltra(lines, q, null, com.projecthero.mod.quirk.QuirkInfo.LETTERS);
+			lines.add(pageBreak());
+			com.projecthero.mod.quirk.QuirkInfo.controls(lines, q, com.projecthero.mod.quirk.QuirkInfo.LETTERS, Component.literal("N"));
+			lines.add(pageBreak());
+			com.projecthero.mod.quirk.QuirkInfo.combos(lines, q, com.projecthero.mod.quirk.QuirkInfo.LETTERS);
+			lines.add(pageBreak());
+			com.projecthero.mod.quirk.QuirkInfo.passives(lines, q);
 			blank(lines);
-			lines.add(Component.translatable("projecthero.guide.quirks.meter_of", Component.translatable("projecthero.quirk.meter." + q.meterId))
-					.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD));
-			para(lines, k + ".meter.body");
-			quirkFramework(lines, q);
+			com.projecthero.mod.quirk.QuirkInfo.survival(lines, q);
 			blank(lines);
-			head(lines, k + ".overload");
-			para(lines, k + ".overload.body");
-			blank(lines);
-			head(lines, k + ".passive");
-			para(lines, k + ".passive.body");
-			blank(lines);
-			head(lines, "projecthero.guide.quirks.moves");
-			com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(q);
-			AbilitySlot[] slots = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4, AbilitySlot.SLOT_5,
-					AbilitySlot.SLOT_6 };
-			int rows = 0;
-			for (int i = 0; i < slots.length; i++) {
-				String[] ids = kit.idsOf(slots[i]);
-				// v0.17.1: a third id is the key's HOLD move (Explosion / Hellflame)
-				for (int j = 0; j < Math.min(3, ids.length); j++) {
-					String label = j < 2 ? SLOT_LABELS[i][j] : "Hold " + SLOT_LABELS[i][0];
-					net.minecraft.network.chat.MutableComponent row = Component.literal(" " + label + "  ").withStyle(ChatFormatting.GOLD)
-							.append(Component.translatable(kit.abilityLangKey(ids[j])).withStyle(ChatFormatting.WHITE));
-					int cd = kit.maxCooldown(ids[j]);
-					if (cd > 0) {
-						row.append(Component.literal("  "))
-								.append(Component.translatable("projecthero.guide.quirks.cooldown", seconds(cd)).withStyle(ChatFormatting.DARK_GRAY));
-					}
-					lines.add(row);
-					para(lines, kit.abilityLangKey(ids[j]) + ".desc");
-					rows++;
-				}
-				// v0.17.1: a key's hold move (Erasure's Reel Lock, Zero Gravity's Float Self...)
-				String hold = kit.holdIdOf(slots[i]);
-				if (hold != null) {
-					lines.add(Component.translatable("projecthero.guide.quirks.hold_key", SLOT_LABELS[i][0]).withStyle(ChatFormatting.GOLD)
-							.append(Component.literal("  "))
-							.append(Component.translatable(kit.abilityLangKey(hold)).withStyle(ChatFormatting.WHITE)));
-					para(lines, kit.abilityLangKey(hold) + ".desc");
-					rows++;
-				}
-			}
-			if (rows == 0) {
-				lines.add(Component.translatable("projecthero.guide.quirks.moves.none").withStyle(ChatFormatting.DARK_GRAY));
-			}
-			if (q == com.projecthero.mod.quirk.Quirk.DARK_SHADOW) {
-				// v0.16.7 (user): N hides Dark Shadow
-				lines.add(Component.literal(" N  ").withStyle(ChatFormatting.GOLD)
-						.append(Component.translatable("projecthero.quirk.ability.quirk_dark_shadow_recall").withStyle(ChatFormatting.WHITE)));
-				para(lines, "projecthero.guide.quirk.dark_shadow.hide");
-			}
-			// v0.17.1 revamp: the kits whose keys also have HOLD moves list them (the table above is tap + Shift)
-			if (q == com.projecthero.mod.quirk.Quirk.OVERHAUL || q == com.projecthero.mod.quirk.Quirk.DARK_SHADOW
-					|| q == com.projecthero.mod.quirk.Quirk.ENGINE) {
-				head(lines, k + ".holds");
-				para(lines, k + ".holds.body");
-			}
+			com.projecthero.mod.quirk.QuirkInfo.suitPerk(lines, q, null);
 			blank(lines);
 			// v0.16.7 (user): the hero suit is craftable armour now (a Quirk never changes your look)
 			head(lines, "projecthero.guide.quirks.suit");
@@ -2150,61 +2107,16 @@ public final class HeroPackGuide {
 		});
 	}
 
-	/**
-	 * v0.17.1 framework: a kit Quirk's meter bands (from its registered {@code QuirkMeterSpec}), its Plus Ultra ultimate and
-	 * its combo routes ({@code QuirkCombos}), so the chapter follows the kit tables.
-	 */
-	private static void quirkFramework(List<Component> lines, com.projecthero.mod.quirk.Quirk q) {
-		com.projecthero.mod.quirk.meter.QuirkMeterSpec spec = com.projecthero.mod.quirk.meter.QuirkMeters.spec(q);
-		if (spec != null) {
-			String b = "projecthero.quirk.band." + q.id + ".";
-			int sweet = Math.round(spec.sweetFrom), red = Math.round(spec.redFrom);
-			lines.add(Component.translatable("projecthero.guide.quirks.bands_of").withStyle(ChatFormatting.GOLD));
-			lines.add(bandRow(b + spec.names[0], "0-" + (sweet - 1), spec.damage[0]));
-			lines.add(bandRow(b + spec.names[1], sweet + "-" + (red - 1), spec.damage[1]));
-			lines.add(bandRow(b + spec.names[2], red + "-100", spec.damage[2]));
-			if (spec.pushPast) {
-				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
-						.append(Component.translatable(b + spec.names[3]).withStyle(ChatFormatting.WHITE))
-						.append(Component.literal("  "))
-						.append(Component.translatable("projecthero.guide.quirks.band_beyond").withStyle(ChatFormatting.DARK_GRAY)));
-			}
-			para(lines, "projecthero.guide.quirk." + q.id + ".bands");
-		}
-		com.projecthero.mod.quirk.QuirkKit kit = com.projecthero.mod.quirk.QuirkKits.of(q);
-		if (kit.hasUltimate()) {
-			lines.add(Component.translatable("projecthero.guide.quirks.ultimate_of",
-					Component.translatable(kit.ultimateLangKey(q)).withStyle(ChatFormatting.WHITE)).withStyle(ChatFormatting.GOLD));
-			para(lines, kit.ultimateLangKey(q) + ".desc");
-		}
-		java.util.List<com.projecthero.mod.quirk.QuirkCombos.Route> routes = com.projecthero.mod.quirk.QuirkCombos.routes(q);
-		if (!routes.isEmpty()) {
-			lines.add(Component.translatable("projecthero.guide.quirks.combos_of").withStyle(ChatFormatting.GOLD));
-			for (com.projecthero.mod.quirk.QuirkCombos.Route r : routes) {
-				lines.add(Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
-						.append(Component.translatable(r.nameKey()).withStyle(ChatFormatting.WHITE))
-						.append(Component.literal("  "))
-						.append(Component.translatable("projecthero.guide.quirks.combo_route", Component.translatable(kit.abilityLangKey(r.opener)),
-								Component.translatable(kit.abilityLangKey(r.finisher)), seconds(r.window)).withStyle(ChatFormatting.DARK_GRAY)));
-				para(lines, r.descKey());
-			}
-		}
+	/** v0.17.1: the style marker of a forced page break (an empty line; the book starts a new page after it). */
+	public static final String PAGE_BREAK = "projecthero:page_break";
+
+	/** v0.17.1: a forced page break in a chapter (the Quirk chapters' Meter / Plus Ultra / Moves / Combos pages). */
+	public static Component pageBreak() {
+		return Component.empty().withStyle(s -> s.withInsertion(PAGE_BREAK));
 	}
 
-	private static Component bandRow(String nameKey, String range, float damage) {
-		// (the per-band damage multipliers are applied by each kit's own rework; the guide lists the bands themselves)
-		return Component.literal(" • ").withStyle(ChatFormatting.DARK_GRAY)
-				.append(Component.translatable(nameKey).withStyle(ChatFormatting.WHITE))
-				.append(Component.literal("  " + range).withStyle(ChatFormatting.DARK_GRAY));
-	}
-
-	private static String fmt(float v) {
-		return v == Math.round(v) ? String.valueOf(Math.round(v)) : String.valueOf(Math.round(v * 100f) / 100f);
-	}
-
-	/** Ticks as seconds, "12" or "1.5". */
-	private static String seconds(int ticks) {
-		return ticks % 20 == 0 ? String.valueOf(ticks / 20) : String.valueOf(Math.round(ticks / 2.0) / 10.0);
+	public static boolean isPageBreak(Component line) {
+		return PAGE_BREAK.equals(line.getStyle().getInsertion());
 	}
 
 	/**

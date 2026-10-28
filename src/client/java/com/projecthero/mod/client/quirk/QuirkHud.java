@@ -356,9 +356,26 @@ public final class QuirkHud {
 				if (ids.length == 0) {
 					continue;
 				}
+				// v0.17.1 (menus): the key's hold move too
+				String hold = com.projecthero.mod.quirk.QuirkInfo.holdOf(kit, slot);
 				rows.add(MoveListOverlay.Row.of(keyLabel(slot),
 						Component.translatable(kit.abilityLangKey(ids[0])),
-						ids.length > 1 ? Component.translatable(kit.abilityLangKey(ids[1])) : null));
+						ids.length > 1 ? Component.translatable(kit.abilityLangKey(ids[1])) : null,
+						hold == null ? null : Component.translatable("hud.projecthero.move_list.hold", Component.translatable(kit.abilityLangKey(hold)))));
+			}
+			if (q == Quirk.DARK_SHADOW) {
+				rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(7), Component.translatable("projecthero.quirk.info.hide_dark_shadow"), null));
+			}
+			if (kit.hasUltimate()) {
+				// v0.17.1 (menus): one compact line for the ultimate, and one per combo route
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.quirk.move_list.ultimate_key", keyLabel(AbilitySlot.SLOT_6)).getString(),
+						Component.translatable(kit.ultimateLangKey(q)), null));
+			}
+			for (QuirkCombos.Route r : QuirkCombos.routes(q)) {
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.quirk.move_list.combo").getString(),
+						Component.translatable(r.nameKey()), null,
+						Component.translatable("hud.projecthero.quirk.move_list.route", Component.translatable(kit.abilityLangKey(r.opener)),
+								Component.translatable(kit.abilityLangKey(r.finisher)))));
 			}
 			if (!rows.isEmpty()) {
 				MoveListOverlay.draw(g, x0 + totalW, hudTop, rows);
