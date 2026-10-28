@@ -172,6 +172,48 @@ lashes out for 6; dying fails it. Success: the watch pops off as an item at the 
 | C / Shift+C | Fireball Nova (r 6, 10) / Supernova (1.25 s charge, r 9, 18) | War Cry (weaken / slow r 10, Strength) / Iron Stance (4 s, -70%, no knockback) |
 | Attack / Use | flaming punch (+2 fire) / fire bolt (empty hand), melt a block, Shift+Use smelts 8 of the held item | heavy punch (shove) / grab a creature, throw what you hold |
 
+## Stinkfly, Wildvine, Ripjaws and Grey Matter (the second batch)
+
+Kits: `alien/stinkfly/StinkflyKit`, `alien/wildvine/WildvineKit`, `alien/ripjaws/RipjawsKit`, `alien/greymatter/GreyMatterKit`;
+clients `client/omnitrix/alien/StinkflyClient`, `WildvineClient`, `RipjawsClient`, `GreyMatterClient`. "Very basic models
+for now" (user): the player body with a generated skin plus `AlienParts.box` cubes from an `<alien>_extras.png` sheet; a kit
+that replaces a limb hides it in `pose()` (`visible = false` -- `PlayerRenderer.setModelProperties` makes everything visible
+again before the next player renders) and redraws it in `renderExtras` on the same bone.
+
+| | Stinkfly | Wildvine | Ripjaws | Grey Matter |
+|---|---|---|---|---|
+| Body | 14 HP, x1.1 speed, x0.9 size, armour 1, fist +1 | 28 HP, x1.1 size, armour 3, fist +2, KB res 0.2, reach +1.5 | 30 HP, x0.9 speed, x1.05 size, armour 4 (+1), fist +3, KB res 0.2 | 8 HP, x1.35 speed, **x0.33 size** (0.59-block hitbox, eyes at 0.53), safe fall +1 |
+| Passive | real flight (mayfly while transformed; X or double-tap jump), no fall / fly-into-wall damage | fire x1.35; sneak still 0.75 s = a bush (mobs hunting him lose track every tick) | water: Dolphin's Grace + Conduit Power, never drowns, moves x1.5, fist +3, swim / underwater dig modifiers; land: the dry-out meter | mobs hunting him lose sight (30% per second beyond 2.5 blocks; never bosses) |
+| R / Shift+R | Slime Shot (3, roots 1.5 s) / Slime Net (r 2.75, roots 3 s) | Seed Bomb (r 3, 7, no block damage) / Thorn Whip (cone, 6) | Bite (7, heals 1) / Jaw Lunge (first in the way: 10) | Nerve Pinch (stun 3 s) / Weak-Spot Strike (12) |
+| G / Shift+G | Toxic Gas (5 s cloud, 1.5 / 0.5 s + poison, nausea) / Stinger Stab (6 + Poison II) | Vine Bind (18 r, roots 4 s, 2) / Pollen Burst (r 5: nausea, slow, weak, 2) | Tail Slam (r 3.5, r 5 in water, 8) / Fin Slash (r 3.25, 6, slow) | Analyze (24 r: health / armour / weakness in chat; Glowing; **+35% damage from everyone** 10 s) / Decoy (5 s, mobs go to it) |
+| X / Shift+X | Wing Flight (take off / land) / Wing Dash | Vine Grapple (28 r, reel in; X again lets go) / Stretch Climb (a wall's top, 12 max) | Water Dash (land: hop) / Breach (land: back-flip) | Big Leap (no fall damage) / Scurry (5 s +60% speed, hunters lose you) |
+| Z / Shift+Z | Dive Bomb (hop, plunge, r 3.5 splash up to 8) / Wing Gust (cone: 2, shove, deflects projectiles) | Root Wall (8 s barrier: pushes creatures, stops shots) / Regrowth (10 s, you + squad: 2 HP/s in sun, 0.5 in shade) | Whirlpool (water: 5 s vortex r 6) / Mud Splash (land: cone, 3, blind, slow) | Snare Trap (roots 4 s, 3 max, 60 s) / Smoke Bomb (blind r 5, everyone loses track) |
+| C / Shift+C | Goo Storm (6 s, r 6: slow + 1.5 / s) / Slime Barrage (5 x 2.5) | Overgrowth (8 s field r 7: roots, 1 / s) / Root Eruption (line of 6 root spikes, 7, launch) | Feeding Frenzy (10 s: +30%, +3 fist, +20% speed, bites heal 3) / Drench (half the meter back) | Genius Repair (anvils, cracked bricks; furnace / brewing stand +10 s of work; else 30% durability of held gear; nothing to fix = no cooldown) / Mind Map (ores, chests, spawners within 20 through walls, 8 s) |
+| Attack / Use | poison jab / goo spit (empty hand) | vine lash (reach) / bonemeal touch (empty hand on a block) | jaw punch / dig sand, gravel, dirt, clay, mud, snow (one block per use) | precision jab (+2 on a marked target) / quick read (use on a creature) |
+
+**Ripjaws' dry-out** (comic-accurate, tuned to be usable): `MAX_DRY` = 2400 ticks (2 minutes) of dry land are free; at 75% the
+action bar warns, at 100% he chokes for 1 HP every 2 s (`dryOut` damage, short hidden Slowness / Weakness). Water refills 8x as
+fast as it drains (empty to full in 15 s, choke effects cleared on contact), rain stops the drain and refills 2x, Drench gives
+half back. Stored as `ripjaws.dry_base` / `ripjaws.dry_since` kit timers + the `F_WET` / `F_RAIN` flags, written only when the
+rate changes, so the HUD meter (`RipjawsKit.dryness(player, now)`) needs no packet per tick. `inWater` also reads the fluid at the
+feet / eyes (holds for an unticked mock player).
+
+**Grey Matter's size**: `scale(0.33)` only. Vanilla refreshes the hitbox and the eye height on the next `LivingEntity.tick`
+(`getScale() != appliedScale`), both ways; tests call `refreshDimensions()` for an unticked mock. The big head is the skin's head
+re-baked and drawn x1.55 on the head bone, with bulging eye cubes.
+
+**Framework extensions** (backwards-compatible): `AlienClientKit.hud(g, player, x, y, partial)` -- a default no-op, called by
+`OmnitrixHud` for the transformed wearer with the spot above the alien's name (Ripjaws' hydration meter); `alien/AlienStatus` --
+`root` (Slowness X, a quarter as long on bosses, a QuirkThreat credit), `stun`, `loseTrack` (never a boss), `isBoss`, and
+`sound(path)` for kit-owned SoundEvent constants.
+
+Static per-player state (cleared in `onRevert` and `clearSessionState`): Stinkfly gas clouds / goo storms, Wildvine overgrowth
+fields / root walls / last positions (the bush's "standing still"), Ripjaws whirlpools, Grey Matter snares / decoys / marks
+(a mark is keyed by the creature, dropped with its owner's revert, expired lazily). Generators: `scratchpad/
+gen_omnitrix_aliens_b_textures.js` (skins + extras), `synth_omnitrix_aliens_b_sounds.js` (24 mono OGGs), `gen_omnitrix_aliens_b_lang.js`
+(their own contiguous lang block at the END of `en_us.json` and sounds block at the end of `sounds.json`, kept apart from
+`gen_omnitrix_lang.js`'s block). Tests: `OmnitrixAliens2GameTests`. Harness: `scratchpad/OmnitrixAliens2Harness.v0171.java.txt`.
+
 ## State and resets
 
 Static per-player state: `Omnitrix` (the "rejects" throttle), `OmnitrixAbilityManager` (keys down), `HeatblastKit`

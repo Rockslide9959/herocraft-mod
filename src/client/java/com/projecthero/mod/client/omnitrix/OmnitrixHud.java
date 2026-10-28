@@ -53,6 +53,10 @@ public final class OmnitrixHud {
 		dial(g, mc, p, s, now, cx, cy);
 		if (s.transformed()) {
 			keys(g, mc, p, s, now, cx + 26, cy - 9);
+			AlienClientKit extra = AlienClients.of(s.active);
+			if (extra != null) {
+				extra.hud(g, p, cx + 26, cy - 20, partial);
+			}
 		} else if (s.selecting) {
 			Aliens.Alien a = Aliens.byId(s.selected);
 			Component name = a == null ? Component.empty() : Component.translatable(a.nameKey());

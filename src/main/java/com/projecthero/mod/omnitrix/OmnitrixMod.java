@@ -42,6 +42,10 @@ public final class OmnitrixMod {
 		// the alien kits -- ONE LINE PER KIT (the other eight add theirs here)
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.register();
 		com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit.register();
+		com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.register();
+		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.register();
+		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.register();
+		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.register();
 
 		PayloadTypeRegistry.playC2S().register(OmnitrixActionPayload.TYPE, OmnitrixActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(OmnitrixActionPayload.TYPE, (payload, context) -> {
@@ -134,5 +138,9 @@ public final class OmnitrixMod {
 		OmnitrixMeteors.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.clearSessionState();
 	}
 }

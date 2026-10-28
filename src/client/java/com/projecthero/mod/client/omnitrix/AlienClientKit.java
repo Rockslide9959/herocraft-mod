@@ -53,6 +53,13 @@ public interface AlienClientKit {
 	default void tick(AbstractClientPlayer p) {
 	}
 
+	/**
+	 * v0.17.1 (added for Ripjaws' hydration meter; optional): extra HUD for the transformed wearer. {@code x} is the left edge of
+	 * the alien's name over the key boxes, {@code y} the top of that name line: draw ABOVE it (the space is free up to ~40 px).
+	 */
+	default void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, float partial) {
+	}
+
 	/** Where the Omnitrix badge sits: in body-bone pixels (x right, y down from the neck, z forward = negative). */
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };

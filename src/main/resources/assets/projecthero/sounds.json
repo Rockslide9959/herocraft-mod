@@ -3058,5 +3058,197 @@
         "name": "projecthero:green_lantern/mech_katana_iaido"
       }
     ]
+  },
+  "stinkfly_buzz": {
+    "subtitle": "subtitles.projecthero.stinkfly_buzz",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_buzz"
+      }
+    ]
+  },
+  "stinkfly_spit": {
+    "subtitle": "subtitles.projecthero.stinkfly_spit",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_spit"
+      }
+    ]
+  },
+  "stinkfly_splat": {
+    "subtitle": "subtitles.projecthero.stinkfly_splat",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_splat"
+      }
+    ]
+  },
+  "stinkfly_gas": {
+    "subtitle": "subtitles.projecthero.stinkfly_gas",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_gas"
+      }
+    ]
+  },
+  "stinkfly_sting": {
+    "subtitle": "subtitles.projecthero.stinkfly_sting",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_sting"
+      }
+    ]
+  },
+  "stinkfly_dive": {
+    "subtitle": "subtitles.projecthero.stinkfly_dive",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_dive"
+      }
+    ]
+  },
+  "wildvine_vine": {
+    "subtitle": "subtitles.projecthero.wildvine_vine",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_vine"
+      }
+    ]
+  },
+  "wildvine_seed": {
+    "subtitle": "subtitles.projecthero.wildvine_seed",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_seed"
+      }
+    ]
+  },
+  "wildvine_burst": {
+    "subtitle": "subtitles.projecthero.wildvine_burst",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_burst"
+      }
+    ]
+  },
+  "wildvine_roots": {
+    "subtitle": "subtitles.projecthero.wildvine_roots",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_roots"
+      }
+    ]
+  },
+  "wildvine_bloom": {
+    "subtitle": "subtitles.projecthero.wildvine_bloom",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_bloom"
+      }
+    ]
+  },
+  "wildvine_rustle": {
+    "subtitle": "subtitles.projecthero.wildvine_rustle",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/wildvine_rustle"
+      }
+    ]
+  },
+  "ripjaws_bite": {
+    "subtitle": "subtitles.projecthero.ripjaws_bite",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_bite"
+      }
+    ]
+  },
+  "ripjaws_roar": {
+    "subtitle": "subtitles.projecthero.ripjaws_roar",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_roar"
+      }
+    ]
+  },
+  "ripjaws_splash": {
+    "subtitle": "subtitles.projecthero.ripjaws_splash",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_splash"
+      }
+    ]
+  },
+  "ripjaws_slam": {
+    "subtitle": "subtitles.projecthero.ripjaws_slam",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_slam"
+      }
+    ]
+  },
+  "ripjaws_gasp": {
+    "subtitle": "subtitles.projecthero.ripjaws_gasp",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_gasp"
+      }
+    ]
+  },
+  "ripjaws_whirl": {
+    "subtitle": "subtitles.projecthero.ripjaws_whirl",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ripjaws_whirl"
+      }
+    ]
+  },
+  "grey_matter_pinch": {
+    "subtitle": "subtitles.projecthero.grey_matter_pinch",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_pinch"
+      }
+    ]
+  },
+  "grey_matter_scan": {
+    "subtitle": "subtitles.projecthero.grey_matter_scan",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_scan"
+      }
+    ]
+  },
+  "grey_matter_gadget": {
+    "subtitle": "subtitles.projecthero.grey_matter_gadget",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_gadget"
+      }
+    ]
+  },
+  "grey_matter_leap": {
+    "subtitle": "subtitles.projecthero.grey_matter_leap",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_leap"
+      }
+    ]
+  },
+  "grey_matter_repair": {
+    "subtitle": "subtitles.projecthero.grey_matter_repair",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_repair"
+      }
+    ]
+  },
+  "grey_matter_think": {
+    "subtitle": "subtitles.projecthero.grey_matter_think",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/grey_matter_think"
+      }
+    ]
   }
 }
