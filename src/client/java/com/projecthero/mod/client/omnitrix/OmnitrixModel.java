@@ -48,7 +48,8 @@ public final class OmnitrixModel {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		// ---- the cuff: four slabs round the wrist (covering the sleeve layer), the long edges stepped like a chamfer
-		float xi0 = -1.3f, xi1 = L + 0.3f, zi = 2.3f, th = 0.55f;
+		// v0.17.1 (user: the cuff was much wider than the arm): thinner walls / plates and prongs that hug the sides
+		float xi0 = -1.3f, xi1 = L + 0.3f, zi = 2.3f, th = 0.4f;
 		box(pose, vc, xi1, cy - 2.35f, -zi, xi1 + th, cy + 2.35f, zi, CUFF, light);                // top
 		box(pose, vc, xi0 - th, cy - 1.65f, -zi + 0.2f, xi0, cy + 1.65f, zi - 0.2f, CUFF, light);   // underside (narrower, like a strap)
 		for (int sgn = -1; sgn <= 1; sgn += 2) {
@@ -59,7 +60,7 @@ public final class OmnitrixModel {
 			box(pose, vc, xi1, cy - 2.15f, zc0, xi1 + 0.3f, cy + 2.15f, zc1, CUFF, light);
 			box(pose, vc, xi0 - 0.3f, cy - 1.65f, zc0, xi0, cy + 1.65f, zc1, CUFF, light);
 			// the bevelled side plate
-			float zp0 = sgn > 0 ? zi + th : -zi - th - 0.22f, zp1 = sgn > 0 ? zi + th + 0.22f : -zi - th;
+			float zp0 = sgn > 0 ? zi + th : -zi - th - 0.15f, zp1 = sgn > 0 ? zi + th + 0.15f : -zi - th;
 			box(pose, vc, -0.7f, cy - 1.65f, zp0, L - 0.1f, cy + 1.65f, zp1, PLATE, light);
 			// raised plates at both ends of the top
 			float e0 = sgn < 0 ? cy - 2.35f : cy + 1.5f, e1 = sgn < 0 ? cy - 1.5f : cy + 2.35f;
@@ -68,11 +69,11 @@ public final class OmnitrixModel {
 		float xo = xi1 + th;
 		// ---- the button on the front (-z) side: a grey ring, a green lens
 		float bx = L - 1.0f;
-		box(pose, vc, bx - 0.7f, cy - 0.7f, -zi - th - 0.55f, bx + 0.7f, cy + 0.7f, -zi - th - 0.22f, RING, light);
-		box(pose, vc, bx - 0.45f, cy - 0.45f, -zi - th - 0.62f, bx + 0.45f, cy + 0.45f, -zi - th - 0.5f, GREEN, lit);
-		lens(pose, vc, bx, cy, -zi - th - 0.63f, 0.42f, lit);
+		box(pose, vc, bx - 0.7f, cy - 0.7f, -zi - th - 0.38f, bx + 0.7f, cy + 0.7f, -zi - th - 0.15f, RING, light);
+		box(pose, vc, bx - 0.45f, cy - 0.45f, -zi - th - 0.45f, bx + 0.45f, cy + 0.45f, -zi - th - 0.33f, GREEN, lit);
+		lens(pose, vc, bx, cy, -zi - th - 0.46f, 0.42f, lit);
 		// a small green light on the back (+z) side
-		box(pose, vc, bx - 0.35f, cy - 0.55f, zi + th + 0.22f, bx + 0.35f, cy + 0.55f, zi + th + 0.32f, GREEN, lit);
+		box(pose, vc, bx - 0.35f, cy - 0.55f, zi + th + 0.15f, bx + 0.35f, cy + 0.55f, zi + th + 0.25f, GREEN, lit);
 		// ---- the housing on top: a stepped base, the bezel (solid under, a ring above), four lights round it
 		disc(pose, vc, xo - 0.1f, xo + 0.42f, 2.3f, 0f, CUFF, light);
 		disc(pose, vc, xo + 0.42f, xo + 0.75f, 2.05f, 0f, BLACK, light);
@@ -84,8 +85,8 @@ public final class OmnitrixModel {
 			box(pose, vc, ringTop - 0.05f, ly - ls, lz - ls, ringTop + 0.14f, ly + ls, lz + ls, GREEN, lit);
 		}
 		// the stud on the top (+z) edge, with its light
-		box(pose, vc, xo, cy - 0.62f, 2.0f, xo + 1.0f, cy + 0.62f, 2.85f, GREY, light);
-		box(pose, vc, xo + 1.0f, cy - 0.3f, 2.2f, xo + 1.12f, cy + 0.3f, 2.65f, GREEN, lit);
+		box(pose, vc, xo, cy - 0.62f, 2.0f, xo + 1.0f, cy + 0.62f, 2.6f, GREY, light);
+		box(pose, vc, xo + 1.0f, cy - 0.3f, 2.12f, xo + 1.12f, cy + 0.3f, 2.48f, GREEN, lit);
 		// ---- the prongs: four white claws curling from the top down over the sides
 		for (int end = -1; end <= 1; end += 2) {
 			float yc = cy + end * 1.78f, w = 0.36f;
@@ -121,7 +122,9 @@ public final class OmnitrixModel {
 				{ -1.25f, -0.4f, 3.0f, 3.48f },           // the tip curling under
 		};
 		for (float[] g : seg) {
-			float z0 = sgn > 0 ? g[2] : -g[3], z1 = sgn > 0 ? g[3] : -g[2];
+			// v0.17.1 (user): hug the cuff -- everything past its wall (z 2.3) comes in to 55%
+			float ga = g[2] > 2.3f ? 2.3f + (g[2] - 2.3f) * 0.55f : g[2], gb = g[3] > 2.3f ? 2.3f + (g[3] - 2.3f) * 0.55f : g[3];
+			float z0 = sgn > 0 ? ga : -gb, z1 = sgn > 0 ? gb : -ga;
 			box(pose, vc, g[0], y0, z0, g[1], y1, z1, WHITE, light);
 		}
 	}
