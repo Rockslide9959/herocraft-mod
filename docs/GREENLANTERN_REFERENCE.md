@@ -765,7 +765,8 @@ Explicit user request: the Carry Platform switches into a car or a jet.
   (`construct/GreenLanternVehicles#cycle`) instead of toggling follow / park. Follow / park moved to the owner's
   **Sneak + right-click on a platform cell** (the `UseBlockCallback` that seats riders; a plain right-click still seats).
   A Shift+key variant was rejected: Shift selects a different binding slot in the Construct Menu model, so it could
-  never reach the same entry. Everyone aboard is carried into the new form's seats, the owner first (so they drive);
+  never reach the same entry. **Superseded in round 2 below**: the key cycles only while you look at the form, follow /
+  park is back on the key, and Sneak + right-click is gone. Everyone aboard is carried into the new form's seats, the owner first (so they drive);
   a reshaped platform starts parked. No room for the new form = the charge is refunded and the platform comes back.
 - **Costs** (`GreenLanternConfig.VEHICLE_*`, next to `CARRY_PLATFORM_*`): Platform 20 + 1/s, Car 40 + 2/s, Jet 60 + 3/s
   -- `GreenLanternVehicles#upkeepPerSec` is what `tickUpkeep` charges for the Carry Platform now. All through
@@ -808,6 +809,79 @@ Explicit user request: the Carry Platform switches into a car or a jet.
 - Gametests: `GreenLanternVehicleGameTests` (the cycle + costs, riders carried over, N removes it / never saved, a
   destroyed car ends the construct, the Shift-hold dismount rule vs Shift+R, Jet cannons damage + cost + R hold, a
   stalled jet sinks gently).
+
+## v0.17.1 round 2 -- the key looks before it reshapes; easier Car and Jet
+
+User: "if you press the carry platform button again after spawning it in and not looking at it then the platform follows
+you like how it used to, make it so that it only shifts between its forms when you press the carry platform button while
+looking at the construct itself, also make the jet and car easier to control please".
+
+- **The key** (`GreenLanternVehicles#keyPress`, from `GreenLanternConstructs#deploy`):
+  - **Looking at it** -> `#cycle`, Platform -> Car -> Jet -> Platform. "Looking" (`#lookingAt`): the eye ray out to
+    `VEHICLE_LOOK_REACH` (6) blocks, stopped by any other block, meets the form's box (the platform's cells, or the
+    vehicle's bounding box) padded `VEHICLE_LOOK_PAD` (0.5) sideways and down and `VEHICLE_LOOK_PAD_UP` (0.3) up -- the
+    small top pad is so a level gaze over a platform at your feet (eye 1.62 over its base) does not count. A ray that
+    lands on one of the platform's own blocks always counts; standing inside the padding only the form itself counts.
+  - **Not looking at it** -> `#toggleFollow`: `GreenLanternConstructs#toggleConstruct` exactly as before the vehicles
+    (Beacon Activate / Deactivate chime + sparks or dust at the ring hand; free), plus the action-bar line ("Carry
+    Platform: following your aim" / "<form>: following you" / "Carry Platform: parked"). A following Platform chases a
+    point 5 blocks ahead of your aim at 24 b/s (unchanged `tickCarryPlatform`). A following Car / Jet:
+    `GreenLanternVehicles#tick` sets `HardLightVehicleEntity#setFollowTarget`(owner) while nobody rides it, and the
+    server-side `simulate(null)` drives it -- the Car steers at you and stops `VEHICLE_FOLLOW_DISTANCE` (4.5) away, at up
+    to `VEHICLE_FOLLOW_CAR_BPS` (20; a slow tight turn first when you are behind it); the Jet hovers 2.5 up and 4.5
+    behind you, facing your way, at up to `VEHICLE_FOLLOW_JET_BPS` (30). Anyone getting in parks it.
+  - **Riding it**: on the **Platform** the look rule still holds (look down at it to reshape, ahead to fly it -- the old
+    flying-carpet feel). In the **Car / Jet** you are inside it, so the key always reshapes.
+  - **No mid-air drops**: an airborne Platform (`#platformAirborne`: nothing solid in the 3x3x2 under it) skips the Car
+    and goes straight to the Jet; a Jet in mid-air becomes a **parked Platform hovering where it was** with everyone
+    seated on it; a form that cannot be built rebuilds the OLD form in place (charge refunded; was: always a platform,
+    which could fail too and leave riders unseated); and `#cushion` gives anyone still unseated in mid-air 6 s of Slow
+    Falling. A reshape sets `HardLightVehicleEntity#reshaping` so the riders it re-seats get no needless Slow Falling.
+  - Every new form starts parked. **Sneak + right-click** on the platform is removed (the key does it again); a plain
+    right-click still seats you.
+- **Controls** (`HardLightVehicleEntity.Controls`: strafe, forward, Space, Sneak, view yaw / pitch, built in `travel` from
+  the driver's client; `stepForTest` runs one tick of it for the gametests). Before -> after:
+
+| | Before | After |
+|---|---|---|
+| Car acceleration | 14 b/s per s (0-50 in 3.6 s) | 18 (0-50 in 2.8 s) |
+| Car brake | 45 b/s per s (50-0 in 1.1 s, 23 ticks) | 70 (50-0 in 0.75 s, 15 ticks; 20-0 in 6 ticks) |
+| Car reverse | 12 b/s top, 11.2 b/s per s | 16 b/s top, 30 b/s per s (0 to full reverse in 11 ticks) |
+| Car steering, deg/tick | 2.1 at 3 b/s, 4.2 at 12, 3.4 at 25, 1.8 at 50 (linear) | 4.9 at 3, 3.9 at 12, 2.9 at 25, 1.6 at 50 (sqrt curve, `VEHICLE_CAR_STEER_SLOW/FAST_DEG` 6 / 1.6) |
+| Car steering input | eased 0.3 both ways | eased in 0.35, back to centre 0.5; 40% in the air |
+| Car mouse steering | none | holding W with A/D free: eases toward the view (within 75 deg), the view does not turn with it, never overshoots |
+| Car coast | x0.975 a tick | x0.965 |
+| Car step-up | 1.1 | 1.25 (a 1-block bump with a slab on it); a wall it cannot climb halves the speed instead of grinding along |
+| Car boost | x3 acceleration, capped at 50 | x3 acceleration up to 60, easing back to 50 after |
+| Jet nose steering | toward the view at a flat 6 deg/tick (snaps on small corrections) | 22% of the gap a tick, at most 5 deg (`VEHICLE_JET_TURN_EASE` / `_TURN_DEG`) |
+| Jet A/D | +-2.5 deg/tick of yaw the mouse then pulled back | a 3 deg/tick rudder that turns the pilot's view with it |
+| Jet roll | banked with the turn input | banks into the turn, rolls level by itself as the nose reaches the view |
+| Jet throttle | W accelerates while held, release = coast, S brakes | a lever: W up 60%/s, S down 90%/s, it holds; airspeed follows it (accel 26, brake 40 b/s per s; were 22 / 30) |
+| Under 18 b/s | stall: nose drops, sinks up to 5 b/s | hover on VTOL jets: no sink, nose levels (pitch scaled by lift), HOVER on the HUD |
+| Space / Sneak | -- | rise / descend at 7 b/s at any speed; Space also eases the throttle off into a hover |
+| Take-off / landing | taxi past 18 b/s to lift off | Space lifts straight off; within 3 blocks a descent flares to 2.5 b/s and it settles on its skids |
+| Parked jet | sinks at up to 5 b/s | lets itself down at 4 b/s, flared at the bottom |
+| Vertical motion | instant | eased (35% a tick) -- no jolts between climb / hover / descend |
+
+- **Getting out vs descend**: Sneak descends in the Jet, so the hold that gets you out is split
+  (`HardLightVehicleEntity#passengerWantsOut`): near the ground (`#nearGround`: anything solid within a block under it)
+  Shift held `VEHICLE_DISMOUNT_HOLD_TICKS` (10) **counted while near the ground** gets you out -- so holding Shift lands
+  the Jet and then climbs you out half a second after touchdown; in the air the hold is `#airExitHoldTicks` (Jet:
+  `VEHICLE_JET_AIR_EXIT_HOLD_TICKS` 60, a 3 s bail-out; Car: 10). Leaving any vehicle in mid-air (bail-out, N, an empty
+  ring) gives 6 s of Slow Falling (`removePassenger`). Shift+R still cancels the hold.
+- **Both**: no fall damage to the vehicle or riders (unchanged: `causeFallDamage` false, riders' fall distance reset every
+  tick); client prediction unchanged (the driver's client simulates, the server accepts the move packet and never pushes
+  the driver's own vehicle back, so it does not jitter).
+- **HUD** (`client/greenlantern/HardLightVehicleHud`): Car rows W/S drive / brake, reverse; A/D steer; Mouse (hold W)
+  steer toward your view; R Ring Bolt; Shift+R horn boost; hold Shift get out. Jet: Mouse steer; W/S throttle up / down
+  (it holds); A/D rudder; Space rise / slow to a hover; Shift descend / land; hold R wing cannons; Shift+R afterburner;
+  hold Shift land and get out. The Jet header shows speed + throttle % and a HOVER tag (was a flashing red STALL).
+- Gametests (`GreenLanternVehicleGameTests`): the cycle now looks at the form first; not looking toggles follow (free)
+  and looking reshapes, for the platform and the car; a following platform chases the aim; a following car drives up to
+  its owner and boarding parks it; a mid-air jet becomes a seated hovering platform and an airborne platform skips the car;
+  the jet hovers (no airspeed / 8 b/s hold their height, Space climbs and eases the throttle, Sneak descends); a parked jet
+  lets itself down gently; the car brake / reverse / steering numbers; the car's mouse assist. Screenshots:
+  `docs/screenshots/v0171/gl_vehicle2_*.png`.
 ## v0.17.1 -- Construct Combos, durability shown in-world, the ring's voice
 
 - **Combos** (`GreenLanternCombos`): hit sites call `strike(owner, target, Move)` (a finisher: returns that hit's damage

@@ -372,27 +372,65 @@ public final class GreenLanternConfig {
 	public static final float VEHICLE_CAR_UPKEEP_PER_SEC = 2f;
 	public static final float VEHICLE_CAR_HP = 120f;
 	public static final double VEHICLE_CAR_TOP_BPS = 50.0;
-	/** Blocks/second gained per second of throttle (0 to 50 in about 3.5 s). */
-	public static final double VEHICLE_CAR_ACCEL_BPS2 = 14.0;
-	public static final double VEHICLE_CAR_BRAKE_BPS2 = 45.0;
-	public static final double VEHICLE_CAR_REVERSE_BPS = 12.0;
-	public static final double VEHICLE_CAR_STEP = 1.1;
+	// v0.17.1 round 2 (user: "make the jet and car easier to control"): before -> after in docs/GREENLANTERN_REFERENCE.md
+	/** Blocks/second gained per second of throttle (0 to 50 in about 2.8 s; was 14). */
+	public static final double VEHICLE_CAR_ACCEL_BPS2 = 18.0;
+	/** S while rolling forward: 50 to 0 in about 0.7 s, 20 to 0 in 0.3 s (was 45). */
+	public static final double VEHICLE_CAR_BRAKE_BPS2 = 70.0;
+	/** Top reverse speed (was 12) and how fast it gets there: 0 to 16 in about 0.55 s (was 11.2 b/s per s). */
+	public static final double VEHICLE_CAR_REVERSE_BPS = 16.0;
+	public static final double VEHICLE_CAR_REVERSE_ACCEL_BPS2 = 30.0;
+	/** Steering, degrees a tick at a crawl (about 3 b/s) and at top speed: tight when slow, calm when fast. */
+	public static final float VEHICLE_CAR_STEER_SLOW_DEG = 6.0f;
+	public static final float VEHICLE_CAR_STEER_FAST_DEG = 1.6f;
+	/** Mouse steering assist: holding W, the car eases toward where you look (within this many degrees of the nose). */
+	public static final float VEHICLE_CAR_ASSIST_MAX_DEG = 75f;
+	/** Per-tick roll-off with no throttle on the ground (was 0.975). */
+	public static final double VEHICLE_CAR_COAST = 0.965;
+	/** Steps up this high without slowing (1-block bumps, slabs on top of them; was 1.1). */
+	public static final double VEHICLE_CAR_STEP = 1.25;
 	public static final int VEHICLE_CAR_SEATS = 4;
 	/** Shift+R while driving: horn + a surge of acceleration (x3) for this long. */
 	public static final float VEHICLE_CAR_BOOST_COST = 15f;
 	public static final int VEHICLE_CAR_BOOST_TICKS = 30;
 	public static final int VEHICLE_CAR_BOOST_COOLDOWN_TICKS = 60;
+	/** A Car / Jet told to follow (the key, not looking at it) keeps about this far from its owner, at most this fast. */
+	public static final double VEHICLE_FOLLOW_DISTANCE = 4.5;
+	public static final double VEHICLE_FOLLOW_CAR_BPS = 20.0;
+	public static final double VEHICLE_FOLLOW_JET_BPS = 30.0;
 
 	public static final float VEHICLE_JET_COST = 60f;
 	public static final float VEHICLE_JET_UPKEEP_PER_SEC = 3f;
 	public static final float VEHICLE_JET_HP = 90f;
 	public static final double VEHICLE_JET_TOP_BPS = 90.0;
-	public static final double VEHICLE_JET_ACCEL_BPS2 = 22.0;
-	/** Below this airspeed the jet stalls and sinks (at most VEHICLE_JET_SINK_BPS). */
+	/** Thrust up to the throttle's speed (was 22) and the brake back down to it (was 30). */
+	public static final double VEHICLE_JET_ACCEL_BPS2 = 26.0;
+	public static final double VEHICLE_JET_BRAKE_BPS2 = 40.0;
+	/** Throttle lever per second of W (0 to 100% in about 1.7 s) and of S (100% to 0 in about 1.1 s); it holds in between. */
+	public static final float VEHICLE_JET_THROTTLE_UP_PER_SEC = 0.6f;
+	public static final float VEHICLE_JET_THROTTLE_DOWN_PER_SEC = 0.9f;
+	/**
+	 * Full wing lift from this airspeed. Below it the Jet no longer stalls (it used to sink at up to 5 b/s): its VTOL jets
+	 * take the weight and it hovers, nose levelling, holding its height.
+	 */
 	public static final double VEHICLE_JET_STALL_BPS = 18.0;
-	public static final double VEHICLE_JET_SINK_BPS = 5.0;
-	/** Degrees a tick the nose swings toward where the pilot looks. */
-	public static final float VEHICLE_JET_TURN_DEG = 6f;
+	/** Space rises / Sneak descends at this many blocks a second, at any speed (Space also eases the throttle off). */
+	public static final double VEHICLE_JET_CLIMB_BPS = 7.0;
+	/** Close to the ground a descent is flared down to this (it settles on softly). */
+	public static final double VEHICLE_JET_LANDING_BPS = 2.5;
+	/** Nobody flying it and not following: it lets itself down to the ground this fast. */
+	public static final double VEHICLE_JET_PARKED_DESCENT_BPS = 4.0;
+	/** Degrees a tick at most the nose swings toward where the pilot looks (was a flat 6; now eased, 22% of the gap a tick). */
+	public static final float VEHICLE_JET_TURN_DEG = 5f;
+	public static final float VEHICLE_JET_TURN_EASE = 0.22f;
+	/** Degrees a tick of rudder from A/D (the pilot's view turns with it; was 2.5 and fought the mouse). */
+	public static final float VEHICLE_JET_RUDDER_DEG = 3f;
+	/** In the air Shift descends: holding it this long there still bails out (Slow Falling cushions the drop). */
+	public static final int VEHICLE_JET_AIR_EXIT_HOLD_TICKS = 60;
+	/** The Carry Platform key counts as "looking at" a form within this reach, its box padded by these (blocks). */
+	public static final double VEHICLE_LOOK_REACH = 6.0;
+	public static final double VEHICLE_LOOK_PAD = 0.5;
+	public static final double VEHICLE_LOOK_PAD_UP = 0.3;
 	public static final int VEHICLE_JET_SEATS = 2;
 	/** R while piloting (hold): twin wing cannons, one pair of bolts every interval. v0.17.1 balance numbers (-30%). */
 	public static final float VEHICLE_JET_CANNON_DAMAGE = 4f;

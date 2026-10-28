@@ -180,13 +180,8 @@ public final class GreenLanternConstructs {
 			if (c == null || c.type != ConstructType.CARRY_PLATFORM) {
 				return InteractionResult.PASS;
 			}
-			// v0.17.1: the key now cycles Platform -> Car -> Jet, so follow / park moved to the owner's Shift + right-click
-			if (sp.isShiftKeyDown() && sp.getUUID().equals(c.owner)) {
-				toggleConstruct(sp, c);
-				sp.displayClientMessage(Component.translatable(c.toggledOn
-						? "message.projecthero.green_lantern.vehicle.follow" : "message.projecthero.green_lantern.vehicle.park"), true);
-				return InteractionResult.SUCCESS;
-			}
+			// v0.17.1 round 2: follow / park is back on the key (pressed while not looking at the platform, see
+			// GreenLanternVehicles#keyPress), so the interim Sneak + right-click toggle is gone -- right-click only seats
 			for (int i = 0; i < c.cells.size(); i++) {
 				if (c.cells.get(i).pos().equals(pos)) {
 					trySeat(sp, c, i);
@@ -386,11 +381,12 @@ public final class GreenLanternConstructs {
 				return;
 			}
 		}
-		// v0.17.1: the Carry Platform's key again cycles it Platform -> Car -> Jet -> Platform (GreenLanternVehicles)
+		// v0.17.1: the Carry Platform's key again -- looking at it (or driving it) cycles Platform -> Car -> Jet -> Platform,
+		// otherwise it is the old follow / park toggle (GreenLanternVehicles#keyPress)
 		if (type == ConstructType.CARRY_PLATFORM) {
 			Construct existing = firstOfType(player.getUUID(), type);
 			if (existing != null) {
-				GreenLanternVehicles.cycle(player, existing);
+				GreenLanternVehicles.keyPress(player, existing);
 				return;
 			}
 		}

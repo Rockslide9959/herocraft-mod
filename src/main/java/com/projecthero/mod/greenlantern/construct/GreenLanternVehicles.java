@@ -39,8 +39,24 @@ import net.minecraft.world.phys.Vec3;
  * v0.17.1: the Carry Platform's three forms. Pressing the Carry Platform's key again while it stands cycles
  * <b>Platform -> Car -> Jet -> Platform</b> ({@link #cycle}); each new form costs its own Ring Charge to shape and its own
  * upkeep while it stands ({@link #upkeepPerSec}). Everyone riding it is carried over into the new form's seats (owner first,
- * so they drive). The platform's follow / park toggle (what the key used to do) is now Shift + right-click on the
- * platform (see {@code GreenLanternConstructs#initialize}).
+ * so they drive).
+ *
+ * <p>v0.17.1 round 2 (user: "if you press the carry platform button again ... and not looking at it then the platform
+ * follows you like how it used to ... only shifts between its forms when you press the carry platform button while looking
+ * at the construct itself"): the key again goes through {@link #keyPress} --
+ * <ul>
+ *   <li><b>looking at it</b> (the crosshair within {@link GreenLanternConfig#VEHICLE_LOOK_REACH} blocks of its box, padded
+ *   {@link GreenLanternConfig#VEHICLE_LOOK_PAD}): the next form ({@link #cycle});</li>
+ *   <li><b>not looking at it</b>: follow / park, the pre-vehicle toggle exactly (same chime and sparks,
+ *   {@code GreenLanternConstructs#toggleConstruct}). A following Platform chases a point 5 blocks ahead of your aim, as it
+ *   always did; a following Car / Jet makes its own way after you ({@link HardLightVehicleEntity#setFollowTarget}) and
+ *   parks itself the moment anyone gets in;</li>
+ *   <li><b>riding it</b>: on the Platform the look rule above still holds (look down at it to reshape, ahead to fly it); in
+ *   the Car or Jet you are inside it, so the key always reshapes. A reshape never drops anyone: an airborne Platform skips
+ *   the Car and goes straight to the Jet, a Jet in mid-air becomes a parked Platform hovering where it was with everyone
+ *   seated on it, a form that cannot be built rebuilds the old one, and anyone left unseated in mid-air gets Slow
+ *   Falling.</li>
+ * </ul>
  *
  * <p>The Car and Jet are entities ({@link HardLightCarEntity}, {@link HardLightJetEntity}) held by the construct in
  * {@link Construct#vehicle}; the construct is still the one source of truth -- N, an empty ring or the vehicle being
@@ -102,17 +118,98 @@ public final class GreenLanternVehicles {
 		};
 	}
 
+	// ---------------------------------------------------------------- the key
+
+	/** The Carry Platform's key pressed while it stands: reshape it (looking at it / driving it) or follow / park. */
+	static void keyPress(ServerPlayer p, Construct c) {
+		boolean inside = c.vehicleForm != FORM_PLATFORM && c.vehicle != null && p.getVehicle() == c.vehicle;
+		if (inside || lookingAt(p, c)) {
+			cycle(p, c);
+		} else {
+			toggleFollow(p, c);
+		}
+	}
+
+	/** Follow / park, as the key did before the vehicles: the toggle's chime and sparks, plus the action-bar line. */
+	static void toggleFollow(ServerPlayer p, Construct c) {
+		GreenLanternConstructs.toggleConstruct(p, c);
+		String key = !c.toggledOn ? "message.projecthero.green_lantern.vehicle.park"
+				: c.vehicleForm == FORM_PLATFORM ? "message.projecthero.green_lantern.vehicle.follow"
+						: "message.projecthero.green_lantern.vehicle.follow_vehicle";
+		p.displayClientMessage(Component.translatable(key, Component.translatable(formKey(c.vehicleForm))), true);
+	}
+
+	/**
+	 * Whether {@code p}'s crosshair is on the construct: the ray from the eyes, out to {@link GreenLanternConfig#VEHICLE_LOOK_REACH}
+	 * and stopped by any other block, meets its box padded {@link GreenLanternConfig#VEHICLE_LOOK_PAD} sideways and down and
+	 * {@link GreenLanternConfig#VEHICLE_LOOK_PAD_UP} up (so a platform at your feet is not "looked at" by a level gaze over it).
+	 */
+	public static boolean lookingAt(ServerPlayer p, Construct c) {
+		AABB box = formBox(c);
+		if (box == null) {
+			return false;
+		}
+		double pad = GreenLanternConfig.VEHICLE_LOOK_PAD;
+		AABB padded = new AABB(box.minX - pad, box.minY - pad, box.minZ - pad, box.maxX + pad,
+				box.maxY + GreenLanternConfig.VEHICLE_LOOK_PAD_UP, box.maxZ + pad);
+		Vec3 eye = p.getEyePosition();
+		Vec3 end = eye.add(p.getLookAngle().scale(GreenLanternConfig.VEHICLE_LOOK_REACH));
+		if (padded.contains(eye)) {
+			padded = box.inflate(0.1); // standing in the padding: only the form itself counts
+			if (padded.contains(eye)) {
+				return true;
+			}
+		}
+		double limit = GreenLanternConfig.VEHICLE_LOOK_REACH;
+		BlockHitResult bh = c.level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		if (bh.getType() != HitResult.Type.MISS) {
+			for (Construct.Cell cell : c.cells) {
+				if (cell.pos().equals(bh.getBlockPos())) {
+					return true; // right on one of the platform's own blocks
+				}
+			}
+			limit = bh.getLocation().distanceTo(eye) + pad; // the padding may poke out past the block in front
+		}
+		java.util.Optional<Vec3> hit = padded.clip(eye, end);
+		return hit.isPresent() && hit.get().distanceTo(eye) <= limit;
+	}
+
+	/** The current form's box: the platform's cells, or the vehicle's bounding box. */
+	private static AABB formBox(Construct c) {
+		if (c.vehicleForm != FORM_PLATFORM) {
+			return c.vehicle != null ? c.vehicle.getBoundingBox() : null;
+		}
+		AABB box = null;
+		for (Construct.Cell cell : c.cells) {
+			AABB b = new AABB(cell.pos());
+			box = box == null ? b : box.minmax(b);
+		}
+		return box;
+	}
+
+	/** Whether the platform has no ground under it (two blocks of nothing below its 3x3): no Car here. */
+	static boolean platformAirborne(Construct c) {
+		BlockPos centre = c.platformBlockCenter != null ? c.platformBlockCenter : BlockPos.containing(c.anchor);
+		AABB below = new AABB(centre.getX() - 1, centre.getY() - 2, centre.getZ() - 1, centre.getX() + 2, centre.getY(),
+				centre.getZ() + 2);
+		return c.level.noCollision(below);
+	}
+
 	// ---------------------------------------------------------------- cycling
 
-	/** The Carry Platform's key pressed again: on to the next form. */
+	/** On to the next form: Platform -> Car -> Jet -> Platform (an airborne Platform skips the Car). */
 	static void cycle(ServerPlayer p, Construct c) {
 		int next = (c.vehicleForm + 1) % 3;
+		if (next == FORM_CAR && c.vehicleForm == FORM_PLATFORM && platformAirborne(c)) {
+			next = FORM_JET; // a car would only fall: up here it becomes the Jet
+		}
 		float cost = formCost(next);
 		if (!GreenLanternEnergy.spend(p, cost)) {
 			GreenLanternEnergy.feedback(p, "message.projecthero.ability.low_charge");
 			return;
 		}
 		ServerLevel level = c.level;
+		int was = c.vehicleForm;
 		// where it is now, and who is aboard (the owner first, so they take the wheel)
 		Vec3 at;
 		float yaw;
@@ -146,17 +243,22 @@ public final class GreenLanternVehicles {
 
 		boolean ok = next == FORM_PLATFORM ? buildPlatform(c, at, riders) : buildVehicle(p, c, next, at, yaw, riders);
 		if (!ok) {
-			// no room for the new form here: put the platform back where the old form stood, charge refunded
+			// no room for the new form here: the old form goes back where it stood, charge refunded
 			GreenLanternEnergy.refund(p, cost);
 			GreenLanternEnergy.feedback(p, "message.projecthero.ability.invalid_target");
-			if (next != FORM_PLATFORM) {
-				buildPlatform(c, at, riders);
-			} else {
+			boolean back = was == FORM_PLATFORM ? buildPlatform(c, at, riders) : buildVehicle(p, c, was, at, yaw, riders);
+			if (!back && was != FORM_PLATFORM) {
+				back = buildPlatform(c, at, riders);
+			}
+			if (!back) {
 				c.vehicleForm = FORM_PLATFORM;
 			}
+			cushion(riders);
 			return;
 		}
 		c.vehicleForm = next;
+		c.toggledOn = false; // every new form starts parked
+		cushion(riders);
 		GreenLanternVisuals.anim(p, GreenLanternFx.ANIM_CONSTRUCT);
 		Vec3 mid = c.vehicle != null ? c.vehicle.position().add(0, 0.6, 0) : at.add(0, 0.5, 0);
 		AbilityHelpers.line(level, AbilityHelpers.handPosition(p), mid, GreenLanternConstructs.SPARK, 1.5);
@@ -164,6 +266,17 @@ public final class GreenLanternVehicles {
 		level.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 0.5f, 1.5f);
 		p.displayClientMessage(Component.translatable("message.projecthero.green_lantern.vehicle.form",
 				Component.translatable(formKey(next))), true);
+	}
+
+	/** The reshape's safety net: anyone who came out of it without a seat, in mid-air, floats down. */
+	private static void cushion(List<Entity> riders) {
+		for (Entity r : riders) {
+			if (r.getVehicle() == null && !r.onGround() && r instanceof LivingEntity le
+					&& le.level().noCollision(le, le.getBoundingBox().move(0, -1.0, 0))) {
+				le.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.SLOW_FALLING,
+						120, 0, false, false, true));
+			}
+		}
 	}
 
 	/** Back to a parked 3x3 platform around {@code at}, riders seated on it. */
@@ -257,6 +370,7 @@ public final class GreenLanternVehicles {
 			FIRING.remove(r.getUUID());
 		}
 		if (e instanceof HardLightVehicleEntity v) {
+			v.reshaping = !dissolveFx; // a reshape re-seats everyone at once (cycle's cushion covers a miss)
 			v.dissolve();
 		} else {
 			e.discard();
@@ -274,6 +388,10 @@ public final class GreenLanternVehicles {
 		if (!(e instanceof HardLightVehicleEntity v) || e.isRemoved() || !v.isAlive() || e.level() != c.level) {
 			return false;
 		}
+		if (c.toggledOn && !v.getPassengers().isEmpty()) {
+			c.toggledOn = false; // someone got in: it is theirs to drive now, and stays parked when they get out
+		}
+		v.setFollowTarget(c.toggledOn && owner.level() == v.level() && !owner.isSpectator() ? owner : null);
 		if (v instanceof HardLightJetEntity jet && jet.getControllingPassenger() instanceof ServerPlayer pilot
 				&& FIRING.contains(pilot.getUUID())) {
 			if (c.level.getGameTime() % GreenLanternConfig.VEHICLE_JET_CANNON_INTERVAL_TICKS == 0) {

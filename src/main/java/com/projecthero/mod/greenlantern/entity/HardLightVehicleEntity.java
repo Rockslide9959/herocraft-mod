@@ -49,7 +49,9 @@ import net.minecraft.world.phys.Vec3;
  *   delta movement, because the client damps a non-AI mob's delta movement every tick.</li>
  *   <li>Anyone may get in (right-click) while a seat is free; the first player in drives. <b>Shift alone does not get you
  *   out</b> -- it is the Shift+R modifier -- hold it {@link GreenLanternConfig#VEHICLE_DISMOUNT_HOLD_TICKS} ticks
- *   (without pressing R) to climb out ({@code PlayerMixin#wantsToStopRiding}).</li>
+ *   (without pressing R) to climb out ({@code PlayerMixin#wantsToStopRiding}); v0.17.1 round 2: counted near the ground,
+ *   since a Jet's Shift descends -- in the air the hold is {@link #airExitHoldTicks} ({@link #passengerWantsOut}).</li>
+ *   <li>v0.17.1 round 2: unridden and told to follow ({@link #setFollowTarget}), it makes its own way after its owner.</li>
  *   <li>It has hit points and takes damage from anything but its own riders and owner; at 0 the construct dissolves.</li>
  *   <li>Never saved ({@code noSave} type) and never changes dimension; a vehicle no live construct owns removes itself.</li>
  * </ul>
@@ -72,6 +74,10 @@ public abstract class HardLightVehicleEntity extends Mob {
 	private int lastController = -1;
 	// server: Shift-hold bookkeeping per rider
 	private final Map<UUID, Integer> shiftHeld = new HashMap<>();
+	/** The part of each rider's Shift hold spent near the ground (a Jet's Shift descends first, then gets you out). */
+	private final Map<UUID, Integer> shiftHeldGround = new HashMap<>();
+	/** Set while the construct reshapes it: riders leaving then are re-seated at once, no Slow Falling cushion. */
+	public boolean reshaping;
 	private final Set<UUID> shiftUsed = new HashSet<>();
 	private final Map<UUID, Integer> boardedAt = new HashMap<>();
 	/** Client: the smoothed steering / bank value the renderer reads. */
@@ -109,8 +115,48 @@ public abstract class HardLightVehicleEntity extends Mob {
 	/** Vehicle-local seat point (x left, y up, z forward) for passenger {@code index}. */
 	protected abstract Vec3 seat(int index);
 
-	/** Runs the vehicle's physics for one tick. {@code pilot} is null while it is parked. */
-	protected abstract void simulate(Player pilot, float strafe, float forward);
+	/**
+	 * v0.17.1 round 2: the driver's controls for one tick -- A/D ({@code strafe}, + = left), W/S ({@code forward}), Space
+	 * ({@code up}), Sneak ({@code down}) and where they look ({@code yaw} / {@code pitch}).
+	 */
+	public record Controls(float strafe, float forward, boolean up, boolean down, float yaw, float pitch) {
+	}
+
+	/**
+	 * Runs the vehicle's physics for one tick. {@code in} is null while nobody drives: it is parked (rolls / settles to a
+	 * stop) or, with {@link #followTarget} set, makes its own way after its owner.
+	 */
+	protected abstract void simulate(Controls in);
+
+	/**
+	 * v0.17.1 round 2: the owner it is following (the Carry Platform key, not looking at it), or null to stay parked. Set
+	 * every tick by {@code GreenLanternVehicles#tick}; only used while nobody rides it (the server simulates it then).
+	 */
+	protected Entity followTarget;
+
+	public void setFollowTarget(Entity target) {
+		followTarget = target;
+	}
+
+	public boolean following() {
+		return followTarget != null;
+	}
+
+	/** Gametests: one tick of the physics with these controls, as the driver's client would run it. */
+	public void stepForTest(Controls in) {
+		yawDelta = 0f;
+		simulate(in);
+	}
+
+	/** Whether there is ground (or anything solid) within a block under it -- the server's landed check. */
+	public boolean nearGround() {
+		return onGround() || !level().noCollision(this, getBoundingBox().move(0, -1.0, 0));
+	}
+
+	/** Getting out while it is airborne needs Shift held this long (a Jet's Shift descends first). */
+	protected int airExitHoldTicks() {
+		return GreenLanternConfig.VEHICLE_DISMOUNT_HOLD_TICKS;
+	}
 
 	/** The action-bar help line a passenger gets on boarding (driver / passenger). */
 	protected abstract String controlsKey(boolean driver);
@@ -270,7 +316,9 @@ public abstract class HardLightVehicleEntity extends Mob {
 			onNewController(pilot);
 		}
 		yawDelta = 0f;
-		simulate(pilot, pilot == null ? 0f : (float) input.x, pilot == null ? 0f : (float) input.z);
+		simulate(pilot == null ? null : new Controls((float) input.x, (float) input.z,
+				((com.projecthero.mod.mixin.LivingEntityAccessor) pilot).projecthero$isJumping(), pilot.isShiftKeyDown(),
+				pilot.getYRot(), pilot.getXRot()));
 		calculateEntityAnimation(false);
 	}
 
@@ -310,12 +358,19 @@ public abstract class HardLightVehicleEntity extends Mob {
 
 	// ---------------------------------------------------------------- getting out
 
-	/** {@code PlayerMixin#wantsToStopRiding}: Shift held long enough, and not used for Shift+R in the meantime. */
+	/**
+	 * {@code PlayerMixin#wantsToStopRiding}: Shift held long enough, and not used for Shift+R in the meantime. Near the
+	 * ground that is {@link GreenLanternConfig#VEHICLE_DISMOUNT_HOLD_TICKS} of it there; in the air it is
+	 * {@link #airExitHoldTicks} (a Jet's Shift descends: hold it to land, keep holding to climb out).
+	 */
 	public boolean passengerWantsOut(Player p) {
 		if (!p.isShiftKeyDown() || shiftUsed.contains(p.getUUID())) {
 			return false;
 		}
-		return shiftHeld.getOrDefault(p.getUUID(), 0) >= GreenLanternConfig.VEHICLE_DISMOUNT_HOLD_TICKS;
+		if (nearGround()) {
+			return shiftHeldGround.getOrDefault(p.getUUID(), 0) >= GreenLanternConfig.VEHICLE_DISMOUNT_HOLD_TICKS;
+		}
+		return shiftHeld.getOrDefault(p.getUUID(), 0) >= airExitHoldTicks();
 	}
 
 	/** Shift+R was used while Shift is down: this Shift hold no longer counts toward getting out. */
@@ -348,8 +403,14 @@ public abstract class HardLightVehicleEntity extends Mob {
 			UUID id = sp.getUUID();
 			if (sp.isShiftKeyDown()) {
 				shiftHeld.merge(id, 1, Integer::sum);
+				if (nearGround()) {
+					shiftHeldGround.merge(id, 1, Integer::sum);
+				} else {
+					shiftHeldGround.remove(id);
+				}
 			} else {
 				shiftHeld.remove(id);
+				shiftHeldGround.remove(id);
 				shiftUsed.remove(id);
 			}
 			Integer at = boardedAt.get(id);
@@ -365,6 +426,7 @@ public abstract class HardLightVehicleEntity extends Mob {
 		}
 		if (riders.isEmpty() && !shiftHeld.isEmpty()) {
 			shiftHeld.clear();
+			shiftHeldGround.clear();
 			shiftUsed.clear();
 		}
 		serverTick(server);
@@ -382,12 +444,21 @@ public abstract class HardLightVehicleEntity extends Mob {
 	 */
 	public void dissolve() {
 		for (Entity r : List.copyOf(getPassengers())) {
-			r.stopRiding();
-			if (r instanceof LivingEntity le && !onGround()) {
-				le.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 120, 0, false, false, true));
-			}
+			r.stopRiding(); // removePassenger cushions a mid-air drop (unless it is being reshaped)
 		}
 		discard();
+	}
+
+	@Override
+	protected void removePassenger(Entity passenger) {
+		super.removePassenger(passenger);
+		if (!level().isClientSide() && !reshaping && passenger instanceof LivingEntity le && !nearGround()) {
+			// v0.17.1 round 2: out in mid-air (a held-Shift bail-out, N, the ring running dry): never a fatal drop
+			le.addEffect(new MobEffectInstance(MobEffects.SLOW_FALLING, 120, 0, false, false, true));
+		}
+		shiftHeld.remove(passenger.getUUID());
+		shiftHeldGround.remove(passenger.getUUID());
+		shiftUsed.remove(passenger.getUUID());
 	}
 
 	@Override

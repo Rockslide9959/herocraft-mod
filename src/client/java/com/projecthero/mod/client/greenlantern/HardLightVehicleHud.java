@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.projecthero.mod.client.ModKeyBindings;
-import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.entity.HardLightCarEntity;
 import com.projecthero.mod.greenlantern.entity.HardLightJetEntity;
 import com.projecthero.mod.greenlantern.entity.HardLightVehicleEntity;
@@ -21,8 +20,8 @@ import net.minecraft.world.entity.Entity;
 
 /**
  * v0.17.1 (user: "make it display on the bottom left of the players screen the entire time ... only show up for the driver"):
- * the Hard-Light Car / Jet controls, always up while you drive -- the vehicle's name, its speed (and STALL on a slow Jet),
- * then each control with the player's own key bindings. Passengers see nothing. Hidden while the chat is open (it sits
+ * the Hard-Light Car / Jet controls, always up while you drive -- the vehicle's name, its speed (the Jet: its throttle lever,
+ * and HOVER while it is under lift speed on its VTOL jets), then each control with the player's own key bindings. Passengers see nothing. Hidden while the chat is open (it sits
  * where the chat does).
  */
 public final class HardLightVehicleHud {
@@ -34,7 +33,6 @@ public final class HardLightVehicleHud {
 	private static final int TITLE = 0xFF35F075;
 	private static final int KEY = 0xFFFFD25A;
 	private static final int TEXT = 0xFFCFF8D4;
-	private static final int LOW = 0xFFFF5A5A;
 
 	private HardLightVehicleHud() {
 	}
@@ -61,32 +59,42 @@ public final class HardLightVehicleHud {
 		}
 
 		double bps = v.position().subtract(v.xo, v.yo, v.zo).length() * 20.0;
-		boolean stall = jet && bps < GreenLanternConfig.VEHICLE_JET_STALL_BPS;
+		// v0.17.1 round 2: no more STALL -- a slow Jet hovers on its VTOL jets (a calm HOVER tag), and the throttle lever shows
+		boolean stall = jet && ((HardLightJetEntity) v).hovering();
 		Component shift = mc.options.keyShift.getTranslatedKeyMessage();
 		Component r = ModKeyBindings.ABILITY_1.getTranslatedKeyMessage();
 		Component ws = pair(mc.options.keyUp, mc.options.keyDown);
 		Component ad = pair(mc.options.keyLeft, mc.options.keyRight);
 		Component shiftR = Component.empty().append(shift).append("+").append(r);
 		Component holdShift = Component.translatable("hud.projecthero.green_lantern.vehicle.hold", shift);
+		Component space = mc.options.keyJump.getTranslatedKeyMessage();
 
 		List<Row> rows = new ArrayList<>();
 		if (jet) {
 			rows.add(new Row(Component.translatable("hud.projecthero.green_lantern.vehicle.mouse"), act("jet.steer")));
 			rows.add(new Row(ws, act("jet.throttle")));
 			rows.add(new Row(ad, act("jet.yaw")));
+			rows.add(new Row(space, act("jet.rise")));
+			rows.add(new Row(shift, act("jet.descend")));
 			rows.add(new Row(Component.translatable("hud.projecthero.green_lantern.vehicle.hold", r), act("jet.cannons")));
 			rows.add(new Row(shiftR, act("jet.afterburner")));
+			rows.add(new Row(holdShift, act("jet.exit")));
 		} else {
 			rows.add(new Row(ws, act("car.drive")));
 			rows.add(new Row(ad, act("car.steer")));
+			rows.add(new Row(Component.translatable("hud.projecthero.green_lantern.vehicle.mouse_w", mc.options.keyUp.getTranslatedKeyMessage()),
+					act("car.assist")));
 			rows.add(new Row(r, act("car.bolt")));
 			rows.add(new Row(shiftR, act("car.horn")));
+			rows.add(new Row(holdShift, act("exit")));
 		}
-		rows.add(new Row(holdShift, act("exit")));
 
 		Component title = Component.translatable(jet ? "hud.projecthero.green_lantern.vehicle.jet" : "hud.projecthero.green_lantern.vehicle.car");
-		Component speed = Component.translatable("hud.projecthero.green_lantern.vehicle.speed", Math.round(bps));
-		Component stallTag = Component.translatable("hud.projecthero.green_lantern.vehicle.stall");
+		Component speed = jet
+				? Component.translatable("hud.projecthero.green_lantern.vehicle.speed_throttle", Math.round(bps),
+						Math.round(((HardLightJetEntity) v).throttle() * 100f))
+				: Component.translatable("hud.projecthero.green_lantern.vehicle.speed", Math.round(bps));
+		Component stallTag = Component.translatable("hud.projecthero.green_lantern.vehicle.hover");
 
 		int keyW = 0;
 		int actW = 0;
@@ -105,9 +113,9 @@ public final class HardLightVehicleHud {
 		int y = y0 + PAD;
 		g.drawString(mc.font, title, x0 + PAD, y, TITLE, true);
 		int sx = x0 + w - PAD - mc.font.width(speed);
-		g.drawString(mc.font, speed, sx, y, stall ? LOW : TEXT, true);
-		if (stall && (mc.player.tickCount / 6) % 2 == 0) {
-			g.drawString(mc.font, stallTag, sx - 4 - mc.font.width(stallTag), y, LOW, true);
+		g.drawString(mc.font, speed, sx, y, TEXT, true);
+		if (stall) {
+			g.drawString(mc.font, stallTag, sx - 4 - mc.font.width(stallTag), y, KEY, true);
 		}
 		y += LINE;
 		g.fill(x0 + PAD, y, x0 + w - PAD, y + 1, BORDER);
