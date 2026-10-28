@@ -1,4 +1,212 @@
 {
+  "omnitrix_slap": {
+    "subtitle": "subtitles.projecthero.omnitrix_slap",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/slap"
+      }
+    ]
+  },
+  "omnitrix_core_up": {
+    "subtitle": "subtitles.projecthero.omnitrix_core_up",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/core_up"
+      }
+    ]
+  },
+  "omnitrix_core_down": {
+    "subtitle": "subtitles.projecthero.omnitrix_core_down",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/core_down"
+      }
+    ]
+  },
+  "omnitrix_dial": {
+    "subtitle": "subtitles.projecthero.omnitrix_dial",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/dial"
+      }
+    ]
+  },
+  "omnitrix_select": {
+    "subtitle": "subtitles.projecthero.omnitrix_select",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/select"
+      }
+    ]
+  },
+  "omnitrix_transform": {
+    "subtitle": "subtitles.projecthero.omnitrix_transform",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/transform"
+      }
+    ]
+  },
+  "omnitrix_revert": {
+    "subtitle": "subtitles.projecthero.omnitrix_revert",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/revert"
+      }
+    ]
+  },
+  "omnitrix_timeout": {
+    "subtitle": "subtitles.projecthero.omnitrix_timeout",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/timeout"
+      }
+    ]
+  },
+  "omnitrix_warning": {
+    "subtitle": "subtitles.projecthero.omnitrix_warning",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/warning"
+      }
+    ]
+  },
+  "omnitrix_recharged": {
+    "subtitle": "subtitles.projecthero.omnitrix_recharged",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recharged"
+      }
+    ]
+  },
+  "omnitrix_extract_pulse": {
+    "subtitle": "subtitles.projecthero.omnitrix_extract_pulse",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/extract_pulse"
+      }
+    ]
+  },
+  "omnitrix_self_destruct": {
+    "subtitle": "subtitles.projecthero.omnitrix_self_destruct",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/self_destruct"
+      }
+    ]
+  },
+  "omnitrix_extract_done": {
+    "subtitle": "subtitles.projecthero.omnitrix_extract_done",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/extract_done"
+      }
+    ]
+  },
+  "omnitrix_pod_open": {
+    "subtitle": "subtitles.projecthero.omnitrix_pod_open",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/pod_open"
+      }
+    ]
+  },
+  "omnitrix_meteor": {
+    "subtitle": "subtitles.projecthero.omnitrix_meteor",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/meteor"
+      }
+    ]
+  },
+  "heatblast_blast": {
+    "subtitle": "subtitles.projecthero.heatblast_blast",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_blast"
+      }
+    ]
+  },
+  "heatblast_stream": {
+    "subtitle": "subtitles.projecthero.heatblast_stream",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_stream"
+      }
+    ]
+  },
+  "heatblast_nova": {
+    "subtitle": "subtitles.projecthero.heatblast_nova",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_nova"
+      }
+    ]
+  },
+  "heatblast_jet": {
+    "subtitle": "subtitles.projecthero.heatblast_jet",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_jet"
+      }
+    ]
+  },
+  "heatblast_shield": {
+    "subtitle": "subtitles.projecthero.heatblast_shield",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_shield"
+      }
+    ]
+  },
+  "heatblast_ignite": {
+    "subtitle": "subtitles.projecthero.heatblast_ignite",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/heatblast_ignite"
+      }
+    ]
+  },
+  "four_arms_punch": {
+    "subtitle": "subtitles.projecthero.four_arms_punch",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_punch"
+      }
+    ]
+  },
+  "four_arms_clap": {
+    "subtitle": "subtitles.projecthero.four_arms_clap",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_clap"
+      }
+    ]
+  },
+  "four_arms_slam": {
+    "subtitle": "subtitles.projecthero.four_arms_slam",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_slam"
+      }
+    ]
+  },
+  "four_arms_throw": {
+    "subtitle": "subtitles.projecthero.four_arms_throw",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_throw"
+      }
+    ]
+  },
+  "four_arms_roar": {
+    "subtitle": "subtitles.projecthero.four_arms_roar",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/four_arms_roar"
+      }
+    ]
+  },
   "mjolnir_throw": {
     "subtitle": "message.projecthero.subtitle.mjolnir_throw",
     "sounds": [

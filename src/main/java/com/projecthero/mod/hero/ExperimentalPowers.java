@@ -73,6 +73,10 @@ public final class ExperimentalPowers {
 	 * becomes the selected power -- owned means live (spec: persistent passive stacking).
 	 */
 	public static boolean grant(ServerPlayer player, Power power) {
+		// v0.17.1: the Omnitrix lock -- no mutation takes while the watch is worn (an operator's force passes)
+		if (com.projecthero.mod.omnitrix.Omnitrix.rejectsAny(player)) {
+			return false;
+		}
 		com.projecthero.mod.hero.HeroTiers.unworthyIfHammerReleased(player);
 		ExperimentalState s = state(player).copy();
 		if (s.ownedPowers.contains(power.key())) {

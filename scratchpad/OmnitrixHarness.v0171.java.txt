@@ -1,0 +1,416 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit;
+import com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit;
+import com.projecthero.mod.omnitrix.entity.OmnitrixMeteorEntity;
+import com.projecthero.mod.omnitrix.pod.OmnitrixPodBlock;
+import com.projecthero.mod.omnitrix.pod.OmnitrixPodBlockEntity;
+import com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Omnitrix screenshots. Enabled by run/omnitrix.flag. */
+// TEMP-HARNESS
+public final class OmnitrixHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static final Map<String, ServerPlayer> FAKES = new HashMap<>();
+
+	private OmnitrixHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		if (name.startsWith("fp_") || name.startsWith("hud_")) {
+			// stray particles spawned right on the camera fill the view: clear them a tick before a first-person shot
+			at(t - 1, () -> {
+				try {
+					var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+					m.setAccessible(true);
+					m.invoke(Minecraft.getInstance().particleEngine);
+				} catch (ReflectiveOperationException e) {
+					System.out.println("[HARNESS] " + e);
+				}
+			});
+		}
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		// the user: every test client at 5% sound
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc)); // once the server has set the origin
+		}
+		if (t0 >= 0) {
+			// the fakes are never ticked by the server: drive their Omnitrix
+			server(mc, p -> {
+				for (ServerPlayer f : FAKES.values()) {
+					f.tickCount++;
+					Omnitrix.tick(f);
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OMX_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		FAKES.put(name, f);
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ---------------------------------------------------------------- 1. the meteor, its crater and the pod
+		Vec3[] impact = new Vec3[1];
+		at(t, () -> server(mc, p -> {
+			impact[0] = origin.add(0, 0, 18);
+			camera(p, origin.add(-10, 6, 2), origin.add(0, 20, 18));
+			OmnitrixMeteorEntity.launch(p.serverLevel(), impact[0]);
+		}));
+		shot(t + 28, "meteor_falling_a");
+		shot(t + 42, "meteor_falling_b");
+		at(t + 70, () -> server(mc, p -> camera(p, impact[0].add(-6, 4.5, -6), impact[0].add(0, -1, 0))));
+		shot(t + 78, "crater_pod_shut");
+		at(t + 125, () -> server(mc, p -> camera(p, impact[0].add(-4.5, 4.5, -4.5), impact[0].add(0, -1.2, 0))));
+		shot(t + 150, "crater_pod_open");
+		t += 170;
+		// ---------------------------------------------------------------- 2. the watch in first person
+		at(t, () -> {
+			gui(mc, true);
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x - 12, origin.y, origin.z - 12, 200f, 10f);
+				UniquePowers.forced(() -> Omnitrix.grant(p));
+			});
+		});
+		t += 100; // the title fades
+		shot(t + 40, "fp_wrist_idle");
+		at(t + 45, () -> server(mc, Omnitrix::activate));
+		shot(t + 47, "fp_core_popping");
+		shot(t + 56, "fp_raised_heatblast");
+		at(t + 62, () -> server(mc, p -> Omnitrix.cycle(p, 1)));
+		shot(t + 63, "fp_dial_turn");
+		shot(t + 72, "fp_raised_four_arms");
+		at(t + 80, () -> server(mc, p -> Omnitrix.cycle(p, 1)));
+		shot(t + 88, "fp_raised_heatblast_b");
+		at(t + 95, () -> server(mc, Omnitrix::slap));
+		shot(t + 97, "fp_slap");
+		shot(t + 101, "fp_transform_flash");
+		shot(t + 130, "hud_timer_heatblast");
+		at(t + 135, () -> server(mc, p -> Omnitrix.revert(p, Omnitrix.Reason.TIMEOUT)));
+		shot(t + 137, "fp_timeout_flash");
+		shot(t + 160, "hud_recharge");
+		at(t + 165, () -> server(mc, p -> {
+			var n = Omnitrix.state(p).copy();
+			n.rechargeUntil = 0;
+			n.selected = FourArmsKit.ID;
+			Omnitrix.save(p, n);
+			Omnitrix.transform(p);
+		}));
+		shot(t + 200, "hud_timer_four_arms");
+		at(t + 205, () -> server(mc, p -> ((FourArmsKit) Aliens.kit(FourArmsKit.ID)).clap(p)));
+		shot(t + 209, "fp_four_arms_clap");
+		at(t + 225, () -> server(mc, p -> ((FourArmsKit) Aliens.kit(FourArmsKit.ID)).haymaker(p)));
+		shot(t + 228, "fp_four_arms_haymaker");
+		at(t + 240, () -> server(mc, p -> {
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			var n = Omnitrix.state(p).copy();
+			n.rechargeUntil = 0;
+			n.selected = HeatblastKit.ID;
+			Omnitrix.save(p, n);
+			Omnitrix.transform(p);
+		}));
+		at(t + 260, () -> server(mc, p -> ((HeatblastKit) Aliens.kit(HeatblastKit.ID)).fireStream(p)));
+		shot(t + 268, "fp_heatblast_stream");
+		at(t + 300, () -> server(mc, p -> ((HeatblastKit) Aliens.kit(HeatblastKit.ID)).fireBlast(p)));
+		shot(t + 302, "fp_heatblast_blast");
+		at(t + 320, () -> {
+			gui(mc, false);
+			server(mc, p -> {
+				Omnitrix.revoke(p);
+				p.getAbilities().flying = true;
+				p.getAbilities().mayfly = true;
+				p.onUpdateAbilities();
+			});
+		});
+		t += 330;
+		// ---------------------------------------------------------------- 3. third person: the raised arm, the flash, the aliens
+		Vec3 stage = origin.add(-24, 0, 0);
+		at(t, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(80))) {
+				e.discard(); // wandering city folk would walk into the shots
+			}
+			ServerPlayer ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+			camera(p, stage.add(-1.2, 1.5, -2.8), stage.add(0, 1.3, 0));
+		}));
+		at(t + 30, () -> server(mc, p -> Omnitrix.activate(FAKES.get("Ben"))));
+		shot(t + 42, "tp_raised_arm");
+		at(t + 44, () -> server(mc, p -> camera(p, stage.add(0.9, 1.7, -1.4), stage.add(-0.1, 1.25, 0))));
+		shot(t + 50, "tp_raised_arm_close");
+		at(t + 55, () -> server(mc, p -> camera(p, stage.add(0, 1.6, -3.6), stage.add(0, 1.0, 0))));
+		at(t + 60, () -> server(mc, p -> Omnitrix.slap(FAKES.get("Ben"))));
+		shot(t + 61, "tp_slap");
+		shot(t + 67, "tp_transform_a");
+		shot(t + 70, "tp_transform_b");
+		shot(t + 74, "tp_transform_c");
+		shot(t + 100, "tp_heatblast_idle");
+		at(t + 110, () -> server(mc, p -> ((HeatblastKit) Aliens.kit(HeatblastKit.ID)).fireStream(FAKES.get("Ben"))));
+		at(t + 110, () -> server(mc, p -> camera(p, stage.add(-3.5, 1.8, -2.5), stage.add(0, 1.2, -1.5))));
+		shot(t + 122, "tp_heatblast_stream");
+		at(t + 170, () -> server(mc, p -> ((HeatblastKit) Aliens.kit(HeatblastKit.ID)).nova(FAKES.get("Ben"))));
+		shot(t + 173, "tp_heatblast_nova_a");
+		shot(t + 177, "tp_heatblast_nova_b");
+		at(t + 200, () -> server(mc, p -> ((HeatblastKit) Aliens.kit(HeatblastKit.ID)).fireJet(FAKES.get("Ben"))));
+		at(t + 201, () -> server(mc, p -> {
+			ServerPlayer ben = FAKES.get("Ben");
+			ben.teleportTo(stage.x, stage.y + 1.5, stage.z);
+			camera(p, stage.add(0, 2.4, -3.6), stage.add(0, 2.2, 0));
+		}));
+		shot(t + 206, "tp_heatblast_fly");
+		// Four Arms
+		at(t + 215, () -> server(mc, p -> {
+			ServerPlayer ben = FAKES.get("Ben");
+			Omnitrix.revert(ben, Omnitrix.Reason.REVOKE);
+			ben.teleportTo(stage.x, stage.y, stage.z);
+			var n = Omnitrix.state(ben).copy();
+			n.rechargeUntil = 0;
+			n.selected = FourArmsKit.ID;
+			Omnitrix.save(ben, n);
+			Omnitrix.transform(ben);
+			camera(p, stage.add(-1.5, 2.0, -4.2), stage.add(0, 1.4, 0));
+		}));
+		shot(t + 245, "tp_four_arms_idle");
+		at(t + 250, () -> server(mc, p -> camera(p, stage.add(-3.8, 2.2, -2.2), stage.add(0, 1.4, 0))));
+		shot(t + 255, "tp_four_arms_side");
+		at(t + 260, () -> server(mc, p -> ((FourArmsKit) Aliens.kit(FourArmsKit.ID)).clap(FAKES.get("Ben"))));
+		shot(t + 263, "tp_four_arms_clap_a");
+		shot(t + 266, "tp_four_arms_clap_b");
+		at(t + 290, () -> server(mc, p -> {
+			ServerPlayer ben = FAKES.get("Ben");
+			ben.setOnGround(true);
+			((FourArmsKit) Aliens.kit(FourArmsKit.ID)).groundPound(ben);
+		}));
+		shot(t + 293, "tp_four_arms_pound_a");
+		shot(t + 297, "tp_four_arms_pound_b");
+		at(t + 320, () -> server(mc, p -> ((FourArmsKit) Aliens.kit(FourArmsKit.ID)).haymaker(FAKES.get("Ben"))));
+		shot(t + 323, "tp_four_arms_haymaker");
+		t += 340;
+		// ---------------------------------------------------------------- 4. the Containment Pod
+		Vec3 lab = origin.add(-36, 0, 6);
+		at(t, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			BlockPos lower = BlockPos.containing(lab);
+			var st = OmnitrixPodBlocks.POD.defaultBlockState().setValue(OmnitrixPodBlock.FACING, Direction.NORTH);
+			l.setBlock(lower, st.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.LOWER), 3);
+			l.setBlock(lower.above(), st.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.UPPER), 3);
+			for (int x = -3; x <= 3; x++) {
+				for (int z = -3; z <= 3; z++) {
+					l.setBlock(lower.offset(x, -1, z), Blocks.POLISHED_DEEPSLATE.defaultBlockState(), 3);
+				}
+			}
+			camera(p, lab.add(-2.6, 2.3, -3.2), lab.add(0.5, 1.0, 0.5));
+		}));
+		shot(t + 20, "pod_idle");
+		at(t + 25, () -> server(mc, p -> {
+			ServerLevel l = p.serverLevel();
+			BlockPos lower = BlockPos.containing(lab);
+			OmnitrixPodBlockEntity be = (OmnitrixPodBlockEntity) l.getBlockEntity(lower);
+			ServerPlayer kid = fake(p, "Kevin", be.centre(), 160f);
+			UniquePowers.forced(() -> Omnitrix.grant(kid));
+			kid.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200);
+			kid.setHealth(200f);
+			be.addFuel(8);
+			be.start(kid);
+		}));
+		shot(t + 70, "pod_extraction_a");
+		shot(t + 140, "pod_extraction_b");
+		at(t + 150, () -> server(mc, p -> camera(p, lab.add(-1.6, 1.9, -2.2), lab.add(0.5, 1.2, 0.5))));
+		shot(t + 190, "pod_extraction_close");
+		// the wearer's own HUD during an extraction
+		at(t + 200, () -> {
+			gui(mc, true);
+			server(mc, p -> {
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true));
+				ServerLevel l = p.serverLevel();
+				BlockPos lower = BlockPos.containing(lab).offset(4, 0, 0);
+				var st = OmnitrixPodBlocks.POD.defaultBlockState().setValue(OmnitrixPodBlock.FACING, Direction.NORTH);
+				l.setBlock(lower, st.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.LOWER), 3);
+				l.setBlock(lower.above(), st.setValue(OmnitrixPodBlock.HALF, DoubleBlockHalf.UPPER), 3);
+				OmnitrixPodBlockEntity be = (OmnitrixPodBlockEntity) l.getBlockEntity(lower);
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().flying = false;
+				p.getAbilities().mayfly = true;
+				p.onUpdateAbilities();
+				Vec3 c = be.centre();
+				p.teleportTo(l, c.x, c.y, c.z, 200f, 15f);
+				UniquePowers.forced(() -> Omnitrix.grant(p));
+				p.getAttribute(Attributes.MAX_HEALTH).setBaseValue(200);
+				p.setHealth(200f);
+				be.addFuel(8);
+				be.start(p);
+				p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true));
+			});
+		});
+		at(t + 202, () -> server(mc, p -> p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true))));
+		shot(t + 260, "hud_self_destruct");
+		t += 280;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

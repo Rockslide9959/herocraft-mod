@@ -114,6 +114,11 @@ public final class PowerInfoScreen extends Screen {
 					&& com.projecthero.mod.greenlantern.GreenLantern.hasPower(Minecraft.getInstance().player)) {
 				greenLanternRank(wrapW);
 			}
+			// v0.17.1: an Omnitrix wearer sees the watch's state (the alien, the time left, the recharge, the selection) first
+			if (Minecraft.getInstance().player != null
+					&& com.projecthero.mod.omnitrix.Omnitrix.hasPower(Minecraft.getInstance().player)) {
+				omnitrixStatus(wrapW);
+			}
 			// v0.17.1 (user): a Speed Force Speedster sees the drain after the Speed Force (and the portal's cooldown) first
 			if (Minecraft.getInstance().player != null
 					&& com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(Minecraft.getInstance().player)) {
@@ -184,6 +189,28 @@ public final class PowerInfoScreen extends Screen {
 		wrap((portal > 0
 				? Component.translatable("screen.projecthero.power_info.speed_force.portal_wait", (portal + 19) / 20)
 				: Component.translatable("screen.projecthero.power_info.speed_force.portal_ready")).withStyle(ChatFormatting.GOLD), wrapW);
+		body.add(FormattedCharSequence.EMPTY);
+	}
+
+	/** v0.17.1: the Omnitrix's state -- the alien and its time left, or the recharge, the selected alien and the keys. */
+	private void omnitrixStatus(int wrapW) {
+		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
+		com.projecthero.mod.omnitrix.data.OmnitrixState s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
+		long now = p.level().getGameTime();
+		if (s.transformed()) {
+			int left = com.projecthero.mod.omnitrix.Omnitrix.timeLeft(p);
+			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.as", Component.translatable("projecthero.omnitrix.alien." + s.active),
+					String.format(java.util.Locale.ROOT, "%d:%02d", left / 1200, (left / 20) % 60)).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), wrapW);
+		} else if (now < s.rechargeUntil) {
+			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.recharging", (s.rechargeUntil - now + 19) / 20)
+					.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), wrapW);
+		} else {
+			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.ready").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), wrapW);
+		}
+		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.selected", Component.translatable("projecthero.omnitrix.alien." + s.selected))
+				.withStyle(ChatFormatting.GRAY), wrapW);
+		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.keys").withStyle(ChatFormatting.DARK_GRAY), wrapW);
+		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.locked").withStyle(ChatFormatting.DARK_GREEN), wrapW);
 		body.add(FormattedCharSequence.EMPTY);
 	}
 
@@ -359,6 +386,9 @@ public final class PowerInfoScreen extends Screen {
 		}
 		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.speedForceChapter(); // v0.17.1
+		}
+		if (com.projecthero.mod.omnitrix.Omnitrix.hasPower(mc.player)) {
+			return com.projecthero.mod.hero.guide.HeroPackGuide.omnitrixChapter(); // v0.17.1
 		}
 		if (com.projecthero.mod.cyborg.Cyborg.hasPower(mc.player)) {
 			return com.projecthero.mod.hero.guide.HeroPackGuide.cyborgChapter();

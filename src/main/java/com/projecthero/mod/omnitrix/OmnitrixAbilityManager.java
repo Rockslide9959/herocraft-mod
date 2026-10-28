@@ -1,0 +1,144 @@
+package com.projecthero.mod.omnitrix;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.projecthero.mod.attachment.ModAttachments;
+import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.data.ExperimentalState;
+import com.projecthero.mod.omnitrix.alien.AlienKit;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.data.OmnitrixState;
+
+import net.minecraft.server.level.ServerPlayer;
+
+/**
+ * v0.17.1: the six ability keys for an Omnitrix wearer ({@code AbilityRouter} hands them over when {@link #hasContext}).
+ *
+ * <pre>
+ *   V (5)        human: raise the watch (the core pops up, the face shows the selected alien) / lower it again;
+ *                during the recharge the face flashes red with the time left instead.
+ *                alien: revert early (10 s recharge). Shift+V is the same key.
+ *   (watch up)   scroll wheel = turn the dial, left / right click = slap the core down and transform (client side, sent as
+ *                OmnitrixActionPayload CYCLE / SLAP)
+ *   R G X Z C    alien: the kit's moves (tap / Shift / declared holds). Human: nothing.
+ *   H            the power selector (never sent here); N unused.
+ * </pre>
+ */
+public final class OmnitrixAbilityManager {
+	private static final class Key {
+		final boolean shift;
+		final long downAt;
+		boolean held;
+		boolean done;
+
+		Key(boolean shift, long downAt) {
+			this.shift = shift;
+			this.downAt = downAt;
+		}
+	}
+
+	private static final Map<UUID, Map<Integer, Key>> DOWN = new ConcurrentHashMap<>();
+
+	private OmnitrixAbilityManager() {
+	}
+
+	public static boolean hasContext(ServerPlayer p) {
+		if (!Omnitrix.hasPower(p)) {
+			return false;
+		}
+		ExperimentalState st = p.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
+		return st == null || st.activePower.isEmpty();
+	}
+
+	static void forget(UUID id) {
+		DOWN.remove(id);
+	}
+
+	static void clearSessionState() {
+		DOWN.clear();
+	}
+
+	/** V: the one Omnitrix button. Up / down while human, revert while transformed. */
+	public static void pressV(ServerPlayer p) {
+		OmnitrixState s = Omnitrix.state(p);
+		if (s.transformed()) {
+			Omnitrix.revertEarly(p);
+		} else if (s.selecting) {
+			Omnitrix.deactivate(p);
+		} else {
+			Omnitrix.activate(p);
+		}
+	}
+
+	public static void handle(ServerPlayer p, AbilitySlot slot, boolean pressed) {
+		if (slot.isUtility()) {
+			return;
+		}
+		Map<Integer, Key> mine = DOWN.computeIfAbsent(p.getUUID(), k -> new ConcurrentHashMap<>());
+		int i = slot.ordinal();
+		long now = p.level().getGameTime();
+		OmnitrixState s = Omnitrix.state(p);
+		if (pressed) {
+			if (mine.containsKey(i)) {
+				return; // the OS key repeat
+			}
+			Key k = new Key(p.isShiftKeyDown(), now);
+			mine.put(i, k);
+			if (slot == AbilitySlot.SLOT_5) {
+				k.done = true;
+				pressV(p);
+				return;
+			}
+			AlienKit kit = Aliens.kit(s.active);
+			if (kit == null) {
+				k.done = true;
+				return;
+			}
+			if (k.shift || !kit.holdable(slot)) {
+				k.done = true;
+				kit.press(p, slot, k.shift);
+			}
+			return;
+		}
+		Key k = mine.remove(i);
+		if (k == null || slot == AbilitySlot.SLOT_5) {
+			return;
+		}
+		AlienKit kit = Aliens.kit(s.active);
+		if (kit == null) {
+			return;
+		}
+		int held = (int) (now - k.downAt);
+		if (!k.done) {
+			if (k.held) {
+				kit.holdEnd(p, slot, held);
+			} else {
+				kit.press(p, slot, false); // a tap on a holdable key fires on the release
+			}
+		}
+		kit.release(p, slot, k.shift, held);
+	}
+
+	/** A holdable key still down after {@code KIT_HOLD_TICKS} starts its hold move. */
+	static void tick(ServerPlayer p) {
+		Map<Integer, Key> mine = DOWN.get(p.getUUID());
+		if (mine == null || mine.isEmpty()) {
+			return;
+		}
+		AlienKit kit = Aliens.kit(Omnitrix.state(p).active);
+		if (kit == null) {
+			return;
+		}
+		long now = p.level().getGameTime();
+		for (Map.Entry<Integer, Key> e : mine.entrySet()) {
+			Key k = e.getValue();
+			AbilitySlot slot = AbilitySlot.values()[e.getKey()];
+			if (!k.done && !k.held && slot != AbilitySlot.SLOT_5 && kit.holdable(slot) && now - k.downAt >= OmnitrixConfig.KIT_HOLD_TICKS) {
+				k.held = true;
+				kit.holdStart(p, slot);
+			}
+		}
+	}
+}

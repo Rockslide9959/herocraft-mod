@@ -237,6 +237,13 @@ public final class HeroCommand {
 					+ String.join("/", SHOWN_HERO_KEYS) + ")"));
 			return 0;
 		}
+		// v0.17.1: the Omnitrix lock -- refused before anything is wiped; "force" overrides (and takes the watch off)
+		if (!force && omnitrixRefused(c, target, rawKey)) {
+			return 0;
+		}
+		if (force && !heroKey) {
+			return com.projecthero.mod.hero.UniquePowers.forced(() -> grant(c, target, false));
+		}
 		// v0.16.1: projectheroUniquePowers -- refused before anything is wiped; "force" overrides
 		if (heroKey && !force && uniqueRefused(c, target, rawKey)) {
 			return 0;
@@ -286,8 +293,21 @@ public final class HeroCommand {
 		return stack(c, target, false);
 	}
 
+	/** v0.17.1: the Omnitrix lock for the admin grant / stack without {@code force}. */
+	private static boolean omnitrixRefused(CommandContext<CommandSourceStack> c, ServerPlayer target, String key) {
+		if (!com.projecthero.mod.omnitrix.Omnitrix.hasPower(target) || "omnitrix".equals(key) || com.projecthero.mod.hero.UniquePowers.isForced()) {
+			return false;
+		}
+		c.getSource().sendFailure(com.projecthero.mod.omnitrix.Omnitrix.rejectMessage()
+				.append(Component.literal(" (add 'force' after the player to override)")));
+		return true;
+	}
+
 	private static int stack(CommandContext<CommandSourceStack> c, ServerPlayer target, boolean force) {
 		String rawKey = canonical(StringArgumentType.getString(c, "power"));
+		if (!force && omnitrixRefused(c, target, rawKey)) {
+			return 0;
+		}
 		if (HERO_TIER_KEYS.contains(rawKey)) {
 			if (force) {
 				return com.projecthero.mod.hero.UniquePowers.forced(() -> grantHeroByKey(c, target, rawKey));

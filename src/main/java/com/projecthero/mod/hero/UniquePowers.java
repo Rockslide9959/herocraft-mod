@@ -149,6 +149,10 @@ public final class UniquePowers {
 	 * {@code player} may not gain {@code key} right now.
 	 */
 	public static boolean refuse(ServerPlayer player, String key) {
+		// v0.17.1: the Omnitrix lock -- while it is worn every other power is refused ("The Omnitrix rejects it.")
+		if (com.projecthero.mod.omnitrix.Omnitrix.rejects(player, key)) {
+			return true;
+		}
 		String holder = blockingHolder(player, key);
 		if (holder == null) {
 			return false;
@@ -160,6 +164,11 @@ public final class UniquePowers {
 			player.displayClientMessage(takenMessage(key, holder), false);
 		}
 		return true;
+	}
+
+	/** v0.17.1: whether an operator's {@code force} grant is running on this thread (it also passes the Omnitrix lock). */
+	public static boolean isForced() {
+		return FORCED.get();
 	}
 
 	/** Runs {@code action} with the rule suspended on this thread (operator {@code force} grants). */

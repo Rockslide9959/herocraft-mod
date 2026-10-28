@@ -84,6 +84,12 @@ public final class AbilityRouter {
 			return;
 		}
 
+		// v0.17.1: the Omnitrix -- the watch locks every other power out, so its wearer's keys are always its own
+		if (com.projecthero.mod.omnitrix.OmnitrixAbilityManager.hasContext(player)) {
+			com.projecthero.mod.omnitrix.OmnitrixAbilityManager.handle(player, slot, pressed);
+			return;
+		}
+
 		// The Hulk (v0.13.12): while he is out, the six keys are his, whatever second power the player holds.
 		if (com.projecthero.mod.hulk.Hulk.isHulk(player)) {
 			com.projecthero.mod.hulk.HulkAbilityManager.handle(player, slot, pressed);
@@ -363,6 +369,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.silversurfer.SilverSurfer.tick(player);
 		// v0.17.1: the Speed Force Speedster -- momentum, the Speed Force, passives, the running moves (and the awakening watch)
 		com.projecthero.mod.speedforce.SpeedForceSpeedster.tick(player);
+		// v0.17.1: the Omnitrix -- the 3-minute timer, the recharge, the alien kit's running moves
+		com.projecthero.mod.omnitrix.Omnitrix.tick(player);
 		// v0.16.5: Blue Beetle -- Scarab Energy, the wings, Adaptation clock, the running moves
 		com.projecthero.mod.bluebeetle.BlueBeetle.tick(player);
 		// v0.13.19: Moon Knight -- Vengeance drain, the Fracture, Khonshu's Resurrection recharge, the suit
