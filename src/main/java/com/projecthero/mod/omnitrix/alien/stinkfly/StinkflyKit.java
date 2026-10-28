@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -24,7 +25,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -59,12 +60,34 @@ public final class StinkflyKit extends AlienKit {
 	public static final int COLOUR = 0x9BCB3F;
 	public static final int GOO = 0xB8E04A;
 
-	public static final SoundEvent BUZZ = AlienStatus.sound("stinkfly_buzz");
-	public static final SoundEvent SPIT = AlienStatus.sound("stinkfly_spit");
-	public static final SoundEvent SPLAT = AlienStatus.sound("stinkfly_splat");
-	public static final SoundEvent GAS = AlienStatus.sound("stinkfly_gas");
-	public static final SoundEvent STING = AlienStatus.sound("stinkfly_sting");
-	public static final SoundEvent DIVE = AlienStatus.sound("stinkfly_dive");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** The wings: an insect buzz (the flying loop plays it quietly every 16 ticks). */
+	public static final OmnitrixSfx.Cue BUZZ = OmnitrixSfx.cue("stinkfly_buzz")
+			.layer(SoundEvents.BEE_POLLINATE, 0.4f, 0.8f)
+			.layer(SoundEvents.PHANTOM_FLAP, 0.18f, 1.8f)
+			.jitter(0.08f).gap(6);
+	/** Slime spat: a wet spit. */
+	public static final OmnitrixSfx.Cue SPIT = OmnitrixSfx.cue("stinkfly_spit")
+			.layer(SoundEvents.LLAMA_SPIT, 0.45f, 1.0f)
+			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.3f, 1.2f);
+	/** Slime landing: a wet splat. */
+	public static final OmnitrixSfx.Cue SPLAT = OmnitrixSfx.cue("stinkfly_splat")
+			.layer(SoundEvents.SLIME_SQUISH, 0.45f, 0.9f)
+			.layer(SoundEvents.HONEY_BLOCK_FALL, 0.3f, 0.8f)
+			.gap(3);
+	/** A stink cloud: a hiss and a bubbling. */
+	public static final OmnitrixSfx.Cue GAS = OmnitrixSfx.cue("stinkfly_gas")
+			.layer(SoundEvents.FIRE_EXTINGUISH, 0.3f, 0.5f)
+			.layer(SoundEvents.BREWING_STAND_BREW, 0.3f, 0.6f)
+			.layer(SoundEvents.SLIME_SQUISH, 0.2f, 0.6f);
+	public static final OmnitrixSfx.Cue STING = OmnitrixSfx.cue("stinkfly_sting")
+			.layer(SoundEvents.BEE_STING, 0.45f, 0.8f)
+			.layer(SoundEvents.PLAYER_ATTACK_WEAK, 0.3f, 1.2f);
+	/** A dive: the wings revving into a rush. */
+	public static final OmnitrixSfx.Cue DIVE = OmnitrixSfx.cue("stinkfly_dive")
+			.layer(SoundEvents.BEE_POLLINATE, 0.45f, 1.1f)
+			.layer(SoundEvents.WIND_CHARGE_THROW, 0.3f, 1.0f)
+			.layer(SoundEvents.PHANTOM_FLAP, 0.25f, 1.4f);
 
 	public static final int ANIM_SHOT = 1;
 	public static final int ANIM_NET = 2;

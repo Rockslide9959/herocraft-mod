@@ -20,8 +20,6 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -143,7 +141,7 @@ public final class Omnitrix {
 		if (last == null || now - last >= 20 || now < last) {
 			LAST_REJECT.put(p.getUUID(), now);
 			p.displayClientMessage(rejectMessage(), false);
-			p.level().playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.DIAL, SoundSource.PLAYERS, 0.8f, 0.6f);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 		}
 	}
 
@@ -171,8 +169,7 @@ public final class Omnitrix {
 		Vec3 c = p.position().add(0, 1.0, 0);
 		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		level.sendParticles(GREEN, c.x, c.y, c.z, 30, 0.6, 0.9, 0.6, 0.0);
-		level.playSound(null, c.x, c.y, c.z, OmnitrixSounds.SLAP, SoundSource.PLAYERS, 1.0f, 0.8f);
-		level.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 0.8f, 1.6f);
+		OmnitrixSounds.play(level, c, OmnitrixSounds.GRANT, 1.0f, 1.0f);
 		p.connection.send(new ClientboundSetTitlesAnimationPacket(6, 60, 20));
 		p.connection.send(new ClientboundSetSubtitleTextPacket(
 				Component.translatable("message.projecthero.omnitrix.subtitle").withStyle(ChatFormatting.GRAY)));
@@ -216,7 +213,7 @@ public final class Omnitrix {
 		if (now < s.rechargeUntil) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharging",
 					(s.rechargeUntil - now + 19) / 20).withStyle(ChatFormatting.RED), true);
-			p.playNotifySound(OmnitrixSounds.DIAL, SoundSource.PLAYERS, 0.7f, 0.5f);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
 		}
 		AlienKit kit = Aliens.kit(s.selected);
@@ -240,7 +237,7 @@ public final class Omnitrix {
 		n.timers.remove(SLAP_TIMER);
 		save(p, n);
 		OmnitrixBody.apply(p, kit.stats(), frac);
-		helixFx(p, false);
+		helixFx(p, OmnitrixSounds.TRANSFORM);
 		kit.onTransform(p);
 		Aliens.Alien a = Aliens.byId(kit.id());
 		p.displayClientMessage(Component.translatable(a.nameKey()).withStyle(st -> st.withColor(a.colour()).withBold(true)), true);
@@ -280,7 +277,7 @@ public final class Omnitrix {
 		if (reason == Reason.DEATH || reason == Reason.LOGOUT) {
 			return;
 		}
-		helixFx(p, reason == Reason.TIMEOUT);
+		helixFx(p, reason == Reason.TIMEOUT ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
 		if (reason == Reason.TIMEOUT) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
 					true);
@@ -307,7 +304,7 @@ public final class Omnitrix {
 			save(p, n);
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharging",
 					(s.rechargeUntil - now + 19) / 20).withStyle(ChatFormatting.RED), true);
-			p.playNotifySound(OmnitrixSounds.WARNING, SoundSource.PLAYERS, 0.8f, 0.5f);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
 			return false;
 		}
 		if (extracting(p)) {
@@ -326,7 +323,7 @@ public final class Omnitrix {
 		n.selectStart = now;
 		n.timers.remove(SLAP_TIMER);
 		save(p, n);
-		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.CORE_UP, SoundSource.PLAYERS, 0.9f, 1.0f);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.0f);
 		showSelected(p, n.selected);
 		return true;
 	}
@@ -342,7 +339,7 @@ public final class Omnitrix {
 		n.selectStart = p.level().getGameTime();
 		n.timers.remove(SLAP_TIMER);
 		save(p, n);
-		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.CORE_DOWN, SoundSource.PLAYERS, 0.8f, 1.0f);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_DOWN, 1.0f, 1.0f);
 		return true;
 	}
 
@@ -365,7 +362,7 @@ public final class Omnitrix {
 		n.animId = ANIM_TURN;
 		n.animStart = p.level().getGameTime();
 		save(p, n);
-		p.playNotifySound(OmnitrixSounds.DIAL, SoundSource.PLAYERS, 0.8f, dir > 0 ? 1.15f : 0.95f);
+		OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, dir > 0 ? 1.1f : 0.95f);
 		showSelected(p, next);
 		return true;
 	}
@@ -388,7 +385,7 @@ public final class Omnitrix {
 		n.animStart = now;
 		n.timers.put(SLAP_TIMER, now + SLAP_TICKS);
 		save(p, n);
-		p.level().playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.SLAP, SoundSource.PLAYERS, 1.0f, 1.0f);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SLAP, 1.0f, 1.0f);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		return true;
 	}
@@ -425,7 +422,7 @@ public final class Omnitrix {
 			n.selected = alienId;
 			save(p, n);
 		}
-		p.playNotifySound(OmnitrixSounds.SELECT, SoundSource.PLAYERS, 0.8f, 1.0f);
+		OmnitrixSounds.notify(p, OmnitrixSounds.SELECT);
 		return true;
 	}
 
@@ -435,18 +432,18 @@ public final class Omnitrix {
 		n.flicker = alienId;
 		n.flickerUntil = p.level().getGameTime() + ticks;
 		save(p, n);
-		helixFx(p, true);
+		helixFx(p, OmnitrixSounds.FLICKER);
 	}
 
-	/** The green (or, timing out, red) helix flash: server particles + a sound; the client draws the strands from the anim. */
-	private static void helixFx(ServerPlayer p, boolean red) {
+	/**
+	 * The helix flash: server particles + a sound (v0.17.1: the transform sweep, Shift+V's wind-down, the timeout's red
+	 * power-down or the pod's flicker); the client draws the strands from the anim.
+	 */
+	private static void helixFx(ServerPlayer p, OmnitrixSfx.Cue sound) {
 		ServerLevel level = p.serverLevel();
 		double h = p.getBbHeight();
 		level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + h * 0.5, p.getZ(), 1, 0, 0, 0, 0);
-		level.playSound(null, p.getX(), p.getY(), p.getZ(), red ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.TRANSFORM, SoundSource.PLAYERS, 1.0f, 1.0f);
-		if (!red) {
-			level.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.SLAP, SoundSource.PLAYERS, 0.9f, 1.0f);
-		}
+		OmnitrixSounds.play(level, p.position(), sound, 1.0f, 1.0f);
 	}
 
 	// ---------------------------------------------------------------- tick
@@ -485,15 +482,16 @@ public final class Omnitrix {
 				return;
 			}
 			long left = s.endsAt - now;
-			if (left <= OmnitrixConfig.WARN_TICKS && left % 20 == 0) {
-				p.playNotifySound(OmnitrixSounds.WARNING, SoundSource.PLAYERS, 0.6f, 1.0f + 0.6f * (1f - left / (float) OmnitrixConfig.WARN_TICKS));
+			// v0.17.1: the soft blip once a second, twice a second in the last five; the pitch only creeps up (was a 1.0-1.6 climb)
+			if (left <= OmnitrixConfig.WARN_TICKS && (left % 20 == 0 || (left <= 100 && left % 10 == 0))) {
+				OmnitrixSounds.notify(p, OmnitrixSounds.WARNING, 1.0f + 0.3f * (1f - left / (float) OmnitrixConfig.WARN_TICKS));
 			}
 			kit.tick(p, state(p), now);
 		} else if (s.rechargeUntil > 0L && now >= s.rechargeUntil) {
 			OmnitrixState n = s.copy();
 			n.rechargeUntil = 0L;
 			save(p, n);
-			p.playNotifySound(OmnitrixSounds.RECHARGED, SoundSource.PLAYERS, 0.8f, 1.0f);
+			OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharged").withStyle(ChatFormatting.GREEN), true);
 		}
 		OmnitrixState cur = state(p);

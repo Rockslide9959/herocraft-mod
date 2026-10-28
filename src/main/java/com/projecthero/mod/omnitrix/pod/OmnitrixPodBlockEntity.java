@@ -150,8 +150,8 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		nextFlicker = now + 100 + server.random.nextInt(60);
 		p.setAttached(OmnitrixAttachments.EXTRACTION, 0);
 		Vec3 c = centre();
-		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 1.2f, 0.6f);
-		server.playSound(null, c.x, c.y, c.z, OmnitrixSounds.SELF_DESTRUCT, SoundSource.BLOCKS, 1.2f, 1.0f);
+		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.6f, 0.6f);
+		OmnitrixSounds.play(server, c, OmnitrixSounds.SELF_DESTRUCT, 1.0f, 1.0f, SoundSource.BLOCKS);
 		p.displayClientMessage(msg("start", ChatFormatting.RED).withStyle(ChatFormatting.BOLD), false);
 		setChanged();
 		sync();
@@ -191,7 +191,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 			nextPulse++;
 			p.invulnerableTime = 0;
 			p.hurt(OmnitrixDamage.extraction(server), dmg);
-			server.playSound(null, c.x, c.y + 1, c.z, OmnitrixSounds.EXTRACT_PULSE, SoundSource.BLOCKS, 0.9f, 0.8f + server.random.nextFloat() * 0.4f);
+			OmnitrixSounds.play(server, c.add(0, 1, 0), OmnitrixSounds.EXTRACT_PULSE, 1.0f, 0.9f + server.random.nextFloat() * 0.2f, SoundSource.BLOCKS);
 			server.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 14, 0.35, 0.6, 0.35, 0.2);
 			if (p.isDeadOrDying()) {
 				fail(p, "failed_death");
@@ -203,7 +203,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 			nextSurge = now + 70 + server.random.nextInt(60);
 			p.push((server.random.nextDouble() - 0.5) * 0.12, 0.45, (server.random.nextDouble() - 0.5) * 0.12);
 			p.hurtMarked = true;
-			server.playSound(null, c.x, c.y + 1, c.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.BLOCKS, 0.5f, 1.8f);
+			server.playSound(null, c.x, c.y + 1, c.z, SoundEvents.TRIDENT_THUNDER.value(), SoundSource.BLOCKS, 0.3f, 1.8f);
 			server.sendParticles(GREEN, c.x, c.y + 1, c.z, 40, 0.4, 0.9, 0.4, 0.0);
 			com.projecthero.mod.quirk.fx.QuirkCamera.shakeAround(server, p.position(), 6, 0.6f, 12);
 		}
@@ -222,7 +222,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 			p.hurtMarked = true;
 		}
 		if (ticks % 40 == 0) {
-			server.playSound(null, c.x, c.y + 1, c.z, OmnitrixSounds.SELF_DESTRUCT, SoundSource.BLOCKS, 0.9f, 1.0f + ticks / 1600f);
+			OmnitrixSounds.play(server, c.add(0, 1, 0), OmnitrixSounds.SELF_DESTRUCT, 1.0f, 1.0f + ticks / 3200f, SoundSource.BLOCKS);
 		}
 		if (ticks % 2 == 0) {
 			for (int k = 0; k < 2; k++) {
@@ -246,8 +246,8 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		item.setGlowingTag(true);
 		server.addFreshEntity(item);
 		OmnitrixWorld.markLoose(server.getServer());
-		server.playSound(null, c.x, c.y, c.z, OmnitrixSounds.EXTRACT_DONE, SoundSource.BLOCKS, 1.4f, 1.0f);
-		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 0.8f);
+		OmnitrixSounds.play(server, c, OmnitrixSounds.EXTRACT_DONE, 1.2f, 1.0f, SoundSource.BLOCKS);
+		server.playSound(null, c.x, c.y, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.6f, 0.8f);
 		server.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
 		server.sendParticles(GREEN, c.x, c.y, c.z, 80, 0.6, 0.6, 0.6, 0.0);
 		p.displayClientMessage(msg("success", ChatFormatting.GREEN).withStyle(ChatFormatting.BOLD), false);
@@ -260,7 +260,7 @@ public class OmnitrixPodBlockEntity extends BlockEntity {
 		}
 		if (level instanceof ServerLevel server) {
 			Vec3 c = centre();
-			server.playSound(null, c.x, c.y + 1, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 1.0f, 0.6f);
+			server.playSound(null, c.x, c.y + 1, c.z, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.6f, 0.6f);
 			server.sendParticles(RED, c.x, c.y + 1, c.z, 40, 0.4, 0.8, 0.4, 0.0);
 		}
 		reset(p);

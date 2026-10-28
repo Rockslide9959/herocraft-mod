@@ -75,6 +75,7 @@ public final class OmnitrixMod {
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(OmnitrixMeteors::tick);
+		ServerTickEvents.END_SERVER_TICK.register(OmnitrixSfx::tick); // v0.17.1: the sound recipes' delayed layers
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
 			if (entity instanceof ServerPlayer p && Omnitrix.hasPower(p)) {
 				Omnitrix.onDeath(p);
@@ -140,6 +141,7 @@ public final class OmnitrixMod {
 	public static void clearSessionState() {
 		Omnitrix.clearSessionState();
 		OmnitrixMeteors.clearSessionState();
+		OmnitrixSfx.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.clearSessionState();

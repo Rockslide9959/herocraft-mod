@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -29,7 +30,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -71,12 +72,36 @@ public final class WildvineKit extends AlienKit {
 	public static final int COLOUR = 0x4A9A2A;
 	public static final int PINK = 0xF070B8;
 
-	public static final SoundEvent VINE = AlienStatus.sound("wildvine_vine");
-	public static final SoundEvent SEED = AlienStatus.sound("wildvine_seed");
-	public static final SoundEvent BURST = AlienStatus.sound("wildvine_burst");
-	public static final SoundEvent ROOTS = AlienStatus.sound("wildvine_roots");
-	public static final SoundEvent BLOOM = AlienStatus.sound("wildvine_bloom");
-	public static final SoundEvent RUSTLE = AlienStatus.sound("wildvine_rustle");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** A vine lash: a leafy creak and a whip. */
+	public static final OmnitrixSfx.Cue VINE = OmnitrixSfx.cue("wildvine_vine")
+			.layer(SoundEvents.CAVE_VINES_PLACE, 0.45f, 0.8f)
+			.layer(SoundEvents.FISHING_BOBBER_THROW, 0.3f, 0.6f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.25f, 0.8f);
+	/** A seed thrown: a soft rustle and a pop. */
+	public static final OmnitrixSfx.Cue SEED = OmnitrixSfx.cue("wildvine_seed")
+			.layer(SoundEvents.CROP_PLANTED, 0.4f, 1.4f)
+			.layer(SoundEvents.CHICKEN_EGG, 0.35f, 1.1f, 1);
+	/** A seed pod bursting: a leafy pop. */
+	public static final OmnitrixSfx.Cue BURST = OmnitrixSfx.cue("wildvine_burst")
+			.layer(SoundEvents.AZALEA_LEAVES_BREAK, 0.5f, 0.8f)
+			.layer(SoundEvents.GENERIC_EXPLODE, 0.18f, 1.7f)
+			.layer(SoundEvents.CROP_PLANTED, 0.3f, 1.0f);
+	/** Roots erupting: cracking wood and torn earth. */
+	public static final OmnitrixSfx.Cue ROOTS = OmnitrixSfx.cue("wildvine_roots")
+			.layer(SoundEvents.ROOTS_BREAK, 0.5f, 0.7f)
+			.layer(SoundEvents.ROOTED_DIRT_BREAK, 0.45f, 0.6f)
+			.layer(SoundEvents.BAMBOO_BREAK, 0.3f, 0.6f, 1);
+	/** A bloom: soft leafy unfurling. */
+	public static final OmnitrixSfx.Cue BLOOM = OmnitrixSfx.cue("wildvine_bloom")
+			.layer(SoundEvents.FLOWERING_AZALEA_PLACE, 0.4f, 1.1f)
+			.layer(SoundEvents.SPORE_BLOSSOM_PLACE, 0.35f, 1.0f)
+			.layer(SoundEvents.BIG_DRIPLEAF_TILT_UP, 0.25f, 0.9f);
+	/** Leaves rustling (the bush disguise). */
+	public static final OmnitrixSfx.Cue RUSTLE = OmnitrixSfx.cue("wildvine_rustle")
+			.layer(SoundEvents.AZALEA_LEAVES_STEP, 0.4f, 1.0f)
+			.layer(SoundEvents.GRASS_STEP, 0.3f, 0.9f)
+			.gap(8);
 
 	public static final int ANIM_SEED = 1;
 	public static final int ANIM_WHIP = 2;

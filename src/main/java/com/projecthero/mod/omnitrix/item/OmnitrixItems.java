@@ -15,8 +15,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
@@ -126,8 +124,7 @@ public final class OmnitrixItems {
 				sp.getCooldowns().addCooldown(this, 20);
 				return InteractionResultHolder.fail(stack);
 			}
-			level.playSound(null, sp.getX(), sp.getY(), sp.getZ(), SoundEvents.BEACON_POWER_SELECT, SoundSource.PLAYERS, 1.0f, 1.8f);
-			level.playSound(null, sp.getX(), sp.getY(), sp.getZ(), OmnitrixSounds.WARNING, SoundSource.PLAYERS, 1.0f, 1.2f);
+			OmnitrixSounds.play(sp.serverLevel(), sp.position(), OmnitrixSounds.SCANNER, 1.0f, 1.0f);
 			sp.displayClientMessage(Component.translatable("message.projecthero.meteor_scanner.found",
 					(int) Math.round(at.distanceTo(sp.position()))).withStyle(ChatFormatting.GREEN), true);
 			if (!sp.getAbilities().instabuild) {

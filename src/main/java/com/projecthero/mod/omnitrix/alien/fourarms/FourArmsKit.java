@@ -24,8 +24,6 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -598,7 +596,7 @@ public final class FourArmsKit extends AlienKit {
 		PowerToggles.modifier(p, Attributes.KNOCKBACK_RESISTANCE, STANCE_KB, 1.0, AttributeModifier.Operation.ADD_VALUE);
 		ServerLevel l = level(p);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB0A090).size(2f).thickness(0.6f).life(10).ground().spawn();
-		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.ANVIL_LAND, SoundSource.PLAYERS, 0.6f, 0.6f);
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_STANCE, 1.0f, 1.0f);
 		return true;
 	}
 

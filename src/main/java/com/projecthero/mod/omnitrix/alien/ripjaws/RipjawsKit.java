@@ -8,11 +8,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
 import com.projecthero.mod.omnitrix.alien.AlienStats;
-import com.projecthero.mod.omnitrix.alien.AlienStatus;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.quirk.fx.QuirkCamera;
@@ -27,7 +27,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
@@ -69,12 +69,36 @@ public final class RipjawsKit extends AlienKit {
 	public static final String ID = "ripjaws";
 	public static final int COLOUR = 0x7A98A4;
 
-	public static final SoundEvent BITE_SOUND = AlienStatus.sound("ripjaws_bite");
-	public static final SoundEvent ROAR = AlienStatus.sound("ripjaws_roar");
-	public static final SoundEvent SPLASH = AlienStatus.sound("ripjaws_splash");
-	public static final SoundEvent SLAM = AlienStatus.sound("ripjaws_slam");
-	public static final SoundEvent GASP = AlienStatus.sound("ripjaws_gasp");
-	public static final SoundEvent WHIRL = AlienStatus.sound("ripjaws_whirl");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** The chomp: a jaw snap and a meaty hit. */
+	public static final OmnitrixSfx.Cue BITE_SOUND = OmnitrixSfx.cue("ripjaws_bite")
+			.layer(SoundEvents.EVOKER_FANGS_ATTACK, 0.45f, 1.1f)
+			.layer(SoundEvents.PLAYER_ATTACK_STRONG, 0.3f, 0.8f);
+	/** A wet, low growl. */
+	public static final OmnitrixSfx.Cue ROAR = OmnitrixSfx.cue("ripjaws_roar")
+			.layer(SoundEvents.POLAR_BEAR_WARNING, 0.4f, 0.8f)
+			.layer(SoundEvents.DROWNED_AMBIENT, 0.35f, 0.6f)
+			.gap(10);
+	public static final OmnitrixSfx.Cue SPLASH = OmnitrixSfx.cue("ripjaws_splash")
+			.layer(SoundEvents.GENERIC_SPLASH, 0.45f, 1.0f)
+			.layer(SoundEvents.PLAYER_SPLASH, 0.22f, 0.9f)
+			.gap(4);
+	/** A body slam into water / ground: a heavy splash and a thud. */
+	public static final OmnitrixSfx.Cue SLAM = OmnitrixSfx.cue("ripjaws_slam")
+			.layer(SoundEvents.GENERIC_SPLASH, 0.55f, 0.7f)
+			.layer(SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.35f, 0.6f)
+			.layer(SoundEvents.GENERIC_EXPLODE, 0.2f, 1.4f);
+	/** Out of water too long: a fishy flop and a choked gasp. */
+	public static final OmnitrixSfx.Cue GASP = OmnitrixSfx.cue("ripjaws_gasp")
+			.layer(SoundEvents.GUARDIAN_FLOP, 0.45f, 1.0f)
+			.layer(SoundEvents.DROWNED_HURT, 0.25f, 0.8f)
+			.gap(10);
+	/** A whirlpool churning. */
+	public static final OmnitrixSfx.Cue WHIRL = OmnitrixSfx.cue("ripjaws_whirl")
+			.layer(SoundEvents.BUBBLE_COLUMN_WHIRLPOOL_INSIDE, 0.45f, 0.9f)
+			.layer(SoundEvents.GENERIC_SWIM, 0.35f, 0.8f)
+			.layer(SoundEvents.TRIDENT_RIPTIDE_2, 0.22f, 0.8f)
+			.gap(10);
 
 	public static final int ANIM_BITE = 1;
 	public static final int ANIM_LUNGE = 2;

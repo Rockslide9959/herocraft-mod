@@ -1,3 +1,6 @@
+// SUPERSEDED by the v0.17.1 Omnitrix sound rework (docs/OMNITRIX_SOUNDS_0171.md): the alien / watch sounds are now
+// OmnitrixSfx recipes built from vanilla samples, and the few synthesised files left come from synth_omnitrix_v2_sounds.js.
+// Do NOT run this script: it would recreate deleted, unregistered files (or overwrite the new ones with the old tonal versions).
 // v0.17.1 Omnitrix wave A: XLR8's, Diamondhead's, Upgrade's and Ghostfreak's sounds, synthesised the same way as
 // synth_omnitrix_sounds.js (filtered noise and sines, 44.1 kHz mono WAV -> OGG Vorbis through an ffmpeg with libvorbis:
 // %LOCALAPPDATA%\Medal\recorder-*\ffmpeg7.exe). The helpers are copied so the two scripts never collide.

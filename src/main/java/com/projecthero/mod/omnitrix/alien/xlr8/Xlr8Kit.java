@@ -8,9 +8,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -24,15 +24,13 @@ import com.projecthero.mod.quirk.fx.QuirkFx;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Registry;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -123,11 +121,31 @@ public final class Xlr8Kit extends AlienKit {
 	public static final float JAB_EXTRA = 1.5f;
 	public static final double SPRINT_BONUS = 0.5;
 
-	public static final SoundEvent SND_DASH = sound("xlr8_dash");
-	public static final SoundEvent SND_HIT = sound("xlr8_hit");
-	public static final SoundEvent SND_TORNADO = sound("xlr8_tornado");
-	public static final SoundEvent SND_BURST = sound("xlr8_burst");
-	public static final SoundEvent SND_VISOR = sound("xlr8_visor");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** A dash: a zip and a wind rush. */
+	public static final OmnitrixSfx.Cue SND_DASH = OmnitrixSfx.cue("xlr8_dash")
+			.layer(SoundEvents.WIND_CHARGE_THROW, 0.35f, 1.4f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.3f, 1.6f)
+			.layer(SoundEvents.BREEZE_JUMP, 0.25f, 1.6f);
+	/** One blow of a flurry (the flurry calls it every other tick; the gap keeps it to ~7 a second). */
+	public static final OmnitrixSfx.Cue SND_HIT = OmnitrixSfx.cue("xlr8_hit")
+			.layer(SoundEvents.PLAYER_ATTACK_WEAK, 0.35f, 1.3f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.12f, 1.9f)
+			.jitter(0.1f).gap(3);
+	/** A tornado: a swirling wind. */
+	public static final OmnitrixSfx.Cue SND_TORNADO = OmnitrixSfx.cue("xlr8_tornado")
+			.layer(SoundEvents.BREEZE_WHIRL, 0.5f, 0.8f)
+			.layer(SoundEvents.BREEZE_INHALE, 0.3f, 0.7f)
+			.gap(10);
+	/** The sonic burst: a wind-charge boom and a rush. */
+	public static final OmnitrixSfx.Cue SND_BURST = OmnitrixSfx.cue("xlr8_burst")
+			.layer(SoundEvents.WIND_CHARGE_BURST, 0.55f, 0.8f)
+			.layer(SoundEvents.BREEZE_SHOOT, 0.35f, 0.6f)
+			.layer(SoundEvents.GENERIC_EXPLODE, 0.15f, 1.7f);
+	/** The visor snapping down / up. */
+	public static final OmnitrixSfx.Cue SND_VISOR = OmnitrixSfx.cue("xlr8_visor")
+			.layer(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.3f, 1.8f)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.25f, 1.2f);
 
 	private static final ResourceLocation SPRINT_ID = PowerToggles.id("omnitrix_xlr8_sprint");
 	private static final ResourceLocation ATTACK_SPEED_ID = PowerToggles.id("omnitrix_xlr8_attack_speed");
@@ -141,11 +159,6 @@ public final class Xlr8Kit extends AlienKit {
 	}
 
 	private Xlr8Kit() {
-	}
-
-	private static SoundEvent sound(String path) {
-		ResourceLocation id = ProjectHeroMod.id(path);
-		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
 	}
 
 	public static void register() {

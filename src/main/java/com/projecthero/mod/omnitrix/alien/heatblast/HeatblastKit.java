@@ -229,7 +229,7 @@ public final class HeatblastKit extends AlienKit {
 			if (p.getAbilities().flying && p.tickCount % 2 == 0) {
 				l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() - 0.1, p.getZ(), 3, 0.12, 0.05, 0.12, 0.02);
 				if (p.tickCount % 20 == 0) {
-					l.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.HEATBLAST_JET, SoundSource.PLAYERS, 0.35f, 1.0f);
+					OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_JET_LOOP, 1.0f, 1.0f);
 				}
 			}
 			if (p.isInWaterOrBubble()) {

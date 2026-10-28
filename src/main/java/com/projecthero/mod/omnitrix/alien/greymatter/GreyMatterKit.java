@@ -13,6 +13,7 @@ import org.joml.Vector3f;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.network.MoonKnightScholarSightPayload;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -36,7 +37,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.InteractionHand;
@@ -85,12 +86,41 @@ public final class GreyMatterKit extends AlienKit {
 	public static final String ID = "grey_matter";
 	public static final int COLOUR = 0xA6ACB4;
 
-	public static final SoundEvent PINCH = AlienStatus.sound("grey_matter_pinch");
-	public static final SoundEvent SCAN = AlienStatus.sound("grey_matter_scan");
-	public static final SoundEvent GADGET = AlienStatus.sound("grey_matter_gadget");
-	public static final SoundEvent LEAP = AlienStatus.sound("grey_matter_leap");
-	public static final SoundEvent REPAIR = AlienStatus.sound("grey_matter_repair");
-	public static final SoundEvent THINK = AlienStatus.sound("grey_matter_think");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** A tiny, quick pinch / bite. */
+	public static final OmnitrixSfx.Cue PINCH = OmnitrixSfx.cue("grey_matter_pinch")
+			.layer(SoundEvents.PLAYER_ATTACK_WEAK, 0.35f, 1.6f)
+			.layer(SoundEvents.SILVERFISH_HURT, 0.22f, 1.4f);
+	/** Sizing something up: a click, a page flick and a light zap. */
+	public static final OmnitrixSfx.Cue SCAN = OmnitrixSfx.cue("grey_matter_scan")
+			.layer(SoundEvents.LEVER_CLICK, 0.2f, 1.9f)
+			.layer(SoundEvents.BOOK_PAGE_TURN, 0.25f, 1.5f)
+			.layer(OmnitrixSounds.SWEEP, 0.12f, 2.0f, 1);
+	/** A gadget snapping together, a light zap. */
+	public static final OmnitrixSfx.Cue GADGET = OmnitrixSfx.cue("grey_matter_gadget")
+			.layer(SoundEvents.CRAFTER_CRAFT, 0.35f, 1.5f)
+			.layer(SoundEvents.LEVER_CLICK, 0.2f, 1.6f)
+			.layer(OmnitrixSounds.SWEEP, 0.15f, 1.9f, 2)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.25f, 1.4f, 2);
+	/** A little leap: tiny quick scurries. */
+	public static final OmnitrixSfx.Cue LEAP = OmnitrixSfx.cue("grey_matter_leap")
+			.layer(SoundEvents.SILVERFISH_STEP, 0.35f, 1.6f)
+			.layer(SoundEvents.RABBIT_JUMP, 0.35f, 1.4f);
+	/** Tinkering a repair: small clinks, a click, a spark. */
+	public static final OmnitrixSfx.Cue REPAIR = OmnitrixSfx.cue("grey_matter_repair")
+			.layer(SoundEvents.SMITHING_TABLE_USE, 0.22f, 1.7f)
+			.layer(SoundEvents.CRAFTER_CRAFT, 0.25f, 1.8f, 3)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.2f, 1.5f, 5);
+	/** Thinking: a squeak, a click, a page. */
+	public static final OmnitrixSfx.Cue THINK = OmnitrixSfx.cue("grey_matter_think")
+			.layer(SoundEvents.SILVERFISH_AMBIENT, 0.28f, 1.5f)
+			.layer(SoundEvents.LEVER_CLICK, 0.15f, 2.0f)
+			.layer(SoundEvents.BOOK_PAGE_TURN, 0.2f, 1.6f, 3);
+	/** The decoy's lure (every half second): a soft tick and a squeak (was a note-block bit beep). */
+	public static final OmnitrixSfx.Cue DECOY_SOUND = OmnitrixSfx.cue("grey_matter_decoy")
+			.layer(SoundEvents.TRIPWIRE_CLICK_ON, 0.16f, 1.7f)
+			.layer(SoundEvents.SILVERFISH_AMBIENT, 0.12f, 1.6f)
+			.gap(8);
 
 	public static final int ANIM_PINCH = 1;
 	public static final int ANIM_STRIKE = 2;
@@ -314,8 +344,7 @@ public final class GreyMatterKit extends AlienKit {
 			} else {
 				if (now % 10 == 0) {
 					l.sendParticles(LIGHT_DUST, d.at().x, d.at().y + 0.25, d.at().z, 2, 0.05, 0.05, 0.05, 0);
-					l.playSound(null, d.at().x, d.at().y, d.at().z, net.minecraft.sounds.SoundEvents.NOTE_BLOCK_BIT.value(),
-							net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, (now / 10) % 2 == 0 ? 1.6f : 1.2f);
+					OmnitrixSounds.play(l, d.at(), DECOY_SOUND, 1.0f, (now / 10) % 2 == 0 ? 1.15f : 0.9f);
 				}
 				if (now % 5 == 0) {
 					for (Mob m : l.getEntitiesOfClass(Mob.class, new AABB(d.at(), d.at()).inflate(14), m -> m.isAlive() && !AlienStatus.isBoss(m))) {

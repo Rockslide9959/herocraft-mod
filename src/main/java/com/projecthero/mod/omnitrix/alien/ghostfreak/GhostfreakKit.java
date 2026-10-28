@@ -9,9 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.OmnitrixDamage;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -25,16 +25,13 @@ import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -122,11 +119,35 @@ public final class GhostfreakKit extends AlienKit {
 	public static final float SUN_DAMAGE = 1f;
 	public static final float FLY_SPEED = 0.035f;
 
-	public static final SoundEvent SND_CLAW = sound("ghostfreak_claw");
-	public static final SoundEvent SND_SCREAM = sound("ghostfreak_scream");
-	public static final SoundEvent SND_PHASE = sound("ghostfreak_phase");
-	public static final SoundEvent SND_LAUGH = sound("ghostfreak_laugh");
-	public static final SoundEvent SND_TENDRIL = sound("ghostfreak_tendril");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** A claw swipe with a ghostly breath behind it. */
+	public static final OmnitrixSfx.Cue SND_CLAW = OmnitrixSfx.cue("ghostfreak_claw")
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.35f, 1.1f)
+			.layer(SoundEvents.PHANTOM_BITE, 0.3f, 1.2f)
+			.layer(SoundEvents.SOUL_ESCAPE, 0.25f, 1.0f);
+	/** The scream: a low moan and a rushing breath (no shriek). */
+	public static final OmnitrixSfx.Cue SND_SCREAM = OmnitrixSfx.cue("ghostfreak_scream")
+			.layer(SoundEvents.PHANTOM_AMBIENT, 0.45f, 0.6f)
+			.layer(SoundEvents.VEX_CHARGE, 0.3f, 0.7f)
+			.layer(SoundEvents.SOUL_ESCAPE, 0.5f, 0.6f)
+			.gap(10);
+	/** Phasing: a breathy ghostly whoosh. */
+	public static final OmnitrixSfx.Cue SND_PHASE = OmnitrixSfx.cue("ghostfreak_phase")
+			.layer(SoundEvents.SOUL_ESCAPE, 0.5f, 0.8f)
+			.layer(SoundEvents.PHANTOM_FLAP, 0.25f, 0.6f)
+			.layer(SoundEvents.BREEZE_INHALE, 0.2f, 0.6f);
+	/** The laugh: a low, slowed moan with a whisper on it. */
+	public static final OmnitrixSfx.Cue SND_LAUGH = OmnitrixSfx.cue("ghostfreak_laugh")
+			.layer(SoundEvents.PHANTOM_AMBIENT, 0.4f, 0.55f)
+			.layer(SoundEvents.SOUL_ESCAPE, 0.4f, 0.6f)
+			.layer(SoundEvents.VEX_AMBIENT, 0.22f, 0.5f, 3)
+			.gap(10);
+	/** A tendril lashing out: a wet whoosh. */
+	public static final OmnitrixSfx.Cue SND_TENDRIL = OmnitrixSfx.cue("ghostfreak_tendril")
+			.layer(SoundEvents.PHANTOM_FLAP, 0.3f, 0.7f)
+			.layer(SoundEvents.VEX_CHARGE, 0.22f, 0.6f)
+			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.15f, 0.6f)
+			.gap(3);
 
 	static final DustParticleOptions WISP = new DustParticleOptions(new Vector3f(0.85f, 0.88f, 0.9f), 1.0f);
 	static final DustParticleOptions VIOLET = new DustParticleOptions(new Vector3f(0.62f, 0.25f, 1.0f), 0.9f);
@@ -145,11 +166,6 @@ public final class GhostfreakKit extends AlienKit {
 	}
 
 	private GhostfreakKit() {
-	}
-
-	private static SoundEvent sound(String path) {
-		ResourceLocation id = ProjectHeroMod.id(path);
-		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
 	}
 
 	public static void register() {

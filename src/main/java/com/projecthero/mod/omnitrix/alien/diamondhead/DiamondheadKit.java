@@ -9,10 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.joml.Vector3f;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
 import com.projecthero.mod.hero.power.TempBlocks;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -24,16 +24,14 @@ import com.projecthero.mod.quirk.fx.QuirkCamera;
 import com.projecthero.mod.quirk.fx.QuirkFx;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
@@ -111,10 +109,28 @@ public final class DiamondheadKit extends AlienKit {
 	/** The passive: the share of incoming projectiles that glance back. */
 	public static final float REFLECT_CHANCE = 0.4f;
 
-	public static final SoundEvent SND_SHARD = sound("diamondhead_shard");
-	public static final SoundEvent SND_GROW = sound("diamondhead_grow");
-	public static final SoundEvent SND_SHATTER = sound("diamondhead_shatter");
-	public static final SoundEvent SND_BLADE = sound("diamondhead_blade");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** A crystal shard flung: a quick whoosh and a short crystal crack. */
+	public static final OmnitrixSfx.Cue SND_SHARD = OmnitrixSfx.cue("diamondhead_shard")
+			.layer(SoundEvents.TRIDENT_THROW, 0.28f, 1.5f)
+			.layer(SoundEvents.POINTED_DRIPSTONE_BREAK, 0.35f, 1.3f)
+			.gap(3);
+	/** Crystal growing: a dense crunch, no ring. */
+	public static final OmnitrixSfx.Cue SND_GROW = OmnitrixSfx.cue("diamondhead_grow")
+			.layer(SoundEvents.CALCITE_PLACE, 0.45f, 0.7f)
+			.layer(SoundEvents.POINTED_DRIPSTONE_BREAK, 0.25f, 0.8f)
+			.layer(SoundEvents.DEEPSLATE_PLACE, 0.25f, 0.8f, 1);
+	/** Crystal shattering: a short, low glass crash and a ceramic crunch. */
+	public static final OmnitrixSfx.Cue SND_SHATTER = OmnitrixSfx.cue("diamondhead_shatter")
+			.layer(SoundEvents.GLASS_BREAK, 0.3f, 0.8f)
+			.layer(SoundEvents.DECORATED_POT_SHATTER, 0.35f, 1.0f)
+			.layer(SoundEvents.CALCITE_BREAK, 0.3f, 0.9f)
+			.gap(3);
+	/** The arm blade forming: a crystal crunch and a swipe. */
+	public static final OmnitrixSfx.Cue SND_BLADE = OmnitrixSfx.cue("diamondhead_blade")
+			.layer(SoundEvents.CALCITE_PLACE, 0.35f, 0.6f)
+			.layer(SoundEvents.POINTED_DRIPSTONE_BREAK, 0.3f, 0.7f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.25f, 1.3f);
 
 	private static final ResourceLocation BLADE_DAMAGE_ID = PowerToggles.id("omnitrix_diamondhead_blade");
 	private static final ResourceLocation BLADE_REACH_ID = PowerToggles.id("omnitrix_diamondhead_blade_reach");
@@ -134,11 +150,6 @@ public final class DiamondheadKit extends AlienKit {
 	}
 
 	private DiamondheadKit() {
-	}
-
-	private static SoundEvent sound(String path) {
-		ResourceLocation id = ProjectHeroMod.id(path);
-		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
 	}
 
 	public static void register() {

@@ -53,7 +53,7 @@ public class OmnitrixMeteorEntity extends Entity {
 		m.moveTo(start.x, start.y, start.z, 0f, 0f);
 		m.setDeltaMovement(impact.subtract(start).scale(1.0 / 60.0));
 		level.addFreshEntity(m);
-		level.playSound(null, impact.x, impact.y, impact.z, OmnitrixSounds.METEOR, SoundSource.HOSTILE, 4.0f, 1.0f);
+		OmnitrixSounds.play(level, impact, OmnitrixSounds.METEOR, 4.0f, 1.0f, SoundSource.HOSTILE);
 		level.playSound(null, impact.x, impact.y, impact.z, SoundEvents.FIRECHARGE_USE, SoundSource.HOSTILE, 3.0f, 0.5f);
 		return m;
 	}

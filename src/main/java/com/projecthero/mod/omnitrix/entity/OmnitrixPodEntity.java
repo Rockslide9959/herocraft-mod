@@ -97,7 +97,7 @@ public class OmnitrixPodEntity extends Entity {
 			return;
 		}
 		if (age == OmnitrixConfig.POD_OPEN_DELAY) {
-			server.playSound(null, getX(), getY(), getZ(), OmnitrixSounds.POD_OPEN, SoundSource.BLOCKS, 1.5f, 1.0f);
+			OmnitrixSounds.play(server, position(), OmnitrixSounds.POD_OPEN, 1.2f, 1.0f, SoundSource.BLOCKS);
 			server.sendParticles(ParticleTypes.CLOUD, getX(), getY() + 0.8, getZ(), 30, 0.5, 0.4, 0.5, 0.05);
 		}
 		if (empty()) {
@@ -111,7 +111,7 @@ public class OmnitrixPodEntity extends Entity {
 			server.sendParticles(GREEN, getX(), getY() + 0.7, getZ(), 2, 0.2, 0.15, 0.2, 0.0);
 		}
 		if (age % 40 == 0) {
-			server.playSound(null, getX(), getY(), getZ(), OmnitrixSounds.WARNING, SoundSource.BLOCKS, 0.4f, 1.6f);
+			OmnitrixSounds.play(server, position(), OmnitrixSounds.POD_BEACON, 1.0f, 1.0f, SoundSource.BLOCKS);
 		}
 		for (Player pl : server.getEntitiesOfClass(Player.class, getBoundingBox().inflate(0.35))) {
 			if (pl instanceof ServerPlayer sp && !sp.isSpectator() && touch(sp)) {

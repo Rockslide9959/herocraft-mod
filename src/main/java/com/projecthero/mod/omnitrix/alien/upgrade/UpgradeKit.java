@@ -8,9 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
@@ -26,17 +26,14 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Registry;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.DamageTypeTags;
@@ -138,11 +135,32 @@ public final class UpgradeKit extends AlienKit {
 	public static final int MERGE_COOLDOWN = 300;
 	public static final float JOLT_DAMAGE = 2f;
 
-	public static final SoundEvent SND_BEAM = sound("upgrade_beam");
-	public static final SoundEvent SND_CHARGE = sound("upgrade_charge");
-	public static final SoundEvent SND_MERGE = sound("upgrade_merge");
-	public static final SoundEvent SND_EMP = sound("upgrade_emp");
-	public static final SoundEvent SND_SLIDE = sound("upgrade_slide");
+	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
+	/** The optic beam: a digital zap, electric crackle, a relay click. */
+	public static final OmnitrixSfx.Cue SND_BEAM = OmnitrixSfx.cue("upgrade_beam")
+			.layer(OmnitrixSounds.SWEEP, 0.3f, 1.8f)
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.35f, 1.6f)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.4f, 0.8f);
+	/** Charging up: a low techno hum rising, a crackle. */
+	public static final OmnitrixSfx.Cue SND_CHARGE = OmnitrixSfx.cue("upgrade_charge")
+			.layer(OmnitrixSounds.WHIRR, 0.35f, 0.7f)
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.3f, 1.2f)
+			.layer(SoundEvents.COPPER_BULB_TURN_ON, 0.3f, 1.0f, 4);
+	/** Merging into tech: a gooey flow, then the low hum and a glitch. */
+	public static final OmnitrixSfx.Cue SND_MERGE = OmnitrixSfx.cue("upgrade_merge")
+			.layer(SoundEvents.HONEY_BLOCK_PLACE, 0.35f, 0.8f)
+			.layer(OmnitrixSounds.WHIRR, 0.25f, 0.6f, 2)
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.25f, 1.4f, 3);
+	/** The EMP: power dropping out with a zap. */
+	public static final OmnitrixSfx.Cue SND_EMP = OmnitrixSfx.cue("upgrade_emp")
+			.layer(OmnitrixSounds.POWER_DOWN, 0.45f, 0.9f)
+			.layer(OmnitrixSounds.SWEEP, 0.3f, 0.7f)
+			.layer(SoundEvents.SCULK_BLOCK_CHARGE, 0.4f, 0.8f);
+	/** Sliding as liquid metal: a slick goo slide with a faint hum. */
+	public static final OmnitrixSfx.Cue SND_SLIDE = OmnitrixSfx.cue("upgrade_slide")
+			.layer(SoundEvents.HONEY_BLOCK_SLIDE, 0.4f, 0.9f)
+			.layer(SoundEvents.SLIME_SQUISH_SMALL, 0.25f, 1.2f)
+			.layer(OmnitrixSounds.WHIRR, 0.15f, 0.5f);
 
 	private static final ResourceLocation SLIDE_SCALE_ID = PowerToggles.id("omnitrix_upgrade_slide_scale");
 	private static final ResourceLocation SLIDE_SPEED_ID = PowerToggles.id("omnitrix_upgrade_slide_speed");
@@ -160,11 +178,6 @@ public final class UpgradeKit extends AlienKit {
 	}
 
 	private UpgradeKit() {
-	}
-
-	private static SoundEvent sound(String path) {
-		ResourceLocation id = ProjectHeroMod.id(path);
-		return Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
 	}
 
 	public static void register() {

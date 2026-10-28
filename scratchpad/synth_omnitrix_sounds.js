@@ -1,3 +1,6 @@
+// SUPERSEDED by the v0.17.1 Omnitrix sound rework (docs/OMNITRIX_SOUNDS_0171.md): the alien / watch sounds are now
+// OmnitrixSfx recipes built from vanilla samples, and the few synthesised files left come from synth_omnitrix_v2_sounds.js.
+// Do NOT run this script: it would recreate deleted, unregistered files (or overwrite the new ones with the old tonal versions).
 // v0.17.1 Omnitrix: synthesises the watch's sounds (slap, core up / down, dial click, select, transform swoosh, revert,
 // timeout chime, warning beep, recharged ding, extraction pulse, self-destruct alarm, extraction done, pod hiss, meteor) and
 // Heatblast's / Four Arms' (blast, stream, nova, jet, shield, ignite; punch, clap, slam, throw, roar) as 44.1 kHz mono WAVs,
