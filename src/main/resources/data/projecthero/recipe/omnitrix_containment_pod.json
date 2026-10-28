@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "TTT",
+    "ICI",
+    "OLO"
+  ],
+  "key": {
+    "T": {
+      "item": "minecraft:tinted_glass"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "C": {
+      "item": "projecthero:containment_core"
+    },
+    "O": {
+      "item": "minecraft:crying_obsidian"
+    },
+    "L": {
+      "item": "minecraft:lodestone"
+    }
+  },
+  "result": {
+    "id": "projecthero:omnitrix_containment_pod",
+    "count": 1
+  }
+}

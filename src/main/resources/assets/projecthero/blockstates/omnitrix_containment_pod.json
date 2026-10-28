@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,half=lower": {
+      "model": "projecthero:block/omnitrix_containment_pod_lower"
+    },
+    "facing=east,half=lower": {
+      "model": "projecthero:block/omnitrix_containment_pod_lower",
+      "y": 90
+    },
+    "facing=south,half=lower": {
+      "model": "projecthero:block/omnitrix_containment_pod_lower",
+      "y": 180
+    },
+    "facing=west,half=lower": {
+      "model": "projecthero:block/omnitrix_containment_pod_lower",
+      "y": 270
+    },
+    "facing=north,half=upper": {
+      "model": "projecthero:block/omnitrix_containment_pod_upper"
+    },
+    "facing=east,half=upper": {
+      "model": "projecthero:block/omnitrix_containment_pod_upper",
+      "y": 90
+    },
+    "facing=south,half=upper": {
+      "model": "projecthero:block/omnitrix_containment_pod_upper",
+      "y": 180
+    },
+    "facing=west,half=upper": {
+      "model": "projecthero:block/omnitrix_containment_pod_upper",
+      "y": 270
+    }
+  }
+}

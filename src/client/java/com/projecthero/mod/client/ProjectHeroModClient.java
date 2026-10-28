@@ -149,6 +149,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.silversurfer.SilverSurferClient.initialize();
 		// v0.17.1: the Speed Force Speedster -- the HUD, the skate run, the trail, the gold lightning
 		com.projecthero.mod.client.speedforce.SpeedForceClient.initialize();
+		com.projecthero.mod.client.omnitrix.OmnitrixClient.initialize(); // v0.17.1: the Omnitrix
 		// v0.16.5: Blue Beetle -- armour layer (wings, blade, shield), HUD, beam / bubble, drones, bonding flash
 		com.projecthero.mod.client.bluebeetle.BlueBeetleClient.initialize();
 		com.projecthero.mod.client.wardrobe.WardrobeClient.initialize(); // v0.16.5: Mannequin + Wardrobe

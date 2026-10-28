@@ -113,6 +113,8 @@ public final class ModCreativeTab {
 				com.projecthero.mod.bluebeetle.item.BlueBeetleItems.addToCreativeTab(output);
 				// v0.17.1 the Falcon: the Goggles, the EXO-7 Wing Pack and the Flight Suit
 				com.projecthero.mod.falcon.item.FalconItems.addToCreativeTab(output);
+				// v0.17.1 the Omnitrix: the watch, the Meteor Scanner, the Plumber Alloy, the Containment Core and Pod
+				com.projecthero.mod.omnitrix.item.OmnitrixItems.addToCreativeTab(output);
 				// v0.16.6 the Miraculous: the Miraculous Box, the three jewels, Camembert and macarons
 				com.projecthero.mod.miraculous.item.MiraculousItems.addToCreativeTab(output);
 				// v0.16.7 the Quirks: the seven Quirk Serums and the Quirk Trigger

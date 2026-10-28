@@ -172,6 +172,11 @@ public final class HeroPackGuide {
 	}
 
 	/** v0.17.1: the Speed Force Speedster. */
+	/** v0.17.1: the Omnitrix. */
+	public static Chapter omnitrixChapter() {
+		return chapters().get(CH_OMNITRIX);
+	}
+
 	public static Chapter speedForceChapter() {
 		return chapters().get(CH_SPEED_FORCE);
 	}
@@ -539,7 +544,9 @@ public final class HeroPackGuide {
 	private static final int CH_SPEED_FORCE = CH_SILVER_SURFER + 1; // 59
 	/** v0.17.1: Multimouse (after the Speed Force Speedster, so every earlier index stays put). */
 	private static final int CH_MULTIMOUSE = CH_SPEED_FORCE + 1; // 60
-	private static final int CHAPTER_POWER_BASE = CH_MULTIMOUSE + 1; // 61
+	/** v0.17.1: the Omnitrix (after Multimouse, so every earlier index stays put). */
+	private static final int CH_OMNITRIX = CH_MULTIMOUSE + 1; // 61
+	private static final int CHAPTER_POWER_BASE = CH_OMNITRIX + 1; // 62
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1610,6 +1617,7 @@ public final class HeroPackGuide {
 		}));
 
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.MULLO)); // CH_MULTIMOUSE (v0.17.1)
+		out.add(omnitrix()); // CH_OMNITRIX (v0.17.1)
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -1760,6 +1768,7 @@ public final class HeroPackGuide {
 		icon(CH_PEGASUS, "horseshoe_glasses");
 		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
+		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -1850,6 +1859,7 @@ public final class HeroPackGuide {
 		sub(other, "projecthero.guide.sub.other_heroes");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.max_steel"), 2, CH_MAX_STEEL));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.titan_shifter"), 2, CH_TITAN_SHIFTER));
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));
@@ -2330,6 +2340,56 @@ public final class HeroPackGuide {
 
 	private interface Body {
 		void fill(List<Component> lines);
+	}
+
+	/**
+	 * v0.17.1: the Omnitrix -- what it is, getting it (the meteor, the Meteor Scanner), the controls (the watch raised, the scroll
+	 * dial, the slap), the timer and recharge, the lock, every alien on the dial (playable ones with their moves, the rest
+	 * "coming soon"), and the Containment Pod with its damage warning. Built from the alien registry, so a kit added later shows up.
+	 */
+	private static Chapter omnitrix() {
+		return chapter("projecthero.guide.omnitrix", lines -> {
+			lines.add(Component.translatable("projecthero.guide.omnitrix.tier").withStyle(ChatFormatting.GREEN));
+			para(lines, "projecthero.guide.omnitrix.body");
+			blank(lines);
+			for (String section : new String[] { "getting", "scanner", "controls", "timer", "lock" }) {
+				head(lines, "projecthero.guide.omnitrix." + section);
+				para(lines, "projecthero.guide.omnitrix." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.omnitrix.keys");
+			for (String[] row : new String[][] { { "V", "activate" }, { "Scroll", "scroll" }, { "Click", "slap" }, { "V (alien)", "revert" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GREEN)
+						.append(Component.translatable("projecthero.guide.omnitrix.key." + row[1]).withStyle(ChatFormatting.WHITE)));
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.omnitrix.aliens");
+			para(lines, "projecthero.guide.omnitrix.aliens.body");
+			for (com.projecthero.mod.omnitrix.alien.Aliens.Alien a : com.projecthero.mod.omnitrix.alien.Aliens.all()) {
+				com.projecthero.mod.omnitrix.alien.AlienKit kit = com.projecthero.mod.omnitrix.alien.Aliens.kit(a.id());
+				blank(lines);
+				lines.add(Component.translatable(a.nameKey()).withStyle(s -> s.withColor(a.colour()).withBold(true))
+						.append(kit == null ? Component.literal("  ").append(Component.translatable("projecthero.guide.omnitrix.coming_soon"))
+								.withStyle(ChatFormatting.DARK_GRAY) : Component.empty()));
+				if (kit == null) {
+					continue;
+				}
+				para(lines, "projecthero.guide.omnitrix.alien." + a.id());
+				var st = kit.stats();
+				lines.add(Component.translatable("projecthero.guide.omnitrix.stats", Math.round(st.maxHealth()), Math.round(st.speed() * 100),
+						String.format(java.util.Locale.ROOT, "%.2f", st.scale()), Math.round(st.armor())).withStyle(ChatFormatting.DARK_GREEN));
+				for (com.projecthero.mod.omnitrix.alien.AlienMove m : kit.moves()) {
+					lines.add(Component.literal(" " + m.keyLabel() + "  ").withStyle(ChatFormatting.GOLD)
+							.append(Component.translatable("projecthero.omnitrix." + a.id() + "." + m.id()).withStyle(ChatFormatting.WHITE)));
+					para(lines, "projecthero.omnitrix." + a.id() + "." + m.id() + ".desc");
+				}
+			}
+			blank(lines);
+			lines.add(Component.translatable("projecthero.guide.omnitrix.pod").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
+			lines.add(Component.translatable("projecthero.guide.omnitrix.pod.warning").withStyle(ChatFormatting.RED));
+			para(lines, "projecthero.guide.omnitrix.pod.body");
+			para(lines, "projecthero.guide.omnitrix.pod.recipe");
+		});
 	}
 
 	private static Chapter chapter(String titleKey, Body body) {

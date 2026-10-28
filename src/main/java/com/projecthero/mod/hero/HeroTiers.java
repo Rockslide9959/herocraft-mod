@@ -65,7 +65,8 @@ public final class HeroTiers {
 				|| com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player) // v0.17.1
 				|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)
 				|| com.projecthero.mod.miraculous.Miraculous.hasPower(player) // v0.16.6: Ladybug / Cat Noir / Rena Rouge / Hawk Moth
-				|| com.projecthero.mod.quirk.Quirks.hasPower(player); // v0.16.7: the seven Quirks
+				|| com.projecthero.mod.quirk.Quirks.hasPower(player) // v0.16.7: the seven Quirks
+				|| com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1: the Omnitrix
 	}
 
 	/** How many Hero-Tier (non-experimental) Primary powers the player holds. */
@@ -103,6 +104,7 @@ public final class HeroTiers {
 			"thor", "iron_man", "spider_man", "max_steel", "punisher", "green_lantern", "wolverine", "titan_shifter", "all_might", "hulk", "moon_knight", "super_soldier", "kryptonian", "nova", "ghost_rider", "cyborg", "blue_beetle",
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1: the DC Flash (the plain Speedster's upgrade)
+			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse",
 			// v0.16.7: the seven Quirks (one shared state; each key is "holds that Quirk")
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity");
@@ -130,6 +132,7 @@ public final class HeroTiers {
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player); // v0.17.1
 			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(player); // v0.17.1
 			case "blue_beetle" -> com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player);
+			case "omnitrix" -> com.projecthero.mod.omnitrix.Omnitrix.hasPower(player); // v0.17.1
 			// v0.16.6: the three Miraculous heroes share one state; each key is "holds that Kwami"
 			case "ladybug" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.TIKKI);
 			case "cat_noir" -> com.projecthero.mod.miraculous.Miraculous.holds(player, com.projecthero.mod.miraculous.Kwami.PLAGG);
@@ -237,6 +240,12 @@ public final class HeroTiers {
 			case "blue_beetle" -> {
 				if (com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(player)) {
 					com.projecthero.mod.bluebeetle.BlueBeetle.revoke(player);
+				}
+			}
+			case "omnitrix" -> {
+				// v0.17.1: only reached by an operator (a force grant, a revoke) -- the Omnitrix refuses every other way in
+				if (com.projecthero.mod.omnitrix.Omnitrix.hasPower(player)) {
+					com.projecthero.mod.omnitrix.Omnitrix.revoke(player);
 				}
 			}
 			case "falcon" -> {
@@ -564,6 +573,9 @@ public final class HeroTiers {
 		}
 		if (!excludeHeroKeys.contains("falcon") && com.projecthero.mod.falcon.Falcon.hasPower(player)) {
 			return true;
+		}
+		if (!excludeHeroKeys.contains("omnitrix") && com.projecthero.mod.omnitrix.Omnitrix.hasPower(player)) {
+			return true; // v0.17.1
 		}
 		// v0.16.6: a Miraculous holder (whichever of the three keys their Kwami is)
 		com.projecthero.mod.miraculous.Kwami kwami = com.projecthero.mod.miraculous.Miraculous.kwami(player);

@@ -437,6 +437,10 @@ public final class ModNetworking {
 
 		// Power-selection wheel: switch which owned experimental power occupies the six slots.
 		ServerPlayNetworking.registerGlobalReceiver(PowerSelectPayload.TYPE, (payload, context) -> {
+			// v0.17.1: the Omnitrix lock -- no swapping powers on the wheel while it is worn
+			if (!payload.power().isEmpty() && com.projecthero.mod.omnitrix.Omnitrix.rejectsAny(context.player())) {
+				return;
+			}
 			if (payload.power().isEmpty()) {
 				ExperimentalPowers.setActive(context.player(), null);
 				return;

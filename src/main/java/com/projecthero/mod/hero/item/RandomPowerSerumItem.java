@@ -102,6 +102,10 @@ public class RandomPowerSerumItem extends Item {
 		if (!(level instanceof ServerLevel server) || !(user instanceof ServerPlayer player)) {
 			return stack;
 		}
+		// v0.17.1: the Omnitrix lock -- the serum is kept
+		if (com.projecthero.mod.omnitrix.Omnitrix.rejectsAny(player)) {
+			return stack;
+		}
 		Component granted = grantRandom(player, pool, new Random(server.random.nextLong()));
 		if (granted == null) {
 			player.displayClientMessage(Component.translatable("message.projecthero.random_serum.nothing")

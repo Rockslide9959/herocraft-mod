@@ -1,0 +1,181 @@
+# Omnitrix framework (v0.17.1)
+
+Ben 10's Omnitrix as a Hero-Tier power (`omnitrix`), the way to get it (a meteor / the Meteor Scanner), the only way to
+lose it (the Omnitrix Containment Pod), and a reusable alien framework. Heatblast and Four Arms ship with it; the other
+eight of the original ten (XLR8, Diamondhead, Upgrade, Ghostfreak, Stinkfly, Wildvine, Ripjaws, Grey Matter) are on the
+dial as "coming soon" until their kits register.
+
+Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = movement, V = the Omnitrix, R G Z C = attacks.
+
+## Where things are
+
+| Piece | Server (main) | Client |
+|---|---|---|
+| The power, the lock, transform / revert / timeout, the watch up (select, cycle, slap) | `omnitrix/Omnitrix.java` | |
+| State (one synced, persistent, copy-on-death attachment) | `omnitrix/data/OmnitrixState.java`, `OmnitrixAttachments.java` | |
+| Keys (V + the kit's R G X Z C) | `omnitrix/OmnitrixAbilityManager.java` (from `AbilityRouter`) | scroll / clicks: `client/omnitrix/OmnitrixClient.java`, `mixin/OmnitrixInputMixin`, `mixin/OmnitrixScrollMixin` |
+| The alien body (attributes, health by fraction) | `omnitrix/OmnitrixBody.java` | skin swap, wide arms, no armour / cape: `mixin/OmnitrixPlayerRendererMixin`, `OmnitrixHideGearMixin`, `OmnitrixCapeMixin` |
+| Alien registry and kit API | `omnitrix/alien/Aliens.java`, `AlienKit.java`, `AlienStats.java`, `AlienMove.java` | `client/omnitrix/AlienClients.java`, `AlienClientKit.java`, `AlienParts.java`, `FirstPersonClip.java` |
+| Shared projectile | `omnitrix/entity/AlienProjectileEntity.java` | `OmnitrixRenderers.Projectile` |
+| Damage types + the kit damage hooks | `omnitrix/OmnitrixDamage.java`, `data/projecthero/damage_type/*.json` | |
+| Sounds | `omnitrix/OmnitrixSounds.java`, `sounds.json` (`omnitrix_*`, `heatblast_*`, `four_arms_*`) | `assets/projecthero/sounds/omnitrix/*.ogg` |
+| The watch model, poses, first person, HUD | | `OmnitrixWatch`, `OmnitrixPose` (+ `mixin/OmnitrixPoseMixin`), `OmnitrixFirstPerson` (+ `mixin/OmnitrixItemInHandMixin`), `OmnitrixHud`, `OmnitrixLayer` |
+| Meteor, crater, the fallen pod, the Meteor Scanner | `OmnitrixMeteors`, `entity/OmnitrixMeteorEntity` (built on the Carnage meteor), `entity/OmnitrixPodEntity`, `item/OmnitrixItems` | `OmnitrixRenderers.Meteor/Pod` |
+| The Containment Pod | `pod/OmnitrixPodBlock`, `pod/OmnitrixPodBlockEntity`, `OmnitrixConfig.EXTRACTION_PULSES` | `OmnitrixRenderers.PodField` |
+| Unique powers for a loose watch | `OmnitrixWorld` | |
+| Kits shipped | `alien/heatblast/HeatblastKit`, `alien/fourarms/FourArmsKit` | `client/omnitrix/alien/HeatblastClient`, `FourArmsClient` |
+| Tests | `src/gametest/.../OmnitrixGameTests.java` | |
+| Generators | `scratchpad/gen_omnitrix_textures.js` (skins, watch, pod, items, dial silhouettes), `gen_omnitrix_data.js` (recipes, tags, models), `gen_omnitrix_lang.js` (the one lang block), `synth_omnitrix_sounds.js` | |
+
+## The watch (Alien Evo style, user: "no dial screen")
+
+* **V as a human** raises the wrist (first person: the forearm comes in from the left, the chunky watch's face toward the
+  eye; third person: the arm comes up across the chest, the head tips down to it). The core pops up (`omnitrix_core_up`),
+  the face dims and shows the selected alien's silhouette glowing on it, with a hologram of it hovering over the dial.
+* **The scroll wheel** (while raised) turns the dial to the next alien that has a kit (aliens without one are skipped);
+  the hotbar does not move. Each step clicks, the core twists a notch, the name shows on the action bar and above the HUD dial.
+* **A left- or right-click** slaps the core down (`Omnitrix.slap`; the click never attacks, uses or mines) and
+  `Omnitrix.SLAP_TICKS` later the green DNA helix spirals up the body and the alien takes over.
+* **V again** lowers the watch: no cost, no cooldown. **V while transformed** reverts early (10 s recharge); Shift+V is
+  the same key. **V during a recharge** flashes the face red with the time left and does not raise the watch.
+* The selected alien persists. A transformation lasts 3 minutes (the watch light flashes red and beeps for the last 15 s),
+  then the timeout chime, a red flash, and a 90 s recharge.
+
+Server entry points (tests and kits use them): `Omnitrix.activate / deactivate / cycle(p, dir) / slap / transform /
+revert(p, Reason) / select(p, id)`; `OmnitrixAbilityManager.pressV(p)`. Client to server: `OmnitrixActionPayload`
+`CYCLE` ("1" / "-1"), `SLAP`, `SELECT` (an id), `USE_AIR`.
+
+## Adding an alien (the other eight)
+
+1. **Server kit** -- `src/main/java/com/projecthero/mod/omnitrix/alien/<alien>/<Alien>Kit.java`:
+
+```java
+public final class XlrKit extends AlienKit {
+    public static void register() { Aliens.register(new XlrKit()); }       // id() must be a declared Aliens id
+    @Override public String id() { return Aliens.XLR8.id(); }
+    @Override public AlienStats stats() {
+        return AlienStats.builder().health(22).speed(1.9f).scale(0.95f).armor(2, 0).step(0.6f).build();
+    }
+    @Override protected List<AlienMove> declareMoves() {
+        return List.of(AlienMove.tap("dash_strike", AbilitySlot.SLOT_1, 20), AlienMove.shift("tornado", AbilitySlot.SLOT_1, 200),
+                AlienMove.tap("sprint", AbilitySlot.SLOT_3, 10) /* ... */, AlienMove.vanilla("fast_punch", "Attack", 0));
+    }
+    @Override public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
+        if (slot == AbilitySlot.SLOT_1 && !shift && use(p, "dash_strike")) {      // use(): cooldown gate + "not ready" line
+            anim(p, ANIM_DASH);                                                // synced pose id (1..999) for the client kit
+            for (LivingEntity e : around(p, p.position(), 3)) hurt(p, e, 6f, false);
+        }
+    }
+}
+```
+
+   Then one line in `OmnitrixMod.initialize` next to Heatblast's and Four Arms'. Hooks you can override:
+   `onTransform`, `onRevert` (stop running moves, give back flight), `tick` (every tick while transformed), `holdable(slot)`
+   + `holdStart` / `holdEnd` (hold moves; a tap then fires on the release), `release`, the vanilla keys `onAttack`
+   (return true to replace the punch), `onUse` (right-click on air, either hand), `onUseBlock`, `onUseEntity`, and the
+   damage hooks `allowDamage` (immunities) / `incomingDamage` (resistances; re-issued behind a guard).
+   Helpers: `use` / `ready` / `cooldown` / `cooldownLeft`, `anim`, `flag` / `setFlag` (synced kit bits), `timer` /
+   `setTimer` (kit timers in the synced state), `lookTarget`, `around` (never the wearer or squad allies), `hurt` (the
+   `alien_strike` / `alien_fire` damage types: player attacks, so boss threat tables count them; for no-damage moves use
+   `QuirkThreat.add`), `shove`.
+   Projectiles: `AlienProjectileEntity.of(p, "xlr8_spark").colour(..).size(..).damage(..).speed(..).spawn()`, optional
+   `.blast(radius, dmg)`, `.gravity(g)`, `.fire(seconds)`, and per-kind extra behaviour with `AlienProjectileEntity.onHit`.
+   Static per-player maps in a kit: clear them in `onRevert` (called on timeout, Shift+V, death, logout, the pod) and in a
+   `clearSessionState` called from `OmnitrixMod.clearSessionState` (the `ServerStateReset` hook).
+
+2. **Client kit** -- `src/client/java/com/projecthero/mod/client/omnitrix/alien/<Alien>Client.java implements AlienClientKit`,
+   one line in `OmnitrixClient.initialize`:
+   * `skin()` -- a 64x64 WIDE player skin (the framework always uses the wide arm model for aliens). Generate it with a
+     script like `scratchpad/gen_omnitrix_textures.js` (`SKIN` boxes, `paintBox`).
+   * `renderExtras` -- extra cubes on the posed bones: `AlienParts.bake(64, 64, root -> ...)` for ModelParts (UVs on the
+     skin itself, as Four Arms' second pair of arms does, or an extras sheet), `AlienParts.on(pose, model.body, ...)`, and
+     `AlienParts.box(...)` for quick textured / emissive cubes (Heatblast's flame tongues). Grey Matter: just `scale(0.3f)`
+     in the stats; Stinkfly's wings, Ripjaws' tail, XLR8's visor and tail, Wildvine's vines, Diamondhead's crystal head:
+     a few boxes on `body` / `head`. Ghostfreak floats: `gravity(0.25f)` in the stats and the legs posed together.
+   * `pose(p, model, animId, ticks, age)` -- third-person keyframes, usually `QuirkKeyframes.play(m, FRAMES, ticks, 1f)`
+     (16-column `QuirkKeyframes.f(...)` frames, radians).
+   * `firstPerson(animId)` -- a `FirstPersonClip` (`f(tick, pitch, yaw, roll, x, y, z)` frames; `.both()` for two hands).
+   * `renderFirstPersonArm` -- extra geometry on the bare first-person arm (Four Arms draws his lower arm there).
+   * `tick(p)` -- ambient particles for everyone who can see the alien. `badge()` -- where the Omnitrix sits on the chest.
+3. **Lang** (in the Omnitrix block: `scratchpad/gen_omnitrix_lang.js`): `projecthero.omnitrix.<alien>.<move>` and `.desc`
+   for every move, `projecthero.guide.omnitrix.alien.<alien>` (the guide's line about it). The guide chapter, the HUD key
+   boxes and the "Your Power" page are built from the registry and `moves()`; nothing else to edit.
+4. **Sounds**: a constant in the kit's own class (`SoundEvent.createVariableRangeEvent`), one `sounds.json` block, a
+   subtitle line, mono OGGs from a `scratchpad/synth_*` script (Medal's `ffmpeg7.exe` has libvorbis).
+5. **Tests**: copy the Heatblast / Four Arms blocks of `OmnitrixGameTests` (body, immunities, a move's damage + cooldown).
+
+## The lock
+
+`Omnitrix.rejects(player, key)` answers "The Omnitrix rejects it." for any power but `omnitrix` while it is worn. It is
+asked by `UniquePowers.refuse` (every hero's grant routine and acquisition item), `PowerGrants.grantHero` (the admin grant,
+the heroic / prismatic serums), `PowerGrants.grantExperimental` and `ExperimentalPowers.grant` (mutation serums, the
+stack command), `MutationManager.attemptExposure` (before `claimMutation` could strip it), the random serum item (the
+bottle is kept), the power wheel's `PowerSelectPayload`, and `HeroCommand` grant / stack without `force`. An operator's
+`force` (`UniquePowers.forced`) is the one override. It survives death (`copyOnDeath`); a death while transformed turns the
+wearer back. Serums never roll it (`PowerGrants.NOT_FROM_SERUMS`).
+
+## Getting it
+
+* **The natural meteor**: once a minute each surface player in the Overworld rolls 1/3000 (about once in 50 hours; never
+  Peaceful, creative or spectator), with a 2-hour lull after any Omnitrix meteor. The meteor is the Carnage meteor's fall
+  (3 s, slanted, batched forced trail) in green and white; it digs a radius-4 bowl lined with blackstone, basalt and magma,
+  some fire on the rim, and leaves `OmnitrixPodEntity` at the bottom. 3 s later the pod hisses open; the first player to
+  touch it (walk into it or right-click it) gets the watch.
+* **The Meteor Scanner** (`IDI / RCR / IAI`: iron, a diamond, redstone, a compass, an amethyst shard): drops the meteor
+  within 50 blocks on open, dry, sky-lit ground; consumed; refuses while an Omnitrix meteor, or a pod still holding its watch, is within 160.
+* **Unique powers**: a falling meteor, a pod in its crater and a popped-off Omnitrix item count as a pseudo holder
+  ("a loose Omnitrix", `OmnitrixWorld.LOOSE`) in the unique-powers table. With the gamerule on no new meteor falls and
+  nobody gains the power another way while one exists; whoever puts THAT watch on clears the entry first.
+  `/projecthero uniquepowers release omnitrix` clears it (e.g. a lost item).
+
+## The Containment Pod (removal)
+
+Recipes: **Plumber Alloy** `ECE / NSN / ECE` (echo shard, crying obsidian, netherite ingot, nether star) -> **Containment
+Core** `RER / AHA / RER` (redstone block, eye of ender, Plumber Alloy, heart of the sea) -> **Omnitrix Containment Pod**
+`TTT / ICI / OLO` (tinted glass, iron block, the core, crying obsidian, lodestone). A two-block-tall machine (only the base
+plate is solid). Fuel: Redstone Block 1, Echo Shard 2; an extraction burns 8 (max 32).
+
+Stand inside as a human, right-click with an empty hand: 40 s. Damage is `projecthero:omnitrix_extraction` (in
+`bypasses_armor`, `bypasses_enchantments`, `bypasses_effects`, `bypasses_resistance`, `bypasses_invulnerability` -- so a
+totem never pops -- and `no_knockback`; Absorption still soaks it and healing works). The schedule (ticks since the start):
+
+| Tick | Damage |
+|---|---|
+| 20 | 24 (strips Absorption IV's 16 and 8 HP) |
+| 40, 60, ..., 600 (29 pulses) | 0.5 each |
+| 620, 640, ..., 780 (9 pulses) | 0.6 each |
+| 800 | 3.1 |
+| **total** | **47** |
+
+Calibration (user: "enough damage to bring a player that just ate an enchanted golden apple to 2 hearts"): Regeneration II
+heals 1 HP whenever its remaining duration is a multiple of 25 ticks (vanilla `50 >> 1`): at 400, 375, ..., 25 = 16 heals.
+The one at 400 lands the tick after eating at full health (wasted); the other 15 land below full because the first pulse
+already took 8 HP. 20 + 16 + 15 - 47 = **4 HP**. Health peaks at 18.5 (never full again), so no heal is wasted. Measured in
+`OmnitrixGameTests.extractionLeavesAGoldenAppleEaterOnTwoHearts`: **4.0 HP**. Starting later than 5 ticks after eating
+loses one heal per 25 ticks. A player without the apple dies at the first pulse; the watch stays on.
+
+The Omnitrix fights back: forced transforms (a 24-tick flicker into a playable alien -- shown only, the body never changes,
+so the calibration holds), energy surges every 3.5-6.5 s (an upward jolt, camera shake; no damage), and the red
+SELF-DESTRUCT box + red screen edges on the wearer's HUD. Stepping out (more than 0.8 from the centre) fails it and the field
+lashes out for 6; dying fails it. Success: the watch pops off as an item at the top of the pod and the power is cleared.
+
+## Heatblast and Four Arms
+
+| | Heatblast | Four Arms |
+|---|---|---|
+| Body | 26 HP, speed x1.05, armour 4, fist +2, KB res 0.1 | 40 HP, speed x0.85, size x1.4, armour 8 (+2 toughness), KB res 0.6, fist +6, step +0.6 |
+| Passive | immune to fire, lava, magma; water fizzles his fire | no fall damage from his own leaps / dives; what he holds cannot hurt him |
+| R / Shift+R | Fire Blast (6 + alight) / Fire Stream (2.5 s cone) | Haymaker (12, launch) / Quad Barrage (4 x 5) |
+| G / Shift+G | Pyro Bomb (3.5 r, 8) / Heat Shield (5 s, -60%, burns attackers, melts arrows) | Thunder Clap (cone 9, 8, slow) / Grab (G again throws: 12) |
+| X / Shift+X | Fire Jet (flight toggle) / Jet Dash | Super Leap (landing 6) / Charge (7) |
+| Z / Shift+Z | Flame Ring (r 4, 4 s) / Flare (blind + singe, r 8) | Ground Pound (r 6, up to 10) / Meteor Drop (8-18) |
+| C / Shift+C | Fireball Nova (r 6, 10) / Supernova (1.25 s charge, r 9, 18) | War Cry (weaken / slow r 10, Strength) / Iron Stance (4 s, -70%, no knockback) |
+| Attack / Use | flaming punch (+2 fire) / fire bolt (empty hand), melt a block, Shift+Use smelts 8 of the held item | heavy punch (shove) / grab a creature, throw what you hold |
+
+## State and resets
+
+Static per-player state: `Omnitrix` (the "rejects" throttle), `OmnitrixAbilityManager` (keys down), `HeatblastKit`
+(Flame Ring centre, Jet Dash hits), `FourArmsKit` (Charge hits, thrown creatures), `OmnitrixMeteors` (the natural cooldown
+per dimension). All cleared by `ServerStateReset -> OmnitrixMod.clearSessionState`, and per player on logout / death /
+dimension change (`Omnitrix.onLogout / onDeath / onDimensionChange`) and on revert (`AlienKit.onRevert`). A logout turns a
+transformed wearer back (attribute modifiers are transient). The extraction attachment is never saved: a relog aborts it.

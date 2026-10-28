@@ -301,6 +301,12 @@ public final class MutationManager {
 		if (!power.key().equals(s.pendingMutationPower) || ExperimentalPowers.owns(player, power) || !com.projecthero.mod.hero.Powers.isMutation(power)) {
 			return;
 		}
+		// v0.17.1: the Omnitrix lock -- before anything else, so the attempt never strips the watch
+		if (com.projecthero.mod.omnitrix.Omnitrix.rejectsAny(player)) {
+			player.removeEffect(ModMobEffects.UNSTABLE_MUTATION);
+			endAttempt(s);
+			return;
+		}
 		// v0.13.22: capacity FIRST. This used to claim the Primary slot (costing the player their Symbiote / oldest
 		// hero) and only then notice they had no room for the mutation -- and, for dwell triggers, repeat that every
 		// tick. Now a full player keeps everything, is told once, and the attempt ends.

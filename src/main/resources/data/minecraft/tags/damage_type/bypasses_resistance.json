@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "projecthero:serum_rejection"
+    "projecthero:serum_rejection",
+    "projecthero:omnitrix_extraction"
   ]
 }
