@@ -145,6 +145,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.cyborg.CyborgClient.initialize();
 		// v0.17.1: the Falcon -- the suit and Wing Pack layer, Redwing, the HUD, the wingsuit flight, the goggles
 		com.projecthero.mod.client.falcon.FalconClient.initialize();
+		// v0.17.1: the shared superhero landing -- the synced pose, the first-person dip / fist, the Surfer's board
+		com.projecthero.mod.client.flight.HeroLandingClient.initialize();
 		// v0.17.1: the Silver Surfer -- the skin / board layer, HUD, beam / barrier / streak, statues, Cosmic Awareness
 		com.projecthero.mod.client.silversurfer.SilverSurferClient.initialize();
 		// v0.17.1: the Speed Force Speedster -- the HUD, the skate run, the trail, the gold lightning

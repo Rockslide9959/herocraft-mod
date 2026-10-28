@@ -355,6 +355,8 @@ public class ProjectHeroMod implements ModInitializer {
 		com.projecthero.mod.diagnostics.ServerStateReset.initialize();
 		// v0.16.1: the projectheroUniquePowers gamerule + its holder table, reconcile tick and join hook
 		com.projecthero.mod.hero.UniquePowers.initialize();
+		// v0.17.1: the shared superhero landing (Green Lantern, Kryptonian, Thor, Nova, the Surfer, Max Steel and the rest)
+		com.projecthero.mod.flight.landing.HeroLanding.initialize();
 
 		// Fall/lightning immunity for the Power of Thor.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(ThorPassives::onAllowDamage);

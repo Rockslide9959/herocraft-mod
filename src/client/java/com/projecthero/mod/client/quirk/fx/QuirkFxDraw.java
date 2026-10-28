@@ -32,7 +32,7 @@ public final class QuirkFxDraw {
 	public static final ResourceLocation BOOK_FIREBALL = tex("book_fireball");
 	public static final ResourceLocation BOOK_SMOKE = tex("book_smoke");
 	public static final ResourceLocation BOOK_INK = tex("book_ink");
-	public static final ResourceLocation[] DECALS = { tex("decal_scorch"), tex("decal_crack"), tex("decal_pool"), tex("decal_print") };
+	public static final ResourceLocation[] DECALS = { tex("decal_scorch"), tex("decal_crack"), tex("decal_pool"), tex("decal_print"), tex("decal_emblem") };
 
 	private QuirkFxDraw() {
 	}

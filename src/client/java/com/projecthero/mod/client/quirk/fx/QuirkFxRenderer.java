@@ -606,7 +606,23 @@ public class QuirkFxRenderer extends EntityRenderer<QuirkFxEntity> {
 		pose.translate(0, (e.flag(QuirkFx.F_GROUND) ? ground(e) : 0f) + 0.02f + (e.getId() % 7) * 0.002f, 0);
 		pose.mulPose(Axis.YP.rotationDegrees(-e.getYRot()));
 		PoseStack.Pose last = pose.last();
-		if (style == QuirkFx.DECAL_PRINT) {
+		if (style == QuirkFx.DECAL_EMBLEM) {
+			VertexConsumer vc = QuirkFxDraw.matter(buffers, QuirkFxDraw.DECALS[QuirkFx.DECAL_CRACK]);
+			float cr = r * 1.45f;
+			int c = e.colourB();
+			float ca = alpha * 0.85f;
+			QuirkFxDraw.mv(vc, last, -cr, 0, -cr, 0, 0, c, ca, light, 0, 1, 0);
+			QuirkFxDraw.mv(vc, last, -cr, 0, cr, 0, 1, c, ca, light, 0, 1, 0);
+			QuirkFxDraw.mv(vc, last, cr, 0, cr, 1, 1, c, ca, light, 0, 1, 0);
+			QuirkFxDraw.mv(vc, last, cr, 0, -cr, 1, 0, c, ca, light, 0, 1, 0);
+			float pulse = alpha * (0.75f + 0.25f * Mth.sin(age * 0.45f)) * (age < 3f ? 1.6f - 0.2f * age : 1f);
+			pose.translate(0, 0.004f, 0);
+			PoseStack.Pose top = pose.last();
+			VertexConsumer g = QuirkFxDraw.glow(buffers, QuirkFxDraw.DECALS[style]);
+			int ga = e.colourA();
+			QuirkFxDraw.gquad(g, top, new float[][] { { -r, 0, -r, 0, 0 }, { -r, 0, r, 0, 1 }, { r, 0, r, 1, 1 }, { r, 0, -r, 1, 0 } },
+					new int[] { ga, ga, ga, ga }, new float[] { pulse, pulse, pulse, pulse });
+		} else if (style == QuirkFx.DECAL_PRINT) {
 			VertexConsumer g = QuirkFxDraw.glow(buffers, QuirkFxDraw.DECALS[style]);
 			QuirkFxDraw.gquad(g, last, new float[][] { { -r, 0, -r, 0, 0 }, { -r, 0, r, 0, 1 }, { r, 0, r, 1, 1 }, { r, 0, -r, 1, 0 } },
 					new int[] { e.colourA(), e.colourA(), e.colourA(), e.colourA() }, new float[] { alpha, alpha, alpha, alpha });

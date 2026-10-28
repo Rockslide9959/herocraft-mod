@@ -223,5 +223,6 @@ public final class ServerStateReset {
 		com.projecthero.mod.greenlantern.construct.GreenLanternConstructs.clearSessionState();
 		com.projecthero.mod.greenlantern.GreenLanternTrial.clearSessionState();
 		com.projecthero.mod.hero.UniquePowers.clearSessionState(); // v0.16.1: refusal-message throttle
+		com.projecthero.mod.flight.landing.HeroLanding.clearSessionState(); // v0.17.1: hero landing tracks / holds
 	}
 }

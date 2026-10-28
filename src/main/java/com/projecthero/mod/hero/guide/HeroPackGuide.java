@@ -584,6 +584,8 @@ public final class HeroPackGuide {
 			para(lines, "projecthero.guide.flight.body");
 			blank(lines);
 			para(lines, "projecthero.guide.flight.physics"); // v0.16.2: the , Flight Mode menu
+			blank(lines);
+			para(lines, "projecthero.guide.flight.hero_landing"); // v0.17.1: the shared superhero landing
 		}));
 
 		out.add(chapter("projecthero.guide.mutation", lines -> {
@@ -668,6 +670,7 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.thor.flight");
 			para(lines, "projecthero.guide.thor.flight.body");
+			para(lines, "projecthero.guide.thor.flight.landing"); // v0.17.1: hammer-first landing
 			blank(lines);
 			head(lines, "projecthero.guide.thor.armour");
 			para(lines, "projecthero.guide.thor.armour.body");
@@ -873,6 +876,7 @@ public final class HeroPackGuide {
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.flight");
 			para(lines, "projecthero.guide.green_lantern.flight.body");
+			para(lines, "projecthero.guide.green_lantern.flight.landing"); // v0.17.1: the ring-fist superhero landing
 			blank(lines);
 			head(lines, "projecthero.guide.green_lantern.air_tank");
 			para(lines, "projecthero.guide.green_lantern.air_tank.body");

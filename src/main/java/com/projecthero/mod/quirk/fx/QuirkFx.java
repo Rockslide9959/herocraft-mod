@@ -118,6 +118,8 @@ public final class QuirkFx {
 	public static final int DECAL_CRACK = 1;
 	public static final int DECAL_POOL = 2;
 	public static final int DECAL_PRINT = 3;
+	/** v0.17.1 (Hero Landing): a crack web with the Green Lantern emblem glowing in it (colour A = the glow). */
+	public static final int DECAL_EMBLEM = 4;
 	public static final int BOOK_FIREBALL = 0;
 	public static final int BOOK_SMOKE = 1;
 	public static final int BOOK_INK = 2;

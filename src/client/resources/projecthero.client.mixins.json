@@ -35,6 +35,7 @@
 		"QuirkEngineFovMixin",
 		"QuirkBodyTurnMixin",
 		"QuirkCameraShakeMixin",
+		"HeroLandingCameraMixin",
 		"QuirkFovPunchMixin",
 		"QuirkFirstPersonPoseMixin",
 		"IronManRemovalParticleMixin",

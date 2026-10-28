@@ -3058,5 +3058,37 @@
         "name": "projecthero:green_lantern/mech_katana_iaido"
       }
     ]
+  },
+  "hero_landing_impact": {
+    "subtitle": "subtitles.projecthero.hero_landing_impact",
+    "sounds": [
+      {
+        "name": "projecthero:hero_landing/impact"
+      }
+    ]
+  },
+  "hero_landing_hardlight": {
+    "subtitle": "subtitles.projecthero.hero_landing_hardlight",
+    "sounds": [
+      {
+        "name": "projecthero:hero_landing/hardlight"
+      }
+    ]
+  },
+  "hero_landing_thunder": {
+    "subtitle": "subtitles.projecthero.hero_landing_thunder",
+    "sounds": [
+      {
+        "name": "projecthero:hero_landing/thunder"
+      }
+    ]
+  },
+  "hero_landing_cosmic": {
+    "subtitle": "subtitles.projecthero.hero_landing_cosmic",
+    "sounds": [
+      {
+        "name": "projecthero:hero_landing/cosmic"
+      }
+    ]
   }
 }
