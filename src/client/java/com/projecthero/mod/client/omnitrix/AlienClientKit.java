@@ -60,6 +60,11 @@ public interface AlienClientKit {
 	default void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, float partial) {
 	}
 
+	/** v0.17.1: how many px {@link #hud} draws above the name line (the Left-Alt move list stacks above it). */
+	default int hudHeight() {
+		return 0;
+	}
+
 	/**
 	 * v0.17.1 wave A (Ghostfreak): the body's opacity, 0..255. Below 255 the player body is drawn see-through (vanilla's
 	 * translucent entity type, {@code OmnitrixAlienTranslucentMixin}). Default opaque.

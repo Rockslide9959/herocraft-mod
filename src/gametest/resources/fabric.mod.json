@@ -250,7 +250,8 @@
       "com.projecthero.mod.gametest.GreenLanternReconGameTests",
       "com.projecthero.mod.gametest.ChlorokinesisGameTests",
       "com.projecthero.mod.gametest.OmnitrixAliens2GameTests",
-      "com.projecthero.mod.gametest.HeroLandingGameTests"
+      "com.projecthero.mod.gametest.HeroLandingGameTests",
+      "com.projecthero.mod.gametest.OmnitrixInfoGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

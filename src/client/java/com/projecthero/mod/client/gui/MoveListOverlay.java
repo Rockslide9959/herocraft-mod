@@ -183,9 +183,19 @@ public final class MoveListOverlay {
 			if (r.extra() != null) {
 				line.append(Component.literal("   ")).append(r.extra().copy().withStyle(s -> s.withColor(EXTRA_COLOUR)));
 			}
-			// a wrapped row keeps its continuation lines indented under the name
+			// a wrapped row keeps its continuation lines indented under the name (v0.17.1: it really does now -- a
+			// hanging indent of spaces about as wide as the key label, capped so a long label cannot eat the row)
 			List<FormattedCharSequence> parts = font.split(line, maxW - 2 * PAD);
-			lines.addAll(parts);
+			if (parts.size() > 1) {
+				String indent = " ".repeat(Math.max(1, Math.min(6, font.width(r.key() + "  ") / Math.max(1, font.width(" ")))));
+				parts = font.split(line, maxW - 2 * PAD - font.width(indent));
+				for (int i = 0; i < parts.size(); i++) {
+					lines.add(i == 0 ? parts.get(i)
+							: FormattedCharSequence.composite(FormattedCharSequence.forward(indent, net.minecraft.network.chat.Style.EMPTY), parts.get(i)));
+				}
+			} else {
+				lines.addAll(parts);
+			}
 		}
 		if (lines.isEmpty()) {
 			return;

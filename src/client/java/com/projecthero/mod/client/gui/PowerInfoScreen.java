@@ -105,6 +105,13 @@ public final class PowerInfoScreen extends Screen {
 			return;
 		}
 
+		// v0.17.1 (user: "pressing I while transformed should also show information about the aliens and their abilities"):
+		// the Omnitrix has its own live page -- the current alien's, or the watch and the whole roster as a human
+		if (Minecraft.getInstance().player != null && com.projecthero.mod.omnitrix.Omnitrix.hasPower(Minecraft.getInstance().player)) {
+			omnitrixBody(wrapW);
+			return;
+		}
+
 		com.projecthero.mod.hero.guide.HeroPackGuide.Chapter heroChapter = heroTierChapter();
 		if (heroChapter != null) {
 			this.heading = net.minecraft.network.chat.Component.empty().append(heroChapter.title())
@@ -113,11 +120,6 @@ public final class PowerInfoScreen extends Screen {
 			if (Minecraft.getInstance().player != null
 					&& com.projecthero.mod.greenlantern.GreenLantern.hasPower(Minecraft.getInstance().player)) {
 				greenLanternRank(wrapW);
-			}
-			// v0.17.1: an Omnitrix wearer sees the watch's state (the alien, the time left, the recharge, the selection) first
-			if (Minecraft.getInstance().player != null
-					&& com.projecthero.mod.omnitrix.Omnitrix.hasPower(Minecraft.getInstance().player)) {
-				omnitrixStatus(wrapW);
 			}
 			// v0.17.1 (user): a Speed Force Speedster sees the drain after the Speed Force (and the portal's cooldown) first
 			if (Minecraft.getInstance().player != null
@@ -192,26 +194,52 @@ public final class PowerInfoScreen extends Screen {
 		body.add(FormattedCharSequence.EMPTY);
 	}
 
-	/** v0.17.1: the Omnitrix's state -- the alien and its time left, or the recharge, the selected alien and the keys. */
-	private void omnitrixStatus(int wrapW) {
+	/**
+	 * v0.17.1 (user): the Omnitrix page, built by {@link com.projecthero.mod.omnitrix.OmnitrixInfo} (the Guidebook chapter's
+	 * builder) with the player's live keys and state. Transformed: the alien's own page -- the time left, its role and
+	 * description, its body, passives, weaknesses and every move per key with cooldowns -- then the watch's keys and rules.
+	 * Human: the watch's state, keys, rules and the containment warning, then every alien on the dial in brief. Rebuilt every
+	 * half second while open (the timers count down; the scroll position is kept).
+	 */
+	private void omnitrixBody(int wrapW) {
+		this.liveQuirk = true;
 		net.minecraft.client.player.LocalPlayer p = Minecraft.getInstance().player;
 		com.projecthero.mod.omnitrix.data.OmnitrixState s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
-		long now = p.level().getGameTime();
-		if (s.transformed()) {
-			int left = com.projecthero.mod.omnitrix.Omnitrix.timeLeft(p);
-			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.as", Component.translatable("projecthero.omnitrix.alien." + s.active),
-					String.format(java.util.Locale.ROOT, "%d:%02d", left / 1200, (left / 20) % 60)).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), wrapW);
-		} else if (now < s.rechargeUntil) {
-			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.recharging", (s.rechargeUntil - now + 19) / 20)
-					.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), wrapW);
+		java.util.function.Function<AbilitySlot, Component> keys = slot -> Component.keybind(slot.keyBindingTranslationKey());
+		com.projecthero.mod.omnitrix.alien.Aliens.Alien alien = s.transformed() ? com.projecthero.mod.omnitrix.alien.Aliens.byId(s.active) : null;
+		List<Component> lines = new ArrayList<>();
+		if (alien != null) {
+			this.heading = Component.translatable("screen.projecthero.power_info.omnitrix.heading_alien",
+					com.projecthero.mod.omnitrix.OmnitrixInfo.alienName(alien)).withStyle(ChatFormatting.BOLD);
+			com.projecthero.mod.omnitrix.OmnitrixInfo.status(lines, p);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.alienPage(lines, alien, keys, p);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.controls(lines, keys);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, keys);
+			lines.add(Component.empty());
+			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.alien_hint", keys.apply(AbilitySlot.SLOT_5))
+					.withStyle(ChatFormatting.DARK_GRAY));
 		} else {
-			wrap(Component.translatable("screen.projecthero.power_info.omnitrix.ready").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD), wrapW);
+			this.heading = Component.translatable("projecthero.guide.omnitrix").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+			lines.add(Component.translatable("projecthero.guide.omnitrix.tier").withStyle(ChatFormatting.GREEN));
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.status(lines, p);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.controls(lines, keys);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, keys);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.containment(lines);
+			lines.add(Component.empty());
+			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, keys, s.selected);
+			lines.add(Component.empty());
+			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.human_hint").withStyle(ChatFormatting.DARK_GRAY));
 		}
-		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.selected", Component.translatable("projecthero.omnitrix.alien." + s.selected))
-				.withStyle(ChatFormatting.GRAY), wrapW);
-		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.keys").withStyle(ChatFormatting.DARK_GRAY), wrapW);
-		wrap(Component.translatable("screen.projecthero.power_info.omnitrix.locked").withStyle(ChatFormatting.DARK_GREEN), wrapW);
-		body.add(FormattedCharSequence.EMPTY);
+		for (Component line : lines) {
+			wrap(line, wrapW);
+		}
 	}
 
 	/** v0.17.1: the Lantern Rank block -- rank, an XP bar, what the next rank brings, the live multipliers and the keys. */
@@ -452,11 +480,23 @@ public final class PowerInfoScreen extends Screen {
 	}
 
 	private void wrap(Component line, int width) {
-		var split = this.font.split(line, width);
+		// v0.17.1: a line that starts indented keeps its continuation lines under the same indent (a hanging indent), so a
+		// wrapped move description or roster line never runs back out to the left edge
+		String text = line.getString();
+		int lead = 0;
+		while (lead < text.length() && lead < 8 && text.charAt(lead) == ' ') {
+			lead++;
+		}
+		String indent = " ".repeat(lead);
+		int indentW = this.font.width(indent);
+		var split = this.font.split(line, Math.max(40, width - indentW));
 		if (split.isEmpty()) {
 			body.add(FormattedCharSequence.EMPTY);
-		} else {
-			body.addAll(split);
+			return;
+		}
+		for (int i = 0; i < split.size(); i++) {
+			body.add(i == 0 || lead == 0 ? split.get(i)
+					: FormattedCharSequence.composite(FormattedCharSequence.forward(indent, net.minecraft.network.chat.Style.EMPTY), split.get(i)));
 		}
 	}
 

@@ -1,6 +1,9 @@
 package com.projecthero.mod.client.omnitrix;
 
+import java.util.ArrayList;
 import java.util.List;
+
+import com.projecthero.mod.client.gui.MoveListOverlay;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -51,11 +54,15 @@ public final class OmnitrixHud {
 		int cx = 28;
 		int cy = g.guiHeight() - 30;
 		dial(g, mc, p, s, now, cx, cy);
+		int hudTop = cy - 22;
+		int hudRight = cx + 22;
 		if (s.transformed()) {
 			keys(g, mc, p, s, now, cx + 26, cy - 9);
+			hudRight = cx + 26 + KEYS_WIDTH;
 			AlienClientKit extra = AlienClients.of(s.active);
 			if (extra != null) {
 				extra.hud(g, p, cx + 26, cy - 20, partial);
+				hudTop -= extra.hudHeight();
 			}
 		} else if (s.selecting) {
 			Aliens.Alien a = Aliens.byId(s.selected);
@@ -63,11 +70,94 @@ public final class OmnitrixHud {
 			List<FormattedCharSequence> hint = mc.font.split(Component.translatable("hud.projecthero.omnitrix.hint"), 112);
 			int y = cy - 24 - hint.size() * 9;
 			g.drawString(mc.font, name, 6, y - 11, GREEN, true);
+			hudTop = y - 12;
+			hudRight = 6 + 112;
 			for (FormattedCharSequence line : hint) {
 				g.drawString(mc.font, line, 6, y, 0xFFB8C8B8, true);
 				y += 9;
 			}
 		}
+		// v0.17.1 (user: "when you hold alt with the omnitrix or in alien form it has to show your abilities"): the shared
+		// Left-Alt move list, stacked above the dial / key boxes like every other power's
+		if (MoveListOverlay.held()) {
+			MoveListOverlay.draw(g, hudRight, hudTop, moveRows(mc, p, s, now));
+		}
+	}
+
+	/** The key boxes' width: five kit keys at 20 px, a 4 px gap and the V box. */
+	private static final int KEYS_WIDTH = 5 * 20 + 4 + 18;
+
+	/**
+	 * The Left-Alt rows. Human: V (raise / lower, or the recharge left), the scroll wheel and the click while the watch is up,
+	 * and the selected alien. Alien: every kit key's tap / Shift / hold move from the kit's declarations on the player's live
+	 * keys, the attack / use / sneak moves, and V (turn back) with the time left. Never H or N.
+	 */
+	static List<MoveListOverlay.Row> moveRows(Minecraft mc, LocalPlayer p, OmnitrixState s, long now) {
+		List<MoveListOverlay.Row> rows = new ArrayList<>();
+		String v = MoveListOverlay.key(AbilitySlot.SLOT_5);
+		AlienKit kit = s.transformed() ? Aliens.kit(s.active) : null;
+		if (kit == null) {
+			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
+			rows.add(MoveListOverlay.Row.of(v, Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
+					null, recharge > 0 ? Component.translatable("hud.projecthero.omnitrix.alt.recharging", (recharge + 19) / 20) : null));
+			if (s.selecting) {
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.scroll").getString(),
+						Component.translatable("hud.projecthero.omnitrix.alt.scroll"), null));
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.click").getString(),
+						Component.translatable("hud.projecthero.omnitrix.alt.slap"), null));
+			}
+			Aliens.Alien sel = Aliens.byId(s.selected);
+			if (sel != null) {
+				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.dial").getString(),
+						Component.translatable("hud.projecthero.omnitrix.alt.selected", com.projecthero.mod.omnitrix.OmnitrixInfo.alienName(sel)), null));
+			}
+			return rows;
+		}
+		for (AbilitySlot slot : com.projecthero.mod.omnitrix.OmnitrixInfo.KIT_SLOTS) {
+			AlienMove tap = kit.moveOn(slot, false, false);
+			AlienMove shift = kit.moveOn(slot, true, false);
+			AlienMove hold = kit.moveOn(slot, false, true);
+			if (tap == null && shift == null && hold == null) {
+				continue;
+			}
+			Component holdText = hold == null ? null : Component.translatable("hud.projecthero.omnitrix.alt.hold", moveName(s.active, hold));
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(slot), tap != null ? moveName(s.active, tap) : holdText != null ? holdText
+					: Component.literal("-"), shift == null ? null : moveName(s.active, shift), tap != null ? holdText : null));
+		}
+		// the vanilla keys: grouped by the key the declaration names first (Attack / Use / Sneak)
+		vanillaRow(rows, kit, s.active, "Attack", mc.options.keyAttack);
+		vanillaRow(rows, kit, s.active, "Use", mc.options.keyUse);
+		vanillaRow(rows, kit, s.active, "Sneak", mc.options.keyShift);
+		rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null,
+				Component.translatable("hud.projecthero.omnitrix.alt.time_left",
+						com.projecthero.mod.omnitrix.OmnitrixInfo.clock((int) Math.max(0L, s.endsAt - now)))));
+		return rows;
+	}
+
+	private static void vanillaRow(List<MoveListOverlay.Row> rows, AlienKit kit, String alien, String word, net.minecraft.client.KeyMapping key) {
+		net.minecraft.network.chat.MutableComponent names = null;
+		for (AlienMove m : kit.moves()) {
+			if (m.onSlot() || m.vanillaKey() == null || !m.vanillaKey().startsWith(word)) {
+				continue;
+			}
+			if (names == null) {
+				names = Component.empty().append(moveName(alien, m));
+			} else {
+				names.append(Component.literal(" / ")).append(moveName(alien, m));
+			}
+		}
+		if (names != null) {
+			// a short rebinding ("F") shows as itself; the default mouse buttons / Left Shift read as the action ("Attack")
+			String label = key.getTranslatedKeyMessage().getString();
+			if (label.length() > 5) {
+				label = Component.translatable("hud.projecthero.omnitrix.alt.key." + word.toLowerCase(java.util.Locale.ROOT)).getString();
+			}
+			rows.add(MoveListOverlay.Row.of(label, names, null));
+		}
+	}
+
+	private static Component moveName(String alien, AlienMove m) {
+		return Component.translatable("projecthero.omnitrix." + alien + "." + m.id());
 	}
 
 	private static void disc(GuiGraphics g, int cx, int cy, int r, int colour) {

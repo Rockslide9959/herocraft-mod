@@ -2275,32 +2275,19 @@ public final class HeroPackGuide {
 				para(lines, "projecthero.guide.omnitrix." + section + ".body");
 				blank(lines);
 			}
-			head(lines, "projecthero.guide.omnitrix.keys");
-			for (String[] row : new String[][] { { "V", "activate" }, { "Scroll", "scroll" }, { "Click", "slap" }, { "V (alien)", "revert" } }) {
-				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GREEN)
-						.append(Component.translatable("projecthero.guide.omnitrix.key." + row[1]).withStyle(ChatFormatting.WHITE)));
-			}
+			// v0.17.1: the keys, the rules, the roster and every alien's full page (body, passives, weaknesses, each move with its
+			// cooldown and description) come from OmnitrixInfo -- the same builder as the "Your Power" (I) screen
+			com.projecthero.mod.omnitrix.OmnitrixInfo.controls(lines, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS);
+			blank(lines);
+			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS);
+			blank(lines);
+			com.projecthero.mod.omnitrix.OmnitrixInfo.roster(lines, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS, null);
 			blank(lines);
 			head(lines, "projecthero.guide.omnitrix.aliens");
 			para(lines, "projecthero.guide.omnitrix.aliens.body");
 			for (com.projecthero.mod.omnitrix.alien.Aliens.Alien a : com.projecthero.mod.omnitrix.alien.Aliens.all()) {
-				com.projecthero.mod.omnitrix.alien.AlienKit kit = com.projecthero.mod.omnitrix.alien.Aliens.kit(a.id());
 				blank(lines);
-				lines.add(Component.translatable(a.nameKey()).withStyle(s -> s.withColor(a.colour()).withBold(true))
-						.append(kit == null ? Component.literal("  ").append(Component.translatable("projecthero.guide.omnitrix.coming_soon"))
-								.withStyle(ChatFormatting.DARK_GRAY) : Component.empty()));
-				if (kit == null) {
-					continue;
-				}
-				para(lines, "projecthero.guide.omnitrix.alien." + a.id());
-				var st = kit.stats();
-				lines.add(Component.translatable("projecthero.guide.omnitrix.stats", Math.round(st.maxHealth()), Math.round(st.speed() * 100),
-						String.format(java.util.Locale.ROOT, "%.2f", st.scale()), Math.round(st.armor())).withStyle(ChatFormatting.DARK_GREEN));
-				for (com.projecthero.mod.omnitrix.alien.AlienMove m : kit.moves()) {
-					lines.add(Component.literal(" " + m.keyLabel() + "  ").withStyle(ChatFormatting.GOLD)
-							.append(Component.translatable("projecthero.omnitrix." + a.id() + "." + m.id()).withStyle(ChatFormatting.WHITE)));
-					para(lines, "projecthero.omnitrix." + a.id() + "." + m.id() + ".desc");
-				}
+				com.projecthero.mod.omnitrix.OmnitrixInfo.alienPage(lines, a, com.projecthero.mod.omnitrix.OmnitrixInfo.LETTERS, null);
 			}
 			blank(lines);
 			lines.add(Component.translatable("projecthero.guide.omnitrix.pod").withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
