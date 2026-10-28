@@ -114,11 +114,13 @@ const SOUNDS = {
 for (const [k, v] of Object.entries(SOUNDS)) L['subtitles.projecthero.' + k] = v;
 
 // ---------------------------------------------------------------- en_us.json: the block at the end
-let s = fs.readFileSync(LANG, 'utf8');
+// work in LF, write back in the file's own line endings (a CRLF checkout must not duplicate the block)
+let raw = fs.readFileSync(LANG, 'utf8');
+const EOL = raw.includes('\r\n') ? '\r\n' : '\n';
+let s = raw.replace(/\r\n/g, '\n');
 const START = '  "_comment_omnitrix_aliens_b_start": "v0.17.1 Omnitrix: Stinkfly, Wildvine, Ripjaws, Grey Matter",\n';
 const END_KEY = '"_comment_omnitrix_aliens_b_end": ""';
-const i = s.indexOf(START);
-if (i >= 0) {
+for (let i = s.indexOf(START); i >= 0; i = s.indexOf(START)) {
 	const j = s.indexOf(END_KEY, i);
 	const lineEnd = s.indexOf('\n', j);
 	s = s.slice(0, i) + s.slice(lineEnd + 1);
@@ -130,10 +132,12 @@ for (const [k, v] of Object.entries(L)) block += '  ' + JSON.stringify(k) + ': '
 block += '  ' + END_KEY + '\n';
 s = s.replace(/\s*\}\s*$/, ',\n' + block + '}\n');
 const parsed = JSON.parse(s);
-fs.writeFileSync(LANG, s);
+fs.writeFileSync(LANG, s.replace(/\n/g, EOL));
 
 // ---------------------------------------------------------------- sounds.json: the block at the end
-let j = fs.readFileSync(SOUNDS_JSON, 'utf8');
+const rawJ = fs.readFileSync(SOUNDS_JSON, 'utf8');
+const EOLJ = rawJ.includes('\r\n') ? '\r\n' : '\n';
+let j = rawJ.replace(/\r\n/g, '\n');
 const SND_START = '  "stinkfly_buzz": {';
 const k0 = j.indexOf(SND_START);
 if (k0 >= 0) {
@@ -146,5 +150,5 @@ for (const name of Object.keys(SOUNDS)) {
 sb = sb.replace(/,\n$/, '\n');
 j = j.replace(/\s*\}\s*$/, ',\n' + sb + '}\n');
 JSON.parse(j);
-fs.writeFileSync(SOUNDS_JSON, j);
+fs.writeFileSync(SOUNDS_JSON, j.replace(/\n/g, EOLJ));
 console.log('lang lines', Object.keys(L).length, 'total keys', Object.keys(parsed).length, '; sounds', Object.keys(SOUNDS).length);

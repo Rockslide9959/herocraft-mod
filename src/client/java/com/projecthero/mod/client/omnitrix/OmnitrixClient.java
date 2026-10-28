@@ -58,6 +58,10 @@ public final class OmnitrixClient {
 		AlienClients.register(Aliens.WILDVINE.id(), new com.projecthero.mod.client.omnitrix.alien.WildvineClient());
 		AlienClients.register(Aliens.RIPJAWS.id(), new com.projecthero.mod.client.omnitrix.alien.RipjawsClient());
 		AlienClients.register(Aliens.GREY_MATTER.id(), new com.projecthero.mod.client.omnitrix.alien.GreyMatterClient());
+		AlienClients.register(Aliens.XLR8.id(), new com.projecthero.mod.client.omnitrix.alien.Xlr8Client());
+		AlienClients.register(Aliens.DIAMONDHEAD.id(), new com.projecthero.mod.client.omnitrix.alien.DiamondheadClient());
+		AlienClients.register(Aliens.UPGRADE.id(), new com.projecthero.mod.client.omnitrix.alien.UpgradeClient());
+		AlienClients.register(Aliens.GHOSTFREAK.id(), new com.projecthero.mod.client.omnitrix.alien.GhostfreakClient());
 
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_METEOR, OmnitrixRenderers.Meteor::new);
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_POD, OmnitrixRenderers.Pod::new);

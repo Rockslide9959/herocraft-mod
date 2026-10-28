@@ -235,6 +235,7 @@
       "com.projecthero.mod.gametest.SilverSurferGameTests",
       "com.projecthero.mod.gametest.SpeedForceSpeedsterGameTests",
       "com.projecthero.mod.gametest.OmnitrixGameTests",
+      "com.projecthero.mod.gametest.OmnitrixWaveAGameTests",
       "com.projecthero.mod.gametest.SpeedForceSurvivalGameTests",
       "com.projecthero.mod.gametest.BlueBeetleGameTests",
       "com.projecthero.mod.gametest.MiraculousCoreGameTests",

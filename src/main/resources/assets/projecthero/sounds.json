@@ -3059,6 +3059,158 @@
       }
     ]
   },
+  "xlr8_dash": {
+    "subtitle": "subtitles.projecthero.xlr8_dash",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_dash"
+      }
+    ]
+  },
+  "xlr8_hit": {
+    "subtitle": "subtitles.projecthero.xlr8_hit",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_hit"
+      }
+    ]
+  },
+  "xlr8_tornado": {
+    "subtitle": "subtitles.projecthero.xlr8_tornado",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_tornado"
+      }
+    ]
+  },
+  "xlr8_burst": {
+    "subtitle": "subtitles.projecthero.xlr8_burst",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_burst"
+      }
+    ]
+  },
+  "xlr8_visor": {
+    "subtitle": "subtitles.projecthero.xlr8_visor",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/xlr8_visor"
+      }
+    ]
+  },
+  "diamondhead_shard": {
+    "subtitle": "subtitles.projecthero.diamondhead_shard",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/diamondhead_shard"
+      }
+    ]
+  },
+  "diamondhead_grow": {
+    "subtitle": "subtitles.projecthero.diamondhead_grow",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/diamondhead_grow"
+      }
+    ]
+  },
+  "diamondhead_shatter": {
+    "subtitle": "subtitles.projecthero.diamondhead_shatter",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/diamondhead_shatter"
+      }
+    ]
+  },
+  "diamondhead_blade": {
+    "subtitle": "subtitles.projecthero.diamondhead_blade",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/diamondhead_blade"
+      }
+    ]
+  },
+  "upgrade_beam": {
+    "subtitle": "subtitles.projecthero.upgrade_beam",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_beam"
+      }
+    ]
+  },
+  "upgrade_charge": {
+    "subtitle": "subtitles.projecthero.upgrade_charge",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_charge"
+      }
+    ]
+  },
+  "upgrade_merge": {
+    "subtitle": "subtitles.projecthero.upgrade_merge",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_merge"
+      }
+    ]
+  },
+  "upgrade_emp": {
+    "subtitle": "subtitles.projecthero.upgrade_emp",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_emp"
+      }
+    ]
+  },
+  "upgrade_slide": {
+    "subtitle": "subtitles.projecthero.upgrade_slide",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/upgrade_slide"
+      }
+    ]
+  },
+  "ghostfreak_claw": {
+    "subtitle": "subtitles.projecthero.ghostfreak_claw",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_claw"
+      }
+    ]
+  },
+  "ghostfreak_scream": {
+    "subtitle": "subtitles.projecthero.ghostfreak_scream",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_scream"
+      }
+    ]
+  },
+  "ghostfreak_phase": {
+    "subtitle": "subtitles.projecthero.ghostfreak_phase",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_phase"
+      }
+    ]
+  },
+  "ghostfreak_laugh": {
+    "subtitle": "subtitles.projecthero.ghostfreak_laugh",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_laugh"
+      }
+    ]
+  },
+  "ghostfreak_tendril": {
+    "subtitle": "subtitles.projecthero.ghostfreak_tendril",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/ghostfreak_tendril"
+      }
+    ]
+  },
   "stinkfly_buzz": {
     "subtitle": "subtitles.projecthero.stinkfly_buzz",
     "sounds": [

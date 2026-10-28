@@ -221,3 +221,52 @@ Static per-player state: `Omnitrix` (the "rejects" throttle), `OmnitrixAbilityMa
 per dimension). All cleared by `ServerStateReset -> OmnitrixMod.clearSessionState`, and per player on logout / death /
 dimension change (`Omnitrix.onLogout / onDeath / onDimensionChange`) and on revert (`AlienKit.onRevert`). A logout turns a
 transformed wearer back (attribute modifiers are transient). The extraction attachment is never saved: a relog aborts it.
+
+## Wave A: XLR8, Diamondhead, Upgrade, Ghostfreak
+
+Kits: `alien/xlr8/Xlr8Kit`, `alien/diamondhead/DiamondheadKit` (+ `DiamondheadBlocks`), `alien/upgrade/UpgradeKit` (+ `UpgradeEmp`),
+`alien/ghostfreak/GhostfreakKit`; clients `client/omnitrix/alien/Xlr8Client`, `DiamondheadClient`, `UpgradeClient`, `GhostfreakClient`.
+Generators: `scratchpad/gen_omnitrix_wave_a_textures.js` (skins, extras sheets, `upgrade_glow.png`, the crystal block),
+`synth_omnitrix_wave_a_sounds.js` (19 OGGs: `xlr8_*`, `diamondhead_*`, `upgrade_*`, `ghostfreak_*`), the `WAVE_A` block in
+`gen_omnitrix_lang.js`. Tests: `OmnitrixWaveAGameTests` (10). Sounds are constants in each kit's own class.
+
+| | XLR8 | Diamondhead | Upgrade | Ghostfreak |
+|---|---|---|---|---|
+| Body | 22 HP, speed x1.9 (+50% more sprinting), size 0.95, armour 2, fist +1, attack speed +2, step +0.65 | 34 HP, speed x0.88, size 1.1, armour 12 (+4), KB res 0.5, fist +4 | 28 HP, speed x1.05, armour 6, KB res 0.2, fist +3 | 24 HP, armour 2, fist +2, gravity x0.25 (drifts down), no fall damage to speak of |
+| Passive | Shift+X: wall run (climb while pressed into a wall) + water run | reflects 40% of projectiles (an entity tag marks each judged once); Crystal Armour: all | merged: half damage (a golem takes the hit instead); no suffocation while sliding | half damage from physical blows (`GhostfreakKit.physical`), never drowns, sun burns 1 every 2 s |
+| R / Shift+R | Dash Flurry (6 x 2) / Tornado Run (3 s twister, 4 at the end) | Shard Volley (5 x 3) / Crystal Spear (12) | Optic Beam (6) / Charged Beam (1 s, pierces 14) | Spectral Claw (7, wither) / Scream (3, fear 5 s) |
+| G / Shift+G | Sonic Punch (close in, 8) / Snatch (the mob's held item) | Blade Arm (toggle +6, +1 reach) / Spike Line (12 blocks, 6) | Tech Grab (stun 3 s) / Circuit Lash (pull, 4) | Possess (10 s: the mob fights for you) / Soul Siphon (6, heals 3) |
+| X / Shift+X | Blur Dash (afterimages, 3) / Wall Run toggle | Crystal Slide (path / ramp) / Crystal Vault (pillar) | Liquid Slide (scale 0.45 = 0.81 tall, 2 s) / Stretch Grapple (22) | Phase (5 s, through walls, then 10 s cooldown) / Ghost Flight toggle |
+| Z / Shift+Z | Whirlwind (r 6, 4) / Kick Barrage (8 x 1.5) | Crystal Wall (5x3, 8 s) / Crystal Dome (r 3, 7 s) | Overload (golem offline / block: redstone jammed 5 s) / EMP Burst (r 8, redstone r 6 for 6 s) | Fade (invisible 10 s) / Shadow Tendrils (3 s, r 6) |
+| C / Shift+C | Time Burst (r 12 slowness V 5 s) / Speed Mine (1x2 tunnel, 16) | Diamond Barrage (2 s shard storm) / Crystal Armour (6 s, -50%) | Merge (furnace x4, dispenser rapid fire, piston hurl; pilot golem / minecart / boat, unseen, 20 s) / Upgrade Tool (repair half, else +1 Unbreaking) | Fright Aura (10 s panic r 7) / Haunt (darkness + nausea r 10) |
+| Attack / Use | Double Jab (+1.5) / Item Sweep (pull drops within 14) | Crystal Edge (blade: sweeps) / a crystal block on a face (30 s) | Circuit Jolt (+2) / opens iron doors and trapdoors | Chilling Touch (+1, slow) / Spectral Bolt (3) |
+
+Bosses: every "is it a boss" check is `QuirkThreat.add(e, p, x) || maxHealth >= 150` -- a boss's threat table hears the move
+(fear, possession, stuns and the time burst are refused or weakened on it). Diamondhead's constructs go through `TempBlocks`
+(they revert, and respect `abilityTerrainDamage`), made of `projecthero:diamondhead_crystal` (translucent, no item, no drops).
+
+### Framework extensions (backwards-compatible; every default is "off")
+
+* `AlienKit.phasing(Player)` -- horizontal movement ignores blocks (`mixin/OmnitrixAlienCollideMixin`, both sides) and the client
+  no longer shoves the player out of walls (`client/mixin/OmnitrixAlienPhaseClientMixin`). The Silver Surfer's Molecular Phase
+  approach. End it with `SuperSpeedHandlers.settleOutsideBlocks`.
+* `AlienKit.standsOnFluid(Player, FluidState)` -- water (or any fluid) holds the wearer up (`mixin/OmnitrixAlienLivingMixin`,
+  `canStandOnFluid`); `AlienKit.climbs(Player)` -- reported as on a ladder (`onClimbable`).
+* `AlienKit.activeKit(Player)` -- the kit of the alien a player is right now, client-safe (mixins read synced state only).
+* `AlienClientKit.bodyAlpha(player)` -- the body's opacity; below 255 the body uses vanilla's translucent entity type
+  (`client/mixin/OmnitrixAlienTranslucentMixin`, the `LivingEntityPhaseMixin` technique). Ghostfreak: 150 (90 phased).
+* `AlienProjectileEntity.trail(kind, particle)` -- a client particle trail per projectile kind (registered once at init).
+* `mixin/OmnitrixUpgradeEmpMixin` (Upgrade only): `BlockStateBase.getSignal / getDirectSignal` return 0 inside a live
+  `UpgradeEmp` zone; one volatile "any zone" check first, so it costs nothing otherwise. A jam and its end re-update the zone.
+* `gen_omnitrix_lang.js` now keeps the file's line endings (the checkout is CRLF: the old START marker never matched and the
+  block was duplicated).
+* Two `OmnitrixGameTests` checks no longer assume exactly two playable aliens (the dial wrap and "coming soon").
+
+### Wave A state and resets
+
+Static per-player state: `Xlr8Kit` (the twister centre, Blur Dash hits), `DiamondheadKit` (the Spike Line, the Barrage storm),
+`UpgradeKit` (the merge), `GhostfreakKit` (the possessed mob, feared mobs, the tendril pit) -- each cleared in `onRevert` (timeout,
+Shift+V, death, logout, the pod) and in its `clearSessionState` (from `OmnitrixMod.clearSessionState`). `UpgradeEmp`'s jam zones are
+server-wide and short-lived (they lapse on their own) and are dropped on server stop. Transient attribute modifiers outside the
+body (XLR8's sprint and attack speed, Diamondhead's blade, Upgrade's slide scale and speed) are removed in `onRevert`; Fade's and
+Merge's invisibility is our own 40-tick effect, removed on revert (a longer potion of the player's own is left alone).

@@ -46,6 +46,10 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.register();
 		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.register();
 		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.register();
+		com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.register();
+		com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit.register();
+		com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.register();
+		com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.register();
 
 		PayloadTypeRegistry.playC2S().register(OmnitrixActionPayload.TYPE, OmnitrixActionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(OmnitrixActionPayload.TYPE, (payload, context) -> {
@@ -142,5 +146,9 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.clearSessionState();
 	}
 }

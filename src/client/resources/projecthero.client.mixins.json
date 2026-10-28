@@ -12,6 +12,8 @@
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",
+		"OmnitrixAlienTranslucentMixin",
+		"OmnitrixAlienPhaseClientMixin",
 		"NovaFirstPersonParticleMixin",
 		"PyroFlameSkinMixin",
 		"SpiderFirstPersonHandsMixin",

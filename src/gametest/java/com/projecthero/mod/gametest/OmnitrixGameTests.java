@@ -363,10 +363,10 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.cycle(p, 1), "the scroll wheel turns the dial");
 		String second = Omnitrix.state(p).selected;
 		helper.assertTrue(!second.equals(first) && Aliens.playable(second), "to the next alien with a kit");
-		for (int k = 1; k < Aliens.playable().size(); k++) {
+		for (int k = 1; k < Aliens.playable().size(); k++) { // v0.17.1 wave A: however many aliens have kits by now
 			Omnitrix.cycle(p, 1);
 		}
-		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "coming-soon aliens are skipped (it wraps after the last playable one)");
+		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "coming-soon aliens are skipped (a full turn of the playable ones wraps)");
 		Omnitrix.cycle(p, -1);
 		helper.assertTrue(!Omnitrix.state(p).selected.equals(first) && Aliens.playable(Omnitrix.state(p).selected), "and turns back");
 		String picked = Omnitrix.state(p).selected;
@@ -414,12 +414,11 @@ public class OmnitrixGameTests implements FabricGameTest {
 	public void theDialListsAllTenAndOnlyKitsArePlayable(GameTestHelper helper) {
 		helper.assertTrue(Aliens.all().size() == 10, "the original ten are on the dial");
 		helper.assertTrue(Aliens.playable(HeatblastKit.ID) && Aliens.playable(FourArmsKit.ID), "Heatblast and Four Arms are playable");
-		helper.assertFalse(Aliens.playable(Aliens.XLR8.id()), "XLR8 is coming soon");
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
-		for (Aliens.Alien soon : Aliens.all()) {
-			if (!Aliens.playable(soon.id())) {
-				helper.assertFalse(Omnitrix.select(p, soon.id()), "a coming-soon alien cannot be picked");
-				break;
+		// v0.17.1 wave A: more aliens get kits as they are built -- whichever is still without one stays "coming soon"
+		for (Aliens.Alien a : Aliens.all()) {
+			if (!Aliens.playable(a.id())) {
+				helper.assertFalse(Omnitrix.select(p, a.id()), "a coming-soon alien cannot be picked: " + a.id());
 			}
 		}
 		helper.assertTrue(Omnitrix.select(p, FourArmsKit.ID) && Omnitrix.state(p).selected.equals(FourArmsKit.ID), "Four Arms picked");
