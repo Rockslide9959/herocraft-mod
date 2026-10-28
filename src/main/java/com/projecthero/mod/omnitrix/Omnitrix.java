@@ -37,7 +37,7 @@ import net.minecraft.world.phys.Vec3;
  * <h2>Transforming (Alien Evo style: everything happens on the watch, no screen)</h2>
  * V as a human raises the wrist: the core pops up and the face shows the selected alien's silhouette as a little hologram
  * ({@link #activate}). The scroll wheel turns the dial through the aliens ({@link #cycle}); a left-click (or right-click) slaps
- * the core down ({@link #slap}) -- the green DNA helix spirals up the body and the wearer becomes that alien. V again lowers the
+ * the core down ({@link #slap}) -- the green flash and Kirby dots burst (client OmnitrixTransformFx) and the wearer becomes that alien. V again lowers the
  * watch ({@link #deactivate}); V while transformed reverts early (Shift+V is an alias). A transformation lasts {@link OmnitrixConfig#TRANSFORM_TICKS} (3 min);
  * the watch light flashes red for the last 15 s, then the wearer times out with the chime and a red flash, and the watch
  * recharges for 90 s. The alien's body ({@code AlienStats}) applies while transformed and health converts by fraction.
@@ -437,12 +437,16 @@ public final class Omnitrix {
 
 	/**
 	 * The helix flash: server particles + a sound (v0.17.1: the transform sweep, Shift+V's wind-down, the timeout's red
-	 * power-down or the pod's flicker); the client draws the strands from the anim.
+	 * power-down or the pod's flicker); the client draws the strands from the anim. v0.17.1 polish: a transformation's flash is
+	 * the client's green / red Kirby-dot burst ({@code OmnitrixTransformFx}, from the synced anim), so only the pod's flicker
+	 * (no anim) still sends the white flash.
 	 */
 	private static void helixFx(ServerPlayer p, OmnitrixSfx.Cue sound) {
 		ServerLevel level = p.serverLevel();
-		double h = p.getBbHeight();
-		level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + h * 0.5, p.getZ(), 1, 0, 0, 0, 0);
+		if (sound == OmnitrixSounds.FLICKER) {
+			double h = p.getBbHeight();
+			level.sendParticles(ParticleTypes.FLASH, p.getX(), p.getY() + h * 0.5, p.getZ(), 1, 0, 0, 0, 0);
+		}
 		OmnitrixSounds.play(level, p.position(), sound, 1.0f, 1.0f);
 	}
 

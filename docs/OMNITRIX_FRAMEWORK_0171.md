@@ -30,16 +30,17 @@ Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = move
 ## The watch (Alien Evo style, user: "no dial screen")
 
 * **V as a human** raises the wrist (first person: the forearm comes in from the left, the chunky watch's face toward the
-  eye; third person: the arm comes up across the chest, the head tips down to it). The core pops up (`omnitrix_core_up`),
-  the face dims and shows the selected alien's silhouette glowing on it, with a hologram of it hovering over the dial.
+  eye; third person: the forearm comes up level in front of the chest with the face up, the head bows to it and the other
+  hand grips the dial). The core pops up (`omnitrix_core_up`), the face dims and shows the selected alien's silhouette
+  glowing on it, a faint copy hovering just over the face (the big third-person hologram was removed in the polish pass).
 * **The scroll wheel** (while raised) turns the dial to the next alien that has a kit (aliens without one are skipped);
-  the hotbar does not move. Each step clicks, the core twists a notch, the name shows on the action bar and above the HUD dial.
+  the hotbar does not move. Each step clicks, the core twists a notch, the name shows on the action bar and in the HUD's title row.
 * **A left- or right-click** slaps the core down (`Omnitrix.slap`; the click never attacks, uses or mines) and
-  `Omnitrix.SLAP_TICKS` later the green DNA helix spirals up the body and the alien takes over.
+  `Omnitrix.SLAP_TICKS` later the green flash and Kirby dots burst (`OmnitrixTransformFx`) and the alien takes over.
 * **V again** lowers the watch: no cost, no cooldown. **V while transformed** reverts early (10 s recharge); Shift+V is
   the same key. **V during a recharge** flashes the face red with the time left and does not raise the watch.
 * The selected alien persists. A transformation lasts 3 minutes (the watch light flashes red and beeps for the last 15 s),
-  then the timeout chime, a red flash, and a 90 s recharge.
+  then the timeout chime, the red flash and Kirby dots, and a 90 s recharge.
 
 Server entry points (tests and kits use them): `Omnitrix.activate / deactivate / cycle(p, dir) / slap / transform /
 revert(p, Reason) / select(p, id)`; `OmnitrixAbilityManager.pressV(p)`. Client to server: `OmnitrixActionPayload`
@@ -202,8 +203,9 @@ feet / eyes (holds for an unticked mock player).
 (`getScale() != appliedScale`), both ways; tests call `refreshDimensions()` for an unticked mock. The big head is the skin's head
 re-baked and drawn x1.55 on the head bone, with bulging eye cubes.
 
-**Framework extensions** (backwards-compatible): `AlienClientKit.hud(g, player, x, y, partial)` -- a default no-op, called by
-`OmnitrixHud` for the transformed wearer with the spot above the alien's name (Ripjaws' hydration meter); `alien/AlienStatus` --
+**Framework extensions** (backwards-compatible): `AlienClientKit.hud(g, player, x, y, w, partial)` -- a default no-op, called by
+`OmnitrixHud` for the transformed wearer with the spot above the alien's name (Ripjaws' hydration meter, drawn with
+`OmnitrixHud.meter` so it matches the time bar); `alien/AlienStatus` --
 `root` (Slowness X, a quarter as long on bosses, a QuirkThreat credit), `stun`, `loseTrack` (never a boss), `isBoss`, and
 `sound(path)` for kit-owned SoundEvent constants.
 
@@ -216,8 +218,8 @@ gen_omnitrix_aliens_b_textures.js` (skins + extras), `synth_omnitrix_aliens_b_so
 
 ## Info pages: the Left-Alt list, the I screen, the guide
 
-* **Left-Alt** (`OmnitrixHud.moveRows`, drawn with the shared `MoveListOverlay` above the dial / key boxes). Human: V (raise /
-  lower, the recharge left), Scroll and Click while the watch is up, the selected alien. Alien: every kit key's tap / Shift / hold
+* **Left-Alt** (`OmnitrixHud.moveRows`, drawn with the shared `MoveListOverlay` above the bottom-right HUD). Human: Scroll and Click
+  while the watch is up, the selected alien, V (raise / lower, the recharge left) last. Alien: every kit key's tap / Shift / hold
   move from `moves()` on the live bindings, the Attack / Use / Sneak moves (grouped by the first word of `vanillaKey`), V = turn
   back with the time left. Never H / N. A kit whose `AlienClientKit.hud` draws over the name says how tall in `hudHeight()`.
 * **`omnitrix/OmnitrixInfo`** builds every line of reference text (client-safe; the caller wraps): `status` (live), `controls`,
@@ -286,3 +288,28 @@ Shift+V, death, logout, the pod) and in its `clearSessionState` (from `OmnitrixM
 server-wide and short-lived (they lapse on their own) and are dropped on server stop. Transient attribute modifiers outside the
 body (XLR8's sprint and attack speed, Diamondhead's blade, Upgrade's slide scale and speed) are removed in `onRevert`; Fade's and
 Merge's invisibility is our own 40-tick effect, removed on revert (a longer potion of the player's own is left alone).
+
+## Polish pass (v0.17.1, user: "green vfx flash and kirby dots", "move the aliens HUDS to the right side", "not so bulky")
+
+* **`client/omnitrix/OmnitrixTransformFx`** -- the transformation look, all client-side from the synced anim
+  (`ANIM_TRANSFORM` green; `ANIM_REVERT` / `ANIM_TIMEOUT` red, the timeout longer and denser). The wearer's screen: a flat
+  `#00A000` (`#C00000`) field from a hot lime flash, with clumps of black Kirby dots (a big dot plus two or three bubbling off
+  it, on a jittered 4x3 grid) that pop in with an overshoot, drift outward and shrink away; 16 / 14 / 20 ticks. The world
+  (everyone, not the wearer's own first person): an additive glow on the body and camera-facing black dots on green / red rims
+  bursting outward. Seeded from the anim start, so every viewer sees the same burst; `LIVE` (per player) is cleared on
+  disconnect and whenever the client level changes. Textures: `gui/omnitrix/fx_dot.png`, `fx_glow.png` (premultiplied:
+  `RenderType.eyes` is additive) from `scratchpad/gen_omnitrix_fx_textures.js`. The server's white `FLASH` particle and the
+  dust helix are gone (the pod's flicker keeps its flash).
+* **`OmnitrixHud`** -- bottom-right in the Quirk HUD's mono style: R G Z X C boxes (no V, never H / N; the plain move's
+  cooldown, the Shift move's while sneaking), a `Time` meter (green, red in the last 15 s, the clock right-aligned), the alien's
+  name (its colour lifted to read on any sky) and the kit's rows above (`AlienClientKit.hud`). Human: an `Omnitrix` title row
+  with the selected alien, a red `Recharge` meter with the seconds, the scroll / click hint wrapped above it while the watch is
+  up. The bottom-left Omnitrix dial badge is gone. `OmnitrixHud.meter` is the shared row.
+* **`OmnitrixModel`** -- rebuilt from swept ribbons and cylinders instead of boxes: one rounded cuff band ~0.45 px proud of the
+  sleeve, a low black bezel with four lime lights, the grey core (`CORE_R` 1.5, pops 1.0), four white prongs that run from
+  under the bezel over the top edge, down the sides and curl under the wrist (lifted a little off the side like claws), and the
+  front button. Long edges carry the swatch's outline + bevel (fixed 0.1 px), so bands read as one piece. Same texture.
+* **`OmnitrixPose`** -- the raised watch: rotations solved with `scratchpad/omnitrix_pose_solver.js` (left forearm level at
+  chest height, face up; the left shoulder drops 6 px and the right 2.5 px since the arm has no elbow), the head bowed, the
+  right hand gripping the dial's near rim; each scroll rolls the hand (the twist), the click winds up and slaps the core.
+* Harness: `scratchpad/OmnitrixPolishHarness.v0171.java.txt`; shots `docs/screenshots/v0171/omnitrix_polish_*.png`.

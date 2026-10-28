@@ -3,12 +3,14 @@ package com.projecthero.mod.client.omnitrix;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.projecthero.mod.client.ModKeyBindings;
 import com.projecthero.mod.client.gui.MoveListOverlay;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixAttachments;
 import com.projecthero.mod.omnitrix.OmnitrixConfig;
+import com.projecthero.mod.omnitrix.OmnitrixInfo;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
 import com.projecthero.mod.omnitrix.alien.AlienMove;
 import com.projecthero.mod.omnitrix.alien.Aliens;
@@ -16,7 +18,6 @@ import com.projecthero.mod.omnitrix.data.OmnitrixState;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
@@ -24,18 +25,43 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.1: the Omnitrix HUD (bottom left): a small green-and-black Omnitrix dial -- the time left as a green arc (flashing red
- * in the last 15 s) while transformed, the recharge as a red arc, the selected alien's silhouette in the middle -- then, while
- * transformed, the alien's key boxes (R G Z X C, Shift moves as the lower strip; V = the Omnitrix). No H / N boxes. While the
- * watch is up a short hint wraps above it. During a Containment Pod extraction a red SELF-DESTRUCT warning flashes at the top
- * of the screen; a transformation flashes the screen green (red for a timeout).
+ * v0.17.1 polish (user: "move the aliens HUDS to the right side of the screen like all the other HUDS and also make them look
+ * like all the other huds"): the Omnitrix HUD, bottom-right in the mono style of the Quirk / Miraculous / Green Lantern HUDs.
+ * <pre>
+ *   Hydration [==========----] 12s        a kit's own rows ({@link AlienClientKit#hud}: Ripjaws' hydration)
+ *   Heatblast                             the alien
+ *   Time      [==============--] 2:41     the time left (green, red in the last 15 s)
+ *   [R] [G] [Z] [X] [C]                   the kit keys: the plain move's cooldown, the Shift move's while sneaking
+ * </pre>
+ * Human with the watch: a compact title row ({@code Omnitrix} and the selected alien), the red Recharge bar while it recharges,
+ * and while the watch is up the scroll / click hint wrapped above it. No Omnitrix logo, no V box (V still raises the watch and
+ * turns back; the Left-Alt list keeps a line for it), never H or N. The transformation flashes are {@link OmnitrixTransformFx};
+ * during a Containment Pod extraction a red SELF-DESTRUCT warning flashes at the top of the screen.
  */
 public final class OmnitrixHud {
+	/** Boxes left to right: R G Z X C (slots 1, 2, 4, 3, 6), as the Quirk HUD minus V. */
 	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3, AbilitySlot.SLOT_6 };
+	private static final int BOX = 20;
+	private static final int GAP = 2;
+	private static final int MARGIN = 4;
+	private static final int BAR_H = 4;
+	/** The HUD's width: the five key boxes. */
+	public static final int WIDTH = BOX * 5 + GAP * 4;
+
+	private static final int BOX_BG = 0xD0080808;
+	private static final int BOX_BG_DIM = 0x80080808;
+	private static final int BORDER = 0xFF4A4A4A;
+	private static final int KEY = 0xFFB4B4B4;
+	private static final int KEY_DIM = 0xFF5A5A5A;
+	private static final int NAME = 0xFFE2E2E2;
+	private static final int HINT = 0xFF9A9A9A;
+	private static final int COOLDOWN = 0xB0000000;
+	private static final int BAR_BG = 0xC0141414;
 	private static final int GREEN = 0xFF4CE04A;
-	private static final int GREEN_DIM = 0xFF1F6A22;
 	private static final int RED = 0xFFFF3A2E;
-	private static final int BLACK = 0xF0101413;
+
+	/** Set only by the client screenshot harness: the HUD draws as if the player were sneaking. */
+	public static volatile boolean forceShift;
 
 	private OmnitrixHud() {
 	}
@@ -49,57 +75,164 @@ public final class OmnitrixHud {
 		float partial = delta.getGameTimeDeltaPartialTick(false);
 		OmnitrixState s = Omnitrix.state(p);
 		long now = p.level().getGameTime();
-		flash(g, p, s, now, partial);
+		OmnitrixTransformFx.drawScreen(g, p, s, now, partial);
 		extraction(g, mc, p, now);
-		int cx = 28;
-		int cy = g.guiHeight() - 30;
-		dial(g, mc, p, s, now, cx, cy);
-		int hudTop = cy - 22;
-		int hudRight = cx + 22;
-		if (s.transformed()) {
-			keys(g, mc, p, s, now, cx + 26, cy - 9);
-			hudRight = cx + 26 + KEYS_WIDTH;
-			AlienClientKit extra = AlienClients.of(s.active);
-			if (extra != null) {
-				extra.hud(g, p, cx + 26, cy - 20, partial);
-				hudTop -= extra.hudHeight();
-			}
-		} else if (s.selecting) {
-			Aliens.Alien a = Aliens.byId(s.selected);
-			Component name = a == null ? Component.empty() : Component.translatable(a.nameKey());
-			List<FormattedCharSequence> hint = mc.font.split(Component.translatable("hud.projecthero.omnitrix.hint"), 112);
-			int y = cy - 24 - hint.size() * 9;
-			g.drawString(mc.font, name, 6, y - 11, GREEN, true);
-			hudTop = y - 12;
-			hudRight = 6 + 112;
-			for (FormattedCharSequence line : hint) {
-				g.drawString(mc.font, line, 6, y, 0xFFB8C8B8, true);
-				y += 9;
-			}
+		int x0 = g.guiWidth() - MARGIN - WIDTH;
+		int bottom = g.guiHeight() - MARGIN;
+		// on a narrow window the HUD would sit on the right end of the hotbar (and the food bar above it): lift it clear
+		if (x0 < g.guiWidth() / 2 + 91 + 2) {
+			bottom = g.guiHeight() - 41;
 		}
-		// v0.17.1 (user: "when you hold alt with the omnitrix or in alien form it has to show your abilities"): the shared
-		// Left-Alt move list, stacked above the dial / key boxes like every other power's
+		int hudTop = s.transformed() ? alien(g, mc, p, s, now, x0, bottom, partial) : human(g, mc, p, s, now, x0, bottom);
+		// the shared Left-Alt move list, stacked above the HUD like every other power's
 		if (MoveListOverlay.held()) {
-			MoveListOverlay.draw(g, hudRight, hudTop, moveRows(mc, p, s, now));
+			MoveListOverlay.draw(g, x0 + WIDTH, hudTop, moveRows(mc, p, s, now));
 		}
 	}
 
-	/** The key boxes' width: five kit keys at 20 px, a 4 px gap and the V box. */
-	private static final int KEYS_WIDTH = 5 * 20 + 4 + 18;
+	/** Transformed: the keys, the time bar, the alien's name and the kit's rows. Returns the HUD's top. */
+	private static int alien(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom, float partial) {
+		Aliens.Alien a = Aliens.byId(s.active);
+		AlienKit kit = Aliens.kit(s.active);
+		if (a == null || kit == null) {
+			return bottom;
+		}
+		int y0 = bottom - BOX;
+		keys(g, mc, p, kit, a, x0, y0);
+		int left = (int) Math.max(0L, s.endsAt - now);
+		boolean warn = left <= OmnitrixConfig.WARN_TICKS;
+		int colour = warn ? pulse(RED, 0xFFB01810) : GREEN;
+		int by = y0 - 4 - BAR_H;
+		meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.meter.time"), left / (float) OmnitrixConfig.TRANSFORM_TICKS, colour,
+				OmnitrixInfo.clock(left), warn ? RED : NAME);
+		int ty = by - 13;
+		g.drawString(mc.font, Component.translatable(a.nameKey()), x0, ty, readable(a.colour()), false);
+		int top = ty;
+		AlienClientKit extra = AlienClients.of(s.active);
+		if (extra != null && extra.hudHeight() > 0) {
+			extra.hud(g, p, x0, ty - 2, WIDTH, partial);
+			top -= extra.hudHeight() + 2;
+		}
+		return top;
+	}
+
+	/** Human with the watch: the title row, the recharge bar, the hint while the watch is up. Returns the HUD's top. */
+	private static int human(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom) {
+		int y = bottom;
+		int recharge = (int) Math.max(0L, s.rechargeUntil - now);
+		if (recharge > 0) {
+			int by = y - BAR_H - 1;
+			int total = Math.max(recharge, recharge > OmnitrixConfig.EARLY_RECHARGE_TICKS ? OmnitrixConfig.RECHARGE_TICKS : OmnitrixConfig.EARLY_RECHARGE_TICKS);
+			meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.meter.recharge"), recharge / (float) total, RED,
+					(recharge + 19) / 20 + "s", NAME);
+			y = by - 4;
+		}
+		int ty = y - 9;
+		Component title = Component.translatable("hud.projecthero.omnitrix.title");
+		g.drawString(mc.font, title, x0, ty, recharge > 0 ? HINT : GREEN, false);
+		Aliens.Alien sel = Aliens.byId(s.selected);
+		if (sel != null) {
+			Component name = OmnitrixInfo.alienName(sel);
+			int nw = mc.font.width(name);
+			if (mc.font.width(title) + 6 + nw <= WIDTH) {
+				g.drawString(mc.font, name, x0 + WIDTH - nw, ty, s.selecting ? readable(sel.colour()) : HINT, false);
+			}
+		}
+		int top = ty;
+		if (s.selecting) {
+			List<FormattedCharSequence> hint = mc.font.split(Component.translatable("hud.projecthero.omnitrix.hint"), WIDTH);
+			int hy = ty - 2 - hint.size() * 9;
+			top = hy;
+			for (FormattedCharSequence line : hint) {
+				g.drawString(mc.font, line, x0, hy, HINT, false);
+				hy += 9;
+			}
+		}
+		return top;
+	}
 
 	/**
-	 * The Left-Alt rows. Human: V (raise / lower, or the recharge left), the scroll wheel and the click while the watch is up,
-	 * and the selected alien. Alien: every kit key's tap / Shift / hold move from the kit's declarations on the player's live
-	 * keys, the attack / use / sneak moves, and V (turn back) with the time left. Never H or N.
+	 * One meter row in the mod's standard style: the label, the bar (a 1-px border, the fill with its top highlight) and the
+	 * value right-aligned; {@code by} is the bar's top. Shared with the alien kits' own rows.
+	 */
+	public static void meter(GuiGraphics g, Minecraft mc, int x0, int by, Component label, float frac, int colour, String value, int valueColour) {
+		int labelW = mc.font.width(label);
+		int valueW = Math.max(mc.font.width("0:00"), mc.font.width(value));
+		int barX = x0 + labelW + 4;
+		int barW = Math.max(20, WIDTH - labelW - 4 - valueW - 3);
+		g.drawString(mc.font, label, x0, by - 2, NAME, false);
+		g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, BORDER);
+		g.fill(barX, by, barX + barW, by + BAR_H, BAR_BG);
+		int fill = Math.round(barW * Mth.clamp(frac, 0f, 1f));
+		if (fill > 0) {
+			g.fill(barX, by, barX + fill, by + BAR_H, colour);
+			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
+		}
+		g.drawString(mc.font, value, x0 + WIDTH - mc.font.width(value), by - 2, valueColour, false);
+	}
+
+	/** An alien's colour lifted toward white until it reads on any sky (Ripjaws' slate, Ghostfreak's grey). */
+	private static int readable(int rgb) {
+		int r = (rgb >> 16) & 255, gg = (rgb >> 8) & 255, b = rgb & 255;
+		float lum = (0.3f * r + 0.59f * gg + 0.11f * b) / 255f;
+		float k = Mth.clamp((0.72f - lum) / 0.72f, 0f, 0.7f) + 0.15f;
+		r = (int) Mth.lerp(k, r, 255);
+		gg = (int) Mth.lerp(k, gg, 255);
+		b = (int) Mth.lerp(k, b, 255);
+		return 0xFF000000 | (r << 16) | (gg << 8) | b;
+	}
+
+	private static int pulse(int a, int b) {
+		float k = 0.5f + 0.5f * Mth.sin((System.currentTimeMillis() % 100000L) / 1000f * 8f);
+		int r = (int) Mth.lerp(k, (a >> 16) & 255, (b >> 16) & 255);
+		int gg = (int) Mth.lerp(k, (a >> 8) & 255, (b >> 8) & 255);
+		int bb = (int) Mth.lerp(k, a & 255, b & 255);
+		return 0xFF000000 | (r << 16) | (gg << 8) | bb;
+	}
+
+	/** The five kit keys. */
+	private static void keys(GuiGraphics g, Minecraft mc, LocalPlayer p, AlienKit kit, Aliens.Alien a, int x0, int y0) {
+		boolean shift = forceShift || p.isShiftKeyDown();
+		for (int i = 0; i < SLOTS.length; i++) {
+			AbilitySlot slot = SLOTS[i];
+			int x = x0 + i * (BOX + GAP);
+			AlienMove tap = kit.moveOn(slot, false, false);
+			AlienMove sh = kit.moveOn(slot, true, false);
+			AlienMove hold = kit.moveOn(slot, false, true);
+			AlienMove shown = shift && sh != null ? sh : tap != null ? tap : hold;
+			boolean usable = shown != null;
+			int cd = shown == null ? 0 : kit.cooldownLeft(p, shown.id());
+			int max = shown == null ? 1 : Math.max(1, shown.cooldown());
+			g.fill(x, y0, x + BOX, y0 + BOX, usable ? BOX_BG : BOX_BG_DIM);
+			g.renderOutline(x, y0, BOX, BOX, BORDER);
+			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, usable ? KEY : KEY_DIM, false);
+			if (shift && sh != null) {
+				// the Shift view: a small bar along the bottom of the box
+				g.fill(x + 3, y0 + BOX - 3, x + BOX - 3, y0 + BOX - 2, 0xFF000000 | a.colour());
+			}
+			if (cd > 0) {
+				int h = (int) ((BOX - 2) * Math.min(1f, cd / (float) max));
+				g.fill(x + 1, y0 + BOX - 1 - h, x + BOX - 1, y0 + BOX - 1, COOLDOWN);
+				g.drawCenteredString(mc.font, String.valueOf((cd + 19) / 20), x + BOX / 2, y0 + BOX / 2 - 4, 0xFFFFFFFF);
+			}
+		}
+	}
+
+	private static String keyLabel(AbilitySlot slot) {
+		String text = ModKeyBindings.ABILITY_SLOTS[slot.ordinal()].getTranslatedKeyMessage().getString();
+		return text.length() > 2 ? text.substring(0, 2) : text;
+	}
+
+	/**
+	 * The Left-Alt rows. Human: the scroll wheel and the click while the watch is up, the selected alien, and V (raise / lower,
+	 * or the recharge left) last. Alien: every kit key's tap / Shift / hold move from the kit's declarations on the player's
+	 * live keys, the attack / use / sneak moves, and V (turn back) last. Never H or N.
 	 */
 	static List<MoveListOverlay.Row> moveRows(Minecraft mc, LocalPlayer p, OmnitrixState s, long now) {
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
 		String v = MoveListOverlay.key(AbilitySlot.SLOT_5);
 		AlienKit kit = s.transformed() ? Aliens.kit(s.active) : null;
 		if (kit == null) {
-			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
-			rows.add(MoveListOverlay.Row.of(v, Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
-					null, recharge > 0 ? Component.translatable("hud.projecthero.omnitrix.alt.recharging", (recharge + 19) / 20) : null));
 			if (s.selecting) {
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.scroll").getString(),
 						Component.translatable("hud.projecthero.omnitrix.alt.scroll"), null));
@@ -109,11 +242,14 @@ public final class OmnitrixHud {
 			Aliens.Alien sel = Aliens.byId(s.selected);
 			if (sel != null) {
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.dial").getString(),
-						Component.translatable("hud.projecthero.omnitrix.alt.selected", com.projecthero.mod.omnitrix.OmnitrixInfo.alienName(sel)), null));
+						Component.translatable("hud.projecthero.omnitrix.alt.selected", OmnitrixInfo.alienName(sel)), null));
 			}
+			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
+			rows.add(MoveListOverlay.Row.of(v, Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
+					null, recharge > 0 ? Component.translatable("hud.projecthero.omnitrix.alt.recharging", (recharge + 19) / 20) : null));
 			return rows;
 		}
-		for (AbilitySlot slot : com.projecthero.mod.omnitrix.OmnitrixInfo.KIT_SLOTS) {
+		for (AbilitySlot slot : OmnitrixInfo.KIT_SLOTS) {
 			AlienMove tap = kit.moveOn(slot, false, false);
 			AlienMove shift = kit.moveOn(slot, true, false);
 			AlienMove hold = kit.moveOn(slot, false, true);
@@ -129,8 +265,7 @@ public final class OmnitrixHud {
 		vanillaRow(rows, kit, s.active, "Use", mc.options.keyUse);
 		vanillaRow(rows, kit, s.active, "Sneak", mc.options.keyShift);
 		rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null,
-				Component.translatable("hud.projecthero.omnitrix.alt.time_left",
-						com.projecthero.mod.omnitrix.OmnitrixInfo.clock((int) Math.max(0L, s.endsAt - now)))));
+				Component.translatable("hud.projecthero.omnitrix.alt.time_left", OmnitrixInfo.clock((int) Math.max(0L, s.endsAt - now)))));
 		return rows;
 	}
 
@@ -160,129 +295,6 @@ public final class OmnitrixHud {
 		return Component.translatable("projecthero.omnitrix." + alien + "." + m.id());
 	}
 
-	private static void disc(GuiGraphics g, int cx, int cy, int r, int colour) {
-		for (int dy = -r; dy <= r; dy++) {
-			int w = (int) Math.floor(Math.sqrt(r * r - dy * dy + 0.5));
-			g.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, colour);
-		}
-	}
-
-	/** An arc of {@code frac} (0..1) clockwise from the top, {@code thick} px wide. */
-	private static void arc(GuiGraphics g, int cx, int cy, int r, int thick, float frac, int colour) {
-		int steps = Math.max(1, (int) (frac * 96));
-		for (int i = 0; i <= steps; i++) {
-			double a = -Math.PI / 2 + (i / 96.0) * Math.PI * 2;
-			for (int k = 0; k < thick; k++) {
-				int x = cx + (int) Math.round(Math.cos(a) * (r - k));
-				int y = cy + (int) Math.round(Math.sin(a) * (r - k));
-				g.fill(x, y, x + 1, y + 1, colour);
-			}
-		}
-	}
-
-	private static void dial(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int cx, int cy) {
-		disc(g, cx, cy, 20, 0xFF0A0C0B);
-		disc(g, cx, cy, 18, 0xFF2A3030);
-		disc(g, cx, cy, 14, BLACK);
-		boolean warn = false;
-		String label;
-		if (s.transformed()) {
-			int left = (int) Math.max(0, s.endsAt - now);
-			warn = left <= OmnitrixConfig.WARN_TICKS;
-			int col = warn && (now / 5) % 2 == 0 ? RED : GREEN;
-			arc(g, cx, cy, 18, 3, left / (float) OmnitrixConfig.TRANSFORM_TICKS, col);
-			label = String.format(java.util.Locale.ROOT, "%d:%02d", left / 1200, (left / 20) % 60);
-		} else if (now < s.rechargeUntil) {
-			int left = (int) (s.rechargeUntil - now);
-			int total = Math.max(left, s.rechargeUntil - s.endsAt > 0 ? OmnitrixConfig.RECHARGE_TICKS : OmnitrixConfig.RECHARGE_TICKS);
-			arc(g, cx, cy, 18, 3, left / (float) total, RED);
-			label = (left + 19) / 20 + "s";
-			warn = true;
-		} else {
-			arc(g, cx, cy, 18, 2, 1f, s.selecting ? GREEN : GREEN_DIM);
-			label = null;
-		}
-		// the hourglass face, or the alien's silhouette
-		String shown = s.transformed() ? s.active : s.selected;
-		if (s.selecting || s.transformed()) {
-			// the show's dial screen: the icon glowing lime (red while warning) on a dark glass disc
-			disc(g, cx, cy, 13, warn ? 0xFF3A0D0A : 0xFF0C3311);
-			disc(g, cx, cy, 10, warn ? 0xFF4A120D : 0xFF0F3D14);
-			if (warn) {
-				g.setColor(1f, 0.36f, 0.28f, 1f);
-			} else {
-				g.setColor(0.55f, 1f, 0.24f, 1f);
-			}
-			g.blit(OmnitrixWatch.silhouette(shown), cx - 12, cy - 12, 0, 0, 24, 24, 24, 24);
-			g.setColor(1f, 1f, 1f, 1f);
-		} else {
-			hourglass(g, cx, cy, 12, warn ? RED : GREEN);
-		}
-		if (label != null) {
-			Font f = mc.font;
-			int w = f.width(label);
-			g.fill(cx - w / 2 - 2, cy + 14, cx + w / 2 + 2, cy + 24, 0xC0000000);
-			g.drawString(f, label, cx - w / 2, cy + 15, warn ? RED : 0xFFFFFFFF, false);
-		}
-	}
-
-	private static void hourglass(GuiGraphics g, int cx, int cy, int r, int colour) {
-		for (int dy = -r; dy <= r; dy++) {
-			int w = (int) Math.floor(Math.sqrt(r * r - dy * dy + 0.5));
-			// the green hourglass: wide at the top and bottom, pinched in the middle
-			int hw = (int) (Math.abs(dy) * 0.85f) + 1;
-			g.fill(cx - Math.min(w, hw), cy + dy, cx + Math.min(w, hw) + 1, cy + dy + 1, colour);
-		}
-	}
-
-	private static void keys(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int y0) {
-		AlienKit kit = Aliens.kit(s.active);
-		if (kit == null) {
-			return;
-		}
-		Aliens.Alien a = Aliens.byId(s.active);
-		g.drawString(mc.font, Component.translatable(a.nameKey()), x0, y0 - 11, 0xFF000000 | a.colour(), true);
-		int x = x0;
-		for (AbilitySlot slot : SLOTS) {
-			AlienMove tap = kit.moveOn(slot, false, false);
-			AlienMove shift = kit.moveOn(slot, true, false);
-			box(g, mc, x, y0, String.valueOf(slot.defaultKey()), cooldownFrac(kit, p, tap), cooldownFrac(kit, p, shift), a.colour());
-			x += 20;
-		}
-		box(g, mc, x + 4, y0, "V", 0f, 0f, 0x4CE04A);
-	}
-
-	private static float cooldownFrac(AlienKit kit, LocalPlayer p, AlienMove m) {
-		if (m == null || m.cooldown() <= 0) {
-			return m == null ? -1f : 0f;
-		}
-		return Mth.clamp(kit.cooldownLeft(p, m.id()) / (float) m.cooldown(), 0f, 1f);
-	}
-
-	private static void box(GuiGraphics g, Minecraft mc, int x, int y, String key, float tap, float shift, int colour) {
-		g.fill(x, y, x + 18, y + 18, 0xD0080808);
-		g.renderOutline(x, y, 18, 18, 0xFF000000 | colour);
-		if (tap > 0f) {
-			g.fill(x + 1, y + 1 + (int) (16 * (1f - tap)), x + 17, y + 17, 0xB0000000);
-		}
-		g.drawCenteredString(mc.font, key, x + 9, y + 5, tap > 0f ? 0xFF808080 : 0xFFFFFFFF);
-		if (shift >= 0f) {
-			g.fill(x + 1, y + 19, x + 17, y + 21, 0xFF202020);
-			g.fill(x + 1, y + 19, x + 1 + (int) (16 * (1f - shift)), y + 21, 0xFF000000 | colour);
-		}
-	}
-
-	private static void flash(GuiGraphics g, LocalPlayer p, OmnitrixState s, long now, float partial) {
-		boolean anim = s.animId == Omnitrix.ANIM_TRANSFORM || s.animId == Omnitrix.ANIM_TIMEOUT || s.animId == Omnitrix.ANIM_REVERT;
-		float t = now + partial - s.animStart;
-		if (!anim || t > 12f) {
-			return;
-		}
-		float a = (1f - t / 12f) * (s.animId == Omnitrix.ANIM_REVERT ? 0.35f : 0.6f);
-		int rgb = s.animId == Omnitrix.ANIM_TIMEOUT ? 0xFF3020 : 0x7CFF6A;
-		g.fill(0, 0, g.guiWidth(), g.guiHeight(), ((int) (a * 255) << 24) | rgb);
-	}
-
 	private static void extraction(GuiGraphics g, Minecraft mc, LocalPlayer p, long now) {
 		Integer t = p.getAttached(OmnitrixAttachments.EXTRACTION);
 		if (t == null) {
@@ -297,17 +309,27 @@ public final class OmnitrixHud {
 		g.fill(0, h - 6, w, h, edge);
 		g.fill(0, 0, 6, h, edge);
 		g.fill(w - 6, 0, w, h, edge);
-		int bw = 236;
+		int bw = Math.min(236, w - 16);
 		int x = w / 2 - bw / 2;
 		int y = 22;
-		g.fill(x, y, x + bw, y + 34, 0xE0180404);
-		g.renderOutline(x, y, bw, 34, on ? RED : 0xFF801010);
 		Component title = Component.translatable("hud.projecthero.omnitrix.self_destruct");
-		g.drawCenteredString(mc.font, title, w / 2, y + 4, on ? RED : 0xFFFFB0A0);
-		int left = Math.max(0, OmnitrixConfig.EXTRACTION_TICKS - t);
-		g.drawCenteredString(mc.font, Component.translatable("hud.projecthero.omnitrix.extracting", (left + 19) / 20), w / 2, y + 14, 0xFFFFFFFF);
+		Component sub = Component.translatable("hud.projecthero.omnitrix.extracting", (Math.max(0, OmnitrixConfig.EXTRACTION_TICKS - t) + 19) / 20);
+		List<FormattedCharSequence> titleLines = mc.font.split(title, bw - 8);
+		List<FormattedCharSequence> subLines = mc.font.split(sub, bw - 8);
+		int bh = 4 + titleLines.size() * 10 + subLines.size() * 10 + 8;
+		g.fill(x, y, x + bw, y + bh, 0xE0180404);
+		g.renderOutline(x, y, bw, bh, on ? RED : 0xFF801010);
+		int ly = y + 4;
+		for (FormattedCharSequence line : titleLines) {
+			g.drawCenteredString(mc.font, line, w / 2, ly, on ? RED : 0xFFFFB0A0);
+			ly += 10;
+		}
+		for (FormattedCharSequence line : subLines) {
+			g.drawCenteredString(mc.font, line, w / 2, ly, 0xFFFFFFFF);
+			ly += 10;
+		}
 		float frac = Mth.clamp(t / (float) OmnitrixConfig.EXTRACTION_TICKS, 0f, 1f);
-		g.fill(x + 6, y + 26, x + bw - 6, y + 30, 0xFF300808);
-		g.fill(x + 6, y + 26, x + 6 + (int) ((bw - 12) * frac), y + 30, on ? RED : 0xFFC02018);
+		g.fill(x + 6, y + bh - 8, x + bw - 6, y + bh - 4, 0xFF300808);
+		g.fill(x + 6, y + bh - 8, x + 6 + (int) ((bw - 12) * frac), y + bh - 4, on ? RED : 0xFFC02018);
 	}
 }

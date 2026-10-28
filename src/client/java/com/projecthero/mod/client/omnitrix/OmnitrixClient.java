@@ -1,21 +1,14 @@
 package com.projecthero.mod.client.omnitrix;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.joml.Vector3f;
-
 import com.projecthero.mod.client.omnitrix.alien.FourArmsClient;
 import com.projecthero.mod.client.omnitrix.alien.HeatblastClient;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixEntities;
 import com.projecthero.mod.omnitrix.alien.Aliens;
-import com.projecthero.mod.omnitrix.data.OmnitrixState;
 import com.projecthero.mod.omnitrix.network.OmnitrixActionPayload;
 import com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
@@ -26,13 +19,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.world.entity.player.Player;
 
 /**
  * v0.17.1: the Omnitrix's client side -- the alien client kits, the renderers (the meteor, the fallen pod, the alien
  * projectile, the Containment Pod's field), the player layer (the watch on the wrist, the alien's extra cubes, the badge),
- * the HUD, the transform helix, and the watch's controls while it is up (Alien Evo style: no screen):
+ * the HUD, the transformation flash ({@link OmnitrixTransformFx}), and the watch's controls while it is up (Alien Evo style: no screen):
  * <ul>
  *   <li>the scroll wheel turns the dial ({@code CYCLE}; the hotbar does not move);</li>
  *   <li>a left-click or right-click slaps the core down ({@code SLAP}; the click never hits or breaks anything).</li>
@@ -40,10 +32,6 @@ import net.minecraft.world.entity.player.Player;
  * V itself is an ordinary ability key (the server toggles the watch).
  */
 public final class OmnitrixClient {
-	private static final DustParticleOptions GREEN = new DustParticleOptions(new Vector3f(0.35f, 1.0f, 0.3f), 0.8f);
-	private static final DustParticleOptions RED = new DustParticleOptions(new Vector3f(1.0f, 0.2f, 0.15f), 0.8f);
-	/** entity id -> the anim start the helix was last played for. */
-	private static final Map<Integer, Long> HELIX_SEEN = new HashMap<>();
 	/** The last time a click slapped (so a held button does not re-send every tick). */
 	private static long lastSlap;
 
@@ -78,8 +66,8 @@ public final class OmnitrixClient {
 			}
 		});
 		HudRenderCallback.EVENT.register(OmnitrixHud::render);
+		OmnitrixTransformFx.initialize();
 		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixClient::tick);
-		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> HELIX_SEEN.clear());
 	}
 
 	// ---------------------------------------------------------------- the watch's controls while it is up
@@ -133,54 +121,20 @@ public final class OmnitrixClient {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- ticks: the helix, the kits' ambience
+	// ---------------------------------------------------------------- ticks: the kits' ambience (v0.17.1 polish: the dust helix is
+	// gone -- the transformation is OmnitrixTransformFx's green / red Kirby-dot burst)
 
 	private static void tick(Minecraft mc) {
 		if (mc.level == null || mc.isPaused()) {
-			if (mc.level == null) {
-				HELIX_SEEN.clear();
-			}
 			return;
 		}
 		for (Player pl : mc.level.players()) {
 			if (!(pl instanceof AbstractClientPlayer p) || !Omnitrix.hasPower(p)) {
 				continue;
 			}
-			OmnitrixState s = Omnitrix.state(p);
-			long now = mc.level.getGameTime();
-			boolean helixAnim = s.animId == Omnitrix.ANIM_TRANSFORM || s.animId == Omnitrix.ANIM_REVERT || s.animId == Omnitrix.ANIM_TIMEOUT;
-			boolean ownView = p == mc.player && mc.options.getCameraType().isFirstPerson();
-			if (helixAnim && now - s.animStart < 14 && !ownView) {
-				Long seen = HELIX_SEEN.get(p.getId());
-				if (seen == null || seen != s.animStart || now - s.animStart < 14) {
-					HELIX_SEEN.put(p.getId(), s.animStart);
-					helix(p, (int) (now - s.animStart), s.animId == Omnitrix.ANIM_TIMEOUT);
-				}
-			}
 			AlienClientKit kit = AlienClients.shownKit(p);
 			if (kit != null) {
 				kit.tick(p);
-			}
-		}
-	}
-
-	/** One tick of the DNA helix: two strands spiralling up the body, {@code t} ticks in. */
-	private static void helix(AbstractClientPlayer p, int t, boolean red) {
-		Minecraft mc = Minecraft.getInstance();
-		double h = p.getBbHeight() * 1.1;
-		double r = p.getBbWidth() * 0.95 + 0.25;
-		for (int k = 0; k < 6; k++) {
-			double f = (t + k / 6.0) / 14.0;
-			double y = p.getY() + f * h;
-			double a = f * Math.PI * 6;
-			for (int strand = 0; strand < 2; strand++) {
-				double aa = a + strand * Math.PI;
-				mc.level.addParticle(red ? RED : GREEN, p.getX() + Math.cos(aa) * r, y, p.getZ() + Math.sin(aa) * r, 0, 0.01, 0);
-			}
-			if (k % 2 == 0) {
-				// the rungs between the strands
-				double rr = r * (k / 6.0 * 2 - 1);
-				mc.level.addParticle(red ? RED : GREEN, p.getX() + Math.cos(a) * rr, y, p.getZ() + Math.sin(a) * rr, 0, 0, 0);
 			}
 		}
 	}

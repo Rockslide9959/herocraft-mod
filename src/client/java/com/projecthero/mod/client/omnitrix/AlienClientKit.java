@@ -54,10 +54,11 @@ public interface AlienClientKit {
 	}
 
 	/**
-	 * v0.17.1 (added for Ripjaws' hydration meter; optional): extra HUD for the transformed wearer. {@code x} is the left edge of
-	 * the alien's name over the key boxes, {@code y} the top of that name line: draw ABOVE it (the space is free up to ~40 px).
+	 * v0.17.1 (added for Ripjaws' hydration meter; optional): extra HUD rows for the transformed wearer, stacked over the
+	 * alien's name in the bottom-right HUD. {@code x} is the HUD's left edge and {@code w} its width, {@code y} the bottom of the
+	 * free space: draw in the {@link #hudHeight} px ABOVE it, ideally with {@code OmnitrixHud.meter} so the rows match.
 	 */
-	default void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, float partial) {
+	default void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, int w, float partial) {
 	}
 
 	/** v0.17.1: how many px {@link #hud} draws above the name line (the Left-Alt move list stacks above it). */

@@ -20,7 +20,8 @@ import net.minecraft.world.entity.player.Player;
  * raised bezel and core, the white prongs, the button), drawn in the left arm's space in both third and first person.
  *
  * <p>Alien Evo style (user): V raises the wrist; the core pops up out of the housing and its face changes from the green
- * hourglass to the selected alien's silhouette, with a green hologram of it hovering over the dial. The scroll wheel turns the
+ * hourglass to the selected alien's silhouette glowing on a dark screen, a faint copy hovering just over the face (v0.17.1 polish:
+ * the big third-person hologram is gone -- it floated over the shoulder and fought the raised-watch pose). The scroll wheel turns the
  * dial (the core twists a notch), a click slaps the core back down. The face goes red while the watch recharges, when V is
  * refused, and flashing in a transformation's last 15 s.
  */
@@ -76,7 +77,7 @@ public final class OmnitrixWatch {
 		ResourceLocation tex = red ? TEX_RED : TEX;
 		// the core: pops up while picking, slammed down by the slap, twists a notch per dial turn
 		float slap = since(p, s, partial, Omnitrix.ANIM_SLAP);
-		float lift = 1.3f * raise;
+		float lift = 1.0f * raise;
 		if (slap < Omnitrix.SLAP_TICKS + 2) {
 			lift = Mth.lerp(Mth.clamp(slap / 2f, 0f, 1f), lift, -0.18f);
 		}
@@ -96,7 +97,8 @@ public final class OmnitrixWatch {
 			PoseStack.Pose last = pose.last();
 			float sx = (x1 + 0.01f) / 16f;
 			int glow = red ? 0xFFFF5A48 : 0xFF8CFF3C;
-			for (float[] layer : new float[][] { { 0.004f, 1.36f, 1f }, { 0.45f, 1.5f, 0.3f } }) {
+			float cr = OmnitrixModel.CORE_R;
+			for (float[] layer : new float[][] { { 0.004f, cr * 0.88f, 1f }, { 0.3f, cr * 0.92f, 0.26f } }) {
 				float sx2 = sx + layer[0] / 16f;
 				float m = layer[1] / 16f;
 				int c = 0xFF000000 | (Math.round(((glow >> 16) & 0xFF) * layer[2]) << 16) | (Math.round(((glow >> 8) & 0xFF) * layer[2]) << 8)
@@ -110,42 +112,6 @@ public final class OmnitrixWatch {
 				AlienParts.quad(sil, last, c, LightTexture.FULL_BRIGHT, sx2, y0, up, sx2, y1, up, sx2, y1, -up, sx2, y0, -up, 1, 0, 0, 0, 0, 1, 1);
 			}
 			pose.popPose();
-		}
-		// the hologram over the dial
-		if (!firstPerson && raise > 0.05f && !s.selected.isEmpty() && slap > Omnitrix.SLAP_TICKS) {
-			float age = p.tickCount + partial;
-			float hx = (x1 + 1.2f + 2.2f * raise + Mth.sin(age * 0.15f) * 0.15f) / 16f;
-			float size = (1.7f + 0.9f * raise) / 16f;
-			int alpha = (int) (200 * raise);
-			int col = red ? 0xFF5040 : 0x8CFF3C;
-			int hcol = (((((col >> 16) & 0xFF) * alpha / 255)) << 16) | (((((col >> 8) & 0xFF) * alpha / 255)) << 8) | ((col & 0xFF) * alpha / 255);
-			VertexConsumer holo = buffers.getBuffer(RenderType.eyes(silhouette(s.selected)));
-			PoseStack.Pose pl = pose.last();
-			float c0 = cy / 16f;
-			// it floats up off the dial ("up" on the arm is +z raised to the eye in first person, -z on the raised arm seen from outside)
-			// in first person it hangs straight out of the core toward the eye (it reads over the face); seen from outside it floats
-			// up off the dial
-			float zc = firstPerson ? 0f : -(2.6f + 1.4f * raise) / 16f;
-			hx = (x1 + (firstPerson ? 2.2f + 2.0f * raise : 0.8f + 1.2f * raise)) / 16f;
-			if (firstPerson) {
-				size *= 0.8f;
-			}
-			AlienParts.quad(holo, pl, 0xFF000000 | hcol, LightTexture.FULL_BRIGHT, hx, c0 + size, zc - size, hx, c0 + size, zc + size, hx, c0 - size, zc + size, hx,
-					c0 - size, zc - size, 1, 0, 0, 0, 0, 1, 1);
-			// a faint second copy a little further out: the hologram's depth
-			float hx2 = hx + 0.25f / 16f;
-			float s2 = size * 1.08f;
-			AlienParts.quad(holo, pl, 0xFF000000 | ((hcol >> 2) & 0x3F3F3F), LightTexture.FULL_BRIGHT, hx2, c0 + s2, zc - s2, hx2, c0 + s2, zc + s2, hx2, c0 - s2,
-					zc + s2, hx2, c0 - s2, zc - s2, 1, 0, 0, 0, 0, 1, 1);
-			// the beam of light from the core up to it
-			VertexConsumer beam = buffers.getBuffer(RenderType.eyes(TEX));
-			float bw = 0.9f / 16f;
-			int ba = (int) (90 * raise);
-			int bcol = (((((col >> 16) & 0xFF) * ba / 255)) << 16) | (((((col >> 8) & 0xFF) * ba / 255)) << 8) | ((col & 0xFF) * ba / 255);
-			AlienParts.quad(beam, pl, 0xFF000000 | bcol, LightTexture.FULL_BRIGHT, x1 / 16f, c0, -bw, hx, c0, zc - size, hx, c0, zc + size, x1 / 16f, c0, bw, 0, 1, 0,
-					16f / 128f, 16f / 128f, 32f / 128f, 32f / 128f);
-			AlienParts.quad(beam, pl, 0xFF000000 | bcol, LightTexture.FULL_BRIGHT, x1 / 16f, c0 - bw, 0, hx, c0 - size, zc, hx, c0 + size, zc, x1 / 16f,
-					c0 + bw, 0, 0, 0, 1, 16f / 128f, 16f / 128f, 32f / 128f, 32f / 128f);
 		}
 	}
 }

@@ -259,30 +259,30 @@ public final class RipjawsClient implements AlienClientKit {
 
 	@Override
 	public int hudHeight() {
-		return 20; // the label and the bar over the name line
+		return 10; // one meter row over the name line
 	}
 
-	/** The hydration meter: a blue bar over the keys, orange under 25%, flashing red when he is choking. */
+	/**
+	 * The hydration meter, in the Omnitrix HUD's meter style: a blue bar (orange under 25%, flashing red when he is choking),
+	 * the seconds left, "+" while water or rain refills it.
+	 */
 	@Override
-	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, float partial) {
+	public void hud(GuiGraphics g, LocalPlayer p, int x, int y, int w, float partial) {
 		Minecraft mc = Minecraft.getInstance();
 		long now = p.level().getGameTime();
 		int dry = RipjawsKit.dryness(p, now);
 		float hyd = 1f - dry / (float) RipjawsKit.MAX_DRY;
 		boolean choking = dry >= RipjawsKit.MAX_DRY;
 		boolean wet = (Omnitrix.state(p).kitFlags & (RipjawsKit.F_WET | RipjawsKit.F_RAIN)) != 0;
-		int w = 64;
-		int by = y - 9;
-		int col = choking ? ((now / 5) % 2 == 0 ? 0xFFFF3A2E : 0xFF801810) : hyd < 0.25f ? 0xFFF0A020 : 0xFF3AA8F0;
-		g.fill(x, by, x + w, by + 6, 0xD0080808);
-		g.fill(x + 1, by + 1, x + 1 + (int) ((w - 2) * Mth.clamp(hyd, 0f, 1f)), by + 5, col);
-		g.renderOutline(x, by, w, 6, 0xFF000000 | (choking ? 0xFF3A2E : 0x7A98A4));
+		boolean flash = (now / 5) % 2 == 0;
+		int col = choking ? (flash ? 0xFFFF3A2E : 0xFF801810) : hyd < 0.25f ? 0xFFF0A020 : 0xFF3AA8F0;
 		int secs = Math.max(0, (RipjawsKit.MAX_DRY - dry) / 20);
-		Component label = choking ? Component.translatable("hud.projecthero.omnitrix.ripjaws.choking")
-				: wet ? Component.translatable("hud.projecthero.omnitrix.ripjaws.wet")
-						: Component.translatable("hud.projecthero.omnitrix.ripjaws.hydration", secs);
-		g.drawString(mc.font, label, x, by - 10, choking ? 0xFFFF6A5A : hyd < 0.25f ? 0xFFF0C060 : 0xFFB8DCF0, true);
+		String value = choking ? "!" : wet ? "+" : secs + "s";
+		int valueCol = choking ? (flash ? 0xFFFF6A5A : 0xFFE2E2E2) : wet ? 0xFF8AD0FF : hyd < 0.25f ? 0xFFF0C060 : 0xFFE2E2E2;
+		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, mc, x, y - 6, Component.translatable("hud.projecthero.omnitrix.ripjaws.meter"), hyd, col,
+				value, valueCol);
 	}
+
 
 	@Override
 	public float[] badge() {

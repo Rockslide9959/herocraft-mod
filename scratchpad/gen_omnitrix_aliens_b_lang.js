@@ -97,6 +97,11 @@ const L = {
 	'hud.projecthero.omnitrix.ripjaws.hydration': 'Hydration: %s s',
 	'hud.projecthero.omnitrix.ripjaws.wet': 'Hydration: refilling',
 	'hud.projecthero.omnitrix.ripjaws.choking': 'DRYING OUT!',
+	// v0.17.1 polish: the right-side HUD's meter rows
+	'hud.projecthero.omnitrix.ripjaws.meter': 'Hydration',
+	'hud.projecthero.omnitrix.title': 'Omnitrix',
+	'hud.projecthero.omnitrix.meter.time': 'Time',
+	'hud.projecthero.omnitrix.meter.recharge': 'Recharge',
 };
 for (const [alien, moves] of Object.entries(MOVES)) {
 	for (const [id, [name, desc]] of Object.entries(moves)) {
