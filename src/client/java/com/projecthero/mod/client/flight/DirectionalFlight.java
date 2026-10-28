@@ -162,6 +162,33 @@ public final class DirectionalFlight {
 		if (com.projecthero.mod.cyborg.Cyborg.flying(player)) {
 			return DirectionalFlightModel.cyborg(flyingSpeed, sprint);
 		}
+		// v0.17.1 (user): Blue Beetle's wings, Hawk Moth's Swarm Flight and the Omnitrix's flying aliens, on the shared model
+		if (com.projecthero.mod.bluebeetle.BlueBeetle.flying(player)) {
+			return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.BLUE_BEETLE_CRUISE_BPS,
+					DirectionalFlightModel.BLUE_BEETLE_SPRINT_BPS);
+		}
+		if (player.getAbilities().flying && !player.getAbilities().instabuild) {
+			if (com.projecthero.mod.miraculous.hawkmoth.HawkMothKit.flying(player)) {
+				return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.HAWK_MOTH_CRUISE_BPS,
+						DirectionalFlightModel.HAWK_MOTH_SPRINT_BPS);
+			}
+			switch (com.projecthero.mod.omnitrix.Omnitrix.active(player)) {
+				case "heatblast" -> {
+					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.HEATBLAST_CRUISE_BPS,
+							DirectionalFlightModel.HEATBLAST_SPRINT_BPS);
+				}
+				case "stinkfly" -> {
+					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.STINKFLY_CRUISE_BPS,
+							DirectionalFlightModel.STINKFLY_SPRINT_BPS);
+				}
+				case "ghostfreak" -> {
+					return DirectionalFlightModel.cruise(flyingSpeed, sprint, DirectionalFlightModel.GHOSTFREAK_CRUISE_BPS,
+							DirectionalFlightModel.GHOSTFREAK_SPRINT_BPS);
+				}
+				default -> {
+				}
+			}
+		}
 		// Iron Man suit flight (double-tap jump, Mark 1 timed flight, supersonic burst)
 		if (player.getAttachedOrElse(ModAttachments.IRON_MAN_FLYING, false)) {
 			IronManSuit suit = player.getItemBySlot(EquipmentSlot.FEET).getItem() instanceof IronManArmorItem piece

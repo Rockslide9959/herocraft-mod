@@ -139,6 +139,22 @@ public final class DirectionalFlightModel {
 				(sprint ? com.projecthero.mod.cyborg.CyborgConfig.FLIGHT_SPRINT_BPS : com.projecthero.mod.cyborg.CyborgConfig.FLIGHT_CRUISE_BPS) / 20.0);
 	}
 
+	/**
+	 * v0.17.1 (user: "give blue beetle the same directional flight as everything else"): the flights that used to be
+	 * vanilla creative flight -- Blue Beetle, Hawk Moth's Swarm Flight and the Omnitrix's flying aliens -- on the shared
+	 * directional model like Cyborg / Thor / Max Steel: fixed cruise and sprint speeds in blocks a second.
+	 */
+	public static final double BLUE_BEETLE_CRUISE_BPS = 18.0, BLUE_BEETLE_SPRINT_BPS = 34.0;
+	public static final double HAWK_MOTH_CRUISE_BPS = 16.0, HAWK_MOTH_SPRINT_BPS = 30.0;
+	public static final double HEATBLAST_CRUISE_BPS = 18.0, HEATBLAST_SPRINT_BPS = 34.0;
+	public static final double STINKFLY_CRUISE_BPS = 16.0, STINKFLY_SPRINT_BPS = 30.0;
+	public static final double GHOSTFREAK_CRUISE_BPS = 10.0, GHOSTFREAK_SPRINT_BPS = 18.0;
+
+	/** v0.17.1: a fixed-speed directional flight (cruise / sprint in blocks a second) on top of the vanilla tune. */
+	public static Tune cruise(float flyingSpeed, boolean sprint, double cruiseBps, double sprintBps) {
+		return fixedCruise(vanilla(flyingSpeed, sprint), (sprint ? sprintBps : cruiseBps) / 20.0);
+	}
+
 	/** {@code tune} with its cruise speed (blocks/tick) replaced. */
 	public static Tune fixedCruise(Tune tune, double speed) {
 		return new Tune(speed, tune.verticalSpeed(), tune.strafeScale(), tune.acceleration(), tune.reverse(), tune.idle(),
