@@ -131,6 +131,18 @@ public final class HeroLandingClient {
 		accept(new HeroLandingPayload(e.getId(), style.id, strength));
 	}
 
+	/**
+	 * 0..1: how much of the flight pose (the body lean, the raised arm) is left -- a landing straightens the dive out within its
+	 * first tick, and keeps it out until it ends (the flight is over by then).
+	 */
+	public static float flightPoseFactor(Player p, float partial) {
+		State s = get(p);
+		if (s == null) {
+			return 1f;
+		}
+		return 1f - smooth(s.age(partial) / 0.6f);
+	}
+
 	// ---------------------------------------------------------------- the Silver Surfer's board
 
 	/**
@@ -162,9 +174,9 @@ public final class HeroLandingClient {
 		}
 		float t = s.age(partial);
 		float w = s.weight(partial);
-		float base = 0.35f + 0.3f * s.strength;
+		float base = 0.22f + 0.16f * s.strength;
 		// a bounce through the impact: down past the pose and back up a little
-		float bounce = t < 5f ? Mth.sin(Mth.clamp(t / 5f, 0f, 1f) * Mth.PI) * 0.18f * (0.5f + s.strength) : 0f;
+		float bounce = t < 5f ? Mth.sin(Mth.clamp(t / 5f, 0f, 1f) * Mth.PI) * 0.12f * (0.5f + s.strength) : 0f;
 		return base * w + bounce * Math.min(1f, w * 2f);
 	}
 
@@ -175,16 +187,16 @@ public final class HeroLandingClient {
 			return 0f;
 		}
 		float t = s.age(partial);
-		float impact = t < 6f ? Mth.sin(Mth.clamp(t / 6f, 0f, 1f) * Mth.PI) * (6f + 6f * s.strength) : 0f;
-		return impact + 4f * s.weight(partial);
+		float impact = t < 6f ? Mth.sin(Mth.clamp(t / 6f, 0f, 1f) * Mth.PI) * (4f + 4f * s.strength) : 0f;
+		return impact + 2.5f * s.weight(partial);
 	}
 
 	/** The fist punched into the ground, pushing into the bottom of the view (13-column first-person clip). */
 	private static final float[][] FP_FIST = {
 			QuirkFirstPersonPose.f(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-			QuirkFirstPersonPose.f(2.5f, -28, 22, 12, 0.08f, -0.22f, -0.12f, 0, 0, 0, 0, 0, 0),
-			QuirkFirstPersonPose.f(5, -22, 20, 10, 0.06f, -0.18f, -0.1f, 0, 0, 0, 0, 0, 0),
-			QuirkFirstPersonPose.f(40, -22, 20, 10, 0.06f, -0.18f, -0.1f, 0, 0, 0, 0, 0, 0) };
+			QuirkFirstPersonPose.f(2.5f, -42, 24, 12, 0.1f, -0.06f, -0.22f, 0, 0, 0, 0, 0, 0),
+			QuirkFirstPersonPose.f(5, -36, 22, 10, 0.08f, -0.04f, -0.18f, 0, 0, 0, 0, 0, 0),
+			QuirkFirstPersonPose.f(40, -36, 22, 10, 0.08f, -0.04f, -0.18f, 0, 0, 0, 0, 0, 0) };
 
 	/** Bare-handed and landing in a fist style: the first-person arm sample, or null. */
 	public static @Nullable QuirkFirstPersonPose.Sample firstPerson(Player p, float partial) {

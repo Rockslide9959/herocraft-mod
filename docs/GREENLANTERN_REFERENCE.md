@@ -1125,3 +1125,9 @@ Static state (`GreenLanternDrone.DRONES`, `GreenLanternGateway.CHANNELS / OPEN /
 `ServerStateReset`) and per player by `GreenLanternRecon#dismissAll` (via `GreenLanternArsenal#dismissAll` on N, death, respawn,
 logout and world change).
 Gametests: `GreenLanternReconGameTests`. Screenshots: `docs/screenshots/v0171/gl_drone_*.png`, `gl_gateway_*.png`.
+
+## v0.17.1: superhero landing
+
+Dive out of Ring Flight (a descent of 11 blocks/s or more, or an 18 blocks/s dive) and he lands in a three-point landing with the
+ring fist punched into the ground: the ring flares, a green hard-light shockwave rolls out and the Lantern emblem glows in the
+crack under the fist (cosmetic only). No fall damage. Shared system: see `docs/HERO_LANDING_0171.md`.

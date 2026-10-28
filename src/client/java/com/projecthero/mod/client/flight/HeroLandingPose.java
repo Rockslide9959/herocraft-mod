@@ -145,8 +145,8 @@ public final class HeroLandingPose {
 
 	/** Both feet down in a lunge; {@code board}: side-on on the Silver Surfer's board, a hand down to it. */
 	private static void crouch(HumanoidModel<?> m, float k, float t, float side, boolean board) {
-		float drop = (board ? 4.0f : 4.5f) * k + bounce(t, 0.5f) * k * 0.8f;
-		float lean = (board ? 0.5f : 0.45f) * k;
+		float drop = (board ? 5.0f : 4.5f) * k + bounce(t, 0.5f) * k * 0.8f;
+		float lean = (board ? 0.62f : 0.45f) * k;
 		float hipY = 12.0f + drop;
 		torso(m, k, lean, hipY, board ? 0.45f * side : 0.08f * side);
 		head(m, k, t, 99f, board ? 0.2f : 0.35f, 0f);
