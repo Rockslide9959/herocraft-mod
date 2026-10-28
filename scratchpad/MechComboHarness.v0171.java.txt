@@ -1,0 +1,383 @@
+// NOTE: needs MechComboRender.harnessTsuba / harnessBlade (the katana tsuba pose, world space, set after the katana draw) and
+// HarnessCameraMixin.mechcombo.java.txt, the HUD forceShift hook and a MechComboHarness.init() call in ProjectHeroModClient.
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.GreenLanternRanks;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+import com.projecthero.mod.greenlantern.mech.GreenLanternMech;
+import com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos;
+import com.projecthero.mod.greenlantern.mech.HardLightMechEntity;
+import com.projecthero.mod.hero.AbilitySlot;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.monster.Husk;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 mech construct combo screenshots. Enabled by run/mechcombo.flag. */
+public final class MechComboHarness {
+	public static Vec3 camOffset;
+	public static Vec3 camTarget = Vec3.ZERO;
+	public static boolean forceShift;
+	public static Vec3 camAbs, camAbsTarget;
+
+	/** The camera {@code side} to the side of the tsuba, {@code along} down the blade, {@code up} above; looking {@code look} down the blade. */
+	private static void macro(double side, double along, double up, double look) {
+		Vec3 t = com.projecthero.mod.client.greenlantern.mech.MechComboRender.harnessTsuba;
+		Vec3 b = com.projecthero.mod.client.greenlantern.mech.MechComboRender.harnessBlade;
+		if (t == null || b == null) {
+			return;
+		}
+		Vec3 s = b.cross(new Vec3(0, 1, 0)).normalize();
+		Vec3 u = s.cross(b).normalize();
+		camAbs = t.add(s.scale(side)).add(b.scale(along)).add(u.scale(up));
+		camAbsTarget = t.add(b.scale(look));
+	}
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static long lastBreak = Long.MIN_VALUE;
+	private static int breakShots = -1;
+
+	private MechComboHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("mechcombo.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(MechComboHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "mechcombo-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void mech(Minecraft mc, java.util.function.BiConsumer<HardLightMechEntity, ServerPlayer> fn) {
+		server(mc, p -> {
+			HardLightMechEntity m = GreenLanternMech.mechOf(p);
+			if (m != null) {
+				fn.accept(m, p);
+			} else {
+				System.out.println("[HARNESS] no mech");
+			}
+		});
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		Screenshot.grab(mc.gameDirectory, "gl_mech_combo_" + name + ".png", mc.getMainRenderTarget(), m -> {
+		});
+		System.out.println("[HARNESS] shot " + name);
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> shot(name));
+	}
+
+	private static void cam(int t, double ox, double oy, double oz, double tx, double ty, double tz) {
+		at(t, () -> {
+			camOffset = new Vec3(ox, oy, oz);
+			camTarget = new Vec3(tx, ty, tz);
+		});
+	}
+
+	private static void husks(ServerPlayer p, double z0, int n, double spread) {
+		ServerLevel level = p.serverLevel();
+		for (int i = 0; i < n; i++) {
+			Husk h = EntityType.HUSK.create(level);
+			double x = origin.x + (i - (n - 1) / 2.0) * spread;
+			h.moveTo(x, origin.y, origin.z + z0, 180f, 0f);
+			h.setNoAi(true);
+			h.getAttribute(Attributes.MAX_HEALTH).setBaseValue(2000);
+			h.setHealth(2000);
+			h.setPersistenceRequired();
+			level.addFreshEntity(h);
+		}
+	}
+
+	private static void clearHusks(ServerPlayer p) {
+		p.serverLevel().getEntitiesOfClass(Husk.class, p.getBoundingBox().inflate(80)).forEach(net.minecraft.world.entity.Entity::discard);
+	}
+
+	private static void fullCharge(ServerPlayer p) {
+		GreenLanternState s = GreenLantern.state(p).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(p, s);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05); // the user: test clients at 5%
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(MechComboHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.getWindow().setWindowed(1600, 900);
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(13800L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				GreenLantern.bond(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				GreenLanternRanks.award(p, 6200);
+				fullCharge(p);
+				// a rock hill ahead for the Giga Drill, a patch of tall grass and a bush of leaves for the iaido
+				BlockPos o = BlockPos.containing(origin);
+				for (BlockPos b : BlockPos.betweenClosed(o.offset(-8, 0, 4), o.offset(8, 0, 11))) {
+					if ((b.getX() * 31 + b.getZ() * 17) % 3 != 0) {
+						level.setBlock(b, Blocks.SHORT_GRASS.defaultBlockState(), 2);
+					}
+				}
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+			// the GIGA DRILL BREAK: shoot the flash as it happens
+			HardLightMechEntity cm = HardLightMechEntity.mechOf(mc.player);
+			if (cm != null && cm.breakAt() > 0 && cm.breakAt() != lastBreak) {
+				lastBreak = cm.breakAt();
+				breakShots = 0;
+			}
+			if (breakShots >= 0) {
+				breakShots++;
+				if (breakShots == 2 || breakShots == 4 || breakShots == 7) {
+					shot("giga_break_" + breakShots);
+				}
+				if (breakShots > 8) {
+					breakShots = -1;
+				}
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		at(5, () -> server(mc, GreenLanternMech::deploy));
+		at(10, () -> mech(mc, (m, p) -> m.finishAssembly()));
+		// ---- the katana: draw, idle, close-up
+		at(30, () -> mech(mc, (m, p) -> GreenLanternMechCombos.katanaToggle(m, p)));
+		cam(30, -7.5, 5.0, 8.0, 0, 3.4, 1.0);
+		shot(34, "katana_draw_a");
+		shot(37, "katana_draw_b");
+		shot(60, "katana_idle");
+		cam(62, -6.5, 4.2, 6.0, -1.8, 3.6, 3.0);
+		shot(66, "katana_closeup");
+		// macro shots framed off the katana's own pose (the tsuba and the blade's direction, caught by the renderer)
+		at(68, () -> macro(1.7, -0.7, 0.35, 0.35));
+		shot(72, "katana_closeup_b");
+		at(73, () -> macro(2.9, 2.0, 0.7, 2.6));
+		shot(77, "katana_closeup_c");
+		at(78, () -> macro(0.75, 1.5, 0.45, 0.0));
+		shot(82, "katana_tsuba");
+		at(83, () -> camAbs = null);
+		// ---- the slash chain on a line of husks
+		cam(80, -9.0, 6.0, 9.0, 0, 3.4, 3.0);
+		at(80, () -> server(mc, p -> husks(p, 6.5, 3, 2.2)));
+		at(90, () -> mech(mc, (m, p) -> GreenLanternMechCombos.slash(m, p)));
+		for (int i = 91; i <= 99; i++) {
+			shot(i, "slash1_" + i);
+		}
+		at(101, () -> mech(mc, (m, p) -> GreenLanternMechCombos.slash(m, p)));
+		for (int i = 102; i <= 109; i++) {
+			shot(i, "slash2_" + i);
+		}
+		at(112, () -> mech(mc, (m, p) -> GreenLanternMechCombos.slash(m, p)));
+		for (int i = 113; i <= 124; i++) {
+			shot(i, "slash3_" + i);
+		}
+		// ---- the iaido crescent (husks further out, the grass patch)
+		at(135, () -> server(mc, p -> {
+			clearHusks(p);
+			husks(p, 9, 3, 3.0);
+			fullCharge(p);
+		}));
+		cam(138, -7.0, 1.8, -3.5, 0, -0.5, 8.0);
+		at(140, () -> mech(mc, (m, p) -> GreenLanternMechCombos.iaido(m, p)));
+		shot(146, "iaido_launch");
+		shot(149, "iaido_a");
+		shot(152, "iaido_b");
+		cam(154, -10.0, 4.0, 6.0, 0, 3.0, 12.0);
+		// ---- the spin sweep
+		at(165, () -> server(mc, p -> {
+			clearHusks(p);
+			husks(p, 5.5, 2, 6.0);
+		}));
+		cam(166, -8.0, 7.0, 8.0, 0, 3.0, 0.0);
+		at(170, () -> mech(mc, (m, p) -> GreenLanternMechCombos.spin(m, p)));
+		shot(174, "spin_a");
+		shot(176, "spin_b");
+		shot(178, "spin_c");
+		// ---- the HUD (katana drawn), the Shift layer, the Alt list
+		at(186, () -> {
+			camOffset = null;
+			mc.options.hideGui = false;
+			mc.gui.getChat().clearMessages(false);
+			mc.getToasts().clear();
+		});
+		shot(190, "hud");
+		at(191, () -> forceShift = true);
+		shot(194, "hud_shift");
+		at(195, () -> {
+			forceShift = false;
+			com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = true;
+		});
+		shot(198, "hud_alt");
+		at(199, () -> {
+			com.projecthero.mod.client.gui.MoveListOverlay.forceHeld = false;
+			mc.options.hideGui = true;
+		});
+		// ---- the Giga Drill: sheathe, spin up, charge into the hill
+		at(200, () -> mech(mc, (m, p) -> {
+			clearHusks(p);
+			GreenLanternMechCombos.sheathe(m);
+			fullCharge(p);
+		}));
+		at(215, () -> mech(mc, (m, p) -> {
+			// three rock walls on the mech's line (narrow enough to watch from the side), husks before the first
+			ServerLevel level = p.serverLevel();
+			BlockPos o = m.blockPosition();
+			for (int[] w : new int[][] { { 7, 10 }, { 15, 18 }, { 23, 26 } }) {
+				for (BlockPos b : BlockPos.betweenClosed(o.offset(-5, 0, w[0]), o.offset(5, 9, w[1]))) {
+					level.setBlock(b, (b.getY() + b.getX() + b.getZ()) % 7 == 0 ? Blocks.ANDESITE.defaultBlockState() : Blocks.STONE.defaultBlockState(), 2);
+				}
+			}
+			origin = m.position();
+			husks(p, 5, 3, 2.5);
+			GreenLanternMechCombos.drillPress(m, p, AbilitySlot.SLOT_2);
+		}));
+		cam(215, -10.5, 0.8, 3.0, 0, 0.2, 3.2);
+		at(222, () -> mc.player.setXRot(28f)); // aim down: the drill arm follows
+		shot(228, "drill_spin_half");
+		at(229, () -> mc.player.setXRot(0f));
+		cam(240, -8.5, 1.6, -0.5, -0.5, 0.4, 3.5);
+		shot(250, "drill_spin_full");
+		at(252, () -> {
+			mc.options.hideGui = false;
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			camOffset = null;
+		});
+		shot(256, "drill_firstperson");
+		at(258, () -> {
+			mc.options.hideGui = true;
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+		});
+		cam(258, -14.0, 1.5, 1.0, 0, 0.0, 3.0);
+		at(261, () -> {
+			mc.player.setXRot(0f);
+			mc.player.setYRot(0f);
+		});
+		at(262, () -> mech(mc, (m, p) -> {
+			p.setXRot(0f);
+			p.setYRot(0f);
+			GreenLanternMechCombos.drillRelease(m, p);
+		}));
+		for (int i = 0; i < 9; i++) {
+			shot(266 + i * 2, "drill_charge_" + i);
+		}
+		for (int i = 0; i < 30; i++) {
+			at(262 + i, () -> mech(mc, (m, p) -> System.out.println("[HARNESS] drill st " + m.drillState() + " prog " + m.drillProgress
+					+ " end " + m.drillEnd + " bored " + m.drillBored + " broken " + m.drillBroken + " pos " + m.position() + " start "
+					+ m.drillStart + " aim " + m.drillAim)));
+		}
+		cam(296, -13.0, 4.0, -8.0, 0, 0.0, 2.0);
+		shot(300, "drill_after");
+		at(330, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("MC_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.EASY, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
