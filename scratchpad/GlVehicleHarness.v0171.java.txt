@@ -1,0 +1,301 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.GreenLanternRanks;
+import com.projecthero.mod.greenlantern.construct.Construct;
+import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
+import com.projecthero.mod.greenlantern.construct.GreenLanternVehicles;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 round 2 Carry Platform key + Car / Jet controls screenshots. Enabled by run/glveh.flag. */
+public final class GlVehicleHarness {
+	public static volatile Vec3 camOffset;
+	public static volatile Vec3 camTarget = Vec3.ZERO;
+	public static volatile boolean camAbsolute;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+
+	private GlVehicleHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("glveh.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GlVehicleHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(420_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			Runtime.getRuntime().halt(3);
+		}, "glveh-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void cam(int t, double ox, double oy, double oz, double tx, double ty, double tz) {
+		at(t, () -> {
+			camAbsolute = false;
+			camOffset = new Vec3(ox, oy, oz);
+			camTarget = new Vec3(tx, ty, tz);
+		});
+	}
+
+	private static void chase(int t) {
+		at(t, () -> camOffset = null);
+	}
+
+	private static Construct carry(ServerPlayer p) {
+		for (Construct c : GreenLanternConstructs.of(p.getUUID())) {
+			if (c.type == ConstructType.CARRY_PLATFORM) {
+				return c;
+			}
+		}
+		return null;
+	}
+
+	/** The player stands {@code back} blocks behind the form and looks at it, then presses the key. */
+	private static void lookAndPress(ServerPlayer p) {
+		Construct c = carry(p);
+		if (c == null) {
+			return;
+		}
+		Vec3 target = c.vehicleForm == GreenLanternVehicles.FORM_PLATFORM
+				? Vec3.atBottomCenterOf(c.platformBlockCenter).add(0, 1.0, 0)
+				: c.vehicle.position().add(0, 0.6, 0);
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+		System.out.println("[HARNESS] looking at it: " + GreenLanternVehicles.lookingAt(p, c));
+		GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+		System.out.println("[HARNESS] form now " + c.vehicleForm + " follow " + c.toggledOn);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GlVehicleHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		if (inWorldTicks % 10 == 0) {
+			server(mc, p -> p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120)).forEach(net.minecraft.world.entity.Entity::discard));
+		}
+		if (inWorldTicks % 20 == 0) {
+			server(mc, p -> {
+				GreenLanternState s = GreenLantern.state(p).copy();
+				s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+				GreenLantern.save(p, s);
+			});
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = false;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, -8f);
+				GreenLantern.bond(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				GreenLanternRanks.award(p, 6200);
+				GreenLanternState s = GreenLantern.state(p).copy();
+				s.suited = true;
+				s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+				GreenLantern.save(p, s);
+				// a road for the car: smooth stone running north, with a kerb line and a few lamp posts
+				BlockPos o = BlockPos.containing(origin);
+				for (int z = -4; z < 90; z++) {
+					for (int x = -14; x <= 6; x++) {
+						level.setBlock(o.offset(x, -1, z), (x == -14 || x == 6) ? Blocks.QUARTZ_BLOCK.defaultBlockState()
+								: Blocks.SMOOTH_STONE.defaultBlockState(), 3);
+					}
+					if (z % 12 == 0) {
+						for (int y = 0; y < 3; y++) {
+							level.setBlock(o.offset(8, y, z), Blocks.STONE_BRICK_WALL.defaultBlockState(), 3);
+						}
+						level.setBlock(o.offset(8, 3, z), Blocks.SEA_LANTERN.defaultBlockState(), 3);
+					}
+				}
+			});
+			t0 = inWorldTicks;
+			script(mc);
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		// --- the platform, then the key pressed looking away over it: it follows your aim (the old toggle)
+		at(4, () -> server(mc, p -> {
+			p.connection.teleport(origin.x, origin.y, origin.z, 0f, -8f);
+			p.setYRot(0f);
+			p.setXRot(-8f);
+			GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+		}));
+		cam(6, -6.5, 3.2, 1.5, 0.0, 0.8, 4.0);
+		shot(30, "gl_vehicle2_platform");
+		at(34, () -> server(mc, p -> {
+			Construct c = carry(p);
+			System.out.println("[HARNESS] (follow) looking at it: " + GreenLanternVehicles.lookingAt(p, c));
+			GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+			System.out.println("[HARNESS] follow " + c.toggledOn);
+		}));
+		at(38, () -> mc.options.keyUp.setDown(true));
+		cam(38, -7.0, 3.4, 2.5, 0.0, 0.8, 4.0);
+		shot(52, "gl_vehicle2_follow");
+		shot(60, "gl_vehicle2_follow_b");
+		at(62, () -> mc.options.keyUp.setDown(false));
+		// parked again (not looking), then a step back and the crosshair on it: Platform -> Car
+		at(70, () -> server(mc, p -> {
+			p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, -8f);
+			p.setXRot(-8f);
+			GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+		}));
+		at(76, () -> server(mc, GlVehicleHarness::lookAndPress));
+		cam(77, 4.5, 2.6, 0.5, 0.0, 0.6, 4.5);
+		shot(84, "gl_vehicle2_cycle_build");
+		shot(104, "gl_vehicle2_cycle_car");
+		at(108, () -> server(mc, GlVehicleHarness::lookAndPress));
+		shot(116, "gl_vehicle2_cycle_jet_build");
+		shot(136, "gl_vehicle2_cycle_jet");
+		// back round to the car: jet -> platform -> car
+		at(140, () -> server(mc, GlVehicleHarness::lookAndPress));
+		at(146, () -> server(mc, GlVehicleHarness::lookAndPress));
+		// --- driving: in, W, then A for a corner
+		at(172, () -> server(mc, p -> {
+			Construct c = carry(p);
+			if (c != null && c.vehicle != null) {
+				p.startRiding(c.vehicle, true);
+			}
+		}));
+		chase(172);
+		at(178, () -> mc.options.keyUp.setDown(true));
+		at(205, () -> mc.options.keyRight.setDown(true));
+		cam(207, 5.5, 3.0, 4.5, 0.0, 0.6, 0.0);
+		shot(214, "gl_vehicle2_car_corner");
+		shot(220, "gl_vehicle2_car_corner_b");
+		chase(222);
+		shot(226, "gl_vehicle2_car_hud");
+		at(228, () -> mc.options.keyRight.setDown(false));
+		at(236, () -> {
+			mc.options.keyUp.setDown(false);
+			mc.options.keyDown.setDown(true);
+		});
+		at(252, () -> mc.options.keyDown.setDown(false));
+		// --- the jet: the key from inside reshapes; Space lifts it straight off; let go and it hovers
+		at(258, () -> server(mc, p -> GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM)));
+		at(282, () -> mc.options.keyJump.setDown(true));
+		at(306, () -> mc.options.keyJump.setDown(false));
+		cam(312, 5.5, 1.2, 5.0, 0.0, 0.4, 0.0);
+		shot(330, "gl_vehicle2_jet_hover");
+		chase(334);
+		shot(340, "gl_vehicle2_jet_hud");
+		at(342, () -> mc.options.keyUp.setDown(true));
+		at(362, () -> mc.options.keyUp.setDown(false));
+		shot(368, "gl_vehicle2_jet_fly");
+		at(372, () -> server(mc, p -> {
+			Construct c = carry(p);
+			System.out.println("[HARNESS] end form " + (c == null ? -1 : c.vehicleForm) + " at " + p.position());
+		}));
+		at(380, () -> {
+			System.out.println("[HARNESS] done");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GLVEH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false,
+				Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+						.getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+				mc.screen);
+	}
+}
