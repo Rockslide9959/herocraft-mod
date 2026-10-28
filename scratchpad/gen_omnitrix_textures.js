@@ -8,6 +8,7 @@
 //   * block/omnitrix_pod_base|frame|panel.png          the Containment Pod block
 //   * item/omnitrix|meteor_scanner|plumber_alloy|containment_core|omnitrix_containment_pod.png
 //   * gui/omnitrix/alien_<id>.png                      a 32x32 silhouette per alien for the dial (all ten)
+// v0.17.1 model remake: the watch, item/omnitrix.png and the dial icons moved to gen_omnitrix_watch_v2.js.
 // Usage: node scratchpad/gen_omnitrix_textures.js [previewDir]
 'use strict';
 const fs = require('fs');
@@ -302,7 +303,7 @@ function items() {
 	hourglass(omni, 4, 4, 8);
 	rect(omni, 2, 6, 1, 4, () => OBLACK[3]);
 	rect(omni, 13, 6, 1, 4, () => OBLACK[3]);
-	save(omni, 'item/omnitrix.png');
+	// (item/omnitrix.png: superseded by gen_omnitrix_watch_v2.js)
 
 	const scan = img(16, 16);
 	rect(scan, 3, 1, 10, 14, (u, v) => (u === 0 || v === 0 || u === 9 || v === 13) ? hex('#2a2e32') : hex('#5a646c'));
@@ -415,8 +416,8 @@ function silhouettes() {
 
 heatblast();
 fourArms();
-watch();
+// watch(); -- superseded: gen_omnitrix_watch_v2.js draws the watch, the item icon and the dial icons now
 pod();
 items();
-silhouettes();
+// silhouettes(); -- superseded by gen_omnitrix_watch_v2.js
 console.log('omnitrix textures written');

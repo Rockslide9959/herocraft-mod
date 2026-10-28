@@ -40,10 +40,10 @@ public final class OmnitrixFirstPerson {
 		float dip = slap < Omnitrix.SLAP_TICKS + 2 ? Mth.sin(Mth.clamp(slap / (Omnitrix.SLAP_TICKS + 2), 0f, 1f) * Mth.PI) * 0.05f : 0f;
 		pose.pushPose();
 		// where the shoulder sits in camera space (x right, y up, -z ahead), sliding up from below the screen
-		pose.translate(-0.62f, -0.2f - (1f - raise) * 0.9f - dip, -0.98f);
+		pose.translate(-0.5f, -0.24f - (1f - raise) * 0.9f - dip, -0.95f);
 		pose.mulPose(Axis.ZP.rotationDegrees(14f));   // the wrist a little higher than the elbow
-		pose.mulPose(Axis.YP.rotationDegrees(-12f));  // the hand end slightly further away
-		pose.mulPose(Axis.XP.rotationDegrees(-40f));  // roll the dial round to face the eye
+		pose.mulPose(Axis.YP.rotationDegrees(18f));   // the face turned round toward the eye
+		pose.mulPose(Axis.XP.rotationDegrees(-18f));  // and tipped up a little
 		// arm space -> camera space: down the arm (+y) = right, the arm's outer side (+x, the dial) = toward the eye
 		Matrix4f m = new Matrix4f(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);
 		pose.mulPose(m);

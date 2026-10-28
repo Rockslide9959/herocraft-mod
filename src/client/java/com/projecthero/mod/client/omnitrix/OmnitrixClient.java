@@ -67,6 +67,9 @@ public final class OmnitrixClient {
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_POD, OmnitrixRenderers.Pod::new);
 		EntityRendererRegistry.register(OmnitrixEntities.ALIEN_PROJECTILE, OmnitrixRenderers.Projectile::new);
 		BlockEntityRendererRegistry.register(OmnitrixPodBlocks.POD_BE, OmnitrixRenderers.PodField::new);
+		// the loose watch is drawn as its 3D model everywhere
+		net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry.INSTANCE.register(
+				com.projecthero.mod.omnitrix.item.OmnitrixItems.OMNITRIX, new OmnitrixItemRenderer());
 		net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(OmnitrixPodBlocks.POD,
 				net.minecraft.client.renderer.RenderType.cutout());
 		LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, context) -> {

@@ -1,6 +1,17 @@
 {
-  "parent": "minecraft:item/generated",
+  "parent": "builtin/entity",
+  "gui_light": "front",
   "textures": {
-    "layer0": "projecthero:item/omnitrix"
+    "particle": "projecthero:item/omnitrix"
+  },
+  "display": {
+    "gui": { "rotation": [ 62, 190, 0 ], "translation": [ 0, 0, 0 ], "scale": [ 1.75, 1.75, 1.75 ] },
+    "ground": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 3, 0 ], "scale": [ 0.7, 0.7, 0.7 ] },
+    "fixed": { "rotation": [ -90, 0, 0 ], "translation": [ 0, 0, -1 ], "scale": [ 1.4, 1.4, 1.4 ] },
+    "head": { "rotation": [ 0, 0, 0 ], "translation": [ 0, 10, 0 ], "scale": [ 1, 1, 1 ] },
+    "thirdperson_righthand": { "rotation": [ 75, 45, 0 ], "translation": [ 0, 2.5, 0 ], "scale": [ 0.55, 0.55, 0.55 ] },
+    "thirdperson_lefthand": { "rotation": [ 75, 45, 0 ], "translation": [ 0, 2.5, 0 ], "scale": [ 0.55, 0.55, 0.55 ] },
+    "firstperson_righthand": { "rotation": [ 20, 40, 0 ], "translation": [ 1, 4, 0 ], "scale": [ 0.42, 0.42, 0.42 ] },
+    "firstperson_lefthand": { "rotation": [ 20, 40, 0 ], "translation": [ 1, 4, 0 ], "scale": [ 0.42, 0.42, 0.42 ] }
   }
 }

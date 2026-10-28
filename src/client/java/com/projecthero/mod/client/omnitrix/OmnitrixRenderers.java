@@ -141,14 +141,13 @@ public final class OmnitrixRenderers {
 			open = 1f - (1f - open) * (1f - open);
 			model.render(pose, buffers, light, open, e.empty(), false);
 			if (!e.empty() && open > 0.2f) {
-				// the watch itself on the core, its face glowing, bobbing slightly
+				// the watch itself (its 3D model) on the core, face up, turning and bobbing slightly
 				float bob = Mth.sin((e.tickCount + partial) * 0.12f) * 0.03f;
 				pose.pushPose();
-				pose.translate(0, 1.08 + bob, 0);
-				pose.mulPose(Axis.XP.rotationDegrees(-90));
-				VertexConsumer face = buffers.getBuffer(RenderType.eyes(OmnitrixWatch.TEX));
-				float s = 0.16f;
-				AlienParts.quad(face, pose.last(), 0xFFFFFFFF, LightTexture.FULL_BRIGHT, -s, -s, 0, s, -s, 0, s, s, 0, -s, s, 0, 0, 0, 1, 0.5f, 0.5f, 1f, 1f);
+				pose.translate(0, 1.15 + bob, 0);
+				pose.mulPose(Axis.YP.rotationDegrees((e.tickCount + partial) * 1.5f));
+				pose.scale(1.0f, 1.0f, 1.0f);
+				OmnitrixItemRenderer.drawCentred(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(OmnitrixWatch.TEX)), light);
 				pose.popPose();
 				pose.pushPose();
 				pose.translate(0, 1.3, 0);

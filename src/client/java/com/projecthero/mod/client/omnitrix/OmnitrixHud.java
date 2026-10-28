@@ -205,9 +205,15 @@ public final class OmnitrixHud {
 		// the hourglass face, or the alien's silhouette
 		String shown = s.transformed() ? s.active : s.selected;
 		if (s.selecting || s.transformed()) {
-			disc(g, cx, cy, 12, warn ? 0xFF7A1A14 : 0xFF2E9A30);
-			g.setColor(0.05f, 0.1f, 0.05f, 1f);
-			g.blit(OmnitrixWatch.silhouette(shown), cx - 10, cy - 10, 0, 0, 20, 20, 20, 20);
+			// the show's dial screen: the icon glowing lime (red while warning) on a dark glass disc
+			disc(g, cx, cy, 13, warn ? 0xFF3A0D0A : 0xFF0C3311);
+			disc(g, cx, cy, 10, warn ? 0xFF4A120D : 0xFF0F3D14);
+			if (warn) {
+				g.setColor(1f, 0.36f, 0.28f, 1f);
+			} else {
+				g.setColor(0.55f, 1f, 0.24f, 1f);
+			}
+			g.blit(OmnitrixWatch.silhouette(shown), cx - 12, cy - 12, 0, 0, 24, 24, 24, 24);
 			g.setColor(1f, 1f, 1f, 1f);
 		} else {
 			hourglass(g, cx, cy, 12, warn ? RED : GREEN);

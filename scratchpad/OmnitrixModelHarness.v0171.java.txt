@@ -1,0 +1,349 @@
+// Copy to src/client/java/com/projecthero/mod/client/OmnitrixModelHarness.java, call OmnitrixModelHarness.init() first thing in
+// ProjectHeroModClient.onInitializeClient, touch run/omnitrix_model.flag, set soundCategory_master:0.05 in run/options.txt, then
+// ./gradlew runClient --args="--width 1280 --height 720"  (shots land in run/screenshots/omnitrix_model_*.png)
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.entity.OmnitrixPodEntity;
+import com.projecthero.mod.omnitrix.item.OmnitrixItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Omnitrix model screenshots. Enabled by run/omnitrix_model.flag. */
+// TEMP-HARNESS
+public final class OmnitrixModelHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static final Map<String, ServerPlayer> FAKES = new HashMap<>();
+
+	private OmnitrixModelHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix_model.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixModelHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-model-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t - 1, () -> {
+			try {
+				var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+				m.setAccessible(true);
+				m.invoke(Minecraft.getInstance().particleEngine);
+			} catch (ReflectiveOperationException e) {
+				System.out.println("[HARNESS] " + e);
+			}
+		});
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_model_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name + " eye=" + mc.player.getEyePosition() + " pose=" + mc.player.getPose() + " cam="
+					+ mc.gameRenderer.getMainCamera().getPosition());
+			for (var e : mc.level.players()) {
+				System.out.println("[HARNESS]   " + e.getName().getString() + " at " + e.position());
+			}
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		// the user: every test client at 5% sound
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixModelHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				for (ServerPlayer f : FAKES.values()) {
+					f.tickCount++;
+					Omnitrix.tick(f);
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+		// the fakes never move: hold their client-side body / head yaw at what the server set
+		for (var e : mc.level.players()) {
+			if (e != mc.player) {
+				e.yBodyRot = e.yBodyRotO = e.yHeadRot = e.yHeadRotO = 180f;
+				e.setYRot(180f);
+				e.yRotO = 180f;
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OMM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true; // or the camera sinks between the teleport and the shot
+		p.onUpdateAbilities();
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static UUID uuidFor(PlayerSkin.Model model) {
+		while (true) {
+			UUID id = UUID.randomUUID();
+			if (DefaultPlayerSkin.get(id).model() == model) {
+				return id;
+			}
+		}
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw, PlayerSkin.Model model) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(uuidFor(model), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		FAKES.put(name, f);
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void select(ServerPlayer p, String id, boolean denied) {
+		var n = Omnitrix.state(p).copy();
+		n.selected = id;
+		if (denied) {
+			n.animId = Omnitrix.ANIM_DENIED;
+			n.animStart = p.level().getGameTime();
+		}
+		Omnitrix.save(p, n);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		// ---------------------------------------------------------------- 1. the wrist in third person, wide (Ben) and slim (Gwen)
+		Vec3 ben = origin.add(-20, 3, 0), gwen = origin.add(-20, 3, 4);
+		at(t, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(80))) {
+				e.discard();
+			}
+			UniquePowers.forced(() -> Omnitrix.grant(fake(p, "Ben", ben, 180f, PlayerSkin.Model.WIDE)));
+			UniquePowers.forced(() -> Omnitrix.grant(fake(p, "Gwen", gwen, 180f, PlayerSkin.Model.SLIM)));
+		}));
+		// facing north (-z), the left arm hangs on the -x side; the wrist ~0.9 above the feet
+		at(t + 30, () -> server(mc, p -> camera(p, ben.add(-1.2, 1.25, -0.62), ben.add(-0.42, 0.88, -0.04))));
+		shot(t + 36, "tp_wrist_wide");
+		at(t + 38, () -> server(mc, p -> camera(p, ben.add(-1.0, 0.95, 0.45), ben.add(-0.37, 0.88, 0))));
+		shot(t + 44, "tp_wrist_wide_back");
+		at(t + 46, () -> server(mc, p -> camera(p, gwen.add(-1.2, 1.25, -0.62), gwen.add(-0.38, 0.88, -0.04))));
+		shot(t + 52, "tp_wrist_slim");
+		at(t + 54, () -> server(mc, p -> camera(p, gwen.add(-1.15, 0.9, -0.2), gwen.add(-0.34, 0.88, 0))));
+		shot(t + 60, "tp_wrist_slim_side");
+		// raised, picking
+		at(t + 62, () -> server(mc, p -> {
+			Omnitrix.activate(FAKES.get("Ben"));
+			Omnitrix.activate(FAKES.get("Gwen"));
+			select(FAKES.get("Gwen"), "xlr8", false);
+			camera(p, ben.add(-1.2, 1.7, -1.6), ben.add(-0.2, 1.3, 0));
+		}));
+		shot(t + 76, "tp_raised_wide");
+		at(t + 78, () -> server(mc, p -> camera(p, gwen.add(-1.2, 1.7, -1.6), gwen.add(-0.2, 1.3, 0))));
+		shot(t + 84, "tp_raised_slim");
+		at(t + 84, () -> server(mc, p -> camera(p, ben.add(-1.0, 1.55, -1.35), ben.add(-0.15, 1.4, -0.3))));
+		shot(t + 86, "tp_raised_close");
+		at(t + 86, () -> server(mc, p -> {
+			Omnitrix.deactivate(FAKES.get("Ben"));
+			ServerPlayer b = FAKES.get("Ben");
+			ItemStack held = new ItemStack(OmnitrixItems.OMNITRIX);
+			b.setItemInHand(InteractionHand.MAIN_HAND, held);
+			p.serverLevel().getChunkSource().broadcast(b, new net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket(b.getId(),
+					java.util.List.of(com.mojang.datafixers.util.Pair.of(net.minecraft.world.entity.EquipmentSlot.MAINHAND, held))));
+			camera(p, ben.add(1.2, 1.4, -1.3), ben.add(0.3, 0.9, 0));
+		}));
+		shot(t + 100, "tp_item_held");
+		t += 105;
+		// ---------------------------------------------------------------- 2. the dropped item and the pod's reveal
+		Vec3 drop = origin.add(-28, 0, 0), podAt = origin.add(-34, 0, 0);
+		at(t, () -> server(mc, p -> {
+			ItemEntity it = new ItemEntity(p.serverLevel(), drop.x, drop.y + 0.05, drop.z, new ItemStack(OmnitrixItems.OMNITRIX), 0, 0, 0);
+			it.setPickUpDelay(32767);
+			p.serverLevel().addFreshEntity(it);
+			OmnitrixPodEntity.place(p.serverLevel(), podAt);
+			camera(p, drop.add(-0.4, 0.8, -0.4), drop.add(0, 0.2, 0));
+		}));
+		shot(t + 30, "item_ground");
+		at(t + 90, () -> server(mc, p -> camera(p, podAt.add(-1.4, 2.3, -1.4), podAt.add(0, 1.1, 0))));
+		shot(t + 110, "pod_reveal");
+		t += 115;
+		// ---------------------------------------------------------------- 3. first person: raised, picking (HUD on: the dial badge)
+		at(t, () -> {
+			gui(mc, true);
+			server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x - 12, origin.y, origin.z - 12, 200f, 10f);
+				UniquePowers.forced(() -> Omnitrix.grant(p));
+			});
+		});
+		t += 100; // the title fades
+		at(t, () -> server(mc, p -> p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true))));
+		at(t + 5, () -> server(mc, Omnitrix::activate));
+		shot(t + 7, "fp_core_popping");
+		String[] picks = { "heatblast", "four_arms", "xlr8", "ghostfreak", "grey_matter", "stinkfly", "diamondhead", "upgrade", "wildvine", "ripjaws" };
+		int k = 0;
+		for (String id : picks) {
+			int tt = t + 20 + k * 12;
+			at(tt, () -> server(mc, p -> select(p, id, false)));
+			shot(tt + 8, "fp_raised_" + id);
+			k++;
+		}
+		t += 20 + k * 12;
+		at(t, () -> server(mc, p -> Omnitrix.cycle(p, 1)));
+		shot(t + 2, "fp_dial_turn");
+		at(t + 20, () -> server(mc, p -> select(p, "four_arms", true)));
+		shot(t + 23, "fp_raised_red");
+		at(t + 60, () -> server(mc, Omnitrix::slap));
+		shot(t + 62, "fp_slap");
+		t += 90;
+		// ---------------------------------------------------------------- 4. the item in the hand and in the inventory
+		at(t, () -> server(mc, p -> {
+			Omnitrix.revoke(p);
+			p.setGameMode(GameType.SURVIVAL);
+			p.getInventory().clearContent();
+			p.getInventory().selected = 0;
+			p.getInventory().setItem(0, new ItemStack(OmnitrixItems.OMNITRIX));
+			p.getInventory().setItem(13, new ItemStack(OmnitrixItems.OMNITRIX));
+			p.teleportTo(p.serverLevel(), origin.x - 12, origin.y, origin.z - 12, 200f, 10f);
+		}));
+		shot(t + 30, "fp_item_held");
+		at(t + 35, () -> mc.execute(() -> mc.setScreen(new InventoryScreen(mc.player))));
+		shot(t + 45, "inventory");
+		t += 50;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
