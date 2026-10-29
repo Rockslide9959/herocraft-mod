@@ -20,7 +20,7 @@ const lerp3 = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
 const fr = x => x - Math.floor(x);
 
 // the bones the main controller owns (every clip keys all of them, so nothing pops between clips)
-const MAIN = ['root', 'spin', 'hips', 'chest', 'neck', 'head', 'jaw', 'quills_f', 'quills_b', 'tail',
+const MAIN = ['root', 'spin', 'hips', 'chest', 'neck', 'head', 'jaw', 'quills_f', 'quills_b',
 	'arm_r', 'forearm_r', 'paw_r', 'arm_l', 'forearm_l', 'paw_l', 'thigh_r', 'shin_r', 'foot_r', 'thigh_l', 'shin_l', 'foot_l'];
 const base = () => { const o = {}; for (const b of MAIN) o[b] = { rot: [0, 0, 0] }; o.root.pos = [0, 0, 0]; o.quills_f.scale = [1, 1, 1]; o.quills_b.scale = [1, 1, 1]; return o; };
 const add = (o, b, rot, pos, scale) => {
@@ -47,6 +47,7 @@ function kclip(frames) {
 	const norm = frames.map(([t, f]) => {
 		const o = base();
 		for (const [b, v] of Object.entries(f)) {
+			if (!o[b]) continue;
 			if (Array.isArray(v)) o[b].rot = v.slice();
 			else { o[b] = Object.assign({ rot: [0, 0, 0] }, o[b], v); }
 		}
@@ -89,16 +90,16 @@ function hindLeg(o, n, u, A, B, duty, fold = 1) {
 	add(o, `foot_${n}`, [-(a + sh) + 34 * lift * fold, 0, 0]);
 	return lift;
 }
-// rearing up about the hind feet (z = +12): the root's pitch plus the offset that keeps the feet on the ground
+// rearing up about the hind feet (z = +8.5): the root's pitch plus the offset that keeps the feet on the ground
 function rear(o, deg) {
-	const th = deg * Math.PI / 180, Z = 11.5;
+	const th = deg * Math.PI / 180, Z = 8.5; // v0.17.1 rework 2: the hind paws' middle
 	add(o, 'root', [-deg, 0, 0], [0, Z * Math.sin(th), Z * (1 - Math.cos(th))]);
 }
 
 const CLIPS = {};
 const clipDef = (name, len, loop, fn, step = 0.04) => { CLIPS[name] = { len, loop, fn, step }; };
 
-// ---- idle: slow heavy breathing, the head swaying as he listens, the tail flicking
+// ---- idle: slow heavy breathing, the head swaying as he listens
 clipDef('idle', 4.0, true, t => {
 	const w = TAU * t / 4.0;
 	const o = base();
@@ -108,11 +109,11 @@ clipDef('idle', 4.0, true, t => {
 	add(o, 'hips', [0.5 * br, 0, 0]);
 	add(o, 'neck', [1.5 * Math.sin(w * 2 + 0.8), 0, 0]);
 	add(o, 'head', [1.2 * Math.sin(w * 2 + 1.4), 7 * Math.sin(w), 2 * Math.sin(w)]);
-	add(o, 'jaw', [1.5 + 1.5 * Math.sin(w * 2 + 2), 0, 0]);
+	add(o, 'jaw', [0.6 + 0.6 * Math.sin(w * 2 + 2), 0, 0]); // rework 2: barely parted (a wider gap read as a red line)
 	add(o, 'arm_r', [1.2 * br, 0, 0]); add(o, 'arm_l', [1.2 * br, 0, 0]);
 	add(o, 'paw_r', [-1.2 * br, 0, 0]); add(o, 'paw_l', [-1.2 * br, 0, 0]);
 	add(o, 'quills_f', [1.5 * br, 0, 0]);
-	add(o, 'tail', [3 * Math.sin(w * 2), 12 * Math.sin(w * 3), 0]);
+
 	return o;
 });
 
@@ -130,7 +131,7 @@ clipDef('idle_sniff', 2.6, false, t => {
 		add(o, 'head', [-4 * k, 0, 0]);
 		add(o, 'jaw', [3 * k, 0, 0]);
 	}
-	add(o, 'tail', [0, 10 * Math.sin(TAU * t * 1.5), 0]);
+
 	return o;
 });
 
@@ -152,7 +153,7 @@ function walkCycle(len, amp, duty, bob) {
 		add(o, 'neck', [-1.5 * bob * Math.cos(2 * w), -2.5 * Math.sin(w), 0]);
 		add(o, 'head', [1.0 * Math.cos(2 * w + 0.5), -2 * Math.sin(w), -2 * Math.sin(w)]);
 		add(o, 'jaw', [2 + 2 * bob, 0, 0]);
-		add(o, 'tail', [4, 14 * Math.sin(w + 1), 0]);
+
 		add(o, 'quills_f', [1.5 * Math.cos(2 * w), 0, 0]);
 		return o;
 	};
@@ -185,7 +186,7 @@ clipDef('gallop', 0.42, true, t => {
 	add(o, 'neck', [-8 * flex - 6, 0, 0]);
 	add(o, 'head', [3 * flex, 0, 0]);
 	add(o, 'jaw', [8 + 4 * Math.sin(TAU * u), 0, 0]);
-	add(o, 'tail', [14 * flex + 10, 6 * Math.sin(TAU * u), 0]);
+
 	add(o, 'quills_f', [-6 * flex, 0, 0]);
 	add(o, 'quills_b', [-5 * flex, 0, 0]);
 	return o;
@@ -196,7 +197,7 @@ clipDef('air', 0.5, 'hold', kclip([
 	[0, { arm_r: [-30, 0, 0], arm_l: [-30, 0, 0], paw_r: [30, 0, 0], paw_l: [30, 0, 0], thigh_r: [30, 0, 0], thigh_l: [30, 0, 0] }],
 	[0.5, { root: { rot: [-6, 0, 0], pos: [0, 0, 0] }, arm_r: [-58, 0, -6], arm_l: [-58, 0, 6], forearm_r: [-12, 0, 0], forearm_l: [-12, 0, 0],
 		paw_r: [38, 0, 0], paw_l: [38, 0, 0], thigh_r: [48, 0, 0], thigh_l: [42, 0, 0], shin_r: [-14, 0, 0], shin_l: [-10, 0, 0],
-		foot_r: [26, 0, 0], foot_l: [24, 0, 0], neck: [-10, 0, 0], tail: [22, 0, 0], quills_f: [-10, 0, 0], quills_b: [-8, 0, 0], jaw: [10, 0, 0] }],
+		foot_r: [26, 0, 0], foot_l: [24, 0, 0], neck: [-10, 0, 0], quills_f: [-10, 0, 0], quills_b: [-8, 0, 0], jaw: [10, 0, 0] }],
 ]));
 
 // ---- leap_charge: coiled low on all fours, quivering (hold X)
@@ -204,7 +205,7 @@ const CROUCH = {
 	root: { rot: [0, 0, 0], pos: [0, -3.4, 0.5] }, chest: [5, 0, 0], hips: [-4, 0, 0], neck: [8, 0, 0], head: [-2, 0, 0],
 	arm_r: [-14, 0, -4], arm_l: [-14, 0, 4], forearm_r: [34, 0, 0], forearm_l: [34, 0, 0], paw_r: [-20, 0, 0], paw_l: [-20, 0, 0],
 	thigh_r: [-30, 0, 0], thigh_l: [-30, 0, 0], shin_r: [42, 0, 0], shin_l: [42, 0, 0], foot_r: [-12, 0, 0], foot_l: [-12, 0, 0],
-	tail: [-12, 0, 0], quills_f: { rot: [-6, 0, 0], scale: [1.1, 1.25, 1.1] }, quills_b: { rot: [-6, 0, 0], scale: [1.1, 1.25, 1.1] },
+	quills_f: { rot: [-6, 0, 0], scale: [1.1, 1.25, 1.1] }, quills_b: { rot: [-6, 0, 0], scale: [1.1, 1.25, 1.1] },
 };
 clipDef('leap_charge', 0.6, true, t => {
 	const o = kclip([[0, CROUCH], [0.6, CROUCH]])(t);
@@ -220,13 +221,13 @@ const STRETCH = {
 	root: { rot: [-14, 0, 0], pos: [0, 2, -2] }, chest: [-6, 0, 0], neck: [-12, 0, 0], head: [-6, 0, 0], jaw: [38, 0, 0],
 	arm_r: [-100, 0, -10], arm_l: [-100, 0, 10], forearm_r: [-12, 0, 0], forearm_l: [-12, 0, 0], paw_r: [28, 0, 0], paw_l: [28, 0, 0],
 	thigh_r: [58, 0, 0], thigh_l: [54, 0, 0], shin_r: [-12, 0, 0], shin_l: [-10, 0, 0], foot_r: [30, 0, 0], foot_l: [28, 0, 0],
-	tail: [28, 0, 0], quills_f: { rot: [-14, 0, 0], scale: [1.1, 1.3, 1.1] }, quills_b: { rot: [-12, 0, 0], scale: [1.1, 1.3, 1.1] },
+	quills_f: { rot: [-14, 0, 0], scale: [1.1, 1.3, 1.1] }, quills_b: { rot: [-12, 0, 0], scale: [1.1, 1.3, 1.1] },
 };
 const STRIKE = {
 	root: { rot: [8, 0, 0], pos: [0, -1.5, -3] }, chest: [8, 0, 0], neck: [14, 0, 0], head: [8, 0, 0], jaw: [2, 0, 0],
 	arm_r: [-48, 0, -6], arm_l: [-48, 0, 6], forearm_r: [10, 0, 0], forearm_l: [10, 0, 0], paw_r: [38, 0, 0], paw_l: [38, 0, 0],
 	thigh_r: [8, 0, 0], thigh_l: [12, 0, 0], shin_r: [10, 0, 0], shin_l: [8, 0, 0], foot_r: [-18, 0, 0], foot_l: [-20, 0, 0],
-	tail: [10, 0, 0], quills_f: { rot: [-4, 0, 0], scale: [1.05, 1.15, 1.05] },
+	quills_f: { rot: [-4, 0, 0], scale: [1.05, 1.15, 1.05] },
 };
 clipDef('pounce', 0.85, false, t => {
 	const o = kclip([[0, {}], [0.12, CROUCH], [0.27, STRETCH], [0.42, STRIKE], [0.62, STRIKE], [0.85, {}]])(t);
@@ -242,7 +243,7 @@ const RAKE_L = { arm_l: [-34, 0, 10], forearm_l: [22, 0, 0], paw_l: [36, 0, 0] }
 const REAR_LEGS = { thigh_r: [-16, 0, 0], thigh_l: [-16, 0, 0], shin_r: [22, 0, 0], shin_l: [22, 0, 0], foot_r: [20, 0, 0], foot_l: [20, 0, 0] };
 const mauler = (o, deg) => rear(o, deg);
 clipDef('maul', 1.05, false, t => {
-	const up = (extra) => Object.assign({}, REAR_LEGS, { chest: [-4, 0, 0], neck: [-6, 0, 0], jaw: [24, 0, 0], tail: [10, 0, 0] }, extra);
+	const up = (extra) => Object.assign({}, REAR_LEGS, { chest: [-4, 0, 0], neck: [-6, 0, 0], jaw: [24, 0, 0], }, extra);
 	const o = kclip([
 		[0, {}],
 		[0.1, up(Object.assign({}, RAISE_R, RAKE_L))],
@@ -261,7 +262,7 @@ clipDef('maul', 1.05, false, t => {
 // ---- quills: hunches, the back spikes bristle up, a hard full-body shake, and they fly
 clipDef('quills', 0.7, false, t => {
 	const H = { chest: [7, 0, 0], neck: [10, 0, 0], head: [4, 0, 0], hips: [-3, 0, 0], jaw: [12, 0, 0],
-		arm_r: [-6, 0, -6], arm_l: [-6, 0, 6], paw_r: [6, 0, 0], paw_l: [6, 0, 0], tail: [18, 0, 0],
+		arm_r: [-6, 0, -6], arm_l: [-6, 0, 6], paw_r: [6, 0, 0], paw_l: [6, 0, 0],
 		quills_f: { rot: [-8, 0, 0], scale: [1.2, 1.5, 1.2] }, quills_b: { rot: [-8, 0, 0], scale: [1.2, 1.5, 1.2] } };
 	const F = Object.assign({}, H, { quills_f: { rot: [-22, 0, 0], scale: [1.1, 1.2, 1.1] }, quills_b: { rot: [-22, 0, 0], scale: [1.1, 1.2, 1.1] },
 		chest: [-4, 0, 0], neck: [-6, 0, 0] });
@@ -277,7 +278,7 @@ clipDef('roar', 1.4, false, t => {
 	const R = { chest: [-10, 0, 0], neck: [-18, 0, 0], head: [-14, 0, 0], jaw: [42, 0, 0],
 		arm_r: [-10, 0, 14], arm_l: [-10, 0, -14], forearm_r: [8, 0, 0], forearm_l: [8, 0, 0], paw_r: [2, 0, -14], paw_l: [2, 0, 14],
 		thigh_r: [-6, 0, 0], thigh_l: [-6, 0, 0], shin_r: [10, 0, 0], shin_l: [10, 0, 0], foot_r: [6, 0, 0], foot_l: [6, 0, 0],
-		tail: [26, 0, 0], quills_f: { rot: [-14, 0, 0], scale: [1.2, 1.55, 1.2] }, quills_b: { rot: [-12, 0, 0], scale: [1.2, 1.45, 1.2] } };
+		quills_f: { rot: [-14, 0, 0], scale: [1.2, 1.55, 1.2] }, quills_b: { rot: [-12, 0, 0], scale: [1.2, 1.45, 1.2] } };
 	const o = kclip([[0, {}], [0.12, CROUCH], [0.32, R], [1.1, R], [1.4, {}]])(t);
 	rear(o, keys([[0, 0], [0.12, 0], [0.32, 14], [1.1, 12], [1.4, 0]], t));
 	if (t > 0.3 && t < 1.15) {
@@ -293,10 +294,10 @@ clipDef('roar', 1.4, false, t => {
 clipDef('slam', 1.0, false, t => {
 	const UP = Object.assign({}, REAR_LEGS, { chest: [-10, 0, 0], neck: [-10, 0, 0], jaw: [30, 0, 0],
 		arm_r: [-160, 0, 16], arm_l: [-160, 0, -16], forearm_r: [-30, 0, 0], forearm_l: [-30, 0, 0], paw_r: [30, 0, 0], paw_l: [30, 0, 0],
-		tail: [18, 0, 0], quills_f: { rot: [-12, 0, 0], scale: [1.15, 1.4, 1.15] } });
+		quills_f: { rot: [-12, 0, 0], scale: [1.15, 1.4, 1.15] } });
 	const DOWN = { root: { rot: [0, 0, 0], pos: [0, -2.4, -2] }, chest: [12, 0, 0], neck: [12, 0, 0], head: [6, 0, 0], jaw: [6, 0, 0],
 		arm_r: [-36, 0, -12], arm_l: [-36, 0, 12], forearm_r: [-8, 0, 0], forearm_l: [-8, 0, 0], paw_r: [44, 0, 0], paw_l: [44, 0, 0],
-		thigh_r: [-8, 0, 0], thigh_l: [-8, 0, 0], shin_r: [20, 0, 0], shin_l: [20, 0, 0], foot_r: [-12, 0, 0], foot_l: [-12, 0, 0], tail: [-6, 0, 0] };
+		thigh_r: [-8, 0, 0], thigh_l: [-8, 0, 0], shin_r: [20, 0, 0], shin_l: [20, 0, 0], foot_r: [-12, 0, 0], foot_l: [-12, 0, 0], };
 	const o = kclip([[0, {}], [0.34, UP], [0.44, DOWN], [0.7, DOWN], [1.0, {}]])(t);
 	rear(o, keys([[0, 0], [0.34, 38], [0.44, 0], [1.0, 0]], t));
 	return o;
@@ -306,7 +307,7 @@ clipDef('slam', 1.0, false, t => {
 const BALL = { neck: [40, 0, 0], head: [24, 0, 0], jaw: [0, 0, 0], chest: [16, 0, 0], hips: [-18, 0, 0],
 	arm_r: [-70, 0, 0], arm_l: [-70, 0, 0], forearm_r: [110, 0, 0], forearm_l: [110, 0, 0], paw_r: [40, 0, 0], paw_l: [40, 0, 0],
 	thigh_r: [-76, 0, 0], thigh_l: [-76, 0, 0], shin_r: [96, 0, 0], shin_l: [96, 0, 0], foot_r: [20, 0, 0], foot_l: [20, 0, 0],
-	tail: [-30, 0, 0], quills_f: { rot: [-6, 0, 0], scale: [1.25, 1.6, 1.25] }, quills_b: { rot: [-6, 0, 0], scale: [1.25, 1.6, 1.25] } };
+	quills_f: { rot: [-6, 0, 0], scale: [1.25, 1.6, 1.25] }, quills_b: { rot: [-6, 0, 0], scale: [1.25, 1.6, 1.25] } };
 clipDef('roll', 0.4, true, t => {
 	const o = kclip([[0, BALL], [0.4, BALL]])(t);
 	add(o, 'spin', [360 * t / 0.4, 0, 0]);
@@ -356,7 +357,7 @@ clipDef('climb', 0.8, true, t => {
 	add(o, 'neck', [-14, 0, 0]);
 	add(o, 'chest', [0, 0, 4 * Math.sin(TAU * u)]);
 	add(o, 'hips', [0, 0, -4 * Math.sin(TAU * u)]);
-	add(o, 'tail', [-10, 8 * Math.sin(TAU * u), 0]);
+
 	return o;
 }, 0.02);
 
@@ -376,7 +377,7 @@ clipDef('hurt', 0.4, false, t => ({ hurt: { rot: keys([[0, [0, 0, 0]], [0.06, [-
 
 function sample(name, t) { return CLIPS[name].fn(Math.min(t, CLIPS[name].len)); }
 
-function build() {
+function build(M) {
 	const animations = {};
 	for (const [name, c] of Object.entries(CLIPS)) {
 		const bones = {};
@@ -385,6 +386,7 @@ function build() {
 			const t = i === n ? c.len : i * c.step;
 			const frame = c.fn(t);
 			for (const [b, ch] of Object.entries(frame)) {
+				if (M && !M.B[b]) continue; // v0.17.1 rework 2: no tail any more -- keys for bones the model lacks are dropped
 				bones[b] = bones[b] || {};
 				for (const [k, v] of Object.entries(ch)) {
 					if (!v) continue;
@@ -405,7 +407,7 @@ function build() {
 module.exports = function (M, A) {
 	const file = path.join(A, 'animations', 'omnitrix', 'wildmutt.animation.json');
 	fs.mkdirSync(path.dirname(file), { recursive: true });
-	fs.writeFileSync(file, JSON.stringify(build(), null, '\t') + '\n');
+	fs.writeFileSync(file, JSON.stringify(build(M), null, '\t') + '\n');
 	console.log(`wrote ${Object.keys(CLIPS).length} clips -> ${path.relative(path.join(A, '..', '..', '..', '..', '..'), file)}`);
 };
 module.exports.sample = sample;

@@ -20,24 +20,32 @@ import software.bernie.geckolib.renderer.GeoObjectRenderer;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
- * v0.17.1: Wildmutt's first-person arms -- his own huge orange forearm and clawed hand from the body model (the
- * {@code arm_*} / {@code forearm_*} / {@code paw_*} bones and texture), drawn where vanilla draws the player's arm (so the
- * swing, the equip and the kit's {@code FirstPersonClip}s all move it). The wrist is bent so the four dark claws point into
- * the view; the claws flex with the swing. The left arm carries the Omnitrix strap. Both arms show while the hands are empty
- * ({@code bothHandsInFirstPerson}).
+ * v0.17.1: Wildmutt's first-person arms -- his own orange forearm and paw from the body model (the {@code forearm_*} /
+ * {@code paw_*} bones and texture), drawn where vanilla draws the player's arm. The wrist is bent so the three dark claws
+ * point into the view; the claws flex with the swipe. Both paws are always in view ({@code bothHandsInFirstPerson}; paws hold
+ * nothing, so a held item never replaces them).
+ *
+ * <p>Rework 2 (user: "the arms dont follow the player in first person"): they move like real first-person hands -- laid
+ * out from vanilla's hand pose (view bob, hurt shake, the sway and lag as you turn and look, plus a little extra trail), a
+ * striding walk bob (the paws reach and lift in turn), a rear-up-and-rake swipe on Attack, and each move's
+ * {@code FirstPersonClip} on top. Smaller and narrower, like the slim new model.
  *
  * <p>The baked model is GeckoLib's shared one: the bones' visibility and rotations are saved before the draw and put back
  * after, so the third-person body never sees this pass.
  */
 public final class WildmuttFirstPerson {
 	/** The forearm + hand drawn this big (blocks per model pixel x 16). */
-	public static float SCALE = 0.85f;
+	public static float SCALE = 0.78f;
 	/** Where the elbow sits in camera space (x toward the arm's side, y up, z negative = ahead). */
-	public static float EX = 0.5f, EY = -0.5f, EZ = -0.85f;
+	public static float EX = 0.48f, EY = -0.35f, EZ = -0.78f;
 	/** How far the forearm swings forward / in toward the centre, degrees. */
-	public static float TILT = 50f, TOE_IN = 12f, ROLL = 6f;
+	public static float TILT = 45f, TOE_IN = 12f, ROLL = 6f;
 	/** The wrist bend (degrees, GeckoLib's sign) and the elbow's. */
-	public static float WRIST = 40f, ELBOW = 0f;
+	public static float WRIST = 90f, ELBOW = 0f;
+	/** v0.17.1 rework 2: the elbow pivot of the slim model's forearm (json px; gen_wildmutt.js prints it). */
+	static final float ELBOW_X = 6.0f, ELBOW_Y = 9.63f, ELBOW_Z = -2.29f;
+	/** Blocks of extra trail per degree the view runs ahead of the hands; stride cycles per block walked. */
+	public static float LAG = 0.0045f, GAIT = 1.1f;
 	private static final Arms ARMS = new Arms();
 	private static Renderer renderer;
 
@@ -54,33 +62,58 @@ public final class WildmuttFirstPerson {
 		if (renderer == null) {
 			renderer = new Renderer();
 		}
-		float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
 		boolean main = right == (p.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT);
 		float swing = main ? p.getAttackAnim(partial) : 0f;
-		float k = Mth.sin(Mth.sqrt(swing) * Mth.PI); // 0 -> 1 -> 0
-		float rake = Mth.sin(swing * Mth.PI); // the claws: up then down
 		float side = right ? 1f : -1f;
 		float age = p.tickCount + partial;
 		float breathe = Mth.sin(age * 0.11f + (right ? 0f : 1.4f)) * 0.012f;
+		// the claw swipe (v0.17.1 rework 2): the paw rears up and out, then rakes down and across toward the middle, claws first
+		float up = smooth(swing / 0.3f) * (1f - smooth((swing - 0.3f) / 0.3f));
+		float rake = smooth((swing - 0.22f) / 0.3f) * (1f - smooth((swing - 0.6f) / 0.4f));
 		renderer.right = right;
 		renderer.player = p;
-		renderer.flex = rake;
+		renderer.flex = up - 0.8f * rake;
 		pose.pushPose();
-		pose.last().pose().identity();
-		pose.last().normal().identity();
+		// v0.17.1 rework 2 (user: "the arms dont follow the player in first person ... they just stay in this position even if
+		// you turn around"): laid out from vanilla's own hand pose (the view bob, the hurt shake and the sway / lag of the hands
+		// as you turn and look), no longer from a bare camera matrix
+		pose.last().pose().set(com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.HAND_BASE);
+		pose.last().normal().set(com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.HAND_BASE_NORMAL);
+		// heavy paws trail the turn a little more than a hand does
+		if (p instanceof net.minecraft.client.player.LocalPlayer lp) {
+			float yawLag = Mth.wrapDegrees(lp.getViewYRot(partial) - Mth.lerp(partial, lp.yBobO, lp.yBob));
+			float pitchLag = lp.getViewXRot(partial) - Mth.lerp(partial, lp.xBobO, lp.xBob);
+			pose.translate(Mth.clamp(-yawLag * LAG, -0.22f, 0.22f), Mth.clamp(pitchLag * LAG, -0.16f, 0.16f), 0f);
+		}
+		// the walk: the paws stride in turn (one reaches and lifts while the other pushes back), with the steps' rhythm
+		if (mc.options.bobView().get()) {
+			float amp = Mth.clamp(Mth.lerp(partial, p.oBob, p.bob) * 10f, 0f, 1f);
+			float dist = p.walkDist + (p.walkDist - p.walkDistO) * partial;
+			float ph = dist * Mth.PI * GAIT + (right ? 0f : Mth.PI);
+			float lift = Math.max(0f, Mth.sin(ph)), reach = Mth.cos(ph);
+			pose.translate(0f, amp * 0.085f * lift, -amp * 0.09f * reach);
+			pose.mulPose(Axis.XP.rotationDegrees(-amp * 14f * lift));
+		}
 		com.projecthero.mod.client.omnitrix.FirstPersonClip clip = com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clip(p);
 		if (clip != null && (main || clip.twoHanded())) {
 			clip.apply(pose, com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clipTicks(p, partial), side);
 		}
-		pose.translate(side * EX, EY + breathe + k * 0.22f, EZ - k * 0.18f);
-		pose.mulPose(Axis.YP.rotationDegrees(-side * (TOE_IN + k * 10f)));
-		pose.mulPose(Axis.XP.rotationDegrees(TILT + k * 34f));
-		pose.mulPose(Axis.ZP.rotationDegrees(side * ROLL));
+		pose.translate(side * (EX + 0.06f * up - 0.34f * rake), EY + breathe + 0.32f * up - 0.1f * rake, EZ - 0.06f * up - 0.24f * rake);
+		pose.mulPose(Axis.YP.rotationDegrees(-side * (TOE_IN + 8f * up + 22f * rake)));
+		pose.mulPose(Axis.XP.rotationDegrees(TILT + 30f * up - 18f * rake));
+		pose.mulPose(Axis.ZP.rotationDegrees(side * (ROLL - 14f * up + 26f * rake)));
 		pose.scale(SCALE, SCALE, SCALE);
 		// the forearm's elbow pivot to the origin (render space: GeckoLib mirrors json X, so the right arm is at +X)
-		pose.translate(-side * 9.6f / 16f, -10.43f / 16f, 5f / 16f);
+		pose.translate(-side * ELBOW_X / 16f, -ELBOW_Y / 16f, -ELBOW_Z / 16f);
 		renderer.render(pose, ARMS, buffers, null, null, light, partial);
 		pose.popPose();
+	}
+
+	private static float smooth(float x) {
+		x = Mth.clamp(x, 0f, 1f);
+		return x * x * (3f - 2f * x);
 	}
 
 	/** A bare animatable for the arm draw (no animations of its own). */

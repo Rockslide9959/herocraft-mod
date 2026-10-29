@@ -344,7 +344,7 @@ index 7), colour `#F08A24`, icon from the user's art (`gen_omnitrix_dial_icons.j
 
 | | Wildmutt |
 |---|---|
-| Body | 34 HP, speed x1.35 (+20% more galloping = sprinting), armour 4 (+1), KB res 0.3, claws +4, step +0.4 (a full block), jump +0.12, safe fall +4; a **0.98 x 1.6** hitbox (crouching 1.35), eyes at 1.15 |
+| Body | 34 HP, speed x1.35 (+20% more galloping = sprinting), armour 4 (+1), KB res 0.3, claws +4, step +0.4 (a full block), jump +0.12, safe fall +4; a **0.9 x 1.55** hitbox (crouching 1.3), eyes at 1.25 (rework 2: the slim, leggy, tail-less body); paws -- he holds and uses no items (`AlienKit.pawsOnly`) |
 | Passives | Scent Sense: creatures within 24 outlined amber for him only (invisible ones too), 48 while sniffing (+ dropped items), the tracked one red at any range; no eyes: Blindness / Darkness removed every tick; no fall damage during his own leaps / pounce / with Wall Climb on |
 | Weaknesses | underwater: senses 6 blocks, air runs out twice as fast; an explosion deafens the sense for 3 s |
 | R / Shift+R | Pounce (lunge at the look target within 12, else a bound; contact bite 9, pinned 1.25 s, heals 1; 3 s) / Maul (rears up: rakes of 3.5 at ticks 4, 7, 10, a double slam of 6 + knockback at 16, cone 70 deg, 3.4; 7 s) |

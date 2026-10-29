@@ -109,14 +109,31 @@ public final class OmnitrixMod {
 					}
 				}
 			}
+			// v0.17.1 (Wildmutt rework 2): paws cannot use what they "hold" -- refused on both sides, so the client never
+			// predicts it (Fabric still sends the use packet, so the kit's own right-click above runs on the server)
+			if (!stack.isEmpty() && AlienKit.pawsOnlyNow(player)) {
+				return InteractionResultHolder.fail(stack);
+			}
 			return InteractionResultHolder.pass(stack);
 		});
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
 			if (player instanceof ServerPlayer p && !level.isClientSide()) {
 				AlienKit kit = kitOf(p);
 				if (kit != null) {
-					return kit.onUseBlock(p, hand, hit);
+					InteractionResult r = kit.onUseBlock(p, hand, hit);
+					if (r != InteractionResult.PASS) {
+						return r;
+					}
 				}
+			}
+			// v0.17.1 (Wildmutt rework 2): no placing or using a held item on a block -- the paw still works the block itself
+			// (doors, levers, chests open as with an empty hand), never the item
+			if (!player.getItemInHand(hand).isEmpty() && AlienKit.pawsOnlyNow(player)) {
+				if (hand != net.minecraft.world.InteractionHand.MAIN_HAND || player.isSecondaryUseActive()) {
+					return InteractionResult.FAIL;
+				}
+				InteractionResult r = level.getBlockState(hit.getBlockPos()).useWithoutItem(level, player, hit);
+				return r.consumesAction() ? r : InteractionResult.FAIL;
 			}
 			return InteractionResult.PASS;
 		});
@@ -124,8 +141,15 @@ public final class OmnitrixMod {
 			if (player instanceof ServerPlayer p && !level.isClientSide()) {
 				AlienKit kit = kitOf(p);
 				if (kit != null) {
-					return kit.onUseEntity(p, hand, entity);
+					InteractionResult r = kit.onUseEntity(p, hand, entity);
+					if (r != InteractionResult.PASS) {
+						return r;
+					}
 				}
+			}
+			// v0.17.1 (Wildmutt rework 2): no feeding, shearing or tagging creatures with a held item
+			if (!player.getItemInHand(hand).isEmpty() && AlienKit.pawsOnlyNow(player)) {
+				return InteractionResult.FAIL;
 			}
 			return InteractionResult.PASS;
 		});
