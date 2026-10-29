@@ -189,8 +189,35 @@ function furLines(p, seed) {
 	const gate = fbm(p[0] * 0.25 + 9, p[1] * 0.25, p[2] * 0.25 + seed, 2);
 	return smooth(0.66, 0.7, n) * (1 - smooth(0.71, 0.75, n)) * smooth(0.5, 0.58, gate);
 }
-// the mottling: soft blotches, a chunky speckle of lighter and darker fur (2 x 2 texel flecks, like the reference's pixel
-// fur) and a fine grain
+// v0.17.1 (user: "make the texture not so sandy or spongey ... hes supposed to be covered in fur"): FUR instead of speckle --
+// fine strands that flow one way (down the sides, back along the top), shingled locks (each darker at its root where the lock
+// above shades it, lighter at the tip) and only a gentle mottling under it. No per-texel grain, no random flecks.
+function fur(col, p, seed, f) {
+	const side = f !== 'up' && f !== 'down';
+	// u runs across the flow, v along it (down the sides; head-to-tail along the top)
+	const u = side ? (f === 'east' || f === 'west' ? p[2] : p[0]) : p[0];
+	const v = side ? -p[1] : p[2];
+	// soft, large-scale mottling (much gentler than before)
+	const blot = fbm(p[0] * 0.22 + seed * 0.7, p[1] * 0.22, p[2] * 0.22, 3);
+	col = mix(col, blot > 0.5 ? C.furHi : C.furLo, Math.min(0.45, Math.abs(blot - 0.5) * 0.8));
+	// strands: every texel column (about 1/3 px) its own hair -- a per-column tone, broken into lengths along the flow
+	const colId = Math.floor(u * 3 + 0.01);
+	const tone = hash3(colId, seed * 13 + 5, 7);
+	const run = fbm(colId * 0.71 + seed, v * 0.55, 3.3, 2);
+	const strand = 0.5 + (tone - 0.5) * 0.8 * smooth(0.35, 0.6, run);
+	// locks: short tufts whose ends come to points (a V across each tuft), every tuft row offset like shingles
+	const L = 2.1, W = 1.4;
+	const tuft = Math.floor(u / W + seed * 0.13);
+	const across = (u / W) - Math.floor(u / W); // 0..1 across the tuft
+	const point = Math.abs(across - 0.5) * 0.9; // the tip sits lower in the middle of the tuft
+	const off = hash3(tuft, seed * 7 + 1, 3) * L;
+	let t = ((v + off + point) / L) % 1;
+	if (t < 0) t += 1;
+	const lock = smooth(0, 0.8, t); // 0 at the root (shaded by the tuft above) -> 1 at the tip (lit)
+	const k = (lock - 0.5) * 0.42 + (strand - 0.5) * 0.55;
+	return k >= 0 ? mix(col, C.furHi, Math.min(0.5, k * 1.1)) : mix(col, C.furDeep, Math.min(0.5, -k));
+}
+// (the old speckle mottling, no longer used)
 function mottle(col, p, seed) {
 	const blot = fbm(p[0] * 0.3 + seed * 0.7, p[1] * 0.3, p[2] * 0.3, 3);
 	col = mix(col, blot > 0.5 ? C.furHi : C.furLo, Math.min(1, Math.abs(blot - 0.5) * 1.1));
@@ -255,13 +282,9 @@ function shade(c, f, s, t, p, info) {
 			col = mix(C.furLo, col, 0.5 + 0.5 * lift);
 			if (f === 'down') col = mul(col, 0.76);
 			if (f === 'up') col = mix(col, C.furHi, 0.26);
-			col = mottle(col, p, c.seed);
-			if (c.mat !== 'belly' && c.mat !== 'tuftTip' && !(c.mat === 'skull' && f === 'north')) col = mix(col, C.furLine, 0.2 * furLines(p, c.seed));
-			// short dark fur ticks on the flanks, the legs and the head's sides (rework 1's cartoon strokes)
-			if (f !== 'up' && f !== 'down') {
-				const k = Math.sin(p[2] * 1.3 + p[0] * 1.3 + p[1] * 0.45 + c.seed);
-				if (k > 0.975 && c.mat !== 'skull' && fbm(p[1] * 0.4, p[2] * 0.4 + p[0] * 0.4, c.seed, 2) > 0.52) col = mix(col, C.furLine, 0.7);
-			}
+			col = fur(col, p, c.seed, f);
+			if (c.mat !== 'belly' && c.mat !== 'tuftTip' && !(c.mat === 'skull' && f === 'north')) col = mix(col, C.furLine, 0.12 * furLines(p, c.seed));
+			// (v0.17.1: the cartoon tick marks are gone -- the strands carry the fur now)
 			// the gill slits: two dark slits on each side of the head behind the mouth band, two on the neck
 			if ((f === 'east' || f === 'west') && (c.mat === 'skull' || c.mat === 'neck' || (c.bone === 'jaw' && c.mat === 'fur'))) {
 				const zs = c.mat === 'neck' ? [-14.2, -12.6] : [-14.4, -13.2];
@@ -272,7 +295,7 @@ function shade(c, f, s, t, p, info) {
 				}
 			}
 			// a soft darker rim on every face (separates the blocks, like the reference's outlined boxes)
-			if (e < 0.36) col = mix(col, C.outline, 0.42 * (1 - e / 0.36));
+			if (e < 0.36) col = mix(col, C.outline, 0.3 * (1 - e / 0.36));
 			return [col, 255, null];
 		}
 	}
