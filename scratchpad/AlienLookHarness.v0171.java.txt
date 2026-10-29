@@ -326,6 +326,29 @@ public final class AlienLookHarness {
 			}));
 			t = tt + 60;
 		}
+		if (want("timein")) {
+			// raised while timed out: no dial; it times in while held -- red to green, then the dial pops into the alien screen
+			gui(mc, true);
+			at(t, () -> server(mc, p -> {
+				p.teleportTo(p.serverLevel(), origin.x + 4, origin.y, origin.z + 4, 135f, 10f);
+				var n = Omnitrix.state(p).copy();
+				n.rechargeUntil = p.level().getGameTime() + 40;
+				Omnitrix.save(p, n);
+				Omnitrix.activate(p);
+			}));
+			for (int i = 0; i < 30; i++) {
+				final int k = i;
+				at(t + 2 + i * 3, () -> server(mc, p -> {
+					var st = Omnitrix.state(p);
+					long now = p.level().getGameTime();
+					System.out.println("[HARNESS] timein " + k + " recharge=" + (st.rechargeUntil - now) + " selecting=" + st.selecting + " coreUp=" + Omnitrix.coreUp(st, now)
+							+ " popAt=" + (Omnitrix.popAt(st) - now));
+				}));
+				shot(t + 2 + i * 3, "timein_" + String.format("%02d", i));
+			}
+			at(t + 95, () -> server(mc, Omnitrix::deactivate));
+			t += 110;
+		}
 		if (want("badge")) {
 			// every badge state: running, the warning flash, the five power-down beeps, the timeout, back to human
 			at(t, () -> server(mc, p -> {

@@ -92,6 +92,8 @@ public final class Omnitrix {
 	 * times in the face turns green over {@link #TIME_IN_TICKS}, and only then does the core pop (the press-to-core-up beat).
 	 */
 	public static final int TIME_IN_TICKS = 12;
+	/** The recharge has been announced as over (kept while a raised watch finishes timing in). */
+	private static final String TIMED_IN = "omnitrix.timed_in";
 
 	/** The tick the core pops (the press beat of the raise, held back until the recharge is over and the face has gone green). */
 	public static long popAt(OmnitrixState s) {
@@ -780,11 +782,20 @@ public final class Omnitrix {
 			// detransform sound is the user's power-down; the watch still flashes red in the last WARN_TICKS
 			kit.tick(p, state(p), now);
 		} else if (s.rechargeUntil > 0L && now >= s.rechargeUntil) {
+			// v0.17.1: timed in -- announced at once; but raised through it, the recharge mark is kept until the core is up, so
+			// the red-to-green fade and the held-back pop (popAt) play out instead of the dial snapping up
+			boolean held = s.selecting && s.selectStart < s.rechargeUntil && now < popAt(s) + 20; // (the alien screen has morphed in by then)
 			OmnitrixState n = s.copy();
-			n.rechargeUntil = 0L;
+			if (!s.timers.containsKey(TIMED_IN)) {
+				n.timers.put(TIMED_IN, now);
+				OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharged").withStyle(ChatFormatting.GREEN), true);
+			}
+			if (!held) {
+				n.rechargeUntil = 0L;
+				n.timers.remove(TIMED_IN);
+			}
 			save(p, n);
-			OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharged").withStyle(ChatFormatting.GREEN), true);
 		}
 		OmnitrixState cur = state(p);
 		if (cur.flickerUntil != 0L && now >= cur.flickerUntil) {
