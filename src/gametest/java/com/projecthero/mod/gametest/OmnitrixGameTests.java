@@ -360,6 +360,11 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "lowering costs nothing");
 		Omnitrix.activate(p);
 		String first = Omnitrix.state(p).selected;
+		// v0.17.1: the right hand presses the side button at PRESS_TICKS, the core is up at CORE_UP_TICKS -- no turning before
+		helper.assertTrue(Omnitrix.PRESS_TICKS < Omnitrix.CORE_UP_TICKS && Omnitrix.CORE_UP_TICKS < 20, "the activation is well under 1 s");
+		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial can't turn before the core is up");
+		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "the early scroll changed nothing");
+		Omnitrix.finishRaise(p);
 		helper.assertTrue(Omnitrix.cycle(p, 1), "the scroll wheel turns the dial");
 		String second = Omnitrix.state(p).selected;
 		helper.assertTrue(!second.equals(first) && Aliens.playable(second), "to the next alien with a kit");
@@ -384,6 +389,26 @@ public class OmnitrixGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.1: a click while the dial is still coming up is held, and lands the moment the core is up. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void anEarlyClickWaitsForTheCore(GameTestHelper helper) {
+		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
+		pump(helper, p);
+		helper.assertTrue(Omnitrix.activate(p), "R raises the watch");
+		helper.assertTrue(Omnitrix.slap(p), "the early click is taken");
+		// (the grant itself plays ANIM_SLAP -- the watch slamming on -- so look for a slap during this raise)
+		helper.assertFalse(Omnitrix.state(p).animId == Omnitrix.ANIM_SLAP && Omnitrix.state(p).animStart > Omnitrix.state(p).selectStart,
+				"but the core is not slapped yet");
+		helper.assertFalse(Omnitrix.slap(p), "and a second click does not queue another");
+		helper.runAfterDelay(Omnitrix.CORE_UP_TICKS - 3, () -> {
+			helper.assertTrue(Omnitrix.selecting(p) && !Omnitrix.transformed(p), "still waiting for the core");
+			helper.runAfterDelay(Omnitrix.SLAP_TICKS + 6, () -> {
+				helper.assertTrue(Omnitrix.transformed(p), "the held slap landed once the core was up");
+				helper.succeed();
+			});
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
 	public void vRevertsTheRechargeRefusesAndTheTimeoutTimesOut(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
@@ -401,9 +426,14 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		helper.assertFalse(Omnitrix.selecting(p), "R during the recharge does not raise the watch");
+		// v0.17.1 (user): the watch still comes up while it recharges and the dial still turns -- only the slap is refused
+		helper.assertTrue(Omnitrix.selecting(p), "R during the recharge still raises the watch");
+		Omnitrix.finishRaise(p); // the right hand's button press is over (the core is up)
+		helper.assertTrue(Omnitrix.cycle(p, 1), "and the dial still turns");
+		helper.assertFalse(Omnitrix.slap(p), "but the core will not go down while recharging");
 		helper.assertTrue(Omnitrix.state(p).animId == Omnitrix.ANIM_DENIED, "the face flashes red instead");
 		helper.assertFalse(Omnitrix.transform(p), "no transformation while recharging");
+		Omnitrix.deactivate(p);
 		// the 3-minute timeout: jump to its last tick
 		OmnitrixState n = Omnitrix.state(p).copy();
 		n.rechargeUntil = 0L;

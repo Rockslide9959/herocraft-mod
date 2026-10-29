@@ -25,11 +25,11 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>v0.17.1 (user: "lift up the wrist and still see the regular dial face first and then after like 0.3 seconds the omnitrix
  * transitions to the alien selection screen ... like how it is in the show"; the show's frames are the reference): V raises the
- * wrist ({@link #RAISE_TICKS}) showing the normal hourglass face, holds it {@link #HOLD_TICKS}, then the core pops up (its dark
- * side with the lit lime slots showing) and the face morphs ({@link #MORPH_TICKS}, 16 drawn frames from
+ * wrist showing the normal hourglass face, the right hand presses the side button, then the core pops up (its dark side with
+ * the lit lime slots showing) and the face morphs (16 drawn frames from
  * {@code scratchpad/gen_omnitrix_face_morph.js}): the X dividers swing to near-parallel and meet as a diamond outline, a small
  * green diamond appears in it and grows and brightens, the rim and the four lights bloom; then the selected alien's dial icon
- * (the user's dial art) fades in on the lit diamond. V again reverses it quickly (the diamond shrinks back into the X, the core
+ * (the user's dial art) fades in on the lit diamond -- the beats are {@link OmnitrixHands}'. R again reverses it quickly (the diamond shrinks back into the X, the core
  * sinks, the arm comes down). The scroll wheel spins the dial ring a full turn ({@link #SPIN_TICKS}, a critically damped spring
  * so rapid scrolls just add turns and never jitter) while the icon stays upright and swaps in place halfway through each turn
  * with a quick crossfade and a green flash. All of it runs client-side off the synced state, so every viewer sees the same.
@@ -48,9 +48,6 @@ public final class OmnitrixWatch {
 	/** First person: the selection screen's roll so the icon stands upright for the eye on the slanted wrist (degrees). */
 	static final float FP_ROLL = 0f; // v0.17.1 (user: "dont make it diagonal to the omnitrix"): the icon stays square with the watch
 
-	/** The activation's beats (ticks from V). */
-	public static final float RAISE_TICKS = 6f, HOLD_TICKS = 6f, POP_TICKS = 4f, MORPH_TICKS = 7f, ICON_TICKS = 3f;
-	static final float POP_AT = RAISE_TICKS + HOLD_TICKS, MORPH_AT = POP_AT + 3f, ICON_AT = MORPH_AT + MORPH_TICKS - 1f;
 	/** One dial turn (ticks to settle). */
 	public static final float SPIN_TICKS = 7f;
 	private static final int MORPH_FRAMES = 16;
@@ -65,14 +62,12 @@ public final class OmnitrixWatch {
 
 	// ================================================================ the per-player animation memory (client)
 
-	/** What each watch is showing: the up / down values when V lowered it, and the dial spin. */
+	/** The dial spin each watch is showing (the up / down sequence itself is {@link OmnitrixHands}). */
 	private static final class Dial {
-		long selectStart = Long.MIN_VALUE;
-		boolean selecting;
-		/** The up-animation's values at the moment the watch started down. */
-		float r0 = 1f, l0 = 1f, m0 = 1f, i0 = 1f;
 		// the spin: a critically damped spring from angle toward target (degrees)
 		float angle, target, vel;
+		/** The right hand's grip: a slower spring trailing the ring, so the hand turns with it and then re-grips. */
+		float grip, gripVel;
 		float clock = Float.NaN;
 		long lastTurn = Long.MIN_VALUE;
 		String shown = "", prev = "";
@@ -84,61 +79,36 @@ public final class OmnitrixWatch {
 	private static final Map<Player, Dial> DIALS = new WeakHashMap<>();
 
 	private static float smooth(float x) {
-		x = Mth.clamp(x, 0f, 1f);
-		return x * x * (3f - 2f * x);
-	}
-
-	/** The pop: 0 -> a little over 1 -> 1. */
-	private static float popEase(float x) {
-		if (x <= 0f) {
-			return 0f;
-		}
-		x = Mth.clamp(x, 0f, 1f);
-		float c1 = 1.6f, c3 = c1 + 1f;
-		return 1f + c3 * (float) Math.pow(x - 1, 3) + c1 * (float) Math.pow(x - 1, 2);
-	}
-
-	/** The up-sequence at {@code t} ticks after V: {raise, lift, morph, icon}. */
-	private static float[] up(float t) {
-		return new float[] { smooth(t / RAISE_TICKS), popEase((t - POP_AT) / POP_TICKS), smooth((t - MORPH_AT) / MORPH_TICKS),
-				Mth.clamp((t - ICON_AT) / ICON_TICKS, 0f, 1f) };
+		return OmnitrixHands.smooth(x);
 	}
 
 	private static Dial dial(Player p, OmnitrixState s) {
-		Dial d = DIALS.computeIfAbsent(p, k -> new Dial());
-		if (d.selectStart != s.selectStart || d.selecting != s.selecting) {
-			if (d.selecting && !s.selecting && d.selectStart != Long.MIN_VALUE) {
-				// lowered: start from wherever the up-sequence had got to
-				float[] u = up(s.selectStart - d.selectStart);
-				d.r0 = u[0];
-				d.l0 = u[1];
-				d.m0 = u[2];
-				d.i0 = u[3];
-			} else if (!s.selecting) {
-				d.r0 = d.l0 = d.m0 = d.i0 = 1f;
-			}
-			d.selectStart = s.selectStart;
-			d.selecting = s.selecting;
-		}
-		return d;
+		return DIALS.computeIfAbsent(p, k -> new Dial());
+	}
+
+	private static float armL(Player p) {
+		return p instanceof net.minecraft.client.player.AbstractClientPlayer cp
+				&& cp.getSkin().model() == net.minecraft.client.resources.PlayerSkin.Model.SLIM ? 2f : 3f;
 	}
 
 	/** {raise, lift, morph, icon} now. */
 	private static float[] phase(Player p, OmnitrixState s, float partial) {
-		if (!s.hasPower || s.transformed()) {
-			return new float[4];
-		}
-		Dial d = dial(p, s);
-		float t = p.level().getGameTime() + partial - s.selectStart;
-		if (s.selecting) {
-			return up(t);
-		}
-		if (s.selectStart == 0) {
-			return new float[4];
-		}
-		// down, quickly: the icon goes, the diamond shrinks back into the X, the core sinks, then the arm comes down
-		return new float[] { d.r0 * (1f - smooth((t - 3f) / 5f)), d.l0 * (1f - smooth((t - 2f) / 3f)), d.m0 * (1f - smooth(t / 3.5f)),
-				d.i0 * (1f - Mth.clamp(t / 1.5f, 0f, 1f)) };
+		OmnitrixHands.Rig r = OmnitrixHands.rig(p, s, partial, armL(p));
+		return new float[] { r.raise, r.lift, r.morph, r.icon };
+	}
+
+	/** The whole two-hand rig now ({@link OmnitrixHands}). */
+	public static OmnitrixHands.Rig rig(Player p, float partial) {
+		return OmnitrixHands.rig(p, Omnitrix.state(p), partial, armL(p));
+	}
+
+	/**
+	 * The right hand's twist on the dial now (degrees, the ring's sense): it turns with each quarter turn of the ring, then
+	 * eases back to re-grip -- either way round, chaining on quick scrolls.
+	 */
+	public static float handTwist(Player p) {
+		Dial d = DIALS.get(p);
+		return d == null ? 0f : Mth.clamp((d.angle - d.grip) * 0.3f, -22f, 22f);
 	}
 
 	/** 0 (down) .. 1 (up) -- the wrist's raise, eased (the pose and the first-person arm follow it). */
@@ -152,6 +122,8 @@ public final class OmnitrixWatch {
 		float clock = p.level().getGameTime() + partial;
 		if (Float.isNaN(d.clock) || clock < d.clock - 40f) {
 			d.clock = clock;
+			d.grip = d.angle;
+			d.gripVel = 0f;
 			d.shown = s.selected;
 			d.lastTurn = s.animId == Omnitrix.ANIM_TURN ? s.animStart : Long.MIN_VALUE;
 		}
@@ -182,7 +154,16 @@ public final class OmnitrixWatch {
 			float acc = w * w * (d.target - d.angle) - 2f * w * d.vel;
 			d.vel += acc * h;
 			d.angle += d.vel * h;
+			// the hand's grip trails the ring on a slower spring: the hand turns with the ring, then eases back and re-grips
+			float w2 = w * 0.42f;
+			float acc2 = w2 * w2 * (d.angle - d.grip) - 2f * w2 * d.gripVel;
+			d.gripVel += acc2 * h;
+			d.grip += d.gripVel * h;
 			left -= h;
+		}
+		if (Math.abs(d.angle - d.grip) < 0.3f && Math.abs(d.gripVel) < 0.5f && d.vel == 0f) {
+			d.grip = d.angle;
+			d.gripVel = 0f;
 		}
 		if (Math.abs(d.target - d.angle) < 0.5f && Math.abs(d.vel) < 1f) {
 			d.angle = d.target;
@@ -199,6 +180,7 @@ public final class OmnitrixWatch {
 			float k = Math.signum(d.angle) * 3600f;
 			d.angle -= k;
 			d.target -= k;
+			d.grip -= k;
 			for (float[] a : d.swapAngles) {
 				a[0] -= k;
 			}
@@ -258,11 +240,9 @@ public final class OmnitrixWatch {
 		boolean red = red(p, partial);
 		ResourceLocation tex = red ? TEX_RED : TEX;
 		// the core: pops up for the selection screen, slammed down by the slap
-		float slap = since(p, s, partial, Omnitrix.ANIM_SLAP);
+		float slap = OmnitrixHands.slapClock(p, s, partial);
 		float lift = LIFT * ph[1];
-		if (slap < Omnitrix.SLAP_TICKS + 2) {
-			lift = Mth.lerp(Mth.clamp(slap / 2f, 0f, 1f), lift, -0.12f);
-		}
+		lift = OmnitrixHands.slapLift(lift, slap); // slammed in as the right palm lands
 		float[] sp = s.transformed() ? new float[] { 0f, 1f } : spin(p, s, partial);
 		float twist = sp[0];
 		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false);

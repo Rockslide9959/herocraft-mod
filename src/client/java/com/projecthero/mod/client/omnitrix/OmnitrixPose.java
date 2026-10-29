@@ -39,6 +39,13 @@ public final class OmnitrixPose {
 	private static final float[] HAND_ON = { -0.615f, 0.489f, -1.266f };
 	private static final float[] HAND_UP = { -2.453f, 0.211f, 1.076f };
 	private static final float[] HAND_PRESS = { -2.445f, -0.111f, 1.416f };
+	/**
+	 * v0.17.1: the right fingertips at the cuff's side button, 1.4 px off it and pressing it in (0.3 px), solved with
+	 * scratchpad/omnitrix_button_pose_solver.js "1.4|0.3" 8.5 3 0.05 (kept near HAND_ON so the blend to and from the grip stays a
+	 * short, natural move).
+	 */
+	private static final float[] HAND_BUTTON = { -0.666f, 0.764f, -1.019f };
+	private static final float[] HAND_BUTTON_PRESS = { -0.718f, 0.721f, -1.169f };
 	private static final float SHOULDER_DROP = 6f, HAND_DROP = 2.5f;
 	private static final float HEAD_DOWN = 0.42f;
 
@@ -64,7 +71,8 @@ public final class OmnitrixPose {
 		}
 		// the raised wrist (v0.17.1 polish): the left forearm across in front of the chest with the face turned up to the eyes, the
 		// head bowed to look at it, the right hand over the dial -- twisting it on each scroll, slapping the core on the click
-		float raise = OmnitrixWatch.raise(p, partial);
+		OmnitrixHands.Rig rig = OmnitrixWatch.rig(p, partial);
+		float raise = rig.raise;
 		if (raise > 0f) {
 			set(m.leftArm, raise, WATCH_ARM);
 			m.leftArm.y += SHOULDER_DROP * raise;
@@ -75,6 +83,15 @@ public final class OmnitrixPose {
 			float hand = Mth.clamp((raise - 0.25f) / 0.75f, 0f, 1f);
 			hand = hand * hand * (3f - 2f * hand);
 			float[] target = HAND_ON.clone();
+			// v0.17.1: R's button press (and the one that lowers it): the fingertips go to the cuff's side button, push it, and
+			// come back onto the dial
+			float w = Mth.clamp(rig.press3p, 0f, 1f), push = Mth.clamp((rig.press3p - 1f) / 0.6f, 0f, 1f);
+			if (w > 0f) {
+				for (int i = 0; i < 3; i++) {
+					float b = HAND_BUTTON[i] + (HAND_BUTTON_PRESS[i] - HAND_BUTTON[i]) * push;
+					target[i] = HAND_ON[i] + (b - HAND_ON[i]) * w;
+				}
+			}
 			float dropW = 0f; // the bottom grip hangs from the shoulder as is; the slap (from above) drops it
 			float slap = s.animId == Omnitrix.ANIM_SLAP ? t : 99f;
 			if (slap < Omnitrix.SLAP_TICKS + 4) {

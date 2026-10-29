@@ -44,6 +44,17 @@ public abstract class OmnitrixItemInHandMixin {
 				pose.popPose();
 			}
 		}
+		// v0.17.1: while the right hand works the raised watch (drawn by renderRaised), the usual right-side arm / item drops
+		// out of view, and comes back up after the hand has gone
+		HumanoidArm side = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
+		if (!projecthero$pushed && side == HumanoidArm.RIGHT) {
+			float hide = OmnitrixFirstPerson.rightSideHide(player, partial);
+			if (hide > 0.001f) {
+				pose.pushPose();
+				pose.translate(0f, -1.1f * hide, 0f);
+				projecthero$pushed = true;
+			}
+		}
 	}
 
 	@Inject(method = "renderArmWithItem", at = @At("RETURN"))
