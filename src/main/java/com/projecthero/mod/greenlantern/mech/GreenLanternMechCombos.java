@@ -552,12 +552,15 @@ public final class GreenLanternMechCombos {
 			level.sendParticles(GREEN, ring.x, ring.y, ring.z, 1, 0.02, 0.02, 0.02, 0);
 		}
 		if (m.drillHeld % 6 == 1) {
-			GreenLanternMech.sound(level, tip, GreenLanternMechSounds.DRILL_SPIN, 1.2f + 0.6f * k, 0.6f + 0.9f * k);
+			// v0.17.1 (user: "right now its a really loud tring sound effect"): the new motor whirr, a gentle rise (0.8x to 1.25x), not a whine
+			GreenLanternMech.sound(level, tip, GreenLanternMechSounds.DRILL_SPIN, 0.9f + 0.4f * k, 0.8f + 0.45f * k);
 		}
 		if (full) { // fully spun: the drill flares -- let go now for GIGA DRILL BREAK
 			level.sendParticles(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 1, 0, 0, 0, 0);
 			level.sendParticles(BIG, tip.x, tip.y, tip.z, 30, 0.6, 0.6, 0.6, 0.15);
-			GreenLanternMech.sound(level, tip, SoundEvents.BEACON_POWER_SELECT, 1.6f, 1.9f);
+			// fully spun: a heavy mechanical clunk as it locks in (was a high beacon chime)
+			GreenLanternMech.sound(level, tip, SoundEvents.IRON_DOOR_CLOSE, 1.4f, 0.5f);
+			GreenLanternMech.sound(level, tip, SoundEvents.PISTON_EXTEND, 1.0f, 0.6f);
 			p.displayClientMessage(Component.translatable("message.projecthero.green_lantern.mech.drill_full").withStyle(ChatFormatting.GREEN,
 					ChatFormatting.BOLD), true);
 		}
@@ -626,8 +629,8 @@ public final class GreenLanternMechCombos {
 		Vec3 back = m.local(0, 3.6, -1.6);
 		level.sendParticles(ParticleTypes.FLAME, back.x, back.y, back.z, 1, 0.15, 0.15, 0.15, 0.02);
 		if (m.drillCharge % 4 == 0) {
-			GreenLanternMech.sound(level, tip, biting ? GreenLanternMechSounds.DRILL_GRIND : GreenLanternMechSounds.DRILL_SPIN, 1.6f,
-					biting ? 0.8f + 0.2f * rnd.nextFloat() : 1.5f);
+			GreenLanternMech.sound(level, tip, biting ? GreenLanternMechSounds.DRILL_GRIND : GreenLanternMechSounds.DRILL_SPIN, 1.3f,
+					biting ? 0.85f + 0.15f * rnd.nextFloat() : 1.25f);
 		}
 		// done: at the end of the line (the mech caught up), stuck, or out of time
 		if (along > m.drillLastAlong + 0.05) {
