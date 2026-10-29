@@ -13,7 +13,8 @@ const TAU = Math.PI * 2;
 const r3 = v => Math.round(v * 1000) / 1000;
 const clamp01 = t => Math.max(0, Math.min(1, t));
 const ease = t => { t = clamp01(t); return t * t * (3 - 2 * t); };
-const tkey = t => String(Math.round(t * 1000) / 1000);
+// keys like "1" would be array-index-like: JS lists them FIRST in the object, and GeckoLib reads keyframes in file order
+const tkey = t => { const v = Math.round(t * 1000) / 1000; return Number.isInteger(v) ? v.toFixed(1) : String(v); };
 const lerp = (a, b, k) => a + (b - a) * k;
 const lerp3 = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
 const fr = x => x - Math.floor(x);

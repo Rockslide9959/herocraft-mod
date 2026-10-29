@@ -169,8 +169,8 @@ public final class WildmuttKit extends AlienKit {
 	public static final float HEALTH = 34f;
 	public static final float SPEED = 1.35f;
 	public static final float ATTACK = 4f;
-	public static final float BODY_WIDTH = 0.98f, BODY_HEIGHT = 1.5f, EYE_HEIGHT = 1.1f;
-	public static final float CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 0.95f;
+	public static final float BODY_WIDTH = 0.98f, BODY_HEIGHT = 1.6f, EYE_HEIGHT = 1.15f;
+	public static final float CROUCH_HEIGHT = 1.35f, CROUCH_EYE = 0.98f;
 
 	public static final double POUNCE_RANGE = 12.0;
 	public static final float POUNCE_DAMAGE = 9f;
@@ -241,7 +241,7 @@ public final class WildmuttKit extends AlienKit {
 				.safeFall(4f).build();
 	}
 
-	/** v0.17.1 framework: a four-legged body -- wider and lower than a player (0.98 x 1.5, eyes at 1.1). */
+	/** v0.17.1 framework: a four-legged body -- wider and lower than a player (0.98 x 1.6, eyes at 1.15). */
 	@Override
 	@Nullable
 	public EntityDimensions body(Player p, Pose pose) {

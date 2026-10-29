@@ -24,10 +24,13 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
  */
 public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer, WildmuttAnimatable> {
 	private static WildmuttRenderer instance;
+	/** The model (26 px to the hump) drawn 1.1x: 1.43 blocks at the shoulder, 1.76 to the top of the hump, 2.3 long. */
+	public static final float MODEL_SCALE = 1.1f;
 
 	public WildmuttRenderer(EntityRendererProvider.Context context) {
 		super(context, new WildmuttModel<>(), WildmuttAnimatable.INSTANCE);
-		this.shadowRadius = 0.75f;
+		this.shadowRadius = 0.8f;
+		withScale(MODEL_SCALE);
 		addRenderLayer(new Badge(this, this::getCurrentEntity));
 	}
 

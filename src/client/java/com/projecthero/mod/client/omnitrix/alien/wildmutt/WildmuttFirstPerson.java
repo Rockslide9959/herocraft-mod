@@ -30,32 +30,55 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * after, so the third-person body never sees this pass.
  */
 public final class WildmuttFirstPerson {
-	/** The arm is drawn this much smaller than the body's (22 px from shoulder to claws -- a player's arm is 12). */
-	public static final float SCALE = 0.72f;
-	/** The wrist / elbow bend that lays the hand flat with its claws ahead. */
-	public static final float WRIST = -72f, ELBOW = -18f;
+	/** The forearm + hand drawn this big (blocks per model pixel x 16). */
+	public static float SCALE = 0.85f;
+	/** Where the elbow sits in camera space (x toward the arm's side, y up, z negative = ahead). */
+	public static float EX = 0.5f, EY = -0.5f, EZ = -0.85f;
+	/** How far the forearm swings forward / in toward the centre, degrees. */
+	public static float TILT = 50f, TOE_IN = 12f, ROLL = 6f;
+	/** The wrist bend (degrees, GeckoLib's sign) and the elbow's. */
+	public static float WRIST = 40f, ELBOW = 0f;
 	private static final Arms ARMS = new Arms();
 	private static Renderer renderer;
 
 	private WildmuttFirstPerson() {
 	}
 
-	/** Draws one arm in vanilla's {@code renderRightHand} / {@code renderLeftHand} space. */
+	/**
+	 * Draws one forearm and hand. Called inside vanilla's {@code renderRightHand} / {@code renderLeftHand}, but laid out in
+	 * camera space (the pose is reset): a beast on all fours sees his front paws below and ahead of him, claws forward, so
+	 * they come up from the bottom corners of the screen. The swing raises the main paw and rakes it down; the kit's
+	 * first-person clip is applied on top.
+	 */
 	public static void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, boolean right) {
 		if (renderer == null) {
 			renderer = new Renderer();
 		}
 		float partial = net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		float swing = p.getAttackAnim(partial);
+		boolean main = right == (p.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT);
+		float swing = main ? p.getAttackAnim(partial) : 0f;
+		float k = Mth.sin(Mth.sqrt(swing) * Mth.PI); // 0 -> 1 -> 0
+		float rake = Mth.sin(swing * Mth.PI); // the claws: up then down
+		float side = right ? 1f : -1f;
+		float age = p.tickCount + partial;
+		float breathe = Mth.sin(age * 0.11f + (right ? 0f : 1.4f)) * 0.012f;
 		renderer.right = right;
 		renderer.player = p;
-		renderer.flex = Mth.sin(Mth.sqrt(swing) * Mth.PI);
+		renderer.flex = rake;
 		pose.pushPose();
-		// the player model's arm pivot (y down), then the geo arm (y up, x mirrored by GeckoLib) turned to hang the same way
-		pose.translate((right ? -5f : 5f) / 16f, 2f / 16f, 0f);
-		pose.mulPose(Axis.ZP.rotationDegrees(180f));
+		pose.last().pose().identity();
+		pose.last().normal().identity();
+		com.projecthero.mod.client.omnitrix.FirstPersonClip clip = com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clip(p);
+		if (clip != null && (main || clip.twoHanded())) {
+			clip.apply(pose, com.projecthero.mod.client.omnitrix.OmnitrixFirstPerson.clipTicks(p, partial), side);
+		}
+		pose.translate(side * EX, EY + breathe + k * 0.22f, EZ - k * 0.18f);
+		pose.mulPose(Axis.YP.rotationDegrees(-side * (TOE_IN + k * 10f)));
+		pose.mulPose(Axis.XP.rotationDegrees(TILT + k * 34f));
+		pose.mulPose(Axis.ZP.rotationDegrees(side * ROLL));
 		pose.scale(SCALE, SCALE, SCALE);
-		pose.translate((right ? 9.5f : -9.5f) / 16f, -18.73f / 16f, 5f / 16f);
+		// the forearm's elbow pivot to the origin (render space: GeckoLib mirrors json X, so the right arm is at +X)
+		pose.translate(-side * 9.6f / 16f, -10.43f / 16f, 5f / 16f);
 		renderer.render(pose, ARMS, buffers, null, null, light, partial);
 		pose.popPose();
 	}
@@ -101,7 +124,7 @@ public final class WildmuttFirstPerson {
 			saved.clear();
 			String n = right ? "r" : "l";
 			for (GeoBone b : model.topLevelBones()) {
-				pick(b, "arm_" + n);
+				pick(b, "forearm_" + n);
 			}
 		}
 
@@ -142,7 +165,7 @@ public final class WildmuttFirstPerson {
 					c.updateRotation(ELBOW * Mth.DEG_TO_RAD, 0f, 0f);
 				} else if (name.startsWith("paw")) {
 					// the claws rake down as the swing lands
-					c.updateRotation((WRIST + 26f * flex) * Mth.DEG_TO_RAD, 0f, 0f);
+					c.updateRotation((WRIST + 30f * flex) * Mth.DEG_TO_RAD, 0f, 0f);
 				}
 				c.updateRotation(c.getRotX() + c.getInitialSnapshot().getRotX(), c.getRotY() + c.getInitialSnapshot().getRotY(),
 						c.getRotZ() + c.getInitialSnapshot().getRotZ());
