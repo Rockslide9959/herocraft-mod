@@ -146,3 +146,20 @@ console.log('ripjaws / grey_matter / diamondhead / ghostfreak.png, four_arms.png
 	}
 	write('ghostfreak_extras.png', gf.w, gf.h, gf.px);
 }
+
+// --- v0.17.1: Upgrade on the user's minecraftskins.com skin; his glow sheet is the skin's own green circuit lines (and eye) -----
+{
+	const up = dec(path.join(__dirname, 'upgrade_src.png'));
+	write('upgrade.png', 64, 64, up.px);
+	const glow = Buffer.alloc(64 * 64 * 4);
+	for (let i = 0; i < up.px.length; i += 4) {
+		const [r, g, b, a] = up.px.slice(i, i + 4);
+		if (!a) continue;
+		// the bright greens: the circuit lines and the eye (drawn additively, so the rest stays black)
+		if (g > 150 && g > r + 40 && g > b + 40) {
+			glow[i] = r; glow[i + 1] = g; glow[i + 2] = b;
+		}
+		glow[i + 3] = 255;
+	}
+	write('upgrade_glow.png', 64, 64, glow);
+}

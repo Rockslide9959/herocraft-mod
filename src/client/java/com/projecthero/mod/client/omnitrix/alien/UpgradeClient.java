@@ -149,10 +149,8 @@ public final class UpgradeClient implements AlienClientKit {
 		if (len > 0.1f) {
 			AlienParts.on(pose, model.rightArm, () -> arm(pose, buffers, true, len, light));
 		}
-		// the one round eye, standing a touch proud of the face
-		VertexConsumer eyes = buffers.getBuffer(RenderType.eyes(EXTRAS));
-		AlienParts.on(pose, model.head, () -> AlienParts.box(pose, eyes, -2.4f, -6.6f, -4.35f, 2.4f, -1.8f, -4.1f, EYE[0], EYE[1], EYE[2], EYE[3], colour,
-				LightTexture.FULL_BRIGHT));
+		// v0.17.1 (user's minecraftskins.com Upgrade skin): the skin has its own eye -- it glows through the glow sheet above, so
+		// the old round eye prop is gone
 	}
 
 	@Override
