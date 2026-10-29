@@ -30,9 +30,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class MechComboRender {
 	/** Fist bone space (GeckoLib: x mirrored): the middle of the right fist, where the katana's grip passes through. */
-	private static final float FIST_X = 28f / 16f, FIST_Y = 34.5f / 16f, FIST_Z = 1f / 16f;
+	private static final float FIST_X = 26.5f / 16f, FIST_Y = 46.25f / 16f, FIST_Z = 1f / 16f; // v0.17.1 Gurren rework: the slimmer, longer arm
 	/** Forearm bone space: the wrist, where the drill's collar sits. */
-	private static final float WRIST_Y = 41.5f / 16f;
+	private static final float WRIST_Y = 52.5f / 16f;
 	/** How long a slash's trail is kept (ticks). */
 	private static final float TRAIL_TICKS = 3.2f;
 
@@ -203,8 +203,8 @@ public final class MechComboRender {
 				float[] b1 = rel(s, 0, worldOrigin), m1 = rel(s, 1, worldOrigin), t1 = rel(s, 2, worldOrigin);
 				// the body of the arc (green, fading in from the blade's middle) and the bright edge band near the tip
 				MechWeaponDraw.quad(vc, P, b0, b1, m1, m0, argb(green, 0f), argb(green, 0f), argb(green, 0.45f * a1 * a1), argb(green, 0.45f * a0 * a0));
-				MechWeaponDraw.quad(vc, P, m0, m1, t1, t0, argb(pale, 0.75f * a0 * a0), argb(pale, 0.75f * a1 * a1), argb(0xFFFFFF, 0.95f * a1),
-						argb(0xFFFFFF, 0.95f * a0));
+				MechWeaponDraw.quad(vc, P, m0, m1, t1, t0, argb(pale, 0.75f * a0 * a0), argb(pale, 0.75f * a1 * a1), argb(HardLightDraw.tint(HardLightDraw.HOT), 0.95f * a1),
+						argb(HardLightDraw.tint(HardLightDraw.HOT), 0.95f * a0));
 			}
 			prev = s;
 		}
@@ -284,13 +284,13 @@ public final class MechComboRender {
 			}
 			pose.pushPose();
 			pose.translate(0f, 0f, 2f + i * 3.5f * kk);
-			MechWeaponDraw.ring(vc, pose, 1.2f + (9f - i * 2f) * kk, 0.35f + 0.4f * kk, i == 0 ? 0xF4FFF6 : HardLightDraw.tint(HardLightDraw.GREEN),
+			MechWeaponDraw.ring(vc, pose, 1.2f + (9f - i * 2f) * kk, 0.35f + 0.4f * kk, i == 0 ? HardLightDraw.tint(HardLightDraw.HOT) : HardLightDraw.tint(HardLightDraw.GREEN),
 					0.9f * (1f - kk));
 			pose.popPose();
 		}
 		if (k < 0.45f) {
 			float f = 1f - k / 0.45f;
-			TurboDraw.sphere(vc, pose, 0.6f + 1.6f * (1f - f), 0xF4FFF6, 0.6f * f);
+			TurboDraw.sphere(vc, pose, 0.6f + 1.6f * (1f - f), HardLightDraw.tint(HardLightDraw.HOT), 0.6f * f);
 			TurboDraw.sphere(vc, pose, 1.2f + 2.6f * (1f - f), HardLightDraw.tint(HardLightDraw.GREEN), 0.18f * f);
 		}
 		pose.popPose();

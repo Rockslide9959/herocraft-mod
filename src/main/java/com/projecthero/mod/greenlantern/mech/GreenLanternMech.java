@@ -391,7 +391,7 @@ public final class GreenLanternMech {
 		}
 		ServerLevel level = (ServerLevel) m.level();
 		Vec3 look = aimDir(p);
-		Vec3 shoulder = m.local(left ? 1.75 : -1.75, 4.3, 0.4);
+		Vec3 shoulder = m.local(left ? 1.66 : -1.66, 4.85, 0.4);
 		Vec3 centre = shoulder.add(look.scale(3.4));
 		float dmg = GreenLanternMechConfig.PUNCH_DAMAGE * GreenLanternRanks.power(p);
 		Vec3 push = flat(look).scale(GreenLanternMechConfig.PUNCH_KNOCKBACK).add(0, 0.45, 0);
@@ -418,7 +418,7 @@ public final class GreenLanternMech {
 				return;
 			}
 			ServerLevel level = (ServerLevel) m.level();
-			Vec3 from = m.local(-1.75, 4.3, 2.2);
+			Vec3 from = m.local(-1.66, 4.85, 2.2);
 			HardLightConstructEntity fist = HardLightConstructEntity.create(level, Shape.FIST, pilot.getUUID(), from, 2.6f, 60);
 			fist.phase = 1; // moved here, not by the Construct Fist's own tick
 			m.rocketDir = aimDir(pilot);
@@ -471,7 +471,7 @@ public final class GreenLanternMech {
 				}
 			}
 		} else {
-			Vec3 home = m.local(-1.75, 4.3, 1.4);
+			Vec3 home = m.local(-1.66, 4.85, 1.4);
 			Vec3 d = home.subtract(pos);
 			double len = d.length();
 			if (len < GreenLanternMechConfig.ROCKET_SPEED * 1.2) {
@@ -554,7 +554,7 @@ public final class GreenLanternMech {
 		m.dashHit.clear();
 		m.impulse(dir.scale(GreenLanternMechConfig.DASH_SPEED).add(0, 0.32, 0));
 		ServerLevel level = (ServerLevel) m.level();
-		Vec3 back = m.local(0, 3.6, -1.6);
+		Vec3 back = m.local(0, 4.05, -1.6);
 		level.sendParticles(GREEN, back.x, back.y, back.z, 30, 0.5, 0.5, 0.5, 0.15);
 		level.sendParticles(ParticleTypes.FLAME, back.x, back.y - 0.6, back.z, 10, 0.3, 0.2, 0.3, 0.05);
 		sound(level, m.position(), SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 1.6f, 0.6f);
@@ -576,7 +576,7 @@ public final class GreenLanternMech {
 				sound(level, t.position(), SoundEvents.PLAYER_ATTACK_KNOCKBACK, 1.4f, 0.5f);
 			}
 		}
-		Vec3 back = m.local(0, 3.2, -1.6);
+		Vec3 back = m.local(0, 3.6, -1.6);
 		level.sendParticles(GREEN, back.x, back.y, back.z, 4, 0.3, 0.3, 0.3, 0.05);
 	}
 
@@ -631,7 +631,7 @@ public final class GreenLanternMech {
 
 	/** Where the shield wall stands: in front of the mech, the size of its body. */
 	public static AABB shieldBox(HardLightMechEntity m) {
-		Vec3 c = m.local(0, 3.2, 2.4);
+		Vec3 c = m.local(0, 3.6, 2.4);
 		return new AABB(c.x - 3.2, c.y - 3.4, c.z - 3.2, c.x + 3.2, c.y + 3.6, c.z + 3.2);
 	}
 
@@ -646,7 +646,7 @@ public final class GreenLanternMech {
 		}
 		ServerLevel level = (ServerLevel) m.level();
 		Vec3 fwd = Vec3.directionFromRotation(0f, m.getYRot());
-		Vec3 wall = m.local(0, 3.2, 2.6);
+		Vec3 wall = m.local(0, 3.6, 2.6);
 		for (Projectile pr : level.getEntitiesOfClass(Projectile.class, shieldBox(m), x -> x.getOwner() != p)) {
 			Vec3 v = pr.getDeltaMovement();
 			// only what is coming at the mech, and still in front of the wall
@@ -693,7 +693,7 @@ public final class GreenLanternMech {
 				}
 				double side = k % 2 == 0 ? -1 : 1;
 				int slot = (k / 2) % 6;
-				Vec3 pod = m.local(side * (1.6 + (slot % 3) * 0.22), 5.95 + (slot / 3) * 0.17, 0.45);
+				Vec3 pod = m.local(side * (1.32 + (slot % 3) * 0.15), 6.36 + (slot / 3) * 0.14, 0.3);
 				HardLightConstructEntity mi = HardLightConstructEntity.create(level, Shape.MISSILE, pilot.getUUID(), pod, 1.4f,
 						GreenLanternConfig.MISSILE_LIFE_TICKS + 20);
 				Vec3 outward = m.local(side, 0, 0).subtract(m.position());
@@ -763,7 +763,7 @@ public final class GreenLanternMech {
 		double dy = m.getY() - m.lastServerY;
 		if (dy > 0.25) {
 			for (int s = -1; s <= 1; s += 2) {
-				Vec3 n = m.local(s * 0.5, 3.4, -1.35);
+				Vec3 n = m.local(s * 0.42, 3.95, -1.25);
 				level.sendParticles(GREEN, n.x, n.y, n.z, 6, 0.15, 0.1, 0.15, 0.05);
 				level.sendParticles(ParticleTypes.FLAME, n.x, n.y - 0.2, n.z, 3, 0.1, 0.1, 0.1, 0.04);
 			}
@@ -782,7 +782,7 @@ public final class GreenLanternMech {
 		for (int i = 0; i < 4; i++) {
 			// the build runs core first, then outward and up: aim the streams at roughly where plates are arriving
 			double y = 2.2 + (rnd.nextDouble() - 0.3) * 4.4 * (0.4 + k);
-			Vec3 target = m.local((rnd.nextDouble() - 0.5) * 4.6 * (0.5 + k), Mth.clamp(y, 0.2, 6.3), (rnd.nextDouble() - 0.5) * 2.0);
+			Vec3 target = m.local((rnd.nextDouble() - 0.5) * 4.6 * (0.5 + k), Mth.clamp(y, 0.2, 7.1), (rnd.nextDouble() - 0.5) * 2.0);
 			Vec3 d = target.subtract(ring);
 			level.sendParticles(GREEN, ring.x, ring.y, ring.z, 0, d.x, d.y, d.z, 0.12);
 			level.sendParticles(PALE, target.x, target.y, target.z, 1, 0.05, 0.05, 0.05, 0.0);

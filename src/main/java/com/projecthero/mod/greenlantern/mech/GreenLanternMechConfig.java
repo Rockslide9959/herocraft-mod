@@ -30,8 +30,8 @@ public final class GreenLanternMechConfig {
 	public static final String COOLDOWN_ID = "hard_light_mech";
 
 	// ---- body
-	public static final float WIDTH = 3.2f;
-	public static final float HEIGHT = 6.5f;
+	public static final float WIDTH = 3.0f; // v0.17.1 Gurren rework: a slimmer, taller mech (was 3.2 x 6.5)
+	public static final float HEIGHT = 6.95f; // to the crown of the small head (the drill horn and the spike tips stand above it)
 	/** Integrity at Lantern Rank 1; +10% per rank above it. */
 	public static final float BASE_INTEGRITY = 300f;
 	public static final float INTEGRITY_PER_RANK = 0.10f;
@@ -41,8 +41,8 @@ public final class GreenLanternMechConfig {
 	public static final double STEP_HEIGHT = 2.0;
 	/** Space: the thrusters kick it up about 3.5 blocks. */
 	public static final double JUMP_VELOCITY = 0.72;
-	/** Where the pilot sits: 3.66 blocks up (feet of a sitting player 0.6 below this). */
-	public static final double SEAT_Y = 3.66;
+	/** Where the pilot sits: 4.22 blocks up (feet of a sitting player 0.6 below this; v0.17.1 Gurren rework: was 3.66, the cockpit rose with the longer legs). */
+	public static final double SEAT_Y = 4.22;
 	public static final double SEAT_Z = 0.0;
 	/** Speed while the shield is up / the beam is firing. */
 	public static final float SHIELD_SPEED = 0.5f;

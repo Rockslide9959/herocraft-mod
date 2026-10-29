@@ -42,6 +42,10 @@ public final class HardLightDraw {
 	public static final int GOLD_PALE = 0xF6FFB8;
 	/** v0.17.1: set by the renderer while it draws a Corps Legend's construct -- the greens turn golden. */
 	public static boolean golden;
+	/** v0.17.1 Gurren rework: set by the Hard-Light Mech's renderer -- {@link #EDGE} / {@link #HOT} tint green (no white outlines). */
+	public static boolean mechGreen;
+	public static final int MECH_EDGE = 0x40E874;
+	public static final int MECH_HOT = 0xB4FFCA;
 
 	/** v0.17.1 holographic look: alphas of the fill, edge lines, halo and scanlines. */
 	static final float FILL_A = 0.5f, EDGE_A = 1.0f, HALO_A = 0.14f, SCAN_A = 0.12f;
@@ -50,6 +54,17 @@ public final class HardLightDraw {
 
 	/** {@code rgb} as the current tint draws it (green -> golden-green while {@link #golden}). */
 	public static int tint(int rgb) {
+		if (mechGreen) {
+			// v0.17.1 Gurren rework (user: "maybe remove all the white outlines for the green lantern mech"): while the mech's
+			// own hard light is drawn (its weapons, beam, shield, shockwave, forming cells) the near-white edge lines and
+			// white-hot cells are bright green instead -- the forming edge keeps a brief green-white
+			if (rgb == EDGE) {
+				return golden ? 0xD8F03C : MECH_EDGE;
+			}
+			if (rgb == HOT) {
+				return golden ? 0xF0FF9C : MECH_HOT;
+			}
+		}
 		if (!golden) {
 			return rgb;
 		}
@@ -57,6 +72,11 @@ public final class HardLightDraw {
 	}
 
 	private HardLightDraw() {
+	}
+
+	/** The bright core of glows and emblems: near-white, or a green-white on the mech (v0.17.1 Gurren rework). */
+	private static int core() {
+		return mechGreen ? MECH_HOT : 0xE8FFEE;
 	}
 
 	public static VertexConsumer buffer(MultiBufferSource buffers) {
@@ -184,7 +204,7 @@ public final class HardLightDraw {
 						c[axis] = sgn * h[axis];
 						c[a1] = c1;
 						c[a2] = c2;
-						cellQuad(vc, last, axis, sgn, c, a1, d1, a2, d2, hot ? HOT : fill, hot ? 0.95f * alpha : (FILL_A + 0.1f) * alpha);
+						cellQuad(vc, last, axis, sgn, c, a1, d1, a2, d2, hot ? tint(HOT) : fill, hot ? 0.95f * alpha : (FILL_A + 0.1f) * alpha);
 					}
 				}
 			}
@@ -300,7 +320,7 @@ public final class HardLightDraw {
 		}
 		pose.pushPose();
 		pose.translate(x, y, z);
-		TurboDraw.box(vc, pose.last(), hx, hy, hz, 0xE8FFEE, 0.9f * alpha);
+		TurboDraw.box(vc, pose.last(), hx, hy, hz, core(), 0.9f * alpha);
 		TurboDraw.box(vc, pose.last(), hx * 1.8f + 0.02f, hy * 1.8f + 0.02f, hz * 1.8f + 0.02f, tint(GREEN), 0.25f * alpha);
 		pose.popPose();
 	}
@@ -329,16 +349,16 @@ public final class HardLightDraw {
 			pose.pushPose();
 			pose.mulPose(Axis.ZP.rotationDegrees(i * 45f));
 			pose.translate(0f, r, 0f);
-			TurboDraw.box(vc, pose.last(), r * 0.42f, t, t, 0xE8FFEE, 0.9f * alpha);
+			TurboDraw.box(vc, pose.last(), r * 0.42f, t, t, core(), 0.9f * alpha);
 			pose.popPose();
 		}
 		pose.pushPose();
 		pose.translate(0f, -r * 1.1f, 0f);
-		TurboDraw.box(vc, pose.last(), s * 0.5f, t, t, 0xE8FFEE, 0.85f * alpha);
+		TurboDraw.box(vc, pose.last(), s * 0.5f, t, t, core(), 0.85f * alpha);
 		pose.popPose();
 		pose.pushPose();
 		pose.translate(0f, r * 1.1f, 0f);
-		TurboDraw.box(vc, pose.last(), s * 0.5f, t, t, 0xE8FFEE, 0.85f * alpha);
+		TurboDraw.box(vc, pose.last(), s * 0.5f, t, t, core(), 0.85f * alpha);
 		pose.popPose();
 	}
 }

@@ -47,7 +47,7 @@ import software.bernie.geckolib.util.Color;
  * backpack are not drawn for them (the shoulders, arms and fists still are).
  */
 public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity> {
-	private static final Set<String> COCKPIT_BONES = Set.of("torso", "head", "thrusters");
+	private static final Set<String> COCKPIT_BONES = Set.of("torso", "head", "thrusters", "jaw", "shades"); // v0.17.1 Gurren rework: + the jaw, the shades
 	private boolean hideCockpit;
 
 	public HardLightMechRenderer(EntityRendererProvider.Context context) {
@@ -69,6 +69,17 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 
 	@Override
 	public void render(HardLightMechEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+		// v0.17.1 Gurren rework: everything the mech draws in code (weapons, beam, shield, shockwave, forming cells) has green
+		// edge lines, not the constructs' near-white ones (HardLightDraw#tint)
+		HardLightDraw.mechGreen = true;
+		try {
+			renderMech(e, yaw, partial, pose, buffers, light);
+		} finally {
+			HardLightDraw.mechGreen = false;
+		}
+	}
+
+	private void renderMech(HardLightMechEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
 		Minecraft mc = Minecraft.getInstance();
 		hideCockpit = mc.options.getCameraType().isFirstPerson() && mc.getCameraEntity() != null && e.hasPassenger(mc.getCameraEntity());
 		// v0.17.1 construct combos: the drill replaces the right fist; the bones' poses are caught for the weapons
@@ -143,6 +154,8 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 			java.util.Map.entry("shin_r", new float[] { 0.08f, 0.25f, 0 }), java.util.Map.entry("shin_l", new float[] { 0.10f, 0.27f, 0 }),
 			java.util.Map.entry("leg_r", new float[] { 0.18f, 0.34f, 0 }), java.util.Map.entry("leg_l", new float[] { 0.20f, 0.36f, 0 }),
 			java.util.Map.entry("pelvis", new float[] { 0.28f, 0.42f, 0 }), java.util.Map.entry("torso", new float[] { 0.36f, 0.58f, 0 }),
+			// v0.17.1 Gurren rework: the chest face's jaw forms with the torso, then the shades light up across it
+			java.util.Map.entry("jaw", new float[] { 0.40f, 0.56f, 0 }), java.util.Map.entry("shades", new float[] { 0.58f, 0.72f, 0 }),
 			java.util.Map.entry("thrusters", new float[] { 0.48f, 0.62f, 0 }),
 			java.util.Map.entry("shoulder_r", new float[] { 0.54f, 0.68f, 1 }), java.util.Map.entry("shoulder_l", new float[] { 0.56f, 0.70f, 1 }),
 			java.util.Map.entry("arm_r", new float[] { 0.62f, 0.74f, 1 }), java.util.Map.entry("arm_l", new float[] { 0.64f, 0.76f, 1 }),
@@ -371,7 +384,7 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 	}
 
 	private static void beam(HardLightMechEntity e, VertexConsumer vc, PoseStack pose, Vec3 origin, float yaw, float age) {
-		Vec3 chest = local(origin, yaw, 0, 4.58, 1.0);
+		Vec3 chest = local(origin, yaw, 0, 4.78, 1.0); // v0.17.1 Gurren rework: out of the chest face's mouth
 		Vec3 end = e.beamEnd().subtract(origin);
 		Vec3 d = end.subtract(chest);
 		float len = (float) d.length();
@@ -388,8 +401,8 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 		HardLightDraw.streak(vc, pose, len, 0.62f * pulse, age, 0.95f);
 		HardLightDraw.streak(vc, pose, len, 1.05f * pulse, -age, 0.35f);
 		// the lantern on the chest blazes, and a flare where the beam lands
-		HardLightDraw.emblem(vc, pose, 1.9f * pulse, 0.9f);
-		HardLightDraw.glow(vc, pose, 0f, 0f, 0.05f, 0.5f * pulse, 0.5f * pulse, 0.08f, 0.9f);
+		HardLightDraw.emblem(vc, pose, 1.3f * pulse, 0.7f); // v0.17.1 Gurren rework: smaller, it rings the open mouth
+		HardLightDraw.glow(vc, pose, 0f, 0f, 0.05f, 0.26f * pulse, 0.2f * pulse, 0.06f, 0.6f);
 		pose.translate(0f, 0f, len);
 		pose.mulPose(Axis.ZP.rotationDegrees(age * 12f));
 		HardLightDraw.glow(vc, pose, 0f, 0f, 0f, 0.55f * pulse, 0.55f * pulse, 0.55f * pulse, 0.85f);
@@ -401,8 +414,8 @@ public class HardLightMechRenderer extends GeoEntityRenderer<HardLightMechEntity
 	private static void shield(VertexConsumer vc, PoseStack pose, float yaw, float age) {
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(-yaw));
-		pose.translate(0f, 3.2f, 2.7f);
-		float w = 2.9f, h = 3.3f;
+		pose.translate(0f, 3.6f, 2.7f); // v0.17.1 Gurren rework: sized to the taller body
+		float w = 2.9f, h = 3.7f;
 		// the frame
 		HardLightDraw.part(vc, pose, 0f, h, 0f, w, 0.09f, 0.09f, 0.9f);
 		HardLightDraw.part(vc, pose, 0f, -h, 0f, w, 0.09f, 0.09f, 0.9f);

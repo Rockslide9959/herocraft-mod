@@ -27,10 +27,11 @@ function keys(list, t) {
 }
 
 // the stance every clip starts from: slightly crouched, fists a little forward, shoulders squared
+// (v0.17.1 Gurren rework: a prouder stance -- the chest face up and out, the head lifted, the feet planted wider)
 const STANCE = {
-	pelvis: [0, 0, 0], torso: [4, 0, 0], head: [-4, 0, 0],
+	pelvis: [0, 0, 0], torso: [1, 0, 0], head: [-3, 0, 0],
 	arm_r: [-6, 0, 6], arm_l: [-6, 0, -6], forearm_r: [-14, 0, 0], forearm_l: [-14, 0, 0],
-	leg_r: [-6, 0, 2], leg_l: [-6, 0, -2], shin_r: [10, 0, 0], shin_l: [10, 0, 0], foot_r: [-4, 0, 0], foot_l: [-4, 0, 0],
+	leg_r: [-6, 0, 4], leg_l: [-6, 0, -4], shin_r: [10, 0, 0], shin_l: [10, 0, 0], foot_r: [-4, 0, 0], foot_l: [-4, 0, 0],
 };
 const base = () => { const o = {}; for (const [b, r] of Object.entries(STANCE)) o[b] = { rot: r.slice() }; return o; };
 const add = (o, b, rot, pos, scale) => {
@@ -153,6 +154,7 @@ clipDef('beam', 0.8, true, t => {
 	const tr = Math.sin(TAU * t / 0.8 * 3) * 1.2;
 	add(o, 'torso', [-12 + tr * 0.5, 0, 0]);
 	add(o, 'head', [10, 0, 0]);
+	add(o, 'jaw', [26 + tr * 1.5, 0, 0]); // v0.17.1 Gurren rework: the chest face roars the beam out of its open jaw
 	add(o, 'arm_r', [24, 0, 26 + tr]);
 	add(o, 'arm_l', [24, 0, -26 - tr]);
 	add(o, 'forearm_r', [-50, 0, 0]);
@@ -237,7 +239,7 @@ const ORDER = [
 	['thrusters', 0.62, [0, 0, 12]], ['shoulder_r', 0.78, [-14, 8, 0]], ['shoulder_l', 0.82, [14, 8, 0]],
 	['arm_r', 0.9, [-10, 0, 0]], ['arm_l', 0.94, [10, 0, 0]], ['forearm_r', 1.04, [-6, -6, -6]], ['forearm_l', 1.08, [6, -6, -6]],
 	['fist_r', 1.18, [0, -4, -8]], ['fist_l', 1.22, [0, -4, -8]], ['pod_r', 1.3, [0, 10, 0]], ['pod_l', 1.34, [0, 10, 0]],
-	['head', 1.42, [0, 14, -4]],
+	['shades', 1.38, [0, 8, -6]], ['head', 1.42, [0, 14, -4]], // v0.17.1 Gurren rework: + the shades
 ];
 const SNAP = 0.22;
 // v0.17.1 (user: "make it build pixel by pixel piece by piece"): the parts no longer fly in and scale up -- they stay in

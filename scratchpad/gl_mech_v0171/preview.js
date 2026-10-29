@@ -56,9 +56,9 @@ function pilot() {
 }
 
 module.exports = function (M, ROOT) {
-	M.k = 1 / 16; M.heightBlocks = 6.4;
+	M.k = 1 / 16; M.heightBlocks = 7.5;
 	const P = pilot();
-	const SEAT = [0, 57 / 16, 0.5 / 16]; // pilot feet origin in blocks (bottom of the shins) -- matches the entity seat
+	const SEAT = [0, 66 / 16, 0.5 / 16]; // pilot feet origin in blocks (bottom of the shins) -- matches the entity seat (v0.17.1 Gurren rework: the cockpit floor is at 66 px)
 	const shot = (frame, extra = {}) => {
 		const W = poseWorld(M, frame);
 		// the pilot rides the torso: follow its transform
@@ -87,22 +87,37 @@ module.exports = function (M, ROOT) {
 		return [{ model: m, pose: {} }, { model: pm, pose: {} }];
 	};
 	const rest = withFrame(anims.sample('idle', 0));
-	const fl = [{ x: 0, z: 0, r: 3.2 }];
+	const fl = [{ x: 0, z: 0, r: 3.4 }];
 	const bg = { top: [36, 44, 52], bottom: [12, 16, 20] };
 	const light = Object.assign({}, L.DEFAULT_LIGHT, { rimCol: [0.55, 1.0, 0.7], rimK: 0.45, amb: 0.42 });
 	const opts = { panelH: 900, minW: 2200, bg, bloom: 0.55, edgeThr: 0.05, light };
 	const out = path.join(ROOT, 'docs', 'screenshots', 'v0171');
-	L.sheet(path.join(out, 'gl_mech_sheet.png'), 'HARD-LIGHT MECH', 'GREEN LANTERN ULTIMATE CONSTRUCT - 6.4 BLOCKS - PILOT IN THE CHEST COCKPIT', [
+	L.sheet(path.join(out, 'gl_gurren_sheet.png'), 'HARD-LIGHT MECH', 'GURREN-STYLE REWORK - 7.5 BLOCKS - THE CHEST IS THE FACE', [
 		{ label: 'FRONT', items: rest, cam: { yaw: 0, pitch: 6 }, floor: fl },
 		{ label: 'THREE-QUARTER', items: rest, cam: { yaw: 35, pitch: 12 }, floor: fl },
 		{ label: 'SIDE', items: rest, cam: { yaw: 90, pitch: 6 }, floor: fl },
 		{ label: 'BACK', items: rest, cam: { yaw: 180, pitch: 10 }, floor: fl },
 	], opts);
+	// v0.17.1 Gurren rework: a close-up of the chest face, the shades and the head (only those bones drawn)
+	const FACE_BONES = new Set(['torso', 'jaw', 'shades', 'head', 'shoulder_r', 'shoulder_l', 'pod_r', 'pod_l']);
+	const faceOnly = frame => withFrame(frame).map((it, i) => {
+		if (i > 0) return it;
+		const m = Object.create(it.model);
+		m.cubes = () => M.cubes().filter(c => FACE_BONES.has(c.bone));
+		return { model: m, pose: {} };
+	});
+	const face = faceOnly(anims.sample('idle', 0));
+	const beamFace = faceOnly(anims.sample('beam', 0.3));
+	L.sheet(path.join(out, 'gl_gurren_face.png'), 'HARD-LIGHT MECH', 'THE CHEST FACE, THE SHADES, THE DRILL-HORN HEAD', [
+		{ label: 'FACE', items: face, cam: { yaw: 0, pitch: 4 }, ownScale: true },
+		{ label: 'FACE THREE-QUARTER', items: face, cam: { yaw: 32, pitch: 8 }, ownScale: true },
+		{ label: 'BEAM (JAW OPEN)', items: beamFace, cam: { yaw: 20, pitch: 0 }, ownScale: true },
+	], Object.assign({}, opts, { panelH: 900 }));
 	const at = (name, t, yaw = 35) => ({ label: name.replace('_', ' ') + ' ' + t.toFixed(2), items: withFrame(anims.sample(name, t)), cam: { yaw, pitch: 10 }, floor: fl });
-	L.sheet(path.join(out, 'gl_mech_poses.png'), 'HARD-LIGHT MECH', 'CLIPS 1', [
+	L.sheet(path.join(out, 'gl_gurren_poses.png'), 'HARD-LIGHT MECH', 'CLIPS 1', [
 		at('walk', 0.15, 70), at('punch_r', 0.25, 50), at('punch_l', 0.25, -50), at('ground_slam', 0.4, 60), at('ground_slam', 0.65, 60),
 	], Object.assign({}, opts, { panelH: 800, maxW: 3000 }));
-	L.sheet(path.join(out, 'gl_mech_poses2.png'), 'HARD-LIGHT MECH', 'CLIPS 2', [
+	L.sheet(path.join(out, 'gl_gurren_poses2.png'), 'HARD-LIGHT MECH', 'CLIPS 2', [
 		at('beam', 0.1, 50), at('rocket_fist', 0.5, 60), at('shield', 0.2, 40), at('missiles', 0.3, 30), at('dash', 0.3, 80), at('assemble', 0.9, 30),
 	], Object.assign({}, opts, { panelH: 800, maxW: 3200 }));
 };

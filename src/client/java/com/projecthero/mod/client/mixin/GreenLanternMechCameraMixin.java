@@ -15,7 +15,7 @@ import net.minecraft.world.level.BlockGetter;
 
 /**
  * v0.17.1: the Hard-Light Mech's camera -- in third person the pilot's camera pulls well back (the camera starts at the
- * pilot's eyes in the chest cockpit) so the whole 6.4-block mech is in frame; and everyone near one feels its footfalls
+ * pilot's eyes in the chest cockpit) so the whole mech (7.5 blocks since the v0.17.1 Gurren rework) is in frame; and everyone near one feels its footfalls
  * and the Ground Slam ({@link GreenLanternMechClient}).
  */
 @Mixin(Camera.class)
@@ -36,7 +36,7 @@ public abstract class GreenLanternMechCameraMixin {
 	private void projecthero$mechCamera(BlockGetter level, Entity entity, boolean detached, boolean thirdPersonReverse,
 			float partialTick, CallbackInfo ci) {
 		if (detached && HardLightMechEntity.isPilot(entity)) {
-			move(-6.5f, 0.9f, 0.0f);
+			move(-7.4f, 1.0f, 0.0f); // v0.17.1 Gurren rework: back a little further for the taller mech
 		}
 		float dy = GreenLanternMechClient.shakeYaw();
 		float dx = GreenLanternMechClient.shakePitch();

@@ -1,7 +1,11 @@
-// v0.17.1: the HARD-LIGHT MECH -- Green Lantern's ultimate construct. A ~6.4-block armoured mech of translucent GL-green
-// hard light: bright edge lines, a darker inner frame showing through the plates, a lantern-symbol chest plate round a
-// glass cockpit (the pilot sits inside, visible), huge layered pauldrons with missile pods, thick forearms with knuckled
-// fists, a backpack with two thrusters and swept fins, heavy armoured legs and a visor head with a V-fin.
+// v0.17.1: the HARD-LIGHT MECH -- Green Lantern's ultimate construct, of translucent GL-green hard light: bright edge
+// lines, a darker inner frame showing through the plates, the pilot seated in a cockpit inside the chest (visible).
+// v0.17.1 Gurren rework (user: "make the green lantern mech look cooler please, make it slightly taller and a bit thinner
+// please, make it look like gurren lagann"): an original hard-light take on the drill-mech style -- ~7.5 blocks (was
+// 6.7), long legs, a narrow waist and slimmer limbs under broad spiky pauldrons; the chest IS a huge grinning face (fanged
+// mouth with a hinged jaw, angry slanted eyes and brows, the Lantern emblem as its forehead gem round the cockpit glass);
+// a separate bright V-shaped "shades" crest across the upper chest out over the shoulders; a small helmeted head with a
+// drill horn; spiral-grooved drill cones on the knees and elbows; spiky forearm guards; pointed toes.
 // Model pixels are real 1/16-block pixels (no render scale). Bedrock/GeckoLib conventions: +Y up, the model faces -Z,
 // the mech's RIGHT side is -X.
 //
@@ -10,13 +14,13 @@
 //   src/main/resources/assets/projecthero/textures/entity/green_lantern/mech.png          (translucent base)
 //   src/main/resources/assets/projecthero/textures/entity/green_lantern/mech_glow.png     (additive edge glow)
 //   src/main/resources/assets/projecthero/animations/green_lantern_mech.animation.json
-//   docs/screenshots/v0171/gl_mech_sheet.png (+ gl_mech_poses.png)
-// Usage: node scratchpad/gl_mech_v0171/gen_gl_mech.js
+//   docs/screenshots/v0171/gl_gurren_sheet.png (+ gl_gurren_poses*.png)
+// Usage: node scratchpad/gl_mech_v0171/gen_gl_mech.js [--no-sheet]
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const L = require('../viperion/lib_concept_models.js');
-const { Model, mix, mul, fbm, clamp } = L;
+const { Model, mix, mul, fbm, clamp, vnorm, vadd, vsc } = L;
 
 const ROOT = path.join(__dirname, '..', '..');
 const A = path.join(ROOT, 'src', 'main', 'resources', 'assets', 'projecthero');
@@ -43,8 +47,10 @@ function emblem(b, kind, c, R, t, bw, depth, s) {
 		for (let i = 0; i < 8; i++) {
 			M.box(b, c[0] - hw, c[1] + R - t, z, c[0] + hw, c[1] + R, z + depth, 'emblem', { rot: [0, 0, i * 45], pivot: c.slice() });
 		}
-		M.box(b, c[0] - bw, c[1] + R + 0.15 * R, z, c[0] + bw, c[1] + R + 0.15 * R + t, z + depth, 'emblem');
-		M.box(b, c[0] - bw, c[1] - R - 0.15 * R - t, z, c[0] + bw, c[1] - R - 0.15 * R, z + depth, 'emblem');
+		if (bw > 0) {
+			M.box(b, c[0] - bw, c[1] + R + 0.15 * R, z, c[0] + bw, c[1] + R + 0.15 * R + t, z + depth, 'emblem');
+			M.box(b, c[0] - bw, c[1] - R - 0.15 * R - t, z, c[0] + bw, c[1] - R - 0.15 * R, z + depth, 'emblem');
+		}
 	} else {
 		const x = c[0];
 		const [xa, xb] = s > 0 ? [x - depth, x] : [x, x + depth];
@@ -56,185 +62,269 @@ function emblem(b, kind, c, R, t, bw, depth, s) {
 	}
 }
 
+// v0.17.1 Gurren rework: a tapered spike -- stacked prisms along dir, each thinner than the last, to a point.
+// w0 = base width (across, in the stick's local x), d0 = base depth.
+function spike(b, base, dir, len, w0, d0, n, mat, seed) {
+	const d = vnorm(dir);
+	const out = [];
+	for (let i = 0; i < n; i++) {
+		const k = i / n;
+		const from = vadd(base, vsc(d, len * k - (i > 0 ? 0.3 : 0)));
+		const f = 1 - k * 0.82;
+		out.push(M.stick(b, from, d, len / n + (i > 0 ? 0.3 : 0), [Math.max(0.5, w0 * f), Math.max(0.5, d0 * f)], mat || 'plate', { seed: (seed || 0) + i }));
+	}
+	return out;
+}
+
+// v0.17.1 Gurren rework: a drill -- a stepped cone of square sections, each painted with a two-start helical groove
+// that runs continuously round and along the whole cone (the 'drill' material reads c.drill: the section's offset along
+// the axis), with a collar ring at the base.
+function drill(b, base, dir, len, r0, n, seed) {
+	const d = vnorm(dir);
+	M.stick(b, vadd(base, vsc(d, -1.2)), d, 1.6, [2 * r0 + 1.4, 2 * r0 + 1.4], 'plate', { seed: seed || 0 });
+	for (let i = 0; i < n; i++) {
+		const k = i / n;
+		const off = len * k - (i > 0 ? 0.25 : 0);
+		const w = Math.max(0.55, 2 * r0 * (1 - k * 0.92));
+		const c = M.stick(b, vadd(base, vsc(d, off)), d, len / n + (i > 0 ? 0.25 : 0), [w, w], 'drill', { seed: (seed || 0) + i + 1 });
+		c.drill = { off, len };
+	}
+}
+
 // ================================================================ geometry
 M.bone('root', null, [0, 0, 0]);
-const pelvis = M.bone('pelvis', 'root', [0, 46, 0]);
-M.cbox(pelvis, [0, 46, 0], [18, 10, 12], 'frame');
-M.box(pelvis, -10, 40, -9.5, 10, 50, -6, 'plate', { seed: 1 });          // hip armour front
-M.box(pelvis, -5, 35, -9, 5, 41, -6, 'plate', { seed: 2 });              // crotch plate
-M.box(pelvis, -12.5, 49, -8.5, 12.5, 53, 8.5, 'plate', { seed: 3 });     // belt
-M.box(pelvis, -6, 50, -9.1, 6, 52, -8.5, 'glow');                         // belt light
-M.box(pelvis, -10, 37, 6, 10, 50, 9.5, 'plate', { seed: 4 });            // rear skirt
+const pelvis = M.bone('pelvis', 'root', [0, 56, 0]);
+M.cbox(pelvis, [0, 55, 0], [14, 10, 10], 'frame');
+M.box(pelvis, -8.5, 48, -8.5, 8.5, 58, -5.5, 'plate', { seed: 1 });         // hip armour front
+M.box(pelvis, -4, 43.5, -8, 4, 49, -5.5, 'plate', { seed: 2 });             // crotch plate
+M.cbox(pelvis, [0, 43.8, -6.8], [4.2, 4.2, 2.4], 'plate', { rot: [0, 0, 45], pivot: [0, 43.8, -6.8], seed: 3 }); // its point
+M.box(pelvis, -10.5, 57, -7.5, 10.5, 61, 7.5, 'plate', { seed: 4 });        // belt
+M.box(pelvis, -8, 46, 5.5, 8, 58, 8.5, 'plate', { seed: 5 });               // rear skirt
 for (const s of S) { // side skirts, flared out
-	sbox(pelvis, s, 12, 19, 34, 50, -7, 7, 'plate', { rot: [0, 0, -s * 12], pivot: [s * 12, 50, 0], seed: 5 });
-	sbox(pelvis, s, 18.6, 19.4, 37, 47, -4, 4, 'glow', { rot: [0, 0, -s * 12], pivot: [s * 12, 50, 0] });
-	// v0.17.1 polish: front hip plates angled out over the thighs, a vent in each
-	sbox(pelvis, s, 4.5, 12.5, 37, 48, -11, -9, 'plate', { rot: [-8, s * 10, 0], pivot: [s * 4.5, 48, -9.5], seed: 6 });
-	sbox(pelvis, s, 6.5, 10.5, 39, 45, -11.5, -10.8, 'vent', { rot: [-8, s * 10, 0], pivot: [s * 4.5, 48, -9.5] });
+	sbox(pelvis, s, 9.5, 14, 44, 58, -6, 6, 'plate', { rot: [0, 0, -s * 14], pivot: [s * 9.5, 58, 0], seed: 6 });
+	sbox(pelvis, s, 13.7, 14.4, 47, 55, -3.5, 3.5, 'glow', { rot: [0, 0, -s * 14], pivot: [s * 9.5, 58, 0] });
+	// front hip plates angled out over the thighs, a vent in each
+	sbox(pelvis, s, 3.5, 10, 46, 56, -10, -8.2, 'plate', { rot: [-8, s * 10, 0], pivot: [s * 3.5, 56, -8.5], seed: 7 });
+	sbox(pelvis, s, 5, 8.5, 48, 53.5, -10.5, -9.8, 'vent', { rot: [-8, s * 10, 0], pivot: [s * 3.5, 56, -8.5] });
 }
-// v0.17.1 polish: the Lantern emblem as the belt buckle
-emblem(pelvis, 'front', [0, 45.5, -10.4], 2.6, 1.0, 4.4, 1.0);
+// the Lantern emblem as the belt buckle
+emblem(pelvis, 'front', [0, 58.4, -8.4], 2.3, 0.9, 3.6, 0.9);
 
 for (const s of S) {
 	const n = nm(s);
-	// ---- thigh
-	const leg = M.bone(`leg_${n}`, 'pelvis', [s * 12, 44, 0]);
-	M.cbox(leg, [s * 12, 44, 0], [8, 8, 8], 'frame');
-	sbox(leg, s, 9, 15, 28, 44, -3, 3, 'frame');
-	sbox(leg, s, 6.5, 17.5, 30, 43, -6.5, 5.5, 'plate', { seed: 10 });
-	sbox(leg, s, 17.4, 18.8, 32, 41, -4, 3, 'plate', { seed: 11 });     // outer vent plate
-	sbox(leg, s, 18.6, 19.0, 33.5, 39.5, -3, 2, 'glow');
-	// v0.17.1 polish: a raised front thigh plate with a glowing seam down it, and a hydraulic at the back
-	sbox(leg, s, 7.5, 16.5, 31, 42, -8, -6, 'plate', { rot: [4, 0, 0], pivot: [s * 12, 42, -6.5], seed: 17 });
-	sbox(leg, s, 11.5, 12.5, 32, 41, -8.4, -7.9, 'glow', { rot: [4, 0, 0], pivot: [s * 12, 42, -6.5] });
-	M.stick(leg, [s * 12, 42, 5], [0, -1, 0.12], 12, [2.2, 2.2], 'frame', { seed: 18 });
+	// ---- thigh (long and slim)
+	const leg = M.bone(`leg_${n}`, 'pelvis', [s * 10, 53, 0]);
+	M.cbox(leg, [s * 10, 53, 0], [7, 7, 7], 'frame');
+	sbox(leg, s, 8, 12, 37, 53, -2.5, 2.5, 'frame');
+	sbox(leg, s, 6.5, 13.5, 39, 51.5, -5, 4.5, 'plate', { seed: 10 });
+	sbox(leg, s, 7.2, 12.8, 40, 50.5, -6.6, -4.8, 'plate', { rot: [4, 0, 0], pivot: [s * 10, 50.5, -5], seed: 11 });
+	sbox(leg, s, 9.6, 10.4, 41, 49.5, -7, -6.5, 'glow', { rot: [4, 0, 0], pivot: [s * 10, 50.5, -5] });
+	sbox(leg, s, 13.3, 14.6, 41, 50, -3, 2.5, 'plate', { seed: 12 });        // outer thigh plate
+	sbox(leg, s, 14.4, 14.8, 42.5, 48.5, -0.5, 0.5, 'glow');
+	M.stick(leg, [s * 10, 50, 4.2], [0, -1, 0.1], 11, [2, 2], 'frame', { seed: 13 }); // hydraulic at the back
 	// ---- shin
-	const shin = M.bone(`shin_${n}`, `leg_${n}`, [s * 12, 29, -1]);
-	M.cbox(shin, [s * 12, 29, -1], [7.5, 6, 7.5], 'frame');
-	sbox(shin, s, 6.5, 17.5, 24, 35, -9.5, -4, 'plate', { rot: [-10, 0, 0], pivot: [s * 12, 29, -6], seed: 12 }); // knee pad
-	M.cbox(shin, [s * 12, 34.5, -9], [5, 4, 3], 'plate', { rot: [-25, 0, 0], pivot: [s * 12, 33, -8], seed: 13 });  // knee spike
-	sbox(shin, s, 9.5, 14.5, 8, 28, -3, 3, 'frame');
-	sbox(shin, s, 7, 17, 11, 26, -6.5, 4, 'plate', { seed: 14 });
-	sbox(shin, s, 6, 18, 6.5, 13, -7.5, 5, 'plate', { seed: 15 });      // ankle flare
-	sbox(shin, s, 8, 16, 13, 25, 4, 8.5, 'plate', { seed: 16 });        // calf thruster housing
-	sbox(shin, s, 9.5, 14.5, 11.5, 13.2, 4.6, 8, 'glow');                // calf nozzle
-	sbox(shin, s, 11.3, 12.7, 14, 24, -6.9, -6.5, 'glow');               // shin light strip
-	// v0.17.1 polish: swept shin fins on the outside (the leg reads heavier at the calf) with a vent slot
-	sbox(shin, s, 16.5, 19.5, 12, 27, -5, 3.5, 'plate', { rot: [0, 0, -s * 7], pivot: [s * 17, 27, 0], seed: 19 });
-	sbox(shin, s, 19.3, 19.9, 15, 24, -3, 1.5, 'vent', { rot: [0, 0, -s * 7], pivot: [s * 17, 27, 0] });
-	// ---- foot
-	const foot = M.bone(`foot_${n}`, `shin_${n}`, [s * 12, 6, 0]);
-	M.cbox(foot, [s * 12, 6, 0], [6, 5, 6], 'frame');
-	sbox(foot, s, 6, 18, 0, 5, -10, 7, 'plate', { seed: 20 });
-	sbox(foot, s, 6.5, 11.6, 0, 4, -16, -9.5, 'plate', { seed: 21 });   // toe (inner)
-	sbox(foot, s, 12.4, 17.5, 0, 4, -15, -9.5, 'plate', { seed: 22 });  // toe (outer)
-	sbox(foot, s, 6.4, 11.7, 0, 1.2, -16.6, -15.4, 'glow');
-	sbox(foot, s, 12.3, 17.6, 0, 1.2, -15.6, -14.4, 'glow');
-	sbox(foot, s, 9, 15, 0, 4, 6.5, 11.5, 'plate', { seed: 23 });       // heel spur
-	sbox(foot, s, 5.5, 18.5, 4, 7.5, -7, 5, 'plate', { seed: 24 });     // ankle guard
-	// v0.17.1 polish: a toe cap over the two toes and a glowing instep strip
-	sbox(foot, s, 6.8, 17.2, 3.6, 5.2, -14.5, -8.5, 'plate', { rot: [-10, 0, 0], pivot: [s * 12, 5, -8.5], seed: 25 });
-	sbox(foot, s, 10.8, 13.2, 5.0, 5.6, -13.8, -8.8, 'glow', { rot: [-10, 0, 0], pivot: [s * 12, 5, -8.5] });
+	const shin = M.bone(`shin_${n}`, `leg_${n}`, [s * 10, 37, -1]);
+	M.cbox(shin, [s * 10, 37, -1], [6, 6, 6], 'frame');
+	sbox(shin, s, 6.5, 13.5, 31, 40, -7.5, -3.5, 'plate', { rot: [-10, 0, 0], pivot: [s * 10, 37, -5], seed: 14 }); // knee pad
+	// the knee drill: a spiral cone pointing forward off the kneecap
+	drill(shin, [s * 10, 36, -7.6], [0, 0.3, -1], 8, 2.9, 5, 15);
+	sbox(shin, s, 8, 12, 10, 34, -2.5, 2.5, 'frame');
+	sbox(shin, s, 6.8, 13.2, 14, 32, -5.5, 3.5, 'plate', { seed: 21 });
+	sbox(shin, s, 6, 14, 8.5, 14.5, -6.5, 4.5, 'plate', { seed: 22 });        // ankle flare
+	sbox(shin, s, 7.5, 12.5, 16, 30.5, 3, 7, 'plate', { seed: 23 });          // calf thruster housing
+	sbox(shin, s, 8.5, 11.5, 14.5, 16.2, 3.6, 6.5, 'glow');                   // calf nozzle
+	sbox(shin, s, 9.4, 10.6, 16, 30, -5.9, -5.5, 'glow');                     // shin light strip
+	// swept shin fins on the outside, a vent slot in each
+	sbox(shin, s, 13, 15.6, 14, 32, -4, 2.5, 'plate', { rot: [0, 0, -s * 6], pivot: [s * 13.5, 32, 0], seed: 24 });
+	sbox(shin, s, 15.4, 16, 17, 28, -2.5, 1, 'vent', { rot: [0, 0, -s * 6], pivot: [s * 13.5, 32, 0] });
+	// a spike off the top of each shin fin, raking up and back
+	spike(shin, [s * 14.6, 31, -0.5], [s * 0.35, 1, 0.55], 6, 2.4, 2.4, 3, 'plate', 25);
+	// ---- foot (pointed toe)
+	const foot = M.bone(`foot_${n}`, `shin_${n}`, [s * 10, 8, 0]);
+	M.cbox(foot, [s * 10, 8, 0], [5, 5, 5], 'frame');
+	sbox(foot, s, 5.5, 14.5, 0, 5.5, -8, 6, 'plate', { seed: 30 });
+	sbox(foot, s, 6.2, 13.8, 0, 4.5, -13, -7.5, 'plate', { seed: 31 });     // toe
+	M.cbox(foot, [s * 10, 2, -13], [5.4, 4, 5.4], 'plate', { rot: [0, 45, 0], pivot: [s * 10, 2, -13], seed: 32 }); // toe point
+	M.cbox(foot, [s * 10, 0.6, -13], [5.8, 1.2, 5.8], 'glow', { rot: [0, 45, 0], pivot: [s * 10, 0.6, -13] });
+	sbox(foot, s, 7.5, 12.5, 0, 4.5, 5.5, 10, 'plate', { seed: 33 });       // heel spur
+	sbox(foot, s, 5, 15, 5, 9, -6.5, 5, 'plate', { seed: 34 });             // ankle guard
+	sbox(foot, s, 6.6, 13.4, 4.2, 5.6, -12.5, -7.5, 'plate', { rot: [-10, 0, 0], pivot: [s * 10, 5.5, -7.5], seed: 35 }); // toe cap
+	sbox(foot, s, 9.2, 10.8, 5.4, 6, -12, -8, 'glow', { rot: [-10, 0, 0], pivot: [s * 10, 5.5, -7.5] });
 }
 
-// ---- torso + cockpit
-const torso = M.bone('torso', 'pelvis', [0, 53, 1]);
-M.box(torso, -9, 52, -5, 9, 58, 6, 'frame');                             // abdomen core
-for (let i = 0; i < 3; i++) M.box(torso, -8 + i * 0.5, 52 + i * 2.2, -8.5, 8 - i * 0.5, 54 + i * 2.2, -5, 'plate', { seed: 30 + i }); // abs
-M.box(torso, -9, 55, -11, 9, 57, 6, 'frame');                             // cockpit floor / seat base
-M.box(torso, -9, 82.5, -11, 9, 85.5, 6, 'plate', { seed: 33 });           // cockpit ceiling
-M.box(torso, -21, 56, 6, 21, 86, 13, 'plate', { seed: 34 });              // back armour
-M.box(torso, -8, 58, 5, 8, 82, 6, 'frame');                               // back wall (inside)
-M.cbox(torso, [0, 73, 5.0], [5, 13, 0.6], 'glow');                        // core light behind the pilot
+// ---- torso: a narrow waist under a broad chest, and the chest is a FACE
+const torso = M.bone('torso', 'pelvis', [0, 62, 1]);
+M.box(torso, -7, 60, -5, 7, 69, 5, 'frame');                               // waist core
+for (let i = 0; i < 3; i++) M.box(torso, -6.5 + i * 0.3, 60.5 + i * 2.8, -7.6, 6.5 - i * 0.3, 63 + i * 2.8, -5, 'plate', { seed: 40 + i }); // abs
+M.box(torso, -0.5, 60.5, -7.95, 0.5, 69, -7.55, 'glow');
+M.box(torso, -9, 64, -10, 9, 66, 6, 'frame');                              // cockpit floor / seat base
+M.box(torso, -10, 98, -10, 10, 100.5, 6, 'plate', { seed: 43 });           // cockpit ceiling
+M.box(torso, -13, 66, 6, 13, 82, 11.5, 'plate', { seed: 44 });             // back armour (lower, narrow)
+M.box(torso, -19.5, 81, 6, 19.5, 100, 12, 'plate', { seed: 45 });          // back armour (upper, broad)
+M.box(torso, -8, 66, 5, 8, 97, 6, 'frame');                                // back wall (inside)
+M.cbox(torso, [0, 84, 5.0], [5, 16, 0.6], 'glow');                         // core light behind the pilot
 for (const s of S) {
-	sbox(torso, s, 9, 21, 56, 86, -11, 6, 'plate', { seed: 35 });                                              // cockpit side wall
-	sbox(torso, s, 9, 23.5, 72, 86.5, -14.5, -10, 'plate', { rot: [0, s * 14, 0], pivot: [s * 9, 79, -11], seed: 36 }); // upper chest
-	sbox(torso, s, 10, 20.5, 57, 71, -13.5, -10, 'plate', { rot: [0, s * 10, 0], pivot: [s * 10, 64, -11], seed: 37 });  // ribs
-	sbox(torso, s, 21, 22.5, 60, 82, -8, 10, 'frame');                                                         // flank frame
+	sbox(torso, s, 9, 14.5, 66, 81, -9.5, 6, 'plate', { seed: 46 });                                             // cockpit side wall
+	sbox(torso, s, 9, 19.5, 80, 100, -10.5, 6, 'plate', { seed: 47 });
+	sbox(torso, s, 14.2, 20, 66, 82, -6, 8, 'plate', { rot: [0, 0, -s * 22], pivot: [s * 14.2, 82, 0], seed: 48 }); // V-taper flank
+	sbox(torso, s, 19.8, 20.6, 70, 80, -4, 5, 'vent', { rot: [0, 0, -s * 22], pivot: [s * 14.2, 82, 0] });
 }
-M.box(torso, -10, 85, -8, 10, 88.5, 8, 'plate', { seed: 38 });            // collar
-// v0.17.1 polish: a broad yoke across the top of the chest (a V-taper down to the waist), rib vents down the flanks,
-// a glowing line down the abs and a keel plate under the lantern
-M.box(torso, -20, 84, -12.2, 20, 87.8, -6, 'plate', { seed: 39 });
+M.box(torso, -9, 99.5, -7, 9, 103, 7, 'plate', { seed: 49 });              // collar
+
+// the FACE: lower chest = the mouth housing, upper chest = the eyes and brows
+M.box(torso, -14.5, 69, -12.2, 14.5, 84.5, -9, 'plate', { seed: 50 });     // mouth housing
 for (const s of S) {
-	sbox(torso, s, 20.6, 21.4, 59, 71, -9, 3, 'vent', { seed: 45 });
-	sbox(torso, s, 13, 21, 84.2, 86.6, -12.8, -12.1, 'glow');
+	// cheeks: chamfered plates either side of the mouth, swept back
+	sbox(torso, s, 12.5, 18, 68.5, 85, -12, -8, 'plate', { rot: [0, s * 20, 0], pivot: [s * 12.5, 76, -12], seed: 51 });
 }
-M.box(torso, -0.6, 52, -8.95, 0.6, 58.5, -8.55, 'glow');
-M.box(torso, -7, 56.5, -13.2, 7, 59.5, -10, 'plate', { rot: [12, 0, 0], pivot: [0, 59.5, -11], seed: 46 });
-// the lantern symbol round the canopy: an octagonal ring + the two bars
-const EC = [0, 73.2, -14];
-for (let i = 0; i < 8; i++) {
-	M.box(torso, -4.7, EC[1] + 8.3, -15.3, 4.7, EC[1] + 11.3, -12.6, 'emblem', { rot: [0, 0, i * 45], pivot: EC.slice() });
+// the mouth: a dark recess, wide, its corners rising into a grin
+M.box(torso, -9.5, 72.2, -12.9, 9.5, 80.8, -12.15, 'mouth');
+for (const s of S) {
+	sbox(torso, s, 8.5, 14.2, 73.5, 81, -12.9, -12.15, 'mouth', { rot: [0, 0, -s * 24], pivot: [s * 8.5, 77, -12.5] });
 }
-M.box(torso, -14.5, EC[1] + 11.3, -15.3, 14.5, EC[1] + 14.0, -12.6, 'emblem');  // top bar
-M.box(torso, -14.5, EC[1] - 14.0, -15.3, 14.5, EC[1] - 11.3, -12.6, 'emblem');  // bottom bar
-// glass canopy (a stepped disc inside the ring)
-M.cbox(torso, [0, EC[1], -13.6], [16.6, 9, 0.8], 'glass');
-M.cbox(torso, [0, EC[1], -13.6], [9, 16.6, 0.8], 'glass');
-M.cbox(torso, [0, EC[1], -13.6], [13.4, 13.4, 0.8], 'glass');
+// the upper lip and its rising corners (in front, so the upper fangs hang out from under it)
+M.box(torso, -10, 80.6, -13.7, 10, 84, -12.2, 'plate', { seed: 52 });
+for (const s of S) {
+	sbox(torso, s, 9.2, 16.2, 80.2, 83.4, -13.7, -12.2, 'plate', { rot: [0, 0, -s * 24], pivot: [s * 9.2, 81.8, -13] , seed: 53 });
+}
+// upper fangs: diamonds on the lip line (the lip hides their top halves, so they read as triangles)
+for (let i = -3; i <= 3; i++) {
+	M.cbox(torso, [i * 2.75, 80.9, -12.75], [2.6, 2.6, 0.7], 'teeth', { rot: [0, 0, 45], pivot: [i * 2.75, 80.9, -12.75] });
+}
+for (const s of S) { // the big canines at the grin's corners
+	M.cbox(torso, [s * 10.6, 81.5, -12.75], [3.0, 3.0, 0.7], 'teeth', { rot: [0, 0, 45 + s * 8], pivot: [s * 10.6, 81.5, -12.75] });
+}
+// the eyes: angry slants (outer ends up) in recessed sockets, a dark slit pupil in each
+for (const s of S) {
+	sbox(torso, s, 3.4, 16.2, 83.8, 92.6, -12.95, -11.8, 'mouth', { rot: [0, 0, -s * 14], pivot: [s * 3.6, 88, -12.4] }); // dark socket (contrast for the eye)
+	sbox(torso, s, 4.4, 15.4, 85, 91.4, -13.5, -12.85, 'eye', { rot: [0, 0, -s * 14], pivot: [s * 3.6, 88, -12.4] });
+	sbox(torso, s, 9.8, 11.8, 85.8, 90.6, -13.75, -13.4, 'mouth', { rot: [0, 0, -s * 14], pivot: [s * 3.6, 88, -12.4] });
+	// heavy brows, low at the middle, raking up and out (a frown)
+	sbox(torso, s, 1.8, 17.5, 92, 95.4, -14.6, -12, 'plate', { rot: [0, 0, -s * 21], pivot: [s * 1.8, 92.6, -13], seed: 55 });
+	sbox(torso, s, 3, 16.5, 91.8, 92.5, -14.75, -14.3, 'glow', { rot: [0, 0, -s * 21], pivot: [s * 1.8, 92.6, -13] });
+}
+M.box(torso, -20, 92, -12, 20, 100, -8, 'plate', { seed: 56 });            // upper chest (behind the brows)
+for (const s of S) {
+	sbox(torso, s, 15, 21.5, 82, 100, -12, -7.5, 'plate', { rot: [0, s * 16, 0], pivot: [s * 15, 90, -12], seed: 57 });
+	sbox(torso, s, 13, 19.5, 98.8, 99.6, -12.7, -12.1, 'glow');
+}
+// the forehead gem: the Lantern emblem round the cockpit glass, between the eyes
+const EC = [0, 88.4, -13.6];
+emblem(torso, 'front', [EC[0], EC[1], -14.4], 3.3, 1.0, 0, 1.0);
+M.cbox(torso, [0, EC[1], -13.4], [4.6, 2.6, 0.6], 'glass');
+M.cbox(torso, [0, EC[1], -13.4], [2.6, 4.6, 0.6], 'glass');
+M.cbox(torso, [0, EC[1], -13.4], [3.8, 3.8, 0.6], 'glass');
 for (const c of torso.cubes) if (c.mat === 'glass') c.glassRim = false;
+M.box(torso, -1.2, 92.2, -14.9, 1.2, 97.2, -13.6, 'emblem');                // the gem's upper bar (rises to the shades)
+M.box(torso, -2.2, 82.6, -14.3, 2.2, 83.8, -13.6, 'emblem');                // and its lower bar (the nose bridge)
+
+// ---- the jaw (hinged: it drops for the Chest Lantern Beam)
+const jaw = M.bone('jaw', 'torso', [0, 73, -9]);
+M.box(jaw, -10.5, 68.6, -13.7, 10.5, 72.6, -11.8, 'plate', { seed: 58 });  // chin
+for (const s of S) {
+	sbox(jaw, s, 9.6, 15, 68.9, 72.6, -13.7, -11.8, 'plate', { rot: [0, 0, -s * 22], pivot: [s * 9.6, 72.4, -12.8], seed: 59 });
+}
+for (let i = -2; i <= 2; i++) { // lower fangs pointing up
+	M.cbox(jaw, [i * 3.2 + (i === 0 ? 0 : Math.sign(i) * 0.3), 72.4, -12.6], [2.5, 2.5, 0.7], 'teeth', { rot: [0, 0, 45], pivot: [i * 3.2 + (i === 0 ? 0 : Math.sign(i) * 0.3), 72.4, -12.6] });
+}
+M.box(jaw, -6, 69.2, -13.95, 6, 69.9, -13.6, 'glow');                      // chin light
+
+// ---- the shades: a bright V-crest from the brow out and up over the shoulders
+const shades = M.bone('shades', 'torso', [0, 98, -14]);
+for (const s of S) {
+	const C0 = [s * 1.0, 97.6, -15.2], T = [s * 38, 111.5, -13.4];
+	const dir = [T[0] - C0[0], T[1] - C0[1], T[2] - C0[2]];
+	const len = Math.hypot(...dir);
+	const ws = [6.2, 5.6, 4.6, 3.4, 2.2, 1.2];
+	for (let i = 0; i < ws.length; i++) {
+		const k = i / ws.length;
+		const from = vadd(C0, vsc(vnorm(dir), len * k - (i > 0 ? 0.35 : 0)));
+		M.stick(shades, from, dir, len / ws.length + (i > 0 ? 0.35 : 0), [ws[i], 1.7], 'shades', { seed: 60 + i });
+		// the bright rim along its top edge
+		const top = vadd(from, [0, ws[i] / 2 * 0.95, 0]);
+		M.stick(shades, vadd(top, [-s * 0.3 * ws[i] / 2, 0, -0.95]), dir, len / ws.length + 0.35, [0.7, 0.5], 'emblem', { seed: 70 + i });
+	}
+}
+M.cbox(shades, [0, 97, -15.2], [5.4, 5.4, 1.9], 'shades', { rot: [0, 0, 45], pivot: [0, 97, -15.2] });   // the centre point
+M.cbox(shades, [0, 97, -16.2], [2.2, 2.2, 0.5], 'emblem', { rot: [0, 0, 45], pivot: [0, 97, -16.2] });
 
 // ---- backpack + thrusters
-const pack = M.bone('thrusters', 'torso', [0, 72, 13]);
-M.box(pack, -13, 60, 13, 13, 84, 18, 'plate', { seed: 40 });
+const pack = M.bone('thrusters', 'torso', [0, 85, 12]);
+M.box(pack, -11, 70, 12, 11, 96, 16.5, 'plate', { seed: 80 });
 for (const s of S) {
-	sbox(pack, s, 3.5, 12.5, 58, 83, 17, 24.5, 'plate', { seed: 41 });
-	sbox(pack, s, 4.5, 11.5, 57, 82, 24, 25.5, 'frame');
-	sbox(pack, s, 4.2, 11.8, 53.5, 58.5, 17.5, 24, 'plate', { seed: 42 }); // nozzle bell
-	sbox(pack, s, 5.5, 10.5, 53, 54.5, 18.5, 23, 'glow');                  // nozzle fire
-	sbox(pack, s, 7.3, 8.7, 62, 80, 24.6, 25.8, 'glow');                   // thruster light strip
-	// swept back fins
-	M.stick(pack, [s * 11, 80, 19], [s * 0.55, 0.75, 0.42], 16, [2, 7], 'plate', { seed: 43 });
-	M.stick(pack, [s * 11.2, 80.3, 19.2], [s * 0.55, 0.75, 0.42], 15.5, [0.6, 1.0], 'glow', { seed: 44 });
+	sbox(pack, s, 3, 10.5, 68, 95, 16, 22.5, 'plate', { seed: 81 });
+	sbox(pack, s, 4, 9.5, 67, 94, 22, 23.5, 'frame');
+	sbox(pack, s, 3.8, 10, 63.5, 68.5, 16.5, 22, 'plate', { seed: 82 });      // nozzle bell
+	sbox(pack, s, 5, 9, 63, 64.5, 17.5, 21, 'glow');                          // nozzle fire
+	sbox(pack, s, 6.3, 7.7, 72, 92, 23.4, 24.4, 'glow');                       // thruster light strip
+	// swept back fins, with a drill-tipped spike on top
+	M.stick(pack, [s * 10, 92, 17], [s * 0.55, 0.75, 0.42], 18, [2, 6.5], 'plate', { seed: 83 });
+	M.stick(pack, [s * 10.2, 92.3, 17.2], [s * 0.55, 0.75, 0.42], 17.5, [0.6, 1.0], 'glow', { seed: 84 });
 }
 
-// ---- head
-const head = M.bone('head', 'torso', [0, 87, -2]);
-M.box(head, -4, 85, -5, 4, 89.5, 2, 'frame');                              // neck
-M.box(head, -6, 88.5, -9, 6, 97, 3, 'plate', { seed: 50 });
-M.box(head, -4.5, 86.5, -10, 4.5, 90.5, -6, 'plate', { seed: 51 });       // chin guard
-M.box(head, -6.8, 93.5, -10.4, 6.8, 95.5, -7, 'plate', { seed: 52 });     // brow
-M.box(head, -5.6, 90.8, -9.7, 5.6, 93.4, -8.9, 'visor');                  // visor slit
-M.box(head, -1.1, 96, -7.5, 1.1, 100.5, 3.5, 'plate', { seed: 53 });      // crest
-M.cbox(head, [0, 94.6, -10.7], [2.6, 2.6, 1.0], 'glow');                  // brow gem
+// ---- head: small, helmeted, a drill for a horn
+const head = M.bone('head', 'torso', [0, 102, -1]);
+M.box(head, -3, 100, -3.5, 3, 105, 2.5, 'frame');                          // neck
+M.box(head, -4.6, 104, -5.5, 4.6, 112, 3.5, 'plate', { seed: 90 });        // helmet
+M.box(head, -3.6, 104.3, -6.4, 3.6, 107.8, -5.2, 'plate', { seed: 91 });   // face mask
+M.box(head, -3.3, 108, -6.35, 3.3, 109.2, -5.6, 'visor');                  // visor slit
+M.box(head, -5, 109.4, -6.9, 5, 111.6, -5.2, 'plate', { seed: 92 });       // brow
+M.cbox(head, [0, 110.5, -7.1], [1.8, 1.8, 0.6], 'glow');                   // brow gem
+M.box(head, -3, 111.5, -4.5, 3, 113, 2.5, 'plate', { seed: 93 });          // crown
 for (const s of S) {
-	sbox(head, s, 6, 7.4, 89, 95, -7, 1.5, 'plate', { seed: 54 });          // cheek vents
-	sbox(head, s, 7.2, 7.6, 90, 94, -5.5, 0, 'glow');
-	M.stick(head, [s * 0.9, 94.6, -10.6], [s * 0.95, 1.0, -0.12], 10, [1.3, 0.8], 'emblem', { seed: 55 }); // V-fin
+	sbox(head, s, 4.4, 5.6, 105, 110.5, -4, 2, 'plate', { seed: 94 });       // cheek vents
+	sbox(head, s, 5.5, 5.8, 106, 109.5, -3, 1, 'glow');
+	spike(head, [s * 5.2, 109.5, -1.5], [s * 1, 0.85, 0.4], 6.5, 2.6, 1.2, 3, 'plate', 95); // ear fins
+	sbox(head, s, 1.6, 4.4, 103.6, 106, -6.8, -5, 'plate', { rot: [0, -s * 14, 0], pivot: [s * 1.6, 105, -6.8], seed: 96 }); // jaw plates
 }
-// v0.17.1 polish: angled jaw plates and two swept-back antennae
-for (const s of S) {
-	sbox(head, s, 2.6, 6.6, 87, 90.6, -10.2, -5.5, 'plate', { rot: [0, -s * 14, 0], pivot: [s * 2.6, 89, -10], seed: 56 });
-	M.stick(head, [s * 6.6, 94, 0], [s * 0.2, 1, 0.45], 7.5, [0.9, 0.9], 'plate', { seed: 57 });
-	M.stick(head, [s * 6.75, 94.2, 0.1], [s * 0.2, 1, 0.45], 7.0, [0.4, 0.4], 'glow', { seed: 58 });
-}
-// the head rides 3.5 px higher on a longer neck (it sank between the pauldrons), a touch bigger
-for (const c of head.cubes) {
-	const k = 1.12, cy = 92, cz = -3;
-	for (const P of [c.from, c.to]) { P[0] *= k; P[1] = cy + (P[1] - cy) * k + 3.5; P[2] = cz + (P[2] - cz) * k; }
-	if (c.pivot) { c.pivot[0] *= k; c.pivot[1] = cy + (c.pivot[1] - cy) * k + 3.5; c.pivot[2] = cz + (c.pivot[2] - cz) * k; }
-}
-M.box(head, -3.6, 85, -4.5, 3.6, 91, 1.5, 'frame');                        // the longer neck
+drill(head, [0, 112.6, -2.2], [0, 1, 0.22], 8.5, 2.1, 5, 97);              // the drill horn
 
-// ---- shoulders, pods, arms
+// ---- shoulders: broad spiky pauldrons, the missile pods behind their spikes
 for (const s of S) {
 	const n = nm(s);
-	const sh = M.bone(`shoulder_${n}`, 'torso', [s * 24, 82, 1]);
-	sbox(sh, s, 20, 36, 74, 89, -10, 11, 'plate', { seed: 60 });
-	sbox(sh, s, 21, 38.5, 88.5, 92.5, -11.5, 12.5, 'plate', { seed: 61 });     // top layer
-	sbox(sh, s, 34.5, 39.5, 71.5, 87, -9, 10, 'plate', { rot: [0, 0, -s * 10], pivot: [s * 36, 87, 0], seed: 62 }); // outer flare
-	sbox(sh, s, 21, 37, 76, 89, -12.5, -10, 'plate', { seed: 63 });            // front armour
-	// v0.17.1 polish: the Lantern emblem on each pauldron's front (was a plain light strip)
-	emblem(sh, 'front', [s * 29, 82.5, -13.3], 3.0, 1.1, 5.4, 0.85);
-	sbox(sh, s, 37.5, 39.2, 89, 92, -11, 12, 'glow');                          // top-layer rim light
-	const pod = M.bone(`pod_${n}`, `shoulder_${n}`, [s * 29, 92.5, 6]);
-	sbox(pod, s, 23, 35, 92.5, 98.5, -7, 9, 'plate', { seed: 64 });
+	const sh = M.bone(`shoulder_${n}`, 'torso', [s * 23, 92, 1]);
+	sbox(sh, s, 18, 32, 85, 98, -9, 10, 'plate', { seed: 100 });
+	sbox(sh, s, 19, 33.5, 97.5, 100.5, -10, 11, 'plate', { seed: 101 });        // top layer
+	sbox(sh, s, 31, 34.8, 82, 97.5, -8, 9, 'plate', { rot: [0, 0, -s * 12], pivot: [s * 32, 97.5, 0], seed: 102 }); // outer flare
+	sbox(sh, s, 19, 32, 86, 97, -11, -9, 'plate', { seed: 103 });               // front armour
+	sbox(sh, s, 34.4, 35.2, 84, 95, 0, 1.2, 'glow', { rot: [0, 0, -s * 12], pivot: [s * 32, 97.5, 0] });
+	emblem(sh, 'front', [s * 25.5, 91.5, -11.8], 2.6, 1.0, 4.2, 0.8);
+	// the spikes: a big one raking up and out, one straight out, a small one down the back
+	spike(sh, [s * 30, 99.5, -1], [s * 0.6, 1, 0.08], 17, 6, 5, 5, 'plate', 104);
+	spike(sh, [s * 33.5, 92.5, -0.5], [s * 1, 0.35, 0.05], 12, 5, 4, 4, 'plate', 110);
+	spike(sh, [s * 30, 86.5, 6], [s * 0.6, -0.4, 0.9], 8, 3.4, 3, 3, 'plate', 115);
+	const pod = M.bone(`pod_${n}`, `shoulder_${n}`, [s * 23.5, 100.5, 6]);
+	sbox(pod, s, 19.5, 27.5, 100.5, 105, -2, 8, 'plate', { seed: 120 });
 	for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
-		M.cbox(pod, [s * (25.4 + i * 3.6), 94.1 + j * 2.8, -7.35], [2.6, 2.0, 0.8], 'glow');
+		M.cbox(pod, [s * (21.1 + i * 2.4), 101.8 + j * 2.1, -2.3], [1.8, 1.5, 0.6], 'glow');
 	}
 
-	const arm = M.bone(`arm_${n}`, 'torso', [s * 28, 79, 1]);
-	M.cbox(arm, [s * 28, 79, 1], [9, 9, 9], 'frame');
-	sbox(arm, s, 25, 31, 60, 76, -2.5, 4.5, 'frame');
-	sbox(arm, s, 23.5, 32.5, 62.5, 74, -4.5, 6.5, 'plate', { seed: 70 });
-	sbox(arm, s, 23.1, 32.9, 66.4, 67.8, -4.9, 6.9, 'glow');
-	sbox(arm, s, 32.5, 33.2, 68.5, 73.5, -3, 5, 'vent'); // v0.17.1 polish: a cooling vent on the upper arm
-	const fa = M.bone(`forearm_${n}`, `arm_${n}`, [s * 28, 61, 1]);
-	M.cbox(fa, [s * 28, 61, 1], [8, 7, 8], 'frame');
-	sbox(fa, s, 23, 33, 56, 64.5, 5.5, 9.5, 'plate', { seed: 71 });             // elbow guard
-	sbox(fa, s, 21.5, 34.5, 41, 59.5, -7, 8.5, 'plate', { seed: 72 });          // forearm
-	sbox(fa, s, 20.5, 35.5, 40.5, 47.5, -8, 9.5, 'plate', { seed: 73 });        // wrist flare
-	sbox(fa, s, 34.3, 37.5, 44, 58, -5, 6, 'plate', { seed: 74 });              // outer blade
-	sbox(fa, s, 37.3, 37.8, 46, 56, 0.2, 1.4, 'glow');
-	sbox(fa, s, 24, 32, 50.5, 51.8, -7.6, -6.9, 'glow');
-	sbox(fa, s, 24, 32, 53.5, 54.8, -7.6, -6.9, 'glow');
-	const fist = M.bone(`fist_${n}`, `forearm_${n}`, [s * 28, 40.5, 1]);
-	M.cbox(fist, [s * 28, 40.5, 1], [9, 3, 9], 'frame');
-	sbox(fist, s, 22, 34, 29, 40, -6, 8, 'plate', { seed: 80 });                // palm block
-	sbox(fist, s, 21.5, 34.5, 30.5, 39, -9, -6, 'plate', { seed: 81 });         // finger plate
-	for (let i = 0; i < 4; i++) M.cbox(fist, [s * (23.6 + i * 3.0), 37.3, -9.6], [2.6, 3.0, 1.6], 'emblem');
-	sbox(fist, s, 20.2, 23, 31.5, 37, -7.5, -1, 'plate', { seed: 82 });         // thumb
+	// ---- arms: slimmer, longer
+	const arm = M.bone(`arm_${n}`, 'torso', [s * 26.5, 88, 1]);
+	M.cbox(arm, [s * 26.5, 88, 1], [8, 8, 8], 'frame');
+	sbox(arm, s, 24, 29, 71, 85, -1.5, 3.5, 'frame');
+	sbox(arm, s, 23, 30, 73, 84, -3, 5, 'plate', { seed: 130 });
+	sbox(arm, s, 22.6, 30.4, 77.4, 78.6, -3.4, 5.4, 'glow');
+	sbox(arm, s, 30, 30.6, 79.5, 83, -1.5, 3.5, 'vent');
+	const fa = M.bone(`forearm_${n}`, `arm_${n}`, [s * 26.5, 71, 1]);
+	M.cbox(fa, [s * 26.5, 71, 1], [7, 6, 7], 'frame');
+	drill(fa, [s * 26.5, 71, 4.8], [0, 0.25, 1], 6.5, 2.4, 4, 131);           // elbow drill, pointing back
+	sbox(fa, s, 22, 31, 55, 69, -5, 6, 'plate', { seed: 136 });               // forearm
+	sbox(fa, s, 21.3, 31.7, 52, 57.5, -6, 7, 'plate', { seed: 137 });         // wrist flare
+	sbox(fa, s, 30.8, 33, 55, 68, -3.5, 4.5, 'plate', { seed: 138 });         // outer guard
+	sbox(fa, s, 32.8, 33.3, 57, 66, 0, 1.2, 'glow');
+	// spiky forearm guard: two big blades raking up, out and back along the outer side
+	for (let i = 0; i < 2; i++) {
+		spike(fa, [s * 32.4, 56.5 + i * 6.5, 0.5], [s * 0.8, 1, 0.5], 10 - i * 2, 4, 2.4, 4, 'plate', 139 + i * 4);
+	}
+	sbox(fa, s, 23.5, 29.5, 60.5, 61.6, -5.6, -4.9, 'glow');
+	sbox(fa, s, 23.5, 29.5, 63.5, 64.6, -5.6, -4.9, 'glow');
+	const fist = M.bone(`fist_${n}`, `forearm_${n}`, [s * 26.5, 51.5, 1]);
+	M.cbox(fist, [s * 26.5, 51.5, 1], [8, 3, 8], 'frame');
+	sbox(fist, s, 21.5, 31.5, 41, 51.5, -5, 7, 'plate', { seed: 150 });        // palm block
+	sbox(fist, s, 21, 32, 42, 50, -8, -5, 'plate', { seed: 151 });             // finger plate
+	for (let i = 0; i < 4; i++) M.cbox(fist, [s * (22.9 + i * 2.75), 48.4, -8.5], [2.3, 2.8, 1.4], 'emblem');
+	sbox(fist, s, 19.8, 22.3, 43, 48.5, -6.5, -0.5, 'plate', { seed: 152 });   // thumb
 }
 
 M.ground();
@@ -242,10 +332,15 @@ M.ground();
 // ================================================================ paint
 const C = {
 	plate: [28, 178, 76], plateHi: [90, 230, 130], plateLo: [12, 110, 50],
-	edge: [214, 255, 226], bevel: [86, 236, 136], seam: [10, 92, 44],
-	groove: [8, 70, 36], seamGlow: [60, 200, 110], // v0.17.1 polish
-	frame: [9, 54, 28], frameEdge: [52, 160, 92],
-	glow: [226, 255, 234], visor: [240, 255, 246], glass: [150, 255, 196], emblem: [205, 255, 220],
+	// v0.17.1 Gurren rework (user: "maybe remove all the white outlines for the green lantern mech"): no near-white anywhere
+	// once built -- the edge lines are a bright saturated green (not the old pale 214/255/226), and every "white-hot" detail
+	// (lights, emblem, visor, fangs, eyes, shades, drill grooves) is a pure bright green, so it reads as green hard light
+	// without a white wireframe
+	edge: [64, 232, 116], edgeGlow: [26, 150, 66], bevel: [70, 218, 116], seam: [10, 92, 44],
+	groove: [8, 70, 36], seamGlow: [52, 188, 100], // v0.17.1 polish
+	frame: [9, 54, 28], frameEdge: [44, 148, 82],
+	glow: [76, 246, 126], glowGlow: [30, 150, 70], hot: [100, 255, 146], hotGlow: [36, 168, 80],
+	visor: [120, 255, 164], glass: [120, 240, 170], emblem: [62, 222, 112],
 };
 // translucency (the in-game texture is drawn translucent + emissive): plates let the inner frame and the pilot show through
 const A_PLATE = 150, A_BEVEL = 214, A_EDGE = 255, A_FRAME = 236, A_GLASS = 64;
@@ -258,45 +353,77 @@ function shade(c, f, s, t, p, info) {
 			const n = fbm(p[0] * 0.5, p[1] * 0.5, p[2] * 0.5, 2);
 			return [mul(C.frame, 0.85 + 0.3 * n), A_FRAME, null];
 		}
-		case 'glow': return [C.glow, 255, [110, 240, 150], 255];
+		case 'glow': return [C.glow, 255, C.glowGlow, 255];
 		case 'visor': {
 			const k = 0.75 + 0.25 * Math.sin(u * 2.2);
-			return [mix(C.visor, [170, 255, 200], 1 - k), 255, [190, 255, 210], 255];
+			return [mix(C.visor, C.glow, 1 - k), 255, C.hotGlow, 255];
 		}
 		case 'emblem': {
-			if (e < 0.4) return [[250, 255, 250], 255, [200, 255, 215], 255];
-			return [C.emblem, 255, [70, 200, 110], 255];
+			if (e < 0.4) return [C.hot, 255, C.hotGlow, 255];
+			return [C.emblem, 255, [24, 130, 60], 255];
 		}
 		case 'glass': {
 			if (f !== 'north') return [C.glass, 40, null];
-			if (e < 0.3 && c.glassRim) return [C.edge, 255, [140, 255, 180], 255];
+			if (e < 0.3 && c.glassRim) return [C.edge, 255, C.edgeGlow, 255];
 			const scan = (Math.floor(v * 2) % 3 === 0) ? 1.15 : 1;
-			return [mul(C.glass, scan), A_GLASS, [40, 120, 70], A_GLASS];
+			return [mul(C.glass, scan), A_GLASS, [30, 110, 60], A_GLASS];
 		}
 		case 'vent': { // v0.17.1 polish: slatted cooling vents, light glowing between the slats
-			if (e < 0.35) return [C.edge, 255, [90, 230, 130], 255];
+			if (e < 0.35) return [C.edge, 255, C.edgeGlow, 255];
 			const slat = Math.floor(v * 2) % 3 !== 0;
-			return slat ? [C.frame, 245, null] : [[170, 255, 200], 255, [80, 230, 130], 255];
+			return slat ? [C.frame, 245, null] : [C.glow, 255, [60, 210, 110], 255];
+		}
+		// ---- v0.17.1 Gurren rework materials
+		case 'mouth': { // the mouth / pupils / eye sockets: near-black hard light with a faint glowing inner rim
+			if (e < 0.3) return [[50, 184, 98], 255, [24, 124, 60], 255];
+			return [[4, 26, 14], 250, null];
+		}
+		case 'teeth': { // fangs: the brightest green on the body
+			if (e < 0.3) return [C.hot, 255, C.hotGlow, 255];
+			return [[92, 250, 140], 255, [34, 160, 76], 255];
+		}
+		case 'eye': { // the chest face's eyes: blazing, a hotter streak along the middle
+			const mid = Math.abs(t - 0.5) < 0.18;
+			if (e < 0.3) return [C.glow, 255, C.glowGlow, 255];
+			return mid ? [C.hot, 255, C.hotGlow, 255] : [[80, 244, 132], 255, [30, 150, 70], 255];
+		}
+		case 'shades': { // the V-crest: a glassy bright lens with a diagonal sheen and a bright green rim
+			if (e < 0.35) return [C.hot, 255, C.hotGlow, 255];
+			if (f !== 'north' && f !== 'south') return [[90, 240, 140], 230, [44, 180, 92], 255];
+			const sheen = Math.abs(((u * 0.7 + v) % 7) - 3.5) < 0.6;
+			const g = clamp(t, 0, 1);
+			const col = sheen ? C.hot : mix([112, 255, 160], [50, 206, 110], g);
+			return [col, sheen ? 255 : 215, sheen ? C.hotGlow : mix([76, 230, 124], [30, 150, 72], g), 255];
+		}
+		case 'drill': { // spiral grooves: a two-start helix running round and along the whole cone
+			if (e < 0.3) return [C.edge, 255, C.edgeGlow, 255];
+			const cx = (c.from[0] + c.to[0]) / 2, cz = (c.from[2] + c.to[2]) / 2;
+			const h = (p[1] - c.from[1]) + (c.drill ? c.drill.off : 0);
+			const ang = Math.atan2(p[2] - cz, p[0] - cx) / (Math.PI * 2);
+			const ph = ((ang * 2 + h / 3.2) % 1 + 1) % 1;
+			if (ph < 0.3) return [C.glow, 255, C.glowGlow, 255];
+			if (ph < 0.4) return [C.groove, 240, null];
+			return [mix(C.plate, C.plateHi, ph), A_BEVEL, null];
 		}
 		default: { // plate
-			if (e < 0.42) return [C.edge, A_EDGE, [90, 230, 130], 255];
+			if (e < 0.42) return [C.edge, A_EDGE, C.edgeGlow, 255];
 			if (e < 0.95) return [C.bevel, A_BEVEL, null];
 			const big = info.fw > 6.5 && info.fh > 6.5;
 			// v0.17.1 polish: an inset groove round the bigger panels (glowing faintly, like light in the joins) ...
-			if (big && e >= 1.45 && e < 1.95) return [C.groove, 236, [26, 120, 62], 255];
+			if (big && e >= 1.45 && e < 1.95) return [C.groove, 236, [22, 108, 56], 255];
 			// ... and bright rivets just inside its corners
 			if (info.fw > 10 && info.fh > 10) {
 				const du = Math.min(u, info.fw - u), dv = Math.min(v, info.fh - v);
-				if (Math.abs(du - 3.0) < 0.55 && Math.abs(dv - 3.0) < 0.55) return [C.edge, 255, [120, 245, 160], 255];
+				if (Math.abs(du - 3.0) < 0.55 && Math.abs(dv - 3.0) < 0.55) return [C.glow, 255, C.edgeGlow, 255];
 			}
 			// panel seams every ~8 px on the bigger faces: hard-light joins that glow
 			const off = (c.seed * 3.7) % 8;
 			const inner = !big || e >= 1.95;
 			const seamU = inner && info.fw > 9 && Math.abs(((u + off) % 8) - 4) > 3.72 && u > 2.5 && u < info.fw - 2.5;
 			const seamV = inner && info.fh > 9 && Math.abs(((v + off * 0.6) % 8) - 4) > 3.72 && v > 2.5 && v < info.fh - 2.5;
-			if (seamU || seamV) return [C.seamGlow, 236, [40, 170, 90], 255];
+			if (seamU || seamV) return [C.seamGlow, 236, [34, 150, 80], 255];
 			// a vertical gradient (lit from above), faint scanlines and a willpower shimmer
-			const g = clamp((p[1] - 0) / 104, 0, 1);
+			const g = clamp((p[1] - 0) / 118, 0, 1);
 			let col = mix(C.plateLo, C.plate, 0.55 + 0.45 * g);
 			const n = fbm(p[0] * 0.18 + c.seed, p[1] * 0.18, p[2] * 0.18, 3);
 			col = mix(col, C.plateHi, Math.max(0, n - 0.55) * 1.4);

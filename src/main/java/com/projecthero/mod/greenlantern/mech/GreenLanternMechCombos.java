@@ -329,7 +329,7 @@ public final class GreenLanternMechCombos {
 
 	/** The cannon's muzzle (world): out past the left fist, along the aim. */
 	public static Vec3 cannonMuzzle(HardLightMechEntity m, Vec3 dir) {
-		return m.local(1.75, 4.2, 0.9).add(dir.scale(3.4));
+		return m.local(1.66, 4.7, 0.9).add(dir.scale(3.4));
 	}
 
 	private static void cannonFire(HardLightMechEntity m) {
@@ -443,7 +443,7 @@ public final class GreenLanternMechCombos {
 		m.setDrillDir(GreenLanternMech.aimDir(p));
 		m.setDrillState(HardLightMechEntity.DRILL_SPIN);
 		ServerLevel level = (ServerLevel) m.level();
-		Vec3 arm = m.local(-1.75, 3.6, 1.2);
+		Vec3 arm = m.local(-1.66, 4.05, 1.2);
 		level.sendParticles(ParticleTypes.FLASH, arm.x, arm.y, arm.z, 1, 0, 0, 0, 0);
 		level.sendParticles(BIG, arm.x, arm.y, arm.z, 24, 0.5, 0.6, 0.5, 0.1);
 		GreenLanternMech.sound(level, arm, SoundEvents.ARMOR_EQUIP_NETHERITE.value(), 1.4f, 0.5f);
@@ -488,7 +488,7 @@ public final class GreenLanternMechCombos {
 			m.drillEnd = Math.min(m.drillEnd, Math.max(0.0, block - 2.0));
 		}
 		m.impulse(dir.scale(GreenLanternMechConfig.DRILL_SPEED));
-		Vec3 back = m.local(0, 3.6, -1.6);
+		Vec3 back = m.local(0, 4.05, -1.6);
 		level.sendParticles(GREEN, back.x, back.y, back.z, 40, 0.6, 0.6, 0.6, 0.2);
 		level.sendParticles(ParticleTypes.FLAME, back.x, back.y - 0.6, back.z, 6, 0.2, 0.2, 0.2, 0.04);
 		GreenLanternMech.sound(level, m.position(), GreenLanternMechSounds.DRILL_CHARGE, 2.0f, 0.9f + 0.2f * k);
@@ -520,7 +520,7 @@ public final class GreenLanternMechCombos {
 
 	/** Where the spinning drill's point is, roughly (the effects come off it). */
 	static Vec3 drillTip(HardLightMechEntity m, Vec3 dir, float k) {
-		return m.local(-1.75, 4.1, 0.6).add(dir.scale(2.6 + 2.4 * k));
+		return m.local(-1.66, 4.6, 0.6).add(dir.scale(2.6 + 2.4 * k));
 	}
 
 	private static void tickSpin(HardLightMechEntity m, ServerPlayer p) {
@@ -626,7 +626,7 @@ public final class GreenLanternMechCombos {
 			level.sendParticles(ParticleTypes.ELECTRIC_SPARK, tip.x, tip.y, tip.z, 0, s.x, s.y, s.z, 1.4);
 		}
 		level.sendParticles(GREEN, tip.x, tip.y, tip.z, 3, 0.6, 0.6, 0.6, 0.05);
-		Vec3 back = m.local(0, 3.6, -1.6);
+		Vec3 back = m.local(0, 4.05, -1.6);
 		level.sendParticles(ParticleTypes.FLAME, back.x, back.y, back.z, 1, 0.15, 0.15, 0.15, 0.02);
 		if (m.drillCharge % 4 == 0) {
 			GreenLanternMech.sound(level, tip, biting ? GreenLanternMechSounds.DRILL_GRIND : GreenLanternMechSounds.DRILL_SPIN, 1.3f,
@@ -846,7 +846,7 @@ public final class GreenLanternMechCombos {
 				m.startCooldown(HardLightMechEntity.CD_KATANA, GreenLanternMechConfig.KATANA_DRAW_TICKS + GreenLanternMechConfig.KATANA_TOGGLE_COOLDOWN_TICKS);
 				m.play("katana_draw");
 				m.schedule(4, () -> {
-					Vec3 h = m.local(1.2, 2.6, 0.6);
+					Vec3 h = m.local(1.2, 2.9, 0.6);
 					level.sendParticles(BIG, h.x, h.y, h.z, 18, 0.3, 0.3, 0.3, 0.06);
 					GreenLanternMech.sound(level, h, GreenLanternMechSounds.KATANA_DRAW, 1.8f, 1.0f);
 				});
@@ -878,7 +878,7 @@ public final class GreenLanternMechCombos {
 		m.setKatanaState(HardLightMechEntity.KATANA_SHEATHING);
 		m.startCooldown(HardLightMechEntity.CD_KATANA, GreenLanternMechConfig.KATANA_SHEATH_TICKS + GreenLanternMechConfig.KATANA_TOGGLE_COOLDOWN_TICKS);
 		m.play("katana_sheath");
-		m.schedule(GreenLanternMechConfig.KATANA_SHEATH_TICKS - 3, () -> GreenLanternMech.sound(level, m.local(1.2, 2.6, 0.4),
+		m.schedule(GreenLanternMechConfig.KATANA_SHEATH_TICKS - 3, () -> GreenLanternMech.sound(level, m.local(1.2, 2.9, 0.4),
 				GreenLanternMechSounds.KATANA_SHEATH, 1.6f, 1.0f));
 		m.schedule(GreenLanternMechConfig.KATANA_SHEATH_TICKS, () -> {
 			if (m.katanaState() == HardLightMechEntity.KATANA_SHEATHING) {
@@ -987,7 +987,7 @@ public final class GreenLanternMechCombos {
 		ServerLevel level = (ServerLevel) m.level();
 		Vec3 l = p.getLookAngle();
 		Vec3 dir = new Vec3(l.x, Mth.clamp(l.y, -0.35, 0.35), l.z).normalize();
-		Vec3 from = m.local(0, 3.6, 2.2);
+		Vec3 from = m.local(0, 4.05, 2.2);
 		m.launchWave(from, dir, (float) GreenLanternMechConfig.IAIDO_RANGE);
 		m.waveActive = true;
 		m.waveTravel = 0;

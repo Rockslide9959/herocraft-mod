@@ -41,7 +41,7 @@ import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 /**
- * v0.17.1: the <b>Hard-Light Mech</b> -- Green Lantern's ultimate construct, a ~6.4-block armoured mech of hard light the
+ * v0.17.1: the <b>Hard-Light Mech</b> -- Green Lantern's ultimate construct, a ~7.5-block (v0.17.1 Gurren rework, was ~6.4) armoured mech of hard light the
  * Lantern pilots from a glass cockpit in its chest.
  *
  * <h2>Movement: the pilot's client simulates it</h2>
@@ -571,7 +571,7 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 
 	/** The middle of the chest emblem (the beam comes out of it). */
 	public Vec3 chest() {
-		return local(0, 4.58, 1.0);
+		return local(0, 4.78, 1.0); // v0.17.1 Gurren rework: the chest face's mouth
 	}
 
 	// ---------------------------------------------------------------- riding

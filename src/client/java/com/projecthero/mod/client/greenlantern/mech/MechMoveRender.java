@@ -35,8 +35,8 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class MechMoveRender {
 	/** Fist / forearm bone space (GeckoLib: x mirrored): the middle of the right fist, the left wrist. */
-	private static final float FIST_X = 28f / 16f, FIST_Y = 34.5f / 16f, FIST_Z = 1f / 16f;
-	private static final float WRIST_Y = 41.5f / 16f;
+	private static final float FIST_X = 26.5f / 16f, FIST_Y = 46.25f / 16f, FIST_Z = 1f / 16f; // v0.17.1 Gurren rework: the slimmer, longer arm
+	private static final float WRIST_Y = 52.5f / 16f;
 	/** How many pieces each weapon has (the build's piece count, refreshed every frame it builds). */
 	private static int macePieces = 40, chainPieces = 60, cannonPieces = 50;
 
@@ -155,7 +155,7 @@ public final class MechMoveRender {
 			if (kk <= 0f || kk >= 1f) {
 				continue;
 			}
-			MechWeaponDraw.ring(vc, ps, 0.8f + r * kk, 0.25f + 0.35f * (1f - kk), i == 0 ? 0xF4FFF6 : HardLightDraw.tint(HardLightDraw.GREEN),
+			MechWeaponDraw.ring(vc, ps, 0.8f + r * kk, 0.25f + 0.35f * (1f - kk), i == 0 ? HardLightDraw.tint(HardLightDraw.HOT) : HardLightDraw.tint(HardLightDraw.GREEN),
 					0.95f * (1f - kk));
 		}
 		// pillars of light shooting up round the crater
@@ -171,13 +171,13 @@ public final class MechMoveRender {
 			up.pushPose();
 			up.mulPose(Axis.YP.rotationDegrees(ang));
 			up.translate(0f, h / 2f, rr);
-			TurboDraw.box(vc, up.last(), 0.12f, h / 2f, 0.12f, 0xF0FFF4, 0.75f * (1f - k));
+			TurboDraw.box(vc, up.last(), 0.12f, h / 2f, 0.12f, HardLightDraw.tint(HardLightDraw.HOT), 0.75f * (1f - k));
 			TurboDraw.box(vc, up.last(), 0.28f, h / 2f + 0.1f, 0.28f, HardLightDraw.tint(HardLightDraw.GREEN), 0.28f * (1f - k));
 			up.popPose();
 		}
 		if (k < 0.4f) {
 			float f = 1f - k / 0.4f;
-			TurboDraw.sphere(vc, up, 0.8f + 2.4f * (1f - f), 0xF4FFF6, 0.55f * f);
+			TurboDraw.sphere(vc, up, 0.8f + 2.4f * (1f - f), HardLightDraw.tint(HardLightDraw.HOT), 0.55f * f);
 			TurboDraw.sphere(vc, up, 1.6f + 3.6f * (1f - f), HardLightDraw.tint(HardLightDraw.GREEN), 0.2f * f);
 		}
 	}
@@ -313,7 +313,7 @@ public final class MechMoveRender {
 				ps.translate(0f, y, 0f);
 				ps.mulPose(Axis.XP.rotationDegrees(90f));
 				ps.mulPose(Axis.ZP.rotationDegrees(age * (8f + 40f * charge) + i * 40f));
-				MechWeaponDraw.ring(vc, ps, 0.72f + 0.12f * charge, 0.06f + 0.06f * charge, i == 1 ? 0xF4FFF6 : HardLightDraw.tint(HardLightDraw.GREEN),
+				MechWeaponDraw.ring(vc, ps, 0.72f + 0.12f * charge, 0.06f + 0.06f * charge, i == 1 ? HardLightDraw.tint(HardLightDraw.HOT) : HardLightDraw.tint(HardLightDraw.GREEN),
 						(0.4f + 0.6f * charge) * a);
 				ps.popPose();
 			}
@@ -355,7 +355,7 @@ public final class MechMoveRender {
 			HardLightDraw.streak(vc, ps, len * travel, w * 1.8f, -age, 0.3f * (1f - k));
 			if (since < 4f) { // the muzzle flash
 				float f = 1f - since / 4f;
-				TurboDraw.sphere(vc, ps, 0.7f + 0.9f * (1f - f), 0xF4FFF6, 0.7f * f);
+				TurboDraw.sphere(vc, ps, 0.7f + 0.9f * (1f - f), HardLightDraw.tint(HardLightDraw.HOT), 0.7f * f);
 				MechWeaponDraw.ring(vc, ps, 0.8f + 2.2f * (1f - f), 0.3f, HardLightDraw.tint(HardLightDraw.GREEN), 0.8f * f);
 			}
 		}
@@ -364,10 +364,10 @@ public final class MechMoveRender {
 			PoseStack ps = new PoseStack();
 			ps.translate(end.x, end.y, end.z);
 			float r = (float) GreenLanternMechConfig.CANNON_BLAST_RADIUS;
-			TurboDraw.sphere(vc, ps, 0.6f + r * 0.5f * b, 0xF4FFF6, 0.75f * (1f - b));
+			TurboDraw.sphere(vc, ps, 0.6f + r * 0.5f * b, HardLightDraw.tint(HardLightDraw.HOT), 0.75f * (1f - b));
 			TurboDraw.sphere(vc, ps, 1.0f + r * b, HardLightDraw.tint(HardLightDraw.GREEN), 0.32f * (1f - b));
 			ps.mulPose(Axis.XP.rotationDegrees(90f));
-			MechWeaponDraw.ring(vc, ps, 1.2f + r * 1.3f * b, 0.4f, 0xF4FFF6, 0.85f * (1f - b));
+			MechWeaponDraw.ring(vc, ps, 1.2f + r * 1.3f * b, 0.4f, HardLightDraw.tint(HardLightDraw.HOT), 0.85f * (1f - b));
 		}
 	}
 }

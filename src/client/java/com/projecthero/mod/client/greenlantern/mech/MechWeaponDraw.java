@@ -138,7 +138,7 @@ public final class MechWeaponDraw {
 	private static final int GREEN = HardLightDraw.GREEN;
 	private static final int DEEP = 0x1A9C4A;
 	private static final int PALE = 0xC8FFD8;
-	private static final int WHITE = 0xF4FFF6;
+	private static final int WHITE = 0xC4FFD6; // v0.17.1 Gurren rework: a green-white (was 0xF4FFF6) -- no white lines on the mech
 
 	/** One cross-section of the blade at u: six points (spine peak, spine shoulders, shinogi ridges, edge). */
 	private static float[][] section(float u, float scale) {
@@ -255,7 +255,7 @@ public final class MechWeaponDraw {
 				pose.pushPose();
 				pose.mulPose(Axis.ZP.rotationDegrees(i * 45f + age * 20f));
 				pose.translate(0f, 0.34f, 0f);
-				TurboDraw.box(vc, pose.last(), 0.15f, 0.03f, 0.03f, 0xF0FFF4, 0.85f);
+				TurboDraw.box(vc, pose.last(), 0.15f, 0.03f, 0.03f, WHITE, 0.85f);
 				pose.popPose();
 			}
 			TurboDraw.box(vc, pose.last(), 0.28f, 0.28f, 0.05f, HardLightDraw.tint(GREEN), 0.35f);
@@ -297,7 +297,7 @@ public final class MechWeaponDraw {
 	private static void hamon(VertexConsumer vc, PoseStack.Pose P, float[][] a, float[][] b, float u0, float u1, float sh0, float sh1) {
 		float h0 = hamonAt(u0), h1 = hamonAt(u1);
 		float d = 0.035f;
-		int c0 = argb(mix(WHITE, 0xFFFFFF, sh0), 0.92f), c1 = argb(mix(WHITE, 0xFFFFFF, sh1), 0.92f);
+		int c0 = argb(mix(WHITE, HardLightDraw.MECH_HOT, sh0), 0.92f), c1 = argb(mix(WHITE, HardLightDraw.MECH_HOT, sh1), 0.92f);
 		for (int side = 0; side < 2; side++) {
 			int r = side == 0 ? 2 : 4; // ridge point index on this flat
 			float sign = side == 0 ? -1f : 1f;
@@ -378,14 +378,14 @@ public final class MechWeaponDraw {
 				pose.pushPose();
 				pose.mulPose(Axis.ZP.rotationDegrees(i * 30f));
 				pose.translate(0f, r, 0f);
-				cube(vc, pose.last(), r * 0.27f, t, 0.012f, argb(0xF4FFF6, glow));
+				cube(vc, pose.last(), r * 0.27f, t, 0.012f, argb(WHITE, glow));
 				pose.popPose();
 			}
 			// the two bars, above and below the ring, the width of the tsuba's flat
 			for (float y : new float[] { -0.37f, 0.37f }) {
 				pose.pushPose();
 				pose.translate(0f, y, 0f);
-				cube(vc, pose.last(), 0.3f, t * 1.9f, 0.016f, argb(0xF4FFF6, glow));
+				cube(vc, pose.last(), 0.3f, t * 1.9f, 0.016f, argb(WHITE, glow));
 				cube(vc, pose.last(), 0.34f, t * 2.6f, 0.016f, argb(HardLightDraw.tint(GREEN), 0.4f * glow));
 				pose.popPose();
 			}
@@ -496,7 +496,7 @@ public final class MechWeaponDraw {
 			// a faint outer glow and the bright point
 			pose.pushPose();
 			pose.translate(0f, -len, 0f);
-			TurboDraw.box(vc, pose.last(), 0.06f + r * 0.05f, 0.06f + r * 0.05f, 0.06f + r * 0.05f, 0xFFFFFF, 0.95f * alpha);
+			TurboDraw.box(vc, pose.last(), 0.06f + r * 0.05f, 0.06f + r * 0.05f, 0.06f + r * 0.05f, WHITE, 0.95f * alpha);
 			pose.popPose();
 			// the base: a ring of an armoured collar with glowing teeth (it turns with the drill)
 			int collar = argb(HardLightDraw.tint(GREEN), 0.75f * alpha), collarHi = argb(HardLightDraw.tint(PALE), 0.95f * alpha);
@@ -511,7 +511,7 @@ public final class MechWeaponDraw {
 				pose.pushPose();
 				pose.mulPose(Axis.YP.rotation(spin * 0.33f + t * (float) Math.PI / 4f));
 				pose.translate(cr, ch * 0.3f, 0f);
-				TurboDraw.box(vc, pose.last(), 0.05f, ch * 0.6f, 0.07f, 0xF0FFF4, 0.9f * alpha);
+				TurboDraw.box(vc, pose.last(), 0.05f, ch * 0.6f, 0.07f, WHITE, 0.9f * alpha);
 				pose.popPose();
 			}
 		} finally {
@@ -535,7 +535,7 @@ public final class MechWeaponDraw {
 			for (int layer = 0; layer < 3; layer++) {
 				float grow = 1f + layer * 0.22f;
 				float la = layer == 0 ? 1f : layer == 1 ? 0.4f : 0.16f;
-				int front = argb(layer == 0 ? 0xFFFFFF : HardLightDraw.tint(PALE), 0.95f * alpha * la);
+				int front = argb(layer == 0 ? WHITE : HardLightDraw.tint(PALE), 0.95f * alpha * la);
 				int back = argb(HardLightDraw.tint(GREEN), 0.04f * alpha * la);
 				int midc = argb(HardLightDraw.tint(layer == 0 ? PALE : GREEN), 0.62f * alpha * la);
 				float[][] o = new float[n + 1][], up = new float[n + 1][], dn = new float[n + 1][], in = new float[n + 1][];

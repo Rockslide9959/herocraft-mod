@@ -130,7 +130,7 @@ public final class GreenLanternMechClient {
 		// thruster flames while it is rising (the jump) -- drawn by every client
 		if (m.isActive() && dy > 0.2) {
 			for (int s = -1; s <= 1; s += 2) {
-				Vec3 n = m.local(s * 0.5, 3.35, -1.35);
+				Vec3 n = m.local(s * 0.42, 3.95, -1.25); // v0.17.1 Gurren rework: the raised backpack nozzles
 				mc.level.addParticle(ParticleTypes.FLAME, n.x, n.y, n.z, 0, -0.25, 0);
 				mc.level.addParticle(GREEN, n.x, n.y - 0.2, n.z, 0, -0.1, 0);
 			}
