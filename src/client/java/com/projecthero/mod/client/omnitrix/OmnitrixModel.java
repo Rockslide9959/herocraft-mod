@@ -109,6 +109,12 @@ public final class OmnitrixModel {
 		// with the green dots must also pop up"): the bezel, its lights and the core rise together by {@code lift}; the circuit
 		// riser it stands on ({@link #riser}) is drawn by the wrist
 		float bezelR = 2.0f, bezelTop = xo + 0.4f + lift;
+		// v0.17.1 (user: "this dial with the 4 dots needs to rotate when the player switches aliens"): the bezel and its four
+		// lights turn with the dial spin, not just the core
+		pose.pushPose();
+		pose.translate(0f, cy * S, 0f);
+		pose.mulPose(Axis.XP.rotationDegrees(twist));
+		pose.translate(0f, -cy * S, 0f);
 		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, BLACK, light, 28);
 		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
 		// out on the rim just past the core's edge
@@ -118,6 +124,7 @@ public final class OmnitrixModel {
 			float ly = cy + (float) Math.cos(a) * lr, lz = (float) Math.sin(a) * lr;
 			box(pose, vc, bezelTop - 0.06f, ly - ls, lz - ls, bezelTop + 0.1f, ly + ls, lz + ls, GREEN, lit);
 		}
+		pose.popPose();
 		// ---- the core: pops up out of the bezel, twists a notch per dial turn
 		float top = coreTop(L, lift);
 		pose.pushPose();

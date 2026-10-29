@@ -46,7 +46,7 @@ public final class OmnitrixWatch {
 	/** How far the whole dial (bezel, lights, core) rises on its circuit riser, px. */
 	public static final float LIFT = 1.3f;
 	/** First person: the selection screen's roll so the icon stands upright for the eye on the slanted wrist (degrees). */
-	static final float FP_ROLL = -30f;
+	static final float FP_ROLL = 0f; // v0.17.1 (user: "dont make it diagonal to the omnitrix"): the icon stays square with the watch
 
 	/** The activation's beats (ticks from V). */
 	public static final float RAISE_TICKS = 6f, HOLD_TICKS = 6f, POP_TICKS = 4f, MORPH_TICKS = 7f, ICON_TICKS = 3f;
