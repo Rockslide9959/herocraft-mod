@@ -17,9 +17,9 @@ import net.minecraft.server.level.ServerPlayer;
  * v0.17.1: the six ability keys for an Omnitrix wearer ({@code AbilityRouter} hands them over when {@link #hasContext}).
  *
  * <pre>
- *   V (5)        human: raise the watch (the core pops up, the face shows the selected alien) / lower it again;
- *                during the recharge the face flashes red with the time left instead.
- *                alien: revert early (10 s recharge). Shift+V is the same key.
+ *   R (1)        human: raise the watch (the core pops up, the face shows the selected alien) / lower it again;
+ *                during the recharge the face flashes red with the time left instead (v0.17.1 user: R, was V).
+ *   V (5)        alien: revert early (10 s recharge). Shift+V is the same key. Human: nothing.
  *   (watch up)   scroll wheel = turn the dial, left / right click = slap the core down and transform (client side, sent as
  *                OmnitrixActionPayload CYCLE / SLAP)
  *   R G X Z C    alien: the kit's moves (tap / Shift / declared holds). Human: nothing.
@@ -86,9 +86,13 @@ public final class OmnitrixAbilityManager {
 			}
 			Key k = new Key(p.isShiftKeyDown(), now);
 			mine.put(i, k);
-			if (slot == AbilitySlot.SLOT_5) {
+			// v0.17.1 (user: "make the R button activate the omnitrix instead of V"): R raises / lowers the watch as a human; V
+			// only turns an alien back (as an alien R is the kit's move again)
+			if (slot == AbilitySlot.SLOT_5 || (slot == AbilitySlot.SLOT_1 && !s.transformed())) {
 				k.done = true;
-				pressV(p);
+				if (slot == AbilitySlot.SLOT_1 || s.transformed()) {
+					pressV(p);
+				}
 				return;
 			}
 			AlienKit kit = Aliens.kit(s.active);

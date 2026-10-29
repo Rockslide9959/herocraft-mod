@@ -97,7 +97,7 @@ public final class OmnitrixInfo {
 	public static void controls(List<Component> out, Function<AbilitySlot, Component> keys) {
 		Component v = keys.apply(AbilitySlot.SLOT_5);
 		out.add(head("controls"));
-		out.add(keyCell(v).append(Component.translatable(I + "key.raise").withStyle(ChatFormatting.WHITE)));
+		out.add(keyCell(keys.apply(AbilitySlot.SLOT_1)).append(Component.translatable(I + "key.raise").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.scroll_label")).append(Component.translatable(I + "key.scroll").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.click_label")).append(Component.translatable(I + "key.slap").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(v).append(Component.translatable(I + "key.revert", OmnitrixConfig.EARLY_RECHARGE_TICKS / 20).withStyle(ChatFormatting.WHITE)));

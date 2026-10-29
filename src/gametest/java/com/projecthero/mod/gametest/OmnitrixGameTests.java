@@ -351,12 +351,12 @@ public class OmnitrixGameTests implements FabricGameTest {
 	public void vRaisesTheWatchScrollTurnsItAndTheSlapTransforms(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
 		pump(helper, p);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
-		helper.assertTrue(Omnitrix.selecting(p), "V raises the watch");
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
-		helper.assertFalse(Omnitrix.selecting(p) || Omnitrix.transformed(p), "V again lowers it (no transformation, no cost)");
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.assertTrue(Omnitrix.selecting(p), "R raises the watch (v0.17.1: was V)");
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.assertFalse(Omnitrix.selecting(p) || Omnitrix.transformed(p), "R again lowers it (no transformation, no cost)");
 		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "lowering costs nothing");
 		Omnitrix.activate(p);
 		String first = Omnitrix.state(p).selected;
@@ -399,9 +399,9 @@ public class OmnitrixGameTests implements FabricGameTest {
 	private static void afterTheEarlyRevert(GameTestHelper helper, ServerPlayer p) {
 		helper.assertFalse(Omnitrix.transformed(p), "V as an alien reverts");
 		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
-		helper.assertFalse(Omnitrix.selecting(p), "V during the recharge does not raise the watch");
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
+		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
+		helper.assertFalse(Omnitrix.selecting(p), "R during the recharge does not raise the watch");
 		helper.assertTrue(Omnitrix.state(p).animId == Omnitrix.ANIM_DENIED, "the face flashes red instead");
 		helper.assertFalse(Omnitrix.transform(p), "no transformation while recharging");
 		// the 3-minute timeout: jump to its last tick

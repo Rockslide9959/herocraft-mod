@@ -255,7 +255,9 @@ public final class OmnitrixHud {
 						Component.translatable("hud.projecthero.omnitrix.alt.selected", OmnitrixInfo.iconName(sel)), null));
 			}
 			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
-			rows.add(MoveListOverlay.Row.of(v, Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
+			// v0.17.1 (user): R raises / lowers the watch (V only turns an alien back)
+			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_1),
+					Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
 					null, recharge > 0 ? Component.translatable("hud.projecthero.omnitrix.alt.recharging", (recharge + 19) / 20) : null));
 			return rows;
 		}
