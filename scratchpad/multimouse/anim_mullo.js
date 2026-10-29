@@ -18,7 +18,7 @@ const r3 = (v) => Math.round(v * 1000) / 1000;
 function keys(len, step, fx, fy, fz) {
 	const out = {};
 	for (let t = 0; t <= len + 1e-6; t += step) {
-		const k = String(r3(t));
+		const k = Number.isInteger(r3(t)) ? r3(t) + ".0" : String(r3(t));
 		out[k] = [r3(fx(t)), r3(fy(t)), r3(fz(t))];
 	}
 	return out;

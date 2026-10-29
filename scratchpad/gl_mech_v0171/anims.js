@@ -10,7 +10,7 @@ const TAU = Math.PI * 2;
 const r3 = v => Math.round(v * 1000) / 1000;
 const ease = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
 const easeOut = t => { t = Math.max(0, Math.min(1, t)); return 1 - (1 - t) * (1 - t); };
-const tkey = t => String(Math.round(t * 1000) / 1000);
+const tkey = t => { const s = String(Math.round(t * 1000) / 1000); return s.includes(".") ? s : s + ".0"; }; // "1.0", not "1": JS lists integer keys first and GeckoLib reads them in order
 const lerp = (a, b, k) => a + (b - a) * k;
 const lerp3 = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
 // piecewise pose keys: [[t, value], ...] -> value at time (smooth between keys)
