@@ -47,8 +47,10 @@ public abstract class OmnitrixItemInHandMixin {
 		// v0.17.1: while the right hand works the raised watch (drawn by renderRaised), the usual right-side arm / item drops
 		// out of view, and comes back up after the hand has gone
 		HumanoidArm side = hand == InteractionHand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
-		if (!projecthero$pushed && side == HumanoidArm.RIGHT) {
-			float hide = OmnitrixFirstPerson.rightSideHide(player, partial);
+		if (!projecthero$pushed) {
+			// v0.17.1: the shake-off uses both hands -- whatever is held drops out of view on either side meanwhile
+			float hide = side == HumanoidArm.RIGHT ? OmnitrixFirstPerson.rightSideHide(player, partial)
+					: com.projecthero.mod.client.omnitrix.OmnitrixLatchClient.handHide(player, partial);
 			if (hide > 0.001f) {
 				pose.pushPose();
 				pose.translate(0f, -1.1f * hide, 0f);
@@ -63,6 +65,10 @@ public abstract class OmnitrixItemInHandMixin {
 		if (projecthero$pushed) {
 			pose.popPose();
 			projecthero$pushed = false;
+		}
+		// v0.17.1: the Omnitrix leaping onto the wrist and the shake-off (both arms; whatever the hands hold)
+		if (hand == InteractionHand.OFF_HAND) {
+			com.projecthero.mod.client.omnitrix.OmnitrixLatchClient.renderFirstPerson(pose, buffers, light, player, partial);
 		}
 		if (hand != InteractionHand.OFF_HAND || !stack.isEmpty() || player.isInvisible()) {
 			return;

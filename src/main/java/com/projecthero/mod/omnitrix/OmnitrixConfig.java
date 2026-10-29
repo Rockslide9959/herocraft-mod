@@ -84,8 +84,27 @@ public final class OmnitrixConfig {
 	public static final int SCANNER_RADIUS = 50;
 	/** ...and refuses while an Omnitrix pod or meteor is within this many blocks. */
 	public static final int SCANNER_BLOCK_RADIUS = 160;
-	/** The fallen pod opens this long after landing (then the first player to touch it gets the watch). */
+	/** v0.17.1: the fallen pod smokes (too hot to glow) this long after landing; it still opens only when right-clicked. */
 	public static final int POD_OPEN_DELAY = 60;
+	/** v0.17.1 (user: "only open when the player right-clicks it"): the lid's hinge swing, ticks after the right-click. */
+	public static final int POD_LID_TICKS = 30;
+	/** v0.17.1: once the lid is up, a player within this many blocks of the pod's centre makes the watch jump at them. */
+	public static final double POD_LATCH_RANGE = 3.0;
+	/** v0.17.1: the watch's leap from the pod onto the wrist (its cuff springs open first), ticks. */
+	public static final int POD_JUMP_TICKS = 12;
+	/** v0.17.1: the shake-off after the watch latches on (grab, yank, shake, give up), ticks; movement is slowed meanwhile. */
+	public static final int LATCH_TICKS = 50;
+	/** v0.17.1: how much of the wearer's speed the shake-off takes away (-0.85 = 15% left, no jumping). */
+	public static final double LATCH_SLOW = -0.85;
+	/** v0.17.1 (user: "a much larger crater"): the crater's bowl radius and depth at its centre, blocks. */
+	public static final int CRATER_RADIUS = 9;
+	public static final int CRATER_DEPTH = 5;
+	/** v0.17.1: columns of the crater carved per tick (centre out), so the blast never lands as one big spike. */
+	public static final int CRATER_COLUMNS_PER_TICK = 48;
+	/** v0.17.1 (user: "falls from much higher up"): the meteor starts this far above (and 0.45x this far beside) its impact. */
+	public static final int METEOR_FALL_HEIGHT = 220;
+	/** ...and takes this long to come down. */
+	public static final int METEOR_FALL_TICKS = 110;
 
 	private OmnitrixConfig() {
 	}

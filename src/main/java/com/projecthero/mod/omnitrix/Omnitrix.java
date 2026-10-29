@@ -54,6 +54,15 @@ public final class Omnitrix {
 	public static final int ANIM_TURN = 1004;
 	/** V during the recharge: the face flashes red with the time left. */
 	public static final int ANIM_DENIED = 1005;
+	/**
+	 * v0.17.1 (user: "the player then does an animation trying to shake the Omnitrix off"): the watch has just leapt out of its
+	 * pod onto the wrist ({@link #latch}) -- the wearer grabs it, yanks at it, shakes the arm, gives up. Runs
+	 * {@link OmnitrixConfig#LATCH_TICKS}; meanwhile they are slowed, cannot jump and cannot raise the watch.
+	 */
+	public static final int ANIM_LATCH = 1006;
+	/** v0.17.1: the shake-off's slow (transient modifiers, so a save or relog mid-way never keeps them). */
+	private static final net.minecraft.resources.ResourceLocation LATCH_SLOW_ID = com.projecthero.mod.ProjectHeroMod.id("omnitrix_latch_slow");
+	private static final net.minecraft.resources.ResourceLocation LATCH_JUMP_ID = com.projecthero.mod.ProjectHeroMod.id("omnitrix_latch_jump");
 	/** Ticks between the slap and the transformation (the core going down). */
 	public static final int SLAP_TICKS = 5;
 	private static final String SLAP_TIMER = "omnitrix.slap";
@@ -284,6 +293,52 @@ public final class Omnitrix {
 		return true;
 	}
 
+	/**
+	 * v0.17.1 (user: "the Omnitrix jumps out in a smooth arc onto the player's wrist ... play the Omnitrix activation sound ...
+	 * grant the power at that moment"): the pod's watch lands on {@code p}'s wrist -- {@link #grant}, then the user's activation
+	 * sound and the shake-off ({@link #ANIM_LATCH}, the movement slowed for {@link OmnitrixConfig#LATCH_TICKS}). False if the
+	 * grant was refused.
+	 */
+	public static boolean latch(ServerPlayer p) {
+		if (!grant(p)) {
+			return false;
+		}
+		OmnitrixState n = state(p).copy();
+		n.animId = ANIM_LATCH;
+		n.animStart = p.level().getGameTime();
+		save(p, n);
+		latchLock(p, true);
+		OmnitrixSounds.playOn(p, OmnitrixSounds.LATCH);
+		return true;
+	}
+
+	/** v0.17.1: the shake-off is playing on {@code p} (client-safe: the synced state and the game time). */
+	public static boolean latching(Player p) {
+		OmnitrixState s = state(p);
+		long t = p.level().getGameTime() - s.animStart;
+		return s.hasPower && s.animId == ANIM_LATCH && t >= 0 && t < OmnitrixConfig.LATCH_TICKS;
+	}
+
+	private static void latchLock(ServerPlayer p, boolean on) {
+		var speed = net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED;
+		var jump = net.minecraft.world.entity.ai.attributes.Attributes.JUMP_STRENGTH;
+		if (on) {
+			var op = net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL;
+			com.projecthero.mod.hero.power.PowerToggles.modifier(p, speed, LATCH_SLOW_ID, OmnitrixConfig.LATCH_SLOW, op);
+			com.projecthero.mod.hero.power.PowerToggles.modifier(p, jump, LATCH_JUMP_ID, -1.0, op);
+			p.setSprinting(false);
+		} else {
+			com.projecthero.mod.hero.power.PowerToggles.clearModifier(p, speed, LATCH_SLOW_ID);
+			com.projecthero.mod.hero.power.PowerToggles.clearModifier(p, jump, LATCH_JUMP_ID);
+		}
+	}
+
+	/** v0.17.1: whether the shake-off's slow is on {@code p} (gametests). */
+	public static boolean latchSlowed(ServerPlayer p) {
+		var a = p.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+		return a != null && a.getModifier(LATCH_SLOW_ID) != null;
+	}
+
 	/** Tears the power down (the pod's success, an admin revoke, a forced replacement). Turns the wearer back first. */
 	public static void revoke(ServerPlayer p) {
 		if (!hasPower(p)) {
@@ -294,6 +349,7 @@ public final class Omnitrix {
 		}
 		save(p, new OmnitrixState());
 		p.removeAttached(OmnitrixAttachments.EXTRACTION);
+		latchLock(p, false);
 		forget(p.getUUID());
 	}
 
@@ -418,6 +474,10 @@ public final class Omnitrix {
 	public static boolean activate(ServerPlayer p) {
 		OmnitrixState s = state(p);
 		if (!s.hasPower || s.transformed() || s.selecting) {
+			return false;
+		}
+		// v0.17.1: not while still trying to shake it off
+		if (latching(p)) {
 			return false;
 		}
 		long now = p.level().getGameTime();
@@ -630,6 +690,10 @@ public final class Omnitrix {
 			return;
 		}
 		long now = p.level().getGameTime();
+		// v0.17.1: the shake-off is over -- the slow comes off
+		if (!latching(p) && latchSlowed(p)) {
+			latchLock(p, false);
+		}
 		if (s.selecting && s.timers.containsKey(PRESS_TIMER) && now >= s.readyAt(PRESS_TIMER)) {
 			OmnitrixState n = s.copy();
 			n.timers.remove(PRESS_TIMER);
@@ -722,6 +786,7 @@ public final class Omnitrix {
 			save(p, n);
 		}
 		p.removeAttached(OmnitrixAttachments.EXTRACTION);
+		latchLock(p, false);
 		forget(p.getUUID());
 	}
 

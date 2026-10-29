@@ -1,0 +1,505 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.client.omnitrix.OmnitrixLatchClient;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.OmnitrixConfig;
+import com.projecthero.mod.omnitrix.entity.OmnitrixMeteorEntity;
+import com.projecthero.mod.omnitrix.entity.OmnitrixPodEntity;
+import com.projecthero.mod.omnitrix.item.OmnitrixItems;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 getting the Omnitrix -- screenshots. Enabled by run/omnitrix_acquire.flag. */
+// TEMP-HARNESS
+public final class OmnitrixAcquireHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static volatile boolean ready;
+	private static int readyTicks;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static volatile Vec3 site;
+	private static volatile Vec3 impact;
+	private static ServerPlayer ben;
+	private static volatile OmnitrixMeteorEntity meteor;
+	private static volatile OmnitrixPodEntity pod;
+	private static volatile OmnitrixPodEntity pod2;
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static String only = "";
+
+	private OmnitrixAcquireHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix_acquire.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("omnitrix_acquire.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixAcquireHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(900_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "acquire-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String part) {
+		return only.isEmpty() || only.contains(part);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void clearParticles() {
+		try {
+			var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+			m.setAccessible(true);
+			m.invoke(Minecraft.getInstance().particleEngine);
+		} catch (ReflectiveOperationException e) {
+			System.out.println("[HARNESS] " + e);
+		}
+	}
+
+	private static void shot(int t, String name, boolean clear) {
+		if (clear) {
+			at(t - 1, OmnitrixAcquireHarness::clearParticles);
+		}
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_acquire_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			StringBuilder sb = new StringBuilder("[HARNESS] shot " + name);
+			if (mc.level != null) {
+				for (var pl : mc.level.players()) {
+					float c = OmnitrixLatchClient.clock(pl, 0f);
+					if (c >= 0f) {
+						sb.append(" | ").append(pl.getName().getString()).append(" latch=").append(c);
+					}
+				}
+			}
+			System.out.println(sb);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixAcquireHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(5000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOFIRETICK).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				site = flatten(level, findFlat(level, p.blockPosition()));
+				System.out.println("[HARNESS] site " + site);
+				p.teleportTo(level, site.x, site.y, site.z, 0f, 0f);
+				ready = true;
+			});
+		}
+		// the script's clock starts once the server has built the site (and had 3 s to settle its light and chunks)
+		if (ready && t0 < 0) {
+			readyTicks++;
+			if (readyTicks > 60) {
+				t0 = inWorldTicks;
+				AT.put(5, () -> script(mc));
+			}
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				Omnitrix.tick(p);
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	/** Levels a 61 x 61 meadow round {@code at} (grass over dirt over stone, the air above cleared), so the shots are on open ground. */
+	private static Vec3 flatten(ServerLevel level, Vec3 at) {
+		BlockPos c = BlockPos.containing(at);
+		int y0 = c.getY();
+		var grass = net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState();
+		var dirt = net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState();
+		var stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+		var air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+		for (int dx = -30; dx <= 30; dx++) {
+			for (int dz = -30; dz <= 30; dz++) {
+				for (int y = y0 - 10; y <= y0 + 30; y++) {
+					var s = y < y0 - 4 ? stone : y < y0 - 1 ? dirt : y == y0 - 1 ? grass : air;
+					level.setBlock(new BlockPos(c.getX() + dx, y, c.getZ() + dz), s, 2);
+				}
+			}
+		}
+		return Vec3.atBottomCenterOf(c);
+	}
+
+	/** A flat, dry patch near {@code from}: 5x5 samples 6 apart within 2 blocks of each other. */
+	private static Vec3 findFlat(ServerLevel level, BlockPos from) {
+		for (int ring = 0; ring < 10; ring++) {
+			for (int k = 0; k < Math.max(1, ring * 8); k++) {
+				double a = k * Math.PI * 2 / Math.max(1, ring * 8);
+				int x = from.getX() + (int) (Math.cos(a) * ring * 24), z = from.getZ() + (int) (Math.sin(a) * ring * 24);
+				int min = 999, max = -999;
+				boolean wet = false;
+				for (int i = -2; i <= 2; i++) {
+					for (int j = -2; j <= 2; j++) {
+						level.getChunkAt(new BlockPos(x + i * 6, 0, z + j * 6)); // generate it first (an unloaded column reads as the floor)
+						BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x + i * 6, 0, z + j * 6));
+						min = Math.min(min, top.getY());
+						max = Math.max(max, top.getY());
+						wet |= !level.getFluidState(top.below()).isEmpty() || top.getY() < 64;
+					}
+				}
+				if (max - min <= 3 && !wet) {
+					BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, new BlockPos(x, 0, z));
+					return Vec3.atBottomCenterOf(top);
+				}
+			}
+		}
+		BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, from);
+		return Vec3.atBottomCenterOf(top);
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OA_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(7171717L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.NORMAL).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static void face(ServerPlayer f, Vec3 target) {
+		Vec3 eye = f.getEyePosition();
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), yaw, pit);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static Vec3 front(OmnitrixPodEntity e, double d) {
+		double yaw = Math.toRadians(e.getYRot());
+		return e.position().add(-Math.sin(yaw) * d, 0, Math.cos(yaw) * d);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		if (want("scanner")) {
+			// ---------------------------------------------------------------- the scanner in hand, and its icon
+			at(t, () -> server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				p.getInventory().clearContent();
+				p.getInventory().selected = 0;
+				p.getInventory().setItem(0, new ItemStack(OmnitrixItems.METEOR_SCANNER));
+				p.getInventory().setItem(1, new ItemStack(net.minecraft.world.item.Items.COMPASS));
+				p.getInventory().setItem(2, new ItemStack(OmnitrixItems.OMNITRIX));
+				p.teleportTo(p.serverLevel(), site.x, site.y, site.z, 30f, 25f);
+			}));
+			at(t + 20, () -> gui(mc, true));
+			shot(t + 30, "scanner_fp", true);
+			at(t + 32, () -> {
+				gui(mc, true);
+				mc.options.guiScale().set(4);
+				mc.resizeDisplay();
+			});
+			shot(t + 40, "scanner_gui", true);
+			at(t + 42, () -> server(mc, p -> p.teleportTo(p.serverLevel(), site.x, site.y, site.z, 30f, 60f)));
+			shot(t + 48, "scanner_fp_down", true);
+			at(t + 50, () -> {
+				gui(mc, false);
+				mc.options.guiScale().set(0);
+				mc.resizeDisplay();
+				mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT);
+			});
+			shot(t + 58, "scanner_3p", true);
+			at(t + 60, () -> mc.options.setCameraType(CameraType.FIRST_PERSON));
+			t += 70;
+		}
+		// ---------------------------------------------------------------- the meteor coming down, the impact, the crater
+		final int launchT = t;
+		at(t, () -> server(mc, p -> {
+			p.getInventory().clearContent();
+			p.setGameMode(GameType.SPECTATOR);
+			ServerLevel level = p.serverLevel();
+			BlockPos top = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(site.x, 0, site.z));
+			impact = Vec3.atBottomCenterOf(top);
+			camera(p, impact.add(-26, 4, -20), impact.add(0, 40, 0));
+		}));
+		at(t + 2, () -> server(mc, p -> {
+			meteor = OmnitrixMeteorEntity.launch(p.serverLevel(), impact);
+			System.out.println("[HARNESS] meteor at " + meteor.position() + " v=" + meteor.getDeltaMovement());
+			// look up at where it will be ~40% of the way down
+			Vec3 mid = meteor.position().add(meteor.getDeltaMovement().scale(OmnitrixConfig.METEOR_FALL_TICKS * 0.5));
+			camera(p, impact.add(-26, 4, -20), mid);
+		}));
+		shot(t + 2 + OmnitrixConfig.METEOR_FALL_TICKS / 2, "meteor_fall", false);
+		at(t + 3 + OmnitrixConfig.METEOR_FALL_TICKS / 2, () -> server(mc, p -> {
+			Vec3 late = meteor.position().add(meteor.getDeltaMovement().scale(OmnitrixConfig.METEOR_FALL_TICKS * 0.32));
+			camera(p, impact.add(-24, 3, -18), late.lerp(impact, 0.3));
+		}));
+		shot(t + 2 + (int) (OmnitrixConfig.METEOR_FALL_TICKS * 0.82), "meteor_fall_near", false);
+		at(t + 3 + (int) (OmnitrixConfig.METEOR_FALL_TICKS * 0.82), () -> server(mc, p -> camera(p, impact.add(-26, 6, -20), impact.add(0, 2, 0))));
+		shot(t + 4 + OmnitrixConfig.METEOR_FALL_TICKS, "meteor_impact", false);
+		shot(t + 9 + OmnitrixConfig.METEOR_FALL_TICKS, "meteor_impact_b", false);
+		t += OmnitrixConfig.METEOR_FALL_TICKS + 60;
+		at(t, () -> server(mc, p -> {
+			var pods = p.serverLevel().getEntitiesOfClass(OmnitrixPodEntity.class, new AABB(impact, impact).inflate(6, 12, 6));
+			pod = pods.isEmpty() ? null : pods.get(0);
+			System.out.println("[HARNESS] pod " + (pod == null ? "MISSING" : pod.position() + " yaw " + pod.getYRot()));
+			camera(p, impact.add(-13, 9, -13), impact.add(0, -3, 0));
+		}));
+		shot(t + 6, "crater", true);
+		at(t + 8, () -> server(mc, p -> camera(p, impact.add(15, 4, 3), impact.add(0, -2, 0))));
+		shot(t + 13, "crater_side", true);
+		at(t + 15, () -> server(mc, p -> camera(p, impact.add(0, 22, -2), impact.add(0, -4, 0))));
+		shot(t + 20, "crater_top", true);
+		t += 24;
+		// ---------------------------------------------------------------- the capsule, shut, opening, open
+		at(t, () -> server(mc, p -> {
+			Vec3 c = pod.position().add(0, 0.4, 0);
+			camera(p, front(pod, 1.9).add(0.7, 0.75, 0), c);
+		}));
+		shot(t + 6, "pod_closed_hot", true);
+		t += 120;
+		at(t, () -> server(mc, p -> {
+			Vec3 c = pod.position().add(0, 0.4, 0);
+			camera(p, front(pod, 1.9).add(0.7, 0.75, 0), c);
+		}));
+		shot(t + 4, "pod_closed", true);
+		at(t + 6, () -> server(mc, p -> {
+			Vec3 c = pod.position().add(0, 0.4, 0);
+			Vec3 side = front(pod, 0).subtract(front(pod, 1)).normalize();
+			camera(p, c.add(new Vec3(side.z, 0, -side.x).scale(1.8)).add(0, 0.45, 0).add(front(pod, 0.6).subtract(pod.position())), c);
+		}));
+		shot(t + 10, "pod_closed_side", true);
+		at(t + 12, () -> server(mc, p -> {
+			pod.openLid(p);
+			Vec3 c = pod.position().add(0, 0.4, 0);
+			camera(p, front(pod, 2.0).add(0.6, 0.9, 0), c);
+		}));
+		shot(t + 22, "pod_opening", true);
+		shot(t + 50, "pod_open", true);
+		at(t + 52, () -> server(mc, p -> {
+			Vec3 c = pod.position().add(0, 0.3, 0);
+			camera(p, front(pod, 1.15).add(0, 1.1, 0), c);
+		}));
+		shot(t + 57, "pod_open_inside", true);
+		t += 62;
+		// ---------------------------------------------------------------- third person: Ben walks up, the watch leaps, the shake-off
+		final int benT = t;
+		at(t, () -> server(mc, p -> {
+			Vec3 f = front(pod, 4.6);
+			ben = fake(p, "Ben", f, 0f);
+			face(ben, pod.position().add(0, 0.3, 0));
+			Vec3 side = front(pod, 0).subtract(front(pod, 1)).normalize();
+			Vec3 mid = front(pod, 1.4);
+			camera(p, mid.add(new Vec3(side.z, 0, -side.x).scale(4.0)).add(0, 2.3, 0), mid.add(0, 0.9, 0));
+		}));
+		at(t + 10, () -> server(mc, p -> {
+			Vec3 f = front(pod, 2.4);
+			ben.teleportTo(p.serverLevel(), f.x, f.y, f.z, ben.getYRot(), ben.getXRot());
+			face(ben, pod.position().add(0, 0.3, 0));
+		}));
+		// the leap begins ~1 tick after he steps in
+		int j0 = benT + 11;
+		shot(j0 + 4, "jump_start", true);
+		shot(j0 + 7, "jump_mid", true);
+		shot(j0 + 10, "jump_late", true);
+		shot(j0 + 13, "jump_land", true);
+		shot(j0 + 20, "shake_grab", true);
+		shot(j0 + 30, "shake_yank", true);
+		shot(j0 + 39, "shake_shake", true);
+		shot(j0 + 41, "shake_shake_b", true);
+		shot(j0 + 55, "shake_giveup", true);
+		// a front view of the same sequence: send the watch round again
+		at(j0 + 70, () -> server(mc, p -> {
+			Omnitrix.revoke(ben);
+			pod2 = OmnitrixPodEntity.place(p.serverLevel(), site.add(19, 0, 0));
+			pod2.openLid(p);
+		}));
+		at(j0 + 110, () -> server(mc, p -> {
+			Vec3 f = front(pod2, 2.5);
+			ben.teleportTo(p.serverLevel(), f.x, f.y, f.z, 0f, 0f);
+			face(ben, pod2.position().add(0, 0.3, 0));
+			Vec3 toPod = pod2.position().subtract(f).normalize();
+			// in front of Ben, a little to his left (the watch arm)
+			Vec3 left = new Vec3(toPod.z, 0, -toPod.x);
+			camera(p, f.add(toPod.scale(2.1)).add(left.scale(1.5)).add(0, 1.55, 0), f.add(0, 1.15, 0));
+		}));
+		int j1 = j0 + 111;
+		shot(j1 + 8, "f_jump_mid", true);
+		shot(j1 + 14, "f_land", true);
+		shot(j1 + 20, "f_grab", true);
+		shot(j1 + 30, "f_yank", true);
+		shot(j1 + 40, "f_shake", true);
+		shot(j1 + 54, "f_giveup", true);
+		t = j1 + 70;
+		// ---------------------------------------------------------------- first person: you walk up to a third capsule
+		final int fpT = t;
+		at(t, () -> gui(mc, true));
+		at(t, () -> server(mc, p -> {
+			Omnitrix.revoke(ben);
+			ben.discard();
+			p.server.getPlayerList().remove(ben);
+			ben = null;
+			p.setGameMode(GameType.CREATIVE);
+			p.getAbilities().flying = false;
+			p.onUpdateAbilities();
+			OmnitrixPodEntity third = OmnitrixPodEntity.place(p.serverLevel(), site.add(-19, 0, 0));
+			third.openLid(p);
+			pod2 = third;
+			Vec3 f = front(third, 4.5);
+			p.teleportTo(p.serverLevel(), f.x, f.y, f.z, 0f, 0f);
+		}));
+		at(t + 3, () -> server(mc, p -> {
+			Vec3 f = front(pod2, 4.5);
+			camera(p, f.add(0, p.getEyeHeight(), 0), pod2.position().add(0, 0.2, 0));
+		}));
+		shot(t + 38, "fp_open_pod", true);
+		at(t + 40, () -> server(mc, p -> {
+			Vec3 f = front(pod2, 2.6);
+			camera(p, f.add(0, p.getEyeHeight(), 0), pod2.position().add(0, 0.4, 0));
+		}));
+		int j2 = fpT + 41;
+		shot(j2 + 4, "fp_jump_start", true);
+		shot(j2 + 7, "fp_jump_mid", true);
+		shot(j2 + 10, "fp_jump_late", true);
+		shot(j2 + 13, "fp_land", true);
+		shot(j2 + 20, "fp_grab", true);
+		shot(j2 + 30, "fp_yank", true);
+		shot(j2 + 39, "fp_shake", true);
+		shot(j2 + 41, "fp_shake_b", true);
+		shot(j2 + 55, "fp_giveup", true);
+		shot(j2 + 75, "fp_after", true);
+		t = j2 + 85;
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

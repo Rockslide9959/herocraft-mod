@@ -59,11 +59,16 @@ public final class OmnitrixPose {
 	}
 
 	public static void apply(AbstractClientPlayer p, HumanoidModel<?> m) {
-		if (OmnitrixFirstPerson.inHandRender || !Omnitrix.hasPower(p)) {
+		if (OmnitrixFirstPerson.inHandRender) {
+			return;
+		}
+		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
+		// v0.17.1: the watch leaping at them (before they have it) and the shake-off after it latches on
+		OmnitrixLatchClient.pose(p, m, partial);
+		if (!Omnitrix.hasPower(p)) {
 			return;
 		}
 		OmnitrixState s = Omnitrix.state(p);
-		float partial = Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
 		float t = p.level().getGameTime() + partial - s.animStart;
 		// the transformation burst: arms flung wide
 		if ((s.animId == Omnitrix.ANIM_TRANSFORM || s.animId == Omnitrix.ANIM_TIMEOUT || s.animId == Omnitrix.ANIM_REVERT) && t < 16) {

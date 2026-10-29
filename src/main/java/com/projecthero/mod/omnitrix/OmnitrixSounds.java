@@ -151,6 +151,21 @@ public final class OmnitrixSounds {
 	public static final Cue POD_BEACON = OmnitrixSfx.cue("omnitrix_pod_beacon")
 			.layer(BLIP, 0.18f, 1.25f)
 			.jitter(0.0f).gap(20);
+	/** v0.17.1: the watch's cuff springing open in the pod as it leaps: a sharp latch click and a short whoosh. */
+	public static final Cue POD_JUMP = OmnitrixSfx.cue("omnitrix_pod_jump")
+			.layer(SoundEvents.IRON_TRAPDOOR_OPEN, 0.3f, 1.6f)
+			.layer(SoundEvents.PLAYER_ATTACK_SWEEP, 0.25f, 1.5f, 1)
+			.layer(WHIRR, 0.2f, 1.3f, 2)
+			.jitter(0.02f);
+	/**
+	 * v0.17.1 (user: "play the Omnitrix activation sound"): the watch clamping onto the wrist -- the user's activation recording
+	 * ({@link #USER_CORE_READY}, "make this sound play when activating the omnitrix") over the clack of the cuff closing.
+	 */
+	public static final Cue LATCH = OmnitrixSfx.cue("omnitrix_latch")
+			.layer(USER_CORE_READY, 0.7f, 1.0f)
+			.layer(SoundEvents.IRON_TRAPDOOR_CLOSE, 0.35f, 0.8f)
+			.layer(SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.3f, 0.7f)
+			.jitter(0.0f);
 	/** The meteor scanner locking on: two soft blips and a click. */
 	public static final Cue SCANNER = OmnitrixSfx.cue("omnitrix_scanner")
 			.layer(SoundEvents.LEVER_CLICK, 0.15f, 1.7f)

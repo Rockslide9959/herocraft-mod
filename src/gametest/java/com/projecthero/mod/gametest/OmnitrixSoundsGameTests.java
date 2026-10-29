@@ -71,7 +71,7 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				OmnitrixSounds.TRANSFORM, OmnitrixSounds.TRANSFORM_USER, OmnitrixSounds.POWER_DOWN_USER, OmnitrixSounds.REVERT, OmnitrixSounds.TIMEOUT, OmnitrixSounds.FLICKER, OmnitrixSounds.GRANT,
 				OmnitrixSounds.WARNING, OmnitrixSounds.DENIED, OmnitrixSounds.RECHARGED, OmnitrixSounds.EXTRACT_PULSE,
 				OmnitrixSounds.SELF_DESTRUCT, OmnitrixSounds.EXTRACT_DONE, OmnitrixSounds.POD_OPEN, OmnitrixSounds.POD_BEACON,
-				OmnitrixSounds.SCANNER, OmnitrixSounds.METEOR,
+				OmnitrixSounds.SCANNER, OmnitrixSounds.METEOR, OmnitrixSounds.POD_JUMP, OmnitrixSounds.LATCH,
 				OmnitrixSounds.HEATBLAST_BLAST, OmnitrixSounds.HEATBLAST_STREAM, OmnitrixSounds.HEATBLAST_NOVA, OmnitrixSounds.HEATBLAST_JET,
 				OmnitrixSounds.HEATBLAST_JET_LOOP, OmnitrixSounds.HEATBLAST_SHIELD, OmnitrixSounds.HEATBLAST_IGNITE,
 				OmnitrixSounds.FOUR_ARMS_PUNCH, OmnitrixSounds.FOUR_ARMS_CLAP, OmnitrixSounds.FOUR_ARMS_SLAM, OmnitrixSounds.FOUR_ARMS_THROW,
