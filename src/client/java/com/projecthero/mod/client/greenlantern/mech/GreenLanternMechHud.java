@@ -38,6 +38,8 @@ public final class GreenLanternMechHud {
 			HardLightMechEntity.CD_MISSILES };
 	// glyph ids past the six moves
 	private static final int G_SLASH = 6, G_SPIN = 7, G_IAIDO = 8, G_DRILL = 9, G_KATANA = 10, G_ROCKET = 11;
+	/** v0.17.1 round 2: the Meteor Mace, Wrecking Whirl and Lantern Cannon glyphs. */
+	private static final int G_MACE = 12, G_WHIRL = 13, G_CANNON = 14;
 
 	private static final int GREEN = 0xFF35F075;
 	private static final int PALE = 0xFFCFF8D4;
@@ -126,6 +128,18 @@ public final class GreenLanternMechHud {
 					glyph = G_KATANA;
 					cdSlot = HardLightMechEntity.CD_KATANA;
 					active = m.katanaOut();
+				} else if (here == MechComboKeys.Combo.METEOR_MACE) {
+					glyph = G_MACE;
+					cdSlot = HardLightMechEntity.CD_MACE;
+					active = m.move() == HardLightMechEntity.MOVE_MACE;
+				} else if (here == MechComboKeys.Combo.WRECKING_WHIRL) {
+					glyph = G_WHIRL;
+					cdSlot = HardLightMechEntity.CD_WHIRL;
+					active = m.move() == HardLightMechEntity.MOVE_WHIRL;
+				} else if (here == MechComboKeys.Combo.LANTERN_CANNON) {
+					glyph = G_CANNON;
+					cdSlot = HardLightMechEntity.CD_CANNON;
+					active = m.move() == HardLightMechEntity.MOVE_CANNON;
 				} else {
 					dim = true; // nothing on the Shift layer here (it does the plain move)
 				}
@@ -226,6 +240,9 @@ public final class GreenLanternMechHud {
 			g.fill(x, y + 1, x + 5, y + 2, col);
 			g.fill(x + 1, y + 2, x + 4, y + 3, col);
 			g.fill(x + 2, y + 3, x + 3, y + 5, col);
+		} else if (c != MechComboKeys.Combo.KATANA) { // v0.17.1 round 2: a dot of light for the one-shot combos
+			g.fill(x + 1, y + 1, x + 4, y + 4, col);
+			g.fill(x + 2, y + 2, x + 3, y + 3, 0xFF35F075);
 		} else {
 			for (int k = 0; k < 5; k++) {
 				g.fill(x + k, y + 4 - k, x + k + 1, y + 5 - k, col);
@@ -307,6 +324,28 @@ public final class GreenLanternMechHud {
 				g.fill(x + 1, y + 7, x + 5, y + 8, hi); // tsuba
 				g.fill(x + 2, y + 6, x + 4, y + 10, hi);
 				g.fill(x, y + 10, x + 2, y + 12, c); // tsuka
+			}
+			case G_MACE -> { // a haft and a spiked head
+				g.fill(x + 1, y + 10, x + 7, y + 11, c);
+				for (int k = 0; k < 5; k++) {
+					g.fill(x + 1 + k, y + 10 - k, x + 2 + k, y + 11 - k, c);
+				}
+				g.fill(x + 6, y + 1, x + 11, y + 6, c);
+				g.fill(x + 8, y, x + 9, y + 7, hi);
+				g.fill(x + 5, y + 3, x + 12, y + 4, hi);
+			}
+			case G_WHIRL -> { // a ball on a chain, swung round
+				g.renderOutline(x, y, 12, 12, (c & 0x00FFFFFF) | 0x80000000);
+				for (int k = 0; k < 4; k++) {
+					g.fill(x + 5 + k, y + 6 - k / 2, x + 6 + k, y + 7 - k / 2, c);
+				}
+				g.fill(x + 8, y + 1, x + 12, y + 5, hi);
+				g.fill(x + 5, y + 5, x + 7, y + 7, c);
+			}
+			case G_CANNON -> { // a barrel and a shell flying out
+				g.fill(x, y + 4, x + 8, y + 8, c);
+				g.fill(x + 7, y + 3, x + 9, y + 9, hi);
+				g.fill(x + 10, y + 5, x + 12, y + 7, hi);
 			}
 			default -> { // rocket fist: a fist with a flame tail
 				g.fill(x + 5, y + 3, x + 12, y + 9, c);

@@ -34,6 +34,28 @@ function sbox(b, s, xa, xb, y0, y1, z0, z1, mat, opts) {
 	return M.box(b, x0, y0, z0, x1, y1, z1, mat, opts);
 }
 
+// v0.17.1 polish: a small Lantern emblem (octagonal ring + two bars) on a face. 'front' faces -Z at z (depth into +Z),
+// 'side' faces outward along s*X at x. R = ring radius, t = ring thickness, bw = bar half-width.
+function emblem(b, kind, c, R, t, bw, depth, s) {
+	const hw = R * 0.57;
+	if (kind === 'front') {
+		const z = c[2];
+		for (let i = 0; i < 8; i++) {
+			M.box(b, c[0] - hw, c[1] + R - t, z, c[0] + hw, c[1] + R, z + depth, 'emblem', { rot: [0, 0, i * 45], pivot: c.slice() });
+		}
+		M.box(b, c[0] - bw, c[1] + R + 0.15 * R, z, c[0] + bw, c[1] + R + 0.15 * R + t, z + depth, 'emblem');
+		M.box(b, c[0] - bw, c[1] - R - 0.15 * R - t, z, c[0] + bw, c[1] - R - 0.15 * R, z + depth, 'emblem');
+	} else {
+		const x = c[0];
+		const [xa, xb] = s > 0 ? [x - depth, x] : [x, x + depth];
+		for (let i = 0; i < 8; i++) {
+			M.box(b, xa, c[1] + R - t, c[2] - hw, xb, c[1] + R, c[2] + hw, 'emblem', { rot: [i * 45, 0, 0], pivot: c.slice() });
+		}
+		M.box(b, xa, c[1] + R + 0.15 * R, c[2] - bw, xb, c[1] + R + 0.15 * R + t, c[2] + bw, 'emblem');
+		M.box(b, xa, c[1] - R - 0.15 * R - t, c[2] - bw, xb, c[1] - R - 0.15 * R, c[2] + bw, 'emblem');
+	}
+}
+
 // ================================================================ geometry
 M.bone('root', null, [0, 0, 0]);
 const pelvis = M.bone('pelvis', 'root', [0, 46, 0]);
@@ -46,7 +68,12 @@ M.box(pelvis, -10, 37, 6, 10, 50, 9.5, 'plate', { seed: 4 });            // rear
 for (const s of S) { // side skirts, flared out
 	sbox(pelvis, s, 12, 19, 34, 50, -7, 7, 'plate', { rot: [0, 0, -s * 12], pivot: [s * 12, 50, 0], seed: 5 });
 	sbox(pelvis, s, 18.6, 19.4, 37, 47, -4, 4, 'glow', { rot: [0, 0, -s * 12], pivot: [s * 12, 50, 0] });
+	// v0.17.1 polish: front hip plates angled out over the thighs, a vent in each
+	sbox(pelvis, s, 4.5, 12.5, 37, 48, -11, -9, 'plate', { rot: [-8, s * 10, 0], pivot: [s * 4.5, 48, -9.5], seed: 6 });
+	sbox(pelvis, s, 6.5, 10.5, 39, 45, -11.5, -10.8, 'vent', { rot: [-8, s * 10, 0], pivot: [s * 4.5, 48, -9.5] });
 }
+// v0.17.1 polish: the Lantern emblem as the belt buckle
+emblem(pelvis, 'front', [0, 45.5, -10.4], 2.6, 1.0, 4.4, 1.0);
 
 for (const s of S) {
 	const n = nm(s);
@@ -57,6 +84,10 @@ for (const s of S) {
 	sbox(leg, s, 6.5, 17.5, 30, 43, -6.5, 5.5, 'plate', { seed: 10 });
 	sbox(leg, s, 17.4, 18.8, 32, 41, -4, 3, 'plate', { seed: 11 });     // outer vent plate
 	sbox(leg, s, 18.6, 19.0, 33.5, 39.5, -3, 2, 'glow');
+	// v0.17.1 polish: a raised front thigh plate with a glowing seam down it, and a hydraulic at the back
+	sbox(leg, s, 7.5, 16.5, 31, 42, -8, -6, 'plate', { rot: [4, 0, 0], pivot: [s * 12, 42, -6.5], seed: 17 });
+	sbox(leg, s, 11.5, 12.5, 32, 41, -8.4, -7.9, 'glow', { rot: [4, 0, 0], pivot: [s * 12, 42, -6.5] });
+	M.stick(leg, [s * 12, 42, 5], [0, -1, 0.12], 12, [2.2, 2.2], 'frame', { seed: 18 });
 	// ---- shin
 	const shin = M.bone(`shin_${n}`, `leg_${n}`, [s * 12, 29, -1]);
 	M.cbox(shin, [s * 12, 29, -1], [7.5, 6, 7.5], 'frame');
@@ -68,6 +99,9 @@ for (const s of S) {
 	sbox(shin, s, 8, 16, 13, 25, 4, 8.5, 'plate', { seed: 16 });        // calf thruster housing
 	sbox(shin, s, 9.5, 14.5, 11.5, 13.2, 4.6, 8, 'glow');                // calf nozzle
 	sbox(shin, s, 11.3, 12.7, 14, 24, -6.9, -6.5, 'glow');               // shin light strip
+	// v0.17.1 polish: swept shin fins on the outside (the leg reads heavier at the calf) with a vent slot
+	sbox(shin, s, 16.5, 19.5, 12, 27, -5, 3.5, 'plate', { rot: [0, 0, -s * 7], pivot: [s * 17, 27, 0], seed: 19 });
+	sbox(shin, s, 19.3, 19.9, 15, 24, -3, 1.5, 'vent', { rot: [0, 0, -s * 7], pivot: [s * 17, 27, 0] });
 	// ---- foot
 	const foot = M.bone(`foot_${n}`, `shin_${n}`, [s * 12, 6, 0]);
 	M.cbox(foot, [s * 12, 6, 0], [6, 5, 6], 'frame');
@@ -78,6 +112,9 @@ for (const s of S) {
 	sbox(foot, s, 12.3, 17.6, 0, 1.2, -15.6, -14.4, 'glow');
 	sbox(foot, s, 9, 15, 0, 4, 6.5, 11.5, 'plate', { seed: 23 });       // heel spur
 	sbox(foot, s, 5.5, 18.5, 4, 7.5, -7, 5, 'plate', { seed: 24 });     // ankle guard
+	// v0.17.1 polish: a toe cap over the two toes and a glowing instep strip
+	sbox(foot, s, 6.8, 17.2, 3.6, 5.2, -14.5, -8.5, 'plate', { rot: [-10, 0, 0], pivot: [s * 12, 5, -8.5], seed: 25 });
+	sbox(foot, s, 10.8, 13.2, 5.0, 5.6, -13.8, -8.8, 'glow', { rot: [-10, 0, 0], pivot: [s * 12, 5, -8.5] });
 }
 
 // ---- torso + cockpit
@@ -96,6 +133,15 @@ for (const s of S) {
 	sbox(torso, s, 21, 22.5, 60, 82, -8, 10, 'frame');                                                         // flank frame
 }
 M.box(torso, -10, 85, -8, 10, 88.5, 8, 'plate', { seed: 38 });            // collar
+// v0.17.1 polish: a broad yoke across the top of the chest (a V-taper down to the waist), rib vents down the flanks,
+// a glowing line down the abs and a keel plate under the lantern
+M.box(torso, -20, 84, -12.2, 20, 87.8, -6, 'plate', { seed: 39 });
+for (const s of S) {
+	sbox(torso, s, 20.6, 21.4, 59, 71, -9, 3, 'vent', { seed: 45 });
+	sbox(torso, s, 13, 21, 84.2, 86.6, -12.8, -12.1, 'glow');
+}
+M.box(torso, -0.6, 52, -8.95, 0.6, 58.5, -8.55, 'glow');
+M.box(torso, -7, 56.5, -13.2, 7, 59.5, -10, 'plate', { rot: [12, 0, 0], pivot: [0, 59.5, -11], seed: 46 });
 // the lantern symbol round the canopy: an octagonal ring + the two bars
 const EC = [0, 73.2, -14];
 for (let i = 0; i < 8; i++) {
@@ -137,6 +183,12 @@ for (const s of S) {
 	sbox(head, s, 7.2, 7.6, 90, 94, -5.5, 0, 'glow');
 	M.stick(head, [s * 0.9, 94.6, -10.6], [s * 0.95, 1.0, -0.12], 10, [1.3, 0.8], 'emblem', { seed: 55 }); // V-fin
 }
+// v0.17.1 polish: angled jaw plates and two swept-back antennae
+for (const s of S) {
+	sbox(head, s, 2.6, 6.6, 87, 90.6, -10.2, -5.5, 'plate', { rot: [0, -s * 14, 0], pivot: [s * 2.6, 89, -10], seed: 56 });
+	M.stick(head, [s * 6.6, 94, 0], [s * 0.2, 1, 0.45], 7.5, [0.9, 0.9], 'plate', { seed: 57 });
+	M.stick(head, [s * 6.75, 94.2, 0.1], [s * 0.2, 1, 0.45], 7.0, [0.4, 0.4], 'glow', { seed: 58 });
+}
 // the head rides 3.5 px higher on a longer neck (it sank between the pauldrons), a touch bigger
 for (const c of head.cubes) {
 	const k = 1.12, cy = 92, cz = -3;
@@ -153,7 +205,8 @@ for (const s of S) {
 	sbox(sh, s, 21, 38.5, 88.5, 92.5, -11.5, 12.5, 'plate', { seed: 61 });     // top layer
 	sbox(sh, s, 34.5, 39.5, 71.5, 87, -9, 10, 'plate', { rot: [0, 0, -s * 10], pivot: [s * 36, 87, 0], seed: 62 }); // outer flare
 	sbox(sh, s, 21, 37, 76, 89, -12.5, -10, 'plate', { seed: 63 });            // front armour
-	sbox(sh, s, 25, 34, 81, 83, -13.1, -12.4, 'glow');
+	// v0.17.1 polish: the Lantern emblem on each pauldron's front (was a plain light strip)
+	emblem(sh, 'front', [s * 29, 82.5, -13.3], 3.0, 1.1, 5.4, 0.85);
 	sbox(sh, s, 37.5, 39.2, 89, 92, -11, 12, 'glow');                          // top-layer rim light
 	const pod = M.bone(`pod_${n}`, `shoulder_${n}`, [s * 29, 92.5, 6]);
 	sbox(pod, s, 23, 35, 92.5, 98.5, -7, 9, 'plate', { seed: 64 });
@@ -166,6 +219,7 @@ for (const s of S) {
 	sbox(arm, s, 25, 31, 60, 76, -2.5, 4.5, 'frame');
 	sbox(arm, s, 23.5, 32.5, 62.5, 74, -4.5, 6.5, 'plate', { seed: 70 });
 	sbox(arm, s, 23.1, 32.9, 66.4, 67.8, -4.9, 6.9, 'glow');
+	sbox(arm, s, 32.5, 33.2, 68.5, 73.5, -3, 5, 'vent'); // v0.17.1 polish: a cooling vent on the upper arm
 	const fa = M.bone(`forearm_${n}`, `arm_${n}`, [s * 28, 61, 1]);
 	M.cbox(fa, [s * 28, 61, 1], [8, 7, 8], 'frame');
 	sbox(fa, s, 23, 33, 56, 64.5, 5.5, 9.5, 'plate', { seed: 71 });             // elbow guard
@@ -189,6 +243,7 @@ M.ground();
 const C = {
 	plate: [28, 178, 76], plateHi: [90, 230, 130], plateLo: [12, 110, 50],
 	edge: [214, 255, 226], bevel: [86, 236, 136], seam: [10, 92, 44],
+	groove: [8, 70, 36], seamGlow: [60, 200, 110], // v0.17.1 polish
 	frame: [9, 54, 28], frameEdge: [52, 160, 92],
 	glow: [226, 255, 234], visor: [240, 255, 246], glass: [150, 255, 196], emblem: [205, 255, 220],
 };
@@ -218,14 +273,28 @@ function shade(c, f, s, t, p, info) {
 			const scan = (Math.floor(v * 2) % 3 === 0) ? 1.15 : 1;
 			return [mul(C.glass, scan), A_GLASS, [40, 120, 70], A_GLASS];
 		}
+		case 'vent': { // v0.17.1 polish: slatted cooling vents, light glowing between the slats
+			if (e < 0.35) return [C.edge, 255, [90, 230, 130], 255];
+			const slat = Math.floor(v * 2) % 3 !== 0;
+			return slat ? [C.frame, 245, null] : [[170, 255, 200], 255, [80, 230, 130], 255];
+		}
 		default: { // plate
 			if (e < 0.42) return [C.edge, A_EDGE, [90, 230, 130], 255];
 			if (e < 0.95) return [C.bevel, A_BEVEL, null];
-			// panel seams every ~8 px on the bigger faces (the dark inner frame lines)
+			const big = info.fw > 6.5 && info.fh > 6.5;
+			// v0.17.1 polish: an inset groove round the bigger panels (glowing faintly, like light in the joins) ...
+			if (big && e >= 1.45 && e < 1.95) return [C.groove, 236, [26, 120, 62], 255];
+			// ... and bright rivets just inside its corners
+			if (info.fw > 10 && info.fh > 10) {
+				const du = Math.min(u, info.fw - u), dv = Math.min(v, info.fh - v);
+				if (Math.abs(du - 3.0) < 0.55 && Math.abs(dv - 3.0) < 0.55) return [C.edge, 255, [120, 245, 160], 255];
+			}
+			// panel seams every ~8 px on the bigger faces: hard-light joins that glow
 			const off = (c.seed * 3.7) % 8;
-			const seamU = info.fw > 9 && Math.abs(((u + off) % 8) - 4) > 3.72 && u > 1.5 && u < info.fw - 1.5;
-			const seamV = info.fh > 9 && Math.abs(((v + off * 0.6) % 8) - 4) > 3.72 && v > 1.5 && v < info.fh - 1.5;
-			if (seamU || seamV) return [C.seam, 228, null];
+			const inner = !big || e >= 1.95;
+			const seamU = inner && info.fw > 9 && Math.abs(((u + off) % 8) - 4) > 3.72 && u > 2.5 && u < info.fw - 2.5;
+			const seamV = inner && info.fh > 9 && Math.abs(((v + off * 0.6) % 8) - 4) > 3.72 && v > 2.5 && v < info.fh - 2.5;
+			if (seamU || seamV) return [C.seamGlow, 236, [40, 170, 90], 255];
 			// a vertical gradient (lit from above), faint scanlines and a willpower shimmer
 			const g = clamp((p[1] - 0) / 104, 0, 1);
 			let col = mix(C.plateLo, C.plate, 0.55 + 0.45 * g);

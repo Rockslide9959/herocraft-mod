@@ -1,0 +1,490 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.projecthero.mod.greenlantern.GreenLantern;
+import com.projecthero.mod.greenlantern.GreenLanternConfig;
+import com.projecthero.mod.greenlantern.GreenLanternRanks;
+import com.projecthero.mod.greenlantern.construct.Construct;
+import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
+import com.projecthero.mod.greenlantern.construct.GreenLanternVehicles;
+import com.projecthero.mod.greenlantern.data.GreenLanternState;
+import com.projecthero.mod.greenlantern.entity.GreenLanternEntityTypes;
+import com.projecthero.mod.greenlantern.entity.HardLightConstructEntity;
+import com.projecthero.mod.greenlantern.mech.GreenLanternMech;
+import com.projecthero.mod.greenlantern.mech.HardLightMechEntity;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 GL polish screenshots (mech, build-ups, unified look, sniper). Enabled by run/glpolish.flag. */
+public final class GlPolishHarness {
+	public static volatile Vec3 camPos;
+	public static volatile Vec3 camAt;
+	/** Relative to the camera entity instead of absolute. */
+	public static volatile boolean camRel;
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static String only = "";
+
+	private GlPolishHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("glpolish.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("glpolish.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(GlPolishHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "glpolish-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String s) {
+		return only.isEmpty() || only.contains(s);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "gl_polish_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void camAbs(int t, Vec3 pos, Vec3 target) {
+		at(t, () -> {
+			camRel = false;
+			camPos = pos;
+			camAt = target;
+		});
+	}
+
+	private static void camRel(int t, double ox, double oy, double oz, double tx, double ty, double tz) {
+		at(t, () -> {
+			camRel = true;
+			camPos = new Vec3(ox, oy, oz);
+			camAt = new Vec3(tx, ty, tz);
+		});
+	}
+
+	private static void view(int t, CameraType type) {
+		at(t, () -> Minecraft.getInstance().options.setCameraType(type));
+	}
+
+	private static void fullCharge(ServerPlayer p) {
+		GreenLanternState s = GreenLantern.state(p).copy();
+		s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+		GreenLantern.save(p, s);
+	}
+
+	private static Construct carry(ServerPlayer p) {
+		for (Construct c : GreenLanternConstructs.of(p.getUUID())) {
+			if (c.type == ConstructType.CARRY_PLATFORM) {
+				return c;
+			}
+		}
+		return null;
+	}
+
+	private static void lookAndPress(ServerPlayer p) {
+		Construct c = carry(p);
+		if (c == null) {
+			System.out.println("[HARNESS] no carry platform");
+			return;
+		}
+		Vec3 target = c.vehicleForm == GreenLanternVehicles.FORM_PLATFORM ? Vec3.atBottomCenterOf(c.platformBlockCenter).add(0, 1.0, 0)
+				: c.vehicle.position().add(0, 0.6, 0);
+		p.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target);
+		p.connection.teleport(p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot());
+		GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+		System.out.println("[HARNESS] form now " + c.vehicleForm);
+	}
+
+	private static Vec3 vehiclePos(ServerPlayer p) {
+		Construct c = carry(p);
+		return c != null && c.vehicle != null ? c.vehicle.position() : origin;
+	}
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static void setData(HardLightConstructEntity e, String field, Object value) {
+		try {
+			var f = HardLightConstructEntity.class.getDeclaredField(field);
+			f.setAccessible(true);
+			e.getEntityData().set((EntityDataAccessor) f.get(null), value);
+		} catch (ReflectiveOperationException ex) {
+			System.out.println("[HARNESS] " + ex);
+		}
+	}
+
+	/** A client-only construct (never ticked by the server, so it just stands there to be looked at). */
+	private static void showcase(Minecraft mc, HardLightConstructEntity.Shape s, Vec3 at, float scale, float yaw) {
+		HardLightConstructEntity e = new HardLightConstructEntity(GreenLanternEntityTypes.HARD_LIGHT_CONSTRUCT, mc.level);
+		setData(e, "SHAPE", s.ordinal());
+		setData(e, "SCALE", scale);
+		setData(e, "LIFE", 0);
+		e.setPos(at.x, at.y, at.z);
+		e.setYRot(yaw);
+		e.yRotO = yaw;
+		e.setXRot(0f);
+		e.xRotO = 0f;
+		e.setEnd(at.add(Vec3.directionFromRotation(0f, yaw).scale(3.0)));
+		mc.level.addEntity(e);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05); // the user: test clients at 5%
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(GlPolishHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		mc.gui.getChat().clearMessages(false);
+		mc.getToasts().clear();
+		if (inWorldTicks % 10 == 0) {
+			server(mc, p -> p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))
+					.forEach(net.minecraft.world.entity.Entity::discard));
+		}
+		if (inWorldTicks % 20 == 0 && t0 >= 0) {
+			server(mc, GlPolishHarness::fullCharge);
+		}
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.getWindow().setWindowed(1600, 900);
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
+			mc.options.bobView().set(false);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(13800L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.SURVIVAL);
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				GreenLantern.bond(p);
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 99999, 4));
+				GreenLanternRanks.award(p, 6200);
+				GreenLanternState s = GreenLantern.state(p).copy();
+				s.suited = true;
+				s.ringCharge = GreenLanternConfig.MAX_RING_CHARGE;
+				GreenLantern.save(p, s);
+			});
+			t0 = inWorldTicks;
+			AT.put(5, () -> script(mc)); // after the server has set the origin
+		}
+		if (t0 >= 0) {
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 20;
+		if (want("mech")) {
+			// ---- the mech: the build-up (feet to head, texel by texel), then the finished mech from several angles
+			at(t, () -> server(mc, p -> {
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				GreenLanternMech.deploy(p);
+			}));
+			camAbs(t, origin.add(-4.6, 4.0, 7.2), origin.add(0, 3.1, 0));
+			int[] frames = { 6, 12, 18, 24, 30 };
+			for (int i = 0; i < frames.length; i++) {
+				shot(t + frames[i], "mech_build_" + (i + 1));
+			}
+			t += 60;
+			double[][] cams = { { 0, 3.6, 10.5 }, { -7.0, 4.8, 7.5 }, { 10.5, 3.6, 0 }, { 2.0, 4.4, -10.5 }, { -3.2, 5.6, 4.4 } };
+			String[] names = { "front", "three_quarter", "side", "back", "close" };
+			for (int c = 0; c < cams.length; c++) {
+				final double[] cm = cams[c];
+				camAbs(t + c * 6, origin.add(cm[0], cm[1], cm[2]), origin.add(0, c == 4 ? 4.4 : 3.1, 0));
+				shot(t + c * 6 + 4, "mech_after_" + names[c]);
+			}
+			t += cams.length * 6 + 6;
+			at(t, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				if (m != null) {
+					GreenLanternMech.exit(p);
+				}
+			}));
+			t += 50;
+			at(t, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				if (m != null) {
+					m.discard();
+				}
+				p.stopRiding();
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+			}));
+			t += 10;
+		}
+		if (want("veh")) {
+			// ---- car and jet build-ups (day, so the build reads against the grass too)
+			at(t, () -> server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, -8f);
+				p.setYRot(0f);
+				p.setXRot(-8f);
+				GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+			}));
+			at(t + 10, () -> server(mc, GlPolishHarness::lookAndPress));
+			camRel(t + 10, 4.6, 2.6, 1.4, 0.0, 0.6, 4.5);
+			int[] cf = { 4, 9, 14, 19, 25, 34 };
+			for (int i = 0; i < cf.length; i++) {
+				shot(t + 10 + cf[i], i == cf.length - 1 ? "car_built" : "car_build_" + (i + 1));
+			}
+			at(t + 50, () -> server(mc, GlPolishHarness::lookAndPress));
+			camRel(t + 50, 6.5, 3.4, 0.5, 0.0, 0.8, 5.5);
+			for (int i = 0; i < cf.length; i++) {
+				shot(t + 50 + cf[i], i == cf.length - 1 ? "jet_built" : "jet_build_" + (i + 1));
+			}
+			// the car again at night, to compare the look
+			t += 100;
+			at(t, () -> server(mc, p -> {
+				GreenLanternConstructs.dismissAll(p.getUUID());
+				p.serverLevel().setDayTime(13800L);
+			}));
+			t += 10;
+		}
+		if (want("gallery")) {
+			// ---- every construct in the shared look: client-only showcases in rows, one shot per row
+			HardLightConstructEntity.Shape[][] rows = {
+					{ HardLightConstructEntity.Shape.FIST, HardLightConstructEntity.Shape.HAMMER, HardLightConstructEntity.Shape.MISSILE,
+							HardLightConstructEntity.Shape.BUZZSAW, HardLightConstructEntity.Shape.ANVIL },
+					{ HardLightConstructEntity.Shape.HAND, HardLightConstructEntity.Shape.CHAINS, HardLightConstructEntity.Shape.LAUNCH_PAD,
+							HardLightConstructEntity.Shape.WARRIOR, HardLightConstructEntity.Shape.BUBBLE },
+					{ HardLightConstructEntity.Shape.GLOVE, HardLightConstructEntity.Shape.SWATTER, HardLightConstructEntity.Shape.CATAPULT,
+							HardLightConstructEntity.Shape.BOULDER, HardLightConstructEntity.Shape.TENTACLE },
+					{ HardLightConstructEntity.Shape.WRECKING_BALL, HardLightConstructEntity.Shape.CANNON, HardLightConstructEntity.Shape.BOW,
+							HardLightConstructEntity.Shape.ARROW, HardLightConstructEntity.Shape.BEAR_TRAP },
+					{ HardLightConstructEntity.Shape.BULLDOZER, HardLightConstructEntity.Shape.MIRROR, HardLightConstructEntity.Shape.CLAW,
+							HardLightConstructEntity.Shape.MACE, HardLightConstructEntity.Shape.MED_BAY },
+					{ HardLightConstructEntity.Shape.JET, HardLightConstructEntity.Shape.DRAGON, HardLightConstructEntity.Shape.ITEM_NET,
+							HardLightConstructEntity.Shape.TUNNELLER } };
+			final int tt = t;
+			at(tt, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z - 30, 0f, 0f)));
+			for (int r = 0; r < rows.length; r++) {
+				final int row = r;
+				final HardLightConstructEntity.Shape[] shapes = rows[r];
+				Vec3 base = origin.add(0, 0, 30 + r * 30);
+				at(tt + 5 + r * 30, () -> {
+					for (int i = 0; i < shapes.length; i++) {
+						float scale = switch (shapes[i]) {
+							case BUBBLE -> 1.0f;
+							case ITEM_NET -> 2.5f;
+							default -> 1.0f;
+						};
+						double x = (i - (shapes.length - 1) / 2.0) * 3.8;
+						showcase(mc, shapes[i], base.add(x, shapes[i] == HardLightConstructEntity.Shape.FIST
+								|| shapes[i] == HardLightConstructEntity.Shape.MISSILE || shapes[i] == HardLightConstructEntity.Shape.HAND
+								|| shapes[i] == HardLightConstructEntity.Shape.BOULDER || shapes[i] == HardLightConstructEntity.Shape.WRECKING_BALL
+								|| shapes[i] == HardLightConstructEntity.Shape.BUBBLE || shapes[i] == HardLightConstructEntity.Shape.CLAW
+								|| shapes[i] == HardLightConstructEntity.Shape.ARROW ? 1.6 : 0.0, 0), scale, 200f);
+					}
+					System.out.println("[HARNESS] row " + row);
+				});
+				camAbs(tt + 5 + r * 30, base.add(-1.5, 3.4, -9.0), base.add(0, 1.0, 0));
+				at(tt + 5 + r * 30, () -> server(mc, p -> p.connection.teleport(base.x, base.y, base.z - 16, 0f, 0f)));
+				shot(tt + 5 + r * 30 + 22, "look_row" + (r + 1));
+			}
+			t += 5 + rows.length * 30 + 10;
+		}
+		if (want("combos")) {
+			// ---- the mech's new construct combos, and the Construct Menu in mech mode
+			at(t, () -> server(mc, p -> {
+				p.serverLevel().setDayTime(13800L);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				GreenLanternMech.deploy(p);
+			}));
+			at(t + 3, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				if (m != null) {
+					m.finishAssembly();
+				}
+			}));
+			int c = t + 20;
+			camAbs(c, origin.add(-8.5, 5.2, 8.5), origin.add(0, 3.2, 2.5));
+			at(c, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos.mace(m, p);
+			}));
+			int[] mf = { 4, 9, 13, 17, 20, 24 };
+			for (int i = 0; i < mf.length; i++) {
+				shot(c + mf[i], "combo_mace_" + (i + 1));
+			}
+			c += 45;
+			camAbs(c, origin.add(-9.5, 9.5, 9.5), origin.add(0, 2.5, 0));
+			at(c, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos.whirl(m, p);
+			}));
+			int[] wf = { 5, 9, 14, 19, 25, 31 };
+			for (int i = 0; i < wf.length; i++) {
+				shot(c + wf[i], "combo_whirl_" + (i + 1));
+			}
+			c += 55;
+			camAbs(c, origin.add(-12.0, 5.5, -2.5), origin.add(0, 4.0, 7.0));
+			at(c - 2, () -> server(mc, p -> {
+				p.setYRot(0f);
+				p.setXRot(-8f);
+				p.connection.teleport(p.getX(), p.getY(), p.getZ(), 0f, -8f);
+			}));
+			at(c, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos.cannon(m, p);
+			}));
+			int[] cf2 = { 4, 9, 15, 19, 21, 25 };
+			for (int i = 0; i < cf2.length; i++) {
+				shot(c + cf2[i], "combo_cannon_" + (i + 1));
+			}
+			c += 45;
+			// the Construct Menu opened from inside the mech (hold C): keys locked, hold to summon
+			at(c, () -> {
+				mc.options.hideGui = false;
+				camPos = null;
+				mc.setScreen(new com.projecthero.mod.client.gui.GreenLanternConstructMenuScreen());
+			});
+			shot(c + 12, "combo_menu_mech");
+			at(c + 14, () -> {
+				mc.setScreen(null);
+				mc.options.hideGui = true;
+			});
+			at(c + 16, () -> server(mc, p -> {
+				HardLightMechEntity m = GreenLanternMech.mechOf(p);
+				if (m != null) {
+					m.discard();
+				}
+				p.stopRiding();
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+			}));
+			t = c + 24;
+		}
+		if (want("sniper")) {
+			// ---- the sniper, aimed up / level / down, in third and first person (day)
+			at(t, () -> server(mc, p -> {
+				p.serverLevel().setDayTime(6000L);
+				p.connection.teleport(origin.x, origin.y, origin.z, 0f, 0f);
+				GreenLanternConstructs.deploy(p, ConstructType.SNIPER_RIFLE);
+				System.out.println("[HARNESS] sniper out");
+			}));
+			float[] pitches = { -35f, 0f, 35f };
+			String[] pn = { "up", "level", "down" };
+			int s = t + 20;
+			view(s, CameraType.THIRD_PERSON_BACK);
+			for (int i = 0; i < pitches.length; i++) {
+				final float pitch = pitches[i];
+				at(s, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, 0f, pitch)));
+				camRel(s, -3.4, 1.7, 1.2, 0.0, 1.45, 1.0);
+				shot(s + 8, "sniper_3p_side_" + pn[i]);
+				camRel(s + 10, -1.6, 2.4, -2.6, 0.0, 1.5, 1.5);
+				shot(s + 18, "sniper_3p_back_" + pn[i]);
+				s += 22;
+			}
+			at(s, () -> camPos = null);
+			view(s, CameraType.FIRST_PERSON);
+			at(s, () -> mc.options.hideGui = false); // the hand is only drawn with the GUI on
+			s += 5;
+			for (int i = 0; i < pitches.length; i++) {
+				final float pitch = pitches[i];
+				at(s, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, 30f, pitch)));
+				shot(s + 10, "sniper_fp_" + pn[i]);
+				s += 14;
+			}
+			// turning quickly: the rifle stays on the crosshair
+			at(s, () -> server(mc, p -> p.connection.teleport(origin.x, origin.y, origin.z, 120f, -10f)));
+			shot(s + 2, "sniper_fp_turn");
+			s += 10;
+			t = s;
+		}
+		at(t + 10, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("GLP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL,
+				true, new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+}

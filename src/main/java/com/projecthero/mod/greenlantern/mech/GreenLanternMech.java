@@ -339,8 +339,17 @@ public final class GreenLanternMech {
 				}
 			}
 			case SLOT_6 -> {
+				// v0.17.1 (user: "if the player holds c while in the mech they can still open the construct menu"): a tap
+				// fires the pods when C comes back up; held, C opens the Construct Menu instead (the client) and fires nothing
+				long now = m.level().getGameTime();
 				if (pressed) {
-					missiles(m, p);
+					m.cPressAt = now;
+				} else if (m.cPressAt >= 0L) {
+					boolean tap = now - m.cPressAt < com.projecthero.mod.greenlantern.GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS;
+					m.cPressAt = -1L;
+					if (tap && !GreenLanternMechCombos.drillBusy(m)) {
+						missiles(m, p);
+					}
 				}
 			}
 		}

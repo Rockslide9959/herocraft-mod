@@ -70,6 +70,25 @@ public class GreenLanternMechGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void theMechBuildsBeforeItCanBePiloted(GameTestHelper helper) {
+		// v0.17.1: it builds piece by piece, pixel by pixel (feet to head) inside its 2 s assembly, whole before it stands
+		// up, and takes no orders until the assembly is over
+		helper.assertTrue(GreenLanternMechConfig.ASSEMBLE_TICKS >= 20 && GreenLanternMechConfig.ASSEMBLE_TICKS <= 40,
+				"the assembly takes 1-2 s");
+		helper.assertTrue(GreenLanternMechConfig.BUILD_TICKS > 0 && GreenLanternMechConfig.BUILD_TICKS < GreenLanternMechConfig.ASSEMBLE_TICKS,
+				"the pixel build finishes before the assembly does");
+		ServerPlayer p = lantern(helper);
+		GreenLanternMech.deploy(p);
+		HardLightMechEntity m = GreenLanternMech.mechOf(p);
+		helper.assertTrue(m != null, "the mech formed");
+		helper.assertTrue(m.state() == HardLightMechEntity.STATE_ASSEMBLING && !m.isActive(), "it is building, not active");
+		m.finishAssembly();
+		helper.assertTrue(m.isActive(), "once assembled it can be piloted");
+		GreenLanternMech.exit(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void theMechIsInTheConstructMenu(GameTestHelper helper) {
 		GreenLanternBinding.Entry e = GreenLanternBinding.forConstruct(ConstructType.HARD_LIGHT_MECH);
 		helper.assertTrue(e != null && e.section() == GreenLanternBinding.Section.ATTACK, "an Attack entry");

@@ -1,6 +1,5 @@
 package com.projecthero.mod.client.greenlantern;
 
-import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.attachment.ModAttachments;
 import com.projecthero.mod.client.render.HandRing;
 import com.projecthero.mod.greenlantern.GreenLantern;
@@ -11,17 +10,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.CubeListBuilder;
-import net.minecraft.client.model.geom.builders.LayerDefinition;
-import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.PlayerSkin;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
 
 /**
@@ -38,15 +30,10 @@ import net.minecraft.world.entity.EquipmentSlot;
  *   {@link ModAttachments#GREEN_LANTERN_HAND_CONSTRUCTS}): a translucent full-bright blade out of the fist, or a
  *   stepped spinning drill bit -- the constructs used to be nothing but a few particles.</li>
  * </ul>
- * Geometry is in the arm bone's own pixel space (y runs down the arm, the fist ends at y = 10), built once in code
- * with {@link LayerDefinition#bakeRoot()} -- no model-layer registration needed.
+ * Geometry is in the arm bone's own pixel space (y runs down the arm, the fist ends at y = 10), drawn in code with
+ * {@link HardLightDraw} (v0.17.1: the blade and drill too, in the shared holographic hard-light look).
  */
 public final class GreenLanternHandRenderer {
-	private static final ResourceLocation LIGHT_TEXTURE = ProjectHeroMod.id("textures/entity/green_lantern/hard_light_construct.png");
-
-	private static final ModelPart[] BLADES = new ModelPart[2];
-	private static final ModelPart[][] DRILL_TIERS = new ModelPart[2][];
-	private static boolean baked;
 
 	private GreenLanternHandRenderer() {
 	}
@@ -65,7 +52,6 @@ public final class GreenLanternHandRenderer {
 		if (!hasAnything(player)) {
 			return;
 		}
-		bake();
 		int slim = player.getSkin().model() == PlayerSkin.Model.SLIM ? 1 : 0;
 		int suited = player.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof GreenLanternArmorItem ? 1 : 0;
 		// v0.15.15: John Stewart's suit leaves the hands bare, so the ring sits on the skin
@@ -88,38 +74,38 @@ public final class GreenLanternHandRenderer {
 		if ((hand & GreenLanternConstructs.HAND_SNIPER) != 0) {
 			sniper(pose, buffers, player, fx, slim == 1 ? -0.5f : -1.0f, ageInTicks);
 		}
+		// v0.17.1 (user: "make all the constructs have that same look"): the blade and the drill are hard-light parts
+		// ({@link HardLightDraw#part}) like every other construct, not flat textured cubes
 		if ((hand & GreenLanternConstructs.HAND_BLADE) != 0) {
-			BLADES[slim].render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(LIGHT_TEXTURE)),
-					LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xDDFFFFFF);
+			float xMin = slim == 1 ? -2f : -3f, xMax = 1f, cx = (xMin + xMax) / 2f;
+			com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
+			pose.pushPose();
+			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+			HardLightDraw.part(vc, pose, cx, 10.0f, 0f, (xMax - xMin) / 2f + 0.6f, 0.4f, 2.6f, 0.95f); // crossguard over the fist
+			HardLightDraw.part(vc, pose, cx, 16.4f, 0f, 0.4f, 6.0f, 1.5f, 0.95f);                         // blade
+			HardLightDraw.part(vc, pose, cx, 23.4f, 0f, 0.3f, 1.0f, 1.0f, 0.95f);                         // tapering tip
+			HardLightDraw.part(vc, pose, cx, 25.1f, 0f, 0.2f, 0.7f, 0.45f, 0.95f);
+			HardLightDraw.glow(vc, pose, cx, 16.4f, 0f, 0.42f, 5.6f, 0.12f, 0.45f);                       // the hot edge
+			pose.popPose();
 		}
 		if ((hand & GreenLanternConstructs.HAND_DRILL) != 0) {
-			float cx = slim == 1 ? -0.5f / 16f : -1.0f / 16f;
-			for (int i = 0; i < DRILL_TIERS[slim].length; i++) {
+			float cx = slim == 1 ? -0.5f : -1.0f;
+			float[][] tiers = { { 3.8f, 10.0f, 2.2f }, { 2.8f, 12.2f, 2.2f }, { 1.8f, 14.4f, 2.2f }, { 0.8f, 16.6f, 1.8f } };
+			com.mojang.blaze3d.vertex.VertexConsumer vc = HardLightDraw.buffer(buffers);
+			pose.pushPose();
+			pose.scale(1f / 16f, 1f / 16f, 1f / 16f);
+			for (int i = 0; i < tiers.length; i++) {
 				pose.pushPose();
 				pose.translate(cx, 0.0f, 0.0f);
 				// alternate tiers counter-rotate a little so the bit reads as a twisting flute while it spins
 				pose.mulPose(Axis.YP.rotationDegrees(ageInTicks * 36.0f + i * 22.5f));
-				pose.translate(-cx, 0.0f, 0.0f);
-				DRILL_TIERS[slim][i].render(pose, buffers.getBuffer(RenderType.entityTranslucentEmissive(LIGHT_TEXTURE)),
-						LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xDDFFFFFF);
+				float w = tiers[i][0] / 2f;
+				HardLightDraw.part(vc, pose, 0f, tiers[i][1] + tiers[i][2] / 2f, 0f, w, tiers[i][2] / 2f, w, 0.95f);
 				pose.popPose();
 			}
+			pose.popPose();
 		}
 		pose.popPose();
-	}
-
-	private static void bake() {
-		if (baked) {
-			return;
-		}
-		baked = true;
-		for (int slim = 0; slim < 2; slim++) {
-			float xMin = slim == 1 ? -2f : -3f;
-			float xMax = 1f;
-			float cx = (xMin + xMax) / 2f;
-			BLADES[slim] = blade(cx, xMin, xMax);
-			DRILL_TIERS[slim] = drill(cx);
-		}
 	}
 
 	/**
@@ -212,6 +198,8 @@ public final class GreenLanternHandRenderer {
 	/** v0.16.1 first-person rifle placement (degrees / view-space blocks from the fist). Tuned on screenshots. */
 	public static float FP_SNIPER_YAW = 3f, FP_SNIPER_PITCH = 2f, FP_SNIPER_X = -0.06f, FP_SNIPER_Y = 0.1f, FP_SNIPER_Z = 0.0f,
 			FP_SNIPER_SCALE = 0.85f;
+	/** v0.17.1: the first-person rifle aims its barrel at this point down the view axis (blocks ahead, height). */
+	public static float FP_SNIPER_AIM_DIST = 40f, FP_SNIPER_AIM_Y = 0f;
 
 	private static void sniper(PoseStack pose, MultiBufferSource buffers, AbstractClientPlayer player,
 			com.projecthero.mod.greenlantern.data.GreenLanternFx fx, float cx, float age) {
@@ -237,16 +225,24 @@ public final class GreenLanternHandRenderer {
 			// on end -- keep the fist where it is but level the rifle along the view (barrel forward, scope up), turned a
 			// touch towards the crosshair
 			org.joml.Vector3f fist = pose.last().pose().transformPosition(new org.joml.Vector3f(cx / 16f, 10f / 16f, 0f));
+			// v0.17.1 (user: "the sniper construct doesnt follow the players direction ... in first person"): the old fixed
+			// turn assumed this pass's root frame was the view, but the model-view matrix applied after it turns it too, so
+			// the barrel pointed well off the crosshair. Now it is aimed through that matrix: the view's forward axis and up
+			// are taken back into this frame, and the barrel runs from the fist at a point far down the view axis -- it
+			// always points at the crosshair, up, level or down and while turning, with the scope kept on top.
+			org.joml.Matrix4f toRoot = new org.joml.Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewMatrix()).invert();
+			org.joml.Vector3f aimAt = toRoot.transformPosition(new org.joml.Vector3f(0f, FP_SNIPER_AIM_Y, -FP_SNIPER_AIM_DIST));
+			org.joml.Vector3f camUp = toRoot.transformDirection(new org.joml.Vector3f(0f, 1f, 0f)).normalize();
+			org.joml.Vector3f grip = new org.joml.Vector3f(fist).add(new org.joml.Vector3f(camUp).mul(FP_SNIPER_Y));
+			org.joml.Vector3f barrel = new org.joml.Vector3f(aimAt).sub(grip).normalize();
+			org.joml.Vector3f down = new org.joml.Vector3f(camUp).negate();
+			down.sub(new org.joml.Vector3f(barrel).mul(down.dot(barrel))).normalize(); // the underside, square to the barrel
+			org.joml.Vector3f side = new org.joml.Vector3f(barrel).cross(down);
 			org.joml.Matrix3f rot = new org.joml.Matrix3f(
-					-1f, 0f, 0f,   // column 0: local x -> view -x
-					0f, 0f, -1f,   // column 1: local y (down the arm) -> view forward (-z)
-					0f, -1f, 0f);  // column 2: local z (underside) -> view down
-			rot.rotateLocal(Axis.YP.rotationDegrees(FP_SNIPER_YAW));
-			rot.rotateLocal(Axis.XP.rotationDegrees(FP_SNIPER_PITCH));
-			// the first-person hand pass looks down +z here (the stack is turned half round), so flip into it
-			rot.rotateLocal(Axis.YP.rotationDegrees(180f));
-			pose.last().pose().identity().translate(fist.x - FP_SNIPER_X, fist.y + FP_SNIPER_Y, fist.z - FP_SNIPER_Z)
-					.mul(new org.joml.Matrix4f(rot));
+					side.x, side.y, side.z,       // column 0: local x
+					barrel.x, barrel.y, barrel.z, // column 1: local y (down the arm) -> the barrel
+					down.x, down.y, down.z);      // column 2: local z (underside) -> down
+			pose.last().pose().identity().translate(grip.x, grip.y, grip.z).mul(new org.joml.Matrix4f(rot));
 			pose.last().normal().set(rot);
 			pose.scale(FP_SNIPER_SCALE / 16f, FP_SNIPER_SCALE / 16f, FP_SNIPER_SCALE / 16f);
 			pose.translate(0f, -1.6f * kick - 10f, 0f);
@@ -284,30 +280,5 @@ public final class GreenLanternHandRenderer {
 			HardLightDraw.glow(vc, pose, 0f, 33.2f, 0f, s, s, s, Math.max(charge, kick));
 		}
 		pose.popPose();
-	}
-
-	/** A broad, flat blade of light out of the fist with a small crossguard, 14 px (almost a block) long. */
-	private static ModelPart blade(float cx, float xMin, float xMax) {
-		MeshDefinition mesh = new MeshDefinition();
-		mesh.getRoot().addOrReplaceChild("blade", CubeListBuilder.create().texOffs(0, 0)
-				.addBox(xMin - 0.6f, 9.6f, -2.6f, xMax - xMin + 1.2f, 0.8f, 5.2f)   // crossguard over the fist
-				.addBox(cx - 0.4f, 10.4f, -1.5f, 0.8f, 12.0f, 3.0f)                  // blade
-				.addBox(cx - 0.3f, 22.4f, -1.0f, 0.6f, 2.0f, 2.0f)                   // tapering tip
-				.addBox(cx - 0.2f, 24.4f, -0.45f, 0.4f, 1.4f, 0.9f), PartPose.ZERO);
-		return LayerDefinition.create(mesh, 32, 32).bakeRoot();
-	}
-
-	/** Four stepped tiers narrowing to a point, each drawn separately so they can twist against each other. */
-	private static ModelPart[] drill(float cx) {
-		float[][] tiers = {{3.8f, 10.0f, 2.2f}, {2.8f, 12.2f, 2.2f}, {1.8f, 14.4f, 2.2f}, {0.8f, 16.6f, 1.8f}};
-		ModelPart[] parts = new ModelPart[tiers.length];
-		for (int i = 0; i < tiers.length; i++) {
-			float w = tiers[i][0];
-			MeshDefinition mesh = new MeshDefinition();
-			mesh.getRoot().addOrReplaceChild("tier", CubeListBuilder.create().texOffs(0, 0)
-					.addBox(cx - w / 2f, tiers[i][1], -w / 2f, w, tiers[i][2], w), PartPose.ZERO);
-			parts[i] = LayerDefinition.create(mesh, 32, 32).bakeRoot();
-		}
-		return parts;
 	}
 }

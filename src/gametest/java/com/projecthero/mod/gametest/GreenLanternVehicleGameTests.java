@@ -454,4 +454,29 @@ public class GreenLanternVehicleGameTests implements FabricGameTest {
 		GreenLanternConstructs.dismissAll(p.getUUID());
 		helper.succeed();
 	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void aVehicleCannotBeDrivenUntilItIsBuilt(GameTestHelper helper) {
+		// v0.17.1: the Car and the Jet build themselves piece by piece, pixel by pixel, over 1-2 s -- the driver's controls
+		// only take once they are whole
+		helper.assertTrue(GreenLanternConfig.VEHICLE_BUILD_TICKS >= 20 && GreenLanternConfig.VEHICLE_BUILD_TICKS <= 40,
+				"the build takes 1-2 s (" + GreenLanternConfig.VEHICLE_BUILD_TICKS + " ticks)");
+		ServerPlayer p = lantern(helper);
+		GreenLanternConstructs.deploy(p, ConstructType.CARRY_PLATFORM);
+		reshape(p);
+		HardLightVehicleEntity car = (HardLightVehicleEntity) carry(p).vehicle;
+		helper.assertTrue(car instanceof HardLightCarEntity, "the car formed");
+		HardLightVehicleEntity.Controls w = new HardLightVehicleEntity.Controls(0f, 1f, false, false, 0f, 0f);
+		helper.assertTrue(!car.built() && car.gate(w) == null, "freshly formed: still building, W does nothing");
+		car.tickCount = GreenLanternConfig.VEHICLE_BUILD_TICKS - 1;
+		helper.assertTrue(car.gate(w) == null, "one tick short: still building");
+		car.tickCount = GreenLanternConfig.VEHICLE_BUILD_TICKS;
+		helper.assertTrue(car.built() && car.gate(w) == w, "built: the controls take");
+		// reshaped into the jet: a new build, so the jet is not flyable straight away either
+		reshape(p);
+		HardLightVehicleEntity jet = (HardLightVehicleEntity) carry(p).vehicle;
+		helper.assertTrue(jet instanceof HardLightJetEntity && !jet.built() && jet.gate(w) == null, "the jet builds afresh");
+		GreenLanternConstructs.dismissAll(p.getUUID());
+		helper.succeed();
+	}
 }

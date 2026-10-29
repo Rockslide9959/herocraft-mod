@@ -87,21 +87,69 @@ public final class GreenLanternMechCombos {
 		if (c == null) {
 			return false;
 		}
-		switch (c) {
-			case GIGA_DRILL -> drillPress(m, p, slot);
-			case KATANA -> katanaToggle(m, p);
-		}
+		use(m, p, c, slot);
 		return true;
+	}
+
+	/**
+	 * Starts {@code c} ({@code slot} = the key that holds the Giga Drill's spin, or null from the Construct Menu, where the
+	 * drill spins up to full by itself and lets go into a GIGA DRILL BREAK). Returns whether it started.
+	 */
+	public static boolean use(HardLightMechEntity m, ServerPlayer p, Combo c, AbilitySlot slot) {
+		if (moveBusy(m) && c != Combo.KATANA) {
+			return false; // a combo move is already playing
+		}
+		return switch (c) {
+			case GIGA_DRILL -> {
+				boolean ok = drillPress(m, p, slot);
+				if (ok && slot == null) {
+					m.schedule(GreenLanternMechConfig.MENU_DRILL_SPIN_TICKS, () -> {
+						ServerPlayer pilot = m.pilot();
+						if (pilot != null && m.drillSlot == null) {
+							drillRelease(m, pilot);
+						}
+					});
+				}
+				yield ok;
+			}
+			case KATANA -> !moveBusy(m) && katanaToggle(m, p);
+			case METEOR_MACE -> mace(m, p);
+			case WRECKING_WHIRL -> whirl(m, p);
+			case LANTERN_CANNON -> cannon(m, p);
+		};
+	}
+
+	/**
+	 * v0.17.1 (user: "if the player holds c while in the mech they can still open the construct menu, using the energy
+	 * blade summons the katana and using the drill activates giga drill"): a construct used from the Construct Menu while
+	 * piloting. A construct with a mech combo ({@link MechComboKeys#comboFor}) starts that combo; returns false for the
+	 * rest (they are summoned as themselves).
+	 */
+	public static boolean fromMenu(ServerPlayer p, com.projecthero.mod.greenlantern.construct.ConstructType type) {
+		HardLightMechEntity m = GreenLanternMech.mechOf(p);
+		Combo c = type == null ? null : MechComboKeys.comboFor(type);
+		if (m == null || c == null) {
+			return false;
+		}
+		if (m.isActive() && !drillBusy(m)) {
+			use(m, p, c, null);
+		}
+		return true; // a combo construct is never summoned as itself inside the mech
 	}
 
 	/** While the drill spins or charges the right arm is busy: every other mech move waits. */
 	static boolean drillBusy(HardLightMechEntity m) {
 		int d = m.drillState();
-		return d == HardLightMechEntity.DRILL_SPIN || d == HardLightMechEntity.DRILL_CHARGE;
+		return d == HardLightMechEntity.DRILL_SPIN || d == HardLightMechEntity.DRILL_CHARGE || moveBusy(m);
+	}
+
+	/** v0.17.1 round 2: a one-shot combo move (mace / whirl / cannon) is playing: every other move waits for it. */
+	public static boolean moveBusy(HardLightMechEntity m) {
+		return m.move() != HardLightMechEntity.MOVE_NONE;
 	}
 
 	/** Climbing out / dissolving / shattering: the katana goes, a drill stops where it is (no finisher). */
-	static void stopAll(HardLightMechEntity m) {
+	public static void stopAll(HardLightMechEntity m) {
 		if (m.katanaOut()) {
 			m.setKatanaState(HardLightMechEntity.KATANA_NONE);
 		}
@@ -111,6 +159,9 @@ public final class GreenLanternMechCombos {
 			m.setDrillState(HardLightMechEntity.DRILL_NONE);
 		}
 		m.drillSlot = null;
+		if (m.move() != HardLightMechEntity.MOVE_NONE) {
+			m.setMove(HardLightMechEntity.MOVE_NONE);
+		}
 	}
 
 	/** Per tick while the mech is active (from {@code GreenLanternMech#tickMech}). */
@@ -118,6 +169,251 @@ public final class GreenLanternMechCombos {
 		tickDrill(m, p);
 		tickKatana(m, p);
 		tickWave(m, p);
+		tickMove(m, p);
+	}
+
+	// ================================================================ v0.17.1 round 2: Meteor Mace / Wrecking Whirl / Lantern Cannon
+
+	private static boolean startMove(HardLightMechEntity m, ServerPlayer p, int move, int cd, float cost, String anim) {
+		if (!m.ready(cd)) {
+			int s = (m.cooldownLeft(cd) + 19) / 20;
+			p.displayClientMessage(Component.translatable("message.projecthero.green_lantern.mech.move_cooldown", s).withStyle(ChatFormatting.RED), true);
+			return false;
+		}
+		if (!GreenLanternMech.pay(p, cost)) {
+			return false;
+		}
+		if (m.katanaOut() && move != HardLightMechEntity.MOVE_CANNON) {
+			sheathe(m); // the right hand takes the new weapon
+		}
+		m.punchHeld = false;
+		m.slashHeld = false;
+		m.setFlag(HardLightMechEntity.FLAG_BEAM, false);
+		m.setFlag(HardLightMechEntity.FLAG_SHIELD, false);
+		m.setMoveDir(p.getLookAngle());
+		m.setMove(move);
+		m.moveHitAny = false;
+		m.play(anim);
+		return true;
+	}
+
+	/** Emerald Mace: METEOR MACE -- the mace forms, goes up overhead in both hands and comes down in front. */
+	public static boolean mace(HardLightMechEntity m, ServerPlayer p) {
+		if (!startMove(m, p, HardLightMechEntity.MOVE_MACE, HardLightMechEntity.CD_MACE, GreenLanternMechConfig.MACE_COST, "mace_smash")) {
+			return false;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		GreenLanternMech.sound(level, m.position(), SoundEvents.BEACON_POWER_SELECT, 1.6f, 0.6f);
+		m.schedule(6, () -> GreenLanternMech.sound(level, m.local(0, 7, 0), SoundEvents.ANVIL_PLACE, 0.8f, 0.5f));
+		m.schedule(GreenLanternMechConfig.MACE_IMPACT_TICKS - 3, () -> GreenLanternMech.sound(level, m.local(0, 6, 1), GreenLanternMechSounds.KATANA_SWISH, 2.0f, 0.5f));
+		m.schedule(GreenLanternMechConfig.MACE_IMPACT_TICKS, () -> maceImpact(m));
+		popup(p, "mech_meteor_mace");
+		return true;
+	}
+
+	/** Where the mace head comes down: on the ground, {@link GreenLanternMechConfig#MACE_REACH} ahead. */
+	public static Vec3 maceImpactPoint(HardLightMechEntity m) {
+		return m.local(-0.8, 0.0, GreenLanternMechConfig.MACE_REACH);
+	}
+
+	private static void maceImpact(HardLightMechEntity m) {
+		ServerPlayer p = m.pilot();
+		if (p == null || m.move() != HardLightMechEntity.MOVE_MACE) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		Vec3 c = maceImpactPoint(m);
+		float dmg = GreenLanternMechConfig.MACE_DAMAGE * GreenLanternRanks.power(p);
+		for (LivingEntity t : AbilityHelpers.living(level, c.add(0, 1.5, 0), GreenLanternMechConfig.MACE_RADIUS + 2.0,
+				e -> GreenLanternMech.canHit(p, m, e) && e.getY() > m.getY() - 2.0 && e.getY() < m.getY() + 6.0)) {
+			Vec3 rel = new Vec3(t.getX() - c.x, 0, t.getZ() - c.z);
+			double d = rel.length();
+			if (d > GreenLanternMechConfig.MACE_RADIUS + t.getBbWidth() * 0.5) {
+				continue;
+			}
+			float k = (float) (1.0 - 0.5 * Math.min(1.0, d / GreenLanternMechConfig.MACE_RADIUS)); // full in the middle
+			if (AbilityHelpers.hurtBurst(p, t, dmg * k)) {
+				moveConnected(m, p);
+			}
+			Vec3 out = d < 0.3 ? m.local(0, 0, 1).subtract(m.position()) : GreenLanternMech.flat(rel);
+			GreenLanternMech.push(t, out.scale(1.2).add(0, 1.15, 0));
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y + 0.3, c.z, 1, 0, 0, 0, 0);
+		level.sendParticles(BIG, c.x, c.y + 0.4, c.z, 70, 1.6, 0.4, 1.6, 0.25);
+		level.sendParticles(GREEN, c.x, c.y + 0.6, c.z, 50, 2.4, 0.6, 2.4, 0.1);
+		var rnd = level.getRandom();
+		for (int i = 0; i < 24; i++) {
+			double a = rnd.nextDouble() * Math.PI * 2, r = 1.0 + rnd.nextDouble() * GreenLanternMechConfig.MACE_RADIUS;
+			BlockPos under = BlockPos.containing(c.x + Math.cos(a) * r, c.y - 0.5, c.z + Math.sin(a) * r);
+			BlockState st = level.getBlockState(under);
+			if (!st.isAir()) {
+				level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, st), under.getX() + 0.5,
+						under.getY() + 1.1, under.getZ() + 0.5, 6, 0.3, 0.1, 0.3, 0.2);
+			}
+		}
+		GreenLanternMech.sound(level, c, SoundEvents.GENERIC_EXPLODE.value(), 2.2f, 0.6f);
+		GreenLanternMech.sound(level, c, SoundEvents.ANVIL_LAND, 1.6f, 0.4f);
+		m.markHit();
+	}
+
+	/** Wrecking Ball: WRECKING WHIRL -- the ball on its chain, swung round the mech twice. */
+	public static boolean whirl(HardLightMechEntity m, ServerPlayer p) {
+		if (!startMove(m, p, HardLightMechEntity.MOVE_WHIRL, HardLightMechEntity.CD_WHIRL, GreenLanternMechConfig.WHIRL_COST, "wrecking_whirl")) {
+			return false;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		GreenLanternMech.sound(level, m.position(), SoundEvents.CHAIN_PLACE, 2.0f, 0.5f);
+		for (int t = GreenLanternMechConfig.WHIRL_START_TICKS; t < GreenLanternMechConfig.WHIRL_END_TICKS; t += 6) {
+			m.schedule(t, () -> GreenLanternMech.sound(level, m.local(0, 4, 0), GreenLanternMechSounds.KATANA_SWISH, 2.0f, 0.45f));
+		}
+		popup(p, "mech_wrecking_whirl");
+		return true;
+	}
+
+	/** Where the whirling ball is (world), at move tick {@code t} (the clip turns the body two full turns). */
+	public static Vec3 whirlBall(HardLightMechEntity m, float t) {
+		float a = whirlAngle(t);
+		double r = GreenLanternMechConfig.WHIRL_RADIUS - 1.5;
+		double yaw = Math.toRadians(m.getYRot()) + a;
+		return new Vec3(m.getX() - Math.sin(yaw) * r, m.getY() + 3.2, m.getZ() + Math.cos(yaw) * r);
+	}
+
+	/** The whirl's turn (radians, from facing forward) at move tick {@code t}: wind-up, two turns, settle. */
+	public static float whirlAngle(float t) {
+		float s = GreenLanternMechConfig.WHIRL_START_TICKS, e = GreenLanternMechConfig.WHIRL_END_TICKS;
+		float k = Mth.clamp((t - s) / (e - s), 0f, 1f);
+		return (float) (Math.PI / 2 - k * Math.PI * 4);
+	}
+
+	private static void tickWhirl(HardLightMechEntity m, ServerPlayer p, long t) {
+		if (t < GreenLanternMechConfig.WHIRL_START_TICKS || t >= GreenLanternMechConfig.WHIRL_END_TICKS) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		Vec3 ball = whirlBall(m, t);
+		level.sendParticles(GREEN, ball.x, ball.y, ball.z, 3, 0.5, 0.5, 0.5, 0.02);
+		if ((t - GreenLanternMechConfig.WHIRL_START_TICKS) % GreenLanternMechConfig.WHIRL_HIT_EVERY != 0) {
+			return;
+		}
+		float dmg = GreenLanternMechConfig.WHIRL_DAMAGE * GreenLanternRanks.power(p);
+		Vec3 c = m.position();
+		for (LivingEntity e : AbilityHelpers.living(level, c.add(0, 3, 0), GreenLanternMechConfig.WHIRL_RADIUS + 2.0,
+				x -> GreenLanternMech.canHit(p, m, x) && x.getY() > m.getY() - 2.0 && x.getY() < m.getY() + 7.0)) {
+			Vec3 rel = new Vec3(e.getX() - c.x, 0, e.getZ() - c.z);
+			if (rel.length() > GreenLanternMechConfig.WHIRL_RADIUS + e.getBbWidth() * 0.5 || rel.length() < 1.2) {
+				continue;
+			}
+			if (AbilityHelpers.hurtBurst(p, e, dmg)) {
+				moveConnected(m, p);
+			}
+			// flung outward and along the swing
+			Vec3 out = GreenLanternMech.flat(rel);
+			Vec3 along = new Vec3(-out.z, 0, out.x);
+			GreenLanternMech.push(e, out.scale(1.3).add(along.scale(0.5)).add(0, 0.45, 0));
+			Vec3 at = e.position().add(0, e.getBbHeight() * 0.6, 0);
+			level.sendParticles(ParticleTypes.CRIT, at.x, at.y, at.z, 8, 0.3, 0.3, 0.3, 0.3);
+		}
+	}
+
+	/** Emerald Cannon: LANTERN CANNON -- the left forearm becomes a cannon, charges and fires one huge shell. */
+	public static boolean cannon(HardLightMechEntity m, ServerPlayer p) {
+		if (!startMove(m, p, HardLightMechEntity.MOVE_CANNON, HardLightMechEntity.CD_CANNON, GreenLanternMechConfig.CANNON_COST, "lantern_cannon")) {
+			return false;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		GreenLanternMech.sound(level, m.position(), SoundEvents.BEACON_ACTIVATE, 1.8f, 1.4f);
+		m.schedule(GreenLanternMechConfig.CANNON_FIRE_TICKS, () -> cannonFire(m));
+		popup(p, "mech_lantern_cannon");
+		return true;
+	}
+
+	/** The cannon's muzzle (world): out past the left fist, along the aim. */
+	public static Vec3 cannonMuzzle(HardLightMechEntity m, Vec3 dir) {
+		return m.local(1.75, 4.2, 0.9).add(dir.scale(3.4));
+	}
+
+	private static void cannonFire(HardLightMechEntity m) {
+		ServerPlayer p = m.pilot();
+		if (p == null || m.move() != HardLightMechEntity.MOVE_CANNON) {
+			return;
+		}
+		ServerLevel level = (ServerLevel) m.level();
+		Vec3 dir = p.getLookAngle();
+		m.setMoveDir(dir);
+		Vec3 from = cannonMuzzle(m, dir);
+		Vec3 eye = p.getEyePosition();
+		Vec3 far = eye.add(dir.scale(GreenLanternMechConfig.CANNON_RANGE));
+		net.minecraft.world.phys.BlockHitResult bh = level.clip(new net.minecraft.world.level.ClipContext(eye, far,
+				net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE, m));
+		Vec3 end = bh.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? far : bh.getLocation();
+		// the first enemy along the line stops the shell
+		AABB sweep = new AABB(eye, end).inflate(1.5);
+		double best = Double.MAX_VALUE;
+		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, sweep, x -> GreenLanternMech.canHit(p, m, x))) {
+			var hit = e.getBoundingBox().inflate(0.6).clip(eye, end);
+			if (hit.isPresent() && hit.get().distanceToSqr(eye) < best) {
+				best = hit.get().distanceToSqr(eye);
+			}
+		}
+		if (best < Double.MAX_VALUE) {
+			end = eye.add(dir.scale(Math.sqrt(best)));
+		}
+		m.markShot(end);
+		float dmg = GreenLanternMechConfig.CANNON_DAMAGE * GreenLanternRanks.power(p);
+		for (LivingEntity e : AbilityHelpers.living(level, end, GreenLanternMechConfig.CANNON_BLAST_RADIUS, x -> GreenLanternMech.canHit(p, m, x))) {
+			double d = e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(end);
+			float k = (float) (1.0 - 0.6 * Math.min(1.0, d / GreenLanternMechConfig.CANNON_BLAST_RADIUS));
+			if (AbilityHelpers.hurtBurst(p, e, dmg * k)) {
+				moveConnected(m, p);
+			}
+			Vec3 out = e.position().subtract(end);
+			out = out.lengthSqr() < 1.0e-4 ? dir : out.normalize();
+			GreenLanternMech.push(e, out.scale(1.4).add(0, 0.6, 0));
+		}
+		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, end.x, end.y, end.z, 1, 0, 0, 0, 0);
+		level.sendParticles(BIG, end.x, end.y, end.z, 60, 1.4, 1.4, 1.4, 0.3);
+		level.sendParticles(GREEN, from.x, from.y, from.z, 30, 0.4, 0.4, 0.4, 0.25);
+		GreenLanternMech.sound(level, from, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, 2.4f, 0.5f);
+		GreenLanternMech.sound(level, from, SoundEvents.GENERIC_EXPLODE.value(), 1.2f, 1.4f);
+		GreenLanternMech.sound(level, end, SoundEvents.GENERIC_EXPLODE.value(), 2.4f, 0.7f);
+		m.impulse(dir.multiply(1, 0, 1).scale(-0.35)); // the recoil shoves the mech back a step
+	}
+
+	private static void tickMove(HardLightMechEntity m, ServerPlayer p) {
+		int mv = m.move();
+		if (mv == HardLightMechEntity.MOVE_NONE) {
+			return;
+		}
+		long t = m.moveTicks();
+		int len = switch (mv) {
+			case HardLightMechEntity.MOVE_MACE -> GreenLanternMechConfig.MACE_TICKS;
+			case HardLightMechEntity.MOVE_WHIRL -> GreenLanternMechConfig.WHIRL_TICKS;
+			default -> GreenLanternMechConfig.CANNON_TICKS;
+		};
+		if (mv == HardLightMechEntity.MOVE_WHIRL) {
+			tickWhirl(m, p, t);
+		} else if (mv == HardLightMechEntity.MOVE_CANNON && t < GreenLanternMechConfig.CANNON_FIRE_TICKS) {
+			m.setMoveDir(p.getLookAngle()); // the cannon tracks the camera while it charges
+			Vec3 mz = cannonMuzzle(m, p.getLookAngle());
+			((ServerLevel) m.level()).sendParticles(GREEN, mz.x, mz.y, mz.z, 2, 0.6, 0.6, 0.6, -0.08);
+		}
+		if (t >= len) {
+			m.setMove(HardLightMechEntity.MOVE_NONE);
+			int cd = switch (mv) {
+				case HardLightMechEntity.MOVE_MACE -> HardLightMechEntity.CD_MACE;
+				case HardLightMechEntity.MOVE_WHIRL -> HardLightMechEntity.CD_WHIRL;
+				default -> HardLightMechEntity.CD_CANNON;
+			};
+			m.startCooldown(cd, HardLightMechEntity.CD_LENGTHS[cd]);
+		}
+	}
+
+	/** A combo move connected: shake (clients read the mark) and Willpower XP once per move. */
+	private static void moveConnected(HardLightMechEntity m, ServerPlayer p) {
+		if (!m.moveHitAny) {
+			m.moveHitAny = true;
+			GreenLanternRanks.award(p, GreenLanternMechConfig.COMBO_XP);
+		}
 	}
 
 	// ================================================================ Giga Drill

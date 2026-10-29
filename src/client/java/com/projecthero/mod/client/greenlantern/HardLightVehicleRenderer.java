@@ -22,9 +22,12 @@ import net.minecraft.util.Mth;
  * full-bright green core with a pale glowing rim). Both models face +Z and are turned to the vehicle's yaw (and, for the
  * Jet, pitch and bank).
  *
- * <p>Build-in: for its first {@link GreenLanternConfig#VEHICLE_BUILD_TICKS} ticks a vehicle is swept into being from the
- * nose back -- only the parts the sweep has passed are drawn, behind a bright plane of light (the construct build-out
- * look the block constructs have). It flickers when it is hurt and crackles below a third of its health.
+ * <p>Build-in (v0.17.1, user: "make it build pixel by pixel piece by piece"): for its first
+ * {@link GreenLanternConfig#VEHICLE_BUILD_TICKS} ticks a vehicle is built piece by piece in the order its parts are drawn
+ * (chassis first, the wheels / wings / fins and lights last), each piece materialising pixel by pixel out of a faint
+ * blueprint outline with a white-hot edge where the light is forming ({@link HardLightDraw#beginBuild}). It cannot be
+ * driven until it is whole ({@code HardLightVehicleEntity#built}). It flickers when it is hurt and crackles below a third
+ * of its health.
  */
 public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEntity> {
 	private static final int GREEN = HardLightDraw.GREEN;
@@ -32,9 +35,12 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 	private static final int DEEP = HardLightDraw.DEEP;
 
 	// per-draw state (rendering is single-threaded)
-	private float frontier = -99f;
 	private float alpha = 1f;
-	private boolean building;
+	/** v0.17.1: how many pieces each model drew last frame (the build's piece count). */
+	private int carPieces = 70;
+	private int jetPieces = 60;
+	/** v0.17.1: the share of the build each piece takes to form. */
+	private static final float PIECE_WINDOW = 0.2f;
 
 	public HardLightVehicleRenderer(EntityRendererProvider.Context context) {
 		super(context);
@@ -58,7 +64,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		VertexConsumer vc = HardLightDraw.buffer(buffers);
 		float age = e.tickCount + partial;
 		float build = Mth.clamp(age / GreenLanternConfig.VEHICLE_BUILD_TICKS, 0f, 1f);
-		building = build < 1f;
+		boolean building = build < 1f;
 		alpha = 1f;
 		if (e.hurtTime > 0) {
 			alpha = 1.25f + 0.25f * Mth.sin(age * 2.5f); // struck: it flares
@@ -69,46 +75,44 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		pose.pushPose();
 		pose.mulPose(Axis.YP.rotationDegrees(-Mth.rotLerp(partial, e.yRotO, e.getYRot())));
 		if (e instanceof HardLightJetEntity jet) {
-			frontier = 3.4f - build * 7.2f;
+			if (building) {
+				HardLightDraw.beginBuild(build, jetPieces, PIECE_WINDOW);
+			}
 			jet(jet, vc, pose, age, partial);
+			if (building) {
+				jetPieces = Math.max(1, HardLightDraw.endBuild());
+			}
 		} else if (e instanceof HardLightCarEntity car) {
-			frontier = 2.3f - build * 4.7f;
+			if (building) {
+				HardLightDraw.beginBuild(build, carPieces, PIECE_WINDOW);
+			}
 			car(car, vc, pose, age, partial);
+			if (building) {
+				carPieces = Math.max(1, HardLightDraw.endBuild());
+			}
 		}
+		HardLightDraw.endBuild();
 		pose.popPose();
 		HardLightDraw.golden = false;
 		super.render(e, entityYaw, partial, pose, buffers, light);
 	}
 
-	/** A body part, if the build sweep has reached it ({@code z} is its centre along the nose axis). */
+	/** A body part (formed piece by piece while building, see {@link HardLightDraw#part}). */
 	private void p(VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx, float hy, float hz) {
 		p(vc, pose, x, y, z, hx, hy, hz, GREEN);
 	}
 
 	private void p(VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx, float hy, float hz, int rgb) {
-		if (building && z + hz < frontier) {
-			return;
-		}
 		HardLightDraw.part(vc, pose, x, y, z, hx, hy, hz, rgb, alpha);
 	}
 
 	private void glow(VertexConsumer vc, PoseStack pose, float x, float y, float z, float hx, float hy, float hz) {
-		if (building && z + hz < frontier) {
-			return;
-		}
 		HardLightDraw.glow(vc, pose, x, y, z, hx, hy, hz, Math.min(1f, alpha));
 	}
 
-	/** The bright plane the build sweep is drawn behind. */
-	private void sweep(VertexConsumer vc, PoseStack pose, float width, float y, float height) {
-		if (!building) {
-			return;
-		}
-		pose.pushPose();
-		pose.translate(0f, y, frontier);
-		TurboDraw.box(vc, pose.last(), width, height, 0.03f, 0xF0FFF4, 0.75f);
-		TurboDraw.box(vc, pose.last(), width + 0.1f, height + 0.1f, 0.08f, HardLightDraw.tint(GREEN), 0.25f);
-		pose.popPose();
+	/** v0.17.1: hand-drawn hard light (glass, dials, flames) shows once its piece is half formed. */
+	private static boolean formed() {
+		return HardLightDraw.piece() >= 0.5f;
 	}
 
 	// ---------------------------------------------------------------- the Car
@@ -146,7 +150,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 			glow(vc, pose, s * 0.72f, 0.6f, -2.07f, 0.17f, 0.035f, 0.03f); // tail lights
 		}
 		// the emblem lying on the hood
-		if (!building || frontier < 1.4f) {
+		if (formed()) {
 			pose.pushPose();
 			pose.translate(0f, 0.72f, 1.35f);
 			pose.mulPose(Axis.XP.rotationDegrees(-83f));
@@ -157,7 +161,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		pose.pushPose();
 		pose.translate(0f, 0.86f, 0.62f);
 		pose.mulPose(Axis.XP.rotationDegrees(-58f));
-		if (!building || frontier < 0.75f) {
+		if (formed()) {
 			TurboDraw.box(vc, pose.last(), 0.78f, 0.24f, 0.015f, HardLightDraw.tint(PALE), 0.22f * Math.min(1f, alpha));
 			TurboDraw.box(vc, pose.last(), 0.8f, 0.02f, 0.03f, HardLightDraw.tint(GREEN), 0.8f * Math.min(1f, alpha));
 		}
@@ -177,7 +181,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		pose.pushPose();
 		pose.translate(0.42f, 0.82f, 0.55f);
 		pose.mulPose(Axis.XP.rotationDegrees(-60f));
-		if (!building || frontier < 0.6f) {
+		if (formed()) {
 			TurboDraw.box(vc, pose.last(), 0.15f, 0.15f, 0.02f, HardLightDraw.tint(PALE), 0.7f * Math.min(1f, alpha));
 		}
 		pose.popPose();
@@ -193,9 +197,6 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		for (int s = -1; s <= 1; s += 2) {
 			for (int f = -1; f <= 1; f += 2) {
 				float z = f * 1.35f;
-				if (building && z + 0.33f < frontier) {
-					continue;
-				}
 				pose.pushPose();
 				pose.translate(s * 0.9f, 0.33f, z);
 				if (f > 0) {
@@ -211,7 +212,6 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 				pose.popPose();
 			}
 		}
-		sweep(vc, pose, 1.05f, 0.6f, 0.5f);
 	}
 
 	// ---------------------------------------------------------------- the Jet
@@ -235,7 +235,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		p(vc, pose, 0f, 0.54f, 3.15f, 0.17f, 0.15f, 0.2f);
 		glow(vc, pose, 0f, 0.53f, 3.4f, 0.06f, 0.06f, 0.07f);
 		// tandem bubble canopy
-		if (!building || frontier < 1.7f) {
+		if (formed()) {
 			pose.pushPose();
 			pose.translate(0f, 1.02f, 0.4f);
 			TurboDraw.box(vc, pose.last(), 0.33f, 0.2f, 1.1f, HardLightDraw.tint(PALE), 0.25f * Math.min(1f, alpha));
@@ -249,7 +249,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		}
 		// swept wings, tip cannons
 		for (int s = -1; s <= 1; s += 2) {
-			if (!building || frontier < 0.6f) {
+			{
 				pose.pushPose();
 				pose.translate(s * 1.75f, 0.45f, -0.45f);
 				pose.mulPose(Axis.YP.rotationDegrees(s * 22f));
@@ -262,7 +262,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 			// tailplanes
 			p(vc, pose, s * 1.05f, 0.55f, -2.15f, 0.65f, 0.04f, 0.36f);
 			// twin fins, canted out
-			if (!building || frontier < -1.7f) {
+			{
 				pose.pushPose();
 				pose.translate(s * 0.42f, 1.15f, -2.0f);
 				pose.mulPose(Axis.ZP.rotationDegrees(s * -14f));
@@ -278,7 +278,7 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 		float pulse = 0.06f * Mth.sin(Mth.lerp(partial, e.spinO, e.spin) * 3f);
 		p(vc, pose, 0f, 0.55f, -2.42f, 0.34f, 0.32f, 0.12f, DEEP);
 		glow(vc, pose, 0f, 0.55f, -2.55f, 0.22f + pulse, 0.22f + pulse, 0.05f);
-		if (!building) {
+		if (!HardLightDraw.building()) {
 			float len = 0.3f + 1.6f * speed + (e.boosting() ? 1.4f : 0f);
 			pose.pushPose();
 			pose.translate(0f, 0.55f, -2.6f - len / 2f);
@@ -286,6 +286,5 @@ public class HardLightVehicleRenderer extends EntityRenderer<HardLightVehicleEnt
 			TurboDraw.box(vc, pose.last(), 0.26f + pulse, 0.26f + pulse, len / 2f, HardLightDraw.tint(GREEN), 0.25f);
 			pose.popPose();
 		}
-		sweep(vc, pose, 1.6f, 0.6f, 0.6f);
 	}
 }

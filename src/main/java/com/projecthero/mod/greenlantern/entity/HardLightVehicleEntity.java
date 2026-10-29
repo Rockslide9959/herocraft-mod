@@ -148,6 +148,20 @@ public abstract class HardLightVehicleEntity extends Mob {
 		simulate(in);
 	}
 
+	/**
+	 * v0.17.1 (user: "make it build pixel by pixel piece by piece"): whether it has finished building itself out of the
+	 * ring ({@link GreenLanternConfig#VEHICLE_BUILD_TICKS}, the renderer's piece-by-piece build-up). Until then it can be
+	 * sat in but not driven: the driver's controls are ignored and it stays parked.
+	 */
+	public boolean built() {
+		return tickCount >= GreenLanternConfig.VEHICLE_BUILD_TICKS;
+	}
+
+	/** v0.17.1: the driver's controls as the vehicle takes them this tick -- none while it is still building. */
+	public Controls gate(Controls in) {
+		return built() ? in : null;
+	}
+
 	/** Whether there is ground (or anything solid) within a block under it -- the server's landed check. */
 	public boolean nearGround() {
 		return onGround() || !level().noCollision(this, getBoundingBox().move(0, -1.0, 0));
@@ -316,9 +330,9 @@ public abstract class HardLightVehicleEntity extends Mob {
 			onNewController(pilot);
 		}
 		yawDelta = 0f;
-		simulate(pilot == null ? null : new Controls((float) input.x, (float) input.z,
+		simulate(pilot == null ? null : gate(new Controls((float) input.x, (float) input.z,
 				((com.projecthero.mod.mixin.LivingEntityAccessor) pilot).projecthero$isJumping(), pilot.isShiftKeyDown(),
-				pilot.getYRot(), pilot.getXRot()));
+				pilot.getYRot(), pilot.getXRot())));
 		calculateEntityAnimation(false);
 	}
 
