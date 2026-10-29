@@ -43,6 +43,11 @@ function fire(v) {
 	write('four_arms.png', 64, 64, s.px);
 }
 
+// --- v0.17.1: Ripjaws, Grey Matter, Diamondhead, Ghostfreak -- the user's planetminecraft skins as-is ------------------------
+for (const n of ['ripjaws', 'grey_matter', 'diamondhead', 'ghostfreak']) {
+	write(n + '.png', 64, 64, dec(path.join(__dirname, n + '_src.png')).px);
+}
+
 // --- Heatblast -------------------------------------------------------------------------------------------------------
 const hb = dec(path.join(__dirname, 'heatblast_src.png'));
 // which skin rectangles are the head (base + hat): lit from within instead of burning
@@ -102,4 +107,42 @@ for (let f = 0; f < FRAMES; f++) {
 	write(`heatblast_glow_${String(f).padStart(2, '0')}.png`, 64, 64, px);
 }
 
-console.log('four_arms.png, heatblast.png, heatblast_glow_00..31.png written');
+console.log('ripjaws / grey_matter / diamondhead / ghostfreak.png, four_arms.png, heatblast.png, heatblast_glow_00..31.png written');
+
+// --- v0.17.1: the extras sheets retinted to the new skins (shapes unchanged; the originals are *_old.png beside this) -------
+{
+	const lum = (r, g, b) => (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+	const ramp = (stops, t) => {
+		t = clamp(t);
+		for (let i = 0; i < stops.length - 1; i++) {
+			const [a, ca] = stops[i], [b, cb] = stops[i + 1];
+			if (t <= b) { const k = (t - a) / (b - a); return [0, 1, 2].map(c => Math.round(ca[c] + (cb[c] - ca[c]) * k)); }
+		}
+		return stops[stops.length - 1][1];
+	};
+	// Ripjaws: his blue-grey jaw, head plates and fins in the new skin's mint-and-pale (the red mouth, yellow and teeth kept)
+	const rj = dec(path.join(__dirname, 'ripjaws_extras_old.png'));
+	const MINT = [[0, [24, 52, 40]], [0.45, [104, 150, 122]], [0.75, [178, 214, 190]], [1, [236, 250, 238]]];
+	for (let i = 0; i < rj.px.length; i += 4) {
+		const [r, g, b, a] = rj.px.slice(i, i + 4);
+		if (!a) continue;
+		if (b > r + 12 && b >= g - 6) { // the blue-greys
+			const [nr, ng, nb] = ramp(MINT, lum(r, g, b) * 1.32);
+			rj.px[i] = nr; rj.px[i + 1] = ng; rj.px[i + 2] = nb;
+		}
+	}
+	write('ripjaws_extras.png', rj.w, rj.h, rj.px);
+	// Ghostfreak: the white skirt with black dashes in his skin's lavender with dark purple marks (the purple eye kept)
+	const gf = dec(path.join(__dirname, 'ghostfreak_extras_old.png'));
+	const LAV = [[0, [21, 12, 28]], [0.35, [60, 40, 72]], [0.7, [176, 166, 190]], [1, [222, 214, 232]]];
+	for (let i = 0; i < gf.px.length; i += 4) {
+		const [r, g, b, a] = gf.px.slice(i, i + 4);
+		if (!a) continue;
+		const sat = Math.max(r, g, b) - Math.min(r, g, b);
+		if (sat < 28) { // the greys, whites and blacks
+			const [nr, ng, nb] = ramp(LAV, lum(r, g, b));
+			gf.px[i] = nr; gf.px[i + 1] = ng; gf.px[i + 2] = nb;
+		}
+	}
+	write('ghostfreak_extras.png', gf.w, gf.h, gf.px);
+}
