@@ -95,8 +95,8 @@ public class OmnitrixInfoGameTests implements FabricGameTest {
 					problems.add(a.id() + "." + m.id() + " is on H / N");
 				}
 			}
-			// v0.17.1 (user: "add abilities to the V key for every alien"; Wildmutt's comes with his rebuild)
-			if (!a.id().equals("wildmutt") && kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_5, false, false) == null) {
+			// v0.17.1 (user: "add abilities to the V key for every alien")
+			if (kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_5, false, false) == null) {
 				problems.add(a.id() + " has no V move");
 			}
 		}

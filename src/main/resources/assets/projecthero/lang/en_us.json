@@ -9797,5 +9797,7 @@
   "projecthero.omnitrix.xlr8.afterimage_decoys.desc": "Three afterimages of you stay behind for 6 s; every foe after you goes for them instead.",
   "message.projecthero.omnitrix.xlr8.speed_on": "Speed Mode: visor down.",
   "message.projecthero.omnitrix.xlr8.speed_off": "Speed Mode off: visor up.",
-  "projecthero.omnitrix.info.xlr8.passive.3": "Phase (hold X): through walls and untouchable while it lasts."
+  "projecthero.omnitrix.info.xlr8.passive.3": "Phase (hold X): through walls and untouchable while it lasts.",
+  "projecthero.omnitrix.wildmutt.dig": "Dig",
+  "projecthero.omnitrix.wildmutt.dig.desc": "Tears a 3x3 tunnel three blocks deep through soft ground in front of him (dirt, sand, gravel, snow, leaves); look down to dig straight down. The blocks drop."
 }

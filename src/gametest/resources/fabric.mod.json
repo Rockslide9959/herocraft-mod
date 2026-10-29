@@ -255,7 +255,8 @@
       "com.projecthero.mod.gametest.HeroLandingGameTests",
       "com.projecthero.mod.gametest.OmnitrixInfoGameTests",
       "com.projecthero.mod.gametest.OmnitrixSoundsGameTests",
-      "com.projecthero.mod.gametest.OmnitrixPowerDownGameTests"
+      "com.projecthero.mod.gametest.OmnitrixPowerDownGameTests",
+      "com.projecthero.mod.gametest.OmnitrixVKeyGameTests"
     ]
   },
   "mixins": ["projecthero-gametest.mixins.json"],

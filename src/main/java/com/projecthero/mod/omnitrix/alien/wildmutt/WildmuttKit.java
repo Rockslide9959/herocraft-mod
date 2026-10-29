@@ -164,6 +164,7 @@ public final class WildmuttKit extends AlienKit {
 	public static final String TRACK = "scent_track";
 	public static final String SWIPE = "claw_swipe";
 	public static final String SNIFF_MOVE = "sniff";
+	public static final String DIG = "dig";
 
 	// ---------------------------------------------------------------- numbers
 	public static final float HEALTH = 34f;
@@ -268,6 +269,7 @@ public final class WildmuttKit extends AlienKit {
 				AlienMove.shift(CLIMB, AbilitySlot.SLOT_3, 10),
 				AlienMove.tap(SLAM_MOVE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 200),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(TRACK, AbilitySlot.SLOT_6, 300),
+				AlienMove.tap(DIG, AbilitySlot.SLOT_5, 16),
 				AlienMove.vanilla(SWIPE, "Attack", 0), AlienMove.vanilla(SNIFF_MOVE, "Use (empty hand)", SNIFF_TICKS));
 	}
 
@@ -340,6 +342,7 @@ public final class WildmuttKit extends AlienKit {
 					frenzy(p);
 				}
 			}
+			case SLOT_5 -> dig(p); // v0.17.1 (user: "add abilities to the V key for every alien")
 			default -> {
 			}
 		}
@@ -416,6 +419,58 @@ public final class WildmuttKit extends AlienKit {
 		QuirkCamera.preset(p, QuirkCamera.Preset.HEAVY_HIT);
 		setFlag(p, F_POUNCE, false);
 		setTimer(p, "pounce_end", 0);
+	}
+
+	/** How far Dig reaches ahead (blocks) and its tunnel's half width. */
+	static final int DIG_DEPTH = 3, DIG_HALF = 1;
+
+	/**
+	 * V: Dig -- the claws tear a 3 x 3 tunnel three blocks deep through soft ground in front (anything a shovel takes, leaves,
+	 * snow), the blocks dropping as items. Nothing with a block entity, nothing harder than dirt-ish (hardness 1.5), nothing the
+	 * player may not build at. Returns the blocks dug.
+	 */
+	public int dig(ServerPlayer p) {
+		if (!use(p, DIG)) {
+			return 0;
+		}
+		anim(p, ANIM_MAUL);
+		ServerLevel l = level(p);
+		net.minecraft.core.Direction face = p.getXRot() > 55f ? net.minecraft.core.Direction.DOWN : p.getDirection();
+		BlockPos base = p.blockPosition();
+		int dug = 0;
+		for (int d = 1; d <= DIG_DEPTH; d++) {
+			for (int a = -DIG_HALF; a <= DIG_HALF; a++) {
+				for (int b = 0; b <= 2; b++) {
+					BlockPos q;
+					if (face == net.minecraft.core.Direction.DOWN) {
+						q = base.offset(a, -d, b - 1);
+					} else {
+						BlockPos ahead = base.relative(face, d);
+						q = face.getAxis() == net.minecraft.core.Direction.Axis.X ? ahead.offset(0, b, a) : ahead.offset(a, b, 0);
+					}
+					if (diggable(p, l, q) && l.destroyBlock(q, true, p)) {
+						dug++;
+					}
+				}
+			}
+		}
+		OmnitrixSounds.play(l, p.position(), GROWL, 0.7f, 1.2f);
+		if (dug > 0) {
+			l.playSound(null, p.blockPosition(), SoundEvents.GRAVEL_BREAK, net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 0.8f);
+		}
+		return dug;
+	}
+
+	private static boolean diggable(ServerPlayer p, ServerLevel l, BlockPos q) {
+		var st = l.getBlockState(q);
+		if (st.isAir() || st.hasBlockEntity() || !p.mayBuild() || !l.mayInteract(p, q)) {
+			return false;
+		}
+		float hard = st.getDestroySpeed(l, q);
+		if (hard < 0f || hard > 1.5f) {
+			return false;
+		}
+		return st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL) || st.is(net.minecraft.tags.BlockTags.LEAVES) || st.is(net.minecraft.tags.BlockTags.SNOW);
 	}
 
 	public boolean maul(ServerPlayer p) {

@@ -165,11 +165,11 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void everyMoveHasItsKeyAndNeverHOrN(GameTestHelper helper) {
 		List<AlienMove> moves = kit().moves();
-		helper.assertTrue(moves.size() == 13, "13 moves (" + moves.size() + ")");
+		helper.assertTrue(moves.size() == 14, "14 moves, Dig on V (" + moves.size() + ")");
 		for (AlienMove m : moves) {
 			if (m.onSlot()) {
 				char k = m.slot().defaultKey();
-				helper.assertTrue("RGXZC".indexOf(Character.toUpperCase(k)) >= 0, m.id() + " sits on R / G / X / Z / C (" + k + ")");
+				helper.assertTrue("RGXZCV".indexOf(Character.toUpperCase(k)) >= 0, m.id() + " sits on R / G / X / Z / C / V (" + k + ")");
 			}
 		}
 		helper.assertTrue(kit().moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_3, false, true) != null, "a hold move on X");

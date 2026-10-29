@@ -39,7 +39,7 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1 (user: "for the ben 10 power make the detransform keybind N and add abilities to the V key for every alien"): N turns
  * an alien back through the router as the client sends it (and is nothing to a human), V goes to the kit -- one V move per alien
- * pressed through {@link OmnitrixAbilityManager} (Wildmutt's comes with his rebuild) -- and XLR8's revamp: Speed Mode on V, Phase
+ * pressed through {@link OmnitrixAbilityManager} -- and XLR8's revamp: Speed Mode on V, Phase
  * held on X, the borrowed Speed Sweep. Mock players are not ticked by the server, so tests over time drive {@link Omnitrix#tick}.
  */
 public class OmnitrixVKeyGameTests implements FabricGameTest {
@@ -149,6 +149,27 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 			ore.discard();
 			helper.succeed();
 		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void wildmuttVDigsSoftGroundButNotStone(GameTestHelper helper) {
+		ServerPlayer p = as(helper, com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);
+		// a wall of dirt ahead (he faces +z), one stone block in the middle of it
+		for (int x = 2; x <= 4; x++) {
+			for (int y = 2; y <= 4; y++) {
+				for (int z = 2; z <= 4; z++) {
+					helper.getLevel().setBlock(helper.absolutePos(new BlockPos(x, y, z)), Blocks.DIRT.defaultBlockState(), 3);
+				}
+			}
+		}
+		BlockPos stone = new BlockPos(3, 3, 3);
+		helper.getLevel().setBlock(helper.absolutePos(stone), Blocks.STONE.defaultBlockState(), 3);
+		tapV(p, false);
+		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(3, 2, 2))).isAir(), "V: Dig tore through the dirt in front");
+		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(4, 4, 4))).isAir(), "the tunnel runs three deep and three wide");
+		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(stone)).is(Blocks.STONE), "stone is too hard for his claws");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
