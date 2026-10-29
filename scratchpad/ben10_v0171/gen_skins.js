@@ -163,3 +163,28 @@ console.log('ripjaws / grey_matter / diamondhead / ghostfreak.png, four_arms.png
 	}
 	write('upgrade_glow.png', 64, 64, glow);
 }
+
+// --- v0.17.1 (user: "make his back spikes match the green colour of the rest of his diamond body"): Diamondhead's crystal sheet
+// remapped by brightness onto his new skin's own greens (90,188,113 .. 176,242,204); alpha kept, so the crystals stay see-through
+{
+	const dh = dec(path.join(__dirname, 'diamondhead_extras_old.png'));
+	const GREEN = [[0, [40, 110, 70]], [0.3, [90, 188, 113]], [0.55, [121, 211, 156]], [0.8, [150, 229, 184]], [1, [190, 248, 214]]];
+	const lum = (r, g, b) => (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+	const ramp = (stops, t) => {
+		t = clamp(t);
+		for (let i = 0; i < stops.length - 1; i++) {
+			const [a, ca] = stops[i], [b, cb] = stops[i + 1];
+			if (t <= b) { const k = (t - a) / (b - a); return [0, 1, 2].map(c => Math.round(ca[c] + (cb[c] - ca[c]) * k)); }
+		}
+		return stops[stops.length - 1][1];
+	};
+	let lo = 1, hi = 0;
+	for (let i = 0; i < dh.px.length; i += 4) if (dh.px[i + 3]) { const l = lum(dh.px[i], dh.px[i + 1], dh.px[i + 2]); lo = Math.min(lo, l); hi = Math.max(hi, l); }
+	for (let i = 0; i < dh.px.length; i += 4) {
+		if (!dh.px[i + 3]) continue;
+		const t = (lum(dh.px[i], dh.px[i + 1], dh.px[i + 2]) - lo) / Math.max(1e-3, hi - lo);
+		const [r, g, b] = ramp(GREEN, t);
+		dh.px[i] = r; dh.px[i + 1] = g; dh.px[i + 2] = b;
+	}
+	write('diamondhead_extras.png', dh.w, dh.h, dh.px);
+}

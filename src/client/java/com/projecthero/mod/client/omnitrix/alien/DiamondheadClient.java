@@ -105,18 +105,6 @@ public final class DiamondheadClient implements AlienClientKit {
 		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, uv[0], uv[1], uv[2], uv[3], 0xFFFFFFFF, light);
 	}
 
-	/** One shard: a thin box from {@code (x, y, z)} pointing up its local -Y, tipped by {@code rx} / {@code rz}. */
-	private static void shard(PoseStack pose, VertexConsumer vc, float x, float y, float z, float rx, float rz, float w, float h, float[] uv, int light) {
-		pose.pushPose();
-		pose.translate(x / 16f, y / 16f, z / 16f);
-		pose.mulPose(Axis.XP.rotation(rx));
-		pose.mulPose(Axis.ZP.rotation(rz));
-		pose.mulPose(Axis.YP.rotationDegrees(45));
-		box(pose, vc, -w / 2, -h, -w / 2, w / 2, 0, w / 2, uv, light);
-		box(pose, vc, -w / 4, -h - w * 0.8f, -w / 4, w / 4, -h + 0.01f, w / 4, uv, light);
-		pose.popPose();
-	}
-
 	// a crystal's profile along its length: {t, radius scale} -- a base, a facet bulge a third of the way up, the long taper
 	private static final float[][] CRYSTAL_PROFILE = { { 0f, 0.85f }, { 0.12f, 1.0f }, { 0.38f, 1.12f }, { 0.78f, 0.55f }, { 1f, 0f } };
 
@@ -177,18 +165,8 @@ public final class DiamondheadClient implements AlienClientKit {
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
-		// the pointed crystal head: a stepped diamond, turned 45 degrees, with fins at the cheeks
-		AlienParts.on(pose, model.head, () -> {
-			pose.pushPose();
-			pose.mulPose(Axis.YP.rotationDegrees(45));
-			box(pose, vc, -3.6f, -9.6f, -3.6f, 3.6f, -7.6f, 3.6f, CRYSTAL, light);
-			box(pose, vc, -2.6f, -11.6f, -2.6f, 2.6f, -9.6f, 2.6f, CRYSTAL, light);
-			box(pose, vc, -1.6f, -13.4f, -1.6f, 1.6f, -11.6f, 1.6f, PALE, light);
-			box(pose, vc, -0.7f, -15.0f, -0.7f, 0.7f, -13.4f, 0.7f, PALE, light);
-			pose.popPose();
-			shard(pose, vc, -4.2f, -3.0f, 0f, 0f, 0.35f, 1.2f, 4.5f, CRYSTAL, light);
-			shard(pose, vc, 4.2f, -3.0f, 0f, 0f, -0.35f, 1.2f, 4.5f, CRYSTAL, light);
-		});
+		// v0.17.1 (user: "remove the spikes on diamondheads head and shoulders"): no crystal crest, cheek or shoulder shards -- the
+		// skin's own head; only the four back crystals and the blade are drawn
 		// v0.17.1 (user: "he has 4 spikes coming out of his back, 2 longer ones and 2 smaller ones"): two long faceted crystals
 		// rising from his shoulder blades in a V past his head, two short chunky ones under them
 		AlienParts.on(pose, model.body, () -> {
@@ -197,16 +175,8 @@ public final class DiamondheadClient implements AlienClientKit {
 				crystal(pose, vc, side * 1.7f, 7.6f, 1.7f, -0.95f, side * 0.75f, 1.35f, 1.0f, 4.6f, light);
 			}
 		});
-		// shoulder shards, and the blade
+		// the blade
 		boolean blade = (Omnitrix.state(p).kitFlags & DiamondheadKit.F_BLADE) != 0;
-		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> {
-				float x = right ? -1.0f : 1.0f;
-				shard(pose, vc, x, -2.0f, 0f, 0f, right ? 0.45f : -0.45f, 1.6f, 4.0f, CRYSTAL, light);
-				shard(pose, vc, x + (right ? -1.2f : 1.2f), -1.2f, 1.0f, -0.3f, right ? 0.9f : -0.9f, 1.1f, 2.8f, CRYSTAL, light);
-			});
-		}
 		if (blade) {
 			// last: its glowing edge fetches another buffer type, which ends the translucent one
 			AlienParts.on(pose, model.rightArm, () -> blade(pose, buffers, vc, light, age));
@@ -298,6 +268,7 @@ public final class DiamondheadClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 4.5f, -2.06f, 3.2f };
+		// v0.17.1 (user: "move his omnitrix badge to the left side of his chest"): high on his left breast, over the skin's grey square
+		return new float[] { 2.5f, 1.9f, -2.06f, 2.5f };
 	}
 }

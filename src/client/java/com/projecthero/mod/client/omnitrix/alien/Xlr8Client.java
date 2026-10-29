@@ -218,11 +218,15 @@ public final class Xlr8Client implements AlienClientKit {
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
 			pose.translate(0, 10.5f / 16f, 1.6f / 16f);
-			float lift = Mth.clamp(sp * 1.4f, 0f, 0.6f);
+			// v0.17.1 (user: "xlr8s tail still shakes viciously when he moves"): the lift follows vanilla's smoothed walk speed and the
+			// sway keeps one slow beat (it used to speed up with his running speed -- at his speeds that was a frantic shake); it
+			// calms as the tail streams out behind him
+			float ws = Mth.clamp(p.walkAnimation.speed(partial), 0f, 1f);
+			float lift = ws * 0.6f;
 			float[] w = { 3.0f, 2.4f, 1.8f, 1.1f };
 			float[] len = { 4.5f, 4.5f, 4.0f, 3.5f };
 			for (int i = 0; i < 4; i++) {
-				float sway = Mth.sin(age * (0.18f + sp) + i * 0.9f) * (0.12f + i * 0.04f);
+				float sway = Mth.sin(age * 0.15f + i * 0.9f) * (0.08f + i * 0.03f) * (1f - 0.6f * ws);
 				pose.mulPose(Axis.XP.rotation(i == 0 ? -0.75f + lift : 0.22f - lift * 0.15f));
 				pose.mulPose(Axis.YP.rotation(sway));
 				box(pose, vc, -w[i] / 2, -w[i] / 2, 0, w[i] / 2, w[i] / 2, len[i], TAIL, light);
@@ -290,17 +294,8 @@ public final class Xlr8Client implements AlienClientKit {
 			m.leftLeg.xRot += Mth.sin(j * 1.4f) * 0.08f;
 			return true;
 		}
-		boolean flatOut = speed(p) > ((f & Xlr8Kit.F_SPEED) != 0 ? 0.18f : 0.3f);
-		if (!played && flatOut && p.onGround()) {
-			// flat out: the raptor lean, arms tucked back, the head low and forward
-			com.projecthero.mod.client.HipBend.pitch(m, 1f, (f & Xlr8Kit.F_SPEED) != 0 ? 0.6f : 0.45f);
-			m.rightArm.xRot = 0.9f + Mth.sin(age * 1.6f) * 0.15f;
-			m.leftArm.xRot = 0.9f - Mth.sin(age * 1.6f) * 0.15f;
-			m.rightArm.zRot = 0.25f;
-			m.leftArm.zRot = -0.25f;
-			m.head.xRot -= 0.45f;
-			return true;
-		}
+		// v0.17.1 (user: "give xlr8 the regular minecraft walk and sprint animation"): no raptor lean when he runs -- vanilla's own
+		// walk and sprint swing play (only the moves, Phase and the wall run pose him)
 		if (!played && (f & Xlr8Kit.F_SPEED) != 0 && p.onClimbable() && !p.onGround()) {
 			// running straight up a wall: the body pitched into it, legs pumping
 			m.rightLeg.xRot = Mth.sin(age * 1.8f) * 1.1f;
