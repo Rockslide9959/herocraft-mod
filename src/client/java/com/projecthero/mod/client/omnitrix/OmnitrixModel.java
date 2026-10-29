@@ -39,7 +39,10 @@ public final class OmnitrixModel {
 	private static final int[][] SW = { { 0, 0 }, { 16, 0 }, { 32, 0 }, { 48, 0 }, { 0, 16 }, { 16, 16 }, { 32, 16 }, { 48, 16 }, { 0, 32 } };
 
 	// the cuff's cross-section: a rounded rectangle round the sleeve (x -1.25..L+0.25, z +-2.25), clearance 0.15
-	private static final float GAP = 0f, CORNER = 0.5f, WALL = 0.3f, HALF_LEN = 2.1f;
+	// v0.17.1 (user: "the watch still doesnt properly touch the players arm"): the arm is a square box, so a round 0.5 inner
+	// corner let its corners poke through; a near-square inner corner (0.1) needs only a 0.03 clearance to clear the sleeve's
+	// corners, so the cuff hugs every face -- the outside stays rounded (0.1 + WALL)
+	private static final float GAP = 0.03f, CORNER = 0.1f, WALL = 0.3f, HALF_LEN = 2.1f;
 	private static final float PRONG_W = 0.4f, PRONG_T = 0.32f, PRONG_Y = 1.22f;
 
 	private OmnitrixModel() {
