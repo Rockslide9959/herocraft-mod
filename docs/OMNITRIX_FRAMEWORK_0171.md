@@ -185,7 +185,7 @@ again before the next player renders) and redraws it in `renderExtras` on the sa
 
 | | Stinkfly | Wildvine | Ripjaws | Grey Matter |
 |---|---|---|---|---|
-| Body | 14 HP, x1.1 speed, x0.9 size, armour 1, fist +1 | 28 HP, x1.1 size, armour 3, fist +2, KB res 0.2, reach +1.5 | 30 HP, x0.9 speed, x1.05 size, armour 4 (+1), fist +3, KB res 0.2 | 8 HP, x1.35 speed, **x0.33 size** (0.59-block hitbox, eyes at 0.53), safe fall +1 |
+| Body | 14 HP, x1.1 speed, x0.9 size (0.54 x 1.62, eyes 1.46), armour 1, fist +1; **custom GeckoLib body** (v0.17.1, "Stinkfly's body" below), claws hold nothing (pawsOnly) | 28 HP, x1.1 size, armour 3, fist +2, KB res 0.2, reach +1.5 | 30 HP, x0.9 speed, x1.05 size, armour 4 (+1), fist +3, KB res 0.2 | 8 HP, x1.35 speed, **x0.33 size** (0.59-block hitbox, eyes at 0.53), safe fall +1 |
 | Passive | real flight (mayfly while transformed; X or double-tap jump), no fall / fly-into-wall damage | fire x1.35; sneak still 0.75 s = a bush (mobs hunting him lose track every tick) | water: Dolphin's Grace + Conduit Power, never drowns, moves x1.5, fist +3, swim / underwater dig modifiers; land: the dry-out meter | mobs hunting him lose sight (30% per second beyond 2.5 blocks; never bosses) |
 | R / Shift+R | Slime Shot (3, roots 1.5 s) / Slime Net (r 2.75, roots 3 s) | Seed Bomb (r 3, 7, no block damage) / Thorn Whip (cone, 6) | Bite (7, heals 1) / Jaw Lunge (first in the way: 10) | Nerve Pinch (stun 3 s) / Weak-Spot Strike (12) |
 | G / Shift+G | Toxic Gas (5 s cloud, 1.5 / 0.5 s + poison, nausea) / Stinger Stab (6 + Poison II) | Vine Bind (18 r, roots 4 s, 2) / Pollen Burst (r 5: nausea, slow, weak, 2) | Tail Slam (r 3.5, r 5 in water, 8) / Fin Slash (r 3.25, 6, slow) | Analyze (24 r: health / armour / weakness in chat; Glowing; **+35% damage from everyone** 10 s) / Decoy (5 s, mobs go to it) |
@@ -398,6 +398,39 @@ JSON had every clip over 1 s out of order (it played as a still pose). `anims.js
 a clip's whole elapsed time when its speed changes): walk (0.56 s), sneak (1.0 s) and gallop (0.42 s) are authored for his speeds.
 
 Harness: `scratchpad/WildmuttHarness.v0171.java.txt` (flag `run/wildmutt.flag`); shots `docs/screenshots/v0171/omnitrix_wildmutt_*.png`.
+
+## Stinkfly's body (the second custom-body alien)
+
+User: a proper, good-looking custom GeckoLib body from the reference images, built like Wildmutt. Client
+`client/omnitrix/alien/StinkflyClient` + `client/omnitrix/alien/stinkfly/` (`StinkflyAnimatable`, `StinkflyModel`, `StinkflyRenderer`,
+`StinkflyFirstPerson`); the kit is unchanged but for `pawsOnly` (claws hold nothing; the Use goo spit fires whatever is in the slot).
+Hitbox: the player's, scaled by the 0.9 size stat (0.54 x 1.62, eyes at 1.46 -- the middle of the model's head).
+
+`scratchpad/stinkfly_v0171/gen_stinkfly.js` (same library) writes `geo/omnitrix/stinkfly.geo.json` (34 bones, 137 cubes),
+`textures/entity/omnitrix/stinkfly.png` + `stinkfly_glowmask.png` (512 x 144; the old player skin and `stinkfly_extras.png` are gone)
+and, via `anims.js`, `animations/omnitrix/stinkfly.animation.json` (27 clips); `--sheets <dir>` renders preview sheets (`preview.js`).
+The look: a black rounded-boxy head with a pale grey mouth plate and small fangs, four green-black eye-stalks (two a side, up and out)
+with yellow-orange bulb eyes (pupils forward, glowing); a narrow white chest and waist with a black stripe down each side, black bands
+and a black V; four thin mottled olive limbs (mantis arms off the shoulders with black three-clawed hands and elbow / forearm spikes;
+legs with sharp knees, shin spikes and spiky black feet); a long white tail in four segments curving down and back to a black
+arrowhead stinger fin with a white stripe; two pairs of dragonfly wings (pale yellow-green, see-through, veins, a pointed swept tip,
+round notches in the trailing edge; upper 21 px and up-and-out, lower 16 px). The Omnitrix sits on a plate on the chest
+(`StinkflyRenderer.Badge`, the framework badge, red while it beeps).
+
+Rendering: the whole body uses `RenderType.entityTranslucent` (no culling, so the flat wing plates show from both sides and their
+see-through texels let the world through); `AutoGlowingGeoLayer` + the glowmask keep the eyes bright and give the wings a faint glow.
+The `look` bone turns the head (the head-minus-body yaw is wrapped first: GeckoLib's is not).
+
+Rig: root > hurt > hips > chest > neck > look > head > jaw / 4 stalks; arm > forearm > hand (x2), wing_u / wing_d (x2) and badge on
+the chest; thigh > shin > foot (x2) and tail1 > tail2 > tail3 > tail4 > fin on the hips. Controllers (later ones win per bone):
+`main` (idle, walk, hover, fly; the held dive; dash, takeoff, splash, lift, lift_hold), `move` (shot, barrage, net, gas, stab, jab,
+gust, storm: head / jaw / chest / arms / tail only, so they play over a hover or a walk; never the neck, which holds the flight's
+head-up), `wings` (wings_fold, wings_walk, wings_hover, wings_fly, wings_dive, wings_gust), `swing` (jab_r / jab_l on Attack) and
+`hurt`. Flight is read from the synced `F_FLYING` / `F_DIVING` / `F_LIFT` flags; fly vs hover by speed. First person: the forearm and
+hand bones, laid out from vanilla's hand pose, both always shown, a clip for every move (`StinkflyClient.firstPerson`).
+
+Harness: `scratchpad/StinkflyHarness.v0171.java.txt` (flag `run/stinkfly.flag`; "fp" = first person only); shots
+`docs/screenshots/v0171/omnitrix_stinkfly2_*.png`. Test: `OmnitrixAliens2GameTests.stinkflysClawsHoldNothingButStillSpit`.
 
 
 ## Key layout: N turns back, V is every alien's utility move (v0.17.1)
