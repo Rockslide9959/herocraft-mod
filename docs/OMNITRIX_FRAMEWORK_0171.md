@@ -379,15 +379,19 @@ x0.7, ravager step .3 x1.1).
 
 ### The model (`scratchpad/wildmutt_v0171/`)
 
-`gen_wildmutt.js` builds the rig with `viperion/lib_concept_models.js` (bones + boxes in model pixels, a procedural painter: orange fur
-with a top-lit gradient, a few cartoon fur strokes, darker face rims, a lighter belly, dark grey claws, the black mouth band with square
-white teeth and two hooked tusks, three gill slits on each side of the neck, a dark red mouth and pink tongue for the open jaw, the grey
-Omnitrix strap) and writes `geo/omnitrix/wildmutt.geo.json` (25 bones, ~200 cubes) + `textures/entity/omnitrix/wildmutt.png` (512 x 288);
+`gen_wildmutt.js` builds the rig with `viperion/lib_concept_models.js` (bones + boxes in model pixels, a procedural painter: mottled
+orange fur -- a top-lit gradient, soft blotches, 2 x 2 texel light / dark flecks, a fine grain, a few fur strokes, darker face rims --
+a lighter belly, dark brown square claws, the black mouth band (its upper half laps the lower, so the closed mouth shows no red line) with
+uneven cream teeth over it, gill slits behind it, a dark red mouth and pink tongue for the open jaw, the navy Omnitrix cuff with its pale
+rim and dark plate). Rework 3 (the third model): rework 2's reference shape (a boxy eyeless head carried low on a thick neck that fills
+the join, no tail, long angled front legs, dog-like hind legs) with rework 1's bulk (thick legs, a deep chest) and tapered quill tufts.
+It writes `geo/omnitrix/wildmutt.geo.json` (24 bones, 144 cubes) + `textures/entity/omnitrix/wildmutt.png` (512 x 256);
 `anims.js` samples 19 clips into `animations/omnitrix/wildmutt.animation.json` (idle, idle_sniff, walk, sneak, gallop, air, leap_charge,
 pounce, maul, quills, roar, slam, roll, frenzy, track, climb, swipe_r / swipe_l, hurt); `--sheets <dir>` renders preview sheets offline
 (`preview.js`). `lang_wildmutt.js` writes his ONE contiguous lang block at the end of `en_us.json`. Rig: root > spin (the roll) > hurt (its
 own controller) > hips > chest > neck > look (the head-turn, set in code, never keyed) > head > jaw; arms (arm > forearm > paw, the badge on
-the left arm), legs (thigh > shin > foot), the quills_f / quills_b spike groups (bristle by scale), tail. Drawn 1.1x.
+the left arm), legs (thigh > shin > foot), the quills_f / quills_b spike groups (bristle by scale); no tail. Drawn 1:1
+(~1.52 blocks at the hump, 2.55 long).
 
 **GeckoLib gotcha**: keyframe times must not be written as integer-like keys (`"1"`): JavaScript lists those first in an object, so the
 JSON had every clip over 1 s out of order (it played as a still pose). `anims.js` writes `"1.0"`. Clip speeds are fixed (GeckoLib rescales

@@ -35,15 +35,15 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  */
 public final class WildmuttFirstPerson {
 	/** The forearm + hand drawn this big (blocks per model pixel x 16). */
-	public static float SCALE = 0.78f;
+	public static float SCALE = 0.72f; // v0.17.1 rework 3: the thicker paws drawn a touch smaller, so they fill the corners as before
 	/** Where the elbow sits in camera space (x toward the arm's side, y up, z negative = ahead). */
 	public static float EX = 0.48f, EY = -0.35f, EZ = -0.78f;
 	/** How far the forearm swings forward / in toward the centre, degrees. */
 	public static float TILT = 45f, TOE_IN = 12f, ROLL = 6f;
 	/** The wrist bend (degrees, GeckoLib's sign) and the elbow's. */
 	public static float WRIST = 90f, ELBOW = 0f;
-	/** v0.17.1 rework 2: the elbow pivot of the slim model's forearm (json px; gen_wildmutt.js prints it). */
-	static final float ELBOW_X = 6.0f, ELBOW_Y = 9.63f, ELBOW_Z = -2.29f;
+	/** v0.17.1 rework 3: the elbow pivot of the thick forearm (json px; gen_wildmutt.js prints it). */
+	static final float ELBOW_X = 7.0f, ELBOW_Y = 10.51f, ELBOW_Z = -2.94f;
 	/** Blocks of extra trail per degree the view runs ahead of the hands; stride cycles per block walked. */
 	public static float LAG = 0.0045f, GAIT = 1.1f;
 	private static final Arms ARMS = new Arms();
