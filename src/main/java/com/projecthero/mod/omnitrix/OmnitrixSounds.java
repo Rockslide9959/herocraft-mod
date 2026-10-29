@@ -44,15 +44,16 @@ public final class OmnitrixSounds {
 	 */
 	public static final SoundEvent USER_TRANSFORM = register("omnitrix_transform_user");
 	public static final SoundEvent USER_POWER_DOWN = register("omnitrix_power_down_user");
-	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN };
+	/** v0.17.1 (user): "make this sound play when activating the omnitrix" / "when the omnitrix times back in after recharging". */
+	public static final SoundEvent USER_CORE_READY = register("omnitrix_core_ready_user");
+	public static final SoundEvent USER_RECHARGED = register("omnitrix_recharged_user");
+	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_CORE_READY, USER_RECHARGED };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
 	public static final Cue CORE_UP = OmnitrixSfx.cue("omnitrix_core_up")
-			.layer(SoundEvents.IRON_TRAPDOOR_OPEN, 0.18f, 1.7f)
-			.layer(SoundEvents.PISTON_EXTEND, 0.12f, 1.9f)
-			.layer(WHIRR, 0.38f, 1.0f, 1)
-			.jitter(0.03f);
+			.layer(USER_CORE_READY, 0.45f, 1.0f) // v0.17.1: the user's core-ready recording
+			.jitter(0.0f);
 	/** V again: the core sinks back: a quick wind-down and a soft click home. */
 	public static final Cue CORE_DOWN = OmnitrixSfx.cue("omnitrix_core_down")
 			.layer(POWER_DOWN, 0.18f, 1.7f)
@@ -121,8 +122,7 @@ public final class OmnitrixSounds {
 			.jitter(0.02f).gap(6);
 	/** The recharge done: the whirr, higher and short, and a click. */
 	public static final Cue RECHARGED = OmnitrixSfx.cue("omnitrix_recharged")
-			.layer(WHIRR, 0.3f, 1.25f)
-			.layer(SoundEvents.LEVER_CLICK, 0.14f, 1.6f, 6)
+			.layer(USER_RECHARGED, 0.45f, 1.0f) // v0.17.1: the user's "timed back in" recording
 			.jitter(0.0f);
 
 	// ---------------------------------------------------------------- the pod, the scanner, the meteor

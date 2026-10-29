@@ -126,17 +126,9 @@ public final class OmnitrixModel {
 		pose.translate(0f, -cy * S, 0f);
 		float cr = CORE_R;
 		if (!face) {
-			// the core: a short dark ring standing on the bezel
+			// the core: a short dark ring standing on the bezel. v0.17.1 (user: "why are their 2 dials now? there should only be
+			// one"): no second ring of lime notches on the cap -- the bezel's four lights are the only ones
 			cylinder(pose, vc, bezelTop - 0.2f, top, cy, 0f, cr, BLACK, light, 24);
-			// the dial ring on the cap: eight small lime notches just outside the face
-			for (int k = 0; k < 8; k++) {
-				pose.pushPose();
-				pose.translate(0f, cy * S, 0f);
-				pose.mulPose(Axis.XP.rotationDegrees(k * 45f));
-				float nr = (FACE_R + cr) * 0.5f;
-				box(pose, vc, top - 0.02f, -0.06f, nr - 0.07f, top + 0.035f, 0.06f, nr + 0.07f, k % 2 == 0 ? GREEN : DIMGREEN, lit, false);
-				pose.popPose();
-			}
 			pose.popPose();
 			return;
 		}

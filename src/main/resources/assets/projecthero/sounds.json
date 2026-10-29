@@ -2946,5 +2946,21 @@
         "name": "projecthero:hero_landing/cosmic"
       }
     ]
+  },
+  "omnitrix_core_ready_user": {
+    "subtitle": "subtitles.projecthero.omnitrix_core_ready_user",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/core_ready_user"
+      }
+    ]
+  },
+  "omnitrix_recharged_user": {
+    "subtitle": "subtitles.projecthero.omnitrix_recharged_user",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/recharged_user"
+      }
+    ]
   }
 }

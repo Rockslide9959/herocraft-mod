@@ -251,8 +251,9 @@ public final class OmnitrixWatch {
 		float fx = (top + 0.012f) / 16f;
 		float fr = OmnitrixModel.FACE_R;
 		float cy = OmnitrixModel.CY;
-		// the icon stands upright as the wearer sees it (+z is up on the raised wrist in first person, -z seen from outside)
-		float up = (firstPerson ? fr : -fr) / 16f;
+		// the icon stands upright for the WEARER, first and third person alike (+z, the edge away from the chest, is up) --
+		// v0.17.1 (user: "the alien icon should be facing the player who is using the omnitrix, dont turn it the other way")
+		float up = fr / 16f;
 		float y0 = (cy - fr) / 16f, y1 = (cy + fr) / 16f;
 		// first person: the raised wrist sits at a slant, so as the face morphs it rolls the screen upright for the eye
 		pose.pushPose();
