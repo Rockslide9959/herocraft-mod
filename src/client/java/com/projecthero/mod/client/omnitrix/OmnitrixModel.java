@@ -93,9 +93,11 @@ public final class OmnitrixModel {
 		// ---- the bezel: a low black cylinder, four lime lights round its rim
 		float bezelR = 2.0f, bezelTop = xo + 0.4f;
 		cylinder(pose, vc, xo - 0.05f, bezelTop, cy, 0f, bezelR, BLACK, light, 28);
-		float lr = 1.76f, ls = 0.17f;
+		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
+		// out on the rim just past the core's edge
+		float lr = 1.8f, ls = 0.17f;
 		for (int k = 0; k < 4; k++) {
-			double a = Math.PI / 4 + k * Math.PI / 2;
+			double a = k * Math.PI / 2;
 			float ly = cy + (float) Math.cos(a) * lr, lz = (float) Math.sin(a) * lr;
 			box(pose, vc, bezelTop - 0.06f, ly - ls, lz - ls, bezelTop + 0.1f, ly + ls, lz + ls, GREEN, lit);
 		}
