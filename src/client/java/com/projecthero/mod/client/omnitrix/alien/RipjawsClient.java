@@ -27,7 +27,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.1: Ripjaws' client kit -- the grey-blue fish-man skin (pale belly, gills, dark trunks) with a HUGE TOOTHY JAW (an
+ * v0.17.1: Ripjaws' client kit -- the grey-blue fish-man skin (pale belly, gills, dark trunks) (v0.17.1: the huge jaw is gone, user's skin face instead; it used to be an
  * upper snout and a hinged lower jaw, both lined with teeth, that gape and snap on every bite), a dorsal fin on the head, fins
  * on the forearms, and a FISH TAIL: a short finned tail behind him on land; in water the legs vanish into a long undulating
  * tail. The hydration meter over the keys turns orange, then red, as he dries out. A pose for every move.
@@ -41,9 +41,6 @@ public final class RipjawsClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws_extras.png");
 
-	private static final float[] JAW = { 0, 0, 16, 8 };
-	private static final float[] TEETH = { 16, 0, 24, 4 };
-	private static final float[] EYE = { 16, 4, 20, 8 };
 	private static final float[] FIN = { 24, 0, 40, 16 };
 	private static final float[] TAIL = { 0, 8, 16, 16 };
 	private static final float[] TAIL_FIN = { 40, 0, 56, 16 };
@@ -126,7 +123,6 @@ public final class RipjawsClient implements AlienClientKit {
 			float age) {
 		OmnitrixState s = Omnitrix.state(p);
 		float t = p.level().getGameTime() + partial - s.animStart;
-		float open = gape(s, t, age);
 		boolean wet = wet(p);
 		if ((s.kitFlags & RipjawsKit.F_BUBBLE) != 0) {
 			// v0.17.1: the Water Bubble -- a wobbling globe of water round his head
@@ -141,19 +137,8 @@ public final class RipjawsClient implements AlienClientKit {
 			});
 		}
 		AlienParts.on(pose, model.head, () -> {
-			// the upper snout and its teeth
-			box(pose, buffers, false, -4.5f, -5.6f, -8.6f, 4.5f, -2.0f, -3.5f, JAW, light);
-			box(pose, buffers, false, -4.1f, -2.0f, -8.3f, 4.1f, -0.9f, -4.0f, TEETH, light);
-			// the eyes on top of the snout
-			box(pose, buffers, false, -3.6f, -6.8f, -5.0f, -1.8f, -5.4f, -3.6f, EYE, light);
-			box(pose, buffers, false, 1.8f, -6.8f, -5.0f, 3.6f, -5.4f, -3.6f, EYE, light);
-			// the huge lower jaw, hinged at the back of the head
-			pose.pushPose();
-			pose.translate(0, -1.6f / 16f, 1.5f / 16f);
-			pose.mulPose(Axis.XP.rotation(open));
-			box(pose, buffers, false, -4.9f, -0.4f, -11.0f, 4.9f, 3.4f, 0f, JAW, light);
-			box(pose, buffers, false, -4.4f, -1.5f, -10.6f, 4.4f, -0.4f, -5.5f, TEETH, light);
-			pose.popPose();
+			// v0.17.1 (user: "remove the huge jaws from ripjaws"): no snout, lower jaw, teeth or snout eyes any more -- the user's
+			// skin has his face; only the dorsal fin stays on the head
 			// the dorsal fin
 			box(pose, buffers, true, -0.4f, -12.0f, -2.5f, 0.4f, -8.0f, 4.0f, FIN, light);
 		});
