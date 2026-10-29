@@ -47,7 +47,9 @@ public final class OmnitrixSounds {
 	/** v0.17.1 (user): "make this sound play when activating the omnitrix" / "when the omnitrix times back in after recharging". */
 	public static final SoundEvent USER_CORE_READY = register("omnitrix_core_ready_user");
 	public static final SoundEvent USER_RECHARGED = register("omnitrix_recharged_user");
-	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_CORE_READY, USER_RECHARGED };
+	/** v0.17.1 (user): "add this omnitrix click sound effect when turning the dial". */
+	public static final SoundEvent USER_DIAL_CLICK = register("omnitrix_dial_click_user");
+	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_CORE_READY, USER_RECHARGED, USER_DIAL_CLICK };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -62,9 +64,8 @@ public final class OmnitrixSounds {
 			.jitter(0.03f);
 	/** The scroll wheel: one quiet, crisp ratchet click (it repeats, so it is tiny). */
 	public static final Cue DIAL = OmnitrixSfx.cue("omnitrix_dial")
-			.layer(SoundEvents.LEVER_CLICK, 0.12f, 1.9f)
-			.layer(SoundEvents.TRIPWIRE_CLICK_ON, 0.08f, 2.0f)
-			.jitter(0.04f).gap(1);
+			.layer(USER_DIAL_CLICK, 0.15f, 1.0f) // v0.17.1: the user's Omnitrix click
+			.jitter(0.0f).gap(1);
 	/** Picking an alien on the dial screen: a slightly firmer double click. */
 	public static final Cue SELECT = OmnitrixSfx.cue("omnitrix_select")
 			.layer(SoundEvents.LEVER_CLICK, 0.18f, 1.5f)

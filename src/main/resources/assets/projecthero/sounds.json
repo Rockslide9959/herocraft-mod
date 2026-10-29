@@ -2962,5 +2962,13 @@
         "name": "projecthero:omnitrix/recharged_user"
       }
     ]
+  },
+  "omnitrix_dial_click_user": {
+    "subtitle": "subtitles.projecthero.omnitrix_dial_click_user",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/dial_click_user"
+      }
+    ]
   }
 }

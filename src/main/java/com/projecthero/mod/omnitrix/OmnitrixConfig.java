@@ -8,6 +8,8 @@ public final class OmnitrixConfig {
 	public static final int TRANSFORM_TICKS = 3 * 60 * 20;
 	/** The watch light flashes red for the last 15 s. */
 	public static final int WARN_TICKS = 15 * 20;
+	/** v0.17.1 (user): the dial can turn at most once every 0.2 s. */
+	public static final int DIAL_COOLDOWN_TICKS = 4;
 	/** Then a 90 s recharge before the next transformation. */
 	public static final int RECHARGE_TICKS = 90 * 20;
 	/** An early Shift+V revert still costs a (shorter) recharge: 10 s, so swapping can not be spammed. */

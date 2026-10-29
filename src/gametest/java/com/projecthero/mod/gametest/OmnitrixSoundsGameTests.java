@@ -44,7 +44,7 @@ import net.minecraft.world.phys.Vec3;
 public class OmnitrixSoundsGameTests implements FabricGameTest {
 	/** The six synthesised files plus (v0.17.1) the user's own transform and power-down recordings. */
 	private static final Set<String> SYNTH_FILES = Set.of("core_up", "transform", "revert", "timeout", "warning", "denied", "transform_user",
-			"power_down_user", "core_ready_user", "recharged_user");
+			"power_down_user", "core_ready_user", "recharged_user", "dial_click_user");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {

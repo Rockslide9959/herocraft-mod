@@ -128,7 +128,7 @@
   "projecthero.guide.omnitrix.controls": "Using the watch",
   "projecthero.guide.omnitrix.controls.body": "Press V and you raise your wrist to your face: the core pops up and the face shows the selected alien's silhouette, with a little green hologram of it over the dial. Turn the dial with the scroll wheel (the hotbar stays put; the alien's name shows above your hotbar). Click (left or right) to slam the core down: the green DNA flash spirals up your body and you become that alien. Press V again to lower the watch without transforming. As an alien, V turns you back early.",
   "projecthero.guide.omnitrix.timer": "The timer and the recharge",
-  "projecthero.guide.omnitrix.timer.body": "A transformation lasts 3 minutes. In the last 15 seconds the watch light flashes red and beeps; then you time out mid-fight with the Omnitrix chime and a red flash. The watch then recharges for 90 seconds (V shows the face red with the time left). Turning back early costs a 10 second recharge. The small Omnitrix dial at the bottom left of your screen shows the time left or the recharge. Your alien's health, speed, size and armour apply while you are transformed; your health carries over as the same fraction of the new body's.",
+  "projecthero.guide.omnitrix.timer.body": "A transformation lasts 3 minutes. In the last 15 seconds the watch light flashes red; then you time out mid-fight with the Omnitrix chime and a red flash. The watch then recharges for 90 seconds (V shows the face red with the time left). Turning back early costs a 10 second recharge. The small Omnitrix dial at the bottom left of your screen shows the time left or the recharge. Your alien's health, speed, size and armour apply while you are transformed; your health carries over as the same fraction of the new body's.",
   "projecthero.guide.omnitrix.lock": "Locked on",
   "projecthero.guide.omnitrix.lock.body": "While you wear the Omnitrix every way of gaining another power refuses -- serums, power items, the power wheel, mutation exposure, even an operator's grant (unless they add force): \"The Omnitrix rejects it.\" Dying does not take it off. Only an Omnitrix Containment Pod can.",
   "projecthero.guide.omnitrix.keys": "Keys",
@@ -316,7 +316,7 @@
   "projecthero.omnitrix.info.key.revert": "As an alien: turn back early (%s s recharge)",
   "projecthero.omnitrix.info.key.kit": "As an alien, R, G, X (movement), Z and C and their Shift versions are its moves; attack and use do something too.",
   "projecthero.omnitrix.info.rules": "Omnitrix rules",
-  "projecthero.omnitrix.info.rule.timeout": "A transformation lasts %s. In the last %s s the watch flashes red and beeps, then you time out.",
+  "projecthero.omnitrix.info.rule.timeout": "A transformation lasts %s. In the last %s s the watch flashes red, then you time out.",
   "projecthero.omnitrix.info.rule.recharge": "Timing out leaves the watch recharging for %s s.",
   "projecthero.omnitrix.info.rule.early": "Turning back early (%s) costs only a %s s recharge.",
   "projecthero.omnitrix.info.rule.death": "Dying as an alien turns you back; the watch stays on.",
@@ -9749,5 +9749,6 @@
   "projecthero.guide.green_lantern.flight.landing": "Superhero landing: dive into the ground out of Ring Flight and you come down in a three-point landing with the ring fist punched into the ground. The ring flares, a green hard-light shockwave rolls out and the Lantern emblem glows in the crack under your fist. No fall damage.",
   "projecthero.guide.thor.flight.landing": "Hammer-first landing: come down fast out of flight (or off a long drop) and the hammer strikes the ground ahead of you in a ring of crackling lightning. The bolt is only for show: it never burns or hurts anything.",
   "subtitles.projecthero.omnitrix_core_ready_user": "Omnitrix core pops up",
-  "subtitles.projecthero.omnitrix_recharged_user": "Omnitrix recharged"
+  "subtitles.projecthero.omnitrix_recharged_user": "Omnitrix recharged",
+  "subtitles.projecthero.omnitrix_dial_click_user": "Omnitrix dial clicks"
 }

@@ -430,8 +430,18 @@ public final class Omnitrix {
 		n.selectStart = p.level().getGameTime();
 		n.timers.remove(SLAP_TIMER);
 		save(p, n);
-		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_DOWN, 1.0f, 1.0f);
+		// v0.17.1 (user: "when deactivating the omnitrix ... remove the sound effect that plays"): lowered silently
 		return true;
+	}
+
+	/** Gametests: lets the dial turn again at once (the 0.2 s cooldown runs on game time, which a test does not advance). */
+	public static void clearDialCooldown(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (s.animId == ANIM_TURN) {
+			OmnitrixState n = s.copy();
+			n.animStart -= OmnitrixConfig.DIAL_COOLDOWN_TICKS;
+			save(p, n);
+		}
 	}
 
 	/** The scroll wheel while the watch is up: turns the dial {@code dir} (+1 / -1) to the next alien that has a kit. */
@@ -439,6 +449,11 @@ public final class Omnitrix {
 		OmnitrixState s = state(p);
 		java.util.List<Aliens.Alien> pool = Aliens.playable();
 		if (!s.selecting || pool.isEmpty() || dir == 0) {
+			return false;
+		}
+		// v0.17.1 (user): a 0.2 s cooldown on the dial so it cannot be spun too fast
+		long now = p.level().getGameTime();
+		if (s.animId == ANIM_TURN && now - s.animStart < OmnitrixConfig.DIAL_COOLDOWN_TICKS) {
 			return false;
 		}
 		int i = 0;
@@ -453,7 +468,7 @@ public final class Omnitrix {
 		n.animId = ANIM_TURN;
 		n.animStart = p.level().getGameTime();
 		save(p, n);
-		OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, dir > 0 ? 1.1f : 0.95f);
+		OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, 1.0f);
 		showSelected(p, next);
 		return true;
 	}
@@ -611,10 +626,8 @@ public final class Omnitrix {
 				return;
 			}
 			long left = s.endsAt - now;
-			// v0.17.1: the soft blip once a second, twice a second in the last five; the pitch only creeps up (was a 1.0-1.6 climb)
-			if (left <= OmnitrixConfig.WARN_TICKS && (left % 20 == 0 || (left <= 100 && left % 10 == 0))) {
-				OmnitrixSounds.notify(p, OmnitrixSounds.WARNING, 1.0f + 0.3f * (1f - left / (float) OmnitrixConfig.WARN_TICKS));
-			}
+			// v0.17.1 (user: "remove the beeping that starts ... before a transformation ends"): no warning blips -- the only
+			// detransform sound is the user's power-down; the watch still flashes red in the last WARN_TICKS
 			kit.tick(p, state(p), now);
 		} else if (s.rechargeUntil > 0L && now >= s.rechargeUntil) {
 			OmnitrixState n = s.copy();

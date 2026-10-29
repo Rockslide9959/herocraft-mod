@@ -363,10 +363,15 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Omnitrix.cycle(p, 1), "the scroll wheel turns the dial");
 		String second = Omnitrix.state(p).selected;
 		helper.assertTrue(!second.equals(first) && Aliens.playable(second), "to the next alien with a kit");
+		// v0.17.1 (user): a 0.2 s cooldown -- a second turn in the same tick is refused
+		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial can't be turned again within 0.2 s");
+		helper.assertTrue(Omnitrix.state(p).selected.equals(second), "the refused turn changed nothing");
 		for (int k = 1; k < Aliens.playable().size(); k++) { // v0.17.1 wave A: however many aliens have kits by now
+			Omnitrix.clearDialCooldown(p);
 			Omnitrix.cycle(p, 1);
 		}
 		helper.assertTrue(Omnitrix.state(p).selected.equals(first), "coming-soon aliens are skipped (a full turn of the playable ones wraps)");
+		Omnitrix.clearDialCooldown(p);
 		Omnitrix.cycle(p, -1);
 		helper.assertTrue(!Omnitrix.state(p).selected.equals(first) && Aliens.playable(Omnitrix.state(p).selected), "and turns back");
 		String picked = Omnitrix.state(p).selected;
