@@ -26,7 +26,7 @@ import net.minecraft.util.Mth;
 
 /**
  * v0.17.1: Diamondhead's client kit -- the faceted green Petrosapien skin, a pointed crystal head (a stepped diamond turned 45
- * degrees, cheek fins), crystal shard ridges down his back and over his shoulders, and the crystal BLADE that grows out of his
+ * degrees, cheek fins), four faceted crystal spikes out of his back (two long, two short) and shards over his shoulders, and the crystal BLADE that grows out of his
  * right forearm while Blade Arm is on (third and first person). A pose for every move. Also hands his crystal block to the
  * translucent render layer.
  */
@@ -112,6 +112,62 @@ public final class DiamondheadClient implements AlienClientKit {
 		pose.popPose();
 	}
 
+	// a crystal's profile along its length: {t, radius scale} -- a base, a facet bulge a third of the way up, the long taper
+	private static final float[][] CRYSTAL_PROFILE = { { 0f, 0.85f }, { 0.12f, 1.0f }, { 0.38f, 1.12f }, { 0.78f, 0.55f }, { 1f, 0f } };
+
+	/**
+	 * A faceted crystal spike: a flattened hexagonal prism from {@code (x, y, z)} pointing up its local -Y (tipped by {@code rx}
+	 * then {@code rz}), {@code r} wide ({@code flat} times as deep), {@code len} long, every facet shaded by which way it faces.
+	 */
+	private static void crystal(PoseStack pose, VertexConsumer vc, float x, float y, float z, float rx, float rz, float r, float flat, float len, int light) {
+		pose.pushPose();
+		pose.translate(x / 16f, y / 16f, z / 16f);
+		pose.mulPose(Axis.XP.rotation(rx));
+		pose.mulPose(Axis.ZP.rotation(rz));
+		PoseStack.Pose p = pose.last();
+		int n = 6;
+		float[][][] ring = new float[CRYSTAL_PROFILE.length][n][3];
+		for (int k = 0; k < CRYSTAL_PROFILE.length; k++) {
+			float t = CRYSTAL_PROFILE[k][0], rs = CRYSTAL_PROFILE[k][1] * r;
+			// each ring a little twisted against the last: the facets read as cut, not lathed
+			double twist = k * 0.18;
+			for (int i = 0; i < n; i++) {
+				double a = i * Math.PI * 2 / n + twist;
+				ring[k][i][0] = (float) Math.cos(a) * rs / 16f;
+				ring[k][i][1] = -t * len / 16f;
+				ring[k][i][2] = (float) Math.sin(a) * rs * flat / 16f;
+			}
+		}
+		for (int k = 0; k < ring.length - 1; k++) {
+			for (int i = 0; i < n; i++) {
+				float[] a = ring[k][i], b = ring[k][(i + 1) % n], c = ring[k + 1][(i + 1) % n], d = ring[k + 1][i];
+				// the facet's outward normal (from the lower edge and the side), and its shade from that: light from the top / front
+				float ex = b[0] - a[0], ey = b[1] - a[1], ez = b[2] - a[2];
+				float fx = d[0] - a[0], fy = d[1] - a[1], fz = d[2] - a[2];
+				float nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
+				float nl = Mth.sqrt(nx * nx + ny * ny + nz * nz);
+				if (nl < 1e-7f) {
+					// the tip ring is one point: take the side edge against the upper edge instead
+					fx = c[0] - b[0];
+					fy = c[1] - b[1];
+					fz = c[2] - b[2];
+					nx = ey * fz - ez * fy;
+					ny = ez * fx - ex * fz;
+					nz = ex * fy - ey * fx;
+					nl = Math.max(1e-7f, Mth.sqrt(nx * nx + ny * ny + nz * nz));
+				}
+				nx /= nl;
+				ny /= nl;
+				nz /= nl;
+				float lit = -ny * 0.5f + nx * 0.35f - nz * 0.15f;
+				float[] uv = lit > 0.08f ? PALE : lit > -0.4f ? CRYSTAL : DARK;
+				AlienParts.quad(vc, p, 0xFFFFFFFF, light, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2], nx, ny, nz, uv[0], uv[1], uv[2],
+						uv[3]);
+			}
+		}
+		pose.popPose();
+	}
+
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
@@ -128,12 +184,12 @@ public final class DiamondheadClient implements AlienClientKit {
 			shard(pose, vc, -4.2f, -3.0f, 0f, 0f, 0.35f, 1.2f, 4.5f, CRYSTAL, light);
 			shard(pose, vc, 4.2f, -3.0f, 0f, 0f, -0.35f, 1.2f, 4.5f, CRYSTAL, light);
 		});
-		// the ridges down the back
+		// v0.17.1 (user: "he has 4 spikes coming out of his back, 2 longer ones and 2 smaller ones"): two long faceted crystals
+		// rising from his shoulder blades in a V past his head, two short chunky ones under them
 		AlienParts.on(pose, model.body, () -> {
-			for (int k = 0; k < 3; k++) {
-				float y = 2.5f + k * 3.4f;
-				shard(pose, vc, -1.6f, y, 2.0f, -0.7f, 0.25f, 1.4f, 4.5f - k * 0.8f, CRYSTAL, light);
-				shard(pose, vc, 1.6f, y, 2.0f, -0.7f, -0.25f, 1.4f, 4.5f - k * 0.8f, CRYSTAL, light);
+			for (int side = -1; side <= 1; side += 2) {
+				crystal(pose, vc, side * 2.1f, 2.6f, 1.6f, -0.42f, side * 0.5f, 1.7f, 1.1f, 17f, light);
+				crystal(pose, vc, side * 1.7f, 7.6f, 1.7f, -0.95f, side * 0.75f, 1.35f, 1.0f, 4.6f, light);
 			}
 		});
 		// shoulder shards, and the blade

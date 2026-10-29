@@ -1,10 +1,9 @@
 package com.projecthero.mod.client.omnitrix.alien;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
-import com.projecthero.mod.client.omnitrix.AlienParts;
+import com.projecthero.mod.client.ghostrider.GhostRiderRender;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
@@ -14,22 +13,30 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.1: Heatblast's client kit -- the magma-rock skin, a flame for a head (flickering emissive tongues on the head bone),
- * glowing fists, embers and heat shimmer, flames under the feet while the Fire Jet flies, and a pose (third and first person)
+ * v0.17.1: Heatblast's client kit -- the user's magma-rock skin with an animated burning overlay (lava pulsing through the
+ * cracks, flames licking up the rock), Ghost Rider's fire-sprite blaze for a head, embers and heat shimmer, flames under the feet while the Fire Jet flies, and a pose (third and first person)
  * for every move.
  */
 public final class HeatblastClient implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/heatblast.png");
-	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/heatblast_extras.png");
+	private static final ResourceLocation[] GLOW = new ResourceLocation[32];
+
+	static {
+		for (int i = 0; i < GLOW.length; i++) {
+			GLOW[i] = ProjectHeroMod.id(String.format("textures/entity/omnitrix/heatblast_glow_%02d.png", i));
+		}
+	}
 
 	// {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX} (radians)
 	private static final float[][] BLAST = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, 0.1f, 0, 0.3f, 0, 0, 0.05f, -0.3f, 0.2f, 0, 0, -0.2f, 0, 0, 0),
@@ -78,40 +85,34 @@ public final class HeatblastClient implements AlienClientKit {
 		return SKIN;
 	}
 
+	/** The burning overlay frame for {@code age} (32 frames, 2 ticks each: lava pulsing through the cracks, flames up the rock). */
+	private static ResourceLocation glow(float age) {
+		return GLOW[((int) (age / 2f) % GLOW.length + GLOW.length) % GLOW.length];
+	}
+
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		VertexConsumer flame = buffers.getBuffer(RenderType.eyes(EXTRAS));
-		// the flame head: tongues licking up off the head, each flickering on its own beat
-		AlienParts.on(pose, model.head, () -> {
-			float[][] tongues = { { -3.0f, -2.5f, 2.2f, 5.5f, 0f }, { -0.8f, -2.0f, 2.6f, 8.0f, 1.7f }, { 1.6f, -2.6f, 2.0f, 6.0f, 3.1f },
-					{ -2.2f, 1.0f, 2.2f, 6.5f, 4.2f }, { 0.4f, 0.8f, 2.4f, 7.5f, 5.5f }, { -0.6f, 2.6f, 2.0f, 5.0f, 2.4f }, { 2.4f, 0.6f, 1.8f, 4.5f, 0.9f },
-					{ -3.6f, 0.2f, 1.6f, 4.0f, 6.0f } };
-			for (float[] t : tongues) {
-				float flick = 0.75f + 0.25f * Mth.sin(age * 0.6f + t[4] * 2f) + 0.1f * Mth.sin(age * 1.7f + t[4]);
-				float h = t[3] * flick;
-				float w = t[2];
-				AlienParts.box(pose, flame, t[0], -8f - h, t[1] - w / 2, t[0] + w, -7.2f, t[1] + w / 2, (t[4] % 4) / 4f, 0f, (t[4] % 4) / 4f + 0.25f, 0.5f,
-						0xFFFFFFFF, LightTexture.FULL_BRIGHT);
-			}
-			// a soft glow shell just over the face
-			AlienParts.box(pose, flame, -4.3f, -8.4f, -4.3f, 4.3f, 0.2f, 4.3f, 0f, 0.5f, 1f, 1f, 0xFF6A3010, LightTexture.FULL_BRIGHT);
-		});
-		// glowing fists
-		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> AlienParts.box(pose, flame, right ? -3.25f : -1.25f, 7.5f, -2.25f, right ? 1.25f : 3.25f, 10.25f, 2.25f, 0f, 0f,
-					0.25f, 0.25f, 0xFF904020, LightTexture.FULL_BRIGHT));
-		}
+		// v0.17.1 (user: "add like a burning fire texture to the rest of his body"): the whole model again, additively, with the
+		// burning overlay -- the skin's pale cracks run with lava, flames lick up the rock, the head glows from inside
+		model.renderToBuffer(pose, buffers.getBuffer(RenderType.eyes(glow(age))), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+		// v0.17.1 (user: "make heatblasts head flames the same way you made ghost riders head flames ... make it flame
+		// textures"): the burning-skull fire -- the vanilla animated fire sprites in a ring round the crown plus crossed sheets
+		// rising off the top -- blazing up taller in the big bursts
+		int anim = Omnitrix.state(p).animId;
+		boolean big = anim == HeatblastKit.ANIM_NOVA || anim == HeatblastKit.ANIM_SUPERNOVA || anim == HeatblastKit.ANIM_FLARE || anim == HeatblastKit.ANIM_CHARGE;
+		GhostRiderRender.renderSkullFire(pose, buffers, model.head, big ? 1.4f : 1f, age);
 	}
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		VertexConsumer flame = buffers.getBuffer(RenderType.eyes(EXTRAS));
+		// the burning overlay on the first-person arm too (the pose is already the arm's: draw its cube unmoved)
 		float age = p.tickCount + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false);
-		float f = 0.9f + 0.1f * Mth.sin(age * 0.8f);
-		AlienParts.box(pose, flame, right ? -3.3f : -1.3f, 7.4f, -2.3f, right ? 1.3f : 3.3f, 10.4f * f + 0.6f, 2.3f, 0f, 0f, 0.25f, 0.25f, 0xFF904020,
-				LightTexture.FULL_BRIGHT);
+		PartPose was = arm.storePose();
+		arm.setPos(0, 0, 0);
+		arm.setRotation(0, 0, 0);
+		arm.render(pose, buffers.getBuffer(RenderType.eyes(glow(age))), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+		arm.loadPose(was);
 	}
 
 	@Override

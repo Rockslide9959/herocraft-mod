@@ -426,10 +426,13 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);
-		// v0.17.1 (user): the watch still comes up while it recharges and the dial still turns -- only the slap is refused
+		// v0.17.1 (user): the watch still comes up while it recharges, but the dial stays locked on the red face and the slap is
+		// refused
 		helper.assertTrue(Omnitrix.selecting(p), "R during the recharge still raises the watch");
 		Omnitrix.finishRaise(p); // the right hand's button press is over (the core is up)
-		helper.assertTrue(Omnitrix.cycle(p, 1), "and the dial still turns");
+		String before = Omnitrix.state(p).selected;
+		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial does not turn while recharging");
+		helper.assertTrue(before.equals(Omnitrix.state(p).selected), "no alien is selected while recharging");
 		helper.assertFalse(Omnitrix.slap(p), "but the core will not go down while recharging");
 		helper.assertTrue(Omnitrix.state(p).animId == Omnitrix.ANIM_DENIED, "the face flashes red instead");
 		helper.assertFalse(Omnitrix.transform(p), "no transformation while recharging");

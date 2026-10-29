@@ -25,7 +25,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * v0.17.1: Four Arms' client kit -- the red Tetramand skin (four eyes painted on the face), a SECOND PAIR OF ARMS (the skin's
+ * v0.17.1: Four Arms' client kit -- the user's red Tetramand skin (four eyes, the black-and-white outfit), a SECOND PAIR OF ARMS (the skin's
  * own arm UVs, a touch thinner, under the first pair: they follow the upper arms with a lag and take their own swing in the
  * barrage, the clap, the pound and the grab), and a pose (third and first person) for every move.
  */
@@ -79,10 +79,13 @@ public final class FourArmsClient implements AlienClientKit {
 
 	public FourArmsClient() {
 		ModelPart root = AlienParts.bake(64, 64, r -> {
-			// the second pair: the skin's own arm UVs (right arm at 40,16, left at 32,48), shoulder pivots under the first pair's
-			r.addOrReplaceChild("lower_right", CubeListBuilder.create().texOffs(40, 16).addBox(-3, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(-0.25f)),
+			// the second pair: the skin's own arm UVs (right arm at 40,16, left at 32,48) and their sleeve layer (40,32 / 48,48),
+			// shoulder pivots under the first pair's
+			r.addOrReplaceChild("lower_right", CubeListBuilder.create().texOffs(40, 16).addBox(-3, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(-0.25f))
+						.texOffs(40, 32).addBox(-3, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(0f)),
 					PartPose.ZERO);
-			r.addOrReplaceChild("lower_left", CubeListBuilder.create().texOffs(32, 48).addBox(-1, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(-0.25f)),
+			r.addOrReplaceChild("lower_left", CubeListBuilder.create().texOffs(32, 48).addBox(-1, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(-0.25f))
+						.texOffs(48, 48).addBox(-1, -2, -2, 4, 11, 4, new net.minecraft.client.model.geom.builders.CubeDeformation(0f)),
 					PartPose.ZERO);
 		});
 		lowerRight = root.getChild("lower_right");

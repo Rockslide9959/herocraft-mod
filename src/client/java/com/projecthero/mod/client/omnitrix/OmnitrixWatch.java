@@ -238,6 +238,13 @@ public final class OmnitrixWatch {
 		float[] ph = phase(p, s, partial);
 		float morph = ph[2], iconIn = ph[3];
 		boolean red = red(p, partial);
+		// v0.17.1 (user: "while the omnitrix is timed out ... the watch face should stay on the red regular badge"): raised during
+		// the recharge, the face never morphs into the alien screen -- the plain red hourglass, no silhouette
+		boolean timedOut = !s.transformed() && p.level().getGameTime() < s.rechargeUntil;
+		if (timedOut) {
+			morph = 0f;
+			iconIn = 0f;
+		}
 		ResourceLocation tex = red ? TEX_RED : TEX;
 		// the core: pops up for the selection screen, slammed down by the slap
 		float slap = OmnitrixHands.slapClock(p, s, partial);

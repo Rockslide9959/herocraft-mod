@@ -479,6 +479,11 @@ public final class Omnitrix {
 		}
 		// v0.17.1 (user): a 0.2 s cooldown on the dial so it cannot be spun too fast
 		long now = p.level().getGameTime();
+		if (now < s.rechargeUntil) {
+			// v0.17.1 (user: "while the omnitrix is timed out the omnitrix shouldnt show aliens ... the player can only select
+			// aliens once the omnitrix has timed in"): the dial stays locked on the red face until the recharge is over
+			return false;
+		}
 		if (!coreUp(s, now)) {
 			return false; // the dial is still coming up under the right hand
 		}

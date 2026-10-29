@@ -121,10 +121,8 @@ public final class OmnitrixHud {
 				g.fill(px, by + 1, px + 2, by + BAR_H - 1, i < done ? 0xFFFFD0C0 : 0xFF401010);
 			}
 		}
-		int ty = by - 13;
-		boolean iconRed = warn && (powerDown ? blink > 0.01f : (now / 5) % 2 == 0);
-		dialIcon(g, s.active, iconRed, x0, ty - 2);
-		g.drawString(mc.font, Component.translatable(a.nameKey()), x0 + 14, ty, readable(a.colour()), false);
+		// v0.17.1 (user: "i dont want to see the icon and alien name"): no name row; the kit's own rows sit right over the time bar
+		int ty = by - 2;
 		int top = ty;
 		AlienClientKit extra = AlienClients.of(s.active);
 		if (extra != null && extra.hudHeight() > 0) {

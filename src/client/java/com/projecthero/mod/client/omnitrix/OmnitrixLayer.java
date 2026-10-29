@@ -21,6 +21,8 @@ import net.minecraft.client.resources.PlayerSkin;
 public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	/** The alien's chest badge: the show's white Omnitrix symbol (scratchpad/gen_omnitrix_badge.js). */
 	public static final net.minecraft.resources.ResourceLocation BADGE = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge.png");
+	/** v0.17.1: the red flash -- the same badge (rim, grey ring) in the red face's colours, so the flashes swap colour, not shape. */
+	public static final net.minecraft.resources.ResourceLocation BADGE_RED = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge_red.png");
 
 	public OmnitrixLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);
@@ -40,9 +42,9 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 			boolean red = OmnitrixWatch.red(p, partial);
 			AlienParts.on(pose, model.body, () -> {
 				// v0.17.1 (user: "make all the omnitrix badges white ... thats how it is in the show"): the white symbol
-				// (badge.png, the whole texture); the red flash still shows the red watch face (its 64,64 quadrant)
-				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? OmnitrixWatch.TEX_RED : BADGE));
-				float u0 = red ? 0.5f : 0f, v0 = red ? 0.5f : 0f;
+				// (badge.png); the red flash is badge_red.png, the same badge in red
+				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? BADGE_RED : BADGE));
+				float u0 = 0f, v0 = 0f;
 				float s = b[3] / 2f / 16f;
 				// v0.17.1: just in front of the jacket overlay (-2.25 px), which hid the badge -- and its red beep blinks
 				float x = b[0] / 16f, y = b[1] / 16f, z = Math.min(b[2], -2.3f) / 16f;
