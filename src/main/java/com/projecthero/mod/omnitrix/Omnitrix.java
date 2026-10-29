@@ -522,8 +522,10 @@ public final class Omnitrix {
 		n.selecting = true;
 		n.selectStart = now;
 		clearSlap(n);
-		// the core-up click plays on the right hand's button press ({@link #tick})
-		n.timers.put(PRESS_TIMER, now + PRESS_TICKS);
+		// the core-up sound plays when the core pops ({@link #tick}): the button press -- or, raised while timed out, not until it
+		// times in (v0.17.1 user: "when you activate the omnitrix and the omnitrix is timed out then the omnitrix sound effect doesnt
+		// play")
+		n.timers.put(PRESS_TIMER, popAt(n));
 		save(p, n);
 		showSelected(p, n.selected);
 		return true;

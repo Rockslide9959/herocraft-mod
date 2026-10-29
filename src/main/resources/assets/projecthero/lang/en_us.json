@@ -104,7 +104,7 @@
   "projecthero.omnitrix.four_arms.throw": "Throw",
   "projecthero.omnitrix.four_arms.throw.desc": "Hurl what you hold: it takes 12 when it lands, and what it lands among takes 4.",
   "projecthero.omnitrix.four_arms.super_leap": "Super Leap",
-  "projecthero.omnitrix.four_arms.super_leap.desc": "A huge bound forward; the landing sends out a shockwave (6). No fall damage from your own leaps.",
+  "projecthero.omnitrix.four_arms.super_leap.desc": "Tap X: leap 14 blocks the way you are looking (the Hulk's leap arc: look up to arc higher). No fall damage, a shockwave where you land.",
   "projecthero.omnitrix.four_arms.charge": "Charge",
   "projecthero.omnitrix.four_arms.charge.desc": "A shoulder charge that ploughs through everything in your way (7, knocked aside). A wall stops you.",
   "projecthero.omnitrix.four_arms.ground_pound": "Ground Pound",
@@ -9801,7 +9801,7 @@
   "projecthero.omnitrix.wildmutt.dig": "Dig",
   "projecthero.omnitrix.wildmutt.dig.desc": "Tears a 3x3 tunnel three blocks deep through soft ground in front of him (dirt, sand, gravel, snow, leaves); look down to dig straight down. The blocks drop.",
   "projecthero.omnitrix.four_arms.charged_leap": "Charged Leap",
-  "projecthero.omnitrix.four_arms.charged_leap.desc": "Hold X: crouch and charge for up to 2.5 s, let go to leap along your look -- 14 blocks up to 200 at full charge. He sails without slowing and comes down with a heavier shockwave.",
+  "projecthero.omnitrix.four_arms.charged_leap.desc": "Hold X: crouch and charge for up to 2.5 s, let go to leap the way you are looking -- 14 blocks up to 200 at full charge, on the Hulk's leap arc. He sails without slowing and comes down with a heavier shockwave.",
   "hud.projecthero.omnitrix.four_arms.leap": "Leap",
   "message.projecthero.green_lantern.mech.no_rebind": "You cannot change your keys inside the mech -- hold left click on a construct to summon it.",
   "message.projecthero.green_lantern.mech.move_cooldown": "That mech combo needs %s s to cool down.",
@@ -9818,5 +9818,10 @@
   "projecthero.green_lantern.combo.mech_wrecking_whirl": "Wrecking Whirl",
   "projecthero.green_lantern.combo.mech_wrecking_whirl.desc": "Wrecking Ball + Mech: a chained ball swung round twice",
   "projecthero.green_lantern.combo.mech_lantern_cannon": "Lantern Cannon",
-  "projecthero.green_lantern.combo.mech_lantern_cannon.desc": "Emerald Cannon + Mech: the arm becomes a cannon -- one huge shell"
+  "projecthero.green_lantern.combo.mech_lantern_cannon.desc": "Emerald Cannon + Mech: the arm becomes a cannon -- one huge shell",
+  "projecthero.omnitrix.xlr8.overdrive": "Overdrive",
+  "projecthero.omnitrix.xlr8.overdrive.desc": "Hold V: 20 s of Speed Mode with three times more speed on top, blows twice as hard, Haste III and a block more step -- a shock ring and a sonic boom off the line. Tap V to end it early.",
+  "message.projecthero.omnitrix.xlr8.overdrive_on": "OVERDRIVE",
+  "message.projecthero.omnitrix.xlr8.overdrive_off": "Overdrive over.",
+  "hud.projecthero.omnitrix.blocks": "%s blocks"
 }

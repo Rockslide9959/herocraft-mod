@@ -336,6 +336,25 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8HoldVOverdriveAndTapEndsIt(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		helper.assertTrue(kit.holdable(AbilitySlot.SLOT_5), "V is holdable");
+		double walk = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		double hit = p.getAttributeValue(Attributes.ATTACK_DAMAGE);
+		kit.holdStart(p, AbilitySlot.SLOT_5);
+		helper.assertTrue(kit.flag(p, Xlr8Kit.F_OVERDRIVE) && kit.flag(p, Xlr8Kit.F_SPEED), "hold V: Overdrive (Speed Mode with it)");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 5.0, "far faster than Speed Mode alone: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
+		helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) > hit * 1.9, "blows twice as hard");
+		kit.press(p, AbilitySlot.SLOT_5, false);
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_OVERDRIVE), "a tap of V ends it early");
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "and Speed Mode goes back off (it was off before)");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - walk) < 1.0e-4, "its speed comes off");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
 	public void xlr8HoldXPhasesAndLettingGoEndsIt(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);

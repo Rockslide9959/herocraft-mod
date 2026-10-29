@@ -116,6 +116,12 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int F_DASH = 4;
 	/** v0.17.1 revamp: hold X's Phase. */
 	public static final int F_PHASE = 8;
+	/** v0.17.1 (user: "when you hold V as xlr8 you enter overdrive mode like with regular speedsters"): hold V's Overdrive. */
+	public static final int F_OVERDRIVE = 16;
+	public static final String OVERDRIVE = "overdrive";
+	/** Overdrive: {@link #OVERDRIVE_TICKS} of Speed Mode with {@link #OVERDRIVE_BONUS} more speed on top, blows twice as hard. */
+	public static final int OVERDRIVE_TICKS = 20 * 20, OVERDRIVE_COOLDOWN = 45 * 20;
+	public static final double OVERDRIVE_BONUS = 2.0, OVERDRIVE_DAMAGE = 1.0, OVERDRIVE_STEP = 1.0;
 
 	public static final String ASSAULT = "rapid_assault";
 	public static final String MACH = "mach_punch";
@@ -186,6 +192,9 @@ public final class Xlr8Kit extends AlienKit {
 	private static final ResourceLocation ATTACK_SPEED_ID = PowerToggles.id("omnitrix_xlr8_attack_speed");
 	private static final ResourceLocation MODE_ID = PowerToggles.id("omnitrix_xlr8_speed_mode");
 	private static final ResourceLocation MODE_STEP_ID = PowerToggles.id("omnitrix_xlr8_speed_mode_step");
+	private static final ResourceLocation OD_SPEED_ID = PowerToggles.id("omnitrix_xlr8_overdrive_speed");
+	private static final ResourceLocation OD_DAMAGE_ID = PowerToggles.id("omnitrix_xlr8_overdrive_damage");
+	private static final ResourceLocation OD_STEP_ID = PowerToggles.id("omnitrix_xlr8_overdrive_step");
 
 	/** player -> the Tornado Run's eye. */
 	private static final Map<UUID, Twister> TWISTERS = new ConcurrentHashMap<>();
@@ -230,7 +239,8 @@ public final class Xlr8Kit extends AlienKit {
 				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 40), AlienMove.shift(SPEED_SWEEP, AbilitySlot.SLOT_3, 300),
 				AlienMove.hold(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN),
 				AlienMove.tap(WHIRL, AbilitySlot.SLOT_4, 200), AlienMove.shift(KICKS, AbilitySlot.SLOT_4, 140),
-				AlienMove.tap(MODE, AbilitySlot.SLOT_5, 20), AlienMove.shift(DECOYS, AbilitySlot.SLOT_5, 400),
+				AlienMove.tap(MODE, AbilitySlot.SLOT_5, 20), AlienMove.hold(OVERDRIVE, AbilitySlot.SLOT_5, OVERDRIVE_COOLDOWN),
+				AlienMove.shift(DECOYS, AbilitySlot.SLOT_5, 400),
 				AlienMove.tap(BURST, AbilitySlot.SLOT_6, 600), AlienMove.shift(MINE, AbilitySlot.SLOT_6, 300),
 				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(SWEEP, "Use (empty hand)", 60),
 				AlienMove.vanilla(SNATCH, "Use on a creature (empty hand)", 160));
@@ -251,6 +261,7 @@ public final class Xlr8Kit extends AlienKit {
 		if (flag(p, F_PHASE)) {
 			SuperSpeedHandlers.settleOutsideBlocks(p);
 		}
+		endOverdrive(p, false);
 		setFlag(p, F_SPEED | F_TORNADO | F_DASH | F_PHASE, false);
 		setTimer(p, "phase_end", 0);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID);
@@ -334,6 +345,13 @@ public final class Xlr8Kit extends AlienKit {
 			}
 		} else if (sprint && now % 2 == 0) {
 			l.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0.15, 0.02, 0.15, 0.0);
+		}
+		if (flag(p, F_OVERDRIVE)) {
+			if (now >= timer(p, "od_end")) {
+				endOverdrive(p, true);
+			} else if (p.getDeltaMovement().horizontalDistanceSqr() > 0.09 && now % 2 == 0) {
+				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.8, p.getZ(), 3, 0.3, 0.5, 0.3, 0.08);
+			}
 		}
 		tickPhase(p, l, now);
 		tickTornado(p, l, now);
@@ -467,7 +485,7 @@ public final class Xlr8Kit extends AlienKit {
 
 	@Override
 	public boolean holdable(AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_3; // hold X: Phase
+		return slot == AbilitySlot.SLOT_3 || slot == AbilitySlot.SLOT_5; // hold X: Phase; hold V: Overdrive (a tap of V fires on release)
 	}
 
 	@Override
@@ -507,6 +525,8 @@ public final class Xlr8Kit extends AlienKit {
 			case SLOT_5 -> {
 				if (shift) {
 					decoys(p);
+				} else if (flag(p, F_OVERDRIVE)) {
+					endOverdrive(p, true); // a tap during Overdrive ends it early
 				} else {
 					toggleSpeedMode(p);
 				}
@@ -527,6 +547,8 @@ public final class Xlr8Kit extends AlienKit {
 	public void holdStart(ServerPlayer p, AbilitySlot slot) {
 		if (slot == AbilitySlot.SLOT_3) {
 			startPhase(p);
+		} else if (slot == AbilitySlot.SLOT_5 && !flag(p, F_OVERDRIVE)) {
+			overdrive(p);
 		}
 	}
 
@@ -789,6 +811,59 @@ public final class Xlr8Kit extends AlienKit {
 		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.xlr8.speed_on" : "message.projecthero.omnitrix.xlr8.speed_off")
 				.withStyle(on ? ChatFormatting.AQUA : ChatFormatting.GRAY), true);
 		return true;
+	}
+
+	/**
+	 * Hold V: Overdrive (as the plain Speedster's V) -- {@link #OVERDRIVE_TICKS} of Speed Mode (switched on if it was off) with
+	 * {@link #OVERDRIVE_BONUS} more speed on top, his blows twice as hard, Haste III, a block more step, a shock ring and a sonic
+	 * boom off the start line and a crackle of sparks as he runs. A tap of V ends it early; Speed Mode goes back to how it was.
+	 */
+	public boolean overdrive(ServerPlayer p) {
+		if (!use(p, OVERDRIVE)) {
+			return false;
+		}
+		setTimer(p, "od_mode_was", flag(p, F_SPEED) ? 1 : 0);
+		if (!flag(p, F_SPEED)) {
+			setFlag(p, F_SPEED, true);
+			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, MODE_ID, SPEED_MODE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID, SPEED_MODE_STEP, AttributeModifier.Operation.ADD_VALUE);
+		}
+		setFlag(p, F_OVERDRIVE, true);
+		setTimer(p, "od_end", p.level().getGameTime() + OVERDRIVE_TICKS);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED_ID, OVERDRIVE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE_ID, OVERDRIVE_DAMAGE, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, OD_STEP_ID, OVERDRIVE_STEP, AttributeModifier.Operation.ADD_VALUE);
+		p.addEffect(new MobEffectInstance(MobEffects.DIG_SPEED, OVERDRIVE_TICKS, 2, false, false, true));
+		anim(p, ANIM_MODE);
+		ServerLevel l = level(p);
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, GLOW).size(6f).thickness(0.6f).life(14).ground().spawn();
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.6, 0.8, 0.6, 0.3);
+		l.sendParticles(ParticleTypes.SONIC_BOOM, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0, 0, 0, 0);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.WARDEN_SONIC_BOOM, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.6f);
+		OmnitrixSounds.play(l, p.position(), SND_VISOR, 1.0f, 1.2f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.xlr8.overdrive_on").withStyle(ChatFormatting.AQUA), true);
+		return true;
+	}
+
+	/** Overdrive off: its speed, damage and step go; Speed Mode goes back to how it was before it. */
+	public void endOverdrive(ServerPlayer p, boolean announce) {
+		if (!flag(p, F_OVERDRIVE)) {
+			return;
+		}
+		setFlag(p, F_OVERDRIVE, false);
+		setTimer(p, "od_end", 0);
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, OD_SPEED_ID);
+		PowerToggles.clearModifier(p, Attributes.ATTACK_DAMAGE, OD_DAMAGE_ID);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, OD_STEP_ID);
+		if (timer(p, "od_mode_was") == 0) {
+			setFlag(p, F_SPEED, false);
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, MODE_ID);
+			PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID);
+		}
+		if (announce) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.xlr8.overdrive_off").withStyle(ChatFormatting.GRAY), true);
+			OmnitrixSounds.play(level(p), p.position(), SND_VISOR, 0.8f, 0.8f);
+		}
 	}
 
 	/** Shift+V: the plain Speedster's Afterimage Decoys -- three afterimages stay behind and every foe after him goes for them. */

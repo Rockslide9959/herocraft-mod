@@ -268,7 +268,8 @@ public final class FourArmsClient implements AlienClientKit {
 			return;
 		}
 		float c = k.leapCharge(p);
-		String value = Math.round(FourArmsKit.leapBlocks(c)) + "m";
+		// v0.17.1 (user: "convert everything to blocks"): the distance in blocks, not metres
+		String value = net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.blocks", Math.round(FourArmsKit.leapBlocks(c))).getString();
 		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 6,
 				net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.four_arms.leap"), c, c >= 1f ? 0xFFFFE060 : 0xFFE04030, value, 0xFFFFFFFF);
 	}

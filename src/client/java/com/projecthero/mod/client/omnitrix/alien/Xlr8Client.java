@@ -30,7 +30,7 @@ import net.minecraft.world.entity.player.Player;
  * visor slid down over the face) -- the mask is drawn whenever {@link Xlr8Kit#visorDown} (Speed Mode, a dash, the tornado,
  * Phase, any speed move just now) and the face at rest. The green eyes glow (an emissive pass of the skin's own eye pixels,
  * through the visor too). Extras in the skin's palette: the helmet's swept-back crest, a long blue-black tail with a teal stripe
- * that streams out flat as he runs, ball feet that roll, pale claws. Speed Mode leaves the plain Speedster's after-image trail
+ * that streams out flat as he runs, ball feet that roll (no claws, v0.17.1 user). Speed Mode leaves the plain Speedster's after-image trail
  * ({@link #trails}, drawn by {@code SuperSpeedClientV0145} in this skin); Phase flickers him half see-through. A pose (third and
  * first person) for every move.
  */
@@ -244,7 +244,6 @@ public final class Xlr8Client implements AlienClientKit {
 		}
 		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
 			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> claws(pose, vc, right, light));
 		}
 		// (every cutout draw is done: fetching another buffer type ends the previous one)
 		// the green eyes glow: the skin's own eye pixels drawn again full-bright (the visor's faint eyes when it is down)
@@ -253,17 +252,9 @@ public final class Xlr8Client implements AlienClientKit {
 		model.hat.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 	}
 
-	private static void claws(PoseStack pose, VertexConsumer vc, boolean right, int light) {
-		float x0 = right ? -3.0f : -1.0f;
-		for (int k = 0; k < 3; k++) {
-			float x = x0 + k * 1.5f;
-			box(pose, vc, x, 11.2f, -2.35f, x + 0.6f, 12.9f, -1.75f, WHITE, light);
-		}
-	}
-
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		claws(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), right, light);
+		// v0.17.1 (user: "remove the claws on xlr8"): nothing extra on the first-person arm
 	}
 
 	@Override

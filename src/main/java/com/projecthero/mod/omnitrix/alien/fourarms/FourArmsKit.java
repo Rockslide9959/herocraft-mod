@@ -181,7 +181,7 @@ public final class FourArmsKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
 		setFlag(p, F_LEAP_CHARGE, false);
-		for (String t : new String[] { "leap_charge", "far_vx", "far_vz", "far_on" }) {
+		for (String t : new String[] { "leap_charge", "far_vx", "far_vz", "far_on", "far_hard" }) {
 			setTimer(p, t, 0);
 		}
 		drop(p, false);
@@ -237,7 +237,7 @@ public final class FourArmsKit extends AlienKit {
 			setTimer(p, "far_vz", 0);
 			setTimer(p, "far_on", 0);
 			float extra = diving ? (float) Math.min(10.0, Math.max(0, timer(p, "dive_from") / 1000.0 - p.getY()) * 0.8) : 0f;
-			if (far) {
+			if (far && timer(p, "far_hard") != 0) {
 				// the long leap comes down harder
 				land(p, 5.5f, LEAP_LAND_DAMAGE * 1.8f, false);
 			} else {
@@ -548,15 +548,7 @@ public final class FourArmsKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_LEAP);
-		double blocks = leapBlocks(charge);
-		Vec3 v = com.projecthero.mod.hulk.HulkLeap.dragFreeArc(p.getLookAngle(), blocks, p.getGravity(), 28.0, 50.0, 4.0, 5.6);
-		p.setDeltaMovement(v);
-		p.hurtMarked = true;
-		setFlag(p, F_LEAPING, true);
-		setTimer(p, "air_at", p.level().getGameTime());
-		setTimer(p, "far_vx", Double.doubleToRawLongBits(v.x));
-		setTimer(p, "far_vz", Double.doubleToRawLongBits(v.z));
-		setTimer(p, "far_on", 1);
+		launch(p, leapBlocks(charge));
 		ServerLevel l = level(p);
 		float k = 1f + charge * 2f;
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB0A090).size(2.2f * k).thickness(0.5f * k).life(12).ground().spawn();
@@ -566,18 +558,30 @@ public final class FourArmsKit extends AlienKit {
 		return true;
 	}
 
+	/**
+	 * v0.17.1 (user: "for four arms leap make it directional so the player leaps in the direction that they are looking in,
+	 * make it similar to hulks leap"): every leap -- the tap and the charged one -- is the Hulk's Super Leap arc
+	 * ({@code HulkLeap.launchVelocity}): it heads where he looks, its angle follows his pitch (kept in the Hulk's band, so a
+	 * look down still clears the ground and a look up arcs high), and it flies drag-free to come down {@code blocks} away.
+	 */
+	private void launch(ServerPlayer p, double blocks) {
+		Vec3 v = com.projecthero.mod.hulk.HulkLeap.launchVelocity(p.getLookAngle(), blocks, p.getGravity());
+		p.setDeltaMovement(v);
+		p.hurtMarked = true;
+		setFlag(p, F_LEAPING, true);
+		setTimer(p, "air_at", p.level().getGameTime());
+		setTimer(p, "far_vx", Double.doubleToRawLongBits(v.x));
+		setTimer(p, "far_vz", Double.doubleToRawLongBits(v.z));
+		setTimer(p, "far_on", 1);
+		setTimer(p, "far_hard", blocks > LEAP_TAP_BLOCKS * 1.5 ? 1 : 0);
+	}
+
 	public boolean leap(ServerPlayer p) {
 		if (!use(p, LEAP)) {
 			return false;
 		}
 		anim(p, ANIM_LEAP);
-		Vec3 look = p.getLookAngle();
-		Vec3 h = new Vec3(look.x, 0, look.z);
-		h = h.lengthSqr() < 1.0e-4 ? Vec3.ZERO : h.normalize();
-		p.setDeltaMovement(h.x * 1.4, 1.15, h.z * 1.4);
-		p.hurtMarked = true;
-		setFlag(p, F_LEAPING, true);
-		setTimer(p, "air_at", p.level().getGameTime());
+		launch(p, LEAP_TAP_BLOCKS);
 		ServerLevel l = level(p);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB0A090).size(2.2f).thickness(0.5f).life(10).ground().spawn();
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_SLAM, 0.7f, 1.4f);
