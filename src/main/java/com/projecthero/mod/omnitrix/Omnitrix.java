@@ -421,16 +421,8 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
-		if (now < s.rechargeUntil) {
-			OmnitrixState n = s.copy();
-			n.animId = ANIM_DENIED;
-			n.animStart = now;
-			save(p, n);
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharging",
-					(s.rechargeUntil - now + 19) / 20).withStyle(ChatFormatting.RED), true);
-			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
-			return false;
-		}
+		// v0.17.1 (user: "even if the omnitrix is timed out let the player press r to bring their arm up, they can turn the dial
+		// but the omnitrix wont let them transform"): the recharge no longer stops the raise -- it refuses the slap ({@link #slap})
 		if (extracting(p)) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.held_by_pod").withStyle(ChatFormatting.RED), true);
 			return false;
@@ -523,6 +515,17 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
+		if (now < s.rechargeUntil) {
+			// still recharging: the face flashes red with the time left and the core will not go down
+			OmnitrixState n = s.copy();
+			n.animId = ANIM_DENIED;
+			n.animStart = now;
+			save(p, n);
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.recharging",
+					(s.rechargeUntil - now + 19) / 20).withStyle(ChatFormatting.RED), true);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+			return false;
+		}
 		if (!coreUp(s, now)) {
 			// clicked while the dial is still coming up: the slap lands as soon as it is ({@link #tick})
 			OmnitrixState q = s.copy();
