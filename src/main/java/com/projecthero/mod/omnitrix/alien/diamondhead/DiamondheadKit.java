@@ -1,5 +1,11 @@
 package com.projecthero.mod.omnitrix.alien.diamondhead;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +61,7 @@ import net.minecraft.world.phys.Vec3;
  *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)  Shift+G  Spike Line       crystal spikes erupt in a 12-block line (6, launch)
  *   X        Crystal Slide     a crystal ramp / bridge ahead, and you slide  Shift+X  Crystal Vault    a pillar shoots up under you
  *   Z        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+Z  Crystal Dome     a dome over you (7 s)
+ *   V        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
  *   C        Diamond Barrage   a 2 s storm of shards on where you look       Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
  *   Attack   Crystal Edge (blade: the slash sweeps)   Use on a block (empty hand)   a crystal block for 30 s
  * </pre>
@@ -202,6 +209,7 @@ public final class DiamondheadKit extends AlienKit {
 				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20), AlienMove.shift(SPIKES, AbilitySlot.SLOT_2, 160),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 80), AlienMove.shift(VAULT, AbilitySlot.SLOT_3, 140),
 				AlienMove.tap(WALL, AbilitySlot.SLOT_4, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_4, 500),
+				AlienMove.tap(REGROW, AbilitySlot.SLOT_5, 400),
 				AlienMove.tap(BARRAGE, AbilitySlot.SLOT_6, 500), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
 	}
@@ -217,6 +225,7 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		setBlade(p, false);
 		setFlag(p, F_ARMOUR | F_SLIDING, false);
 		LINES.remove(p.getUUID());
@@ -226,6 +235,7 @@ public final class DiamondheadKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		// the passive: projectiles reaching him may glance back
 		for (Projectile pr : l.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(2.2),
 				pr -> pr.getOwner() != p && !pr.getTags().contains(SEEN_TAG))) {
@@ -382,6 +392,7 @@ public final class DiamondheadKit extends AlienKit {
 					wall(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					crystalArmour(p);
@@ -656,6 +667,72 @@ public final class DiamondheadKit extends AlienKit {
 
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
-		return flag(p, F_ARMOUR) ? amount * ARMOUR_FACTOR : amount;
+		float a = flag(p, F_ARMOUR) ? amount * ARMOUR_FACTOR : amount;
+		return flag(p, F_REGROW) ? a * REGROW_FACTOR : a; // v0.17.1: half damage while he regrows
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Crystal Regrowth
+
+	public static final String REGROW = "crystal_regrowth";
+	public static final int ANIM_REGROW = 13;
+	public static final int F_REGROW = 8;
+	public static final int REGROW_TICKS = 60;
+	public static final float REGROW_HEAL = 1.5f;
+	public static final float REGROW_FACTOR = 0.5f;
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		regrow(p);
+	}
+
+	/**
+	 * V: Crystal Regrowth -- a Petrosapien grows back. 3 s rooted to the spot while green crystal knits over every crack: 1.5
+	 * health every half second (9 in all) and half damage meanwhile. Refused at full health.
+	 */
+	public boolean regrow(ServerPlayer p) {
+		if (flag(p, F_REGROW)) {
+			return false;
+		}
+		if (p.getHealth() >= p.getMaxHealth()) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.diamondhead.whole").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (!use(p, REGROW)) {
+			return false;
+		}
+		setFlag(p, F_REGROW, true);
+		setTimer(p, "regrow_end", p.level().getGameTime() + REGROW_TICKS);
+		anim(p, ANIM_REGROW);
+		ServerLevel l = level(p);
+		QuirkFx.shards(l, p.position().add(0, 1, 0)).block(crystal()).size(1.4f).count(14).life(16).reassemble().spawn();
+		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.0f, 0.6f);
+		return true;
+	}
+
+	private void revertV(ServerPlayer p) {
+		setFlag(p, F_REGROW, false);
+		setTimer(p, "regrow_end", 0);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_REGROW)) {
+			return;
+		}
+		long end = timer(p, "regrow_end");
+		if (now >= end || !p.isAlive()) {
+			revertV(p);
+			OmnitrixSounds.play(l, p.position(), SND_GROW, 0.8f, 1.5f);
+			return;
+		}
+		p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 5, false, false, false));
+		if ((end - now) % 10 == 0) {
+			p.heal(REGROW_HEAL);
+			QuirkFx.shards(l, p.position().add(0, 0.4 + l.random.nextDouble() * 1.4, 0)).block(crystal()).size(0.7f).count(4).life(10).reassemble().spawn();
+			OmnitrixSounds.play(l, p.position(), SND_GROW, 0.4f, 1.3f + l.random.nextFloat() * 0.3f);
+		}
+		if (now % 2 == 0) {
+			double a = now * 0.5;
+			l.sendParticles(ParticleTypes.HAPPY_VILLAGER, p.getX() + Math.cos(a) * 0.7, p.getY() + 0.2 + ((end - now) % 20) * 0.09, p.getZ() + Math.sin(a) * 0.7,
+					1, 0, 0, 0, 0);
+		}
 	}
 }

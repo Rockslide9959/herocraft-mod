@@ -49,15 +49,27 @@ public class MirrorImageRenderer extends HumanoidMobRenderer<MirrorImageEntity, 
 		return DefaultPlayerSkin.get(id.orElse(e.getUUID()));
 	}
 
+	/** v0.17.1: the owner's Omnitrix alien skin (XLR8's afterimage decoys), or null for a human owner. */
+	private static ResourceLocation alienSkin(MirrorImageEntity e) {
+		Optional<UUID> id = e.ownerId();
+		if (id.isEmpty() || Minecraft.getInstance().level == null
+				|| !(Minecraft.getInstance().level.getPlayerByUUID(id.get()) instanceof net.minecraft.client.player.AbstractClientPlayer owner)) {
+			return null;
+		}
+		com.projecthero.mod.client.omnitrix.AlienClientKit kit = com.projecthero.mod.client.omnitrix.AlienClients.shownKit(owner);
+		return kit == null || kit.customBody() ? null : kit.skin(owner);
+	}
+
 	@Override
 	public void render(MirrorImageEntity entity, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers,
 			int light) {
-		this.model = skinOf(entity).model() == PlayerSkin.Model.SLIM ? slim : wide;
+		this.model = alienSkin(entity) != null || skinOf(entity).model() != PlayerSkin.Model.SLIM ? wide : slim;
 		super.render(entity, yaw, partialTick, pose, buffers, light);
 	}
 
 	@Override
 	public ResourceLocation getTextureLocation(MirrorImageEntity entity) {
-		return skinOf(entity).texture();
+		ResourceLocation alien = alienSkin(entity);
+		return alien != null ? alien : skinOf(entity).texture();
 	}
 }

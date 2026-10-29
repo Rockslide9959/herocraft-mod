@@ -34,8 +34,9 @@ import net.minecraft.world.phys.Vec3;
  * routing below and the reset hooks.
  *
  * <h2>Keys</h2>
- * R ({@code SLOT_1}), G ({@code SLOT_2}), X ({@code SLOT_3}, movement), Z ({@code SLOT_4}) and C ({@code SLOT_6}) and their
- * Shift versions are the kit's. V is the Omnitrix's (Shift+V reverts), H is the power selector, N is unused.
+ * R ({@code SLOT_1}), G ({@code SLOT_2}), X ({@code SLOT_3}, movement), Z ({@code SLOT_4}), V ({@code SLOT_5}, utility / mode;
+ * v0.17.1 user: "add abilities to the V key for every alien") and C ({@code SLOT_6}) and their Shift versions are the kit's. N is
+ * the Omnitrix's (it turns the alien back; v0.17.1 user, was V), H is the power selector.
  * <ul>
  *   <li>{@link #press}: a key went down (Shift or not). For a key the kit declares {@link #holdable}, a plain press is held
  *       back: a release before {@code OmnitrixConfig.KIT_HOLD_TICKS} calls {@link #press} (the tap), a longer hold calls
@@ -97,7 +98,7 @@ public abstract class AlienKit {
 	public void onTransform(ServerPlayer p) {
 	}
 
-	/** The wearer is turning back (timeout, Shift+V, death, logout, the pod). Stop every running move, give back flight, etc. */
+	/** The wearer is turning back (timeout, N, death, logout, the pod). Stop every running move, give back flight, etc. */
 	public void onRevert(ServerPlayer p) {
 	}
 

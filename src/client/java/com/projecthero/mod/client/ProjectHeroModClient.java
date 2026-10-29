@@ -1093,6 +1093,15 @@ public class ProjectHeroModClient implements ClientModInitializer {
 
 	private static void handleMaxSteelTransform(Minecraft client) {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
+		// v0.17.1 (user: "make the detransform keybind N"): an Omnitrix alien's N (and Shift+N) turns back -- the watch locks
+		// every other power out, so it takes N before anything else (the server times the power-down)
+		if (client.player != null && com.projecthero.mod.omnitrix.Omnitrix.transformed(client.player) && !mutationSelected(client)) {
+			if (down && !maxSteelTransformWasDown && client.screen == null) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
 		// v0.17.1 (user): Shift+N toggles Ground-Stick for a speedster (before N's own utility move can take it)
 		if (client.player != null && Screen.hasShiftDown()
 				&& com.projecthero.mod.client.speed.SpeedsterGroundStick.isSpeedster(client.player)) {

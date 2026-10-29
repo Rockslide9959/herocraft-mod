@@ -33,9 +33,12 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class OmnitrixInfo {
 	private static final String I = "projecthero.omnitrix.info.";
-	/** The kit keys in the HUD's order: R, G, X, Z, C (V is the Omnitrix's; H / N are never used). */
+	/**
+	 * The kit keys in the guide's order: R, G, X, Z, V, C (v0.17.1 user: "add abilities to the V key for every alien"; N is the
+	 * Omnitrix's -- it turns an alien back; H is never used).
+	 */
 	public static final AbilitySlot[] KIT_SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_3, AbilitySlot.SLOT_4,
-			AbilitySlot.SLOT_6 };
+			AbilitySlot.SLOT_5, AbilitySlot.SLOT_6 };
 	private static final int BAR_CELLS = 20;
 
 	/** The guide's key labels: the default letters. */
@@ -93,9 +96,9 @@ public final class OmnitrixInfo {
 
 	// ---------------------------------------------------------------- the watch
 
-	/** The Omnitrix's own keys: V (raise / lower), the scroll wheel, a click, V as an alien. */
+	/** The Omnitrix's own keys: R (raise / lower), the scroll wheel, a click, N as an alien (v0.17.1 user: N, was V). */
 	public static void controls(List<Component> out, Function<AbilitySlot, Component> keys) {
-		Component v = keys.apply(AbilitySlot.SLOT_5);
+		Component v = keys.apply(AbilitySlot.SLOT_8);
 		out.add(head("controls"));
 		out.add(keyCell(keys.apply(AbilitySlot.SLOT_1)).append(Component.translatable(I + "key.raise").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.scroll_label")).append(Component.translatable(I + "key.scroll").withStyle(ChatFormatting.WHITE)));
@@ -109,7 +112,7 @@ public final class OmnitrixInfo {
 		out.add(head("rules"));
 		out.add(bullet(Component.translatable(I + "rule.timeout", clock(OmnitrixConfig.TRANSFORM_TICKS), OmnitrixConfig.WARN_TICKS / 20)));
 		out.add(bullet(Component.translatable(I + "rule.recharge", OmnitrixConfig.RECHARGE_TICKS / 20)));
-		out.add(bullet(Component.translatable(I + "rule.early", keys.apply(AbilitySlot.SLOT_5), OmnitrixConfig.EARLY_RECHARGE_TICKS / 20)));
+		out.add(bullet(Component.translatable(I + "rule.early", keys.apply(AbilitySlot.SLOT_8), OmnitrixConfig.EARLY_RECHARGE_TICKS / 20)));
 		out.add(bullet(Component.translatable(I + "rule.death")));
 		out.add(bullet(Component.translatable(I + "rule.locked")));
 	}
@@ -123,7 +126,7 @@ public final class OmnitrixInfo {
 	// ---------------------------------------------------------------- the roster
 
 	/**
-	 * A compact list of every alien on the dial: the name in its colour, its one-line role, and its five tap moves on one line
+	 * A compact list of every alien on the dial: the name in its colour, its one-line role, and its six tap moves on two lines
 	 * ("R Fire Blast  G Pyro Bomb ..."); "coming soon" for an alien without a kit. {@code selected} (may be null) is marked.
 	 */
 	public static void roster(List<Component> out, Function<AbilitySlot, Component> keys, @Nullable String selected) {
@@ -143,7 +146,7 @@ public final class OmnitrixInfo {
 			}
 			out.add(title);
 			out.add(Component.literal("   ").append(Component.translatable(roleKey(a.id())).withStyle(ChatFormatting.GRAY)));
-			// R G X on one line, Z C on the next: a pair never splits from its key at the edge
+			// R G X on one line, Z V C on the next: a pair never splits from its key at the edge
 			MutableComponent moves = Component.literal("   ");
 			int onLine = 0;
 			for (AbilitySlot slot : KIT_SLOTS) {
@@ -234,7 +237,7 @@ public final class OmnitrixInfo {
 		}
 	}
 
-	/** Every move per key: R, G, X, Z, C (tap, Shift, hold), then the vanilla-key moves; name, cooldown, description. */
+	/** Every move per key: R, G, X, Z, V, C (tap, Shift, hold), then the vanilla-key moves; name, cooldown, description. */
 	public static void moves(List<Component> out, String alien, AlienKit kit, Function<AbilitySlot, Component> keys, @Nullable Player live) {
 		out.add(head("moves"));
 		out.add(Component.translatable(I + "moves.how").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));

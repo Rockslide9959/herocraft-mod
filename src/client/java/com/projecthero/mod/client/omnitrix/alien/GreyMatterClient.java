@@ -31,6 +31,12 @@ import net.minecraft.util.Mth;
  * move.
  */
 public final class GreyMatterClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] WORKSHOP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.1f, 0.35f, 0f, -1f, -0.35f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
+			QuirkKeyframes.f(5, -0.9f, 0.2f, 0f, -1.2f, -0.45f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f), QuirkKeyframes.f(8, -1.2f, 0.4f, 0f, -0.9f, -0.2f, 0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0.4f),
+			QuirkKeyframes.rest(12) };
+	private static final FirstPersonClip FP_WORKSHOP = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(2, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f),
+			FirstPersonClip.f(5, -5f, 15f, 0f, 0.06f, 0f, -0.05f), FirstPersonClip.f(8, -15f, 25f, 0f, 0.12f, 0.05f, -0.1f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/grey_matter.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/grey_matter_extras.png");
 	public static final float HEAD_SCALE = 1.55f;
@@ -135,6 +141,7 @@ public final class GreyMatterClient implements AlienClientKit {
 			case GreyMatterKit.ANIM_MIND -> MIND;
 			case GreyMatterKit.ANIM_JAB -> JAB;
 			case GreyMatterKit.ANIM_READ -> READ;
+			case GreyMatterKit.ANIM_WORKSHOP -> WORKSHOP;
 			default -> null;
 		};
 		OmnitrixState s = Omnitrix.state(p);
@@ -166,6 +173,7 @@ public final class GreyMatterClient implements AlienClientKit {
 			case GreyMatterKit.ANIM_MIND -> FP_TEMPLES;
 			case GreyMatterKit.ANIM_LEAP, GreyMatterKit.ANIM_SCURRY -> FP_RUN;
 			case GreyMatterKit.ANIM_JAB -> FP_JAB;
+			case GreyMatterKit.ANIM_WORKSHOP -> FP_WORKSHOP;
 			default -> null;
 		};
 	}

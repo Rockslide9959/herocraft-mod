@@ -10,6 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.hero.power.PowerToggles;
+import com.projecthero.mod.hero.power.p04.SuperSpeedHandlers;
+import com.projecthero.mod.hero.power.p04.SuperSpeedMoves;
+import com.projecthero.mod.network.SpeedStreakPayload;
+import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
@@ -31,9 +35,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -53,19 +59,33 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1: XLR8, the Kineceleran -- a sleek blue-and-black velociraptor of a speedster with a visor helmet, a tail and ball
- * feet. Very fast (faster still sprinting), fast hands, light armour. Shift+X turns on wall and water running.
+ * feet. Very fast (faster still sprinting), fast hands, light armour.
+ *
+ * <p>v0.17.1 revamp (user: "Give him a new moveset thats similar to the regular super speed powers moveset ... i want him to be
+ * really cool and i want the power set to be on par with the other abilities in the mod"): the plain Speedster's moves, borrowed
+ * from {@code SuperSpeedMoves} / {@code SuperSpeedHandlers} (Rapid Assault, Mach Punch, Blitz, Speed Sweep, Afterimage Decoys,
+ * the after-image streaks, Phase's settle) on this kit's own cooldowns, XLR8's own Tornado Run / Blur Dash / Whirlwind / Kick
+ * Barrage / Time Burst / Speed Mine, and V = Speed Mode: the visor slams down, he runs at speedster pace with an after-image
+ * trail, runs up walls and across water and steps over blocks. The visor is down (the closed-mask skin) while Speed Mode is on
+ * and during every speed move; it opens at rest.
  *
  * <pre>
- *   R        Dash Flurry     a lunge and a blur of 6 hits in front (2 each)     Shift+R  Tornado Run    3 s of running rings: a twister lifts what is near
- *   G        Sonic Punch     close the gap to your target in a blink: 8          Shift+G  Snatch         grab the item out of a mob's hand (2)
- *   X        Blur Dash       a 10-block dash leaving afterimages (hits for 3)    Shift+X  Wall Run       toggle: run up walls and across water
- *   Z        Whirlwind       spin: everything within 6 is blown away (4)         Shift+Z  Kick Barrage   8 kicks in 0.8 s (1.5 each), the last launches
- *   C        Time Burst      everything within 12 slows to a crawl for 5 s       Shift+C  Speed Mine     strip-mine a 1x2 tunnel 16 blocks ahead in a blink
- *   Attack   a double jab (+1.5)          Use (empty hand)  sweep up every dropped item within 14 blocks
+ *   R        Rapid Assault   4 punches of 5 on everything in front           Shift+R  Mach Punch     one huge punch (20) and a shockwave (6)
+ *   G        Blitz           zip to the foe you aim at (24 blocks): 20,     Shift+G  Tornado Run    3 s of running rings: a twister lifts what
+ *                            and 10 to everything round it                                           is near, then throws it out
+ *   X        Blur Dash       a 10-block dash leaving afterimages (3)         Shift+X  Speed Sweep    blink through every foe within 50 (15 each),
+ *   hold X   Phase           vibrate through walls while held (5 s max);                             then home
+ *                            nothing physical touches you
+ *   Z        Whirlwind       spin: everything within 6 is blown away (4)     Shift+Z  Kick Barrage   8 kicks in 0.8 s (1.5 each), the last launches
+ *   V        Speed Mode      toggle: visor down, flat-out speed, after-      Shift+V  Afterimage     three afterimages draw every foe off you (6 s)
+ *                            images, wall and water running, step assist               Decoys
+ *   C        Time Burst      everything within 12 slows to a crawl for 5 s   Shift+C  Speed Mine     strip-mine a 1x2 tunnel 16 blocks ahead
+ *   Attack   a double jab (+1.5)     Use (empty hand)  sweep up every dropped item within 14     Use on a mob  snatch what it holds
  * </pre>
  */
 public final class Xlr8Kit extends AlienKit {
@@ -73,43 +93,51 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int COLOUR = 0x3A7BD5;
 	public static final int GLOW = 0x9FD8FF;
 
-	public static final int ANIM_FLURRY = 1;
+	public static final int ANIM_ASSAULT = 1;
 	public static final int ANIM_TORNADO = 2;
-	public static final int ANIM_PUNCH = 3;
+	public static final int ANIM_BLITZ = 3;
 	public static final int ANIM_SNATCH = 4;
 	public static final int ANIM_DASH = 5;
-	public static final int ANIM_WALLRUN = 6;
+	public static final int ANIM_MODE = 6;
 	public static final int ANIM_WHIRL = 7;
 	public static final int ANIM_KICKS = 8;
 	public static final int ANIM_BURST = 9;
 	public static final int ANIM_MINE = 10;
 	public static final int ANIM_JAB = 11;
 	public static final int ANIM_SWEEP = 12;
+	public static final int ANIM_MACH = 13;
+	public static final int ANIM_SPEED_SWEEP = 14;
+	public static final int ANIM_PHASE = 15;
+	public static final int ANIM_DECOYS = 16;
 
-	public static final int F_WALLRUN = 1;
+	/** v0.17.1 revamp: V's Speed Mode (was Shift+X's Wall Run, which it now includes). */
+	public static final int F_SPEED = 1;
 	public static final int F_TORNADO = 2;
 	public static final int F_DASH = 4;
+	/** v0.17.1 revamp: hold X's Phase. */
+	public static final int F_PHASE = 8;
 
-	public static final String FLURRY = "dash_flurry";
+	public static final String ASSAULT = "rapid_assault";
+	public static final String MACH = "mach_punch";
+	public static final String BLITZ = "blitz";
 	public static final String TORNADO = "tornado_run";
-	public static final String PUNCH = "sonic_punch";
-	public static final String SNATCH = "snatch";
 	public static final String DASH = "blur_dash";
-	public static final String WALLRUN = "wall_run";
+	public static final String SPEED_SWEEP = "speed_sweep";
+	public static final String PHASE = "phase";
 	public static final String WHIRL = "whirlwind";
 	public static final String KICKS = "kick_barrage";
+	public static final String MODE = "speed_mode";
+	public static final String DECOYS = "afterimage_decoys";
 	public static final String BURST = "time_burst";
 	public static final String MINE = "speed_mine";
 	public static final String JAB = "double_jab";
 	public static final String SWEEP = "item_sweep";
+	public static final String SNATCH = "snatch";
 
-	public static final float FLURRY_HIT = 2f;
-	public static final int FLURRY_TICKS = 12;
 	public static final float TORNADO_HIT = 1.5f;
 	public static final float TORNADO_END = 4f;
 	public static final int TORNADO_TICKS = 60;
 	public static final double TORNADO_RADIUS = 6;
-	public static final float PUNCH_DAMAGE = 8f;
 	public static final float DASH_DAMAGE = 3f;
 	public static final float WHIRL_DAMAGE = 4f;
 	public static final double WHIRL_RADIUS = 6;
@@ -120,6 +148,13 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int MINE_LENGTH = 16;
 	public static final float JAB_EXTRA = 1.5f;
 	public static final double SPRINT_BONUS = 0.5;
+	/** v0.17.1 revamp: Speed Mode on top of his body's 1.9x -- about 16 blocks a second walking, 30+ sprinting. */
+	public static final double SPEED_MODE_BONUS = 1.0;
+	public static final double SPEED_MODE_STEP = 0.5;
+	public static final int PHASE_MAX_TICKS = 100;
+	public static final int PHASE_COOLDOWN = 100;
+	/** The visor stays down this long after a speed move. */
+	public static final int VISOR_TICKS = 30;
 
 	// v0.17.1 sound rework: OmnitrixSfx recipes from vanilla samples (see docs/OMNITRIX_SOUNDS_0171.md)
 	/** A dash: a zip and a wind rush. */
@@ -149,6 +184,8 @@ public final class Xlr8Kit extends AlienKit {
 
 	private static final ResourceLocation SPRINT_ID = PowerToggles.id("omnitrix_xlr8_sprint");
 	private static final ResourceLocation ATTACK_SPEED_ID = PowerToggles.id("omnitrix_xlr8_attack_speed");
+	private static final ResourceLocation MODE_ID = PowerToggles.id("omnitrix_xlr8_speed_mode");
+	private static final ResourceLocation MODE_STEP_ID = PowerToggles.id("omnitrix_xlr8_speed_mode_step");
 
 	/** player -> the Tornado Run's eye. */
 	private static final Map<UUID, Twister> TWISTERS = new ConcurrentHashMap<>();
@@ -170,6 +207,11 @@ public final class Xlr8Kit extends AlienKit {
 		DASH_HITS.clear();
 	}
 
+	/** Whether {@code p} is XLR8 right now (client-safe; the borrowed speed moves streak in his blue). */
+	public static boolean is(Player p) {
+		return AlienKit.activeKit(p) instanceof Xlr8Kit;
+	}
+
 	@Override
 	public String id() {
 		return ID;
@@ -183,12 +225,15 @@ public final class Xlr8Kit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(FLURRY, AbilitySlot.SLOT_1, 50), AlienMove.shift(TORNADO, AbilitySlot.SLOT_1, 300),
-				AlienMove.tap(PUNCH, AbilitySlot.SLOT_2, 80), AlienMove.shift(SNATCH, AbilitySlot.SLOT_2, 160),
-				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 40), AlienMove.shift(WALLRUN, AbilitySlot.SLOT_3, 10),
+				AlienMove.tap(ASSAULT, AbilitySlot.SLOT_1, 40), AlienMove.shift(MACH, AbilitySlot.SLOT_1, 200),
+				AlienMove.tap(BLITZ, AbilitySlot.SLOT_2, 100), AlienMove.shift(TORNADO, AbilitySlot.SLOT_2, 300),
+				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 40), AlienMove.shift(SPEED_SWEEP, AbilitySlot.SLOT_3, 300),
+				AlienMove.hold(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN),
 				AlienMove.tap(WHIRL, AbilitySlot.SLOT_4, 200), AlienMove.shift(KICKS, AbilitySlot.SLOT_4, 140),
+				AlienMove.tap(MODE, AbilitySlot.SLOT_5, 20), AlienMove.shift(DECOYS, AbilitySlot.SLOT_5, 400),
 				AlienMove.tap(BURST, AbilitySlot.SLOT_6, 600), AlienMove.shift(MINE, AbilitySlot.SLOT_6, 300),
-				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(SWEEP, "Use (empty hand)", 60));
+				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(SWEEP, "Use (empty hand)", 60),
+				AlienMove.vanilla(SNATCH, "Use on a creature (empty hand)", 160));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -203,23 +248,56 @@ public final class Xlr8Kit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
-		setFlag(p, F_WALLRUN | F_TORNADO | F_DASH, false);
+		if (flag(p, F_PHASE)) {
+			SuperSpeedHandlers.settleOutsideBlocks(p);
+		}
+		setFlag(p, F_SPEED | F_TORNADO | F_DASH | F_PHASE, false);
+		setTimer(p, "phase_end", 0);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SPRINT_ID);
+		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, MODE_ID);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID);
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
+		SuperSpeedMoves.endSweep(p); // a running sweep still brings him home
 		TWISTERS.remove(p.getUUID());
 		DASH_HITS.remove(p.getUUID());
 	}
 
-	/** Wall Run on: pressed into a wall (and not sneaking) climbs it like a ladder. */
+	/** Speed Mode: pressed into a wall (and not sneaking) he runs straight up it, like a ladder. */
 	@Override
 	public boolean climbs(Player p) {
-		return flag(p, F_WALLRUN) && p.horizontalCollision && !p.isShiftKeyDown();
+		return flag(p, F_SPEED) && p.horizontalCollision && !p.isShiftKeyDown();
 	}
 
-	/** Wall Run on: water holds you up (Shift to sink in). */
+	/** Speed Mode: water holds him up (Shift to sink in). */
 	@Override
 	public boolean standsOnFluid(Player p, FluidState fluid) {
-		return flag(p, F_WALLRUN) && fluid.is(FluidTags.WATER) && !p.isShiftKeyDown() && !p.isUnderWater();
+		return flag(p, F_SPEED) && fluid.is(FluidTags.WATER) && !p.isShiftKeyDown() && !p.isUnderWater();
+	}
+
+	/** Hold X: through walls on his own level. */
+	@Override
+	public boolean phasing(Player p) {
+		return flag(p, F_PHASE);
+	}
+
+	/** Phasing: nothing physical touches him (the void, /kill and the like still do). */
+	@Override
+	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
+		return !flag(p, F_PHASE) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
+	}
+
+	/**
+	 * v0.17.1 revamp: the visor is down -- Speed Mode, a dash, the tornado, Phase, a sweep, or a speed move in the last
+	 * {@link #VISOR_TICKS} (client-safe: the closed-mask skin is drawn from it).
+	 */
+	public static boolean visorDown(Player p) {
+		OmnitrixState s = Omnitrix.state(p);
+		if ((s.kitFlags & (F_SPEED | F_TORNADO | F_DASH | F_PHASE)) != 0) {
+			return true;
+		}
+		boolean speedMove = s.animId != ANIM_JAB && s.animId != ANIM_SWEEP && s.animId != ANIM_SNATCH && s.animId > 0
+				&& s.animId < Omnitrix.ANIM_TRANSFORM;
+		return speedMove && p.level().getGameTime() - s.animStart < VISOR_TICKS;
 	}
 
 	@Override
@@ -237,40 +315,46 @@ public final class Xlr8Kit extends AlienKit {
 		if (now % 20 == 0) {
 			PowerToggles.modifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 2.0, AttributeModifier.Operation.ADD_VALUE);
 		}
-		if (sprint && now % 2 == 0) {
-			l.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0.15, 0.02, 0.15, 0.0);
-		}
-		if (flag(p, F_WALLRUN)) {
+		boolean mode = flag(p, F_SPEED);
+		if (mode) {
 			p.resetFallDistance();
+			if (p.isInWater() && !p.isUnderWater()) {
+				p.setDeltaMovement(p.getDeltaMovement().multiply(1, 0, 1).add(0, 0.12, 0)); // pops back up onto the surface
+			}
+			if (now % 40 == 0) {
+				p.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 60, 0, false, false, false));
+			}
+			boolean moving = p.getDeltaMovement().horizontalDistanceSqr() > 0.04;
+			if (moving && now % 2 == 0) {
+				l.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0.15, 0.02, 0.15, 0.0);
+				l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 0.6, p.getZ(), 1, 0.2, 0.3, 0.2, 0.01);
+			}
 			if (p.horizontalCollision && now % 3 == 0) {
 				l.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.5, p.getZ(), 1, 0.2, 0.2, 0.2, 0.01);
 			}
+		} else if (sprint && now % 2 == 0) {
+			l.sendParticles(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.1, p.getZ(), 1, 0.15, 0.02, 0.15, 0.0);
 		}
-		tickFlurry(p, l, now);
+		tickPhase(p, l, now);
 		tickTornado(p, l, now);
 		tickDash(p, l, now);
 		tickKicks(p, l, now);
+		SuperSpeedMoves.sweepTick(p); // the borrowed Speed Sweep (nothing else runs it for an alien)
 	}
 
-	private void tickFlurry(ServerPlayer p, ServerLevel l, long now) {
-		long end = timer(p, "flurry_end");
-		if (end <= 0) {
+	private void tickPhase(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_PHASE)) {
 			return;
 		}
-		if (now >= end) {
-			setTimer(p, "flurry_end", 0);
+		if (now >= timer(p, "phase_end") || !p.isAlive()) {
+			endPhase(p);
 			return;
 		}
-		if ((end - now) % 2 == 0) {
-			boolean any = false;
-			for (LivingEntity e : cone(p, 3.8, 70)) {
-				e.invulnerableTime = 0;
-				hurt(p, e, FLURRY_HIT, false);
-				shove(e, p.position(), 0.08, 0.02);
-				l.sendParticles(ParticleTypes.CRIT, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 4, 0.25, 0.25, 0.25, 0.3);
-				any = true;
-			}
-			OmnitrixSounds.play(l, p.position(), SND_HIT, any ? 0.7f : 0.35f, 1.2f + p.getRandom().nextFloat() * 0.3f);
+		p.resetFallDistance();
+		if (now % 2 == 0) {
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 3, 0.3, 0.6, 0.3, 0.05);
+			SuperSpeedMoves.streak(p, SpeedStreakPayload.KIND_STREAK, p.position().add((p.getRandom().nextDouble() - 0.5) * 0.3, 0,
+					(p.getRandom().nextDouble() - 0.5) * 0.3), p.position(), GLOW, 4);
 		}
 	}
 
@@ -293,11 +377,15 @@ public final class Xlr8Kit extends AlienKit {
 			return;
 		}
 		int k = (int) (end - now);
-		// XLR8 runs rings round the eye (if there is room)
+		// XLR8 runs rings round the eye (if there is room), a streak of afterimages behind him
 		double a = k * 0.9;
 		Vec3 ring = t.at().add(Math.cos(a) * 2.6, 0, Math.sin(a) * 2.6);
 		if (l.noCollision(p, p.getBoundingBox().move(ring.subtract(p.position())))) {
+			Vec3 from = p.position();
 			p.teleportTo(ring.x, ring.y, ring.z);
+			if (k % 2 == 0) {
+				SuperSpeedMoves.streak(p, SpeedStreakPayload.KIND_STREAK, from, ring, GLOW, 8);
+			}
 		}
 		p.resetFallDistance();
 		for (LivingEntity e : around(p, t.at(), TORNADO_RADIUS)) {
@@ -378,25 +466,33 @@ public final class Xlr8Kit extends AlienKit {
 	// ---------------------------------------------------------------- keys
 
 	@Override
+	public boolean holdable(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_3; // hold X: Phase
+	}
+
+	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
+		if (flag(p, F_PHASE)) {
+			return; // while phasing every other key is swallowed (letting go of X ends it)
+		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
-					tornadoRun(p);
+					machPunch(p);
 				} else {
-					dashFlurry(p);
+					rapidAssault(p);
 				}
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					snatch(p, lookTarget(p, 10));
+					tornadoRun(p);
 				} else {
-					sonicPunch(p, lookTarget(p, 14));
+					blitz(p);
 				}
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					toggleWallRun(p);
+					speedSweep(p);
 				} else {
 					blurDash(p);
 				}
@@ -408,6 +504,13 @@ public final class Xlr8Kit extends AlienKit {
 					whirlwind(p);
 				}
 			}
+			case SLOT_5 -> {
+				if (shift) {
+					decoys(p);
+				} else {
+					toggleSpeedMode(p);
+				}
+			}
 			case SLOT_6 -> {
 				if (shift) {
 					speedMine(p);
@@ -417,6 +520,20 @@ public final class Xlr8Kit extends AlienKit {
 			}
 			default -> {
 			}
+		}
+	}
+
+	@Override
+	public void holdStart(ServerPlayer p, AbilitySlot slot) {
+		if (slot == AbilitySlot.SLOT_3) {
+			startPhase(p);
+		}
+	}
+
+	@Override
+	public void holdEnd(ServerPlayer p, AbilitySlot slot, int heldTicks) {
+		if (slot == AbilitySlot.SLOT_3) {
+			endPhase(p);
 		}
 	}
 
@@ -442,22 +559,48 @@ public final class Xlr8Kit extends AlienKit {
 		return h.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : h.normalize();
 	}
 
-	public boolean dashFlurry(ServerPlayer p) {
-		if (!use(p, FLURRY)) {
+	/** R: the plain Speedster's Rapid Assault -- four punches of 5 on everything in front, each landing in full. */
+	public int rapidAssault(ServerPlayer p) {
+		if (!use(p, ASSAULT)) {
+			return 0;
+		}
+		anim(p, ANIM_ASSAULT);
+		int struck = SuperSpeedHandlers.rapidAssaultCore(p);
+		ServerLevel l = level(p);
+		QuirkFx.cone(l, p.getEyePosition().add(0, -0.4, 0), p.getLookAngle()).colours(0xFFFFFF, GLOW).size(1.4f).length(3.6f).life(10)
+				.style(QuirkFx.CONE_DEBRIS).spawn();
+		OmnitrixSounds.play(l, p.position(), SND_HIT, 0.8f, 1.3f);
+		return struck;
+	}
+
+	/** Shift+R: the plain Speedster's Mach Punch -- a flat 20 and a shockwave, the knockback growing with his speed. */
+	public boolean machPunch(ServerPlayer p) {
+		if (!use(p, MACH)) {
 			return false;
 		}
-		anim(p, ANIM_FLURRY);
-		Vec3 f = flatLook(p);
-		p.setDeltaMovement(f.scale(0.9).add(0, 0.05, 0));
-		p.hurtMarked = true;
-		setTimer(p, "flurry_end", p.level().getGameTime() + FLURRY_TICKS);
-		ServerLevel l = level(p);
-		QuirkFx.cone(l, p.getEyePosition().add(0, -0.4, 0), p.getLookAngle()).colours(0xFFFFFF, GLOW).size(1.4f).length(3.6f).life(FLURRY_TICKS)
-				.style(QuirkFx.CONE_DEBRIS).spawn();
-		OmnitrixSounds.play(l, p.position(), SND_DASH, 0.8f, 1.4f);
+		anim(p, ANIM_MACH);
+		double bpt = Math.max(p.getDeltaMovement().horizontalDistance(), flag(p, F_SPEED) ? 1.6 : 0.0);
+		SuperSpeedMoves.machPunchCore(p, (float) Mth.clamp(bpt / SuperSpeedMoves.MACH_FULL_SPEED, 0.0, 1.0));
+		QuirkCamera.shakeAround(level(p), p.position(), 10, 0.3f, 6);
 		return true;
 	}
 
+	/** G: the plain Speedster's Blitz -- a zip to the foe under the crosshair and a hit for 20 (10 to everything round it). */
+	public boolean blitz(ServerPlayer p) {
+		if (cooldownLeft(p, BLITZ) > 0) {
+			use(p, BLITZ); // (the "not ready" line)
+			return false;
+		}
+		if (!SuperSpeedMoves.blitzCore(p)) {
+			return false; // nothing to hit: no cooldown
+		}
+		cooldown(p, BLITZ, -1);
+		anim(p, ANIM_BLITZ);
+		OmnitrixSounds.play(level(p), p.position(), SND_DASH, 1.0f, 1.0f);
+		return true;
+	}
+
+	/** Shift+G: XLR8 runs rings round where he stood -- a twister that lifts and batters what is near, then throws it out. */
 	public boolean tornadoRun(ServerPlayer p) {
 		if (!use(p, TORNADO)) {
 			return false;
@@ -476,35 +619,7 @@ public final class Xlr8Kit extends AlienKit {
 		return true;
 	}
 
-	public boolean sonicPunch(ServerPlayer p, LivingEntity target) {
-		if (target == null) {
-			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.xlr8.no_target").withStyle(ChatFormatting.GRAY), true);
-			return false;
-		}
-		if (!use(p, PUNCH)) {
-			return false;
-		}
-		anim(p, ANIM_PUNCH);
-		ServerLevel l = level(p);
-		Vec3 from = p.position();
-		Vec3 dir = target.position().subtract(from);
-		Vec3 flat = new Vec3(dir.x, 0, dir.z);
-		flat = flat.lengthSqr() < 1.0e-4 ? flatLook(p) : flat.normalize();
-		Vec3 to = target.position().subtract(flat.scale(target.getBbWidth() * 0.5 + 0.9));
-		if (from.distanceTo(to) > 1.0 && l.noCollision(p, p.getBoundingBox().move(to.subtract(from)))) {
-			p.teleportTo(to.x, to.y, to.z);
-		}
-		QuirkFx.ribbon(l, from.add(0, 1, 0), p.position().add(0, 1, 0)).colours(0xFFFFFF, GLOW).size(0.6f).life(10).style(QuirkFx.RIBBON_LIGHT).spawn();
-		target.invulnerableTime = 0;
-		hurt(p, target, PUNCH_DAMAGE, false);
-		shove(target, p.position(), 1.4, 0.4);
-		l.sendParticles(ParticleTypes.EXPLOSION, target.getX(), target.getY() + target.getBbHeight() * 0.5, target.getZ(), 1, 0, 0, 0, 0);
-		OmnitrixSounds.play(l, p.position(), SND_DASH, 1.0f, 1.0f);
-		OmnitrixSounds.play(l, target.position(), SND_HIT, 1.0f, 0.7f);
-		return true;
-	}
-
-	/** Shift+G: the item in a mob's hand ends up in yours. */
+	/** Use on a creature (empty hand): the item in a mob's hand ends up in yours. */
 	public boolean snatch(ServerPlayer p, LivingEntity target) {
 		if (!(target instanceof Mob mob) || mob.getMainHandItem().isEmpty()) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.xlr8.nothing_to_snatch").withStyle(ChatFormatting.GRAY), true);
@@ -535,6 +650,7 @@ public final class Xlr8Kit extends AlienKit {
 		}
 		anim(p, ANIM_DASH);
 		Vec3 f = flatLook(p);
+		Vec3 from = p.position();
 		p.setDeltaMovement(f.scale(2.4).add(0, Math.max(0.05, p.getLookAngle().y * 0.6), 0));
 		p.hurtMarked = true;
 		p.resetFallDistance();
@@ -542,22 +658,60 @@ public final class Xlr8Kit extends AlienKit {
 		setFlag(p, F_DASH, true);
 		DASH_HITS.put(p.getUUID(), new HashSet<>());
 		ServerLevel l = level(p);
+		SuperSpeedMoves.streak(p, SpeedStreakPayload.KIND_STREAK, from, from.add(f.scale(5.0)), GLOW, 14);
 		QuirkFx.trail(l, p).colours(0xFFFFFF, COLOUR).size(0.45f).size2(10f).life(18).vec(new Vec3(0, 0.9, 0)).style(QuirkFx.RIBBON_LIGHT).spawn();
 		OmnitrixSounds.play(l, p.position(), SND_DASH, 1.0f, 1.0f);
 		return true;
 	}
 
-	public boolean toggleWallRun(ServerPlayer p) {
-		if (!use(p, WALLRUN)) {
+	/** Shift+X: the plain Speedster's Speed Sweep -- blink through every foe within 50 blocks (15 each), then home. Again: call it off. */
+	public boolean speedSweep(ServerPlayer p) {
+		if (SuperSpeedMoves.sweeping(p)) {
+			SuperSpeedMoves.endSweep(p);
 			return false;
 		}
-		boolean on = !flag(p, F_WALLRUN);
-		setFlag(p, F_WALLRUN, on);
-		anim(p, ANIM_WALLRUN);
-		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.xlr8.wall_run_on" : "message.projecthero.omnitrix.xlr8.wall_run_off")
-				.withStyle(on ? ChatFormatting.AQUA : ChatFormatting.GRAY), true);
-		OmnitrixSounds.play(level(p), p.position(), SND_VISOR, 0.6f, on ? 1.4f : 0.9f);
+		if (cooldownLeft(p, SPEED_SWEEP) > 0) {
+			use(p, SPEED_SWEEP);
+			return false;
+		}
+		if (!SuperSpeedMoves.beginSweep(p)) {
+			return false;
+		}
+		cooldown(p, SPEED_SWEEP, -1);
+		anim(p, ANIM_SPEED_SWEEP);
+		OmnitrixSounds.play(level(p), p.position(), SND_DASH, 1.0f, 1.3f);
 		return true;
+	}
+
+	/** Hold X: vibrate his molecules -- through walls on his own level, untouchable, up to 5 s (letting go ends it). */
+	public boolean startPhase(ServerPlayer p) {
+		if (flag(p, F_PHASE) || cooldownLeft(p, PHASE) > 0) {
+			if (!flag(p, F_PHASE)) {
+				use(p, PHASE);
+			}
+			return false;
+		}
+		anim(p, ANIM_PHASE);
+		setFlag(p, F_PHASE, true);
+		setTimer(p, "phase_end", p.level().getGameTime() + PHASE_MAX_TICKS);
+		ServerLevel l = level(p);
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_ACTIVATE, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 2.0f);
+		OmnitrixSounds.play(l, p.position(), SND_VISOR, 0.6f, 1.4f);
+		return true;
+	}
+
+	public void endPhase(ServerPlayer p) {
+		if (!flag(p, F_PHASE)) {
+			return;
+		}
+		setFlag(p, F_PHASE, false);
+		setTimer(p, "phase_end", 0);
+		SuperSpeedHandlers.settleOutsideBlocks(p);
+		cooldown(p, PHASE, -1);
+		ServerLevel l = level(p);
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.1);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BEACON_DEACTIVATE, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 2.0f);
 	}
 
 	public boolean whirlwind(ServerPlayer p) {
@@ -588,6 +742,11 @@ public final class Xlr8Kit extends AlienKit {
 			l.sendParticles(ParticleTypes.CLOUD, c.x + Math.cos(a) * 1.2, c.y - 0.6 + (k % 4) * 0.5, c.z + Math.sin(a) * 1.2, 0, Math.cos(a + 1.4), 0.1,
 					Math.sin(a + 1.4), 0.6);
 		}
+		for (int k = 0; k < 4; k++) {
+			double a = k * Math.PI / 2;
+			SuperSpeedMoves.streak(p, SpeedStreakPayload.KIND_STREAK, p.position().add(Math.cos(a) * 1.5, 0, Math.sin(a) * 1.5),
+					p.position().add(Math.cos(a + 1.4) * 1.5, 0, Math.sin(a + 1.4) * 1.5), GLOW, 8);
+		}
 		OmnitrixSounds.play(l, c, SND_TORNADO, 1.0f, 1.4f);
 		QuirkCamera.shakeAround(l, c, 10, 0.2f, 6);
 		return true;
@@ -600,6 +759,50 @@ public final class Xlr8Kit extends AlienKit {
 		anim(p, ANIM_KICKS);
 		setTimer(p, "kicks_end", p.level().getGameTime() + KICK_TICKS);
 		OmnitrixSounds.play(level(p), p.position(), SND_DASH, 0.6f, 1.6f);
+		return true;
+	}
+
+	/**
+	 * V (v0.17.1 revamp, user: V = utility / mode): Speed Mode on / off. On: the visor slams down, his speed doubles again (on
+	 * top of the body's 1.9x and the sprint bonus), an after-image trail, he runs up walls and across water, steps over a block
+	 * and a half, never takes fall damage and heals slowly. Off: the visor opens and he is the plain (still fast) XLR8.
+	 */
+	public boolean toggleSpeedMode(ServerPlayer p) {
+		if (!use(p, MODE)) {
+			return false;
+		}
+		boolean on = !flag(p, F_SPEED);
+		setFlag(p, F_SPEED, on);
+		anim(p, ANIM_MODE);
+		ServerLevel l = level(p);
+		if (on) {
+			PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, MODE_ID, SPEED_MODE_BONUS, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID, SPEED_MODE_STEP, AttributeModifier.Operation.ADD_VALUE);
+			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, GLOW).size(3.5f).thickness(0.4f).life(12).ground().spawn();
+			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.3, 0.6, 0.3, 0.15);
+			l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.BREEZE_SHOOT, net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.6f);
+		} else {
+			PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, MODE_ID);
+			PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID);
+		}
+		OmnitrixSounds.play(l, p.position(), SND_VISOR, 0.9f, on ? 1.0f : 0.8f);
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.xlr8.speed_on" : "message.projecthero.omnitrix.xlr8.speed_off")
+				.withStyle(on ? ChatFormatting.AQUA : ChatFormatting.GRAY), true);
+		return true;
+	}
+
+	/** Shift+V: the plain Speedster's Afterimage Decoys -- three afterimages stay behind and every foe after him goes for them. */
+	public boolean decoys(ServerPlayer p) {
+		if (cooldownLeft(p, DECOYS) > 0) {
+			use(p, DECOYS);
+			return false;
+		}
+		if (!SuperSpeedMoves.decoysCore(p)) {
+			return false;
+		}
+		cooldown(p, DECOYS, -1);
+		anim(p, ANIM_DECOYS);
+		OmnitrixSounds.play(level(p), p.position(), SND_DASH, 0.8f, 1.5f);
 		return true;
 	}
 
@@ -703,6 +906,14 @@ public final class Xlr8Kit extends AlienKit {
 			return InteractionResult.PASS;
 		}
 		return itemSweep(p) > 0 ? InteractionResult.SUCCESS : InteractionResult.FAIL;
+	}
+
+	@Override
+	public InteractionResult onUseEntity(ServerPlayer p, InteractionHand hand, Entity target) {
+		if (hand != InteractionHand.MAIN_HAND || !p.getMainHandItem().isEmpty() || !(target instanceof Mob mob) || mob.getMainHandItem().isEmpty()) {
+			return InteractionResult.PASS;
+		}
+		return snatch(p, mob) ? InteractionResult.SUCCESS : InteractionResult.FAIL;
 	}
 
 	/** Use (empty hand): every dropped item and XP orb within 14 blocks is at your feet in a blink. */

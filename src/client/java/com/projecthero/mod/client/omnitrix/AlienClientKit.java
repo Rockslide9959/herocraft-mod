@@ -23,6 +23,22 @@ public interface AlienClientKit {
 	/** The alien's 64x64 wide-arm player skin. */
 	ResourceLocation skin();
 
+	/**
+	 * v0.17.1 (XLR8's visor): the skin for {@code p} right now -- a kit with a second look (the closed-mask skin while he runs)
+	 * answers from synced state. Third person, the first-person arm and the speed after-images all draw this one.
+	 */
+	default ResourceLocation skin(AbstractClientPlayer p) {
+		return skin();
+	}
+
+	/**
+	 * v0.17.1 (Ghostfreak's Spirit Sight): whether {@code e} is outlined for {@code viewer}, the local wearer, right now. Asked by
+	 * {@code OmnitrixGlowMixin} on this client only (nobody else sees it). Default never.
+	 */
+	default boolean glows(net.minecraft.client.player.LocalPlayer viewer, net.minecraft.world.entity.Entity e) {
+		return false;
+	}
+
 	/** Extra cubes on the body (the model's bones are posed already). Use {@link AlienParts} helpers. */
 	default void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
 			float partial, float age) {

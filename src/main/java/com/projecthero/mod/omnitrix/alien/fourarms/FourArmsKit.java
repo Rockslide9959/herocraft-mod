@@ -1,5 +1,11 @@
 package com.projecthero.mod.omnitrix.alien.fourarms;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +54,7 @@ import net.minecraft.world.phys.Vec3;
  *   G        Thunder Clap    a clap shockwave cone (8, slows)            Shift+G  Grab / Throw   grab what you look at; G again throws it (12)
  *   X        Super Leap      a huge bound; landing shockwave (6)        Shift+X  Charge         a shoulder charge through everything (7)
  *   Z        Ground Pound    fists into the ground, a ring of force (10) Shift+Z  Meteor Drop    dive from the air; harder the higher (8-18)
+ *   V        Wall Climb      toggle: four hands grip any wall -- walk into it to climb (no fall damage while on)
  *   C        War Cry         a roar: foes weakened and slowed, you
  *                            stronger                                     Shift+C  Iron Stance    4 s braced: 70% less damage, no knockback
  *   Attack   heavy punches (the fist hits for 7 and shoves); Use on a creature: grab it; Use while holding: throw it
@@ -143,6 +150,7 @@ public final class FourArmsKit extends AlienKit {
 				AlienMove.tap(CLAP, AbilitySlot.SLOT_2, 160), AlienMove.shift(GRAB, AbilitySlot.SLOT_2, 20),
 				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 60), AlienMove.shift(CHARGE, AbilitySlot.SLOT_3, 100),
 				AlienMove.tap(POUND, AbilitySlot.SLOT_4, 240), AlienMove.shift(METEOR, AbilitySlot.SLOT_4, 280),
+				AlienMove.tap(CLIMB, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(ROAR, AbilitySlot.SLOT_6, 500), AlienMove.shift(STANCE, AbilitySlot.SLOT_6, 360),
 				AlienMove.vanilla("heavy_punch", "Attack", 0), AlienMove.vanilla(THROW, "Use (holding) / G (holding)", 200));
 	}
@@ -158,6 +166,7 @@ public final class FourArmsKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		drop(p, false);
 		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, STANCE_KB);
 		CHARGE_HITS.remove(p.getUUID());
@@ -167,6 +176,7 @@ public final class FourArmsKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		// the held creature rides above his head
 		if (s.heldEntity != 0) {
 			Entity e = l.getEntity(s.heldEntity);
@@ -327,6 +337,7 @@ public final class FourArmsKit extends AlienKit {
 					groundPound(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					ironStance(p);
@@ -647,5 +658,61 @@ public final class FourArmsKit extends AlienKit {
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
 		return flag(p, F_STANCE) ? amount * STANCE_FACTOR : amount;
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Wall Climb
+
+	public static final String CLIMB = "wall_climb";
+	public static final int ANIM_CLIMB = 14;
+	public static final int F_CLIMB = 32;
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		toggleClimb(p);
+	}
+
+	/** V: Wall Climb on / off -- four hands dig into any wall: pressed into one (not sneaking) he climbs it like a ladder. */
+	public boolean toggleClimb(ServerPlayer p) {
+		if (!use(p, CLIMB)) {
+			return false;
+		}
+		boolean on = !flag(p, F_CLIMB);
+		setFlag(p, F_CLIMB, on);
+		anim(p, ANIM_CLIMB);
+		ServerLevel l = level(p);
+		l.playSound(null, p.getX(), p.getY(), p.getZ(), on ? SoundEvents.ARMOR_EQUIP_TURTLE.value() : SoundEvents.ARMOR_EQUIP_LEATHER.value(),
+				SoundSource.PLAYERS, 0.9f, on ? 0.7f : 1.0f);
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.four_arms.climb_on" : "message.projecthero.omnitrix.four_arms.climb_off")
+				.withStyle(on ? ChatFormatting.RED : ChatFormatting.GRAY), true);
+		return true;
+	}
+
+	/** Wall Climb on: pressed into a wall (and not sneaking) he climbs it. Asked on both sides (synced flag). */
+	@Override
+	public boolean climbs(net.minecraft.world.entity.player.Player p) {
+		return flag(p, F_CLIMB) && p.horizontalCollision && !p.isShiftKeyDown();
+	}
+
+	private void revertV(ServerPlayer p) {
+		setFlag(p, F_CLIMB, false);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_CLIMB)) {
+			return;
+		}
+		p.resetFallDistance();
+		if (p.horizontalCollision && !p.onGround() && now % 4 == 0) {
+			// grit from the wall where the fingers bite in
+			net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(0.9))
+					.add(0, 1.0, 0));
+			net.minecraft.world.level.block.state.BlockState st = l.getBlockState(at);
+			if (!st.isAir()) {
+				l.sendParticles(new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.BLOCK, st), p.getX(), p.getY() + 1.2, p.getZ(), 4, 0.3,
+						0.3, 0.3, 0.05);
+			}
+			if (now % 12 == 0) {
+				l.playSound(null, p.getX(), p.getY(), p.getZ(), st.getSoundType().getHitSound(), SoundSource.PLAYERS, 0.5f, 0.7f);
+			}
+		}
 	}
 }

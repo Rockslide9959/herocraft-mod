@@ -91,10 +91,13 @@ public class OmnitrixInfoGameTests implements FabricGameTest {
 				if (!guide.contains(name) || !guide.contains(desc)) {
 					problems.add(a.id() + "." + m.id() + " not in the guide chapter");
 				}
-				if (m.onSlot() && (m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_7 || m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_8
-						|| m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_5)) {
-					problems.add(a.id() + "." + m.id() + " is on H / N / V");
+				if (m.onSlot() && (m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_7 || m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_8)) {
+					problems.add(a.id() + "." + m.id() + " is on H / N");
 				}
+			}
+			// v0.17.1 (user: "add abilities to the V key for every alien"; Wildmutt's comes with his rebuild)
+			if (!a.id().equals("wildmutt") && kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_5, false, false) == null) {
+				problems.add(a.id() + " has no V move");
 			}
 		}
 		if (!problems.isEmpty()) {

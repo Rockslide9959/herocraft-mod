@@ -30,6 +30,16 @@ import net.minecraft.util.Mth;
  * barrage, the clap, the pound and the grab), and a pose (third and first person) for every move.
  */
 public final class FourArmsClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] CLIMB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.6f, 0f, 0.3f, -2.6f, 0f, -0.3f, 0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.3f),
+			QuirkKeyframes.f(7, -2.4f, 0f, 0.5f, -2.4f, 0f, -0.5f, 0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.3f), QuirkKeyframes.rest(12) };
+	private static final FirstPersonClip FP_CLIMB = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -60f, -10f, 0f, -0.05f, 0.3f, 0f),
+			FirstPersonClip.f(7, -50f, -10f, 15f, -0.05f, 0.25f, 0f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
+
+	/** Wall Climb on and on a wall: all four hands reaching up in turn. */
+	private static boolean climbing(AbstractClientPlayer p) {
+		return (Omnitrix.state(p).kitFlags & FourArmsKit.F_CLIMB) != 0 && p.onClimbable() && !p.onGround();
+	}
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/four_arms.png");
 
 	private final ModelPart lowerRight;
@@ -104,6 +114,10 @@ public final class FourArmsClient implements AlienClientKit {
 		if ((s.kitFlags & FourArmsKit.F_HOLDING) != 0) {
 			return new float[] { -2.0f, -2.0f, 0.3f, -0.3f };
 		}
+		if (climbing(p)) {
+			float c = Mth.sin((p.tickCount + partial) * 0.6f);
+			return new float[] { -2.0f - c * 0.6f, -2.0f + c * 0.6f, 0.2f, -0.2f }; // the lower pair climbs out of step with the upper
+		}
 		return switch (s.animId) {
 			case FourArmsKit.ANIM_PUNCH_L, FourArmsKit.ANIM_PUNCH_R -> t < 6 ? new float[] { 0.5f, 0.5f, 0, 0 } : null;
 			case FourArmsKit.ANIM_BARRAGE -> t < 18 ? new float[] { (int) (t / 4) % 2 == 0 ? -1.5f : 0.2f, (int) (t / 4) % 2 == 0 ? 0.2f : -1.5f, 0, 0 } : null;
@@ -172,6 +186,7 @@ public final class FourArmsClient implements AlienClientKit {
 			case FourArmsKit.ANIM_DIVE -> DIVE;
 			case FourArmsKit.ANIM_ROAR -> ROAR;
 			case FourArmsKit.ANIM_STANCE -> STANCE;
+			case FourArmsKit.ANIM_CLIMB -> CLIMB;
 			default -> null;
 		};
 		float t = animId == FourArmsKit.ANIM_BARRAGE ? ticks % 4f * 1.5f : ticks;
@@ -182,6 +197,18 @@ public final class FourArmsClient implements AlienClientKit {
 			m.leftArm.xRot = -2.9f;
 			m.rightArm.zRot = 0.25f;
 			m.leftArm.zRot = -0.25f;
+			return true;
+		}
+		if (!played && climbing(p)) {
+			// v0.17.1: Wall Climb -- hand over hand up the wall, the legs pushing
+			float c = Mth.sin(age * 0.6f);
+			m.rightArm.xRot = -2.6f + c * 0.6f;
+			m.leftArm.xRot = -2.6f - c * 0.6f;
+			m.rightArm.zRot = 0.15f;
+			m.leftArm.zRot = -0.15f;
+			m.rightLeg.xRot = -0.5f - c * 0.5f;
+			m.leftLeg.xRot = -0.5f + c * 0.5f;
+			m.head.xRot = -0.4f;
 			return true;
 		}
 		// a heavy walk: the arms hang a little wider
@@ -203,6 +230,7 @@ public final class FourArmsClient implements AlienClientKit {
 			case FourArmsKit.ANIM_THROW, FourArmsKit.ANIM_LEAP -> FP_THROW;
 			case FourArmsKit.ANIM_STANCE, FourArmsKit.ANIM_CHARGE -> FP_GUARD;
 			case FourArmsKit.ANIM_ROAR -> FP_ROAR;
+			case FourArmsKit.ANIM_CLIMB -> FP_CLIMB;
 			default -> null;
 		};
 	}

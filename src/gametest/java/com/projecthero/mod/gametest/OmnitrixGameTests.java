@@ -55,8 +55,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1 the Omnitrix: the lock (every grant path refused while it is worn), death keeps it, the Containment Pod's
  * calibration (an Enchanted Golden Apple eater ends on 4 HP; without one you die; stepping out fails; a totem does not save
- * you; success pops the item and clears the power), the Meteor Scanner, the pod's touch, the watch (V raises / lowers, the
- * scroll cycle, the slap transforms, V reverts, the 3-minute timeout, the 90 s recharge, V refused during it), and Heatblast's
+ * you; success pops the item and clears the power), the Meteor Scanner, the pod's touch, the watch (R raises / lowers, the
+ * scroll cycle, the slap transforms, N reverts (v0.17.1 user: was V), the 3-minute timeout, the 90 s recharge, the slap refused
+ * during it), and Heatblast's
  * and Four Arms' moves, immunities and bodies. Mock players are not ticked by the server, so tests over time drive
  * {@link Omnitrix#tick} and the effect tick themselves.
  */
@@ -393,19 +394,20 @@ public class OmnitrixGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
-	public void vRevertsTheRechargeRefusesAndTheTimeoutTimesOut(GameTestHelper helper) {
+	public void nRevertsTheRechargeRefusesAndTheTimeoutTimesOut(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
 		pump(helper, p);
 		Omnitrix.transform(p);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
-		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
-		// v0.17.1: V starts the power-down (five beeps), the revert lands POWER_DOWN_REVERT_TICK later
-		helper.assertTrue(Omnitrix.transformed(p) && Omnitrix.poweringDown(p), "V as an alien starts the power-down");
+		// v0.17.1 (user: "make the detransform keybind N"): N, through the router as the client sends it
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, true);
+		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, false);
+		// v0.17.1: N starts the power-down (five beeps), the revert lands POWER_DOWN_REVERT_TICK later
+		helper.assertTrue(Omnitrix.transformed(p) && Omnitrix.poweringDown(p), "N as an alien starts the power-down");
 		helper.runAfterDelay(Omnitrix.POWER_DOWN_REVERT_TICK + 3, () -> afterTheEarlyRevert(helper, p));
 	}
 
 	private static void afterTheEarlyRevert(GameTestHelper helper, ServerPlayer p) {
-		helper.assertFalse(Omnitrix.transformed(p), "V as an alien reverts");
+		helper.assertFalse(Omnitrix.transformed(p), "N as an alien reverts");
 		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);

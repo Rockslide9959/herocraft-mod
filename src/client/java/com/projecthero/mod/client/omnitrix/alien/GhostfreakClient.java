@@ -28,6 +28,19 @@ import net.minecraft.util.Mth;
  * instead, one big glowing purple eye, black claws, and a drifting ghost-hands pose. A pose for every move.
  */
 public final class GhostfreakClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] SIGHT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.2f, -0.6f, 0f, 0.1f, 0f, 0f, 0f, 0.2f, 0f, 0f, 0f, 0f, 0f, 0f, 0.1f),
+			QuirkKeyframes.f(10, -2.1f, -0.6f, 0f, 0.1f, 0f, 0f, 0f, 0.2f, 0f, 0f, 0f, 0f, 0f, 0f, 0.1f), QuirkKeyframes.rest(15) };
+	private static final FirstPersonClip FP_SIGHT = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -70f, 35f, 0f, 0.1f, 0.4f, 0.1f),
+			FirstPersonClip.f(10, -68f, 35f, 0f, 0.1f, 0.4f, 0.1f), FirstPersonClip.f(15, 0f, 0f, 0f, 0f, 0f, 0f));
+
+	/** v0.17.1: Spirit Sight -- every living thing within 32 blocks outlined, on the wearer's own screen only. */
+	@Override
+	public boolean glows(net.minecraft.client.player.LocalPlayer viewer, net.minecraft.world.entity.Entity e) {
+		return (Omnitrix.state(viewer).kitFlags & GhostfreakKit.F_SIGHT) != 0 && e instanceof net.minecraft.world.entity.LivingEntity le && le.isAlive()
+				&& !(e instanceof net.minecraft.world.entity.decoration.ArmorStand)
+				&& e.distanceToSqr(viewer) <= GhostfreakKit.SIGHT_RANGE * GhostfreakKit.SIGHT_RANGE;
+	}
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/ghostfreak.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/ghostfreak_extras.png");
 
@@ -158,6 +171,7 @@ public final class GhostfreakClient implements AlienClientKit {
 			case GhostfreakKit.ANIM_HAUNT -> HAUNT;
 			case GhostfreakKit.ANIM_TOUCH -> TOUCH;
 			case GhostfreakKit.ANIM_BOLT -> BOLT;
+			case GhostfreakKit.ANIM_SIGHT -> SIGHT;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
@@ -182,6 +196,7 @@ public final class GhostfreakClient implements AlienClientKit {
 			case GhostfreakKit.ANIM_FLIGHT, GhostfreakKit.ANIM_AURA -> FP_WIDE;
 			case GhostfreakKit.ANIM_TENDRILS, GhostfreakKit.ANIM_HAUNT -> FP_DOWN;
 			case GhostfreakKit.ANIM_TOUCH -> FP_TOUCH;
+			case GhostfreakKit.ANIM_SIGHT -> FP_SIGHT;
 			default -> null;
 		};
 	}

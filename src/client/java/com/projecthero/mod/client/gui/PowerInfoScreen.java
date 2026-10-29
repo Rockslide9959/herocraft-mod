@@ -219,7 +219,7 @@ public final class PowerInfoScreen extends Screen {
 			lines.add(Component.empty());
 			com.projecthero.mod.omnitrix.OmnitrixInfo.rules(lines, keys);
 			lines.add(Component.empty());
-			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.alien_hint", keys.apply(AbilitySlot.SLOT_5))
+			lines.add(Component.translatable("screen.projecthero.power_info.omnitrix.alien_hint", keys.apply(AbilitySlot.SLOT_8))
 					.withStyle(ChatFormatting.DARK_GRAY));
 		} else {
 			this.heading = Component.translatable("projecthero.guide.omnitrix").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);

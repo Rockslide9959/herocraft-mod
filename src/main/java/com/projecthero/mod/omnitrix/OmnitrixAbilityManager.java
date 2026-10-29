@@ -19,11 +19,13 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  *   R (1)        human: raise the watch (the core pops up, the face shows the selected alien) / lower it again;
  *                during the recharge the face flashes red with the time left instead (v0.17.1 user: R, was V).
- *   V (5)        alien: revert early (10 s recharge). Shift+V is the same key. Human: nothing.
+ *   N (8)        alien: revert early (10 s recharge; v0.17.1 user: "make the detransform keybind N", was V). Shift+N is the
+ *                same key. Human: nothing.
  *   (watch up)   scroll wheel = turn the dial, left / right click = slap the core down and transform (client side, sent as
  *                OmnitrixActionPayload CYCLE / SLAP)
- *   R G X Z C    alien: the kit's moves (tap / Shift / declared holds). Human: nothing.
- *   H            the power selector (never sent here); N unused.
+ *   R G X Z V C  alien: the kit's moves (tap / Shift / declared holds; v0.17.1 user: "add abilities to the V key for every
+ *                alien" -- V is each kit's utility / mode move). Human: nothing.
+ *   H            the power selector (never sent here).
  * </pre>
  */
 public final class OmnitrixAbilityManager {
@@ -60,11 +62,11 @@ public final class OmnitrixAbilityManager {
 		DOWN.clear();
 	}
 
-	/** V: the one Omnitrix button. Up / down while human, revert while transformed. */
-	public static void pressV(ServerPlayer p) {
+	/** R as a human: the watch up / down. */
+	public static void pressR(ServerPlayer p) {
 		OmnitrixState s = Omnitrix.state(p);
 		if (s.transformed()) {
-			Omnitrix.revertEarly(p);
+			return;
 		} else if (s.selecting) {
 			Omnitrix.deactivate(p);
 		} else {
@@ -72,8 +74,22 @@ public final class OmnitrixAbilityManager {
 		}
 	}
 
+	/** v0.17.1 (user): N as an alien -- turn back early (the power-down beeps, then the short recharge). Human: nothing. */
+	public static void pressN(ServerPlayer p) {
+		if (Omnitrix.state(p).transformed()) {
+			Omnitrix.revertEarly(p);
+		}
+	}
+
 	public static void handle(ServerPlayer p, AbilitySlot slot, boolean pressed) {
-		if (slot.isUtility()) {
+		if (slot == AbilitySlot.SLOT_7) {
+			return; // H is the power selector
+		}
+		if (slot == AbilitySlot.SLOT_8) {
+			// v0.17.1 (user): N turns an alien back (Shift+N too); the release has nothing to do
+			if (pressed) {
+				pressN(p);
+			}
 			return;
 		}
 		Map<Integer, Key> mine = DOWN.computeIfAbsent(p.getUUID(), k -> new ConcurrentHashMap<>());
@@ -87,11 +103,11 @@ public final class OmnitrixAbilityManager {
 			Key k = new Key(p.isShiftKeyDown(), now);
 			mine.put(i, k);
 			// v0.17.1 (user: "make the R button activate the omnitrix instead of V"): R raises / lowers the watch as a human; V
-			// only turns an alien back (as an alien R is the kit's move again)
-			if (slot == AbilitySlot.SLOT_5 || (slot == AbilitySlot.SLOT_1 && !s.transformed())) {
+			// only turned an alien back (as an alien R is the kit's move again); v0.17.1: N turns back now, V is a kit key
+			if (!s.transformed()) {
 				k.done = true;
-				if (slot == AbilitySlot.SLOT_1 || s.transformed()) {
-					pressV(p);
+				if (slot == AbilitySlot.SLOT_1) {
+					pressR(p);
 				}
 				return;
 			}
@@ -107,7 +123,7 @@ public final class OmnitrixAbilityManager {
 			return;
 		}
 		Key k = mine.remove(i);
-		if (k == null || slot == AbilitySlot.SLOT_5) {
+		if (k == null || !s.transformed()) {
 			return;
 		}
 		AlienKit kit = Aliens.kit(s.active);
@@ -139,7 +155,7 @@ public final class OmnitrixAbilityManager {
 		for (Map.Entry<Integer, Key> e : mine.entrySet()) {
 			Key k = e.getValue();
 			AbilitySlot slot = AbilitySlot.values()[e.getKey()];
-			if (!k.done && !k.held && slot != AbilitySlot.SLOT_5 && kit.holdable(slot) && now - k.downAt >= OmnitrixConfig.KIT_HOLD_TICKS) {
+			if (!k.done && !k.held && kit.holdable(slot) && now - k.downAt >= OmnitrixConfig.KIT_HOLD_TICKS) {
 				k.held = true;
 				kit.holdStart(p, slot);
 			}

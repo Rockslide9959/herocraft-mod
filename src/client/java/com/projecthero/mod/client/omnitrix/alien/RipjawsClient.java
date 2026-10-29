@@ -33,6 +33,11 @@ import net.minecraft.util.Mth;
  * tail. The hydration meter over the keys turns orange, then red, as he dries out. A pose for every move.
  */
 public final class RipjawsClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] BUBBLE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.9f, -0.5f, 0f, -1.9f, 0.5f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.3f),
+			QuirkKeyframes.f(7, -1.2f, 0f, 0.9f, -1.2f, 0f, -0.9f, -0.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, -0.2f), QuirkKeyframes.rest(14) };
+	private static final FirstPersonClip FP_BUBBLE = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -65f, 30f, 0f, 0.1f, 0.35f, 0.1f),
+			FirstPersonClip.f(7, -30f, -30f, 20f, -0.2f, 0.15f, 0f), FirstPersonClip.f(14, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws_extras.png");
 
@@ -123,6 +128,18 @@ public final class RipjawsClient implements AlienClientKit {
 		float t = p.level().getGameTime() + partial - s.animStart;
 		float open = gape(s, t, age);
 		boolean wet = wet(p);
+		if ((s.kitFlags & RipjawsKit.F_BUBBLE) != 0) {
+			// v0.17.1: the Water Bubble -- a wobbling globe of water round his head
+			float w = 1f + Mth.sin(age * 0.3f) * 0.03f;
+			AlienParts.on(pose, model.head, () -> {
+				pose.pushPose();
+				pose.translate(0, -4.5f / 16f, -1.5f / 16f);
+				pose.scale(w, 2f - w, w);
+				AlienParts.box(pose, buffers.getBuffer(RenderType.entityTranslucent(EXTRAS)), -6.5f, -6.5f, -7.5f, 6.5f, 6.5f, 5.5f, FIN[0] / 64f, FIN[1] / 64f,
+						FIN[2] / 64f, FIN[3] / 64f, 0x5570B8FF, light);
+				pose.popPose();
+			});
+		}
 		AlienParts.on(pose, model.head, () -> {
 			// the upper snout and its teeth
 			box(pose, buffers, false, -4.5f, -5.6f, -8.6f, 4.5f, -2.0f, -3.5f, JAW, light);
@@ -203,6 +220,7 @@ public final class RipjawsClient implements AlienClientKit {
 			case RipjawsKit.ANIM_PUNCH -> PUNCH;
 			case RipjawsKit.ANIM_DIG -> DIG;
 			case RipjawsKit.ANIM_GASP -> GASP;
+			case RipjawsKit.ANIM_BUBBLE -> BUBBLE;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
@@ -226,6 +244,7 @@ public final class RipjawsClient implements AlienClientKit {
 			case RipjawsKit.ANIM_BREACH, RipjawsKit.ANIM_DRENCH, RipjawsKit.ANIM_MUD -> FP_UP;
 			case RipjawsKit.ANIM_FRENZY, RipjawsKit.ANIM_GASP -> FP_GRAB;
 			case RipjawsKit.ANIM_DIG -> FP_DIG;
+			case RipjawsKit.ANIM_BUBBLE -> FP_BUBBLE;
 			default -> null;
 		};
 	}

@@ -1,7 +1,5 @@
 package com.projecthero.mod.client.omnitrix.alien;
 
-import org.joml.Vector3f;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -24,25 +22,32 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 
 /**
- * v0.17.1: XLR8's client kit -- the blue-and-black Kineceleran skin with a striped chest, a black visor across the blue helmet
- * (a blue band over the crown, a little crest), a long striped tail that streams out flat as he runs, ball feet, claws, and
- * translucent AFTERIMAGES behind him while he dashes or runs flat out. A pose (third and first person) for every move.
+ * v0.17.1: XLR8's client kit. v0.17.1 revamp (user: the planetminecraft XLR8 skin, a closed-mask variant): the user's skin
+ * ({@code xlr8.png}, the visor up, his teal face and green eyes) and the closed-mask copy ({@code xlr8_mask.png}, the blue-black
+ * visor slid down over the face) -- the mask is drawn whenever {@link Xlr8Kit#visorDown} (Speed Mode, a dash, the tornado,
+ * Phase, any speed move just now) and the face at rest. The green eyes glow (an emissive pass of the skin's own eye pixels,
+ * through the visor too). Extras in the skin's palette: the helmet's swept-back crest, a long blue-black tail with a teal stripe
+ * that streams out flat as he runs, ball feet that roll, pale claws. Speed Mode leaves the plain Speedster's after-image trail
+ * ({@link #trails}, drawn by {@code SuperSpeedClientV0145} in this skin); Phase flickers him half see-through. A pose (third and
+ * first person) for every move.
  */
 public final class Xlr8Client implements AlienClientKit {
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/xlr8.png");
+	private static final ResourceLocation MASK = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_mask.png");
+	private static final ResourceLocation EYES = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_eyes.png");
+	private static final ResourceLocation MASK_EYES = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_mask_eyes.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/xlr8_extras.png");
 
 	// the extras sheet's swatches (32x32): u0, v0, u1, v1
 	private static final float[] BLACK = sw(0, 0, 4, 4);
-	private static final float[] BLUE = sw(4, 0, 4, 4);
-	private static final float[] BAND = sw(8, 0, 4, 4);
+	private static final float[] TEAL = sw(4, 0, 4, 4);
+	private static final float[] PALE = sw(8, 0, 4, 4);
 	private static final float[] WHITE = sw(12, 0, 4, 4);
 	private static final float[] WHEEL = sw(16, 0, 8, 8);
 	private static final float[] TAIL = sw(0, 8, 8, 8);
-	private static final float[] VISOR = sw(0, 16, 16, 8);
-	private static final float[] GLINT = sw(24, 0, 4, 4);
 
 	private static float[] sw(int x, int y, int w, int h) {
 		return new float[] { x / 32f, y / 32f, (x + w) / 32f, (y + h) / 32f };
@@ -51,46 +56,63 @@ public final class Xlr8Client implements AlienClientKit {
 	// {tick, rArm xyz, lArm xyz, body xy, rLeg xyz, lLeg xyz, headX}
 	private static final float[] JAB_R = { -1.65f, 0.25f, 0, 0.6f, 0, 0, 0.3f, -0.35f, 0.2f, 0, 0, -0.3f, 0, 0, 0 };
 	private static final float[] JAB_L = { 0.6f, 0, 0, -1.65f, -0.25f, 0, 0.3f, 0.35f, -0.3f, 0, 0, 0.2f, 0, 0, 0 };
-	private static final float[][] FLURRY = alternate(12, 1, JAB_R, JAB_L);
+	private static final float[][] ASSAULT = alternate(12, 1, JAB_R, JAB_L);
 	private static final float[] RUN_A = { 0.9f, 0, 0.25f, 0.9f, 0, -0.25f, 0.55f, 0, -1.1f, 0, 0, 0.8f, 0, 0, -0.5f };
 	private static final float[] RUN_B = { 0.9f, 0, 0.25f, 0.9f, 0, -0.25f, 0.55f, 0, 0.8f, 0, 0, -1.1f, 0, 0, -0.5f };
 	private static final float[][] TORNADO = alternate(60, 3, RUN_A, RUN_B);
+	private static final float[][] SPEED_SWEEP = alternate(40, 2, RUN_A, RUN_B);
 	private static final float[][] MINE = alternate(14, 2, new float[] { -1.2f, 0.2f, 0, -0.4f, 0, 0, 0.6f, 0, -0.8f, 0, 0, 0.6f, 0, 0, -0.3f },
 			new float[] { -0.4f, 0, 0, -1.2f, -0.2f, 0, 0.6f, 0, 0.6f, 0, 0, -0.8f, 0, 0, -0.3f });
 	private static final float[] KICK_R = { -0.4f, 0, 0.9f, -0.4f, 0, -0.9f, -0.25f, 0.3f, -1.55f, 0.1f, 0, 0.2f, 0, 0, 0.1f };
 	private static final float[] KICK_L = { -0.4f, 0, 0.9f, -0.4f, 0, -0.9f, -0.25f, -0.3f, 0.2f, 0, 0, -1.55f, -0.1f, 0, 0.1f };
 	private static final float[][] KICKS = alternate(16, 2, KICK_R, KICK_L);
-	private static final float[][] PUNCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.9f, 0, 0.2f, -0.6f, 0, 0, 0.45f, 0.5f, -0.7f, 0, 0, 0.6f, 0, 0, -0.3f),
+	/** Blitz: a blur in, the right fist driven through. */
+	private static final float[][] BLITZ = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.9f, 0, 0.2f, -0.6f, 0, 0, 0.45f, 0.5f, -0.7f, 0, 0, 0.6f, 0, 0, -0.3f),
 			QuirkKeyframes.f(4, -1.75f, 0.2f, 0, 0.8f, 0, 0, 0.35f, -0.45f, 0.3f, 0, 0, -0.5f, 0, 0, 0), QuirkKeyframes.rest(12) };
+	/** Mach Punch: a deep wind-up, then everything into one straight right. */
+	private static final float[][] MACH = { QuirkKeyframes.rest(0),
+			QuirkKeyframes.f(3, 1.2f, 0.3f, 0.5f, -1.0f, -0.3f, 0, 0.3f, 0.8f, -0.6f, 0, 0, 0.5f, 0, 0, -0.2f),
+			QuirkKeyframes.f(5, -1.6f, 0.15f, 0, 0.9f, 0, -0.2f, 0.45f, -0.7f, 0.5f, 0, 0, -0.6f, 0, 0, 0.1f),
+			QuirkKeyframes.f(10, -1.6f, 0.15f, 0, 0.9f, 0, -0.2f, 0.45f, -0.7f, 0.5f, 0, 0, -0.6f, 0, 0, 0.1f), QuirkKeyframes.rest(16) };
 	private static final float[][] SNATCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, -0.1f, 0, 0.3f, 0, 0, 0.35f, -0.3f, 0.3f, 0, 0, -0.4f, 0, 0, 0),
 			QuirkKeyframes.f(5, -0.6f, -0.6f, 0, 0.2f, 0, 0, -0.1f, 0.2f, 0, 0, 0, 0, 0, 0, 0.2f), QuirkKeyframes.rest(12) };
 	private static final float[][] DASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 1.1f, 0, 0.3f, 1.1f, 0, -0.3f, 0.75f, 0, -0.9f, 0, 0, 0.7f, 0, 0, -0.65f),
 			QuirkKeyframes.f(8, 1.1f, 0, 0.3f, 1.1f, 0, -0.3f, 0.75f, 0, 0.7f, 0, 0, -0.9f, 0, 0, -0.65f), QuirkKeyframes.rest(12) };
-	private static final float[][] VISOR_TAP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.5f, -0.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.1f),
-			QuirkKeyframes.f(7, -2.4f, -0.6f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.1f), QuirkKeyframes.rest(11) };
+	/** Speed Mode: the right hand slaps the visor down (or flips it up), a crouch, ready to run. */
+	private static final float[][] MODE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.6f, -0.5f, 0, 0.2f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.15f),
+			QuirkKeyframes.f(5, -1.9f, -0.5f, 0, 0.5f, 0, -0.2f, 0.3f, 0, -0.5f, 0, 0, 0.4f, 0, 0, 0.1f),
+			QuirkKeyframes.f(9, 0.8f, 0, 0.3f, 0.8f, 0, -0.3f, 0.45f, 0, -0.6f, 0, 0, 0.5f, 0, 0, -0.35f), QuirkKeyframes.rest(14) };
 	private static final float[][] WHIRL = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.2f, 0, 1.5f, -0.2f, 0, -1.5f, 0.1f, 1.6f, 0, 0, 0.2f, 0, 0, -0.2f, 0),
 			QuirkKeyframes.f(6, -0.2f, 0, 1.5f, -0.2f, 0, -1.5f, 0.1f, 4.4f, 0, 0, 0.2f, 0, 0, -0.2f, 0),
 			QuirkKeyframes.f(10, -0.2f, 0, 1.5f, -0.2f, 0, -1.5f, 0.1f, 6.28f, 0, 0, 0.2f, 0, 0, -0.2f, 0),
 			QuirkKeyframes.f(13, 0, 0, 0, 0, 0, 0, 0, 6.28f, 0, 0, 0, 0, 0, 0, 0) };
 	private static final float[][] BURST = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.9f, 0.7f, -0.3f, -0.9f, -0.7f, 0.3f, 0.3f, 0, -0.3f, 0, 0.1f, -0.3f, 0, -0.1f, 0.3f),
 			QuirkKeyframes.f(6, -0.4f, 0, 1.6f, -0.4f, 0, -1.6f, -0.25f, 0, 0, 0, 0.3f, 0, 0, -0.3f, -0.5f), QuirkKeyframes.rest(16) };
+	/** Decoys: a sidestep blur, arms flung wide. */
+	private static final float[][] DECOYS = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.3f, 0, 1.3f, -0.3f, 0, -1.3f, 0.2f, 0.9f, -0.3f, 0, 0.4f, 0.3f, 0, -0.4f, 0),
+			QuirkKeyframes.f(5, -0.3f, 0, 1.3f, -0.3f, 0, -1.3f, 0.2f, -0.9f, 0.3f, 0, 0.4f, -0.3f, 0, -0.4f, 0), QuirkKeyframes.rest(10) };
 	private static final float[][] JAB = { QuirkKeyframes.rest(0), QuirkKeyframes.f(1.5f, -1.65f, 0.25f, 0, 0.3f, 0, 0, 0.15f, -0.3f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.f(3, 0.3f, 0, 0, -1.65f, -0.25f, 0, 0.15f, 0.3f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(6) };
 	private static final float[][] SWEEP = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, 0.5f, -0.6f, -0.4f, 0, 0.2f, -0.4f, 0, -0.2f, 0.3f),
 			QuirkKeyframes.f(7, -0.6f, 0, 1.2f, -0.6f, 0, -1.2f, 0.5f, 0.6f, -0.4f, 0, 0.2f, -0.4f, 0, -0.2f, 0.3f), QuirkKeyframes.rest(12) };
 
-	private static final FirstPersonClip FP_FLURRY = fpAlternate(12, 1, new float[] { -22, 24, 0, 0.16f, 0.1f, -0.25f }, new float[] { 0, -5, 0, 0, -0.05f, 0.05f })
+	private static final FirstPersonClip FP_ASSAULT = fpAlternate(12, 1, new float[] { -22, 24, 0, 0.16f, 0.1f, -0.25f }, new float[] { 0, -5, 0, 0, -0.05f, 0.05f })
 			.both();
 	private static final FirstPersonClip FP_RUN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -10, 0, -0.1f, -0.25f, 0.1f),
 			FirstPersonClip.f(55, 30, -10, 0, -0.1f, -0.25f, 0.1f), FirstPersonClip.f(60, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_PUNCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 25, -10, 0, -0.05f, -0.15f, 0.2f),
+	private static final FirstPersonClip FP_SWEEP_RUN = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -10, 0, -0.1f, -0.25f, 0.1f),
+			FirstPersonClip.f(36, 30, -10, 0, -0.1f, -0.25f, 0.1f), FirstPersonClip.f(40, 0, 0, 0, 0, 0, 0)).both();
+	private static final FirstPersonClip FP_BLITZ = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 25, -10, 0, -0.05f, -0.15f, 0.2f),
 			FirstPersonClip.f(4, -25, 28, 0, 0.2f, 0.1f, -0.35f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
+	private static final FirstPersonClip FP_MACH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 35, -20, 10, -0.1f, -0.25f, 0.3f),
+			FirstPersonClip.f(5, -30, 30, 0, 0.25f, 0.12f, -0.45f), FirstPersonClip.f(10, -30, 30, 0, 0.25f, 0.12f, -0.45f), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_SNATCH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, -25, 20, 0, 0.15f, 0.1f, -0.35f),
 			FirstPersonClip.f(5, 10, -15, -20, -0.1f, -0.05f, 0.1f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_DASH = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 35, -15, 0, -0.1f, -0.3f, 0.15f),
 			FirstPersonClip.f(8, 35, -15, 0, -0.1f, -0.3f, 0.15f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
-	private static final FirstPersonClip FP_VISOR = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -75, 30, 0, 0.15f, 0.45f, 0.1f),
-			FirstPersonClip.f(7, -72, 30, 0, 0.15f, 0.45f, 0.1f), FirstPersonClip.f(11, 0, 0, 0, 0, 0, 0));
+	/** The hand slaps up to the visor and pulls it down. */
+	private static final FirstPersonClip FP_MODE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -50, 25, 0, 0.1f, 0.28f, -0.15f),
+			FirstPersonClip.f(5, -38, 25, 0, 0.1f, 0.18f, -0.15f), FirstPersonClip.f(9, 25, -10, 0, -0.05f, -0.2f, 0.1f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_WIDE = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, -20, -20, 0, -0.1f, 0.1f, 0),
 			FirstPersonClip.f(6, -30, -45, 30, -0.3f, 0.15f, 0.05f), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_KICK = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 20, -30, 30, -0.25f, -0.1f, 0.1f),
@@ -100,6 +122,8 @@ public final class Xlr8Client implements AlienClientKit {
 			FirstPersonClip.f(3, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4.5f, -18, 24, 0, 0.15f, 0.08f, -0.25f), FirstPersonClip.f(6, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_SWEEP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -40, 0, -0.2f, -0.25f, 0),
 			FirstPersonClip.f(7, 30, 40, 0, 0.25f, -0.25f, 0), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
+	/** Phase: the hands buzz (a fast shiver for the first second; the vibration keeps going while X is held, see {@link #pose}). */
+	private static final FirstPersonClip FP_PHASE = fpAlternate(20, 1, new float[] { -6, 4, 3, 0.03f, 0.02f, 0 }, new float[] { 4, -4, -3, -0.03f, -0.02f, 0 }).both();
 
 	/** A pose that flips between {@code a} and {@code b} every {@code period} ticks for {@code len}, then lets go. */
 	static float[][] alternate(int len, int period, float[] a, float[] b) {
@@ -130,9 +154,33 @@ public final class Xlr8Client implements AlienClientKit {
 		return FirstPersonClip.of(fr);
 	}
 
+	private static int flags(Player p) {
+		return Omnitrix.state(p).kitFlags;
+	}
+
+	/** v0.17.1 revamp: Speed Mode leaves the plain Speedster's after-image trail (asked by {@code SuperSpeedClientV0145}). */
+	public static boolean trails(Player p) {
+		return Xlr8Kit.is(p) && (flags(p) & Xlr8Kit.F_SPEED) != 0;
+	}
+
 	@Override
 	public ResourceLocation skin() {
 		return SKIN;
+	}
+
+	/** The visor down (the closed-mask skin) while he runs; his face at rest. */
+	@Override
+	public ResourceLocation skin(AbstractClientPlayer p) {
+		return Xlr8Kit.visorDown(p) ? MASK : SKIN;
+	}
+
+	/** Phase: he flickers half see-through. */
+	@Override
+	public int bodyAlpha(AbstractClientPlayer p) {
+		if ((flags(p) & Xlr8Kit.F_PHASE) == 0) {
+			return 255;
+		}
+		return 120 + (int) (60 * Mth.sin((p.tickCount + p.getId()) * 2.1f));
 	}
 
 	private static void box(PoseStack pose, VertexConsumer vc, float x0, float y0, float z0, float x1, float y1, float z1, float[] uv, int light) {
@@ -150,25 +198,28 @@ public final class Xlr8Client implements AlienClientKit {
 			float age) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
 		float sp = speed(p);
-		// the helmet: the visor across the face, the band over the crown, a little crest at the back
+		// the helmet's crest: a swept-back fin over the crown, teal-edged (the visor itself is the skin's)
 		AlienParts.on(pose, model.head, () -> {
-			box(pose, vc, -4.35f, -5.6f, -4.5f, 4.35f, -2.6f, -3.7f, VISOR, light);
-			box(pose, vc, -4.35f, -5.6f, -3.7f, -3.9f, -2.9f, 1.0f, BLACK, light);
-			box(pose, vc, 3.9f, -5.6f, -3.7f, 4.35f, -2.9f, 1.0f, BLACK, light);
-			box(pose, vc, -1.0f, -8.45f, -4.35f, 1.0f, -7.6f, 4.35f, BAND, light);
-			box(pose, vc, -1.0f, -7.6f, -4.45f, 1.0f, -5.6f, -3.9f, BAND, light);
+			// a low ridge along the crown that sweeps up and back past the nape
+			box(pose, vc, -0.6f, -8.9f, -2.5f, 0.6f, -7.95f, 3.2f, BLACK, light);
+			box(pose, vc, -0.3f, -9.15f, -1.5f, 0.3f, -8.9f, 3.0f, TEAL, light);
 			pose.pushPose();
-			pose.translate(0, -8.0f / 16f, 2.5f / 16f);
-			pose.mulPose(Axis.XP.rotation(0.55f));
-			box(pose, vc, -0.5f, -2.6f, -0.5f, 0.5f, 0f, 3.5f, BLUE, light);
+			pose.translate(0, -8.4f / 16f, 3.2f / 16f);
+			pose.mulPose(Axis.XP.rotation(-0.5f));
+			box(pose, vc, -0.55f, -0.5f, 0f, 0.55f, 0.5f, 3.0f, BLACK, light);
 			pose.popPose();
+			// the small swept fins over the ears
+			for (int side = -1; side <= 1; side += 2) {
+				float x = side * 4.1f;
+				box(pose, vc, Math.min(x, x + side * 0.5f), -6.2f, -1.0f, Math.max(x, x + side * 0.5f), -4.8f, 2.6f, BLACK, light);
+			}
 		});
-		// the tail: four striped segments from the small of the back, streaming out flatter the faster he runs
+		// the tail: four segments from the small of the back, streaming out flatter the faster he runs
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
 			pose.translate(0, 10.5f / 16f, 1.6f / 16f);
 			float lift = Mth.clamp(sp * 1.4f, 0f, 0.6f);
-			float[] w = { 3.2f, 2.6f, 2.0f, 1.3f };
+			float[] w = { 3.0f, 2.4f, 1.8f, 1.1f };
 			float[] len = { 4.5f, 4.5f, 4.0f, 3.5f };
 			for (int i = 0; i < 4; i++) {
 				float sway = Mth.sin(age * (0.18f + sp) + i * 0.9f) * (0.12f + i * 0.04f);
@@ -177,16 +228,17 @@ public final class Xlr8Client implements AlienClientKit {
 				box(pose, vc, -w[i] / 2, -w[i] / 2, 0, w[i] / 2, w[i] / 2, len[i], TAIL, light);
 				pose.translate(0, 0, (len[i] - 0.3f) / 16f);
 			}
+			box(pose, vc, -0.4f, -0.4f, 0, 0.4f, 0.4f, 1.5f, PALE, light);
 			pose.popPose();
 		});
-		// ball feet and claws
+		// ball feet that roll with his stride
 		float roll = (p.walkDist + partial * sp) * 6f;
 		for (ModelPart leg : new ModelPart[] { model.rightLeg, model.leftLeg }) {
 			AlienParts.on(pose, leg, () -> {
 				pose.pushPose();
-				pose.translate(0, 12f / 16f, 0);
+				pose.translate(0, 11.4f / 16f, -0.3f / 16f);
 				pose.mulPose(Axis.XP.rotation(roll));
-				box(pose, vc, -2.3f, -1.6f, -2.3f, 2.3f, 1.6f, 2.3f, WHEEL, light);
+				box(pose, vc, -2.4f, -1.9f, -2.4f, 2.4f, 1.9f, 2.4f, WHEEL, light);
 				pose.popPose();
 			});
 		}
@@ -195,34 +247,17 @@ public final class Xlr8Client implements AlienClientKit {
 			AlienParts.on(pose, arm, () -> claws(pose, vc, right, light));
 		}
 		// (every cutout draw is done: fetching another buffer type ends the previous one)
-		VertexConsumer glint = buffers.getBuffer(RenderType.eyes(EXTRAS));
-		AlienParts.on(pose, model.head, () -> box(pose, glint, -3.6f, -4.6f, -4.56f, 3.6f, -4.1f, -4.5f, GLINT, LightTexture.FULL_BRIGHT));
-		// afterimages: translucent copies of the body trailing behind, while he dashes or runs flat out
-		boolean dashing = (Omnitrix.state(p).kitFlags & Xlr8Kit.F_DASH) != 0;
-		if (dashing || sp > 0.45f) {
-			VertexConsumer ghost = buffers.getBuffer(RenderType.entityTranslucent(SKIN));
-			double dx = p.getX() - p.xo, dy = p.getY() - p.yo, dz = p.getZ() - p.zo;
-			float yaw = Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot);
-			float scale = 0.9375f * p.getScale();
-			int copies = dashing ? 4 : 2;
-			for (int i = 1; i <= copies; i++) {
-				Vector3f back = new Vector3f((float) -dx, (float) -dy, (float) -dz).mul(i * 1.1f);
-				back.rotateY((float) Math.toRadians(-(180f - yaw)));
-				back.set(-back.x, -back.y, back.z).div(scale);
-				pose.pushPose();
-				pose.translate(back.x, back.y, back.z);
-				int a = Math.max(20, (dashing ? 130 : 90) - i * 28);
-				model.renderToBuffer(pose, ghost, light, OverlayTexture.NO_OVERLAY, (a << 24) | 0x9FD8FF);
-				pose.popPose();
-			}
-		}
+		// the green eyes glow: the skin's own eye pixels drawn again full-bright (the visor's faint eyes when it is down)
+		VertexConsumer eyes = buffers.getBuffer(RenderType.eyes(Xlr8Kit.visorDown(p) ? MASK_EYES : EYES));
+		model.head.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
+		model.hat.render(pose, eyes, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
 	}
 
 	private static void claws(PoseStack pose, VertexConsumer vc, boolean right, int light) {
 		float x0 = right ? -3.0f : -1.0f;
 		for (int k = 0; k < 3; k++) {
 			float x = x0 + k * 1.5f;
-			box(pose, vc, x, 11.8f, -2.4f, x + 0.6f, 13.2f, -1.6f, WHITE, light);
+			box(pose, vc, x, 11.2f, -2.35f, x + 0.6f, 12.9f, -1.75f, WHITE, light);
 		}
 	}
 
@@ -234,14 +269,17 @@ public final class Xlr8Client implements AlienClientKit {
 	@Override
 	public boolean pose(AbstractClientPlayer p, HumanoidModel<?> m, int animId, float ticks, float age) {
 		float[][] clip = switch (animId) {
-			case Xlr8Kit.ANIM_FLURRY -> FLURRY;
+			case Xlr8Kit.ANIM_ASSAULT -> ASSAULT;
 			case Xlr8Kit.ANIM_TORNADO -> TORNADO;
-			case Xlr8Kit.ANIM_PUNCH -> PUNCH;
+			case Xlr8Kit.ANIM_BLITZ -> BLITZ;
+			case Xlr8Kit.ANIM_MACH -> MACH;
 			case Xlr8Kit.ANIM_SNATCH -> SNATCH;
 			case Xlr8Kit.ANIM_DASH -> DASH;
-			case Xlr8Kit.ANIM_WALLRUN -> VISOR_TAP;
+			case Xlr8Kit.ANIM_SPEED_SWEEP -> SPEED_SWEEP;
+			case Xlr8Kit.ANIM_MODE -> MODE;
 			case Xlr8Kit.ANIM_WHIRL -> WHIRL;
 			case Xlr8Kit.ANIM_KICKS -> KICKS;
+			case Xlr8Kit.ANIM_DECOYS -> DECOYS;
 			case Xlr8Kit.ANIM_BURST -> BURST;
 			case Xlr8Kit.ANIM_MINE -> MINE;
 			case Xlr8Kit.ANIM_JAB -> JAB;
@@ -249,14 +287,35 @@ public final class Xlr8Client implements AlienClientKit {
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		if (!played && speed(p) > 0.3f && p.onGround()) {
-			// flat out: the raptor lean, arms tucked back
-			com.projecthero.mod.client.HipBend.pitch(m, 1f, 0.45f);
-			m.rightArm.xRot = 0.8f + Mth.sin(age * 1.6f) * 0.15f;
-			m.leftArm.xRot = 0.8f - Mth.sin(age * 1.6f) * 0.15f;
+		int f = flags(p);
+		if ((f & Xlr8Kit.F_PHASE) != 0) {
+			// Phase: every limb shivers (his molecules vibrating through the wall)
+			float j = age * 9.7f;
+			m.body.yRot += Mth.sin(j) * 0.06f;
+			m.head.xRot += Mth.sin(j * 1.3f) * 0.05f;
+			m.rightArm.xRot += Mth.sin(j * 1.1f) * 0.12f;
+			m.leftArm.xRot += Mth.cos(j * 0.9f) * 0.12f;
+			m.rightLeg.xRot += Mth.cos(j * 1.2f) * 0.08f;
+			m.leftLeg.xRot += Mth.sin(j * 1.4f) * 0.08f;
+			return true;
+		}
+		boolean flatOut = speed(p) > ((f & Xlr8Kit.F_SPEED) != 0 ? 0.18f : 0.3f);
+		if (!played && flatOut && p.onGround()) {
+			// flat out: the raptor lean, arms tucked back, the head low and forward
+			com.projecthero.mod.client.HipBend.pitch(m, 1f, (f & Xlr8Kit.F_SPEED) != 0 ? 0.6f : 0.45f);
+			m.rightArm.xRot = 0.9f + Mth.sin(age * 1.6f) * 0.15f;
+			m.leftArm.xRot = 0.9f - Mth.sin(age * 1.6f) * 0.15f;
 			m.rightArm.zRot = 0.25f;
 			m.leftArm.zRot = -0.25f;
-			m.head.xRot -= 0.4f;
+			m.head.xRot -= 0.45f;
+			return true;
+		}
+		if (!played && (f & Xlr8Kit.F_SPEED) != 0 && p.onClimbable() && !p.onGround()) {
+			// running straight up a wall: the body pitched into it, legs pumping
+			m.rightLeg.xRot = Mth.sin(age * 1.8f) * 1.1f;
+			m.leftLeg.xRot = -Mth.sin(age * 1.8f) * 1.1f;
+			m.rightArm.xRot = -0.6f - Mth.sin(age * 1.8f) * 0.4f;
+			m.leftArm.xRot = -0.6f + Mth.sin(age * 1.8f) * 0.4f;
 			return true;
 		}
 		return played;
@@ -265,17 +324,20 @@ public final class Xlr8Client implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case Xlr8Kit.ANIM_FLURRY -> FP_FLURRY;
+			case Xlr8Kit.ANIM_ASSAULT -> FP_ASSAULT;
 			case Xlr8Kit.ANIM_TORNADO -> FP_RUN;
-			case Xlr8Kit.ANIM_PUNCH -> FP_PUNCH;
+			case Xlr8Kit.ANIM_SPEED_SWEEP -> FP_SWEEP_RUN;
+			case Xlr8Kit.ANIM_BLITZ -> FP_BLITZ;
+			case Xlr8Kit.ANIM_MACH -> FP_MACH;
 			case Xlr8Kit.ANIM_SNATCH -> FP_SNATCH;
 			case Xlr8Kit.ANIM_DASH -> FP_DASH;
-			case Xlr8Kit.ANIM_WALLRUN -> FP_VISOR;
-			case Xlr8Kit.ANIM_WHIRL, Xlr8Kit.ANIM_BURST -> FP_WIDE;
+			case Xlr8Kit.ANIM_MODE -> FP_MODE;
+			case Xlr8Kit.ANIM_WHIRL, Xlr8Kit.ANIM_BURST, Xlr8Kit.ANIM_DECOYS -> FP_WIDE;
 			case Xlr8Kit.ANIM_KICKS -> FP_KICK;
 			case Xlr8Kit.ANIM_MINE -> FP_MINE;
 			case Xlr8Kit.ANIM_JAB -> FP_JAB;
 			case Xlr8Kit.ANIM_SWEEP -> FP_SWEEP;
+			case Xlr8Kit.ANIM_PHASE -> FP_PHASE;
 			default -> null;
 		};
 	}
@@ -285,21 +347,31 @@ public final class Xlr8Client implements AlienClientKit {
 		var level = p.level();
 		var r = p.getRandom();
 		float sp = speed(p);
-		if (sp > 0.3f && p.onGround() && r.nextInt(2) == 0) {
+		int flags = flags(p);
+		boolean mode = (flags & Xlr8Kit.F_SPEED) != 0;
+		if (sp > (mode ? 0.18f : 0.3f) && p.onGround() && r.nextInt(2) == 0) {
 			level.addParticle(ParticleTypes.CLOUD, p.getX() + (r.nextDouble() - 0.5) * 0.4, p.getY() + 0.05, p.getZ() + (r.nextDouble() - 0.5) * 0.4, 0, 0.01, 0);
 		}
-		int flags = Omnitrix.state(p).kitFlags;
+		if (mode && sp > 0.25f && r.nextInt(3) == 0) {
+			// a blue static off his heels
+			level.addParticle(ParticleTypes.ELECTRIC_SPARK, p.getX() + (r.nextDouble() - 0.5) * 0.5, p.getY() + 0.3 + r.nextDouble() * 0.8,
+					p.getZ() + (r.nextDouble() - 0.5) * 0.5, 0, 0, 0);
+		}
 		if ((flags & Xlr8Kit.F_TORNADO) != 0) {
 			for (int i = 0; i < 2; i++) {
 				level.addParticle(ParticleTypes.CLOUD, p.getX(), p.getY() + r.nextDouble() * 1.6, p.getZ(), (r.nextDouble() - 0.5) * 0.3, 0.05,
 						(r.nextDouble() - 0.5) * 0.3);
 			}
 		}
-		if ((flags & Xlr8Kit.F_WALLRUN) != 0 && p.horizontalCollision && r.nextInt(2) == 0) {
+		if (mode && p.horizontalCollision && r.nextInt(2) == 0) {
 			level.addParticle(ParticleTypes.CLOUD, p.getX(), p.getY() + 0.4, p.getZ(), 0, -0.05, 0);
 		}
-		if ((flags & Xlr8Kit.F_WALLRUN) != 0 && p.isInWater() == false && level.getFluidState(p.blockPosition().below()).isSource() && sp > 0.1f) {
+		if (mode && !p.isInWater() && level.getFluidState(p.blockPosition().below()).isSource() && sp > 0.1f) {
 			level.addParticle(ParticleTypes.SPLASH, p.getX(), p.getY() + 0.05, p.getZ(), 0, 0.1, 0);
+		}
+		if ((flags & Xlr8Kit.F_PHASE) != 0 && r.nextInt(2) == 0) {
+			level.addParticle(ParticleTypes.ELECTRIC_SPARK, p.getX() + (r.nextDouble() - 0.5) * 0.7, p.getY() + r.nextDouble() * 1.8,
+					p.getZ() + (r.nextDouble() - 0.5) * 0.7, 0, 0, 0);
 		}
 	}
 

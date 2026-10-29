@@ -58,6 +58,7 @@ import net.minecraft.world.phys.Vec3;
  *   G        Pyro Bomb       a lobbed fireball, 3.5-block blast          Shift+G  Heat Shield     5 s: 60% less damage, burns attackers, melts arrows
  *   X        Fire Jet        hover / fly on jets of flame (toggle)       Shift+X  Jet Dash        a burst forward, scorching what it passes
  *   Z        Flame Ring      a ring of fire on the ground for 4 s       Shift+Z  Flare           a blinding white-hot flash
+ *   V        Heat Aura       toggle: a searing aura -- creatures near catch fire, snow and ice melt, dropped items smelt
  *   C        Fireball Nova   a burst of fire all around (10)            Shift+C  Supernova       a 1.25 s charge, then a huge blast (18)
  *   Attack   a flaming punch (sets alight)
  *   Use      empty hand: a small fire bolt; empty hand on a block: melts it (sand to glass, ore to ingots, ice to water...);
@@ -169,6 +170,7 @@ public final class HeatblastKit extends AlienKit {
 				AlienMove.tap(PYRO_BOMB, AbilitySlot.SLOT_2, 80), AlienMove.shift(HEAT_SHIELD, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(FIRE_JET, AbilitySlot.SLOT_3, 10), AlienMove.shift(JET_DASH, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(FLAME_RING, AbilitySlot.SLOT_4, 280), AlienMove.shift(FLARE, AbilitySlot.SLOT_4, 240),
+				AlienMove.tap(HEAT_AURA, AbilitySlot.SLOT_5, 60),
 				AlienMove.tap(NOVA, AbilitySlot.SLOT_6, 400), AlienMove.shift(SUPERNOVA, AbilitySlot.SLOT_6, 900),
 				// the vanilla keys' moves (no box on the HUD)
 				AlienMove.vanilla("flaming_punch", "Attack", 10), AlienMove.vanilla(FIRE_BOLT, "Use", 10),
@@ -187,6 +189,7 @@ public final class HeatblastKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		stopFlying(p);
 		RINGS.remove(p.getUUID());
 		DASH_HITS.remove(p.getUUID());
@@ -211,6 +214,7 @@ public final class HeatblastKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		p.clearFire();
 		if (p.isInLava()) {
 			p.resetFallDistance();
@@ -364,6 +368,7 @@ public final class HeatblastKit extends AlienKit {
 					flameRing(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					supernova(p);
@@ -753,5 +758,118 @@ public final class HeatblastKit extends AlienKit {
 			return amount * SHIELD_FACTOR;
 		}
 		return amount;
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Heat Aura
+
+	public static final String HEAT_AURA = "heat_aura";
+	public static final int ANIM_AURA = 13;
+	public static final int F_AURA = 16;
+	public static final double AURA_RADIUS = 3.5;
+	public static final float AURA_DAMAGE = 1f;
+	/** An item the aura already smelted (so cobblestone stops at stone). */
+	private static final String AURA_TAG = "projecthero_heat_aura";
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		heatAura(p);
+	}
+
+	/**
+	 * V: Heat Aura on / off. On, he burns white-hot: every creature within 3.5 blocks catches fire (and takes 1 a second), snow
+	 * and ice round him melt, and items dropped near him come out smelted, like a walking furnace. Water puts it out.
+	 */
+	public boolean heatAura(ServerPlayer p) {
+		boolean on = !flag(p, F_AURA);
+		if (on && fizzles(p)) {
+			return false;
+		}
+		if (!use(p, HEAT_AURA)) {
+			return false;
+		}
+		setFlag(p, F_AURA, on);
+		anim(p, ANIM_AURA);
+		ServerLevel l = level(p);
+		if (on) {
+			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFF0B0, COLOUR).size((float) AURA_RADIUS * 2).thickness(0.5f).life(14).ground().spawn();
+			OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_IGNITE, 1.0f, 0.8f);
+		} else {
+			l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.6f, 1.4f);
+		}
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.heatblast.aura_on" : "message.projecthero.omnitrix.heatblast.aura_off")
+				.withStyle(on ? ChatFormatting.GOLD : ChatFormatting.GRAY), true);
+		return true;
+	}
+
+	private void revertV(ServerPlayer p) {
+		setFlag(p, F_AURA, false);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_AURA)) {
+			return;
+		}
+		if (p.isInWaterOrBubble()) {
+			setFlag(p, F_AURA, false);
+			fizzles(p);
+			return;
+		}
+		if (now % 2 == 0) {
+			double a = now * 0.35;
+			for (int k = 0; k < 3; k++) {
+				double b = a + k * Math.PI * 2 / 3;
+				l.sendParticles(ParticleTypes.FLAME, p.getX() + Math.cos(b) * 1.2, p.getY() + 0.2 + (now % 8) * 0.2, p.getZ() + Math.sin(b) * 1.2, 1, 0, 0.03, 0, 0.01);
+			}
+			l.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 2, AURA_RADIUS * 0.4, 0.4, AURA_RADIUS * 0.4, 0.0);
+		}
+		if (now % 10 == 0) {
+			for (LivingEntity e : around(p, p.position().add(0, 1, 0), AURA_RADIUS)) {
+				e.igniteForSeconds(3);
+				if (now % 20 == 0) {
+					hurt(p, e, AURA_DAMAGE, true);
+				}
+			}
+			for (net.minecraft.world.entity.item.ItemEntity it : l.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+					p.getBoundingBox().inflate(AURA_RADIUS), it -> it.isAlive() && !it.getTags().contains(AURA_TAG))) {
+				ItemStack held = it.getItem();
+				Optional<RecipeHolder<SmeltingRecipe>> recipe = l.getRecipeManager().getRecipeFor(RecipeType.SMELTING, new SingleRecipeInput(held), l);
+				if (recipe.isEmpty()) {
+					continue;
+				}
+				ItemStack out = recipe.get().value().getResultItem(l.registryAccess()).copy();
+				if (out.isEmpty()) {
+					continue;
+				}
+				out.setCount(Math.min(out.getMaxStackSize(), out.getCount() * held.getCount()));
+				it.setItem(out);
+				it.addTag(AURA_TAG);
+				l.sendParticles(ParticleTypes.FLAME, it.getX(), it.getY() + 0.2, it.getZ(), 6, 0.1, 0.1, 0.1, 0.02);
+				l.sendParticles(ParticleTypes.SMOKE, it.getX(), it.getY() + 0.3, it.getZ(), 3, 0.1, 0.1, 0.1, 0.01);
+			}
+		}
+		if (now % 20 == 5 && p.mayBuild()) {
+			BlockPos c = p.blockPosition();
+			BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+			for (int dx = -3; dx <= 3; dx++) {
+				for (int dy = -1; dy <= 2; dy++) {
+					for (int dz = -3; dz <= 3; dz++) {
+						m.set(c.getX() + dx, c.getY() + dy, c.getZ() + dz);
+						net.minecraft.world.level.block.state.BlockState st = l.getBlockState(m);
+						if (st.is(net.minecraft.world.level.block.Blocks.SNOW) || st.is(net.minecraft.world.level.block.Blocks.SNOW_BLOCK)
+								|| st.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)) {
+							l.setBlockAndUpdate(m, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+						} else if (st.is(net.minecraft.world.level.block.Blocks.ICE) || st.is(net.minecraft.world.level.block.Blocks.FROSTED_ICE)) {
+							l.setBlockAndUpdate(m, l.dimensionType().ultraWarm() ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()
+									: net.minecraft.world.level.block.Blocks.WATER.defaultBlockState());
+						} else {
+							continue;
+						}
+						l.sendParticles(ParticleTypes.CLOUD, m.getX() + 0.5, m.getY() + 0.6, m.getZ() + 0.5, 2, 0.2, 0.1, 0.2, 0.01);
+					}
+				}
+			}
+		}
+		if (now % 40 == 0) {
+			l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRE_AMBIENT, SoundSource.PLAYERS, 0.6f, 0.8f);
+		}
 	}
 }
