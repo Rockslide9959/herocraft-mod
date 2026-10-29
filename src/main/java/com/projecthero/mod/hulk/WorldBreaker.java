@@ -144,12 +144,10 @@ public final class WorldBreaker {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 at = player.position();
 		double h = player.getBbHeight();
-		// the roar
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 3.0f, 0.45f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 2.0f, 0.5f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 2.5f, 0.6f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 2.0f, 0.6f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 3.0f, 0.5f);
+		// the roar -- v0.17.1 (user: the voice line was "way too soft"): one ravager roar and the boom, quieter, so the user's
+		// "Hulk is strongest there is" clip (shout below) sits on top instead of being buried
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 0.6f, 0.45f);
+		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE.value(), SoundSource.PLAYERS, 0.7f, 0.5f);
 		// the shockwave (already at World Breaker strength: a doubled ring and doubled damage)
 		HulkCombat.radial(player, at, cfg.activationRadius, new HulkCombat.Hit(cfg.activationDamage, 2.4, 0.8), true);
 		GroundCracks.star(level, at, cfg.activationRadius, 14, 200);
