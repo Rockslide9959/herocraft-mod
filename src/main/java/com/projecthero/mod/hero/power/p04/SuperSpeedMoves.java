@@ -266,6 +266,9 @@ public final class SuperSpeedMoves {
 	}
 
 	public static int color(ServerPlayer p) {
+		if (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p)) {
+			return com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.GLOW; // v0.17.1: XLR8's borrowed moves streak in his blue
+		}
 		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.hasPower(p)) {
 			// v0.17.1: a Speed Force Speedster's borrowed moves streak in their own lightning colour
 			return com.projecthero.mod.speedforce.SpeedForceColours.tone(com.projecthero.mod.speedforce.SpeedForceColours.of(p), 1);

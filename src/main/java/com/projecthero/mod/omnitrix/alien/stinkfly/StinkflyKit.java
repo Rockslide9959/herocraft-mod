@@ -1,5 +1,12 @@
 package com.projecthero.mod.omnitrix.alien.stinkfly;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -51,6 +58,7 @@ import net.minecraft.world.phys.Vec3;
  *   G        Toxic Gas      a stinking cloud ahead (5 s: poison, nausea)      Shift+G  Stinger Stab   the tail jabs (6 + Poison II)
  *   X        Wing Flight    take off / land (double-tap jump works too)       Shift+X  Wing Dash      a burst of speed where you look
  *   Z        Dive Bomb      plunge and splash down (up to 8, slows)           Shift+Z  Wing Gust      a blast of wind: shoves, deflects projectiles
+ *   V        Lift           grab the creature in front in your legs and carry it as you fly; V again drops it
  *   C        Goo Storm      goo rains on an area for 6 s (slows, stings)     Shift+C  Slime Barrage  five globs in a fan
  *   Attack   stinger-tipped jab (poisons)       Use   a quick goo spit (empty hand)
  * </pre>
@@ -158,6 +166,7 @@ public final class StinkflyKit extends AlienKit {
 	public static void clearSessionState() {
 		GAS_CLOUDS.clear();
 		STORMS.clear();
+		LIFTED.clear();
 	}
 
 	private static void splat(AlienProjectileEntity proj, HitResult hit, boolean net) {
@@ -208,6 +217,7 @@ public final class StinkflyKit extends AlienKit {
 				AlienMove.tap(TOXIC_GAS, AbilitySlot.SLOT_2, 220), AlienMove.shift(STINGER, AbilitySlot.SLOT_2, 50),
 				AlienMove.tap(FLIGHT, AbilitySlot.SLOT_3, 8), AlienMove.shift(WING_DASH, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(DIVE_BOMB, AbilitySlot.SLOT_4, 140), AlienMove.shift(WING_GUST, AbilitySlot.SLOT_4, 120),
+				AlienMove.tap(LIFT, AbilitySlot.SLOT_5, 60),
 				AlienMove.tap(GOO_STORM, AbilitySlot.SLOT_6, 600), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_6, 240),
 				AlienMove.vanilla(JAB, "Attack", 20), AlienMove.vanilla(GOO_SPIT, "Use", 12));
 	}
@@ -226,6 +236,7 @@ public final class StinkflyKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		GAS_CLOUDS.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
 		setFlag(p, F_FLYING | F_DIVING, false);
@@ -248,6 +259,7 @@ public final class StinkflyKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		// the wings: always ready (X or a double-tap of jump takes off); others see them beat
 		if (!p.getAbilities().mayfly) {
 			p.getAbilities().mayfly = true;
@@ -366,6 +378,7 @@ public final class StinkflyKit extends AlienKit {
 					diveBomb(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					slimeBarrage(p);
@@ -630,5 +643,95 @@ public final class StinkflyKit extends AlienKit {
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		return !source.is(DamageTypeTags.IS_FALL) && !source.is(DamageTypes.FLY_INTO_WALL);
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Lift
+
+	public static final String LIFT = "lift";
+	public static final int ANIM_LIFT = 13;
+	public static final int F_LIFT = 4;
+	public static final double LIFT_REACH = 4.5;
+	/** Too big to lift: bosses and anything this tall / wide. */
+	public static final float LIFT_MAX_HEALTH = 150f;
+	/** player -> the entity id he carries. */
+	private static final Map<UUID, Integer> LIFTED = new ConcurrentHashMap<>();
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		lift(p);
+	}
+
+	/** What he is carrying, or null. */
+	@org.jetbrains.annotations.Nullable
+	public static LivingEntity lifted(ServerPlayer p) {
+		Integer id = LIFTED.get(p.getUUID());
+		return id != null && p.level().getEntity(id) instanceof LivingEntity le ? le : null;
+	}
+
+	/**
+	 * V: Lift -- the creature in front (4.5 blocks) is snatched up in his legs and carried under him wherever he flies (an ally to
+	 * safety, a foe up high to let go of). V again drops it. Bosses and anything big are too heavy.
+	 */
+	public boolean lift(ServerPlayer p) {
+		if (LIFTED.containsKey(p.getUUID())) {
+			drop(p);
+			return true;
+		}
+		LivingEntity t = lookTarget(p, LIFT_REACH);
+		if (t == null) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.stinkfly.no_target").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (t.getMaxHealth() >= LIFT_MAX_HEALTH || t.getBbHeight() > 2.6f || t.getBbWidth() > 1.6f) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.stinkfly.too_heavy").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (!use(p, LIFT)) {
+			return false;
+		}
+		LIFTED.put(p.getUUID(), t.getId());
+		setFlag(p, F_LIFT, true);
+		anim(p, ANIM_LIFT);
+		ServerLevel l = level(p);
+		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.3f);
+		l.sendParticles(ParticleTypes.ITEM_SLIME, t.getX(), t.getY() + t.getBbHeight(), t.getZ(), 10, 0.3, 0.2, 0.3, 0.05);
+		return true;
+	}
+
+	/** Lets go of what he carries (it falls from wherever he is). */
+	public void drop(ServerPlayer p) {
+		Integer id = LIFTED.remove(p.getUUID());
+		setFlag(p, F_LIFT, false);
+		if (id != null && p.level().getEntity(id) instanceof LivingEntity le) {
+			le.resetFallDistance();
+			le.setDeltaMovement(p.getDeltaMovement().scale(0.6));
+			le.hurtMarked = true;
+			OmnitrixSounds.play(level(p), p.position(), BUZZ, 0.7f, 0.9f);
+		}
+	}
+
+	private void revertV(ServerPlayer p) {
+		drop(p);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		Integer id = LIFTED.get(p.getUUID());
+		if (id == null) {
+			return;
+		}
+		Entity e = l.getEntity(id);
+		if (!(e instanceof LivingEntity le) || !le.isAlive() || le.distanceToSqr(p) > 64 || !p.isAlive()) {
+			drop(p);
+			return;
+		}
+		// under him in the air; in front of him on the ground (so it is never pushed into the floor)
+		Vec3 at = p.onGround() ? p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(0.6 + le.getBbWidth() * 0.5))
+				: p.position().add(0, -le.getBbHeight() - 0.05, 0);
+		le.teleportTo(at.x, at.y, at.z);
+		le.setDeltaMovement(Vec3.ZERO);
+		le.resetFallDistance();
+		le.hurtMarked = true;
+		if (now % 10 == 0) {
+			l.sendParticles(ParticleTypes.ITEM_SLIME, le.getX(), le.getY() + le.getBbHeight(), le.getZ(), 2, 0.2, 0.1, 0.2, 0.02);
+		}
 	}
 }

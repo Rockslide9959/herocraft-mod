@@ -60,6 +60,7 @@ import net.minecraft.world.phys.Vec3;
  *   X        Water Dash     a burst through the water / on land a hop         Shift+X  Breach          leap out of the water / on land a back-flip
  *   Z        Whirlpool      in water: a 5 s vortex that drags and drowns      Shift+Z  Tidal Roar      weakens, slows and shoves around you
  *            Mud Splash     on land: a blinding spray of mud ahead
+ *   V        Water Bubble   30 s of a water bubble round his head: no drying out on land (it slowly refills)
  *   C        Feeding Frenzy 10 s: +30% damage, faster, bites heal 3          Shift+C  Drench          splash yourself: half the hydration back
  *   Attack   jaw punch (+3 in water)        Use on a block   dig straight through sand, gravel, dirt, clay, mud and snow
  * </pre>
@@ -193,6 +194,7 @@ public final class RipjawsKit extends AlienKit {
 				AlienMove.tap(TAIL_SLAM, AbilitySlot.SLOT_2, 90), AlienMove.shift(FIN_SLASH, AbilitySlot.SLOT_2, 120),
 				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 30), AlienMove.shift(BREACH, AbilitySlot.SLOT_3, 100),
 				AlienMove.tap(WHIRLPOOL, AbilitySlot.SLOT_4, 320), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_4, 300),
+				AlienMove.tap(BUBBLE, AbilitySlot.SLOT_5, 1200),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(DRENCH, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(PUNCH, "Attack", 0), AlienMove.vanilla(DIG, "Use on sand / gravel / dirt", 3));
 	}
@@ -286,6 +288,7 @@ public final class RipjawsKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		WHIRLS.remove(p.getUUID());
 		endFrenzy(p);
 		PowerToggles.clearModifier(p, Attributes.WATER_MOVEMENT_EFFICIENCY, SWIM);
@@ -311,8 +314,9 @@ public final class RipjawsKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		boolean wet = inWater(p);
-		boolean rain = !wet && inRain(p);
+		boolean rain = !wet && (inRain(p) || flag(p, F_BUBBLE)); // v0.17.1: the Water Bubble counts as rain
 		boolean wasWet = flag(p, F_WET);
 		if (wet != wasWet || rain != flag(p, F_RAIN)) {
 			// the rate changed: fold the time so far into the stored value
@@ -476,6 +480,7 @@ public final class RipjawsKit extends AlienKit {
 					whirlpool(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					drench(p);
@@ -749,5 +754,57 @@ public final class RipjawsKit extends AlienKit {
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		return !source.is(DamageTypeTags.IS_DROWNING);
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Water Bubble
+
+	public static final String BUBBLE = "water_bubble";
+	public static final int ANIM_BUBBLE = 15;
+	public static final int F_BUBBLE = 32;
+	public static final int BUBBLE_TICKS = 600;
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		waterBubble(p);
+	}
+
+	/**
+	 * V: Water Bubble -- he gulps a bubble of water round his head: for 30 s dry land is like rain to him (the hydration meter
+	 * refills slowly instead of draining), so he can hunt far from the sea.
+	 */
+	public boolean waterBubble(ServerPlayer p) {
+		if (flag(p, F_BUBBLE) || !use(p, BUBBLE)) {
+			return false;
+		}
+		setFlag(p, F_BUBBLE, true);
+		setTimer(p, "bubble_end", p.level().getGameTime() + BUBBLE_TICKS);
+		anim(p, ANIM_BUBBLE);
+		ServerLevel l = level(p);
+		l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getEyeY(), p.getZ(), 30, 0.3, 0.3, 0.3, 0.1);
+		OmnitrixSounds.play(l, p.position(), SPLASH, 1.0f, 1.4f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.bubble_on").withStyle(ChatFormatting.AQUA), true);
+		return true;
+	}
+
+	private void revertV(ServerPlayer p) {
+		setFlag(p, F_BUBBLE, false);
+		setTimer(p, "bubble_end", 0);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_BUBBLE)) {
+			return;
+		}
+		if (now >= timer(p, "bubble_end")) {
+			revertV(p);
+			l.sendParticles(ParticleTypes.SPLASH, p.getX(), p.getEyeY(), p.getZ(), 20, 0.3, 0.3, 0.3, 0.1);
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ripjaws.bubble_off").withStyle(ChatFormatting.GRAY), true);
+			return;
+		}
+		if (now % 3 == 0) {
+			double a = now * 0.4;
+			l.sendParticles(ParticleTypes.BUBBLE_POP, p.getX() + Math.cos(a) * 0.45, p.getEyeY() + Math.sin(a * 0.7) * 0.3, p.getZ() + Math.sin(a) * 0.45,
+					1, 0, 0, 0, 0);
+			l.sendParticles(ParticleTypes.DRIPPING_WATER, p.getX(), p.getEyeY() - 0.3, p.getZ(), 1, 0.3, 0.05, 0.3, 0);
+		}
 	}
 }

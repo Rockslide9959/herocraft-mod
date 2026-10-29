@@ -79,7 +79,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 	private void projecthero$alienSkin(AbstractClientPlayer player, CallbackInfoReturnable<ResourceLocation> cir) {
 		AlienClientKit kit = AlienClients.shownKit(player);
 		if (kit != null) {
-			cir.setReturnValue(kit.skin());
+			cir.setReturnValue(kit.skin(player));
 		}
 	}
 
@@ -119,7 +119,7 @@ public abstract class OmnitrixPlayerRendererMixin {
 	private ResourceLocation projecthero$alienHandSkin(ResourceLocation texture, PoseStack pose, MultiBufferSource buffers, int light,
 			AbstractClientPlayer player, ModelPart arm, ModelPart sleeve) {
 		AlienClientKit kit = AlienClients.shownKit(player);
-		return kit != null ? kit.skin() : texture;
+		return kit != null ? kit.skin(player) : texture;
 	}
 
 	@Inject(method = "renderHand", at = @At("RETURN"))

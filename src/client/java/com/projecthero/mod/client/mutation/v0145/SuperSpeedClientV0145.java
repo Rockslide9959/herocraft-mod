@@ -237,7 +237,9 @@ public final class SuperSpeedClientV0145 {
 		java.util.Set<UUID> present = new java.util.HashSet<>();
 		for (AbstractClientPlayer p : mc.level.players()) {
 			present.add(p.getUUID());
-			if (!MutationVisuals.hasFlag(p, SuperSpeedV0145.TRAIL) || p.isSpectator() || p.tickCount % TRAIL_EVERY != 0) {
+			// v0.17.1: XLR8 in Speed Mode leaves the same after-image trail (in his own skin, see renderTrails)
+			if (!(MutationVisuals.hasFlag(p, SuperSpeedV0145.TRAIL) || com.projecthero.mod.client.omnitrix.alien.Xlr8Client.trails(p)) || p.isSpectator()
+					|| p.tickCount % TRAIL_EVERY != 0) {
 				continue;
 			}
 			double dx = p.getX() - p.xo;
@@ -314,7 +316,17 @@ public final class SuperSpeedClientV0145 {
 				continue;
 			}
 			PlayerModel<AbstractClientPlayer> model = pr.getModel();
-			ResourceLocation skin = acp.getSkin().texture();
+			// v0.17.1: an Omnitrix alien's copies wear the alien's skin (XLR8's streaks and trail), on the wide arm model
+			com.projecthero.mod.client.omnitrix.AlienClientKit alien = com.projecthero.mod.client.omnitrix.AlienClients.shownKit(acp);
+			if (alien != null && alien.customBody()) {
+				continue;
+			}
+			if (alien != null && ((com.projecthero.mod.client.mixin.OmnitrixRenderDispatcherAccessor) mc.getEntityRenderDispatcher()).projecthero$playerRenderers()
+					.get(net.minecraft.client.resources.PlayerSkin.Model.WIDE) instanceof PlayerRenderer wide) {
+				model = wide.getModel();
+			}
+			ResourceLocation skin = alien != null ? alien.skin(acp) : acp.getSkin().texture();
+			float bodyScale = alien != null ? acp.getScale() : 1.0f;
 			boolean own = player == mc.player;
 			boolean wearsArmour = GhostArmour.wearsAny(acp);
 			Vec3 at = acp.getPosition(partial);
@@ -392,7 +404,7 @@ public final class SuperSpeedClientV0145 {
 				pose.translate(s.x() - cam.x, s.y() - cam.y, s.z() - cam.z);
 				pose.mulPose(Axis.YP.rotationDegrees(180.0f - s.bodyYaw()));
 				pose.scale(-1.0f, -1.0f, 1.0f);
-				pose.scale(0.9375f, 0.9375f, 0.9375f);
+				pose.scale(0.9375f * bodyScale, 0.9375f * bodyScale, 0.9375f * bodyScale);
 				pose.translate(0.0f, -1.501f, 0.0f);
 				model.attackTime = 0.0f;
 				model.riding = false;

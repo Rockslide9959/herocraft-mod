@@ -118,14 +118,19 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		p.setSprinting(true);
 		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 1.3, "sprinting is faster still");
-		helper.assertTrue(kit.toggleWallRun(p) && kit.flag(p, Xlr8Kit.F_WALLRUN), "Wall Run on");
+		// v0.17.1 revamp: V's Speed Mode (wall and water running came with it)
+		double sprinting = p.getAttributeValue(Attributes.MOVEMENT_SPEED);
+		helper.assertTrue(kit.toggleSpeedMode(p) && kit.flag(p, Xlr8Kit.F_SPEED), "Speed Mode on");
+		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > sprinting * 1.8, "Speed Mode: twice as fast again");
+		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor is down");
 		helper.assertTrue(kit.standsOnFluid(p, Fluids.WATER.getSource(false)), "runs on water");
 		helper.assertFalse(kit.standsOnFluid(p, Fluids.LAVA.getSource(false)), "not on lava");
 		p.setSprinting(false); // vanilla's own sprint boost off too
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - 0.1) < 1.0e-4, "the speed comes off with the body (sprint bonus too)");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.ATTACK_SPEED) - 4.0) < 1.0e-4, "and the fast hands");
-		helper.assertFalse(kit.flag(p, Xlr8Kit.F_WALLRUN), "Wall Run is off after turning back");
+		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "Speed Mode is off after turning back");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 0.6 + 1.0e-4, "and its step assist");
 		helper.succeed();
 	}
 
@@ -136,9 +141,10 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 5.5, 120f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(AlienKit.lookTarget(p, 14) == z, "the zombie is in sight");
-		helper.assertTrue(kit.sonicPunch(p, z), "Sonic Punch");
-		helper.assertTrue(near(z.getHealth(), 120f - Xlr8Kit.PUNCH_DAMAGE), "8 damage: " + z.getHealth());
-		helper.assertFalse(kit.sonicPunch(p, z), "then cools down");
+		// v0.17.1 revamp: G is the plain Speedster's Blitz (20, borrowed from SuperSpeedMoves)
+		helper.assertTrue(kit.blitz(p), "Blitz");
+		helper.assertTrue(near(z.getHealth(), 120f - com.projecthero.mod.hero.power.p04.SuperSpeedMoves.BLITZ_DAMAGE), "20 damage: " + z.getHealth());
+		helper.assertFalse(kit.blitz(p), "then cools down");
 		helper.assertTrue(p.distanceTo(z) < 2.5, "he closed the gap");
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
 		z.setDeltaMovement(Vec3.ZERO);
@@ -153,7 +159,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.BURST) > 500, "a long cooldown");
 		// the snatch
 		z.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_SWORD));
-		helper.assertTrue(kit.snatch(p, z) && z.getMainHandItem().isEmpty() && p.getInventory().contains(new ItemStack(Items.IRON_SWORD)), "the sword is his");
+		helper.assertTrue(kit.onUseEntity(p, InteractionHand.MAIN_HAND, z) == net.minecraft.world.InteractionResult.SUCCESS && z.getMainHandItem().isEmpty() && p.getInventory().contains(new ItemStack(Items.IRON_SWORD)), "the sword is his");
 		// Speed Mine: a stone wall ahead
 		p.moveTo(helper.absoluteVec(new Vec3(3.5, 2, 1.5)).x, p.getY(), helper.absoluteVec(new Vec3(3.5, 2, 1.5)).z, 0f, 0f);
 		for (int i = 1; i <= 4; i++) {
@@ -170,13 +176,16 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 1.8, 180f, 0f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		float hp = z.getHealth();
-		helper.assertTrue(kit.dashFlurry(p), "Dash Flurry");
+		z.invulnerableTime = 0;
+		helper.assertTrue(kit.rapidAssault(p) == 1, "Rapid Assault hits the zombie");
+		helper.assertTrue(hp - z.getHealth() >= 19.9f, "four punches of 5: " + (hp - z.getHealth()));
+		float afterAssault = z.getHealth();
 		helper.assertTrue(kit.kickBarrage(p), "Kick Barrage");
 		p.setDeltaMovement(Vec3.ZERO);
 		pump(helper, p);
 		helper.runAfterDelay(18, () -> {
-			helper.assertTrue(z.getHealth() < hp - Xlr8Kit.FLURRY_HIT * 4, "the flurry and the kicks landed many hits: " + (hp - z.getHealth()));
-			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.FLURRY) > 0 && kit.cooldownLeft(p, Xlr8Kit.KICKS) > 0, "both cool down");
+			helper.assertTrue(z.getHealth() < afterAssault - Xlr8Kit.KICK_HIT * 4, "the kicks landed many hits: " + (afterAssault - z.getHealth()));
+			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.ASSAULT) > 0 && kit.cooldownLeft(p, Xlr8Kit.KICKS) > 0, "both cool down");
 			helper.assertTrue(kit.tornadoRun(p) && kit.flag(p, Xlr8Kit.F_TORNADO), "Tornado Run");
 			helper.assertTrue(kit.blurDash(p) && kit.flag(p, Xlr8Kit.F_DASH), "Blur Dash");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);

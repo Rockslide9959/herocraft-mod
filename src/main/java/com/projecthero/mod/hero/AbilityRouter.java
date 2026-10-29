@@ -53,6 +53,11 @@ public final class AbilityRouter {
 					|| com.projecthero.mod.hulk.Hulk.isHulk(player)) {
 				return;
 			}
+			// v0.17.1 (user: "make the detransform keybind N"): an Omnitrix wearer's N is the watch's (an alien turns back)
+			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.omnitrix.OmnitrixAbilityManager.hasContext(player)) {
+				com.projecthero.mod.omnitrix.OmnitrixAbilityManager.handle(player, slot, pressed);
+				return;
+			}
 			// Sneak + N fires a power combo when the player owns a matching pair of mutations (v0.13.22)
 			if (slot == AbilitySlot.SLOT_8 && player.isShiftKeyDown()
 					&& com.projecthero.mod.hero.power.ComboMoves.available(player) != null) {

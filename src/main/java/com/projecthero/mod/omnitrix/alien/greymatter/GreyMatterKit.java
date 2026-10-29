@@ -77,6 +77,7 @@ import net.minecraft.world.phys.Vec3;
  *                           marks it: +35% damage from everyone for 10 s
  *   X        Big Leap       a huge leap for something so small (no fall)     Shift+X  Scurry           5 s of top speed; hunters lose you
  *   Z        Snare Trap     quick-craft a tripwire snare (roots 4 s; 3 max)  Shift+Z  Smoke Bomb       blinds around you, everyone loses track
+ *   V        Pocket Workshop  a crafting grid anywhere: he builds what he needs from his pockets
  *   C        Genius Repair  fix a block (anvils, cracked bricks) or boost a  Shift+C  Mind Map         ores, chests and spawners outlined through walls (8 s)
  *                           furnace / brewing stand; else repair held gear
  *   Attack   precision jab (+2 on an analyzed target)      Use on a creature   a quick read of its health
@@ -262,6 +263,7 @@ public final class GreyMatterKit extends AlienKit {
 				AlienMove.tap(ANALYZE, AbilitySlot.SLOT_2, 200), AlienMove.shift(DECOY, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(BIG_LEAP, AbilitySlot.SLOT_3, 30), AlienMove.shift(SCURRY, AbilitySlot.SLOT_3, 240),
 				AlienMove.tap(SNARE, AbilitySlot.SLOT_4, 160), AlienMove.shift(SMOKE_BOMB, AbilitySlot.SLOT_4, 320),
+				AlienMove.tap(WORKSHOP, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(REPAIR_MOVE, AbilitySlot.SLOT_6, 600), AlienMove.shift(MIND_MAP, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(QUICK_READ, "Use on a creature", 10));
 	}
@@ -277,6 +279,7 @@ public final class GreyMatterKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		UUID me = p.getUUID();
 		MARKS.values().removeIf(m -> m.owner().equals(me));
 		TRAPS.remove(me);
@@ -291,6 +294,7 @@ public final class GreyMatterKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		// so small mobs keep losing sight of him
 		if (now % 20 == 0) {
 			for (Mob m : l.getEntitiesOfClass(Mob.class, p.getBoundingBox().inflate(24), m -> m.getTarget() == p)) {
@@ -405,6 +409,7 @@ public final class GreyMatterKit extends AlienKit {
 					snare(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					mindMap(p);
@@ -807,5 +812,42 @@ public final class GreyMatterKit extends AlienKit {
 	@Override
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		return !(flag(p, F_LEAP) && source.is(DamageTypeTags.IS_FALL));
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Pocket Workshop
+
+	public static final String WORKSHOP = "pocket_workshop";
+	public static final int ANIM_WORKSHOP = 13;
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		pocketWorkshop(p);
+	}
+
+	/** V: Pocket Workshop -- a Galvan needs no table: a crafting grid opens wherever he stands (what is left in it comes back). */
+	public boolean pocketWorkshop(ServerPlayer p) {
+		if (!use(p, WORKSHOP)) {
+			return false;
+		}
+		anim(p, ANIM_WORKSHOP);
+		ServerLevel l = level(p);
+		net.minecraft.world.inventory.ContainerLevelAccess access = net.minecraft.world.inventory.ContainerLevelAccess.create(l, p.blockPosition());
+		p.openMenu(new net.minecraft.world.SimpleMenuProvider((id, inv, who) -> new net.minecraft.world.inventory.CraftingMenu(id, inv, access) {
+			@Override
+			public boolean stillValid(net.minecraft.world.entity.player.Player player) {
+				return player.isAlive(); // no table to stand next to
+			}
+		}, Component.translatable("container.projecthero.omnitrix.pocket_workshop")));
+		l.sendParticles(THINK_DUST, p.getX(), p.getY() + 0.5, p.getZ(), 10, 0.2, 0.2, 0.2, 0);
+		OmnitrixSounds.play(l, p.position(), THINK, 0.8f, 1.6f);
+		return true;
+	}
+
+	private void revertV(ServerPlayer p) {
+		if (p.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu) {
+			p.closeContainer(); // the grid goes with the brain
+		}
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
 	}
 }

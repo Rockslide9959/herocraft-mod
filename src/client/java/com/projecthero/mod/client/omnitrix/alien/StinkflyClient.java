@@ -29,6 +29,11 @@ import net.minecraft.util.Mth;
  * abdomen with a STINGER that curls under the body for the stab. A pose for every move.
  */
 public final class StinkflyClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] LIFT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.3f, 0f, 0.2f, -1.3f, 0f, -0.2f, 0.2f, 0f, -1f, 0f, 0.1f, -1f, 0f, -0.1f, 0.3f),
+			QuirkKeyframes.f(8, -1f, 0f, 0.2f, -1f, 0f, -0.2f, 0.15f, 0f, -0.9f, 0f, 0.1f, -0.9f, 0f, -0.1f, 0.3f), QuirkKeyframes.rest(12) };
+	private static final FirstPersonClip FP_LIFT = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, 30f, -15f, 0f, -0.05f, -0.3f, -0.1f),
+			FirstPersonClip.f(8, 25f, -15f, 0f, -0.05f, -0.25f, -0.05f), FirstPersonClip.f(12, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_extras.png");
 
@@ -202,6 +207,7 @@ public final class StinkflyClient implements AlienClientKit {
 			case StinkflyKit.ANIM_JAB -> JAB;
 			case StinkflyKit.ANIM_TAKEOFF -> TAKEOFF;
 			case StinkflyKit.ANIM_SPLASH -> SPLASH;
+			case StinkflyKit.ANIM_LIFT -> LIFT;
 			default -> null;
 		};
 		if (animId == StinkflyKit.ANIM_DIVE && (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) == 0 && ticks > 4) {
@@ -230,6 +236,7 @@ public final class StinkflyClient implements AlienClientKit {
 			case StinkflyKit.ANIM_STORM -> FP_UP;
 			case StinkflyKit.ANIM_DIVE, StinkflyKit.ANIM_DASH -> FP_DIVE;
 			case StinkflyKit.ANIM_GAS, StinkflyKit.ANIM_SPLASH -> FP_LOW;
+			case StinkflyKit.ANIM_LIFT -> FP_LIFT;
 			default -> null;
 		};
 	}

@@ -15,9 +15,9 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1 (user: "when detransforming the watch should first beep 5 times like how it does in the mp3 file and then
- * detransform"): V while transformed and the 3-minute timeout start the power-down sequence synced to the user's
+ * detransform"): N (v0.17.1 user: was V) while transformed and the 3-minute timeout start the power-down sequence synced to the user's
  * omnitrix-power-down sound -- the beeps on their measured ticks, the revert {@link Omnitrix#POWER_DOWN_REVERT_TICK} ticks
- * in; a second V during the beeps changes nothing; death, logout and a world change mid-sequence revert at once and leave no
+ * in; a second N during the beeps changes nothing; death, logout and a world change mid-sequence revert at once and leave no
  * power-down state behind. Mock players are not ticked by the server, so each test drives {@link Omnitrix#tick} itself.
  */
 public class OmnitrixPowerDownGameTests implements FabricGameTest {
@@ -69,17 +69,17 @@ public class OmnitrixPowerDownGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void vPowersDownForTheRightTicksAndASecondVDoesNothing(GameTestHelper helper) {
+	public void nPowersDownForTheRightTicksAndASecondNDoesNothing(GameTestHelper helper) {
 		ServerPlayer p = alien(helper);
 		pump(helper, p);
-		OmnitrixAbilityManager.pressV(p);
+		OmnitrixAbilityManager.pressN(p);
 		long start = Omnitrix.state(p).readyAt(Omnitrix.POWER_DOWN_TIMER);
-		helper.assertTrue(Omnitrix.poweringDown(p) && Omnitrix.transformed(p), "V starts the beeps; still the alien");
+		helper.assertTrue(Omnitrix.poweringDown(p) && Omnitrix.transformed(p), "N starts the beeps; still the alien");
 		int left = Omnitrix.timeLeft(p);
 		helper.runAfterDelay(20, () -> {
-			// a second V (and Shift+V) mid-beeps: ignored, the sequence keeps its start
-			OmnitrixAbilityManager.pressV(p);
-			helper.assertFalse(Omnitrix.revertEarly(p), "a second V is refused");
+			// a second N (and Shift+N) mid-beeps: ignored, the sequence keeps its start
+			OmnitrixAbilityManager.pressN(p);
+			helper.assertFalse(Omnitrix.revertEarly(p), "a second N is refused");
 			helper.assertTrue(Omnitrix.state(p).readyAt(Omnitrix.POWER_DOWN_TIMER) == start, "the sequence is not restarted");
 			helper.assertTrue(Omnitrix.transformed(p), "still the alien during the beeps");
 			helper.assertTrue(Omnitrix.timeLeft(p) == left, "the time limit is stopped");

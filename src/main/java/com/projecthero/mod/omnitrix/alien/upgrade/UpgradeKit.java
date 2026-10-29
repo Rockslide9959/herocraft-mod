@@ -80,6 +80,7 @@ import net.minecraft.world.phys.Vec3;
  *   G        Tech Grab        liquid metal wraps the target: stunned 3 s       Shift+G  Circuit Lash    a whip that yanks the target to you (4)
  *   X        Liquid Slide     2 s as a slick puddle: fast and under 1-block gaps  Shift+X  Stretch Grapple  stretch to a block up to 22 away and pull there
  *   Z        Overload         the machine or creature you look at shorts out    Shift+Z  EMP Burst       everything electrical within 8 shorts out
+ *   V        Overclock        merge into the held tool / weapon for 15 s: +100% mining speed, +4 damage, it mends
  *   C        Merge            merge into a furnace / dispenser / dropper / piston (supercharged) or an iron / snow golem,
  *                             minecart or boat (you pilot it), unseen; C again leaves
  *   Shift+C  Upgrade Tool     repair half the held tool's wear; already whole: +1 Unbreaking (to III)
@@ -207,6 +208,7 @@ public final class UpgradeKit extends AlienKit {
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 120), AlienMove.shift(LASH, AbilitySlot.SLOT_2, 100),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 40), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(OVERLOAD, AbilitySlot.SLOT_4, 160), AlienMove.shift(EMP, AbilitySlot.SLOT_4, 400),
+				AlienMove.tap(OVERCLOCK, AbilitySlot.SLOT_5, 600),
 				AlienMove.tap(MERGE, AbilitySlot.SLOT_6, MERGE_COOLDOWN), AlienMove.shift(REPAIR, AbilitySlot.SLOT_6, 600),
 				AlienMove.vanilla(JOLT, "Attack", 0), AlienMove.vanilla(INTERFACE, "Use on an iron door / trapdoor (empty hand)", 10));
 	}
@@ -222,6 +224,7 @@ public final class UpgradeKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		endMerge(p, false);
 		endSlide(p, true);
 		setFlag(p, F_CHARGING, false);
@@ -240,6 +243,7 @@ public final class UpgradeKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		if (now % 8 == 0) {
 			l.sendParticles(SPARK, p.getX(), p.getY() + p.getBbHeight() * 0.6, p.getZ(), 1, 0.25, 0.4, 0.25, 0.0);
 		}
@@ -310,6 +314,7 @@ public final class UpgradeKit extends AlienKit {
 					overload(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					upgradeTool(p);
@@ -934,5 +939,80 @@ public final class UpgradeKit extends AlienKit {
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
 		Merge m = MERGES.get(p.getUUID());
 		return m != null && m.kind() != MergeKind.GOLEM ? amount * 0.5f : amount;
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Overclock
+
+	public static final String OVERCLOCK = "overclock";
+	public static final int ANIM_OVERCLOCK = 13;
+	public static final int F_OVERCLOCK = 8;
+	public static final int OVERCLOCK_TICKS = 300;
+	public static final double OVERCLOCK_MINING = 1.0;
+	public static final double OVERCLOCK_DAMAGE = 4.0;
+	private static final net.minecraft.resources.ResourceLocation OC_MINE = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_mine");
+	private static final net.minecraft.resources.ResourceLocation OC_HIT = com.projecthero.mod.hero.power.PowerToggles.id("omnitrix_upgrade_overclock_hit");
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		overclock(p);
+	}
+
+	/**
+	 * V: Overclock -- Upgrade flows into the tool or weapon in his hand and runs it past its limits for 15 s: +100% mining speed,
+	 * +4 damage, and its wear knits back a point a second. Needs something in the main hand.
+	 */
+	public boolean overclock(ServerPlayer p) {
+		if (p.getMainHandItem().isEmpty()) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.needs_gear").withStyle(ChatFormatting.GRAY), true);
+			return false;
+		}
+		if (flag(p, F_OVERCLOCK) || !use(p, OVERCLOCK)) {
+			return false;
+		}
+		setFlag(p, F_OVERCLOCK, true);
+		setTimer(p, "overclock_end", p.level().getGameTime() + OVERCLOCK_TICKS);
+		com.projecthero.mod.hero.power.PowerToggles.modifier(p, net.minecraft.world.entity.ai.attributes.Attributes.BLOCK_BREAK_SPEED, OC_MINE, OVERCLOCK_MINING,
+				net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		com.projecthero.mod.hero.power.PowerToggles.modifier(p, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, OC_HIT, OVERCLOCK_DAMAGE,
+				net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE);
+		anim(p, ANIM_OVERCLOCK);
+		ServerLevel l = level(p);
+		l.sendParticles(SPARK, p.getX(), p.getY() + 1, p.getZ(), 30, 0.4, 0.6, 0.4, 0.0);
+		OmnitrixSounds.play(l, p.position(), SND_MERGE, 0.9f, 1.5f);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.overclock_on", p.getMainHandItem().getHoverName())
+				.withStyle(ChatFormatting.GREEN), true);
+		return true;
+	}
+
+	private void endOverclock(ServerPlayer p) {
+		if (!flag(p, F_OVERCLOCK)) {
+			return;
+		}
+		setFlag(p, F_OVERCLOCK, false);
+		setTimer(p, "overclock_end", 0);
+		com.projecthero.mod.hero.power.PowerToggles.clearModifier(p, net.minecraft.world.entity.ai.attributes.Attributes.BLOCK_BREAK_SPEED, OC_MINE);
+		com.projecthero.mod.hero.power.PowerToggles.clearModifier(p, net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE, OC_HIT);
+		OmnitrixSounds.play(level(p), p.position(), SND_MERGE, 0.6f, 0.8f);
+	}
+
+	private void revertV(ServerPlayer p) {
+		endOverclock(p);
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_OVERCLOCK)) {
+			return;
+		}
+		if (now >= timer(p, "overclock_end") || p.getMainHandItem().isEmpty()) {
+			endOverclock(p);
+			return;
+		}
+		net.minecraft.world.item.ItemStack held = p.getMainHandItem();
+		if (now % 20 == 0 && held.isDamaged()) {
+			held.setDamageValue(held.getDamageValue() - 1);
+		}
+		if (now % 3 == 0) {
+			Vec3 hand = p.getEyePosition().add(p.getLookAngle().scale(0.6)).add(0, -0.5, 0);
+			l.sendParticles(SPARK, hand.x, hand.y, hand.z, 2, 0.15, 0.15, 0.15, 0.0);
+		}
 	}
 }

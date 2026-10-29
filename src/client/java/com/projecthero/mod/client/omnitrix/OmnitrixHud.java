@@ -31,22 +31,23 @@ import net.minecraft.util.Mth;
  *   Hydration [==========----] 12s        a kit's own rows ({@link AlienClientKit#hud}: Ripjaws' hydration)
  *   Heatblast                             the alien
  *   Time      [==============--] 2:41     the time left (green, red in the last 15 s)
- *   [R] [G] [Z] [X] [C]                   the kit keys: the plain move's cooldown, the Shift move's while sneaking
+ *   [R] [G] [Z] [X] [C] [V]               the kit keys: the plain move's cooldown, the Shift move's while sneaking
  * </pre>
  * Human with the watch: a compact title row ({@code Omnitrix} and the selected alien), the red Recharge bar while it recharges,
- * and while the watch is up the scroll / click hint wrapped above it. No Omnitrix logo, no V box (V still raises the watch and
- * turns back; the Left-Alt list keeps a line for it), never H or N. The transformation flashes are {@link OmnitrixTransformFx};
+ * and while the watch is up the scroll / click hint wrapped above it. No Omnitrix logo; v0.17.1 (user): V is a kit key with its
+ * own box, N turns back (no box; the Left-Alt list keeps a line for it), never H. The transformation flashes are {@link OmnitrixTransformFx};
  * during a Containment Pod extraction a red SELF-DESTRUCT warning flashes at the top of the screen.
  */
 public final class OmnitrixHud {
-	/** Boxes left to right: R G Z X C (slots 1, 2, 4, 3, 6), as the Quirk HUD minus V. */
-	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3, AbilitySlot.SLOT_6 };
+	/** Boxes left to right: R G Z X C V (slots 1, 2, 4, 3, 6, 5), as the Quirk HUD (v0.17.1 user: every alien has a V move). */
+	private static final AbilitySlot[] SLOTS = { AbilitySlot.SLOT_1, AbilitySlot.SLOT_2, AbilitySlot.SLOT_4, AbilitySlot.SLOT_3, AbilitySlot.SLOT_6,
+			AbilitySlot.SLOT_5 };
 	private static final int BOX = 20;
 	private static final int GAP = 2;
 	private static final int MARGIN = 4;
 	private static final int BAR_H = 4;
-	/** The HUD's width: the five key boxes. */
-	public static final int WIDTH = BOX * 5 + GAP * 4;
+	/** The HUD's width: the six key boxes. */
+	public static final int WIDTH = BOX * 6 + GAP * 5;
 
 	private static final int BOX_BG = 0xD0080808;
 	private static final int BOX_BG_DIM = 0x80080808;
@@ -198,7 +199,7 @@ public final class OmnitrixHud {
 		return 0xFF000000 | (r << 16) | (gg << 8) | bb;
 	}
 
-	/** The five kit keys. */
+	/** The six kit keys. */
 	private static void keys(GuiGraphics g, Minecraft mc, LocalPlayer p, AlienKit kit, Aliens.Alien a, int x0, int y0) {
 		boolean shift = forceShift || p.isShiftKeyDown();
 		for (int i = 0; i < SLOTS.length; i++) {
@@ -232,13 +233,13 @@ public final class OmnitrixHud {
 	}
 
 	/**
-	 * The Left-Alt rows. Human: the scroll wheel and the click while the watch is up, the selected alien, and V (raise / lower,
-	 * or the recharge left) last. Alien: every kit key's tap / Shift / hold move from the kit's declarations on the player's
-	 * live keys, the attack / use / sneak moves, and V (turn back) last. Never H or N.
+	 * The Left-Alt rows. Human: the scroll wheel and the click while the watch is up, the selected alien, and R (raise / lower,
+	 * or the recharge left) last. Alien: every kit key's tap / Shift / hold move (V included) from the kit's declarations on the
+	 * player's live keys, the attack / use / sneak moves, and N (turn back) last. Never H.
 	 */
 	static List<MoveListOverlay.Row> moveRows(Minecraft mc, LocalPlayer p, OmnitrixState s, long now) {
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
-		String v = MoveListOverlay.key(AbilitySlot.SLOT_5);
+		String v = MoveListOverlay.key(AbilitySlot.SLOT_8); // v0.17.1 (user): N turns back
 		AlienKit kit = s.transformed() ? Aliens.kit(s.active) : null;
 		if (kit == null) {
 			if (s.selecting) {

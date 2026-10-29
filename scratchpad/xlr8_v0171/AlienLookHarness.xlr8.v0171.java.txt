@@ -1,0 +1,482 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.client.gui.MoveListOverlay;
+import com.projecthero.mod.client.gui.PowerInfoScreen;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 XLR8 revamp + V-key screenshots. Enabled by run/alienlook.flag. */
+// TEMP-HARNESS
+public final class AlienLookHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer ben;
+	private static Zombie dummy;
+	/** Runs on the server every tick (a walking fake, a camera that follows). */
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static String only = System.getProperty("wm.only", "");
+
+	private AlienLookHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("alienlook.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("alienlook.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(AlienLookHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "alienlook-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t - 1, () -> {
+			if (name.contains("_open_") || name.contains("_mask_")) {
+				try {
+					var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+					m.setAccessible(true);
+					m.invoke(Minecraft.getInstance().particleEngine);
+				} catch (ReflectiveOperationException e) {
+					System.out.println("[HARNESS] " + e);
+				}
+			}
+		});
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_look_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(AlienLookHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+				if (p.tickCount % 5 == 0) {
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))) {
+						e.discard();
+					}
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("WM_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static void face(ServerPlayer f, Vec3 target) {
+		Vec3 eye = f.getEyePosition();
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), yaw, pit);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		f.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void become(ServerPlayer f, String alien) {
+		if (Omnitrix.state(f).transformed()) {
+			Omnitrix.revert(f, Omnitrix.Reason.REVOKE);
+		}
+		var n = Omnitrix.state(f).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(f, n);
+		Omnitrix.transform(f);
+		f.setOnGround(true);
+	}
+
+
+	private static Zombie dummy(ServerPlayer near, Vec3 at) {
+		if (dummy != null) {
+			dummy.discard();
+		}
+		ServerLevel l = near.serverLevel();
+		Zombie z = EntityType.ZOMBIE.create(l);
+		z.moveTo(at.x, at.y, at.z, 0f, 0f);
+		z.setNoAi(true);
+		z.setPersistenceRequired();
+		z.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(500);
+		z.setHealth(500);
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		l.addFreshEntity(z);
+		dummy = z;
+		return z;
+	}
+
+	private static void info(Minecraft mc, String scrollTo) {
+		PowerInfoScreen s = new PowerInfoScreen();
+		mc.setScreen(s);
+		if (scrollTo != null && !s.scrollTo(scrollTo)) {
+			System.out.println("[HARNESS] scrollTo miss: " + scrollTo);
+		}
+	}
+
+	private static boolean want(String part) {
+		return only.isEmpty() || only.contains(part);
+	}
+
+
+	private static com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit xk() {
+		return (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit) Aliens.kit("xlr8");
+	}
+
+	private static void views(Minecraft mc, int t, String prefix) {
+		double[][] cams = { { 0, 1.5, -2.6 }, { 1.9, 1.7, -1.9 }, { 2.6, 1.4, 0 }, { 0.6, 1.9, 2.6 } };
+		String[] names = { "front", "three_quarter", "side", "back" };
+		for (int c = 0; c < cams.length; c++) {
+			final double[] cm = cams[c];
+			at(t + c * 8, () -> server(mc, p -> camera(p, origin.add(cm[0], cm[1], cm[2]), origin.add(0, 1.1, 0))));
+			shot(t + 6 + c * 8, prefix + "_" + names[c]);
+		}
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		at(t, () -> server(mc, p -> {
+			p.teleportTo(p.serverLevel(), origin.x - 12, origin.y + 2, origin.z - 12, 200f, 10f);
+			ben = fake(p, "Ben", origin, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+			UniquePowers.forced(() -> Omnitrix.grant(p));
+		}));
+		t += 40;
+		if (want("xlr8")) {
+			at(t, () -> server(mc, p -> become(ben, "xlr8")));
+			views(mc, t + 40, "xlr8v2_open");
+			t += 80;
+			// the visor down: Speed Mode on (standing still)
+			at(t, () -> server(mc, p -> xk().toggleSpeedMode(ben)));
+			views(mc, t + 40, "xlr8v2_mask");
+			t += 80;
+			// the face close up, open and closed
+			at(t, () -> server(mc, p -> camera(p, origin.add(0.4, 1.75, -1.1), origin.add(0, 1.55, 0))));
+			shot(t + 6, "xlr8v2_mask_face");
+			at(t + 10, () -> server(mc, p -> xk().toggleSpeedMode(ben)));
+			at(t + 40, () -> server(mc, p -> {
+				var n = Omnitrix.state(ben).copy();
+				n.animId = 0;
+				Omnitrix.save(ben, n);
+			}));
+			shot(t + 46, "xlr8v2_open_face");
+			t += 60;
+			// the moves (poses from the anim, the visor down for each)
+			int[] anims = { 1, 3, 13, 5, 7, 8, 9, 6, 16 };
+			String[] an = { "rapid_assault", "blitz", "mach_punch", "blur_dash", "whirlwind", "kick_barrage", "time_burst", "speed_mode", "decoys" };
+			for (int m = 0; m < anims.length; m++) {
+				final int anim = anims[m];
+				at(t, () -> server(mc, p -> {
+					camera(p, origin.add(1.9, 1.6, -2.2), origin.add(0, 1.1, 0));
+					Aliens.kit("xlr8").anim(ben, anim);
+				}));
+				shot(t + 4, "xlr8v2_move_" + an[m]);
+				t += 30;
+			}
+			// the real decoys
+			at(t, () -> server(mc, p -> {
+				camera(p, origin.add(0, 2.4, -4.5), origin.add(0, 1.0, 0));
+				com.projecthero.mod.hero.power.p04.SuperSpeedMoves.decoysCore(ben);
+			}));
+			shot(t + 6, "xlr8v2_decoys_real");
+			t += 40;
+			// Phase
+			at(t, () -> server(mc, p -> {
+				camera(p, origin.add(1.9, 1.6, -2.2), origin.add(0, 1.1, 0));
+				xk().startPhase(ben);
+			}));
+			shot(t + 10, "xlr8v2_phase");
+			at(t + 14, () -> server(mc, p -> xk().endPhase(ben)));
+			t += 30;
+			// running flat out in Speed Mode, the after-image trail behind him
+			at(t, () -> server(mc, p -> {
+				xk().toggleSpeedMode(ben);
+				ben.teleportTo(p.serverLevel(), origin.x - 14, origin.y, origin.z, -90f, 0f);
+				mover = pl -> {
+					if (ben.getX() < origin.x + 14) {
+						double nx = ben.getX() + 0.9;
+						ben.teleportTo(pl.serverLevel(), nx, origin.y, origin.z, -90f, 0f);
+						ben.setYHeadRot(-90f);
+						ben.yBodyRot = -90f;
+						ben.setOnGround(true);
+						ben.setDeltaMovement(0.9, 0, 0);
+						ben.setSprinting(true);
+					}
+				};
+			}));
+			at(t + 2, () -> server(mc, p -> camera(p, origin.add(4, 1.6, -5.5), origin.add(2, 1.0, 0))));
+			shot(t + 18, "xlr8v2_run_trail");
+			shot(t + 22, "xlr8v2_run_trail2");
+			at(t + 34, () -> server(mc, p -> {
+				mover = null;
+				ben.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 180f, 0f);
+				ben.setSprinting(false);
+				ben.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+			}));
+			t += 50;
+			// a Blitz streak at the dummy
+			at(t, () -> server(mc, p -> {
+				dummy(p, origin.add(0, 0, -7));
+				ben.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 180f, 0f);
+				camera(p, origin.add(4.5, 2.2, -3.5), origin.add(0, 1.0, -3.5));
+			}));
+			at(t + 6, () -> server(mc, p -> {
+				face(ben, dummy.position().add(0, 1, 0));
+				xk().blitz(ben);
+			}));
+			shot(t + 9, "xlr8v2_blitz_streak");
+			at(t + 20, () -> server(mc, p -> {
+				dummy.discard();
+				ben.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 180f, 0f);
+			}));
+			t += 30;
+			// first person: the Speed Mode slap, and Rapid Assault
+			at(t, () -> server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().mayfly = true;
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				become(p, "xlr8");
+				p.teleportTo(p.serverLevel(), origin.x + 6, origin.y + 1, origin.z, 90f, 20f);
+			}));
+			at(t + 30, () -> gui(mc, true));
+			at(t + 40, () -> server(mc, p -> Aliens.kit("xlr8").anim(p, 6)));
+			shot(t + 43, "xlr8v2_fp_speed_mode");
+			at(t + 60, () -> server(mc, p -> Aliens.kit("xlr8").anim(p, 1)));
+			shot(t + 63, "xlr8v2_fp_rapid_assault");
+			at(t + 64, () -> server(mc, p -> Aliens.kit("xlr8").anim(p, 13)));
+			shot(t + 68, "xlr8v2_fp_mach_punch");
+			at(t + 70, () -> gui(mc, false));
+			at(t + 72, () -> server(mc, p -> {
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				p.setGameMode(GameType.CREATIVE);
+			}));
+			t += 90;
+		}
+		if (want("vkey")) {
+			String[] ids = { "heatblast", "four_arms", "diamondhead", "ghostfreak", "stinkfly", "ripjaws", "grey_matter", "upgrade" };
+			for (String id : ids) {
+				at(t, () -> server(mc, p -> {
+					become(ben, id);
+					ben.teleportTo(p.serverLevel(), origin.x, origin.y, origin.z, 180f, 0f);
+				}));
+				at(t + 30, () -> server(mc, p -> {
+					camera(p, origin.add(1.9, 1.7, -2.4), origin.add(0, 1.1, 0));
+					switch (id) {
+						case "diamondhead" -> ben.setHealth(ben.getMaxHealth() * 0.5f);
+						case "stinkfly" -> {
+							dummy(p, origin.add(0, 0, -1.5));
+							dummy.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(20);
+							dummy.setHealth(20);
+							face(ben, dummy.position().add(0, 0.8, 0));
+						}
+						case "upgrade" -> ben.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,
+								new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_PICKAXE));
+						default -> {
+						}
+					}
+				}));
+				at(t + 32, () -> server(mc, p -> {
+					var kit = Aliens.kit(id);
+					kit.press(ben, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+					if (id.equals("stinkfly")) {
+						ben.teleportTo(p.serverLevel(), origin.x, origin.y + 2.5, origin.z, 180f, 0f);
+						ben.setOnGround(false);
+					}
+				}));
+				shot(t + 37, "vkey_" + id);
+				shot(t + 55, "vkey_" + id + "_held");
+				at(t + 60, () -> server(mc, p -> {
+					if (id.equals("stinkfly") || id.equals("four_arms") || id.equals("heatblast") || id.equals("ghostfreak")) {
+						Aliens.kit(id).press(ben, com.projecthero.mod.hero.AbilitySlot.SLOT_5, false);
+					}
+					if (dummy != null) {
+						dummy.discard();
+						dummy = null;
+					}
+					ben.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+				}));
+				t += 70;
+			}
+			// the HUD with the new V box (as Heatblast, the real player)
+			at(t, () -> server(mc, p -> {
+				p.setGameMode(GameType.SURVIVAL);
+				p.getAbilities().mayfly = true;
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				become(p, "xlr8");
+				p.teleportTo(p.serverLevel(), origin.x + 6, origin.y + 1, origin.z, 90f, 20f);
+			}));
+			at(t + 30, () -> gui(mc, true));
+			shot(t + 40, "vkey_hud_xlr8");
+			at(t + 42, () -> MoveListOverlay.forceHeld = true);
+			shot(t + 48, "vkey_alt_list_xlr8");
+			at(t + 50, () -> MoveListOverlay.forceHeld = false);
+			at(t + 52, () -> mc.execute(() -> info(mc, null)));
+			shot(t + 62, "vkey_info_xlr8");
+			at(t + 64, () -> mc.execute(() -> mc.setScreen(null)));
+			t += 70;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

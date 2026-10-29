@@ -33,6 +33,11 @@ import net.minecraft.util.Mth;
  * slick puddle pose while he slides, and dripping liquid. A pose for every move.
  */
 public final class UpgradeClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] OVERCLOCK = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.5f, 0.1f, 0f, 0.2f, 0f, 0f, 0.1f, -0.3f, 0f, 0f, 0f, 0f, 0f, 0f, 0.1f),
+			QuirkKeyframes.f(8, -1.6f, 0.1f, -0.2f, 0.2f, 0f, 0f, 0.1f, -0.3f, 0f, 0f, 0f, 0f, 0f, 0f, 0.15f), QuirkKeyframes.rest(14) };
+	private static final FirstPersonClip FP_OVERCLOCK = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(3, -30f, 15f, -20f, 0.05f, 0.12f, -0.2f),
+			FirstPersonClip.f(8, -32f, 15f, 20f, 0.05f, 0.12f, -0.2f), FirstPersonClip.f(14, 0f, 0f, 0f, 0f, 0f, 0f));
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/upgrade.png");
 	private static final ResourceLocation GLOW_SKIN = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_glow.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/upgrade_extras.png");
@@ -177,6 +182,7 @@ public final class UpgradeClient implements AlienClientKit {
 			case UpgradeKit.ANIM_MERGE -> MERGE;
 			case UpgradeKit.ANIM_REPAIR -> REPAIR;
 			case UpgradeKit.ANIM_JOLT -> JOLT;
+			case UpgradeKit.ANIM_OVERCLOCK -> OVERCLOCK;
 			default -> null;
 		};
 		if ((Omnitrix.state(p).kitFlags & UpgradeKit.F_SLIDE) != 0) {
@@ -206,6 +212,7 @@ public final class UpgradeClient implements AlienClientKit {
 			case UpgradeKit.ANIM_SLIDE -> FP_DIVE;
 			case UpgradeKit.ANIM_REPAIR -> FP_CUP;
 			case UpgradeKit.ANIM_JOLT -> FP_JOLT;
+			case UpgradeKit.ANIM_OVERCLOCK -> FP_OVERCLOCK;
 			default -> null;
 		};
 	}

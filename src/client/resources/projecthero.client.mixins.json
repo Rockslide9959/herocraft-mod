@@ -9,6 +9,7 @@
 		"OmnitrixScrollMixin",
 		"OmnitrixPlayerRendererMixin",
 		"OmnitrixPoseMixin",
+		"OmnitrixGlowMixin",
 		"OmnitrixHideGearMixin",
 		"OmnitrixCapeMixin",
 		"OmnitrixItemInHandMixin",

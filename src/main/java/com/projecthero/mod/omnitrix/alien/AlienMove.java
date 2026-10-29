@@ -8,8 +8,9 @@ import com.projecthero.mod.hero.AbilitySlot;
  * v0.17.1: one move of an alien kit, as the HUD, the guide and the cooldown helpers see it.
  *
  * @param id         the move id (lang {@code projecthero.omnitrix.<alien>.<id>} and {@code .desc}; cooldown key {@code <alien>.<id>})
- * @param slot       its key: R ({@code SLOT_1}), G ({@code SLOT_2}), X ({@code SLOT_3}, movement), Z ({@code SLOT_4}) or C
- *                   ({@code SLOT_6}); V belongs to the Omnitrix, H / N are never used. Null for a vanilla-key move.
+ * @param slot       its key: R ({@code SLOT_1}), G ({@code SLOT_2}), X ({@code SLOT_3}, movement), Z ({@code SLOT_4}), V
+ *                   ({@code SLOT_5}, utility / mode -- v0.17.1 user) or C ({@code SLOT_6}); N belongs to the Omnitrix (turn back),
+ *                   H is never used. Null for a vanilla-key move.
  * @param shift      the Shift version of the key
  * @param hold       a hold move (the kit declares the key holdable, {@link AlienKit#holdable})
  * @param cooldown   ticks

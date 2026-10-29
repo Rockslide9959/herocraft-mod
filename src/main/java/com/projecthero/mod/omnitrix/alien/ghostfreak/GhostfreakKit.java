@@ -62,6 +62,7 @@ import net.minecraft.world.phys.Vec3;
  *   X        Phase            intangible for up to 5 s: through walls, no physical harm (X again ends it)
  *   Shift+X  Ghost Flight     toggle: float freely
  *   Z        Fade             invisible for 10 s (your attack ends it)       Shift+Z  Shadow Tendrils  tendrils from the ground pin and choke what is near (3 s)
+ *   V        Spirit Sight     toggle: see in the dark, every living thing within 32 outlined through walls (yours only)
  *   C        Fright Aura      10 s: everything near you panics and weakens    Shift+C  Haunt           darkness and dread on everything within 10
  *   Attack   Chilling Touch (+1, slows)      Use (empty hand)  a spectral bolt (3)
  * </pre>
@@ -205,6 +206,7 @@ public final class GhostfreakKit extends AlienKit {
 				AlienMove.tap(POSSESS, AbilitySlot.SLOT_2, 400), AlienMove.shift(SIPHON, AbilitySlot.SLOT_2, 200),
 				AlienMove.tap(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 10),
 				AlienMove.tap(FADE, AbilitySlot.SLOT_4, 400), AlienMove.shift(TENDRILS, AbilitySlot.SLOT_4, 280),
+				AlienMove.tap(SIGHT, AbilitySlot.SLOT_5, 40),
 				AlienMove.tap(AURA, AbilitySlot.SLOT_6, 600), AlienMove.shift(HAUNT, AbilitySlot.SLOT_6, 500),
 				AlienMove.vanilla(TOUCH, "Attack", 0), AlienMove.vanilla(BOLT, "Use (empty hand)", 12));
 	}
@@ -220,6 +222,7 @@ public final class GhostfreakKit extends AlienKit {
 
 	@Override
 	public void onRevert(ServerPlayer p) {
+		revertV(p);
 		endPhase(p, false);
 		stopFlying(p);
 		endFade(p);
@@ -239,6 +242,7 @@ public final class GhostfreakKit extends AlienKit {
 	@Override
 	public void tick(ServerPlayer p, OmnitrixState s, long now) {
 		ServerLevel l = level(p);
+		tickV(p, l, now);
 		p.setAirSupply(p.getMaxAirSupply()); // nothing to breathe
 		if (now % 4 == 0) {
 			l.sendParticles(WISP, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.15, 0.1, 0.15, 0.0);
@@ -344,6 +348,7 @@ public final class GhostfreakKit extends AlienKit {
 					fade(p);
 				}
 			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					haunt(p);
@@ -821,5 +826,62 @@ public final class GhostfreakKit extends AlienKit {
 	@Override
 	public float incomingDamage(ServerPlayer p, DamageSource source, float amount) {
 		return physical(source) ? amount * PHYSICAL_FACTOR : amount;
+	}
+
+	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Spirit Sight
+
+	public static final String SIGHT = "spirit_sight";
+	public static final int ANIM_SIGHT = 13;
+	public static final int F_SIGHT = 32;
+	public static final double SIGHT_RANGE = 32;
+	private static final int SIGHT_NV = 260;
+
+	private void vKey(ServerPlayer p, boolean shift) {
+		spiritSight(p);
+	}
+
+	/**
+	 * V: Spirit Sight on / off -- the dead see what the living cannot: night vision, and every living creature within 32 blocks
+	 * glows through walls (the outline is drawn on the wearer's own client only; GhostfreakClient#glows).
+	 */
+	public boolean spiritSight(ServerPlayer p) {
+		if (!use(p, SIGHT)) {
+			return false;
+		}
+		boolean on = !flag(p, F_SIGHT);
+		setFlag(p, F_SIGHT, on);
+		anim(p, ANIM_SIGHT);
+		ServerLevel l = level(p);
+		if (on) {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, SIGHT_NV, 0, false, false, false));
+			l.sendParticles(WISP, p.getX(), p.getEyeY(), p.getZ(), 16, 0.2, 0.2, 0.2, 0.02);
+		} else {
+			clearSight(p);
+		}
+		OmnitrixSounds.play(l, p.position(), SND_LAUGH, 0.5f, on ? 1.5f : 1.8f);
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.ghostfreak.sight_on" : "message.projecthero.omnitrix.ghostfreak.sight_off")
+				.withStyle(on ? ChatFormatting.LIGHT_PURPLE : ChatFormatting.GRAY), true);
+		return true;
+	}
+
+	/** Takes back only his own short night vision (never a real potion's). */
+	private static void clearSight(ServerPlayer p) {
+		MobEffectInstance nv = p.getEffect(MobEffects.NIGHT_VISION);
+		if (nv != null && nv.getDuration() <= SIGHT_NV && !nv.isVisible()) {
+			p.removeEffect(MobEffects.NIGHT_VISION);
+		}
+	}
+
+	private void revertV(ServerPlayer p) {
+		if (flag(p, F_SIGHT)) {
+			setFlag(p, F_SIGHT, false);
+			clearSight(p);
+		}
+	}
+
+	private void tickV(ServerPlayer p, ServerLevel l, long now) {
+		if (flag(p, F_SIGHT) && now % 20 == 0) {
+			p.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, SIGHT_NV, 0, false, false, false));
+		}
 	}
 }

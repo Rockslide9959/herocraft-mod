@@ -5,7 +5,9 @@ lose it (the Omnitrix Containment Pod), and a reusable alien framework. Heatblas
 eight of the original ten (XLR8, Diamondhead, Upgrade, Ghostfreak, Stinkfly, Wildmutt (Wildvine until v0.17.1), Ripjaws, Grey Matter) are on the
 dial as "coming soon" until their kits register.
 
-Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = movement, V = the Omnitrix, R G Z C = attacks.
+Rules that hold: H = power selector only, never a HUD box. X = movement, V = each alien's utility / mode move, R G Z C = attacks,
+N = turn back (the Omnitrix's; no box). (v0.17.1, user: "make the detransform keybind N and add abilities to the V key for every
+alien" -- V turned back and N was unused before; see "Key layout" at the end.)
 
 ## Where things are
 
@@ -13,7 +15,7 @@ Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = move
 |---|---|---|
 | The power, the lock, transform / revert / timeout, the watch up (select, cycle, slap) | `omnitrix/Omnitrix.java` | |
 | State (one synced, persistent, copy-on-death attachment) | `omnitrix/data/OmnitrixState.java`, `OmnitrixAttachments.java` | |
-| Keys (V + the kit's R G X Z C) | `omnitrix/OmnitrixAbilityManager.java` (from `AbilityRouter`) | scroll / clicks: `client/omnitrix/OmnitrixClient.java`, `mixin/OmnitrixInputMixin`, `mixin/OmnitrixScrollMixin` |
+| Keys (N + the kit's R G X Z V C) | `omnitrix/OmnitrixAbilityManager.java` (from `AbilityRouter`) | scroll / clicks: `client/omnitrix/OmnitrixClient.java`, `mixin/OmnitrixInputMixin`, `mixin/OmnitrixScrollMixin` |
 | The alien body (attributes, health by fraction) | `omnitrix/OmnitrixBody.java` | skin swap, wide arms, no armour / cape: `mixin/OmnitrixPlayerRendererMixin`, `OmnitrixHideGearMixin`, `OmnitrixCapeMixin` |
 | Alien registry and kit API | `omnitrix/alien/Aliens.java`, `AlienKit.java`, `AlienStats.java`, `AlienMove.java` | `client/omnitrix/AlienClients.java`, `AlienClientKit.java`, `AlienParts.java`, `FirstPersonClip.java` |
 | Shared projectile | `omnitrix/entity/AlienProjectileEntity.java` | `OmnitrixRenderers.Projectile` |
@@ -29,7 +31,7 @@ Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = move
 
 ## The watch (Alien Evo style, user: "no dial screen")
 
-* **V as a human** raises the wrist (first person: the forearm comes in from the left, the chunky watch's face toward the
+* **R as a human** (v0.17.1 user: was V) raises the wrist (first person: the forearm comes in from the left, the chunky watch's face toward the
   eye; third person: the forearm comes up level in front of the chest with the face up, the head bows to it and the other
   hand grips the dial). The core pops up (`omnitrix_core_up`), the face dims and shows the selected alien's silhouette
   glowing on it, a faint copy hovering just over the face (the big third-person hologram was removed in the polish pass).
@@ -37,13 +39,13 @@ Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = move
   the hotbar does not move. Each step clicks, the core twists a notch, the name shows on the action bar and in the HUD's title row.
 * **A left- or right-click** slaps the core down (`Omnitrix.slap`; the click never attacks, uses or mines) and
   `Omnitrix.SLAP_TICKS` later the green flash and Kirby dots burst (`OmnitrixTransformFx`) and the alien takes over.
-* **V again** lowers the watch: no cost, no cooldown. **V while transformed** reverts early (10 s recharge); Shift+V is
-  the same key. **V during a recharge** flashes the face red with the time left and does not raise the watch.
+* **R again** lowers the watch: no cost, no cooldown. **N while transformed** reverts early (10 s recharge); Shift+N is
+  the same key (v0.17.1 user: was V). **R during a recharge** flashes the face red with the time left (the dial stays locked).
 * The selected alien persists. A transformation lasts 3 minutes (the watch light flashes red and beeps for the last 15 s),
   then the timeout chime, the red flash and Kirby dots, and a 90 s recharge.
 
 Server entry points (tests and kits use them): `Omnitrix.activate / deactivate / cycle(p, dir) / slap / transform /
-revert(p, Reason) / select(p, id)`; `OmnitrixAbilityManager.pressV(p)`. Client to server: `OmnitrixActionPayload`
+revert(p, Reason) / select(p, id)`; `OmnitrixAbilityManager.pressR(p)` (human) / `pressN(p)` (alien: turn back). Client to server: `OmnitrixActionPayload`
 `CYCLE` ("1" / "-1"), `SLAP`, `SELECT` (an id), `USE_AIR`.
 
 ## Adding an alien (the other eight)
@@ -248,6 +250,8 @@ Generators: `scratchpad/gen_omnitrix_wave_a_textures.js` (skins, extras sheets, 
 `synth_omnitrix_wave_a_sounds.js` (19 OGGs: `xlr8_*`, `diamondhead_*`, `upgrade_*`, `ghostfreak_*`), the `WAVE_A` block in
 `gen_omnitrix_lang.js`. Tests: `OmnitrixWaveAGameTests` (10). Sounds are constants in each kit's own class.
 
+(XLR8's column is the wave-A kit; his moves were replaced by the revamp -- see "XLR8 revamp" at the end.)
+
 | | XLR8 | Diamondhead | Upgrade | Ghostfreak |
 |---|---|---|---|---|
 | Body | 22 HP, speed x1.9 (+50% more sprinting), size 0.95, armour 2, fist +1, attack speed +2, step +0.65 | 34 HP, speed x0.88, size 1.1, armour 12 (+4), KB res 0.5, fist +4 | 28 HP, speed x1.05, armour 6, KB res 0.2, fist +3 | 24 HP, armour 2, fist +2, gravity x0.25 (drifts down), no fall damage to speak of |
@@ -300,7 +304,7 @@ Merge's invisibility is our own 40-tick effect, removed on revert (a longer poti
   disconnect and whenever the client level changes. Textures: `gui/omnitrix/fx_dot.png`, `fx_glow.png` (premultiplied:
   `RenderType.eyes` is additive) from `scratchpad/gen_omnitrix_fx_textures.js`. The server's white `FLASH` particle and the
   dust helix are gone (the pod's flicker keeps its flash).
-* **`OmnitrixHud`** -- bottom-right in the Quirk HUD's mono style: R G Z X C boxes (no V, never H / N; the plain move's
+* **`OmnitrixHud`** -- bottom-right in the Quirk HUD's mono style: R G Z X C boxes (no V, never H / N -- v0.17.1: R G Z X C V now; the plain move's
   cooldown, the Shift move's while sneaking), a `Time` meter (green, red in the last 15 s, the clock right-aligned), the alien's
   name (its colour lifted to read on any sky) and the kit's rows above (`AlienClientKit.hud`). Human: an `Omnitrix` title row
   with the selected alien, a red `Recharge` meter with the seconds, the scroll / click hint wrapped above it while the watch is
@@ -390,3 +394,69 @@ JSON had every clip over 1 s out of order (it played as a still pose). `anims.js
 a clip's whole elapsed time when its speed changes): walk (0.56 s), sneak (1.0 s) and gallop (0.42 s) are authored for his speeds.
 
 Harness: `scratchpad/WildmuttHarness.v0171.java.txt` (flag `run/wildmutt.flag`); shots `docs/screenshots/v0171/omnitrix_wildmutt_*.png`.
+
+
+## Key layout: N turns back, V is every alien's utility move (v0.17.1)
+
+User: "for the ben 10 power make the detransform keybind N and add abilities to the V key for every alien please".
+
+* **N** (`AbilitySlot.SLOT_8`): the client sends it straight to the server while transformed (`ProjectHeroModClient.handleMaxSteelTransform`,
+  first branch -- the watch locks every other power out, so nothing else wants N); `AbilityRouter`'s utility branch hands it to
+  `OmnitrixAbilityManager`, which calls `pressN` -> `Omnitrix.revertEarly` (the power-down beeps, the short recharge). Shift+N is
+  the same. N as a human does nothing (R raises the watch). `Omnitrix.Reason.SHIFT_V` keeps its old name (it is the early-revert reason).
+* **V** (`SLOT_5`) is an ordinary kit key now: tap / Shift / hold like R G X Z C, a HUD box (R G Z X C V, as the Quirk HUD), a row
+  in the Left-Alt list, the info page and the guide (`OmnitrixInfo.KIT_SLOTS` = R G X Z V C). `OmnitrixInfoGameTests` fails if a
+  playable alien (but Wildmutt, rebuilt separately) has no tap V move.
+
+| Alien | V | What it does |
+|---|---|---|
+| Heatblast | Heat Aura (toggle) | creatures within 3.5 catch fire (+1 a second), snow / ice melt, dropped items smelt (tagged, once); water puts it out |
+| Four Arms | Wall Climb (toggle) | `climbs()`: pressed into a wall he climbs it, hand over hand (both arm pairs); no fall damage |
+| Diamondhead | Crystal Regrowth | 3 s rooted, +1.5 every half second (9), half damage meanwhile; refused at full health; 20 s |
+| Ghostfreak | Spirit Sight (toggle) | night vision + every living thing within 32 outlined (`AlienClientKit.glows`, `client/mixin/OmnitrixGlowMixin`, the wearer's screen only) |
+| Stinkfly | Lift | grab the creature in front (4.5; not bosses / big ones) and carry it under you (in front on the ground); V again drops it |
+| Ripjaws | Water Bubble | 30 s of a water globe round his head: dry land counts as rain (the meter refills); 60 s |
+| Grey Matter | Pocket Workshop | a crafting grid anywhere (`CraftingMenu` with `stillValid` true; closes when he turns back) |
+| Upgrade | Overclock | 15 s merged with the held tool: +100% mining speed, +4 damage, mends a point a second; needs a main-hand item; 30 s |
+| XLR8 | Speed Mode (toggle) / Shift+V Afterimage Decoys | see below |
+| Wildmutt | -- | not yet: his rebuild is in progress elsewhere |
+
+Each V move has a third-person pose and a first-person clip in its client kit (Four Arms also a climbing pose for both arm pairs,
+Ripjaws a translucent bubble round the head). Tests: `OmnitrixVKeyGameTests` (N through the router, one V move per alien, XLR8's revamp).
+
+## XLR8 revamp (v0.17.1)
+
+User: "work on the xlr8 revamp please: (planetminecraft XLR8 skin) ... Give him a new moveset thats similar to the regular super
+speed powers moveset please, i want him to be really cool and i want the power set to be on par with the other abilities in the mod".
+
+* **Skin**: the user's planetminecraft skin (`scratchpad/xlr8_v0171/xlr8_src.png` -> `textures/entity/omnitrix/xlr8.png`) and a
+  painted closed-mask copy (`xlr8_mask.png`: the hat layer's front is the blue-black visor slid down to the jaw, a gloss streak,
+  the eyes dim green through it). `AlienClientKit.skin(player)` (new, default `skin()`) picks it: `Xlr8Kit.visorDown` -- Speed Mode,
+  a dash, the tornado, Phase, or a speed move in the last 1.5 s. The eyes glow (`xlr8_eyes.png` / `xlr8_mask_eyes.png`, drawn with
+  `RenderType.eyes` on the head and hat parts). Extras recoloured to the skin (`xlr8_extras.png`): a swept helmet crest and ear fins,
+  the striped tail, rolling ball feet, pale claws; the old visor box and the fake ghost copies are gone. Generator:
+  `scratchpad/xlr8_v0171/gen_xlr8_skins.js` (uses `scratchpad/xlr8_mask.png` instead when the user supplies one).
+* **Moves**: the plain Speedster's, borrowed (`SuperSpeedHandlers.rapidAssaultCore`, `SuperSpeedMoves.machPunchCore / blitzCore /
+  beginSweep / sweepTick / endSweep / decoysCore / streak`, `SuperSpeedHandlers.settleOutsideBlocks`) on the kit's own cooldowns, plus
+  his own.
+
+| Key | Tap | Shift | Hold |
+|---|---|---|---|
+| R | Rapid Assault (4 x 5 in front), 2 s | Mach Punch (20 + shockwave 6), 10 s | |
+| G | Blitz (zip 24 blocks, 20; 10 round it), 5 s | Tornado Run (3 s twister), 15 s | |
+| X | Blur Dash (afterimages, 3), 2 s | Speed Sweep (every foe within 50, 15 each, then home), 15 s | Phase (through walls, untouchable, 5 s max), 5 s |
+| Z | Whirlwind (r 6, 4), 10 s | Kick Barrage (8 x 1.5), 7 s | |
+| V | Speed Mode (toggle) | Afterimage Decoys (3 for 6 s), 20 s | |
+| C | Time Burst (r 12 slow 5 s), 30 s | Speed Mine (1x2 tunnel 16), 15 s | |
+| Attack / Use | Double Jab (+1.5) / Item Sweep (14) | | Use on a mob: Snatch (its held item) |
+
+* **Speed Mode**: +100% speed on top of the body's 1.9x and the sprint bonus (~16 b/s walking, 30+ sprinting), +0.5 step, the
+  plain Speedster's after-image trail (`SuperSpeedClientV0145` asks `Xlr8Client.trails`; an Omnitrix alien's copies now wear the
+  alien's skin on the wide model at the body's scale), wall running (`climbs`) and water running (`standsOnFluid`), no fall damage,
+  slow regeneration, blue static. `SuperSpeedMoves.color` streaks XLR8's borrowed moves in his blue.
+* **Phase** (hold X): `phasing()` + `allowDamage` false unless the source bypasses invulnerability; the body flickers see-through
+  (`bodyAlpha`) and shivers; letting go (or 5 s) settles him outside the blocks. Other keys are swallowed while it runs.
+* Resets: Speed Mode / Phase / step modifiers come off in `onRevert`, a running sweep is ended (he is brought home); the sweep's own
+  map is cleared by `SuperSpeedMoves.clearSessionState` / `onDisconnect` as before.
+* Screenshots: `docs/screenshots/v0171/omnitrix_xlr8v2_*.png` and `omnitrix_vkey_*.png` (harness:
+  `scratchpad/xlr8_v0171/AlienLookHarness.xlr8.v0171.java.txt`, flag `run/alienlook.flag` = "xlr8 vkey").

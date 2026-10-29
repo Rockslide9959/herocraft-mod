@@ -29,6 +29,11 @@ import net.minecraft.util.Mth;
  * for every move.
  */
 public final class HeatblastClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] AURA = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -0.3f, 0f, 0.9f, -0.3f, 0f, -0.9f, -0.15f, 0f, 0f, 0f, 0.15f, 0f, 0f, -0.15f, -0.4f),
+			QuirkKeyframes.f(14, -0.3f, 0f, 0.95f, -0.3f, 0f, -0.95f, -0.15f, 0f, 0f, 0f, 0.15f, 0f, 0f, -0.15f, -0.4f), QuirkKeyframes.rest(20) };
+	private static final FirstPersonClip FP_AURA = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(4, -20f, -30f, 25f, -0.2f, 0.1f, 0f),
+			FirstPersonClip.f(14, -20f, -30f, 25f, -0.2f, 0.1f, 0f), FirstPersonClip.f(20, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/heatblast.png");
 	private static final ResourceLocation[] GLOW = new ResourceLocation[32];
 
@@ -130,6 +135,7 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_SUPERNOVA -> SUPERNOVA;
 			case HeatblastKit.ANIM_PUNCH -> PUNCH;
 			case HeatblastKit.ANIM_SMELT -> SMELT;
+			case HeatblastKit.ANIM_AURA -> AURA;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
@@ -156,6 +162,7 @@ public final class HeatblastClient implements AlienClientKit {
 			case HeatblastKit.ANIM_CHARGE -> FP_CHARGE;
 			case HeatblastKit.ANIM_PUNCH -> FP_PUNCH;
 			case HeatblastKit.ANIM_SMELT -> FP_CUP;
+			case HeatblastKit.ANIM_AURA -> FP_AURA;
 			default -> null;
 		};
 	}

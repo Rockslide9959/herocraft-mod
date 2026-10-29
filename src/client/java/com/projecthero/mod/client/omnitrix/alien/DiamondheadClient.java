@@ -31,6 +31,11 @@ import net.minecraft.util.Mth;
  * translucent render layer.
  */
 public final class DiamondheadClient implements AlienClientKit {
+	// v0.17.1 (user: "add abilities to the V key for every alien"): the V move's pose and first-person clip
+	private static final float[][] REGROW = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.25f, 0.65f, 0f, -1.25f, -0.65f, 0f, 0.3f, 0f, -0.35f, 0f, 0.05f, -0.35f, 0f, -0.05f, 0.35f),
+			QuirkKeyframes.f(56, -1.2f, 0.7f, 0f, -1.2f, -0.7f, 0f, 0.3f, 0f, -0.35f, 0f, 0.05f, -0.35f, 0f, -0.05f, 0.3f), QuirkKeyframes.rest(62) };
+	private static final FirstPersonClip FP_REGROW = FirstPersonClip.of(FirstPersonClip.f(0, 0f, 0f, 0f, 0f, 0f, 0f), FirstPersonClip.f(4, -40f, 35f, 0f, 0.1f, 0.15f, 0.05f),
+			FirstPersonClip.f(56, -40f, 35f, 0f, 0.1f, 0.15f, 0.05f), FirstPersonClip.f(62, 0f, 0f, 0f, 0f, 0f, 0f)).both();
 	private static final ResourceLocation SKIN = ProjectHeroMod.id("textures/entity/omnitrix/diamondhead.png");
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/diamondhead_extras.png");
 
@@ -242,6 +247,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_ARMOUR -> ARMOUR;
 			case DiamondheadKit.ANIM_SLASH -> SLASH;
 			case DiamondheadKit.ANIM_PLACE -> PLACE;
+			case DiamondheadKit.ANIM_REGROW -> REGROW;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
@@ -267,6 +273,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_SLASH -> FP_SLASH;
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
 			case DiamondheadKit.ANIM_ARMOUR -> FP_FLEX;
+			case DiamondheadKit.ANIM_REGROW -> FP_REGROW;
 			default -> null;
 		};
 	}
