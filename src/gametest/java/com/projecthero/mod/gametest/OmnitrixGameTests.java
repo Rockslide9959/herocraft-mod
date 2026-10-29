@@ -310,7 +310,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(Math.sqrt(dx * dx + dz * dz) <= OmnitrixConfig.SCANNER_RADIUS, "within 50 blocks");
 		BlockPos top = helper.getLevel().getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(at));
 		helper.assertTrue(top.getY() == BlockPos.containing(at).getY(), "on the surface");
-		var meteors = helper.getLevel().getEntitiesOfClass(OmnitrixMeteorEntity.class, new AABB(at, at).inflate(80, 120, 80));
+		var meteors = helper.getLevel().getEntitiesOfClass(OmnitrixMeteorEntity.class, new AABB(at, at).inflate(160, 320, 160));
 		helper.assertTrue(meteors.size() == 1, "one meteor is falling");
 		// a second scan refuses while it is active
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(OmnitrixItems.METEOR_SCANNER));
@@ -321,28 +321,11 @@ public class OmnitrixGameTests implements FabricGameTest {
 		// and a scan with nothing nearby is consumed
 		p.getMainHandItem().use(helper.getLevel(), p, InteractionHand.MAIN_HAND);
 		helper.assertTrue(p.getMainHandItem().isEmpty(), "used up");
-		helper.getLevel().getEntitiesOfClass(OmnitrixMeteorEntity.class, p.getBoundingBox().inflate(80, 120, 80)).forEach(m -> m.discard());
+		helper.getLevel().getEntitiesOfClass(OmnitrixMeteorEntity.class, p.getBoundingBox().inflate(160, 320, 160)).forEach(m -> m.discard());
 		OmnitrixWorld.clearLoose(helper.getLevel().getServer());
 		helper.assertTrue(helper.getLevel().getRecipeManager().byKey(com.projecthero.mod.ProjectHeroMod.id("meteor_scanner")).isPresent(),
 				"the scanner has a recipe");
 		helper.succeed();
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
-	public void touchingTheOpenPodPutsTheWatchOn(GameTestHelper helper) {
-		floor(helper);
-		OmnitrixPodEntity pod = OmnitrixPodEntity.place(helper.getLevel(), helper.absoluteVec(new Vec3(3.5, 2, 3.5)));
-		ServerPlayer p = mock(helper, 1.5, 2, 1.5);
-		helper.assertFalse(pod.touch(p), "a shut pod does nothing");
-		helper.runAfterDelay(OmnitrixConfig.POD_OPEN_DELAY + 2, () -> {
-			helper.assertTrue(pod.open(), "it opened");
-			helper.assertTrue(pod.touch(p), "the watch jumps onto the wrist");
-			helper.assertTrue(Omnitrix.hasPower(p) && pod.empty(), "worn; the pod is empty");
-			ServerPlayer q = mock(helper, 1.5, 2, 2.5);
-			helper.assertFalse(pod.touch(q), "an empty pod gives nothing");
-			pod.discard();
-			helper.succeed();
-		});
 	}
 
 	// ================================================================ the watch

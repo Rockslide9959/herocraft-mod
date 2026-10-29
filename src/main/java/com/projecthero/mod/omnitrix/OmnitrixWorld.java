@@ -44,12 +44,17 @@ public final class OmnitrixWorld {
 	 * does not block its own wearer) and put back if the grant is refused. True if it went on.
 	 */
 	public static boolean putOnLoose(ServerPlayer p) {
+		return putOnLoose(p, false);
+	}
+
+	/** v0.17.1: {@code latch} -- the pod's leap: {@link Omnitrix#latch} (the activation sound and the shake-off) instead of a plain grant. */
+	public static boolean putOnLoose(ServerPlayer p, boolean latch) {
 		MinecraftServer server = p.getServer();
 		boolean wasLoose = server != null && UniquePowersData.get(server).holders(Omnitrix.KEY).containsKey(LOOSE);
 		if (wasLoose) {
 			clearLoose(server);
 		}
-		boolean ok = Omnitrix.grant(p);
+		boolean ok = latch ? Omnitrix.latch(p) : Omnitrix.grant(p);
 		if (!ok && wasLoose) {
 			markLoose(server);
 		}

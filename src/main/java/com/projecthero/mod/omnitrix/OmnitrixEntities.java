@@ -21,7 +21,7 @@ public final class OmnitrixEntities {
 
 	public static final EntityType<OmnitrixPodEntity> OMNITRIX_POD = register("omnitrix_pod",
 			EntityType.Builder.<OmnitrixPodEntity>of(OmnitrixPodEntity::new, MobCategory.MISC)
-					.sized(1.1f, 1.3f).fireImmune().clientTrackingRange(10).updateInterval(5).build("omnitrix_pod"));
+					.sized(1.0f, 0.85f).fireImmune().clientTrackingRange(10).updateInterval(5).build("omnitrix_pod"));
 
 	public static final EntityType<AlienProjectileEntity> ALIEN_PROJECTILE = register("alien_projectile",
 			EntityType.Builder.<AlienProjectileEntity>of(AlienProjectileEntity::new, MobCategory.MISC)

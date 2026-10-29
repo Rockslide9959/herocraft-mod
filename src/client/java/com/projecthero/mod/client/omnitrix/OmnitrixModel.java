@@ -79,28 +79,54 @@ public final class OmnitrixModel {
 	 * dark side carries eight lit lime slots, hidden in the bezel at rest and seen as it pops up.
 	 */
 	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face) {
+		draw(pose, vc, light, L, lift, twist, screen, face, 0f);
+	}
+
+	/** v0.17.1: how far (degrees) each half of the cuff swings out when the watch's bottom opens to leap ({@code open} 1). */
+	public static final float JAW_DEG = 42f;
+
+	/**
+	 * v0.17.1 (user: "the bottom of the watch opens, and the Omnitrix jumps out ... onto the player's wrist"): {@code open} 0..1
+	 * splits the cuff at the bottom of the wrist and swings its two halves (each with its pair of prongs) out about the top,
+	 * like jaws, by up to {@link #JAW_DEG} -- the pod's watch springing open to leap, and clamping shut as it lands.
+	 */
+	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face, float open) {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		// v0.17.1 (user: "i dont want any gaps between the players arm and the omnitrix"): sized to the ARM itself, not its
 		// sleeve layer -- a sleeve, when the skin has one, sits hidden inside the cuff wall (WALL 0.3 > the sleeve's 0.25)
 		Section cuff = new Section(-1f - GAP, L + GAP, 2f + GAP, CORNER);
-		// ---- the cuff: one band swept all the way round
-		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
 		float xo = cuffTop(L);
-		// ---- the prongs: four white bands from under the bezel, over the edge, down the side and curling under the wrist
 		Section outer = cuff.grow(WALL);
 		float startZ = 0.95f, endZ = 0.9f;
 		float s0 = startZ, s1 = outer.sAtBottom(endZ);
-		for (int end = -1; end <= 1; end += 2) {
-			float yc = cy + end * PRONG_Y;
-			for (int side = -1; side <= 1; side += 2) {
-				pose.pushPose();
-				if (side < 0) {
-					pose.scale(1f, 1f, -1f);
+		if (open <= 0.001f) {
+			// ---- the cuff: one band swept all the way round
+			ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
+		}
+		// ---- the prongs: four white bands from under the bezel, over the edge, down the side and curling under the wrist
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			if (open > 0.001f) {
+				// this jaw swings out about the top of the wrist (the bezel's foot)
+				pose.translate(xo * S, 0f, 0f);
+				pose.mulPose(Axis.YP.rotationDegrees(side * JAW_DEG * open));
+				pose.translate(-xo * S, 0f, 0f);
+				float sb = cuff.sAtBottom(0f);
+				if (side > 0) {
+					ribbon(pose, vc, cuff, 0f, sb, false, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
+				} else {
+					ribbon(pose, vc, cuff, sb, cuff.perimeter(), false, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
 				}
-				ribbon(pose, vc, outer, s0, s1, false, 0f, 0f, PRONG_T, yc - PRONG_W, yc + PRONG_W, WHITE, light);
-				pose.popPose();
 			}
+			if (side < 0) {
+				pose.scale(1f, 1f, -1f);
+			}
+			for (int end = -1; end <= 1; end += 2) {
+				float yc = cy + end * PRONG_Y;
+				ribbon(pose, vc, outer, s0, s1, false, 0f, 0f, PRONG_T, yc - PRONG_W, yc + PRONG_W, WHITE, light);
+			}
+			pose.popPose();
 		}
 		// ---- the button on the front (-z) side: a grey ring and a green lens
 		float bx = (-1f + L) * 0.5f;

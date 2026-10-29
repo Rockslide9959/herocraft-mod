@@ -80,12 +80,39 @@ public final class OmnitrixFirstPerson {
 		if (h == null) {
 			return;
 		}
-		// the watch's space (the left arm's, as the watch is drawn) relative to here
-		PlayerModel<AbstractClientPlayer> model = renderer.getModel();
+		renderRightHandAt(pose, buffers, light, p, renderer, watchSpace(renderer, leftBase), h);
+	}
+
+	/** v0.17.1: the watch's space (the left arm's, as the watch is drawn) for a first-person left arm placed at {@code leftBase}. */
+	static Matrix4f watchSpace(PlayerRenderer renderer, Matrix4f leftBase) {
 		PoseStack ws = new PoseStack();
 		ws.last().pose().set(leftBase);
-		model.leftArm.translateAndRotate(ws);
-		Matrix4f watch = new Matrix4f(ws.last().pose());
+		renderer.getModel().leftArm.translateAndRotate(ws);
+		return new Matrix4f(ws.last().pose());
+	}
+
+	/**
+	 * v0.17.1: the first-person left arm's base for a shoulder placed at {@code (x, y, z)} in camera space (x right, y up, -z
+	 * ahead) and turned by roll / yaw / pitch (degrees) -- the frame {@link #renderRaised} and the shake-off draw it in.
+	 */
+	static Matrix4f leftBase(float x, float y, float z, float roll, float yaw, float pitch) {
+		PoseStack rel = new PoseStack();
+		rel.translate(x, y, z);
+		rel.mulPose(Axis.ZP.rotationDegrees(roll));
+		rel.mulPose(Axis.YP.rotationDegrees(yaw));
+		rel.mulPose(Axis.XP.rotationDegrees(pitch));
+		rel.mulPose(new Matrix4f(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1));
+		rel.translate(-5f / 16f, -2f / 16f, 0f);
+		return new Matrix4f(rel.last().pose());
+	}
+
+	/**
+	 * The player's right hand drawn with its fingertips, fingers and palm at {@code h} ({tip x,y,z, fingers x,y,z, palm x,y,z},
+	 * px, in the watch's space {@code watch}).
+	 */
+	static void renderRightHandAt(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerRenderer renderer,
+			Matrix4f watch, float[] h) {
+		PlayerModel<AbstractClientPlayer> model = renderer.getModel();
 		// the right hand's frame in the watch's space: its +x (the palm) = N, +y (down the arm to the fingers) = F
 		Vector3f f = new Vector3f(h[3], h[4], h[5]).normalize();
 		Vector3f n = new Vector3f(h[6], h[7], h[8]);
@@ -111,10 +138,11 @@ public final class OmnitrixFirstPerson {
 
 	/** How far the vanilla first-person arm / item on the RIGHT side is pushed down out of view while the hand works the watch. */
 	public static float rightSideHide(AbstractClientPlayer p, float partial) {
+		float latch = OmnitrixLatchClient.handHide(p, partial);
 		if (!Omnitrix.hasPower(p) || Omnitrix.transformed(p)) {
-			return 0f;
+			return latch;
 		}
-		return OmnitrixWatch.rig(p, partial).mainHide;
+		return Math.max(latch, OmnitrixWatch.rig(p, partial).mainHide);
 	}
 
 	/** The kit clip playing on {@code p} now, if any. */

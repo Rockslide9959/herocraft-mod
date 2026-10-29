@@ -92,6 +92,10 @@ public final class OmnitrixClient {
 	/** A left or right click while the watch is up: the slap. True = vanilla must not attack / use / mine. */
 	public static boolean onClick() {
 		LocalPlayer p = Minecraft.getInstance().player;
+		// v0.17.1: both hands are busy fighting the watch during the shake-off
+		if (p != null && Omnitrix.latching(p)) {
+			return true;
+		}
 		if (!watchUp(p)) {
 			return false;
 		}
@@ -105,7 +109,8 @@ public final class OmnitrixClient {
 
 	/** While the watch is up a held attack never mines. */
 	public static boolean blocksHeldAttack() {
-		return watchUp(Minecraft.getInstance().player);
+		LocalPlayer p = Minecraft.getInstance().player;
+		return watchUp(p) || (p != null && Omnitrix.latching(p));
 	}
 
 	/** Right-click on air with an empty hand while transformed (vanilla sends nothing for it): the kit's "use". */
