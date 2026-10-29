@@ -173,6 +173,17 @@ public abstract class AlienKit {
 		return false;
 	}
 
+	/**
+	 * v0.17.1 (Wildmutt): the hitbox and eye height for {@code pose} while transformed, or null for the player's own (scaled
+	 * by the {@code scale} stat as usual). A quadruped answers STANDING / CROUCHING with a wide, low box. Asked on both sides
+	 * ({@code mixin/OmnitrixAlienBodyMixin} refreshes the dimensions whenever the answer changes, so reverting restores the
+	 * player's box). Answer from synced state only.
+	 */
+	@Nullable
+	public net.minecraft.world.entity.EntityDimensions body(Player p, net.minecraft.world.entity.Pose pose) {
+		return null;
+	}
+
 	/** The kit of the alien {@code p} is right now (client-safe: reads the synced state), or null for a human. */
 	@Nullable
 	public static AlienKit activeKit(Player p) {

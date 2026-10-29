@@ -7,7 +7,7 @@ import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit;
 import com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit;
 import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
-import com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit;
+import com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit;
 import com.projecthero.mod.omnitrix.data.OmnitrixState;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -32,9 +32,9 @@ import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.1 the Omnitrix's second batch of aliens -- Stinkfly, Wildvine, Ripjaws and Grey Matter: their bodies (Grey Matter's
+ * v0.17.1 the Omnitrix's second batch of aliens -- Stinkfly, Ripjaws and Grey Matter (Wildvine was replaced by Wildmutt: OmnitrixWildmuttGameTests): their bodies (Grey Matter's
  * third-size hitbox and eye height, and that they come back), every move's damage or effect and its cooldown, Stinkfly's flight
- * on / off, Ripjaws' dry-out timer and water bonus, Wildvine's grapple and bush hide, Grey Matter's mark, and that turning back
+ * on / off, Ripjaws' dry-out timer and water bonus, Grey Matter's mark, and that turning back
  * (early or by the timeout) leaves no flight, scale, speed or water buff behind. Mock players are not ticked by the server, so
  * tests over time drive {@link Omnitrix#tick} themselves.
  */
@@ -181,93 +181,6 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				z.discard();
 				helper.succeed();
 			});
-		});
-	}
-
-	// ================================================================ Wildvine
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void wildvineGrapplesAndHidesAsABush(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, WildvineKit.ID);
-		WildvineKit kit = (WildvineKit) Aliens.kit(WildvineKit.ID);
-		near(helper, p.getMaxHealth(), 28f, "28 health");
-		helper.assertTrue(p.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE) >= 3.0 + 1.5 - 1.0e-6, "vine arms reach further");
-		// a block to grapple at eye level, five blocks ahead
-		BlockPos wall = helper.absolutePos(new BlockPos(3, 3, 6));
-		helper.getLevel().setBlock(wall, Blocks.STONE.defaultBlockState(), 3);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
-		helper.assertTrue(kit.grapple(p) && kit.flag(p, WildvineKit.F_GRAPPLE), "the vine catches the block");
-		Vec3 a = kit.anchor(p);
-		helper.assertTrue(a != null && Math.abs(a.z - wall.getZ()) < 0.01 && a.distanceTo(Vec3.atCenterOf(wall)) < 1.0, "anchored on the block's face");
-		helper.assertTrue(p.getDeltaMovement().z > 0.2, "reeling in toward it");
-		helper.assertTrue(kit.grapple(p) && !kit.flag(p, WildvineKit.F_GRAPPLE), "X again lets go");
-		helper.assertFalse(kit.grapple(p), "the grapple cools down");
-		// the bush
-		Zombie z = zombie(helper, 3.5, 2, 5.0, 40f);
-		z.setTarget(p);
-		p.setShiftKeyDown(true);
-		pump(helper, p);
-		helper.runAfterDelay(WildvineKit.BUSH_DELAY + 4, () -> {
-			helper.assertTrue(kit.hidden(p), "sneaking still: a bush");
-			helper.assertTrue(z.getTarget() == null, "the zombie lost track of him");
-			p.setShiftKeyDown(false);
-			helper.runAfterDelay(2, () -> {
-				helper.assertFalse(kit.hidden(p), "standing up: Wildvine again");
-				Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
-				helper.assertTrue(Omnitrix.state(p).kitFlags == 0, "turning back clears the vines and the bush");
-				z.discard();
-				helper.succeed();
-			});
-		});
-	}
-
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void wildvinesMovesHitAndCoolDown(GameTestHelper helper) {
-		floor(helper);
-		ServerPlayer p = as(helper, WildvineKit.ID);
-		WildvineKit kit = (WildvineKit) Aliens.kit(WildvineKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.0, 100f);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
-		helper.assertTrue(kit.thornWhip(p), "Thorn Whip");
-		near(helper, z.getHealth(), 100f - WildvineKit.WHIP_DAMAGE, "6 damage");
-		helper.assertFalse(kit.thornWhip(p), "then cools down");
-		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.5, 180f, 0f);
-		helper.assertTrue(kit.vineBind(p) && rooted(z), "Vine Bind roots it");
-		near(helper, z.getHealth(), 100f - WildvineKit.WHIP_DAMAGE - 2f, "and stings for 2");
-		helper.assertFalse(kit.vineBind(p), "the bind cools down");
-		helper.assertTrue(kit.pollenBurst(p) && z.hasEffect(MobEffects.CONFUSION), "Pollen Burst sickens");
-		helper.assertFalse(kit.pollenBurst(p), "the pollen cools down");
-		float before = z.getHealth();
-		helper.assertTrue(kit.rootEruption(p), "Root Eruption");
-		near(helper, z.getHealth(), before - WildvineKit.ERUPT_DAMAGE, "7 damage");
-		helper.assertFalse(kit.rootEruption(p), "the eruption cools down");
-		helper.assertTrue(kit.rootWall(p) && !kit.rootWall(p), "Root Wall, then cools down");
-		helper.assertTrue(kit.overgrowth(p) && !kit.overgrowth(p), "Overgrowth, then cools down");
-		helper.assertTrue(kit.stretchClimb(p) && kit.flag(p, WildvineKit.F_CLIMB) && !kit.stretchClimb(p), "Stretch Climb, then cools down");
-		helper.assertTrue(kit.seedBomb(p) && !kit.seedBomb(p), "Seed Bomb, then cools down");
-		// a plant: fire hurts him more
-		float hp = p.getHealth();
-		p.invulnerableTime = 0;
-		p.hurt(helper.getLevel().damageSources().inFire(), 4f);
-		helper.assertTrue(hp - p.getHealth() > 4f * 1.2f, "fire burns a plant harder (" + (hp - p.getHealth()) + " from 4, after armour)");
-		// regrowth heals
-		p.setHealth(10f);
-		helper.assertTrue(kit.regrowth(p) && kit.flag(p, WildvineKit.F_REGROW), "Regrowth");
-		helper.assertFalse(kit.regrowth(p), "it cools down");
-		// bonemeal touch
-		BlockPos farm = helper.absolutePos(new BlockPos(6, 1, 6));
-		helper.getLevel().setBlock(farm, Blocks.FARMLAND.defaultBlockState(), 3);
-		helper.getLevel().setBlock(farm.above(), Blocks.WHEAT.defaultBlockState(), 3);
-		helper.assertTrue(kit.bonemeal(p, farm.above(), net.minecraft.core.Direction.UP), "Bonemeal Touch");
-		helper.assertTrue(helper.getLevel().getBlockState(farm.above()).getValue(CropBlock.AGE) > 0, "the wheat grew");
-		float before2 = z.getHealth();
-		pump(helper, p);
-		helper.runAfterDelay(25, () -> {
-			helper.assertTrue(p.getHealth() > 10f, "regrowth healed him");
-			helper.assertTrue(z.getHealth() < before2, "the seed bomb and the overgrowth hurt the zombie");
-			z.discard();
-			helper.succeed();
 		});
 	}
 
@@ -490,11 +403,12 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		timeOut(helper, p);
 		helper.assertTrue(!p.hasEffect(MobEffects.DOLPHINS_GRACE) && !p.hasEffect(MobEffects.CONDUIT_POWER), "Ripjaws timed out: no water buffs");
 		helper.getLevel().setBlock(feet, Blocks.AIR.defaultBlockState(), 3);
-		rearm(p, WildvineKit.ID);
-		WildvineKit wv = (WildvineKit) Aliens.kit(WildvineKit.ID);
-		wv.regrowth(p);
+		rearm(p, WildmuttKit.ID); // v0.17.1: Wildmutt took Wildvine's slot
+		WildmuttKit wm = (WildmuttKit) Aliens.kit(WildmuttKit.ID);
+		wm.frenzy(p);
 		timeOut(helper, p);
-		helper.assertTrue(Omnitrix.state(p).kitFlags == 0 && Omnitrix.state(p).readyAt(wv.key("regrow_end")) == 0, "Wildvine timed out: nothing running");
+		helper.assertTrue(Omnitrix.state(p).kitFlags == 0 && Omnitrix.state(p).readyAt(wm.key("frenzy_end")) == 0, "Wildmutt timed out: nothing running");
+		near(helper, (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE), (float) p.getAttributeBaseValue(Attributes.ATTACK_DAMAGE), "no frenzy claws left");
 		helper.succeed();
 	}
 

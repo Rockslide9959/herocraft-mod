@@ -75,6 +75,7 @@
 		"SilverSurferPhaseCollideMixin",
 		"OmnitrixAlienCollideMixin",
 		"OmnitrixAlienLivingMixin",
+		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",
 		"SpeedForcePhaseCollideMixin",
 		"SpeedForceMoveCheckMixin",

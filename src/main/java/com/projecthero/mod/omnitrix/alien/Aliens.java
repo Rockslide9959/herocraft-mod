@@ -40,7 +40,7 @@ public final class Aliens {
 	public static final Alien UPGRADE = declare("upgrade", 0x38E05A);
 	public static final Alien GHOSTFREAK = declare("ghostfreak", 0xC8D2D2);
 	public static final Alien STINKFLY = declare("stinkfly", 0x9BCB3F);
-	public static final Alien WILDVINE = declare("wildvine", 0x4A9A2A);
+	public static final Alien WILDMUTT = declare("wildmutt", 0xF08A24);
 	public static final Alien RIPJAWS = declare("ripjaws", 0x7A98A4);
 	public static final Alien GREY_MATTER = declare("grey_matter", 0xA6ACB4);
 

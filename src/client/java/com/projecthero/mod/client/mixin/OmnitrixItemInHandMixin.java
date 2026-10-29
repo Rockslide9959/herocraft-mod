@@ -60,11 +60,15 @@ public abstract class OmnitrixItemInHandMixin {
 		OmnitrixFirstPerson.renderRaised(pose, buffers, light, player, partial);
 		// a two-handed alien clip: the off-hand arm joins in
 		FirstPersonClip clip = OmnitrixFirstPerson.clip(player);
-		if (clip != null && clip.twoHanded()) {
+		com.projecthero.mod.client.omnitrix.AlienClientKit kit = com.projecthero.mod.client.omnitrix.AlienClients.shownKit(player);
+		boolean both = kit != null && com.projecthero.mod.omnitrix.Omnitrix.transformed(player) && kit.bothHandsInFirstPerson(player);
+		if ((clip != null && clip.twoHanded()) || both) {
 			HumanoidArm off = player.getMainArm().getOpposite();
 			float side = off == HumanoidArm.RIGHT ? 1f : -1f;
 			pose.pushPose();
-			if (clip.apply(pose, OmnitrixFirstPerson.clipTicks(player, partial), side)) {
+			// v0.17.1 (Wildmutt, bothHandsInFirstPerson): a beast's off paw is always in view, clip or not
+			boolean applied = clip != null && clip.twoHanded() && clip.apply(pose, OmnitrixFirstPerson.clipTicks(player, partial), side);
+			if (applied || both) {
 				renderPlayerArm(pose, buffers, light, 0f, 0f, off);
 			}
 			pose.popPose();

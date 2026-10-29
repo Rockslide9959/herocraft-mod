@@ -73,7 +73,7 @@ const L = {
 	'projecthero.omnitrix.alien.upgrade': 'Upgrade',
 	'projecthero.omnitrix.alien.ghostfreak': 'Ghostfreak',
 	'projecthero.omnitrix.alien.stinkfly': 'Stinkfly',
-	'projecthero.omnitrix.alien.wildvine': 'Wildvine',
+	// v0.17.1: Wildvine left the dial for Wildmutt (his lines are scratchpad/wildmutt_v0171/lang_wildmutt.js's block)
 	'projecthero.omnitrix.alien.ripjaws': 'Ripjaws',
 	'projecthero.omnitrix.alien.grey_matter': 'Grey Matter',
 	'projecthero.omnitrix.alien.unknown': 'That alien',

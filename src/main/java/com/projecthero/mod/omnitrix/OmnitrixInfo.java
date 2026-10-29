@@ -304,7 +304,7 @@ public final class OmnitrixInfo {
 	/** v0.17.1: the alien's dial icon as one inline text glyph (font {@code projecthero:omnitrix_dial}, the user's dial art). */
 	public static final net.minecraft.resources.ResourceLocation DIAL_FONT = com.projecthero.mod.ProjectHeroMod.id("omnitrix_dial");
 	private static final List<String> DIAL_ORDER = List.of("heatblast", "four_arms", "xlr8", "diamondhead", "upgrade", "ghostfreak", "stinkfly",
-			"wildvine", "ripjaws", "grey_matter");
+			"wildmutt", "ripjaws", "grey_matter");
 
 	public static MutableComponent icon(Aliens.Alien a) {
 		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());

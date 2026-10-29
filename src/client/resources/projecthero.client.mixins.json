@@ -120,6 +120,8 @@
 		"CatNoirItemInHandLayerMixin",
 		"CatNoirNightVisionGlowMixin",
 		"CatNoirNightVisionColorMixin",
+		"WildmuttSenseGlowMixin",
+		"WildmuttSenseColorMixin",
 		"GreenLanternRingHandMixin",
 		"GuiTitanMountMessageMixin",
 		"GuiArmorBarMixin",

@@ -74,6 +74,36 @@ public interface AlienClientKit {
 		return 255;
 	}
 
+	// ---------------------------------------------------------------- v0.17.1 (Wildmutt): a fully custom body
+	// A "real" alien replaces the player model outright -- its own renderer (usually a GeckoLib GeoReplacedEntityRenderer, as the
+	// Hulk's) draws the whole body, and the first-person arm is its own too. All default off: the player-model aliens are untouched.
+
+	/** True: {@link #renderBody} draws this alien instead of the player model (and the player-model hooks above are skipped). */
+	default boolean customBody() {
+		return false;
+	}
+
+	/** (Re)builds the custom body's renderer from the player renderers' context (on every resource reload). */
+	default void buildBody(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context) {
+	}
+
+	/** Draws the alien's whole body in place of the player (armour, cape and held items are not drawn); the badge is its job too. */
+	default void renderBody(AbstractClientPlayer p, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+	}
+
+	/**
+	 * Draws the first-person arm ({@code right}: the right arm) in place of the player's, in the space vanilla's
+	 * {@code renderRightHand} / {@code renderLeftHand} gets (the swing / equip / kit clip already applied). True if it drew.
+	 */
+	default boolean renderFirstPersonHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, boolean right) {
+		return false;
+	}
+
+	/** True: the off-hand arm is drawn in first person too whenever the off hand is empty (a beast on all fours). */
+	default boolean bothHandsInFirstPerson(AbstractClientPlayer p) {
+		return false;
+	}
+
 	/** Where the Omnitrix badge sits: in body-bone pixels (x right, y down from the neck, z forward = negative). */
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };

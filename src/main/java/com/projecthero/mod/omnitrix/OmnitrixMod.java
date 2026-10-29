@@ -43,7 +43,7 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.register();
 		com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit.register();
 		com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.register();
-		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.register();
+		com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.register();
 		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.register();
 		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.register();
 		com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.register();
@@ -145,7 +145,7 @@ public final class OmnitrixMod {
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit.clearSessionState();
-		com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit.clearSessionState();
+		com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.clearSessionState();

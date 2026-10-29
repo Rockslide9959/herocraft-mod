@@ -250,6 +250,7 @@
       "com.projecthero.mod.gametest.GreenLanternReconGameTests",
       "com.projecthero.mod.gametest.ChlorokinesisGameTests",
       "com.projecthero.mod.gametest.OmnitrixAliens2GameTests",
+      "com.projecthero.mod.gametest.OmnitrixWildmuttGameTests",
       "com.projecthero.mod.gametest.HeroLandingGameTests",
       "com.projecthero.mod.gametest.OmnitrixInfoGameTests",
       "com.projecthero.mod.gametest.OmnitrixSoundsGameTests",

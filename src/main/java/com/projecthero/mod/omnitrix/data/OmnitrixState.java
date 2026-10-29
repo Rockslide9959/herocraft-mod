@@ -79,7 +79,18 @@ public final class OmnitrixState {
 		return n;
 	}
 
-	public static final Codec<OmnitrixState> CODEC = RecordCodecBuilder.create(i -> i.group(
+	/**
+	 * v0.17.1: aliens taken off the dial, and who took their slot -- a saved {@code selected} / {@code active} / {@code flicker} of
+	 * one loads as its replacement (Wildvine was never one of the original ten; Wildmutt was). The removed alien's kit timers
+	 * are dropped.
+	 */
+	public static final java.util.Map<String, String> RENAMED = java.util.Map.of("wildvine", "wildmutt");
+
+	public static String renamed(String id) {
+		return id == null ? "" : RENAMED.getOrDefault(id, id);
+	}
+
+	public static final Codec<OmnitrixState> CODEC =RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("has_power", false).forGetter(s -> s.hasPower),
 			Codec.STRING.optionalFieldOf("selected", "heatblast").forGetter(s -> s.selected),
 			Codec.STRING.optionalFieldOf("active", "").forGetter(s -> s.active),
@@ -99,8 +110,15 @@ public final class OmnitrixState {
 	).apply(i, (hp, sel, act, ta, ea, ru, an, as, kf, hh, fl, fu, he, sg, ss, tm) -> {
 		OmnitrixState s = new OmnitrixState(tm);
 		s.hasPower = hp;
-		s.selected = sel;
-		s.active = act;
+		s.selected = renamed(sel);
+		s.active = renamed(act);
+		if (!s.active.equals(act)) {
+			// v0.17.1: a save made as a removed alien -- its kit's bits and pose meant nothing to the new one
+			kf = 0;
+			an = 0;
+		}
+		s.timers.keySet().removeIf(k -> RENAMED.containsKey(k.substring(0, Math.max(0, k.indexOf('.')))));
+		fl = renamed(fl);
 		s.transformedAt = ta;
 		s.endsAt = ea;
 		s.rechargeUntil = ru;

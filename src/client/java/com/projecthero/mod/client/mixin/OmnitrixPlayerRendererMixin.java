@@ -48,10 +48,26 @@ public abstract class OmnitrixPlayerRendererMixin {
 		return wide != null && wide != (Object) this;
 	}
 
+	/** v0.17.1 (Wildmutt): the custom-body aliens' renderers are built from the player renderers' context. */
+	@Inject(method = "<init>", at = @At("TAIL"))
+	private void projecthero$buildAlienBodies(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context, boolean slim,
+			CallbackInfo ci) {
+		AlienClients.buildBodies(context);
+	}
+
 	@Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienWide(AbstractClientPlayer player, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light,
 			CallbackInfo ci) {
+		// v0.17.1 (Wildmutt): an alien with its own body is drawn by its renderer instead of the player model
+		AlienClientKit custom = AlienClients.shownKit(player);
+		if (custom != null && custom.customBody()) {
+			ci.cancel();
+			if (!player.isInvisible()) {
+				custom.renderBody(player, yaw, partial, pose, buffers, light);
+			}
+			return;
+		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
 			projecthero$wide().render(player, yaw, partial, pose, buffers, light);
@@ -69,6 +85,11 @@ public abstract class OmnitrixPlayerRendererMixin {
 
 	@Inject(method = "renderRightHand", at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienRightHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
+		AlienClientKit custom = AlienClients.shownKit(player);
+		if (custom != null && custom.customBody() && custom.renderFirstPersonHand(pose, buffers, light, player, true)) {
+			ci.cancel();
+			return;
+		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
 			projecthero$wide().renderRightHand(pose, buffers, light, player);
@@ -77,6 +98,11 @@ public abstract class OmnitrixPlayerRendererMixin {
 
 	@Inject(method = "renderLeftHand", at = @At("HEAD"), cancellable = true)
 	private void projecthero$alienLeftHand(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, CallbackInfo ci) {
+		AlienClientKit custom = AlienClients.shownKit(player);
+		if (custom != null && custom.customBody() && custom.renderFirstPersonHand(pose, buffers, light, player, false)) {
+			ci.cancel();
+			return;
+		}
 		if (projecthero$redirect(player)) {
 			ci.cancel();
 			projecthero$wide().renderLeftHand(pose, buffers, light, player);

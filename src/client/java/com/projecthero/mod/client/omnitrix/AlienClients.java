@@ -21,6 +21,15 @@ public final class AlienClients {
 		KITS.put(alienId, kit);
 	}
 
+	/** v0.17.1: every kit with a custom body rebuilds its renderer (from {@code OmnitrixPlayerRendererMixin}, per resource reload). */
+	public static void buildBodies(net.minecraft.client.renderer.entity.EntityRendererProvider.Context context) {
+		for (AlienClientKit k : KITS.values()) {
+			if (k.customBody()) {
+				k.buildBody(context);
+			}
+		}
+	}
+
 	@Nullable
 	public static AlienClientKit of(String alienId) {
 		return alienId == null ? null : KITS.get(alienId);

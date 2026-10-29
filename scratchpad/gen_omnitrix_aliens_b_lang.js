@@ -1,5 +1,6 @@
 // v0.17.1 Omnitrix, second batch of aliens (Stinkfly, Wildvine, Ripjaws, Grey Matter): their lang lines as ONE contiguous
-// block at the END of en_us.json, and their sounds as ONE contiguous block at the end of sounds.json. Re-running replaces both
+// block at the END of en_us.json (v0.17.1: Wildvine was replaced by Wildmutt -- scratchpad/wildmutt_v0171/lang_wildmutt.js)
+//, and their sounds as ONE contiguous block at the end of sounds.json. Re-running replaces both
 // blocks (kept apart from gen_omnitrix_lang.js's block so parallel alien batches never touch the same lines).
 //   node scratchpad/gen_omnitrix_aliens_b_lang.js
 'use strict';
@@ -23,21 +24,6 @@ const MOVES = {
 		slime_barrage: ['Slime Barrage', 'Five globs of goo in a fan (2.5 each, each one sticks).'],
 		stinger_jab: ['Stinger Jab', 'Your punches carry a little poison.'],
 		goo_spit: ['Goo Spit', 'Empty hand: a quick small glob of goo (2 damage, slows).'],
-	},
-	wildvine: {
-		seed_bomb: ['Seed Bomb', 'Lobs an explosive seed that bursts in a shower of spores: 7 damage around it, no damage to blocks.'],
-		thorn_whip: ['Thorn Whip', 'A wide lash of thorny vines in front of you (6 damage, knockback).'],
-		vine_bind: ['Vine Bind', 'Vines lash out to the creature you look at (18 blocks) and pin it in place for 4 s.'],
-		pollen_burst: ['Pollen Burst', 'A cloud of pollen around you: nausea, slowness and weakness for everything nearby.'],
-		vine_grapple: ['Vine Grapple', 'Whips a vine to the block you look at (28 blocks) and reels you in. Press again to let go.'],
-		stretch_climb: ['Stretch Climb', 'Stretch straight up the wall in front of you to its top (12 blocks at most). With no wall, a tall stretch upwards.'],
-		root_wall: ['Root Wall', 'A wall of roots bursts up in front of you for 8 s: creatures are pushed back from it and projectiles stick in it.'],
-		regrowth: ['Regrowth', '10 s of healing for you and your squad nearby -- 2 health a second in sunlight, a trickle in the shade.'],
-		overgrowth: ['Overgrowth', 'Vines overrun the ground around you (7 blocks) for 8 s and keep entangling every creature in it.'],
-		root_eruption: ['Root Eruption', 'Roots burst out of the ground in a line ahead (7 damage, launches what they hit).'],
-		vine_lash: ['Vine Lash', 'Your stretchy vine arms reach 1.5 blocks further.'],
-		bonemeal_touch: ['Bonemeal Touch', 'Use a block with an empty hand: it grows as if bonemealed.'],
-		bush_hide: ['Bush Hide', 'Sneak and hold still: you become a bush, and whatever was hunting you loses track of you.'],
 	},
 	ripjaws: {
 		bite: ['Bite', 'A huge chomp on the creature in front of you (7 damage) that heals you a little.'],
@@ -71,13 +57,8 @@ const MOVES = {
 
 const L = {
 	'projecthero.guide.omnitrix.alien.stinkfly': 'A Lepidopterran: a green insect with four eyes on stalks, translucent wings and a stinger. He really flies, never takes fall damage, and fights with goo and gas -- but has only 14 health.',
-	'projecthero.guide.omnitrix.alien.wildvine': 'A Florauna: a walking plant with a pink flower for a head. Vines that grapple, bind and entangle, seed bombs, healing in the sun -- and he can hide as a bush. Fire hurts him more.',
 	'projecthero.guide.omnitrix.alien.ripjaws': 'A Piscciss Volann: a fish-man with a huge toothy jaw. In water he is fast, never drowns and hits half again as hard. On land he dries out: after 2 minutes he starts to choke (the meter over his keys) until he gets wet again -- water refills it in 15 s, rain stops it.',
 	'projecthero.guide.omnitrix.alien.grey_matter': 'A Galvan: a tiny grey genius a third of your size -- he fits through one-block gaps and mobs keep losing sight of him, but he has only 8 health. Pressure points, gadgets, repairs and a mind that maps everything around him.',
-	'message.projecthero.omnitrix.wildvine.no_target': 'No creature in reach of your vines.',
-	'message.projecthero.omnitrix.wildvine.no_anchor': 'Nothing to grab onto there.',
-	'message.projecthero.omnitrix.wildvine.hidden': 'You are a bush. Nothing to see here.',
-	'message.projecthero.omnitrix.wildvine.shade': 'No sun: Regrowth only trickles in the shade.',
 	'message.projecthero.omnitrix.ripjaws.drying': 'You are drying out -- get to water!',
 	'message.projecthero.omnitrix.ripjaws.choking': 'You are choking on the air! Find water or rain.',
 	'message.projecthero.omnitrix.grey_matter.no_target': 'No creature close enough.',
@@ -111,8 +92,8 @@ for (const [alien, moves] of Object.entries(MOVES)) {
 }
 const SOUNDS = {
 	stinkfly_buzz: 'Wings buzz', stinkfly_spit: 'Goo spat', stinkfly_splat: 'Goo splats', stinkfly_gas: 'Toxic gas hisses', stinkfly_sting: 'Stinger stabs',
-	stinkfly_dive: 'Stinkfly dives', wildvine_vine: 'Vine lashes', wildvine_seed: 'Seed pops', wildvine_burst: 'Seed bomb bursts', wildvine_roots: 'Roots erupt',
-	wildvine_bloom: 'Wildvine blooms', wildvine_rustle: 'Leaves rustle', ripjaws_bite: 'Jaws snap', ripjaws_roar: 'Ripjaws roars', ripjaws_splash: 'Water splashes',
+	stinkfly_dive: 'Stinkfly dives',
+	 ripjaws_bite: 'Jaws snap', ripjaws_roar: 'Ripjaws roars', ripjaws_splash: 'Water splashes',
 	ripjaws_slam: 'Tail slams', ripjaws_gasp: 'Ripjaws gasps', ripjaws_whirl: 'Whirlpool churns', grey_matter_pinch: 'Nerve pinched', grey_matter_scan: 'Grey Matter analyses',
 	grey_matter_gadget: 'Gadget clicks', grey_matter_leap: 'Grey Matter leaps', grey_matter_repair: 'Gadgets whirr', grey_matter_think: 'Grey Matter thinks',
 };

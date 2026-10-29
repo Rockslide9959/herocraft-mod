@@ -19,7 +19,7 @@ import com.projecthero.mod.omnitrix.alien.greymatter.GreyMatterKit;
 import com.projecthero.mod.omnitrix.alien.ripjaws.RipjawsKit;
 import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
 import com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit;
-import com.projecthero.mod.omnitrix.alien.wildvine.WildvineKit;
+import com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit;
 import com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit;
 
 import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
@@ -81,7 +81,8 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				UpgradeKit.SND_BEAM, UpgradeKit.SND_CHARGE, UpgradeKit.SND_MERGE, UpgradeKit.SND_EMP, UpgradeKit.SND_SLIDE,
 				GhostfreakKit.SND_CLAW, GhostfreakKit.SND_SCREAM, GhostfreakKit.SND_PHASE, GhostfreakKit.SND_LAUGH, GhostfreakKit.SND_TENDRIL,
 				StinkflyKit.BUZZ, StinkflyKit.SPIT, StinkflyKit.SPLAT, StinkflyKit.GAS, StinkflyKit.STING, StinkflyKit.DIVE,
-				WildvineKit.VINE, WildvineKit.SEED, WildvineKit.BURST, WildvineKit.ROOTS, WildvineKit.BLOOM, WildvineKit.RUSTLE,
+				WildmuttKit.GROWL, WildmuttKit.BITE, WildmuttKit.CLAW, WildmuttKit.ROAR, WildmuttKit.BRISTLE, WildmuttKit.QUILLS, WildmuttKit.SLAM,
+				WildmuttKit.LEAP, WildmuttKit.LAND, WildmuttKit.SNIFF, WildmuttKit.FRENZY_CUE, WildmuttKit.ROLL_CUE,
 				RipjawsKit.BITE_SOUND, RipjawsKit.ROAR, RipjawsKit.SPLASH, RipjawsKit.SLAM, RipjawsKit.GASP, RipjawsKit.WHIRL,
 				GreyMatterKit.PINCH, GreyMatterKit.SCAN, GreyMatterKit.GADGET, GreyMatterKit.LEAP, GreyMatterKit.REPAIR, GreyMatterKit.THINK,
 				GreyMatterKit.DECOY_SOUND);

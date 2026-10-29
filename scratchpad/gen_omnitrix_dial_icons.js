@@ -18,7 +18,7 @@ const RES = path.join(__dirname, '..', 'src', 'main', 'resources', 'assets', 'pr
 const GUI = path.join(RES, 'textures', 'gui', 'omnitrix');
 const FONT = path.join(RES, 'textures', 'font', 'omnitrix_dial');
 fs.mkdirSync(FONT, { recursive: true });
-const IDS = ['heatblast', 'four_arms', 'xlr8', 'diamondhead', 'upgrade', 'ghostfreak', 'stinkfly', 'wildvine', 'ripjaws', 'grey_matter'];
+const IDS = ['heatblast', 'four_arms', 'xlr8', 'diamondhead', 'upgrade', 'ghostfreak', 'stinkfly', 'wildmutt', 'ripjaws', 'grey_matter'];
 
 function clean(img) {
 	const { W, H, px } = img;

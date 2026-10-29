@@ -43,7 +43,7 @@ public final class OmnitrixClient {
 		AlienClients.register(Aliens.HEATBLAST.id(), new HeatblastClient());
 		AlienClients.register(Aliens.FOUR_ARMS.id(), new FourArmsClient());
 		AlienClients.register(Aliens.STINKFLY.id(), new com.projecthero.mod.client.omnitrix.alien.StinkflyClient());
-		AlienClients.register(Aliens.WILDVINE.id(), new com.projecthero.mod.client.omnitrix.alien.WildvineClient());
+		AlienClients.register(Aliens.WILDMUTT.id(), new com.projecthero.mod.client.omnitrix.alien.WildmuttClient());
 		AlienClients.register(Aliens.RIPJAWS.id(), new com.projecthero.mod.client.omnitrix.alien.RipjawsClient());
 		AlienClients.register(Aliens.GREY_MATTER.id(), new com.projecthero.mod.client.omnitrix.alien.GreyMatterClient());
 		AlienClients.register(Aliens.XLR8.id(), new com.projecthero.mod.client.omnitrix.alien.Xlr8Client());

@@ -118,11 +118,6 @@ const ALIENS = {
 		passive: ['Real flight (X or double-tap jump).', 'No fall damage and no fly-into-wall damage.'],
 		weakness: ['Fragile: only 14 health and 1 armour.'],
 	},
-	wildvine: {
-		role: 'Plant controller: vines, roots and healing.',
-		passive: ['Hold still while sneaking to become a bush: mobs lose track of him.', 'Long vine reach (+1.5).', 'Regrowth heals faster in sunlight.'],
-		weakness: ['Fire hurts him 35% more.'],
-	},
 	ripjaws: {
 		role: 'Aquatic predator: bites and whirlpools.',
 		passive: ['In water: fast, never drowns, sees and digs well, and hits harder (+3).'],

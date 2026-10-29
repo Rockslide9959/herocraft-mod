@@ -7,7 +7,7 @@
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/upgrade.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/ghostfreak.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/stinkfly.png", "height": 9, "ascent": 8, "chars": [""] },
-    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/wildvine.png", "height": 9, "ascent": 8, "chars": [""] },
+    { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/wildmutt.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/ripjaws.png", "height": 9, "ascent": 8, "chars": [""] },
     { "type": "bitmap", "file": "projecthero:font/omnitrix_dial/grey_matter.png", "height": 9, "ascent": 8, "chars": [""] }
   ]
