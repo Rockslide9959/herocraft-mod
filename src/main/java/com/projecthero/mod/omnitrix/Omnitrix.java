@@ -57,6 +57,39 @@ public final class Omnitrix {
 	/** Ticks between the slap and the transformation (the core going down). */
 	public static final int SLAP_TICKS = 5;
 	private static final String SLAP_TIMER = "omnitrix.slap";
+	/** A click before the core is up: the slap waits for it ({@link #CORE_UP_TICKS}). */
+	private static final String SLAP_QUEUE = "omnitrix.slap_queued";
+	/** The activation's button press is due (its click sound plays then). */
+	private static final String PRESS_TIMER = "omnitrix.press";
+
+	/**
+	 * v0.17.1 (user: "make the player bring their arm up and then use their right hand to press the button on the omnitrix to
+	 * pop up the dial"): the activation's beats, ticks after R (shared by the client's animation): the wrist comes up and the
+	 * right hand reaches the side button, which it presses at {@link #PRESS_TICKS} -- the core pops then -- and the core is up
+	 * (the dial turns, the slap lands) from {@link #CORE_UP_TICKS}. A scroll before that is ignored; a click is held until then.
+	 */
+	public static final int PRESS_TICKS = 7, CORE_UP_TICKS = 11;
+
+	private static void clearSlap(OmnitrixState n) {
+		n.timers.remove(SLAP_TIMER);
+		n.timers.remove(SLAP_QUEUE);
+		n.timers.remove(PRESS_TIMER);
+	}
+
+	/** Whether the raised watch's core is up (the dial can be turned and slapped). */
+	public static boolean coreUp(OmnitrixState s, long now) {
+		return s.selecting && now - s.selectStart >= CORE_UP_TICKS;
+	}
+
+	/** Gametests: the watch's raise / button press over at once (game time does not advance in a test's own tick). */
+	public static void finishRaise(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (s.selecting) {
+			OmnitrixState n = s.copy();
+			n.selectStart -= CORE_UP_TICKS;
+			save(p, n);
+		}
+	}
 
 	/**
 	 * v0.17.1 (user: "when detransforming the watch should first beep 5 times like how it does in the mp3 file and then
@@ -307,7 +340,7 @@ public final class Omnitrix {
 		n.kitFlags = 0;
 		n.heldEntity = 0;
 		n.selecting = false;
-		n.timers.remove(SLAP_TIMER);
+		clearSlap(n);
 		save(p, n);
 		OmnitrixBody.apply(p, kit.stats(), frac);
 		if (!slapped) {
@@ -412,9 +445,10 @@ public final class Omnitrix {
 		}
 		n.selecting = true;
 		n.selectStart = now;
-		n.timers.remove(SLAP_TIMER);
+		clearSlap(n);
+		// the core-up click plays on the right hand's button press ({@link #tick})
+		n.timers.put(PRESS_TIMER, now + PRESS_TICKS);
 		save(p, n);
-		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.0f);
 		showSelected(p, n.selected);
 		return true;
 	}
@@ -428,7 +462,7 @@ public final class Omnitrix {
 		OmnitrixState n = s.copy();
 		n.selecting = false;
 		n.selectStart = p.level().getGameTime();
-		n.timers.remove(SLAP_TIMER);
+		clearSlap(n);
 		save(p, n);
 		// v0.17.1 (user: "when deactivating the omnitrix ... remove the sound effect that plays"): lowered silently
 		return true;
@@ -453,6 +487,9 @@ public final class Omnitrix {
 		}
 		// v0.17.1 (user): a 0.2 s cooldown on the dial so it cannot be spun too fast
 		long now = p.level().getGameTime();
+		if (!coreUp(s, now)) {
+			return false; // the dial is still coming up under the right hand
+		}
 		if (s.animId == ANIM_TURN && now - s.animStart < OmnitrixConfig.DIAL_COOLDOWN_TICKS) {
 			return false;
 		}
@@ -476,7 +513,7 @@ public final class Omnitrix {
 	/** Left-click (or right-click) while the watch is up: the core is slapped down; {@link #SLAP_TICKS} later, the alien. */
 	public static boolean slap(ServerPlayer p) {
 		OmnitrixState s = state(p);
-		if (!s.selecting || s.timers.containsKey(SLAP_TIMER)) {
+		if (!s.selecting || s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(SLAP_QUEUE)) {
 			return false;
 		}
 		if (!Aliens.playable(s.selected)) {
@@ -486,7 +523,15 @@ public final class Omnitrix {
 			return false;
 		}
 		long now = p.level().getGameTime();
+		if (!coreUp(s, now)) {
+			// clicked while the dial is still coming up: the slap lands as soon as it is ({@link #tick})
+			OmnitrixState q = s.copy();
+			q.timers.put(SLAP_QUEUE, s.selectStart + CORE_UP_TICKS);
+			save(p, q);
+			return true;
+		}
 		OmnitrixState n = s.copy();
+		n.timers.remove(SLAP_QUEUE);
 		n.animId = ANIM_SLAP;
 		n.animStart = now;
 		n.timers.put(SLAP_TIMER, now + SLAP_TICKS);
@@ -582,10 +627,24 @@ public final class Omnitrix {
 			return;
 		}
 		long now = p.level().getGameTime();
+		if (s.selecting && s.timers.containsKey(PRESS_TIMER) && now >= s.readyAt(PRESS_TIMER)) {
+			OmnitrixState n = s.copy();
+			n.timers.remove(PRESS_TIMER);
+			save(p, n);
+			OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.0f);
+			s = n;
+		}
+		if (s.selecting && s.timers.containsKey(SLAP_QUEUE) && coreUp(s, now)) {
+			OmnitrixState n = s.copy();
+			n.timers.remove(SLAP_QUEUE);
+			save(p, n);
+			slap(p);
+			return;
+		}
 		if (s.selecting && s.timers.containsKey(SLAP_TIMER) && now >= s.readyAt(SLAP_TIMER)) {
 			if (!transform(p)) {
 				OmnitrixState n = state(p).copy();
-				n.timers.remove(SLAP_TIMER);
+				clearSlap(n);
 				n.selecting = false;
 				save(p, n);
 			}
@@ -653,7 +712,7 @@ public final class Omnitrix {
 		if (s.hasPower && (s.flickerUntil != 0L || s.rechargeUntil != 0L || s.selecting)) {
 			OmnitrixState n = s.copy();
 			n.selecting = false;
-			n.timers.remove(SLAP_TIMER);
+			clearSlap(n);
 			n.flicker = "";
 			n.flickerUntil = 0L;
 			n.rechargeUntil = 0L;
@@ -670,7 +729,7 @@ public final class Omnitrix {
 		if (selecting(p)) {
 			OmnitrixState n = state(p).copy();
 			n.selecting = false;
-			n.timers.remove(SLAP_TIMER);
+			clearSlap(n);
 			save(p, n);
 		}
 		p.removeAttached(OmnitrixAttachments.EXTRACTION);

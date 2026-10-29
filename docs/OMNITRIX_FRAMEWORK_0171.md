@@ -312,4 +312,21 @@ Merge's invisibility is our own 40-tick effect, removed on revert (a longer poti
 * **`OmnitrixPose`** -- the raised watch: rotations solved with `scratchpad/omnitrix_pose_solver.js` (left forearm level at
   chest height, face up; the left shoulder drops 6 px and the right 2.5 px since the arm has no elbow), the head bowed, the
   right hand gripping the dial's near rim; each scroll rolls the hand (the twist), the click winds up and slaps the core.
+* **The two-hand press** (`OmnitrixHands`, user: "use their right hand to press the button on the omnitrix to pop up the
+  dial ... press the button again to deactivate it"): one client rig off the synced state drives the wrist, the core, the face
+  and the right hand. Ticks after R: the wrist rises (0-5), the right hand comes in from the bottom right to the cuff's side
+  button (5.5) and presses it (`Omnitrix.PRESS_TICKS` = 7: the core pops on the press and `omnitrix_core_up` plays then), backs
+  off (8.5) and settles on the dial's lower-right rim (11.5), the face morphs (9-15) and the icon fades in (14-17). The server
+  only lets the dial turn / the slap land from `Omnitrix.CORE_UP_TICKS` = 11 (an earlier scroll is ignored, an earlier click
+  is held and lands then). Scrolls twist the gripping hand with the ring (a slower spring trailing it, so it turns and
+  re-grips, either way); the click lifts the palm and slams it on the core (`OmnitrixHands.SLAP_HIT`). R again: the hand goes
+  back to the button (2.5), presses (3.5: the core sinks, the face goes back), pulls away down-right (8.5), then the wrist
+  comes down (7-12); R mid-sequence starts the other way from wherever the rig is. First person draws the right arm itself
+  (`OmnitrixFirstPerson.renderRaised`: the player's own `renderRightHand`, placed by the hand's fingertip frame in the watch's
+  space) and drops the usual right-side arm / item out of view meanwhile; third person blends the right hand to the button
+  (`OmnitrixPose.HAND_BUTTON`, `scratchpad/omnitrix_button_pose_solver.js`). Harness:
+  `scratchpad/OmnitrixPressHarness.v0171.java.txt`; shots `docs/screenshots/v0171/omnitrix_press_*.png`.
+* **The alien badge** is the show's white Omnitrix symbol (`textures/entity/omnitrix/badge.png`,
+  `scratchpad/gen_omnitrix_badge.js`: a white ring, a black field, a white hourglass); the red beep / timeout flash still shows
+  the red watch face. Shots `docs/screenshots/v0171/omnitrix_badge_*.png`.
 * Harness: `scratchpad/OmnitrixPolishHarness.v0171.java.txt`; shots `docs/screenshots/v0171/omnitrix_polish_*.png`.

@@ -1,0 +1,401 @@
+// Copy to src/client/java/com/projecthero/mod/client/OmnitrixPressHarness.java, call OmnitrixPressHarness.init() first thing in
+// ProjectHeroModClient.onInitializeClient, re-add the TEMP debug hooks (OmnitrixHands.debugT / debugSlap: "if (!Float.isNaN(debugT)) t = debugT;"
+// in rig(), "if (slapping(s) && !Float.isNaN(debugSlap)) return debugSlap;" in slapClock), write "fp", "tp" and / or "badge" into
+// run/omnitrix_press.flag (empty = all), set soundCategory_master:0.05 in run/options.txt, then
+// ./gradlew runClient --args="--width 1280 --height 720"  (shots land in run/screenshots/omnitrix_press_*.png)
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.client.omnitrix.OmnitrixHands;
+import com.projecthero.mod.client.omnitrix.OmnitrixTransformFx;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.resources.DefaultPlayerSkin;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.1 Omnitrix two-hand press + white badge screenshots. Enabled by run/omnitrix_press.flag. */
+// TEMP-HARNESS
+public final class OmnitrixPressHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static final Map<String, ServerPlayer> FAKES = new HashMap<>();
+	private static String only = System.getProperty("polish.only", "");
+
+	private OmnitrixPressHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("omnitrix_press.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("omnitrix_press.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(OmnitrixPressHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(540_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "omnitrix-press-harness-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean part(String name) {
+		return only.isEmpty() || only.contains(name);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "omnitrix_press_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void freeze(int t, float at) {
+		at(t, () -> OmnitrixTransformFx.freezeAt = at);
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		// the user: every test client at 5% sound
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(OmnitrixPressHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.PEACEFUL, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				for (ServerPlayer f : FAKES.values()) {
+					f.tickCount++;
+					Omnitrix.tick(f);
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+		for (var e : mc.level.players()) {
+			if (e != mc.player) {
+				e.yBodyRot = e.yBodyRotO = e.yHeadRot = e.yHeadRotO = 180f;
+				e.setYRot(180f);
+				e.yRotO = 180f;
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("OMP_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.getAbilities().mayfly = true;
+		p.getAbilities().flying = true;
+		p.onUpdateAbilities();
+		p.setDeltaMovement(Vec3.ZERO);
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - 1.62, eye.z, yaw, pit);
+	}
+
+	private static UUID uuidFor(PlayerSkin.Model model) {
+		while (true) {
+			UUID id = UUID.randomUUID();
+			if (DefaultPlayerSkin.get(id).model() == model) {
+				return id;
+			}
+		}
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw, PlayerSkin.Model model) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(uuidFor(model), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		FAKES.put(name, f);
+		return f;
+	}
+
+	private static void gui(Minecraft mc, boolean on) {
+		mc.execute(() -> mc.options.hideGui = !on);
+	}
+
+	private static void pick(ServerPlayer p, String id) {
+		var n = Omnitrix.state(p).copy();
+		n.selected = id;
+		n.rechargeUntil = 0;
+		Omnitrix.save(p, n);
+	}
+
+	private static void dt(int t, float v) {
+		at(t, () -> OmnitrixHands.debugT = v);
+	}
+
+	private static void ds(int t, float v) {
+		at(t, () -> OmnitrixHands.debugSlap = v);
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		Vec3 ben = origin.add(-20, 3, 0), gwen = origin.add(-20, 3, 5);
+		String sfx = System.getProperty("press.suffix", "");
+		at(t, () -> server(mc, p -> {
+			for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.Mob.class, p.getBoundingBox().inflate(80))) {
+				e.discard();
+			}
+			UniquePowers.forced(() -> Omnitrix.grant(fake(p, "Ben", ben, 180f, PlayerSkin.Model.WIDE)));
+			UniquePowers.forced(() -> Omnitrix.grant(fake(p, "Gwen", gwen, 180f, PlayerSkin.Model.SLIM)));
+			p.teleportTo(p.serverLevel(), origin.x - 12, origin.y, origin.z - 12, 200f, 12f);
+			UniquePowers.forced(() -> Omnitrix.grant(p));
+		}));
+		t += 60;
+		if (part("fp")) {
+			at(t, () -> gui(mc, true));
+			at(t, () -> server(mc, p -> p.connection.send(new net.minecraft.network.protocol.game.ClientboundClearTitlesPacket(true))));
+			// the activation, frozen at its beats
+			float[] up = { 1.5f, 3f, 4.5f, 5.5f, 6.4f, 7f, 7.8f, 8.6f, 9.6f, 10.6f, 11.5f, 13f, 20f };
+			dt(t, 0f);
+			at(t + 1, () -> server(mc, Omnitrix::activate));
+			t += 4;
+			for (int i = 0; i < up.length; i++) {
+				dt(t, up[i]);
+				shot(t + 3, "fp_up_" + (i < 10 ? "0" : "") + i + "_t" + String.valueOf(up[i]).replace('.', '_') + sfx);
+				t += 4;
+			}
+			dt(t, Float.NaN);
+			t += 4;
+			// the scroll: a twist each way
+			at(t, () -> server(mc, p -> Omnitrix.cycle(p, 1)));
+			for (int k = 1; k <= 7; k++) {
+				shot(t + k, "fp_scroll_next_" + k + sfx);
+			}
+			t += 16;
+			at(t, () -> server(mc, p -> Omnitrix.cycle(p, -1)));
+			for (int k = 1; k <= 7; k++) {
+				shot(t + k, "fp_scroll_prev_" + k + sfx);
+			}
+			t += 16;
+			// the deactivation, frozen at its beats
+			float[] dn = { 1f, 2.5f, 3.5f, 4.5f, 5.5f, 7f, 8.5f, 10f, 11.5f };
+			dt(t, 20f);
+			at(t + 1, () -> server(mc, Omnitrix::deactivate));
+			t += 4;
+			for (int i = 0; i < dn.length; i++) {
+				dt(t, dn[i]);
+				shot(t + 3, "fp_down_" + i + "_t" + String.valueOf(dn[i]).replace('.', '_') + sfx);
+				t += 4;
+			}
+			dt(t, Float.NaN);
+			t += 10;
+			// an interrupt: R, then R again mid-raise, live (a strip of shots)
+			at(t, () -> server(mc, Omnitrix::activate));
+			at(t + 6, () -> server(mc, Omnitrix::deactivate));
+			for (int k = 2; k <= 16; k += 2) {
+				shot(t + k, "fp_interrupt_" + (k < 10 ? "0" : "") + k + sfx);
+			}
+			t += 24;
+			// the slap, frozen
+			at(t, () -> server(mc, Omnitrix::activate));
+			t += 25;
+			float[] sl = { 0.6f, 1.2f, 1.7f, 2.2f };
+			at(t, () -> server(mc, Omnitrix::slap));
+			// the server transforms SLAP_TICKS after the click: one frozen frame per tick before then
+			for (int i = 0; i < sl.length; i++) {
+				shot(t + 2 + i, "fp_slap_" + i + "_k" + String.valueOf(sl[i]).replace('.', '_') + sfx);
+				ds(t + 1 + i, sl[i]);
+			}
+			ds(t + 10, Float.NaN);
+			t += 50;
+			at(t, () -> server(mc, p -> Omnitrix.revert(p, Omnitrix.Reason.REVOKE)));
+			at(t + 2, () -> server(mc, p -> {
+				var n = Omnitrix.state(p).copy();
+				n.rechargeUntil = 0;
+				Omnitrix.save(p, n);
+			}));
+			t += 20;
+		}
+		if (part("tp")) {
+			at(t, () -> gui(mc, false));
+			// another player watching Ben press the button (up and down)
+			at(t, () -> server(mc, p -> camera(p, ben.add(1.0, 1.7, -1.3), ben.add(0.0, 1.2, -0.3))));
+			float[] up = { 4f, 6f, 7f, 9f, 14f };
+			dt(t + 4, 0f);
+			at(t + 5, () -> server(mc, p -> Omnitrix.activate(FAKES.get("Ben"))));
+			t += 8;
+			for (int i = 0; i < up.length; i++) {
+				dt(t, up[i]);
+				shot(t + 3, "tp_up_" + i + "_t" + String.valueOf(up[i]).replace('.', '_') + sfx);
+				t += 4;
+			}
+			at(t, () -> server(mc, p -> camera(p, ben.add(0.2, 1.65, -1.6), ben.add(0.0, 1.15, -0.2))));
+			dt(t, 6f);
+			shot(t + 4, "tp_up_button_three_quarter" + sfx);
+			t += 6;
+			dt(t, 20f);
+			at(t + 1, () -> server(mc, p -> camera(p, ben.add(-0.9, 1.75, -1.5), ben.add(-0.1, 1.25, -0.35))));
+			t += 4;
+			dt(t, 20f);
+			at(t + 1, () -> server(mc, p -> Omnitrix.deactivate(FAKES.get("Ben"))));
+			t += 4;
+			float[] dn = { 2.5f, 3.5f, 6f, 9f };
+			for (int i = 0; i < dn.length; i++) {
+				dt(t, dn[i]);
+				shot(t + 3, "tp_down_" + i + "_t" + String.valueOf(dn[i]).replace('.', '_') + sfx);
+				t += 4;
+			}
+			dt(t, Float.NaN);
+			t += 6;
+		}
+		if (part("badge")) {
+			at(t, () -> server(mc, p -> {
+				for (String id : new String[] { "heatblast" }) {
+					pick(FAKES.get("Ben"), id);
+				}
+				Omnitrix.transform(FAKES.get("Ben"));
+				pick(FAKES.get("Gwen"), "four_arms");
+				Omnitrix.transform(FAKES.get("Gwen"));
+				camera(p, ben.add(0, 1.6, -2.2), ben.add(0, 1.25, 0));
+			}));
+			shot(t + 30, "badge_heatblast_front" + sfx);
+			at(t + 32, () -> server(mc, p -> camera(p, gwen.add(0, 2.0, -3.0), gwen.add(0, 1.6, 0))));
+			shot(t + 38, "badge_four_arms_front" + sfx);
+			// more aliens on Ben
+			String[] ids = { "xlr8", "diamondhead", "grey_matter", "stinkfly", "ripjaws", "upgrade", "ghostfreak" };
+			t += 40;
+			for (String id : ids) {
+				at(t, () -> server(mc, p -> {
+					Omnitrix.revert(FAKES.get("Ben"), Omnitrix.Reason.REVOKE);
+					pick(FAKES.get("Ben"), id);
+					Omnitrix.transform(FAKES.get("Ben"));
+					camera(p, ben.add(0, 1.5, -2.4), ben.add(0, 1.1, 0));
+				}));
+				shot(t + 25, "badge_" + id + "_front" + sfx);
+				t += 28;
+			}
+			// the red beep: Gwen powering down
+			at(t, () -> server(mc, p -> {
+				camera(p, gwen.add(0, 2.0, -3.0), gwen.add(0, 1.6, 0));
+				Omnitrix.revertEarly(FAKES.get("Gwen"));
+			}));
+			for (int k = 0; k <= 12; k++) {
+				shot(t + 1 + k, "badge_beep_" + (k < 10 ? "0" : "") + k + sfx);
+			}
+			t += 20;
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}
