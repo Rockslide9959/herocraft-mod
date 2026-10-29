@@ -73,10 +73,19 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	public static final int CD_PUNCH = 0, CD_ROCKET = 1, CD_SLAM = 2, CD_DASH = 3, CD_MISSILES = 4;
 	/** v0.17.1 mech construct combos: the Giga Drill, the katana toggle and the katana's three moves. */
 	public static final int CD_DRILL = 5, CD_KATANA = 6, CD_SLASH = 7, CD_IAIDO = 8, CD_SPIN = 9;
+	/** v0.17.1 round 2 mech combos: the Meteor Mace, the Wrecking Whirl and the Lantern Cannon. */
+	public static final int CD_MACE = 10, CD_WHIRL = 11, CD_CANNON = 12;
 	public static final int[] CD_LENGTHS = { GreenLanternMechConfig.PUNCH_COOLDOWN_TICKS, GreenLanternMechConfig.ROCKET_COOLDOWN_TICKS,
 			GreenLanternMechConfig.SLAM_COOLDOWN_TICKS, GreenLanternMechConfig.DASH_COOLDOWN_TICKS, GreenLanternMechConfig.MISSILE_COOLDOWN_TICKS,
 			GreenLanternMechConfig.DRILL_COOLDOWN_TICKS, GreenLanternMechConfig.KATANA_TOGGLE_COOLDOWN_TICKS,
-			GreenLanternMechConfig.SLASH_COOLDOWN_TICKS[2], GreenLanternMechConfig.IAIDO_COOLDOWN_TICKS, GreenLanternMechConfig.SPIN_COOLDOWN_TICKS };
+			GreenLanternMechConfig.SLASH_COOLDOWN_TICKS[2], GreenLanternMechConfig.IAIDO_COOLDOWN_TICKS, GreenLanternMechConfig.SPIN_COOLDOWN_TICKS,
+			GreenLanternMechConfig.MACE_COOLDOWN_TICKS, GreenLanternMechConfig.WHIRL_COOLDOWN_TICKS, GreenLanternMechConfig.CANNON_COOLDOWN_TICKS };
+
+	/**
+	 * v0.17.1 round 2: the one-shot combo move playing right now ({@link #move()}), synced: none, the Meteor Mace smash,
+	 * the Wrecking Whirl or the Lantern Cannon shot.
+	 */
+	public static final int MOVE_NONE = 0, MOVE_MACE = 1, MOVE_WHIRL = 2, MOVE_CANNON = 3;
 
 	/** v0.17.1 Giga Drill (Mining Drill combo) states, synced. */
 	public static final int DRILL_NONE = 0, DRILL_SPIN = 1, DRILL_CHARGE = 2, DRILL_RECOVER = 3;
@@ -135,6 +144,17 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
 	private static final EntityDataAccessor<Float> WAVE_LEN =
 			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.FLOAT);
+	// v0.17.1 round 2: the one-shot combo moves (which, since when, the aim, where the cannon shot landed / when)
+	private static final EntityDataAccessor<Integer> MOVE =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.INT);
+	private static final EntityDataAccessor<Long> MOVE_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
+	private static final EntityDataAccessor<Vector3f> MOVE_DIR =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Vector3f> SHOT_END =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.VECTOR3);
+	private static final EntityDataAccessor<Long> SHOT_AT =
+			SynchedEntityData.defineId(HardLightMechEntity.class, EntityDataSerializers.LONG);
 
 	public static final String ANIM = "animation.green_lantern_mech.";
 	private static final RawAnimation IDLE = RawAnimation.begin().thenLoop(ANIM + "idle");
@@ -146,7 +166,9 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 	public static final String[] ACTIONS = { "punch_r", "punch_l", "rocket_fist", "ground_slam", "dash", "missiles", "jump",
 			// v0.17.1 construct combos
 			"drill_break", "katana_draw", "katana_sheath", "katana_slash_1", "katana_slash_2", "katana_slash_3", "katana_iaido",
-			"katana_spin" };
+			"katana_spin",
+			// v0.17.1 round 2
+			"mace_smash", "wrecking_whirl", "lantern_cannon" };
 	private static final RawAnimation DRILL_SPIN_LOOP = RawAnimation.begin().thenLoop(ANIM + "drill_spin");
 	private static final RawAnimation DRILL_CHARGE_LOOP = RawAnimation.begin().thenLoop(ANIM + "drill_charge");
 	private static final RawAnimation KATANA_IDLE = RawAnimation.begin().thenLoop(ANIM + "katana_idle");
@@ -258,6 +280,11 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		builder.define(WAVE_FROM, new Vector3f());
 		builder.define(WAVE_DIR, new Vector3f(0, 0, 1));
 		builder.define(WAVE_LEN, 0f);
+		builder.define(MOVE, MOVE_NONE);
+		builder.define(MOVE_AT, 0L);
+		builder.define(MOVE_DIR, new Vector3f(0, 0, 1));
+		builder.define(SHOT_END, new Vector3f());
+		builder.define(SHOT_AT, -1000L);
 	}
 
 	// ---------------------------------------------------------------- state
@@ -482,6 +509,47 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		this.entityData.set(WAVE_LEN, len);
 	}
 
+	// ---- v0.17.1 round 2: the one-shot combo moves
+
+	public int move() {
+		return this.entityData.get(MOVE);
+	}
+
+	public void setMove(int move) {
+		this.entityData.set(MOVE, move);
+		this.entityData.set(MOVE_AT, level().getGameTime());
+	}
+
+	public long moveTicks() {
+		return level().getGameTime() - this.entityData.get(MOVE_AT);
+	}
+
+	public Vec3 moveDir() {
+		return vec(this.entityData.get(MOVE_DIR));
+	}
+
+	public void setMoveDir(Vec3 d) {
+		this.entityData.set(MOVE_DIR, vec(d));
+	}
+
+	public Vec3 shotEnd() {
+		return vec(this.entityData.get(SHOT_END));
+	}
+
+	public long shotAt() {
+		return this.entityData.get(SHOT_AT);
+	}
+
+	public void markShot(Vec3 end) {
+		this.entityData.set(SHOT_END, vec(end));
+		this.entityData.set(SHOT_AT, level().getGameTime());
+	}
+
+	/** v0.17.1: when C went down in the mech (a short tap fires the pods on release; a hold opens the Construct Menu). */
+	public long cPressAt = -1L;
+	/** v0.17.1 round 2: the current combo move has hit something (Willpower XP once per move). */
+	public boolean moveHitAny;
+
 	public void play(String anim) {
 		triggerAnim("action", anim);
 	}
@@ -560,6 +628,9 @@ public class HardLightMechEntity extends Mob implements GeoEntity {
 		}
 		if (drillState() == DRILL_SPIN) {
 			speed *= GreenLanternMechConfig.DRILL_SPIN_SPEED;
+		}
+		if (move() != MOVE_NONE) {
+			speed *= move() == MOVE_WHIRL ? GreenLanternMechConfig.WHIRL_SPEED : GreenLanternMechConfig.MOVE_SPEED; // v0.17.1 round 2
 		}
 		return speed;
 	}

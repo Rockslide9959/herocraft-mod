@@ -30,7 +30,13 @@ public final class MechComboKeys {
 		/** Mining Drill -> the Giga Drill (hold to spin up, let go to charge; a full spin ends in GIGA DRILL BREAK). */
 		GIGA_DRILL(ConstructType.MINING_DRILL, 'G'),
 		/** Energy Blade -> the Hard-Light Katana (tap to draw / sheathe; R, Shift+R and G become sword moves). */
-		KATANA(ConstructType.ENERGY_BLADE, 'X');
+		KATANA(ConstructType.ENERGY_BLADE, 'X'),
+		/** v0.17.1 round 2: Emerald Mace -> the Meteor Mace (a two-handed overhead smash with a shockwave). */
+		METEOR_MACE(ConstructType.EMERALD_MACE, 'Z'),
+		/** v0.17.1 round 2: Wrecking Ball -> the Wrecking Whirl (a spiked ball on a chain swung round the mech twice). */
+		WRECKING_WHIRL(ConstructType.WRECKING_BALL, 'V'),
+		/** v0.17.1 round 2: Emerald Cannon -> the Lantern Cannon (the left arm becomes a cannon: charge, one huge shell). */
+		LANTERN_CANNON(ConstructType.EMERALD_CANNON, 'C');
 
 		public final ConstructType construct;
 		public final char fallback;
@@ -87,6 +93,19 @@ public final class MechComboKeys {
 	/** Whether {@code combo}'s key came from the Lantern's own binding (false: the fallback). */
 	public static boolean fromBinding(GreenLanternState s, Combo combo) {
 		return bound(s, combo.construct) == keyOf(s, combo);
+	}
+
+	/**
+	 * v0.17.1 (user: "using the energy blade summons the katana and using the drill activates giga drill"): the mech combo a
+	 * construct becomes when it is used from the Construct Menu inside the mech, or null (it is summoned as itself).
+	 */
+	public static Combo comboFor(ConstructType type) {
+		for (Combo c : Combo.values()) {
+			if (c.construct == type) {
+				return c;
+			}
+		}
+		return null;
 	}
 
 	/** The combo on Shift + {@code base}, or null. */

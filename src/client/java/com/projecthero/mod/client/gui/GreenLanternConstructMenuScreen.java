@@ -950,8 +950,37 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		}
 	}
 
+	/**
+	 * v0.17.1 (user: "Make it so you cant rebind keys while transformed but only summon other constructs by holding left
+	 * click"): opened from inside the Hard-Light Mech (hold C there), the menu is in mech mode -- the keycaps are locked
+	 * (binding, clearing and resetting are refused, here and on the server) and holding left click on a construct
+	 * summons it; a construct with a mech combo (Energy Blade, Mining Drill, Emerald Mace, Wrecking Ball, Emerald Cannon)
+	 * becomes that combo.
+	 */
+	private static boolean inMech() {
+		return com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(Minecraft.getInstance().player);
+	}
+
+	private void lockedFlash() {
+		flash(Component.translatable("screen.projecthero.gl_menu.mech_locked"), GOLD);
+		sound(SoundEvents.NOTE_BLOCK_BASS.value(), 0.7f, 0.6f);
+	}
+
 	private void renderFooter(GuiGraphics g, int mouseX, int mouseY) {
 		glowLine(g, panelX + 4, panelX + panelW - 4, footerY - 4, 0x35F075, 0x70);
+		if (inMech()) {
+			// the keycaps are dimmed under a lock, and the hint is the mech banner
+			int top = keysY - 3, bottom = keysY + keySize + 3;
+			g.fill(panelX + 4, top, panelX + panelW - 4, bottom, 0xA0000804);
+			Component lock = Component.translatable("screen.projecthero.gl_menu.mech_locked").withStyle(ChatFormatting.BOLD);
+			g.drawCenteredString(this.font, lock, panelX + panelW / 2, (top + bottom) / 2 - 4, GOLD);
+			int y = footerY;
+			for (FormattedCharSequence l : this.font.split(Component.translatable("screen.projecthero.gl_menu.mech_banner"), panelW - 2 * PAD)) {
+				g.drawString(this.font, l, panelX + PAD, y, GOLD, false);
+				y += 9;
+			}
+			return;
+		}
 		int y = footerY + (hintLines.size() == 1 ? 3 : 0);
 		for (FormattedCharSequence l : hintLines) {
 			g.drawString(this.font, l, panelX + PAD, y, DIM, false);
@@ -1160,6 +1189,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 		if (e == null || key == null) {
 			return;
 		}
+		if (inMech()) {
+			lockedFlash();
+			return;
+		}
 		if (!GreenLanternBinding.allowed(key, e)) {
 			flash(Component.translatable(GreenLanternBinding.refusalKey(key, e)), RED);
 			sound(SoundEvents.NOTE_BLOCK_BASS.value(), 0.7f, 0.6f);
@@ -1176,10 +1209,22 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 	private void spawn(Entry e) {
 		send(GreenLanternMenuPayload.SPAWN, "", e.id());
 		sound(SoundEvents.BEACON_POWER_SELECT, 1.6f, 0.6f);
+		com.projecthero.mod.greenlantern.mech.MechComboKeys.Combo combo = inMech() && e.type() != null
+				? com.projecthero.mod.greenlantern.mech.MechComboKeys.comboFor(e.type()) : null;
+		if (combo != null) {
+			// v0.17.1: inside the mech the construct becomes its mech combo
+			flash(Component.translatable("screen.projecthero.gl_menu.mech_combo",
+					Component.translatable("hud.projecthero.green_lantern.mech.move." + combo.id() + (combo.ordinal() < 2 ? ".menu" : ""))), GOLD);
+			return;
+		}
 		flash(Component.translatable("screen.projecthero.gl_menu.spawned", Component.translatable(e.nameKey())), PALE);
 	}
 
 	private void clearKeys(Entry e) {
+		if (inMech()) {
+			lockedFlash();
+			return;
+		}
 		send(GreenLanternMenuPayload.CLEAR, "", e.id());
 		flash(Component.translatable("screen.projecthero.gl_menu.cleared", Component.translatable(e.nameKey())), PALE);
 		sound(SoundEvents.UI_BUTTON_CLICK.value(), 0.9f, 0.4f);
@@ -1282,6 +1327,10 @@ public final class GreenLanternConstructMenuScreen extends Screen {
 			Tab t = tabAt(mouseX, mouseY);
 			if (t != null) {
 				setTab(t);
+				return true;
+			}
+			if (overReset(mouseX, mouseY) && inMech()) {
+				lockedFlash();
 				return true;
 			}
 			if (overReset(mouseX, mouseY)) {

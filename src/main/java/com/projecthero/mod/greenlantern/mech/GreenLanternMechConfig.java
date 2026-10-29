@@ -16,6 +16,11 @@ public final class GreenLanternMechConfig {
 	public static final float UPKEEP_PER_SEC = 15f;
 	/** The mech assembling round the pilot (no moves, no walking). */
 	public static final int ASSEMBLE_TICKS = 40;
+	/**
+	 * v0.17.1: the first part of the assembly in which it builds itself piece by piece, pixel by pixel (feet to head, the
+	 * renderer's texel build); the rest is it straightening up. It can be piloted only once the assembly is over.
+	 */
+	public static final int BUILD_TICKS = 34;
 	/** N: it dissolves over this long, then sets the pilot down. */
 	public static final int DISSOLVE_TICKS = 20;
 	/** Cooldown after leaving it (N, or the ring running dry) before it can be formed again. */
@@ -184,4 +189,55 @@ public final class GreenLanternMechConfig {
 	public static final int SPIN_COOLDOWN_TICKS = 120;
 	public static final int SPIN_IMPACT_TICKS = 7;
 	public static final double SPIN_RADIUS = 7.5;
+
+	// ---- v0.17.1 round 2 (user: "Give the mech other mech construct combinations too, at least 3 more"): one-shot moves
+
+	/** Walking pace while a combo move plays (x), and while the Wrecking Whirl spins. */
+	public static final float MOVE_SPEED = 0.25f;
+	public static final float WHIRL_SPEED = 0.55f;
+
+	/**
+	 * Emerald Mace -> METEOR MACE: a spiked mace of light forms in the right fist, is raised overhead in both hands and
+	 * brought down in front: a crater-flash shockwave, a heavy hit and everything launched up and back.
+	 */
+	public static final int MACE_TICKS = 30;
+	/** The tick the head lands (matches the {@code mace_smash} clip, 0.72 s, plus the clip's lag on the client). */
+	public static final int MACE_IMPACT_TICKS = 15;
+	public static final float MACE_COST = 140f;
+	public static final float MACE_DAMAGE = 48f;
+	public static final double MACE_RADIUS = 6.0;
+	/** How far ahead of the mech the head lands. */
+	public static final double MACE_REACH = 5.2;
+	public static final int MACE_COOLDOWN_TICKS = 220;
+
+	/**
+	 * Wrecking Ball -> WRECKING WHIRL: a giant spiked ball of light on a chain, swung round the mech twice -- every few
+	 * ticks it hits everything in the ring and hurls it outward.
+	 */
+	public static final int WHIRL_TICKS = 40;
+	/** The ball swings out at this tick and hits every {@link #WHIRL_HIT_EVERY} ticks until {@link #WHIRL_END_TICKS}. */
+	public static final int WHIRL_START_TICKS = 8;
+	public static final int WHIRL_END_TICKS = 34;
+	public static final int WHIRL_HIT_EVERY = 4;
+	public static final float WHIRL_COST = 150f;
+	public static final float WHIRL_DAMAGE = 14f;
+	public static final double WHIRL_RADIUS = 8.5;
+	public static final int WHIRL_COOLDOWN_TICKS = 240;
+
+	/**
+	 * Emerald Cannon -> LANTERN CANNON: the left forearm becomes a huge hard-light cannon, charges for about a second (the
+	 * aim follows the camera) and fires one massive shell along the aim -- a blast where it lands. Never breaks blocks.
+	 */
+	public static final int CANNON_TICKS = 32;
+	public static final int CANNON_FIRE_TICKS = 18;
+	public static final float CANNON_COST = 160f;
+	public static final float CANNON_DAMAGE = 60f;
+	public static final double CANNON_RANGE = 64.0;
+	public static final double CANNON_BLAST_RADIUS = 4.5;
+	public static final int CANNON_COOLDOWN_TICKS = 260;
+	/** Ticks the shell's tracer and blast are drawn for. */
+	public static final int CANNON_SHOT_TICKS = 12;
+
+	/** From the Construct Menu: the Giga Drill spins up to full before it lets go by itself (a GIGA DRILL BREAK). */
+	public static final int MENU_DRILL_SPIN_TICKS = DRILL_SPIN_TICKS + 2;
 }

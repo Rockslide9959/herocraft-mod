@@ -441,8 +441,8 @@ public final class GreenLanternConfig {
 	public static final float VEHICLE_JET_BOOST_COST = 20f;
 	public static final int VEHICLE_JET_BOOST_TICKS = 40;
 	public static final int VEHICLE_JET_BOOST_COOLDOWN_TICKS = 80;
-	/** Car and Jet shape themselves out of the ring over this long (the build-in sweep). */
-	public static final int VEHICLE_BUILD_TICKS = 20;
+	/** Car and Jet shape themselves out of the ring over this long (v0.17.1: 1.5 s, built piece by piece and pixel by pixel; not drivable until done). */
+	public static final int VEHICLE_BUILD_TICKS = 30;
 	/** Shift held this long (with no Shift+R in between) gets you out of a car or jet -- Shift alone is Shift+R's modifier. */
 	public static final int VEHICLE_DISMOUNT_HOLD_TICKS = 10;
 

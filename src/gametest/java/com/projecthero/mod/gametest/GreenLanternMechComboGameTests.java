@@ -5,6 +5,7 @@ import com.projecthero.mod.greenlantern.GreenLanternAbilityManager;
 import com.projecthero.mod.greenlantern.GreenLanternConfig;
 import com.projecthero.mod.greenlantern.bind.GreenLanternBinding;
 import com.projecthero.mod.greenlantern.construct.ConstructType;
+import com.projecthero.mod.greenlantern.construct.GreenLanternConstructs;
 import com.projecthero.mod.greenlantern.data.GreenLanternState;
 import com.projecthero.mod.greenlantern.mech.GreenLanternMech;
 import com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos;
@@ -128,8 +129,141 @@ public class GreenLanternMechComboGameTests implements FabricGameTest {
 		k = MechComboKeys.keys(GreenLantern.state(p));
 		helper.assertTrue(k[0] == 'X' && k[1] == 'G', "drill X, katana G, got " + new String(k));
 		helper.assertTrue(MechComboKeys.comboOn(GreenLantern.state(p), 'X') == Combo.GIGA_DRILL, "Shift+X is the drill");
-		helper.assertTrue(MechComboKeys.comboOn(GreenLantern.state(p), 'Z') == null, "Shift+Z is free");
+		// v0.17.1 round 2: Shift+Z is no longer free -- it is the Meteor Mace's own fallback
+		helper.assertTrue(MechComboKeys.comboOn(GreenLantern.state(p), 'Z') == Combo.METEOR_MACE, "Shift+Z is the Meteor Mace");
+		// five combos, five Shift keys: every one has a key and no two share
+		char[] all = MechComboKeys.keys(GreenLantern.state(p));
+		helper.assertTrue(new String(all).chars().distinct().count() == all.length && new String(all).indexOf(0) < 0,
+				"all five combos on distinct keys, got " + new String(all));
 		helper.succeed();
+	}
+
+	// ================================================================ v0.17.1 round 2: the Construct Menu inside the mech
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void inTheMechTheMenuTurnsConstructsIntoCombos(GameTestHelper helper) {
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.ENERGY_BLADE) == Combo.KATANA, "Energy Blade -> katana");
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.MINING_DRILL) == Combo.GIGA_DRILL, "Mining Drill -> Giga Drill");
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.EMERALD_MACE) == Combo.METEOR_MACE, "Emerald Mace -> Meteor Mace");
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.WRECKING_BALL) == Combo.WRECKING_WHIRL, "Wrecking Ball -> Wrecking Whirl");
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.EMERALD_CANNON) == Combo.LANTERN_CANNON, "Emerald Cannon -> Lantern Cannon");
+		helper.assertTrue(MechComboKeys.comboFor(ConstructType.HARD_LIGHT_WALL) == null, "a wall is just a wall");
+		ServerPlayer p = lantern(helper);
+		helper.assertFalse(GreenLanternMechCombos.fromMenu(p, ConstructType.ENERGY_BLADE), "outside the mech the blade is the blade");
+		HardLightMechEntity m = pilotReady(helper, p);
+		// hold left click on the Energy Blade in the menu: the mech draws the katana
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.spawnOnce(p, "c_energy_blade");
+		helper.assertTrue(m.katanaState() == HardLightMechEntity.KATANA_DRAWING, "the Energy Blade draws the katana");
+		helper.assertTrue(GreenLanternConstructs.of(p.getUUID()).stream().noneMatch(c -> c.type == ConstructType.ENERGY_BLADE),
+				"and no hand blade is formed");
+		// the Mining Drill: the Giga Drill spins up by itself (no key is held)
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.spawnOnce(p, "c_mining_drill");
+		helper.assertTrue(m.drillState() == HardLightMechEntity.DRILL_SPIN && m.drillSlot == null, "the Mining Drill spins the Giga Drill up");
+		helper.assertTrue(!m.katanaOut() || m.katanaState() == HardLightMechEntity.KATANA_NONE, "the drill arm put the katana away");
+		GreenLanternMechCombos.stopAll(m);
+		// the Emerald Mace: the Meteor Mace
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.spawnOnce(p, "c_emerald_mace");
+		helper.assertTrue(m.move() == HardLightMechEntity.MOVE_MACE, "the Emerald Mace swings the Meteor Mace");
+		GreenLanternMech.exit(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void keysCannotBeReboundInsideTheMech(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		// outside: binding works
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.bind(p, "G", "c_hard_light_wall");
+		helper.assertTrue("c_hard_light_wall".equals(GreenLanternBinding.resolve(GreenLantern.state(p), "G").id()), "bound outside the mech");
+		pilotReady(helper, p);
+		// inside: bind, clear and reset are all refused -- the layout stays exactly as it was
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.bind(p, "G", "c_platform");
+		helper.assertTrue("c_hard_light_wall".equals(GreenLanternBinding.resolve(GreenLantern.state(p), "G").id()), "no rebinding in the mech");
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.clearEntry(p, "c_hard_light_wall");
+		helper.assertTrue(GreenLanternBinding.resolve(GreenLantern.state(p), "G") != null, "no clearing in the mech");
+		com.projecthero.mod.greenlantern.bind.GreenLanternBindings.reset(p);
+		helper.assertTrue("c_hard_light_wall".equals(GreenLanternBinding.resolve(GreenLantern.state(p), "G").id()), "no reset in the mech");
+		helper.assertTrue(com.projecthero.mod.greenlantern.bind.GreenLanternBindings.rebindLocked(p), "locked while piloting");
+		GreenLanternMech.exit(p);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void holdingCInTheMechFiresNoMissiles(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		HardLightMechEntity m = pilotReady(helper, p);
+		press(p, AbilitySlot.SLOT_6, false); // C down (the client opens the menu once it is held)
+		helper.assertTrue(m.ready(HardLightMechEntity.CD_MISSILES), "nothing fires on the press");
+		helper.runAfterDelay(GreenLanternConfig.CONSTRUCT_WHEEL_HOLD_TICKS + 2, () -> {
+			release(p, AbilitySlot.SLOT_6);
+			helper.assertTrue(m.ready(HardLightMechEntity.CD_MISSILES), "a held C opened the menu: no missiles");
+			press(p, AbilitySlot.SLOT_6, false);
+			release(p, AbilitySlot.SLOT_6);
+			helper.assertTrue(!m.ready(HardLightMechEntity.CD_MISSILES), "a tap fires the pods");
+			helper.succeed();
+		});
+	}
+
+	// ================================================================ v0.17.1 round 2: Meteor Mace / Wrecking Whirl / Lantern Cannon
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void meteorMaceSmashesTheGroundAhead(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		HardLightMechEntity m = pilotReady(helper, p);
+		Husk h = husk(helper, 3.5, 7.0);
+		float before = charge(p);
+		press(p, AbilitySlot.SLOT_4, true); // Shift+Z: the Meteor Mace's fallback key
+		helper.assertTrue(m.move() == HardLightMechEntity.MOVE_MACE, "Shift+Z raises the mace");
+		helper.assertTrue(before - charge(p) >= GreenLanternMechConfig.MACE_COST - 0.5f, "140 charge");
+		press(p, AbilitySlot.SLOT_1, false); // R while it swings: waits
+		helper.assertTrue(m.ready(HardLightMechEntity.CD_PUNCH), "the mech is busy swinging");
+		helper.runAfterDelay(GreenLanternMechConfig.MACE_IMPACT_TICKS + 2, () -> {
+			helper.assertTrue(h.getHealth() < 400f, "the head came down on the husk (" + h.getHealth() + ")");
+			helper.assertTrue(h.getDeltaMovement().y > 0.2 || h.getY() > helper.absoluteVec(new Vec3(0, 2.0, 0)).y + 0.05, "and threw it up");
+		});
+		helper.runAfterDelay(GreenLanternMechConfig.MACE_TICKS + 2, () -> {
+			helper.assertTrue(m.move() == HardLightMechEntity.MOVE_NONE && !m.ready(HardLightMechEntity.CD_MACE), "done, cooling down");
+			GreenLanternMech.exit(p);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void wreckingWhirlHitsAllRoundTheMech(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		HardLightMechEntity m = pilotReady(helper, p);
+		Husk east = husk(helper, 7.5, 2.0);
+		Husk west = husk(helper, 0.5, 2.0);
+		press(p, AbilitySlot.SLOT_5, true); // Shift+V: the Wrecking Whirl's fallback key
+		helper.assertTrue(m.move() == HardLightMechEntity.MOVE_WHIRL, "Shift+V swings the ball");
+		helper.assertFalse(m.hasFlag(HardLightMechEntity.FLAG_SHIELD), "and does not raise the shield");
+		helper.runAfterDelay(GreenLanternMechConfig.WHIRL_START_TICKS + 3, () -> {
+			helper.assertTrue(east.getHealth() < 400f && west.getHealth() < 400f, "both sides hit (" + east.getHealth() + ", " + west.getHealth() + ")");
+		});
+		helper.runAfterDelay(GreenLanternMechConfig.WHIRL_TICKS + 2, () -> {
+			helper.assertTrue(m.move() == HardLightMechEntity.MOVE_NONE && !m.ready(HardLightMechEntity.CD_WHIRL), "done, cooling down");
+			GreenLanternMech.exit(p);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
+	public void lanternCannonFiresAlongTheAim(GameTestHelper helper) {
+		ServerPlayer p = lantern(helper);
+		HardLightMechEntity m = pilotReady(helper, p);
+		Husk h = husk(helper, 4.0, 7.5);
+		p.setYRot(0f);
+		p.setXRot(0f);
+		press(p, AbilitySlot.SLOT_6, true); // Shift+C: the Lantern Cannon's fallback key
+		helper.assertTrue(m.move() == HardLightMechEntity.MOVE_CANNON, "Shift+C forms the cannon");
+		helper.assertTrue(m.ready(HardLightMechEntity.CD_MISSILES), "not the missile pods");
+		helper.runAfterDelay(GreenLanternMechConfig.CANNON_FIRE_TICKS + 2, () -> {
+			helper.assertTrue(m.shotAt() > 0L, "it fired");
+			Vec3 d = m.shotEnd().subtract(p.getEyePosition()).normalize();
+			helper.assertTrue(d.dot(p.getLookAngle()) > 0.98, "along the aim (" + d + ")");
+			helper.assertTrue(h.getHealth() < 400f, "and the shell hit the husk (" + h.getHealth() + ")");
+			GreenLanternMech.exit(p);
+			helper.succeed();
+		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
@@ -137,9 +271,8 @@ public class GreenLanternMechComboGameTests implements FabricGameTest {
 		ServerPlayer p = lantern(helper);
 		bind(p, "SV", ConstructType.MINING_DRILL); // drill on Shift+V outside -> Shift+V in the mech
 		HardLightMechEntity m = pilotReady(helper, p);
-		press(p, AbilitySlot.SLOT_2, true); // Shift+G: no longer the drill (it went to V), the katana's fallback is X -> a plain slam
-		helper.assertTrue(m.drillState() == HardLightMechEntity.DRILL_NONE && !m.katanaOut(), "Shift+G is nothing special now");
-		release(p, AbilitySlot.SLOT_2);
+		// Shift+G is no longer the drill (it went to V); v0.17.1 round 2: the Wrecking Whirl, whose own V is taken, moves there
+		helper.assertTrue(MechComboKeys.comboOn(GreenLantern.state(p), 'G') == Combo.WRECKING_WHIRL, "Shift+G: the whirl, not the drill");
 		press(p, AbilitySlot.SLOT_5, true); // Shift+V
 		helper.assertTrue(m.drillState() == HardLightMechEntity.DRILL_SPIN, "Shift+V spins the drill up");
 		helper.assertFalse(m.hasFlag(HardLightMechEntity.FLAG_SHIELD), "and does not raise the shield");

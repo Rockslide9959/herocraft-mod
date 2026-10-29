@@ -38,6 +38,12 @@ public class HardLightMechModel extends GeoModel<HardLightMechEntity> {
 	 */
 	@Override
 	public void setCustomAnimations(HardLightMechEntity m, long instanceId, AnimationState<HardLightMechEntity> state) {
+		if (m.move() == HardLightMechEntity.MOVE_CANNON && m.moveTicks() < 26) {
+			// v0.17.1 round 2: the Lantern Cannon arm tips up / down with the pilot's aim while it charges and fires
+			Vec3 aim = m.moveDir();
+			float pc = Mth.clamp((float) Math.asin(Mth.clamp(aim.y, -1.0, 1.0)), -0.8f, 0.8f);
+			getBone("arm_l").ifPresent(b -> b.setRotX(b.getRotX() + pc));
+		}
 		int d = m.drillState();
 		if (d != HardLightMechEntity.DRILL_SPIN && d != HardLightMechEntity.DRILL_CHARGE) {
 			return;

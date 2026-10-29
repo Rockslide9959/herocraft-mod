@@ -153,6 +153,34 @@ public class V0161PunisherGlGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
+	public void sniperShotsFollowTheAimUpLevelAndDown(GameTestHelper helper) {
+		// v0.17.1 (user: "make sure the sniper construct follows the direction that the player is facing"): the bolt leaves
+		// from a muzzle out in front along the look and runs straight down it, aimed up, level and down alike
+		float[] pitches = { -35f, 0f, 35f };
+		for (float pitch : pitches) {
+			// a fresh Lantern per shot (the 1 s cooldown between shots)
+			ServerPlayer player = lantern(helper, 5000f);
+			GreenLanternConstructs.deploy(player, ConstructType.SNIPER_RIFLE);
+			player.setYRot(30f);
+			player.setXRot(pitch);
+			Vec3 eye = player.getEyePosition();
+			Vec3 look = player.getLookAngle();
+			Vec3 muzzle = GreenLanternSniper.muzzle(player);
+			helper.assertTrue(muzzle.subtract(eye).dot(look) > 1.2, "the muzzle is out in front at pitch " + pitch);
+			GreenLantern.triggerCooldown(player, GreenLanternSniper.COOLDOWN_ID, 0);
+			helper.assertTrue(GreenLanternSniper.fire(player, GreenLanternConfig.SNIPER_FULL_CHARGE_TICKS), "fires at pitch " + pitch);
+			com.projecthero.mod.greenlantern.entity.HardLightConstructEntity bolt = helper.getLevel().getEntitiesOfClass(com.projecthero.mod.greenlantern.entity.HardLightConstructEntity.class,
+					new net.minecraft.world.phys.AABB(muzzle, muzzle).inflate(0.5), e -> e.shape() == com.projecthero.mod.greenlantern.entity.HardLightConstructEntity.Shape.SNIPER_BOLT)
+					.stream().findFirst().orElse(null);
+			helper.assertTrue(bolt != null, "a bolt at the muzzle, pitch " + pitch);
+			Vec3 along = bolt.end().subtract(eye).normalize();
+			helper.assertTrue(along.dot(look) > 0.999, "the shot runs down the aim at pitch " + pitch + " (" + along + " vs " + look + ")");
+			bolt.discard();
+		}
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, skyAccess = true)
 	public void aTappedShotHitsForLess(GameTestHelper helper) {
 		ServerPlayer player = lantern(helper, 5000f); // v0.17.1: half a ring -- no Willpower Surge either way
 		IronGolem golem = target(helper, player, 40.0);

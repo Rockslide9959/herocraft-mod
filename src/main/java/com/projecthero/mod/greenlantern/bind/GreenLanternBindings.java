@@ -203,7 +203,23 @@ public final class GreenLanternBindings {
 	// ---------------- the menu ----------------
 
 	/** Hover an entry and press a key: the key now holds it (whatever held it before loses it). */
+	/**
+	 * v0.17.1 (user: "Make it so you cant rebind keys while transformed but only summon other constructs by holding left
+	 * click"): inside the Hard-Light Mech the Construct Menu cannot bind, clear or reset keys -- it only summons.
+	 */
+	public static boolean rebindLocked(ServerPlayer p) {
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMech.isPiloting(p)) {
+			p.displayClientMessage(Component.translatable("message.projecthero.green_lantern.mech.no_rebind")
+					.withStyle(net.minecraft.ChatFormatting.RED), true);
+			return true;
+		}
+		return false;
+	}
+
 	public static void bind(ServerPlayer p, String key, String entryId) {
+		if (rebindLocked(p)) {
+			return;
+		}
 		Entry e = GreenLanternBinding.byId(entryId);
 		if (e == null || !GreenLanternBinding.KEYS.contains(key)) {
 			return;
@@ -223,6 +239,9 @@ public final class GreenLanternBindings {
 
 	/** Right-click an entry: every key holding it is cleared. */
 	public static void clearEntry(ServerPlayer p, String entryId) {
+		if (rebindLocked(p)) {
+			return;
+		}
 		GreenLanternState c = GreenLantern.state(p).copy();
 		for (String k : GreenLanternBinding.keysOf(c, entryId)) {
 			c.bindings.put(k, "");
@@ -231,6 +250,9 @@ public final class GreenLanternBindings {
 	}
 
 	public static void reset(ServerPlayer p) {
+		if (rebindLocked(p)) {
+			return;
+		}
 		GreenLanternState c = GreenLantern.state(p).copy();
 		c.bindings.clear();
 		GreenLantern.save(p, c);
@@ -243,6 +265,11 @@ public final class GreenLanternBindings {
 	public static void spawnOnce(ServerPlayer p, String entryId) {
 		Entry e = GreenLanternBinding.byId(entryId);
 		if (e == null) {
+			return;
+		}
+		// v0.17.1: in the mech, a construct with a mech combo becomes it (Energy Blade = the katana, Mining Drill = the Giga
+		// Drill, Emerald Mace / Wrecking Ball / Emerald Cannon = the Meteor Mace / Wrecking Whirl / Lantern Cannon)
+		if (com.projecthero.mod.greenlantern.mech.GreenLanternMechCombos.fromMenu(p, e.type())) {
 			return;
 		}
 		if (e.type() != null && !e.type().isHold()) {

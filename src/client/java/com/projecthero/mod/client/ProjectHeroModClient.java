@@ -704,8 +704,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			glAwaitCRelease = false;
 		}
 		boolean eligible = client.screen == null && !glAwaitCRelease && !Screen.hasShiftDown()
-				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player)
-				&& !com.projecthero.mod.greenlantern.mech.HardLightMechEntity.isPilot(client.player); // v0.17.1: C = Missile Pods in the mech
+				&& ModKeyBindings.ABILITY_6.isDown() && greenLanternHasWheelContext(client.player);
+		// v0.17.1 (user): in the mech too -- a tap of C fires the Missile Pods (on release, server side), a hold opens the
+		// Construct Menu in its mech mode (keys locked, hold left click to summon; combo constructs become mech combos)
 		if (!eligible) {
 			glConstructHeldTicks = 0;
 			glWheelOpenedThisHold = false;

@@ -240,16 +240,15 @@ const ORDER = [
 	['head', 1.42, [0, 14, -4]],
 ];
 const SNAP = 0.22;
+// v0.17.1 (user: "make it build pixel by pixel piece by piece"): the parts no longer fly in and scale up -- they stay in
+// place while the renderer forms them texel by texel, legs to torso to arms to head (HardLightMechRenderer), so this
+// clip only holds the mech in its build crouch, the head bowed, and then has it straighten up once whole.
 clipDef('assemble', 2.0, 'hold', t => {
 	const o = base();
-	for (const [b, t0, from] of ORDER) {
-		const u = (t - t0) / SNAP;
-		let sc, off;
-		if (u <= 0) { sc = 0.001; off = from; }
-		else if (u < 1) { const e = easeOut(u); sc = 0.25 + 0.95 * e; off = from.map(v => v * (1 - e)); }
-		else { const v = Math.min(1, (u - 1) / 0.6); sc = 1.2 - 0.2 * ease(v); off = [0, 0, 0]; }
-		add(o, b, null, off, [sc, sc, sc]);
-	}
+	const bow = 1 - ease((t - 1.6) / 0.4);
+	add(o, 'head', [10 * bow, 0, 0]);
+	add(o, 'arm_r', [6 * bow, 0, 4 * bow]);
+	add(o, 'arm_l', [6 * bow, 0, -4 * bow]);
 	// once whole, the mech straightens up from a crouch and the thrusters flare
 	const stand = ease((t - 1.6) / 0.4);
 	add(o, 'root', null, [0, -6 * (1 - stand), 0]);
@@ -473,6 +472,81 @@ clipDef('drill_break', 0.9, false, kclip(DRILL_CHARGE, [
 		leg_r: [-66, 0, 4], shin_r: [70, 0, 0], leg_l: [34, 0, -4], shin_l: [14, 0, 0] }],
 	[0.9, Object.assign({}, STANCE, { pelvis: [0, 0, 0], thrusters: [0, 0, 0] })],
 ]), 0.02);
+
+// ================================================================ v0.17.1 round 2 mech combos (user: "Give the mech other mech
+// construct combinations too, at least 3 more ... make the animations good aswell and make it cool")
+
+// METEOR MACE (1.5 s, the head lands at 0.75 = MACE_IMPACT_TICKS): the mace forms low in the right fist, both hands take
+// it up high overhead with a lean back and a rise onto the toes, then the whole body drives it down in front -- a deep
+// crouch, the torso folded over the impact -- holds the follow-through a beat and recovers. The mace runs down fist_r's
+// -Y (it extends the arm), so overhead it points up behind the head and in the smash forward and down.
+const MACE_UP = { arm_r: [-172, 0, 14], forearm_r: [-24, 0, 0], fist_r: [-10, 0, 0], arm_l: [-168, 0, -16], forearm_l: [-30, 0, 0],
+	fist_l: [0, 0, 0], torso: [-16, 0, 0], head: [-12, 0, 0], pelvis: [-4, 0, 0], root: { rot: [0, 0, 0], pos: [0, 1.5, 1] },
+	leg_r: [4, 0, 6], leg_l: [-10, 0, -6], shin_r: [6, 0, 0], shin_l: [10, 0, 0], foot_r: [-8, 0, 0], foot_l: [0, 0, 0],
+	thrusters: [10, 0, 0] };
+const MACE_DOWN = { arm_r: [-46, 0, 8], forearm_r: [-6, 0, 0], fist_r: [-8, 0, 0], arm_l: [-48, 0, -10], forearm_l: [-10, 0, 0],
+	fist_l: [0, 0, 0], torso: [34, 0, 0], head: [-26, 0, 0], pelvis: [10, 0, 0], root: { rot: [0, 0, 0], pos: [0, -8, -4] },
+	leg_r: [-40, 0, 8], shin_r: [52, 0, 0], foot_r: [-12, 0, 0], leg_l: [-28, 0, -8], shin_l: [44, 0, 0], foot_l: [-16, 0, 0],
+	thrusters: [-24, 0, 0] };
+clipDef('mace_smash', 1.5, false, kclip(STANCE, [
+	[0, {}],
+	[0.16, { arm_r: [-34, 0, 10], forearm_r: [-40, 0, 0], fist_r: [10, 0, 0], torso: [6, -10, 0], root: { rot: [0, 0, 0], pos: [0, -1.5, 0] } }],
+	[0.5, MACE_UP],
+	[0.6, Object.assign({}, MACE_UP, { arm_r: [-180, 0, 14], arm_l: [-176, 0, -16], torso: [-20, 0, 0] })],
+	[0.75, MACE_DOWN],
+	[0.98, Object.assign({}, MACE_DOWN, { torso: [36, 0, 0], root: { rot: [0, 0, 0], pos: [0, -8.5, -4] } })],
+	[1.5, {}],
+], (o, t) => {
+	// the impact jolt
+	const j = t > 0.75 && t < 0.9 ? Math.sin((t - 0.75) / 0.15 * Math.PI) : 0;
+	add(o, 'root', null, [0, -1.2 * j, 0]);
+}), 0.02);
+
+// WRECKING WHIRL (2.0 s): the right arm swings out wide to the side as the ball forms on its chain, a twist and a wide
+// stance, then the whole mech spins two full turns on the spot (0.4-1.7 s, the hits), leaning back against the ball's
+// pull, and unwinds.
+const WHIRL = { arm_r: [-16, 0, 82], forearm_r: [-4, 0, 0], fist_r: [0, 0, 0], arm_l: [-24, 0, -58], forearm_l: [-40, 0, 0],
+	torso: [-8, 0, 0], head: [-6, 0, 0], pelvis: [0, 0, 0], leg_r: [-6, 0, 16], leg_l: [-6, 0, -16], shin_r: [20, 0, 0], shin_l: [20, 0, 0],
+	foot_r: [-12, 0, 0], foot_l: [-12, 0, 0] };
+clipDef('wrecking_whirl', 2.0, false, kclip(STANCE, [
+	[0, {}],
+	[0.24, Object.assign({}, WHIRL, { torso: [4, 34, 0], arm_r: [-10, 0, 70], root: { rot: [0, 0, 0], pos: [0, -3, 0] } })],
+	[0.4, Object.assign({}, WHIRL, { root: { rot: [0, 0, 0], pos: [0, -3.5, 0] } })],
+	[1.7, Object.assign({}, WHIRL, { root: { rot: [0, 0, 0], pos: [0, -3.5, 0] } })],
+	[2.0, {}],
+], (o, t) => {
+	// the spin itself, linear (so the ball keeps its speed): two turns between 0.4 s and 1.7 s
+	const k = Math.max(0, Math.min(1, (t - 0.4) / 1.3));
+	const ang = -720 * k;
+	o.root = o.root || { rot: [0, 0, 0] };
+	o.root.rot = [o.root.rot[0], o.root.rot[1] + ang, o.root.rot[2]];
+	// a bob with each turn
+	add(o, 'root', null, [0, -0.6 * Math.abs(Math.sin(k * TAU * 2)), 0]);
+}), 0.02);
+
+// LANTERN CANNON (1.6 s, fires at 0.9 = CANNON_FIRE_TICKS): the left arm comes up level along the aim as the cannon forms
+// round it, the body turned side-on behind it and the right hand bracing the barrel, a tremble while it charges, a
+// big recoil that throws the arm up and rocks the mech back, then back down.
+const CANNON_AIM = { arm_l: [-90, 0, -2], forearm_l: [0, 0, 0], fist_l: [0, 0, 0], arm_r: [-74, 0, -34], forearm_r: [-46, 0, 0],
+	fist_r: [0, 0, 0], torso: [2, 20, 0], head: [-4, -16, 0], pelvis: [0, 10, 0], leg_l: [-22, 0, -6], shin_l: [22, 0, 0],
+	foot_l: [0, 0, 0], leg_r: [14, 0, 8], shin_r: [16, 0, 0], foot_r: [-14, 0, 0], root: { rot: [0, 0, 0], pos: [0, -2, 0] } };
+clipDef('lantern_cannon', 1.6, false, kclip(STANCE, [
+	[0, {}],
+	[0.3, CANNON_AIM],
+	[0.88, CANNON_AIM],
+	[0.96, Object.assign({}, CANNON_AIM, { arm_l: [-118, 0, -2], forearm_l: [-12, 0, 0], arm_r: [-60, 0, -26], torso: [-10, 26, 0],
+		head: [-12, -18, 0], root: { rot: [0, 0, 0], pos: [0, -1, 4] }, thrusters: [12, 0, 0] })],
+	[1.2, Object.assign({}, CANNON_AIM, { arm_l: [-96, 0, -2] })],
+	[1.6, {}],
+], (o, t) => {
+	// the charge tremble, growing
+	if (t > 0.3 && t < 0.88) {
+		const k = (t - 0.3) / 0.58;
+		const tr = Math.sin(TAU * t * 14) * 0.7 * k;
+		add(o, 'arm_l', [tr, 0, tr * 0.5]);
+		add(o, 'root', null, [0.2 * tr, 0, 0]);
+	}
+}), 0.02);
 
 function sample(name, t) { return CLIPS[name].fn(Math.min(t, CLIPS[name].len)); }
 
