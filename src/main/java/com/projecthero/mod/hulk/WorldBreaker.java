@@ -185,11 +185,9 @@ public final class WorldBreaker {
 		ServerLevel level = (ServerLevel) player.level();
 		Vec3 at = player.position();
 		// volume 4 = heard 64 blocks away
-		level.playSound(null, at.x, at.y, at.z, com.projecthero.mod.sound.ProjectHeroSounds.HULK_STRONGEST, SoundSource.PLAYERS, 4.0f, 1.0f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.RAVAGER_ROAR, SoundSource.PLAYERS, 4.0f, 0.35f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.WARDEN_ROAR, SoundSource.PLAYERS, 4.0f, 0.45f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.POLAR_BEAR_WARNING, SoundSource.PLAYERS, 4.0f, 0.4f);
-		level.playSound(null, at.x, at.y, at.z, SoundEvents.ENDER_DRAGON_GROWL, SoundSource.PLAYERS, 3.0f, 0.4f);
+		// v0.17.1 (user): their "Hulk is strongest there is" clip is the shout now; the extra layered roars that drowned it out
+		// are gone (the activation roar above still plays). The sound is heard 64 blocks out (attenuation_distance in sounds.json).
+		level.playSound(null, at.x, at.y, at.z, com.projecthero.mod.sound.ProjectHeroSounds.HULK_STRONGEST, SoundSource.PLAYERS, 1.0f, 1.0f);
 		Component title = Component.translatable("title.projecthero.hulk.strongest").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
 		Component sub = Component.translatable("title.projecthero.hulk.strongest_sub").withStyle(ChatFormatting.DARK_GREEN, ChatFormatting.BOLD);
 		double r2 = SHOUT_RANGE * SHOUT_RANGE;

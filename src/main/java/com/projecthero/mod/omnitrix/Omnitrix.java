@@ -499,10 +499,7 @@ public final class Omnitrix {
 	}
 
 	private static void showSelected(ServerPlayer p, String id) {
-		Aliens.Alien a = Aliens.byId(id);
-		if (a != null) {
-			p.displayClientMessage(Component.translatable(a.nameKey()).withStyle(st -> st.withColor(0x7CFF6A)), true);
-		}
+		// v0.17.1 (user: "when selecting an alien remove the alien name that pops up"): the dial icon is the only cue
 	}
 
 	/** V while transformed (Shift+V is an alias): the five beeps, then back to human. A second press during the beeps does nothing. */

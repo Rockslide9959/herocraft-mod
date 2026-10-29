@@ -134,7 +134,7 @@ public final class OmnitrixHud {
 		return top;
 	}
 
-	/** Human with the watch: the title row, the recharge bar, the hint while the watch is up. Returns the HUD's top. */
+	/** Human with the watch: only the recharge bar while it recharges (v0.17.1). Returns the HUD's top. */
 	private static int human(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom) {
 		int y = bottom;
 		int recharge = (int) Math.max(0L, s.rechargeUntil - now);
@@ -145,30 +145,9 @@ public final class OmnitrixHud {
 					(recharge + 19) / 20 + "s", NAME);
 			y = by - 4;
 		}
-		int ty = y - 9;
-		Component title = Component.translatable("hud.projecthero.omnitrix.title");
-		g.drawString(mc.font, title, x0, ty, recharge > 0 ? HINT : GREEN, false);
-		Aliens.Alien sel = Aliens.byId(s.selected);
-		if (sel != null) {
-			// v0.17.1: the selected alien's dial icon (the user's dial art) at the right end, its name before it
-			Component name = OmnitrixInfo.alienName(sel);
-			int nw = mc.font.width(name);
-			dialIcon(g, sel.id(), recharge > 0, x0 + WIDTH - 12, ty - 2);
-			if (mc.font.width(title) + 6 + nw + 14 <= WIDTH) {
-				g.drawString(mc.font, name, x0 + WIDTH - 14 - nw, ty, s.selecting ? readable(sel.colour()) : HINT, false);
-			}
-		}
-		int top = ty;
-		if (s.selecting) {
-			List<FormattedCharSequence> hint = mc.font.split(Component.translatable("hud.projecthero.omnitrix.hint"), WIDTH);
-			int hy = ty - 2 - hint.size() * 9;
-			top = hy;
-			for (FormattedCharSequence line : hint) {
-				g.drawString(mc.font, line, x0, hy, HINT, false);
-				hy += 9;
-			}
-		}
-		return top;
+		// v0.17.1 (user: "there should be no UI basically until the player transforms but just keep the timers"): human, only the
+		// recharge bar shows -- no title row, no selected alien, no scroll / click hint
+		return y;
 	}
 
 	/**

@@ -2970,5 +2970,14 @@
         "name": "projecthero:omnitrix/dial_click_user"
       }
     ]
+  },
+  "hulk.strongest": {
+    "subtitle": "subtitles.projecthero.hulk.strongest",
+    "sounds": [
+      {
+        "name": "projecthero:hulk/strongest",
+        "attenuation_distance": 64
+      }
+    ]
   }
 }
