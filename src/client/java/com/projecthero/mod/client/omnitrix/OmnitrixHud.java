@@ -99,14 +99,32 @@ public final class OmnitrixHud {
 		}
 		int y0 = bottom - BOX;
 		keys(g, mc, p, kit, a, x0, y0);
-		int left = (int) Math.max(0L, s.endsAt - now);
-		boolean warn = left <= OmnitrixConfig.WARN_TICKS;
-		int colour = warn ? pulse(RED, 0xFFB01810) : GREEN;
+		int left = Omnitrix.displayLeft(s, now);
+		boolean powerDown = Omnitrix.poweringDown(s);
+		boolean warn = left <= OmnitrixConfig.WARN_TICKS || powerDown;
+		float blink = Omnitrix.beepBlink(s, now, partial);
+		int colour = powerDown ? 0xFF801010 : warn ? pulse(RED, 0xFFB01810) : GREEN;
 		int by = y0 - 4 - BAR_H;
 		meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.meter.time"), left / (float) OmnitrixConfig.TRANSFORM_TICKS, colour,
 				OmnitrixInfo.clock(left), warn ? RED : NAME);
+		if (powerDown) {
+			// v0.17.1: the power-down's five beeps -- the bar flashes red on each, five pips light up one per beep
+			int barX = x0 + mc.font.width(Component.translatable("hud.projecthero.omnitrix.meter.time")) + 4;
+			int valueW = Math.max(mc.font.width("0:00"), mc.font.width(OmnitrixInfo.clock(left)));
+			int barW = Math.max(20, WIDTH - (barX - x0) - valueW - 3);
+			if (blink > 0.01f) {
+				g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, ((int) (blink * 230) << 24) | 0xFF2A1A);
+			}
+			int done = Omnitrix.beepsDone(s, now);
+			for (int i = 0; i < Omnitrix.POWER_DOWN_BEEPS.length; i++) {
+				int px = barX + Math.round((i + 0.5f) * barW / Omnitrix.POWER_DOWN_BEEPS.length) - 1;
+				g.fill(px, by + 1, px + 2, by + BAR_H - 1, i < done ? 0xFFFFD0C0 : 0xFF401010);
+			}
+		}
 		int ty = by - 13;
-		g.drawString(mc.font, Component.translatable(a.nameKey()), x0, ty, readable(a.colour()), false);
+		boolean iconRed = warn && (powerDown ? blink > 0.01f : (now / 5) % 2 == 0);
+		dialIcon(g, s.active, iconRed, x0, ty - 2);
+		g.drawString(mc.font, Component.translatable(a.nameKey()), x0 + 14, ty, readable(a.colour()), false);
 		int top = ty;
 		AlienClientKit extra = AlienClients.of(s.active);
 		if (extra != null && extra.hudHeight() > 0) {
@@ -132,10 +150,12 @@ public final class OmnitrixHud {
 		g.drawString(mc.font, title, x0, ty, recharge > 0 ? HINT : GREEN, false);
 		Aliens.Alien sel = Aliens.byId(s.selected);
 		if (sel != null) {
+			// v0.17.1: the selected alien's dial icon (the user's dial art) at the right end, its name before it
 			Component name = OmnitrixInfo.alienName(sel);
 			int nw = mc.font.width(name);
-			if (mc.font.width(title) + 6 + nw <= WIDTH) {
-				g.drawString(mc.font, name, x0 + WIDTH - nw, ty, s.selecting ? readable(sel.colour()) : HINT, false);
+			dialIcon(g, sel.id(), recharge > 0, x0 + WIDTH - 12, ty - 2);
+			if (mc.font.width(title) + 6 + nw + 14 <= WIDTH) {
+				g.drawString(mc.font, name, x0 + WIDTH - 14 - nw, ty, s.selecting ? readable(sel.colour()) : HINT, false);
 			}
 		}
 		int top = ty;
@@ -169,6 +189,17 @@ public final class OmnitrixHud {
 			g.fill(barX, by, barX + fill, by + 1, 0x60FFFFFF);
 		}
 		g.drawString(mc.font, value, x0 + WIDTH - mc.font.width(value), by - 2, valueColour, false);
+	}
+
+	/** A 12x12 dial icon (the 64-px texture, linear-filtered) with its top-left at (x, y); {@code red} the red-diamond variant. */
+	static void dialIcon(GuiGraphics g, String alienId, boolean red, int x, int y) {
+		if (alienId == null || alienId.isEmpty()) {
+			return;
+		}
+		com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+		com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+		g.blit(OmnitrixWatch.icon(alienId, red), x, y, 12, 12, 0f, 0f, 64, 64, 64, 64);
+		com.mojang.blaze3d.systems.RenderSystem.disableBlend();
 	}
 
 	/** An alien's colour lifted toward white until it reads on any sky (Ripjaws' slate, Ghostfreak's grey). */
@@ -242,7 +273,7 @@ public final class OmnitrixHud {
 			Aliens.Alien sel = Aliens.byId(s.selected);
 			if (sel != null) {
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.dial").getString(),
-						Component.translatable("hud.projecthero.omnitrix.alt.selected", OmnitrixInfo.alienName(sel)), null));
+						Component.translatable("hud.projecthero.omnitrix.alt.selected", OmnitrixInfo.iconName(sel)), null));
 			}
 			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
 			rows.add(MoveListOverlay.Row.of(v, Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
@@ -265,7 +296,7 @@ public final class OmnitrixHud {
 		vanillaRow(rows, kit, s.active, "Use", mc.options.keyUse);
 		vanillaRow(rows, kit, s.active, "Sneak", mc.options.keyShift);
 		rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null,
-				Component.translatable("hud.projecthero.omnitrix.alt.time_left", OmnitrixInfo.clock((int) Math.max(0L, s.endsAt - now)))));
+				Component.translatable("hud.projecthero.omnitrix.alt.time_left", OmnitrixInfo.clock(Omnitrix.displayLeft(s, now)))));
 		return rows;
 	}
 

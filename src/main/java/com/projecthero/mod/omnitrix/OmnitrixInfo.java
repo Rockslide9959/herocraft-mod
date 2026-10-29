@@ -68,7 +68,7 @@ public final class OmnitrixInfo {
 			Aliens.Alien a = Aliens.byId(s.active);
 			int left = Omnitrix.timeLeft(live);
 			boolean warn = left <= OmnitrixConfig.WARN_TICKS;
-			out.add(Component.translatable(I + "as", a == null ? Component.literal(s.active) : alienName(a))
+			out.add(Component.translatable(I + "as", a == null ? Component.literal(s.active) : iconName(a))
 					.withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD));
 			out.add(Component.literal(" ").append(cells(left / (float) OmnitrixConfig.TRANSFORM_TICKS, warn ? ChatFormatting.RED : ChatFormatting.GREEN))
 					.append(Component.literal("  ")).append(Component.translatable(I + "time_left", clock(left))
@@ -83,7 +83,7 @@ public final class OmnitrixInfo {
 			}
 			Aliens.Alien sel = Aliens.byId(s.selected);
 			if (sel != null) {
-				out.add(Component.translatable(I + "selected", alienName(sel)).withStyle(ChatFormatting.GRAY));
+				out.add(Component.translatable(I + "selected", iconName(sel)).withStyle(ChatFormatting.GRAY));
 			}
 			if (s.selecting) {
 				out.add(Component.translatable(I + "watch_up").withStyle(ChatFormatting.DARK_GREEN));
@@ -131,7 +131,8 @@ public final class OmnitrixInfo {
 		out.add(Component.translatable(I + "roster.how").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
 		for (Aliens.Alien a : Aliens.all()) {
 			AlienKit kit = Aliens.kit(a.id());
-			MutableComponent title = Component.literal(" ").append(alienName(a).withStyle(ChatFormatting.BOLD));
+			MutableComponent title = Component.literal(" ").append(icon(a)).append(Component.literal(" "))
+					.append(alienName(a).withStyle(ChatFormatting.BOLD));
 			if (a.id().equals(selected)) {
 				title.append(Component.literal("  ")).append(Component.translatable(I + "roster.selected").withStyle(ChatFormatting.GREEN));
 			}
@@ -178,7 +179,7 @@ public final class OmnitrixInfo {
 	 */
 	public static void alienPage(List<Component> out, Aliens.Alien a, Function<AbilitySlot, Component> keys, @Nullable Player live) {
 		AlienKit kit = Aliens.kit(a.id());
-		out.add(alienName(a).withStyle(ChatFormatting.BOLD));
+		out.add(Component.empty().append(icon(a)).append(Component.literal(" ")).append(alienName(a).withStyle(ChatFormatting.BOLD)));
 		if (kit == null) {
 			out.add(Component.translatable("projecthero.guide.omnitrix.coming_soon").withStyle(ChatFormatting.DARK_GRAY));
 			return;
@@ -298,6 +299,26 @@ public final class OmnitrixInfo {
 
 	public static MutableComponent alienName(Aliens.Alien a) {
 		return Component.translatable(a.nameKey()).withStyle(s -> s.withColor(a.colour()));
+	}
+
+	/** v0.17.1: the alien's dial icon as one inline text glyph (font {@code projecthero:omnitrix_dial}, the user's dial art). */
+	public static final net.minecraft.resources.ResourceLocation DIAL_FONT = com.projecthero.mod.ProjectHeroMod.id("omnitrix_dial");
+	private static final List<String> DIAL_ORDER = List.of("heatblast", "four_arms", "xlr8", "diamondhead", "upgrade", "ghostfreak", "stinkfly",
+			"wildvine", "ripjaws", "grey_matter");
+
+	public static MutableComponent icon(Aliens.Alien a) {
+		int i = a == null ? -1 : DIAL_ORDER.indexOf(a.id());
+		if (i < 0) {
+			return Component.empty();
+		}
+		// white (the glyph is tinted by the text colour), never bold / italic (a bold glyph is drawn twice, offset)
+		return Component.literal(String.valueOf((char) (0xE000 + i)))
+				.withStyle(s -> s.withFont(DIAL_FONT).withColor(0xFFFFFF).withBold(false).withItalic(false).withUnderlined(false));
+	}
+
+	/** The icon, a space, the name in its colour. */
+	public static MutableComponent iconName(Aliens.Alien a) {
+		return Component.empty().append(icon(a)).append(Component.literal(" ")).append(alienName(a));
 	}
 
 	private static MutableComponent head(String key) {

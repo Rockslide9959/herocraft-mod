@@ -30,7 +30,13 @@ public final class OmnitrixPose {
 	 * arm pointing up at the chin).
 	 */
 	private static final float[] WATCH_ARM = { -2.169f, 0.040f, -1.809f };
-	private static final float[] HAND_ON = { -2.440f, -0.057f, 1.359f };
+	/**
+	 * v0.17.1 (user: "dont make the players arm cover the watch face, other players should still be able to see which alien is
+	 * being picked ... move the arm to the bottom of the dial"): the right hand holds the wrist from under the dial, on its lower
+	 * edge nearest the body, fingers up against the rim (scratchpad/omnitrix_pose_solver.js "[-0.5,0.3,-0.81]" "[0,-1,0.35]" 3 1.2
+	 * 10 6 0 0 "[1.0,2.4,1.8]" "[0,-1,-0.3]"; no hand drop), so the face stays open to everyone. The slap still comes from above.
+	 */
+	private static final float[] HAND_ON = { -0.615f, 0.489f, -1.266f };
 	private static final float[] HAND_UP = { -2.453f, 0.211f, 1.076f };
 	private static final float[] HAND_PRESS = { -2.445f, -0.111f, 1.416f };
 	private static final float SHOULDER_DROP = 6f, HAND_DROP = 2.5f;
@@ -69,6 +75,7 @@ public final class OmnitrixPose {
 			float hand = Mth.clamp((raise - 0.25f) / 0.75f, 0f, 1f);
 			hand = hand * hand * (3f - 2f * hand);
 			float[] target = HAND_ON.clone();
+			float dropW = 0f; // the bottom grip hangs from the shoulder as is; the slap (from above) drops it
 			float slap = s.animId == Omnitrix.ANIM_SLAP ? t : 99f;
 			if (slap < Omnitrix.SLAP_TICKS + 4) {
 				// wind up off the dial, then slam down onto the core and press it in
@@ -76,18 +83,19 @@ public final class OmnitrixPose {
 				float press = slap >= 1.5f ? 1f - Mth.clamp((slap - 2.5f) / (Omnitrix.SLAP_TICKS + 1.5f), 0f, 1f) : 0f;
 				for (int i = 0; i < 3; i++) {
 					target[i] = HAND_ON[i] + (HAND_UP[i] - HAND_ON[i]) * up + (HAND_PRESS[i] - HAND_ON[i]) * press;
+					dropW = Math.max(up, press);
 				}
 			}
 			float turn = s.animId == Omnitrix.ANIM_TURN ? t : 99f;
-			if (turn < 5f) {
-				// the fingers grip the dial and turn it: a small roll of the hand and back
-				float k = Mth.sin(turn / 5f * Mth.PI);
+			if (turn < OmnitrixWatch.SPIN_TICKS) {
+				// the fingers grip the dial and turn it with the ring's spin: a roll of the hand and back
+				float k = Mth.sin(turn / OmnitrixWatch.SPIN_TICKS * Mth.PI);
 				target[1] += 0.32f * k;
 				target[2] -= 0.14f * k;
 				target[0] -= 0.06f * k;
 			}
 			set(m.rightArm, hand, target);
-			m.rightArm.y += HAND_DROP * hand;
+			m.rightArm.y += HAND_DROP * hand * dropW;
 		}
 		// the alien kit
 		AlienClientKit kit = AlienClients.shownKit(p);

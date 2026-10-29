@@ -42,7 +42,9 @@ import net.minecraft.world.phys.Vec3;
  * a registered vanilla event always ships its files.)
  */
 public class OmnitrixSoundsGameTests implements FabricGameTest {
-	private static final Set<String> SYNTH_FILES = Set.of("core_up", "transform", "revert", "timeout", "warning", "denied");
+	/** The six synthesised files plus (v0.17.1) the user's own transform and power-down recordings. */
+	private static final Set<String> SYNTH_FILES = Set.of("core_up", "transform", "revert", "timeout", "warning", "denied", "transform_user",
+			"power_down_user");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {
@@ -66,7 +68,7 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 	/** Every Cue constant the Omnitrix code plays, named so a missing / null one fails here (class-init order). */
 	private static List<OmnitrixSfx.Cue> named() {
 		return List.of(OmnitrixSounds.CORE_UP, OmnitrixSounds.CORE_DOWN, OmnitrixSounds.DIAL, OmnitrixSounds.SELECT, OmnitrixSounds.SLAP,
-				OmnitrixSounds.TRANSFORM, OmnitrixSounds.REVERT, OmnitrixSounds.TIMEOUT, OmnitrixSounds.FLICKER, OmnitrixSounds.GRANT,
+				OmnitrixSounds.TRANSFORM, OmnitrixSounds.TRANSFORM_USER, OmnitrixSounds.POWER_DOWN_USER, OmnitrixSounds.REVERT, OmnitrixSounds.TIMEOUT, OmnitrixSounds.FLICKER, OmnitrixSounds.GRANT,
 				OmnitrixSounds.WARNING, OmnitrixSounds.DENIED, OmnitrixSounds.RECHARGED, OmnitrixSounds.EXTRACT_PULSE,
 				OmnitrixSounds.SELF_DESTRUCT, OmnitrixSounds.EXTRACT_DONE, OmnitrixSounds.POD_OPEN, OmnitrixSounds.POD_BEACON,
 				OmnitrixSounds.SCANNER, OmnitrixSounds.METEOR,
@@ -139,8 +141,10 @@ public class OmnitrixSoundsGameTests implements FabricGameTest {
 				}
 			}
 		}
-		h.assertTrue(referenced.equals(SYNTH_FILES), "the Omnitrix files are exactly the six synthesised ones: " + referenced);
-		for (SoundEvent e : OmnitrixSounds.SYNTH) {
+		h.assertTrue(referenced.equals(SYNTH_FILES), "the Omnitrix files are exactly the six synthesised ones and the user's two: " + referenced);
+		java.util.List<SoundEvent> owned = new java.util.ArrayList<>(List.of(OmnitrixSounds.SYNTH));
+		owned.addAll(List.of(OmnitrixSounds.USER));
+		for (SoundEvent e : owned) {
 			h.assertTrue(BuiltInRegistries.SOUND_EVENT.get(e.getLocation()) == e, "registered: " + e.getLocation());
 			h.assertTrue(sounds.has(e.getLocation().getPath()), "sounds.json defines " + e.getLocation());
 		}

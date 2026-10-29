@@ -58,6 +58,24 @@ public final class Omnitrix {
 	public static final int SLAP_TICKS = 5;
 	private static final String SLAP_TIMER = "omnitrix.slap";
 
+	/**
+	 * v0.17.1 (user: "when detransforming the watch should first beep 5 times like how it does in the mp3 file and then
+	 * detransform"): turning back (V while transformed, and the 3-minute timeout) is a short timed sequence synced to the user's
+	 * {@code omnitrix_power_down_user} sound. The ticks are after the sound starts, measured from the shipped (trimmed) OGG by
+	 * {@code scratchpad/detect_omnitrix_beeps.js} and rounded to the nearest tick (docs/OMNITRIX_SOUNDS_0171.md): the beeps at
+	 * 0.050 / 0.469 / 0.958 / 1.487 / 2.015 s, the power-down's low clunk starting at 2.724 s and loudest at 2.83-2.88 s. On each
+	 * beep tick the watch face and the HUD's Time bar blink red; the body changes back (with the red Kirby-dot flash) on
+	 * {@link #POWER_DOWN_REVERT_TICK}, so the flash's hot opening (its first 2.5 ticks) covers the loudest part.
+	 */
+	public static final int[] POWER_DOWN_BEEPS = { 1, 9, 19, 30, 40 };
+	/** Ticks from the start of the power-down sound to the actual revert (2.80 s). */
+	public static final int POWER_DOWN_REVERT_TICK = 56;
+	/** How long a beep's red blink lasts (ticks). */
+	public static final float BEEP_BLINK_TICKS = 4f;
+	/** Timer keys: the power-down's start (game time) and whether the timeout began it (1) or V (0). */
+	public static final String POWER_DOWN_TIMER = "omnitrix.power_down";
+	public static final String POWER_DOWN_TIMEOUT = "omnitrix.power_down_timeout";
+
 	/** Why the wearer turned back. */
 	public enum Reason {
 		SHIFT_V, TIMEOUT, DEATH, LOGOUT, EXTRACTION, REVOKE, SUPPRESSED
@@ -98,13 +116,66 @@ public final class Omnitrix {
 
 	/** Ticks left in the current transformation (0 when human). */
 	public static int timeLeft(Player p) {
-		OmnitrixState s = state(p);
-		return s.transformed() ? (int) Math.max(0L, s.endsAt - p.level().getGameTime()) : 0;
+		return displayLeft(state(p), p.level().getGameTime());
 	}
 
 	/** Ticks of recharge left (0 = ready). */
 	public static int rechargeLeft(Player p) {
 		return (int) Math.max(0L, state(p).rechargeUntil - p.level().getGameTime());
+	}
+
+	/** Client-safe: whether the power-down sequence (the five beeps before turning back) is running. */
+	public static boolean poweringDown(OmnitrixState s) {
+		return s.transformed() && s.timers.containsKey(POWER_DOWN_TIMER);
+	}
+
+	public static boolean poweringDown(Player p) {
+		return hasPower(p) && poweringDown(state(p));
+	}
+
+	/** Ticks since the power-down began (only meaningful while {@link #poweringDown}). */
+	public static float powerDownAge(OmnitrixState s, long now, float partial) {
+		return now + partial - s.readyAt(POWER_DOWN_TIMER);
+	}
+
+	/** Client-safe: how many of the five beeps have sounded so far (0 when not powering down). */
+	public static int beepsDone(OmnitrixState s, long now) {
+		if (!poweringDown(s)) {
+			return 0;
+		}
+		long t = now - s.readyAt(POWER_DOWN_TIMER);
+		int n = 0;
+		for (int b : POWER_DOWN_BEEPS) {
+			if (t >= b) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** Client-safe: the red blink on the watch / HUD, 1 on a beep's tick fading to 0 over {@link #BEEP_BLINK_TICKS}. */
+	public static float beepBlink(OmnitrixState s, long now, float partial) {
+		if (!poweringDown(s)) {
+			return 0f;
+		}
+		float t = powerDownAge(s, now, partial);
+		float best = 0f;
+		for (int b : POWER_DOWN_BEEPS) {
+			float d = t - b;
+			if (d >= 0f && d < BEEP_BLINK_TICKS) {
+				best = Math.max(best, 1f - d / BEEP_BLINK_TICKS);
+			}
+		}
+		return best;
+	}
+
+	/** Client-safe: the Time bar's ticks left -- frozen while powering down (0 for the timeout). */
+	public static int displayLeft(OmnitrixState s, long now) {
+		if (!s.transformed()) {
+			return 0;
+		}
+		long until = poweringDown(s) ? Math.min(now, s.readyAt(POWER_DOWN_TIMER)) : now;
+		return (int) Math.max(0L, s.endsAt - until);
 	}
 
 	/** Client-safe: whether the pod is pulling the watch off this player right now. */
@@ -224,6 +295,8 @@ public final class Omnitrix {
 			return false;
 		}
 		float frac = p.getMaxHealth() > 0f ? p.getHealth() / p.getMaxHealth() : 1f;
+		// the slap already started the user's transform sound (its swell peaks as the body changes); a direct transform starts it now
+		boolean slapped = s.timers.containsKey(SLAP_TIMER);
 		OmnitrixState n = s.copy();
 		n.active = kit.id();
 		n.transformedAt = now;
@@ -237,18 +310,31 @@ public final class Omnitrix {
 		n.timers.remove(SLAP_TIMER);
 		save(p, n);
 		OmnitrixBody.apply(p, kit.stats(), frac);
-		helixFx(p, OmnitrixSounds.TRANSFORM);
+		if (!slapped) {
+			OmnitrixSounds.playOn(p, OmnitrixSounds.TRANSFORM_USER);
+		}
 		kit.onTransform(p);
 		Aliens.Alien a = Aliens.byId(kit.id());
 		p.displayClientMessage(Component.translatable(a.nameKey()).withStyle(st -> st.withColor(a.colour()).withBold(true)), true);
 		return true;
 	}
 
-	/** Turns the wearer back to human. A timeout starts the 90 s recharge; Shift+V a short one. */
+	/**
+	 * Turns the wearer back to human, right now. A timeout starts the 90 s recharge; Shift+V a short one. V and the timeout go
+	 * through {@link #beginPowerDown} (the five beeps) and land here on {@link #POWER_DOWN_REVERT_TICK}; anything else (death,
+	 * logout, a dimension change, suppression, the pod, a revoke) mid-sequence cuts it short here and silences the sound.
+	 */
 	public static void revert(ServerPlayer p, Reason reason) {
+		revert(p, reason, false);
+	}
+
+	private static void revert(ServerPlayer p, Reason reason, boolean sequenced) {
 		OmnitrixState s = state(p);
 		if (!s.transformed()) {
 			return;
+		}
+		if (poweringDown(s) && !sequenced) {
+			OmnitrixSounds.stopPowerDown(p);
 		}
 		AlienKit kit = Aliens.kit(s.active);
 		if (kit != null) {
@@ -268,6 +354,8 @@ public final class Omnitrix {
 		n.animId = reason == Reason.TIMEOUT ? ANIM_TIMEOUT : ANIM_REVERT;
 		n.animStart = now;
 		n.endsAt = 0L;
+		n.timers.remove(POWER_DOWN_TIMER);
+		n.timers.remove(POWER_DOWN_TIMEOUT);
 		n.rechargeUntil = switch (reason) {
 			case TIMEOUT -> now + OmnitrixConfig.RECHARGE_TICKS;
 			case SHIFT_V -> now + OmnitrixConfig.EARLY_RECHARGE_TICKS;
@@ -277,8 +365,11 @@ public final class Omnitrix {
 		if (reason == Reason.DEATH || reason == Reason.LOGOUT) {
 			return;
 		}
-		helixFx(p, reason == Reason.TIMEOUT ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
-		if (reason == Reason.TIMEOUT) {
+		// the sequence's sound is already playing (this is its power-down); an immediate revert keeps the short whir
+		if (!sequenced) {
+			helixFx(p, reason == Reason.TIMEOUT ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
+		}
+		if (reason == Reason.TIMEOUT && !sequenced) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
 					true);
 		}
@@ -386,6 +477,8 @@ public final class Omnitrix {
 		n.timers.put(SLAP_TIMER, now + SLAP_TICKS);
 		save(p, n);
 		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.SLAP, 1.0f, 1.0f);
+		// v0.17.1: the user's transform sound starts with the slap -- its swell peaks ~0.28 s in, as the body changes (SLAP_TICKS)
+		OmnitrixSounds.playOn(p, OmnitrixSounds.TRANSFORM_USER);
 		p.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);
 		return true;
 	}
@@ -397,12 +490,30 @@ public final class Omnitrix {
 		}
 	}
 
-	/** Shift+V (an alias of V while transformed). */
+	/** V while transformed (Shift+V is an alias): the five beeps, then back to human. A second press during the beeps does nothing. */
 	public static boolean revertEarly(ServerPlayer p) {
-		if (!state(p).transformed()) {
+		return beginPowerDown(p, false);
+	}
+
+	/**
+	 * Starts the power-down: the user's power-down sound (following the wearer), the beeps blinking on the watch and the HUD, and
+	 * {@link #POWER_DOWN_REVERT_TICK} later the revert ({@link #tick}). The wearer is still the alien meanwhile and can still
+	 * fight; the time limit stops. False if not transformed or already powering down.
+	 */
+	public static boolean beginPowerDown(ServerPlayer p, boolean timeout) {
+		OmnitrixState s = state(p);
+		if (!s.transformed() || poweringDown(s)) {
 			return false;
 		}
-		revert(p, Reason.SHIFT_V);
+		OmnitrixState n = s.copy();
+		n.timers.put(POWER_DOWN_TIMER, p.level().getGameTime());
+		n.timers.put(POWER_DOWN_TIMEOUT, timeout ? 1L : 0L);
+		save(p, n);
+		OmnitrixSounds.playOn(p, OmnitrixSounds.POWER_DOWN_USER);
+		if (timeout) {
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+					true);
+		}
 		return true;
 	}
 
@@ -481,8 +592,22 @@ public final class Omnitrix {
 				revert(p, Reason.SUPPRESSED);
 				return;
 			}
+			if (poweringDown(s)) {
+				// the five beeps: still the alien (the kit keeps ticking), the time limit stopped, no warning blips
+				long start = s.readyAt(POWER_DOWN_TIMER);
+				if (now - start >= POWER_DOWN_REVERT_TICK || now < start) {
+					revert(p, s.readyAt(POWER_DOWN_TIMEOUT) == 1L ? Reason.TIMEOUT : Reason.SHIFT_V, true);
+					OmnitrixAbilityManager.tick(p);
+					return;
+				}
+				kit.tick(p, state(p), now);
+				OmnitrixAbilityManager.tick(p);
+				return;
+			}
 			if (now >= s.endsAt) {
-				revert(p, Reason.TIMEOUT);
+				beginPowerDown(p, true);
+				kit.tick(p, state(p), now);
+				OmnitrixAbilityManager.tick(p);
 				return;
 			}
 			long left = s.endsAt - now;
@@ -510,7 +635,7 @@ public final class Omnitrix {
 
 	// ---------------------------------------------------------------- lifecycle
 
-	static void onDeath(ServerPlayer p) {
+	public static void onDeath(ServerPlayer p) {
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.DEATH);
 		}
@@ -528,7 +653,7 @@ public final class Omnitrix {
 		forget(p.getUUID());
 	}
 
-	static void onLogout(ServerPlayer p) {
+	public static void onLogout(ServerPlayer p) {
 		if (hasPower(p) && state(p).transformed()) {
 			revert(p, Reason.LOGOUT);
 		}
@@ -542,7 +667,11 @@ public final class Omnitrix {
 		forget(p.getUUID());
 	}
 
-	static void onDimensionChange(ServerPlayer p) {
+	public static void onDimensionChange(ServerPlayer p) {
+		// mid power-down: turn back now (with the recharge it was heading for) rather than carry the beeps into the new world
+		if (poweringDown(p)) {
+			revert(p, state(p).readyAt(POWER_DOWN_TIMEOUT) == 1L ? Reason.TIMEOUT : Reason.SHIFT_V);
+		}
 		forget(p.getUUID());
 	}
 

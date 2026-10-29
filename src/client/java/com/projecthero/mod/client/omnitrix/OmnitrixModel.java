@@ -39,7 +39,7 @@ public final class OmnitrixModel {
 	private static final int[][] SW = { { 0, 0 }, { 16, 0 }, { 32, 0 }, { 48, 0 }, { 0, 16 }, { 16, 16 }, { 32, 16 }, { 48, 16 }, { 0, 32 } };
 
 	// the cuff's cross-section: a rounded rectangle round the sleeve (x -1.25..L+0.25, z +-2.25), clearance 0.15
-	private static final float GAP = 0.15f, CORNER = 0.5f, WALL = 0.3f, HALF_LEN = 2.1f;
+	private static final float GAP = 0f, CORNER = 0.5f, WALL = 0.3f, HALF_LEN = 2.1f;
 	private static final float PRONG_W = 0.4f, PRONG_T = 0.32f, PRONG_Y = 1.22f;
 
 	private OmnitrixModel() {
@@ -61,6 +61,21 @@ public final class OmnitrixModel {
 	 * shows the dark selection screen instead of the hourglass. {@code vc}: an entity cutout buffer on the watch texture.
 	 */
 	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen) {
+		draw(pose, vc, light, L, lift, twist, screen, true);
+	}
+
+	/**
+	 * The face's radius when the wrist draws it itself ({@code face} false): a little inside the core so the dial ring with its
+	 * lime notches shows (and visibly turns) round it.
+	 */
+	public static final float FACE_R = CORE_R - 0.26f;
+
+	/**
+	 * {@code face} false: the core's cap gets the dial ring (eight lime notches, turning with {@code twist}) and the face quad is
+	 * left to the caller ({@link OmnitrixWatch}: the morph frames and the dial icon, upright while the ring turns). The core's
+	 * dark side carries eight lit lime slots, hidden in the bezel at rest and seen as it pops up.
+	 */
+	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face) {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
 		Section cuff = new Section(-1.25f - GAP, L + 0.25f + GAP, 2.25f + GAP, CORNER);
@@ -78,7 +93,7 @@ public final class OmnitrixModel {
 				if (side < 0) {
 					pose.scale(1f, 1f, -1f);
 				}
-				ribbon(pose, vc, outer, s0, s1, false, 0.01f, 0.3f, PRONG_T, yc - PRONG_W, yc + PRONG_W, WHITE, light);
+				ribbon(pose, vc, outer, s0, s1, false, 0f, 0f, PRONG_T, yc - PRONG_W, yc + PRONG_W, WHITE, light);
 				pose.popPose();
 			}
 		}
@@ -90,9 +105,11 @@ public final class OmnitrixModel {
 		cylinder(pose, vc, -0.05f, 0.2f, 0f, 0f, 0.62f, RING, light, 16);
 		cylinder(pose, vc, 0.15f, 0.3f, 0f, 0f, 0.4f, GREEN, lit, 12);
 		pose.popPose();
-		// ---- the bezel: a low black cylinder, four lime lights round its rim
-		float bezelR = 2.0f, bezelTop = xo + 0.4f;
-		cylinder(pose, vc, xo - 0.05f, bezelTop, cy, 0f, bezelR, BLACK, light, 28);
+		// ---- the bezel: a low black cylinder, four lime lights round its rim. v0.17.1 (user: "when the omnitrix pops up the dial
+		// with the green dots must also pop up"): the bezel, its lights and the core rise together by {@code lift}; the circuit
+		// riser it stands on ({@link #riser}) is drawn by the wrist
+		float bezelR = 2.0f, bezelTop = xo + 0.4f + lift;
+		cylinder(pose, vc, xo - 0.05f + Math.max(0f, lift), bezelTop, cy, 0f, bezelR, BLACK, light, 28);
 		// v0.17.1 (user's sketch): the four lights at the top, bottom, left and right of the face (were on the diagonals),
 		// out on the rim just past the core's edge
 		float lr = 1.8f, ls = 0.17f;
@@ -108,7 +125,22 @@ public final class OmnitrixModel {
 		pose.mulPose(Axis.XP.rotationDegrees(twist));
 		pose.translate(0f, -cy * S, 0f);
 		float cr = CORE_R;
-		cylinder(pose, vc, Math.min(xo + 0.2f, top - 0.15f), top, cy, 0f, cr, GREY, light, 24);
+		if (!face) {
+			// the core: a short dark ring standing on the bezel
+			cylinder(pose, vc, bezelTop - 0.2f, top, cy, 0f, cr, BLACK, light, 24);
+			// the dial ring on the cap: eight small lime notches just outside the face
+			for (int k = 0; k < 8; k++) {
+				pose.pushPose();
+				pose.translate(0f, cy * S, 0f);
+				pose.mulPose(Axis.XP.rotationDegrees(k * 45f));
+				float nr = (FACE_R + cr) * 0.5f;
+				box(pose, vc, top - 0.02f, -0.06f, nr - 0.07f, top + 0.035f, 0.06f, nr + 0.07f, k % 2 == 0 ? GREEN : DIMGREEN, lit, false);
+				pose.popPose();
+			}
+			pose.popPose();
+			return;
+		}
+		cylinder(pose, vc, bezelTop - 0.2f, top, cy, 0f, cr, GREY, light, 24);
 		// the face: the hourglass (or the dark selection screen) -- u down the arm, v across it (v 0 at +z)
 		float fx = (top + 0.01f) * S;
 		float u0 = 64 * T, v0 = screen ? 0 : 64 * T, u1 = 1f, v1 = screen ? 64 * T : 1f;
@@ -116,6 +148,40 @@ public final class OmnitrixModel {
 		float a = (cy - fr) * S, b = (cy + fr) * S, zp = fr * S;
 		quad(vc, pose.last(), lit, fx, a, zp, fx, b, zp, fx, b, -zp, fx, a, -zp, 1, 0, 0, u0, v0, u1, v1);
 		pose.popPose();
+	}
+
+	/** The circuit riser's radius (just inside the bezel). */
+	public static final float RISER_R = 1.86f;
+
+	/**
+	 * v0.17.1 (user's reference: "the dial is raised and then that bit underneath is the omnitrix circuit pattern"): the black
+	 * cylinder with the glowing lime circuit traces revealed under the bezel as the dial rises {@code lift} px. {@code vc}: a
+	 * buffer on the circuit strip ({@code circuit.png}: u round the side, v from the bezel down to the cuff), drawn full-bright.
+	 */
+	public static void riser(PoseStack pose, VertexConsumer vc, float L, float lift) {
+		if (lift <= 0.02f) {
+			return;
+		}
+		PoseStack.Pose p = pose.last();
+		float x0 = cuffTop(L) - 0.04f, x1 = cuffTop(L) - 0.04f + lift + 0.02f;
+		float cy = CY, r = RISER_R;
+		int seg = 32;
+		// the strip (128 x 16) covers a quarter of the round (four repeats); v spans the revealed height, rising with it
+		float vTop = 0f, vBot = 1f;
+		int l = LightTexture.FULL_BRIGHT;
+		for (int i = 0; i < seg; i++) {
+			double a0 = i * Math.PI * 2 / seg, a1 = (i + 1) * Math.PI * 2 / seg;
+			float c0 = (float) Math.cos(a0), s0 = (float) Math.sin(a0), c1 = (float) Math.cos(a1), s1 = (float) Math.sin(a1);
+			float u0 = (i % 8) / 8f, u1 = (i % 8 + 1) / 8f;
+			vc.addVertex(p, x1 * S, (cy + c0 * r) * S, s0 * r * S).setColor(255, 255, 255, 255).setUv(u0, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight(l).setNormal(p, 0, c0, s0);
+			vc.addVertex(p, x1 * S, (cy + c1 * r) * S, s1 * r * S).setColor(255, 255, 255, 255).setUv(u1, vTop).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight(l).setNormal(p, 0, c1, s1);
+			vc.addVertex(p, x0 * S, (cy + c1 * r) * S, s1 * r * S).setColor(255, 255, 255, 255).setUv(u1, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight(l).setNormal(p, 0, c1, s1);
+			vc.addVertex(p, x0 * S, (cy + c0 * r) * S, s0 * r * S).setColor(255, 255, 255, 255).setUv(u0, vBot).setOverlay(OverlayTexture.NO_OVERLAY)
+					.setLight(l).setNormal(p, 0, c0, s0);
+		}
 	}
 
 	// ================================================================ the cross-section path

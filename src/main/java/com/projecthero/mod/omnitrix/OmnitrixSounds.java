@@ -37,6 +37,14 @@ public final class OmnitrixSounds {
 	public static final SoundEvent BUZZ = register("omnitrix_denied");
 	/** Every synthesised event, for the sound gametest. */
 	public static final SoundEvent[] SYNTH = { WHIRR, SWEEP, POWER_DOWN, POWER_DOWN_LONG, BLIP, BUZZ };
+	/**
+	 * v0.17.1 (user: "use this sound effect for transforming and the second sound effect ... for detransforming"): the user's own
+	 * two recordings, mono OGG (trimmed, peaks -6 dBFS; docs/OMNITRIX_SOUNDS_0171.md). The transform swell starts with the slap;
+	 * the power-down (five beeps, then the power dying) drives the detransform sequence's timing ({@code Omnitrix.POWER_DOWN_BEEPS}).
+	 */
+	public static final SoundEvent USER_TRANSFORM = register("omnitrix_transform_user");
+	public static final SoundEvent USER_POWER_DOWN = register("omnitrix_power_down_user");
+	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -72,7 +80,15 @@ public final class OmnitrixSounds {
 			.layer(SoundEvents.PLAYER_ATTACK_KNOCKBACK, 0.3f, 0.55f)
 			.layer(SWEEP, 0.55f, 1.0f)
 			.jitter(0.04f);
-	/** Shift+V back to human: the descending whir, a soft click. */
+	/** The user's transform sound (no jitter: the slap / body change is timed to it). */
+	public static final Cue TRANSFORM_USER = OmnitrixSfx.cue("omnitrix_transform_user")
+			.layer(USER_TRANSFORM, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** The user's power-down: five beeps, then the power dying (no jitter: the beeps / revert are timed to it). */
+	public static final Cue POWER_DOWN_USER = OmnitrixSfx.cue("omnitrix_power_down_user")
+			.layer(USER_POWER_DOWN, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** An immediate revert (suppression, the pod, a revoke): the short whir -- V and the timeout use {@link #POWER_DOWN_USER}. */
 	public static final Cue REVERT = OmnitrixSfx.cue("omnitrix_revert")
 			.layer(POWER_DOWN, 0.45f, 1.0f)
 			.layer(SoundEvents.PISTON_CONTRACT, 0.12f, 1.6f, 8)
@@ -214,6 +230,21 @@ public final class OmnitrixSounds {
 
 	public static void play(ServerLevel level, Vec3 at, Cue cue, float volume, float pitch, SoundSource source) {
 		OmnitrixSfx.play(level, at, cue, volume, pitch, source);
+	}
+
+	/** Plays a Cue on {@code entity} (the sound follows it) for everyone nearby. */
+	public static void playOn(net.minecraft.world.entity.Entity entity, Cue cue) {
+		OmnitrixSfx.playOn(entity, cue, 1f, 1f, SoundSource.PLAYERS);
+	}
+
+	/** Cuts the power-down sound short for everyone near {@code p} (the sequence was interrupted: death, logout, a world change). */
+	public static void stopPowerDown(ServerPlayer p) {
+		var stop = new net.minecraft.network.protocol.game.ClientboundStopSoundPacket(USER_POWER_DOWN.getLocation(), SoundSource.PLAYERS);
+		for (ServerPlayer o : p.serverLevel().players()) {
+			if (o == p || o.distanceToSqr(p) < 48 * 48) {
+				o.connection.send(stop);
+			}
+		}
 	}
 
 	/** Plays a Cue to one player alone (the watch's UI). */

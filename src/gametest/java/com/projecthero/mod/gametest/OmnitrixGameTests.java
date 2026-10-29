@@ -379,15 +379,21 @@ public class OmnitrixGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 260)
 	public void vRevertsTheRechargeRefusesAndTheTimeoutTimesOut(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);
 		pump(helper, p);
 		Omnitrix.transform(p);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
+		// v0.17.1: V starts the power-down (five beeps), the revert lands POWER_DOWN_REVERT_TICK later
+		helper.assertTrue(Omnitrix.transformed(p) && Omnitrix.poweringDown(p), "V as an alien starts the power-down");
+		helper.runAfterDelay(Omnitrix.POWER_DOWN_REVERT_TICK + 3, () -> afterTheEarlyRevert(helper, p));
+	}
+
+	private static void afterTheEarlyRevert(GameTestHelper helper, ServerPlayer p) {
 		helper.assertFalse(Omnitrix.transformed(p), "V as an alien reverts");
-		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 1, "a short recharge");
+		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_5, false);
 		helper.assertFalse(Omnitrix.selecting(p), "V during the recharge does not raise the watch");
@@ -402,7 +408,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.assertTrue(t.endsAt - t.transformedAt == OmnitrixConfig.TRANSFORM_TICKS, "3 minutes");
 		t.endsAt = helper.getLevel().getGameTime() + 2;
 		Omnitrix.save(p, t);
-		helper.runAfterDelay(4, () -> {
+		helper.runAfterDelay(4 + Omnitrix.POWER_DOWN_REVERT_TICK, () -> {
 			helper.assertFalse(Omnitrix.transformed(p), "timed out");
 			helper.assertTrue(Omnitrix.state(p).animId == Omnitrix.ANIM_TIMEOUT, "with the timeout flash");
 			helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.RECHARGE_TICKS) <= 3, "then a 90 s recharge");

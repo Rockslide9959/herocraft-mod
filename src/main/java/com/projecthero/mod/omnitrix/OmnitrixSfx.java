@@ -16,6 +16,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -138,6 +139,33 @@ public final class OmnitrixSfx {
 	/** Shapes a caller pitch: halfway back toward 1. */
 	public static float shapePitch(float pitch) {
 		return 1f + (pitch - 1f) * 0.5f;
+	}
+
+	/**
+	 * Plays {@code cue} attached to {@code entity} for everyone nearby: the undelayed layers follow it (a long sound -- the user's
+	 * power-down -- stays on a running alien); delayed layers play where it was.
+	 */
+	public static void playOn(Entity entity, Cue cue, float volume, float pitch, SoundSource source) {
+		if (entity == null || cue == null || cue.layers.isEmpty() || !(entity.level() instanceof ServerLevel level)) {
+			return;
+		}
+		if (throttled(cue.name + '@' + entity.getUUID(), cue, level.getGameTime())) {
+			return;
+		}
+		float v = shapeVolume(volume);
+		float q = shapePitch(pitch) * (1f + cue.jitter * (level.random.nextFloat() * 2f - 1f));
+		for (Layer l : cue.layers) {
+			float lv = l.volume() * v;
+			float lp = Mth.clamp(l.pitch() * q, 0.5f, 2.0f);
+			if (lv <= 0.001f) {
+				continue;
+			}
+			if (l.delay() <= 0 || level.getServer() == null) {
+				level.playSeededSound(null, entity, l.sound(), source, lv, lp, level.random.nextLong());
+			} else {
+				PENDING.add(new Pending(level, null, entity.position(), l.sound(), source, lv, lp, level.getServer().getTickCount() + l.delay()));
+			}
+		}
 	}
 
 	/** Plays {@code cue} at {@code at} for everyone nearby (player sounds). */

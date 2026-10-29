@@ -3,6 +3,7 @@
 //     light, inside, ring), the face (hourglass, 64x64 at 64,64 -- the alien badge and pod still read that quadrant), the
 //     dark selection screen (64x64 at 64,0) and the round button lens (16x16 at 0,48). See OmnitrixModel.
 //   * item/omnitrix.png                          16x16 particle / fallback icon
+//   (v0.17.1 later: the alien_<id> icons are replaced by the user's dial art, gen_omnitrix_dial_icons.js; skip them)
 //   * gui/omnitrix/alien_<id>.png                32x32 dial icons: a white figure (tinted lime / red where drawn) with a
 //     1-px near-black outline, mid-grey and dark details; drawn 4x supersampled and thresholded, so edges are pixel-crisp.
 // Usage: node scratchpad/gen_omnitrix_watch_v2.js [previewDir]   (previewDir also gets the contact sheet + 8x previews)

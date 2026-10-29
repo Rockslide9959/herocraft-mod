@@ -275,6 +275,8 @@
   "subtitles.projecthero.omnitrix_core_up": "Omnitrix core pops up",
   "subtitles.projecthero.omnitrix_transform": "Omnitrix transforms",
   "subtitles.projecthero.omnitrix_revert": "Omnitrix reverts",
+  "subtitles.projecthero.omnitrix_transform_user": "Omnitrix transforms",
+  "subtitles.projecthero.omnitrix_power_down_user": "Omnitrix beeps and powers down",
   "subtitles.projecthero.omnitrix_timeout": "Omnitrix times out",
   "subtitles.projecthero.omnitrix_warning": "Omnitrix beeps",
   "subtitles.projecthero.omnitrix_denied": "Omnitrix buzzes",

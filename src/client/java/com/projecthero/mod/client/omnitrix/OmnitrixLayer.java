@@ -36,9 +36,10 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 			float[] b = kit.badge();
 			boolean red = OmnitrixWatch.red(p, partial);
 			AlienParts.on(pose, model.body, () -> {
-				VertexConsumer vc = buffers.getBuffer(RenderType.eyes(red ? OmnitrixWatch.TEX_RED : OmnitrixWatch.TEX));
+				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? OmnitrixWatch.TEX_RED : OmnitrixWatch.TEX));
 				float s = b[3] / 2f / 16f;
-				float x = b[0] / 16f, y = b[1] / 16f, z = b[2] / 16f;
+				// v0.17.1: just in front of the jacket overlay (-2.25 px), which hid the badge -- and its red beep blinks
+				float x = b[0] / 16f, y = b[1] / 16f, z = Math.min(b[2], -2.3f) / 16f;
 				AlienParts.quad(vc, pose.last(), 0xFFFFFFFF, LightTexture.FULL_BRIGHT, x - s, y - s, z, x + s, y - s, z, x + s, y + s, z, x - s, y + s, z,
 						0, 0, -1, 0.5f, 0.5f, 1f, 1f);
 			});

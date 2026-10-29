@@ -24,11 +24,14 @@ const face=mv(ML,[L+1.25,7.1,0]).map((v,i)=>v+piv[i]);
 const n=mv(ML,[1,0,0]);
 console.log('left',left.x.toFixed(3),left.y.toFixed(3),left.z.toFixed(3),'face',face.map(v=>v.toFixed(2)),'n',n.map(v=>v.toFixed(2)),'d',mv(ML,[0,1,0]).map(v=>v.toFixed(2)));
 const hover=+(process.argv[5]||1.2);
-const dl=mv(ML,[0,1,0]);const along=+(process.argv[9]||0);const tgt=face.map((v,i)=>v+n[i]*hover+dl[i]*along);
+const dl=mv(ML,[0,1,0]);const along=+(process.argv[9]||0);
+// v0.17.1 (user: the hand must not cover the face): argv[10] = a model-space offset from the face centre for the hand (the dial's bottom edge), argv[11] = the palm's direction
+const off=process.argv[10]?JSON.parse(process.argv[10]):null;const palmT=process.argv[11]?norm(JSON.parse(process.argv[11])):n.map(v=>-v);
+const tgt=off?face.map((v,i)=>v+off[i]):face.map((v,i)=>v+n[i]*hover+dl[i]*along);
 const rp=[-5,2+(+(process.argv[8]||0)),0];
 const dist=Math.hypot(...tgt.map((v,i)=>v-rp[i]));
 console.log('target',tgt.map(v=>v.toFixed(2)),'dist from right shoulder',dist.toFixed(2));
 const reach=+(process.argv[6]||9.5);
-const right=solve(M=>{const h=mv(M,[-1,reach,0]).map((v,i)=>v+rp[i]);const e=Math.hypot(...h.map((v,i)=>v-tgt[i]));const palm=mv(M,[1,0,0]);return e*e*0.2+(1+dot(palm,n))*0.5;});
+const right=solve(M=>{const h=mv(M,[-1,reach,0]).map((v,i)=>v+rp[i]);const e=Math.hypot(...h.map((v,i)=>v-tgt[i]));const palm=mv(M,[1,0,0]);return e*e*0.2+(1-dot(palm,palmT))*0.5;});
 const MR=R(right.x,right.y,right.z);
 console.log('right',right.x.toFixed(3),right.y.toFixed(3),right.z.toFixed(3),'hand',mv(MR,[-1,reach,0]).map((v,i)=>(v+rp[i]).toFixed(2)),'palm',mv(MR,[1,0,0]).map(v=>v.toFixed(2)));

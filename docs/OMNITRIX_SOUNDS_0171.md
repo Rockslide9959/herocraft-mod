@@ -1,7 +1,71 @@
 # Omnitrix + alien sound rework (v0.17.1)
 
 The user said the demo sounds were "like tring sounds and loud and annoying" and asked for something closer to the show.
-This page has three parts: an audit of the old sounds, the new design, and the waveform numbers before and after.
+This page has three parts: an audit of the old sounds, the new design, and the waveform numbers before and after. The user's
+own transform / power-down recordings and the synced detransform came after; they are in section 0.
+
+## 0. The user's transform and power-down sounds, and the synced detransform
+
+The user supplied two recordings for their test build: `ben-10-som-de-transformar.mp3` (transforming) and
+`omnitrix-power-down.mp3` (detransforming: five beeps, then the power dying). Neither MP3 is committed.
+
+**Conversion** (Medal's libvorbis `ffmpeg7.exe`): stereo averaged to mono (positional sounds must be mono), resampled to
+44.1 kHz, leading silence trimmed (`silenceremove`, -50 dB), peaks normalised to about -6 dBFS, Vorbis q5:
+
+| file | source length / peak | trimmed | gain | shipped |
+|---|---|---|---|---|
+| `sounds/omnitrix/transform_user.ogg` | 2.33 s, -9.4 dBFS (mono) | 0.50 s | +3.4 dB | 1.83 s, -6 dBFS |
+| `sounds/omnitrix/power_down_user.ogg` | 4.71 s, -3.1 dBFS | 0.11 s | -2.9 dB | 4.60 s, -6 dBFS |
+
+Events `projecthero:omnitrix_transform_user` / `omnitrix_power_down_user` (subtitles "Omnitrix transforms" / "Omnitrix beeps and
+powers down"), Cues `TRANSFORM_USER` / `POWER_DOWN_USER` at 0.7 with **no pitch jitter** (a pitch change changes the playback
+speed and would break the sync). Both play **on the wearer** (`OmnitrixSfx.playOn`, an entity-bound sound that follows a running
+alien), positionally for everyone in range. They replace the old `TRANSFORM` cue and the `REVERT` / `TIMEOUT` cues for V and the
+timeout; an *immediate* revert (suppression, the pod, a revoke, a world change) keeps the short `REVERT` / `TIMEOUT` whir, and an
+interrupted power-down (death, logout, a world change, suppression) sends a stop-sound packet for `omnitrix_power_down_user` to
+everyone within 48 blocks.
+
+### Measured onsets (`scratchpad/detect_omnitrix_beeps.js`, on the decoded shipped OGG)
+
+The power-down has a continuous low drone (215 Hz falling to 108 Hz) and a steady 5.3 kHz whine under the beeps, so broadband
+RMS cannot see them (`scratchpad/analyse_user_omnitrix_audio.js` prints that envelope; `scratchpad/spectro_user_omnitrix_audio.js`
+the coarse spectrogram used to find the bands). The detector: a 2048-point Hann STFT every 5 ms; the beeps are tones from 1.6 kHz
+falling to ~0.9 kHz, so a beep onset is the first frame where the 600-2000 Hz band rises more than 10 dB above its previous-60 ms
+minimum (and 8 dB over the band's median), refined to the halfway point (in dB) of the rise. The power-down onset is the first
+frame after the last beep where the 0-150 Hz band jumps more than 6 dB over its previous-100 ms mean (the watch's clunk; 5-22 kHz
+collapses at the same moment); its strongest part is the loudest 50 ms after that.
+
+| event | shipped OGG | tick (x20, rounded) | original MP3 |
+|---|---|---|---|
+| beep 1 | 0.050 s | 1 | 0.160 s |
+| beep 2 | 0.469 s | 9 | 0.579 s |
+| beep 3 | 0.958 s | 19 | 1.073 s |
+| beep 4 | 1.487 s | 30 | 1.596 s |
+| beep 5 | 2.015 s | 40 | 2.130 s |
+| power-down onset (the clunk) | 2.724 s | 54 | 2.834 s |
+| power-down loudest 50 ms | 2.829-2.879 s | 57 | 2.943 s |
+| **the revert** (`Omnitrix.POWER_DOWN_REVERT_TICK`) | 2.80 s | **56** | |
+
+After beep 5 the tone sweeps down (970 to 430 Hz) into the clunk. The revert is on tick 56 so the red flash's hot opening (its
+first 2.5 ticks) covers the loudest part; the body swap and the flash share the tick.
+
+### The detransform sequence (server-authoritative, `Omnitrix.beginPowerDown`)
+
+V while transformed (Shift+V is an alias) and the 3-minute timeout both start it: timers `omnitrix.power_down` (the start's game
+time) and `omnitrix.power_down_timeout` (1 = the timeout) go into the synced state and the sound starts. On each beep tick
+(`POWER_DOWN_BEEPS` = 1, 9, 19, 30, 40 after the start) every client blinks the watch red for 4 ticks (`Omnitrix.beepBlink`): the
+wrist face and the alien's chest badge (`OmnitrixWatch.red`, plus a red glow on the wrist) and the HUD's Time bar (it flashes red,
+five pips light one per beep, the icon goes red). On tick 56 the server reverts (the red Kirby-dot flash, the body swap, the 90 s /
+10 s recharge as before). During the beeps the wearer is still the alien and can fight (the kit keeps ticking); the time limit
+stops (`Omnitrix.displayLeft` holds it; 0:00 for the timeout); the 15-second warning blips stop; a second V / Shift+V does
+nothing. Death and logout revert at once (no recharge, as before); a world change reverts at once with the recharge it was heading
+for; none leaves power-down state behind. A save loaded mid-sequence reverts on the next tick. Tests: `OmnitrixPowerDownGameTests`.
+
+### Transform sync
+
+The transform recording has no sharp hit: it swells from 0.07 s and is loudest at 0.28 s (tick 5.6). So the sound now starts
+**with the slap**, and the body changes `SLAP_TICKS` (5) later, on its loudest part; no visual timing was shifted. A direct
+transform (not through the slap) plays it on the transform tick.
 
 ## 1. Audit: every Omnitrix / alien sound event before the rework
 

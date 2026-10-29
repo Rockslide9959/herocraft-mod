@@ -503,6 +503,12 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		n.endsAt = helper.getLevel().getGameTime();
 		Omnitrix.save(p, n);
 		Omnitrix.tick(p);
+		// v0.17.1: the timeout starts the five-beep power-down; jump to its revert tick
+		helper.assertTrue(Omnitrix.poweringDown(p), "the power-down started");
+		OmnitrixState m = Omnitrix.state(p).copy();
+		m.timers.put(Omnitrix.POWER_DOWN_TIMER, helper.getLevel().getGameTime() - Omnitrix.POWER_DOWN_REVERT_TICK);
+		Omnitrix.save(p, m);
+		Omnitrix.tick(p);
 		helper.assertFalse(Omnitrix.state(p).transformed(), "timed out");
 	}
 

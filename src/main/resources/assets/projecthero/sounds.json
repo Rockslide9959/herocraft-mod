@@ -15,6 +15,22 @@
       }
     ]
   },
+  "omnitrix_transform_user": {
+    "subtitle": "subtitles.projecthero.omnitrix_transform_user",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/transform_user"
+      }
+    ]
+  },
+  "omnitrix_power_down_user": {
+    "subtitle": "subtitles.projecthero.omnitrix_power_down_user",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/power_down_user"
+      }
+    ]
+  },
   "omnitrix_revert": {
     "subtitle": "subtitles.projecthero.omnitrix_revert",
     "sounds": [
