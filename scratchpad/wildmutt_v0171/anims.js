@@ -92,7 +92,7 @@ function hindLeg(o, n, u, A, B, duty, fold = 1) {
 }
 // rearing up about the hind feet (z = +8.5): the root's pitch plus the offset that keeps the feet on the ground
 function rear(o, deg) {
-	const th = deg * Math.PI / 180, Z = 8.5; // v0.17.1 rework 2: the hind paws' middle
+	const th = deg * Math.PI / 180, Z = 8.5; // v0.17.1 rework 2 / 3: the hind paws' middle
 	add(o, 'root', [-deg, 0, 0], [0, Z * Math.sin(th), Z * (1 - Math.cos(th))]);
 }
 
@@ -152,7 +152,7 @@ function walkCycle(len, amp, duty, bob) {
 		add(o, 'hips', [0, -3 * Math.sin(w), -2.5 * Math.sin(w + 1.2)]);
 		add(o, 'neck', [-1.5 * bob * Math.cos(2 * w), -2.5 * Math.sin(w), 0]);
 		add(o, 'head', [1.0 * Math.cos(2 * w + 0.5), -2 * Math.sin(w), -2 * Math.sin(w)]);
-		add(o, 'jaw', [2 + 2 * bob, 0, 0]);
+		add(o, 'jaw', [1.2 + 0.6 * bob, 0, 0]); // v0.17.1 rework 3: shut while walking (the band laps the seam up to ~3 degrees)
 
 		add(o, 'quills_f', [1.5 * Math.cos(2 * w), 0, 0]);
 		return o;

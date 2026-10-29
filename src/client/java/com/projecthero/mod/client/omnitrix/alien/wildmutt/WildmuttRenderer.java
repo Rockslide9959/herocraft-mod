@@ -24,7 +24,7 @@ import software.bernie.geckolib.renderer.layer.GeoRenderLayer;
  */
 public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPlayer, WildmuttAnimatable> {
 	private static WildmuttRenderer instance;
-	/** v0.17.1 rework 2: the slim, leggy model drawn 1:1 -- 1.48 blocks at the shoulders, 1.6 to the tufts, 2.4 long. */
+	/** v0.17.1 rework 3: drawn 1:1 -- ~1.52 blocks at the hump, 1.79 to the quill tips, 2.55 long. */
 	public static final float MODEL_SCALE = 1.0f;
 
 	public WildmuttRenderer(EntityRendererProvider.Context context) {
@@ -51,8 +51,8 @@ public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPl
 	}
 
 	/**
-	 * The Omnitrix on the cuff's plate. v0.17.1 rework 2: the cuff round the left upper front leg near the shoulder, the
-	 * {@code badge} bone tipped with the upper arm -- the plate's outer face at json x 8.7, y 15.0..18.6, z -6.8..-3.2 in the
+	 * The Omnitrix on the cuff's plate. v0.17.1 rework 2 / 3: the cuff round the left upper front leg near the shoulder, the
+	 * {@code badge} bone tipped with the upper arm -- the plate's outer face at json x 10.8, y 14.85..18.75, z -7.45..-3.55 (rework 3) in the
 	 * bone's own (untipped) frame, so the symbol rides the cuff whatever the leg does.
 	 */
 	static final class Badge<T extends software.bernie.geckolib.animatable.GeoAnimatable> extends GeoRenderLayer<T> {
@@ -74,9 +74,9 @@ public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPl
 			// the framework's badge: the show's symbol (OmnitrixLayer.BADGE, the whole texture), BADGE_RED while the watch beeps
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE_RED
 					: com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE));
-			// GeckoLib mirrors json X: the plate's outer face is at render x = -8.72 px, facing -X
+			// GeckoLib mirrors json X: the plate's outer face is at render x = -10.8 px, facing -X (v0.17.1 rework 3)
 			float s = 1f / 16f;
-			float x = -8.73f * s, y = 16.8f * s, z = -5f * s, h = 1.6f * s;
+			float x = -10.83f * s, y = 16.8f * s, z = -5.5f * s, h = 1.6f * s;
 			PoseStack.Pose m = pose.last();
 			int full = LightTexture.FULL_BRIGHT;
 			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z - h, x, y + h, z + h, x, y - h, z + h, x, y - h, z - h, -1, 0, 0, 0f, 0f, 1f, 1f);
