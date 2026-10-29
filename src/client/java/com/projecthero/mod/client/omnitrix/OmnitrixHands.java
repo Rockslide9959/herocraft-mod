@@ -129,15 +129,17 @@ public final class OmnitrixHands {
 			return NONE;
 		}
 		float t = p.level().getGameTime() + partial - s.selectStart;
+		// v0.17.1: raised during the recharge, everything after the button press waits for the time-in (Omnitrix#popAt)
+		float d = s.selecting ? Math.max(0f, Omnitrix.popAt(s) - s.selectStart - PRESS_T) : 0f;
 		Rig r = new Rig();
 		Rig q = m.snap;
 		float[] from = q.hand != null ? q.hand : pose(OFF, L, 0f, 0f);
 		if (s.selecting) {
 			r.raise = q.raise + (1f - q.raise) * smooth(t / RAISE_T);
-			r.lift = Math.max(popEase((t - PRESS_T) / POP_T), q.lift * (1f - smooth(t / 3f)));
+			r.lift = Math.max(popEase((t - PRESS_T - d) / POP_T), q.lift * (1f - smooth(t / 3f)));
 			float lp = OmnitrixWatch.LIFT * r.lift;
-			r.morph = Math.max(smooth((t - MORPH_AT) / MORPH_T), q.morph * (1f - smooth(t / 3f)));
-			r.icon = Math.max(Mth.clamp((t - ICON_AT) / ICON_T, 0f, 1f), q.icon * (1f - Mth.clamp(t / 1.5f, 0f, 1f)));
+			r.morph = Math.max(smooth((t - MORPH_AT - d) / MORPH_T), q.morph * (1f - smooth(t / 3f)));
+			r.icon = Math.max(Mth.clamp((t - ICON_AT - d) / ICON_T, 0f, 1f), q.icon * (1f - Mth.clamp(t / 1.5f, 0f, 1f)));
 			r.mainHide = Math.max(q.mainHide, smooth(t / 2.5f));
 			float twist = OmnitrixWatch.handTwist(p);
 			float[] hand;
@@ -147,8 +149,10 @@ public final class OmnitrixHands {
 				hand = lerp(pose(HOVER, L, lp, twist), pose(PRESS, L, lp, twist), smooth((t - UP_HOVER) / (PRESS_T - UP_HOVER)));
 			} else if (t < UP_AWAY) {
 				hand = lerp(pose(PRESS, L, lp, twist), pose(AWAY, L, lp, twist), smooth((t - PRESS_T) / (UP_AWAY - PRESS_T)));
+			} else if (t < UP_AWAY + d) {
+				hand = pose(AWAY, L, lp, twist); // waiting for the time-in, clear of the face
 			} else {
-				hand = lerp(pose(AWAY, L, lp, twist), pose(DIAL, L, lp, twist), smooth((t - UP_AWAY) / (UP_DIAL - UP_AWAY)));
+				hand = lerp(pose(AWAY, L, lp, twist), pose(DIAL, L, lp, twist), smooth((t - UP_AWAY - d) / (UP_DIAL - UP_AWAY)));
 			}
 			// the slap: up off the dial, then the palm slams the core down
 			if (slapping(s)) {

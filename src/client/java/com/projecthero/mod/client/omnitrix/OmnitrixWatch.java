@@ -283,6 +283,15 @@ public final class OmnitrixWatch {
 			float u0 = (f % 4) * 0.25f, v0 = (f / 4) * 0.25f;
 			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(red ? MORPH_RED : MORPH));
 			faceQuad(vc, last, 0xFFFFFFFF, fx, y0, y1, up, u0, v0, u0 + 0.25f, v0 + 0.25f, lit);
+			// v0.17.1: timed in while raised -- the red face fades into the green one before the core pops
+			float sinceIn = p.level().getGameTime() + partial - s.rechargeUntil;
+			if (!red && s.selecting && !s.transformed() && s.rechargeUntil > s.selectStart && sinceIn >= 0f && sinceIn < Omnitrix.TIME_IN_TICKS) {
+				int a = Math.round(255 * (1f - smooth(sinceIn / (Omnitrix.TIME_IN_TICKS * 0.8f))));
+				if (a > 0) {
+					VertexConsumer fade = buffers.getBuffer(RenderType.entityTranslucent(MORPH_RED));
+					faceQuad(fade, last, (a << 24) | 0xFFFFFF, fx + 0.002f / 16f, y0, y1, up, 0f, 0f, 0.25f, 0.25f, lit);
+				}
+			}
 		}
 		if (showIcon) {
 			float swap = d == null ? 1f : sp[1];

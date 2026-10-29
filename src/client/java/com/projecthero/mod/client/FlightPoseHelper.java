@@ -126,7 +126,9 @@ public final class FlightPoseHelper {
 				// v0.16.5 (user): Blue Beetle leans forward flying, lies flat sprint-flying, arms and legs down
 				|| com.projecthero.mod.bluebeetle.BlueBeetle.flying(player)
 				// v0.17.1: the Falcon's jet flight (flat out while the jets burn)
-				|| com.projecthero.mod.falcon.Falcon.flying(player);
+				|| com.projecthero.mod.falcon.Falcon.flying(player)
+				// v0.17.1 (user: "make heatblasts flying animation look better"): Heatblast leans into his Fire Jet, flat out fast
+				|| com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.flying(player);
 		boolean heroFlying = otherHeroFlying || ironManFlying;
 		boolean flying = thorFlying || heroFlying;
 		// v0.14.21: Iron Man keeps the body lean from here but has his own limb poses (client.ironman.IronManFlightPose),

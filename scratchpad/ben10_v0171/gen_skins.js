@@ -56,21 +56,17 @@ const nearRock = (x, y) => {
 	}
 	return false;
 };
-// v0.17.1 (user: "add like a burning fire texture to the rest of his body so he doesnt just look kinda plain"): the skin's
-// flat pale body areas painted as fire -- a rising flame pattern, yellow at the hottest, deep orange where it meets the rock
+// v0.17.1 (user, second pass: "he looks orange right now, maybe remove the animated fire texture on his body completely of
+// you cant make it match his colours"): the skin keeps its own colours; the overlay only breathes HIS pale yellow brighter
 const skin = Buffer.from(hb.px);
-for (let y = 16; y < 64; y++) {
-	for (let x = 0; x < 64; x++) {
-		const o = (y * 64 + x) * 4;
-		if (!isPale(hb.px, o)) continue;
-		const n = vnoise(x * 0.45, y * 0.32, 29, 21, 31) * 0.65 + vnoise(x * 0.9, y * 0.7, 58, 45, 32) * 0.35;
-		let v = 0.5 + (n - 0.5) * 0.8 + 0.12;
-		if (nearRock(x, y)) v -= 0.18;
-		const [r, g, b] = fire(clamp(v, 0.42, 0.97));
-		skin[o] = r; skin[o + 1] = g; skin[o + 2] = b;
-	}
-}
 write('heatblast.png', 64, 64, skin);
+const nearPale = (x, y) => {
+	for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+		const xx = x + dx, yy = y + dy;
+		if (xx >= 0 && yy >= 0 && xx < 64 && yy < 64 && isPale(hb.px, (yy * 64 + xx) * 4)) return true;
+	}
+	return false;
+};
 const FRAMES = 32;
 for (let f = 0; f < FRAMES; f++) {
 	const px = Buffer.alloc(64 * 64 * 4);
@@ -79,30 +75,23 @@ for (let f = 0; f < FRAMES; f++) {
 		for (let x = 0; x < 64; x++) {
 			const o = (y * 64 + x) * 4;
 			const [r, g, b, a] = hb.px.slice(o, o + 4);
-			const near = nearRock(x, y);
+			const near = nearPale(x, y);
 			if (a === 0) continue;
 			const pale = isPale(hb.px, o); // the cracks, the fire areas and the head
 			const rock = isRock(hb.px, o); // the dark red rock
 			let rgb = [0, 0, 0];
-			if (isHead(x, y)) {
-				if (pale) {
-					// the flame head glows from inside, a slow breathing flicker
-					const k = 0.2 + 0.07 * Math.sin((f / FRAMES) * Math.PI * 2 * 2 + x * 0.4) + 0.08 * (vnoise(x * 0.5, y * 0.5 + scroll * 16, 32, 16, 7) - 0.5);
-					rgb = [r * k, g * k * 0.92, b * k * 0.6];
-				}
-			} else if (pale) {
-				// lava pulsing through the cracks: a wave travelling up each limb, plus a flicker
+			if (pale) {
+				// his own pale yellow, a little brighter in a slow wave up each limb (the head steadier), never orange: the
+				// fire areas look alive without changing colour
 				const wave = 0.5 + 0.5 * Math.sin((scroll * 2 + (y % 16) / 16) * Math.PI * 2);
 				const n = vnoise(x * 0.6, y * 0.6 + scroll * 38.4, 38, 38, 3);
-				// (kept dim: it only moves the fire painted on the skin, never washes it out)
-				rgb = fire(0.55 + 0.3 * wave + 0.2 * (n - 0.5)).map(c => c * 0.38);
-			} else if (rock) {
-				// flames licking up the rock: two octaves of noise rising (v grows downward on every side face, so the
-				// pattern moves to smaller y), the brightest tongues hugging the cracks
+				const k = isHead(x, y) ? 0.12 + 0.05 * wave : 0.08 + 0.16 * wave + 0.06 * (n - 0.5);
+				rgb = [r * k, g * k, b * k * 0.85];
+			} else if (rock && near) {
+				// the rock right at the cracks: the faintest warm ember in the rock's own red
 				const n1 = vnoise(x * 0.5, y * 0.5 + scroll * 32, 32, 32, 11);
-				const n2 = vnoise(x * 1.0, y * 1.0 + scroll * 64, 64, 64, 12);
-				const v = smooth(0.6, 0.98, n1 * 0.7 + n2 * 0.3);
-				rgb = fire(v * 0.66).map(c => c * 0.8);
+				const k = smooth(0.55, 0.95, n1) * 0.35;
+				rgb = [r * k, g * k, b * k];
 			}
 			px[o] = clamp(Math.round(rgb[0]), 0, 255);
 			px[o + 1] = clamp(Math.round(rgb[1]), 0, 255);

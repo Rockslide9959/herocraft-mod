@@ -65,7 +65,7 @@ import net.minecraft.world.phys.Vec3;
  *                                                                               Shift+X  Wall Climb    toggle: press into a wall to scale it
  *   Z        Ground Slam   both fists down: r 4.5, 8 near / 5 at the edge       Shift+Z  Quill Roll    1.5 s spiked roll (5 a hit, -40% taken)
  *   C        Feral Frenzy  8 s: +25% speed, +4 claws, +1 attack speed, heals    Shift+C  Scent Track   marks a creature (48 r) for 30 s: a trail to it
- *   Attack   claw swipe (cleaves the creatures beside the target)              Use (empty hand, air)  Sniff: 6 s, senses widen to 48 and pick out items
+ *   Attack   claw swipe (cleaves the creatures beside the target)              Use (empty hand, air)  Sniff: 6 s, senses widen to 64, pick out items and buried ores / chests
  *   Passive  Scent Sense: creatures within 24 are outlined for him (invisible ones too); gallops (+20% while sprinting); no eyes:
  *            immune to Blindness and Darkness. Weakness: underwater his senses shrink to 6 and his air runs out twice as fast;
  *            an explosion close by deafens his senses for 3 s.
@@ -200,7 +200,7 @@ public final class WildmuttKit extends AlienKit {
 	public static final int SNIFF_TICKS = 120;
 	public static final float GALLOP_BONUS = 0.2f;
 	/** The passive sense: creatures within this many blocks are outlined for him; Sniff widens it; water shrinks it. */
-	public static final double SENSE_RANGE = 24.0, SNIFF_RANGE = 48.0, WATER_RANGE = 6.0;
+	public static final double SENSE_RANGE = 24.0, SNIFF_RANGE = 64.0, WATER_RANGE = 6.0;
 	public static final int DEAF_TICKS = 60;
 
 	private static final ResourceLocation GALLOP_ID = PowerToggles.id("omnitrix_wildmutt_gallop");
@@ -806,7 +806,7 @@ public final class WildmuttKit extends AlienKit {
 
 	// ---------------------------------------------------------------- passives, senses, damage
 
-	/** How far his senses reach now (client-safe): 24, 48 while sniffing, 6 underwater, 0 while an explosion deafens him. */
+	/** How far his senses reach now (client-safe): 24, 64 while sniffing, 6 underwater, 0 while an explosion deafens him. */
 	public double senseRange(Player p) {
 		long now = p.level().getGameTime();
 		if (timer(p, "deaf_until") > now) {

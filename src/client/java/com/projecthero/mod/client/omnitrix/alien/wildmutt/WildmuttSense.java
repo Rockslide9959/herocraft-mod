@@ -16,11 +16,19 @@ import net.minecraft.world.entity.item.ItemEntity;
  * {@link IronManHighlight#mayDecide}). He has no eyes: every creature within {@link WildmuttKit#senseRange} is outlined in a
  * warm amber -- invisible ones too (vanilla draws an invisible creature's outline when it glows) -- dropped items as well
  * while he sniffs, and the creature he tracks in red at any distance.
+ * <p>v0.17.1 (user: "make his smelling power better"): he tells scents apart -- monsters smell red-orange, animals green, players
+ * pale gold, anything badly hurt of blood (deep red), the rest the old amber.
  */
 public final class WildmuttSense {
 	public static final int COLOUR = 0xFFB060;
 	public static final int ITEM_COLOUR = 0xFFE8A0;
-	public static final int TRACK_COLOUR = 0xFF4030;
+	public static final int TRACK_COLOUR = 0xFF2A1A;
+	public static final int MONSTER_COLOUR = 0xFF6A30;
+	public static final int ANIMAL_COLOUR = 0x8EE05A;
+	public static final int PLAYER_COLOUR = 0xFFE9A8;
+	public static final int BLOOD_COLOUR = 0xB0102A;
+	/** Below this share of its health a creature smells of blood. */
+	public static final float BLOOD_BELOW = 0.35f;
 
 	private WildmuttSense() {
 	}
@@ -57,6 +65,18 @@ public final class WildmuttSense {
 		}
 		if (!(entity instanceof LivingEntity living) || entity instanceof ArmorStand || !living.isAlive()) {
 			return 0;
+		}
+		if (living.getHealth() < living.getMaxHealth() * BLOOD_BELOW) {
+			return BLOOD_COLOUR;
+		}
+		if (entity instanceof net.minecraft.world.entity.monster.Enemy) {
+			return MONSTER_COLOUR;
+		}
+		if (entity instanceof net.minecraft.world.entity.player.Player) {
+			return PLAYER_COLOUR;
+		}
+		if (entity instanceof net.minecraft.world.entity.animal.Animal || entity instanceof net.minecraft.world.entity.animal.WaterAnimal) {
+			return ANIMAL_COLOUR;
 		}
 		return COLOUR;
 	}

@@ -83,6 +83,15 @@ public final class HeatblastKit extends AlienKit {
 	public static final int ANIM_SMELT = 12;
 
 	public static final int F_FLYING = 1;
+
+	/** v0.17.1: Heatblast up on his Fire Jet now (any side: the synced flags), for the shared flight lean. */
+	public static boolean flying(net.minecraft.world.entity.player.Player p) {
+		if (!com.projecthero.mod.omnitrix.Omnitrix.hasPower(p) || p.onGround()) {
+			return false;
+		}
+		var s = com.projecthero.mod.omnitrix.Omnitrix.state(p);
+		return ID.equals(s.active) && (s.kitFlags & F_FLYING) != 0;
+	}
 	public static final int F_SHIELD = 2;
 	public static final int F_STREAM = 4;
 	public static final int F_CHARGING = 8;

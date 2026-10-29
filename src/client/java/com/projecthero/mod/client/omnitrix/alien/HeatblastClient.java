@@ -139,14 +139,25 @@ public final class HeatblastClient implements AlienClientKit {
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		// flying on the jets: arms down and back, legs together, a slight lean into the flight
-		if (!played && (Omnitrix.state(p).kitFlags & HeatblastKit.F_FLYING) != 0 && !p.onGround()) {
-			m.rightArm.xRot = 0.35f;
-			m.leftArm.xRot = 0.35f;
-			m.rightArm.zRot = 0.35f;
-			m.leftArm.zRot = -0.35f;
-			m.rightLeg.xRot = 0.15f + Mth.sin(age * 0.2f) * 0.05f;
-			m.leftLeg.xRot = 0.1f - Mth.sin(age * 0.2f) * 0.05f;
+		// v0.17.1 (user: "make heatblasts flying animation look better"): on the Fire Jet. The shared flight lean tips the body
+		// (upright hovering, flat out fast); the limbs blend between a hover -- palms pushed down and out like jets, knees loose,
+		// a slow bob -- and a rocket -- arms swept back along his sides, legs together and trailing, a flutter in the jet wash
+		if (!played && HeatblastKit.flying(p)) {
+			float w = Mth.clamp((Math.abs(com.projecthero.mod.client.FlightPoseHelper.lean(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false))) - 8f) / 60f, 0f, 1f);
+			float bob = Mth.sin(age * 0.18f);
+			float flutter = Mth.sin(age * 0.9f) * 0.04f;
+			m.rightArm.xRot = Mth.lerp(w, 0.12f + bob * 0.04f, 0.28f);
+			m.leftArm.xRot = Mth.lerp(w, 0.12f - bob * 0.04f, 0.28f);
+			m.rightArm.yRot = Mth.lerp(w, -0.1f, 0f);
+			m.leftArm.yRot = Mth.lerp(w, 0.1f, 0f);
+			m.rightArm.zRot = Mth.lerp(w, 0.62f, 0.16f);
+			m.leftArm.zRot = Mth.lerp(w, -0.62f, -0.16f);
+			m.rightLeg.xRot = Mth.lerp(w, -0.22f + bob * 0.06f, 0.06f + flutter);
+			m.leftLeg.xRot = Mth.lerp(w, 0.18f - bob * 0.06f, 0.06f - flutter);
+			m.rightLeg.zRot = Mth.lerp(w, 0.1f, 0.02f);
+			m.leftLeg.zRot = Mth.lerp(w, -0.1f, -0.02f);
+			m.rightLeg.yRot = 0f;
+			m.leftLeg.yRot = 0f;
 			return true;
 		}
 		return played;
@@ -186,11 +197,22 @@ public final class HeatblastClient implements AlienClientKit {
 			level.addParticle(ParticleTypes.SMALL_FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.6, p.getY() + r.nextDouble() * p.getBbHeight(),
 					p.getZ() + (r.nextDouble() - 0.5) * 0.6, 0, 0.02, 0);
 		}
-		// the Fire Jet
-		if ((Omnitrix.state(p).kitFlags & HeatblastKit.F_FLYING) != 0 && !p.onGround()) {
-			for (int i = 0; i < 2; i++) {
-				level.addParticle(ParticleTypes.FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.2, p.getY() - 0.05, p.getZ() + (r.nextDouble() - 0.5) * 0.2,
-						0, -0.15, 0);
+		// the Fire Jet: out of his feet (behind him once he is flat out, below him hovering) and his palms while he hovers
+		if (HeatblastKit.flying(p)) {
+			float w = Mth.clamp((Math.abs(com.projecthero.mod.client.FlightPoseHelper.lean(p, 1f)) - 8f) / 60f, 0f, 1f);
+			float yaw = p.yBodyRot * Mth.DEG_TO_RAD;
+			double bx = Mth.sin(yaw), bz = -Mth.cos(yaw); // behind him
+			double fx = p.getX() + bx * 1.6 * w, fy = p.getY() + 0.5 * w - 0.05, fz = p.getZ() + bz * 1.6 * w;
+			for (int i = 0; i < 3; i++) {
+				double sp = 0.12 + r.nextDouble() * 0.1;
+				level.addParticle(i == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME, fx + (r.nextDouble() - 0.5) * 0.18, fy, fz + (r.nextDouble() - 0.5) * 0.18,
+						bx * sp * w, -sp * (1f - w), bz * sp * w);
+			}
+			if (w < 0.5f && r.nextInt(2) == 0) {
+				double rx = Mth.cos(yaw) * 0.55, rz = Mth.sin(yaw) * 0.55; // his right / left hand, a little out to the side
+				for (int side = -1; side <= 1; side += 2) {
+					level.addParticle(ParticleTypes.FLAME, p.getX() + rx * side, p.getY() + 0.55, p.getZ() + rz * side, 0, -0.12, 0);
+				}
 			}
 		}
 		// the Fire Stream: a gout of flame from the palms (others see it too)

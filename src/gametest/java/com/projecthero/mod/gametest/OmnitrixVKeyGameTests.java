@@ -173,6 +173,24 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void fourArmsHeldXChargesALeapUpTo200Blocks(GameTestHelper helper) {
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		p.setOnGround(true);
+		helper.assertTrue(kit.holdable(AbilitySlot.SLOT_3), "X is holdable");
+		kit.holdStart(p, AbilitySlot.SLOT_3);
+		helper.assertTrue(kit.flag(p, FourArmsKit.F_LEAP_CHARGE), "holding X crouches to charge");
+		kit.holdEnd(p, AbilitySlot.SLOT_3, FourArmsKit.LEAP_CHARGE_TICKS);
+		helper.assertFalse(kit.flag(p, FourArmsKit.F_LEAP_CHARGE), "letting go ends the charge");
+		helper.assertTrue(kit.flag(p, FourArmsKit.F_LEAPING) && kit.farLeapVelocity(p) != null, "and he is off on the long leap");
+		double range = com.projecthero.mod.hulk.HulkLeap.simulateRange(p.getDeltaMovement(), p.getGravity(), 400);
+		helper.assertTrue(Math.abs(range - FourArmsKit.LEAP_FULL_BLOCKS) < 12.0, "a full charge carries about 200 blocks: " + range);
+		helper.assertTrue(Math.abs(FourArmsKit.leapBlocks(0f) - FourArmsKit.LEAP_TAP_BLOCKS) < 1e-6, "no charge is the short hop");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void fourArmsVWallClimb(GameTestHelper helper) {
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		AlienKit kit = Aliens.kit(FourArmsKit.ID);

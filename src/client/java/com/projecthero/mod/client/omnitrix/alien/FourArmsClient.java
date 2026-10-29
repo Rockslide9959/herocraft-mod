@@ -132,19 +132,23 @@ public final class FourArmsClient implements AlienClientKit {
 			float age) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
 		float[] off = lowerOffsets(p, partial);
-		// follow the upper arms with a lag (and a little wider): the walk swing shows as four arms, not two thick ones
-		lowerRight.x = -5.6f;
-		lowerRight.y = 7.6f;
+		// v0.17.1 (user: "make four arms extra arms not look so weird ... I dont mind if the arms overlap a bit"): the lower pair
+		// hangs from the ribs right under the upper pair, nearly parallel to them (a slight flare, not splayed out), a touch behind
+		// so the two pairs layer instead of crossing; they swing with the walk half a beat behind the upper arms
+		float lag = Mth.sin(p.walkAnimation.position(partial) * 0.6662f - 0.9f) * 0.9f * p.walkAnimation.speed(partial);
+		boolean busy = off != null;
+		lowerRight.x = -5.4f;
+		lowerRight.y = 5.4f;
 		lowerRight.z = 1.0f;
-		lowerRight.xRot = model.rightArm.xRot * 0.75f + (off == null ? 0 : off[0]);
-		lowerRight.yRot = model.rightArm.yRot * 0.6f;
-		lowerRight.zRot = model.rightArm.zRot * 0.4f + 0.8f + (off == null ? 0 : off[2]);
-		lowerLeft.x = 5.6f;
-		lowerLeft.y = 7.6f;
+		lowerRight.xRot = busy ? model.rightArm.xRot * 0.6f + off[0] : lag * 0.85f + model.rightArm.xRot * 0.15f;
+		lowerRight.yRot = model.rightArm.yRot * 0.4f;
+		lowerRight.zRot = 0.3f + model.rightArm.zRot * 0.35f + (busy ? off[2] : 0f);
+		lowerLeft.x = 5.4f;
+		lowerLeft.y = 5.4f;
 		lowerLeft.z = 1.0f;
-		lowerLeft.xRot = model.leftArm.xRot * 0.75f + (off == null ? 0 : off[1]);
-		lowerLeft.yRot = model.leftArm.yRot * 0.6f;
-		lowerLeft.zRot = model.leftArm.zRot * 0.4f - 0.8f + (off == null ? 0 : off[3]);
+		lowerLeft.xRot = busy ? model.leftArm.xRot * 0.6f + off[1] : -lag * 0.85f + model.leftArm.xRot * 0.15f;
+		lowerLeft.yRot = model.leftArm.yRot * 0.4f;
+		lowerLeft.zRot = -0.3f + model.leftArm.zRot * 0.35f + (busy ? off[3] : 0f);
 		AlienParts.on(pose, model.body, () -> {
 			// the body bone's pivot is the neck; the lower arms hang from the ribs
 			lowerRight.render(pose, vc, light, OverlayTexture.NO_OVERLAY);
@@ -190,6 +194,9 @@ public final class FourArmsClient implements AlienClientKit {
 			default -> null;
 		};
 		float t = animId == FourArmsKit.ANIM_BARRAGE ? ticks % 4f * 1.5f : ticks;
+		if (chargePose(p, m)) {
+			return true;
+		}
 		boolean played = clip != null && (animId != FourArmsKit.ANIM_BARRAGE || ticks < 18) && QuirkKeyframes.play(m, clip, t, 1f);
 		if ((Omnitrix.state(p).kitFlags & FourArmsKit.F_HOLDING) != 0) {
 			// holding something overhead
@@ -218,6 +225,57 @@ public final class FourArmsClient implements AlienClientKit {
 			m.head.xRot += Mth.sin(age * 0.05f) * 0.01f;
 		}
 		return played;
+	}
+
+	/** v0.17.1: holding X -- the long leap's crouch, deeper as it charges, all four fists braced on the ground. */
+	private static boolean chargePose(AbstractClientPlayer p, HumanoidModel<?> m) {
+		if (!(com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit k) || !k.flag(p, FourArmsKit.F_LEAP_CHARGE)) {
+			return false;
+		}
+		float c = k.leapCharge(p);
+		float shake = c > 0.95f ? Mth.sin(p.tickCount * 2.1f) * 0.03f : 0f;
+		m.body.xRot = 0.35f + 0.25f * c;
+		m.head.xRot = Math.min(m.head.xRot, 0f) - 0.2f;
+		m.rightArm.xRot = -0.55f - 0.3f * c + shake;
+		m.leftArm.xRot = -0.55f - 0.3f * c - shake;
+		m.rightArm.zRot = 0.25f;
+		m.leftArm.zRot = -0.25f;
+		m.rightLeg.xRot = -0.5f - 0.35f * c;
+		m.leftLeg.xRot = -0.5f - 0.35f * c;
+		m.rightLeg.zRot = 0.12f;
+		m.leftLeg.zRot = -0.12f;
+		return true;
+	}
+
+	@Override
+	public void tick(AbstractClientPlayer p) {
+		// the long leap flies drag-free on its owner's client (as the Hulk's Super Leap): the launch's horizontal speed held,
+		// vanilla's vertical drag taken back off -- until he hits something, lands or swims
+		if (p != Minecraft.getInstance().player || !(com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit k)) {
+			return;
+		}
+		net.minecraft.world.phys.Vec3 v = k.farLeapVelocity(p);
+		if (v == null || p.onGround() || p.horizontalCollision || p.isInWater() || p.isInLava() || p.getAbilities().flying || p.isPassenger()) {
+			return;
+		}
+		net.minecraft.world.phys.Vec3 d = p.getDeltaMovement();
+		p.setDeltaMovement(v.x, d.y / com.projecthero.mod.hulk.HulkLeap.VERTICAL_DRAG, v.z);
+	}
+
+	@Override
+	public void hud(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.player.LocalPlayer p, int x, int y, int w, float partial) {
+		if (!(com.projecthero.mod.omnitrix.alien.Aliens.kit(FourArmsKit.ID) instanceof FourArmsKit k) || !k.flag(p, FourArmsKit.F_LEAP_CHARGE)) {
+			return;
+		}
+		float c = k.leapCharge(p);
+		String value = Math.round(FourArmsKit.leapBlocks(c)) + "m";
+		com.projecthero.mod.client.omnitrix.OmnitrixHud.meter(g, Minecraft.getInstance(), x, y - 6,
+				net.minecraft.network.chat.Component.translatable("hud.projecthero.omnitrix.four_arms.leap"), c, c >= 1f ? 0xFFFFE060 : 0xFFE04030, value, 0xFFFFFFFF);
+	}
+
+	@Override
+	public int hudHeight() {
+		return 10;
 	}
 
 	@Override

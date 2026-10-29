@@ -83,6 +83,18 @@ public final class FourArmsKit extends AlienKit {
 	public static final int F_LEAPING = 4;
 	public static final int F_DIVING = 8;
 	public static final int F_CHARGING = 16;
+	/** v0.17.1: X held -- crouched, charging the long leap. */
+	public static final int F_LEAP_CHARGE = 64;
+
+	/**
+	 * v0.17.1 (user: "make his leap ability chargeable up to 200 blocks"): hold X to charge (the leap bar fills over
+	 * {@link #LEAP_CHARGE_TICKS}), let go to jump {@link #LEAP_TAP_BLOCKS} up to {@link #LEAP_FULL_BLOCKS} along the look --
+	 * a drag-free arc like the Hulk's Super Leap ({@code HulkLeap.dragFreeArc}; his client holds the launch speed, see
+	 * FourArmsClient#tick). A tap is the old short leap.
+	 */
+	public static final int LEAP_CHARGE_TICKS = 50;
+	public static final double LEAP_TAP_BLOCKS = 14.0, LEAP_FULL_BLOCKS = 200.0;
+	public static final String LEAP_FAR = "charged_leap";
 
 	public static final String HAYMAKER = "haymaker";
 	public static final String BARRAGE = "quad_barrage";
@@ -148,7 +160,8 @@ public final class FourArmsKit extends AlienKit {
 		return List.of(
 				AlienMove.tap(HAYMAKER, AbilitySlot.SLOT_1, 30), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_1, 120),
 				AlienMove.tap(CLAP, AbilitySlot.SLOT_2, 160), AlienMove.shift(GRAB, AbilitySlot.SLOT_2, 20),
-				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 60), AlienMove.shift(CHARGE, AbilitySlot.SLOT_3, 100),
+				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 60), AlienMove.hold(LEAP_FAR, AbilitySlot.SLOT_3, 100),
+				AlienMove.shift(CHARGE, AbilitySlot.SLOT_3, 100),
 				AlienMove.tap(POUND, AbilitySlot.SLOT_4, 240), AlienMove.shift(METEOR, AbilitySlot.SLOT_4, 280),
 				AlienMove.tap(CLIMB, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(ROAR, AbilitySlot.SLOT_6, 500), AlienMove.shift(STANCE, AbilitySlot.SLOT_6, 360),
@@ -167,6 +180,10 @@ public final class FourArmsKit extends AlienKit {
 	@Override
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
+		setFlag(p, F_LEAP_CHARGE, false);
+		for (String t : new String[] { "leap_charge", "far_vx", "far_vz", "far_on" }) {
+			setTimer(p, t, 0);
+		}
 		drop(p, false);
 		PowerToggles.clearModifier(p, Attributes.KNOCKBACK_RESISTANCE, STANCE_KB);
 		CHARGE_HITS.remove(p.getUUID());
@@ -213,10 +230,19 @@ public final class FourArmsKit extends AlienKit {
 		boolean leaping = flag(p, F_LEAPING);
 		boolean diving = flag(p, F_DIVING);
 		if ((leaping || diving) && now - timer(p, "air_at") > 4 && (p.onGround() || p.isInWater())) {
+			boolean far = timer(p, "far_on") != 0; // (a launch straight along an axis has a vx or vz of 0)
 			setFlag(p, F_LEAPING, false);
 			setFlag(p, F_DIVING, false);
+			setTimer(p, "far_vx", 0);
+			setTimer(p, "far_vz", 0);
+			setTimer(p, "far_on", 0);
 			float extra = diving ? (float) Math.min(10.0, Math.max(0, timer(p, "dive_from") / 1000.0 - p.getY()) * 0.8) : 0f;
-			land(p, diving ? 5f : 3.5f, diving ? 8f + extra : LEAP_LAND_DAMAGE, diving);
+			if (far) {
+				// the long leap comes down harder
+				land(p, 5.5f, LEAP_LAND_DAMAGE * 1.8f, false);
+			} else {
+				land(p, diving ? 5f : 3.5f, diving ? 8f + extra : LEAP_LAND_DAMAGE, diving);
+			}
 			p.resetFallDistance();
 		}
 		if (leaping || diving) {
@@ -466,6 +492,78 @@ public final class FourArmsKit extends AlienKit {
 			Vec3 at = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(1.5));
 			e.teleportTo(at.x, p.getY(), at.z);
 		}
+	}
+
+	@Override
+	public boolean holdable(AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_3;
+	}
+
+	@Override
+	public void holdStart(ServerPlayer p, AbilitySlot slot) {
+		if (slot != AbilitySlot.SLOT_3 || !p.onGround() || !ready(p, LEAP_FAR)) {
+			return;
+		}
+		// the hold began KIT_HOLD_TICKS after the press: count the charge from the press
+		setTimer(p, "leap_charge", p.level().getGameTime() - com.projecthero.mod.omnitrix.OmnitrixConfig.KIT_HOLD_TICKS);
+		setFlag(p, F_LEAP_CHARGE, true);
+		anim(p, ANIM_STANCE);
+		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.FOUR_ARMS_ROAR, 0.4f, 0.8f);
+	}
+
+	@Override
+	public void holdEnd(ServerPlayer p, AbilitySlot slot, int heldTicks) {
+		if (slot != AbilitySlot.SLOT_3 || !flag(p, F_LEAP_CHARGE)) {
+			return;
+		}
+		setFlag(p, F_LEAP_CHARGE, false);
+		setTimer(p, "leap_charge", 0);
+		farLeap(p, Math.min(1f, heldTicks / (float) LEAP_CHARGE_TICKS));
+	}
+
+	/** The long leap's distance for a charge 0..1. */
+	public static double leapBlocks(float charge) {
+		return LEAP_TAP_BLOCKS + (LEAP_FULL_BLOCKS - LEAP_TAP_BLOCKS) * Math.max(0f, Math.min(1f, charge));
+	}
+
+	/** The charge 0..1 of the long leap being held (client-safe), 0 when none. */
+	public float leapCharge(net.minecraft.world.entity.player.Player p) {
+		long at = timer(p, "leap_charge");
+		if (at <= 0 || !flag(p, F_LEAP_CHARGE)) {
+			return 0f;
+		}
+		return Math.min(1f, (p.level().getGameTime() - at) / (float) LEAP_CHARGE_TICKS);
+	}
+
+	/** The long leap's held launch speed (client-safe), or null when none is in flight. */
+	public Vec3 farLeapVelocity(net.minecraft.world.entity.player.Player p) {
+		if (!flag(p, F_LEAPING) || timer(p, "far_on") == 0) {
+			return null;
+		}
+		return new Vec3(Double.longBitsToDouble(timer(p, "far_vx")), 0, Double.longBitsToDouble(timer(p, "far_vz")));
+	}
+
+	public boolean farLeap(ServerPlayer p, float charge) {
+		if (!p.onGround() || !use(p, LEAP_FAR)) {
+			return false;
+		}
+		anim(p, ANIM_LEAP);
+		double blocks = leapBlocks(charge);
+		Vec3 v = com.projecthero.mod.hulk.HulkLeap.dragFreeArc(p.getLookAngle(), blocks, p.getGravity(), 28.0, 50.0, 4.0, 5.6);
+		p.setDeltaMovement(v);
+		p.hurtMarked = true;
+		setFlag(p, F_LEAPING, true);
+		setTimer(p, "air_at", p.level().getGameTime());
+		setTimer(p, "far_vx", Double.doubleToRawLongBits(v.x));
+		setTimer(p, "far_vz", Double.doubleToRawLongBits(v.z));
+		setTimer(p, "far_on", 1);
+		ServerLevel l = level(p);
+		float k = 1f + charge * 2f;
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xB0A090).size(2.2f * k).thickness(0.5f * k).life(12).ground().spawn();
+		l.sendParticles(ParticleTypes.EXPLOSION, p.getX(), p.getY() + 0.1, p.getZ(), 1 + (int) (charge * 3), 0.6, 0.1, 0.6, 0);
+		QuirkCamera.shake(p, 0.2f + charge * 0.5f, 8);
+		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.FOUR_ARMS_SLAM, 0.8f + charge * 0.4f, 1.2f - charge * 0.4f);
+		return true;
 	}
 
 	public boolean leap(ServerPlayer p) {

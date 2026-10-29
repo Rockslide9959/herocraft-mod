@@ -85,9 +85,31 @@ public final class Omnitrix {
 		n.timers.remove(PRESS_TIMER);
 	}
 
+	/**
+	 * v0.17.1 (user: "when the omnitrix is primed but timed out and then times in while the player is still holding it make the
+	 * red regular badge transition to the regular green badge and then have that badge transition to the aliens. Also dont have
+	 * the Dial pop up unless the omnitrix is timed in"): raised during the recharge, the core stays down on the red face; when it
+	 * times in the face turns green over {@link #TIME_IN_TICKS}, and only then does the core pop (the press-to-core-up beat).
+	 */
+	public static final int TIME_IN_TICKS = 12;
+
+	/** The tick the core pops (the press beat of the raise, held back until the recharge is over and the face has gone green). */
+	public static long popAt(OmnitrixState s) {
+		long pop = s.selectStart + PRESS_TICKS;
+		if (s.rechargeUntil > s.selectStart) {
+			pop = Math.max(pop, s.rechargeUntil + TIME_IN_TICKS);
+		}
+		return pop;
+	}
+
+	/** The tick the raised watch's core is up (the dial turns and the slap lands from here). */
+	public static long coreUpAt(OmnitrixState s) {
+		return popAt(s) + (CORE_UP_TICKS - PRESS_TICKS);
+	}
+
 	/** Whether the raised watch's core is up (the dial can be turned and slapped). */
 	public static boolean coreUp(OmnitrixState s, long now) {
-		return s.selecting && now - s.selectStart >= CORE_UP_TICKS;
+		return s.selecting && now >= coreUpAt(s);
 	}
 
 	/** Gametests: the watch's raise / button press over at once (game time does not advance in a test's own tick). */
@@ -594,7 +616,7 @@ public final class Omnitrix {
 		if (!coreUp(s, now)) {
 			// clicked while the dial is still coming up: the slap lands as soon as it is ({@link #tick})
 			OmnitrixState q = s.copy();
-			q.timers.put(SLAP_QUEUE, s.selectStart + CORE_UP_TICKS);
+			q.timers.put(SLAP_QUEUE, coreUpAt(s));
 			save(p, q);
 			return true;
 		}
