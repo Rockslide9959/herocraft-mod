@@ -77,6 +77,7 @@
 		"OmnitrixAlienLivingMixin",
 		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",
+		"OmnitrixPawsMixin",
 		"SpeedForcePhaseCollideMixin",
 		"SpeedForceMoveCheckMixin",
 		"SpeedsterStepUpMixin",

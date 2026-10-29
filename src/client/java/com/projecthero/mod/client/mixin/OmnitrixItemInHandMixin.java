@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -20,7 +21,9 @@ import net.minecraft.world.item.ItemStack;
 
 /**
  * v0.17.1: the Omnitrix in first person -- the raised wrist (drawn with the off hand, which is empty), and the alien kits'
- * first-person arm clips (the main-hand arm, and the off-hand arm too for a two-handed clip).
+ * first-person arm clips (the main-hand arm, and the off-hand arm too for a two-handed clip). Wildmutt rework 2: an alien that
+ * cannot hold items ({@link OmnitrixFirstPerson#pawsOnly}) draws his own paws instead of whatever is held, and each hand's
+ * starting pose is kept ({@link OmnitrixFirstPerson#HAND_BASE}) so a custom body's hands sway and bob like vanilla's.
  */
 @Mixin(ItemInHandRenderer.class)
 public abstract class OmnitrixItemInHandMixin {
@@ -30,11 +33,22 @@ public abstract class OmnitrixItemInHandMixin {
 	@Shadow
 	protected abstract void renderPlayerArm(PoseStack pose, MultiBufferSource buffers, int light, float equipped, float swing, HumanoidArm side);
 
+	/** v0.17.1 (Wildmutt rework 2, user: "make it so that the player cant use tools"): paws hold nothing -- the arm is drawn instead. */
+	@ModifyVariable(method = "renderArmWithItem", at = @At("HEAD"), argsOnly = true)
+	private ItemStack projecthero$pawsHoldNothing(ItemStack stack, AbstractClientPlayer player, float partial, float pitch, InteractionHand hand,
+			float swing, ItemStack original, float equipped, PoseStack pose, MultiBufferSource buffers, int light) {
+		return !stack.isEmpty() && OmnitrixFirstPerson.pawsOnly(player) ? ItemStack.EMPTY : stack;
+	}
+
 	@Inject(method = "renderArmWithItem", at = @At("HEAD"))
 	private void projecthero$clipBegin(AbstractClientPlayer player, float partial, float pitch, InteractionHand hand, float swing, ItemStack stack,
 			float equipped, PoseStack pose, MultiBufferSource buffers, int light, CallbackInfo ci) {
 		projecthero$pushed = false;
-		FirstPersonClip clip = hand == InteractionHand.MAIN_HAND && stack.isEmpty() ? OmnitrixFirstPerson.clip(player) : null;
+		// v0.17.1 (Wildmutt rework 2): this hand's starting pose (vanilla's bob, hurt shake and sway are in it)
+		OmnitrixFirstPerson.HAND_BASE.set(pose.last().pose());
+		OmnitrixFirstPerson.HAND_BASE_NORMAL.set(pose.last().normal());
+		boolean empty = stack.isEmpty() || OmnitrixFirstPerson.pawsOnly(player);
+		FirstPersonClip clip = hand == InteractionHand.MAIN_HAND && empty ? OmnitrixFirstPerson.clip(player) : null;
 		if (clip != null) {
 			pose.pushPose();
 			float side = player.getMainArm() == HumanoidArm.RIGHT ? 1f : -1f;
@@ -64,7 +78,7 @@ public abstract class OmnitrixItemInHandMixin {
 			pose.popPose();
 			projecthero$pushed = false;
 		}
-		if (hand != InteractionHand.OFF_HAND || !stack.isEmpty() || player.isInvisible()) {
+		if (hand != InteractionHand.OFF_HAND || !(stack.isEmpty() || OmnitrixFirstPerson.pawsOnly(player)) || player.isInvisible()) {
 			return;
 		}
 		// the raised Omnitrix

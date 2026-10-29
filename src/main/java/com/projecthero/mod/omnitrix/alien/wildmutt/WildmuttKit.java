@@ -169,8 +169,9 @@ public final class WildmuttKit extends AlienKit {
 	public static final float HEALTH = 34f;
 	public static final float SPEED = 1.35f;
 	public static final float ATTACK = 4f;
-	public static final float BODY_WIDTH = 0.98f, BODY_HEIGHT = 1.6f, EYE_HEIGHT = 1.15f;
-	public static final float CROUCH_HEIGHT = 1.35f, CROUCH_EYE = 0.98f;
+	/** v0.17.1 rework 2: the slim, leggy body -- 1.48 blocks at the shoulders, the head's top level with them. */
+	public static final float BODY_WIDTH = 0.9f, BODY_HEIGHT = 1.55f, EYE_HEIGHT = 1.25f;
+	public static final float CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.05f;
 
 	public static final double POUNCE_RANGE = 12.0;
 	public static final float POUNCE_DAMAGE = 9f;
@@ -241,7 +242,13 @@ public final class WildmuttKit extends AlienKit {
 				.safeFall(4f).build();
 	}
 
-	/** v0.17.1 framework: a four-legged body -- wider and lower than a player (0.98 x 1.6, eyes at 1.15). */
+	/** v0.17.1 rework 2 (user: "make it so that the player cant use tools"): paws -- he holds and uses nothing. */
+	@Override
+	public boolean pawsOnly(Player p) {
+		return true;
+	}
+
+	/** v0.17.1 framework: a four-legged body -- wider and lower than a player (0.9 x 1.55, eyes at 1.25). */
 	@Override
 	@Nullable
 	public EntityDimensions body(Player p, Pose pose) {
@@ -686,7 +693,7 @@ public final class WildmuttKit extends AlienKit {
 	public boolean onAttack(ServerPlayer p, Entity target) {
 		ServerLevel l = level(p);
 		if (target instanceof LivingEntity main) {
-			float cleave = (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.5f;
+			float cleave = (p.getMainHandItem().isEmpty() ? (float) p.getAttributeValue(Attributes.ATTACK_DAMAGE) : 1f + ATTACK) * 0.5f;
 			Vec3 look = horizontal(p.getLookAngle());
 			for (LivingEntity e : around(p, main.position(), 1.8)) {
 				if (e != main && inCone(p, e, look, 4.0, 75)) {
@@ -700,14 +707,28 @@ public final class WildmuttKit extends AlienKit {
 					.size(0.28f).life(5).style(QuirkFx.RIBBON_LIGHT).spawn();
 		}
 		OmnitrixSounds.play(l, p.position(), CLAW, 0.8f, 1.0f);
+		// v0.17.1 rework 2: paws hold nothing -- with something in the hotbar slot the hit is his own (a bare claw: his
+		// attack stat, scaled by the swing's charge), so a held weapon adds no damage, enchantment or sweep and takes no wear
+		if (!p.getMainHandItem().isEmpty() && target instanceof LivingEntity main) {
+			float charge = p.getAttackStrengthScale(0.5f);
+			float dmg = (1f + ATTACK) * (0.2f + charge * charge * 0.8f);
+			if (hurt(p, main, dmg, false)) {
+				shove(main, p.position(), 0.4 * charge, 0.1);
+			}
+			p.resetAttackStrengthTicker();
+			return true;
+		}
 		return false;
 	}
 
-	/** Use with an empty hand on air: Sniff -- 6 s of wider senses that also pick out dropped items. */
+	/**
+	 * Use on air: Sniff -- 6 s of wider senses that also pick out dropped items. v0.17.1 rework 2: paws hold nothing, so it
+	 * sniffs whatever the hotbar slot has in it (the main hand's use; the off hand's is refused).
+	 */
 	@Override
 	public InteractionResult onUse(ServerPlayer p, InteractionHand hand) {
-		if (!p.getItemInHand(hand).isEmpty()) {
-			return InteractionResult.PASS;
+		if (hand != InteractionHand.MAIN_HAND) {
+			return InteractionResult.FAIL;
 		}
 		return sniff(p) ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
 	}

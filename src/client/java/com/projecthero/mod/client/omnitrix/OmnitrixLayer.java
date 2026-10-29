@@ -21,6 +21,8 @@ import net.minecraft.client.resources.PlayerSkin;
 public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 	/** The alien's chest badge: the show's white Omnitrix symbol (scratchpad/gen_omnitrix_badge.js). */
 	public static final net.minecraft.resources.ResourceLocation BADGE = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge.png");
+	/** The badge's red flash (the whole texture, same rim / ring as {@link #BADGE}). */
+	public static final net.minecraft.resources.ResourceLocation BADGE_RED = com.projecthero.mod.ProjectHeroMod.id("textures/entity/omnitrix/badge_red.png");
 
 	public OmnitrixLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
 		super(parent);

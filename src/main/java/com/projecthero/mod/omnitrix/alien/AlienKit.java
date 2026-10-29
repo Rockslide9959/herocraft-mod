@@ -184,6 +184,22 @@ public abstract class AlienKit {
 		return null;
 	}
 
+	/**
+	 * v0.17.1 (Wildmutt rework 2, user: "make it so that the player cant use tools"): true for a body with no hands to hold
+	 * anything (paws). While true, held items are not drawn (first or third person), using / placing them is refused on both
+	 * sides ({@code OmnitrixMod}'s use callbacks), a held tool mines like a bare paw and a held weapon adds nothing to the hit
+	 * ({@code mixin/OmnitrixPawsMixin}). Answer from synced state only.
+	 */
+	public boolean pawsOnly(Player p) {
+		return false;
+	}
+
+	/** {@link #pawsOnly} of whatever alien {@code p} is right now (false for a human). Client-safe. */
+	public static boolean pawsOnlyNow(Player p) {
+		AlienKit k = activeKit(p);
+		return k != null && k.pawsOnly(p);
+	}
+
 	/** The kit of the alien {@code p} is right now (client-safe: reads the synced state), or null for a human. */
 	@Nullable
 	public static AlienKit activeKit(Player p) {

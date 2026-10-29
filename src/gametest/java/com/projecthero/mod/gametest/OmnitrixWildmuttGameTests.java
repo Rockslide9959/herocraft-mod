@@ -30,8 +30,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * v0.17.1 Wildmutt (Wildvine's replacement on the dial): his body (34 health, x1.35 speed, the low wide 0.98 x 1.5 hitbox with
- * the eyes at 1.1, and the player's box back after turning back), every move's damage or effect and its cooldown, the Scent Sense
+ * v0.17.1 Wildmutt (Wildvine's replacement on the dial): his body (34 health, x1.35 speed, the 0.9 x 1.55 quadruped hitbox with
+ * the eyes at 1.25 -- rework 2's slim, leggy body -- the paws that use no tools or weapons, and the player's box back after turning back), every move's damage or effect and its cooldown, the Scent Sense
  * range (24, 48 sniffing, 6 underwater, 0 deafened) and the blind immunities, Wall Climb on / off, and that a save made as
  * Wildvine loads as Wildmutt. Mock players are not ticked by the server: tests over time drive {@link Omnitrix#tick} themselves
  * (and {@code refreshDimensions}, which {@code Player.tick} does through {@code OmnitrixAlienBodyMixin}).
@@ -123,7 +123,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		near(helper, p.getBbWidth(), WildmuttKit.BODY_WIDTH, "a wide body");
 		near(helper, p.getBbHeight(), WildmuttKit.BODY_HEIGHT, "a low body");
 		near(helper, p.getEyeHeight(), WildmuttKit.EYE_HEIGHT, "the eyes (gills) low");
-		helper.assertTrue(p.getBbWidth() > 0.9f && p.getBbHeight() < 1.8f, "wider and lower than a player");
+		helper.assertTrue(p.getBbWidth() > 0.6f && p.getBbHeight() < 1.8f, "wider and lower than a player");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 		helper.assertFalse(Omnitrix.state(p).transformed(), "turned back");
 		p.refreshDimensions();
@@ -131,6 +131,34 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		near(helper, p.getBbHeight(), 1.8, "the player's height back");
 		near(helper, p.getEyeHeight(), 1.62, "the player's eyes back");
 		near(helper, p.getMaxHealth(), 20.0, "20 health back");
+		helper.succeed();
+	}
+
+	/**
+	 * v0.17.1 rework 2 (user: "make it so that the player cant use tools"): paws -- a held pickaxe mines stone like a bare
+	 * paw and harvests nothing, a held sword adds nothing to the claw hit; all back once he turns back.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void wildmuttsPawsUseNoToolsOrWeapons(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = wildmutt(helper);
+		helper.assertTrue(com.projecthero.mod.omnitrix.alien.AlienKit.pawsOnlyNow(p), "paws only");
+		net.minecraft.world.level.block.state.BlockState stone = Blocks.STONE.defaultBlockState();
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
+		near(helper, p.getDestroySpeed(stone), 1.0, "a pickaxe mines like a bare paw");
+		helper.assertFalse(p.hasCorrectToolForDrops(stone), "and harvests no stone");
+		// the claw hit with a sword in the slot: his own claws only
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
+		ahead(z, p, 1.5);
+		helper.assertTrue(kit().onAttack(p, z), "the kit makes the hit itself");
+		helper.assertTrue(z.getHealth() > 100f - (1f + WildmuttKit.ATTACK) - 0.01f, "no sword damage on top (" + z.getHealth() + ")");
+		helper.assertTrue(z.getHealth() < 100f, "but the claws hit");
+		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
+		helper.assertFalse(com.projecthero.mod.omnitrix.alien.AlienKit.pawsOnlyNow(p), "hands again");
+		helper.assertTrue(p.getDestroySpeed(stone) > 4f, "the pickaxe works again");
+		helper.assertTrue(p.hasCorrectToolForDrops(stone), "and harvests stone");
 		helper.succeed();
 	}
 

@@ -29,8 +29,20 @@ import net.minecraft.util.Mth;
 public final class OmnitrixFirstPerson {
 	/** True while vanilla's first-person {@code renderHand} runs (its setupAnim must not get the third-person poses). */
 	public static boolean inHandRender;
+	/**
+	 * v0.17.1 (Wildmutt rework 2, user: "the arms dont follow the player in first person"): the pose vanilla had when it began
+	 * drawing the current hand ({@code renderArmWithItem}'s HEAD) -- the view bob, the hurt shake and the hands' sway / lag from
+	 * {@code renderHandsWithItems}, before the arm's own placement. A custom-body alien lays its hands out from here.
+	 */
+	public static final org.joml.Matrix4f HAND_BASE = new org.joml.Matrix4f();
+	public static final org.joml.Matrix3f HAND_BASE_NORMAL = new org.joml.Matrix3f();
 
 	private OmnitrixFirstPerson() {
+	}
+
+	/** v0.17.1: true while {@code p} is an alien that cannot hold or use items (Wildmutt's paws): held items are not drawn. */
+	public static boolean pawsOnly(net.minecraft.world.entity.player.Player p) {
+		return com.projecthero.mod.omnitrix.alien.AlienKit.pawsOnlyNow(p);
 	}
 
 	/**
