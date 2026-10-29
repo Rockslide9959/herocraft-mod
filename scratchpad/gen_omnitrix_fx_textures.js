@@ -26,7 +26,6 @@ function make(fn, premultiplied) {
 PNG.write(path.join(OUT, 'fx_dot.png'), 128, 128, make(r => (62.5 - r * 64) / 1.5));
 // the glow: a bright core falling off smoothly to nothing at the edge
 PNG.write(path.join(OUT, 'fx_glow.png'), 128, 128, make(r => r >= 1 ? 0 : Math.pow(1 - r, 2.2) * (0.55 + 0.45 * Math.exp(-r * r * 18)), true));
-// v0.17.1 third-person flash: the bloom -- a flat disc (the show's flat green field, tinted by vertex colour) with a short
-// feathered edge, drawn translucent round the wearer's body
-PNG.write(path.join(OUT, 'fx_bloom.png'), 128, 128, make(r => (61 - r * 64) / 6));
+// (v0.17.1: fx_bloom.png, the old body-hugging third-person field, is gone -- the burst's flat layers are untextured
+// OmnitrixFxRenderType.FLAT meshes)
 console.log('wrote', OUT);
