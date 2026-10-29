@@ -157,9 +157,14 @@ public final class OmnitrixWatch {
 		}
 		if (s.animId == Omnitrix.ANIM_TURN && s.animStart != d.lastTurn) {
 			d.lastTurn = s.animStart;
-			// one more full turn; the icon swaps when the ring is halfway through it
-			d.target += 360f;
-			d.swapAngles.add(new float[] { d.target - 180f });
+			// v0.17.1 (user: "only make the dial turn quarter of a full rotation and ... the other direction based on which way the
+			// player scrolls"): a quarter turn per step, its sense from where the new alien sits on the dial relative to the last
+			// one queued (next = forward, previous = back); the icon swaps halfway through it
+			String from = d.swapIds.isEmpty() ? d.shown : d.swapIds.peekLast();
+			int dir = dialStep(from, s.selected);
+			float start = d.target;
+			d.target += 90f * dir;
+			d.swapAngles.add(new float[] { (start + d.target) * 0.5f, dir });
 			d.swapIds.add(s.selected);
 		}
 		if (d.swapIds.isEmpty() && !d.shown.equals(s.selected) && s.animId != Omnitrix.ANIM_TURN) {
@@ -183,21 +188,40 @@ public final class OmnitrixWatch {
 			d.angle = d.target;
 			d.vel = 0f;
 		}
-		while (!d.swapAngles.isEmpty() && d.angle >= d.swapAngles.peek()[0]) {
+		while (!d.swapAngles.isEmpty() && (d.swapAngles.peek()[1] >= 0f ? d.angle >= d.swapAngles.peek()[0] : d.angle <= d.swapAngles.peek()[0])) {
 			d.swapAngles.poll();
 			d.prev = d.shown;
 			d.shown = d.swapIds.poll();
 			d.swapAt = clock;
 		}
-		// keep the numbers small
-		if (d.angle >= 3600f && d.target >= 3600f) {
-			d.angle -= 3600f;
-			d.target -= 3600f;
+		// keep the numbers small (either way round)
+		if (Math.abs(d.angle) >= 3600f && Math.abs(d.target) >= 3600f && Math.signum(d.angle) == Math.signum(d.target)) {
+			float k = Math.signum(d.angle) * 3600f;
+			d.angle -= k;
+			d.target -= k;
 			for (float[] a : d.swapAngles) {
-				a[0] -= 3600f;
+				a[0] -= k;
 			}
 		}
 		return new float[] { d.angle % 360f, Mth.clamp((clock - d.swapAt) / 2f, 0f, 1f) };
+	}
+
+	/** +1 if {@code to} is the next alien after {@code from} on the dial (wrapping), -1 if the previous one. */
+	private static int dialStep(String from, String to) {
+		java.util.List<com.projecthero.mod.omnitrix.alien.Aliens.Alien> pool = com.projecthero.mod.omnitrix.alien.Aliens.playable();
+		int n = pool.size(), a = -1, b = -1;
+		for (int k = 0; k < n; k++) {
+			if (pool.get(k).id().equals(from)) {
+				a = k;
+			}
+			if (pool.get(k).id().equals(to)) {
+				b = k;
+			}
+		}
+		if (a < 0 || b < 0 || n < 2) {
+			return 1;
+		}
+		return Math.floorMod(b - a, n) == n - 1 ? -1 : 1;
 	}
 
 	private static float since(Player p, OmnitrixState s, float partial, int anim) {

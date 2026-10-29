@@ -50,7 +50,7 @@ public final class OmnitrixModel {
 
 	/** x of the cuff's outer top surface (the bezel sits on it). */
 	public static float cuffTop(float L) {
-		return L + 0.25f + GAP + WALL;
+		return L + GAP + WALL;
 	}
 
 	/** x of the core's top (the face) for a lift, so callers can place the silhouette over it. */
@@ -81,7 +81,9 @@ public final class OmnitrixModel {
 	public static void draw(PoseStack pose, VertexConsumer vc, int light, float L, float lift, float twist, boolean screen, boolean face) {
 		int lit = LightTexture.FULL_BRIGHT;
 		float cy = CY;
-		Section cuff = new Section(-1.25f - GAP, L + 0.25f + GAP, 2.25f + GAP, CORNER);
+		// v0.17.1 (user: "i dont want any gaps between the players arm and the omnitrix"): sized to the ARM itself, not its
+		// sleeve layer -- a sleeve, when the skin has one, sits hidden inside the cuff wall (WALL 0.3 > the sleeve's 0.25)
+		Section cuff = new Section(-1f - GAP, L + GAP, 2f + GAP, CORNER);
 		// ---- the cuff: one band swept all the way round
 		ribbon(pose, vc, cuff, 0f, cuff.perimeter(), true, 0f, 0f, WALL, cy - HALF_LEN, cy + HALF_LEN, CUFF, light);
 		float xo = cuffTop(L);
@@ -101,9 +103,9 @@ public final class OmnitrixModel {
 			}
 		}
 		// ---- the button on the front (-z) side: a grey ring and a green lens
-		float bx = (-1.25f + L + 0.25f) * 0.5f;
+		float bx = (-1f + L) * 0.5f;
 		pose.pushPose();
-		pose.translate(bx * S, cy * S, -(2.25f + GAP + WALL) * S);
+		pose.translate(bx * S, cy * S, -(2f + GAP + WALL) * S);
 		pose.mulPose(Axis.YP.rotationDegrees(90f));
 		cylinder(pose, vc, -0.05f, 0.2f, 0f, 0f, 0.62f, RING, light, 16);
 		cylinder(pose, vc, 0.15f, 0.3f, 0f, 0f, 0.4f, GREEN, lit, 12);
