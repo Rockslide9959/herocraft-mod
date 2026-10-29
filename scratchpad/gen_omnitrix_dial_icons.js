@@ -127,11 +127,26 @@ function resize(img, n) {
 	return out;
 }
 
+// v0.17.1 (user: "make the greens match"): the source lime (#a9f227) becomes the watch's own green (#8cf03a, the green swatch
+// in gen_omnitrix_watch_v2.js) -- every lime-ish pixel keeps its brightness against black (k = g / 242) so the edges stay soft
+function matchGreen(img) {
+	const px = img.f;
+	for (let i = 0; i < px.length; i += 4) {
+		const r = px[i], g = px[i + 1], b = px[i + 2];
+		if (g > 30 && Math.abs(r - 0.7 * g) < 0.18 * g + 8 && b < 0.4 * g) {
+			const k = Math.min(1, g / 242);
+			px[i] = Math.round(0x8c * k); px[i + 1] = Math.round(0xf0 * k); px[i + 2] = Math.round(0x3a * k);
+		}
+	}
+	return img;
+}
+
 const BLUR = JSON.stringify({ texture: { blur: true, clamp: true } }, null, 2) + '\n';
 for (const id of IDS) {
 	const src = path.join(SRC, id + '.png');
 	const img = clean(PNG.read(src));
 	const red = redden(img);
+	matchGreen(img); // after the red copy is made from the original lime
 	PNG.write(path.join(GUI, `dial_${id}.png`), 64, 64, resize(img, 64));
 	PNG.write(path.join(GUI, `dial_${id}_red.png`), 64, 64, resize(red, 64));
 	fs.writeFileSync(path.join(GUI, `dial_${id}.png.mcmeta`), BLUR);
