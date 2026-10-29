@@ -235,7 +235,7 @@ const C = {
 	tail: [236, 239, 232], tailLo: [190, 196, 188], ring: [150, 156, 150],
 	fin: [22, 22, 26], finHi: [62, 64, 72], finStripe: [238, 240, 234],
 	rim: [170, 186, 196], rimLo: [120, 136, 148], plate: [14, 16, 22], plateEdge: [70, 80, 104],
-	wing: [232, 238, 176], wingVein: [118, 132, 64], wingEdge: [96, 110, 50],
+	wing: [222, 232, 150], wingVein: [104, 120, 50], wingEdge: [84, 100, 40],
 };
 // the wings' outline: u along the wing (0 root .. 1 tip), v across it (-1 trailing .. +1 leading, in units of the half width);
 // a narrow root, the widest part past the middle, a pointed swept tip, two round notches in the trailing edge
@@ -275,7 +275,8 @@ function shadeWing(c, f, s, t, p) {
 	if (vein) return [C.wingVein, 215, [34, 38, 18], 0];
 	const milky = 1 - smooth(0, 0.55, u);
 	const tint = mix(C.wing, [255, 255, 236], 0.25 * (0.5 + 0.5 * fbm(u * 6, v * 3, side + (pair === 'u' ? 0 : 5), 2)));
-	const a = Math.round(96 + 50 * milky);
+	// v0.17.1: more solid than the first pass (96..146 all but vanished against the sky)
+	const a = Math.round(158 + 52 * milky);
 	return [tint, a, [44, 48, 30], 0];
 }
 // a soft mottling of darker green spots on the limbs (the cartoon's), with the top-lit gradient

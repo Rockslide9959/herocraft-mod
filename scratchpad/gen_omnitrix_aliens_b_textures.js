@@ -306,7 +306,9 @@ function greyMatter() {
 	save(ex, 'entity/omnitrix/grey_matter_extras.png');
 }
 
-stinkfly();
+// v0.17.1: Stinkfly has his own GeckoLib body now (scratchpad/stinkfly_v0171/gen_stinkfly.js writes stinkfly.png) -- do not
+// overwrite it with the old player-model skin
+// stinkfly();
 wildvine();
 ripjaws();
 greyMatter();
