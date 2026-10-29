@@ -67,14 +67,17 @@ public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPl
 				return;
 			}
 			boolean red = OmnitrixWatch.red(p, partial);
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? OmnitrixWatch.TEX_RED : OmnitrixWatch.TEX));
+			// the framework's badge: the show's white symbol (OmnitrixLayer.BADGE, the whole texture), the red watch face while it beeps
+			VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? OmnitrixWatch.TEX_RED
+					: com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE));
+			float u0 = red ? 0.5f : 0f, v0 = red ? 0.5f : 0f;
 			// GeckoLib mirrors json X: the plate's outer face is at render x = -13.72 px, facing -X
 			float s = 1f / 16f;
 			float x = -13.72f * s, y = 16.83f * s, z = -5f * s, h = 2.35f * s;
 			PoseStack.Pose m = pose.last();
 			int full = LightTexture.FULL_BRIGHT;
-			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z - h, x, y + h, z + h, x, y - h, z + h, x, y - h, z - h, -1, 0, 0, 0.5f, 0.5f, 1f, 1f);
-			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z + h, x, y + h, z - h, x, y - h, z - h, x, y - h, z + h, -1, 0, 0, 0.5f, 0.5f, 1f, 1f);
+			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z - h, x, y + h, z + h, x, y - h, z + h, x, y - h, z - h, -1, 0, 0, u0, v0, 1f, 1f);
+			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z + h, x, y + h, z - h, x, y - h, z - h, x, y - h, z + h, -1, 0, 0, u0, v0, 1f, 1f);
 			// hand the main pass its buffer back (GeoRenderLayer#renderForBone's contract)
 			buffers.getBuffer(renderType);
 		}

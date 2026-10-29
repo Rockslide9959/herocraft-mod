@@ -428,3 +428,8 @@ little.
 | xlr8_hit | 0.20 | -1.5 | -11.9 | 931 | 197 | 0.000 |
 | xlr8_tornado | 1.60 | -1.7 | -17.6 | 3541 | 20 | 0.005 |
 | xlr8_visor | 0.35 | -2.5 | -13.6 | 2142 | 89 | 0.000 |
+
+## v0.17.1: Wildmutt replaced Wildvine
+
+The Wildvine cues and files above are gone with his kit. Wildmutt's twelve cues (pitched wolf / ravager / polar bear / fox / sniffer /
+armadillo samples, every layer within 0.75 volume) are listed in `docs/OMNITRIX_FRAMEWORK_0171.md` (the Wildmutt section).

@@ -2,7 +2,7 @@
 
 Ben 10's Omnitrix as a Hero-Tier power (`omnitrix`), the way to get it (a meteor / the Meteor Scanner), the only way to
 lose it (the Omnitrix Containment Pod), and a reusable alien framework. Heatblast and Four Arms ship with it; the other
-eight of the original ten (XLR8, Diamondhead, Upgrade, Ghostfreak, Stinkfly, Wildvine, Ripjaws, Grey Matter) are on the
+eight of the original ten (XLR8, Diamondhead, Upgrade, Ghostfreak, Stinkfly, Wildmutt (Wildvine until v0.17.1), Ripjaws, Grey Matter) are on the
 dial as "coming soon" until their kits register.
 
 Rules that hold: H = power selector only, N unused, no H / N HUD boxes. X = movement, V = the Omnitrix, R G Z C = attacks.
@@ -173,7 +173,7 @@ lashes out for 6; dying fails it. Success: the watch pops off as an item at the 
 | C / Shift+C | Fireball Nova (r 6, 10) / Supernova (1.25 s charge, r 9, 18) | War Cry (weaken / slow r 10, Strength) / Iron Stance (4 s, -70%, no knockback) |
 | Attack / Use | flaming punch (+2 fire) / fire bolt (empty hand), melt a block, Shift+Use smelts 8 of the held item | heavy punch (shove) / grab a creature, throw what you hold |
 
-## Stinkfly, Wildvine, Ripjaws and Grey Matter (the second batch)
+## Stinkfly, Wildvine, Ripjaws and Grey Matter (the second batch; Wildvine was later replaced by Wildmutt, below -- its kit, client, assets and tests are gone)
 
 Kits: `alien/stinkfly/StinkflyKit`, `alien/wildvine/WildvineKit`, `alien/ripjaws/RipjawsKit`, `alien/greymatter/GreyMatterKit`;
 clients `client/omnitrix/alien/StinkflyClient`, `WildvineClient`, `RipjawsClient`, `GreyMatterClient`. "Very basic models
@@ -330,3 +330,63 @@ Merge's invisibility is our own 40-tick effect, removed on revert (a longer poti
   `scratchpad/gen_omnitrix_badge.js`: a white ring, a black field, a white hourglass); the red beep / timeout flash still shows
   the red watch face. Shots `docs/screenshots/v0171/omnitrix_badge_*.png`.
 * Harness: `scratchpad/OmnitrixPolishHarness.v0171.java.txt`; shots `docs/screenshots/v0171/omnitrix_polish_*.png`.
+
+## Wildmutt (the first "real" alien; replaces Wildvine)
+
+User: "replace wildvine with wildmutt ... wildvine wasnt in the original 10, wildmutt was ... we're gonna try to move out of demo and
+build real aliens now". Kit `alien/wildmutt/WildmuttKit`, client `client/omnitrix/alien/WildmuttClient` + `client/omnitrix/alien/wildmutt/`
+(`WildmuttAnimatable`, `WildmuttModel`, `WildmuttRenderer`, `WildmuttFirstPerson`, `WildmuttSense`), mixins `WildmuttSenseGlowMixin` /
+`WildmuttSenseColorMixin` (client) and `OmnitrixAlienBodyMixin` (main). Dial slot: Wildvine's (font glyph and `OmnitrixInfo.DIAL_ORDER`
+index 7), colour `#F08A24`, icon from the user's art (`gen_omnitrix_dial_icons.js`). Tests: `OmnitrixWildmuttGameTests` (7).
+
+**Saves**: `OmnitrixState.RENAMED` (`wildvine` -> `wildmutt`) is applied in the codec to `selected`, `active` and `flicker`; a migrated
+`active` also drops the kit bits and the pose, and every `wildvine.*` timer is dropped.
+
+| | Wildmutt |
+|---|---|
+| Body | 34 HP, speed x1.35 (+20% more galloping = sprinting), armour 4 (+1), KB res 0.3, claws +4, step +0.4 (a full block), jump +0.12, safe fall +4; a **0.98 x 1.6** hitbox (crouching 1.35), eyes at 1.15 |
+| Passives | Scent Sense: creatures within 24 outlined amber for him only (invisible ones too), 48 while sniffing (+ dropped items), the tracked one red at any range; no eyes: Blindness / Darkness removed every tick; no fall damage during his own leaps / pounce / with Wall Climb on |
+| Weaknesses | underwater: senses 6 blocks, air runs out twice as fast; an explosion deafens the sense for 3 s |
+| R / Shift+R | Pounce (lunge at the look target within 12, else a bound; contact bite 9, pinned 1.25 s, heals 1; 3 s) / Maul (rears up: rakes of 3.5 at ticks 4, 7, 10, a double slam of 6 + knockback at 16, cone 70 deg, 3.4; 7 s) |
+| G / Shift+G | Quill Volley (7 quills in a 45 deg fan from his back at tick 9, 3.5 each, `wildmutt_quill`; 5 s) / Savage Roar (tick 6: cone 50 deg, 9 blocks, 3 + Slowness II + Weakness 3.5 s + a 0.8 s stun; 15 s) |
+| X / Hold X / Shift+X | Leap (~8 blocks, landing shock ring; 1.5 s) / Coiled Leap (the first hold move: coil up to 1.5 s, up to 1.8x as far; 3 s) / Wall Climb toggle (`climbs`: pressed into a wall, not sneaking; 0.5 s) |
+| Z / Shift+Z | Ground Slam (tick 9, r 4.5 ahead: 8 near -> 5 at the edge, launch; 8 s) / Quill Roll (1.5 s spiked ball: 5 to each creature once, -40% taken; 10 s) |
+| C / Shift+C | Feral Frenzy (8 s: +25% speed, +4 claws, +1 attack speed, claw hits heal 1.5; 30 s) / Scent Track (look target within 32 or the nearest within 48, players first: 30 s, red outline + his own scent trail to it, the HUD's Scent row shows the distance; 15 s) |
+| Attack / Use | Claw Swipe (vanilla hit + a half-damage cleave beside the target, alternating paws) / Sniff (empty hand on air: 6 s; 6 s) |
+
+Sounds (OmnitrixSfx cues, vanilla only): GROWL (wolf growl .55 x0.6, ravager ambient .25 x1.3, gap 30), BITE (ravager attack .5 x1.35, fox
+bite .5 x0.7), CLAW (sweep .35 x1.3, strong attack .25 x0.7), ROAR (ravager roar .65 x1.1, polar bear warning .5 x0.65, wolf growl .4 x0.5
+@4), BRISTLE (wolf shake .55 x0.75, growl .3 x0.8), QUILLS (arrow shoot .4 x1.5, sweep .25 x1.8), SLAM (ravager step .72 x0.5, explode .18
+x1.6, polar bear warning .3 x0.9), LEAP (ravager step .45 x1.2, wolf pant .35 x0.75), LAND (ravager step .7 x0.8, polar bear step .5 x0.7),
+SNIFF (sniffer sniffing .45 x1.3, fox sniff .4 x0.75), FRENZY_CUE (growl .6 x0.9, ravager roar .35 x1.5 @6), ROLL_CUE (armadillo roll .5
+x0.7, ravager step .3 x1.1).
+
+### The custom-body framework (new, backwards-compatible; every default is "off")
+
+* `AlienClientKit.customBody()` / `buildBody(context)` / `renderBody(...)`: the alien's own renderer replaces the player model
+  (`OmnitrixPlayerRendererMixin`: built from the player renderers' context at `<init>`, drawn at `render` HEAD -- the Hulk's approach).
+  Armour, cape, held items and `OmnitrixLayer` are not drawn: the kit draws its badge (Wildmutt: `WildmuttRenderer.Badge`, the white
+  `OmnitrixLayer.BADGE` / the red watch face on the plate of the strap round his left upper arm).
+* `AlienClientKit.renderFirstPersonHand(pose, buffers, light, p, right)` replaces the first-person arm (`renderRightHand` /
+  `renderLeftHand` HEAD); `bothHandsInFirstPerson(p)` draws the off arm whenever the off hand is empty (`OmnitrixItemInHandMixin`).
+  Wildmutt's arms reset the pose to camera space and apply the kit clip themselves.
+* `AlienKit.body(Player, Pose)`: the alien's own `EntityDimensions` for the poses it answers (`OmnitrixAlienBodyMixin` on
+  `Player.getDefaultDimensions`; the player re-measures whenever the answer changes, so turning back restores the player's box).
+
+### The model (`scratchpad/wildmutt_v0171/`)
+
+`gen_wildmutt.js` builds the rig with `viperion/lib_concept_models.js` (bones + boxes in model pixels, a procedural painter: orange fur
+with a top-lit gradient, a few cartoon fur strokes, darker face rims, a lighter belly, dark grey claws, the black mouth band with square
+white teeth and two hooked tusks, three gill slits on each side of the neck, a dark red mouth and pink tongue for the open jaw, the grey
+Omnitrix strap) and writes `geo/omnitrix/wildmutt.geo.json` (25 bones, ~200 cubes) + `textures/entity/omnitrix/wildmutt.png` (512 x 288);
+`anims.js` samples 19 clips into `animations/omnitrix/wildmutt.animation.json` (idle, idle_sniff, walk, sneak, gallop, air, leap_charge,
+pounce, maul, quills, roar, slam, roll, frenzy, track, climb, swipe_r / swipe_l, hurt); `--sheets <dir>` renders preview sheets offline
+(`preview.js`). `lang_wildmutt.js` writes his ONE contiguous lang block at the end of `en_us.json`. Rig: root > spin (the roll) > hurt (its
+own controller) > hips > chest > neck > look (the head-turn, set in code, never keyed) > head > jaw; arms (arm > forearm > paw, the badge on
+the left arm), legs (thigh > shin > foot), the quills_f / quills_b spike groups (bristle by scale), tail. Drawn 1.1x.
+
+**GeckoLib gotcha**: keyframe times must not be written as integer-like keys (`"1"`): JavaScript lists those first in an object, so the
+JSON had every clip over 1 s out of order (it played as a still pose). `anims.js` writes `"1.0"`. Clip speeds are fixed (GeckoLib rescales
+a clip's whole elapsed time when its speed changes): walk (0.56 s), sneak (1.0 s) and gallop (0.42 s) are authored for his speeds.
+
+Harness: `scratchpad/WildmuttHarness.v0171.java.txt` (flag `run/wildmutt.flag`); shots `docs/screenshots/v0171/omnitrix_wildmutt_*.png`.
