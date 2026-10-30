@@ -44,7 +44,9 @@ import net.minecraft.world.phys.Vec3;
 public class OmnitrixSoundsGameTests implements FabricGameTest {
 	/** The six synthesised files plus (v0.17.1) the user's own transform and power-down recordings. */
 	private static final Set<String> SYNTH_FILES = Set.of("core_up", "transform", "revert", "timeout", "warning", "denied", "transform_user",
-			"power_down_user", "core_ready_user", "recharged_user", "dial_click_user");
+			"power_down_user", "core_ready_user", "recharged_user", "dial_click_user",
+			// v0.17.1: Stinkfly's synthesised wings (scratchpad/stinkfly_v0171/sfx/make_wings.sh)
+			"stinkfly_wings", "stinkfly_wings_up");
 
 	private static JsonObject read(String path) {
 		try (InputStream in = OmnitrixSoundsGameTests.class.getResourceAsStream(path)) {

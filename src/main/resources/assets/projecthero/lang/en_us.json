@@ -9823,5 +9823,7 @@
   "projecthero.omnitrix.xlr8.overdrive.desc": "Hold V: 20 s of Speed Mode with three times more speed on top, blows twice as hard, Haste III and a block more step -- a shock ring and a sonic boom off the line. Tap V to end it early.",
   "message.projecthero.omnitrix.xlr8.overdrive_on": "OVERDRIVE",
   "message.projecthero.omnitrix.xlr8.overdrive_off": "Overdrive over.",
-  "hud.projecthero.omnitrix.blocks": "%s blocks"
+  "hud.projecthero.omnitrix.blocks": "%s blocks",
+  "subtitles.projecthero.omnitrix_stinkfly_wings": "Stinkfly's wings buzz",
+  "subtitles.projecthero.omnitrix_stinkfly_wings_up": "Stinkfly takes off"
 }

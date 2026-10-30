@@ -232,6 +232,8 @@ public final class UpgradeClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 4.5f, -2.06f, 3.0f };
+		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
+		// out), the middle of his chest
+		return new float[] { 0f, 5.0f, -2.06f, 2.6f };
 	}
 }

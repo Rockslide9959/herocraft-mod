@@ -761,6 +761,11 @@ public final class Omnitrix {
 				revert(p, Reason.SUPPRESSED);
 				return;
 			}
+			// v0.17.1 (user: "when ben transforms into an alien give all his alien forms regen 1"): Regeneration I for as long as he
+			// is an alien (refreshed before it runs out, no particles, so it never flickers off between refreshes)
+			if (now % 40 == 0 || !p.hasEffect(net.minecraft.world.effect.MobEffects.REGENERATION)) {
+				p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION, 80, 0, true, false, true));
+			}
 			if (poweringDown(s)) {
 				// the five beeps: still the alien (the kit keeps ticking), the time limit stopped, no warning blips
 				long start = s.readyAt(POWER_DOWN_TIMER);

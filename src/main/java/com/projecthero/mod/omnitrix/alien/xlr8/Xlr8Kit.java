@@ -156,7 +156,13 @@ public final class Xlr8Kit extends AlienKit {
 	public static final double SPRINT_BONUS = 0.5;
 	/** v0.17.1 revamp: Speed Mode on top of his body's 1.9x -- about 16 blocks a second walking, 30+ sprinting. */
 	public static final double SPEED_MODE_BONUS = 1.0;
-	public static final double SPEED_MODE_STEP = 0.5;
+	/**
+	 * v0.17.1 (user: "make xlr8s step assist better and dont make him lose momentum on going up blocks"): he always steps up
+	 * {@link #BASE_STEP} more than a player (1.1 blocks) and Speed Mode adds a full block more (1.6) -- at his speed a rise he
+	 * cannot step was a wall that stopped him dead; Overdrive adds another block on top.
+	 */
+	public static final double BASE_STEP = 0.5;
+	public static final double SPEED_MODE_STEP = 1.0;
 	public static final int PHASE_MAX_TICKS = 100;
 	public static final int PHASE_COOLDOWN = 100;
 	/** The visor stays down this long after a speed move. */
@@ -192,6 +198,7 @@ public final class Xlr8Kit extends AlienKit {
 	private static final ResourceLocation ATTACK_SPEED_ID = PowerToggles.id("omnitrix_xlr8_attack_speed");
 	private static final ResourceLocation MODE_ID = PowerToggles.id("omnitrix_xlr8_speed_mode");
 	private static final ResourceLocation MODE_STEP_ID = PowerToggles.id("omnitrix_xlr8_speed_mode_step");
+	private static final ResourceLocation BASE_STEP_ID = PowerToggles.id("omnitrix_xlr8_step");
 	private static final ResourceLocation OD_SPEED_ID = PowerToggles.id("omnitrix_xlr8_overdrive_speed");
 	private static final ResourceLocation OD_DAMAGE_ID = PowerToggles.id("omnitrix_xlr8_overdrive_damage");
 	private static final ResourceLocation OD_STEP_ID = PowerToggles.id("omnitrix_xlr8_overdrive_step");
@@ -254,6 +261,7 @@ public final class Xlr8Kit extends AlienKit {
 		OmnitrixSounds.play(l, p.position(), SND_VISOR, 1.0f, 1.0f);
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(3f).thickness(0.4f).life(12).ground().spawn();
 		PowerToggles.modifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 2.0, AttributeModifier.Operation.ADD_VALUE);
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID, BASE_STEP, AttributeModifier.Operation.ADD_VALUE);
 	}
 
 	@Override
@@ -268,6 +276,7 @@ public final class Xlr8Kit extends AlienKit {
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, MODE_ID);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID);
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID);
 		SuperSpeedMoves.endSweep(p); // a running sweep still brings him home
 		TWISTERS.remove(p.getUUID());
 		DASH_HITS.remove(p.getUUID());
@@ -325,6 +334,7 @@ public final class Xlr8Kit extends AlienKit {
 		}
 		if (now % 20 == 0) {
 			PowerToggles.modifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID, 2.0, AttributeModifier.Operation.ADD_VALUE);
+			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID, BASE_STEP, AttributeModifier.Operation.ADD_VALUE);
 		}
 		boolean mode = flag(p, F_SPEED);
 		if (mode) {

@@ -268,7 +268,8 @@ public final class DiamondheadClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		// v0.17.1 (user: "move his omnitrix badge to the left side of his chest"): high on his left breast, over the skin's grey square
-		return new float[] { 2.5f, 1.9f, -2.06f, 2.5f };
+		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
+		// out), high on his left breast
+		return new float[] { 3.0f, 2.0f, -2.06f, 2.4f };
 	}
 }

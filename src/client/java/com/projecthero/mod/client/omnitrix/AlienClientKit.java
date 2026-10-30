@@ -120,8 +120,18 @@ public interface AlienClientKit {
 		return false;
 	}
 
-	/** Where the Omnitrix badge sits: in body-bone pixels (x right, y down from the neck, z forward = negative). */
+	/**
+	 * Where the Omnitrix badge sits, in {@link #badgeBone}'s pixels: {x, y, z, size} facing forward (x right, y down, z forward =
+	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre).
+	 */
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };
+	}
+
+	int BADGE_BODY = 0, BADGE_LEFT_ARM = 1, BADGE_HEAD = 2;
+
+	/** v0.17.1: the bone {@link #badge} is on -- the body (default), the left arm (Four Arms) or the head (Stinkfly's face). */
+	default int badgeBone() {
+		return BADGE_BODY;
 	}
 }

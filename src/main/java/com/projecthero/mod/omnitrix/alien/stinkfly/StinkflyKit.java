@@ -279,9 +279,16 @@ public final class StinkflyKit extends AlienKit {
 		boolean flying = p.getAbilities().flying;
 		if (flying != flag(p, F_FLYING)) {
 			setFlag(p, F_FLYING, flying);
+			if (flying) {
+				// take-off: a few hard strokes winding up into the buzz
+				l.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.STINKFLY_WINGS_UP, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.0f);
+			}
 		}
 		if (flying && p.tickCount % 16 == 0) {
-			OmnitrixSounds.play(l, p.position(), BUZZ, 0.25f, 0.95f + p.getRandom().nextFloat() * 0.1f);
+			// v0.17.1: the insect wingbeat loop (0.85 s, replayed every 16 ticks) -- higher and a touch louder the faster he flies
+			float sp = (float) Math.min(1.0, p.getDeltaMovement().length() / 1.2);
+			l.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.STINKFLY_WINGS, net.minecraft.sounds.SoundSource.PLAYERS, 0.55f + 0.25f * sp,
+					0.95f + 0.2f * sp + p.getRandom().nextFloat() * 0.06f);
 		}
 		if (p.tickCount % 40 == 0) {
 			l.sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 0.4, p.getZ(), 1, 0.15, 0.1, 0.15, 0); // a goo drip

@@ -2979,5 +2979,21 @@
         "attenuation_distance": 64
       }
     ]
+  },
+  "omnitrix_stinkfly_wings": {
+    "subtitle": "subtitles.projecthero.omnitrix_stinkfly_wings",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_wings"
+      }
+    ]
+  },
+  "omnitrix_stinkfly_wings_up": {
+    "subtitle": "subtitles.projecthero.omnitrix_stinkfly_wings_up",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/stinkfly_wings_up"
+      }
+    ]
   }
 }

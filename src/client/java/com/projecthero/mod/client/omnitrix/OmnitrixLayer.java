@@ -40,16 +40,28 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 			kit.renderExtras(pose, buffers, light, p, model, partial, age);
 			float[] b = kit.badge();
 			boolean red = OmnitrixWatch.red(p, partial);
-			AlienParts.on(pose, model.body, () -> {
+			int boneId = kit.badgeBone();
+			net.minecraft.client.model.geom.ModelPart bone = boneId == AlienClientKit.BADGE_LEFT_ARM ? model.leftArm
+					: boneId == AlienClientKit.BADGE_HEAD ? model.head : model.body;
+			AlienParts.on(pose, bone, () -> {
 				// v0.17.1 (user: "make all the omnitrix badges white ... thats how it is in the show"): the white symbol
 				// (badge.png); the red flash is badge_red.png, the same badge in red
 				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? BADGE_RED : BADGE));
-				float u0 = 0f, v0 = 0f;
 				float s = b[3] / 2f / 16f;
-				// v0.17.1: just in front of the jacket overlay (-2.25 px), which hid the badge -- and its red beep blinks
-				float x = b[0] / 16f, y = b[1] / 16f, z = Math.min(b[2], -2.3f) / 16f;
+				float y = b[1] / 16f;
+				if (b.length > 4 && b[4] == 1f) {
+					// v0.17.1 (user: "four arms badge needs to be on the side of his top left arm"): facing out of the bone's +x side,
+					// just outside the sleeve layer
+					float x = Math.max(b[0], 3.3f) / 16f, z = b[2] / 16f;
+					AlienParts.quad(vc, pose.last(), 0xFFFFFFFF, LightTexture.FULL_BRIGHT, x, y - s, z + s, x, y - s, z - s, x, y + s, z - s, x, y + s, z + s,
+							1, 0, 0, 0f, 0f, 1f, 1f);
+					return;
+				}
+				// v0.17.1: just in front of the jacket overlay (-2.25 px), which hid the badge -- and its red beep blinks (the head's
+				// z is its own: in front of the hat layer)
+				float x = b[0] / 16f, z = (boneId == AlienClientKit.BADGE_BODY ? Math.min(b[2], -2.3f) : b[2]) / 16f;
 				AlienParts.quad(vc, pose.last(), 0xFFFFFFFF, LightTexture.FULL_BRIGHT, x - s, y - s, z, x + s, y - s, z, x + s, y + s, z, x - s, y + s, z,
-						0, 0, -1, u0, v0, 1f, 1f);
+						0, 0, -1, 0f, 0f, 1f, 1f);
 			});
 			return;
 		}

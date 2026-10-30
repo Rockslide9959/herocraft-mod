@@ -15,12 +15,6 @@ import net.minecraft.util.Mth;
  * {@code HumanoidModel.setupAnim}; skipped inside the first-person {@code renderHand} (it re-runs setupAnim on the arm model).
  */
 public final class OmnitrixPose {
-	private static final float[][] TRANSFORM = {
-			QuirkKeyframes.rest(0),
-			QuirkKeyframes.f(3, -0.4f, 0, 0.9f, -0.4f, 0, -0.9f, -0.15f, 0, 0, 0, 0.12f, 0, 0, -0.12f, -0.3f),
-			QuirkKeyframes.f(10, -0.2f, 0, 1.4f, -0.2f, 0, -1.4f, -0.2f, 0, 0, 0, 0.2f, 0, 0, -0.2f, -0.45f),
-			QuirkKeyframes.rest(16) };
-
 	/*
 	 * The raised-watch pose (x, y, z rotations), solved with scratchpad/omnitrix_pose_solver.js: the left arm points forward,
 	 * across and down (the watch in front of the chest), rolled so the face points up toward the eyes; the right hand's palm
@@ -70,10 +64,8 @@ public final class OmnitrixPose {
 		}
 		OmnitrixState s = Omnitrix.state(p);
 		float t = p.level().getGameTime() + partial - s.animStart;
-		// the transformation burst: arms flung wide
-		if ((s.animId == Omnitrix.ANIM_TRANSFORM || s.animId == Omnitrix.ANIM_TIMEOUT || s.animId == Omnitrix.ANIM_REVERT) && t < 16) {
-			QuirkKeyframes.play(m, TRANSFORM, t, 1f);
-		}
+		// v0.17.1 (user: "when player tranforms into an alien dont make them hit a pose, when they detransform also dont make them
+		// hit a pose"): no arms-flung-wide pose on the transformation, the revert or the timeout -- the flash carries it
 		// the raised wrist (v0.17.1 polish): the left forearm across in front of the chest with the face turned up to the eyes, the
 		// head bowed to look at it, the right hand over the dial -- twisting it on each scroll, slapping the core on the click
 		OmnitrixHands.Rig rig = OmnitrixWatch.rig(p, partial);
@@ -122,6 +114,17 @@ public final class OmnitrixPose {
 		// the alien kit
 		AlienClientKit kit = AlienClients.shownKit(p);
 		if (kit != null && s.transformed()) {
+			// v0.17.1 (user: "include the second layer of the skins please otherwise the aliens are gonna look weird"): an alien's
+			// skin is drawn with ALL its outer layer whatever the player's own Skin Customization toggles (vanilla hides each
+			// part the player switched off); the kit's pose can still hide parts after this (Ghostfreak's legs, Grey Matter's hat)
+			if (m instanceof net.minecraft.client.model.PlayerModel<?> pm) {
+				pm.hat.visible = true;
+				pm.jacket.visible = true;
+				pm.leftSleeve.visible = true;
+				pm.rightSleeve.visible = true;
+				pm.leftPants.visible = true;
+				pm.rightPants.visible = true;
+			}
 			kit.pose(p, m, s.animId, t, p.tickCount + partial);
 		}
 	}

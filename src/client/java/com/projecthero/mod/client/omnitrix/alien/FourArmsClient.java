@@ -296,6 +296,13 @@ public final class FourArmsClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 4.0f, -2.08f, 3.4f };
+		// v0.17.1 (user: "four arms badge needs to be on the side of his top left arm"): the outer side of his upper left arm, near
+		// the shoulder (arm-bone pixels: the cube spans x -1..3, y -2..10, z -2..2; the 1 = facing out of +x)
+		return new float[] { 3.3f, 1.2f, 0f, 2.8f, 1f };
+	}
+
+	@Override
+	public int badgeBone() {
+		return BADGE_LEFT_ARM;
 	}
 }

@@ -188,3 +188,71 @@ console.log('ripjaws / grey_matter / diamondhead / ghostfreak.png, four_arms.png
 	}
 	write('diamondhead_extras.png', dh.w, dh.h, dh.px);
 }
+
+// --- v0.17.1 (user: "use this for the stinkfly model" -- a minecraftskins.com skin): Stinkfly is a player-model alien again on
+// that skin (the custom GeckoLib body from scratchpad/stinkfly_v0171 is retired; its generator would overwrite this file)
+write('stinkfly.png', 64, 64, dec(path.join(__dirname, 'stinkfly_src.png')).px);
+
+// --- v0.17.1 (user: "for xlr8s helmet can you take the helmet from this skin" -- planetminecraft xlr8-visor-ben-10-os): his
+// closed-visor skin is his own body with THAT skin's helmet (both head layers, rows 0..15); its glow sheet the visor's teal X
+{
+	const X = path.join(__dirname, '../xlr8_v0171');
+	const body = dec(path.join(X, 'xlr8_src.png')), visor = dec(path.join(X, 'xlr8_visor_src.png'));
+	const mask = Buffer.from(body.px), glow = Buffer.alloc(64 * 64 * 4);
+	for (let y = 0; y < 16; y++) {
+		for (let x = 0; x < 64; x++) {
+			const o = (y * 64 + x) * 4;
+			for (let c = 0; c < 4; c++) mask[o + c] = visor.px[o + c];
+			const [r, g, b, a] = visor.px.slice(o, o + 4);
+			if (a && b > 120 && g > 100 && r < 110) { glow[o] = r; glow[o + 1] = g; glow[o + 2] = b; glow[o + 3] = 255; }
+		}
+	}
+	write('xlr8_mask.png', 64, 64, mask);
+	write('xlr8_mask_eyes.png', 64, 64, glow);
+}
+
+// --- v0.17.1 (user: "remove the original pixels from the alien model that were supposed to look like the omnitrix badge on the
+// skins ... position our alien badges more on top of those"): each skin's painted symbol is cleared -- the jacket-layer pixels
+// made see-through, the base pixels repainted in the colour beside them -- and the client kit's badge() sits on that spot
+{
+	const fix = (name, jobs) => {
+		const file = path.join(OUT, name + '.png');
+		const im = dec(file);
+		const at = (x, y) => (y * 64 + x) * 4;
+		for (const j of jobs) {
+			for (let y = j.y0; y <= j.y1; y++) {
+				for (let x = j.x0; x <= j.x1; x++) {
+					const o = at(x, y);
+					if (j.clear) { im.px[o + 3] = 0; continue; }
+					const s = at(j.from[0], j.from[1]);
+					for (let c = 0; c < 4; c++) im.px[o + c] = im.px[s + c];
+				}
+			}
+		}
+		write(name + '.png', 64, 64, im.px);
+	};
+	// x/y are skin texels: the body's front is 20..27 x 20..31, its jacket layer 20..27 x 36..47
+	fix('heatblast', [{ x0: 23, x1: 24, y0: 39, y1: 40, clear: true }]);
+	fix('diamondhead', [{ x0: 26, x1: 27, y0: 37, y1: 38, clear: true }]);
+	fix('ghostfreak', [{ x0: 24, x1: 25, y0: 22, y1: 23, from: [23, 22] }, { x0: 24, x1: 25, y0: 38, y1: 39, clear: true }]);
+	fix('ripjaws', [{ x0: 25, x1: 27, y0: 20, y1: 23, from: [25, 24] }, { x0: 25, x1: 27, y0: 36, y1: 39, clear: true }]);
+	fix('upgrade', [{ x0: 23, x1: 24, y0: 24, y1: 25, from: [22, 24] }, { x0: 23, x1: 24, y0: 40, y1: 41, clear: true }]);
+	fix('stinkfly', [{ x0: 23, x1: 24, y0: 23, y1: 23, from: [22, 23] }]);
+}
+
+// --- v0.17.1: Stinkfly's extras for the new skin -- the tail (32..40 x 8..16) white with grey bands like the skin's suit, the
+// stinger (40..44 x 8..12) black with a white stripe; the wings and mandibles as they were
+{
+	const sf = dec(path.join(__dirname, 'stinkfly_extras_old.png'));
+	for (let y = 8; y < 16; y++) {
+		for (let x = 32; x < 44; x++) {
+			const o = (y * 64 + x) * 4;
+			if (!sf.px[o + 3]) continue;
+			let c;
+			if (x < 40) c = (y % 4 === 3) ? [70, 74, 78] : [236 - (x % 2) * 10, 238 - (x % 2) * 10, 240 - (x % 2) * 10];
+			else c = (y === 9 || y === 10) && x === 41 ? [230, 232, 234] : [22, 22, 26];
+			sf.px[o] = c[0]; sf.px[o + 1] = c[1]; sf.px[o + 2] = c[2];
+		}
+	}
+	write('stinkfly_extras.png', sf.w, sf.h, sf.px);
+}

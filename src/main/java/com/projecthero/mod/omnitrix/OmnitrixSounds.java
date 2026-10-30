@@ -43,6 +43,9 @@ public final class OmnitrixSounds {
 	 * the power-down (five beeps, then the power dying) drives the detransform sequence's timing ({@code Omnitrix.POWER_DOWN_BEEPS}).
 	 */
 	public static final SoundEvent USER_TRANSFORM = register("omnitrix_transform_user");
+	/** v0.17.1 (user: "Give his wings insect wing flapping sound effects"): Stinkfly's synthesised wing buzz (loop) and take-off. */
+	public static final SoundEvent STINKFLY_WINGS = register("omnitrix_stinkfly_wings");
+	public static final SoundEvent STINKFLY_WINGS_UP = register("omnitrix_stinkfly_wings_up");
 	public static final SoundEvent USER_POWER_DOWN = register("omnitrix_power_down_user");
 	/** v0.17.1 (user): "make this sound play when activating the omnitrix" / "when the omnitrix times back in after recharging". */
 	public static final SoundEvent USER_CORE_READY = register("omnitrix_core_ready_user");

@@ -1,3 +1,5 @@
+// v0.17.1: RETIRED -- Stinkfly is a player-model alien on the user's skin again (scratchpad/ben10_v0171/gen_skins.js writes
+// stinkfly.png). Running this would overwrite that texture and needs the deleted client.alien.stinkfly classes.
 // v0.17.1: STINKFLY -- the Ben 10 Lepidopterran as a GeckoLib body (user: a proper, good-looking custom body from the reference
 // images, built like Wildmutt). An upright insect about player height: a black, rounded-boxy head with a pale grey mouth plate and
 // small fangs, FOUR short green-black eye-stalks (two a side, angled up and out) ending in yellow-orange bulb eyes; a narrow chest
