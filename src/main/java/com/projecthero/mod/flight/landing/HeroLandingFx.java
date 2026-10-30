@@ -96,7 +96,13 @@ public final class HeroLandingFx {
 		BlockParticleOption dust = new BlockParticleOption(ParticleTypes.BLOCK, ground);
 		burst(level, dust, feet, 14 + (int) (6 * s), 0.9, 1.6 + 1.0 * s, 0.22 + 0.15 * s);
 		level.sendParticles(ParticleTypes.POOF, feet.x, feet.y + 0.1, feet.z, 3 + (int) (3 * s), 1.0, 0.02, 1.0, 0.02);
-		sound(level, feet, HeroLandingSounds.IMPACT, 0.7f + 0.5f * s, 0.95f - 0.15f * s + p.getRandom().nextFloat() * 0.08f);
+		if (style == HeroLandingStyle.HEATBLAST) {
+			// v0.17.2 (user: "change heatblasts landing sound effect, it sounds weird, make it slightly softer too"): his own
+			// softer fire-and-rock touchdown instead of the shared thud (and the FIRE element's fire charge below)
+			com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.heroLanding(p, level, s);
+		} else {
+			sound(level, feet, HeroLandingSounds.IMPACT, 0.7f + 0.5f * s, 0.95f - 0.15f * s + p.getRandom().nextFloat() * 0.08f);
+		}
 		QuirkCamera.shakeAround(level, feet, 10 + 12 * s, 0.16f + 0.5f * s, 6 + (int) (8 * s));
 		if (s > 0.55f) {
 			QuirkCamera.hitStop(p, 2);
@@ -259,7 +265,9 @@ public final class HeroLandingFx {
 						.ground().spawn();
 				burst(level, ParticleTypes.FLAME, feet, 20, 0.4, 1.6 + s, 0.12);
 				level.sendParticles(ParticleTypes.LARGE_SMOKE, feet.x, feet.y + 0.2, feet.z, 8, 0.6, 0.1, 0.6, 0.02);
-				sound(level, feet, SoundEvents.FIRECHARGE_USE, 0.6f, 0.7f);
+				if (style != HeroLandingStyle.HEATBLAST) {
+					sound(level, feet, SoundEvents.FIRECHARGE_USE, 0.6f, 0.7f);
+				}
 			}
 			case SHADOW -> {
 				QuirkFx.decal(level, feet).style(QuirkFx.DECAL_POOL).colour(style == HeroLandingStyle.DARK_SHADOW ? 0x12061E : 0x2A1040)
