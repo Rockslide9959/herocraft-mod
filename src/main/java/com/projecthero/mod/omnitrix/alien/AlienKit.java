@@ -118,6 +118,14 @@ public abstract class AlienKit {
 	public void release(ServerPlayer p, AbilitySlot slot, boolean shift, int heldTicks) {
 	}
 
+	/**
+	 * v0.17.1 (user: "make the X keybind highlighted when flight is activated"): a toggle on this key is switched on right now
+	 * (client-safe: synced flags) -- the HUD lights the key's box. Default: none.
+	 */
+	public boolean keyActive(net.minecraft.world.entity.player.Player p, AbilitySlot slot) {
+		return false;
+	}
+
 	public void holdStart(ServerPlayer p, AbilitySlot slot) {
 	}
 
@@ -193,6 +201,14 @@ public abstract class AlienKit {
 	 */
 	public boolean pawsOnly(Player p) {
 		return false;
+	}
+
+	/**
+	 * v0.17.1 (user: "I just meant I dont want him to be able to use tools, he should still be able to eat food"): what paws CAN
+	 * use -- anything eaten or drunk (food, potions, milk); tools, weapons and blocks stay out.
+	 */
+	public static boolean pawsCanUse(net.minecraft.world.item.ItemStack stack) {
+		return stack.has(net.minecraft.core.component.DataComponents.FOOD) || stack.getUseAnimation() == net.minecraft.world.item.UseAnim.DRINK;
 	}
 
 	/** {@link #pawsOnly} of whatever alien {@code p} is right now (false for a human). Client-safe. */

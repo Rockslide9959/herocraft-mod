@@ -76,7 +76,8 @@ public class WildmuttRenderer extends GeoReplacedEntityRenderer<AbstractClientPl
 					: com.projecthero.mod.client.omnitrix.OmnitrixLayer.BADGE));
 			// GeckoLib mirrors json X: the plate's outer face is at render x = -10.8 px, facing -X (v0.17.1 rework 3)
 			float s = 1f / 16f;
-			float x = -10.83f * s, y = 16.8f * s, z = -5.5f * s, h = 1.6f * s;
+			// v0.17.1: centred on the shoulder pad's plate (outer face json x 11.1, y 17.5..21.4)
+			float x = -11.13f * s, y = 19.45f * s, z = -5.5f * s, h = 1.7f * s;
 			PoseStack.Pose m = pose.last();
 			int full = LightTexture.FULL_BRIGHT;
 			AlienParts.quad(vc, m, 0xFFFFFFFF, full, x, y + h, z - h, x, y + h, z + h, x, y - h, z + h, x, y - h, z - h, -1, 0, 0, 0f, 0f, 1f, 1f);

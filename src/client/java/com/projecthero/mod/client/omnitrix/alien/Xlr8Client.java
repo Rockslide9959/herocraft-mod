@@ -30,7 +30,7 @@ import net.minecraft.world.entity.player.Player;
  * visor slid down over the face) -- the mask is drawn whenever {@link Xlr8Kit#visorDown} (Speed Mode, a dash, the tornado,
  * Phase, any speed move just now) and the face at rest. The green eyes glow (an emissive pass of the skin's own eye pixels,
  * through the visor too). Extras in the skin's palette: the helmet's swept-back crest, a long blue-black tail with a teal stripe
- * that streams out flat as he runs, ball feet that roll (no claws, v0.17.1 user). Speed Mode leaves the plain Speedster's after-image trail
+ * that streams out flat as he runs (v0.17.1: no claws, crest, ear fins or ball feet -- the user's skin and its helmet). Speed Mode leaves the plain Speedster's after-image trail
  * ({@link #trails}, drawn by {@code SuperSpeedClientV0145} in this skin); Phase flickers him half see-through. A pose (third and
  * first person) for every move.
  */
@@ -171,7 +171,29 @@ public final class Xlr8Client implements AlienClientKit {
 	/** The visor down (the closed-mask skin) while he runs; his face at rest. */
 	@Override
 	public ResourceLocation skin(AbstractClientPlayer p) {
-		return Xlr8Kit.visorDown(p) ? MASK : SKIN;
+		return visor(p, net.minecraft.client.Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false)) >= 1f ? MASK : SKIN;
+	}
+
+	/** How long the visor takes to slide down over the face or up off it (ticks). */
+	private static final float VISOR_SLIDE = 6f;
+	/** Per player: whether the visor was last seen down and when that changed (client-only; dropped with the client). */
+	private static final java.util.Map<java.util.UUID, float[]> VISOR = new java.util.HashMap<>();
+
+	/**
+	 * v0.17.1 (user: "just make it slide down onto his face, when it goes up make it slide up off his face"): 0 = up (his face),
+	 * 1 = down (the helmet's visor), sliding between over {@link #VISOR_SLIDE} ticks from the moment Xlr8Kit#visorDown flips.
+	 */
+	static float visor(AbstractClientPlayer p, float partial) {
+		boolean down = Xlr8Kit.visorDown(p);
+		float now = p.tickCount + partial;
+		float[] v = VISOR.computeIfAbsent(p.getUUID(), k -> new float[] { down ? 1f : 0f, -100f });
+		if ((v[0] > 0.5f) != down) {
+			v[0] = down ? 1f : 0f;
+			v[1] = now;
+		}
+		float k = Mth.clamp((now - v[1]) / VISOR_SLIDE, 0f, 1f);
+		k = k * k * (3f - 2f * k);
+		return down ? k : 1f - k;
 	}
 
 	/** Phase: he flickers half see-through. */
@@ -198,22 +220,8 @@ public final class Xlr8Client implements AlienClientKit {
 			float age) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
 		float sp = speed(p);
-		// the helmet's crest: a swept-back fin over the crown, teal-edged (the visor itself is the skin's)
-		AlienParts.on(pose, model.head, () -> {
-			// a low ridge along the crown that sweeps up and back past the nape
-			box(pose, vc, -0.6f, -8.9f, -2.5f, 0.6f, -7.95f, 3.2f, BLACK, light);
-			box(pose, vc, -0.3f, -9.15f, -1.5f, 0.3f, -8.9f, 3.0f, TEAL, light);
-			pose.pushPose();
-			pose.translate(0, -8.4f / 16f, 3.2f / 16f);
-			pose.mulPose(Axis.XP.rotation(-0.5f));
-			box(pose, vc, -0.55f, -0.5f, 0f, 0.55f, 0.5f, 3.0f, BLACK, light);
-			pose.popPose();
-			// the small swept fins over the ears
-			for (int side = -1; side <= 1; side += 2) {
-				float x = side * 4.1f;
-				box(pose, vc, Math.min(x, x + side * 0.5f), -6.2f, -1.0f, Math.max(x, x + side * 0.5f), -4.8f, 2.6f, BLACK, light);
-			}
-		});
+		// v0.17.1 (user: "remove whatever extra is there and just leave the alien skin itself"): no crest or ear fins (the helmet is
+		// the skin's now), no ball feet
 		// the tail: four segments from the small of the back, streaming out flatter the faster he runs
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
@@ -235,19 +243,21 @@ public final class Xlr8Client implements AlienClientKit {
 			box(pose, vc, -0.4f, -0.4f, 0, 0.4f, 0.4f, 1.5f, PALE, light);
 			pose.popPose();
 		});
-		// ball feet that roll with his stride
-		float roll = (p.walkDist + partial * sp) * 6f;
-		for (ModelPart leg : new ModelPart[] { model.rightLeg, model.leftLeg }) {
-			AlienParts.on(pose, leg, () -> {
-				pose.pushPose();
-				pose.translate(0, 11.4f / 16f, -0.3f / 16f);
-				pose.mulPose(Axis.XP.rotation(roll));
-				box(pose, vc, -2.4f, -1.9f, -2.4f, 2.4f, 1.9f, 2.4f, WHEEL, light);
-				pose.popPose();
+		float vis = visor(p, partial);
+		if (vis > 0.001f && vis < 1f) {
+			// the visor half-way: the helmet's front slides down from the brow (its lower edge leading) -- base and hat layers
+			VertexConsumer plate = buffers.getBuffer(RenderType.entityTranslucent(MASK));
+			AlienParts.on(pose, model.head, () -> {
+				PoseStack.Pose m = pose.last();
+				float h = 8f * vis; // how far down it has come (px)
+				float top = -8f / 16f, bot = (-8f + h) / 16f;
+				float vTop = (16f - h) / 64f, vBot = 16f / 64f; // the visor's lower edge leads
+				for (float[] L : new float[][] { { -4.02f, 8f / 64f, 16f / 64f, 0f }, { -4.52f, 40f / 64f, 48f / 64f, 8f } }) {
+					float z = L[0] / 16f, x0 = -(4f + (L[3] > 0 ? 0.5f : 0f)) / 16f, x1 = -x0;
+					float vt = vTop, vb = vBot;
+					AlienParts.quad(plate, m, 0xFFFFFFFF, light, x1, top, z, x0, top, z, x0, bot, z, x1, bot, z, 0, 0, -1, L[1], vt, L[2], vb);
+				}
 			});
-		}
-		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
 		}
 		// (every cutout draw is done: fetching another buffer type ends the previous one)
 		// the green eyes glow: the skin's own eye pixels drawn again full-bright (the visor's faint eyes when it is down)
@@ -271,7 +281,7 @@ public final class Xlr8Client implements AlienClientKit {
 			case Xlr8Kit.ANIM_SNATCH -> SNATCH;
 			case Xlr8Kit.ANIM_DASH -> DASH;
 			case Xlr8Kit.ANIM_SPEED_SWEEP -> SPEED_SWEEP;
-			case Xlr8Kit.ANIM_MODE -> MODE;
+			// v0.17.1 (user: "remove the hand and body animation for when xlr8s visor goes down"): none -- the visor slides itself
 			case Xlr8Kit.ANIM_WHIRL -> WHIRL;
 			case Xlr8Kit.ANIM_KICKS -> KICKS;
 			case Xlr8Kit.ANIM_DECOYS -> DECOYS;
@@ -317,7 +327,6 @@ public final class Xlr8Client implements AlienClientKit {
 			case Xlr8Kit.ANIM_MACH -> FP_MACH;
 			case Xlr8Kit.ANIM_SNATCH -> FP_SNATCH;
 			case Xlr8Kit.ANIM_DASH -> FP_DASH;
-			case Xlr8Kit.ANIM_MODE -> FP_MODE;
 			case Xlr8Kit.ANIM_WHIRL, Xlr8Kit.ANIM_BURST, Xlr8Kit.ANIM_DECOYS -> FP_WIDE;
 			case Xlr8Kit.ANIM_KICKS -> FP_KICK;
 			case Xlr8Kit.ANIM_MINE -> FP_MINE;

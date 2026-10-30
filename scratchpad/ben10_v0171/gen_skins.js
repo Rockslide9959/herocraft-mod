@@ -256,3 +256,52 @@ write('stinkfly.png', 64, 64, dec(path.join(__dirname, 'stinkfly_src.png')).px);
 	}
 	write('stinkfly_extras.png', sf.w, sf.h, sf.px);
 }
+
+// --- v0.17.1 (user: "move his omnitrix badge to his back and remove the badge that was on the skin and fill in the gaps"): Grey
+// Matter's painted back symbol (base 32..39 x 20..27, its ring on the jacket 32..39 x 36..43) filled with his back's own colours
+// below it (each column copies row 29), the jacket ring cleared; GreyMatterClient's badge sits on the spot facing back
+{
+	const file = path.join(OUT, 'grey_matter.png');
+	const im = dec(file);
+	for (let x = 32; x < 40; x++) {
+		const src = (29 * 64 + x) * 4;
+		for (let y = 20; y < 28; y++) {
+			const o = (y * 64 + x) * 4;
+			for (let c = 0; c < 4; c++) im.px[o + c] = im.px[src + c];
+		}
+		for (let y = 36; y < 44; y++) im.px[(y * 64 + x) * 4 + 3] = 0;
+	}
+	write('grey_matter.png', 64, 64, im.px);
+}
+
+// --- v0.17.1 (user: "fill in the gaps of ghostfreaks arms"): Ghostfreak's and Grey Matter's skins are SLIM (3-px arms) but an
+// alien is always drawn on the wide model, so their arm faces were read off by a column and left a see-through strip. Each arm
+// and sleeve is remapped from the slim layout to the wide one: every 3-wide face stretched to 4 (its middle column doubled)
+{
+	const slimToWide = (px, ox, oy) => {
+		const src = Buffer.from(px);
+		const at = (x, y) => (y * 64 + x) * 4;
+		const copy = (sx, sy, dx, dy) => { for (let c = 0; c < 4; c++) px[at(dx, dy) + c] = src[at(sx, sy) + c]; };
+		const stretch = c => Math.min(2, Math.floor(c * 3 / 4)); // 0,0,1,2 -> the middle doubled
+		for (let y = oy; y < oy + 16; y++) for (let x = ox; x < ox + 16; x++) px[at(x, y) + 3] = 0;
+		for (let r = 0; r < 4; r++) {
+			for (let c = 0; c < 4; c++) {
+				copy(ox + 4 + stretch(c), oy + r, ox + 4 + c, oy + r); // top
+				copy(ox + 7 + stretch(c), oy + r, ox + 8 + c, oy + r); // bottom
+			}
+		}
+		for (let r = 4; r < 16; r++) {
+			for (let c = 0; c < 4; c++) {
+				copy(ox + c, oy + r, ox + c, oy + r); // the outer side (4 deep either way)
+				copy(ox + 4 + stretch(c), oy + r, ox + 4 + c, oy + r); // front
+				copy(ox + 7 + c, oy + r, ox + 8 + c, oy + r); // the inner side
+				copy(ox + 11 + stretch(c), oy + r, ox + 12 + c, oy + r); // back
+			}
+		}
+	};
+	for (const name of ['ghostfreak', 'grey_matter']) {
+		const im = dec(path.join(OUT, name + '.png'));
+		for (const [ox, oy] of [[40, 16], [32, 48], [40, 32], [48, 48]]) slimToWide(im.px, ox, oy);
+		write(name + '.png', 64, 64, im.px);
+	}
+}

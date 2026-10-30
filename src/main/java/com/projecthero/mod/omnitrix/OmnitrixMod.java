@@ -111,7 +111,7 @@ public final class OmnitrixMod {
 			}
 			// v0.17.1 (Wildmutt rework 2): paws cannot use what they "hold" -- refused on both sides, so the client never
 			// predicts it (Fabric still sends the use packet, so the kit's own right-click above runs on the server)
-			if (!stack.isEmpty() && AlienKit.pawsOnlyNow(player)) {
+			if (!stack.isEmpty() && AlienKit.pawsOnlyNow(player) && !AlienKit.pawsCanUse(stack)) {
 				return InteractionResultHolder.fail(stack);
 			}
 			return InteractionResultHolder.pass(stack);

@@ -208,6 +208,20 @@ public final class HeatblastClient implements AlienClientKit {
 				level.addParticle(i == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME, fx + (r.nextDouble() - 0.5) * 0.18, fy, fz + (r.nextDouble() - 0.5) * 0.18,
 						bx * sp * w, -sp * (1f - w), bz * sp * w);
 			}
+			// v0.17.1 (user: "For his flight give it vfx please"): a smoky trail, embers raining off it, a heat ring now and then
+			if (r.nextInt(2) == 0) {
+				level.addParticle(ParticleTypes.LARGE_SMOKE, fx + (r.nextDouble() - 0.5) * 0.3, fy, fz + (r.nextDouble() - 0.5) * 0.3, bx * 0.05 * w,
+						-0.04 * (1f - w), bz * 0.05 * w);
+			}
+			if (r.nextInt(3) == 0) {
+				level.addParticle(ParticleTypes.LAVA, fx, fy, fz, 0, 0, 0);
+			}
+			if (p.tickCount % 12 == 0) {
+				for (int k = 0; k < 14; k++) {
+					double ang = k * Math.PI * 2 / 14;
+					level.addParticle(ParticleTypes.FLAME, fx + Math.cos(ang) * 0.5, fy, fz + Math.sin(ang) * 0.5, Math.cos(ang) * 0.06, -0.02, Math.sin(ang) * 0.06);
+				}
+			}
 			if (w < 0.5f && r.nextInt(2) == 0) {
 				double rx = Mth.cos(yaw) * 0.55, rz = Mth.sin(yaw) * 0.55; // his right / left hand, a little out to the side
 				for (int side = -1; side <= 1; side += 2) {

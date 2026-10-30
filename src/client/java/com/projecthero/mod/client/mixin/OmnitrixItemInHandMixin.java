@@ -37,7 +37,7 @@ public abstract class OmnitrixItemInHandMixin {
 	@ModifyVariable(method = "renderArmWithItem", at = @At("HEAD"), argsOnly = true)
 	private ItemStack projecthero$pawsHoldNothing(ItemStack stack, AbstractClientPlayer player, float partial, float pitch, InteractionHand hand,
 			float swing, ItemStack original, float equipped, PoseStack pose, MultiBufferSource buffers, int light) {
-		return !stack.isEmpty() && OmnitrixFirstPerson.pawsOnly(player) ? ItemStack.EMPTY : stack;
+		return !stack.isEmpty() && OmnitrixFirstPerson.pawsOnly(player) && !com.projecthero.mod.omnitrix.alien.AlienKit.pawsCanUse(stack) ? ItemStack.EMPTY : stack;
 	}
 
 	@Inject(method = "renderArmWithItem", at = @At("HEAD"))

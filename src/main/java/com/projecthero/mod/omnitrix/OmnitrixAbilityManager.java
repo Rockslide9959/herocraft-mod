@@ -54,12 +54,17 @@ public final class OmnitrixAbilityManager {
 		return st == null || st.activePower.isEmpty();
 	}
 
+	/** v0.17.1 Master Control: when Shift+N went down with the watch up (cleared on release). */
+	private static final Map<UUID, Long> MASTER_HOLD = new ConcurrentHashMap<>();
+
 	static void forget(UUID id) {
 		DOWN.remove(id);
+		MASTER_HOLD.remove(id);
 	}
 
 	static void clearSessionState() {
 		DOWN.clear();
+		MASTER_HOLD.clear();
 	}
 
 	/** R as a human: the watch up / down. */
@@ -89,6 +94,12 @@ public final class OmnitrixAbilityManager {
 			// v0.17.1 (user): N turns an alien back (Shift+N too); the release has nothing to do
 			if (pressed) {
 				pressN(p);
+				// v0.17.1 Master Control: Shift+N held with the watch up (no bar, no hint: see tick)
+				if (p.isShiftKeyDown() && Omnitrix.state(p).selecting && !Omnitrix.state(p).transformed()) {
+					MASTER_HOLD.put(p.getUUID(), p.level().getGameTime());
+				}
+			} else {
+				MASTER_HOLD.remove(p.getUUID());
 			}
 			return;
 		}
@@ -143,6 +154,16 @@ public final class OmnitrixAbilityManager {
 
 	/** A holdable key still down after {@code KIT_HOLD_TICKS} starts its hold move. */
 	static void tick(ServerPlayer p) {
+		Long held = MASTER_HOLD.get(p.getUUID());
+		if (held != null) {
+			OmnitrixState ms = Omnitrix.state(p);
+			if (!p.isShiftKeyDown() || !ms.selecting || ms.transformed()) {
+				MASTER_HOLD.remove(p.getUUID());
+			} else if (p.level().getGameTime() - held >= OmnitrixConfig.MASTER_HOLD_TICKS) {
+				MASTER_HOLD.remove(p.getUUID());
+				Omnitrix.startMasterSequence(p);
+			}
+		}
 		Map<Integer, Key> mine = DOWN.get(p.getUUID());
 		if (mine == null || mine.isEmpty()) {
 			return;

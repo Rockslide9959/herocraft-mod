@@ -95,17 +95,17 @@ public final class GhostfreakClient implements AlienClientKit {
 		return SKIN;
 	}
 
-	/** See-through always; fainter still while phased. */
+	/** v0.17.1 (user: "dont make him transparent like he is right now"): solid -- only Phase makes him see-through (the cue it is on). */
 	@Override
 	public int bodyAlpha(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & GhostfreakKit.F_PHASE) != 0 ? 90 : 150;
+		return (Omnitrix.state(p).kitFlags & GhostfreakKit.F_PHASE) != 0 ? 130 : 255;
 	}
 
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
 		boolean phased = (Omnitrix.state(p).kitFlags & GhostfreakKit.F_PHASE) != 0;
-		int alpha = phased ? 95 : 215;
+		int alpha = phased ? 130 : 255;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
 		// the wispy tail in place of legs: shrinking segments, each swaying a little more than the last
 		AlienParts.on(pose, model.body, () -> {
@@ -125,10 +125,7 @@ public final class GhostfreakClient implements AlienClientKit {
 			}
 			pose.popPose();
 		});
-		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> claws(pose, vc, right, light, alpha));
-		}
+		// v0.17.1 (user: "remove ghost freaks claws"): none
 		// the one great purple eye (last: fetching the eyes buffer ends the translucent one)
 		VertexConsumer eye = buffers.getBuffer(RenderType.eyes(EXTRAS));
 		float blink = (age % 90) < 3 ? 0.3f : 1f;
@@ -136,17 +133,9 @@ public final class GhostfreakClient implements AlienClientKit {
 				EYE[1], EYE[2], EYE[3], 0xFFFFFFFF, LightTexture.FULL_BRIGHT));
 	}
 
-	private static void claws(PoseStack pose, VertexConsumer vc, boolean right, int light, int alpha) {
-		float x0 = right ? -3.0f : -1.0f;
-		for (int k = 0; k < 3; k++) {
-			float x = x0 + k * 1.5f;
-			AlienParts.box(pose, vc, x, 11.6f, -2.3f, x + 0.6f, 14.0f, -1.5f, CLAW[0], CLAW[1], CLAW[2], CLAW[3], (Math.min(255, alpha + 60) << 24) | 0xFFFFFF, light);
-		}
-	}
-
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		claws(pose, buffers.getBuffer(RenderType.entityTranslucent(EXTRAS)), right, light, 200);
+		// v0.17.1: no claws (the skin's own arm)
 	}
 
 	@Override

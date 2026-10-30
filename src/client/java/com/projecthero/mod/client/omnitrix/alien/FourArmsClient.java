@@ -255,7 +255,11 @@ public final class FourArmsClient implements AlienClientKit {
 			return;
 		}
 		net.minecraft.world.phys.Vec3 v = k.farLeapVelocity(p);
-		if (v == null || p.onGround() || p.horizontalCollision || p.isInWater() || p.isInLava() || p.getAbilities().flying || p.isPassenger()) {
+		// v0.17.1 (user: "four arms leap sometimes doesn't launch him in the direction that the player aims"): the take-off tick
+		// counts too -- he is still on the ground then, and the ground's friction and the movement keys bent the launch (strafing
+		// skewed it); from the first tick the launch's own heading is held
+		boolean takeoff = v != null && p.level().getGameTime() - k.timer(p, "air_at") <= 3;
+		if (v == null || (p.onGround() && !takeoff) || p.horizontalCollision || p.isInWater() || p.isInLava() || p.getAbilities().flying || p.isPassenger()) {
 			return;
 		}
 		net.minecraft.world.phys.Vec3 d = p.getDeltaMovement();

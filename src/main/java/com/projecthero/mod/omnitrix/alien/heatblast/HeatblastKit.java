@@ -248,6 +248,9 @@ public final class HeatblastKit extends AlienKit {
 			if (p.isInWaterOrBubble()) {
 				stopFlying(p);
 				fizzles(p);
+			} else if (p.onGround() && now - timer(p, "fly_at") > 10) {
+				// v0.17.1 (user: "the flight should be deactivated when the player touches the ground"): landing ends the Fire Jet
+				stopFlying(p);
 			}
 		}
 		// Fire Stream
@@ -466,6 +469,11 @@ public final class HeatblastKit extends AlienKit {
 		return true;
 	}
 
+	@Override
+	public boolean keyActive(net.minecraft.world.entity.player.Player p, AbilitySlot slot) {
+		return slot == AbilitySlot.SLOT_3 && flag(p, F_FLYING);
+	}
+
 	public boolean fireJet(ServerPlayer p) {
 		if (!use(p, FIRE_JET)) {
 			return false;
@@ -478,6 +486,7 @@ public final class HeatblastKit extends AlienKit {
 			return false;
 		}
 		setFlag(p, F_FLYING, true);
+		setTimer(p, "fly_at", p.level().getGameTime());
 		p.getAbilities().mayfly = true;
 		p.getAbilities().flying = true;
 		p.getAbilities().setFlyingSpeed(FLY_SPEED);

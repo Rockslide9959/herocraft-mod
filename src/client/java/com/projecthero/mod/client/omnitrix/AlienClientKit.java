@@ -122,7 +122,8 @@ public interface AlienClientKit {
 
 	/**
 	 * Where the Omnitrix badge sits, in {@link #badgeBone}'s pixels: {x, y, z, size} facing forward (x right, y down, z forward =
-	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre).
+	 * negative). v0.17.1: a fifth value of 1 turns it to face out of the bone's +x side (x is then that face, z the centre);
+	 * 2 turns it round to face out of the back (+z).
 	 */
 	default float[] badge() {
 		return new float[] { 0f, 4.5f, -2.05f, 3.2f };

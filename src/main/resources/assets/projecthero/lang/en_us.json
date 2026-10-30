@@ -9825,5 +9825,9 @@
   "message.projecthero.omnitrix.xlr8.overdrive_off": "Overdrive over.",
   "hud.projecthero.omnitrix.blocks": "%s blocks",
   "subtitles.projecthero.omnitrix_stinkfly_wings": "Stinkfly's wings buzz",
-  "subtitles.projecthero.omnitrix_stinkfly_wings_up": "Stinkfly takes off"
+  "subtitles.projecthero.omnitrix_stinkfly_wings_up": "Stinkfly takes off",
+  "message.projecthero.omnitrix.master_on": "MASTER CONTROL UNLOCKED",
+  "message.projecthero.omnitrix.master_off": "Master Control off",
+  "message.projecthero.omnitrix.failsafe": "OMNITRIX FAILSAFE",
+  "message.projecthero.omnitrix.glitch": "The Omnitrix glitched -- wrong alien!"
 }

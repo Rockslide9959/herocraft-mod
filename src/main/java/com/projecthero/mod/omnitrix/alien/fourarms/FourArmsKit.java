@@ -416,6 +416,19 @@ public final class FourArmsKit extends AlienKit {
 		ServerLevel l = level(p);
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
+		if (com.projecthero.mod.hulk.HulkAbilities.airborne(p)) {
+			// v0.17.1 (user: "make four arms thunderclap able to reposition him in the air aswell like the hulk can"): the Hulk's air
+			// clap -- his momentum dies and the recoil throws him the opposite way to his look (clap down and he goes up); mid-leap
+			// the held launch speed becomes the recoil, so he sails on it, and the leap's landing still counts
+			Vec3 push = look.normalize().scale(-com.projecthero.mod.hulk.HulkConfig.abilities().airClapPush);
+			p.setDeltaMovement(push);
+			p.hurtMarked = true;
+			if (timer(p, "far_on") != 0) {
+				setTimer(p, "far_vx", Double.doubleToRawLongBits(push.x));
+				setTimer(p, "far_vz", Double.doubleToRawLongBits(push.z));
+			}
+			p.resetFallDistance();
+		}
 		Vec3 hands = eye.add(look.scale(1.2)).add(0, -0.4, 0);
 		QuirkFx.ring(l, hands).flags(QuirkFx.F_VERTICAL).vec(look).colours(0xFFFFFF, 0xC8D8FF).size(3.5f).thickness(0.6f).life(12).spawn();
 		QuirkFx.cone(l, hands, look).style(QuirkFx.CONE_DEBRIS).colours(0xD8D0C0, 0x8A8070).size(2.5f).length(CLAP_RANGE).life(14).spawn();

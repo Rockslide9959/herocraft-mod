@@ -5,6 +5,7 @@ import com.projecthero.mod.hero.AbilitySlot;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixAbilityManager;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
+import com.projecthero.mod.omnitrix.OmnitrixConfig;
 import com.projecthero.mod.omnitrix.alien.Aliens;
 import com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit;
 import com.projecthero.mod.omnitrix.alien.fourarms.FourArmsKit;
@@ -147,6 +148,49 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 			helper.assertFalse(kit.flag(p, HeatblastKit.F_AURA), "the aura goes out with him");
 			z.discard();
 			ore.discard();
+			helper.succeed();
+		});
+	}
+
+	// ================================================================ the failsafe and Master Control (v0.17.1)
+
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theFailsafeThrowsADyingAlienBackToHuman(GameTestHelper helper) {
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().generic(), 999f);
+		helper.assertTrue(p.isAlive() && !Omnitrix.transformed(p), "a killing blow throws him back to human instead");
+		helper.assertTrue(Math.abs(p.getHealth() - OmnitrixConfig.FAILSAFE_HEALTH) < 1.0e-3f, "on 2 hearts: " + p.getHealth());
+		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "wrapped in Resistance for a moment");
+		helper.assertTrue(Omnitrix.rechargeLeft(p) > OmnitrixConfig.FAILSAFE_RECHARGE_TICKS - 20, "and the long recharge");
+		// a second killing blow as an alien straight after: no second save
+		var n = Omnitrix.state(p).copy();
+		n.rechargeUntil = 0L;
+		Omnitrix.save(p, n);
+		helper.assertTrue(Omnitrix.select(p, HeatblastKit.ID) && Omnitrix.transform(p), "an alien again");
+		helper.assertFalse(Omnitrix.failsafe(p), "the failsafe is spent for a while");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
+	public void masterControlTurnsTheDialThenLiftsTheLimits(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		helper.assertTrue(Omnitrix.activate(p), "the watch up");
+		Omnitrix.finishRaise(p);
+		helper.assertFalse(Omnitrix.masterControl(p), "no Master Control yet");
+		helper.assertTrue(Omnitrix.startMasterSequence(p), "the long Shift+N starts the sequence");
+		helper.assertFalse(Omnitrix.cycle(p, 1), "the dial is the watch's while it turns itself");
+		pump(helper, p);
+		int steps = (Aliens.playable().size() + 2) * OmnitrixConfig.MASTER_STEP_TICKS;
+		helper.runAfterDelay(steps, () -> {
+			helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
+			helper.assertFalse(Omnitrix.selecting(p) || Omnitrix.masterSequence(p), "and the watch is down again");
+			helper.assertTrue(Omnitrix.select(p, HeatblastKit.ID) && Omnitrix.transform(p), "an alien");
+			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "no recharge under Master Control");
 			helper.succeed();
 		});
 	}

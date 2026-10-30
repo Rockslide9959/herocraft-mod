@@ -91,7 +91,9 @@ public final class GreyMatterClient implements AlienClientKit {
 			FirstPersonClip.f(7, 0, 0, 0, 0, 0, 0));
 
 	public GreyMatterClient() {
-		ModelPart root = AlienParts.bake(64, 64, r -> r.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0).addBox(-4, -8, -4, 8, 8, 8),
+		ModelPart root = AlienParts.bake(64, 64, r -> r.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 0).addBox(-4, -8, -4, 8, 8, 8)
+				// v0.17.1: the skin's hat layer on the big head too (its second layer)
+				.texOffs(32, 0).addBox(-4, -8, -4, 8, 8, 8, new net.minecraft.client.model.geom.builders.CubeDeformation(0.5f)),
 				PartPose.ZERO));
 		bigHead = root.getChild("head");
 	}
@@ -106,19 +108,12 @@ public final class GreyMatterClient implements AlienClientKit {
 			float age) {
 		OmnitrixState s = Omnitrix.state(p);
 		float t = p.level().getGameTime() + partial - s.animStart;
-		// the eyes widen when he thinks (Analyze, the Mind Map)
-		float wide = (s.animId == GreyMatterKit.ANIM_ANALYZE || s.animId == GreyMatterKit.ANIM_MIND) && t < 26 ? 0.35f : 0f;
 		AlienParts.on(pose, model.head, () -> {
 			pose.pushPose();
 			pose.scale(HEAD_SCALE, HEAD_SCALE, HEAD_SCALE);
 			// one buffer at a time: fetching another render type ends the previous one
 			bigHead.render(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN)), light, OverlayTexture.NO_OVERLAY);
-			VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-			float g = wide;
-			AlienParts.box(pose, vc, -3.7f - g, -6.6f - g, -4.6f - g * 0.5f, -0.4f + g, -3.0f + g, -3.9f, EYE[0] / 64f, EYE[1] / 64f, EYE[2] / 64f, EYE[3] / 64f,
-					0xFFFFFFFF, light);
-			AlienParts.box(pose, vc, 0.4f - g, -6.6f - g, -4.6f - g * 0.5f, 3.7f + g, -3.0f + g, -3.9f, EYE[0] / 64f, EYE[1] / 64f, EYE[2] / 64f, EYE[3] / 64f,
-					0xFFFFFFFF, light);
+			// v0.17.1 (user: "Remove these big eyes from grey matter please, his skin already has eyes"): no eye boxes over the face
 			pose.popPose();
 		});
 	}
@@ -191,6 +186,8 @@ public final class GreyMatterClient implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 4.5f, -2.05f, 3.2f };
+		// v0.17.1 (user: "move his omnitrix badge to his back"): over the spot on his back where the skin's own symbol was (painted
+		// out), facing backward (the 2)
+		return new float[] { 0f, 4.0f, 2.3f, 5.0f, 2f };
 	}
 }

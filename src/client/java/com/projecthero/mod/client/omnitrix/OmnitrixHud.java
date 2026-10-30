@@ -213,7 +213,13 @@ public final class OmnitrixHud {
 			int cd = shown == null ? 0 : kit.cooldownLeft(p, shown.id());
 			int max = shown == null ? 1 : Math.max(1, shown.cooldown());
 			g.fill(x, y0, x + BOX, y0 + BOX, usable ? BOX_BG : BOX_BG_DIM);
-			g.renderOutline(x, y0, BOX, BOX, BORDER);
+			if (kit.keyActive(p, slot)) {
+				// v0.17.1: a toggle that is on (Heatblast's flight...): the box lit in the alien's colour, a bright rim
+				g.fill(x + 1, y0 + 1, x + BOX - 1, y0 + BOX - 1, 0x66000000 | (a.colour() & 0xFFFFFF));
+				g.renderOutline(x, y0, BOX, BOX, 0xFF000000 | a.colour());
+			} else {
+				g.renderOutline(x, y0, BOX, BOX, BORDER);
+			}
 			g.drawString(mc.font, keyLabel(slot), x + 2, y0 + 2, usable ? KEY : KEY_DIM, false);
 			if (shift && sh != null) {
 				// the Shift view: a small bar along the bottom of the box

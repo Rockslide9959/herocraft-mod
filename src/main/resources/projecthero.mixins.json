@@ -74,6 +74,7 @@
 		"SuperSpeedPhaseCollideMixin",
 		"SilverSurferPhaseCollideMixin",
 		"OmnitrixAlienCollideMixin",
+		"OmnitrixPhaseMoveCheckMixin",
 		"OmnitrixAlienLivingMixin",
 		"OmnitrixAlienBodyMixin",
 		"OmnitrixUpgradeEmpMixin",

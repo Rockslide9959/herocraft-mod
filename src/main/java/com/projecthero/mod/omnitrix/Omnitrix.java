@@ -144,7 +144,137 @@ public final class Omnitrix {
 
 	/** Why the wearer turned back. */
 	public enum Reason {
-		SHIFT_V, TIMEOUT, DEATH, LOGOUT, EXTRACTION, REVOKE, SUPPRESSED
+		SHIFT_V, TIMEOUT, DEATH, LOGOUT, EXTRACTION, REVOKE, SUPPRESSED,
+		/** v0.17.1: the failsafe threw him back to human instead of letting a hit kill the alien. */
+		FAILSAFE
+	}
+
+	// ---------------------------------------------------------------- v0.17.1: Master Control, the failsafe, the glitch
+
+	/** Master Control is on (no time limit, no recharge, no glitches). Persisted in the timers (1 = on). */
+	private static final String MASTER = "omnitrix.master";
+	/** The Master Control sequence: its start tick and how many dial steps it has turned. */
+	private static final String MC_SEQ = "omnitrix.mc_seq", MC_STEP = "omnitrix.mc_step";
+	/** The game time the failsafe can save him again. */
+	private static final String FAILSAFE_READY = "omnitrix.failsafe";
+	/** Gametests: this wearer's slaps never glitch. */
+	private static final String NO_GLITCH = "omnitrix.no_glitch";
+
+	public static boolean masterControl(Player p) {
+		return hasPower(p) && state(p).readyAt(MASTER) == 1L;
+	}
+
+	/** The Master Control sequence is running (the dial turning on its own). */
+	public static boolean masterSequence(Player p) {
+		return hasPower(p) && state(p).timers.containsKey(MC_SEQ);
+	}
+
+	/**
+	 * v0.17.1 (user: "make master control able to be activated by shifting and holding N while the omnitrix is activated for 10
+	 * seconds ... the dial must turn on its own flipping through all the aliens the player has in the omnitrix and then finally
+	 * deactivating with master control activated, master control can be deactivated the same way, when you activate master
+	 * control tell the player on the hud"): called once the hold is done (OmnitrixAbilityManager). The core is forced up, the
+	 * face lights, and {@link #tick} turns the dial through every alien, lowers the watch and flips Master Control.
+	 */
+	public static boolean startMasterSequence(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		if (!s.selecting || s.transformed() || s.timers.containsKey(MC_SEQ)) {
+			return false;
+		}
+		long now = p.level().getGameTime();
+		OmnitrixState n = s.copy();
+		clearSlap(n);
+		n.rechargeUntil = 0L; // the watch comes alive even mid-recharge
+		n.timers.remove(TIMED_IN);
+		if (!coreUp(n, now)) {
+			n.selectStart = now - CORE_UP_TICKS;
+		}
+		n.timers.put(MC_SEQ, now);
+		n.timers.put(MC_STEP, 0L);
+		save(p, n);
+		OmnitrixSounds.play(p.serverLevel(), p.position(), OmnitrixSounds.CORE_UP, 1.0f, 1.2f);
+		return true;
+	}
+
+	/** One tick of the Master Control sequence: a dial step every MASTER_STEP_TICKS, then the watch down and the flip. */
+	private static void tickMasterSequence(ServerPlayer p, OmnitrixState s, long now) {
+		long start = s.readyAt(MC_SEQ);
+		long steps = s.readyAt(MC_STEP);
+		java.util.List<Aliens.Alien> pool = Aliens.playable();
+		if (!s.selecting) {
+			OmnitrixState n = s.copy();
+			n.timers.remove(MC_SEQ);
+			n.timers.remove(MC_STEP);
+			save(p, n);
+			return;
+		}
+		if ((now - start) % OmnitrixConfig.MASTER_STEP_TICKS != 0 || now == start) {
+			return;
+		}
+		if (steps < pool.size()) {
+			int i = 0;
+			for (int k = 0; k < pool.size(); k++) {
+				if (pool.get(k).id().equals(s.selected)) {
+					i = k;
+				}
+			}
+			OmnitrixState n = s.copy();
+			n.selected = pool.get(Math.floorMod(i + 1, pool.size())).id();
+			n.animId = ANIM_TURN;
+			n.animStart = now;
+			n.timers.put(MC_STEP, steps + 1);
+			save(p, n);
+			OmnitrixSounds.notify(p, OmnitrixSounds.DIAL, 1.0f);
+			return;
+		}
+		// every alien shown: the flip, the watch down, the HUD told
+		boolean on = s.readyAt(MASTER) != 1L;
+		OmnitrixState n = s.copy();
+		n.timers.remove(MC_SEQ);
+		n.timers.remove(MC_STEP);
+		if (on) {
+			n.timers.put(MASTER, 1L);
+		} else {
+			n.timers.remove(MASTER);
+		}
+		save(p, n);
+		deactivate(p);
+		OmnitrixSounds.notify(p, OmnitrixSounds.RECHARGED);
+		p.displayClientMessage(Component.translatable(on ? "message.projecthero.omnitrix.master_on" : "message.projecthero.omnitrix.master_off")
+				.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY, ChatFormatting.BOLD), true);
+	}
+
+	/** Gametests: keep this wearer's slaps on the selected alien. */
+	public static void noGlitch(ServerPlayer p) {
+		OmnitrixState n = state(p).copy();
+		n.timers.put(NO_GLITCH, 1L);
+		save(p, n);
+	}
+
+	/**
+	 * v0.17.1 (user: "implement bens failsafe" -- the death save): a hit that would kill the alien does not land; the watch
+	 * throws him back to human on {@link OmnitrixConfig#FAILSAFE_HEALTH} with a moment of Resistance V, the red timeout flash,
+	 * and the long {@link OmnitrixConfig#FAILSAFE_RECHARGE_TICKS} recharge; it can do it again after the cooldown. Called from
+	 * OmnitrixDamage; true when it saved him (the hit is cancelled).
+	 */
+	public static boolean failsafe(ServerPlayer p) {
+		OmnitrixState s = state(p);
+		long now = p.level().getGameTime();
+		if (!s.transformed() || now < s.readyAt(FAILSAFE_READY)) {
+			return false;
+		}
+		OmnitrixState n = s.copy();
+		n.timers.put(FAILSAFE_READY, now + OmnitrixConfig.FAILSAFE_COOLDOWN_TICKS);
+		save(p, n);
+		revert(p, Reason.FAILSAFE);
+		p.setHealth(Math.min(p.getMaxHealth(), OmnitrixConfig.FAILSAFE_HEALTH));
+		p.invulnerableTime = OmnitrixConfig.FAILSAFE_SHIELD_TICKS;
+		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE,
+				OmnitrixConfig.FAILSAFE_SHIELD_TICKS, 4, false, false, true));
+		p.clearFire();
+		OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.failsafe").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+		return true;
 	}
 
 	private static final OmnitrixState DEFAULT = new OmnitrixState();
@@ -464,14 +594,15 @@ public final class Omnitrix {
 		n.kitFlags = 0;
 		n.heldEntity = 0;
 		n.selecting = false;
-		n.animId = reason == Reason.TIMEOUT ? ANIM_TIMEOUT : ANIM_REVERT;
+		n.animId = reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? ANIM_TIMEOUT : ANIM_REVERT;
 		n.animStart = now;
 		n.endsAt = 0L;
 		n.timers.remove(POWER_DOWN_TIMER);
 		n.timers.remove(POWER_DOWN_TIMEOUT);
-		n.rechargeUntil = switch (reason) {
+		n.rechargeUntil = n.readyAt(MASTER) == 1L ? 0L : switch (reason) {
 			case TIMEOUT -> now + OmnitrixConfig.RECHARGE_TICKS;
 			case SHIFT_V -> now + OmnitrixConfig.EARLY_RECHARGE_TICKS;
+			case FAILSAFE -> now + OmnitrixConfig.FAILSAFE_RECHARGE_TICKS;
 			default -> 0L;
 		};
 		save(p, n);
@@ -480,7 +611,7 @@ public final class Omnitrix {
 		}
 		// the sequence's sound is already playing (this is its power-down); an immediate revert keeps the short whir
 		if (!sequenced) {
-			helixFx(p, reason == Reason.TIMEOUT ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
+			helixFx(p, reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
 		}
 		if (reason == Reason.TIMEOUT && !sequenced) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
@@ -560,7 +691,7 @@ public final class Omnitrix {
 	public static boolean cycle(ServerPlayer p, int dir) {
 		OmnitrixState s = state(p);
 		java.util.List<Aliens.Alien> pool = Aliens.playable();
-		if (!s.selecting || pool.isEmpty() || dir == 0) {
+		if (!s.selecting || pool.isEmpty() || dir == 0 || s.timers.containsKey(MC_SEQ)) {
 			return false;
 		}
 		// v0.17.1 (user): a 0.2 s cooldown on the dial so it cannot be spun too fast
@@ -596,7 +727,7 @@ public final class Omnitrix {
 	/** Left-click (or right-click) while the watch is up: the core is slapped down; {@link #SLAP_TICKS} later, the alien. */
 	public static boolean slap(ServerPlayer p) {
 		OmnitrixState s = state(p);
-		if (!s.selecting || s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(SLAP_QUEUE)) {
+		if (!s.selecting || s.timers.containsKey(SLAP_TIMER) || s.timers.containsKey(SLAP_QUEUE) || s.timers.containsKey(MC_SEQ)) {
 			return false;
 		}
 		if (!Aliens.playable(s.selected)) {
@@ -739,7 +870,36 @@ public final class Omnitrix {
 			slap(p);
 			return;
 		}
+		if (s.timers.containsKey(MC_SEQ)) {
+			tickMasterSequence(p, s, now);
+			OmnitrixAbilityManager.tick(p);
+			return;
+		}
 		if (s.selecting && s.timers.containsKey(SLAP_TIMER) && now >= s.readyAt(SLAP_TIMER)) {
+			// v0.17.1 (user: the failsafe "glitch"): now and then the Omnitrix lands on another alien than the one dialled -- never
+			// under Master Control
+			String dialled = s.selected;
+			java.util.List<Aliens.Alien> pool = Aliens.playable();
+			if (s.readyAt(MASTER) != 1L && s.readyAt(NO_GLITCH) != 1L && pool.size() > 1 && p.getRandom().nextFloat() < OmnitrixConfig.GLITCH_CHANCE) {
+				String other = dialled;
+				while (other.equals(dialled)) {
+					other = pool.get(p.getRandom().nextInt(pool.size())).id();
+				}
+				OmnitrixState g = s.copy();
+				g.selected = other;
+				save(p, g);
+			}
+			boolean glitched = !state(p).selected.equals(dialled);
+			if (transform(p) && glitched) {
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.glitch").withStyle(ChatFormatting.YELLOW), true);
+				OmnitrixState g = state(p).copy();
+				g.selected = dialled; // the dial stays where he put it
+				save(p, g);
+				return;
+			}
+			if (state(p).transformed()) {
+				return;
+			}
 			if (!transform(p)) {
 				OmnitrixState n = state(p).copy();
 				clearSlap(n);
@@ -778,7 +938,14 @@ public final class Omnitrix {
 				OmnitrixAbilityManager.tick(p);
 				return;
 			}
-			if (now >= s.endsAt) {
+			if (s.readyAt(MASTER) == 1L) {
+				// v0.17.1 Master Control: no time limit -- the clock is held full
+				if (now % 20 == 0 && s.endsAt - now < OmnitrixConfig.TRANSFORM_TICKS - 10) {
+					OmnitrixState n = state(p).copy();
+					n.endsAt = now + OmnitrixConfig.TRANSFORM_TICKS;
+					save(p, n);
+				}
+			} else if (now >= s.endsAt) {
 				beginPowerDown(p, true);
 				kit.tick(p, state(p), now);
 				OmnitrixAbilityManager.tick(p);

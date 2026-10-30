@@ -364,6 +364,7 @@ public class OmnitrixGameTests implements FabricGameTest {
 		Omnitrix.cycle(p, -1);
 		helper.assertTrue(!Omnitrix.state(p).selected.equals(first) && Aliens.playable(Omnitrix.state(p).selected), "and turns back");
 		String picked = Omnitrix.state(p).selected;
+		Omnitrix.noGlitch(p); // v0.17.1: the wrong-alien glitch has its own test
 		helper.assertTrue(Omnitrix.slap(p), "the click slaps the core down");
 		helper.runAfterDelay(Omnitrix.SLAP_TICKS + 2, () -> {
 			helper.assertTrue(Omnitrix.transformed(p) && !Omnitrix.selecting(p), "the slap transformed");

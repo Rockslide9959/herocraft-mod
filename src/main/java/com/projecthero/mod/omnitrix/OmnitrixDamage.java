@@ -81,6 +81,11 @@ public final class OmnitrixDamage {
 			return false;
 		}
 		float changed = kit.incomingDamage(player, source, amount);
+		// v0.17.1 (user: the Omnitrix failsafe -- the death save): a hit that would kill the alien never lands; the watch throws him
+		// back to human instead (Omnitrix#failsafe; once every few minutes)
+		if (changed >= player.getHealth() + player.getAbsorptionAmount() && Omnitrix.state(player).transformed() && Omnitrix.failsafe(player)) {
+			return false;
+		}
 		if (Math.abs(changed - amount) < 1.0e-4f) {
 			return true;
 		}

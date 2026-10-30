@@ -315,7 +315,9 @@ public final class Xlr8Kit extends AlienKit {
 		if ((s.kitFlags & (F_SPEED | F_TORNADO | F_DASH | F_PHASE)) != 0) {
 			return true;
 		}
-		boolean speedMove = s.animId != ANIM_JAB && s.animId != ANIM_SWEEP && s.animId != ANIM_SNATCH && s.animId > 0
+		// v0.17.1 (user: "his visor doesnt immediately go up, it only goes up like 2 seconds after the speed mode is turned off"):
+		// the Speed Mode toggle itself is not a speed move -- switching it off lifts the visor at once
+		boolean speedMove = s.animId != ANIM_JAB && s.animId != ANIM_SWEEP && s.animId != ANIM_SNATCH && s.animId != ANIM_MODE && s.animId > 0
 				&& s.animId < Omnitrix.ANIM_TRANSFORM;
 		return speedMove && p.level().getGameTime() - s.animStart < VISOR_TICKS;
 	}

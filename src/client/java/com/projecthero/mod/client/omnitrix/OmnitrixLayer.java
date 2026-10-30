@@ -57,6 +57,13 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 							1, 0, 0, 0f, 0f, 1f, 1f);
 					return;
 				}
+				if (b.length > 4 && b[4] == 2f) {
+					// v0.17.1 (Grey Matter): on the back, facing backward, just behind the jacket layer
+					float x = b[0] / 16f, z = Math.max(b[2], 2.3f) / 16f;
+					AlienParts.quad(vc, pose.last(), 0xFFFFFFFF, LightTexture.FULL_BRIGHT, x + s, y - s, z, x - s, y - s, z, x - s, y + s, z, x + s, y + s, z,
+							0, 0, 1, 0f, 0f, 1f, 1f);
+					return;
+				}
 				// v0.17.1: just in front of the jacket overlay (-2.25 px), which hid the badge -- and its red beep blinks (the head's
 				// z is its own: in front of the hat layer)
 				float x = b[0] / 16f, z = (boneId == AlienClientKit.BADGE_BODY ? Math.min(b[2], -2.3f) : b[2]) / 16f;
