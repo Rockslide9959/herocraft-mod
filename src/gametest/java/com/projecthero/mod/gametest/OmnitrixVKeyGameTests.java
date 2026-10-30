@@ -234,6 +234,23 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2: a leap toward -x / -z holds that heading too (negative speeds used to be dropped as an unset timer). */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void fourArmsLeapHoldsANegativeHeading(GameTestHelper helper) {
+		ServerPlayer p = as(helper, FourArmsKit.ID);
+		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
+		p.setOnGround(true);
+		p.setYRot(135f); // looking toward -x, -z
+		p.setXRot(-20f);
+		kit.holdStart(p, AbilitySlot.SLOT_3);
+		kit.holdEnd(p, AbilitySlot.SLOT_3, FourArmsKit.LEAP_CHARGE_TICKS / 2);
+		net.minecraft.world.phys.Vec3 held = kit.farLeapVelocity(p), launched = p.getDeltaMovement();
+		helper.assertTrue(held != null && held.x < -0.1 && held.z < -0.1, "the held speed keeps both negative axes: " + held);
+		helper.assertTrue(Math.abs(held.x - launched.x) < 1e-4 && Math.abs(held.z - launched.z) < 1e-4, "and matches the launch: " + launched);
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void fourArmsVWallClimb(GameTestHelper helper) {
 		ServerPlayer p = as(helper, FourArmsKit.ID);

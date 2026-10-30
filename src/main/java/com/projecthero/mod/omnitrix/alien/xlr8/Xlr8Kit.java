@@ -282,10 +282,14 @@ public final class Xlr8Kit extends AlienKit {
 		DASH_HITS.remove(p.getUUID());
 	}
 
-	/** Speed Mode: pressed into a wall (and not sneaking) he runs straight up it, like a ladder. */
+	/**
+	 * Speed Mode: pressed into a wall (and not sneaking) he runs straight up it, like a ladder -- v0.17.2 (user: "only run up
+	 * walls when he looks up against them like how it works for other speedsters"): only while looking steeply up, the Super
+	 * Speed wall run's pitch.
+	 */
 	@Override
 	public boolean climbs(Player p) {
-		return flag(p, F_SPEED) && p.horizontalCollision && !p.isShiftKeyDown();
+		return flag(p, F_SPEED) && p.horizontalCollision && !p.isShiftKeyDown() && p.getXRot() <= SuperSpeedHandlers.WALL_RUN_PITCH;
 	}
 
 	/** Speed Mode: water holds him up (Shift to sink in). */

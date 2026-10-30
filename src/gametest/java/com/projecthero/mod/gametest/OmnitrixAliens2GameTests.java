@@ -143,20 +143,20 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 	}
 
 	/**
-	 * v0.17.1 (Stinkfly's custom body): insect claws hold nothing -- pawsOnly, so a held sword is never used, but the Use goo
-	 * spit still fires with it in the slot; hands again once he turns back.
+	 * v0.17.2 (user: "make stinky able to use items and tools"): his claws hold and use items -- a held item is used as normal,
+	 * and the Use goo spit fires from an empty hand.
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void stinkflysClawsHoldNothingButStillSpit(GameTestHelper helper) {
+	public void stinkflyUsesItemsAndSpitsBareHanded(GameTestHelper helper) {
 		floor(helper);
 		ServerPlayer p = as(helper, StinkflyKit.ID);
 		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
-		helper.assertTrue(AlienKit.pawsOnlyNow(p), "claws only");
+		helper.assertFalse(AlienKit.pawsOnlyNow(p), "his claws hold items");
 		p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
-		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND).consumesAction(), "the goo spit fires with a sword in the slot");
+		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND) == net.minecraft.world.InteractionResult.PASS, "a held item is used as normal");
+		p.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND).consumesAction(), "the goo spit fires from an empty hand");
 		helper.assertTrue(Omnitrix.state(p).animId == StinkflyKit.ANIM_SHOT, "and plays the spit");
-		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
-		helper.assertFalse(AlienKit.pawsOnlyNow(p), "hands again");
 		helper.succeed();
 	}
 

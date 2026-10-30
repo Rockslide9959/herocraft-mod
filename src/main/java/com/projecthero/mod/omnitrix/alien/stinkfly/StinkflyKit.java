@@ -210,15 +210,8 @@ public final class StinkflyKit extends AlienKit {
 		return AlienStats.builder().health(14f).speed(1.1f).scale(0.9f).armor(1f, 0f).attack(1f).jump(0.08f).build();
 	}
 
-	/**
-	 * v0.17.1 (the custom body, Wildmutt's framework): insect claws -- he holds and uses nothing (no held items drawn, no tools,
-	 * no weapon damage on top of the jab). Hitbox and eyes stay the player's, scaled by the 0.9 size stat (0.54 x 1.62, eyes at
-	 * 1.46: the middle of his head on the model).
-	 */
-	@Override
-	public boolean pawsOnly(net.minecraft.world.entity.player.Player p) {
-		return true;
-	}
+	// v0.17.2 (user: "make stinky able to use items and tools"): no pawsOnly -- his claws hold and use items again. Hitbox and eyes
+	// stay the player's, scaled by the 0.9 size stat (0.54 x 1.62, eyes at 1.46: the middle of his head on the model).
 
 	@Override
 	protected List<AlienMove> declareMoves() {
@@ -641,8 +634,8 @@ public final class StinkflyKit extends AlienKit {
 
 	@Override
 	public InteractionResult onUse(ServerPlayer p, InteractionHand hand) {
-		// v0.17.1 (the custom body): claws hold nothing (pawsOnly), so whatever is in the slot never stops the spit
-		if (hand != InteractionHand.MAIN_HAND) {
+		// v0.17.2 (user: "make stinky able to use items and tools"): the goo spit is the empty hand's Use, like Heatblast's bolt
+		if (hand != InteractionHand.MAIN_HAND || !p.getMainHandItem().isEmpty()) {
 			return InteractionResult.PASS;
 		}
 		if (!use(p, GOO_SPIT)) {

@@ -31,7 +31,9 @@ public abstract class SuperSpeedEatMixin {
 		}
 		// v0.17.1 (user): the Speed Force Speedster in Speed Mode eats and drinks THREE times as fast -- two extra steps a
 		// tick on top of vanilla's one, never taking the counter to zero itself
-		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.speedActive(player)) {
+		// v0.17.2 (user: "make xlr8 eat food three times as fast"): XLR8 too
+		if (com.projecthero.mod.speedforce.SpeedForceSpeedster.speedActive(player)
+				|| com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(player)) {
 			UseAnim fast = stack.getUseAnimation();
 			if (fast == UseAnim.EAT || fast == UseAnim.DRINK) {
 				this.useItemRemaining = Math.max(1, this.useItemRemaining - 2);

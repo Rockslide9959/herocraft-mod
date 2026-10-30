@@ -28,8 +28,8 @@ import net.minecraft.util.Mth;
 
 /**
  * v0.17.1: Ripjaws' client kit -- the grey-blue fish-man skin (pale belly, gills, dark trunks) (v0.17.1: the huge jaw is gone, user's skin face instead; it used to be an
- * upper snout and a hinged lower jaw, both lined with teeth, that gape and snap on every bite), a dorsal fin on the head, fins
- * on the forearms, and a FISH TAIL: a short finned tail behind him on land; in water the legs vanish into a long undulating
+ * upper snout and a hinged lower jaw, both lined with teeth, that gape and snap on every bite) (v0.17.2: no head or
+ * forearm fins), and a FISH TAIL in his skin's striped leg: a short finned tail behind him on land; in water the legs vanish into a long undulating
  * tail. The hydration meter over the keys turns orange, then red, as he dries out. A pose for every move.
  */
 public final class RipjawsClient implements AlienClientKit {
@@ -42,8 +42,6 @@ public final class RipjawsClient implements AlienClientKit {
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/ripjaws_extras.png");
 
 	private static final float[] FIN = { 24, 0, 40, 16 };
-	private static final float[] TAIL = { 0, 8, 16, 16 };
-	private static final float[] TAIL_FIN = { 40, 0, 56, 16 };
 
 	private static final float[][] BITE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.4f, 0, 0.3f, -0.4f, 0, -0.3f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.15f),
 			QuirkKeyframes.rest(10) };
@@ -96,13 +94,12 @@ public final class RipjawsClient implements AlienClientKit {
 	}
 
 	/**
-	 * One extras cube, cut-out or translucent ({@code glass}: the fins). The buffer is fetched for every cube: asking a buffer
-	 * source for another render type ends the previous one, so two consumers must never be held at once.
+	 * A tail cube in his skin's striped leg (the right leg's front, 4..8 x 20..32 of the 64x64 skin). The buffer is fetched for
+	 * every cube: asking a buffer source for another render type ends the previous one.
 	 */
-	private static void box(PoseStack pose, MultiBufferSource buffers, boolean glass, float x0, float y0, float z0, float x1, float y1, float z1,
-			float[] uv, int light) {
-		VertexConsumer vc = buffers.getBuffer(glass ? RenderType.entityTranslucent(EXTRAS) : RenderType.entityCutoutNoCull(EXTRAS));
-		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, uv[0] / 64f, uv[1] / 64f, uv[2] / 64f, uv[3] / 64f, 0xFFFFFFFF, light);
+	private static void legBox(PoseStack pose, MultiBufferSource buffers, float x0, float y0, float z0, float x1, float y1, float z1, int light) {
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
+		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, 4f / 64f, 20f / 64f, 8f / 64f, 32f / 64f, 0xFFFFFFFF, light);
 	}
 
 	private static boolean wet(AbstractClientPlayer p) {
@@ -136,21 +133,11 @@ public final class RipjawsClient implements AlienClientKit {
 				pose.popPose();
 			});
 		}
-		AlienParts.on(pose, model.head, () -> {
-			// v0.17.1 (user: "remove the huge jaws from ripjaws"): no snout, lower jaw, teeth or snout eyes any more -- the user's
-			// skin has his face; only the dorsal fin stays on the head
-			// the dorsal fin
-			box(pose, buffers, true, -0.4f, -12.0f, -2.5f, 0.4f, -8.0f, 4.0f, FIN, light);
-		});
-		// fins on the forearms
-		for (ModelPart arm : new ModelPart[] { model.rightArm, model.leftArm }) {
-			boolean right = arm == model.rightArm;
-			AlienParts.on(pose, arm, () -> {
-				float x = right ? -3.2f : 3.2f;
-				box(pose, buffers, true, x - 0.3f, 3.0f, 0.5f, x + 0.3f, 9.0f, 4.5f, FIN, light);
-			});
-		}
-		// the tail: a short one on land; in water the legs become a long undulating one
+		// v0.17.1 (user: "remove the huge jaws from ripjaws"): no snout, lower jaw, teeth or snout eyes any more -- the user's skin
+		// has his face
+		// v0.17.2 (user: "remove the fins on ripjaws arms and his head"): no dorsal fin, no forearm fins
+		// the tail: a short one on land; in water the legs become a long undulating one -- v0.17.2 (user: "make his tail look
+		// similar to the tail thats on his legs"): every segment and the fluke wear his skin's own striped leg
 		AlienParts.on(pose, model.body, () -> {
 			pose.pushPose();
 			if (wet) {
@@ -159,21 +146,21 @@ public final class RipjawsClient implements AlienClientKit {
 				for (int i = 0; i < seg.length; i++) {
 					float[] g = seg[i];
 					pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - i * 0.9f) * 0.22f));
-					box(pose, buffers, false, -g[0], 0f, -g[1], g[0], g[2], g[1], TAIL, light);
+					legBox(pose, buffers, -g[0], 0f, -g[1], g[0], g[2], g[1], light);
 					pose.translate(0, (g[2] - 0.4f) / 16f, 0);
 				}
 				pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - 4 * 0.9f) * 0.3f));
-				box(pose, buffers, true, -5.5f, -0.5f, -0.5f, 5.5f, 5.5f, 0.5f, TAIL_FIN, light);
+				legBox(pose, buffers, -5.5f, -0.5f, -0.5f, 5.5f, 5.5f, 0.5f, light);
 			} else {
 				pose.translate(0, 10.5f / 16f, 1.8f / 16f);
 				pose.mulPose(Axis.XP.rotation(-0.9f));
 				pose.mulPose(Axis.YP.rotation(Mth.sin(age * 0.12f) * 0.15f));
-				box(pose, buffers, false, -1.8f, -1.6f, 0f, 1.8f, 1.6f, 4.5f, TAIL, light);
+				legBox(pose, buffers, -1.8f, -1.6f, 0f, 1.8f, 1.6f, 4.5f, light);
 				pose.translate(0, 0, 4.2f / 16f);
 				pose.mulPose(Axis.XP.rotation(0.6f));
-				box(pose, buffers, false, -1.2f, -1.1f, 0f, 1.2f, 1.1f, 3.5f, TAIL, light);
+				legBox(pose, buffers, -1.2f, -1.1f, 0f, 1.2f, 1.1f, 3.5f, light);
 				pose.translate(0, 0, 3.2f / 16f);
-				box(pose, buffers, true, -0.4f, -3.5f, 0f, 0.4f, 3.5f, 3.5f, TAIL_FIN, light);
+				legBox(pose, buffers, -0.4f, -3.5f, 0f, 0.4f, 3.5f, 3.5f, light);
 			}
 			pose.popPose();
 		});
@@ -236,8 +223,7 @@ public final class RipjawsClient implements AlienClientKit {
 
 	@Override
 	public void renderFirstPersonArm(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, ModelPart arm, boolean right) {
-		float x = right ? -3.2f : 3.2f;
-		box(pose, buffers, true, x - 0.3f, 3.0f, 0.5f, x + 0.3f, 9.0f, 4.5f, FIN, light);
+		// v0.17.2: no forearm fins
 	}
 
 	@Override

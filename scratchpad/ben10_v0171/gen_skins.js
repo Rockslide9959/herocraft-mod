@@ -233,7 +233,7 @@ write('stinkfly.png', 64, 64, dec(path.join(__dirname, 'stinkfly_src.png')).px);
 	};
 	// x/y are skin texels: the body's front is 20..27 x 20..31, its jacket layer 20..27 x 36..47
 	fix('heatblast', [{ x0: 23, x1: 24, y0: 39, y1: 40, clear: true }]);
-	fix('diamondhead', [{ x0: 26, x1: 27, y0: 37, y1: 38, clear: true }]);
+	fix('diamondhead', [{ x0: 25, x1: 26, y0: 37, y1: 38, clear: true }]); // v0.17.2: was 26..27, a texel right of the symbol
 	fix('ghostfreak', [{ x0: 24, x1: 25, y0: 22, y1: 23, from: [23, 22] }, { x0: 24, x1: 25, y0: 38, y1: 39, clear: true }]);
 	fix('ripjaws', [{ x0: 25, x1: 27, y0: 20, y1: 23, from: [25, 24] }, { x0: 25, x1: 27, y0: 36, y1: 39, clear: true }]);
 	fix('upgrade', [{ x0: 23, x1: 24, y0: 24, y1: 25, from: [22, 24] }, { x0: 23, x1: 24, y0: 40, y1: 41, clear: true }]);

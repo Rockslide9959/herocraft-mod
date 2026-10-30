@@ -424,8 +424,8 @@ public final class FourArmsKit extends AlienKit {
 			p.setDeltaMovement(push);
 			p.hurtMarked = true;
 			if (timer(p, "far_on") != 0) {
-				setTimer(p, "far_vx", Double.doubleToRawLongBits(push.x));
-				setTimer(p, "far_vz", Double.doubleToRawLongBits(push.z));
+				setTimer(p, "far_vx", speedBits(push.x));
+				setTimer(p, "far_vz", speedBits(push.z));
 			}
 			p.resetFallDistance();
 		}
@@ -548,12 +548,27 @@ public final class FourArmsKit extends AlienKit {
 		return Math.min(1f, (p.level().getGameTime() - at) / (float) LEAP_CHARGE_TICKS);
 	}
 
+	/**
+	 * v0.17.2 (user: "four arms leap isnt fully directional still ... sometimes he doesnt leap in the direction the player is
+	 * looking"): a held speed as a kit timer, which must stay positive -- setTimer drops anything <= 0, and the raw bits of a
+	 * negative speed are negative, so every leap heading -x or -z had that axis held at 0. Micro-blocks a tick, offset.
+	 */
+	private static final long SPEED_OFFSET = 1L << 40;
+
+	private static long speedBits(double v) {
+		return SPEED_OFFSET + Math.round(v * 1.0e6);
+	}
+
+	private static double bitsSpeed(long bits) {
+		return bits == 0 ? 0 : (bits - SPEED_OFFSET) / 1.0e6;
+	}
+
 	/** The long leap's held launch speed (client-safe), or null when none is in flight. */
 	public Vec3 farLeapVelocity(net.minecraft.world.entity.player.Player p) {
 		if (!flag(p, F_LEAPING) || timer(p, "far_on") == 0) {
 			return null;
 		}
-		return new Vec3(Double.longBitsToDouble(timer(p, "far_vx")), 0, Double.longBitsToDouble(timer(p, "far_vz")));
+		return new Vec3(bitsSpeed(timer(p, "far_vx")), 0, bitsSpeed(timer(p, "far_vz")));
 	}
 
 	public boolean farLeap(ServerPlayer p, float charge) {
@@ -583,8 +598,8 @@ public final class FourArmsKit extends AlienKit {
 		p.hurtMarked = true;
 		setFlag(p, F_LEAPING, true);
 		setTimer(p, "air_at", p.level().getGameTime());
-		setTimer(p, "far_vx", Double.doubleToRawLongBits(v.x));
-		setTimer(p, "far_vz", Double.doubleToRawLongBits(v.z));
+		setTimer(p, "far_vx", speedBits(v.x));
+		setTimer(p, "far_vz", speedBits(v.z));
 		setTimer(p, "far_on", 1);
 		setTimer(p, "far_hard", blocks > LEAP_TAP_BLOCKS * 1.5 ? 1 : 0);
 	}
