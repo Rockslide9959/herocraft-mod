@@ -774,6 +774,12 @@ public final class Omnitrix {
 
 	/** V while transformed (Shift+V is an alias): the five beeps, then back to human. A second press during the beeps does nothing. */
 	public static boolean revertEarly(ServerPlayer p) {
+		// v0.17.1 (user: "for master control remove the initial beeps when player wants to detransform just make it happen
+		// instantly"): under Master Control N turns him back at once -- no five beeps first
+		if (state(p).transformed() && state(p).readyAt(MASTER) == 1L) {
+			revert(p, Reason.SHIFT_V);
+			return true;
+		}
 		return beginPowerDown(p, false);
 	}
 

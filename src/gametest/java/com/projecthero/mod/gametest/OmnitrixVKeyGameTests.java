@@ -189,7 +189,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 			helper.assertTrue(Omnitrix.masterControl(p), "Master Control is on");
 			helper.assertFalse(Omnitrix.selecting(p) || Omnitrix.masterSequence(p), "and the watch is down again");
 			helper.assertTrue(Omnitrix.select(p, HeatblastKit.ID) && Omnitrix.transform(p), "an alien");
-			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
+			helper.assertTrue(Omnitrix.revertEarly(p) && !Omnitrix.transformed(p), "N turns him back at once -- no beeps first");
 			helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "no recharge under Master Control");
 			helper.succeed();
 		});
