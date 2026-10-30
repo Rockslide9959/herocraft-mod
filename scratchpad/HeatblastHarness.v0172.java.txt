@@ -1,0 +1,301 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.2 Heatblast VFX screenshots. Enabled by run/heatblast.flag. */
+// TEMP-HARNESS
+public final class HeatblastHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer ben;
+	private static Zombie dummy;
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static String only = "";
+
+	private HeatblastHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("heatblast.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("heatblast.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(HeatblastHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "heatblast-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t - 1, () -> {
+			if (name.startsWith("clear")) {
+				try {
+					var m = net.minecraft.client.particle.ParticleEngine.class.getDeclaredMethod("clearParticles");
+					m.setAccessible(true);
+					m.invoke(Minecraft.getInstance().particleEngine);
+				} catch (ReflectiveOperationException e) {
+					System.out.println("[HARNESS] " + e);
+				}
+			}
+		});
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "v0172_hb_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(HeatblastHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+				if (p.tickCount % 5 == 0) {
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))) {
+						e.discard();
+					}
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("AF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void become(ServerPlayer f, String alien) {
+		if (Omnitrix.state(f).transformed()) {
+			Omnitrix.revert(f, Omnitrix.Reason.REVOKE);
+		}
+		var n = Omnitrix.state(f).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(f, n);
+		Omnitrix.transform(f);
+		f.setOnGround(true);
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), 180f, 0f);
+		f.setYHeadRot(180f);
+		f.yBodyRot = 180f;
+		f.yBodyRotO = 180f;
+	}
+
+	private static com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit kit() {
+		return (com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit) com.projecthero.mod.omnitrix.alien.Aliens.kit("heatblast");
+	}
+
+	private static void ready(ServerPlayer f) {
+		var n = Omnitrix.state(f).copy();
+		n.timers.keySet().removeIf(k -> k.startsWith("heatblast."));
+		Omnitrix.save(f, n);
+	}
+
+	/** One move fired on Ben, shot after a and b ticks, from camOff. */
+	private static int move(Minecraft mc, int t, String name, Vec3 stage, java.util.function.Consumer<ServerPlayer> fire, int a, int b, Vec3 camOff) {
+		at(t, () -> server(mc, p -> {
+			ready(ben);
+			camera(p, ben.position().add(camOff), ben.position().add(0, 1.0, -0.6));
+			fire.accept(ben);
+		}));
+		shot(t + a, name);
+		if (b > 0) {
+			shot(t + b, name + "_b");
+		}
+		return t + Math.max(a, b) + 25;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		Vec3 stage = origin.add(-24, 0, 0);
+		at(t, () -> server(mc, p -> {
+			p.setGameMode(GameType.SPECTATOR);
+			ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+		}));
+		at(t + 30, () -> server(mc, p -> {
+			become(ben, "heatblast");
+			dummy(p, stage.add(0, 0, -6));
+		}));
+		t += 70;
+		Vec3 side = new Vec3(-3.4, 1.4, -1.2);
+		Vec3 wide = new Vec3(-5.5, 2.8, -2.5);
+		t = move(mc, t, "fire_blast", stage, b -> kit().fireBlast(b), 3, 7, side);
+		t = move(mc, t, "pyro_bomb", stage, b -> kit().pyroBomb(b), 6, 16, wide);
+		t = move(mc, t, "fire_stream", stage, b -> kit().fireStream(b), 8, 20, side);
+		t = move(mc, t, "heat_shield", stage, b -> kit().heatShield(b), 4, 20, side);
+		t = move(mc, t, "flame_ring", stage, b -> kit().flameRing(b), 4, 14, wide);
+		t = move(mc, t, "flare", stage, b -> kit().flare(b), 3, 8, side);
+		t = move(mc, t, "nova", stage, b -> kit().nova(b), 3, 8, wide);
+		t = move(mc, t, "supernova", stage, b -> kit().supernova(b), 20, 60, wide);
+		t = move(mc, t + 20, "heat_aura", stage, b -> kit().heatAura(b), 4, 20, side);
+		t = move(mc, t, "fire_jet", stage, b -> {
+			kit().heatAura(b);
+			kit().fireJet(b);
+		}, 4, 24, new Vec3(-3.6, 1.8, -1.2));
+		t = move(mc, t, "jet_dash", stage, b -> kit().jetDash(b), 3, 6, new Vec3(-4.2, 2.6, -3.5));
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static net.minecraft.world.entity.monster.Zombie dummy(ServerPlayer near, Vec3 at) {
+		ServerLevel l = near.serverLevel();
+		var z = EntityType.ZOMBIE.create(l);
+		z.moveTo(at.x, at.y, at.z, 0f, 0f);
+		z.setNoAi(true);
+		z.setInvulnerable(true);
+		z.setPersistenceRequired();
+		l.addFreshEntity(z);
+		return z;
+	}
+}
