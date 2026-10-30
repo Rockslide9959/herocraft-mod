@@ -96,7 +96,7 @@ public final class OmnitrixAbilityManager {
 				pressN(p);
 				// v0.17.1 Master Control: Shift+N held with the watch up (no bar, no hint: see tick)
 				if (p.isShiftKeyDown() && Omnitrix.state(p).selecting && !Omnitrix.state(p).transformed()) {
-					MASTER_HOLD.put(p.getUUID(), p.level().getGameTime());
+					MASTER_HOLD.putIfAbsent(p.getUUID(), p.level().getGameTime()); // a key repeat never restarts the hold
 				}
 			} else {
 				MASTER_HOLD.remove(p.getUUID());

@@ -1096,9 +1096,13 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		boolean down = ModKeyBindings.MAX_STEEL_TRANSFORM.isDown();
 		// v0.17.1 (user: "make the detransform keybind N"): an Omnitrix alien's N (and Shift+N) turns back -- the watch locks
 		// every other power out, so it takes N before anything else (the server times the power-down)
-		if (client.player != null && com.projecthero.mod.omnitrix.Omnitrix.transformed(client.player) && !mutationSelected(client)) {
+		// v0.17.1 (user: "activating master control doesnt seem to work"): the human wearer's N goes too (it was only sent for an
+		// alien, so the watch never heard Shift+N held with the dial up), press AND release (Master Control times the hold)
+		if (client.player != null && com.projecthero.mod.omnitrix.Omnitrix.hasPower(client.player) && !mutationSelected(client)) {
 			if (down && !maxSteelTransformWasDown && client.screen == null) {
 				ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+			} else if (!down && maxSteelTransformWasDown) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
 			}
 			maxSteelTransformWasDown = down;
 			return;

@@ -218,31 +218,9 @@ public final class Xlr8Client implements AlienClientKit {
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS));
-		float sp = speed(p);
 		// v0.17.1 (user: "remove whatever extra is there and just leave the alien skin itself"): no crest or ear fins (the helmet is
 		// the skin's now), no ball feet
-		// the tail: four segments from the small of the back, streaming out flatter the faster he runs
-		AlienParts.on(pose, model.body, () -> {
-			pose.pushPose();
-			pose.translate(0, 10.5f / 16f, 1.6f / 16f);
-			// v0.17.1 (user: "xlr8s tail still shakes viciously when he moves"): the lift follows vanilla's smoothed walk speed and the
-			// sway keeps one slow beat (it used to speed up with his running speed -- at his speeds that was a frantic shake); it
-			// calms as the tail streams out behind him
-			float ws = Mth.clamp(p.walkAnimation.speed(partial), 0f, 1f);
-			float lift = ws * 0.6f;
-			float[] w = { 3.0f, 2.4f, 1.8f, 1.1f };
-			float[] len = { 4.5f, 4.5f, 4.0f, 3.5f };
-			for (int i = 0; i < 4; i++) {
-				float sway = Mth.sin(age * 0.15f + i * 0.9f) * (0.08f + i * 0.03f) * (1f - 0.6f * ws);
-				pose.mulPose(Axis.XP.rotation(i == 0 ? -0.75f + lift : 0.22f - lift * 0.15f));
-				pose.mulPose(Axis.YP.rotation(sway));
-				box(pose, vc, -w[i] / 2, -w[i] / 2, 0, w[i] / 2, w[i] / 2, len[i], TAIL, light);
-				pose.translate(0, 0, (len[i] - 0.3f) / 16f);
-			}
-			box(pose, vc, -0.4f, -0.4f, 0, 0.4f, 0.4f, 1.5f, PALE, light);
-			pose.popPose();
-		});
+		// v0.17.1 (user: "remove the tail from his back"): no tail -- painted out of the skin too
 		float vis = visor(p, partial);
 		if (vis > 0.001f && vis < 1f) {
 			// the visor half-way: the helmet's front slides down from the brow (its lower edge leading) -- base and hat layers

@@ -115,7 +115,7 @@ public final class OmnitrixConfig {
 	public static final float FAILSAFE_HEALTH = 4f;
 	public static final int FAILSAFE_SHIELD_TICKS = 60;
 	/** v0.17.1 the wrong-alien glitch: the chance a slap lands on another alien (never under Master Control). */
-	public static final float GLITCH_CHANCE = 0.08f;
+	public static final float GLITCH_CHANCE = 0.5f;
 	/** v0.17.1 Master Control: Shift+N held this long with the watch up; then one dial step every MASTER_STEP_TICKS. */
 	public static final int MASTER_HOLD_TICKS = 10 * 20, MASTER_STEP_TICKS = 4;
 }

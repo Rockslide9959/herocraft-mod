@@ -98,7 +98,9 @@ public final class OmnitrixModel {
 		Section cuff = new Section(-1f - GAP, L + GAP, 2f + GAP, CORNER);
 		float xo = cuffTop(L);
 		Section outer = cuff.grow(WALL);
-		float startZ = 0.95f, endZ = 0.9f;
+		// v0.17.1 (user: "omnitrix straps dont connect at the bottom ... make them connect"): each side's prongs run on to the middle
+		// under the wrist (they stopped 0.9 px short of it, leaving a gap), so the two meet in one band
+		float startZ = 0.95f, endZ = 0f;
 		float s0 = startZ, s1 = outer.sAtBottom(endZ);
 		if (open <= 0.001f) {
 			// ---- the cuff: one band swept all the way round

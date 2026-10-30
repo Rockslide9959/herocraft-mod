@@ -305,3 +305,29 @@ write('stinkfly.png', 64, 64, dec(path.join(__dirname, 'stinkfly_src.png')).px);
 		write(name + '.png', 64, 64, im.px);
 	}
 }
+
+// --- v0.17.1 (user: "xlr8s helmet isnt the same colour black as the rest of the black of his skin ... also remove the tail from
+// his back on the skin and fill in the gap"): the visor helmet's neutral blacks remapped by brightness onto his body's own dark
+// navies (the teal visor X kept), and the painted tail down his back (base 34..37 x 23..31, jacket 34..37 x 39..47) filled with
+// the black beside it / cleared from the jacket layer -- on both his skins
+{
+	const NAVY = [[0, [8, 9, 16]], [0.07, [17, 19, 28]], [0.12, [26, 35, 48]], [0.2, [30, 45, 60]]];
+	const navy = l => { let c = NAVY[0][1]; for (const [t, col] of NAVY) if (l >= t) c = col; return c; };
+	for (const name of ['xlr8', 'xlr8_mask']) {
+		const im = dec(path.join(OUT, name + '.png'));
+		const at = (x, y) => (y * 64 + x) * 4;
+		if (name === 'xlr8_mask') {
+			for (let y = 0; y < 16; y++) for (let x = 0; x < 64; x++) {
+				const o = at(x, y);
+				const [r, g, b, a] = im.px.slice(o, o + 4);
+				if (!a || Math.max(r, g, b) - Math.min(r, g, b) > 10 || r > 70) continue; // the greys only, never the teal
+				const [nr, ng, nb] = navy((r + g + b) / 3 / 255);
+				im.px[o] = nr; im.px[o + 1] = ng; im.px[o + 2] = nb;
+			}
+		}
+		const fill = at(32, 25);
+		for (let y = 23; y < 32; y++) for (let x = 34; x < 38; x++) for (let c = 0; c < 4; c++) im.px[at(x, y) + c] = im.px[fill + c];
+		for (let y = 39; y < 48; y++) for (let x = 34; x < 38; x++) im.px[at(x, y) + 3] = 0;
+		write(name + '.png', 64, 64, im.px);
+	}
+}
