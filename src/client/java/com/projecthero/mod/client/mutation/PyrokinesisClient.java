@@ -308,20 +308,27 @@ public final class PyrokinesisClient {
 
 	/** Jet Flight: roaring jets out of both palms and both soles. */
 	private static void jetFlames(MutationOverlays.Context ctx) {
-		var m = ctx.model();
-		boolean slim = "slim".equals(ctx.player().getSkin().model().id());
+		jetFlames(ctx.pose(), ctx.buffers(), ctx.model(), "slim".equals(ctx.player().getSkin().model().id()), time(ctx), 1.0f);
+	}
+
+	/**
+	 * v0.17.2 (user: "give him the same flaming fire flight vfx as the pyrokinesis power"): the Jet Flight flames on any posed
+	 * player model -- shared with Heatblast's Fire Jet ({@code HeatblastClient}). {@code pose} is the model's render space (a
+	 * render layer's), {@code t} the age in ticks, {@code scale} sizes every jet (1 = Pyrokinesis').
+	 */
+	public static void jetFlames(PoseStack outer, MultiBufferSource buffers, net.minecraft.client.model.HumanoidModel<?> m, boolean slim, float t,
+			float scale) {
 		float ax = slim ? 0.5f : 1.0f;
-		float t = time(ctx);
-		VertexConsumer add = PyroDraw.additive(ctx.buffers());
-		VertexConsumer fire = PyroDraw.fireBuffer(ctx.buffers());
-		VertexConsumer glow = PyroDraw.glowBuffer(ctx.buffers());
+		VertexConsumer add = PyroDraw.additive(buffers);
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
 		Object[][] ends = { { m.rightArm, -ax, 10.0f, 0.75f }, { m.leftArm, ax, 10.0f, 0.75f }, { m.rightLeg, 0.0f, 12.0f, 1.0f },
 				{ m.leftLeg, 0.0f, 12.0f, 1.0f } };
 		for (int i = 0; i < ends.length; i++) {
 			ModelPart part = (ModelPart) ends[i][0];
-			float k = (float) ends[i][3];
+			float k = (float) ends[i][3] * scale;
 			float flick = 0.8f + 0.25f * Mth.sin(t * 2.4f + i * 1.7f) + 0.1f * Mth.sin(t * 5.1f + i);
-			PoseStack pose = ctx.pose();
+			PoseStack pose = outer;
 			pose.pushPose();
 			part.translateAndRotate(pose);
 			pose.translate((float) ends[i][1] / 16.0f, (float) ends[i][2] / 16.0f + 0.01f, 0.0f);
