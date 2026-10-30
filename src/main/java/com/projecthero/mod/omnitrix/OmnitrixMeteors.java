@@ -43,7 +43,7 @@ public final class OmnitrixMeteors {
 	}
 
 	static void tick(MinecraftServer server) {
-		if (server.getTickCount() % 1200 != 900) {
+		if (server.getTickCount() % 1200 != 900 || !OmnitrixFeature.enabled()) {
 			return;
 		}
 		ServerLevel level = server.overworld();

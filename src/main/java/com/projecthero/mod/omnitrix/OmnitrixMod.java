@@ -32,6 +32,7 @@ public final class OmnitrixMod {
 	}
 
 	public static void initialize() {
+		OmnitrixFeature.initialize(); // v0.17.1: the not-yet-public switch (recipes' load condition)
 		OmnitrixAttachments.init();
 		OmnitrixSounds.initialize();
 		OmnitrixDamage.initialize();

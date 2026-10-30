@@ -261,6 +261,9 @@ public final class PowerGrants {
 			}
 			case "omnitrix" -> {
 				// v0.17.1: the watch jumps onto the wrist (and locks)
+				if (!com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
+					return new Result(false, Component.literal("The Omnitrix is not available yet"));
+				}
 				boolean ok = com.projecthero.mod.omnitrix.Omnitrix.grant(target);
 				return new Result(ok, Component.literal(ok ? "Put the Omnitrix on " + name : name + " already wears the Omnitrix"));
 			}

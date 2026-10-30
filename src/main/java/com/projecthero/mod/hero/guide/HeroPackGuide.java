@@ -1865,7 +1865,9 @@ public final class HeroPackGuide {
 		sub(other, "projecthero.guide.sub.other_heroes");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.max_steel"), 2, CH_MAX_STEEL));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.titan_shifter"), 2, CH_TITAN_SHIFTER));
-		other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
+		if (com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
+			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
+		}
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));
@@ -1979,6 +1981,9 @@ public final class HeroPackGuide {
 		List<Chapter> all = chapters();
 		List<String[]> text = searchText();
 		for (int c = 0; c < all.size(); c++) {
+			if (c == CH_OMNITRIX && !com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
+				continue; // v0.17.1: not public yet
+			}
 			Chapter ch = all.get(c);
 			String title = ch.title().getString();
 			int t = title.toLowerCase(java.util.Locale.ROOT).indexOf(q);

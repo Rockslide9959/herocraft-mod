@@ -157,6 +157,24 @@ public class OmnitrixGameTests implements FabricGameTest {
 
 	// ================================================================ the lock
 
+	/** v0.17.1: with the not-yet-public switch off, the admin grant refuses the watch and the guide search skips its chapter. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void theReleaseSwitchHidesTheOmnitrix(GameTestHelper helper) {
+		ServerPlayer p = helper.makeMockServerPlayerInLevel();
+		int chapter = com.projecthero.mod.hero.guide.HeroPackGuide.chapters().indexOf(com.projecthero.mod.hero.guide.HeroPackGuide.omnitrixChapter());
+		helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.search("Omnitrix").stream().anyMatch(h -> h.chapter() == chapter), "found while on");
+		com.projecthero.mod.omnitrix.OmnitrixFeature.forceForTests(false);
+		try {
+			helper.assertFalse(PowerGrants.grantHero(p, "omnitrix").ok(), "the grant is refused while off");
+			helper.assertFalse(com.projecthero.mod.omnitrix.Omnitrix.hasPower(p), "no watch");
+			helper.assertTrue(com.projecthero.mod.hero.guide.HeroPackGuide.search("Omnitrix").stream().noneMatch(h -> h.chapter() == chapter),
+					"the guide search skips its chapter");
+		} finally {
+			com.projecthero.mod.omnitrix.OmnitrixFeature.forceForTests(null);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void theLockRefusesEveryGrantPath(GameTestHelper helper) {
 		ServerPlayer p = wearer(helper, 2.5, 2, 2.5);

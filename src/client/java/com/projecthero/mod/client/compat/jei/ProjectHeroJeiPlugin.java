@@ -51,6 +51,16 @@ public final class ProjectHeroJeiPlugin implements IModPlugin {
 	@Override
 	public void onRuntimeAvailable(mezz.jei.api.runtime.IJeiRuntime jeiRuntime) {
 		runtime = jeiRuntime;
+		if (!com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
+			// v0.17.1: the Omnitrix is not public yet -- its items stay out of JEI's list
+			java.util.List<ItemStack> hidden = new java.util.ArrayList<>();
+			for (net.minecraft.world.item.Item i : new net.minecraft.world.item.Item[] { com.projecthero.mod.omnitrix.item.OmnitrixItems.OMNITRIX,
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.METEOR_SCANNER, com.projecthero.mod.omnitrix.item.OmnitrixItems.PLUMBER_ALLOY,
+					com.projecthero.mod.omnitrix.item.OmnitrixItems.CONTAINMENT_CORE, com.projecthero.mod.omnitrix.pod.OmnitrixPodBlocks.POD_ITEM }) {
+				hidden.add(new ItemStack(i));
+			}
+			jeiRuntime.getIngredientManager().removeIngredientsAtRuntime(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, hidden);
+		}
 	}
 
 	@Override
