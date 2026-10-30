@@ -133,9 +133,10 @@ for (const s of S) {
 		// v0.17.1 (user: "move the badge a bit higher up on wildmutts arm and make the shoulder pad cover his entire shoulder ...
 		// the badge in the middle of the shoulder pad"): a pad over the whole shoulder (up to its top), the rim along its lower
 		// edge, the plate centred on its outer face (WildmuttRenderer.Badge puts the symbol on that plate)
-		M.box(badge, FX - 3.6, 16.2, SHOULDER_Z - 4.15, FX + 3.6, 22.6, SHOULDER_Z + 4.15, 'cuff');
+		// (the shoulder's fur block reaches 23.6 -- the pad caps it, user: "still not covering the top of his shoulder")
+		M.box(badge, FX - 3.6, 16.2, SHOULDER_Z - 4.15, FX + 3.6, 24.1, SHOULDER_Z + 4.15, 'cuff');
 		M.box(badge, FX - 3.78, 15.5, SHOULDER_Z - 4.33, FX + 3.78, 16.4, SHOULDER_Z + 4.33, 'rim');
-		M.box(badge, FX + 3.5, 17.5, SHOULDER_Z - 1.95, FX + 4.1, 21.4, SHOULDER_Z + 1.95, 'plate');
+		M.box(badge, FX + 3.5, 18.2, SHOULDER_Z - 1.95, FX + 4.1, 22.1, SHOULDER_Z + 1.95, 'plate');
 	}
 	const el = [s * FX, ELBOW[1], ELBOW[2]];
 	const fa = M.bone(`forearm_${n}`, `arm_${n}`, el);
@@ -258,7 +259,7 @@ function shade(c, f, s, t, p, info) {
 		}
 		case 'cuff': {
 			if (e < 0.3) return [C.cuffHi, 255, null];
-			const seam = Math.abs(p[1] - 22.35) < 0.25; // a dark seam round the pad's top edge
+			const seam = Math.abs(p[1] - 23.85) < 0.25; // a dark seam round the pad's top edge
 			return [f === 'up' ? C.cuffHi : seam ? C.plate : C.cuff, 255, null];
 		}
 		case 'rim': return [f === 'down' || e < 0.22 ? C.rimLo : C.rim, 255, null];

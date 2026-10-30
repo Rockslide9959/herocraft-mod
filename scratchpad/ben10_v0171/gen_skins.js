@@ -331,3 +331,15 @@ write('stinkfly.png', 64, 64, dec(path.join(__dirname, 'stinkfly_src.png')).px);
 		write(name + '.png', 64, 64, im.px);
 	}
 }
+
+// --- v0.17.1 (user: "stinkfly's badge is too small and you can still see the other badge under our badge"): his face's painted
+// symbol (head front 11..12 x 11..12, its marks on the hat 43..44 x 11..12) filled with the face beside it / cleared; the badge
+// is centred there and big enough to cover its ring (StinkflyClient.badge)
+{
+	const im = dec(path.join(OUT, 'stinkfly.png'));
+	const at = (x, y) => (y * 64 + x) * 4;
+	const src = at(10, 11);
+	for (let y = 11; y <= 12; y++) for (let x = 11; x <= 12; x++) for (let c = 0; c < 4; c++) im.px[at(x, y) + c] = im.px[src + c];
+	for (let y = 11; y <= 12; y++) for (let x = 43; x <= 44; x++) im.px[at(x, y) + 3] = 0;
+	write('stinkfly.png', 64, 64, im.px);
+}
