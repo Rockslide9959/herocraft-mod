@@ -26,7 +26,8 @@ const UPPER = [
 	[26, 120], [22, 110], [12, 112], [2, 112], // a short spike pointing down, then the root
 ];
 /** Holes punched through the membrane (ellipses: cx, cy, rx, ry) -- the round cut-out under the blade. */
-const UPPER_HOLES = [[46, 84, 10, 7]];
+// v0.17.2 (user: "fill in the holes in the wings"): none any more
+const UPPER_HOLES = [];
 const UPPER_VEINS = [
 	[[4, 104], [28, 88], [52, 66], [74, 44], [100, 20], [124, 4]], // the spine, root to tip
 	[[28, 88], [20, 82]], [[52, 66], [42, 60]], [[74, 44], [64, 38]], [[100, 20], [92, 16]], // cross veins to the leading edge
@@ -43,7 +44,7 @@ const LOWER = [
 	[44, 98], [38, 82], // a short barb pointing down
 	[26, 70], [14, 56], [2, 46],
 ];
-const LOWER_HOLES = [[58, 75, 6.5, 7.5]];
+const LOWER_HOLES = [];
 const LOWER_VEINS = [
 	[[4, 38], [30, 44], [56, 52], [80, 56], [110, 62]],
 	[[30, 44], [32, 30]], [[56, 52], [58, 36]], [[80, 56], [82, 48]],
