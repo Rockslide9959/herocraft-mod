@@ -94,12 +94,36 @@ public final class RipjawsClient implements AlienClientKit {
 	}
 
 	/**
-	 * A tail cube in his skin's striped leg (the right leg's front, 4..8 x 20..32 of the 64x64 skin). The buffer is fetched for
-	 * every cube: asking a buffer source for another render type ends the previous one.
+	 * v0.17.2 (user: "rip jaws tail mode texture doesnt look like the tail on his skin completely"): a tail segment wrapped exactly
+	 * like his skin's right leg -- the striped front on -z, the pale sides on -x / +x, the back on +z, the leg's top and sole on
+	 * the ends -- running {@code len} px down +y. {@code v0..v1} (0..1) is the stretch of the leg it shows, so consecutive
+	 * segments carry the stripes on down the tail instead of each squashing the whole leg. The buffer is fetched for every cube:
+	 * asking a buffer source for another render type ends the previous one.
 	 */
-	private static void legBox(PoseStack pose, MultiBufferSource buffers, float x0, float y0, float z0, float x1, float y1, float z1, int light) {
+	private static void legSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
-		AlienParts.box(pose, vc, x0, y0, z0, x1, y1, z1, 4f / 64f, 20f / 64f, 8f / 64f, 32f / 64f, 0xFFFFFFFF, light);
+		PoseStack.Pose last = pose.last();
+		float x0 = -hx / 16f, x1 = hx / 16f, z0 = -hz / 16f, z1 = hz / 16f, y0 = 0f, y1 = len / 16f;
+		float t = (20f + 12f * v0) / 64f, b = (20f + 12f * v1) / 64f;
+		int c = 0xFFFFFFFF;
+		// front (the stripes), back, the two sides
+		AlienParts.quad(vc, last, c, light, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0, 0, -1, 4f / 64f, t, 8f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0, 0, 1, 12f / 64f, t, 16f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, -1, 0, 0, 0f, t, 4f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 1, 0, 0, 8f / 64f, t, 12f / 64f, b);
+		// the ends: the leg's top and its sole
+		AlienParts.quad(vc, last, c, light, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0, -1, 0, 4f / 64f, 16f / 64f, 8f / 64f, 20f / 64f);
+		AlienParts.quad(vc, last, c, light, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, 8f / 64f, 16f / 64f, 12f / 64f, 20f / 64f);
+	}
+
+	/** The tail fluke: two flat lobes swept out from the tip, in the leg's striped front (dark with the yellow bands). */
+	private static void fluke(PoseStack pose, MultiBufferSource buffers, int light) {
+		for (int side = -1; side <= 1; side += 2) {
+			pose.pushPose();
+			pose.mulPose(Axis.ZP.rotation(side * 0.55f));
+			legSeg(pose, buffers, 0.5f, 1.6f, 6f, 0.3f, 1f, light);
+			pose.popPose();
+		}
 	}
 
 	private static boolean wet(AbstractClientPlayer p) {
@@ -143,24 +167,29 @@ public final class RipjawsClient implements AlienClientKit {
 			if (wet) {
 				pose.translate(0, 11.5f / 16f, 0);
 				float[][] seg = { { 3.6f, 2.4f, 5f }, { 3.0f, 2.0f, 5f }, { 2.4f, 1.6f, 4.5f }, { 1.6f, 1.2f, 4f } };
+				float total = 18.5f, run = 0f;
 				for (int i = 0; i < seg.length; i++) {
 					float[] g = seg[i];
 					pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - i * 0.9f) * 0.22f));
-					legBox(pose, buffers, -g[0], 0f, -g[1], g[0], g[2], g[1], light);
+					legSeg(pose, buffers, g[0], g[1], g[2], run / total, (run + g[2]) / total, light);
+					run += g[2];
 					pose.translate(0, (g[2] - 0.4f) / 16f, 0);
 				}
 				pose.mulPose(Axis.XP.rotation(Mth.sin(age * 0.35f - 4 * 0.9f) * 0.3f));
-				legBox(pose, buffers, -5.5f, -0.5f, -0.5f, 5.5f, 5.5f, 0.5f, light);
+				fluke(pose, buffers, light);
 			} else {
 				pose.translate(0, 10.5f / 16f, 1.8f / 16f);
 				pose.mulPose(Axis.XP.rotation(-0.9f));
 				pose.mulPose(Axis.YP.rotation(Mth.sin(age * 0.12f) * 0.15f));
-				legBox(pose, buffers, -1.8f, -1.6f, 0f, 1.8f, 1.6f, 4.5f, light);
-				pose.translate(0, 0, 4.2f / 16f);
+				// the segments run down +y, so turn +y onto +z (out behind him)
+				pose.mulPose(Axis.XP.rotation(Mth.HALF_PI));
+				legSeg(pose, buffers, 1.8f, 1.6f, 4.5f, 0f, 0.56f, light);
+				pose.translate(0, 4.2f / 16f, 0);
 				pose.mulPose(Axis.XP.rotation(0.6f));
-				legBox(pose, buffers, -1.2f, -1.1f, 0f, 1.2f, 1.1f, 3.5f, light);
-				pose.translate(0, 0, 3.2f / 16f);
-				legBox(pose, buffers, -0.4f, -3.5f, 0f, 0.4f, 3.5f, 3.5f, light);
+				legSeg(pose, buffers, 1.2f, 1.1f, 3.5f, 0.56f, 1f, light);
+				pose.translate(0, 3.2f / 16f, 0);
+				pose.scale(0.65f, 0.65f, 0.65f);
+				fluke(pose, buffers, light);
 			}
 			pose.popPose();
 		});
