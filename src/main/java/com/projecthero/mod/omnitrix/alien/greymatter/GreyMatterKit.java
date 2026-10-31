@@ -72,11 +72,12 @@ import net.minecraft.world.phys.Vec3;
  * sight of him. He wins with his brain: pressure points, weak spots, gadgets and repairs.
  *
  * <pre>
- *   R        Nerve Pinch    stuns the creature in front of you for 3 s       Shift+R  Weak-Spot Strike  a precise crit (12)
+ *   R        Nerve Pinch    4 and stuns the creature in front for 3 s        Shift+R  Weak-Spot Strike  a precise crit (18; 24 on a marked target)
  *   G        Analyze        reads a creature (health, armour, weakness) and  Shift+G  Decoy            a ticking gadget: mobs go after it instead (5 s)
  *                           marks it: +35% damage from everyone for 10 s
  *   X        Big Leap       a huge leap for something so small (no fall)     Shift+X  Scurry           5 s of top speed; hunters lose you
- *   Z        Snare Trap     quick-craft a tripwire snare (roots 4 s; 3 max)  Shift+Z  Smoke Bomb       blinds around you, everyone loses track
+ *   Z        Snare Trap     quick-craft a tripwire snare (10, roots 4 s;     Shift+Z  Smoke Charge     ULTIMATE: a 22 blast (r 4), blinds around you,
+ *                           3 max)                                                                     everyone loses track
  *   V        Pocket Workshop  a crafting grid anywhere: he builds what he needs from his pockets
  *   C        Genius Repair  fix a block (anvils, cracked bricks) or boost a  Shift+C  Mind Map         ores, chests and spawners outlined through walls (8 s)
  *                           furnace / brewing stand; else repair held gear
@@ -154,7 +155,14 @@ public final class GreyMatterKit extends AlienKit {
 
 	public static final float SCALE = 0.33f;
 	public static final int STUN_TICKS = 60;
-	public static final float STRIKE_DAMAGE = 12f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1 / 12 / 2 / none
+	public static final float PINCH_DAMAGE = 4f;
+	public static final float STRIKE_DAMAGE = 18f;
+	/** What Weak-Spot Strike lands on an Analyze-marked creature, after the mark's x1.35 (the strike is scaled down to land on 24). */
+	public static final float STRIKE_MARKED_DAMAGE = 24f;
+	public static final float SNARE_DAMAGE = 10f;
+	/** Shift+Z Smoke Charge (was Smoke Bomb): a blast of this much across {@link #SMOKE_RADIUS}, plus the old blinding smoke. */
+	public static final float SMOKE_DAMAGE = 22f, SMOKE_RADIUS = 4f;
 	public static final float MARK_FACTOR = 1.35f;
 	public static final int MARK_TICKS = 200;
 	public static final int SCURRY_TICKS = 100;
@@ -262,7 +270,7 @@ public final class GreyMatterKit extends AlienKit {
 				AlienMove.tap(NERVE_PINCH, AbilitySlot.SLOT_1, 120), AlienMove.shift(WEAK_SPOT, AbilitySlot.SLOT_1, 100),
 				AlienMove.tap(ANALYZE, AbilitySlot.SLOT_2, 200), AlienMove.shift(DECOY, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(BIG_LEAP, AbilitySlot.SLOT_3, 30), AlienMove.shift(SCURRY, AbilitySlot.SLOT_3, 240),
-				AlienMove.tap(SNARE, AbilitySlot.SLOT_4, 160), AlienMove.shift(SMOKE_BOMB, AbilitySlot.SLOT_4, 320),
+				AlienMove.tap(SNARE, AbilitySlot.SLOT_4, 160), AlienMove.shift(SMOKE_BOMB, AbilitySlot.SLOT_4, 600), // v0.17.2: was 320 (Smoke Charge is his ultimate)
 				AlienMove.tap(WORKSHOP, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(REPAIR_MOVE, AbilitySlot.SLOT_6, 600), AlienMove.shift(MIND_MAP, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(QUICK_READ, "Use on a creature", 10));
@@ -367,7 +375,7 @@ public final class GreyMatterKit extends AlienKit {
 
 	private void spring(ServerPlayer p, ServerLevel l, Trap t, LivingEntity e) {
 		AlienStatus.root(p, e, TRAP_ROOT, 40);
-		hurt(p, e, 2f, false);
+		hurt(p, e, SNARE_DAMAGE, false); // v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2
 		QuirkFx.ring(l, t.at().add(0, 0.05, 0)).colours(0xFFFFFF, 0x8A9AA8).size(1.4f).thickness(0.25f).life(8).ground().spawn();
 		QuirkFx.spike(l, t.at(), new Vec3(0, 1, 0)).block(Blocks.TRIPWIRE_HOOK.defaultBlockState()).colours(0xA0A8B0, 0x606870).size(1.0f).size2(0.15f)
 				.life(TRAP_ROOT).spawn();
@@ -439,7 +447,7 @@ public final class GreyMatterKit extends AlienKit {
 		anim(p, ANIM_PINCH);
 		ServerLevel l = level(p);
 		AlienStatus.stun(p, t, STUN_TICKS);
-		hurt(p, t, 1f, false);
+		hurt(p, t, PINCH_DAMAGE, false); // v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1
 		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.85, t.getZ(), 14, 0.2, 0.15, 0.2, 0.05);
 		QuirkFx.ring(l, t.position().add(0, t.getBbHeight() + 0.3, 0)).colours(0xFFFFFF, 0xF0E060).size(0.7f).thickness(0.12f).life(STUN_TICKS / 2).spawn();
 		OmnitrixSounds.play(l, t.position(), PINCH, 1.0f, 1.0f);
@@ -453,13 +461,20 @@ public final class GreyMatterKit extends AlienKit {
 		}
 		anim(p, ANIM_STRIKE);
 		ServerLevel l = level(p);
-		hurt(p, t, STRIKE_DAMAGE, false);
+		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 12 (16.2 marked)
+		// -- now 18, and 24 on a marked creature (the mark multiplies every hit by MARK_FACTOR, so the strike is sent as 24 / 1.35)
+		hurt(p, t, strikeDamage(t), false);
 		l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 20, 0.3, 0.3, 0.3, 0.4);
 		l.sendParticles(ParticleTypes.ENCHANTED_HIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 12, 0.3, 0.3, 0.3, 0.3);
 		QuirkFx.blast(l, t.position().add(0, t.getBbHeight() * 0.6, 0)).colours(0xFFFFFF, 0xC0D8FF).size(0.8f).life(6)
 				.flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
 		OmnitrixSounds.play(l, t.position(), PINCH, 1.2f, 0.6f);
 		return true;
+	}
+
+	/** The damage Weak-Spot Strike sends: 18, or on a marked creature what comes to 24 once the mark's x1.35 is applied. */
+	public static float strikeDamage(LivingEntity t) {
+		return marked(t) ? STRIKE_MARKED_DAMAGE / MARK_FACTOR : STRIKE_DAMAGE;
 	}
 
 	/** G: reads the creature you look at (24 blocks) and marks it: glowing, +35% damage from everyone for 10 s. */
@@ -602,6 +617,14 @@ public final class GreyMatterKit extends AlienKit {
 		l.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, 40, 1.5, 0.8, 1.5, 0.02);
 		l.sendParticles(ParticleTypes.POOF, c.x, c.y, c.z, 20, 1.0, 0.4, 1.0, 0.05);
 		OmnitrixSounds.play(l, c, GADGET, 1.0f, 0.5f);
+		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Smoke Bomb became
+		// Smoke Charge, his ultimate -- a 22-damage blast across r4 under the old blinding smoke (was no damage)
+		QuirkFx.blast(l, c.add(0, 0.3, 0)).colours(0xFFF0C0, 0x8A9AA8).size(SMOKE_RADIUS * 0.7f).life(12).spawn();
+		l.sendParticles(ParticleTypes.EXPLOSION, c.x, c.y + 0.3, c.z, 2, 0.6, 0.2, 0.6, 0);
+		l.playSound(null, c.x, c.y, c.z, net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.PLAYERS, 0.6f, 1.5f);
+		for (LivingEntity e : around(p, c, SMOKE_RADIUS)) {
+			hurt(p, e, SMOKE_DAMAGE, false);
+		}
 		for (LivingEntity e : around(p, c, 5f)) {
 			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0), p);
 		}

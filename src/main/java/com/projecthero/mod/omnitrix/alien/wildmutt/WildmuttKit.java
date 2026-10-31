@@ -59,11 +59,12 @@ import net.minecraft.world.phys.Vec3;
  * His body is a custom GeckoLib quadruped ({@code WildmuttRenderer}) with a low, wide hitbox ({@link #body}).
  *
  * <pre>
- *   R        Pounce        lunge onto the creature ahead (12 r): 9, pins it    Shift+R  Maul          rear up: 3 rakes (3.5) + a double slam (6)
- *   G        Quill Volley  7 quills from the back in a cone (3.5 each)          Shift+G  Savage Roar   cone 9: 3, slowed, weakened, staggered
+ *   R        Pounce        lunge onto the creature ahead (12 r): 12, pins it   Shift+R  Maul          rear up: 3 rakes (3.8) + a double slam (6.6) = 18
+ *   G        Quill Volley  7 quills from the back in a cone (3 each)            Shift+G  Savage Roar   cone 9: 6, slowed, weakened, staggered
  *   X        Leap          a huge bound (no fall damage, landing shock)         Hold X   Coiled Leap   up to 1.5 s of coil: up to 1.8x as far
  *                                                                               Shift+X  Wall Climb    toggle: press into a wall to scale it
- *   Z        Ground Slam   both fists down: r 4.5, 8 near / 5 at the edge       Shift+Z  Quill Roll    1.5 s spiked roll (5 a hit, -40% taken)
+ *   Z        Ground Slam   both fists down: r 4.5, 16 near / 10 at the edge     Shift+Z  Quill Roll    ULTIMATE: 1.5 s spiked roll (12 a hit, -40% taken),
+ *                                                                                                      then a quill burst (14, r 4)
  *   C        Feral Frenzy  8 s: +25% speed, +4 claws, +1 attack speed, heals    Shift+C  Scent Track   marks a creature (48 r) for 30 s: a trail to it
  *   Attack   claw swipe (cleaves the creatures beside the target)              Use (empty hand, air)  Sniff: 6 s, senses widen to 64, pick out items and buried ores / chests
  *   Passive  Scent Sense: creatures within 24 are outlined for him (invisible ones too); gallops (+20% while sprinting); no eyes:
@@ -175,24 +176,34 @@ public final class WildmuttKit extends AlienKit {
 	public static final float CROUCH_HEIGHT = 1.3f, CROUCH_EYE = 1.05f;
 
 	public static final double POUNCE_RANGE = 12.0;
-	public static final float POUNCE_DAMAGE = 9f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 9
+	public static final float POUNCE_DAMAGE = 12f;
 	public static final int POUNCE_TICKS = 16;
 	public static final int PIN_TICKS = 25;
-	public static final float MAUL_RAKE = 3.5f, MAUL_SLAM = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3.5 / 6 (16.5 in
+	// all) -- scaled to 3 x 3.8 + 6.6 = 18
+	public static final float MAUL_RAKE = 3.8f, MAUL_SLAM = 6.6f;
 	public static final int[] MAUL_HITS = { 4, 7, 10, 16 };
 	public static final double MAUL_RANGE = 3.4;
 	public static final int QUILL_COUNT = 7;
-	public static final float QUILL_DAMAGE = 3.5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3.5 (7 quills = 21)
+	public static final float QUILL_DAMAGE = 3f;
 	public static final int QUILL_DELAY = 9;
 	public static final double ROAR_RANGE = 9.0;
-	public static final float ROAR_DAMAGE = 3f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float ROAR_DAMAGE = 6f;
 	public static final int ROAR_DELAY = 6;
 	public static final int ROAR_EFFECT_TICKS = 70;
 	public static final int COIL_MAX = 30;
-	public static final float SLAM_RADIUS = 4.5f, SLAM_NEAR = 8f, SLAM_FAR = 5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 8 near / 5 far
+	public static final float SLAM_RADIUS = 4.5f, SLAM_NEAR = 16f, SLAM_FAR = 10f;
 	public static final int SLAM_DELAY = 9;
 	public static final int ROLL_TICKS = 30;
-	public static final float ROLL_DAMAGE = 5f, ROLL_FACTOR = 0.6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Quill Roll is his
+	// ultimate -- was 5 a creature, no burst
+	public static final float ROLL_DAMAGE = 12f, ROLL_FACTOR = 0.6f;
+	/** v0.17.2: the quill burst when the roll ends -- this much to everything within {@link #ROLL_BURST_RADIUS}. */
+	public static final float ROLL_BURST_DAMAGE = 14f, ROLL_BURST_RADIUS = 4f;
 	public static final int FRENZY_TICKS = 160;
 	public static final float FRENZY_SPEED = 0.25f, FRENZY_CLAWS = 4f, FRENZY_HEAL = 1.5f;
 	public static final double TRACK_RANGE = 48.0;
@@ -267,7 +278,9 @@ public final class WildmuttKit extends AlienKit {
 				AlienMove.tap(QUILL_VOLLEY, AbilitySlot.SLOT_2, 100), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(LEAP_MOVE, AbilitySlot.SLOT_3, 30), AlienMove.hold(COILED_LEAP, AbilitySlot.SLOT_3, 60),
 				AlienMove.shift(CLIMB, AbilitySlot.SLOT_3, 10),
-				AlienMove.tap(SLAM_MOVE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 200),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Quill Roll is his
+				// ultimate now -- was a 200-tick cooldown
+				AlienMove.tap(SLAM_MOVE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 500),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(TRACK, AbilitySlot.SLOT_6, 300),
 				AlienMove.tap(DIG, AbilitySlot.SLOT_5, 16),
 				AlienMove.vanilla(SWIPE, "Attack", 0), AlienMove.vanilla(SNIFF_MOVE, "Use (empty hand)", SNIFF_TICKS));
@@ -655,6 +668,22 @@ public final class WildmuttKit extends AlienKit {
 		return true;
 	}
 
+	/**
+	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): as the roll ends his
+	 * quills burst outward -- {@link #ROLL_BURST_DAMAGE} to everything within {@link #ROLL_BURST_RADIUS}.
+	 */
+	public void rollBurst(ServerPlayer p, ServerLevel l) {
+		Vec3 c = p.position().add(0, 0.6, 0);
+		for (LivingEntity e : around(p, c, ROLL_BURST_RADIUS)) {
+			e.invulnerableTime = 0;
+			hurt(p, e, ROLL_BURST_DAMAGE, false);
+			shove(e, p.position(), 0.8, 0.3);
+		}
+		l.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 40, ROLL_BURST_RADIUS * 0.4, 0.4, ROLL_BURST_RADIUS * 0.4, 0.5);
+		l.sendParticles(FUR, c.x, c.y, c.z, 16, ROLL_BURST_RADIUS * 0.35, 0.3, ROLL_BURST_RADIUS * 0.35, 0);
+		OmnitrixSounds.play(l, c, QUILLS, 1.0f, 0.8f);
+	}
+
 	private void endRoll(ServerPlayer p) {
 		setFlag(p, F_ROLL, false);
 		setTimer(p, "roll_end", 0);
@@ -906,6 +935,7 @@ public final class WildmuttKit extends AlienKit {
 		// the roll
 		if (flag(p, F_ROLL)) {
 			if (now >= timer(p, "roll_end") || p.isInWater()) {
+				rollBurst(p, l);
 				endRoll(p);
 			} else {
 				Vec3 f = horizontal(p.getLookAngle());
