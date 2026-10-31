@@ -38,6 +38,10 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 		AlienClientKit kit = AlienClients.shownKit(p);
 		if (kit != null) {
 			kit.renderExtras(pose, buffers, light, p, model, partial, age);
+			if (com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.sliding(p)
+					&& com.projecthero.mod.omnitrix.alien.AlienKit.activeKit(p) instanceof com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit) {
+				return; // v0.17.2: Upgrade's Liquid Form is only the puddle -- no badge floating on it
+			}
 			float[] b = kit.badge();
 			boolean red = OmnitrixWatch.red(p, partial);
 			int boneId = kit.badgeBone();

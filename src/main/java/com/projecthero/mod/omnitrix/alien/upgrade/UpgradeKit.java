@@ -323,9 +323,6 @@ public final class UpgradeKit extends AlienKit {
 			if (now % 2 == 0) {
 				l.sendParticles(SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.2, 0.02, 0.2, 0.0);
 			}
-			if (now % 10 == 0 && p.onGround() && p.getDeltaMovement().horizontalDistanceSqr() > 0.004) {
-				QuirkFx.decal(l, p.position().add(0, 0.02, 0)).style(QuirkFx.DECAL_POOL).colour(0x061008).size(1.0f).life(30).spawn();
-			}
 		}
 		// Charged Beam
 		long charge = timer(p, "charge_at");
@@ -571,7 +568,6 @@ public final class UpgradeKit extends AlienKit {
 			p.hurtMarked = true;
 		}
 		ServerLevel level = level(p);
-		QuirkFx.decal(level, p.position().add(0, 0.02, 0)).style(QuirkFx.DECAL_POOL).colour(0x061008).size(1.6f).life(60).spawn();
 		OmnitrixSounds.play(level, p.position(), SND_SLIDE, 1.0f, 1.0f);
 		return true;
 	}
