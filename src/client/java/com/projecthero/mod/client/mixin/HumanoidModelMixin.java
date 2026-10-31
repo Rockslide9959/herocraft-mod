@@ -486,6 +486,15 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
 		this.leftLeg.zRot = -0.1f;
 	}
 
+	/** v0.17.2: a player astride Wildmutt's back (OmnitrixRiding) -- leaning in, hands in his fur, bobbing with his stride. */
+	@Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
+	private void projecthero$wildmuttRider(LivingEntity entity, float limbSwing, float limbSwingAmount,
+			float ageInTicks, float netHeadYaw, float headPitch, CallbackInfo ci) {
+		if (entity instanceof Player && com.projecthero.mod.omnitrix.OmnitrixRiding.ridingWildmutt(entity)) {
+			com.projecthero.mod.client.omnitrix.OmnitrixRidePoses.wildmuttRider((HumanoidModel<?>) (Object) this, entity, ageInTicks);
+		}
+	}
+
 	/**
 	 * v0.17.1: the shared superhero landing ({@code client.flight.HeroLandingPose}) -- declared last so it wins over the
 	 * flight pose it blends in from and every power's own idle / move pose while it holds.

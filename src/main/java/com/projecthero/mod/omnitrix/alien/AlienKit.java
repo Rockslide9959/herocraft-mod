@@ -321,7 +321,8 @@ public abstract class AlienKit {
 		double max = blockHit.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? range : blockHit.getLocation().distanceTo(eye);
 		AABB box = p.getBoundingBox().expandTowards(look.scale(max)).inflate(1.0);
 		EntityHitResult hit = net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(p, eye, eye.add(look.scale(max)), box,
-				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p && !(e instanceof ArmorStand), max * max);
+				e -> e instanceof LivingEntity le && le.isAlive() && !e.isSpectator() && e != p && !(e instanceof ArmorStand)
+						&& !com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e), max * max); // v0.17.2: never your mount / rider
 		return hit != null && hit.getEntity() instanceof LivingEntity le ? le : null;
 	}
 
@@ -329,7 +330,8 @@ public abstract class AlienKit {
 	public static List<LivingEntity> around(ServerPlayer p, Vec3 at, double radius) {
 		List<LivingEntity> out = new ArrayList<>();
 		for (LivingEntity e : p.level().getEntitiesOfClass(LivingEntity.class, new AABB(at, at).inflate(radius))) {
-			if (e == p || !e.isAlive() || e.isSpectator() || e instanceof ArmorStand || e.distanceToSqr(at) > radius * radius * 1.4) {
+			if (e == p || !e.isAlive() || e.isSpectator() || e instanceof ArmorStand || e.distanceToSqr(at) > radius * radius * 1.4
+					|| com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, e)) { // v0.17.2: never your mount / rider
 				continue;
 			}
 			if (com.projecthero.mod.squad.Squads.areAllies(p, e) && !com.projecthero.mod.squad.Squads.friendlyFireOn(p)) {
@@ -342,7 +344,7 @@ public abstract class AlienKit {
 
 	/** Hits {@code target} for {@code amount} with the alien's damage ({@code fire} = {@code projecthero:alien_fire}). */
 	public static boolean hurt(ServerPlayer p, LivingEntity target, float amount, boolean fire) {
-		if (target == p || amount <= 0f) {
+		if (target == p || amount <= 0f || com.projecthero.mod.omnitrix.OmnitrixRiding.partners(p, target)) {
 			return false;
 		}
 		DamageSource src = fire ? OmnitrixDamage.alienFire(p) : OmnitrixDamage.alienStrike(p);

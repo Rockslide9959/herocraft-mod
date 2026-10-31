@@ -299,6 +299,7 @@ public final class WildmuttKit extends AlienKit {
 	@Override
 	public void onRevert(ServerPlayer p) {
 		ROLL_HITS.remove(p.getUUID());
+		com.projecthero.mod.omnitrix.OmnitrixRiding.endRides(p); // v0.17.2: whoever rode his back gets off
 		setFlag(p, F_CLIMB | F_LEAPING | F_POUNCE | F_ROLL | F_FRENZY | F_SNIFF | F_COIL, false);
 		for (String t : new String[] { "pounce_end", "maul_start", "quills_at", "roar_at", "slam_at", "roll_end", "frenzy_end", "track_id",
 				"track_end", "sniff_end", "deaf_until", "coil_start", "leap_start" }) {

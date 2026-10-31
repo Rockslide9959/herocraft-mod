@@ -146,8 +146,13 @@ public final class GreyMatterClient implements AlienClientKit {
 		if (animId == GreyMatterKit.ANIM_LEAP && (s.kitFlags & GreyMatterKit.F_LEAP) == 0 && ticks > 4) {
 			clip = null;
 		}
+		// v0.17.2: riding a player's shoulder (OmnitrixRiding) -- a move's clip still plays over it
+		boolean shoulder = com.projecthero.mod.omnitrix.OmnitrixRiding.onShoulder(p);
+		if (shoulder) {
+			com.projecthero.mod.client.omnitrix.OmnitrixRidePoses.shoulder(m, p, age);
+		}
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
-		if (!played) {
+		if (!played && !shoulder) {
 			// a frog's splayed stance
 			m.rightLeg.zRot += 0.14f;
 			m.leftLeg.zRot -= 0.14f;

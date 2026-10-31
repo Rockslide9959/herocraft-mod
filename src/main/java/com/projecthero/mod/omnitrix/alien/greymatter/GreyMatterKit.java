@@ -139,6 +139,8 @@ public final class GreyMatterKit extends AlienKit {
 
 	public static final int F_LEAP = 1;
 	public static final int F_SCURRY = 2;
+	/** v0.17.2: on a shoulder ride, he sits on the carrier's LEFT shoulder (synced, so every client seats him alike). */
+	public static final int F_LEFT_SHOULDER = 4;
 
 	public static final String NERVE_PINCH = "nerve_pinch";
 	public static final String WEAK_SPOT = "weak_spot_strike";
@@ -152,6 +154,8 @@ public final class GreyMatterKit extends AlienKit {
 	public static final String MIND_MAP = "mind_map";
 	public static final String JAB = "precision_jab";
 	public static final String QUICK_READ = "quick_read";
+	/** v0.17.2 (user: "grey matter players can ride regular players by right clicking them"): {@code OmnitrixRiding}. */
+	public static final String SHOULDER_RIDE = "shoulder_ride";
 
 	public static final float SCALE = 0.33f;
 	public static final int STUN_TICKS = 60;
@@ -273,7 +277,8 @@ public final class GreyMatterKit extends AlienKit {
 				AlienMove.tap(SNARE, AbilitySlot.SLOT_4, 160), AlienMove.shift(SMOKE_BOMB, AbilitySlot.SLOT_4, 600), // v0.17.2: was 320 (Smoke Charge is his ultimate)
 				AlienMove.tap(WORKSHOP, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(REPAIR_MOVE, AbilitySlot.SLOT_6, 600), AlienMove.shift(MIND_MAP, AbilitySlot.SLOT_6, 900),
-				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(QUICK_READ, "Use on a creature", 10));
+				AlienMove.vanilla(JAB, "Attack", 0), AlienMove.vanilla(QUICK_READ, "Use on a creature", 10),
+				AlienMove.vanilla(SHOULDER_RIDE, "Use on a player", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -288,6 +293,8 @@ public final class GreyMatterKit extends AlienKit {
 	@Override
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
+		com.projecthero.mod.omnitrix.OmnitrixRiding.endRides(p); // v0.17.2: off the shoulder
+		setFlag(p, F_LEFT_SHOULDER, false);
 		UUID me = p.getUUID();
 		MARKS.values().removeIf(m -> m.owner().equals(me));
 		TRAPS.remove(me);
@@ -552,11 +559,21 @@ public final class GreyMatterKit extends AlienKit {
 		return down.getType() == HitResult.Type.BLOCK ? down.getLocation() : at;
 	}
 
+	/** v0.17.2: Big Leap / Scurry from a shoulder ride -- he gets off where he sits (not set down beside them) and goes. */
+	private static void hopOff(ServerPlayer p) {
+		if (p.getVehicle() instanceof net.minecraft.world.entity.player.Player) {
+			Vec3 at = p.position();
+			p.stopRiding();
+			p.teleportTo(at.x, at.y, at.z);
+		}
+	}
+
 	public boolean bigLeap(ServerPlayer p) {
 		if (!use(p, BIG_LEAP)) {
 			return false;
 		}
 		anim(p, ANIM_LEAP);
+		hopOff(p); // v0.17.2: a leap off the shoulder he rides
 		Vec3 look = p.getLookAngle();
 		Vec3 f = new Vec3(look.x, 0, look.z).normalize();
 		p.setDeltaMovement(f.x * 1.05, 0.85 + Math.max(0, look.y) * 0.4, f.z * 1.05);
@@ -574,6 +591,7 @@ public final class GreyMatterKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_SCURRY);
+		hopOff(p); // v0.17.2: off the shoulder to run
 		ServerLevel l = level(p);
 		setTimer(p, "scurry_end", l.getGameTime() + SCURRY_TICKS);
 		setFlag(p, F_SCURRY, true);

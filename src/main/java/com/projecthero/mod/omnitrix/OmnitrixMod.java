@@ -84,6 +84,7 @@ public final class OmnitrixMod {
 				sender.server.execute(() -> Omnitrix.masterSwitch(sender, id));
 			}
 		});
+		OmnitrixRiding.initialize(); // v0.17.2: Wildmutt's back, Grey Matter's shoulder ride
 		ServerTickEvents.END_SERVER_TICK.register(OmnitrixMeteors::tick);
 		ServerTickEvents.END_SERVER_TICK.register(OmnitrixSfx::tick); // v0.17.1: the sound recipes' delayed layers
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
@@ -149,6 +150,11 @@ public final class OmnitrixMod {
 		});
 		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (player instanceof ServerPlayer p && !level.isClientSide()) {
+				// v0.17.2: climbing onto Wildmutt's back (anyone) / Grey Matter's shoulder ride -- before the clicker's own kit
+				InteractionResult ride = OmnitrixRiding.onUse(p, hand, entity, hit);
+				if (ride != InteractionResult.PASS) {
+					return ride;
+				}
 				AlienKit kit = kitOf(p);
 				if (kit != null) {
 					InteractionResult r = kit.onUseEntity(p, hand, entity);
@@ -174,6 +180,7 @@ public final class OmnitrixMod {
 
 	public static void clearSessionState() {
 		Omnitrix.clearSessionState();
+		OmnitrixRiding.clearSessionState(); // v0.17.2
 		OmnitrixMeteors.clearSessionState();
 		OmnitrixSfx.clearSessionState();
 		com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit.clearSessionState();
