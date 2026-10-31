@@ -51,9 +51,9 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R        Haymaker        a four-fisted hammer blow (12, launches)    Shift+R  Quad Barrage   four rapid punches (4 x 5)
- *   G        Thunder Clap    a clap shockwave cone (8, slows)            Shift+G  Grab / Throw   grab what you look at; G again throws it (12)
- *   X        Super Leap      a huge bound; landing shockwave (6)        Shift+X  Charge         a shoulder charge through everything (7)
- *   Z        Ground Pound    fists into the ground, a ring of force (10) Shift+Z  Meteor Drop    dive from the air; harder the higher (8-18)
+ *   G        Thunder Clap    a clap shockwave cone (12, slows)           Shift+G  Grab / Throw   grab what you look at; G again throws it (12)
+ *   X        Super Leap      a huge bound; landing shockwave (8, long 14) Shift+X Charge         a shoulder charge through everything (10)
+ *   Z        Ground Pound    fists into the ground, a ring of force (18) Shift+Z  Meteor Drop    dive from the air; harder the higher (16-30)
  *   V        Wall Climb      toggle: four hands grip any wall -- walk into it to climb (no fall damage while on)
  *   C        War Cry         a roar: foes weakened and slowed, you
  *                            stronger                                     Shift+C  Iron Stance    4 s braced: 70% less damage, no knockback
@@ -110,12 +110,18 @@ public final class FourArmsKit extends AlienKit {
 
 	public static final float HAYMAKER_DAMAGE = 12f;
 	public static final float BARRAGE_DAMAGE = 5f;
-	public static final float CLAP_DAMAGE = 8f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 8
+	public static final float CLAP_DAMAGE = 12f;
 	public static final float CLAP_RANGE = 9f;
 	public static final float THROW_DAMAGE = 12f;
-	public static final float LEAP_LAND_DAMAGE = 6f;
-	public static final float CHARGE_DAMAGE = 7f;
-	public static final float POUND_DAMAGE = 10f;
+	public static final float LEAP_LAND_DAMAGE = 8f; // v0.17.2: was 6
+	/** v0.17.2: the charged long leap's landing (was LEAP_LAND_DAMAGE * 1.8 = 10.8). */
+	public static final float LEAP_FAR_LAND_DAMAGE = 14f;
+	public static final float CHARGE_DAMAGE = 10f; // v0.17.2: was 7
+	public static final float POUND_DAMAGE = 18f; // v0.17.2: was 10
+	public static final float POUND_EDGE_DAMAGE = 12f; // v0.17.2: was 6 (60% of the centre's)
+	/** v0.17.2: the Meteor Drop lands for 16 + 1 a block fallen, 30 at most (was 8 + 0.8 a block, 18 at most). */
+	public static final float METEOR_DAMAGE = 16f, METEOR_PER_BLOCK = 1f, METEOR_MAX_DAMAGE = 30f;
 	public static final float POUND_RADIUS = 6f;
 	public static final float STANCE_FACTOR = 0.3f;
 	public static final int STANCE_TICKS = 80;
@@ -162,7 +168,9 @@ public final class FourArmsKit extends AlienKit {
 				AlienMove.tap(CLAP, AbilitySlot.SLOT_2, 160), AlienMove.shift(GRAB, AbilitySlot.SLOT_2, 20),
 				AlienMove.tap(LEAP, AbilitySlot.SLOT_3, 60), AlienMove.hold(LEAP_FAR, AbilitySlot.SLOT_3, 100),
 				AlienMove.shift(CHARGE, AbilitySlot.SLOT_3, 100),
-				AlienMove.tap(POUND, AbilitySlot.SLOT_4, 240), AlienMove.shift(METEOR, AbilitySlot.SLOT_4, 280),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the
+				// Meteor Drop is his ultimate now -- cooldown 280 -> 500
+				AlienMove.tap(POUND, AbilitySlot.SLOT_4, 240), AlienMove.shift(METEOR, AbilitySlot.SLOT_4, 500),
 				AlienMove.tap(CLIMB, AbilitySlot.SLOT_5, 20),
 				AlienMove.tap(ROAR, AbilitySlot.SLOT_6, 500), AlienMove.shift(STANCE, AbilitySlot.SLOT_6, 360),
 				AlienMove.vanilla("heavy_punch", "Attack", 0), AlienMove.vanilla(THROW, "Use (holding) / G (holding)", 200));
@@ -236,12 +244,14 @@ public final class FourArmsKit extends AlienKit {
 			setTimer(p, "far_vx", 0);
 			setTimer(p, "far_vz", 0);
 			setTimer(p, "far_on", 0);
-			float extra = diving ? (float) Math.min(10.0, Math.max(0, timer(p, "dive_from") / 1000.0 - p.getY()) * 0.8) : 0f;
+			float extra = diving
+					? (float) Math.min(METEOR_MAX_DAMAGE - METEOR_DAMAGE, Math.max(0, timer(p, "dive_from") / 1000.0 - p.getY()) * METEOR_PER_BLOCK)
+					: 0f;
 			if (far && timer(p, "far_hard") != 0) {
 				// the long leap comes down harder
-				land(p, 5.5f, LEAP_LAND_DAMAGE * 1.8f, false);
+				land(p, 5.5f, LEAP_FAR_LAND_DAMAGE, false);
 			} else {
-				land(p, diving ? 5f : 3.5f, diving ? 8f + extra : LEAP_LAND_DAMAGE, diving);
+				land(p, diving ? 5f : 3.5f, diving ? METEOR_DAMAGE + extra : LEAP_LAND_DAMAGE, diving);
 			}
 			p.resetFallDistance();
 		}
@@ -650,7 +660,7 @@ public final class FourArmsKit extends AlienKit {
 		QuirkCamera.shakeAround(l, c, 18, 0.7f, 14);
 		for (LivingEntity e : around(p, c, POUND_RADIUS)) {
 			double d = Math.sqrt(e.distanceToSqr(c));
-			hurt(p, e, (float) (POUND_DAMAGE * (1.0 - 0.4 * Math.min(1.0, d / POUND_RADIUS))), false);
+			hurt(p, e, (float) (POUND_DAMAGE - (POUND_DAMAGE - POUND_EDGE_DAMAGE) * Math.min(1.0, d / POUND_RADIUS)), false);
 			shove(e, c, 0.8, 0.75);
 		}
 		return true;
