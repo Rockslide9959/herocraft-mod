@@ -38,7 +38,6 @@ public final class StinkflyClient implements AlienClientKit {
 	private static final ResourceLocation EXTRAS = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_extras.png");
 
 	// extras rectangles (px on the 64x64 sheet): u0, v0, u1, v1
-	private static final float[] WING = { 0, 0, 32, 32 };
 	private static final float[] STALK = { 32, 0, 36, 8 };
 	private static final float[] EYE = { 36, 0, 44, 8 };
 	private static final float[] TAIL = { 32, 8, 40, 16 };
@@ -82,6 +81,11 @@ public final class StinkflyClient implements AlienClientKit {
 			FirstPersonClip.f(56, -70, 12, 0, 0.08f, 0.4f, 0.1f), FirstPersonClip.f(60, 0, 0, 0, 0, 0, 0)).both();
 	private static final FirstPersonClip FP_LOW = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 15, 15, 0, 0.1f, -0.15f, 0),
 			FirstPersonClip.f(10, 15, 15, 0, 0.1f, -0.15f, 0), FirstPersonClip.f(14, 0, 0, 0, 0, 0, 0)).both();
+
+	/** v0.17.2 (user: "Give his powers actual models and vfx instead of just glowing orbs"): from {@code OmnitrixClient}. */
+	public static void init() {
+		StinkflyGooFx.init();
+	}
 
 	@Override
 	public ResourceLocation skin() {
@@ -138,30 +142,87 @@ public final class StinkflyClient implements AlienClientKit {
 			box(pose, vc, -0.6f, -0.6f, 0f, 0.6f, 0.6f, 3.2f, STINGER, light);
 			pose.popPose();
 		});
-		// the wings: folded along the back on the ground, a fast beat in the air
-		boolean fly = flying(p);
-		float beat = fly ? Mth.sin(age * 2.4f) : Mth.sin(age * 0.08f) * 0.05f;
-		VertexConsumer glass = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
+		// the wings: folded along the back on the ground, a fast beat in the air (v0.17.2: the reference's wing shapes)
+		renderWings(pose, buffers, light, p, model, partial, age);
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 (user: "Make stinkfly's wings look better and more like
+	// how his wings actually look like, look at the reference image i sent"): two pairs of long pale yellow-green insect wings painted
+	// from docs/reference/stinkfly (stinkfly_wings.png, scratchpad/ben10_v0171/gen_stinkfly_wings.js) -- the big upper pair a blade
+	// sweeping up and out to a sharp point with a barb, a round cut-out and a hooked claw-like lobe; the smaller lower pair hooked
+	// down. Each is one alpha-cut-out quad (both faces drawn) hinged at a small mount on his back.
+
+	private static final ResourceLocation WINGS = ProjectHeroMod.id("textures/entity/omnitrix/stinkfly_wings.png");
+	/** Upper / lower wing: the quad's size (model px), the wing root's texel in its 128x128 cell. */
+	private static final float UPPER_SIZE = 28f, UPPER_ROOT_U = 2f, UPPER_ROOT_V = 105f;
+	private static final float LOWER_SIZE = 17f, LOWER_ROOT_U = 2f, LOWER_ROOT_V = 38f;
+	/** How spread the wings are (0 folded .. 1 flying), eased per player so take-off and landing open / close them smoothly. */
+	private static final java.util.Map<AbstractClientPlayer, float[]> OPEN = new java.util.WeakHashMap<>();
+
+	private static float openAmount(AbstractClientPlayer p, float partial) {
+		float[] o = OPEN.get(p);
+		if (o == null) {
+			return flying(p) ? 1f : 0f;
+		}
+		return Mth.lerp(partial, o[0], o[1]);
+	}
+
+	private void renderWings(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model,
+			float partial, float age) {
+		float open = openAmount(p, partial);
+		boolean diving = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0;
+		// the flying beat: fast (about 6 strokes a second shows as a blur of positions), the lower pair a quarter-stroke behind
+		float beatSpeed = diving ? 3.1f : 2.4f;
 		AlienParts.on(pose, model.body, () -> {
+			// the mount: a small knot of chitin between the shoulder blades
+			box(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(EXTRAS)), -1.2f, 2.6f, 1.8f, 1.2f, 5.6f, 2.9f, TAIL, light);
+			VertexConsumer glass = buffers.getBuffer(RenderType.entityTranslucent(WINGS)); // fetched after the mount (another buffer ends this one)
 			for (int side = -1; side <= 1; side += 2) {
 				for (int pair = 0; pair < 2; pair++) {
+					boolean upper = pair == 0;
+					float phase = age * beatSpeed - (upper ? 0f : 1.3f) + (side < 0 ? 0.08f : 0f);
+					float beat = Mth.sin(phase);
+					float stroke = Mth.cos(phase);
+					// spread (flying): the upper blade raised out behind him, beating through a wide arc; the lower pair lower
+					// and shorter-stroked
+					float flyRoll = upper ? -0.45f + beat * 0.42f : 0.1f + beat * 0.32f;
+					float flyYaw = (upper ? 0.35f : 0.45f) + stroke * (upper ? 0.28f : 0.2f);
+					float flyTilt = -0.25f + stroke * 0.12f;
+					// folded (ground): swept back along his back, the blades pointing up and back, a faint idle quiver
+					float quiver = Mth.sin(age * 0.09f + pair) * 0.03f;
+					float foldRoll = (upper ? 0.35f : 0.6f) + quiver;
+					float foldYaw = upper ? 1.38f : 1.32f;
+					float foldTilt = upper ? -0.15f : 0.1f;
+					if (diving) {
+						// tucked back in the plunge, buzzing
+						flyRoll = (upper ? 0.35f : 0.6f) + beat * 0.12f;
+						flyYaw = 1.0f + stroke * 0.06f;
+					}
+					float roll = Mth.lerp(open, foldRoll, flyRoll);
+					float yaw = Mth.lerp(open, foldYaw, flyYaw);
+					float tilt = Mth.lerp(open, foldTilt, flyTilt);
 					pose.pushPose();
-					pose.translate(side * 1.2f / 16f, (2.5f + pair * 3.0f) / 16f, 2.3f / 16f);
-					float spread = fly ? 0.15f : 1.25f; // folded = swept back along the body
-					float lift = fly ? (pair == 0 ? 0.25f : -0.15f) + beat * 0.6f : (pair == 0 ? 0.35f : -0.25f);
-					pose.mulPose(Axis.YP.rotation(-side * spread));
-					pose.mulPose(Axis.ZP.rotation(side * lift));
-					float len = pair == 0 ? 15f : 11f;
-					float w = pair == 0 ? 5.5f : 4.5f;
-					PoseStack.Pose last = pose.last();
-					float sx = side / 16f;
-					// root top, tip top, tip bottom, root bottom (the root of the wing texture is u = 0)
-					AlienParts.quad(glass, last, 0xFFFFFFFF, light, 0, -1f / 16f, 0, sx * len, -(w * 0.5f) / 16f, 0.2f / 16f, sx * (len - 2f), (w * 0.6f) / 16f,
-							0.2f / 16f, 0, w / 16f, 0, 0, 0, 1, WING[0] / 64f, WING[1] / 64f, WING[2] / 64f, WING[3] / 64f);
+					pose.translate(side * 0.9f / 16f, (upper ? 3.4f : 5.0f) / 16f, 2.7f / 16f);
+					pose.mulPose(Axis.YP.rotation(-side * yaw));
+					pose.mulPose(Axis.XP.rotation(tilt));
+					pose.mulPose(Axis.ZP.rotation(side * roll));
+					wingQuad(glass, pose.last(), light, side, upper);
 					pose.popPose();
 				}
 			}
 		});
+	}
+
+	/** One wing: the root texel at the hinge, the wing out along +x (side +1) / -x, up = -y; its cell of the sheet. */
+	private static void wingQuad(VertexConsumer vc, PoseStack.Pose last, int light, int side, boolean upper) {
+		float size = upper ? UPPER_SIZE : LOWER_SIZE;
+		float ru = upper ? UPPER_ROOT_U : LOWER_ROOT_U, rv = upper ? UPPER_ROOT_V : LOWER_ROOT_V;
+		float k = size / 128f / 16f; // texel -> blocks
+		float x0 = side * (0f - ru) * k, x1 = side * (128f - ru) * k;
+		float y0 = (0f - rv) * k, y1 = (128f - rv) * k;
+		float u0 = upper ? 0f : 0.5f, u1 = u0 + 0.5f;
+		// the normal points up: both faces lit like a pale membrane, never shaded dark from behind
+		AlienParts.quad(vc, last, 0xFFFFFFFF, light, x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y1, 0, 0, -1, 0, u0, 0f, u1, 1f);
 	}
 
 	@Override
@@ -221,6 +282,11 @@ public final class StinkflyClient implements AlienClientKit {
 	public void tick(AbstractClientPlayer p) {
 		var level = p.level();
 		var r = p.getRandom();
+		// v0.17.2: the wings ease open on take-off and fold away on landing (half-tucked in a dive)
+		float[] o = OPEN.computeIfAbsent(p, k -> new float[] { flying(p) ? 1f : 0f, flying(p) ? 1f : 0f });
+		float target = (Omnitrix.state(p).kitFlags & StinkflyKit.F_DIVING) != 0 ? 0.8f : flying(p) ? 1f : 0f;
+		o[0] = o[1];
+		o[1] += (target - o[1]) * (target > o[1] ? 0.35f : 0.2f);
 		if (r.nextInt(25) == 0) {
 			level.addParticle(ParticleTypes.ITEM_SLIME, p.getX() + (r.nextDouble() - 0.5) * 0.4, p.getY() + p.getBbHeight() * 0.4,
 					p.getZ() + (r.nextDouble() - 0.5) * 0.4, 0, -0.05, 0);
