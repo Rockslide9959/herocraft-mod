@@ -104,7 +104,10 @@ public final class OmnitrixClient {
 			return false;
 		}
 		long now = p.level().getGameTime();
-		if (now - lastSlap > 4) {
+		// v0.17.2 (user: "my friend ... can activate the omnitrix but left clicking ... doesnt seem to do anything"): lastSlap is game
+		// time from whatever world this client slapped in last -- joining a younger world without restarting left "now - lastSlap"
+		// negative, so every slap was swallowed here. A last slap in the future is from another world: ignore it.
+		if (now - lastSlap > 4 || now < lastSlap) {
 			lastSlap = now;
 			ClientPlayNetworking.send(new OmnitrixActionPayload(OmnitrixActionPayload.Action.SLAP, ""));
 		}
