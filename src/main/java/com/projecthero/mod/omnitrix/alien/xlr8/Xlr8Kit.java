@@ -78,7 +78,7 @@ import net.minecraft.world.phys.Vec3;
  *   R        Rapid Assault   5 punches of 2.5 on everything in front         Shift+R  Kick Barrage   8 kicks in 0.8 s (2 each), the last launches
  *   G        Blitz           zip to the foe you aim at (24 blocks): 14,     Shift+G  Tornado Run    3 s of running rings: a twister lifts what
  *                            and 8 to everything round it                                            is near, then throws it out
- *   X        Blur Dash       a 10-block dash leaving afterimages (6)         Shift+X  Phase          vibrate through walls (5 s, or tap again);
+ *   X        Blur Dash       a 10-block dash where you aim, afterimages (6)  Shift+X  Phase          vibrate through walls (5 s, or tap again);
  *   hold X   Whirlwind       spin: everything within 6 is blown away (8)                             nothing physical touches you
  *   Z        Mach Punch      one huge punch (20) and a shockwave (8)         Shift+Z  Speed Sweep    blink through every foe within 50 (26 each),
  *                                                                                                    then home (ultimate, 30 s)
@@ -151,6 +151,9 @@ public final class Xlr8Kit extends AlienKit {
 	public static final double TORNADO_RADIUS = 6;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	public static final float DASH_DAMAGE = 6f;
+	/** Blur Dash: how long it drives him along his aim, and how fast (blocks a tick, easing to a third). */
+	public static final int DASH_TICKS = 6;
+	public static final double DASH_SPEED = 2.2;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
 	public static final float WHIRL_DAMAGE = 8f;
 	public static final double WHIRL_RADIUS = 6;
@@ -489,6 +492,12 @@ public final class Xlr8Kit extends AlienKit {
 			DASH_HITS.remove(p.getUUID());
 			return;
 		}
+		// v0.17.2 (user: "make xlr8s dash directional ... in the direction that the player aims"): the dash follows his aim -- up,
+		// down, any way -- easing off over its length (about the old 10 blocks)
+		float left = (end - now) / (float) DASH_TICKS;
+		p.setDeltaMovement(p.getLookAngle().scale(DASH_SPEED * (0.35f + 0.65f * left)));
+		p.hurtMarked = true;
+		p.resetFallDistance();
 		Set<Integer> hits = DASH_HITS.computeIfAbsent(p.getUUID(), x -> new HashSet<>());
 		for (LivingEntity e : around(p, p.position().add(0, 1, 0), 1.8)) {
 			if (hits.add(e.getId())) {
@@ -714,12 +723,12 @@ public final class Xlr8Kit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_DASH);
-		Vec3 f = flatLook(p);
+		Vec3 f = p.getLookAngle();
 		Vec3 from = p.position();
-		p.setDeltaMovement(f.scale(2.4).add(0, Math.max(0.05, p.getLookAngle().y * 0.6), 0));
+		p.setDeltaMovement(f.scale(DASH_SPEED));
 		p.hurtMarked = true;
 		p.resetFallDistance();
-		setTimer(p, "dash_end", p.level().getGameTime() + 8);
+		setTimer(p, "dash_end", p.level().getGameTime() + DASH_TICKS);
 		setFlag(p, F_DASH, true);
 		DASH_HITS.put(p.getUUID(), new HashSet<>());
 		ServerLevel l = level(p);

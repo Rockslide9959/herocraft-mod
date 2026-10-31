@@ -195,6 +195,22 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void xlr8sBlurDashGoesWhereHeAims(GameTestHelper helper) {
+		ServerPlayer p = as(helper, Xlr8Kit.ID);
+		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
+		// aimed steeply up and off to the side: the dash goes that way, not flat ahead
+		p.setYRot(90f);
+		p.setXRot(-60f);
+		Vec3 aim = p.getLookAngle();
+		helper.assertTrue(kit.blurDash(p), "Blur Dash");
+		Vec3 v = p.getDeltaMovement();
+		helper.assertTrue(v.normalize().dot(aim) > 0.99, "it follows the aim: " + v + " vs " + aim);
+		helper.assertTrue(v.y > 1.5, "aimed up, he dashes up: " + v.y);
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 	// ================================================================ Diamondhead
 
 	@GameTest(template = EMPTY_STRUCTURE)
