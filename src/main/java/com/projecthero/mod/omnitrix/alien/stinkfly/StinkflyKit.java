@@ -57,7 +57,8 @@ import net.minecraft.world.phys.Vec3;
  *   R        Slime Shot     a goo glob (10): roots for 1.5 s, then slows      Shift+R  Slime Net      a wide net (6): roots everything it lands on (3 s)
  *   G        Toxic Gas      a stinking cloud ahead (5 s: 2 a pulse, 20 in     Shift+G  Stinger Stab   the tail jabs (12 + Poison II)
  *                           all; poison, nausea)
- *   X        Wing Flight    take off / land (double-tap jump works too)       Shift+X  Wing Dash      a burst of speed where you look
+ *   X        Wing Dash      a burst of speed where you look                   Shift+X  Stinger Lunge  dart forward stinger-first (14 to all in the path, poisons)
+ *   Double-tap jump   take off / land (Wing Flight)
  *   Z        Dive Bomb      plunge and splash down (18 falling to 11, slows)  Shift+Z  Goo Storm      ULTIMATE: goo rains on an area for 6 s (4/s = 24, slows)
  *   V        Lift           grab the creature in front in your legs and carry it as you fly; V again drops it
  *   C        Wing Gust      a blast of wind (6): shoves, deflects projectiles Shift+C  Slime Barrage  five globs in a fan (4 each)
@@ -120,6 +121,9 @@ public final class StinkflyKit extends AlienKit {
 	public static final String STINGER = "stinger_stab";
 	public static final String FLIGHT = "wing_flight";
 	public static final String WING_DASH = "wing_dash";
+	public static final String LUNGE = "stinger_lunge";
+	public static final float LUNGE_DAMAGE = 14f;
+	public static final double LUNGE_RANGE = 8.0;
 	public static final String DIVE_BOMB = "dive_bomb";
 	public static final String WING_GUST = "wing_gust";
 	public static final String GOO_STORM = "goo_storm";
@@ -258,13 +262,15 @@ public final class StinkflyKit extends AlienKit {
 		return List.of(
 				AlienMove.tap(SLIME_SHOT, AbilitySlot.SLOT_1, 16), AlienMove.shift(SLIME_NET, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(TOXIC_GAS, AbilitySlot.SLOT_2, 220), AlienMove.shift(STINGER, AbilitySlot.SLOT_2, 50),
-				AlienMove.tap(FLIGHT, AbilitySlot.SLOT_3, 8), AlienMove.shift(WING_DASH, AbilitySlot.SLOT_3, 60),
+				// v0.17.2 (user: "double tapping X already makes the player fly, make X wing dash and put another attack move on Shift+X")
+				AlienMove.tap(WING_DASH, AbilitySlot.SLOT_3, 60), AlienMove.shift(LUNGE, AbilitySlot.SLOT_3, 100),
 				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Goo Storm (his
 				// ultimate) moved from C to Shift+Z, Wing Gust from Shift+Z to C
 				AlienMove.tap(DIVE_BOMB, AbilitySlot.SLOT_4, 140), AlienMove.shift(GOO_STORM, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(LIFT, AbilitySlot.SLOT_5, 60),
 				AlienMove.tap(WING_GUST, AbilitySlot.SLOT_6, 120), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_6, 240),
-				AlienMove.vanilla(JAB, "Attack", 20), AlienMove.vanilla(GOO_SPIT, "Use", 12));
+				AlienMove.vanilla(JAB, "Attack", 20), AlienMove.vanilla(GOO_SPIT, "Use", 12),
+				AlienMove.vanilla(FLIGHT, "Double-tap jump", 8));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -443,9 +449,9 @@ public final class StinkflyKit extends AlienKit {
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					wingDash(p);
+					stingerLunge(p);
 				} else {
-					wingFlight(p);
+					wingDash(p);
 				}
 			}
 			case SLOT_4 -> {
@@ -573,6 +579,46 @@ public final class StinkflyKit extends AlienKit {
 		ServerLevel l = level(p);
 		QuirkFx.trail(l, p).colours(0xF0FFE0, COLOUR).size(0.35f).size2(8f).life(16).vec(new Vec3(0, 0.9, 0)).spawn();
 		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.4f);
+		return true;
+	}
+
+	/**
+	 * Shift+X: Stinger Lunge -- he darts forward stinger-first up to 8 blocks (stopping at a wall); everything in the path takes
+	 * 14 and is poisoned.
+	 */
+	public boolean stingerLunge(ServerPlayer p) {
+		if (!use(p, LUNGE)) {
+			return false;
+		}
+		anim(p, ANIM_STAB);
+		ServerLevel l = level(p);
+		Vec3 look = p.getLookAngle();
+		Vec3 from = p.position().add(0, p.getBbHeight() * 0.5, 0);
+		var wall = l.clip(new ClipContext(from, from.add(look.scale(LUNGE_RANGE)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
+		double reach = wall.getType() == HitResult.Type.BLOCK ? Math.max(0, wall.getLocation().distanceTo(from) - 0.6) : LUNGE_RANGE;
+		Vec3 to = from.add(look.scale(reach));
+		for (LivingEntity t : l.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(from, to).inflate(1.0), e -> e != p && e.isAlive())) {
+			Vec3 c = t.position().add(0, t.getBbHeight() * 0.5, 0);
+			double along = c.subtract(from).dot(look);
+			if (along < -0.5 || along > reach + 0.8 || c.distanceTo(from.add(look.scale(Math.max(0, along)))) > 1.2 + t.getBbWidth() * 0.5) {
+				continue;
+			}
+			hurt(p, t, LUNGE_DAMAGE, false);
+			t.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 1), p);
+			l.sendParticles(POISON_SWIRL, c.x, c.y, c.z, 10, 0.3, 0.3, 0.3, 0.6);
+			l.sendParticles(GOO_DARK, c.x, c.y, c.z, 8, 0.15, 0.15, 0.15, 0);
+			l.sendParticles(ParticleTypes.CRIT, c.x, c.y, c.z, 10, 0.2, 0.2, 0.2, 0.3);
+		}
+		// the dart itself: a hard burst along the path that bleeds off
+		p.setDeltaMovement(look.scale(Math.min(2.2, 0.6 + reach * 0.22)).add(0, 0.08, 0));
+		p.hurtMarked = true;
+		for (int i = 0; i <= 12; i++) {
+			Vec3 q = from.add(look.scale(reach * i / 12.0));
+			l.sendParticles(i % 2 == 0 ? GOO_PALE : GOO_DARK, q.x, q.y, q.z, 2, 0.08, 0.08, 0.08, 0);
+		}
+		QuirkFx.trail(l, p).colours(0xF0FFE0, COLOUR).size(0.3f).size2(6f).life(12).vec(new Vec3(0, 0.9, 0)).spawn();
+		OmnitrixSounds.play(l, p.position(), DIVE, 1.0f, 1.3f);
+		OmnitrixSounds.play(l, p.position(), STING, 1.0f, 0.9f);
 		return true;
 	}
 

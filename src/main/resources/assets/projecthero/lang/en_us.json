@@ -9638,6 +9638,8 @@
   "projecthero.omnitrix.stinkfly.wing_flight.desc": "Take off (a hop into the air) or land. Your wings are always ready, so double-tapping jump flies too. No fall damage, ever.",
   "projecthero.omnitrix.stinkfly.wing_dash": "Wing Dash",
   "projecthero.omnitrix.stinkfly.wing_dash.desc": "A burst of speed wherever you look -- in the air or on the ground.",
+  "projecthero.omnitrix.stinkfly.stinger_lunge": "Stinger Lunge",
+  "projecthero.omnitrix.stinkfly.stinger_lunge.desc": "Dart forward stinger-first, up to 8 blocks (a wall stops you): everything in your path takes 14 and is poisoned.",
   "projecthero.omnitrix.stinkfly.dive_bomb": "Dive Bomb",
   "projecthero.omnitrix.stinkfly.dive_bomb.desc": "Plunge from the air (on the ground you hop up first) and splash down in a ring of goo: 18 damage at the centre (11 at the edge) and a slow.",
   "projecthero.omnitrix.stinkfly.wing_gust": "Wing Gust",

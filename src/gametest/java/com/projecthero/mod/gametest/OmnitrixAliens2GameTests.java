@@ -160,6 +160,30 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void stinkflysXIsWingDashAndShiftXIsAStingerLunge(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, StinkflyKit.ID);
+		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+		helper.assertTrue(kit.moves().stream().anyMatch(m -> m.id().equals(StinkflyKit.WING_DASH) && m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_3 && !m.shift()),
+				"X is Wing Dash");
+		helper.assertTrue(kit.moves().stream().anyMatch(m -> m.id().equals(StinkflyKit.LUNGE) && m.slot() == com.projecthero.mod.hero.AbilitySlot.SLOT_3 && m.shift()),
+				"Shift+X is Stinger Lunge");
+		// two zombies in a line ahead, one off to the side
+		Zombie first = zombie(helper, 3.5, 2, 3.5, 140f);
+		Zombie far = zombie(helper, 3.5, 2, 6.0, 140f);
+		Zombie side = zombie(helper, 6.8, 2, 4.5, 140f);
+		Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.0));
+		p.moveTo(at.x, at.y, at.z, 0f, 0f);
+		helper.assertTrue(kit.stingerLunge(p), "Stinger Lunge");
+		near(helper, first.getHealth(), 140f - StinkflyKit.LUNGE_DAMAGE, "the first in the path takes 14");
+		near(helper, far.getHealth(), 140f - StinkflyKit.LUNGE_DAMAGE, "so does the one behind it");
+		near(helper, side.getHealth(), 140f, "the one off to the side is missed");
+		helper.assertTrue(p.getDeltaMovement().horizontalDistance() > 1.0, "he darts forward");
+		helper.assertFalse(kit.stingerLunge(p), "it cools down");
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void stinkflysMovesHitAndCoolDown(GameTestHelper helper) {
 		floor(helper);
