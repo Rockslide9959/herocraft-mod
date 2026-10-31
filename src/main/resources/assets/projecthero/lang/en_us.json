@@ -9754,7 +9754,7 @@
   "projecthero.omnitrix.wildmutt.claw_swipe": "Claw Swipe",
   "projecthero.omnitrix.wildmutt.claw_swipe.desc": "Your punch is a claw rake (+4) that also cleaves the creatures beside the one you hit (half damage).",
   "projecthero.omnitrix.wildmutt.sniff": "Sniff",
-  "projecthero.omnitrix.wildmutt.sniff.desc": "Right-click: sniff the air -- for 6 s your senses reach 64 blocks, dropped items show up, and buried ores and chests nearby leak their scent up through the ground (coloured by what they are). A scent ripple rolls out round you.",
+  "projecthero.omnitrix.wildmutt.sniff.desc": "Sniff the air -- for 6 s your senses reach 64 blocks, dropped items show up, and buried ores and chests nearby leak their scent up through the ground (coloured by what they are). A scent ripple rolls out round you.",
   "_comment_omnitrix_wildmutt_end": "",
   "projecthero.omnitrix.heatblast.heat_aura": "Heat Aura",
   "projecthero.omnitrix.heatblast.heat_aura.desc": "Toggle: burn white-hot. Creatures within 3.5 blocks catch fire (1 a second), snow and ice round you melt, and items dropped near you come out smelted. Water puts it out.",

@@ -66,7 +66,7 @@ import net.minecraft.world.phys.Vec3;
  *   Z        Ground Slam   both fists down: r 4.5, 16 near / 10 at the edge     Shift+Z  Quill Roll    ULTIMATE: 1.5 s spiked roll (12 a hit, -40% taken),
  *                                                                                                      then a quill burst (14, r 4)
  *   C        Feral Frenzy  8 s: +25% speed, +4 claws, +1 attack speed, heals    Shift+C  Scent Track   marks a creature (48 r) for 30 s: a trail to it
- *   Attack   claw swipe (cleaves the creatures beside the target)              Use (empty hand, air)  Sniff: 6 s, senses widen to 64, pick out items and buried ores / chests
+ *   Attack   claw swipe (cleaves the creatures beside the target)              Use      eats and drinks as usual (v0.17.2: Sniff moved to Shift+V)
  *   Passive  Scent Sense: creatures within 24 are outlined for him (invisible ones too); gallops (+20% while sprinting); no eyes:
  *            immune to Blindness and Darkness. Weakness: underwater his senses shrink to 6 and his air runs out twice as fast;
  *            an explosion close by deafens his senses for 3 s.
@@ -282,8 +282,9 @@ public final class WildmuttKit extends AlienKit {
 				// ultimate now -- was a 200-tick cooldown
 				AlienMove.tap(SLAM_MOVE, AbilitySlot.SLOT_4, 160), AlienMove.shift(ROLL, AbilitySlot.SLOT_4, 500),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(TRACK, AbilitySlot.SLOT_6, 300),
-				AlienMove.tap(DIG, AbilitySlot.SLOT_5, 16),
-				AlienMove.vanilla(SWIPE, "Attack", 0), AlienMove.vanilla(SNIFF_MOVE, "Use (empty hand)", SNIFF_TICKS));
+				// v0.17.2 (user: "take sniff off wildmutts right click ... he cant eat food right now"): Sniff on Shift+V
+				AlienMove.tap(DIG, AbilitySlot.SLOT_5, 16), AlienMove.shift(SNIFF_MOVE, AbilitySlot.SLOT_5, SNIFF_TICKS),
+				AlienMove.vanilla(SWIPE, "Attack", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -355,7 +356,13 @@ public final class WildmuttKit extends AlienKit {
 					frenzy(p);
 				}
 			}
-			case SLOT_5 -> dig(p); // v0.17.1 (user: "add abilities to the V key for every alien")
+			case SLOT_5 -> {
+				if (shift) {
+					sniff(p);
+				} else {
+					dig(p); // v0.17.1 (user: "add abilities to the V key for every alien")
+				}
+			}
 			default -> {
 			}
 		}
@@ -807,18 +814,7 @@ public final class WildmuttKit extends AlienKit {
 		return false;
 	}
 
-	/**
-	 * Use on air: Sniff -- 6 s of wider senses that also pick out dropped items. v0.17.1 rework 2: paws hold nothing, so it
-	 * sniffs whatever the hotbar slot has in it (the main hand's use; the off hand's is refused).
-	 */
-	@Override
-	public InteractionResult onUse(ServerPlayer p, InteractionHand hand) {
-		if (hand != InteractionHand.MAIN_HAND) {
-			return InteractionResult.FAIL;
-		}
-		return sniff(p) ? InteractionResult.SUCCESS : InteractionResult.CONSUME;
-	}
-
+	/** Shift+V: Sniff -- 6 s of wider senses that also pick out dropped items (v0.17.2: was right-click, which kept him from eating). */
 	public boolean sniff(ServerPlayer p) {
 		if (!use(p, SNIFF_MOVE)) {
 			return false;

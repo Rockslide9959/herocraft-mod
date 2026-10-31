@@ -147,6 +147,10 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_PICKAXE));
 		near(helper, p.getDestroySpeed(stone), 1.0, "a pickaxe mines like a bare paw");
 		helper.assertFalse(p.hasCorrectToolForDrops(stone), "and harvests no stone");
+		// v0.17.2: right-click is his own again -- food in the paw is eaten, not swallowed by a Sniff
+		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.BREAD));
+		helper.assertTrue(kit().onUse(p, net.minecraft.world.InteractionHand.MAIN_HAND) == net.minecraft.world.InteractionResult.PASS, "right-click passes through (he can eat)");
+		helper.assertTrue(com.projecthero.mod.omnitrix.alien.AlienKit.pawsCanUse(p.getMainHandItem()), "and paws may eat bread");
 		// the claw hit with a sword in the slot: his own claws only
 		p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
