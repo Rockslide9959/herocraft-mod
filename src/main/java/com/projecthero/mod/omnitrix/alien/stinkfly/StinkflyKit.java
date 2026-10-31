@@ -54,12 +54,13 @@ import net.minecraft.world.phys.Vec3;
  * flies for real, spits slowing goo and gasses whatever is below him. Light: 14 health, but no fall damage at all.
  *
  * <pre>
- *   R        Slime Shot     a goo glob (3): roots for 1.5 s, then slows       Shift+R  Slime Net      a wide net: roots everything it lands on (3 s)
- *   G        Toxic Gas      a stinking cloud ahead (5 s: poison, nausea)      Shift+G  Stinger Stab   the tail jabs (6 + Poison II)
+ *   R        Slime Shot     a goo glob (10): roots for 1.5 s, then slows      Shift+R  Slime Net      a wide net (6): roots everything it lands on (3 s)
+ *   G        Toxic Gas      a stinking cloud ahead (5 s: 2 a pulse, 20 in     Shift+G  Stinger Stab   the tail jabs (12 + Poison II)
+ *                           all; poison, nausea)
  *   X        Wing Flight    take off / land (double-tap jump works too)       Shift+X  Wing Dash      a burst of speed where you look
- *   Z        Dive Bomb      plunge and splash down (up to 8, slows)           Shift+Z  Wing Gust      a blast of wind: shoves, deflects projectiles
+ *   Z        Dive Bomb      plunge and splash down (18 falling to 11, slows)  Shift+Z  Goo Storm      ULTIMATE: goo rains on an area for 6 s (4/s = 24, slows)
  *   V        Lift           grab the creature in front in your legs and carry it as you fly; V again drops it
- *   C        Goo Storm      goo rains on an area for 6 s (slows, stings)     Shift+C  Slime Barrage  five globs in a fan
+ *   C        Wing Gust      a blast of wind (6): shoves, deflects projectiles Shift+C  Slime Barrage  five globs in a fan (4 each)
  *   Attack   stinger-tipped jab (poisons)       Use   a quick goo spit (empty hand)
  * </pre>
  */
@@ -126,21 +127,33 @@ public final class StinkflyKit extends AlienKit {
 	public static final String JAB = "stinger_jab";
 	public static final String GOO_SPIT = "goo_spit";
 
-	public static final float SHOT_DAMAGE = 3f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float SHOT_DAMAGE = 10f;
 	public static final int SHOT_ROOT = 30;
 	public static final float NET_RADIUS = 2.75f;
 	public static final int NET_ROOT = 60;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2 (inline)
+	public static final float NET_DAMAGE = 6f;
 	public static final float GAS_RADIUS = 3.25f;
 	public static final int GAS_TICKS = 100;
-	public static final float GAS_DAMAGE = 1.5f;
-	public static final float STAB_DAMAGE = 6f;
-	public static final float DIVE_DAMAGE = 8f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
+	public static final float GAS_DAMAGE = 2f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
+	public static final float STAB_DAMAGE = 12f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 8 falling to 4.8
+	// at the edge -- now 18 at the centre falling to 11
+	public static final float DIVE_DAMAGE = 18f;
+	public static final float DIVE_EDGE_DAMAGE = 11f;
 	public static final float DIVE_RADIUS = 3.5f;
-	public static final float GUST_DAMAGE = 2f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2
+	public static final float GUST_DAMAGE = 6f;
 	public static final float STORM_RADIUS = 6f;
 	public static final int STORM_TICKS = 120;
-	public static final float STORM_DAMAGE = 1.5f;
-	public static final float BARRAGE_DAMAGE = 2.5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 a second
+	// (9 over 6 s) -- now 4 a second (24), his ultimate
+	public static final float STORM_DAMAGE = 4f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2.5 (5 globs = 20)
+	public static final float BARRAGE_DAMAGE = 4f;
 	public static final float FLY_SPEED = 0.06f;
 
 	private static final DustParticleOptions GOO_DUST = new DustParticleOptions(new Vector3f(0.72f, 0.88f, 0.29f), 1.2f);
@@ -219,9 +232,11 @@ public final class StinkflyKit extends AlienKit {
 				AlienMove.tap(SLIME_SHOT, AbilitySlot.SLOT_1, 16), AlienMove.shift(SLIME_NET, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(TOXIC_GAS, AbilitySlot.SLOT_2, 220), AlienMove.shift(STINGER, AbilitySlot.SLOT_2, 50),
 				AlienMove.tap(FLIGHT, AbilitySlot.SLOT_3, 8), AlienMove.shift(WING_DASH, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(DIVE_BOMB, AbilitySlot.SLOT_4, 140), AlienMove.shift(WING_GUST, AbilitySlot.SLOT_4, 120),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Goo Storm (his
+				// ultimate) moved from C to Shift+Z, Wing Gust from Shift+Z to C
+				AlienMove.tap(DIVE_BOMB, AbilitySlot.SLOT_4, 140), AlienMove.shift(GOO_STORM, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(LIFT, AbilitySlot.SLOT_5, 60),
-				AlienMove.tap(GOO_STORM, AbilitySlot.SLOT_6, 600), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_6, 240),
+				AlienMove.tap(WING_GUST, AbilitySlot.SLOT_6, 120), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_6, 240),
 				AlienMove.vanilla(JAB, "Attack", 20), AlienMove.vanilla(GOO_SPIT, "Use", 12));
 	}
 
@@ -383,7 +398,7 @@ public final class StinkflyKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					wingGust(p);
+					gooStorm(p); // v0.17.2: was Wing Gust (Goo Storm was C)
 				} else {
 					diveBomb(p);
 				}
@@ -393,7 +408,7 @@ public final class StinkflyKit extends AlienKit {
 				if (shift) {
 					slimeBarrage(p);
 				} else {
-					gooStorm(p);
+					wingGust(p); // v0.17.2: was Goo Storm (Wing Gust was Shift+Z)
 				}
 			}
 			default -> {
@@ -416,7 +431,7 @@ public final class StinkflyKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_NET);
-		AlienProjectileEntity.of(p, "stinkfly_net").colour(0xD8F070).size(0.85f).damage(2f).gravity(0.025).speed(1.15).life(60).spawn();
+		AlienProjectileEntity.of(p, "stinkfly_net").colour(0xD8F070).size(0.85f).damage(NET_DAMAGE).gravity(0.025).speed(1.15).life(60).spawn();
 		OmnitrixSounds.play(level(p), p.position(), SPIT, 1.0f, 0.7f);
 		return true;
 	}
@@ -546,7 +561,8 @@ public final class StinkflyKit extends AlienKit {
 		QuirkCamera.shakeAround(l, c, 10, 0.35f, 8);
 		for (LivingEntity e : around(p, c.add(0, 0.5, 0), DIVE_RADIUS)) {
 			double d = Math.sqrt(e.distanceToSqr(c));
-			hurt(p, e, (float) (DIVE_DAMAGE * (1.0 - 0.4 * Math.min(1.0, d / DIVE_RADIUS))), false);
+			// v0.17.2: 18 at the centre falling to 11 at the edge (was 8 x (1 - 0.4 x d/r))
+			hurt(p, e, (float) (DIVE_DAMAGE - (DIVE_DAMAGE - DIVE_EDGE_DAMAGE) * Math.min(1.0, d / DIVE_RADIUS)), false);
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 1), p);
 			shove(e, c, 0.6, 0.3);
 		}

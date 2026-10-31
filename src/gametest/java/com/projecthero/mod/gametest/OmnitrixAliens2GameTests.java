@@ -165,11 +165,11 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, StinkflyKit.ID);
 		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.0, 80f);
+		Zombie z = zombie(helper, 3.5, 2, 4.0, 160f); // v0.17.2: was 80 -- the rebalanced kit would kill an 80-health zombie before the dive
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(AlienKit.lookTarget(p, 3.75) == z, "the zombie is in reach");
 		helper.assertTrue(kit.stingerStab(p), "Stinger Stab");
-		near(helper, z.getHealth(), 80f - StinkflyKit.STAB_DAMAGE, "the stab hits for 6");
+		near(helper, z.getHealth(), 160f - StinkflyKit.STAB_DAMAGE, "the stab hits for 12");
 		// (no poison check: a zombie is undead and shrugs poison off)
 		helper.assertFalse(kit.stingerStab(p), "the stab cools down");
 		helper.assertTrue(kit.slimeShot(p) && !kit.slimeShot(p), "Slime Shot fires, then cools down");
@@ -180,7 +180,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.assertTrue(kit.gooStorm(p) && !kit.gooStorm(p), "Goo Storm, then cools down");
 		helper.assertTrue(kit.wingDash(p) && !kit.wingDash(p), "Wing Dash, then cools down");
 		float afterInstant = z.getHealth();
-		helper.assertTrue(afterInstant <= 80f - StinkflyKit.STAB_DAMAGE - StinkflyKit.GUST_DAMAGE + 0.05f, "the gust hit too");
+		helper.assertTrue(afterInstant <= 160f - StinkflyKit.STAB_DAMAGE - StinkflyKit.GUST_DAMAGE + 0.05f, "the gust hit too");
 		pump(helper, p);
 		helper.runAfterDelay(25, () -> {
 			helper.assertTrue(rooted(z), "the slime stuck the zombie in place");
@@ -234,7 +234,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 				helper.assertTrue(kit.flag(p, RipjawsKit.F_WET), "wet");
 				helper.assertTrue(d < RipjawsKit.MAX_DRY - 10 * RipjawsKit.REFILL_WATER, "the water refills the meter fast (" + d + ")");
 				helper.assertFalse(kit.flag(p, RipjawsKit.F_CHOKING), "no longer choking");
-				near(helper, kit.damage(p, 10f), 10f * RipjawsKit.WATER_BONUS, "x1.5 damage in water");
+				near(helper, kit.damage(p, 10f), 10f * RipjawsKit.WATER_BONUS, "x1.25 damage in water");
 				helper.assertFalse(p.hasEffect(MobEffects.WEAKNESS), "getting wet clears the choking's weakness");
 				helper.assertTrue(p.getAttributeValue(Attributes.ATTACK_DAMAGE) >= 1 + 3 + RipjawsKit.WET_FIST - 1.0e-6, "and a heavier fist");
 				helper.assertTrue(p.hasEffect(MobEffects.DOLPHINS_GRACE) && p.hasEffect(MobEffects.CONDUIT_POWER), "fast and clear-eyed in water");
@@ -258,17 +258,17 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		p.setHealth(20f);
 		helper.assertTrue(kit.bite(p), "Bite");
-		near(helper, z.getHealth(), 100f - RipjawsKit.BITE_DAMAGE, "7 damage on land");
+		near(helper, z.getHealth(), 100f - RipjawsKit.BITE_DAMAGE, "12 damage on land");
 		near(helper, p.getHealth(), 21f, "a bite heals 1");
 		helper.assertFalse(kit.bite(p), "the bite cools down");
 		float b = z.getHealth();
 		helper.assertTrue(kit.tailSlam(p), "Tail Slam");
-		near(helper, z.getHealth(), b - RipjawsKit.SLAM_DAMAGE, "8 damage");
+		near(helper, z.getHealth(), b - RipjawsKit.SLAM_DAMAGE, "12 damage");
 		helper.assertFalse(kit.tailSlam(p), "the slam cools down");
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
 		b = z.getHealth();
 		helper.assertTrue(kit.finSlash(p), "Fin Slash");
-		near(helper, z.getHealth(), b - RipjawsKit.SLASH_DAMAGE, "6 damage");
+		near(helper, z.getHealth(), b - RipjawsKit.SLASH_DAMAGE, "10 damage");
 		helper.assertFalse(kit.finSlash(p), "the slash cools down");
 		b = z.getHealth();
 		helper.assertTrue(kit.whirlpool(p), "Z on land: Mud Splash");
@@ -301,7 +301,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.assertTrue(kit.jawLunge(p) && !kit.jawLunge(p), "Jaw Lunge, then cools down");
 		pump(helper, p);
 		helper.runAfterDelay(2, () -> {
-			near(helper, z.getHealth(), before - RipjawsKit.LUNGE_DAMAGE * RipjawsKit.FRENZY_BONUS, "the lunge bit for 10 (+30% frenzy)");
+			near(helper, z.getHealth(), before - RipjawsKit.LUNGE_DAMAGE * RipjawsKit.FRENZY_BONUS, "the lunge bit for 16 (+30% frenzy)");
 			Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED)) < 1.0e-6,
 					"the frenzy's speed is gone");
@@ -347,10 +347,10 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 0f);
 		helper.assertTrue(AlienKit.lookTarget(p, 3.0) == z, "the zombie is in reach of something so small");
 		helper.assertTrue(kit.nervePinch(p) && rooted(z) && z.hasEffect(MobEffects.WEAKNESS), "Nerve Pinch stuns");
-		near(helper, z.getHealth(), 99f, "a pinch (1)");
+		near(helper, z.getHealth(), 100f - GreyMatterKit.PINCH_DAMAGE, "a pinch (4)");
 		helper.assertFalse(kit.nervePinch(p), "the pinch cools down");
 		helper.assertTrue(kit.weakSpot(p), "Weak-Spot Strike");
-		near(helper, z.getHealth(), 99f - GreyMatterKit.STRIKE_DAMAGE, "a crit for 12");
+		near(helper, z.getHealth(), 100f - GreyMatterKit.PINCH_DAMAGE - GreyMatterKit.STRIKE_DAMAGE, "a crit for 18");
 		helper.assertFalse(kit.weakSpot(p), "the strike cools down");
 		helper.assertTrue(kit.analyze(p) && GreyMatterKit.marked(z) && z.hasEffect(MobEffects.GLOWING), "Analyze marks it");
 		helper.assertFalse(kit.analyze(p), "Analyze cools down");
@@ -358,8 +358,14 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		z.invulnerableTime = 0;
 		z.hurt(helper.getLevel().damageSources().magic(), 10f);
 		near(helper, z.getHealth(), b - 10f * GreyMatterKit.MARK_FACTOR, "a marked creature takes 35% more from anyone");
+		// v0.17.2: on a marked creature the Weak-Spot Strike comes to 24 once the mark's x1.35 is on it
+		near(helper, GreyMatterKit.strikeDamage(z) * GreyMatterKit.MARK_FACTOR, GreyMatterKit.STRIKE_MARKED_DAMAGE, "a marked weak spot takes 24");
 		helper.assertTrue(kit.decoy(p) && !kit.decoy(p), "Decoy, then cools down");
-		helper.assertTrue(kit.smokeBomb(p) && z.hasEffect(MobEffects.BLINDNESS) && !kit.smokeBomb(p), "Smoke Bomb blinds, then cools down");
+		float bs = z.getHealth();
+		z.invulnerableTime = 0;
+		helper.assertTrue(kit.smokeBomb(p) && z.hasEffect(MobEffects.BLINDNESS) && !kit.smokeBomb(p), "Smoke Charge blinds, then cools down");
+		// v0.17.2: Smoke Charge blasts for 22 (x1.35 on the marked zombie)
+		near(helper, z.getHealth(), bs - GreyMatterKit.SMOKE_DAMAGE * GreyMatterKit.MARK_FACTOR, "the smoke charge blasts it for 22 (+35% marked)");
 		helper.assertTrue(kit.scurry(p) && kit.flag(p, GreyMatterKit.F_SCURRY) && !kit.scurry(p), "Scurry, then cools down");
 		helper.assertTrue(kit.bigLeap(p) && kit.flag(p, GreyMatterKit.F_LEAP) && !kit.bigLeap(p), "Big Leap, then cools down");
 		float hp = p.getHealth();

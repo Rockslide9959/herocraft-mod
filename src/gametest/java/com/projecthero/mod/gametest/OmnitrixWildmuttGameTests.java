@@ -192,7 +192,7 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		helper.assertFalse(k.pounce(p), "Pounce cools down");
 		p.tickCount++;
 		Omnitrix.tick(p);
-		near(helper, z.getHealth(), 200f - WildmuttKit.POUNCE_DAMAGE, "the bite does 9");
+		near(helper, z.getHealth(), 200f - WildmuttKit.POUNCE_DAMAGE, "the bite does 12");
 		helper.assertTrue(z.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and pins it");
 		helper.assertFalse(k.flag(p, WildmuttKit.F_POUNCE), "the pounce is over");
 		// the timed moves: Maul, Quill Volley, Savage Roar, Ground Slam
@@ -206,20 +206,20 @@ public class OmnitrixWildmuttGameTests implements FabricGameTest {
 		helper.runAfterDelay(WildmuttKit.MAUL_HITS[WildmuttKit.MAUL_HITS.length - 1] + 3, () -> {
 			float lost = before - z.getHealth();
 			float maul = 3 * WildmuttKit.MAUL_RAKE + WildmuttKit.MAUL_SLAM;
-			// everything lands on the one zombie: the maul (16.5), the roar (3) and the slam (5..8); quills may add
+			// everything lands on the one zombie: the maul (18), the roar (6) and the slam (10..16); quills may add
 			helper.assertTrue(lost >= maul + WildmuttKit.ROAR_DAMAGE + WildmuttKit.SLAM_FAR - 0.1f,
 					"the maul, the roar and the slam all hit (" + lost + ")");
 			helper.assertTrue(z.hasEffect(MobEffects.WEAKNESS), "the roar weakens");
 			AABB box = p.getBoundingBox().inflate(20);
 			int quills = helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, box, e -> "wildmutt_quill".equals(e.kind())).size();
-			helper.assertTrue(quills > 0 || z.getHealth() < before - maul - 3f - 5f, "the quills flew (" + quills + " still out)");
+			helper.assertTrue(quills > 0 || z.getHealth() < before - maul - WildmuttKit.ROAR_DAMAGE - WildmuttKit.SLAM_FAR, "the quills flew (" + quills + " still out)");
 			// Quill Roll: rolls through it once
 			z.setHealth(200f);
 			ahead(z, p, 0.9);
 			helper.assertTrue(k.roll(p) && k.flag(p, WildmuttKit.F_ROLL), "Quill Roll");
 			helper.assertFalse(k.roll(p), "the roll cools down");
 			helper.runAfterDelay(2, () -> {
-				near(helper, z.getHealth(), 200f - WildmuttKit.ROLL_DAMAGE, "the roll hits it once for 5");
+				near(helper, z.getHealth(), 200f - WildmuttKit.ROLL_DAMAGE, "the roll hits it once for 12");
 				float hp = p.getHealth();
 				p.invulnerableTime = 0;
 				p.hurt(helper.getLevel().damageSources().generic(), 10f);

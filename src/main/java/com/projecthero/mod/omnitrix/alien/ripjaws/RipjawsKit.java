@@ -50,21 +50,22 @@ import net.minecraft.world.phys.Vec3;
 /**
  * v0.17.1: Ripjaws, the Piscciss Volann -- a grey-blue fish-man with a huge toothy jaw, gills and fins, whose legs become a fish
  * tail in the water. In water he is a predator: fast (Dolphin's Grace), never drowns, sees and digs freely (Conduit Power), and
- * hits half again as hard. On land he slowly DRIES OUT (the hydration meter over his keys): two minutes of dry land are free,
+ * hits a quarter again as hard. On land he slowly DRIES OUT (the hydration meter over his keys): two minutes of dry land are free,
  * then he chokes for 1 health every 2 s (slowed, weakened) until he gets wet again. Water refills the meter in 15 s; rain stops
  * the drying and refills it slowly; Drench (Shift+C) splashes half of it back.
  *
  * <pre>
- *   R        Bite           a huge chomp (7; heals 1)                         Shift+R  Jaw Lunge       lunge jaws-first: the first creature in the way (10)
- *   G        Tail Slam      a ring of force around you (8, knockback)         Shift+G  Fin Slash       a spin of razor fins (6, slows)
+ *   R        Bite           a huge chomp (12; heals 1)                        Shift+R  Jaw Lunge       lunge jaws-first: the first creature in the way (16)
+ *   G        Tail Slam      a ring of force around you (12, knockback)        Shift+G  Fin Slash       a spin of razor fins (10, slows)
  *   X        Water Dash     a burst through the water / on land a hop         Shift+X  Breach          leap out of the water / on land a back-flip
- *   Z        Whirlpool      in water: a 5 s vortex that drags and drowns      Shift+Z  Tidal Roar      weakens, slows and shoves around you
+ *   Z        Whirlpool      in water: a 5 s vortex that drags and drowns      Shift+Z  Tidal Roar      ULTIMATE: 24 around you; weakens, slows, shoves
+ *                           (2 a pulse, 20 in all)
  *            Mud Splash     on land: a blinding spray of mud ahead
  *   V        Water Bubble   30 s of a water bubble round his head: no drying out on land (it slowly refills)
  *   C        Feeding Frenzy 10 s: +30% damage, faster, bites heal 3          Shift+C  Drench          splash yourself: half the hydration back
  *   Attack   jaw punch (+3 in water)        Use on a block   dig straight through sand, gravel, dirt, clay, mud and snow
  * </pre>
- * Every move does x1.5 in water.
+ * Every move does x1.25 in water (v0.17.2: was x1.5).
  */
 public final class RipjawsKit extends AlienKit {
 	public static final String ID = "ripjaws";
@@ -141,17 +142,23 @@ public final class RipjawsKit extends AlienKit {
 	public static final int REFILL_RAIN = 2;
 	public static final int CHOKE_EVERY = 40;
 	public static final float CHOKE_DAMAGE = 1f;
-	public static final float WATER_BONUS = 1.5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5
+	public static final float WATER_BONUS = 1.25f;
 	public static final float FRENZY_BONUS = 1.3f;
 	public static final int FRENZY_TICKS = 200;
-	public static final float BITE_DAMAGE = 7f;
-	public static final float LUNGE_DAMAGE = 10f;
-	public static final float SLAM_DAMAGE = 8f;
-	public static final float SLASH_DAMAGE = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7 / 10 / 8 / 6
+	public static final float BITE_DAMAGE = 12f;
+	public static final float LUNGE_DAMAGE = 16f;
+	public static final float SLAM_DAMAGE = 12f;
+	public static final float SLASH_DAMAGE = 10f;
 	public static final float WHIRL_RADIUS = 6f;
 	public static final int WHIRL_TICKS = 100;
-	public static final float WHIRL_DAMAGE = 1.5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5 (10 pulses = 20)
+	public static final float WHIRL_DAMAGE = 2f;
 	public static final float MUD_DAMAGE = 3f;
+	/** Shift+Z Tidal Roar, his ultimate. */
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 0 (no damage)
+	public static final float ROAR_DAMAGE = 24f;
 	public static final float WET_FIST = 3f;
 
 	private static final ResourceLocation SWIM = PowerToggles.id("omnitrix_ripjaws_swim");
@@ -193,7 +200,9 @@ public final class RipjawsKit extends AlienKit {
 				AlienMove.tap(BITE, AbilitySlot.SLOT_1, 14), AlienMove.shift(LUNGE, AbilitySlot.SLOT_1, 70),
 				AlienMove.tap(TAIL_SLAM, AbilitySlot.SLOT_2, 90), AlienMove.shift(FIN_SLASH, AbilitySlot.SLOT_2, 120),
 				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 30), AlienMove.shift(BREACH, AbilitySlot.SLOT_3, 100),
-				AlienMove.tap(WHIRLPOOL, AbilitySlot.SLOT_4, 320), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_4, 300),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Tidal Roar is his
+				// ultimate now -- was a 300-tick cooldown
+				AlienMove.tap(WHIRLPOOL, AbilitySlot.SLOT_4, 320), AlienMove.shift(ROAR_MOVE, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(BUBBLE, AbilitySlot.SLOT_5, 1200),
 				AlienMove.tap(FRENZY, AbilitySlot.SLOT_6, 600), AlienMove.shift(DRENCH, AbilitySlot.SLOT_6, 900),
 				AlienMove.vanilla(PUNCH, "Attack", 0), AlienMove.vanilla(DIG, "Use on sand / gravel / dirt", 3));
@@ -260,7 +269,7 @@ public final class RipjawsKit extends AlienKit {
 		}
 	}
 
-	/** A move's damage now: x1.5 in water, x1.3 in a feeding frenzy. */
+	/** A move's damage now: x1.25 in water, x1.3 in a feeding frenzy. */
 	public float damage(ServerPlayer p, float base) {
 		float d = base;
 		if (inWater(p)) {
@@ -660,6 +669,8 @@ public final class RipjawsKit extends AlienKit {
 		OmnitrixSounds.play(l, c, ROAR, 1.4f, 0.9f);
 		QuirkCamera.shakeAround(l, c, 12, 0.3f, 10);
 		for (LivingEntity e : around(p, c, 8f)) {
+			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was no damage
+			hurt(p, e, damage(p, ROAR_DAMAGE), false);
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0), p);
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 0), p);
 			shove(e, c, 0.7, 0.2);
