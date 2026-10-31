@@ -40,6 +40,15 @@ function fire(v) {
 // --- Four Arms -------------------------------------------------------------------------------------------------------
 {
 	const s = dec(path.join(__dirname, 'four_arms_src.png'));
+	// v0.17.2 (user: "remove the omnitrix pixels from the second arm on fourarms"): the 2x2 watch symbol painted on the left arm's
+	// sleeve (57..58 x 54..55) showed on the lower arm, which shares those UVs -- painted out from the sleeve texel beside it
+	for (const y of [54, 55]) {
+		for (const x of [57, 58]) {
+			for (let c = 0; c < 4; c++) {
+				s.px[(y * 64 + x) * 4 + c] = s.px[(y * 64 + 56) * 4 + c];
+			}
+		}
+	}
 	write('four_arms.png', 64, 64, s.px);
 }
 

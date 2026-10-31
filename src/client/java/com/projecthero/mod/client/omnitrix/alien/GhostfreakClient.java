@@ -216,6 +216,6 @@ public final class GhostfreakClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
 		// out), just left of the middle of his chest
-		return new float[] { 1.0f, 3.0f, -2.06f, 4.4f };
+		return new float[] { 1.0f, 3.0f, -2.06f, 2.0f };
 	}
 }

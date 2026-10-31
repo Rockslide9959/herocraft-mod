@@ -302,7 +302,7 @@ public final class StinkflyClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "stinkfly's badge needs to be on his face"): on his forehead, between the eyes (head-bone pixels: the cube
 		// spans x -4..4, y -8..0, z -4..4; just in front of the hat layer)
-		return new float[] { 0f, -4.0f, -4.56f, 4.4f };
+		return new float[] { 0f, -4.0f, -4.56f, 2.0f };
 	}
 
 	@Override

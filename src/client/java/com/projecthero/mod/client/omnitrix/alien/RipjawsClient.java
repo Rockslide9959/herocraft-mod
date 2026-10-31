@@ -101,6 +101,11 @@ public final class RipjawsClient implements AlienClientKit {
 	 * asking a buffer source for another render type ends the previous one.
 	 */
 	private static void legSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light) {
+		legSeg(pose, buffers, hx, hz, len, v0, v1, light, false);
+	}
+
+	/** {@code striped}: the striped front on all four sides (the land tail, seen from the side and above). */
+	private static void legSeg(PoseStack pose, MultiBufferSource buffers, float hx, float hz, float len, float v0, float v1, int light, boolean striped) {
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityCutoutNoCull(SKIN));
 		PoseStack.Pose last = pose.last();
 		float x0 = -hx / 16f, x1 = hx / 16f, z0 = -hz / 16f, z1 = hz / 16f, y0 = 0f, y1 = len / 16f;
@@ -108,9 +113,9 @@ public final class RipjawsClient implements AlienClientKit {
 		int c = 0xFFFFFFFF;
 		// front (the stripes), back, the two sides
 		AlienParts.quad(vc, last, c, light, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0, 0, -1, 4f / 64f, t, 8f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0, 0, 1, 12f / 64f, t, 16f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, -1, 0, 0, 0f, t, 4f / 64f, b);
-		AlienParts.quad(vc, last, c, light, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 1, 0, 0, 8f / 64f, t, 12f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0, 0, 1, striped ? 4f / 64f : 12f / 64f, t, striped ? 8f / 64f : 16f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, -1, 0, 0, striped ? 4f / 64f : 0f, t, striped ? 8f / 64f : 4f / 64f, b);
+		AlienParts.quad(vc, last, c, light, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 1, 0, 0, striped ? 4f / 64f : 8f / 64f, t, striped ? 8f / 64f : 12f / 64f, b);
 		// the ends: the leg's top and its sole
 		AlienParts.quad(vc, last, c, light, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0, -1, 0, 4f / 64f, 16f / 64f, 8f / 64f, 20f / 64f);
 		AlienParts.quad(vc, last, c, light, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, 8f / 64f, 16f / 64f, 12f / 64f, 20f / 64f);
@@ -181,12 +186,13 @@ public final class RipjawsClient implements AlienClientKit {
 				pose.translate(0, 10.5f / 16f, 1.8f / 16f);
 				pose.mulPose(Axis.XP.rotation(-0.9f));
 				pose.mulPose(Axis.YP.rotation(Mth.sin(age * 0.12f) * 0.15f));
-				// the segments run down +y, so turn +y onto +z (out behind him)
+				// the segments run down +y, so turn +y onto +z (out behind him) -- v0.17.2 (user: "please fix his tail textures when not
+				// swimming too"): striped all round, as from the side and above you only saw the leg's pale sides and back
 				pose.mulPose(Axis.XP.rotation(Mth.HALF_PI));
-				legSeg(pose, buffers, 1.8f, 1.6f, 4.5f, 0f, 0.56f, light);
+				legSeg(pose, buffers, 1.8f, 1.6f, 4.5f, 0f, 0.56f, light, true);
 				pose.translate(0, 4.2f / 16f, 0);
 				pose.mulPose(Axis.XP.rotation(0.6f));
-				legSeg(pose, buffers, 1.2f, 1.1f, 3.5f, 0.56f, 1f, light);
+				legSeg(pose, buffers, 1.2f, 1.1f, 3.5f, 0.56f, 1f, light, true);
 				pose.translate(0, 3.2f / 16f, 0);
 				pose.scale(0.65f, 0.65f, 0.65f);
 				fluke(pose, buffers, light);
@@ -307,6 +313,6 @@ public final class RipjawsClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
 		// out), high on his left breast
-		return new float[] { 1.9f, 2.4f, -2.05f, 4.4f };
+		return new float[] { 2.5f, 2.0f, -2.05f, 2.0f };
 	}
 }

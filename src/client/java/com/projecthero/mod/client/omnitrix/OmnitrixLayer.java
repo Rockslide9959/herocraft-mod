@@ -51,8 +51,8 @@ public final class OmnitrixLayer extends RenderLayer<AbstractClientPlayer, Playe
 				// v0.17.1 (user: "make all the omnitrix badges white ... thats how it is in the show"): the white symbol
 				// (badge.png); the red flash is badge_red.png, the same badge in red
 				VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucentEmissive(red ? BADGE_RED : BADGE));
-				// v0.17.2 (user: "make all the badges the same size as the biggest badge"): every badge is 4.4 px across (Stinkfly's);
-				// Grey Matter keeps his chest-wide 7 px, which his 0.33 body scale already makes the smallest
+				// v0.17.2 (user: "make the omnitrix badge a bit smaller ... maybe make it 2x2 pixels"): every badge is 2 px across
+				// (Grey Matter's 6 px is 2 at his 0.33 body scale)
 				float s = b[3] / 2f / 16f;
 				float y = b[1] / 16f;
 				if (b.length > 4 && b[4] == 1f) {

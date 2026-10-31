@@ -477,6 +477,6 @@ public final class HeatblastClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
 		// out), the middle of his chest
-		return new float[] { 0f, 4.0f, -2.06f, 4.4f };
+		return new float[] { 0f, 4.0f, -2.06f, 2.0f };
 	}
 }
