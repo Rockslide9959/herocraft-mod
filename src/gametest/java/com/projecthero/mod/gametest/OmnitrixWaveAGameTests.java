@@ -270,6 +270,38 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
+	/**
+	 * v0.17.2 (user: "Make Shift+G the spike Line ability / Make Z an aoe spike ability"): Shift+G is the Spike Line, Z the new
+	 * Crystal Eruption -- rings of spikes all round him that reach a zombie behind him and one beside him (12 each, thrown up,
+	 * slowed), once each.
+	 */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void diamondheadsCrystalEruptionHitsAllAroundAndSpikeLineIsOnShiftG(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		helper.assertTrue(DiamondheadKit.SPIKES.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_2, true, false).id()), "Shift+G is the Spike Line");
+		helper.assertTrue(DiamondheadKit.ERUPT.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, false, false).id()), "Z is the Crystal Eruption");
+		helper.assertTrue(DiamondheadKit.BARRAGE.equals(kit.moveOn(com.projecthero.mod.hero.AbilitySlot.SLOT_4, true, false).id()), "Shift+Z is still the Barrage");
+		kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, true);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.SPIKES) > 0 && !kit.flag(p, DiamondheadKit.F_BLADE), "Shift+G runs the Spike Line, not the blade");
+		Vec3 mid = helper.absoluteVec(new Vec3(3.5, 2, 3.5));
+		p.moveTo(mid.x, mid.y, mid.z, 0f, 0f); // facing +z
+		Zombie behind = zombie(helper, 3.5, 2, 0.5, 60f);
+		Zombie beside = zombie(helper, 7.0, 2, 3.5, 60f);
+		kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_4, false);
+		helper.assertTrue(kit.cooldownLeft(p, DiamondheadKit.ERUPT) > DiamondheadKit.ERUPT_COOLDOWN - 5, "Z: the Crystal Eruption, on cooldown");
+		helper.assertFalse(kit.eruption(p), "and not again until it cools");
+		pump(helper, p);
+		helper.runAfterDelay(DiamondheadKit.ERUPT_RINGS + 4, () -> {
+			helper.assertTrue(near(behind.getHealth(), 60f - DiamondheadKit.ERUPT_DAMAGE), "the zombie behind him: 12, once: " + behind.getHealth());
+			helper.assertTrue(near(beside.getHealth(), 60f - DiamondheadKit.ERUPT_DAMAGE), "the one beside him (3.5 out): " + beside.getHealth());
+			helper.assertTrue(behind.hasEffect(MobEffects.MOVEMENT_SLOWDOWN), "and slowed");
+			behind.discard();
+			beside.discard();
+			helper.succeed();
+		});
+	}
+
 	// ================================================================ Upgrade
 
 	/** v0.17.2: the Crystal Slide is the Ice Slide in crystal -- a toggle, a ramp grows under him, X again steps off. */

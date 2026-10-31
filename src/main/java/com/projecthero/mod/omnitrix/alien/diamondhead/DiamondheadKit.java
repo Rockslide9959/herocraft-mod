@@ -58,14 +58,17 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R        Shard Volley      a fan of 5 crystal shards (4 each)             Shift+R  Crystal Spear    one huge spear (18, knockback)
- *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)
+ *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)  Shift+G  Spike Line       crystal spikes erupt in a 12-block line (16, launch)
  *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
- *   Z        Spike Line        crystal spikes erupt in a 12-block line (16, launch)  Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look (5 each)
+ *   Z        Crystal Eruption  rings of crystal spikes burst out of the ground all round you (radius 6; 12, launch, slow)
+ *            Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look (5 each)
  *   V        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+V  Crystal Dome     a dome over you (7 s)
  *   C        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
  *            Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
  *   (v0.17.2, user: "put diamondheads crystal wall and dome abilities on V and put the stronger move on Z and the ultimate
  *   on Shift+Z": Spike Line from Shift+G, Diamond Barrage from C, Wall / Dome from Z, Regrowth from V)
+ *   (v0.17.2, user: "Make Shift+G the spike Line ability / Make Z an aoe spike ability": Spike Line back on Shift+G, the new
+ *   Crystal Eruption on Z)
  *   Attack   Crystal Edge (blade: the slash sweeps)   Use on a block (empty hand)   a crystal block for 30 s
  * </pre>
  */
@@ -103,6 +106,9 @@ public final class DiamondheadKit extends AlienKit {
 	public static final String ARMOUR = "crystal_armour";
 	public static final String EDGE = "crystal_edge";
 	public static final String PLACE = "crystal_block";
+	/** v0.17.2: Z -- the Crystal Eruption. */
+	public static final String ERUPT = "crystal_eruption";
+	public static final int ANIM_ERUPT = 14;
 
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
 	public static final float SHARD_DAMAGE = 4f;
@@ -112,6 +118,15 @@ public final class DiamondheadKit extends AlienKit {
 	public static final double BLADE_BONUS = 6.0;
 	public static final float SPIKE_DAMAGE = 16f; // v0.17.2: was 6
 	public static final int SPIKE_LENGTH = 12;
+	/** v0.17.2: the Crystal Eruption -- damage (a Z "stronger move", on par with the elemental powers'), reach and cooldown. */
+	public static final float ERUPT_DAMAGE = 12f;
+	public static final double ERUPT_RADIUS = 6.0;
+	/** The eruption's rings, one a tick, from {@link #ERUPT_INNER} out to {@link #ERUPT_RADIUS}. */
+	public static final int ERUPT_RINGS = 5;
+	public static final double ERUPT_INNER = 1.5;
+	public static final int ERUPT_COOLDOWN = 180;
+	/** Slowness II on whatever it throws (a boss only a quarter of it). */
+	public static final int ERUPT_SLOW_TICKS = 60;
 	public static final int WALL_TICKS = 160;
 	public static final int DOME_TICKS = 140;
 	/** v0.17.2: how long each crystal of the slide's ramp stays behind him (ticks). */
@@ -156,11 +171,16 @@ public final class DiamondheadKit extends AlienKit {
 	private static final Map<UUID, SpikeLine> LINES = new ConcurrentHashMap<>();
 	/** player -> where the Diamond Barrage rains. */
 	private static final Map<UUID, Storm> STORMS = new ConcurrentHashMap<>();
+	/** player -> the Crystal Eruption spreading out from him. */
+	private static final Map<UUID, Eruption> ERUPTIONS = new ConcurrentHashMap<>();
 
 	private record SpikeLine(ResourceKey<Level> dim, Vec3 from, Vec3 dir, long start, Set<Integer> hit) {
 	}
 
 	private record Storm(ResourceKey<Level> dim, Vec3 at) {
+	}
+
+	private record Eruption(ResourceKey<Level> dim, Vec3 at, long start, Set<Integer> hit) {
 	}
 
 	private DiamondheadKit() {
@@ -193,6 +213,7 @@ public final class DiamondheadKit extends AlienKit {
 	public static void clearSessionState() {
 		LINES.clear();
 		STORMS.clear();
+		ERUPTIONS.clear();
 	}
 
 	static BlockState crystal() {
@@ -213,11 +234,12 @@ public final class DiamondheadKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 24), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
-				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20),
+				// v0.17.2 (user: "Make Shift+G the spike Line ability / Make Z an aoe spike ability")
+				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20), AlienMove.shift(SPIKES, AbilitySlot.SLOT_2, 160),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 80), AlienMove.shift(VAULT, AbilitySlot.SLOT_3, 140),
 				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the
 				// Barrage's cooldown 500 -> 600, the ultimate's 30 s
-				AlienMove.tap(SPIKES, AbilitySlot.SLOT_4, 160), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 600),
+				AlienMove.tap(ERUPT, AbilitySlot.SLOT_4, ERUPT_COOLDOWN), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(WALL, AbilitySlot.SLOT_5, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_5, 500),
 				AlienMove.tap(REGROW, AbilitySlot.SLOT_6, 400), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
@@ -240,6 +262,7 @@ public final class DiamondheadKit extends AlienKit {
 		setFlag(p, F_ARMOUR, false);
 		LINES.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
+		ERUPTIONS.remove(p.getUUID());
 	}
 
 	@Override
@@ -275,6 +298,7 @@ public final class DiamondheadKit extends AlienKit {
 		slideTick(p, l, now);
 		tickSpikes(p, l, now);
 		tickStorm(p, l, now);
+		tickEruption(p, l, now);
 	}
 
 	/** The reflection passive on one projectile: {@code roll} under the chance (all of them under Crystal Armour) sends it back. */
@@ -378,7 +402,9 @@ public final class DiamondheadKit extends AlienKit {
 				}
 			}
 			case SLOT_2 -> {
-				if (!shift) {
+				if (shift) {
+					spikeLine(p);
+				} else {
 					bladeArm(p);
 				}
 			}
@@ -393,7 +419,7 @@ public final class DiamondheadKit extends AlienKit {
 				if (shift) {
 					barrage(p);
 				} else {
-					spikeLine(p);
+					eruption(p);
 				}
 			}
 			case SLOT_5 -> {
@@ -485,6 +511,84 @@ public final class DiamondheadKit extends AlienKit {
 		LINES.put(p.getUUID(), new SpikeLine(p.level().dimension(), p.position(), flatLook(p), p.level().getGameTime(), new HashSet<>()));
 		QuirkCamera.shakeAround(level(p), p.position(), 10, 0.2f, 8);
 		return true;
+	}
+
+	/**
+	 * Z: the Crystal Eruption -- v0.17.2 (user: "Make Z an aoe spike ability"). He slams a fist into the ground and rings of
+	 * crystal spikes burst up all round him, one ring a tick, out to {@link #ERUPT_RADIUS}: whatever stands in them takes
+	 * {@link #ERUPT_DAMAGE} (once), is thrown up and out and is slowed.
+	 */
+	public boolean eruption(ServerPlayer p) {
+		if (!use(p, ERUPT)) {
+			return false;
+		}
+		anim(p, ANIM_ERUPT);
+		ServerLevel l = level(p);
+		ERUPTIONS.put(p.getUUID(), new Eruption(l.dimension(), p.position(), l.getGameTime(), new HashSet<>()));
+		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xE0FFF6, COLOUR).size((float) ERUPT_RADIUS + 0.5f).thickness(0.7f).life(12).ground().spawn();
+		l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), p.getX(), p.getY() + 0.1, p.getZ(), 30, 0.6, 0.05, 0.6, 0.25);
+		OmnitrixSounds.play(l, p.position(), SND_SHATTER, 1.1f, 0.6f);
+		OmnitrixSounds.play(l, p.position(), SND_GROW, 1.2f, 0.7f);
+		QuirkCamera.shakeAround(l, p.position(), 12, 0.35f, 10);
+		return true;
+	}
+
+	/** The radius of the eruption's {@code ring}-th ring. */
+	public static double eruptionRing(int ring) {
+		return ERUPT_INNER + (ERUPT_RADIUS - ERUPT_INNER) * ring / (ERUPT_RINGS - 1);
+	}
+
+	private void tickEruption(ServerPlayer p, ServerLevel l, long now) {
+		Eruption er = ERUPTIONS.get(p.getUUID());
+		if (er == null) {
+			return;
+		}
+		int ring = (int) (now - er.start());
+		if (ring >= ERUPT_RINGS || er.dim() != l.dimension()) {
+			ERUPTIONS.remove(p.getUUID());
+			return;
+		}
+		if (ring < 0) {
+			return;
+		}
+		double r = eruptionRing(ring);
+		int n = Math.max(6, (int) Math.round(Math.PI * 2 * r / 1.35));
+		// each ring turned half a step against the last, so the spikes stagger like teeth
+		double turn = (ring % 2) * Math.PI / n;
+		for (int i = 0; i < n; i++) {
+			double a = i * Math.PI * 2 / n + turn;
+			double jr = r + (l.random.nextDouble() - 0.5) * 0.5;
+			Vec3 at = er.at().add(Math.cos(a) * jr, 0, Math.sin(a) * jr);
+			BlockPos ground = groundUnder(l, BlockPos.containing(at.x, er.at().y - 0.5, at.z));
+			if (ground == null) {
+				continue;
+			}
+			Vec3 base = new Vec3(at.x, ground.getY() + 1.0, at.z);
+			// leaning out from him, tallest in the middle rings
+			Vec3 lean = new Vec3(Math.cos(a) * 0.38, 1, Math.sin(a) * 0.38).normalize();
+			float tall = 1.5f + (float) Math.sin(Math.PI * (ring + 1) / (ERUPT_RINGS + 1)) * 1.1f + l.random.nextFloat() * 0.5f;
+			QuirkFx.spike(l, base, lean).block(crystal()).colours(0xC8FFF0, COLOUR).size(tall).size2(0.42f).life(30 - ring * 2).spawn();
+			if (i % 3 == 0) {
+				l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), base.x, base.y + 0.1, base.z, 3, 0.2, 0.05, 0.2, 0.15);
+				l.sendParticles(SPARKLE, base.x, base.y + 0.6, base.z, 1, 0.2, 0.4, 0.2, 0.0);
+			}
+		}
+		OmnitrixSounds.play(l, er.at(), SND_GROW, 0.8f, 1.0f + ring * 0.12f);
+		// this ring and everything inside it not yet thrown
+		for (LivingEntity e : around(p, er.at(), r + 0.9)) {
+			if (Math.abs(e.getY() - er.at().y) > 3.0 || !er.hit().add(e.getId())) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, ERUPT_DAMAGE, false);
+			double resist = Math.max(0.3, 1.0 - e.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE));
+			Vec3 out = new Vec3(e.getX() - er.at().x, 0, e.getZ() - er.at().z);
+			out = out.lengthSqr() < 1.0e-4 ? Vec3.ZERO : out.normalize().scale(0.45 * resist);
+			e.push(out.x, 0.7 * resist, out.z);
+			e.hurtMarked = true;
+			int slow = com.projecthero.mod.omnitrix.alien.AlienStatus.isBoss(e) ? ERUPT_SLOW_TICKS / 4 : ERUPT_SLOW_TICKS;
+			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, slow, 1), p);
+		}
 	}
 
 	/** Steps up a block on the slide without stopping (the client drives the ride). */

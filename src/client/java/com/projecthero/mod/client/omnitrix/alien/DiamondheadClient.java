@@ -7,6 +7,7 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.omnitrix.AlienParts;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
+import com.projecthero.mod.client.omnitrix.OmnitrixRenderers;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks;
@@ -69,6 +70,12 @@ public final class DiamondheadClient implements AlienClientKit {
 	private static final float[][] SLASH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.9f, 0.9f, 0.4f, 0.2f, 0, 0, 0, 0.5f, 0, 0, 0, 0, 0, 0, 0),
 			QuirkKeyframes.f(5, -1.2f, -1.0f, -0.2f, 0.3f, 0, 0, 0.2f, -0.5f, 0.2f, 0, 0, -0.2f, 0, 0, 0), QuirkKeyframes.rest(10) };
 	private static final float[][] PLACE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -1.1f, 0, 0, 0, 0, 0, 0.15f, 0, 0, 0, 0, 0, 0, 0, 0.3f), QuirkKeyframes.rest(8) };
+	// v0.17.2 (user: "Make Z an aoe spike ability"): the Crystal Eruption -- both fists hauled up overhead, then a dropping
+	// slam into the ground on one knee-deep crouch, held while the rings burst out
+	private static final float[][] ERUPT = { QuirkKeyframes.restC(0),
+			QuirkKeyframes.fc(4, -3.0f, 0.15f, 0.35f, -3.0f, -0.15f, -0.35f, -0.25f, 0, 0.1f, 0, 0, 0.1f, 0, 0, -0.35f, 0.1f),
+			QuirkKeyframes.fc(7, -0.35f, 0, 0.15f, -0.35f, 0, -0.15f, 0.75f, 0, -0.7f, 0, 0.15f, 0.2f, 0, -0.1f, 0.45f, 1.0f),
+			QuirkKeyframes.fc(17, -0.3f, 0, 0.15f, -0.3f, 0, -0.15f, 0.7f, 0, -0.65f, 0, 0.15f, 0.2f, 0, -0.1f, 0.4f, 0.95f), QuirkKeyframes.restC(24) };
 
 	private static final FirstPersonClip FP_VOLLEY = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(2, 15, -15, 0, -0.1f, -0.1f, 0.1f),
 			FirstPersonClip.f(5, -25, 25, 0, 0.2f, 0.12f, -0.25f), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0)).both();
@@ -90,10 +97,157 @@ public final class DiamondheadClient implements AlienClientKit {
 			FirstPersonClip.f(8, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_FLEX = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -20, 40, 0, 0.25f, 0.15f, 0.05f),
 			FirstPersonClip.f(8, -20, -30, 30, -0.2f, 0.1f, 0), FirstPersonClip.f(16, 0, 0, 0, 0, 0, 0)).both();
+	/** v0.17.2: the Crystal Eruption's slam -- both fists up out of view, then driven down hard past the bottom of the screen. */
+	private static final FirstPersonClip FP_ERUPT = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4, -95, 5, 0, 0.05f, 0.6f, 0.25f),
+			FirstPersonClip.f(7, 50, 10, 0, 0.05f, -0.5f, -0.2f), FirstPersonClip.f(17, 45, 10, 0, 0.05f, -0.45f, -0.18f), FirstPersonClip.f(24, 0, 0, 0, 0, 0, 0)).both();
 
 	public DiamondheadClient() {
 		// his conjured crystal is see-through
 		net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap.INSTANCE.putBlock(DiamondheadBlocks.CRYSTAL, RenderType.translucent());
+		// v0.17.2 (user: "for diamondhead make spike projectiles for his spike projectile abilities instead of just glowing orbs")
+		OmnitrixRenderers.projectileLook("diamondhead_shard", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, false));
+		OmnitrixRenderers.projectileLook("diamondhead_spear", (e, partial, pose, buffers) -> shardShot(e, partial, pose, buffers, true));
+	}
+
+	// ---------------------------------------------------------------- v0.17.2: the shard and spear projectiles
+
+	private static final ResourceLocation GLOW_TEX = ProjectHeroMod.id("textures/entity/omnitrix/glow.png");
+	/** A flung shard's profile along its flight, tail (0) to point (1): {t, radius scale} -- a short butt, the widest facet ring, the long point. */
+	private static final float[][] SHARD_PROFILE = { { 0f, 0f }, { 0.1f, 0.72f }, { 0.28f, 1.0f }, { 0.55f, 0.82f }, { 1f, 0f } };
+	/** The spear's: a long, slender shaft between its butt and its blade. */
+	private static final float[][] SPEAR_PROFILE = { { 0f, 0f }, { 0.06f, 0.55f }, { 0.4f, 0.62f }, { 0.58f, 1.0f }, { 0.72f, 0.85f }, { 1f, 0f } };
+
+	/**
+	 * A Diamondhead shard / Crystal Spear in flight: a faceted hexagonal crystal (see-through green-teal, every facet shaded by
+	 * which way it faces) pointed along its velocity and turning slowly about it, a glowing core inside, and a glint that
+	 * flashes across it now and then. The spear is a long slender crystal with three smaller shards flaring off its butt.
+	 */
+	private static void shardShot(com.projecthero.mod.omnitrix.entity.AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers,
+			boolean spear) {
+		net.minecraft.world.phys.Vec3 v = e.getDeltaMovement();
+		if (v.lengthSqr() < 1.0e-6) {
+			v = net.minecraft.world.phys.Vec3.directionFromRotation(e.getXRot(), e.getYRot());
+		}
+		net.minecraft.world.phys.Vec3 dir = v.normalize();
+		float age = e.tickCount + partial;
+		float s = e.size();
+		// grows out of his hand over the first two ticks rather than popping in whole
+		float grow = Mth.clamp(0.45f + age * 0.28f, 0.45f, 1f);
+		float len = (spear ? s * 3.9f : s * 3.4f) * grow;
+		float r = (spear ? s * 0.32f : s * 0.42f) * grow;
+		int block = Math.max(10, LightTexture.block(net.minecraft.client.Minecraft.getInstance().getEntityRenderDispatcher().getPackedLightCoords(e, partial)));
+		int light = LightTexture.pack(block, 15);
+		pose.pushPose();
+		pose.translate(0.0, e.getBbHeight() * 0.5, 0.0);
+		// the glint: a four-point star flashing across the crystal (camera-facing; drawn before the crystal turns the pose)
+		float flash = Mth.sin(age * (spear ? 0.35f : 0.55f) + e.getId());
+		if (flash > 0.55f) {
+			float k = (flash - 0.55f) / 0.45f;
+			float along = (spear ? 0.22f : 0.12f) * len;
+			pose.pushPose();
+			pose.translate(dir.x * along, dir.y * along, dir.z * along);
+			glint(pose, buffers, (spear ? 0.75f : 0.38f) * k * grow, (int) (230 * k));
+			pose.popPose();
+		}
+		pose.mulPose(Axis.YP.rotation((float) Math.atan2(dir.x, dir.z)));
+		pose.mulPose(Axis.XP.rotation((float) -Math.atan2(dir.y, Math.sqrt(dir.x * dir.x + dir.z * dir.z))));
+		pose.mulPose(Axis.ZP.rotation(age * (spear ? 0.12f : 0.35f) + e.getId() * 0.7f));
+		float tail = -len * (spear ? 0.55f : 0.32f);
+		float[][] profile = spear ? SPEAR_PROFILE : SHARD_PROFILE;
+		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
+		// the crystal itself, a touch flattened so it reads as a cut shard, not a cone
+		facetted(pose.last(), vc, profile, tail, len, r, 0.78f, 0xC8D8FFF2, light, true);
+		if (spear) {
+			// three small shards flaring back off the butt like fletching
+			for (int k = 0; k < 3; k++) {
+				pose.pushPose();
+				pose.mulPose(Axis.ZP.rotation(k * Mth.TWO_PI / 3f));
+				pose.translate(0, r * 0.45f, tail + len * 0.16f);
+				// pointing back and out
+				pose.mulPose(Axis.XP.rotation(Mth.PI + 0.5f));
+				facetted(pose.last(), vc, SHARD_PROFILE, -len * 0.08f, len * 0.26f, r * 0.42f, 0.8f, 0xC8D8FFF2, light, true);
+				pose.popPose();
+			}
+		}
+		// the bright core inside (additive, so it glows through the see-through facets)
+		float pulse = 0.75f + 0.25f * Mth.sin(age * 0.6f);
+		int c = (int) (255 * pulse);
+		int core = 0xFF000000 | ((c * 0x8C / 255) << 16) | (c << 8) | (c * 0xE0 / 255);
+		facetted(pose.last(), buffers.getBuffer(RenderType.eyes(EXTRAS)), profile, tail * 0.8f, len * 0.86f, r * 0.45f, 0.78f, core, LightTexture.FULL_BRIGHT,
+				false);
+		pose.popPose();
+	}
+
+	/**
+	 * A crystal along +Z from {@code z0}, {@code len} long, {@code r} wide ({@code flat} times as deep): six facets round each
+	 * span of {@code profile}, each wound outward and shaded from its facing (pale lit, base, dark shadowed texels) unless
+	 * {@code shaded} is false (the core: one glowing texel).
+	 */
+	private static void facetted(PoseStack.Pose p, VertexConsumer vc, float[][] profile, float z0, float len, float r, float flat, int argb, int light,
+			boolean shaded) {
+		int n = 6;
+		float[][][] ring = new float[profile.length][n][3];
+		for (int k = 0; k < profile.length; k++) {
+			float rs = profile[k][1] * r;
+			double twist = k * 0.12;
+			for (int i = 0; i < n; i++) {
+				double a = i * Math.PI * 2 / n + twist;
+				ring[k][i][0] = (float) Math.cos(a) * rs;
+				ring[k][i][1] = (float) Math.sin(a) * rs * flat;
+				ring[k][i][2] = z0 + profile[k][0] * len;
+			}
+		}
+		for (int k = 0; k < ring.length - 1; k++) {
+			for (int i = 0; i < n; i++) {
+				float[] a = ring[k][i], b = ring[k][(i + 1) % n], c = ring[k + 1][(i + 1) % n], d = ring[k + 1][i];
+				// the facet's normal from its two diagonals (sound even where a ring closes to a point)
+				float ux = c[0] - a[0], uy = c[1] - a[1], uz = c[2] - a[2];
+				float wx = d[0] - b[0], wy = d[1] - b[1], wz = d[2] - b[2];
+				float nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+				float nl = Math.max(1e-7f, Mth.sqrt(nx * nx + ny * ny + nz * nz));
+				nx /= nl;
+				ny /= nl;
+				nz /= nl;
+				// outward: away from the crystal's axis
+				float mx = (a[0] + b[0] + c[0] + d[0]) * 0.25f, my = (a[1] + b[1] + c[1] + d[1]) * 0.25f;
+				boolean flip = nx * mx + ny * my < 0;
+				if (flip) {
+					nx = -nx;
+					ny = -ny;
+					nz = -nz;
+				}
+				float[] uv;
+				if (shaded) {
+					// lit from above and ahead: the facets catch the light as the shard turns
+					float lit = ny * 0.6f + nx * 0.25f + nz * 0.3f;
+					uv = lit > 0.25f ? PALE : lit > -0.3f ? CRYSTAL : DARK;
+				} else {
+					uv = GLOW;
+				}
+				if (flip) {
+					AlienParts.quad(vc, p, argb, light, a[0], a[1], a[2], d[0], d[1], d[2], c[0], c[1], c[2], b[0], b[1], b[2], nx, ny, nz, uv[0], uv[1], uv[2], uv[3]);
+				} else {
+					AlienParts.quad(vc, p, argb, light, a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], d[0], d[1], d[2], nx, ny, nz, uv[0], uv[1], uv[2], uv[3]);
+				}
+			}
+		}
+	}
+
+	/** A camera-facing four-point star of light: two crossed thin streaks and a small round bloom. */
+	private static void glint(PoseStack pose, MultiBufferSource buffers, float size, int alpha) {
+		pose.pushPose();
+		pose.mulPose(net.minecraft.client.Minecraft.getInstance().getEntityRenderDispatcher().cameraOrientation());
+		VertexConsumer vc = buffers.getBuffer(RenderType.eyes(GLOW_TEX));
+		int argb = (alpha << 24) | ((0xE8 * alpha / 255) << 16) | ((0xFF * alpha / 255) << 8) | (0xF6 * alpha / 255);
+		PoseStack.Pose p = pose.last();
+		float thin = size * 0.12f;
+		pose.mulPose(Axis.ZP.rotation(0.6f));
+		p = pose.last();
+		AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, -size, -thin, 0, size, -thin, 0, size, thin, 0, -size, thin, 0, 0, 0, 1, 0, 0, 1, 1);
+		AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, -thin, -size, 0, thin, -size, 0, thin, size, 0, -thin, size, 0, 0, 0, 1, 0, 0, 1, 1);
+		float b = size * 0.35f;
+		AlienParts.quad(vc, p, argb, LightTexture.FULL_BRIGHT, -b, -b, 0, b, -b, 0, b, b, 0, -b, b, 0, 0, 0, 1, 0, 0, 1, 1);
+		pose.popPose();
 	}
 
 	@Override
@@ -218,6 +372,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_SLASH -> SLASH;
 			case DiamondheadKit.ANIM_PLACE -> PLACE;
 			case DiamondheadKit.ANIM_REGROW -> REGROW;
+			case DiamondheadKit.ANIM_ERUPT -> ERUPT;
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
@@ -248,6 +403,7 @@ public final class DiamondheadClient implements AlienClientKit {
 			case DiamondheadKit.ANIM_PLACE -> FP_PLACE;
 			case DiamondheadKit.ANIM_ARMOUR -> FP_FLEX;
 			case DiamondheadKit.ANIM_REGROW -> FP_REGROW;
+			case DiamondheadKit.ANIM_ERUPT -> FP_ERUPT;
 			default -> null;
 		};
 	}
