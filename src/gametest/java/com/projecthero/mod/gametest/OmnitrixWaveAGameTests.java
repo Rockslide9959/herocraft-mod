@@ -295,32 +295,47 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
-	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
-	public void upgradesSlideShrinksAndOnlyStandsWhereThereIsRoom(GameTestHelper helper) {
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void upgradesLiquidFormIsAToggleThatSeepsAndEndsOnOtherMoves(GameTestHelper helper) {
 		ServerPlayer p = as(helper, UpgradeKit.ID);
 		UpgradeKit kit = (UpgradeKit) Aliens.kit(UpgradeKit.ID);
 		helper.assertTrue(near(p.getMaxHealth(), 28f), "28 health");
-		helper.assertTrue(kit.liquidSlide(p) && kit.flag(p, UpgradeKit.F_SLIDE), "Liquid Slide");
-		helper.assertTrue(p.getBbHeight() < 1.0f && p.getBbWidth() < 0.3f, "a puddle: fits under a 1-block gap (" + p.getBbHeight() + ")");
+		helper.assertTrue(kit.liquidSlide(p) && kit.flag(p, UpgradeKit.F_SLIDE), "X melts him into the Liquid Form");
+		helper.assertTrue(p.getBbHeight() < 0.5f, "a puddle: fits under a half-block gap (" + p.getBbHeight() + ")");
 		p.setDeltaMovement(Vec3.ZERO);
-		// a ceiling one block up: he cannot stand there
-		BlockPos ceiling = p.blockPosition().above();
-		helper.getLevel().setBlock(ceiling, Blocks.STONE.defaultBlockState(), 3);
-		pump(helper, p);
-		helper.runAfterDelay(UpgradeKit.SLIDE_TICKS + 6, () -> {
-			helper.assertTrue(kit.flag(p, UpgradeKit.F_SLIDE) && p.getBbHeight() < 1.0f, "under the ceiling he stays a puddle");
+		// soft blocks and slabs have no collision for him from the side; stone still does
+		BlockPos at = p.blockPosition();
+		net.minecraft.world.phys.shapes.CollisionContext ctx = net.minecraft.world.phys.shapes.CollisionContext.of(p);
+		BlockPos side = at.east();
+		helper.getLevel().setBlock(side, Blocks.OAK_LEAVES.defaultBlockState(), 3);
+		helper.assertTrue(helper.getLevel().getBlockState(side).getCollisionShape(helper.getLevel(), side, ctx).isEmpty(), "seeps through leaves");
+		helper.getLevel().setBlock(side, Blocks.STONE_SLAB.defaultBlockState(), 3);
+		helper.assertTrue(helper.getLevel().getBlockState(side).getCollisionShape(helper.getLevel(), side, ctx).isEmpty(), "seeps through slabs");
+		helper.getLevel().setBlock(side, Blocks.STONE.defaultBlockState(), 3);
+		helper.assertFalse(helper.getLevel().getBlockState(side).getCollisionShape(helper.getLevel(), side, ctx).isEmpty(), "but not stone");
+		// climbing: only pressed into the wall while looking up
+		p.horizontalCollision = true;
+		p.setXRot(0f);
+		helper.assertFalse(kit.climbs(p), "looking ahead: no climb");
+		p.setXRot(-70f);
+		helper.assertTrue(kit.climbs(p), "looking up: flows up the wall");
+		p.horizontalCollision = false;
+		helper.runAfterDelay(80, () -> {
+			helper.assertTrue(kit.flag(p, UpgradeKit.F_SLIDE), "no time limit");
+			// a ceiling one block up: no room to rise
+			BlockPos ceiling = p.blockPosition().above();
+			helper.getLevel().setBlock(ceiling, Blocks.STONE.defaultBlockState(), 3);
+			helper.assertFalse(kit.liquidSlide(p), "no room to rise");
 			helper.getLevel().setBlock(ceiling, Blocks.AIR.defaultBlockState(), 3);
-			helper.runAfterDelay(8, () -> {
-				helper.assertFalse(kit.flag(p, UpgradeKit.F_SLIDE), "room again: he stands up");
-				helper.assertTrue(Math.abs(p.getBbHeight() - 1.8f) < 0.01f, "full height again");
-				// a slide cut short by turning back leaves no small body behind
-				helper.assertTrue(kit.liquidSlide(p) || kit.cooldownLeft(p, UpgradeKit.SLIDE) > 0, "slide again");
-				kit.cooldown(p, UpgradeKit.SLIDE, 0);
-				kit.liquidSlide(p);
-				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-				helper.assertTrue(Math.abs(p.getBbHeight() - 1.8f) < 0.01f && Math.abs(p.getScale() - 1f) < 1.0e-4, "turning back: full size");
-				helper.succeed();
-			});
+			// any other move rises him first
+			kit.opticBeam(p);
+			helper.assertFalse(kit.flag(p, UpgradeKit.F_SLIDE), "another move ends the Liquid Form");
+			helper.assertTrue(Math.abs(p.getBbHeight() - 1.8f) < 0.01f, "full height again");
+			kit.cooldown(p, UpgradeKit.SLIDE, 0);
+			kit.liquidSlide(p);
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.assertTrue(Math.abs(p.getBbHeight() - 1.8f) < 0.01f && Math.abs(p.getScale() - 1f) < 1.0e-4, "turning back: full size");
+			helper.succeed();
 		});
 	}
 

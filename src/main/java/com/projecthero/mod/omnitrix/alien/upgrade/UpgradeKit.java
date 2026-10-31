@@ -79,7 +79,7 @@ import net.minecraft.world.phys.Vec3;
  *   R        Optic Beam       a beam from the eye (12, 24 blocks)             Shift+R  Overload        the machine or creature you look at shorts out
  *                                                                                                       (8, golems 16)
  *   G        Tech Grab        liquid metal wraps the target: stunned 3 s (6)   Shift+G  Circuit Lash    a whip that yanks the target to you (8)
- *   X        Liquid Slide     2 s as a slick puddle: fast and under 1-block gaps  Shift+X  Stretch Grapple  stretch to a block up to 22 away and pull there
+ *   X        Liquid Form      toggle: a fast puddle through soft/half blocks, climbs   Shift+X  Stretch Grapple  stretch to a block up to 22 away and pull there
  *   Z        Charged Beam     1 s charge, then a piercing beam (18) and a      Shift+Z  EMP Burst       ultimate: everything within 8 shorts out, 26 at
  *                             burst (6)                                                                the centre to 16 at the edge (golems x2)
  *   V       Overclock        merge into the held tool / weapon for 15 s: +100% mining speed, +4 damage, it mends
@@ -139,9 +139,12 @@ public final class UpgradeKit extends AlienKit {
 	public static final float GRAB_DAMAGE = 6f;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
 	public static final float LASH_DAMAGE = 8f;
-	public static final int SLIDE_TICKS = 40;
-	/** The body while sliding: 0.45 of a player (0.81 tall: through 1-block gaps). */
-	public static final double SLIDE_SCALE = 0.45;
+	/**
+	 * v0.17.2 (user: "swap out upgrade liquid slide ability for him morphing into a liquid on the floor"): the Liquid Form,
+	 * a 0.25-of-a-player puddle (0.45 tall: under half-block gaps), with no time limit.
+	 */
+	public static final double SLIDE_SCALE = 0.25;
+	public static final double SLIDE_SPEED = 0.8;
 	public static final int OVERLOAD_TICKS = 100;
 	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3, golems 6
 	public static final float OVERLOAD_DAMAGE = 8f;
@@ -230,7 +233,7 @@ public final class UpgradeKit extends AlienKit {
 				// Shift+R Charged Beam, Z Overload, Shift+Z EMP Burst (400)
 				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(OVERLOAD, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 120), AlienMove.shift(LASH, AbilitySlot.SLOT_2, 100),
-				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 40), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
+				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 10), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
 				AlienMove.tap(CHARGED, AbilitySlot.SLOT_4, 220), AlienMove.shift(EMP, AbilitySlot.SLOT_4, EMP_COOLDOWN),
 				AlienMove.tap(OVERCLOCK, AbilitySlot.SLOT_5, 600),
 				AlienMove.tap(MERGE, AbilitySlot.SLOT_6, MERGE_COOLDOWN), AlienMove.shift(REPAIR, AbilitySlot.SLOT_6, 600),
@@ -271,18 +274,13 @@ public final class UpgradeKit extends AlienKit {
 		if (now % 8 == 0) {
 			l.sendParticles(SPARK, p.getX(), p.getY() + p.getBbHeight() * 0.6, p.getZ(), 1, 0.25, 0.4, 0.25, 0.0);
 		}
-		// Liquid Slide: grow back only where there is room (never inside the 1-block gap you squeezed into)
-		long slide = timer(p, "slide_end");
-		if (slide > 0) {
+		// Liquid Form: a slick of liquid metal under him, circuit sparks running through it
+		if (flag(p, F_SLIDE)) {
 			if (now % 2 == 0) {
 				l.sendParticles(SPARK, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.2, 0.02, 0.2, 0.0);
 			}
-			if (now >= slide) {
-				if (roomToStand(p) || now - timer(p, "slide_start") > SLIDE_TICKS + 200) {
-					endSlide(p, false);
-				} else {
-					setTimer(p, "slide_end", now + 5);
-				}
+			if (now % 10 == 0 && p.onGround() && p.getDeltaMovement().horizontalDistanceSqr() > 0.004) {
+				QuirkFx.decal(l, p.position().add(0, 0.02, 0)).style(QuirkFx.DECAL_POOL).colour(0x061008).size(1.0f).life(30).spawn();
 			}
 		}
 		// Charged Beam
@@ -489,19 +487,28 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
-	// ---------------------------------------------------------------- the Liquid Slide
+	// ---------------------------------------------------------------- the Liquid Form
 
+	/**
+	 * X: melt into (or rise out of) the Liquid Form -- a toggle with no time limit. He only rises where there is room to
+	 * stand; any other move rises him first ({@link #onUse}).
+	 */
 	public boolean liquidSlide(ServerPlayer p) {
-		if (flag(p, F_SLIDE) || !use(p, SLIDE)) {
+		if (flag(p, F_SLIDE)) {
+			if (!roomToStand(p)) {
+				p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.no_room").withStyle(ChatFormatting.GRAY), true);
+				return false;
+			}
+			endSlide(p, false);
+			return true;
+		}
+		if (!use(p, SLIDE)) {
 			return false;
 		}
 		anim(p, ANIM_SLIDE);
-		long now = p.level().getGameTime();
 		setFlag(p, F_SLIDE, true);
-		setTimer(p, "slide_start", now);
-		setTimer(p, "slide_end", now + SLIDE_TICKS);
 		PowerToggles.modifier(p, Attributes.SCALE, SLIDE_SCALE_ID, SLIDE_SCALE - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
-		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPEED_ID, 0.6, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		PowerToggles.modifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPEED_ID, SLIDE_SPEED, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		p.refreshDimensions();
 		Vec3 l = p.getLookAngle();
 		Vec3 f = new Vec3(l.x, 0, l.z);
@@ -525,8 +532,6 @@ public final class UpgradeKit extends AlienKit {
 		boolean was = flag(p, F_SLIDE);
 		PowerToggles.clearModifier(p, Attributes.SCALE, SLIDE_SCALE_ID);
 		PowerToggles.clearModifier(p, Attributes.MOVEMENT_SPEED, SLIDE_SPEED_ID);
-		setTimer(p, "slide_end", 0);
-		setTimer(p, "slide_start", 0);
 		setFlag(p, F_SLIDE, false);
 		p.refreshDimensions();
 		if (was) {
@@ -537,6 +542,42 @@ public final class UpgradeKit extends AlienKit {
 				OmnitrixSounds.play(level(p), p.position(), SND_SLIDE, 0.7f, 0.7f);
 			}
 		}
+	}
+
+	/** Any other move rises him out of the Liquid Form first. */
+	@Override
+	protected void onUse(ServerPlayer p, String moveId) {
+		if (!SLIDE.equals(moveId) && flag(p, F_SLIDE)) {
+			endSlide(p, false);
+		}
+	}
+
+	/** Liquid Form: pressed into a wall while looking up, he flows straight up it (the speedsters' wall-run pitch). */
+	@Override
+	public boolean climbs(Player p) {
+		return flag(p, F_SLIDE) && p.horizontalCollision && !p.isShiftKeyDown()
+				&& p.getXRot() <= com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.WALL_RUN_PITCH;
+	}
+
+	/** Blocks the Liquid Form seeps through: soft ones and half blocks. */
+	public static boolean soft(net.minecraft.world.level.block.state.BlockState state) {
+		return state.is(net.minecraft.tags.BlockTags.LEAVES) || state.is(net.minecraft.tags.BlockTags.WOOL)
+				|| state.is(net.minecraft.tags.BlockTags.WOOL_CARPETS) || state.is(net.minecraft.tags.BlockTags.SLABS)
+				|| state.is(net.minecraft.tags.BlockTags.STAIRS) || state.is(net.minecraft.tags.BlockTags.BEDS)
+				|| state.is(Blocks.SNOW) || state.is(Blocks.SNOW_BLOCK) || state.is(Blocks.HAY_BLOCK) || state.is(Blocks.MOSS_BLOCK)
+				|| state.is(Blocks.SPONGE) || state.is(Blocks.WET_SPONGE) || state.is(Blocks.SLIME_BLOCK) || state.is(Blocks.HONEY_BLOCK);
+	}
+
+	/**
+	 * v0.17.2: no collision for {@code state} at {@code pos} -- the colliding entity is Upgrade in the Liquid Form, the block
+	 * is soft or a half block, and he is not standing on top of it (so floors of slabs or leaves still hold him). Read from
+	 * the synced kit flags, so the client's movement and the server's check agree ({@code SuperSpeedLeavesMixin}).
+	 */
+	public static boolean seepsThrough(net.minecraft.world.level.block.state.BlockState state, net.minecraft.world.level.BlockGetter level,
+			BlockPos pos, net.minecraft.world.phys.shapes.CollisionContext context) {
+		return context instanceof net.minecraft.world.phys.shapes.EntityCollisionContext ec && ec.getEntity() instanceof Player pl
+				&& soft(state) && sliding(pl) && AlienKit.activeKit(pl) instanceof UpgradeKit
+				&& !context.isAbove(state.getShape(level, pos), pos, false);
 	}
 
 	public boolean grapple(ServerPlayer p) {

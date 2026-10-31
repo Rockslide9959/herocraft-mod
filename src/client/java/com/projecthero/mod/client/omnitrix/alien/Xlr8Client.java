@@ -373,6 +373,6 @@ public final class Xlr8Client implements AlienClientKit {
 
 	@Override
 	public float[] badge() {
-		return new float[] { 0f, 3.6f, -2.06f, 3.0f };
+		return new float[] { 0f, 3.6f, -2.06f, 4.4f };
 	}
 }

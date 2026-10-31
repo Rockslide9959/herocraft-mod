@@ -26,7 +26,8 @@ public abstract class SuperSpeedLeavesMixin {
 			at = @At("HEAD"), cancellable = true)
 	private void projecthero$speedLeaves(BlockGetter level, BlockPos pos, CollisionContext context,
 			CallbackInfoReturnable<VoxelShape> cir) {
-		if (SpeedLeaves.passThrough((BlockState) (Object) this, pos, context)) {
+		if (SpeedLeaves.passThrough((BlockState) (Object) this, pos, context)
+				|| com.projecthero.mod.omnitrix.alien.upgrade.UpgradeKit.seepsThrough((BlockState) (Object) this, level, pos, context)) {
 			cir.setReturnValue(Shapes.empty());
 		}
 	}

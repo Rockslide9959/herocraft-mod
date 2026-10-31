@@ -278,6 +278,6 @@ public final class RipjawsClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "position our alien badges more on top of those alien badges"): over the skin's own symbol (now painted
 		// out), high on his left breast
-		return new float[] { 2.5f, 2.0f, -2.05f, 3.0f };
+		return new float[] { 1.9f, 2.4f, -2.05f, 4.4f };
 	}
 }

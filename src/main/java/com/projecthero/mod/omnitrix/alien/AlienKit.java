@@ -265,7 +265,12 @@ public abstract class AlienKit {
 			return false;
 		}
 		cooldown(p, moveId, -1);
+		onUse(p, moveId);
 		return true;
+	}
+
+	/** v0.17.2: a move passed its cooldown gate and is about to run (Upgrade's Liquid Form ends on any other move). */
+	protected void onUse(ServerPlayer p, String moveId) {
 	}
 
 	/** Plays pose {@code animId} (the client kit maps it to keyframes) from now. */
