@@ -281,7 +281,7 @@ public final class StinkflyKit extends AlienKit {
 		p.getAbilities().mayfly = true;
 		p.getAbilities().setFlyingSpeed(FLY_SPEED);
 		p.onUpdateAbilities();
-		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.0f);
+		OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.0f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		l.sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 1.0, p.getZ(), 16, 0.4, 0.5, 0.4, 0.05);
 	}
 
@@ -322,13 +322,14 @@ public final class StinkflyKit extends AlienKit {
 			setFlag(p, F_FLYING, flying);
 			if (flying) {
 				// take-off: a few hard strokes winding up into the buzz
-				l.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.STINKFLY_WINGS_UP, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.0f);
+				l.playSound(null, p, OmnitrixSounds.STINKFLY_WINGS_UP, net.minecraft.sounds.SoundSource.PLAYERS, 0.9f, 1.0f);
 			}
 		}
 		if (flying && p.tickCount % 16 == 0) {
 			// v0.17.1: the insect wingbeat loop (0.85 s, replayed every 16 ticks) -- higher and a touch louder the faster he flies
 			float sp = (float) Math.min(1.0, p.getDeltaMovement().length() / 1.2);
-			l.playSound(null, p.getX(), p.getY(), p.getZ(), OmnitrixSounds.STINKFLY_WINGS, net.minecraft.sounds.SoundSource.PLAYERS, 0.55f + 0.25f * sp,
+			// v0.17.2 (user: "its almost as if we're leaving the sound effect behind"): bound to him, not to where he was
+			l.playSound(null, p, OmnitrixSounds.STINKFLY_WINGS, net.minecraft.sounds.SoundSource.PLAYERS, 0.55f + 0.25f * sp,
 					0.95f + 0.2f * sp + p.getRandom().nextFloat() * 0.06f);
 		}
 		if (p.tickCount % 40 == 0) {
@@ -554,7 +555,7 @@ public final class StinkflyKit extends AlienKit {
 			p.getAbilities().flying = false;
 			p.onUpdateAbilities();
 			setFlag(p, F_FLYING, false);
-			OmnitrixSounds.play(l, p.position(), BUZZ, 0.6f, 0.8f);
+			OmnitrixSfx.playOn(p, BUZZ, 0.6f, 0.8f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 			return true;
 		}
 		p.getAbilities().flying = true;
@@ -563,7 +564,7 @@ public final class StinkflyKit extends AlienKit {
 		anim(p, ANIM_TAKEOFF);
 		p.push(0, 0.5, 0);
 		p.hurtMarked = true;
-		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.1f);
+		OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.1f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xF0FFE0, COLOUR).style(QuirkFx.RING_SOFT).size(2.2f).thickness(0.4f).life(10).ground().spawn();
 		return true;
 	}
@@ -578,7 +579,7 @@ public final class StinkflyKit extends AlienKit {
 		p.hurtMarked = true;
 		ServerLevel l = level(p);
 		QuirkFx.trail(l, p).colours(0xF0FFE0, COLOUR).size(0.35f).size2(8f).life(16).vec(new Vec3(0, 0.9, 0)).spawn();
-		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.4f);
+		OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.4f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		return true;
 	}
 
@@ -617,7 +618,7 @@ public final class StinkflyKit extends AlienKit {
 			l.sendParticles(i % 2 == 0 ? GOO_PALE : GOO_DARK, q.x, q.y, q.z, 2, 0.08, 0.08, 0.08, 0);
 		}
 		QuirkFx.trail(l, p).colours(0xF0FFE0, COLOUR).size(0.3f).size2(6f).life(12).vec(new Vec3(0, 0.9, 0)).spawn();
-		OmnitrixSounds.play(l, p.position(), DIVE, 1.0f, 1.3f);
+		OmnitrixSfx.playOn(p, DIVE, 1.0f, 1.3f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		OmnitrixSounds.play(l, p.position(), STING, 1.0f, 0.9f);
 		return true;
 	}
@@ -634,7 +635,7 @@ public final class StinkflyKit extends AlienKit {
 			p.setDeltaMovement(p.getDeltaMovement().x, 1.25, p.getDeltaMovement().z);
 			p.hurtMarked = true;
 			setTimer(p, "dive_at", now + 9);
-			OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.2f);
+			OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.2f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		} else {
 			startDive(p, now);
 		}
@@ -655,7 +656,7 @@ public final class StinkflyKit extends AlienKit {
 		setTimer(p, "dive_end", now + 60);
 		ServerLevel l = level(p);
 		QuirkFx.trail(l, p).colours(0xF0FFE0, GOO).size(0.4f).size2(10f).life(24).vec(new Vec3(0, 0.6, 0)).spawn();
-		OmnitrixSounds.play(l, p.position(), DIVE, 1.0f, 1.0f);
+		OmnitrixSfx.playOn(p, DIVE, 1.0f, 1.0f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 	}
 
 	/** The splash-down: a goo shockwave around where he lands. */
@@ -703,7 +704,7 @@ public final class StinkflyKit extends AlienKit {
 				.life(12).spawn();
 		l.sendParticles(ParticleTypes.CLOUD, eye.x + look.x * 2, eye.y + look.y * 2 - 0.3, eye.z + look.z * 2, 14, 0.6, 0.4, 0.6, 0.15);
 		gustRings(l, eye.add(0, -0.3, 0), look);
-		OmnitrixSounds.play(l, p.position(), BUZZ, 1.2f, 0.6f);
+		OmnitrixSfx.playOn(p, BUZZ, 1.2f, 0.6f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		p.clearFire();
 		for (LivingEntity e : around(p, eye.add(look.scale(3.5)), 4.5)) {
 			Vec3 to = e.position().add(0, e.getBbHeight() * 0.5, 0).subtract(eye);
@@ -865,7 +866,7 @@ public final class StinkflyKit extends AlienKit {
 		setFlag(p, F_LIFT, true);
 		anim(p, ANIM_LIFT);
 		ServerLevel l = level(p);
-		OmnitrixSounds.play(l, p.position(), BUZZ, 1.0f, 1.3f);
+		OmnitrixSfx.playOn(p, BUZZ, 1.0f, 1.3f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		l.sendParticles(ParticleTypes.ITEM_SLIME, t.getX(), t.getY() + t.getBbHeight(), t.getZ(), 10, 0.3, 0.2, 0.3, 0.05);
 		return true;
 	}
@@ -878,7 +879,7 @@ public final class StinkflyKit extends AlienKit {
 			le.resetFallDistance();
 			le.setDeltaMovement(p.getDeltaMovement().scale(0.6));
 			le.hurtMarked = true;
-			OmnitrixSounds.play(level(p), p.position(), BUZZ, 0.7f, 0.9f);
+			OmnitrixSfx.playOn(p, BUZZ, 0.7f, 0.9f, net.minecraft.sounds.SoundSource.PLAYERS); // v0.17.2: on him, so a fast flight does not leave it behind
 		}
 	}
 

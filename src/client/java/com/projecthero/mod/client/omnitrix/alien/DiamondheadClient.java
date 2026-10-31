@@ -439,6 +439,6 @@ public final class DiamondheadClient implements AlienClientKit {
 		// out), high on his left breast
 		// v0.17.2 (user: "its not covering the badge thats on the skin and also make the badge slightly bigger"): the symbol is
 		// jacket texels 25..26 (the paint-out had cleared 26..27, a texel to its right), so 1 px in; 3 px across (was 2.4)
-		return new float[] { 2.0f, 2.0f, -2.06f, 2.0f };
+		return new float[] { 2.0f, 2.0f, -2.06f, 3.0f };
 	}
 }

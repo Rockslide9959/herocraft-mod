@@ -188,6 +188,6 @@ public final class GreyMatterClient implements AlienClientKit {
 	public float[] badge() {
 		// v0.17.1 (user: "move his omnitrix badge to his back"): over the spot on his back where the skin's own symbol was (painted
 		// out), facing backward (the 2)
-		return new float[] { 0f, 4.0f, 2.3f, 6.0f, 2f };
+		return new float[] { 0f, 4.0f, 2.3f, 8.0f, 2f };
 	}
 }
