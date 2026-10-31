@@ -112,20 +112,13 @@ public final class OmnitrixHud {
 		return top;
 	}
 
-	/** Human with the watch: only the recharge bar while it recharges (v0.17.1). Returns the HUD's top. */
+	/**
+	 * Human with the watch: nothing. v0.17.1 (user: "there should be no UI basically until the player transforms"); v0.17.2 (user:
+	 * "remove the recharge timers aswell please from the HUD"): no recharge bar either -- the red face on the watch and the refused
+	 * slap say it is recharging. Returns the HUD's top.
+	 */
 	private static int human(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom) {
-		int y = bottom;
-		int recharge = (int) Math.max(0L, s.rechargeUntil - now);
-		if (recharge > 0) {
-			int by = y - BAR_H - 1;
-			int total = Math.max(recharge, recharge > OmnitrixConfig.EARLY_RECHARGE_TICKS ? OmnitrixConfig.RECHARGE_TICKS : OmnitrixConfig.EARLY_RECHARGE_TICKS);
-			meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.meter.recharge"), recharge / (float) total, RED,
-					(recharge + 19) / 20 + "s", NAME);
-			y = by - 4;
-		}
-		// v0.17.1 (user: "there should be no UI basically until the player transforms but just keep the timers"): human, only the
-		// recharge bar shows -- no title row, no selected alien, no scroll / click hint
-		return y;
+		return bottom;
 	}
 
 	/**
@@ -238,11 +231,9 @@ public final class OmnitrixHud {
 				rows.add(MoveListOverlay.Row.of(Component.translatable("hud.projecthero.omnitrix.alt.key.dial").getString(),
 						Component.translatable("hud.projecthero.omnitrix.alt.selected", OmnitrixInfo.iconName(sel)), null));
 			}
-			int recharge = (int) Math.max(0L, s.rechargeUntil - now);
-			// v0.17.1 (user): R raises / lowers the watch (V only turns an alien back)
+			// v0.17.1 (user): R raises / lowers the watch (V only turns an alien back); v0.17.2: no recharge countdown here either
 			rows.add(MoveListOverlay.Row.of(MoveListOverlay.key(AbilitySlot.SLOT_1),
-					Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"),
-					null, recharge > 0 ? Component.translatable("hud.projecthero.omnitrix.alt.recharging", (recharge + 19) / 20) : null));
+					Component.translatable(s.selecting ? "hud.projecthero.omnitrix.alt.lower" : "hud.projecthero.omnitrix.alt.raise"), null));
 			return rows;
 		}
 		for (AbilitySlot slot : OmnitrixInfo.KIT_SLOTS) {
