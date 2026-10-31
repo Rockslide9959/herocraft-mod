@@ -1397,13 +1397,13 @@
     },
     "thirdperson_righthand": {
       "rotation": [
-        -20,
-        180,
+        90,
+        0,
         0
       ],
       "translation": [
         0,
-        1.5,
+        1.0,
         -1.5
       ],
       "scale": [
@@ -1414,13 +1414,13 @@
     },
     "thirdperson_lefthand": {
       "rotation": [
-        -20,
-        180,
+        90,
+        0,
         0
       ],
       "translation": [
         0,
-        1.5,
+        1.0,
         -1.5
       ],
       "scale": [
