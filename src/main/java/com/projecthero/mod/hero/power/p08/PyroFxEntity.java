@@ -46,6 +46,7 @@ public class PyroFxEntity extends Entity {
 	private UUID ownerId;
 	private int age;
 	private float wallDamage;
+	private boolean visualOnly;
 
 	public PyroFxEntity(EntityType<? extends PyroFxEntity> type, Level level) {
 		super(type, level);
@@ -103,6 +104,16 @@ public class PyroFxEntity extends Entity {
 		wallDamage = d;
 	}
 
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): only the look -- a {@link #RING} lent to
+	 * another power (Heatblast's Flame Ring, which burns by its own rules) neither burns nor goes out with a Pyrokinesis owner;
+	 * it lives out its {@link #life()} unless discarded. Server-side only (the client draws every kind the same).
+	 */
+	public PyroFxEntity visualOnly() {
+		visualOnly = true;
+		return this;
+	}
+
 	/** The Flame Wall's footprint: {@link PyrokinesisHandlers#WALL_WIDTH} along its yaw, 1 thick, 3 tall. */
 	public AABB wallBox() {
 		float yaw = getYRot() * Mth.DEG_TO_RAD;
@@ -151,6 +162,10 @@ public class PyroFxEntity extends Entity {
 
 	/** v0.16.6: the Ring of Fire burns every half second; it goes out with its caster (logout, death, another power). */
 	private void ringTick(ServerLevel sl) {
+		if (visualOnly) {
+			ringFx(sl);
+			return;
+		}
 		ServerPlayer owner = ownerId == null ? null : sl.getPlayerByUUID(ownerId) instanceof ServerPlayer sp ? sp : null;
 		com.projecthero.mod.hero.Power active = owner == null ? null : com.projecthero.mod.hero.ExperimentalPowers.getActive(owner);
 		if (owner == null || !owner.isAlive() || active == null || !PyrokinesisHandlers.KEY.equals(active.key())) {
@@ -160,6 +175,11 @@ public class PyroFxEntity extends Entity {
 		if (age % 10 == 0) {
 			PyrokinesisHandlers.ringBurn(owner, sl, this, wallDamage);
 		}
+		ringFx(sl);
+	}
+
+	/** The Ring of Fire's crackle and the flames licking up round it. */
+	private void ringFx(ServerLevel sl) {
 		if (age % 16 == 0) {
 			sl.playSound(null, getX(), getY(), getZ(), SoundEvents.FIRE_AMBIENT, SoundSource.PLAYERS, 1.2f, 0.7f);
 		}

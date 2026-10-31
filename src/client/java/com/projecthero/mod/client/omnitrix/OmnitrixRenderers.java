@@ -31,6 +31,22 @@ public final class OmnitrixRenderers {
 	private OmnitrixRenderers() {
 	}
 
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): a projectile kind's own look, drawn in
+	 * place of the shared glowing core ({@code pose} is at the projectile's feet, as an entity renderer's).
+	 */
+	@FunctionalInterface
+	public interface ProjectileLook {
+		void render(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers);
+	}
+
+	private static final java.util.Map<String, ProjectileLook> PROJECTILE_LOOKS = new java.util.HashMap<>();
+
+	/** v0.17.2: every {@link AlienProjectileEntity} of {@code kind} is drawn by {@code look} (registered once at client init). */
+	public static void projectileLook(String kind, ProjectileLook look) {
+		PROJECTILE_LOOKS.put(kind, look);
+	}
+
 	static void glow(PoseStack pose, MultiBufferSource buffers, EntityRenderDispatcherView view, float size, int rgb, int alpha) {
 		pose.pushPose();
 		pose.mulPose(view.rotation());
@@ -149,6 +165,12 @@ public final class OmnitrixRenderers {
 
 		@Override
 		public void render(AlienProjectileEntity e, float yaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
+			ProjectileLook look = PROJECTILE_LOOKS.get(e.kind());
+			if (look != null) {
+				look.render(e, partial, pose, buffers);
+				super.render(e, yaw, partial, pose, buffers, light);
+				return;
+			}
 			pose.pushPose();
 			pose.translate(0, e.getBbHeight() * 0.5, 0);
 			float s = e.size();

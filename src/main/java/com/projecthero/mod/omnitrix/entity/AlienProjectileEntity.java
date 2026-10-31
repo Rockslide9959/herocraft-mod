@@ -33,8 +33,8 @@ import net.minecraft.world.phys.Vec3;
  *   AlienProjectileEntity.onHit("diamondhead_shard", (proj, hit) -> { ... });   // optional extra behaviour per kind
  * </pre>
  *
- * The kind, colour and size are synced (the client draws a glowing core in the colour, or a kind's own renderer registered
- * with {@code AlienProjectileClients}); everything else is server-only. Never saved.
+ * The kind, colour and size are synced (the client draws a glowing core in the colour, or a kind's own look registered
+ * with {@code OmnitrixRenderers.projectileLook}); everything else is server-only. Never saved.
  */
 public class AlienProjectileEntity extends Projectile {
 	private static final EntityDataAccessor<String> KIND = SynchedEntityData.defineId(AlienProjectileEntity.class, EntityDataSerializers.STRING);
@@ -171,12 +171,16 @@ public class AlienProjectileEntity extends Projectile {
 		}
 		Vec3 v = getDeltaMovement();
 		if (level().isClientSide() && kind().startsWith("heatblast")) {
-			for (int i = 0; i < 2; i++) {
-				level().addParticle(net.minecraft.core.particles.ParticleTypes.FLAME, getX() - v.x * i * 0.5, getY() - v.y * i * 0.5, getZ() - v.z * i * 0.5,
-						(random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04, (random.nextDouble() - 0.5) * 0.04);
-			}
-			if (random.nextInt(3) == 0) {
-				level().addParticle(net.minecraft.core.particles.ParticleTypes.SMOKE, getX(), getY(), getZ(), 0, 0.01, 0);
+			// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Heatblast's shots trail like
+			// Pyrokinesis' -- a Fireball one flame a tick, the Pyro Bomb (a Meteor) its lava (registered trail) and a smoke wake
+			if (kind().equals("heatblast_bomb")) {
+				if (tickCount % 2 == 0) {
+					float s = size();
+					level().addParticle(net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE, getX() + (random.nextDouble() - 0.5) * s * 0.8,
+							getY() + s * 0.5 + (random.nextDouble() - 0.5) * s * 0.8, getZ() + (random.nextDouble() - 0.5) * s * 0.8, 0, 0.01, 0);
+				}
+			} else {
+				level().addParticle(net.minecraft.core.particles.ParticleTypes.FLAME, getX(), getY(), getZ(), 0, 0, 0);
 			}
 		}
 		if (level().isClientSide()) {

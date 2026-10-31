@@ -825,10 +825,60 @@ public final class PyrokinesisHandlers {
 		if (block != null) {
 			placeFire(p, level, block.getBlockPos().relative(block.getDirection()), 100);
 		}
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 24, 0.3, 0.3, 0.3, 0.08);
-		level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 8, 0.2, 0.2, 0.2, 0.02);
-		level.sendParticles(ParticleTypes.LAVA, at.x, at.y, at.z, 3, 0.2, 0.2, 0.2, 0.0);
+		fireballImpactFx(level, at, 1.0f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0f, 0.8f);
+	}
+
+	// ================================================================ v0.17.2 shared fire FX (Pyrokinesis and Heatblast)
+	// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the particle bursts of the Pyrokinesis
+	// moves, factored out so Heatblast's moves look the same; no sounds, no damage, no fire blocks -- only what is seen.
+
+	/** A Fireball's burst where it lands ({@code scale} 1 = Pyrokinesis' Fireball; smaller for a smaller shot). */
+	public static void fireballImpactFx(ServerLevel level, Vec3 at, float scale) {
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, Math.max(1, Math.round(24 * scale)), 0.3 * scale, 0.3 * scale, 0.3 * scale, 0.08);
+		level.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, Math.max(1, Math.round(8 * scale)), 0.2 * scale, 0.2 * scale, 0.2 * scale, 0.02);
+		level.sendParticles(ParticleTypes.LAVA, at.x, at.y, at.z, Math.max(1, Math.round(3 * scale)), 0.2 * scale, 0.2 * scale, 0.2 * scale, 0.0);
+	}
+
+	/** A Meteor's blast of {@code radius}: the {@link PyroFxEntity#BLAST} fireball and its explosion, flames and lava. */
+	public static void meteorBlastFx(ServerLevel level, ServerPlayer owner, Vec3 at, double radius) {
+		boolean small = radius < METEOR_RADIUS - 0.5;
+		PyroFxEntity.spawn(level, owner, PyroFxEntity.BLAST, at, 0.0f, (float) radius, small ? 14 : 18);
+		double k = small ? 0.5 : 1.0;
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, small ? 1 : 3, 1.0 * k, 0.4, 1.0 * k, 0);
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, small ? 40 : 120, 2.0 * k, 1.0 * k, 2.0 * k, 0.15);
+		level.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.5, at.z, small ? 8 : 30, 1.5 * k, 0.6, 1.5 * k, 0.0);
+	}
+
+	/** The Inferno's nova of {@code radius} round {@code c} (the feet): the rolling {@link PyroFxEntity#NOVA} ring and its flames. */
+	public static void infernoFx(ServerLevel level, ServerPlayer owner, Vec3 c, double radius) {
+		PyroFxEntity.spawn(level, owner, PyroFxEntity.NOVA, c.add(0, 0.1, 0), owner == null ? 0.0f : owner.getYRot(), (float) radius, 18);
+		level.sendParticles(ParticleTypes.FLAME, c.x, c.y + 1, c.z, 100, 1.5, 0.8, 1.5, 0.25);
+	}
+
+	/**
+	 * The Phoenix Dive's landing at {@code at}: a nova ring of {@code radius} under a fireball blast of {@code blastRadius},
+	 * explosions and flames.
+	 */
+	public static void phoenixImpactFx(ServerLevel level, ServerPlayer owner, Vec3 at, double radius, double blastRadius) {
+		PyroFxEntity.spawn(level, owner, PyroFxEntity.NOVA, at.add(0, 0.1, 0), owner == null ? 0.0f : owner.getYRot(), (float) radius, 18);
+		PyroFxEntity.spawn(level, owner, PyroFxEntity.BLAST, at, 0.0f, (float) blastRadius, 16);
+		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, 3, 1.2, 0.3, 1.2, 0);
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, 120, 2.0, 0.6, 2.0, 0.2);
+	}
+
+	/** The Solar Flare at {@code c} (the chest): the {@link PyroFxEntity#FLARE} sun (and its screen flash) and the flames. */
+	public static void solarFlareFx(ServerLevel level, ServerPlayer owner, Vec3 c, double radius, boolean flash) {
+		PyroFxEntity.spawn(level, owner, PyroFxEntity.FLARE, c, owner == null ? 0.0f : owner.getYRot(), (float) radius, 24);
+		if (flash) {
+			level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0, 0, 0, 0);
+		}
+		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 90, 1.2, 1.2, 1.2, 0.35);
+	}
+
+	/** The Ring of Fire's cast at {@code at} (the feet): flames thrown up across the circle (the ring itself is the entity). */
+	public static void ringCastFx(ServerLevel level, Vec3 at, double radius) {
+		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 80, radius * 0.6, 0.2, radius * 0.6, 0.05);
 	}
 
 	private static void startThrower(AbilityContext ctx) {
@@ -1252,7 +1302,7 @@ public final class PyrokinesisHandlers {
 			AbilityHelpers.knockbackFrom(e, at, small ? 0.6 : 1.3);
 			AbilityHelpers.push(e, new Vec3(0, small ? 0.2 : 0.35, 0));
 		}
-		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, at, 0.0f, (float) radius, small ? 14 : 18);
+		meteorBlastFx(level, p, at, radius);
 		BlockPos c = BlockPos.containing(at);
 		int span = small ? 2 : 3;
 		for (int i = 0; i < (small ? 5 : 14); i++) {
@@ -1265,10 +1315,6 @@ public final class PyrokinesisHandlers {
 				}
 			}
 		}
-		double k = small ? 0.5 : 1.0;
-		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, small ? 1 : 3, 1.0 * k, 0.4, 1.0 * k, 0);
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, small ? 40 : 120, 2.0 * k, 1.0 * k, 2.0 * k, 0.15);
-		level.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.5, at.z, small ? 8 : 30, 1.5 * k, 0.6, 1.5 * k, 0.0);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, small ? 1.2f : 2.0f, small ? 1.0f : 0.7f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 0.4f);
 		return hit;
@@ -1299,8 +1345,7 @@ public final class PyrokinesisHandlers {
 			AbilityHelpers.push(e, new Vec3(0, 0.3, 0));
 		}
 		BatchA.set(p, KEY, "heat", 0, MAX_HEAT);
-		PyroFxEntity.spawn(level, p, PyroFxEntity.NOVA, c.add(0, 0.1, 0), p.getYRot(), (float) INFERNO_RADIUS, 18);
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y + 1, c.z, 100, 1.5, 0.8, 1.5, 0.25);
+		infernoFx(level, p, c, INFERNO_RADIUS);
 		MutationVisuals.play(p, "p08.nova");
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.6f, 0.4f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.7f, 1.4f);
@@ -1744,8 +1789,6 @@ public final class PyrokinesisHandlers {
 				AbilityHelpers.push(e, new Vec3(0, 0.4, 0));
 			}
 		}
-		PyroFxEntity.spawn(level, p, PyroFxEntity.NOVA, at.add(0, 0.1, 0), p.getYRot(), (float) PHOENIX_RADIUS, 18);
-		PyroFxEntity.spawn(level, p, PyroFxEntity.BLAST, at, 0.0f, (float) PHOENIX_RADIUS, 16);
 		// the ground burns
 		BlockPos c = BlockPos.containing(at);
 		for (int i = 0; i < 18; i++) {
@@ -1760,8 +1803,7 @@ public final class PyrokinesisHandlers {
 		}
 		AbilityHelpers.launchSelf(p, new Vec3(0, 0.05, 0));
 		MutationVisuals.play(p, "p08.nova");
-		level.sendParticles(ParticleTypes.EXPLOSION, at.x, at.y + 0.5, at.z, 3, 1.2, 0.3, 1.2, 0);
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.5, at.z, 120, 2.0, 0.6, 2.0, 0.2);
+		phoenixImpactFx(level, p, at, PHOENIX_RADIUS, PHOENIX_RADIUS);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 1.6f, 0.8f);
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 1.5f, 0.4f);
 		return hit;
@@ -1818,7 +1860,7 @@ public final class PyrokinesisHandlers {
 		ring.setWallDamage(dmg(p, RING_DAMAGE));
 		set(p, "ring_cd", RING_CD);
 		MutationVisuals.play(p, "p08.ring");
-		level.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.3, at.z, 80, RING_RADIUS * 0.6, 0.2, RING_RADIUS * 0.6, 0.05);
+		ringCastFx(level, at, RING_RADIUS);
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.5f);
 		AbilityHelpers.sound(p, SoundEvents.FIRECHARGE_USE, 1.4f, 0.4f);
 		addHeat(p, HEAT_RING);
@@ -1873,12 +1915,10 @@ public final class PyrokinesisHandlers {
 			}
 			hit++;
 		}
-		PyroFxEntity.spawn(level, p, PyroFxEntity.FLARE, c, p.getYRot(), (float) FLARE_RADIUS, 24);
 		set(p, "flare_cd", FLARE_CD);
 		set(p, "flare_fx", 12);
 		MutationVisuals.play(p, "p08.flare");
-		level.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0, 0, 0, 0);
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, 90, 1.2, 1.2, 1.2, 0.35);
+		solarFlareFx(level, p, c, FLARE_RADIUS, true);
 		AbilityHelpers.sound(p, SoundEvents.BEACON_ACTIVATE, 1.6f, 1.8f);
 		AbilityHelpers.sound(p, SoundEvents.BLAZE_SHOOT, 1.4f, 0.4f);
 		AbilityHelpers.sound(p, SoundEvents.GENERIC_EXPLODE, 0.6f, 1.6f);

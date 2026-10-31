@@ -6,11 +6,17 @@ import com.projecthero.mod.ProjectHeroMod;
 import com.projecthero.mod.client.omnitrix.AlienClientKit;
 import com.projecthero.mod.client.ghostrider.GhostRiderRender;
 import com.projecthero.mod.client.mutation.PyrokinesisClient;
+import com.projecthero.mod.client.mutation.pyro.PyroBoltRenderer;
 import com.projecthero.mod.client.mutation.pyro.PyroDraw;
 import com.projecthero.mod.client.omnitrix.FirstPersonClip;
+import com.projecthero.mod.client.omnitrix.OmnitrixRenderers;
 import com.projecthero.mod.client.quirk.QuirkKeyframes;
 import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.alien.heatblast.HeatblastKit;
+import com.projecthero.mod.omnitrix.entity.AlienProjectileEntity;
+
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.HumanoidModel;
@@ -37,6 +43,11 @@ import net.minecraft.world.phys.Vec3;
  * charge trembles; on the body the Fire Jet wears Pyrokinesis' Jet Flight flames ({@link PyrokinesisClient#jetFlames}), a
  * fireball swells in his hand for the Pyro Bomb and between his hands for the Supernova and the smelt, his palms flare as
  * the shots leave them, the Heat Shield is a churning shell of heat round him and the Heat Aura glows on the ground.
+ *
+ * <p>v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): every move now draws with Pyrokinesis'
+ * own code -- the shots are its Fireball / Meteor ({@link PyroBoltRenderer#draw}), the Fire Stream its Flamethrower cone
+ * ({@link PyrokinesisClient#flamethrower}), the Jet Dash its Flame Dash fire, the Heat Shield its Flame Body limb flames, the
+ * Heat Aura its white-hot hands; the server side spawns its novas, blasts, Ring of Fire and Solar Flare ({@code PyroFxEntity}).
  */
 public final class HeatblastClient implements AlienClientKit {
 	private static final float A = QuirkKeyframes.AIM;
@@ -189,17 +200,18 @@ public final class HeatblastClient implements AlienClientKit {
 		GhostRiderRender.renderSkullFire(pose, buffers, model.head, big ? 1.4f : 1f, age);
 
 		// v0.17.2 (user: "give him the same flaming fire flight vfx as the pyrokinesis power please"): Pyrokinesis' Jet Flight
-		// flames out of both palms and both soles while the Fire Jet flies -- and, bigger, for the Jet Dash's burst
+		// flames out of both palms and both soles while the Fire Jet flies.
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the Jet Dash is Pyrokinesis' Flame
+		// Dash -- the whole figure wreathed in fire with flames streaming back off every limb (was the jets, bigger)
 		boolean dashing = anim == HeatblastKit.ANIM_DASH && ticks < 11f;
-		if (HeatblastKit.flying(p) || dashing) {
-			PyrokinesisClient.jetFlames(pose, buffers, model, false, age, dashing ? 1.25f : 1.0f);
+		if (dashing) {
+			PyrokinesisClient.bodyFire(pose, buffers, age, 1.1f);
+			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 1.6f, 0.9f);
+		} else if (HeatblastKit.flying(p)) {
+			PyrokinesisClient.jetFlames(pose, buffers, model, false, age, 1.0f);
 		}
-		// v0.17.2: the Fire Stream roaring out of both palms
-		if ((st.kitFlags & HeatblastKit.F_STREAM) != 0) {
-			palmFire(pose, buffers, model.rightArm, -1f, 1.15f, age);
-			palmFire(pose, buffers, model.leftArm, 1f, 1.15f, age);
-		}
-		// v0.17.2: the shots' muzzle flare, the punch's burning fist
+		// (the Fire Stream is Pyrokinesis' Flamethrower cone, drawn in the world pass: renderWorld)
+		// v0.17.2: the shots' palm flare (Pyrokinesis' jet cone), the punch's burning fist
 		if (anim == HeatblastKit.ANIM_BLAST && ticks < 6f) {
 			palmFire(pose, buffers, model.rightArm, -1f, 0.9f * (1f - ticks / 6f) + 0.2f, age);
 		} else if (anim == HeatblastKit.ANIM_BOLT && ticks < 4f) {
@@ -207,40 +219,72 @@ public final class HeatblastClient implements AlienClientKit {
 		} else if (anim == HeatblastKit.ANIM_PUNCH && ticks < 5f) {
 			handGlow(pose, buffers, model.rightArm, -1f, 0.32f * (1f - ticks / 5f) + 0.1f);
 		}
-		// v0.17.2: the Pyro Bomb swelling in the raised hand until it leaves it
+		// v0.17.2: the Pyro Bomb swelling in the raised hand until it leaves it -- v0.17.2 Pyrokinesis pass: as a Meteor, the
+		// way the bomb now flies
 		if (anim == HeatblastKit.ANIM_BOMB && ticks < 4.5f) {
 			pose.pushPose();
 			model.rightArm.translateAndRotate(pose);
 			float r = 0.14f + 0.16f * Mth.clamp(ticks / 2.5f, 0f, 1f);
 			pose.translate(-1f / 16f, 11f / 16f + r * 0.6f, 0f);
-			PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, -1, 0), false);
+			PyroDraw.fireball(pose, buffers, r, age, new Vec3(0, -1, 0), true);
 			pose.popPose();
 		}
-		// v0.17.2: the Supernova's core growing between his cupped hands (and the flash as it goes); the smelt's small flame
+		// v0.17.2: the Supernova's core growing between his cupped hands (Pyrokinesis' Meteor charging, held at the chest);
+		// the smelt's small flame. (The white glow as it went off is gone -- the blast is Pyrokinesis' now.)
 		if ((st.kitFlags & HeatblastKit.F_CHARGING) != 0) {
 			float k = Mth.clamp(ticks / HeatblastKit.SUPERNOVA_CHARGE, 0f, 1f);
 			chestBall(pose, buffers, model, (0.12f + 0.4f * k) * (0.94f + 0.06f * Mth.sin(age * 1.7f)), age, 0.42f);
-		} else if (anim == HeatblastKit.ANIM_SUPERNOVA && ticks < 4f) {
-			pose.pushPose();
-			model.body.translateAndRotate(pose);
-			PyroDraw.glow(pose, PyroDraw.glowBuffer(buffers), new Vec3(0, 0.4, -0.3), 2.2f * (1f - ticks / 4f), 0xFFFFE0A0);
-			pose.popPose();
 		} else if (anim == HeatblastKit.ANIM_SMELT && ticks < 13f) {
 			chestBall(pose, buffers, model, 0.1f + 0.02f * Mth.sin(age * 0.9f), age, 0.5f);
 		}
-		// v0.17.2: the Heat Shield -- a churning shell of heat round him, pulsing
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the Heat Shield is Pyrokinesis' Flame
+		// Body -- real fire licking up off every limb (was a churning sphere of heat round him)
 		if ((st.kitFlags & HeatblastKit.F_SHIELD) != 0) {
-			float pulse = 0.75f + 0.25f * Mth.sin(age * 0.35f);
-			pose.pushPose();
-			pose.translate(0f, 0.62f, 0f);
-			PyroDraw.sphere(pose, PyroDraw.additive(buffers), 1.05f, PyroDraw.dim(0xFFFF8A30, 0.42f * pulse), PyroDraw.dim(0xFF5A1400, 0.22f * pulse), 0.12f, age,
-					PyroDraw.FULL);
-			pose.popPose();
+			PyrokinesisClient.limbFlames(pose, buffers, model, false, age, 1.25f, 0f);
 		}
-		// v0.17.2: the Heat Aura -- the ground round him glowing like a hotplate, out to the aura's edge
+		// v0.17.2: the Heat Aura -- the ground round him glowing like a hotplate, out to the aura's edge; v0.17.2 Pyrokinesis
+		// pass: and his hands white-hot, as a Pyrokinesis user's at full Heat
 		if ((st.kitFlags & HeatblastKit.F_AURA) != 0) {
 			float g = 0.3f + 0.08f * Mth.sin(age * 0.2f);
 			PyroDraw.annulus(pose, PyroDraw.additive(buffers), 0f, (float) HeatblastKit.AURA_RADIUS, PyroDraw.dim(0xFFFF5A10, g), 0xFF000000, 1.48f);
+			PyrokinesisClient.whiteHotHands(pose, buffers, model, 0.85f + 0.15f * (0.5f + 0.5f * Mth.sin(age * Mth.TWO_PI / 18f)));
+		}
+	}
+
+	// ---------------------------------------------------------------- v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power")
+
+	/** From {@code OmnitrixClient}: the shots drawn as Pyrokinesis' fireballs, the Fire Stream as its Flamethrower. */
+	public static void init() {
+		OmnitrixRenderers.projectileLook("heatblast_blast", (e, partial, pose, buffers) -> shot(e, partial, pose, buffers, false));
+		OmnitrixRenderers.projectileLook("heatblast_bolt", (e, partial, pose, buffers) -> shot(e, partial, pose, buffers, false));
+		OmnitrixRenderers.projectileLook("heatblast_bomb", (e, partial, pose, buffers) -> shot(e, partial, pose, buffers, true));
+		WorldRenderEvents.AFTER_ENTITIES.register(HeatblastClient::renderWorld);
+	}
+
+	/** A shot in flight: Pyrokinesis' Fireball (Fire Blast, the Use bolt) or Meteor (the Pyro Bomb), at the shot's size. */
+	private static void shot(AlienProjectileEntity e, float partial, PoseStack pose, MultiBufferSource buffers, boolean meteor) {
+		pose.pushPose();
+		pose.translate(0.0, e.getBbHeight() * 0.5, 0.0);
+		PyroBoltRenderer.draw(pose, buffers, e.size(), e.tickCount + partial, e.getDeltaMovement(), meteor, false);
+		pose.popPose();
+	}
+
+	/** The Fire Stream of every Heatblast in view: Pyrokinesis' Flamethrower cone out of his palms. */
+	private static void renderWorld(WorldRenderContext context) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.level == null || context.consumers() == null || context.matrixStack() == null) {
+			return;
+		}
+		float partial = context.tickCounter().getGameTimeDeltaPartialTick(false);
+		for (net.minecraft.world.entity.player.Player pl : mc.level.players()) {
+			if (!Omnitrix.hasPower(pl)) {
+				continue;
+			}
+			var st = Omnitrix.state(pl);
+			if (HeatblastKit.ID.equals(st.active) && (st.kitFlags & HeatblastKit.F_STREAM) != 0 && !pl.isInWaterOrBubble()) {
+				PyrokinesisClient.flamethrower(pl, partial, context.camera().getPosition(), context.matrixStack(), context.consumers(),
+						HeatblastKit.STREAM_FX_RANGE);
+			}
 		}
 	}
 
@@ -286,13 +330,12 @@ public final class HeatblastClient implements AlienClientKit {
 		arm.setPos(0, 0, 0);
 		arm.setRotation(0, 0, 0);
 		arm.render(pose, buffers.getBuffer(RenderType.eyes(glow(age))), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY);
-		// v0.17.2: the same palm flames in first person -- the Fire Stream out of both hands, a flare as a shot leaves
+		// v0.17.2: the same palm flames in first person -- a flare as a shot leaves (v0.17.2 Pyrokinesis pass: the Fire Stream
+		// is its Flamethrower cone, drawn in the world pass, so no palm fire for it here)
 		var st = Omnitrix.state(p);
 		float ticks = animTicks(p, Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false));
 		float side = right ? -1f : 1f;
-		if ((st.kitFlags & HeatblastKit.F_STREAM) != 0) {
-			palmFire(pose, buffers, arm, side, 0.8f, age);
-		} else if (right && st.animId == HeatblastKit.ANIM_BLAST && ticks < 6f) {
+		if (right && st.animId == HeatblastKit.ANIM_BLAST && ticks < 6f) {
 			palmFire(pose, buffers, arm, side, 0.7f * (1f - ticks / 6f) + 0.15f, age);
 		} else if (right && st.animId == HeatblastKit.ANIM_BOLT && ticks < 4f) {
 			palmFire(pose, buffers, arm, side, 0.45f * (1f - ticks / 4f) + 0.1f, age);
@@ -423,62 +466,10 @@ public final class HeatblastClient implements AlienClientKit {
 			level.addParticle(ParticleTypes.SMALL_FLAME, p.getX() + (r.nextDouble() - 0.5) * 0.6, p.getY() + r.nextDouble() * p.getBbHeight(),
 					p.getZ() + (r.nextDouble() - 0.5) * 0.6, 0, 0.02, 0);
 		}
-		// the Fire Jet: out of his feet (behind him once he is flat out, below him hovering) and his palms while he hovers
-		if (HeatblastKit.flying(p)) {
-			float w = Mth.clamp((Math.abs(com.projecthero.mod.client.FlightPoseHelper.lean(p, 1f)) - 8f) / 60f, 0f, 1f);
-			float yaw = p.yBodyRot * Mth.DEG_TO_RAD;
-			double bx = Mth.sin(yaw), bz = -Mth.cos(yaw); // behind him
-			double fx = p.getX() + bx * 1.6 * w, fy = p.getY() + 0.5 * w - 0.05, fz = p.getZ() + bz * 1.6 * w;
-			for (int i = 0; i < 3; i++) {
-				double sp = 0.12 + r.nextDouble() * 0.1;
-				level.addParticle(i == 0 ? ParticleTypes.SMALL_FLAME : ParticleTypes.FLAME, fx + (r.nextDouble() - 0.5) * 0.18, fy, fz + (r.nextDouble() - 0.5) * 0.18,
-						bx * sp * w, -sp * (1f - w), bz * sp * w);
-			}
-			// v0.17.1 (user: "For his flight give it vfx please"): a smoky trail, embers raining off it, a heat ring now and then
-			if (r.nextInt(2) == 0) {
-				level.addParticle(ParticleTypes.LARGE_SMOKE, fx + (r.nextDouble() - 0.5) * 0.3, fy, fz + (r.nextDouble() - 0.5) * 0.3, bx * 0.05 * w,
-						-0.04 * (1f - w), bz * 0.05 * w);
-			}
-			if (r.nextInt(3) == 0) {
-				level.addParticle(ParticleTypes.LAVA, fx, fy, fz, 0, 0, 0);
-			}
-			if (p.tickCount % 12 == 0) {
-				for (int k = 0; k < 14; k++) {
-					double ang = k * Math.PI * 2 / 14;
-					level.addParticle(ParticleTypes.FLAME, fx + Math.cos(ang) * 0.5, fy, fz + Math.sin(ang) * 0.5, Math.cos(ang) * 0.06, -0.02, Math.sin(ang) * 0.06);
-				}
-			}
-			if (w < 0.5f && r.nextInt(2) == 0) {
-				double rx = Mth.cos(yaw) * 0.55, rz = Mth.sin(yaw) * 0.55; // his right / left hand, a little out to the side
-				for (int side = -1; side <= 1; side += 2) {
-					level.addParticle(ParticleTypes.FLAME, p.getX() + rx * side, p.getY() + 0.55, p.getZ() + rz * side, 0, -0.12, 0);
-				}
-			}
-		}
-		// the Fire Stream: a gout of flame from the palms (others see it too)
-		if ((Omnitrix.state(p).kitFlags & HeatblastKit.F_STREAM) != 0) {
-			var look = p.getLookAngle();
-			var from = p.getEyePosition().add(look.scale(0.6)).add(0, -0.3, 0);
-			for (int i = 0; i < 4; i++) {
-				double s = 0.5 + r.nextDouble() * 0.6;
-				level.addParticle(ParticleTypes.FLAME, from.x, from.y, from.z, look.x * s + (r.nextDouble() - 0.5) * 0.12, look.y * s + (r.nextDouble() - 0.5) * 0.12,
-						look.z * s + (r.nextDouble() - 0.5) * 0.12);
-			}
-			// v0.17.2: a tighter, faster white-hot core inside it and the odd spit of lava
-			for (int i = 0; i < 2; i++) {
-				double s = 0.8 + r.nextDouble() * 0.4;
-				level.addParticle(ParticleTypes.SMALL_FLAME, from.x, from.y, from.z, look.x * s + (r.nextDouble() - 0.5) * 0.05, look.y * s + (r.nextDouble() - 0.5) * 0.05,
-						look.z * s + (r.nextDouble() - 0.5) * 0.05);
-			}
-			if (r.nextInt(4) == 0) {
-				level.addParticle(ParticleTypes.LAVA, from.x + look.x * 2, from.y + look.y * 2, from.z + look.z * 2, 0, 0, 0);
-			}
-		}
-		// v0.17.2: the Heat Aura's shimmer -- little flames flickering up off the ground round him
-		if ((Omnitrix.state(p).kitFlags & HeatblastKit.F_AURA) != 0 && r.nextInt(2) == 0) {
-			double a = r.nextDouble() * Math.PI * 2, d = 0.6 + r.nextDouble() * (HeatblastKit.AURA_RADIUS - 0.6);
-			level.addParticle(ParticleTypes.SMALL_FLAME, p.getX() + Math.cos(a) * d, p.getY() + 0.05, p.getZ() + Math.sin(a) * d, 0, 0.03, 0);
-		}
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the Fire Jet, the Fire Stream and the
+		// Heat Aura no longer spray client particles of their own (the flight's smoke trail, lava, flame rings and palm drips,
+		// the stream's gout, the aura's shimmer): like Pyrokinesis, the jets / Flamethrower cone / white-hot hands are drawn as
+		// models and the server sends Pyrokinesis' own exhaust, spray and shimmer
 	}
 
 

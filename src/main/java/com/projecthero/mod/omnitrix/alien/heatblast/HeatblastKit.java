@@ -9,6 +9,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.hero.power.p08.PyroFxEntity;
+import com.projecthero.mod.hero.power.p08.PyrokinesisHandlers;
 import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
 import com.projecthero.mod.omnitrix.alien.AlienKit;
@@ -133,13 +135,26 @@ public final class HeatblastKit extends AlienKit {
 	public static final float DASH_DAMAGE = 4f;
 	public static final float PUNCH_FIRE = 2f;
 	public static final float FLY_SPEED = 0.07f;
+	/** v0.17.2: how far the Fire Stream's drawn flamethrower cone reaches (or the first block in the way). Look only. */
+	public static final double STREAM_FX_RANGE = 7.0;
+	/** v0.17.2: how far the Flare's Solar-Flare sun and screen flash reach (its blinding range is 8). Look only. */
+	private static final double FLARE_FX_RADIUS = 8.0;
 
 	/** player -> where the Flame Ring burns (and in which dimension). */
 	private static final Map<UUID, Ring> RINGS = new ConcurrentHashMap<>();
 	/** player -> creatures the current Jet Dash already scorched. */
 	private static final Map<UUID, java.util.Set<Integer>> DASH_HITS = new ConcurrentHashMap<>();
 
-	private record Ring(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim, Vec3 at) {
+	/** v0.17.2: {@code fx} is the Ring of Fire drawn for it (null if none could be spawned). */
+	private record Ring(net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim, Vec3 at, PyroFxEntity fx) {
+	}
+
+	/** Puts out {@code p}'s Flame Ring (its fire with it). */
+	private static void removeRing(ServerPlayer p) {
+		Ring r = RINGS.remove(p.getUUID());
+		if (r != null && r.fx() != null && r.fx().isAlive()) {
+			r.fx().discard();
+		}
 	}
 
 	private HeatblastKit() {
@@ -150,46 +165,32 @@ public final class HeatblastKit extends AlienKit {
 		AlienProjectileEntity.onHit("heatblast_bomb", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
 				Vec3 at = hit.getLocation();
-				QuirkFx.blast(l, at).colours(0xFFF0B0, COLOUR).size(3.2f).life(18).spawn();
-				QuirkFx.decal(l, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A120C).size(3f).life(200).spawn();
-				// v0.17.2 (user: "upgrade the vfx on all of heatblasts abilities"): a soft fire ring rolling out under the
-				// blast, flames flung outward, a lava fountain and a smoke column
-				QuirkFx.ring(l, at).style(QuirkFx.RING_SOFT).colours(0xFFC040, 0xFF3A00).size(4.0f).thickness(1.2f).life(16).ground().spawn();
-				flameBurst(l, at.add(0, 0.2, 0), 14, 0.3, 0.28, 0.35, ParticleTypes.FLAME);
-				l.sendParticles(ParticleTypes.LAVA, at.x, at.y + 0.3, at.z, 6, 0.4, 0.2, 0.4, 0);
-				l.sendParticles(ParticleTypes.LARGE_SMOKE, at.x, at.y + 0.8, at.z, 6, 0.5, 0.6, 0.5, 0.03);
-				embers(l, at.add(0, 0.5, 0), 10, 0.6, 0.08);
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): it bursts like Pyrokinesis'
+				// Meteor -- the swelling fireball blast with its shock ring and crown of flames, explosions, flames and lava
+				PyrokinesisHandlers.meteorBlastFx(l, proj.getOwner() instanceof ServerPlayer sp ? sp : null, at, BOMB_FX_RADIUS);
 				OmnitrixSounds.play(l, at, OmnitrixSounds.HEATBLAST_NOVA, 1.2f, 1.2f);
 				QuirkCamera.shakeAround(l, at, 12, 0.4f, 8);
 			}
 		});
 		AlienProjectileEntity.onHit("heatblast_blast", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
-				Vec3 at = hit.getLocation();
-				// v0.17.2: a small fireball pop, flames splashing off the hit, embers and a wisp of smoke
-				QuirkFx.blast(l, at).colours(0xFFF4C0, COLOUR).size(1.1f).life(9).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-				flameBurst(l, at, 8, 0.1, 0.14, 0.25, ParticleTypes.FLAME);
-				embers(l, at, 6, 0.2, 0.06);
-				l.sendParticles(ParticleTypes.SMOKE, at.x, at.y + 0.1, at.z, 3, 0.15, 0.15, 0.15, 0.02);
-				if (hit instanceof BlockHitResult bh && bh.getDirection() == net.minecraft.core.Direction.UP) {
-					QuirkFx.decal(l, at.add(0, 0.05, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A120C).size(0.9f).life(120).spawn();
-				}
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' Fireball burst
+				PyrokinesisHandlers.fireballImpactFx(l, hit.getLocation(), 1.0f);
 			}
 		});
 		AlienProjectileEntity.onHit("heatblast_bolt", (proj, hit) -> {
 			if (proj.level() instanceof ServerLevel l) {
-				// v0.17.2: Use's little bolt had no hit at all: a spark of fire
-				Vec3 at = hit.getLocation();
-				QuirkFx.blast(l, at).colours(0xFFF4C0, 0xFFA040).size(0.55f).life(6).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-				flameBurst(l, at, 5, 0.05, 0.1, 0.2, ParticleTypes.SMALL_FLAME);
-				embers(l, at, 3, 0.1, 0.04);
+				// v0.17.2: the same Fireball burst, half size
+				PyrokinesisHandlers.fireballImpactFx(l, hit.getLocation(), 0.5f);
 			}
 		});
-		// v0.17.2: what each shot trails besides the shared flame and smoke -- embers, a dribble of lava off the bomb, sparks
-		AlienProjectileEntity.trail("heatblast_blast", EMBER);
+		// v0.17.2: the bomb trails lava like Pyrokinesis' Meteor (the shots are drawn as Pyrokinesis' fireballs by the client --
+		// HeatblastClient -- and trail its flame; the earlier ember / spark trails are gone)
 		AlienProjectileEntity.trail("heatblast_bomb", ParticleTypes.LAVA);
-		AlienProjectileEntity.trail("heatblast_bolt", ParticleTypes.SMALL_FLAME);
 	}
+
+	/** v0.17.2: how big the Pyro Bomb's Meteor-blast looks (its damage radius, 3.5, is set on the projectile). */
+	private static final double BOMB_FX_RADIUS = 3.5;
 
 	// ---------------------------------------------------------------- v0.17.2 (user: "upgrade the vfx on all of heatblasts abilities"): VFX helpers
 
@@ -207,32 +208,9 @@ public final class HeatblastKit extends AlienKit {
 		}
 	}
 
-	/** {@code n} particles flung outward round {@code c} (count-0 packets carry a direction each, so keep {@code n} small). */
-	static void flameBurst(ServerLevel l, Vec3 c, int n, double r, double speed, double rise, net.minecraft.core.particles.ParticleOptions particle) {
-		for (int i = 0; i < n; i++) {
-			double a = (i + l.random.nextDouble() * 0.5) * Math.PI * 2 / n;
-			l.sendParticles(particle, c.x + Math.cos(a) * r, c.y, c.z + Math.sin(a) * r, 0, Math.cos(a), rise, Math.sin(a), speed);
-		}
-	}
-
-	/** His right palm: a little right of and ahead of the chest, along the look. */
-	static Vec3 palm(ServerPlayer p) {
-		double yaw = Math.toRadians(p.getYRot());
-		Vec3 right = new Vec3(-Math.cos(yaw), 0, -Math.sin(yaw));
-		return p.getEyePosition().add(p.getLookAngle().scale(0.75)).add(right.scale(0.3)).add(0, -0.3, 0);
-	}
-
-	/** The muzzle flash at a palm: a ring punched out along {@code dir}, a gout of flame along it and a puff of smoke. */
-	static void muzzle(ServerLevel l, Vec3 at, Vec3 dir, float size) {
-		QuirkFx.ring(l, at).flags(QuirkFx.F_VERTICAL).vec(dir).colours(0xFFF4C0, COLOUR).size(size).thickness(0.22f).life(6)
-				.ease(QuirkFx.Ease.OUT_EXPO).spawn();
-		for (int i = 0; i < 4; i++) {
-			l.sendParticles(ParticleTypes.FLAME, at.x, at.y, at.z, 0, dir.x + (l.random.nextDouble() - 0.5) * 0.3, dir.y + (l.random.nextDouble() - 0.5) * 0.3,
-					dir.z + (l.random.nextDouble() - 0.5) * 0.3, 0.18 + l.random.nextDouble() * 0.15);
-		}
-		l.sendParticles(ParticleTypes.SMOKE, at.x, at.y, at.z, 2, 0.05, 0.05, 0.05, 0.01);
-		embers(l, at, 3, 0.08, 0.04);
-	}
+	// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the moves now use Pyrokinesis' FX
+	// (PyrokinesisHandlers' shared fire FX, PyroFxEntity, and the client's Pyro renderers); the muzzle rings and outward flame
+	// bursts went with the old look. The embers stay for the Fire Jet's touchdown only.
 
 	/**
 	 * v0.17.2 (user: "change heatblasts landing sound effect, it sounds weird, make it slightly softer too please"): the Fire
@@ -296,7 +274,7 @@ public final class HeatblastKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
 		stopFlying(p);
-		RINGS.remove(p.getUUID());
+		removeRing(p);
 		DASH_HITS.remove(p.getUUID());
 	}
 
@@ -370,23 +348,16 @@ public final class HeatblastKit extends AlienKit {
 			} else {
 				for (Projectile pr : l.getEntitiesOfClass(Projectile.class, p.getBoundingBox().inflate(2.5),
 						pr -> pr.getOwner() != p && !(pr instanceof AlienProjectileEntity))) {
-					l.sendParticles(ParticleTypes.FLAME, pr.getX(), pr.getY(), pr.getZ(), 8, 0.1, 0.1, 0.1, 0.04);
-					// v0.17.2: it flashes to slag -- a spit of lava, smoke and a hiss
-					l.sendParticles(ParticleTypes.LAVA, pr.getX(), pr.getY(), pr.getZ(), 1, 0.05, 0.05, 0.05, 0);
-					l.sendParticles(ParticleTypes.SMOKE, pr.getX(), pr.getY(), pr.getZ(), 3, 0.1, 0.1, 0.1, 0.02);
+					// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): it burns up the way a
+					// shot does in Pyrokinesis' Flame Wall -- a puff of smoke and flame
+					l.sendParticles(ParticleTypes.LARGE_SMOKE, pr.getX(), pr.getY(), pr.getZ(), 6, 0.1, 0.1, 0.1, 0.02);
+					l.sendParticles(ParticleTypes.FLAME, pr.getX(), pr.getY(), pr.getZ(), 6, 0.1, 0.1, 0.1, 0.04);
 					l.playSound(null, pr.getX(), pr.getY(), pr.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.25f, 1.8f);
 					pr.discard(); // arrows and fireballs burn up in the shield
 				}
-				if (now % 4 == 0) {
-					// v0.17.2: two bands round him turning opposite ways -- flames low and fast, embers higher and slower
-					for (int k = 0; k < 6; k++) {
-						double a = (now * 0.4) + k * Math.PI / 3;
-						l.sendParticles(ParticleTypes.FLAME, p.getX() + Math.cos(a) * 1.1, p.getY() + 0.2 + (k % 3) * 0.6, p.getZ() + Math.sin(a) * 1.1,
-								1, 0, 0.05, 0, 0.01);
-						double b = -(now * 0.25) + k * Math.PI / 3 + 0.5;
-						l.sendParticles(EMBER, p.getX() + Math.cos(b) * 1.25, p.getY() + 0.5 + ((k + 1) % 3) * 0.55, p.getZ() + Math.sin(b) * 1.25, 1, 0, 0.04,
-								0, 0.0);
-					}
+				if (now % 3 == 0) {
+					// v0.17.2: Pyrokinesis' Flame Body -- the living-fire figure is drawn on every client; this is its flicker
+					l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0.3, 0.7, 0.3, 0.02);
 				}
 			}
 		}
@@ -395,28 +366,11 @@ public final class HeatblastKit extends AlienKit {
 		long ringEnd = timer(p, "ring_end");
 		if (ring != null) {
 			if (now >= ringEnd || ring.dim() != l.dimension()) {
-				RINGS.remove(p.getUUID());
+				removeRing(p);
 				setTimer(p, "ring_end", 0);
 			} else {
-				if (now % 3 == 0) {
-					// v0.17.2: a wall of flame -- tongues licking straight up off the circle (directed), not a scatter
-					for (int k = 0; k < 12; k++) {
-						double a = k * Math.PI * 2 / 12 + now * 0.05;
-						double x = ring.at().x + Math.cos(a) * RING_RADIUS, z = ring.at().z + Math.sin(a) * RING_RADIUS;
-						l.sendParticles(ParticleTypes.FLAME, x, ring.at().y + 0.1, z, 0, (l.random.nextDouble() - 0.5) * 0.2, 1, (l.random.nextDouble() - 0.5) * 0.2,
-								0.08 + l.random.nextDouble() * 0.08);
-						if (k % 3 == 0) {
-							l.sendParticles(ParticleTypes.SMALL_FLAME, x, ring.at().y + 0.5, z, 1, 0.15, 0.3, 0.15, 0.01);
-						}
-					}
-				}
-				if (now % 6 == 0) {
-					double a = l.random.nextDouble() * Math.PI * 2;
-					l.sendParticles(ParticleTypes.LAVA, ring.at().x + Math.cos(a) * RING_RADIUS, ring.at().y + 0.2, ring.at().z + Math.sin(a) * RING_RADIUS, 1, 0.1, 0,
-							0.1, 0);
-					l.sendParticles(ParticleTypes.LARGE_SMOKE, ring.at().x - Math.cos(a) * RING_RADIUS, ring.at().y + 1.2, ring.at().z - Math.sin(a) * RING_RADIUS, 1,
-							0.2, 0.2, 0.2, 0.01);
-				}
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the fire itself is Pyrokinesis'
+				// Ring of Fire (a look-only PyroFxEntity: its fire sheets, ember bed and flames); this only burns
 				if (now % 10 == 0) {
 					for (LivingEntity e : around(p, ring.at(), RING_RADIUS + 0.5)) {
 						double d = Math.sqrt(e.distanceToSqr(ring.at().x, e.getY(), ring.at().z));
@@ -440,16 +394,11 @@ public final class HeatblastKit extends AlienKit {
 					if (hits.add(e.getId())) {
 						hurt(p, e, DASH_DAMAGE, true);
 						e.igniteForSeconds(4);
-						flameBurst(l, e.position().add(0, e.getBbHeight() * 0.5, 0), 6, 0.2, 0.15, 0.15, ParticleTypes.FLAME); // v0.17.2
 					}
 				}
-				// v0.17.2: a streak of flame, embers shed off it and a smoke wake
-				l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 5, 0.3, 0.4, 0.3, 0.02);
-				l.sendParticles(EMBER, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.35, 0.45, 0.35, 0.02);
-				l.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getY() + 0.6, p.getZ(), 2, 0.25, 0.3, 0.25, 0.01);
-				if (now % 2 == 0) {
-					l.sendParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.9, p.getZ(), 1, 0.2, 0.2, 0.2, 0.0);
-				}
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' Flame Dash wake
+				// (the body ablaze and streaming flame is drawn on every client)
+				l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.8, p.getZ(), 10, 0.25, 0.5, 0.25, 0.02);
 			}
 		}
 		// Supernova's charge
@@ -461,23 +410,13 @@ public final class HeatblastKit extends AlienKit {
 				supernovaBlast(p);
 			} else {
 				p.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 4, 3, false, false, false));
-				if (now % 2 == 0) {
-					double r = 2.5 * (nova - now) / (double) SUPERNOVA_CHARGE;
-					for (int k = 0; k < 8; k++) {
-						double a = k * Math.PI / 4 + now * 0.3;
-						l.sendParticles(ParticleTypes.FLAME, p.getX() + Math.cos(a) * r, p.getY() + 1.0, p.getZ() + Math.sin(a) * r, 1, 0, 0, 0, 0);
-					}
-					// v0.17.2: the heat drawn in -- flames sucked toward his chest from further out, embers lifting off the ground
-					for (int k = 0; k < 4; k++) {
-						double a = l.random.nextDouble() * Math.PI * 2;
-						double far = 2.6 + l.random.nextDouble() * 1.2;
-						l.sendParticles(ParticleTypes.FLAME, p.getX() + Math.cos(a) * far, p.getY() + 0.4 + l.random.nextDouble() * 1.2, p.getZ() + Math.sin(a) * far, 0,
-								-Math.cos(a), 0.1, -Math.sin(a), 0.16);
-					}
-					l.sendParticles(EMBER, p.getX(), p.getY() + 0.2, p.getZ(), 3, 1.8, 0.05, 1.8, 0.02);
-				}
-				if (now % 8 == 0) {
-					QuirkFx.ring(l, p.position().add(0, 1.0, 0)).style(QuirkFx.RING_SOFT).colours(0xFFE080, COLOUR).size(1.4f).thickness(0.5f).life(8).spawn();
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): like Pyrokinesis' Meteor charging
+				// -- flames boiling off the swelling fireball (drawn between his hands on every client), more as it grows
+				if (now % 3 == 0) {
+					float f = 1f - (nova - now) / (float) SUPERNOVA_CHARGE;
+					double yaw = Math.toRadians(p.yBodyRot);
+					Vec3 core = p.position().add(-Math.sin(yaw) * 0.6, 1.05, Math.cos(yaw) * 0.6);
+					l.sendParticles(ParticleTypes.FLAME, core.x, core.y, core.z, 2 + (int) (f * 6), 0.2 + f * 0.5, 0.2 + f * 0.5, 0.2 + f * 0.5, 0.01);
 				}
 			}
 		}
@@ -536,7 +475,8 @@ public final class HeatblastKit extends AlienKit {
 		anim(p, ANIM_BLAST);
 		AlienProjectileEntity.of(p, "heatblast_blast").colour(COLOUR).size(0.45f).damage(BLAST_DAMAGE).fire(4).speed(1.8).life(50).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.9f, 0.9f + p.getRandom().nextFloat() * 0.2f);
-		muzzle(level(p), palm(p), p.getLookAngle(), 0.9f); // v0.17.2
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): no muzzle ring -- like Pyrokinesis'
+		// Fireball, the shot is a ball of fire (HeatblastClient draws it) and the palm flares as it leaves
 		return true;
 	}
 
@@ -556,19 +496,13 @@ public final class HeatblastKit extends AlienKit {
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
 		Vec3 palm = eye.add(look.scale(0.7)).add(0, -0.3, 0);
-		if (now % 6 == 0) {
-			QuirkFx.cone(l, palm, look).colours(0xFFF4C0, 0xFF4A10).size(1.6f).length(7f).life(10).spawn();
-			// v0.17.2: the white-hot muzzle ring pulsing at the palms and a smoke plume rolling off the far end
-			QuirkFx.ring(l, palm).flags(QuirkFx.F_VERTICAL).vec(look).colours(0xFFF4C0, COLOUR).size(0.7f).thickness(0.2f).life(5).ease(QuirkFx.Ease.OUT_EXPO)
-					.spawn();
-			Vec3 end = eye.add(look.scale(6.5));
-			l.sendParticles(ParticleTypes.LARGE_SMOKE, end.x, end.y + 0.3, end.z, 2, 0.5, 0.3, 0.5, 0.02);
-		}
-		// v0.17.2: embers flung down the stream with it
-		for (int i = 0; i < 3; i++) {
-			double s = 0.5 + l.random.nextDouble() * 0.5;
-			l.sendParticles(EMBER, palm.x, palm.y, palm.z, 0, look.x + (l.random.nextDouble() - 0.5) * 0.35, look.y + (l.random.nextDouble() - 0.5) * 0.35,
-					look.z + (l.random.nextDouble() - 0.5) * 0.35, s);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the stream is Pyrokinesis'
+		// Flamethrower -- its roaring cone is drawn on every client (HeatblastClient); this is the same spray of flame round it
+		Vec3 low = eye.add(0, -0.3, 0);
+		for (int i = 0; i < 6; i++) { // stream() runs every 3rd tick; Pyrokinesis sprays 3 a tick
+			double d = 1.0 + l.random.nextDouble() * (STREAM_FX_RANGE - 1.0);
+			Vec3 pt = low.add(look.scale(d));
+			l.sendParticles(ParticleTypes.FLAME, pt.x, pt.y, pt.z, 1, 0.08 * d, 0.08 * d, 0.08 * d, 0.02);
 		}
 		if (now % 12 == 0) {
 			OmnitrixSounds.play(l, palm, OmnitrixSounds.HEATBLAST_STREAM, 0.6f, 1.1f);
@@ -584,12 +518,6 @@ public final class HeatblastKit extends AlienKit {
 		// the stream lights the ground it plays over
 		var hit = l.clip(new net.minecraft.world.level.ClipContext(eye, eye.add(look.scale(7)), net.minecraft.world.level.ClipContext.Block.COLLIDER,
 				net.minecraft.world.level.ClipContext.Fluid.NONE, p));
-		if (hit.getType() == HitResult.Type.BLOCK) {
-			// v0.17.2: the stream splashing where it plays on the ground
-			Vec3 at = hit.getLocation();
-			l.sendParticles(ParticleTypes.FLAME, at.x, at.y + 0.1, at.z, 3, 0.3, 0.1, 0.3, 0.03);
-			l.sendParticles(ParticleTypes.SMOKE, at.x, at.y + 0.2, at.z, 2, 0.3, 0.1, 0.3, 0.02);
-		}
 		if (hit.getType() == HitResult.Type.BLOCK && now % 9 == 0) {
 			BlockPos above = hit.getBlockPos().relative(hit.getDirection());
 			if (l.getBlockState(above).isAir() && Blocks.FIRE.defaultBlockState().canSurvive(l, above)
@@ -607,7 +535,8 @@ public final class HeatblastKit extends AlienKit {
 		AlienProjectileEntity.of(p, "heatblast_bomb").colour(0xFF5A10).size(0.75f).damage(BOMB_DAMAGE * 0.5f).blast(3.5f, BOMB_DAMAGE).fire(5)
 				.gravity(0.045).speed(1.15).life(80).spawn();
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 1.0f, 0.7f);
-		muzzle(level(p), palm(p).add(0, 0.35, 0), p.getLookAngle(), 1.2f); // v0.17.2: the lob leaves the raised hand
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): no muzzle ring -- the bomb is a
+		// Pyrokinesis Meteor in flight (HeatblastClient draws it), swelling in his hand before the throw
 		return true;
 	}
 
@@ -620,12 +549,9 @@ public final class HeatblastKit extends AlienKit {
 		setFlag(p, F_SHIELD, true);
 		ServerLevel l = level(p);
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_SHIELD, 1.0f, 1.0f);
-		QuirkFx.ring(l, p.position().add(0, 1.0, 0)).colours(0xFFF0B0, COLOUR).size(2.2f).thickness(0.5f).life(14).spawn();
-		// v0.17.2: the shield flares up round him -- a hot flash, a second ring higher up and flames thrown out in a crown
-		QuirkFx.blast(l, p.position().add(0, 1.0, 0)).colours(0xFFF4C0, COLOUR).size(1.8f).life(8).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-		QuirkFx.ring(l, p.position().add(0, 1.7, 0)).style(QuirkFx.RING_SOFT).colours(0xFFE080, 0xFF4A10).size(1.6f).thickness(0.4f).life(12).spawn();
-		flameBurst(l, p.position().add(0, 1.0, 0), 14, 0.5, 0.18, 0.05, ParticleTypes.FLAME);
-		embers(l, p.position().add(0, 1.0, 0), 8, 0.6, 0.05);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): it takes like Pyrokinesis' Flame
+		// Body -- a rush of fire up his whole body (the living-fire figure is drawn on every client while it lasts)
+		l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 60, 0.4, 0.9, 0.4, 0.05);
 		return true;
 	}
 
@@ -655,12 +581,10 @@ public final class HeatblastKit extends AlienKit {
 		p.hurtMarked = true;
 		ServerLevel l = level(p);
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_JET, 1.0f, 1.0f);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFF0B0, COLOUR).size(2.0f).thickness(0.4f).life(10).ground().spawn();
-		// v0.17.2: lift-off -- a blast of flame down and out across the ground, a smoke ring, embers, and the push-off pose
+		// v0.17.2: the push-off pose; v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): lift-off
+		// like Pyrokinesis' Jet Flight -- a blast of flame off the ground (no rings), then its jets out of his palms and soles
 		anim(p, ANIM_LIFTOFF);
-		flameBurst(l, p.position().add(0, 0.1, 0), 12, 0.2, 0.22, -0.02, ParticleTypes.FLAME);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).style(QuirkFx.RING_STEAM).colour(0x3A2A20).size(2.8f).thickness(0.5f).life(16).ground().spawn();
-		embers(l, p.position().add(0, 0.2, 0), 6, 0.4, 0.06);
+		l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.1, p.getZ(), 40, 0.4, 0.1, 0.4, 0.1);
 		return true;
 	}
 
@@ -690,14 +614,10 @@ public final class HeatblastKit extends AlienKit {
 		setTimer(p, "dash_end", p.level().getGameTime() + 8);
 		DASH_HITS.put(p.getUUID(), new java.util.HashSet<>());
 		ServerLevel l = level(p);
-		QuirkFx.trail(l, p).colours(0xFFF0B0, COLOUR).size(0.5f).size2(10f).life(20).vec(new Vec3(0, 1.0, 0)).style(QuirkFx.RIBBON_FLAME).spawn();
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_JET, 1.0f, 1.3f);
-		// v0.17.2: the launch -- a ring punched out ahead of him, a cone of flame blasting back where he was, embers
-		Vec3 chest = p.position().add(0, 1.0, 0);
-		QuirkFx.ring(l, chest.add(look.scale(0.8))).flags(QuirkFx.F_VERTICAL).vec(look).colours(0xFFF4C0, COLOUR).size(1.6f).thickness(0.3f).life(8)
-				.ease(QuirkFx.Ease.OUT_EXPO).spawn();
-		QuirkFx.cone(l, chest, look.scale(-1)).colours(0xFFF4C0, 0xFF4A10).size(1.2f).length(3.5f).life(8).spawn();
-		embers(l, chest, 8, 0.4, 0.06);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' Flame Dash launch -- a
+		// burst of flame off him (no ribbon, rings or cone); his body bursts into streaming fire on every client
+		l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.9, p.getZ(), 30, 0.3, 0.5, 0.3, 0.12);
 		return true;
 	}
 
@@ -706,24 +626,15 @@ public final class HeatblastKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_RING);
-		RINGS.put(p.getUUID(), new Ring(p.level().dimension(), p.position()));
-		setTimer(p, "ring_end", p.level().getGameTime() + RING_TICKS);
 		ServerLevel l = level(p);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFF0B0, 0xFF3A08).size(RING_RADIUS).thickness(0.7f).life(RING_TICKS).ground().spawn();
-		QuirkFx.decal(l, p.position().add(0, 0.05, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A120C).size(RING_RADIUS + 1f).life(RING_TICKS + 100).spawn();
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' Ring of Fire -- the same
+		// look-only fire entity (two rings of fire sheets over a glowing ember bed) and its cast flames; no QuirkFx rings / decal
+		removeRing(p);
+		PyroFxEntity fx = PyroFxEntity.spawn(l, p, PyroFxEntity.RING, p.position(), p.getYRot(), RING_RADIUS, RING_TICKS).visualOnly();
+		RINGS.put(p.getUUID(), new Ring(p.level().dimension(), p.position(), fx));
+		setTimer(p, "ring_end", p.level().getGameTime() + RING_TICKS);
+		PyrokinesisHandlers.ringCastFx(l, p.position(), RING_RADIUS);
 		OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_NOVA, 0.8f, 1.4f);
-		// v0.17.2: the fists hit the ground and the ring ERUPTS -- a quick white shockwave racing out to it, flames shooting up all
-		// round the circle, lava spat up, a soft glow where he struck
-		Vec3 c = p.position();
-		QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFB040).size(RING_RADIUS).thickness(0.25f).life(7).ease(QuirkFx.Ease.OUT_EXPO).ground().spawn();
-		QuirkFx.ring(l, c.add(0, 0.05, 0)).style(QuirkFx.RING_SOFT).colours(0xFFC040, 0xFF3A00).size(1.6f).thickness(1.0f).life(12).ground().spawn();
-		for (int k = 0; k < 20; k++) {
-			double a = k * Math.PI * 2 / 20;
-			l.sendParticles(ParticleTypes.FLAME, c.x + Math.cos(a) * RING_RADIUS, c.y + 0.1, c.z + Math.sin(a) * RING_RADIUS, 0, 0, 1, 0,
-					0.25 + l.random.nextDouble() * 0.15);
-		}
-		l.sendParticles(ParticleTypes.LAVA, c.x, c.y + 0.3, c.z, 6, RING_RADIUS * 0.6, 0.1, RING_RADIUS * 0.6, 0);
-		embers(l, c.add(0, 0.3, 0), 8, 0.5, 0.06);
 		return true;
 	}
 
@@ -734,15 +645,10 @@ public final class HeatblastKit extends AlienKit {
 		anim(p, ANIM_FLARE);
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 1.4, 0);
-		l.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 2, 0.2, 0.2, 0.2, 0);
-		QuirkFx.blast(l, c).colours(0xFFFFFF, 0xFFE070).size(2.0f).life(10).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-		// v0.17.2: the flash rings out flat and upright, white-hot sparks and embers sprayed every way
-		QuirkFx.ring(l, c).colours(0xFFFFFF, 0xFFE070).size(6.0f).thickness(0.3f).life(8).ease(QuirkFx.Ease.OUT_EXPO).spawn();
-		QuirkFx.ring(l, c).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).colours(0xFFFFFF, 0xFFC040).size(3.0f).thickness(0.3f).life(7)
-				.ease(QuirkFx.Ease.OUT_EXPO).spawn();
-		l.sendParticles(ParticleTypes.END_ROD, c.x, c.y, c.z, 14, 0.2, 0.2, 0.2, 0.35);
-		l.sendParticles(SPARK, c.x, c.y, c.z, 12, 1.2, 0.8, 1.2, 0.1);
-		embers(l, c, 8, 0.8, 0.08);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' Solar Flare -- the sun
+		// swelling out of him with its corona and shock ring, and the white flash on the screens round him (softer on his own);
+		// the vanilla flash discs, QuirkFx rings and spark dust are gone
+		PyrokinesisHandlers.solarFlareFx(l, p, p.position().add(0, 1.2, 0), FLARE_FX_RADIUS, false);
 		for (LivingEntity e : around(p, c, 8.0)) {
 			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
@@ -770,49 +676,33 @@ public final class HeatblastKit extends AlienKit {
 		setFlag(p, F_CHARGING, true);
 		setTimer(p, "supernova_at", p.level().getGameTime() + SUPERNOVA_CHARGE);
 		OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_SHIELD, 1.0f, 0.6f);
-		// v0.17.2: he plants himself -- a dark heat ring pressed into the ground
-		QuirkFx.ring(level(p), p.position().add(0, 0.05, 0)).style(QuirkFx.RING_STEAM).colour(0x3A2A20).size(3.0f).thickness(0.5f).life(18).ground().spawn();
 		return true;
 	}
 
 	private void supernovaBlast(ServerPlayer p) {
 		anim(p, ANIM_SUPERNOVA);
 		burst(p, SUPERNOVA_RADIUS, SUPERNOVA_DAMAGE, 1.8, 8, 1.8f);
-		// v0.17.2: the star going off -- a white flash at his heart and a second, wider shock ring racing past the first
-		ServerLevel l = level(p);
-		Vec3 c = p.position().add(0, 1.0, 0);
-		l.sendParticles(ParticleTypes.FLASH, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, 0xFFE070).size(SUPERNOVA_RADIUS * 1.4f).thickness(0.3f).life(10)
-				.ease(QuirkFx.Ease.OUT_EXPO).ground().spawn();
-		QuirkFx.ring(l, c).flags(QuirkFx.F_VERTICAL).vec(p.getLookAngle()).colours(0xFFFFFF, COLOUR).size(SUPERNOVA_RADIUS * 0.6f).thickness(0.4f).life(12)
-				.ease(QuirkFx.Ease.OUT_EXPO).spawn();
 	}
 
 	private void burst(ServerPlayer p, float radius, float damage, double push, int fireSecs, float scale) {
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 1.0, 0);
-		QuirkFx.blast(l, c).colours(0xFFF0B0, COLOUR).size(radius * 0.7f).life(22).spawn();
-		QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFFFFF, COLOUR).size(radius).thickness(0.8f).life(16).ground().spawn();
-		QuirkFx.decal(l, p.position().add(0, 0.05, 0)).style(QuirkFx.DECAL_SCORCH).colour(0x1A120C).size(radius * 0.8f).life(300).spawn();
 		OmnitrixSounds.play(l, c, OmnitrixSounds.HEATBLAST_NOVA, 1.4f, 1.0f / scale + 0.2f);
 		QuirkCamera.shakeAround(l, c, radius * 2.5, 0.35f * scale, 12);
-		// v0.17.2: layered -- a slower dark heat ring rolling out behind the white one, a pillar of fire up off him, flames and
-		// embers flung outward, lava thrown up, and a little fire bursting on everything it catches
-		Vec3 feet = p.position().add(0, 0.05, 0);
-		QuirkFx.ring(l, feet).style(QuirkFx.RING_STEAM).colour(0x3A2A20).size(radius * 1.1f).thickness(0.7f).life(26).ease(QuirkFx.Ease.OUT_QUAD).ground()
-				.spawn();
-		QuirkFx.ring(l, feet).style(QuirkFx.RING_SOFT).colours(0xFFC040, 0xFF3A00).size(radius * 0.8f).thickness(1.4f).life(18).ground().spawn();
-		QuirkFx.cone(l, p.position(), new Vec3(0, 1, 0)).colours(0xFFF4C0, 0xFF4A10).size(radius * 0.25f).length(radius * 0.8f).life(14).spawn();
-		flameBurst(l, c, (int) (16 * scale), 0.5, 0.3 * scale, 0.12, ParticleTypes.FLAME);
-		flameBurst(l, c.add(0, -0.6, 0), (int) (8 * scale), 0.6, 0.45 * scale, 0.05, EMBER);
-		l.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, (int) (6 * scale), radius * 0.3, 0.3, radius * 0.3, 0);
-		l.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y + 0.6, c.z, (int) (6 * scale), radius * 0.3, 0.5, radius * 0.3, 0.03);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the Fireball Nova is Pyrokinesis'
+		// Inferno (the ring of flame sheets rolling out over the ground) and the Supernova its Phoenix Dive landing (that ring
+		// under a swelling fireball blast); the QuirkFx blasts, rings, scorch, pillar, ember dust and lava are gone
+		if (scale > 1.0f) {
+			// (the fireball blast held to a Meteor's size: at the full 9 its core would swallow his own camera)
+			PyrokinesisHandlers.phoenixImpactFx(l, p, p.position(), radius, PyrokinesisHandlers.METEOR_RADIUS);
+		} else {
+			PyrokinesisHandlers.infernoFx(l, p, p.position(), radius);
+		}
 		for (LivingEntity e : around(p, c, radius)) {
 			double d = Math.sqrt(e.distanceToSqr(c));
 			hurt(p, e, (float) (damage * (1.0 - 0.4 * Math.min(1.0, d / radius))), true);
 			e.igniteForSeconds(fireSecs);
 			shove(e, c, push, 0.45);
-			l.sendParticles(ParticleTypes.FLAME, e.getX(), e.getY() + e.getBbHeight() * 0.5, e.getZ(), 6, 0.25, 0.3, 0.25, 0.04);
 		}
 	}
 
@@ -827,13 +717,9 @@ public final class HeatblastKit extends AlienKit {
 				le.igniteForSeconds(4);
 				le.invulnerableTime = 0;
 				hurt(p, le, PUNCH_FIRE, true);
-				level(p).sendParticles(ParticleTypes.FLAME, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 10, 0.2, 0.3, 0.2, 0.04);
-				// v0.17.2: the knuckles burst on impact -- a fire pop where the fist lands and embers sprayed off it
-				Vec3 toMe = p.position().subtract(le.position()).multiply(1, 0, 1);
-				Vec3 hitAt = le.position().add(0, le.getBbHeight() * 0.6, 0)
-						.add(toMe.lengthSqr() < 1e-6 ? Vec3.ZERO : toMe.normalize().scale(le.getBbWidth() * 0.5));
-				QuirkFx.blast(level(p), hitAt).colours(0xFFF4C0, COLOUR).size(0.6f).life(6).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-				embers(level(p), hitAt, 4, 0.15, 0.08);
+				// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' burning punch --
+				// flames off the hit (the QuirkFx pop and ember dust are gone)
+				level(p).sendParticles(ParticleTypes.FLAME, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 6, 0.2, 0.3, 0.2, 0.02);
 				le.invulnerableTime = 0; // the fist itself still lands this tick
 			}
 		}
@@ -854,8 +740,7 @@ public final class HeatblastKit extends AlienKit {
 			anim(p, ANIM_BOLT); // v0.17.2: its own quick flick
 			AlienProjectileEntity.of(p, "heatblast_bolt").colour(0xFFA040).size(0.28f).damage(3f).fire(2).speed(1.6).life(30).spawn();
 			OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.5f, 1.4f);
-			muzzle(level(p), palm(p), p.getLookAngle(), 0.5f);
-			p.swing(hand, true);
+			p.swing(hand, true); // v0.17.2: a small Pyrokinesis fireball (drawn by HeatblastClient); no muzzle ring
 			return InteractionResult.SUCCESS;
 		}
 		if (p.isShiftKeyDown() && !held.isEmpty()) {
@@ -894,7 +779,6 @@ public final class HeatblastKit extends AlienKit {
 					0.06);
 		}
 		l.sendParticles(ParticleTypes.SMOKE, cup.x, cup.y + 0.3, cup.z, 4, 0.1, 0.1, 0.1, 0.02);
-		embers(l, cup, 4, 0.12, 0.04);
 		p.swing(hand, true);
 		return true;
 	}
@@ -978,12 +862,11 @@ public final class HeatblastKit extends AlienKit {
 		l.playSound(null, pos, SoundEvents.LAVA_EXTINGUISH, SoundSource.BLOCKS, 0.8f, 1.2f);
 		l.sendParticles(ParticleTypes.LAVA, pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, 4, 0.3, 0.1, 0.3, 0);
 		l.sendParticles(ParticleTypes.FLAME, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 12, 0.4, 0.4, 0.4, 0.02);
-		// v0.17.2: the block glows white-hot for a beat and slumps -- a heat flash, lava dripping, a smoke plume, embers
+		// v0.17.2: the block slumps -- lava dripping and a smoke plume (v0.17.2 Pyrokinesis-style pass: no white flash right in
+		// front of the camera, no ember dust)
 		Vec3 mid = Vec3.atCenterOf(pos);
-		QuirkFx.blast(l, mid).colours(0xFFF4C0, COLOUR).size(0.9f).life(8).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
 		l.sendParticles(ParticleTypes.DRIPPING_LAVA, mid.x, mid.y - 0.3, mid.z, 4, 0.3, 0.1, 0.3, 0);
 		l.sendParticles(ParticleTypes.LARGE_SMOKE, mid.x, mid.y + 0.6, mid.z, 3, 0.25, 0.2, 0.25, 0.02);
-		embers(l, mid.add(0, 0.4, 0), 6, 0.3, 0.05);
 		p.swing(InteractionHand.MAIN_HAND, true);
 		return true;
 	}
@@ -1006,8 +889,9 @@ public final class HeatblastKit extends AlienKit {
 			if (source.getDirectEntity() instanceof LivingEntity attacker && attacker != p && source.getDirectEntity() == source.getEntity()) {
 				attacker.igniteForSeconds(3);
 				hurt(p, attacker, 2f, true);
-				// v0.17.2: the shield bites back in a flare of fire on them
-				embers(level(p), attacker.position().add(0, attacker.getBbHeight() * 0.6, 0), 6, 0.25, 0.06);
+				// v0.17.2: the shield bites back in a flare of fire on them (Pyrokinesis' burning-touch flames)
+				level(p).sendParticles(ParticleTypes.FLAME, attacker.getX(), attacker.getY() + attacker.getBbHeight() * 0.6, attacker.getZ(), 6, 0.2, 0.3, 0.2,
+						0.02);
 			}
 			return amount * SHIELD_FACTOR;
 		}
@@ -1044,12 +928,11 @@ public final class HeatblastKit extends AlienKit {
 		anim(p, ANIM_AURA);
 		ServerLevel l = level(p);
 		if (on) {
-			QuirkFx.ring(l, p.position().add(0, 0.05, 0)).colours(0xFFF0B0, COLOUR).size((float) AURA_RADIUS * 2).thickness(0.5f).life(14).ground().spawn();
 			OmnitrixSounds.play(l, p.position(), OmnitrixSounds.HEATBLAST_IGNITE, 1.0f, 0.8f);
-			// v0.17.2: he flares white-hot -- a flash, flames thrown out round him, embers
-			QuirkFx.blast(l, p.position().add(0, 1.0, 0)).colours(0xFFF4C0, COLOUR).size(1.4f).life(8).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
-			flameBurst(l, p.position().add(0, 0.6, 0), 16, 0.4, 0.2, 0.12, ParticleTypes.FLAME);
-			embers(l, p.position().add(0, 1.0, 0), 8, 0.6, 0.05);
+			// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): he goes white-hot like a
+			// Pyrokinesis user at full Heat -- a rush of fire up him (the glowing hands, ember shell and the hot ground are drawn on
+			// every client); no QuirkFx ring / flash, no ember dust
+			l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 40, 0.4, 0.9, 0.4, 0.05);
 		} else {
 			l.playSound(null, p.getX(), p.getY(), p.getZ(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.6f, 1.4f);
 			l.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.0, p.getZ(), 10, 0.4, 0.5, 0.4, 0.02); // v0.17.2: cooling off
@@ -1072,15 +955,13 @@ public final class HeatblastKit extends AlienKit {
 			fizzles(p);
 			return;
 		}
-		if (now % 2 == 0) {
-			double a = now * 0.35;
-			for (int k = 0; k < 3; k++) {
-				double b = a + k * Math.PI * 2 / 3;
-				l.sendParticles(ParticleTypes.FLAME, p.getX() + Math.cos(b) * 1.2, p.getY() + 0.2 + (now % 8) * 0.2, p.getZ() + Math.sin(b) * 1.2, 1, 0, 0.03, 0, 0.01);
-			}
-			l.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 2, AURA_RADIUS * 0.4, 0.4, AURA_RADIUS * 0.4, 0.0);
-			// v0.17.2: embers rising off the scorched ground all through the aura (its glow on the ground is drawn client-side)
-			l.sendParticles(EMBER, p.getX(), p.getY() + 0.15, p.getZ(), 2, AURA_RADIUS * 0.45, 0.05, AURA_RADIUS * 0.45, 0.02);
+		// v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): Pyrokinesis' heat shimmer (its
+		// high-Heat small flames) and its Flame Body flicker, spread out over the aura; the orbiting flames and ember dust are gone
+		if (now % 4 == 0) {
+			l.sendParticles(ParticleTypes.SMALL_FLAME, p.getX(), p.getY() + 1.0, p.getZ(), 1, 0.3, 0.6, 0.3, 0.01);
+		}
+		if (now % 3 == 0) {
+			l.sendParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.3, p.getZ(), 1, AURA_RADIUS * 0.4, 0.2, AURA_RADIUS * 0.4, 0.02);
 		}
 		if (now % 10 == 0) {
 			for (LivingEntity e : around(p, p.position().add(0, 1, 0), AURA_RADIUS)) {
