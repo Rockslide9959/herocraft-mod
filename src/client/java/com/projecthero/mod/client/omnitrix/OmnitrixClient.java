@@ -55,6 +55,7 @@ public final class OmnitrixClient {
 		EntityRendererRegistry.register(OmnitrixEntities.OMNITRIX_POD, OmnitrixRenderers.Pod::new);
 		EntityRendererRegistry.register(OmnitrixEntities.ALIEN_PROJECTILE, OmnitrixRenderers.Projectile::new);
 		HeatblastClient.init(); // v0.17.2: his shots in Pyrokinesis' fireball look, the Fire Stream as its Flamethrower
+		com.projecthero.mod.client.omnitrix.alien.StinkflyClient.init(); // v0.17.2: goo blobs, the spinning slime net, their drips
 		BlockEntityRendererRegistry.register(OmnitrixPodBlocks.POD_BE, OmnitrixRenderers.PodField::new);
 		// the loose watch is drawn as its 3D model everywhere
 		net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry.INSTANCE.register(

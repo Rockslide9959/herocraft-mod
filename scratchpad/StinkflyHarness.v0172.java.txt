@@ -1,0 +1,375 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.Aliens;
+import com.projecthero.mod.omnitrix.alien.stinkfly.StinkflyKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * TEMP-HARNESS (not shipped): v0.17.2 Stinkfly wings + goo VFX screenshots. Enabled by run/stinkfly2.flag (its text: an optional
+ * filter, "wings" or "goo"). Init line in ProjectHeroModClient.onInitializeClient: {@code StinkflyHarness.init(); // TEMP-HARNESS}.
+ * Shots land in run/screenshots/v0172_sf_*.png.
+ */
+// TEMP-HARNESS
+public final class StinkflyHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer ben;
+	private static volatile java.util.function.Consumer<ServerPlayer> mover;
+	private static String only = "";
+
+	private StinkflyHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("stinkfly2.flag"))) {
+			return;
+		}
+		try {
+			only = Files.readString(Path.of("stinkfly2.flag")).trim();
+		} catch (java.io.IOException e) {
+			only = "";
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(StinkflyHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(600_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "stinkfly-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static boolean want(String part) {
+		return only.isEmpty() || only.contains(part);
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "v0172_sf_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(StinkflyHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				var m = mover;
+				if (m != null) {
+					m.accept(p);
+				}
+				if (p.tickCount % 5 == 0) {
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))) {
+						e.discard();
+					}
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("SF_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void become(ServerPlayer f, String alien) {
+		if (Omnitrix.state(f).transformed()) {
+			Omnitrix.revert(f, Omnitrix.Reason.REVOKE);
+		}
+		var n = Omnitrix.state(f).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(f, n);
+		Omnitrix.transform(f);
+		f.setOnGround(true);
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), 180f, 0f);
+		f.setYHeadRot(180f);
+		f.yBodyRot = 180f;
+		f.yBodyRotO = 180f;
+	}
+
+	private static StinkflyKit kit() {
+		return (StinkflyKit) Aliens.kit(StinkflyKit.ID);
+	}
+
+	private static void ready(ServerPlayer f) {
+		var n = Omnitrix.state(f).copy();
+		n.timers.keySet().removeIf(k -> k.startsWith("stinkfly.") && !k.contains("dive"));
+		Omnitrix.save(f, n);
+	}
+
+	private static void fly(ServerPlayer f, boolean on) {
+		f.getAbilities().mayfly = true;
+		f.getAbilities().flying = on;
+		f.onUpdateAbilities();
+		kit().setFlag(f, StinkflyKit.F_FLYING, on);
+		f.setOnGround(!on);
+	}
+
+	private static void place(ServerPlayer p, Vec3 at, float yaw, float pitch) {
+		ben.teleportTo(p.serverLevel(), at.x, at.y, at.z, yaw, pitch);
+		ben.setYHeadRot(yaw);
+		ben.yBodyRot = yaw;
+		ben.yBodyRotO = yaw;
+	}
+
+	/** One move fired on Ben (cooldowns cleared), the camera at camOff from him looking at lookOff; shots after each of {@code after}. */
+	private static int move(Minecraft mc, int t, String name, java.util.function.Consumer<ServerPlayer> fire, Vec3 camOff, Vec3 lookOff, int... after) {
+		at(t, () -> server(mc, p -> {
+			ready(ben);
+			camera(p, ben.position().add(camOff), ben.position().add(lookOff));
+			fire.accept(ben);
+		}));
+		int last = 0;
+		for (int i = 0; i < after.length; i++) {
+			shot(t + after[i], name + (i == 0 ? "" : "_" + (char) ('a' + i)));
+			last = Math.max(last, after[i]);
+		}
+		return t + last + 20;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		Vec3 stage = origin.add(-24, 0, 0);
+		at(t, () -> server(mc, p -> {
+			p.setGameMode(GameType.SPECTATOR);
+			ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+		}));
+		at(t + 30, () -> server(mc, p -> {
+			become(ben, StinkflyKit.ID);
+			fly(ben, false);
+			dummy(p, stage.add(0, 0, -7));
+		}));
+		t += 60;
+		if (want("wings")) {
+			// folded, on the ground: back three-quarter, side, back
+			at(t, () -> server(mc, p -> camera(p, stage.add(-1.7, 1.9, 2.0), stage.add(0, 1.1, 0))));
+			shot(t + 25, "wings_folded");
+			at(t + 26, () -> server(mc, p -> camera(p, stage.add(-2.6, 1.3, 0.2), stage.add(0, 1.0, 0.2))));
+			shot(t + 30, "wings_folded_side");
+			at(t + 31, () -> server(mc, p -> camera(p, stage.add(0.0, 1.6, 2.6), stage.add(0, 1.2, 0))));
+			shot(t + 35, "wings_folded_back");
+			t += 40;
+			// flying: hovering, back three-quarter at several beat phases, straight from behind, front
+			at(t, () -> server(mc, p -> {
+				place(p, stage.add(0, 1.8, 0), 180f, 0f);
+				fly(ben, true);
+				camera(p, stage.add(-1.9, 3.4, 2.4), stage.add(0, 2.8, 0));
+			}));
+			shot(t + 30, "wings_flying");
+			shot(t + 31, "wings_flying_b");
+			shot(t + 32, "wings_flying_c");
+			at(t + 33, () -> server(mc, p -> camera(p, stage.add(0.0, 3.2, 3.0), stage.add(0, 2.85, 0))));
+			shot(t + 37, "wings_flying_back");
+			shot(t + 38, "wings_flying_back_b");
+			at(t + 39, () -> server(mc, p -> camera(p, stage.add(-2.9, 2.9, 0.3), stage.add(0, 2.8, 0.3))));
+			shot(t + 43, "wings_flying_side");
+			at(t + 44, () -> server(mc, p -> camera(p, stage.add(-0.8, 3.0, -2.8), stage.add(0, 2.8, 0))));
+			shot(t + 48, "wings_flying_front");
+			t += 55;
+			// landing: the wings folding away
+			at(t, () -> server(mc, p -> {
+				place(p, stage, 180f, 0f);
+				fly(ben, false);
+				camera(p, stage.add(-1.7, 1.9, 2.0), stage.add(0, 1.1, 0));
+			}));
+			shot(t + 2, "wings_closing");
+			t += 30;
+		}
+		if (want("goo")) {
+			Vec3 side = new Vec3(-2.6, 1.5, -2.2);
+			Vec3 look = new Vec3(0, 1.2, -2.2);
+			at(t, () -> server(mc, p -> {
+				place(p, stage, 180f, 0f);
+				fly(ben, false);
+			}));
+			t += 5;
+			t = move(mc, t, "goo_slime", b -> kit().slimeShot(b), side, look, 2, 3);
+			t = move(mc, t, "goo_slime_far", b -> kit().slimeShot(b), new Vec3(-3.2, 1.6, -4.0), new Vec3(0, 1.2, -4.5), 4);
+			t = move(mc, t, "goo_net", b -> kit().slimeNet(b), new Vec3(-3.4, 1.8, -3.0), new Vec3(0, 1.2, -3.0), 3, 5, 8);
+			t = move(mc, t, "goo_net_hit", b -> kit().slimeNet(b), new Vec3(-4.0, 2.6, -4.0), new Vec3(0, 0.8, -6.0), 14, 22);
+			t = move(mc, t, "goo_barrage", b -> kit().slimeBarrage(b), new Vec3(-2.4, 2.2, -1.0), new Vec3(0, 1.2, -3.5), 3, 5);
+			t = move(mc, t, "goo_spit", b -> {
+				b.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+				kit().onUse(b, net.minecraft.world.InteractionHand.MAIN_HAND);
+			}, side, look, 3);
+			t = move(mc, t, "goo_splat", b -> kit().slimeShot(b), new Vec3(-3.0, 2.2, -4.5), new Vec3(0, 1.0, -7.0), 6, 9);
+			t = move(mc, t, "goo_gas", b -> kit().toxicGas(b), new Vec3(-4.5, 2.6, -1.5), new Vec3(0, 0.8, -4.0), 8, 30);
+			t = move(mc, t + 60, "goo_stab", b -> kit().stingerStab(b), new Vec3(-3.0, 1.6, -2.5), new Vec3(0, 1.0, -3.0), 3);
+			at(t, () -> server(mc, p -> {
+				place(p, stage.add(0, 1.6, 0), 180f, 0f);
+				fly(ben, true);
+			}));
+			t += 10;
+			t = move(mc, t, "goo_gust", b -> kit().wingGust(b), new Vec3(-4.5, 1.8, -2.5), new Vec3(0, 1.4, -4.0), 3, 6);
+			t = move(mc, t, "goo_storm", b -> kit().gooStorm(b), new Vec3(-7.0, 5.0, 6.0), new Vec3(0, 0.5, -4.0), 20, 50);
+			at(t + 60, () -> server(mc, p -> {
+				place(p, stage.add(0, 6, 0), 180f, 30f);
+				fly(ben, true);
+			}));
+			t += 70;
+			t = move(mc, t, "goo_dive", b -> kit().diveBomb(b), new Vec3(-6.0, 2.0, -1.0), new Vec3(0, -2.5, -2.0), 3, 8);
+			// the fake player is not moved by physics: the splash-down fired straight on the ground
+			at(t, () -> server(mc, p -> {
+				place(p, stage, 180f, 0f);
+				fly(ben, false);
+			}));
+			t += 5;
+			t = move(mc, t, "goo_dive_impact", b -> kit().diveImpact(b), new Vec3(-5.5, 3.0, 3.5), new Vec3(0, 0.3, 0), 2, 6);
+		}
+		at(t, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+
+	private static Zombie dummy(ServerPlayer near, Vec3 at) {
+		ServerLevel l = near.serverLevel();
+		Zombie z = EntityType.ZOMBIE.create(l);
+		z.moveTo(at.x, at.y, at.z, 0f, 0f);
+		z.setNoAi(true);
+		z.setInvulnerable(true);
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		z.setPersistenceRequired();
+		l.addFreshEntity(z);
+		return z;
+	}
+}

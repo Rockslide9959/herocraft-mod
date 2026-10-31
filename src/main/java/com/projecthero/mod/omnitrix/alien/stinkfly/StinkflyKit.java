@@ -158,6 +158,13 @@ public final class StinkflyKit extends AlienKit {
 
 	private static final DustParticleOptions GOO_DUST = new DustParticleOptions(new Vector3f(0.72f, 0.88f, 0.29f), 1.2f);
 	private static final DustParticleOptions GAS_DUST = new DustParticleOptions(new Vector3f(0.55f, 0.7f, 0.2f), 2.0f);
+	// v0.17.2 (user: "Give his powers actual models and vfx instead of just glowing orbs please"): more goo / gas shades
+	private static final DustParticleOptions GOO_DARK = new DustParticleOptions(new Vector3f(0.36f, 0.52f, 0.1f), 1.0f);
+	private static final DustParticleOptions GOO_PALE = new DustParticleOptions(new Vector3f(0.88f, 0.96f, 0.55f), 0.9f);
+	private static final DustParticleOptions GAS_BIG = new DustParticleOptions(new Vector3f(0.62f, 0.76f, 0.24f), 3.6f);
+	private static final DustParticleOptions GAS_MURK = new DustParticleOptions(new Vector3f(0.4f, 0.5f, 0.16f), 3.0f);
+	private static final net.minecraft.core.particles.ParticleOptions POISON_SWIRL = net.minecraft.core.particles.ColorParticleOption
+			.create(ParticleTypes.ENTITY_EFFECT, 0.55f, 0.8f, 0.18f);
 
 	/** player -> the gas cloud / goo storm they left (centre, dimension, end time). */
 	private static final Map<UUID, Area> GAS_CLOUDS = new ConcurrentHashMap<>();
@@ -189,6 +196,7 @@ public final class StinkflyKit extends AlienKit {
 		Vec3 at = hit.getLocation();
 		l.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y, at.z, net ? 40 : 14, net ? 1.0 : 0.25, 0.2, net ? 1.0 : 0.25, 0.1);
 		l.sendParticles(GOO_DUST, at.x, at.y, at.z, net ? 20 : 6, net ? 1.0 : 0.2, 0.2, net ? 1.0 : 0.2, 0);
+		splatBurst(l, at, proj.getDeltaMovement(), net ? 2.2f : "stinkfly_spit".equals(proj.kind()) ? 0.6f : 1f);
 		OmnitrixSounds.play(l, at, SPLAT, net ? 1.0f : 0.7f, net ? 0.8f : 1.1f + l.random.nextFloat() * 0.2f);
 		if (net) {
 			QuirkFx.decal(l, groundBelow(l, at)).style(QuirkFx.DECAL_POOL).colour(0x6A9A1A).size(NET_RADIUS * 1.4f).life(160).spawn();
@@ -205,6 +213,25 @@ public final class StinkflyKit extends AlienKit {
 		} else {
 			QuirkFx.decal(l, at).style(QuirkFx.DECAL_POOL).colour(0x6A9A1A).size(0.9f).life(100).spawn();
 		}
+	}
+
+	/**
+	 * v0.17.2 (user: "Give his powers actual models and vfx instead of just glowing orbs please"): a goo splat -- a quick wet green
+	 * splash bursting out, globs flung out in a crown (back along the shot and up), fine pale and dark flecks, a few drips.
+	 */
+	public static void splatBurst(ServerLevel l, Vec3 at, Vec3 vel, float k) {
+		QuirkFx.blast(l, at).colours(0xF0FFB0, GOO).size(0.45f * k + 0.15f).life(8).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
+		Vec3 back = vel.lengthSqr() > 1e-6 ? vel.normalize().scale(-1) : new Vec3(0, 1, 0);
+		int n = Math.round(10 * k) + 4;
+		for (int i = 0; i < n; i++) {
+			double a = l.random.nextDouble() * Math.PI * 2;
+			Vec3 d = new Vec3(Math.cos(a), 0.6 + l.random.nextDouble() * 0.8, Math.sin(a)).add(back.scale(0.6)).normalize();
+			// count 0: (dx, dy, dz) is the particle's motion, scaled by the speed
+			l.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y + 0.05, at.z, 0, d.x, d.y, d.z, 0.18 + l.random.nextDouble() * 0.12 * k);
+		}
+		l.sendParticles(GOO_PALE, at.x, at.y, at.z, Math.round(8 * k), 0.2 * k, 0.15 * k, 0.2 * k, 0);
+		l.sendParticles(GOO_DARK, at.x, at.y, at.z, Math.round(5 * k), 0.25 * k, 0.1 * k, 0.25 * k, 0);
+		l.sendParticles(ParticleTypes.ITEM_SLIME, at.x, at.y + 0.2, at.z, Math.round(3 * k), 0.15 * k, 0.05, 0.15 * k, 0);
 	}
 
 	private static Vec3 groundBelow(ServerLevel l, Vec3 at) {
@@ -320,6 +347,10 @@ public final class StinkflyKit extends AlienKit {
 					p.hurtMarked = true;
 				}
 				l.sendParticles(GOO_DUST, p.getX(), p.getY() + 0.5, p.getZ(), 3, 0.2, 0.2, 0.2, 0);
+				// v0.17.2: goo streaming off him and the air torn into a wake behind
+				l.sendParticles(ParticleTypes.ITEM_SLIME, p.getX(), p.getY() + 0.8, p.getZ(), 2, 0.25, 0.3, 0.25, 0.02);
+				l.sendParticles(GOO_PALE, p.getX() - v.x * 0.5, p.getY() + 0.9 - v.y * 0.5, p.getZ() - v.z * 0.5, 2, 0.15, 0.15, 0.15, 0);
+				l.sendParticles(ParticleTypes.CLOUD, p.getX() - v.x, p.getY() + 1.0 - v.y, p.getZ() - v.z, 1, 0.2, 0.2, 0.2, 0.01);
 			}
 		}
 		// the gas cloud
@@ -331,6 +362,16 @@ public final class StinkflyKit extends AlienKit {
 				if (now % 3 == 0) {
 					l.sendParticles(ParticleTypes.SNEEZE, gas.at().x, gas.at().y + 0.8, gas.at().z, 10, GAS_RADIUS * 0.55, 0.6, GAS_RADIUS * 0.55, 0.01);
 					l.sendParticles(GAS_DUST, gas.at().x, gas.at().y + 0.6, gas.at().z, 6, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0);
+					// v0.17.2: a thick, rolling green fog -- big murky puffs low down, paler ones billowing above, poison swirls
+					l.sendParticles(GAS_BIG, gas.at().x, gas.at().y + 0.5, gas.at().z, 5, GAS_RADIUS * 0.45, 0.35, GAS_RADIUS * 0.45, 0);
+					l.sendParticles(GAS_MURK, gas.at().x, gas.at().y + 0.25, gas.at().z, 4, GAS_RADIUS * 0.5, 0.15, GAS_RADIUS * 0.5, 0);
+					l.sendParticles(POISON_SWIRL, gas.at().x, gas.at().y + 1.0, gas.at().z, 3, GAS_RADIUS * 0.4, 0.5, GAS_RADIUS * 0.4, 0.5);
+				}
+				if (now % 12 == 0) {
+					// the stink billowing up off it: green smoke puffs rolling over each other
+					double a = l.random.nextDouble() * Math.PI * 2, r = l.random.nextDouble() * GAS_RADIUS * 0.6;
+					QuirkFx.flipbook(l, gas.at().add(Math.cos(a) * r, 0.9 + l.random.nextDouble() * 0.6, Math.sin(a) * r)).style(QuirkFx.BOOK_SMOKE)
+							.colours(0xC8E070, 0x5A7A20).size(1.4f + l.random.nextFloat() * 0.6f).life(30).spawn();
 				}
 				if (now % 10 == 0) {
 					for (LivingEntity e : around(p, gas.at().add(0, 0.8, 0), GAS_RADIUS)) {
@@ -354,6 +395,17 @@ public final class StinkflyKit extends AlienKit {
 						l.sendParticles(ParticleTypes.ITEM_SLIME, x, storm.at().y + 5.5, z, 0, 0, -1.0, 0, 0.6);
 						l.sendParticles(GOO_DUST, x, storm.at().y + 4 + l.random.nextDouble() * 2, z, 1, 0, 0, 0, 0);
 					}
+					// v0.17.2: the sickly green cloud the goo rains out of, and the globs splashing down
+					l.sendParticles(GAS_BIG, storm.at().x, storm.at().y + 6.0, storm.at().z, 4, STORM_RADIUS * 0.55, 0.3, STORM_RADIUS * 0.55, 0);
+					l.sendParticles(GAS_MURK, storm.at().x, storm.at().y + 6.4, storm.at().z, 2, STORM_RADIUS * 0.45, 0.2, STORM_RADIUS * 0.45, 0);
+					double a = l.random.nextDouble() * Math.PI * 2, r = Math.sqrt(l.random.nextDouble()) * STORM_RADIUS;
+					Vec3 drop = new Vec3(storm.at().x + Math.cos(a) * r, storm.at().y + 0.1, storm.at().z + Math.sin(a) * r);
+					l.sendParticles(ParticleTypes.ITEM_SLIME, drop.x, drop.y, drop.z, 5, 0.15, 0.05, 0.15, 0.12);
+					l.sendParticles(GOO_PALE, drop.x, drop.y, drop.z, 3, 0.2, 0.05, 0.2, 0);
+				}
+				if (now % 7 == 0) {
+					double a = l.random.nextDouble() * Math.PI * 2, r = Math.sqrt(l.random.nextDouble()) * STORM_RADIUS * 0.9;
+					splatBurst(l, new Vec3(storm.at().x + Math.cos(a) * r, storm.at().y + 0.1, storm.at().z + Math.sin(a) * r), new Vec3(0, -1, 0), 0.7f);
 				}
 				if (now % 10 == 0) {
 					for (LivingEntity e : around(p, storm.at().add(0, 1, 0), STORM_RADIUS)) {
@@ -447,6 +499,16 @@ public final class StinkflyKit extends AlienKit {
 		var hit = l.clip(new ClipContext(eye, eye.add(look.scale(6)), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, p));
 		Vec3 at = groundBelow(l, hit.getType() == HitResult.Type.BLOCK ? hit.getLocation().subtract(look.scale(0.5)) : eye.add(look.scale(4)));
 		GAS_CLOUDS.put(p.getUUID(), new Area(l.dimension(), at, l.getGameTime() + GAS_TICKS));
+		// v0.17.2: the gas belched out of his mouth, rolling down to where the cloud settles
+		Vec3 mouth = eye.add(look.scale(0.4)).add(0, -0.15, 0);
+		Vec3 span = at.add(0, 0.6, 0).subtract(mouth);
+		for (int i = 0; i <= 10; i++) {
+			Vec3 q = mouth.add(span.scale(i / 10.0));
+			double spread = 0.08 + i * 0.05;
+			l.sendParticles(i < 4 ? GAS_DUST : GAS_BIG, q.x, q.y, q.z, 2, spread, spread, spread, 0);
+		}
+		l.sendParticles(GAS_BIG, at.x, at.y + 0.6, at.z, 30, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0);
+		l.sendParticles(POISON_SWIRL, at.x, at.y + 0.8, at.z, 20, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0.6);
 		QuirkFx.flipbook(l, at.add(0, 1.0, 0)).style(QuirkFx.BOOK_SMOKE).colours(0xC8E070, 0x5A7A20).size(GAS_RADIUS * 1.5f).life(40).spawn();
 		QuirkFx.ring(l, at).colours(0xC8E070, 0x6A8A20).style(QuirkFx.RING_STEAM).size(GAS_RADIUS + 0.5f).thickness(0.8f).life(GAS_TICKS / 2).ground().spawn();
 		OmnitrixSounds.play(l, at, GAS, 1.0f, 1.0f);
@@ -466,6 +528,9 @@ public final class StinkflyKit extends AlienKit {
 			t.addEffect(new MobEffectInstance(MobEffects.POISON, 100, 1), p);
 			l.sendParticles(ParticleTypes.CRIT, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 10, 0.2, 0.2, 0.2, 0.2);
 			l.sendParticles(GOO_DUST, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 6, 0.2, 0.2, 0.2, 0);
+			// v0.17.2: the venom going in -- a poison swirl round the wound and a dark green spurt
+			l.sendParticles(POISON_SWIRL, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 12, 0.3, 0.3, 0.3, 0.6);
+			l.sendParticles(GOO_DARK, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 8, 0.15, 0.15, 0.15, 0);
 		}
 		return true;
 	}
@@ -557,6 +622,16 @@ public final class StinkflyKit extends AlienKit {
 		QuirkFx.ring(l, c.add(0, 0.05, 0)).colours(0xF0FFB0, GOO).size(DIVE_RADIUS + 0.5f).thickness(0.6f).life(14).ground().spawn();
 		QuirkFx.decal(l, c.add(0, 0.05, 0)).style(QuirkFx.DECAL_POOL).colour(0x6A9A1A).size(DIVE_RADIUS * 1.3f).life(200).spawn();
 		l.sendParticles(ParticleTypes.ITEM_SLIME, c.x, c.y + 0.3, c.z, 40, DIVE_RADIUS * 0.4, 0.2, DIVE_RADIUS * 0.4, 0.2);
+		// v0.17.2: a crown of goo thrown out round him and splats where it lands
+		for (int i = 0; i < 28; i++) {
+			double a = i * Math.PI * 2 / 28 + l.random.nextDouble() * 0.2;
+			l.sendParticles(ParticleTypes.ITEM_SLIME, c.x + Math.cos(a) * 0.6, c.y + 0.2, c.z + Math.sin(a) * 0.6, 0, Math.cos(a), 0.7, Math.sin(a), 0.45);
+			l.sendParticles(GOO_PALE, c.x + Math.cos(a) * 0.8, c.y + 0.3, c.z + Math.sin(a) * 0.8, 0, Math.cos(a), 0.3, Math.sin(a), 0.3);
+		}
+		for (int i = 0; i < 5; i++) {
+			double a = i * Math.PI * 2 / 5 + l.random.nextDouble();
+			splatBurst(l, c.add(Math.cos(a) * DIVE_RADIUS * 0.6, 0.1, Math.sin(a) * DIVE_RADIUS * 0.6), new Vec3(0, -1, 0), 0.8f);
+		}
 		OmnitrixSounds.play(l, c, SPLAT, 1.3f, 0.6f);
 		QuirkCamera.shakeAround(l, c, 10, 0.35f, 8);
 		for (LivingEntity e : around(p, c.add(0, 0.5, 0), DIVE_RADIUS)) {
@@ -580,6 +655,7 @@ public final class StinkflyKit extends AlienKit {
 		QuirkFx.cone(l, eye.add(look.scale(0.6)).add(0, -0.3, 0), look).colours(0xF4FFF0, 0xA8D870).style(QuirkFx.CONE_DEBRIS).size(2.6f).length(7f)
 				.life(12).spawn();
 		l.sendParticles(ParticleTypes.CLOUD, eye.x + look.x * 2, eye.y + look.y * 2 - 0.3, eye.z + look.z * 2, 14, 0.6, 0.4, 0.6, 0.15);
+		gustRings(l, eye.add(0, -0.3, 0), look);
 		OmnitrixSounds.play(l, p.position(), BUZZ, 1.2f, 0.6f);
 		p.clearFire();
 		for (LivingEntity e : around(p, eye.add(look.scale(3.5)), 4.5)) {
@@ -598,6 +674,29 @@ public final class StinkflyKit extends AlienKit {
 			pr.discard();
 		}
 		return true;
+	}
+
+	/**
+	 * v0.17.2 (user: "Give his powers actual models and vfx instead of just glowing orbs please"): the gust as rings of wind
+	 * sweeping out along the cone, wider the further they go, each particle thrown forward and outward, with wind-charge puffs.
+	 */
+	private static void gustRings(ServerLevel l, Vec3 from, Vec3 look) {
+		Vec3 side = look.cross(new Vec3(0, 1, 0));
+		side = side.lengthSqr() < 1e-6 ? new Vec3(1, 0, 0) : side.normalize();
+		Vec3 up = side.cross(look).normalize();
+		for (int ring = 0; ring < 4; ring++) {
+			double dist = 1.2 + ring * 1.5, rad = 0.5 + ring * 0.75;
+			int n = 14 + ring * 4;
+			for (int i = 0; i < n; i++) {
+				double a = i * Math.PI * 2 / n + ring * 0.4;
+				Vec3 off = side.scale(Math.cos(a) * rad).add(up.scale(Math.sin(a) * rad));
+				Vec3 q = from.add(look.scale(dist)).add(off);
+				Vec3 m = look.scale(1.0).add(off.normalize().scale(0.35));
+				l.sendParticles(ring % 2 == 0 ? ParticleTypes.CLOUD : ParticleTypes.WHITE_SMOKE, q.x, q.y, q.z, 0, m.x, m.y, m.z, 0.35);
+			}
+			Vec3 c = from.add(look.scale(dist));
+			l.sendParticles(ParticleTypes.SMALL_GUST, c.x, c.y, c.z, 1 + ring, rad * 0.5, rad * 0.5, rad * 0.5, 0);
+		}
 	}
 
 	public boolean gooStorm(ServerPlayer p) {
