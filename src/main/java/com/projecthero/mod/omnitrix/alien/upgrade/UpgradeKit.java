@@ -190,7 +190,51 @@ public final class UpgradeKit extends AlienKit {
 
 	private static final ResourceLocation SLIDE_SCALE_ID = PowerToggles.id("omnitrix_upgrade_slide_scale");
 	private static final ResourceLocation SLIDE_SPEED_ID = PowerToggles.id("omnitrix_upgrade_slide_speed");
-	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.3f, 1.0f, 0.4f), 0.8f);
+	// v0.17.2 (user: "please upgrade upgrades vfx aswell please"): Mechamorph green #39FF6A, and drops of his black liquid metal
+	static final DustParticleOptions SPARK = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 0.8f);
+	static final DustParticleOptions SPARK_BIG = new DustParticleOptions(new Vector3f(0.224f, 1.0f, 0.416f), 1.4f);
+	static final DustParticleOptions METAL = new DustParticleOptions(new Vector3f(0.03f, 0.045f, 0.04f), 1.1f);
+
+	// ---------------------------------------------------------------- v0.17.2: what the client draws, in the synced kit timers
+	// (user: "when upgrade takes over a block put the upgrade techno texture on it ... make an animation for him taking over the
+	// block"; "please upgrade upgrades vfx aswell please"). MERGES is server-only, so the merge target goes out in the timers
+	// (synced to every client) and UpgradeFx coats it; a move's end point / target does too, for its beam or tendril.
+
+	/** The merge: {@link MergeKind} ordinal + 1, entity id + 1 (golem / minecart / boat), block x / y / z, the game time it began. */
+	public static final String T_MERGE_KIND = "merge_kind", T_MERGE_ENT = "merge_ent", T_MERGE_X = "merge_x", T_MERGE_Y = "merge_y",
+			T_MERGE_Z = "merge_z", T_MERGE_AT = "merge_at";
+	/** The last move's end point (x / y / z) and target (entity id + 1). */
+	public static final String T_FX_X = "fx_x", T_FX_Y = "fx_y", T_FX_Z = "fx_z", T_FX_ENT = "fx_ent";
+	/** Keeps an encoded coordinate positive (a timer at 0 or below is removed). */
+	public static final long COORD_BIAS = 1L << 40;
+
+	public static long encode(double v) {
+		return Math.round(v * 64.0) + COORD_BIAS;
+	}
+
+	public static double decode(long v) {
+		return (v - COORD_BIAS) / 64.0;
+	}
+
+	/** Several kit timers in one state save (0 or less removes one). */
+	private void putTimers(ServerPlayer p, Object... nameValue) {
+		OmnitrixState n = com.projecthero.mod.omnitrix.Omnitrix.state(p).copy();
+		for (int i = 0; i + 1 < nameValue.length; i += 2) {
+			String k = key((String) nameValue[i]);
+			long v = ((Number) nameValue[i + 1]).longValue();
+			if (v <= 0L) {
+				n.timers.remove(k);
+			} else {
+				n.timers.put(k, v);
+			}
+		}
+		com.projecthero.mod.omnitrix.Omnitrix.save(p, n);
+	}
+
+	/** The move just used ends at {@code end} (and hit {@code target}, or nothing): the client's beam / tendril goes there. */
+	private void fxTarget(ServerPlayer p, Vec3 end, @Nullable Entity target) {
+		putTimers(p, T_FX_X, encode(end.x), T_FX_Y, encode(end.y), T_FX_Z, encode(end.z), T_FX_ENT, target == null ? 0L : target.getId() + 1L);
+	}
 
 	/** What Upgrade has merged into. */
 	public enum MergeKind {
@@ -372,17 +416,24 @@ public final class UpgradeKit extends AlienKit {
 		if (t != null) {
 			t.invulnerableTime = 0;
 			hurt(p, t, BEAM_DAMAGE, false);
-			l.sendParticles(ParticleTypes.ELECTRIC_SPARK, end.x, end.y, end.z, 10, 0.2, 0.2, 0.2, 0.2);
 		}
-		beamFx(l, eye.add(0, -0.1, 0), end, 0.18f, 8);
+		// v0.17.2 VFX: the beam itself is UpgradeFx's (a green energy tube with a white core); here only the hit
+		fxTarget(p, end, t);
+		impact(l, end, t == null ? blockLook(p, 24) : null, 0.6f);
 		OmnitrixSounds.play(l, p.position(), SND_BEAM, 0.9f, 1.1f + p.getRandom().nextFloat() * 0.2f);
 		return true;
 	}
 
-	private static void beamFx(ServerLevel l, Vec3 from, Vec3 to, float width, int life) {
-		Vec3 d = to.subtract(from);
-		QuirkFx.cone(l, from, d).colours(0xFFFFFF, COLOUR).size(width).length((float) d.length()).life(life).style(QuirkFx.CONE_BEAM).spawn();
-		QuirkFx.ribbon(l, from, to).colours(GLOW, COLOUR).size(width * 0.6f).life(life).style(QuirkFx.RIBBON_LIGHT).spawn();
+	/**
+	 * v0.17.2 VFX: where a beam lands -- electric sparks, a puff of green and, on a block, a scorched circuit print (a dark
+	 * scorch with a green line glow). {@code k} sizes it.
+	 */
+	private static void impact(ServerLevel l, Vec3 at, @Nullable BlockHitResult block, float k) {
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, (int) (14 * k) + 4, 0.15 * k, 0.15 * k, 0.15 * k, 0.25);
+		l.sendParticles(SPARK_BIG, at.x, at.y, at.z, (int) (8 * k) + 2, 0.2 * k, 0.2 * k, 0.2 * k, 0.0);
+		if (block != null && block.getType() == HitResult.Type.BLOCK && block.getDirection() == Direction.UP) {
+			QuirkFx.decal(l, at).style(QuirkFx.DECAL_SCORCH).colour(0x0B1A10).size(0.7f * k + 0.3f).life(80).spawn();
+		}
 	}
 
 	public boolean chargedBeam(ServerPlayer p) {
@@ -419,7 +470,9 @@ public final class UpgradeKit extends AlienKit {
 			e.invulnerableTime = 0;
 			hurt(p, e, CHARGED_BURST, false);
 		}
-		beamFx(l, eye.add(0, -0.1, 0), end, 0.55f, 12);
+		// v0.17.2 VFX: the beam is UpgradeFx's, a thick tube with circuit rings racing down it
+		fxTarget(p, end, null);
+		impact(l, end, blockLook(p, 32), 1.4f);
 		QuirkFx.blast(l, end).colours(0xFFFFFF, COLOUR).size(2.2f).life(14).flags(QuirkFx.F_NO_SMOKE).spawn();
 		QuirkCamera.shake(p, 0.3f, 6);
 		OmnitrixSounds.play(l, p.position(), SND_BEAM, 1.3f, 0.6f);
@@ -441,10 +494,10 @@ public final class UpgradeKit extends AlienKit {
 		t.invulnerableTime = 0;
 		hurt(p, t, GRAB_DAMAGE, false);
 		ServerLevel l = level(p);
-		QuirkFx.ribbon(l, p.position().add(0, 1.2, 0), t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(GLOW, 0x0A140C).size(0.35f).life(14)
-				.style(QuirkFx.RIBBON_SHADOW).spawn();
-		QuirkFx.ring(l, t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(GLOW, COLOUR).size(t.getBbWidth() + 0.6f).thickness(0.25f).life(STUN_TICKS)
-				.style(QuirkFx.RING_SOFT).spawn();
+		// v0.17.2 VFX: UpgradeFx draws the liquid-metal tendril and the coils binding the target
+		fxTarget(p, t.position().add(0, t.getBbHeight() * 0.5, 0), t);
+		l.sendParticles(METAL, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 12, t.getBbWidth() * 0.4, t.getBbHeight() * 0.3, t.getBbWidth() * 0.4, 0.0);
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.5, t.getZ(), 8, 0.3, 0.4, 0.3, 0.15);
 		OmnitrixSounds.play(l, t.position(), SND_MERGE, 0.8f, 1.5f);
 		return true;
 	}
@@ -481,8 +534,9 @@ public final class UpgradeKit extends AlienKit {
 			t.setDeltaMovement(pull.normalize().scale(Math.min(1.6, 0.25 + d * 0.14) * Math.max(0.35, res)).add(0, 0.35, 0));
 			t.hurtMarked = true;
 		}
-		QuirkFx.ribbon(l, p.position().add(0, 1.2, 0), t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(GLOW, COLOUR).size(0.25f).life(10)
-				.style(QuirkFx.RIBBON_LIGHT).spawn();
+		// v0.17.2 VFX: UpgradeFx draws the whip (a liquid-metal strand cracking out and snapping back)
+		fxTarget(p, t.position().add(0, t.getBbHeight() * 0.5, 0), t);
+		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, t.getX(), t.getY() + t.getBbHeight() * 0.6, t.getZ(), 10, 0.25, 0.3, 0.25, 0.25);
 		OmnitrixSounds.play(l, p.position(), SND_SLIDE, 0.8f, 1.6f);
 		return true;
 	}
@@ -596,7 +650,11 @@ public final class UpgradeKit extends AlienKit {
 		p.hurtMarked = true;
 		p.resetFallDistance();
 		ServerLevel l = level(p);
-		QuirkFx.ribbon(l, p.position().add(0, 1.3, 0), hit.getLocation()).colours(GLOW, 0x0A140C).size(0.2f).life(12).style(QuirkFx.RIBBON_SHADOW).spawn();
+		// v0.17.2 VFX: UpgradeFx draws the stretched arm, anchored where it struck; a splash of metal there
+		fxTarget(p, hit.getLocation(), null);
+		Vec3 at = hit.getLocation();
+		l.sendParticles(METAL, at.x, at.y, at.z, 10, 0.15, 0.15, 0.15, 0.0);
+		l.sendParticles(SPARK, at.x, at.y, at.z, 6, 0.2, 0.2, 0.2, 0.0);
 		OmnitrixSounds.play(l, p.position(), SND_SLIDE, 0.9f, 1.3f);
 		return true;
 	}
@@ -633,8 +691,10 @@ public final class UpgradeKit extends AlienKit {
 				}
 			}
 		}
-		QuirkFx.ribbon(l, p.getEyePosition().add(0, -0.1, 0), at).colours(GLOW, COLOUR).size(0.2f).life(8).style(QuirkFx.RIBBON_LIGHT).spawn();
+		// v0.17.2 VFX: UpgradeFx draws the crackling arc into it and the short-circuit cage round it
+		fxTarget(p, at, t);
 		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, at.x, at.y, at.z, 30, 0.5, 0.5, 0.5, 0.3);
+		l.sendParticles(SPARK_BIG, at.x, at.y, at.z, 12, 0.4, 0.4, 0.4, 0.0);
 		OmnitrixSounds.play(l, at, SND_EMP, 1.0f, 1.2f);
 		return true;
 	}
@@ -685,9 +745,11 @@ public final class UpgradeKit extends AlienKit {
 			cart.setDeltaMovement(Vec3.ZERO);
 		}
 		UpgradeEmp.jam(l, p.blockPosition(), 6, 120);
-		QuirkFx.ring(l, p.position().add(0, 0.1, 0)).colours(0xFFFFFF, COLOUR).size(8f).thickness(0.4f).life(16).ground().spawn();
-		QuirkFx.blast(l, c).colours(0xFFFFFF, COLOUR).size(1.8f).life(10).flags(QuirkFx.F_NO_SMOKE | QuirkFx.F_NO_RING).spawn();
+		// v0.17.2 VFX: UpgradeFx draws the shockwave (a wall of green racing out to the edge, a dome, circuit lines cracking
+		// across the ground); the server adds the sparks and a scorch
+		QuirkFx.decal(l, p.position()).style(QuirkFx.DECAL_SCORCH).colour(0x08140C).size(3.2f).life(120).ground().spawn();
 		l.sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 60, 2.5, 1.2, 2.5, 0.4);
+		l.sendParticles(SPARK_BIG, c.x, c.y - 0.8, c.z, 40, 3.5, 0.1, 3.5, 0.0);
 		QuirkCamera.shakeAround(l, c, 12, 0.25f, 8);
 		OmnitrixSounds.play(l, c, SND_EMP, 1.4f, 0.9f);
 		return true;
@@ -776,8 +838,14 @@ public final class UpgradeKit extends AlienKit {
 		setTimer(p, "merge_end", p.level().getGameTime() + MERGE_TICKS);
 		p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 		ServerLevel l = level(p);
-		QuirkFx.ribbon(l, p.position().add(0, 1, 0), at).colours(GLOW, 0x0A140C).size(0.5f).life(12).style(QuirkFx.RIBBON_SHADOW).spawn();
-		l.sendParticles(SPARK, at.x, at.y, at.z, 40, 0.5, 0.5, 0.5, 0.0);
+		// v0.17.2 (user: "when upgrade takes over a block put the upgrade techno texture on it ... make an animation for him taking
+		// over the block"): the target goes out in the synced timers; UpgradeFx pours him onto it, coats it in his techno skin
+		// and lights its circuits (the ribbon is gone -- the client's liquid strand replaces it)
+		BlockPos bp = m.pos();
+		putTimers(p, T_MERGE_KIND, m.kind().ordinal() + 1L, T_MERGE_ENT, bp == null ? m.entityId() + 1L : 0L, T_MERGE_X, bp == null ? 0L : encode(bp.getX()),
+				T_MERGE_Y, bp == null ? 0L : encode(bp.getY()), T_MERGE_Z, bp == null ? 0L : encode(bp.getZ()), T_MERGE_AT, p.level().getGameTime());
+		l.sendParticles(SPARK, at.x, at.y, at.z, 24, 0.5, 0.5, 0.5, 0.0);
+		l.sendParticles(METAL, at.x, at.y, at.z, 16, 0.4, 0.4, 0.4, 0.0);
 		OmnitrixSounds.play(l, at, SND_MERGE, 1.1f, 1.0f);
 		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.upgrade.merged." + m.kind().name().toLowerCase(java.util.Locale.ROOT))
 				.withStyle(ChatFormatting.GREEN), true);
@@ -791,6 +859,13 @@ public final class UpgradeKit extends AlienKit {
 		setTimer(p, "merge_end", 0);
 		if (m == null && !was) {
 			return;
+		}
+		// v0.17.2: the client sees the target go and peels the coat back off it
+		putTimers(p, T_MERGE_KIND, 0L, T_MERGE_ENT, 0L, T_MERGE_X, 0L, T_MERGE_Y, 0L, T_MERGE_Z, 0L, T_MERGE_AT, 0L);
+		if (m != null && m.pos() != null) {
+			Vec3 c = Vec3.atCenterOf(m.pos());
+			level(p).sendParticles(METAL, c.x, c.y, c.z, 18, 0.45, 0.45, 0.45, 0.0);
+			level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, c.x, c.y, c.z, 10, 0.4, 0.4, 0.4, 0.15);
 		}
 		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
 		if (inv != null && inv.getDuration() <= 40) {
@@ -957,6 +1032,7 @@ public final class UpgradeKit extends AlienKit {
 		}
 		if (target instanceof LivingEntity le) {
 			anim(p, ANIM_JOLT);
+			fxTarget(p, le.position().add(0, le.getBbHeight() * 0.6, 0), le); // v0.17.2 VFX: the arc from his fist
 			le.invulnerableTime = 0;
 			hurt(p, le, JOLT_DAMAGE, false);
 			le.invulnerableTime = 0;
@@ -994,6 +1070,7 @@ public final class UpgradeKit extends AlienKit {
 		}
 		cooldown(p, INTERFACE, -1);
 		anim(p, ANIM_JOLT);
+		fxTarget(p, Vec3.atCenterOf(pos), null); // v0.17.2 VFX: the arc into the mechanism
 		l.sendParticles(SPARK, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, 10, 0.3, 0.4, 0.3, 0.0);
 		p.swing(InteractionHand.MAIN_HAND, true);
 		return true;
