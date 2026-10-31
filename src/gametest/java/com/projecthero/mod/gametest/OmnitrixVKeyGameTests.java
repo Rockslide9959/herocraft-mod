@@ -404,7 +404,12 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor slams down");
 		helper.assertTrue(kit.standsOnFluid(p, Fluids.WATER.getSource(false)), "he runs on water");
 		p.horizontalCollision = true;
-		helper.assertTrue(kit.climbs(p), "and up walls");
+		// v0.17.2 (user: "only run up walls when he looks up against them"): looking ahead into a wall is no climb
+		p.setXRot(0f);
+		helper.assertFalse(kit.climbs(p), "looking ahead he does not run up the wall");
+		p.setXRot(-70f);
+		helper.assertTrue(kit.climbs(p), "and up walls when he looks up into them");
+		p.setXRot(0f);
 		p.horizontalCollision = false;
 		Zombie z = zombie(helper, 3.5, 2, 5.5);
 		z.setTarget(p);

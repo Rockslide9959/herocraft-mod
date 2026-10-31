@@ -165,11 +165,11 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, StinkflyKit.ID);
 		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 4.0, 160f); // v0.17.2: was 80 -- the rebalanced kit would kill an 80-health zombie before the dive
+		Zombie z = zombie(helper, 3.5, 2, 4.0, 140f); // v0.17.2: was 80 -- the rebalanced kit would kill an 80-health zombie before the dive (under 150: a boss is rooted for a quarter)
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(AlienKit.lookTarget(p, 3.75) == z, "the zombie is in reach");
 		helper.assertTrue(kit.stingerStab(p), "Stinger Stab");
-		near(helper, z.getHealth(), 160f - StinkflyKit.STAB_DAMAGE, "the stab hits for 12");
+		near(helper, z.getHealth(), 140f - StinkflyKit.STAB_DAMAGE, "the stab hits for 12");
 		// (no poison check: a zombie is undead and shrugs poison off)
 		helper.assertFalse(kit.stingerStab(p), "the stab cools down");
 		helper.assertTrue(kit.slimeShot(p) && !kit.slimeShot(p), "Slime Shot fires, then cools down");
@@ -180,10 +180,10 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.assertTrue(kit.gooStorm(p) && !kit.gooStorm(p), "Goo Storm, then cools down");
 		helper.assertTrue(kit.wingDash(p) && !kit.wingDash(p), "Wing Dash, then cools down");
 		float afterInstant = z.getHealth();
-		helper.assertTrue(afterInstant <= 160f - StinkflyKit.STAB_DAMAGE - StinkflyKit.GUST_DAMAGE + 0.05f, "the gust hit too");
+		helper.assertTrue(afterInstant <= 140f - StinkflyKit.STAB_DAMAGE - StinkflyKit.GUST_DAMAGE + 0.05f, "the gust hit too");
 		pump(helper, p);
 		helper.runAfterDelay(25, () -> {
-			helper.assertTrue(rooted(z), "the slime stuck the zombie in place");
+			helper.assertTrue(rooted(z), "the slime stuck the zombie in place: " + z.getActiveEffects() + " at " + z.position().subtract(p.position()) + " hp " + z.getHealth() + " alive " + z.isAlive());
 			helper.assertTrue(z.getHealth() < afterInstant - StinkflyKit.SHOT_DAMAGE + 0.05f, "the goo and the gas hurt it");
 			// the dive: airborne, plunge, splash down beside it
 			p.setOnGround(false);

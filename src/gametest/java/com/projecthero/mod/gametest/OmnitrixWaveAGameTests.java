@@ -280,7 +280,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Vec3 up = helper.absoluteVec(new Vec3(3.5, 4, 3.5));
 		p.moveTo(up.x, up.y, up.z, 0f, 0f);
 		p.setOnGround(false);
+		double step = p.getAttributeValue(Attributes.STEP_HEIGHT); // his body's own step-up (above a human's)
 		helper.assertTrue(kit.slide(p) == 1 && kit.flag(p, DiamondheadKit.F_SLIDING), "X starts the slide");
+		helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) > step + 0.5, "the slide steps up a block");
 		pump(helper, p);
 		helper.runAfterDelay(3, () -> {
 			BlockPos under = BlockPos.containing(p.getX(), p.getY() - 0.6, p.getZ());
@@ -288,7 +290,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 					"crystal grows in under him");
 			helper.assertTrue(kit.flag(p, DiamondheadKit.F_SLIDING), "and he keeps riding (no time limit)");
 			helper.assertTrue(kit.slide(p) == 0 && !kit.flag(p, DiamondheadKit.F_SLIDING), "X again steps off");
-			helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 1.0, "the slide's step-up goes with it");
+			helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.STEP_HEIGHT) - step) < 1.0e-4, "the slide's step-up goes with it");
 			helper.succeed();
 		});
 	}
