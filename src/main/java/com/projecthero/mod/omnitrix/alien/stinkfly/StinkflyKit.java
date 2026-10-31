@@ -509,7 +509,8 @@ public final class StinkflyKit extends AlienKit {
 		}
 		l.sendParticles(GAS_BIG, at.x, at.y + 0.6, at.z, 30, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0);
 		l.sendParticles(POISON_SWIRL, at.x, at.y + 0.8, at.z, 20, GAS_RADIUS * 0.5, 0.5, GAS_RADIUS * 0.5, 0.6);
-		QuirkFx.flipbook(l, at.add(0, 1.0, 0)).style(QuirkFx.BOOK_SMOKE).colours(0xC8E070, 0x5A7A20).size(GAS_RADIUS * 1.5f).life(40).spawn();
+		// (no smoke flipbook: at the cloud's size it drew as one big pale pixelated sprite against the sky)
+		l.sendParticles(GAS_BIG, at.x, at.y + 1.4, at.z, 20, GAS_RADIUS * 0.4, 0.4, GAS_RADIUS * 0.4, 0);
 		QuirkFx.ring(l, at).colours(0xC8E070, 0x6A8A20).style(QuirkFx.RING_STEAM).size(GAS_RADIUS + 0.5f).thickness(0.8f).life(GAS_TICKS / 2).ground().spawn();
 		OmnitrixSounds.play(l, at, GAS, 1.0f, 1.0f);
 		return true;
