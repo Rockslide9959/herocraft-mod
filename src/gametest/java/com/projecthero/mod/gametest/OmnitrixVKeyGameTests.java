@@ -268,15 +268,16 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void diamondheadVRegrowthHealsAndHalvesDamage(GameTestHelper helper) {
+	public void diamondheadCRegrowthHealsAndHalvesDamage(GameTestHelper helper) {
+		// v0.17.2: Regrowth is on C now (V raises the Crystal Wall / Shift+V the Dome)
 		ServerPlayer p = as(helper, DiamondheadKit.ID);
 		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
-		tapV(p, false);
+		kit.press(p, AbilitySlot.SLOT_6, false);
 		helper.assertFalse(kit.flag(p, DiamondheadKit.F_REGROW), "refused at full health");
 		p.setHealth(p.getMaxHealth() - 12f);
 		float before = p.getHealth();
-		tapV(p, false);
-		helper.assertTrue(kit.flag(p, DiamondheadKit.F_REGROW), "V: Crystal Regrowth");
+		kit.press(p, AbilitySlot.SLOT_6, false);
+		helper.assertTrue(kit.flag(p, DiamondheadKit.F_REGROW), "C: Crystal Regrowth");
 		helper.assertTrue(Math.abs(kit.incomingDamage(p, p.damageSources().generic(), 10f) - 10f * DiamondheadKit.REGROW_FACTOR) < 0.01f,
 				"half damage while he regrows");
 		pump(helper, p);

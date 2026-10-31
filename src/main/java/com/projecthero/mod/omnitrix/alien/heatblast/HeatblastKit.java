@@ -331,6 +331,10 @@ public final class HeatblastKit extends AlienKit {
 		}
 		// Fire Stream
 		long streamEnd = timer(p, "stream_end");
+		if (streamEnd <= 0 && flag(p, F_STREAM)) {
+			// v0.17.2: a stream flag whose timer is gone (cleared timers) never outlives it -- the cone would be drawn for ever
+			setFlag(p, F_STREAM, false);
+		}
 		if (streamEnd > 0) {
 			if (now >= streamEnd || p.isInWaterOrBubble()) {
 				setTimer(p, "stream_end", 0);

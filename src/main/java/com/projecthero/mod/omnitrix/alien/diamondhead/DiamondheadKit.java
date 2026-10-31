@@ -58,11 +58,14 @@ import net.minecraft.world.phys.Vec3;
  *
  * <pre>
  *   R        Shard Volley      a fan of 5 crystal shards (3 each)             Shift+R  Crystal Spear    one huge spear (12, knockback)
- *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)  Shift+G  Spike Line       crystal spikes erupt in a 12-block line (6, launch)
+ *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)
  *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
- *   Z        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+Z  Crystal Dome     a dome over you (7 s)
- *   V        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
- *   C        Diamond Barrage   a 2 s storm of shards on where you look       Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
+ *   Z        Spike Line        crystal spikes erupt in a 12-block line (launch)  Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look
+ *   V        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+V  Crystal Dome     a dome over you (7 s)
+ *   C        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
+ *            Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
+ *   (v0.17.2, user: "put diamondheads crystal wall and dome abilities on V and put the stronger move on Z and the ultimate
+ *   on Shift+Z": Spike Line from Shift+G, Diamond Barrage from C, Wall / Dome from Z, Regrowth from V)
  *   Attack   Crystal Edge (blade: the slash sweeps)   Use on a block (empty hand)   a crystal block for 30 s
  * </pre>
  */
@@ -207,11 +210,11 @@ public final class DiamondheadKit extends AlienKit {
 	protected List<AlienMove> declareMoves() {
 		return List.of(
 				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 24), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
-				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20), AlienMove.shift(SPIKES, AbilitySlot.SLOT_2, 160),
+				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 80), AlienMove.shift(VAULT, AbilitySlot.SLOT_3, 140),
-				AlienMove.tap(WALL, AbilitySlot.SLOT_4, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_4, 500),
-				AlienMove.tap(REGROW, AbilitySlot.SLOT_5, 400),
-				AlienMove.tap(BARRAGE, AbilitySlot.SLOT_6, 500), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
+				AlienMove.tap(SPIKES, AbilitySlot.SLOT_4, 160), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 500),
+				AlienMove.tap(WALL, AbilitySlot.SLOT_5, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_5, 500),
+				AlienMove.tap(REGROW, AbilitySlot.SLOT_6, 400), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
 	}
 
@@ -370,9 +373,7 @@ public final class DiamondheadKit extends AlienKit {
 				}
 			}
 			case SLOT_2 -> {
-				if (shift) {
-					spikeLine(p);
-				} else {
+				if (!shift) {
 					bladeArm(p);
 				}
 			}
@@ -385,17 +386,23 @@ public final class DiamondheadKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
+					barrage(p);
+				} else {
+					spikeLine(p);
+				}
+			}
+			case SLOT_5 -> {
+				if (shift) {
 					dome(p);
 				} else {
 					wall(p);
 				}
 			}
-			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
 					crystalArmour(p);
 				} else {
-					barrage(p);
+					regrow(p);
 				}
 			}
 			default -> {
@@ -715,7 +722,7 @@ public final class DiamondheadKit extends AlienKit {
 		return flag(p, F_REGROW) ? a * REGROW_FACTOR : a; // v0.17.1: half damage while he regrows
 	}
 
-	// ---------------------------------------------------------------- v0.17.1 (user: "add abilities to the V key for every alien"): V Crystal Regrowth
+	// ---------------------------------------------------------------- v0.17.1 Crystal Regrowth (V until v0.17.2, C now)
 
 	public static final String REGROW = "crystal_regrowth";
 	public static final int ANIM_REGROW = 13;
@@ -724,12 +731,8 @@ public final class DiamondheadKit extends AlienKit {
 	public static final float REGROW_HEAL = 1.5f;
 	public static final float REGROW_FACTOR = 0.5f;
 
-	private void vKey(ServerPlayer p, boolean shift) {
-		regrow(p);
-	}
-
 	/**
-	 * V: Crystal Regrowth -- a Petrosapien grows back. 3 s rooted to the spot while green crystal knits over every crack: 1.5
+	 * C: Crystal Regrowth -- a Petrosapien grows back. 3 s rooted to the spot while green crystal knits over every crack: 1.5
 	 * health every half second (9 in all) and half damage meanwhile. Refused at full health.
 	 */
 	public boolean regrow(ServerPlayer p) {
