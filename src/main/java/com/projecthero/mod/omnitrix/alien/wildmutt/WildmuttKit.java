@@ -438,7 +438,7 @@ public final class WildmuttKit extends AlienKit {
 	static final int DIG_DEPTH = 3, DIG_HALF = 1;
 
 	/**
-	 * V: Dig -- the claws tear a 3 x 3 tunnel three blocks deep through soft ground in front (anything a shovel takes, leaves,
+	 * V: Dig -- the claws tear a 3 x 3 tunnel three blocks deep through soft ground where he looks (anything a shovel takes, leaves,
 	 * snow), the blocks dropping as items. Nothing with a block entity, nothing harder than dirt-ish (hardness 1.5), nothing the
 	 * player may not build at. Returns the blocks dug.
 	 */
@@ -448,23 +448,25 @@ public final class WildmuttKit extends AlienKit {
 		}
 		anim(p, ANIM_MAUL);
 		ServerLevel l = level(p);
-		net.minecraft.core.Direction face = p.getXRot() > 55f ? net.minecraft.core.Direction.DOWN : p.getDirection();
-		BlockPos base = p.blockPosition();
-		int dug = 0;
-		for (int d = 1; d <= DIG_DEPTH; d++) {
+		// v0.17.2 (user: "make wildmutts dig ability directional instead of just ahead in front of the player"): the 3 x 3 tunnel runs
+		// along his look -- up, down or on a slant -- its cross-section square to the look, from the middle of a player-high body
+		Vec3 look = p.getLookAngle();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(look).normalize();
+		Vec3 centre = p.position().add(0, 1.0, 0);
+		java.util.Set<BlockPos> cut = new java.util.LinkedHashSet<>();
+		for (double d = 0.5; d <= DIG_DEPTH + 0.5; d += 0.5) {
 			for (int a = -DIG_HALF; a <= DIG_HALF; a++) {
-				for (int b = 0; b <= 2; b++) {
-					BlockPos q;
-					if (face == net.minecraft.core.Direction.DOWN) {
-						q = base.offset(a, -d, b - 1);
-					} else {
-						BlockPos ahead = base.relative(face, d);
-						q = face.getAxis() == net.minecraft.core.Direction.Axis.X ? ahead.offset(0, b, a) : ahead.offset(a, b, 0);
-					}
-					if (diggable(p, l, q) && l.destroyBlock(q, true, p)) {
-						dug++;
-					}
+				for (int b = -1; b <= 1; b++) {
+					cut.add(BlockPos.containing(centre.add(look.scale(d)).add(right.scale(a)).add(up.scale(b))));
 				}
+			}
+		}
+		int dug = 0;
+		for (BlockPos q : cut) {
+			if (diggable(p, l, q) && l.destroyBlock(q, true, p)) {
+				dug++;
 			}
 		}
 		OmnitrixSounds.play(l, p.position(), GROWL, 0.7f, 1.2f);

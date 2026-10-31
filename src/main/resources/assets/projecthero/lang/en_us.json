@@ -9804,7 +9804,7 @@
   "message.projecthero.omnitrix.xlr8.speed_off": "Speed Mode off: visor up.",
   "projecthero.omnitrix.info.xlr8.passive.3": "Phase (Shift+X): through walls and untouchable while it lasts.",
   "projecthero.omnitrix.wildmutt.dig": "Dig",
-  "projecthero.omnitrix.wildmutt.dig.desc": "Tears a 3x3 tunnel three blocks deep through soft ground in front of him (dirt, sand, gravel, snow, leaves); look down to dig straight down. The blocks drop.",
+  "projecthero.omnitrix.wildmutt.dig.desc": "Tears a 3x3 tunnel three blocks deep through soft ground wherever you look -- ahead, up, down or on a slant (dirt, sand, gravel, snow, leaves). The blocks drop.",
   "projecthero.omnitrix.four_arms.charged_leap": "Charged Leap",
   "projecthero.omnitrix.four_arms.charged_leap.desc": "Hold X: crouch and charge for up to 2.5 s, let go to leap the way you are looking -- 14 blocks up to 200 at full charge, on the Hulk's leap arc. He sails without slowing and comes down with a heavier shockwave.",
   "hud.projecthero.omnitrix.four_arms.leap": "Leap",

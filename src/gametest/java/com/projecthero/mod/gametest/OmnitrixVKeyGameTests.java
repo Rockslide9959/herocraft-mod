@@ -239,6 +239,33 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
+	public void wildmuttsDigFollowsHisLookUpAndDown(GameTestHelper helper) {
+		ServerPlayer p = as(helper, com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);
+		com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit kit = (com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit) Aliens
+				.kit(com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);
+		BlockPos at = p.blockPosition();
+		// looking straight up: dirt three above his feet goes
+		BlockPos above = at.above(3);
+		helper.getLevel().setBlock(above, Blocks.DIRT.defaultBlockState(), 3);
+		p.setXRot(-90f);
+		helper.assertTrue(kit.dig(p) > 0 && helper.getLevel().getBlockState(above).isAir(), "looking up, he digs up");
+		// looking up and ahead on a slant: the dirt on the diagonal goes, the dirt level ahead stays
+		var n = Omnitrix.state(p).copy();
+		n.timers.remove(kit.key(com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.DIG));
+		Omnitrix.save(p, n);
+		BlockPos slant = at.offset(0, 3, 2), level = at.offset(0, 0, 3);
+		helper.getLevel().setBlock(slant, Blocks.DIRT.defaultBlockState(), 3);
+		helper.getLevel().setBlock(level, Blocks.DIRT.defaultBlockState(), 3);
+		p.setYRot(0f);
+		p.setXRot(-45f);
+		kit.dig(p);
+		helper.assertTrue(helper.getLevel().getBlockState(slant).isAir(), "the slant ahead and up is dug");
+		helper.assertTrue(helper.getLevel().getBlockState(level).is(Blocks.DIRT), "the ground level ahead is left");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE)
 	public void fourArmsHeldXChargesALeapUpTo200Blocks(GameTestHelper helper) {
 		ServerPlayer p = as(helper, FourArmsKit.ID);
 		FourArmsKit kit = (FourArmsKit) Aliens.kit(FourArmsKit.ID);
