@@ -152,6 +152,9 @@ public abstract class LocalPlayerMixin {
 	@Inject(method = "aiStep", at = @At("TAIL"))
 	private void projecthero$speedMovement(CallbackInfo ci) {
 		LocalPlayer self = (LocalPlayer) (Object) this;
+		if (projecthero$xlr8WallRun(self)) {
+			return;
+		}
 		if (!projecthero$speedModeActive(self)) {
 			projecthero$groundSpeed = 0.0;
 			projecthero$wallRunning = false;
@@ -236,6 +239,39 @@ public abstract class LocalPlayerMixin {
 	}
 
 	@Unique
+	/**
+	 * v0.17.2 (user: "make xlr8s wall run faster like how it is for speedsters"): XLR8 in Speed Mode runs up a wall at the
+	 * speedsters' wall-run speed (his kit's {@code climbs} only made it a ladder) and hops onto the top. Returns true while it
+	 * drives him.
+	 */
+	private boolean projecthero$xlr8WallRun(LocalPlayer self) {
+		if (!com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(self)
+				|| (com.projecthero.mod.omnitrix.Omnitrix.state(self).kitFlags & com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.F_SPEED) == 0) {
+			return false;
+		}
+		boolean canWallRun = self.getXRot() <= com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.WALL_RUN_PITCH
+				&& self.zza > 0.0f && !self.isShiftKeyDown() && !self.getAbilities().flying && !self.isPassenger()
+				&& !self.isInWater() && !self.isFallFlying();
+		if (canWallRun && self.horizontalCollision) {
+			Vec3 cur = self.getDeltaMovement();
+			self.setDeltaMovement(cur.x, 0.7, cur.z);
+			self.resetFallDistance();
+			projecthero$wallRunning = true;
+			return true;
+		}
+		if (projecthero$wallRunning) {
+			projecthero$wallRunning = false;
+			if (canWallRun && !self.onGround()) {
+				// over the top: hop forward onto it
+				float yaw = self.getYRot() * ((float) Math.PI / 180.0f);
+				self.setDeltaMovement(-Math.sin(yaw) * 0.45, 0.5, Math.cos(yaw) * 0.45);
+				self.resetFallDistance();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private boolean projecthero$speedModeActive(LocalPlayer self) {
 		ExperimentalState st = self.getAttachedOrElse(ModAttachments.EXPERIMENTAL_STATE, null);
 		if (st == null || !st.ownedPowers.contains("power_04_super_speed")) {
