@@ -23,24 +23,30 @@ public class PyroBoltRenderer extends EntityRenderer<PyroBoltEntity> {
 
 	@Override
 	public void render(PyroBoltEntity e, float entityYaw, float partial, PoseStack pose, MultiBufferSource buffers, int light) {
-		float t = e.tickCount + partial;
-		float r = e.size();
-		Vec3 v = e.getDeltaMovement();
 		pose.pushPose();
 		pose.translate(0.0, e.getBbHeight() * 0.5, 0.0);
+		draw(pose, buffers, e.size(), e.tickCount + partial, e.getDeltaMovement(), e.meteor(), e.blue());
+		pose.popPose();
+		super.render(e, entityYaw, partial, pose, buffers, light);
+	}
+
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): one bolt in flight -- the ball of fire
+	 * and its fading glow trail -- at the pose's origin (its centre), shared with Heatblast's shots ({@code HeatblastClient}).
+	 * {@code r} the radius, {@code t} its age in ticks, {@code v} its velocity (blocks a tick).
+	 */
+	public static void draw(PoseStack pose, MultiBufferSource buffers, float r, float t, Vec3 v, boolean meteor, boolean blue) {
 		// grows in over the first two ticks so it doesn't pop out of the hand
 		float in = Math.min(1.0f, t / 2.0f);
-		PyroDraw.fireball(pose, buffers, r * (0.5f + 0.5f * in), t, v, e.meteor(), e.blue());
+		PyroDraw.fireball(pose, buffers, r * (0.5f + 0.5f * in), t, v, meteor, blue);
 		// a fading trail of glow behind it
 		var glow = PyroDraw.glowBuffer(buffers);
-		int n = e.meteor() ? 7 : 5;
+		int n = meteor ? 7 : 5;
 		for (int i = 1; i <= n; i++) {
 			Vec3 at = v.scale(-0.55 * i);
 			float k = 1.0f - i / (float) (n + 1);
-			PyroDraw.glow(pose, glow, at, r * (1.6f * k + 0.3f), PyroDraw.dim(e.blue() ? 0xFF4C8CFF : e.meteor() ? 0xFFC04010 : 0xFFFF7020, k * 0.8f));
+			PyroDraw.glow(pose, glow, at, r * (1.6f * k + 0.3f), PyroDraw.dim(blue ? 0xFF4C8CFF : meteor ? 0xFFC04010 : 0xFFFF7020, k * 0.8f));
 		}
-		pose.popPose();
-		super.render(e, entityYaw, partial, pose, buffers, light);
 	}
 
 	@Override

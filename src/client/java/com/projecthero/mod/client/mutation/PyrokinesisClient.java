@@ -211,17 +211,23 @@ public final class PyrokinesisClient {
 		MutationRender.shell(ctx, MutationRender.WHITE, MutationRender.Shell.THIN, PyroDraw.dim(0xFF802000, 0.12f + 0.18f * k), true);
 		if (h >= 0.8f) {
 			MutationRender.eyes(ctx, 0xFFFFE6A0);
-			// the hands glow white-hot
-			VertexConsumer glow = PyroDraw.glowBuffer(ctx.buffers());
-			for (boolean right : new boolean[] { true, false }) {
-				PoseStack pose = ctx.pose();
-				pose.pushPose();
-				ModelPart arm = right ? ctx.model().rightArm : ctx.model().leftArm;
-				arm.translateAndRotate(pose);
-				pose.translate((right ? -1.0 : 1.0) / 16.0, 10.0 / 16.0, 0.0);
-				PyroDraw.glow(pose, glow, Vec3.ZERO, 0.32f * pulse, PyroDraw.dim(0xFFFF8030, 0.8f));
-				pose.popPose();
-			}
+			whiteHotHands(ctx.pose(), ctx.buffers(), ctx.model(), pulse);
+		}
+	}
+
+	/**
+	 * The hands glowing white-hot (high Heat). v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"):
+	 * public, shared with Heatblast's Heat Aura ({@code HeatblastClient}); {@code pulse} sizes the glows.
+	 */
+	public static void whiteHotHands(PoseStack pose, MultiBufferSource buffers, net.minecraft.client.model.HumanoidModel<?> m, float pulse) {
+		VertexConsumer glow = PyroDraw.glowBuffer(buffers);
+		for (boolean right : new boolean[] { true, false }) {
+			pose.pushPose();
+			ModelPart arm = right ? m.rightArm : m.leftArm;
+			arm.translateAndRotate(pose);
+			pose.translate((right ? -1.0 : 1.0) / 16.0, 10.0 / 16.0, 0.0);
+			PyroDraw.glow(pose, glow, Vec3.ZERO, 0.32f * pulse, PyroDraw.dim(0xFFFF8030, 0.8f));
+			pose.popPose();
 		}
 	}
 
@@ -233,8 +239,16 @@ public final class PyrokinesisClient {
 
 	/** Real fire licking up off every limb (world-up, whatever the pose). */
 	private static void limbFlames(MutationOverlays.Context ctx, float scale, float lean) {
-		var m = ctx.model();
-		boolean slim = "slim".equals(ctx.player().getSkin().model().id());
+		limbFlames(ctx.pose(), ctx.buffers(), ctx.model(), "slim".equals(ctx.player().getSkin().model().id()), time(ctx), scale, lean);
+	}
+
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the limb flames on any posed player model
+	 * -- shared with Heatblast's Heat Shield and Jet Dash ({@code HeatblastClient}). {@code pose} is the model's render space,
+	 * {@code t} the age in ticks; {@code lean} tips the flames back (a dash).
+	 */
+	public static void limbFlames(PoseStack pose, MultiBufferSource buffers, net.minecraft.client.model.HumanoidModel<?> m, boolean slim, float t,
+			float scale, float lean) {
 		float ax = slim ? 0.5f : 1.0f;
 		Object[][] parts = {
 				{ m.body, new float[] { 0, 9, 0 }, 0.75f, 0.85f },
@@ -244,9 +258,7 @@ public final class PyrokinesisClient {
 				{ m.leftArm, new float[] { ax, 5, 0 }, 0.42f, 0.6f },
 				{ m.rightLeg, new float[] { 0, 7, 0 }, 0.45f, 0.55f },
 				{ m.leftLeg, new float[] { 0, 7, 0 }, 0.45f, 0.55f } };
-		VertexConsumer fire = PyroDraw.fireBuffer(ctx.buffers());
-		float t = time(ctx);
-		PoseStack pose = ctx.pose();
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
 		for (int i = 0; i < parts.length; i++) {
 			ModelPart part = (ModelPart) parts[i][0];
 			if (!part.visible) {
@@ -286,9 +298,15 @@ public final class PyrokinesisClient {
 
 	/** The whole figure wreathed in fire: big crossed sheets from the feet to above the head, turned with the body. */
 	private static void bodyFire(MutationOverlays.Context ctx, float scale) {
-		float t = time(ctx);
-		VertexConsumer fire = PyroDraw.fireBuffer(ctx.buffers());
-		PoseStack pose = ctx.pose();
+		bodyFire(ctx.pose(), ctx.buffers(), time(ctx), scale);
+	}
+
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the fire wreath in any player model's
+	 * render space ({@code t} the age in ticks) -- shared with Heatblast's Jet Dash ({@code HeatblastClient}).
+	 */
+	public static void bodyFire(PoseStack pose, MultiBufferSource buffers, float t, float scale) {
+		VertexConsumer fire = PyroDraw.fireBuffer(buffers);
 		for (int i = 0; i < 2; i++) {
 			float flick = 0.85f + 0.15f * Mth.sin(t * 0.4f + i * 2.0f);
 			pose.pushPose();
@@ -694,12 +712,21 @@ public final class PyrokinesisClient {
 
 	/** The Flamethrower: a roaring cone of fire from both palms out to 8 blocks (or the first block in the way). */
 	private static void thrower(Player pl, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers) {
+		flamethrower(pl, partial, cam, pose, buffers, PyrokinesisHandlers.THROWER_RANGE);
+	}
+
+	/**
+	 * v0.17.2 (user: "change his ability vfx to be similar to the pyrokinesis power"): the Flamethrower's cone from
+	 * {@code pl}'s palms out to {@code maxRange} blocks (or the first block in the way), in a world render pass ({@code pose}
+	 * camera-relative at {@code cam}) -- shared with Heatblast's Fire Stream ({@code HeatblastClient}).
+	 */
+	public static void flamethrower(Player pl, float partial, Vec3 cam, PoseStack pose, MultiBufferSource buffers, double maxRange) {
 		float time = pl.tickCount + partial;
 		Vec3 look = pl.getViewVector(partial);
 		Vec3 right = rightOf(look);
 		Vec3 up = right.cross(look).normalize();
 		Vec3 from = hand(pl, partial, true);
-		double range = PyrokinesisHandlers.THROWER_RANGE;
+		double range = maxRange;
 		HitResult hit = pl.pick(range, partial, false);
 		if (hit.getType() == HitResult.Type.BLOCK) {
 			range = Math.max(1.0, hit.getLocation().distanceTo(pl.getEyePosition(partial)));
