@@ -791,6 +791,12 @@ public final class CryokinesisHandlers {
 	}
 
 	static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled, net.minecraft.world.phys.AABB keepClear) {
+		return layRamp(level, feet, dir, travelled, keepClear, cell -> CryoIce.place(level, cell, PACKED, SLIDE_ICE_TTL));
+	}
+
+	/** v0.17.2: the ramp with any block -- {@code place} puts one cell down (Diamondhead's Crystal Slide lays crystal). */
+	public static int layRamp(ServerLevel level, Vec3 feet, Vec3 dir, double travelled, net.minecraft.world.phys.AABB keepClear,
+			java.util.function.Predicate<BlockPos> place) {
 		Vec3 side = new Vec3(-dir.z, 0, dir.x);
 		int placed = 0;
 		double back = Math.min(2.0, travelled);
@@ -804,7 +810,7 @@ public final class CryokinesisHandlers {
 						|| !level.getEntitiesOfClass(LivingEntity.class, box).isEmpty()) {
 					continue;
 				}
-				if (CryoIce.place(level, cell, PACKED, SLIDE_ICE_TTL)) {
+				if (place.test(cell)) {
 					placed++;
 				}
 			}

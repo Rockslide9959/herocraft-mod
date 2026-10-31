@@ -59,7 +59,7 @@ import net.minecraft.world.phys.Vec3;
  * <pre>
  *   R        Shard Volley      a fan of 5 crystal shards (3 each)             Shift+R  Crystal Spear    one huge spear (12, knockback)
  *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)  Shift+G  Spike Line       crystal spikes erupt in a 12-block line (6, launch)
- *   X        Crystal Slide     a crystal ramp / bridge ahead, and you slide  Shift+X  Crystal Vault    a pillar shoots up under you
+ *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
  *   Z        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+Z  Crystal Dome     a dome over you (7 s)
  *   V        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
  *   C        Diamond Barrage   a 2 s storm of shards on where you look       Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
@@ -108,7 +108,8 @@ public final class DiamondheadKit extends AlienKit {
 	public static final int SPIKE_LENGTH = 12;
 	public static final int WALL_TICKS = 160;
 	public static final int DOME_TICKS = 140;
-	public static final int SLIDE_TICKS = 100;
+	/** v0.17.2: how long each crystal of the slide's ramp stays behind him (ticks). */
+	public static final int SLIDE_TICKS = 40;
 	public static final int PLACE_TICKS = 600;
 	public static final int BARRAGE_TICKS = 40;
 	public static final int ARMOUR_TICKS = 120;
@@ -227,7 +228,8 @@ public final class DiamondheadKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
 		setBlade(p, false);
-		setFlag(p, F_ARMOUR | F_SLIDING, false);
+		endSlide(p);
+		setFlag(p, F_ARMOUR, false);
 		LINES.remove(p.getUUID());
 		STORMS.remove(p.getUUID());
 	}
@@ -262,11 +264,7 @@ public final class DiamondheadKit extends AlienKit {
 				l.sendParticles(SPARKLE, p.getX(), p.getY() + 1.0, p.getZ(), 3, 0.5, 0.8, 0.5, 0.0);
 			}
 		}
-		long slide = timer(p, "slide_end");
-		if (slide > 0 && now >= slide) {
-			setTimer(p, "slide_end", 0);
-			setFlag(p, F_SLIDING, false);
-		}
+		slideTick(p, l, now);
 		tickSpikes(p, l, now);
 		tickStorm(p, l, now);
 	}
@@ -477,32 +475,78 @@ public final class DiamondheadKit extends AlienKit {
 		return true;
 	}
 
-	/** X: a crystal path ahead (bridging gaps, rising if you look up), and you shoot along it. */
+	/** Steps up a block on the slide without stopping (the client drives the ride). */
+	private static final ResourceLocation SLIDE_STEP = PowerToggles.id("omnitrix_diamondhead_slide_step");
+
+	/**
+	 * X: the Crystal Slide -- v0.17.2 (user: "make diamondheads crystal slide ability work similar to cryokinesis ice slide"):
+	 * Cryokinesis' Ice Slide in crystal. A toggle (X again steps off): his own client rides him along his look (climbing when
+	 * he looks up, riding down when he looks down -- {@code CryokinesisClient.ride}) while a 3-wide crystal ramp grows under
+	 * him and back along the way he came ({@code CryokinesisHandlers.layRamp}), shattering 2 s behind him. Returns 1 when it
+	 * starts, 0 otherwise.
+	 */
 	public int slide(ServerPlayer p) {
-		if (!use(p, SLIDE)) {
+		if (flag(p, F_SLIDING)) {
+			endSlide(p);
+			return 0;
+		}
+		if (p.getAbilities().flying || p.isPassenger() || !use(p, SLIDE)) {
 			return 0;
 		}
 		anim(p, ANIM_SLIDE);
-		ServerLevel l = level(p);
-		Vec3 f = flatLook(p);
-		boolean rising = p.getXRot() < -12f;
-		BlockPos feet = p.blockPosition();
-		int placed = 0;
-		for (int i = 1; i <= 8; i++) {
-			int rise = rising ? i / 2 : 0;
-			BlockPos at = BlockPos.containing(p.getX() + f.x * i, feet.getY() - 1 + rise, p.getZ() + f.z * i);
-			if (TempBlocks.place(l, at, crystal(), SLIDE_TICKS)) {
-				placed++;
-			}
-		}
 		setFlag(p, F_SLIDING, true);
-		setTimer(p, "slide_end", p.level().getGameTime() + 20);
-		p.setDeltaMovement(f.scale(1.3).add(0, rising ? 0.45 : 0.1, 0));
-		p.hurtMarked = true;
+		PowerToggles.modifier(p, Attributes.STEP_HEIGHT, SLIDE_STEP, 0.65, AttributeModifier.Operation.ADD_VALUE);
+		if (p.onGround()) {
+			// a little hop so the first crystal goes in under him
+			p.setDeltaMovement(p.getDeltaMovement().x, 0.25, p.getDeltaMovement().z);
+			p.hurtMarked = true;
+		}
 		p.resetFallDistance();
+		ServerLevel l = level(p);
 		QuirkFx.trail(l, p).colours(0xE0FFF6, COLOUR).size(0.35f).size2(8f).life(16).vec(new Vec3(0, 0.1, 0)).style(QuirkFx.RIBBON_LIGHT).spawn();
 		OmnitrixSounds.play(l, p.position(), SND_GROW, 0.9f, 1.3f);
-		return placed;
+		return 1;
+	}
+
+	/** Steps off the slide; 3 s of no fall damage after. */
+	public void endSlide(ServerPlayer p) {
+		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, SLIDE_STEP);
+		if (flag(p, F_SLIDING)) {
+			setFlag(p, F_SLIDING, false);
+			setTimer(p, "slide_grace", p.level().getGameTime() + 60);
+		}
+	}
+
+	/** The ride's server half: the ramp under him, the sparkle, the crystal steps -- and no fall damage meanwhile. */
+	private void slideTick(ServerPlayer p, ServerLevel l, long now) {
+		if (!flag(p, F_SLIDING)) {
+			if (now < timer(p, "slide_grace")) {
+				p.resetFallDistance();
+			}
+			return;
+		}
+		if (!p.isAlive() || p.getAbilities().flying || p.isPassenger()) {
+			endSlide(p);
+			return;
+		}
+		p.resetFallDistance();
+		Vec3 mv = p.getKnownMovement();
+		Vec3 flat = new Vec3(mv.x, 0, mv.z);
+		Vec3 dir = flat.lengthSqr() > 1.0e-4 ? flat.normalize() : flatLook(p);
+		// as the Ice Slide: nothing while falling, nothing where he is about to be (the server sees him a tick late), and
+		// looking down rides down instead of laying crystal under him
+		if (p.getXRot() <= com.projecthero.mod.hero.power.p09.CryokinesisHandlers.DESCEND_PITCH && mv.y > -0.15) {
+			net.minecraft.world.phys.AABB ahead = p.getBoundingBox().expandTowards(mv.x * 3, Math.min(0, mv.y * 3), mv.z * 3).inflate(0.3, 0.0, 0.3);
+			com.projecthero.mod.hero.power.p09.CryokinesisHandlers.layRamp(l, p.position(), dir, mv.length(), ahead,
+					cell -> TempBlocks.place(l, cell, crystal(), SLIDE_TICKS));
+		}
+		if (now % 2 == 0) {
+			l.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, crystal()), p.getX(), p.getY() + 0.1, p.getZ(), 3, 0.3, 0.05, 0.3, 0.05);
+			l.sendParticles(SPARKLE, p.getX(), p.getY() + 0.15, p.getZ(), 1, 0.3, 0.05, 0.3, 0.0);
+		}
+		if (now % 6 == 0) {
+			l.playSound(null, p.blockPosition(), SoundEvents.AMETHYST_BLOCK_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.7f, 1.3f);
+		}
 	}
 
 	/** Shift+X: a crystal pillar shoots up under you. */

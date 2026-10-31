@@ -184,7 +184,7 @@
   "projecthero.omnitrix.diamondhead.spike_line": "Spike Line",
   "projecthero.omnitrix.diamondhead.spike_line.desc": "Crystal spikes erupt from the ground in a 12-block line ahead: 6 damage and up into the air.",
   "projecthero.omnitrix.diamondhead.crystal_slide": "Crystal Slide",
-  "projecthero.omnitrix.diamondhead.crystal_slide.desc": "A crystal path forms ahead (bridging gaps, a ramp if you look up) and you slide off along it.",
+  "projecthero.omnitrix.diamondhead.crystal_slide.desc": "Toggle: ride a crystal ramp that grows under you wherever you look -- look up to climb, down to ride down. X again to step off.",
   "projecthero.omnitrix.diamondhead.crystal_vault": "Crystal Vault",
   "projecthero.omnitrix.diamondhead.crystal_vault.desc": "A crystal pillar shoots up under your feet, lifting you three blocks.",
   "projecthero.omnitrix.diamondhead.crystal_wall": "Crystal Wall",

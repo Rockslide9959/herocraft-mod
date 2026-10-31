@@ -221,6 +221,10 @@ public final class DiamondheadClient implements AlienClientKit {
 			default -> null;
 		};
 		boolean played = clip != null && QuirkKeyframes.play(m, clip, ticks, 1f);
+		if (!played && (Omnitrix.state(p).kitFlags & DiamondheadKit.F_SLIDING) != 0) {
+			// v0.17.2: the surfer's crouch held for the whole ride
+			return QuirkKeyframes.play(m, SLIDE, 10f, 1f);
+		}
 		if (!played && (Omnitrix.state(p).kitFlags & DiamondheadKit.F_BLADE) != 0) {
 			// the blade held ready, a little out from the body
 			m.rightArm.xRot = m.rightArm.xRot * 0.5f - 0.35f;
@@ -248,6 +252,9 @@ public final class DiamondheadClient implements AlienClientKit {
 		};
 	}
 
+	/** The Crystal Slide's eased ride velocity (CryokinesisClient.ride). */
+	private static final double[] RIDE = { Double.NaN, 0 };
+
 	@Override
 	public void tick(AbstractClientPlayer p) {
 		var r = p.getRandom();
@@ -256,6 +263,10 @@ public final class DiamondheadClient implements AlienClientKit {
 					p.getZ() + (r.nextDouble() - 0.5) * 0.8, 0, 0.02, 0);
 		}
 		int flags = Omnitrix.state(p).kitFlags;
+		if (p instanceof net.minecraft.client.player.LocalPlayer me) {
+			// v0.17.2 (user: "work similar to cryokinesis ice slide"): the Ice Slide's ride, on his own client
+			com.projecthero.mod.client.mutation.CryokinesisClient.ride(me, (flags & DiamondheadKit.F_SLIDING) != 0, RIDE);
+		}
 		if ((flags & DiamondheadKit.F_SLIDING) != 0 && p.onGround()) {
 			p.level().addParticle(new BlockParticleOption(ParticleTypes.BLOCK, DiamondheadBlocks.CRYSTAL.defaultBlockState()), p.getX(), p.getY() + 0.1,
 					p.getZ(), 0, 0.1, 0);

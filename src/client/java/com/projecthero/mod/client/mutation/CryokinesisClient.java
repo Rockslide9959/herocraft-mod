@@ -403,16 +403,21 @@ public final class CryokinesisClient {
 		pose.popPose();
 	}
 
-	/**
-	 * The ride, on the local player: forward along the look at {@link CryokinesisHandlers#SLIDE_SPEED}, climbing when you
-	 * look up (the server lays the ramp under you), dropping when you look down.
-	 */
-	private static double rideX = Double.NaN;
-	private static double rideZ;
+	/** The eased ride velocity {x, z} (x NaN: not riding) -- one per slide, so one slide standing idle never resets another. */
+	private static final double[] CRYO_RIDE = { Double.NaN, 0 };
 
 	private static void slideRide(LocalPlayer p) {
-		if (!MutationVisuals.hasFlag(p, "p09.slide") || p.getAbilities().flying || p.isPassenger()) {
-			rideX = Double.NaN;
+		ride(p, MutationVisuals.hasFlag(p, "p09.slide"), CRYO_RIDE);
+	}
+
+	/**
+	 * The ride, on the local player: forward along the look at {@link CryokinesisHandlers#SLIDE_SPEED}, climbing when you
+	 * look up (the server lays the ramp under you), dropping when you look down. v0.17.2: for any slide that is {@code on}
+	 * (also Diamondhead's Crystal Slide), easing in {@code state}.
+	 */
+	public static void ride(LocalPlayer p, boolean on, double[] state) {
+		if (!on || p.getAbilities().flying || p.isPassenger()) {
+			state[0] = Double.NaN;
 			return;
 		}
 		float yaw = p.getYRot() * Mth.DEG_TO_RAD;
@@ -420,14 +425,14 @@ public final class CryokinesisClient {
 		Vec3 v = p.getDeltaMovement();
 		// v0.16.5 (user: "make it smoother"): ease into the speed and the turns instead of snapping to them. The eased
 		// velocity is kept here, not read back off the player, so ground friction never drags the ride down.
-		if (Double.isNaN(rideX)) {
-			rideX = v.x;
-			rideZ = v.z;
+		if (Double.isNaN(state[0])) {
+			state[0] = v.x;
+			state[1] = v.z;
 		}
-		rideX = Mth.lerp(0.35, rideX, -Mth.sin(yaw) * speed);
-		rideZ = Mth.lerp(0.35, rideZ, Mth.cos(yaw) * speed);
-		double dx = rideX;
-		double dz = rideZ;
+		state[0] = Mth.lerp(0.35, state[0], -Mth.sin(yaw) * speed);
+		state[1] = Mth.lerp(0.35, state[1], Mth.cos(yaw) * speed);
+		double dx = state[0];
+		double dz = state[1];
 		double vy = v.y;
 		float pitch = p.getXRot();
 		if (pitch < -12.0f) {

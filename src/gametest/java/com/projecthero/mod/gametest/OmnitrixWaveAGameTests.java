@@ -272,6 +272,27 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 
 	// ================================================================ Upgrade
 
+	/** v0.17.2: the Crystal Slide is the Ice Slide in crystal -- a toggle, a ramp grows under him, X again steps off. */
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void diamondheadsCrystalSlideIsAToggleRideOnARamp(GameTestHelper helper) {
+		ServerPlayer p = as(helper, DiamondheadKit.ID);
+		DiamondheadKit kit = (DiamondheadKit) Aliens.kit(DiamondheadKit.ID);
+		Vec3 up = helper.absoluteVec(new Vec3(3.5, 4, 3.5));
+		p.moveTo(up.x, up.y, up.z, 0f, 0f);
+		p.setOnGround(false);
+		helper.assertTrue(kit.slide(p) == 1 && kit.flag(p, DiamondheadKit.F_SLIDING), "X starts the slide");
+		pump(helper, p);
+		helper.runAfterDelay(3, () -> {
+			BlockPos under = BlockPos.containing(p.getX(), p.getY() - 0.6, p.getZ());
+			helper.assertTrue(helper.getLevel().getBlockState(under).is(com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks.CRYSTAL),
+					"crystal grows in under him");
+			helper.assertTrue(kit.flag(p, DiamondheadKit.F_SLIDING), "and he keeps riding (no time limit)");
+			helper.assertTrue(kit.slide(p) == 0 && !kit.flag(p, DiamondheadKit.F_SLIDING), "X again steps off");
+			helper.assertTrue(p.getAttributeValue(Attributes.STEP_HEIGHT) < 1.0, "the slide's step-up goes with it");
+			helper.succeed();
+		});
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 200)
 	public void upgradesSlideShrinksAndOnlyStandsWhereThereIsRoom(GameTestHelper helper) {
 		ServerPlayer p = as(helper, UpgradeKit.ID);
