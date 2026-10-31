@@ -60,12 +60,12 @@ import net.minecraft.world.phys.Vec3;
  * moves out.
  *
  * <pre>
- *   R        Fire Blast      a fast fire bolt (6 + 4 s alight)          Shift+R  Fire Stream     a 2.5 s flamethrower cone
- *   G        Pyro Bomb       a lobbed fireball, 3.5-block blast          Shift+G  Heat Shield     5 s: 60% less damage, burns attackers, melts arrows
- *   X        Fire Jet        hover / fly on jets of flame (toggle)       Shift+X  Jet Dash        a burst forward, scorching what it passes
- *   Z        Flame Ring      a ring of fire on the ground for 4 s       Shift+Z  Flare           a blinding white-hot flash
+ *   R        Fire Blast      a fast fire bolt (12 + 4 s alight)         Shift+R  Fire Stream     a 2.5 s flamethrower cone (4 a pulse)
+ *   G        Pyro Bomb       a lobbed fireball (6), 3.5-block blast (12) Shift+G Heat Shield     5 s: 60% less damage, burns attackers, melts arrows
+ *   X        Fire Jet        hover / fly on jets of flame (toggle)       Shift+X  Jet Dash        a burst forward, scorching what it passes (8)
+ *   Z        Fireball Nova   a burst of fire all around (18)            Shift+Z  Supernova       a 1.25 s charge, then a huge blast (30; ultimate)
  *   V        Heat Aura       toggle: a searing aura -- creatures near catch fire, snow and ice melt, dropped items smelt
- *   C        Fireball Nova   a burst of fire all around (10)            Shift+C  Supernova       a 1.25 s charge, then a huge blast (18)
+ *   C        Flame Ring      a ring of fire on the ground for 4 s (3)   Shift+C  Flare           a blinding white-hot flash (6)
  *   Attack   a flaming punch (sets alight)
  *   Use      empty hand: a small fire bolt; empty hand on a block: melts it (sand to glass, ore to ingots, ice to water...);
  *            Shift + an item: smelts up to 8 of it in your hand
@@ -118,21 +118,26 @@ public final class HeatblastKit extends AlienKit {
 	public static final String FIRE_BOLT = "fire_bolt";
 	public static final String SMELT = "smelt";
 
-	public static final float BLAST_DAMAGE = 6f;
-	public static final float STREAM_DAMAGE = 2f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
+	public static final float BLAST_DAMAGE = 12f;
+	public static final float STREAM_DAMAGE = 4f; // v0.17.2: was 2 a pulse
 	public static final int STREAM_TICKS = 50;
-	public static final float BOMB_DAMAGE = 8f;
+	public static final float BOMB_DAMAGE = 12f; // v0.17.2: was 8 (the direct hit is half of it: was 4, now 6)
 	public static final int SHIELD_TICKS = 100;
 	public static final float SHIELD_FACTOR = 0.4f;
 	public static final int RING_TICKS = 80;
 	public static final float RING_RADIUS = 4f;
-	public static final float RING_DAMAGE = 2f;
+	public static final float RING_DAMAGE = 3f; // v0.17.2: was 2 a pulse
 	public static final float NOVA_RADIUS = 6f;
-	public static final float NOVA_DAMAGE = 10f;
+	public static final float NOVA_DAMAGE = 18f; // v0.17.2: was 10
+	public static final float NOVA_EDGE_DAMAGE = 12f; // v0.17.2: was 6 (60% of the centre's)
 	public static final float SUPERNOVA_RADIUS = 9f;
-	public static final float SUPERNOVA_DAMAGE = 18f;
+	public static final float SUPERNOVA_DAMAGE = 30f; // v0.17.2: was 18 (10.8 at the edge; now 18)
 	public static final int SUPERNOVA_CHARGE = 25;
-	public static final float DASH_DAMAGE = 4f;
+	public static final float DASH_DAMAGE = 8f; // v0.17.2: was 4
+	/** v0.17.2: the Flare's singe (was 3) and Use's small fire bolt (was 3); both were inline numbers. */
+	public static final float FLARE_DAMAGE = 6f;
+	public static final float BOLT_DAMAGE = 5f;
 	public static final float PUNCH_FIRE = 2f;
 	public static final float FLY_SPEED = 0.07f;
 	/** v0.17.2: how far the Fire Stream's drawn flamethrower cone reaches (or the first block in the way). Look only. */
@@ -252,9 +257,12 @@ public final class HeatblastKit extends AlienKit {
 				AlienMove.tap(FIRE_BLAST, AbilitySlot.SLOT_1, 12), AlienMove.shift(FIRE_STREAM, AbilitySlot.SLOT_1, 120),
 				AlienMove.tap(PYRO_BOMB, AbilitySlot.SLOT_2, 80), AlienMove.shift(HEAT_SHIELD, AbilitySlot.SLOT_2, 300),
 				AlienMove.tap(FIRE_JET, AbilitySlot.SLOT_3, 10), AlienMove.shift(JET_DASH, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(FLAME_RING, AbilitySlot.SLOT_4, 280), AlienMove.shift(FLARE, AbilitySlot.SLOT_4, 240),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the Nova
+				// and Supernova moved from C to Z (cooldowns 400 -> 240 and 900 -> 600, the ultimate's 30 s); the Flame Ring and Flare
+				// from Z to C
+				AlienMove.tap(NOVA, AbilitySlot.SLOT_4, 240), AlienMove.shift(SUPERNOVA, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(HEAT_AURA, AbilitySlot.SLOT_5, 60),
-				AlienMove.tap(NOVA, AbilitySlot.SLOT_6, 400), AlienMove.shift(SUPERNOVA, AbilitySlot.SLOT_6, 900),
+				AlienMove.tap(FLAME_RING, AbilitySlot.SLOT_6, 280), AlienMove.shift(FLARE, AbilitySlot.SLOT_6, 240),
 				// the vanilla keys' moves (no box on the HUD)
 				AlienMove.vanilla("flaming_punch", "Attack", 10), AlienMove.vanilla(FIRE_BOLT, "Use", 10),
 				AlienMove.vanilla(SMELT, "Use on a block / Shift+Use with an item", 20));
@@ -452,19 +460,19 @@ public final class HeatblastKit extends AlienKit {
 					fireJet(p);
 				}
 			}
-			case SLOT_4 -> {
-				if (shift) {
-					flare(p);
-				} else {
-					flameRing(p);
-				}
-			}
-			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
-			case SLOT_6 -> {
+			case SLOT_4 -> { // v0.17.2: the Nova / Supernova (were C)
 				if (shift) {
 					supernova(p);
 				} else {
 					nova(p);
+				}
+			}
+			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
+			case SLOT_6 -> { // v0.17.2: the Flame Ring / Flare (were Z)
+				if (shift) {
+					flare(p);
+				} else {
+					flameRing(p);
 				}
 			}
 			default -> {
@@ -656,7 +664,7 @@ public final class HeatblastKit extends AlienKit {
 		for (LivingEntity e : around(p, c, 8.0)) {
 			e.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
 			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
-			hurt(p, e, 3f, true);
+			hurt(p, e, FLARE_DAMAGE, true); // v0.17.2: was 3
 			e.igniteForSeconds(2);
 		}
 		OmnitrixSounds.play(l, c, OmnitrixSounds.HEATBLAST_IGNITE, 1.0f, 1.6f);
@@ -668,7 +676,7 @@ public final class HeatblastKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_NOVA);
-		burst(p, NOVA_RADIUS, NOVA_DAMAGE, 1.2, 6, 1.0f);
+		burst(p, NOVA_RADIUS, NOVA_DAMAGE, NOVA_EDGE_DAMAGE, 1.2, 6, 1.0f);
 		return true;
 	}
 
@@ -685,10 +693,11 @@ public final class HeatblastKit extends AlienKit {
 
 	private void supernovaBlast(ServerPlayer p) {
 		anim(p, ANIM_SUPERNOVA);
-		burst(p, SUPERNOVA_RADIUS, SUPERNOVA_DAMAGE, 1.8, 8, 1.8f);
+		burst(p, SUPERNOVA_RADIUS, SUPERNOVA_DAMAGE, SUPERNOVA_DAMAGE * 0.6f, 1.8, 8, 1.8f);
 	}
 
-	private void burst(ServerPlayer p, float radius, float damage, double push, int fireSecs, float scale) {
+	/** v0.17.2: {@code edgeDamage} is what reaches the rim (it was always 60% of {@code damage}; the Nova's is now 2/3). */
+	private void burst(ServerPlayer p, float radius, float damage, float edgeDamage, double push, int fireSecs, float scale) {
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 1.0, 0);
 		OmnitrixSounds.play(l, c, OmnitrixSounds.HEATBLAST_NOVA, 1.4f, 1.0f / scale + 0.2f);
@@ -704,7 +713,7 @@ public final class HeatblastKit extends AlienKit {
 		}
 		for (LivingEntity e : around(p, c, radius)) {
 			double d = Math.sqrt(e.distanceToSqr(c));
-			hurt(p, e, (float) (damage * (1.0 - 0.4 * Math.min(1.0, d / radius))), true);
+			hurt(p, e, (float) (damage - (damage - edgeDamage) * Math.min(1.0, d / radius)), true);
 			e.igniteForSeconds(fireSecs);
 			shove(e, c, push, 0.45);
 		}
@@ -742,7 +751,7 @@ public final class HeatblastKit extends AlienKit {
 				return InteractionResult.FAIL;
 			}
 			anim(p, ANIM_BOLT); // v0.17.2: its own quick flick
-			AlienProjectileEntity.of(p, "heatblast_bolt").colour(0xFFA040).size(0.28f).damage(3f).fire(2).speed(1.6).life(30).spawn();
+			AlienProjectileEntity.of(p, "heatblast_bolt").colour(0xFFA040).size(0.28f).damage(BOLT_DAMAGE).fire(2).speed(1.6).life(30).spawn();
 			OmnitrixSounds.play(level(p), p.position(), OmnitrixSounds.HEATBLAST_BLAST, 0.5f, 1.4f);
 			p.swing(hand, true); // v0.17.2: a small Pyrokinesis fireball (drawn by HeatblastClient); no muzzle ring
 			return InteractionResult.SUCCESS;

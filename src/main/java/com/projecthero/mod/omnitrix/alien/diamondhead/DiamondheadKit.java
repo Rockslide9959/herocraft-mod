@@ -57,10 +57,10 @@ import net.minecraft.world.phys.Vec3;
  * way they came. Every construct he raises is temporary {@link DiamondheadBlocks#CRYSTAL} (through {@code TempBlocks}).
  *
  * <pre>
- *   R        Shard Volley      a fan of 5 crystal shards (3 each)             Shift+R  Crystal Spear    one huge spear (12, knockback)
+ *   R        Shard Volley      a fan of 5 crystal shards (4 each)             Shift+R  Crystal Spear    one huge spear (18, knockback)
  *   G        Blade Arm         toggle: the arm becomes a crystal blade (+6)
  *   X        Crystal Slide     toggle: ride a crystal ramp along your look   Shift+X  Crystal Vault    a pillar shoots up under you
- *   Z        Spike Line        crystal spikes erupt in a 12-block line (launch)  Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look
+ *   Z        Spike Line        crystal spikes erupt in a 12-block line (16, launch)  Shift+Z  Diamond Barrage  ultimate: a 2 s storm of shards where you look (5 each)
  *   V        Crystal Wall      a 5x3 wall in front (8 s)                     Shift+V  Crystal Dome     a dome over you (7 s)
  *   C        Regrowth          3 s rooted: crystal grows back over the cracks (+9 health, half damage meanwhile)
  *            Shift+C  Crystal Armour   6 s: half damage, every projectile reflected
@@ -104,10 +104,13 @@ public final class DiamondheadKit extends AlienKit {
 	public static final String EDGE = "crystal_edge";
 	public static final String PLACE = "crystal_block";
 
-	public static final float SHARD_DAMAGE = 3f;
-	public static final float SPEAR_DAMAGE = 12f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float SHARD_DAMAGE = 4f;
+	public static final float SPEAR_DAMAGE = 18f; // v0.17.2: was 12
+	/** v0.17.2: the Diamond Barrage's falling shards (was SHARD_DAMAGE, 3): about 26 a target over its 2 s. */
+	public static final float BARRAGE_SHARD_DAMAGE = 5f;
 	public static final double BLADE_BONUS = 6.0;
-	public static final float SPIKE_DAMAGE = 6f;
+	public static final float SPIKE_DAMAGE = 16f; // v0.17.2: was 6
 	public static final int SPIKE_LENGTH = 12;
 	public static final int WALL_TICKS = 160;
 	public static final int DOME_TICKS = 140;
@@ -212,7 +215,9 @@ public final class DiamondheadKit extends AlienKit {
 				AlienMove.tap(VOLLEY, AbilitySlot.SLOT_1, 24), AlienMove.shift(SPEAR, AbilitySlot.SLOT_1, 120),
 				AlienMove.tap(BLADE, AbilitySlot.SLOT_2, 20),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 80), AlienMove.shift(VAULT, AbilitySlot.SLOT_3, 140),
-				AlienMove.tap(SPIKES, AbilitySlot.SLOT_4, 160), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 500),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the
+				// Barrage's cooldown 500 -> 600, the ultimate's 30 s
+				AlienMove.tap(SPIKES, AbilitySlot.SLOT_4, 160), AlienMove.shift(BARRAGE, AbilitySlot.SLOT_4, 600),
 				AlienMove.tap(WALL, AbilitySlot.SLOT_5, 200), AlienMove.shift(DOME, AbilitySlot.SLOT_5, 500),
 				AlienMove.tap(REGROW, AbilitySlot.SLOT_6, 400), AlienMove.shift(ARMOUR, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(EDGE, "Attack", 0), AlienMove.vanilla(PLACE, "Use on a block (empty hand)", 4));
@@ -350,7 +355,7 @@ public final class DiamondheadKit extends AlienKit {
 			double a = p.getRandom().nextDouble() * Math.PI * 2;
 			double r = Math.sqrt(p.getRandom().nextDouble()) * 4.0;
 			Vec3 from = st.at().add(Math.cos(a) * r, 9 + p.getRandom().nextDouble() * 2, Math.sin(a) * r);
-			AlienProjectileEntity shard = AlienProjectileEntity.of(p, "diamondhead_shard").colour(COLOUR).size(0.3f).damage(SHARD_DAMAGE).speed(1.6)
+			AlienProjectileEntity shard = AlienProjectileEntity.of(p, "diamondhead_shard").colour(COLOUR).size(0.3f).damage(BARRAGE_SHARD_DAMAGE).speed(1.6)
 					.life(30).direction(new Vec3((p.getRandom().nextDouble() - 0.5) * 0.2, -1, (p.getRandom().nextDouble() - 0.5) * 0.2));
 			shard.moveTo(from.x, from.y, from.z);
 			shard.spawn();
