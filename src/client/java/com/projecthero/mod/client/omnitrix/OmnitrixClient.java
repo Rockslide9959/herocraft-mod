@@ -57,6 +57,7 @@ public final class OmnitrixClient {
 		HeatblastClient.init(); // v0.17.2: his shots in Pyrokinesis' fireball look, the Fire Stream as its Flamethrower
 		com.projecthero.mod.client.omnitrix.alien.StinkflyClient.init(); // v0.17.2: goo blobs, the spinning slime net, their drips
 		com.projecthero.mod.client.omnitrix.alien.UpgradeFx.init(); // v0.17.2: Upgrade's merge coat + takeover, beams, tendrils, EMP, puddle
+		com.projecthero.mod.client.omnitrix.alien.wildmutt.WildmuttVision.init(); // v0.17.2: his blind sense -- echolocation in the dark
 		BlockEntityRendererRegistry.register(OmnitrixPodBlocks.POD_BE, OmnitrixRenderers.PodField::new);
 		// the loose watch is drawn as its 3D model everywhere
 		net.fabricmc.fabric.api.client.rendering.v1.BuiltinItemRendererRegistry.INSTANCE.register(
