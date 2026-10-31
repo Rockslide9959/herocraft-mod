@@ -91,7 +91,7 @@ public final class OmnitrixHud {
 		}
 	}
 
-	/** Transformed: the keys, the time bar, the alien's name and the kit's rows. Returns the HUD's top. */
+	/** Transformed: the keys and the kit's rows (v0.17.2: no time bar). Returns the HUD's top. */
 	private static int alien(GuiGraphics g, Minecraft mc, LocalPlayer p, OmnitrixState s, long now, int x0, int bottom, float partial) {
 		Aliens.Alien a = Aliens.byId(s.active);
 		AlienKit kit = Aliens.kit(s.active);
@@ -100,30 +100,9 @@ public final class OmnitrixHud {
 		}
 		int y0 = bottom - BOX;
 		keys(g, mc, p, kit, a, x0, y0);
-		int left = Omnitrix.displayLeft(s, now);
-		boolean powerDown = Omnitrix.poweringDown(s);
-		boolean warn = left <= OmnitrixConfig.WARN_TICKS || powerDown;
-		float blink = Omnitrix.beepBlink(s, now, partial);
-		int colour = powerDown ? 0xFF801010 : warn ? pulse(RED, 0xFFB01810) : GREEN;
-		int by = y0 - 4 - BAR_H;
-		meter(g, mc, x0, by, Component.translatable("hud.projecthero.omnitrix.meter.time"), left / (float) OmnitrixConfig.TRANSFORM_TICKS, colour,
-				OmnitrixInfo.clock(left), warn ? RED : NAME);
-		if (powerDown) {
-			// v0.17.1: the power-down's five beeps -- the bar flashes red on each, five pips light up one per beep
-			int barX = x0 + mc.font.width(Component.translatable("hud.projecthero.omnitrix.meter.time")) + 4;
-			int valueW = Math.max(mc.font.width("0:00"), mc.font.width(OmnitrixInfo.clock(left)));
-			int barW = Math.max(20, WIDTH - (barX - x0) - valueW - 3);
-			if (blink > 0.01f) {
-				g.fill(barX - 1, by - 1, barX + barW + 1, by + BAR_H + 1, ((int) (blink * 230) << 24) | 0xFF2A1A);
-			}
-			int done = Omnitrix.beepsDone(s, now);
-			for (int i = 0; i < Omnitrix.POWER_DOWN_BEEPS.length; i++) {
-				int px = barX + Math.round((i + 0.5f) * barW / Omnitrix.POWER_DOWN_BEEPS.length) - 1;
-				g.fill(px, by + 1, px + 2, by + BAR_H - 1, i < done ? 0xFFFFD0C0 : 0xFF401010);
-			}
-		}
-		// v0.17.1 (user: "i dont want to see the icon and alien name"): no name row; the kit's own rows sit right over the time bar
-		int ty = by - 2;
+		// v0.17.2 (user: "remove the transformation timers on the HUD"): no time bar (nor its power-down pips) -- the beeps and the
+		// red flash still warn of a timeout; the kit's own rows sit right over the keys
+		int ty = y0 - 2;
 		int top = ty;
 		AlienClientKit extra = AlienClients.of(s.active);
 		if (extra != null && extra.hudHeight() > 0) {
@@ -241,7 +220,7 @@ public final class OmnitrixHud {
 	/**
 	 * The Left-Alt rows. Human: the scroll wheel and the click while the watch is up, the selected alien, and R (raise / lower,
 	 * or the recharge left) last. Alien: every kit key's tap / Shift / hold move (V included) from the kit's declarations on the
-	 * player's live keys, the attack / use / sneak moves, and N (turn back) last. Never H.
+	 * player's live keys, the attack / use / sneak moves, and N (turn back, Master Control only) last. Never H.
 	 */
 	static List<MoveListOverlay.Row> moveRows(Minecraft mc, LocalPlayer p, OmnitrixState s, long now) {
 		List<MoveListOverlay.Row> rows = new ArrayList<>();
@@ -281,8 +260,11 @@ public final class OmnitrixHud {
 		vanillaRow(rows, kit, s.active, "Attack", mc.options.keyAttack);
 		vanillaRow(rows, kit, s.active, "Use", mc.options.keyUse);
 		vanillaRow(rows, kit, s.active, "Sneak", mc.options.keyShift);
-		rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null,
-				Component.translatable("hud.projecthero.omnitrix.alt.time_left", OmnitrixInfo.clock(Omnitrix.displayLeft(s, now)))));
+		// v0.17.2 (user: "remove the transformation timers ... and the ability to detransform by pressing N"): N turns back under
+		// Master Control only, and no time left is shown
+		if (Omnitrix.masterControl(p)) {
+			rows.add(MoveListOverlay.Row.of(v, Component.translatable("hud.projecthero.omnitrix.alt.revert"), null));
+		}
 		return rows;
 	}
 

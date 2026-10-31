@@ -79,9 +79,13 @@ public final class OmnitrixAbilityManager {
 		}
 	}
 
-	/** v0.17.1 (user): N as an alien -- turn back early (the power-down beeps, then the short recharge). Human: nothing. */
+	/**
+	 * v0.17.1 (user): N as an alien -- turn back early. v0.17.2 (user: "remove the ability to detransform by pressing N"): only
+	 * under Master Control now (it has no timeout, so N is its only way back); otherwise you stay an alien until the watch times
+	 * out. Human: nothing.
+	 */
 	public static void pressN(ServerPlayer p) {
-		if (Omnitrix.state(p).transformed()) {
+		if (Omnitrix.state(p).transformed() && Omnitrix.masterControl(p)) {
 			Omnitrix.revertEarly(p);
 		}
 	}

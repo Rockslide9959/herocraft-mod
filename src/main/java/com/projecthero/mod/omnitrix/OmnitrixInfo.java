@@ -103,7 +103,7 @@ public final class OmnitrixInfo {
 		out.add(keyCell(keys.apply(AbilitySlot.SLOT_1)).append(Component.translatable(I + "key.raise").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.scroll_label")).append(Component.translatable(I + "key.scroll").withStyle(ChatFormatting.WHITE)));
 		out.add(keyCell(Component.translatable(I + "key.click_label")).append(Component.translatable(I + "key.slap").withStyle(ChatFormatting.WHITE)));
-		out.add(keyCell(v).append(Component.translatable(I + "key.revert", OmnitrixConfig.EARLY_RECHARGE_TICKS / 20).withStyle(ChatFormatting.WHITE)));
+		out.add(keyCell(v).append(Component.translatable(I + "key.revert").withStyle(ChatFormatting.WHITE)));
 		out.add(Component.translatable(I + "key.kit").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
 	}
 
@@ -112,7 +112,7 @@ public final class OmnitrixInfo {
 		out.add(head("rules"));
 		out.add(bullet(Component.translatable(I + "rule.timeout", clock(OmnitrixConfig.TRANSFORM_TICKS), OmnitrixConfig.WARN_TICKS / 20)));
 		out.add(bullet(Component.translatable(I + "rule.recharge", OmnitrixConfig.RECHARGE_TICKS / 20)));
-		out.add(bullet(Component.translatable(I + "rule.early", keys.apply(AbilitySlot.SLOT_8), OmnitrixConfig.EARLY_RECHARGE_TICKS / 20)));
+		out.add(bullet(Component.translatable(I + "rule.early")));
 		out.add(bullet(Component.translatable(I + "rule.death")));
 		out.add(bullet(Component.translatable(I + "rule.locked")));
 	}

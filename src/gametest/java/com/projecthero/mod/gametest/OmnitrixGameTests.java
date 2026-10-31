@@ -420,13 +420,16 @@ public class OmnitrixGameTests implements FabricGameTest {
 		// v0.17.1 (user: "make the detransform keybind N"): N, through the router as the client sends it
 		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, true);
 		com.projecthero.mod.hero.AbilityRouter.handleInput(p, 8, false);
-		// v0.17.1: N starts the power-down (five beeps), the revert lands POWER_DOWN_REVERT_TICK later
-		helper.assertTrue(Omnitrix.transformed(p) && Omnitrix.poweringDown(p), "N as an alien starts the power-down");
+		// v0.17.2 (user: "remove the ability to detransform by pressing N"): N does nothing without Master Control
+		helper.assertTrue(Omnitrix.transformed(p) && !Omnitrix.poweringDown(p), "N no longer starts the power-down");
+		// an early revert (as Master Control's N gives) still leaves the short recharge
+		Omnitrix.revertEarly(p);
+		helper.assertTrue(Omnitrix.transformed(p) && Omnitrix.poweringDown(p), "the power-down starts");
 		helper.runAfterDelay(Omnitrix.POWER_DOWN_REVERT_TICK + 3, () -> afterTheEarlyRevert(helper, p));
 	}
 
 	private static void afterTheEarlyRevert(GameTestHelper helper, ServerPlayer p) {
-		helper.assertFalse(Omnitrix.transformed(p), "N as an alien reverts");
+		helper.assertFalse(Omnitrix.transformed(p), "the early revert lands");
 		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.EARLY_RECHARGE_TICKS) <= 4, "a short recharge");
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, true);
 		OmnitrixAbilityManager.handle(p, AbilitySlot.SLOT_1, false);

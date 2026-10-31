@@ -123,7 +123,8 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		AbilityRouter.handleInput(p, 8, true);
 		AbilityRouter.handleInput(p, 8, false);
 		p.setShiftKeyDown(false);
-		helper.assertTrue(Omnitrix.poweringDown(p), "Shift+N starts the power-down too");
+		// v0.17.2 (user: "remove the ability to detransform by pressing N"): without Master Control neither N nor Shift+N turns back
+		helper.assertTrue(Omnitrix.transformed(p) && !Omnitrix.poweringDown(p), "Shift+N does not turn him back");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.succeed();
 	}

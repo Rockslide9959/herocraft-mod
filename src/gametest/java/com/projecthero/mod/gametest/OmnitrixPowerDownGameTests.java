@@ -69,12 +69,16 @@ public class OmnitrixPowerDownGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
-	public void nPowersDownForTheRightTicksAndASecondNDoesNothing(GameTestHelper helper) {
+	public void nNoLongerTurnsBackAndThePowerDownRunsItsTicks(GameTestHelper helper) {
 		ServerPlayer p = alien(helper);
 		pump(helper, p);
+		// v0.17.2 (user: "remove the ability to detransform by pressing N"): without Master Control N does nothing
 		OmnitrixAbilityManager.pressN(p);
+		helper.assertTrue(Omnitrix.transformed(p) && !Omnitrix.poweringDown(p), "N no longer turns him back");
+		// the power-down sequence itself (the timeout's, and Master Control's way back) still runs its ticks
+		Omnitrix.revertEarly(p);
 		long start = Omnitrix.state(p).readyAt(Omnitrix.POWER_DOWN_TIMER);
-		helper.assertTrue(Omnitrix.poweringDown(p) && Omnitrix.transformed(p), "N starts the beeps; still the alien");
+		helper.assertTrue(Omnitrix.poweringDown(p) && Omnitrix.transformed(p), "the beeps start; still the alien");
 		int left = Omnitrix.timeLeft(p);
 		helper.runAfterDelay(20, () -> {
 			// a second N (and Shift+N) mid-beeps: ignored, the sequence keeps its start
