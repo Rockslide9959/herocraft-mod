@@ -455,7 +455,10 @@ public final class SuperSpeedMoves {
 		soundAt(level, from, SoundEvents.BREEZE_SHOOT, 0.9f, 1.7f);
 		zipTo(p, spot, center(target));
 		zipTrail(p, from, spot);
-		punchThrough(p, target, BLITZ_DAMAGE * mult(p));
+		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
+		// borrowed Blitz hits for his own 14 (and 8 round it); Super Speed's own stays BLITZ_DAMAGE / BLITZ_AOE_DAMAGE
+		punchThrough(p, target, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_HIT
+				: BLITZ_DAMAGE) * mult(p));
 		AbilityHelpers.knockbackFrom(target, spot, BLITZ_KNOCKBACK);
 		AbilityHelpers.push(target, new Vec3(0, 0.35, 0));
 		Vec3 c = center(target);
@@ -473,7 +476,8 @@ public final class SuperSpeedMoves {
 	private static void blitzShockwave(ServerPlayer p, LivingEntity target, Vec3 c) {
 		ServerLevel level = p.serverLevel();
 		for (LivingEntity e : AbilityHelpers.living(level, c, BLITZ_AOE_RADIUS, e -> e != target && validFoe(p, e))) {
-			punchThrough(p, e, BLITZ_AOE_DAMAGE * mult(p));
+			punchThrough(p, e, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.BLITZ_AOE
+					: BLITZ_AOE_DAMAGE) * mult(p));
 			AbilityHelpers.knockbackFrom(e, c, BLITZ_AOE_KNOCKBACK);
 			AbilityHelpers.push(e, new Vec3(0, 0.25, 0));
 		}
@@ -526,7 +530,11 @@ public final class SuperSpeedMoves {
 			if (e == target) {
 				continue;
 			}
-			punchThrough(p, e, MACH_SHOCKWAVE * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p));
+			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
+			// shockwave is his own 8 (Super Speed's own stays MACH_SHOCKWAVE)
+			float shock = com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.MACH_SHOCK
+					: MACH_SHOCKWAVE;
+			punchThrough(p, e, shock * com.projecthero.mod.speedforce.SpeedForceSpeedster.damageScale(p));
 			AbilityHelpers.knockbackFrom(e, impact, 1.2 + frac);
 		}
 		level.sendParticles(ParticleTypes.SONIC_BOOM, impact.x, impact.y, impact.z, 1, 0, 0, 0, 0);
@@ -790,7 +798,10 @@ public final class SuperSpeedMoves {
 			}
 			zipTo(p, spot, center(le));
 			zipTrail(p, from, spot);
-			punchThrough(p, le, SWEEP_DAMAGE * mult(p));
+			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's
+			// sweep lands his own 26 a foe (Super Speed's own stays SWEEP_DAMAGE)
+			punchThrough(p, le, (com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.is(p) ? com.projecthero.mod.omnitrix.alien.xlr8.Xlr8Kit.SWEEP_HIT
+					: SWEEP_DAMAGE) * mult(p));
 			s.targets.hit(le.getId());
 			AbilityHelpers.knockbackFrom(le, spot, 0.35);
 			Vec3 c = center(le);

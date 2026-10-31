@@ -76,16 +76,21 @@ import net.minecraft.world.phys.Vec3;
  * and one round green eye. He merges with machines to make them better, squeezes through gaps and shorts things out.
  *
  * <pre>
- *   R        Optic Beam       a beam from the eye (6, 24 blocks)              Shift+R  Charged Beam    1 s charge, then a piercing beam (14) and a burst
- *   G        Tech Grab        liquid metal wraps the target: stunned 3 s       Shift+G  Circuit Lash    a whip that yanks the target to you (4)
+ *   R        Optic Beam       a beam from the eye (12, 24 blocks)             Shift+R  Overload        the machine or creature you look at shorts out
+ *                                                                                                       (8, golems 16)
+ *   G        Tech Grab        liquid metal wraps the target: stunned 3 s (6)   Shift+G  Circuit Lash    a whip that yanks the target to you (8)
  *   X        Liquid Slide     2 s as a slick puddle: fast and under 1-block gaps  Shift+X  Stretch Grapple  stretch to a block up to 22 away and pull there
- *   Z        Overload         the machine or creature you look at shorts out    Shift+Z  EMP Burst       everything electrical within 8 shorts out
- *   V        Overclock        merge into the held tool / weapon for 15 s: +100% mining speed, +4 damage, it mends
+ *   Z        Charged Beam     1 s charge, then a piercing beam (18) and a      Shift+Z  EMP Burst       ultimate: everything within 8 shorts out, 26 at
+ *                             burst (6)                                                                the centre to 16 at the edge (golems x2)
+ *   V       Overclock        merge into the held tool / weapon for 15 s: +100% mining speed, +4 damage, it mends
  *   C        Merge            merge into a furnace / dispenser / dropper / piston (supercharged) or an iron / snow golem,
  *                             minecart or boat (you pilot it), unseen; C again leaves
  *   Shift+C  Upgrade Tool     repair half the held tool's wear; already whole: +1 Unbreaking (to III)
  *   Attack   Circuit Jolt (+2, shorts golems)     Use on an iron door / trapdoor (empty hand)   it opens for you
  * </pre>
+ *
+ * <p>v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the rebalance
+ * above -- Charged Beam to Z, Overload to Shift+R, EMP Burst his ultimate.
  */
 public final class UpgradeKit extends AlienKit {
 	public static final String ID = "upgrade";
@@ -122,16 +127,33 @@ public final class UpgradeKit extends AlienKit {
 	public static final String JOLT = "circuit_jolt";
 	public static final String INTERFACE = "interface";
 
-	public static final float BEAM_DAMAGE = 6f;
-	public static final float CHARGED_DAMAGE = 14f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
+	public static final float BEAM_DAMAGE = 12f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 14
+	public static final float CHARGED_DAMAGE = 18f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 5
+	public static final float CHARGED_BURST = 6f;
 	public static final int CHARGE_TICKS = 20;
 	public static final int STUN_TICKS = 60;
-	public static final float LASH_DAMAGE = 4f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float GRAB_DAMAGE = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
+	public static final float LASH_DAMAGE = 8f;
 	public static final int SLIDE_TICKS = 40;
 	/** The body while sliding: 0.45 of a player (0.81 tall: through 1-block gaps). */
 	public static final double SLIDE_SCALE = 0.45;
 	public static final int OVERLOAD_TICKS = 100;
-	public static final float OVERLOAD_GOLEM_DAMAGE = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3, golems 6
+	public static final float OVERLOAD_DAMAGE = 8f;
+	public static final float OVERLOAD_GOLEM_DAMAGE = OVERLOAD_DAMAGE * 2f;
+	/**
+	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): EMP Burst is his
+	 * ultimate -- was a flat 3 (6 to golems); now {@link #EMP_CENTER} at the centre falling to {@link #EMP_EDGE} at
+	 * {@link #EMP_RADIUS} (golems twice that), cooldown 30 s.
+	 */
+	public static final float EMP_CENTER = 26f, EMP_EDGE = 16f;
+	public static final double EMP_RADIUS = 8;
+	public static final int EMP_COOLDOWN = 600;
 	public static final int MERGE_TICKS = 400;
 	public static final int MERGE_COOLDOWN = 300;
 	public static final float JOLT_DAMAGE = 2f;
@@ -204,10 +226,12 @@ public final class UpgradeKit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(CHARGED, AbilitySlot.SLOT_1, 220),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was
+				// Shift+R Charged Beam, Z Overload, Shift+Z EMP Burst (400)
+				AlienMove.tap(BEAM, AbilitySlot.SLOT_1, 20), AlienMove.shift(OVERLOAD, AbilitySlot.SLOT_1, 160),
 				AlienMove.tap(GRAB, AbilitySlot.SLOT_2, 120), AlienMove.shift(LASH, AbilitySlot.SLOT_2, 100),
 				AlienMove.tap(SLIDE, AbilitySlot.SLOT_3, 40), AlienMove.shift(GRAPPLE, AbilitySlot.SLOT_3, 60),
-				AlienMove.tap(OVERLOAD, AbilitySlot.SLOT_4, 160), AlienMove.shift(EMP, AbilitySlot.SLOT_4, 400),
+				AlienMove.tap(CHARGED, AbilitySlot.SLOT_4, 220), AlienMove.shift(EMP, AbilitySlot.SLOT_4, EMP_COOLDOWN),
 				AlienMove.tap(OVERCLOCK, AbilitySlot.SLOT_5, 600),
 				AlienMove.tap(MERGE, AbilitySlot.SLOT_6, MERGE_COOLDOWN), AlienMove.shift(REPAIR, AbilitySlot.SLOT_6, 600),
 				AlienMove.vanilla(JOLT, "Attack", 0), AlienMove.vanilla(INTERFACE, "Use on an iron door / trapdoor (empty hand)", 10));
@@ -288,7 +312,7 @@ public final class UpgradeKit extends AlienKit {
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
-					chargedBeam(p);
+					overload(p); // v0.17.2: was Z
 				} else {
 					opticBeam(p);
 				}
@@ -311,7 +335,7 @@ public final class UpgradeKit extends AlienKit {
 				if (shift) {
 					empBurst(p);
 				} else {
-					overload(p);
+					chargedBeam(p); // v0.17.2: was Shift+R
 				}
 			}
 			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
@@ -374,7 +398,7 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
-	/** The charged beam itself: everything along 32 blocks takes 14, and a burst where it ends. */
+	/** The charged beam itself: everything along 32 blocks takes 18, and a burst (6) where it ends (v0.17.2: was 14 and 5). */
 	public int fireChargedBeam(ServerPlayer p) {
 		anim(p, ANIM_CHARGED);
 		ServerLevel l = level(p);
@@ -395,7 +419,7 @@ public final class UpgradeKit extends AlienKit {
 		}
 		for (LivingEntity e : around(p, end, 2.5)) {
 			e.invulnerableTime = 0;
-			hurt(p, e, 5f, false);
+			hurt(p, e, CHARGED_BURST, false);
 		}
 		beamFx(l, eye.add(0, -0.1, 0), end, 0.55f, 12);
 		QuirkFx.blast(l, end).colours(0xFFFFFF, COLOUR).size(2.2f).life(14).flags(QuirkFx.F_NO_SMOKE).spawn();
@@ -417,7 +441,7 @@ public final class UpgradeKit extends AlienKit {
 		boolean boss = boss(p, t, 6f);
 		stun(t, boss ? 30 : STUN_TICKS, boss);
 		t.invulnerableTime = 0;
-		hurt(p, t, 3f, false);
+		hurt(p, t, GRAB_DAMAGE, false);
 		ServerLevel l = level(p);
 		QuirkFx.ribbon(l, p.position().add(0, 1.2, 0), t.position().add(0, t.getBbHeight() * 0.5, 0)).colours(GLOW, 0x0A140C).size(0.35f).life(14)
 				.style(QuirkFx.RIBBON_SHADOW).spawn();
@@ -538,7 +562,10 @@ public final class UpgradeKit extends AlienKit {
 
 	// ---------------------------------------------------------------- Overload / EMP
 
-	/** Z: shorts out what you look at -- a golem or construct is knocked out, anything else stunned; a block jams the redstone round it. */
+	/**
+	 * Shift+R (v0.17.2, was Z): shorts out what you look at -- a golem or construct is knocked out (16), anything else stunned
+	 * (8); a block jams the redstone round it.
+	 */
 	public boolean overload(ServerPlayer p) {
 		ServerLevel l = level(p);
 		LivingEntity t = lookTarget(p, 10);
@@ -571,15 +598,23 @@ public final class UpgradeKit extends AlienKit {
 		return true;
 	}
 
-	/** Shorts one creature out: golems (machines) are knocked offline and hurt; anything else is stunned briefly. */
+	/** Shorts one creature out for Overload's {@link #OVERLOAD_DAMAGE} (golems twice that). */
 	public void shortOut(ServerPlayer p, LivingEntity e, int ticks) {
+		shortOut(p, e, ticks, OVERLOAD_DAMAGE);
+	}
+
+	/**
+	 * Shorts one creature out: golems (machines) are knocked offline and take twice {@code damage}; anything else takes
+	 * {@code damage} and is stunned briefly. v0.17.2: the damage is the caller's (was a flat 3, golems 6).
+	 */
+	public void shortOut(ServerPlayer p, LivingEntity e, int ticks, float damage) {
 		boolean boss = boss(p, e, 6f);
 		e.invulnerableTime = 0;
 		if (e instanceof AbstractGolem) {
-			hurt(p, e, OVERLOAD_GOLEM_DAMAGE, false);
+			hurt(p, e, damage * 2f, false);
 			stun(e, boss ? ticks / 3 : ticks, boss);
 		} else {
-			hurt(p, e, 3f, false);
+			hurt(p, e, damage, false);
 			stun(e, boss ? 20 : ticks / 2, boss);
 		}
 		if (e instanceof Mob m && m.getTarget() == p && !boss) {
@@ -588,6 +623,13 @@ public final class UpgradeKit extends AlienKit {
 		level(p).sendParticles(ParticleTypes.ELECTRIC_SPARK, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 16, 0.3, 0.4, 0.3, 0.2);
 	}
 
+	/** v0.17.2: EMP Burst's damage {@code dist} blocks from its centre -- {@link #EMP_CENTER} falling to {@link #EMP_EDGE} at {@link #EMP_RADIUS}. */
+	public static float empDamage(double dist) {
+		float f = (float) Math.min(1.0, Math.max(0.0, dist / EMP_RADIUS));
+		return EMP_CENTER + (EMP_EDGE - EMP_CENTER) * f;
+	}
+
+	/** Shift+Z (v0.17.2: his ultimate): everything within 8 shorts out, 26 at the centre to 16 at the edge (golems twice that). */
 	public boolean empBurst(ServerPlayer p) {
 		if (!use(p, EMP)) {
 			return false;
@@ -595,8 +637,8 @@ public final class UpgradeKit extends AlienKit {
 		anim(p, ANIM_EMP);
 		ServerLevel l = level(p);
 		Vec3 c = p.position().add(0, 1, 0);
-		for (LivingEntity e : around(p, c, 8)) {
-			shortOut(p, e, e instanceof AbstractGolem ? 120 : 60);
+		for (LivingEntity e : around(p, c, EMP_RADIUS)) {
+			shortOut(p, e, e instanceof AbstractGolem ? 120 : 60, empDamage(e.position().add(0, e.getBbHeight() * 0.5, 0).distanceTo(c)));
 		}
 		for (AbstractMinecart cart : l.getEntitiesOfClass(AbstractMinecart.class, p.getBoundingBox().inflate(8))) {
 			cart.setDeltaMovement(Vec3.ZERO);

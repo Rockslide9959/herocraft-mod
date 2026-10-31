@@ -141,9 +141,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 5.5, 120f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(AlienKit.lookTarget(p, 14) == z, "the zombie is in sight");
-		// v0.17.1 revamp: G is the plain Speedster's Blitz (20, borrowed from SuperSpeedMoves)
+		// v0.17.1 revamp: G is the plain Speedster's Blitz (borrowed from SuperSpeedMoves); v0.17.2: on his own 14
 		helper.assertTrue(kit.blitz(p), "Blitz");
-		helper.assertTrue(near(z.getHealth(), 120f - com.projecthero.mod.hero.power.p04.SuperSpeedMoves.BLITZ_DAMAGE), "20 damage: " + z.getHealth());
+		helper.assertTrue(near(z.getHealth(), 120f - Xlr8Kit.BLITZ_HIT), "14 damage: " + z.getHealth());
 		helper.assertFalse(kit.blitz(p), "then cools down");
 		helper.assertTrue(p.distanceTo(z) < 2.5, "he closed the gap");
 		z.moveTo(p.getX(), p.getY(), p.getZ() + 2.0, 180f, 0f);
@@ -151,7 +151,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		float before = z.getHealth();
 		z.invulnerableTime = 0;
 		helper.assertTrue(kit.whirlwind(p), "Whirlwind");
-		helper.assertTrue(near(before - z.getHealth(), Xlr8Kit.WHIRL_DAMAGE), "4 damage");
+		helper.assertTrue(near(before - z.getHealth(), Xlr8Kit.WHIRL_DAMAGE), "8 damage");
 		helper.assertFalse(kit.whirlwind(p), "it cools down");
 		helper.assertTrue(kit.timeBurst(p), "Time Burst");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
@@ -178,7 +178,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		float hp = z.getHealth();
 		z.invulnerableTime = 0;
 		helper.assertTrue(kit.rapidAssault(p) == 1, "Rapid Assault hits the zombie");
-		helper.assertTrue(hp - z.getHealth() >= 19.9f, "four punches of 5: " + (hp - z.getHealth()));
+		helper.assertTrue(hp - z.getHealth() >= Xlr8Kit.ASSAULT_PUNCH * Xlr8Kit.ASSAULT_PUNCHES - 0.1f, "five punches of 2.5: " + (hp - z.getHealth()));
 		float afterAssault = z.getHealth();
 		helper.assertTrue(kit.kickBarrage(p), "Kick Barrage");
 		p.setDeltaMovement(Vec3.ZERO);
@@ -368,14 +368,17 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		Zombie z = zombie(helper, 3.5, 2, 4.5, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 10f);
 		helper.assertTrue(kit.opticBeam(p), "Optic Beam");
-		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "6 damage");
+		helper.assertTrue(near(z.getHealth(), 100f - UpgradeKit.BEAM_DAMAGE), "12 damage");
 		helper.assertFalse(kit.opticBeam(p), "then cools down");
 		helper.assertTrue(kit.techGrab(p, z), "Tech Grab");
 		var slow = z.getEffect(MobEffects.MOVEMENT_SLOWDOWN);
 		helper.assertTrue(slow != null && slow.getAmplifier() >= 9, "stunned");
 		float before = z.getHealth();
 		z.invulnerableTime = 0;
-		helper.assertTrue(kit.fireChargedBeam(p) >= 1 && near(before - z.getHealth(), UpgradeKit.CHARGED_DAMAGE), "the charged beam pierces for 14");
+		helper.assertTrue(kit.fireChargedBeam(p) >= 1 && near(before - z.getHealth(), UpgradeKit.CHARGED_DAMAGE), "the charged beam pierces for 18");
+		// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the EMP falls off
+		helper.assertTrue(near(UpgradeKit.empDamage(0), UpgradeKit.EMP_CENTER) && near(UpgradeKit.empDamage(UpgradeKit.EMP_RADIUS), UpgradeKit.EMP_EDGE)
+				&& near(UpgradeKit.empDamage(UpgradeKit.EMP_RADIUS / 2), 21f), "EMP: 26 at the centre, 21 halfway, 16 at the edge");
 		// Upgrade Tool
 		ItemStack pick = new ItemStack(Items.IRON_PICKAXE);
 		pick.setDamageValue(200);
@@ -470,7 +473,7 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
-		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 100f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 7");
+		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 100f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 12");
 		helper.assertTrue(z.hasEffect(MobEffects.WITHER), "it withers");
 		helper.assertTrue(kit.claw(p) == 0, "then cools down");
 		z.invulnerableTime = 0;

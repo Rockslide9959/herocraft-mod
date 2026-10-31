@@ -75,18 +75,23 @@ import net.minecraft.world.phys.Vec3;
  * and during every speed move; it opens at rest.
  *
  * <pre>
- *   R        Rapid Assault   4 punches of 5 on everything in front           Shift+R  Mach Punch     one huge punch (20) and a shockwave (6)
- *   G        Blitz           zip to the foe you aim at (24 blocks): 20,     Shift+G  Tornado Run    3 s of running rings: a twister lifts what
- *                            and 10 to everything round it                                           is near, then throws it out
- *   X        Blur Dash       a 10-block dash leaving afterimages (3)         Shift+X  Speed Sweep    blink through every foe within 50 (15 each),
- *   hold X   Phase           vibrate through walls while held (5 s max);                             then home
- *                            nothing physical touches you
- *   Z        Whirlwind       spin: everything within 6 is blown away (4)     Shift+Z  Kick Barrage   8 kicks in 0.8 s (1.5 each), the last launches
+ *   R        Rapid Assault   5 punches of 2.5 on everything in front         Shift+R  Kick Barrage   8 kicks in 0.8 s (2 each), the last launches
+ *   G        Blitz           zip to the foe you aim at (24 blocks): 14,     Shift+G  Tornado Run    3 s of running rings: a twister lifts what
+ *                            and 8 to everything round it                                            is near, then throws it out
+ *   X        Blur Dash       a 10-block dash leaving afterimages (6)         Shift+X  Phase          vibrate through walls (5 s, or tap again);
+ *   hold X   Whirlwind       spin: everything within 6 is blown away (8)                             nothing physical touches you
+ *   Z        Mach Punch      one huge punch (20) and a shockwave (8)         Shift+Z  Speed Sweep    blink through every foe within 50 (26 each),
+ *                                                                                                    then home (ultimate, 30 s)
  *   V        Speed Mode      toggle: visor down, flat-out speed, after-      Shift+V  Afterimage     three afterimages draw every foe off you (6 s)
  *                            images, wall and water running, step assist               Decoys
  *   C        Time Burst      everything within 12 slows to a crawl for 5 s   Shift+C  Speed Mine     strip-mine a 1x2 tunnel 16 blocks ahead
  *   Attack   a double jab (+1.5)     Use (empty hand)  sweep up every dropped item within 14     Use on a mob  snatch what it holds
  * </pre>
+ *
+ * <p>v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the rebalance
+ * above -- Kick Barrage to Shift+R, Mach Punch to Z, Speed Sweep to Shift+Z (his ultimate), Phase a Shift+X tap, Whirlwind on
+ * hold X. The borrowed Super Speed moves read XLR8's own numbers ({@link #ASSAULT_PUNCH}, {@link #BLITZ_HIT}, ...) when he is
+ * the one using them; the Super Speed mutation keeps its own.
  */
 public final class Xlr8Kit extends AlienKit {
 	public static final String ID = "xlr8";
@@ -114,7 +119,7 @@ public final class Xlr8Kit extends AlienKit {
 	public static final int F_SPEED = 1;
 	public static final int F_TORNADO = 2;
 	public static final int F_DASH = 4;
-	/** v0.17.1 revamp: hold X's Phase. */
+	/** v0.17.1 revamp: Phase (v0.17.2: a Shift+X tap, was hold X). */
 	public static final int F_PHASE = 8;
 	/** v0.17.1 (user: "when you hold V as xlr8 you enter overdrive mode like with regular speedsters"): hold V's Overdrive. */
 	public static final int F_OVERDRIVE = 16;
@@ -144,10 +149,29 @@ public final class Xlr8Kit extends AlienKit {
 	public static final float TORNADO_END = 4f;
 	public static final int TORNADO_TICKS = 60;
 	public static final double TORNADO_RADIUS = 6;
-	public static final float DASH_DAMAGE = 3f;
-	public static final float WHIRL_DAMAGE = 4f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float DASH_DAMAGE = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 4
+	public static final float WHIRL_DAMAGE = 8f;
 	public static final double WHIRL_RADIUS = 6;
-	public static final float KICK_HIT = 1.5f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 1.5
+	public static final float KICK_HIT = 2f;
+	/**
+	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): XLR8's own
+	 * numbers for the moves he borrows from Super Speed (read by {@code SuperSpeedHandlers.rapidAssaultCore} and
+	 * {@code SuperSpeedMoves} when he is the one using them; the Super Speed mutation keeps its own). Rapid Assault: was 4 x 5,
+	 * now {@link #ASSAULT_PUNCHES} x 2.5 (12.5).
+	 */
+	public static final float ASSAULT_PUNCH = 2.5f;
+	public static final int ASSAULT_PUNCHES = 5;
+	/** v0.17.2: Blitz, was 20 + 10 round it. */
+	public static final float BLITZ_HIT = 14f, BLITZ_AOE = 8f;
+	/** v0.17.2: Mach Punch's shockwave, was 6 (the punch stays 20). */
+	public static final float MACH_SHOCK = 8f;
+	/** v0.17.2: Speed Sweep, was 15 a foe. */
+	public static final float SWEEP_HIT = 26f;
+	/** v0.17.2: the ultimate's cooldown (Speed Sweep, Shift+Z), 30 s. */
+	public static final int ULT_COOLDOWN = 600;
 	public static final int KICK_TICKS = 16;
 	public static final double BURST_RADIUS = 12;
 	public static final int BURST_TICKS = 100;
@@ -241,11 +265,13 @@ public final class Xlr8Kit extends AlienKit {
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(ASSAULT, AbilitySlot.SLOT_1, 40), AlienMove.shift(MACH, AbilitySlot.SLOT_1, 200),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was
+				// Shift+R Mach Punch, Shift+X Speed Sweep (300), hold X Phase, Z Whirlwind, Shift+Z Kick Barrage
+				AlienMove.tap(ASSAULT, AbilitySlot.SLOT_1, 40), AlienMove.shift(KICKS, AbilitySlot.SLOT_1, 140),
 				AlienMove.tap(BLITZ, AbilitySlot.SLOT_2, 100), AlienMove.shift(TORNADO, AbilitySlot.SLOT_2, 300),
-				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 40), AlienMove.shift(SPEED_SWEEP, AbilitySlot.SLOT_3, 300),
-				AlienMove.hold(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN),
-				AlienMove.tap(WHIRL, AbilitySlot.SLOT_4, 200), AlienMove.shift(KICKS, AbilitySlot.SLOT_4, 140),
+				AlienMove.tap(DASH, AbilitySlot.SLOT_3, 40), AlienMove.shift(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN),
+				AlienMove.hold(WHIRL, AbilitySlot.SLOT_3, 200),
+				AlienMove.tap(MACH, AbilitySlot.SLOT_4, 200), AlienMove.shift(SPEED_SWEEP, AbilitySlot.SLOT_4, ULT_COOLDOWN),
 				AlienMove.tap(MODE, AbilitySlot.SLOT_5, 20), AlienMove.hold(OVERDRIVE, AbilitySlot.SLOT_5, OVERDRIVE_COOLDOWN),
 				AlienMove.shift(DECOYS, AbilitySlot.SLOT_5, 400),
 				AlienMove.tap(BURST, AbilitySlot.SLOT_6, 600), AlienMove.shift(MINE, AbilitySlot.SLOT_6, 300),
@@ -298,7 +324,7 @@ public final class Xlr8Kit extends AlienKit {
 		return flag(p, F_SPEED) && fluid.is(FluidTags.WATER) && !p.isShiftKeyDown() && !p.isUnderWater();
 	}
 
-	/** Hold X: through walls on his own level. */
+	/** Shift+X: through walls on his own level. */
 	@Override
 	public boolean phasing(Player p) {
 		return flag(p, F_PHASE);
@@ -501,18 +527,23 @@ public final class Xlr8Kit extends AlienKit {
 
 	@Override
 	public boolean holdable(AbilitySlot slot) {
-		return slot == AbilitySlot.SLOT_3 || slot == AbilitySlot.SLOT_5; // hold X: Phase; hold V: Overdrive (a tap of V fires on release)
+		// v0.17.2: hold X is Whirlwind now (was Phase); hold V: Overdrive (a tap of either fires on release)
+		return slot == AbilitySlot.SLOT_3 || slot == AbilitySlot.SLOT_5;
 	}
 
 	@Override
 	public void press(ServerPlayer p, AbilitySlot slot, boolean shift) {
 		if (flag(p, F_PHASE)) {
-			return; // while phasing every other key is swallowed (letting go of X ends it)
+			// v0.17.2: Phase is a Shift+X tap now -- tapping Shift+X again ends it; every other key is still swallowed
+			if (slot == AbilitySlot.SLOT_3 && shift) {
+				endPhase(p);
+			}
+			return;
 		}
 		switch (slot) {
 			case SLOT_1 -> {
 				if (shift) {
-					machPunch(p);
+					kickBarrage(p); // v0.17.2: was Shift+Z
 				} else {
 					rapidAssault(p);
 				}
@@ -526,16 +557,16 @@ public final class Xlr8Kit extends AlienKit {
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					speedSweep(p);
+					startPhase(p); // v0.17.2: a Shift+X tap (was hold X)
 				} else {
 					blurDash(p);
 				}
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					kickBarrage(p);
+					speedSweep(p); // v0.17.2: was Shift+X
 				} else {
-					whirlwind(p);
+					machPunch(p); // v0.17.2: was Shift+R
 				}
 			}
 			case SLOT_5 -> {
@@ -561,17 +592,13 @@ public final class Xlr8Kit extends AlienKit {
 
 	@Override
 	public void holdStart(ServerPlayer p, AbilitySlot slot) {
+		if (flag(p, F_PHASE)) {
+			return; // while phasing every other key is swallowed
+		}
 		if (slot == AbilitySlot.SLOT_3) {
-			startPhase(p);
+			whirlwind(p); // v0.17.2: hold X is Whirlwind (was Z; hold X was Phase)
 		} else if (slot == AbilitySlot.SLOT_5 && !flag(p, F_OVERDRIVE)) {
 			overdrive(p);
-		}
-	}
-
-	@Override
-	public void holdEnd(ServerPlayer p, AbilitySlot slot, int heldTicks) {
-		if (slot == AbilitySlot.SLOT_3) {
-			endPhase(p);
 		}
 	}
 
@@ -597,7 +624,7 @@ public final class Xlr8Kit extends AlienKit {
 		return h.lengthSqr() < 1.0e-4 ? new Vec3(0, 0, 1) : h.normalize();
 	}
 
-	/** R: the plain Speedster's Rapid Assault -- four punches of 5 on everything in front, each landing in full. */
+	/** R: the plain Speedster's Rapid Assault -- v0.17.2: five punches of 2.5 (was four of 5) on everything in front, each landing in full. */
 	public int rapidAssault(ServerPlayer p) {
 		if (!use(p, ASSAULT)) {
 			return 0;
@@ -611,7 +638,7 @@ public final class Xlr8Kit extends AlienKit {
 		return struck;
 	}
 
-	/** Shift+R: the plain Speedster's Mach Punch -- a flat 20 and a shockwave, the knockback growing with his speed. */
+	/** Z (v0.17.2, was Shift+R): the plain Speedster's Mach Punch -- a flat 20 and a shockwave (8), the knockback growing with his speed. */
 	public boolean machPunch(ServerPlayer p) {
 		if (!use(p, MACH)) {
 			return false;
@@ -623,7 +650,7 @@ public final class Xlr8Kit extends AlienKit {
 		return true;
 	}
 
-	/** G: the plain Speedster's Blitz -- a zip to the foe under the crosshair and a hit for 20 (10 to everything round it). */
+	/** G: the plain Speedster's Blitz -- a zip to the foe under the crosshair and a hit for 14 (8 to everything round it; v0.17.2, was 20 + 10). */
 	public boolean blitz(ServerPlayer p) {
 		if (cooldownLeft(p, BLITZ) > 0) {
 			use(p, BLITZ); // (the "not ready" line)
@@ -702,7 +729,7 @@ public final class Xlr8Kit extends AlienKit {
 		return true;
 	}
 
-	/** Shift+X: the plain Speedster's Speed Sweep -- blink through every foe within 50 blocks (15 each), then home. Again: call it off. */
+	/** Shift+Z (v0.17.2, was Shift+X; his ultimate): the plain Speedster's Speed Sweep -- blink through every foe within 50 blocks (26 each), then home. Again: call it off. */
 	public boolean speedSweep(ServerPlayer p) {
 		if (SuperSpeedMoves.sweeping(p)) {
 			SuperSpeedMoves.endSweep(p);
@@ -721,7 +748,7 @@ public final class Xlr8Kit extends AlienKit {
 		return true;
 	}
 
-	/** Hold X: vibrate his molecules -- through walls on his own level, untouchable, up to 5 s (letting go ends it). */
+	/** Shift+X (v0.17.2: a tap, was hold X): vibrate his molecules -- through walls on his own level, untouchable, for 5 s (tapping Shift+X again ends it). */
 	public boolean startPhase(ServerPlayer p) {
 		if (flag(p, F_PHASE) || cooldownLeft(p, PHASE) > 0) {
 			if (!flag(p, F_PHASE)) {

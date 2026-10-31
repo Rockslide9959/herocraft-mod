@@ -57,15 +57,19 @@ import net.minecraft.world.phys.Vec3;
  * burns him a little (the comics' weakness).
  *
  * <pre>
- *   R        Spectral Claw    a raking slash in front (7, withers)           Shift+R  Scream          a shriek cone: what hears it flees in terror (3)
- *   G        Possess          slip into a mob: for 10 s it fights for you     Shift+G  Soul Siphon     drain a creature (6) and take half of it
+ *   R        Spectral Claw    a raking slash in front (12, withers)          Shift+R  Scream          a shriek cone: what hears it flees in terror (6)
+ *   G        Possess          slip into a mob: for 10 s it fights for you     Shift+G  Soul Siphon     drain a creature (10) and heal 5
  *   X        Phase            intangible for up to 5 s: through walls, no physical harm (X again ends it)
  *   Shift+X  Ghost Flight     toggle: float freely
- *   Z        Fade             invisible for 10 s (your attack ends it)       Shift+Z  Shadow Tendrils  tendrils from the ground pin and choke what is near (3 s)
+ *   Z        Shadow Tendrils  tendrils from the ground pin and choke what     Shift+Z  Haunt           ultimate: everything within 10 takes 8, then 3
+ *                             is near (3 every 0.5 s for 3 s)                                         every 0.5 s for 3 s (26), in darkness and dread
  *   V        Spirit Sight     toggle: see in the dark, every living thing within 32 outlined through walls (yours only)
- *   C        Fright Aura      10 s: everything near you panics and weakens    Shift+C  Haunt           darkness and dread on everything within 10
+ *   C        Fright Aura      10 s: everything near you panics and weakens    Shift+C  Fade            invisible for 10 s (your attack ends it)
  *   Attack   Chilling Touch (+1, slows)      Use (empty hand)  a spectral bolt (3)
  * </pre>
+ *
+ * <p>v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the rebalance
+ * above -- Shadow Tendrils to Z, Haunt to Shift+Z as his ultimate, Fade to Shift+C.
  */
 public final class GhostfreakKit extends AlienKit {
 	public static final String ID = "ghostfreak";
@@ -104,17 +108,33 @@ public final class GhostfreakKit extends AlienKit {
 	public static final String TOUCH = "chilling_touch";
 	public static final String BOLT = "spectral_bolt";
 
-	public static final float CLAW_DAMAGE = 7f;
-	public static final float SCREAM_DAMAGE = 3f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7
+	public static final float CLAW_DAMAGE = 12f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
+	public static final float SCREAM_DAMAGE = 6f;
 	public static final int FEAR_TICKS = 100;
 	public static final int POSSESS_TICKS = 200;
-	public static final float SIPHON_DAMAGE = 6f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
+	public static final float SIPHON_DAMAGE = 10f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3 (half the drain)
+	public static final float SIPHON_HEAL = 5f;
+	/**
+	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Haunt is his
+	 * ultimate now -- was a flat 2. {@link #HAUNT_HIT} to everything within {@link #HAUNT_RADIUS}, then {@link #HAUNT_TICK} every
+	 * 10 ticks for {@link #HAUNT_TICKS} on each one it caught (8 + 18 = 26).
+	 */
+	public static final float HAUNT_HIT = 8f;
+	public static final float HAUNT_TICK = 3f;
+	public static final int HAUNT_TICKS = 60;
+	public static final double HAUNT_RADIUS = 10;
+	public static final int HAUNT_COOLDOWN = 600;
 	/** Phase: how long it can last, and the cooldown that starts when it ends. */
 	public static final int PHASE_TICKS = 100;
 	public static final int PHASE_COOLDOWN = 200;
 	public static final int FADE_TICKS = 200;
 	public static final int TENDRIL_TICKS = 60;
-	public static final float TENDRIL_DAMAGE = 2f;
+	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2 (12 over 3 s)
+	public static final float TENDRIL_DAMAGE = 3f;
 	public static final int AURA_TICKS = 200;
 	public static final float PHYSICAL_FACTOR = 0.5f;
 	public static final float SUN_DAMAGE = 1f;
@@ -166,6 +186,12 @@ public final class GhostfreakKit extends AlienKit {
 	private record Tendrils(ResourceKey<Level> dim, Vec3 at) {
 	}
 
+	/** v0.17.2: player -> the creatures his Haunt caught (the dread keeps biting for {@link #HAUNT_TICKS}). */
+	private static final Map<UUID, Haunted> HAUNTED = new ConcurrentHashMap<>();
+
+	private record Haunted(ResourceKey<Level> dim, List<Integer> victims) {
+	}
+
 	private GhostfreakKit() {
 	}
 
@@ -187,6 +213,7 @@ public final class GhostfreakKit extends AlienKit {
 		POSSESSED.clear();
 		FEARED.clear();
 		TENDRIL_PITS.clear();
+		HAUNTED.clear();
 	}
 
 	@Override
@@ -205,9 +232,11 @@ public final class GhostfreakKit extends AlienKit {
 				AlienMove.tap(CLAW, AbilitySlot.SLOT_1, 16), AlienMove.shift(SCREAM, AbilitySlot.SLOT_1, 240),
 				AlienMove.tap(POSSESS, AbilitySlot.SLOT_2, 400), AlienMove.shift(SIPHON, AbilitySlot.SLOT_2, 200),
 				AlienMove.tap(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 10),
-				AlienMove.tap(FADE, AbilitySlot.SLOT_4, 400), AlienMove.shift(TENDRILS, AbilitySlot.SLOT_4, 280),
+				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was
+				// Z Fade, Shift+Z Shadow Tendrils, Shift+C Haunt (500)
+				AlienMove.tap(TENDRILS, AbilitySlot.SLOT_4, 280), AlienMove.shift(HAUNT, AbilitySlot.SLOT_4, HAUNT_COOLDOWN),
 				AlienMove.tap(SIGHT, AbilitySlot.SLOT_5, 40),
-				AlienMove.tap(AURA, AbilitySlot.SLOT_6, 600), AlienMove.shift(HAUNT, AbilitySlot.SLOT_6, 500),
+				AlienMove.tap(AURA, AbilitySlot.SLOT_6, 600), AlienMove.shift(FADE, AbilitySlot.SLOT_6, 400),
 				AlienMove.vanilla(TOUCH, "Attack", 0), AlienMove.vanilla(BOLT, "Use (empty hand)", 12));
 	}
 
@@ -231,6 +260,8 @@ public final class GhostfreakKit extends AlienKit {
 		setTimer(p, "aura_end", 0);
 		FEARED.remove(p.getUUID());
 		TENDRIL_PITS.remove(p.getUUID());
+		HAUNTED.remove(p.getUUID());
+		setTimer(p, "haunt_end", 0);
 	}
 
 	/** Phase is on: horizontal movement ignores blocks (the framework's collision mixin). */
@@ -282,6 +313,7 @@ public final class GhostfreakKit extends AlienKit {
 		tickPossession(p, l, now);
 		tickFear(p, l, now);
 		tickTendrils(p, l, now);
+		tickHaunt(p, l, now);
 		// Fright Aura
 		long auraEnd = timer(p, "aura_end");
 		if (flag(p, F_AURA)) {
@@ -343,15 +375,15 @@ public final class GhostfreakKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					tendrils(p);
+					haunt(p); // v0.17.2: was Shift+C
 				} else {
-					fade(p);
+					tendrils(p); // v0.17.2: was Shift+Z
 				}
 			}
 			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
-					haunt(p);
+					fade(p); // v0.17.2: was Z
 				} else {
 					frightAura(p);
 				}
@@ -577,7 +609,7 @@ public final class GhostfreakKit extends AlienKit {
 		anim(p, ANIM_SIPHON);
 		t.invulnerableTime = 0;
 		if (hurt(p, t, SIPHON_DAMAGE, false)) {
-			p.heal(SIPHON_DAMAGE * 0.5f);
+			p.heal(SIPHON_HEAL); // v0.17.2: was half the drain (3)
 		}
 		ServerLevel l = level(p);
 		QuirkFx.ribbon(l, t.position().add(0, t.getBbHeight() * 0.6, 0), p.position().add(0, 1.2, 0)).colours(0xFFFFFF, PURPLE).size(0.3f).life(14)
@@ -752,20 +784,56 @@ public final class GhostfreakKit extends AlienKit {
 		anim(p, ANIM_HAUNT);
 		ServerLevel l = level(p);
 		int n = 0;
-		for (LivingEntity e : around(p, p.position(), 10)) {
+		List<Integer> caught = new ArrayList<>();
+		for (LivingEntity e : around(p, p.position(), HAUNT_RADIUS)) {
 			e.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 100, 0));
 			e.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 100, 0));
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
 			e.invulnerableTime = 0;
-			hurt(p, e, 2f, false);
+			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2
+			hurt(p, e, HAUNT_HIT, false);
+			caught.add(e.getId());
 			l.sendParticles(ParticleTypes.SCULK_SOUL, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 4, 0.2, 0.2, 0.2, 0.02);
 			n++;
+		}
+		if (!caught.isEmpty()) {
+			// v0.17.2: and the dread keeps biting -- HAUNT_TICK every 10 ticks for HAUNT_TICKS on each one it caught
+			HAUNTED.put(p.getUUID(), new Haunted(l.dimension(), caught));
+			setTimer(p, "haunt_end", l.getGameTime() + HAUNT_TICKS);
 		}
 		QuirkFx.blast(l, p.position().add(0, 1, 0)).colours(0xE0D0FF, PURPLE).size(3.5f).life(18).flags(QuirkFx.F_NO_SMOKE).spawn();
 		QuirkFx.decal(l, p.position().add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(0x0A0410).size(10f).life(80).spawn();
 		OmnitrixSounds.play(l, p.position(), SND_SCREAM, 1.0f, 0.6f);
 		OmnitrixSounds.play(l, p.position(), SND_LAUGH, 1.0f, 0.7f);
 		return n;
+	}
+
+	/** v0.17.2: Haunt's lingering dread -- {@link #HAUNT_TICK} every 10 ticks to each creature it caught, until "haunt_end". */
+	private void tickHaunt(ServerPlayer p, ServerLevel l, long now) {
+		Haunted h = HAUNTED.get(p.getUUID());
+		if (h == null) {
+			return;
+		}
+		long end = timer(p, "haunt_end");
+		if (h.dim() != l.dimension() || now > end) {
+			HAUNTED.remove(p.getUUID());
+			setTimer(p, "haunt_end", 0);
+			return;
+		}
+		if ((end - now) % 10 != 0 || end == now + HAUNT_TICKS) {
+			return; // the first bite is 10 ticks after the hit, the sixth on the last tick
+		}
+		for (int id : h.victims()) {
+			if (l.getEntity(id) instanceof LivingEntity e && e.isAlive()) {
+				e.invulnerableTime = 0;
+				hurt(p, e, HAUNT_TICK, false);
+				l.sendParticles(ParticleTypes.SCULK_SOUL, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 2, 0.2, 0.2, 0.2, 0.02);
+			}
+		}
+		if (now >= end) {
+			HAUNTED.remove(p.getUUID());
+			setTimer(p, "haunt_end", 0);
+		}
 	}
 
 	// ---------------------------------------------------------------- vanilla keys

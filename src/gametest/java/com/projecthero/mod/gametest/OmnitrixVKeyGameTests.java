@@ -41,7 +41,8 @@ import net.minecraft.world.phys.Vec3;
  * v0.17.1 (user: "for the ben 10 power make the detransform keybind N and add abilities to the V key for every alien"): N turns
  * an alien back through the router as the client sends it (and is nothing to a human), V goes to the kit -- one V move per alien
  * pressed through {@link OmnitrixAbilityManager} -- and XLR8's revamp: Speed Mode on V, Phase
- * held on X, the borrowed Speed Sweep. Mock players are not ticked by the server, so tests over time drive {@link Omnitrix#tick}.
+ * on a Shift+X tap and hold X the Whirlwind (v0.17.2; Phase was held on X), the borrowed Speed Sweep on Shift+Z. Mock players
+ * are not ticked by the server, so tests over time drive {@link Omnitrix#tick}.
  */
 public class OmnitrixVKeyGameTests implements FabricGameTest {
 	private static ServerPlayer mock(GameTestHelper helper, double x, double y, double z) {
@@ -417,30 +418,44 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	/** v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was hold-X Phase. */
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
-	public void xlr8HoldXPhasesAndLettingGoEndsIt(GameTestHelper helper) {
+	public void xlr8ShiftXTapPhasesAndHoldXWhirls(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);
 		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
 		pump(helper, p);
+		// a Shift+X tap: Phase, and it stays on after the key is up
+		p.setShiftKeyDown(true);
 		AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+		AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+		p.setShiftKeyDown(false);
 		helper.runAfterDelay(14, () -> {
-			helper.assertTrue(kit.phasing(p), "holding X: Phase");
+			helper.assertTrue(kit.phasing(p), "a Shift+X tap: Phase, still on");
 			helper.assertFalse(kit.allowDamage(p, p.damageSources().generic(), 5f), "untouchable");
-			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.DASH) == 0, "the hold is not a dash");
+			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.DASH) == 0, "the Shift+X tap is not a dash");
+			p.setShiftKeyDown(true);
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
-			helper.assertFalse(kit.phasing(p), "letting go ends it");
+			p.setShiftKeyDown(false);
+			helper.assertFalse(kit.phasing(p), "tapping Shift+X again ends it");
 			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.PHASE) > 0, "then it cools down");
 			// a tap is still the dash
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
 			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
 			helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.DASH) > 0 && kit.flag(p, Xlr8Kit.F_DASH), "a tap of X: Blur Dash");
-			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-			helper.succeed();
+			// and holding X spins the Whirlwind
+			AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), true);
+			helper.runAfterDelay(14, () -> {
+				helper.assertTrue(kit.cooldownLeft(p, Xlr8Kit.WHIRL) > 0, "hold X: Whirlwind");
+				AbilityRouter.handleInput(p, AbilitySlot.SLOT_3.number(), false);
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.succeed();
+			});
 		});
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 80)
-	public void xlr8ShiftXSpeedSweepsAndComesHome(GameTestHelper helper) {
+	public void xlr8ShiftZSpeedSweepsAndComesHome(GameTestHelper helper) {
 		ServerPlayer p = as(helper, Xlr8Kit.ID);
 		Xlr8Kit kit = (Xlr8Kit) Aliens.kit(Xlr8Kit.ID);
 		Vec3 home = p.position();
@@ -448,7 +463,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		Zombie b = zombie(helper, 6.5, 2, 6.5);
 		float ha = a.getHealth();
 		float hb = b.getHealth();
-		helper.assertTrue(kit.speedSweep(p), "Shift+X: Speed Sweep");
+		helper.assertTrue(kit.speedSweep(p), "Shift+Z: Speed Sweep");
 		pump(helper, p);
 		helper.runAfterDelay(20, () -> {
 			helper.assertTrue(a.getHealth() < ha && b.getHealth() < hb, "both zombies were hit");
