@@ -14,12 +14,13 @@ import net.minecraft.resources.ResourceLocation;
  *   <li>SELECT -- pick {@code alien} (an id) directly;</li>
  *   <li>CYCLE -- the scroll wheel turned the dial ({@code alien} = "1" or "-1");</li>
  *   <li>SLAP -- a left / right click slapped the core down (transform);</li>
- *   <li>USE_AIR -- right-click on air with an empty hand while transformed (vanilla sends nothing for it).</li>
+ *   <li>USE_AIR -- right-click on air with an empty hand while transformed (vanilla sends nothing for it);</li>
+ *   <li>MASTER_PICK -- v0.17.2: an alien clicked on the Master Control alien wheel ({@code alien} = its id).</li>
  * </ul>
  */
 public record OmnitrixActionPayload(Action action, String alien) implements CustomPacketPayload {
 	public enum Action {
-		SELECT, USE_AIR, CYCLE, SLAP
+		SELECT, USE_AIR, CYCLE, SLAP, MASTER_PICK
 	}
 
 	public static final CustomPacketPayload.Type<OmnitrixActionPayload> TYPE =

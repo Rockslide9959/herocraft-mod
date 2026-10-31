@@ -195,6 +195,27 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		});
 	}
 
+	/** v0.17.2: Master Control's alien wheel / chat names -- straight into an alien, from human or another alien, no recharge. */
+	@GameTest(template = EMPTY_STRUCTURE)
+	public void masterControlSwitchesStraightToAnAlien(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = mock(helper, 3.5, 2, 1.5);
+		helper.assertTrue(Omnitrix.grant(p), "the Omnitrix goes on");
+		helper.assertFalse(Omnitrix.masterSwitch(p, HeatblastKit.ID), "no switch without Master Control");
+		var n = Omnitrix.state(p).copy();
+		n.timers.put("omnitrix.master", 1L);
+		Omnitrix.save(p, n);
+		helper.assertTrue(Omnitrix.masterSwitch(p, HeatblastKit.ID) && HeatblastKit.ID.equals(Omnitrix.active(p)), "human straight to Heatblast");
+		helper.assertTrue(Omnitrix.masterSwitch(p, Xlr8Kit.ID) && Xlr8Kit.ID.equals(Omnitrix.active(p)), "Heatblast straight to XLR8");
+		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "no recharge on the way");
+		helper.assertTrue(FourArmsKit.ID.equals(Omnitrix.alienNamed("Four Arms!")), "\"Four Arms!\" names Four Arms");
+		helper.assertTrue(Xlr8Kit.ID.equals(Omnitrix.alienNamed("xlr8")), "\"xlr8\" names XLR8");
+		helper.assertTrue(GreyMatterKit.ID.equals(Omnitrix.alienNamed("Gray Matter")), "either spelling of Grey Matter");
+		helper.assertTrue(Omnitrix.alienNamed("heatblast is cool") == null, "only a message that is just the name");
+		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+		helper.succeed();
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void wildmuttVDigsSoftGroundButNotStone(GameTestHelper helper) {
 		ServerPlayer p = as(helper, com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);

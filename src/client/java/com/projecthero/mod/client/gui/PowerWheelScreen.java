@@ -787,8 +787,8 @@ public final class PowerWheelScreen extends Screen {
 		return (a << 24) | (r << 16) | (gg << 8) | b;
 	}
 
-	/** An annular sector (a donut wedge) from angle {@code a0} to {@code a1}, radii {@code r0..r1}, as GUI quads. */
-	private static void sector(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double a0, double a1,
+	/** v0.17.2: public, shared with the Omnitrix Master Control alien wheel ({@code AlienWheelScreen}). An annular sector (a donut wedge) from angle {@code a0} to {@code a1}, radii {@code r0..r1}, as GUI quads. */
+	public static void sector(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double a0, double a1,
 			int argb) {
 		int steps = Math.max(2, (int) Math.ceil((a1 - a0) / (Math.PI / 72)));
 		for (int k = 0; k < steps; k++) {
@@ -809,7 +809,7 @@ public final class PowerWheelScreen extends Screen {
 	 * A ring segment between the nominal edge angles {@code e0..e1}, radii {@code r0..r1}, whose two sides are
 	 * pulled in by a constant {@code gap} px (so neighbouring segments leave a parallel-sided gap, not a wedge).
 	 */
-	private static void band(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double e0, double e1,
+	public static void band(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double e0, double e1,
 			float gap, int argb) {
 		if (r1 <= r0 || r0 < 0) {
 			return;
@@ -845,7 +845,7 @@ public final class PowerWheelScreen extends Screen {
 	 * The 1px straight side outline of a {@link #band} along nominal edge angle {@code e}, sitting {@code gap} px
 	 * inside it; {@code dir} is +1 for a segment's start edge and -1 for its end edge.
 	 */
-	private static void side(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double e, float gap,
+	public static void side(VertexConsumer vc, Matrix4f m, float cx, float cy, float r0, float r1, double e, float gap,
 			float dir, int argb) {
 		float c = (float) Math.cos(e);
 		float s = (float) Math.sin(e);

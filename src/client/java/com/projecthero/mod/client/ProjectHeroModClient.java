@@ -866,6 +866,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 				// v0.16.4 (user): H in the Gamma origin's mind room -- the Hulk in the mirror comes through it (was a right-click)
 				ClientPlayNetworking.send(new com.projecthero.mod.network.HulkActionPayload(
 						com.projecthero.mod.network.HulkActionPayload.Action.MIND_MIRROR));
+			} else if (com.projecthero.mod.client.omnitrix.AlienWheelScreen.wants(client.player)) {
+				// v0.17.2: H held under Master Control -- the alien wheel (letting go closes it, a click on an alien picks it)
+				client.setScreen(new com.projecthero.mod.client.omnitrix.AlienWheelScreen());
 			} else if (client.player != null && !Screen.hasShiftDown()
 					&& com.projecthero.mod.client.ironman.GantryClient.wantsH(client.player)) {
 				// v0.15.4: H as Tony Stark standing on a Stark Gantry Floor -- the gantry's suit menu (or "Remove armour").

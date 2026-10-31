@@ -66,6 +66,7 @@ public final class OmnitrixMod {
 				}
 				case CYCLE -> Omnitrix.cycle(p, "-1".equals(payload.alien()) ? -1 : 1);
 				case SLAP -> Omnitrix.slap(p);
+				case MASTER_PICK -> Omnitrix.masterSwitch(p, payload.alien()); // v0.17.2: the Master Control alien wheel
 				case USE_AIR -> {
 					AlienKit kit = Aliens.kit(Omnitrix.state(p).active);
 					if (kit != null && !com.projecthero.mod.hero.PowerSuppression.isSuppressed(p)) {
@@ -75,6 +76,14 @@ public final class OmnitrixMod {
 			}
 		});
 
+		// v0.17.2 (user: "make it so that player can say the alien name in chat to switch to them"): under Master Control a chat
+		// message that is just an alien's name turns the wearer into it (the message still goes out -- he called it)
+		net.fabricmc.fabric.api.message.v1.ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> {
+			String id = Omnitrix.alienNamed(message.signedContent());
+			if (id != null && Omnitrix.masterControl(sender)) {
+				sender.server.execute(() -> Omnitrix.masterSwitch(sender, id));
+			}
+		});
 		ServerTickEvents.END_SERVER_TICK.register(OmnitrixMeteors::tick);
 		ServerTickEvents.END_SERVER_TICK.register(OmnitrixSfx::tick); // v0.17.1: the sound recipes' delayed layers
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {

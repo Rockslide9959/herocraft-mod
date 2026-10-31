@@ -9828,6 +9828,8 @@
   "subtitles.projecthero.omnitrix_stinkfly_wings_up": "Stinkfly takes off",
   "message.projecthero.omnitrix.master_on": "MASTER CONTROL UNLOCKED",
   "message.projecthero.omnitrix.master_off": "Master Control off",
+  "screen.projecthero.omnitrix.alien_wheel": "MASTER CONTROL",
+  "screen.projecthero.omnitrix.alien_wheel.hint": "Click an alien to become it  -  let go of H to close",
   "message.projecthero.omnitrix.failsafe": "OMNITRIX FAILSAFE",
   "message.projecthero.omnitrix.glitch": "The Omnitrix glitched -- wrong alien!"
 }

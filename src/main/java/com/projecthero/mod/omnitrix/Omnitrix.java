@@ -164,6 +164,45 @@ public final class Omnitrix {
 		return hasPower(p) && state(p).readyAt(MASTER) == 1L;
 	}
 
+	/**
+	 * v0.17.2: Master Control's instant switch (the alien wheel on H, or the alien's name said in chat) -- straight into
+	 * {@code alienId}, from human or from another alien (no beeps, no recharge under Master Control). False without Master
+	 * Control, for an alien he cannot be, or when the transform is refused (the pod, suppression).
+	 */
+	public static boolean masterSwitch(ServerPlayer p, String alienId) {
+		if (!masterControl(p) || alienId == null || !Aliens.playable(alienId)) {
+			return false;
+		}
+		OmnitrixState s = state(p);
+		if (alienId.equals(s.active)) {
+			return true;
+		}
+		if (s.transformed()) {
+			revert(p, Reason.SHIFT_V);
+		}
+		return select(p, alienId) && transform(p);
+	}
+
+	/**
+	 * v0.17.2: the alien a chat message names, or null -- the whole message is the name, any case, spaces / dashes /
+	 * punctuation ignored ("Four Arms", "fourarms!", "XLR8", "Gray Matter").
+	 */
+	public static String alienNamed(String message) {
+		String said = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
+		if (said.isEmpty()) {
+			return null;
+		}
+		if (said.equals("graymatter")) {
+			said = "greymatter";
+		}
+		for (Aliens.Alien a : Aliens.playable()) {
+			if (a.id().replace("_", "").equals(said)) {
+				return a.id();
+			}
+		}
+		return null;
+	}
+
 	/** The Master Control sequence is running (the dial turning on its own). */
 	public static boolean masterSequence(Player p) {
 		return hasPower(p) && state(p).timers.containsKey(MC_SEQ);
