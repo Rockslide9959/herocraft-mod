@@ -50,6 +50,8 @@ public final class AlienWheelScreen extends Screen {
 	private float[] hoverAnim = new float[0];
 	private long lastFrameNanos = 0L;
 	private int ticksOpen = 0;
+	/** H has been seen held while open (only then does the key being up close it). */
+	private boolean held = false;
 
 	public AlienWheelScreen() {
 		super(Component.translatable("screen.projecthero.omnitrix.alien_wheel"));
@@ -66,8 +68,12 @@ public final class AlienWheelScreen extends Screen {
 		// a key let go while the screen had no focus never reaches keyReleased: check the real key too
 		Minecraft mc = Minecraft.getInstance();
 		InputConstants.Key key = KeyBindingHelper.getBoundKeyOf(ModKeyBindings.POWER_SELECT);
-		if (ticksOpen > 1 && key.getType() == InputConstants.Type.KEYSYM && !InputConstants.isKeyDown(mc.getWindow().getWindow(), key.getValue())) {
-			onClose();
+		if (key.getType() == InputConstants.Type.KEYSYM) {
+			if (InputConstants.isKeyDown(mc.getWindow().getWindow(), key.getValue())) {
+				held = true;
+			} else if (held) {
+				onClose();
+			}
 		}
 		if (mc.player == null || !Omnitrix.masterControl(mc.player)) {
 			onClose();
@@ -188,14 +194,16 @@ public final class AlienWheelScreen extends Screen {
 			com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 		}
 		// the centre: the hovered alien's name in its colour, else the title
-		if (hovered >= 0) {
-			Aliens.Alien a = aliens.get(hovered);
-			Component name = Component.translatable(a.nameKey());
-			g.drawString(this.font, name, Math.round(cx - this.font.width(name) / 2f), Math.round(cy - 4), fade(0xFF000000 | a.colour(), open), true);
-		} else {
-			Component title = Component.translatable("screen.projecthero.omnitrix.alien_wheel");
-			g.drawString(this.font, title, Math.round(cx - this.font.width(title) / 2f), Math.round(cy - 4), fade(GREEN, open), true);
-		}
+		Component label = hovered >= 0 ? Component.translatable(aliens.get(hovered).nameKey())
+				: Component.translatable("screen.projecthero.omnitrix.alien_wheel");
+		int colour = hovered >= 0 ? 0xFF000000 | aliens.get(hovered).colour() : GREEN;
+		// shrunk to fit inside the disc (never past its green rim)
+		float fit = Math.min(1f, (disc * 2f - 14f) / Math.max(1, this.font.width(label)));
+		g.pose().pushPose();
+		g.pose().translate(cx, cy, 0);
+		g.pose().scale(fit, fit, 1f);
+		g.drawString(this.font, label, Math.round(-this.font.width(label) / 2f), -4, fade(colour, open), true);
+		g.pose().popPose();
 		g.pose().popPose();
 		Component hint = Component.translatable("screen.projecthero.omnitrix.alien_wheel.hint");
 		int hy = Math.min(this.height - 12, Math.round(cy + outer + lift + 10));
