@@ -122,7 +122,7 @@ public final class Xlr8Client implements AlienClientKit {
 			FirstPersonClip.f(3, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(4.5f, -18, 24, 0, 0.15f, 0.08f, -0.25f), FirstPersonClip.f(6, 0, 0, 0, 0, 0, 0));
 	private static final FirstPersonClip FP_SWEEP = FirstPersonClip.of(FirstPersonClip.f(0, 0, 0, 0, 0, 0, 0), FirstPersonClip.f(3, 30, -40, 0, -0.2f, -0.25f, 0),
 			FirstPersonClip.f(7, 30, 40, 0, 0.25f, -0.25f, 0), FirstPersonClip.f(12, 0, 0, 0, 0, 0, 0));
-	/** Phase: the hands buzz (a fast shiver for the first second; the vibration keeps going while X is held, see {@link #pose}). */
+	/** Phase: the hands buzz (a fast shiver for the first second; the vibration keeps going while he phases, see {@link #pose}). */
 	private static final FirstPersonClip FP_PHASE = fpAlternate(20, 1, new float[] { -6, 4, 3, 0.03f, 0.02f, 0 }, new float[] { 4, -4, -3, -0.03f, -0.02f, 0 }).both();
 
 	/** A pose that flips between {@code a} and {@code b} every {@code period} ticks for {@code len}, then lets go. */
