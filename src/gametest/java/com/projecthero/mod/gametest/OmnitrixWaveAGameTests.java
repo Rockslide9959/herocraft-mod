@@ -579,14 +579,20 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		helper.runAfterDelay(3, () -> {
 			helper.assertTrue(host.getTarget() != p, "the host never turns on him");
 			helper.assertTrue(host.getTarget() == z, "it goes for the other zombie: " + host.getTarget());
-			// any other move bursts him out through it
-			helper.assertTrue(kit.tentacles(p) >= 1, "Chest Tentacles grab");
-			helper.assertTrue(GhostfreakKit.possessed(p) == null && p.getVehicle() == null, "the move burst him out");
+			// G again bursts him out through it
+			kit.press(p, com.projecthero.mod.hero.AbilitySlot.SLOT_2, false);
+			helper.assertTrue(GhostfreakKit.possessed(p) == null && p.getVehicle() == null, "G again: out");
 			helper.assertTrue(host.getHealth() < 40f - GhostfreakKit.BURST_DAMAGE + 2f, "the burst tears through the host: " + host.getHealth());
 			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.POSSESS) > GhostfreakKit.POSSESS_COOLDOWN - 10, "possession cools down after");
 			helper.assertFalse(p.hasEffect(MobEffects.INVISIBILITY), "seen again");
-			helper.assertTrue(GhostfreakKit.gripped(p, z) || GhostfreakKit.gripped(p, host), "something is held");
+			Vec3 at = helper.absoluteVec(new Vec3(3.5, 2, 1.5));
+			p.moveTo(at.x, at.y, at.z, 0f, 15f);
+			helper.assertTrue(kit.tentacles(p) >= 1 && GhostfreakKit.gripped(p, z), "Chest Tentacles grab the zombie in front");
+			// any other move bursts him out too
+			kit.cooldown(p, GhostfreakKit.POSSESS, 0);
+			helper.assertTrue(kit.possess(p, host), "back inside");
 			helper.assertTrue(kit.haunt(p) >= 1, "Haunt");
+			helper.assertTrue(GhostfreakKit.possessed(p) == null && p.getVehicle() == null, "another move burst him out");
 			helper.assertTrue(z.hasEffect(MobEffects.DARKNESS), "dread");
 			helper.assertTrue(kit.frightAura(p) && kit.flag(p, GhostfreakKit.F_AURA), "Fright Aura");
 			float low = p.getHealth() - 4f;
