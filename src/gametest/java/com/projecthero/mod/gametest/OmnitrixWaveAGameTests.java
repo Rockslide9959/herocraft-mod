@@ -544,10 +544,10 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	public void ghostfreaksMovesHitScareAndPossess(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GhostfreakKit.ID);
 		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 3.5, 200f);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f); // under 150: not a boss
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
 		// v0.17.2 revamp: R is a three-swipe combo -- 10, 10, then the Reaping Rake (18)
-		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 200f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 10");
+		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 100f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 10");
 		helper.assertTrue(z.hasEffect(MobEffects.WITHER), "it withers");
 		helper.assertTrue(kit.claw(p) == 0, "a short gap between swipes");
 		helper.assertTrue(GhostfreakKit.comboStep(p) == 1, "the combo carries on");
