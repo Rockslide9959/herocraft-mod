@@ -1,8 +1,10 @@
 package com.projecthero.mod.omnitrix.alien.ghostfreak;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -10,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3f;
 
 import com.projecthero.mod.hero.AbilitySlot;
+import com.projecthero.mod.omnitrix.Omnitrix;
 import com.projecthero.mod.omnitrix.OmnitrixDamage;
 import com.projecthero.mod.omnitrix.OmnitrixSfx;
 import com.projecthero.mod.omnitrix.OmnitrixSounds;
@@ -53,23 +56,26 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * v0.17.1: Ghostfreak, the Ectonurite -- a pale grey-white phantom striped with black, one purple eye, floating on a wispy tail
- * instead of legs, half see-through. He drifts down slowly (low gravity), physical blows do half, he never drowns, and the sun
- * burns him a little (the comics' weakness).
+ * instead of legs. He drifts down slowly (low gravity), physical blows do half, he never drowns, and the sun burns him a little
+ * (the comics' weakness).
  *
+ * <p>v0.17.2 revamp (user: "ghost freaks abilities arent very good ... dont give him a flight ability since i want him to be able
+ * fly by double tapping space bar"):
  * <pre>
- *   R        Spectral Claw    a raking slash in front (12, withers)          Shift+R  Scream          a shriek cone: what hears it flees in terror (6)
- *   G        Possess          slip into a mob: for 10 s it fights for you     Shift+G  Soul Siphon     drain a creature (10) and heal 5
- *   X        Phase            intangible for up to 5 s: through walls, no physical harm (X again ends it)
- *   Shift+X  Ghost Flight     toggle: float freely
- *   Z        Shadow Tendrils  tendrils from the ground pin and choke what     Shift+Z  Haunt           ultimate: everything within 10 takes 8, then 3
- *                             is near (3 every 0.5 s for 3 s)                                         every 0.5 s for 3 s (26), in darkness and dread
+ *   R        Spectral Claw    a three-swipe combo (10, 10, then the Reaping   Shift+R  Wail            a shriek cone: 8, blown back, and
+ *                             Rake: 18 in a wide arc, withers, knocks back)                             what hears it flees in terror
+ *   G        Possess          dive INTO a mob: ride inside it, untouchable,   Shift+G  Soul Siphon     a 2 s drain tether: 2.5 every 5
+ *                             while it fights for you; G again (or sneak, or                            ticks (20), healing 1 each pulse
+ *                             any other move, or 15 s) bursts you out of it (14)
+ *   X        Phase            intangible up to 5 s; what you pass through     Shift+X  Ecto Rush       an intangible dash through walls and
+ *                             is chilled (4, slowed)                                                   everything in the way (10, weakens)
+ *   Z        Chest Tentacles  his chest opens: up to 3 creatures in front are Shift+Z  Haunt           ultimate: everything within 10 takes 8,
+ *                             yanked in and constricted (6, then 3 x4)                                 then 3 every 0.5 s for 3 s (26)
  *   V        Spirit Sight     toggle: see in the dark, every living thing within 32 outlined through walls (yours only)
- *   C        Fright Aura      10 s: everything near you panics and weakens    Shift+C  Fade            invisible for 10 s (your attack ends it)
- *   Attack   Chilling Touch (+1, slows)      Use (empty hand)  a spectral bolt (3)
+ *   C        Fright Aura      10 s: everything near panics, weakened, 2/s     Shift+C  Fade            invisible for 10 s; the first blow out
+ *                                                                                                       of it is an Ambush (+10, blinds)
+ *   Attack   Chilling Touch (+2, slows)   Use (empty hand)  a spectral bolt (5)   Double-tap jump  fly (no key: always ready)
  * </pre>
- *
- * <p>v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): the rebalance
- * above -- Shadow Tendrils to Z, Haunt to Shift+Z as his ultimate, Fade to Shift+C.
  */
 public final class GhostfreakKit extends AlienKit {
 	public static final String ID = "ghostfreak";
@@ -83,45 +89,61 @@ public final class GhostfreakKit extends AlienKit {
 	public static final int ANIM_PHASE = 5;
 	public static final int ANIM_FLIGHT = 6;
 	public static final int ANIM_FADE = 7;
-	public static final int ANIM_TENDRILS = 8;
+	/** v0.17.2: was the ground's Shadow Tendrils; now his chest's tentacles. */
+	public static final int ANIM_TENTACLES = 8;
 	public static final int ANIM_AURA = 9;
 	public static final int ANIM_HAUNT = 10;
 	public static final int ANIM_TOUCH = 11;
 	public static final int ANIM_BOLT = 12;
+	public static final int ANIM_RAKE = 14;
+	public static final int ANIM_RUSH = 15;
+	public static final int ANIM_BURST = 16;
+	public static final int ANIM_CLAW_BACK = 17;
 
 	public static final int F_PHASE = 1;
 	public static final int F_INVIS = 2;
+	/** Flying right now (a double-tap of jump). */
 	public static final int F_FLY = 4;
 	public static final int F_AURA = 8;
+	/** Inside a possessed mob. */
 	public static final int F_POSSESS = 16;
+	public static final int F_RUSH = 64;
 
 	public static final String CLAW = "spectral_claw";
 	public static final String SCREAM = "scream";
 	public static final String POSSESS = "possess";
 	public static final String SIPHON = "soul_siphon";
 	public static final String PHASE = "phase";
+	public static final String RUSH = "ecto_rush";
 	public static final String FLIGHT = "ghost_flight";
 	public static final String FADE = "fade";
-	public static final String TENDRILS = "shadow_tendrils";
+	public static final String TENTACLES = "chest_tentacles";
 	public static final String AURA = "fright_aura";
 	public static final String HAUNT = "haunt";
 	public static final String TOUCH = "chilling_touch";
 	public static final String BOLT = "spectral_bolt";
 
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 7
-	public static final float CLAW_DAMAGE = 12f;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3
-	public static final float SCREAM_DAMAGE = 6f;
+	/** The claw combo: two swipes of {@link #CLAW_DAMAGE}, then the Reaping Rake. A press within {@link #COMBO_WINDOW} carries it on. */
+	public static final float CLAW_DAMAGE = 10f;
+	public static final float RAKE_DAMAGE = 18f;
+	public static final int CLAW_GAP = 8;
+	public static final int RAKE_COOLDOWN = 40;
+	public static final int COMBO_WINDOW = 30;
+	public static final float SCREAM_DAMAGE = 8f;
 	public static final int FEAR_TICKS = 100;
-	public static final int POSSESS_TICKS = 200;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 6
-	public static final float SIPHON_DAMAGE = 10f;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 3 (half the drain)
-	public static final float SIPHON_HEAL = 5f;
+	/** Possess: up to 15 s inside; the real cooldown starts when he bursts out. */
+	public static final int POSSESS_TICKS = 300;
+	public static final int POSSESS_COOLDOWN = 300;
+	public static final float BURST_DAMAGE = 14f;
+	public static final float BURST_SPLASH = 6f;
+	/** Soul Siphon: {@link #SIPHON_PULSE} every 5 ticks for {@link #SIPHON_TICKS} (8 pulses), healing {@link #SIPHON_HEAL} each. */
+	public static final int SIPHON_TICKS = 40;
+	public static final float SIPHON_PULSE = 2.5f;
+	public static final float SIPHON_HEAL = 1f;
+	public static final double SIPHON_RANGE = 12;
 	/**
-	 * v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): Haunt is his
-	 * ultimate now -- was a flat 2. {@link #HAUNT_HIT} to everything within {@link #HAUNT_RADIUS}, then {@link #HAUNT_TICK} every
-	 * 10 ticks for {@link #HAUNT_TICKS} on each one it caught (8 + 18 = 26).
+	 * Haunt is his ultimate: {@link #HAUNT_HIT} to everything within {@link #HAUNT_RADIUS}, then {@link #HAUNT_TICK} every 10
+	 * ticks for {@link #HAUNT_TICKS} on each one it caught (8 + 18 = 26).
 	 */
 	public static final float HAUNT_HIT = 8f;
 	public static final float HAUNT_TICK = 3f;
@@ -131,11 +153,24 @@ public final class GhostfreakKit extends AlienKit {
 	/** Phase: how long it can last, and the cooldown that starts when it ends. */
 	public static final int PHASE_TICKS = 100;
 	public static final int PHASE_COOLDOWN = 200;
+	public static final float PHASE_CHILL = 4f;
+	/** Ecto Rush: {@link #RUSH_TICKS} of {@link #RUSH_SPEED} blocks a tick (about 11 blocks), through walls and bodies. */
+	public static final int RUSH_TICKS = 6;
+	public static final double RUSH_SPEED = 1.8;
+	public static final float RUSH_DAMAGE = 10f;
+	public static final int RUSH_COOLDOWN = 120;
 	public static final int FADE_TICKS = 200;
-	public static final int TENDRIL_TICKS = 60;
-	// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2 (12 over 3 s)
-	public static final float TENDRIL_DAMAGE = 3f;
+	public static final float AMBUSH_DAMAGE = 10f;
+	/** Chest Tentacles: up to {@link #TENTACLE_MAX} grabbed within {@link #TENTACLE_RANGE}, held {@link #TENTACLE_TICKS}. */
+	public static final int TENTACLE_MAX = 3;
+	public static final double TENTACLE_RANGE = 8;
+	public static final int TENTACLE_TICKS = 40;
+	public static final float TENTACLE_HIT = 6f;
+	public static final float TENTACLE_TICK = 3f;
 	public static final int AURA_TICKS = 200;
+	public static final float AURA_DREAD = 2f;
+	public static final float TOUCH_DAMAGE = 2f;
+	public static final float BOLT_DAMAGE = 5f;
 	public static final float PHYSICAL_FACTOR = 0.5f;
 	public static final float SUN_DAMAGE = 1f;
 	public static final float FLY_SPEED = 0.035f;
@@ -173,21 +208,31 @@ public final class GhostfreakKit extends AlienKit {
 	static final DustParticleOptions WISP = new DustParticleOptions(new Vector3f(0.85f, 0.88f, 0.9f), 1.0f);
 	static final DustParticleOptions VIOLET = new DustParticleOptions(new Vector3f(0.62f, 0.25f, 1.0f), 0.9f);
 
-	/** player -> the mob possessed (and in which dimension). */
+	/** player -> the mob he is inside (and in which dimension). */
 	private static final Map<UUID, Possession> POSSESSED = new ConcurrentHashMap<>();
 	/** player -> creatures fleeing from him -> until when. */
 	private static final Map<UUID, Map<Integer, Long>> FEARED = new ConcurrentHashMap<>();
-	/** player -> where the Shadow Tendrils grip. */
-	private static final Map<UUID, Tendrils> TENDRIL_PITS = new ConcurrentHashMap<>();
+	/** player -> the creatures his chest tentacles hold. */
+	private static final Map<UUID, Grip> GRIPS = new ConcurrentHashMap<>();
+	/** player -> the creature his Soul Siphon drinks from. */
+	private static final Map<UUID, Drain> DRAINS = new ConcurrentHashMap<>();
+	/** player -> the creatures one Phase (or one Ecto Rush) already went through. */
+	private static final Map<UUID, Set<Integer>> PASSED = new ConcurrentHashMap<>();
+	/** player -> his Ecto Rush heading. */
+	private static final Map<UUID, Vec3> RUSHES = new ConcurrentHashMap<>();
+	/** player -> the claw combo's next step (0, 1, 2 = the Rake). */
+	private static final Map<UUID, Integer> COMBO = new ConcurrentHashMap<>();
+	/** player -> the creatures his Haunt caught (the dread keeps biting for {@link #HAUNT_TICKS}). */
+	private static final Map<UUID, Haunted> HAUNTED = new ConcurrentHashMap<>();
 
 	private record Possession(ResourceKey<Level> dim, int mobId) {
 	}
 
-	private record Tendrils(ResourceKey<Level> dim, Vec3 at) {
+	private record Grip(ResourceKey<Level> dim, List<Integer> held) {
 	}
 
-	/** v0.17.2: player -> the creatures his Haunt caught (the dread keeps biting for {@link #HAUNT_TICKS}). */
-	private static final Map<UUID, Haunted> HAUNTED = new ConcurrentHashMap<>();
+	private record Drain(ResourceKey<Level> dim, int targetId) {
+	}
 
 	private record Haunted(ResourceKey<Level> dim, List<Integer> victims) {
 	}
@@ -212,7 +257,11 @@ public final class GhostfreakKit extends AlienKit {
 	public static void clearSessionState() {
 		POSSESSED.clear();
 		FEARED.clear();
-		TENDRIL_PITS.clear();
+		GRIPS.clear();
+		DRAINS.clear();
+		PASSED.clear();
+		RUSHES.clear();
+		COMBO.clear();
 		HAUNTED.clear();
 	}
 
@@ -223,21 +272,21 @@ public final class GhostfreakKit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(24f).speed(1.0f).armor(2f, 0f).attack(2f).gravity(0.25f).safeFall(30f).build();
+		// v0.17.2 revamp: was 24 health, +2 fist
+		return AlienStats.builder().health(26f).speed(1.0f).armor(2f, 0f).attack(3f).gravity(0.25f).safeFall(30f).build();
 	}
 
 	@Override
 	protected List<AlienMove> declareMoves() {
 		return List.of(
-				AlienMove.tap(CLAW, AbilitySlot.SLOT_1, 16), AlienMove.shift(SCREAM, AbilitySlot.SLOT_1, 240),
-				AlienMove.tap(POSSESS, AbilitySlot.SLOT_2, 400), AlienMove.shift(SIPHON, AbilitySlot.SLOT_2, 200),
-				AlienMove.tap(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN), AlienMove.shift(FLIGHT, AbilitySlot.SLOT_3, 10),
-				// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was
-				// Z Fade, Shift+Z Shadow Tendrils, Shift+C Haunt (500)
-				AlienMove.tap(TENDRILS, AbilitySlot.SLOT_4, 280), AlienMove.shift(HAUNT, AbilitySlot.SLOT_4, HAUNT_COOLDOWN),
+				AlienMove.tap(CLAW, AbilitySlot.SLOT_1, CLAW_GAP), AlienMove.shift(SCREAM, AbilitySlot.SLOT_1, 240),
+				AlienMove.tap(POSSESS, AbilitySlot.SLOT_2, POSSESS_COOLDOWN), AlienMove.shift(SIPHON, AbilitySlot.SLOT_2, 200),
+				AlienMove.tap(PHASE, AbilitySlot.SLOT_3, PHASE_COOLDOWN), AlienMove.shift(RUSH, AbilitySlot.SLOT_3, RUSH_COOLDOWN),
+				AlienMove.tap(TENTACLES, AbilitySlot.SLOT_4, 220), AlienMove.shift(HAUNT, AbilitySlot.SLOT_4, HAUNT_COOLDOWN),
 				AlienMove.tap(SIGHT, AbilitySlot.SLOT_5, 40),
 				AlienMove.tap(AURA, AbilitySlot.SLOT_6, 600), AlienMove.shift(FADE, AbilitySlot.SLOT_6, 400),
-				AlienMove.vanilla(TOUCH, "Attack", 0), AlienMove.vanilla(BOLT, "Use (empty hand)", 12));
+				AlienMove.vanilla(TOUCH, "Attack", 0), AlienMove.vanilla(BOLT, "Use (empty hand)", 12),
+				AlienMove.vanilla(FLIGHT, "Double-tap jump", 0));
 	}
 
 	// ---------------------------------------------------------------- lifecycle
@@ -245,6 +294,10 @@ public final class GhostfreakKit extends AlienKit {
 	@Override
 	public void onTransform(ServerPlayer p) {
 		ServerLevel l = level(p);
+		// v0.17.2 (user: "i want him to be able fly by double tapping space bar"): always ready to fly, no key
+		p.getAbilities().mayfly = true;
+		p.getAbilities().setFlyingSpeed(FLY_SPEED);
+		p.onUpdateAbilities();
 		OmnitrixSounds.play(l, p.position(), SND_LAUGH, 1.0f, 1.0f);
 		l.sendParticles(WISP, p.getX(), p.getY() + 1, p.getZ(), 30, 0.4, 0.8, 0.4, 0.0);
 	}
@@ -253,21 +306,42 @@ public final class GhostfreakKit extends AlienKit {
 	public void onRevert(ServerPlayer p) {
 		revertV(p);
 		endPhase(p, false);
-		stopFlying(p);
+		endRush(p);
 		endFade(p);
-		endPossession(p);
+		endPossession(p, false);
 		setFlag(p, F_AURA, false);
 		setTimer(p, "aura_end", 0);
 		FEARED.remove(p.getUUID());
-		TENDRIL_PITS.remove(p.getUUID());
+		GRIPS.remove(p.getUUID());
+		setTimer(p, "tentacles_end", 0);
+		DRAINS.remove(p.getUUID());
+		setTimer(p, "siphon_end", 0);
+		COMBO.remove(p.getUUID());
 		HAUNTED.remove(p.getUUID());
 		setTimer(p, "haunt_end", 0);
+		setFlag(p, F_FLY, false);
+		net.minecraft.world.level.GameType mode = p.gameMode.getGameModeForPlayer();
+		if (mode != net.minecraft.world.level.GameType.CREATIVE && mode != net.minecraft.world.level.GameType.SPECTATOR) {
+			p.getAbilities().mayfly = false;
+			p.getAbilities().flying = false;
+		}
+		p.getAbilities().setFlyingSpeed(0.05f);
+		p.onUpdateAbilities();
+		p.resetFallDistance();
 	}
 
-	/** Phase is on: horizontal movement ignores blocks (the framework's collision mixin). */
+	/** Phase or Ecto Rush is on: horizontal movement ignores blocks (the framework's collision mixin). */
 	@Override
 	public boolean phasing(Player p) {
-		return flag(p, F_PHASE);
+		return flag(p, F_PHASE) || flag(p, F_RUSH);
+	}
+
+	/** Any other move bursts him out of the mob he is inside (G itself is the clean way out). */
+	@Override
+	protected void onUse(ServerPlayer p, String moveId) {
+		if (!POSSESS.equals(moveId) && POSSESSED.containsKey(p.getUUID())) {
+			endPossession(p, true);
+		}
 	}
 
 	@Override
@@ -275,11 +349,26 @@ public final class GhostfreakKit extends AlienKit {
 		ServerLevel l = level(p);
 		tickV(p, l, now);
 		p.setAirSupply(p.getMaxAirSupply()); // nothing to breathe
-		if (now % 4 == 0) {
+		// flight: always ready (a double-tap of jump), slow and floaty
+		if (!p.getAbilities().mayfly) {
+			p.getAbilities().mayfly = true;
+			p.getAbilities().setFlyingSpeed(FLY_SPEED);
+			p.onUpdateAbilities();
+		}
+		boolean flying = p.getAbilities().flying;
+		if (flying != flag(p, F_FLY)) {
+			setFlag(p, F_FLY, flying);
+			if (flying) {
+				anim(p, ANIM_FLIGHT);
+				l.sendParticles(WISP, p.getX(), p.getY() + 0.3, p.getZ(), 16, 0.4, 0.2, 0.4, 0.0);
+				OmnitrixSfx.playOn(p, SND_PHASE, 0.5f, 1.4f, net.minecraft.sounds.SoundSource.PLAYERS);
+			}
+		}
+		if (now % 4 == 0 && !flag(p, F_POSSESS)) {
 			l.sendParticles(WISP, p.getX(), p.getY() + 0.2, p.getZ(), 1, 0.15, 0.1, 0.15, 0.0);
 		}
-		// the sun burns an Ectonurite a little
-		if (now % 40 == 0 && inSunlight(p)) {
+		// the sun burns an Ectonurite a little (not while he hides inside a host)
+		if (now % 40 == 0 && !flag(p, F_POSSESS) && inSunlight(p)) {
 			p.hurt(p.damageSources().inFire(), SUN_DAMAGE);
 			l.sendParticles(ParticleTypes.SMOKE, p.getX(), p.getY() + 1.2, p.getZ(), 8, 0.3, 0.5, 0.3, 0.01);
 			if (now % 200 == 0) {
@@ -287,37 +376,37 @@ public final class GhostfreakKit extends AlienKit {
 			}
 		}
 		// Phase
-		long phaseEnd = timer(p, "phase_end");
 		if (flag(p, F_PHASE)) {
-			if (now >= phaseEnd) {
+			if (now >= timer(p, "phase_end")) {
 				endPhase(p, true);
-			} else if (now % 3 == 0) {
-				l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 1, 0.3, 0.6, 0.3, 0.01);
+			} else {
+				passThrough(p, l, PHASE_CHILL, false);
+				if (now % 3 == 0) {
+					l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 1, 0.3, 0.6, 0.3, 0.01);
+				}
 			}
 		}
-		// Ghost Flight
-		if (flag(p, F_FLY) && !p.getAbilities().mayfly) {
-			p.getAbilities().mayfly = true;
-			p.onUpdateAbilities();
-		}
+		tickRush(p, l, now);
 		// Fade
-		long fadeEnd = timer(p, "fade_end");
 		if (flag(p, F_INVIS)) {
-			if (now >= fadeEnd) {
+			if (now >= timer(p, "fade_end")) {
 				endFade(p);
 			} else if (now % 20 == 0) {
 				p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 				loseTrackOfMe(p, 24);
 			}
 		}
+		if (COMBO.containsKey(p.getUUID()) && now > timer(p, "combo_until")) {
+			COMBO.remove(p.getUUID());
+		}
 		tickPossession(p, l, now);
 		tickFear(p, l, now);
-		tickTendrils(p, l, now);
+		tickTentacles(p, l, now);
+		tickSiphon(p, l, now);
 		tickHaunt(p, l, now);
 		// Fright Aura
-		long auraEnd = timer(p, "aura_end");
 		if (flag(p, F_AURA)) {
-			if (now >= auraEnd) {
+			if (now >= timer(p, "aura_end")) {
 				setFlag(p, F_AURA, false);
 				setTimer(p, "aura_end", 0);
 			} else {
@@ -325,6 +414,8 @@ public final class GhostfreakKit extends AlienKit {
 					for (LivingEntity e : around(p, p.position(), 7)) {
 						frighten(p, e, 40);
 						e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 40, 0));
+						e.invulnerableTime = 0;
+						hurt(p, e, AURA_DREAD, false); // v0.17.2: the dread itself hurts
 					}
 				}
 				if (now % 2 == 0) {
@@ -359,14 +450,16 @@ public final class GhostfreakKit extends AlienKit {
 			}
 			case SLOT_2 -> {
 				if (shift) {
-					siphon(p, lookTarget(p, 10));
+					siphon(p, lookTarget(p, SIPHON_RANGE));
+				} else if (POSSESSED.containsKey(p.getUUID())) {
+					endPossession(p, true); // G again: burst out
 				} else {
 					possess(p, lookTarget(p, 12));
 				}
 			}
 			case SLOT_3 -> {
 				if (shift) {
-					toggleFlight(p);
+					ectoRush(p);
 				} else if (flag(p, F_PHASE)) {
 					endPhase(p, true);
 				} else {
@@ -375,15 +468,15 @@ public final class GhostfreakKit extends AlienKit {
 			}
 			case SLOT_4 -> {
 				if (shift) {
-					haunt(p); // v0.17.2: was Shift+C
+					haunt(p);
 				} else {
-					tendrils(p); // v0.17.2: was Shift+Z
+					tentacles(p);
 				}
 			}
 			case SLOT_5 -> vKey(p, shift); // v0.17.1 (user: "add abilities to the V key for every alien")
 			case SLOT_6 -> {
 				if (shift) {
-					fade(p); // v0.17.2: was Z
+					fade(p);
 				} else {
 					frightAura(p);
 				}
@@ -413,30 +506,61 @@ public final class GhostfreakKit extends AlienKit {
 		return QuirkThreat.add(e, p, threat) || e.getMaxHealth() >= 150f || e instanceof EnderDragon || e instanceof WitherBoss;
 	}
 
+	// ---------------------------------------------------------------- R: the claw combo / Shift+R: Wail
+
+	/** The step the next R press will be (0, 1, or 2 = the Reaping Rake). */
+	public static int comboStep(ServerPlayer p) {
+		return COMBO.getOrDefault(p.getUUID(), 0);
+	}
+
+	/** R: one swipe of the combo -- two quick rakes, then the Reaping Rake (wide, heavy, withering, knocks back). */
 	public int claw(ServerPlayer p) {
 		if (!use(p, CLAW)) {
 			return 0;
 		}
-		anim(p, ANIM_CLAW);
+		int step = comboStep(p);
+		boolean rake = step >= 2;
+		long now = p.level().getGameTime();
+		if (rake) {
+			COMBO.remove(p.getUUID());
+			setTimer(p, "combo_until", 0);
+			cooldown(p, CLAW, RAKE_COOLDOWN);
+		} else {
+			COMBO.put(p.getUUID(), step + 1);
+			setTimer(p, "combo_until", now + COMBO_WINDOW);
+		}
+		anim(p, rake ? ANIM_RAKE : step == 0 ? ANIM_CLAW : ANIM_CLAW_BACK);
 		ServerLevel l = level(p);
 		int n = 0;
-		for (LivingEntity e : cone(p, 4.0, 80)) {
+		for (LivingEntity e : cone(p, rake ? 4.5 : 3.5, rake ? 130 : 80)) {
 			e.invulnerableTime = 0;
-			hurt(p, e, CLAW_DAMAGE, false);
-			e.addEffect(new MobEffectInstance(MobEffects.WITHER, 40, 0));
-			l.sendParticles(ParticleTypes.SOUL, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 6, 0.2, 0.3, 0.2, 0.02);
+			hurt(p, e, rake ? RAKE_DAMAGE : CLAW_DAMAGE, false);
+			e.addEffect(new MobEffectInstance(MobEffects.WITHER, rake ? 60 : 40, rake ? 1 : 0));
+			if (rake) {
+				shove(e, p.position(), 1.1, 0.35);
+			}
+			l.sendParticles(ParticleTypes.SOUL, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), rake ? 12 : 6, 0.2, 0.3, 0.2, 0.02);
 			n++;
 		}
 		Vec3 eye = p.getEyePosition();
 		Vec3 look = p.getLookAngle();
 		Vec3 side = look.cross(new Vec3(0, 1, 0));
 		side = side.lengthSqr() < 1.0e-4 ? new Vec3(1, 0, 0) : side.normalize();
-		for (int k = -1; k <= 1; k++) {
-			Vec3 a = eye.add(look.scale(1.0)).add(side.scale(1.4)).add(0, 0.5 + k * 0.25, 0);
-			Vec3 b = eye.add(look.scale(2.6)).add(side.scale(-1.4)).add(0, -0.6 + k * 0.25, 0);
-			QuirkFx.ribbon(l, a, b).colours(0xFFFFFF, PURPLE).size(0.18f).life(7).style(QuirkFx.RIBBON_LIGHT).spawn();
+		// each swipe from the other side; the Rake is a wide, low sweep of five
+		double dir = step == 1 ? -1 : 1;
+		int lines = rake ? 2 : 1;
+		for (int k = -lines; k <= lines; k++) {
+			double w = rake ? 2.2 : 1.4;
+			Vec3 a = eye.add(look.scale(1.0)).add(side.scale(w * dir)).add(0, (rake ? 0.1 : 0.5) + k * 0.22, 0);
+			Vec3 b = eye.add(look.scale(rake ? 3.4 : 2.6)).add(side.scale(-w * dir)).add(0, (rake ? -0.2 : -0.6) + k * 0.22, 0);
+			QuirkFx.ribbon(l, a, b).colours(0xFFFFFF, PURPLE).size(rake ? 0.26f : 0.18f).life(rake ? 10 : 7).style(QuirkFx.RIBBON_LIGHT).spawn();
 		}
-		OmnitrixSounds.play(l, p.position(), SND_CLAW, 1.0f, 0.9f + p.getRandom().nextFloat() * 0.2f);
+		if (rake) {
+			QuirkFx.ring(l, eye.add(look.scale(2.0))).colours(0xFFFFFF, PURPLE).size(2.4f).thickness(0.25f).life(9).vec(look)
+					.flags(QuirkFx.F_VERTICAL).spawn();
+			QuirkCamera.shakeAround(l, p.position(), 6, 0.2f, 6);
+		}
+		OmnitrixSounds.play(l, p.position(), SND_CLAW, rake ? 1.3f : 1.0f, rake ? 0.7f : 0.9f + p.getRandom().nextFloat() * 0.2f);
 		return n;
 	}
 
@@ -451,6 +575,7 @@ public final class GhostfreakKit extends AlienKit {
 			e.invulnerableTime = 0;
 			hurt(p, e, SCREAM_DAMAGE, false);
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, FEAR_TICKS, 1));
+			shove(e, p.position(), 0.9, 0.25); // v0.17.2: the wail blows them back
 			frighten(p, e, FEAR_TICKS);
 			n++;
 		}
@@ -507,9 +632,21 @@ public final class GhostfreakKit extends AlienKit {
 		});
 	}
 
-	// ---------------------------------------------------------------- Possess
+	// ---------------------------------------------------------------- G: Possess (inside the host) / Shift+G: Soul Siphon
 
-	/** G: slips into {@code target} (a mob, not a boss): for 10 s it fights for him -- whatever he looks at, or the nearest hostile. */
+	/**
+	 * Client-safe: is {@code e} a Ghostfreak riding inside a possessed host right now? The seat ({@code OmnitrixRiding#seat})
+	 * sinks him into its body with his eyes at its eyes.
+	 */
+	public static boolean insideHost(@Nullable Entity e) {
+		return e instanceof Player pl && ID.equals(Omnitrix.active(pl)) && (Omnitrix.state(pl).kitFlags & F_POSSESS) != 0;
+	}
+
+	/**
+	 * G: dives into {@code target} (a mob, not a boss, not a player) and rides inside it -- invisible and untouchable -- while it
+	 * fights for him: whatever he looks at, or the nearest hostile. G again, sneaking, any other move, its death or 15 s ends it;
+	 * every end but its death and turning back bursts him out through it ({@link #BURST_DAMAGE}, {@link #BURST_SPLASH} around).
+	 */
 	public boolean possess(ServerPlayer p, LivingEntity target) {
 		if (!(target instanceof Mob mob) || target instanceof Player) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ghostfreak.no_host").withStyle(ChatFormatting.GRAY), true);
@@ -519,21 +656,33 @@ public final class GhostfreakKit extends AlienKit {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ghostfreak.too_strong").withStyle(ChatFormatting.GRAY), true);
 			return false;
 		}
-		if (!use(p, POSSESS)) {
+		if (POSSESSED.containsKey(p.getUUID()) || !use(p, POSSESS)) {
 			return false;
 		}
-		endPossession(p);
+		endPhase(p, false);
+		endRush(p);
 		anim(p, ANIM_POSSESS);
-		POSSESSED.put(p.getUUID(), new Possession(p.level().dimension(), mob.getId()));
-		setTimer(p, "possess_end", p.level().getGameTime() + POSSESS_TICKS);
-		setFlag(p, F_POSSESS, true);
-		mob.setTarget(null);
-		mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, POSSESS_TICKS, 1));
-		mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, POSSESS_TICKS, 0));
 		ServerLevel l = level(p);
 		QuirkFx.ribbon(l, p.position().add(0, 1.2, 0), mob.position().add(0, mob.getBbHeight() * 0.6, 0)).colours(0xFFFFFF, PURPLE).size(0.45f).life(12)
 				.style(QuirkFx.RIBBON_SHADOW).spawn();
-		l.sendParticles(ParticleTypes.SOUL, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 20, 0.3, 0.5, 0.3, 0.03);
+		if (p.isPassenger()) {
+			p.stopRiding();
+		}
+		p.getAbilities().flying = false;
+		p.onUpdateAbilities();
+		POSSESSED.put(p.getUUID(), new Possession(p.level().dimension(), mob.getId()));
+		setTimer(p, "possess_end", p.level().getGameTime() + POSSESS_TICKS);
+		setFlag(p, F_POSSESS, true);
+		cooldown(p, POSSESS, POSSESS_TICKS); // the real cooldown starts when he leaves it
+		p.startRiding(mob, true);
+		p.connection.send(new net.minecraft.network.protocol.game.ClientboundSetPassengersPacket(mob));
+		p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
+		mob.setTarget(null);
+		mob.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, POSSESS_TICKS, 1));
+		mob.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, POSSESS_TICKS, 0));
+		mob.addEffect(new MobEffectInstance(MobEffects.GLOWING, POSSESS_TICKS, 0));
+		l.sendParticles(ParticleTypes.SOUL, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 24, 0.3, 0.5, 0.3, 0.03);
+		l.sendParticles(VIOLET, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 20, 0.3, 0.5, 0.3, 0.0);
 		OmnitrixSounds.play(l, mob.position(), SND_LAUGH, 1.0f, 0.8f);
 		return true;
 	}
@@ -552,9 +701,16 @@ public final class GhostfreakKit extends AlienKit {
 			return;
 		}
 		Mob mob = possessed(p);
-		if (mob == null || now >= timer(p, "possess_end")) {
-			endPossession(p);
+		if (mob == null) {
+			endPossession(p, false); // the host died: he simply drifts out
 			return;
+		}
+		if (now >= timer(p, "possess_end") || p.getVehicle() != mob) {
+			endPossession(p, true); // time, or he sneaked out: he bursts out through it
+			return;
+		}
+		if (now % 20 == 0) {
+			p.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false, false));
 		}
 		// it fights for him: his crosshair's target, else the nearest hostile near it (never him, never his squad)
 		LivingEntity want = lookTarget(p, 24);
@@ -579,25 +735,64 @@ public final class GhostfreakKit extends AlienKit {
 		if (want != mob.getTarget()) {
 			mob.setTarget(want);
 		}
-		if (want == null && mob instanceof PathfinderMob pm && now % 20 == 0 && mob.distanceToSqr(p) > 16) {
-			pm.getNavigation().moveTo(p, 1.2); // no one to fight: it keeps close
-		}
 		if (now % 3 == 0) {
 			l.sendParticles(VIOLET, mob.getX(), mob.getY() + mob.getBbHeight() * 0.7, mob.getZ(), 1, mob.getBbWidth() * 0.4, 0.3, mob.getBbWidth() * 0.4, 0);
 		}
 	}
 
-	public void endPossession(ServerPlayer p) {
+	/** Out of the host: a {@code burst} tears through it (and splashes around it); otherwise he slips out quietly. */
+	public void endPossession(ServerPlayer p, boolean burst) {
 		Possession ps = POSSESSED.remove(p.getUUID());
+		if (ps == null) {
+			return;
+		}
 		setFlag(p, F_POSSESS, false);
 		setTimer(p, "possess_end", 0);
-		if (ps != null && p.server.getLevel(ps.dim()) instanceof ServerLevel l && l.getEntity(ps.mobId()) instanceof Mob mob) {
-			mob.setTarget(null);
-			mob.removeEffect(MobEffects.GLOWING);
-			l.sendParticles(ParticleTypes.SOUL, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 12, 0.3, 0.5, 0.3, 0.03);
+		if (cooldownLeft(p, POSSESS) < POSSESS_COOLDOWN) {
+			cooldown(p, POSSESS, POSSESS_COOLDOWN);
 		}
+		Entity vehicle = p.getVehicle();
+		if (vehicle != null && vehicle.getId() == ps.mobId()) {
+			p.stopRiding();
+		}
+		if (!flag(p, F_INVIS)) {
+			MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
+			if (inv != null && inv.getDuration() <= 40) {
+				p.removeEffect(MobEffects.INVISIBILITY);
+			}
+		}
+		if (!(p.server.getLevel(ps.dim()) instanceof ServerLevel l) || !(l.getEntity(ps.mobId()) instanceof Mob mob)) {
+			return;
+		}
+		mob.setTarget(null);
+		mob.removeEffect(MobEffects.GLOWING);
+		mob.removeEffect(MobEffects.DAMAGE_BOOST);
+		mob.removeEffect(MobEffects.MOVEMENT_SPEED);
+		l.sendParticles(ParticleTypes.SOUL, mob.getX(), mob.getY() + mob.getBbHeight() * 0.5, mob.getZ(), 12, 0.3, 0.5, 0.3, 0.03);
+		if (!burst || !mob.isAlive()) {
+			return;
+		}
+		anim(p, ANIM_BURST);
+		Vec3 at = mob.position().add(0, mob.getBbHeight() * 0.5, 0);
+		mob.invulnerableTime = 0;
+		mob.hurt(OmnitrixDamage.alienStrike(p), BURST_DAMAGE); // AlienKit.hurt skips riding partners; he has left it now anyway
+		for (LivingEntity e : around(p, at, 3)) {
+			if (e != mob) {
+				e.invulnerableTime = 0;
+				hurt(p, e, BURST_SPLASH, false);
+				shove(e, at, 0.8, 0.3);
+			}
+		}
+		Vec3 out = p.getLookAngle().multiply(1, 0, 1);
+		p.push(out.x * 0.6, 0.45, out.z * 0.6);
+		p.hurtMarked = true;
+		QuirkFx.blast(l, at).colours(0xF0E8FF, PURPLE).size(2.2f).life(12).flags(QuirkFx.F_NO_SMOKE).spawn();
+		l.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 30, 0.4, 0.5, 0.4, 0.08);
+		l.sendParticles(VIOLET, at.x, at.y, at.z, 24, 0.5, 0.6, 0.5, 0.0);
+		OmnitrixSounds.play(l, at, SND_SCREAM, 1.0f, 1.3f);
 	}
 
+	/** Shift+G: a drain tether on {@code t} for 2 s -- {@link #SIPHON_PULSE} every 5 ticks, healing {@link #SIPHON_HEAL} each. */
 	public boolean siphon(ServerPlayer p, LivingEntity t) {
 		if (t == null) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.ghostfreak.no_host").withStyle(ChatFormatting.GRAY), true);
@@ -607,23 +802,45 @@ public final class GhostfreakKit extends AlienKit {
 			return false;
 		}
 		anim(p, ANIM_SIPHON);
-		t.invulnerableTime = 0;
-		if (hurt(p, t, SIPHON_DAMAGE, false)) {
-			p.heal(SIPHON_HEAL); // v0.17.2: was half the drain (3)
-		}
-		ServerLevel l = level(p);
-		QuirkFx.ribbon(l, t.position().add(0, t.getBbHeight() * 0.6, 0), p.position().add(0, 1.2, 0)).colours(0xFFFFFF, PURPLE).size(0.3f).life(14)
-				.style(QuirkFx.RIBBON_SHADOW).spawn();
-		Vec3 d = p.position().subtract(t.position()).add(0, 0.6, 0);
-		for (int k = 0; k < 8; k++) {
-			Vec3 at = t.position().add(d.scale(k / 8.0)).add(0, t.getBbHeight() * 0.5, 0);
-			l.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.0);
-		}
-		OmnitrixSounds.play(l, p.position(), SND_TENDRIL, 0.8f, 1.5f);
+		DRAINS.put(p.getUUID(), new Drain(p.level().dimension(), t.getId()));
+		setTimer(p, "siphon_end", p.level().getGameTime() + SIPHON_TICKS);
+		siphonPulse(p, level(p), t); // the first sip lands at once
+		OmnitrixSounds.play(level(p), p.position(), SND_TENDRIL, 0.8f, 1.5f);
 		return true;
 	}
 
-	// ---------------------------------------------------------------- Phase / flight / Fade
+	private void siphonPulse(ServerPlayer p, ServerLevel l, LivingEntity t) {
+		t.invulnerableTime = 0;
+		if (hurt(p, t, SIPHON_PULSE, false)) {
+			p.heal(SIPHON_HEAL);
+		}
+		QuirkFx.ribbon(l, t.position().add(0, t.getBbHeight() * 0.6, 0), p.position().add(0, 1.2, 0)).colours(0xFFFFFF, PURPLE).size(0.3f).life(6)
+				.style(QuirkFx.RIBBON_SHADOW).spawn();
+		Vec3 d = p.position().subtract(t.position()).add(0, 0.6, 0);
+		for (int k = 0; k < 6; k++) {
+			Vec3 at = t.position().add(d.scale(k / 6.0)).add(0, t.getBbHeight() * 0.5, 0);
+			l.sendParticles(ParticleTypes.SOUL, at.x, at.y, at.z, 1, 0.05, 0.05, 0.05, 0.0);
+		}
+	}
+
+	private void tickSiphon(ServerPlayer p, ServerLevel l, long now) {
+		Drain d = DRAINS.get(p.getUUID());
+		if (d == null) {
+			return;
+		}
+		long end = timer(p, "siphon_end");
+		if (d.dim() != l.dimension() || now > end || !(l.getEntity(d.targetId()) instanceof LivingEntity t) || !t.isAlive()
+				|| t.distanceToSqr(p) > SIPHON_RANGE * SIPHON_RANGE * 1.5) {
+			DRAINS.remove(p.getUUID());
+			setTimer(p, "siphon_end", 0);
+			return;
+		}
+		if ((end - now) % 5 == 0 && now != end - SIPHON_TICKS) {
+			siphonPulse(p, l, t);
+		}
+	}
+
+	// ---------------------------------------------------------------- X: Phase / Shift+X: Ecto Rush / Shift+C: Fade
 
 	public boolean phase(ServerPlayer p) {
 		if (flag(p, F_PHASE) || !use(p, PHASE)) {
@@ -633,6 +850,7 @@ public final class GhostfreakKit extends AlienKit {
 		setFlag(p, F_PHASE, true);
 		setTimer(p, "phase_end", p.level().getGameTime() + PHASE_TICKS);
 		cooldown(p, PHASE, PHASE_TICKS); // the real cooldown starts when it ends
+		PASSED.put(p.getUUID(), new HashSet<>());
 		ServerLevel l = level(p);
 		l.sendParticles(ParticleTypes.SOUL, p.getX(), p.getY() + 1, p.getZ(), 20, 0.4, 0.8, 0.4, 0.02);
 		OmnitrixSounds.play(l, p.position(), SND_PHASE, 1.0f, 1.0f);
@@ -646,6 +864,9 @@ public final class GhostfreakKit extends AlienKit {
 		}
 		setFlag(p, F_PHASE, false);
 		setTimer(p, "phase_end", 0);
+		if (!flag(p, F_RUSH)) {
+			PASSED.remove(p.getUUID());
+		}
 		if (cooldown) {
 			cooldown(p, PHASE, PHASE_COOLDOWN);
 			OmnitrixSounds.play(level(p), p.position(), SND_PHASE, 0.7f, 0.7f);
@@ -653,37 +874,78 @@ public final class GhostfreakKit extends AlienKit {
 		com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.settleOutsideBlocks(p);
 	}
 
-	public boolean toggleFlight(ServerPlayer p) {
-		if (!use(p, FLIGHT)) {
+	/** While intangible: each creature his body passes through takes {@code damage} once (and is slowed, or weakened by the rush). */
+	private int passThrough(ServerPlayer p, ServerLevel l, float damage, boolean rush) {
+		Set<Integer> done = PASSED.computeIfAbsent(p.getUUID(), k -> new HashSet<>());
+		net.minecraft.world.phys.AABB body = p.getBoundingBox().inflate(rush ? 0.8 : 0.3);
+		int n = 0;
+		for (LivingEntity e : around(p, p.position(), 3)) {
+			if (!e.getBoundingBox().intersects(body) || !done.add(e.getId())) {
+				continue;
+			}
+			e.invulnerableTime = 0;
+			hurt(p, e, damage, false);
+			e.addEffect(rush ? new MobEffectInstance(MobEffects.WEAKNESS, 80, 0) : new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 1));
+			l.sendParticles(ParticleTypes.SOUL, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 8, 0.2, 0.3, 0.2, 0.02);
+			l.sendParticles(ParticleTypes.SNOWFLAKE, e.getX(), e.getY() + e.getBbHeight() * 0.6, e.getZ(), 6, 0.2, 0.3, 0.2, 0.02);
+			n++;
+		}
+		return n;
+	}
+
+	/** Shift+X: Ecto Rush -- a short intangible dash where he aims, through walls and through everything in the way. */
+	public boolean ectoRush(ServerPlayer p) {
+		if (!use(p, RUSH)) {
 			return false;
 		}
-		if (flag(p, F_FLY)) {
-			stopFlying(p);
-			return true;
+		anim(p, ANIM_RUSH);
+		Vec3 dir = p.getLookAngle();
+		dir = new Vec3(dir.x, Math.max(-0.6, Math.min(0.6, dir.y)), dir.z).normalize();
+		RUSHES.put(p.getUUID(), dir);
+		if (!flag(p, F_PHASE)) {
+			PASSED.put(p.getUUID(), new HashSet<>());
 		}
-		anim(p, ANIM_FLIGHT);
-		setFlag(p, F_FLY, true);
-		p.getAbilities().mayfly = true;
-		p.getAbilities().flying = true;
-		p.getAbilities().setFlyingSpeed(FLY_SPEED);
-		p.onUpdateAbilities();
-		level(p).sendParticles(WISP, p.getX(), p.getY() + 0.3, p.getZ(), 16, 0.4, 0.2, 0.4, 0.0);
-		OmnitrixSounds.play(level(p), p.position(), SND_PHASE, 0.6f, 1.4f);
+		setFlag(p, F_RUSH, true);
+		setTimer(p, "rush_end", p.level().getGameTime() + RUSH_TICKS);
+		p.setDeltaMovement(dir.scale(RUSH_SPEED));
+		p.hurtMarked = true;
+		ServerLevel l = level(p);
+		l.sendParticles(WISP, p.getX(), p.getY() + 1, p.getZ(), 20, 0.3, 0.6, 0.3, 0.02);
+		OmnitrixSfx.playOn(p, SND_PHASE, 1.1f, 1.5f, net.minecraft.sounds.SoundSource.PLAYERS);
 		return true;
 	}
 
-	private void stopFlying(ServerPlayer p) {
-		if (!flag(p, F_FLY)) {
+	private void tickRush(ServerPlayer p, ServerLevel l, long now) {
+		Vec3 dir = RUSHES.get(p.getUUID());
+		if (dir == null) {
 			return;
 		}
-		setFlag(p, F_FLY, false);
-		if (!p.isCreative() && !p.isSpectator()) {
-			p.getAbilities().mayfly = false;
-			p.getAbilities().flying = false;
+		if (now >= timer(p, "rush_end")) {
+			endRush(p);
+			return;
 		}
-		p.getAbilities().setFlyingSpeed(0.05f);
-		p.onUpdateAbilities();
+		p.setDeltaMovement(dir.scale(RUSH_SPEED));
+		p.hurtMarked = true;
 		p.resetFallDistance();
+		passThrough(p, l, RUSH_DAMAGE, true);
+		l.sendParticles(VIOLET, p.getX(), p.getY() + 1, p.getZ(), 4, 0.25, 0.5, 0.25, 0.0);
+		l.sendParticles(WISP, p.getX(), p.getY() + 0.8, p.getZ(), 4, 0.25, 0.5, 0.25, 0.0);
+		QuirkFx.ribbon(l, p.position().add(0, 1, 0).subtract(dir.scale(RUSH_SPEED)), p.position().add(0, 1, 0)).colours(0xFFFFFF, PURPLE).size(0.5f)
+				.life(6).style(QuirkFx.RIBBON_LIGHT).spawn();
+	}
+
+	public void endRush(ServerPlayer p) {
+		if (RUSHES.remove(p.getUUID()) == null && !flag(p, F_RUSH)) {
+			return;
+		}
+		setFlag(p, F_RUSH, false);
+		setTimer(p, "rush_end", 0);
+		if (!flag(p, F_PHASE)) {
+			PASSED.remove(p.getUUID());
+		}
+		p.setDeltaMovement(p.getDeltaMovement().scale(0.3));
+		p.hurtMarked = true;
+		com.projecthero.mod.hero.power.p04.SuperSpeedHandlers.settleOutsideBlocks(p);
 	}
 
 	public boolean fade(ServerPlayer p) {
@@ -708,7 +970,7 @@ public final class GhostfreakKit extends AlienKit {
 		setFlag(p, F_INVIS, false);
 		setTimer(p, "fade_end", 0);
 		MobEffectInstance inv = p.getEffect(MobEffects.INVISIBILITY);
-		if (inv != null && inv.getDuration() <= 40) {
+		if (inv != null && inv.getDuration() <= 40 && !flag(p, F_POSSESS)) {
 			p.removeEffect(MobEffects.INVISIBILITY);
 		}
 	}
@@ -722,46 +984,96 @@ public final class GhostfreakKit extends AlienKit {
 		}
 	}
 
-	// ---------------------------------------------------------------- Shadow Tendrils / Fright Aura / Haunt
+	// ---------------------------------------------------------------- Z: Chest Tentacles / C: Fright Aura / Shift+Z: Haunt
 
-	public boolean tendrils(ServerPlayer p) {
-		if (!use(p, TENDRILS)) {
-			return false;
-		}
-		anim(p, ANIM_TENDRILS);
-		TENDRIL_PITS.put(p.getUUID(), new Tendrils(p.level().dimension(), p.position()));
-		setTimer(p, "tendrils_end", p.level().getGameTime() + TENDRIL_TICKS);
-		ServerLevel l = level(p);
-		QuirkFx.decal(l, p.position().add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(0x0A0410).size(6f).life(TENDRIL_TICKS + 20).spawn();
-		OmnitrixSounds.play(l, p.position(), SND_TENDRIL, 1.1f, 0.8f);
-		return true;
+	private static Vec3 chest(ServerPlayer p) {
+		return p.position().add(0, p.getBbHeight() * 0.62, 0);
 	}
 
-	private void tickTendrils(ServerPlayer p, ServerLevel l, long now) {
-		Tendrils t = TENDRIL_PITS.get(p.getUUID());
-		if (t == null) {
-			return;
+	/**
+	 * Z: his chest splits open and tentacles lash out -- up to {@link #TENTACLE_MAX} creatures in front (8 blocks) are grabbed
+	 * ({@link #TENTACLE_HIT}), yanked in close and constricted for 2 s ({@link #TENTACLE_TICK} every 10 ticks). Bosses are
+	 * held and hurt, but too heavy to yank.
+	 */
+	public int tentacles(ServerPlayer p) {
+		if (!use(p, TENTACLES)) {
+			return 0;
 		}
-		if (now >= timer(p, "tendrils_end") || t.dim() != l.dimension()) {
-			TENDRIL_PITS.remove(p.getUUID());
-			setTimer(p, "tendrils_end", 0);
-			return;
-		}
-		if (now % 10 != 0) {
-			return;
-		}
-		for (LivingEntity e : around(p, t.at(), 6)) {
-			boolean boss = boss(p, e, 2f);
-			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 15, boss ? 1 : 9));
+		anim(p, ANIM_TENTACLES);
+		ServerLevel l = level(p);
+		List<LivingEntity> in = cone(p, TENTACLE_RANGE, 80);
+		in.sort((a, b) -> Double.compare(a.distanceToSqr(p), b.distanceToSqr(p)));
+		List<Integer> held = new ArrayList<>();
+		Vec3 front = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(1.8));
+		for (LivingEntity e : in) {
+			if (held.size() >= TENTACLE_MAX) {
+				break;
+			}
 			e.invulnerableTime = 0;
-			hurt(p, e, TENDRIL_DAMAGE, false);
-			Vec3 from = new Vec3(e.getX() + (l.random.nextDouble() - 0.5), t.at().y + 0.05, e.getZ() + (l.random.nextDouble() - 0.5));
-			QuirkFx.ribbon(l, from, e.position().add(0, e.getBbHeight() * 0.6, 0)).colours(0x2A0A3A, 0x05020A).size(0.25f).life(12)
+			hurt(p, e, TENTACLE_HIT, false);
+			if (!boss(p, e, 3f)) {
+				Vec3 pull = front.subtract(e.position());
+				double d = pull.length();
+				if (d > 0.5) {
+					e.setDeltaMovement(pull.scale(Math.min(1.0, 0.35 + d * 0.12) / d * Math.min(d, 2.5)).add(0, 0.25, 0));
+					e.hurtMarked = true;
+				}
+			}
+			held.add(e.getId());
+			QuirkFx.ribbon(l, chest(p), e.position().add(0, e.getBbHeight() * 0.6, 0)).colours(0x2A0A3A, 0x05020A).size(0.3f).life(8)
 					.style(QuirkFx.RIBBON_SHADOW).spawn();
 		}
-		if (now % 20 == 0) {
-			OmnitrixSounds.play(l, t.at(), SND_TENDRIL, 0.6f, 1.0f);
+		if (!held.isEmpty()) {
+			GRIPS.put(p.getUUID(), new Grip(p.level().dimension(), held));
+			setTimer(p, "tentacles_end", p.level().getGameTime() + TENTACLE_TICKS);
 		}
+		l.sendParticles(VIOLET, chest(p).x, chest(p).y, chest(p).z, 16, 0.25, 0.25, 0.25, 0.05);
+		OmnitrixSounds.play(l, p.position(), SND_TENDRIL, 1.2f, 0.7f);
+		return held.size();
+	}
+
+	private void tickTentacles(ServerPlayer p, ServerLevel l, long now) {
+		Grip g = GRIPS.get(p.getUUID());
+		if (g == null) {
+			return;
+		}
+		long end = timer(p, "tentacles_end");
+		if (now >= end || g.dim() != l.dimension()) {
+			GRIPS.remove(p.getUUID());
+			setTimer(p, "tentacles_end", 0);
+			return;
+		}
+		boolean bite = (end - now) % 10 == 0;
+		Vec3 front = p.position().add(p.getLookAngle().multiply(1, 0, 1).normalize().scale(1.8));
+		for (int id : g.held()) {
+			if (!(l.getEntity(id) instanceof LivingEntity e) || !e.isAlive()) {
+				continue;
+			}
+			boolean boss = boss(p, e, 0f);
+			e.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 15, boss ? 1 : 9));
+			if (!boss && e.distanceToSqr(front) > 1.0 && now % 2 == 0) {
+				Vec3 pull = front.subtract(e.position());
+				e.setDeltaMovement(pull.normalize().scale(Math.min(0.5, pull.length() * 0.3)));
+				e.hurtMarked = true;
+			}
+			if (bite) {
+				e.invulnerableTime = 0;
+				hurt(p, e, TENTACLE_TICK, false);
+			}
+			if (now % 2 == 0) {
+				QuirkFx.ribbon(l, chest(p), e.position().add(0, e.getBbHeight() * 0.55, 0)).colours(0x2A0A3A, 0x05020A).size(0.22f).life(3)
+						.style(QuirkFx.RIBBON_SHADOW).spawn();
+			}
+		}
+		if (now % 20 == 0) {
+			OmnitrixSounds.play(l, p.position(), SND_TENDRIL, 0.6f, 1.0f);
+		}
+	}
+
+	/** Whether {@code e} is held in his tentacles right now. */
+	public static boolean gripped(ServerPlayer p, LivingEntity e) {
+		Grip g = GRIPS.get(p.getUUID());
+		return g != null && g.held().contains(e.getId());
 	}
 
 	public boolean frightAura(ServerPlayer p) {
@@ -790,25 +1102,26 @@ public final class GhostfreakKit extends AlienKit {
 			e.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 100, 0));
 			e.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
 			e.invulnerableTime = 0;
-			// v0.17.2 (user: "change the damage on the ben 10 aliens to be on par with the elemental power abilities"): was 2
 			hurt(p, e, HAUNT_HIT, false);
 			caught.add(e.getId());
 			l.sendParticles(ParticleTypes.SCULK_SOUL, e.getX(), e.getY() + e.getBbHeight(), e.getZ(), 4, 0.2, 0.2, 0.2, 0.02);
 			n++;
 		}
 		if (!caught.isEmpty()) {
-			// v0.17.2: and the dread keeps biting -- HAUNT_TICK every 10 ticks for HAUNT_TICKS on each one it caught
 			HAUNTED.put(p.getUUID(), new Haunted(l.dimension(), caught));
 			setTimer(p, "haunt_end", l.getGameTime() + HAUNT_TICKS);
 		}
 		QuirkFx.blast(l, p.position().add(0, 1, 0)).colours(0xE0D0FF, PURPLE).size(3.5f).life(18).flags(QuirkFx.F_NO_SMOKE).spawn();
-		QuirkFx.decal(l, p.position().add(0, 0.03, 0)).style(QuirkFx.DECAL_POOL).colour(0x0A0410).size(10f).life(80).spawn();
+		for (int i = 0; i < 3; i++) {
+			QuirkFx.ring(l, p.position().add(0, 0.15, 0)).colours(0xFFFFFF, PURPLE).size(3f + i * 3.5f).thickness(0.35f).life(12 + i * 4).ground().spawn();
+		}
+		QuirkCamera.shakeAround(l, p.position(), 12, 0.3f, 12);
 		OmnitrixSounds.play(l, p.position(), SND_SCREAM, 1.0f, 0.6f);
 		OmnitrixSounds.play(l, p.position(), SND_LAUGH, 1.0f, 0.7f);
 		return n;
 	}
 
-	/** v0.17.2: Haunt's lingering dread -- {@link #HAUNT_TICK} every 10 ticks to each creature it caught, until "haunt_end". */
+	/** Haunt's lingering dread -- {@link #HAUNT_TICK} every 10 ticks to each creature it caught, until "haunt_end". */
 	private void tickHaunt(ServerPlayer p, ServerLevel l, long now) {
 		Haunted h = HAUNTED.get(p.getUUID());
 		if (h == null) {
@@ -838,16 +1151,25 @@ public final class GhostfreakKit extends AlienKit {
 
 	// ---------------------------------------------------------------- vanilla keys
 
+	/** Chilling Touch: +{@link #TOUCH_DAMAGE} and a slow; straight out of Fade it is an Ambush (+{@link #AMBUSH_DAMAGE}, blinds). */
 	@Override
 	public boolean onAttack(ServerPlayer p, Entity target) {
+		boolean ambush = flag(p, F_INVIS);
 		endFade(p);
 		if (target instanceof LivingEntity le) {
 			anim(p, ANIM_TOUCH);
 			le.invulnerableTime = 0;
-			hurt(p, le, 1f, false);
+			hurt(p, le, TOUCH_DAMAGE + (ambush ? AMBUSH_DAMAGE : 0f), false);
 			le.invulnerableTime = 0;
 			le.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 40, 0));
-			level(p).sendParticles(WISP, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 6, 0.2, 0.3, 0.2, 0.0);
+			ServerLevel l = level(p);
+			l.sendParticles(WISP, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 6, 0.2, 0.3, 0.2, 0.0);
+			if (ambush) {
+				le.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 60, 0));
+				l.sendParticles(ParticleTypes.SOUL, le.getX(), le.getY() + le.getBbHeight() * 0.6, le.getZ(), 16, 0.3, 0.4, 0.3, 0.05);
+				QuirkFx.blast(l, le.position().add(0, le.getBbHeight() * 0.6, 0)).colours(0xFFFFFF, PURPLE).size(1.2f).life(8).flags(QuirkFx.F_NO_SMOKE).spawn();
+				OmnitrixSounds.play(l, le.position(), SND_CLAW, 1.2f, 0.6f);
+			}
 		}
 		return false;
 	}
@@ -861,7 +1183,7 @@ public final class GhostfreakKit extends AlienKit {
 			return InteractionResult.FAIL;
 		}
 		anim(p, ANIM_BOLT);
-		AlienProjectileEntity.of(p, "ghostfreak_bolt").colour(PURPLE).size(0.3f).damage(3f).speed(1.5).life(40).spawn();
+		AlienProjectileEntity.of(p, "ghostfreak_bolt").colour(PURPLE).size(0.3f).damage(BOLT_DAMAGE).speed(1.6).life(40).spawn();
 		OmnitrixSounds.play(level(p), p.position(), SND_CLAW, 0.5f, 1.6f);
 		p.swing(hand, true);
 		return InteractionResult.SUCCESS;
@@ -887,6 +1209,9 @@ public final class GhostfreakKit extends AlienKit {
 	public boolean allowDamage(ServerPlayer p, DamageSource source, float amount) {
 		if (source.is(DamageTypes.DROWN) || source.is(DamageTypes.IN_WALL)) {
 			return false;
+		}
+		if (flag(p, F_POSSESS) && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return false; // v0.17.2: hidden inside his host, nothing reaches him
 		}
 		return !(flag(p, F_PHASE) && physical(source)); // intangible: nothing physical touches him
 	}

@@ -143,6 +143,10 @@ public final class OmnitrixRiding {
 	 */
 	@Nullable
 	public static Vec3 seat(Entity vehicle, Entity passenger, EntityDimensions dims) {
+		if (!(vehicle instanceof Player) && com.projecthero.mod.omnitrix.alien.ghostfreak.GhostfreakKit.insideHost(passenger)) {
+			// v0.17.2: Ghostfreak's possession -- inside the host's body, his eyes at its eyes
+			return new Vec3(0.0, Math.max(0.0, vehicle.getEyeHeight() - passenger.getEyeHeight()), 0.0);
+		}
 		if (!(vehicle instanceof Player host)) {
 			return null;
 		}

@@ -63,13 +63,23 @@ public final class GhostfreakClient implements AlienClientKit {
 			QuirkKeyframes.rest(12) };
 	private static final float[][] FADE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -1.0f, 1.0f, -0.2f, -1.0f, -1.0f, 0.2f, 0.25f, 0, 0, 0, 0, 0, 0, 0, 0.5f),
 			QuirkKeyframes.f(12, -1.0f, 1.0f, -0.2f, -1.0f, -1.0f, 0.2f, 0.25f, 0, 0, 0, 0, 0, 0, 0, 0.5f), QuirkKeyframes.rest(16) };
-	private static final float[][] TENDRILS = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -2.9f, 0, 0.5f, -2.9f, 0, -0.5f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.4f),
-			QuirkKeyframes.f(8, 0.2f, 0, 0.8f, 0.2f, 0, -0.8f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0.5f),
-			QuirkKeyframes.f(18, 0.2f, 0, 0.8f, 0.2f, 0, -0.8f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0.5f), QuirkKeyframes.rest(24) };
 	private static final float[][] AURA = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -0.4f, 0, 1.7f, -0.4f, 0, -1.7f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.6f),
 			QuirkKeyframes.f(16, -0.5f, 0, 1.8f, -0.5f, 0, -1.8f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.6f), QuirkKeyframes.rest(22) };
 	private static final float[][] HAUNT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(4, -3.0f, 0, 0.3f, -3.0f, 0, -0.3f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.6f),
 			QuirkKeyframes.f(9, -1.3f, 0, 1.4f, -1.3f, 0, -1.4f, 0.3f, 0, 0, 0, 0, 0, 0, 0, 0.2f), QuirkKeyframes.rest(18) };
+	// v0.17.2 revamp: the combo's backhand (the left claw), the Reaping Rake (both claws, a low wide sweep), the Ecto Rush (arms swept
+	// back, leaning in), the burst out of a host (flung wide), and the chest tentacles (arms thrown open, chest pushed out)
+	private static final float[][] CLAW_BACK = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -0.3f, 0, 0, -2.7f, -0.6f, -0.5f, -0.1f, -0.4f, 0, 0, 0, 0, 0, 0, -0.2f),
+			QuirkKeyframes.f(5, -0.4f, 0, 0, -0.9f, 0.8f, 0.3f, 0.35f, 0.4f, 0, 0, 0, 0, 0, 0, 0.2f), QuirkKeyframes.rest(10) };
+	private static final float[][] RAKE = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.9f, 0.4f, 0.9f, -2.9f, -0.4f, -0.9f, -0.35f, 0, 0, 0, 0, 0, 0, 0, -0.4f),
+			QuirkKeyframes.f(6, -0.6f, -0.9f, 0.2f, -0.6f, 0.9f, -0.2f, 0.6f, 0, 0, 0, 0, 0, 0, 0, 0.3f),
+			QuirkKeyframes.f(11, -0.6f, -0.9f, 0.2f, -0.6f, 0.9f, -0.2f, 0.5f, 0, 0, 0, 0, 0, 0, 0, 0.2f), QuirkKeyframes.rest(16) };
+	private static final float[][] RUSH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, 0.9f, 0, 0.3f, 0.9f, 0, -0.3f, 0.7f, 0, 0, 0, 0, 0, 0, 0, -0.5f),
+			QuirkKeyframes.f(7, 0.9f, 0, 0.3f, 0.9f, 0, -0.3f, 0.7f, 0, 0, 0, 0, 0, 0, 0, -0.5f), QuirkKeyframes.rest(12) };
+	private static final float[][] BURST = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -2.6f, 0, 1.2f, -2.6f, 0, -1.2f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.6f),
+			QuirkKeyframes.f(9, -2.4f, 0, 1.0f, -2.4f, 0, -1.0f, -0.2f, 0, 0, 0, 0, 0, 0, 0, -0.4f), QuirkKeyframes.rest(14) };
+	private static final float[][] TENTACLES = { QuirkKeyframes.rest(0), QuirkKeyframes.f(3, -0.2f, 0, 1.6f, -0.2f, 0, -1.6f, -0.35f, 0, 0, 0, 0, 0, 0, 0, -0.3f),
+			QuirkKeyframes.f(30, -0.3f, 0, 1.5f, -0.3f, 0, -1.5f, -0.3f, 0, 0, 0, 0, 0, 0, 0, -0.25f), QuirkKeyframes.rest(40) };
 	private static final float[][] TOUCH = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.5f, 0.2f, 0, 0, 0, 0, 0.15f, -0.3f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(8) };
 	private static final float[][] BOLT = { QuirkKeyframes.rest(0), QuirkKeyframes.f(2, -1.6f, 0.05f, 0, 0.2f, 0, 0, 0.05f, -0.2f, 0, 0, 0, 0, 0, 0, 0), QuirkKeyframes.rest(10) };
 
@@ -98,13 +108,14 @@ public final class GhostfreakClient implements AlienClientKit {
 	/** v0.17.1 (user: "dont make him transparent like he is right now"): solid -- only Phase makes him see-through (the cue it is on). */
 	@Override
 	public int bodyAlpha(AbstractClientPlayer p) {
-		return (Omnitrix.state(p).kitFlags & GhostfreakKit.F_PHASE) != 0 ? 130 : 255;
+		// v0.17.2: the Ecto Rush is see-through too
+		return (Omnitrix.state(p).kitFlags & (GhostfreakKit.F_PHASE | GhostfreakKit.F_RUSH)) != 0 ? 130 : 255;
 	}
 
 	@Override
 	public void renderExtras(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer p, PlayerModel<AbstractClientPlayer> model, float partial,
 			float age) {
-		boolean phased = (Omnitrix.state(p).kitFlags & GhostfreakKit.F_PHASE) != 0;
+		boolean phased = (Omnitrix.state(p).kitFlags & (GhostfreakKit.F_PHASE | GhostfreakKit.F_RUSH)) != 0;
 		int alpha = phased ? 130 : 255;
 		VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EXTRAS));
 		// the wispy tail in place of legs: shrinking segments, each swaying a little more than the last
@@ -155,7 +166,11 @@ public final class GhostfreakClient implements AlienClientKit {
 			case GhostfreakKit.ANIM_PHASE -> PHASE;
 			case GhostfreakKit.ANIM_FLIGHT -> FLIGHT;
 			case GhostfreakKit.ANIM_FADE -> FADE;
-			case GhostfreakKit.ANIM_TENDRILS -> TENDRILS;
+			case GhostfreakKit.ANIM_TENTACLES -> TENTACLES;
+			case GhostfreakKit.ANIM_CLAW_BACK -> CLAW_BACK;
+			case GhostfreakKit.ANIM_RAKE -> RAKE;
+			case GhostfreakKit.ANIM_RUSH -> RUSH;
+			case GhostfreakKit.ANIM_BURST -> BURST;
 			case GhostfreakKit.ANIM_AURA -> AURA;
 			case GhostfreakKit.ANIM_HAUNT -> HAUNT;
 			case GhostfreakKit.ANIM_TOUCH -> TOUCH;
@@ -177,13 +192,15 @@ public final class GhostfreakClient implements AlienClientKit {
 	@Override
 	public FirstPersonClip firstPerson(int animId) {
 		return switch (animId) {
-			case GhostfreakKit.ANIM_CLAW -> FP_CLAW;
+			case GhostfreakKit.ANIM_CLAW, GhostfreakKit.ANIM_CLAW_BACK -> FP_CLAW;
+			case GhostfreakKit.ANIM_RAKE, GhostfreakKit.ANIM_BURST -> FP_SCREAM;
+			case GhostfreakKit.ANIM_RUSH -> FP_CROSS;
 			case GhostfreakKit.ANIM_SCREAM -> FP_SCREAM;
 			case GhostfreakKit.ANIM_POSSESS -> FP_REACH;
 			case GhostfreakKit.ANIM_SIPHON, GhostfreakKit.ANIM_BOLT -> FP_SIPHON;
 			case GhostfreakKit.ANIM_PHASE, GhostfreakKit.ANIM_FADE -> FP_CROSS;
-			case GhostfreakKit.ANIM_FLIGHT, GhostfreakKit.ANIM_AURA -> FP_WIDE;
-			case GhostfreakKit.ANIM_TENDRILS, GhostfreakKit.ANIM_HAUNT -> FP_DOWN;
+			case GhostfreakKit.ANIM_FLIGHT, GhostfreakKit.ANIM_AURA, GhostfreakKit.ANIM_TENTACLES -> FP_WIDE;
+			case GhostfreakKit.ANIM_HAUNT -> FP_DOWN;
 			case GhostfreakKit.ANIM_TOUCH -> FP_TOUCH;
 			case GhostfreakKit.ANIM_SIGHT -> FP_SIGHT;
 			default -> null;

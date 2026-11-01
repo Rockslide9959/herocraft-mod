@@ -262,7 +262,8 @@ public final class Xlr8Kit extends AlienKit {
 
 	@Override
 	public AlienStats stats() {
-		return AlienStats.builder().health(22f).speed(1.9f).scale(0.95f).armor(2f, 0f).attack(1f).step(0.65f).jump(0.06f).safeFall(6f).build();
+		// v0.17.2 (user: every alien should have a melee bonus): was +1 fist
+		return AlienStats.builder().health(22f).speed(1.9f).scale(0.95f).armor(2f, 0f).attack(2f).step(0.65f).jump(0.06f).safeFall(6f).build();
 	}
 
 	@Override

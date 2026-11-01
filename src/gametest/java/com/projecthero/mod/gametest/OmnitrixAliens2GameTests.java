@@ -118,7 +118,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		floor(helper);
 		ServerPlayer p = as(helper, StinkflyKit.ID);
 		StinkflyKit kit = (StinkflyKit) Aliens.kit(StinkflyKit.ID);
-		near(helper, p.getMaxHealth(), 14f, "14 health");
+		near(helper, p.getMaxHealth(), 20f, "20 health");
 		near(helper, p.getScale(), 0.9f, "0.9x the size");
 		helper.assertTrue(p.getAbilities().mayfly, "the wings are ready (a double-tap of jump flies)");
 		helper.assertTrue(kit.wingFlight(p) && p.getAbilities().flying && kit.flag(p, StinkflyKit.F_FLYING), "X takes off");
@@ -352,7 +352,7 @@ public class OmnitrixAliens2GameTests implements FabricGameTest {
 		helper.assertTrue(p.getBbHeight() < 1.0f, "under one block tall");
 		near(helper, p.getBbWidth(), w0 * GreyMatterKit.SCALE, "a third of the width");
 		near(helper, p.getEyeHeight(), e0 * GreyMatterKit.SCALE, "eyes a third as high");
-		near(helper, p.getMaxHealth(), 8f, "8 health");
+		near(helper, p.getMaxHealth(), 20f, "20 health (v0.17.2: no alien under 20)");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > p.getAttributeBaseValue(Attributes.MOVEMENT_SPEED) * 1.3, "fast");
 		Omnitrix.revert(p, Omnitrix.Reason.SHIFT_V);
 		refreshAttributes(p);

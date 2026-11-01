@@ -479,7 +479,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void ghostfreakFloatsAndHalvesPhysicalBlows(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GhostfreakKit.ID);
-		helper.assertTrue(near(p.getMaxHealth(), 24f), "24 health");
+		helper.assertTrue(near(p.getMaxHealth(), 26f), "26 health");
+		helper.assertTrue(p.getAbilities().mayfly, "v0.17.2: always ready to fly (a double-tap of jump; no key)");
+		helper.assertTrue(kitHasNoFlightKey(), "no flight key: Ghost Flight is the double-tap");
 		helper.assertTrue(p.getAttributeValue(Attributes.GRAVITY) < 0.08 * 0.3, "he floats down slowly");
 		Zombie z = zombie(helper, 3.5, 2, 3.5, 20f);
 		helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true); // no difficulty scaling on the blow
@@ -521,7 +523,9 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 			// phased and faded, then turned back: nothing stuck
 			kit.cooldown(p, GhostfreakKit.PHASE, 0);
 			helper.assertTrue(kit.phase(p) && kit.fade(p) && p.hasEffect(MobEffects.INVISIBILITY), "phased and invisible");
-			helper.assertTrue(kit.toggleFlight(p) && p.getAbilities().mayfly, "flying");
+			p.getAbilities().flying = true;
+			Omnitrix.tick(p);
+			helper.assertTrue(kit.flag(p, GhostfreakKit.F_FLY), "flying (the double-tap)");
 			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 			helper.assertFalse(kit.phasing(p), "no stuck intangibility");
 			helper.assertTrue(AlienKit.activeKit(p) == null, "human again");
@@ -532,38 +536,100 @@ public class OmnitrixWaveAGameTests implements FabricGameTest {
 		});
 	}
 
+	private static boolean kitHasNoFlightKey() {
+		return Aliens.kit(GhostfreakKit.ID).moves().stream().noneMatch(m -> GhostfreakKit.FLIGHT.equals(m.id()) && m.slot() != null);
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
 	public void ghostfreaksMovesHitScareAndPossess(GameTestHelper helper) {
 		ServerPlayer p = as(helper, GhostfreakKit.ID);
 		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 3.5, 100f);
+		Zombie z = zombie(helper, 3.5, 2, 3.5, 200f);
 		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
-		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 100f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 12");
+		// v0.17.2 revamp: R is a three-swipe combo -- 10, 10, then the Reaping Rake (18)
+		helper.assertTrue(kit.claw(p) == 1 && near(z.getHealth(), 200f - GhostfreakKit.CLAW_DAMAGE), "Spectral Claw: 10");
 		helper.assertTrue(z.hasEffect(MobEffects.WITHER), "it withers");
-		helper.assertTrue(kit.claw(p) == 0, "then cools down");
+		helper.assertTrue(kit.claw(p) == 0, "a short gap between swipes");
+		helper.assertTrue(GhostfreakKit.comboStep(p) == 1, "the combo carries on");
+		kit.cooldown(p, GhostfreakKit.CLAW, 0);
 		z.invulnerableTime = 0;
-		helper.assertTrue(kit.scream(p) == 1 && GhostfreakKit.fleeing(p, z), "Scream: it flees");
-		helper.assertTrue(kit.scream(p) == 0, "the scream cools down");
-		// possession: a second zombie fights for him
+		kit.claw(p);
+		kit.cooldown(p, GhostfreakKit.CLAW, 0);
+		float before = z.getHealth();
+		z.invulnerableTime = 0;
+		helper.assertTrue(GhostfreakKit.comboStep(p) == 2 && kit.claw(p) == 1, "the third swipe: the Reaping Rake");
+		helper.assertTrue(near(before - z.getHealth(), GhostfreakKit.RAKE_DAMAGE), "the Rake: 18, got " + (before - z.getHealth()));
+		helper.assertTrue(GhostfreakKit.comboStep(p) == 0 && kit.cooldownLeft(p, GhostfreakKit.CLAW) > GhostfreakKit.CLAW_GAP, "then a longer rest");
+		z.moveTo(helper.absoluteVec(new Vec3(3.5, 2, 3.5)));
+		z.invulnerableTime = 0;
+		helper.assertTrue(kit.scream(p) == 1 && GhostfreakKit.fleeing(p, z), "Wail: it flees");
+		helper.assertTrue(kit.scream(p) == 0, "the wail cools down");
+		z.moveTo(helper.absoluteVec(new Vec3(3.5, 2, 3.5)));
+		// possession: he dives INTO a second zombie, which fights for him
 		Zombie host = zombie(helper, 5.5, 2, 1.5, 40f);
 		helper.assertTrue(kit.possess(p, host) && GhostfreakKit.possessed(p) == host && kit.flag(p, GhostfreakKit.F_POSSESS), "possessed");
-		helper.assertFalse(kit.possess(p, z), "possession cools down");
+		helper.assertTrue(p.getVehicle() == host && GhostfreakKit.insideHost(p), "riding inside it");
+		helper.assertTrue(p.hasEffect(MobEffects.INVISIBILITY), "unseen inside");
+		float hp = p.getHealth();
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().mobAttack(z), 8f);
+		helper.assertTrue(p.getHealth() == hp, "nothing reaches him inside");
+		helper.assertFalse(kit.possess(p, z), "one host at a time");
 		pump(helper, p);
 		helper.runAfterDelay(3, () -> {
 			helper.assertTrue(host.getTarget() != p, "the host never turns on him");
 			helper.assertTrue(host.getTarget() == z, "it goes for the other zombie: " + host.getTarget());
-			helper.assertTrue(kit.tendrils(p) && kit.haunt(p) >= 1, "Shadow Tendrils and Haunt");
+			// any other move bursts him out through it
+			helper.assertTrue(kit.tentacles(p) >= 1, "Chest Tentacles grab");
+			helper.assertTrue(GhostfreakKit.possessed(p) == null && p.getVehicle() == null, "the move burst him out");
+			helper.assertTrue(host.getHealth() < 40f - GhostfreakKit.BURST_DAMAGE + 2f, "the burst tears through the host: " + host.getHealth());
+			helper.assertTrue(kit.cooldownLeft(p, GhostfreakKit.POSSESS) > GhostfreakKit.POSSESS_COOLDOWN - 10, "possession cools down after");
+			helper.assertFalse(p.hasEffect(MobEffects.INVISIBILITY), "seen again");
+			helper.assertTrue(GhostfreakKit.gripped(p, z) || GhostfreakKit.gripped(p, host), "something is held");
+			helper.assertTrue(kit.haunt(p) >= 1, "Haunt");
 			helper.assertTrue(z.hasEffect(MobEffects.DARKNESS), "dread");
 			helper.assertTrue(kit.frightAura(p) && kit.flag(p, GhostfreakKit.F_AURA), "Fright Aura");
-			float hp = p.getHealth() - 4f;
-			p.setHealth(hp);
-			helper.assertTrue(kit.siphon(p, z) && p.getHealth() > hp, "Soul Siphon heals him");
-			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-			helper.assertTrue(GhostfreakKit.possessed(p) == null && host.getTarget() == null, "turning back frees the host");
-			helper.assertFalse(GhostfreakKit.fleeing(p, z), "and the fear lifts");
-			z.discard();
-			host.discard();
-			helper.succeed();
+			float low = p.getHealth() - 4f;
+			p.setHealth(low);
+			helper.assertTrue(kit.siphon(p, z) && p.getHealth() > low, "Soul Siphon heals him at once");
+			helper.runAfterDelay(GhostfreakKit.SIPHON_TICKS / 2, () -> {
+				helper.assertTrue(p.getHealth() >= low + GhostfreakKit.SIPHON_HEAL * 3 - 0.01f, "and keeps sipping: " + (p.getHealth() - low));
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.assertTrue(host.getTarget() == null, "turning back frees the host");
+				helper.assertFalse(GhostfreakKit.fleeing(p, z), "and the fear lifts");
+				z.discard();
+				host.discard();
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void ghostfreaksEctoRushAndFadeAmbush(GameTestHelper helper) {
+		ServerPlayer p = as(helper, GhostfreakKit.ID);
+		GhostfreakKit kit = (GhostfreakKit) Aliens.kit(GhostfreakKit.ID);
+		Zombie z = zombie(helper, 3.5, 2, 1.5, 100f); // right where he stands: the rush goes through it
+		helper.assertTrue(kit.ectoRush(p) && kit.phasing(p) && kit.flag(p, GhostfreakKit.F_RUSH), "Shift+X: intangible, rushing");
+		pump(helper, p);
+		helper.runAfterDelay(2, () -> {
+			helper.assertTrue(near(z.getHealth(), 100f - GhostfreakKit.RUSH_DAMAGE) && z.hasEffect(MobEffects.WEAKNESS), "passed through: 10, weakened: " + z.getHealth());
+			helper.runAfterDelay(GhostfreakKit.RUSH_TICKS + 2, () -> {
+				helper.assertFalse(kit.phasing(p) || kit.flag(p, GhostfreakKit.F_RUSH), "the rush ends solid");
+				helper.assertTrue(near(z.getHealth(), 100f - GhostfreakKit.RUSH_DAMAGE), "once per rush");
+				// Fade, then an Ambush out of it
+				helper.assertTrue(kit.fade(p) && p.hasEffect(MobEffects.INVISIBILITY), "faded");
+				float hp = z.getHealth();
+				z.invulnerableTime = 0;
+				kit.onAttack(p, z);
+				helper.assertTrue(near(hp - z.getHealth(), GhostfreakKit.TOUCH_DAMAGE + GhostfreakKit.AMBUSH_DAMAGE), "Ambush: +12, got " + (hp - z.getHealth()));
+				helper.assertTrue(z.hasEffect(MobEffects.BLINDNESS) && !kit.flag(p, GhostfreakKit.F_INVIS), "blinded, and the fade is over");
+				hp = z.getHealth();
+				z.invulnerableTime = 0;
+				kit.onAttack(p, z);
+				helper.assertTrue(near(hp - z.getHealth(), GhostfreakKit.TOUCH_DAMAGE), "an ordinary touch after: +2");
+				z.discard();
+				helper.succeed();
+			});
 		});
 	}
 }
