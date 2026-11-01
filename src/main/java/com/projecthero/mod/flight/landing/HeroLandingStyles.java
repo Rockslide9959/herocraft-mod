@@ -48,7 +48,7 @@ final class HeroLandingStyles {
 		HeroLanding.register(HeroLandingStyle.HELLFLAME, Hellflame::flying);
 		HeroLanding.register(HeroLandingStyle.DARK_SHADOW, p -> DarkShadow.is(p) && DarkShadow.abyssal(p));
 		HeroLanding.register(HeroLandingStyle.HEATBLAST,
-				p -> HeatblastKit.ID.equals(Omnitrix.active(p)) && (Omnitrix.state(p).kitFlags & HeatblastKit.F_FLYING) != 0);
+				p -> HeatblastKit.ID.equals(Omnitrix.active(p)) && (Omnitrix.state(p).kitFlags & HeatblastKit.F_RIDING) != 0);
 		HeroLanding.register(HeroLandingStyle.HAWK_MOTH, HawkMothKit::flying);
 		HeroLanding.register(HeroLandingStyle.MOON_KNIGHT, MoonKnightCape::isGliding);
 		// the mutations: the element flights first, then the plain Flight power (they all ride its hero-flight flag)

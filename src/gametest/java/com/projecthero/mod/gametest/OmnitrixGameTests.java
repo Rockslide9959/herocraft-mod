@@ -509,35 +509,293 @@ public class OmnitrixGameTests implements FabricGameTest {
 		helper.succeed();
 	}
 
+	private static HeatblastKit heat() {
+		return (HeatblastKit) Aliens.kit(HeatblastKit.ID);
+	}
+
+	/** v0.17.2: jumps a Heatblast kit timer (e.g. "reignite_at") to {@code at}. */
+	private static void heatTimer(ServerPlayer p, String name, long at) {
+		OmnitrixState n = Omnitrix.state(p).copy();
+		if (at <= 0L) {
+			n.timers.remove(HeatblastKit.ID + "." + name);
+		} else {
+			n.timers.put(HeatblastKit.ID + "." + name, at);
+		}
+		Omnitrix.save(p, n);
+	}
+
 	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
-	public void heatblastsMovesHitAndCoolDown(GameTestHelper helper) {
+	public void heatblastFireHealsHimAndSnowballsHurt(GameTestHelper helper) {
+		// v0.17.2 Pyronite Body: standing in fire heals a heart a second; snowballs hurt him
 		floor(helper);
 		ServerPlayer p = as(helper, HeatblastKit.ID);
-		HeatblastKit kit = (HeatblastKit) Aliens.kit(HeatblastKit.ID);
-		Zombie z = zombie(helper, 3.5, 2, 5.5, 60f);
-		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 12f); // facing +Z, a touch down
-		helper.assertTrue(kit.fireBlast(p), "Fire Blast fires");
-		helper.assertFalse(kit.fireBlast(p), "then cools down");
-		helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.FIRE_BLAST) > 0, "a cooldown is running");
-		helper.assertTrue(!helper.getLevel().getEntitiesOfClass(AlienProjectileEntity.class, p.getBoundingBox().inflate(6)).isEmpty(), "a bolt in the air");
-		helper.runAfterDelay(10, () -> {
-			helper.assertTrue(z.getHealth() <= 60f - HeatblastKit.BLAST_DAMAGE + 0.01f && z.isOnFire(), "the bolt burned the zombie");
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().magic(), 10f);
+		float hurt = p.getHealth();
+		BlockPos feet = helper.absolutePos(new BlockPos(3, 2, 1));
+		helper.getLevel().setBlock(feet, Blocks.FIRE.defaultBlockState(), 3);
+		helper.assertTrue(HeatblastKit.inFireOrLava(p), "he stands in the fire");
+		pump(helper, p);
+		helper.runAfterDelay(45, () -> {
+			helper.assertTrue(p.getHealth() >= hurt + 2f * HeatblastKit.FIRE_HEAL - 0.01f, "two seconds in the fire healed 2 hearts: " + hurt + " -> " + p.getHealth());
+			helper.getLevel().setBlock(feet, Blocks.AIR.defaultBlockState(), 3);
+			float before = p.getHealth();
+			Vec3 from = p.position().add(0, 1.2, 3.0);
+			net.minecraft.world.entity.projectile.Snowball ball = new net.minecraft.world.entity.projectile.Snowball(helper.getLevel(), from.x, from.y, from.z);
+			ball.setDeltaMovement(0, 0, -0.5);
+			helper.getLevel().addFreshEntity(ball);
+			helper.runAfterDelay(15, () -> {
+				helper.assertTrue(ball.isRemoved(), "the snowball hit him");
+				helper.assertTrue(p.getHealth() < before - HeatblastKit.SNOWBALL_DAMAGE * 0.8f, "a snowball hurts a Pyronite (3, less his armour): " + before + " -> " + p.getHealth());
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void heatblastVolleyAndLassoHitAndCoolDown(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		Zombie z = zombie(helper, 3.5, 2, 7.5, 60f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 6f); // facing +Z, a touch down
+		helper.assertTrue(kit.volley(p), "R: Fireball Volley");
+		helper.assertFalse(kit.volley(p), "then it cools down");
+		pump(helper, p);
+		helper.runAfterDelay(16, () -> {
+			helper.assertTrue(z.getHealth() <= 60f - HeatblastKit.VOLLEY_SHOTS * HeatblastKit.VOLLEY_DAMAGE + 0.01f && z.isOnFire(),
+					"all three fireballs burned the zombie: " + z.getHealth());
+			float before = z.getHealth();
+			helper.assertTrue(kit.lasso(p, z) && kit.flag(p, HeatblastKit.F_LASSO), "G: the Fire Lasso catches it");
+			helper.assertTrue(z.getHealth() <= before - HeatblastKit.LASSO_DAMAGE + 0.01f, "the whip burns (6)");
+			helper.assertFalse(kit.lasso(p, z), "the lasso cools down");
+			helper.runAfterDelay(5, () -> {
+				// (a no-AI test zombie keeps the velocity the haul gives it without moving)
+				helper.assertTrue(z.getDeltaMovement().z < -0.3, "yanked in toward him: " + z.getDeltaMovement());
+				z.discard();
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 100)
+	public void heatblastFlamethrowerRunsWhileHeldAndMagmaPatchBurns(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		Zombie z = zombie(helper, 3.5, 2, 4.5, 60f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 15f);
+		helper.assertTrue(kit.flamethrower(p) && kit.flag(p, HeatblastKit.F_STREAM), "Shift+R: the Flamethrower");
+		pump(helper, p);
+		helper.runAfterDelay(12, () -> {
+			helper.assertTrue(z.getHealth() < 60f && z.isOnFire(), "the stream burns what is in front: " + z.getHealth());
+			kit.release(p, AbilitySlot.SLOT_1, true, 12);
+			helper.assertFalse(kit.flag(p, HeatblastKit.F_STREAM), "letting go of the keys stops it");
+			helper.assertFalse(kit.flamethrower(p), "and it cools down");
+			helper.assertTrue(kit.magmaBomb(p), "Shift+G: a Magma Bomb");
+			z.clearFire();
+			float before = z.getHealth();
+			HeatblastKit.magmaPatch(p, helper.getLevel(), z.position());
+			helper.runAfterDelay(12, () -> {
+				helper.assertTrue(z.getHealth() < before && z.isOnFire(), "the burning patch hurts what stands in it: " + before + " -> " + z.getHealth());
+				z.discard();
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 160)
+	public void heatblastRockRideNeedsATwoSecondHoldThenFlies(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		pump(helper, p);
+		// a short hold: no rock -- a Flame Jump instead
+		kit.holdStart(p, AbilitySlot.SLOT_3);
+		helper.assertTrue(kit.flag(p, HeatblastKit.F_RIDE_CHARGE), "holding X charges the Rock Ride");
+		kit.holdEnd(p, AbilitySlot.SLOT_3, 15);
+		helper.assertFalse(kit.flag(p, HeatblastKit.F_RIDE_CHARGE) || kit.flag(p, HeatblastKit.F_RIDING), "let go early: no ride");
+		helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.JUMP) > 0 && p.getDeltaMovement().y > 0.9, "a Flame Jump instead");
+		helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.RIDE) == 0, "the ride's cooldown is untouched");
+		// the full hold
+		kit.holdStart(p, AbilitySlot.SLOT_3);
+		int hold = com.projecthero.mod.omnitrix.OmnitrixConfig.KIT_HOLD_TICKS;
+		long pressed = helper.getLevel().getGameTime() - hold;
+		helper.runAfterDelay(HeatblastKit.RIDE_CHARGE_TICKS - hold - 8, () -> {
+			helper.assertTrue(kit.flag(p, HeatblastKit.F_RIDE_CHARGE) && !kit.flag(p, HeatblastKit.F_RIDING), "still charging short of 2 s");
+			helper.assertTrue(kit.rideCharge(p) > 0.6f && kit.rideCharge(p) < 1f, "the charge bar fills: " + kit.rideCharge(p));
+		});
+		helper.runAfterDelay(HeatblastKit.RIDE_CHARGE_TICKS - hold + 2, () -> {
+			long now = helper.getLevel().getGameTime();
+			helper.assertTrue(now - pressed >= HeatblastKit.RIDE_CHARGE_TICKS, "2 s from the press");
+			helper.assertTrue(kit.flag(p, HeatblastKit.F_RIDING) && HeatblastKit.riding(p), "the rock rips out and he rides it");
+			helper.assertTrue(kit.rideBlock(p).is(Blocks.STONE), "a rock made of what he stood on: " + kit.rideBlock(p));
+			helper.assertTrue(kit.rideLeft(p) > HeatblastKit.RIDE_TICKS - 10 && kit.rideLeft(p) <= HeatblastKit.RIDE_TICKS, "up to a minute: " + kit.rideLeft(p));
+			helper.assertTrue(p.getAbilities().mayfly && !p.getAbilities().flying, "(never kicked for floating, never creative flight)");
+			float hp = p.getHealth();
+			p.invulnerableTime = 0;
+			p.hurt(helper.getLevel().damageSources().fall(), 6f);
+			helper.assertTrue(p.getHealth() == hp, "no fall damage on the rock");
+			// sneak drops off
+			p.setShiftKeyDown(true);
+			helper.runAfterDelay(8, () -> {
+				p.setShiftKeyDown(false);
+				helper.assertFalse(kit.flag(p, HeatblastKit.F_RIDING), "sneak drops off");
+				helper.assertTrue(p.isCreative() || !p.getAbilities().mayfly, "the anti-float allowance goes with the rock (a mock player counts as creative)");
+				helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.RIDE) > 0, "the ride cools down from stepping off");
+				p.invulnerableTime = 0;
+				p.hurt(helper.getLevel().damageSources().fall(), 6f);
+				helper.assertTrue(p.getHealth() == hp, "no fall damage dropping off it");
+				// a ride that runs its minute out
+				heatTimer(p, HeatblastKit.RIDE, 0L);
+				helper.assertTrue(kit.startRide(p), "ride again");
+				heatTimer(p, "ride_end", helper.getLevel().getGameTime() + 2);
+				helper.runAfterDelay(4, () -> {
+					helper.assertFalse(kit.flag(p, HeatblastKit.F_RIDING), "the rock crumbles after its minute");
+					helper.assertFalse(kit.startRide(p), "and cools down");
+					Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+					helper.succeed();
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void heatblastWaterDousesHimAndHeReignitesTenSecondsAfter(GameTestHelper helper) {
+		floor(helper);
+		var level = helper.getLevel();
+		// a one-block pool where he stands (glass round it so the water cannot spread)
+		BlockPos cell = helper.absolutePos(new BlockPos(3, 2, 1));
+		for (BlockPos n : new BlockPos[] { cell.north(), cell.south(), cell.east(), cell.west() }) {
+			level.setBlock(n, Blocks.GLASS.defaultBlockState(), 3);
+		}
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		helper.assertTrue(kit.heatAura(p) && kit.flag(p, HeatblastKit.F_AURA), "Heat Aura on");
+		kit.holdStart(p, AbilitySlot.SLOT_3);
+		helper.assertTrue(kit.flag(p, HeatblastKit.F_RIDE_CHARGE), "a Rock Ride charging");
+		pump(helper, p);
+		level.setBlock(cell, Blocks.WATER.defaultBlockState(), 3);
+		helper.runAfterDelay(3, () -> {
+			helper.assertTrue(HeatblastKit.doused(p) && kit.flag(p, HeatblastKit.F_WET), "water puts him out");
+			helper.assertFalse(kit.flag(p, HeatblastKit.F_AURA) || kit.flag(p, HeatblastKit.F_RIDE_CHARGE), "the aura and the charge go out");
+			helper.assertTrue(kit.reigniteLeft(p) == 0, "no countdown while still in the water");
+			helper.assertFalse(kit.volley(p) || kit.fireTornado(p) || kit.heatShield(p), "no powers while doused");
+			helper.assertTrue(kit.cooldownLeft(p, HeatblastKit.VOLLEY) == 0, "(a refused move costs no cooldown)");
+			p.invulnerableTime = 0;
+			float hp = p.getHealth();
+			p.hurt(level.damageSources().lava(), 6f);
+			helper.assertTrue(p.getHealth() == hp, "still lava-proof while doused");
+			level.setBlock(cell, Blocks.AIR.defaultBlockState(), 3);
+			helper.runAfterDelay(3, () -> {
+				helper.assertTrue(HeatblastKit.doused(p) && !kit.flag(p, HeatblastKit.F_WET), "out of the water, still out");
+				int left = kit.reigniteLeft(p);
+				helper.assertTrue(left > HeatblastKit.REIGNITE_TICKS - 6 && left <= HeatblastKit.REIGNITE_TICKS, "the 10 s countdown runs: " + left);
+				// wet again: the countdown starts over
+				level.setBlock(cell, Blocks.WATER.defaultBlockState(), 3);
+				helper.runAfterDelay(3, () -> {
+					helper.assertTrue(kit.flag(p, HeatblastKit.F_WET) && kit.reigniteLeft(p) == 0, "getting wet again stops the countdown");
+					level.setBlock(cell, Blocks.AIR.defaultBlockState(), 3);
+					helper.runAfterDelay(3, () -> {
+						helper.assertTrue(kit.reigniteLeft(p) > HeatblastKit.REIGNITE_TICKS - 6, "and it restarts from 10 s: " + kit.reigniteLeft(p));
+						// skip to the end of the countdown
+						heatTimer(p, "reignite_at", level.getGameTime() + 2);
+						helper.runAfterDelay(4, () -> {
+							helper.assertFalse(HeatblastKit.doused(p), "the flames burst back");
+							helper.assertTrue(kit.volley(p), "and his powers with them");
+							Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+							helper.succeed();
+						});
+					});
+				});
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 60)
+	public void heatblastFireRelightsHimAtOnceAndADousingEndsTheRide(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		helper.assertTrue(kit.startRide(p) && kit.flag(p, HeatblastKit.F_RIDING), "on the rock");
+		kit.douse(p, false); // a splash
+		helper.assertTrue(HeatblastKit.doused(p) && !kit.flag(p, HeatblastKit.F_RIDING), "doused: he drops off the rock");
+		helper.assertTrue(kit.reigniteLeft(p) > HeatblastKit.REIGNITE_TICKS - 3, "a splash starts the countdown at once");
+		p.invulnerableTime = 0;
+		float hp = p.getHealth();
+		p.hurt(helper.getLevel().damageSources().fall(), 6f);
+		helper.assertTrue(p.getHealth() == hp, "no fall damage for the drop");
+		helper.assertTrue(kit.onUse(p, InteractionHand.MAIN_HAND) == net.minecraft.world.InteractionResult.FAIL, "no fire bolt while doused");
+		pump(helper, p);
+		helper.getLevel().setBlock(helper.absolutePos(new BlockPos(3, 2, 1)), Blocks.FIRE.defaultBlockState(), 3);
+		helper.runAfterDelay(3, () -> {
+			helper.assertFalse(HeatblastKit.doused(p), "stepping into fire relights him at once");
+			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+			helper.succeed();
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 120)
+	public void heatblastTornadoAndSupernovaBurn(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		Zombie z = zombie(helper, 3.5, 2, 7.5, 80f);
+		p.moveTo(p.getX(), p.getY(), p.getZ(), 0f, 6f);
+		helper.assertTrue(kit.fireTornado(p) && kit.tornadoAt(p) != null, "Z: a Fire Tornado where he looks");
+		helper.assertTrue(kit.tornadoAt(p).distanceTo(z.position()) < 1.5, "on the creature he aimed at: " + kit.tornadoAt(p));
+		pump(helper, p);
+		helper.runAfterDelay(25, () -> {
+			helper.assertTrue(z.getHealth() < 80f && z.isOnFire(), "the tornado burns: " + z.getHealth());
 			float before = z.getHealth();
 			z.invulnerableTime = 0;
-			helper.assertTrue(kit.nova(p), "Fireball Nova");
-			helper.assertTrue(z.getHealth() < before, "the nova hit the zombie within 6 blocks");
-			helper.assertFalse(kit.nova(p), "the nova cools down");
-			helper.assertTrue(kit.heatShield(p) && kit.flag(p, HeatblastKit.F_SHIELD), "Heat Shield on");
+			helper.assertTrue(kit.supernova(p) && kit.flag(p, HeatblastKit.F_CHARGING), "Shift+Z: the Supernova charges");
+			helper.runAfterDelay(HeatblastKit.SUPERNOVA_CHARGE + 2, () -> {
+				helper.assertFalse(kit.flag(p, HeatblastKit.F_CHARGING), "then goes off");
+				helper.assertTrue(z.getHealth() <= before - HeatblastKit.SUPERNOVA_EDGE_DAMAGE + 0.01f, "a huge blast: " + before + " -> " + z.getHealth());
+				helper.assertTrue(kit.timer(p, "ring_end") > helper.getLevel().getGameTime(), "and a ring of fire left burning");
+				z.discard();
+				Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+				helper.assertFalse(kit.flag(p, HeatblastKit.F_TORNADO), "turning back ends the tornado");
+				helper.succeed();
+			});
+		});
+	}
+
+	@GameTest(template = EMPTY_STRUCTURE, timeoutTicks = 140)
+	public void heatblastEruptionShieldDashAndMeteorCrash(GameTestHelper helper) {
+		floor(helper);
+		ServerPlayer p = as(helper, HeatblastKit.ID);
+		HeatblastKit kit = heat();
+		Zombie z = zombie(helper, 3.5, 2, 5.5, 80f);
+		helper.assertTrue(kit.eruption(p), "C: Volcanic Eruption");
+		pump(helper, p);
+		helper.runAfterDelay(14, () -> {
+			helper.assertTrue(z.getHealth() <= 80f - HeatblastKit.ERUPT_DAMAGE + 0.01f && z.isOnFire(), "a geyser caught the zombie: " + z.getHealth());
+			helper.assertTrue(kit.heatShield(p) && kit.flag(p, HeatblastKit.F_SHIELD), "Shift+V: Heat Shield");
 			float hp = p.getHealth();
 			p.invulnerableTime = 0;
 			p.hurt(helper.getLevel().damageSources().magic(), 10f);
-			helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * HeatblastKit.SHIELD_FACTOR) < 0.05f, "the shield takes 60% off");
-			helper.assertTrue(kit.fireJet(p) && p.getAbilities().mayfly && p.getAbilities().flying, "Fire Jet flies");
-			Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
-			helper.assertTrue(!kit.flag(p, HeatblastKit.F_FLYING) && Math.abs(p.getAbilities().getFlyingSpeed() - 0.05f) < 1.0e-4f,
-					"turning back ends the jets");
-			z.discard();
-			helper.succeed();
+			helper.assertTrue(Math.abs((hp - p.getHealth()) - 10f * HeatblastKit.SHIELD_FACTOR) < 0.05f, "the dome takes 60% off");
+			helper.assertTrue(kit.blazeDash(p) && kit.flag(p, HeatblastKit.F_DASH), "Shift+X: Blaze Dash");
+			z.teleportTo(p.getX(), p.getY(), p.getZ() + 2.0);
+			z.invulnerableTime = 0;
+			float before = z.getHealth();
+			helper.assertTrue(kit.meteorCrash(p) && kit.flag(p, HeatblastKit.F_METEOR), "Shift+C: Meteor Crash");
+			helper.runAfterDelay(34, () -> {
+				helper.assertTrue(kit.timer(p, "meteor_dive") > 0, "past the top: diving");
+				p.setOnGround(true);
+				helper.runAfterDelay(3, () -> {
+					helper.assertFalse(kit.flag(p, HeatblastKit.F_METEOR), "the crash lands");
+					helper.assertTrue(z.getHealth() <= before - HeatblastKit.METEOR_DAMAGE + 0.01f, "a fiery impact: " + before + " -> " + z.getHealth());
+					z.discard();
+					Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
+					helper.succeed();
+				});
+			});
 		});
 	}
 
