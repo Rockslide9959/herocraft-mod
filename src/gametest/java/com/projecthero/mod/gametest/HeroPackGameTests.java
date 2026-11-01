@@ -1050,12 +1050,21 @@ public class HeroPackGameTests implements FabricGameTest {
 				"the /superhero arcreactor remove guard should see the worn suit");
 		player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, ItemStack.EMPTY);
 
+		com.projecthero.mod.ironman.TonyStark.markBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III);
 		com.projecthero.mod.ironman.TonyStark.revoke(player);
 		helper.assertFalse(com.projecthero.mod.ironman.TonyStark.hasPower(player),
 				"revoke must clear the Tony Stark power");
-		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.techLevel(player) == 0
-				&& com.projecthero.mod.ironman.TonyStark.state(player).builtSuits.isEmpty(),
-				"revoke must reset tech + built suits");
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.hasBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III.id()),
+				"v0.17.2: removing the reactor keeps the built suits");
+		// getting the power back restores them, with no second Blank Blueprint
+		player.getInventory().clearContent();
+		com.projecthero.mod.ironman.TonyStark.grant(player);
+		helper.assertTrue(com.projecthero.mod.ironman.TonyStark.hasPower(player)
+				&& com.projecthero.mod.ironman.TonyStark.hasBuilt(player, com.projecthero.mod.ironman.suit.IronManSuits.MARK_III.id()),
+				"re-granting restores the built suits");
+		helper.assertFalse(player.getInventory().contains(new ItemStack(com.projecthero.mod.ironman.item.IronManItems.BLANK_BLUEPRINT)),
+				"a returning Stark gets no fresh Blank Blueprint");
+		com.projecthero.mod.ironman.TonyStark.revoke(player);
 
 		ItemStack back = new ItemStack(com.projecthero.mod.ironman.item.IronManItems.ARC_REACTOR);
 		helper.assertTrue(player.getInventory().add(back), "the player gets an Arc Reactor item back");

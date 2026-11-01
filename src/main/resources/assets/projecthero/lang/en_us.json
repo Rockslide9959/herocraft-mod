@@ -2600,7 +2600,7 @@
   "commands.projecthero.superhero.unworthy": "not worthy",
   "commands.projecthero.superhero.no_reactor": "You don't have an Arc Reactor to remove.",
   "commands.projecthero.superhero.remove_suit_first": "Take off your Iron Man suit first.",
-  "commands.projecthero.superhero.reactor_removed": "Arc Reactor extracted — the Tony Stark power is gone. Right-click the reactor to become Tony Stark again.",
+  "commands.projecthero.superhero.reactor_removed": "Arc Reactor extracted — the Tony Stark power is gone. Your built suits are kept: right-click the reactor to become Tony Stark again and they are all still unlocked.",
   "message.projecthero.ironman.unibeam_firing": "UNIBEAM — hold the line",
   "message.projecthero.ironman.call_armor_first": "Suit up first — call your armour with %s",
   "message.projecthero.ironman.no_suit_built": "You haven't developed a suit yet.",

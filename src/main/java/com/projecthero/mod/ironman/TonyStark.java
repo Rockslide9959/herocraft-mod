@@ -71,27 +71,32 @@ public final class TonyStark {
 		com.projecthero.mod.hero.HeroTiers.claimPrimary(player, "iron_man");
 		TonyStarkState s = state(player).copy();
 		s.hasPower = true;
-		s.techLevel = 0;
+		// v0.17.2: built suits and tech survive losing the power (revoke keeps them), so getting it back restores them
+		boolean returning = !s.builtSuits.isEmpty();
 		save(player, s);
 
 		// "changes 21": the power hands a single Blank Blueprint. Shift-right-click it to pick a mark's
 		// blueprint -- Mark 1 first, every later mark unlocked only once the whole previous suit is built.
-		ItemStack blueprint = new ItemStack(IronManItems.BLANK_BLUEPRINT);
-		if (!player.getInventory().add(blueprint)) {
-			player.drop(blueprint, false);
+		// A returning Stark already has his progress, so no fresh blueprint.
+		if (!returning) {
+			ItemStack blueprint = new ItemStack(IronManItems.BLANK_BLUEPRINT);
+			if (!player.getInventory().add(blueprint)) {
+				player.drop(blueprint, false);
+			}
 		}
 
 		activationFx(player);
 		return true;
 	}
 
-	/** Testing/admin only -- see {@link com.projecthero.mod.command.IronManCommand}. */
+	/**
+	 * Takes the power away (Arc Reactor removal, another Primary power, Power Suppressor, ...). v0.17.2: the built
+	 * suits and tech level are KEPT -- a player who gets Tony Stark back never has to re-craft their suits.
+	 */
 	public static void revoke(ServerPlayer player) {
 		TonyStarkState s = state(player).copy();
 		s.hasPower = false;
-		s.techLevel = 0;
 		s.activeSuit = "";
-		s.builtSuits.clear();
 		s.suitEnergy.clear();
 		s.suitIntegrity.clear();
 		s.abilityReadyAt.clear();
