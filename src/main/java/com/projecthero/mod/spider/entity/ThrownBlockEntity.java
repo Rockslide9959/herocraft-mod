@@ -45,6 +45,8 @@ public class ThrownBlockEntity extends Entity {
 	private int life;
 	/** True while Grab &amp; Hurl is still hauling it to the hand (no gravity, no collision, cannot shatter). */
 	public boolean held;
+	/** v0.17.2: false = it shatters into dust only (Four Arms' Boulder Rip when the ground was not really torn up). */
+	public boolean dropsItems = true;
 
 	public ThrownBlockEntity(EntityType<? extends ThrownBlockEntity> type, Level level) {
 		super(type, level);
@@ -122,7 +124,7 @@ public class ThrownBlockEntity extends Entity {
 			}
 		}
 		// the block's ordinary drops, as items (the block is never placed back)
-		for (ItemStack drop : Block.getDrops(state, level, BlockPos.containing(c), null)) {
+		for (ItemStack drop : dropsItems ? Block.getDrops(state, level, BlockPos.containing(c), null) : java.util.List.<ItemStack>of()) {
 			ItemEntity item = new ItemEntity(level, c.x, c.y, c.z, drop);
 			item.setDefaultPickUpDelay();
 			level.addFreshEntity(item);
