@@ -48,7 +48,7 @@ import net.minecraft.world.phys.HitResult;
  *    2  falling 4+ blocks, the void, thrown up         Stinkfly (Ghostfreak if Stinkfly can't)
  *    3  on fire, in lava, beside lava in the Nether    Heatblast
  *    4  in combat, below 30% health                    Diamondhead
- *    5  in combat with a boss or a big brute           Four Arms
+ *    5  in combat with a boss or a big brute (after him or within 8 blocks)  Four Arms
  *    6  in combat, mostly ranged attackers             Diamondhead
  *    7  in combat with a crowd (4+ close)              Heatblast
  *    8  in combat with one or two melee mobs           Wildmutt
@@ -176,6 +176,8 @@ public final class OmnitrixAuto {
 		boolean recent = (p.getLastHurtByMobTimestamp() > 0 || p.getLastHurtMobTimestamp() > 0) && since >= 0 && since <= COMBAT_TICKS;
 		boolean combat = targeted || (recent && !hostiles.isEmpty());
 		if (combat) {
+			// what he is actually fighting: whatever is after him, or right on him (within the crowd range) -- not a mob 16 blocks off
+			List<Mob> engaged = hostiles.stream().filter(m -> m.getTarget() == p || m.distanceToSqr(p) <= CROWD_RANGE * CROWD_RANGE).toList();
 			// 4 hurting
 			if (p.getHealth() < p.getMaxHealth() * LOW_HEALTH) {
 				Pick r = first("low_health", DiamondheadKit.ID);
@@ -184,22 +186,22 @@ public final class OmnitrixAuto {
 				}
 			}
 			// 5 a boss / a brute
-			if (hostiles.stream().anyMatch(OmnitrixAuto::brute)) {
+			if (engaged.stream().anyMatch(OmnitrixAuto::brute)) {
 				Pick r = first("boss", FourArmsKit.ID);
 				if (r != null) {
 					return r;
 				}
 			}
 			// 6 mostly ranged
-			long ranged = hostiles.stream().filter(OmnitrixAuto::ranged).count();
-			if (ranged > 0 && ranged * 2 > hostiles.size()) {
+			long ranged = engaged.stream().filter(OmnitrixAuto::ranged).count();
+			if (ranged > 0 && ranged * 2 > engaged.size()) {
 				Pick r = first("ranged", DiamondheadKit.ID);
 				if (r != null) {
 					return r;
 				}
 			}
 			// 7 a crowd
-			long close = hostiles.stream().filter(m -> m.distanceToSqr(p) <= CROWD_RANGE * CROWD_RANGE).count();
+			long close = engaged.stream().filter(m -> m.distanceToSqr(p) <= CROWD_RANGE * CROWD_RANGE).count();
 			if (close >= CROWD) {
 				Pick r = first("crowd", HeatblastKit.ID);
 				if (r != null) {
