@@ -78,6 +78,7 @@ public final class OmnitrixHud {
 		long now = p.level().getGameTime();
 		OmnitrixTransformFx.drawScreen(g, p, s, now, partial);
 		extraction(g, mc, p, now);
+		autoRing(g, s, now, partial);
 		int x0 = g.guiWidth() - MARGIN - WIDTH;
 		int bottom = g.guiHeight() - MARGIN;
 		// on a narrow window the HUD would sit on the right end of the hotbar (and the food bar above it): lift it clear
@@ -88,6 +89,25 @@ public final class OmnitrixHud {
 		// the shared Left-Alt move list, stacked above the HUD like every other power's
 		if (MoveListOverlay.held()) {
 			MoveListOverlay.draw(g, x0 + WIDTH, hudTop, moveRows(mc, p, s, now));
+		}
+	}
+
+	/**
+	 * v0.17.2 (user: the auto-transform): while R is held for one, a ring of lime segments fills round the crosshair over the second.
+	 */
+	private static void autoRing(GuiGraphics g, OmnitrixState s, long now, float partial) {
+		float t = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, now, partial);
+		if (t < 0f) {
+			return;
+		}
+		int cx = g.guiWidth() / 2, cy = g.guiHeight() / 2;
+		int seg = 24;
+		double r = 11.0;
+		for (int i = 0; i < seg; i++) {
+			double a = -Math.PI / 2 + i * Math.PI * 2 / seg;
+			int x = cx + (int) Math.round(Math.cos(a) * r), y = cy + (int) Math.round(Math.sin(a) * r);
+			boolean lit = (i + 1) / (float) seg <= t + 1.0e-3f;
+			g.fill(x - 1, y - 1, x + 1, y + 1, lit ? 0xFF7CFC2A : 0x66101810);
 		}
 	}
 

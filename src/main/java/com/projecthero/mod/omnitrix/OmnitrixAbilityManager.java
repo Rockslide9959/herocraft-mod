@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <pre>
  *   R (1)        human: raise the watch (the core pops up, the face shows the selected alien) / lower it again;
+ *                v0.17.2: HELD for a second it auto-transforms into the alien that fits the situation ({@link OmnitrixAuto});
  *                during the recharge the face flashes red with the time left instead (v0.17.1 user: R, was V).
  *   N (8)        alien: revert early (10 s recharge; v0.17.1 user: "make the detransform keybind N", was V). Shift+N is the
  *                same key. Human: nothing.
@@ -74,8 +75,9 @@ public final class OmnitrixAbilityManager {
 			return;
 		} else if (s.selecting) {
 			Omnitrix.deactivate(p);
-		} else {
-			Omnitrix.activate(p);
+		} else if (Omnitrix.activate(p)) {
+			// v0.17.2 (user): held on, it decides by itself ({@link OmnitrixAuto})
+			OmnitrixAuto.startHold(p);
 		}
 	}
 
@@ -137,6 +139,9 @@ public final class OmnitrixAbilityManager {
 			}
 			return;
 		}
+		if (slot == AbilitySlot.SLOT_1) {
+			OmnitrixAuto.stopHold(p); // let go before the second: the watch just stays up
+		}
 		Key k = mine.remove(i);
 		if (k == null || !s.transformed()) {
 			return;
@@ -158,6 +163,7 @@ public final class OmnitrixAbilityManager {
 
 	/** A holdable key still down after {@code KIT_HOLD_TICKS} starts its hold move. */
 	static void tick(ServerPlayer p) {
+		OmnitrixAuto.tick(p);
 		Long held = MASTER_HOLD.get(p.getUUID());
 		if (held != null) {
 			OmnitrixState ms = Omnitrix.state(p);

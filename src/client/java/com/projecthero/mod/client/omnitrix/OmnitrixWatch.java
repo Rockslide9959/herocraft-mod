@@ -251,7 +251,9 @@ public final class OmnitrixWatch {
 		float lift = LIFT * ph[1];
 		lift = OmnitrixHands.slapLift(lift, slap); // slammed in as the right palm lands
 		float[] sp = s.transformed() ? new float[] { 0f, 1f } : spin(p, s, partial);
-		float twist = sp[0];
+		// v0.17.2 (user: the auto-transform): held R spins the dial up by itself, faster and faster
+		float auto = com.projecthero.mod.omnitrix.OmnitrixAuto.holdProgress(s, p.level().getGameTime(), partial);
+		float twist = sp[0] + (auto > 0f ? auto * auto * 720f : 0f);
 		OmnitrixModel.draw(pose, buffers.getBuffer(RenderType.entityCutoutNoCull(tex)), light, L, lift, twist, false, false);
 		// the circuit riser the whole dial stands on while it is up
 		if (lift > 0.02f) {
