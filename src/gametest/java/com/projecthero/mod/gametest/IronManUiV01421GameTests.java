@@ -476,13 +476,22 @@ public class IronManUiV01421GameTests implements FabricGameTest {
 			helper.assertTrue(c.right() <= box.right() && c.bottom() <= box.bottom() + 1, "recipe cell " + i + " inside the box");
 		}
 		helper.assertTrue(w(t("screen.projecthero.stark_fabricator.view_more")) * 0.75f <= IronManUiLayout.FAB_MORE_W - 4, "View more fits");
-		helper.assertTrue(w(t("screen.projecthero.stark_workbench.build").toUpperCase(java.util.Locale.ROOT)) <= IronManUiLayout.FAB_BUILD_W - 4, "Build fits");
+		for (String k : new String[] { "fabricate", "cancel" }) {
+			helper.assertTrue(w(t("screen.projecthero.stark_workbench." + k).toUpperCase(java.util.Locale.ROOT)) <= IronManUiLayout.FAB_BUILD_W - 4,
+					"the " + k + " button label fits");
+		}
+		helper.assertTrue(IronManUiLayout.FAB_RIGHT_W - IronManUiLayout.FAB_BUILD_W - 8 >= 30, "the progress bar keeps room beside the button");
 		helper.assertFalse(t("screen.projecthero.stark_fabricator.pick_piece").contains("→"), "no misleading arrow");
 		int statusW = fw - IronManUiLayout.FAB_STATUS_X - 6;
-		for (String k : new String[] { "ready", "low_energy", "missing", "idle" }) {
+		for (String k : new String[] { "ready", "missing", "idle" }) {
 			helper.assertTrue(w(t("screen.projecthero.stark_fabricator.status." + k)) <= statusW, "status '" + k + "' fits its line");
 		}
-		helper.assertTrue(w(f("screen.projecthero.stark_fabricator.energy", 50000, 50000)) <= statusW, "the energy readout fits its line");
+		// v0.17.2: the reasons Fabricate is greyed wrap onto the two status lines (never past them)
+		for (String k : new String[] { "running", "nothing", "blueprint", "missing", "output", "too_far" }) {
+			helper.assertTrue(IronManUiLayout.wrapLines(t("screen.projecthero.stark_workbench.why." + k), statusW, IronManUiV01421GameTests::w) <= 2,
+					"the reason '" + k + "' fits two status lines");
+		}
+		helper.assertTrue(w(t("screen.projecthero.stark_workbench.paused")) <= statusW, "the paused line fits");
 		helper.succeed();
 	}
 

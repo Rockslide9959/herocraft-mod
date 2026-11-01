@@ -166,13 +166,21 @@ suit instead of 20.
   so it refuses a non-Tony-Stark player even if the screen were forced open.
 * **Automation guard:** the Fabricator only makes fabrication progress while a player **with the Tony
   Stark power is within 6 blocks** — this blocks hopper/other automation by a non-Stark player.
-* **Energy:** internal buffer, `50,000` max. Charge by right-clicking the block with a **Reactor
-  Core** (+8,000) or an **Arc Reactor** (+25,000) — explicit, the item is consumed and a message
-  confirms the new total. Nothing consumes an Arc Reactor by surprise. (Since "changes 22" it also
-  refills itself — 150 s from empty since v0.14.21, see §3a.)
+* **Energy (v0.17.2: removed).** The Workbench has no charge any more — no buffer, no cost, no gauge, and
+  a Reactor Core / Arc Reactor is never inserted as fuel (an old save's `Energy` tag is ignored). The
+  §3a / "changes 22" pacing notes below are history.
+* **Fabricate button (v0.17.2).** Nothing starts by itself: a job starts only when the operator presses
+  FABRICATE (`StarkFabricatorMenu.clickMenuButton`: `BUILD_BASE + suit*10 + piece` loads the blueprint +
+  parts from the inventory then starts; `FABRICATE_BUTTON` starts what the grid makes; `CANCEL_BUTTON`
+  stops it). `StarkFabricatorBlockEntity.tryStart` validates server-side (Tony Stark power, within 6
+  blocks, nothing running, `StarkWorkbench.blocker` = recipe complete + blueprint + output room). Inputs
+  are consumed on **completion** only, so Cancel, or a job whose inputs / blueprint / piece change
+  mid-build (it cancels itself), loses nothing. With no Tony Stark in range it pauses, keeping progress.
 * **Fabrication time:** every recipe has a `timeTicks`; higher-tier = longer (servo motor 40t,
-  repulsor 80t, helmet ~160t, chestplate ~240t). The FABRICATE bar and ENERGY gauge sync via 4
-  `ContainerData` ints.
+  repulsor 80t, helmet ~160t, chestplate ~240t). Progress, length and the selected piece sync via 3
+  `ContainerData` ints; the desk's hologram job (suit, job item, progress, advancing, completion counter)
+  via the block entity update tag. The real piece assembles on the desk and in the screen preview
+  (`client/render/workbench/WorkbenchBuildFx`, per-face fly-in hooked into `SuperheroArmorRenderer`).
 * **Blueprint gating ("changes 21"):** armour is only produced via the selected-piece path, which
   needs the matching mark's blueprint in the slot. Recipes are all `requiredTechLevel 0` now — the
   Blank Blueprint progression is the sole gate (previously also gated on operator tech level + blueprint tier).

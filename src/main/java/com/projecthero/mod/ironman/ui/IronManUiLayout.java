@@ -454,7 +454,7 @@ public final class IronManUiLayout {
 	// v0.16.7 (user): the Stark Fabricator rebuilt as the Stark Workbench. Panel 320 x 236 (fits a 320 x 240 screen):
 	//   y 0..18     title + era tabs
 	//   y 22..146   suit list (left) | hologram preview + piece toggles (middle) | stats, recipe slots, Build (right)
-	//   y 150..236  player inventory (left) | blueprint, 3x3 inputs, output, energy gauge, status (right)
+	//   y 150..236  player inventory (left) | blueprint, 3x3 inputs, output, status (right)
 
 	public static final int FAB_W = 320;
 	public static final int FAB_H = 236;
@@ -497,12 +497,9 @@ public final class IronManUiLayout {
 	public static final int FAB_CHECK_ROW_H = 18;
 	public static final int FAB_CHECK_TOP = FAB_BOX_Y + 12;
 	public static final int FAB_BUILD_Y = 135;
-	public static final int FAB_BUILD_W = 42;
+	public static final int FAB_BUILD_W = 60; // v0.17.2: FABRICATE / CANCEL (was Build)
 	public static final int FAB_BUILD_H = 12;
-	/** Bottom-right machine area. */
-	public static final int FAB_GAUGE_X = 304;
-	public static final int FAB_GAUGE_Y = 154;
-	public static final int FAB_GAUGE_H = 54;
+	/** Bottom-right machine area: the two status lines (v0.17.2: the energy gauge is gone). */
 	public static final int FAB_STATUS_X = 178;
 	public static final int FAB_STATUS_Y = 213;
 	/** Player inventory rows / hotbar. */

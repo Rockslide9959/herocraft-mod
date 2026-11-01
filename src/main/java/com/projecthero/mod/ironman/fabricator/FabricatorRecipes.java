@@ -21,8 +21,6 @@ import static com.projecthero.mod.ironman.fabricator.FabricationRecipe.of;
  * completing a mark's <em>chestplate</em> advances the technology tree to that mark.
  */
 public final class FabricatorRecipes {
-	public static final int MAX_ENERGY = 50_000;
-
 	private static final List<FabricationRecipe> ALL = new ArrayList<>();
 	private static volatile List<FabricationRecipe> view0;
 
@@ -149,41 +147,41 @@ public final class FabricatorRecipes {
 		// data/projecthero/recipe/ -- change both together. Biggest cuts: the Advanced Arc Reactor's
 		// diamond block -> 4 diamonds, the Repulsor's two redstone blocks -> one, simpler servo / thruster /
 		// stabiliser / suit-computer / missile inputs, and +1 yield on the alloy and the Stark circuit.
-		add(of("titanium_gold_alloy", new ItemStack(IronManItems.TITANIUM_GOLD_ALLOY, 3), 300, 40, 0,
+		add(of("titanium_gold_alloy", new ItemStack(IronManItems.TITANIUM_GOLD_ALLOY, 3), 40, 0,
 				in(Items.GOLD_INGOT, 3), in(Items.IRON_INGOT, 3), in(IronManItems.METAL_PLATING, 1)));
-		add(of("titanium_gold_plate", new ItemStack(IronManItems.TITANIUM_GOLD_PLATE, 3), 250, 30, 0,
+		add(of("titanium_gold_plate", new ItemStack(IronManItems.TITANIUM_GOLD_PLATE, 3), 30, 0,
 				in(IronManItems.TITANIUM_GOLD_ALLOY, 2), in(IronManItems.METAL_PLATING, 1)));
-		add(of("servo_motor", new ItemStack(IronManItems.SERVO_MOTOR, 2), 200, 40, 0,
+		add(of("servo_motor", new ItemStack(IronManItems.SERVO_MOTOR, 2), 40, 0,
 				in(IronManItems.MECHANICAL_PARTS, 1), in(IronManItems.COPPER_WIRING, 1), in(Items.REDSTONE, 1)));
-		add(of("micro_thruster", new ItemStack(IronManItems.MICRO_THRUSTER, 2), 400, 60, 0,
+		add(of("micro_thruster", new ItemStack(IronManItems.MICRO_THRUSTER, 2), 60, 0,
 				in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.METAL_PLATING, 1), in(Items.BLAZE_POWDER, 1)));
-		add(of("stark_circuit", new ItemStack(IronManItems.STARK_CIRCUIT, 3), 300, 40, 0,
+		add(of("stark_circuit", new ItemStack(IronManItems.STARK_CIRCUIT, 3), 40, 0,
 				in(IronManItems.BASIC_CIRCUIT, 2), in(Items.GOLD_INGOT, 1), in(Items.REDSTONE, 1)));
-		add(of("repulsor", new ItemStack(IronManItems.REPULSOR, 2), 600, 80, 0,
+		add(of("repulsor", new ItemStack(IronManItems.REPULSOR, 2), 80, 0,
 				in(IronManItems.STARK_CIRCUIT, 1), in(Items.REDSTONE_BLOCK, 1), in(Items.DIAMOND, 1)));
-		add(of("flight_stabilizer", new ItemStack(IronManItems.FLIGHT_STABILIZER, 2), 500, 70, 0,
+		add(of("flight_stabilizer", new ItemStack(IronManItems.FLIGHT_STABILIZER, 2), 70, 0,
 				in(IronManItems.SERVO_MOTOR, 1), in(IronManItems.MICRO_THRUSTER, 1), in(Items.AMETHYST_SHARD, 1)));
-		add(of("targeting_module", new ItemStack(IronManItems.TARGETING_MODULE, 2), 500, 60, 0,
+		add(of("targeting_module", new ItemStack(IronManItems.TARGETING_MODULE, 2), 60, 0,
 				in(IronManItems.BASIC_CIRCUIT, 1), in(Items.ENDER_EYE, 1), in(IronManItems.STARK_CIRCUIT, 1)));
-		add(of("suit_computer", stack(IronManItems.SUIT_COMPUTER), 800, 80, 0,
+		add(of("suit_computer", stack(IronManItems.SUIT_COMPUTER), 80, 0,
 				in(IronManItems.STARK_CIRCUIT, 1), in(IronManItems.TARGETING_MODULE, 1), in(Items.AMETHYST_SHARD, 1)));
-		add(of("advanced_arc_reactor", stack(IronManItems.ADVANCED_ARC_REACTOR), 2_500, 120, 0,
+		add(of("advanced_arc_reactor", stack(IronManItems.ADVANCED_ARC_REACTOR), 120, 0,
 				in(IronManItems.TITANIUM_GOLD_PLATE, 2), in(IronManItems.STARK_CIRCUIT, 2),
 				in(Items.DIAMOND, 4), in(Items.GLOWSTONE, 1)));
-		add(of("missile_module", new ItemStack(IronManItems.MISSILE_MODULE, 2), 600, 80, 0,
+		add(of("missile_module", new ItemStack(IronManItems.MISSILE_MODULE, 2), 80, 0,
 				in(IronManItems.STARK_CIRCUIT, 1), in(Items.GUNPOWDER, 2), in(IronManItems.SERVO_MOTOR, 1),
 				in(IronManItems.METAL_PLATING, 2)));
 		// v0.16.1 comic rework: the new signature parts
-		add(of("gilded_plating", new ItemStack(IronManItems.GILDED_PLATING, 2), 300, 40, 0,
+		add(of("gilded_plating", new ItemStack(IronManItems.GILDED_PLATING, 2), 40, 0,
 				in(Items.GOLD_INGOT, 3), in(IronManItems.METAL_PLATING, 2)));
-		add(of("pressure_hull", new ItemStack(IronManItems.PRESSURE_HULL, 2), 500, 60, 0,
+		add(of("pressure_hull", new ItemStack(IronManItems.PRESSURE_HULL, 2), 60, 0,
 				in(IronManItems.METAL_PLATING, 1), in(Items.PRISMARINE_SHARD, 4), in(Items.NAUTILUS_SHELL, 1))); // cost pass: no titanium plate
-		add(of("stealth_coating", new ItemStack(IronManItems.STEALTH_COATING, 2), 500, 60, 0,
+		add(of("stealth_coating", new ItemStack(IronManItems.STEALTH_COATING, 2), 60, 0,
 				in(Items.BLACK_DYE, 2), in(Items.ECHO_SHARD, 1), in(Items.PHANTOM_MEMBRANE, 1), in(IronManItems.METAL_PLATING, 2),
 				in(Items.AMETHYST_SHARD, 1))); // cost pass: the Stealth Mark 5 must out-cost the Hydro Mark 4
-		add(of("thermal_shielding", new ItemStack(IronManItems.THERMAL_SHIELDING, 2), 600, 80, 0,
+		add(of("thermal_shielding", new ItemStack(IronManItems.THERMAL_SHIELDING, 2), 80, 0,
 				in(IronManItems.TITANIUM_GOLD_PLATE, 1), in(Items.MAGMA_CREAM, 2), in(Items.BLUE_ICE, 1)));
-		add(of("hydraulic_frame", new ItemStack(IronManItems.HYDRAULIC_FRAME, 1), 800, 100, 0,
+		add(of("hydraulic_frame", new ItemStack(IronManItems.HYDRAULIC_FRAME, 1), 100, 0,
 				in(IronManItems.SERVO_MOTOR, 2), in(Items.PISTON, 2), in(Items.IRON_BLOCK, 1)));
 
 		// ---------------- blueprints ----------------
@@ -325,13 +323,9 @@ public final class FabricatorRecipes {
 	private static FabricationRecipe armor(String suitId, ArmorItem.Type type, int timeTier, int baseTime,
 			FabricationRecipe.Input... inputs) {
 		ItemStack result = new ItemStack(IronManItems.armor(suitId, type));
-		// "changes 22": every armour piece costs the Fabricator's ENTIRE buffer. Building one drains the
-		// machine flat, and the next piece cannot start until its own reactor has charged all the way
-		// back up (StarkFabricatorBlockEntity.SELF_RECHARGE_SECONDS) -- so a four-piece suit is paced by
-		// the machine, not just by how many components you can pile in.
-		int energy = MAX_ENERGY;
+		// v0.17.2 (user): no machine energy any more -- a piece costs its components and its build time only
 		int time = Math.round(baseTime * (0.8f + 0.15f * timeTier));
 		return new FabricationRecipe("iron_man_" + suitId + "_" + type.getName(),
-				merged(inputs), energy, time, result, 0, null);
+				merged(inputs), time, result, 0, null);
 	}
 }

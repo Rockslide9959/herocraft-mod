@@ -18,8 +18,7 @@ import com.projecthero.mod.attachment.ModAttachments;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
@@ -30,17 +29,25 @@ import net.minecraft.world.item.ItemStack;
  * v0.16.7 (user): the Stark Workbench's rules shared by the screen (client), the block entity and the menu (server):
  * which suits each era tab lists (read from the progression {@link IronManItems#MARK_ORDER} -- never hardcoded), the
  * owned / buildable / locked state of a suit and its four pieces (from the synced {@link TonyStarkState}, so the client
- * screen and the server agree), the normalised stat bars, and the Build button: load the selected piece's blueprint and
- * components from the player's inventory into the machine, after which the unchanged Fabricator logic
- * ({@link FabricatorRecipes}, machine energy, the Tony-Stark-nearby rule) fabricates it.
+ * screen and the server agree), the normalised stat bars, and the Fabricate button (v0.17.2; was Build): load the selected
+ * piece's blueprint and components from the player's inventory into the machine, then start the job
+ * ({@link StarkFabricatorBlockEntity#tryStart}), which only advances while a Tony Stark is near. {@link #blocker} is the
+ * one rule for "why can Fabricate not run", shared by the greyed button (client) and the server.
  */
 public final class StarkWorkbench {
 	/** The four era tabs; Era I (the Gantry Age) and Era II (the portable suits + the Hulkbuster) are live in v0.16.7. */
 	public static final int ERA_COUNT = 4;
 	public static final int LIVE_ERAS = 2;
 
-	/** Menu button ids: {@code BUILD_BASE + suitIndex * 10 + piece} = Build that piece (1..4) of {@code MARK_ORDER[suitIndex]}. */
+	/**
+	 * Menu button ids: {@code BUILD_BASE + suitIndex * 10 + piece} = Fabricate that piece (1..4) of
+	 * {@code MARK_ORDER[suitIndex]} (load its blueprint + components from the inventory, then start).
+	 */
 	public static final int BUILD_BASE = 1000;
+	/** v0.17.2: Fabricate whatever the slots make as they are (a component by hand, or the loaded piece). */
+	public static final int FABRICATE_BUTTON = 900;
+	/** v0.17.2: Cancel the running job (nothing was consumed yet, so nothing is lost). */
+	public static final int CANCEL_BUTTON = 901;
 
 	private static final String[] PIECES = { "helmet", "chestplate", "leggings", "boots" };
 	private static final ArmorItem.Type[] TYPES = { ArmorItem.Type.HELMET, ArmorItem.Type.CHESTPLATE,
@@ -190,33 +197,91 @@ public final class StarkWorkbench {
 		});
 	}
 
-	// ------------------------------------------------------------------ the Build button (server)
+	// ------------------------------------------------------------------ the Fabricate button (shared rule)
+
+	/** Room in the output slot for one run of {@code recipe}? */
+	public static boolean canOutput(Container c, FabricationRecipe recipe) {
+		ItemStack out = c.getItem(StarkFabricatorBlockEntity.OUTPUT_SLOT);
+		return out.isEmpty() || (out.is(recipe.result().getItem())
+				&& out.getCount() + recipe.result().getCount() <= out.getMaxStackSize());
+	}
+
+	/**
+	 * Why Fabricate cannot start right now on this machine, as a {@code screen.projecthero.stark_workbench.why.*} key
+	 * suffix, or null when it can: {@code running} (a job is on), {@code nothing} (no piece picked / no blueprint, and the
+	 * grid makes no component either), {@code blueprint} (the blueprint is too early for the piece), {@code missing}
+	 * (components missing from the grid) or {@code output} (the output slot is full or holds something else).
+	 */
+	public static String blocker(Container c, int techLevel, int piece, boolean running) {
+		if (running) {
+			return "running";
+		}
+		FabricationRecipe recipe = FabricatorRecipes.find(c, techLevel, piece);
+		if (recipe == null) {
+			FabricationRecipe selected = FabricatorRecipes.selectedArmorRecipe(c, piece);
+			if (selected == null) {
+				return "nothing";
+			}
+			return selected.matches(c) ? "blueprint" : "missing";
+		}
+		return canOutput(c, recipe) ? null : "output";
+	}
+
+	// ------------------------------------------------------------------ the Fabricate button (server)
+
+	/**
+	 * v0.17.2: the screen's Fabricate for a suit piece: {@link #build} (load the blueprint + components) and, when that left
+	 * the recipe complete, start the job. Refused outright while a job runs (nothing is moved). Reports on the action bar.
+	 */
+	public static void fabricate(ServerPlayer player, StarkFabricatorBlockEntity be, String suitId, int piece) {
+		if (be.running()) {
+			say(player, Component.translatable("screen.projecthero.stark_workbench.why.running"), ChatFormatting.RED);
+			return;
+		}
+		if (build(player, be, suitId, piece)) {
+			start(player, be);
+		}
+	}
+
+	/** Start the job the machine holds; reports the result on the action bar. */
+	public static void start(ServerPlayer player, StarkFabricatorBlockEntity be) {
+		Component why = be.tryStart(player);
+		if (why != null) {
+			say(player, why, ChatFormatting.RED);
+			return;
+		}
+		FabricationRecipe r = be.activeRecipe();
+		say(player, Component.translatable("message.projecthero.stark_workbench.fabricating",
+				r == null ? Component.literal("?") : r.result().getHoverName()), ChatFormatting.AQUA);
+	}
+
+	// ------------------------------------------------------------------ loading (server)
 
 	/**
 	 * Build piece {@code piece} of {@code suitId}: put that suit's blueprint into the blueprint slot (from the player's
 	 * inventory; a Blank Blueprint is stamped first if they have one and the suit is unlocked -- the same unlock rule as
 	 * the Blank Blueprint picker), select the piece, and move every missing component from the player's inventory into the
-	 * input grid. The machine then fabricates it exactly as before. Reports what happened on the action bar.
+	 * input grid. Returns true when everything the recipe needs is now in the grid (a problem is reported on the action bar).
 	 */
-	public static void build(ServerPlayer player, StarkFabricatorBlockEntity be, String suitId, int piece) {
+	public static boolean build(ServerPlayer player, StarkFabricatorBlockEntity be, String suitId, int piece) {
 		if (!TonyStark.hasPower(player) || IronManSuits.byId(suitId) == null || piece < 1 || piece > 4) {
-			return;
+			return false;
 		}
 		TonyStarkState s = state(player);
 		if (!unlocked(s, suitId)) {
 			IronManSuit pre = IronManSuits.byId(IronManItems.prerequisiteSuit(suitId));
 			say(player, Component.translatable("message.projecthero.stark_workbench.locked",
 					pre != null ? Component.translatable(pre.nameKey()) : Component.literal("?")), ChatFormatting.RED);
-			return;
+			return false;
 		}
 		FabricationRecipe recipe = recipe(suitId, piece);
 		if (recipe == null) {
 			say(player, Component.translatable("message.projecthero.stark_workbench.table_built"), ChatFormatting.GOLD);
-			return;
+			return false;
 		}
 		if (!loadBlueprint(player, be, suitId)) {
 			say(player, Component.translatable("message.projecthero.stark_workbench.no_blueprint"), ChatFormatting.RED);
-			return;
+			return false;
 		}
 		be.setSelectedPiece(piece);
 		int missing = 0;
@@ -232,10 +297,9 @@ public final class StarkWorkbench {
 		player.containerMenu.broadcastChanges();
 		if (missing > 0) {
 			say(player, Component.translatable("message.projecthero.stark_workbench.missing", missing), ChatFormatting.RED);
-		} else {
-			player.level().playSound(null, be.getBlockPos(), SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.6f, 1.6f);
-			say(player, Component.translatable("message.projecthero.stark_workbench.building"), ChatFormatting.AQUA);
+			return false;
 		}
+		return true;
 	}
 
 	private static void say(ServerPlayer player, Component c, ChatFormatting colour) {

@@ -17,8 +17,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
  * The Stark Workbench (ex-Fabricator) container menu: 9 component inputs, 1 blueprint slot, 1 output slot, plus the
- * player inventory. Four {@link ContainerData} ints (energy, maxEnergy, progress, maxProgress) sync
- * the FABRICATE bar and ENERGY bar to the client.
+ * player inventory. Three {@link ContainerData} ints (progress, maxProgress, the selected piece) sync the progress
+ * bar to the client. v0.17.2 (user): no energy; nothing fabricates until the Fabricate button
+ * ({@link StarkWorkbench#FABRICATE_BUTTON} / {@link StarkWorkbench#BUILD_BASE}), and Cancel stops it.
  *
  * <p>{@link #stillValid} re-checks the Tony Stark power server-side every tick the menu is open, so
  * closing the loophole is not just "don't open the screen" -- the container itself refuses a
@@ -37,7 +38,7 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 
 	/** Client-side (from the extended screen handler type, given the block pos). */
 	public StarkFabricatorMenu(int syncId, Inventory playerInv, BlockPos pos) {
-		this(syncId, playerInv, resolve(playerInv, pos), new net.minecraft.world.inventory.SimpleContainerData(5),
+		this(syncId, playerInv, resolve(playerInv, pos), new net.minecraft.world.inventory.SimpleContainerData(3),
 				ContainerLevelAccess.create(playerInv.player.level(), pos));
 	}
 
@@ -90,25 +91,23 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 		return be instanceof StarkFabricatorBlockEntity fab ? fab : new SimpleContainer(StarkFabricatorBlockEntity.SIZE);
 	}
 
-	public int energy() {
-		return data.get(0) * StarkFabricatorBlockEntity.ENERGY_SCALE;
-	}
-
-	public int maxEnergy() {
-		return data.get(1) * StarkFabricatorBlockEntity.ENERGY_SCALE;
-	}
-
 	public int progress() {
-		return data.get(2);
+		return data.get(0);
 	}
 
+	/** The running job's length in ticks; 0 = no job running. */
 	public int maxProgress() {
-		return data.get(3);
+		return data.get(1);
+	}
+
+	/** Is a fabrication job running (Fabricate pressed, not finished or cancelled)? */
+	public boolean running() {
+		return maxProgress() > 0;
 	}
 
 	/** "changes 18": 0 = none, 1 = helmet, 2 = chestplate, 3 = leggings, 4 = boots. */
 	public int selectedPiece() {
-		return data.get(4);
+		return data.get(2);
 	}
 
 	/** The stack in the blueprint slot (menu slot 9 -> container slot {@link StarkFabricatorBlockEntity#BLUEPRINT_SLOT}). */
@@ -123,7 +122,18 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 			fab.setSelectedPiece(fab.selectedPiece() == id ? 0 : id);
 			return true;
 		}
-		// v0.16.7 (user): the Workbench Build button -- BUILD_BASE + suitIndex * 10 + piece (suit index into MARK_ORDER)
+		// v0.17.2 (user): Fabricate what the slots hold as they are / Cancel the running job
+		if (id == StarkWorkbench.FABRICATE_BUTTON && container instanceof StarkFabricatorBlockEntity fab
+				&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
+			StarkWorkbench.start(sp, fab);
+			return true;
+		}
+		if (id == StarkWorkbench.CANCEL_BUTTON && container instanceof StarkFabricatorBlockEntity fab) {
+			fab.cancel();
+			return true;
+		}
+		// the Workbench Fabricate button for a browsed piece -- BUILD_BASE + suitIndex * 10 + piece (index into MARK_ORDER):
+		// load its blueprint + components from the inventory, then start
 		if (id >= StarkWorkbench.BUILD_BASE && container instanceof StarkFabricatorBlockEntity fab
 				&& player instanceof net.minecraft.server.level.ServerPlayer sp) {
 			int code = id - StarkWorkbench.BUILD_BASE;
@@ -131,7 +141,7 @@ public class StarkFabricatorMenu extends AbstractContainerMenu {
 			int piece = code % 10;
 			java.util.List<String> order = com.projecthero.mod.ironman.item.IronManItems.MARK_ORDER;
 			if (suitIndex >= 0 && suitIndex < order.size()) {
-				StarkWorkbench.build(sp, fab, order.get(suitIndex), piece);
+				StarkWorkbench.fabricate(sp, fab, order.get(suitIndex), piece);
 			}
 			return true;
 		}

@@ -7,6 +7,7 @@ import java.util.Locale;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import com.projecthero.mod.client.render.workbench.WorkbenchBuildFx;
 import com.projecthero.mod.client.render.workbench.WorkbenchHolo;
 import com.projecthero.mod.client.render.workbench.WorkbenchHoloRenderType;
 import com.projecthero.mod.ironman.data.TonyStarkState;
@@ -33,21 +34,25 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * v0.16.7 (user): the Stark Workbench screen -- a new front end for the unchanged Fabricator logic (recipes, machine
- * energy, progress, the blueprint and nine input slots), laid out like the approved mockup (geometry in
- * {@link IronManUiLayout}, 320 x 236 so it fits a 320 x 240 GUI):
+ * v0.16.7 (user): the Stark Workbench screen -- a front end for the Fabricator logic (recipes, progress, the blueprint
+ * and nine input slots), laid out like the approved mockup (geometry in {@link IronManUiLayout}, 320 x 236 so it fits a
+ * 320 x 240 GUI):
  * <pre>
  *   STARK WORKBENCH                                [ERA I][ERA II][ERA III][ERA IV]   (III-IV locked, "coming soon")
- *   suit list           | rotating hologram preview      | stat bars: Armour / Integrity / Reactor / Flight
- *   (owned / buildable  | (drag to spin; the same mesh    | "Helmet needs:"                    [View more]
- *    / locked)          |  as the in-world hologram)     | recipe slots: icon + have/need (missing in red)
- *                       | [helm][chest][legs][boots]     | [Build] =====progress=====
- *   player inventory                                     | blueprint  3x3 inputs  -> output   energy
- *                                                        | status / energy
+ *   suit list           | the real piece, turning        | stat bars: Armour / Integrity / Reactor / Flight
+ *   (owned / buildable  | (drag to spin; the same model   | "Helmet needs:"                    [View more]
+ *    / locked)          |  + build as on the desk)       | recipe slots: icon + have/need (missing in red)
+ *                       | [helm][chest][legs][boots]     | [FABRICATE] / [CANCEL] ===progress===
+ *   player inventory                                     | blueprint  3x3 inputs  -> output
+ *                                                        | status, or why Fabricate cannot run (wrapped)
  * </pre>
- * Browsing the list and the piece toggles is local to the screen; Build sends the suit + piece to the server
- * ({@link StarkWorkbench#build}), which loads the blueprint and the components from the inventory into the machine.
- * "have" counts what the grid + your inventory hold, i.e. what Build can load. The old screen's "View more" panel (every
+ * Browsing the list and the piece toggles is local to the screen. v0.17.2 (user): no energy, and nothing builds until
+ * FABRICATE is pressed: it sends the suit + piece to the server ({@link StarkWorkbench#fabricate}), which loads the
+ * blueprint and the components from the inventory into the machine and starts the job; with a component laid out by hand
+ * in the grid it fabricates that instead ({@link StarkWorkbench#FABRICATE_BUTTON}); while a job runs it is CANCEL (nothing
+ * is consumed until the job finishes, so nothing is lost). It is greyed, with the reason in the status lines and its
+ * tooltip, when it cannot run (the same rule as the server, {@link StarkWorkbench#blocker}).
+ * "have" counts what the grid + your inventory hold, i.e. what Fabricate can load. The old screen's "View more" panel (every
  * component, cost, the suit's stats and moves) is kept, and the machine slots stay usable by hand. A suit outside Era I
  * that sits in the blueprint slot (an older save) still shows and builds here, so nothing is stranded.
  */
@@ -76,7 +81,6 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 	private int infoScroll;
 	private int infoScrollMax;
 	private List<Component> pendingTip;
-	private final boolean[] holoBuilt = new boolean[4];
 
 	public StarkWorkbenchScreen(StarkFabricatorMenu menu, Inventory inv, Component title) {
 		super(menu, inv, title);
@@ -204,7 +208,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		}
 		renderEraTabs(g, x, y, mouseX, mouseY);
 		renderList(g, x, y, mouseX, mouseY);
-		renderHologram(g, x, y);
+		renderHologram(g, x, y, partialTick);
 		renderToggles(g, x, y, mouseX, mouseY);
 		renderStats(g, x, y, mouseX, mouseY);
 		renderRecipe(g, x, y, mouseX, mouseY);
@@ -333,8 +337,12 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		return sb.toString();
 	}
 
-	/** The hologram preview: the same mesh as the in-world hologram, additive cyan, turning slowly (drag to spin). */
-	private void renderHologram(GuiGraphics g, int x, int y) {
+	/**
+	 * The preview: the REAL armour piece being browsed (v0.17.2 (user); the same model and build animation as the one on the
+	 * desk, {@link WorkbenchBuildFx}) over the projector, turning slowly (drag to spin). Built = solid; not built = a cyan
+	 * blueprint; the job's piece while Fabricate runs = assembling to the real progress, then the finish flourish.
+	 */
+	private void renderHologram(GuiGraphics g, int x, int y, float partialTick) {
 		int x0 = x + IronManUiLayout.FAB_HOLO_X;
 		int y0 = y + IronManUiLayout.FAB_HOLO_Y;
 		int w = IronManUiLayout.FAB_HOLO_W;
@@ -360,36 +368,129 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 			yaw += Math.min(100, now - lastFrameMs) * 0.03f; // a slow turntable (30 degrees a second)
 		}
 		lastFrameMs = now;
-		TonyStarkState s = stark();
-		for (int p = 0; p < 4; p++) {
-			holoBuilt[p] = StarkWorkbench.pieceBuilt(s, browseSuit, p + 1);
+		float ticks = now / 50f;
+		IronManSuit suit = IronManSuits.byId(browseSuit);
+		int piece = browsePiece;
+		Item armour = suit == null || piece < 1 ? null : suit.armor(PIECE_TYPES[piece - 1]);
+		boolean job = browsingJob() && menu.running() && menu.selectedPiece() == piece;
+		float flourish = flourishT(now);
+		if (!browsingJob()) {
+			flourish = -1f; // the finish plays on the piece that was made
 		}
-		int building = browsingJob() && menu.maxProgress() > 0 && menu.selectedPiece() >= 1 ? menu.selectedPiece() - 1 : -1;
-		float sweep = (Util.getMillis() / 40f) % 44f - 6f;
+		float prog;
+		boolean ghost;
+		if (job) {
+			prog = smoothProgress(partialTick);
+			ghost = false;
+		} else {
+			boolean built = StarkWorkbench.pieceBuilt(stark(), browseSuit, piece);
+			prog = built || flourish >= 0f ? 1f : 0f;
+			ghost = !built && flourish < 0f;
+		}
 
 		g.flush();
 		g.enableScissor(x0 + 1, y0 + 1, x0 + w - 1, y0 + h - 1);
 		PoseStack ps = g.pose();
 		ps.pushPose();
-		float sc = 2.25f;
 		ps.translate(x0 + w / 2f, y0 + h - 9, 150);
-		ps.scale(sc, -sc, sc);
+		ps.scale(2.25f, -2.25f, 2.25f);
 		ps.mulPose(Axis.XP.rotationDegrees(-10f));
 		ps.mulPose(Axis.YP.rotationDegrees(yaw));
 		VertexConsumer vc = g.bufferSource().getBuffer(WorkbenchHoloRenderType.HOLO);
-		WorkbenchHolo.beam(vc, ps.last().pose(), 3f, 4.5f, 3f, 1f);
-		WorkbenchHolo.ring(vc, ps.last().pose(), Util.getMillis() / 1200f, 12f, 19f, 0.9f);
-		ps.translate(0, 0.6f, 0);
-		WorkbenchHolo.suit(vc, ps.last().pose(), holoBuilt, building, progressFrac(), 1.25f, sweep);
+		WorkbenchHolo.beam(vc, ps.last().pose(), 3f, 4.5f, 3f, job ? 1.3f : 1f);
+		WorkbenchHolo.ring(vc, ps.last().pose(), now / (job ? 400f : 1200f), 15f, 19f, 0.9f);
 		g.flush();
 		ps.popPose();
+		if (armour != null) {
+			float size = 76f * WorkbenchBuildFx.displayScale(piece);
+			if (flourish >= 0f) {
+				size *= flourish < 0.3f ? 1f + 0.1f * (float) Math.sin(Math.PI * flourish / 0.3f) : 1f;
+			}
+			ps.pushPose();
+			ps.translate(x0 + w / 2f, y0 + h / 2f - 2, 150);
+			ps.scale(size, size, -size);
+			ps.mulPose(Axis.ZP.rotationDegrees(180f));
+			ps.mulPose(Axis.XP.rotationDegrees(-12f));
+			ps.mulPose(Axis.YP.rotationDegrees(yaw));
+			ps.translate(0, -WorkbenchBuildFx.centreY(piece), 0);
+			com.mojang.blaze3d.platform.Lighting.setupForEntityInInventory();
+			WorkbenchBuildFx.drawPiece(ps, g.bufferSource(), net.minecraft.client.renderer.LightTexture.FULL_BRIGHT, armour, piece, prog,
+					ghost, partialTick);
+			g.flush();
+			VertexConsumer hv = g.bufferSource().getBuffer(WorkbenchHoloRenderType.HOLO);
+			if (job && prog < 1f) {
+				WorkbenchBuildFx.cage(hv, ps.last().pose(), piece, prog, ticks, 1f);
+			} else if (ghost) {
+				WorkbenchBuildFx.cage(hv, ps.last().pose(), piece, 0.5f, ticks, 0.35f);
+			}
+			if (job) {
+				WorkbenchBuildFx.flare(hv, ps.last().pose(), piece, prog, ticks, 1f);
+			}
+			if (flourish >= 0f) {
+				WorkbenchBuildFx.flourish(hv, ps.last().pose(), piece, flourish, 1f);
+			}
+			g.flush();
+			com.mojang.blaze3d.platform.Lighting.setupFor3DItems();
+			ps.popPose();
+		}
 		g.disableScissor();
-		String hint = IronManGui.fit(font, Component.translatable("screen.projecthero.stark_workbench.drag"), w - 6);
+		String hint = IronManGui.fit(font, Component.translatable(job ? "screen.projecthero.stark_workbench.fabricating_piece"
+				: ghost ? "screen.projecthero.stark_workbench.blueprint_view" : "screen.projecthero.stark_workbench.drag"),
+				(int) ((w - 6) / 0.75f));
 		g.pose().pushPose();
-		g.pose().translate(x0 + 3, y0 + 3, 0);
+		g.pose().translate(x0 + 3, y0 + 3, 300);
 		g.pose().scale(0.75f, 0.75f, 1f);
-		g.drawString(font, hint, 0, 0, IronManGui.TEXT_MUTED, false);
+		g.drawString(font, hint, 0, 0, job ? IronManGui.GREEN : IronManGui.TEXT_MUTED, false);
 		g.pose().popPose();
+	}
+
+	// ---- the preview's job clock (client): the synced progress run on between ticks, never backwards; the finish flourish
+
+	private float drawnProgress;
+	private boolean wasRunning;
+	private String runningKey = "";
+	private long flourishAtMs = -1;
+
+	private float smoothProgress(float partialTick) {
+		float raw = progressFrac();
+		if (menu.maxProgress() > 0 && machine() instanceof com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity be
+				&& be.advancing()) {
+			raw = IronManUiLayout.clamp01((menu.progress() + partialTick) / (float) menu.maxProgress());
+		}
+		String key = jobSuit() + "/" + menu.selectedPiece() + "/" + menu.maxProgress();
+		if (!key.equals(runningKey) || raw + 0.15f < drawnProgress) {
+			runningKey = key;
+			drawnProgress = raw;
+		}
+		drawnProgress = Math.max(drawnProgress, raw);
+		return drawnProgress;
+	}
+
+	private int outWhileRunning;
+
+	/**
+	 * Watches the job finish (running -> stopped with more in the output slot than while it ran; a Cancel adds nothing):
+	 * the preview's flourish clock 0..1, or -1.
+	 */
+	private float flourishT(long now) {
+		boolean running = menu.running();
+		int out = menu.slots.get(10).getItem().getCount();
+		if (running) {
+			outWhileRunning = out;
+		} else if (wasRunning && out > outWhileRunning) {
+			flourishAtMs = now;
+		}
+		wasRunning = running;
+		if (flourishAtMs < 0) {
+			return -1f;
+		}
+		float t = (now - flourishAtMs) / 1200f;
+		if (t >= 1f) {
+			flourishAtMs = -1;
+			drawnProgress = 0f;
+			return -1f;
+		}
+		return t;
 	}
 
 	private void renderToggles(GuiGraphics g, int x, int y, int mx, int my) {
@@ -513,22 +614,91 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		}
 	}
 
-	private boolean canBuild() {
-		return era <= StarkWorkbench.LIVE_ERAS && browseSuit != null && recipe() != null
-				&& StarkWorkbench.status(stark(), browseSuit) != StarkWorkbench.Status.LOCKED;
+	// ------------------------------------------------------------------ v0.17.2 (user): the Fabricate button
+
+	/** What pressing the button does right now. */
+	private enum Act { CANCEL, PIECE, GRID, NONE }
+
+	private Act act = Act.NONE;
+	/** Why it cannot run (the greyed button's reason), when {@link #act} is NONE. */
+	private Component why;
+	/** The recipe the button would run (PIECE / GRID). */
+	private FabricationRecipe actRecipe;
+
+	private net.minecraft.world.Container machine() {
+		return menu.slots.get(0).container;
+	}
+
+	private int techLevel() {
+		TonyStarkState s = stark();
+		return s == null ? 0 : s.techLevel;
+	}
+
+	/**
+	 * The client copy of the server's rule ({@link StarkWorkbench#blocker} plus the loading step): Cancel while a job runs;
+	 * else Fabricate the browsed piece when the grid + inventory hold all of it and the output has room; else Fabricate
+	 * what the grid makes by hand (a component); else greyed with the browsed piece's reason.
+	 */
+	private void computeAction() {
+		actRecipe = null;
+		why = null;
+		if (menu.running()) {
+			act = Act.CANCEL;
+			return;
+		}
+		Component pieceWhy;
+		FabricationRecipe r = recipe();
+		if (era > StarkWorkbench.LIVE_ERAS || browseSuit == null) {
+			pieceWhy = Component.translatable("screen.projecthero.stark_workbench.why.nothing");
+		} else if (StarkWorkbench.status(stark(), browseSuit) == StarkWorkbench.Status.LOCKED) {
+			pieceWhy = Component.translatable("screen.projecthero.stark_workbench.locked_hint", suitName(IronManItems.prerequisiteSuit(browseSuit)));
+		} else if (r == null) {
+			pieceWhy = Component.translatable("screen.projecthero.stark_workbench.table_hint");
+		} else if (missingAny(r)) {
+			pieceWhy = Component.translatable("screen.projecthero.stark_workbench.why.missing");
+		} else if (!StarkWorkbench.canOutput(machine(), r)) {
+			pieceWhy = Component.translatable("screen.projecthero.stark_workbench.why.output");
+		} else {
+			act = Act.PIECE;
+			actRecipe = r;
+			return;
+		}
+		FabricationRecipe grid = com.projecthero.mod.ironman.fabricator.FabricatorRecipes.find(machine(), techLevel(), menu.selectedPiece());
+		if (grid != null && StarkWorkbench.canOutput(machine(), grid)) {
+			act = Act.GRID;
+			actRecipe = grid;
+			return;
+		}
+		act = Act.NONE;
+		why = pieceWhy;
+	}
+
+	private static String seconds(FabricationRecipe r) {
+		return String.format(Locale.ROOT, "%.1f", r.timeTicks() / 20.0);
 	}
 
 	private void renderBuild(GuiGraphics g, int x, int y, int mx, int my) {
+		computeAction();
 		Rect b = IronManUiLayout.fabBuild();
-		boolean active = canBuild();
+		boolean active = act != Act.NONE;
+		boolean cancel = act == Act.CANCEL;
 		boolean hover = active && in(b, mx, my, x, y);
 		int bx = x + b.x();
 		int by = y + b.y();
-		g.fill(bx, by, bx + b.w(), by + b.h(), !active ? 0xC0101318 : hover ? 0xF0204A5E : 0xF0143444);
-		g.renderOutline(bx, by, b.w(), b.h(), !active ? 0xFF262C36 : hover ? 0xFFFFFFFF : IronManGui.CYAN);
-		String t = IronManGui.fit(font, Component.translatable("screen.projecthero.stark_workbench.build").getString()
-				.toUpperCase(Locale.ROOT), b.w() - 4);
-		g.drawString(font, t, bx + (b.w() - font.width(t)) / 2, by + 2, active ? (hover ? 0xFFFFFFFF : IronManGui.CYAN) : IronManGui.TEXT_MUTED, false);
+		int fill = !active ? 0xC0101318 : cancel ? (hover ? 0xF05A2020 : 0xF0401818) : hover ? 0xF0204A5E : 0xF0143444;
+		int edge = !active ? 0xFF262C36 : hover ? 0xFFFFFFFF : cancel ? IronManGui.ORANGE : IronManGui.CYAN;
+		g.fill(bx, by, bx + b.w(), by + b.h(), fill);
+		g.renderOutline(bx, by, b.w(), b.h(), edge);
+		if (active && !cancel && !hover) {
+			// a slow pulse on a ready button, so it reads as "press me"
+			float pulse = 0.5f + 0.5f * (float) Math.sin(Util.getMillis() / 260.0);
+			g.renderOutline(bx - 1, by - 1, b.w() + 2, b.h() + 2, IronManGui.alpha(IronManGui.CYAN, 0.25f + 0.35f * pulse));
+		}
+		String label = Component.translatable(cancel ? "screen.projecthero.stark_workbench.cancel" : "screen.projecthero.stark_workbench.fabricate")
+				.getString().toUpperCase(Locale.ROOT);
+		String t = IronManGui.fit(font, label, b.w() - 4);
+		int tc = !active ? IronManGui.TEXT_MUTED : hover ? 0xFFFFFFFF : cancel ? IronManGui.ORANGE : IronManGui.CYAN;
+		g.drawString(font, t, bx + (b.w() - font.width(t)) / 2, by + 2, tc, false);
 		// the fabrication progress bar (the real job)
 		int px = bx + b.w() + 4;
 		int pw = IronManUiLayout.FAB_RIGHT_X + IronManUiLayout.FAB_RIGHT_W - b.right() - 4;
@@ -538,7 +708,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		float pf = progressFrac();
 		int fw = Math.round(pw * pf);
 		g.fill(px, py, px + fw, py + 4, IronManGui.CYAN);
-		if (menu.maxProgress() > 0) {
+		if (menu.running()) {
 			long ms = Util.getMillis();
 			int glow = (int) ((ms / 8) % (pw + 20)) - 10;
 			for (int k = -5; k <= 5; k++) {
@@ -548,14 +718,15 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 				}
 			}
 		}
-		if (in(b, mx, my, x, y) && !active && browseSuit != null) {
-			Component why = StarkWorkbench.status(stark(), browseSuit) == StarkWorkbench.Status.LOCKED
-					? Component.translatable("screen.projecthero.stark_workbench.locked_hint", suitName(IronManItems.prerequisiteSuit(browseSuit)))
-					: Component.translatable("screen.projecthero.stark_workbench.table_hint");
-			pendingTip = List.of(why);
-		} else if (in(b, mx, my, x, y) && active) {
-			pendingTip = List.of(Component.translatable("screen.projecthero.stark_workbench.build_tip", pieceName(browsePiece),
-					suitName(browseSuit)));
+		if (in(b, mx, my, x, y)) {
+			pendingTip = switch (act) {
+				case CANCEL -> List.of(Component.translatable("screen.projecthero.stark_workbench.cancel_tip"));
+				case PIECE -> List.of(Component.translatable("screen.projecthero.stark_workbench.fabricate_tip", pieceName(browsePiece),
+						suitName(browseSuit), seconds(actRecipe)));
+				case GRID -> List.of(Component.translatable("screen.projecthero.stark_workbench.fabricate_grid_tip",
+						actRecipe.result().getHoverName(), seconds(actRecipe)));
+				default -> List.of(why);
+			};
 		}
 	}
 
@@ -568,48 +739,52 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 		g.fill(ax + 18, ay - 2, ax + 19, ay + 6, LINE);
 		g.fill(ax + 19, ay - 1, ax + 20, ay + 5, LINE);
 		g.fill(ax + 20, ay, ax + 21, ay + 4, LINE);
-		// energy gauge
-		int gx = x + IronManUiLayout.FAB_GAUGE_X;
-		int gt = y + IronManUiLayout.FAB_GAUGE_Y;
-		int gb = gt + IronManUiLayout.FAB_GAUGE_H;
-		g.fill(gx - 1, gt - 1, gx + 9, gb + 1, LINE);
-		g.fill(gx, gt, gx + 8, gb, 0xFF06101A);
-		float ef = IronManUiLayout.clamp01(menu.energy() / (float) Math.max(1, menu.maxEnergy()));
-		int lvl = Math.round((gb - gt) * ef);
-		g.fillGradient(gx, gb - lvl, gx + 8, gb, 0xFF6FC8FF, 0xFF2A6FC0);
 		// empty blueprint slot ghost
 		if (menu.blueprintStack().isEmpty()) {
 			var sl = menu.slots.get(9);
 			g.renderFakeItem(new ItemStack(IronManItems.BLANK_BLUEPRINT), x + sl.x, y + sl.y);
 			g.fill(x + sl.x, y + sl.y, x + sl.x + 16, y + sl.y + 16, 0xC0070C12);
 		}
-		// status + energy
+		// status: two wrapped lines -- what it is doing, or why Fabricate cannot run
 		int sx = x + IronManUiLayout.FAB_STATUS_X;
 		int sw = IronManUiLayout.FAB_W - IronManUiLayout.FAB_STATUS_X - 6;
-		String status;
+		Component head;
+		Component sub = null;
 		int col;
-		FabricationRecipe job = StarkWorkbench.recipe(jobSuit(), menu.selectedPiece());
-		if (menu.maxProgress() > 0) {
-			status = Component.translatable("screen.projecthero.stark_fabricator.fabricating", Math.round(100f * progressFrac())).getString();
+		if (menu.running()) {
+			head = Component.translatable("screen.projecthero.stark_fabricator.fabricating", Math.round(100f * progressFrac()));
 			col = IronManGui.GREEN;
-		} else if (job != null && !jobMissing(job)) {
-			boolean low = menu.energy() < job.energyCost();
-			status = Component.translatable(low ? "screen.projecthero.stark_fabricator.status.low_energy"
-					: "screen.projecthero.stark_fabricator.status.ready").getString();
-			col = low ? IronManGui.ORANGE : IronManGui.CYAN;
-		} else if (job != null) {
-			status = Component.translatable("screen.projecthero.stark_fabricator.status.missing").getString();
-			col = IronManGui.TEXT_DIM;
+			FabricationRecipe job = runningRecipe();
+			if (machine() instanceof com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity be && !be.advancing()) {
+				sub = Component.translatable("screen.projecthero.stark_workbench.paused");
+			} else if (job != null) {
+				sub = job.result().getHoverName();
+			}
+		} else if (act == Act.NONE) {
+			head = why;
+			col = IronManGui.ORANGE;
 		} else {
-			status = Component.translatable("screen.projecthero.stark_fabricator.status.idle").getString();
-			col = IronManGui.TEXT_DIM;
+			head = Component.translatable("screen.projecthero.stark_fabricator.status.ready");
+			col = IronManGui.CYAN;
+			sub = actRecipe == null ? null : Component.translatable("screen.projecthero.stark_workbench.takes", seconds(actRecipe));
 		}
-		g.drawString(font, IronManGui.fit(font, status, sw), sx, y + IronManUiLayout.FAB_STATUS_Y, col, false);
-		String energy = Component.translatable("screen.projecthero.stark_fabricator.energy", menu.energy(), menu.maxEnergy()).getString();
-		g.drawString(font, IronManGui.fit(font, energy, sw), sx, y + IronManUiLayout.FAB_STATUS_Y + 11, IronManGui.TEXT_MUTED, false);
-		if (mx >= gx - 1 && mx < gx + 9 && my >= gt - 1 && my < gb + 1) {
-			pendingTip = List.of(Component.translatable("screen.projecthero.stark_fabricator.energy", menu.energy(), menu.maxEnergy()));
+		List<FormattedCharSequence> lines = new ArrayList<>(font.split(head, sw));
+		int headLines = lines.size();
+		if (sub != null && lines.size() < 2) {
+			lines.add(font.split(sub, sw).get(0));
 		}
+		for (int i = 0; i < Math.min(2, lines.size()); i++) {
+			g.drawString(font, lines.get(i), sx, y + IronManUiLayout.FAB_STATUS_Y + i * 11, i < headLines ? col : IronManGui.TEXT_MUTED, false);
+		}
+		if (lines.size() > 2 && mx >= sx && mx < sx + sw && my >= y + IronManUiLayout.FAB_STATUS_Y && my < y + IronManUiLayout.FAB_STATUS_Y + 22) {
+			pendingTip = List.of(head); // cut to two lines: the whole reason on hover
+		}
+	}
+
+	/** The running job's recipe as the menu sees it (the blueprint's suit + the selected piece, or the grid's component). */
+	private FabricationRecipe runningRecipe() {
+		FabricationRecipe piece = StarkWorkbench.recipe(jobSuit(), menu.selectedPiece());
+		return piece != null ? piece : com.projecthero.mod.ironman.fabricator.FabricatorRecipes.find(machine(), techLevel(), menu.selectedPiece());
 	}
 
 	/** The job (what is in the slots) is missing something that sits in the grid -- the machine's own rule. */
@@ -770,8 +945,7 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 						.append(Component.literal(ok ? "" : "  (" + have + ")").withStyle(ChatFormatting.DARK_GRAY));
 				out.add(line);
 			}
-			out.add(Component.translatable("screen.projecthero.stark_fabricator.cost", recipe.energyCost(),
-					String.format(Locale.ROOT, "%.1f", recipe.timeTicks() / 20.0)).withStyle(ChatFormatting.DARK_GRAY));
+			out.add(Component.translatable("screen.projecthero.stark_fabricator.cost", seconds(recipe)).withStyle(ChatFormatting.DARK_GRAY));
 			out.add(Component.empty());
 		} else {
 			out.add(Component.translatable("screen.projecthero.stark_workbench.table_hint").withStyle(ChatFormatting.GRAY));
@@ -860,12 +1034,19 @@ public class StarkWorkbenchScreen extends AbstractContainerScreen<StarkFabricato
 					infoScroll = 0;
 					return true;
 				}
-				if (in(IronManUiLayout.fabBuild(), mx, my, x, y) && canBuild()) {
-					int index = IronManItems.MARK_ORDER.indexOf(browseSuit);
-					if (index >= 0 && minecraft != null && minecraft.gameMode != null) {
-						minecraft.gameMode.handleInventoryButtonClick(menu.containerId, StarkWorkbench.buildButtonId(index, browsePiece));
+				if (in(IronManUiLayout.fabBuild(), mx, my, x, y)) {
+					computeAction();
+					int id = switch (act) {
+						case CANCEL -> StarkWorkbench.CANCEL_BUTTON;
+						case PIECE -> IronManItems.MARK_ORDER.indexOf(browseSuit) < 0 ? -1
+								: StarkWorkbench.buildButtonId(IronManItems.MARK_ORDER.indexOf(browseSuit), browsePiece);
+						case GRID -> StarkWorkbench.FABRICATE_BUTTON;
+						default -> -1;
+					};
+					if (id >= 0 && minecraft != null && minecraft.gameMode != null) {
+						minecraft.gameMode.handleInventoryButtonClick(menu.containerId, id);
+						click();
 					}
-					click();
 					return true;
 				}
 				if (in(new Rect(IronManUiLayout.FAB_HOLO_X, IronManUiLayout.FAB_HOLO_Y, IronManUiLayout.FAB_HOLO_W, IronManUiLayout.FAB_HOLO_H),

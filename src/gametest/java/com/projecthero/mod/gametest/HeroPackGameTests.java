@@ -961,16 +961,15 @@ public class HeroPackGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void starkFabricatorConsumesReactorCoreForEnergy(GameTestHelper helper) {
+	public void starkFabricatorNoLongerEatsReactorCores(GameTestHelper helper) {
+		// v0.17.2 (user): the Workbench has no charge -- a Reactor Core in an input slot is just an item
 		net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(2, 2, 2);
 		helper.setBlock(pos, com.projecthero.mod.ironman.IronManBlocks.STARK_FABRICATOR);
 		var be = (com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity) helper.getBlockEntity(pos);
-		int before = be.energy();
 		be.setItem(0, new ItemStack(com.projecthero.mod.ironman.item.IronManItems.REACTOR_CORE, 2));
 		com.projecthero.mod.ironman.fabricator.StarkFabricatorBlockEntity.serverTick(
 				helper.getLevel(), helper.absolutePos(pos), be.getBlockState(), be);
-		helper.assertTrue(be.energy() > before, "a Reactor Core in an input slot must charge the buffer");
-		helper.assertTrue(be.getItem(0).getCount() == 1, "one Reactor Core must be consumed");
+		helper.assertTrue(be.getItem(0).getCount() == 2, "no Reactor Core is consumed");
 		helper.succeed();
 	}
 
@@ -1796,8 +1795,8 @@ public class HeroPackGameTests implements FabricGameTest {
 	}
 
 	/**
-	 * "changes 22": the Mark 1 flamethrower's heat ceiling is 300, and every armour recipe costs the
-	 * Stark Fabricator's entire buffer (so one piece per full recharge).
+	 * "changes 22": the Mark 1 flamethrower's heat ceiling is 300 (v0.17.2: the Fabricator's energy cost is gone; an
+	 * armour piece is paced by its build time).
 	 */
 	@GameTest(template = EMPTY_STRUCTURE)
 	public void changes22FlamethrowerAndFabricator(GameTestHelper helper) {
@@ -1806,15 +1805,11 @@ public class HeroPackGameTests implements FabricGameTest {
 				com.projecthero.mod.ironman.ability.IronManAbilities.flamethrowerMaxHeat(m1) - 100f) < 1e-3f,
 				"Mark 1 flamethrower heat capacity is 100"); // v0.14.27
 
+		// v0.17.2 (user): the Workbench has no charge any more -- a piece is paced by its build time alone
 		var chest = com.projecthero.mod.ironman.fabricator.FabricatorRecipes.byId("iron_man_mark_iii_chestplate");
-		helper.assertTrue(chest != null && chest.energyCost()
-				== com.projecthero.mod.ironman.fabricator.FabricatorRecipes.MAX_ENERGY,
-				"an armour recipe costs 100% of the Fabricator's charge");
-		// a component recipe must NOT -- otherwise the whole tree would be paced by the recharge
 		var circuit = com.projecthero.mod.ironman.fabricator.FabricatorRecipes.byId("stark_circuit");
-		helper.assertTrue(circuit != null
-				&& circuit.energyCost() < com.projecthero.mod.ironman.fabricator.FabricatorRecipes.MAX_ENERGY,
-				"components are still cheap to fabricate");
+		helper.assertTrue(chest != null && circuit != null && chest.timeTicks() > circuit.timeTicks(),
+				"an armour piece takes longer to fabricate than a component");
 		helper.assertTrue(circuit.result().getCount() >= 2, // v0.14.21 cost pass: now 3
 				"components yield more per run after the 'changes 22' cost pass");
 		helper.succeed();

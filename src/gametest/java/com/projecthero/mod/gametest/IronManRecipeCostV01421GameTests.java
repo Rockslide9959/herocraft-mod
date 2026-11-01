@@ -43,7 +43,7 @@ public class IronManRecipeCostV01421GameTests implements FabricGameTest {
 				FabricationRecipe recipe = FabricatorRecipes.byId(id);
 				helper.assertTrue(recipe != null, "missing Fabricator recipe " + id);
 				helper.assertTrue(recipe.result().is(IronManItems.armor(suit, type)), id + " makes the right piece");
-				helper.assertTrue(recipe.energyCost() == FabricatorRecipes.MAX_ENERGY, id + " costs the full buffer");
+				helper.assertTrue(recipe.timeTicks() > 0, id + " has a build time"); // v0.17.2: no energy cost any more
 				helper.assertTrue(recipe.inputs().size() <= 9, id + " fits the 9 input slots");
 				Set<Item> seen = new HashSet<>();
 				for (FabricationRecipe.Input input : recipe.inputs()) {
