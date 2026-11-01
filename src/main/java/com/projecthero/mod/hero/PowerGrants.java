@@ -25,6 +25,7 @@ public final class PowerGrants {
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1
 			"omnitrix", // v0.17.1
+			"stand", // v0.17.2: a JoJo Stand
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse",
 			// v0.16.7: the seven Quirks
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity",
@@ -61,7 +62,8 @@ public final class PowerGrants {
 	/** v0.17.1: heroes no random serum gives -- Falcon's gear is crafted, the Silver Surfer comes from his board. */
 	public static final java.util.Set<String> NOT_FROM_SERUMS = java.util.Set.of("falcon", "silver_surfer",
 			"speed_force_speedster", // v0.17.1: the Speed Force takes a Speedster (the upgrade), never a serum
-			"omnitrix"); // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
+			"omnitrix", // v0.17.1: the Omnitrix falls from the sky (a meteor), never from a serum
+			"stand"); // v0.17.2: only the Stand Arrow awakens a Stand
 
 	/** Hero-Tier keys the player does not hold yet. */
 	public static List<String> missingHeroTiers(ServerPlayer player) {
@@ -240,6 +242,11 @@ public final class PowerGrants {
 				boolean ok = com.projecthero.mod.falcon.Falcon.grant(target);
 				return new Result(ok, Component.literal(ok ? "Suited " + name + " up in the Falcon gear (Falcon)" : name + " could not become the Falcon"));
 			}
+			case "stand" -> {
+				// v0.17.2: the Stand Arrow's pool (only Star Platinum for now)
+				boolean ok = com.projecthero.mod.stand.Stands.grant(target, com.projecthero.mod.stand.StandType.STAR_PLATINUM);
+				return new Result(ok, Component.literal(ok ? "Awakened " + name + "'s Stand (Star Platinum)" : name + " already has a Stand"));
+			}
 			case "ghost_rider" -> {
 				boolean ok = com.projecthero.mod.ghostrider.GhostRider.grant(target);
 				return new Result(ok, Component.literal(ok ? "Bound " + name + " to the Spirit of Vengeance (Ghost Rider)" : name + " already carries the Spirit of Vengeance"));
@@ -296,6 +303,7 @@ public final class PowerGrants {
 			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.revoke(target);
 			case "nova" -> com.projecthero.mod.nova.Nova.revoke(target);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.revoke(target);
+			case "stand" -> com.projecthero.mod.stand.Stands.revoke(target); // v0.17.2
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.revoke(target);
 			case "speed_force_speedster" -> com.projecthero.mod.speedforce.SpeedForceSpeedster.revoke(target);
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.revoke(target);

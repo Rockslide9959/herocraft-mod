@@ -1,6 +1,6 @@
 # Stands: Star Platinum (design proposal, v0.17.2)
 
-Status: APPROVED by the user 2026-11-01. Change from the proposal: the Stand is NOT visible, audible or perceivable to non-Stand users (only Stand users see it, hear its sounds and see its particles). Voice lines and SFX: the user will supply them after the build -- leave clean sound hooks.
+Status: APPROVED by the user 2026-11-01; BUILT on branch claude/star-platinum-2cd2ef (v0.17.2). Change from the proposal: the Stand is NOT visible, audible or perceivable to non-Stand users (only Stand users see it, hear its sounds and see its particles). Voice lines and SFX: the user will supply them after the build -- leave clean sound hooks.
 
 Sources: jojowiki.com (Star Platinum, Star Platinum: The World, Stand), ASBR / Eyes of Heaven / Heritage for the
 Future move lists, Roblox JoJo games (Project JoJo, Morioh High, A Universal Time), Roundabout mod wiki.
@@ -47,10 +47,15 @@ Key convention kept: X and Shift+X are movement, V and Shift+V are utility, ever
   25, and the 5 s maximum after 50. Shown on the menu.
 - **Cost and cooldown**: it needs at least 50 Stamina, empties the bar and has a 90 s cooldown. Afterwards you
   are winded for 3 s (Slowness), echoing his "can't stop it twice in a row".
-- **Implementation**: built on the existing Time Slow engine, using the server's own tick freeze. The world is
-  fully frozen and only you keep moving. Inside the stop you can't open chests or break blocks, so it is
-  purely for fighting and moving. The screen desaturates, plays a chime and a clock tick, and color snaps
-  back on resume.
+- **Implementation (as built)**: NOT vanilla's `/tick freeze` (that stops the game clock, which every cooldown and
+  animation in the mod runs on, and leaves players free). A custom freeze (`stand.TimeStop`): every entity in the
+  caster's dimension except the caster and its mount skips its server tick, and block entities hold still; the
+  game clock keeps running. Frozen players' keys, attacks, item use and block breaking are refused. Inside the
+  stop you can't open chests or break blocks, so it is purely for fighting and moving. Something you throw or
+  shoot flies 3 ticks, then hangs in the air and flies on when time resumes.
+- **Who sees what**: a Stand user's client freezes everything but the caster, freezes particles and drains the
+  colour (`shaders/post/stand_time_stop.json`, saturation 0.15 with a cool tint); a non-Stand user's client
+  freezes EVERYTHING, the caster too, with no cue at all -- they just see the world jump when it resumes.
 - **Fairness**: damage queued against another player during the stop lands at most 30% of their max health.
   Bosses take reduced queued damage. Only one time stop can run at once.
 
@@ -58,6 +63,37 @@ Key convention kept: X and Shift+X are movement, V and Shift+V are utility, ever
 The anime's voice clips are copyrighted, so I won't ship them. Instead: punch sounds layered fast, a heavy impact
 for ORAAA, a bell and clock chime for the time stop, and floating "ORA ORA ORA" text over the rush. That text can
 be turned off in the menu. A sound slot can be pointed at your own clip if you want.
+
+### Sound slots (as built) -- drop your clips in here
+Every Stand sound is its own named event, `projecthero:stand.star_platinum.<name>`, heard only by Stand users. For
+now `sounds.json` points each one at a vanilla placeholder (an `"type": "event"` entry). To use your own clip:
+1. put it at `src/main/resources/assets/projecthero/sounds/stand/star_platinum/<name>.ogg` (mono .ogg for a
+   positional sound);
+2. in `assets/projecthero/sounds.json`, change that event's sound from
+   `{ "name": "minecraft:<placeholder>", "type": "event" }` to `{ "name": "projecthero:stand/star_platinum/<name>" }`.
+
+| `<name>` | When it plays | Placeholder now |
+|---|---|---|
+| `summon` | H: Star Platinum appears | beacon activate |
+| `menacing` | with the summon (the ゴゴゴ) | warden heartbeat |
+| `dismiss` | H: it fades away | beacon deactivate |
+| `awaken` | the Stand Arrow awakens your Stand | beacon power select |
+| `punch` | each Stand punch / rush hits (every few ticks) | strong attack |
+| `ora_rush` | the ORA ORA ORA rush voice (start, then every 0.6 s) | sweep attack |
+| `ora_finisher` | the ORAAA finisher / the 3rd chain punch | knockback attack |
+| `star_finger` | Star Finger | trident throw |
+| `grab` / `throw` | Power Grab / the hurl | leather equip / pearl throw |
+| `bearing_flick` | Ball Bearing Flick | crossbow shot |
+| `leap` / `dash` | Stand Leap (and rebounds) / Stand Dash | goat long jump / sweep |
+| `breaker_charge` / `star_breaker` | Star Breaker wind-up / the punch | beacon ambient / mace heavy smash |
+| `time_stop` | "Star Platinum: The World!" -- time stops | bell |
+| `clock_tick` | each second of stopped time | note block hat |
+| `time_resume` | "...and time resumes" | bell resonate |
+| `guard` / `catch` | Stand Guard up (and blocking) / a caught projectile or hit | shield block / item pickup |
+| `precision_sight` | Precision Sight on | spyglass |
+| `inhale` | Super Inhale | breeze inhale |
+| `uppercut` | ORAAA Uppercut | knockback attack |
+| `yare_yare` | the "Yare yare daze" pose (N) | amethyst chime |
 
 ## Guide, HUD and the rest
 - HUD: a Stamina bar plus key boxes like the other heroes. A clock icon shows the time-stop cooldown and mastery.

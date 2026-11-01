@@ -1102,6 +1102,7 @@ public final class SquadScreen extends Screen {
 				case "kryptonian": return 0xFFFFC83C;
 				case "nova": return 0xFFFFD86A;
 				case "ghost_rider": return 0xFFFF7A1A;
+				case "stand": return 0xFF9A5CFF; // v0.17.2: Stand purple
 				case "cyborg": return 0xFF5CC8FF;
 				case "blue_beetle": return 0xFF2E7BFF;
 				case "falcon": return 0xFFE8283C; // v0.17.1

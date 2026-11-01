@@ -3003,5 +3003,221 @@
         "name": "projecthero:omnitrix/stinkfly_wings_up"
       }
     ]
+  },
+  "stand.star_platinum.summon": {
+    "subtitle": "subtitles.projecthero.stand.summon",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.activate",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.dismiss": {
+    "subtitle": "subtitles.projecthero.stand.dismiss",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.deactivate",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.menacing": {
+    "subtitle": "subtitles.projecthero.stand.menacing",
+    "sounds": [
+      {
+        "name": "minecraft:entity.warden.heartbeat",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.punch": {
+    "subtitle": "subtitles.projecthero.stand.punch",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.strong",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.ora_rush": {
+    "subtitle": "subtitles.projecthero.stand.ora_rush",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.ora_finisher": {
+    "subtitle": "subtitles.projecthero.stand.ora_finisher",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.knockback",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.star_finger": {
+    "subtitle": "subtitles.projecthero.stand.star_finger",
+    "sounds": [
+      {
+        "name": "minecraft:item.trident.throw",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.grab": {
+    "subtitle": "subtitles.projecthero.stand.grab",
+    "sounds": [
+      {
+        "name": "minecraft:item.armor.equip_leather",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.throw": {
+    "subtitle": "subtitles.projecthero.stand.throw",
+    "sounds": [
+      {
+        "name": "minecraft:entity.ender_pearl.throw",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.bearing_flick": {
+    "subtitle": "subtitles.projecthero.stand.bearing_flick",
+    "sounds": [
+      {
+        "name": "minecraft:item.crossbow.shoot",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.leap": {
+    "subtitle": "subtitles.projecthero.stand.leap",
+    "sounds": [
+      {
+        "name": "minecraft:entity.goat.long_jump",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.dash": {
+    "subtitle": "subtitles.projecthero.stand.dash",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.breaker_charge": {
+    "subtitle": "subtitles.projecthero.stand.breaker_charge",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.ambient",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.star_breaker": {
+    "subtitle": "subtitles.projecthero.stand.star_breaker",
+    "sounds": [
+      {
+        "name": "minecraft:item.mace.smash_ground_heavy",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.time_stop": {
+    "subtitle": "subtitles.projecthero.stand.time_stop",
+    "sounds": [
+      {
+        "name": "minecraft:block.bell.use",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.time_resume": {
+    "subtitle": "subtitles.projecthero.stand.time_resume",
+    "sounds": [
+      {
+        "name": "minecraft:block.bell.resonate",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.clock_tick": {
+    "subtitle": "subtitles.projecthero.stand.clock_tick",
+    "sounds": [
+      {
+        "name": "minecraft:block.note_block.hat",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.guard": {
+    "subtitle": "subtitles.projecthero.stand.guard",
+    "sounds": [
+      {
+        "name": "minecraft:item.shield.block",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.catch": {
+    "subtitle": "subtitles.projecthero.stand.catch",
+    "sounds": [
+      {
+        "name": "minecraft:entity.item.pickup",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.precision_sight": {
+    "subtitle": "subtitles.projecthero.stand.precision_sight",
+    "sounds": [
+      {
+        "name": "minecraft:item.spyglass.use",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.inhale": {
+    "subtitle": "subtitles.projecthero.stand.inhale",
+    "sounds": [
+      {
+        "name": "minecraft:entity.breeze.inhale",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.uppercut": {
+    "subtitle": "subtitles.projecthero.stand.uppercut",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.knockback",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.yare_yare": {
+    "subtitle": "subtitles.projecthero.stand.yare_yare",
+    "sounds": [
+      {
+        "name": "minecraft:block.amethyst_block.chime",
+        "type": "event"
+      }
+    ]
+  },
+  "stand.star_platinum.awaken": {
+    "subtitle": "subtitles.projecthero.stand.awaken",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.power_select",
+        "type": "event"
+      }
+    ]
   }
 }

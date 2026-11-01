@@ -59,6 +59,7 @@ public final class HeroTiers {
 				|| com.projecthero.mod.kryptonian.Kryptonian.hasPower(player)
 				|| com.projecthero.mod.nova.Nova.hasPower(player)
 				|| com.projecthero.mod.ghostrider.GhostRider.hasPower(player)
+				|| com.projecthero.mod.stand.Stands.hasPower(player) // v0.17.2: Stands
 				|| com.projecthero.mod.cyborg.Cyborg.hasPower(player)
 				|| com.projecthero.mod.falcon.Falcon.hasPower(player) // v0.17.1
 				|| com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player) // v0.17.1
@@ -105,6 +106,7 @@ public final class HeroTiers {
 			"falcon", "silver_surfer", // v0.17.1
 			"speed_force_speedster", // v0.17.1: the DC Flash (the plain Speedster's upgrade)
 			"omnitrix", // v0.17.1: Ben 10's watch (locks: see Omnitrix)
+			"stand", // v0.17.2: a JoJo Stand (Star Platinum first)
 			"ladybug", "cat_noir", "rena_rouge", "hawk_moth", "carapace", "pegasus", "viperion", "multimouse",
 			// v0.16.7: the seven Quirks (one shared state; each key is "holds that Quirk")
 			"quirk_hellflame", "quirk_overhaul", "quirk_engine", "quirk_dark_shadow", "quirk_erasure", "quirk_explosion", "quirk_zero_gravity");
@@ -127,6 +129,7 @@ public final class HeroTiers {
 			case "kryptonian" -> com.projecthero.mod.kryptonian.Kryptonian.hasPower(player);
 			case "nova" -> com.projecthero.mod.nova.Nova.hasPower(player);
 			case "ghost_rider" -> com.projecthero.mod.ghostrider.GhostRider.hasPower(player);
+			case "stand" -> com.projecthero.mod.stand.Stands.hasPower(player); // v0.17.2
 			case "cyborg" -> com.projecthero.mod.cyborg.Cyborg.hasPower(player);
 			case "falcon" -> com.projecthero.mod.falcon.Falcon.hasPower(player); // v0.17.1
 			case "silver_surfer" -> com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player); // v0.17.1
@@ -220,6 +223,11 @@ public final class HeroTiers {
 			case "ghost_rider" -> {
 				if (com.projecthero.mod.ghostrider.GhostRider.hasPower(player)) {
 					com.projecthero.mod.ghostrider.GhostRider.revoke(player);
+				}
+			}
+			case "stand" -> { // v0.17.2
+				if (com.projecthero.mod.stand.Stands.hasPower(player)) {
+					com.projecthero.mod.stand.Stands.revoke(player);
 				}
 			}
 			case "silver_surfer" -> {
@@ -558,6 +566,9 @@ public final class HeroTiers {
 		}
 		if (!excludeHeroKeys.contains("ghost_rider") && com.projecthero.mod.ghostrider.GhostRider.hasPower(player)) {
 			return true;
+		}
+		if (!excludeHeroKeys.contains("stand") && com.projecthero.mod.stand.Stands.hasPower(player)) {
+			return true; // v0.17.2
 		}
 		if (!excludeHeroKeys.contains("silver_surfer") && com.projecthero.mod.silversurfer.SilverSurfer.hasPower(player)) {
 			return true;

@@ -252,6 +252,11 @@ public final class HeroPackGuide {
 		return chapters().get(CH_GHOST_RIDER);
 	}
 
+	/** v0.17.2: Stands (Star Platinum). */
+	public static Chapter standChapter() {
+		return chapters().get(CH_STANDS);
+	}
+
 	public static Chapter symbioteChapter() {
 		return chapters().get(CH_SYMBIOTE);
 	}
@@ -546,7 +551,9 @@ public final class HeroPackGuide {
 	private static final int CH_MULTIMOUSE = CH_SPEED_FORCE + 1; // 60
 	/** v0.17.1: the Omnitrix (after Multimouse, so every earlier index stays put). */
 	private static final int CH_OMNITRIX = CH_MULTIMOUSE + 1; // 61
-	private static final int CHAPTER_POWER_BASE = CH_OMNITRIX + 1; // 62
+	/** v0.17.2: Stands -- Star Platinum (after the Omnitrix, so every earlier index stays put). */
+	private static final int CH_STANDS = CH_OMNITRIX + 1; // 62
+	private static final int CHAPTER_POWER_BASE = CH_STANDS + 1; // 63
 
 	private static List<Chapter> build() {
 		List<Chapter> out = new ArrayList<>();
@@ -1624,6 +1631,29 @@ public final class HeroPackGuide {
 
 		out.add(miraculous(com.projecthero.mod.miraculous.Kwami.MULLO)); // CH_MULTIMOUSE (v0.17.1)
 		out.add(omnitrix()); // CH_OMNITRIX (v0.17.1)
+		// v0.17.2: Stands (CH_STANDS)
+		out.add(chapter("projecthero.guide.stand", lines -> {
+			lines.add(Component.translatable("projecthero.guide.stand.tier").withStyle(ChatFormatting.LIGHT_PURPLE));
+			para(lines, "projecthero.guide.stand.body");
+			blank(lines);
+			for (String section : new String[]{"arrow", "rule", "stats", "stamina", "summon", "time_stop", "menu"}) {
+				head(lines, "projecthero.guide.stand." + section);
+				para(lines, "projecthero.guide.stand." + section + ".body");
+				blank(lines);
+			}
+			head(lines, "projecthero.guide.stand.controls");
+			for (String[] row : new String[][] { { "H", "summon" }, { "N", "pose" }, { "Shift+N", "menu" }, { "R", "ora_rush" },
+					{ "Shift+R", "star_finger" }, { "G", "power_grab" }, { "Shift+G", "bearing_flick" }, { "X", "stand_leap" },
+					{ "Shift+X", "stand_dash" }, { "Z", "star_breaker" }, { "Shift+Z", "the_world" }, { "V", "stand_guard" },
+					{ "Shift+V", "precision_sight" }, { "C", "super_inhale" }, { "Shift+C", "ora_uppercut" } }) {
+				lines.add(Component.literal(" " + row[0] + "  ").withStyle(ChatFormatting.GOLD)
+						.append(Component.translatable("projecthero.stand.move." + row[1]).withStyle(ChatFormatting.WHITE)));
+				para(lines, "projecthero.stand.move." + row[1] + ".desc");
+			}
+			blank(lines);
+			head(lines, "projecthero.guide.stand.commands");
+			para(lines, "projecthero.guide.stand.commands.body");
+		}));
 
 		// one chapter per ENABLED power (v0.14.8), in registration order (CHAPTER_POWER_BASE + i)
 		for (Power power : Powers.enabled()) {
@@ -1775,6 +1805,7 @@ public final class HeroPackGuide {
 		icon(CH_VIPERION, "snake_bracelet");
 		icon(CH_MULTIMOUSE, "mouse_pendant"); // v0.17.1
 		icon(CH_OMNITRIX, "omnitrix"); // v0.17.1
+		icon(CH_STANDS, "stand_arrow"); // v0.17.2
 		icon(CH_SILVER_SURFER, "silver_surfer_board"); // v0.17.1
 		icon(CH_SPEED_FORCE, "tachyon_device"); // v0.17.1
 		icon(CH_MAX_STEEL, "max_steel_suit_helmet");
@@ -1868,6 +1899,7 @@ public final class HeroPackGuide {
 		if (com.projecthero.mod.omnitrix.OmnitrixFeature.enabled()) {
 			other.add(new IndexEntry(Component.translatable("projecthero.guide.omnitrix"), 2, CH_OMNITRIX)); // v0.17.1
 		}
+		other.add(new IndexEntry(Component.translatable("projecthero.guide.stand"), 2, CH_STANDS)); // v0.17.2
 		sub(other, "projecthero.guide.sub.mutations");
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.mutation"), 2, CH_MUTATION));
 		other.add(new IndexEntry(Component.translatable("projecthero.guide.combos"), 2, CH_COMBOS));

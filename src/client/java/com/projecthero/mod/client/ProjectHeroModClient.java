@@ -138,6 +138,8 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		com.projecthero.mod.client.nova.NovaClient.initialize();
 		// v0.16.5: Ghost Rider -- the skin layer + flaming skull, HUD, chain, Judgement Mark outlines, Hell Cycle, contract screen
 		com.projecthero.mod.client.ghostrider.GhostRiderClient.initialize();
+		// v0.17.2: Stands -- the Stand in the world (Stand users only), HUD, menu, the time stop
+		com.projecthero.mod.client.stand.StandClient.initialize();
 		com.projecthero.mod.client.miraculous.MiraculousClient.initialize();
 		// v0.16.7: the Quirks
 		com.projecthero.mod.client.quirk.QuirkClient.initialize();
@@ -900,6 +902,9 @@ public class ProjectHeroModClient implements ClientModInitializer {
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.miraculous.MiraculousClient.ownsH(client.player)) {
 				// v0.16.6: H as a Miraculous holder -- transform / detransform (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.miraculous.MiraculousClient.pressH();
+			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.stand.StandClient.ownsH(client.player)) {
+				// v0.17.2: H as a Stand user -- the Stand out / away (Shift+H still opens the power wheel).
+				com.projecthero.mod.client.stand.StandClient.pressH();
 			} else if (client.player != null && !Screen.hasShiftDown() && com.projecthero.mod.client.ghostrider.GhostRiderClient.ownsH(client.player)) {
 				// v0.16.5: H as Ghost Rider -- the Spirit of Vengeance out / back (Shift+H still opens the power wheel).
 				com.projecthero.mod.client.ghostrider.GhostRiderClient.pressH();
@@ -953,6 +958,7 @@ public class ProjectHeroModClient implements ClientModInitializer {
 							|| com.projecthero.mod.hulk.Hulk.hasPower(client.player)
 							|| com.projecthero.mod.moonknight.MoonKnight.hasPower(client.player)
 							|| com.projecthero.mod.ghostrider.GhostRider.hasPower(client.player)
+							|| com.projecthero.mod.stand.Stands.hasPower(client.player)
 							|| com.projecthero.mod.miraculous.Miraculous.hasPower(client.player)
 							|| com.projecthero.mod.cyborg.Cyborg.hasPower(client.player)
 							|| com.projecthero.mod.bluebeetle.BlueBeetle.hasPower(client.player))) {
@@ -1104,6 +1110,20 @@ public class ProjectHeroModClient implements ClientModInitializer {
 		if (client.player != null && com.projecthero.mod.omnitrix.Omnitrix.hasPower(client.player) && !mutationSelected(client)) {
 			if (down && !maxSteelTransformWasDown && client.screen == null) {
 				ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+			} else if (!down && maxSteelTransformWasDown) {
+				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
+			}
+			maxSteelTransformWasDown = down;
+			return;
+		}
+		// v0.17.2: a Stand user's N strikes the chosen pose (press and release go to the server); Shift+N opens the Stand Menu
+		if (client.player != null && com.projecthero.mod.stand.Stands.hasPower(client.player) && !mutationSelected(client)) {
+			if (down && !maxSteelTransformWasDown && client.screen == null) {
+				if (Screen.hasShiftDown()) {
+					com.projecthero.mod.client.stand.StandClient.openMenu();
+				} else {
+					ClientPlayNetworking.send(new AbilityInputPayload(8, true));
+				}
 			} else if (!down && maxSteelTransformWasDown) {
 				ClientPlayNetworking.send(new AbilityInputPayload(8, false));
 			}

@@ -40,6 +40,10 @@ public final class AbilityRouter {
 			return;
 		}
 		AbilitySlot slot = AbilitySlot.byNumber(slotNumber);
+		// v0.17.2: frozen in stopped time -- no power of any system takes a key press (releases pass so held moves end)
+		if (pressed && com.projecthero.mod.stand.TimeStop.frozen(player)) {
+			return;
+		}
 		// v0.16.7: Erased (Eraser Head) -- no power of any system takes a key press (releases pass so held moves end;
 		// an Iron Man suit and the Punisher's kit are machines, not powers, and keep working)
 		if (PowerSuppression.blocksAbility(player, slot, pressed)) {
@@ -56,6 +60,11 @@ public final class AbilityRouter {
 			// v0.17.1 (user: "make the detransform keybind N"): an Omnitrix wearer's N is the watch's (an alien turns back)
 			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.omnitrix.OmnitrixAbilityManager.hasContext(player)) {
 				com.projecthero.mod.omnitrix.OmnitrixAbilityManager.handle(player, slot, pressed);
+				return;
+			}
+			// v0.17.2: a Stand user's N strikes the chosen pose (Shift+N is the Stand Menu, client-side)
+			if (slot == AbilitySlot.SLOT_8 && com.projecthero.mod.stand.StandAbilityManager.hasContext(player)) {
+				com.projecthero.mod.stand.StandAbilityManager.handle(player, slot, pressed);
 				return;
 			}
 			// Sneak + N fires a power combo when the player owns a matching pair of mutations (v0.13.22)
@@ -243,6 +252,11 @@ public final class AbilityRouter {
 			com.projecthero.mod.ghostrider.GhostRiderAbilityManager.handle(player, slot, pressed);
 			return;
 		}
+		// v0.17.2: a Stand user, on the same terms
+		if (com.projecthero.mod.stand.StandAbilityManager.hasContext(player)) {
+			com.projecthero.mod.stand.StandAbilityManager.handle(player, slot, pressed);
+			return;
+		}
 
 		// v0.16.7 (user, Titan revamp): a Titan Shifter in human form -- Partial Shifting on R / G / X (tap and Shift)
 		if (com.projecthero.mod.titanshifter.TitanShifterAbilityManager.hasHumanContext(player)) {
@@ -362,6 +376,8 @@ public final class AbilityRouter {
 		com.projecthero.mod.nova.Nova.tick(player);
 		// v0.16.5: Ghost Rider -- Hellfire, Vengeance, passives, the running moves
 		com.projecthero.mod.ghostrider.GhostRider.tick(player);
+		// v0.17.2: Stands -- Stamina, the pose, the running moves
+		com.projecthero.mod.stand.Stands.tick(player);
 		// v0.16.6: the Miraculous holders -- the countdown, the Kwami, the running moves
 		com.projecthero.mod.miraculous.Miraculous.tick(player);
 		// v0.16.7: the Quirk holders -- the meter, overload, the running moves
