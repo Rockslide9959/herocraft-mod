@@ -16,7 +16,8 @@ import net.minecraft.world.level.material.PushReaction;
 /**
  * v0.17.1 Diamondhead: his conjured Petrosapien crystal -- a glassy green block (translucent, a faint glow) that every crystal
  * construct is made of (walls, the dome, ramps, the vault pillar, Use-placed blocks). It is only ever placed through
- * {@code TempBlocks} (it reverts to what was there), drops nothing and has no item.
+ * {@code TempBlocks} (it reverts to what was there), drops nothing and has no item. v0.17.2: a {@link PetrosapienCrystalBlock}
+ * (rises out of the ground through {@link DiamondheadRise}, sinks back when it goes).
  */
 public final class DiamondheadBlocks {
 	public static Block CRYSTAL;
@@ -26,7 +27,7 @@ public final class DiamondheadBlocks {
 
 	static void initialize() {
 		CRYSTAL = Registry.register(BuiltInRegistries.BLOCK, ResourceKey.create(Registries.BLOCK, ProjectHeroMod.id("diamondhead_crystal")),
-				new TransparentBlock(BlockBehaviour.Properties.of()
+				new PetrosapienCrystalBlock(BlockBehaviour.Properties.of()
 						.mapColor(MapColor.EMERALD)
 						.strength(1.2f, 6.0f)
 						.sound(SoundType.AMETHYST)
@@ -38,5 +39,7 @@ public final class DiamondheadBlocks {
 						.isRedstoneConductor((s, l, p) -> false)
 						.isSuffocating((s, l, p) -> false)
 						.isViewBlocking((s, l, p) -> false)));
+		// v0.17.2 revamp: constructs rise out of the ground and sink back
+		DiamondheadRise.initialize();
 	}
 }

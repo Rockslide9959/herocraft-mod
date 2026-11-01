@@ -197,9 +197,9 @@ public final class OmnitrixHud {
 		for (int i = 0; i < SLOTS.length; i++) {
 			AbilitySlot slot = SLOTS[i];
 			int x = x0 + i * (BOX + GAP);
-			AlienMove tap = kit.moveOn(slot, false, false);
-			AlienMove sh = kit.moveOn(slot, true, false);
-			AlienMove hold = kit.moveOn(slot, false, true);
+			AlienMove tap = kit.liveMoveOn(p, slot, false, false);
+			AlienMove sh = kit.liveMoveOn(p, slot, true, false);
+			AlienMove hold = kit.liveMoveOn(p, slot, false, true);
 			AlienMove shown = shift && sh != null ? sh : tap != null ? tap : hold;
 			boolean usable = shown != null;
 			int cd = shown == null ? 0 : kit.cooldownLeft(p, shown.id());
@@ -257,9 +257,9 @@ public final class OmnitrixHud {
 			return rows;
 		}
 		for (AbilitySlot slot : OmnitrixInfo.KIT_SLOTS) {
-			AlienMove tap = kit.moveOn(slot, false, false);
-			AlienMove shift = kit.moveOn(slot, true, false);
-			AlienMove hold = kit.moveOn(slot, false, true);
+			AlienMove tap = kit.liveMoveOn(p, slot, false, false);
+			AlienMove shift = kit.liveMoveOn(p, slot, true, false);
+			AlienMove hold = kit.liveMoveOn(p, slot, false, true);
 			if (tap == null && shift == null && hold == null) {
 				continue;
 			}

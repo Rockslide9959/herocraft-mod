@@ -92,6 +92,16 @@ public abstract class AlienKit {
 		return null;
 	}
 
+	/**
+	 * v0.17.2 (Diamondhead's Combat Mode): the move {@code slot} runs for {@code p} right now -- a kit with a mode that swaps
+	 * some keys answers from synced state (client-safe), and the HUD's key boxes and Left-Alt rows show it. Default: the
+	 * declared {@link #moveOn}.
+	 */
+	@Nullable
+	public AlienMove liveMoveOn(Player p, AbilitySlot slot, boolean shift, boolean hold) {
+		return moveOn(slot, shift, hold);
+	}
+
 	// ---------------------------------------------------------------- lifecycle
 
 	/** The wearer just became this alien (attributes and health already applied). */

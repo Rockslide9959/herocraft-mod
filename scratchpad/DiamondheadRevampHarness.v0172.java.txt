@@ -1,0 +1,370 @@
+package com.projecthero.mod.client;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.mojang.authlib.GameProfile;
+import com.projecthero.mod.hero.UniquePowers;
+import com.projecthero.mod.omnitrix.Omnitrix;
+import com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadKit;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.Difficulty;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
+import net.minecraft.world.phys.Vec3;
+
+/** TEMP-HARNESS (not shipped): v0.17.2 Diamondhead revamp screenshots. Enabled by run/dhrevamp.flag. */
+// TEMP-HARNESS
+public final class DiamondheadRevampHarness {
+	private static boolean createdWorld;
+	private static int waitTicks;
+	private static int inWorldTicks;
+	private static int t0 = -1;
+	private static final Map<Integer, Runnable> AT = new HashMap<>();
+	private static Vec3 origin;
+	private static ServerPlayer ben;
+
+	private DiamondheadRevampHarness() {
+	}
+
+	public static void init() {
+		if (!Files.exists(Path.of("dhrevamp.flag"))) {
+			return;
+		}
+		ClientTickEvents.END_CLIENT_TICK.register(DiamondheadRevampHarness::tick);
+		Thread wd = new Thread(() -> {
+			try {
+				Thread.sleep(480_000L);
+			} catch (InterruptedException e) {
+				return;
+			}
+			System.out.println("[HARNESS] WATCHDOG timeout");
+			Runtime.getRuntime().halt(3);
+		}, "dhrevamp-watchdog");
+		wd.setDaemon(true);
+		wd.start();
+	}
+
+	private static void server(Minecraft mc, java.util.function.Consumer<ServerPlayer> fn) {
+		MinecraftServer srv = mc.getSingleplayerServer();
+		if (srv != null) {
+			srv.execute(() -> {
+				if (!srv.getPlayerList().getPlayers().isEmpty()) {
+					try {
+						fn.accept(srv.getPlayerList().getPlayers().get(0));
+					} catch (Throwable e) {
+						System.out.println("[HARNESS] error: " + e);
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+	}
+
+	private static void at(int t, Runnable r) {
+		AT.merge(t, r, (x, y) -> () -> {
+			x.run();
+			y.run();
+		});
+	}
+
+	private static void shot(int t, String name) {
+		at(t, () -> {
+			Minecraft mc = Minecraft.getInstance();
+			Screenshot.grab(mc.gameDirectory, "dh_" + name + ".png", mc.getMainRenderTarget(), m -> {
+			});
+			System.out.println("[HARNESS] shot " + name);
+		});
+	}
+
+	private static void tick(Minecraft mc) {
+		mc.options.pauseOnLostFocus = false;
+		if (mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get() > 0.05) {
+			mc.options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(0.05);
+		}
+		if (mc.level == null || mc.player == null) {
+			waitTicks++;
+			if (waitTicks % 100 == 0 && !createdWorld && mc.getOverlay() == null && !(mc.screen instanceof TitleScreen)) {
+				mc.options.onboardAccessibility = false;
+				mc.setScreen(new TitleScreen());
+			}
+			if (!createdWorld && mc.getOverlay() == null && mc.screen instanceof TitleScreen && waitTicks > 40) {
+				createdWorld = true;
+				mc.execute(DiamondheadRevampHarness::createWorld);
+			}
+			return;
+		}
+		inWorldTicks++;
+		if (inWorldTicks == 100) {
+			mc.options.hideGui = true;
+			mc.options.fov().set(70);
+			mc.options.setCameraType(CameraType.FIRST_PERSON);
+			mc.options.bobView().set(false);
+			mc.options.chatVisibility().set(net.minecraft.world.entity.player.ChatVisiblity.HIDDEN);
+			mc.getTutorial().setStep(net.minecraft.client.tutorial.TutorialSteps.NONE);
+			server(mc, p -> {
+				ServerLevel level = p.serverLevel();
+				level.setDayTime(6000L);
+				level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, p.server);
+				level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, p.server);
+				p.server.setDifficulty(Difficulty.EASY, true);
+				p.setGameMode(GameType.CREATIVE);
+				p.getAbilities().flying = true;
+				p.onUpdateAbilities();
+				origin = new Vec3(Math.floor(p.getX()) + 0.5, p.getY(), Math.floor(p.getZ()) + 0.5);
+			});
+			t0 = inWorldTicks;
+			AT.put(3, () -> script(mc));
+		}
+		if (t0 >= 0) {
+			server(mc, p -> {
+				if (ben != null) {
+					ben.tickCount++;
+					Omnitrix.tick(ben);
+				}
+				if (p.tickCount % 5 == 0) {
+					for (var e : p.serverLevel().getEntitiesOfClass(net.minecraft.world.entity.monster.Slime.class, p.getBoundingBox().inflate(120))) {
+						e.discard();
+					}
+				}
+			});
+			Runnable r = AT.remove(inWorldTicks - t0);
+			if (r != null) {
+				r.run();
+			}
+		}
+	}
+
+	private static void createWorld() {
+		Minecraft mc = Minecraft.getInstance();
+		LevelSettings settings = new LevelSettings("DH_" + System.currentTimeMillis() % 100000, GameType.CREATIVE, false, Difficulty.EASY, true,
+				new GameRules(), WorldDataConfiguration.DEFAULT);
+		mc.createWorldOpenFlows().createFreshLevel(settings.levelName(), settings, new WorldOptions(424242L, false, false),
+				reg -> reg.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+						.createWorldDimensions(),
+				mc.screen);
+	}
+
+	private static void camera(ServerPlayer p, Vec3 eye, Vec3 target) {
+		double dx = target.x - eye.x, dz = target.z - eye.z, dy = target.y - eye.y;
+		float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+		float pit = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+		p.teleportTo(p.serverLevel(), eye.x, eye.y - p.getEyeHeight(), eye.z, yaw, pit);
+	}
+
+	private static ServerPlayer fake(ServerPlayer near, String name, Vec3 at, float yaw) {
+		ServerLevel level = near.serverLevel();
+		GameProfile profile = new GameProfile(java.util.UUID.randomUUID(), name);
+		CommonListenerCookie cookie = CommonListenerCookie.createInitial(profile, false);
+		ServerPlayer f = new ServerPlayer(level.getServer(), level, profile, cookie.clientInformation());
+		Connection conn = new Connection(PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(conn);
+		level.getServer().getPlayerList().placeNewPlayer(conn, f, cookie);
+		f.setGameMode(GameType.SURVIVAL);
+		f.teleportTo(level, at.x, at.y, at.z, yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+		return f;
+	}
+
+	private static void become(ServerPlayer f, String alien) {
+		if (Omnitrix.state(f).transformed()) {
+			Omnitrix.revert(f, Omnitrix.Reason.REVOKE);
+		}
+		var n = Omnitrix.state(f).copy();
+		n.rechargeUntil = 0;
+		n.selected = alien;
+		Omnitrix.save(f, n);
+		Omnitrix.transform(f);
+	}
+
+	private static void face(ServerPlayer f, float yaw) {
+		f.teleportTo(f.serverLevel(), f.getX(), f.getY(), f.getZ(), yaw, 0f);
+		f.setYHeadRot(yaw);
+		f.yBodyRot = yaw;
+		f.yBodyRotO = yaw;
+	}
+
+	private static DiamondheadKit kit() {
+		return (DiamondheadKit) com.projecthero.mod.omnitrix.alien.Aliens.kit(DiamondheadKit.ID);
+	}
+
+	private static void ready(ServerPlayer f) {
+		var n = Omnitrix.state(f).copy();
+		n.timers.keySet().removeIf(k -> k.startsWith("diamondhead.") && !k.endsWith("shield_hp") && !k.endsWith("refract"));
+		Omnitrix.save(f, n);
+	}
+
+	private static Zombie dummy(ServerPlayer near, Vec3 at, float yaw) {
+		ServerLevel l = near.serverLevel();
+		var z = EntityType.ZOMBIE.create(l);
+		z.moveTo(at.x, at.y, at.z, yaw, 0f);
+		z.setYHeadRot(yaw);
+		z.setNoAi(true);
+		z.setInvulnerable(true);
+		z.setPersistenceRequired();
+		z.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		l.addFreshEntity(z);
+		return z;
+	}
+
+	/** Camera at {@code camOff} from Ben looking at {@code lookOff}; {@code fire} on Ben; shots after a (and b) ticks. */
+	private static int move(Minecraft mc, int t, String name, java.util.function.Consumer<ServerPlayer> fire, int a, int b, Vec3 camOff, Vec3 lookOff) {
+		at(t, () -> server(mc, p -> {
+			ready(ben);
+			camera(p, ben.position().add(camOff), ben.position().add(lookOff));
+			fire.accept(ben);
+		}));
+		shot(t + a, name);
+		if (b > 0) {
+			shot(t + b, name + "_b");
+		}
+		return t + Math.max(a, b) + 20;
+	}
+
+	private static void script(Minecraft mc) {
+		int t = 10;
+		Vec3 stage = origin.add(-24, 0, 0);
+		at(t, () -> server(mc, p -> {
+			p.setGameMode(GameType.SPECTATOR);
+			ben = fake(p, "Ben", stage, 180f);
+			UniquePowers.forced(() -> Omnitrix.grant(ben));
+		}));
+		at(t + 30, () -> server(mc, p -> {
+			become(ben, DiamondheadKit.ID);
+			face(ben, 180f);
+		}));
+		t += 70;
+		// Ben faces north (-z). Combat Mode: the blades
+		Vec3 front = new Vec3(-1.2, 1.7, -2.5);
+		Vec3 chest = new Vec3(0, 1.15, 0);
+		t = move(mc, t, "combat_3p_front", b -> kit().toggleCombat(b), 3, 18, front, chest);
+		t = move(mc, t, "combat_3p_side", b -> {
+		}, 2, 0, new Vec3(-2.6, 1.5, -0.6), chest);
+		t = move(mc, t, "combat_3p_close", b -> {
+		}, 2, 0, new Vec3(1.0, 1.5, -2.0), chest);
+		// the shield (with the blades still out), then cracked
+		t = move(mc, t, "shield_3p_front", b -> kit().raiseShield(b), 2, 10, new Vec3(1.2, 1.7, -3.4), chest);
+		t = move(mc, t, "shield_3p_side", b -> {
+		}, 2, 0, new Vec3(-3.2, 1.6, -1.6), chest);
+		t = move(mc, t, "shield_3p_cracked", b -> kit().damageShield(b, 27f), 3, 0, new Vec3(0.9, 1.6, -3.0), chest);
+		t = move(mc, t, "shield_3p_noblades", b -> kit().toggleCombat(b), 8, 0, new Vec3(-1.3, 1.6, -3.0), chest);
+		at(t, () -> server(mc, p -> {
+			kit().lowerShield(ben);
+			ready(ben);
+			kit().toggleCombat(ben);
+			dummy(p, ben.position().add(0, 0, -2.6), 0f);
+		}));
+		t += 20;
+		// Blade Flurry beats, the stab and the cyclone
+		Vec3 fight = new Vec3(-3.2, 1.9, -1.4);
+		Vec3 mid = new Vec3(0, 1.1, -1.3);
+		t = move(mc, t, "flurry_slash", b -> kit().bladeFlurry(b), 2, 4, fight, mid);
+		t = move(mc, t, "flurry_stab", b -> {
+			kit().bladeFlurry(b);
+		}, 3, 6, fight, mid);
+		t = move(mc, t, "cyclone", b -> kit().cyclone(b), 3, 6, new Vec3(-3.4, 2.2, -2.4), chest);
+		t = move(mc, t, "shatter_line", b -> kit().shatterLine(b), 8, 14, new Vec3(-5.5, 3.0, -2), new Vec3(0, 0.8, -7));
+		t = move(mc, t + 20, "bash", b -> {
+			face(b, 90f);
+			kit().shieldBash(b);
+		}, 3, 0, new Vec3(-2.6, 1.8, -3.2), chest);
+		// the crystal blocks: a wall and a few placed blocks, close up
+		t = move(mc, t + 20, "crystal_wall", b -> {
+			face(b, 180f);
+			kit().toggleCombat(b);
+			kit().wall(b);
+			for (int i = 0; i < 2; i++) {
+				kit().placeCrystal(b, BlockPos.containing(b.position().add(2 + i, 0, 1)));
+			}
+		}, 4, 7, new Vec3(1.6, 2.3, 2.8), new Vec3(0.3, 1.1, -1.5));
+		shot(t - 20 + 3, "crystal_wall_rise_early");
+		shot(t - 20 + 20, "crystal_wall_risen");
+		t += 15;
+		// the wall goes: it sinks back into the ground
+		at(t, () -> server(mc, p -> {
+			for (BlockPos bp : BlockPos.betweenClosed(BlockPos.containing(ben.position()).offset(-4, 0, -4), BlockPos.containing(ben.position()).offset(4, 3, 0))) {
+				if (p.serverLevel().getBlockState(bp).is(com.projecthero.mod.omnitrix.alien.diamondhead.DiamondheadBlocks.CRYSTAL)) {
+					p.serverLevel().setBlock(bp, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+				}
+			}
+		}));
+		shot(t + 4, "crystal_wall_sink");
+		t += 20;
+		// the Crystal Prison shell rising round the dummy
+		t = move(mc, t, "prison_rise", b -> {
+			face(b, 180f);
+			b.teleportTo(b.serverLevel(), b.getX(), b.getY(), b.getZ(), 180f, 20f);
+			kit().crystalPrison(b);
+		}, 4, 14, new Vec3(-3.0, 2.4, -1.2), new Vec3(0, 1.0, -2.6));
+		t = move(mc, t + 50, "crystal_blocks_close", b -> kit().wall(b), 25, 0, new Vec3(0.2, 1.6, -0.6), new Vec3(0.2, 1.3, -2.5));
+		// first person: the real player becomes Diamondhead
+		final int fp = t + 10;
+		at(fp, () -> server(mc, p -> {
+			p.setGameMode(GameType.SURVIVAL);
+			UniquePowers.forced(() -> Omnitrix.grant(p));
+			become(p, DiamondheadKit.ID);
+			Vec3 spot = origin.add(-10, 0, 8);
+			p.teleportTo(p.serverLevel(), spot.x, spot.y, spot.z, 180f, 8f);
+			mc.execute(() -> {
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.options.hideGui = false; // (hiding the GUI hides the hands too)
+			});
+		}));
+		at(fp + 30, () -> server(mc, p -> {
+			ready(p);
+			kit().toggleCombat(p);
+		}));
+		shot(fp + 32, "fp_combat_grow");
+		shot(fp + 50, "fp_combat");
+		at(fp + 60, () -> server(mc, p -> {
+			ready(p);
+			kit().bladeFlurry(p);
+		}));
+		shot(fp + 62, "fp_flurry");
+		at(fp + 80, () -> server(mc, p -> {
+			ready(p);
+			kit().raiseShield(p);
+		}));
+		shot(fp + 95, "fp_shield_blades");
+		at(fp + 100, () -> server(mc, p -> {
+			ready(p);
+			kit().toggleCombat(p);
+		}));
+		shot(fp + 115, "fp_shield");
+		at(fp + 118, () -> server(mc, p -> kit().damageShield(p, 30f)));
+		shot(fp + 122, "fp_shield_cracked");
+		at(fp + 130, () -> server(mc, p -> {
+			kit().lowerShield(p);
+			mc.execute(() -> mc.options.hideGui = false);
+		}));
+		shot(fp + 140, "fp_hud");
+		at(fp + 150, () -> {
+			System.out.println("[HARNESS] DONE");
+			Runtime.getRuntime().halt(0);
+		});
+	}
+}

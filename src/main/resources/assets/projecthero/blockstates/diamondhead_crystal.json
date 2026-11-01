@@ -1,7 +1,10 @@
 {
   "variants": {
-    "": {
+    "rising=false": {
       "model": "projecthero:block/diamondhead_crystal"
+    },
+    "rising=true": {
+      "model": "projecthero:block/diamondhead_crystal_rising"
     }
   }
 }
