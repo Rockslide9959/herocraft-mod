@@ -446,8 +446,8 @@ public final class WildmuttKit extends AlienKit {
 	static final int DIG_DEPTH = 3, DIG_HALF = 1;
 
 	/**
-	 * V: Dig -- the claws tear a 3 x 3 tunnel three blocks deep through soft ground where he looks (anything a shovel takes, leaves,
-	 * snow), the blocks dropping as items. Nothing with a block entity, nothing harder than dirt-ish (hardness 1.5), nothing the
+	 * V: Dig -- the claws tear a 3 x 3 tunnel three blocks deep through ground where he looks (anything a shovel or -- v0.17.2 -- a pickaxe takes, leaves,
+	 * snow), the blocks dropping as items. Nothing with a block entity, nothing harder than an iron block (hardness 5), nothing the
 	 * player may not build at. Returns the blocks dug.
 	 */
 	public int dig(ServerPlayer p) {
@@ -473,8 +473,13 @@ public final class WildmuttKit extends AlienKit {
 		}
 		int dug = 0;
 		for (BlockPos q : cut) {
-			if (diggable(p, l, q) && l.destroyBlock(q, true, p)) {
-				dug++;
+			if (diggable(p, l, q)) {
+				// v0.17.2: the claws mine like an iron pickaxe, so stone drops cobble and the ores drop their ore
+				var st = l.getBlockState(q);
+				net.minecraft.world.level.block.Block.dropResources(st, l, q, null, p, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_PICKAXE));
+				if (l.destroyBlock(q, false, p)) {
+					dug++;
+				}
 			}
 		}
 		OmnitrixSounds.play(l, p.position(), GROWL, 0.7f, 1.2f);
@@ -490,11 +495,18 @@ public final class WildmuttKit extends AlienKit {
 			return false;
 		}
 		float hard = st.getDestroySpeed(l, q);
-		if (hard < 0f || hard > 1.5f) {
+		if (hard < 0f || hard > DIG_MAX_HARDNESS) {
 			return false;
 		}
-		return st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL) || st.is(net.minecraft.tags.BlockTags.LEAVES) || st.is(net.minecraft.tags.BlockTags.SNOW);
+		return st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_SHOVEL) || st.is(net.minecraft.tags.BlockTags.MINEABLE_WITH_PICKAXE)
+				|| st.is(net.minecraft.tags.BlockTags.LEAVES) || st.is(net.minecraft.tags.BlockTags.SNOW);
 	}
+
+	/**
+	 * v0.17.2 (user: "make it so that wildmutt can break hard blocks like stone"): pickaxe blocks too, up to iron-block hardness (5) --
+	 * stone, deepslate, ores, bricks; never obsidian, ancient debris or bedrock.
+	 */
+	static final float DIG_MAX_HARDNESS = 5.0f;
 
 	public boolean maul(ServerPlayer p) {
 		if (!use(p, MAUL)) {

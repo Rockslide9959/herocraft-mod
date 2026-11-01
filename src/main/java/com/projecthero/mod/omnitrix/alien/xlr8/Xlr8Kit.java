@@ -228,6 +228,9 @@ public final class Xlr8Kit extends AlienKit {
 	private static final ResourceLocation BASE_STEP_ID = PowerToggles.id("omnitrix_xlr8_step");
 	private static final ResourceLocation OD_SPEED_ID = PowerToggles.id("omnitrix_xlr8_overdrive_speed");
 	private static final ResourceLocation OD_DAMAGE_ID = PowerToggles.id("omnitrix_xlr8_overdrive_damage");
+	/** v0.17.2 (user): Speed Mode mines 50% faster. */
+	private static final ResourceLocation MODE_MINING_ID = PowerToggles.id("omnitrix_xlr8_speed_mode_mining");
+	public static final double SPEED_MODE_MINING = 0.5;
 	private static final ResourceLocation OD_STEP_ID = PowerToggles.id("omnitrix_xlr8_overdrive_step");
 
 	/** player -> the Tornado Run's eye. */
@@ -307,6 +310,7 @@ public final class Xlr8Kit extends AlienKit {
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, MODE_STEP_ID);
 		PowerToggles.clearModifier(p, Attributes.ATTACK_SPEED, ATTACK_SPEED_ID);
 		PowerToggles.clearModifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID);
+		PowerToggles.clearModifier(p, Attributes.BLOCK_BREAK_SPEED, MODE_MINING_ID);
 		SuperSpeedMoves.endSweep(p); // a running sweep still brings him home
 		TWISTERS.remove(p.getUUID());
 		DASH_HITS.remove(p.getUUID());
@@ -373,6 +377,14 @@ public final class Xlr8Kit extends AlienKit {
 			PowerToggles.modifier(p, Attributes.STEP_HEIGHT, BASE_STEP_ID, BASE_STEP, AttributeModifier.Operation.ADD_VALUE);
 		}
 		boolean mode = flag(p, F_SPEED);
+		// v0.17.2 (user: "when players are in xlr8s speed mode that they break blocks 50% faster"): follows the mode every tick
+		var mining = p.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+		boolean mines = mining != null && mining.getModifier(MODE_MINING_ID) != null;
+		if (mode && !mines) {
+			PowerToggles.modifier(p, Attributes.BLOCK_BREAK_SPEED, MODE_MINING_ID, SPEED_MODE_MINING, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		} else if (!mode && mines) {
+			PowerToggles.clearModifier(p, Attributes.BLOCK_BREAK_SPEED, MODE_MINING_ID);
+		}
 		if (mode) {
 			p.resetFallDistance();
 			if (p.isInWater() && !p.isUnderWater()) {

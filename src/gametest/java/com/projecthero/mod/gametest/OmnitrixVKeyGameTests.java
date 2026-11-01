@@ -219,9 +219,9 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	}
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void wildmuttVDigsSoftGroundButNotStone(GameTestHelper helper) {
+	public void wildmuttVDigsStoneButNotObsidian(GameTestHelper helper) {
 		ServerPlayer p = as(helper, com.projecthero.mod.omnitrix.alien.wildmutt.WildmuttKit.ID);
-		// a wall of dirt ahead (he faces +z), one stone block in the middle of it
+		// a wall of dirt ahead (he faces +z), stone in the middle of it and one obsidian block (v0.17.2: stone goes, obsidian stays)
 		for (int x = 2; x <= 4; x++) {
 			for (int y = 2; y <= 4; y++) {
 				for (int z = 2; z <= 4; z++) {
@@ -231,10 +231,13 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		}
 		BlockPos stone = new BlockPos(3, 3, 3);
 		helper.getLevel().setBlock(helper.absolutePos(stone), Blocks.STONE.defaultBlockState(), 3);
+		BlockPos obsidian = new BlockPos(2, 3, 3);
+		helper.getLevel().setBlock(helper.absolutePos(obsidian), Blocks.OBSIDIAN.defaultBlockState(), 3);
 		tapV(p, false);
 		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(3, 2, 2))).isAir(), "V: Dig tore through the dirt in front");
 		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(new BlockPos(4, 4, 4))).isAir(), "the tunnel runs three deep and three wide");
-		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(stone)).is(Blocks.STONE), "stone is too hard for his claws");
+		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(stone)).isAir(), "v0.17.2: his claws tear through stone");
+		helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(obsidian)).is(Blocks.OBSIDIAN), "obsidian is too hard");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.succeed();
 	}
@@ -430,6 +433,10 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		helper.assertTrue(kit.flag(p, Xlr8Kit.F_SPEED), "V: Speed Mode");
 		helper.assertTrue(p.getAttributeValue(Attributes.MOVEMENT_SPEED) > walk * 1.9, "twice as fast again: " + p.getAttributeValue(Attributes.MOVEMENT_SPEED));
 		helper.assertTrue(Xlr8Kit.visorDown(p), "the visor slams down");
+		double mine = p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
+		kit.tick(p, Omnitrix.state(p), helper.getLevel().getGameTime());
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - mine * 1.5) < 1.0e-4,
+				"v0.17.2: Speed Mode mines 50% faster: " + p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED));
 		helper.assertTrue(kit.standsOnFluid(p, Fluids.WATER.getSource(false)), "he runs on water");
 		p.horizontalCollision = true;
 		// v0.17.2 (user: "only run up walls when he looks up against them"): looking ahead into a wall is no climb
@@ -449,6 +456,7 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.assertFalse(kit.flag(p, Xlr8Kit.F_SPEED), "Speed Mode is off after turning back");
 		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.MOVEMENT_SPEED) - 0.1) < 1.0e-4, "and its speed");
+		helper.assertTrue(Math.abs(p.getAttributeValue(Attributes.BLOCK_BREAK_SPEED) - mine) < 1.0e-4, "and its mining speed");
 		z.discard();
 		helper.succeed();
 	}

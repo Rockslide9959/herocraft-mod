@@ -47,12 +47,14 @@ public final class OmnitrixSounds {
 	public static final SoundEvent STINKFLY_WINGS = register("omnitrix_stinkfly_wings");
 	public static final SoundEvent STINKFLY_WINGS_UP = register("omnitrix_stinkfly_wings_up");
 	public static final SoundEvent USER_POWER_DOWN = register("omnitrix_power_down_user");
+	/** v0.17.2 (user): Master Control's instant N detransform -- the same recording from just before the clunk, no beeps. */
+	public static final SoundEvent USER_POWER_DOWN_MASTER = register("omnitrix_power_down_master");
 	/** v0.17.1 (user): "make this sound play when activating the omnitrix" / "when the omnitrix times back in after recharging". */
 	public static final SoundEvent USER_CORE_READY = register("omnitrix_core_ready_user");
 	public static final SoundEvent USER_RECHARGED = register("omnitrix_recharged_user");
 	/** v0.17.1 (user): "add this omnitrix click sound effect when turning the dial". */
 	public static final SoundEvent USER_DIAL_CLICK = register("omnitrix_dial_click_user");
-	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_CORE_READY, USER_RECHARGED, USER_DIAL_CLICK };
+	public static final SoundEvent[] USER = { USER_TRANSFORM, USER_POWER_DOWN, USER_POWER_DOWN_MASTER, USER_CORE_READY, USER_RECHARGED, USER_DIAL_CLICK };
 
 	// ---------------------------------------------------------------- the watch (UI: quiet, 0.1-0.45)
 	/** V: the wrist comes up and the core pops: a small mechanical clack, then the whirr rising. */
@@ -92,6 +94,10 @@ public final class OmnitrixSounds {
 	/** The user's power-down: five beeps, then the power dying (no jitter: the beeps / revert are timed to it). */
 	public static final Cue POWER_DOWN_USER = OmnitrixSfx.cue("omnitrix_power_down_user")
 			.layer(USER_POWER_DOWN, 0.7f, 1.0f)
+			.jitter(0.0f).gap(4);
+	/** v0.17.2 (user): Master Control's instant N detransform -- the power dying, without the five beeps first. */
+	public static final Cue POWER_DOWN_MASTER = OmnitrixSfx.cue("omnitrix_power_down_master")
+			.layer(USER_POWER_DOWN_MASTER, 0.7f, 1.0f)
 			.jitter(0.0f).gap(4);
 	/** An immediate revert (suppression, the pod, a revoke): the short whir -- V and the timeout use {@link #POWER_DOWN_USER}. */
 	public static final Cue REVERT = OmnitrixSfx.cue("omnitrix_revert")

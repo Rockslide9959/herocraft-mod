@@ -31,6 +31,14 @@
       }
     ]
   },
+  "omnitrix_power_down_master": {
+    "subtitle": "subtitles.projecthero.omnitrix_power_down_master",
+    "sounds": [
+      {
+        "name": "projecthero:omnitrix/power_down_master"
+      }
+    ]
+  },
   "omnitrix_revert": {
     "subtitle": "subtitles.projecthero.omnitrix_revert",
     "sounds": [

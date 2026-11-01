@@ -626,6 +626,7 @@ public final class Omnitrix {
 				com.projecthero.mod.ProjectHeroMod.LOGGER.error("[Omnitrix] {} onRevert failed", s.active, e);
 			}
 		}
+		boolean masterRevert = s.readyAt(MASTER) == 1L;
 		OmnitrixBody.remove(p, reason != Reason.DEATH);
 		long now = p.level().getGameTime();
 		OmnitrixState n = state(p).copy();
@@ -650,7 +651,9 @@ public final class Omnitrix {
 		}
 		// the sequence's sound is already playing (this is its power-down); an immediate revert keeps the short whir
 		if (!sequenced) {
-			helixFx(p, reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT : OmnitrixSounds.REVERT);
+			// v0.17.2 (user): Master Control's N turn-back plays the power-down recording without its beeps
+			helixFx(p, reason == Reason.TIMEOUT || reason == Reason.FAILSAFE ? OmnitrixSounds.TIMEOUT
+					: reason == Reason.SHIFT_V && masterRevert ? OmnitrixSounds.POWER_DOWN_MASTER : OmnitrixSounds.REVERT);
 		}
 		if (reason == Reason.TIMEOUT && !sequenced) {
 			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.timeout").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
