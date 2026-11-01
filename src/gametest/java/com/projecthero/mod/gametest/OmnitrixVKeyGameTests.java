@@ -157,20 +157,30 @@ public class OmnitrixVKeyGameTests implements FabricGameTest {
 	// ================================================================ the failsafe and Master Control (v0.17.1)
 
 	@GameTest(template = EMPTY_STRUCTURE)
-	public void theFailsafeThrowsADyingAlienBackToHuman(GameTestHelper helper) {
+	public void theFailsafeLoopSavesHumanAndAlienThenGoesOfflineFor20s(GameTestHelper helper) {
+		// v0.17.2 (user: "lets try and build a good system")
 		ServerPlayer p = as(helper, HeatblastKit.ID);
 		p.invulnerableTime = 0;
 		p.hurt(helper.getLevel().damageSources().generic(), 999f);
-		helper.assertTrue(p.isAlive() && !Omnitrix.transformed(p), "a killing blow throws him back to human instead");
+		helper.assertTrue(p.isAlive() && !Omnitrix.transformed(p), "a killing blow as an alien throws him back to human instead");
 		helper.assertTrue(Math.abs(p.getHealth() - OmnitrixConfig.FAILSAFE_HEALTH) < 1.0e-3f, "on 2 hearts: " + p.getHealth());
 		helper.assertTrue(p.hasEffect(MobEffects.DAMAGE_RESISTANCE), "wrapped in Resistance for a moment");
-		helper.assertTrue(Omnitrix.rechargeLeft(p) > OmnitrixConfig.FAILSAFE_RECHARGE_TICKS - 20, "and the long recharge");
-		// a second killing blow as an alien straight after: no second save
+		helper.assertTrue(Math.abs(Omnitrix.rechargeLeft(p) - OmnitrixConfig.RECHARGE_TICKS) <= 20, "the normal 90 s recharge: " + Omnitrix.rechargeLeft(p));
+		helper.assertFalse(Omnitrix.failsafeArmed(p), "the failsafe is offline for 20 s");
+		helper.assertFalse(Omnitrix.failsafe(p, helper.getLevel().damageSources().generic()), "so it would not save him now");
+		// 20 s on (still recharging): armed again -- a killing blow as a human transforms him
 		var n = Omnitrix.state(p).copy();
-		n.rechargeUntil = 0L;
+		n.timers.put("omnitrix.failsafe", helper.getLevel().getGameTime());
 		Omnitrix.save(p, n);
-		helper.assertTrue(Omnitrix.select(p, HeatblastKit.ID) && Omnitrix.transform(p), "an alien again");
-		helper.assertFalse(Omnitrix.failsafe(p), "the failsafe is spent for a while");
+		helper.assertTrue(Omnitrix.failsafeArmed(p), "armed again after 20 s");
+		p.removeAllEffects();
+		p.invulnerableTime = 0;
+		p.hurt(helper.getLevel().damageSources().generic(), 999f);
+		helper.assertTrue(p.isAlive() && Omnitrix.transformed(p), "a killing blow as a human: the watch transforms him");
+		helper.assertTrue(Math.abs(p.getHealth() - p.getMaxHealth() * OmnitrixConfig.FAILSAFE_ALIEN_HEALTH) < 0.5f, "on half the alien's health: " + p.getHealth());
+		helper.assertTrue(Omnitrix.rechargeLeft(p) == 0, "the recharge is over");
+		// /kill is never stopped
+		helper.assertFalse(Omnitrix.failsafe(p, helper.getLevel().damageSources().genericKill()), "/kill still kills");
 		Omnitrix.revert(p, Omnitrix.Reason.REVOKE);
 		helper.succeed();
 	}

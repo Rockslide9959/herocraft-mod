@@ -47,6 +47,8 @@ public final class OmnitrixDamage {
 
 	static void initialize() {
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register(OmnitrixDamage::allowDamage);
+		// v0.17.2: the failsafe runs when he is about to die (after armour), not on the raw hit (Omnitrix#failsafe)
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) -> !(entity instanceof ServerPlayer p) || !Omnitrix.failsafe(p, source));
 	}
 
 	public static DamageSource extraction(Level level) {
@@ -81,11 +83,6 @@ public final class OmnitrixDamage {
 			return false;
 		}
 		float changed = kit.incomingDamage(player, source, amount);
-		// v0.17.1 (user: the Omnitrix failsafe -- the death save): a hit that would kill the alien never lands; the watch throws him
-		// back to human instead (Omnitrix#failsafe; once every few minutes)
-		if (changed >= player.getHealth() + player.getAbsorptionAmount() && Omnitrix.state(player).transformed() && Omnitrix.failsafe(player)) {
-			return false;
-		}
 		if (Math.abs(changed - amount) < 1.0e-4f) {
 			return true;
 		}

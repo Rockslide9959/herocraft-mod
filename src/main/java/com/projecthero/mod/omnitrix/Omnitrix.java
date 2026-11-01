@@ -291,29 +291,79 @@ public final class Omnitrix {
 	}
 
 	/**
-	 * v0.17.1 (user: "implement bens failsafe" -- the death save): a hit that would kill the alien does not land; the watch
-	 * throws him back to human on {@link OmnitrixConfig#FAILSAFE_HEALTH} with a moment of Resistance V, the red timeout flash,
-	 * and the long {@link OmnitrixConfig#FAILSAFE_RECHARGE_TICKS} recharge; it can do it again after the cooldown. Called from
-	 * OmnitrixDamage; true when it saved him (the hit is cancelled).
+	 * v0.17.2 (user: "the omnitrix failsafe doesnt seem the save the player from death, lets try and build a good system"): the death
+	 * save, run from {@code ALLOW_DEATH} (after armour, so every death counts: hits, fire, lava, poison, wither, falls, explosions,
+	 * drowning, the void) -- {@code /kill} still kills. The loop:
+	 * <ul>
+	 *   <li>human, failsafe armed: the death does not happen -- the watch transforms him at once into the alien that fits the
+	 *       situation ({@link OmnitrixAuto#pick}), a normal 3-minute transformation, the alien on half health, any recharge ended;</li>
+	 *   <li>an alien: back to human instead of dying, on {@link OmnitrixConfig#FAILSAFE_HEALTH}, and the normal 90 s recharge;</li>
+	 *   <li>for {@link OmnitrixConfig#FAILSAFE_OFFLINE_TICKS} after that the failsafe is offline (he can die); then it is armed again,
+	 *       even while still recharging.</li>
+	 * </ul>
+	 * Both saves wrap him in {@link OmnitrixConfig#FAILSAFE_SHIELD_TICKS} of Resistance V and put out any fire. True when it saved him.
 	 */
-	public static boolean failsafe(ServerPlayer p) {
+	public static boolean failsafe(ServerPlayer p, net.minecraft.world.damagesource.DamageSource source) {
 		OmnitrixState s = state(p);
-		long now = p.level().getGameTime();
-		if (!s.transformed() || now < s.readyAt(FAILSAFE_READY)) {
+		if (!s.hasPower || source.is(net.minecraft.world.damagesource.DamageTypes.GENERIC_KILL)) {
 			return false;
 		}
-		OmnitrixState n = s.copy();
-		n.timers.put(FAILSAFE_READY, now + OmnitrixConfig.FAILSAFE_COOLDOWN_TICKS);
+		long now = p.level().getGameTime();
+		if (now < s.readyAt(FAILSAFE_READY) || extracting(p) || com.projecthero.mod.hero.PowerSuppression.isSuppressed(p)) {
+			return false;
+		}
+		if (s.transformed()) {
+			// an alien: thrown back to human, the normal recharge, and the failsafe offline for a while
+			revert(p, Reason.FAILSAFE);
+			OmnitrixState n = state(p).copy();
+			n.timers.put(FAILSAFE_READY, now + OmnitrixConfig.FAILSAFE_OFFLINE_TICKS);
+			save(p, n);
+			p.setHealth(Math.min(p.getMaxHealth(), OmnitrixConfig.FAILSAFE_HEALTH));
+			shield(p);
+			p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.failsafe").withStyle(ChatFormatting.RED, ChatFormatting.BOLD),
+					true);
+			return true;
+		}
+		// human: straight into the alien that fits, no hold, no slap
+		OmnitrixAuto.Pick pick = OmnitrixAuto.pick(p);
+		if (Aliens.kit(pick.alien()) == null) {
+			return false;
+		}
+		p.setHealth(1f); // the body change keeps the health fraction -- never from zero
+		OmnitrixState n = state(p).copy();
+		n.selected = pick.alien();
+		n.selecting = false;
+		n.rechargeUntil = 0L;
+		n.timers.remove(OmnitrixAuto.HOLD_TIMER);
+		clearSlap(n);
 		save(p, n);
-		revert(p, Reason.FAILSAFE);
-		p.setHealth(Math.min(p.getMaxHealth(), OmnitrixConfig.FAILSAFE_HEALTH));
+		if (!transform(p)) {
+			return false;
+		}
+		p.setHealth(p.getMaxHealth() * OmnitrixConfig.FAILSAFE_ALIEN_HEALTH);
+		p.setAirSupply(p.getMaxAirSupply());
+		shield(p);
+		Aliens.Alien a = Aliens.byId(pick.alien());
+		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.failsafe_transform",
+				Component.translatable("message.projecthero.omnitrix.auto." + pick.reason(),
+						Component.translatable(a == null ? "projecthero.omnitrix.alien.unknown" : a.nameKey())))
+				.withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
+		return true;
+	}
+
+	/** Gametests / the loop: whether the failsafe would save {@code p} right now. */
+	public static boolean failsafeArmed(Player p) {
+		OmnitrixState s = state(p);
+		return s.hasPower && p.level().getGameTime() >= s.readyAt(FAILSAFE_READY);
+	}
+
+	private static void shield(ServerPlayer p) {
 		p.invulnerableTime = OmnitrixConfig.FAILSAFE_SHIELD_TICKS;
 		p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE,
 				OmnitrixConfig.FAILSAFE_SHIELD_TICKS, 4, false, false, true));
 		p.clearFire();
+		p.resetFallDistance();
 		OmnitrixSounds.notify(p, OmnitrixSounds.DENIED);
-		p.displayClientMessage(Component.translatable("message.projecthero.omnitrix.failsafe").withStyle(ChatFormatting.RED, ChatFormatting.BOLD), true);
-		return true;
 	}
 
 	private static final OmnitrixState DEFAULT = new OmnitrixState();
@@ -642,7 +692,7 @@ public final class Omnitrix {
 		n.rechargeUntil = n.readyAt(MASTER) == 1L ? 0L : switch (reason) {
 			case TIMEOUT -> now + OmnitrixConfig.RECHARGE_TICKS;
 			case SHIFT_V -> now + OmnitrixConfig.EARLY_RECHARGE_TICKS;
-			case FAILSAFE -> now + OmnitrixConfig.FAILSAFE_RECHARGE_TICKS;
+			case FAILSAFE -> now + OmnitrixConfig.RECHARGE_TICKS; // v0.17.2: the normal 90 s recharge
 			default -> 0L;
 		};
 		save(p, n);

@@ -101,9 +101,12 @@ public final class GreenLanternRanks {
 		return 1f + oath + (damageMult(rank(player)) - 1f) + (surge(player) - 1f);
 	}
 
-	/** Rank 5: every construct is drawn golden-green. */
+	/**
+	 * v0.17.1 rank 5 drew every construct golden-green. v0.17.2 (user: "When players reach the max green lantern rank the constructs
+	 * shouldnt change colour, it should look the same"): never -- a Corps Legend's light is the same green.
+	 */
 	public static boolean golden(Player player) {
-		return rank(player) >= MAX_RANK;
+		return false;
 	}
 
 	// ---------------- earning XP ----------------

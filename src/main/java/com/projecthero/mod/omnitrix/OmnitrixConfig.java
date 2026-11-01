@@ -109,8 +109,10 @@ public final class OmnitrixConfig {
 	private OmnitrixConfig() {
 	}
 
-	/** v0.17.1 the failsafe: the long recharge after it saves you, and how long before it can save you again. */
-	public static final int FAILSAFE_RECHARGE_TICKS = 3 * 60 * 20, FAILSAFE_COOLDOWN_TICKS = 10 * 60 * 20;
+	/** v0.17.2 the failsafe: how long it stays offline after it throws an alien back to human (20 s; then armed again). */
+	public static final int FAILSAFE_OFFLINE_TICKS = 20 * 20;
+	/** v0.17.2: the share of the alien's health a failsafe transformation starts on. */
+	public static final float FAILSAFE_ALIEN_HEALTH = 0.5f;
 	/** The health the failsafe leaves you on (2 hearts) and the Resistance V it wraps you in. */
 	public static final float FAILSAFE_HEALTH = 4f;
 	public static final int FAILSAFE_SHIELD_TICKS = 60;
